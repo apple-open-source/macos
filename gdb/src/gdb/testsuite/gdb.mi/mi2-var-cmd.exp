@@ -551,14 +551,14 @@ mi_gdb_test "-break-insert incr_a" \
 mi_continue_to {.*} incr_a {.*} {.*var-cmd.c} {.*} {stop in incr_a}
 
 mi_gdb_test "-var-update selected_a" \
-	"\\^done,changelist=\\\[varobj=\{name=\"selected_a\",in_scope=\"true\",type_changed=\"true\",new_type=\"char\",new_dynamic_type=\"\",new_typecode=\"INT\",new_num_children=\"0\"\}\\\]" \
+	"\\^done,changelist=\\\[varobj=\{name=\"selected_a\",in_scope=\"true\",type_changed=\"true\",new_type=\"char\",new_dynamic_type=\"\",new_resolved_type=\"char\",new_typecode=\"INT\",new_num_children=\"0\"\}\\\]" \
 	"update selected_a in incr_a"
 
 mi_next "step a line in incr_a"
 mi_next "return from incr_a to do_special_tests"
 
 mi_gdb_test "-var-update selected_a" \
-	"\\^done,changelist=\\\[varobj=\{name=\"selected_a\",in_scope=\"true\",type_changed=\"true\",new_type=\"int\",new_dynamic_type=\"\",new_typecode=\"INT\",new_num_children=\"0\"\}\\\]" \
+	"\\^done,changelist=\\\[varobj=\{name=\"selected_a\",in_scope=\"true\",type_changed=\"true\",new_type=\"int\",new_dynamic_type=\"\",new_resolved_type=\"int\",new_typecode=\"INT\",new_num_children=\"0\"\}\\\]" \
 	"update selected_a in do_special_tests"
 
 mi_gdb_exit

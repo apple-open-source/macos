@@ -15,7 +15,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // 27.7.1.3 basic_stringbuf overridden virtual functions.
@@ -50,8 +50,14 @@ test01(unsigned iter)
     }
 }
 
+// This can take long on simulators, timing out the test.
+// { dg-options "-DITERATIONS=10000" { target simulator } }
+#ifndef ITERATIONS
+#define ITERATIONS 10000000
+#endif
+
 int main()
 {
-  test01(10000000);
+  test01(ITERATIONS);
   return 0;
 }

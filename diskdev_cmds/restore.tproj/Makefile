@@ -8,8 +8,7 @@ CFILES = dirs.c interactive.c main.c restore.c symtab.c tape.c\
 MANPAGES = restore.8 rrestore.8
 
 Extra_CC_Flags = -Wall -Werror -mdynamic-no-pic \
-	-D_DARWIN_USE_64_BIT_INODE=1 \
-	-DRRESTORE
+	-DRRESTORE -I../disklib
 Extra_LD_Flags = -dead_strip \
 	-L"$(SYMROOT)" -ldisk
 

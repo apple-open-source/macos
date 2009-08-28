@@ -1,3 +1,5 @@
+@subheading tld_strerror
+@anchor{tld_strerror}
 @deftypefun {const char *} {tld_strerror} (Tld_rc @var{rc})
 @var{rc}: tld return code
 

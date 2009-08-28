@@ -49,8 +49,10 @@ extern int cmpsaddrstrict __P((const struct sockaddr *, const struct sockaddr *)
 
 #ifdef ENABLE_NATT 
 #define CMPSADDR(saddr1, saddr2) cmpsaddrstrict((saddr1), (saddr2))
+#define CMPSADDR2(saddr1, saddr2) cmpsaddrwild((saddr1), (saddr2))
 #else 
 #define CMPSADDR(saddr1, saddr2) cmpsaddrwop((saddr1), (saddr2))
+#define CMPSADDR2(saddr1, saddr2) cmpsaddrwop((saddr1), (saddr2))
 #endif
 
 extern struct sockaddr *getlocaladdr __P((struct sockaddr *));

@@ -2,7 +2,7 @@
  * ra_loader.c:  logic for loading different RA library implementations
  *
  * ====================================================================
- * Copyright (c) 2000-2004 CollabNet.  All rights reserved.
+ * Copyright (c) 2000-2008 CollabNet.  All rights reserved.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution.  The terms
@@ -26,36 +26,52 @@
 #include <apr_strings.h>
 #include <apr_pools.h>
 #include <apr_hash.h>
+#include <apr_uri.h>
 
 #include "svn_version.h"
 #include "svn_types.h"
 #include "svn_error.h"
+#include "svn_error_codes.h"
 #include "svn_pools.h"
+#include "svn_delta.h"
 #include "svn_ra.h"
 #include "svn_xml.h"
 #include "svn_path.h"
 #include "svn_dso.h"
+#include "svn_config.h"
 #include "ra_loader.h"
+
+#include "private/svn_ra_private.h"
 #include "svn_private_config.h"
 
 
-/* ### this file maps URL schemes to particular RA libraries. This is not
-   ### entirely correct, as a single scheme could potentially be served
-   ### by more than one loader. However, we can ignore that until we
-   ### actually run into a conflict within the scheme portion of a URL. */
+/* ### This file maps URL schemes to particular RA libraries.
+   ### Currently, the only pair of RA libraries which support the same
+   ### protocols are neon and serf.  svn_ra_open3 makes the assumption
+   ### that this is the case; that their 'schemes' fields are both
+   ### dav_schemes; and that "neon" is listed first.
+
+   ### Users can choose which dav library to use with the http-library
+   ### preference in .subversion/servers; however, it is ignored by
+   ### any code which uses the pre-1.2 API svn_ra_get_ra_library
+   ### instead of svn_ra_open. */
+
+#if defined(SVN_HAVE_NEON) && defined(SVN_HAVE_SERF)
+#define CHOOSABLE_DAV_MODULE
+#endif
 
 
 /* These are the URI schemes that the respective libraries *may* support.
  * The schemes actually supported may be a subset of the schemes listed below.
  * This can't be determine until the library is loaded.
- * (Currently, this applies to the https scheme of ra_dav, which is only
+ * (Currently, this applies to the https scheme, which is only
  * available if SSL is supported.) */
 static const char * const dav_schemes[] = { "http", "https", NULL };
 static const char * const svn_schemes[] = { "svn", NULL };
 static const char * const local_schemes[] = { "file", NULL };
 
 static const struct ra_lib_defn {
-  /* the name of this RA library (e.g. "dav" or "local") */
+  /* the name of this RA library (e.g. "neon" or "local") */
   const char *ra_name;
 
   const char * const *schemes;
@@ -64,10 +80,10 @@ static const struct ra_lib_defn {
   svn_ra_init_func_t compat_initfunc;
 } ra_libraries[] = {
   {
-    "dav",
+    "neon",
     dav_schemes,
-#ifdef SVN_LIBSVN_CLIENT_LINKS_RA_DAV
-    svn_ra_dav__init,
+#ifdef SVN_LIBSVN_CLIENT_LINKS_RA_NEON
+    svn_ra_neon__init,
     svn_ra_dav_init
 #endif
   },
@@ -129,7 +145,7 @@ load_ra_module(svn_ra__init_func_t *func,
   if (compat_func)
     *compat_func = NULL;
 
-#if APR_HAS_DSO
+#if defined(SVN_USE_DSO) && APR_HAS_DSO
   {
     apr_dso_handle_t *dso;
     apr_dso_handle_sym_t symbol;
@@ -247,8 +263,9 @@ svn_ra_create_callbacks(svn_ra_callbacks2_t **callbacks,
   return SVN_NO_ERROR;
 }
 
-svn_error_t *svn_ra_open2(svn_ra_session_t **session_p,
+svn_error_t *svn_ra_open3(svn_ra_session_t **session_p,
                           const char *repos_URL,
+                          const char *uuid,
                           const svn_ra_callbacks2_t *callbacks,
                           void *callback_baton,
                           apr_hash_t *config,
@@ -257,6 +274,167 @@ svn_error_t *svn_ra_open2(svn_ra_session_t **session_p,
   svn_ra_session_t *session;
   const struct ra_lib_defn *defn;
   const svn_ra__vtable_t *vtable = NULL;
+  svn_config_t *servers = NULL;
+  const char *server_group;
+  apr_uri_t repos_URI;
+  apr_status_t apr_err;
+#ifdef CHOOSABLE_DAV_MODULE
+  const char *http_library = "neon";
+#endif
+  /* Auth caching parameters. */
+  svn_boolean_t store_passwords = SVN_CONFIG_DEFAULT_OPTION_STORE_PASSWORDS;
+  svn_boolean_t store_auth_creds = SVN_CONFIG_DEFAULT_OPTION_STORE_AUTH_CREDS;
+  const char *store_plaintext_passwords
+    = SVN_CONFIG_DEFAULT_OPTION_STORE_PLAINTEXT_PASSWORDS;
+  svn_boolean_t store_pp = SVN_CONFIG_DEFAULT_OPTION_STORE_SSL_CLIENT_CERT_PP;
+  const char *store_pp_plaintext
+    = SVN_CONFIG_DEFAULT_OPTION_STORE_SSL_CLIENT_CERT_PP_PLAINTEXT;
+
+  if (callbacks->auth_baton)
+    {
+      /* The 'store-passwords' and 'store-auth-creds' parameters used to
+       * live in SVN_CONFIG_CATEGORY_CONFIG. For backward compatibility,
+       * if values for these parameters have already been set by our
+       * callers, we use those values as defaults.
+       *
+       * Note that we can only catch the case where users explicitly set
+       * "store-passwords = no" or 'store-auth-creds = no".
+       *
+       * However, since the default value for both these options is
+       * currently (and has always been) "yes", users won't know
+       * the difference if they set "store-passwords = yes" or
+       * "store-auth-creds = yes" -- they'll get the expected behaviour.
+       */
+
+      if (svn_auth_get_parameter(callbacks->auth_baton,
+                                 SVN_AUTH_PARAM_DONT_STORE_PASSWORDS) != NULL)
+        store_passwords = FALSE;
+
+      if (svn_auth_get_parameter(callbacks->auth_baton,
+                                 SVN_AUTH_PARAM_NO_AUTH_CACHE) != NULL)
+        store_auth_creds = FALSE;
+    }
+
+  if (config)
+    {
+      /* Grab the 'servers' config. */
+      servers = apr_hash_get(config, SVN_CONFIG_CATEGORY_SERVERS,
+                             APR_HASH_KEY_STRING);
+      if (servers)
+        {
+          /* First, look in the global section. */
+
+          SVN_ERR(svn_config_get_bool
+            (servers, &store_passwords, SVN_CONFIG_SECTION_GLOBAL,
+             SVN_CONFIG_OPTION_STORE_PASSWORDS,
+             store_passwords));
+
+          SVN_ERR(svn_config_get_yes_no_ask
+            (servers, &store_plaintext_passwords, SVN_CONFIG_SECTION_GLOBAL,
+             SVN_CONFIG_OPTION_STORE_PLAINTEXT_PASSWORDS,
+             SVN_CONFIG_DEFAULT_OPTION_STORE_PLAINTEXT_PASSWORDS));
+
+          SVN_ERR(svn_config_get_bool
+            (servers, &store_pp, SVN_CONFIG_SECTION_GLOBAL,
+             SVN_CONFIG_OPTION_STORE_SSL_CLIENT_CERT_PP,
+             store_pp));
+
+          SVN_ERR(svn_config_get_yes_no_ask
+            (servers, &store_pp_plaintext,
+             SVN_CONFIG_SECTION_GLOBAL,
+             SVN_CONFIG_OPTION_STORE_SSL_CLIENT_CERT_PP_PLAINTEXT,
+             SVN_CONFIG_DEFAULT_OPTION_STORE_SSL_CLIENT_CERT_PP_PLAINTEXT));
+
+          SVN_ERR(svn_config_get_bool
+            (servers, &store_auth_creds, SVN_CONFIG_SECTION_GLOBAL,
+              SVN_CONFIG_OPTION_STORE_AUTH_CREDS,
+              store_auth_creds));
+
+          /* Find out where we're about to connect to, and
+           * try to pick a server group based on the destination. */
+          apr_err = apr_uri_parse(pool, repos_URL, &repos_URI);
+          /* ### Should apr_uri_parse leave hostname NULL?  It doesn't
+           * for "file:///" URLs, only for bogus URLs like "bogus".
+           * If this is the right behavior for apr_uri_parse, maybe we
+           * should have a svn_uri_parse wrapper. */
+          if (apr_err != APR_SUCCESS || repos_URI.hostname == NULL)
+            return svn_error_createf(SVN_ERR_RA_ILLEGAL_URL, NULL,
+                                     _("Illegal repository URL '%s'"),
+                                     repos_URL);
+          server_group = svn_config_find_group(servers, repos_URI.hostname,
+                                               SVN_CONFIG_SECTION_GROUPS, pool);
+
+          if (server_group)
+            {
+              /* Override global auth caching parameters with the ones
+               * for the server group, if any. */
+              SVN_ERR(svn_config_get_bool(servers, &store_auth_creds,
+                                          server_group,
+                                          SVN_CONFIG_OPTION_STORE_AUTH_CREDS,
+                                          store_auth_creds));
+
+              SVN_ERR(svn_config_get_bool(servers, &store_passwords,
+                                          server_group,
+                                          SVN_CONFIG_OPTION_STORE_PASSWORDS,
+                                          store_passwords));
+
+              SVN_ERR(svn_config_get_yes_no_ask
+                (servers, &store_plaintext_passwords, server_group,
+                 SVN_CONFIG_OPTION_STORE_PLAINTEXT_PASSWORDS,
+                 store_plaintext_passwords));
+
+              SVN_ERR(svn_config_get_bool
+                (servers, &store_pp,
+                 server_group, SVN_CONFIG_OPTION_STORE_SSL_CLIENT_CERT_PP,
+                 store_pp));
+
+              SVN_ERR(svn_config_get_yes_no_ask
+                (servers, &store_pp_plaintext, server_group,
+                 SVN_CONFIG_OPTION_STORE_SSL_CLIENT_CERT_PP_PLAINTEXT,
+                 store_pp_plaintext));
+            }
+#ifdef CHOOSABLE_DAV_MODULE
+          /* Now, which DAV-based RA method do we want to use today? */
+          http_library
+            = svn_config_get_server_setting(servers,
+                                            server_group, /* NULL is OK */
+                                            SVN_CONFIG_OPTION_HTTP_LIBRARY,
+                                            "neon");
+
+          if (strcmp(http_library, "neon") != 0 &&
+              strcmp(http_library, "serf") != 0)
+            return svn_error_createf(SVN_ERR_BAD_CONFIG_VALUE, NULL,
+                                     _("Invalid config: unknown HTTP library "
+                                       "'%s'"),
+                                     http_library);
+#endif
+        }
+    }
+
+  if (callbacks->auth_baton)
+    {
+      /* Save auth caching parameters in the auth parameter hash. */
+      if (! store_passwords)
+        svn_auth_set_parameter(callbacks->auth_baton,
+                               SVN_AUTH_PARAM_DONT_STORE_PASSWORDS, "");
+
+      svn_auth_set_parameter(callbacks->auth_baton,
+                             SVN_AUTH_PARAM_STORE_PLAINTEXT_PASSWORDS,
+                             store_plaintext_passwords);
+
+      if (! store_pp)
+        svn_auth_set_parameter(callbacks->auth_baton,
+                               SVN_AUTH_PARAM_DONT_STORE_SSL_CLIENT_CERT_PP,
+                               "");
+
+      svn_auth_set_parameter(callbacks->auth_baton,
+                             SVN_AUTH_PARAM_STORE_SSL_CLIENT_CERT_PP_PLAINTEXT,
+                             store_pp_plaintext);
+
+      if (! store_auth_creds)
+        svn_auth_set_parameter(callbacks->auth_baton,
+                               SVN_AUTH_PARAM_NO_AUTH_CACHE, "");
+    }
 
   /* Find the library. */
   for (defn = ra_libraries; defn->ra_name != NULL; ++defn)
@@ -266,6 +444,12 @@ svn_error_t *svn_ra_open2(svn_ra_session_t **session_p,
       if ((scheme = has_scheme_of(defn, repos_URL)))
         {
           svn_ra__init_func_t initfunc = defn->initfunc;
+
+#ifdef CHOOSABLE_DAV_MODULE
+          if (defn->schemes == dav_schemes
+              && strcmp(defn->ra_name, http_library) != 0)
+            continue;
+#endif
 
           if (! initfunc)
             SVN_ERR(load_ra_module(&initfunc, NULL, defn->ra_name,
@@ -277,9 +461,11 @@ svn_error_t *svn_ra_open2(svn_ra_session_t **session_p,
           SVN_ERR(initfunc(svn_ra_version(), &vtable, pool));
 
           SVN_ERR(check_ra_version(vtable->get_version(), scheme));
+
+          break;
         }
     }
-    
+
   if (vtable == NULL)
     return svn_error_createf(SVN_ERR_RA_ILLEGAL_URL, NULL,
                              _("Unrecognized URL scheme for '%s'"),
@@ -291,35 +477,27 @@ svn_error_t *svn_ra_open2(svn_ra_session_t **session_p,
   session->pool = pool;
 
   /* Ask the library to open the session. */
-  SVN_ERR(vtable->open(session, repos_URL, callbacks, callback_baton,
-                       config, pool));
+  SVN_ERR(vtable->open_session(session, repos_URL, callbacks, callback_baton,
+                               config, pool));
+
+  /* Check the UUID. */
+  if (uuid)
+    {
+      const char *repository_uuid;
+
+      SVN_ERR(vtable->get_uuid(session, &repository_uuid, pool));
+
+      if (strcmp(uuid, repository_uuid) != 0)
+        {
+          return svn_error_createf(SVN_ERR_RA_UUID_MISMATCH, NULL,
+                                   _("Repository UUID '%s' doesn't match "
+                                     "expected UUID '%s'"),
+                                   repository_uuid, uuid);
+        }
+    }
 
   *session_p = session;
   return SVN_NO_ERROR;
-}
-
-svn_error_t *svn_ra_open(svn_ra_session_t **session_p,
-                         const char *repos_URL,
-                         const svn_ra_callbacks_t *callbacks,
-                         void *callback_baton,
-                         apr_hash_t *config,
-                         apr_pool_t *pool)
-{
-  /* Deprecated function. Copy the contents of the svn_ra_callbacks_t
-     to a new svn_ra_callbacks2_t and call svn_ra_open2(). */
-  svn_ra_callbacks2_t *callbacks2;
-  SVN_ERR(svn_ra_create_callbacks(&callbacks2, pool));
-  callbacks2->open_tmp_file = callbacks->open_tmp_file;
-  callbacks2->auth_baton = callbacks->auth_baton;
-  callbacks2->get_wc_prop = callbacks->get_wc_prop;
-  callbacks2->set_wc_prop = callbacks->set_wc_prop;
-  callbacks2->push_wc_prop = callbacks->push_wc_prop;
-  callbacks2->invalidate_wc_props = callbacks->invalidate_wc_props;
-  callbacks2->progress_func = NULL;
-  callbacks2->progress_baton = NULL;
-  return svn_ra_open2(session_p, repos_URL,
-                      callbacks2, callback_baton,
-                      config, pool);
 }
 
 svn_error_t *svn_ra_reparent(svn_ra_session_t *session,
@@ -330,13 +508,20 @@ svn_error_t *svn_ra_reparent(svn_ra_session_t *session,
 
   /* Make sure the new URL is in the same repository, so that the
      implementations don't have to do it. */
-  SVN_ERR(svn_ra_get_repos_root(session, &repos_root, pool));
+  SVN_ERR(svn_ra_get_repos_root2(session, &repos_root, pool));
   if (! svn_path_is_ancestor(repos_root, url))
     return svn_error_createf(SVN_ERR_RA_ILLEGAL_URL, NULL,
                              _("'%s' isn't in the same repository as '%s'"),
                              url, repos_root);
 
   return session->vtable->reparent(session, url, pool);
+}
+
+svn_error_t *svn_ra_get_session_url(svn_ra_session_t *session,
+                                    const char **url,
+                                    apr_pool_t *pool)
+{
+  return session->vtable->get_session_url(session, url, pool);
 }
 
 svn_error_t *svn_ra_get_latest_revnum(svn_ra_session_t *session,
@@ -360,6 +545,7 @@ svn_error_t *svn_ra_change_rev_prop(svn_ra_session_t *session,
                                     const svn_string_t *value,
                                     apr_pool_t *pool)
 {
+  SVN_ERR_ASSERT(SVN_IS_VALID_REVNUM(rev));
   return session->vtable->change_rev_prop(session, rev, name, value, pool);
 }
 
@@ -368,6 +554,7 @@ svn_error_t *svn_ra_rev_proplist(svn_ra_session_t *session,
                                  apr_hash_t **props,
                                  apr_pool_t *pool)
 {
+  SVN_ERR_ASSERT(SVN_IS_VALID_REVNUM(rev));
   return session->vtable->rev_proplist(session, rev, props, pool);
 }
 
@@ -377,13 +564,14 @@ svn_error_t *svn_ra_rev_prop(svn_ra_session_t *session,
                              svn_string_t **value,
                              apr_pool_t *pool)
 {
+  SVN_ERR_ASSERT(SVN_IS_VALID_REVNUM(rev));
   return session->vtable->rev_prop(session, rev, name, value, pool);
 }
 
-svn_error_t *svn_ra_get_commit_editor2(svn_ra_session_t *session,
+svn_error_t *svn_ra_get_commit_editor3(svn_ra_session_t *session,
                                        const svn_delta_editor_t **editor,
                                        void **edit_baton,
-                                       const char *log_msg,
+                                       apr_hash_t *revprop_table,
                                        svn_commit_callback2_t callback,
                                        void *callback_baton,
                                        apr_hash_t *lock_tokens,
@@ -391,31 +579,9 @@ svn_error_t *svn_ra_get_commit_editor2(svn_ra_session_t *session,
                                        apr_pool_t *pool)
 {
   return session->vtable->get_commit_editor(session, editor, edit_baton,
-                                            log_msg, callback, callback_baton,
-                                            lock_tokens, keep_locks, pool);
-}
-
-svn_error_t *svn_ra_get_commit_editor(svn_ra_session_t *session,
-                                      const svn_delta_editor_t **editor,
-                                      void **edit_baton,
-                                      const char *log_msg,
-                                      svn_commit_callback_t callback,
-                                      void *callback_baton,
-                                      apr_hash_t *lock_tokens,
-                                      svn_boolean_t keep_locks,
-                                      apr_pool_t *pool)
-{
-  svn_commit_callback2_t callback2;
-  void *callback2_baton;
-
-  svn_compat_wrap_commit_callback(&callback2, &callback2_baton,
-                                  callback, callback_baton,
-                                  pool);
-
-  return svn_ra_get_commit_editor2(session, editor, edit_baton,
-                                   log_msg, callback2,
-                                   callback2_baton, lock_tokens,
-                                   keep_locks, pool);
+                                            revprop_table, callback,
+                                            callback_baton, lock_tokens,
+                                            keep_locks, pool);
 }
 
 svn_error_t *svn_ra_get_file(svn_ra_session_t *session,
@@ -426,6 +592,7 @@ svn_error_t *svn_ra_get_file(svn_ra_session_t *session,
                              apr_hash_t **props,
                              apr_pool_t *pool)
 {
+  SVN_ERR_ASSERT(*path != '/');
   return session->vtable->get_file(session, path, revision, stream,
                                    fetched_rev, props, pool);
 }
@@ -438,6 +605,7 @@ svn_error_t *svn_ra_get_dir(svn_ra_session_t *session,
                             apr_hash_t **props,
                             apr_pool_t *pool)
 {
+  SVN_ERR_ASSERT(*path != '/');
   return session->vtable->get_dir(session, dirents, fetched_rev, props,
                                   path, revision, SVN_DIRENT_ALL, pool);
 }
@@ -451,64 +619,107 @@ svn_error_t *svn_ra_get_dir2(svn_ra_session_t *session,
                              apr_uint32_t dirent_fields,
                              apr_pool_t *pool)
 {
+  SVN_ERR_ASSERT(*path != '/');
   return session->vtable->get_dir(session, dirents, fetched_rev, props,
                                   path, revision, dirent_fields, pool);
 }
 
-svn_error_t *svn_ra_do_update(svn_ra_session_t *session,
-                              const svn_ra_reporter2_t **reporter,
-                              void **report_baton,
-                              svn_revnum_t revision_to_update_to,
-                              const char *update_target,
-                              svn_boolean_t recurse,
-                              const svn_delta_editor_t *update_editor,
-                              void *update_baton,
-                              apr_pool_t *pool)
+svn_error_t *svn_ra_get_mergeinfo(svn_ra_session_t *session,
+                                  svn_mergeinfo_catalog_t *catalog,
+                                  const apr_array_header_t *paths,
+                                  svn_revnum_t revision,
+                                  svn_mergeinfo_inheritance_t inherit,
+                                  svn_boolean_t include_descendants,
+                                  apr_pool_t *pool)
 {
-  return session->vtable->do_update(session, reporter, report_baton,
+  svn_error_t *err;
+  int i;
+
+  /* Validate path format. */
+  for (i = 0; i < paths->nelts; i++)
+    {
+      const char *path = APR_ARRAY_IDX(paths, i, const char *);
+      SVN_ERR_ASSERT(*path != '/');
+    }
+
+  /* Check server Merge Tracking capability. */
+  err = svn_ra__assert_mergeinfo_capable_server(session, NULL, pool);
+  if (err)
+    {
+      *catalog = NULL;
+      return err;
+    }
+
+  return session->vtable->get_mergeinfo(session, catalog, paths,
+                                        revision, inherit,
+                                        include_descendants, pool);
+}
+
+svn_error_t *svn_ra_do_update2(svn_ra_session_t *session,
+                               const svn_ra_reporter3_t **reporter,
+                               void **report_baton,
+                               svn_revnum_t revision_to_update_to,
+                               const char *update_target,
+                               svn_depth_t depth,
+                               svn_boolean_t send_copyfrom_args,
+                               const svn_delta_editor_t *update_editor,
+                               void *update_baton,
+                               apr_pool_t *pool)
+{
+  SVN_ERR_ASSERT(svn_path_is_empty(update_target)
+                 || svn_path_is_single_path_component(update_target));
+  return session->vtable->do_update(session,
+                                    reporter, report_baton,
                                     revision_to_update_to, update_target,
-                                    recurse, update_editor, update_baton,
+                                    depth, send_copyfrom_args,
+                                    update_editor, update_baton,
                                     pool);
 }
 
-svn_error_t *svn_ra_do_switch(svn_ra_session_t *session,
-                              const svn_ra_reporter2_t **reporter,
-                              void **report_baton,
-                              svn_revnum_t revision_to_switch_to,
-                              const char *switch_target,
-                              svn_boolean_t recurse,
-                              const char *switch_url,
-                              const svn_delta_editor_t *switch_editor,
-                              void *switch_baton,
-                              apr_pool_t *pool)
+svn_error_t *svn_ra_do_switch2(svn_ra_session_t *session,
+                               const svn_ra_reporter3_t **reporter,
+                               void **report_baton,
+                               svn_revnum_t revision_to_switch_to,
+                               const char *switch_target,
+                               svn_depth_t depth,
+                               const char *switch_url,
+                               const svn_delta_editor_t *switch_editor,
+                               void *switch_baton,
+                               apr_pool_t *pool)
 {
-  return session->vtable->do_switch(session, reporter, report_baton,
+  SVN_ERR_ASSERT(svn_path_is_empty(switch_target)
+                 || svn_path_is_single_path_component(switch_target));
+  return session->vtable->do_switch(session,
+                                    reporter, report_baton,
                                     revision_to_switch_to, switch_target,
-                                    recurse, switch_url, switch_editor,
+                                    depth, switch_url, switch_editor,
                                     switch_baton, pool);
 }
 
-svn_error_t *svn_ra_do_status(svn_ra_session_t *session,
-                              const svn_ra_reporter2_t **reporter,
-                              void **report_baton,
-                              const char *status_target,
-                              svn_revnum_t revision,
-                              svn_boolean_t recurse,
-                              const svn_delta_editor_t *status_editor,
-                              void *status_baton,
-                              apr_pool_t *pool)
+svn_error_t *svn_ra_do_status2(svn_ra_session_t *session,
+                               const svn_ra_reporter3_t **reporter,
+                               void **report_baton,
+                               const char *status_target,
+                               svn_revnum_t revision,
+                               svn_depth_t depth,
+                               const svn_delta_editor_t *status_editor,
+                               void *status_baton,
+                               apr_pool_t *pool)
 {
-  return session->vtable->do_status(session, reporter, report_baton,
-                                    status_target, revision, recurse,
+  SVN_ERR_ASSERT(svn_path_is_empty(status_target)
+                 || svn_path_is_single_path_component(status_target));
+  return session->vtable->do_status(session,
+                                    reporter, report_baton,
+                                    status_target, revision, depth,
                                     status_editor, status_baton, pool);
 }
 
-svn_error_t *svn_ra_do_diff2(svn_ra_session_t *session,
-                             const svn_ra_reporter2_t **reporter,
+svn_error_t *svn_ra_do_diff3(svn_ra_session_t *session,
+                             const svn_ra_reporter3_t **reporter,
                              void **report_baton,
                              svn_revnum_t revision,
                              const char *diff_target,
-                             svn_boolean_t recurse,
+                             svn_depth_t depth,
                              svn_boolean_t ignore_ancestry,
                              svn_boolean_t text_deltas,
                              const char *versus_url,
@@ -516,42 +727,45 @@ svn_error_t *svn_ra_do_diff2(svn_ra_session_t *session,
                              void *diff_baton,
                              apr_pool_t *pool)
 {
-  return session->vtable->do_diff(session, reporter, report_baton, revision,
-                                  diff_target, recurse, ignore_ancestry,
+  SVN_ERR_ASSERT(svn_path_is_empty(diff_target)
+                 || svn_path_is_single_path_component(diff_target));
+  return session->vtable->do_diff(session,
+                                  reporter, report_baton,
+                                  revision, diff_target,
+                                  depth, ignore_ancestry,
                                   text_deltas, versus_url, diff_editor,
                                   diff_baton, pool);
 }
 
-svn_error_t *svn_ra_do_diff(svn_ra_session_t *session,
-                            const svn_ra_reporter2_t **reporter,
-                            void **report_baton,
-                            svn_revnum_t revision,
-                            const char *diff_target,
-                            svn_boolean_t recurse,
-                            svn_boolean_t ignore_ancestry,
-                            const char *versus_url,
-                            const svn_delta_editor_t *diff_editor,
-                            void *diff_baton,
-                            apr_pool_t *pool)
+svn_error_t *svn_ra_get_log2(svn_ra_session_t *session,
+                             const apr_array_header_t *paths,
+                             svn_revnum_t start,
+                             svn_revnum_t end,
+                             int limit,
+                             svn_boolean_t discover_changed_paths,
+                             svn_boolean_t strict_node_history,
+                             svn_boolean_t include_merged_revisions,
+                             const apr_array_header_t *revprops,
+                             svn_log_entry_receiver_t receiver,
+                             void *receiver_baton,
+                             apr_pool_t *pool)
 {
-  return svn_ra_do_diff2(session, reporter, report_baton, revision,
-                         diff_target, recurse, ignore_ancestry, TRUE,
-                         versus_url, diff_editor, diff_baton, pool);
-}
+  if (paths)
+    {
+      int i;
+      for (i = 0; i < paths->nelts; i++)
+        {
+          const char *path = APR_ARRAY_IDX(paths, i, const char *);
+          SVN_ERR_ASSERT(*path != '/');
+        }
+    }
 
-svn_error_t *svn_ra_get_log(svn_ra_session_t *session,
-                            const apr_array_header_t *paths,
-                            svn_revnum_t start,
-                            svn_revnum_t end,
-                            int limit,
-                            svn_boolean_t discover_changed_paths,
-                            svn_boolean_t strict_node_history,
-                            svn_log_message_receiver_t receiver,
-                            void *receiver_baton,
-                            apr_pool_t *pool)
-{
+  if (include_merged_revisions)
+    SVN_ERR(svn_ra__assert_mergeinfo_capable_server(session, NULL, pool));
+
   return session->vtable->get_log(session, paths, start, end, limit,
                                   discover_changed_paths, strict_node_history,
+                                  include_merged_revisions, revprops,
                                   receiver, receiver_baton, pool);
 }
 
@@ -561,6 +775,7 @@ svn_error_t *svn_ra_check_path(svn_ra_session_t *session,
                                svn_node_kind_t *kind,
                                apr_pool_t *pool)
 {
+  SVN_ERR_ASSERT(*path != '/');
   return session->vtable->check_path(session, path, revision, kind, pool);
 }
 
@@ -570,7 +785,17 @@ svn_error_t *svn_ra_stat(svn_ra_session_t *session,
                          svn_dirent_t **dirent,
                          apr_pool_t *pool)
 {
+  SVN_ERR_ASSERT(*path != '/');
   return session->vtable->stat(session, path, revision, dirent, pool);
+}
+
+svn_error_t *svn_ra_get_uuid2(svn_ra_session_t *session,
+                              const char **uuid,
+                              apr_pool_t *pool)
+{
+  SVN_ERR(session->vtable->get_uuid(session, uuid, pool));
+  *uuid = *uuid ? apr_pstrdup(pool, *uuid) : NULL;
+  return SVN_NO_ERROR;
 }
 
 svn_error_t *svn_ra_get_uuid(svn_ra_session_t *session,
@@ -578,6 +803,15 @@ svn_error_t *svn_ra_get_uuid(svn_ra_session_t *session,
                              apr_pool_t *pool)
 {
   return session->vtable->get_uuid(session, uuid, pool);
+}
+
+svn_error_t *svn_ra_get_repos_root2(svn_ra_session_t *session,
+                                    const char **url,
+                                    apr_pool_t *pool)
+{
+  SVN_ERR(session->vtable->get_repos_root(session, url, pool));
+  *url = *url ? apr_pstrdup(pool, *url) : NULL;
+  return SVN_NO_ERROR;
 }
 
 svn_error_t *svn_ra_get_repos_root(svn_ra_session_t *session,
@@ -594,36 +828,104 @@ svn_error_t *svn_ra_get_locations(svn_ra_session_t *session,
                                   apr_array_header_t *location_revisions,
                                   apr_pool_t *pool)
 {
-  return session->vtable->get_locations(session, locations, path,
-                                        peg_revision, location_revisions,
-                                        pool);
+  svn_error_t *err;
+
+  SVN_ERR_ASSERT(*path != '/');
+  err = session->vtable->get_locations(session, locations, path,
+                                       peg_revision, location_revisions, pool);
+  if (err && (err->apr_err == SVN_ERR_RA_NOT_IMPLEMENTED))
+    {
+      svn_error_clear(err);
+
+      /* Do it the slow way, using get-logs, for older servers. */
+      err = svn_ra__locations_from_log(session, locations, path,
+                                       peg_revision, location_revisions,
+                                       pool);
+    }
+  return err;
 }
 
-svn_error_t *svn_ra_get_file_revs(svn_ra_session_t *session,
-                                  const char *path,
-                                  svn_revnum_t start,
-                                  svn_revnum_t end,
-                                  svn_ra_file_rev_handler_t handler,
-                                  void *handler_baton,
-                                  apr_pool_t *pool)
+svn_error_t *
+svn_ra_get_location_segments(svn_ra_session_t *session,
+                             const char *path,
+                             svn_revnum_t peg_revision,
+                             svn_revnum_t start_rev,
+                             svn_revnum_t end_rev,
+                             svn_location_segment_receiver_t receiver,
+                             void *receiver_baton,
+                             apr_pool_t *pool)
 {
-  return session->vtable->get_file_revs(session, path, start, end, handler,
-                                        handler_baton, pool);
+  svn_error_t *err;
+
+  SVN_ERR_ASSERT(*path != '/');
+  err = session->vtable->get_location_segments(session, path, peg_revision,
+                                               start_rev, end_rev,
+                                               receiver, receiver_baton, pool);
+  if (err && (err->apr_err == SVN_ERR_RA_NOT_IMPLEMENTED))
+    {
+      svn_error_clear(err);
+
+      /* Do it the slow way, using get-logs, for older servers. */
+      err = svn_ra__location_segments_from_log(session, path,
+                                               peg_revision, start_rev,
+                                               end_rev, receiver,
+                                               receiver_baton, pool);
+    }
+  return err;
+}
+
+svn_error_t *svn_ra_get_file_revs2(svn_ra_session_t *session,
+                                   const char *path,
+                                   svn_revnum_t start,
+                                   svn_revnum_t end,
+                                   svn_boolean_t include_merged_revisions,
+                                   svn_file_rev_handler_t handler,
+                                   void *handler_baton,
+                                   apr_pool_t *pool)
+{
+  svn_error_t *err;
+
+  SVN_ERR_ASSERT(*path != '/');
+
+  if (include_merged_revisions)
+    SVN_ERR(svn_ra__assert_mergeinfo_capable_server(session, NULL, pool));
+
+  err = session->vtable->get_file_revs(session, path, start, end,
+                                       include_merged_revisions,
+                                       handler, handler_baton, pool);
+  if (err && (err->apr_err == SVN_ERR_RA_NOT_IMPLEMENTED))
+    {
+      svn_error_clear(err);
+
+      /* Do it the slow way, using get-logs, for older servers. */
+      err = svn_ra__file_revs_from_log(session, path, start, end,
+                                       handler, handler_baton, pool);
+    }
+  return err;
 }
 
 svn_error_t *svn_ra_lock(svn_ra_session_t *session,
                          apr_hash_t *path_revs,
                          const char *comment,
                          svn_boolean_t steal_lock,
-                         svn_ra_lock_callback_t lock_func, 
+                         svn_ra_lock_callback_t lock_func,
                          void *lock_baton,
                          apr_pool_t *pool)
 {
+  apr_hash_index_t *hi;
+
+  for (hi = apr_hash_first(NULL, path_revs); hi; hi = apr_hash_next(hi))
+    {
+      const void *path;
+      apr_hash_this(hi, &path, NULL, NULL);
+      SVN_ERR_ASSERT(*((const char *)path) != '/');
+    }
+
   if (comment && ! svn_xml_is_xml_safe(comment, strlen(comment)))
     return svn_error_create
       (SVN_ERR_XML_UNESCAPABLE_DATA, NULL,
-       _("Lock comment has illegal characters"));
-  
+       _("Lock comment contains illegal characters"));
+
   return session->vtable->lock(session, path_revs, comment, steal_lock,
                                lock_func, lock_baton, pool);
 }
@@ -631,10 +933,19 @@ svn_error_t *svn_ra_lock(svn_ra_session_t *session,
 svn_error_t *svn_ra_unlock(svn_ra_session_t *session,
                            apr_hash_t *path_tokens,
                            svn_boolean_t break_lock,
-                           svn_ra_lock_callback_t lock_func, 
+                           svn_ra_lock_callback_t lock_func,
                            void *lock_baton,
                            apr_pool_t *pool)
 {
+  apr_hash_index_t *hi;
+
+  for (hi = apr_hash_first(NULL, path_tokens); hi; hi = apr_hash_next(hi))
+    {
+      const void *path;
+      apr_hash_this(hi, &path, NULL, NULL);
+      SVN_ERR_ASSERT(*((const char *)path) != '/');
+    }
+
   return session->vtable->unlock(session, path_tokens, break_lock,
                                  lock_func, lock_baton, pool);
 }
@@ -644,6 +955,7 @@ svn_error_t *svn_ra_get_lock(svn_ra_session_t *session,
                              const char *path,
                              apr_pool_t *pool)
 {
+  SVN_ERR_ASSERT(*path != '/');
   return session->vtable->get_lock(session, lock, path, pool);
 }
 
@@ -652,6 +964,7 @@ svn_error_t *svn_ra_get_locks(svn_ra_session_t *session,
                               const char *path,
                               apr_pool_t *pool)
 {
+  SVN_ERR_ASSERT(*path != '/');
   return session->vtable->get_locks(session, locks, path, pool);
 }
 
@@ -665,6 +978,107 @@ svn_error_t *svn_ra_replay(svn_ra_session_t *session,
 {
   return session->vtable->replay(session, revision, low_water_mark,
                                  text_deltas, editor, edit_baton, pool);
+}
+
+svn_error_t *
+svn_ra_replay_range(svn_ra_session_t *session,
+                    svn_revnum_t start_revision,
+                    svn_revnum_t end_revision,
+                    svn_revnum_t low_water_mark,
+                    svn_boolean_t text_deltas,
+                    svn_ra_replay_revstart_callback_t revstart_func,
+                    svn_ra_replay_revfinish_callback_t revfinish_func,
+                    void *replay_baton,
+                    apr_pool_t *pool)
+{
+  svn_error_t *err =
+    session->vtable->replay_range(session, start_revision, end_revision,
+                                  low_water_mark, text_deltas,
+                                  revstart_func, revfinish_func,
+                                  replay_baton, pool);
+
+  if (err && (err->apr_err == SVN_ERR_RA_NOT_IMPLEMENTED))
+    {
+      apr_pool_t *subpool = svn_pool_create(pool);
+      svn_revnum_t rev;
+
+      svn_error_clear(err);
+      err = SVN_NO_ERROR;
+
+      for (rev = start_revision ; rev <= end_revision ; rev++)
+        {
+          const svn_delta_editor_t *editor;
+          void *edit_baton;
+          apr_hash_t *rev_props;
+
+          svn_pool_clear(subpool);
+
+          SVN_ERR(svn_ra_rev_proplist(session, rev, &rev_props, subpool));
+
+          SVN_ERR(revstart_func(rev, replay_baton,
+                                &editor, &edit_baton,
+                                rev_props,
+                                subpool));
+          SVN_ERR(svn_ra_replay(session, rev, low_water_mark,
+                                text_deltas, editor, edit_baton,
+                                subpool));
+          SVN_ERR(revfinish_func(rev, replay_baton,
+                                 editor, edit_baton,
+                                 rev_props,
+                                 subpool));
+        }
+      svn_pool_destroy(subpool);
+    }
+
+  return err;
+}
+
+svn_error_t *svn_ra_has_capability(svn_ra_session_t *session,
+                                   svn_boolean_t *has,
+                                   const char *capability,
+                                   apr_pool_t *pool)
+{
+  return session->vtable->has_capability(session, has, capability, pool);
+}
+
+svn_error_t *
+svn_ra_get_deleted_rev(svn_ra_session_t *session,
+                       const char *path,
+                       svn_revnum_t peg_revision,
+                       svn_revnum_t end_revision,
+                       svn_revnum_t *revision_deleted,
+                       apr_pool_t *pool)
+{
+  svn_error_t *err;
+
+  /* Path must be relative. */
+  SVN_ERR_ASSERT(*path != '/');
+
+  if (!SVN_IS_VALID_REVNUM(peg_revision))
+    return svn_error_createf(SVN_ERR_CLIENT_BAD_REVISION, NULL,
+                             _("Invalid peg revision %ld"), peg_revision);
+  if (!SVN_IS_VALID_REVNUM(end_revision))
+    return svn_error_createf(SVN_ERR_CLIENT_BAD_REVISION, NULL,
+                             _("Invalid end revision %ld"), end_revision);
+  if (end_revision <= peg_revision)
+    return svn_error_create(SVN_ERR_CLIENT_BAD_REVISION, NULL,
+                            _("Peg revision must precede end revision"));
+  err = session->vtable->get_deleted_rev(session, path,
+                                         peg_revision,
+                                         end_revision,
+                                         revision_deleted,
+                                         pool);
+  if (err && (err->apr_err == SVN_ERR_UNSUPPORTED_FEATURE     /* serf */
+              || err->apr_err == SVN_ERR_RA_NOT_IMPLEMENTED)) /* neon */
+    {
+      svn_error_clear(err);
+
+      /* Do it the slow way, using get-logs, for older servers. */
+      err = svn_ra__get_deleted_rev_from_log(session, path, peg_revision,
+                                             end_revision, revision_deleted,
+                                             pool);
+    }
+  return err;
 }
 
 
@@ -696,6 +1110,9 @@ svn_ra_print_modules(svn_stringbuf_t *output,
 
           SVN_ERR(check_ra_version(vtable->get_version(), defn->ra_name));
 
+          /* Note: if you change the formatting of the description,
+             bear in mind that ra_svn's description has multiple lines when
+             built with SASL. */
           line = apr_psprintf(iterpool, "* ra_%s : %s\n",
                               defn->ra_name,
                               vtable->get_description());
@@ -781,15 +1198,56 @@ svn_ra_get_ra_library(svn_ra_plugin_t **library,
           if (! *library)
             break;
 
-          SVN_ERR(check_ra_version((*library)->get_version(), scheme));
-
-          return SVN_NO_ERROR;
+          return check_ra_version((*library)->get_version(), scheme);
         }
     }
-    
+
   /* Couldn't find a match... */
   *library = NULL;
   return svn_error_createf(SVN_ERR_RA_ILLEGAL_URL, NULL,
                            _("Unrecognized URL scheme '%s'"), url);
 }
 
+/* For each libsvn_ra_foo library that is not linked in, provide a default
+   implementation for svn_ra_foo_init which returns a "not implemented"
+   error. */
+
+#ifndef SVN_LIBSVN_CLIENT_LINKS_RA_NEON
+svn_error_t *
+svn_ra_dav_init(int abi_version,
+                apr_pool_t *pool,
+                apr_hash_t *hash)
+{
+  return svn_error_create(SVN_ERR_RA_NOT_IMPLEMENTED, NULL, NULL);
+}
+#endif /* ! SVN_LIBSVN_CLIENT_LINKS_RA_NEON */
+
+#ifndef SVN_LIBSVN_CLIENT_LINKS_RA_SVN
+svn_error_t *
+svn_ra_svn_init(int abi_version,
+                apr_pool_t *pool,
+                apr_hash_t *hash)
+{
+  return svn_error_create(SVN_ERR_RA_NOT_IMPLEMENTED, NULL, NULL);
+}
+#endif /* ! SVN_LIBSVN_CLIENT_LINKS_RA_SVN */
+
+#ifndef SVN_LIBSVN_CLIENT_LINKS_RA_LOCAL
+svn_error_t *
+svn_ra_local_init(int abi_version,
+                  apr_pool_t *pool,
+                  apr_hash_t *hash)
+{
+  return svn_error_create(SVN_ERR_RA_NOT_IMPLEMENTED, NULL, NULL);
+}
+#endif /* ! SVN_LIBSVN_CLIENT_LINKS_RA_LOCAL */
+
+#ifndef SVN_LIBSVN_CLIENT_LINKS_RA_SERF
+svn_error_t *
+svn_ra_serf_init(int abi_version,
+                 apr_pool_t *pool,
+                 apr_hash_t *hash)
+{
+  return svn_error_create(SVN_ERR_RA_NOT_IMPLEMENTED, NULL, NULL);
+}
+#endif /* ! SVN_LIBSVN_CLIENT_LINKS_RA_SERF */

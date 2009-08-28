@@ -1,9 +1,0 @@
-PROG= locale
-SRCS= locale.cc
-CC = c++
-
-# I thought this was set for me but bsd.prog.mk, or bsd.obj.mk, but that 
-# doens't seem to be the case.
-BINDIR= /usr/bin
-
-.include <bsd.prog.mk>

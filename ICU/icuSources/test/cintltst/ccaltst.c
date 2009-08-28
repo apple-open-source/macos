@@ -1,16 +1,15 @@
 /********************************************************************
- * COPYRIGHT: 
- * Copyright (c) 1997-2006, International Business Machines Corporation and
- * others. All Rights Reserved.
- ********************************************************************/
-/******************************************************************************
-*
-* File CCALTST.C
-*
-* Modification History:
-*        Name                     Description            
-*     Madhu Katragadda               Creation
-*******************************************************************************/
+ * Copyright (c) 1997-2008, International Business Machines
+ * Corporation and others. All Rights Reserved.
+ ********************************************************************
+ *
+ * File CCALTST.C
+ *
+ * Modification History:
+ *        Name                     Description            
+ *     Madhu Katragadda               Creation
+ ********************************************************************
+ */
 
 /* C API AND FUNCTIONALITY TEST FOR CALENDAR (ucol.h)*/
 
@@ -19,6 +18,7 @@
 #if !UCONFIG_NO_FORMATTING
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "unicode/uloc.h"
 #include "unicode/ucal.h"
@@ -27,6 +27,7 @@
 #include "cintltst.h"
 #include "ccaltst.h"
 #include "cformtst.h"
+#include "cstring.h"
 
 void TestGregorianChange(void);
 
@@ -53,12 +54,29 @@ static const UChar PST[] = {0x50, 0x53, 0x54, 0x00}; /* "PST" */
 
 static const UChar EUROPE_PARIS[] = {0x45, 0x75, 0x72, 0x6F, 0x70, 0x65, 0x2F, 0x50, 0x61, 0x72, 0x69, 0x73, 0x00}; /* "Europe/Paris" */
 
+static const UChar AMERICA_LOS_ANGELES[] = {0x41, 0x6D, 0x65, 0x72, 0x69, 0x63, 0x61, 0x2F,
+    0x4C, 0x6F, 0x73, 0x5F, 0x41, 0x6E, 0x67, 0x65, 0x6C, 0x65, 0x73, 0x00}; /* America/Los_Angeles */
+
+typedef struct {
+    const char *    locale;
+    UCalendarType   calType;
+    const char *    expectedResult;
+} UCalGetTypeTest;
+
+static const UCalGetTypeTest ucalGetTypeTests[] = {
+    { "en_US",                   UCAL_GREGORIAN, "gregorian" },
+    { "ja_JP@calendar=japanese", UCAL_DEFAULT,   "japanese"  },
+    { "th_TH",                   UCAL_GREGORIAN, "gregorian" },
+    { "th_TH",                   UCAL_DEFAULT,   "buddhist"  },
+    { NULL, 0, NULL } /* terminator */
+};    
+    
 static void TestCalendar()
 {
-    UCalendar *caldef = 0, *caldef2 = 0, *calfr = 0, *calit = 0;
+    UCalendar *caldef = 0, *caldef2 = 0, *calfr = 0, *calit = 0, *calfrclone = 0;
     UEnumeration* uenum = NULL;
     int32_t count, count2, i,j;
-    UChar *tzID = 0;
+    UChar tzID[4];
     UChar *tzdname = 0;
     UErrorCode status = U_ZERO_ERROR;
     UDate now;
@@ -67,6 +85,10 @@ static void TestCalendar()
     int32_t resultlength, resultlengthneeded;
     char tempMsgBuf[256];
     UChar zone1[32], zone2[32];
+    const char *tzver = 0;
+    UChar canonicalID[64];
+    UBool isSystemID = FALSE;
+    const UCalGetTypeTest * ucalGetTypeTestPtr;
 
 #ifdef U_USE_UCAL_OBSOLETE_2_8
     /*Testing countAvailableTimeZones*/
@@ -177,10 +199,38 @@ static void TestCalendar()
         status = U_ZERO_ERROR;
         ucal_setDefaultTimeZone(zone1, &status);
     }
+    
+    /*Test ucal_getTZDataVersion*/
+    status = U_ZERO_ERROR;
+    tzver = ucal_getTZDataVersion(&status);
+    if (U_FAILURE(status)) {
+        log_err("FAIL: ucal_getTZDataVersion() => %s\n", u_errorName(status));
+    } else if (uprv_strlen(tzver) != 5 /*4 digits + 1 letter*/) {
+        log_err("FAIL: Bad version string was returned by ucal_getTZDataVersion\n");
+    } else {
+        log_verbose("PASS: ucal_getTZDataVersion returned %s\n", tzver);
+    }
+    
+    /*Testing ucal_getCanonicalTimeZoneID*/
+    status = U_ZERO_ERROR;
+    resultlength = ucal_getCanonicalTimeZoneID(PST, -1,
+        canonicalID, sizeof(canonicalID)/sizeof(UChar), &isSystemID, &status);
+    if (U_FAILURE(status)) {
+        log_err("FAIL: error in ucal_getCanonicalTimeZoneID : %s\n", u_errorName(status));
+    } else {
+        if (u_strcmp(AMERICA_LOS_ANGELES, canonicalID) != 0) {
+            log_err("FAIL: ucal_getCanonicalTimeZoneID(%s) returned %s : expected - %s\n",
+                PST, canonicalID, AMERICA_LOS_ANGELES);
+        }
+        if (!isSystemID) {
+            log_err("FAIL: ucal_getCanonicalTimeZoneID(%s) set %d to isSystemID\n",
+                PST, isSystemID);
+        }
+    }
 
     /*Testing the  ucal_open() function*/
+    status = U_ZERO_ERROR;
     log_verbose("\nTesting the ucal_open()\n");
-    tzID=(UChar*)malloc(sizeof(UChar) * 4);
     u_uastrcpy(tzID, "PST");
     caldef=ucal_open(tzID, u_strlen(tzID), "en_US", UCAL_TRADITIONAL, &status);
     if(U_FAILURE(status)){
@@ -200,7 +250,12 @@ static void TestCalendar()
     if(U_FAILURE(status))    {
         log_err("FAIL: error in ucal_open calit : %s\n", u_errorName(status));
     }
-    
+
+    /*Testing the  clone() function*/
+    calfrclone = ucal_clone(calfr, &status);
+    if(U_FAILURE(status)){
+        log_err("FAIL: error in ucal_clone calfr : %s\n", u_errorName(status));
+    }
     
     /*Testing udat_getAvailable() and udat_countAvailable()*/ 
     log_verbose("\nTesting getAvailableLocales and countAvailable()\n");
@@ -222,7 +277,7 @@ static void TestCalendar()
     log_verbose("\nTesting ucal_equivalentTo()\n");
     if(caldef && caldef2 && calfr && calit) { 
       if(ucal_equivalentTo(caldef, caldef2) == FALSE || ucal_equivalentTo(caldef, calfr)== TRUE || 
-        ucal_equivalentTo(caldef, calit)== TRUE) {
+        ucal_equivalentTo(caldef, calit)== TRUE || ucal_equivalentTo(calfr, calfrclone) == FALSE) {
           log_err("FAIL: Error. equivalentTo test failed\n");
       } else {
           log_verbose("PASS: equivalentTo test passed\n");
@@ -349,19 +404,37 @@ static void TestCalendar()
     else
         log_err("FAIL: It is not in daylight saving's time\n");
 
-    
-    
     /*closing the UCalendar*/
     ucal_close(caldef);
     ucal_close(caldef2);
     ucal_close(calfr);
     ucal_close(calit);
+    ucal_close(calfrclone);
+    
+    /*testing ucal_getType, and ucal_open with UCAL_GREGORIAN*/
+    for (ucalGetTypeTestPtr = ucalGetTypeTests; ucalGetTypeTestPtr->locale != NULL; ++ucalGetTypeTestPtr) {
+        status = U_ZERO_ERROR;
+        caldef = ucal_open(NULL, 0, ucalGetTypeTestPtr->locale, ucalGetTypeTestPtr->calType, &status);
+        if ( U_SUCCESS(status) ) {
+            const char * calType = ucal_getType(caldef, &status);
+            if ( U_SUCCESS(status) && calType != NULL ) {
+                if ( strcmp( calType, ucalGetTypeTestPtr->expectedResult ) != 0 ) {
+                    log_err("FAIL: ucal_open %s type %d does not return %s calendar\n", ucalGetTypeTestPtr->locale,
+                                                ucalGetTypeTestPtr->calType, ucalGetTypeTestPtr->expectedResult);
+                }
+            } else {
+                log_err("FAIL: ucal_open %s type %d, then ucal_getType fails\n", ucalGetTypeTestPtr->locale, ucalGetTypeTestPtr->calType);
+            }
+            ucal_close(caldef);
+        } else {
+            log_err("FAIL: ucal_open %s type %d fails\n", ucalGetTypeTestPtr->locale, ucalGetTypeTestPtr->calType);
+        }
+    }
+
     /*closing the UDateFormat used */
     udat_close(datdef);
-    free(tzID);
     free(result);
     free(tzdname);
-    
 }
 
 /*------------------------------------------------------*/
@@ -370,7 +443,7 @@ static void TestCalendar()
 static void TestGetSetDateAPI()
 {
     UCalendar *caldef = 0, *caldef2 = 0;
-    UChar *tzID =0;
+    UChar tzID[4];
     UDate d1;
     int32_t hour;
     int32_t zoneOffset;
@@ -380,7 +453,6 @@ static void TestGetSetDateAPI()
     UChar temp[30];
 
     log_verbose("\nOpening the calendars()\n");
-    tzID=(UChar*)malloc(sizeof(UChar) * 4);
     u_strcpy(tzID, fgGMTID);
     /*open the calendars used */
     caldef=ucal_open(tzID, u_strlen(tzID), "en_US", UCAL_TRADITIONAL, &status);
@@ -554,8 +626,6 @@ static void TestGetSetDateAPI()
     ucal_close(caldef);
     ucal_close(caldef2);
     udat_close(datdef);
-    free(tzID);
-
 }
 
 /*----------------------------------------------------------- */
@@ -565,12 +635,11 @@ static void TestGetSetDateAPI()
 static void TestFieldGetSet()
 {
     UCalendar *cal = 0;
-    UChar *tzID = 0;
+    UChar tzID[4];
     UDateFormat *datdef = 0;
     UDate d1;
     UErrorCode status=U_ZERO_ERROR;
     log_verbose("\nFetching pointer to UCalendar using the ucal_open()\n");
-    tzID=(UChar*)malloc(sizeof(UChar) * 4);
     u_strcpy(tzID, fgGMTID);
     /*open the calendar used */
     cal=ucal_open(tzID, u_strlen(tzID), "en_US", UCAL_TRADITIONAL, &status);
@@ -621,19 +690,18 @@ static void TestFieldGetSet()
     verify1("1997 last Tuesday in June = ", cal, datdef,1997,   UCAL_JUNE, 24);
     /*give undesirable input    */
     status = U_ZERO_ERROR;
-        ucal_clear(cal);
-        ucal_set(cal, UCAL_YEAR, 1997);
-        ucal_set(cal, UCAL_DAY_OF_WEEK, UCAL_TUESDAY);
-        ucal_set(cal, UCAL_MONTH, UCAL_JUNE);
-        ucal_set(cal, UCAL_DAY_OF_WEEK_IN_MONTH, 0);
-        d1=ucal_getMillis(cal,&status);
-        if (status != U_ILLEGAL_ARGUMENT_ERROR){ 
-            log_err("FAIL: No IllegalArgumentError for :");
-            log_err("1997 zero-th Tuesday in June \n");
-        }
-        else 
-            log_verbose("PASS: IllegalArgumentError as expected\n");
-   
+    ucal_clear(cal);
+    ucal_set(cal, UCAL_YEAR, 1997);
+    ucal_set(cal, UCAL_DAY_OF_WEEK, UCAL_TUESDAY);
+    ucal_set(cal, UCAL_MONTH, UCAL_JUNE);
+    ucal_set(cal, UCAL_DAY_OF_WEEK_IN_MONTH, 0);
+    d1 = ucal_getMillis(cal, &status);
+    if (status != U_ILLEGAL_ARGUMENT_ERROR) { 
+        log_err("FAIL: U_ILLEGAL_ARGUMENT_ERROR was not returned for : 1997 zero-th Tuesday in June\n");
+    } else {
+        log_verbose("PASS: U_ILLEGAL_ARGUMENT_ERROR as expected\n");
+    }
+    status = U_ZERO_ERROR;
     ucal_clear(cal);
     ucal_set(cal, UCAL_YEAR, 1997);
     ucal_set(cal, UCAL_DAY_OF_WEEK, UCAL_TUESDAY);
@@ -652,7 +720,13 @@ static void TestFieldGetSet()
     ucal_set(cal, UCAL_DAY_OF_WEEK, UCAL_TUESDAY);
     ucal_set(cal, UCAL_MONTH, UCAL_JUNE);
     ucal_set(cal, UCAL_WEEK_OF_MONTH, 0);
-    verify1("1997 Tuesday in week 0 of June = ", cal, datdef , 1997, UCAL_MAY, 27);
+    d1 = ucal_getMillis(cal,&status);
+    if (status != U_ILLEGAL_ARGUMENT_ERROR){ 
+        log_err("FAIL: U_ILLEGAL_ARGUMENT_ERROR was not returned for : 1997 Tuesday zero-th week in June\n");
+    } else {
+        log_verbose("PASS: U_ILLEGAL_ARGUMENT_ERROR as expected\n");
+    }
+    status = U_ZERO_ERROR;
     ucal_clear(cal);
     ucal_set(cal, UCAL_YEAR_WOY, 1997);
     ucal_set(cal, UCAL_DAY_OF_WEEK, UCAL_TUESDAY);
@@ -668,13 +742,13 @@ static void TestFieldGetSet()
     ucal_set(cal, UCAL_DAY_OF_YEAR, 1);
     verify1("1999 1st day of the year =", cal, datdef, 1999, UCAL_JANUARY, 1);
     ucal_set(cal, UCAL_MONTH, -3);
-    d1=ucal_getMillis(cal,&status);
-        if (status != U_ILLEGAL_ARGUMENT_ERROR){ 
-            log_err("FAIL: No IllegalArgumentError for :\"1999 -3th month \" ");
-        }
-        else 
-            log_verbose("PASS: IllegalArgumentError as expected\n");
-    
+    d1 = ucal_getMillis(cal,&status);
+    if (status != U_ILLEGAL_ARGUMENT_ERROR){ 
+        log_err("FAIL: U_ILLEGAL_ARGUMENT_ERROR was not returned for : 1999 -3th month\n");
+    } else {
+        log_verbose("PASS: U_ILLEGAL_ARGUMENT_ERROR as expected\n");
+    }
+
     ucal_setAttribute(cal, UCAL_LENIENT, 1);
     
     ucal_set(cal, UCAL_MONTH, -3);
@@ -696,8 +770,6 @@ static void TestFieldGetSet()
 
     ucal_close(cal);
     udat_close(datdef);
-    free(tzID);
-    
 }
  
 
@@ -710,7 +782,7 @@ static void TestAddRollExtensive()
 {
     UCalendar *cal = 0;
     int32_t i,limit;
-    UChar* tzID = 0;
+    UChar tzID[4];
     UCalendarDateFields e;
     int32_t y,m,d,hr,min,sec,ms;
     int32_t maxlimit = 40;
@@ -719,7 +791,6 @@ static void TestAddRollExtensive()
    
     log_verbose("Testing add and roll extensively\n");
     
-    tzID=(UChar*)malloc(sizeof(UChar) * 4);
     u_uastrcpy(tzID, "PST");
     /*open the calendar used */
     cal=ucal_open(tzID, u_strlen(tzID), "en_US", UCAL_GREGORIAN, &status);;
@@ -866,7 +937,6 @@ static void TestAddRollExtensive()
     }
 
     ucal_close(cal);
-    free(tzID);
 }
 
 /*------------------------------------------------------ */
@@ -875,11 +945,10 @@ static void TestGetLimits()
 {
     UCalendar *cal = 0;
     int32_t min, max, gr_min, le_max, ac_min, ac_max, val;
-    UChar* tzID = 0;
+    UChar tzID[4];
     UErrorCode status = U_ZERO_ERROR;
     
     
-    tzID=(UChar*)malloc(sizeof(UChar) * 4);
     u_uastrcpy(tzID, "PST");
     /*open the calendar used */
     cal=ucal_open(tzID, u_strlen(tzID), "en_US", UCAL_GREGORIAN, &status);;
@@ -958,7 +1027,6 @@ static void TestGetLimits()
 
 
     ucal_close(cal);
-    free(tzID);
 }
 
 
@@ -977,9 +1045,8 @@ static void TestDOWProgression()
     UDate date1;
     int32_t delta=24;
     UErrorCode status = U_ZERO_ERROR;
-    UChar* tzID = 0;
+    UChar tzID[4];
     char tempMsgBuf[256];
-    tzID=(UChar*)malloc(sizeof(UChar) * 4);
     u_strcpy(tzID, fgGMTID);
     /*open the calendar used */
     cal=ucal_open(tzID, u_strlen(tzID), "en_US", UCAL_TRADITIONAL, &status);;
@@ -1026,8 +1093,6 @@ static void TestDOWProgression()
     
     ucal_close(cal);
     udat_close(datfor);
-    free(tzID);
-    
 }
  
 /* ------------------------------------- */
@@ -1053,10 +1118,9 @@ static void testZones(int32_t yr, int32_t mo, int32_t dt, int32_t hr, int32_t mn
     double temp;
     UDateFormat *datfor = 0;
     UErrorCode status = U_ZERO_ERROR;
-    UChar* tzID = 0;
+    UChar tzID[4];
     char tempMsgBuf[256];
 
-    tzID=(UChar*)malloc(sizeof(UChar) * 4);
     u_strcpy(tzID, fgGMTID);
     gmtcal=ucal_open(tzID, 3, "en_US", UCAL_TRADITIONAL, &status);;
     if (U_FAILURE(status)) {
@@ -1124,7 +1188,6 @@ static void testZones(int32_t yr, int32_t mo, int32_t dt, int32_t hr, int32_t mn
     ucal_close(gmtcal);
     ucal_close(cal);
     udat_close(datfor);
-    free(tzID);
 }
  
 /* ------------------------------------- */

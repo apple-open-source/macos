@@ -1,19 +1,9 @@
 0755	root	wheel	Library/Managed Preferences
 0750	501	501	private/var/mobile
-0755	501	501	private/var/mobile/Applications
 0700	501	501	private/var/mobile/Library
-0700	501	501	private/var/mobile/Library/AddressBook
-0700	501	501	private/var/mobile/Library/Caches
-0700	501	501	private/var/mobile/Library/Cookies
 0700	501	501	private/var/mobile/Library/ConfigurationProfiles
-0700	501	501	private/var/mobile/Library/Keyboard
 0700	501	501	private/var/mobile/Library/Preferences
-0700	501	501	private/var/mobile/Library/Safari
-0700	501	501	private/var/mobile/Library/WebClips
-0700	501	501	private/var/mobile/Library/WebKit
 0750	501	501	private/var/mobile/Media
-0750	501	501	private/var/mobile/Media/DCIM
-0750	501	501	private/var/mobile/Media/Photos
 0777	root	wheel	private/var/logs
 0755	root	wheel	private/var/Managed Preferences
 0700	501	501	private/var/Managed Preferences/mobile

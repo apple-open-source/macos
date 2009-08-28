@@ -111,8 +111,8 @@
 +.Sh LEGACY SYNOPSIS
 +.Fd #include <sys/types.h>
 +.Fd #include <sys/socket.h>
-+.Fd #include <sys/netinet/in.h>
-+.Fd #include <sys/arpa/inet.h>
++.Fd #include <netinet/in.h>
++.Fd #include <arpa/inet.h>
 +.Pp
 +These include files are necessary for all functions.
  .Sh SEE ALSO

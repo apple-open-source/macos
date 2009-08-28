@@ -4,15 +4,15 @@
 	<key>OpenSourceProject</key>
 	<string>glibtool</string>
 	<key>OpenSourceVersion</key>
-	<string>1.5.22</string>
+	<string>2.2.4</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.gnu.org/software/libtool/</string>
 	<key>OpenSourceURL</key>
-	<string>http://ftp.gnu.org/gnu/libtool/libtool-1.5.22.tar.gz</string>
+	<string>http://ftp.gnu.org/gnu/libtool/libtool-2.2.4.tar.bz2</string>
 	<key>OpenSourceSHA1</key>
-	<string>17353e66aeaac80ae188ea0a3a90609550ce3254</string>
+	<string>bc485fd07c8b12820234240e9ef41dba693af2b7</string>
 	<key>OpenSourceImportDate</key>
-	<string>2006-08-19</string>
+	<string>2008-08-18</string>
 	<key>OpenSourceLicense</key>
 	<string>GPL</string>
 	<key>OpenSourceLicenseFile</key>

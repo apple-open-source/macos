@@ -29,31 +29,35 @@
 #define	__CContinue_h__	1
 
 #include <DirectoryServiceCore/PrivateTypes.h>
-#include <DirectoryServiceCore/SharedConsts.h>
 #include <DirectoryServiceCore/DSMutexSemaphore.h>
+#include <map>
+
+using namespace std;
 
 typedef void DeallocateProc ( void *inData );
 
-class CContinue {
+struct sContinueEntry;
 
-public:
-					CContinue		( DeallocateProc *inProcPtr );
-					CContinue		( DeallocateProc *inProcPtr, UInt32 inHashArrayLength );
-	virtual		   ~CContinue		( void );
+class CContinue
+{
+	public:
+						CContinue				( DeallocateProc *inProcPtr );
+		virtual		   ~CContinue				( void );
 
-	SInt32			AddItem			( void *inData, UInt32 inRefNum );
-	SInt32			RemoveItem		( void *inData );
-	SInt32			RemoveItems		( UInt32 inRefNum );
-	bool			VerifyItem		( void *inData );
-	UInt32			GetRefNumForItem ( void *inData );
+		tContextData	AddPointer				( void *inPointer, UInt32 inRefNum );
+		void			RemovePointer			( void *inPointer );
+		
+		void			RemovePointersForRefNum	( UInt32 inRefNum );
+		
+		tDirStatus		RemoveContext			( tContextData inContextData );
+		void *			GetPointer				( tContextData inContextData );
+		UInt32			GetRefNum				( tContextData inContextData );
 
-private:
-			sDSTableEntry		  **fLookupTable;
-			UInt32				fHashArrayLength;
-			UInt32				fRefNumCount;
-			DeallocateProc     *fDeallocProcPtr;
-
-			DSMutexSemaphore	fMutex;
+	private:
+		map<tContextData, sContinueEntry *>	fContextMap;
+		uint32_t							fNextContextID;
+		DeallocateProc						*fDeallocProcPtr;
+		DSMutexSemaphore					fMutex;
 };
 
 #endif

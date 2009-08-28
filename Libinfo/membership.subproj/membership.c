@@ -20,23 +20,26 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include "membership.h"
-#include "membershipPriv.h"
-#include "DSmemberdMIG.h"
-#include "DSmemberdMIG_types.h"
+#include <stdlib.h>
 #include <sys/errno.h>
 #include <mach/mach.h>
+#include "membership.h"
+#include "membershipPriv.h"
 #include <servers/bootstrap.h>
-#include <stdlib.h>
 #include <libkern/OSByteOrder.h>
+#ifdef DS_AVAILABLE
+#include <DSmemberdMIG.h>
+#include <DSmemberdMIG_types.h>
+#endif
 
-
-extern mach_port_t _ds_port;
+#ifdef DS_AVAILABLE
+extern mach_port_t _mbr_port;
 extern int _ds_running(void);
 
 static const uint8_t _mbr_root_uuid[] = {0xff, 0xff, 0xee, 0xee, 0xdd, 0xdd, 0xcc, 0xcc, 0xbb, 0xbb, 0xaa, 0xaa, 0x00, 0x00, 0x00, 0x00};
 
 #define MAX_LOOKUP_ATTEMPTS 10
+#endif
 
 __private_extern__ uid_t
 audit_token_uid(audit_token_t a)
@@ -48,6 +51,7 @@ audit_token_uid(audit_token_t a)
 	return (uid_t)a.val[1];
 }
 
+#ifdef DS_AVAILABLE
 static int
 _mbr_MembershipCall(struct kauth_identity_extlookup *req)
 {
@@ -56,18 +60,18 @@ _mbr_MembershipCall(struct kauth_identity_extlookup *req)
 	uint32_t i;
 
 	if (_ds_running() == 0) return EIO;
-	if (_ds_port == MACH_PORT_NULL) return EIO;
+	if (_mbr_port == MACH_PORT_NULL) return EIO;
 
 	memset(&token, 0, sizeof(audit_token_t));
 
 	status = MIG_SERVER_DIED;
-	for (i = 0; (_ds_port != MACH_PORT_NULL) && (status == MIG_SERVER_DIED) && (i < MAX_LOOKUP_ATTEMPTS); i++)
+	for (i = 0; (_mbr_port != MACH_PORT_NULL) && (status == MIG_SERVER_DIED) && (i < MAX_LOOKUP_ATTEMPTS); i++)
 	{
-		status = memberdDSmig_MembershipCall(_ds_port, req, &token);
+		status = memberdDSmig_MembershipCall(_mbr_port, req, &token);
 		if (status == MACH_SEND_INVALID_DEST)
 		{
-			mach_port_mod_refs(mach_task_self(), _ds_port, MACH_PORT_RIGHT_SEND, -1);
-			_ds_port = MACH_PORT_NULL;
+			mach_port_mod_refs(mach_task_self(), _mbr_port, MACH_PORT_RIGHT_SEND, -1);
+			_mbr_port = MACH_PORT_NULL;
 			_ds_running();
 			status = MIG_SERVER_DIED;
 		}
@@ -78,7 +82,9 @@ _mbr_MembershipCall(struct kauth_identity_extlookup *req)
 
 	return 0;
 }
+#endif
 
+#ifdef DS_AVAILABLE
 static int
 _mbr_MapName(char *name, int type, guid_t *uu)
 {
@@ -90,20 +96,20 @@ _mbr_MapName(char *name, int type, guid_t *uu)
 	if (strlen(name) > 255) return EINVAL;
 
 	if (_ds_running() == 0) return EIO;
-	if (_ds_port == MACH_PORT_NULL) return EIO;
+	if (_mbr_port == MACH_PORT_NULL) return EIO;
 
 	memset(&token, 0, sizeof(audit_token_t));
 
 	status = MIG_SERVER_DIED;
-	for (i = 0; (_ds_port != MACH_PORT_NULL) && (status == MIG_SERVER_DIED) && (i < MAX_LOOKUP_ATTEMPTS); i++)
+	for (i = 0; (_mbr_port != MACH_PORT_NULL) && (status == MIG_SERVER_DIED) && (i < MAX_LOOKUP_ATTEMPTS); i++)
 	{
-		status = memberdDSmig_MapName(_ds_port, type, name, uu, &token);
+		status = memberdDSmig_MapName(_mbr_port, type, name, uu, &token);
 		if (status == KERN_FAILURE) return ENOENT;
 
 		if (status == MACH_SEND_INVALID_DEST)
 		{
-			mach_port_mod_refs(mach_task_self(), _ds_port, MACH_PORT_RIGHT_SEND, -1);
-			_ds_port = MACH_PORT_NULL;
+			mach_port_mod_refs(mach_task_self(), _mbr_port, MACH_PORT_RIGHT_SEND, -1);
+			_mbr_port = MACH_PORT_NULL;
 			_ds_running();
 			status = MIG_SERVER_DIED;
 		}
@@ -114,7 +120,9 @@ _mbr_MapName(char *name, int type, guid_t *uu)
 
 	return 0;
 }
+#endif
 
+#ifdef DS_AVAILABLE
 static int
 _mbr_ClearCache()
 {
@@ -122,16 +130,16 @@ _mbr_ClearCache()
 	uint32_t i;
 
 	if (_ds_running() == 0) return EIO;
-	if (_ds_port == MACH_PORT_NULL) return EIO;
+	if (_mbr_port == MACH_PORT_NULL) return EIO;
 
 	status = MIG_SERVER_DIED;
-	for (i = 0; (_ds_port != MACH_PORT_NULL) && (status == MIG_SERVER_DIED) && (i < MAX_LOOKUP_ATTEMPTS); i++)
+	for (i = 0; (_mbr_port != MACH_PORT_NULL) && (status == MIG_SERVER_DIED) && (i < MAX_LOOKUP_ATTEMPTS); i++)
 	{
-		status = memberdDSmig_ClearCache(_ds_port);
+		status = memberdDSmig_ClearCache(_mbr_port);
 		if (status == MACH_SEND_INVALID_DEST)
 		{
-			mach_port_mod_refs(mach_task_self(), _ds_port, MACH_PORT_RIGHT_SEND, -1);
-			_ds_port = MACH_PORT_NULL;
+			mach_port_mod_refs(mach_task_self(), _mbr_port, MACH_PORT_RIGHT_SEND, -1);
+			_mbr_port = MACH_PORT_NULL;
 			_ds_running();
 			status = MIG_SERVER_DIED;
 		}
@@ -141,9 +149,12 @@ _mbr_ClearCache()
 
 	return 0;
 }
+#endif
 
-int mbr_uid_to_uuid(uid_t id, uuid_t uu)
+int
+mbr_uid_to_uuid(uid_t id, uuid_t uu)
 {
+#ifdef DS_AVAILABLE
 	struct kauth_identity_extlookup request;
 	int status;
 
@@ -164,10 +175,15 @@ int mbr_uid_to_uuid(uid_t id, uuid_t uu)
 
 	memcpy(uu, &request.el_uguid, sizeof(guid_t));
 	return 0;
+#else
+	return EIO;
+#endif
 }
 
-int mbr_gid_to_uuid(gid_t id, uuid_t uu)
+int
+mbr_gid_to_uuid(gid_t id, uuid_t uu)
 {
+#ifdef DS_AVAILABLE
 	struct kauth_identity_extlookup request;
 	int status;
 
@@ -181,10 +197,15 @@ int mbr_gid_to_uuid(gid_t id, uuid_t uu)
 
 	memcpy(uu, &request.el_gguid, sizeof(guid_t));
 	return 0;
+#else
+	return EIO;
+#endif
 }
 
-int mbr_uuid_to_id(const uuid_t uu, uid_t *id, int *id_type)
+int
+mbr_uuid_to_id(const uuid_t uu, uid_t *id, int *id_type)
 {
+#ifdef DS_AVAILABLE
 	struct kauth_identity_extlookup request;
 	int status;
 
@@ -222,10 +243,15 @@ int mbr_uuid_to_id(const uuid_t uu, uid_t *id, int *id_type)
 	}
 
 	return 0;
+#else
+	return EIO;
+#endif
 }
 
-int mbr_sid_to_uuid(const nt_sid_t *sid, uuid_t uu)
+int
+mbr_sid_to_uuid(const nt_sid_t *sid, uuid_t uu)
 {
+#ifdef DS_AVAILABLE
 	struct kauth_identity_extlookup request;
 	int status;
 
@@ -244,10 +270,82 @@ int mbr_sid_to_uuid(const nt_sid_t *sid, uuid_t uu)
 	else return ENOENT;
 
 	return 0;
+#else
+	return EIO;
+#endif
 }
 
-int mbr_uuid_to_sid_type(const uuid_t uu, nt_sid_t *sid, int *id_type)
+int
+mbr_identifier_to_uuid(int id_type, const void *identifier, size_t identifier_size, uuid_t uu)
 {
+#ifdef DS_AVAILABLE
+	kern_return_t status;
+	audit_token_t token;
+	vm_offset_t ool = 0;
+	mach_msg_type_number_t oolCnt = 0;
+	uint32_t i;
+#if __BIG_ENDIAN__
+	id_t newID;
+#endif
+	
+	if (identifier == NULL) return EINVAL;
+	if (identifier_size == 0) return EINVAL;
+	else if (identifier_size == -1) identifier_size = strlen((char*) identifier) + 1;
+	
+	if (_ds_running() == 0) return EIO;
+	if (_mbr_port == MACH_PORT_NULL) return EIO;
+	
+	memset(&token, 0, sizeof(audit_token_t));
+
+#if __BIG_ENDIAN__
+	switch (id_type)
+	{
+		case ID_TYPE_UID:
+		case ID_TYPE_GID:
+			if (identifier_size < sizeof(id_t)) return EINVAL;
+			newID = OSSwapInt32(*((id_t *) identifier));
+			identifier = &newID;
+			break;
+	}
+#endif
+	
+	if (identifier_size > MAX_MIG_INLINE_DATA)
+	{
+		if (vm_read(mach_task_self(), (vm_offset_t) identifier, identifier_size, &ool, &oolCnt) != 0) return ENOMEM;
+		identifier = NULL;
+		identifier_size = 0;
+	}
+	
+	status = MIG_SERVER_DIED;
+	for (i = 0; (_mbr_port != MACH_PORT_NULL) && (status == MIG_SERVER_DIED) && (i < MAX_LOOKUP_ATTEMPTS); i++)
+	{
+		status = memberdDSmig_MapIdentifier(_mbr_port, id_type, (vm_offset_t)identifier, identifier_size, ool, oolCnt, uu, &token);
+		if (status == KERN_FAILURE) return ENOENT;
+		
+		if (status == MACH_SEND_INVALID_DEST)
+		{
+			if (ool != 0) vm_deallocate(mach_task_self(), ool, oolCnt);
+
+			mach_port_mod_refs(mach_task_self(), _mbr_port, MACH_PORT_RIGHT_SEND, -1);
+			_mbr_port = MACH_PORT_NULL;
+			_ds_running();
+			status = MIG_SERVER_DIED;
+		}
+	}
+	
+	if (status != KERN_SUCCESS) return EIO;
+	if (audit_token_uid(token) != 0) return EAUTH;
+	
+	return 0;
+#else
+	return EIO;
+#endif
+}
+
+int
+mbr_uuid_to_sid_type(const uuid_t uu, nt_sid_t *sid, int *id_type)
+{
+#ifdef DS_AVAILABLE
 	struct kauth_identity_extlookup request;
 	int status;
 
@@ -275,10 +373,15 @@ int mbr_uuid_to_sid_type(const uuid_t uu, nt_sid_t *sid, int *id_type)
 	}
 
 	return 0;
+#else
+	return EIO;
+#endif
 }
 
-int mbr_uuid_to_sid(const uuid_t uu, nt_sid_t *sid)
+int
+mbr_uuid_to_sid(const uuid_t uu, nt_sid_t *sid)
 {
+#ifdef DS_AVAILABLE
 	int type, status;
 
 	type = 0;
@@ -287,10 +390,15 @@ int mbr_uuid_to_sid(const uuid_t uu, nt_sid_t *sid)
 	if (status != 0) return status;
 
 	return 0;
+#else
+	return EIO;
+#endif
 }
 
-int mbr_check_membership(uuid_t user, uuid_t group, int *ismember)
+int
+mbr_check_membership(uuid_t user, uuid_t group, int *ismember)
 {
+#ifdef DS_AVAILABLE
 	struct kauth_identity_extlookup request;
 	int status;
 
@@ -305,10 +413,15 @@ int mbr_check_membership(uuid_t user, uuid_t group, int *ismember)
 
 	*ismember = ((request.el_flags & KAUTH_EXTLOOKUP_ISMEMBER) != 0);
 	return 0;
+#else
+	return EIO;
+#endif
 }
 
-int mbr_check_membership_refresh(const uuid_t user, uuid_t group, int *ismember)
+int
+mbr_check_membership_refresh(const uuid_t user, uuid_t group, int *ismember)
 {
+#ifdef DS_AVAILABLE
 	struct kauth_identity_extlookup request;
 	int status;
 
@@ -323,10 +436,15 @@ int mbr_check_membership_refresh(const uuid_t user, uuid_t group, int *ismember)
 
 	*ismember = ((request.el_flags & KAUTH_EXTLOOKUP_ISMEMBER) != 0);
 	return 0;
+#else
+	return EIO;
+#endif
 }
 
-int mbr_check_membership_by_id(uuid_t user, gid_t group, int *ismember)
+int
+mbr_check_membership_by_id(uuid_t user, gid_t group, int *ismember)
 {
+#ifdef DS_AVAILABLE
 	struct kauth_identity_extlookup request;
 	int status;
 
@@ -341,25 +459,45 @@ int mbr_check_membership_by_id(uuid_t user, gid_t group, int *ismember)
 
 	*ismember = ((request.el_flags & KAUTH_EXTLOOKUP_ISMEMBER) != 0);
 	return 0;
+#else
+	return EIO;
+#endif
 }
 
-int mbr_reset_cache()
+int
+mbr_reset_cache()
 {
+#ifdef DS_AVAILABLE
 	return _mbr_ClearCache();
+#else
+	return EIO;
+#endif
 }
 
-int mbr_user_name_to_uuid(const char *name, uuid_t uu)
+int
+mbr_user_name_to_uuid(const char *name, uuid_t uu)
 {
+#ifdef DS_AVAILABLE
 	return _mbr_MapName((char *)name, 1, (guid_t *)uu);
+#else
+	return EIO;
+#endif
 }
 
-int mbr_group_name_to_uuid(const char *name, uuid_t uu)
+int
+mbr_group_name_to_uuid(const char *name, uuid_t uu)
 {
+#ifdef DS_AVAILABLE
 	return _mbr_MapName((char *)name, 0, (guid_t *)uu);
+#else
+	return EIO;
+#endif
 }
 
-int mbr_check_service_membership(const uuid_t user, const char *servicename, int *ismember)
+int
+mbr_check_service_membership(const uuid_t user, const char *servicename, int *ismember)
 {
+#ifdef DS_AVAILABLE
 	char *prefix = "com.apple.access_";
 	char *all_services = "com.apple.access_all_services";
 	char groupName[256];
@@ -398,9 +536,14 @@ int mbr_check_service_membership(const uuid_t user, const char *servicename, int
 	}
 
 	return result;
+#else
+	return EIO;
+#endif
 }
 
-static char *ConvertBytesToDecimal(char *buffer, unsigned long long value)
+#ifdef DS_AVAILABLE
+static char *
+ConvertBytesToDecimal(char *buffer, unsigned long long value)
 {
 	char *temp;
 	buffer[24] = '\0';
@@ -419,9 +562,12 @@ static char *ConvertBytesToDecimal(char *buffer, unsigned long long value)
 
 	return temp;
 }
+#endif
 
-int mbr_sid_to_string(const nt_sid_t *sid, char *string)
+int
+mbr_sid_to_string(const nt_sid_t *sid, char *string)
 {
+#ifdef DS_AVAILABLE
 	char *current = string;
 	long long temp = 0;
 	int i;
@@ -450,10 +596,15 @@ int mbr_sid_to_string(const nt_sid_t *sid, char *string)
 	}
 
 	return 0;
+#else
+	return EIO;
+#endif
 }
 
-int mbr_string_to_sid(const char *string, nt_sid_t *sid)
+int
+mbr_string_to_sid(const char *string, nt_sid_t *sid)
 {
+#ifdef DS_AVAILABLE
 	char *current = (char *)string+2;
 	int count = 0;
 	long long temp;
@@ -483,9 +634,14 @@ int mbr_string_to_sid(const char *string, nt_sid_t *sid)
 	sid->sid_authcount = count;
 
 	return 0;
+#else
+	return EIO;
+#endif
 }
 
-static void ConvertBytesToHex(char **string, char **data, int numBytes)
+#ifdef DS_AVAILABLE
+static void
+ConvertBytesToHex(char **string, char **data, int numBytes)
 {
 	int i;
 
@@ -509,9 +665,12 @@ static void ConvertBytesToHex(char **string, char **data, int numBytes)
 		(*data)++;
 	}
 }
+#endif
 
-int mbr_uuid_to_string(const uuid_t uu, char *string)
+int
+mbr_uuid_to_string(const uuid_t uu, char *string)
 {
+#ifdef DS_AVAILABLE
 	char *guid = (char*)uu;
 	char *strPtr = string;
 	ConvertBytesToHex(&strPtr, &guid, 4);
@@ -526,10 +685,15 @@ int mbr_uuid_to_string(const uuid_t uu, char *string)
 	*strPtr = '\0';
 
 	return 0;
+#else
+	return EIO;
+#endif
 }
 
-int mbr_string_to_uuid(const char *string, uuid_t uu)
+int
+mbr_string_to_uuid(const char *string, uuid_t uu)
 {
+#ifdef DS_AVAILABLE
 	short dataIndex = 0;
 	int isFirstNibble = 1;
 
@@ -572,5 +736,8 @@ int mbr_string_to_uuid(const char *string, uuid_t uu)
 	if (dataIndex != 16) return EINVAL;
 
 	return 0;
+#else
+	return EIO;
+#endif
 }
 

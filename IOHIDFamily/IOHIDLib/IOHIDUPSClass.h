@@ -147,7 +147,7 @@ protected:
     
     void 	storeUPSElement(CFStringRef psKey, UPSHIDElement * newElementRef);
 
-    bool	updateElementValue(UPSHIDElement *	tempHIDElement);
+    bool	updateElementValue(UPSHIDElement *	tempHIDElement, IOReturn * error);
 
     bool	setupQueue();
 

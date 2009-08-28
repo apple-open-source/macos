@@ -1,9 +1,9 @@
 /*
- * "$Id: util.c 7622 2008-06-06 19:04:31Z mike $"
+ * "$Id: util.c 7621 2008-06-06 18:55:35Z mike $"
  *
  *   Mini-daemon utility functions for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007-2008 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -14,14 +14,15 @@
  *
  * Contents:
  *
- *   cupsdCompareNames()   - Compare two names.
- *   cupsdExec()           - Run a program with the correct environment.
- *   cupsdPipeCommand()    - Read output from a command.
- *   cupsdSendIPPGroup()   - Send a group tag.
- *   cupsdSendIPPHeader()  - Send the IPP response header.
- *   cupsdSendIPPInteger() - Send an integer attribute.
- *   cupsdSendIPPString()  - Send a string attribute.
- *   cupsdSendIPPTrailer() - Send the end-of-message tag.
+ *   cupsdCompareNames()       - Compare two names.
+ *   cupsdCreateStringsArray() - Create a CUPS array of strings.
+ *   cupsdExec()               - Run a program with the correct environment.
+ *   cupsdPipeCommand()        - Read output from a command.
+ *   cupsdSendIPPGroup()       - Send a group tag.
+ *   cupsdSendIPPHeader()      - Send the IPP response header.
+ *   cupsdSendIPPInteger()     - Send an integer attribute.
+ *   cupsdSendIPPString()      - Send a string attribute.
+ *   cupsdSendIPPTrailer()     - Send the end-of-message tag.
  */
 
 /*
@@ -153,6 +154,49 @@ cupsdCompareNames(const char *s,	/* I - First string */
 
 
 /*
+ * 'cupsdCreateStringsArray()' - Create a CUPS array of strings.
+ */
+
+cups_array_t *				/* O - CUPS array */
+cupsdCreateStringsArray(const char *s)	/* I - Comma-delimited strings */
+{
+  cups_array_t	*a;			/* CUPS array */
+  const char	*start,			/* Start of string */
+		*end;			/* End of string */
+  char		*ptr;			/* New string */
+
+
+  if (!s)
+    return (NULL);
+
+  if ((a = cupsArrayNew((cups_array_func_t)strcmp, NULL)) != NULL)
+  {
+    for (start = end = s; *end; start = end + 1)
+    {
+     /*
+      * Find the end of the current delimited string...
+      */
+
+      if ((end = strchr(start, ',')) == NULL)
+        end = start + strlen(start);
+
+     /*
+      * Duplicate the string and add it to the array...
+      */
+
+      if ((ptr = calloc(1, end - start + 1)) == NULL)
+        break;
+
+      memcpy(ptr, start, end - start);
+      cupsArrayAdd(a, ptr);
+    }
+  }
+
+  return (a);
+}
+
+
+/*
  * 'cupsdExec()' - Run a program with the correct environment.
  *
  * On Mac OS X, we need to update the CFProcessPath environment variable that
@@ -238,7 +282,8 @@ cupsdPipeCommand(int        *pid,	/* O - Process ID or 0 on error */
                  char       **argv,	/* I - Arguments to pass to command */
 		 int        user)	/* I - User to run as or 0 for current */
 {
-  int	fds[2];				/* Pipe file descriptors */
+  int	fd,				/* Temporary file descriptor */
+	fds[2];				/* Pipe file descriptors */
 
 
  /*
@@ -300,11 +345,14 @@ cupsdPipeCommand(int        *pid,	/* O - Process ID or 0 on error */
     if (!getuid() && user)
       setuid(user);			/* Run as restricted user */
 
-    close(0);				/* </dev/null */
-    open("/dev/null", O_RDONLY);
+    if ((fd = open("/dev/null", O_RDONLY)) > 0)
+    {
+      dup2(fd, 0);			/* </dev/null */
+      close(fd);
+    }
 
-    close(1);				/* >pipe */
-    dup(fds[1]);
+    dup2(fds[1], 1);			/* >pipe */
+    close(fds[1]);
 
     cupsdExec(command, argv);
     exit(errno);
@@ -347,6 +395,8 @@ cupsdSendIPPHeader(
  /*
   * Send IPP/1.1 response header: version number (2 bytes), status code
   * (2 bytes), and request ID (4 bytes)...
+  *
+  * TODO: Add version number (IPP/2.x and IPP/1.0) support.
   */
 
   putchar(1);
@@ -446,5 +496,5 @@ cupsdSendIPPTrailer(void)
 
 
 /*
- * End of "$Id: util.c 7622 2008-06-06 19:04:31Z mike $".
+ * End of "$Id: util.c 7621 2008-06-06 18:55:35Z mike $".
  */

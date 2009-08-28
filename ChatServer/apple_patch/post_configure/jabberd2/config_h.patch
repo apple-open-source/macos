@@ -1,0 +1,21 @@
+--- config.h.bak	2009-05-19 11:05:06.000000000 -0700
++++ config.h	2009-05-19 12:11:21.000000000 -0700
+@@ -1,6 +1,9 @@
+ /* config.h.  Generated from config.h.in by configure.  */
+ /* config.h.in.  Generated from configure.ac by autoheader.  */
+ 
++/* Apple build version number */
++#define APPLE_VERSION "2.1.24.1-326"
++
+ /* Define to 1 if the `closedir' function returns void instead of `int'. */
+ /* #undef CLOSEDIR_VOID */
+ 
+@@ -583,7 +586,7 @@
+ /* #undef TM_IN_SYS_TIME */
+ 
+ /* Version number of package */
+-#define VERSION "2.1.24.1"
++#define VERSION APPLE_VERSION
+ 
+ /* Define for Solaris 2.5.1 so the uint32_t typedef from <sys/synch.h>,
+    <pthread.h>, or <semaphore.h> is not used. If the typedef was allowed, the

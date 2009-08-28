@@ -1,11 +1,11 @@
 /*
  *
- * (C) Copyright IBM Corp. 1998-2006. All Rights Reserved.
+ * (C) Copyright IBM Corp. 1998-2008. All Rights Reserved.
  *
  * WARNING: THIS FILE IS MACHINE GENERATED. DO NOT HAND EDIT IT UNLESS
  * YOU REALLY KNOW WHAT YOU'RE DOING.
  *
- * Generated on: 08/21/2006 02:35:14 PM HST
+ * Generated on: 04/24/2008 10:19:13 AM HST
  */
 
 #include "LETypes.h"
@@ -94,10 +94,10 @@ const LETag OpenTypeLayoutEngine::scriptTags[] = {
     hungScriptTag, /* 'hung' (HUNG) */
     indsScriptTag, /* 'inds' (INDS) */
     javaScriptTag, /* 'java' (JAVA) */
-    kaliScriptTag, /* 'kali' (KALI) */
+    kaliScriptTag, /* 'kali' (KAYAH_LI) */
     latfScriptTag, /* 'latf' (LATF) */
     latgScriptTag, /* 'latg' (LATG) */
-    lepcScriptTag, /* 'lepc' (LEPC) */
+    lepcScriptTag, /* 'lepc' (LEPCHA) */
     linaScriptTag, /* 'lina' (LINA) */
     mandScriptTag, /* 'mand' (MAND) */
     mayaScriptTag, /* 'maya' (MAYA) */
@@ -114,11 +114,37 @@ const LETag OpenTypeLayoutEngine::scriptTags[] = {
     syrjScriptTag, /* 'syrj' (SYRJ) */
     syrnScriptTag, /* 'syrn' (SYRN) */
     tengScriptTag, /* 'teng' (TENG) */
-    vaiiScriptTag, /* 'vai ' (VAII) */
+    vaiiScriptTag, /* 'vai ' (VAI) */
     vispScriptTag, /* 'visp' (VISP) */
     xsuxScriptTag, /* 'xsux' (CUNEIFORM) */
     zxxxScriptTag, /* 'zxxx' (ZXXX) */
-    zzzzScriptTag  /* 'zzzz' (UNKNOWN) */
+    zzzzScriptTag, /* 'zzzz' (UNKNOWN) */
+    cariScriptTag, /* 'cari' (CARIAN) */
+    jpanScriptTag, /* 'jpan' (JPAN) */
+    lanaScriptTag, /* 'lana' (LANA) */
+    lyciScriptTag, /* 'lyci' (LYCIAN) */
+    lydiScriptTag, /* 'lydi' (LYDIAN) */
+    olckScriptTag, /* 'olck' (OL_CHIKI) */
+    rjngScriptTag, /* 'rjng' (REJANG) */
+    saurScriptTag, /* 'saur' (SAURASHTRA) */
+    sgnwScriptTag, /* 'sgnw' (SGNW) */
+    sundScriptTag, /* 'sund' (SUNDANESE) */
+    moonScriptTag, /* 'moon' (MOON) */
+    mteiScriptTag, /* 'mtei' (MTEI) */
+    armiScriptTag, /* 'armi' (ARMI) */
+    avstScriptTag, /* 'avst' (AVST) */
+    cakmScriptTag, /* 'cakm' (CAKM) */
+    koreScriptTag, /* 'kore' (KORE) */
+    kthiScriptTag, /* 'kthi' (KTHI) */
+    maniScriptTag, /* 'mani' (MANI) */
+    phliScriptTag, /* 'phli' (PHLI) */
+    phlpScriptTag, /* 'phlp' (PHLP) */
+    phlvScriptTag, /* 'phlv' (PHLV) */
+    prtiScriptTag, /* 'prti' (PRTI) */
+    samrScriptTag, /* 'samr' (SAMR) */
+    tavtScriptTag, /* 'tavt' (TAVT) */
+    zmthScriptTag, /* 'zmth' (ZMTH) */
+    zsymScriptTag  /* 'zsym' (ZSYM) */
 };
 
 const LETag OpenTypeLayoutEngine::languageTags[] = {
@@ -151,7 +177,49 @@ const LETag OpenTypeLayoutEngine::languageTags[] = {
     urdLanguageTag, /* 'URD' (Urdu) */
     zhpLanguageTag, /* 'ZHP' (Chinese (Phonetic)) */
     zhsLanguageTag, /* 'ZHS' (Chinese (Simplified)) */
-    zhtLanguageTag  /* 'ZHT' (Chinese (Traditional)) */
+    zhtLanguageTag, /* 'ZHT' (Chinese (Traditional)) */
+    afkLanguageTag, /* 'AFK' (Afrikaans) */
+    belLanguageTag, /* 'BEL' (Belarussian) */
+    bgrLanguageTag, /* 'BGR' (Bulgarian) */
+    catLanguageTag, /* 'CAT' (Catalan) */
+    cheLanguageTag, /* 'CHE' (Chechen) */
+    copLanguageTag, /* 'COP' (Coptic) */
+    csyLanguageTag, /* 'CSY' (Czech) */
+    danLanguageTag, /* 'DAN' (Danish) */
+    deuLanguageTag, /* 'DEU' (German) */
+    dznLanguageTag, /* 'DZN' (Dzongkha) */
+    ellLanguageTag, /* 'ELL' (Greek) */
+    engLanguageTag, /* 'ENG' (English) */
+    espLanguageTag, /* 'ESP' (Spanish) */
+    etiLanguageTag, /* 'ETI' (Estonian) */
+    euqLanguageTag, /* 'EUQ' (Basque) */
+    finLanguageTag, /* 'FIN' (Finnish) */
+    fraLanguageTag, /* 'FRA' (French) */
+    gaeLanguageTag, /* 'GAE' (Gaelic) */
+    hauLanguageTag, /* 'HAU' (Hausa) */
+    hrvLanguageTag, /* 'HRV' (Croation) */
+    hunLanguageTag, /* 'HUN' (Hungarian) */
+    hyeLanguageTag, /* 'HYE' (Armenian) */
+    indLanguageTag, /* 'IND' (Indonesian) */
+    itaLanguageTag, /* 'ITA' (Italian) */
+    khmLanguageTag, /* 'KHM' (Khmer) */
+    mngLanguageTag, /* 'MNG' (Mongolian) */
+    mtsLanguageTag, /* 'MTS' (Maltese) */
+    nepLanguageTag, /* 'NEP' (Nepali) */
+    nldLanguageTag, /* 'NLD' (Dutch) */
+    pasLanguageTag, /* 'PAS' (Pashto) */
+    plkLanguageTag, /* 'PLK' (Polish) */
+    ptgLanguageTag, /* 'PTG' (Portuguese) */
+    romLanguageTag, /* 'ROM' (Romanian) */
+    rusLanguageTag, /* 'RUS' (Russian) */
+    skyLanguageTag, /* 'SKY' (Slovak) */
+    slvLanguageTag, /* 'SLV' (Slovenian) */
+    sqiLanguageTag, /* 'SQI' (Albanian) */
+    srbLanguageTag, /* 'SRB' (Serbian) */
+    sveLanguageTag, /* 'SVE' (Swedish) */
+    tibLanguageTag, /* 'TIB' (Tibetan) */
+    trkLanguageTag, /* 'TRK' (Turkish) */
+    welLanguageTag  /* 'WEL' (Welsh) */
 };
 
 U_NAMESPACE_END

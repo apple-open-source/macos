@@ -37,7 +37,7 @@ static const struct map *in_word_set(const char *str);
 #define	have_LPBIG_OFFBIG	NULL
 #endif
 
-#if defined(__i386__) || defined(__powerpc__)
+#if defined(__i386__) || defined(__powerpc__) || defined(__x86_64__)
 #define	have_ILP32_OFFBIG	NULL
 #endif
 

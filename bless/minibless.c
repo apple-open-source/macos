@@ -43,7 +43,7 @@
 #include "bless.h"
 #include "protos.h"
 
-void usage(char *program);
+void miniusage(char *program);
 
 int main(int argc, char *argv[]) {
 	
@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {
 	
     
     if(argc != 2)
-		usage(argv[0]);
+		miniusage(argv[0]);
 	
     mountpath = argv[1];
 	
@@ -95,7 +95,7 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-void usage(char *program)
+void miniusage(char *program)
 {
     FILE *mystderr = fdopen(STDERR_FILENO, "w");
     

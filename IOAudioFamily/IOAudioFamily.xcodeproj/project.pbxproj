@@ -134,7 +134,7 @@
 		401DA4E50119EA6A05CA29EB /* Contents.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; name = Contents.rtf; path = Examples/Contents.rtf; sourceTree = "<group>"; };
 		4027DBB9010E532A05CA29EB /* HISTORY.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; path = HISTORY.rtf; sourceTree = "<group>"; };
 		4027DBBA010E55A905CA29EB /* IOAudioFamily-README.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; path = "IOAudioFamily-README.rtf"; sourceTree = "<group>"; };
-		79985E100B3B532700C7B13B /* Info-IOAudioFamily.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "Info-IOAudioFamily.plist"; sourceTree = "<group>"; };
+		79985E100B3B532700C7B13B /* Info-IOAudioFamily.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; path = "Info-IOAudioFamily.plist"; sourceTree = "<group>"; };
 		D63C4CF00B20BFAE0047FE0F /* IOAudioFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOAudioFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		D63C4CFB0B20BFAE0047FE0F /* libIOAudioFloatLib.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libIOAudioFloatLib.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		D63C4D160B20BFAE0047FE0F /* InstallHeaders */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = InstallHeaders; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -510,8 +510,11 @@
 		D63C4CEC0B20BFAE0047FE0F /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_CFLAGS = "-DDEBUG";
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -525,22 +528,22 @@
 				INFOPLIST_PREPROCESSOR_DEFINITIONS = DEBUG;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_MODULE = YES;
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
-				);
+				LIBRARY_SEARCH_PATHS = "$(inherited)";
 				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)/build/Development\"";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOAudioFamily;
-				MODULE_VERSION = 1.6.9fc5;
-				OTHER_CFLAGS = "$(DEBUG_CFLAGS)";
+				MODULE_VERSION = 1.7.0fc16;
+				OTHER_CFLAGS = (
+					"$(DEBUG_CFLAGS)",
+					"-DIOAUDIOFAMILY_SELF_BUILD",
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOAudioFamily;
 				SDKROOT = "";
 				SECTORDER_FLAGS = "";
 				UNSTRIPPED_PRODUCT = YES;
-				VALID_ARCHS = "ppc i386 x86_64 ppc64";
+				VALID_ARCHS = "x86_64 ppc i386";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -554,7 +557,10 @@
 		D63C4CED0B20BFAE0047FE0F /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -572,14 +578,17 @@
 				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)/build/Default\"";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOAudioFamily;
-				MODULE_VERSION = 1.6.9fc5;
-				OTHER_CFLAGS = "$(DEBUG_CFLAGS)";
+				MODULE_VERSION = 1.7.0fc16;
+				OTHER_CFLAGS = (
+					"$(DEBUG_CFLAGS)",
+					"-DIOAUDIOFAMILY_SELF_BUILD",
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOAudioFamily;
 				SDKROOT = "";
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386 ppc64 x86_64";
+				VALID_ARCHS = "x86_64 ppc i386";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -593,7 +602,9 @@
 		D63C4CEE0B20BFAE0047FE0F /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH_32_BIT)";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_OPTIMIZATION_LEVEL = s;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
@@ -608,14 +619,17 @@
 				MACOSX_DEPLOYMENT_TARGET = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOAudioFamily;
-				MODULE_VERSION = 1.6.9fc5;
-				OTHER_CFLAGS = "$(DEBUG_CFLAGS)";
+				MODULE_VERSION = 1.7.0fc16;
+				OTHER_CFLAGS = (
+					"$(DEBUG_CFLAGS)",
+					"-DIOAUDIOFAMILY_SELF_BUILD",
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOAudioFamily;
 				SDKROOT = "";
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "x86_64 ppc i386";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -628,8 +642,11 @@
 		D63C4CF80B20BFAE0047FE0F /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_CFLAGS = "-DDEBUG";
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -660,7 +677,10 @@
 					"-fcheck-new",
 					"-findirect-virtual-calls",
 					"-static",
+					"$(OTHER_CFLAGS_$(arch))",
+					"-DIOAUDIOFAMILY_SELF_BUILD",
 				);
+				OTHER_CFLAGS_x86_64 = "-mkernel";
 				OTHER_LDFLAGS = "-static";
 				OTHER_LIBTOOL_FLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -670,7 +690,7 @@
 				SDKROOT = "";
 				SECTORDER_FLAGS = "";
 				UNSTRIPPED_PRODUCT = YES;
-				VALID_ARCHS = "x86_64 ppc64 ppc i386";
+				VALID_ARCHS = "x86_64 ppc i386";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -683,7 +703,10 @@
 		D63C4CF90B20BFAE0047FE0F /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				GCC_ENABLE_CPP_EXCEPTIONS = NO;
@@ -712,7 +735,10 @@
 					"-fcheck-new",
 					"-findirect-virtual-calls",
 					"-static",
+					"$(OTHER_CFLAGS_$(arch))",
+					"-DIOAUDIOFAMILY_SELF_BUILD",
 				);
+				OTHER_CFLAGS_x86_64 = "-mkernel";
 				OTHER_LDFLAGS = "-static";
 				OTHER_LIBTOOL_FLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -721,7 +747,7 @@
 				REZ_EXECUTABLE = YES;
 				SDKROOT = "";
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "x86_64 ppc64 ppc i386";
+				VALID_ARCHS = "x86_64 ppc i386";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -734,7 +760,9 @@
 		D63C4CFA0B20BFAE0047FE0F /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH_32_BIT)";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				GCC_ENABLE_CPP_EXCEPTIONS = NO;
@@ -762,7 +790,10 @@
 					"-fcheck-new",
 					"-findirect-virtual-calls",
 					"-static",
+					"$(OTHER_CFLAGS_$(arch))",
+					"-DIOAUDIOFAMILY_SELF_BUILD",
 				);
+				OTHER_CFLAGS_x86_64 = "-mkernel";
 				OTHER_LDFLAGS = "-static";
 				OTHER_LIBTOOL_FLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -771,7 +802,7 @@
 				REZ_EXECUTABLE = YES;
 				SDKROOT = "";
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "x86_64 ppc i386";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",

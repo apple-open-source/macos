@@ -1,3 +1,15 @@
+.\"     # DS - begin display
+.de DS
+.RS
+.nf
+.sp
+..
+.\"     # DE - end display
+.de DE
+.fi
+.RE
+.sp
+..
 .TH rlm_sql_log 5 "28 May 2005" "" "FreeRADIUS Module"
 .SH NAME
 rlm_sql_log \- FreeRADIUS Module
@@ -13,7 +25,7 @@ of "radiusd.conf"), then this module allows you to log SQL queries to
 a file, and then process them at your leisure.
 .PP
 The benefit of this approach is that for a busy server, the overhead
-of performing SQL queries may be significant.  Also, if the SQL
+of performing SQL qeuries may be significant.  Also, if the SQL
 databases are large (as is typical for ones storing months of data),
 the INSERTs and UPDATEs may take a relatively long time.  Rather than
 slowing down the RADIUS server by having it interact with a database,
@@ -58,11 +70,13 @@ modules {
 .br
   sql_log {
 .br
-    path = ${radacctdir}/sql-relay
+    path = "${radacctdir}/sql-relay"
 .br
     acct_table = "radacct"
 .br
     postauth_table = "radpostauth"
+.br
+    sql_user_name = "%{%{User-Name}:-DEFAULT}"
 .br
 
 .br

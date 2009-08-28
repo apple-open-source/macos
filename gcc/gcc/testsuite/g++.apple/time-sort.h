@@ -223,4 +223,3 @@ operator >= (const elapsed_time& x, const elapsed_time& y)
 }
 
 #endif  // HTIMER
-

@@ -19,6 +19,8 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
+#if defined(__ppc__)
  
  
 #ifndef _DRV_MACIO_ATA_H
@@ -33,7 +35,7 @@
 #include <IOKit/IOInterruptEventSource.h>
 
 
-/*! @class MacIOATA : public IOATAController
+/*! @class MacIOATA
     @abstract The base class for MAC-IO ata controller family. .
     @discussion class defining the portions of MacIO ATA cells which are shared
 	in common between Heathrow and Key Largo ATA Cells.
@@ -44,11 +46,11 @@
 	by a specific driver subclass. As much common code as possible is 
 	presented in this superclass.
 
-*/    
+*/
 
 class MacIOATA : public IOATAController
 {
-    OSDeclareDefaultStructors(MacIOATA)
+    OSDeclareDefaultStructors(MacIOATA);
 
 public:
 
@@ -109,7 +111,7 @@ protected:
 	bool	_resyncInterrupts;
 /*! @struct ExpansionData
     @discussion This structure will be used to expand the capablilties of the IOWorkLoop in the future.
-    */    
+    */
     struct ExpansionData { };
 
 /*! @var reserved
@@ -218,3 +220,6 @@ private:
 };
 
 #endif // _DRV_MACIO_ATA_H
+
+
+#endif // defined(ppc)

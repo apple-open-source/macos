@@ -20,14 +20,14 @@
  * @APPLE_LICENSE_HEADER_END@
  */
  
-#include <IOKit/audio/IOAudioDebug.h>
-#include <IOKit/audio/IOAudioEngine.h>
-#include <IOKit/audio/IOAudioEngineUserClient.h>
-#include <IOKit/audio/IOAudioDevice.h>
-#include <IOKit/audio/IOAudioStream.h>
-#include <IOKit/audio/IOAudioTypes.h>
-#include <IOKit/audio/IOAudioDefines.h>
-#include <IOKit/audio/IOAudioControl.h>
+#include "IOAudioDebug.h"
+#include "IOAudioEngine.h"
+#include "IOAudioEngineUserClient.h"
+#include "IOAudioDevice.h"
+#include "IOAudioStream.h"
+#include "IOAudioTypes.h"
+#include "IOAudioDefines.h"
+#include "IOAudioControl.h"
 #include <IOKit/IOLib.h>
 #include <IOKit/IOWorkLoop.h>
 #include <IOKit/IOCommandGate.h>
@@ -138,10 +138,16 @@ IOReturn IOAudioEngine::convertInputSamplesVBR(const void *sampleBuf, void *dest
 
 // OSMetaClassDefineReservedUsed(IOAudioEngine, 8);
 void IOAudioEngine::setClockDomain(UInt32 inClockDomain) {
+
 	UInt32		clockDomain;
 
 	if (kIOAudioNewClockDomain == inClockDomain) {
-		clockDomain = (UInt32)this;
+#if __LP64__	
+		clockDomain = (UInt32) ((UInt64)this >> 2) ; // grab a couple of bits from the high address to help randomness
+#else
+		clockDomain = (UInt32) this ;
+#endif
+
 	} else {
 		clockDomain = inClockDomain;
 	}
@@ -416,7 +422,7 @@ bool IOAudioEngine::init(OSDictionary *properties)
 
     setState(kIOAudioEngineStopped);
 
-#if __i386__
+#if __i386__ || __x86_64__
 	setProperty(kIOAudioEngineFlavorKey, (UInt32)kIOAudioStreamByteOrderLittleEndian, sizeof(UInt32)*8);
 #elif __ppc__
 	setProperty(kIOAudioEngineFlavorKey, (unsigned long long)kIOAudioStreamByteOrderBigEndian, sizeof(UInt32)*8);
@@ -679,7 +685,7 @@ OSString *IOAudioEngine::getLocalUniqueID()
 	int strSize = (sizeof(UInt32)*2)+1;
     char localUniqueIDStr[strSize];
    
-    snprintf(localUniqueIDStr, strSize, "%lx", index);
+    snprintf(localUniqueIDStr, strSize, "%lx", (long unsigned int)index);
     
     localUniqueID = OSString::withCString(localUniqueIDStr);
     
@@ -718,8 +724,14 @@ void IOAudioEngine::resetStatusBuffer()
     assert(status);
     
     status->fCurrentLoopCount = 0;
-    status->fLastLoopTime.hi = 0;
-    status->fLastLoopTime.lo = 0;
+    
+#if __LP64__
+	status->fLastLoopTime = 0;
+#else
+	status->fLastLoopTime.hi = 0;
+	status->fLastLoopTime.lo = 0;
+#endif
+
     status->fEraseHeadSampleFrame = 0;
     
     stopEngineAtPosition(NULL);
@@ -771,7 +783,7 @@ IOReturn IOAudioEngine::createUserClient(task_t task, void *securityID, UInt32 t
 
 IOReturn IOAudioEngine::newUserClient(task_t task, void *securityID, UInt32 type, IOUserClient **handler)
 {
-#if __i386__
+#if __i386__ || __x86_64__
     return kIOReturnUnsupported;
 #else
     IOReturn				result = kIOReturnSuccess;
@@ -819,7 +831,7 @@ IOReturn IOAudioEngine::newUserClient(task_t task, void *securityID, UInt32 type
 		return kIOReturnSuccess;
 	}
 	
-    audioDebugIOLog(3, "IOAudioEngine[%p]::newUserClient(0x%x, %p, 0x%lx, %p, %p)", this, (unsigned int)task, securityID, type, properties, handler);
+    audioDebugIOLog(3, "IOAudioEngine[%p]::newUserClient(0x%p, %p, 0x%lx, %p, %p)", this, task, securityID, type, properties, handler);
 	
     if (!isInactive()) {
         result = createUserClient(task, securityID, type, &client, properties);
@@ -1571,7 +1583,7 @@ void IOAudioEngine::setNumSampleFramesPerBuffer(UInt32 numSampleFrames)
     audioDebugIOLog(3, "IOAudioEngine[%p]::setNumSampleFramesPerBuffer(0x%lx)", this, numSampleFrames);
 
     if (getState() == kIOAudioEngineRunning) {
-        IOLog("IOAudioEngine[%p]::setNumSampleFramesPerBuffer(0x%lx) - Error: can't change num sample frames while engine is running.\n", this, numSampleFrames);
+        IOLog("IOAudioEngine[%p]::setNumSampleFramesPerBuffer(0x%ld) - Error: can't change num sample frames while engine is running.\n", this, (long int) numSampleFrames);
     } else {
         numSampleFramesPerBuffer = numSampleFrames;
         setProperty(kIOAudioEngineNumSampleFramesPerBufferKey, numSampleFramesPerBuffer, sizeof(UInt32)*8);
@@ -1942,8 +1954,12 @@ void IOAudioEngine::takeTimeStamp(bool incrementLoopCount, AbsoluteTime *timesta
     
     assert(status);
     
+#if __LP64__
+    status->fLastLoopTime = *ts;
+#else
     status->fLastLoopTime.hi = ts->hi;
     status->fLastLoopTime.lo = ts->lo;
+#endif
     
     if (incrementLoopCount) {
         ++status->fCurrentLoopCount;
@@ -1959,20 +1975,33 @@ IOReturn IOAudioEngine::getLoopCountAndTimeStamp(UInt32 *loopCount, AbsoluteTime
     if (loopCount && timestamp) {
         assert(status);
         
+#if __LP64__
+		*timestamp = status->fLastLoopTime;
+#else
         timestamp->hi = status->fLastLoopTime.hi;
-        timestamp->lo = status->fLastLoopTime.lo;
+		timestamp->lo = status->fLastLoopTime.lo;
+#endif
         *loopCount = status->fCurrentLoopCount;
         
+#if __LP64__
+        nextTimestamp = status->fLastLoopTime;
+#else
         nextTimestamp.hi = status->fLastLoopTime.hi;
         nextTimestamp.lo = status->fLastLoopTime.lo;
+#endif
         nextLoopCount = status->fCurrentLoopCount;
         
         while ((*loopCount != nextLoopCount) || (CMP_ABSOLUTETIME(timestamp, &nextTimestamp) != 0)) {
             *timestamp = nextTimestamp;
             *loopCount = nextLoopCount;
             
+#if __LP64__
+            nextTimestamp = status->fLastLoopTime;
+
+#else
             nextTimestamp.hi = status->fLastLoopTime.hi;
             nextTimestamp.lo = status->fLastLoopTime.lo;
+#endif
             nextLoopCount = status->fCurrentLoopCount;
         }
         

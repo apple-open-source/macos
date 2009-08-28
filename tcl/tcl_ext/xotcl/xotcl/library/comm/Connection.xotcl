@@ -1,0 +1,256 @@
+# -*- tcl -*- $Id: Connection.xotcl,v 1.6 2006/09/27 08:12:40 neumann Exp $
+
+package provide xotcl::comm::connection 1.0
+
+package require XOTcl
+
+namespace eval ::xotcl::comm::connection {
+    namespace import ::xotcl::*
+
+    Class Connection -parameter {host port req socket handle}
+
+    Connection proc make {r host port reuse reusedVar} {
+	#my showCall
+	my instvar openConnections
+	upvar [self callinglevel] $reusedVar reused
+	if {$reuse} {
+	    set handle $host:$port-[$r set blocking]
+	    #if {[array exists openConnections]} {parray openConnections}
+	    if {![info exists openConnections($handle)]} {
+		# there is no persistent connection, we create a new one
+		set reused 0
+		set openConnections($handle) \
+		    [Connection new -host $host -port $port -req $r -handle $handle]
+		#my showMsg "$openConnections($handle) CONNECTION add for $handle added"
+	    } else {
+		# there is a persistent connection
+		set reused 1
+		set c $openConnections($handle)
+		$c instvar req
+		#::puts stderr "$c CONNECTION reuse for $handle ($c) new req=$r"
+		if {[info exists req]} {
+		    # the persistent connection is active with some request $req
+		    #::puts stderr "$c CONNECTION req $req already active"
+		} else {
+		    # the persistent connection is currently not active
+		    $c set req $r
+		}
+	    }
+	    return $openConnections($handle)
+	} else {
+	    set reused 0
+	    return [Connection new -host $host -port $port -req $r]
+	}
+    }
+    Connection proc removeHandle handle {
+	#my showVars
+	#puts stderr "***************** unsetting $handle ***************"
+	if {[my exists openConnections($handle)]} {
+	    my unset openConnections($handle)
+	}
+    }
+    Connection instproc init args {  ;# the constructor creates the socket
+	my set blocked {}
+	next
+	if {[my exists socket]} {
+	    my set keepOpen 1
+	} else {
+	    my set keepOpen 0
+	    if {[catch {my socket [socket -async [my host] [my port]]} msg]} {
+		my set error $msg
+		return
+	    }
+	}
+	::fconfigure [my socket] -blocking false -buffersize 16384
+    }
+    #Connection instproc STATUS {ctx} {
+    #  my instvar socket
+    #  ::puts stderr "*** $ctx: $socket blocking=[::fconfigure $socket -blocking]"
+    #}
+    Connection instproc destroy {} { ;# the destructor closes the socket
+	#my showCall
+	if {[my exists handle]} {
+	    #my showVars handle
+	    # the connection was created via make
+	    [self class] removeHandle [my handle]
+	    #::puts stderr "my CONNECTION close and destroy [my handle]"
+	} else {
+	    #::puts stderr "my CONNECTION close and destroy"
+	}
+	# in cases of errors we might not have a socket yet
+	if {[my exists socket]} {
+	    close [my socket]
+	}
+	next
+    }
+    Connection instproc translation {translation} {
+	#showCall
+	::fconfigure [my socket] -translation $translation
+    }    
+    Connection instproc importSSL args {
+	#my showCall
+	package require tls
+	eval tls::import [my socket] $args
+    }
+    Connection instproc fconfigure args {
+	#my showCall
+	eval ::fconfigure [my socket] $args
+    }    
+    Connection instproc event {type r method} {
+	#my showCall
+	my instvar req blocked
+	# is the request in the argument list the currently active request?
+	if {[info exists req] && $r == $req} {
+	    # a request can overwrite its active request
+	    if {$method eq ""} {
+		::fileevent [my socket] $type ""
+		#my showMsg "CONNECTION clear for [my socket]"
+	    } else {
+		#my showMsg "CONNECTION register for [my socket]"
+		::fileevent [my socket] $type [list $r $method]
+	    }
+	} else {
+	    #my showMsg "event BLOCKING current request=$req, new=$r $method"
+	    #my showMsg "event BLOCKING rd=[::fileevent [my socket] readable]"
+	    #my showMsg "event BLOCKING wr=[::fileevent [my socket] writable]"
+	    #my showMsg "event BLOCKING bl=$blocked"
+	    ::lappend blocked $r $type $method
+	}
+    }
+    Connection instproc hold {} {
+	my set continueCmd [list ::fileevent [my socket] readable \
+				[::fileevent [my socket] readable]]
+	::fileevent $socket readable {}
+	#my showVars continueCmd
+    }
+    Connection instproc resume {} {
+	#my showCall
+	if {[my exists continueCmd]} {
+	    eval [my set continueCmd]
+	    my unset continueCmd
+	}
+    }
+
+    Connection instproc puts {string} {
+	#my showCall
+	if {[catch {::puts [my socket] $string} msg]} {
+	    ::puts stderr message=$msg
+	}
+    }
+    Connection instproc puts-nonewline {string} {
+	#my showCall
+	if {[catch {::puts -nonewline [my socket] $string} msg]} {
+	    ::puts stderr message=$msg
+	}
+    }
+    Connection instproc gets {var} {
+	#my showCall
+	upvar [self callinglevel] $var result
+	if {[catch {set n [::gets [my socket] result]} msg]} {
+	    my set error $msg 
+	    #my showMsg "CONNECTION error"
+	    return 0
+	}
+	#my showMsg "n=$n, result=<$result>"
+	return $n
+    }
+    Connection instproc read {} {
+	#my showCall
+	my instvar socket
+	if {[catch {set result [::read $socket [::fconfigure $socket -buffersize]]} msg]} {
+	    my set error $msg 
+	    return ""
+	}
+	#my showMsg Done
+	return $result
+    }
+    Connection instproc readSize {length} {
+	if {[catch {set result [::read [my socket] $length]} msg]} {
+	    my set error $msg 
+	    return 0
+	}
+	return $result
+    }
+    Connection instproc flush {} {
+	#my showCall
+	if {[catch {::flush [my socket]} msg]} {
+	    my set error $msg 
+	}
+    }
+    Connection instproc eof {} {
+	#my showCall
+	if {[my exists error]} {
+	    return 1
+	} else {
+	    return [::eof [my socket]]
+	}
+    }
+    Connection instproc close {} {
+	#my showCall
+	my instvar req socket blocked
+	if {![info exists socket]} return ;# error during connection open
+	::fileevent $socket readable ""
+	::fileevent $socket writable ""
+	$req freeConnection
+	if {[my exists persistent]} {
+	    my flush
+	    #::puts stderr "[self] PERSISTENT CONNECTION wanna close"
+	    if {$blocked eq ""} {
+		::fileevent $socket readable [list [self] destroy]
+		unset req
+	    } else {
+		#my showVars blocked
+		set req [lindex $blocked 0]
+		set type [lindex $blocked 1]
+		set method [lindex $blocked 2]
+		set blocked [lrange $blocked 3 end]
+		#my showMsg "in persistent connection unblock $type [list $req $method]"
+		::fileevent $socket $type [list $req $method]
+	    }
+	} else {
+	    #my showMsg "in nonpersistent connection blocked=$blocked"
+	    if {$blocked ne ""} {
+		set req [lindex $blocked 0]
+		set type [lindex $blocked 1]
+		set method [lindex $blocked 2]
+		set nblocked [lrange $blocked 3 end]
+		close $socket
+		unset socket
+		if {[my exists handle]} {
+		    [self class] removeHandle [my handle]
+		}
+		if {[my exists error]} {
+		    #my showMsg "UNSETTING ERROR -----------"
+		    my unset error
+		}
+		my init
+		set blocked $nblocked
+		::fileevent $socket $type [list $req $method]
+		#my showMsg "REANIMATE $socket $type [list $req $method]"
+		#my showVars
+	    } else {
+		#my showMsg "Nothing blocked: readable=[::fileevent $socket readable]"
+
+		my destroy
+	    }
+	}
+    }
+    Connection instproc makePersistent {p} {
+	if {$p} {
+	    my set persistent 1
+	} else {
+	    if {[my exists persistent]} {
+		my unset persistent
+		#my showMsg "no longer persistent"
+	    }
+	}
+    }
+
+    namespace export Connection
+}
+
+namespace import ::xotcl::comm::connection::*
+
+if {[info command bgerror] eq ""} {
+    proc bgerror {msg} { puts stderr "******* bgerror $msg $::errorInfo*****"}
+}

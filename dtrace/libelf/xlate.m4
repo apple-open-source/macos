@@ -20,19 +20,13 @@
  */
 
 /*
- * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)xlate.m4	1.27	06/03/07 SMI"
-
-// XXX_PRAGMA_WEAK #pragma weak elf32_fsize = _elf32_fsize
-// XXX_PRAGMA_WEAK #pragma weak elf_version = _elf_version
-// XXX_PRAGMA_WEAK #pragma weak elf32_xlatetof = _elf32_xlatetof
-// XXX_PRAGMA_WEAK #pragma weak elf32_xlatetom = _elf32_xlatetom
+#pragma ident	"@(#)xlate.m4	1.30	08/05/31 SMI"
 
 #if !defined(__APPLE__)
-#include "syn.h"
 #include <memory.h>
 #include <libelf.h>
 #include <link.h>
@@ -52,6 +46,7 @@
 #include <msg.h>
 /* NOTHING */ /* In lieu of Solaris <sys/sgs.h> */
 #endif /* __APPLE__ */
+
 
 /*
  * fmsize:  Array used to determine what size the the structures
@@ -700,18 +695,6 @@ static const Elf_Type	mtype[EV_CURRENT][SHT_NUM] =
 
 
 size_t
-_elf32_entsz(Elf32_Word shtype, unsigned ver)
-{
-	Elf_Type	ttype;
-
-	if (shtype >= sizeof (mtype[0]) / sizeof (mtype[0][0]) ||
-	    (ttype = mtype[ver - 1][shtype]) == ELF_T_BYTE)
-		return (0);
-	return (fmsize[ver - 1][ttype].s_filesz);
-}
-
-
-size_t
 elf32_fsize(Elf_Type type, size_t count, unsigned ver)
 {
 	if (--ver >= EV_CURRENT) {
@@ -742,6 +725,11 @@ _elf32_mtype(Elf * elf, Elf32_Word shtype, unsigned ver)
 		return (mtype[ver - 1][shtype]);
 
 	switch (shtype) {
+	case SHT_SUNW_symsort:
+	case SHT_SUNW_tlssort:
+		return (ELF_T_WORD);
+	case SHT_SUNW_LDYNSYM:
+		return (ELF_T_SYM);
 	case SHT_SUNW_dof:
 		return (ELF_T_BYTE);
 	case SHT_SUNW_cap:
@@ -805,6 +793,41 @@ _elf32_mtype(Elf * elf, Elf32_Word shtype, unsigned ver)
 }
 
 
+size_t
+_elf32_entsz(Elf *elf, Elf32_Word shtype, unsigned ver)
+{
+	Elf_Type	ttype;
+
+	ttype = _elf32_mtype(elf, shtype, ver);
+	return ((ttype == ELF_T_BYTE) ? 0 : fmsize[ver - 1][ttype].s_filesz); 
+}
+
+
+/*
+ * Determine the data encoding used by the current system.
+ */
+uint_t
+_elf_sys_encoding(void)
+{
+	union {
+		Elf32_Word	w;
+		unsigned char	c[W_sizeof];
+	} u;
+
+	u.w = 0x10203;
+	/*CONSTANTCONDITION*/
+	if (~(Elf32_Word)0 == -(Elf32_Sword)1 && tomw(u.c, W_L) == 0x10203)
+		return (ELFDATA2LSB);
+
+	/*CONSTANTCONDITION*/
+	if (~(Elf32_Word)0 == -(Elf32_Sword)1 && tomw(u.c, W_M) == 0x10203)
+		return (ELFDATA2MSB);
+
+	/* Not expected to occur */
+	return (ELFDATANONE);
+}
+
+
 /*
  * XX64	This routine is also used to 'version' interactions with Elf64
  *	applications, but there's no way to figure out if the caller is
@@ -815,13 +838,6 @@ unsigned
 elf_version(unsigned ver)
 {
 	register unsigned	j;
-	union
-	{
-		Elf32_Word	w;
-		unsigned char	c[W_sizeof];
-	} u;
-
-
 
 	if (ver == EV_NONE)
 		return EV_CURRENT;
@@ -840,15 +856,7 @@ elf_version(unsigned ver)
 	}
 	_elf_work = ver;
 
-	u.w = 0x10203;
-	/*CONSTANTCONDITION*/
-	if (~(Elf32_Word)0 == -(Elf32_Sword)1
-	&& tomw(u.c, W_L) == 0x10203)
-		_elf_encode = ELFDATA2LSB;
-	/*CONSTANTCONDITION*/
-	else if (~(Elf32_Word)0 == -(Elf32_Sword)1
-	&& tomw(u.c, W_M) == 0x10203)
-		_elf_encode = ELFDATA2MSB;
+	_elf_encode = _elf_sys_encoding();
 
 	(void) mutex_unlock(&_elf_globals_mutex);
 

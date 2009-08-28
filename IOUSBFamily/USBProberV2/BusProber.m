@@ -255,11 +255,11 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
 	{
 		if ([[NSUserDefaults standardUserDefaults] boolForKey:@"BusProbeSuspended"] == YES)
 		{
-			needToSuspend = TRUE;
+		needToSuspend = TRUE;
 
-			error = SuspendDevice(deviceIntf,false);
-		}
-		
+  		error = SuspendDevice(deviceIntf,false);
+	}
+	
 		else
 		{
 			error = kIOReturnNotResponding;
@@ -267,7 +267,7 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
 	}
 	
 	if (error == kIOReturnSuccess)
-		error = GetDescriptor(deviceIntf, kUSBDeviceDesc, 0, &dev, sizeof(dev));
+	error = GetDescriptor(deviceIntf, kUSBDeviceDesc, 0, &dev, sizeof(dev));
 	
 	if ( error == kIOReturnSuccess )
 	{
@@ -314,9 +314,9 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
 	}
 		else
 		{
-			// This description will be shown in the UI, to the right of the device's name
-			[thisDevice setDeviceDescription: [NSString stringWithFormat:@"%@ (did not respond to inquiry - %s (0x%x))", usbName, USBErrorToString(error), error]];
-		}
+		// This description will be shown in the UI, to the right of the device's name
+		[thisDevice setDeviceDescription: [NSString stringWithFormat:@"%@ (did not respond to inquiry - %s (0x%x))", usbName, USBErrorToString(error), error]];
+	}
 	}
 	
 	

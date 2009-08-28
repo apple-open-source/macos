@@ -1,6 +1,7 @@
 /* Top level of GCC compilers (cc1, cc1plus, etc.)
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -16,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This is the top level of cc1/c++.
    It parses command args, opens files, invokes the various passes
@@ -108,8 +109,6 @@ static void init_asm_output (const char *);
 static void finalize (void);
 
 static void crash_signal (int) ATTRIBUTE_NORETURN;
-/* APPLE LOCAL interrupt signal handler (radar 2941633)  --ilr */
-static void interrupt_signal (int) ATTRIBUTE_NORETURN;
 static void setup_core_dumping (void);
 static void compile_file (void);
 
@@ -147,7 +146,7 @@ location_t unknown_location = { NULL, 0 };
 
 /* Used to enable -fvar-tracking, -fweb and -frename-registers according
    to optimize and default_debug_hooks in process_options ().  */
-#define AUTODETECT_FLAG_VAR_TRACKING 2
+#define AUTODETECT_VALUE 2
 
 /* Current position in real source file.  */
 
@@ -164,6 +163,16 @@ struct file_stack *input_file_stack;
 
 /* Incremented on each change to input_file_stack.  */
 int input_file_stack_tick;
+
+/* Record of input_file_stack at each tick.  */
+typedef struct file_stack *fs_p;
+DEF_VEC_P(fs_p);
+DEF_VEC_ALLOC_P(fs_p,heap);
+static VEC(fs_p,heap) *input_file_stack_history;
+
+/* Whether input_file_stack has been restored to a previous state (in
+   which case there should be no more pushing).  */
+static bool input_file_stack_restored;
 
 /* Name to use as base of names for dump output files.  */
 
@@ -243,12 +252,12 @@ int flag_signed_char;
 
 int flag_short_enums;
 
-/* APPLE LOCAL begin -fast */
+/* APPLE LOCAL begin -fast or -fastf or -fastcp */
 /* Nonzero if we should perform SPEC oriented optimizations.  */
 int flag_fast = 0;
 int flag_fastf = 0;
 int flag_fastcp = 0;
-/* APPLE LOCAL end -fast */
+/* APPLE LOCAL end -fast or -fastf or -fastcp */
 
 /* Nonzero if structures and unions should be returned in memory.
 
@@ -304,6 +313,14 @@ const char *aux_info_file_name;
 
 int flag_shlib;
 
+/* Generate code for GNU or NeXT Objective-C runtime environment.  */
+
+#ifdef NEXT_OBJC_RUNTIME
+int flag_next_runtime = 1;
+#else
+int flag_next_runtime = 0;
+#endif
+
 /* Set to the default thread-local storage (tls) model to use.  */
 
 enum tls_model flag_tls_default = TLS_MODEL_GLOBAL_DYNAMIC;
@@ -345,9 +362,9 @@ int predictive_compilation = -1;
 /* APPLE LOCAL end predictive compilation */
 
 /* Nonzero if we should track variables.  When
-   flag_var_tracking == AUTODETECT_FLAG_VAR_TRACKING it will be set according
+   flag_var_tracking == AUTODETECT_VALUE it will be set according
    to optimize, debug_info_level and debug_hooks in process_options ().  */
-int flag_var_tracking = AUTODETECT_FLAG_VAR_TRACKING;
+int flag_var_tracking = AUTODETECT_VALUE;
 
 /* True if the user has tagged the function with the 'section'
    attribute.  */
@@ -369,9 +386,9 @@ int align_labels_log;
 int align_labels_max_skip;
 int align_functions_log;
 
-/* Like align_functions_log above, but used by front-ends to force the
-   minimum function alignment.  Zero means no alignment is forced.  */
-int force_align_functions_log;
+/* APPLE LOCAL begin mainline aligned functions 5933878 */
+/* Removed force_align_functions_log.  */
+/* APPLE LOCAL end mainline aligned functions 5933878 */
 
 typedef struct
 {
@@ -394,38 +411,6 @@ static const param_info lang_independent_params[] = {
 #undef DEFPARAM
   { NULL, 0, 0, 0, NULL }
 };
-
-/* Here is a table, controlled by the tm.h file, listing each -m switch
-   and which bits in `target_switches' it should set or clear.
-   If VALUE is positive, it is bits to set.
-   If VALUE is negative, -VALUE is bits to clear.
-   (The sign bit is not used so there is no confusion.)  */
-
-static const struct
-{
-  const char *const name;
-  const int value;
-  const char *const description;
-}
-target_switches[] = TARGET_SWITCHES;
-
-/* This table is similar, but allows the switch to have a value.  */
-
-#ifdef TARGET_OPTIONS
-static const struct
-{
-  const char *const prefix;
-  const char **const variable;
-  const char *const description;
-  const char *const value;
-}
-target_options[] = TARGET_OPTIONS;
-#endif
-
-/* Nonzero means warn about function definitions that default the return type
-   or that use a null return and have a return-type other than void.  */
-
-int warn_return_type;
 
 /* Output files for assembler code (real compiler output)
    and debugging dumps.  */
@@ -492,9 +477,9 @@ announce_function (tree decl)
   if (!quiet_flag)
     {
       if (rtl_dump_and_exit)
-	verbatim ("%s ", IDENTIFIER_POINTER (DECL_NAME (decl)));
+	fprintf (stderr, "%s ", IDENTIFIER_POINTER (DECL_NAME (decl)));
       else
-	verbatim (" %s", lang_hooks.decl_printable_name (decl, 2));
+	fprintf (stderr, " %s", lang_hooks.decl_printable_name (decl, 2));
       fflush (stderr);
       pp_needs_newline (global_dc->printer) = true;
       diagnostic_set_last_function (global_dc);
@@ -566,6 +551,12 @@ read_integral_parameter (const char *p, const char *pname, const int  defval)
   return atoi (p);
 }
 
+/* When compiling with a recent enough GCC, we use the GNU C "extern inline"
+   for floor_log2 and exact_log2; see toplev.h.  That construct, however,
+   conflicts with the ISO C++ One Definition Rule.   */
+
+#if GCC_VERSION < 3004 || !defined (__cplusplus)
+
 /* Given X, an unsigned number, return the largest int Y such that 2**Y <= X.
    If X is 0, return -1.  */
 
@@ -601,30 +592,6 @@ floor_log2 (unsigned HOST_WIDE_INT x)
   return t;
 }
 
-/* APPLE LOCAL begin interrupt signal handler (radar 2941633)  --ilr */
-/* If the compilation is interrupted do some cleanup. Any files created
-   by the compilation are deleted.  The compilation is terminated from
-   here.  */
-static void
-interrupt_signal (int signo ATTRIBUTE_UNUSED)
-{
-  /* Close the dump files.  */
-  if (flag_gen_aux_info)
-    {
-      fclose (aux_info_file);
-      unlink (aux_info_file_name);
-    }
-  if (asm_out_file)
-    {
-      fclose (asm_out_file);
-      if (asm_file_name && *asm_file_name)
-      	unlink (asm_file_name);
-    }
-
-  exit (FATAL_EXIT_CODE);
-}
-/* APPLE LOCAL end interrupt signal handler */
-
 /* Return the logarithm of X, base 2, considering X unsigned,
    if X is a power of 2.  Otherwise, returns -1.  */
 
@@ -639,6 +606,8 @@ exact_log2 (unsigned HOST_WIDE_INT x)
   return floor_log2 (x);
 #endif
 }
+
+#endif /*  GCC_VERSION < 3004 || !defined (__cplusplus)  */
 
 /* Handler for fatal signals, such as SIGSEGV.  These are transformed
    into ICE messages, which is much more user friendly.  In case the
@@ -759,184 +728,196 @@ output_file_directive (FILE *asm_file, const char *input_name)
 #endif
 }
 
+/* A subroutine of wrapup_global_declarations.  We've come to the end of
+   the compilation unit.  All deferred variables should be undeferred,
+   and all incomplete decls should be finalized.  */
+
+void
+wrapup_global_declaration_1 (tree decl)
+{
+  /* We're not deferring this any longer.  Assignment is conditional to
+     avoid needlessly dirtying PCH pages.  */
+  if (CODE_CONTAINS_STRUCT (TREE_CODE (decl), TS_DECL_WITH_VIS)
+      && DECL_DEFER_OUTPUT (decl) != 0)
+    DECL_DEFER_OUTPUT (decl) = 0;
+
+  if (TREE_CODE (decl) == VAR_DECL && DECL_SIZE (decl) == 0)
+    lang_hooks.finish_incomplete_decl (decl);
+}
+
+/* A subroutine of wrapup_global_declarations.  Decide whether or not DECL
+   needs to be output.  Return true if it is output.  */
+
+bool
+wrapup_global_declaration_2 (tree decl)
+{
+  if (TREE_ASM_WRITTEN (decl) || DECL_EXTERNAL (decl))
+    return false;
+
+  /* Don't write out static consts, unless we still need them.
+
+     We also keep static consts if not optimizing (for debugging),
+     unless the user specified -fno-keep-static-consts.
+     ??? They might be better written into the debug information.
+     This is possible when using DWARF.
+
+     A language processor that wants static constants to be always
+     written out (even if it is not used) is responsible for
+     calling rest_of_decl_compilation itself.  E.g. the C front-end
+     calls rest_of_decl_compilation from finish_decl.
+     One motivation for this is that is conventional in some
+     environments to write things like:
+     static const char rcsid[] = "... version string ...";
+     intending to force the string to be in the executable.
+
+     A language processor that would prefer to have unneeded
+     static constants "optimized away" would just defer writing
+     them out until here.  E.g. C++ does this, because static
+     constants are often defined in header files.
+
+     ??? A tempting alternative (for both C and C++) would be
+     to force a constant to be written if and only if it is
+     defined in a main file, as opposed to an include file.  */
+
+  if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl))
+    {
+      struct cgraph_varpool_node *node;
+      bool needed = true;
+      node = cgraph_varpool_node (decl);
+
+      if (node->finalized)
+	needed = false;
+      else if (node->alias)
+	needed = false;
+      else if (!cgraph_global_info_ready
+	       && (TREE_USED (decl)
+		   || TREE_USED (DECL_ASSEMBLER_NAME (decl))))
+	/* needed */;
+      else if (node->needed)
+	/* needed */;
+      else if (DECL_COMDAT (decl))
+	needed = false;
+      else if (TREE_READONLY (decl) && !TREE_PUBLIC (decl)
+	       && (optimize || !flag_keep_static_consts
+		   || DECL_ARTIFICIAL (decl)))
+	needed = false;
+
+      if (needed)
+	{
+	  rest_of_decl_compilation (decl, 1, 1);
+	  return true;
+	}
+    }
+
+  return false;
+}
+
 /* Do any final processing required for the declarations in VEC, of
    which there are LEN.  We write out inline functions and variables
    that have been deferred until this point, but which are required.
    Returns nonzero if anything was put out.  */
 
-int
+bool
 wrapup_global_declarations (tree *vec, int len)
 {
-  tree decl;
+  bool reconsider, output_something = false;
   int i;
-  int reconsider;
-  int output_something = 0;
 
   for (i = 0; i < len; i++)
-    {
-      decl = vec[i];
-
-      /* We're not deferring this any longer.  Assignment is
-	 conditional to avoid needlessly dirtying PCH pages.  */
-      if (DECL_DEFER_OUTPUT (decl) != 0)
-	DECL_DEFER_OUTPUT (decl) = 0;
-
-      if (TREE_CODE (decl) == VAR_DECL && DECL_SIZE (decl) == 0)
-	lang_hooks.finish_incomplete_decl (decl);
-    }
+    wrapup_global_declaration_1 (vec[i]);
 
   /* Now emit any global variables or functions that we have been
      putting off.  We need to loop in case one of the things emitted
      here references another one which comes earlier in the list.  */
   do
     {
-      reconsider = 0;
+      reconsider = false;
       for (i = 0; i < len; i++)
-	{
-	  decl = vec[i];
-
-	  if (TREE_ASM_WRITTEN (decl) || DECL_EXTERNAL (decl))
-	    continue;
-
-	  /* Don't write out static consts, unless we still need them.
-
-	     We also keep static consts if not optimizing (for debugging),
-	     unless the user specified -fno-keep-static-consts.
-	     ??? They might be better written into the debug information.
-	     This is possible when using DWARF.
-
-	     A language processor that wants static constants to be always
-	     written out (even if it is not used) is responsible for
-	     calling rest_of_decl_compilation itself.  E.g. the C front-end
-	     calls rest_of_decl_compilation from finish_decl.
-	     One motivation for this is that is conventional in some
-	     environments to write things like:
-	     static const char rcsid[] = "... version string ...";
-	     intending to force the string to be in the executable.
-
-	     A language processor that would prefer to have unneeded
-	     static constants "optimized away" would just defer writing
-	     them out until here.  E.g. C++ does this, because static
-	     constants are often defined in header files.
-
-	     ??? A tempting alternative (for both C and C++) would be
-	     to force a constant to be written if and only if it is
-	     defined in a main file, as opposed to an include file.  */
-
-	  if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl))
-	    {
-	      struct cgraph_varpool_node *node;
-	      bool needed = 1;
-	      node = cgraph_varpool_node (decl);
-
-	      if (flag_unit_at_a_time && node->finalized)
-		needed = 0;
-	      else if (node->alias)
-		needed = 0;
-	      else if ((flag_unit_at_a_time && !cgraph_global_info_ready)
-		       && (TREE_USED (decl)
-			   || TREE_USED (DECL_ASSEMBLER_NAME (decl))))
-		/* needed */;
-	      else if (node->needed)
-		/* needed */;
-	      else if (DECL_COMDAT (decl))
-		needed = 0;
-	      else if (TREE_READONLY (decl) && !TREE_PUBLIC (decl)
-		       && (optimize || !flag_keep_static_consts
-			   || DECL_ARTIFICIAL (decl)))
-		needed = 0;
-
-	      if (needed)
-		{
-		  reconsider = 1;
-		  rest_of_decl_compilation (decl, 1, 1);
-		}
-	    }
-	}
-
+	reconsider |= wrapup_global_declaration_2 (vec[i]);
       if (reconsider)
-	output_something = 1;
+	output_something = true;
     }
   while (reconsider);
 
   return output_something;
 }
 
+/* A subroutine of check_global_declarations.  Issue appropriate warnings
+   for the global declaration DECL.  */
+
+void
+check_global_declaration_1 (tree decl)
+{
+  /* Warn about any function declared static but not defined.  We don't
+     warn about variables, because many programs have static variables
+     that exist only to get some text into the object file.  */
+  if (TREE_CODE (decl) == FUNCTION_DECL
+      && DECL_INITIAL (decl) == 0
+      && DECL_EXTERNAL (decl)
+      && ! DECL_ARTIFICIAL (decl)
+      && ! TREE_NO_WARNING (decl)
+      && ! TREE_PUBLIC (decl)
+      && (warn_unused_function
+	  || TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))))
+    {
+      if (TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
+	pedwarn ("%q+F used but never defined", decl);
+      else
+	warning (0, "%q+F declared %<static%> but never defined", decl);
+      /* This symbol is effectively an "extern" declaration now.  */
+      TREE_PUBLIC (decl) = 1;
+      assemble_external (decl);
+    }
+
+  /* Warn about static fns or vars defined but not used.  */
+  if (((warn_unused_function && TREE_CODE (decl) == FUNCTION_DECL)
+       /* We don't warn about "static const" variables because the
+	  "rcs_id" idiom uses that construction.  */
+       || (warn_unused_variable
+	   && TREE_CODE (decl) == VAR_DECL && ! TREE_READONLY (decl)))
+      && ! DECL_IN_SYSTEM_HEADER (decl)
+      && ! TREE_USED (decl)
+      /* The TREE_USED bit for file-scope decls is kept in the identifier,
+	 to handle multiple external decls in different scopes.  */
+      && ! (DECL_NAME (decl) && TREE_USED (DECL_NAME (decl)))
+      && ! DECL_EXTERNAL (decl)
+      && ! TREE_PUBLIC (decl)
+      /* A volatile variable might be used in some non-obvious way.  */
+      && ! TREE_THIS_VOLATILE (decl)
+      /* Global register variables must be declared to reserve them.  */
+      && ! (TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl))
+      /* Otherwise, ask the language.  */
+      && lang_hooks.decls.warn_unused_global (decl))
+    warning (0, "%q+D defined but not used", decl);
+}
+
 /* Issue appropriate warnings for the global declarations in VEC (of
-   which there are LEN).  Output debugging information for them.  */
+   which there are LEN).  */
 
 void
 check_global_declarations (tree *vec, int len)
 {
-  tree decl;
   int i;
 
   for (i = 0; i < len; i++)
-    {
-      decl = vec[i];
+    check_global_declaration_1 (vec[i]);
+}
 
-      /* Do not emit debug information about variables that are in
-	 static storage, but not defined.  */
-      if (TREE_CODE (decl) == VAR_DECL
-	  && TREE_STATIC (decl)
-	  && !TREE_ASM_WRITTEN (decl))
-	DECL_IGNORED_P (decl) = 1;
- 
-      /* Warn about any function
-	 declared static but not defined.
-	 We don't warn about variables,
-	 because many programs have static variables
-	 that exist only to get some text into the object file.  */
-      if (TREE_CODE (decl) == FUNCTION_DECL
-	  && DECL_INITIAL (decl) == 0
-	  && DECL_EXTERNAL (decl)
-	  && ! DECL_ARTIFICIAL (decl)
-	  && ! TREE_NO_WARNING (decl)
-	  && ! TREE_PUBLIC (decl)
-	  && (warn_unused_function
-	      || TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))))
-	{
-	  if (TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
-	    pedwarn ("%J%qF used but never defined", decl, decl);
-	  else
-	    warning ("%J%qF declared %<static%> but never defined",
-		     decl, decl);
-	  /* This symbol is effectively an "extern" declaration now.  */
-	  TREE_PUBLIC (decl) = 1;
-	  assemble_external (decl);
-	}
+/* Emit debugging information for all global declarations in VEC.  */
 
-      /* Warn about static fns or vars defined but not used.  */
-      if (((warn_unused_function && TREE_CODE (decl) == FUNCTION_DECL)
-	   /* We don't warn about "static const" variables because the
-	      "rcs_id" idiom uses that construction.  */
-	   || (warn_unused_variable
-	       && TREE_CODE (decl) == VAR_DECL && ! TREE_READONLY (decl)))
-	  && ! DECL_IN_SYSTEM_HEADER (decl)
-	  && ! TREE_USED (decl)
-	  /* The TREE_USED bit for file-scope decls is kept in the identifier,
-	     to handle multiple external decls in different scopes.  */
-	  /* APPLE LOCAL mainline 2005-10-10  */
-	  && ! (DECL_NAME (decl) && TREE_USED (DECL_NAME (decl)))
-	  && ! DECL_EXTERNAL (decl)
-	  && ! TREE_PUBLIC (decl)
-	  /* A volatile variable might be used in some non-obvious way.  */
-	  && ! TREE_THIS_VOLATILE (decl)
-	  /* Global register variables must be declared to reserve them.  */
-	  && ! (TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl))
-	  /* Otherwise, ask the language.  */
-	  && lang_hooks.decls.warn_unused_global (decl))
-	warning ("%J%qD defined but not used", decl, decl);
+void
+emit_debug_global_declarations (tree *vec, int len)
+{
+  int i;
 
-      /* Avoid confusing the debug information machinery when there are
-	 errors.  */
-      if (errorcount == 0 && sorrycount == 0)
-	{
-	  timevar_push (TV_SYMOUT);
-	  (*debug_hooks->global_decl) (decl);
-	  timevar_pop (TV_SYMOUT);
-	}
-    }
+  /* Avoid confusing the debug information machinery when there are errors.  */
+  if (errorcount != 0 || sorrycount != 0)
+    return;
+
+  timevar_push (TV_SYMOUT);
+  for (i = 0; i < len; i++)
+    debug_hooks->global_decl (vec[i]);
+  timevar_pop (TV_SYMOUT);
 }
 
 /* Warn about a use of an identifier which was marked deprecated.  */
@@ -946,10 +927,16 @@ warn_deprecated_use (tree node)
   if (node == 0 || !warn_deprecated_decl)
     return;
 
+  /* APPLE LOCAL begin radar 4746503 */
+  if (current_function_decl && TREE_DEPRECATED (current_function_decl))
+    return;
+  /* APPLE LOCAL end radar 4746503 */
+
   if (DECL_P (node))
     {
       expanded_location xloc = expand_location (DECL_SOURCE_LOCATION (node));
-      warning ("%qs is deprecated (declared at %s:%d)",
+      warning (OPT_Wdeprecated_declarations,
+	       "%qs is deprecated (declared at %s:%d)",
 	       IDENTIFIER_POINTER (DECL_NAME (node)),
 	       xloc.file, xloc.line);
     }
@@ -972,18 +959,20 @@ warn_deprecated_use (tree node)
 	  expanded_location xloc
 	    = expand_location (DECL_SOURCE_LOCATION (decl));
 	  if (what)
-	    warning ("%qs is deprecated (declared at %s:%d)", what,
-		       xloc.file, xloc.line);
+	    warning (OPT_Wdeprecated_declarations,
+		     "%qs is deprecated (declared at %s:%d)", what,
+		     xloc.file, xloc.line);
 	  else
-	    warning ("type is deprecated (declared at %s:%d)",
+	    warning (OPT_Wdeprecated_declarations,
+		     "type is deprecated (declared at %s:%d)",
 		     xloc.file, xloc.line);
 	}
       else
 	{
 	  if (what)
-	    warning ("%qs is deprecated", what);
+	    warning (OPT_Wdeprecated_declarations, "%qs is deprecated", what);
 	  else
-	    warning ("type is deprecated");
+	    warning (OPT_Wdeprecated_declarations, "type is deprecated");
 	}
     }
 }
@@ -991,15 +980,15 @@ warn_deprecated_use (tree node)
 /* APPLE LOCAL begin "unavailable" attribute (radar 2809697) --ilr */
 /* Warn about a use of an identifier which was marked deprecated.  */
 void
-warn_unavailable_use (tree node)
+error_unavailable_use (tree node)
 {
   if (node == 0)
     return;
 
   if (DECL_P (node))
-    warning ("%qs is unavailable (declared at %s:%d)",
-	     IDENTIFIER_POINTER (DECL_NAME (node)),
-	     DECL_SOURCE_FILE (node), DECL_SOURCE_LINE (node));
+    error ("%qs is unavailable (declared at %s:%d)",
+	   IDENTIFIER_POINTER (DECL_NAME (node)),
+	   DECL_SOURCE_FILE (node), DECL_SOURCE_LINE (node));
   else if (TYPE_P (node))
     {
       const char *what = NULL;
@@ -1014,16 +1003,16 @@ warn_unavailable_use (tree node)
       if (what)
 	{
 	  if (decl)
-	    warning ("%qs is unavailable (declared at %s:%d)", what,
-		     DECL_SOURCE_FILE (decl), DECL_SOURCE_LINE (decl));
+	    error ("%qs is unavailable (declared at %s:%d)", what,
+		   DECL_SOURCE_FILE (decl), DECL_SOURCE_LINE (decl));
 	  else
-	    warning ("%qs is unavailable", what);
+	    error ("%qs is unavailable", what);
 	}
       else if (decl)
-	warning ("type is unavailable (declared at %s:%d)",
-		 DECL_SOURCE_FILE (decl), DECL_SOURCE_LINE (decl));
+	error ("type is unavailable (declared at %s:%d)",
+	       DECL_SOURCE_FILE (decl), DECL_SOURCE_LINE (decl));
       else
-	warning ("type is unavailable");
+	error ("type is unavailable");
     }
 }
 /* APPLE LOCAL end "unavailable" attribute (radar 2809697) --ilr */
@@ -1041,7 +1030,11 @@ push_srcloc (const char *file, int line)
 {
   struct file_stack *fs;
 
-  fs = xmalloc (sizeof (struct file_stack));
+  gcc_assert (!input_file_stack_restored);
+  if (input_file_stack_tick == (int) ((1U << INPUT_FILE_STACK_BITS) - 1))
+    sorry ("GCC supports only %d input file changes", input_file_stack_tick);
+
+  fs = XNEW (struct file_stack);
   fs->location = input_location;
   fs->next = input_file_stack;
 #ifdef USE_MAPPED_LOCATION
@@ -1052,6 +1045,7 @@ push_srcloc (const char *file, int line)
 #endif
   input_file_stack = fs;
   input_file_stack_tick++;
+  VEC_safe_push (fs_p, heap, input_file_stack_history, input_file_stack);
 }
 
 /* Pop the top entry off the stack of presently open source files.
@@ -1063,11 +1057,30 @@ pop_srcloc (void)
 {
   struct file_stack *fs;
 
+  gcc_assert (!input_file_stack_restored);
+  if (input_file_stack_tick == (int) ((1U << INPUT_FILE_STACK_BITS) - 1))
+    sorry ("GCC supports only %d input file changes", input_file_stack_tick);
+
   fs = input_file_stack;
   input_location = fs->location;
   input_file_stack = fs->next;
-  free (fs);
   input_file_stack_tick++;
+  VEC_safe_push (fs_p, heap, input_file_stack_history, input_file_stack);
+}
+
+/* Restore the input file stack to its state as of TICK, for the sake
+   of diagnostics after processing the whole input.  Once this has
+   been called, push_srcloc and pop_srcloc may no longer be
+   called.  */
+void
+restore_input_file_stack (int tick)
+{
+  if (tick == 0)
+    input_file_stack = NULL;
+  else
+    input_file_stack = VEC_index (fs_p, input_file_stack_history, tick - 1);
+  input_file_stack_tick = tick;
+  input_file_stack_restored = true;
 }
 
 /* Compile an entire translation unit.  Write a file of assembly
@@ -1096,7 +1109,7 @@ compile_file (void)
      what's left of the symbol table output.  */
   timevar_pop (TV_PARSE);
 
-  if (flag_syntax_only)
+  if (flag_syntax_only || errorcount || sorrycount)
     return;
 
   lang_hooks.decls.final_write_globals ();
@@ -1112,6 +1125,9 @@ compile_file (void)
   if (flag_mudflap)
     mudflap_finish_file ();
 
+  output_shared_constant_pool ();
+  output_object_blocks ();
+
   /* Write out any pending weak symbol declarations.  */
 
   weak_finish ();
@@ -1119,7 +1135,7 @@ compile_file (void)
   /* Do dbx symbols.  */
   timevar_push (TV_SYMOUT);
 
-#ifdef DWARF2_UNWIND_INFO
+#if defined DWARF2_DEBUGGING_INFO || defined DWARF2_UNWIND_INFO
   if (dwarf2out_do_frame ())
     dwarf2out_frame_finish ();
 #endif
@@ -1149,78 +1165,6 @@ compile_file (void)
      into the assembly file here, and hence we can not output anything to the
      assembly file after this point.  */
   targetm.asm_out.file_end ();
-}
-
-/* Display help for target options.  */
-void
-display_target_options (void)
-{
-  int undoc, i;
-  static bool displayed = false;
-
-  /* Avoid double printing for --help --target-help.  */
-  if (displayed)
-    return;
-
-  displayed = true;
-
-  if (ARRAY_SIZE (target_switches) > 1
-#ifdef TARGET_OPTIONS
-      || ARRAY_SIZE (target_options) > 1
-#endif
-      )
-    {
-      int doc = 0;
-
-      undoc = 0;
-
-      printf (_("\nTarget specific options:\n"));
-
-      for (i = ARRAY_SIZE (target_switches); i--;)
-	{
-	  const char *option      = target_switches[i].name;
-	  const char *description = target_switches[i].description;
-
-	  if (option == NULL || *option == 0)
-	    continue;
-	  else if (description == NULL)
-	    {
-	      undoc = 1;
-
-	      if (extra_warnings)
-		printf (_("  -m%-23s [undocumented]\n"), option);
-	    }
-	  else if (*description != 0)
-	    doc += printf ("  -m%-23s %s\n", option, _(description));
-	}
-
-#ifdef TARGET_OPTIONS
-      for (i = ARRAY_SIZE (target_options); i--;)
-	{
-	  const char *option      = target_options[i].prefix;
-	  const char *description = target_options[i].description;
-
-	  if (option == NULL || *option == 0)
-	    continue;
-	  else if (description == NULL)
-	    {
-	      undoc = 1;
-
-	      if (extra_warnings)
-		printf (_("  -m%-23s [undocumented]\n"), option);
-	    }
-	  else if (*description != 0)
-	    doc += printf ("  -m%-23s %s\n", option, _(description));
-	}
-#endif
-      if (undoc)
-	{
-	  if (doc)
-	    printf (_("\nThere are undocumented target specific options as well.\n"));
-	  else
-	    printf (_("  They exist, but they are not documented.\n"));
-	}
-    }
 }
 
 /* Parse a -d... command line switch.  */
@@ -1262,7 +1206,7 @@ decode_d_option (const char *arg)
       case 'a':
       default:
 	if (!enable_rtl_dump_file (c))
-	  warning ("unrecognized gcc debugging option: %c", c);
+	  warning (0, "unrecognized gcc debugging option: %c", c);
 	break;
       }
 }
@@ -1273,60 +1217,6 @@ const char *const debug_type_names[] =
   "none", "stabs", "coff", "dwarf-2", "xcoff", "vms"
 };
 
-/* Decode -m switches.  */
-/* Decode the switch -mNAME.  */
-
-void
-set_target_switch (const char *name)
-{
-  size_t j;
-  int valid_target_option = 0;
-
-  for (j = 0; j < ARRAY_SIZE (target_switches); j++)
-    if (!strcmp (target_switches[j].name, name))
-      {
-	if (target_switches[j].value < 0)
-	  target_flags &= ~-target_switches[j].value;
-	else
-	  target_flags |= target_switches[j].value;
-	if (name[0] != 0)
-	  {
-	    if (target_switches[j].value < 0)
-	      target_flags_explicit |= -target_switches[j].value;
-	    else
-	      target_flags_explicit |= target_switches[j].value;
-	  }
-	valid_target_option = 1;
-      }
-
-#ifdef TARGET_OPTIONS
-  if (!valid_target_option)
-    for (j = 0; j < ARRAY_SIZE (target_options); j++)
-      {
-	int len = strlen (target_options[j].prefix);
-	if (target_options[j].value)
-	  {
-	    if (!strcmp (target_options[j].prefix, name))
-	      {
-		*target_options[j].variable = target_options[j].value;
-		valid_target_option = 1;
-	      }
-	  }
-	else
-	  {
-	    if (!strncmp (target_options[j].prefix, name, len))
-	      {
-		*target_options[j].variable = name + len;
-		valid_target_option = 1;
-	      }
-	  }
-      }
-#endif
-
-  if (!valid_target_option)
-    error ("invalid option %qs", name);
-}
-
 /* Print version information to FILE.
    Each line begins with INDENT (for the case where FILE is the
    assembler output file).  */
@@ -1334,19 +1224,25 @@ set_target_switch (const char *name)
 void
 print_version (FILE *file, const char *indent)
 {
+  static const char fmt1[] =
+#ifdef __GNUC__
+    N_("%s%s%s version %s (%s)\n%s\tcompiled by GNU C version %s.\n")
+#else
+    N_("%s%s%s version %s (%s) compiled by CC.\n")
+#endif
+    ;
+  static const char fmt2[] =
+    N_("%s%sGGC heuristics: --param ggc-min-expand=%d --param ggc-min-heapsize=%d\n");
 #ifndef __VERSION__
 #define __VERSION__ "[?]"
 #endif
-  fnotice (file,
-#ifdef __GNUC__
-	   "%s%s%s version %s (%s)\n%s\tcompiled by GNU C version %s.\n"
-#else
-	   "%s%s%s version %s (%s) compiled by CC.\n"
-#endif
-	   , indent, *indent != 0 ? " " : "",
+  fprintf (file,
+	   file == stderr ? _(fmt1) : fmt1,
+	   indent, *indent != 0 ? " " : "",
 	   lang_hooks.name, version_string, TARGET_NAME,
 	   indent, __VERSION__);
-  fnotice (file, "%s%sGGC heuristics: --param ggc-min-expand=%d --param ggc-min-heapsize=%d\n",
+  fprintf (file,
+	   file == stderr ? _(fmt2) : fmt2,
 	   indent, *indent != 0 ? " " : "",
 	   PARAM_VALUE (GGC_MIN_EXPAND), PARAM_VALUE (GGC_MIN_HEAPSIZE));
 }
@@ -1442,60 +1338,10 @@ print_switch_values (FILE *file, int pos, int max,
 			     _("options enabled: "), "");
 
   for (j = 0; j < cl_options_count; j++)
-    {
-/* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
-      if (!(cl_options[j].flag_var || cl_options[j].access_flag)
-	  || !(cl_options[j].flags & CL_REPORT))
-	continue;
-
-      if (cl_options[j].access_flag && !cl_options[j].has_set_value)
-	{
-	  if (!(cl_options[j].access_flag (0, 0)))
-	    continue;
-	}
-      else if (cl_options[j].access_flag && cl_options[j].has_set_value)
-	{
-	  if ((cl_options[j].access_flag (0, 0)) != cl_options[j].set_value)
-	    continue;
-	}
-      else if (cl_options[j].has_set_value)
-/* APPLE LOCAL end optimization pragmas 3124235/3420242 */
-	{
-	  if (*cl_options[j].flag_var != cl_options[j].set_value)
-	    continue;
-	}
-      else
-	{
-	  if (!*cl_options[j].flag_var)
-	    continue;
-	}
-      
+    if ((cl_options[j].flags & CL_REPORT)
+	&& option_enabled (j) > 0)
       pos = print_single_switch (file, pos, max, indent, sep, term,
 				 "", cl_options[j].opt_text);
-    }
-
-  /* Print target specific options.  */
-
-  for (j = 0; j < ARRAY_SIZE (target_switches); j++)
-    if (target_switches[j].name[0] != '\0'
-	&& target_switches[j].value > 0
-	&& ((target_switches[j].value & target_flags)
-	    == target_switches[j].value))
-      {
-	pos = print_single_switch (file, pos, max, indent, sep, term,
-				   "-m", target_switches[j].name);
-      }
-
-#ifdef TARGET_OPTIONS
-  for (j = 0; j < ARRAY_SIZE (target_options); j++)
-    if (*target_options[j].variable != NULL)
-      {
-	char prefix[256];
-	sprintf (prefix, "-m%s", target_options[j].prefix);
-	pos = print_single_switch (file, pos, max, indent, sep, term,
-				   prefix, *target_options[j].variable);
-      }
-#endif
 
   fprintf (file, "%s", term);
 }
@@ -1550,7 +1396,7 @@ init_asm_output (const char *name)
       if (asm_file_name == 0)
 	{
 	  int len = strlen (dump_base_name);
-	  char *dumpname = xmalloc (len + 6);
+	  char *dumpname = XNEWVEC (char, len + 6);
 	  memcpy (dumpname, dump_base_name, len + 1);
 	  strip_off_ending (dumpname, len);
 	  strcat (dumpname, ".s");
@@ -1595,6 +1441,21 @@ init_asm_output (const char *name)
     }
 }
 
+/* Return true if the state of option OPTION should be stored in PCH files
+   and checked by default_pch_valid_p.  Store the option's current state
+   in STATE if so.  */
+
+static inline bool
+option_affects_pch_p (int option, struct cl_option_state *state)
+{
+  if ((cl_options[option].flags & CL_TARGET) == 0)
+    return false;
+  if (cl_options[option].flag_var == &target_flags)
+    if (targetm.check_pch_target_flags)
+      return false;
+  return get_option_state (option, state);
+}
+
 /* Default version of get_pch_validity.
    By default, every flag difference is fatal; that will be mostly right for
    most targets, but completely right for very few.  */
@@ -1602,42 +1463,49 @@ init_asm_output (const char *name)
 void *
 default_get_pch_validity (size_t *len)
 {
-#ifdef TARGET_OPTIONS
+  struct cl_option_state state;
   size_t i;
-#endif
   char *result, *r;
 
-  *len = sizeof (target_flags) + 2;
-#ifdef TARGET_OPTIONS
-  for (i = 0; i < ARRAY_SIZE (target_options); i++)
-    {
-      *len += 1;
-      if (*target_options[i].variable)
-	*len += strlen (*target_options[i].variable);
-    }
-#endif
+  *len = 2;
+  if (targetm.check_pch_target_flags)
+    *len += sizeof (target_flags);
+  for (i = 0; i < cl_options_count; i++)
+    if (option_affects_pch_p (i, &state))
+      *len += state.size;
 
-  result = r = xmalloc (*len);
+  result = r = XNEWVEC (char, *len);
   r[0] = flag_pic;
   r[1] = flag_pie;
   r += 2;
-  memcpy (r, &target_flags, sizeof (target_flags));
-  r += sizeof (target_flags);
-
-#ifdef TARGET_OPTIONS
-  for (i = 0; i < ARRAY_SIZE (target_options); i++)
+  if (targetm.check_pch_target_flags)
     {
-      const char *str = *target_options[i].variable;
-      size_t l;
-      if (! str)
-	str = "";
-      l = strlen (str) + 1;
-      memcpy (r, str, l);
-      r += l;
+      memcpy (r, &target_flags, sizeof (target_flags));
+      r += sizeof (target_flags);
     }
-#endif
+
+  for (i = 0; i < cl_options_count; i++)
+    if (option_affects_pch_p (i, &state))
+      {
+	memcpy (r, state.data, state.size);
+	r += state.size;
+      }
 
   return result;
+}
+
+/* Return a message which says that a PCH file was created with a different
+   setting of OPTION.  */
+
+static const char *
+pch_option_mismatch (const char *option)
+{
+  char *r;
+
+  asprintf (&r, _("created and used with differing settings of '%s'"), option);
+  if (r == NULL)
+    return _("out of memory");
+  return r;
 }
 
 /* Default version of pch_valid_p.  */
@@ -1645,8 +1513,8 @@ default_get_pch_validity (size_t *len)
 const char *
 default_pch_valid_p (const void *data_p, size_t len)
 {
+  struct cl_option_state state;
   const char *data = (const char *)data_p;
-  const char *flag_that_differs = NULL;
   size_t i;
 
   /* -fpic and -fpie also usually make a PCH invalid.  */
@@ -1657,72 +1525,47 @@ default_pch_valid_p (const void *data_p, size_t len)
   data += 2;
 
   /* Check target_flags.  */
-  if (memcmp (data, &target_flags, sizeof (target_flags)) != 0)
+  if (targetm.check_pch_target_flags)
     {
-      for (i = 0; i < ARRAY_SIZE (target_switches); i++)
-	{
-	  int bits;
-	  int tf;
+      int tf;
+      const char *r;
 
-	  memcpy (&tf, data, sizeof (target_flags));
-
-	  bits = target_switches[i].value;
-	  if (bits < 0)
-	    bits = -bits;
-	  if ((target_flags & bits) != (tf & bits))
-	    {
-	      flag_that_differs = target_switches[i].name;
-	      goto make_message;
-	    }
-	}
-      gcc_unreachable ();
+      memcpy (&tf, data, sizeof (target_flags));
+      data += sizeof (target_flags);
+      len -= sizeof (target_flags);
+      r = targetm.check_pch_target_flags (tf);
+      if (r != NULL)
+	return r;
     }
-  data += sizeof (target_flags);
-  len -= sizeof (target_flags);
 
-  /* Check string options.  */
-#ifdef TARGET_OPTIONS
-  for (i = 0; i < ARRAY_SIZE (target_options); i++)
-    {
-      const char *str = *target_options[i].variable;
-      size_t l;
-      if (! str)
-	str = "";
-      l = strlen (str) + 1;
-      if (len < l || memcmp (data, str, l) != 0)
-	{
-	  flag_that_differs = target_options[i].prefix;
-	  goto make_message;
-	}
-      data += l;
-      len -= l;
-    }
-#endif
+  for (i = 0; i < cl_options_count; i++)
+    if (option_affects_pch_p (i, &state))
+      {
+	if (memcmp (data, state.data, state.size) != 0)
+	  return pch_option_mismatch (cl_options[i].opt_text);
+	data += state.size;
+	len -= state.size;
+      }
 
   return NULL;
-
- make_message:
-  {
-    char *r;
-    asprintf (&r, _("created and used with differing settings of '-m%s'"),
-		  flag_that_differs);
-    if (r == NULL)
-      return _("out of memory");
-    return r;
-  }
 }
 
 /* Default tree printer.   Handles declarations only.  */
 static bool
-default_tree_printer (pretty_printer * pp, text_info *text)
+default_tree_printer (pretty_printer * pp, text_info *text, const char *spec,
+		      int precision, bool wide, bool set_locus, bool hash)
 {
   tree t;
 
-  switch (*text->format_spec)
+  /* FUTURE: %+x should set the locus.  */
+  if (precision != 0 || wide || hash)
+    return false;
+
+  switch (*spec)
     {
     case 'D':
       t = va_arg (*text->args_ptr, tree);
-      if (DECL_DEBUG_EXPR (t) && DECL_DEBUG_EXPR_IS_FROM (t))
+      if (DECL_DEBUG_EXPR_IS_FROM (t) && DECL_DEBUG_EXPR (t))
 	t = DECL_DEBUG_EXPR (t);
       break;
 
@@ -1734,6 +1577,9 @@ default_tree_printer (pretty_printer * pp, text_info *text)
     default:
       return false;
     }
+
+  if (set_locus && text->locus)
+    *text->locus = DECL_SOURCE_LOCATION (t);
 
   if (DECL_P (t))
     {
@@ -1793,13 +1639,6 @@ general_init (const char *argv0)
 #if defined SIGIOT && (!defined SIGABRT || SIGABRT != SIGIOT)
   signal (SIGIOT, crash_signal);
 #endif
-  /* APPLE LOCAL begin interrupt signal handler (radar 2941633)  --ilr */
-  /* Handle compilation interrupts.  */
-  if (signal (SIGINT, SIG_IGN) != SIG_IGN)
-    signal (SIGINT, interrupt_signal);
-  if (signal (SIGTERM, SIG_IGN) != SIG_IGN)
-    signal (SIGTERM, interrupt_signal);
-  /* APPLE LOCAL end interrupt signal handler */
 #ifdef SIGFPE
   signal (SIGFPE, crash_signal);
 #endif
@@ -1836,15 +1675,44 @@ general_init (const char *argv0)
   /* Register the language-independent parameters.  */
   add_params (lang_independent_params, LAST_PARAM);
 
-  /* This must be done after add_params but before argument processing.  */
-  init_ggc_heuristics();
-  init_tree_optimization_passes ();
+  /* APPLE LOCAL begin retune gc params 6124839 */
+  { int i = 0;
+    bool opt = false;
+    while (save_argv[++i])
+      {
+	if (strncmp (save_argv[i], "-O", 2) == 0
+	    && strcmp (save_argv[i], "-O0") != 0)
+	  opt = true;
+      }
+    /* This must be done after add_params but before argument processing.  */
+    init_ggc_heuristics(opt);
+  }
+  /* APPLE LOCAL end retune gc params 6124839 */
+  init_optimization_passes ();
+}
+
+/* Return true if the current target supports -fsection-anchors.  */
+
+static bool
+target_supports_section_anchors_p (void)
+{
+  if (targetm.min_anchor_offset == 0 && targetm.max_anchor_offset == 0)
+    return false;
+
+  if (targetm.asm_out.output_anchor == NULL)
+    return false;
+
+  return true;
 }
 
 /* Process the options that have been parsed.  */
 static void
 process_options (void)
 {
+  /* Just in case lang_hooks.post_options ends up calling a debug_hook.
+     This can happen with incorrect pre-processed input. */
+  debug_hooks = &do_nothing_debug_hooks;
+
   /* Allow the front end to perform consistency checks and do further
      initialization based on the command line options.  This hook also
      sets the original filename if appropriate (e.g. foo.i -> foo.c)
@@ -1858,6 +1726,13 @@ process_options (void)
   /* Some machines may reject certain combinations of options.  */
   OVERRIDE_OPTIONS;
 #endif
+
+  if (flag_section_anchors && !target_supports_section_anchors_p ())
+    {
+      warning (OPT_fsection_anchors,
+	       "this target does not support %qs", "-fsection-anchors");
+      flag_section_anchors = 0;
+    }
 
   if (flag_short_enums == 2)
     flag_short_enums = targetm.default_short_enums ();
@@ -1897,29 +1772,15 @@ process_options (void)
   if (flag_unroll_all_loops)
     flag_unroll_loops = 1;
 
-  /* APPLE LOCAL begin 3791237 */
   /* The loop unrolling code assumes that cse will be run after loop.
-     Turning on web has the effect of live range splitting for unrolled
-     induction variables, and is beneficial for scheduling. */
-  if (flag_unroll_loops || flag_peel_loops)
-    {
-      flag_rerun_cse_after_loop = 1;
-      flag_web = 1;
-    }
-  /* APPLE LOCAL end 3791237 */
+     web and rename-registers also help when run after loop unrolling.  */
 
-  /* If explicitly asked to run new loop optimizer, switch off the old
-     one.  */
-  if (flag_loop_optimize2)
-    flag_loop_optimize = 0;
-
-  /* Enable new loop optimizer pass if any of its optimizations is called.  */
-  if (flag_move_loop_invariants
-      || flag_unswitch_loops
-      || flag_peel_loops
-      || flag_unroll_loops
-      || flag_branch_on_count_reg)
-    flag_loop_optimize2 = 1;
+  if (flag_rerun_cse_after_loop == AUTODETECT_VALUE)
+    flag_rerun_cse_after_loop = flag_unroll_loops || flag_peel_loops;
+  if (flag_web == AUTODETECT_VALUE)
+    flag_web = flag_unroll_loops || flag_peel_loops;
+  if (flag_rename_registers == AUTODETECT_VALUE)
+    flag_rename_registers = flag_unroll_loops || flag_peel_loops;
 
   if (flag_non_call_exceptions)
     flag_asynchronous_unwind_tables = 1;
@@ -1931,32 +1792,21 @@ process_options (void)
   if (flag_unit_at_a_time && ! lang_hooks.callgraph.expand_function)
     flag_unit_at_a_time = 0;
 
+  if (!flag_unit_at_a_time)
+    flag_section_anchors = 0;
+
   if (flag_value_profile_transformations)
     flag_profile_values = 1;
-
-  /* Speculative prefetching implies the value profiling.  We also switch off
-     the prefetching in the loop optimizer, so that we do not emit double
-     prefetches.  TODO -- we should teach these two to cooperate; the loop
-     based prefetching may sometimes do a better job, especially in connection
-     with reuse analysis.  */
-  if (flag_speculative_prefetching)
-    {
-      flag_profile_values = 1;
-      flag_prefetch_loop_arrays = 0;
-    }
 
   /* Warn about options that are not supported on this machine.  */
 #ifndef INSN_SCHEDULING
   if (flag_schedule_insns || flag_schedule_insns_after_reload)
-    warning ("instruction scheduling not supported on this target machine");
+    warning (0, "instruction scheduling not supported on this target machine");
 #endif
 #ifndef DELAY_SLOTS
   if (flag_delayed_branch)
-    warning ("this target machine does not have delayed branches");
+    warning (0, "this target machine does not have delayed branches");
 #endif
-
-  if (flag_tree_based_profiling && flag_profile_values)
-    sorry ("value-based profiling not yet implemented in trees.");
 
   user_label_prefix = USER_LABEL_PREFIX;
   if (flag_leading_underscore != -1)
@@ -1969,7 +1819,7 @@ process_options (void)
 	  user_label_prefix = flag_leading_underscore ? "_" : "";
 	}
       else
-	warning ("-f%sleading-underscore not supported on this target machine",
+	warning (0, "-f%sleading-underscore not supported on this target machine",
 		 flag_leading_underscore ? "" : "no-");
     }
 
@@ -2019,7 +1869,6 @@ process_options (void)
     default_debug_hooks = &vmsdbg_debug_hooks;
 #endif
 
-  debug_hooks = &do_nothing_debug_hooks;
   if (write_symbols == NO_DEBUG)
     ;
 #if defined(DBX_DEBUGGING_INFO)
@@ -2055,20 +1904,20 @@ process_options (void)
       if (flag_var_tracking == 1)
         {
 	  if (debug_info_level < DINFO_LEVEL_NORMAL)
-	    warning ("variable tracking requested, but useless unless "
+	    warning (0, "variable tracking requested, but useless unless "
 		     "producing debug info");
 	  else
-	    warning ("variable tracking requested, but not supported "
+	    warning (0, "variable tracking requested, but not supported "
 		     "by this debug format");
 	}
       flag_var_tracking = 0;
     }
 
-  if (flag_rename_registers == AUTODETECT_FLAG_VAR_TRACKING)
+  if (flag_rename_registers == AUTODETECT_VALUE)
     flag_rename_registers = default_debug_hooks->var_location
 	    		    != do_nothing_debug_hooks.var_location;
 
-  if (flag_var_tracking == AUTODETECT_FLAG_VAR_TRACKING)
+  if (flag_var_tracking == AUTODETECT_VALUE)
     flag_var_tracking = optimize >= 1;
 
   /* If auxiliary info generation is desired, open the output file.
@@ -2085,45 +1934,33 @@ process_options (void)
     {
       if (flag_function_sections)
 	{
-	  warning ("-ffunction-sections not supported for this target");
+	  warning (0, "-ffunction-sections not supported for this target");
 	  flag_function_sections = 0;
 	}
       if (flag_data_sections)
 	{
-	  warning ("-fdata-sections not supported for this target");
+	  warning (0, "-fdata-sections not supported for this target");
 	  flag_data_sections = 0;
 	}
     }
 
   if (flag_function_sections && profile_flag)
     {
-      warning ("-ffunction-sections disabled; it makes profiling impossible");
+      warning (0, "-ffunction-sections disabled; it makes profiling impossible");
       flag_function_sections = 0;
     }
 
 #ifndef HAVE_prefetch
   if (flag_prefetch_loop_arrays)
     {
-      warning ("-fprefetch-loop-arrays not supported for this target");
+      warning (0, "-fprefetch-loop-arrays not supported for this target");
       flag_prefetch_loop_arrays = 0;
-    }
-  if (flag_speculative_prefetching)
-    {
-      if (flag_speculative_prefetching_set)
-	warning ("-fspeculative-prefetching not supported for this target");
-      flag_speculative_prefetching = 0;
     }
 #else
   if (flag_prefetch_loop_arrays && !HAVE_prefetch)
     {
-      warning ("-fprefetch-loop-arrays not supported for this target (try -march switches)");
+      warning (0, "-fprefetch-loop-arrays not supported for this target (try -march switches)");
       flag_prefetch_loop_arrays = 0;
-    }
-  if (flag_speculative_prefetching && !HAVE_prefetch)
-    {
-      if (flag_speculative_prefetching_set)
-	warning ("-fspeculative-prefetching not supported for this target (try -march switches)");
-      flag_speculative_prefetching = 0;
     }
 #endif
 
@@ -2131,13 +1968,15 @@ process_options (void)
      make much sense anyway, so don't allow it.  */
   if (flag_prefetch_loop_arrays && optimize_size)
     {
-      warning ("-fprefetch-loop-arrays is not supported with -Os");
+      warning (0, "-fprefetch-loop-arrays is not supported with -Os");
       flag_prefetch_loop_arrays = 0;
     }
 
 #ifndef OBJECT_FORMAT_ELF
+#ifndef OBJECT_FORMAT_MACHO
   if (flag_function_sections && write_symbols != NO_DEBUG)
-    warning ("-ffunction-sections may affect debugging on some targets");
+    warning (0, "-ffunction-sections may affect debugging on some targets");
+#endif
 #endif
 
   /* The presence of IEEE signaling NaNs, implies all math can trap.  */
@@ -2147,22 +1986,38 @@ process_options (void)
   /* With -fcx-limited-range, we do cheap and quick complex arithmetic.  */
   if (flag_cx_limited_range)
     flag_complex_method = 0;
-  /* APPLE LOCAL begin mainline */
+
+  /* APPLE LOCAL begin stack-protector default 5095227 */
+  /* Unless the target chooses otherwise, default stack protection to off.  */
+  if (flag_stack_protect == -1)
+    flag_stack_protect = 0;
+  /* APPLE LOCAL end stack-protector default 5095227 */
+
+  /* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
+  cl_pf_opts_cooked = cl_pf_opts;
+  /* APPLE LOCAL end optimization pragmas 3124235/3420242 */
 
   /* Targets must be able to place spill slots at lower addresses.  If the
      target already uses a soft frame pointer, the transition is trivial.  */
   if (!FRAME_GROWS_DOWNWARD && flag_stack_protect)
     {
-      warning ("-fstack-protector not supported for this target");
+      warning (0, "-fstack-protector not supported for this target");
       flag_stack_protect = 0;
     }
   if (!flag_stack_protect)
     warn_stack_protect = 0;
-  /* APPLE LOCAL end mainline */
 
-  /* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
-  cl_pf_opts_cooked = cl_pf_opts;
-  /* APPLE LOCAL end optimization pragmas 3124235/3420242 */
+  /* ??? Unwind info is not correct around the CFG unless either a frame
+     pointer is present or A_O_A is set.  Fixing this requires rewriting
+     unwind info generation to be aware of the CFG and propagating states
+     around edges.  */
+  if (flag_unwind_tables && !ACCUMULATE_OUTGOING_ARGS
+      && flag_omit_frame_pointer)
+    {
+      warning (0, "unwind tables currently requires a frame pointer "
+	       "for correctness");
+      flag_omit_frame_pointer = 0;
+    }
 }
 
 /* Initialize the compiler back end.  */
@@ -2181,9 +2036,7 @@ backend_init (void)
   init_regs ();
   init_fake_stack_mems ();
   init_alias_once ();
-  init_loop ();
   init_reload ();
-  init_function_once ();
   init_varasm_once ();
 
   /* The following initialization functions need to generate rtl, so
@@ -2229,15 +2082,20 @@ lang_dependent_init (const char *name)
      provide a dummy function context for them.  */
   init_dummy_function_start ();
   init_expr_once ();
-  /* APPLE LOCAL lno */
+
+  /* APPLE LOCAL begin mainline 5150147 */
+  /* Although the actions of init_set_costs are language-independent,
+     it uses optabs, so we cannot call it from backend_init.  */
   init_set_costs ();
+  /* APPLE LOCAL end mainline 5150147 */
+
   expand_dummy_function_end ();
 
   /* If dbx symbol table desired, initialize writing it and output the
      predefined types.  */
   timevar_push (TV_SYMOUT);
 
-#ifdef DWARF2_UNWIND_INFO
+#if defined DWARF2_DEBUGGING_INFO || defined DWARF2_UNWIND_INFO
   if (dwarf2out_do_frame ())
     dwarf2out_frame_init ();
 #endif

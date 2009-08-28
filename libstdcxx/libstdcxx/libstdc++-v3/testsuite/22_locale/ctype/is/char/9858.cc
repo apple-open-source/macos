@@ -13,7 +13,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -39,15 +39,15 @@ public:
   do_is(mask, char_type) const { return true; }
 
   const char_type* 
-  do_is(const char_type* lo, const char_type* hi, mask* vec) const 
+  do_is(const char_type*, const char_type* hi, mask*) const 
   { return hi; }
 
   const char_type* 
-  do_scan_is(mask m, const char_type* lo, const char_type* hi) const 
+  do_scan_is(mask, const char_type*, const char_type* hi) const 
   { return hi; }
 
   const char_type* 
-  do_scan_not(mask m, const char_type* lo, const char_type* hi) const 
+  do_scan_not(mask, const char_type*, const char_type* hi) const 
   { return hi; }
 };
 
@@ -58,15 +58,15 @@ public:
   do_is(mask, char_type) const { called = 1; return true; }
 
   const char_type* 
-  do_is(const char_type* lo, const char_type* hi, mask* vec) const 
+  do_is(const char_type*, const char_type* hi, mask*) const 
   { called = 5; return hi; }
 
   const char_type* 
-  do_scan_is(mask m, const char_type* lo, const char_type* hi) const 
+  do_scan_is(mask, const char_type*, const char_type* hi) const 
   { called = 10; return hi; }
 
   const char_type* 
-  do_scan_not(mask m, const char_type* lo, const char_type* hi) const 
+  do_scan_not(mask, const char_type*, const char_type* hi) const 
   { called = 15; return hi; }
 };
 

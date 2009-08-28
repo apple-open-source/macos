@@ -17,6 +17,7 @@ Known values for OPTION are:
   --exec-prefix=DIR	change XSLT executable prefix [default $exec_prefix]
   --libs		print library linking information
   --cflags		print pre-processor and compiler flags
+  --plugins		print plugin directory
   --help		display this help and exit
   --version		output version information
 EOF
@@ -60,6 +61,11 @@ while test $# -gt 0; do
 
     --version)
 	echo @VERSION@
+	exit 0
+	;;
+
+    --plugins)
+	echo @LIBXSLT_DEFAULT_PLUGINS_PATH@
 	exit 0
 	;;
 
@@ -110,6 +116,10 @@ for i in $all_flags; do
     case "$i" in
     # a library, save it for later, in reverse order
     -l*) rev_libs="$i $rev_libs" ;;
+    -L/usr/lib)
+        if test "`uname`" != "Darwin"; then
+            other_flags="$other_flags $i"
+        fi ;;
     *)
 	case " $other_flags " in
 	*\ $i\ *) ;;				# already there

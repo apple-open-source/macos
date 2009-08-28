@@ -1,4 +1,4 @@
-/* $Id: fnmatch.c,v 1.2 2003/12/15 12:18:43 lukem Exp $ */
+/* $NetBSD: fnmatch.c,v 1.3 2008/09/21 16:35:25 lukem Exp $ */
 /* from NetBSD: fnmatch.c,v 1.18 2000/06/28 01:13:36 thorpej Exp */
 
 /*

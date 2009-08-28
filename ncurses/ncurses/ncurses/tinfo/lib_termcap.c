@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1998-2004,2005 Free Software Foundation, Inc.              *
+ * Copyright (c) 1998-2007,2008 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -33,6 +33,7 @@
  *                                                                          *
  * some of the code in here was contributed by:                             *
  * Magnus Bengtsson, d6mbeng@dtek.chalmers.se (Nov'93)                      *
+ * (but it has changed a lot)                                               *
  ****************************************************************************/
 
 #define __INTERNAL_CAPS_VISIBLE
@@ -44,12 +45,20 @@
 
 #include <term_entry.h>
 
-MODULE_ID("$Id: lib_termcap.c,v 1.51 2005/07/16 23:12:51 tom Exp $")
+MODULE_ID("$Id: lib_termcap.c,v 1.63 2008/08/16 19:22:55 tom Exp $")
 
 NCURSES_EXPORT_VAR(char *) UP = 0;
 NCURSES_EXPORT_VAR(char *) BC = 0;
 
-static char *fix_me = 0;	/* this holds the filtered sgr0 string */
+#define MyCache  _nc_globals.tgetent_cache
+#define CacheInx _nc_globals.tgetent_index
+#define CacheSeq _nc_globals.tgetent_sequence
+
+#define FIX_SGR0 MyCache[CacheInx].fix_sgr0
+#define LAST_TRM MyCache[CacheInx].last_term
+#define LAST_BUF MyCache[CacheInx].last_bufp
+#define LAST_USE MyCache[CacheInx].last_used
+#define LAST_SEQ MyCache[CacheInx].sequence
 
 /***************************************************************************
  *
@@ -67,24 +76,73 @@ static char *fix_me = 0;	/* this holds the filtered sgr0 string */
  ***************************************************************************/
 
 NCURSES_EXPORT(int)
-tgetent(char *bufp GCC_UNUSED, const char *name)
+tgetent(char *bufp, const char *name)
 {
     int errcode;
+    int n;
+    bool found_cache = FALSE;
 
     START_TRACE();
     T((T_CALLED("tgetent()")));
 
     _nc_setupterm((NCURSES_CONST char *) name, STDOUT_FILENO, &errcode, TRUE);
 
+    /*
+     * In general we cannot tell if the fixed sgr0 is still used by the
+     * caller, but if tgetent() is called with the same buffer, that is
+     * good enough, since the previous data would be invalidated by the
+     * current call.
+     *
+     * bufp may be a null pointer, e.g., GNU termcap.  That allocates data,
+     * which is good until the next tgetent() call.  The conventional termcap
+     * is inconvenient because of the fixed buffer size, but because it uses
+     * caller-supplied buffers, can have multiple terminal descriptions in
+     * use at a given time.
+     */
+    for (n = 0; n < TGETENT_MAX; ++n) {
+	bool same_result = (MyCache[n].last_used && MyCache[n].last_bufp == bufp);
+	if (same_result) {
+	    CacheInx = n;
+	    if (FIX_SGR0 != 0) {
+		FreeAndNull(FIX_SGR0);
+	    }
+	    /*
+	     * Also free the terminfo data that we loaded (much bigger leak).
+	     */
+	    if (LAST_TRM != 0 && LAST_TRM != cur_term) {
+		TERMINAL *trm = LAST_TRM;
+		del_curterm(LAST_TRM);
+		for (CacheInx = 0; CacheInx < TGETENT_MAX; ++CacheInx)
+		    if (LAST_TRM == trm)
+			LAST_TRM = 0;
+		CacheInx = n;
+	    }
+	    found_cache = TRUE;
+	    break;
+	}
+    }
+    if (!found_cache) {
+	int best = 0;
+
+	for (CacheInx = 0; CacheInx < TGETENT_MAX; ++CacheInx) {
+	    if (LAST_SEQ < MyCache[best].sequence) {
+		best = CacheInx;
+	    }
+	}
+	CacheInx = best;
+    }
+    LAST_TRM = cur_term;
+    LAST_SEQ = ++CacheSeq;
+
     PC = 0;
     UP = 0;
     BC = 0;
-    fix_me = 0;			/* don't free it - application may still use */
+    FIX_SGR0 = 0;		/* don't free it - application may still use */
 
     if (errcode == 1) {
 
 	if (cursor_left)
-	    if ((backspaces_with_bs = !strcmp(cursor_left, "\b")) == 0)
+	    if ((backspaces_with_bs = (char) !strcmp(cursor_left, "\b")) == 0)
 		backspace_if_not_bs = cursor_left;
 
 	/* we're required to export these */
@@ -95,16 +153,18 @@ tgetent(char *bufp GCC_UNUSED, const char *name)
 	if (backspace_if_not_bs != NULL)
 	    BC = backspace_if_not_bs;
 
-	FreeIfNeeded(fix_me);
-	if ((fix_me = _nc_trim_sgr0(&(cur_term->type))) != 0) {
-	    if (!strcmp(fix_me, exit_attribute_mode)) {
-		if (fix_me != exit_attribute_mode) {
-		    free(fix_me);
+	if ((FIX_SGR0 = _nc_trim_sgr0(&(cur_term->type))) != 0) {
+	    if (!strcmp(FIX_SGR0, exit_attribute_mode)) {
+		if (FIX_SGR0 != exit_attribute_mode) {
+		    free(FIX_SGR0);
 		}
-		fix_me = 0;
+		FIX_SGR0 = 0;
 	    }
 	}
+	LAST_BUF = bufp;
+	LAST_USE = TRUE;
 
+	SetNoPadding(SP);
 	(void) baudrate();	/* sets ospeed as a side-effect */
 
 /* LINT_PREPRO
@@ -200,13 +260,14 @@ tgetstr(NCURSES_CONST char *id, char **area)
 		/* setupterm forces canceled strings to null */
 		if (VALID_STRING(result)) {
 		    if (result == exit_attribute_mode
-			&& fix_me != 0) {
-			result = fix_me;
+			&& FIX_SGR0 != 0) {
+			result = FIX_SGR0;
 			TR(TRACE_DATABASE, ("altered to : %s", _nc_visbuf(result)));
 		    }
 		    if (area != 0
 			&& *area != 0) {
 			(void) strcpy(*area, result);
+			result = *area;
 			*area += strlen(*area) + 1;
 		    }
 		}
@@ -216,3 +277,15 @@ tgetstr(NCURSES_CONST char *id, char **area)
     }
     returnPtr(result);
 }
+
+#if NO_LEAKS
+NCURSES_EXPORT(void)
+_nc_tgetent_leaks(void)
+{
+    for (CacheInx = 0; CacheInx < TGETENT_MAX; ++CacheInx) {
+	FreeIfNeeded(FIX_SGR0);
+	if (LAST_TRM != 0)
+	    del_curterm(LAST_TRM);
+    }
+}
+#endif

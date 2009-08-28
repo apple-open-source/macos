@@ -191,7 +191,7 @@ rid of it.  This pass is located in @file{tree-cfg.c} and described by
 @item Mudflap declaration registration
 
 If mudflap (@pxref{Optimize Options,,-fmudflap -fmudflapth
--fmudflapir,gcc.info,Using the GNU Compiler Collection (GCC)}) is
+-fmudflapir,gcc,Using the GNU Compiler Collection (GCC)}) is
 enabled, we generate code to register some variable declarations with
 the mudflap runtime.  Specifically, the runtime tracks the lifetimes of
 those variable declarations that have their addresses taken, or whose
@@ -202,9 +202,28 @@ declarations of static variables whose lifetimes extend to the entire
 program.  The pass is located in @file{tree-mudflap.c} and is described
 by @code{pass_mudflap_1}.
 
+@item OpenMP lowering
+
+If OpenMP generation (@option{-fopenmp}) is enabled, this pass lowers
+OpenMP constructs into GIMPLE.
+
+Lowering of OpenMP constructs involves creating replacement
+expressions for local variables that have been mapped using data
+sharing clauses, exposing the control flow of most synchronization
+directives and adding region markers to facilitate the creation of the
+control flow graph.  The pass is located in @file{omp-low.c} and is
+described by @code{pass_lower_omp}.
+
+@item OpenMP expansion
+
+If OpenMP generation (@option{-fopenmp}) is enabled, this pass expands
+parallel regions into their own functions to be invoked by the thread
+library.  The pass is located in @file{omp-low.c} and is described by
+@code{pass_expand_omp}.
+
 @item Lower control flow
 
-This pass flattens @code{if} statements (@code{COND_EXPR}) and
+This pass flattens @code{if} statements (@code{COND_EXPR})
 and moves lexical bindings (@code{BIND_EXPR}) out of line.  After
 this pass, all @code{if} statements will have exactly two @code{goto}
 statements in its @code{then} and @code{else} arms.  Lexical binding
@@ -246,7 +265,7 @@ and is described by @code{pass_referenced_vars}.
 This pass rewrites the function such that it is in SSA form.  After
 this pass, all @code{is_gimple_reg} variables will be referenced by
 @code{SSA_NAME}, and all occurrences of other variables will be
-annotated with @code{VDEFS} and @code{VUSES}; phi nodes will have
+annotated with @code{VDEFS} and @code{VUSES}; PHI nodes will have
 been inserted as necessary for each basic block.  This pass is
 located in @file{tree-ssa.c} and is described by @code{pass_build_ssa}.
 
@@ -276,9 +295,9 @@ expression simplification, and jump threading.  It is run multiple times
 throughout the optimization process.  It it located in @file{tree-ssa-dom.c}
 and is described by @code{pass_dominator}.
 
-@item Redundant phi elimination
+@item Redundant PHI elimination
 
-This pass removes phi nodes for which all of the arguments are the same
+This pass removes PHI nodes for which all of the arguments are the same
 value, excluding feedback.  Such degenerate forms are typically created
 by removing unreachable code.  The pass is run multiple times throughout
 the optimization process.  It is located in @file{tree-ssa.c} and is
@@ -302,7 +321,7 @@ located in @file{tree-ssa-copyrename.c} and is described by
 
 @item PHI node optimizations
 
-This pass recognizes forms of phi inputs that can be represented as
+This pass recognizes forms of PHI inputs that can be represented as
 conditional expressions and rewrites them into straight line code.
 It is located in @file{tree-ssa-phiopt.c} and is described by
 @code{pass_phiopt}.
@@ -313,9 +332,12 @@ This pass performs a flow sensitive SSA-based points-to analysis.
 The resulting may-alias, must-alias, and escape analysis information
 is used to promote variables from in-memory addressable objects to
 non-aliased variables that can be renamed into SSA form.  We also
-update the @code{VDEF}/@code{VUSE} memory tags for non-renamable
+update the @code{VDEF}/@code{VUSE} memory tags for non-renameable
 aggregates so that we get fewer false kills.  The pass is located
 in @file{tree-ssa-alias.c} and is described by @code{pass_may_alias}.
+
+Interprocedural points-to information is located in
+@file{tree-ssa-structalias.c} and described by @code{pass_ipa_pta}.
 
 @item Profiling
 
@@ -350,11 +372,29 @@ in @file{tree-ssa-dse.c} and is described by @code{pass_dse}.
 This pass transforms tail recursion into a loop.  It is located in
 @file{tree-tailcall.c} and is described by @code{pass_tail_recursion}.
 
+@item Forward store motion
+
+This pass sinks stores and assignments down the flowgraph closer to it's
+use point.  The pass is located in @file{tree-ssa-sink.c} and is
+described by @code{pass_sink_code}.
+
 @item Partial redundancy elimination
 
 This pass eliminates partially redundant computations, as well as
 performing load motion.  The pass is located in @file{tree-ssa-pre.c}
 and is described by @code{pass_pre}.
+
+Just before partial redundancy elimination, if
+@option{-funsafe-math-optimizations} is on, GCC tries to convert
+divisions to multiplications by the reciprocal.  The pass is located
+in @file{tree-ssa-math-opts.c} and is described by
+@code{pass_cse_reciprocal}.
+
+@item Full redundancy elimination
+
+This is a simpler form of PRE that only eliminate redundancies that
+occur an all paths.  It is located in @file{tree-ssa-pre.c} and
+described by @code{pass_fre}.
 
 @item Loop optimization
 
@@ -393,14 +433,28 @@ The optimizations also use various utility functions contained in
 @file{tree-ssa-loop-manip.c}, @file{cfgloop.c}, @file{cfgloopanal.c} and
 @file{cfgloopmanip.c}.
 
+Vectorization.  This pass transforms loops to operate on vector types
+instead of scalar types.  Data parallelism across loop iterations is exploited
+to group data elements from consecutive iterations into a vector and operate 
+on them in parallel.  Depending on available target support the loop is 
+conceptually unrolled by a factor @code{VF} (vectorization factor), which is
+the number of elements operated upon in parallel in each iteration, and the 
+@code{VF} copies of each scalar operation are fused to form a vector operation.
+Additional loop transformations such as peeling and versioning may take place
+to align the number of iterations, and to align the memory accesses in the loop.
+The pass is implemented in @file{tree-vectorizer.c} (the main driver and general
+utilities), @file{tree-vect-analyze.c} and @file{tree-vect-transform.c}.
+Analysis of data references is in @file{tree-data-ref.c}.
+
 @item Tree level if-conversion for vectorizer
 
 This pass applies if-conversion to simple loops to help vectorizer.
-We identify if convertable loops, if-convert statements and merge
+We identify if convertible loops, if-convert statements and merge
 basic blocks in one big block.  The idea is to present loop in such
 form so that vectorizer can have one to one mapping between statements
 and available vector operations.  This patch re-introduces COND_EXPR
-at GIMPLE level.  This pass is located in @file{tree-if-conv.c}.
+at GIMPLE level.  This pass is located in @file{tree-if-conv.c} and is
+described by @code{pass_if_conversion}.
 
 @item Conditional constant propagation
 
@@ -409,9 +463,38 @@ that must be constant even in the presence of conditional branches.
 The pass is located in @file{tree-ssa-ccp.c} and is described
 by @code{pass_ccp}.
 
-@item Folding builtin functions
+A related pass that works on memory loads and stores, and not just
+register values, is located in @file{tree-ssa-ccp.c} and described by
+@code{pass_store_ccp}.
 
-This pass simplifies builtin functions, as applicable, with constant
+@item Conditional copy propagation
+
+This is similar to constant propagation but the lattice of values is
+the ``copy-of'' relation.  It eliminates redundant copies from the
+code.  The pass is located in @file{tree-ssa-copy.c} and described by
+@code{pass_copy_prop}.
+
+A related pass that works on memory copies, and not just register
+copies, is located in @file{tree-ssa-copy.c} and described by
+@code{pass_store_copy_prop}.
+
+@item Value range propagation
+
+This transformation is similar to constant propagation but
+instead of propagating single constant values, it propagates
+known value ranges.  The implementation is based on Patterson's
+range propagation algorithm (Accurate Static Branch Prediction by
+Value Range Propagation, J. R. C. Patterson, PLDI '95).  In
+contrast to Patterson's algorithm, this implementation does not
+propagate branch probabilities nor it uses more than a single
+range per SSA name. This means that the current implementation
+cannot be used for branch prediction (though adapting it would
+not be difficult).  The pass is located in @file{tree-vrp.c} and is
+described by @code{pass_vrp}.
+
+@item Folding built-in functions
+
+This pass simplifies built-in functions, as applicable, with constant
 arguments or with inferrable string lengths.  It is located in
 @file{tree-ssa-ccp.c} and is described by @code{pass_fold_builtins}.
 
@@ -420,12 +503,6 @@ arguments or with inferrable string lengths.  It is located in
 This pass identifies critical edges and inserts empty basic blocks
 such that the edge is no longer critical.  The pass is located in
 @file{tree-cfg.c} and is described by @code{pass_split_crit_edges}.
-
-@item Partial redundancy elimination
-
-This pass answers the question ``given a hypothetical temporary
-variable, what expressions could we eliminate?''  It is located
-in @file{tree-ssa-pre.c} and is described by @code{pass_pre}.
 
 @item Control dependence dead code elimination
 
@@ -470,7 +547,94 @@ is described by @code{pass_mudflap_2}.
 This pass rewrites the function such that it is in normal form.  At
 the same time, we eliminate as many single-use temporaries as possible,
 so the intermediate language is no longer GIMPLE, but GENERIC@.  The
-pass is located in @file{tree-ssa.c} and is described by @code{pass_del_ssa}.
+pass is located in @file{tree-outof-ssa.c} and is described by
+@code{pass_del_ssa}.
+
+@item Merge PHI nodes that feed into one another
+
+This is part of the CFG cleanup passes.  It attempts to join PHI nodes
+from a forwarder CFG block into another block with PHI nodes.  The
+pass is located in @file{tree-cfgcleanup.c} and is described by
+@code{pass_merge_phi}.
+
+@item Return value optimization
+
+If a function always returns the same local variable, and that local
+variable is an aggregate type, then the variable is replaced with the
+return value for the function (i.e., the function's DECL_RESULT).  This
+is equivalent to the C++ named return value optimization applied to
+GIMPLE.  The pass is located in @file{tree-nrv.c} and is described by
+@code{pass_nrv}.
+
+@item Return slot optimization
+
+If a function returns a memory object and is called as @code{var =
+foo()}, this pass tries to change the call so that the address of
+@code{var} is sent to the caller to avoid an extra memory copy.  This
+pass is located in @code{tree-nrv.c} and is described by
+@code{pass_return_slot}.
+
+@item Optimize calls to @code{__builtin_object_size}
+
+This is a propagation pass similar to CCP that tries to remove calls
+to @code{__builtin_object_size} when the size of the object can be
+computed at compile-time.  This pass is located in
+@file{tree-object-size.c} and is described by
+@code{pass_object_sizes}.
+
+@item Loop invariant motion
+
+This pass removes expensive loop-invariant computations out of loops.
+The pass is located in @file{tree-ssa-loop.c} and described by
+@code{pass_lim}.
+
+@item Loop nest optimizations
+
+This is a family of loop transformations that works on loop nests.  It
+includes loop interchange, scaling, skewing and reversal and they are
+all geared to the optimization of data locality in array traversals
+and the removal of dependencies that hamper optimizations such as loop
+parallelization and vectorization.  The pass is located in
+@file{tree-loop-linear.c} and described by
+@code{pass_linear_transform}.
+
+@item Removal of empty loops
+
+This pass removes loops with no code in them.  The pass is located in
+@file{tree-ssa-loop-ivcanon.c} and described by
+@code{pass_empty_loop}.
+
+@item Unrolling of small loops
+
+This pass completely unrolls loops with few iterations.  The pass
+is located in @file{tree-ssa-loop-ivcanon.c} and described by
+@code{pass_complete_unroll}.
+
+@item Array prefetching
+
+This pass issues prefetch instructions for array references inside
+loops.  The pass is located in @file{tree-ssa-loop-prefetch.c} and
+described by @code{pass_loop_prefetch}.
+
+@item Reassociation
+
+This pass rewrites arithmetic expressions to enable optimizations that
+operate on them, like redundancy elimination and vectorization.  The
+pass is located in @file{tree-ssa-reassoc.c} and described by
+@code{pass_reassoc}.
+
+@item Optimization of @code{stdarg} functions
+
+This pass tries to avoid the saving of register arguments into the
+stack on entry to @code{stdarg} functions.  If the function doesn't
+use any @code{va_start} macros, no registers need to be saved.  If
+@code{va_start} macros are used, the @code{va_list} variables don't
+escape the function, it is only necessary to save registers that will
+be used in @code{va_arg} macros.  For instance, if @code{va_arg} is
+only used with integral types in the function, floating point
+registers don't need to be saved.  This pass is located in
+@code{tree-stdarg.c} and described by @code{pass_stdarg}.
+
 @end itemize
 
 @node RTL passes
@@ -549,20 +713,15 @@ are in @file{lcm.c}.
 
 @item Loop optimization
 
-This pass moves constant expressions out of loops, and optionally does
-strength-reduction as well.  The pass is located in @file{loop.c}.
-Loop dependency analysis routines are contained in @file{dependence.c}.
-This pass is seriously out-of-date and is supposed to be replaced by
-a new one described below in near future.
-
-A second loop optimization pass takes care of basic block level
-optimizations---unrolling, peeling and unswitching loops.  The source
-files are @file{cfgloopanal.c} and @file{cfgloopmanip.c} containing
-generic loop analysis and manipulation code, @file{loop-init.c} with
-initialization and finalization code, @file{loop-unswitch.c} for loop
-unswitching and @file{loop-unroll.c} for loop unrolling and peeling.
-It also contains a separate loop invariant motion pass implemented in
-@file{loop-invariant.c}.
+This pass performs several loop related optimizations.
+The source files @file{cfgloopanal.c} and @file{cfgloopmanip.c} contain
+generic loop analysis and manipulation code.  Initialization and finalization
+of loop structures is handled by @file{loop-init.c}.
+A loop invariant motion pass is implemented in @file{loop-invariant.c}.
+Basic block level optimizations---unrolling, peeling and unswitching loops---
+are implemented in @file{loop-unswitch.c} and @file{loop-unroll.c}.
+Replacing of the exit condition of loops by special machine-dependent
+instructions is handled by @file{loop-doloop.c}.
 
 @item Jump bypassing
 
@@ -614,7 +773,8 @@ The pass is located in @file{regmove.c}.
 This pass looks for instructions that require the processor to be in a
 specific ``mode'' and minimizes the number of mode changes required to
 satisfy all users.  What these modes are, and what they apply to are
-completely target-specific.  The source is located in @file{lcm.c}.
+completely target-specific.
+The source is located in @file{mode-switching.c}.
 
 @cindex modulo scheduling
 @cindex sms, swing, software pipelining

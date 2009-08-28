@@ -4,7 +4,7 @@ Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
 
 
 The Mailman Wishlist
-(Last Update: $Date: 2005-08-26 21:40:17 -0400 (Fri, 26 Aug 2005) $)
+(Last Update: $Date: 2005-08-27 02:40:17 +0100 (Sat, 27 Aug 2005) $)
 
     Here's the wish list for future versions of Mailman.  Many new
     features have been added to Mailman 2.1, and it is currently
@@ -12,7 +12,7 @@ The Mailman Wishlist
 
     Please also see the Mailman design notes wiki at
 
-    http://www.zope.org/Members/bwarsaw/MailmanDesignNotes/FrontPage
+    http://wiki.list.org/display/DEV/Home
 
 Email Handling
     - Re-implement the bulk mailer to do DNS lookups and remote MTA

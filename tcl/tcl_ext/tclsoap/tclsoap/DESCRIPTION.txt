@@ -1,0 +1,17 @@
+Identifier: soap
+Version: 1.6.7
+Title:  Tcl commands for SOAP remote procedure calls
+Creator: Pat Thoyts <patthoys@users.sourceforge.net>
+Description: Provide support for building clients and servers for the
+	     SOAP remote procedure call protocol from Tcl. SOAP is an 
+	     XML based RPC mechanism which provides cross-platform
+	     cross language compatability.
+Rights: BSD Style
+URL: http://tclsoap.sourceforge.net/
+Require: xml 
+Require: dom
+Suggest: tdom
+Architecture: tcl
+Subject: xml
+Subject: rpc
+Subject: web

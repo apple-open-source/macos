@@ -71,6 +71,9 @@ Details in the output code:
   -W, --word-array-name=NAME
                          Specify name of word list array. Default name is
                          'wordlist'.
+      --length-table-name=NAME
+                         Specify name of length table array. Default name is
+                         'lengthtable'.
   -S, --switch=COUNT     Causes the generated C code to use a switch
                          statement scheme, rather than an array lookup table.
                          This can lead to a reduction in both time and space

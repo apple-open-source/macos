@@ -3,8 +3,7 @@
 # Class name: Typedef
 # Synopsis: Holds typedef info parsed by headerDoc
 #
-# Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2007/07/19 18:45:00 $
+# Last Updated: $Date: 2009/03/30 19:38:52 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -40,7 +39,7 @@ use Carp qw(cluck);
 
 use strict;
 use vars qw($VERSION @ISA);
-$VERSION = '$Revision: 1.12.2.8.2.45 $';
+$HeaderDoc::Typedef::VERSION = '$Revision: 1.17 $';
 
 
 sub new {
@@ -102,18 +101,18 @@ sub fields {
     ($self->{FIELDS}) ? return @{ $self->{FIELDS} } : return ();
 }
 
-sub addField {
-    my $self = shift;
-    my $localDebug = 0;
-    if (@_) { 
-	foreach my $field (@_) {
-		cluck("added field $field->{NAME} ($field->{TYPE})\n") if ($localDebug);
-		push(@{$self->{FIELDS}}, $field);
-	}
-        # push (@{$self->{FIELDS}}, @_);
-    }
-    return @{ $self->{FIELDS} };
-}
+# sub addField {
+    # my $self = shift;
+    # my $localDebug = 0;
+    # if (@_) { 
+	# foreach my $field (@_) {
+		# cluck("added field $field->{NAME} ($field->{TYPE})\n") if ($localDebug);
+		# push(@{$self->{FIELDS}}, $field);
+	# }
+        # # push (@{$self->{FIELDS}}, @_);
+    # }
+    # return @{ $self->{FIELDS} };
+# }
 
 
 sub isEnumList {
@@ -126,28 +125,28 @@ sub isEnumList {
 }
 
 
-sub processComment {
+sub processComment_old {
     my $self = shift;
     my $fieldArrayRef = shift;
     my @fields = @$fieldArrayRef;
     my $lastField = scalar(@fields);
-    my $filename = $self->filename();
+    my $fullpath = $self->fullpath();
     my $linenum = $self->linenum();
     my $fieldCounter = 0;
     my $localDebug = 0;
     
     while ($fieldCounter < $lastField) {
         my $field = $fields[$fieldCounter];
-	print "FIELD WAS $field\n" if ($localDebug);
+	print STDERR "FIELD WAS $field\n" if ($localDebug);
 
 	my $fieldname = "";
 	my $top_level_field = 0;
 	if ($field =~ /^(\w+)(\s|$)/) {
 		$fieldname = $1;
-		# print "FIELDNAME: $fieldname\n";
+		# print STDERR "FIELDNAME: $fieldname\n";
 		$top_level_field = validTag($fieldname, 1);
 	}
-	# print "TLF: $top_level_field, FN: \"$fieldname\"\n";
+	# print STDERR "TLF: $top_level_field, FN: \"$fieldname\"\n";
         SWITCH: {
             ($field =~ /^\/\*\!/o)&& do {
                                 my $copy = $field;
@@ -162,6 +161,8 @@ sub processComment {
             ($field =~ s/^availability\s+//io) && do {$self->availability($field); last SWITCH;};
             ($field =~ s/^since\s+//io) && do {$self->availability($field); last SWITCH;};
             ($field =~ s/^author\s+//io) && do {$self->attribute("Author", $field, 0); last SWITCH;};
+            ($field =~ s/^group\s+//io) && do {$self->group($field); last SWITCH;};
+            ($field =~ s/^indexgroup\s+//io) && do {$self->indexgroup($field); last SWITCH;};
 	    ($field =~ s/^version\s+//io) && do {$self->attribute("Version", $field, 0); last SWITCH;};
             ($field =~ s/^deprecated\s+//io) && do {$self->attribute("Deprecated", $field, 0); last SWITCH;};
             ($field =~ s/^updated\s+//io) && do {$self->updated($field); last SWITCH;};
@@ -170,7 +171,7 @@ sub processComment {
 		    if (length($attname) && length($attdisc)) {
 			$self->attribute($attname, $attdisc, 0);
 		    } else {
-			warn "$filename:$linenum: warning: Missing name/discussion for attribute\n";
+			warn "$fullpath:$linenum: warning: Missing name/discussion for attribute\n";
 		    }
 		    last SWITCH;
 		};
@@ -188,7 +189,7 @@ sub processComment {
 			    $self->attributelist($name, $line);
 			}
 		    } else {
-			warn "$filename:$linenum: warning: Missing name/discussion for attributelist\n";
+			warn "$fullpath:$linenum: warning: Missing name/discussion for attributelist\n";
 		    }
 		    last SWITCH;
 		};
@@ -197,7 +198,7 @@ sub processComment {
 		    if (length($attname) && length($attdisc)) {
 			$self->attribute($attname, $attdisc, 1);
 		    } else {
-			warn "$filename:$linenum: warning: Missing name/discussion for attributeblock\n";
+			warn "$fullpath:$linenum: warning: Missing name/discussion for attributeblock\n";
 		    }
 		    last SWITCH;
 		};
@@ -206,6 +207,7 @@ sub processComment {
 		    $self->see($field);
 		    last SWITCH;
 		};
+            ($field =~ s/^details(\s+|$)//io) && do {$self->discussion($field); last SWITCH;};
             ($field =~ s/^discussion(\s+|$)//io) && do {$self->discussion($field); last SWITCH;};
             ($field =~ s/^field\s+//io) &&
                 do {
@@ -219,7 +221,7 @@ sub processComment {
                     $fObj->discussion($fDesc);
                     $fObj->type("field");
                     $self->addField($fObj);
-                    print "Adding field for typedef.  Field name: $fName.\n" if ($localDebug);
+                    print STDERR "Adding field for typedef.  Field name: $fName.\n" if ($localDebug);
                     last SWITCH;
                 };
             ($field =~ s/^const(ant)?\s+//io) &&
@@ -237,7 +239,7 @@ sub processComment {
                     $fObj->discussion($fDesc);
                     $fObj->type("constant");
                     $self->addConstant($fObj);
-                    # print "Adding constant for enum.  Constant name: $fName.\n" if ($localDebug);
+                    # print STDERR "Adding constant for enum.  Constant name: $fName.\n" if ($localDebug);
                     last SWITCH;
                 };
             # To handle callbacks and their params and results, have to set up loop
@@ -253,11 +255,11 @@ sub processComment {
                     $callbackObj->discussion($cbDesc);
                     $callbackObj->type("callback");
                     # now get params and result that go with this callback
-                    print "Adding callback.  Callback name: $cbName.\n" if ($localDebug);
+                    print STDERR "Adding callback.  Callback name: $cbName.\n" if ($localDebug);
                     $fieldCounter++;
                     while ($fieldCounter < $lastField) {
                         my $nextField = $fields[$fieldCounter];
-                        print "In callback: next field is '$nextField'\n" if ($localDebug);
+                        print STDERR "In callback: next field is '$nextField'\n" if ($localDebug);
                         
                         if ($nextField =~ s/^param\s+//io) {
                             $nextField =~ s/^\s+|\s+$//go;
@@ -277,7 +279,7 @@ sub processComment {
                         $fieldCounter++;
                     }
                     $self-> addField($callbackObj);
-                    print "Adding callback to typedef.  Callback name: $cbName.\n" if ($localDebug);
+                    print STDERR "Adding callback to typedef.  Callback name: $cbName.\n" if ($localDebug);
                     last SWITCH;
                 };
             # param and result have to come last, since they should be handled differently, if part of a callback
@@ -296,7 +298,7 @@ sub processComment {
                     $fObj->discussion($fDesc);
                     $fObj->type("funcPtr");
                     $self->addField($fObj);
-                    print "Adding param for function-pointer typedef.  Param name: $fName.\n" if ($localDebug);
+                    print STDERR "Adding param for function-pointer typedef.  Param name: $fName.\n" if ($localDebug);
                     last SWITCH;
                 };
             ($field =~ s/^result(\s+|$)//io || $field =~ s/^return(\s+|$)//io) && 
@@ -325,28 +327,28 @@ sub processComment {
 		    	}
                     	last SWITCH;
                 };
-	    # my $filename = $HeaderDoc::headerObject->name();
-	    my $filename = $self->filename();
+	    # my $fullpath = $HeaderDoc::headerObject->name();
+	    my $fullpath = $self->fullpath();
 	    my $linenum = $self->linenum();
-            # print "$filename:$linenum:Unknown field in Typedef comment: $field\n";
-	    if (length($field)) { warn "$filename:$linenum: warning: Unknown field (\@$field) in typedef comment (".$self->name().")\n"; }
+            # print STDERR "$fullpath:$linenum:Unknown field in Typedef comment: $field\n";
+	    if (length($field)) { warn "$fullpath:$linenum: warning: Unknown field (\@$field) in typedef comment (".$self->name().")\n"; }
         }
         $fieldCounter++;
     }
 }
 
-sub setTypedefDeclaration {
+sub setDeclaration {
     my $self = shift;
     my $dec = shift;
     my $decType;
     my $localDebug = 0;
-    my $filename = $self->filename();
+    my $fullpath = $self->fullpath();
     my $linenum = $self->linenum();
 
     if ($self->isFunctionPointer() && $dec =~ /typedef(\s+\w+)*\s+\{/o) {
 	# Somebody put in an @param instead of an @field
 	$self->isFunctionPointer(0);
-	warn("$filename:$linenum: warning: typedef markup invalid. Non-callback typedefs should use \@field, not \@param.\n");
+	warn("$fullpath:$linenum: warning: typedef markup invalid. Non-callback typedefs should use \@field, not \@param.\n");
     }
 
     $self->declaration($dec);
@@ -359,12 +361,12 @@ sub setTypedefDeclaration {
 sub printObject {
     my $self = shift;
  
-    print "Typedef\n";
+    print STDERR "Typedef\n";
     $self->SUPER::printObject();
     SWITCH: {
-        if ($self->isFunctionPointer()) {print "Parameters:\n"; last SWITCH; }
-        if ($self->isEnumList()) {print "Constants:\n"; last SWITCH; }
-        print "Fields:\n";
+        if ($self->isFunctionPointer()) {print STDERR "Parameters:\n"; last SWITCH; }
+        if ($self->isEnumList()) {print STDERR "Constants:\n"; last SWITCH; }
+        print STDERR "Fields:\n";
     }
 
     my $fieldArrayRef = $self->{FIELDS};
@@ -374,9 +376,9 @@ sub printObject {
             &printArray(@{$fieldArrayRef});
         }
     }
-    print "is function pointer: $self->{ISFUNCPTR}\n";
-    print "is enum list: $self->{ISENUMLIST}\n";
-    print "\n";
+    print STDERR "is function pointer: $self->{ISFUNCPTR}\n";
+    print STDERR "is enum list: $self->{ISENUMLIST}\n";
+    print STDERR "\n";
 }
 
 1;

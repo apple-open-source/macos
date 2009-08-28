@@ -3,16 +3,19 @@
                "http://www.oasis-open.org/docbook/xml/4.1.2/docbookx.dtd">
 <refentry id="libidn-stringprep">
 <refmeta>
-<refentrytitle>stringprep</refentrytitle>
+<refentrytitle role="top_of_page">stringprep</refentrytitle>
 <manvolnum>3</manvolnum>
 <refmiscinfo>LIBIDN Library</refmiscinfo>
 </refmeta>
 
 <refnamediv>
-<refname>stringprep</refname><refpurpose></refpurpose>
+<refname>stringprep</refname>
+<refpurpose></refpurpose>
+<!--[<xref linkend="desc" endterm="desc.title"/>]-->
 </refnamediv>
 
-<refsynopsisdiv><title>Synopsis</title>
+<refsynopsisdiv role="synopsis">
+<title role="synopsis.title">Synopsis</title>
 
 <synopsis>
 
@@ -84,18 +87,18 @@ const <link linkend="char">char</link>* <link linkend="stringprep-locale-charset
 
 
 
-<refsect1>
-<title>Description</title>
+<refsect1 role="desc">
+<title role="desc.title">Description</title>
 <para>
 
 </para>
 </refsect1>
 
-<refsect1>
-<title>Details</title>
+<refsect1 role="details">
+<title role="details.title">Details</title>
 <refsect2>
-<title><anchor id="STRINGPREP-VERSION:CAPS"/>STRINGPREP_VERSION</title>
-<indexterm><primary>STRINGPREP_VERSION</primary></indexterm><programlisting>#define STRINGPREP_VERSION "0.6.0"
+<title><anchor id="STRINGPREP-VERSION:CAPS" role="macro"/>STRINGPREP_VERSION</title>
+<indexterm><primary>STRINGPREP_VERSION</primary></indexterm><programlisting>#define STRINGPREP_VERSION "0.6.14"
 </programlisting>
 <para>
 String defined via CPP denoting the header file version number.
@@ -105,7 +108,7 @@ and run-time library consistency.</para>
 
 </para></refsect2>
 <refsect2>
-<title><anchor id="Stringprep-rc"/>enum Stringprep_rc</title>
+<title><anchor id="Stringprep-rc" role="enum"/>enum Stringprep_rc</title>
 <indexterm><primary>Stringprep_rc</primary></indexterm><programlisting>  typedef enum
   {
     STRINGPREP_OK = 0,
@@ -133,82 +136,82 @@ guaranteed to always correspond to success.</para>
 
 </para><variablelist role="enum">
 <varlistentry>
-<term><literal>STRINGPREP_OK</literal></term>
+<term><anchor id="STRINGPREP-OK:CAPS" role="constant"/><literal>STRINGPREP_OK</literal></term>
 <listitem><simpara> Successful operation.  This value is guaranteed to
   always be zero, the remaining ones are only guaranteed to hold
   non-zero values, for logical comparison purposes.
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>STRINGPREP_CONTAINS_UNASSIGNED</literal></term>
+<term><anchor id="STRINGPREP-CONTAINS-UNASSIGNED:CAPS" role="constant"/><literal>STRINGPREP_CONTAINS_UNASSIGNED</literal></term>
 <listitem><simpara> String contain unassigned Unicode
   code points, which is forbidden by the profile.
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>STRINGPREP_CONTAINS_PROHIBITED</literal></term>
+<term><anchor id="STRINGPREP-CONTAINS-PROHIBITED:CAPS" role="constant"/><literal>STRINGPREP_CONTAINS_PROHIBITED</literal></term>
 <listitem><simpara> String contain code points
   prohibited by the profile.
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>STRINGPREP_BIDI_BOTH_L_AND_RAL</literal></term>
+<term><anchor id="STRINGPREP-BIDI-BOTH-L-AND-RAL:CAPS" role="constant"/><literal>STRINGPREP_BIDI_BOTH_L_AND_RAL</literal></term>
 <listitem><simpara> String contain code points with
   conflicting bidirection category.
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>STRINGPREP_BIDI_LEADTRAIL_NOT_RAL</literal></term>
+<term><anchor id="STRINGPREP-BIDI-LEADTRAIL-NOT-RAL:CAPS" role="constant"/><literal>STRINGPREP_BIDI_LEADTRAIL_NOT_RAL</literal></term>
 <listitem><simpara> Leading and trailing character
   in string not of proper bidirectional category.
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>STRINGPREP_BIDI_CONTAINS_PROHIBITED</literal></term>
+<term><anchor id="STRINGPREP-BIDI-CONTAINS-PROHIBITED:CAPS" role="constant"/><literal>STRINGPREP_BIDI_CONTAINS_PROHIBITED</literal></term>
 <listitem><simpara> Contains prohibited code
   points detected by bidirectional code.
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>STRINGPREP_TOO_SMALL_BUFFER</literal></term>
+<term><anchor id="STRINGPREP-TOO-SMALL-BUFFER:CAPS" role="constant"/><literal>STRINGPREP_TOO_SMALL_BUFFER</literal></term>
 <listitem><simpara> Buffer handed to function was too
   small.  This usually indicate a problem in the calling
   application.
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>STRINGPREP_PROFILE_ERROR</literal></term>
+<term><anchor id="STRINGPREP-PROFILE-ERROR:CAPS" role="constant"/><literal>STRINGPREP_PROFILE_ERROR</literal></term>
 <listitem><simpara> The stringprep profile was inconsistent.
   This usually indicate an internal error in the library.
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>STRINGPREP_FLAG_ERROR</literal></term>
+<term><anchor id="STRINGPREP-FLAG-ERROR:CAPS" role="constant"/><literal>STRINGPREP_FLAG_ERROR</literal></term>
 <listitem><simpara> The supplied flag conflicted with profile.
   This usually indicate a problem in the calling application.
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>STRINGPREP_UNKNOWN_PROFILE</literal></term>
+<term><anchor id="STRINGPREP-UNKNOWN-PROFILE:CAPS" role="constant"/><literal>STRINGPREP_UNKNOWN_PROFILE</literal></term>
 <listitem><simpara> The supplied profile name was not
   known to the library.
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>STRINGPREP_NFKC_FAILED</literal></term>
+<term><anchor id="STRINGPREP-NFKC-FAILED:CAPS" role="constant"/><literal>STRINGPREP_NFKC_FAILED</literal></term>
 <listitem><simpara> The Unicode NFKC operation failed.  This
   usually indicate an internal error in the library.
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>STRINGPREP_MALLOC_ERROR</literal></term>
+<term><anchor id="STRINGPREP-MALLOC-ERROR:CAPS" role="constant"/><literal>STRINGPREP_MALLOC_ERROR</literal></term>
 <listitem><simpara> The <link linkend="malloc"><function>malloc()</function></link> was out of memory.  This is
   usually a fatal error.
 </simpara></listitem>
 </varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="Stringprep-profile-flags"/>enum Stringprep_profile_flags</title>
+<title><anchor id="Stringprep-profile-flags" role="enum"/>enum Stringprep_profile_flags</title>
 <indexterm><primary>Stringprep_profile_flags</primary></indexterm><programlisting>  typedef enum
   {
     STRINGPREP_NO_NFKC = 1,
@@ -222,7 +225,7 @@ Stringprep profile flags.</para>
 
 </para><variablelist role="enum">
 <varlistentry>
-<term><literal>STRINGPREP_NO_NFKC</literal></term>
+<term><anchor id="STRINGPREP-NO-NFKC:CAPS" role="constant"/><literal>STRINGPREP_NO_NFKC</literal></term>
 <listitem><simpara> Disable the NFKC normalization, as well as
   selecting the non-NFKC case folding tables.  Usually the profile
   specifies BIDI and NFKC settings, and applications should not
@@ -230,21 +233,21 @@ Stringprep profile flags.</para>
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>STRINGPREP_NO_BIDI</literal></term>
+<term><anchor id="STRINGPREP-NO-BIDI:CAPS" role="constant"/><literal>STRINGPREP_NO_BIDI</literal></term>
 <listitem><simpara> Disable the BIDI step.  Usually the profile
   specifies BIDI and NFKC settings, and applications should not
   override it unless in special situations.
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>STRINGPREP_NO_UNASSIGNED</literal></term>
+<term><anchor id="STRINGPREP-NO-UNASSIGNED:CAPS" role="constant"/><literal>STRINGPREP_NO_UNASSIGNED</literal></term>
 <listitem><simpara> Make the library return with an error if
   string contains unassigned characters according to profile.
 </simpara></listitem>
 </varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="Stringprep-profile-steps"/>enum Stringprep_profile_steps</title>
+<title><anchor id="Stringprep-profile-steps" role="enum"/>enum Stringprep_profile_steps</title>
 <indexterm><primary>Stringprep_profile_steps</primary></indexterm><programlisting>  typedef enum
   {
     STRINGPREP_NFKC = 1,
@@ -265,7 +268,7 @@ want to add another profile.</para>
 
 </para></refsect2>
 <refsect2>
-<title><anchor id="STRINGPREP-MAX-MAP-CHARS:CAPS"/>STRINGPREP_MAX_MAP_CHARS</title>
+<title><anchor id="STRINGPREP-MAX-MAP-CHARS:CAPS" role="macro"/>STRINGPREP_MAX_MAP_CHARS</title>
 <indexterm><primary>STRINGPREP_MAX_MAP_CHARS</primary></indexterm><programlisting>#define STRINGPREP_MAX_MAP_CHARS 4
 </programlisting>
 <para>
@@ -275,7 +278,7 @@ during stringprep mapping.</para>
 
 </para></refsect2>
 <refsect2>
-<title><anchor id="Stringprep-table-element"/>struct Stringprep_table_element</title>
+<title><anchor id="Stringprep-table-element" role="struct"/>struct Stringprep_table_element</title>
 <indexterm><primary>Stringprep_table_element</primary></indexterm><programlisting>struct Stringprep_table_element {
     uint32_t start;
     uint32_t end;		/* 0 if only one character */
@@ -286,7 +289,7 @@ during stringprep mapping.</para>
 
 </para></refsect2>
 <refsect2>
-<title><anchor id="Stringprep-table"/>struct Stringprep_table</title>
+<title><anchor id="Stringprep-table" role="struct"/>struct Stringprep_table</title>
 <indexterm><primary>Stringprep_table</primary></indexterm><programlisting>struct Stringprep_table {
     Stringprep_profile_steps operation;
     Stringprep_profile_flags flags;
@@ -297,14 +300,14 @@ during stringprep mapping.</para>
 
 </para></refsect2>
 <refsect2>
-<title><anchor id="Stringprep-profile"/>Stringprep_profile</title>
+<title><anchor id="Stringprep-profile" role="typedef"/>Stringprep_profile</title>
 <indexterm><primary>Stringprep_profile</primary></indexterm><programlisting>  typedef struct Stringprep_table Stringprep_profile;
 </programlisting>
 <para>
 
 </para></refsect2>
 <refsect2>
-<title><anchor id="Stringprep-profiles"/>struct Stringprep_profiles</title>
+<title><anchor id="Stringprep-profiles" role="struct"/>struct Stringprep_profiles</title>
 <indexterm><primary>Stringprep_profiles</primary></indexterm><programlisting>struct Stringprep_profiles {
     const char *name;
     const Stringprep_profile *tables;
@@ -314,7 +317,7 @@ during stringprep mapping.</para>
 
 </para></refsect2>
 <refsect2>
-<title><anchor id="stringprep-nameprep"/>stringprep_nameprep()</title>
+<title><anchor id="stringprep-nameprep" role="macro"/>stringprep_nameprep()</title>
 <indexterm><primary>stringprep_nameprep</primary></indexterm><programlisting>#define     stringprep_nameprep(in, maxlen)</programlisting>
 <para>
 Prepare the input UTF-8 string according to the nameprep profile.
@@ -332,7 +335,7 @@ AllowUnassigned.  Returns 0 iff successful, or an error code.</para>
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="stringprep-nameprep-no-unassigned"/>stringprep_nameprep_no_unassigned()</title>
+<title><anchor id="stringprep-nameprep-no-unassigned" role="macro"/>stringprep_nameprep_no_unassigned()</title>
 <indexterm><primary>stringprep_nameprep_no_unassigned</primary></indexterm><programlisting>#define     stringprep_nameprep_no_unassigned(in, maxlen)</programlisting>
 <para>
 Prepare the input UTF-8 string according to the nameprep profile.
@@ -349,7 +352,7 @@ true AllowUnassigned.  Returns 0 iff successful, or an error code.</para>
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="stringprep-plain"/>stringprep_plain()</title>
+<title><anchor id="stringprep-plain" role="macro"/>stringprep_plain()</title>
 <indexterm><primary>stringprep_plain</primary></indexterm><programlisting>#define     stringprep_plain(in, maxlen)</programlisting>
 <para>
 Prepare the input UTF-8 string according to the draft SASL
@@ -365,7 +368,7 @@ ANONYMOUS profile.  Returns 0 iff successful, or an error code.</para>
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="stringprep-kerberos5"/>stringprep_kerberos5()</title>
+<title><anchor id="stringprep-kerberos5" role="macro"/>stringprep_kerberos5()</title>
 <indexterm><primary>stringprep_kerberos5</primary></indexterm><programlisting>#define     stringprep_kerberos5(in, maxlen)</programlisting>
 <para>
 
@@ -380,7 +383,7 @@ ANONYMOUS profile.  Returns 0 iff successful, or an error code.</para>
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="stringprep-xmpp-nodeprep"/>stringprep_xmpp_nodeprep()</title>
+<title><anchor id="stringprep-xmpp-nodeprep" role="macro"/>stringprep_xmpp_nodeprep()</title>
 <indexterm><primary>stringprep_xmpp_nodeprep</primary></indexterm><programlisting>#define     stringprep_xmpp_nodeprep(in, maxlen)</programlisting>
 <para>
 Prepare the input UTF-8 string according to the draft XMPP node
@@ -396,7 +399,7 @@ identifier profile.  Returns 0 iff successful, or an error code.</para>
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="stringprep-xmpp-resourceprep"/>stringprep_xmpp_resourceprep()</title>
+<title><anchor id="stringprep-xmpp-resourceprep" role="macro"/>stringprep_xmpp_resourceprep()</title>
 <indexterm><primary>stringprep_xmpp_resourceprep</primary></indexterm><programlisting>#define     stringprep_xmpp_resourceprep(in, maxlen)</programlisting>
 <para>
 Prepare the input UTF-8 string according to the draft XMPP resource
@@ -412,7 +415,7 @@ identifier profile.  Returns 0 iff successful, or an error code.</para>
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="stringprep-iscsi"/>stringprep_iscsi()</title>
+<title><anchor id="stringprep-iscsi" role="macro"/>stringprep_iscsi()</title>
 <indexterm><primary>stringprep_iscsi</primary></indexterm><programlisting>#define     stringprep_iscsi(in, maxlen)</programlisting>
 <para>
 Prepare the input UTF-8 string according to the draft iSCSI
@@ -428,7 +431,7 @@ stringprep profile.  Returns 0 iff successful, or an error code.</para>
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="stringprep-4i"/>stringprep_4i ()</title>
+<title><anchor id="stringprep-4i" role="function"/>stringprep_4i ()</title>
 <indexterm><primary>stringprep_4i</primary></indexterm><programlisting><link linkend="int">int</link>         stringprep_4i                   (<link linkend="uint32-t">uint32_t</link> *ucs4,
                                              <link linkend="size-t">size_t</link> *len,
                                              <link linkend="size-t">size_t</link> maxucs4len,
@@ -476,12 +479,12 @@ the library, or use one of the currently supported profiles.</para>
 <varlistentry><term><parameter>profile</parameter>&nbsp;:</term>
 <listitem><simpara> pointer to <link linkend="Stringprep-profile"><type>Stringprep_profile</type></link> to use.
 </simpara></listitem></varlistentry>
-<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns <literal>STRINGPREP_OK</literal> iff successful, or an
+<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns <link linkend="STRINGPREP-OK:CAPS"><literal>STRINGPREP_OK</literal></link> iff successful, or an
   <link linkend="Stringprep-rc"><type>Stringprep_rc</type></link> error code.
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="stringprep-4zi"/>stringprep_4zi ()</title>
+<title><anchor id="stringprep-4zi" role="function"/>stringprep_4zi ()</title>
 <indexterm><primary>stringprep_4zi</primary></indexterm><programlisting><link linkend="int">int</link>         stringprep_4zi                  (<link linkend="uint32-t">uint32_t</link> *ucs4,
                                              <link linkend="size-t">size_t</link> maxucs4len,
                                              <link linkend="Stringprep-profile-flags">Stringprep_profile_flags</link> flags,
@@ -518,12 +521,12 @@ the library, or use one of the currently supported profiles.</para>
 <varlistentry><term><parameter>profile</parameter>&nbsp;:</term>
 <listitem><simpara> pointer to <link linkend="Stringprep-profile"><type>Stringprep_profile</type></link> to use.
 </simpara></listitem></varlistentry>
-<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns <literal>STRINGPREP_OK</literal> iff successful, or an
+<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns <link linkend="STRINGPREP-OK:CAPS"><literal>STRINGPREP_OK</literal></link> iff successful, or an
   <link linkend="Stringprep-rc"><type>Stringprep_rc</type></link> error code.
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="stringprep"/>stringprep ()</title>
+<title><anchor id="stringprep" role="function"/>stringprep ()</title>
 <indexterm><primary>stringprep</primary></indexterm><programlisting><link linkend="int">int</link>         stringprep                      (<link linkend="char">char</link> *in,
                                              <link linkend="size-t">size_t</link> maxlen,
                                              <link linkend="Stringprep-profile-flags">Stringprep_profile_flags</link> flags,
@@ -565,11 +568,11 @@ the library, or use one of the currently supported profiles.</para>
 <varlistentry><term><parameter>profile</parameter>&nbsp;:</term>
 <listitem><simpara> pointer to <link linkend="Stringprep-profile"><type>Stringprep_profile</type></link> to use.
 </simpara></listitem></varlistentry>
-<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns <literal>STRINGPREP_OK</literal> iff successful, or an error code.
+<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns <link linkend="STRINGPREP-OK:CAPS"><literal>STRINGPREP_OK</literal></link> iff successful, or an error code.
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="stringprep-profile"/>stringprep_profile ()</title>
+<title><anchor id="stringprep-profile" role="function"/>stringprep_profile ()</title>
 <indexterm><primary>stringprep_profile</primary></indexterm><programlisting><link linkend="int">int</link>         stringprep_profile              (const <link linkend="char">char</link> *in,
                                              <link linkend="char">char</link> **out,
                                              const <link linkend="char">char</link> *profile,
@@ -608,11 +611,11 @@ It must be one of the internally supported stringprep profiles.</para>
 <varlistentry><term><parameter>flags</parameter>&nbsp;:</term>
 <listitem><simpara> a <link linkend="Stringprep-profile-flags"><type>Stringprep_profile_flags</type></link> value, or 0.
 </simpara></listitem></varlistentry>
-<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns <literal>STRINGPREP_OK</literal> iff successful, or an error code.
+<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns <link linkend="STRINGPREP-OK:CAPS"><literal>STRINGPREP_OK</literal></link> iff successful, or an error code.
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="stringprep-strerror"/>stringprep_strerror ()</title>
+<title><anchor id="stringprep-strerror" role="function"/>stringprep_strerror ()</title>
 <indexterm><primary>stringprep_strerror</primary></indexterm><programlisting>const <link linkend="char">char</link>* stringprep_strerror             (<link linkend="Stringprep-rc">Stringprep_rc</link> rc);</programlisting>
 <para>
 Convert a return code integer to a text string.  This string can be
@@ -656,7 +659,7 @@ STRINGPREP_MALLOC_ERROR: The <link linkend="malloc"><function>malloc()</function
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="stringprep-check-version"/>stringprep_check_version ()</title>
+<title><anchor id="stringprep-check-version" role="function"/>stringprep_check_version ()</title>
 <indexterm><primary>stringprep_check_version</primary></indexterm><programlisting>const <link linkend="char">char</link>* stringprep_check_version        (const <link linkend="char">char</link> *req_version);</programlisting>
 <para>
 Check that the the version of the library is at minimum the requested one
@@ -665,7 +668,7 @@ satisfied.  If a NULL is passed to this function, no check is done,
 but the version string is simply returned.
 </para>
 <para>
-See <literal>STRINGPREP_VERSION</literal> for a suitable <parameter>req_version</parameter> string.</para>
+See <link linkend="STRINGPREP-VERSION:CAPS"><literal>STRINGPREP_VERSION</literal></link> for a suitable <parameter>req_version</parameter> string.</para>
 <para>
 
 </para><variablelist role="params">
@@ -677,7 +680,7 @@ run-time library does not meet the required version number.
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="stringprep-unichar-to-utf8"/>stringprep_unichar_to_utf8 ()</title>
+<title><anchor id="stringprep-unichar-to-utf8" role="function"/>stringprep_unichar_to_utf8 ()</title>
 <indexterm><primary>stringprep_unichar_to_utf8</primary></indexterm><programlisting><link linkend="int">int</link>         stringprep_unichar_to_utf8      (<link linkend="uint32-t">uint32_t</link> c,
                                              <link linkend="char">char</link> *outbuf);</programlisting>
 <para>
@@ -690,14 +693,14 @@ Converts a single character to UTF-8.</para>
 </simpara></listitem></varlistentry>
 <varlistentry><term><parameter>outbuf</parameter>&nbsp;:</term>
 <listitem><simpara> output buffer, must have at least 6 bytes of space.
-      If <literal>NULL</literal>, the length will be computed and returned
+      If <link linkend="NULL:CAPS"><literal>NULL</literal></link>, the length will be computed and returned
       and nothing will be written to <parameter>outbuf</parameter>.
 </simpara></listitem></varlistentry>
 <varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> number of bytes written.
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="stringprep-utf8-to-unichar"/>stringprep_utf8_to_unichar ()</title>
+<title><anchor id="stringprep-utf8-to-unichar" role="function"/>stringprep_utf8_to_unichar ()</title>
 <indexterm><primary>stringprep_utf8_to_unichar</primary></indexterm><programlisting><link linkend="uint32-t">uint32_t</link>    stringprep_utf8_to_unichar      (const <link linkend="char">char</link> *p);</programlisting>
 <para>
 Converts a sequence of bytes encoded as UTF-8 to a Unicode character.
@@ -713,7 +716,7 @@ undefined.</para>
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="stringprep-utf8-to-ucs4"/>stringprep_utf8_to_ucs4 ()</title>
+<title><anchor id="stringprep-utf8-to-ucs4" role="function"/>stringprep_utf8_to_ucs4 ()</title>
 <indexterm><primary>stringprep_utf8_to_ucs4</primary></indexterm><programlisting><link linkend="uint32-t">uint32_t</link>*   stringprep_utf8_to_ucs4         (const <link linkend="char">char</link> *str,
                                              <link linkend="ssize-t">ssize_t</link> len,
                                              <link linkend="size-t">size_t</link> *items_written);</programlisting>
@@ -733,14 +736,14 @@ This function does no error checking on the input.</para>
 </simpara></listitem></varlistentry>
 <varlistentry><term><parameter>items_written</parameter>&nbsp;:</term>
 <listitem><simpara> location to store the number of characters in the
-                result, or <literal>NULL</literal>.
+                result, or <link linkend="NULL:CAPS"><literal>NULL</literal></link>.
 </simpara></listitem></varlistentry>
 <varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> a pointer to a newly allocated UCS-4 string.
               This value must be freed with <link linkend="free"><function>free()</function></link>.
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="stringprep-ucs4-to-utf8"/>stringprep_ucs4_to_utf8 ()</title>
+<title><anchor id="stringprep-ucs4-to-utf8" role="function"/>stringprep_ucs4_to_utf8 ()</title>
 <indexterm><primary>stringprep_ucs4_to_utf8</primary></indexterm><programlisting><link linkend="char">char</link>*       stringprep_ucs4_to_utf8         (const <link linkend="uint32-t">uint32_t</link> *str,
                                              <link linkend="ssize-t">ssize_t</link> len,
                                              <link linkend="size-t">size_t</link> *items_read,
@@ -759,21 +762,21 @@ to UTF-8. The result will be terminated with a 0 byte.</para>
       the string is terminated with a 0 character.
 </simpara></listitem></varlistentry>
 <varlistentry><term><parameter>items_read</parameter>&nbsp;:</term>
-<listitem><simpara> location to store number of characters read read, or <literal>NULL</literal>.
+<listitem><simpara> location to store number of characters read read, or <link linkend="NULL:CAPS"><literal>NULL</literal></link>.
 </simpara></listitem></varlistentry>
 <varlistentry><term><parameter>items_written</parameter>&nbsp;:</term>
-<listitem><simpara> location to store number of bytes written or <literal>NULL</literal>.
+<listitem><simpara> location to store number of bytes written or <link linkend="NULL:CAPS"><literal>NULL</literal></link>.
                 The value here stored does not include the trailing 0
                 byte.
 </simpara></listitem></varlistentry>
 <varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> a pointer to a newly allocated UTF-8 string.
               This value must be freed with <link linkend="free"><function>free()</function></link>. If an
-              error occurs, <literal>NULL</literal> will be returned and
+              error occurs, <link linkend="NULL:CAPS"><literal>NULL</literal></link> will be returned and
               <parameter>error</parameter> set.
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="stringprep-utf8-nfkc-normalize"/>stringprep_utf8_nfkc_normalize ()</title>
+<title><anchor id="stringprep-utf8-nfkc-normalize" role="function"/>stringprep_utf8_nfkc_normalize ()</title>
 <indexterm><primary>stringprep_utf8_nfkc_normalize</primary></indexterm><programlisting><link linkend="char">char</link>*       stringprep_utf8_nfkc_normalize  (const <link linkend="char">char</link> *str,
                                              <link linkend="ssize-t">ssize_t</link> len);</programlisting>
 <para>
@@ -805,7 +808,7 @@ composed forms rather than a maximally decomposed form.</para>
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="stringprep-ucs4-nfkc-normalize"/>stringprep_ucs4_nfkc_normalize ()</title>
+<title><anchor id="stringprep-ucs4-nfkc-normalize" role="function"/>stringprep_ucs4_nfkc_normalize ()</title>
 <indexterm><primary>stringprep_ucs4_nfkc_normalize</primary></indexterm><programlisting><link linkend="uint32-t">uint32_t</link>*   stringprep_ucs4_nfkc_normalize  (<link linkend="uint32-t">uint32_t</link> *str,
                                              <link linkend="ssize-t">ssize_t</link> len);</programlisting>
 <para>
@@ -825,7 +828,7 @@ Converts UCS4 string into UTF-8 and runs
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="stringprep-locale-charset"/>stringprep_locale_charset ()</title>
+<title><anchor id="stringprep-locale-charset" role="function"/>stringprep_locale_charset ()</title>
 <indexterm><primary>stringprep_locale_charset</primary></indexterm><programlisting>const <link linkend="char">char</link>* stringprep_locale_charset       (void);</programlisting>
 <para>
 Find out current locale charset.  The function respect the CHARSET
@@ -850,7 +853,7 @@ data in the locale encoding.</para>
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="stringprep-convert"/>stringprep_convert ()</title>
+<title><anchor id="stringprep-convert" role="function"/>stringprep_convert ()</title>
 <indexterm><primary>stringprep_convert</primary></indexterm><programlisting><link linkend="char">char</link>*       stringprep_convert              (const <link linkend="char">char</link> *str,
                                              const <link linkend="char">char</link> *to_codeset,
                                              const <link linkend="char">char</link> *from_codeset);</programlisting>
@@ -874,7 +877,7 @@ system's <link linkend="iconv"><function>iconv()</function></link> function.</pa
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="stringprep-locale-to-utf8"/>stringprep_locale_to_utf8 ()</title>
+<title><anchor id="stringprep-locale-to-utf8" role="function"/>stringprep_locale_to_utf8 ()</title>
 <indexterm><primary>stringprep_locale_to_utf8</primary></indexterm><programlisting><link linkend="char">char</link>*       stringprep_locale_to_utf8       (const <link linkend="char">char</link> *str);</programlisting>
 <para>
 Convert string encoded in the locale's character set into UTF-8 by
@@ -890,7 +893,7 @@ using <link linkend="stringprep-convert"><function>stringprep_convert()</functio
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="stringprep-utf8-to-locale"/>stringprep_utf8_to_locale ()</title>
+<title><anchor id="stringprep-utf8-to-locale" role="function"/>stringprep_utf8_to_locale ()</title>
 <indexterm><primary>stringprep_utf8_to_locale</primary></indexterm><programlisting><link linkend="char">char</link>*       stringprep_utf8_to_locale       (const <link linkend="char">char</link> *str);</programlisting>
 <para>
 Convert string encoded in UTF-8 into the locale's character set by

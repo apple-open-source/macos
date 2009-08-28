@@ -33,6 +33,8 @@
 #include <strings.h>
 #include <CommonCrypto/opensslDES.h>	/* SPI */
 #include <CommonCrypto/ccCast.h>		/* SPI */
+#include <CommonCrypto/ccRC2.h>		/* SPI */
+#include <CommonCrypto/aesopt.h>
 
 #include <stddef.h>					/* for offsetof() */
 #include <stdbool.h>
@@ -169,6 +171,16 @@ static const CCAlgInfo bcAlgInfos[] =
 	  (bcProcessBlockFcn)cast_cc_decrypt,
 	  NULL, NULL,
 	  sizeof(CAST_KEY)
+	},
+	/* RC2 */
+	{ kCCAlgorithmRC2, kCCBlockSizeRC2, kCCKeySizeMinRC2, kCCKeySizeMaxRC2,
+	  false,
+	  (bcSetKeyFcn)rc2_cc_set_key,
+	  NULL,
+	  (bcProcessBlockFcn)rc2_cc_encrypt,
+	  (bcProcessBlockFcn)rc2_cc_decrypt,
+	  NULL, NULL,
+	  sizeof(RC2_Schedule)
 	}
 };
 #define NUM_CC_ALG_INFOS	(sizeof(bcAlgInfos) / sizeof(bcAlgInfos[0]))

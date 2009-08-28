@@ -1,3 +1,0 @@
-snprintf.lo .libs/snprintf.o: snprintf.c ../config.h
-
-../config.h:

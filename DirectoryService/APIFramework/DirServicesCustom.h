@@ -29,6 +29,7 @@
 #ifndef __DirServicesCustom_h__
 #define __DirServicesCustom_h__	1
 
+#include <AvailabilityMacros.h>
 #include <DirectoryService/DirServicesTypes.h>
 
 #ifdef __cplusplus
@@ -40,17 +41,20 @@ extern "C" {
 tDirStatus	dsRegisterCustomMemory		(	tDirReference		inDirReference,
 											fpCustomAllocate	inCustomAllocate,
 											fpCustomDeAllocate	inCustomDeAllocate,
-											tClientData			inClientData		);
+											tClientData			inClientData		)
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 	
 tDirStatus	dsGetCustomAllocate			(	tDirReference		inDirReference,
 											fpCustomAllocate	*outCustomAllocate,
 											fpCustomDeAllocate	*outCustomDeAllocate,
-											tClientData			*outClientData		);
+											tClientData			*outClientData		)
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 tDirStatus	dsUnRegisterCustomMemory	(	tDirReference		inDirReference,
 											fpCustomAllocate	inCustomAllocate,
 											fpCustomDeAllocate	inCustomDeAllocate,
-											tClientData			inClientData		);
+											tClientData			inClientData		)
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 //------------------------------------------------------------
 // register custom thread routines MacOS 8.x Applications Only
@@ -58,19 +62,22 @@ tDirStatus	dsRegisterCustomThread		(	tDirReference			inDirReference,
 											fpCustomThreadBlock		inCustomBlock,
 											fpCustomThreadUnBlock	inCustomUnBlock,
 											fpCustomThreadYield		inCustomYield,
-											tClientData				inClientData	);
+											tClientData				inClientData	)
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 tDirStatus	dsGetCustomThread			(	tDirReference			inDirReference,
 											fpCustomThreadBlock		*outCustomBlock,
 											fpCustomThreadUnBlock	*outCustomUnBlock,
 											fpCustomThreadYield		*outCustomYield,
-											tClientData				*outClientData	);
+											tClientData				*outClientData	)
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 tDirStatus	dsUnRegisterCustomThread	(	tDirReference			inDirReference,
 											fpCustomThreadBlock		inCustomBlock,
 											fpCustomThreadUnBlock	inCustomUnBlock,
 											fpCustomThreadYield		inCustomYield,
-											tClientData				inClientData	);
+											tClientData				inClientData	)
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 #ifdef __cplusplus
 }

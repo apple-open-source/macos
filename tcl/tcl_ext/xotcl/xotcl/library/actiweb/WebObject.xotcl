@@ -1,0 +1,130 @@
+# $Id: WebObject.xotcl,v 1.3 2005/09/09 21:09:01 neumann Exp $
+
+package provide xotcl::actiweb::webObject 0.8
+
+package require xotcl::actiweb::sendStrategy
+package require xotcl::mixinStrategy
+package require xotcl::store::persistence
+
+package require XOTcl
+
+namespace eval ::xotcl::actiweb::webObject {
+    namespace import ::xotcl::*
+
+    #
+    # base interface for all web-entitites
+    #
+    Class WebObject -parameter {
+	{exportedProcs {echo default}}
+	agentInfo
+	{contentType ""}
+	{place ""}
+    }
+
+    #
+    # default send strategy == send the response from the place
+    #
+    WebObject instproc init args {
+	#my showCall
+	my mixinStrategy ::Send=PlainString
+	my registerPlace
+	my mixinStrategy ::Persistent=Eager
+	my persistenceMgr [my place]::agentPersistenceMgr
+	next
+    }
+
+    WebObject instproc registerPlace {} {
+	my set place [Place getInstance]
+	my set agentInfo [[my place]::agentMgr register [my selfName]]
+    }
+
+    WebObject instproc deregisterPlace {} {
+	[my place]::agentMgr deregister [my selfName]
+    }
+
+    #
+    # seek for the HTTP worker object that has invoked
+    # the current call
+    #
+    WebObject instproc getWorker {} {
+	for {set level 1} {1} {incr level} {
+	    if {[catch {set worker [uplevel $level self]}]} {
+		return ""
+	    } elseif {[$worker istype Place::HttpdWrk]} {
+		return $worker
+	    }
+	}
+    }
+    WebObject instproc getFormData {} {
+	[my getWorker] formData
+    }
+
+    #
+    # code a call for an action on self;
+    # action is "proc args"
+    #
+    WebObject instproc selfAction {action} {
+	return [url encodeItem "[string trimleft [self] :] $action"]
+    }
+    WebObject instproc action {o action} {
+	return [url encodeItem "[string trimleft $o :] $action"]
+    }
+    WebObject instproc echo {} {
+	return [self]
+    }
+
+    WebObject instproc error args {
+	return "Error on [self]: Invocation '$args' failed."
+    }
+
+    WebObject instproc default {} {
+	return "No default behaviour on [self]."
+    }
+
+    WebObject instproc exportProcs args {
+	my instvar exportedProcs
+	foreach a $args {
+	    if {[lsearch $exportedProcs $a] == -1} {
+		lappend exportedProcs $a
+	    }
+	}
+    }
+
+    WebObject instproc isExportedProc p {
+	expr {[lsearch [my set exportedProcs] $p] != -1}
+    }
+
+    WebObject instproc selfName {} {
+	return [string trimleft [self] :]
+    }
+
+    WebObject instproc objName {obj} {
+	return [string trimleft $obj :]
+    }
+
+    WebObject instproc buildAdress {} {
+	my instvar place
+	set a http://[$place host]
+	if {[set p [$place port]]} {
+	    append a :$p
+	}
+    }
+
+    WebObject instproc destroy args {
+	my deregisterPlace
+	next
+    }
+
+    #
+    # simple class, to be inherited before WebObject, if
+    # every remote method should reach the object
+    #
+    Class ExportAll
+    ExportAll instproc isExportedProc p {
+	return 1
+    }
+
+    namespace export WebObject ExportAll
+}
+
+namespace import ::xotcl::actiweb::webObject::*

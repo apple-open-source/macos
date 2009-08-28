@@ -2,7 +2,7 @@
  * Copyright (c) 2000, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,7 +42,8 @@
 #include <pwd.h>
 #include <unistd.h>
 #include <asl.h>
-#include <URLMount/URLMount.h>
+#include <NetFS/NetFS.h>
+#include <NetFS/NetFSPrivate.h>
 
 /* Needed for Bonjour service name lookup */
 #include <CoreFoundation/CoreFoundation.h>
@@ -60,21 +61,151 @@
 #include <parse_url.h>
 #include <cflib.h>
 #include <com_err.h>
-#include <rpc_cleanup.h>
 
+#ifdef SMB_ROSETTA
+unsigned long rosetta_ioctl_cmds[SMBIOC_COMMAND_COUNT] = {0};
+unsigned long rosetta_error_ioctl_cmds[SMBIOC_COMMAND_COUNT] = {0};
+unsigned long rosetta_fsctl_cmds = 0;
+#endif // SMB_ROSETTA
+
+#ifdef SMB_DEBUG
+void smb_ctx_hexdump(const char *func, const char *s, unsigned char *buf, size_t inlen)
+{
+    int32_t addr;
+    int32_t i;
+	int32_t len = (int32_t)inlen;
+	
+	printf("%s: hexdump: %s %p length %d inlen %ld\n", func, s, buf, len, inlen);
+    addr = 0;
+    while( addr < len )
+    {
+        printf("%6.6x - " , addr );
+        for( i=0; i<16; i++ )
+        {
+            if( addr+i < len )
+                printf("%2.2x ", buf[addr+i] );
+            else
+                printf("   " );
+        }
+        printf(" \"");
+        for( i=0; i<16; i++ )
+        {
+            if( addr+i < len )
+            {
+                if(( buf[addr+i] > 0x19 ) && ( buf[addr+i] < 0x7e ) )
+                    printf("%c", buf[addr+i] );
+                else
+                    printf(".");
+            }
+        }
+        printf("\" \n");
+        addr += 16;
+    }
+    printf("\" \n");
+}
+#endif // SMB_DEBUG
+
+/*
+ * Since ENETFSACCOUNTRESTRICTED, ENETFSPWDNEEDSCHANGE, and ENETFSPWDPOLICY are only
+ * defined in NetFS.h and we can't include NetFS.h in the kernel so lets reset these
+ * herre. In the future we should just pass up the NTSTATUS and do all the translation
+ * in user land.
+*/
+int smb_ioctl_call(int ct_fd, unsigned long cmd, void *info)
+{
+	if (ioctl(ct_fd, cmd, info) == -1) {
+		switch (errno) {
+		case SMB_ENETFSACCOUNTRESTRICTED:
+			errno = ENETFSACCOUNTRESTRICTED;
+			break;
+		case SMB_ENETFSPWDNEEDSCHANGE:
+			errno = ENETFSPWDNEEDSCHANGE;
+			break;
+		case SMB_ENETFSPWDPOLICY:
+			errno = ENETFSPWDPOLICY;
+			break;
+		}
+#ifdef SMB_ROSETTA
+		{
+			u_int32_t rosetta_cmd = (u_int32_t)(IOCPARM_MASK & cmd) & ~(('n') << 8);
+			
+			if ((rosetta_cmd < MIN_SMBIOC_COMMAND) || (rosetta_cmd > MAX_SMBIOC_COMMAND)) {
+				smb_log_info("unknown smb ioctl call %ld failed error", 0, ASL_LEVEL_ERR, rosetta_cmd, errno);				
+			} else {
+				rosetta_error_ioctl_cmds[rosetta_cmd - MIN_SMBIOC_COMMAND] = rosetta_cmd;
+				smb_log_info("smb ioctl call %ld failed error", 0, ASL_LEVEL_ERR, rosetta_cmd, errno);				
+			}
+		}
+#endif //* SMB_ROSETTA
+		return -1;
+	} else {
+#ifdef SMB_ROSETTA
+		{
+			u_int32_t rosetta_cmd = (u_int32_t)(IOCPARM_MASK & cmd) & ~(('n') << 8);
+			
+			if ((rosetta_cmd < MIN_SMBIOC_COMMAND) || (rosetta_cmd > MAX_SMBIOC_COMMAND)) {
+				smb_log_info("unknown smb ioctl call %ld", 0, ASL_LEVEL_ERR, rosetta_cmd);				
+			} else {
+				rosetta_ioctl_cmds[rosetta_cmd - MIN_SMBIOC_COMMAND] = rosetta_cmd;
+			}
+		}
+#endif //* SMB_ROSETTA
+		return 0;
+	}
+}
+
+
+/*
+ * Return the OS and Lanman strings.
+ */
+static void smb_get_os_lanman(struct smb_ctx *ctx, CFMutableDictionaryRef mutableDict)
+{
+	struct smbioc_os_lanman OSLanman;
+	CFStringRef NativeOSString;
+	CFStringRef NativeLANManagerString;
+	
+	/* See if the kernel has the Native OS and Native Lanman Strings */
+	memset(&OSLanman, 0, sizeof(OSLanman));
+	if (smb_ioctl_call(ctx->ct_fd, SMBIOC_GET_OS_LANMAN, &OSLanman) == -1) {
+		smb_log_info("The SMBIOC_GET_OS_LANMAN call failed!", errno, ASL_LEVEL_DEBUG);
+	}
+	/* Didn't get a Native OS, default to UNIX or Windows */
+	if (OSLanman.NativeOS[0] == 0) {
+		if (ctx->ct_vc_caps & SMB_CAP_UNIX)
+			strlcpy(OSLanman.NativeOS, "UNIX", sizeof(OSLanman.NativeOS));
+		else
+			strlcpy(OSLanman.NativeOS, "WINDOWS", sizeof(OSLanman.NativeOS));		
+	}
+	/* Get the Native OS and added it to the dictionary */
+	NativeOSString = CFStringCreateWithCString(NULL, OSLanman.NativeOS, kCFStringEncodingUTF8);
+	if (NativeOSString != NULL) {
+		CFDictionarySetValue (mutableDict, kNetFSSMBNativeOSKey, NativeOSString);
+		CFRelease (NativeOSString);
+	}
+	/* Get the Native Lanman and added it to the dictionary */
+	if (OSLanman.NativeLANManager[0]) {
+		NativeLANManagerString = CFStringCreateWithCString(NULL, OSLanman.NativeLANManager, kCFStringEncodingUTF8);
+		if (NativeLANManagerString != NULL) {
+			CFDictionarySetValue (mutableDict, kNetFSSMBNativeLANManagerKey, NativeLANManagerString);
+			CFRelease (NativeLANManagerString);
+		}
+	}
+	smb_log_info("Native OS = '%s' Native Lanman = '%s'", 0, ASL_LEVEL_DEBUG, OSLanman.NativeOS, OSLanman.NativeLANManager);
+}
 
 /* 
  * Create a unique_id, that can be used to find a matching mounted
- * volume, given the server address, port number and share name.
+ * volume, given the server address, port number, share name and path.
  */
 static void create_unique_id(struct smb_ctx *ctx, unsigned char *id, int32_t *unique_id_len)
 {
-	struct sockaddr_in	saddr = GET_IP_ADDRESS_FROM_NB((ctx->ct_ssn.ioc_server));
-	int total_len = sizeof(saddr.sin_addr) + sizeof(ctx->ct_port) + strlen(ctx->ct_sh.ioc_share);
+	struct sockaddr_in	saddr = GET_IP_ADDRESS_FROM_NB((ctx->ct_saddr));
+	int total_len = (int)sizeof(saddr.sin_addr) + (int)sizeof(ctx->ct_port) + 
+					(int)strlen(ctx->ct_sh.ioc_share) + MAXPATHLEN;
 	
+	memset(id, 0, SMB_MAX_UBIQUE_ID);
 	if (total_len > SMB_MAX_UBIQUE_ID) {
 		smb_log_info("create_unique_id '%s' too long", 0, ASL_LEVEL_ERR, ctx->ct_sh.ioc_share);
-		memset(id, 0, SMB_MAX_UBIQUE_ID);
 		return; /* program error should never happen, but just incase */
 	}
 	memcpy(id, &saddr.sin_addr, sizeof(saddr.sin_addr));
@@ -83,6 +214,10 @@ static void create_unique_id(struct smb_ctx *ctx, unsigned char *id, int32_t *un
 	id += sizeof(ctx->ct_port);
 	memcpy(id, ctx->ct_sh.ioc_share, strlen(ctx->ct_sh.ioc_share));
 	id += strlen(ctx->ct_sh.ioc_share);
+	/* We have a path make it part of the unique id */
+	if (ctx->mountPath)
+		CFStringGetCString(ctx->mountPath, (char *)id, MAXPATHLEN, kCFStringEncodingUTF8);
+	id += MAXPATHLEN;
 	*unique_id_len = total_len;
 }
 
@@ -99,7 +234,7 @@ static struct statfs *smb_getfsstat(int *fs_cnt)
 	*fs_cnt = getfsstat(NULL, bufsize, MNT_NOWAIT);
 	if (*fs_cnt <=  0)
 		return NULL;
-	bufsize = *fs_cnt * sizeof(*fs);
+	bufsize = *fs_cnt * (int)sizeof(*fs);
 	fs = malloc(bufsize);
 	if (fs == NULL)
 		return NULL;
@@ -120,30 +255,38 @@ static int get_share_mount_info(const char *mntonname, CFMutableDictionaryRef md
 {
 	req->error = 0;
 	req->user[0] = 0;
-	if ((fsctl(mntonname, smbfsUniqueShareIDFSCTL, req, 0 ) == 0) && (req->error == EEXIST)) {
+#ifdef SMB_ROSETTA
+	rosetta_fsctl_cmds = (IOCPARM_MASK & smbfsUniqueShareIDFSCTL) & ~(('z') << 8);
+	errno = 0;
+#endif //* SMB_ROSETTA
+	if ((fsctl(mntonname, (unsigned int)smbfsUniqueShareIDFSCTL, req, 0 ) == 0) && (req->error == EEXIST)) {
 		CFStringRef tmpString = NULL;
 		
 		tmpString = CFStringCreateWithCString (NULL, mntonname, kCFStringEncodingUTF8);
 		if (tmpString) {
-			CFDictionarySetValue (mdict, kMountPathKey, tmpString);
+			CFDictionarySetValue (mdict, kNetFSMountPathKey, tmpString);
 			CFRelease (tmpString);			
 		}
 		if ((req->connection_type == kConnectedByGuest) || (strcasecmp(req->user, kGuestAccountName) == 0))
-			CFDictionarySetValue (mdict, kMountedByGuestKey, kCFBooleanTrue);
+			CFDictionarySetValue (mdict, kNetFSMountedByGuestKey, kCFBooleanTrue);
 		else if (req->user[0] != 0) {
 			tmpString = CFStringCreateWithCString (NULL, req->user, kCFStringEncodingUTF8);
 			if (tmpString) {
-				CFDictionarySetValue (mdict, kMountedByUserKey, tmpString);			
+				CFDictionarySetValue (mdict, kNetFSMountedByUserKey, tmpString);			
 				CFRelease (tmpString);
 			}
 			/* We have a user name, but it's a Kerberos client principal name */
 			if (req->connection_type == kConnectedByKerberos)
-		    		CFDictionarySetValue (mdict, kMountedByKerberosKey, kCFBooleanTrue);	    
+		    		CFDictionarySetValue (mdict, kNetFSMountedByKerberosKey, kCFBooleanTrue);	    
 		} else 
-			CFDictionarySetValue (mdict, kMountedByKerberosKey, kCFBooleanTrue);
+			CFDictionarySetValue (mdict, kNetFSMountedByKerberosKey, kCFBooleanTrue);
 
 		return EEXIST;
 	}
+#ifdef SMB_ROSETTA
+	if (errno != ENOENT)
+		rosetta_fsctl_cmds = errno;
+#endif //* SMB_ROSETTA
 	return 0;
 }
 
@@ -152,11 +295,11 @@ static int already_mounted(struct smb_ctx *ctx, struct statfs *fs, int fs_cnt, C
 	struct UniqueSMBShareID req;
 	int				ii;
 	
-	if ((fs == NULL) || (ctx->ct_ssn.ioc_server == NULL))
+	if ((fs == NULL) || (ctx->ct_saddr == NULL))
 		return 0;
+	bzero(&req, sizeof(req));
 	/* now create the unique_id, using tcp address + port + uppercase share */
 	create_unique_id(ctx, req.unique_id, &req.unique_id_len);
-	req.error = 0;
 	for (ii = 0; ii < fs_cnt; ii++, fs++) {
 		if (fs->f_owner != ctx->ct_ssn.ioc_owner)
 			continue;
@@ -172,30 +315,52 @@ static int already_mounted(struct smb_ctx *ctx, struct statfs *fs, int fs_cnt, C
 }
 
 /*
- * Given a dictionary see if it has a boolean.
- * If no dictionary or no value return false otherwise return the value
+ * Given a dictionary see if the key has a boolean value to return.
+ * If no dictionary or no value return the passed in default value
+ * otherwise return the value
  */
-static int SMBGetDictBooleanValue(CFDictionaryRef Dict, const void * KeyValue)
+static int SMBGetDictBooleanValue(CFDictionaryRef Dict, const void * KeyValue, int DefaultValue)
 {
-	CFBooleanRef booleanRef;
+	CFBooleanRef booleanRef = NULL;
 	
-	if (Dict) {
+	if (Dict)
 		booleanRef = (CFBooleanRef)CFDictionaryGetValue(Dict, KeyValue);
-		if ((booleanRef != NULL) && (CFBooleanGetValue(booleanRef)))
-			return TRUE;
-	}
-	return FALSE;
+	if (booleanRef == NULL)
+		return DefaultValue;
+
+	return CFBooleanGetValue(booleanRef);
 }
 
-/* this routine does not uppercase the server name */
-void smb_ctx_setserver(struct smb_ctx *ctx, const char *name)
+/* 
+ * Create the SPN name using the server name we used to connect with.
+ */
+static void smb_get_spn_using_servername(struct smb_ctx *ctx, char *spn, size_t maxlen)
 {
-	/* don't uppercase the server name */
-	if (strlen(name) > SMB_MAX_DNS_SRVNAMELEN) { 
-		ctx->ct_ssn.ioc_srvname[0] = '\0';
-	} else
-		strcpy(ctx->ct_ssn.ioc_srvname, name);
-	return;
+	/* We need to add "cifs/ instance part" */
+	strlcpy(spn, "cifs/", maxlen);
+	/* Now the host name without a realm */
+	if ((ctx->ct_port != NBSS_TCP_PORT_139) && (ctx->serverName))
+		strlcat(spn, ctx->serverName, maxlen);
+	else {
+		struct sockaddr_in	saddr = GET_IP_ADDRESS_FROM_NB((ctx->ct_saddr));
+		/* 
+		 * At this point all we really have is the ip address. The name could be 
+		 * anything so we can't use that for the server address. So lets just get 
+		 * the IP address in presentation form and leave it at that.
+		 */
+		strlcat(spn, inet_ntoa(saddr.sin_addr), maxlen);				
+	}	
+}
+
+void smb_ctx_get_user_mount_info(const char *mntonname, CFMutableDictionaryRef mdict)
+{
+	struct UniqueSMBShareID req;
+	
+	bzero(&req, sizeof(req));
+	req.flags = SMBFS_GET_ACCESS_INFO;
+	if (get_share_mount_info(mntonname, mdict, &req) != EEXIST) {
+		smb_log_info("Failed to get user access for mount %s", 0, ASL_LEVEL_ERR, mntonname);
+	}		
 }
 
 /*
@@ -207,9 +372,11 @@ int smb_ctx_setuser(struct smb_ctx *ctx, const char *name)
 		smb_log_info("user name '%s' too long", 0, ASL_LEVEL_ERR, name);
 		return ENAMETOOLONG;
 	}
-	strlcpy(ctx->ct_ssn.ioc_user, name, SMB_MAXUSERNAMELEN);
+	strlcpy(ctx->ct_setup.ioc_user, name, SMB_MAXUSERNAMELEN);
+	/* Used in NTLMSSP code for NTLMv2 */
+	str_upper(ctx->ct_setup.ioc_uppercase_user, ctx->ct_setup.ioc_user);
 	/* We need to tell the kernel if we are trying to do guest access */
-	if (strcasecmp(ctx->ct_ssn.ioc_user, kGuestAccountName) == 0)
+	if (strcasecmp(ctx->ct_setup.ioc_user, kGuestAccountName) == 0)
 		ctx->ct_ssn.ioc_opt |= SMBV_GUEST_ACCESS;
 	else
 		ctx->ct_ssn.ioc_opt &= ~SMBV_GUEST_ACCESS;
@@ -230,14 +397,14 @@ int smb_ctx_setuser(struct smb_ctx *ctx, const char *name)
 int smb_ctx_setdomain(struct smb_ctx *ctx, const char *name)
 {
 	/* The user already set the domain so don't reset it */
-	if (ctx->ct_ssn.ioc_domain[0])
+	if (ctx->ct_setup.ioc_domain[0])
 		return 0;
 	
-	if (strlen(name) >= SMB_MAXNetBIOSNAMELEN) {
+	if (strlen(name) > SMB_MAXNetBIOSNAMELEN) {
 		smb_log_info("domain/workgroup name '%s' too long", 0, ASL_LEVEL_ERR, name);
 		return ENAMETOOLONG;
 	}
-	strlcpy(ctx->ct_ssn.ioc_domain,  name, SMB_MAXNetBIOSNAMELEN+1);
+	strlcpy(ctx->ct_setup.ioc_domain,  name, SMB_MAXNetBIOSNAMELEN+1);
 	return 0;
 }
 
@@ -254,11 +421,9 @@ int smb_ctx_setpassword(struct smb_ctx *ctx, const char *passwd)
 	 * but should be treated the same.
 	 */
 	if (*passwd == 0)
-		strcpy(ctx->ct_ssn.ioc_password, "");
+		strlcpy(ctx->ct_setup.ioc_password, "", sizeof(ctx->ct_setup.ioc_password));
 	else
-		strcpy(ctx->ct_ssn.ioc_password, passwd);
-	/* Fill in the share level password */
-	strcpy(ctx->ct_sh.ioc_password, ctx->ct_ssn.ioc_password);
+		strlcpy(ctx->ct_setup.ioc_password, passwd, sizeof(ctx->ct_setup.ioc_password));
 	ctx->ct_flags |= SMBCF_EXPLICITPWD;
 	return 0;
 }
@@ -314,9 +479,9 @@ static int smb_ctx_readrcsection(struct rcfile *smb_rc, struct smb_ctx *ctx, con
 			setcharset(p);
 		rc_getstringptr(smb_rc, sname, "netbiosname", &p);
 		if (p) {
-			strlcpy(ctx->LocalNetBIOSName, p, sizeof(ctx->LocalNetBIOSName));
-			str_upper(ctx->LocalNetBIOSName, ctx->LocalNetBIOSName);
-			smb_log_info("Using NetBIOS Name  %s", 0, ASL_LEVEL_DEBUG, ctx->LocalNetBIOSName);
+			strlcpy(ctx->ct_ssn.ioc_localname, p, sizeof(ctx->ct_ssn.ioc_localname));
+			str_upper(ctx->ct_ssn.ioc_localname, ctx->ct_ssn.ioc_localname);
+			smb_log_info("Using NetBIOS Name  %s", 0, ASL_LEVEL_DEBUG, ctx->ct_ssn.ioc_localname);
 		}
 	}
 	if (level <= 1) {
@@ -337,14 +502,53 @@ static int smb_ctx_readrcsection(struct rcfile *smb_rc, struct smb_ctx *ctx, con
 			}
 		}
 		rc_getint(smb_rc, sname, "debug_level", &ctx->debug_level);
-		aflags = FALSE;
-		rc_getbool(smb_rc, sname, "streams", &aflags);
-		if (aflags)
-			ctx->altflags |= SMBFS_MNT_STREAMS_ON;
-		aflags = FALSE;
-		rc_getbool(smb_rc, sname, "soft", &aflags);
-		if (aflags)
-			ctx->altflags |= SMBFS_MNT_SOFT;
+		
+		/* Only get the value if it exist */
+		if (rc_getbool(smb_rc, sname, "notify_off", &aflags) == 0)
+		{			
+			if (aflags)
+				ctx->altflags |= SMBFS_MNT_NOTIFY_OFF;
+			else
+				ctx->altflags &= ~SMBFS_MNT_NOTIFY_OFF;			
+		}
+		
+		/* Only get the value if it exist */
+		if (rc_getbool(smb_rc, sname, "streams", &aflags) == 0)
+		{
+			if (aflags)
+				ctx->altflags |= SMBFS_MNT_STREAMS_ON;
+			else
+				ctx->altflags &= ~SMBFS_MNT_STREAMS_ON;			
+		}
+
+		/* Only get the value if it exist */
+		if ( rc_getbool(smb_rc, sname, "soft", &aflags) == 0) {
+			if (aflags)
+				ctx->altflags |= SMBFS_MNT_SOFT;
+			else
+				ctx->altflags &= ~SMBFS_MNT_SOFT;
+		}
+
+		/* 
+		 * See Radar 6650825
+		 *
+		 * We are not putting this in the man pages, because I am not sure we want to keep
+		 * this as a configuration option. If we have no reported issue with Radar 6650825
+		 * then I would like to remove this in the future. 
+		 *  
+		 * So now if the user doesn't supply a domain we will use the one supplied by
+		 * the server. This is only done in the NTLMSSP case. Not required in any other
+		 * case. This option is being added so users can turn off the default behavior.
+		 *
+		 */
+		if (rc_getbool(smb_rc, sname, "use_server_domain", &aflags) == 0)
+		{
+			if (aflags)
+				ctx->ct_ssn.ioc_opt |= SMBV_SERVER_DOMAIN;
+			else
+				ctx->ct_ssn.ioc_opt &= ~SMBV_SERVER_DOMAIN;			
+		}
+		
 		rc_getstringptr(smb_rc, sname, "minauth", &p);
 		if (p) {
 			/*
@@ -375,6 +579,12 @@ static int smb_ctx_readrcsection(struct rcfile *smb_rc, struct smb_ctx *ctx, con
 				 * passwords.
 				 */
 				ctx->ct_ssn.ioc_opt |= SMBV_MINAUTH_LM;
+			} else if (strcmp(p, "ntlmv2_off") == 0) {
+				/*
+				 * Allow anything, but never send ntlmv2.
+				 */
+				ctx->ct_ssn.ioc_opt |= SMBV_NTLMV2_OFF;
+				
 			} else if (strcmp(p, "none") == 0) {
 				/*
 				 * Anything goes.
@@ -460,27 +670,28 @@ static void smb_ctx_readrc(struct smb_ctx *ctx, int NoUserPreferences)
 	 * If we don't have a server name, we can't read any of the
 	 * [server...] sections.
 	 */
-	if (ctx->ct_ssn.ioc_srvname[0] == 0)
+	if (! ctx->serverName)
 		goto done;
 	
 	/*
 	 * SERVER parameters.
+	 *
+	 * We use the server name passed in from the URL to do this lookup.
 	 */
-	smb_ctx_readrcsection(smb_rc, ctx, ctx->ct_ssn.ioc_srvname, 1);
-	nb_ctx_readrcsection(smb_rc, &ctx->ct_nb, ctx->ct_ssn.ioc_srvname, 1);
+	smb_ctx_readrcsection(smb_rc, ctx, ctx->serverName, 1);
+	nb_ctx_readrcsection(smb_rc, &ctx->ct_nb, ctx->serverName, 1);
 	
 	/*
 	 * If we don't have a user name, we can't read any of the
 	 * [server:user...] sections.
 	 */
-	if (ctx->ct_ssn.ioc_user[0] == 0)
+	if (ctx->ct_setup.ioc_user[0] == 0)
 		goto done;
 	
 	/*
 	 * SERVER:USER parameters
 	 */
-	snprintf(sname, sizeof(sname), "%s:%s", ctx->ct_ssn.ioc_srvname,
-	ctx->ct_ssn.ioc_user);
+	snprintf(sname, sizeof(sname), "%s:%s", ctx->serverName, ctx->ct_setup.ioc_user);
 	smb_ctx_readrcsection(smb_rc, ctx, sname, 2);
 	
 	/*
@@ -491,8 +702,7 @@ static void smb_ctx_readrc(struct smb_ctx *ctx, int NoUserPreferences)
 		/*
 		 * SERVER:USER:SHARE parameters
 		 */
-		snprintf(sname, sizeof(sname), "%s:%s:%s", ctx->ct_ssn.ioc_srvname,
-		ctx->ct_ssn.ioc_user, ctx->ct_sh.ioc_share);
+		snprintf(sname, sizeof(sname), "%s:%s:%s", ctx->serverName, ctx->ct_setup.ioc_user, ctx->ct_sh.ioc_share);
 		smb_ctx_readrcsection(smb_rc, ctx, sname, 3);
 	}
 	
@@ -517,23 +727,16 @@ done:
  */
 static int smb_ctx_getnbname(struct smb_ctx *ctx, struct sockaddr *sap)
 {
-	char server[SMB_MAXNetBIOSNAMELEN + 1];
-	char workgroup[SMB_MAXNetBIOSNAMELEN + 1];
+	char nbt_server[SMB_MAXNetBIOSNAMELEN + 1];
 	int error;
 	
-	server[0] = workgroup[0] = '\0';
-	error = nbns_getnodestatus(sap, &ctx->ct_nb, server, workgroup);
-	if (error == 0) {
-#ifdef OVERRIDE_USER_SETTING_DOMAIN
-		if (workgroup[0])
-			smb_ctx_setdomain(ctx, workgroup);
-#endif // OVERRIDE_USER_SETTING_DOMAIN
-		if (server[0])
-			smb_ctx_setserver(ctx, server);
-	} else {
-		if (ctx->ct_ssn.ioc_srvname[0] == (char)0)
-			smb_ctx_setserver(ctx, NetBIOS_SMBSERVER);
-	}
+	nbt_server[0] = '\0';
+	error = nbns_getnodestatus(sap, &ctx->ct_nb, nbt_server, NULL);
+	/* No error and we found the servers NetBIOS name */
+	if (!error && nbt_server[0])
+		strlcpy(ctx->ct_ssn.ioc_srvname, nbt_server, sizeof(ctx->ct_ssn.ioc_srvname));
+	else
+		error = ENOENT;	/* Couldn't find the NetBIOS name */
 	return error;
 }
 
@@ -543,7 +746,6 @@ static int smb_ctx_gethandle(struct smb_ctx *ctx)
 	char buf[20];
 
 	if (ctx->ct_fd != -1) {
-		rpc_cleanup_smbctx(ctx);
 		close(ctx->ct_fd);
 		ctx->ct_fd = -1;
 		ctx->ct_flags &= ~SMBCF_CONNECT_STATE;	/* Remove all the connect state flags */
@@ -581,7 +783,7 @@ u_int16_t smb_ctx_flags2(struct smb_ctx *ctx)
 {
 	u_int16_t flags2;
 	
-	if (ioctl(ctx->ct_fd, SMBIOC_FLAGS2, &flags2) == -1) {
+	if (smb_ioctl_call(ctx->ct_fd, SMBIOC_GET_VC_FLAGS2, &flags2) == -1) {
 		smb_log_info("can't get flags2 for a session", errno, ASL_LEVEL_DEBUG);
 		return 0;	/* Shouldn't happen, but if it does pretend no flags set */
 	}
@@ -594,7 +796,7 @@ void smb_ctx_cancel_connection(struct smb_ctx *ctx)
 {
 	u_int16_t dummy = 0;
 	
-	if ((ctx->ct_fd != -1) && (ioctl(ctx->ct_fd, SMBIOC_CANCEL_SESSION, &dummy) == -1))
+	if ((ctx->ct_fd != -1) && (smb_ioctl_call(ctx->ct_fd, SMBIOC_CANCEL_SESSION, &dummy) == -1))
 		smb_log_info("can't cancel the connection ", errno, ASL_LEVEL_DEBUG);
 }
 
@@ -606,7 +808,7 @@ u_int16_t smb_ctx_connstate(struct smb_ctx *ctx)
 {
 	u_int16_t connstate = 0;
 	
-	if (ioctl(ctx->ct_fd, SMBIOC_SESSSTATE, &connstate) == -1) {
+	if (smb_ioctl_call(ctx->ct_fd, SMBIOC_SESSSTATE, &connstate) == -1) {
 		smb_log_info("can't get connection state for the session", errno, ASL_LEVEL_DEBUG);
 		return ENOTCONN;
 	}	
@@ -627,36 +829,41 @@ static int smb_negotiate(struct smb_ctx *ctx)
 		return (error);
 	
 	bzero(&rq, sizeof(rq));
+	rq.ioc_version = SMB_IOC_STRUCT_VERSION;
+	rq.ioc_extra_flags |= (ctx->ct_port_behavior & TRY_BOTH_PORTS);
+	rq.ioc_saddr_len = ctx->ct_saddr_len;
+	rq.ioc_laddr_len = ctx->ct_laddr_len;
+	rq.ioc_saddr = ctx->ct_saddr;
+	rq.ioc_laddr = ctx->ct_laddr;
 	bcopy(&ctx->ct_ssn, &rq.ioc_ssn, sizeof(struct smbioc_ossn));
-	
-	if (ctx->ct_port_behavior == TRY_BOTH_PORTS)
-		rq.vc_conn_state = NSMBFL_TRYBOTH;
+	/* ct_setup.ioc_user and rq.ioc_user must be the same size */
+	bcopy(&ctx->ct_setup.ioc_user, &rq.ioc_user, sizeof(rq.ioc_user));
 		
 	/* Call the kernel to do make the negotiate call */
-	if (ioctl(ctx->ct_fd, SMBIOC_NEGOTIATE, &rq) == -1) {
+	if (smb_ioctl_call(ctx->ct_fd, SMBIOC_NEGOTIATE, &rq) == -1) {
 		error = errno;
 		smb_log_info("%s: negotiate ioctl failed:\n", error, ASL_LEVEL_DEBUG, __FUNCTION__);
 		goto out;
 	}
 
 	/* Get the server's capablilities */
-	ctx->ct_vc_caps = rq.vc_caps;
-	ctx->ct_vc_shared = (rq.vc_conn_state & NSMBFL_SHAREVC);
+	ctx->ct_vc_caps = rq.ioc_ret_caps;
+	ctx->ct_vc_shared = (rq.ioc_extra_flags & SMB_SHARING_VC);
 	/* Get the virtual circuit flags */
-	ctx->ct_vc_flags = rq.flags;
+	ctx->ct_vc_flags = rq.ioc_ret_vc_flags;
 	/* If we have no username and the kernel does then use the name in the kernel */
-	if ((ctx->ct_ssn.ioc_user[0] == 0) && rq.ioc_ssn.ioc_user[0]) {
-		strlcpy(ctx->ct_ssn.ioc_user, rq.ioc_ssn.ioc_user, SMB_MAXUSERNAMELEN + 1);
-		smb_log_info("%s: ctx->ct_ssn.ioc_user = %s\n", 0, ASL_LEVEL_DEBUG, __FUNCTION__, ctx->ct_ssn.ioc_user);		
+	if ((ctx->ct_setup.ioc_user[0] == 0) && rq.ioc_user[0]) {
+		strlcpy(ctx->ct_setup.ioc_user, rq.ioc_user, sizeof(ctx->ct_setup.ioc_user));
+		smb_log_info("%s: ctx->ct_setup.ioc_user = %s\n", 0, ASL_LEVEL_DEBUG, 
+					 __FUNCTION__, ctx->ct_setup.ioc_user);		
 	}
 	
-	/* This server doesn't support extended security never try extended security again */
-	if ((ctx->ct_vc_flags & SMBV_EXT_SEC) != SMBV_EXT_SEC) {
-		ctx->ct_ssn.ioc_opt &= ~SMBV_EXT_SEC;
-	} else if ((ctx->ct_vc_flags & SMBV_KERBEROS_SUPPORT) == SMBV_KERBEROS_SUPPORT) {
+	if (ctx->ct_vc_flags & SMBV_MECHTYPE_KRB5) {
+		size_t max_hint_len = sizeof(rq.ioc_ssn.ioc_kspn_hint);
+
 		/* We are sharing this connection get the Kerberos client principal name */
 		if (ctx->ct_vc_shared && (rq.ioc_ssn.ioc_kuser[0]))
-			strlcpy(ctx->ct_ssn.ioc_kuser, rq.ioc_ssn.ioc_kuser, SMB_MAXUSERNAMELEN + 1);
+			strlcpy(ctx->ct_ssn.ioc_kuser, rq.ioc_ssn.ioc_kuser, sizeof(ctx->ct_ssn.ioc_kuser));
 		/* 
 		 * When Windows shipped, there were no other SPNEGO implementations to test against, and so Windows 
 		 * really didn't match SPNEGO RFC 2478 100%. ÊEventually, Larry, Paul "Mr. CIFS" Leach, & company at 
@@ -676,33 +883,13 @@ static int smb_negotiate(struct smb_ctx *ctx)
 		 *
 		 * Make sure we didn't get an empty SPN.
 		 */
-		if (((strncasecmp ((char *)rq.spn, "cifs/", sizeof(rq.spn))) == 0) ||
-			((strncasecmp ((char *)rq.spn, WIN2008_SPN_PLEASE_IGNORE_REALM, sizeof(rq.spn))) == 0)) {
-			/* We need to add "cifs/ instance part" */
-			strlcpy((char *)rq.spn, "cifs/", sizeof(rq.spn));
-			/* Now the host name without a realm */
-			if ((ctx->ct_port != NBSS_TCP_PORT_139) && (ctx->ct_fullserver))
-				strlcat((char *)rq.spn, ctx->ct_fullserver, sizeof(rq.spn));
-			else {
-				struct sockaddr_in	saddr = GET_IP_ADDRESS_FROM_NB((ctx->ct_ssn.ioc_server));
-				/* 
-				 * At this point all we really have is the ip address. The name could be anything so we can't use
-				 * that for the server address. Luckly we don't support IPv6 yet and even when we do it isn't
-				 * support with port 139. So lets just get the IP address in presentation form and leave it at that.
-				 */
-				strlcat((char *)rq.spn, inet_ntoa(saddr.sin_addr), sizeof(rq.spn));				
-			}
-			rq.spn_len = strlen((char *)rq.spn)+1;
+		if (((strncasecmp ((char *)rq.ioc_ssn.ioc_kspn_hint, "cifs/",  max_hint_len)) == 0) ||
+			((strncasecmp ((char *)rq.ioc_ssn.ioc_kspn_hint, WIN2008_SPN_PLEASE_IGNORE_REALM,  max_hint_len)) == 0)) {
+			smb_get_spn_using_servername(ctx, (char *)rq.ioc_ssn.ioc_kspn_hint, max_hint_len);
 		}
-		
-		ctx->ct_kerbPrincipalName_len = 0;
-		if (ctx->ct_kerbPrincipalName)
-			free(ctx->ct_kerbPrincipalName);
-		ctx->ct_kerbPrincipalName = malloc(rq.spn_len);
-		if (ctx->ct_kerbPrincipalName) {
-			ctx->ct_kerbPrincipalName_len = rq.spn_len;
-			bcopy(rq.spn, ctx->ct_kerbPrincipalName, ctx->ct_kerbPrincipalName_len);
-			smb_log_info("%s: ctx->ct_kerbPrincipalName = %s\n", 0, ASL_LEVEL_DEBUG, __FUNCTION__, ctx->ct_kerbPrincipalName);
+		if (rq.ioc_ssn.ioc_kspn_hint[0]) {
+			bcopy(rq.ioc_ssn.ioc_kspn_hint, ctx->ct_ssn.ioc_kspn_hint, max_hint_len);
+			smb_log_info("%s: Kerberos spn hint = %s", 0, ASL_LEVEL_DEBUG, __FUNCTION__, ctx->ct_ssn.ioc_kspn_hint);
 		}
 	}
 	
@@ -717,8 +904,7 @@ out:
 			error = ECANCELED;
 		else if ((ctx->ct_port_behavior == USE_THIS_PORT_ONLY) || (error == ETIMEDOUT))
 			smb_log_info("%s: negotiate phase failed %s:\n", error, ASL_LEVEL_DEBUG, __FUNCTION__, 
-						 (ctx->ct_fullserver) ? ctx->ct_fullserver : "");
-		rpc_cleanup_smbctx(ctx);
+						 (ctx->serverName) ? ctx->serverName : "");
 		close(ctx->ct_fd);
 		ctx->ct_fd = -1;
 	}
@@ -730,16 +916,13 @@ out:
  */
 static int smb_share_disconnect(struct smb_ctx *ctx)
 {
-	struct smbioc_treeconn rq;
 	int error = 0;
 	
 	if ((ctx->ct_fd < 0) || ((ctx->ct_flags & SMBCF_SHARE_CONN) != SMBCF_SHARE_CONN))
 		return 0;	/* Nothing to do here */
 	
-	bzero(&rq, sizeof(rq));
-	bcopy(&ctx->ct_ssn, &rq.ioc_ssn, sizeof(struct smbioc_ossn));
-	bcopy(&ctx->ct_sh, &rq.ioc_sh, sizeof(struct smbioc_oshare));
-	if (ioctl(ctx->ct_fd, SMBIOC_TDIS, &rq) == -1) {
+	ctx->ct_sh.ioc_version = SMB_IOC_STRUCT_VERSION;
+	if (smb_ioctl_call(ctx->ct_fd, SMBIOC_TDIS, &ctx->ct_sh) == -1) {
 		error = errno;
 		smb_log_info("%s: tree disconnect failed:\n", error, ASL_LEVEL_DEBUG, __FUNCTION__);
 	}
@@ -755,17 +938,14 @@ static int smb_share_disconnect(struct smb_ctx *ctx)
  */
 int smb_share_connect(struct smb_ctx *ctx)
 {
-	struct smbioc_treeconn rq;
 	int error = 0;
 	
 	ctx->ct_flags &= ~SMBCF_SHARE_CONN;
 	if ((ctx->ct_flags & SMBCF_AUTHORIZED) == 0)
 		return EAUTH;
 
-	bzero(&rq, sizeof(rq));
-	bcopy(&ctx->ct_ssn, &rq.ioc_ssn, sizeof(struct smbioc_ossn));
-	bcopy(&ctx->ct_sh, &rq.ioc_sh, sizeof(struct smbioc_oshare));
-	if (ioctl(ctx->ct_fd, SMBIOC_TCON, &rq) == -1)
+	ctx->ct_sh.ioc_version = SMB_IOC_STRUCT_VERSION;
+	if (smb_ioctl_call(ctx->ct_fd, SMBIOC_TCON, &ctx->ct_sh) == -1)
 		error = errno;
 	if (error == 0)
 		ctx->ct_flags |= SMBCF_SHARE_CONN;
@@ -780,7 +960,7 @@ static void smb_get_vc_flags(struct smb_ctx *ctx)
 {
 	u_int32_t	vc_flags = ctx->ct_vc_flags;
 
-	if (ioctl(ctx->ct_fd, SMBIOC_GET_VC_FLAGS, &vc_flags) == -1)
+	if (smb_ioctl_call(ctx->ct_fd, SMBIOC_GET_VC_FLAGS, &vc_flags) == -1)
 		smb_log_info("%s: Getting the vc flags falied:\n", -1, ASL_LEVEL_ERR, __FUNCTION__);
 	else
 		ctx->ct_vc_flags = vc_flags;
@@ -788,7 +968,6 @@ static void smb_get_vc_flags(struct smb_ctx *ctx)
 
 int smb_session_security(struct smb_ctx *ctx, char *clientpn, char *servicepn)
 {
-	struct smbioc_ssnsetup rq;
 	int error = 0;
 	
 	ctx->ct_flags &= ~SMBCF_AUTHORIZED;
@@ -796,68 +975,95 @@ int smb_session_security(struct smb_ctx *ctx, char *clientpn, char *servicepn)
 		return EPIPE;
 	}
 
-	bzero(&rq, sizeof(rq));
-	bcopy(&ctx->ct_ssn, &rq.ioc_ssn, sizeof(struct smbioc_ossn));
+	/* They don't want to use Kerberos, but the min auth level requires it */
+	if (((ctx->ct_ssn.ioc_opt & SMBV_KERBEROS_ACCESS) != SMBV_KERBEROS_ACCESS) && 
+		(ctx->ct_ssn.ioc_opt & SMBV_MINAUTH_KERBEROS)) {
+		smb_log_info("%s: Kerberos required!", 0, ASL_LEVEL_ERR, __FUNCTION__);		
+		return EAUTH;
+	}
+	
+	/* Server requires clear text password, but we are not doing clear text passwords. */
+	if (((ctx->ct_vc_flags & SMBV_ENCRYPT_PASSWORD) != SMBV_ENCRYPT_PASSWORD) && 
+		(ctx->ct_ssn.ioc_opt & SMBV_MINAUTH)) {
+		smb_log_info("%s: Clear text passwords are not allowed!", 0, ASL_LEVEL_ERR, __FUNCTION__);		
+		return EAUTH;
+	}
+	
+	ctx->ct_setup.ioc_version = SMB_IOC_STRUCT_VERSION;
+	ctx->ct_setup.ioc_vcflags = ctx->ct_ssn.ioc_opt;
+	ctx->ct_setup.ioc_kclientpn[0] = 0;
+	ctx->ct_setup.ioc_kservicepn[0] = 0;
+	
 	/* Used by Kerberos, should be NULL in all other cases */
 	if (clientpn) {
-		rq.user_clientpn = clientpn;
-		rq.clientpn_len = strlen(clientpn) + 1;
+		strlcpy(ctx->ct_setup.ioc_kclientpn, clientpn, SMB_MAX_KERB_PN+1);
+		smb_log_info("Client principal name '%s'", 0, ASL_LEVEL_DEBUG, ctx->ct_setup.ioc_kservicepn);
 	}
+	
+
 	if (servicepn) {
-		rq.user_servicepn = servicepn;
-		rq.servicepn_len = strlen(servicepn) + 1;
+		strlcpy(ctx->ct_setup.ioc_kservicepn, servicepn, SMB_MAX_KERB_PN+1);
+		smb_log_info("Service principal name '%s'", 0, ASL_LEVEL_DEBUG, ctx->ct_setup.ioc_kservicepn);
+	} else if (ctx->ct_ssn.ioc_opt & SMBV_KERBEROS_ACCESS) {
+		/* They didn't give us a SPN, but they want to use Kerberos use the server name */
+		smb_get_spn_using_servername(ctx, ctx->ct_setup.ioc_kservicepn, sizeof(ctx->ct_setup.ioc_kservicepn));
+		smb_log_info("Created service principal name '%s'", 0, ASL_LEVEL_DEBUG, ctx->ct_setup.ioc_kservicepn);
 	}
-	if (ioctl(ctx->ct_fd, SMBIOC_SSNSETUP, &rq) == -1)
+		
+	if (smb_ioctl_call(ctx->ct_fd, SMBIOC_SSNSETUP, &ctx->ct_setup) == -1)
 		error = errno;
+	
 	if (error == 0) {
 		ctx->ct_flags |= SMBCF_AUTHORIZED;
 		smb_get_vc_flags(ctx);	/* Update the the vc flags in case they have changed */	
-		/* Save off the client name */
+		/* Save off the client name, if we are using Kerberos */
 		if (clientpn) {
 			char *realm;
 			
-			strlcpy(ctx->ct_ssn.ioc_kuser, clientpn, SMB_MAXUSERNAMELEN + 1);
-			realm = strchr(ctx->ct_ssn.ioc_kuser, KERBEROS_REALM_DELIMITER);
+			realm = strchr(clientpn, KERBEROS_REALM_DELIMITER);
 			if (realm)	/* We really only what the client name, skip the realm stuff */
 				*realm = 0;
+			strlcpy(ctx->ct_ssn.ioc_kuser, clientpn, SMB_MAXUSERNAMELEN + 1);
+			if (realm)	/* Now put it back */
+				*realm = KERBEROS_REALM_DELIMITER;
 		}
-		
-	}
-	
+	} else
+		ctx->ct_ssn.ioc_opt &= ~(SMBV_GUEST_ACCESS | SMBV_KERBEROS_ACCESS | SMBV_ANONYMOUS_ACCESS);
+
 	return (error);
 }
 
 /*
- * We should use Radar 3916980 and 3165159 to clean up this code. We only need ioc_local
+ * We should use Radar 3916980 and 3165159 to clean up this code. We only need ct_laddr
  * when connecting on port 139 and the way we pass it down is just stupid. We can't fix
- * this yet, because the kernel will error out if ioc_local is null. 
+ * this yet, because the kernel will error out if ct_laddr is null. 
  */
-static void smb_set_ioc_local(struct smb_ctx *ctx) 
+static void set_local_nb_sockaddr(struct smb_ctx *ctx) 
 {
 	struct sockaddr_nb *salocal = NULL;
 	struct nb_name nn;
 	int error = 0;
 	
-	strlcpy((char *)nn.nn_name, ctx->LocalNetBIOSName, sizeof(nn.nn_name));
+	strlcpy((char *)nn.nn_name, ctx->ct_ssn.ioc_localname, sizeof(nn.nn_name));
 	nn.nn_type = NBT_WKSTA;
 	nn.nn_scope = (u_char *)(ctx->ct_nb.nb_scope);
 	error = nb_sockaddr(NULL, &nn, &salocal);
 	/* We only need this for port 139 and the kernel will return an error if null */ 
 	if (error) 
 		smb_log_info("can't create local address", error, ASL_LEVEL_DEBUG);		
-	if (ctx->ct_ssn.ioc_local)
-		free(ctx->ct_ssn.ioc_local);		
-	ctx->ct_ssn.ioc_local = (struct sockaddr*)salocal;
-	ctx->ct_ssn.ioc_lolen = salocal->snb_len;
+	if (ctx->ct_laddr)
+		free(ctx->ct_laddr);		
+	ctx->ct_laddr = (struct sockaddr*)salocal;
+	ctx->ct_laddr_len = salocal->snb_len;
 	
 }
 
 /*
- * We should use Radar 3916980 and 3165159 to clean up this code. We only need ioc_server
+ * We should use Radar 3916980 and 3165159 to clean up this code. We only need ct_laddr
  * when connecting on port 139 and the way we pass it down is just stupid. We can't fix
- * this yet, because the kernel will error out if ioc_local is null. 
+ * this yet, because the kernel will error out if ct_laddr is null. 
  */
-static void smb_set_ioc_server(struct smb_ctx *ctx, char *netbiosname, struct sockaddr *sap)
+static void set_server_nb_sockaddr(struct smb_ctx *ctx, const char *netbiosname, struct sockaddr *sap)
 {
 	struct sockaddr_nb *saserver = NULL;
 	struct nb_name nn;
@@ -876,32 +1082,28 @@ static void smb_set_ioc_server(struct smb_ctx *ctx, char *netbiosname, struct so
 	error = nb_sockaddr(sap, &nn, &saserver);						
 	if (error) 
 		smb_log_info("can't create remote address", error, ASL_LEVEL_DEBUG);		
-	if (ctx->ct_ssn.ioc_server)
-		free(ctx->ct_ssn.ioc_server);		
-	ctx->ct_ssn.ioc_server = (struct sockaddr*)saserver;
-	ctx->ct_ssn.ioc_svlen = saserver->snb_len;
+	if (ctx->ct_saddr)
+		free(ctx->ct_saddr);		
+	ctx->ct_saddr = (struct sockaddr*)saserver;
+	ctx->ct_saddr_len = saserver->snb_len;
 }
 
 /*
  * Resolve the name using NetBIOS. This should always return a IPv4 address.
- *
- * If we reolve the name then we know that we have a NetBIOS name. Set
- * the SMBCF_RESOLVED_NetBIOS to tell everyone that ioc_srvname now has
- * a NetBIOS name and there is no reason to look it up.
  */
-static int smb_resolve_netbios_name(struct smb_ctx *ctx, u_int16_t port, struct sockaddr **sap)
+static int smb_resolve_netbios_name(struct smb_ctx *ctx, u_int16_t port)
 {
+	struct sockaddr *sap = NULL;
 	char * netbios_name = NULL;
 	int error = 0;
 	int allow_local_conn = (ctx->ct_flags & SMBCF_MOUNTSMBFS);
 	
 	/*
-	 * We really need to fix the use of ioc_srvname. Its just badly used and
-	 * name. Since this will required kernel changes, going to do this in
-	 * Radar 3916980 "Clean up server and client name/address information"
+	 * We convert the server name given in the URL to Windows Code Page? Seems
+	 * broken but not sure how else to solve this issue.
 	 */
-	if (ctx->ct_ssn.ioc_srvname[0])
-		netbios_name = convert_utf8_to_wincs(ctx->ct_ssn.ioc_srvname);
+	if (ctx->serverName)
+		netbios_name = convert_utf8_to_wincs(ctx->serverName);
 	
 	/* Must have a NetBIOS name if we are going to resovle it using NetBIOS */
 	if ((netbios_name == NULL) || (strlen(netbios_name) > SMB_MAXNetBIOSNAMELEN)) {
@@ -917,58 +1119,56 @@ static int smb_resolve_netbios_name(struct smb_ctx *ctx, u_int16_t port, struct 
 	 * lookup to only return an IPv4 address (See Radar 3165159).
 	 */
 	if (ctx->netbios_dns_name)
-		error = nb_resolvehost_in(ctx->netbios_dns_name, sap, port, allow_local_conn);
+		error = nb_resolvehost_in(ctx->netbios_dns_name, &sap, port, allow_local_conn);
 	else {
 		/* Get the address need to resolve the NetBIOS name could be wins or a broadcast address */
 		error = nb_ctx_resolve(&ctx->ct_nb);
 		if (error == 0)
-			error = nbns_resolvename(netbios_name, &ctx->ct_nb, ctx, sap, allow_local_conn, port);
+			error = nbns_resolvename(netbios_name, &ctx->ct_nb, &sap, allow_local_conn, port);
 	}
 	
+	if (error) {
+		/* We have something that looked like a NetBIOS name, but we couldn't find it */
+		smb_log_info("Couldn't resolve NetBIOS name %s", error, ASL_LEVEL_DEBUG, netbios_name);		
+	} else {
+		/* The name they gave us is NetBIOS name so use it in tree connects, should we upper case it? */
+		strlcpy(ctx->ct_ssn.ioc_srvname, netbios_name, sizeof(ctx->ct_ssn.ioc_srvname));
+		set_server_nb_sockaddr(ctx, netbios_name, sap);
+	}
+
 WeAreDone:
-	if (error == 0)
+	/* If we get an ELOOP then we found the address, just happens to be the local address */
+	if ((error == 0) || (error == ELOOP))
 		ctx->ct_flags |= SMBCF_RESOLVED; /* We are done no more resolving needed */
-		
-	if (netbios_name) {
-		/* 
-		 * We resolved it so ioc_server should contain the NetBIOS name. Needs
-		 * to be cleaned up with Radar 3916980.
-		 */
-		if (error == 0) {
-			ctx->ct_flags |= SMBCF_RESOLVED_NetBIOS; /* We have a NetBIOS name */
-			smb_ctx_setserver(ctx, netbios_name);
-		}
-		else 
-			smb_log_info("Couldn't resolve NetBIOS name %s", error, ASL_LEVEL_DEBUG, netbios_name);
+	/* Done with the name, so free it */
+	if (netbios_name)
 		free(netbios_name);
-	}	
+	if (sap)
+		free(sap);
 	return error;
 }
 
 /*
  * Resolve the name using Bonjour. This currently always returns a IPv4 address
  * With Radar 3165159 "SMB should support IPv6" this routine will need some work.
- * We always use the port supplied by Bonjour. Should never be port 139. We should
- * never need a NetBIOS name in this case. If a NetBIOS name is required then this 
- * is a design flaw.
+ * We always use the port supplied by Bonjour. 
  */
-static int smb_resolve_bonjour_name(struct smb_ctx *ctx, struct sockaddr **sap)
+static int smb_resolve_bonjour_name(struct smb_ctx *ctx)
 {
 	CFNetServiceRef theService = _CFNetServiceCreateFromURL(NULL, ctx->ct_url);
 	CFStringRef serviceNameType;
 	CFStringRef displayServiceName;
 	CFStreamError debug_error = {(CFStreamErrorDomain)0, 0};
 	CFArrayRef retAddresses = NULL;
-	int32_t numAddresses = 0;
-	struct sockaddr *sockAddr = NULL;
-	int ii;
+	CFIndex numAddresses = 0;
+	struct sockaddr *sockAddr = NULL, *sap = NULL;
+	CFIndex ii;
 	
 	/* Not a Bonjour Service Name, need to resolve with some other method */
 	if (theService == NULL)
 		return EHOSTUNREACH;
 		
 	ctx->ct_flags |= SMBCF_RESOLVED; /* Error or no error we are done no more resolving needed */
-	*sap = NULL;
 	/* Bonjour service name lookup, never fallback. */
 	ctx->ct_port_behavior = USE_THIS_PORT_ONLY;
 	serviceNameType = CFNetServiceGetType(theService);
@@ -999,10 +1199,10 @@ static int smb_resolve_bonjour_name(struct smb_ctx *ctx, struct sockaddr **sap)
 			} else if (sockAddr->sa_family == AF_INET) {
 				smb_log_info("Resolve for Bonjour found IPv4 sin_port = %d sap sin_addr = 0x%x", 0, ASL_LEVEL_DEBUG, 
 							 htons(((struct sockaddr_in *)sockAddr)->sin_port), htonl(((struct sockaddr_in *)sockAddr)->sin_addr.s_addr));	
-				*sap = malloc(sizeof(struct sockaddr_in));
-				if (*sap) {
+				sap = malloc(sizeof(struct sockaddr_in));
+				if (sap) {
 					ctx->ct_port = htons(((struct sockaddr_in *)sockAddr)->sin_port);
-					memcpy (*sap, sockAddr, sizeof (struct sockaddr_in));
+					memcpy (sap, sockAddr, sizeof (struct sockaddr_in));
 				}
 				break;
 			} else
@@ -1012,16 +1212,36 @@ static int smb_resolve_bonjour_name(struct smb_ctx *ctx, struct sockaddr **sap)
 	 * Once we add IPv6 support (See Radar 3165159) we will need to
 	 * add some code here to find out which address to use. 
 	 */
-	if (*sap && displayServiceName) {
-		if (ctx->serverDisplayName)
-			CFRelease(ctx->serverDisplayName);
-		ctx->serverDisplayName = CFStringCreateCopy(kCFAllocatorDefault, displayServiceName);
+	if (sap && displayServiceName) {
+		if (ctx->serverNameRef)
+			CFRelease(ctx->serverNameRef);
+		ctx->serverNameRef = CFStringCreateCopy(kCFAllocatorDefault, displayServiceName);
 	}
 	
 	if (theService)
 		CFRelease(theService);
-	if (*sap == NULL) /* Nothing founded */
+	
+	 /* Nothing founded, we are done here get out */
+	if (sap == NULL)
 		return EADDRNOTAVAIL;
+	/* 
+	 * Found an address, we need to find a name we can use in the tree
+	 * connect server field. Since we found it using Bonjour, always set
+	 * it to the IPv4 address in presentation form (xxx.xxx.xxx.xxx).
+	 *
+	 * See comments in smb_smb_treeconnect for more information on why this
+	 * is done.
+	 */
+	if (sap->sa_family == AF_INET) {
+		struct sockaddr_in *sinp = (struct sockaddr_in *)sap;
+		strlcpy(ctx->ct_ssn.ioc_srvname, inet_ntoa(sinp->sin_addr), sizeof(ctx->ct_ssn.ioc_srvname));
+	} else	/* IPv6 nothing else we can do at this point */
+		strlcpy(ctx->ct_ssn.ioc_srvname, ctx->serverName, sizeof(ctx->ct_ssn.ioc_srvname));
+
+	set_server_nb_sockaddr(ctx, NetBIOS_SMBSERVER, sap);
+	if (sap)
+		free(sap);
+		
 	return 0;
 }
 
@@ -1032,21 +1252,45 @@ static int smb_resolve_bonjour_name(struct smb_ctx *ctx, struct sockaddr **sap)
  * we should be using port 445. In some cases we will fallback to port 139, but in
  * those cases we should lookup the NetBIOS before we attempt the port 139 connection.
 */
-static int smb_resolve_dns_name(struct smb_ctx *ctx, u_int16_t port, struct sockaddr **sap)
+static int smb_resolve_dns_name(struct smb_ctx *ctx, u_int16_t port)
 {
 	int error = 0;
 	int allow_local_conn = (ctx->ct_flags & SMBCF_MOUNTSMBFS);
-
-	error = nb_resolvehost_in(ctx->ct_fullserver, sap, port, allow_local_conn);
+	struct sockaddr *sap = NULL;
+	
+	error = nb_resolvehost_in(ctx->serverName, &sap, port, allow_local_conn);
 	if (error == 0) {
-		if (*sap && (*sap)->sa_family == AF_INET6) {
+		if (sap && (sap->sa_family == AF_INET6)) {
 			/* No port 139 support with IPv6 address, should this be handled in nb_resolvehost_in?  */
 			if (ctx->ct_port == NBSS_TCP_PORT_139)
 				return EADDRNOTAVAIL;
 			ctx->ct_port_behavior = USE_THIS_PORT_ONLY;
 		}
 		ctx->ct_flags |= SMBCF_RESOLVED;
+		/* 
+		 * Found an address, we need to find a name we can use in the tree
+		 * connect server field. First ask the server for its NetBIOS name, 
+		 * if no response then use the IPv4 address in presentation form. The
+		 * smb_ctx_getnbname routine fills in the ioc_srvname name if its
+		 * finds one.
+		 *
+		 * See comments in smb_smb_treeconnect for more information on why this
+		 * is done.
+		 */
+		if (smb_ctx_getnbname(ctx, sap) == 0)
+			set_server_nb_sockaddr(ctx, ctx->ct_ssn.ioc_srvname, sap);
+		else {	
+			if (sap->sa_family == AF_INET) {
+				struct sockaddr_in *sinp = (struct sockaddr_in *)sap;
+				strlcpy(ctx->ct_ssn.ioc_srvname, inet_ntoa(sinp->sin_addr), sizeof(ctx->ct_ssn.ioc_srvname));
+			} else	/* IPv6 nothing else we can do at this point */
+				strlcpy(ctx->ct_ssn.ioc_srvname, ctx->serverName, sizeof(ctx->ct_ssn.ioc_srvname));
+			
+			set_server_nb_sockaddr(ctx, NetBIOS_SMBSERVER, sap);
+		}
 	}
+	if (sap)
+		free(sap);
 	return error;
 }
 
@@ -1071,7 +1315,6 @@ static int smb_resolve_dns_name(struct smb_ctx *ctx, u_int16_t port, struct sock
  */
 static int smb_resolve(struct smb_ctx *ctx)
 {
-	struct sockaddr *sap = NULL;
 	int error;
 	
 	/* We already resolved it nothing else to do here */
@@ -1079,49 +1322,32 @@ static int smb_resolve(struct smb_ctx *ctx)
 		return 0;
 	
 	/* We always try Bonjour first and use the port if gave us. */
-	error = smb_resolve_bonjour_name(ctx, &sap);
+	error = smb_resolve_bonjour_name(ctx);
 	/* We are done if Bonjour resolved it otherwise try the other methods. */
 	if (ctx->ct_flags & SMBCF_RESOLVED)
 		goto WeAreDone;
 	
 	/* We default to trying NetBIOS next unless they request us to use some other port */
 	if ((ctx->ct_port == NBSS_TCP_PORT_139) || (ctx->ct_port_behavior == TRY_BOTH_PORTS))
-		error = smb_resolve_netbios_name(ctx, ctx->ct_port, &sap);
+		error = smb_resolve_netbios_name(ctx, ctx->ct_port);
 	
 	/* We found it with NetBIOS we are done. */
 	if (ctx->ct_flags & SMBCF_RESOLVED)
 		goto WeAreDone;
 
 	/* Last resort try DNS */
-	error = smb_resolve_dns_name(ctx, ctx->ct_port, &sap);
+	error = smb_resolve_dns_name(ctx, ctx->ct_port);
 	
 WeAreDone:
 	if (error == 0) {
 		/*
-		 * We should use Radar 3916980 and 3165159 to clean up this code. We only need ioc_local
+		 * We should use Radar 3916980 and 3165159 to clean up this code. We only need ct_laddr
 		 * when connecting on port 139 and the way we pass it down is just stupid. We can't fix
-		 * this yet, because the kernel will error out if ioc_local is null. We always have the
-		 * ioc_local information at this point so just fill it in.
+		 * this yet, because the kernel will error out if ct_laddr is null. We always have the
+		 * ct_laddr information at this point so just fill it in.
 		 */
-		smb_set_ioc_local(ctx);
-		/*
-		 * We should use Radar 3916980 and 3165159 to clean up this code. We only need ioc_srvname
-		 * when connecting on port 139 and the way we pass it down is just stupid. We can't fix
-		 * this yet, because the kernel will error out if ioc_srvname is null. 
-		 */
-		if (ctx->ct_flags & SMBCF_RESOLVED_NetBIOS)
-			smb_set_ioc_server(ctx, ctx->ct_ssn.ioc_srvname, sap);
-		else {
-			/* They said to use port 139, try to find the NetBIOS name */
-			if (ctx->ct_port == NBSS_TCP_PORT_139) {
-				smb_ctx_getnbname(ctx, sap);
-				smb_set_ioc_server(ctx, ctx->ct_ssn.ioc_srvname, sap);			
-			} else 
-				smb_set_ioc_server(ctx, NetBIOS_SMBSERVER, sap);
-		}
+		set_local_nb_sockaddr(ctx);
 	}
-	if (sap)
-		free(sap);
 	return error;
 }
 /*
@@ -1150,15 +1376,11 @@ int smb_connect(struct smb_ctx *ctx)
 	 *		 Radar 3165159 "SMB should support IPv6" need to confirm and test for this fact.
 	 */
 	if (error && (error != ETIMEDOUT) && (ctx->ct_port_behavior == TRY_BOTH_PORTS)) {
-		struct sockaddr_in * sap = &GET_IP_ADDRESS_FROM_NB((ctx->ct_ssn.ioc_server));
+		struct sockaddr_in * sap = &GET_IP_ADDRESS_FROM_NB((ctx->ct_saddr));
 		
 		sap->sin_port = htons(NBSS_TCP_PORT_139);
 		ctx->ct_port = NBSS_TCP_PORT_139;
 		ctx->ct_port_behavior = USE_THIS_PORT_ONLY;
-		if ((ctx->ct_flags & SMBCF_RESOLVED_NetBIOS) != SMBCF_RESOLVED_NetBIOS) {
-			smb_ctx_getnbname(ctx, (struct sockaddr *)sap);
-			smb_set_ioc_server(ctx, ctx->ct_ssn.ioc_srvname, (struct sockaddr *)sap);
-		}
 		error = smb_negotiate(ctx);		
 	}
 	if (error == 0)
@@ -1172,27 +1394,26 @@ int smb_connect(struct smb_ctx *ctx)
 static void smb_get_sessioninfo(struct smb_ctx *ctx, CFMutableDictionaryRef mutableDict, const char * func)
 {
 	if (ctx->ct_vc_flags & SMBV_GUEST_ACCESS) {
-		CFDictionarySetValue (mutableDict, kMountedByGuestKey, kCFBooleanTrue);
+		CFDictionarySetValue (mutableDict, kNetFSMountedByGuestKey, kCFBooleanTrue);
 		smb_log_info("%s: Session shared as Guest", 0, ASL_LEVEL_DEBUG, func);	
 	} else {
 		CFStringRef userNameRef = NULL;
 		
-		if (ctx->ct_ssn.ioc_user[0]) {
-			userNameRef = CFStringCreateWithCString (NULL, ctx->ct_ssn.ioc_user, kCFStringEncodingUTF8);
-			smb_log_info("%s: User session shared as %s", 0, ASL_LEVEL_DEBUG, func, ctx->ct_ssn.ioc_user);						
+		if (ctx->ct_setup.ioc_user[0]) {
+			userNameRef = CFStringCreateWithCString (NULL, ctx->ct_setup.ioc_user, kCFStringEncodingUTF8);
+			smb_log_info("%s: User session shared as %s", 0, ASL_LEVEL_DEBUG, func, ctx->ct_setup.ioc_user);						
 		}
-		else if ((ctx->ct_vc_flags & SMBV_EXT_SEC) && (ctx->ct_ssn.ioc_kuser[0])) {
+		else if ((ctx->ct_vc_flags & SMBV_KERBEROS_ACCESS) && (ctx->ct_ssn.ioc_kuser[0])) {
 			userNameRef = CFStringCreateWithCString (NULL, ctx->ct_ssn.ioc_kuser, kCFStringEncodingUTF8);
 			smb_log_info("%s: Kerberos session shared as %s", 0, ASL_LEVEL_DEBUG, func, ctx->ct_ssn.ioc_kuser);						
 		}
 		if (userNameRef != NULL) {
-			CFDictionarySetValue (mutableDict, kMountedByUserKey, userNameRef);
+			CFDictionarySetValue (mutableDict, kNetFSMountedByUserKey, userNameRef);
 			CFRelease (userNameRef);
 		}
 		
-		/* %%% We should have a Kerberos flag to handle this, but thats another radar. */
-		if (ctx->ct_vc_flags & SMBV_EXT_SEC) {
-			CFDictionarySetValue (mutableDict, kMountedByKerberosKey, kCFBooleanTrue);
+		if (ctx->ct_vc_flags & SMBV_KERBEROS_ACCESS) {
+			CFDictionarySetValue (mutableDict, kNetFSMountedByKerberosKey, kCFBooleanTrue);
 			smb_log_info("%s: Session shared as Kerberos", 0, ASL_LEVEL_DEBUG, func);		
 		}
 	}
@@ -1222,7 +1443,7 @@ int smb_get_server_info(struct smb_ctx *ctx, CFURLRef url, CFDictionaryRef OpenO
 		return error;
 	
 	/* Should we read the users home directory preferences */
-	NoUserPreferences = SMBGetDictBooleanValue(OpenOptions, kNoUserPreferences);
+	NoUserPreferences = SMBGetDictBooleanValue(OpenOptions, kNetFSNoUserPreferences, FALSE);
 
 	/* Only read the preference files once */
 	if ((ctx->ct_flags & SMBCF_READ_PREFS) != SMBCF_READ_PREFS)
@@ -1238,36 +1459,27 @@ int smb_get_server_info(struct smb_ctx *ctx, CFURLRef url, CFDictionaryRef OpenO
 	}
 	/* Handle the case we know about here for sure */
 	/* All modern servers support change password, but the client doesn't so for now the answer is no! */
-	CFDictionarySetValue (mutableDict, kSupportsChangePasswordKey, kCFBooleanFalse);
-	/* We only support TCP/IP */
-	CFDictionarySetValue (mutableDict, kSupportsTCPKey, kCFBooleanTrue);
-	/* No support in SMB */
-	CFDictionarySetValue (mutableDict, kSupportsSSHKey, kCFBooleanFalse);
+	CFDictionarySetValue (mutableDict, kNetFSSupportsChangePasswordKey, kCFBooleanFalse);
 	/* Most servers support guest, but not sure how we can tell if it is turned on yet */
-	CFDictionarySetValue (mutableDict, kSupportsGuestKey, kCFBooleanTrue);
-	CFDictionarySetValue (mutableDict, kGuestOnlyKey, kCFBooleanFalse);
+	CFDictionarySetValue (mutableDict, kNetFSSupportsGuestKey, kCFBooleanTrue);
+	CFDictionarySetValue (mutableDict, kNetFSGuestOnlyKey, kCFBooleanFalse);
 	/* Now for the ones the server does return */
-	if (ctx->ct_vc_caps & SMB_CAP_UNICODE)
-		CFDictionarySetValue (mutableDict, kNeedsEncodingKey, kCFBooleanFalse);
-	else 
-		CFDictionarySetValue (mutableDict, kNeedsEncodingKey, kCFBooleanTrue);
-
-	if (ctx->ct_vc_flags & SMBV_KERBEROS_SUPPORT) {
+	if (ctx->ct_vc_flags & SMBV_MECHTYPE_KRB5) {
 		CFStringRef kerbServerAddressRef = NULL;
 		CFStringRef kerbServicePrincipalRef = NULL;
 		CFMutableDictionaryRef KerberosInfoDict = NULL;
 
 		/* Server supports Kerberos */
-		CFDictionarySetValue (mutableDict, kSupportsKerberosKey, kCFBooleanTrue);
+		CFDictionarySetValue (mutableDict, kNetFSSupportsKerberosKey, kCFBooleanTrue);
 		/* The server gave us a Kerberos service principal name so create a CFString */
-		if (ctx->ct_kerbPrincipalName != NULL)
-			kerbServicePrincipalRef = CFStringCreateWithCString(NULL, ctx->ct_kerbPrincipalName, kCFStringEncodingUTF8);
+		if (ctx->ct_ssn.ioc_kspn_hint[0])
+			kerbServicePrincipalRef = CFStringCreateWithCString(NULL, ctx->ct_ssn.ioc_kspn_hint, kCFStringEncodingUTF8);
 		
-		/* We are not using port 139 so ct_fullserver contains either a Bonjour/DNS name or IP address string */
-		if ((ctx->ct_port != NBSS_TCP_PORT_139) && (ctx->ct_fullserver))
-			kerbServerAddressRef = CFStringCreateWithCString(NULL, ctx->ct_fullserver, kCFStringEncodingUTF8);
+		/* We are not using port 139 so serverName contains either a Bonjour/DNS name or IP address string */
+		if ((ctx->ct_port != NBSS_TCP_PORT_139) && (ctx->serverName))
+			kerbServerAddressRef = CFStringCreateWithCString(NULL, ctx->serverName, kCFStringEncodingUTF8);
 		else {
-			struct sockaddr_in	saddr = GET_IP_ADDRESS_FROM_NB((ctx->ct_ssn.ioc_server));
+			struct sockaddr_in	saddr = GET_IP_ADDRESS_FROM_NB((ctx->ct_saddr));
 			/* 
 			 * At this point all we really have is the ip address. The name could be anything so we can't use
 			 * that for the server address. Luckly we don't support IPv6 yet and even when we do it isn't
@@ -1283,36 +1495,42 @@ int smb_get_server_info(struct smb_ctx *ctx, CFURLRef url, CFDictionaryRef OpenO
 		/* Add the service principal name to the Kerberos Info Dictionary */
 		if (kerbServicePrincipalRef) {
 			if (KerberosInfoDict)
-				CFDictionarySetValue (KerberosInfoDict, kServicePrincipalKey, kerbServicePrincipalRef);			
+				CFDictionarySetValue (KerberosInfoDict, kNetFSServicePrincipalKey, kerbServicePrincipalRef);			
 			CFRelease (kerbServicePrincipalRef);
 		}
 		/* Add the server host name to the Kerberos Info Dictionary */
 		if (kerbServerAddressRef) {
 			if (KerberosInfoDict)
-				CFDictionarySetValue (KerberosInfoDict, kServerAddressKey, kerbServerAddressRef);						
+				CFDictionarySetValue (KerberosInfoDict, kNetFSServerAddressKey, kerbServerAddressRef);						
 			CFRelease (kerbServerAddressRef);
 		}
 		if (KerberosInfoDict) {
-			CFDictionarySetValue (mutableDict, kKerberosInfoKey, KerberosInfoDict);			
+			CFDictionarySetValue (mutableDict, kNetFSKerberosInfoKey, KerberosInfoDict);			
 			CFRelease (KerberosInfoDict);
 		}
 	}
 	else
-		CFDictionarySetValue (mutableDict, kSupportsKerberosKey, kCFBooleanFalse);
+		CFDictionarySetValue (mutableDict, kNetFSSupportsKerberosKey, kCFBooleanFalse);
 	
 	/*
-	 * In the furture we should only return what is in serverDisplayName, but because of time 
-	 * constraints we will support both methods of returning the server's display name.
+	 * Need to return the server display name. We always have serverNameRef,
+	 * unless we ran out of memory.
+	 *
+	 * %%% In the future we should handle the case of not enough memory when 
+	 * creating the serverNameRef. Until then just fallback to the server name that
+	 * came from the URL.
 	 */
-	if (ctx->serverDisplayName) {
-		CFDictionarySetValue (mutableDict, kServerDisplayNameKey, ctx->serverDisplayName);
-	} else if (ctx->ct_fullserver != NULL) {
-		CFStringRef Server = CFStringCreateWithCString(NULL, ctx->ct_fullserver, kCFStringEncodingUTF8);
+	if (ctx->serverNameRef) {
+		CFDictionarySetValue (mutableDict, kNetFSServerDisplayNameKey, ctx->serverNameRef);
+	} else if (ctx->serverName != NULL) {
+		CFStringRef Server = CFStringCreateWithCString(NULL, ctx->serverName, kCFStringEncodingUTF8);
 		if (Server != NULL) { 
-			CFDictionarySetValue (mutableDict, kServerDisplayNameKey, Server);
+			CFDictionarySetValue (mutableDict, kNetFSServerDisplayNameKey, Server);
 			CFRelease (Server);
 		}
 	}
+	smb_get_os_lanman(ctx, mutableDict);
+
 	if (ctx->ct_vc_shared) 
 		smb_get_sessioninfo(ctx, mutableDict, __FUNCTION__);
 
@@ -1323,22 +1541,16 @@ int smb_get_server_info(struct smb_ctx *ctx, CFURLRef url, CFDictionaryRef OpenO
 int smb_open_session(struct smb_ctx *ctx, CFURLRef url, CFDictionaryRef OpenOptions, CFDictionaryRef *sessionInfo)
 {
 	int  error = 0;
-	int	 NoUserPreferences = SMBGetDictBooleanValue(OpenOptions, kNoUserPreferences);
-	int	UseKerberos = SMBGetDictBooleanValue(OpenOptions, kUseKerberosKey);
-	int	UseGuest = SMBGetDictBooleanValue(OpenOptions, kUseGuestKey);
-	int	UseAnonymous = SMBGetDictBooleanValue(OpenOptions, kUseAnonymousKey);
-	int	ChangePassword = SMBGetDictBooleanValue(OpenOptions, kChangePasswordKey);
+	int	 NoUserPreferences = SMBGetDictBooleanValue(OpenOptions, kNetFSNoUserPreferences, FALSE);
+	int	UseKerberos = SMBGetDictBooleanValue(OpenOptions, kNetFSUseKerberosKey, FALSE);
+	int	UseGuest = SMBGetDictBooleanValue(OpenOptions, kNetFSUseGuestKey, FALSE);
+	int	UseAnonymous = SMBGetDictBooleanValue(OpenOptions, kNetFSUseAnonymousKey, FALSE);
+	int	ChangePassword = SMBGetDictBooleanValue(OpenOptions, kNetFSChangePasswordKey, FALSE);
 	char kerbServicePrincipal[1024];
 	char kerbClientPrincipal[1024];
 	char *servicepn = NULL;
 	char *clientpn = NULL;
 
-#ifdef DEBUG_FORCE_KERBEROS
-	if (ctx->ct_vc_flags & SMBV_KERBEROS_SUPPORT) {
-		smb_log_info("%s: Forcing Kerberos On!", 0, ASL_LEVEL_ERR, __FUNCTION__);		
-		UseKerberos = TRUE;
-	}
-#endif // DEBUG_FORCE_KERBEROS
 	/* Now deal with the URL */
 	if (ctx->ct_url)
 		CFRelease(ctx->ct_url);
@@ -1351,26 +1563,16 @@ int smb_open_session(struct smb_ctx *ctx, CFURLRef url, CFDictionaryRef OpenOpti
 		return error;
 
 	/* Force a new session */
-	if (SMBGetDictBooleanValue(OpenOptions, kForcePrivateSessionKey)) {
+	if (SMBGetDictBooleanValue(OpenOptions, kForcePrivateSessionKey, FALSE)) {
 		ctx->ct_ssn.ioc_opt |= SMBV_PRIVATE_VC;
 		ctx->ct_flags &= ~SMBCF_CONNECTED;		
 		smb_log_info("%s: Force a new session!", 0, ASL_LEVEL_DEBUG, __FUNCTION__);
 	} else {
 		ctx->ct_ssn.ioc_opt &= ~SMBV_PRIVATE_VC;
-		if (SMBGetDictBooleanValue(OpenOptions, kForceNewSessionKey))
+		if (SMBGetDictBooleanValue(OpenOptions, kNetFSForceNewSessionKey, FALSE))
 			ctx->ct_flags &= ~SMBCF_CONNECTED;
 	}
 
-	/*
-	 * %%% Need to be rewritten once we add NTLMSSP support!
-	 * If we are not ask to do kerberos, then we need to turn off extended security. If we are already
-	 * connected with extended security then we need to break the connection.
-	 */
-	if (!UseKerberos) {
-		ctx->ct_ssn.ioc_opt &= ~SMBV_EXT_SEC;	/* Not doing kerberos */
-		if (ctx->ct_vc_flags & SMBV_EXT_SEC)	/* %%% In the future we need a flag telling us we are sharing the vc */
-			ctx->ct_flags &= ~SMBCF_CONNECTED;	/* Force a new connection */
-	}
 	/* We haven't connect yet or we need to start over in either case read the preference again and do the connect */
 	if ((ctx->ct_flags & SMBCF_CONNECTED) != SMBCF_CONNECTED) {
 	    	/* Only read the preference files once */
@@ -1381,15 +1583,20 @@ int smb_open_session(struct smb_ctx *ctx, CFURLRef url, CFDictionaryRef OpenOpti
 			return error;
 	}
 	
-	/* They want to use Kerberos, but the server doesn't support it */
-	if (UseKerberos && ((ctx->ct_vc_flags & SMBV_KERBEROS_SUPPORT) != SMBV_KERBEROS_SUPPORT)) {
-		smb_log_info("%s: Server doesn't support Kerberos, but you are requesting kerberos!", 0, ASL_LEVEL_ERR, __FUNCTION__);
-		return EAUTH;
+	/* 
+	 * We are sharing a session. Update the vc flags so we know the current
+	 * state. We need to find out if this vc has already been authenticated.
+	 */
+	if (ctx->ct_vc_shared) {
+		smb_get_vc_flags(ctx);
+		/* Sharing a Kerberos Session turn on UseKerberos */
+		if (ctx->ct_vc_flags & SMBV_KERBEROS_ACCESS)
+			UseKerberos = TRUE;
 	}
 	
-	/* They don't want to use Kerberos, but the min auth level requires it */
-	if (!UseKerberos && (ctx->ct_ssn.ioc_opt & SMBV_MINAUTH_KERBEROS)) {
-		smb_log_info("%s:Kerberos required!", 0, ASL_LEVEL_ERR, __FUNCTION__);		
+	/* They want to use Kerberos, but the server doesn't support it */
+	if (UseKerberos && ((ctx->ct_vc_flags & SMBV_MECHTYPE_KRB5) != SMBV_MECHTYPE_KRB5)) {
+		smb_log_info("%s: Server doesn't support Kerberos", EAUTH, ASL_LEVEL_DEBUG, __FUNCTION__);
 		return EAUTH;
 	}
 	
@@ -1400,13 +1607,6 @@ int smb_open_session(struct smb_ctx *ctx, CFURLRef url, CFDictionaryRef OpenOpti
 	/* %%% We currently do not support change password maybe someday */
 	if (ChangePassword)
 		return ENOTSUP;
-	
-	/* 
-	 * We are sharing a session. Update the vc flags so we know the current
-	 * state. We need to find out if this vc has already been authenticated.
-	 */
-	if (ctx->ct_vc_shared)
-		smb_get_vc_flags(ctx);
 	
 	/*
 	 * Only set these if we are not sharing the session, if we are sharing the session
@@ -1420,9 +1620,13 @@ int smb_open_session(struct smb_ctx *ctx, CFURLRef url, CFDictionaryRef OpenOpti
 		} else
 			ctx->ct_ssn.ioc_opt &= ~SMBV_GUEST_ACCESS;
 		
-		/* Force an anon connection why I am not sure */
-		if (UseAnonymous)
-			ctx->ct_ssn.ioc_user[0] = '\0';
+		/* Anonymous connection require no username, password or domain */
+		if (UseAnonymous) {
+			ctx->ct_ssn.ioc_opt |= SMBV_ANONYMOUS_ACCESS;
+			ctx->ct_setup.ioc_domain[0] = '\0';
+			ctx->ct_setup.ioc_user[0] = '\0';
+			ctx->ct_setup.ioc_password[0] = '\0';			
+		}
 	}
 	
 	/*
@@ -1430,29 +1634,33 @@ int smb_open_session(struct smb_ctx *ctx, CFURLRef url, CFDictionaryRef OpenOpti
 	 * Guest, or Anonymous then we should return EAUTH. Having an empty password and username
 	 * is Anonymous authentication. 
 	 */
-	if ((!ctx->ct_vc_shared) && (ctx->ct_ssn.ioc_user[0] == 0) && !UseGuest && !UseKerberos && !UseAnonymous)
+	if ((!ctx->ct_vc_shared) && (ctx->ct_setup.ioc_user[0] == 0) && !UseGuest && !UseKerberos && !UseAnonymous)
 		return EAUTH;
 	
 	if (UseKerberos) {
 		CFStringRef kerbClientPrincipalRef = NULL;
 		CFStringRef kerbServicePrincipalRef = NULL;
-		CFDictionaryRef KerberosInfoDict = CFDictionaryGetValue(OpenOptions, kKerberosInfoKey);
+		CFDictionaryRef KerberosInfoDict = CFDictionaryGetValue(OpenOptions, kNetFSKerberosInfoKey);
 		
 		if (KerberosInfoDict) {
-			kerbClientPrincipalRef = CFDictionaryGetValue(KerberosInfoDict, kClientPrincipalKey);
-			kerbServicePrincipalRef = CFDictionaryGetValue(KerberosInfoDict, kServicePrincipalKey);
+			kerbClientPrincipalRef = CFDictionaryGetValue(KerberosInfoDict, kNetFSClientPrincipalKey);
+			kerbServicePrincipalRef = CFDictionaryGetValue(KerberosInfoDict, kNetFSServicePrincipalKey);
 		}
 		if (kerbClientPrincipalRef) {
-			CFStringGetCString(kerbClientPrincipalRef, kerbClientPrincipal, 1024, kCFStringEncodingUTF8);
+			CFStringGetCString(kerbClientPrincipalRef, kerbClientPrincipal, 
+							   SMB_MAX_KERB_PN, kCFStringEncodingUTF8);
 			clientpn = kerbClientPrincipal;
 		}
 		if (kerbServicePrincipalRef) {
-			CFStringGetCString(kerbServicePrincipalRef, kerbServicePrincipal, 1024, kCFStringEncodingUTF8);
+			CFStringGetCString(kerbServicePrincipalRef, kerbServicePrincipal, 
+							   SMB_MAX_KERB_PN, kCFStringEncodingUTF8);
 			servicepn = kerbServicePrincipal;
 		}
 		smb_log_info("Kerberos Security: Client Principal Name %s Service Principal Name %s", 0, ASL_LEVEL_DEBUG, 
 						 (clientpn) ? clientpn : "", (servicepn) ? servicepn : "");	
-	} 
+		ctx->ct_ssn.ioc_opt |= SMBV_KERBEROS_ACCESS;
+	} else
+		ctx->ct_ssn.ioc_opt &= ~SMBV_KERBEROS_ACCESS;
 		
 	error = smb_session_security(ctx, clientpn, servicepn);
 	/* 
@@ -1463,16 +1671,8 @@ int smb_open_session(struct smb_ctx *ctx, CFURLRef url, CFDictionaryRef OpenOpti
 		smb_ctx_setuser(ctx, "");
 		smb_ctx_setpassword(ctx, "");
 		smb_ctx_setdomain(ctx, "");
-		ctx->ct_ssn.ioc_opt &= ~SMBV_GUEST_ACCESS;
 	}
 	
-	/*
-	 * %%%
-	 * We currently use the flag SMBV_EXT_SEC to mean we are using Kerberos, this will break when we add NTLMSSP
-	 * support, we need a flag that says we are doing Kerberos.
-	 *
-	 * We need to do something about the uppercasing of the username.
-	 */
 	if ((error == 0) && sessionInfo) {
 		/* create and return session info dictionary */
 		CFMutableDictionaryRef mutableDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, 
@@ -1510,21 +1710,20 @@ static int smb_force_new_session(struct smb_ctx *ctx, int ForcePrivateSession)
 		CFDictionarySetValue (OpenOptions, kForcePrivateSessionKey, kCFBooleanTrue);		
 
 	/* We were using kerberos before so use it now */
-	if (ctx->ct_ssn.ioc_opt & SMBV_KERBEROS_SUPPORT) {
-		CFDictionarySetValue (OpenOptions, kUseKerberosKey, kCFBooleanTrue);
+	if (ctx->ct_vc_flags & SMBV_KERBEROS_ACCESS) {
+		CFDictionarySetValue (OpenOptions, kNetFSUseKerberosKey, kCFBooleanTrue);
 	} else {
-		CFDictionarySetValue (OpenOptions, kUseKerberosKey, kCFBooleanFalse);
-		ctx->ct_ssn.ioc_opt &= ~SMBV_EXT_SEC;	
+		CFDictionarySetValue (OpenOptions, kNetFSUseKerberosKey, kCFBooleanFalse);
 	}
 	if (ctx->ct_ssn.ioc_opt & SMBV_GUEST_ACCESS)
-		CFDictionarySetValue (OpenOptions, kUseGuestKey, kCFBooleanTrue);
+		CFDictionarySetValue (OpenOptions, kNetFSUseGuestKey, kCFBooleanTrue);
 	/* 
 	 * Get ready to do the open session call again. We have no way of telling if we should read
 	 * the users home directory preference file. We should have already read the preference files, but just to
 	 * be safe we will not allow this connection to read the home directory preference file. Second we need to
 	 * save the url off until after the call. The smb_open_session will free ct_url if it exist.
 	 */
-	CFDictionarySetValue (OpenOptions, kNoUserPreferences, kCFBooleanTrue);
+	CFDictionarySetValue (OpenOptions, kNetFSNoUserPreferences, kCFBooleanTrue);
 	url = ctx->ct_url;
 	ctx->ct_url = NULL;
 	error = smb_open_session(ctx, url, OpenOptions, NULL);
@@ -1591,20 +1790,20 @@ int smb_enumerate_shares(struct smb_ctx *ctx, CFDictionaryRef *shares)
 
 		if (ep->type == SMB_ST_DISK) {
 			if ((smb_ctx_setshare(ctx, ep->netname, SMB_ST_ANY) == 0) && (already_mounted(ctx, fs, fs_cnt, currDict)))
-				CFDictionarySetValue (currDict, kAlreadyMountedKey, kCFBooleanTrue);
+				CFDictionarySetValue (currDict, kNetFSAlreadyMountedKey, kCFBooleanTrue);
 			else 
-				CFDictionarySetValue (currDict, kAlreadyMountedKey, kCFBooleanFalse);
+				CFDictionarySetValue (currDict, kNetFSAlreadyMountedKey, kCFBooleanFalse);
 		} else {
-			CFDictionarySetValue (currDict, kPrinterShareKey, kCFBooleanTrue);				
-			CFDictionarySetValue (currDict, kAlreadyMountedKey, kCFBooleanFalse);
+			CFDictionarySetValue (currDict, kNetFSPrinterShareKey, kCFBooleanTrue);				
+			CFDictionarySetValue (currDict, kNetFSAlreadyMountedKey, kCFBooleanFalse);
 		}
 			
 		/* If in share mode we could require a volume password, need to test this out and figure out what we should  do. */
-		CFDictionarySetValue (currDict, kHasPasswordKey, kCFBooleanFalse);
+		CFDictionarySetValue (currDict, kNetFSHasPasswordKey, kCFBooleanFalse);
 		
-		len = strlen(ep->netname);
+		len = (int)strlen(ep->netname);
 		if (len && (ep->netname[len-1] == '$'))
-			CFDictionarySetValue (currDict, kIsHiddenKey, kCFBooleanTrue);
+			CFDictionarySetValue (currDict, kNetFSIsHiddenKey, kCFBooleanTrue);
 		ShareStr = CFStringCreateWithCString(NULL, ep->netname, kCFStringEncodingUTF8);
 		if (ShareStr == NULL)
 			goto WeAreDone;				
@@ -1629,20 +1828,11 @@ WeAreDone:
 	 * way to do this is keep track of the fact we have have a IPC$ tree connect and only close it at smb_ctx_done
 	 * time. That method means we would have to hold on to the IPC$ tree connect for the life of the process.
 	 */
-	rpc_cleanup_smbctx(ctx);
 	(void)smb_share_disconnect(ctx);
 	smb_ctx_setshare(ctx, "", SMB_ST_ANY);
 	if (fs)
 		free(fs);
-	if (share_info) {
-		for (ep = share_info, ii = 0; ii < entries; ii++, ep++) {
-			if (ep->netname)
-				free(ep->netname);
-			if (ep->remark)
-				free(ep->remark);
-		}
-		free(share_info);
-	}
+	smb_freeshareinfo(share_info, entries);
 	if (mutableDict)
 		CFRelease (mutableDict);
 	if (ShareStr)
@@ -1659,7 +1849,7 @@ int smb_mount(struct smb_ctx *ctx, CFStringRef mpoint, CFDictionaryRef mOptions,
 {
 	CFMutableDictionaryRef mdict = NULL;
 	struct UniqueSMBShareID req;
-	int	 ForcePrivateSession = SMBGetDictBooleanValue(mOptions, kForcePrivateSessionKey);
+	int	 ForcePrivateSession = SMBGetDictBooleanValue(mOptions, kForcePrivateSessionKey, FALSE);
 	struct smb_mount_args mdata;
 	int error = 0;
 	char mount_point[MAXPATHLEN];
@@ -1669,21 +1859,27 @@ int smb_mount(struct smb_ctx *ctx, CFStringRef mpoint, CFDictionaryRef mOptions,
 
 	
 	/*  Initialize the mount arguments  */
-	mdata.version = SMBFS_VERSION;
+	mdata.version = SMB_IOC_STRUCT_VERSION;
 	mdata.altflags = ctx->altflags; /* Contains flags that were read from preference */
 	mdata.path_len = 0;
 	mdata.path[0] = 0;
+	mdata.volume_name[0] = 0;
 	
 	/* Get the alternative mount flags from the mount options */
-	if (SMBGetDictBooleanValue(mOptions, kSoftMountKey))
+	if (SMBGetDictBooleanValue(mOptions, kNetFSSoftMountKey, FALSE))
 		mdata.altflags |= SMBFS_MNT_SOFT;
-	if (SMBGetDictBooleanValue(mOptions, kStreamstMountKey))
+	if (SMBGetDictBooleanValue(mOptions, kNotifyOffMountKey, FALSE))
+		mdata.altflags |= SMBFS_MNT_NOTIFY_OFF;
+	/* Only want the value if it exist */
+	if (SMBGetDictBooleanValue(mOptions, kStreamstMountKey, FALSE))
 		mdata.altflags |= SMBFS_MNT_STREAMS_ON;
+	else if (! SMBGetDictBooleanValue(mOptions, kStreamstMountKey, TRUE))
+		mdata.altflags &= ~SMBFS_MNT_STREAMS_ON;
 	
 	/* Get the mount flags, just in case there are no flags or something is wrong we start with them set to zero. */
 	mntflags = 0;
 	if (mOptions) {
-		numRef = (CFNumberRef)CFDictionaryGetValue (mOptions, kMountFlagsKey);
+		numRef = (CFNumberRef)CFDictionaryGetValue (mOptions, kNetFSMountFlagsKey);
 		if (numRef)
 			(void)CFNumberGetValue(numRef, kCFNumberSInt32Type, &mntflags);
 		
@@ -1697,12 +1893,6 @@ int smb_mount(struct smb_ctx *ctx, CFStringRef mpoint, CFDictionaryRef mOptions,
 	if (!mdict) {
 		smb_log_info("%s: allocation of dictionary failed!", -1, ASL_LEVEL_DEBUG, __FUNCTION__);
 		return ENOMEM;
-	}
-	/* Check for volume password, not sure its need any more, may want to remove in the future */
-	if (mOptions) {
-		CFDataRef volPwdRef = (CFDataRef)CFDictionaryGetValue (mOptions, kHasPasswordKey);
-		if ((volPwdRef != NULL) && ((CFIndex)sizeof(ctx->ct_sh.ioc_password) > CFDataGetLength(volPwdRef)))
-			CFDataGetBytes(volPwdRef, CFRangeMake(0, CFDataGetLength(volPwdRef)), (UInt8 *)ctx->ct_sh.ioc_password);
 	}
 	
 	/*
@@ -1740,7 +1930,7 @@ int smb_mount(struct smb_ctx *ctx, CFStringRef mpoint, CFDictionaryRef mOptions,
 	
 	if (error) {
 		/* If connection is down report EPIPE and set that the connection is down */
-		if ((error = ENOTCONN) || (smb_ctx_connstate(ctx) == ENOTCONN)) {
+		if ((error == ENOTCONN) || (smb_ctx_connstate(ctx) == ENOTCONN)) {
 			ctx->ct_flags &= ~SMBCF_CONNECT_STATE;
 			error =  EPIPE;
 		}
@@ -1760,12 +1950,12 @@ int smb_mount(struct smb_ctx *ctx, CFStringRef mpoint, CFDictionaryRef mOptions,
 	 }
 	
 	/* now create the unique_id, using tcp address + port + uppercase share */
-	if (ctx->ct_ssn.ioc_server)
+	if (ctx->ct_saddr)
 		create_unique_id(ctx, mdata.unique_id, &mdata.unique_id_len);
 	else
-		smb_log_info("%s: ioc_server is NULL how did that happen?", 0, ASL_LEVEL_DEBUG, __FUNCTION__);
-	mdata.uid = ctx->ct_ssn.ioc_owner;
-	mdata.gid = ctx->ct_ssn.ioc_group;
+		smb_log_info("%s: ioc_saddr is NULL how did that happen?", 0, ASL_LEVEL_DEBUG, __FUNCTION__);
+	mdata.uid = geteuid();
+	mdata.gid = getegid();;
 	/* 
 	 * Really would like a better way of doing this, but until we can get the real file/directory access
 	 * use this method. The old code base the access on the mount point, we no longer do it that way. If
@@ -1809,14 +1999,54 @@ int smb_mount(struct smb_ctx *ctx, CFStringRef mpoint, CFDictionaryRef mOptions,
 	
 	CreateSMBFromName(ctx, mdata.url_fromname, MAXPATHLEN);
 	/* The URL had a starting path send it to the kernel */
-	if (ctx->ct_path) {
-		mdata.path_len = strlen(ctx->ct_path);	/* Path length does not include the null byte */
-		strlcpy(mdata.path, ctx->ct_path, MAXPATHLEN);
-	}
+	if (ctx->mountPath) {
+		CFStringRef	volname;
+		CFArrayRef pathArray;
+		
+		/* Get the Volume Name from the path.
+		 * 
+		 * Remember we already removed any extra slashes in the path. So it will
+		 * be in one of the following formats:
+		 *		"/"
+		 *		"path"
+		 *		"path1/path2/path3"
+		 *
+		 * We can have a share that is only a slash, but we can never have a path
+		 * that is only a slash. Just to be safe we do test for that case. A slash
+		 * in the path will cause us to have two empty array elements.
+		 */
+		
+		pathArray = CFStringCreateArrayBySeparatingStrings(NULL, ctx->mountPath, CFSTR("/"));
+		if (pathArray) {
+			CFIndex indexCnt = CFArrayGetCount(pathArray);
+			
+			/* Make sure we don't have a path with just a slash or only one element */
+			if ((indexCnt < 1) ||
+				((indexCnt == 2) && (CFStringGetLength((CFStringRef)CFArrayGetValueAtIndex(pathArray, 0)) == 0)))
+				volname = ctx->mountPath;
+			else
+				volname = (CFStringRef)CFArrayGetValueAtIndex(pathArray, indexCnt -1);
+		} else
+			volname = ctx->mountPath;
+		
+		CFStringGetCString(volname, mdata.volume_name, MAXPATHLEN, kCFStringEncodingUTF8);
+		if (pathArray)
+			CFRelease(pathArray);
 
+		CFStringGetCString(ctx->mountPath, mdata.path, MAXPATHLEN, kCFStringEncodingUTF8);
+		mdata.path_len = (u_int32_t)strlen(mdata.path);	/* Path length does not include the null byte */
+		
+	} else if (ctx->ct_origshare) /* Just to be safe, should never happen */
+		strlcpy(mdata.volume_name, ctx->ct_origshare, sizeof(mdata.volume_name));
+		
+	smb_log_info("%s: Volume name = %s", 0, ASL_LEVEL_DEBUG, __FUNCTION__, mdata.volume_name);
+	
 	error = mount(SMBFS_VFSNAME, mount_point, mntflags, (void*)&mdata);
-	if (error || (mInfo == NULL))
+	if (error || (mInfo == NULL)) {
+		if (error == -1)
+			error = errno; /* Make sure we return a real error number */
 		goto WeAreDone;
+	}
 	/* Now  get the mount information. */
 	bzero(&req, sizeof(req));
 	bcopy(mdata.unique_id, req.unique_id, sizeof(req.unique_id));
@@ -1829,7 +2059,10 @@ int smb_mount(struct smb_ctx *ctx, CFStringRef mpoint, CFDictionaryRef mOptions,
 
 WeAreDone:
 	if (error) {
-		smb_log_info("%s: open session failed!", error, ASL_LEVEL_ERR, __FUNCTION__);
+		char * log_server = (ctx->serverName) ? ctx->serverName : (char *)"";
+		char * log_share = (ctx->ct_origshare) ? ctx->ct_origshare : (char *)"";
+		smb_log_info("%s: mount failed to %s/%s ", error, ASL_LEVEL_ERR, 
+					 __FUNCTION__, log_server, log_share);
 		/* If we have an error send a tree disconnect */
 		if (ctx->ct_flags & SMBCF_SHARE_CONN)
 			(void)smb_share_disconnect(ctx);
@@ -1843,72 +2076,46 @@ WeAreDone:
 /*
  * Create the smb library context and fill in the default values.
  */
-void *smb_create_ctx()
+void *smb_create_ctx(void)
 {
 	struct smb_ctx *ctx = NULL;
 	
 	ctx = malloc(sizeof(struct smb_ctx));
 	if (ctx == NULL)
 		return NULL;
+	
+	/* Clear out everything out to start with */
+	bzero(ctx, sizeof(*ctx));
+
 	if (pthread_mutex_init(&ctx->ctx_mutex, NULL) == -1) {
 		smb_log_info("%s: pthread_mutex_init failed!", -1, ASL_LEVEL_DEBUG, __FUNCTION__);
 		free(ctx);
 		return NULL;
 	}
-	ctx->scheme = CFStringCreateWithCString (NULL, SMB_SCHEMA_STRING, kCFStringEncodingUTF8);
-	if (ctx->scheme == NULL) {
-		smb_log_info("%s: creating shema string failed!", -1, ASL_LEVEL_DEBUG, __FUNCTION__);
-		pthread_mutex_destroy(&ctx->ctx_mutex);
-		free(ctx);
-		return NULL;
-	}
-	ctx->ct_url = NULL;
-	ctx->ct_flags = 0;		/* We need to limit these flags */
+	
 	ctx->ct_fd = -1;
 	ctx->ct_level = SMBL_VC;	/* Deafult to VC */
 	ctx->ct_port_behavior = TRY_BOTH_PORTS;
 	ctx->ct_port = SMB_TCP_PORT_445;
-	ctx->ct_fullserver = NULL;
-	ctx->serverDisplayName = NULL;
-	ctx->netbios_dns_name = NULL;
-	bzero(&ctx->ct_nb, sizeof(ctx->ct_nb));
-	bzero(&ctx->ct_ssn, sizeof(ctx->ct_ssn));
-	bzero(&ctx->ct_sh, sizeof(ctx->ct_sh));
 
-	/* Default to use Extended security */
-	ctx->ct_ssn.ioc_opt = SMBV_MINAUTH_NTLM | SMBV_EXT_SEC;
+	ctx->ct_ssn.ioc_opt = SMBV_MINAUTH_NTLM | SMBV_SERVER_DOMAIN;
 	ctx->ct_ssn.ioc_owner = geteuid();
-	ctx->ct_ssn.ioc_group = getegid();
-	ctx->ct_ssn.ioc_mode = SMBM_EXEC;
-	ctx->ct_ssn.ioc_rights = SMBM_DEFAULT;
 	ctx->ct_ssn.ioc_reconnect_wait_time = SMBM_RECONNECT_WAIT_TIME;
-	
-	ctx->ct_sh.ioc_owner = ctx->ct_ssn.ioc_owner;
-	ctx->ct_sh.ioc_group = ctx->ct_ssn.ioc_group;
-	ctx->ct_sh.ioc_mode = SMBM_EXEC;
-	ctx->ct_sh.ioc_rights = SMBM_DEFAULT;
-	
+	/* We now default to using streams */
+	ctx->altflags |= SMBFS_MNT_STREAMS_ON;
+
+		
 	/* Should this be setable? */
-	strcpy(ctx->ct_ssn.ioc_localcs, "default");	
-	
-	ctx->ct_origshare = NULL;
-	ctx->ct_path = NULL;
-	ctx->ct_kerbPrincipalName = NULL;
-	ctx->ct_kerbPrincipalName_len = 0;
-	ctx->debug_level = 0;
-	ctx->altflags = 0;
-	ctx->ct_vc_caps = 0;
+	strlcpy(ctx->ct_ssn.ioc_localcs, "default", sizeof(ctx->ct_ssn.ioc_localcs));	
 	/* 
-	 * Not sure this is the place for this code yet. We should be getting the local NetBIOS
-	 * name from the global config file. Should we use this as our default and replace it
-	 * if there is one in the config file or should we check the config file first and only
-	 * do this if it does not exist in the config file? 
-	 *
 	 * Get the host name, but only copy what will fit in the buffer. We do not care if the name 
-	 * did not fit.  This will become less of a problem because of port
-	 * 445 support which does not require a NetBIOS name.
+	 * did not fit. In most cases this name will get replaced, because we now try to get the local 
+	 * NetBIOS name from the global config file.
+	 *
+	 * NOTE: It looks like NTLMSSP requires the local host name, currently it looks like 
+	 * they always use a NetBIOS name.
 	 */
-	(void)nb_getlocalname(ctx->LocalNetBIOSName, (size_t)sizeof(ctx->LocalNetBIOSName));
+	(void)nb_getlocalname(ctx->ct_ssn.ioc_localname, (size_t)sizeof(ctx->ct_ssn.ioc_localname));
 	
 	return ctx;
 }
@@ -1917,7 +2124,8 @@ void *smb_create_ctx()
  * This is used by the mount_smbfs and smbutil routine to create and initialize the
  * smb library context structure.
  */
-int smb_ctx_init(struct smb_ctx **out_ctx, const char *url, int level, int sharetype, int NoUserPreferences)
+int smb_ctx_init(struct smb_ctx **out_ctx, const char *url, u_int32_t level, 
+				 int sharetype, int NoUserPreferences)
 {
 	int  error = 0;
 	struct smb_ctx *ctx = NULL;
@@ -1925,15 +2133,17 @@ int smb_ctx_init(struct smb_ctx **out_ctx, const char *url, int level, int share
 	/* Create the structure and fill in the default values */
 	ctx = smb_create_ctx();
 	if (ctx == NULL) {
-		error = errno;
+		error = ENOMEM;
 		goto failed;		
 	}
 	ctx->ct_level = level;
 	ctx->ct_flags |= SMBCF_MOUNTSMBFS;	/* Called from a command line utility */
 	/* Create the CFURL */
-	error = CreateSMBURL(ctx, url);
-	if (error)
+	ctx->ct_url = CreateSMBURL(url);
+	if (ctx->ct_url == NULL) {
+		error = EINVAL;
 		goto failed;
+	}
 	
 	error = ParseSMBURL(ctx, sharetype);
 	/* read the preference files */
@@ -1965,30 +2175,25 @@ void smb_ctx_done(void *inRef)
 		pthread_mutex_lock(&ctx->ctx_mutex);
 	}
 	
-	rpc_cleanup_smbctx(ctx);
 	if (ctx->ct_fd != -1)
 		close(ctx->ct_fd);
 	nb_ctx_done(&ctx->ct_nb);
-	if (ctx->scheme)
-		CFRelease(ctx->scheme);
 	if (ctx->ct_url)
 		CFRelease(ctx->ct_url);
-	if (ctx->ct_fullserver)
-		free(ctx->ct_fullserver);
-	if (ctx->serverDisplayName)
-		CFRelease(ctx->serverDisplayName);
-	if (ctx->ct_ssn.ioc_server)
-		free(ctx->ct_ssn.ioc_server);
-	if (ctx->ct_ssn.ioc_local)
-		free(ctx->ct_ssn.ioc_local);
+	if (ctx->serverName)
+		free(ctx->serverName);
+	if (ctx->serverNameRef)
+		CFRelease(ctx->serverNameRef);
+	if (ctx->ct_saddr)
+		free(ctx->ct_saddr);
+	if (ctx->ct_laddr)
+		free(ctx->ct_laddr);
 	if (ctx->netbios_dns_name)
 		free(ctx->netbios_dns_name);
-	if (ctx->ct_kerbPrincipalName)
-		free(ctx->ct_kerbPrincipalName);
 	if (ctx->ct_origshare)
 		free(ctx->ct_origshare);
-	if (ctx->ct_path)
-		free(ctx->ct_path);
+	if (ctx->mountPath)
+		CFRelease(ctx->mountPath);
 	pthread_mutex_unlock(&ctx->ctx_mutex);
 	pthread_mutex_destroy(&ctx->ctx_mutex);
 	free(ctx);

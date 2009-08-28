@@ -1,0 +1,71 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin history n 0.1]
+[moddesc   {Provides a history for Entry widgets}]
+[titledesc {Provides a history for Entry widgets}]
+[require Tcl 8.4]
+[require Tk 8.4]
+[require history [opt 0.1]]
+[description]
+
+This package provides a convenient history mechanism for Entry widgets.
+The history may be accessed with the up and down arrow keys.
+
+[para]
+
+[list_begin definitions]
+
+[call [cmd ::history::init] [arg pathName] [opt length]]
+
+Arranges to remember the history of the named Entry widget. An optional length
+determines the number of history entries to keep. This may be changed later
+with [cmd ::history::configure]. History entries must be added with the
+[cmd ::history::add] command before they can be seen.
+
+[call [cmd ::history::remove] [arg pathName]]
+
+Forgets all history entries for the Entry [arg pathName] and removes the history
+bindings.
+
+
+[call [cmd ::history::add] [arg pathName] [arg text]]
+
+This command is used to add history entries to an Entry that has previously had
+[cmd ::history::init] called on it. This command should be called from your Entry
+handler with the contents of the entry (or whatever you wish to add to the history).
+
+
+[call [cmd ::history::get] [arg pathName]]
+
+This command returns a list containing the history entries for the Entry [arg pathName]
+
+[call [cmd ::history::clear] [arg pathName]]
+
+This command clears the history list for the named Entry.
+
+[call [cmd ::history::configure] [arg pathName] [arg option] [opt value]]
+
+This command queries or sets configuration options. Currently the options recognized
+are [arg length] and [arg alert]. Setting the length determines the number of history entries to keep for
+the named Entry. Alert specifies the command to run when the user reaches the end of the history, it defaults to [call bell]. Although configure requires a [arg pathName] argument, the setting for alert is global and the path is ignored.
+
+[list_end]
+
+[example {
+entry .e
+bind .e <Return> [list ProcessEntry %W]
+::history::init .e
+pack .e
+
+proc ProcessEntry {w} {
+    set text [$w get]
+    if {$text == ""} { return }
+    ::history::add $w $text
+    puts $text
+    $w delete 0 end
+}
+
+}]
+
+[keywords entry history]
+[manpage_end]
+

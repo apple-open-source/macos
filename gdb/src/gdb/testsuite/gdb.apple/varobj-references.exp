@@ -1,0 +1,158 @@
+#   Copyright (C) 2004 Free Software Foundation, Inc.
+#
+# This Program Is Free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+# Please email any bugs, comments, and/or additions to this file to:
+# bug-gdb@prep.ai.mit.edu
+
+# Test that the mi output for references in C++ programs.  In the FSF gdb
+# varobj's made from references don't update properly, and references to 
+# pointers don't work at all.
+#
+# Written by Jim Ingham <jingham@apple.com>
+# 
+
+load_lib mi-support.exp
+set MIFLAGS "-i=mi1"
+
+gdb_exit
+if [mi_gdb_start] {
+    continue
+}
+
+set testfile "varobj-references"
+set srcfile ${testfile}.cc
+
+set binfile ${objdir}/${subdir}/${testfile}
+if  { [gdb_compile "$srcdir/$subdir/$srcfile" "${binfile}" executable {c++ debug}] != "" } {
+    gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
+}
+
+mi_delete_breakpoints
+mi_gdb_reinitialize_dir $srcdir/$subdir
+mi_gdb_load ${binfile}
+
+#
+# Run to pass_ref, and expand the reference variable input, and then step and make sure the
+# value gets updated.
+#
+
+mi_runto pass_ref
+
+mi_gdb_test {-var-create input_var * input} {.*name="input_var",numchild="2",type="Derived &",typecode="REF",dynamic_type="Derived &",resolved_type="Derived &",in_scope="true".*} {Create input_var in pass_ref_ptr}
+
+mi_gdb_test {-var-list-children input_var} {.*numchild="2",children=\[child=\{name="input_var.Base",exp="Base",numchild="1",type="Base &",typecode="REF",dynamic_type="",resolved_type="Base &"\},child=\{name="input_var.private",exp="private",numchild="1",type="",typecode="FAKE_CHILD",dynamic_type="",resolved_type=""\}\]} {List children of input_var}
+
+mi_gdb_test {-var-list-children input_var.Base} {.*numchild="1",children=\[child=\{name="input_var.Base.private",exp="private",numchild="1",type="",typecode="FAKE_CHILD",dynamic_type="",resolved_type=""\}\]} {List children of input_var.Base}
+
+mi_gdb_test {-var-list-children input_var.Base.private} {.*numchild="1",children=\[child=\{name="input_var.Base.private.my_var",exp="my_var",numchild="0",type="int",typecode="INT",dynamic_type="",resolved_type="int"\}\]} {List children of input_var.Base.private}
+
+mi_gdb_test {-var-list-children input_var.private} {.*numchild="1",children=\[child=\{name="input_var.private.my_struct_ptr",exp="my_struct_ptr",numchild="1",type="my_struct \*",typecode="PTR",dynamic_type="",resolved_type="my_struct \*"\}\]} {List children of input_var.private}
+
+mi_gdb_test {-var-list-children input_var.private.my_struct_ptr} {.*numchild="2",children=\[child=\{name="input_var.private.my_struct_ptr.public.one",exp="one",numchild="0",type="int",typecode="INT",dynamic_type="",resolved_type="int"\},child=\{name="input_var.private.my_struct_ptr.public.other",exp="other",numchild="0",type="int",typecode="INT",dynamic_type="",resolved_type="int"\}\]} {List children of input_var.private.my_struct_ptr}
+
+#
+# Make sure we don't derefence the subclasses when we evaluate them
+#
+
+mi_gdb_test {-var-evaluate-expression input_var.Base} ".*value=\"@$hex\"" {Evaluate Base in pass_ref}
+
+mi_gdb_test {-var-evaluate-expression input_var.Base.private.my_var} {.*value="5"} {Evaluate my_var in pass_ref}
+
+mi_gdb_test {-var-evaluate-expression input_var.private.my_struct_ptr.public.one} {.*value="10"} {Evaluate expression of my_struct.one in pass_ref}
+
+mi_gdb_test {-var-evaluate-expression input_var.private.my_struct_ptr.public.other} {.*value="20"} {Evaluate expression of my_struct.other in pass_ref}
+
+mi_next {Next in pass_ref is initialized}
+
+#
+# Only my_var should have changed
+#
+
+mi_gdb_test {-var-update input_var} {.*changelist=\[varobj=\{name="input_var.Base.private.my_var",in_scope="true",type_changed="false"\}\]} {Update input_var my_var has changed}
+
+mi_gdb_test {-var-evaluate-expression input_var.Base.private.my_var} {.*value="10"} {Evaluate my_var in pass_ref after step}
+
+#
+# Now run to pass_ref_ptr, make sure we correctly make variable objects for a pointer passed by reference,
+# then step, and make sure that the varobj's update correctly.
+#
+
+set bkptno [mi_break_function pass_ref_ptr]
+mi_continue_to $bkptno {pass_ref_ptr.*} {.*} {.*} {.*} {.*}
+
+mi_gdb_test {-var-create input_ptr_var * input_ptr} {.*name="input_ptr_var",numchild="1",type="Derived \*&",typecode="REF",dynamic_type="",resolved_type="Derived \*&",in_scope="true".*} {Create input_ptr_var in pass_ref_ptr}
+
+mi_gdb_test {-var-list-children input_ptr_var} {.*numchild="1",children=\[child=\{name="input_ptr_var.\*input_ptr",exp="\*input_ptr",numchild="2",type="Derived \*",typecode="PTR",dynamic_type="Derived \*",resolved_type="Derived \*"\}\]} {List children of input_ptr_var}
+
+mi_gdb_test {-var-list-children input_ptr_var.*input_ptr} {.*numchild="2",children=\[child=\{name="input_ptr_var\.\*input_ptr.Base",exp="Base",numchild="1",type="Base \*",typecode="PTR",dynamic_type="",resolved_type="Base \*"\},child=\{name="input_ptr_var\.\*input_ptr.private",exp="private",numchild="1",type="",typecode="FAKE_CHILD",dynamic_type="",resolved_type=""\}\]} {List children of input_ptr_var.*input_ptr}
+
+#
+# Again, make sure we see Base as a pointer, if you get the reference stuff wrong, we will evaluate
+# the base classes, dereferencing them in the process.
+#
+
+mi_gdb_test {-var-evaluate-expression input_ptr_var.*input_ptr.Base} ".*value=\"$hex\"" {Evaluate expression for Base in pass_ref_ptr}
+
+mi_gdb_test {-var-list-children input_ptr_var.*input_ptr.Base} {.*numchild="1",children=\[child=\{name="input_ptr_var.\*input_ptr.Base.private",exp="private",numchild="1",type="",typecode="FAKE_CHILD",dynamic_type="",resolved_type=""\}\]} {List children of input_ptr_var.*input_ptr.Base}
+
+mi_gdb_test {-var-list-children input_ptr_var.*input_ptr.Base.private} {.*numchild="1",children=\[child=\{name="input_ptr_var.\*input_ptr.Base.private.my_var",exp="my_var",numchild="0",type="int",typecode="INT",dynamic_type="",resolved_type="int"\}\]} {List children of input_ptr_var.*input_ptr.Base}
+
+mi_gdb_test {-var-list-children input_ptr_var.*input_ptr.private} {.*numchild="1",children=\[child=\{name="input_ptr_var.\*input_ptr.private.my_struct_ptr",exp="my_struct_ptr",numchild="1",type="my_struct \*",typecode="PTR",dynamic_type="",resolved_type="my_struct \*"\}\]} {List children of input_ptr_var.*input_ptr.private}
+
+mi_gdb_test {-var-list-children input_ptr_var.*input_ptr.private.my_struct_ptr} {.*numchild="2",children=\[child=\{name="input_ptr_var.\*input_ptr.private.my_struct_ptr.public.one",exp="one",numchild="0",type="int",typecode="INT",dynamic_type="",resolved_type="int"\},child=\{name="input_ptr_var.\*input_ptr.private.my_struct_ptr.public.other",exp="other",numchild="0",type="int",typecode="INT",dynamic_type="",resolved_type="int"\}\]} {List children of input_ptr_var.*input_ptr.private.my_struct_ptr}
+
+mi_gdb_test {-var-evaluate-expression input_ptr_var.*input_ptr.private.my_struct_ptr.public.one} {.*value="10"} {Evalute input_ptr_var.*input_ptr.private.my_struct_ptr.public.one in pass_ref_ptr}
+
+mi_gdb_test {-var-evaluate-expression input_ptr_var.*input_ptr.private.my_struct_ptr.public.other} {.*value="20"} {Evalute input_ptr_var.*input_ptr.private.my_struct_ptr.public.other in pass_ref_ptr}
+
+mi_gdb_test {-var-evaluate-expression input_ptr_var.*input_ptr.Base.private.my_var} {.*value="5"} {Evalute my_var in pass_ref_ptr}
+
+#
+# Now step and make sure that only my_var changes, and the we get the value right.
+#
+
+mi_next {Next in pass_ref_ptr}
+
+mi_gdb_test {-var-update input_ptr_var} {changelist=\[varobj=\{name="input_ptr_var.\*input_ptr.Base.private.my_var",in_scope="true",type_changed="false"\}\]} {Update input_ptr_var}
+
+mi_gdb_test {-var-evaluate-expression input_ptr_var.*input_ptr.Base.private.my_var} {.*value="10"} {Evalute my_var in pass_ref_ptr after step}
+
+#
+# Now run to pass_base_ref and see what we get.
+#
+
+set bkptno [mi_break_function pass_base_ref]
+mi_continue_to $bkptno {pass_base_ref.*} {.*} {.*} {.*} {.*}
+
+mi_gdb_test {-var-create base_var * input} {.*name="base_var",numchild="2",type="Base &",typecode="REF",dynamic_type="Derived &",resolved_type="Base &",in_scope="true".*} {Create base_var in pass_base_ref}
+
+mi_gdb_test {-var-list-children base_var} {.*numchild="2",children=\[child=\{name="base_var.Base",exp="Base",numchild="1",type="Base &",typecode="REF",dynamic_type="",resolved_type="Base &"\},child=\{name="base_var.private",exp="private",numchild="1",type="",typecode="FAKE_CHILD",dynamic_type="",resolved_type=""\}\]} {List children of base_var}
+
+mi_gdb_test {-var-list-children base_var.private} {.*numchild="1",children=\[child=\{name="base_var.private.my_struct_ptr",exp="my_struct_ptr",numchild="1",type="my_struct \*",typecode="PTR",dynamic_type="",resolved_type="my_struct \*"\}\]} {List children of base_var.private}
+
+mi_gdb_test {-var-list-children base_var.Base} {.*numchild="1",children=\[child=\{name="base_var.Base.private",exp="private",numchild="1",type="",typecode="FAKE_CHILD",dynamic_type="",resolved_type=""\}\]} {List children of base_var.Base}
+
+mi_gdb_test {-var-list-children base_var.Base.private} {.*numchild="1",children=\[child=\{name="base_var.Base.private.my_var",exp="my_var",numchild="0",type="int",typecode="INT",dynamic_type="",resolved_type="int"\}\]} {List children of base_var.Base.private}
+
+mi_gdb_test {-var-evaluate-expression base_var.Base.private.my_var} {.*value="10"} {Check the value of my_var in pass_base_ref}
+
+mi_next {Next in pass_base_ref}
+
+mi_gdb_test {-var-update base_var} {.*changelist=\[varobj=\{name="base_var.Base.private.my_var",in_scope="true",type_changed="false"\}\]} {Update base_var my_var has changed}
+
+mi_gdb_test {-var-evaluate-expression base_var.Base.private.my_var} {.*value="15"} {Check the value of my_var in pass_base_ref after step}
+
+return 0

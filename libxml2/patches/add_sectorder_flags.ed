@@ -1,2 +1,0 @@
-g|-dynamiclib|s||-sectorder __TEXT __text /usr/local/lib/OrderFiles/libxml2.order &|
-w

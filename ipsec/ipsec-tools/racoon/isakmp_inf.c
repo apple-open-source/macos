@@ -1,4 +1,6 @@
-/* $Id: isakmp_inf.c,v 1.14.4.9 2005/08/02 15:09:26 vanhu Exp $ */
+/*	$NetBSD: isakmp_inf.c,v 1.14.4.8 2007/08/01 11:52:20 vanhu Exp $	*/
+
+/* Id: isakmp_inf.c,v 1.44 2006/05/06 20:45:52 manubsd Exp */
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -62,6 +64,9 @@
 #  include <time.h>
 # endif
 #endif
+#ifdef ENABLE_HYBRID
+#include <resolv.h>
+#endif
 
 #include "libpfkey.h"
 
@@ -76,16 +81,19 @@
 #include "localconf.h"
 #include "remoteconf.h"
 #include "sockmisc.h"
+#include "handler.h"
+#include "policy.h"
+#include "proposal.h"
 #include "isakmp_var.h"
 #include "evt.h"
 #include "isakmp.h"
 #ifdef ENABLE_HYBRID
 #include "isakmp_xauth.h"
+#include "isakmp_unity.h"
 #include "isakmp_cfg.h" 
 #endif
 #include "isakmp_inf.h"
 #include "oakley.h"
-#include "handler.h"
 #include "ipsec_doi.h"
 #include "crypto_openssl.h"
 #include "pfkey.h"
@@ -99,17 +107,19 @@
 #endif
 #include "vpn_control_var.h"
 #include "vpn_control.h"
+#include "ike_session.h"
+#include "ipsecSessionTracer.h"
+#include "ipsecMessageTracer.h"
 
 /* information exchange */
-static int isakmp_info_recv_n __P((struct ph1handle *, vchar_t *, int));
-static int isakmp_info_recv_d __P((struct ph1handle *, vchar_t *));
+static int isakmp_info_recv_n (struct ph1handle *, struct isakmp_pl_n *, u_int32_t, int);
+static int isakmp_info_recv_d (struct ph1handle *, struct isakmp_pl_d *, u_int32_t, int);
 
 #ifdef ENABLE_DPD
 static int isakmp_info_recv_r_u __P((struct ph1handle *,
 	struct isakmp_pl_ru *, u_int32_t));
 static int isakmp_info_recv_r_u_ack __P((struct ph1handle *,
 	struct isakmp_pl_ru *, u_int32_t));
-static void isakmp_info_send_r_u __P((void *));
 #endif
 
 #ifdef ENABLE_VPNCONTROL_PORT
@@ -117,8 +127,63 @@ static int isakmp_info_recv_lb __P((struct ph1handle *, struct isakmp_pl_lb *lb,
 #endif
 
 static void purge_isakmp_spi __P((int, isakmp_index *, size_t));
-static void purge_ipsec_spi __P((struct sockaddr *, int, u_int32_t *, size_t));
 static void info_recv_initialcontact __P((struct ph1handle *));
+
+static int
+isakmp_ph1_responder_lifetime (struct ph1handle               *iph1,
+                               struct isakmp_pl_resp_lifetime *notify)
+{
+    char *spi;
+
+    if (ntohs(notify->h.len) < sizeof(*notify) + notify->spi_size) {
+        plog(LLV_ERROR, LOCATION, iph1->remote,
+             "invalid spi_size in notification payload.\n");
+        return -1;
+    }
+    spi = val2str((char *)(notify + 1), notify->spi_size);
+
+    plog(LLV_DEBUG, LOCATION, iph1->remote,
+         "notification message ISAKMP-SA RESPONDER-LIFETIME, "
+         "doi=%d proto_id=%d spi=%s(size=%d).\n",
+         ntohl(notify->doi), notify->proto_id, spi, notify->spi_size);
+    
+    /* TODO */
+    #if 0
+        struct isakmp_pl_attr *attrpl;
+        int                    len = ntohs(notify->h.len) - (sizeof(*notify) + notify->spi_size);
+
+        attrpl = (struct isakmp_pl_attr *)((char *)(notify + 1) + notify->spi_size);
+        while (len > 0) {
+        }
+    #endif
+
+    racoon_free(spi);
+    return 0;
+}
+
+static int
+isakmp_ph2_responder_lifetime (struct ph2handle               *iph2,
+                               struct isakmp_pl_resp_lifetime *notify)
+{
+    char *spi;
+
+    if (ntohs(notify->h.len) < sizeof(*notify) + notify->spi_size) {
+        plog(LLV_ERROR, LOCATION, iph2->dst,
+             "invalid spi_size in notification payload.\n");
+        return -1;
+    }
+    spi = val2str((char *)(notify + 1), notify->spi_size);
+    
+    plog(LLV_DEBUG, LOCATION, iph2->dst,
+         "notification message IPSEC-SA RESPONDER-LIFETIME, "
+         "doi=%d proto_id=%d spi=%s(size=%d).\n",
+         ntohl(notify->doi), notify->proto_id, spi, notify->spi_size);
+    
+    /* TODO */
+    
+    racoon_free(spi);
+    return 0;
+}
 
 /* %%%
  * Information Exchange
@@ -132,33 +197,60 @@ isakmp_info_recv(iph1, msg0)
 	vchar_t *msg0;
 {
 	vchar_t *msg = NULL;
+	vchar_t *pbuf = NULL;
+	u_int32_t msgid = 0;
 	int error = -1;
 	struct isakmp *isakmp;
 	struct isakmp_gen *gen;
+	struct isakmp_parse_t *pa, *pap;
 	void *p;
 	vchar_t *hash, *payload;
 	struct isakmp_gen *nd;
 	u_int8_t np;
 	int encrypted;
+	int flag;
 
 	plog(LLV_DEBUG, LOCATION, NULL, "receive Information.\n");
 
 	encrypted = ISSET(((struct isakmp *)msg0->v)->flags, ISAKMP_FLAG_E);
+	msgid = ((struct isakmp *)msg0->v)->msgid;
 
 	/* Use new IV to decrypt Informational message. */
 	if (encrypted) {
-
 		struct isakmp_ivm *ivm;
+
+		if (iph1->ivm == NULL) {
+			plog(LLV_ERROR, LOCATION, NULL, "iph1->ivm == NULL\n");
+			IPSECSESSIONTRACEREVENT(iph1->parent_session,
+									IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
+									CONSTSTR("Information message"),
+									CONSTSTR("Failed to process Information Message (no IV)"));
+			return -1;
+		}
 
 		/* compute IV */
 		ivm = oakley_newiv2(iph1, ((struct isakmp *)msg0->v)->msgid);
-		if (ivm == NULL)
+		if (ivm == NULL) {
+			plog(LLV_ERROR, LOCATION, NULL,
+				 "failed to compute IV");
+			IPSECSESSIONTRACEREVENT(iph1->parent_session,
+									IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
+									CONSTSTR("Information message"),
+									CONSTSTR("Failed to process Information Message (can't compute IV)"));
 			return -1;
+		}
 
 		msg = oakley_do_decrypt(iph1, msg0, ivm->iv, ivm->ive);
 		oakley_delivm(ivm);
-		if (msg == NULL)
+		if (msg == NULL) {
+			plog(LLV_ERROR, LOCATION, NULL,
+				 "failed to decrypt packet");
+			IPSECSESSIONTRACEREVENT(iph1->parent_session,
+									IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
+									CONSTSTR("Information message"),
+									CONSTSTR("Failed to decrypt Information message"));
 			return -1;
+		}
 
 	} else
 		msg = vdup(msg0);
@@ -183,7 +275,8 @@ isakmp_info_recv(iph1, msg0)
 			goto end;
 		}
 
-		if (iph1->status != PHASE1ST_ESTABLISHED) {
+		if (iph1->status != PHASE1ST_ESTABLISHED &&
+            (!iph1->approval || !iph1->skeyid_a)) {
 			plog(LLV_ERROR, LOCATION, NULL,
 			    "ignore information because ISAKMP-SA "
 			    "has not been established yet.\n");
@@ -257,7 +350,7 @@ isakmp_info_recv(iph1, msg0)
 		vfree(hash);
 		vfree(payload);
 	} else {
-		/* make sure the packet were encrypted after the beginning of phase 1. */
+		/* make sure the packet was encrypted after the beginning of phase 1. */
 		switch (iph1->etype) {
 		case ISAKMP_ETYPE_AGG:
 		case ISAKMP_ETYPE_BASE:
@@ -271,40 +364,350 @@ isakmp_info_recv(iph1, msg0)
 			plog(LLV_ERROR, LOCATION, iph1->remote,
 				"%s message must be encrypted\n",
 				s_isakmp_nptype(np));
+			error = 0;
 			goto end;
 		}
 	}
 
-	switch (np) {
-	case ISAKMP_NPTYPE_N:
-		isakmp_info_recv_n(iph1, msg, encrypted);
-		break;
-	case ISAKMP_NPTYPE_D:
-		if (encrypted)
-			isakmp_info_recv_d(iph1, msg);
-		else
-			plog(LLV_ERROR, LOCATION, iph1->remote,
-				"unencrypted information message with delete payload received\n");
-		break;
-	case ISAKMP_NPTYPE_NONCE:
-		/* XXX to be 6.4.2 ike-01.txt */
-		/* XXX IV is to be synchronized. */
-		plog(LLV_ERROR, LOCATION, iph1->remote,
-			"ignore Acknowledged Informational\n");
-		break;
-	default:
-		/* don't send information, see isakmp_ident_r1() */
-		error = 0;
-		plog(LLV_ERROR, LOCATION, iph1->remote,
-			"reject the packet, "
-			"received unexpecting payload type %d.\n",
-			gen->np);
-		break;
+	if (!(pbuf = isakmp_parse(msg))) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to parse msg");
+		error = -1;
+		goto end;
 	}
 
-    end:
+	error = 0;
+	for (pa = (struct isakmp_parse_t *)pbuf->v; pa->type; pa++) {
+		switch (pa->type) {
+		case ISAKMP_NPTYPE_HASH:
+			/* Handled above */
+			break;
+		case ISAKMP_NPTYPE_N:
+			error = isakmp_info_recv_n(iph1,
+				(struct isakmp_pl_n *)pa->ptr,
+				msgid, encrypted);
+			break;
+		case ISAKMP_NPTYPE_D:
+			error = isakmp_info_recv_d(iph1,
+				(struct isakmp_pl_d *)pa->ptr,
+				msgid, encrypted);
+			break;
+		case ISAKMP_NPTYPE_NONCE:
+			/* XXX to be 6.4.2 ike-01.txt */
+			/* XXX IV is to be synchronized. */
+			plog(LLV_ERROR, LOCATION, iph1->remote,
+				"ignore Acknowledged Informational\n");
+			break;
+		default:
+			/* don't send information, see isakmp_ident_r1() */
+			error = 0;
+			plog(LLV_ERROR, LOCATION, iph1->remote,
+				"reject the packet, "
+				"received unexpected payload type %s.\n",
+				s_isakmp_nptype(gen->np));
+		}
+		if(error < 0) {
+			break;
+		} else {
+			flag |= error;
+		}
+	}
+	IPSECSESSIONTRACEREVENT(iph1->parent_session,
+							IPSECSESSIONEVENTCODE_IKE_PACKET_RX_SUCC,
+							CONSTSTR("Information message"),
+							CONSTSTR(NULL));
+	
+end:
+	if (error) {
+		IPSECSESSIONTRACEREVENT(iph1->parent_session,
+								IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
+								CONSTSTR("Information message"),
+								CONSTSTR("Failed to process Information Message"));
+	}
 	if (msg != NULL)
 		vfree(msg);
+	if (pbuf != NULL)
+		vfree(pbuf);
+	return error;
+}
+
+/*
+ * handling of Notification payload
+ */
+static int
+isakmp_info_recv_n(iph1, notify, msgid, encrypted)
+	struct ph1handle *iph1;
+	struct isakmp_pl_n *notify;
+	u_int32_t msgid;
+	int encrypted;
+{
+	u_int type;
+	vchar_t *pbuf;
+	vchar_t *ndata;
+	char *nraw;
+	size_t l;
+	char *spi;
+
+	type = ntohs(notify->type);
+
+	switch (type) {
+	case ISAKMP_NTYPE_CONNECTED:
+	case ISAKMP_NTYPE_REPLAY_STATUS:
+#ifdef ENABLE_HYBRID
+	case ISAKMP_NTYPE_UNITY_HEARTBEAT:
+#endif
+		/* do something */
+		break;
+    case ISAKMP_NTYPE_RESPONDER_LIFETIME:
+        if (encrypted) {
+            return(isakmp_ph1_responder_lifetime(iph1,
+                                                 (struct isakmp_pl_resp_lifetime *)notify));
+        }
+        break;
+	case ISAKMP_NTYPE_INITIAL_CONTACT:
+		if (encrypted)
+			info_recv_initialcontact(iph1);
+			return 0;
+		break;
+#ifdef ENABLE_DPD
+	case ISAKMP_NTYPE_R_U_THERE:
+		if (encrypted)
+			return isakmp_info_recv_r_u(iph1,
+				(struct isakmp_pl_ru *)notify, msgid);
+		break;
+	case ISAKMP_NTYPE_R_U_THERE_ACK:
+		if (encrypted)
+			return isakmp_info_recv_r_u_ack(iph1,
+				(struct isakmp_pl_ru *)notify, msgid);
+		break;
+#endif
+#ifdef ENABLE_VPNCONTROL_PORT
+	case ISAKMP_NTYPE_LOAD_BALANCE:
+		isakmp_info_recv_lb(iph1, (struct isakmp_pl_lb *)notify, encrypted);
+		break;
+#endif
+
+	default:
+	    {
+		/* XXX there is a potential of dos attack. */
+		if(type >= ISAKMP_NTYPE_MINERROR &&
+		   type <= ISAKMP_NTYPE_MAXERROR) {
+			if (msgid == 0) {
+				/* don't think this realy deletes ph1 ? */
+				plog(LLV_ERROR, LOCATION, iph1->remote,
+					"delete phase1 handle.\n");
+				return -1;
+			} else {
+				if (getph2bymsgid(iph1, msgid) == NULL) {
+					plog(LLV_ERROR, LOCATION, iph1->remote,
+						"fatal %s notify messsage, "
+						"phase1 should be deleted.\n",
+						s_isakmp_notify_msg(type));
+				} else {
+					plog(LLV_ERROR, LOCATION, iph1->remote,
+						"fatal %s notify messsage, "
+						"phase2 should be deleted.\n",
+						s_isakmp_notify_msg(type));
+				}
+			}
+		} else {
+			plog(LLV_ERROR, LOCATION, iph1->remote,
+				"unhandled notify message %s, "
+				"no phase2 handle found.\n",
+				s_isakmp_notify_msg(type));
+		}
+	    }
+	    break;
+	}
+
+	/* get spi if specified and allocate */
+	if(notify->spi_size > 0) {
+		if (ntohs(notify->h.len) < sizeof(*notify) + notify->spi_size) {
+			plog(LLV_ERROR, LOCATION, iph1->remote,
+				"invalid spi_size in notification payload.\n");
+			return -1;
+		}
+		spi = val2str((char *)(notify + 1), notify->spi_size);
+
+		plog(LLV_DEBUG, LOCATION, iph1->remote,
+			"notification message %d:%s, "
+			"doi=%d proto_id=%d spi=%s(size=%d).\n",
+			type, s_isakmp_notify_msg(type),
+			ntohl(notify->doi), notify->proto_id, spi, notify->spi_size);
+
+		racoon_free(spi);
+	}
+
+	/* Send the message data to the logs */
+	if(type >= ISAKMP_NTYPE_MINERROR &&
+	   type <= ISAKMP_NTYPE_MAXERROR) {
+		l = ntohs(notify->h.len) - sizeof(*notify) - notify->spi_size;
+		if (l > 0) {
+			nraw = (char*)notify;	
+			nraw += sizeof(*notify) + notify->spi_size;
+			if ((ndata = vmalloc(l)) != NULL) {
+				memcpy(ndata->v, nraw, ndata->l);
+				plog(LLV_ERROR, LOCATION, iph1->remote,
+				    "Message: '%s'.\n", 
+				    binsanitize(ndata->v, ndata->l));
+				vfree(ndata);
+			} else {
+				plog(LLV_ERROR, LOCATION, iph1->remote,
+				    "Cannot allocate memory\n");
+			}
+		}
+	}
+	return 0;
+}
+
+/*
+ * handling of Deletion payload
+ */
+static int
+isakmp_info_recv_d(iph1, delete, msgid, encrypted)
+	struct ph1handle *iph1;
+	struct isakmp_pl_d *delete;
+	u_int32_t msgid;
+	int encrypted;
+{
+	int tlen, num_spi;
+	vchar_t *pbuf;
+	int protected = 0;
+	struct ph1handle *del_ph1;
+	struct ph2handle *iph2;
+	union {
+		u_int32_t spi32;
+		u_int16_t spi16[2];
+	} spi;
+
+	if (ntohl(delete->doi) != IPSEC_DOI) {
+		plog(LLV_ERROR, LOCATION, iph1->remote,
+			"delete payload with invalid doi:%d.\n",
+			ntohl(delete->doi));
+#ifdef ENABLE_HYBRID
+		/*
+		 * At deconnexion time, Cisco VPN client does this
+		 * with a zero DOI. Don't give up in that situation.
+		 */
+		if (((iph1->mode_cfg->flags &
+		    ISAKMP_CFG_VENDORID_UNITY) == 0) || (delete->doi != 0))
+			return 0;
+#else
+		return 0;
+#endif
+	}
+
+	num_spi = ntohs(delete->num_spi);
+	tlen = ntohs(delete->h.len) - sizeof(struct isakmp_pl_d);
+
+	if (tlen != num_spi * delete->spi_size) {
+		plog(LLV_ERROR, LOCATION, iph1->remote,
+			"deletion payload with invalid length.\n");
+		return 0;
+	}
+
+	plog(LLV_DEBUG, LOCATION, iph1->remote,
+		"delete payload for protocol %s\n",
+		s_ipsecdoi_proto(delete->proto_id));
+
+	if(!iph1->rmconf->weak_phase1_check && !encrypted) {
+		plog(LLV_WARNING, LOCATION, iph1->remote,
+			"Ignoring unencrypted delete payload "
+			"(check the weak_phase1_check option)\n");
+		return 0;
+	}
+
+	switch (delete->proto_id) {
+	case IPSECDOI_PROTO_ISAKMP:
+		if (delete->spi_size != sizeof(isakmp_index)) {
+			plog(LLV_ERROR, LOCATION, iph1->remote,
+				"delete payload with strange spi "
+				"size %d(proto_id:%d)\n",
+				delete->spi_size, delete->proto_id);
+			return 0;
+		}
+
+		del_ph1=getph1byindex((isakmp_index *)(delete + 1));
+		if(del_ph1 != NULL){
+
+            // hack: start a rekey now, if one was pending (only for client).
+            if (del_ph1->sce_rekey &&
+                del_ph1->parent_session &&
+                del_ph1->parent_session->is_client &&
+                del_ph1->parent_session->established) {
+                isakmp_ph1rekeyexpire(del_ph1);
+            }
+            
+			EVT_PUSH(del_ph1->local, del_ph1->remote,
+			EVTT_PEERPH1_NOPROP, NULL);
+			if (del_ph1->scr)
+				SCHED_KILL(del_ph1->scr);
+
+			/*
+			 * Do not delete IPsec SAs when receiving an IKE delete notification.
+			 * Just delete the IKE SA.
+			 */
+#ifdef ENABLE_VPNCONTROL_PORT
+
+			if (del_ph1->started_by_api)
+				if (islast_ph1(del_ph1)) {
+					u_int32_t address;
+					
+					/* notify the API that we have received the delete */
+					if (iph1->remote->sa_family == AF_INET)
+						address = ((struct sockaddr_in *)(iph1->remote))->sin_addr.s_addr;
+					else
+						address = 0;
+					vpncontrol_notify_ike_failed(VPNCTL_NTYPE_PH1_DELETE, FROM_REMOTE, address, 0, NULL);
+				}
+#endif
+			isakmp_ph1expire(del_ph1);
+		}
+		break;
+
+	case IPSECDOI_PROTO_IPSEC_AH:
+	case IPSECDOI_PROTO_IPSEC_ESP:
+		if (delete->spi_size != sizeof(u_int32_t)) {
+			plog(LLV_ERROR, LOCATION, iph1->remote,
+				"delete payload with strange spi "
+				"size %d(proto_id:%d)\n",
+				delete->spi_size, delete->proto_id);
+			return 0;
+		}
+		EVT_PUSH(iph1->local, iph1->remote, 
+		    EVTT_PEER_DELETE, NULL);
+		purge_ipsec_spi(iph1->remote, delete->proto_id,
+		    (u_int32_t *)(delete + 1), num_spi);
+		break;
+
+	case IPSECDOI_PROTO_IPCOMP:
+		/* need to handle both 16bit/32bit SPI */
+		memset(&spi, 0, sizeof(spi));
+		if (delete->spi_size == sizeof(spi.spi16[1])) {
+			memcpy(&spi.spi16[1], delete + 1,
+			    sizeof(spi.spi16[1]));
+		} else if (delete->spi_size == sizeof(spi.spi32))
+			memcpy(&spi.spi32, delete + 1, sizeof(spi.spi32));
+		else {
+			plog(LLV_ERROR, LOCATION, iph1->remote,
+				"delete payload with strange spi "
+				"size %d(proto_id:%d)\n",
+				delete->spi_size, delete->proto_id);
+			return 0;
+		}
+		purge_ipsec_spi(iph1->remote, delete->proto_id,
+		    &spi.spi32, num_spi);
+		break;
+
+	default:
+		plog(LLV_ERROR, LOCATION, iph1->remote,
+			"deletion message received, "
+			"invalid proto_id: %d\n",
+			delete->proto_id);
+		return 0;
+	}
+
+	plog(LLV_DEBUG, LOCATION, NULL, "purged SAs.\n");
 
 	return 0;
 }
@@ -348,6 +751,17 @@ isakmp_info_send_d1(iph1)
 	error = isakmp_info_send_common(iph1, payload,
 					ISAKMP_NPTYPE_D, 0);
 	vfree(payload);
+	if (error) {
+		IPSECSESSIONTRACEREVENT(iph1->parent_session,
+								IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_FAIL,
+								CONSTSTR("Delete ISAKMP-SA"),
+								CONSTSTR("Failed to transmit Delete-ISAKMP-SA message"));
+	} else {
+		IPSECSESSIONTRACEREVENT(iph1->parent_session,
+								IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_SUCC,
+								CONSTSTR("Delete ISAKMP-SA"),
+								CONSTSTR(NULL));
+	}
 
 	return error;
 }
@@ -375,9 +789,23 @@ isakmp_info_send_d2(iph2)
 	 * don't send delete information if there is no phase 1 handler.
 	 * It's nonsensical to negotiate phase 1 to send the information.
 	 */
-	iph1 = getph1byaddr(iph2->src, iph2->dst); 
-	if (iph1 == NULL)
+    iph1 = ike_session_get_established_ph1(iph2->parent_session);
+    if (!iph1) {
+        iph1 = getph1byaddr(iph2->src, iph2->dst);
+    }
+	if (iph1 == NULL){
+		IPSECSESSIONTRACEREVENT(iph2->parent_session,
+								IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
+								CONSTSTR("Information message"),
+								CONSTSTR("Failed to transmit Information message"));
+		IPSECSESSIONTRACEREVENT(iph2->parent_session,
+								IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_FAIL,
+								CONSTSTR("Delete IPSEC-SA"),
+								CONSTSTR("Failed to transmit Delete-IPSEC-SA message"));
+		plog(LLV_DEBUG2, LOCATION, NULL,
+			 "No ph1 handler found, could not send DELETE_SA\n");
 		return 0;
+	}
 
 	/* create delete payload */
 	for (pr = iph2->approval->head; pr != NULL; pr = pr->next) {
@@ -392,6 +820,14 @@ isakmp_info_send_d2(iph2)
 		tlen = sizeof(*d) + pr->spisize;
 		payload = vmalloc(tlen);
 		if (payload == NULL) {
+			IPSECSESSIONTRACEREVENT(iph2->parent_session,
+									IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
+									CONSTSTR("Information message"),
+									CONSTSTR("Failed to transmit Information message"));
+			IPSECSESSIONTRACEREVENT(iph2->parent_session,
+									IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_FAIL,
+									CONSTSTR("Delete IPSEC-SA"),
+									CONSTSTR("Failed to transmit Delete-IPSEC-SA message"));
 			plog(LLV_ERROR, LOCATION, NULL, 
 				"failed to get buffer for payload.\n");
 			return errno;
@@ -416,6 +852,17 @@ isakmp_info_send_d2(iph2)
 		error = isakmp_info_send_common(iph1, payload,
 						ISAKMP_NPTYPE_D, 0);
 		vfree(payload);
+		if (error) {
+			IPSECSESSIONTRACEREVENT(iph2->parent_session,
+									IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_FAIL,
+									CONSTSTR("Delete IPSEC-SA"),
+									CONSTSTR("Failed to transmit Delete-IPSEC-SA"));
+		} else {
+			IPSECSESSIONTRACEREVENT(iph2->parent_session,
+									IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_SUCC,
+									CONSTSTR("Delete IPSEC-SA"),
+									CONSTSTR(NULL));
+		}
 	}
 
 	return error;
@@ -438,10 +885,15 @@ isakmp_info_send_nx(isakmp, remote, local, type, data)
 	int error = -1;
 	struct isakmp_pl_n *n;
 	int spisiz = 0;		/* see below */
+	ike_session_t *sess = ike_session_get_session(local, remote, FALSE);
 
 	/* search appropreate configuration */
 	rmconf = getrmconf(remote);
 	if (rmconf == NULL) {
+		IPSECSESSIONTRACEREVENT(sess,
+								IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
+								CONSTSTR("Information message"),
+								CONSTSTR("Failed to transmit Information message (no remote configuration)"));
 		plog(LLV_ERROR, LOCATION, remote,
 			"no configuration found for peer address.\n");
 		goto end;
@@ -449,20 +901,43 @@ isakmp_info_send_nx(isakmp, remote, local, type, data)
 
 	/* add new entry to isakmp status table. */
 	iph1 = newph1();
-	if (iph1 == NULL)
+	if (iph1 == NULL) {
+		IPSECSESSIONTRACEREVENT(sess,
+								IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
+								CONSTSTR("Information message"),
+								CONSTSTR("Failed to transmit Information message (no new phase1)"));
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to allocate ph1");
 		return -1;
+	}
 
 	memcpy(&iph1->index.i_ck, &isakmp->i_ck, sizeof(cookie_t));
 	isakmp_newcookie((char *)&iph1->index.r_ck, remote, local);
 	iph1->status = PHASE1ST_START;
 	iph1->rmconf = rmconf;
+#ifdef __APPLE__
+	if (link_rmconf_to_ph1(rmconf) < 0) {
+		IPSECSESSIONTRACEREVENT(sess,
+								IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
+								CONSTSTR("Information message"),
+								CONSTSTR("Failed to transmit Information message (can't link remote configuration to phase1)"));
+		plog(LLV_ERROR, LOCATION, remote,
+			 "couldn't link "
+			 "configuration.\n");
+		iph1->rmconf = NULL;
+		error = -1;
+		goto end;
+	}
+#endif
 	iph1->side = INITIATOR;
 	iph1->version = isakmp->v;
 	iph1->flags = 0;
 	iph1->msgid = 0;	/* XXX */
 #ifdef ENABLE_HYBRID
-	if ((iph1->mode_cfg = isakmp_cfg_mkstate()) == NULL)
-		return -1;
+	if ((iph1->mode_cfg = isakmp_cfg_mkstate()) == NULL) {
+		error = -1;
+		goto end;
+	}
 #endif
 #ifdef ENABLE_FRAG
 	iph1->frag = 0;
@@ -470,16 +945,29 @@ isakmp_info_send_nx(isakmp, remote, local, type, data)
 #endif
 
 	/* copy remote address */
-	if (copy_ph1addresses(iph1, rmconf, remote, local) < 0)
-		return -1;
+	if (copy_ph1addresses(iph1, rmconf, remote, local) < 0) {
+		IPSECSESSIONTRACEREVENT(sess,
+								IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
+								CONSTSTR("Information message"),
+								CONSTSTR("Failed to transmit Information Message (can't copy phase1 addresses)"));
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to copy ph1 addresses");
+		error = -1;
+		goto end;
+	}
 
 	tlen = sizeof(*n) + spisiz;
 	if (data)
 		tlen += data->l;
 	payload = vmalloc(tlen);
 	if (payload == NULL) { 
+		IPSECSESSIONTRACEREVENT(sess,
+								IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
+								CONSTSTR("Information message"),
+								CONSTSTR("Failed to transmit Information Message (can't allocate payload)"));
 		plog(LLV_ERROR, LOCATION, NULL,
 			"failed to get buffer to send.\n");
+		error = -1;
 		goto end;
 	}
 
@@ -491,7 +979,7 @@ isakmp_info_send_nx(isakmp, remote, local, type, data)
 	n->spi_size = spisiz;
 	n->type = htons(type);
 	if (spisiz)
-		memset(n + 1, 0, spisiz);	/*XXX*/
+		memset(n + 1, 0, spisiz);	/* XXX spisiz is always 0 */
 	if (data)
 		memcpy((caddr_t)(n + 1) + spisiz, data->v, data->l);
 
@@ -512,7 +1000,18 @@ isakmp_info_send_nx(isakmp, remote, local, type, data)
 
 	error = isakmp_info_send_common(iph1, payload, ISAKMP_NPTYPE_N, 0);
 	vfree(payload);
-
+	if (error) {
+		IPSECSESSIONTRACEREVENT(sess,
+								IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_FAIL,
+								CONSTSTR("Without ISAKMP-SA"),
+								CONSTSTR("Failed to transmit Without-ISAKMP-SA message"));
+	} else {
+		IPSECSESSIONTRACEREVENT(sess,
+								IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_SUCC,
+								CONSTSTR("Without ISAKMP-SA"),
+								CONSTSTR(NULL));
+	}
+	
     end:
 	if (iph1 != NULL)
 		delph1(iph1);
@@ -556,6 +1055,10 @@ isakmp_info_send_n1(iph1, type, data)
 		tlen += data->l;
 	payload = vmalloc(tlen);
 	if (payload == NULL) { 
+		IPSECSESSIONTRACEREVENT(iph1->parent_session,
+								IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_FAIL,
+								CONSTSTR("ISAKMP-SA"),
+								CONSTSTR("Failed to transmit ISAKMP-SA message (can't allocate payload)"));
 		plog(LLV_ERROR, LOCATION, NULL,
 			"failed to get buffer to send.\n");
 		return errno;
@@ -591,6 +1094,17 @@ isakmp_info_send_n1(iph1, type, data)
 
 	error = isakmp_info_send_common(iph1, payload, ISAKMP_NPTYPE_N, iph1->flags);
 	vfree(payload);
+	if (error) {
+		IPSECSESSIONTRACEREVENT(iph1->parent_session,
+								IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_FAIL,
+								CONSTSTR("ISAKMP-SA"),
+								CONSTSTR("Can't transmit ISAKMP-SA message"));
+	} else {
+		IPSECSESSIONTRACEREVENT(iph1->parent_session,
+								IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_SUCC,
+								CONSTSTR("ISAKMP-SA"),
+								CONSTSTR(NULL));
+	}
 
 	return error;
 }
@@ -622,6 +1136,10 @@ isakmp_info_send_n2(iph2, type, data)
 		tlen += data->l;
 	payload = vmalloc(tlen);
 	if (payload == NULL) { 
+		IPSECSESSIONTRACEREVENT(iph2->parent_session,
+								IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_FAIL,
+								CONSTSTR("IPSEC-SA"),
+								CONSTSTR("Failed to transmit IPSEC-SA message (can't allocate payload)"));
 		plog(LLV_ERROR, LOCATION, NULL,
 			"failed to get buffer to send.\n");
 		return errno;
@@ -641,7 +1159,18 @@ isakmp_info_send_n2(iph2, type, data)
 	iph2->flags |= ISAKMP_FLAG_E;	/* XXX Should we do FLAG_A ? */
 	error = isakmp_info_send_common(iph1, payload, ISAKMP_NPTYPE_N, iph2->flags);
 	vfree(payload);
-
+	if (error) {
+		IPSECSESSIONTRACEREVENT(iph2->parent_session,
+								IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_FAIL,
+								CONSTSTR("IPSEC-SA"),
+								CONSTSTR("Failed to transmit IPSEC-SA message"));
+	} else {
+		IPSECSESSIONTRACEREVENT(iph2->parent_session,
+								IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_SUCC,
+								CONSTSTR("IPSEC-SA"),
+								CONSTSTR(NULL));
+	}
+	
 	return error;
 }
 
@@ -666,22 +1195,39 @@ isakmp_info_send_common(iph1, payload, np, flags)
 
 	/* add new entry to isakmp status table */
 	iph2 = newph2();
-	if (iph2 == NULL)
+	if (iph2 == NULL) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to allocate ph2");
 		goto end;
+	}
 
 	iph2->dst = dupsaddr(iph1->remote);
+	if (iph2->dst == NULL) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to duplicate remote address");
+		delph2(iph2);
+		goto end;
+	}
 	iph2->src = dupsaddr(iph1->local);
+	if (iph2->src == NULL) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to duplicate local address");
+		delph2(iph2);
+		goto end;
+	}
 	switch (iph1->remote->sa_family) {
 	case AF_INET:
-#ifndef ENABLE_NATT
+#if (!defined(ENABLE_NATT)) || (defined(BROKEN_NATT))
 		((struct sockaddr_in *)iph2->dst)->sin_port = 0;
 		((struct sockaddr_in *)iph2->src)->sin_port = 0;
 #endif
 		break;
 #ifdef INET6
 	case AF_INET6:
+#if (!defined(ENABLE_NATT)) || (defined(BROKEN_NATT))
 		((struct sockaddr_in6 *)iph2->dst)->sin6_port = 0;
 		((struct sockaddr_in6 *)iph2->src)->sin6_port = 0;
+#endif
 		break;
 #endif
 	default:
@@ -699,6 +1245,8 @@ isakmp_info_send_common(iph1, payload, np, flags)
 	if (iph1->skeyid_a != NULL) {
 		iph2->ivm = oakley_newiv2(iph1, iph2->msgid);
 		if (iph2->ivm == NULL) {
+			plog(LLV_ERROR, LOCATION, NULL,
+				 "failed to generate IV");
 			delph2(iph2);
 			goto end;
 		}
@@ -706,6 +1254,8 @@ isakmp_info_send_common(iph1, payload, np, flags)
 		/* generate HASH(1) */
 		hash = oakley_compute_hash1(iph2->ph1, iph2->msgid, payload);
 		if (hash == NULL) {
+			plog(LLV_ERROR, LOCATION, NULL,
+				 "failed to generate HASH");
 			delph2(iph2);
 			goto end;
 		}
@@ -775,13 +1325,18 @@ isakmp_info_send_common(iph1, payload, np, flags)
 		tmp = oakley_do_encrypt(iph2->ph1, iph2->sendbuf, iph2->ivm->ive,
 				iph2->ivm->iv);
 		VPTRINIT(iph2->sendbuf);
-		if (tmp == NULL)
+		if (tmp == NULL) {
+			plog(LLV_ERROR, LOCATION, NULL,
+				 "failed to encrypt packet");
 			goto err;
+		}
 		iph2->sendbuf = tmp;
 	}
 
 	/* HDR*, HASH(1), N */
 	if (isakmp_send(iph2->ph1, iph2->sendbuf) < 0) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to send packet");
 		VPTRINIT(iph2->sendbuf);
 		goto err;
 	}
@@ -797,9 +1352,20 @@ isakmp_info_send_common(iph1, payload, np, flags)
 	/* XXX If Acknowledged Informational required, don't delete ph2handle */
 	error = 0;
 	VPTRINIT(iph2->sendbuf);
+	IPSECSESSIONTRACEREVENT(iph1->parent_session,
+							IPSECSESSIONEVENTCODE_IKE_PACKET_TX_SUCC,
+							CONSTSTR("Information message"),
+							CONSTSTR(NULL));
+	
 	goto err;	/* XXX */
 
 end:
+	if (error) {
+		IPSECSESSIONTRACEREVENT(iph1->parent_session,
+								IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
+								CONSTSTR("Information message"),
+								CONSTSTR("Failed to transmit Information message"));
+	}
 	if (hash)
 		vfree(hash);
 	return error;
@@ -865,157 +1431,7 @@ isakmp_add_pl_n(buf0, np_p, type, pr, data)
 	return buf;
 }
 
-/*
- * handling to receive Notification payload
- */
-static int
-isakmp_info_recv_n(iph1, msg, encrypted)
-	struct ph1handle *iph1;
-	vchar_t *msg;
-	int encrypted;
-{
-	struct isakmp_pl_n *n = NULL;
-	u_int type;
-	vchar_t *pbuf;
-	struct isakmp_parse_t *pa, *pap;
-	char *spi;
-
-	if (!(pbuf = isakmp_parse(msg)))
-		return -1;
-	pa = (struct isakmp_parse_t *)pbuf->v;
-	for (pap = pa; pap->type; pap++) {
-		switch (pap->type) {
-		case ISAKMP_NPTYPE_HASH:
-			/* do something here */
-			break;
-		case ISAKMP_NPTYPE_NONCE:
-			/* send to ack */
-			break;
-		case ISAKMP_NPTYPE_N:
-			n = (struct isakmp_pl_n *)pap->ptr;
-			break;
-		default:
-			vfree(pbuf);
-			return -1;
-		}
-	}
-	vfree(pbuf);
-	if (!n)
-		return -1;
-
-	type = ntohs(n->type);
-
-	switch (type) {
-	case ISAKMP_NTYPE_CONNECTED:
-	case ISAKMP_NTYPE_RESPONDER_LIFETIME:
-	case ISAKMP_NTYPE_REPLAY_STATUS:
-		/* do something */
-		break;
-	case ISAKMP_NTYPE_INITIAL_CONTACT:
-		if (encrypted)
-			info_recv_initialcontact(iph1);
-		else
-			plog(LLV_ERROR, LOCATION, iph1->remote,
-			     "unencrypted INITIAL_CONTACT message received");
-		break;
-#ifdef ENABLE_DPD
-	case ISAKMP_NTYPE_R_U_THERE:
-		if (encrypted)
-			isakmp_info_recv_r_u(iph1, (struct isakmp_pl_ru *)n,
-				     ((struct isakmp *)msg->v)->msgid);
-		else
-			plog(LLV_ERROR, LOCATION, iph1->remote,
-			     "unencrypted R_U_THERE message received");
-		break;
-	case ISAKMP_NTYPE_R_U_THERE_ACK:
-		if (encrypted)
-			isakmp_info_recv_r_u_ack(iph1, (struct isakmp_pl_ru *)n,
-					 ((struct isakmp *)msg->v)->msgid);
-		else
-			plog(LLV_ERROR, LOCATION, iph1->remote,
-			     "unencrypted R_U_THERE_ACK received");
-		break;
-#endif
-
-#ifdef ENABLE_VPNCONTROL_PORT
-	case ISAKMP_NTYPE_LOAD_BALANCE:
-		isakmp_info_recv_lb(iph1, (struct isakmp_pl_lb *)n, encrypted);
-		break;
-#endif
-
-	default:
-		if (encrypted) {
-			u_int32_t msgid = ((struct isakmp *)msg->v)->msgid;
-			struct ph2handle *iph2;
-
-			/* XXX there is a potential of dos attack. */
-			if (msgid == 0) {
-				/* delete ph1 */
-				plog(LLV_ERROR, LOCATION, iph1->remote,
-					"delete phase1 handle.\n");
-				return -1;
-			} else {
-				iph2 = getph2bymsgid(iph1, msgid);
-				if (iph2 == NULL) {
-					plog(LLV_ERROR, LOCATION, iph1->remote,
-						"unknown notify message, "
-						"no phase2 handle found.\n");
-				} else {
-					/* sanity check */
-					if (n->h.len < (sizeof(struct isakmp_pl_n) + n->spi_size))
-						plog(LLV_ERROR, LOCATION, iph1->remote,
-							"notification payload length invalid.\n");
-					else {		
-						
-#ifdef ENABLE_VPNCONTROL_PORT
-
-						u_int32_t address;
-						u_int16_t data_len = n->h.len - (sizeof(struct isakmp_pl_n) + n->spi_size);
-						u_int8_t *data_ptr = ((u_int8_t *)n) + (n->h.len - data_len);
-						
-						if (type == ISAKMP_INTERNAL_ERROR ||
-							type <= ISAKMP_NTYPE_UNEQUAL_PAYLOAD_LENGTHS) {
-							if (iph1->remote->sa_family == AF_INET)
-								address = ((struct sockaddr_in *)iph1->remote)->sin_addr.s_addr;
-							else
-								address = 0;
-							
-							vpncontrol_notify_ike_failed(type, FROM_REMOTE, address, data_len, data_ptr);
-						}
-#endif
-						/* delete ph2 */
-						unbindph12(iph2);
-						remph2(iph2);
-						delph2(iph2);
-					}
-				}
-			}
-		} else
-			plog(LLV_ERROR, LOCATION, iph1->remote,
-			     "unencrypted notification message received");
-		break;
-	}
-
-	/* get spi and allocate */
-	if (ntohs(n->h.len) < sizeof(*n) + n->spi_size) {
-		plog(LLV_ERROR, LOCATION, iph1->remote,
-			"invalid spi_size in notification payload.\n");
-		return -1;
-	}
-	spi = val2str((char *)(n + 1), n->spi_size);
-
-	plog(LLV_DEBUG, LOCATION, iph1->remote,
-		"notification message %d:%s, "
-		"doi=%d proto_id=%d spi=%s(size=%d).\n",
-		type, s_isakmp_notify_msg(type),
-		ntohl(n->doi), n->proto_id, spi, n->spi_size);
-
-	racoon_free(spi);
-
-	return(0);
-}
-
-void
+static void
 purge_isakmp_spi(proto, spi, n)
 	int proto;
 	isakmp_index *spi;	/*network byteorder*/
@@ -1034,14 +1450,17 @@ purge_isakmp_spi(proto, spi, n)
 			s_ipsecdoi_proto(proto),
 			isakmp_pindex(&spi[i], 0));
 
-		if (iph1->sce)
-			SCHED_KILL(iph1->sce);
+		SCHED_KILL(iph1->sce);
+		SCHED_KILL(iph1->sce_rekey);
 		iph1->status = PHASE1ST_EXPIRED;
+		ike_session_update_ph1_ph2tree(iph1); // move unbind/rebind ph2s to from current ph1
 		iph1->sce = sched_new(1, isakmp_ph1delete_stub, iph1);
 	}
 }
 
-static void
+
+
+void
 purge_ipsec_spi(dst0, proto, spi, n)
 	struct sockaddr *dst0;
 	int proto;
@@ -1051,10 +1470,17 @@ purge_ipsec_spi(dst0, proto, spi, n)
 	vchar_t *buf = NULL;
 	struct sadb_msg *msg, *next, *end;
 	struct sadb_sa *sa;
+	struct sadb_lifetime *lt;
 	struct sockaddr *src, *dst;
 	struct ph2handle *iph2;
+	u_int64_t created;
 	size_t i;
 	caddr_t mhp[SADB_EXT_MAX + 1];
+
+	plog(LLV_DEBUG2, LOCATION, NULL,
+		 "purge_ipsec_spi:\n");
+	plog(LLV_DEBUG2, LOCATION, NULL, "dst0: %s\n", saddr2str(dst0));
+	plog(LLV_DEBUG2, LOCATION, NULL, "SPI: %08X\n", ntohl(spi[0]));
 
 	buf = pfkey_dump_sadb(ipsecdoi2pfkey_proto(proto));
 	if (buf == NULL) {
@@ -1091,18 +1517,27 @@ purge_ipsec_spi(dst0, proto, spi, n)
 		}
 		src = PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_SRC]);
 		dst = PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_DST]);
+		lt = (struct sadb_lifetime*)mhp[SADB_EXT_LIFETIME_HARD];
+		if(lt != NULL)
+			created = lt->sadb_lifetime_addtime;
+		else
+			created = 0;
 
 		if (sa->sadb_sa_state != SADB_SASTATE_MATURE
 		 && sa->sadb_sa_state != SADB_SASTATE_DYING) {
 			msg = next;
 			continue;
 		}
+		plog(LLV_DEBUG2, LOCATION, NULL, "src: %s\n", saddr2str(src));
+		plog(LLV_DEBUG2, LOCATION, NULL, "dst: %s\n", saddr2str(dst));
+
+
 
 		/* XXX n^2 algorithm, inefficient */
 
 		/* don't delete inbound SAs at the moment */
 		/* XXX should we remove SAs with opposite direction as well? */
-		if (CMPSADDR(dst0, dst)) {
+		if (CMPSADDR2(dst0, dst)) {
 			msg = next;
 			continue;
 		}
@@ -1125,7 +1560,7 @@ purge_ipsec_spi(dst0, proto, spi, n)
 			 * exists.
 			 */
 			iph2 = getph2bysaidx(src, dst, proto, spi[i]);
-			if (iph2) {
+			if(iph2 != NULL){
 				delete_spd(iph2);
 				unbindph12(iph2);
 				remph2(iph2);
@@ -1170,9 +1605,12 @@ info_recv_initialcontact(iph1)
 	if (f_local)
 		return;
 
+	// TODO: make sure that is_rekey is cleared for this. and session indicates the same
 #if 0
-	loc = strdup(saddrwop2str(iph1->local));
-	rem = strdup(saddrwop2str(iph1->remote));
+	loc = racoon_strdup(saddrwop2str(iph1->local));
+	rem = racoon_strdup(saddrwop2str(iph1->remote));
+	STRDUP_FATAL(loc);
+	STRDUP_FATAL(rem);
 
 	/*
 	 * Purge all IPSEC-SAs for the peer.  We can do this
@@ -1347,162 +1785,6 @@ info_recv_initialcontact(iph1)
 	vfree(buf);
 }
 
-/*
- * handling to receive Deletion payload
- */
-static int
-isakmp_info_recv_d(iph1, msg)
-	struct ph1handle *iph1;
-	vchar_t *msg;
-{
-	struct isakmp_pl_d *d;
-	int tlen, num_spi;
-	vchar_t *pbuf;
-	struct isakmp_parse_t *pa, *pap;
-	int protected = 0;
-	union {
-		u_int32_t spi32;
-		u_int16_t spi16[2];
-	} spi;
-
-	/* validate the type of next payload */
-	if (!(pbuf = isakmp_parse(msg)))
-		return -1;
-	pa = (struct isakmp_parse_t *)pbuf->v;
-	for (pap = pa; pap->type; pap++) {
-		switch (pap->type) {
-		case ISAKMP_NPTYPE_D:
-			break;
-		case ISAKMP_NPTYPE_HASH:
-			if (pap == pa) {
-				protected++;
-				break;
-			}
-			plog(LLV_ERROR, LOCATION, iph1->remote,
-				"received next payload type %d "
-				"in wrong place (must be the first payload).\n",
-				pap->type);
-			vfree(pbuf);
-			return -1;
-		default:
-			/* don't send information, see isakmp_ident_r1() */
-			plog(LLV_ERROR, LOCATION, iph1->remote,
-				"reject the packet, "
-				"received unexpecting payload type %d.\n",
-				pap->type);
-			vfree(pbuf);
-			return 0;
-		}
-	}
-
-	if (!protected) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"delete payload is not proteted, "
-			"ignored.\n");
-		vfree(pbuf);
-		return -1;
-	}
-
-	/* process a delete payload */
-	for (pap = pa; pap->type; pap++) {
-		if (pap->type != ISAKMP_NPTYPE_D)
-			continue;
-
-		d = (struct isakmp_pl_d *)pap->ptr;
-
-		if (ntohl(d->doi) != IPSEC_DOI) {
-			plog(LLV_ERROR, LOCATION, iph1->remote,
-				"delete payload with invalid doi:%d.\n",
-				ntohl(d->doi));
-#ifdef ENABLE_HYBRID
-			/*
-			 * At deconnexion time, Cisco VPN client does this
-			 * with a zero DOI. Don't give up in that situation.
-			 */
-			if (((iph1->mode_cfg->flags &
-			    ISAKMP_CFG_VENDORID_UNITY) == 0) || (d->doi != 0))
-				continue;
-#else
-			continue;
-#endif
-		}
-
-		num_spi = ntohs(d->num_spi);
-		tlen = ntohs(d->h.len) - sizeof(struct isakmp_pl_d);
-
-		if (tlen != num_spi * d->spi_size) {
-			plog(LLV_ERROR, LOCATION, iph1->remote,
-				"deletion payload with invalid length.\n");
-			vfree(pbuf);
-			return -1;
-		}
-
-		switch (d->proto_id) {
-		case IPSECDOI_PROTO_ISAKMP:
-			if (d->spi_size != sizeof(isakmp_index)) {
-				plog(LLV_ERROR, LOCATION, iph1->remote,
-					"delete payload with strange spi "
-					"size %d(proto_id:%d)\n",
-					d->spi_size, d->proto_id);
-				continue;
-			}
-
-			if (iph1->scr)
-				SCHED_KILL(iph1->scr);
-
-			purge_remote(iph1);
-			break;
-
-		case IPSECDOI_PROTO_IPSEC_AH:
-		case IPSECDOI_PROTO_IPSEC_ESP:
-			if (d->spi_size != sizeof(u_int32_t)) {
-				plog(LLV_ERROR, LOCATION, iph1->remote,
-					"delete payload with strange spi "
-					"size %d(proto_id:%d)\n",
-					d->spi_size, d->proto_id);
-				continue;
-			}
-			EVT_PUSH(iph1->local, iph1->remote, 
-			    EVTT_PEER_DELETE, NULL);
-			purge_ipsec_spi(iph1->remote, d->proto_id,
-			    (u_int32_t *)(d + 1), num_spi);
-			break;
-
-		case IPSECDOI_PROTO_IPCOMP:
-			/* need to handle both 16bit/32bit SPI */
-			memset(&spi, 0, sizeof(spi));
-			if (d->spi_size == sizeof(spi.spi16[1])) {
-				memcpy(&spi.spi16[1], d + 1,
-				    sizeof(spi.spi16[1]));
-			} else if (d->spi_size == sizeof(spi.spi32))
-				memcpy(&spi.spi32, d + 1, sizeof(spi.spi32));
-			else {
-				plog(LLV_ERROR, LOCATION, iph1->remote,
-					"delete payload with strange spi "
-					"size %d(proto_id:%d)\n",
-					d->spi_size, d->proto_id);
-				continue;
-			}
-			purge_ipsec_spi(iph1->remote, d->proto_id,
-			    &spi.spi32, num_spi);
-			break;
-
-		default:
-			plog(LLV_ERROR, LOCATION, iph1->remote,
-				"deletion message received, "
-				"invalid proto_id: %d\n",
-				d->proto_id);
-			continue;
-		}
-
-		plog(LLV_DEBUG, LOCATION, NULL, "purged SAs.\n");
-	}
-
-	vfree(pbuf);
-
-	return 0;
-}
-
 void
 isakmp_check_notify(gen, iph1)
 	struct isakmp_gen *gen;		/* points to Notify payload */
@@ -1515,16 +1797,15 @@ isakmp_check_notify(gen, iph1)
 
 	switch (ntohs(notify->type)) {
 	case ISAKMP_NTYPE_CONNECTED:
-		plog(LLV_WARNING, LOCATION, iph1->remote,
-			"ignore CONNECTED notification.\n");
-		break;
 	case ISAKMP_NTYPE_RESPONDER_LIFETIME:
-		plog(LLV_WARNING, LOCATION, iph1->remote,
-			"ignore RESPONDER-LIFETIME notification.\n");
-		break;
 	case ISAKMP_NTYPE_REPLAY_STATUS:
+	case ISAKMP_NTYPE_HEARTBEAT:
+#ifdef ENABLE_HYBRID
+	case ISAKMP_NTYPE_UNITY_HEARTBEAT:
+#endif
 		plog(LLV_WARNING, LOCATION, iph1->remote,
-			"ignore REPLAY-STATUS notification.\n");
+			"ignore %s notification.\n",
+			s_isakmp_notify_msg(ntohs(notify->type)));
 		break;
 	case ISAKMP_NTYPE_INITIAL_CONTACT:
 		plog(LLV_WARNING, LOCATION, iph1->remote,
@@ -1536,17 +1817,58 @@ isakmp_check_notify(gen, iph1)
 			"ignore LOAD-BALANCE notification, "
 			"because it is only accepted after phase1.\n");
 		break;
-	case ISAKMP_NTYPE_HEARTBEAT:
-		plog(LLV_WARNING, LOCATION, iph1->remote,
-			"ignore HEARTBEAT notification\n");
-		break;
 	default:
 		isakmp_info_send_n1(iph1, ISAKMP_NTYPE_INVALID_PAYLOAD_TYPE, NULL);
 		plog(LLV_ERROR, LOCATION, iph1->remote,
-			"received unknown notification type %u.\n",
-		    ntohs(notify->type));
+			"received unknown notification type %s.\n",
+			s_isakmp_notify_msg(ntohs(notify->type)));
 	}
 
+	return;
+}
+
+void
+isakmp_check_ph2_notify(gen, iph2)
+struct isakmp_gen *gen;		/* points to Notify payload */
+struct ph2handle *iph2;
+{
+	struct isakmp_pl_n *notify = (struct isakmp_pl_n *)gen;
+    
+	plog(LLV_DEBUG, LOCATION, iph2->dst,
+         "Phase2 Notify Message received\n");
+    
+	switch (ntohs(notify->type)) {
+        case ISAKMP_NTYPE_RESPONDER_LIFETIME:
+            return((void)isakmp_ph2_responder_lifetime(iph2,
+                                                       (struct isakmp_pl_resp_lifetime *)notify));
+            break;
+        case ISAKMP_NTYPE_CONNECTED:
+        case ISAKMP_NTYPE_REPLAY_STATUS:
+        case ISAKMP_NTYPE_HEARTBEAT:
+#ifdef ENABLE_HYBRID
+        case ISAKMP_NTYPE_UNITY_HEARTBEAT:
+#endif
+            plog(LLV_WARNING, LOCATION, iph2->dst,
+                 "ignore %s notification.\n",
+                 s_isakmp_notify_msg(ntohs(notify->type)));
+            break;
+        case ISAKMP_NTYPE_INITIAL_CONTACT:
+            plog(LLV_WARNING, LOCATION, iph2->dst,
+                 "ignore INITIAL-CONTACT notification, "
+                 "because it is only accepted after phase1.\n");
+            break;
+        case ISAKMP_NTYPE_LOAD_BALANCE:
+            plog(LLV_WARNING, LOCATION, iph2->dst,
+                 "ignore LOAD-BALANCE notification, "
+                 "because it is only accepted after phase1.\n");
+            break;
+        default:
+            isakmp_info_send_n1(iph2->ph1, ISAKMP_NTYPE_INVALID_PAYLOAD_TYPE, NULL);
+            plog(LLV_ERROR, LOCATION, iph2->dst,
+                 "received unknown notification type %s.\n",
+                 s_isakmp_notify_msg(ntohs(notify->type)));
+	}
+    
 	return;
 }
 
@@ -1586,6 +1908,17 @@ isakmp_info_recv_lb(iph1, n, encrypted)
 			"received LOAD_BALANCE notification - redirect address=%x.\n",
 				ntohl(n->address));
 
+    if (((struct sockaddr_in*)iph1->remote)->sin_addr.s_addr != ntohl(n->address)) {
+        plog(LLV_DEBUG, LOCATION, iph1->remote,
+             "deleting old phase1 because of LOAD_BALANCE notification - redirect address=%x.\n",
+             ntohl(n->address));
+
+        if (iph1->status == PHASE1ST_ESTABLISHED) {
+            isakmp_info_send_d1(iph1);
+        }
+        isakmp_ph1expire(iph1);
+    }
+
 	return 0;
 }
 #endif
@@ -1610,6 +1943,10 @@ isakmp_info_recv_r_u (iph1, ru, msgid)
 	tlen = sizeof(*ru_ack);
 	payload = vmalloc(tlen);
 	if (payload == NULL) { 
+		IPSECSESSIONTRACEREVENT(iph1->parent_session,
+								IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_FAIL,
+								CONSTSTR("R-U-THERE? ACK"),
+								CONSTSTR("Failed to transmit DPD response"));
 		plog(LLV_ERROR, LOCATION, NULL,
 			"failed to get buffer to send.\n");
 		return errno;
@@ -1630,6 +1967,17 @@ isakmp_info_recv_r_u (iph1, ru, msgid)
 	error = isakmp_info_send_common(iph1, payload, ISAKMP_NPTYPE_N,
 					ISAKMP_FLAG_E);
 	vfree(payload);
+	if (error) {
+		IPSECSESSIONTRACEREVENT(iph1->parent_session,
+								IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_FAIL,
+								CONSTSTR("R-U-THERE? ACK"),
+								CONSTSTR("Failed to transmit DPD ack"));
+	} else {
+		IPSECSESSIONTRACEREVENT(iph1->parent_session,
+								IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_SUCC,
+								CONSTSTR("R-U-THERE? ACK"),
+								CONSTSTR(NULL));
+	}
 
 	plog(LLV_DEBUG, LOCATION, NULL, "received a valid R-U-THERE, ACK sent\n");
 
@@ -1650,10 +1998,10 @@ isakmp_info_recv_r_u_ack (iph1, ru, msgid)
 	/* XXX Maintain window of acceptable sequence numbers ?
 	 * => ru->data <= iph2->dpd_seq &&
 	 *    ru->data >= iph2->dpd_seq - iph2->dpd_fails ? */
-	if (ntohl(ru->data) != iph1->dpd_seq-1) {
+	if (ntohl(ru->data) != iph1->dpd_seq) {
 		plog(LLV_ERROR, LOCATION, iph1->remote,
 			 "Wrong DPD sequence number (%d, %d expected).\n", 
-			 ntohl(ru->data), iph1->dpd_seq-1);
+			 ntohl(ru->data), iph1->dpd_seq);
 		return 0;
 	}
 
@@ -1666,14 +2014,26 @@ isakmp_info_recv_r_u_ack (iph1, ru, msgid)
 
 	iph1->dpd_fails = 0;
 
+	iph1->dpd_seq++;
+
 	/* Useless ??? */
 	iph1->dpd_lastack = time(NULL);
 
-	if (iph1->dpd_r_u != NULL)
-		SCHED_KILL(iph1->dpd_r_u);
+	SCHED_KILL(iph1->dpd_r_u);
 
 	isakmp_sched_r_u(iph1, 0);
 
+	if (iph1->side == INITIATOR) {
+		IPSECSESSIONTRACEREVENT(iph1->parent_session,
+								IPSECSESSIONEVENTCODE_IKEV1_DPD_INIT_RESP,
+								CONSTSTR("Initiator DPD Response"),
+								CONSTSTR(NULL));
+	} else {
+		IPSECSESSIONTRACEREVENT(iph1->parent_session,
+								IPSECSESSIONEVENTCODE_IKEV1_DPD_RESP_RESP,
+								CONSTSTR("Responder DPD Response"),
+								CONSTSTR(NULL));
+	}
 	plog(LLV_DEBUG, LOCATION, NULL, "received an R-U-THERE-ACK\n");
 
 	return 0;
@@ -1683,7 +2043,7 @@ isakmp_info_recv_r_u_ack (iph1, ru, msgid)
 /*
  * send Delete payload (for ISAKMP SA) in Informational exchange.
  */
-static void
+void
 isakmp_info_send_r_u(arg)
 	void *arg;
 {
@@ -1695,10 +2055,27 @@ isakmp_info_send_r_u(arg)
 	int tlen;
 	int error = 0;
 
-	plog(LLV_DEBUG, LOCATION, iph1->remote, "DPD monitoring....\n");
+    if (iph1->status != PHASE1ST_ESTABLISHED) {
+        plog(LLV_DEBUG, LOCATION, iph1->remote, "DPD r-u send aborted, invalid phase1 status %d....\n",
+             iph1->status);
+        return;
+    }
 
 	if (iph1->dpd_fails >= iph1->rmconf->dpd_maxfails) {
+		u_int32_t address;
+
+		IPSECSESSIONTRACEREVENT(iph1->parent_session,
+								IPSECSESSIONEVENTCODE_IKEV1_DPD_MAX_RETRANSMIT,
+								CONSTSTR("DPD maximum retransmits"),
+								CONSTSTR("maxed-out of DPD requests without receiving an ack"));
+
 		EVT_PUSH(iph1->local, iph1->remote, EVTT_DPD_TIMEOUT, NULL);
+		if (iph1->remote->sa_family == AF_INET)
+			address = ((struct sockaddr_in *)iph1->remote)->sin_addr.s_addr;
+		else
+			address = 0;
+		(void)vpncontrol_notify_ike_failed(VPNCTL_NTYPE_PEER_DEAD, FROM_LOCAL, address, 0, NULL);
+
 		purge_remote(iph1);
 		plog(LLV_DEBUG, LOCATION, iph1->remote,
 			 "DPD: remote seems to be dead\n");
@@ -1709,26 +2086,13 @@ isakmp_info_send_r_u(arg)
 		return;
 	}
 
-	/* TODO: check recent activity to avoid useless sends... */
-
-	/* XXX: why do we have a NULL LIST_FIRST even when a Phase2 exists ??? */
-#if 0
-	if (LIST_FIRST(&iph1->ph2tree) == NULL){
-		/* XXX: No Ph2 => no need to test ph1 ?
-		 */
-		/* Reschedule the r_u_there....
-		   XXX: reschedule when a new ph2 ?
-		 */
-		isakmp_sched_r_u(iph1, 0);
-		plog(LLV_DEBUG, LOCATION, iph1->remote,
-			 "no phase2 handler, rescheduling send_r_u (%d).\n", iph1->rmconf->dpd_interval);
-		return 0;
-	}
-#endif
-
 	tlen = sizeof(*ru);
 	payload = vmalloc(tlen);
 	if (payload == NULL) {
+		IPSECSESSIONTRACEREVENT(iph1->parent_session,
+								IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_FAIL,
+								CONSTSTR("R-U-THERE?"),
+								CONSTSTR("Failed to transmit DPD request"));
 		plog(LLV_ERROR, LOCATION, NULL, 
 			 "failed to get buffer for payload.\n");
 		return;
@@ -1754,15 +2118,34 @@ isakmp_info_send_r_u(arg)
 
 	error = isakmp_info_send_common(iph1, payload, ISAKMP_NPTYPE_N, 0);
 	vfree(payload);
+	if (error) {
+		IPSECSESSIONTRACEREVENT(iph1->parent_session,
+								IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_FAIL,
+								CONSTSTR("R-U-THERE?"),
+								CONSTSTR("Failed to transmit DPD request"));
+	} else {
+		IPSECSESSIONTRACEREVENT(iph1->parent_session,
+								IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_SUCC,
+								CONSTSTR("R-U-THERE?"),
+								CONSTSTR(NULL));
+	}
 
+	if (iph1->side == INITIATOR) {
+		IPSECSESSIONTRACEREVENT(iph1->parent_session,
+								iph1->dpd_fails? IPSECSESSIONEVENTCODE_IKEV1_DPD_INIT_RETRANSMIT : IPSECSESSIONEVENTCODE_IKEV1_DPD_INIT_REQ,
+								CONSTSTR("Initiator DPD Request"),
+								CONSTSTR(NULL));
+	} else {
+		IPSECSESSIONTRACEREVENT(iph1->parent_session,
+								iph1->dpd_fails? IPSECSESSIONEVENTCODE_IKEV1_DPD_RESP_RETRANSMIT : IPSECSESSIONEVENTCODE_IKEV1_DPD_RESP_REQ,
+								CONSTSTR("Responder DPD Request"),
+								CONSTSTR(NULL));
+	}
 	plog(LLV_DEBUG, LOCATION, iph1->remote,
 		 "DPD R-U-There sent (%d)\n", error);
 
 	/* will be decreased if ACK received... */
 	iph1->dpd_fails++;
-
-	/* XXX should be increased only when ACKed ? */
-	iph1->dpd_seq++;
 
 	/* Reschedule the r_u_there with a short delay,
 	 * will be deleted/rescheduled if ACK received before */
@@ -1770,6 +2153,97 @@ isakmp_info_send_r_u(arg)
 
 	plog(LLV_DEBUG, LOCATION, iph1->remote,
 		 "rescheduling send_r_u (%d).\n", iph1->rmconf->dpd_retry);
+}
+
+/*
+ * monitor DPD (ALGORITHM_INBOUND_DETECT) Informational exchange.
+ */
+static void
+isakmp_info_monitor_r_u_algo_inbound_detect (struct ph1handle *iph1)
+{
+    if (iph1->status != PHASE1ST_ESTABLISHED) {
+        plog(LLV_DEBUG, LOCATION, iph1->remote, "DPD monitoring (for ALGORITHM_INBOUND_DETECT) aborted, invalid phase1 status %d....\n",
+             iph1->status);
+        return;
+    }
+
+	plog(LLV_DEBUG, LOCATION, iph1->remote, "DPD monitoring (for ALGORITHM_INBOUND_DETECT) ....\n");
+    
+    // check phase1 for ike packets received from peer
+    if (iph1->peer_sent_ike) {
+        // yes, reshedule check
+        iph1->peer_sent_ike = 0;
+        
+        /* ike packets received from peer... reschedule dpd */
+        isakmp_sched_r_u(iph1, 0);
+        
+        plog(LLV_DEBUG, LOCATION, iph1->remote,
+             "ike packets received from peer... reschedule monitor.\n");
+
+        return;
+    }
+
+    // after ike packets, next we check if any data was received
+    if (!iph1->parent_session->peer_sent_data_sc_dpd) {
+        isakmp_info_send_r_u(iph1);
+    } else {
+        isakmp_sched_r_u(iph1, 0);
+        
+        plog(LLV_DEBUG, LOCATION, iph1->remote,
+             "rescheduling DPD monitoring (for ALGORITHM_INBOUND_DETECT).\n");
+    }
+    iph1->parent_session->peer_sent_data_sc_dpd = 0;
+}
+
+/*
+ * monitor DPD (ALGORITHM_INBOUND_DETECT) Informational exchange.
+ */
+static void
+isakmp_info_monitor_r_u_algo_blackhole_detect (struct ph1handle *iph1)
+{
+    if (iph1->status != PHASE1ST_ESTABLISHED) {
+        plog(LLV_DEBUG, LOCATION, iph1->remote, "DPD monitoring (for ALGORITHM_BLACKHOLE_DETECT) aborted, invalid phase1 status %d....\n",
+             iph1->status);
+        return;
+    }
+
+	plog(LLV_DEBUG, LOCATION, iph1->remote, "DPD monitoring (for ALGORITHM_BLACKHOLE_DETECT) ....\n");
+
+    // check if data was sent but none was received
+    if (iph1->parent_session->i_sent_data_sc_dpd &&
+        !iph1->parent_session->peer_sent_data_sc_dpd) {
+        isakmp_info_send_r_u(iph1);
+    } else {
+        isakmp_sched_r_u(iph1, 0);
+        
+        plog(LLV_DEBUG, LOCATION, iph1->remote,
+             "rescheduling DPD monitoring (for ALGORITHM_BLACKHOLE_DETECT) i = %d, peer %d.\n",
+             iph1->parent_session->i_sent_data_sc_dpd,
+             iph1->parent_session->peer_sent_data_sc_dpd);
+    }
+    iph1->parent_session->i_sent_data_sc_dpd = 0;
+    iph1->parent_session->peer_sent_data_sc_dpd = 0;
+}
+
+/*
+ * monitor DPD Informational exchange.
+ */
+static void
+isakmp_info_monitor_r_u(arg)
+void *arg;
+{
+	struct ph1handle *iph1 = arg;
+
+    if (iph1 && iph1->rmconf) {
+        if (iph1->rmconf->dpd_algo == DPD_ALGO_INBOUND_DETECT) {
+            isakmp_info_monitor_r_u_algo_inbound_detect(iph1);
+        } else if (iph1->rmconf->dpd_algo == DPD_ALGO_BLACKHOLE_DETECT) {
+            isakmp_info_monitor_r_u_algo_blackhole_detect(iph1);
+        } else {
+            plog(LLV_DEBUG, LOCATION, iph1->remote, "DPD monitoring aborted, invalid algorithm %d....\n",
+                 iph1->rmconf->dpd_algo);
+        }
+    }
 }
 
 /* Schedule a new R-U-THERE */
@@ -1787,13 +2261,49 @@ isakmp_sched_r_u(iph1, retry)
 	   iph1->rmconf->dpd_interval == 0)
 		return 0;
 
-	if(retry)
+	if(retry) {
 		iph1->dpd_r_u = sched_new(iph1->rmconf->dpd_retry,
-					  isakmp_info_send_r_u, iph1);
-	else
-		sched_new(iph1->rmconf->dpd_interval,
-			  isakmp_info_send_r_u, iph1);
+								  isakmp_info_send_r_u, iph1);
+	} else {
+        if (iph1->rmconf->dpd_algo == DPD_ALGO_INBOUND_DETECT ||
+            iph1->rmconf->dpd_algo == DPD_ALGO_BLACKHOLE_DETECT) {
+            iph1->dpd_r_u = sched_new(iph1->rmconf->dpd_interval,
+                                      isakmp_info_monitor_r_u, iph1);
+        } else {
+            iph1->dpd_r_u = sched_new(iph1->rmconf->dpd_interval,
+                                      isakmp_info_send_r_u, iph1);
+        }
+    }
 
 	return 0;
+}
+
+/*
+ * punts dpd for later because of some activity that:
+ * 1) implicitly does dpd (e.g. phase2 exchanges), or
+ * 2) indicates liveness (e.g. received ike packets).
+ */
+void
+isakmp_reschedule_info_monitor_if_pending (struct ph1handle *iph1,
+                                          char             *reason)
+{
+    if (!iph1 ||
+        iph1->status != PHASE1ST_ESTABLISHED ||
+        !iph1->dpd_support ||
+        !iph1->rmconf->dpd_interval ||
+        iph1->rmconf->dpd_algo == DPD_ALGO_DEFAULT) {
+        return;
+    }
+
+    if (!iph1->peer_sent_ike) {
+        SCHED_KILL(iph1->dpd_r_u);
+
+        isakmp_sched_r_u(iph1, 0);
+
+        plog(LLV_DEBUG, LOCATION, iph1->remote,
+             "%s... rescheduling send_r_u.\n",
+             reason);
+    }
+    iph1->peer_sent_ike++;
 }
 #endif

@@ -41,8 +41,7 @@ sub _wrap_sub
 {
     my ($type, $package, $symbol, $referent, $attr, $params) = @_;
 
-    my @p = @$params;
-    $params = {@p};
+    my @p = ref $params ? @{ $params } : $params;
 
     my $subname = $package . '::' . *{$symbol}{NAME};
 
@@ -68,6 +67,7 @@ EOF
 
 	if ($type eq 'named')
 	{
+            $params = {@p};
 	    $code .= "    Params::Validate::validate(\@_, \$params);\n";
 	}
 	else

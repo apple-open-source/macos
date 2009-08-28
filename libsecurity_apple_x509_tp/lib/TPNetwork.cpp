@@ -31,6 +31,12 @@
 #include <security_utilities/logging.h>
 #include <security_ocspd/ocspdClient.h>
 
+#define CA_ISSUERS_OID              OID_PKIX, 0x30, 0x02
+#define CA_ISSUERS_OID_LEN          OID_PKIX_LENGTH + 2
+
+static const uint8 	OID_CA_ISSUERS[]      = {CA_ISSUERS_OID};
+const CSSM_OID	CSSMOID_CA_ISSUERS        = {CA_ISSUERS_OID_LEN, (uint8 *)OID_CA_ISSUERS};
+
 typedef enum {
 	LT_Crl = 1,
 	LT_Cert
@@ -391,11 +397,22 @@ CSSM_RETURN tpFetchIssuerFromNet(
 	const char			*verifyTime,
 	TPCertInfo			*&issuer)		// RETURNED
 {
-	/* does the cert have a issuerAltName? */
-	CSSM_DATA_PTR fieldValue;			// mallocd by CL
-	
-	CSSM_RETURN crtn = subject.fetchField(&CSSMOID_IssuerAltName,
+	CSSM_OID_PTR fieldOid = NULL;
+	CSSM_DATA_PTR fieldValue = NULL;	// mallocd by CL
+	CSSM_RETURN crtn;
+	bool hasAIA = false;
+
+	/* look for the Authority Info Access extension first */
+	fieldOid = (CSSM_OID_PTR)&CSSMOID_AuthorityInfoAccess;
+	crtn = subject.fetchField(fieldOid,
 		&fieldValue);
+	hasAIA = (crtn == CSSM_OK);
+	if (!hasAIA) {
+		/* fall back to Issuer Alternative Name extension */
+		fieldOid = (CSSM_OID_PTR)&CSSMOID_IssuerAltName;
+		crtn = subject.fetchField(fieldOid,
+								  &fieldValue);
+	}
 	switch(crtn) {
 		case CSSM_OK:
 			break;
@@ -413,17 +430,45 @@ CSSM_RETURN tpFetchIssuerFromNet(
 	CSSM_X509_EXTENSION *cssmExt = (CSSM_X509_EXTENSION *)fieldValue->Data;
 	CE_GeneralNames *names = (CE_GeneralNames *)cssmExt->value.parsedValue;
 	TPCertInfo *rtnCert = NULL;
-	
-	crtn = tpFetchViaGeneralNames(names,
-					subject,
-					NULL,		// issuer - not used
-					NULL,		// verifyContext
-					clHand,
-					cspHand,
-					verifyTime,
-					&rtnCert,
-					NULL);
-	subject.freeField(&CSSMOID_IssuerAltName,	fieldValue);
+	if (hasAIA) {	/* authority info access */
+		CE_AuthorityInfoAccess *access = (CE_AuthorityInfoAccess *)cssmExt->value.parsedValue;
+		for (uint32 index = 0; access && index < access->numAccessDescriptions; index++) {
+			CE_AccessDescription *accessDesc = &access->accessDescriptions[index];
+			CSSM_OID_PTR methodOid = (CSSM_OID_PTR)&accessDesc->accessMethod;
+			/* look for the CA Issuers method */
+			if(methodOid->Data != NULL && methodOid->Length == CSSMOID_CA_ISSUERS.Length &&
+			   !memcmp(methodOid->Data, CSSMOID_CA_ISSUERS.Data, methodOid->Length)) {
+				CE_GeneralNames aiaNames = { 1, &accessDesc->accessLocation };
+				/* attempt to fetch cert from named location */
+				crtn = tpFetchViaGeneralNames(&aiaNames,
+											  subject,
+											  NULL,		// issuer - not used
+											  NULL,		// verifyContext
+											  clHand,
+											  cspHand,
+											  verifyTime,
+											  &rtnCert,
+											  NULL);
+				if (crtn == CSSM_OK ||
+					crtn == CSSMERR_CSP_APPLE_PUBLIC_KEY_INCOMPLETE) {
+					break; // got one
+				}
+			}
+		}
+		subject.freeField(fieldOid,	fieldValue);
+	}
+	else {  /* issuer alt name */
+		crtn = tpFetchViaGeneralNames(names,
+						subject,
+						NULL,		// issuer - not used
+						NULL,		// verifyContext
+						clHand,
+						cspHand,
+						verifyTime,
+						&rtnCert,
+						NULL);
+		subject.freeField(fieldOid,	fieldValue);
+	}
 	switch(crtn) {
 		case CSSM_OK:
 		case CSSMERR_CSP_APPLE_PUBLIC_KEY_INCOMPLETE:

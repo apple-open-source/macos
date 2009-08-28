@@ -1,5 +1,5 @@
 /*
-* Copyright (C) 1997-2006, International Business Machines Corporation and others. All Rights Reserved.
+* Copyright (C) 1997-2009, International Business Machines Corporation and others. All Rights Reserved.
 *******************************************************************************
 *
 * File SMPDTFMT.H
@@ -38,6 +38,7 @@ U_NAMESPACE_BEGIN
 
 class DateFormatSymbols;
 class DateFormat;
+class MessageFormat;
 
 /**
  *
@@ -68,6 +69,7 @@ class DateFormat;
  * y        year                    (Number)            1996
  * Y        year (week of year)     (Number)            1997
  * u        extended year           (Number)            4601
+ * Q        Quarter                 (Text & Number)     Q2 & 02
  * M        month in year           (Text & Number)     July & 07
  * d        day in month            (Number)            10
  * h        hour in am/pm (1~12)    (Number)            12
@@ -76,7 +78,7 @@ class DateFormat;
  * s        second in minute        (Number)            55
  * S        fractional second       (Number)            978
  * E        day of week             (Text)              Tuesday
- * e        day of week (local 1~7) (Number)            2
+ * e        day of week (local 1~7) (Text & Number)     Tues & 2
  * D        day in year             (Number)            189
  * F        day of week in month    (Number)            2 (2nd Wed in July)
  * w        week in year            (Number)            27
@@ -87,8 +89,13 @@ class DateFormat;
  * z        time zone               (Time)              Pacific Standard Time
  * Z        time zone (RFC 822)     (Number)            -0800
  * v        time zone (generic)     (Text)              Pacific Time
+ * V        time zone (abreviation) (Text)              PT
+ * VVVV     time zone (location)    (Text)              United States (Los Angeles)
  * g        Julian day              (Number)            2451334
  * A        milliseconds in day     (Number)            69540000
+ * q        stand alone quarter     (Text & Number)     Q2 & 02
+ * L        stand alone month       (Text & Number)     July & 07
+ * c        stand alone day of week (Text & Number)     Tuesday & 2
  * '        escape for text         (Delimiter)         'Date='
  * ''       single quote            (Literal)           'o''clock'
  * \endcode
@@ -599,6 +606,46 @@ public:
      */
     virtual void adoptCalendar(Calendar* calendarToAdopt);
 
+    /**
+     * This is for ICU internal use only. Please do not use.
+     * Check whether the 'field' is smaller than all the fields covered in
+     * pattern, return TRUE if it is. The sequence of calendar field, 
+     * from large to small is: ERA, YEAR, MONTH, DATE, AM_PM, HOUR, MINUTE,...
+     * @param field    the calendar field need to check against
+     * @return         TRUE if the 'field' is smaller than all the fields 
+     *                 covered in pattern. FALSE otherwise.
+     * @internal ICU 4.0
+     */
+    UBool isFieldUnitIgnored(UCalendarDateFields field) const;
+
+
+    /**
+     * This is for ICU internal use only. Please do not use.
+     * Check whether the 'field' is smaller than all the fields covered in
+     * pattern, return TRUE if it is. The sequence of calendar field, 
+     * from large to small is: ERA, YEAR, MONTH, DATE, AM_PM, HOUR, MINUTE,...
+     * @param pattern  the pattern to check against
+     * @param field    the calendar field need to check against
+     * @return         TRUE if the 'field' is smaller than all the fields 
+     *                 covered in pattern. FALSE otherwise.
+     * @internal ICU 4.0
+     */
+    static UBool isFieldUnitIgnored(const UnicodeString& pattern, 
+                                    UCalendarDateFields field);
+
+
+
+    /**
+     * This is for ICU internal use only. Please do not use.
+     * Get the locale of this simple date formatter.
+     * It is used in DateIntervalFormat.
+     *
+     * @return   locale in this simple date formatter
+     * @internal ICU 4.0
+     */
+    const Locale& getSmpFmtLocale(void) const;
+
+
 private:
     friend class DateFormat;
 
@@ -737,7 +784,23 @@ private:
      */
     int32_t matchQuarterString(const UnicodeString& text, int32_t start, UCalendarDateFields field,
                                const UnicodeString* stringArray, int32_t stringArrayCount, Calendar& cal) const;
-
+    
+    /**
+     * Private function used by subParse to match literal pattern text.
+     *
+     * @param pattern the pattern string
+     * @param patternOffset the starting offset into the pattern text. On
+     *        outupt will be set the offset of the first non-literal character in the pattern
+     * @param text the text being parsed
+     * @param textOffset the starting offset into the text. On output
+     *                   will be set to the offset of the character after the match
+     * @param lenient <code>TRUE</code> if the parse is lenient, <code>FALSE</code> otherwise.
+     *
+     * @return <code>TRUE</code> if the literal text could be matched, <code>FALSE</code> otherwise.
+     */
+    static UBool matchLiterals(const UnicodeString &pattern, int32_t &patternOffset,
+                               const UnicodeString &text, int32_t &textOffset, UBool lenient);
+    
     /**
      * Private member function that converts the parsed date strings into
      * timeFields. Returns -start (for ParsePosition) if failed.
@@ -757,6 +820,12 @@ private:
 
     void parseInt(const UnicodeString& text,
                   Formattable& number,
+                  ParsePosition& pos,
+                  UBool allowNegative) const;
+
+    void parseInt(const UnicodeString& text,
+                  Formattable& number,
+                  int32_t maxDigits,
                   ParsePosition& pos,
                   UBool allowNegative) const;
 
@@ -786,25 +855,22 @@ private:
      *                  if the operation succeeds.
      */
     void         parseAmbiguousDatesAsAfter(UDate startDate, UErrorCode& status);
-
-    /**
-     * Given text, a start in the text, and a row index, return the column index that
-     * of the zone name that matches (case insensitive) at start, or 0 if none matches.
-     *
-    int32_t      matchZoneString(const UnicodeString& text, int32_t start, int32_t zi) const;
-    */
-
-    /**
-     * Given text, a start in the text, and a calendar, return the next offset in the text
-     * after matching the zone string.  If we fail to match, return 0.  Update the calendar
-     * as appropriate.
-     */
-    int32_t      subParseZoneString(const UnicodeString& text, int32_t start, Calendar& cal, UErrorCode& status) const;
     
     /**
-     * append the gmt string
+     * Private methods for formatting/parsing GMT string
      */
-    inline void appendGMT(UnicodeString &appendTo, Calendar& cal, UErrorCode& status) const;
+    void appendGMT(UnicodeString &appendTo, Calendar& cal, UErrorCode& status) const;
+    void formatGMTDefault(UnicodeString &appendTo, int32_t offset) const;
+    int32_t parseGMT(const UnicodeString &text, ParsePosition &pos) const;
+    int32_t parseGMTDefault(const UnicodeString &text, ParsePosition &pos) const;
+    UBool isDefaultGMTFormat() const;
+
+    void formatRFC822TZ(UnicodeString &appendTo, int32_t offset) const;
+
+    /**
+     * Initialize MessageFormat instances used for GMT formatting/parsing
+     */
+    void initGMTFormatters(UErrorCode &status);
 
     /**
      * Used to map pattern characters to Calendar field identifiers.
@@ -815,6 +881,15 @@ private:
      * Map index into pattern character string to DateFormat field number
      */
     static const UDateFormatField fgPatternIndexToDateFormatField[];
+
+    /**
+     * Used to map Calendar field to field level.
+     * The larger the level, the smaller the field unit.
+     * For example, UCAL_ERA level is 0, UCAL_YEAR level is 10,
+     * UCAL_MONTH level is 20.
+     */
+    static const int32_t fgCalendarFieldToLevel[];
+    static const int32_t fgPatternCharToLevel[];
 
     /**
      * The formatting pattern for this formatter.
@@ -847,7 +922,18 @@ private:
      */
     /*transient*/ int32_t   fDefaultCenturyStartYear;
 
-    /*transient*/ TimeZone* parsedTimeZone; // here to avoid api change
+    enum ParsedTZType {
+        TZTYPE_UNK,
+        TZTYPE_STD,
+        TZTYPE_DST
+    };
+
+    ParsedTZType tztype; // here to avoid api change
+
+    /*
+     * MessageFormat instances used for localized GMT format
+     */
+    MessageFormat   **fGMTFormatters;
 
     UBool fHaveDefaultCentury;
 };

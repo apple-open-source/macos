@@ -1,0 +1,109 @@
+<!-- #bbinclude "header.txt"
+	#PAGETITLE#="Mac OS X Kerberos Extras"
+	#BASEHREF#="<BASE HREF=\"http://web.mit.edu/macdev/KfM/Common/Documentation/index.html\">
+  	<META NAME=\"keywords\" CONTENT=\"Kerberos, Macintosh, Mac OS X, Jaguar, Panther, Extras, Eudora, Fetch, CFM,
+  									MIT, Kerberos for Macintosh, KfM\">
+	<META NAME=\"description\" CONTENT=\"The Mac OS X Kerberos Extras provide Kerberos support
+	 								for CFM applications such as Eudora and Fetch.\">" 
+-->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN"
+			"http://www.w3.org/TR/REC-html40/loose.dtd">
+<HTML>
+<HEAD> 
+	<BASE HREF="http://web.mit.edu/macdev/KfM/Common/Documentation/osx-kerberos-extras.html">
+  	<META NAME="keywords" CONTENT="#KEYWORDS#">
+	<META NAME="description" CONTENT="#DESCRIPTION#">
+	<TITLE>Mac OS X Kerberos Extras</TITLE> 
+	<STYLE TYPE="text/css">
+		@import url(../../Common/Documentation/templates/site.css);
+	</STYLE>
+</HEAD>
+<BODY>
+
+<DIV ID="menu">
+<IMG SRC="../../Common/Documentation/graphics/Kerberos.jpg" ALT="Kerberos for Macintosh Logo">
+<HR>
+<P><A HREF="../../Common/Documentation/index.html">Home</A></P>
+<P><A HREF="http://web.mit.edu/kerberos/">MIT Kerberos</A></P>
+<P><A HREF="http://web.mit.edu/ist/">MIT IS&amp;T</A></P>
+<HR>
+<P><A HREF="../../Common/Documentation/news.html">News</A></P>
+<P><A HREF="../../Common/Documentation/documentation.html">Documentation</A></P>
+<P><A HREF="../../Common/Documentation/developer.html">Developer Resources</A></P>
+<P><A HREF="../../Common/Documentation/license.html">License</A></P>
+<HR>
+<P><A HREF="../../Common/Documentation/download.html">Download</A></P>
+<P><A HREF="../../Common/Documentation/support.html">Support</A></P>
+<P><A HREF="../../Common/Documentation/contact.html">Contact Us</A></P>
+</DIV>
+<DIV ID="body">
+<!-- end bbinclude -->
+<!-- #bbinclude "icon.txt" #ICON#="../../Common/Documentation/graphics/InstallerIcon.png" 
+	#TEXT#="<H2>Mac OS X Kerberos Extras</H2>" -->
+<TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0>
+   <TR VALIGN=middle>
+      <TD ALIGN=center> <IMG CLASS=icon SRC="../../Common/Documentation/graphics/InstallerIcon.png" ALT="An icon image (description text to the right)" WIDTH=32 HEIGHT=32> </TD>
+      <TD ALIGN=left> <H2>Mac OS X Kerberos Extras</H2> </TD>
+   </TR>
+</TABLE>
+<!-- end bbinclude -->
+
+<H3>Mac OS X Kerberos Extras for OS X</H3>
+
+<UL>
+<P> While Mac OS X ships with most parts of Kerberos for Macintosh, it does not include support for CFM-based Kerberos-using applications (such as Oracle Calendar), and the GUI Kerberos management application is in a hard-to-find location.</P>
+
+<P>The Mac OS X Kerberos Extras installer will install the Kerberos CFM support library and make an alias to the GUI Kerberos Management 
+application in <code>/Applications/Utilities</code> (the Kerberos application ships in <CODE>/System/Library/CoreSevices</CODE> ).  By default the installer will also install an MIT configuration file (<CODE>edu.mit.Kerberos</CODE>) if one does not already exist, or you can choose a custom install to force install a new (MIT-based) configuration file.</P>
+
+<P>In addition the Mac OS X 10.4 (Tiger) and 10.5 (Leopard) Kerberos Extras will also modify your ssh configuration to allow the use of Kerberos by default.  Apple disabled Kerberized ssh in 10.4.9 (Tiger) by default to solve performance problems on networks without DNS.
+
+<P>Note: If you are upgrading from Mac OS X 10.0, 10.1 or 10.2 you <B>must</B> reinstall the Mac OS X Kerberos Extras even if you had Eudora and/or Fetch working previously.  You do not need to do this if you are upgrading from 10.3 or 10.4.</P>
+
+<P><A HREF="http://web.mit.edu/macdev/Download/Mac_OS_X_10.4_10.5_Kerberos_Extras.dmg"> Kerberos Extras for Mac OS X 10.4 (Tiger) and 10.5 (Leopard)</A></P>
+
+<P><A HREF="http://web.mit.edu/macdev/Download/Mac_OS_X_10.3_Kerberos_Extras.dmg"> Kerberos Extras for Mac OS X 10.3 (Panther) and earlier</A></P>
+</UL>
+
+<HR>
+
+<H3>Important Note for Eudora Users</H3>
+
+<UL>
+<P>There is an issue with one of the Eudora 5.1.1 plug-ins that causes Eudora to fail to launch after you've installed the Mac OS X Kerberos Extras.  The best way to fix this is to upgrade to Eudora 5.2 or later.</P>
+
+<P>However, if you cannot upgrade to Eudora 5.2 or later, you can do the following: in the Finder, bring up the Finder contextual menu by control-clicking on the Eudora application icon and select "Show Package Contents".  When the window pops up with the Contents folders in it,  navigate to the Eudora Stuff folder:
+
+<P><CODE>Contents -> MacOS -> Eudora Stuff</CODE></P>
+
+<P>and remove the <CODE>UPPERlower Carbon</CODE> plug-in (drag it to the desktop or some other storage place).
+Close up the Eudora contents window and try again, Eudora should now work.  Removing this plug-in removes the
+ability to change the selected text to all lowercase, all uppercase, etc. from the Edit menu in Eudora.  This
+bug will be fixed in a future release of Eudora.</P>
+</UL>
+
+<HR>
+
+<H3>Related Webpages</H3>
+
+<UL>
+	<LI><A HREF="download.html">Getting Kerberos for Macintosh</A>
+	<LI><A HREF="faq.html">Kerberos on Mac OS X FAQs</A></LI>
+</UL>
+
+</BLOCKQUOTE>
+
+<!-- #bbinclude "footer.txt" -->
+</DIV>
+<DIV ID="footer">
+	<P>
+		Copyright 2007 Massachusetts Institute of Technology.<BR>
+		Last updated on $Date: 2008-02-07 18:12:17 -0500 (Thu, 07 Feb 2008) $ <BR> 
+		Last modified by $Author: jander $ 
+	</P>
+</DIV>
+<!-- Begin MIT-use only web reporting counter -->
+	<IMG SRC="http://counter.mit.edu/tally" WIDTH=1 HEIGHT=1 ALT="">
+<!-- End MIT-use only web reporting counter -->
+</BODY></HTML>
+<!-- end bbinclude -->

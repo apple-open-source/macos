@@ -24,9 +24,8 @@ targets = echo $(RC_ARCHS)
 TARGETS := $(shell $(targets))
 
 SRCROOT = .
-OPENSRCROOT = $(SRCROOT)
 
-SRC = `cd $(SRCROOT) && pwd | sed s,/private,,`
+SRC = $(shell cd $(SRCROOT) && pwd | sed s,/private,,)
 OBJROOT = $(SRC)/obj
 SYMROOT = $(OBJROOT)/../sym
 DSTROOT = $(OBJROOT)/../dst
@@ -39,6 +38,11 @@ install: $(OBJROOT) $(SYMROOT) $(DSTROOT)
 	cd $(OBJROOT) && \
 	  $(SRC)/build_gcc "$(RC_ARCHS)" "$(TARGETS)" \
 	    $(SRC) $(PREFIX) $(DSTROOT) $(SYMROOT)
+
+install_libgcc: $(OBJROOT) $(DSTROOT)
+	cd $(OBJROOT) && \
+	  $(SRC)/build_libgcc "$(RC_ARCHS)" "$(TARGETS)" \
+	    $(SRC) $(PREFIX) $(DSTROOT)
 
 # installhdrs does nothing, because the headers aren't useful until
 # the compiler is installed.
@@ -60,16 +64,6 @@ installsrc:
 	                        -type f -a -name .DS_Store -o \
 				-name \*~ -o -name .\#\* \) \
 	  -exec rm -rf {} \;
-
-installopensource: $(OPENSRCROOT)
-	if [ $(OPENSRCROOT) != . ]; then \
-	  $(PAX) -rw . $(OPENSRCROOT); \
-	fi
-	find -d "$(OPENSRCROOT)" \( -type d -a -name CVS -o \
-				    -type f -a -name .DS_Store -o \
-				    -name \*~ -o -name .\#\* \) \
-	  -exec rm -rf {} \;
-	rm -rf $(OPENSRCROOT)/gcc/config/arm
 
 #######################################################################
 
@@ -94,7 +88,7 @@ clean:
 
 #######################################################################
 
-$(OBJROOT) $(SYMROOT) $(DSTROOT) $(OPENSRCROOT):
+$(OBJROOT) $(SYMROOT) $(DSTROOT):
 	mkdir -p $@
 
 .PHONY: install installsrc clean

@@ -1,6 +1,6 @@
 #! @PYTHON@
 #
-# Copyright (C) 1998,1999,2000,2001,2002 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2007 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -14,7 +14,8 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software 
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 """Dispatch digests for lists w/pending messages and digest_send_periodic set.
 
@@ -30,6 +31,7 @@ Options:
         lists are sent out.
 """
 
+import os
 import sys
 import getopt
 
@@ -83,8 +85,18 @@ def main():
         if mlist.digest_send_periodic:
             mlist.Lock()
             try:
-                mlist.send_digest_now()
-                mlist.Save()
+                try:
+                    mlist.send_digest_now()
+                    mlist.Save()
+                # We are unable to predict what exception may occur in digest
+                # processing and we don't want to lose the other digests, so
+                # we catch everything.
+                except Exception, errmsg:
+                    print >> sys.stderr, \
+                      'List: %s: problem processing %s:\n%s' % \
+                        (listname,
+                         os.path.join(mlist.fullpath(), 'digest.mbox'),
+                         errmsg)
             finally:
                 mlist.Unlock()
 

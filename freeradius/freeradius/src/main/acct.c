@@ -1,7 +1,7 @@
 /*
  * acct.c	Accounting routines.
  *
- * Version:	$Id: acct.c,v 1.30.2.4.2.1 2007/03/05 14:22:04 aland Exp $
+ * Version:	$Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,23 +15,21 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2000  The FreeRADIUS server project
+ * Copyright 2000,2006  The FreeRADIUS server project
  * Copyright 2000  Miquel van Smoorenburg <miquels@cistron.nl>
  * Copyright 2000  Alan DeKok <aland@ox.org>
  * Copyright 2000  Alan Curry <pacman@world.std.com>
  */
 
-static const char rcsid[] = "$Id: acct.c,v 1.30.2.4.2.1 2007/03/05 14:22:04 aland Exp $";
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include "autoconf.h"
+#include <freeradius-devel/radiusd.h>
+#include <freeradius-devel/modules.h>
 
-#include <stdlib.h>
-
-#include "radiusd.h"
-#include "modules.h"
-
+#ifdef WITH_ACCOUNTING
 /*
  *	rad_accounting: call modules.
  *
@@ -42,14 +40,18 @@ int rad_accounting(REQUEST *request)
 {
 	int result = RLM_MODULE_OK;
 
+
+#ifdef WITH_PROXY
+#define WAS_PROXIED (request->proxy)
+#else
+#define WAS_PROXIED (0)
+#endif
+
 	/*
 	 *	Run the modules only once, before proxying.
 	 */
-	if (!request->proxy) {
-		char		*exec_program;
-		int		exec_wait;
+	if (!WAS_PROXIED) {
 		VALUE_PAIR	*vp;
-		int		rcode;
 		int		acct_type = 0;
 
 		result = module_preacct(request);
@@ -85,8 +87,8 @@ int rad_accounting(REQUEST *request)
 		 */
 		vp = pairfind(request->config_items, PW_ACCT_TYPE);
 		if (vp) {
-			DEBUG2("  Found Acct-Type %s", vp->strvalue);
-			acct_type = vp->lvalue;
+			DEBUG2("  Found Acct-Type %s", vp->vp_strvalue);
+			acct_type = vp->vp_integer;
 		}
 		result = module_accounting(acct_type, request);
 		switch (result) {
@@ -117,62 +119,6 @@ int rad_accounting(REQUEST *request)
 		}
 
 		/*
-		 *	See if we need to execute a program.
-		 *	FIXME: somehow cache this info, and only execute the
-		 *	program when we receive an Accounting-START packet.
-		 *	Only at that time we know dynamic IP etc.
-		 */
-		exec_program = NULL;
-		exec_wait = 0;
-		if ((vp = pairfind(request->reply->vps, PW_EXEC_PROGRAM)) != NULL) {
-			exec_wait = 0;
-			exec_program = strdup((char *)vp->strvalue);
-			pairdelete(&request->reply->vps, PW_EXEC_PROGRAM);
-		}
-
-		if ((vp = pairfind(request->reply->vps, PW_EXEC_PROGRAM_WAIT)) != NULL) {
-			free(exec_program);
-			exec_wait = 1;
-			exec_program = strdup((char *)vp->strvalue);
-			pairdelete(&request->reply->vps, PW_EXEC_PROGRAM_WAIT);
-		}
-
-		/*
-		 *	If we want to exec a program, but wait for it,
-		 *	do it first before sending the reply, or
-		 *	proxying the packet.
-		 *
-		 *	If we're NOT waiting, then also do this now, but
-		 *	don't check the return code.
-		 */
-		if (exec_program) {
-			/*
-			 *	Wait for the answer.
-			 *	Don't look for a user message.
-			 *	Do look for returned VP's.
-			 */
-			rcode = radius_exec_program(exec_program, request,
-						    exec_wait, NULL, 0,
-						    request->packet->vps, &vp);
-			free(exec_program);
-
-			/*
-			 *	Always add the value-pairs to the reply.
-			 *
-			 *	If we're not waiting, then the pairs
-			 *	will be empty, so this won't matter.
-			 */
-			pairmove(&request->reply->vps, &vp);
-			pairfree(&vp);
-
-			if (exec_wait) {
-				if (rcode != 0) {
-					return result;
-				}
-			}
-		}
-
-		/*
 		 *	Maybe one of the preacct modules has decided
 		 *	that a proxy should be used.
 		 */
@@ -183,10 +129,9 @@ int rad_accounting(REQUEST *request)
 			 *	Check whether Proxy-To-Realm is
 			 *	a LOCAL realm.
 			 */
-			realm = realm_find(vp->strvalue, TRUE);
-			if (realm != NULL &&
-			    realm->acct_ipaddr == htonl(INADDR_NONE)) {
-				DEBUG("rad_accounting: Cancelling proxy to realm %s, as it is a LOCAL realm.", realm->realm);
+			realm = realm_find2(vp->vp_strvalue);
+			if (realm && !realm->acct_pool) {
+				DEBUG("rad_accounting: Cancelling proxy to realm %s, as it is a LOCAL realm.", realm->name);
 				pairdelete(&request->config_items, PW_PROXY_TO_REALM);
 			} else {
 				/*
@@ -235,3 +180,4 @@ int rad_accounting(REQUEST *request)
 	}
 	return result;
 }
+#endif

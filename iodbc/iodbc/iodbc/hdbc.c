@@ -1,7 +1,7 @@
 /*
  *  hdbc.c
  *
- *  $Id: hdbc.c,v 1.37 2006/12/11 15:58:07 source Exp $
+ *  $Id: hdbc.c,v 1.40 2007/10/07 14:09:10 source Exp $
  *
  *  Data source connect object management functions
  *
@@ -704,12 +704,12 @@ SQLSetConnectOption (
   SQLUSMALLINT		  fOption,
   SQLULEN		  vParam)
 {
-  ENTER_HDBC (hdbc, 1,
+  ENTER_HDBC (hdbc, 0,
     trace_SQLSetConnectOption (TRACE_ENTER, hdbc, fOption, vParam));
 
   retcode = _iodbcdm_SetConnectOption (hdbc, fOption, vParam, 'A');
 
-  LEAVE_HDBC (hdbc, 1,
+  LEAVE_HDBC (hdbc, 0,
     trace_SQLSetConnectOption (TRACE_LEAVE, hdbc, fOption, vParam));
 }
 
@@ -721,12 +721,12 @@ SQLSetConnectOptionA (
   SQLUSMALLINT		  fOption,
   SQLULEN		  vParam)
 {
-  ENTER_HDBC (hdbc, 1,
+  ENTER_HDBC (hdbc, 0,
     trace_SQLSetConnectOption (TRACE_ENTER, hdbc, fOption, vParam));
 
   retcode = _iodbcdm_SetConnectOption (hdbc, fOption, vParam, 'A');
 
-  LEAVE_HDBC (hdbc, 1,
+  LEAVE_HDBC (hdbc, 0,
     trace_SQLSetConnectOption (TRACE_LEAVE, hdbc, fOption, vParam));
 }
 
@@ -737,12 +737,12 @@ SQLSetConnectOptionW (
   SQLUSMALLINT		  fOption,
   SQLULEN		  vParam)
 {
-  ENTER_HDBC (hdbc, 1,
+  ENTER_HDBC (hdbc, 0,
     trace_SQLSetConnectOptionW (TRACE_ENTER, hdbc, fOption, vParam));
 
   retcode = _iodbcdm_SetConnectOption (hdbc, fOption, vParam, 'W');
 
-  LEAVE_HDBC (hdbc, 1,
+  LEAVE_HDBC (hdbc, 0,
     trace_SQLSetConnectOptionW (TRACE_LEAVE, hdbc, fOption, vParam));
 }
 #endif
@@ -761,8 +761,11 @@ _iodbcdm_GetConnectOption (
   HPROC hproc3 = SQL_NULL_HPROC;
   sqlstcode_t sqlstat = en_00000;
   SQLRETURN retcode = SQL_SUCCESS;
-  SQLUINTEGER odbc_ver = ((GENV_t *) pdbc->genv)->odbc_ver;
-  SQLUINTEGER dodbc_ver = ((ENV_t *) pdbc->henv)->dodbc_ver;
+  SQLUINTEGER odbc_ver;
+  SQLUINTEGER dodbc_ver;
+
+  odbc_ver = ((GENV_t *) pdbc->genv)->odbc_ver;
+  dodbc_ver = (penv != SQL_NULL_HENV) ? penv->dodbc_ver : odbc_ver;
 
 #if (ODBCVER < 0x0300)
   /* check option */
@@ -1044,12 +1047,12 @@ SQLGetConnectOptionA (
   SQLUSMALLINT		  fOption,
   SQLPOINTER		  pvParam)
 {
-  ENTER_HDBC (hdbc, 1,
+  ENTER_HDBC (hdbc, 0,
     trace_SQLGetConnectOption (TRACE_ENTER, hdbc, fOption, pvParam));
 
   retcode = _iodbcdm_GetConnectOption (hdbc, fOption, pvParam, 'A');
 
-  LEAVE_HDBC (hdbc, 1,
+  LEAVE_HDBC (hdbc, 0,
     trace_SQLGetConnectOption (TRACE_LEAVE, hdbc, fOption, pvParam));
 }
 
@@ -1060,12 +1063,12 @@ SQLGetConnectOptionW (
   SQLUSMALLINT		  fOption,
   SQLPOINTER		  pvParam)
 {
-  ENTER_HDBC (hdbc, 1,
+  ENTER_HDBC (hdbc, 0,
     trace_SQLGetConnectOptionW (TRACE_ENTER, hdbc, fOption, pvParam));
 
   retcode = _iodbcdm_GetConnectOption (hdbc, fOption, pvParam, 'W');
 
-  LEAVE_HDBC (hdbc, 1,
+  LEAVE_HDBC (hdbc, 0,
     trace_SQLGetConnectOptionW (TRACE_LEAVE, hdbc, fOption, pvParam));
 }
 #endif
@@ -1077,12 +1080,16 @@ _iodbcdm_transact (
     UWORD fType)
 {
   CONN (pdbc, hdbc);
+  ENVR (penv, pdbc->henv);
   STMT (pstmt, NULL);
   HPROC hproc2 = SQL_NULL_HPROC;
   HPROC hproc3 = SQL_NULL_HPROC;
   SQLRETURN retcode;
-  SQLUINTEGER odbc_ver = ((GENV_t *) pdbc->genv)->odbc_ver;
-  SQLUINTEGER dodbc_ver = ((ENV_t *) pdbc->henv)->dodbc_ver;
+  SQLUINTEGER odbc_ver;
+  SQLUINTEGER dodbc_ver;
+
+  odbc_ver = ((GENV_t *) pdbc->genv)->odbc_ver;
+  dodbc_ver = (penv != SQL_NULL_HENV) ? penv->dodbc_ver : odbc_ver;
 
   /* check state */
   switch (pdbc->state)

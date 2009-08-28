@@ -1,0 +1,374 @@
+diff -up -upr /SourceCache/ntp/ntp-42.2/ntp/include/ntp.h ./include/ntp.h
+--- /SourceCache/ntp/ntp-42.2/ntp/include/ntp.h	2006-12-28 04:03:04.000000000 -0800
++++ ./include/ntp.h	2008-08-17 08:53:02.000000000 -0700
+@@ -256,6 +256,11 @@ struct peer {
+ 	struct sockaddr_storage srcadr; /* address of remote host */
+ 	struct interface *dstadr; /* pointer to address on local host */
+         ISC_LINK(struct peer) ilink; /* interface link list */
++#ifdef __APPLE__
++        char *dns_name;
++        u_long dns_update;
++        u_int dns_ttl;
++#endif /* __APPLE__ */
+ 	associd_t associd;	/* association ID */
+ 	u_char	version;	/* version number */
+ 	u_char	hmode;		/* local association mode */
+@@ -434,6 +439,11 @@ struct peer {
+ #define FLAG_TRUE	0x2000	/* select truechimer */
+ #define	FLAG_PREEMPT	0x4000	/* preemptable association */
+ #define	FLAG_DYNAMIC	0x8000	/* dynamic addresses - allow configuration even if no interface is found */
++/* local configuration was specified -- override any DNS configuration */
++#define FLAG_UMINPOLL   0x10000
++#define FLAG_UMAXPOLL   0x20000
++#define FLAG_UBURST	0x40000
++#define FLAG_UIBURST	0x80000
+ 
+ /*
+  * Definitions for the clear() routine.  We use memset() to clear
+diff -up -upr /SourceCache/ntp/ntp-42.2/ntp/include/ntpd.h ./include/ntpd.h
+--- /SourceCache/ntp/ntp-42.2/ntp/include/ntpd.h	2006-12-28 04:03:06.000000000 -0800
++++ ./include/ntpd.h	2008-08-16 23:00:49.000000000 -0700
+@@ -140,7 +140,7 @@ extern  void         set_peerdstadr     
+ extern	struct peer *newpeer	P((struct sockaddr_storage *, struct interface *, int, int, int, int, u_int, u_char, int, keyid_t));
+ extern	void	peer_all_reset	P((void));
+ extern	void	peer_clr_stats	P((void));
+-extern	struct peer *peer_config P((struct sockaddr_storage *, struct interface *, int, int, int, int, u_int, int, keyid_t, u_char *));
++extern	struct peer *peer_config P((struct sockaddr_storage *, struct interface *, int, int, int, int, u_int, int, keyid_t, u_char *, char *));
+ extern	void	peer_reset	P((struct peer *));
+ extern	int 	peer_unconfig	P((struct sockaddr_storage *, struct interface *, int));
+ extern  void    refresh_all_peerinterfaces P((void));
+@@ -151,7 +151,7 @@ extern	void	clear_all	P((void));
+ extern	void	expire_all	P((void));
+ #endif /* OPENSSL */
+ extern	struct	peer *findmanycastpeer	P((struct recvbuf *));
+-
++extern	u_long	get_dns_flags	P((char*, struct peer *));
+ /* ntp_crypto.c */
+ #ifdef OPENSSL
+ extern	int	crypto_recv	P((struct peer *, struct recvbuf *));
+@@ -440,6 +442,7 @@ extern volatile int alarm_flag;		/* alar
+ extern u_char	sys_revoke;		/* keys revoke timeout (log2 s) */
+ extern volatile u_long alarm_overflow;
+ extern u_long	current_time;		/* current time (s) */
++extern u_long	dns_timer;
+ extern u_long	timer_timereset;
+ extern u_long	timer_overflows;
+ extern u_long	timer_xmtcalls;
+diff -up -upr /SourceCache/ntp/ntp-42.2/ntp/ntpd/Makefile.in ./ntpd/Makefile.in
+--- /SourceCache/ntp/ntp-42.2/ntp/ntpd/Makefile.in	2007-09-10 17:18:02.000000000 -0700
++++ ./ntpd/Makefile.in	2008-08-16 23:00:49.000000000 -0700
+@@ -280,7 +280,7 @@ man_MANS = ntpd.1 ntpdsim.1
+ # sqrt                                ntp_control.o
+ # floor                               refclock_wwv.o
+ # which are (usually) provided by -lm.
+-ntpd_LDADD = $(LDADD) -lm @LCRYPTO@ $(LIBOPTS_LDADD) ../libntp/libntp.a
++ntpd_LDADD = $(LDADD) -lm @LCRYPTO@ $(LIBOPTS_LDADD) ../libntp/libntp.a -framework IOKit -lresolv
+ ntpdsim_LDADD = $(LDADD) ../libntp/libntpsim.a -lm @LCRYPTO@ $(LIBOPTS_LDADD)
+ ntpdsim_CFLAGS = $(CFLAGS) -DSIM
+ check_y2k_LDADD = $(LDADD) ../libntp/libntp.a
+diff -up -upr /SourceCache/ntp/ntp-42.2/ntp/ntpd/ntp_config.c ./ntpd/ntp_config.c
+--- /SourceCache/ntp/ntp-42.2/ntp/ntpd/ntp_config.c	2007-08-18 13:24:43.000000000 -0700
++++ ./ntpd/ntp_config.c	2008-08-16 23:00:49.000000000 -0700
+@@ -767,6 +767,8 @@ getconfig(
+ 						    "minpoll: provided value (%d) is below minimum (%d)",
+ 						    minpoll, NTP_MINPOLL);
+ 					minpoll = NTP_MINPOLL;
++				    } else {
++				        peerflags |= FLAG_UMINPOLL;
+ 				    }
+ 				    break;
+ 
+@@ -784,6 +786,8 @@ getconfig(
+ 						    "maxpoll: provided value (%d) is above maximum (%d)",
+ 						    maxpoll, NTP_MAXPOLL);
+ 					maxpoll = NTP_MAXPOLL;
++				    } else {
++				        peerflags |= FLAG_UMAXPOLL;
+ 				    }
+ 				    break;
+ 
+@@ -803,11 +807,11 @@ getconfig(
+ 				    peerflags |= FLAG_TRUE;
+ 
+ 				case CONF_MOD_BURST:
+-				    peerflags |= FLAG_BURST;
++				    peerflags |= FLAG_BURST | FLAG_UBURST;
+ 				    break;
+ 
+ 				case CONF_MOD_IBURST:
+-				    peerflags |= FLAG_IBURST;
++				    peerflags |= FLAG_IBURST | FLAG_UIBURST;
+ 				    break;
+ 
+ 			        case CONF_MOD_DYNAMIC:
+@@ -859,7 +863,7 @@ getconfig(
+ 			    if (peer_config(&peeraddr,
+ 				ANY_INTERFACE_CHOOSE(&peeraddr), hmode,
+ 				peerversion, minpoll, maxpoll, peerflags,
+-				ttl, peerkey, peerkeystr) == 0) {
++				ttl, peerkey, peerkeystr, tokens[1]) == 0) {
+ 					msyslog(LOG_ERR,
+ 						"configuration of %s failed",
+ 						stoa(&peeraddr));
+diff -up -upr /SourceCache/ntp/ntp-42.2/ntp/ntpd/ntp_intres.c ./ntpd/ntp_intres.c
+--- /SourceCache/ntp/ntp-42.2/ntp/ntpd/ntp_intres.c	2008-05-02 15:12:12.000000000 -0700
++++ ./ntpd/ntp_intres.c	2008-08-16 23:00:49.000000000 -0700
+@@ -463,7 +463,10 @@ addentry(
+ 	ce->ce_flags = (u_char)flags;
+ 	ce->ce_ttl = (u_char)ttl;
+ 	ce->ce_keyid = keyid;
+-	strncpy((char *)ce->ce_keystr, keystr, MAXFILENAME);
++	if (keyid)
++		strlcpy((char *)ce->ce_keystr, keystr, MAXFILENAME);
++	else
++		strlcpy((char *)ce->ce_keystr, cp, MAXFILENAME);
+ 	ce->ce_next = NULL;
+ 
+ 	if (confentries == NULL) {
+diff -up -upr /SourceCache/ntp/ntp-42.2/ntp/ntpd/ntp_peer.c ./ntpd/ntp_peer.c
+--- /SourceCache/ntp/ntp-42.2/ntp/ntpd/ntp_peer.c	2007-05-27 04:02:49.000000000 -0700
++++ ./ntpd/ntp_peer.c	2008-08-17 08:49:26.000000000 -0700
+@@ -423,12 +423,13 @@ peer_config(
+ 	u_int flags,
+ 	int ttl,
+ 	keyid_t key,
+-	u_char *keystr
++	u_char *keystr,
++	char *dns_name
+ 	)
+ {
+ 	register struct peer *peer;
+ 	u_char cast_flags;
+-
++	u_long next_update;
+ 	/*
+ 	 * First search from the beginning for an association with given
+ 	 * remote address and mode. If an interface is given, search
+@@ -520,6 +521,12 @@ peer_config(
+ 		flags |= FLAG_IBURST;
+ 	peer = newpeer(srcadr, dstadr, hmode, version, minpoll, maxpoll,
+ 	    flags | FLAG_CONFIG, cast_flags, ttl, key);
++	if (peer) {
++		peer->dns_name = strdup(dns_name);
++		next_update = get_dns_flags(dns_name, peer);
++		if (dns_timer == 0 || (dns_timer > next_update))
++			dns_timer = next_update;
++	}
+ 	return (peer);
+ }
+ 
+@@ -1061,3 +1066,145 @@ findmanycastpeer(
+ 	}
+ 	return (NULL);
+ }
++
++#include <dns_util.h>
++
++u_long get_dns_flags(
++    char *dns_name,
++    struct peer* peer) 
++{
++	dns_handle_t handle;
++	dns_reply_t *reply;
++	dns_TXT_record_t *txt;
++	uint16_t klass, type;
++
++	handle = dns_open(NULL);
++	if (!handle) {
++	    return 0;
++	}
++	dns_class_number("IN", &klass);
++	dns_type_number("TXT", &type);
++	reply = dns_lookup(handle, dns_name, klass, type);
++
++	if (reply) {
++		int a;
++#if DEBUG
++		if (debug > 1) {
++			dns_print_reply(reply, stdout, 0xffff);
++			printf("status: %d\n", reply->status); /* skip if != DNS_STATUS_OK */
++			printf("answer count: %d\n", reply->header->ancount); /* skip if <= 0 */
++		}
++#endif
++		for (a = 0; a < reply->header->ancount; a++) {
++		        if ((reply->answer[a]->dnstype != type) ||
++			    (reply->answer[a]->dnsclass != klass))
++			    	continue; /* ignore non-TXT */
++			txt = reply->answer[a]->data.TXT;
++			if (txt) {
++				int s;
++				u_int old_flags = peer->flags & (FLAG_BURST | FLAG_IBURST);
++				u_int new_flags = 0;
++				u_char minpoll = NTP_MINDPOLL;
++				u_char maxpoll = NTP_MAXDPOLL;
++				for (s = 0; s < txt->string_count; s++) {
++#if DEBUG
++					if (debug > 1)
++						printf("%d: %s\n", s, txt->strings[s]);
++#endif
++					if (0 == strncmp(txt->strings[s], "ntp ", 4)) {
++						char *next = txt->strings[s]+4;
++						char *arg, *p;
++						long arg_val;
++						if (peer->dns_ttl != reply->answer[a]->ttl) {
++							peer->dns_ttl = reply->answer[a]->ttl;
++							msyslog(LOG_INFO, "DNS %s ttl %d",
++								dns_name, peer->dns_ttl);
++						}
++						if (peer->dns_ttl != 0)
++							peer->dns_update = current_time + peer->dns_ttl;
++						while (NULL != (p = strsep(&next, " \t"))) {
++							switch (*p) {
++							case 'b': /* burst */
++								if (strcmp(p, "burst") == 0) {
++									new_flags |= FLAG_BURST;
++								} else {
++									msyslog(LOG_WARNING, "DNS %s unknown configuration [%s]", dns_name, p);
++								}
++								break;
++
++							case 'i': /* iburst */
++								if (0 == strcmp(p, "iburst")) {
++									new_flags |= FLAG_IBURST;
++								} else { 
++									msyslog(LOG_WARNING, "DNS %s unknown configuration [%s]", dns_name, p);
++								}
++								break;
++
++							case 'm': /* min|maxpoll */
++								if ((0 == (strcmp(p, "minpoll"))) || (0 == strcmp(p, "maxpoll"))) {
++									if (next) {
++										arg = strsep(&next, " \t");
++										arg_val = strtol(arg, NULL, 10);
++										if (p[1] == 'i') {
++											minpoll = (u_char)max(NTP_MINPOLL, arg_val);
++										} else {
++											maxpoll = (u_char)min(NTP_MAXPOLL, arg_val);
++										}
++									} else {
++										msyslog(LOG_WARNING, "DNS %s option %s missing numeric argument", dns_name, p);
++									}
++								} else { 
++									msyslog(LOG_WARNING, "DNS %s unknown configuration [%s]", dns_name, p);
++								}
++								break;
++
++							default: 
++								msyslog(LOG_WARNING, "DNS %s unknown configuration [%s]", dns_name, p);
++								break;
++							}
++						}
++					} /* ignore random txt records */
++				}
++				if (0 == (peer->flags & FLAG_UMINPOLL) && (minpoll != peer->minpoll)) {
++					peer->minpoll = minpoll;
++					msyslog(LOG_INFO, "DNS %s minpoll %d",
++						dns_name, peer->minpoll);
++				}
++				if (0 == (peer->flags & FLAG_UMAXPOLL) && (maxpoll != peer->maxpoll)) {
++					peer->maxpoll = maxpoll;
++					msyslog(LOG_INFO, "DNS %s maxpoll %d",
++						dns_name, peer->maxpoll);
++				}
++				if (new_flags != old_flags) {
++					u_int changes;
++					if (peer->flags & FLAG_UIBURST) /* Don't override config setting */
++						new_flags |= FLAG_IBURST;
++					if (peer->flags & FLAG_IBURST)
++						new_flags |= FLAG_IBURST;
++					changes = new_flags ^ old_flags;
++					if (changes & FLAG_IBURST) {
++						if (new_flags & FLAG_IBURST)
++							peer->flags |= FLAG_IBURST;
++						else
++							peer->flags &= ~FLAG_IBURST;
++						msyslog(LOG_INFO, "DNS %s %ciburst",
++							dns_name,
++							(new_flags & FLAG_IBURST) ? '+' : '-');
++					}
++					if (changes & FLAG_BURST) {
++						if (new_flags & FLAG_BURST)
++							peer->flags |= FLAG_BURST;
++						else
++							peer->flags &= ~FLAG_BURST;
++						msyslog(LOG_INFO, "DNS %s %cburst",
++							dns_name,
++							(new_flags & FLAG_BURST) ? '+' : '-');
++					}
++				}
++			}
++		}
++		dns_free_reply(reply);
++	}
++	dns_free(handle);
++	return peer->dns_update;
++}
+diff -up -upr /SourceCache/ntp/ntp-42.2/ntp/ntpd/ntp_request.c ./ntpd/ntp_request.c
+--- /SourceCache/ntp/ntp-42.2/ntp/ntpd/ntp_request.c	2006-12-28 04:03:33.000000000 -0800
++++ ./ntpd/ntp_request.c	2008-08-16 23:00:49.000000000 -0700
+@@ -1410,7 +1410,7 @@ do_conf(
+ 		if (peer_config(&peeraddr, (struct interface *)0,
+ 		    temp_cp.hmode, temp_cp.version, temp_cp.minpoll, 
+ 		    temp_cp.maxpoll, fl, temp_cp.ttl, temp_cp.keyid,
+-		    NULL) == 0) {
++		    NULL, temp_cp.keystr) == 0) {
+ 			req_ack(srcadr, inter, inpkt, INFO_ERR_NODATA);
+ 			return;
+ 		}
+@@ -2671,7 +2671,7 @@ set_clock_fudge(
+ 	register int items;
+ 	struct refclockstat clock_stat;
+ 	struct sockaddr_storage addr;
+-	struct sockaddr_in tmp_clock;
++	struct sockaddr_in tmp_clock = { 0 };
+ 	l_fp ltmp;
+ 
+ 	memset((char *)&addr, 0, sizeof addr);
+diff -up -upr /SourceCache/ntp/ntp-42.2/ntp/ntpd/ntp_timer.c ./ntpd/ntp_timer.c
+--- /SourceCache/ntp/ntp-42.2/ntp/ntpd/ntp_timer.c	2006-12-28 04:03:34.000000000 -0800
++++ ./ntpd/ntp_timer.c	2008-08-16 23:00:49.000000000 -0700
+@@ -49,6 +49,7 @@ static	u_long keys_timer;		/* minute tim
+ static	u_long stats_timer;		/* stats timer */
+ static	u_long huffpuff_timer;		/* huff-n'-puff timer */
+ static  u_long interface_timer;	        /* interface update timer */
++u_long dns_timer;		/* update DNS flags on peers */
+ #ifdef OPENSSL
+ static	u_long revoke_timer;		/* keys revoke timer */
+ u_char	sys_revoke = KEY_REVOKE;	/* keys revoke timeout (log2 s) */
+@@ -252,6 +253,24 @@ get_timer_handle(void)
+ }
+ #endif
+ 
++static u_long update_dns_peers(void)
++{
++	u_int n;
++	u_long next_update = ~0UL, curr_update;
++	struct peer *peer;
++
++	for (n = 0; n < NTP_HASH_SIZE; n++) {
++		for (peer = peer_hash[n]; peer != 0; peer = peer->next) {
++			if (peer->dns_update && peer->dns_update <= current_time) {
++				curr_update = get_dns_flags(peer->dns_name, peer);
++				if (curr_update < next_update)
++					next_update = curr_update;
++			}
++		}
++	}
++	return next_update;
++}
++
+ /*
+  * timer - dispatch anyone who needs to be
+  */
+@@ -350,6 +369,10 @@ timer(void)
+ #endif
+ 	  interface_update(NULL, NULL);
+ 	}
++
++	if (dns_timer && (dns_timer <= current_time)) {
++		dns_timer = update_dns_peers();
++	}
+ 	
+ 	/*
+ 	 * Finally, periodically write stats.
+

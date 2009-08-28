@@ -1,26 +1,20 @@
 
-                            Less, version 394
+                            Less, version 418
 
-    This is the distribution of less, version 394, released 03 Dec 2005.
+    This is the distribution of less, version 418, released 02 Jan 2008.
     This program is part of the GNU project (http://www.gnu.org).
 
     This program is free software.  You may redistribute it and/or
     modify it under the terms of either:
 
     1. The GNU General Public License, as published by the Free
-       Software Foundation; either version 2, or (at your option) any
+       Software Foundation; either version 3, or (at your option) any
        later version.  A copy of this license is in the file COPYING.
     or
     2. The Less License, in the file LICENSE.
 
     Please report any problems to bug-less@gnu.org or markn@greenwoodsoftware.com.
     See http://www.greenwoodsoftware.com/less for the latest info.
-    You may also contact the author at:
-          Mark Nudelman
-          Greenwood Software
-          PO Box 2402
-          El Granada, CA  94018
-          USA
 
 =========================================================================
 
@@ -46,6 +40,7 @@ INSTALLATION (Unix systems only):
    --with-editor=program
      Specifies the default editor program used by the "v" command.
      The default is "vi".
+
    --with-regex=lib
      Specifies the regular expression library used by less for pattern
      matching.  The default is "auto", which means the configure program 
@@ -61,6 +56,7 @@ INSTALLATION (Unix systems only):
      Builds a "secure" version of less, with some features disabled
 	 to prevent users from viewing other files, accessing shell
 	 commands, etc.
+
 
 3. It is a good idea to look over the generated Makefile and defines.h
    and make sure they look ok.  If you know of any peculiarities of

@@ -43,7 +43,6 @@
 #include <fcntl.h>
 #include <syslog.h>
 #include <netdb.h>
-#include <utmp.h>
 #include <pwd.h>
 #include <setjmp.h>
 #include <sys/param.h>
@@ -91,6 +90,7 @@ static CFStringRef	service = NULL;
 static CFStringRef	access_concentrator = NULL;
 
 #define PPPOE_NKE	"PPPoE.kext"
+#define PPPOE_NKE_ID	"com.apple.nke.pppoe"
 
 int pppoevpn_get_pppd_args(struct vpn_params *params, int reload);
 int pppoevpn_listen(void);
@@ -98,7 +98,7 @@ int pppoevpn_accept(void);
 int pppoevpn_refuse(void);
 void pppoevpn_close(void);
 
-static u_long load_kext(char *kext);
+static u_long load_kext(char *kext, int byBundleID);
 
 
 /* -----------------------------------------------------------------------------
@@ -125,16 +125,20 @@ int start(struct vpn_channel* the_vpn_channel, CFBundleRef ref, CFBundleRef pppr
         if (s < 0) {
             if (url = CFBundleCopyBundleURL(pppref)) {
                 name[0] = 0;
-                CFURLGetFileSystemRepresentation(url, 0, name, MAXPATHLEN - 1);
+                CFURLGetFileSystemRepresentation(url, 0, (UInt8 *)name, MAXPATHLEN - 1);
                 CFRelease(url);
-                strcat(name, "/");
+                strlcat(name, "/", sizeof(name));
                 if (url = CFBundleCopyBuiltInPlugInsURL(pppref)) {
-                    CFURLGetFileSystemRepresentation(url, 0, name + strlen(name), 
+                    CFURLGetFileSystemRepresentation(url, 0, (UInt8 *)(name + strlen(name)), 
                                 MAXPATHLEN - strlen(name) - strlen(PPPOE_NKE) - 1);
                     CFRelease(url);
-                    strcat(name, "/");
-                    strcat(name, PPPOE_NKE);
-                    if (!load_kext(name))
+                    strlcat(name, "/", sizeof(name));
+                    strlcat(name, PPPOE_NKE, sizeof(name));
+#ifndef TARGET_EMBEDDED_OS
+                    if (!load_kext(name, 0))
+#else
+                    if (!load_kext(PPPOE_NKE_ID, 1))
+#endif
                         s = socket(PF_PPP, SOCK_DGRAM, PPPPROTO_PPPOE);
                 }	
             }
@@ -159,7 +163,7 @@ int start(struct vpn_channel* the_vpn_channel, CFBundleRef ref, CFBundleRef pppr
     the_vpn_channel->close = pppoevpn_close;
 
     /* copy default interface */
-    strcpy(device, "en0");
+    strlcpy(device, "en0", sizeof(device));
 
     return 0;
 }
@@ -197,7 +201,7 @@ int pppoevpn_get_pppd_args(struct vpn_params *params, int reload)
 /* ----------------------------------------------------------------------------- 
     system call wrappers
 ----------------------------------------------------------------------------- */
-int pppoe_sys_accept(int sockfd, struct sockaddr *cliaddr, int *addrlen)
+int pppoe_sys_accept(int sockfd, struct sockaddr *cliaddr, socklen_t *addrlen)
 {
     int fd;
     
@@ -238,7 +242,7 @@ static void closeall()
 /* -----------------------------------------------------------------------------
     load_kext
 ----------------------------------------------------------------------------- */
-static u_long load_kext(char *kext)
+u_long load_kext(char *kext, int byBundleID)
 {
     int pid;
 
@@ -248,7 +252,10 @@ static u_long load_kext(char *kext)
     if (pid == 0) {
         closeall();
         // PPP kernel extension not loaded, try load it...
-        execle("/sbin/kextload", "kextload", kext, (char *)0, (char *)0);
+		if (byBundleID)
+			execle("/sbin/kextload", "kextload", "-b", kext, (char *)0, (char *)0);
+		else
+			execle("/sbin/kextload", "kextload", kext, (char *)0, (char *)0);
         exit(1);
     }
 
@@ -347,7 +354,7 @@ int pppoevpn_accept(void)
     int				fdConn;
     struct sockaddr_storage	ssSender;
     struct sockaddr		*sapSender = (struct sockaddr *)&ssSender;
-    int				nSize = sizeof(ssSender);
+    socklen_t			nSize = sizeof(ssSender);
 
     if ((fdConn = pppoe_sys_accept(listen_sockfd, sapSender, &nSize)) < 0)
             return -1;
@@ -373,7 +380,7 @@ int pppoevpn_refuse(void)
     int				fdConn;
     struct sockaddr_pppoe	ssSender;
     struct sockaddr		*sapSender = (struct sockaddr *)&ssSender;
-    int				nSize = sizeof (ssSender);
+    socklen_t			nSize = sizeof (ssSender);
 
     if ((fdConn = pppoe_sys_accept(listen_sockfd, sapSender, &nSize)) < 0)
         return -1;

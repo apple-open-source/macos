@@ -221,7 +221,11 @@ CFStringRef _FSCopyLocalizedNameForVolumeFormatAtURL(CFURLRef url)
         if (statfs((char *)buffer, &fsInfo) == 0) {
             CFStringRef fsType = CFStringCreateWithCString(NULL, fsInfo.f_fstypename, kCFStringEncodingASCII);
 
+#ifdef _DARWIN_FEATURE_64_BIT_INODE
+            formatName = FSCopyFormatNameForFSType(fsType, fsInfo.f_fssubtype, true);
+#else
             formatName = FSCopyFormatNameForFSType(fsType, fsInfo.f_reserved1, true);
+#endif
 
             CFRelease(fsType);
         }
@@ -241,7 +245,11 @@ CFStringRef _FSCopyNameForVolumeFormatAtURL(CFURLRef url)
         if (statfs((char *)buffer, &fsInfo) == 0) {
             CFStringRef fsType = CFStringCreateWithCString(NULL, fsInfo.f_fstypename, kCFStringEncodingASCII);
 
+#ifdef _DARWIN_FEATURE_64_BIT_INODE
+            formatName = FSCopyFormatNameForFSType(fsType, fsInfo.f_fssubtype, false);
+#else
             formatName = FSCopyFormatNameForFSType(fsType, fsInfo.f_reserved1, false);
+#endif
 
             CFRelease(fsType);
         }

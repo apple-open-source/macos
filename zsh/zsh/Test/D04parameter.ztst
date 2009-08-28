@@ -1,4 +1,5 @@
 # Test parameter expansion.  Phew.
+# (By the way, did I say "phew"?)
 
 %prep
 
@@ -51,6 +52,14 @@
   print $+foo ${+foo} $+notappearinginthistest ${+notappearinginthistest}
 0:$+...
 >1 1 0 0
+
+  x=()
+  print ${+x} ${+x[1]} ${+x[(r)foo]} ${+x[(r)bar]}
+  x=(foo)
+  print ${+x} ${+x[1]} ${+x[(r)foo]} ${+x[(r)bar]}
+0:$+... with arrays
+>1 0 0 0
+>1 1 1 0
 
   set1=set1v
   null1=
@@ -274,6 +283,7 @@
   print ${(P)bar}
 0:${(P)...}
 >I'm nearly out of my mind with tedium
+#' deconfuse emacs
 
   foo=(I could be watching that programme I recorded)
   print ${(o)foo}
@@ -320,6 +330,39 @@
 0:${(Q)...}
 >and now even the pubs are shut.
 
+  foo="X$'\x41'$'\x42'Y"
+  print -r ${(Q)foo}
+0:${(Q)...} with handling of $'...'
+>XABY
+
+  # The following may look a bit random.
+  # For the split we are checking that anything that
+  # would normally be followed by a different word has
+  # an argument break after it and anything that wouldn't doesn't.
+  # For the (Q) we are simply checking that nothing disappears
+  # in the parsing.
+  foo='<five> {six} (seven) >eight< }nine{ |forty-two| $many$ )ten( more'
+  array=(${(z)foo})
+  print -l ${(Q)array}
+0:${(z)...} and ${(Q)...} for some hard to parse cases
+><
+>five
+>>
+>{six}
+>(
+>seven
+>)
+>>
+>eight
+><
+>}nine{
+>|
+>forty-two
+>|
+>$many$
+>)
+>ten( more
+
   psvar=(dog)
   setopt promptsubst
   foo='It shouldn'\''t $(happen) to a %1v.'
@@ -334,6 +377,7 @@
   print ${(QX)foo}
 1:${(QX)...}
 ?(eval):2: unmatched "
+# " deconfuse emacs
 
   array=(characters in an array)
   print ${(c)#array}
@@ -370,6 +414,7 @@
   print ${(pl.10..\x22..X.)foo}
 0:${(pl...)...}
 >Xresulting """"Xwords roariously """Xpadded
+#" deconfuse emacs
 
   print ${(l.5..X.r.5..Y.)foo}
   print ${(l.6..X.r.4..Y.)foo}
@@ -829,6 +874,7 @@
 0:Parameters associated with backreferences
 >match 12 16 match
 >1 1 1
+#' deconfuse emacs
 
   string='and look for a MATCH in here'
   if [[ ${(S)string%%(#m)M*H} = "and look for a  in here" ]]; then
@@ -913,3 +959,164 @@
 >AXB C1D
 >AB C0D
 >AB C0D
+
+  foo=(a6 a117 a17 b6 b117 b17)
+  print ${(n)foo}
+  print ${(On)foo}
+0:Numeric sorting
+>a6 a17 a117 b6 b17 b117
+>b117 b17 b6 a117 a17 a6
+
+  x=sprodj
+  x[-10]=scrumf
+  print $x
+0:Out of range negative scalar subscripts
+>scrumfsprodj
+
+  a=(some sunny day)
+  a[-10]=(we\'ll meet again)
+  print -l $a
+0:Out of range negative array subscripts
+>we'll
+>meet
+>again
+>some
+>sunny
+>day
+
+  foo="line:with::missing::fields:in:it"
+  print -l ${(s.:.)foo}
+0:Removal of empty fields in unquoted splitting
+>line
+>with
+>missing
+>fields
+>in
+>it
+
+  foo="line:with::missing::fields:in:it"
+  print -l "${(s.:.)foo}"
+0:Hacky removal of empty fields in quoted splitting with no "@"
+>line
+>with
+>missing
+>fields
+>in
+>it
+
+  foo="line:with::missing::fields:in:it"
+  print -l "${(@s.:.)foo}"
+0:Retention of empty fields in quoted splitting with "@"
+>line
+>with
+>
+>missing
+>
+>fields
+>in
+>it
+
+  array=('%' '$' 'j' '*' '$foo')
+  print ${array[(i)*]} "${array[(i)*]}"
+  print ${array[(ie)*]} "${array[(ie)*]}"
+  key='$foo'
+  print ${array[(ie)$key]} "${array[(ie)$key]}"
+  key='*'
+  print ${array[(ie)$key]} "${array[(ie)$key]}"
+0:Matching array indices with and without quoting
+>1 1
+>4 4
+>5 5
+>4 4
+
+# Ordering of associative arrays is arbitrary, so we need to use
+# patterns that only match one element.
+  typeset -A assoc_r
+  assoc_r=(star '*' of '*this*' and '!that!' or '(the|other)')
+  print ${(kv)assoc_r[(re)*]}
+  print ${(kv)assoc_r[(re)*this*]}
+  print ${(kv)assoc_r[(re)!that!]}
+  print ${(kv)assoc_r[(re)(the|other)]}
+  print ${(kv)assoc_r[(r)*at*]}
+  print ${(kv)assoc_r[(r)*(ywis|bliss|kiss|miss|this)*]}
+  print ${(kv)assoc_r[(r)(this|that|\(the\|other\))]}
+0:Reverse subscripting associative arrays with literal matching
+>star *
+>of *this*
+>and !that!
+>or (the|other)
+>and !that!
+>of *this*
+>or (the|other)
+
+  print $ZSH_SUBSHELL
+  (print $ZSH_SUBSHELL)
+  ( (print $ZSH_SUBSHELL) )
+  ( (print $ZSH_SUBSHELL); print $ZSH_SUBSHELL )
+  print $(print $ZSH_SUBSHELL)
+  cat =(print $ZSH_SUBSHELL)
+0:ZSH_SUBSHELL
+>0
+>1
+>2
+>2
+>1
+>1
+>1
+
+  foo=("|" "?")
+  [[ "|" = ${(j.|.)foo} ]] && print yes || print no
+  [[ "|" = ${(j.|.)~foo} ]] && print yes || print no
+  [[ "|" = ${(~j.|.)foo} ]] && print yes || print no
+  [[ "|" = ${(~~j.|.)foo} ]] && print yes || print no
+  [[ "|" = ${(j.|.~)foo} ]] && print yes || print no
+  [[ "x" = ${(j.|.)foo} ]] && print yes || print no
+  [[ "x" = ${(j.|.)~foo} ]] && print yes || print no
+  [[ "x" = ${(~j.|.)foo} ]] && print yes || print no
+  [[ "x" = ${(~~j.|.)foo} ]] && print yes || print no
+  [[ "x" = ${(j.|.~)foo} ]] && print yes || print no
+0:GLOBSUBST only on parameter substitution arguments
+>no
+>yes
+>yes
+>no
+>no
+>no
+>yes
+>no
+>no
+>no
+
+  rcexbug() {
+    emulate -L zsh
+    setopt rcexpandparam
+    local -A hash
+    local -a full empty
+    full=(X x)
+    hash=(X x)
+    print ORDINARY ARRAYS
+    : The following behaves as documented in zshoptions
+    print FULL expand=$full
+    : Empty arrays remove the adjacent argument
+    print EMPTY expand=$empty
+    print ASSOCIATIVE ARRAY
+    print Subscript flags returning many values
+    print FOUND key=$hash[(I)X] val=$hash[(R)x]
+    : This should behave like $empty, and does
+    print LOST key=$hash[(I)y] val=$hash[(R)Y]
+    print Subscript flags returning single values
+    : Doc says "substitutes ... empty string"
+    : so must not behave like an empty array
+    print STRING key=$hash[(i)y] val=$hash[(r)Y]
+  }
+  rcexbug
+0:Lookup failures on elements of arrays with RC_EXPAND_PARAM
+>ORDINARY ARRAYS
+>FULL expand=X expand=x
+>EMPTY
+>ASSOCIATIVE ARRAY
+>Subscript flags returning many values
+>FOUND key=X val=x
+>LOST
+>Subscript flags returning single values
+>STRING key= val=

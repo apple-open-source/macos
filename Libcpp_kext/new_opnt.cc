@@ -33,6 +33,7 @@
 
 extern new_handler __new_handler;
 
+#if defined(__i386__) || defined(__ppc__)
 void *
 operator new (unsigned long sz, const std::nothrow_t&)
 {
@@ -41,4 +42,4 @@ operator new (unsigned long sz, const std::nothrow_t&)
     sz = 1;
   return kern_os_malloc(sz);
 }
-
+#endif /* defined(__i386__) || defined(__ppc__) */

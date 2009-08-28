@@ -1,0 +1,20 @@
+[vset    encoding bin]
+[include encoding/header.inc]
+
+[para]
+
+This encoding transforms every byte in the input into a sequence of 8
+characters containing the binary representation of the byte.
+
+For example
+
+[para]
+[example {
+	% bin -mode encode Z
+	01011010
+}]
+
+[include encoding/middle.inc]
+[keywords hex oct]
+[include encoding/footer.inc]
+

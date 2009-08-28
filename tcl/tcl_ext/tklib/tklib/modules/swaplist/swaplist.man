@@ -1,0 +1,71 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin swaplist n 0.1]
+[moddesc   {A dialog which allows a user to move options between two lists}]
+[titledesc {A dialog which allows a user to move options between two lists}]
+[require Tcl 8.4]
+[require Tk 8.4]
+[require swaplist [opt 0.1]]
+[description]
+
+This package provides a dialog which consists of 2 listboxes, along with buttons to move items
+between them and reorder the right list.
+[para]
+
+[list_begin definitions]
+
+[call [cmd ::swaplist::swaplist] [arg pathName] [arg variable] [arg completeList] [arg selectedList] [opt options]]
+
+Creates a dialog which presents the user with a pair of listboxes. Items are selected by using the buttons to move
+them to the right list. The contents of the right list are put in the [arg variable] upon closure of the dialog.
+The command returns a boolean indicating if the user pressed OK or not. If -geometry is not specified, the
+dialog is centered in its parent toplevel unless its parent is . in which case the dialog is centered in the screen.
+
+[nl]
+
+Options:
+
+[comment {
+    The list below is the simplest for describing options.
+
+    A more complex is to use 'tkoption' instead of 'opt',
+    and 'tkoption_def' instead of 'opt_def'.
+
+    I (AK) refrained from doing so as I do not know the
+    names and classes used for the options in the option
+    database.
+}]
+
+[list_begin opt]
+
+[opt_def -embed] if this flag is supplied, the procedure will create a swaplist widget named [arg pathName], with the [arg variable] set as the
+listvariable for the right side listbox. This flag will also cause the -title and -geometry flags to be ignored.
+
+[opt_def -reorder] boolean specifying if buttons allowing the user to change the order of the right listbox should appear or not. defaults to true
+[opt_def -title] sets the title of the dialog window. defaults to "Configuration"
+[opt_def -llabel] sets the heading above the left list. defaults to "Available:"
+[opt_def -rlabel] sets the heading above the right list. defaults to "Selected:"
+[opt_def -lbuttontext] sets the text on the "move left" button. defaults to "<<"
+[opt_def -rbuttontext] sets the text on the "move right" button. defaults to ">>"
+[opt_def -ubuttontext] sets the text on the "move up" button. defaults to "Move Up"
+[opt_def -dbuttontext] sets the text on the "move down" button. defaults to "Move Down"
+[opt_def -geometry] sets the geometry of the dialog window.
+
+[list_end]
+
+[list_end]
+
+[section EXAMPLE]
+
+[example {
+package require swaplist
+namespace import swaplist::*
+
+if {[swaplist .slist opts "1 2 3 4 5 6 7 8 9" "1 3 5"]} {
+    puts "user chose numbers: $ops"
+}
+
+}]
+
+[keywords dialog disjointlistbox listbox]
+[manpage_end]
+

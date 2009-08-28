@@ -157,8 +157,7 @@ class AppleLVMMemoryDescriptor : public AppleRAIDMemoryDescriptor
     
  public:
     static AppleRAIDMemoryDescriptor * withStorageRequest(AppleRAIDStorageRequest * storageRequest, UInt32 memberIndex);
-    virtual IOPhysicalAddress getPhysicalSegment(IOByteCount offset, IOByteCount * length);
-    virtual addr64_t getPhysicalSegment64(IOByteCount offset, IOByteCount * length);
+    virtual addr64_t getPhysicalSegment(IOByteCount offset, IOByteCount * length, IOOptionBits options = 0);
 };
 
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -18,13 +18,6 @@
  * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
- */
-/*
- * Copyright (c) 1999 Apple Computer, Inc.  All rights reserved.
- *
- * HISTORY
- *
- *
  */
 
 #include <IOKit/assert.h>
@@ -69,10 +62,16 @@ IONetworkUserClient * IONetworkUserClient::withTask(task_t owningTask)
 
 bool IONetworkUserClient::start(IOService * provider)
 {
-    UInt32 i;
-
     _owner = OSDynamicCast(IONetworkInterface, provider);
     assert(_owner);
+
+    _handleArray = OSArray::withCapacity(4);
+    if (!_handleArray)
+        return false;
+
+    _handleLock = IOLockAlloc();
+    if (!_handleLock)
+        return false;
 
     if (!super::start(_owner))
         return false;
@@ -80,59 +79,31 @@ bool IONetworkUserClient::start(IOService * provider)
     if (!_owner->open(this))
         return false;
 
-    // Initialize the call structures.
-    //
-    i = kIONUCResetNetworkDataIndex;
-    _methods[i].object = this;
-    _methods[i].func   = (IOMethod) &IONetworkUserClient::resetNetworkData;
-    _methods[i].count0 = kIONUCResetNetworkDataInputs;
-    _methods[i].count1 = kIONUCResetNetworkDataOutputs;
-    _methods[i].flags  = kIONUCResetNetworkDataFlags;
-
-    i = kIONUCWriteNetworkDataIndex;
-    _methods[i].object = this;
-    _methods[i].func   = (IOMethod) &IONetworkUserClient::writeNetworkData;
-    _methods[i].count0 = kIONUCWriteNetworkDataInput0;
-    _methods[i].count1 = kIONUCWriteNetworkDataInput1;
-    _methods[i].flags  = kIONUCWriteNetworkDataFlags;
-
-    i = kIONUCReadNetworkDataIndex;
-    _methods[i].object = this;
-    _methods[i].func   = (IOMethod) &IONetworkUserClient::readNetworkData;
-    _methods[i].count0 = kIONUCReadNetworkDataInputs;
-    _methods[i].count1 = kIONUCReadNetworkDataOutputs;
-    _methods[i].flags  = kIONUCReadNetworkDataFlags;
-
-    i = kIONUCGetNetworkDataCapacityIndex;
-    _methods[i].object = this;
-    _methods[i].func   = (IOMethod) 
-                         &IONetworkUserClient::getNetworkDataCapacity;
-    _methods[i].count0 = kIONUCGetNetworkDataCapacityInputs;
-    _methods[i].count1 = kIONUCGetNetworkDataCapacityOutputs;
-    _methods[i].flags  = kIONUCGetNetworkDataCapacityFlags;
-
-    i = kIONUCGetNetworkDataHandleIndex;
-    _methods[i].object = this;
-    _methods[i].func   = (IOMethod) &IONetworkUserClient::getNetworkDataHandle;
-    _methods[i].count0 = kIONUCGetNetworkDataHandleInputs;
-    _methods[i].count1 = kIONUCGetNetworkDataHandleOutputs;
-    _methods[i].flags  = kIONUCGetNetworkDataHandleFlags;
-
     return true;
 }
 
 //---------------------------------------------------------------------------
 // Free the IONetworkUserClient instance.
 
-void IONetworkUserClient::free()
+void IONetworkUserClient::free(void)
 {
+    if (_handleArray)
+    {
+        _handleArray->release();
+        _handleArray = 0;
+    }
+    if (_handleLock)
+    {
+        IOLockFree(_handleLock);
+        _handleLock = 0;
+    }
     super::free();
 }
 
 //---------------------------------------------------------------------------
 // Handle a client close. Close and detach from our owner (provider).
 
-IOReturn IONetworkUserClient::clientClose()
+IOReturn IONetworkUserClient::clientClose(void)
 {
     if (_owner) {
         _owner->close(this);
@@ -145,30 +116,85 @@ IOReturn IONetworkUserClient::clientClose()
 //---------------------------------------------------------------------------
 // Handle client death. Close and detach from our owner (provider).
 
-IOReturn IONetworkUserClient::clientDied()
+IOReturn IONetworkUserClient::clientDied(void)
 {
     return clientClose();
 }
 
 //---------------------------------------------------------------------------
-// Look up an entry from the method array.
 
-IOExternalMethod *
-IONetworkUserClient::getExternalMethodForIndex(UInt32 index)
+IOReturn IONetworkUserClient::externalMethod(
+            uint32_t selector, IOExternalMethodArguments * arguments,
+            IOExternalMethodDispatch * dispatch, OSObject * target,
+            void * reference )
 {
-    if (index >= kIONUCLastIndex)
-        return 0;
-    else
-        return &_methods[index];
+    IOReturn    ret = kIOReturnBadArgument;
+
+    if (!arguments)
+        return kIOReturnBadArgument;
+
+    switch (selector)
+    {
+        case kIONUCResetNetworkDataIndex:
+            if (arguments->scalarInputCount == 1)
+                ret = resetNetworkData(
+                        (uint32_t) arguments->scalarInput[0]);
+            break;
+        
+        case kIONUCWriteNetworkDataIndex:
+            if ((arguments->scalarInputCount == 1) &&
+                (arguments->structureInputSize > 0))
+                ret = writeNetworkData(
+                        (uint32_t) arguments->scalarInput[0],
+                        (void *) arguments->structureInput,
+                        arguments->structureInputSize);
+            break;
+
+        case kIONUCReadNetworkDataIndex:
+            if ((arguments->scalarInputCount == 1) &&
+                (arguments->structureOutputSize > 0))
+                ret = readNetworkData(
+                        (uint32_t) arguments->scalarInput[0],
+                        arguments->structureOutput,
+                        &arguments->structureOutputSize);
+            break;
+
+        case kIONUCGetNetworkDataCapacityIndex:
+            if ((arguments->scalarInputCount  == 1) &&
+                (arguments->scalarOutputCount == 1))
+                ret = getNetworkDataCapacity(
+                        (uint32_t) arguments->scalarInput[0],
+                        &arguments->scalarOutput[0]);
+            break;
+
+        case kIONUCGetNetworkDataHandleIndex:
+            ret = getNetworkDataHandle(
+                    (const char *) arguments->structureInput,
+                    (uint32_t *) arguments->structureOutput,
+                    arguments->structureInputSize,
+                    &arguments->structureOutputSize);
+            break;
+   
+    }
+    
+    return ret;
 }
 
 //---------------------------------------------------------------------------
 // Fill the data buffer in an IONetworkData object with zeroes.
 
-IOReturn IONetworkUserClient::resetNetworkData(OSSymbol * key)
+IOReturn IONetworkUserClient::resetNetworkData(uint32_t  dataHandle)
 {
-    IONetworkData * data;
-    IOReturn        ret;
+    IONetworkData *  data;
+    const OSSymbol * key;
+    IOReturn         ret;
+
+    IOLockLock(_handleLock);
+    key = (const OSSymbol *) _handleArray->getObject(dataHandle);
+    IOLockUnlock(_handleLock);
+
+    if (!key)
+        return kIOReturnBadArgument;
 
     data = _owner->getNetworkData(key);
     ret = data ? data->reset() : kIOReturnBadArgument;
@@ -181,14 +207,19 @@ IOReturn IONetworkUserClient::resetNetworkData(OSSymbol * key)
 // source buffer provided by the caller.
 
 IOReturn
-IONetworkUserClient::writeNetworkData(OSSymbol *   key,
-                                      void *       srcBuffer,
-                                      IOByteCount  srcBufferSize)
+IONetworkUserClient::writeNetworkData(uint32_t  dataHandle,
+                                      void *    srcBuffer,
+                                      uint32_t  srcBufferSize)
 {
-    IONetworkData * data;
-    IOReturn        ret;
+    IONetworkData *  data;
+    const OSSymbol * key;
+    IOReturn         ret;
 
-    if (!srcBuffer || (srcBufferSize == 0))
+    IOLockLock(_handleLock);
+    key = (const OSSymbol *) _handleArray->getObject(dataHandle);
+    IOLockUnlock(_handleLock);
+
+    if (!key || !srcBuffer || !srcBufferSize)
         return kIOReturnBadArgument;
 
     data = _owner->getNetworkData(key);
@@ -202,18 +233,23 @@ IONetworkUserClient::writeNetworkData(OSSymbol *   key,
 // this data to a destination buffer provided by the caller.
 
 IOReturn
-IONetworkUserClient::readNetworkData(OSSymbol *    key,
-                                     void *        dstBuffer,
-                                     IOByteCount * dstBufferSize)
+IONetworkUserClient::readNetworkData(uint32_t   dataHandle,
+                                     void *     dstBuffer,
+                                     uint32_t * dstBufferSize)
 {
-    IONetworkData * data;
-    IOReturn        ret ;
+    IONetworkData *  data;
+    const OSSymbol * key;
+    IOReturn         ret;
 
-    if (!dstBuffer || !dstBufferSize)
+    IOLockLock(_handleLock);
+    key = (const OSSymbol *) _handleArray->getObject(dataHandle);
+    IOLockUnlock(_handleLock);
+
+    if (!key || !dstBuffer || !dstBufferSize)
         return kIOReturnBadArgument;
 
     data = _owner->getNetworkData(key);
-    ret = data ? data->read(dstBuffer, dstBufferSize) : 
+    ret = data ? data->read(dstBuffer, (UInt32 *) dstBufferSize) : 
                  kIOReturnBadArgument;
 
     return ret;
@@ -223,17 +259,24 @@ IONetworkUserClient::readNetworkData(OSSymbol *    key,
 // Get the capacity of an IONetworkData object.
 
 IOReturn
-IONetworkUserClient::getNetworkDataCapacity(OSSymbol * key,
-                                            UInt32 *   capacity)
+IONetworkUserClient::getNetworkDataCapacity(uint32_t   dataHandle,
+                                            uint64_t * capacity)
 {
-    IOReturn        ret = kIOReturnBadArgument;
-    IONetworkData * data;
+    const OSSymbol * key;
+    IONetworkData *  data;
+    IOReturn         ret = kIOReturnBadArgument;
 
-    data = _owner->getNetworkData(key);
+    IOLockLock(_handleLock);
+    key = (const OSSymbol *) _handleArray->getObject(dataHandle);
+    IOLockUnlock(_handleLock);
 
-    if (data) {
-        *capacity = data->getSize();
-        ret = kIOReturnSuccess;
+    if (key)
+    {
+        data = _owner->getNetworkData(key);
+        if (data) {
+            *capacity = (uint64_t) data->getSize();
+            ret = kIOReturnSuccess;
+        }
     }
 
     return ret;
@@ -245,13 +288,14 @@ IONetworkUserClient::getNetworkDataCapacity(OSSymbol * key,
 // to refer to the same object.
 
 IOReturn
-IONetworkUserClient::getNetworkDataHandle(char *         name,
-                                          OSSymbol **    handle,
-                                          IOByteCount    nameSize,
-                                          IOByteCount *  handleSizeP)
+IONetworkUserClient::getNetworkDataHandle(const char * name,
+                                          uint32_t *   handle,
+                                          uint32_t     nameSize,
+                                          uint32_t *   handleSizeP)
 {
     IOReturn         ret = kIOReturnBadArgument;
     const OSSymbol * key;
+    int              index;
 
     if (!name || !nameSize || (name[nameSize - 1] != '\0') ||
         (*handleSizeP != sizeof(*handle)))
@@ -263,8 +307,20 @@ IONetworkUserClient::getNetworkDataHandle(char *         name,
 
     if (_owner->getNetworkData(key))
     {
-        *handle = (OSSymbol *) key;
-        ret = kIOReturnSuccess;
+        IOLockLock(_handleLock);
+        index = _handleArray->getNextIndexOfObject(key, 0);
+        if (index < 0)
+        {
+            _handleArray->setObject(key);
+            index = _handleArray->getNextIndexOfObject(key, 0);
+        }
+        IOLockUnlock(_handleLock);
+
+        if (index >= 0)
+        {
+            *handle = index;
+            ret = kIOReturnSuccess;
+        }
     }
 
     if (key)
@@ -280,12 +336,4 @@ IOReturn
 IONetworkUserClient::setProperties(OSObject * properties)
 {
     return _owner->setProperties(properties);
-}
-
-//---------------------------------------------------------------------------
-// Return our provider. This is called by IOConnectGetService().
-
-IOService * IONetworkUserClient::getService()
-{
-    return _owner;
 }

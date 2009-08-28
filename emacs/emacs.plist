@@ -16,6 +16,10 @@
 	<array>
 		<string>MacOSX Build fixes</string>
 		<string>CVE-2007-6109.diff from http://cvs.savannah.gnu.org/viewvc/emacs/emacs/src/editfns.c?r1=1.439.2.3&amp;r2=1.439.2.9&amp;view=patch</string>
+		<string>CVE-2007-5795 diff from http://cvs.savannah.gnu.org/viewvc/emacs/lisp/files.el?r1=1.937&amp;r2=1.938&amp;sortby=date&amp;root=emacs&amp;view=patch</string>
+		<string>CVS-2008-2142 diff from http://cvs.savannah.gnu.org/viewvc/emacs/lisp/obsolete/fast-lock.el?r1=1.11.2.3&amp;r2=1.11.2.4&amp;view=patch&amp;sortby=date&amp;root=emacs&amp;pathrev=EMACS_22_BASE</string>
+		<string>Remove unneeded -fpascal-strings from darwin.h</string>
+		<string>python.el patch http://cvs.savannah.gnu.org/viewvc/emacs/lisp/progmodes/python.el?r1=1.89&amp;r2=1.90&amp;sortby=date&amp;root=emacs&amp;view=patch</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>GPL</string>

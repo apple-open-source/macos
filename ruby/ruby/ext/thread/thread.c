@@ -12,9 +12,6 @@
 #include <ruby.h>
 #include <intern.h>
 #include <rubysig.h>
-#include <node.h>
-
-enum rb_thread_status rb_thread_status _((VALUE));
 
 static VALUE rb_cMutex;
 static VALUE rb_cConditionVariable;
@@ -230,9 +227,7 @@ wake_one(List *list)
 
     waking = Qnil;
     while (list->entries && !RTEST(waking)) {
-	waking = shift_list(list);
-	if (waking == Qundef) break;
-	waking = wake_thread(waking);
+	waking = wake_thread(shift_list(list));
     }
 
     return waking;
@@ -263,10 +258,10 @@ wait_list_cleanup(List *list)
     return Qnil;
 }
 
-static void
+static VALUE
 wait_list(List *list)
 {
-    rb_ensure(wait_list_inner, (VALUE)list, wait_list_cleanup, (VALUE)list);
+    return rb_ensure(wait_list_inner, (VALUE)list, wait_list_cleanup, (VALUE)list);
 }
 
 static void
@@ -436,22 +431,6 @@ rb_mutex_lock(VALUE self)
     Data_Get_Struct(self, Mutex, mutex);
     lock_mutex(mutex);
     return self;
-}
-
-static VALUE
-relock_mutex(Mutex *mutex)
-{
-    VALUE current = rb_thread_current();
-
-    switch (rb_thread_status(current)) {
-      case THREAD_RUNNABLE:
-      case THREAD_STOPPED:
-	lock_mutex(mutex);
-	break;
-      default:
-	break;
-    }
-    return Qundef;
 }
 
 /*
@@ -664,7 +643,7 @@ wait_condvar(ConditionVariable *condvar, Mutex *mutex)
     if (RTEST(waking)) {
 	wake_thread(waking);
     }
-    rb_ensure(wait_list, (VALUE)&condvar->waiting, relock_mutex, (VALUE)mutex);
+    rb_ensure(wait_list, (VALUE)&condvar->waiting, lock_mutex, (VALUE)mutex);
 }
 
 static VALUE

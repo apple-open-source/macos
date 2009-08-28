@@ -1,0 +1,2236 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$103|#if defined(DOXYGEN)
+int mixed_block_test(char *bar);
+#else
+#define mixed_block_test(x) atoi(x)
+#endif
+$31|/**
+ * Badly formed block.
+ */
+$0|$21380|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/mixed_block_1.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/mixed_block_1.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 4
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 1
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => )
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} =>  #if defined(DOXYGEN)
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 1
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => 
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{typestring} => #
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 1
+typelist: MACRO
+namelist: )
+posstypes: MACRO
+value: 
+returntype:  #if defined(DOXYGEN)
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---#if
+|   +--- 
+|   +---defined
+|   +---(
+|   +---DOXYGEN
+|   +---)
+|   +---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: mixed block 1
+APIUID: //test_ref/doc/header/mixed_block_1.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 5
+    INDEX GROUP: 
+    IS BLOCK: 1
+    OBJECT TYPE: HeaderDoc::Function
+    NAME: mixed_block_test
+    APIUID: //test_ref/c/func/mixed_block_test
+    ABSTRACT: ""
+    DISCUSSION: "<p></p>"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: " int"
+    LINENUM: ""
+    CLASS: "HeaderDoc::Function"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/c/macro/mixed_block_test" --><p>mixed_block_test<!-- /a --></dt><dd></dd></dl></div>
+
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+    PARSED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: bar
+        TYPE: char *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        IS AVAILABILITY MACRO: 
+        PARSE ONLY: 
+        OBJECT TYPE: HeaderDoc::PDefine
+        NAME: mixed_block_test
+        APIUID: //test_ref/c/macro/mixed_block_test
+        ABSTRACT: ""
+        DISCUSSION: "<p>Badly formed block.
+"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::PDefine"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/c/func/mixed_block_test" --><p>mixed_block_test<!-- /a --></dt><dd></dd></dl></div>
+
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: x
+            TYPE: 
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: <p></p>
+            LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    IS AVAILABILITY MACRO: 
+    PARSE ONLY: 
+    OBJECT TYPE: HeaderDoc::PDefine
+    NAME: mixed_block_test
+    APIUID: //test_ref/c/macro/mixed_block_test
+    ABSTRACT: ""
+    DISCUSSION: "<p>Badly formed block.
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::PDefine"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/c/func/mixed_block_test" --><p>mixed_block_test<!-- /a --></dt><dd></dd></dl></div>
+
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+    PARSED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: x
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: mixed_block_test (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---mixed_block_test
+|   +---(
+|   +---x
+|   +---)
+|   +--- 
+|   +---atoi
+|   +---(
+|   +---x
+|   +---)
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT:  (HeaderDoc::HeaderElement)
++---#if
+|   +--- 
+|   +---defined
+|   +---(
+|   +---DOXYGEN
+|   +---)
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::Function)
++---int
++--- 
++---mixed_block_test
++---(
+|   +---char
+|   +--- 
+|   +---*
+|   +---bar
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::Function)
++---#else
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::Function)
++---#endif
+|   +---[ NEWLINE ]
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---mixed_block_test
+|   +---(
+|   +---x
+|   +---)
+|   +--- 
+|   +---atoi
+|   +---(
+|   +---x
+|   +---)
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---mixed_block_test
+|   +---(
+|   +---x
+|   +---)
+|   +--- 
+|   +---atoi
+|   +---(
+|   +---x
+|   +---)
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: mixed_block_test (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/mixed_block_test //test_ref/c/tdef/mixed_block_test //test_ref/c/tag/mixed_block_test //test_ref/c/econst/mixed_block_test //test_ref/c/struct/mixed_block_test //test_ref/c/data/mixed_block_test //test_ref/c/clconst/mixed_block_test //test_ref/c/intf/mixed_block_test //test_ref/c/instm/mixed_block_test //test_ref/c/clm/mixed_block_test //test_ref/c/intfcm/mixed_block_test //test_ref/c/intfm/mixed_block_test //test_ref/c/func/mixed_block_test //test_ref/c/ftmplt/mixed_block_test //test_ref/c/defn/mixed_block_test //test_ref/c/macro/mixed_block_test //test_ref/doc/com/intfm/mixed_block_test" --><span class="preprocessor">mixed_block_test</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/x //test_ref/c/tdef/x //test_ref/c/tag/x //test_ref/c/econst/x //test_ref/c/struct/x //test_ref/c/data/x //test_ref/c/clconst/x //test_ref/c/intf/x //test_ref/c/instm/x //test_ref/c/clm/x //test_ref/c/intfcm/x //test_ref/c/intfm/x //test_ref/c/func/x //test_ref/c/ftmplt/x //test_ref/c/defn/x //test_ref/c/macro/x //test_ref/doc/com/intfm/x" --><span class="preprocessor">x</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/atoi //test_ref/c/tdef/atoi //test_ref/c/tag/atoi //test_ref/c/econst/atoi //test_ref/c/struct/atoi //test_ref/c/data/atoi //test_ref/c/clconst/atoi //test_ref/c/intf/atoi //test_ref/c/instm/atoi //test_ref/c/clm/atoi //test_ref/c/intfcm/atoi //test_ref/c/intfm/atoi //test_ref/c/func/atoi //test_ref/c/ftmplt/atoi //test_ref/c/defn/atoi //test_ref/c/macro/atoi //test_ref/doc/com/intfm/atoi" --><span class="preprocessor">atoi</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/x //test_ref/c/tdef/x //test_ref/c/tag/x //test_ref/c/econst/x //test_ref/c/struct/x //test_ref/c/data/x //test_ref/c/clconst/x //test_ref/c/intf/x //test_ref/c/instm/x //test_ref/c/clm/x //test_ref/c/intfcm/x //test_ref/c/intfm/x //test_ref/c/func/x //test_ref/c/ftmplt/x //test_ref/c/defn/x //test_ref/c/macro/x //test_ref/doc/com/intfm/x" --><span class="preprocessor">x</span><!-- /a --><span class="preprocessor">)</span> 
+END OF OBJECT
+
+
+OBJECT:  (HeaderDoc::HeaderElement)
+	<span class="">#if</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/defined //test_ref/c/tdef/defined //test_ref/c/tag/defined //test_ref/c/econst/defined //test_ref/c/struct/defined //test_ref/c/data/defined //test_ref/c/clconst/defined //test_ref/c/intf/defined //test_ref/c/instm/defined //test_ref/c/clm/defined //test_ref/c/intfcm/defined //test_ref/c/intfm/defined //test_ref/c/func/defined //test_ref/c/ftmplt/defined //test_ref/c/defn/defined //test_ref/c/macro/defined //test_ref/doc/com/intfm/defined" --><span class="preprocessor">defined</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/DOXYGEN //test_ref/c/tdef/DOXYGEN //test_ref/c/tag/DOXYGEN //test_ref/c/econst/DOXYGEN //test_ref/c/struct/DOXYGEN //test_ref/c/data/DOXYGEN //test_ref/c/clconst/DOXYGEN //test_ref/c/intf/DOXYGEN //test_ref/c/instm/DOXYGEN //test_ref/c/clm/DOXYGEN //test_ref/c/intfcm/DOXYGEN //test_ref/c/intfm/DOXYGEN //test_ref/c/func/DOXYGEN //test_ref/c/ftmplt/DOXYGEN //test_ref/c/defn/DOXYGEN //test_ref/c/macro/DOXYGEN //test_ref/doc/com/intfm/DOXYGEN" --><span class="preprocessor">DOXYGEN</span><!-- /a --><span class="preprocessor">)</span> 
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::Function)
+	<!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/econst/int //test_ref/c/struct/int //test_ref/c/clconst/int //test_ref/c/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/instm/mixed_block_test //test_ref/c/clm/mixed_block_test //test_ref/c/intfcm/mixed_block_test //test_ref/c/intfm/mixed_block_test //test_ref/c/func/mixed_block_test //test_ref/c/ftmplt/mixed_block_test //test_ref/c/defn/mixed_block_test //test_ref/c/macro/mixed_block_test" --><span class="function">mixed_block_test</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/econst/char //test_ref/c/struct/char //test_ref/c/clconst/char //test_ref/c/intf/char" --><span class="type">char</span><!-- /a --> <span class="type">*</span><span class="param">bar</span>);  
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::Function)
+	<span class="">#else</span> 
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::Function)
+	<span class="">#endif</span>  
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/mixed_block_test //test_ref/c/tdef/mixed_block_test //test_ref/c/tag/mixed_block_test //test_ref/c/econst/mixed_block_test //test_ref/c/struct/mixed_block_test //test_ref/c/data/mixed_block_test //test_ref/c/clconst/mixed_block_test //test_ref/c/intf/mixed_block_test //test_ref/c/instm/mixed_block_test //test_ref/c/clm/mixed_block_test //test_ref/c/intfcm/mixed_block_test //test_ref/c/intfm/mixed_block_test //test_ref/c/func/mixed_block_test //test_ref/c/ftmplt/mixed_block_test //test_ref/c/defn/mixed_block_test //test_ref/c/macro/mixed_block_test //test_ref/doc/com/intfm/mixed_block_test" --><span class="preprocessor">mixed_block_test</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/x //test_ref/c/tdef/x //test_ref/c/tag/x //test_ref/c/econst/x //test_ref/c/struct/x //test_ref/c/data/x //test_ref/c/clconst/x //test_ref/c/intf/x //test_ref/c/instm/x //test_ref/c/clm/x //test_ref/c/intfcm/x //test_ref/c/intfm/x //test_ref/c/func/x //test_ref/c/ftmplt/x //test_ref/c/defn/x //test_ref/c/macro/x //test_ref/doc/com/intfm/x" --><span class="preprocessor">x</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/atoi //test_ref/c/tdef/atoi //test_ref/c/tag/atoi //test_ref/c/econst/atoi //test_ref/c/struct/atoi //test_ref/c/data/atoi //test_ref/c/clconst/atoi //test_ref/c/intf/atoi //test_ref/c/instm/atoi //test_ref/c/clm/atoi //test_ref/c/intfcm/atoi //test_ref/c/intfm/atoi //test_ref/c/func/atoi //test_ref/c/ftmplt/atoi //test_ref/c/defn/atoi //test_ref/c/macro/atoi //test_ref/doc/com/intfm/atoi" --><span class="preprocessor">atoi</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/x //test_ref/c/tdef/x //test_ref/c/tag/x //test_ref/c/econst/x //test_ref/c/struct/x //test_ref/c/data/x //test_ref/c/clconst/x //test_ref/c/intf/x //test_ref/c/instm/x //test_ref/c/clm/x //test_ref/c/intfcm/x //test_ref/c/intfm/x //test_ref/c/func/x //test_ref/c/ftmplt/x //test_ref/c/defn/x //test_ref/c/macro/x //test_ref/doc/com/intfm/x" --><span class="preprocessor">x</span><!-- /a --><span class="preprocessor">)</span> 
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/mixed_block_test //test_ref/c/tdef/mixed_block_test //test_ref/c/tag/mixed_block_test //test_ref/c/econst/mixed_block_test //test_ref/c/struct/mixed_block_test //test_ref/c/data/mixed_block_test //test_ref/c/clconst/mixed_block_test //test_ref/c/intf/mixed_block_test //test_ref/c/instm/mixed_block_test //test_ref/c/clm/mixed_block_test //test_ref/c/intfcm/mixed_block_test //test_ref/c/intfm/mixed_block_test //test_ref/c/func/mixed_block_test //test_ref/c/ftmplt/mixed_block_test //test_ref/c/defn/mixed_block_test //test_ref/c/macro/mixed_block_test //test_ref/doc/com/intfm/mixed_block_test" --><span class="preprocessor">mixed_block_test</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/x //test_ref/c/tdef/x //test_ref/c/tag/x //test_ref/c/econst/x //test_ref/c/struct/x //test_ref/c/data/x //test_ref/c/clconst/x //test_ref/c/intf/x //test_ref/c/instm/x //test_ref/c/clm/x //test_ref/c/intfcm/x //test_ref/c/intfm/x //test_ref/c/func/x //test_ref/c/ftmplt/x //test_ref/c/defn/x //test_ref/c/macro/x //test_ref/doc/com/intfm/x" --><span class="preprocessor">x</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/atoi //test_ref/c/tdef/atoi //test_ref/c/tag/atoi //test_ref/c/econst/atoi //test_ref/c/struct/atoi //test_ref/c/data/atoi //test_ref/c/clconst/atoi //test_ref/c/intf/atoi //test_ref/c/instm/atoi //test_ref/c/clm/atoi //test_ref/c/intfcm/atoi //test_ref/c/intfm/atoi //test_ref/c/func/atoi //test_ref/c/ftmplt/atoi //test_ref/c/defn/atoi //test_ref/c/macro/atoi //test_ref/doc/com/intfm/atoi" --><span class="preprocessor">atoi</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/x //test_ref/c/tdef/x //test_ref/c/tag/x //test_ref/c/econst/x //test_ref/c/struct/x //test_ref/c/data/x //test_ref/c/clconst/x //test_ref/c/intf/x //test_ref/c/instm/x //test_ref/c/clm/x //test_ref/c/intfcm/x //test_ref/c/intfm/x //test_ref/c/func/x //test_ref/c/ftmplt/x //test_ref/c/defn/x //test_ref/c/macro/x //test_ref/doc/com/intfm/x" --><span class="preprocessor">x</span><!-- /a --><span class="preprocessor">)</span> 
+END OF OBJECT
+
+
+
+$21380|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/mixed_block_1.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/mixed_block_1.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 4
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 1
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => )
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} =>  #if defined(DOXYGEN)
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 1
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => 
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{typestring} => #
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 1
+typelist: MACRO
+namelist: )
+posstypes: MACRO
+value: 
+returntype:  #if defined(DOXYGEN)
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---#if
+|   +--- 
+|   +---defined
+|   +---(
+|   +---DOXYGEN
+|   +---)
+|   +---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: mixed block 1
+APIUID: //test_ref/doc/header/mixed_block_1.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 5
+    INDEX GROUP: 
+    IS BLOCK: 1
+    OBJECT TYPE: HeaderDoc::Function
+    NAME: mixed_block_test
+    APIUID: //test_ref/c/func/mixed_block_test
+    ABSTRACT: ""
+    DISCUSSION: "<p></p>"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: " int"
+    LINENUM: ""
+    CLASS: "HeaderDoc::Function"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/c/macro/mixed_block_test" --><p>mixed_block_test<!-- /a --></dt><dd></dd></dl></div>
+
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+    PARSED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: bar
+        TYPE: char *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        IS AVAILABILITY MACRO: 
+        PARSE ONLY: 
+        OBJECT TYPE: HeaderDoc::PDefine
+        NAME: mixed_block_test
+        APIUID: //test_ref/c/macro/mixed_block_test
+        ABSTRACT: ""
+        DISCUSSION: "<p>Badly formed block.
+"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::PDefine"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/c/func/mixed_block_test" --><p>mixed_block_test<!-- /a --></dt><dd></dd></dl></div>
+
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: x
+            TYPE: 
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: <p></p>
+            LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    IS AVAILABILITY MACRO: 
+    PARSE ONLY: 
+    OBJECT TYPE: HeaderDoc::PDefine
+    NAME: mixed_block_test
+    APIUID: //test_ref/c/macro/mixed_block_test
+    ABSTRACT: ""
+    DISCUSSION: "<p>Badly formed block.
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::PDefine"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/c/func/mixed_block_test" --><p>mixed_block_test<!-- /a --></dt><dd></dd></dl></div>
+
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+    PARSED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: x
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: mixed_block_test (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---mixed_block_test
+|   +---(
+|   +---x
+|   +---)
+|   +--- 
+|   +---atoi
+|   +---(
+|   +---x
+|   +---)
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT:  (HeaderDoc::HeaderElement)
++---#if
+|   +--- 
+|   +---defined
+|   +---(
+|   +---DOXYGEN
+|   +---)
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::Function)
++---int
++--- 
++---mixed_block_test
++---(
+|   +---char
+|   +--- 
+|   +---*
+|   +---bar
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::Function)
++---#else
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::Function)
++---#endif
+|   +---[ NEWLINE ]
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---mixed_block_test
+|   +---(
+|   +---x
+|   +---)
+|   +--- 
+|   +---atoi
+|   +---(
+|   +---x
+|   +---)
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---mixed_block_test
+|   +---(
+|   +---x
+|   +---)
+|   +--- 
+|   +---atoi
+|   +---(
+|   +---x
+|   +---)
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: mixed_block_test (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/mixed_block_test //test_ref/c/tdef/mixed_block_test //test_ref/c/tag/mixed_block_test //test_ref/c/econst/mixed_block_test //test_ref/c/struct/mixed_block_test //test_ref/c/data/mixed_block_test //test_ref/c/clconst/mixed_block_test //test_ref/c/intf/mixed_block_test //test_ref/c/instm/mixed_block_test //test_ref/c/clm/mixed_block_test //test_ref/c/intfcm/mixed_block_test //test_ref/c/intfm/mixed_block_test //test_ref/c/func/mixed_block_test //test_ref/c/ftmplt/mixed_block_test //test_ref/c/defn/mixed_block_test //test_ref/c/macro/mixed_block_test //test_ref/doc/com/intfm/mixed_block_test" --><span class="preprocessor">mixed_block_test</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/x //test_ref/c/tdef/x //test_ref/c/tag/x //test_ref/c/econst/x //test_ref/c/struct/x //test_ref/c/data/x //test_ref/c/clconst/x //test_ref/c/intf/x //test_ref/c/instm/x //test_ref/c/clm/x //test_ref/c/intfcm/x //test_ref/c/intfm/x //test_ref/c/func/x //test_ref/c/ftmplt/x //test_ref/c/defn/x //test_ref/c/macro/x //test_ref/doc/com/intfm/x" --><span class="preprocessor">x</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/atoi //test_ref/c/tdef/atoi //test_ref/c/tag/atoi //test_ref/c/econst/atoi //test_ref/c/struct/atoi //test_ref/c/data/atoi //test_ref/c/clconst/atoi //test_ref/c/intf/atoi //test_ref/c/instm/atoi //test_ref/c/clm/atoi //test_ref/c/intfcm/atoi //test_ref/c/intfm/atoi //test_ref/c/func/atoi //test_ref/c/ftmplt/atoi //test_ref/c/defn/atoi //test_ref/c/macro/atoi //test_ref/doc/com/intfm/atoi" --><span class="preprocessor">atoi</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/x //test_ref/c/tdef/x //test_ref/c/tag/x //test_ref/c/econst/x //test_ref/c/struct/x //test_ref/c/data/x //test_ref/c/clconst/x //test_ref/c/intf/x //test_ref/c/instm/x //test_ref/c/clm/x //test_ref/c/intfcm/x //test_ref/c/intfm/x //test_ref/c/func/x //test_ref/c/ftmplt/x //test_ref/c/defn/x //test_ref/c/macro/x //test_ref/doc/com/intfm/x" --><span class="preprocessor">x</span><!-- /a --><span class="preprocessor">)</span> 
+END OF OBJECT
+
+
+OBJECT:  (HeaderDoc::HeaderElement)
+	<span class="">#if</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/defined //test_ref/c/tdef/defined //test_ref/c/tag/defined //test_ref/c/econst/defined //test_ref/c/struct/defined //test_ref/c/data/defined //test_ref/c/clconst/defined //test_ref/c/intf/defined //test_ref/c/instm/defined //test_ref/c/clm/defined //test_ref/c/intfcm/defined //test_ref/c/intfm/defined //test_ref/c/func/defined //test_ref/c/ftmplt/defined //test_ref/c/defn/defined //test_ref/c/macro/defined //test_ref/doc/com/intfm/defined" --><span class="preprocessor">defined</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/DOXYGEN //test_ref/c/tdef/DOXYGEN //test_ref/c/tag/DOXYGEN //test_ref/c/econst/DOXYGEN //test_ref/c/struct/DOXYGEN //test_ref/c/data/DOXYGEN //test_ref/c/clconst/DOXYGEN //test_ref/c/intf/DOXYGEN //test_ref/c/instm/DOXYGEN //test_ref/c/clm/DOXYGEN //test_ref/c/intfcm/DOXYGEN //test_ref/c/intfm/DOXYGEN //test_ref/c/func/DOXYGEN //test_ref/c/ftmplt/DOXYGEN //test_ref/c/defn/DOXYGEN //test_ref/c/macro/DOXYGEN //test_ref/doc/com/intfm/DOXYGEN" --><span class="preprocessor">DOXYGEN</span><!-- /a --><span class="preprocessor">)</span> 
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::Function)
+	<!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/econst/int //test_ref/c/struct/int //test_ref/c/clconst/int //test_ref/c/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/instm/mixed_block_test //test_ref/c/clm/mixed_block_test //test_ref/c/intfcm/mixed_block_test //test_ref/c/intfm/mixed_block_test //test_ref/c/func/mixed_block_test //test_ref/c/ftmplt/mixed_block_test //test_ref/c/defn/mixed_block_test //test_ref/c/macro/mixed_block_test" --><span class="function">mixed_block_test</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/econst/char //test_ref/c/struct/char //test_ref/c/clconst/char //test_ref/c/intf/char" --><span class="type">char</span><!-- /a --> <span class="type">*</span><span class="param">bar</span>);  
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::Function)
+	<span class="">#else</span> 
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::Function)
+	<span class="">#endif</span>  
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/mixed_block_test //test_ref/c/tdef/mixed_block_test //test_ref/c/tag/mixed_block_test //test_ref/c/econst/mixed_block_test //test_ref/c/struct/mixed_block_test //test_ref/c/data/mixed_block_test //test_ref/c/clconst/mixed_block_test //test_ref/c/intf/mixed_block_test //test_ref/c/instm/mixed_block_test //test_ref/c/clm/mixed_block_test //test_ref/c/intfcm/mixed_block_test //test_ref/c/intfm/mixed_block_test //test_ref/c/func/mixed_block_test //test_ref/c/ftmplt/mixed_block_test //test_ref/c/defn/mixed_block_test //test_ref/c/macro/mixed_block_test //test_ref/doc/com/intfm/mixed_block_test" --><span class="preprocessor">mixed_block_test</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/x //test_ref/c/tdef/x //test_ref/c/tag/x //test_ref/c/econst/x //test_ref/c/struct/x //test_ref/c/data/x //test_ref/c/clconst/x //test_ref/c/intf/x //test_ref/c/instm/x //test_ref/c/clm/x //test_ref/c/intfcm/x //test_ref/c/intfm/x //test_ref/c/func/x //test_ref/c/ftmplt/x //test_ref/c/defn/x //test_ref/c/macro/x //test_ref/doc/com/intfm/x" --><span class="preprocessor">x</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/atoi //test_ref/c/tdef/atoi //test_ref/c/tag/atoi //test_ref/c/econst/atoi //test_ref/c/struct/atoi //test_ref/c/data/atoi //test_ref/c/clconst/atoi //test_ref/c/intf/atoi //test_ref/c/instm/atoi //test_ref/c/clm/atoi //test_ref/c/intfcm/atoi //test_ref/c/intfm/atoi //test_ref/c/func/atoi //test_ref/c/ftmplt/atoi //test_ref/c/defn/atoi //test_ref/c/macro/atoi //test_ref/doc/com/intfm/atoi" --><span class="preprocessor">atoi</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/x //test_ref/c/tdef/x //test_ref/c/tag/x //test_ref/c/econst/x //test_ref/c/struct/x //test_ref/c/data/x //test_ref/c/clconst/x //test_ref/c/intf/x //test_ref/c/instm/x //test_ref/c/clm/x //test_ref/c/intfcm/x //test_ref/c/intfm/x //test_ref/c/func/x //test_ref/c/ftmplt/x //test_ref/c/defn/x //test_ref/c/macro/x //test_ref/doc/com/intfm/x" --><span class="preprocessor">x</span><!-- /a --><span class="preprocessor">)</span> 
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/mixed_block_test //test_ref/c/tdef/mixed_block_test //test_ref/c/tag/mixed_block_test //test_ref/c/econst/mixed_block_test //test_ref/c/struct/mixed_block_test //test_ref/c/data/mixed_block_test //test_ref/c/clconst/mixed_block_test //test_ref/c/intf/mixed_block_test //test_ref/c/instm/mixed_block_test //test_ref/c/clm/mixed_block_test //test_ref/c/intfcm/mixed_block_test //test_ref/c/intfm/mixed_block_test //test_ref/c/func/mixed_block_test //test_ref/c/ftmplt/mixed_block_test //test_ref/c/defn/mixed_block_test //test_ref/c/macro/mixed_block_test //test_ref/doc/com/intfm/mixed_block_test" --><span class="preprocessor">mixed_block_test</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/x //test_ref/c/tdef/x //test_ref/c/tag/x //test_ref/c/econst/x //test_ref/c/struct/x //test_ref/c/data/x //test_ref/c/clconst/x //test_ref/c/intf/x //test_ref/c/instm/x //test_ref/c/clm/x //test_ref/c/intfcm/x //test_ref/c/intfm/x //test_ref/c/func/x //test_ref/c/ftmplt/x //test_ref/c/defn/x //test_ref/c/macro/x //test_ref/doc/com/intfm/x" --><span class="preprocessor">x</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/atoi //test_ref/c/tdef/atoi //test_ref/c/tag/atoi //test_ref/c/econst/atoi //test_ref/c/struct/atoi //test_ref/c/data/atoi //test_ref/c/clconst/atoi //test_ref/c/intf/atoi //test_ref/c/instm/atoi //test_ref/c/clm/atoi //test_ref/c/intfcm/atoi //test_ref/c/intfm/atoi //test_ref/c/func/atoi //test_ref/c/ftmplt/atoi //test_ref/c/defn/atoi //test_ref/c/macro/atoi //test_ref/doc/com/intfm/atoi" --><span class="preprocessor">atoi</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/x //test_ref/c/tdef/x //test_ref/c/tag/x //test_ref/c/econst/x //test_ref/c/struct/x //test_ref/c/data/x //test_ref/c/clconst/x //test_ref/c/intf/x //test_ref/c/instm/x //test_ref/c/clm/x //test_ref/c/intfcm/x //test_ref/c/intfm/x //test_ref/c/func/x //test_ref/c/ftmplt/x //test_ref/c/defn/x //test_ref/c/macro/x //test_ref/doc/com/intfm/x" --><span class="preprocessor">x</span><!-- /a --><span class="preprocessor">)</span> 
+END OF OBJECT
+
+
+
+$160|This is a test based on a reduction of an actual failure.
+Previous versions of HeaderDoc crashed if you mixed
+functions and #define macros in the same file....
+$41|testsuite/parser_tests/mixed_block_1.test$1|C$13|mixed block 1$21380|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/mixed_block_1.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/mixed_block_1.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 4
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 1
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => )
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} =>  #if defined(DOXYGEN)
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 1
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => 
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{typestring} => #
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 1
+typelist: MACRO
+namelist: )
+posstypes: MACRO
+value: 
+returntype:  #if defined(DOXYGEN)
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---#if
+|   +--- 
+|   +---defined
+|   +---(
+|   +---DOXYGEN
+|   +---)
+|   +---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: mixed block 1
+APIUID: //test_ref/doc/header/mixed_block_1.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 5
+    INDEX GROUP: 
+    IS BLOCK: 1
+    OBJECT TYPE: HeaderDoc::Function
+    NAME: mixed_block_test
+    APIUID: //test_ref/c/func/mixed_block_test
+    ABSTRACT: ""
+    DISCUSSION: "<p></p>"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: " int"
+    LINENUM: ""
+    CLASS: "HeaderDoc::Function"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/c/macro/mixed_block_test" --><p>mixed_block_test<!-- /a --></dt><dd></dd></dl></div>
+
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+    PARSED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: bar
+        TYPE: char *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        IS AVAILABILITY MACRO: 
+        PARSE ONLY: 
+        OBJECT TYPE: HeaderDoc::PDefine
+        NAME: mixed_block_test
+        APIUID: //test_ref/c/macro/mixed_block_test
+        ABSTRACT: ""
+        DISCUSSION: "<p>Badly formed block.
+"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::PDefine"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/c/func/mixed_block_test" --><p>mixed_block_test<!-- /a --></dt><dd></dd></dl></div>
+
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: x
+            TYPE: 
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: <p></p>
+            LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    IS AVAILABILITY MACRO: 
+    PARSE ONLY: 
+    OBJECT TYPE: HeaderDoc::PDefine
+    NAME: mixed_block_test
+    APIUID: //test_ref/c/macro/mixed_block_test
+    ABSTRACT: ""
+    DISCUSSION: "<p>Badly formed block.
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::PDefine"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/c/func/mixed_block_test" --><p>mixed_block_test<!-- /a --></dt><dd></dd></dl></div>
+
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+    PARSED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: x
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: mixed_block_test (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---mixed_block_test
+|   +---(
+|   +---x
+|   +---)
+|   +--- 
+|   +---atoi
+|   +---(
+|   +---x
+|   +---)
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT:  (HeaderDoc::HeaderElement)
++---#if
+|   +--- 
+|   +---defined
+|   +---(
+|   +---DOXYGEN
+|   +---)
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::Function)
++---int
++--- 
++---mixed_block_test
++---(
+|   +---char
+|   +--- 
+|   +---*
+|   +---bar
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::Function)
++---#else
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::Function)
++---#endif
+|   +---[ NEWLINE ]
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---mixed_block_test
+|   +---(
+|   +---x
+|   +---)
+|   +--- 
+|   +---atoi
+|   +---(
+|   +---x
+|   +---)
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---mixed_block_test
+|   +---(
+|   +---x
+|   +---)
+|   +--- 
+|   +---atoi
+|   +---(
+|   +---x
+|   +---)
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: mixed_block_test (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/mixed_block_test //test_ref/c/tdef/mixed_block_test //test_ref/c/tag/mixed_block_test //test_ref/c/econst/mixed_block_test //test_ref/c/struct/mixed_block_test //test_ref/c/data/mixed_block_test //test_ref/c/clconst/mixed_block_test //test_ref/c/intf/mixed_block_test //test_ref/c/instm/mixed_block_test //test_ref/c/clm/mixed_block_test //test_ref/c/intfcm/mixed_block_test //test_ref/c/intfm/mixed_block_test //test_ref/c/func/mixed_block_test //test_ref/c/ftmplt/mixed_block_test //test_ref/c/defn/mixed_block_test //test_ref/c/macro/mixed_block_test //test_ref/doc/com/intfm/mixed_block_test" --><span class="preprocessor">mixed_block_test</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/x //test_ref/c/tdef/x //test_ref/c/tag/x //test_ref/c/econst/x //test_ref/c/struct/x //test_ref/c/data/x //test_ref/c/clconst/x //test_ref/c/intf/x //test_ref/c/instm/x //test_ref/c/clm/x //test_ref/c/intfcm/x //test_ref/c/intfm/x //test_ref/c/func/x //test_ref/c/ftmplt/x //test_ref/c/defn/x //test_ref/c/macro/x //test_ref/doc/com/intfm/x" --><span class="preprocessor">x</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/atoi //test_ref/c/tdef/atoi //test_ref/c/tag/atoi //test_ref/c/econst/atoi //test_ref/c/struct/atoi //test_ref/c/data/atoi //test_ref/c/clconst/atoi //test_ref/c/intf/atoi //test_ref/c/instm/atoi //test_ref/c/clm/atoi //test_ref/c/intfcm/atoi //test_ref/c/intfm/atoi //test_ref/c/func/atoi //test_ref/c/ftmplt/atoi //test_ref/c/defn/atoi //test_ref/c/macro/atoi //test_ref/doc/com/intfm/atoi" --><span class="preprocessor">atoi</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/x //test_ref/c/tdef/x //test_ref/c/tag/x //test_ref/c/econst/x //test_ref/c/struct/x //test_ref/c/data/x //test_ref/c/clconst/x //test_ref/c/intf/x //test_ref/c/instm/x //test_ref/c/clm/x //test_ref/c/intfcm/x //test_ref/c/intfm/x //test_ref/c/func/x //test_ref/c/ftmplt/x //test_ref/c/defn/x //test_ref/c/macro/x //test_ref/doc/com/intfm/x" --><span class="preprocessor">x</span><!-- /a --><span class="preprocessor">)</span> 
+END OF OBJECT
+
+
+OBJECT:  (HeaderDoc::HeaderElement)
+	<span class="">#if</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/defined //test_ref/c/tdef/defined //test_ref/c/tag/defined //test_ref/c/econst/defined //test_ref/c/struct/defined //test_ref/c/data/defined //test_ref/c/clconst/defined //test_ref/c/intf/defined //test_ref/c/instm/defined //test_ref/c/clm/defined //test_ref/c/intfcm/defined //test_ref/c/intfm/defined //test_ref/c/func/defined //test_ref/c/ftmplt/defined //test_ref/c/defn/defined //test_ref/c/macro/defined //test_ref/doc/com/intfm/defined" --><span class="preprocessor">defined</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/DOXYGEN //test_ref/c/tdef/DOXYGEN //test_ref/c/tag/DOXYGEN //test_ref/c/econst/DOXYGEN //test_ref/c/struct/DOXYGEN //test_ref/c/data/DOXYGEN //test_ref/c/clconst/DOXYGEN //test_ref/c/intf/DOXYGEN //test_ref/c/instm/DOXYGEN //test_ref/c/clm/DOXYGEN //test_ref/c/intfcm/DOXYGEN //test_ref/c/intfm/DOXYGEN //test_ref/c/func/DOXYGEN //test_ref/c/ftmplt/DOXYGEN //test_ref/c/defn/DOXYGEN //test_ref/c/macro/DOXYGEN //test_ref/doc/com/intfm/DOXYGEN" --><span class="preprocessor">DOXYGEN</span><!-- /a --><span class="preprocessor">)</span> 
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::Function)
+	<!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/econst/int //test_ref/c/struct/int //test_ref/c/clconst/int //test_ref/c/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/instm/mixed_block_test //test_ref/c/clm/mixed_block_test //test_ref/c/intfcm/mixed_block_test //test_ref/c/intfm/mixed_block_test //test_ref/c/func/mixed_block_test //test_ref/c/ftmplt/mixed_block_test //test_ref/c/defn/mixed_block_test //test_ref/c/macro/mixed_block_test" --><span class="function">mixed_block_test</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/econst/char //test_ref/c/struct/char //test_ref/c/clconst/char //test_ref/c/intf/char" --><span class="type">char</span><!-- /a --> <span class="type">*</span><span class="param">bar</span>);  
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::Function)
+	<span class="">#else</span> 
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::Function)
+	<span class="">#endif</span>  
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/mixed_block_test //test_ref/c/tdef/mixed_block_test //test_ref/c/tag/mixed_block_test //test_ref/c/econst/mixed_block_test //test_ref/c/struct/mixed_block_test //test_ref/c/data/mixed_block_test //test_ref/c/clconst/mixed_block_test //test_ref/c/intf/mixed_block_test //test_ref/c/instm/mixed_block_test //test_ref/c/clm/mixed_block_test //test_ref/c/intfcm/mixed_block_test //test_ref/c/intfm/mixed_block_test //test_ref/c/func/mixed_block_test //test_ref/c/ftmplt/mixed_block_test //test_ref/c/defn/mixed_block_test //test_ref/c/macro/mixed_block_test //test_ref/doc/com/intfm/mixed_block_test" --><span class="preprocessor">mixed_block_test</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/x //test_ref/c/tdef/x //test_ref/c/tag/x //test_ref/c/econst/x //test_ref/c/struct/x //test_ref/c/data/x //test_ref/c/clconst/x //test_ref/c/intf/x //test_ref/c/instm/x //test_ref/c/clm/x //test_ref/c/intfcm/x //test_ref/c/intfm/x //test_ref/c/func/x //test_ref/c/ftmplt/x //test_ref/c/defn/x //test_ref/c/macro/x //test_ref/doc/com/intfm/x" --><span class="preprocessor">x</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/atoi //test_ref/c/tdef/atoi //test_ref/c/tag/atoi //test_ref/c/econst/atoi //test_ref/c/struct/atoi //test_ref/c/data/atoi //test_ref/c/clconst/atoi //test_ref/c/intf/atoi //test_ref/c/instm/atoi //test_ref/c/clm/atoi //test_ref/c/intfcm/atoi //test_ref/c/intfm/atoi //test_ref/c/func/atoi //test_ref/c/ftmplt/atoi //test_ref/c/defn/atoi //test_ref/c/macro/atoi //test_ref/doc/com/intfm/atoi" --><span class="preprocessor">atoi</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/x //test_ref/c/tdef/x //test_ref/c/tag/x //test_ref/c/econst/x //test_ref/c/struct/x //test_ref/c/data/x //test_ref/c/clconst/x //test_ref/c/intf/x //test_ref/c/instm/x //test_ref/c/clm/x //test_ref/c/intfcm/x //test_ref/c/intfm/x //test_ref/c/func/x //test_ref/c/ftmplt/x //test_ref/c/defn/x //test_ref/c/macro/x //test_ref/doc/com/intfm/x" --><span class="preprocessor">x</span><!-- /a --><span class="preprocessor">)</span> 
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/mixed_block_test //test_ref/c/tdef/mixed_block_test //test_ref/c/tag/mixed_block_test //test_ref/c/econst/mixed_block_test //test_ref/c/struct/mixed_block_test //test_ref/c/data/mixed_block_test //test_ref/c/clconst/mixed_block_test //test_ref/c/intf/mixed_block_test //test_ref/c/instm/mixed_block_test //test_ref/c/clm/mixed_block_test //test_ref/c/intfcm/mixed_block_test //test_ref/c/intfm/mixed_block_test //test_ref/c/func/mixed_block_test //test_ref/c/ftmplt/mixed_block_test //test_ref/c/defn/mixed_block_test //test_ref/c/macro/mixed_block_test //test_ref/doc/com/intfm/mixed_block_test" --><span class="preprocessor">mixed_block_test</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/x //test_ref/c/tdef/x //test_ref/c/tag/x //test_ref/c/econst/x //test_ref/c/struct/x //test_ref/c/data/x //test_ref/c/clconst/x //test_ref/c/intf/x //test_ref/c/instm/x //test_ref/c/clm/x //test_ref/c/intfcm/x //test_ref/c/intfm/x //test_ref/c/func/x //test_ref/c/ftmplt/x //test_ref/c/defn/x //test_ref/c/macro/x //test_ref/doc/com/intfm/x" --><span class="preprocessor">x</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/atoi //test_ref/c/tdef/atoi //test_ref/c/tag/atoi //test_ref/c/econst/atoi //test_ref/c/struct/atoi //test_ref/c/data/atoi //test_ref/c/clconst/atoi //test_ref/c/intf/atoi //test_ref/c/instm/atoi //test_ref/c/clm/atoi //test_ref/c/intfcm/atoi //test_ref/c/intfm/atoi //test_ref/c/func/atoi //test_ref/c/ftmplt/atoi //test_ref/c/defn/atoi //test_ref/c/macro/atoi //test_ref/doc/com/intfm/atoi" --><span class="preprocessor">atoi</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/x //test_ref/c/tdef/x //test_ref/c/tag/x //test_ref/c/econst/x //test_ref/c/struct/x //test_ref/c/data/x //test_ref/c/clconst/x //test_ref/c/intf/x //test_ref/c/instm/x //test_ref/c/clm/x //test_ref/c/intfcm/x //test_ref/c/intfm/x //test_ref/c/func/x //test_ref/c/ftmplt/x //test_ref/c/defn/x //test_ref/c/macro/x //test_ref/doc/com/intfm/x" --><span class="preprocessor">x</span><!-- /a --><span class="preprocessor">)</span> 
+END OF OBJECT
+
+
+
+$21380|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/mixed_block_1.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/mixed_block_1.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 4
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 1
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => )
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} =>  #if defined(DOXYGEN)
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 1
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => 
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{typestring} => #
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 1
+typelist: MACRO
+namelist: )
+posstypes: MACRO
+value: 
+returntype:  #if defined(DOXYGEN)
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---#if
+|   +--- 
+|   +---defined
+|   +---(
+|   +---DOXYGEN
+|   +---)
+|   +---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: mixed block 1
+APIUID: //test_ref/doc/header/mixed_block_1.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 5
+    INDEX GROUP: 
+    IS BLOCK: 1
+    OBJECT TYPE: HeaderDoc::Function
+    NAME: mixed_block_test
+    APIUID: //test_ref/c/func/mixed_block_test
+    ABSTRACT: ""
+    DISCUSSION: "<p></p>"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: " int"
+    LINENUM: ""
+    CLASS: "HeaderDoc::Function"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/c/macro/mixed_block_test" --><p>mixed_block_test<!-- /a --></dt><dd></dd></dl></div>
+
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+    PARSED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: bar
+        TYPE: char *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        IS AVAILABILITY MACRO: 
+        PARSE ONLY: 
+        OBJECT TYPE: HeaderDoc::PDefine
+        NAME: mixed_block_test
+        APIUID: //test_ref/c/macro/mixed_block_test
+        ABSTRACT: ""
+        DISCUSSION: "<p>Badly formed block.
+"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::PDefine"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/c/func/mixed_block_test" --><p>mixed_block_test<!-- /a --></dt><dd></dd></dl></div>
+
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: x
+            TYPE: 
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: <p></p>
+            LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    IS AVAILABILITY MACRO: 
+    PARSE ONLY: 
+    OBJECT TYPE: HeaderDoc::PDefine
+    NAME: mixed_block_test
+    APIUID: //test_ref/c/macro/mixed_block_test
+    ABSTRACT: ""
+    DISCUSSION: "<p>Badly formed block.
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::PDefine"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/c/func/mixed_block_test" --><p>mixed_block_test<!-- /a --></dt><dd></dd></dl></div>
+
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+    PARSED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: x
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: mixed_block_test (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---mixed_block_test
+|   +---(
+|   +---x
+|   +---)
+|   +--- 
+|   +---atoi
+|   +---(
+|   +---x
+|   +---)
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT:  (HeaderDoc::HeaderElement)
++---#if
+|   +--- 
+|   +---defined
+|   +---(
+|   +---DOXYGEN
+|   +---)
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::Function)
++---int
++--- 
++---mixed_block_test
++---(
+|   +---char
+|   +--- 
+|   +---*
+|   +---bar
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::Function)
++---#else
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::Function)
++---#endif
+|   +---[ NEWLINE ]
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---mixed_block_test
+|   +---(
+|   +---x
+|   +---)
+|   +--- 
+|   +---atoi
+|   +---(
+|   +---x
+|   +---)
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---mixed_block_test
+|   +---(
+|   +---x
+|   +---)
+|   +--- 
+|   +---atoi
+|   +---(
+|   +---x
+|   +---)
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: mixed_block_test (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/mixed_block_test //test_ref/c/tdef/mixed_block_test //test_ref/c/tag/mixed_block_test //test_ref/c/econst/mixed_block_test //test_ref/c/struct/mixed_block_test //test_ref/c/data/mixed_block_test //test_ref/c/clconst/mixed_block_test //test_ref/c/intf/mixed_block_test //test_ref/c/instm/mixed_block_test //test_ref/c/clm/mixed_block_test //test_ref/c/intfcm/mixed_block_test //test_ref/c/intfm/mixed_block_test //test_ref/c/func/mixed_block_test //test_ref/c/ftmplt/mixed_block_test //test_ref/c/defn/mixed_block_test //test_ref/c/macro/mixed_block_test //test_ref/doc/com/intfm/mixed_block_test" --><span class="preprocessor">mixed_block_test</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/x //test_ref/c/tdef/x //test_ref/c/tag/x //test_ref/c/econst/x //test_ref/c/struct/x //test_ref/c/data/x //test_ref/c/clconst/x //test_ref/c/intf/x //test_ref/c/instm/x //test_ref/c/clm/x //test_ref/c/intfcm/x //test_ref/c/intfm/x //test_ref/c/func/x //test_ref/c/ftmplt/x //test_ref/c/defn/x //test_ref/c/macro/x //test_ref/doc/com/intfm/x" --><span class="preprocessor">x</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/atoi //test_ref/c/tdef/atoi //test_ref/c/tag/atoi //test_ref/c/econst/atoi //test_ref/c/struct/atoi //test_ref/c/data/atoi //test_ref/c/clconst/atoi //test_ref/c/intf/atoi //test_ref/c/instm/atoi //test_ref/c/clm/atoi //test_ref/c/intfcm/atoi //test_ref/c/intfm/atoi //test_ref/c/func/atoi //test_ref/c/ftmplt/atoi //test_ref/c/defn/atoi //test_ref/c/macro/atoi //test_ref/doc/com/intfm/atoi" --><span class="preprocessor">atoi</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/x //test_ref/c/tdef/x //test_ref/c/tag/x //test_ref/c/econst/x //test_ref/c/struct/x //test_ref/c/data/x //test_ref/c/clconst/x //test_ref/c/intf/x //test_ref/c/instm/x //test_ref/c/clm/x //test_ref/c/intfcm/x //test_ref/c/intfm/x //test_ref/c/func/x //test_ref/c/ftmplt/x //test_ref/c/defn/x //test_ref/c/macro/x //test_ref/doc/com/intfm/x" --><span class="preprocessor">x</span><!-- /a --><span class="preprocessor">)</span> 
+END OF OBJECT
+
+
+OBJECT:  (HeaderDoc::HeaderElement)
+	<span class="">#if</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/defined //test_ref/c/tdef/defined //test_ref/c/tag/defined //test_ref/c/econst/defined //test_ref/c/struct/defined //test_ref/c/data/defined //test_ref/c/clconst/defined //test_ref/c/intf/defined //test_ref/c/instm/defined //test_ref/c/clm/defined //test_ref/c/intfcm/defined //test_ref/c/intfm/defined //test_ref/c/func/defined //test_ref/c/ftmplt/defined //test_ref/c/defn/defined //test_ref/c/macro/defined //test_ref/doc/com/intfm/defined" --><span class="preprocessor">defined</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/DOXYGEN //test_ref/c/tdef/DOXYGEN //test_ref/c/tag/DOXYGEN //test_ref/c/econst/DOXYGEN //test_ref/c/struct/DOXYGEN //test_ref/c/data/DOXYGEN //test_ref/c/clconst/DOXYGEN //test_ref/c/intf/DOXYGEN //test_ref/c/instm/DOXYGEN //test_ref/c/clm/DOXYGEN //test_ref/c/intfcm/DOXYGEN //test_ref/c/intfm/DOXYGEN //test_ref/c/func/DOXYGEN //test_ref/c/ftmplt/DOXYGEN //test_ref/c/defn/DOXYGEN //test_ref/c/macro/DOXYGEN //test_ref/doc/com/intfm/DOXYGEN" --><span class="preprocessor">DOXYGEN</span><!-- /a --><span class="preprocessor">)</span> 
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::Function)
+	<!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/econst/int //test_ref/c/struct/int //test_ref/c/clconst/int //test_ref/c/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/instm/mixed_block_test //test_ref/c/clm/mixed_block_test //test_ref/c/intfcm/mixed_block_test //test_ref/c/intfm/mixed_block_test //test_ref/c/func/mixed_block_test //test_ref/c/ftmplt/mixed_block_test //test_ref/c/defn/mixed_block_test //test_ref/c/macro/mixed_block_test" --><span class="function">mixed_block_test</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/econst/char //test_ref/c/struct/char //test_ref/c/clconst/char //test_ref/c/intf/char" --><span class="type">char</span><!-- /a --> <span class="type">*</span><span class="param">bar</span>);  
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::Function)
+	<span class="">#else</span> 
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::Function)
+	<span class="">#endif</span>  
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/mixed_block_test //test_ref/c/tdef/mixed_block_test //test_ref/c/tag/mixed_block_test //test_ref/c/econst/mixed_block_test //test_ref/c/struct/mixed_block_test //test_ref/c/data/mixed_block_test //test_ref/c/clconst/mixed_block_test //test_ref/c/intf/mixed_block_test //test_ref/c/instm/mixed_block_test //test_ref/c/clm/mixed_block_test //test_ref/c/intfcm/mixed_block_test //test_ref/c/intfm/mixed_block_test //test_ref/c/func/mixed_block_test //test_ref/c/ftmplt/mixed_block_test //test_ref/c/defn/mixed_block_test //test_ref/c/macro/mixed_block_test //test_ref/doc/com/intfm/mixed_block_test" --><span class="preprocessor">mixed_block_test</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/x //test_ref/c/tdef/x //test_ref/c/tag/x //test_ref/c/econst/x //test_ref/c/struct/x //test_ref/c/data/x //test_ref/c/clconst/x //test_ref/c/intf/x //test_ref/c/instm/x //test_ref/c/clm/x //test_ref/c/intfcm/x //test_ref/c/intfm/x //test_ref/c/func/x //test_ref/c/ftmplt/x //test_ref/c/defn/x //test_ref/c/macro/x //test_ref/doc/com/intfm/x" --><span class="preprocessor">x</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/atoi //test_ref/c/tdef/atoi //test_ref/c/tag/atoi //test_ref/c/econst/atoi //test_ref/c/struct/atoi //test_ref/c/data/atoi //test_ref/c/clconst/atoi //test_ref/c/intf/atoi //test_ref/c/instm/atoi //test_ref/c/clm/atoi //test_ref/c/intfcm/atoi //test_ref/c/intfm/atoi //test_ref/c/func/atoi //test_ref/c/ftmplt/atoi //test_ref/c/defn/atoi //test_ref/c/macro/atoi //test_ref/doc/com/intfm/atoi" --><span class="preprocessor">atoi</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/x //test_ref/c/tdef/x //test_ref/c/tag/x //test_ref/c/econst/x //test_ref/c/struct/x //test_ref/c/data/x //test_ref/c/clconst/x //test_ref/c/intf/x //test_ref/c/instm/x //test_ref/c/clm/x //test_ref/c/intfcm/x //test_ref/c/intfm/x //test_ref/c/func/x //test_ref/c/ftmplt/x //test_ref/c/defn/x //test_ref/c/macro/x //test_ref/doc/com/intfm/x" --><span class="preprocessor">x</span><!-- /a --><span class="preprocessor">)</span> 
+END OF OBJECT
+
+
+OBJECT: mixed_block_test (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/mixed_block_test //test_ref/c/tdef/mixed_block_test //test_ref/c/tag/mixed_block_test //test_ref/c/econst/mixed_block_test //test_ref/c/struct/mixed_block_test //test_ref/c/data/mixed_block_test //test_ref/c/clconst/mixed_block_test //test_ref/c/intf/mixed_block_test //test_ref/c/instm/mixed_block_test //test_ref/c/clm/mixed_block_test //test_ref/c/intfcm/mixed_block_test //test_ref/c/intfm/mixed_block_test //test_ref/c/func/mixed_block_test //test_ref/c/ftmplt/mixed_block_test //test_ref/c/defn/mixed_block_test //test_ref/c/macro/mixed_block_test //test_ref/doc/com/intfm/mixed_block_test" --><span class="preprocessor">mixed_block_test</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/x //test_ref/c/tdef/x //test_ref/c/tag/x //test_ref/c/econst/x //test_ref/c/struct/x //test_ref/c/data/x //test_ref/c/clconst/x //test_ref/c/intf/x //test_ref/c/instm/x //test_ref/c/clm/x //test_ref/c/intfcm/x //test_ref/c/intfm/x //test_ref/c/func/x //test_ref/c/ftmplt/x //test_ref/c/defn/x //test_ref/c/macro/x //test_ref/doc/com/intfm/x" --><span class="preprocessor">x</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/atoi //test_ref/c/tdef/atoi //test_ref/c/tag/atoi //test_ref/c/econst/atoi //test_ref/c/struct/atoi //test_ref/c/data/atoi //test_ref/c/clconst/atoi //test_ref/c/intf/atoi //test_ref/c/instm/atoi //test_ref/c/clm/atoi //test_ref/c/intfcm/atoi //test_ref/c/intfm/atoi //test_ref/c/func/atoi //test_ref/c/ftmplt/atoi //test_ref/c/defn/atoi //test_ref/c/macro/atoi //test_ref/doc/com/intfm/atoi" --><span class="preprocessor">atoi</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/x //test_ref/c/tdef/x //test_ref/c/tag/x //test_ref/c/econst/x //test_ref/c/struct/x //test_ref/c/data/x //test_ref/c/clconst/x //test_ref/c/intf/x //test_ref/c/instm/x //test_ref/c/clm/x //test_ref/c/intfcm/x //test_ref/c/intfm/x //test_ref/c/func/x //test_ref/c/ftmplt/x //test_ref/c/defn/x //test_ref/c/macro/x //test_ref/doc/com/intfm/x" --><span class="preprocessor">x</span><!-- /a --><span class="preprocessor">)</span> 
+END OF OBJECT
+
+
+
+$1|C$6|parser

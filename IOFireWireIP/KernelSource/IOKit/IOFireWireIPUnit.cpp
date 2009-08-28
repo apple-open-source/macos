@@ -82,10 +82,10 @@ bool IOFireWireIPUnit::start(IOService *provider)
 		IOLog("IOFireWireIPUnit - updateARBwithDevice failed \n");
         return (false);
 	}
-	
+
 	fFWBusInterface->fwIPUnitAttach();
 
-	fTerminateNotifier = IOService::addNotification(gIOTerminatedNotification, 
+	fTerminateNotifier = IOService::addMatchingNotification(gIOTerminatedNotification, 
 													serviceMatching("IOFWIPBusInterface"), 
 													&busInterfaceTerminate, this, (void*)fFWBusInterface, 0);
 
@@ -96,7 +96,7 @@ bool IOFireWireIPUnit::start(IOService *provider)
     return true;
 }
 
-bool IOFireWireIPUnit::busInterfaceTerminate(void *target, void *refCon, IOService *newService)
+bool IOFireWireIPUnit::busInterfaceTerminate(void *target, void *refCon, IOService *newService, IONotifier * notifier)
 {
 	if(target == NULL || newService == NULL)
 		return false;

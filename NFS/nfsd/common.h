@@ -27,6 +27,8 @@
 struct nfs_conf_server {
 	int async;			/* sysctl */
 	int bonjour;			/* nfsd */
+	int bonjour_local_domain_only;	/* nfsd */
+	int export_hash_size;		/* sysctl */
 	int fsevents;			/* sysctl */
 	int mount_port;			/* mountd */
 	int mount_regular_files;	/* mountd */

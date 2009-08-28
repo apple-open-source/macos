@@ -1,0 +1,190 @@
+# Features covered: stacked handler, tdom command
+#
+# This file contains a collection of tests for using several handler scripts
+# for an event, and the mixed usage of tcl handler scripts and C coded
+# parser extensions.
+#
+# Copyright (c) 2002 Rolf Ade.
+#
+# RCS: @(#) $Id: stackedhdl.test,v 1.3 2002/10/01 11:00:28 zoran Exp $
+
+source [file join [file dir [info script]] loadtdom.tcl]
+
+proc Count {args} {
+    if {![info exists ::count]} {
+        set ::count 1
+    } else {
+        incr ::count
+    }
+}
+
+proc CharCount {name args} {
+    if {![info exists ::charcount]} {
+        set ::charcount [string length $name]
+    } else {
+        incr ::charcount [string length $name]
+    }
+}
+
+proc CDataHandler {data} {
+    if {![info exists ::cdata]} {
+        set ::cdata [string length $data]
+    } else {
+        incr ::cdata [string length $data]
+    }
+}
+
+test stackedhdl-1.1 {two handlers for element start} {
+    catch {unset ::count} 
+    catch {unset ::charcount}
+    set p [expat -elementstartcommand Count \
+                 -handlerset charcount -elementstartcommand CharCount]
+    $p parse {<root><a/><a></a></root>}
+    list $::count $::charcount
+} {3 6}
+
+test stackedhdl-1.2 {two handlers for element start} {
+    catch {unset ::count} 
+    catch {unset ::charcount}
+    set p [expat]
+    $p configure -elementstartcommand Count
+    $p configure -handlerset charcount -elementstartcommand CharCount
+    $p parse {<root><a/><a></a></root>}
+    list $::count $::charcount
+} {3 6}
+
+test stackedhdl-1.3 {two handlers for element start} {
+    catch {unset ::count} 
+    catch {unset ::charcount}
+    set p [expat]
+    $p configure -handlerset charcount -elementstartcommand CharCount
+    $p configure -elementstartcommand Count
+    $p parse {<root><a/><a></a></root>}
+    list $::count $::charcount
+} {3 6}
+
+test stackedhdl-1.4 {two handlers for element start and end} {
+    catch {unset ::count} 
+    catch {unset ::charcount}
+    set p [expat -elementstartcommand Count -elementendcommand Count \
+                 -handlerset charcount -elementstartcommand CharCount \
+                 -elementendcommand CharCount]
+    $p parse {<root><a/><a></a></root>}
+    list $::count $::charcount
+} {6 12}
+
+test stackedhdl-1.5 {two handlers for element start} {
+    catch {unset ::count} 
+    catch {unset ::charcount}
+    set p [expat]
+    $p configure -elementstartcommand Count -elementendcommand Count
+    $p configure -handlerset charcount -elementstartcommand CharCount \
+                 -elementendcommand CharCount
+    $p parse {<root><a/><a></a></root>}
+    list $::count $::charcount
+} {6 12}
+
+test stackedhdl-1.6 {two handlers for element start} {
+    catch {unset ::count} 
+    catch {unset ::charcount}
+    set p [expat]
+    $p configure -handlerset charcount -elementstartcommand CharCount \
+                 -elementendcommand CharCount
+    $p configure -elementstartcommand Count -elementendcommand Count
+    $p parse {<root><a/><a></a></root>}
+    list $::count $::charcount
+} {6 12}
+
+test stackedhdl-1.6 {two handlers for element start} {
+    catch {unset ::count} 
+    catch {unset ::charcount}
+    set p [expat]
+    $p configure -handlerset charcount -elementstartcommand CharCount \
+                 -elementendcommand CharCount
+    $p configure -elementstartcommand Count -elementendcommand Count
+    $p parse {<root><a/><a></a></root>}
+    list $::count $::charcount
+} {6 12}
+
+test stackedhdl-1.7 {two handlers for element start} {
+    catch {unset ::count} 
+    catch {unset ::charcount}
+    set p [expat]
+    $p configure -handlerset charcount -elementstartcommand CharCount
+    $p configure -elementstartcommand Count
+    $p configure -handlerset charcount -elementendcommand CharCount
+    $p configure -elementendcommand Count
+    $p parse {<root><a/><a></a></root>}
+    list $::count $::charcount
+} {6 12}
+
+
+test stackedhdl-1.8 {same handler script for the same event in differen handler sets} {
+    catch {unset ::count} 
+    set p [expat -elementstartcommand Count \
+                 -handlerset charcount -elementstartcommand Count]
+    $p parse {<root><a/><a></a></root>}
+    set ::count
+} {6}
+
+test stackedhdl-1.9 {same handler script for the same event in differen handler sets} {
+    catch {unset ::count} 
+    set p [expat -elementendcommand Count \
+                 -handlerset charcount -elementendcommand Count]
+    $p parse {<root><a/><a></a></root>}
+    set ::count
+} {6}
+
+test stackedhdl-1.10 {lots of handler sets, without default handler set} {
+    catch {unset ::count} 
+    catch {unset ::charcount}
+    catch {unset ::cdata}
+    set p [expat]
+    for {set x 0} {$x < 100} {incr x} {
+        $p configure -handlerset set$x -elementstartcommand Count \
+                     -elementendcommand CharCount \
+                     -characterdatacommand CDataHandler
+    }
+    $p parse {<root>  <a/><a></a></root>}
+    list $::count $::charcount $::cdata
+} {300 600 200}
+
+test stackedhdl-2.1 {tcl handler and C coded parser extension} {
+    catch {unset ::count}
+    set p [expat -elementstartcommand Count]
+    tdom $p enable
+    $p parse {<root><a/><a>boo</a></root>}
+    set doc [tdom $p getdoc]
+    set root [$doc documentElement]
+    set result [list $::count [llength [$root childNodes]]]
+    $doc delete
+    set result
+} {3 2}
+
+test stackedhdl-2.2 {tcl handler and C coded parser extension} {
+    catch {unset ::count}
+    set p [expat -elementstartcommand Count]
+    tdom $p enable
+    $p parse {<root><a/><a>boo</a></root>}
+    set doc [tdom $p getdoc]
+    $p free
+    set root [$doc documentElement]
+    set result [list $::count [llength [$root childNodes]]]
+    $doc delete
+    set result
+} {3 2}
+
+test stackedhdl-3.1 {don't request the DOM tree from a tdom enabled parser} {
+    set p [expat]
+    tdom $p enable
+    $p parse {<root><a/><a>boo</a></root>}
+    $p free
+} {}
+
+foreach parser [info commands xmlparser*] {
+    $parser free
+}
+
+# cleanup
+::tcltest::cleanupTests
+return

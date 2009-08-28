@@ -30,7 +30,7 @@
 #define _SECURITY_SECTRUSTEDAPPLICATIONPRIV_H_
 
 #include <Security/SecTrustedApplication.h>
-#include <Security/SecRequirement.h>
+#include <Security/SecRequirementPriv.h>
 
 
 #if defined(__cplusplus)

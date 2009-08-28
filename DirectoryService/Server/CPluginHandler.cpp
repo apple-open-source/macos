@@ -40,29 +40,30 @@
 #include "CDSPluginUtils.h"
 #include "CCachePlugin.h"
 #include "DSEventSemaphore.h"
+#include "CInternalDispatch.h"
 
 // --------------------------------------------------------------------------------
 //	* Globals
 // --------------------------------------------------------------------------------
 
-#warning VERIFY the version string for the static plugins before each software release
-//KW not clear we use the version string for anything yet in a static plugin
-//static plugin name and version strings
-static const char *sStaticPluginList[ kNumStaticPlugins ][ 2 ] =
+extern const char *gStrDaemonAppleVersion;
+
+//static plugin names
+static const char	*sStaticPluginList[]	= { "Cache", "Configure", "Local", "LDAPv3", "Search", "BSD" };
+
+enum ePluginIndex
 {
-	{ "Cache",		"1.0" },
-	{ "Configure",	"3.0" },
-	{ "NetInfo",	"3.0" },
-	{ "Local",		"1.1" },
-	{ "LDAPv3",		"3.1" },
-	{ "Search",		"3.1" },
-	{ "BSD",		"2.0" }
+	kPluginCache	= 0,
+	kPluginConfigure,
+	kPluginLocal,
+	kPluginLDAPv3,
+	kPluginSearch,
+	kPluginBSD
 };
 
 extern	dsBool			gDSLocalOnlyMode;
 extern	bool			gNetInfoPluginIsLoaded;
 extern	dsBool			gDSInstallDaemonMode;
-extern	CCachePlugin   *gCacheNode;
 extern  DSEventSemaphore gKickCacheRequests;
 
 //--------------------------------------------------------------------------------------------------
@@ -70,7 +71,7 @@ extern  DSEventSemaphore gKickCacheRequests;
 //
 //--------------------------------------------------------------------------------------------------
 
-CPluginHandler::CPluginHandler ( void ) : CInternalDispatchThread(kTSPlugInHndlrThread)
+CPluginHandler::CPluginHandler ( void ) : DSCThread(kTSPlugInHndlrThread)
 {
 	fThreadSignature = kTSPlugInHndlrThread;
 } // CPluginHandler
@@ -130,16 +131,18 @@ SInt32 CPluginHandler::ThreadMain ( void )
 	UInt32		statPluginCnt	= 0;
 	SInt32		status			= eDSNoErr;
 
-	if (gDSLocalOnlyMode) //1 is for Configure plugin and 3 is for Local plugin
+	CInternalDispatch::AddCapability();
+	
+	if (gDSLocalOnlyMode)
 	{
-		status = CServerPlugin::ProcessStaticPlugin(	sStaticPluginList[1][0],
-														sStaticPluginList[1][1]);
+		status = CServerPlugin::ProcessStaticPlugin(	sStaticPluginList[kPluginConfigure],
+														gStrDaemonAppleVersion);
 		if (status == eDSNoErr)
 		{
 			uiPluginCnt++;
 		}
-		status = CServerPlugin::ProcessStaticPlugin(	sStaticPluginList[3][0],
-														sStaticPluginList[3][1]);
+		status = CServerPlugin::ProcessStaticPlugin(	sStaticPluginList[kPluginLocal],
+														gStrDaemonAppleVersion);
 		if (status == eDSNoErr)
 		{
 			uiPluginCnt++;
@@ -151,34 +154,34 @@ SInt32 CPluginHandler::ThreadMain ( void )
 		DbgLog( kLogApplication, "Initializing static plugins." );
 		gPlugins->InitPlugIns(kStaticPlugin);		
 	}
-	else if (gDSInstallDaemonMode) //0-Cache, 1-Configure, 3-Local, 5-Search, 6-BSD plugins
+	else if (gDSInstallDaemonMode)
 	{
-		status = CServerPlugin::ProcessStaticPlugin(	sStaticPluginList[0][0],
-														sStaticPluginList[0][1]);
+		status = CServerPlugin::ProcessStaticPlugin(	sStaticPluginList[kPluginCache],
+														gStrDaemonAppleVersion);
 		if (status == eDSNoErr)
 		{
 			uiPluginCnt++;
 		}
-		status = CServerPlugin::ProcessStaticPlugin(	sStaticPluginList[1][0],
-														sStaticPluginList[1][1]);
+		status = CServerPlugin::ProcessStaticPlugin(	sStaticPluginList[kPluginConfigure],
+														gStrDaemonAppleVersion);
 		if (status == eDSNoErr)
 		{
 			uiPluginCnt++;
 		}
-		status = CServerPlugin::ProcessStaticPlugin(	sStaticPluginList[3][0],
-														sStaticPluginList[3][1]);
+		status = CServerPlugin::ProcessStaticPlugin(	sStaticPluginList[kPluginLocal],
+														gStrDaemonAppleVersion);
 		if (status == eDSNoErr)
 		{
 			uiPluginCnt++;
 		}
-		status = CServerPlugin::ProcessStaticPlugin(	sStaticPluginList[5][0],
-														sStaticPluginList[5][1]);
+		status = CServerPlugin::ProcessStaticPlugin(	sStaticPluginList[kPluginSearch],
+														gStrDaemonAppleVersion);
 		if (status == eDSNoErr)
 		{
 			uiPluginCnt++;
 		}
-		status = CServerPlugin::ProcessStaticPlugin(	sStaticPluginList[6][0],
-														sStaticPluginList[6][1]);
+		status = CServerPlugin::ProcessStaticPlugin(	sStaticPluginList[kPluginBSD],
+														gStrDaemonAppleVersion);
 		if (status == eDSNoErr)
 		{
 			uiPluginCnt++;
@@ -193,16 +196,13 @@ SInt32 CPluginHandler::ThreadMain ( void )
 	else
 	{
 		//process the static plugin modules
-		for (UInt32 iPlugin = 0; iPlugin < kNumStaticPlugins; iPlugin++)
+		for (UInt32 iPlugin = 0; iPlugin < sizeof(sStaticPluginList) / sizeof(const char *); iPlugin++)
 		{	
-			if (( (iPlugin == 2) && gNetInfoPluginIsLoaded) || (iPlugin != 2) )
+			status = CServerPlugin::ProcessStaticPlugin(	sStaticPluginList[iPlugin],
+															gStrDaemonAppleVersion);
+			if (status == eDSNoErr)
 			{
-				status = CServerPlugin::ProcessStaticPlugin(	sStaticPluginList[iPlugin][0],
-																sStaticPluginList[iPlugin][1]);
-				if (status == eDSNoErr)
-				{
-					uiPluginCnt++;
-				}
+				uiPluginCnt++;
 			}
 		}
 		statPluginCnt = uiPluginCnt;
@@ -221,8 +221,9 @@ SInt32 CPluginHandler::ThreadMain ( void )
 	
 	if ( (uiPluginCnt - statPluginCnt) == 0 )
 	{
-		//SrvrLog( kLogApplication, "*** WARNING: No Plugins loaded ***" );
-		ErrLog( kLogApplication, "*** WARNING: No Plugins loaded ***" );
+		if ( gDSLocalOnlyMode == false ) {
+			ErrLog( kLogApplication, "*** WARNING: No Plugins loaded ***" );
+		}
 	}
 	else
 	{

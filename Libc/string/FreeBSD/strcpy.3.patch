@@ -1,5 +1,5 @@
---- _SB/Libc/string/FreeBSD/strcpy.3	2003-05-20 15:23:54.000000000 -0700
-+++ _SB/Libc/string/FreeBSD/strcpy.3.edit	2006-06-28 16:55:53.000000000 -0700
+--- strcpy.3.orig	2008-02-29 10:45:51.000000000 -0800
++++ strcpy.3	2008-02-29 12:08:34.000000000 -0800
 @@ -40,18 +40,30 @@
  .Dt STRCPY 3
  .Os
@@ -35,7 +35,7 @@
  .Sh DESCRIPTION
  The
  .Fn stpcpy
-@@ -59,33 +71,33 @@
+@@ -59,36 +71,39 @@
  .Fn strcpy
  functions
  copy the string
@@ -79,7 +79,13 @@
  is
  .Em not
  terminated.
-@@ -96,13 +108,13 @@
++.Pp
++The source and destination strings should not overlap, as the
++behavior is undefined.
+ .Sh RETURN VALUES
+ The
+ .Fn strcpy
+@@ -96,13 +111,13 @@
  .Fn strncpy
  functions
  return
@@ -95,7 +101,7 @@
  .Sh EXAMPLES
  The following sets
  .Va chararray
-@@ -128,7 +140,7 @@
+@@ -128,7 +143,7 @@
  .Em not
  .Tn NUL
  terminate
@@ -104,7 +110,7 @@
  because the length of the source string is greater than or equal
  to the length argument.
  .Pp
-@@ -159,7 +171,7 @@
+@@ -159,7 +174,7 @@
  .Pp
  .Dl "(void)strlcpy(buf, input, sizeof(buf));"
  .Pp
@@ -113,7 +119,7 @@
  .Xr strlcpy 3
  is not defined in any standards, it should
  only be used when portability is not a concern.
-@@ -179,11 +191,6 @@
+@@ -179,11 +194,6 @@
  .Xr memcpy 3 ,
  .Xr memmove 3 ,
  .Xr strlcpy 3

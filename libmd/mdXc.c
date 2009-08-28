@@ -9,7 +9,7 @@ MDXInit(MDX_CTX *context)
 }
 
 void
-MDXUpdate(MDX_CTX *context, const unsigned char *data, unsigned int len)
+MDXUpdate(MDX_CTX *context, const void *data, unsigned int len)
 {
 	MDX_Update(context, data, len);
 }

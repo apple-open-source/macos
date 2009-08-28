@@ -1,0 +1,505 @@
+# makefile.vc --                                               -*- Makefile -*-
+#
+# Microsoft Visual C++ makefile for use with nmake.exe v1.62+ (VC++ 5.0+)
+#
+# This makefile is based upon the Tcl 8.4 Makefile.vc and modified to 
+# make it suitable as a general package makefile. Look for the word EDIT
+# which marks sections that may need modification. As a minumum you will
+# need to change the PROJECT, DOTVERSION and DLLOBJS variables to values
+# relevant to your package.
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+# 
+# Copyright (c) 1995-1996 Sun Microsystems, Inc.
+# Copyright (c) 1998-2000 Ajuba Solutions.
+# Copyright (c) 2001 ActiveState Corporation.
+# Copyright (c) 2001-2002 David Gravereaux.
+# Copyright (c) 2003 Pat Thoyts
+#
+#-------------------------------------------------------------------------
+# RCS: @(#)$Id: makefile.vc,v 1.17 2006/09/30 22:44:25 patthoyts Exp $
+#-------------------------------------------------------------------------
+
+# Check to see we are configured to build with MSVC (MSDEVDIR or MSVCDIR)
+# or with the MS Platform SDK (MSSDK). Visual Studio .NET 2003 and 2005 define
+# VCINSTALLDIR instead.
+!if !defined(MSDEVDIR) && !defined(MSVCDIR) && !defined(MSSDK) && !defined(VCINSTALLDIR)
+MSG = ^
+You need to run vcvars32.bat from Developer Studio or setenv.bat from the^
+Platform SDK first to setup the environment.  Jump to this line to read^
+the build instructions.
+!error $(MSG)
+!endif
+
+#------------------------------------------------------------------------------
+# HOW TO USE this makefile:
+#
+# 1)  It is now necessary to have %MSVCDir% set in the environment.  This is
+#     used  as a check to see if vcvars32.bat had been run prior to running
+#     nmake or during the installation of Microsoft Visual C++, MSVCDir had
+#     been set globally and the PATH adjusted.  Either way is valid.
+#
+#     You'll need to run vcvars32.bat contained in the MsDev's vc(98)/bin
+#     directory to setup the proper environment, if needed, for your current
+#     setup.  This is a needed bootstrap requirement and allows the swapping of
+#     different environments to be easier.
+#
+# 2)  To use the Platform SDK (not expressly needed), run setenv.bat after
+#     vcvars32.bat according to the instructions for it.  This can also turn on
+#     the 64-bit compiler, if your SDK has it.
+#
+# 3)  Targets are:
+#	all       -- Builds everything.
+#       <project> -- Builds the project (eg: nmake sample)
+#	test      -- Builds and runs the test suite.
+#	install   -- Installs the built binaries and libraries to $(INSTALLDIR)
+#		     in an appropriate subdirectory.
+#	clean/realclean/distclean -- varying levels of cleaning.
+#
+# 4)  Macros usable on the commandline:
+#	INSTALLDIR=<path>
+#		Sets where to install Tcl from the built binaries.
+#		C:\Progra~1\Tcl is assumed when not specified.
+#
+#	OPTS=static,msvcrt,staticpkg,threads,symbols,profile,loimpact,none
+#		Sets special options for the core.  The default is for none.
+#		Any combination of the above may be used (comma separated).
+#		'none' will over-ride everything to nothing.
+#
+#		static  =  Builds a static library of the core instead of a
+#			   dll.  The shell will be static (and large), as well.
+#		msvcrt  =  Effects the static option only to switch it from
+#			   using libcmt(d) as the C runtime [by default] to
+#			   msvcrt(d). This is useful for static embedding
+#			   support.
+#		staticpkg = Effects the static option only to switch
+#			   tclshXX.exe to have the dde and reg extension linked
+#			   inside it.
+#		threads =  Turns on full multithreading support.
+#		thrdalloc = Use the thread allocator (shared global free pool).
+#		symbols =  Adds symbols for step debugging.
+#		profile =  Adds profiling hooks.  Map file is assumed.
+#		loimpact =  Adds a flag for how NT treats the heap to keep memory
+#			   in use, low.  This is said to impact alloc performance.
+#
+#	STATS=memdbg,compdbg,none
+#		Sets optional memory and bytecode compiler debugging code added
+#		to the core.  The default is for none.  Any combination of the
+#		above may be used (comma separated).  'none' will over-ride
+#		everything to nothing.
+#
+#		memdbg   = Enables the debugging memory allocator.
+#		compdbg  = Enables byte compilation logging.
+#
+#	MACHINE=(IX86|IA64|ALPHA)
+#		Set the machine type used for the compiler, linker, and
+#		resource compiler.  This hook is needed to tell the tools
+#		when alternate platforms are requested.  IX86 is the default
+#		when not specified.
+#
+#	TMP_DIR=<path>
+#	OUT_DIR=<path>
+#		Hooks to allow the intermediate and output directories to be
+#		changed.  $(OUT_DIR) is assumed to be 
+#		$(BINROOT)\(Release|Debug) based on if symbols are requested.
+#		$(TMP_DIR) will de $(OUT_DIR)\<buildtype> by default.
+#
+#	TESTPAT=<file>
+#		Reads the tests requested to be run from this file.
+#
+#	CFG_ENCODING=encoding
+#		name of encoding for configuration information. Defaults
+#		to cp1252
+#
+# 5)  Examples:
+#
+#	Basic syntax of calling nmake looks like this:
+#	nmake [-nologo] -f makefile.vc [target|macrodef [target|macrodef] [...]]
+#
+#                        Standard (no frills)
+#       c:\tcl_src\win\>c:\progra~1\micros~1\vc98\bin\vcvars32.bat
+#       Setting environment for using Microsoft Visual C++ tools.
+#       c:\tcl_src\win\>nmake -f makefile.vc all
+#       c:\tcl_src\win\>nmake -f makefile.vc install INSTALLDIR=c:\progra~1\tcl
+#
+#                         Building for Win64
+#       c:\tcl_src\win\>c:\progra~1\micros~1\vc98\bin\vcvars32.bat
+#       Setting environment for using Microsoft Visual C++ tools.
+#       c:\tcl_src\win\>c:\progra~1\platfo~1\setenv.bat /pre64 /RETAIL
+#       Targeting Windows pre64 RETAIL
+#       c:\tcl_src\win\>nmake -f makefile.vc MACHINE=IA64
+#
+#------------------------------------------------------------------------------
+#==============================================================================
+###############################################################################
+#------------------------------------------------------------------------------
+
+!if !exist("makefile.vc")
+MSG = ^
+You must run this makefile only from the directory it is in.^
+Please `cd` to its location first.
+!error $(MSG)
+!endif
+
+#-------------------------------------------------------------------------
+# Project specific information (EDIT)
+#
+# You should edit this with the name and version of your project. This
+# information is used to generate the name of the package library and
+# it's install location.
+#
+# For example, the sample extension is  going to build sample04.dll and
+# would install it into $(INSTALLDIR)\lib\sample04
+#
+# You need to specify the object files that need to be linked into your
+# binary here.
+#
+#-------------------------------------------------------------------------
+
+PROJECT = Memchan
+!include "rules.vc"
+
+DOTVERSION      = 2.2.1
+MEMCHAN_VERSION = 2.2.1
+VERSION         = $(DOTVERSION:.=)
+STUBPREFIX      = $(PROJECT)stub
+
+DLLOBJS	= \
+	$(TMP_DIR)\memchan.obj	\
+	$(TMP_DIR)\init.obj	\
+	$(TMP_DIR)\counter.obj	\
+	$(TMP_DIR)\fifo.obj	\
+	$(TMP_DIR)\fifo2.obj	\
+	$(TMP_DIR)\null.obj	\
+	$(TMP_DIR)\random.obj	\
+	$(TMP_DIR)\zero.obj	\
+	$(TMP_DIR)\buf.obj	\
+	$(TMP_DIR)\bufFix.obj	\
+	$(TMP_DIR)\bufExt.obj	\
+	$(TMP_DIR)\bufRange.obj	\
+	$(TMP_DIR)\bufQueue.obj	\
+	$(TMP_DIR)\bufStubInit.obj \
+	$(TMP_DIR)\bufStubLib.obj \
+	$(TMP_DIR)\dllEntry.obj \
+	$(TMP_DIR)\randport.obj \
+	$(TMP_DIR)\memchanStubInit.obj \
+	$(TMP_DIR)\memchanStubLib.obj
+
+PRJSTUBOBJS = \
+	$(TMP_DIR)\memchanStubLib.obj \
+	$(TMP_DIR)\bufStubLib.obj
+
+PRJDOCS = \
+	$(OUT_DIR)\fifo.html \
+	$(OUT_DIR)\fifo2.html \
+	$(OUT_DIR)\memchan.html \
+	$(OUT_DIR)\null.html \
+	$(OUT_DIR)\zero.html \
+	$(OUT_DIR)\random.html \
+	$(OUT_DIR)\memchanapi.html
+
+DLLRES = $(TMP_DIR)\mc.res
+
+PRJHDRS = \
+	$(GENERICDIR)\memchan.h \
+	$(GENERICDIR)\memchanDecls.h
+
+#-------------------------------------------------------------------------
+# Target names and paths ( shouldn't need changing )
+#-------------------------------------------------------------------------
+
+BINROOT		= .
+ROOT            = ..
+
+PRJIMPLIB	= $(OUT_DIR)\$(PROJECT)$(VERSION)$(SUFX).lib
+PRJLIBNAME	= $(PROJECT)$(VERSION)$(SUFX).$(EXT)
+PRJLIB		= $(OUT_DIR)\$(PRJLIBNAME)
+
+PRJSTUBLIBNAME	= $(STUBPREFIX)$(VERSION).lib
+PRJSTUBLIB	= $(OUT_DIR)\$(PRJSTUBLIBNAME)
+
+CHANTEST        = $(OUT_DIR)\Chantest$(SUFX).$(EXT)
+CHANTESTOBJ     = $(TMP_DIR)\chantest.obj
+
+### Make sure we use backslash only.
+PRJ_INSTALL_DIR         = $(_INSTALLDIR)\$(PROJECT)$(DOTVERSION)
+BIN_INSTALL_DIR		= $(PRJ_INSTALL_DIR)
+DOC_INSTALL_DIR		= $(PRJ_INSTALL_DIR)
+SCRIPT_INSTALL_DIR	= $(PRJ_INSTALL_DIR)
+DEMO_INSTALL_DIR	= $(PRJ_INSTALL_DIR)
+INCLUDE_INSTALL_DIR	= $(_TCLDIR)\include
+LIB_INSTALL_DIR		= $(_TCLDIR)\lib
+
+### The following paths CANNOT have spaces in them.
+GENERICDIR	= $(ROOT)\generic
+WINDIR		= $(ROOT)\win
+LIBDIR          = $(ROOT)\library
+DOCDIR		= $(ROOT)\doc
+TOOLSDIR	= $(ROOT)\tools
+COMPATDIR	= $(ROOT)\compat
+ISAACDIR	= $(ROOT)\isaac
+
+#---------------------------------------------------------------------
+# Compile flags
+#---------------------------------------------------------------------
+
+!if !$(DEBUG)
+!if $(OPTIMIZING)
+### This cranks the optimization level to maximize speed
+cdebug	= -O2 $(OPTIMIZATIONS)
+!else
+cdebug	=
+!endif
+!else if "$(MACHINE)" == "IA64"
+### Warnings are too many, can't support warnings into errors.
+cdebug	= -Z7 -Od $(DEBUGFLAGS)
+!else
+cdebug	= -Z7 -WX $(DEBUGFLAGS)
+!endif
+
+### Declarations common to all compiler options
+cflags = -nologo -c $(COMPILERFLAGS) -Fp$(TMP_DIR)^\
+
+!if $(VCVER) > 7
+cflags  =$(cflags) -D_CRT_SECURE_NO_DEPRECATE
+!endif
+
+!if $(MSVCRT)
+!if $(DEBUG)
+crt = -MDd
+!else
+crt = -MD
+!endif
+!else
+!if $(DEBUG)
+crt = -MTd
+!else
+crt = -MT
+!endif
+!endif
+
+INCLUDES	= $(TCL_INCLUDES) -I"$(WINDIR)" -I"$(GENERICDIR)" -I"$(ISAACDIR)"
+BASE_CFLAGS	= $(cflags) $(cdebug) $(crt) $(INCLUDES)
+CON_CFLAGS	= $(cflags) $(cdebug) $(crt) -DCONSOLE
+MC_CFLAGS	= -DHAVE_STDLIB_H -DMEMCHAN_VERSION=\"$(MEMCHAN_VERSION)\" \
+		  -DBUILD_Memchan  -DDLL_BUILD -DHAVE_LTOA -D__WIN32__
+TCL_CFLAGS	= -DUSE_TCL_STUBS -DVERSION="\"$(DOTVERSION)\"" \
+		  $(BASE_CFLAGS) $(OPTDEFINES) $(MC_CFLAGS)
+
+#---------------------------------------------------------------------
+# Link flags
+#---------------------------------------------------------------------
+
+!if $(DEBUG)
+ldebug	= -debug:full -debugtype:cv
+!if $(MSVCRT)
+ldebug = $(ldebug) -nodefaultlib:msvcrt
+!endif
+!else
+ldebug	= -release -opt:ref -opt:icf,3
+!endif
+
+### Declarations common to all linker options
+lflags	= -nologo -machine:$(MACHINE) $(ldebug)
+
+!if $(PROFILE)
+lflags	= $(lflags) -profile
+!endif
+
+!if $(ALIGN98_HACK) && !$(STATIC_BUILD)
+### Align sections for PE size savings.
+lflags	= $(lflags) -opt:nowin98
+!else if !$(ALIGN98_HACK) && $(STATIC_BUILD)
+### Align sections for speed in loading by choosing the virtual page size.
+lflags	= $(lflags) -align:4096
+!endif
+
+!if $(LOIMPACT)
+lflags	= $(lflags) -ws:aggressive
+!endif
+
+dlllflags = $(lflags) -dll
+conlflags = $(lflags) -subsystem:console
+guilflags = $(lflags) -subsystem:windows
+baselibs   = $(TCLSTUBLIB)
+
+#---------------------------------------------------------------------
+# TclTest flags
+#---------------------------------------------------------------------
+
+!IF "$(TESTPAT)" != ""
+TESTFLAGS = $(TESTFLAGS) -file $(TESTPAT)
+!ENDIF
+
+#---------------------------------------------------------------------
+# Project specific targets (EDIT)
+#---------------------------------------------------------------------
+
+all:	    setup $(PROJECT)
+stubs:      setup $(PRJSTUBLIB)
+$(PROJECT): setup $(PRJLIB) $(PRJSTUBLIB)
+chantest:   stubs $(CHANTEST)
+doc:        setup $(PRJDOCS)
+install:    install-binaries install-libraries install-docs
+
+# Tests need to ensure we load the right dll file we
+# have to handle the output differently on Win9x.
+#
+!if "$(OS)" == "Windows_NT"  || "$(MSVCDIR)" == "IDE"
+test: setup $(PROJECT)
+        $(TCLSH) <<
+load $(PRJLIB:\=/)
+cd "$(ROOT)/tests"
+set argv "$(TESTFLAGS)"
+source all
+<<
+!else
+test: setup $(PROJECT)
+        echo Please wait while the test results are collected
+        $(TCLSH) << >tests.log
+load $(PRJLIB:\=/)
+cd "$(ROOT)/tests"
+set argv "$(TESTFLAGS)"
+source all
+<<
+        type tests.log | more
+!endif
+
+$(CHANTEST): $(CHANTESTOBJ)
+	$(link32) $(dlllflags) -out:$@ $** $(PRJSTUBLIB) $(baselibs)
+	-@del $*.exp
+
+setup:
+	@if not exist $(OUT_DIR)\nul mkdir $(OUT_DIR)
+	@if not exist $(TMP_DIR)\nul mkdir $(TMP_DIR)
+
+$(PRJLIB): $(DLLOBJS) $(DLLRES)
+!if $(STATIC_BUILD)
+	$(lib32) -nologo -out:$@ @<<
+$**
+<<
+!else
+	$(link32) $(dlllflags) -out:$@ $(baselibs) @<<
+$**
+<<
+	$(_VC_MANIFEST_EMBED_DLL)
+	-@del $*.exp
+!endif
+
+$(PRJSTUBLIB): $(PRJSTUBOBJS)
+	$(lib32) -nologo -out:$@ $(PRJSTUBOBJS)
+
+$(TMP_DIR)\chantest.obj: $(GENERICDIR)\chantest.c
+    $(cc32) -nologo -DUSE_TCL_STUBS -DUSE_MEMCHAN_STUBS $(BASE_CFLAGS) \
+	$(OPTDEFINES) $(INCLUDES) -Fo$(TMP_DIR)\ -c $**
+
+#---------------------------------------------------------------------
+# Implicit rules
+#---------------------------------------------------------------------
+
+{$(WINDIR)}.c{$(TMP_DIR)}.obj::
+    $(cc32) $(TCL_CFLAGS) -DBUILD_$(PROJECT) -Fo$(TMP_DIR)\ @<<
+$<
+<<
+
+{$(ISAACDIR)}.c{$(TMP_DIR)}.obj::
+    $(cc32) $(TCL_CFLAGS) -DBUILD_$(PROJECT) -Fo$(TMP_DIR)\ @<<
+$<
+<<
+
+{$(GENERICDIR)}.c{$(TMP_DIR)}.obj::
+    $(cc32) $(TCL_CFLAGS) -DBUILD_$(PROJECT) -Fo$(TMP_DIR)\ @<<
+$<
+<<
+
+{$(COMPATDIR)}.c{$(TMP_DIR)}.obj::
+    $(cc32) $(TCL_CFLAGS) -DBUILD_$(PROJECT) -Fo$(TMP_DIR)\ @<<
+$<
+<<
+
+{$(WINDIR)}.rc{$(TMP_DIR)}.res:
+	$(rc32) -fo $@ -r -i "$(GENERICDIR)" -D__WIN32__ \
+		-DCOMMAVERSION=$(DOTVERSION:.=,),0 \
+		-DDOTVERSION=\"$(DOTVERSION)\" \
+		-DVERSION=\"$(VERSION)$(SUFX)\" \
+!if $(DEBUG)
+	-d DEBUG \
+!endif
+!if $(TCL_THREADS)
+	-d TCL_THREADS \
+!endif
+!if $(STATIC_BUILD)
+	-d STATIC_BUILD \
+!endif
+	$<
+
+DOC2HTML = $(TCLSH) "$(TOOLSDIR)\mpexpand.tcl" html
+
+{$(DOCDIR)}.man{$(OUT_DIR)}.html:
+	$(DOC2HTML) $< $@
+        @$(TCLSH) <<
+set name $(@:\=/)
+set f [open $$name r]; set d [read $$f]; close $$f
+set d [regsub {</head>} $$d {<link rel="stylesheet" href="manpage.css" type="text/css"></head>}]
+set f [open $$name w]; puts -nonewline $$f $$d; close $$f
+<<
+
+
+.SUFFIXES:
+.SUFFIXES:.c .rc .man
+
+#---------------------------------------------------------------------
+# Installation. (EDIT)
+#
+# You may need to modify this section to reflect the final distribution
+# of your files and possibly to generate documentation.
+#
+#---------------------------------------------------------------------
+
+install-binaries:
+	@echo Installing binaries to '$(SCRIPT_INSTALL_DIR)'
+	@if not exist $(SCRIPT_INSTALL_DIR)\nul mkdir "$(SCRIPT_INSTALL_DIR)"
+	@if not exist $(LIB_INSTALLDIR)\nul mkdir "$(LIB_INSTALL_DIR)"
+	@if not exist $(INCLUDE_INSTALL_DIR)\nul mkdir "$(INCLUDE_INSTALL_DIR)"
+	@$(CPY) $(PRJLIB)     "$(SCRIPT_INSTALL_DIR)" >NUL
+	@$(CPY) $(PRJIMPLIB)  "$(SCRIPT_INSTALL_DIR)" >NUL
+	@echo Installing stubs library to '$(LIB_INSTALL_DIR)'
+	@$(CPY) $(PRJSTUBLIB) "$(LIB_INSTALL_DIR)" >NUL
+	@echo Installing headers to '$(INCLUDE_INSTALL_DIR)'
+	@for %i in ($(PRJHDRS)) do @$(CPY) %i "$(INCLUDE_INSTALL_DIR)" >NUL
+
+# "fix font locking
+
+install-libraries:
+	@echo Installing libraries to '$(SCRIPT_INSTALL_DIR)'
+	@if exist $(LIBDIR)\nul $(CPY) $(LIBDIR)\*.tcl "$(SCRIPT_INSTALL_DIR)" >NUL
+	@type << >"$(SCRIPT_INSTALL_DIR)\pkgIndex.tcl"
+# Handcrafted pkgIndex for memchan.
+if {[info exists ::tcl_platform(debug)]} {
+    package ifneeded $(PROJECT) $(DOTVERSION) [list load [file join $$dir $(PROJECT)$(VERSION)g.$(EXT)]]
+} else {
+    package ifneeded $(PROJECT) $(DOTVERSION) [list load [file join $$dir $(PROJECT)$(VERSION).$(EXT)]]
+}
+<<
+
+install-docs: $(PRJDOCS)
+	@echo Installing documentation to '$(DOC_INSTALL_DIR)'
+	@if not exist $(DOC_INSTALL_DIR)\NUL mkdir $(DOC_INSTALL_DIR)
+	@$(CPY) "$(DOCDIR)\manpage.css" "$(DOC_INSTALL_DIR)\" >NUL
+	@for %i in ($(PRJDOCS)) do @$(CPY) %i "$(DOC_INSTALL_DIR)\" > NUL
+
+#---------------------------------------------------------------------
+# Clean up
+#---------------------------------------------------------------------
+
+clean:
+	@if exist $(TMP_DIR)\nul $(RMDIR) $(TMP_DIR)
+	@if exist $(WINDIR)\version.vc del $(WINDIR)\version.vc
+
+realclean: clean
+	@if exist $(OUT_DIR)\nul $(RMDIR) $(OUT_DIR)
+
+distclean: realclean
+	@if exist $(WINDIR)\nmakehlp.exe del $(WINDIR)\nmakehlp.exe
+	@if exist $(WINDIR)\nmakehlp.obj del $(WINDIR)\nmakehlp.obj

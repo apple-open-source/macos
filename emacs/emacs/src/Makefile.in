@@ -952,23 +952,35 @@ RUN_TEMACS = ./temacs
 
 all: emacs${EXEEXT} OTHER_FILES
 
+#ifdef HAVE_SHM
+NL=-nl
+#endif
 emacs${EXEEXT}: temacs${EXEEXT} ${etc}DOC ${lisp}
 #ifdef CANNOT_DUMP
 	rm -f emacs${EXEEXT}
 	ln temacs${EXEEXT} emacs${EXEEXT}
 #else
-	if [ -n "`file temacs | grep 'Mach-O universal binary'`" ]; then	\
-		mv temacs emacs-undumped;				\
-		lipo -thin `$(SRCROOT)/filearch.rb emacs-undumped` -output temacs emacs-undumped;	\
-	else if [ -n "`file temacs | grep 'Mach-O'`" ]; then		\
-		cp temacs emacs-undumped;				\
-	fi								\
-	fi
-#ifdef HAVE_SHM
-	LC_ALL=C $(RUN_TEMACS) -nl -batch -l loadup dump
-#else /* ! defined (HAVE_SHM) */
-	LC_ALL=C $(RUN_TEMACS) -batch -l loadup dump
-#endif /* ! defined (HAVE_SHM) */
+#undef i386
+ifneq (1,$(words $(RC_ARCHS)))
+	mv temacs emacs-undumped
+ifeq (i386,$(filter i386,$(RC_ARCHS)))
+	lipo -thin i386 -output temacs emacs-undumped
+	LC_ALL=C $(RUN_TEMACS) $(NL) -batch -l loadup dump
+	mv emacs arch/emacs-i386
+	rm -f emacs-[0-9]* # avoid DOC-xx incrementing
+endif
+ifeq (x86_64,$(filter x86_64,$(RC_ARCHS)))
+	lipo -thin x86_64 -output temacs emacs-undumped
+	LC_ALL=C $(RUN_TEMACS) $(NL) -batch -l loadup dump
+	mv emacs arch/emacs-x86_64
+	rm -f emacs-[0-9]* # avoid DOC-xx incrementing
+endif
+	lipo -create -output emacs "arch/"*
+	cp emacs-undumped temacs
+else
+	cp temacs emacs-undumped
+	LC_ALL=C $(RUN_TEMACS) $(NL) -batch -l loadup dump
+endif
 #endif /* ! defined (CANNOT_DUMP) */
 	-./emacs -q -batch -f list-load-path-shadows
 

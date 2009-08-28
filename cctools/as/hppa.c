@@ -99,12 +99,12 @@ static void pa_ip(
     char *str);
 static int parse_L_or_R(
     char *str);
-static unsigned long parse_completer_with_cache_control_hint(
+static uint32_t parse_completer_with_cache_control_hint(
 	char	**s,       /* Note : the function changes '*s' */
 	int     option,    /* option = 0 for store instruction */
                        /* option = 1 for load and clear instruction */
 	char    completer);/* 'c' or 'C' */
-static unsigned long parse_cache_control_hint(
+static uint32_t parse_cache_control_hint(
 	char	**s,       /* Note : the function changes '*s' */
 	int     option);   /* option = 0 for store instruction */
                        /* option = 1 for load and clear instruction */
@@ -191,10 +191,10 @@ char *str)
 	char *s;
 	const char *args;
 	char c;
-	unsigned long i;
+	uint32_t i;
 	struct pa_opcode *insn;
 	char *argsStart;
-	unsigned long   opcode;
+	uint32_t   opcode;
 	int match = FALSE;
 	int comma = 0;
 
@@ -412,7 +412,7 @@ reg = pa_parse_number(&s);
 			case 'Y':   /* Store Bytes Short completer */
 						/* with cache control hints    */
 			{
-				unsigned long result = (unsigned long)0UL;
+				uint32_t result = (unsigned long)0U;
 				
 				i = m = a = 0;
 				while ( *s == ',' && i < 3 ) {
@@ -435,7 +435,7 @@ reg = pa_parse_number(&s);
 								as_bad("Unrecognized Store Bytes Short"
 									"Completer with cache control hints"
 									" ...assuming 0");
-					if (result == (unsigned long)0UL)
+					if (result == (uint32_t)0U)
 						s++;
 					i++;
 				}
@@ -837,7 +837,7 @@ evaluateAbsolute(the_insn.exp,field_selector), 14);
 				/* bl, ble  in absence of L` or R` can have */
 				/* a 17 bit immmidiate number */
 			{
-				unsigned long w, w1, w2;
+				uint32_t w, w1, w2;
 				int field_selector = parse_L_or_R(s);
 				switch (field_selector) {
 				case 2:	/* found the field selector R`*/
@@ -900,8 +900,8 @@ evaluateAbsolute(the_insn.exp,field_selector), 14);
 				the_insn.pcrel = 1;
 				if ( the_insn.exp.X_add_symbol ) {
 				    if ( strcmp(
-the_insn.exp.X_add_symbol->sy_nlist.n_un.n_name,"L0\001") == 0 ) {
-				        unsigned long w1,w,result;
+the_insn.exp.X_add_symbol->sy_name,"L0\001") == 0 ) {
+				        uint32_t w1,w,result;
 					result = sign_unext( (the_insn.exp.X_add_number
 							- 8) >> 2,
 							12);
@@ -916,7 +916,7 @@ the_insn.exp.X_add_symbol->sy_nlist.n_un.n_name,"L0\001") == 0 ) {
 				    }
 				}
 				else {
-				    unsigned long w1,w,result;
+				    uint32_t w1,w,result;
 				    result = sign_unext( the_insn.exp.X_add_number >> 
 					2,12);
 				    dis_assemble_12(result,&w1,&w);
@@ -941,8 +941,8 @@ the_insn.exp.X_add_symbol->sy_nlist.n_un.n_name,"L0\001") == 0 ) {
 				    the_insn.pcrel_reloc = 0;
 				the_insn.pcrel = 1;
 	      			if ( the_insn.exp.X_add_symbol ) {
-					if ( strcmp(the_insn.exp.X_add_symbol->sy_nlist.n_un.n_name,"L0\001") == 0 ) {
-						unsigned long w2,w1,w,result;
+					if ( strcmp(the_insn.exp.X_add_symbol->sy_name,"L0\001") == 0 ) {
+						uint32_t w2,w1,w,result;
 
 						result = sign_unext( 
 							(the_insn.exp.X_add_number - 8) >> 2,17);
@@ -959,7 +959,7 @@ the_insn.exp.X_add_symbol->sy_nlist.n_un.n_name,"L0\001") == 0 ) {
 					}
 				}
 				else {
-					unsigned long w2,w1,w,result;
+					uint32_t w2,w1,w,result;
 
 					result = sign_unext( the_insn.exp.X_add_number >> 2,17);
 					dis_assemble_17(result,&w1,&w2,&w);
@@ -1449,7 +1449,7 @@ int *sizeP)
 	input_line_pointer=t;
     *sizeP=prec * sizeof(LITTLENUM_TYPE);
     for(wordP=words;prec--;) {
-	md_number_to_chars(litP,(long)(*wordP++),sizeof(LITTLENUM_TYPE));
+	md_number_to_chars(litP,(int32_t)(*wordP++),sizeof(LITTLENUM_TYPE));
 	litP+=sizeof(LITTLENUM_TYPE);
     }
     return "";	/* Someone should teach Dean about null pointers */
@@ -1490,9 +1490,9 @@ int n,
 fixS *fixP,
 int nsect)
 {
-	unsigned long w1,w2,w;
+	uint32_t w1,w2,w;
 	unsigned new_val = 0;
-	unsigned long left21, right14;
+	uint32_t left21, right14;
 	
 	if(fixP->fx_r_type == NO_RELOC ||
 	   fixP->fx_r_type == HPPA_RELOC_VANILLA){
@@ -1558,7 +1558,7 @@ fixit:
 		md_number_to_chars((char *)buf,new_val,4);
       }
       else {
-		unsigned long result;
+		uint32_t result;
 	  	val -= 4;	/* PA adjustment: a 0 disp is actually 4 bytes */
 						/* further because of the delay slot */
 		val >>= 2;
@@ -1581,7 +1581,7 @@ fixit:
 /*     case 'z': */
 	case HPPA_RELOC_BR17 :
 	{
-		unsigned long result;
+		uint32_t result;
 		right14 >>= 2;
 		result = sign_unext(right14,17);
 		dis_assemble_17(result,&w1,&w2,&w);
@@ -1724,13 +1724,13 @@ char *str)
 }    /* end parse_L_or_R() */
 
 static
-unsigned long
+uint32_t
 parse_cache_control_hint(
 char	**s,       /* Note : the function changes '*s' */
 int     option)    /* option = 0 for store instruction */
                    /* option = 1 for load and clear instruction */
 {
-	unsigned long cc = NO_CACHE_CONTROL_HINT;
+	uint32_t cc = NO_CACHE_CONTROL_HINT;
 				
 	if (**s == ',') {
 		(*s)++;
@@ -1779,14 +1779,14 @@ int     option)    /* option = 0 for store instruction */
 }    /* end parse_cache_control_hint() */
 
 static
-unsigned long
+uint32_t
 parse_completer_with_cache_control_hint(
 char	**s,       /* Note : the function changes '*s' */
 int     option,    /* option = 0 for store instruction */
                    /* option = 1 for load and clear instruction */
 char    completer) /* 'c' or 'C' */
 {
-	unsigned long i, result = (unsigned long) 0UL;
+	uint32_t i, result = (uint32_t) 0U;
 	int m, a, u;
 	
 	switch (completer) {
@@ -1813,7 +1813,7 @@ char    completer) /* 'c' or 'C' */
 			else
 				as_bad("Unrecognized Indexed Load"
 					"Completer with cache control hints...assuming 0");
-			if (result == (unsigned long)0UL)
+			if (result == (uint32_t)0U)
 				(*s)++;
 			i++;
 		}

@@ -25,17 +25,12 @@
 //
 // acl_comment - "ignore" ACL subject type
 //
-// This subject will never match anything - its presence is effectively ignored.
-// Its usefulness lies in the fact that COMMENT type ACL subjects are valid ACL
-// subjects that preserve their contents as uninterpreted data blobs. This allows
-// you to keep information in an ACL that can be retrieved later. In particular,
-// you can "prefix" any external ACL subject representation with an ACL_COMMENT
-// header, which turns it into an inactive comment until you remove the prefix.
+// This ACL subject is a historical mistake. It has no use in present applications,
+// and remains only to support existing keychains with their already-baked item ACLs.
+// Do not use this for new applications of ANY kind.
 //
-// Notes: 
-// (1) All contents of a comment ACL are public.
-// (2) While there is a COMMENT sample type, it is in no way related to this subject
-//     type. Validation of a COMMENT acl subject never examines any samples.
+// A CommentAclSubject always fails to verify.
+// See further (mis-)usage comments in the .cpp.
 //
 #ifndef _ACL_COMMENT
 #define _ACL_COMMENT
@@ -51,9 +46,8 @@ namespace Security
 //
 class CommentAclSubject : public AclSubject {
 public:
-	CommentAclSubject::CommentAclSubject(CSSM_LIST *list, size_t size)
-	: AclSubject(CSSM_ACL_SUBJECT_TYPE_COMMENT), mComment(list), mSize(size) { }
-	~CommentAclSubject() { Allocator::standard().free(mComment); }
+	CommentAclSubject()
+	: AclSubject(CSSM_ACL_SUBJECT_TYPE_COMMENT) { }
 	
 	bool validate(const AclValidationContext &ctx) const;
 	CssmList toList(Allocator &alloc) const;
@@ -69,10 +63,6 @@ public:
 	};
 	
 	IFDUMP(void debugDump() const);
-	
-private:
-	CSSM_LIST *mComment;		// list form preserved
-	size_t mSize;				// size of mComment blob
 };
 
 } // end namespace Security

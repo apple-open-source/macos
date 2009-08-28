@@ -145,7 +145,7 @@ order before the barrier will complete before any load or store executed after
 the barrier.  On a uniprocessor, the barrier operation is typically a nop.
 On a multiprocessor, the barrier can be quite expensive.
 .Pp
-Most code will want to use the barrier functions to insure that memory shared
+Most code will want to use the barrier functions to ensure that memory shared
 between threads is properly synchronized.  For example, if you want to initialize
 a shared data structure and then atomically increment a variable to indicate
 that the initialization is complete, then you must use OSAtomicIncrement32Barrier()

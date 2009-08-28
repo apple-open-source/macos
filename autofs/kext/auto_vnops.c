@@ -58,11 +58,11 @@
 #include <sys/errno.h>
 #include <vfs/vfs_support.h>
 #include <sys/uio.h>
-#include <sys/xattr.h>
-#include <sys/syslog.h>
 
 #include <kern/assert.h>
 #include <kern/host.h>
+
+#include <IOKit/IOLib.h>
 
 #include "autofs.h"
 #include "autofs_kern.h"
@@ -78,12 +78,8 @@ static int auto_readdir(struct vnop_readdir_args *);
 static int auto_readlink(struct vnop_readlink_args *);
 static int auto_pathconf(struct vnop_pathconf_args *);
 static int auto_getxattr(struct vnop_getxattr_args *);
-static int auto_setxattr(struct vnop_setxattr_args *);
 static int auto_listxattr(struct vnop_listxattr_args *);
-static int auto_removexattr(struct vnop_removexattr_args *);
 static int auto_reclaim(struct vnop_reclaim_args *);
-static int auto_kqfilt_add(struct vnop_kqfilt_add_args *);
-static int auto_kqfilt_remove(struct vnop_kqfilt_remove_args *);
 
 int (**autofs_vnodeop_p)(void *);
 
@@ -100,14 +96,10 @@ struct vnodeopv_entry_desc autofs_vnodeop_entries[] = {
 	{&vnop_readdir_desc, (VOPFUNC)auto_readdir},		/* readdir */
 	{&vnop_readlink_desc, (VOPFUNC)auto_readlink},		/* readlink */
 	{&vnop_pathconf_desc, (VOPFUNC)auto_pathconf},		/* pathconf */
-	{&vnop_setxattr_desc, (VOPFUNC)auto_setxattr},		/* setxattr */
 	{&vnop_getxattr_desc, (VOPFUNC)auto_getxattr},		/* getxattr */
 	{&vnop_listxattr_desc, (VOPFUNC)auto_listxattr},	/* listxattr */
-	{&vnop_removexattr_desc, (VOPFUNC)auto_removexattr},	/* removexattr */
 	{&vnop_inactive_desc, (VOPFUNC)nop_inactive},		/* inactive - NOP */
 	{&vnop_reclaim_desc, (VOPFUNC)auto_reclaim},		/* reclaim */
-	{&vnop_kqfilt_add_desc, (VOPFUNC)auto_kqfilt_add},
-	{&vnop_kqfilt_remove_desc, (VOPFUNC)auto_kqfilt_remove},
 	{NULL, NULL}
 };
 
@@ -116,8 +108,62 @@ struct vnodeopv_desc autofsfs_vnodeop_opv_desc =
 
 extern struct vnodeop_desc vnop_remove_desc;
 
+/*
+ * Returns 1 if a vnode is a directory under the mount point of an
+ * indirect map, so that it's a directory on which a mount would
+ * be triggered, such as /net/{hostname}, and it has not yet been
+ * populated with subdirectories.
+ *
+ * What would be found in it would be directories corresponding to
+ * submounts, such as /net/{hostname}/exports if the host in question
+ * exports /exports.
+ *
+ * XXX - explain this better, and perhaps give the routine a better
+ * name.
+ */
+static int
+auto_is_unpopulated_indirect_subdir(vnode_t vp)
+{
+	fnnode_t *fnp = vntofn(vp);
+
+	return ((fnp->fn_dirents == NULL) &&
+	    !vnode_isvroot(vp) &&
+	    vnode_isvroot(fntovn(fnp->fn_parent)));
+}
+
+static int autofs_nobrowse = 0;
+
+/*
+ * Returns 1 if a readdir on the vnode will only return names for the
+ * vnodes we have, 0 otherwise.
+ *
+ * XXX - come up with a better name.
+ */
+int
+auto_nobrowse(vnode_t vp)
+{
+	fnnode_t *fnp = vntofn(vp);
+	fninfo_t *fnip = vfstofni(vnode_mount(vp));
+
+	/*
+	 * That will be true if any of the following are true:
+	 *
+	 *	we've globally disabled browsing;
+	 *
+	 *	its map was mounted with "nobrowse";
+	 *
+	 *	the directory has no triggers under it;
+	 *
+	 *	the directory is of the type described above.
+	 */
+	return (autofs_nobrowse ||
+	    (fnip->fi_mntflags & AUTOFS_MNT_NORDDIR) ||
+	    (fnp->fn_trigger != NULL) ||
+	    (auto_is_unpopulated_indirect_subdir(vp)));
+}
+
 static uint32_t
-auto_bsd_flags(fnnode_t *fnp, vfs_context_t context)
+auto_bsd_flags(fnnode_t *fnp, int pid)
 {
 	vnode_t vp = fntovn(fnp);
 	fninfo_t *fnip = vfstofni(vnode_mount(vp));
@@ -132,7 +178,7 @@ auto_bsd_flags(fnnode_t *fnp, vfs_context_t context)
 		/*
 		 * No.  Are we an automounter?
 		 */
-		if (auto_is_automounter(vfs_context_pid(context))) {
+		if (auto_is_automounter(pid)) {
 			/*
 			 * We are.  automountd doesn't care
 			 * whether this is a trigger or not,
@@ -148,7 +194,7 @@ auto_bsd_flags(fnnode_t *fnp, vfs_context_t context)
 		 * XXX - the answer might be different in the future if
 		 * maps change.
 		 */
-		auto_fninfo_lock_shared(fnip, context);
+		auto_fninfo_lock_shared(fnip, pid);
 		if (vp == fnip->fi_rootvp) {
 			/*
 			 * This vnode is the root of a mount.
@@ -210,12 +256,12 @@ auto_bsd_flags(fnnode_t *fnp, vfs_context_t context)
 				}
 			}
 		}
-		auto_fninfo_unlock_shared(fnip, context);
+		auto_fninfo_unlock_shared(fnip, pid);
 	}
 	switch (fnp->fn_istrigger) {
 
 	case FN_TRIGGER_UNKNOWN:
-		log(LOG_ERR, "Trigger status of %s unknown\n", fnp->fn_name);
+		IOLog("Trigger status of %s unknown\n", fnp->fn_name);
 		/* say it's not */
 		flags = 0;
 		break;
@@ -228,6 +274,15 @@ auto_bsd_flags(fnnode_t *fnp, vfs_context_t context)
 		flags = 0;
 		break;
 	}
+
+	/*
+	 * If this is the root of a mount, and if the "hide this from the
+	 * Finder" mount option is set on that mount, return the hidden bit,
+	 * so the Finder won't show it.
+	 */
+	if (vnode_isvroot(vp) &&
+	    (fnip->fi_mntflags & AUTOFS_MNT_HIDEFROMFINDER))
+		flags |= UF_HIDDEN;
 	return (flags);
 }
 
@@ -242,11 +297,20 @@ auto_getattr(ap)
 {
 	vnode_t vp = ap->a_vp;
 	struct vnode_attr *vap = ap->a_vap;
-	fnnode_t *fnp = vntofn(vp);
 
 	AUTOFS_DPRINT((4, "auto_getattr vp %p\n", (void *)vp));
 
-	/* XXX - lock? */
+	/* XXX - lock the fnnode? */
+
+	auto_get_attributes(vp, vap, vfs_context_pid(ap->a_context));
+
+	return (0);
+}
+
+void
+auto_get_attributes(vnode_t vp, struct vnode_attr *vap, int pid)
+{
+	fnnode_t *fnp = vntofn(vp);
 
 	VATTR_RETURN(vap, va_rdev, 0);
 	switch (vnode_vtype(vp)) {
@@ -289,8 +353,7 @@ auto_getattr(ap)
 			 * Find out what the flags are for this directory,
 			 * based on whether it's a trigger or not.
 			 */
-			VATTR_RETURN(vap, va_flags,
-			    auto_bsd_flags(fnp, ap->a_context));
+			VATTR_RETURN(vap, va_flags, auto_bsd_flags(fnp, pid));
 		} else {
 			/*
 			 * Non-directories are never triggers.
@@ -311,8 +374,6 @@ auto_getattr(ap)
 	VATTR_RETURN(vap, va_fsid, vfs_statfs(vnode_mount(vp))->f_fsid.val[0]);
 	VATTR_RETURN(vap, va_filerev, 0);
 	VATTR_RETURN(vap, va_type, vnode_vtype(vp));
-
-	return (0);
 }
 
 static int
@@ -327,6 +388,8 @@ auto_setattr(ap)
 	vnode_t vp = ap->a_vp;
 	struct vnode_attr *vap = ap->a_vap;
 	fnnode_t *fnp = vntofn(vp);
+	int do_notify = 0;
+	struct vnode_attr vattr;
 
 	AUTOFS_DPRINT((4, "auto_setattr vp %p\n", (void *)vp));
 
@@ -342,16 +405,26 @@ auto_setattr(ap)
 	 * (so the connection can be authenticated as them).
 	 */
 	VATTR_SET_SUPPORTED(vap, va_uid);
-	if (VATTR_IS_ACTIVE(vap, va_uid))
+	if (VATTR_IS_ACTIVE(vap, va_uid)) {
 		fnp->fn_uid = vap->va_uid;
+		do_notify = 1;
+	}
 	VATTR_SET_SUPPORTED(vap, va_gid);
-	if (VATTR_IS_ACTIVE(vap, va_gid))
+	if (VATTR_IS_ACTIVE(vap, va_gid)) {
 		fnp->fn_gid = vap->va_gid;
+		do_notify = 1;
+	}
 	VATTR_SET_SUPPORTED(vap, va_mode);
-	if (VATTR_IS_ACTIVE(vap, va_mode))
+	if (VATTR_IS_ACTIVE(vap, va_mode)) {
 		fnp->fn_mode = vap->va_mode & ALLPERMS;
+		do_notify = 1;
+	}
 
-	AUTO_KNOTE(vp, NOTE_ATTRIB);
+	if (do_notify && vnode_ismonitored(vp)) {
+		vfs_get_notify_attributes(&vattr);
+		auto_get_attributes(vp, &vattr, vfs_context_pid(ap->a_context));
+		vnode_notify(vp, VNODE_EVENT_ATTRIB, &vattr);
+	}
 
 	return (0);
 }
@@ -381,14 +454,13 @@ name_is_us(struct componentname *cnp)
 		return (0);
 	ret = autofs_check_thishost(automount_port, cnp->cn_nameptr,
 	    cnp->cn_namelen, &is_us);
-	auto_release_automountd_port(automount_port);
+	auto_release_port(automount_port);
 	if (ret == KERN_SUCCESS)
 		return (is_us);
 	else
 		return (0);
 }
 
-#define OP_NOTHING	-1
 #define OP_LOOKUP	0
 #define OP_MOUNT	1
 
@@ -410,14 +482,17 @@ auto_lookup(ap)
 	u_long flags = cnp->cn_flags;
 	int namelen = cnp->cn_namelen;
 	vfs_context_t context = ap->a_context;
-	ucred_t cred = vfs_context_ucred(context);
+	kauth_cred_t cred = vfs_context_ucred(context);
+	int pid = vfs_context_pid(context);
 	int error = 0;
 	fninfo_t *dfnip;
 	fnnode_t *dfnp = NULL;
 	fnnode_t *fnp = NULL;
 	char *searchnm;
 	int searchnmlen;
-	int operation;		/* OP_NOTHING, OP_LOOKUP, or OP_MOUNT */
+	int operation;		/* OP_LOOKUP or OP_MOUNT */
+	int do_notify = 0;
+	struct vnode_attr vattr;
 
 	dfnip = vfstofni(vnode_mount(dvp));
 	AUTOFS_DPRINT((3, "auto_lookup: dvp=%p (%s) name=%.*s\n",
@@ -520,7 +595,7 @@ top:
 	} else
 		lck_mtx_unlock(dfnp->fn_lock);
 
-	auto_fninfo_lock_shared(dfnip, context);
+	auto_fninfo_lock_shared(dfnip, pid);
 
 	/*
 	 * See if we have done something with this name already, so we
@@ -593,8 +668,7 @@ top:
 				 *
 				 * XXX - passed kcred in Solaris.
 				 */
-				if (map_is_fstab(dfnp) &&
-				    name_is_us(cnp)) {
+				if (map_is_fstab(dfnp) && name_is_us(cnp)) {
 					char *tmp;
 
 					error = auto_makefnnode(&fnp, VLNK,
@@ -656,16 +730,22 @@ top:
 						 */
 						error = EAGAIN;
 					}
+				} else {
+					/*
+					 * We added an entry to the directory,
+					 * so we might want to notify
+					 * interested parties about that.
+					 */
+					do_notify = 1;
 				}
 			}
-		} else if ((dfnp->fn_dirents == NULL) &&
-		    !vnode_isvroot(dvp) &&
-		    vnode_isvroot(fntovn(dfnp->fn_parent))) {
+		} else if (auto_is_unpopulated_indirect_subdir(dvp)) {
 			/*
 			 * dfnp is a directory under the mount point
 			 * of an indirect map, so that it's a directory
 			 * on which a mount would be triggered, such
-			 * as /net/{hostname}.
+			 * as /net/{hostname}, and it has not yet
+			 * been populated with subdirectories.
 			 *
 			 * Thus, what would be found in it would be
 			 * directories corresponding to submounts, such
@@ -698,13 +778,25 @@ top:
 
 fail:
 	if (error == EAGAIN) {
-		auto_fninfo_unlock_shared(dfnip, context);
+		auto_fninfo_unlock_shared(dfnip, pid);
 		lck_rw_done(dfnp->fn_rwlock);
 		goto top;
 	}
 	if (error) {
-		auto_fninfo_unlock_shared(dfnip, context);
+		auto_fninfo_unlock_shared(dfnip, pid);
 		lck_rw_done(dfnp->fn_rwlock);
+		/*
+		 * If this is a CREATE operation, and this is the last
+		 * component, and the error is ENOENT, make it ENOTSUP,
+		 * instead, so that somebody trying to create a file or
+		 * directory gets told "sorry, we don't support that".
+		 * Do the same for RENAME operations, so somebody trying
+		 * to rename a file or directory gets told that.
+		 */
+		if (error == ENOENT &&
+		    (nameiop == CREATE || nameiop == RENAME) &&
+		    (flags & ISLASTCN))
+			error = ENOTSUP;
 		return (error);
 	}
 
@@ -728,8 +820,8 @@ fail:
 	 * If we're the automounter or a child of the automounter,
 	 * there's nothing to trigger.
 	 */
-	if (auto_is_automounter(vfs_context_pid(context))) {
-		auto_fninfo_unlock_shared(dfnip, context);
+	if (auto_is_automounter(pid)) {
+		auto_fninfo_unlock_shared(dfnip, pid);
 		lck_mtx_unlock(fnp->fn_lock);
 		*vpp = fntovn(fnp);
 		return (0);
@@ -777,7 +869,7 @@ fail:
 	 */
 	if ((fnp->fn_flags & MF_LOOKUP) ||
 	    ((operation == OP_MOUNT) && (fnp->fn_flags & MF_INPROG))) {
-		auto_fninfo_unlock_shared(dfnip, context);
+		auto_fninfo_unlock_shared(dfnip, pid);
 		lck_mtx_unlock(fnp->fn_lock);
 		error = auto_wait4mount(fnp, context);
 		vnode_put(fntovn(fnp));
@@ -815,7 +907,7 @@ fail:
 			 * no error.
 			 */
 			lck_rw_unlock_shared(fnp->fn_rwlock);
-			auto_fninfo_unlock_shared(dfnip, context);
+			auto_fninfo_unlock_shared(dfnip, pid);
 			lck_mtx_unlock(fnp->fn_lock);
 			if (!error)
 				*vpp = fntovn(fnp);
@@ -836,7 +928,7 @@ fail:
 		fnp->fn_error = 0;
 		lck_mtx_unlock(fnp->fn_lock);
 		error = auto_lookup_aux(fnp, searchnm, searchnmlen, context);
-		auto_fninfo_unlock_shared(dfnip, context);
+		auto_fninfo_unlock_shared(dfnip, pid);
 		vp = fntovn(fnp);
 		if (!error) {
 			/*
@@ -845,10 +937,22 @@ fail:
 			*vpp = vp;
 		} else {
 			/*
-			 * release our iocount on this vnode
-			 * and return error
+			 * Release our iocount on this vnode
+			 * and return error.  If this is a CREATE
+			 * operation, and this is the last component,
+			 * and the error is ENOENT, make it ENOTSUP,
+			 * instead, so that somebody trying to create
+			 * a file or directory gets told "sorry, we
+			 * don't support that".  Do the same for
+			 * RENAME operations, so somebody trying
+			 * to rename a file or directory gets told
+			 * that.
 			 */
 			vnode_put(vp);
+			if (error == ENOENT &&
+			    (nameiop == CREATE || nameiop == RENAME) &&
+			    (flags & ISLASTCN))
+				error = ENOTSUP;
 		}
 		break;
 	case OP_MOUNT:
@@ -856,17 +960,12 @@ fail:
 		fnp->fn_error = 0;
 		lck_mtx_unlock(fnp->fn_lock);
 		/*
-		 * auto_new_mount_thread fires up a new thread which
-		 * calls automountd finishing up the work
+		 * auto_do_mount fires up a new thread which calls
+		 * automountd finishing up the work, and then waits
+		 * for that thread to complete.
 		 */
-		auto_new_mount_thread(fnp, searchnm, searchnmlen, context);
-
-		/*
-		 * At this point, we are simply another thread
-		 * waiting for the mount to complete
-		 */
-		error = auto_wait4mount(fnp, context);
-		auto_fninfo_unlock_shared(dfnip, context);
+		error = auto_do_mount(fnp, searchnm, searchnmlen, context);
+		auto_fninfo_unlock_shared(dfnip, pid);
 		vp = fntovn(fnp);
 		if (!error) {
 			/*
@@ -882,9 +981,22 @@ fail:
 		}
 		break;
 	default:
-		auto_fninfo_unlock_shared(dfnip, context);
-		log(LOG_WARNING, "auto_lookup: unknown operation %d\n",
+		panic("auto_lookup: unknown operation %d\n",
 		    operation);
+	}
+
+	/*
+	 * If this succeeded, and if the directory in which we
+	 * created this is one on which a readdir will only return
+	 * names corresponding to the vnodes we have for it, and
+	 * somebody cares whether something was created in it,
+	 * notify them.
+	 */
+	if (error == 0 && do_notify && vnode_ismonitored(dvp) &&
+	    auto_nobrowse(dvp)) {
+		vfs_get_notify_attributes(&vattr);
+		auto_get_attributes(dvp, &vattr, pid);
+		vnode_notify(dvp, VNODE_EVENT_WRITE, &vattr);
 	}
 
 	AUTOFS_DPRINT((5, "auto_lookup: name=%s *vpp=%p return=%d\n",
@@ -892,8 +1004,6 @@ fail:
 
 	return (error);
 }
-
-static int autofs_nobrowse = 0;
 
 /*
 #% readdir	vp	L L L
@@ -933,8 +1043,9 @@ auto_readdir(ap)
 {
 	vnode_t vp = ap->a_vp;
 	struct uio *uiop = ap->a_uio;
+	int pid = vfs_context_pid(ap->a_context);
 	int status;
-	uint64_t return_offset;
+	int64_t return_offset;
 	boolean_t return_eof;
 	byte_buffer return_buffer;
 	mach_msg_type_number_t return_bufcount;
@@ -944,15 +1055,17 @@ auto_readdir(ap)
 	fnnode_t *cfnp, *nfnp;
 	struct dirent *dp;
 	off_t offset;
-	uint64_t outcount = 0, count;
+	u_int outcount = 0;
+	mach_msg_type_number_t count;
         void *outbuf;
-	user_ssize_t alloc_count;
+	user_ssize_t user_alloc_count;
+	u_int alloc_count;
 	fninfo_t *fnip = vfstofni(vnode_mount(vp));
 	kern_return_t ret;
 	int error = 0;
 	int reached_max = 0;
 	int myeof = 0;
-	int this_reclen;
+	u_int this_reclen;
 	mach_port_t automount_port;
 
         AUTOFS_DPRINT((4, "auto_readdir vp=%p offset=%lld\n",
@@ -967,19 +1080,20 @@ auto_readdir(ap)
 	if (ap->a_eofflag != NULL)
 		*ap->a_eofflag = 0;
 
-	alloc_count = uio_resid(uiop);
+	user_alloc_count = uio_resid(uiop);
 	/*
 	 * Reject too-small user requests.
 	 */
-	if (alloc_count < DIRENT_RECLEN(1))
+	if (user_alloc_count < DIRENT_RECLEN(1))
 		return (EINVAL);
 	/*
 	 * Trim too-large user requests.
 	 */
-	if (alloc_count > MAXDIRBUFSIZE)
-		alloc_count = MAXDIRBUFSIZE;
+	if (user_alloc_count > MAXDIRBUFSIZE)
+		user_alloc_count = MAXDIRBUFSIZE;
+	alloc_count = (u_int)user_alloc_count;
 
-	auto_fninfo_lock_shared(fnip, ap->a_context);
+	auto_fninfo_lock_shared(fnip, pid);
 	lck_rw_lock_shared(fnp->fn_rwlock);
 	
 	if (uio_offset(uiop) >= AUTOFS_DAEMONCOOKIE) {
@@ -1036,7 +1150,7 @@ again:
 		    uio_offset(uiop), alloc_count, &status,
 		    &return_offset, &return_eof, &return_buffer,
 		    &return_bufcount);
-		auto_release_automountd_port(automount_port);
+		auto_release_port(automount_port);
 		/*
 		 * reacquire previously dropped lock
 		 */
@@ -1045,6 +1159,8 @@ again:
 		if (ret == KERN_SUCCESS)
 			error = status;
 		else {
+			IOLog("autofs: autofs_readdir failed, status 0x%08x\n",
+			    ret);
 			/* XXX - deal with Mach errors */
 			error = EIO;
 		}
@@ -1055,6 +1171,8 @@ again:
 		ret = vm_map_copyout(kernel_map, &map_data,
 		    (vm_map_copy_t)return_buffer);
 		if (ret != KERN_SUCCESS) {
+			IOLog("autofs: vm_map_copyout failed, status 0x%08x\n",
+			    ret);
 			/* XXX - deal with Mach errors */
 			error = EIO;
 			goto done;
@@ -1254,12 +1372,7 @@ again:
 			uio_setoffset(uiop, offset);
 			if (outcount == 0)
 				error = EINVAL;
-		} else if (autofs_nobrowse ||
-		    (fnip->fi_mntflags & AUTOFS_MNT_NORDDIR) ||
-		    (fnp->fn_trigger != NULL) ||
-		    (!vnode_isvroot(vp) &&
-		    vnode_isvroot(fntovn(fnp->fn_parent)) &&
-		    (fnp->fn_dirents == NULL))) {
+		} else if (auto_nobrowse(vp)) {
 			/*
 			 * done reading directory entries
 			 */
@@ -1278,7 +1391,7 @@ again:
 done:
 	lck_rw_unlock_shared(fnp->fn_rwlock);
 done_nolock:
-	auto_fninfo_unlock_shared(fnip, ap->a_context);
+	auto_fninfo_unlock_shared(fnip, pid);
 	AUTOFS_DPRINT((5, "auto_readdir vp=%p offset=%lld eof=%d\n",
 	    (void *)vp, uio_offset(uiop), myeof));	
 	return (error);
@@ -1321,7 +1434,7 @@ auto_readlink(ap)
 		assert(!(fnp->fn_flags & (MF_INPROG | MF_LOOKUP)));
 		fnp->fn_atime = now;
 		error = uiomove(fnp->fn_symlink, MIN(fnp->fn_symlinklen,
-		    uio_resid(uiop)), uiop);
+		    (int)uio_resid(uiop)), uiop);
 	}
 
 	AUTOFS_DPRINT((5, "auto_readlink: error=%d\n", error));
@@ -1379,170 +1492,18 @@ auto_getxattr(ap)
 		vfs_context_t a_context;
 	}; */ *ap;
 {
-	vnode_t vp = ap->a_vp;
-	fnnode_t *fnp = vntofn(vp);
 	struct uio *uio = ap->a_uio;
-	size_t attrsize;
-	int retval = 0;
 
 	/* do not support position argument */
-	if (uio_offset(uio) != 0) {
-		retval = EINVAL;
-		goto out;
-	}
+	if (uio_offset(uio) != 0)
+		return (EINVAL);
 
-	/* network category xattr */
-	if (strncmp(ap->a_name, XATTR_CATEGORYNAME, XATTR_CATEGORYNAMELEN) == 0) {
-		
-		lck_rw_lock_shared(fnp->fn_rwlock);
-
-		/* check if xattr exists */
-		if (!(fnp->xattr_data.xattr_category)) {
-			retval = ENOATTR;
-			goto out_unlock;
-		}
-
-		/* return the size of attribute */
-		*ap->a_size = XATTR_CATEGORY_MAXSIZE;
-		
-		/* if uio is NULL, return the size of xattr */
-		if (uio == NULL) {
-			goto out_unlock;
-		}
-		
-		/* check attribute size being passed */
-		attrsize = uio_resid(uio);
-		if (attrsize < XATTR_CATEGORY_MAXSIZE) {
-			retval = ERANGE;
-			goto out_unlock;
-		}
-
-		/* copy out attribute data */
-		retval = uiomove((caddr_t)&(fnp->xattr_data.xattr_category), attrsize, uio);
-
-	} else {
-		/* autofs only supports network category xattr */
-		retval = ENOATTR;
-		goto out;
-	}
-
-out_unlock:
-	lck_rw_unlock_shared(fnp->fn_rwlock);
-	
-out:
-	return (retval);
-}
-
-static int 
-auto_setxattr(ap)
-	struct vnop_setxattr_args /* {
-		struct vnodeop_desc *a_desc;
-		vnode_t a_vp;
-		char * a_name;
-		uio_t a_uio;
-		int a_options;
-		vfs_context_t a_context;
-	}; */ *ap;
-{
-	vnode_t vp = ap->a_vp;
-	fnnode_t *fnp = vntofn(vp);
-	struct uio *uio = ap->a_uio;
-	struct autofs_xattr_data new_xattr_data;
-	size_t attrsize;
-	int retval = 0;
-
-	/* network category xattr */
-	if (strncmp(ap->a_name, XATTR_CATEGORYNAME, XATTR_CATEGORYNAMELEN) == 0) {
-
-		/* do not support position argument */
-		if (uio_offset(uio) != 0) {
-			retval = EINVAL;
-			goto out;
-		}
-
-		/* check attribute size being passed */
-		attrsize = uio_resid(uio);
-		if (attrsize != XATTR_CATEGORY_MAXSIZE) {
-			retval = EINVAL;
-			goto out;
-		}
-
-		lck_rw_lock_exclusive(fnp->fn_rwlock);
-		
-		/* create new xattr option and xattr exists */
-		if ((ap->a_options & XATTR_CREATE) && fnp->xattr_data.xattr_category) {
-			retval = EEXIST;
-			goto out_unlock;
-		}
-		
-		/* replace old xattr and xattr does not exist */
-		if ((ap->a_options & XATTR_REPLACE) && !(fnp->xattr_data.xattr_category)) {
-			retval = ENOATTR;
-			goto out_unlock;
-		}
-
-		/* copy in attribute data */
-		retval = uiomove((caddr_t) &new_xattr_data.xattr_category, attrsize, uio);
-		if (retval) {
-			goto out_unlock;
-		}
-
-		/* set the attribute */
-		fnp->xattr_data.xattr_category = new_xattr_data.xattr_category;
-
-		AUTO_KNOTE(vp, NOTE_ATTRIB);
-	} else {
-		/* autofs only supports network category xattr */
-		retval = EPERM;
-		goto out;
-	}
-
-out_unlock:
-	lck_rw_unlock_exclusive(fnp->fn_rwlock);
-	
-out:
-	return (retval);
-}
-
-static int
-auto_removexattr(ap)
-	struct vnop_removexattr_args /* {
-		struct vnodeop_desc *a_desc;
-		vnode_t a_vp;
-		char * a_name;
-		int a_options;
-		vfs_context_t a_context;
-	}; */ *ap;
-{
-	struct vnode *vp = ap->a_vp;
-	fnnode_t *fnp = vntofn(vp);
-	int retval = 0;
-
-	/* network category xattr */
-	if (strncmp(ap->a_name, XATTR_CATEGORYNAME, XATTR_CATEGORYNAMELEN) == 0) {
-
-		lck_rw_lock_shared(fnp->fn_rwlock);
-
-		/* check if xattr exists */
-		if (!(fnp->xattr_data.xattr_category)) {
-			retval = ENOATTR;
-			goto out_unlock;
-		}
-
-		fnp->xattr_data.xattr_category = 0;
-		
-		AUTO_KNOTE(vp, NOTE_ATTRIB);
-	} else {
-		/* autofs only supports network category xattr */
-		retval = ENOATTR;
-		goto out;
-	}
-
-out_unlock:
-	lck_rw_unlock_shared(fnp->fn_rwlock);
-	
-out:
-	return (retval);
+	/*
+	 * We don't actually offer any extended attributes; we just say
+	 * we do, so that nobody wastes our time - or any server's time,
+	 * with wildcard maps - looking for ._ files.
+	 */
+	return (ENOATTR);
 }
 
 static int 
@@ -1556,40 +1517,10 @@ auto_listxattr(ap)
 		vfs_context_t a_context;
 	}; */ *ap;
 {
-	struct vnode *vp = ap->a_vp;
-	fnnode_t *fnp = vntofn(vp);
-	struct uio *uio = ap->a_uio;
-	int retval = 0;
-	
 	*ap->a_size = 0;
 	
-	/* return zero if no extended attributes defined */
-	if (!fnp->xattr_data.xattr_category) {
-		retval = 0;
-		goto out;
-	}
-
-	lck_rw_lock_shared(fnp->fn_rwlock);
-
-	/* return network.category */
-	if (uio == NULL) {
-		*ap->a_size += XATTR_CATEGORYNAMELEN;		
-	} else if (uio_resid(uio) < XATTR_CATEGORYNAMELEN) {
-		retval = ERANGE;
-		goto out_unlock;
-	} else {
-		retval = uiomove((caddr_t) XATTR_CATEGORYNAME, XATTR_CATEGORYNAMELEN, uio);
-		if (retval) {
-			retval = ERANGE;
-			goto out_unlock;
-		}
-	}
-
-out_unlock:
-	lck_rw_unlock_shared(fnp->fn_rwlock);
-	
-out:
-	return (retval);
+	/* we have no extended attributes, so just return 0 */
+	return (0);
 }
 
 static int
@@ -1603,6 +1534,8 @@ auto_reclaim(ap)
 	vnode_t vp = ap->a_vp;
 	fnnode_t *fnp = vntofn(vp);
 	fnnode_t *dfnp = fnp->fn_parent;
+	vnode_t dvp;
+	struct vnode_attr vattr;
 
 	AUTOFS_DPRINT((4, "auto_reclaim: vp=%p fn_link=%d\n",
 	    (void *)vp, fnp->fn_linkcnt));
@@ -1624,9 +1557,24 @@ auto_reclaim(ap)
 		 * a subsequent reference to it will recreate it if
 		 * the name is still there in the map.
 		 */
-		if (fnp->fn_linkcnt == 1)
+		if (fnp->fn_linkcnt == 1) {
 			auto_disconnect(dfnp, fnp);
-		else if (fnp->fn_linkcnt == 0) {
+
+			/*
+			 * If the directory from which we removed this
+			 * is one on which a readdir will only return
+			 * names corresponding to the vnodes we have
+			 * for it, and somebody cares whether something
+			 * was removed from it, notify them.
+			 */
+			dvp = fntovn(dfnp);
+			if (vnode_ismonitored(dvp) && auto_nobrowse(dvp)) {
+				vfs_get_notify_attributes(&vattr);
+				auto_get_attributes(dvp, &vattr,
+				    vfs_context_pid(ap->a_context));
+				vnode_notify(dvp, VNODE_EVENT_WRITE, &vattr);
+			}
+		} else if (fnp->fn_linkcnt == 0) {
 			/*
 			 * Root vnode; we've already removed it from the
 			 * "parent" (the master node for all autofs file
@@ -1643,101 +1591,4 @@ auto_reclaim(ap)
 	AUTOFS_DPRINT((5, "auto_reclaim: (exit) vp=%p freed\n",
 	    (void *)vp));
 	return (0);
-}
-
-
-static void
-filt_autofsdetach(struct knote *kn)
-{
-	vnode_t vp = (vnode_t)kn->kn_hook;
-	fnnode_t *fnp = vntofn(vp);
-
-	if (vnode_getwithvid(vp, kn->kn_hookid))
-		return;
-
-	if (1) {  /* ! KNDETACH_VNLOCKED */
-		lck_mtx_lock(fnp->fn_lock);
-		(void) KNOTE_DETACH(&fnp->fn_knotes, kn);
-		lck_mtx_unlock(fnp->fn_lock);
-	}
-
-	vnode_put(vp);
-}
-
-static int
-filt_autofsvnode(struct knote *kn, long hint)
-{
-	vnode_t vp = (vnode_t)kn->kn_hook;
-
-	if (hint == 0)  {
-		if ((vnode_getwithvid(vp, kn->kn_hookid) != 0)) {
-			hint = NOTE_REVOKE;
-		} else
-			vnode_put(vp);
-	}
-	if (kn->kn_sfflags & hint)
-		kn->kn_fflags |= hint;
-	if (hint == NOTE_REVOKE) {
-		kn->kn_flags |= (EV_EOF | EV_ONESHOT);
-		return (1);
-	}
-	
-	return (kn->kn_fflags != 0);
-}
-
-static struct filterops autofsvnode_filtops = 
-	{ 1, NULL, filt_autofsdetach, filt_autofsvnode };
-
-/*
- * Add a kqueue filter.
- */
-static int
-auto_kqfilt_add(ap)
-	struct vnop_kqfilt_add_args /* {
-		vnode_t a_vp;
-		struct knote *a_kn;
-		struct proc *p;
-		vfs_context_t a_context;
-	} */ *ap;
-{
-	vnode_t vp = ap->a_vp;
-	struct knote *kn = ap->a_kn;
-	fnnode_t *fnp = vntofn(vp);
-
-	switch (kn->kn_filter) {
-
-	case EVFILT_VNODE:
-		kn->kn_fop = &autofsvnode_filtops;
-		break;
-
-	default:
-		return (EINVAL);
-	}
-
-	kn->kn_hook = (caddr_t)vp;
-	kn->kn_hookid = vnode_vid(vp);
-
-	lck_mtx_lock(fnp->fn_lock);
-	KNOTE_ATTACH(&fnp->fn_knotes, kn);
-	lck_mtx_unlock(fnp->fn_lock);
-
-	return (0);
-}
-
-/*
- * Remove a kqueue filter
- */
-static int
-auto_kqfilt_remove(ap)
-	struct vnop_kqfilt_remove_args /* {
-		vnode_t a_vp;
-		uintptr_t ident;
-		vfs_context_t a_context;
-	} */__unused *ap;
-{
-	int result;
-
-	result = ENOTSUP; /* XXX */
-	
-	return (result);
 }

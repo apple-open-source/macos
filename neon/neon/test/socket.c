@@ -1,6 +1,6 @@
 /* 
    Socket handling tests
-   Copyright (C) 2002-2006, Joe Orton <joe@manyfish.co.uk>
+   Copyright (C) 2002-2008, Joe Orton <joe@manyfish.co.uk>
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -214,9 +214,10 @@ static int resolve_ipv6(void)
 #endif
 
 static const unsigned char raw_127[4] = "\x7f\0\0\01", /* 127.0.0.1 */
-raw6_nuls[16] = /* :: */ "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
+    raw6_nuls[16] = /* :: */ "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
 #ifdef TEST_IPV6
 static const unsigned char 
+raw6_local[16] = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\1",
 raw6_cafe[16] = /* feed::cafe */ "\xfe\xed\0\0\0\0\0\0\0\0\0\0\0\0\xca\xfe",
 raw6_babe[16] = /* cafe:babe:: */ "\xca\xfe\xba\xbe\0\0\0\0\0\0\0\0\0\0\0\0";
 #endif
@@ -256,7 +257,9 @@ static int addr_make_v6(void)
 	ne_inet_addr *ia = ne_iaddr_make(ne_iaddr_ipv6, as[n].addr);
 	char pr[128];
 
-	ONV(ia == NULL, ("could not make address for %d", n));
+	ONV(ia == NULL, ("could not make address for '%s'", 
+                         as[n].rep));
+
 	ne_iaddr_print(ia, pr, sizeof pr);
 	ONV(strcmp(pr, as[n].rep), 
 	    ("address %d was '%s' not '%s'", n, pr, as[n].rep));
@@ -297,6 +300,7 @@ static int addr_compare(void)
 #ifdef TEST_IPV6
     ne_iaddr_free(ia2);
     ia2 = ne_iaddr_make(ne_iaddr_ipv6, raw6_cafe);
+    ONN("could not make IPv6 address", !ia2);
     ret = ne_iaddr_cmp(ia1, ia2);
     ONN("comparison of IPv4 and IPv6 addresses was zero", ret == 0);
 
@@ -313,6 +317,25 @@ static int addr_compare(void)
 
     ne_iaddr_free(ia1);
     ne_iaddr_free(ia2);
+    return OK;
+}
+
+static int addr_reverse(void)
+{
+    ne_inet_addr *ia = ne_iaddr_make(ne_iaddr_ipv4, raw_127);
+    char buf[128];
+
+    ONN("ne_iaddr_make returned NULL", ia == NULL);
+
+    ONN("reverse lookup for 127.0.0.1 failed",
+        ne_iaddr_reverse(ia, buf, sizeof buf) != 0);
+
+    ONV(!(strcmp(buf, "localhost.localdomain") == 0
+          || strcmp(buf, "localhost") == 0),
+        ("reverse lookup for 127.0.0.1 got %s", buf));
+
+    ne_iaddr_free(ia);
+
     return OK;
 }
 
@@ -341,6 +364,34 @@ static int addr_connect(void)
     CALL(await_server());
 
     ne_iaddr_free(ia);
+    return OK;
+}
+
+static int addr_peer(void)
+{
+    ne_socket *sock = ne_sock_create();
+    ne_inet_addr *ia, *ia2;
+    unsigned int port = 9999;
+    int ret;
+
+    ia = ne_iaddr_make(ne_iaddr_ipv4, raw_127);
+    ONN("ne_iaddr_make returned NULL", ia == NULL);
+    
+    CALL(spawn_server(7777, serve_close, NULL));
+    ONN("could not connect", ne_sock_connect(sock, ia, 7777));
+
+    ia2 = ne_sock_peer(sock, &port);
+    ret = ne_iaddr_cmp(ia, ia2);
+    ONV(ret != 0,
+        ("comparison of peer with server address was %d", ret));
+
+    ONV(port != 7777, ("got peer port %u", port));
+ 
+    ne_sock_close(sock);
+    CALL(await_server());
+
+    ne_iaddr_free(ia);
+    ne_iaddr_free(ia2);
     return OK;
 }
 
@@ -446,6 +497,7 @@ static int fullread_expect(ne_socket *sock, const char *str, size_t len)
     return OK;
 }
 
+#define FULLREAD(str) CALL(fullread_expect(sock, str, strlen(str)))
 
 /* Declare a struct string */
 #define DECL(var,str) struct string var = { str, 0 }; var.len = strlen(str)
@@ -496,7 +548,6 @@ static int small_reads(void)
 
 /* peek or read, expecting to get given string. */
 #define READ(str) CALL(read_expect(sock, str, strlen(str)))
-#define FULLREAD(str) CALL(fullread_expect(sock, str, strlen(str)))
 #define PEEK(str) CALL(peek_expect(sock, str, strlen(str)))
 
 /* Stress out the read buffer handling a little. */
@@ -542,12 +593,11 @@ static int line_expect(ne_socket *sock, const char *line)
 {
     ssize_t ret = ne_sock_readline(sock, buffer, BUFSIZ);
     size_t len = strlen(line);
+    NE_DEBUG(NE_DBG_SOCKET, " -> expected=%s -> actual=%s", line, buffer);
     ONV(ret == NE_SOCK_CLOSED, ("socket closed, expecting `%s'", line));
     ONV(ret < 0, ("socket error `%s', expecting `%s'", 
 		  ne_sock_error(sock), line));
-    ONV((size_t)ret != len, 
-	("readline got %" NE_FMT_SSIZE_T ", expecting `%s'", ret, line));
-    ONV(strcmp(line, buffer),
+    ONV((size_t)ret != len || strcmp(line, buffer),
 	("readline mismatch: `%s' not `%s'", buffer, line));
     return OK;
 }
@@ -704,9 +754,34 @@ static int to_end(ne_socket *sock)
 	 
 #define TO_BEGIN ne_socket *sock; CALL(to_begin(&sock))
 #define TO_OP(x) do { int to_ret = (x); \
-ONV(to_ret != NE_SOCK_TIMEOUT, ("operation did not timeout: %d", to_ret)); \
+        ONV(to_ret != NE_SOCK_TIMEOUT, ("operation did not timeout: got %d (%s)", to_ret, ne_sock_error(sock))); \
 } while (0)
 #define TO_FINISH return to_end(sock)
+
+#ifndef TEST_CONNECT_TIMEOUT
+#define TEST_CONNECT_TIMEOUT 0
+#endif
+#if TEST_CONNECT_TIMEOUT
+
+/* No obvious way to reliably test a connect() timeout.  But
+ * www.example.com seems to drop packets on ports other than 80 so
+ * that actually works pretty well.  Disabled by default. */
+static int connect_timeout(void)
+{
+    static const unsigned char example_dot_com[] = "\xC0\x00\x22\xA6";
+    ne_socket *sock = ne_sock_create();
+    ne_inet_addr *ia = ne_iaddr_make(ne_iaddr_ipv4, example_dot_com);
+
+    ne_sock_connect_timeout(sock, 1);
+
+    TO_OP(ne_sock_connect(sock, ia, 8080));
+
+    ne_iaddr_free(ia);
+    ne_sock_close(sock);
+
+    return OK;
+}
+#endif
 
 static int peek_timeout(void)
 {
@@ -759,6 +834,7 @@ static int serve_expect(ne_socket *sock, void *ud)
 static int full_write(ne_socket *sock, const char *data, size_t len)
 {
     int ret = ne_sock_fullwrite(sock, data, len);
+    NE_DEBUG(NE_DBG_SOCKET, "wrote: [%.*s]\n", (int)len, data);
     ONV(ret, ("write failed (%d): %s", ret, ne_sock_error(sock)));
     return OK;
 }
@@ -874,6 +950,7 @@ static int ssl_truncate(void)
 /* use W Richard Stevens' SO_LINGER trick to elicit a TCP RST */
 static int serve_reset(ne_socket *sock, void *ud)
 {
+    minisleep();
     reset_socket(sock);
     exit(0);
     return 0;
@@ -975,6 +1052,14 @@ static int ssl_session_id(void)
     ONN("retrieve session id length",
         ne_sock_sessid(sock, NULL, &len1));
 
+    if (len1 == 0) {
+        /* recent versions of OpenSSL seem to do this, not sure
+         * why or whether it's bad. */
+        finish(sock, 1);
+        t_context("zero-length session ID, cannot test further");
+        return SKIP;
+    }            
+
     if (len1 < sizeof buf) {
         buf[len1] = 'Z';
     }
@@ -982,14 +1067,14 @@ static int ssl_session_id(void)
     {
         size_t len2;
 
-        len2 = len1;
+        len2 = sizeof buf;
         ONN("could not retrieve session id",
             ne_sock_sessid(sock, buf, &len2));
         
         ONN("buffer size changed!?", len1 != len2);
     }        
 
-    ONN("buffer written past end", 
+    ONN("buffer written past expected end", 
         len1 < sizeof buf && buf[len1] != 'Z');
 
     /* Attempt retrieval into too-short buffer: */
@@ -1007,6 +1092,115 @@ static int ssl_session_id(void)
     return await_server();
 }
 
+static int serve_ppeer(ne_socket *sock, void *ud)
+{
+    unsigned int port = 99999;
+    ne_inet_addr *ia = ne_sock_peer(sock, &port);
+    char buf[128], line[256];
+
+    if (ia == NULL)
+        ne_snprintf(line, sizeof line, "error: %s", ne_sock_error(sock));
+    else
+        ne_snprintf(line, sizeof line,
+                    "%s@%u\n", ne_iaddr_print(ia, buf, sizeof buf),
+                    port);
+
+    CALL(full_write(sock, line, strlen(line)));
+         
+    ne_iaddr_free(ia);
+    
+    return OK;
+}
+
+static int try_prebind(int addr, int port)
+{
+    ne_socket *sock = ne_sock_create();
+    ne_inet_addr *ia;
+    char buf[128], line[256];
+
+    ia = ne_iaddr_make(ne_iaddr_ipv4, raw_127);
+    ONN("ne_iaddr_make returned NULL", ia == NULL);
+    
+    CALL(spawn_server(7777, serve_ppeer, NULL));
+
+    ne_sock_prebind(sock, addr ? ia : NULL, port ? 7778 : 0);
+
+    ONN("could not connect", ne_sock_connect(sock, ia, 7777));
+
+    ne_snprintf(line, sizeof line,
+                "%s@%d\n", ne_iaddr_print(ia, buf, sizeof buf),
+                7778);
+    
+    if (!port) {
+        /* Don't know what port will be chosen, so... */
+        ssize_t ret = ne_sock_readline(sock, buffer, BUFSIZ);
+        
+        ONV(ret < 0, ("socket error `%s'", ne_sock_error(sock)));
+
+        ONV(strncmp(line, buffer, strchr(line, '@') - line) != 0,
+            ("bad address: '%s', expecting '%s'",
+             buffer, line));
+    }
+    else {
+        LINE(line);
+    }
+
+    ne_sock_close(sock);
+    CALL(await_server());
+
+    ne_iaddr_free(ia);
+    return OK;
+}
+
+static int prebind(void)
+{
+    CALL(try_prebind(1, 0));
+    CALL(try_prebind(0, 1));
+    CALL(try_prebind(1, 1));
+
+    return OK;
+}
+
+static int serve_cipher(ne_socket *sock, void *ud)
+{
+    char *ciph = ne_sock_cipher(sock);
+    char *s = ciph && strlen(ciph) ? ciph : "NULL";
+
+    CALL(full_write(sock, s, strlen(s)));
+
+    if (ciph) ne_free(ciph);
+    
+    return OK;
+}
+
+static int cipher(void)
+{
+    ne_socket *sock;
+
+#ifdef SOCKET_SSL
+    char *ciph;
+
+    CALL(begin(&sock, serve_cipher, NULL));
+
+    ciph = ne_sock_cipher(sock);
+
+    ONN("NULL/empty cipher", ciph == NULL || strlen(ciph) == 0);
+
+    FULLREAD(ciph);
+    
+    ne_free(ciph);
+    
+#else
+    CALL(begin(&sock, serve_cipher, NULL));
+
+    ONN("non-NULL cipher for non-SSL socket", 
+        ne_sock_cipher(sock) != NULL);
+
+    FULLREAD("NULL");
+
+#endif
+    return finish(sock, 1);
+}
 
 ne_test tests[] = {
     T(multi_init),
@@ -1018,8 +1212,10 @@ ne_test tests[] = {
     T(addr_make_v4),
     T(addr_make_v6),
     T(addr_compare),
+    T(addr_reverse),
     T(just_connect),
     T(addr_connect),
+    T(addr_peer),
     T(read_close),
     T(peek_close),
     T(single_read),
@@ -1028,6 +1224,7 @@ ne_test tests[] = {
     T(read_and_peek),
     T(larger_read),
     T(ssl_session_id),
+    T(cipher),
     T(line_simple),
     T(line_closure),
     T(line_empty),
@@ -1040,12 +1237,16 @@ ne_test tests[] = {
     T(large_writes),
     T(echo_lines),
     T(blocking),
+    T(prebind),
 #ifdef SOCKET_SSL
     T(ssl_closure),
     T(ssl_truncate),
 #else
     T(write_reset),
     T(read_reset),
+#endif
+#if TEST_CONNECT_TIMEOUT
+    T(connect_timeout),
 #endif
     T(read_timeout),
     T(peek_timeout),

@@ -1,10 +1,9 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1997-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1997,2007 Oracle.  All rights reserved.
  *
- * $Id: LockExample.cpp,v 1.2 2004/03/30 01:23:19 jtownsen Exp $
+ * $Id: LockExample.cpp,v 12.5 2007/05/17 15:15:31 bostic Exp $
  */
 
 #include <sys/types.h>
@@ -125,12 +124,13 @@ LockExample::LockExample(const char *home, u_int32_t maxlocks, int do_unlink)
 void LockExample::run()
 {
 	long held;
-	u_int32_t len, locker;
+	size_t len;
+	u_int32_t locker;
 	int did_get, ret;
 	DbLock *locks = 0;
 	int lockcount = 0;
-	char objbuf[1024];
 	int lockid = 0;
+	char objbuf[1024];
 
 	//
 	// Accept lock requests.
@@ -172,7 +172,7 @@ void LockExample::run()
 			else
 				lock_type = DB_LOCK_WRITE;
 
-			Dbt dbt(objbuf, strlen(objbuf));
+			Dbt dbt(objbuf, (u_int32_t)strlen(objbuf));
 
 			DbLock lock;
 			ret = lock_get(locker, DB_LOCK_NOWAIT, &dbt,

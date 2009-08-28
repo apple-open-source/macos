@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004, 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2004, 2005, 2008, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -50,11 +50,13 @@ SCDynamicStoreNotifyFileDescriptor(SCDynamicStoreRef	store,
 				   int32_t		identifier,
 				   int			*fd)
 {
+	size_t				n;
+	int				sc_status;
+	int				sock;
 	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
 	kern_return_t			status;
-	int				sc_status;
+	char				tmpdir[PATH_MAX];
 	struct sockaddr_un		un;
-	int				sock;
 
 	if (store == NULL) {
 		/* sorry, you must provide a session */
@@ -81,18 +83,29 @@ SCDynamicStoreNotifyFileDescriptor(SCDynamicStoreRef	store,
 	}
 
 	/* establish a UNIX domain socket for server->client notification */
+
+	n = confstr(_CS_DARWIN_USER_TEMP_DIR, tmpdir, sizeof(tmpdir));
+	if ((n <= 0) || (n >= sizeof(tmpdir))) {
+		(void) strlcpy(tmpdir, _PATH_TMP, sizeof(tmpdir));
+	}
+
 	bzero(&un, sizeof(un));
 	un.sun_family = AF_UNIX;
 	snprintf(un.sun_path,
 		 sizeof(un.sun_path)-1,
-		 "%s%s-%d",
-		 _PATH_VARTMP,
+		 "%s%s-%d-%d",
+		 tmpdir,
 		 "SCDynamicStoreNotifyFileDescriptor",
+		 getpid(),
 		 storePrivate->server);
+
+	/* ensure that the path does not already exist */
+	(void) unlink(un.sun_path);
 
 	if (bind(sock, (struct sockaddr *)&un, sizeof(un)) == -1) {
 		_SCErrorSet(errno);
 		SCLog(TRUE, LOG_NOTICE, CFSTR("SCDynamicStoreNotifyFileDescriptor bind(): %s"), strerror(errno));
+		(void) unlink(un.sun_path);
 		(void) close(sock);
 		return FALSE;
 	}
@@ -100,6 +113,7 @@ SCDynamicStoreNotifyFileDescriptor(SCDynamicStoreRef	store,
 	if (listen(sock, 0) == -1) {
 		_SCErrorSet(errno);
 		SCLog(TRUE, LOG_NOTICE, CFSTR("SCDynamicStoreNotifyFileDescriptor listen(): %s"), strerror(errno));
+		(void) unlink(un.sun_path);
 		(void) close(sock);
 		return FALSE;
 	}
@@ -111,13 +125,26 @@ SCDynamicStoreNotifyFileDescriptor(SCDynamicStoreRef	store,
 			     (int *)&sc_status);
 
 	if (status != KERN_SUCCESS) {
-#ifdef	DEBUG
-		if (status != MACH_SEND_INVALID_DEST)
-			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreNotifyFileDescriptor notifyviafd(): %s"), mach_error_string(status));
-#endif	/* DEBUG */
-		(void) mach_port_destroy(mach_task_self(), storePrivate->server);
+		if (status == MACH_SEND_INVALID_DEST) {
+			/* the server's gone and our session port's dead, remove the dead name right */
+			(void) mach_port_deallocate(mach_task_self(), storePrivate->server);
+		} else {
+			/* we got an unexpected error, leave the [session] port alone */
+			SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStoreNotifyFileDescriptor notifyviafd(): %s"), mach_error_string(status));
+		}
 		storePrivate->server = MACH_PORT_NULL;
 		_SCErrorSet(status);
+		return FALSE;
+	}
+
+	(void) unlink(un.sun_path);
+
+	if (sc_status != kSCStatusOK) {
+		_SCErrorSet(sc_status);
+		SCLog(TRUE, LOG_NOTICE,
+		      CFSTR("SCDynamicStoreNotifyFileDescriptor server error: %s"),
+		      SCErrorString(sc_status));
+		(void) close(sock);
 		return FALSE;
 	}
 

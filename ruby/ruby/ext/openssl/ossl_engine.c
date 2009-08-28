@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_engine.c 11708 2007-02-12 23:01:19Z shyouhei $
+ * $Id: ossl_engine.c 12496 2007-06-08 15:02:04Z technorama $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2003  GOTOU Yuuzou <gotoyuzo@notwork.org>
  * All rights reserved.
@@ -40,7 +40,7 @@ VALUE eEngineError;
  */
 #define OSSL_ENGINE_LOAD_IF_MATCH(x) \
 do{\
-  if(!strcmp(#x, RSTRING(name)->ptr)){\
+  if(!strcmp(#x, RSTRING_PTR(name))){\
     ENGINE_load_##x();\
     return Qtrue;\
   }\
@@ -75,7 +75,7 @@ ossl_engine_s_load(int argc, VALUE *argv, VALUE klass)
     OSSL_ENGINE_LOAD_IF_MATCH(openbsd_dev_crypto);
 #endif
     OSSL_ENGINE_LOAD_IF_MATCH(openssl);
-    rb_warning("no such builtin loader for `%s'", RSTRING(name)->ptr);
+    rb_warning("no such builtin loader for `%s'", RSTRING_PTR(name));
     return Qnil;
 #endif /* HAVE_ENGINE_LOAD_BUILTIN_ENGINES */
 }
@@ -112,7 +112,7 @@ ossl_engine_s_by_id(VALUE klass, VALUE id)
 
     StringValue(id);
     ossl_engine_s_load(1, &id, klass);
-    if(!(e = ENGINE_by_id(RSTRING(id)->ptr)))
+    if(!(e = ENGINE_by_id(RSTRING_PTR(id))))
 	ossl_raise(eEngineError, NULL);
     WrapEngine(klass, obj, e);
     if(rb_block_given_p()) rb_yield(obj);
@@ -281,8 +281,8 @@ ossl_engine_ctrl_cmd(int argc, VALUE *argv, VALUE self)
     rb_scan_args(argc, argv, "11", &cmd, &val);
     StringValue(cmd);
     if (!NIL_P(val)) StringValue(val);
-    ret = ENGINE_ctrl_cmd_string(e, RSTRING(cmd)->ptr,
-				 NIL_P(val) ? NULL : RSTRING(val)->ptr, 0);
+    ret = ENGINE_ctrl_cmd_string(e, RSTRING_PTR(cmd),
+				 NIL_P(val) ? NULL : RSTRING_PTR(val), 0);
     if (!ret) ossl_raise(eEngineError, NULL);
 
     return self;

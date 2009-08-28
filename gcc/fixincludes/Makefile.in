@@ -17,8 +17,8 @@
 
 #You should have received a copy of the GNU General Public License
 #along with fixincludes; see the file COPYING.  If not, write to
-#the Free Software Foundation, 59 Temple Place - Suite 330,
-#Boston, MA 02111-1307, USA.
+#the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+#Boston, MA 02110-1301, USA.
 
 SHELL=@SHELL@
 
@@ -29,6 +29,7 @@ STAMP = echo timestamp >
 
 CC = @CC@
 CFLAGS = @CFLAGS@
+WARN_CFLAGS = @WARN_CFLAGS@ @WARN_PEDANTIC@ @WERROR@
 LDFLAGS = @LDFLAGS@
 INCLUDES = -I. -I$(srcdir) -I../include -I$(srcdir)/../include
 FIXINC_CFLAGS = -DHAVE_CONFIG_H $(INCLUDES)
@@ -49,10 +50,10 @@ target = @target@
 target_noncanonical:=@target_noncanonical@
 
 # The version of GCC in this tree
-gcc_version=@gcc_version@
+gcc_version := $(shell cat $(srcdir)/../gcc/BASE-VER)
 
 # Directory in which the compiler finds libraries etc.
-libsubdir = $(libdir)/gcc/$(target_noncanonical)/$(version)
+libsubdir = $(libdir)/gcc/$(target_noncanonical)/$(gcc_version)
 # Directory in which the compiler finds executables
 libexecsubdir = $(libexecdir)/gcc/$(target_noncanonical)/$(gcc_version)
 # Where our executable files go
@@ -68,7 +69,7 @@ default : all
 # Now figure out from those variables how to compile and link.
 
 .c.o:
-	$(CC) -c $(CFLAGS) $(CPPFLAGS) $(FIXINC_CFLAGS) $<
+	$(CC) -c $(CFLAGS) $(WARN_CFLAGS) $(CPPFLAGS) $(FIXINC_CFLAGS) $<
 
 # The only suffixes we want for implicit rules are .c and .o.
 .SUFFIXES:
@@ -130,7 +131,7 @@ mostlyclean :
 	rm -f *.o *-stamp $(AF) $(FI) *~ fixinc.sh
 
 clean: mostlyclean
-	rm -f mkheaders
+	rm -f mkheaders mkheaders.almost
 
 distclean: clean
 	rm -f Makefile config.h config.log config.status stamp-h
@@ -143,8 +144,13 @@ distclean : clean
 Makefile: $(srcdir)/Makefile.in config.status
 	$(SHELL) ./config.status Makefile
 
-mkheaders: $(srcdir)/mkheaders.in config.status
-	CONFIG_FILES=mkheaders CONFIG_HEADERS= ./config.status
+mkheaders.almost: $(srcdir)/mkheaders.in config.status
+	CONFIG_FILES=mkheaders.almost:mkheaders.in \
+	CONFIG_HEADERS= ./config.status
+
+mkheaders: mkheaders.almost $(srcdir)/../gcc/BASE-VER
+	sed -e 's/@gcc_version@/$(gcc_version)/' < $< > $@T
+	mv -f $@T $@
 
 config.h: stamp-h
 stamp-h: $(srcdir)/config.h.in config.status
@@ -154,10 +160,10 @@ config.status: $(srcdir)/configure
 	$(SHELL) ./config.status --recheck
 
 $(srcdir)/configure: @MAINT@ $(srcdir)/configure.ac
-	autoconf
+	cd $(srcdir) && autoconf
 
 $(srcdir)/config.h.in: @MAINT@ $(srcdir)/configure.ac
-	autoheader
+	cd $(srcdir) && autoheader
 
 $(srcdir)/aclocal.m4: @MAINT@ $(srcdir)/../gcc/aclocal.m4
 	cp $(srcdir)/../gcc/aclocal.m4 .
@@ -178,7 +184,11 @@ install : all
 	  $(DESTDIR)$(itoolsdir)/fixincl@EXEEXT@
 	$(INSTALL_SCRIPT) mkheaders $(DESTDIR)$(itoolsdir)/mkheaders
 
+.PHONY: dvi info html install-html
+
 dvi :
+pdf :
 info :
 html :
+install-html :
 installcheck :

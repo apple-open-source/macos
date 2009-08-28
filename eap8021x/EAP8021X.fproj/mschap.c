@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,11 +26,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
-#include <openssl/md5.h>
-#include <openssl/md4.h>
-#include <openssl/sha.h>
-#include <openssl/rc4.h>
-#include <machine/byte_order.h>
+#include <CommonCrypto/CommonDigest.h>
+#include <CommonCrypto/CommonCryptor.h>
+#include <libkern/OSByteOrder.h>
 #include <stdbool.h>
 #include "mschap.h"
 
@@ -61,7 +59,7 @@ static void
 NTPasswordHash(const uint8_t * password, uint32_t password_len, 
 	       uint8_t hash[NT_PASSWORD_HASH_SIZE])
 {
-    MD4(password, password_len, hash);
+    CC_MD4(password, password_len, hash);
     return;
 }
 
@@ -125,8 +123,8 @@ ChallengeHash(const uint8_t peer_challenge[MSCHAP2_CHALLENGE_SIZE],
 	      uint8_t challenge[MSCHAP_NT_CHALLENGE_SIZE])
 {
     const uint8_t *	user;
-    SHA_CTX		context;
-    uint8_t		hash[SHA_DIGEST_LENGTH];
+    CC_SHA1_CTX		context;
+    uint8_t		hash[CC_SHA1_DIGEST_LENGTH];
 
     /* find the last backslash to get the user name to use for the hash */
     user = (const uint8_t *)strrchr((const char *)username, '\\');
@@ -136,11 +134,11 @@ ChallengeHash(const uint8_t peer_challenge[MSCHAP2_CHALLENGE_SIZE],
     else {
 	user = user + 1;
     }
-    SHA1_Init(&context);
-    SHA1_Update(&context, peer_challenge, MSCHAP2_CHALLENGE_SIZE);
-    SHA1_Update(&context, auth_challenge, MSCHAP2_CHALLENGE_SIZE);
-    SHA1_Update(&context, user, strlen((const char *)user));
-    SHA1_Final(hash, &context);
+    CC_SHA1_Init(&context);
+    CC_SHA1_Update(&context, peer_challenge, MSCHAP2_CHALLENGE_SIZE);
+    CC_SHA1_Update(&context, auth_challenge, MSCHAP2_CHALLENGE_SIZE);
+    CC_SHA1_Update(&context, user, strlen((const char *)user));
+    CC_SHA1_Final(hash, &context);
     bcopy(hash, challenge, MSCHAP_NT_CHALLENGE_SIZE);
     return;
 }
@@ -169,28 +167,28 @@ GenerateAuthResponse(uint8_t * password, uint32_t password_len,
 		     uint8_t auth_response[MSCHAP2_AUTH_RESPONSE_SIZE])
 {
     uint8_t		challenge[MSCHAP_NT_CHALLENGE_SIZE];
-    SHA_CTX		context;
+    CC_SHA1_CTX		context;
     int			i;
-    uint8_t		hash[SHA_DIGEST_LENGTH];
+    uint8_t		hash[CC_SHA1_DIGEST_LENGTH];
     uint8_t		password_hash[NT_PASSWORD_HASH_SIZE];
     uint8_t *		scan;
 
     NTPasswordHashHash(password, password_len, password_hash);
 
-    SHA1_Init(&context);
-    SHA1_Update(&context, password_hash, NT_PASSWORD_HASH_SIZE);
-    SHA1_Update(&context, nt_response, MSCHAP_NT_RESPONSE_SIZE);
-    SHA1_Update(&context, magic1, 39);
-    SHA1_Final(hash, &context);
+    CC_SHA1_Init(&context);
+    CC_SHA1_Update(&context, password_hash, NT_PASSWORD_HASH_SIZE);
+    CC_SHA1_Update(&context, nt_response, MSCHAP_NT_RESPONSE_SIZE);
+    CC_SHA1_Update(&context, magic1, 39);
+    CC_SHA1_Final(hash, &context);
 
     ChallengeHash(peer_challenge, auth_challenge, username,
 		  challenge);
     
-    SHA1_Init(&context);
-    SHA1_Update(&context, hash, SHA_DIGEST_LENGTH);
-    SHA1_Update(&context, challenge, MSCHAP_NT_CHALLENGE_SIZE);
-    SHA1_Update(&context, magic2, 41);
-    SHA1_Final(hash, &context);
+    CC_SHA1_Init(&context);
+    CC_SHA1_Update(&context, hash, CC_SHA1_DIGEST_LENGTH);
+    CC_SHA1_Update(&context, challenge, MSCHAP_NT_CHALLENGE_SIZE);
+    CC_SHA1_Update(&context, magic2, 41);
+    CC_SHA1_Final(hash, &context);
 
     /*
      * Encode the value of 'hash' as "S=" followed by
@@ -202,7 +200,7 @@ GenerateAuthResponse(uint8_t * password, uint32_t password_len,
     auth_response[0] = 'S';
     auth_response[1] = '=';
     for (i = 0, scan = auth_response + 2; 
-	 i < SHA_DIGEST_LENGTH; i++, scan +=2) {
+	 i < CC_SHA1_DIGEST_LENGTH; i++, scan +=2) {
 	char	hexstr[3];
 	snprintf(hexstr, 3, "%02X", hash[i]);
 	scan[0] = hexstr[0];
@@ -249,7 +247,8 @@ NTSessionKey16(const uint8_t * password, uint32_t password_len,
     /* compute the client response */
     NTChallengeResponse(server_challenge, unicode_password,
 			password_len * 2, input + offset);
-    MD5(input, HASH_INPUT_SIZE, key);
+
+    CC_MD5(input, HASH_INPUT_SIZE, key);
     return;
 }
 
@@ -327,11 +326,20 @@ rc4_encrypt(const void * clear, uint32_t clear_length,
 	    const void * key, uint32_t key_length,
 	    void * cypher)
 {
-    RC4_KEY			rc4_key;
+    size_t 		bytes_processed;
+    CCCryptorStatus	status;
 
-    RC4_set_key(&rc4_key, key_length, key);
     /* sizeof(cypher) == clear_length */
-    RC4(&rc4_key, clear_length, clear, cypher);
+    status = CCCrypt(kCCEncrypt, kCCAlgorithmRC4, 0,
+		     key, key_length, NULL,
+		     clear, clear_length,
+		     cypher, clear_length,
+		     &bytes_processed);
+    if (status != kCCSuccess) {
+	fprintf(stderr, "rc4_encrypt: CCCrypt failed with %d\n",
+		status);
+	return;
+    }
     return;
 }
 
@@ -348,7 +356,7 @@ EncryptPwBlockWithPasswordHash(const uint8_t * password,
     offset = sizeof(clear_pwblock.password) - password_len;
     bcopy(password, ((void *)&clear_pwblock) + offset, password_len);
     clear_pwblock.password_length 
-	= NXSwapHostLongToLittle(password_len); /* little endian? */
+	= OSSwapHostToLittleInt32(password_len); /* little endian? */
     rc4_encrypt(&clear_pwblock, sizeof(clear_pwblock),
 		pw_hash, NT_PASSWORD_HASH_SIZE, pwblock);
     return;
@@ -423,13 +431,13 @@ NTPasswordHashEncryptOldWithNew(const uint8_t * new_password,
 void
 MSChapFillWithRandom(void * buf, uint32_t len)
 {
-    int		i;
-    int		n;
-    int32_t * 	p = (int32_t *)buf;
+    int			i;
+    int			n;
+    u_int32_t * 	p = (u_int32_t *)buf;
     
-    n = len / sizeof(long);
+    n = len / sizeof(*p);
     for (i = 0; i < n; i++, p++) {
-	*p = (int32_t)random();
+	*p = arc4random();
     }
     return;
 }
@@ -495,16 +503,16 @@ GetMasterKey(const uint8_t PasswordHashHash[NT_PASSWORD_HASH_SIZE],
 	     const uint8_t NTResponse[MSCHAP_NT_RESPONSE_SIZE],
 	     uint8_t MasterKey[NT_MASTER_KEY_SIZE])
 {
-    SHA_CTX		context;
-    uint8_t		Digest[SHA_DIGEST_LENGTH];
+    CC_SHA1_CTX		context;
+    uint8_t		Digest[CC_SHA1_DIGEST_LENGTH];
 
     memset(Digest, 0, sizeof(Digest));
 
-    SHA1_Init(&context);
-    SHA1_Update(&context, PasswordHashHash, NT_PASSWORD_HASH_SIZE);
-    SHA1_Update(&context, NTResponse, MSCHAP_NT_RESPONSE_SIZE);
-    SHA1_Update(&context, Magic1, sizeof(Magic1));
-    SHA1_Final(Digest, &context);
+    CC_SHA1_Init(&context);
+    CC_SHA1_Update(&context, PasswordHashHash, NT_PASSWORD_HASH_SIZE);
+    CC_SHA1_Update(&context, NTResponse, MSCHAP_NT_RESPONSE_SIZE);
+    CC_SHA1_Update(&context, Magic1, sizeof(Magic1));
+    CC_SHA1_Final(Digest, &context);
     memcpy(MasterKey, Digest, NT_MASTER_KEY_SIZE);
     return;
 }
@@ -530,8 +538,8 @@ MSChap2_MPPEGetAsymetricStartKey(const uint8_t MasterKey[NT_MASTER_KEY_SIZE],
 				 bool IsSend,
 				 bool IsServer)
 {
-    SHA_CTX		context;
-    uint8_t		Digest[SHA_DIGEST_LENGTH];
+    CC_SHA1_CTX		context;
+    uint8_t		Digest[CC_SHA1_DIGEST_LENGTH];
     const uint8_t *	s;
 
     /*
@@ -564,12 +572,12 @@ MSChap2_MPPEGetAsymetricStartKey(const uint8_t MasterKey[NT_MASTER_KEY_SIZE],
      */
     s = (IsSend == IsServer) ? Magic3 : Magic2;
     memset(Digest, 0, sizeof(Digest));
-    SHA1_Init(&context);
-    SHA1_Update(&context, MasterKey, NT_MASTER_KEY_SIZE);
-    SHA1_Update(&context, SHSpad1, sizeof(SHSpad1));
-    SHA1_Update(&context, s, MAGIC2_3_SIZE);
-    SHA1_Update(&context, SHSpad2, sizeof(SHSpad2));
-    SHA1_Final(Digest, &context);
+    CC_SHA1_Init(&context);
+    CC_SHA1_Update(&context, MasterKey, NT_MASTER_KEY_SIZE);
+    CC_SHA1_Update(&context, SHSpad1, sizeof(SHSpad1));
+    CC_SHA1_Update(&context, s, MAGIC2_3_SIZE);
+    CC_SHA1_Update(&context, SHSpad2, sizeof(SHSpad2));
+    CC_SHA1_Final(Digest, &context);
 
     if (SessionKeyLength > NT_SESSION_KEY_SIZE) {
 	SessionKeyLength = NT_SESSION_KEY_SIZE;

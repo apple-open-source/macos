@@ -24,7 +24,7 @@ TESTROOT = ../..
 include ${TESTROOT}/include/common.makefile
 
 #
-# The point of this test is validate cpu subtypes processing
+# Validate cpu subtypes processing
 #
 
 test: test-${ARCH}
@@ -38,18 +38,84 @@ test-i386:
 test-x86_64:
 	${PASS_IFF} true
 
+test-armv6:
+	gcc  foo.c -arch armv4t -c -o foo-v4.o
+	${FAIL_IF_BAD_OBJ} foo-v4.o
+	gcc  foo.c -arch armv5  -c -o foo-v5.o
+	${FAIL_IF_BAD_OBJ} foo-v5.o
+	gcc  foo.c -arch armv6  -c -o foo-v6.o
+	${FAIL_IF_BAD_OBJ} foo-v6.o
+	gcc  foo.c -arch xscale  -c -o foo-xscale.o
+	${FAIL_IF_BAD_OBJ} foo-xscale.o
+	gcc  main.c -arch armv4t  -c -o main-v4.o
+	${FAIL_IF_BAD_OBJ} main-v4.o
+	gcc  main.c -arch armv5  -c -o main-v5.o
+	${FAIL_IF_BAD_OBJ} main-v5.o
+	gcc  main.c -arch armv6  -c -o main-v6.o
+	${FAIL_IF_BAD_OBJ} main-v6.o
+	gcc  main.c -arch xscale  -c -o main-xscale.o
+	${FAIL_IF_BAD_OBJ} main-xscale.o
+
+	# check V4+V4 -> V4
+	${LD} -r main-v4.o foo-v4.o -o all.o
+	${FAIL_IF_BAD_OBJ} all.o
+	otool -hv all.o | grep V4T | ${FAIL_IF_EMPTY}
+
+	# check V4+V5 -> V5
+	${LD} -r main-v4.o foo-v5.o -o all.o
+	${FAIL_IF_BAD_OBJ} all.o
+	otool -hv all.o | grep V5 | ${FAIL_IF_EMPTY}
+
+	# check V4+V6 -> V6
+	${LD} -r main-v4.o foo-v6.o -o all.o
+	${FAIL_IF_BAD_OBJ} all.o
+	otool -hv all.o | grep V6 | ${FAIL_IF_EMPTY}
+
+	# check V4+xscale -> xscale
+	${LD} -r main-v4.o foo-xscale.o -o all.o
+	${FAIL_IF_BAD_OBJ} all.o
+	otool -hv all.o | grep XSCALE | ${FAIL_IF_EMPTY}
+
+	# check V5+V5 -> V5
+	${LD} -r main-v5.o foo-v5.o -o all.o
+	${FAIL_IF_BAD_OBJ} all.o
+	otool -hv all.o | grep V5 | ${FAIL_IF_EMPTY}
+
+	# check V5+V6 -> V6
+	${LD} -r main-v5.o foo-v6.o -o all.o
+	${FAIL_IF_BAD_OBJ} all.o
+	otool -hv all.o | grep V6 | ${FAIL_IF_EMPTY}
+
+	# check V5+xscale -> xscale
+	${LD} -r main-v5.o foo-xscale.o -o all.o
+	${FAIL_IF_BAD_OBJ} all.o
+	otool -hv all.o | grep XSCALE | ${FAIL_IF_EMPTY}
+
+	# check V6+V6 -> V6
+	${LD} -r main-v6.o foo-v6.o -o all.o
+	${FAIL_IF_BAD_OBJ} all.o
+	otool -hv all.o | grep V6 | ${FAIL_IF_EMPTY}
+
+	# check xscale+xscale -> xscale
+	${LD} -r main-xscale.o foo-xscale.o -o all.o
+	${FAIL_IF_BAD_OBJ} all.o
+	otool -hv all.o | grep XSCALE | ${FAIL_IF_EMPTY}
+
+	${PASS_IFF} true
+
+
 test-ppc:
-	gcc foo.c -arch ppc     -mmacosx-version-min=10.4 -c -o foo.o
+	gcc  foo.c -arch ppc  -mmacosx-version-min=10.4   -c -o foo.o
 	${FAIL_IF_BAD_OBJ} foo.o
-	gcc foo.c -arch ppc750  -mmacosx-version-min=10.4 -c -o foo-G3.o
+	gcc  foo.c -arch ppc750  -c -o foo-G3.o
 	${FAIL_IF_BAD_OBJ} foo-G3.o
-	gcc foo.c -arch ppc7400 -mmacosx-version-min=10.4 -c -o foo-G4.o
+	gcc  foo.c -arch ppc7400 -c -o foo-G4.o
 	${FAIL_IF_BAD_OBJ} foo-G4.o
-	gcc foo.c -arch ppc970  -mmacosx-version-min=10.4 -c -o foo-G5.o
+	gcc  foo.c -arch ppc970  -c -o foo-G5.o
 	${FAIL_IF_BAD_OBJ} foo-G5.o
-	gcc main.c -arch ppc    -mmacosx-version-min=10.4 -c -o main.o
+	gcc  main.c -arch ppc   -mmacosx-version-min=10.4  -c -o main.o
 	${FAIL_IF_BAD_OBJ} main.o
-	gcc main.c -arch ppc970 -mmacosx-version-min=10.4 -c -o main-G5.o
+	gcc  main.c -arch ppc970 -c -o main-G5.o
 	${FAIL_IF_BAD_OBJ} main-G5.o
 
 	# check ALL+ALL -> ALL

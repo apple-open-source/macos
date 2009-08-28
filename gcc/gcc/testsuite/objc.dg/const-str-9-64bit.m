@@ -1,6 +1,7 @@
 /* APPLE LOCAL file 4492976 */
 /* Test if ObjC constant strings get placed in the correct section.  */
 /* { dg-options "-fnext-runtime -m64 -fobjc-abi-version=1 -fno-constant-cfstrings" } */
+/* { dg-do compile { target powerpc*-*-darwin* i?86*-*-darwin* } } */
 
 #include <objc/Object.h>
 

@@ -57,7 +57,7 @@ static CSSM_DB_UNIQUE_RECORD_PTR tpCertLookup(
 	predicate.DbOperator = CSSM_DB_EQUAL;
 	predicate.Attribute.Info.AttributeNameFormat = 
 		CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-	predicate.Attribute.Info.Label.AttributeName = "Subject";
+	predicate.Attribute.Info.Label.AttributeName = (char*) "Subject";
 	predicate.Attribute.Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
 	predicate.Attribute.Value = const_cast<CSSM_DATA_PTR>(subjectName);
 	predicate.Attribute.NumberOfValues = 1;
@@ -311,7 +311,7 @@ static CSSM_DB_UNIQUE_RECORD_PTR tpCrlLookup(
 	pred[0].DbOperator = CSSM_DB_EQUAL;
 	pred[0].Attribute.Info.AttributeNameFormat = 
 		CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-	pred[0].Attribute.Info.Label.AttributeName = "Issuer";
+	pred[0].Attribute.Info.Label.AttributeName = (char*) "Issuer";
 	pred[0].Attribute.Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
 	pred[0].Attribute.Value = const_cast<CSSM_DATA_PTR>(issuerName);
 	pred[0].Attribute.NumberOfValues = 1;
@@ -337,14 +337,14 @@ static CSSM_DB_UNIQUE_RECORD_PTR tpCrlLookup(
 	#if SEARCH_BY_DATE
 	pred[1].DbOperator = CSSM_DB_LESS_THAN;
 	pred[1].Attribute.Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-	pred[1].Attribute.Info.Label.AttributeName = "NextUpdate";
+	pred[1].Attribute.Info.Label.AttributeName = (char*) "NextUpdate";
 	pred[1].Attribute.Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
 	pred[1].Attribute.Value = &timeData;
 	pred[1].Attribute.NumberOfValues = 1;
 	
 	pred[2].DbOperator = CSSM_DB_GREATER_THAN;
 	pred[2].Attribute.Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-	pred[2].Attribute.Info.Label.AttributeName = "ThisUpdate";
+	pred[2].Attribute.Info.Label.AttributeName = (char*) "ThisUpdate";
 	pred[2].Attribute.Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
 	pred[2].Attribute.Value = &timeData;
 	pred[2].Attribute.NumberOfValues = 1;

@@ -7,15 +7,15 @@
 	objects = {
 
 /* Begin PBXAggregateTarget section */
-		0C08A465FF66C08911CA29CE /* All */ = {
+		A144B0620ED72F1A000ED6E1 /* All */ = {
 			isa = PBXAggregateTarget;
-			buildConfigurationList = 30FE97020829B43100BB83AB /* Build configuration list for PBXAggregateTarget "All" */;
+			buildConfigurationList = A144B0690ED72F1A000ED6E1 /* Build configuration list for PBXAggregateTarget "All" */;
 			buildPhases = (
 			);
 			dependencies = (
-				0C08A467FF66C08911CA29CE /* PBXTargetDependency */,
-				0396D5E7FFF9375411CE206D /* PBXTargetDependency */,
-				13FACE9CFF67159C11CA29CE /* PBXTargetDependency */,
+				A144B11F0ED72F1A000ED6E1 /* PBXTargetDependency */,
+				A144B1210ED72F1A000ED6E1 /* PBXTargetDependency */,
+				A144B1230ED72F1A000ED6E1 /* PBXTargetDependency */,
 			);
 			name = All;
 			productName = All;
@@ -23,216 +23,109 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
-		00F0818BFFB3905911CE206C /* DVFamily.h in Headers */ = {isa = PBXBuildFile; fileRef = 02B83D78FF9D34B211CE206C /* DVFamily.h */; };
-		00F0818EFFB3905911CE206C /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 02C3D64FFF65A66F11CA29CE /* CoreServices.framework */; };
-		00F08192FFB390AA11CE206C /* AVCTest.c in Sources */ = {isa = PBXBuildFile; fileRef = 00F08191FFB390AA11CE206C /* AVCTest.c */; settings = {ATTRIBUTES = (); }; };
-		01151961FF76ADBC11CA29CE /* DeviceControl.i in Sources */ = {isa = PBXBuildFile; fileRef = 01151960FF76ADBC11CA29CE /* DeviceControl.i */; settings = {ATTRIBUTES = (); }; };
-		014F01B4FF9D052F11CE206C /* IsochronousDataHandler.i.c in Sources */ = {isa = PBXBuildFile; fileRef = 02C3D632FF6599F211CA29CE /* IsochronousDataHandler.i.c */; settings = {ATTRIBUTES = (); }; };
-		014F01B5FF9D052F11CE206C /* DeviceControl.i.c in Sources */ = {isa = PBXBuildFile; fileRef = 02C3D62FFF65998A11CA29CE /* DeviceControl.i.c */; settings = {ATTRIBUTES = (); }; };
-		014F01B7FF9D056211CE206C /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 08EA7FFBFE8413EDC02AAC07 /* Carbon.framework */; };
-		014F01B8FF9D056211CE206C /* QuickTime.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 02C3D63CFF659AF211CA29CE /* QuickTime.framework */; };
-		014F01B9FF9D056211CE206C /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 02C3D64FFF65A66F11CA29CE /* CoreServices.framework */; };
-		014F01BAFF9D068C11CE206C /* IsochronousDataHandler.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C08A46BFF67027911CA29CE /* IsochronousDataHandler.h */; };
-		014F01BBFF9D068C11CE206C /* DeviceControl.h in Headers */ = {isa = PBXBuildFile; fileRef = 02C3D649FF65A4E811CA29CE /* DeviceControl.h */; };
-		014F01BCFF9D06B311CE206C /* DeviceControl.h in Headers */ = {isa = PBXBuildFile; fileRef = 02C3D649FF65A4E811CA29CE /* DeviceControl.h */; };
-		014F01BDFF9D06B311CE206C /* IsochronousDataHandler.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C08A46BFF67027911CA29CE /* IsochronousDataHandler.h */; };
-		01CE0AC0FFF92EA411CE206D /* IsochronousDataHandler.i.c in Sources */ = {isa = PBXBuildFile; fileRef = 02C3D632FF6599F211CA29CE /* IsochronousDataHandler.i.c */; settings = {ATTRIBUTES = (); }; };
-		01CED3840003BB8C11CE206E /* DVComponentGlue.i in Headers */ = {isa = PBXBuildFile; fileRef = 01CED3830003BB8C11CE206E /* DVComponentGlue.i */; settings = {ATTRIBUTES = (); }; };
-		01D74284FF9D297311CE206C /* DVTest.c in Sources */ = {isa = PBXBuildFile; fileRef = 01D74283FF9D297311CE206C /* DVTest.c */; settings = {ATTRIBUTES = (); }; };
-		01D74286FF9D2B4E11CE206C /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 02C3D64FFF65A66F11CA29CE /* CoreServices.framework */; };
-		01E8BA92002672F911CE206D /* DVFamily.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 02B83D78FF9D34B211CE206C /* DVFamily.h */; };
-		02B83D79FF9D34B211CE206C /* DVFamily.h in Headers */ = {isa = PBXBuildFile; fileRef = 02B83D78FF9D34B211CE206C /* DVFamily.h */; settings = {ATTRIBUTES = (); }; };
-		02C3D63BFF659AA611CA29CE /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 02C3D63AFF659AA611CA29CE /* Foundation.framework */; };
-		02C3D63DFF659AF211CA29CE /* QuickTime.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 02C3D63CFF659AF211CA29CE /* QuickTime.framework */; };
-		02C3D644FF65A2AF11CA29CE /* DeviceControlPriv.i.c in Sources */ = {isa = PBXBuildFile; fileRef = 02C3D631FF6599F211CA29CE /* DeviceControlPriv.i.c */; settings = {ATTRIBUTES = (); }; };
-		02C3D645FF65A2AF11CA29CE /* DVControlComponent.c in Sources */ = {isa = PBXBuildFile; fileRef = 02C3D642FF65A2AF11CA29CE /* DVControlComponent.c */; settings = {ATTRIBUTES = (); }; };
-		02C3D648FF65A4C711CA29CE /* DeviceControlPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 02C3D647FF65A4C711CA29CE /* DeviceControlPriv.h */; };
-		02C3D64AFF65A4E811CA29CE /* DeviceControl.h in Headers */ = {isa = PBXBuildFile; fileRef = 02C3D649FF65A4E811CA29CE /* DeviceControl.h */; };
-		02C3D64EFF65A62711CA29CE /* IOFWDVComponents.r in Rez */ = {isa = PBXBuildFile; fileRef = 02C3D64DFF65A62711CA29CE /* IOFWDVComponents.r */; };
-		02C3D650FF65A66F11CA29CE /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 02C3D64FFF65A66F11CA29CE /* CoreServices.framework */; };
-		031452A0FF9E235311CE206C /* DVFamily.h in Headers */ = {isa = PBXBuildFile; fileRef = 02B83D78FF9D34B211CE206C /* DVFamily.h */; };
-		038A4B82FFF9353B11CE206D /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 038A4B80FFF9353B11CE206D /* IOKit.framework */; };
-		04B6B6E5FF76D54211CA29CE /* IsochronousDataHandler.i in Headers */ = {isa = PBXBuildFile; fileRef = 04B6B6E4FF76D54211CA29CE /* IsochronousDataHandler.i */; };
-		088997A6FF7AC00D11CA29CE /* readtest.c in Sources */ = {isa = PBXBuildFile; fileRef = 088997A4FF7AC00911CA29CE /* readtest.c */; settings = {ATTRIBUTES = (); }; };
-		089C1680FE841241C02AAC07 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 089C167DFE841241C02AAC07 /* InfoPlist.strings */; };
-		08EA7FFCFE8413EDC02AAC07 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 08EA7FFBFE8413EDC02AAC07 /* Carbon.framework */; };
-		0AF09526FF7AC3F511CA29CE /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 08EA7FFBFE8413EDC02AAC07 /* Carbon.framework */; };
-		0AF09527FF7AC40511CA29CE /* QuickTime.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 02C3D63CFF659AF211CA29CE /* QuickTime.framework */; };
-		0AF09528FF7AC40511CA29CE /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 02C3D64FFF65A66F11CA29CE /* CoreServices.framework */; };
-		0C08A46CFF67027911CA29CE /* IsochronousDataHandler.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C08A46BFF67027911CA29CE /* IsochronousDataHandler.h */; };
-		13FACEA6FF6716B911CA29CE /* DVFamily.c in Sources */ = {isa = PBXBuildFile; fileRef = 13FACEA4FF67164A11CA29CE /* DVFamily.c */; settings = {ATTRIBUTES = (); }; };
-		302B751D0B5EE93100C0EED0 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 302B751B0B5EE93100C0EED0 /* Localizable.strings */; };
-		8C1B7588023044F504CE206E /* DVLib.c in Sources */ = {isa = PBXBuildFile; fileRef = 8CDC69E301F4EFF304CE206E /* DVLib.c */; };
-		8C31838A015FDAE804CE206D /* IsochronousDataHandler.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C08A46BFF67027911CA29CE /* IsochronousDataHandler.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		8C31838B015FDAE804CE206D /* DeviceControl.h in Headers */ = {isa = PBXBuildFile; fileRef = 02C3D649FF65A4E811CA29CE /* DeviceControl.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		8C31838D015FE43904CE206D /* DVComponentGlue.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 04D734D2FFF9388111CE206D /* DVComponentGlue.framework */; };
-		8C31B6260156C42004CE206D /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 02C3D64FFF65A66F11CA29CE /* CoreServices.framework */; };
-		8C51CC6E00BDDF9504CE206D /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 038A4B80FFF9353B11CE206D /* IOKit.framework */; };
-		8C51CC7000BDE16404CE206D /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8C51CC6F00BDE16404CE206D /* CoreFoundation.framework */; };
-		8C51CC7100BDE39804CE206D /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8C51CC6F00BDE16404CE206D /* CoreFoundation.framework */; };
-		8CA281E800E2BF7B04CE206D /* devicetest.c in Sources */ = {isa = PBXBuildFile; fileRef = 8CA281E300E2BF7B04CE206D /* devicetest.c */; };
-		8CA281EF00E2C05904CE206D /* DVComponentGlue.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 04D734D2FFF9388111CE206D /* DVComponentGlue.framework */; };
-		8CA281F000E2C05904CE206D /* QuickTime.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 02C3D63CFF659AF211CA29CE /* QuickTime.framework */; };
-		8CBFAEEA045EFA3704CE206E /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 08EA7FFBFE8413EDC02AAC07 /* Carbon.framework */; };
-		8CD463AB010E321C04CE206D /* DVIsochComponent.c in Sources */ = {isa = PBXBuildFile; fileRef = 8CD463AA010E321C04CE206D /* DVIsochComponent.c */; };
-		8CDC69E401F4EFF304CE206E /* DVLib.c in Sources */ = {isa = PBXBuildFile; fileRef = 8CDC69E301F4EFF304CE206E /* DVLib.c */; };
-		8CDC69E601F4F0F904CE206E /* DVLib.h in Headers */ = {isa = PBXBuildFile; fileRef = 8CDC69E501F4F0F904CE206E /* DVLib.h */; };
-		8CE0140B023EB33604CE206E /* QuickTime.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 02C3D63CFF659AF211CA29CE /* QuickTime.framework */; };
-		8CE0140C023EB34604CE206E /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 08EA7FFBFE8413EDC02AAC07 /* Carbon.framework */; };
-		8CE01429023ED01304CE206E /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 02C3D64FFF65A66F11CA29CE /* CoreServices.framework */; };
-		8CE0142A023ED19604CE206E /* IsochronousDataHandler.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C08A46BFF67027911CA29CE /* IsochronousDataHandler.h */; };
-		8CE0142B023ED7D904CE206E /* DeviceControl.i.c in Sources */ = {isa = PBXBuildFile; fileRef = 02C3D62FFF65998A11CA29CE /* DeviceControl.i.c */; };
-		8CE0142C023ED7D904CE206E /* DeviceControlPriv.i.c in Sources */ = {isa = PBXBuildFile; fileRef = 02C3D631FF6599F211CA29CE /* DeviceControlPriv.i.c */; };
-		8CFF00AE0282097104CE237C /* CFTest.c in Sources */ = {isa = PBXBuildFile; fileRef = 8CFF00AD0282097104CE237C /* CFTest.c */; };
-		8CFF00B002820B1304CE237C /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8C51CC6F00BDE16404CE206D /* CoreFoundation.framework */; };
-		A1C4DB1109D2259C000BCF43 /* DVComponentGlue.h in Headers */ = {isa = PBXBuildFile; fileRef = A1C4DB0E09D2257E000BCF43 /* DVComponentGlue.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		F5FA1990034A455301CD2849 /* writetest.c in Sources */ = {isa = PBXBuildFile; fileRef = 014F01B2FF9D052F11CE206C /* writetest.c */; };
+		A144B0700ED72F1A000ED6E1 /* DeviceControlPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 02C3D647FF65A4C711CA29CE /* DeviceControlPriv.h */; };
+		A144B0710ED72F1A000ED6E1 /* DeviceControl.h in Headers */ = {isa = PBXBuildFile; fileRef = 02C3D649FF65A4E811CA29CE /* DeviceControl.h */; };
+		A144B0720ED72F1A000ED6E1 /* IsochronousDataHandler.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C08A46BFF67027911CA29CE /* IsochronousDataHandler.h */; };
+		A144B0750ED72F1A000ED6E1 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 089C167DFE841241C02AAC07 /* InfoPlist.strings */; };
+		A144B0760ED72F1A000ED6E1 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 302B751B0B5EE93100C0EED0 /* Localizable.strings */; };
+		A144B0780ED72F1A000ED6E1 /* DeviceControlPriv.i.c in Sources */ = {isa = PBXBuildFile; fileRef = 02C3D631FF6599F211CA29CE /* DeviceControlPriv.i.c */; settings = {ATTRIBUTES = (); }; };
+		A144B0790ED72F1A000ED6E1 /* DVControlComponent.c in Sources */ = {isa = PBXBuildFile; fileRef = 02C3D642FF65A2AF11CA29CE /* DVControlComponent.c */; settings = {ATTRIBUTES = (); }; };
+		A144B07B0ED72F1A000ED6E1 /* DVIsochComponent.c in Sources */ = {isa = PBXBuildFile; fileRef = 8CD463AA010E321C04CE206D /* DVIsochComponent.c */; };
+		A144B07C0ED72F1A000ED6E1 /* DVLib.c in Sources */ = {isa = PBXBuildFile; fileRef = 8CDC69E301F4EFF304CE206E /* DVLib.c */; };
+		A144B07E0ED72F1A000ED6E1 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 08EA7FFBFE8413EDC02AAC07 /* Carbon.framework */; };
+		A144B07F0ED72F1A000ED6E1 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 02C3D63AFF659AA611CA29CE /* Foundation.framework */; };
+		A144B0800ED72F1A000ED6E1 /* QuickTime.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 02C3D63CFF659AF211CA29CE /* QuickTime.framework */; };
+		A144B0810ED72F1A000ED6E1 /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 02C3D64FFF65A66F11CA29CE /* CoreServices.framework */; };
+		A144B0820ED72F1A000ED6E1 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 038A4B80FFF9353B11CE206D /* IOKit.framework */; };
+		A144B0830ED72F1A000ED6E1 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8C51CC6F00BDE16404CE206D /* CoreFoundation.framework */; };
+		A144B0850ED72F1A000ED6E1 /* IOFWDVComponents.r in Rez */ = {isa = PBXBuildFile; fileRef = 02C3D64DFF65A62711CA29CE /* IOFWDVComponents.r */; };
+		A144B08F0ED72F1A000ED6E1 /* DVFamily.h in Headers */ = {isa = PBXBuildFile; fileRef = 02B83D78FF9D34B211CE206C /* DVFamily.h */; settings = {ATTRIBUTES = (); }; };
+		A144B0900ED72F1A000ED6E1 /* DVLib.h in Headers */ = {isa = PBXBuildFile; fileRef = 8CDC69E501F4F0F904CE206E /* DVLib.h */; };
+		A144B0910ED72F1A000ED6E1 /* IsochronousDataHandler.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C08A46BFF67027911CA29CE /* IsochronousDataHandler.h */; };
+		A144B0930ED72F1A000ED6E1 /* DVFamily.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 02B83D78FF9D34B211CE206C /* DVFamily.h */; };
+		A144B0960ED72F1A000ED6E1 /* DVFamily.c in Sources */ = {isa = PBXBuildFile; fileRef = 13FACEA4FF67164A11CA29CE /* DVFamily.c */; settings = {ATTRIBUTES = (); }; };
+		A144B0970ED72F1A000ED6E1 /* DVLib.c in Sources */ = {isa = PBXBuildFile; fileRef = 8CDC69E301F4EFF304CE206E /* DVLib.c */; };
+		A144B0990ED72F1A000ED6E1 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 038A4B80FFF9353B11CE206D /* IOKit.framework */; };
+		A144B09A0ED72F1A000ED6E1 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8C51CC6F00BDE16404CE206D /* CoreFoundation.framework */; };
+		A144B09B0ED72F1A000ED6E1 /* QuickTime.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 02C3D63CFF659AF211CA29CE /* QuickTime.framework */; };
+		A144B09C0ED72F1A000ED6E1 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 08EA7FFBFE8413EDC02AAC07 /* Carbon.framework */; };
+		A144B09D0ED72F1A000ED6E1 /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 02C3D64FFF65A66F11CA29CE /* CoreServices.framework */; };
+		A144B0A90ED72F1A000ED6E1 /* IsochronousDataHandler.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C08A46BFF67027911CA29CE /* IsochronousDataHandler.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		A144B0AA0ED72F1A000ED6E1 /* DeviceControl.h in Headers */ = {isa = PBXBuildFile; fileRef = 02C3D649FF65A4E811CA29CE /* DeviceControl.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		A144B0AB0ED72F1A000ED6E1 /* DVComponentGlue.h in Headers */ = {isa = PBXBuildFile; fileRef = A1C4DB0E09D2257E000BCF43 /* DVComponentGlue.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		A144B0AE0ED72F1A000ED6E1 /* IsochronousDataHandler.i.c in Sources */ = {isa = PBXBuildFile; fileRef = 02C3D632FF6599F211CA29CE /* IsochronousDataHandler.i.c */; settings = {ATTRIBUTES = (); }; };
+		A144B0AF0ED72F1A000ED6E1 /* DeviceControl.i.c in Sources */ = {isa = PBXBuildFile; fileRef = 02C3D62FFF65998A11CA29CE /* DeviceControl.i.c */; };
+		A144B0B00ED72F1A000ED6E1 /* DeviceControlPriv.i.c in Sources */ = {isa = PBXBuildFile; fileRef = 02C3D631FF6599F211CA29CE /* DeviceControlPriv.i.c */; };
+		A144B0B20ED72F1A000ED6E1 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 08EA7FFBFE8413EDC02AAC07 /* Carbon.framework */; };
+		A144B0BD0ED72F1A000ED6E1 /* IsochronousDataHandler.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C08A46BFF67027911CA29CE /* IsochronousDataHandler.h */; };
+		A144B0BE0ED72F1A000ED6E1 /* DeviceControl.h in Headers */ = {isa = PBXBuildFile; fileRef = 02C3D649FF65A4E811CA29CE /* DeviceControl.h */; };
+		A144B0C00ED72F1A000ED6E1 /* readtest.c in Sources */ = {isa = PBXBuildFile; fileRef = 088997A4FF7AC00911CA29CE /* readtest.c */; settings = {ATTRIBUTES = (); }; };
+		A144B0C20ED72F1A000ED6E1 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 08EA7FFBFE8413EDC02AAC07 /* Carbon.framework */; };
+		A144B0C30ED72F1A000ED6E1 /* QuickTime.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 02C3D63CFF659AF211CA29CE /* QuickTime.framework */; };
+		A144B0C40ED72F1A000ED6E1 /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 02C3D64FFF65A66F11CA29CE /* CoreServices.framework */; };
+		A144B0C50ED72F1A000ED6E1 /* DVComponentGlue.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 04D734D2FFF9388111CE206D /* DVComponentGlue.framework */; };
+		A144B0D00ED72F1A000ED6E1 /* DeviceControl.h in Headers */ = {isa = PBXBuildFile; fileRef = 02C3D649FF65A4E811CA29CE /* DeviceControl.h */; };
+		A144B0D10ED72F1A000ED6E1 /* IsochronousDataHandler.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C08A46BFF67027911CA29CE /* IsochronousDataHandler.h */; };
+		A144B0D30ED72F1A000ED6E1 /* IsochronousDataHandler.i.c in Sources */ = {isa = PBXBuildFile; fileRef = 02C3D632FF6599F211CA29CE /* IsochronousDataHandler.i.c */; settings = {ATTRIBUTES = (); }; };
+		A144B0D40ED72F1A000ED6E1 /* DeviceControl.i.c in Sources */ = {isa = PBXBuildFile; fileRef = 02C3D62FFF65998A11CA29CE /* DeviceControl.i.c */; settings = {ATTRIBUTES = (); }; };
+		A144B0D50ED72F1A000ED6E1 /* writetest.c in Sources */ = {isa = PBXBuildFile; fileRef = 014F01B2FF9D052F11CE206C /* writetest.c */; };
+		A144B0D70ED72F1A000ED6E1 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 08EA7FFBFE8413EDC02AAC07 /* Carbon.framework */; };
+		A144B0D80ED72F1A000ED6E1 /* QuickTime.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 02C3D63CFF659AF211CA29CE /* QuickTime.framework */; };
+		A144B0D90ED72F1A000ED6E1 /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 02C3D64FFF65A66F11CA29CE /* CoreServices.framework */; };
+		A144B0E40ED72F1A000ED6E1 /* DVFamily.h in Headers */ = {isa = PBXBuildFile; fileRef = 02B83D78FF9D34B211CE206C /* DVFamily.h */; };
+		A144B0E60ED72F1A000ED6E1 /* DVTest.c in Sources */ = {isa = PBXBuildFile; fileRef = 01D74283FF9D297311CE206C /* DVTest.c */; settings = {ATTRIBUTES = (); }; };
+		A144B0E80ED72F1A000ED6E1 /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 02C3D64FFF65A66F11CA29CE /* CoreServices.framework */; };
+		A144B0F30ED72F1A000ED6E1 /* DVFamily.h in Headers */ = {isa = PBXBuildFile; fileRef = 02B83D78FF9D34B211CE206C /* DVFamily.h */; };
+		A144B0F50ED72F1A000ED6E1 /* AVCTest.c in Sources */ = {isa = PBXBuildFile; fileRef = 00F08191FFB390AA11CE206C /* AVCTest.c */; settings = {ATTRIBUTES = (); }; };
+		A144B0F70ED72F1A000ED6E1 /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 02C3D64FFF65A66F11CA29CE /* CoreServices.framework */; };
+		A144B1030ED72F1A000ED6E1 /* devicetest.c in Sources */ = {isa = PBXBuildFile; fileRef = 8CA281E300E2BF7B04CE206D /* devicetest.c */; };
+		A144B1050ED72F1A000ED6E1 /* DVComponentGlue.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 04D734D2FFF9388111CE206D /* DVComponentGlue.framework */; };
+		A144B1060ED72F1A000ED6E1 /* QuickTime.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 02C3D63CFF659AF211CA29CE /* QuickTime.framework */; };
+		A144B1070ED72F1A000ED6E1 /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 02C3D64FFF65A66F11CA29CE /* CoreServices.framework */; };
+		A144B1130ED72F1A000ED6E1 /* CFTest.c in Sources */ = {isa = PBXBuildFile; fileRef = 8CFF00AD0282097104CE237C /* CFTest.c */; };
+		A144B1150ED72F1A000ED6E1 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8C51CC6F00BDE16404CE206D /* CoreFoundation.framework */; };
 /* End PBXBuildFile section */
 
-/* Begin PBXBundleTarget section */
-		089C1673FE841209C02AAC07 /* IOFWDVComponents */ = {
-			isa = PBXBundleTarget;
-			buildConfigurationList = 30FE96F30829B43100BB83AB /* Build configuration list for PBXBundleTarget "IOFWDVComponents" */;
-			buildPhases = (
-				089C1674FE841209C02AAC07 /* Headers */,
-				089C1675FE841209C02AAC07 /* Resources */,
-				089C1676FE841209C02AAC07 /* Sources */,
-				089C1677FE841209C02AAC07 /* Frameworks */,
-				089C1679FE841209C02AAC07 /* Rez */,
-			);
-			dependencies = (
-			);
-			name = IOFWDVComponents;
-			productInstallPath = /System/Library/Components;
-			productName = IOFWDVComponents;
-			productReference = 01526B84FFC4A6DF11CE206C /* IOFWDVComponents.component */;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>English</string>
-	<key>CFBundleExecutable</key>
-	<string>IOFWDVComponents</string>
-	<key>CFBundleIconFile</key>
-	<string></string>
-	<key>CFBundleIdentifier</key>
-	<string>com.apple.IOFWDVComponents</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundleName</key>
-	<string>IOFWDVComponents</string>
-	<key>CFBundlePackageType</key>
-	<string>thng</string>
-	<key>CFBundleShortVersionString</key>
-	<string>1.9.5</string>
-	<key>CFBundleSignature</key>
-	<string>appl</string>
-	<key>CFBundleVersion</key>
-	<string>1.9.5</string>
-	<key>CSResourcesFileMapped</key>
-	<true/>
-</dict>
-</plist>
-";
-		};
-		13FACE9DFF67159C11CA29CE /* DVFamily */ = {
-			isa = PBXBundleTarget;
-			buildConfigurationList = 30FE96FD0829B43100BB83AB /* Build configuration list for PBXBundleTarget "DVFamily" */;
-			buildPhases = (
-				13FACE9EFF67159C11CA29CE /* Headers */,
-				01E8BA91002672F911CE206D /* CopyFiles */,
-				13FACE9FFF67159C11CA29CE /* Resources */,
-				13FACEA0FF67159C11CA29CE /* Sources */,
-				13FACEA1FF67159C11CA29CE /* Frameworks */,
-				13FACEA2FF67159C11CA29CE /* Rez */,
-			);
-			dependencies = (
-			);
-			name = DVFamily;
-			productInstallPath = /System/Library/Extensions;
-			productName = DVFamily;
-			productReference = 01526B85FFC4A6DF11CE206C /* DVFamily.bundle */;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>English</string>
-	<key>CFBundleExecutable</key>
-	<string>DVFamily</string>
-	<key>CFBundleGetInfoString</key>
-	<string>IOFWDVComponents version 1.9.5, Copyright 2007 Apple Computer, Inc.</string>
-	<key>CFBundleIconFile</key>
-	<string></string>
-	<key>CFBundleIdentifier</key>
-	<string>com.apple.DVFamily</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundleName</key>
-	<string>DVFamily</string>
-	<key>CFBundlePackageType</key>
-	<string>BNDL</string>
-	<key>CFBundleShortVersionString</key>
-	<string>1.9.5</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>1.9.5</string>
-</dict>
-</plist>
-";
-		};
-/* End PBXBundleTarget section */
-
 /* Begin PBXContainerItemProxy section */
-		A1F91C1907A94D6A000A2E35 /* PBXContainerItemProxy */ = {
+		A144B11E0ED72F1A000ED6E1 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 01CE0AB7FFF92E6711CE206D;
-			remoteInfo = DVComponentGlue;
+			remoteGlobalIDString = A144B06E0ED72F1A000ED6E1;
+			remoteInfo = "IOFWDVComponents (Upgraded)";
 		};
-		A1F91C1A07A94D6A000A2E35 /* PBXContainerItemProxy */ = {
+		A144B1200ED72F1A000ED6E1 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 089C1673FE841209C02AAC07;
-			remoteInfo = IOFWDVComponents;
+			remoteGlobalIDString = A144B0A60ED72F1A000ED6E1;
+			remoteInfo = "DVComponentGlue (Upgraded)";
 		};
-		A1F91C1B07A94D6A000A2E35 /* PBXContainerItemProxy */ = {
+		A144B1220ED72F1A000ED6E1 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 13FACE9DFF67159C11CA29CE;
-			remoteInfo = DVFamily;
+			remoteGlobalIDString = A144B08D0ED72F1A000ED6E1;
+			remoteInfo = "DVFamily (Upgraded)";
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		01E8BA91002672F911CE206D /* CopyFiles */ = {
+		A144B0920ED72F1A000ED6E1 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
 			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/DV";
 			dstSubfolderSpec = 0;
 			files = (
-				01E8BA92002672F911CE206D /* DVFamily.h in CopyFiles */,
+				A144B0930ED72F1A000ED6E1 /* DVFamily.h in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		00F08188FFB3905911CE206C /* AVCTest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = AVCTest; sourceTree = BUILT_PRODUCTS_DIR; };
 		00F08191FFB390AA11CE206C /* AVCTest.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = AVCTest.c; path = tests/AVCTest.c; sourceTree = "<group>"; };
-		01151960FF76ADBC11CA29CE /* DeviceControl.i */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.interfacer; path = DeviceControl.i; sourceTree = "<group>"; };
-		014F01ABFF9D04C111CE206C /* writetest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = writetest; sourceTree = BUILT_PRODUCTS_DIR; };
 		014F01B2FF9D052F11CE206C /* writetest.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = writetest.c; path = tests/writetest.c; sourceTree = "<group>"; };
-		01526B84FFC4A6DF11CE206C /* IOFWDVComponents.component */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = IOFWDVComponents.component; sourceTree = BUILT_PRODUCTS_DIR; };
-		01526B85FFC4A6DF11CE206C /* DVFamily.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = DVFamily.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
-		01CE0AB6FFF92E6711CE206D /* DVComponentGlue.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = DVComponentGlue.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		01CED3830003BB8C11CE206E /* DVComponentGlue.i */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.interfacer; path = DVComponentGlue.i; sourceTree = "<group>"; };
-		01D7427BFF9D28DA11CE206C /* DVTest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = DVTest; sourceTree = BUILT_PRODUCTS_DIR; };
 		01D74283FF9D297311CE206C /* DVTest.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = DVTest.c; path = tests/DVTest.c; sourceTree = "<group>"; };
 		01FFD70AFFF9745011CE206D /* DVComponentGlue.exp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.exports; path = DVComponentGlue.exp; sourceTree = "<group>"; };
 		02B83D78FF9D34B211CE206C /* DVFamily.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DVFamily.h; sourceTree = "<group>"; };
@@ -247,10 +140,8 @@
 		02C3D64DFF65A62711CA29CE /* IOFWDVComponents.r */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.rez; path = IOFWDVComponents.r; sourceTree = "<group>"; };
 		02C3D64FFF65A66F11CA29CE /* CoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreServices.framework; path = /System/Library/Frameworks/CoreServices.framework; sourceTree = "<absolute>"; };
 		038A4B80FFF9353B11CE206D /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
-		04B6B6E4FF76D54211CA29CE /* IsochronousDataHandler.i */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.interfacer; path = IsochronousDataHandler.i; sourceTree = "<group>"; };
 		04D734D2FFF9388111CE206D /* DVComponentGlue.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DVComponentGlue.framework; path = /System/Library/Frameworks/DVComponentGlue.framework; sourceTree = "<absolute>"; };
 		0647D2F4007A85AF11CE206D /* IOFWDVComponents.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOFWDVComponents.h; sourceTree = "<group>"; };
-		0889979DFF7ABFC811CA29CE /* readtest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = readtest; sourceTree = BUILT_PRODUCTS_DIR; };
 		088997A4FF7AC00911CA29CE /* readtest.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = readtest.c; path = tests/readtest.c; sourceTree = "<group>"; };
 		089C167EFE841241C02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		08EA7FFBFE8413EDC02AAC07 /* Carbon.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Carbon.framework; path = /System/Library/Frameworks/Carbon.framework; sourceTree = "<absolute>"; };
@@ -259,159 +150,109 @@
 		302B751C0B5EE93100C0EED0 /* English */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/Localizable.strings; sourceTree = "<group>"; };
 		8C51CC6F00BDE16404CE206D /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
 		8CA281E300E2BF7B04CE206D /* devicetest.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = devicetest.c; path = tests/devicetest.c; sourceTree = "<group>"; };
-		8CA281E400E2BF7B04CE206D /* devicetest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = devicetest; sourceTree = BUILT_PRODUCTS_DIR; };
 		8CD463AA010E321C04CE206D /* DVIsochComponent.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = DVIsochComponent.c; sourceTree = "<group>"; };
 		8CDC69E301F4EFF304CE206E /* DVLib.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = DVLib.c; sourceTree = "<group>"; };
 		8CDC69E501F4F0F904CE206E /* DVLib.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DVLib.h; sourceTree = "<group>"; };
-		8CFF00A70282093404CE237C /* CFTest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = CFTest; sourceTree = BUILT_PRODUCTS_DIR; };
 		8CFF00AD0282097104CE237C /* CFTest.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = CFTest.c; path = /Network/Servers/abel/homes/sauron/wgulland/Snippets/CFTest.c; sourceTree = "<absolute>"; };
+		A144B08C0ED72F1A000ED6E1 /* IOFWDVComponents.component */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOFWDVComponents.component; sourceTree = BUILT_PRODUCTS_DIR; };
+		A144B0A50ED72F1A000ED6E1 /* DVFamily.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DVFamily.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
+		A144B0BA0ED72F1A000ED6E1 /* DVComponentGlue.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = DVComponentGlue.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		A144B0CC0ED72F1A000ED6E1 /* readtest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = readtest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A144B0E00ED72F1A000ED6E1 /* writetest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = writetest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A144B0EF0ED72F1A000ED6E1 /* DVTest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = DVTest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A144B0FE0ED72F1A000ED6E1 /* AVCTest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = AVCTest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A144B10E0ED72F1A000ED6E1 /* devicetest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = devicetest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A144B11C0ED72F1A000ED6E1 /* CFTest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = CFTest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1C4DB0E09D2257E000BCF43 /* DVComponentGlue.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DVComponentGlue.h; sourceTree = "<group>"; };
 		F51B1CA3034B53C401CD2849 /* DVVers.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DVVers.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
-/* Begin PBXFrameworkTarget section */
-		01CE0AB7FFF92E6711CE206D /* DVComponentGlue */ = {
-			isa = PBXFrameworkTarget;
-			buildConfigurationList = 30FE96F80829B43100BB83AB /* Build configuration list for PBXFrameworkTarget "DVComponentGlue" */;
-			buildPhases = (
-				01CE0AB8FFF92E6711CE206D /* Headers */,
-				01CE0AB9FFF92E6711CE206D /* Resources */,
-				01CE0ABAFFF92E6711CE206D /* Sources */,
-				01CE0ABBFFF92E6711CE206D /* Frameworks */,
-				01CE0ABCFFF92E6711CE206D /* Rez */,
-			);
-			dependencies = (
-			);
-			name = DVComponentGlue;
-			productInstallPath = /System/Library/Frameworks;
-			productName = DVComponentGlue;
-			productReference = 01CE0AB6FFF92E6711CE206D /* DVComponentGlue.framework */;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>English</string>
-	<key>CFBundleExecutable</key>
-	<string>DVComponentGlue</string>
-	<key>CFBundleGetInfoString</key>
-	<string>IOFWDVComponents version 1.9.5, Copyright 2007 Apple Computer, Inc.</string>
-	<key>CFBundleIconFile</key>
-	<string></string>
-	<key>CFBundleIdentifier</key>
-	<string>com.apple.iokit.dvcomponentglue</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundleName</key>
-	<string>DV Component Glue</string>
-	<key>CFBundlePackageType</key>
-	<string>FMWK</string>
-	<key>CFBundleShortVersionString</key>
-	<string>1.9.5</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>1.9.5</string>
-	<key>CarbonLazyValues</key>
-	<dict>
-		<key>CodeFragmentManager</key>
-		<dict>
-			<key>DVComponentGlue</key>
-			<string>CFMPriv_DVComponentGlue</string>
-		</dict>
-	</dict>
-</dict>
-</plist>
-";
-		};
-/* End PBXFrameworkTarget section */
-
 /* Begin PBXFrameworksBuildPhase section */
-		00F0818DFFB3905911CE206C /* Frameworks */ = {
+		A144B07D0ED72F1A000ED6E1 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				00F0818EFFB3905911CE206C /* CoreServices.framework in Frameworks */,
+				A144B07E0ED72F1A000ED6E1 /* Carbon.framework in Frameworks */,
+				A144B07F0ED72F1A000ED6E1 /* Foundation.framework in Frameworks */,
+				A144B0800ED72F1A000ED6E1 /* QuickTime.framework in Frameworks */,
+				A144B0810ED72F1A000ED6E1 /* CoreServices.framework in Frameworks */,
+				A144B0820ED72F1A000ED6E1 /* IOKit.framework in Frameworks */,
+				A144B0830ED72F1A000ED6E1 /* CoreFoundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		014F01AFFF9D04C111CE206C /* Frameworks */ = {
+		A144B0980ED72F1A000ED6E1 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				014F01B7FF9D056211CE206C /* Carbon.framework in Frameworks */,
-				014F01B8FF9D056211CE206C /* QuickTime.framework in Frameworks */,
-				014F01B9FF9D056211CE206C /* CoreServices.framework in Frameworks */,
+				A144B0990ED72F1A000ED6E1 /* IOKit.framework in Frameworks */,
+				A144B09A0ED72F1A000ED6E1 /* CoreFoundation.framework in Frameworks */,
+				A144B09B0ED72F1A000ED6E1 /* QuickTime.framework in Frameworks */,
+				A144B09C0ED72F1A000ED6E1 /* Carbon.framework in Frameworks */,
+				A144B09D0ED72F1A000ED6E1 /* CoreServices.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		01CE0ABBFFF92E6711CE206D /* Frameworks */ = {
+		A144B0B10ED72F1A000ED6E1 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8CBFAEEA045EFA3704CE206E /* Carbon.framework in Frameworks */,
+				A144B0B20ED72F1A000ED6E1 /* Carbon.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		01D74280FF9D28DA11CE206C /* Frameworks */ = {
+		A144B0C10ED72F1A000ED6E1 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				01D74286FF9D2B4E11CE206C /* CoreServices.framework in Frameworks */,
+				A144B0C20ED72F1A000ED6E1 /* Carbon.framework in Frameworks */,
+				A144B0C30ED72F1A000ED6E1 /* QuickTime.framework in Frameworks */,
+				A144B0C40ED72F1A000ED6E1 /* CoreServices.framework in Frameworks */,
+				A144B0C50ED72F1A000ED6E1 /* DVComponentGlue.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		088997A1FF7ABFC811CA29CE /* Frameworks */ = {
+		A144B0D60ED72F1A000ED6E1 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				0AF09526FF7AC3F511CA29CE /* Carbon.framework in Frameworks */,
-				0AF09527FF7AC40511CA29CE /* QuickTime.framework in Frameworks */,
-				0AF09528FF7AC40511CA29CE /* CoreServices.framework in Frameworks */,
-				8C31838D015FE43904CE206D /* DVComponentGlue.framework in Frameworks */,
+				A144B0D70ED72F1A000ED6E1 /* Carbon.framework in Frameworks */,
+				A144B0D80ED72F1A000ED6E1 /* QuickTime.framework in Frameworks */,
+				A144B0D90ED72F1A000ED6E1 /* CoreServices.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		089C1677FE841209C02AAC07 /* Frameworks */ = {
+		A144B0E70ED72F1A000ED6E1 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				08EA7FFCFE8413EDC02AAC07 /* Carbon.framework in Frameworks */,
-				02C3D63BFF659AA611CA29CE /* Foundation.framework in Frameworks */,
-				02C3D63DFF659AF211CA29CE /* QuickTime.framework in Frameworks */,
-				02C3D650FF65A66F11CA29CE /* CoreServices.framework in Frameworks */,
-				8C51CC6E00BDDF9504CE206D /* IOKit.framework in Frameworks */,
-				8C51CC7000BDE16404CE206D /* CoreFoundation.framework in Frameworks */,
+				A144B0E80ED72F1A000ED6E1 /* CoreServices.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		13FACEA1FF67159C11CA29CE /* Frameworks */ = {
+		A144B0F60ED72F1A000ED6E1 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				038A4B82FFF9353B11CE206D /* IOKit.framework in Frameworks */,
-				8C51CC7100BDE39804CE206D /* CoreFoundation.framework in Frameworks */,
-				8CE0140B023EB33604CE206E /* QuickTime.framework in Frameworks */,
-				8CE0140C023EB34604CE206E /* Carbon.framework in Frameworks */,
-				8CE01429023ED01304CE206E /* CoreServices.framework in Frameworks */,
+				A144B0F70ED72F1A000ED6E1 /* CoreServices.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		8CA281E900E2BF7B04CE206D /* Frameworks */ = {
+		A144B1040ED72F1A000ED6E1 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8CA281EF00E2C05904CE206D /* DVComponentGlue.framework in Frameworks */,
-				8CA281F000E2C05904CE206D /* QuickTime.framework in Frameworks */,
-				8C31B6260156C42004CE206D /* CoreServices.framework in Frameworks */,
+				A144B1050ED72F1A000ED6E1 /* DVComponentGlue.framework in Frameworks */,
+				A144B1060ED72F1A000ED6E1 /* QuickTime.framework in Frameworks */,
+				A144B1070ED72F1A000ED6E1 /* CoreServices.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		8CFF00AB0282093404CE237C /* Frameworks */ = {
+		A144B1140ED72F1A000ED6E1 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8CFF00B002820B1304CE237C /* CoreFoundation.framework in Frameworks */,
+				A144B1150ED72F1A000ED6E1 /* CoreFoundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -480,10 +321,7 @@
 				02C3D632FF6599F211CA29CE /* IsochronousDataHandler.i.c */,
 				0C08A46BFF67027911CA29CE /* IsochronousDataHandler.h */,
 				A1C4DB0E09D2257E000BCF43 /* DVComponentGlue.h */,
-				04B6B6E4FF76D54211CA29CE /* IsochronousDataHandler.i */,
-				01151960FF76ADBC11CA29CE /* DeviceControl.i */,
 				01FFD70AFFF9745011CE206D /* DVComponentGlue.exp */,
-				01CED3830003BB8C11CE206E /* DVComponentGlue.i */,
 				0647D2F4007A85AF11CE206D /* IOFWDVComponents.h */,
 				8CD463AA010E321C04CE206D /* DVIsochComponent.c */,
 			);
@@ -502,15 +340,15 @@
 		19C28FB4FE9D528D11CA2CBB /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				0889979DFF7ABFC811CA29CE /* readtest */,
-				014F01ABFF9D04C111CE206C /* writetest */,
-				01D7427BFF9D28DA11CE206C /* DVTest */,
-				00F08188FFB3905911CE206C /* AVCTest */,
-				01526B84FFC4A6DF11CE206C /* IOFWDVComponents.component */,
-				01526B85FFC4A6DF11CE206C /* DVFamily.bundle */,
-				01CE0AB6FFF92E6711CE206D /* DVComponentGlue.framework */,
-				8CA281E400E2BF7B04CE206D /* devicetest */,
-				8CFF00A70282093404CE237C /* CFTest */,
+				A144B08C0ED72F1A000ED6E1 /* IOFWDVComponents.component */,
+				A144B0A50ED72F1A000ED6E1 /* DVFamily.bundle */,
+				A144B0BA0ED72F1A000ED6E1 /* DVComponentGlue.framework */,
+				A144B0CC0ED72F1A000ED6E1 /* readtest */,
+				A144B0E00ED72F1A000ED6E1 /* writetest */,
+				A144B0EF0ED72F1A000ED6E1 /* DVTest */,
+				A144B0FE0ED72F1A000ED6E1 /* AVCTest */,
+				A144B10E0ED72F1A000ED6E1 /* devicetest */,
+				A144B11C0ED72F1A000ED6E1 /* CFTest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -528,80 +366,78 @@
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
-		00F0818AFFB3905911CE206C /* Headers */ = {
+		A144B06F0ED72F1A000ED6E1 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				00F0818BFFB3905911CE206C /* DVFamily.h in Headers */,
+				A144B0700ED72F1A000ED6E1 /* DeviceControlPriv.h in Headers */,
+				A144B0710ED72F1A000ED6E1 /* DeviceControl.h in Headers */,
+				A144B0720ED72F1A000ED6E1 /* IsochronousDataHandler.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		014F01ADFF9D04C111CE206C /* Headers */ = {
+		A144B08E0ED72F1A000ED6E1 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				014F01BCFF9D06B311CE206C /* DeviceControl.h in Headers */,
-				014F01BDFF9D06B311CE206C /* IsochronousDataHandler.h in Headers */,
+				A144B08F0ED72F1A000ED6E1 /* DVFamily.h in Headers */,
+				A144B0900ED72F1A000ED6E1 /* DVLib.h in Headers */,
+				A144B0910ED72F1A000ED6E1 /* IsochronousDataHandler.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		01CE0AB8FFF92E6711CE206D /* Headers */ = {
+		A144B0A70ED72F1A000ED6E1 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				01CED3840003BB8C11CE206E /* DVComponentGlue.i in Headers */,
-				8C31838A015FDAE804CE206D /* IsochronousDataHandler.h in Headers */,
-				8C31838B015FDAE804CE206D /* DeviceControl.h in Headers */,
-				A1C4DB1109D2259C000BCF43 /* DVComponentGlue.h in Headers */,
+				A144B0A90ED72F1A000ED6E1 /* IsochronousDataHandler.h in Headers */,
+				A144B0AA0ED72F1A000ED6E1 /* DeviceControl.h in Headers */,
+				A144B0AB0ED72F1A000ED6E1 /* DVComponentGlue.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		01D7427DFF9D28DA11CE206C /* Headers */ = {
+		A144B0BC0ED72F1A000ED6E1 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				031452A0FF9E235311CE206C /* DVFamily.h in Headers */,
+				A144B0BD0ED72F1A000ED6E1 /* IsochronousDataHandler.h in Headers */,
+				A144B0BE0ED72F1A000ED6E1 /* DeviceControl.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		0889979FFF7ABFC811CA29CE /* Headers */ = {
+		A144B0CF0ED72F1A000ED6E1 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				014F01BAFF9D068C11CE206C /* IsochronousDataHandler.h in Headers */,
-				014F01BBFF9D068C11CE206C /* DeviceControl.h in Headers */,
+				A144B0D00ED72F1A000ED6E1 /* DeviceControl.h in Headers */,
+				A144B0D10ED72F1A000ED6E1 /* IsochronousDataHandler.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		089C1674FE841209C02AAC07 /* Headers */ = {
+		A144B0E30ED72F1A000ED6E1 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				02C3D648FF65A4C711CA29CE /* DeviceControlPriv.h in Headers */,
-				02C3D64AFF65A4E811CA29CE /* DeviceControl.h in Headers */,
-				0C08A46CFF67027911CA29CE /* IsochronousDataHandler.h in Headers */,
-				04B6B6E5FF76D54211CA29CE /* IsochronousDataHandler.i in Headers */,
+				A144B0E40ED72F1A000ED6E1 /* DVFamily.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		13FACE9EFF67159C11CA29CE /* Headers */ = {
+		A144B0F20ED72F1A000ED6E1 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				02B83D79FF9D34B211CE206C /* DVFamily.h in Headers */,
-				8CDC69E601F4F0F904CE206E /* DVLib.h in Headers */,
-				8CE0142A023ED19604CE206E /* IsochronousDataHandler.h in Headers */,
+				A144B0F30ED72F1A000ED6E1 /* DVFamily.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		8CA281E600E2BF7B04CE206D /* Headers */ = {
+		A144B1010ED72F1A000ED6E1 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		8CFF00A90282093404CE237C /* Headers */ = {
+		A144B1110ED72F1A000ED6E1 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -609,6 +445,183 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		A144B06E0ED72F1A000ED6E1 /* IOFWDVComponents */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A144B0860ED72F1A000ED6E1 /* Build configuration list for PBXNativeTarget "IOFWDVComponents" */;
+			buildPhases = (
+				A144B06F0ED72F1A000ED6E1 /* Headers */,
+				A144B0740ED72F1A000ED6E1 /* Resources */,
+				A144B0770ED72F1A000ED6E1 /* Sources */,
+				A144B07D0ED72F1A000ED6E1 /* Frameworks */,
+				A144B0840ED72F1A000ED6E1 /* Rez */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = IOFWDVComponents;
+			productInstallPath = /System/Library/Components;
+			productName = IOFWDVComponents;
+			productReference = A144B08C0ED72F1A000ED6E1 /* IOFWDVComponents.component */;
+			productType = "com.apple.product-type.bundle";
+		};
+		A144B08D0ED72F1A000ED6E1 /* DVFamily */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A144B09F0ED72F1A000ED6E1 /* Build configuration list for PBXNativeTarget "DVFamily" */;
+			buildPhases = (
+				A144B08E0ED72F1A000ED6E1 /* Headers */,
+				A144B0920ED72F1A000ED6E1 /* CopyFiles */,
+				A144B0940ED72F1A000ED6E1 /* Resources */,
+				A144B0950ED72F1A000ED6E1 /* Sources */,
+				A144B0980ED72F1A000ED6E1 /* Frameworks */,
+				A144B09E0ED72F1A000ED6E1 /* Rez */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DVFamily;
+			productInstallPath = /System/Library/Extensions;
+			productName = DVFamily;
+			productReference = A144B0A50ED72F1A000ED6E1 /* DVFamily.bundle */;
+			productType = "com.apple.product-type.bundle";
+		};
+		A144B0A60ED72F1A000ED6E1 /* DVComponentGlue */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A144B0B40ED72F1A000ED6E1 /* Build configuration list for PBXNativeTarget "DVComponentGlue" */;
+			buildPhases = (
+				A144B0A70ED72F1A000ED6E1 /* Headers */,
+				A144B0AC0ED72F1A000ED6E1 /* Resources */,
+				A144B0AD0ED72F1A000ED6E1 /* Sources */,
+				A144B0B10ED72F1A000ED6E1 /* Frameworks */,
+				A144B0B30ED72F1A000ED6E1 /* Rez */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DVComponentGlue;
+			productInstallPath = /System/Library/Frameworks;
+			productName = DVComponentGlue;
+			productReference = A144B0BA0ED72F1A000ED6E1 /* DVComponentGlue.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+		A144B0BB0ED72F1A000ED6E1 /* readtest */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A144B0C70ED72F1A000ED6E1 /* Build configuration list for PBXNativeTarget "readtest" */;
+			buildPhases = (
+				A144B0BC0ED72F1A000ED6E1 /* Headers */,
+				A144B0BF0ED72F1A000ED6E1 /* Sources */,
+				A144B0C10ED72F1A000ED6E1 /* Frameworks */,
+				A144B0C60ED72F1A000ED6E1 /* Rez */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = readtest;
+			productName = readtest;
+			productReference = A144B0CC0ED72F1A000ED6E1 /* readtest */;
+			productType = "com.apple.product-type.tool";
+		};
+		A144B0CE0ED72F1A000ED6E1 /* writetest */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A144B0DB0ED72F1A000ED6E1 /* Build configuration list for PBXNativeTarget "writetest" */;
+			buildPhases = (
+				A144B0CF0ED72F1A000ED6E1 /* Headers */,
+				A144B0D20ED72F1A000ED6E1 /* Sources */,
+				A144B0D60ED72F1A000ED6E1 /* Frameworks */,
+				A144B0DA0ED72F1A000ED6E1 /* Rez */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = writetest;
+			productInstallPath = /usr/local/bin;
+			productName = writetest;
+			productReference = A144B0E00ED72F1A000ED6E1 /* writetest */;
+			productType = "com.apple.product-type.tool";
+		};
+		A144B0E20ED72F1A000ED6E1 /* DVTest */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A144B0EA0ED72F1A000ED6E1 /* Build configuration list for PBXNativeTarget "DVTest" */;
+			buildPhases = (
+				A144B0E30ED72F1A000ED6E1 /* Headers */,
+				A144B0E50ED72F1A000ED6E1 /* Sources */,
+				A144B0E70ED72F1A000ED6E1 /* Frameworks */,
+				A144B0E90ED72F1A000ED6E1 /* Rez */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DVTest;
+			productInstallPath = /usr/local/bin;
+			productName = DVTest;
+			productReference = A144B0EF0ED72F1A000ED6E1 /* DVTest */;
+			productType = "com.apple.product-type.tool";
+		};
+		A144B0F10ED72F1A000ED6E1 /* AVCTest */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A144B0F90ED72F1A000ED6E1 /* Build configuration list for PBXNativeTarget "AVCTest" */;
+			buildPhases = (
+				A144B0F20ED72F1A000ED6E1 /* Headers */,
+				A144B0F40ED72F1A000ED6E1 /* Sources */,
+				A144B0F60ED72F1A000ED6E1 /* Frameworks */,
+				A144B0F80ED72F1A000ED6E1 /* Rez */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AVCTest;
+			productInstallPath = /usr/local/bin;
+			productName = AVCTest;
+			productReference = A144B0FE0ED72F1A000ED6E1 /* AVCTest */;
+			productType = "com.apple.product-type.tool";
+		};
+		A144B1000ED72F1A000ED6E1 /* devicetest */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A144B1090ED72F1A000ED6E1 /* Build configuration list for PBXNativeTarget "devicetest" */;
+			buildPhases = (
+				A144B1010ED72F1A000ED6E1 /* Headers */,
+				A144B1020ED72F1A000ED6E1 /* Sources */,
+				A144B1040ED72F1A000ED6E1 /* Frameworks */,
+				A144B1080ED72F1A000ED6E1 /* Rez */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = devicetest;
+			productInstallPath = /usr/local/bin;
+			productName = devicetest;
+			productReference = A144B10E0ED72F1A000ED6E1 /* devicetest */;
+			productType = "com.apple.product-type.tool";
+		};
+		A144B1100ED72F1A000ED6E1 /* CFTest */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A144B1170ED72F1A000ED6E1 /* Build configuration list for PBXNativeTarget "CFTest" */;
+			buildPhases = (
+				A144B1110ED72F1A000ED6E1 /* Headers */,
+				A144B1120ED72F1A000ED6E1 /* Sources */,
+				A144B1140ED72F1A000ED6E1 /* Frameworks */,
+				A144B1160ED72F1A000ED6E1 /* Rez */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = CFTest;
+			productInstallPath = /usr/local/bin;
+			productName = CFTest;
+			productReference = A144B11C0ED72F1A000ED6E1 /* CFTest */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
 		089C1669FE841209C02AAC07 /* Project object */ = {
@@ -619,40 +632,39 @@
 			mainGroup = 089C166AFE841209C02AAC07 /* IOFWDVComponents */;
 			projectDirPath = "";
 			projectRoot = "";
-			shouldCheckCompatibility = 1;
 			targets = (
-				0C08A465FF66C08911CA29CE /* All */,
-				089C1673FE841209C02AAC07 /* IOFWDVComponents */,
-				13FACE9DFF67159C11CA29CE /* DVFamily */,
-				01CE0AB7FFF92E6711CE206D /* DVComponentGlue */,
-				0889979EFF7ABFC811CA29CE /* readtest */,
-				014F01ACFF9D04C111CE206C /* writetest */,
-				01D7427CFF9D28DA11CE206C /* DVTest */,
-				00F08189FFB3905911CE206C /* AVCTest */,
-				8CA281E500E2BF7B04CE206D /* devicetest */,
-				8CFF00A80282093404CE237C /* CFTest */,
+				A144B0620ED72F1A000ED6E1 /* All */,
+				A144B06E0ED72F1A000ED6E1 /* IOFWDVComponents */,
+				A144B08D0ED72F1A000ED6E1 /* DVFamily */,
+				A144B0A60ED72F1A000ED6E1 /* DVComponentGlue */,
+				A144B0BB0ED72F1A000ED6E1 /* readtest */,
+				A144B0CE0ED72F1A000ED6E1 /* writetest */,
+				A144B0E20ED72F1A000ED6E1 /* DVTest */,
+				A144B0F10ED72F1A000ED6E1 /* AVCTest */,
+				A144B1000ED72F1A000ED6E1 /* devicetest */,
+				A144B1100ED72F1A000ED6E1 /* CFTest */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		01CE0AB9FFF92E6711CE206D /* Resources */ = {
+		A144B0740ED72F1A000ED6E1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A144B0750ED72F1A000ED6E1 /* InfoPlist.strings in Resources */,
+				A144B0760ED72F1A000ED6E1 /* Localizable.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A144B0940ED72F1A000ED6E1 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		089C1675FE841209C02AAC07 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				089C1680FE841241C02AAC07 /* InfoPlist.strings in Resources */,
-				302B751D0B5EE93100C0EED0 /* Localizable.strings in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		13FACE9FFF67159C11CA29CE /* Resources */ = {
+		A144B0AC0ED72F1A000ED6E1 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -662,64 +674,64 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXRezBuildPhase section */
-		00F0818FFFB3905911CE206C /* Rez */ = {
+		A144B0840ED72F1A000ED6E1 /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A144B0850ED72F1A000ED6E1 /* IOFWDVComponents.r in Rez */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A144B09E0ED72F1A000ED6E1 /* Rez */ = {
 			isa = PBXRezBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		014F01B0FF9D04C111CE206C /* Rez */ = {
+		A144B0B30ED72F1A000ED6E1 /* Rez */ = {
 			isa = PBXRezBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		01CE0ABCFFF92E6711CE206D /* Rez */ = {
+		A144B0C60ED72F1A000ED6E1 /* Rez */ = {
 			isa = PBXRezBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		01D74281FF9D28DA11CE206C /* Rez */ = {
+		A144B0DA0ED72F1A000ED6E1 /* Rez */ = {
 			isa = PBXRezBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		088997A2FF7ABFC811CA29CE /* Rez */ = {
+		A144B0E90ED72F1A000ED6E1 /* Rez */ = {
 			isa = PBXRezBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		089C1679FE841209C02AAC07 /* Rez */ = {
-			isa = PBXRezBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				02C3D64EFF65A62711CA29CE /* IOFWDVComponents.r in Rez */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		13FACEA2FF67159C11CA29CE /* Rez */ = {
+		A144B0F80ED72F1A000ED6E1 /* Rez */ = {
 			isa = PBXRezBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		8CA281EA00E2BF7B04CE206D /* Rez */ = {
+		A144B1080ED72F1A000ED6E1 /* Rez */ = {
 			isa = PBXRezBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		8CFF00AC0282093404CE237C /* Rez */ = {
+		A144B1160ED72F1A000ED6E1 /* Rez */ = {
 			isa = PBXRezBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -729,204 +741,105 @@
 /* End PBXRezBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		00F0818CFFB3905911CE206C /* Sources */ = {
+		A144B0770ED72F1A000ED6E1 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				00F08192FFB390AA11CE206C /* AVCTest.c in Sources */,
+				A144B0780ED72F1A000ED6E1 /* DeviceControlPriv.i.c in Sources */,
+				A144B0790ED72F1A000ED6E1 /* DVControlComponent.c in Sources */,
+				A144B07B0ED72F1A000ED6E1 /* DVIsochComponent.c in Sources */,
+				A144B07C0ED72F1A000ED6E1 /* DVLib.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		014F01AEFF9D04C111CE206C /* Sources */ = {
+		A144B0950ED72F1A000ED6E1 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				014F01B4FF9D052F11CE206C /* IsochronousDataHandler.i.c in Sources */,
-				014F01B5FF9D052F11CE206C /* DeviceControl.i.c in Sources */,
-				F5FA1990034A455301CD2849 /* writetest.c in Sources */,
+				A144B0960ED72F1A000ED6E1 /* DVFamily.c in Sources */,
+				A144B0970ED72F1A000ED6E1 /* DVLib.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		01CE0ABAFFF92E6711CE206D /* Sources */ = {
+		A144B0AD0ED72F1A000ED6E1 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				01CE0AC0FFF92EA411CE206D /* IsochronousDataHandler.i.c in Sources */,
-				8CE0142B023ED7D904CE206E /* DeviceControl.i.c in Sources */,
-				8CE0142C023ED7D904CE206E /* DeviceControlPriv.i.c in Sources */,
+				A144B0AE0ED72F1A000ED6E1 /* IsochronousDataHandler.i.c in Sources */,
+				A144B0AF0ED72F1A000ED6E1 /* DeviceControl.i.c in Sources */,
+				A144B0B00ED72F1A000ED6E1 /* DeviceControlPriv.i.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		01D7427EFF9D28DA11CE206C /* Sources */ = {
+		A144B0BF0ED72F1A000ED6E1 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				01D74284FF9D297311CE206C /* DVTest.c in Sources */,
+				A144B0C00ED72F1A000ED6E1 /* readtest.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		088997A0FF7ABFC811CA29CE /* Sources */ = {
+		A144B0D20ED72F1A000ED6E1 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				088997A6FF7AC00D11CA29CE /* readtest.c in Sources */,
+				A144B0D30ED72F1A000ED6E1 /* IsochronousDataHandler.i.c in Sources */,
+				A144B0D40ED72F1A000ED6E1 /* DeviceControl.i.c in Sources */,
+				A144B0D50ED72F1A000ED6E1 /* writetest.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		089C1676FE841209C02AAC07 /* Sources */ = {
+		A144B0E50ED72F1A000ED6E1 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				02C3D644FF65A2AF11CA29CE /* DeviceControlPriv.i.c in Sources */,
-				02C3D645FF65A2AF11CA29CE /* DVControlComponent.c in Sources */,
-				01151961FF76ADBC11CA29CE /* DeviceControl.i in Sources */,
-				8CD463AB010E321C04CE206D /* DVIsochComponent.c in Sources */,
-				8C1B7588023044F504CE206E /* DVLib.c in Sources */,
+				A144B0E60ED72F1A000ED6E1 /* DVTest.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		13FACEA0FF67159C11CA29CE /* Sources */ = {
+		A144B0F40ED72F1A000ED6E1 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				13FACEA6FF6716B911CA29CE /* DVFamily.c in Sources */,
-				8CDC69E401F4EFF304CE206E /* DVLib.c in Sources */,
+				A144B0F50ED72F1A000ED6E1 /* AVCTest.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		8CA281E700E2BF7B04CE206D /* Sources */ = {
+		A144B1020ED72F1A000ED6E1 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8CA281E800E2BF7B04CE206D /* devicetest.c in Sources */,
+				A144B1030ED72F1A000ED6E1 /* devicetest.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		8CFF00AA0282093404CE237C /* Sources */ = {
+		A144B1120ED72F1A000ED6E1 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8CFF00AE0282097104CE237C /* CFTest.c in Sources */,
+				A144B1130ED72F1A000ED6E1 /* CFTest.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		0396D5E7FFF9375411CE206D /* PBXTargetDependency */ = {
+		A144B11F0ED72F1A000ED6E1 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 01CE0AB7FFF92E6711CE206D /* DVComponentGlue */;
-			targetProxy = A1F91C1907A94D6A000A2E35 /* PBXContainerItemProxy */;
+			target = A144B06E0ED72F1A000ED6E1 /* IOFWDVComponents */;
+			targetProxy = A144B11E0ED72F1A000ED6E1 /* PBXContainerItemProxy */;
 		};
-		0C08A467FF66C08911CA29CE /* PBXTargetDependency */ = {
+		A144B1210ED72F1A000ED6E1 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 089C1673FE841209C02AAC07 /* IOFWDVComponents */;
-			targetProxy = A1F91C1A07A94D6A000A2E35 /* PBXContainerItemProxy */;
+			target = A144B0A60ED72F1A000ED6E1 /* DVComponentGlue */;
+			targetProxy = A144B1200ED72F1A000ED6E1 /* PBXContainerItemProxy */;
 		};
-		13FACE9CFF67159C11CA29CE /* PBXTargetDependency */ = {
+		A144B1230ED72F1A000ED6E1 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 13FACE9DFF67159C11CA29CE /* DVFamily */;
-			targetProxy = A1F91C1B07A94D6A000A2E35 /* PBXContainerItemProxy */;
+			target = A144B08D0ED72F1A000ED6E1 /* DVFamily */;
+			targetProxy = A144B1220ED72F1A000ED6E1 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
-
-/* Begin PBXToolTarget section */
-		00F08189FFB3905911CE206C /* AVCTest */ = {
-			isa = PBXToolTarget;
-			buildConfigurationList = 30FE97160829B43100BB83AB /* Build configuration list for PBXToolTarget "AVCTest" */;
-			buildPhases = (
-				00F0818AFFB3905911CE206C /* Headers */,
-				00F0818CFFB3905911CE206C /* Sources */,
-				00F0818DFFB3905911CE206C /* Frameworks */,
-				00F0818FFFB3905911CE206C /* Rez */,
-			);
-			dependencies = (
-			);
-			name = AVCTest;
-			productInstallPath = /usr/local/bin;
-			productName = AVCTest;
-			productReference = 00F08188FFB3905911CE206C /* AVCTest */;
-		};
-		014F01ACFF9D04C111CE206C /* writetest */ = {
-			isa = PBXToolTarget;
-			buildConfigurationList = 30FE970C0829B43100BB83AB /* Build configuration list for PBXToolTarget "writetest" */;
-			buildPhases = (
-				014F01ADFF9D04C111CE206C /* Headers */,
-				014F01AEFF9D04C111CE206C /* Sources */,
-				014F01AFFF9D04C111CE206C /* Frameworks */,
-				014F01B0FF9D04C111CE206C /* Rez */,
-			);
-			dependencies = (
-			);
-			name = writetest;
-			productInstallPath = /usr/local/bin;
-			productName = writetest;
-			productReference = 014F01ABFF9D04C111CE206C /* writetest */;
-		};
-		01D7427CFF9D28DA11CE206C /* DVTest */ = {
-			isa = PBXToolTarget;
-			buildConfigurationList = 30FE97110829B43100BB83AB /* Build configuration list for PBXToolTarget "DVTest" */;
-			buildPhases = (
-				01D7427DFF9D28DA11CE206C /* Headers */,
-				01D7427EFF9D28DA11CE206C /* Sources */,
-				01D74280FF9D28DA11CE206C /* Frameworks */,
-				01D74281FF9D28DA11CE206C /* Rez */,
-			);
-			dependencies = (
-			);
-			name = DVTest;
-			productInstallPath = /usr/local/bin;
-			productName = DVTest;
-			productReference = 01D7427BFF9D28DA11CE206C /* DVTest */;
-		};
-		0889979EFF7ABFC811CA29CE /* readtest */ = {
-			isa = PBXToolTarget;
-			buildConfigurationList = 30FE97070829B43100BB83AB /* Build configuration list for PBXToolTarget "readtest" */;
-			buildPhases = (
-				0889979FFF7ABFC811CA29CE /* Headers */,
-				088997A0FF7ABFC811CA29CE /* Sources */,
-				088997A1FF7ABFC811CA29CE /* Frameworks */,
-				088997A2FF7ABFC811CA29CE /* Rez */,
-			);
-			dependencies = (
-			);
-			name = readtest;
-			productName = readtest;
-			productReference = 0889979DFF7ABFC811CA29CE /* readtest */;
-		};
-		8CA281E500E2BF7B04CE206D /* devicetest */ = {
-			isa = PBXToolTarget;
-			buildConfigurationList = 30FE971B0829B43100BB83AB /* Build configuration list for PBXToolTarget "devicetest" */;
-			buildPhases = (
-				8CA281E600E2BF7B04CE206D /* Headers */,
-				8CA281E700E2BF7B04CE206D /* Sources */,
-				8CA281E900E2BF7B04CE206D /* Frameworks */,
-				8CA281EA00E2BF7B04CE206D /* Rez */,
-			);
-			dependencies = (
-			);
-			name = devicetest;
-			productInstallPath = /usr/local/bin;
-			productName = devicetest;
-			productReference = 8CA281E400E2BF7B04CE206D /* devicetest */;
-		};
-		8CFF00A80282093404CE237C /* CFTest */ = {
-			isa = PBXToolTarget;
-			buildConfigurationList = 30FE97200829B43100BB83AB /* Build configuration list for PBXToolTarget "CFTest" */;
-			buildPhases = (
-				8CFF00A90282093404CE237C /* Headers */,
-				8CFF00AA0282093404CE237C /* Sources */,
-				8CFF00AB0282093404CE237C /* Frameworks */,
-				8CFF00AC0282093404CE237C /* Rez */,
-			);
-			dependencies = (
-			);
-			name = CFTest;
-			productInstallPath = /usr/local/bin;
-			productName = CFTest;
-			productReference = 8CFF00A70282093404CE237C /* CFTest */;
-		};
-/* End PBXToolTarget section */
 
 /* Begin PBXVariantGroup section */
 		089C167DFE841241C02AAC07 /* InfoPlist.strings */ = {
@@ -948,904 +861,6 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
-		30FE96F40829B43100BB83AB /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = Development;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				INSTALL_PATH = /System/Library/Components;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "-i /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/CarbonCore.framework/Versions/A/Headers";
-				PRODUCT_NAME = IOFWDVComponents;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = component;
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		30FE96F50829B43100BB83AB /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = Deployment;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				INSTALL_PATH = /System/Library/Components;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "-i /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/CarbonCore.framework/Versions/A/Headers";
-				PRODUCT_NAME = IOFWDVComponents;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = component;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		30FE96F60829B43100BB83AB /* FireLog */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = FireLog;
-				INSTALL_PATH = /System/Library/Components;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "-i /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/CarbonCore.framework/Versions/A/Headers";
-				PRODUCT_NAME = IOFWDVComponents;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = component;
-			};
-			name = FireLog;
-		};
-		30FE96F70829B43100BB83AB /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = Default;
-				INSTALL_PATH = /System/Library/Components;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "-i /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/CarbonCore.framework/Versions/A/Headers";
-				PRODUCT_NAME = IOFWDVComponents;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = component;
-			};
-			name = Default;
-		};
-		30FE96F90829B43100BB83AB /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = Development;
-				CFM_BRIDGE = YES;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				EXPORTED_SYMBOLS_FILE = DVComponentGlue.exp;
-				FRAMEWORK_VERSION = A;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GENERATE_EXPORT_SETS_AND_GLUE = YES;
-				INSTALL_PATH = /System/Library/Frameworks;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_LIBTOOL_FLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRINCIPAL_CLASS = "";
-				PRODUCT_NAME = DVComponentGlue;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = framework;
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		30FE96FA0829B43100BB83AB /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = Deployment;
-				CFM_BRIDGE = YES;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				EXPORTED_SYMBOLS_FILE = DVComponentGlue.exp;
-				FRAMEWORK_VERSION = A;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GENERATE_EXPORT_SETS_AND_GLUE = YES;
-				INSTALL_PATH = /System/Library/Frameworks;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_LIBTOOL_FLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRINCIPAL_CLASS = "";
-				PRODUCT_NAME = DVComponentGlue;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = framework;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		30FE96FB0829B43100BB83AB /* FireLog */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = FireLog;
-				CFM_BRIDGE = YES;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				EXPORTED_SYMBOLS_FILE = DVComponentGlue.exp;
-				FRAMEWORK_VERSION = A;
-				GENERATE_EXPORT_SETS_AND_GLUE = YES;
-				INSTALL_PATH = /System/Library/Frameworks;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_LIBTOOL_FLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRINCIPAL_CLASS = "";
-				PRODUCT_NAME = DVComponentGlue;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = framework;
-			};
-			name = FireLog;
-		};
-		30FE96FC0829B43100BB83AB /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = Default;
-				CFM_BRIDGE = YES;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				EXPORTED_SYMBOLS_FILE = DVComponentGlue.exp;
-				FRAMEWORK_VERSION = A;
-				GENERATE_EXPORT_SETS_AND_GLUE = YES;
-				INSTALL_PATH = /System/Library/Frameworks;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_LIBTOOL_FLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRINCIPAL_CLASS = "";
-				PRODUCT_NAME = DVComponentGlue;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = framework;
-			};
-			name = Default;
-		};
-		30FE96FE0829B43100BB83AB /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = Development;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				INSTALL_PATH = /System/Library/Extensions;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "-bundle";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = DVFamily;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = bundle;
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		30FE96FF0829B43100BB83AB /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = Deployment;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				INSTALL_PATH = /System/Library/Extensions;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "-bundle";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = DVFamily;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = bundle;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		30FE97000829B43100BB83AB /* FireLog */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = FireLog;
-				INSTALL_PATH = /System/Library/Extensions;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "-bundle";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = DVFamily;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = bundle;
-			};
-			name = FireLog;
-		};
-		30FE97010829B43100BB83AB /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = Default;
-				INSTALL_PATH = /System/Library/Extensions;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "-bundle";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = DVFamily;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = bundle;
-			};
-			name = Default;
-		};
-		30FE97030829B43100BB83AB /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = Development;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = All;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		30FE97040829B43100BB83AB /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = Deployment;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = All;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		30FE97050829B43100BB83AB /* FireLog */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = FireLog;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = All;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = FireLog;
-		};
-		30FE97060829B43100BB83AB /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = Default;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = All;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Default;
-		};
-		30FE97080829B43100BB83AB /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = Development;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				HEADER_SEARCH_PATHS = (
-					/System/Library/Frameworks/Carbon.framework/Headers,
-					/System/Library/Frameworks/QuickTime.framework/headers,
-					/System/Library/Frameworks/CarbonCore.framework/headers,
-					/System/Library/Frameworks/HIToolbox.framework/Headers,
-				);
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = readtest;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		30FE97090829B43100BB83AB /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = Deployment;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				HEADER_SEARCH_PATHS = (
-					/System/Library/Frameworks/Carbon.framework/Headers,
-					/System/Library/Frameworks/QuickTime.framework/headers,
-					/System/Library/Frameworks/CarbonCore.framework/headers,
-					/System/Library/Frameworks/HIToolbox.framework/Headers,
-				);
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = readtest;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		30FE970A0829B43100BB83AB /* FireLog */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = FireLog;
-				HEADER_SEARCH_PATHS = (
-					/System/Library/Frameworks/Carbon.framework/Headers,
-					/System/Library/Frameworks/QuickTime.framework/headers,
-					/System/Library/Frameworks/CarbonCore.framework/headers,
-					/System/Library/Frameworks/HIToolbox.framework/Headers,
-				);
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = readtest;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = FireLog;
-		};
-		30FE970B0829B43100BB83AB /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = Default;
-				HEADER_SEARCH_PATHS = (
-					/System/Library/Frameworks/Carbon.framework/Headers,
-					/System/Library/Frameworks/QuickTime.framework/headers,
-					/System/Library/Frameworks/CarbonCore.framework/headers,
-					/System/Library/Frameworks/HIToolbox.framework/Headers,
-				);
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = readtest;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Default;
-		};
-		30FE970D0829B43100BB83AB /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = Development;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				HEADER_SEARCH_PATHS = (
-					/System/Library/Frameworks/QuickTime.framework/headers,
-					/System/Library/Frameworks/CarbonCore.framework/headers,
-					/System/Library/Frameworks/Carbon.framework/Headers,
-					/System/Library/Frameworks/HIToolbox.framework/Headers,
-				);
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = writetest;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		30FE970E0829B43100BB83AB /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = Deployment;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				HEADER_SEARCH_PATHS = (
-					/System/Library/Frameworks/QuickTime.framework/headers,
-					/System/Library/Frameworks/CarbonCore.framework/headers,
-					/System/Library/Frameworks/Carbon.framework/Headers,
-					/System/Library/Frameworks/HIToolbox.framework/Headers,
-				);
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = writetest;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		30FE970F0829B43100BB83AB /* FireLog */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = FireLog;
-				HEADER_SEARCH_PATHS = (
-					/System/Library/Frameworks/QuickTime.framework/headers,
-					/System/Library/Frameworks/CarbonCore.framework/headers,
-					/System/Library/Frameworks/Carbon.framework/Headers,
-					/System/Library/Frameworks/HIToolbox.framework/Headers,
-				);
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = writetest;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = FireLog;
-		};
-		30FE97100829B43100BB83AB /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = Default;
-				HEADER_SEARCH_PATHS = (
-					/System/Library/Frameworks/QuickTime.framework/headers,
-					/System/Library/Frameworks/CarbonCore.framework/headers,
-					/System/Library/Frameworks/Carbon.framework/Headers,
-					/System/Library/Frameworks/HIToolbox.framework/Headers,
-				);
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = writetest;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Default;
-		};
-		30FE97120829B43100BB83AB /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = Development;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = DVTest;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		30FE97130829B43100BB83AB /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = Deployment;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = DVTest;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		30FE97140829B43100BB83AB /* FireLog */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = FireLog;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = DVTest;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = FireLog;
-		};
-		30FE97150829B43100BB83AB /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = Default;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = DVTest;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Default;
-		};
-		30FE97170829B43100BB83AB /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = Development;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = AVCTest;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		30FE97180829B43100BB83AB /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = Deployment;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = AVCTest;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		30FE97190829B43100BB83AB /* FireLog */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = FireLog;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = AVCTest;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = FireLog;
-		};
-		30FE971A0829B43100BB83AB /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = Default;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = AVCTest;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Default;
-		};
-		30FE971C0829B43100BB83AB /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = Development;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = devicetest;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		30FE971D0829B43100BB83AB /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = Deployment;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = devicetest;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		30FE971E0829B43100BB83AB /* FireLog */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = FireLog;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = devicetest;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = FireLog;
-		};
-		30FE971F0829B43100BB83AB /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = Default;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = devicetest;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Default;
-		};
-		30FE97210829B43100BB83AB /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = Development;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = CFTest;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		30FE97220829B43100BB83AB /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = Deployment;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = CFTest;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		30FE97230829B43100BB83AB /* FireLog */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = FireLog;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = CFTest;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = FireLog;
-		};
-		30FE97240829B43100BB83AB /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = Default;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = CFTest;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Default;
-		};
 		30FE97260829B43100BB83AB /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1890,119 +905,921 @@
 			};
 			name = Default;
 		};
+		A144B06A0ED72F1A000ED6E1 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = Development;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = All;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		A144B06B0ED72F1A000ED6E1 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = Deployment;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = All;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		A144B06C0ED72F1A000ED6E1 /* FireLog */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = FireLog;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = All;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = FireLog;
+		};
+		A144B06D0ED72F1A000ED6E1 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = Default;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = All;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		A144B0870ED72F1A000ED6E1 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = Development;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INFOPLIST_FILE = "Info-IOFWDVComponents.plist";
+				INSTALL_PATH = /System/Library/Components;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "-i /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/CarbonCore.framework/Versions/A/Headers";
+				PRODUCT_NAME = IOFWDVComponents;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = component;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		A144B0880ED72F1A000ED6E1 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = Deployment;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INFOPLIST_FILE = "Info-IOFWDVComponents.plist";
+				INSTALL_PATH = /System/Library/Components;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "-i /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/CarbonCore.framework/Versions/A/Headers";
+				PRODUCT_NAME = IOFWDVComponents;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = component;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		A144B0890ED72F1A000ED6E1 /* FireLog */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = FireLog;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INFOPLIST_FILE = "Info-IOFWDVComponents.plist";
+				INSTALL_PATH = /System/Library/Components;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "-i /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/CarbonCore.framework/Versions/A/Headers";
+				PRODUCT_NAME = IOFWDVComponents;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = component;
+			};
+			name = FireLog;
+		};
+		A144B08A0ED72F1A000ED6E1 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = Default;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INFOPLIST_FILE = "Info-IOFWDVComponents.plist";
+				INSTALL_PATH = /System/Library/Components;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "-i /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/CarbonCore.framework/Versions/A/Headers";
+				PRODUCT_NAME = IOFWDVComponents;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = component;
+			};
+			name = Default;
+		};
+		A144B0A00ED72F1A000ED6E1 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = Development;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INFOPLIST_FILE = "Info-DVFamily.plist";
+				INSTALL_PATH = /System/Library/Extensions;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-bundle";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = DVFamily;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = bundle;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		A144B0A10ED72F1A000ED6E1 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = Deployment;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INFOPLIST_FILE = "Info-DVFamily.plist";
+				INSTALL_PATH = /System/Library/Extensions;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-bundle";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = DVFamily;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = bundle;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		A144B0A20ED72F1A000ED6E1 /* FireLog */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = FireLog;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INFOPLIST_FILE = "Info-DVFamily.plist";
+				INSTALL_PATH = /System/Library/Extensions;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-bundle";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = DVFamily;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = bundle;
+			};
+			name = FireLog;
+		};
+		A144B0A30ED72F1A000ED6E1 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = Default;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INFOPLIST_FILE = "Info-DVFamily.plist";
+				INSTALL_PATH = /System/Library/Extensions;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-bundle";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = DVFamily;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = bundle;
+			};
+			name = Default;
+		};
+		A144B0B50ED72F1A000ED6E1 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = Development;
+				CFM_BRIDGE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				EXPORTED_SYMBOLS_FILE = DVComponentGlue.exp;
+				FRAMEWORK_VERSION = A;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INFOPLIST_FILE = "Info-DVComponentGlue.plist";
+				INSTALL_PATH = /System/Library/Frameworks;
+				INTERFACER_GENERATE_EXPORT_SETS_AND_GLUE = YES;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRINCIPAL_CLASS = "";
+				PRODUCT_NAME = DVComponentGlue;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = framework;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		A144B0B60ED72F1A000ED6E1 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = Deployment;
+				CFM_BRIDGE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				EXPORTED_SYMBOLS_FILE = DVComponentGlue.exp;
+				FRAMEWORK_VERSION = A;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INFOPLIST_FILE = "Info-DVComponentGlue.plist";
+				INSTALL_PATH = /System/Library/Frameworks;
+				INTERFACER_GENERATE_EXPORT_SETS_AND_GLUE = YES;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRINCIPAL_CLASS = "";
+				PRODUCT_NAME = DVComponentGlue;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = framework;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		A144B0B70ED72F1A000ED6E1 /* FireLog */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = FireLog;
+				CFM_BRIDGE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				EXPORTED_SYMBOLS_FILE = DVComponentGlue.exp;
+				FRAMEWORK_VERSION = A;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INFOPLIST_FILE = "Info-DVComponentGlue.plist";
+				INSTALL_PATH = /System/Library/Frameworks;
+				INTERFACER_GENERATE_EXPORT_SETS_AND_GLUE = YES;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRINCIPAL_CLASS = "";
+				PRODUCT_NAME = DVComponentGlue;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = framework;
+			};
+			name = FireLog;
+		};
+		A144B0B80ED72F1A000ED6E1 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = Default;
+				CFM_BRIDGE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				EXPORTED_SYMBOLS_FILE = DVComponentGlue.exp;
+				FRAMEWORK_VERSION = A;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INFOPLIST_FILE = "Info-DVComponentGlue.plist";
+				INSTALL_PATH = /System/Library/Frameworks;
+				INTERFACER_GENERATE_EXPORT_SETS_AND_GLUE = YES;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRINCIPAL_CLASS = "";
+				PRODUCT_NAME = DVComponentGlue;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = framework;
+			};
+			name = Default;
+		};
+		A144B0C80ED72F1A000ED6E1 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = Development;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				HEADER_SEARCH_PATHS = (
+					/System/Library/Frameworks/Carbon.framework/Headers,
+					/System/Library/Frameworks/QuickTime.framework/headers,
+					/System/Library/Frameworks/CarbonCore.framework/headers,
+					/System/Library/Frameworks/HIToolbox.framework/Headers,
+				);
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = readtest;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		A144B0C90ED72F1A000ED6E1 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = Deployment;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				HEADER_SEARCH_PATHS = (
+					/System/Library/Frameworks/Carbon.framework/Headers,
+					/System/Library/Frameworks/QuickTime.framework/headers,
+					/System/Library/Frameworks/CarbonCore.framework/headers,
+					/System/Library/Frameworks/HIToolbox.framework/Headers,
+				);
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = readtest;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		A144B0CA0ED72F1A000ED6E1 /* FireLog */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = FireLog;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				HEADER_SEARCH_PATHS = (
+					/System/Library/Frameworks/Carbon.framework/Headers,
+					/System/Library/Frameworks/QuickTime.framework/headers,
+					/System/Library/Frameworks/CarbonCore.framework/headers,
+					/System/Library/Frameworks/HIToolbox.framework/Headers,
+				);
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = readtest;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = FireLog;
+		};
+		A144B0CB0ED72F1A000ED6E1 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = Default;
+				HEADER_SEARCH_PATHS = (
+					/System/Library/Frameworks/Carbon.framework/Headers,
+					/System/Library/Frameworks/QuickTime.framework/headers,
+					/System/Library/Frameworks/CarbonCore.framework/headers,
+					/System/Library/Frameworks/HIToolbox.framework/Headers,
+				);
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = readtest;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		A144B0DC0ED72F1A000ED6E1 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = Development;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				HEADER_SEARCH_PATHS = (
+					/System/Library/Frameworks/QuickTime.framework/headers,
+					/System/Library/Frameworks/CarbonCore.framework/headers,
+					/System/Library/Frameworks/Carbon.framework/Headers,
+					/System/Library/Frameworks/HIToolbox.framework/Headers,
+				);
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = writetest;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		A144B0DD0ED72F1A000ED6E1 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = Deployment;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				HEADER_SEARCH_PATHS = (
+					/System/Library/Frameworks/QuickTime.framework/headers,
+					/System/Library/Frameworks/CarbonCore.framework/headers,
+					/System/Library/Frameworks/Carbon.framework/Headers,
+					/System/Library/Frameworks/HIToolbox.framework/Headers,
+				);
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = writetest;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		A144B0DE0ED72F1A000ED6E1 /* FireLog */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = FireLog;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				HEADER_SEARCH_PATHS = (
+					/System/Library/Frameworks/QuickTime.framework/headers,
+					/System/Library/Frameworks/CarbonCore.framework/headers,
+					/System/Library/Frameworks/Carbon.framework/Headers,
+					/System/Library/Frameworks/HIToolbox.framework/Headers,
+				);
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = writetest;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = FireLog;
+		};
+		A144B0DF0ED72F1A000ED6E1 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = Default;
+				HEADER_SEARCH_PATHS = (
+					/System/Library/Frameworks/QuickTime.framework/headers,
+					/System/Library/Frameworks/CarbonCore.framework/headers,
+					/System/Library/Frameworks/Carbon.framework/Headers,
+					/System/Library/Frameworks/HIToolbox.framework/Headers,
+				);
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = writetest;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		A144B0EB0ED72F1A000ED6E1 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = Development;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = DVTest;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		A144B0EC0ED72F1A000ED6E1 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = Deployment;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = DVTest;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		A144B0ED0ED72F1A000ED6E1 /* FireLog */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = FireLog;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = DVTest;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = FireLog;
+		};
+		A144B0EE0ED72F1A000ED6E1 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = Default;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = DVTest;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		A144B0FA0ED72F1A000ED6E1 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = Development;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AVCTest;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		A144B0FB0ED72F1A000ED6E1 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = Deployment;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AVCTest;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		A144B0FC0ED72F1A000ED6E1 /* FireLog */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = FireLog;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AVCTest;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = FireLog;
+		};
+		A144B0FD0ED72F1A000ED6E1 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = Default;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AVCTest;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		A144B10A0ED72F1A000ED6E1 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = Development;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = devicetest;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		A144B10B0ED72F1A000ED6E1 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = Deployment;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = devicetest;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		A144B10C0ED72F1A000ED6E1 /* FireLog */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = FireLog;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = devicetest;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = FireLog;
+		};
+		A144B10D0ED72F1A000ED6E1 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = Default;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = devicetest;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		A144B1180ED72F1A000ED6E1 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = Development;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = CFTest;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		A144B1190ED72F1A000ED6E1 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = Deployment;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = CFTest;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		A144B11A0ED72F1A000ED6E1 /* FireLog */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = FireLog;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = CFTest;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = FireLog;
+		};
+		A144B11B0ED72F1A000ED6E1 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_STYLE = Default;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = CFTest;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		30FE96F30829B43100BB83AB /* Build configuration list for PBXBundleTarget "IOFWDVComponents" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				30FE96F40829B43100BB83AB /* Development */,
-				30FE96F50829B43100BB83AB /* Deployment */,
-				30FE96F60829B43100BB83AB /* FireLog */,
-				30FE96F70829B43100BB83AB /* Default */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
-		};
-		30FE96F80829B43100BB83AB /* Build configuration list for PBXFrameworkTarget "DVComponentGlue" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				30FE96F90829B43100BB83AB /* Development */,
-				30FE96FA0829B43100BB83AB /* Deployment */,
-				30FE96FB0829B43100BB83AB /* FireLog */,
-				30FE96FC0829B43100BB83AB /* Default */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
-		};
-		30FE96FD0829B43100BB83AB /* Build configuration list for PBXBundleTarget "DVFamily" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				30FE96FE0829B43100BB83AB /* Development */,
-				30FE96FF0829B43100BB83AB /* Deployment */,
-				30FE97000829B43100BB83AB /* FireLog */,
-				30FE97010829B43100BB83AB /* Default */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
-		};
-		30FE97020829B43100BB83AB /* Build configuration list for PBXAggregateTarget "All" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				30FE97030829B43100BB83AB /* Development */,
-				30FE97040829B43100BB83AB /* Deployment */,
-				30FE97050829B43100BB83AB /* FireLog */,
-				30FE97060829B43100BB83AB /* Default */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
-		};
-		30FE97070829B43100BB83AB /* Build configuration list for PBXToolTarget "readtest" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				30FE97080829B43100BB83AB /* Development */,
-				30FE97090829B43100BB83AB /* Deployment */,
-				30FE970A0829B43100BB83AB /* FireLog */,
-				30FE970B0829B43100BB83AB /* Default */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
-		};
-		30FE970C0829B43100BB83AB /* Build configuration list for PBXToolTarget "writetest" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				30FE970D0829B43100BB83AB /* Development */,
-				30FE970E0829B43100BB83AB /* Deployment */,
-				30FE970F0829B43100BB83AB /* FireLog */,
-				30FE97100829B43100BB83AB /* Default */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
-		};
-		30FE97110829B43100BB83AB /* Build configuration list for PBXToolTarget "DVTest" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				30FE97120829B43100BB83AB /* Development */,
-				30FE97130829B43100BB83AB /* Deployment */,
-				30FE97140829B43100BB83AB /* FireLog */,
-				30FE97150829B43100BB83AB /* Default */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
-		};
-		30FE97160829B43100BB83AB /* Build configuration list for PBXToolTarget "AVCTest" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				30FE97170829B43100BB83AB /* Development */,
-				30FE97180829B43100BB83AB /* Deployment */,
-				30FE97190829B43100BB83AB /* FireLog */,
-				30FE971A0829B43100BB83AB /* Default */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
-		};
-		30FE971B0829B43100BB83AB /* Build configuration list for PBXToolTarget "devicetest" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				30FE971C0829B43100BB83AB /* Development */,
-				30FE971D0829B43100BB83AB /* Deployment */,
-				30FE971E0829B43100BB83AB /* FireLog */,
-				30FE971F0829B43100BB83AB /* Default */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
-		};
-		30FE97200829B43100BB83AB /* Build configuration list for PBXToolTarget "CFTest" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				30FE97210829B43100BB83AB /* Development */,
-				30FE97220829B43100BB83AB /* Deployment */,
-				30FE97230829B43100BB83AB /* FireLog */,
-				30FE97240829B43100BB83AB /* Default */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
-		};
 		30FE97250829B43100BB83AB /* Build configuration list for PBXProject "IOFWDVComponents" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -2010,6 +1827,116 @@
 				30FE97270829B43100BB83AB /* Deployment */,
 				30FE97280829B43100BB83AB /* FireLog */,
 				30FE97290829B43100BB83AB /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		A144B0690ED72F1A000ED6E1 /* Build configuration list for PBXAggregateTarget "All" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A144B06A0ED72F1A000ED6E1 /* Development */,
+				A144B06B0ED72F1A000ED6E1 /* Deployment */,
+				A144B06C0ED72F1A000ED6E1 /* FireLog */,
+				A144B06D0ED72F1A000ED6E1 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		A144B0860ED72F1A000ED6E1 /* Build configuration list for PBXNativeTarget "IOFWDVComponents" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A144B0870ED72F1A000ED6E1 /* Development */,
+				A144B0880ED72F1A000ED6E1 /* Deployment */,
+				A144B0890ED72F1A000ED6E1 /* FireLog */,
+				A144B08A0ED72F1A000ED6E1 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		A144B09F0ED72F1A000ED6E1 /* Build configuration list for PBXNativeTarget "DVFamily" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A144B0A00ED72F1A000ED6E1 /* Development */,
+				A144B0A10ED72F1A000ED6E1 /* Deployment */,
+				A144B0A20ED72F1A000ED6E1 /* FireLog */,
+				A144B0A30ED72F1A000ED6E1 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		A144B0B40ED72F1A000ED6E1 /* Build configuration list for PBXNativeTarget "DVComponentGlue" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A144B0B50ED72F1A000ED6E1 /* Development */,
+				A144B0B60ED72F1A000ED6E1 /* Deployment */,
+				A144B0B70ED72F1A000ED6E1 /* FireLog */,
+				A144B0B80ED72F1A000ED6E1 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		A144B0C70ED72F1A000ED6E1 /* Build configuration list for PBXNativeTarget "readtest" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A144B0C80ED72F1A000ED6E1 /* Development */,
+				A144B0C90ED72F1A000ED6E1 /* Deployment */,
+				A144B0CA0ED72F1A000ED6E1 /* FireLog */,
+				A144B0CB0ED72F1A000ED6E1 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		A144B0DB0ED72F1A000ED6E1 /* Build configuration list for PBXNativeTarget "writetest" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A144B0DC0ED72F1A000ED6E1 /* Development */,
+				A144B0DD0ED72F1A000ED6E1 /* Deployment */,
+				A144B0DE0ED72F1A000ED6E1 /* FireLog */,
+				A144B0DF0ED72F1A000ED6E1 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		A144B0EA0ED72F1A000ED6E1 /* Build configuration list for PBXNativeTarget "DVTest" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A144B0EB0ED72F1A000ED6E1 /* Development */,
+				A144B0EC0ED72F1A000ED6E1 /* Deployment */,
+				A144B0ED0ED72F1A000ED6E1 /* FireLog */,
+				A144B0EE0ED72F1A000ED6E1 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		A144B0F90ED72F1A000ED6E1 /* Build configuration list for PBXNativeTarget "AVCTest" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A144B0FA0ED72F1A000ED6E1 /* Development */,
+				A144B0FB0ED72F1A000ED6E1 /* Deployment */,
+				A144B0FC0ED72F1A000ED6E1 /* FireLog */,
+				A144B0FD0ED72F1A000ED6E1 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		A144B1090ED72F1A000ED6E1 /* Build configuration list for PBXNativeTarget "devicetest" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A144B10A0ED72F1A000ED6E1 /* Development */,
+				A144B10B0ED72F1A000ED6E1 /* Deployment */,
+				A144B10C0ED72F1A000ED6E1 /* FireLog */,
+				A144B10D0ED72F1A000ED6E1 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		A144B1170ED72F1A000ED6E1 /* Build configuration list for PBXNativeTarget "CFTest" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A144B1180ED72F1A000ED6E1 /* Development */,
+				A144B1190ED72F1A000ED6E1 /* Deployment */,
+				A144B11A0ED72F1A000ED6E1 /* FireLog */,
+				A144B11B0ED72F1A000ED6E1 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;

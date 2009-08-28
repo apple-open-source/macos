@@ -1,8 +1,9 @@
-/* Copyright 2000-2004 Ryan Bloom
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -21,6 +22,11 @@ extern "C" {
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef WIN32
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
 
 #ifndef ABTS_H
 #define ABTS_H
@@ -73,6 +79,7 @@ void abts_true(abts_case *tc, int condition, int lineno);
 void abts_fail(abts_case *tc, const char *message, int lineno);
 void abts_not_impl(abts_case *tc, const char *message, int lineno);
 void abts_assert(abts_case *tc, const char *message, int condition, int lineno);
+void abts_size_equal(abts_case *tc, size_t expected, size_t actual, int lineno);
 
 /* Convenience macros. Ryan hates these! */
 #define ABTS_INT_EQUAL(a, b, c)     abts_int_equal(a, b, c, __LINE__)
@@ -85,6 +92,9 @@ void abts_assert(abts_case *tc, const char *message, int condition, int lineno);
 #define ABTS_FAIL(a, b)             abts_fail(a, b, __LINE__);
 #define ABTS_NOT_IMPL(a, b)         abts_not_impl(a, b, __LINE__);
 #define ABTS_ASSERT(a, b, c)        abts_assert(a, b, c, __LINE__);
+
+#define ABTS_SIZE_EQUAL(a, b, c)    abts_size_equal(a, b, c, __LINE__)
+
 
 abts_suite *run_tests(abts_suite *suite);
 abts_suite *run_tests1(abts_suite *suite);

@@ -1,6 +1,6 @@
 Information about the installation program for Subversion for Windows
 =====================================================================
-$LastChangedDate: 2006-09-17 18:44:01 +0000 (Sun, 17 Sep 2006) $
+$LastChangedDate: 2007-11-02 18:56:54 +0000 (Fri, 02 Nov 2007) $
 
 
 CONTENTS:
@@ -155,6 +155,7 @@ Dynamic build data
   path_brkdb_lib      libdb4*.lib
   path_brkdb_inc      db.h, db_cxx.h)
   path_brkdb_inc2     cxx_common.h, cxx_except.h
+  path_sqlite         sqlite3.dll
   path_ssl            libeay32.dll, ssleay32.dll
 
 
@@ -179,7 +180,7 @@ Programs used for the Subversion Windows installer
   ------
   A good installation script for any installation programs are usually very
   complicated and requires good script editing software.
-  The program used for this is ISTool and it's syntax high-lightning makes it
+  The program used for this is ISTool and its syntax high-lighting makes it
   the perfect companion to IS and friends.
 
   The author - Bjørnar Henden are doing a great job by updating his program
@@ -223,7 +224,7 @@ Programs used for the Subversion Windows installer
   This package is needed for making documentation.
   
   Unzip the files inside docbook-xsl-*.**.*.zip to a folder named xsl which
-  resides under doc\book\tools in your working copy of the svnbook repository.
+  resides under src\tools in your working copy of the svnbook repository.
   Rename the unpacked top level folder from "docbook-xsl-x.xx.x" to "xsl", the
   result should be like this:
     src\tools\xsl

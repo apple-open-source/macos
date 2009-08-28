@@ -19,21 +19,21 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.8</string>
+	<string>1.6</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.8</string>
+	<string>1.6</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.kpi.bsd</key>
-		<string>8.0.0b1</string>
+		<string>9.0.0</string>
 		<key>com.apple.kpi.libkern</key>
-		<string>8.0.0b1</string>
+		<string>9.0.0</string>
 		<key>com.apple.kpi.mach</key>
-		<string>8.0.0b1</string>
+		<string>9.0.0</string>
 		<key>com.apple.kpi.unsupported</key>
-		<string>9.0.0d2</string>
+		<string>9.0.0</string>
 	</dict>
 </dict>
 </plist>

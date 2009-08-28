@@ -42,7 +42,7 @@
 #include <unistd.h>
 #include <sysexits.h>
 
-#include <sys/types.h>
+#include "sys/types.h"
 #include <sys/ucred.h>
 #include <sys/time.h>
 #include <sys/proc.h>
@@ -275,7 +275,7 @@ main(argc, argv)
 					cvt_time(msqptr->msg_ctime, ctime_buf);
 
 					printf("q %6d 0x%08x %s %8s %8s",
-					    IXSEQ_TO_IPCID(ic.ipcs_cursor-1, msqptr->msg_perm),
+					       IXSEQ_TO_IPCID((ic.ipcs_cursor-1), msqptr->msg_perm),
 					    (int)msqptr->msg_perm._key,
 					    fmt_perm(msqptr->msg_perm.mode, 'w'),
 					    user_from_uid(msqptr->msg_perm.uid, 0),
@@ -396,7 +396,7 @@ main(argc, argv)
 					cvt_time(shmptr->shm_ctime, ctime_buf);
 
 					printf("m %6d 0x%08x %s %8s %8s",
-					    IXSEQ_TO_IPCID(ic.ipcs_cursor-1, shmptr->shm_perm),
+					       IXSEQ_TO_IPCID((ic.ipcs_cursor-1), shmptr->shm_perm),
 					    (int)shmptr->shm_perm._key,
 					    fmt_perm(shmptr->shm_perm.mode, 'w'),
 					    user_from_uid(shmptr->shm_perm.uid, 0),
@@ -525,7 +525,7 @@ else
 					cvt_time(semaptr->sem_ctime, ctime_buf);
 
 					printf("s %6d 0x%08x %s %8s %8s",
-					    IXSEQ_TO_IPCID(ic.ipcs_cursor-1, semaptr->sem_perm),
+					       IXSEQ_TO_IPCID((ic.ipcs_cursor-1), semaptr->sem_perm),
 					    (int)semaptr->sem_perm._key,
 					    fmt_perm(semaptr->sem_perm.mode, 'a'),
 					    user_from_uid(semaptr->sem_perm.uid, 0),

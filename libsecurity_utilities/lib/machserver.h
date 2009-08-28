@@ -229,7 +229,7 @@ protected:
 
 	void addThread(Thread *thread); // add thread to worker pool
 	void removeThread(Thread *thread); // remove thread from worker pool
-	bool processTimer();	// handle one due timer object, if any
+	bool processTimer();	// handle one due timer object, if any (return true if there was one)
 
 private:
 	static boolean_t handler(mach_msg_header_t *in, mach_msg_header_t *out);

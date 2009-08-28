@@ -1,3 +1,0 @@
-gettimeofday.lo .libs/gettimeofday.o: gettimeofday.c ../config.h
-
-../config.h:

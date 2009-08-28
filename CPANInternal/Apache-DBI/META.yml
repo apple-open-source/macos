@@ -1,0 +1,14 @@
+# http://module-build.sourceforge.net/META-spec.html
+#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
+name:         Apache-DBI
+version:      1.06
+version_from: lib/Apache/DBI.pm
+installdirs:  site
+requires:
+    DBI:                           1
+    Digest::MD5:                   2.2
+    Digest::SHA1:                  2.01
+    Test::More:                    0
+
+distribution_type: module
+generated_by: ExtUtils::MakeMaker version 6.30

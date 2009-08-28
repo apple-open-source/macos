@@ -1,5 +1,5 @@
 :
-# @(#)probe.win32 (AT&T Research) 2005-02-20
+# @(#)probe.win32 (AT&T Research) 2007-08-11
 #
 # win32 specific make C probe initialization
 # wrapped cc's are easy on uwin
@@ -9,6 +9,8 @@
 # begin preamble shared with the pp probe.ini
 
 IFS=$'\n'
+
+chmod 777 . # cl.exe setuid workaround
 
 typeset -A header version
 
@@ -144,7 +146,15 @@ then	: the payoff
 			esac
 		fi
 	fi
-	cat >&3 <<!
+	{
+		if	$cc -v >/dev/null 2>&1
+		then	v=$($cc -v 2>/dev/null)
+			if	[[ $v ]]
+			then	print "# ;VERSION;-v;$v;PATH;$cc"
+			fi
+		else	v=
+		fi
+		cat <<!
 CC.CC = $*
 CC.NATIVE = $*
 CC.EXECTYPE = $typ
@@ -193,36 +203,36 @@ CC.SHELLMAGIC =
 CC.SIZE = size
 CC.STATIC = -Bstatic
 !
-	inc=
-	lib=
-	if	[[ ${version[LCC]} ]]
-	then	lib=/lcc
-	fi
-	if	[[ $stdinclude == *' '* ]]
-	then	stdinclude=${stdinclude//' '/''}
-	fi
-	stdinc=
-	stdlib=
-	for inc in $stdinclude
-	do	stdinc="$stdinc $inc"
-		d=${inc%/*}/lib
-		if	[[ -d $d ]]
-		then	stdlib="$stdlib $d"
+		inc=
+		lib=
+		if	[[ ${version[LCC]} ]]
+		then	lib=/lcc
 		fi
-	done
-	case $uwin in
-	[0-9]*)	cat >&3 <<!
+		if	[[ $stdinclude == *' '* ]]
+		then	stdinclude=${stdinclude//' '/''}
+		fi
+		stdinc=
+		stdlib=
+		for inc in $stdinclude
+		do	stdinc="$stdinc $inc"
+			d=${inc%/*}/lib
+			if	[[ -d $d ]]
+			then	stdlib="$stdlib $d"
+			fi
+		done
+		case $uwin in
+		[0-9]*)	cat <<!
 CC.STDINCLUDE = /usr/include $stdinc
 CC.STDLIB = /usr/lib$lib $stdlib
 !
-		;;
-	*)	cat >&3 <<!
+			;;
+		*)	cat <<!
 CC.STDINCLUDE = $stdinc
 CC.STDLIB = $stdlib
 !
-		;;
-	esac
-	cat >&3 <<!
+			;;
+		esac
+		cat <<!
 CC.STRICT =
 CC.STRIP = strip
 CC.STRIP.FLAGS =
@@ -238,9 +248,22 @@ CC.SUFFIX.OBJECT = .o
 CC.SUFFIX.SHARED = .lib
 CC.SUFFIX.SOURCE = .c
 CC.SUFFIX.STATIC =
+!
+		if	[[ $v ]]
+		then	cat <<!
+CC.VERSION = -v
+CC.VERSION.STRING = $v
+!
+		else	cat <<!
+CC.VERSION =
+CC.VERSION.STRING =
+!
+		fi
+		cat <<!
 CC.WARN =
 CC.PREROOT =
 CC.UNIVERSE = att
 !
+	} >&3
 	exit 0
 fi

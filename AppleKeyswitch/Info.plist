@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleKeyswitch</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleKeyswitch version 1.0.4, Copyright 2002-2006 Apple Computer, Inc.</string>
+	<string>AppleKeyswitch version 1.0.5, Copyright 2002-2008 Apple Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -16,30 +16,28 @@
 	<string>6.0</string>
 	<key>CFBundleName</key>
 	<string>AppleKeyswitch</string>
-	<key>CFBundleGetInfoString</key>
-	<string>AppleKeyswitch version 1.0.4, Copyright 2002-2006 Apple Computer, Inc.</string>
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.4</string>
+	<string>1.0.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.4d1</string>
+	<string>1.0.5f4</string>
 	<key>IOKitPersonalities</key>
 	<dict>
-		<key>keySwitch-gpio</key>
+		<key>key-switch</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
 			<string>com.apple.driver.AppleKeyswitch</string>
 			<key>IOClass</key>
 			<string>AppleKeyswitch</string>
 			<key>IONameMatch</key>
-			<string>keySwitch-gpio</string>
+			<string>key-switch</string>
 			<key>IOProbeScore</key>
 			<string>11000</string>
 			<key>IOProviderClass</key>
-			<string>AppleMacIODevice</string>
+			<string>IOPlatformDevice</string>
 		</dict>
 		<key>keySwitch</key>
 		<dict>
@@ -54,30 +52,30 @@
 			<key>IOProviderClass</key>
 			<string>MacIOGPIODevice</string>
 		</dict>
-		<key>key-switch</key>
+		<key>keySwitch-gpio</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
 			<string>com.apple.driver.AppleKeyswitch</string>
 			<key>IOClass</key>
 			<string>AppleKeyswitch</string>
 			<key>IONameMatch</key>
-			<string>key-switch</string>
+			<string>keySwitch-gpio</string>
 			<key>IOProbeScore</key>
 			<string>11000</string>
 			<key>IOProviderClass</key>
-			<string>IOPlatformDevice</string>
+			<string>AppleMacIODevice</string>
 		</dict>
 	</dict>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0</string>
 	<key>OSBundleLibraries</key>
 	<dict>
-		<key>com.apple.kernel.iokit</key>
-		<string>1.1</string>
-		<key>com.apple.kernel.libkern</key>
-		<string>1.1</string>
-		<key>com.apple.kernel.mach</key>
-		<string>1.1</string>
+		<key>com.apple.kpi.mach</key>
+		<string>10.0.0d2</string>
+		<key>com.apple.kpi.libkern</key>
+		<string>10.0.0d2</string>
+		<key>com.apple.kpi.iokit</key>
+		<string>10.0.0d2</string>
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Root</string>

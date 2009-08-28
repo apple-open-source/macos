@@ -19,7 +19,8 @@ _arguments -C -s -S -A "-*" \
   '--list-public-keys[list all public keys]' \
   '--list-secret-keys[list all secret keys]' \
   '--list-sigs[lists keys and signatures]:key attachment:->public-keys' \
-  '--check-sigs[lists key, signatures and check them]:key attachment:->public-keys' \
+  '--list-options[modify what the various --list-* commands show]' \
+  '--check-sigs[list key, signatures and check them]:key attachment:->public-keys' \
   '--fingerprint[list all keys with their fingerprints]:key attachment:->public-keys' \
   '--list-packets[list only the sequence of packets]' \
   '--gen-key[generate a new pair key]' \
@@ -33,13 +34,13 @@ _arguments -C -s -S -A "-*" \
   '--gen-revoke[generate a revocation certificate]' \
   '--desig-revoke[generate a designated revocation certificate]' \
   '--export[export all key from all keyrings]' \
-  '--send-keys[send keys to a keyserver]:key attachment:->public-keys' \
+  '--send-keys[send keys to a keyserver]:key attachment:->public-keyids' \
   '--export-all[export all key and not OpenPGP compatible keys]' \
   '--export-secret-keys:key attachment:->secret-keys' \
   '--export-secret-subkeys:key attachment:->secret-keys' \
   '--import[import a gpg key from a file]:_files attachment:_files' \
   '--fast-import[import a file without build trustdb]:_files attachment:_files' \
-  '--recv-keys[receive a list of keys from a keyserver]:key attachment:->public-keys' \
+  '--recv-keys[receive a list of keys from a keyserver]:key attachment:->public-keyids' \
   '--refresh-keys[update all keys from a keyserver]' \
   '--search-keys[search for keys on a key server]' \
   '--update-trustdb[update the trust database]' \
@@ -130,7 +131,7 @@ _arguments -C -s -S -A "-*" \
   '*:args:->args' && ret=0
 
 if [[ $state = args ]]; then
-  if (( ${+opt_args[--export]} || ${+opt_args[--list-keys]} )); then
+  if (( ${+opt_args[--export]} || ${+opt_args[--list-keys]} || ${+opt_args[--list-public-keys]} )); then
     state=public-keys
   elif (( ${+opt_args[--list-secret-keys]} )); then
     state=secret-keys
@@ -159,15 +160,19 @@ fi
 case "$state" in
   public-keys)
     _wanted public-keys expl 'public key' \
-	compadd ${${(Mo)$(_call_program public-keys gpg $needed --list-keys 2>/dev/null):%<*>}//(<|>)/} && return
+	compadd ${${(Mo)$(_call_program public-keys gpg $needed --list-public-keys --list-options no-show-photos 2>/dev/null):%<*>}//(<|>)/} && return
   ;;
   secret-keys)
     _wanted secret-keys expl 'secret key' compadd \
-	${${(Mo)$(_call_program secret-keys gpg $needed --list-secret-keys 2>/dev/null):%<*>}//(<|>)/} && return
+	${${(Mo)$(_call_program secret-keys gpg $needed --list-secret-keys --list-options no-show-photos 2>/dev/null):%<*>}//(<|>)/} && return
   ;;
   ciphers)
     _wanted ciphers expl cipher compadd \
         ${${(s.,.)${(M)${(f)"$(_call_program ciphers gpg $needed --version)"}:#Cipher*}#*:}# } && return
+  ;;
+  (public-keyids)
+    _wanted public-keys expl 'public keyid' \
+	compadd ${${${(M)${(f)"$(_call_program public-keyids gpg $needed --list-public-keys --list-options no-show-photos 2>/dev/null)"}:%pub*}#pub */}%% *} && return
   ;;
 esac
 

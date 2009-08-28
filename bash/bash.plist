@@ -19,6 +19,7 @@
 		<string>Don't drop privileges if emulating Tiger's /bin/bash</string>
 		<string>Fix off-by-1 error in compact_jobs_list</string>
 		<string>Do not rl_forward_char past rl_end</string>
+		<string>Do not echo \e as ESC when in posix mode</string>
 	</array>
 	<key>OpenSourceLicenseFile</key>
 	<string>bash.txt</string>

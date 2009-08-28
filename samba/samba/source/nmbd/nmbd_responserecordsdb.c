@@ -32,26 +32,12 @@ int num_response_packets = 0;
 static void add_response_record(struct subnet_record *subrec,
 				struct response_record *rrec)
 {
-	struct response_record *rrec2;
-
 	num_response_packets++; /* count of total number of packets still around */
 
 	DEBUG(4,("add_response_record: adding response record id:%hu to subnet %s. num_records:%d\n",
 		rrec->response_id, subrec->subnet_name, num_response_packets));
 
-	if (!subrec->responselist) {
-		subrec->responselist = rrec;
-		rrec->prev = NULL;
-		rrec->next = NULL;
-		return;
-	}
-  
-	for (rrec2 = subrec->responselist; rrec2->next; rrec2 = rrec2->next) 
-		;
-  
-	rrec2->next = rrec;
-	rrec->next = NULL;
-	rrec->prev = rrec2;
+	DLIST_ADD_END(subrec->responselist, rrec, struct response_record *);
 }
 
 /***************************************************************************
@@ -61,18 +47,32 @@ static void add_response_record(struct subnet_record *subrec,
 void remove_response_record(struct subnet_record *subrec,
 				struct response_record *rrec)
 {
-	DEBUG(4,("remove_response_record: rrec (%x) subrec (%x) \n", rrec, subrec));
+	/* It is possible this can be called twice,
+	   with a rrec pointer that has been freed. So
+	   before we inderect into rrec, search for it
+	   on the responselist first. Bug #3617. JRA. */
 
-	if (!rrec || !subrec)
+	struct response_record *p = NULL;
+
+	DEBUG(4,("remove_response_record: rrec (%x) subrec (%x) \n",
+		    rrec, subrec));
+
+	if (!rrec || !subrec) {
 		return;
+	}
 
-	if (rrec->prev)
-		rrec->prev->next = rrec->next;
-	if (rrec->next)
-		rrec->next->prev = rrec->prev;
+	for (p = subrec->responselist; p; p = p->next) {
+		if (p == rrec) {
+			break;
+		}
+	}
 
-	if (subrec->responselist == rrec) 
-		subrec->responselist = rrec->next; 
+	if (p == NULL) {
+		/* We didn't find rrec on the list. */
+		return;
+	}
+
+	DLIST_REMOVE(subrec->responselist, rrec);
 
 	if(rrec->userdata) {
 		if(rrec->userdata->free_fn) {

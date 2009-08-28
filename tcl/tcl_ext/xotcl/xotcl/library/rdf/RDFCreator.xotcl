@@ -1,0 +1,142 @@
+# $Id: RDFCreator.xotcl,v 1.6 2006/09/27 08:12:40 neumann Exp $
+
+package provide xotcl::rdf::tripleRecreator 0.9
+package require XOTcl
+package require xotcl::rdf::parser
+
+namespace eval ::xotcl::rdf::tripleRecreator {
+    namespace import ::xotcl::*
+
+    Class RDFCreator -parameter {
+	{rdfNS "http://www.w3.org/1999/02/22-rdf-syntax-ns#"}
+	{openExprs ""}
+    }
+
+    Class OpenExpr -parameter {
+	{type ""}
+	{subject ""}
+	{closing ""}
+    } 
+
+    RDFCreator instproc init args {
+	next
+    }
+
+    RDFCreator instproc free {} {
+	my instvar openExprs
+	while {$openExprs ne ""} {
+	    set o [lindex $openExprs 0]
+	    set openExprs [lrange $openExprs 1 end]
+	    $o destroy
+	}
+    }
+
+    RDFCreator instproc sort {tl} {
+	#
+	# this assumes that the triples are created and named in node tree order, e.g. 
+	# through autonames like triple0, triple1, ... (as in rdfTripleCreator)
+	#
+	# => bag types defs are before bag's _1, _2 -- etc.
+	#
+	# otherwise overload sorting method !
+	#
+	return [lsort $tl]
+    }
+
+    RDFCreator instproc createFromTriples {tripleList} {
+	my instvar openExprs
+	set heading "<?xml version=\"1.0\"?>\n<RDF
+  xmlns:rdf=\"[my set rdfNS]\""
+	set body ""
+	XMLNamespace [self]::ns
+	[self]::ns add rdf [set rdfNS [my rdfNS]]
+	my free
+
+	foreach t [my sort $tripleList] {
+	    set p [$t predicate]
+	    set o [$t object]
+	    set s [$t subject]
+
+	    
+	    set opening ""
+	    set closing ""
+	    if {[regexp "(^.*://.*/(\[^/\]+)(/|\#))(\[^/\]+)\$" $p _ ns prefix __ name]} {
+		
+		if {[string match $rdfNS $ns]} {
+		    if {"type" eq $name} {
+			if {[regexp "${rdfNS}(RDFAlt|RDFBag|RDFSeq)" $o _ type]} {
+			    set opening "\n<rdf:$type ID=\"$s\">"
+			    set closing "\n</rdf:$type>"
+			}
+		    }
+		}
+
+		if {[set nsPrefix [[self]::ns searchFullName $ns]] == ""} {
+		    [self]::ns add [set nsPrefix [my autoname $prefix]] $ns
+		    append heading "\n  xmlns:${nsPrefix}=\"$ns\""
+		}
+		
+		set oe [lindex [my set openExprs] 0]
+
+		if {$oe eq "" || [$oe subject] != $s} {
+		    if {$oe ne ""} {
+			append body [$oe closing]
+			[lindex [set openExprs] 0] destroy
+			set openExprs [lrange $openExprs 1 end]
+		    }
+		    if {$opening eq ""} {
+			append body "\n<rdf:Description about=\"$s\">"
+			set closing "\n</rdf:Description>"
+			set type "Description"
+		    } else {
+			append body $opening
+		    }
+		    set noe [my OpenExpr [my autoname oe]]
+		    set openExprs [concat $noe $openExprs]
+		    
+		    $noe subject $s
+		    $noe closing $closing
+		    $noe type $type
+		    set oe $noe
+		}
+		set tn ${nsPrefix}:$name
+
+		switch -exact [$oe type] {
+		    RDFDescription {
+			#puts DESCRIPTION
+			append body "\n<$tn> [$t object] </$tn>"
+		    }
+		    RDFAlt - RDFSeq {
+			#puts ALT---$tn
+			if {[regexp {rdf:_([0-9]*)} $tn _ __]} {
+			    append body "\n<rdf:li resource=\"[$t object]\"/>"
+			}
+		    } 
+		    RDFBag {
+			if {[regexp {rdf:_([0-9]*)} $tn _ __]} {
+			    append body "\n<$tn resource=\"[$t object]\"/>"
+			}
+		    }
+		}
+	    } else { 
+		puts "Predicate '$p' not matched"
+		# hier als xmlns behandeln ...
+	    } 
+	}
+	append heading ">"
+	set r $heading
+	while {$openExprs ne ""} {
+	    set oe [lindex $openExprs 0]
+	    set openExprs [lrange $openExprs 1 end]
+	    append body [$oe closing]
+	    $oe destroy
+	}
+	append r $body
+	append r "\n</RDF>"
+	return $r
+    }
+
+    namespace export RDFCreator OpenExpr
+}
+
+namespace import ::xotcl::rdf::tripleRecreator::*

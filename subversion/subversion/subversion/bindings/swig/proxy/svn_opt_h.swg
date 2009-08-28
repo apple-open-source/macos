@@ -5,13 +5,16 @@
 #ifdef SWIGPYTHON
 #endif
 
-/* Includes */
+/* Callback typemaps */
+
+/* Baton typemaps */
 #ifdef SWIGPYTHON
-%import proxy.swg
-%import apr.swg
-%include svn_types_h.swg
-%include svn_error_h.swg
+%apply void *PY_AS_VOID {
+  void *baton
+};
 #endif
+
+/* Includes */
 %{
 #include "svn_opt.h"
 %}
@@ -23,9 +26,14 @@
 %proxy(svn_opt_subcommand_desc_t);
 %proxy(svn_opt_revision_value_t);
 %proxy(svn_opt_revision_t);
+%proxy(svn_opt_revision_range_t);
 #endif
 
 /* Callbacks */
 
 %inline %{
 %}
+
+#ifdef SWIGPYTHON
+
+#endif

@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "win32/apr_arch_atime.h"
+#include "apr_arch_atime.h"
 #include "apr_time.h"
 #include "apr_general.h"
 #include "apr_lib.h"
@@ -52,7 +52,7 @@ static DWORD get_local_timezone(TIME_ZONE_INFORMATION **tzresult)
 static void SystemTimeToAprExpTime(apr_time_exp_t *xt, SYSTEMTIME *tm)
 {
     static const int dayoffset[12] =
-    {0, 31, 59, 90, 120, 151, 182, 212, 243, 273, 304, 334};
+    {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334};
 
     /* Note; the caller is responsible for filling in detailed tm_usec,
      * tm_gmtoff and tm_isdst data when applicable.
@@ -139,7 +139,7 @@ APR_DECLARE(apr_status_t) apr_time_exp_lt(apr_time_exp_t *result,
 
     AprTimeToFileTime(&ft, input);
 
-#if APR_HAS_UNICODE_FS
+#if APR_HAS_UNICODE_FS && !defined(_WIN32_WCE)
     IF_WIN_OS_IS_UNICODE
     {
         TIME_ZONE_INFORMATION *tz;
@@ -178,7 +178,7 @@ APR_DECLARE(apr_status_t) apr_time_exp_lt(apr_time_exp_t *result,
                          - (-(tz->Bias + tz->StandardBias) / 60);
     }
 #endif
-#if APR_HAS_ANSI_FS
+#if APR_HAS_ANSI_FS || defined(_WIN32_WCE)
     ELSE_WIN_OS_IS_ANSI
     {
         TIME_ZONE_INFORMATION tz;
@@ -304,11 +304,17 @@ APR_DECLARE(void) apr_sleep(apr_interval_time_t t)
     Sleep((DWORD)(t / 1000));
 }
 
-
+#if defined(_WIN32_WCE)
+/* A noop on WinCE, like Unix implementation */
+APR_DECLARE(void) apr_time_clock_hires(apr_pool_t *p)
+{
+    return;
+}
+#else
 static apr_status_t clock_restore(void *unsetres)
 {
     ULONG newRes;
-    SetTimerResolution((ULONG)unsetres, FALSE, &newRes);
+    SetTimerResolution((ULONG)(apr_ssize_t)unsetres, FALSE, &newRes);
     return APR_SUCCESS;
 }
 
@@ -324,3 +330,4 @@ APR_DECLARE(void) apr_time_clock_hires(apr_pool_t *p)
                                   apr_pool_cleanup_null);
     }
 }
+#endif

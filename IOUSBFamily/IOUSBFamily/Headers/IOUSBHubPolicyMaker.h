@@ -45,6 +45,10 @@ enum {
 
 #define kIOUSBHubPowerStateStable	-1
 
+/*!
+ @class IOUSBHubPolicyMaker
+ @abstract Super class for Hub drivers to incorporate common Power Management code.
+ */
 class IOUSBHubPolicyMaker : public IOService
 {
 	OSDeclareAbstractStructors(IOUSBHubPolicyMaker)

@@ -21,7 +21,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-
 #include "aod.h"
 
 #include <string.h>
@@ -29,456 +28,589 @@
 #include <stdlib.h>
 #include <syslog.h>
 #include <stdio.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/sysctl.h>
+#include <dtrace-postfix.h>
 
 #include <CoreFoundation/CFData.h>
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFNumber.h>
 #include <CoreFoundation/CFPropertyList.h>
 
-#include <DirectoryService/DirServices.h>
-#include <DirectoryService/DirServicesUtils.h>
+#include <OpenDirectory/OpenDirectory.h>
+#include <OpenDirectory/OpenDirectoryPriv.h>
 #include <DirectoryService/DirServicesConst.h>
 
 /* -----------------------------------------------------------------
 	Prototypes 
    ----------------------------------------------------------------- */
 
-static tDirStatus	sOpen_ds			( tDirReference *inOutDirRef );
-static tDirStatus	sGet_search_node	( tDirReference inDirRef, tDirNodeReference *outSearchNodeRef );
-static tDirStatus	sGet_user_attributes( tDirReference inDirRef, tDirNodeReference inSearchNodeRef, const char *inUserID, struct od_user_opts *inOutOpts );
-static int			sVerify_version		( CFDictionaryRef inCFDictRef );
-static void			sGet_mail_values	( char *inMailAttribute, struct od_user_opts *inOutOpts );
-static void			sGet_acct_state		( CFDictionaryRef inCFDictRef, struct od_user_opts *inOutOpts );
-static void			sGet_auto_forward	( CFDictionaryRef inCFDictRef, struct od_user_opts *inOutOpts );
+static void			print_cf_error				( CFErrorRef in_cf_err_ref, const char *in_default_str );
+static int			get_user_attributes			( ODNodeRef in_node_ref, const char *in_user_name, struct od_user_opts *in_out_opts );
+static void			get_mail_attribute_values	( const char *in_mail_attribute, struct od_user_opts *in_out_opts );
+static void			get_auto_forward_addr		( CFDictionaryRef inCFDictRef, struct od_user_opts *in_out_opts );
+void				get_acct_state				( CFDictionaryRef inCFDictRef, struct od_user_opts *in_out_opts );
+static CFStringRef	get_attr_from_record		( ODRecordRef in_rec_ref, CFStringRef in_attr );
 
-/* -----------------------------------------------------------------
-	Globals
-   ----------------------------------------------------------------- */
+/* Begin DS SPI Glue */
+#include <kvbuf.h>
+#include <DSlibinfoMIG.h>
+#include <DirectoryService/DirectoryService.h>
 
-char	gErrStr[ kONE_K_BUF ];
+extern mach_port_t _ds_port;
+extern int _ds_running();
 
-/* -----------------------------------------------------------------
-	aodGetUserOptions ()
-   ----------------------------------------------------------------- */
-
-int aodGetUserOptions ( const char *inUserID, struct od_user_opts *inOutOpts )
+__private_extern__ kern_return_t
+get_procno( const char *procname, int32_t *procno )
 {
-	tDirStatus			dsStatus		= eDSNoErr;
-	tDirReference		dirRef			= 0;
-	tDirNodeReference	searchNodeRef	= 0;
+	kern_return_t		status;
+	security_token_t	token;
+	bool				lookAgain = false;
+	uid_t				uid;
 
-	if ( (inUserID == NULL) || (inOutOpts == NULL) )
+	do {
+    	if (_ds_running() == 0) return KERN_FAILURE;
+    	if (_ds_port == MACH_PORT_NULL) return KERN_FAILURE;
+
+		status = libinfoDSmig_GetProcedureNumber( _ds_port, (char *) procname, procno, &token );
+		switch( status )
+		{
+			case MACH_SEND_INVALID_DEST:
+			case MIG_SERVER_DIED:
+				mach_port_mod_refs( mach_task_self(), _ds_port, MACH_PORT_RIGHT_SEND, -1 );
+				_ds_port = MACH_PORT_NULL;
+				lookAgain = true;
+				break;
+
+			case KERN_SUCCESS:
+				// is there a security call to parse this private token?
+				if ( token.val[0] != 0 ) {
+					(*procno) = -1;
+					status = KERN_FAILURE;
+				}
+				break;
+
+			default:
+				break;
+		}
+	} while ( lookAgain == true );
+
+	return status;
+}
+
+__private_extern__ kern_return_t
+ds_lookup( int32_t procno, kvbuf_t *request, kvarray_t **answer )
+{
+	kern_return_t			status;
+	security_token_t		token;
+	bool					lookAgain	= false;
+	uid_t					uid;
+	mach_msg_type_number_t	oolen		= 0;
+	vm_address_t			oobuf		= 0;
+	char					ilbuf[MAX_MIG_INLINE_DATA];
+	mach_msg_type_number_t	illen		= 0;
+	
+	do {
+    	if ( _ds_running() == 0 ) return KERN_FAILURE;
+    	if ( _ds_port == MACH_PORT_NULL ) return KERN_FAILURE;
+		if ( request == NULL ) return KERN_FAILURE;
+		
+		status = libinfoDSmig_Query( _ds_port, procno, request->databuf, request->datalen, ilbuf, &illen, &oobuf, &oolen, &token );
+		switch( status )
+		{
+			case MACH_SEND_INVALID_DEST:
+			case MIG_SERVER_DIED:
+				mach_port_mod_refs( mach_task_self(), _ds_port, MACH_PORT_RIGHT_SEND, -1 );
+				_ds_port = MACH_PORT_NULL;
+				lookAgain = true;
+				break;
+				
+			case KERN_SUCCESS:
+				// is there a security call to parse this private token?
+				if ( token.val[0] == 0 ) {
+					if ( answer != NULL ) {
+						kvbuf_t *tempBuf;
+						
+						if ( oolen != 0 ) {
+							tempBuf = kvbuf_init( (char *)oobuf, (uint32_t) oolen );
+						}
+						else {
+							tempBuf = kvbuf_init( ilbuf, illen );
+						}
+						
+						(*answer) = kvbuf_decode( tempBuf );
+						if ( (*answer) == NULL ) {
+							kvbuf_free( tempBuf );
+						}
+					}
+				}
+				else {
+					// response came from a process not running as root
+					procno = -1;
+					status = KERN_FAILURE;
+				}
+				break;
+				
+			default:
+				break;
+		}
+	} while ( lookAgain == true );
+	
+	if ( oolen != 0 ) {
+		vm_deallocate( mach_task_self(), oobuf, oolen );
+	}
+	
+	return status;
+}
+
+kvarray_t *
+getpwnam_ext( const char *name )
+{
+	static int32_t 			procno		= -1;
+	static int32_t			initProc	= -1;
+	static bool				setupList	= FALSE;
+	kvarray_t				*response	= NULL;
+	kern_return_t			status;
+	
+	if ( name == NULL ) return NULL;
+
+	if ( procno == -1 ) {
+		status = get_procno( "getpwnam_ext", &procno );
+		if ( status != KERN_SUCCESS ) return NULL;
+	}
+	
+	if ( initProc == -1 ) {
+		status = get_procno( "getpwnam_initext", &initProc );
+		if ( status != KERN_SUCCESS ) return NULL;
+	}
+			
+	if (!setupList) {
+		kvbuf_t *reqTypes = kvbuf_new();
+		
+		/* The following are already included by default:
+		 * kDSNAttrRecordName			- pw_name
+		 * kDS1AttrPassword			- pw_pass
+		 * kDS1AttrUniqueID			- pw_uid
+		 * kDS1AttrPrimaryGroupID		- pw_gid
+		 * kDS1AttrNFSHomeDirectory	- pw_dir
+		 * kDS1AttrUserShell			- pw_shell
+		 * kDS1AttrDistinguishedName	- pw_gecos
+		 * kDS1AttrGeneratedUID		- pw_uuid
+		 *
+		 * kDSNAttrKeywords			- not included, please file radar against DirectoryService
+		 *	kDSNAttrMetaNodeLocation	- as-is
+		 */
+		  
+		kvbuf_add_dict( reqTypes );
+		kvbuf_add_key( reqTypes, "additionalAttrs" );
+		kvbuf_add_val( reqTypes, kDS1AttrMailAttribute );
+		kvbuf_add_val( reqTypes, kDSNAttrEMailAddress );
+		kvbuf_add_val( reqTypes, kDS1AttrFirstName );
+		kvbuf_add_val( reqTypes, kDS1AttrLastName );
+		
+		ds_lookup( initProc, reqTypes, NULL );
+	}
+	
+	kvbuf_t *request = kvbuf_query_key_val( "login", name );
+	if ( request != NULL ) {
+		ds_lookup( procno, request, &response );
+		kvbuf_free( request );
+	}
+	
+	return response;
+}
+/* End DS SPI Glue */
+
+static const char *ds_get_value(const char *inUserID, const kvdict_t *in_dict, const char *in_attr, bool first_of_many)
+{
+	const char *value = NULL;
+	int32_t i;
+
+	for (i = 0; i < in_dict->kcount; i++) {
+		if (!strcmp(in_dict->key[i], in_attr)) {
+			if (in_dict->vcount[i] == 1)
+				value = in_dict->val[i][0];
+			else if (in_dict->vcount[i] == 0)
+				msg_info("od[getpwnam_ext]: no value found for attribute %s in record for user %s", in_attr, inUserID);
+			else if (first_of_many)
+				value = in_dict->val[i][0];
+			else
+				msg_info("od[getpwnam_ext]: multiple values (%u) found for attribute %s in record for user %s", in_dict->vcount[i], in_attr, inUserID);
+			break;
+		}
+	}
+	if (i >= in_dict->kcount)
+		msg_info("od[getpwnam_ext]: no attribute %s in record for user %s", in_attr, inUserID);
+
+	return value;
+}
+
+int ads_get_user_options(const char *inUserID, struct od_user_opts *in_out_opts)
+{
+	int out_status = 0;
+	kvarray_t *user_data;
+
+	assert(inUserID != NULL && in_out_opts != NULL);
+	memset(in_out_opts, 0, sizeof *in_out_opts);
+	in_out_opts->fAcctState = eUnknownAcctState;
+
+	if (POSTFIX_OD_LOOKUP_START_ENABLED())
+		POSTFIX_OD_LOOKUP_START((char *) inUserID, in_out_opts);
+
+	errno = 0;
+	user_data = getpwnam_ext(inUserID);
+	if (user_data != NULL) {
+		if (user_data->count == 1) {
+			kvdict_t *user_dict = &user_data->dict[0];
+			const char *value;
+
+			value = ds_get_value(inUserID, user_dict, kDS1AttrMailAttribute, FALSE);
+			if (value)
+				get_mail_attribute_values(value, in_out_opts);
+
+			// kDSNAttrRecordName
+			value = ds_get_value(inUserID, user_dict, "pw_name", TRUE);
+			if (value)
+				strlcpy(in_out_opts->fRecName, value, sizeof in_out_opts->fRecName);
+		} else if (user_data->count == 0)
+			msg_error("od[getpwnam_ext]: no record found for user %s", inUserID);
+		else
+			msg_error("od[getpwnam_ext]: multiple records (%u) found for user %s", user_data->count, inUserID);
+
+		kvarray_free(user_data);
+	} else if (errno)
+		msg_error("od[getpwnam_ext]: Unable to look up user record %s: %m", inUserID);
+	else
+		msg_error("od[getpwnam_ext]: No record for user %s", inUserID);
+
+	if (POSTFIX_OD_LOOKUP_FINISH_ENABLED())
+		POSTFIX_OD_LOOKUP_FINISH((char *) inUserID, in_out_opts, out_status);
+
+	return out_status;
+}
+
+/* -----------------------------------------------------------------
+	aod_get_user_options ()
+   ----------------------------------------------------------------- */
+
+int aod_get_user_options ( const char *inUserID, struct od_user_opts *in_out_opts )
+{
+	int					out_status		= 0;
+	ODSessionRef		od_session_ref;
+	ODNodeRef			od_node_ref;
+	CFErrorRef			cf_err_ref		= NULL;
+
+	assert((inUserID != NULL) && (in_out_opts != NULL));
+
+	memset( in_out_opts, 0, sizeof( struct od_user_opts ) );
+
+	in_out_opts->fAcctState = eUnknownAcctState;
+
+	if (POSTFIX_OD_LOOKUP_START_ENABLED())
+		POSTFIX_OD_LOOKUP_START((char *) inUserID, in_out_opts);
+
+	// create default session
+	od_session_ref = ODSessionCreate( kCFAllocatorDefault, NULL, &cf_err_ref );
+	if ( od_session_ref == NULL )
 	{
+		/* print the error and bail */
+		print_cf_error( cf_err_ref, "Unable to create OD Session" );
 		return( -1 );
 	}
 
-	memset( inOutOpts, 0, sizeof( struct od_user_opts ) );
-
-	inOutOpts->fAcctState = eUnknownAcctState;
-	inOutOpts->fIMAPLogin = eAcctDisabled;
-	inOutOpts->fPOP3Login = eAcctDisabled;
-
-	dsStatus = sOpen_ds( &dirRef );
-	if ( dsStatus == eDSNoErr )
+	// get seach node
+	od_node_ref = ODNodeCreateWithNodeType( kCFAllocatorDefault, od_session_ref, kODNodeTypeAuthentication, &cf_err_ref );
+	if ( od_node_ref == NULL )
 	{
-		dsStatus = sGet_search_node( dirRef, &searchNodeRef );
-		if ( dsStatus == eDSNoErr )
-		{
-			dsStatus = sGet_user_attributes( dirRef, searchNodeRef, inUserID, inOutOpts );
-			(void)dsCloseDirNode( searchNodeRef );
-		}
-		(void)dsCloseDirService( dirRef );
+		/* print the error and bail */
+		print_cf_error( cf_err_ref, "Unable to create OD Node Reference" );
+
+		/* release OD session */
+		CFRelease( od_session_ref );
+		od_session_ref = NULL;
+		return( -1 );
 	}
 
-	return( dsStatus );
+	/* get account state and auto-forward address, if any */
+	out_status = get_user_attributes( od_node_ref, inUserID, in_out_opts );
 
-} /* aodGetUserOptions */
+	CFRelease( od_node_ref );
+	CFRelease( od_session_ref );
+
+	if (POSTFIX_OD_LOOKUP_FINISH_ENABLED())
+		POSTFIX_OD_LOOKUP_FINISH((char *) inUserID, in_out_opts, out_status);
+
+	return( out_status );
+
+} /* aod_get_user_options */
 
 
 /* -----------------------------------------------------------------
-   -----------------------------------------------------------------
-   -----------------------------------------------------------------
 	Static functions
-   -----------------------------------------------------------------
-   -----------------------------------------------------------------
    ----------------------------------------------------------------- */
 
-/* -----------------------------------------------------------------
-	sOpen_ds ()
-   ----------------------------------------------------------------- */
 
-tDirStatus sOpen_ds ( tDirReference *inOutDirRef )
+/* ------------------------------------------------------------------
+ *	print_cf_error ()
+ *
+ *		print error returned in CFErrorRef
+ * ------------------------------------------------------------------*/
+
+static void print_cf_error ( CFErrorRef in_cf_err_ref, const char *in_default_str )
 {
-	tDirStatus		dsStatus	= eDSNoErr;
+	CFStringRef		cf_str_ref;
 
-	dsStatus = dsOpenDirService( inOutDirRef );
-
-	return( dsStatus );
-
-} /* sOpen_ds */
-
-
-/* -----------------------------------------------------------------
-	sGet_search_node ()
-   ----------------------------------------------------------------- */
-
-tDirStatus sGet_search_node ( tDirReference inDirRef,
-							 tDirNodeReference *outSearchNodeRef )
-{
-	tDirStatus		dsStatus	= eMemoryAllocError;
-	unsigned long	uiCount		= 0;
-	tDataBuffer	   *pTDataBuff	= NULL;
-	tDataList	   *pDataList	= NULL;
-
-	pTDataBuff = dsDataBufferAllocate( inDirRef, 8192 );
-	if ( pTDataBuff != NULL )
+	if ( in_cf_err_ref != NULL )
 	{
-		dsStatus = dsFindDirNodes( inDirRef, pTDataBuff, NULL, eDSSearchNodeName, &uiCount, NULL );
-		if ( dsStatus == eDSNoErr )
+		cf_str_ref = CFErrorCopyFailureReason( in_cf_err_ref );
+		if ( cf_str_ref != NULL )
 		{
-			dsStatus = eDSNodeNotFound;
-			if ( uiCount == 1 )
+			const char *err_str = CFStringGetCStringPtr( cf_str_ref, kCFStringEncodingUTF8 );
+			if ( err_str != NULL )
 			{
-				dsStatus = dsGetDirNodeName( inDirRef, pTDataBuff, 1, &pDataList );
-				if ( dsStatus == eDSNoErr )
-				{
-					dsStatus = dsOpenDirNode( inDirRef, pDataList, outSearchNodeRef );
-				}
-
-				if ( pDataList != NULL )
-				{
-					(void)dsDataListDeAllocate( inDirRef, pDataList, true );
-
-					free( pDataList );
-					pDataList = NULL;
-				}
-			}
-		}
-		(void)dsDataBufferDeAllocate( inDirRef, pTDataBuff );
-		pTDataBuff = NULL;
-	}
-
-	return( dsStatus );
-
-} /* sGet_search_node */
-
-
-/* -----------------------------------------------------------------
-	sGet_user_attributes ()
-   ----------------------------------------------------------------- */
-
-tDirStatus sGet_user_attributes ( tDirReference inDirRef,
-									tDirNodeReference inSearchNodeRef,
-									const char *inUserID,
-									struct od_user_opts *inOutOpts )
-{
-	char				   *p				= NULL;
-	tDirStatus				dsStatus		= eMemoryAllocError;
-	int						done			= FALSE;
-	int						i				= 0;
-	char				   *pAcctName		= NULL;
-	unsigned long			uiRecCount		= 0;
-	tDataBuffer			   *pTDataBuff		= NULL;
-	tDataList			   *pUserRecType	= NULL;
-	tDataList			   *pUserAttrType	= NULL;
-	tRecordEntry		   *pRecEntry		= NULL;
-	tAttributeEntry		   *pAttrEntry		= NULL;
-	tAttributeValueEntry   *pValueEntry		= NULL;
-	tAttributeValueListRef	valueRef		= 0;
-	tAttributeListRef		attrListRef		= 0;
-	tContextData			pContext		= NULL;
-	tDataList				tdlRecName;
-
-	memset( &tdlRecName,  0, sizeof( tDataList ) );
-
-	pTDataBuff = dsDataBufferAllocate( inDirRef, 8192 );
-	if ( pTDataBuff != NULL )
-	{
-		dsStatus = dsBuildListFromStringsAlloc( inDirRef, &tdlRecName, inUserID, NULL );
-		if ( dsStatus == eDSNoErr )
-		{
-			dsStatus = eMemoryAllocError;
-
-			pUserRecType = dsBuildListFromStrings( inDirRef, kDSStdRecordTypeUsers, NULL );
-			if ( pUserRecType != NULL )
-			{
-				pUserAttrType = dsBuildListFromStrings( inDirRef, kDS1AttrMailAttribute, kDSNAttrRecordName, NULL );
-				if ( pUserAttrType != NULL );
-				{
-					do {
-						/* Get the user record(s) that matches the user id */
-						dsStatus = dsGetRecordList( inSearchNodeRef, pTDataBuff, &tdlRecName, eDSiExact, pUserRecType,
-													pUserAttrType, FALSE, &uiRecCount, &pContext );
-
-						if ( dsStatus == eDSNoErr )
-						{
-							dsStatus = eDSInvalidName;
-							/* do we have more than 1 match */
-							if ( uiRecCount == 1 ) 
-							{
-								dsStatus = dsGetRecordEntry( inSearchNodeRef, pTDataBuff, 1, &attrListRef, &pRecEntry );
-								if ( dsStatus == eDSNoErr )
-								{
-									/* Get the record name */
-									(void)dsGetRecordNameFromEntry( pRecEntry, &pAcctName );
-
-									if ( pAcctName != NULL )
-									{
-										if ( strlen( pAcctName ) < kONE_K_BUF )
-										{
-											strcpy( inOutOpts->fUserID, pAcctName );
-										}
-									}
-									/* Get the attributes we care about for the record */
-									for ( i = 1; i <= pRecEntry->fRecordAttributeCount; i++ )
-									{
-										dsStatus = dsGetAttributeEntry( inSearchNodeRef, pTDataBuff, attrListRef, i, &valueRef, &pAttrEntry );
-										if ( (dsStatus == eDSNoErr) && (pAttrEntry != NULL) )
-										{
-											if ( strcasecmp( pAttrEntry->fAttributeSignature.fBufferData, kDS1AttrMailAttribute ) == 0 )
-											{
-												/* Only get the first attribute value */
-												dsStatus = dsGetAttributeValue( inSearchNodeRef, pTDataBuff, 1, valueRef, &pValueEntry );
-												if ( dsStatus == eDSNoErr )
-												{
-													/* Get the individual mail attribute values */
-													sGet_mail_values( (char *)pValueEntry->fAttributeValueData.fBufferData, inOutOpts );
-
-													/* If we don't find duplicate users in the same node, we take the first one with
-														a valid mail attribute */
-													done = true;
-												}
-											}
-											else if ( strcasecmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrRecordName ) == 0 )
-											{
-												/* Only get the first attribute value */
-												dsStatus = dsGetAttributeValue( inSearchNodeRef, pTDataBuff, 1, valueRef, &pValueEntry );
-												if ( dsStatus == eDSNoErr )
-												{
-													/* Get the generated uid */
-													if ( pValueEntry->fAttributeValueData.fBufferLength < kONE_K_BUF )
-													{
-														strncpy( inOutOpts->fRecName, pValueEntry->fAttributeValueData.fBufferData, pValueEntry->fAttributeValueData.fBufferLength );
-													}
-													else
-													{
-														strncpy( inOutOpts->fRecName, pValueEntry->fAttributeValueData.fBufferData, kONE_K_BUF - 1 );
-													}
-												}
-											}
-
-											if ( pValueEntry != NULL )
-											{
-												(void)dsDeallocAttributeValueEntry( inSearchNodeRef, pValueEntry );
-												pValueEntry = NULL;
-											}
-										}
-										if ( pAttrEntry != NULL )
-										{
-											(void)dsCloseAttributeValueList( valueRef );
-											(void)dsDeallocAttributeEntry( inSearchNodeRef, pAttrEntry );
-											pAttrEntry = NULL;
-										}
-									}
-
-									if ( pRecEntry != NULL )
-									{
-										(void)dsDeallocRecordEntry( inSearchNodeRef, pRecEntry );
-										pRecEntry = NULL;
-									}
-								}
-							}
-							else
-							{
-								done = true;
-								if ( uiRecCount > 1 )
-								{
-									syslog( LOG_NOTICE, "Duplicate users %s found in directory.", inUserID );
-								}
-								inOutOpts->fUserID[ 0 ] = '\0';
-								dsStatus = eDSUserUnknown;
-							}
-						}
-					} while ( (pContext != NULL) && (dsStatus == eDSNoErr) && (!done) );
-
-					if ( pContext != NULL )
-					{
-						(void)dsReleaseContinueData( inSearchNodeRef, pContext );
-						pContext = NULL;
-					}
-					(void)dsDataListDeallocate( inDirRef, pUserAttrType );
-					pUserAttrType = NULL;
-				}
-				(void)dsDataListDeallocate( inDirRef, pUserRecType );
-				pUserRecType = NULL;
-			}
-			(void)dsDataListDeAllocate( inDirRef, &tdlRecName, TRUE );
-		}
-		(void)dsDataBufferDeAllocate( inDirRef, pTDataBuff );
-		pTDataBuff = NULL;
-	}
-	
-	return( dsStatus );
-
-} /* sGet_user_attributes */
-
-
-/* -----------------------------------------------------------------
-	sGet_mail_values ()
-   ----------------------------------------------------------------- */
-
-void sGet_mail_values ( char *inMailAttribute, struct od_user_opts *inOutOpts )
-{
-	int					iResult 	= 0;
-	unsigned long		uiDataLen	= 0;
-	CFDataRef			cfDataRef	= NULL;
-	CFPropertyListRef	cfPlistRef	= NULL;
-	CFDictionaryRef		cfDictRef	= NULL;
-
-	if ( inMailAttribute != NULL )
-	{
-		uiDataLen = strlen( inMailAttribute );
-		cfDataRef = CFDataCreate( NULL, (const UInt8 *)inMailAttribute, uiDataLen );
-		if ( cfDataRef != NULL )
-		{
-			cfPlistRef = CFPropertyListCreateFromXMLData( kCFAllocatorDefault, cfDataRef, kCFPropertyListImmutable, NULL );
-			if ( cfPlistRef != NULL )
-			{
-				if ( CFDictionaryGetTypeID() == CFGetTypeID( cfPlistRef ) )
-				{
-					cfDictRef = (CFDictionaryRef)cfPlistRef;
-					iResult = sVerify_version( cfDictRef );
-					if ( iResult == eNoErr )
-					{
-						sGet_acct_state( cfDictRef, inOutOpts );
-					}
-				}
-				CFRelease( cfPlistRef );
-			}
-			CFRelease( cfDataRef );
-		}
-	}
-} /* sGet_mail_values */
-
-
-/* -----------------------------------------------------------------
-	sVerify_version ()
-   ----------------------------------------------------------------- */
-
-int sVerify_version ( CFDictionaryRef inCFDictRef )
-{
-	int				iResult 	= 0;
-	bool			bFound		= FALSE;
-	CFStringRef		cfStringRef	= NULL;
-	char		   *pValue		= NULL;
-
-	bFound = CFDictionaryContainsKey( inCFDictRef, CFSTR( kXMLKeyAttrVersion ) );
-	if ( bFound == true )
-	{
-		iResult = eInvalidDataType;
-
-		cfStringRef = (CFStringRef)CFDictionaryGetValue( inCFDictRef, CFSTR( kXMLKeyAttrVersion ) );
-		if ( cfStringRef != NULL )
-		{
-			if ( CFGetTypeID( cfStringRef ) == CFStringGetTypeID() )
-			{
-				iResult = eItemNotFound;
-
-				pValue = (char *)CFStringGetCStringPtr( cfStringRef, kCFStringEncodingMacRoman );
-				if ( pValue != NULL )
-				{
-					iResult = eWrongVersion;
-
-					if ( strcasecmp( pValue, kXMLValueVersion ) == 0 )
-					{
-						iResult = eNoErr;
-					}
-				}
+				syslog( LOG_ERR, "od: %s", err_str );
+				return;
 			}
 		}
 	}
 
-	return( iResult );
+	syslog( LOG_ERR, "od: %s", in_default_str );
+} /* print_cf_error */
 
-} /* sVerify_version */
+
+/* ------------------------------------------------------------------
+ *	get_attr_from_record ()
+ * ------------------------------------------------------------------*/
+
+static CFStringRef get_attr_from_record ( ODRecordRef in_rec_ref, CFStringRef in_attr )
+{
+	CFArrayRef		cf_arry_values	= NULL;
+	CFErrorRef		cf_err_ref		= NULL;
+	CFStringRef		cf_str_out		= NULL;
+
+	cf_arry_values = ODRecordCopyValues( in_rec_ref, in_attr, &cf_err_ref );
+	if ( cf_arry_values == NULL )
+	{
+		return( NULL );
+	}
+
+	if ( CFArrayGetCount( cf_arry_values ) > 1 )
+	{
+		msg_error( "aod: multiple attribute values (%d) found in record user record: %s for attribute: %s",
+					(int)CFArrayGetCount( cf_arry_values ),
+					CFStringGetCStringPtr( ODRecordGetRecordName( in_rec_ref ), kCFStringEncodingUTF8 ),
+					CFStringGetCStringPtr( in_attr, kCFStringEncodingUTF8 ) );
+		CFRelease( cf_arry_values );
+		return( NULL );
+	}
+
+	cf_str_out = CFArrayGetValueAtIndex( cf_arry_values, 0 );
+	CFRetain( cf_str_out );
+
+	CFRelease( cf_arry_values );
+
+	return( cf_str_out );
+} /*  get_attr_from_record */
 
 
 /* -----------------------------------------------------------------
-	sGet_acct_state ()
+	get_user_attributes ()
    ----------------------------------------------------------------- */
 
-void sGet_acct_state ( CFDictionaryRef inCFDictRef, struct od_user_opts *inOutOpts )
+static int get_user_attributes ( ODNodeRef in_node_ref, const char *in_user_name, struct od_user_opts *in_out_opts )
 {
-	bool			bFound		= FALSE;
-	CFStringRef		cfStringRef	= NULL;
-	char		   *pValue		= NULL;
+	char		   *c_str			= NULL;
+	size_t			str_size		= 0;
+	ODQueryRef		cf_query_ref	= NULL;
+	ODRecordRef		od_rec_ref		= NULL;
+	CFStringRef		cf_str_ref		= NULL;
+	CFStringRef		cf_str_value	= NULL;
+	CFTypeRef		cf_type_ref[]	= { CFSTR(kDSAttributesStandardAll) };
+	CFArrayRef		cf_arry_ref		= CFArrayCreate( NULL, cf_type_ref, 1, &kCFTypeArrayCallBacks );
+	CFArrayRef		cf_arry_result	= NULL;
+	CFErrorRef		cf_err_ref		= NULL;
+
+	cf_str_ref = CFStringCreateWithCString( NULL, in_user_name, kCFStringEncodingUTF8 );
+	if ( cf_str_ref == NULL )
+	{
+		msg_error( "aod: unable to create user name CFStringRef");
+		CFRelease( cf_arry_ref );
+		return( -1 );
+	}
+
+	/* look up user record */
+	cf_query_ref = ODQueryCreateWithNode( NULL, in_node_ref, CFSTR(kDSStdRecordTypeUsers), CFSTR(kDSNAttrRecordName),
+											kODMatchInsensitiveEqualTo, cf_str_ref, cf_arry_ref, 100, &cf_err_ref );
+	if ( cf_query_ref )
+	{
+		cf_arry_result = ODQueryCopyResults( cf_query_ref, false, &cf_err_ref );
+		if ( cf_arry_result )
+		{
+			if ( CFArrayGetCount( cf_arry_result ) == 1 )
+			{
+				od_rec_ref = (ODRecordRef)CFArrayGetValueAtIndex( cf_arry_result, 0 );
+				CFRetain(od_rec_ref);
+			}
+			else
+			{
+				if ( CFArrayGetCount( cf_arry_result ) == 0 )
+				{
+					msg_error( "aod: no user record found for: %s", in_user_name );
+				}
+				else
+				{
+					msg_error( "aod: multiple user records (%ld) found for: %s", CFArrayGetCount( cf_arry_result ), in_user_name );
+				}
+			}
+			CFRelease(cf_arry_result);
+		}
+		else
+		{
+			print_cf_error( cf_err_ref, "aod: OD Query Copy Results failed" );
+		}
+		CFRelease( cf_query_ref );
+	}
+	else
+	{
+		print_cf_error( cf_err_ref, "aod: OD Query Create With Node failed" );
+	}
+
+	CFRelease( cf_str_ref );
+	CFRelease( cf_arry_ref );
+
+	if ( od_rec_ref == NULL )
+	{
+		/* print the error and bail */
+		print_cf_error( cf_err_ref, "aod: Unable to lookup user record" );
+		return( -1 );
+	}
+
+	/* get mail attribute */
+	cf_str_value = get_attr_from_record( od_rec_ref, CFSTR(kDS1AttrMailAttribute) );
+	if ( cf_str_value != NULL )
+	{
+		str_size = CFStringGetMaximumSizeForEncoding(CFStringGetLength( cf_str_value ), kCFStringEncodingUTF8) + 1;
+		c_str = malloc( str_size );
+		if ( c_str != NULL )
+		{
+			if( CFStringGetCString( cf_str_value, c_str, str_size, kCFStringEncodingUTF8 ) )
+			{
+				get_mail_attribute_values( c_str, in_out_opts );
+			}
+			free( c_str );
+		}
+		CFRelease( cf_str_value );
+	}
+
+	/* get record name */
+	cf_str_value = ODRecordGetRecordName( od_rec_ref );
+	if ( cf_str_value != NULL )
+		str_size = CFStringGetMaximumSizeForEncoding(CFStringGetLength( cf_str_value ), kCFStringEncodingUTF8) + 1;
+		if (str_size )
+			CFStringGetCString( cf_str_value, in_out_opts->fRecName, sizeof(in_out_opts->fRecName), kCFStringEncodingUTF8 );
+
+	CFRelease(od_rec_ref);
+
+	return( 0 );
+} /* get_user_attributes */
+
+
+/* ------------------------------------------------------------------
+ *	get_mail_attribute_values ()
+ * ------------------------------------------------------------------*/
+
+static void get_mail_attribute_values ( const char *in_mail_attribute, struct od_user_opts *in_out_opts )
+{
+	unsigned long		ul_size			= 0;
+	CFDataRef			cf_data_ref		= NULL;
+	CFPropertyListRef	cf_plist_ref	= NULL;
+	CFDictionaryRef		cf_dict_ref		= NULL;
+
+	ul_size = strlen( in_mail_attribute );
+	cf_data_ref = CFDataCreate( NULL, (const UInt8 *)in_mail_attribute, ul_size );
+	if ( cf_data_ref != NULL )
+	{
+		cf_plist_ref = CFPropertyListCreateFromXMLData( kCFAllocatorDefault, cf_data_ref, kCFPropertyListImmutable, NULL );
+		if ( cf_plist_ref != NULL )
+		{
+			if ( CFDictionaryGetTypeID() == CFGetTypeID( cf_plist_ref ) )
+			{
+				cf_dict_ref = (CFDictionaryRef)cf_plist_ref;
+				get_acct_state( cf_dict_ref, in_out_opts );
+			}
+			CFRelease( cf_plist_ref );
+		}
+		CFRelease( cf_data_ref );
+	}
+} /* get_mail_attribute_values */
+
+
+/* -----------------------------------------------------------------
+	get_acct_state ()
+   ----------------------------------------------------------------- */
+
+void get_acct_state ( CFDictionaryRef inCFDictRef, struct od_user_opts *in_out_opts )
+{
+	char		   *p_value		= NULL;
+	CFStringRef		cf_str_ref	= NULL;
 
 	/* Default value */
-	inOutOpts->fAcctState = eUnknownAcctState;
+	in_out_opts->fAcctState = eUnknownAcctState;
 
-	bFound = CFDictionaryContainsKey( inCFDictRef, CFSTR( kXMLKeyAcctState ) );
-	if ( bFound == true )
+	if ( CFDictionaryContainsKey( inCFDictRef, CFSTR( kXMLKeyAcctState ) ) )
 	{
-		cfStringRef = (CFStringRef)CFDictionaryGetValue( inCFDictRef, CFSTR( kXMLKeyAcctState ) );
-		if ( cfStringRef != NULL )
+		cf_str_ref = (CFStringRef)CFDictionaryGetValue( inCFDictRef, CFSTR( kXMLKeyAcctState ) );
+		if ( cf_str_ref != NULL )
 		{
-			if ( CFGetTypeID( cfStringRef ) == CFStringGetTypeID() )
+			if ( CFGetTypeID( cf_str_ref ) == CFStringGetTypeID() )
 			{
-				pValue = (char *)CFStringGetCStringPtr( cfStringRef, kCFStringEncodingMacRoman );
-				if ( pValue != NULL )
+				p_value = (char *)CFStringGetCStringPtr( cf_str_ref, kCFStringEncodingMacRoman );
+				if ( p_value != NULL )
 				{
-					if ( strcasecmp( pValue, kXMLValueAcctEnabled ) == 0 )
+					if ( strcasecmp( p_value, kXMLValueAcctEnabled ) == 0 )
 					{
-						inOutOpts->fAcctState = eAcctEnabled;
+						in_out_opts->fAcctState = eAcctEnabled;
 					}
-					else if ( strcasecmp( pValue, kXMLValueAcctDisabled ) == 0 )
+					else if ( strcasecmp( p_value, kXMLValueAcctDisabled ) == 0 )
 					{
-						inOutOpts->fAcctState = eAcctDisabled;
+						in_out_opts->fAcctState = eAcctDisabled;
 					}
-					else if ( strcasecmp( pValue, kXMLValueAcctFwd ) == 0 )
+					else if ( strcasecmp( p_value, kXMLValueAcctFwd ) == 0 )
 					{
-						sGet_auto_forward( inCFDictRef, inOutOpts );
+						get_auto_forward_addr( inCFDictRef, in_out_opts );
 					}
 				}
 			}
 		}
 	}
-} /* sGet_acct_state */
+} /* get_acct_state */
 
 
 /* -----------------------------------------------------------------
-	sGet_auto_forward ()
+	get_auto_forward_addr ()
    ----------------------------------------------------------------- */
 
-void sGet_auto_forward ( CFDictionaryRef inCFDictRef, struct od_user_opts *inOutOpts )
+void get_auto_forward_addr ( CFDictionaryRef inCFDictRef, struct od_user_opts *in_out_opts )
 {
-	bool			bFound		= FALSE;
-	CFStringRef		cfStringRef	= NULL;
-	char		   *pValue		= NULL;
+	char		   *p_value		= NULL;
+	CFStringRef		cf_str_ref	= NULL;
 
-	bFound = CFDictionaryContainsKey( inCFDictRef, CFSTR( kXMLKeyAutoFwd ) );
-	if ( bFound == true )
+	if ( CFDictionaryContainsKey( inCFDictRef, CFSTR( kXMLKeyAutoFwd ) ) )
 	{
-		cfStringRef = (CFStringRef)CFDictionaryGetValue( inCFDictRef, CFSTR( kXMLKeyAutoFwd ) );
-		if ( cfStringRef != NULL )
+		cf_str_ref = (CFStringRef)CFDictionaryGetValue( inCFDictRef, CFSTR( kXMLKeyAutoFwd ) );
+		if ( cf_str_ref != NULL )
 		{
-			if ( CFGetTypeID( cfStringRef ) == CFStringGetTypeID() )
+			if ( CFGetTypeID( cf_str_ref ) == CFStringGetTypeID() )
 			{
-				pValue = (char *)CFStringGetCStringPtr( cfStringRef, kCFStringEncodingMacRoman );
-				if ( pValue != NULL )
+				p_value = (char *)CFStringGetCStringPtr( cf_str_ref, kCFStringEncodingMacRoman );
+				if ( p_value != NULL )
 				{
-					if ( strlen( pValue ) < kONE_K_BUF )
-					{
-						inOutOpts->fAcctState = eAcctForwarded;
-						inOutOpts->fPOP3Login = eAcctDisabled;
-						inOutOpts->fIMAPLogin = eAcctDisabled;
-
-						strcpy( inOutOpts->fAutoFwdAddr, pValue );
-					}
+					in_out_opts->fAcctState = eAcctForwarded;
+					strlcpy( in_out_opts->fAutoFwdAddr, p_value, sizeof(in_out_opts->fAutoFwdAddr) );
 				}
 			}
 		}
 	}
-} /* sGet_auto_forward */
+} /* get_auto_forward_addr */

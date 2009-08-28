@@ -7,4 +7,7 @@ CFILES = acl.c ypdb.c yplog.c ypserv.c ypserv_db.c ypserv_proc.c\
 MANPAGES = securenet.5 ypserv.acl.5 ypserv.8
 LAUNCHD_PLISTS = com.apple.nis.ypserv.plist
 
+Extra_CC_Flags = -Wall -Werror -fPIE
+Extra_LD_Flags = -dead_strip -pie
+
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.apple.var-db-shadow-backup</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/bin/xar</string>
+		<string>-c</string>
+		<string>-f</string>
+		<string>shadow-backup.xar</string>
+		<string>shadow</string>
+	</array>
+	<key>StartCalendarInterval</key>
+	<dict>
+		<key>Hour</key>
+		<integer>3</integer>
+		<key>Minute</key>
+		<integer>15</integer>
+		<key>Weekday</key>
+		<integer>6</integer>
+	</dict>
+	<key>WorkingDirectory</key>
+	<string>/var/db</string>
+	<key>Umask</key>
+	<integer>63</integer> <!-- 077 -->
+</dict>
+</plist>

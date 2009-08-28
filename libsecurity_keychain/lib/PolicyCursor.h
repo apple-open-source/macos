@@ -79,6 +79,8 @@ private:
 	MDS_DB_HANDLE		mCdsaDlDb;
 	MDS_FUNCS*			mMdsFuncs;
 #endif
+
+	Mutex				mMutex;
 };
 
 } // end namespace KeychainCore

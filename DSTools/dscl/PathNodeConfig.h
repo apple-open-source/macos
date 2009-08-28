@@ -31,7 +31,8 @@
 
 @interface PathNodeConfig : PathNode
 {
-
+	AuthorizationExternalForm _authExternalForm;
+	BOOL _haveRights;
 }
 
 @end

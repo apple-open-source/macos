@@ -2,7 +2,7 @@
  * Copyright (c) 2000, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -81,16 +81,16 @@ smb_rq_wend(struct smb_rq *rqp)
 {
 	if (rqp->rq_rq.mb_count & 1)
 		smb_log_info("smbrq_wend: odd word count\n", 0, ASL_LEVEL_DEBUG);
-	rqp->rq_wcount = rqp->rq_rq.mb_count / 2;
+	rqp->rq_wcount = (int)(rqp->rq_rq.mb_count / 2);
 	rqp->rq_rq.mb_count = 0;
 }
 
-int
-smb_rq_dmem(struct mbdata *mbp, const char *src, size_t size)
+static int smb_rq_dmem(struct mbdata *mbp, const char *src, size_t size)
 {
 	struct smb_lib_mbuf *m;
 	char * dst;
-	int cplen, error;
+	size_t cplen;
+	int error;
 
 	if (size == 0)
 		return 0;
@@ -103,7 +103,7 @@ smb_rq_dmem(struct mbdata *mbp, const char *src, size_t size)
 			m = m->m_next;
 			continue;
 		}
-		if (cplen > (int)size)
+		if (cplen > size)
 			cplen = size;
 		dst = SMB_LIB_MTODATA(m, char *) + m->m_len;
 		memcpy(dst, src, cplen);
@@ -134,20 +134,30 @@ smb_rq_simple(struct smb_rq *rqp)
 	smb_lib_m_lineup(mbp->mb_top, &mbp->mb_top);
 	data = SMB_LIB_MTODATA(mbp->mb_top, char*);
 	bzero(&krq, sizeof(krq));
+	krq.ioc_version = SMB_IOC_STRUCT_VERSION;
 	krq.ioc_cmd = rqp->rq_cmd;
 	krq.ioc_twc = rqp->rq_wcount;
 	krq.ioc_twords = data;
 	krq.ioc_tbc = mbp->mb_count;
 	krq.ioc_tbytes = data + rqp->rq_wcount * 2;
 	mbp = smb_rq_getreply(rqp);
-	krq.ioc_rpbufsz = mbp->mb_top->m_maxlen;
+	krq.ioc_rpbufsz = (int32_t)mbp->mb_top->m_maxlen;
 	krq.ioc_rpbuf = SMB_LIB_MTODATA(mbp->mb_top, char *);
-	if (ioctl(rqp->rq_ctx->ct_fd, SMBIOC_REQUEST, &krq) == -1) {
+	if (smb_ioctl_call(rqp->rq_ctx->ct_fd, SMBIOC_REQUEST, &krq) == -1) {
 		return errno;
 	}
 	mbp->mb_top->m_len = krq.ioc_rwc * 2 + krq.ioc_rbc;
 	rqp->rq_wcount = krq.ioc_rwc;
 	rqp->rq_bcount = krq.ioc_rbc;
+	/* 
+	 * This routine doesn't handle getting both ioc_rwc and ioc_rbc. So all
+	 * calling routines should only expect one or the other. Putting extra check
+	 * here to make sure we don't break any calling routine.
+	 */
+	if (krq.ioc_rwc && krq.ioc_rbc) {
+		smb_log_info("smb_rq_simple: unexpected results!\n", 0, ASL_LEVEL_ERR);
+		return EBADRPC;
+	}
 	return 0;
 }
 
@@ -168,17 +178,18 @@ smb_t2_request(struct smb_ctx *ctx, int setupcount, u_int16_t *setup,
 		return EINVAL;
 	}
 	bzero(&krq, sizeof(krq));
+	krq.ioc_version = SMB_IOC_STRUCT_VERSION;
 	for (i = 0; i < setupcount; i++)
 		krq.ioc_setup[i] = setup[i];
 	krq.ioc_setupcnt = setupcount;
-	krq.ioc_name = (char *)name;
+	krq.ioc_name = name;
 	/* 
 	 * Now when passing the name into the kernel we also send the length
 	 * of the name. The ioc_name_len needs to contain the name length and 
 	 * the null byte.
 	  */
 	if (name)
-		krq.ioc_name_len = strlen((char *)name) + 1;
+		krq.ioc_name_len = (u_int32_t)strlen(name) + 1;
 	else
 		krq.ioc_name_len = 0;
 	krq.ioc_tparamcnt = tparamcnt;
@@ -189,12 +200,13 @@ smb_t2_request(struct smb_ctx *ctx, int setupcount, u_int16_t *setup,
 	krq.ioc_rparam = rparam;
 	krq.ioc_rdatacnt = *rdatacnt;
 	krq.ioc_rdata = rdata;
-	if (ioctl(ctx->ct_fd, SMBIOC_T2RQ, &krq) == -1) {
+	
+	if (smb_ioctl_call(ctx->ct_fd, SMBIOC_T2RQ, &krq) == -1) {
 		return errno;
 	}
 	*rparamcnt = krq.ioc_rparamcnt;
 	*rdatacnt = krq.ioc_rdatacnt;
-	*buffer_oflow = (krq.ioc_rpflags2 & SMB_FLAGS2_ERR_STATUS) &&
-	    (krq.ioc_error == NT_STATUS_BUFFER_OVERFLOW);
+	*buffer_oflow = (krq.ioc_srflags2 & SMB_FLAGS2_ERR_STATUS) && 
+					(krq.ioc_nt_error == NT_STATUS_BUFFER_OVERFLOW);
 	return 0;
 }

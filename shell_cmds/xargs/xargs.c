@@ -100,7 +100,8 @@ int
 main(int argc, char *argv[])
 {
 	long arg_max;
-	int ch, Jflag, nargs, nflag, nline;
+	int ch, Jflag, nflag, nline;
+	size_t nargs;
 	size_t linelen;
 	char *endptr;
 
@@ -158,7 +159,7 @@ main(int argc, char *argv[])
 			break;
 		case 'n':
 			nflag = 1;
-			if ((nargs = atoi(optarg)) <= 0)
+			if ((nargs = strtol(optarg, NULL, 10)) <= 0)
 				errx(1, "illegal argument count");
 			if (COMPAT_MODE("bin/xargs", "Unix2003")) {
 				Lflag = 0; /* Override */
@@ -323,6 +324,19 @@ arg1:		if (insingle || indouble)
 arg2:
 		foundeof = *eofstr != '\0' &&
 		    strcmp(argp, eofstr) == 0;
+
+#ifdef __APPLE__
+		/* 6591323: -I specifies that it processes the entire line,
+		 * so only recognize eofstr at the end of a line. */
+		if (Iflag && !last_was_newline)
+			foundeof = 0;
+
+		/* 6591323: Essentially the same as the EOF handling above. */
+		if (foundeof && (p - strlen(eofstr) == bbp)) {
+			waitchildren(*argv, 1);
+			exit(rval);
+		}
+#endif
 
 		/* Do not make empty args unless they are quoted */
 		if ((argp != p || wasquoted) && !foundeof) {

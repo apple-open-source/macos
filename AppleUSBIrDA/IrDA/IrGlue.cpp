@@ -97,12 +97,10 @@ EventTraceCauseDesc IrGlueTraceEvents[] = {
     
 };
 
-#define XTRACE(x, y, z) IrDALogAdd (x, y, (int)z & 0xffff, IrGlueTraceEvents, true )
+#define XTRACE(x, y, z) IrDALogAdd (x, y, (uintptr_t)z & 0xffff, IrGlueTraceEvents, true )
 #else
     #define XTRACE(x, y, z) ((void)0)
 #endif
-
-extern "C" UInt32 random(void);     // from libkern, how to clean up declare?
 
 static void TimerNotifier(OSObject *owner, IrDATimerEventSource *sender);
 
@@ -130,7 +128,7 @@ TIrGlue::tIrGlue(AppleIrDASerial *driver, AppleIrDA *appleirda, IOWorkLoop *work
 {
     TIrGlue *obj = new TIrGlue;
     
-    XTRACE(kLogNew, (int)obj >> 16, obj);
+    XTRACE(kLogNew, 0, obj);
     
     if (obj && !obj->init(driver, appleirda, workloop, qos)) {
 	obj->release();
@@ -232,7 +230,7 @@ TIrGlue::free()
 {
     int i;
 	
-    XTRACE(kLogFree, (int)this >> 16, this);
+    XTRACE(kLogFree, 0, this);
     
 
     for (i = 0 ; i < kNumTimers; i++) {     // first, stop and free the timers
@@ -416,8 +414,8 @@ void TimerNotifier(OSObject *owner, IrDATimerEventSource *iotimer)
 {
     TIrGlue *obj;
 
-    XTRACE(kLogTimerNotifier1, (int)owner >> 16, owner);
-    XTRACE(kLogTimerNotifier2, (int)iotimer >> 16, iotimer);
+    XTRACE(kLogTimerNotifier1, 0, owner);
+    XTRACE(kLogTimerNotifier2, 0, iotimer);
 	
     require(owner, Failed);
     require(iotimer, Failed);
@@ -447,7 +445,7 @@ Failed:
 //--------------------------------------------------------------------------------
 void TIrGlue::Disconnected(Boolean reset_lap)
 {
-    int review_async_disconnect;        // check both kinds of disconnect and verify they work
+    //int review_async_disconnect;        // check both kinds of disconnect and verify they work
 
     XTRACE(kStartTerminateEntry, 0, reset_lap);
     
@@ -730,7 +728,7 @@ TIrGlue::GetIrDAStatus(IrDAStatus *status)
 		    status->connectionState = kIrDAStatusIdle;
 	
 	status->connectionSpeed = fIrDevice->GetSpeed();
-	fIrLAP->GetNickName(status->nickName);
+	fIrLAP->GetNickName(status->nickName, sizeof(status->nickName));
     }
 }
 

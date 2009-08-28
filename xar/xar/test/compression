@@ -8,6 +8,8 @@ ${XAR} -cf bin.xar /bin
 if [ $? -ne 0 ]; then
 	echo "Error creating archive"
 	exit 1
+else
+    du -k bin.xar
 fi
 
 ${XAR} -xf bin.xar
@@ -26,6 +28,8 @@ ${XAR} --compression=gzip -cf bin.xar /bin
 if [ $? -ne 0 ]; then
 	echo "Error creating archive"
 	exit 1
+else
+    du -k bin.xar
 fi
 
 ${XAR} -xf bin.xar
@@ -50,6 +54,28 @@ ${XAR} -xf bin.xar
 if [ $? -ne 0 ]; then
 	echo "Error extracting archive"
 	exit 1
+else
+    du -k bin.xar
+fi
+
+if [ ! -e bin/sh ]; then
+	echo "Error with extracted contents"
+fi
+
+echo "Testing normal archival creation/extraction with lzma compression"
+rm -rf bin.xar bin
+${XAR} --compression=lzma -cf bin.xar /bin
+if [ $? -ne 0 ]; then
+	echo "Error creating archive"
+	exit 1
+else
+    du -k bin.xar
+fi
+
+${XAR} -xf bin.xar
+if [ $? -ne 0 ]; then
+	echo "Error extracting archive"
+	exit 1
 fi
 
 if [ ! -e bin/sh ]; then
@@ -62,6 +88,8 @@ ${XAR} --compression=none -cf bin.xar /bin
 if [ $? -ne 0 ]; then
 	echo "Error creating archive"
 	exit 1
+else
+    du -k bin.xar
 fi
 
 ${XAR} -xf bin.xar

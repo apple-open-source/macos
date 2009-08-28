@@ -1,0 +1,59 @@
+# -*- tcl -*-
+# Commands covered:	ripemd160
+#
+# This file contains a collection of tests for one or more of the commands
+# the TRF extension. Sourcing this file into Tcl runs the tests and generates
+# output for errors.  No output means no errors were found.
+#
+# Copyright (c) 1996 Andreas Kupries (a.kupries@westend.com)
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# $Id: rmd160.test,v 1.5 2005/10/06 18:05:46 andreas_kupries Exp $
+
+if {[string compare test [info procs test]] == 1} then {source defs}
+
+set vectors {
+    0 {}
+    9C1185A5C5E9FC54612808977EE8F548B2258D31
+
+    1 a
+    0bdc9d2d256b3ee9daae347be6f4dc835a467ffe
+
+    2 abc
+    8eb208f7e05d987a9b044a8e98c6b087f15a0bfc
+
+    3 {message digest}
+    5d0689ef49d2fae572b881b123a85ffa21595f36
+
+    4 abcdefghijklmnopqrstuvwxyz
+    f71c27109c692c1b56bbdceb5b9d2865b3708dbc
+
+    5 abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq
+    12a053384a9c0c88e405a06c27dcf49ada62eb2b
+
+    6 ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789
+    b0e20b6e3116640286ed3a87a5713079b21f5189
+
+    7 12345678901234567890123456789012345678901234567890123456789012345678901234567890
+    9b752e45573d4b39f4dbd3323cab82bf63326bfb
+}
+
+lappend vectors \
+    20 [binary format H* 3627140572635041beaf9c8dfaebd8c9363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636] {5cc1e0793bad0c5208f3903a8230a712887fcabd} \
+    21 [binary format H* 3627140572635041beaf9c8dfaebd8c93636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636] {4ca862aa06c2e42340752534865d20394aea9349} \
+    22 [binary format H* 3627140572635041beaf9c8dfaebd8c936363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636] {64d466ca9798f45a60e2a33d2f5436ffa2b1908a} \
+
+
+foreach {i in digest} $vectors {
+    if {[info tclversion] < 8.0} {
+	test ripemd160-4.$i-7.6 {ripemd160, immediate} {
+	    exec_md ripemd160 [text2hex $in]
+	} [string toupper $digest]
+    } else {
+	test ripemd160-4.$i-8.x {ripemd160, immediate} {
+	    hex -m e [ripemd160 $in]
+	} [string toupper $digest]
+    }
+}

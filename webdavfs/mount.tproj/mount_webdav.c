@@ -41,7 +41,7 @@
 static void usage(void)
 {
 	(void)fprintf(stderr,
-		"usage: mount_webdav [-s] [-S] [-a<fd>] [-o options] [-v <volume name>]\n");
+		"usage: mount_webdav [-i] [-s] [-S] [-o options] [-v <volume name>]\n");
 	(void)fprintf(stderr,
 		"\t<WebDAV_URL> node\n");
 }
@@ -94,7 +94,13 @@ int main(int argc, char *argv[])
 	/* copy over the remaining argv strings */
 	bcopy(argv + 1, argv_child + 1, (cnt - 1) * sizeof(char *));
 
-	/* if the parent is terminated, it will exit with EXIT_SUCCESS */
+	/* make sure SIGTERM is not masked (<rdar://problem/6019476>) */
+	sigset_t mask;
+	sigemptyset(&mask);
+	sigaddset(&mask, SIGTERM);
+	sigprocmask(SIG_UNBLOCK, &mask, NULL);
+	
+	/* if terminated by our child, we will exit with EXIT_SUCCESS */
 	signal(SIGTERM, parentexit);
 	
 	pid = fork();
@@ -157,6 +163,10 @@ error_exit:
 	{
 		/* The server directory could not be mounted by mount_webdav because the node path is invalid. */
 		case ENOENT:
+			break;
+			
+		/* Could not connect to the server because the name or password is not correct */
+		case EAUTH:
 			break;
 			
 		/* Could not connect to the server because the name or password is not correct and the user canceled */

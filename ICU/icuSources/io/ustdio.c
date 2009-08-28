@@ -1,21 +1,21 @@
 /*
-******************************************************************************
-*
-*   Copyright (C) 1998-2006, International Business Machines
-*   Corporation and others.  All Rights Reserved.
-*
-******************************************************************************
-*
-* File ustdio.c
-*
-* Modification History:
-*
-*   Date        Name        Description
-*   11/18/98    stephen     Creation.
-*   03/12/99    stephen     Modified for new C API.
-*   07/19/99    stephen     Fixed read() and gets()
-******************************************************************************
-*/
+ ******************************************************************************
+ *
+ *   Copyright (C) 1998-2008, International Business Machines
+ *   Corporation and others.  All Rights Reserved.
+ *
+ ******************************************************************************
+ *
+ * File ustdio.c
+ *
+ * Modification History:
+ *
+ *   Date        Name        Description
+ *   11/18/98    stephen     Creation.
+ *   03/12/99    stephen     Modified for new C API.
+ *   07/19/99    stephen     Fixed read() and gets()
+ ******************************************************************************
+ */
 
 #include "unicode/ustdio.h"
 #include "unicode/putil.h"
@@ -163,6 +163,10 @@ static const UChar * u_file_translit(UFILE *f, const UChar *src, int32_t *count,
         {
             f->fTranslit->buffer = (UChar*)uprv_realloc(f->fTranslit->buffer, newlen * sizeof(UChar));
         }
+        /* Check for malloc/realloc failure. */
+        if (f->fTranslit->buffer == NULL) {
+        	return NULL;
+        }
         f->fTranslit->capacity = newlen;
     }
 
@@ -286,7 +290,7 @@ u_fputc(UChar32      uc,
 }
 
 
-U_CAPI int32_t U_EXPORT2
+U_CFUNC int32_t U_EXPORT2
 u_file_write_flush(const UChar *chars,
                    int32_t     count,
                    UFILE       *f,
@@ -569,7 +573,7 @@ ufile_getch(UFILE *f, UChar *ch)
         *ch = *(f->str.fPos)++;
         isValidChar = TRUE;
     }
-    else if (f) {
+    else {
         /* otherwise, fill the buffer and return the next character */
         if(f->str.fPos >= f->str.fLimit) {
             ufile_fill_uchar_buffer(f);

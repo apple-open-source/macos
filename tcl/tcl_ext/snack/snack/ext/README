@@ -1,0 +1,82 @@
+How to write extensions to Snack
+--------------------------------
+
+You can create custom commands that operate on Snack's sound objects. These new
+commands should be written in C/C++ and can be used just as any other Snack
+sound command. To invoke 'newcommand' on the sound 'snd' you would type:
+
+snd newcommand
+
+Use Snack_AddSubCmd() as shown in the example square.c to associate a new
+command name and a custom C/C++ function.
+
+The preferred way of creating a Snack extension is to link with
+Snack's stub library (unix: libsnackstub2.2.a, win: snackstub22.lib).
+In this way your extension should be usable with different versions of Snack
+without recompilation.
+More general information on stub libraries at http://dev.scriptics.com/doc/tea/
+
+It is also possible to use the old method and link with libsnack.so (HP: .sl).
+On Unix you might also have to set the variable LD_LIBRARY_PATH
+(HP: SHLIB_PATH) to the directory containing the library file. The drawback
+with this method is that you'll have to recompile your extension with each
+new release of Snack and Tcl.
+
+
+
+Building the sample extension on Unix
+-------------------------------------
+
+change directory to the example extension directory (where this README file
+is located)
+
+cd ext/
+
+configure using
+
+./configure
+
+and build with
+
+make
+
+Test it using the test.tcl script. You will probably have to set the
+environment variable LD_LIBRARY_PATH to point to the build directory.
+
+setenv LD_LIBRARY_PATH `pwd`
+
+Run the Snack extension using
+
+./test.tcl
+
+
+
+Building the sample extension on Windows
+----------------------------------------
+
+The Snack MSVC workspace (win/snack.dsw) contains a project for the example
+square extension.  Try the extension using the test.tcl script in ext/.
+
+
+
+Package loading
+----------------------------------------
+
+The demonstration script uses the 'load' command to load the extension.
+Is is also possible to load it in the same manner as the Snack package,
+using a 'package require' command.
+Create a pkgIndex.tcl-file in the same directory as the binary with the
+following statement
+
+package ifneeded square 1.0 [list load [file join $dir libsquare[info sharedlibextension]]]
+
+It is now possible to install your extension as a Tcl package in the same
+way as Snack. Put the library file and the index file in a sibling 
+directory to the Snack directory. Use the command 'package require square'.
+On Unix it might be necessary to set the environment variable TCLLIBPATH
+in order for this to work.
+If you just built Snack and the sample extension you use this command
+
+setenv TCLLIBPATH "~/snack2.2.10/unix ~/snack2.2.10/ext $TCLLIBPATH"
+
+Note that the list of directories is space separated.

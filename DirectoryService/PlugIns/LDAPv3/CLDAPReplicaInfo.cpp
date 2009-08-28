@@ -25,6 +25,7 @@
 #include "CLDAPDefines.h"
 
 #include <DirectoryServiceCore/CLog.h>
+#include <libkern/OSAtomic.h>
 
 #include <netdb.h>
 #include <arpa/inet.h>
@@ -33,7 +34,6 @@
 #pragma mark Defines
 
 #define kReplicaFlagSSL			(1<<0)
-#define kReplicaFlagLDAPv2Only	(1<<1)
 #define kLDAPServicePrincipalType	"ldap"
 
 #pragma mark -
@@ -49,12 +49,12 @@ void CLDAPReplicaInfo::ReachabilityCallback( SCNetworkReachabilityRef inTarget, 
 #pragma mark -
 #pragma mark Class Definition
 
-CLDAPReplicaInfo::CLDAPReplicaInfo( const char *inReplicaIP, int inPort, bool inSSL, bool inLDAPv2, bool inSupportsWrites )
+CLDAPReplicaInfo::CLDAPReplicaInfo( const char *inReplicaIP, int inPort, bool inSSL, bool inSupportsWrites )
 {
 	fIPAddress = strdup( inReplicaIP );
 	fAddrInfo = NULL;
 	fbSupportsWrites = inSupportsWrites;
-	fFlags = ((inSSL == true ? kReplicaFlagSSL : 0) | (inLDAPv2 == true ? kReplicaFlagLDAPv2Only : 0));
+	fFlags = (inSSL == true ? kReplicaFlagSSL : 0);
 	fReachabilityRef = NULL;
 	fPort = inPort;
 	fSASLMethods = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
@@ -284,7 +284,7 @@ LDAP *CLDAPReplicaInfo::CreateLDAPInternal( void )
 	}
 	else
 	{
-		if ( (fFlags & kReplicaFlagLDAPv2Only) == 0 && (fFlags & kReplicaFlagSSL) != 0 )
+		if ( (fFlags & kReplicaFlagSSL) != 0 )
 		{
 			// for SSL need to use the server's FQDN, not IP address, as the FQDN
 			// is what is in the server's certificate.  Names must match for the
@@ -309,17 +309,14 @@ LDAP *CLDAPReplicaInfo::CreateLDAPInternal( void )
 		{
 			int		flag	= 1;
 
-			if ( (fFlags & kReplicaFlagLDAPv2Only) == 0 )
+			int ldapOptVal = LDAP_VERSION3;
+			ldap_set_option( pTempLD, LDAP_OPT_PROTOCOL_VERSION, &ldapOptVal );
+			
+			// we only do SSL if we aren't doing LDAPv2
+			if ( (fFlags & kReplicaFlagSSL) != 0 )
 			{
-				int ldapOptVal = LDAP_VERSION3;
-				ldap_set_option( pTempLD, LDAP_OPT_PROTOCOL_VERSION, &ldapOptVal );
-				
-				// we only do SSL if we aren't doing LDAPv2
-				if ( (fFlags & kReplicaFlagSSL) != 0 )
-				{
-					ldapOptVal = LDAP_OPT_X_TLS_HARD;
-					ldap_set_option(pTempLD, LDAP_OPT_X_TLS, &ldapOptVal);
-				}
+				ldapOptVal = LDAP_OPT_X_TLS_HARD;
+				ldap_set_option(pTempLD, LDAP_OPT_X_TLS, &ldapOptVal);
 			}
 			
 			// set the NOADDR error too
@@ -351,7 +348,7 @@ LDAP *CLDAPReplicaInfo::VerifiedServerConnection( int inTimeoutSeconds, bool inF
 		{
 			struct timeval	timeout		= { inTimeoutSeconds, 0 }; 
 			LDAPMessage		*result		= NULL;
-			char			*attrs[]	= { "supportedSASLMechanisms", "namingContexts", "dnsHostName", "krbName", NULL };
+			const char		*attrs[]	= { "supportedSASLMechanisms", "namingContexts", "dnsHostName", "krbName", NULL };
 
 			if ( fLDAPURI == NULL )
 			{
@@ -366,7 +363,7 @@ LDAP *CLDAPReplicaInfo::VerifiedServerConnection( int inTimeoutSeconds, bool inF
 			}
 
 			// We are just asking for everything to see if we get a response
-			int ldapReturnCode = ldap_search_ext_s( pReturnHost, "", LDAP_SCOPE_BASE, "(objectclass=*)", attrs, FALSE, NULL, NULL, 
+			int ldapReturnCode = ldap_search_ext_s( pReturnHost, "", LDAP_SCOPE_BASE, "(objectclass=*)", (char **)attrs, FALSE, NULL, NULL, 
 												    &timeout, 0, &result );
 			if ( ldapReturnCode == LDAP_SUCCESS )
 			{

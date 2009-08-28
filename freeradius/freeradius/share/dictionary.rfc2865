@@ -3,7 +3,7 @@
 #	Attributes and values defined in RFC 2865.
 #	http://www.ietf.org/rfc/rfc2865.txt
 #
-#	$Id: dictionary.rfc2865,v 1.3.2.1 2005/11/30 22:17:29 aland Exp $
+#	$Id$
 #
 ATTRIBUTE	User-Name				1	string
 ATTRIBUTE	User-Password				2	string encrypt=1
@@ -48,7 +48,7 @@ ATTRIBUTE	Framed-AppleTalk-Zone			39	string
 ATTRIBUTE	CHAP-Challenge				60	octets
 ATTRIBUTE	NAS-Port-Type				61	integer
 ATTRIBUTE	Port-Limit				62	integer
-ATTRIBUTE	Login-LAT-Port				63	integer
+ATTRIBUTE	Login-LAT-Port				63	string
 
 #
 #	Integer Translations

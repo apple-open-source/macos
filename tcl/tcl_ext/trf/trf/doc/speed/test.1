@@ -1,0 +1,36 @@
+# -*- tcl -*-
+
+# set mode xx
+# source this-file
+
+package require Memchan
+package require Trf
+
+catch {memchan}
+catch {zip}
+
+
+set result [open test.1.${mode}.data w]
+
+
+proc do {a f} {
+    set          ma [open f$f r]
+    fconfigure  $ma -translation binary
+
+    set          mb [memchan]
+    fconfigure  $mb -translation binary
+
+    $a $ma $mb
+
+    close $ma
+    close $mb
+}
+
+
+foreach a {crc crc-zlib adler sha haval md5} {
+    foreach t {1000 1000000} {
+	puts $result "set time($a,$t,$mode) [lindex [time {do $a $t} 1] 0]"
+    }
+}
+
+close $result

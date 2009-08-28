@@ -10,6 +10,7 @@ FBSDMISRCS= rec_close.c rec_delete.c rec_get.c rec_open.c rec_put.c rec_search.c
 .for _src in ${FBSDMISRCS}
 CFLAGS-${_src:R}-fbsd.${_src:E} += -D__DBINTERFACE_PRIVATE
 .endfor
+CFLAGS-rec_open-fbsd.c += -D_DARWIN_UNLIMITED_STREAMS
 FBSDHDRS= recno.h
 .include "Makefile.fbsd_end"
 

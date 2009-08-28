@@ -1,0 +1,29 @@
+Tclresource 1.1.1
+
+
+This is the Tclresource extension implementing the [resource] command in
+Tcl. System MacOSX 10.2 or greater is required. This extension is only
+useful on Macintosh OSX platforms.
+
+The Tclresource1.1 folder should be installed on your system in
+/Library/Tcl or ~/Library/Tcl or any folder contained in your auto_path
+variable. If you use it with AlphaX (version 8.0b11 or greater), you can
+also install it in the Tclextensions folder at the same level as the
+application and it will be loaded automatically by AlphaX at startup.
+
+Please read the documentation about the command in the Help file TclResourceHelp.html
+
+To load the extension in a Tcl script, just use the following instruction:
+
+        package require resource
+
+
+
+Please e-mail any bug or problem you encounter to Bernard Desgraupes
+e-mail: <bdesgraupes@users.sourceforge.net>
+
+The official site for the Tclresource extension is at SourceForge:
+<http://sourceforge.net/projects/tclresource>
+
+----------------------------------------------------------------------
+Last updated 2004-09-07 13:13:10

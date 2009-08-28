@@ -1,3 +1,5 @@
+@subheading punycode_encode
+@anchor{punycode_encode}
 @deftypefun {int} {punycode_encode} (size_t @var{input_length}, const punycode_uint [] @var{input}, const unsigned char [] @var{case_flags}, size_t * @var{output_length}, char [] @var{output})
 @var{input_length}: The number of code points in the @code{input} array and
 the number of flags in the @code{case_flags} array.

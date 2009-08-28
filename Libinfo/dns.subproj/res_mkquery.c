@@ -83,11 +83,13 @@ static char rcsid[] = "$Id: res_mkquery.c,v 1.3 2003/02/18 17:29:24 majka Exp $"
 
 #include <sys/param.h>
 #include <netinet/in.h>
-#include <arpa/nameser8_compat.h>
 
 #include <stdio.h>
 #include <netdb.h>
-#include <resolv8_compat.h>
+
+#include "nameser8_compat.h"
+#include "resolv8_compat.h"
+
 #if defined(BSD) && (BSD >= 199103)
 # include <string.h>
 #else

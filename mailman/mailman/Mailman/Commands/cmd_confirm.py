@@ -90,8 +90,11 @@ Bad approval password given.  Held message is still being held."""))
             match = 'confirm ' + cookie
             unprocessed = []
             for line in res.commands:
-                if line.lstrip() == match:
-                    continue
+                try:
+                    if line.lstrip() == match:
+                        continue
+                except UnicodeError:
+                    pass
                 unprocessed.append(line)
             res.commands = unprocessed
     # Process just one confirmation string per message

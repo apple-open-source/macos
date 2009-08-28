@@ -1,0 +1,125 @@
+$Id: COMPILE,v 1.2 2004/08/17 10:12:54 neumann Exp $ 
+********************************************************
+XOTcl Compilation Guide (Unix)
+********************************************************
+
+Note, that there is a file "COMPILE.win" describing Windows compilation.
+Read this file, if you plan to build XOTcl under Windows. 
+
+First, you have to get the necessary sources: 
+  - Before you can start, you have to get the full sources of
+  XOTcl. These are packed in a tar.gz file, like xotcl-XXXXX.tar.gz,
+  and they are available from:
+
+        http://www.xotcl.org
+
+  - To compile XOTcl the sources of Tcl (and optionally Tk) are
+  needed. Tcl (and optionally Tk) must be installed properly. You get
+  the Tcl/tk sources from:
+  
+        www.tcl.tk
+  
+  The best is to unpack and compile Tcl (and optionally Tk) in the
+  same directory as XOTcl, so that XOTcl's configure can find it
+  automatically. For compilation instruction see Tcl's documentation.
+
+
+The following steps have to be performed in order to 
+build XOTcl:
+
+  1) untar XOTcl in a directory of your choice by using one of:
+
+        gunzip < xotcl-XXXXX.tar.gz | tar -xvf -
+
+     or on some systems:
+  
+        tar xvfz xotcl-XXXXX.tar.gz
+     
+
+  2) run configure by issuing in the unix directory:
+
+        cd xotcl*
+        ./configure
+
+     on some platforms (e.g. under Windows Environment with 
+     CygWin) you may have to type in "sh configure" explicitly.
+
+     If you have Tcl, Tk, and XOTcl built in your home directory 
+     and you want to install in standard locations, a simple configure 
+     without arguments should be sufficient. You
+     can avoid searching/override the settings with 
+     the follwoing switches:
+
+     --prefix=DIR                 Place where lib/packages are 
+                                  to be installed (default: /usr/local)
+     --exec-prefix=DIR            Place where xotclsh/xowish
+                                  are to be installed (default: /usr/local)
+     --with-actiweb               Build Actiweb packages as well (sdbm, expat)
+                                  (per default deactivated)
+     --with-xotclsh               Build xotclsh (per default deactivated)
+     --with-xwish                 Build xowish (per default deactivated)
+     --with-gdbm=GDBM_INCLUDE_DIR,GDBM_LIB_DIR
+                                  absolute path to gdbm.h and optionally 
+                                  the path to the gdbm library. The directory infos
+                                  may be omitted
+     --with-tcl=DIR               Where to find a compiled Tcl version, i.e.
+                                  where to find tclConfig.sh
+                                  Note that you need a source built of 
+                                  Tcl (including generic/tclInt.h)!
+     --with-tk=DIR                Where to find a Tk version, i.e.
+                                  where to find tkConfig.sh. An installed 
+                                  version is sufficient. It must be the same 
+                                  Tk version as the version of the used Tcl.
+     --with-tk-include=DIR        directory containing the public Tk header files
+     --with-all                   Turns on all options (actiweb, gdbm, 
+                                  xotclsh, xowish)
+
+     NOTE: the directories specified by DIR should not be addressed relatively: 
+           be sure to use only absolute path names 
+           (those starting with "/") only.
+
+     NOTE: Tcl (and Tk if you build xowish) have to be installed. You
+           require a Tcl source build (of the same version as installed)
+           as well.
+
+     Example:
+     
+     ./configure --prefix=/usr --exec-prefix=/usr --with-all --enable-threads
+
+  3) now you can make XOTcl and the configured packages with
+
+        make
+
+     which should be actually a GNU make (sometimes called gmake).
+
+     There are a couple of compiler options, that can make the compiled
+     binary faster. On a Pentium 4 PC under Linux, i would recommend 
+     to compile with
+
+        make CFLAGS_DEFAULT='-O3 -mcpu=i686 -Wall -fomit-frame-pointer'
+
+  4) install with:
+
+        make install
+
+
+  If you only want to build/install xotcl/xowish without packages 
+  you can switch to xotcl-XXX directory and do there:
+
+        ./configure
+        make
+        make install
+
+  You can test XOTcl by switching to the src directory and by running:
+ 
+        make test
+
+
+Good Luck! 
+
+Please report bugs and problems to the authors under one of these
+mail adresses:
+
+  uwe.zdun@wu-wien.ac.at, zdun@xotcl.org
+  gustaf.neumann@wu-wien.ac.at, neumann@xotcl.org
+

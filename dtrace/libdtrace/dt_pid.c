@@ -20,11 +20,11 @@
  */
 
 /*
- * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)dt_pid.c	1.20	06/03/10 SMI"
+#pragma ident	"@(#)dt_pid.c	1.23	08/04/09 SMI"
 
 #include <assert.h>
 #include <strings.h>
@@ -46,7 +46,9 @@ typedef struct dt_pid_probe {
 	dt_pcb_t *dpp_pcb;
 	dt_proc_t *dpp_dpr;
 	struct ps_prochandle *dpp_pr;
-	fasttrap_provider_type_t dpp_provider_type;
+#if defined(__APPLE__)
+    fasttrap_provider_type_t dpp_provider_type;
+#endif /* __APPLE__ */
 	const char *dpp_mod;
 	char *dpp_func;
 	const char *dpp_name;
@@ -379,6 +381,7 @@ dt_pid_per_mod(void *arg, const prmap_t *pmp, const char *obj)
 	} else {
 		uint_t nmatches = pp->dpp_nmatches;
 
+		// fix me! by path?
 		if (Psymbol_iter_by_addr(pp->dpp_pr, obj, PR_SYMTAB,
 		    BIND_ANY | TYPE_FUNC, dt_pid_sym_filt, pp) == 1)
 			return (1);
@@ -421,14 +424,19 @@ dt_pid_mod_filt(void *arg, const prmap_t *pmp, const char *obj)
 	return (0);
 }
 
+#if defined (__APPLE__)
+static const prmap_t *
+dt_pid_fix_mod(dtrace_probedesc_t *pdp, struct ps_prochandle *P, prmap_t* thread_local_map)
+#else
 static const prmap_t *
 dt_pid_fix_mod(dtrace_probedesc_t *pdp, struct ps_prochandle *P)
+#endif
 {
 	char m[MAXPATHLEN];
 	Lmid_t lmid = PR_LMID_EVERY;
 	const char *obj;
 	const prmap_t *pmp;
-
+	
 	/*
 	 * Pick apart the link map from the library name.
 	 */
@@ -450,9 +458,14 @@ dt_pid_fix_mod(dtrace_probedesc_t *pdp, struct ps_prochandle *P)
 		obj = pdp->dtpd_mod;
 	}
 
+#if defined(__APPLE__)
+	if ((pmp = Plmid_to_map(P, lmid, obj, thread_local_map)) == NULL)
+		return (NULL);
+#else
 	if ((pmp = Plmid_to_map(P, lmid, obj)) == NULL)
 		return (NULL);
-
+#endif
+	
 	(void) Pobjname(P, pmp->pr_vaddr, m, sizeof (m));
 	if ((obj = strrchr(m, '/')) == NULL)
 		obj = &m[0];
@@ -472,12 +485,7 @@ dt_pid_create_pid_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 {
 	dt_pid_probe_t pp;
 	int ret = 0;
-
-	/*
-	 * Disable breakpoints so they don't interfere with our disassembly.
-	 */
-	dt_proc_bpdisable(dpr);
-
+	
 	pp.dpp_dtp = dtp;
 	pp.dpp_dpr = dpr;
 	pp.dpp_pr = dpr->dpr_proc;
@@ -487,19 +495,21 @@ dt_pid_create_pid_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 	 * We can only trace dynamically-linked executables (since we've
 	 * hidden some magic in ld.so.1 as well as libc.so.1).
 	 */
-	if (Pname_to_map(pp.dpp_pr, PR_OBJ_LDSO) == NULL) {
-		dt_proc_bpenable(dpr);
-#if !defined(__APPLE__)
+#if defined(__APPLE__)
+	prmap_t thread_local_map;
+	if (Pname_to_map(pp.dpp_pr, PR_OBJ_LDSO, &thread_local_map) == NULL) {
 		return (dt_pid_error(dtp, pcb, dpr, NULL, D_PROC_DYN,
-		    "process %s is not a dynamically-linked executable",
-		    &pdp->dtpd_provider[3]));
-#else
-		return (dt_pid_error(dtp, pcb, dpr, NULL, D_PROC_DYN,
-				     "process %s is translated, and cannot be instrumented",
+				     "process %s has no dyld, and cannot be instrumented",
 				     &pdp->dtpd_provider[3]));
-#endif
 	}
-
+#else
+	if (Pname_to_map(pp.dpp_pr, PR_OBJ_LDSO) == NULL) {
+		return (dt_pid_error(dtp, pcb, dpr, NULL, D_PROC_DYN,
+				     "process %s is not a dynamically-linked executable",
+				     &pdp->dtpd_provider[3]));
+	}
+#endif
+	
 #if defined(__APPLE__)
 	pp.dpp_provider_type = DTFTP_PROVIDER_PID;
 #endif
@@ -510,22 +520,29 @@ dt_pid_create_pid_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 
 	if (strcmp(pp.dpp_func, "-") == 0) {
 		const prmap_t *aout, *pmp;
-
+#if defined(__APPLE__)
+		prmap_t aout_thread_local_map;
+		prmap_t pmp_thread_local_map;
+#endif
+		
 		if (pdp->dtpd_mod[0] == '\0') {
 			pp.dpp_mod = pdp->dtpd_mod;
 			(void) strcpy(pdp->dtpd_mod, "a.out");
 		} else if (strisglob(pp.dpp_mod) ||
+#if defined(__APPLE__)
+		    (aout = Pname_to_map(pp.dpp_pr, "a.out", &aout_thread_local_map)) == NULL ||
+		    (pmp = Pname_to_map(pp.dpp_pr, pp.dpp_mod, &pmp_thread_local_map)) == NULL ||
+#else
 		    (aout = Pname_to_map(pp.dpp_pr, "a.out")) == NULL ||
 		    (pmp = Pname_to_map(pp.dpp_pr, pp.dpp_mod)) == NULL ||
+#endif
 		    aout->pr_vaddr != pmp->pr_vaddr) {
-			dt_proc_bpenable(dpr);
 			return (dt_pid_error(dtp, pcb, dpr, NULL, D_PROC_LIB,
 			    "only the a.out module is valid with the "
 			    "'-' function"));
 		}
 
 		if (strisglob(pp.dpp_name)) {
-			dt_proc_bpenable(dpr);
 			return (dt_pid_error(dtp, pcb, dpr, NULL, D_PROC_NAME,
 			    "only individual addresses may be specified "
 			    "with the '-' function"));
@@ -542,13 +559,19 @@ dt_pid_create_pid_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 	} else {
 		const prmap_t *pmp;
 		char *obj;
-
+#if defined(__APPLE__)
+		prmap_t thread_local_map;
+#endif
 		/*
 		 * If we can't find a matching module, don't sweat it -- either
 		 * we'll fail the enabling because the probes don't exist or
 		 * we'll wait for that module to come along.
 		 */
+#if defined(__APPLE__)
+		if ((pmp = dt_pid_fix_mod(pdp, pp.dpp_pr, &thread_local_map)) != NULL) {
+#else
 		if ((pmp = dt_pid_fix_mod(pdp, pp.dpp_pr)) != NULL) {
+#endif
 			if ((obj = strchr(pdp->dtpd_mod, '`')) == NULL)
 				obj = pdp->dtpd_mod;
 			else
@@ -557,8 +580,6 @@ dt_pid_create_pid_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 			ret = dt_pid_per_mod(&pp, pmp, obj);
 		}
 	}
-
-	dt_proc_bpenable(dpr);
 
 	return (ret);
 }
@@ -643,8 +664,13 @@ dt_pid_create_usdt_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 	/*
 	 * Put the module name in its canonical form.
 	 */
+#if defined(__APPLE__)
+	prmap_t thread_local_map;
+	(void) dt_pid_fix_mod(pdp, P, &thread_local_map);
+#else
 	(void) dt_pid_fix_mod(pdp, P);
-
+#endif
+	
 	return (ret);
 }
 
@@ -704,19 +730,21 @@ dt_pid_create_oneshot_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 	 * We can only trace dynamically-linked executables (since we've
 	 * hidden some magic in ld.so.1 as well as libc.so.1).
 	 */
+#if defined(__APPLE__)
+	prmap_t thread_local_map;
+	if (Pname_to_map(pp.dpp_pr, PR_OBJ_LDSO, &thread_local_map) == NULL) {
+		return (dt_pid_error(dtp, pcb, dpr, NULL, D_PROC_DYN,
+				     "process %s has no dyld, and cannot be instrumented",
+				     &pdp->dtpd_provider[3]));
+	}
+#else
 	if (Pname_to_map(pp.dpp_pr, PR_OBJ_LDSO) == NULL) {
-		dt_proc_bpenable(dpr);
-#if !defined(__APPLE__)
 		return (dt_pid_error(dtp, pcb, dpr, NULL, D_PROC_DYN,
 				     "process %s is not a dynamically-linked executable",
 				     &pdp->dtpd_provider[3]));
-#else
-		return (dt_pid_error(dtp, pcb, dpr, NULL, D_PROC_DYN,
-				     "process %s is translated, and cannot be instrumented",
-				     &pdp->dtpd_provider[3]));
-#endif
 	}
-	
+#endif
+		
 #if defined(__APPLE__)
 	pp.dpp_provider_type = DTFTP_PROVIDER_ONESHOT;
 #endif
@@ -727,13 +755,22 @@ dt_pid_create_oneshot_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 	
 	if (strcmp(pp.dpp_func, "-") == 0) {
 		const prmap_t *aout, *pmp;
+#if defined(__APPLE__)
+		prmap_t aout_thread_local_map;
+		prmap_t pmp_thread_local_map;
+#endif
 		
 		if (pdp->dtpd_mod[0] == '\0') {
 			pp.dpp_mod = pdp->dtpd_mod;
 			(void) strcpy(pdp->dtpd_mod, "a.out");
 		} else if (strisglob(pp.dpp_mod) ||
+#if defined(__APPLE__)
+			   (aout = Pname_to_map(pp.dpp_pr, "a.out", &aout_thread_local_map)) == NULL ||
+			   (pmp = Pname_to_map(pp.dpp_pr, pp.dpp_mod, &pmp_thread_local_map)) == NULL ||
+#else
 			   (aout = Pname_to_map(pp.dpp_pr, "a.out")) == NULL ||
 			   (pmp = Pname_to_map(pp.dpp_pr, pp.dpp_mod)) == NULL ||
+#endif
 			   aout->pr_vaddr != pmp->pr_vaddr) {
 			dt_proc_bpenable(dpr);
 			return (dt_pid_error(dtp, pcb, dpr, NULL, D_PROC_LIB,
@@ -759,13 +796,19 @@ dt_pid_create_oneshot_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 	} else {
 		const prmap_t *pmp;
 		char *obj;
-		
+#if defined(__APPLE__)
+		prmap_t thread_local_map;
+#endif
 		/*
 		 * If we can't find a matching module, don't sweat it -- either
 		 * we'll fail the enabling because the probes don't exist or
 		 * we'll wait for that module to come along.
 		 */
+#if defined(__APPLE__)
+		if ((pmp = dt_pid_fix_mod(pdp, pp.dpp_pr, &thread_local_map)) != NULL) {
+#else
 		if ((pmp = dt_pid_fix_mod(pdp, pp.dpp_pr)) != NULL) {
+#endif
 			if ((obj = strchr(pdp->dtpd_mod, '`')) == NULL)
 				obj = pdp->dtpd_mod;
 			else
@@ -809,19 +852,47 @@ dt_pid_create_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb)
 		return (-1);
 	}
 
-#if defined(__APPLE__)
+#if !defined(__APPLE__)
+	(void) snprintf(provname, sizeof (provname), "pid%d", (int)pid);
+
+	if (gmatch(provname, pdp->dtpd_provider) != 0) {
+		if ((P = dt_proc_grab(dtp, pid, PGRAB_RDONLY | PGRAB_FORCE,
+		    0)) == NULL) {
+			(void) dt_pid_error(dtp, pcb, NULL, NULL, D_PROC_GRAB,
+			    "failed to grab process %d", (int)pid);
+			return (-1);
+		}
+
+		dpr = dt_proc_lookup(dtp, P, 0);
+		assert(dpr != NULL);
+		(void) pthread_mutex_lock(&dpr->dpr_lock);
+
+		if ((err = dt_pid_create_pid_probes(pdp, dtp, pcb, dpr)) == 0) {
+			/*
+			 * Alert other retained enablings which may match
+			 * against the newly created probes.
+			 */
+			(void) dt_ioctl(dtp, DTRACEIOC_ENABLE, NULL);
+		}
+
+		(void) pthread_mutex_unlock(&dpr->dpr_lock);
+		dt_proc_release(dtp, P);
+	}
+
+#else
 	fasttrap_provider_type_t provider_type = DTFTP_PROVIDER_NONE;
 	
 	(void) snprintf(provname, sizeof (provname), "%s%d", FASTTRAP_PID_NAME, (int)pid);
-	if (strcmp(provname, pdp->dtpd_provider) == 0) {
+	
+	if (gmatch(provname, pdp->dtpd_provider) != 0) {
 		provider_type = DTFTP_PROVIDER_PID;
 	} else {
 		(void) snprintf(provname, sizeof (provname), "%s%d", FASTTRAP_OBJC_NAME, (int)pid);
-		if (strcmp(provname, pdp->dtpd_provider) == 0) {
+		if (gmatch(provname, pdp->dtpd_provider) != 0) {
 			provider_type = DTFTP_PROVIDER_OBJC;
 		} else {
 			(void) snprintf(provname, sizeof (provname), "%s%d", FASTTRAP_ONESHOT_NAME, (int)pid);
-			if (strcmp(provname, pdp->dtpd_provider) == 0) {
+			if (gmatch(provname, pdp->dtpd_provider) != 0) {
 				provider_type = DTFTP_PROVIDER_ONESHOT;
 			}
 		}
@@ -853,10 +924,50 @@ dt_pid_create_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb)
 			        err = -1; 
 		}
 		
+		if (err == 0) {
+			/*
+			 * Alert other retained enablings which may match
+			 * against the newly created probes.
+			 */
+			(void) dt_ioctl(dtp, DTRACEIOC_ENABLE, NULL);
+		}
+		
 		(void) pthread_mutex_unlock(&dpr->dpr_lock);
 		dt_proc_release(dtp, P);
 	} 
+
+	(void) snprintf(provname, sizeof (provname), "pid%d", (int)pid);
 #endif /* __APPLE__ */
+
+#if !defined(__APPLE__)
+	/*
+	 * APPLE NOTE: Our "lazy DOF" is handled in the kernel.
+	 * There is no need to poke around processes and look for DOF to load.
+	 */
+
+	/*
+	 * If it's not strictly a pid provider, we might match a USDT provider.
+	 */
+	if (strcmp(provname, pdp->dtpd_provider) != 0) {
+		if ((P = dt_proc_grab(dtp, pid, 0, 1)) == NULL) {
+			(void) dt_pid_error(dtp, pcb, NULL, NULL, D_PROC_GRAB,
+			    "failed to grab process %d", (int)pid);
+			return (-1);
+		}
+
+		dpr = dt_proc_lookup(dtp, P, 0);
+		assert(dpr != NULL);
+		(void) pthread_mutex_lock(&dpr->dpr_lock);
+
+		if (!dpr->dpr_usdt) {
+			err = dt_pid_create_usdt_probes(pdp, dtp, pcb, dpr);
+			dpr->dpr_usdt = B_TRUE;
+		}
+
+		(void) pthread_mutex_unlock(&dpr->dpr_lock);
+		dt_proc_release(dtp, P);
+	}
+#endif
 
 	return (err ? -1 : 0);
 }
@@ -869,41 +980,68 @@ dt_pid_create_probes_module(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 	dtrace_probedesc_t *pdp, pd;
 	pid_t pid;
 	int ret = 0, found = B_FALSE;
-
+	char provname[DTRACE_PROVNAMELEN];
+	
+#if !defined(__APPLE__)
+	(void) snprintf(provname, sizeof (provname), "pid%d",
+			(int)dpr->dpr_pid);
+#endif
+	
 	for (pgp = dt_list_next(&dtp->dt_programs); pgp != NULL;
-	    pgp = dt_list_next(pgp)) {
-
+	     pgp = dt_list_next(pgp)) {
+		
 		for (stp = dt_list_next(&pgp->dp_stmts); stp != NULL;
-		    stp = dt_list_next(stp)) {
-
+		     stp = dt_list_next(stp)) {
+			
 			pdp = &stp->ds_desc->dtsd_ecbdesc->dted_probe;
 			pid = dt_pid_get_pid(pdp, dtp, NULL, dpr);
 			if (pid != dpr->dpr_pid)
 				continue;
-
+			
 			found = B_TRUE;
-
+			
 			pd = *pdp;
-
-#if defined(__APPLE__)
-			if (strncmp(pdp->dtpd_provider, FASTTRAP_PID_NAME, strlen(FASTTRAP_PID_NAME)) == 0) {
+			
+#if !defined(__APPLE__)
+			if (gmatch(provname, pdp->dtpd_provider) != 0 &&
+			    dt_pid_create_pid_probes(&pd, dtp, NULL, dpr) != 0)
+				ret = 1;
+			
+			/*
+			 * If it's not strictly a pid provider, we might match
+			 * a USDT provider.
+			 */
+			if (strcmp(provname, pdp->dtpd_provider) != 0 &&
+			    dt_pid_create_usdt_probes(&pd, dtp, NULL, dpr) != 0)
+				ret = 1;
+#else
+			if (snprintf(provname, sizeof (provname), FASTTRAP_PID_NAME "%d", (int)dpr->dpr_pid) &&
+			    gmatch(pdp->dtpd_provider, provname) != 0) {
 				if (dt_pid_create_pid_probes(&pd, dtp, NULL, dpr) != 0)
 					ret = 1;
-			} else if (strncmp(pdp->dtpd_provider, FASTTRAP_OBJC_NAME, strlen(FASTTRAP_OBJC_NAME)) == 0) {
+			} else if (snprintf(provname, sizeof (provname), FASTTRAP_OBJC_NAME "%d", (int)dpr->dpr_pid) &&
+				   gmatch(pdp->dtpd_provider, provname) != 0) {
 				if (dt_pid_create_objc_probes(&pd, dtp, NULL, dpr) != 0)
 					ret = 1;
-			} else if (strncmp(pdp->dtpd_provider, FASTTRAP_ONESHOT_NAME, strlen(FASTTRAP_ONESHOT_NAME)) == 0) {
+			} else if (snprintf(provname, sizeof (provname), FASTTRAP_ONESHOT_NAME "%d", (int)dpr->dpr_pid) &&
+				   gmatch(pdp->dtpd_provider, provname) != 0) {
 				if (dt_pid_create_oneshot_probes(&pd, dtp, NULL, dpr) != 0)
 					ret = 1;
 			}  else {
-				if (dt_pid_create_usdt_probes(&pd, dtp, NULL,
-				    dpr) != 0)
-					ret = 1;
+				// APPLE NOTE!
+				//
+				// We do not have the same type of lazy dof as sun, there is no point in checking for it.
+				// Leaving the comment in place as a placeholder.
+				
+				/*
+				 * If it's not strictly a pid provider, we might match
+				 * a USDT provider.
+				 */
 			}
 #endif /* __APPLE__ */
 		}
 	}
-
+	
 	if (found) {
 		/*
 		 * Give DTrace a shot to the ribs to get it to check
@@ -911,6 +1049,6 @@ dt_pid_create_probes_module(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 		 */
 		(void) dt_ioctl(dtp, DTRACEIOC_ENABLE, NULL);
 	}
-
+	
 	return (ret);
 }

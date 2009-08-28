@@ -1,0 +1,335 @@
+This file summarizes all changes made to Img since version 1.0 was
+released in April, 1997.
+
+6/5/97  (bug fix) removed fclose() in imgTIFF.c, because the generic
+	image code already closes the file. This resulted in a crash
+	on some machines, when reading a tiff file from disk.
+
+6/9/97  Added Channel functions for all format handlers. Needed to
+	make everything work again in combination with Tk8.0b1.
+
+6/12/97 Removed Xlib sub-directory and moved tkWinInt.h and tkMacInt.h
+	to the main directory. reason: Xlib.h is already installed by
+	Tk, so there is no need for Img to do it as well.
+
+6/12/97 (bug-fix) test.png in reality was an XPM file.
+
+6/12/97 Upgraded libpng to version 0.96
+
+7/1/97  Removed __eprintf() function: The assert() function
+	(which was the problem) can be disabled with
+	-DNDEBUG as well, which is much simpler.
+
+7/1/97  Fixed bug in PNG interlace handling: Now interlaced
+	images will be produced by default.
+
+7/1/97  Added support for animated GIF. Not complete yet.
+
+7/10/97 Added support for binary I/O in all format handlers. The
+	initialization automatically detects if the current Tcl
+	version supports this.
+
+7/11/97 Construction of new patch.tk8, which combines Steve Ball's
+	work with mine. Now binary I/O is fully supported.
+
+7/16/97 Removed the "fromData" hack from all format handlers.
+
+7/17/97 Speedup of TIFF format handler: No longer uses a temporary
+	file to store intermediate results, but does everyting
+	in memory. This enhancement uses the function TIFFClientOpen,
+	which is only available in newer TIFF libraries. If this
+	function cannot be found, the slower original approach is
+	taken.
+
+7/18/97 Added support for BMP format. Still incomplete.
+
+7/20/97 Completed support for animated GIF. Added example animated
+	GIF to demo.
+
+7/24/97 Added support for 1-bit BMP images. Now only
+	RLE decompressing left to be implemented.
+
+7/26/97 Changed TIFF handler such that libz and libjpeg are
+	only loaded when needed (new files imgTIFFjpeg.c and
+	imgTIFFzip.c, adapted from tif_jpeg.c and tif_zip.c
+	from the TIFF source).
+
+7/26/97 Added postscript format handler (imgPS.c), read only.
+	Assumes that Ghostscript (version 2.6 or higher)
+	is installed on your system.
+
+7/28/97 Changed GIF format string to be "gif -index <n>" in stead of
+	"gif <n>". The old format is still accepted for backwards
+	compatibility with version 1.1b1, but no longer documented.
+
+8/1/97  Added option "-zoom" to postscript handler.
+
+8/11/97 Modified all patches to correct the "imageName copy"
+	command. Previously it didn't handle transparency
+	correctly. Plus another bug fix related to the alpha
+	channel. Thanks to Nick Ing-Simmons <nick@ni-s.u-net.com>
+	for providing the fix.
+
+8/12/97 Bug fix. Transparency turned out not to be handled correctly
+	for paletted PNG images. Tk and XV cannot produce such images, that's
+	why this is not discovered earlier. Thanks to Stephane Lavirotte
+	<Stephane.Lavirotte@sophia.inria.fr> for pointing this out.
+
+8/13/97 Converted the "format" argument of the Image API to Tcl_Obj's.
+	This influenced all source files and "patch.tk8". So, you
+	cannot use older versions of "patch.tk8" with Img1.1 any more,
+	and the latest "patch.tk8" doesn't work with Img1.1b3 as well.
+
+8/16/97 Added "install.tcl" and "tkv.tcl"
+
+8/18/97 Tcl8.0a1 and Tcl8.0a2 are no longer supported.
+
+8/18/97 Adapted "patch.tk8" to the final Tk8.0 release. Constructed
+	new files "patchtk8.tgz" and "patchtk8.zip", which contain
+	a collection of the Tk8.0 files that changed. The latter files
+	are not distributed with Img 1.1, but can be found in the
+	same directory where you got Img 1.1.
+
+----------------- Released 1.1, 8/18/97  -----------------------
+
+8/21/97 (bug fix) "tkv.tcl" didn't display the menu's correctly using
+	Tk4.2, apart from the fact that they turned out to look horrible
+	on Windows anyway. In combination with Tk8.0, Tkv uses the new
+	menu interface now, which doesn't have this problem.
+
+8/21/97 (bug fix) "demo.tcl" changed the working directory when the
+	additional tests are interrupted by using the "dismiss" button.
+
+8/21/97 (bug fix) Removed POSIX dependancies from imgInit.c, imgPmap.c,
+	imgPS.c and imgTIFF.c. This will make porting to non-POSIX
+	systems (e.g. Mac) easier, but makes no difference on
+	POSIX-compliant machines.
+
+8/22/97 Added file MW_ImgHeader.pch, which is used as a pre-compilied
+	header source for all files in the Img package. This make compilies
+	go a bit faster. This file is only intended to be used in the
+	MetroWerks CodeWarrior environment.
+
+8/24/97 Added "patch.tkx", which enhances the TclX help system to
+	reflect the changes in patch.tk4 and patch.tk8
+
+8/26/97 (bug fix) JPEG handler crashed on some machines when writing
+	big JPEG images to disk. Thanks to Peter T. Waltenberg
+	<p.waltenberg@irl.cri.nz> for reporting this bug, and for
+	providing an example script which demonstrated this problem.
+
+8/27/97 (bug fix) Serveral minor changes to remove warning when compiling
+	under Windows and Mac. Thanks to Mazin As-Sanie <mazina@eecs.umich.edu>
+	for reporting those to me.
+
+8/27/97 (bug fix) Eliminated Tcl_Realloc() call in imgTIFF.c. This function
+	didn't exist yet in Tk4.2 and before.
+
+9/5/97  (bug fix) install.tcl assumed that the PATH enviroment variable
+	was a ':'-separated list. This is correct on UNIX, but on Windows
+	the separation character should be ';'
+
+9/7/97  (bug fix) Fixed patch.tk8 such that the "imgName copy" command
+	handles transparency fully correct. Previously copied pixels
+	just replaced the existing pixels and the regions were not
+	merged correctly. Now that has been fixed. If a partially trans-
+	parent pixel is copied on top of an already partially transparent
+	pixel, a new color and a new transparency value is determined,
+	consisting of a combination of both.
+
+9/8/97  (bug fix) GIF handler didn't handle local colormaps correctly.
+	Lucky enough most GIF's only have a global colormap.
+
+----------------- Released 1.1p1, 9/9/97  -----------------------
+
+10/1/97  (bug-fix) Oops. Previous bug-fix was not correct :-(
+	 Still didn't work with local colormaps.
+
+10/17/97 (bug fix) patch.tix didn't correctly initialize
+	 the variable "format", because this variable
+	 was disturbed by the new initialization code.
+
+10/22/97 (bug-fix) Applied the official patch #1 to libz 1.0.4.
+	 This makes the library more robust in respect to
+	 corrupted compressed streams. (see README.ZLIB)
+
+11/1/97  (bug-fix, feature change) Upgraded tiff library
+	 to version 3.4.37 (was 3.4.33)
+
+11/1/97  Eliminated the function Tk_ParseArgv(), which makes
+	 the tiff- and jpeg- handlers thread-safe. As long as
+	 Tk is not thread-safe this doesn't help much, but at
+	 least Img is prepared now for the multi-threaded future.
+
+11/3/97  Added rule to makefile.vc to build Img for Tk8.1. This is
+	 not guaranteed because Tk8.1 is not released yet, but if
+	 there are not too much incompatibilities it should work.
+
+11/3/97  Enhanced the bitmap image type (in patch.tk8) to use
+	 the new Tcl_Obj API.
+
+11/9/97  (feature change) Adapted patch.tk4 and patch.tk8 such
+	 that "imageName read" and "imageName put" now return
+	 the format of the readed data in stead of the empty string.
+
+11/9/97  (feature change) Added logluv compression support to
+	 TIFF format handler.
+
+11/9/97  Recreated patch.tk8 using Tk8.0p1, and also created
+	 new files patchtk8.tgz and patchtk8.zip from it.
+	 Documented that Img is now tested with Tk8.0p1 as well.
+
+----------------- Released 1.1p2, 11/10/97  -----------------------
+
+11/15/97 (new feature) Added imgWindow.c
+
+11/25/97 (new feature) Added libttf.so (ttf.dll on Windows)
+
+11/27/97 (enhancement) Made the changes required by the new Apple
+	 Universal Headers V.3.0, so that Img will compile with CW Pro 2.
+
+11/30/97 PNG hopepage has moved. Changed README.PNG accordingly.
+
+12/7/97  Added PDF encoder, using ghostscript. Doesn't work yet.
+
+12/15/97 Removed support for Tk4.2.
+
+12/30/97 Added support for byteArrays. This fixes binary I/O in
+	 combination with Tk8.1a1.
+
+1/27/98  Added patch.tk81a1, created with the official Tk8.1a1
+	 distribution.
+
+1/28/98  Upgrade to libz version 1.0.8.
+
+----------------- Released 1.2a1, 1/28/98  -----------------------
+
+2/27/98  Upgrade to libz version 1.0.8.
+
+2/27/98  Upgrade to libpng version 0.99d, fixing shared library
+         version number to 2.0.99, as suggested by png.h.
+
+10/25/98 Fixed imgWindow.c for Windows. Patch supplied by
+	 Robin Becker <robin@jessikat.demon.co.uk>.
+
+11/19/98 Upgrade to libz 1.1.3, libpng 1.0.2 and libttf 2.0.1.
+
+11/19/98 Fixed configure script in order to work with Tcl8.0.3
+	 and also the upcoming 8.0.4 and 8.0.5
+
+3/14/99  Added 8.1b2 compatible Stub support
+
+3/14/99  Removed libttf and libgif support.
+
+----------------- Released 1.2b1, 3/14/99  -----------------------
+
+3/19/99  Finished "Makefile.gnu". Some more tweaking of Tk and CygWin
+	 header-files is needed to make it work, but at least Img has
+	 full CygWin support now. Only works with CygWin B20.1 and higher.
+
+3/29/99  Better support for byte-compiler in demo.tcl and tkv.tcl,
+	 using {}'s around expressions always. Also removing
+	 old Tk4.2 compatible menu-code.
+
+3/29/99  Internal changes, using Tcl_Obj's in more places.
+	 Suggested by Nick Ing-Simmons. This will make the
+	 port to perl/Tk easier.
+
+3/29/99  Upgrade to libpng 1.0.3
+
+----------------- Released 1.2b2, 3/29/99  -----------------------
+
+5/23/99  Documentation enhancements: Everything is available in
+         html now.
+
+----------------- Released 1.2, 5/23/99  -----------------------
+
+9/3/99   Added suitable patch for Tk8.2.0
+
+9/7/99   Modified BMP generation to generate 8-bit paletted if
+         there are less than 257 colors but more than 512 pixels.
+         Donated by Roger E Critchlow Jr <rec@elf.org>
+
+9/7/99   Upgraded tiff library to version 3.5.1, thereby disabling
+         lzw support.
+
+----------------- Released 1.2.1, 9/16/99  -----------------------
+
+10/16/99 Upgraded tiff library to version 3.5.2 and png library
+         to version 1.0.5.  LZW-support is still disabled.
+
+10/19/99 Modified PNG gamma correction following the latest
+         PNG 1.2 specification.
+
+10/26/99 Applied official fax3-patch to libtiff 3.5.2, fixing
+         certain fax3 images (whatever that may be.....).
+
+10/26/99 Modified zlib to use the _stdcall in stead of the _cdecl
+         convention. This is the way Gilles Vollent compiles it's
+         zlib dll's, and he is the 'official' zlib windows maintainer.
+         INCOMPATIBLE on Windows!!!!!!!!!!!!!
+
+10/26/99 Fixed undocumented base-64 encoder/decoder to correctly
+         report "wrong number of arguments".
+
+10/27/99 Fixed bug in BMP handler, which caused sometimes colors
+         to be distorted when reading certain BMP images.
+
+----------------- Released 1.2.2, 10/27/99  -----------------------
+
+11/10/99 Modified all handlers to use the extended Photo API when
+	 running with Tk8.3 or higher.
+
+11/10/99 Fixed tkv.tcl (from demo.tcl) and tests to be independant
+	 from working directory.
+
+11/10/99 Fixed libpng/makefile.vc to use _stdcall convention for
+	 zlib functions.
+
+1/15/2000 Fixed "-encoding none" problem.
+
+1/15/2000 Upgraded libtiff to version 3.5.4
+
+1/15/2000 All handler names are now in lower-case.
+
+----------------- Released 1.2.3, 1/16/2000  -----------------------
+
+5/7/2000 Added some missing symbols to tclLoadNone.c
+
+5/7/2000 Fixed missing "-rpath" option. Bug reported by Larry Virden.
+
+5/7/2000 Made PNG handler independant of jmpbuf support in libpng.
+         This makes Img work with libpng 1.1 (still in beta, and
+         unlikely ever to be released to the public), and hopefully
+         also with more future libpng versions.
+
+5/10/2000 Fixed possible infinite loop in XBM format handler. Bug
+         reported by Gianandrea Rigoni
+
+5/11/2000 Changed URL of zlib and libpng to point to the current
+          location everywhere.
+
+7/8/2000  Upgraded libtiff to version 3.5.5
+
+7/9/2000  Internationalized demo.tcl and tkv.tcl
+
+7/13/2000 Bug-fix in BMP write function. If an image contained more
+          than 256 colors, only the first 256 where stored in the
+          color table. Bug reported by higuchi@cov.tytlabs.co.jp
+
+8/9/2000  Upgraded libpng to version 1.0.8
+
+8/11/2000  Fixed Postscript handling when the image size is larger
+          than the default page size. BUG-report and fix suggestion
+          by Carlos Vidal.
+
+8/12/2000 Made PNG handler independant of the png_init_io() function
+          and stdio; some libpng versions (e.g. the official dll's
+          for Windows from the PNG group) lack this function
+          (and for a good reason............).
+
+8/12/2000 Removed the patches subdirectory from the distribution. If
+          you are able to install the patches, you are also able to
+          install Tcl 8.3.2 (or higher), which is a much better idea.
+
+----------------- Released 1.2.4, 8/13/2000  -----------------------

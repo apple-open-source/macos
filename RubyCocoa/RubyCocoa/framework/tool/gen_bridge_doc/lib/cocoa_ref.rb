@@ -59,7 +59,7 @@ module CocoaRef
       if File.exist?(html_parser_overrides_file)
         # If it exists, require it and extend the html parser to use the overrides
         require html_parser_overrides_file
-        @hpricot.extend HTMLParserOverrides        
+        @hpricot.extend HTMLParserOverrides
       end
       
       # START PARSING
@@ -67,7 +67,7 @@ module CocoaRef
       @class_def.framework = @framework
       
       # Check if there is a overrides file in the override_dir for the given class
-      class_overrides_file = File.join(File.dirname(File.expand_path(__FILE__)), @framework, @class_def.output_filename)      
+      class_overrides_file = File.join(File.dirname(File.expand_path(__FILE__)), @framework, @class_def.output_filename)
       if File.exist?(class_overrides_file)
         # If it exists, require it and extend the methods to use the overrides
         require class_overrides_file

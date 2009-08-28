@@ -80,15 +80,15 @@ extern void deprecated_store_floating (void *addr, int len, DOUBLEST val);
    NULL.  type_floatformat() detects that and returns a floatformat
    based on the type size when FLOATFORMAT is NULL.  */
 
-const struct floatformat *floatformat_from_type (const struct type *type);
+const struct floatformat *floatformat_from_type (struct type *type);
 
 extern DOUBLEST extract_typed_floating (const void *addr,
-					const struct type *type);
-extern void store_typed_floating (void *addr, const struct type *type,
+					struct type *type);
+extern void store_typed_floating (void *addr, struct type *type,
 				  DOUBLEST val);
 extern void convert_typed_floating (const void *from,
-				    const struct type *from_type,
-                                    void *to, const struct type *to_type);
+				    struct type *from_type,
+                                    void *to, struct type *to_type);
 
 /* Table of convenient float-formats.  */
 extern const struct floatformat *floatformat_ieee_single[BFD_ENDIAN_UNKNOWN];

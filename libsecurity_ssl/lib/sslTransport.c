@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2009 Apple, Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -23,7 +23,7 @@
 
 	Written by:	Doug Mitchell
 
-	Copyright: (c) 1999 by Apple Computer, Inc., all rights reserved.
+	Copyright: (c) 1999-2009 Apple, Inc. All Rights Reserved.
 
 */
 
@@ -138,10 +138,18 @@ SSLWrite(
 		err = noErr;
 	}
 exit:
-    if (err != 0 && err != errSSLWouldBlock && err != errSSLClosedGraceful) {
-		sslErrorLog("SSLWrite: going to state errorCLose due to err %d\n",
-			(int)err);
-        SSLChangeHdskState(ctx, SSL_HdskStateErrorClose);
+	switch(err) {
+		case noErr:
+		case errSSLWouldBlock:
+		case errSSLServerAuthCompleted:
+		case errSSLClientCertRequested:
+		case errSSLClosedGraceful:
+			break;
+		default:
+			sslErrorLog("SSLWrite: going to state errorClose due to err %d\n",
+				(int)err);
+			SSLChangeHdskState(ctx, SSL_HdskStateErrorClose);
+			break;
     }
 abort:
 	sslIoTrace("SSLWrite", dataLength, *bytesWritten, err);
@@ -288,6 +296,8 @@ exit:
 	switch(err) {
 		case noErr:
 		case errSSLWouldBlock:
+		case errSSLServerAuthCompleted:
+		case errSSLClientCertRequested:
 		case errSSLClosedGraceful:
 		case errSSLClosedNoNotify:
 			break;
@@ -319,6 +329,12 @@ SSLHandshake(SSLContext *ctx)
     if (ctx->state == SSL_HdskStateErrorClose)
         return errSSLClosedAbort;
     
+	#if SSL_ECDSA_HACK
+	/* Because of Radar 6133465, we have to disable this to allow the sending
+	 of client hello extensions for ECDSA... */
+	ctx->versionSsl2Enable = false;
+	#endif
+	
     if(ctx->validCipherSpecs == NULL) {
     	/* build list of legal cipherSpecs */
     	err = sslBuildCipherSpecArray(ctx);
@@ -327,6 +343,7 @@ SSLHandshake(SSLContext *ctx)
     	}
     }
     err = noErr;
+
     while (ctx->readCipher.ready == 0 || ctx->writeCipher.ready == 0)
     {   if ((err = SSLHandshakeProceed(ctx)) != 0)
             return err;
@@ -345,6 +362,15 @@ SSLHandshakeProceed(SSLContext *ctx)
 {   OSStatus    err;
     SSLRecord   rec;
     
+    if (ctx->signalServerAuth) {
+       ctx->signalServerAuth = false;
+       return errSSLServerAuthCompleted;
+    }
+    if (ctx->signalCertRequest) {
+       ctx->signalCertRequest = false;
+       return errSSLClientCertRequested;
+    }
+
     if (ctx->state == SSL_HdskStateUninit)
         if ((err = SSLInitConnection(ctx)) != 0)
             return err;

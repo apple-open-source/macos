@@ -1,0 +1,141 @@
+/* ***********************************************************************************************
+* 
+* Mac OS X EMBEDDED
+* Localizable Strings
+*
+ *********************************************************************************************** */
+
+
+/* Alert  strings */
+"OK" = "OK";
+"Cancel" = "Cancel";
+"Disconnect" = "Disconnect";
+
+"Settings" = "Settings";
+"Ignore" = "Ignore";
+
+/* Notification window title */
+"Network Connection" = "Network Connection";
+"VPN Connection" = "VPN Connection";
+
+/* Misc messages */
+"Waiting for disconnection" = "Waiting for PPP termination…";
+
+/*  
+    PPP error strings
+    
+    PPP will display one of the following LastCause published in the service/state
+    of the PPP dictionnary.
+    PPP errors contain a PPP generic part in the key "LastCause".
+    and a Device specific part in the key "DeviceLastCause".
+    
+    The Device specific part is there to give more details of the PPP error.
+    For example, for a PPP Error 8, meaning that the connection has failed, 
+    we can have a Device Error detailing the failure cause, like Busy, NoDialTone...
+    
+    Therefore, if the device specific part is not 0, 
+    PPP will display the device error message, that is defained in the bundle of the 
+    corresponding PPP subtype (for example PPPSerial.ppp).
+    If the Device specific part is 0, then PPP will display the PPP message.
+    Device error must be formatted "Device Error %d".
+    
+    Device errors start from 1. PPP Error start from 0.
+    If the text for the error does not exist, the error number will be displayed.
+    If the text for the error exist but is empty, nothing will be displayed 
+	PPP Error 5 is normal exit error and is special case in the code.  
+*/
+
+"PPP Error 0" = "You were disconnected by the PPP server. Try reconnecting.";
+"PPP Error 1" = "Your connection failed because of an unrecoverable error. Try reconnecting. If the problem continues, verify your settings and contact your Administrator.";
+"PPP Error 2" = "Your connection failed because of an incorrect PPP setting. Verify your settings and try reconnecting.";
+"PPP Error 3" = "PPP doesn't have sufficient privileges to work correctly.";
+"PPP Error 4" = "Could not find the PPP kernel extension.";
+/* "PPP Error 5" = ""; */ /* normal exit, nothing to display. this is special case in the code */
+"PPP Error 6" = "Lock failed"; /* not supported */
+"PPP Error 7" = "Your connection failed because the communication device is unavailable. Make sure it's connected to your computer and try reconnecting.";
+"PPP Error 8" = "Your connection failed. Try reconnecting. If the problem continues, verify your settings and contact your Administrator.";
+"PPP Error 9" = "The terminal connection failed. Verify your settings and try reconnecting."; /* not supported */
+"PPP Error 10" = "A connection could not be established to the PPP server. Try reconnecting. If the problem continues, verify your settings and contact your Administrator.";
+"PPP Error 11" = "The PPP server could not be authenticated"; /* not supported */
+"PPP Error 12" = "You were disconnected because there was no network activity.";
+"PPP Error 13" = "You were disconnected because you reached the time limit.";
+"PPP Error 14" = "Callback failed"; /* not supported */
+"PPP Error 15" = "You were disconnected because the PPP server is not responding. Try reconnecting.";
+"PPP Error 16" = "You were disconnected by the communication device. Try reconnecting. If the problem continues, verify your settings.";
+"PPP Error 17" = "A crossed connection was detected. Verify your settings and try reconnecting.";
+"PPP Error 18" = "Failed to initialize PPP";
+"PPP Error 19" = "Authentication failed.";
+"PPP Error 20" = "The terminal script failed. Verify your settings and try reconnecting.";
+"PPP Error 21" = "The communication device selected for your connection does not exist. Verify your settings and try reconnecting.";
+"PPP Error 22" = "You were disconnected because you transfered the maximum amount of data.";
+"PPP Error 23" = "The user is not authorized to access.";
+"PPP Error 24" = "The remote number is not permitted to connect. Verify your settings and try again.";
+"PPP Error 25" = "The server is unreachable. Try reconnecting. If the problem continues, verify your settings and contact your Administrator.";
+"PPP Error 127" = "You were disconnected. Try reconnecting. If the problem continues, verify your settings and contact your Administrator.";
+
+/* 
+	PPP Device errors
+	The following errors are PPP Link specific. 
+	When returned by the link, they provide more accurate error than the generic PPP error.
+*/
+
+"L2TP Error 1" = "The L2TP-VPN server was unreachable. Verify the server address and try reconnecting. If the problem continues, contact your Administrator.";
+"L2TP Error 2" = "The L2TP-VPN server did not respond. Try reconnecting. If the problem continues, verify your settings and contact your Administrator.";
+"L2TP Error 5" = "Your attempt to connect to the L2TP-VPN server failed. Try reconnecting. If the problem continues, verify your settings and contact your Administrator.";
+/* From HI guidelines: we should never show the disconnection errors below */
+"L2TP Error 6" = ""; /* "You have been disconnected from the L2TP server because the network configuration changed."; */
+"L2TP Error 7" = "The IPSec Shared Secret is missing. Verify your settings and try reconnecting.";
+"L2TP Error 8" = "The IPSec Certificate is missing. Verify your settings and try reconnecting.";
+"L2TP Error 9" = "No network connection available."; /* EDGE connection failed */
+
+
+"PPTP Error 1" = "The PPTP-VPN server was unreachable. Verify the server address and try reconnecting. If the problem continues, contact your Administrator.";
+"PPTP Error 2" = "The PPTP-VPN server did not respond. Try reconnecting. If the problem continues, verify your settings and contact your Administrator.";
+"PPTP Error 5" = "Your attempt to connect to the PPTP-VPN server failed. Try reconnecting. If the problem continues, verify your settings and contact your Administrator.";
+/* From HI guidelines: we should never show the disconnection errors below */
+"PPTP Error 6" = ""; /* "You have been disconnected from the PPTP server because the network configuration changed."; */
+"PPTP Error 7" = "No network connection available."; /* EDGE connection failed */
+
+
+
+/*  
+    IPSec error strings
+    
+    IPSec will display one of the following errors.
+*/
+
+/* "IPSec Error 0" = ""; */ /* no error */
+"IPSec Error 1" = "An unexpected error occurred."; /* Generic error */
+"IPSec Error 2" = "No VPN server address was provided."; /* No Server Address error */
+"IPSec Error 3" = "No VPN shared secret was provided."; /* No Shared Secret error */
+"IPSec Error 4" = "No VPN Certificate was provided."; /* No Certificate error */
+"IPSec Error 5" = "The VPN server could not be found."; /* Server Address did not resolve error */
+"IPSec Error 6" = "No network connection available."; /* No Local Network error */
+"IPSec Error 7" = "A configuration error occurred."; /* Configuration error */
+"IPSec Error 8" = "An unrecoverable error occurred."; /* Racoon Control error */
+"IPSec Error 9" = "The VPN server did not respond."; /* Connection error */
+"IPSec Error 10" = "Negotiation with the VPN server failed."; /* Negotiation error */
+"IPSec Error 11" = "The VPN Shared Secret is incorrect."; /* Invalid Shared Secret error */
+"IPSec Error 12" = "Could not validate the server certificate."; /* Certificate authentication error */
+"IPSec Error 13" = "Certificate authentication failed."; /* Certificate authentication error */
+"IPSec Error 13, Re-enroll" = "Certificate authentication failed. Contact your network administrator or try re-enrolling in Settings."; /* Certificate authentication error with Fix Me button */
+"IPSec Error 14" = "User authentication failed."; /* XAUTH User Authentication error */
+/* From HI guidelines: we should never show the disconnection errors below */
+"IPSec Error 15" = ""; /* "You have been disconnected from the VPN server because the network configuration changed."; */ /* Network changed error */
+"IPSec Error 16" = ""; /* "The connection was terminated by the VPN server. Try reconnecting."; */ /* Peer Disconnection error */
+"IPSec Error 17" = ""; /* "The connection was terminated because the VPN server is not responding. Try reconnecting."; */ /* Peer Dead Detection error */
+"IPSec Error 18" = "No network connection available."; /* EDGE connection failed */
+"IPSec Error 19" = ""; /* "You were disconnected because there was no network activity."; */ /* Idle Timeout error */
+
+
+/* 
+	IPSec XAuth strings
+	Ipsec will use those strings in the User Authentication dialogs
+*/ 
+"Enter your user authentication" = "Enter your user authentication";
+"Enter Username and Password." = "Enter your user authentication";
+"Answer" = "Answer";
+"Next PIN" = "Next PIN";
+"Account" = "Account";
+"Passcode" = "Passcode";
+"Password" = "Password";

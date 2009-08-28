@@ -74,6 +74,33 @@ typedef wint_t   ZLE_INT_T;
 #define LASTFULLCHAR	lastchar_wide
 #define LASTFULLCHAR_T  ZLE_INT_T
 
+/*
+ * We may need to handle combining character alignment.
+ * The following fix up the position of the cursor so that it
+ * never ends up over a zero-width punctuation character following
+ * an alphanumeric character.  The first is used if we were
+ * moving the cursor left, the second if we were moving right or
+ * if something under the cursor may have changed.
+ */
+#define CCLEFT()	alignmultiwordleft(&zlecs, 1)
+#define CCRIGHT()	alignmultiwordright(&zlecs, 1)
+/*
+ * Same for any other position
+ */
+#define CCLEFTPOS(pos)	alignmultiwordleft(&pos, 1)
+#define CCRIGHTPOS(pos)	alignmultiwordright(&pos, 1)
+/*
+ * Increment or decrement the cursor position, skipping over
+ * combining characters.
+ */
+#define INCCS()		inccs()
+#define DECCS()		deccs()
+/*
+ * Same for any other position.
+ */
+#define INCPOS(pos)	incpos(&pos)
+#define DECPOS(pos)	decpos(&pos)
+
 #else  /* Not MULTIBYTE_SUPPORT: old single-byte code */
 
 typedef char ZLE_CHAR_T;
@@ -132,6 +159,22 @@ static inline int ZS_strncmp(ZLE_STRING_T s1, ZLE_STRING_T s2, size_t l)
 
 #define LASTFULLCHAR	lastchar
 #define LASTFULLCHAR_T	int
+
+/* Combining character alignment: none in this mode */
+#define CCLEFT()
+#define CCRIGHT()
+#define CCLEFTPOS(pos)
+#define CCRIGHTPOS(pos)
+/*
+ * Increment or decrement the cursor position: simple in this case.
+ */
+#define INCCS()		((void)(zlecs++))
+#define DECCS()		((void)(zlecs--))
+/*
+ * Same for any other position.
+ */
+#define INCPOS(pos)	((void)(pos++))
+#define DECPOS(pos)	((void)(pos--))
 
 #endif
 
@@ -201,6 +244,18 @@ struct modifier {
 /* current modifier status */
 
 #define zmult (zmod.mult)
+
+/* flags to cut() and cuttext() and other front-ends */
+
+#define CUT_FRONT   (1<<0)   /* Text goes in front of cut buffer */
+#define CUT_REPLACE (1<<1)   /* Text replaces cut buffer */
+#define CUT_RAW     (1<<2)   /*
+			      * Raw character counts (not used in cut itself).
+			      * This is used when the values are offsets
+			      * into the zleline array rather than numbers
+			      * of visible characters directly input by
+			      * the user.
+			      */
 
 /* undo system */
 
@@ -324,6 +379,41 @@ enum suffixtype {
     SUFTYP_POSRNG,		/* Range of characters to match */
     SUFTYP_NEGRNG		/* Range of characters not to match */
 };
+
+
+#ifdef MULTIBYTE_SUPPORT
+/*
+ * We use a wint_t here, since we need an invalid character as a
+ * placeholder and wint_t guarantees that we can use WEOF to do this.
+ */
+typedef wint_t REFRESH_CHAR;
+#else
+typedef char REFRESH_CHAR;
+#endif
+
+/*
+ * Description of one screen cell in zle_refresh.c
+ */
+typedef struct {
+    /*
+     * The (possibly wide) character.
+     * If atr contains TXT_MULTIWORD_MASK, an index into the set of multiword
+     * symbols (only if MULTIBYTE_SUPPORT is present).
+     */
+    REFRESH_CHAR chr;
+    /*
+     * Its attributes.  'On' attributes (TXT_ATTR_ON_MASK) are
+     * applied before the character, 'off' attributes (TXT_ATTR_OFF_MASK)
+     * after it.  'On' attributes are present for all characters that
+     * need the effect; 'off' attributes are only present for the
+     * last character in the sequence.
+     */
+    int atr;
+} REFRESH_ELEMENT;
+
+/* A string of screen cells */
+typedef REFRESH_ELEMENT *REFRESH_STRING;
+
 
 #ifdef DEBUG
 #define METACHECK()		\

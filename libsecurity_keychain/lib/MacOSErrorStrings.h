@@ -46,7 +46,7 @@ enum
     errSecMisc_extFSErr              = -58,     /* This volume does not appear to be compatible. */
     errSecMisc_wrPermErr             = -61,     /* Could not write to the file. It may have been opened with insufficient access privileges. */
     errSecMisc_offLinErr             = -65,     /* The storage device is no longer available. It may have been ejected. */
-    errSecMisc_memFullErr            = -108,    /* There was not enough memory to perform the operation. */
+    errSecMisc_memFullErr            = -108,
     errSecMisc_dirNFErr              = -120,    /* The directory could not be found. */
     errSecMisc_volGoneErr            = -124,    /* The server volume is no longer available. It may have been disconnected. */
 	errSecMisc_userCanceledErr		 = -128,	/* The operation was cancelled by the user. */

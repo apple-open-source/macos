@@ -31,11 +31,14 @@
 #include "FrameLoader.h"
 #include "FrameTree.h"
 #include "FrameView.h"
+#include "HTMLCollection.h"
+#include "HTMLDocument.h"
 #include "History.h"
 #include "JSAudioConstructor.h"
 #include "JSDOMWindowShell.h"
 #include "JSEvent.h"
 #include "JSEventListener.h"
+#include "JSHTMLCollection.h"
 #include "JSHistory.h"
 #include "JSImageConstructor.h"
 #include "JSLocation.h"
@@ -58,6 +61,7 @@
 #include "Settings.h"
 #include "WindowFeatures.h"
 #include <runtime/JSObject.h>
+#include <runtime/PrototypeFunction.h>
 
 using namespace JSC;
 
@@ -92,6 +96,199 @@ void JSDOMWindow::mark()
 #endif
 }
 
+template<NativeFunction nativeFunction, int length>
+JSValue nonCachingStaticFunctionGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot&)
+{
+    return new (exec) NativeFunctionWrapper(exec, exec->lexicalGlobalObject()->prototypeFunctionStructure(), length, propertyName, nativeFunction);
+}
+
+static JSValue childFrameGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot& slot)
+{
+    return toJS(exec, static_cast<JSDOMWindow*>(asObject(slot.slotBase()))->impl()->frame()->tree()->child(AtomicString(propertyName))->domWindow());
+}
+
+static JSValue indexGetter(ExecState* exec, const Identifier&, const PropertySlot& slot)
+{
+    return toJS(exec, static_cast<JSDOMWindow*>(asObject(slot.slotBase()))->impl()->frame()->tree()->child(slot.index())->domWindow());
+}
+
+static JSValue namedItemGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot& slot)
+{
+    JSDOMWindowBase* thisObj = static_cast<JSDOMWindow*>(asObject(slot.slotBase()));
+    Document* document = thisObj->impl()->frame()->document();
+
+    ASSERT(thisObj->allowsAccessFrom(exec));
+    ASSERT(document);
+    ASSERT(document->isHTMLDocument());
+
+    RefPtr<HTMLCollection> collection = document->windowNamedItems(propertyName);
+    if (collection->length() == 1)
+        return toJS(exec, collection->firstItem());
+    return toJS(exec, collection.get());
+}
+
+bool JSDOMWindow::getOwnPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
+{
+    // When accessing a Window cross-domain, functions are always the native built-in ones, and they
+    // are not affected by properties changed on the Window or anything in its prototype chain.
+    // This is consistent with the behavior of Firefox.
+
+    const HashEntry* entry;
+
+    // We don't want any properties other than "close" and "closed" on a closed window.
+    if (!impl()->frame()) {
+        // The following code is safe for cross-domain and same domain use.
+        // It ignores any custom properties that might be set on the DOMWindow (including a custom prototype).
+        entry = s_info.propHashTable(exec)->entry(exec, propertyName);
+        if (entry && !(entry->attributes() & Function) && entry->propertyGetter() == jsDOMWindowClosed) {
+            slot.setCustom(this, entry->propertyGetter());
+            return true;
+        }
+        entry = JSDOMWindowPrototype::s_info.propHashTable(exec)->entry(exec, propertyName);
+        if (entry && (entry->attributes() & Function) && entry->function() == jsDOMWindowPrototypeFunctionClose) {
+            slot.setCustom(this, nonCachingStaticFunctionGetter<jsDOMWindowPrototypeFunctionClose, 0>);
+            return true;
+        }
+
+        // FIXME: We should have a message here that explains why the property access/function call was
+        // not allowed. 
+        slot.setUndefined();
+        return true;
+    }
+
+    // We need to check for cross-domain access here without printing the generic warning message
+    // because we always allow access to some function, just different ones depending whether access
+    // is allowed.
+    String errorMessage;
+    bool allowsAccess = allowsAccessFrom(exec, errorMessage);
+
+    // Look for overrides before looking at any of our own properties, but ignore overrides completely
+    // if this is cross-domain access.
+    if (allowsAccess && JSGlobalObject::getOwnPropertySlot(exec, propertyName, slot))
+        return true;
+
+    // We need this code here because otherwise JSDOMWindowBase will stop the search before we even get to the
+    // prototype due to the blanket same origin (allowsAccessFrom) check at the end of getOwnPropertySlot.
+    // Also, it's important to get the implementation straight out of the DOMWindow prototype regardless of
+    // what prototype is actually set on this object.
+    entry = JSDOMWindowPrototype::s_info.propHashTable(exec)->entry(exec, propertyName);
+    if (entry) {
+        if (entry->attributes() & Function) {
+            if (entry->function() == jsDOMWindowPrototypeFunctionBlur) {
+                if (!allowsAccess) {
+                    slot.setCustom(this, nonCachingStaticFunctionGetter<jsDOMWindowPrototypeFunctionBlur, 0>);
+                    return true;
+                }
+            } else if (entry->function() == jsDOMWindowPrototypeFunctionClose) {
+                if (!allowsAccess) {
+                    slot.setCustom(this, nonCachingStaticFunctionGetter<jsDOMWindowPrototypeFunctionClose, 0>);
+                    return true;
+                }
+            } else if (entry->function() == jsDOMWindowPrototypeFunctionFocus) {
+                if (!allowsAccess) {
+                    slot.setCustom(this, nonCachingStaticFunctionGetter<jsDOMWindowPrototypeFunctionFocus, 0>);
+                    return true;
+                }
+            } else if (entry->function() == jsDOMWindowPrototypeFunctionPostMessage) {
+                if (!allowsAccess) {
+                    slot.setCustom(this, nonCachingStaticFunctionGetter<jsDOMWindowPrototypeFunctionPostMessage, 2>);
+                    return true;
+                }
+            } else if (entry->function() == jsDOMWindowPrototypeFunctionShowModalDialog) {
+                if (!DOMWindow::canShowModalDialog(impl()->frame())) {
+                    slot.setUndefined();
+                    return true;
+                }
+            }
+        }
+    } else {
+        // Allow access to toString() cross-domain, but always Object.prototype.toString.
+        if (propertyName == exec->propertyNames().toString) {
+            if (!allowsAccess) {
+                slot.setCustom(this, objectToStringFunctionGetter);
+                return true;
+            }
+        }
+    }
+
+    entry = JSDOMWindow::s_info.propHashTable(exec)->entry(exec, propertyName);
+    if (entry) {
+        slot.setCustom(this, entry->propertyGetter());
+        return true;
+    }
+
+    // Check for child frames by name before built-in properties to
+    // match Mozilla. This does not match IE, but some sites end up
+    // naming frames things that conflict with window properties that
+    // are in Moz but not IE. Since we have some of these, we have to do
+    // it the Moz way.
+    if (impl()->frame()->tree()->child(propertyName)) {
+        slot.setCustom(this, childFrameGetter);
+        return true;
+    }
+
+    // Do prototype lookup early so that functions and attributes in the prototype can have
+    // precedence over the index and name getters.  
+    JSValue proto = prototype();
+    if (proto.isObject()) {
+        if (asObject(proto)->getPropertySlot(exec, propertyName, slot)) {
+            if (!allowsAccess) {
+                printErrorMessage(errorMessage);
+                slot.setUndefined();
+            }
+            return true;
+        }
+    }
+
+    // FIXME: Search the whole frame hierachy somewhere around here.
+    // We need to test the correct priority order.
+
+    // allow window[1] or parent[1] etc. (#56983)
+    bool ok;
+    unsigned i = propertyName.toArrayIndex(&ok);
+    if (ok && i < impl()->frame()->tree()->childCount()) {
+        slot.setCustomIndex(this, i, indexGetter);
+        return true;
+    }
+
+    if (!allowsAccess) {
+        printErrorMessage(errorMessage);
+        slot.setUndefined();
+        return true;
+    }
+
+    // Allow shortcuts like 'Image1' instead of document.images.Image1
+    Document* document = impl()->frame()->document();
+    if (document->isHTMLDocument()) {
+        AtomicStringImpl* atomicPropertyName = AtomicString::find(propertyName);
+        if (atomicPropertyName && (static_cast<HTMLDocument*>(document)->hasNamedItem(atomicPropertyName) || document->hasElementWithId(atomicPropertyName))) {
+            slot.setCustom(this, namedItemGetter);
+            return true;
+        }
+    }
+
+    return Base::getOwnPropertySlot(exec, propertyName, slot);
+}
+
+void JSDOMWindow::put(ExecState* exec, const Identifier& propertyName, JSValue value, PutPropertySlot& slot)
+{
+    if (!impl()->frame())
+        return;
+
+    // Optimization: access JavaScript global variables directly before involving the DOM.
+    if (JSGlobalObject::hasOwnPropertyForWrite(exec, propertyName)) {
+        if (allowsAccessFrom(exec))
+            JSGlobalObject::put(exec, propertyName, value, slot);
+        return;
+    }
+
+    if (lookupPut<JSDOMWindow>(exec, propertyName, value, s_info.propHashTable(exec), this))
+        return;
+
+    if (allowsAccessFrom(exec))
+        Base::put(exec, propertyName, value, slot);
+}
+
 bool JSDOMWindow::deleteProperty(ExecState* exec, const Identifier& propertyName)
 {
     // Only allow deleting properties by frames in the same origin.
@@ -100,15 +297,15 @@ bool JSDOMWindow::deleteProperty(ExecState* exec, const Identifier& propertyName
     return Base::deleteProperty(exec, propertyName);
 }
 
-bool JSDOMWindow::customGetPropertyNames(ExecState* exec, PropertyNameArray&)
+void JSDOMWindow::getPropertyNames(ExecState* exec, PropertyNameArray& propertyNames)
 {
     // Only allow the window to enumerated by frames in the same origin.
     if (!allowsAccessFrom(exec))
-        return true;
-    return false;
+        return;
+    Base::getPropertyNames(exec, propertyNames);
 }
 
-bool JSDOMWindow::getPropertyAttributes(JSC::ExecState* exec, const Identifier& propertyName, unsigned& attributes) const
+bool JSDOMWindow::getPropertyAttributes(ExecState* exec, const Identifier& propertyName, unsigned& attributes) const
 {
     // Only allow getting property attributes properties by frames in the same origin.
     if (!allowsAccessFrom(exec))
@@ -179,15 +376,15 @@ JSValue JSDOMWindow::location(ExecState* exec) const
 
 void JSDOMWindow::setLocation(ExecState* exec, JSValue value)
 {
-    Frame* activeFrame = asJSDOMWindow(exec->dynamicGlobalObject())->impl()->frame();
-    if (!activeFrame)
+    Frame* lexicalFrame = toLexicalFrame(exec);
+    if (!lexicalFrame)
         return;
 
 #if ENABLE(DASHBOARD_SUPPORT)
     // To avoid breaking old widgets, make "var location =" in a top-level frame create
     // a property named "location" instead of performing a navigation (<rdar://problem/5688039>).
-    if (Settings* settings = activeFrame->settings()) {
-        if (settings->usesDashboardBackwardCompatibilityMode() && !activeFrame->tree()->parent()) {
+    if (Settings* settings = lexicalFrame->settings()) {
+        if (settings->usesDashboardBackwardCompatibilityMode() && !lexicalFrame->tree()->parent()) {
             if (allowsAccessFrom(exec))
                 putDirect(Identifier(exec, "location"), value);
             return;
@@ -195,13 +392,19 @@ void JSDOMWindow::setLocation(ExecState* exec, JSValue value)
     }
 #endif
 
-    if (!activeFrame->loader()->shouldAllowNavigation(impl()->frame()))
+    Frame* frame = impl()->frame();
+    ASSERT(frame);
+
+    if (!shouldAllowNavigation(exec, frame))
         return;
-    String dstUrl = activeFrame->loader()->completeURL(value.toString(exec)).string();
-    if (!protocolIsJavaScript(dstUrl) || allowsAccessFrom(exec)) {
-        bool userGesture = activeFrame->script()->processingUserGesture();
+
+    KURL url = completeURL(exec, value.toString(exec));
+    if (url.isNull())
+        return;
+
+    if (!protocolIsJavaScript(url) || allowsAccessFrom(exec)) {
         // We want a new history item if this JS was called via a user gesture
-        impl()->frame()->loader()->scheduleLocationChange(dstUrl, activeFrame->loader()->outgoingReferrer(), !activeFrame->script()->anyPageIsProcessingUserGesture(), false, userGesture);
+        frame->loader()->scheduleLocationChange(url, lexicalFrame->loader()->outgoingReferrer(), !lexicalFrame->script()->anyPageIsProcessingUserGesture(), false, processingUserGesture(exec));
     }
 }
 
@@ -276,16 +479,20 @@ JSValue JSDOMWindow::worker(ExecState* exec) const
 // Custom functions
 
 // Helper for window.open() and window.showModalDialog()
-static Frame* createWindow(ExecState* exec, Frame* activeFrame, Frame* openerFrame, 
-                           const String& url, const String& frameName, 
+static Frame* createWindow(ExecState* exec, Frame* lexicalFrame, Frame* dynamicFrame,
+                           Frame* openerFrame, const String& url, const String& frameName, 
                            const WindowFeatures& windowFeatures, JSValue dialogArgs)
 {
-    ASSERT(activeFrame);
+    ASSERT(lexicalFrame);
+    ASSERT(dynamicFrame);
 
     ResourceRequest request;
 
-    request.setHTTPReferrer(activeFrame->loader()->outgoingReferrer());
-    FrameLoader::addHTTPOriginIfNeeded(request, activeFrame->loader()->outgoingOrigin());
+    // For whatever reason, Firefox uses the dynamicGlobalObject to determine
+    // the outgoingReferrer.  We replicate that behavior here.
+    String referrer = dynamicFrame->loader()->outgoingReferrer();
+    request.setHTTPReferrer(referrer);
+    FrameLoader::addHTTPOriginIfNeeded(request, dynamicFrame->loader()->outgoingOrigin());
     FrameLoadRequest frameRequest(request, frameName);
 
     // FIXME: It's much better for client API if a new window starts with a URL, here where we
@@ -299,7 +506,7 @@ static Frame* createWindow(ExecState* exec, Frame* activeFrame, Frame* openerFra
     // We pass in the opener frame here so it can be used for looking up the frame name, in case the active frame
     // is different from the opener frame, and the name references a frame relative to the opener frame, for example
     // "_self" or "_parent".
-    Frame* newFrame = activeFrame->loader()->createWindow(openerFrame->loader(), frameRequest, windowFeatures, created);
+    Frame* newFrame = lexicalFrame->loader()->createWindow(openerFrame->loader(), frameRequest, windowFeatures, created);
     if (!newFrame)
         return 0;
 
@@ -312,13 +519,13 @@ static Frame* createWindow(ExecState* exec, Frame* activeFrame, Frame* openerFra
         newWindow->putDirect(Identifier(exec, "dialogArguments"), dialogArgs);
 
     if (!protocolIsJavaScript(url) || newWindow->allowsAccessFrom(exec)) {
-        KURL completedURL = url.isEmpty() ? KURL("") : activeFrame->document()->completeURL(url);
-        bool userGesture = activeFrame->script()->processingUserGesture();
+        KURL completedURL = url.isEmpty() ? KURL("") : completeURL(exec, url);
+        bool userGesture = processingUserGesture(exec);
 
         if (created)
-            newFrame->loader()->changeLocation(completedURL, activeFrame->loader()->outgoingReferrer(), false, false, userGesture);
+            newFrame->loader()->changeLocation(completedURL, referrer, false, false, userGesture);
         else if (!url.isEmpty())
-            newFrame->loader()->scheduleLocationChange(completedURL.string(), activeFrame->loader()->outgoingReferrer(), !activeFrame->script()->anyPageIsProcessingUserGesture(), false, userGesture);
+            newFrame->loader()->scheduleLocationChange(completedURL.string(), referrer, !lexicalFrame->script()->anyPageIsProcessingUserGesture(), false, userGesture);
     }
 
     return newFrame;
@@ -329,9 +536,12 @@ JSValue JSDOMWindow::open(ExecState* exec, const ArgList& args)
     Frame* frame = impl()->frame();
     if (!frame)
         return jsUndefined();
-    Frame* activeFrame = asJSDOMWindow(exec->dynamicGlobalObject())->impl()->frame();
-    if (!activeFrame)
-        return  jsUndefined();
+    Frame* lexicalFrame = toLexicalFrame(exec);
+    if (!lexicalFrame)
+        return jsUndefined();
+    Frame* dynamicFrame = toDynamicFrame(exec);
+    if (!dynamicFrame)
+        return jsUndefined();
 
     Page* page = frame->page();
 
@@ -340,7 +550,7 @@ JSValue JSDOMWindow::open(ExecState* exec, const ArgList& args)
 
     // Because FrameTree::find() returns true for empty strings, we must check for empty framenames.
     // Otherwise, illegitimate window.open() calls with no name will pass right through the popup blocker.
-    if (!DOMWindow::allowPopUp(activeFrame) && (frameName.isEmpty() || !frame->tree()->find(frameName)))
+    if (!DOMWindow::allowPopUp(dynamicFrame) && (frameName.isEmpty() || !frame->tree()->find(frameName)))
         return jsUndefined();
 
     // Get the target frame for the special cases of _top and _parent.  In those
@@ -355,17 +565,23 @@ JSValue JSDOMWindow::open(ExecState* exec, const ArgList& args)
         topOrParent = true;
     }
     if (topOrParent) {
-        if (!activeFrame->loader()->shouldAllowNavigation(frame))
+        if (!shouldAllowNavigation(exec, frame))
             return jsUndefined();
 
         String completedURL;
         if (!urlString.isEmpty())
-            completedURL = activeFrame->document()->completeURL(urlString).string();
+            completedURL = completeURL(exec, urlString).string();
 
         const JSDOMWindow* targetedWindow = toJSDOMWindow(frame);
         if (!completedURL.isEmpty() && (!protocolIsJavaScript(completedURL) || (targetedWindow && targetedWindow->allowsAccessFrom(exec)))) {
-            bool userGesture = activeFrame->script()->processingUserGesture();
-            frame->loader()->scheduleLocationChange(completedURL, activeFrame->loader()->outgoingReferrer(), !activeFrame->script()->anyPageIsProcessingUserGesture(), false, userGesture);
+            bool userGesture = processingUserGesture(exec);
+
+            // For whatever reason, Firefox uses the dynamicGlobalObject to
+            // determine the outgoingReferrer.  We replicate that behavior
+            // here.
+            String referrer = dynamicFrame->loader()->outgoingReferrer();
+
+            frame->loader()->scheduleLocationChange(completedURL, referrer, !lexicalFrame->script()->anyPageIsProcessingUserGesture(), false, userGesture);
         }
         return toJS(exec, frame->domWindow());
     }
@@ -381,7 +597,7 @@ JSValue JSDOMWindow::open(ExecState* exec, const ArgList& args)
     windowFeatures.height = windowRect.height();
     windowFeatures.width = windowRect.width();
 
-    frame = createWindow(exec, activeFrame, frame, urlString, frameName, windowFeatures, JSValue());
+    frame = createWindow(exec, lexicalFrame, dynamicFrame, frame, urlString, frameName, windowFeatures, JSValue());
 
     if (!frame)
         return jsUndefined();
@@ -394,10 +610,14 @@ JSValue JSDOMWindow::showModalDialog(ExecState* exec, const ArgList& args)
     Frame* frame = impl()->frame();
     if (!frame)
         return jsUndefined();
+    Frame* lexicalFrame = toLexicalFrame(exec);
+    if (!lexicalFrame)
+        return jsUndefined();
+    Frame* dynamicFrame = toDynamicFrame(exec);
+    if (!dynamicFrame)
+        return jsUndefined();
 
-    Frame* activeFrame = asJSDOMWindow(exec->dynamicGlobalObject())->impl()->frame();
-
-    if (!DOMWindow::canShowModalDialogNow(frame) || !DOMWindow::allowPopUp(activeFrame))
+    if (!DOMWindow::canShowModalDialogNow(frame) || !DOMWindow::allowPopUp(dynamicFrame))
         return jsUndefined();
 
     String url = valueToStringWithUndefinedOrNullCheck(exec, args.at(0));
@@ -450,26 +670,14 @@ JSValue JSDOMWindow::showModalDialog(ExecState* exec, const ArgList& args)
     wargs.locationBarVisible = false;
     wargs.fullscreen = false;
 
-    Frame* dialogFrame = createWindow(exec, activeFrame, frame, url, "", wargs, dialogArgs);
+    Frame* dialogFrame = createWindow(exec, lexicalFrame, dynamicFrame, frame, url, "", wargs, dialogArgs);
     if (!dialogFrame)
         return jsUndefined();
 
     JSDOMWindow* dialogWindow = toJSDOMWindow(dialogFrame);
-
-    // Get the return value either just before clearing the dialog window's
-    // properties (in JSDOMWindowBase::clear), or when on return from runModal.
-    JSValue returnValue;
-    dialogWindow->setReturnValueSlot(&returnValue);
     dialogFrame->page()->chrome()->runModal();
-    dialogWindow->setReturnValueSlot(0);
 
-    // If we don't have a return value, get it now.
-    // Either JSDOMWindowBase::clear was not called yet, or there was no return value,
-    // and in that case, there's no harm in trying again (no benefit either).
-    if (!returnValue)
-        returnValue = dialogWindow->getDirect(Identifier(exec, "returnValue"));
-
-    return returnValue ? returnValue : jsUndefined();
+    return dialogWindow->getDirect(Identifier(exec, "returnValue"));
 }
 
 JSValue JSDOMWindow::postMessage(ExecState* exec, const ArgList& args)

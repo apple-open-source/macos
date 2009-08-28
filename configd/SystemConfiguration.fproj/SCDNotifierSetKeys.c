@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -93,11 +93,13 @@ SCDynamicStoreSetNotificationKeys(SCDynamicStoreRef	store,
 	if (xmlPatterns)	CFRelease(xmlPatterns);
 
 	if (status != KERN_SUCCESS) {
-#ifdef	DEBUG
-		if (status != MACH_SEND_INVALID_DEST)
-			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreSetNotificationKeys notifyset(): %s"), mach_error_string(status));
-#endif	/* DEBUG */
-		(void) mach_port_destroy(mach_task_self(), storePrivate->server);
+		if (status == MACH_SEND_INVALID_DEST) {
+			/* the server's gone and our session port's dead, remove the dead name right */
+			(void) mach_port_deallocate(mach_task_self(), storePrivate->server);
+		} else {
+			/* we got an unexpected error, leave the [session] port alone */
+			SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStoreSetNotificationKeys notifyset(): %s"), mach_error_string(status));
+		}
 		storePrivate->server = MACH_PORT_NULL;
 		_SCErrorSet(status);
 		return FALSE;

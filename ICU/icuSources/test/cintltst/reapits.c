@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 2004-2006, International Business Machines Corporation and
+ * Copyright (c) 2004-2008, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -34,25 +34,56 @@ log_err("Failure at file %s, line %d, error = %s\n", __FILE__, __LINE__, u_error
 #define TEST_ASSERT(expr) {if ((expr)==FALSE) { \
 log_err("Test Failure at file %s, line %d\n", __FILE__, __LINE__);}}
 
-#define TEST_ASSERT_STRING(expected, actual, nulTerm) { \
-     char     buf_inside_macro[120];  \
-     int32_t  len = (int32_t)strlen(expected); \
-     UBool    success; \
-     if (nulTerm) { \
-         u_austrncpy(buf_inside_macro, (actual), len+1); \
-         buf_inside_macro[len+2] = 0; \
-         success = (strcmp((expected), buf_inside_macro) == 0); \
-     } else { \
-         u_austrncpy(buf_inside_macro, (actual), len); \
-         buf_inside_macro[len+1] = 0; \
-         success = (strncmp((expected), buf_inside_macro, len) == 0); \
-     } \
-     if (success == FALSE) { \
-         log_err("Failure at file %s, line %d, expected \"%s\", got \"%s\"\n", \
-             __FILE__, __LINE__, (expected), buf_inside_macro); \
-     } \
+/*
+ *   TEST_SETUP and TEST_TEARDOWN
+ *         macros to handle the boilerplate around setting up regex test cases.
+ *         parameteres to setup:
+ *              pattern:     The regex pattern, a (char *) null terminated C string.
+ *              testString:  The string data, also a (char *) C string.
+ *              flags:       Regex flags to set when compiling the pattern
+ *
+ *         Put arbitrary test code between SETUP and TEARDOWN.
+ *         're" is the compiled, ready-to-go  regular expression.
+ */
+#define TEST_SETUP(pattern, testString, flags) {  \
+    UChar   *srcString = NULL;  \
+    status = U_ZERO_ERROR; \
+    re = uregex_openC(pattern, flags, NULL, &status);  \
+    TEST_ASSERT_SUCCESS(status);   \
+    srcString = (UChar *)malloc((strlen(testString)+2)*sizeof(UChar)); \
+    u_uastrncpy(srcString, testString,  strlen(testString)+1); \
+    uregex_setText(re, srcString, -1, &status); \
+    TEST_ASSERT_SUCCESS(status);  \
+    if (U_SUCCESS(status)) {
+    
+#define TEST_TEARDOWN  \
+    }  \
+    TEST_ASSERT_SUCCESS(status);  \
+    uregex_close(re);  \
+    free(srcString);   \
+    }
+
+
+static void test_assert_string(const char *expected, const UChar *actual, UBool nulTerm, const char *file, int line) {
+     char     buf_inside_macro[120];
+     int32_t  len = (int32_t)strlen(expected);
+     UBool    success;
+     if (nulTerm) {
+         u_austrncpy(buf_inside_macro, (actual), len+1);
+         buf_inside_macro[len+2] = 0;
+         success = (strcmp((expected), buf_inside_macro) == 0);
+     } else {
+         u_austrncpy(buf_inside_macro, (actual), len);
+         buf_inside_macro[len+1] = 0;
+         success = (strncmp((expected), buf_inside_macro, len) == 0);
+     }
+     if (success == FALSE) {
+         log_err("Failure at file %s, line %d, expected \"%s\", got \"%s\"\n",
+             file, line, (expected), buf_inside_macro);
+     }
 }
 
+#define TEST_ASSERT_STRING(expected, actual, nulTerm) test_assert_string(expected, actual, nulTerm, __FILE__, __LINE__)
              
 
 
@@ -69,7 +100,31 @@ void addURegexTest(TestNode** root)
     addTest(root, &TestBug4315,   "regex/TestBug4315");
 }
 
+/*
+ * Call back function and context struct used for testing
+ *    regular expression user callbacks.  This test is mostly the same as
+ *   the corresponding C++ test in intltest. 
+ */
+typedef struct callBackContext {
+    int32_t          maxCalls;
+    int32_t          numCalls;
+    int32_t          lastSteps;
+} callBackContext;
 
+static UBool U_EXPORT2 U_CALLCONV
+TestCallbackFn(const void *context, int32_t steps) {
+  callBackContext  *info = (callBackContext *)context;
+  if (info->lastSteps+1 != steps) {
+      log_err("incorrect steps in callback.  Expected %d, got %d\n", info->lastSteps+1, steps);
+  }
+  info->lastSteps = steps;
+  info->numCalls++;
+  return (info->numCalls < info->maxCalls);
+}
+
+/*
+ *   Regular Expression C API Tests
+ */
 static void TestRegexCAPI(void) {
     UErrorCode           status = U_ZERO_ERROR;
     URegularExpression  *re;
@@ -81,7 +136,10 @@ static void TestRegexCAPI(void) {
     /* Mimimalist open/close */
     u_uastrncpy(pat, "abc*", sizeof(pat)/2);
     re = uregex_open(pat, -1, 0, 0, &status);
-    TEST_ASSERT_SUCCESS(status);
+    if (U_FAILURE(status)) {
+         log_err("Failed to open regular expression, line %d, error is \"%s\"\n", __LINE__, u_errorName(status));
+         return;
+    }
     uregex_close(re);
 
     /* Open with all flag values set */
@@ -543,6 +601,135 @@ static void TestRegexCAPI(void) {
         uregex_close(re);
 
     }
+    
+    /*
+     *  Regions
+     */
+        
+        
+        /* SetRegion(), getRegion() do something  */
+        TEST_SETUP(".*", "0123456789ABCDEF", 0)
+        UChar resultString[40];
+        TEST_ASSERT(uregex_regionStart(re, &status) == 0);
+        TEST_ASSERT(uregex_regionEnd(re, &status) == 16);
+        uregex_setRegion(re, 3, 6, &status);
+        TEST_ASSERT(uregex_regionStart(re, &status) == 3);
+        TEST_ASSERT(uregex_regionEnd(re, &status) == 6);
+        TEST_ASSERT(uregex_findNext(re, &status));
+        TEST_ASSERT(uregex_group(re, 0, resultString, sizeof(resultString)/2, &status) == 3)
+        TEST_ASSERT_STRING("345", resultString, TRUE);
+        TEST_TEARDOWN;
+        
+        /* find(start=-1) uses regions   */
+        TEST_SETUP(".*", "0123456789ABCDEF", 0);
+        uregex_setRegion(re, 4, 6, &status);
+        TEST_ASSERT(uregex_find(re, -1, &status) == TRUE);
+        TEST_ASSERT(uregex_start(re, 0, &status) == 4);
+        TEST_ASSERT(uregex_end(re, 0, &status) == 6);
+        TEST_TEARDOWN;
+        
+        /* find (start >=0) does not use regions   */
+        TEST_SETUP(".*", "0123456789ABCDEF", 0);
+        uregex_setRegion(re, 4, 6, &status);
+        TEST_ASSERT(uregex_find(re, 0, &status) == TRUE);
+        TEST_ASSERT(uregex_start(re, 0, &status) == 0);
+        TEST_ASSERT(uregex_end(re, 0, &status) == 16);
+        TEST_TEARDOWN;
+         
+        /* findNext() obeys regions    */
+        TEST_SETUP(".", "0123456789ABCDEF", 0);
+        uregex_setRegion(re, 4, 6, &status);
+        TEST_ASSERT(uregex_findNext(re,&status) == TRUE);
+        TEST_ASSERT(uregex_start(re, 0, &status) == 4);
+        TEST_ASSERT(uregex_findNext(re, &status) == TRUE);
+        TEST_ASSERT(uregex_start(re, 0, &status) == 5);
+        TEST_ASSERT(uregex_findNext(re, &status) == FALSE);
+        TEST_TEARDOWN;
+
+        /* matches(start=-1) uses regions                                           */
+        /*    Also, verify that non-greedy *? succeeds in finding the full match.   */
+        TEST_SETUP(".*?", "0123456789ABCDEF", 0);
+        uregex_setRegion(re, 4, 6, &status);
+        TEST_ASSERT(uregex_matches(re, -1, &status) == TRUE);
+        TEST_ASSERT(uregex_start(re, 0, &status) == 4);
+        TEST_ASSERT(uregex_end(re, 0, &status) == 6);
+        TEST_TEARDOWN;
+        
+        /* matches (start >=0) does not use regions       */
+        TEST_SETUP(".*?", "0123456789ABCDEF", 0);
+        uregex_setRegion(re, 4, 6, &status);
+        TEST_ASSERT(uregex_matches(re, 0, &status) == TRUE);
+        TEST_ASSERT(uregex_start(re, 0, &status) == 0);
+        TEST_ASSERT(uregex_end(re, 0, &status) == 16);
+        TEST_TEARDOWN;
+        
+        /* lookingAt(start=-1) uses regions                                         */
+        /*    Also, verify that non-greedy *? finds the first (shortest) match.     */
+        TEST_SETUP(".*?", "0123456789ABCDEF", 0);
+        uregex_setRegion(re, 4, 6, &status);
+        TEST_ASSERT(uregex_lookingAt(re, -1, &status) == TRUE);
+        TEST_ASSERT(uregex_start(re, 0, &status) == 4);
+        TEST_ASSERT(uregex_end(re, 0, &status) == 4);
+        TEST_TEARDOWN;
+        
+        /* lookingAt (start >=0) does not use regions  */
+        TEST_SETUP(".*?", "0123456789ABCDEF", 0);
+        uregex_setRegion(re, 4, 6, &status);
+        TEST_ASSERT(uregex_lookingAt(re, 0, &status) == TRUE);
+        TEST_ASSERT(uregex_start(re, 0, &status) == 0);
+        TEST_ASSERT(uregex_end(re, 0, &status) == 0);
+        TEST_TEARDOWN;
+
+        /* hitEnd()       */
+        TEST_SETUP("[a-f]*", "abcdefghij", 0);
+        TEST_ASSERT(uregex_find(re, 0, &status) == TRUE);
+        TEST_ASSERT(uregex_hitEnd(re, &status) == FALSE);
+        TEST_TEARDOWN;
+
+        TEST_SETUP("[a-f]*", "abcdef", 0);
+        TEST_ASSERT(uregex_find(re, 0, &status) == TRUE);
+        TEST_ASSERT(uregex_hitEnd(re, &status) == TRUE);
+        TEST_TEARDOWN;
+
+        /* requireEnd   */
+        TEST_SETUP("abcd", "abcd", 0);
+        TEST_ASSERT(uregex_find(re, 0, &status) == TRUE);
+        TEST_ASSERT(uregex_requireEnd(re, &status) == FALSE);
+        TEST_TEARDOWN;
+
+        TEST_SETUP("abcd$", "abcd", 0);
+        TEST_ASSERT(uregex_find(re, 0, &status) == TRUE);
+        TEST_ASSERT(uregex_requireEnd(re, &status) == TRUE);
+        TEST_TEARDOWN;
+        
+        /* anchoringBounds        */
+        TEST_SETUP("abc$", "abcdef", 0);
+        TEST_ASSERT(uregex_hasAnchoringBounds(re, &status) == TRUE);
+        uregex_useAnchoringBounds(re, FALSE, &status);
+        TEST_ASSERT(uregex_hasAnchoringBounds(re, &status) == FALSE);
+        
+        TEST_ASSERT(uregex_find(re, -1, &status) == FALSE);
+        uregex_useAnchoringBounds(re, TRUE, &status);
+        uregex_setRegion(re, 0, 3, &status);
+        TEST_ASSERT(uregex_find(re, -1, &status) == TRUE);
+        TEST_ASSERT(uregex_end(re, 0, &status) == 3);
+        TEST_TEARDOWN;
+        
+        /* Transparent Bounds      */
+        TEST_SETUP("abc(?=def)", "abcdef", 0);
+        TEST_ASSERT(uregex_hasTransparentBounds(re, &status) == FALSE);
+        uregex_useTransparentBounds(re, TRUE, &status);
+        TEST_ASSERT(uregex_hasTransparentBounds(re, &status) == TRUE);
+        
+        uregex_useTransparentBounds(re, FALSE, &status);
+        TEST_ASSERT(uregex_find(re, -1, &status) == TRUE);    /* No Region */
+        uregex_setRegion(re, 0, 3, &status);
+        TEST_ASSERT(uregex_find(re, -1, &status) == FALSE);   /* with region, opaque bounds */
+        uregex_useTransparentBounds(re, TRUE, &status);
+        TEST_ASSERT(uregex_find(re, -1, &status) == TRUE);    /* with region, transparent bounds */
+        TEST_ASSERT(uregex_end(re, 0, &status) == 3);
+        TEST_TEARDOWN;
+        
 
     /*
      *  replaceFirst()
@@ -981,7 +1168,71 @@ static void TestRegexCAPI(void) {
         uregex_close(re);
     }
 
+    /*
+     * set/getTimeLimit
+     */
+     TEST_SETUP("abc$", "abcdef", 0);
+     TEST_ASSERT(uregex_getTimeLimit(re, &status) == 0);
+     uregex_setTimeLimit(re, 1000, &status);
+     TEST_ASSERT(uregex_getTimeLimit(re, &status) == 1000);
+     TEST_ASSERT_SUCCESS(status);
+     uregex_setTimeLimit(re, -1, &status);
+     TEST_ASSERT(status == U_ILLEGAL_ARGUMENT_ERROR);
+     status = U_ZERO_ERROR;
+     TEST_ASSERT(uregex_getTimeLimit(re, &status) == 1000);
+     TEST_TEARDOWN;
+
+     /*
+      * set/get Stack Limit
+      */
+     TEST_SETUP("abc$", "abcdef", 0);
+     TEST_ASSERT(uregex_getStackLimit(re, &status) == 8000000);
+     uregex_setStackLimit(re, 40000, &status);
+     TEST_ASSERT(uregex_getStackLimit(re, &status) == 40000);
+     TEST_ASSERT_SUCCESS(status);
+     uregex_setStackLimit(re, -1, &status);
+     TEST_ASSERT(status == U_ILLEGAL_ARGUMENT_ERROR);
+     status = U_ZERO_ERROR;
+     TEST_ASSERT(uregex_getStackLimit(re, &status) == 40000);
+     TEST_TEARDOWN;
+     
+     
+     /*
+      * Get/Set callback functions
+      *     This test is copied from intltest regex/Callbacks
+      *     The pattern and test data will run long enough to cause the callback
+      *       to be invoked.  The nested '+' operators give exponential time
+      *       behavior with increasing string length.
+      */
+     TEST_SETUP("((.)+\\2)+x", "aaaaaaaaaaaaaaaaaaab", 0)
+     callBackContext cbInfo = {4, 0, 0};
+     const void     *pContext   = &cbInfo;
+     URegexMatchCallback    *returnedFn = &TestCallbackFn;
+     
+     /*  Getting the callback fn when it hasn't been set must return NULL  */
+     uregex_getMatchCallback(re, &returnedFn, &pContext, &status);
+     TEST_ASSERT_SUCCESS(status);
+     TEST_ASSERT(returnedFn == NULL);
+     TEST_ASSERT(pContext == NULL);
+     
+     /* Set thecallback and do a match.                                   */
+     /* The callback function should record that it has been called.      */
+     uregex_setMatchCallback(re, &TestCallbackFn, &cbInfo, &status);
+     TEST_ASSERT_SUCCESS(status);
+     TEST_ASSERT(cbInfo.numCalls == 0);
+     TEST_ASSERT(uregex_matches(re, -1, &status) == FALSE);
+     TEST_ASSERT_SUCCESS(status);
+     TEST_ASSERT(cbInfo.numCalls > 0);
+     
+     /* Getting the callback should return the values that were set above.  */
+     uregex_getMatchCallback(re, &returnedFn, &pContext, &status);
+     TEST_ASSERT(returnedFn == &TestCallbackFn);
+     TEST_ASSERT(pContext == &cbInfo);
+
+     TEST_TEARDOWN;
 }
+
+
 
 static void TestBug4315(void) {
     UErrorCode      theICUError = U_ZERO_ERROR;

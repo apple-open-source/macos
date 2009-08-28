@@ -1,11 +1,11 @@
 ﻿# ***************************************************************************
 # *
-# *  Copyright (C) 2004-2006, International Business Machines
+# *  Copyright (C) 2004-2008, International Business Machines
 # *  Corporation; Unicode, Inc.; and others.  All Rights Reserved.
 # *
 # ***************************************************************************
 # File: Han_Latin.txt
-# Generated from CLDR: Thu Jul 20 16:27:15 PDT 2006
+# Generated from CLDR 
 #
 ::Han-Spacedhan();
 [吖呵錒锕阿]>ā;

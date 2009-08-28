@@ -1,5 +1,5 @@
 /*
- * "$Id: common.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: common.c 6649 2007-07-11 21:46:42Z mike $"
  *
  *   Common filter routines for the Common UNIX Printing System (CUPS).
  *
@@ -531,5 +531,5 @@ WriteTextComment(const char *name,	/* I - Comment name ("Title", etc.) */
 
 
 /*
- * End of "$Id: common.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: common.c 6649 2007-07-11 21:46:42Z mike $".
  */

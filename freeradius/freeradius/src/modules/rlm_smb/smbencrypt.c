@@ -4,6 +4,7 @@
    SMB parameters and setup
    Copyright (C) Andrew Tridgell 1992-1997
    Modified by Jeremy Allison 1995.
+   Copyright 2006 The FreeRADIUS server project
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -20,20 +21,18 @@
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-#include "smblib-priv.h"
-#define uchar unsigned char
-extern int DEBUGLEVEL;
-
-#include <string.h>
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
 #include <string.h>
 #ifdef HAVE_SYS_VFS_H
 #include <sys/vfs.h>
 #endif
 
-#include "byteorder.h"
+#include "smblib-priv.h"
+#define uchar unsigned char
+extern int DEBUGLEVEL;
 
-char *StrnCpy(char *dest,char *src,int n);
 void strupper(char *s);
 
 /*
@@ -46,7 +45,7 @@ void SMBencrypt(uchar *passwd, uchar *c8, uchar *p24)
 
   memset(p21,'\0',21);
   memset(p14,'\0',14);
-  StrnCpy((char *)p14,(char *)passwd,14);
+  strlcpy((char *)p14,(char *)passwd,14);
 
   strupper((char *)p14);
   E_P16(p14, p21);
@@ -124,7 +123,7 @@ void SMBNTencrypt(uchar *passwd, uchar *c8, uchar *p24)
 void nt_lm_owf_gen(char *pwd, char *nt_p16, char *p16)
 {
 	char passwd[130];
-	StrnCpy(passwd, pwd, sizeof(passwd)-1);
+	strlcpy(passwd, pwd, sizeof(passwd));
 
 	/* Calculate the MD4 hash (NT compatible) of the password */
 	memset(nt_p16, '\0', 16);
@@ -141,22 +140,6 @@ void nt_lm_owf_gen(char *pwd, char *nt_p16, char *p16)
 
 	/* clear out local copy of user's password (just being paranoid). */
 	bzero(passwd, sizeof(passwd));
-}
-
-/****************************************************************************
-line strncpy but always null terminates. Make sure there is room!
-****************************************************************************/
-char *StrnCpy(char *dest,char *src,int n)
-{
-  char *d = dest;
-  if (!dest) return(NULL);
-  if (!src) {
-    *dest = 0;
-    return(dest);
-  }
-  while (n-- && (*d++ = *src++)) ;
-  *d = 0;
-  return(dest);
 }
 
 void strupper(char *s)

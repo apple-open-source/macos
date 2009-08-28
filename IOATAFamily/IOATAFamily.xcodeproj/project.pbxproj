@@ -101,6 +101,7 @@
 		019C1A36FFDDABCE7F000001 /* IOATAController.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOATAController.cpp; sourceTree = SOURCE_ROOT; };
 		019C1A37FFDDABCE7F000001 /* IOATADevConfig.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOATADevConfig.cpp; sourceTree = SOURCE_ROOT; };
 		019C1A38FFDDABCE7F000001 /* IOATADevice.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOATADevice.cpp; sourceTree = SOURCE_ROOT; };
+		2A923B4F0E8CBDD800ED2357 /* AspenSDK.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = AspenSDK.xcconfig; path = AppleInternal/XcodeConfig/AspenSDK.xcconfig; sourceTree = SYSTEM_DEVELOPER_DIR; };
 		52C1FFB70DAD2D87006889B7 /* Info-IOATAFamily.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOATAFamily.plist"; sourceTree = "<group>"; };
 		52C1FFB80DAD2D87006889B7 /* IOATAFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOATAFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		B91829CD0197498808CA29FD /* IOATARegI386.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOATARegI386.cpp; sourceTree = "<group>"; };
@@ -136,6 +137,7 @@
 				019C1A25FFDDABCE7F000001 /* Drivers */,
 				247142CAFF3F8F9811CA285C /* Family */,
 				19C28FB6FE9D52B211CA2CBB /* Products */,
+				2A923B4F0E8CBDD800ED2357 /* AspenSDK.xcconfig */,
 				52C1FFB70DAD2D87006889B7 /* Info-IOATAFamily.plist */,
 			);
 			name = IOATAFamily;
@@ -305,6 +307,45 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
+		2A923B500E8CBDED00ED2357 /* Embedded */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 2A923B4F0E8CBDD800ED2357 /* AspenSDK.xcconfig */;
+			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH)";
+			};
+			name = Embedded;
+		};
+		2A923B510E8CBDED00ED2357 /* Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOATAFamily.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOATAFamily;
+				MODULE_VERSION = 2.0.0;
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = IOATAFamily;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Embedded;
+		};
 		52C1FFB40DAD2D87006889B7 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -324,12 +365,11 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOATAFamily;
-				MODULE_VERSION = 2.0.2;
+				MODULE_VERSION = 2.0.0;
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = IOATAFamily;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -356,12 +396,11 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOATAFamily;
-				MODULE_VERSION = 2.0.2;
+				MODULE_VERSION = 2.0.0;
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = IOATAFamily;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -386,12 +425,11 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOATAFamily;
-				MODULE_VERSION = 2.0.2;
+				MODULE_VERSION = 2.0.0;
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = IOATAFamily;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -430,6 +468,7 @@
 			buildConfigurations = (
 				52C1FFB40DAD2D87006889B7 /* Development */,
 				52C1FFB50DAD2D87006889B7 /* Deployment */,
+				2A923B510E8CBDED00ED2357 /* Embedded */,
 				52C1FFB60DAD2D87006889B7 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -440,6 +479,7 @@
 			buildConfigurations = (
 				A5EDE05E09660D8400EFBE07 /* Development */,
 				A5EDE05F09660D8400EFBE07 /* Deployment */,
+				2A923B500E8CBDED00ED2357 /* Embedded */,
 				A5EDE06009660D8400EFBE07 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;

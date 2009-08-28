@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -66,7 +66,7 @@ struct Timer_s {
 static void 
 Timer_process(CFRunLoopTimerRef rls, void * info)
 {
-    Timer *	timer = (Timer *)info;
+    TimerRef	timer = (TimerRef)info;
 
     if (timer->func && timer->enabled) {
 	timer->enabled = 0;
@@ -75,10 +75,10 @@ Timer_process(CFRunLoopTimerRef rls, void * info)
     return;
 }
 
-Timer *
+TimerRef
 Timer_create()
 {
-    Timer * timer;
+    TimerRef timer;
 
     timer = malloc(sizeof(*timer));
     if (timer == NULL)
@@ -88,9 +88,9 @@ Timer_create()
 }
 
 void
-Timer_free(Timer * * timer_p)
+Timer_free(TimerRef * timer_p)
 {
-    Timer * timer = *timer_p;
+    TimerRef timer = *timer_p;
 
     if (timer == NULL)
 	return;
@@ -102,7 +102,7 @@ Timer_free(Timer * * timer_p)
 }
 
 int
-Timer_set_relative(Timer * timer, 
+Timer_set_relative(TimerRef timer, 
 		   struct timeval rel_time, Timer_func_t * func, 
 		   void * arg1, void * arg2, void * arg3)
 {
@@ -143,7 +143,7 @@ Timer_set_relative(Timer * timer,
 }
 
 void
-Timer_cancel(Timer * timer)
+Timer_cancel(TimerRef timer)
 {
     if (timer == NULL) {
 	return;

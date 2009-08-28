@@ -79,6 +79,7 @@ namespace JSC {
                 , numberPrototype(0)
                 , datePrototype(0)
                 , regExpPrototype(0)
+                , methodCallDummy(0)
             {
             }
             
@@ -119,6 +120,8 @@ namespace JSC {
             NumberPrototype* numberPrototype;
             DatePrototype* datePrototype;
             RegExpPrototype* regExpPrototype;
+
+            JSObject* methodCallDummy;
 
             RefPtr<Structure> argumentsStructure;
             RefPtr<Structure> arrayStructure;
@@ -166,7 +169,7 @@ namespace JSC {
         virtual void mark();
 
         virtual bool getOwnPropertySlot(ExecState*, const Identifier&, PropertySlot&);
-        virtual bool getOwnPropertySlot(ExecState*, const Identifier&, PropertySlot&, bool& slotIsWriteable);
+        virtual bool hasOwnPropertyForWrite(ExecState*, const Identifier&);
         virtual void put(ExecState*, const Identifier&, JSValue, PutPropertySlot&);
         virtual void putWithAttributes(ExecState*, const Identifier& propertyName, JSValue value, unsigned attributes);
 
@@ -200,6 +203,8 @@ namespace JSC {
         NumberPrototype* numberPrototype() const { return d()->numberPrototype; }
         DatePrototype* datePrototype() const { return d()->datePrototype; }
         RegExpPrototype* regExpPrototype() const { return d()->regExpPrototype; }
+
+        JSObject* methodCallDummy() const { return d()->methodCallDummy; }
 
         Structure* argumentsStructure() const { return d()->argumentsStructure.get(); }
         Structure* arrayStructure() const { return d()->arrayStructure.get(); }
@@ -320,10 +325,12 @@ namespace JSC {
         return symbolTableGet(propertyName, slot);
     }
 
-    inline bool JSGlobalObject::getOwnPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot& slot, bool& slotIsWriteable)
+    inline bool JSGlobalObject::hasOwnPropertyForWrite(ExecState* exec, const Identifier& propertyName)
     {
-        if (JSVariableObject::getOwnPropertySlotForWrite(exec, propertyName, slot, slotIsWriteable))
+        PropertySlot slot;
+        if (JSVariableObject::getOwnPropertySlot(exec, propertyName, slot))
             return true;
+        bool slotIsWriteable;
         return symbolTableGet(propertyName, slot, slotIsWriteable);
     }
 

@@ -1,0 +1,23 @@
+#!/bin/sh
+#
+# $NetBSD: netbsd2tnftpd,v 1.1 2008/09/21 16:15:29 lukem Exp $
+
+mantoin()
+{
+	[ $# -eq 2 ] || exit 5
+	[ "$1" != "$2" ] || exit 6
+	echo 1>&2 "Converting $1 to $2"
+	sed < "$1" > "$2" \
+		-e 's|/etc/ftpchroot|@sysconfdir@/ftpchroot|' \
+		-e 's|/etc/ftpd.conf|@sysconfdir@/ftpd.conf|' \
+		-e 's|/etc/ftpusers|@sysconfdir@/ftpusers|' \
+		-e 's|/etc/ftpwelcome|@sysconfdir@/ftpwelcome|' \
+		-e 's|/etc/motd|@sysconfdir@/motd|' \
+		-e 's|Pa /etc$|Pa @sysconfdir@|' \
+		-e 's|/usr/share/examples/ftpd/|@datadir@/examples/tnftpd/|'
+}
+
+
+mantoin ftpd.8 tnftpd.manin
+mantoin ftpd.conf.5 ftpd.conf.manin
+mantoin ftpusers.5 ftpusers.manin

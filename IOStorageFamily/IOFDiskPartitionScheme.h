@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -96,6 +96,7 @@ struct disk_blk0
 #define FDISK_PARTITION_TYPE_A8 "Apple_UFS"
 #define FDISK_PARTITION_TYPE_A9 "NetBSD"
 #define FDISK_PARTITION_TYPE_AB "Apple_Boot"
+#define FDISK_PARTITION_TYPE_AE "Apple_Encrypted"
 #define FDISK_PARTITION_TYPE_AF "Apple_HFS"
 #define FDISK_PARTITION_TYPE_FD "Linux_RAID"
 
@@ -189,21 +190,19 @@ protected:
                                                      UInt32       partitionID,
                                                      UInt32       fdiskBlock );
 
+#ifndef __LP64__
     /*
      * Attach the given media object to the device tree plane.
      */
 
     virtual bool attachMediaObjectToDeviceTree(IOMedia * media) __attribute__ ((deprecated));
 
-    OSMetaClassDeclareReservedUsed(IOFDiskPartitionScheme, 0); /* 10.3.0 */
-
     /*
      * Detach the given media object from the device tree plane.
      */
 
     virtual void detachMediaObjectFromDeviceTree(IOMedia * media) __attribute__ ((deprecated));
-
-    OSMetaClassDeclareReservedUsed(IOFDiskPartitionScheme, 1); /* 10.3.0 */
+#endif /* !__LP64__ */
 
 public:
 
@@ -237,6 +236,13 @@ public:
 
     virtual IOReturn requestProbe(IOOptionBits options);
 
+#ifdef __LP64__
+    OSMetaClassDeclareReservedUnused(IOFDiskPartitionScheme,  0);
+    OSMetaClassDeclareReservedUnused(IOFDiskPartitionScheme,  1);
+#else /* !__LP64__ */
+    OSMetaClassDeclareReservedUsed(IOFDiskPartitionScheme,  0);
+    OSMetaClassDeclareReservedUsed(IOFDiskPartitionScheme,  1);
+#endif /* !__LP64__ */
     OSMetaClassDeclareReservedUnused(IOFDiskPartitionScheme,  2);
     OSMetaClassDeclareReservedUnused(IOFDiskPartitionScheme,  3);
     OSMetaClassDeclareReservedUnused(IOFDiskPartitionScheme,  4);

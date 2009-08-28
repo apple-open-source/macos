@@ -1,0 +1,73 @@
+Return-Path: <MAILER-DAEMON@sb7.songbird.com>
+Received: from mail.trusite.com (vendormail.truserv.com [64.94.39.5])
+	by sb7.songbird.com (8.12.11.20060308/8.12.11) with ESMTP id
+	k57NS3QZ028360
+	for <gpc-talk-bounces@grizz.org>; Wed, 7 Jun 2006 16:28:03 -0700
+Message-Id: <200606072328.k57NS3QZ028360@sb7.songbird.com>
+Date: Wed, 7 Jun 2006 18:26:11 -0500
+Reply-to: postmaster@trusite.com
+From: "LSMTP for Windows NT v1.1b" <postmaster@mail.trusite.com>
+Subject: Undelivered mail
+To: gpc-talk-bounces@grizz.org
+X-Report-Type: Nondelivery; boundary="> Error description:"
+X-SongbirdInformation: support@songbird.com for more information
+X-Songbird: Clean
+X-Songbird-From: 
+
+An error was detected while processing the enclosed message.  A list of
+the affected recipient follows.   This list is in a special format that
+allows software like LISTSERV to automatically take action on incorrect
+addresses; you can safely ignore the numeric codes.
+
+--> Error description:
+Error-for:  powell@kesslersupply.com
+Error-Code: 0
+Error-Text: Mailer mail.kesslersupply.com said:
+            "554 Message looping (received 6 times)"
+
+Error-End:  One error reported.
+
+------------------------------ Original message ------------------------------
+Received: from mail.trusite.com (64.94.39.5) by mail.trusite.com (LSMTP for Windows NT v1.1b) with SMTP id <0.01BC17B2@mail.trusite.com>; Wed, 7 Jun 2006 16:56:58 -0500
+Received: from mail.trusite.com (64.94.39.5) by mail.trusite.com (LSMTP for Windows NT v1.1b) with SMTP id <0.01BBF653@mail.trusite.com>; Wed, 7 Jun 2006 16:48:09 -0500
+Received: from mail.trusite.com (64.94.39.5) by mail.trusite.com (LSMTP for Windows NT v1.1b) with SMTP id <0.01BBAD89@mail.trusite.com>; Wed, 7 Jun 2006 14:38:42 -0500
+Received: from mail.trusite.com (64.94.39.5) by mail.trusite.com (LSMTP for Windows NT v1.1b) with SMTP id <0.01BB889E@mail.trusite.com>; Wed, 7 Jun 2006 14:28:27 -0500
+Received: from sb7.songbird.com (208.184.79.137) by mail.trusite.com (LSMTP for Windows NT v1.1b) with SMTP id <0.01BA9C10@mail.trusite.com>; Wed, 7 Jun 2006 4:09:49 -0500
+Received: from sb7.songbird.com (sb7.songbird.com [127.0.0.1])
+	by sb7.songbird.com (8.12.11.20060308/8.12.11) with ESMTP id k579BaIl004568
+	for <powell@kesslersupply.com>; Wed, 7 Jun 2006 02:11:36 -0700
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Subject: Your message to GPC-talk awaits moderator approval
+From: gpc-talk-bounces@grizz.org
+To: powell@kesslersupply.com
+Message-ID: <mailman.14732.1149671496.1568.gpc-talk@grizz.org>
+Date: Wed, 07 Jun 2006 02:11:36 -0700
+Precedence: bulk
+X-BeenThere: gpc-talk@grizz.org
+X-Mailman-Version: 2.1.5
+List-Id: Grizzly Peak Cyclists general discussion list <gpc-talk.grizz.org>
+X-List-Administrivia: yes
+Sender: gpc-talk-bounces@grizz.org
+Errors-To: gpc-talk-bounces@grizz.org
+X-SongbirdInformation: support@songbird.com for more information
+X-Songbird: Clean
+X-Songbird-From: gpc-talk-bounces@grizz.org
+
+Your mail to 'GPC-talk' with the subject
+
+    Urgent Notification #3417701650782548
+
+Is being held until the list moderator can review it for approval.
+
+The reason it is being held:
+
+    Post by non-member to a members-only list
+
+Either the message will get posted to the list, or you will receive
+notification of the moderator's decision.  If you would like to cancel
+this posting, please visit the following URL:
+
+    http://www.grizz.org/mailman/confirm/gpc-talk/9511e0532a992db101e66ca77dd2e2142f4cc8d4
+

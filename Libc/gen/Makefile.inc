@@ -14,23 +14,33 @@ GENMIGDEFS += asl_ipc.defs
 GENMIGHDRS += ${GENMIGDEFS:.defs=.h}
 GENMIGSRCS += ${GENMIGDEFS:.defs=User.c}
 
-MISRCS += ${GENMIGSRCS} NSSystemDirectories.c OSSystemInfo.c \
+MISRCS += ${GENMIGSRCS} NSSystemDirectories.c \
 	asl.c asl_core.c asl_file.c asl_legacy1.c asl_store.c asl_util.c \
 	backtrace.c \
 	cache.c confstr.c crypt.c devname.c disklabel.c errlst.c \
 	filesec.c fts.c \
 	get_compat.c getloadavg.c getttyent.c getusershell.c getvfsbyname.c \
 	isinf.c isnan.c \
-	malloc.c nanosleep.c nftw.c nlist.c scalable_malloc.c setlogin.c \
+	malloc.c nanosleep.c nftw.c magazine_malloc.c setlogin.c \
 	sigsetops.c _simple.c stack_logging.c stack_logging_disk.c strtofflags.c syslog.c \
 	thread_stack_pcs.c uname.c utmpx-darwin.c wordexp.c
 
 .ifdef FEATURE_LEGACY_NXZONE_APIS
 MISRCS += zone.c
 .endif
+.if !defined(LP64)
+MISRCS += nlist.c
+.endif
 	
+# DTrace USDT probes placed in magazine_malloc.c and malloc.c
+${SYMROOTINC}/magmallocProvider.h: ${.CURDIR}/gen/magmallocProvider.d
+	${DTRACE} -o ${.TARGET} -C -h -s ${.ALLSRC}
+magazine_malloc.${OBJSUFFIX}: ${SYMROOTINC}/magmallocProvider.h
+malloc.${OBJSUFFIX}: ${SYMROOTINC}/magmallocProvider.h
+
 # Force these files to build after the mig stuff
 asl.${OBJSUFFIX}: asl_ipcUser.c
+syslog.${OBJSUFFIX}: asl_ipcUser.c
 utmpx-darwin.${OBJSUFFIX}: asl_ipcUser.c
 
 CLEANFILES += ${GENMIGHDRS} ${GENMIGSRCS} ${GENMIGDEFS:.defs=Server.c}
@@ -39,19 +49,29 @@ LOCALHDRS += ${.CURDIR}/gen/asl_core.h ${.CURDIR}/gen/asl_file.h ${.CURDIR}/gen/
 	${.CURDIR}/gen/asl_private.h ${.CURDIR}/gen/asl_store.h \
 	${.CURDIR}/gen/_simple.h ${.CURDIR}/gen/stack_logging.h
 
+CFLAGS-asl_file.c += -D_DARWIN_UNLIMITED_STREAMS
+CFLAGS-asl_legacy1.c += -D_DARWIN_UNLIMITED_STREAMS
+CFLAGS-asl_store.c += -D_DARWIN_UNLIMITED_STREAMS
 CFLAGS-confstr.c += -I${.CURDIR}/darwin
-
+CFLAGS-fmtmsg-fbsd.c += -D_DARWIN_UNLIMITED_STREAMS
+CFLAGS-getcap-fbsd.c += -D_DARWIN_UNLIMITED_STREAMS
+CFLAGS-getttyent.c += -D_DARWIN_UNLIMITED_STREAMS
+CFLAGS-getusershell.c += -D_DARWIN_UNLIMITED_STREAMS
 CFLAGS-glob-fbsd.c += -UDEBUG
 
 # 4840357: workaround for compiler failure building libc_debug.a
 .if make(lib${LIB}_debug.a)
-CFLAGS-scalable_malloc.c += -funit-at-a-time
+CFLAGS-magazine_malloc.c += -funit-at-a-time
 .endif
 
 # Malloc uses count leading zeroes, not available in thumb
-.if (${MACHINE_ARCH} == arm)
-CFLAGS-scalable_malloc.c += -mno-thumb
-.endif
+#.if (${MACHINE_ARCH} == arm)
+#CFLAGS-scalable_malloc.c += -mno-thumb
+#.endif
+
+CFLAGS-stack_logging_disk.c += -D_DARWIN_UNLIMITED_STREAMS
+CFLAGS-utmpx-nbsd.c += -D_DARWIN_UNLIMITED_STREAMS
+CFLAGS-wordexp.c += -D_DARWIN_UNLIMITED_STREAMS
 
 # also build 64-bit long double versions (ppc only)
 LDBLSRCS += asl.c err.c syslog.c
@@ -76,19 +96,30 @@ FBSDMISRCS = _rand48.c alarm.c arc4random.c assert.c \
 .ifdef FEATURE_LEGACY_64_APIS
 # special case: getmntinfo64-fbsd.c is derived from getmntinfo.c with getmntinfo64.c.patch
 .ifmake autopatch
-
-# This .for statement forces evaluation of ${CWD}
-.for _cwd in ${CWD}
+.for _cwd in ${CWD} # This .for statement forces evaluation of ${CWD}
 AUTOPATCHSRCS+= ${_cwd}/getmntinfo64-fbsd.c
 ${_cwd}/getmntinfo64-fbsd.c: ${_cwd}/FreeBSD/getmntinfo.c
-	cp ${.ALLSRC} ${.TARGET}
-	patch ${.TARGET} ${.ALLSRC:S/getmntinfo/getmntinfo64/}.patch
+	${CP} ${.ALLSRC} ${.TARGET}
+	${PATCH} ${.TARGET} ${.ALLSRC:S/getmntinfo/getmntinfo64/}.patch
 .endfor # _cwd
-
 .else # !autopatch
 MISRCS+= getmntinfo64.c
 .endif # autopatch
 .endif # FEATURE_LEGACY_64_APIS
+
+# special case: scandir_b-fbsd.c is derived from scandir.c with scandir_b.c.patch
+.ifmake autopatch
+.for _cwd in ${CWD} # This .for statement forces evaluation of ${CWD}
+AUTOPATCHSRCS+= ${_cwd}/scandir_b-fbsd.c
+${_cwd}/scandir_b-fbsd.c: ${_cwd}/FreeBSD/scandir.c
+	${CP} ${.ALLSRC} ${.TARGET}
+	${PATCH} ${.TARGET} ${.ALLSRC:S/scandir/scandir_b/}.patch
+.endfor # _cwd
+.else # !autopatch
+.ifdef FEATURE_BLOCKS
+MISRCS+= scandir_b.c
+.endif # FEATURE_BLOCKS
+.endif # autopatch
 
 PRE1050SRCS+= daemon.c
 .if defined(LP64)
@@ -113,29 +144,36 @@ PRIV_INSTHDRS += ${.CURDIR}/gen/stack_logging.h
 
 LEGACYSRCS += clock.c closedir.c confstr.c crypt.c fnmatch.c \
 	lockf.c nanosleep.c nftw.c nice.c opendir.c \
-	pause.c pselect.c rewinddir.c \
-	seekdir.c sleep.c telldir.c termios.c timezone.c ttyname.c \
+	pause.c popen.c pselect.c rewinddir.c \
+	seekdir.c setmode.c sleep.c \
+	telldir.c termios.c timezone.c ttyname.c \
 	usleep.c wait.c waitpid.c
 INODE32SRCS += fts.c getmntinfo.c glob.c nftw.c opendir.c \
 	readdir.c rewinddir.c scandir.c seekdir.c telldir.c
+.ifdef FEATURE_BLOCKS
+INODE32SRCS += scandir_b.c
+.endif # FEATURE_BLOCKS
 CANCELABLESRCS += lockf.c nanosleep.c pause.c pselect.c sleep.c termios.c \
 	usleep.c wait.c waitpid.c
 CANCELABLE-DARWINEXTSNSRCS += pselect.c
-DARWINEXTSNSRCS += pselect.c
+DARWINEXTSNSRCS += popen.c pselect.c
+DYLDSRCS += _simple.c
 
 # include __dirent.h to rename DIR structure elements
 .for _src in closedir-fbsd.c opendir-fbsd.c readdir-fbsd.c rewinddir-fbsd.c \
 	scandir-fbsd.c seekdir-fbsd.c telldir-fbsd.c
 CFLAGS-${_src} += -I${.CURDIR}/gen -include __dirent.h
 .endfor
+.ifdef FEATURE_BLOCKS
+CFLAGS-scandir_b-fbsd.c += -I${.CURDIR}/gen -include __dirent.h
+.endif # FEATURE_BLOCKS
 
-# ppc optimizer hacks:
-#drand48-fbsd.c is better with -O1 than -Os.
-#erand48-fbsd.c is better with -O3 than -Os.
+# 4105292/4329702 different optimizations improves performance of
+# drand48 and erand48
 .if !make(lib${LIB}_debug.a)
-.if (${MACHINE_ARCH} == ppc)
+.if (${MACHINE_ARCH} == i386)
 OPTIMIZE-drand48-fbsd.c += -O1
-OPTIMIZE-erand48-fbsd.c += -O3
+OPTIMIZE-erand48-fbsd.c += -O1
 .endif
 .endif
 
@@ -146,8 +184,9 @@ CFLAGS-closedir-fbsd.c += -DLIBC_ALIAS_CLOSEDIR
 CFLAGS-confstr.c += -DLIBC_ALIAS_CONFSTR
 CFLAGS-crypt.c += -DLIBC_ALIAS_ENCRYPT -DLIBC_ALIAS_SETKEY
 CFLAGS-fnmatch-fbsd.c += -DLIBC_ALIAS_FNMATCH
-CFLAGS-fts.c += -DLIBC_ALIAS_FTS_CHILDREN -DLIBC_ALIAS_FTS_CLOSE -DLIBC_ALIAS_FTS_OPEN -DLIBC_ALIAS_FTS_READ -DLIBC_ALIAS_FTS_SET
+CFLAGS-fts.c += -DLIBC_ALIAS_FTS_CHILDREN -DLIBC_ALIAS_FTS_CLOSE -DLIBC_ALIAS_FTS_OPEN -DLIBC_ALIAS_FTS_OPEN_B -DLIBC_ALIAS_FTS_READ -DLIBC_ALIAS_FTS_SET
 CFLAGS-glob-fbsd.c += -DLIBC_ALIAS_GLOB
+CFLAGS-glob_b-fbsd.c += -DLIBC_ALIAS_GLOB_B
 CFLAGS-lockf-fbsd.c += -DLIBC_ALIAS_LOCKF
 CFLAGS-nanosleep.c += -DLIBC_ALIAS_NANOSLEEP
 CFLAGS-nftw.c += -DLIBC_ALIAS_FTW -DLIBC_ALIAS_NFTW
@@ -155,8 +194,10 @@ CFLAGS-nice-fbsd.c += -DLIBC_ALIAS_NICE
 CFLAGS-opendir-fbsd.c += -DLIBC_ALIAS___OPENDIR2 -DLIBC_ALIAS_OPENDIR
 CFLAGS-rewinddir-fbsd.c += -DLIBC_ALIAS_REWINDDIR
 CFLAGS-pause-fbsd.c += -DLIBC_ALIAS_PAUSE
+CFLAGS-popen-fbsd.c += -DLIBC_ALIAS_POPEN
 CFLAGS-pselect-fbsd.c += -DLIBC_ALIAS_PSELECT
 CFLAGS-seekdir-fbsd.c += -DLIBC_ALIAS_SEEKDIR
+CFLAGS-setmode-fbsd.c += -DLIBC_ALIAS_SETMODE
 CFLAGS-sleep-fbsd.c += -DLIBC_ALIAS_SLEEP
 CFLAGS-telldir-fbsd.c += -DLIBC_ALIAS__SEEKDIR -DLIBC_ALIAS_TELLDIR
 CFLAGS-termios-fbsd.c += -DLIBC_ALIAS_TCDRAIN
@@ -172,7 +213,7 @@ MAN3 += asl.3 \
 	confstr.3 crypt.3 devname.3 directory.3 fts.3 ftw.3 \
 	getdomainname.3 getloadavg.3 \
 	getttyent.3 getusershell.3 getvfsbyname.3 \
-	malloc.3 malloc_size.3 nlist.3 \
+	malloc.3 malloc_size.3 malloc_zone_malloc.3 nlist.3 posix_memalign.3 \
 	pwcache.3 setjmp.3 sigsetops.3 strtofflags.3 syslog.3 \
 	tcgetpgrp.3 tcsendbreak.3 tcsetattr.3 tcsetpgrp.3 tzset.3 \
 	uname.3 wordexp.3 intro.3
@@ -186,7 +227,7 @@ FBSDMAN3= alarm.3 arc4random.3 basename.3 clock.3 ctermid.3 \
 	getbsize.3 getcap.3 getcontext.3 getcwd.3 \
 	gethostname.3 getmntinfo.3 getpagesize.3 getpass.3 \
 	getpeereid.3 getprogname.3 glob.3 \
-	isgreater.3 lockf.3 makecontext.3 nice.3 \
+	lockf.3 makecontext.3 nice.3 \
 	pause.3 popen.3 pselect.3 psignal.3 \
 	raise.3 rand48.3 readpassphrase.3 \
 	scandir.3 setmode.3 \
@@ -262,6 +303,9 @@ MLINKS+= err.3 err_set_exit.3			\
          err.3 warn.3				\
          err.3 warnc.3				\
          err.3 warnx.3
+.ifdef FEATURE_BLOCKS
+MLINKS+= err.3 err_set_exit_b.3
+.endif # FEATURE_BLOCKS
 
 MLINKS+= exec.3 execl.3				\
          exec.3 execle.3			\
@@ -274,6 +318,9 @@ MLINKS+= fts.3 fts_children.3			\
          fts.3 fts_open.3			\
          fts.3 fts_read.3			\
          fts.3 fts_set.3
+.ifdef FEATURE_BLOCKS
+MLINKS+= fts.3 fts_open_b.3
+.endif # FEATURE_BLOCKS
 
 MLINKS+= ftw.3 nftw.3
 
@@ -312,12 +359,6 @@ MLINKS+= getusershell.3 endusershell.3		\
 
 MLINKS+= glob.3 globfree.3
 
-MLINKS+= isgreater.3 isgreaterequal.3		\
-         isgreater.3 isless.3			\
-         isgreater.3 islessequal.3		\
-         isgreater.3 islessgreater.3		\
-         isgreater.3 isunordered.3
-
 MLINKS+= malloc.3 calloc.3			\
          malloc.3 free.3			\
          malloc.3 realloc.3			\
@@ -327,6 +368,16 @@ MLINKS+= malloc.3 calloc.3			\
 MLINKS+= makecontext.3 swapcontext.3
 
 MLINKS+= malloc_size.3 malloc_good_size.3
+
+MLINKS+= malloc_zone_malloc.3 malloc_create_zone.3 \
+         malloc_zone_malloc.3 malloc_destroy_zone.3 \
+         malloc_zone_malloc.3 malloc_default_zone.3 \
+         malloc_zone_malloc.3 malloc_zone_from_ptr.3 \
+         malloc_zone_malloc.3 malloc_zone_calloc.3 \
+         malloc_zone_malloc.3 malloc_zone_valloc.3 \
+         malloc_zone_malloc.3 malloc_zone_realloc.3 \
+         malloc_zone_malloc.3 malloc_zone_memalign.3 \
+         malloc_zone_malloc.3 malloc_zone_free.3
 
 MLINKS+= popen.3 pclose.3
 
@@ -352,6 +403,9 @@ MLINKS+= rand48.3 _rand48.3			\
          rand48.3 srand48.3
 
 MLINKS+= scandir.3 alphasort.3
+.ifdef FEATURE_BLOCKS
+MLINKS+= scandir.3 scandir_b.3
+.endif # FEATURE_BLOCKS
 
 MLINKS+= strtofflags.3 fflagstostr.3
 

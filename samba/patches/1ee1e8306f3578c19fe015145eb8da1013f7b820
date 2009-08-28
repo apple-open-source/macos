@@ -1,0 +1,74 @@
+
+m: Jeremy Allison <jra@samba.org>
+Date: Fri, 8 Aug 2008 00:56:50 +0000 (-0700)
+Subject: Fix bug #5675 with a varient of Tim Waugh's patch,
+X-Git-Url: http://git.samba.org/?p=samba.git;a=commitdiff_plain;h=1ee1e8306f3578c19fe015145eb8da1013f7b820
+
+Fix bug #5675 with a varient of Tim Waugh's patch,
+as proposed by James Peach.
+Jeremy.
+---
+
+Index: samba/source/client/smbspool.c
+===================================================================
+--- samba/source/client/smbspool.c.orig
++++ samba/source/client/smbspool.c
+@@ -339,7 +339,7 @@ get_exit_code(struct cli_state *cli,
+     {
+       if (cli)
+       {
+-	if (cli->use_kerberos || (cli->capabilities & CAP_EXTENDED_SECURITY))
++	if (cli->use_kerberos && cli->got_kerberos_mechanism)
+ 	  fputs("ATTR: auth-info-required=negotiate\n", stderr);
+ 	else
+ 	  fputs("ATTR: auth-info-required=username,password\n", stderr);
+Index: samba/source/include/client.h
+===================================================================
+--- samba/source/include/client.h.orig
++++ samba/source/include/client.h
+@@ -147,6 +147,7 @@ struct cli_state {
+ 	BOOL use_kerberos;
+ 	BOOL fallback_after_kerberos;
+ 	BOOL use_spnego;
++ 	BOOL got_kerberos_mechanism; /* Server supports krb5 in SPNEGO. */
+ 
+ 	BOOL use_oplocks; /* should we use oplocks? */
+ 	BOOL use_level_II_oplocks; /* should we use level II oplocks? */
+Index: samba/source/libsmb/cliconnect.c
+===================================================================
+--- samba/source/libsmb/cliconnect.c.orig
++++ samba/source/libsmb/cliconnect.c
+@@ -789,7 +789,6 @@ ADS_STATUS cli_session_setup_spnego(stru
+ 	char *principal;
+ 	char *OIDs[ASN1_MAX_OIDS];
+ 	int i;
+-	BOOL got_kerberos_mechanism = False;
+ 	DATA_BLOB blob;
+ 
+ 	DEBUG(3,("Doing spnego session setup (blob length=%lu)\n", (unsigned long)cli->secblob.length));
+@@ -820,14 +819,14 @@ ADS_STATUS cli_session_setup_spnego(stru
+ 		DEBUG(3,("got OID=%s\n", OIDs[i]));
+ 		if (strcmp(OIDs[i], OID_KERBEROS5_OLD) == 0 ||
+ 		    strcmp(OIDs[i], OID_KERBEROS5) == 0) {
+-			got_kerberos_mechanism = True;
++			cli->got_kerberos_mechanism = True;
+ 		}
+ 		free(OIDs[i]);
+ 	}
+ 
+ 	DEBUG(3,("got principal=%s\n", principal ? principal : "<null>"));
+ 
+-	if (got_kerberos_mechanism && (principal == NULL)) {
++	if (cli->got_kerberos_mechanism && (principal == NULL)) {
+ 		/*
+ 		 * It is WRONG to depend on the principal sent in the negprot
+ 		 * reply, but right now we do it. So for safety (don't
+@@ -845,7 +844,7 @@ ADS_STATUS cli_session_setup_spnego(stru
+ 	/* If password is set we reauthenticate to kerberos server
+ 	 * and do not store results */
+ 
+-	if (got_kerberos_mechanism && cli->use_kerberos) {
++	if (cli->got_kerberos_mechanism && cli->use_kerberos) {
+ 		ADS_STATUS rc;
+ 
+ 		if (pass && *pass) {

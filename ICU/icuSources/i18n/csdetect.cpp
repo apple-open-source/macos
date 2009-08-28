@@ -1,6 +1,6 @@
 /*
  **********************************************************************
- *   Copyright (C) 2005-2006, International Business Machines
+ *   Copyright (C) 2005-2008, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  **********************************************************************
  */
@@ -33,7 +33,7 @@
 #define DELETE_ARRAY(array) uprv_free((void *) (array))
 
 U_CDECL_BEGIN
-static CharsetRecognizer **fCSRecognizers = NULL;
+static U_NAMESPACE_QUALIFIER CharsetRecognizer **fCSRecognizers = NULL;
 
 static int32_t fCSRecognizers_size = 0;
 
@@ -54,8 +54,10 @@ static UBool U_CALLCONV csdet_cleanup(void)
 }
 
 static int32_t U_CALLCONV
-charsetMatchComparator(const void *context, const void *left, const void *right)
+charsetMatchComparator(const void * /*context*/, const void *left, const void *right)
 {
+    U_NAMESPACE_USE
+
     const CharsetMatch **csm_l = (const CharsetMatch **) left;
     const CharsetMatch **csm_r = (const CharsetMatch **) right;
 
@@ -76,9 +78,7 @@ void CharsetDetector::setRecognizers(UErrorCode &status)
         return;
     }
 
-    umtx_lock(NULL);
-    needsInit = (UBool) (fCSRecognizers == NULL);
-    umtx_unlock(NULL);
+    UMTX_CHECK(NULL, (UBool) (fCSRecognizers == NULL), needsInit);
 
     if (needsInit) {
         CharsetRecognizer *tempArray[] = {
@@ -129,6 +129,7 @@ void CharsetDetector::setRecognizers(UErrorCode &status)
 
         if (recognizers == NULL) {
             status = U_MEMORY_ALLOCATION_ERROR;
+            return;
         } else {
             for (r = 0; r < rCount; r += 1) {
                 recognizers[r] = tempArray[r];
@@ -164,7 +165,8 @@ void CharsetDetector::setRecognizers(UErrorCode &status)
 }
 
 CharsetDetector::CharsetDetector(UErrorCode &status)
-  : textIn(new InputText()), resultCount(0), fStripTags(FALSE), fFreshTextSet(FALSE)
+  : textIn(new InputText(status)), resultArray(NULL),
+    resultCount(0), fStripTags(FALSE), fFreshTextSet(FALSE)
 {
     if (U_FAILURE(status)) {
         return;
@@ -260,13 +262,14 @@ const CharsetMatch * const *CharsetDetector::detectAll(int32_t &maxMatchesFound,
         CharsetRecognizer *csr;
         int32_t            detectResults;
         int32_t            confidence;
+        int32_t            i;
 
         textIn->MungeInput(fStripTags);
 
         // Iterate over all possible charsets, remember all that
         // give a match quality > 0.
         resultCount = 0;
-        for (int32_t i = 0; i < fCSRecognizers_size; i += 1) {
+        for (i = 0; i < fCSRecognizers_size; i += 1) {
             csr = fCSRecognizers[i];
             detectResults = csr->match(textIn);
             confidence = detectResults;
@@ -276,7 +279,7 @@ const CharsetMatch * const *CharsetDetector::detectAll(int32_t &maxMatchesFound,
             }
         }
 
-        for(int32_t i = resultCount; i < fCSRecognizers_size; i += 1) {
+        for(i = resultCount; i < fCSRecognizers_size; i += 1) {
             resultArray[i]->set(textIn, 0, 0);
         }
 
@@ -300,7 +303,7 @@ const CharsetMatch * const *CharsetDetector::detectAll(int32_t &maxMatchesFound,
     return resultArray;
 }
 
-const char *CharsetDetector::getCharsetName(int32_t index, UErrorCode &status) const
+/*const char *CharsetDetector::getCharsetName(int32_t index, UErrorCode &status) const
 {
     if( index > fCSRecognizers_size-1 || index < 0) {
         status = U_INDEX_OUTOFBOUNDS_ERROR;
@@ -309,7 +312,7 @@ const char *CharsetDetector::getCharsetName(int32_t index, UErrorCode &status) c
     } else {
         return fCSRecognizers[index]->getName();
     }
-}
+}*/
 
 U_NAMESPACE_END
 
@@ -335,7 +338,7 @@ enumCount(UEnumeration *, UErrorCode *) {
 }
 
 static const char* U_CALLCONV
-enumNext(UEnumeration *en, int32_t *resultLength, UErrorCode *status) {
+enumNext(UEnumeration *en, int32_t *resultLength, UErrorCode * /*status*/) {
     if(((Context *)en->context)->currIndex >= fCSRecognizers_size) {
         if(resultLength != NULL) {
             *resultLength = 0;
@@ -367,8 +370,10 @@ static const UEnumeration gCSDetEnumeration = {
 };
 
 U_CAPI  UEnumeration * U_EXPORT2
-ucsdet_getAllDetectableCharsets(const UCharsetDetector *ucsd,  UErrorCode *status)
+ucsdet_getAllDetectableCharsets(const UCharsetDetector *ucsd, UErrorCode *status)
 {
+    U_NAMESPACE_USE
+
     if(U_FAILURE(*status)) {
         return 0;
     }
@@ -385,3 +390,4 @@ ucsdet_getAllDetectableCharsets(const UCharsetDetector *ucsd,  UErrorCode *statu
 U_CDECL_END
 
 #endif
+

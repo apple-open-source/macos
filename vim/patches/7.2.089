@@ -1,0 +1,91 @@
+To: vim-dev@vim.org
+Subject: Patch 7.2.089 (extra)
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 7.2.089 (extra)
+Problem:    Win32: crash when using Ultramon buttons.
+Solution:   Don't use a WM_OLE message of zero size. (Ray Megal)
+Files:	    src/if_ole.cpp, src/gui_w48.c
+
+
+*** ../vim-7.2.088/src/if_ole.cpp	Sun Mar 16 14:53:11 2008
+--- src/if_ole.cpp	Mon Jan 19 21:16:33 2009
+***************
+*** 353,361 ****
+      }
+  
+      /* Pass the string to the main input loop. The memory will be freed when
+!      * the message is processed.
+       */
+!     PostMessage(NULL, WM_OLE, 0, (LPARAM)str);
+  
+      return S_OK;
+  }
+--- 353,365 ----
+      }
+  
+      /* Pass the string to the main input loop. The memory will be freed when
+!      * the message is processed.  Except for an empty message, we don't need
+!      * to post it then.
+       */
+!     if (*str == NUL)
+! 	vim_free(str);
+!     else
+! 	PostMessage(NULL, WM_OLE, 0, (LPARAM)str);
+  
+      return S_OK;
+  }
+*** ../vim-7.2.088/src/gui_w48.c	Wed Dec 24 12:20:10 2008
+--- src/gui_w48.c	Mon Jan 19 21:19:30 2009
+***************
+*** 1663,1670 ****
+      if (msg.message == WM_OLE)
+      {
+  	char_u *str = (char_u *)msg.lParam;
+! 	add_to_input_buf(str, (int)STRLEN(str));
+! 	vim_free(str);
+  	return;
+      }
+  #endif
+--- 1663,1679 ----
+      if (msg.message == WM_OLE)
+      {
+  	char_u *str = (char_u *)msg.lParam;
+! 	if (str == NULL || *str == NUL)
+! 	{
+! 	    /* Message can't be ours, forward it.  Fixes problem with Ultramon
+! 	     * 3.0.4 */
+! 	    DispatchMessage(&msg);
+! 	}
+! 	else
+! 	{
+! 	    add_to_input_buf(str, (int)STRLEN(str));
+! 	    vim_free(str);  /* was allocated in CVim::SendKeys() */
+! 	}
+  	return;
+      }
+  #endif
+*** ../vim-7.2.088/src/version.c	Thu Jan 22 21:49:21 2009
+--- src/version.c	Wed Jan 28 14:16:01 2009
+***************
+*** 678,679 ****
+--- 678,681 ----
+  {   /* Add new patch number below this line */
++ /**/
++     89,
+  /**/
+
+
+-- 
+How To Keep A Healthy Level Of Insanity:
+16. Have your coworkers address you by your wrestling name, Rock Hard Kim.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\        download, build and distribute -- http://www.A-A-P.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

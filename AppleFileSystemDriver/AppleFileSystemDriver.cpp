@@ -26,21 +26,13 @@
 #include <IOKit/IOLib.h>
 #include <IOKit/IOBSD.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
-#include <storage/RAID/AppleRAIDUserLib.h>
+#include "AppleRAIDUserLib.h"
 
 #include <libkern/OSByteOrder.h>
 
 #include <sys/param.h>
 #include <hfs/hfs_format.h>
-#include <ufs/ufs/dinode.h>
-#include <ufs/ufs/dir.h>
-#include <ufs/ffs/fs.h>
-#include <libkern/version.h>
-#if VERSION_MAJOR < 9
-#include <sys/md5.h>
-#else
 #include <libkern/crypto/md5.h>
-#endif /* VERSION_MAJOR < 9 */
 #include <uuid/uuid.h>
 #include <uuid/namespace.h>
 
@@ -140,8 +132,8 @@ AppleFileSystemDriver::readHFSUUID(IOMedia *media, void **uuidPtr)
     UInt64                     mediaBlockSize = 0;
     IOBufferMemoryDescriptor * buffer         = 0;
     void *                     bytes          = 0;
-    UInt32                     bufferReadAt   = 0;
-    UInt32                     bufferSize     = 0;
+    UInt64                     bufferReadAt   = 0;
+    vm_size_t                  bufferSize     = 0;
     IOReturn                   status         = kIOReturnError;
     HFSMasterDirectoryBlock *  mdbPtr         = 0;
     HFSPlusVolumeHeader *      volHdrPtr      = 0;
@@ -232,107 +224,11 @@ AppleFileSystemDriver::readHFSUUID(IOMedia *media, void **uuidPtr)
 
 //------------------------------------------
 
-static UInt16
-checksum(void *p, int count)
-{
-    UInt32 sum = 0;
-
-    while( count > 1 )  {
-        sum += *(UInt16 *)p;
-        p = (UInt8 *)p + 2;
-        count -= 2;
-    }
-
-    if( count > 0 ) {
-        sum += OSSwapLittleToHostInt16((UInt16)*(UInt8 *)p);
-    }
-
-    while (sum >> 16)
-        sum = (sum & 0xffff) + (sum >> 16);
-
-    return (~sum & 0xFFFF);
-}
-
-//------------------------------------------
-
-IOReturn
-AppleFileSystemDriver::readUFSUUID(IOMedia *media, void **uuidPtr)
-{
-    bool                       mediaIsOpen    = false;
-    UInt64                     mediaBlockSize = 0;
-    IOBufferMemoryDescriptor * buffer         = 0;
-    void *                     bytes          = 0;
-    UInt32                     bufferReadAt   = 0;
-    UInt32                     bufferSize     = 0;
-    IOReturn                   status         = kIOReturnError;
-    VolumeUUID *               volumeUUIDPtr  = (VolumeUUID *)uuidPtr;
-    struct ufslabel *          u_label;
-    char                       u_magic[4]     = UFS_LABEL_MAGIC;
-    UInt16                     cksum;
-
-    DEBUG_LOG("%s::%s\n", kClassName, __func__);
-	
-    do {
-		
-        mediaBlockSize = media->getPreferredBlockSize();
-		
-        bufferSize = IORound(UFS_LABEL_SIZE, mediaBlockSize);
-        buffer     = IOBufferMemoryDescriptor::withCapacity(bufferSize, kIODirectionIn);
-        if ( buffer == 0 ) break;
-		
-        bytes = (void *) buffer->getBytesNoCopy();
-        u_label = (struct ufslabel *) bytes;
-		
-        // Open the media with read access.
-		
-        mediaIsOpen = media->open(media, 0, kIOStorageAccessReader);
-        if ( mediaIsOpen == false ) break;
-		
-        bufferReadAt = UFS_LABEL_OFFSET;
-		
-        status = media->read(media, bufferReadAt, buffer);
-        if ( status != kIOReturnSuccess )  break;
-		
-        if (bcmp(&u_label->ul_magic, u_magic, sizeof(u_label->ul_magic))) {
-            break;
-        }
-		
-        if (OSSwapBigToHostInt32(u_label->ul_version) != UFS_LABEL_VERSION) {
-            break;
-        }
-		
-        if (OSSwapBigToHostInt16(u_label->ul_namelen) > UFS_MAX_LABEL_NAME) {
-            break;
-        }
-		
-        cksum = u_label->ul_checksum;
-        u_label->ul_checksum = 0;
-		
-        if (checksum((void *)u_label, sizeof(*u_label)) != cksum) {
-            break;
-        }
-        
-        // Label is OK; now read UUID.
-        bcopy((void *)&u_label->ul_uuid, volumeUUIDPtr->bytes, kVolumeUUIDValueLength);
-		
-        status = kIOReturnSuccess;
-
-    } while (false);
-	
-    if ( mediaIsOpen )  media->close(media);
-    if ( buffer )  buffer->release();
-
-    DEBUG_LOG("%s::%s finishes with status %d\n", kClassName, __func__, status);
-
-    return status;
-}
-
-//------------------------------------------
-
 bool
 AppleFileSystemDriver::mediaNotificationHandler(
-                                        void * target, void * ref,
-                                        IOService * service )
+												void * target, void * ref,
+												IOService * service,
+												IONotifier * notifier)
 {
     AppleFileSystemDriver *    fs;
     IOMedia *                  media;
@@ -402,14 +298,9 @@ AppleFileSystemDriver::mediaNotificationHandler(
              strcmp(contentStr, "426F6F74-0000-11AA-AA11-00306543ECAC" ) == 0 ||  /* APPLE_BOOT_UUID */
              strcmp(contentStr, "5265636F-7665-11AA-AA11-00306543ECAC" ) == 0 ) { /* APPLE_RECOVERY_UUID */
             status = readHFSUUID( media, (void **)&volumeUUID );
-        } else if ( strcmp(contentStr, "Apple_UFS") == 0 ) {
-            status = readUFSUUID( media, (void **)&volumeUUID );
         } else if (strlen(contentStr) == 0 && isRAID) {
             // RAIDv1 has a content hint but is empty
             status = readHFSUUID( media, (void **)&volumeUUID );
-            if (status != kIOReturnSuccess) {
-                status = readUFSUUID( media, (void **)&volumeUUID );
-            }
         } else {
             break;
         }
@@ -517,7 +408,7 @@ AppleFileSystemDriver::start(IOService * provider)
         // Set up notification for newly-appearing devices.
         // This will also notify us about existing devices.
         
-        _notifier = IOService::addNotification( gIOMatchedNotification, matching,
+        _notifier = IOService::addMatchingNotification( gIOMatchedNotification, matching,
                                                 &mediaNotificationHandler,
                                                 this, 0 );
 

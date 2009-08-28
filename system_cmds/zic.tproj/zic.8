@@ -1,4 +1,4 @@
-.\" $FreeBSD: src/usr.sbin/zic/zic.8,v 1.17 2004/07/02 23:13:00 ru Exp $
+.\" $FreeBSD: src/usr.sbin/zic/zic.8,v 1.19 2005/02/13 23:45:54 ru Exp $
 .Dd June 20, 2004
 .Dt ZIC 8
 .Os
@@ -6,7 +6,7 @@
 .Nm zic
 .Nd timezone compiler
 .Sh SYNOPSIS
-.Nm zic
+.Nm
 .Op Fl -version
 .Op Fl Dsv
 .Op Fl d Ar directory
@@ -20,7 +20,7 @@
 .Op Ar filename ...
 .Sh DESCRIPTION
 The
-.Nm zic
+.Nm
 utility reads text from the file(s) named on the command line
 and creates the time conversion information files specified in this input.
 If a
@@ -31,7 +31,8 @@ the standard input is read.
 .Pp
 The following options are available:
 .Bl -tag -width indent
-.\" ==========
+.It Fl -version
+Output version information and exit.
 .It Fl D
 Do not automatically create directories.
 If the input file(s) specify
@@ -40,65 +41,52 @@ default behavior is to attempt to create the directory.
 If
 .Fl D
 is specified,
-.Nm zic
+.Nm
 will instead error out immediately.
-.\" ==========
 .It Fl d Ar directory
 Create time conversion information files in the named directory rather than
 in the standard directory named below.
-.\" ==========
 .It Fl g Ar group
 After creating each output file, change its group ownership to the
 specified
 .Ar group
 (which can be either a name or a numeric group ID).
-.\" ==========
 .It Fl L Ar leapsecondfilename
 Read leap second information from the file with the given name.
 If this option is not used,
 no leap second information appears in output files.
-.\" ==========
 .It Fl l Ar timezone
 Use the given
 .Ar time zone
 as local time.
 The
-.Nm zic
+.Nm
 utility will act as if the input contained a link line of the form
-.Bd -literal -offset indent
-.No "Link	timezone		localtime
-.Ed
+.Pp
+.D1 No "Link	timezone		localtime"
+.Pp
 (Note that this action has no effect on
 .Fx ,
 since the local time zone is specified in
 .Pa /etc/localtime
 and not
 .Pa /usr/share/zoneinfo/localtime . )
-.\" ==========
 .It Fl m Ar mode
 After creating each output file, change its access mode to
 .Ar mode .
 Both numeric and alphabetic modes are accepted
 (see
 .Xr chmod 1 ) .
-.\" ==========
 .It Fl p Ar timezone
 Use the given
 .Ar "time zone" Ns 's
 rules when handling POSIX-format
 time zone environment variables.
 The
-.Nm zic
+.Nm
 utility will act as if the input contained a link line of the form
-.Bd -literal -offset indent
-.No "Link	timezone		posixrules
-.Ed
-.\" ==========
-.It Fl s
-Limit time values stored in output files to values that are the same
-whether they're taken to be signed or unsigned.
-You can use this option to generate SVVS-compatible files.
-.\" ==========
+.Pp
+.D1 No "Link	timezone		posixrules"
 .It Fl u Ar user
 After creating each output file, change its owner to
 .Ar user
@@ -108,10 +96,10 @@ Complain if a year that appears in a data file is outside the range
 of years representable by
 .Xr time 3
 values.
-.\" ==========
-.It Fl -version
-Output version information and exit.
-.\" ==========
+.It Fl s
+Limit time values stored in output files to values that are the same
+whether they are taken to be signed or unsigned.
+You can use this option to generate SVVS-compatible files.
 .It Fl y Ar command
 Use the given
 .Ar command
@@ -126,7 +114,7 @@ Leading and trailing white space on input lines is ignored.
 An unquoted sharp character (#) in the input introduces a comment which extends
 to the end of the line the sharp character appears on.
 White space characters and sharp characters may be enclosed in double quotes
-(") if they're to be used as part of a field.
+(") if they are to be used as part of a field.
 Any line that is blank (after comment stripping) is ignored.
 Non-blank lines are expected to be of one of three types:
 rule lines, zone lines, and link lines.
@@ -179,7 +167,7 @@ inclusive.
 If
 .Em TYPE
 is something else, then
-.Nm zic
+.Nm
 executes the command
 .Li yearistype Ar year Ar type
 to check the type of a year:

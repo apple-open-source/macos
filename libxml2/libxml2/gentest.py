@@ -11,8 +11,13 @@ except:
     print "libxml2 python bindings not available, skipping testapi.c generation"
     sys.exit(0)
 
+if len(sys.argv) > 1:
+    srcPref = sys.argv[1] + '/'
+else:
+    srcPref = ''
+
 #
-# Modules we don't want skip in API test
+# Modules we want to skip in API test
 #
 skipped_modules = [ "SAX", "xlink", "threads", "globals",
   "xmlmemory", "xmlversion", "xmlexports",
@@ -39,6 +44,9 @@ modules_defines = {
     "xmlautomata" : "LIBXML_AUTOMATA_ENABLED",
     "xmlsave" : "LIBXML_OUTPUT_ENABLED",
     "DOCBparser" : "LIBXML_DOCB_ENABLED",
+    "xmlmodule" : "LIBXML_MODULES_ENABLED",
+    "pattern" : "LIBXML_PATTERN_ENABLED",
+    "schematron" : "LIBXML_SCHEMATRON_ENABLED",
 }
 
 #
@@ -96,7 +104,7 @@ function_defines = {
 }
 
 #
-# Some function really need to be skipped for the tests.
+# Some functions really need to be skipped for the tests.
 #
 skipped_functions = [
 # block on I/O
@@ -106,12 +114,12 @@ skipped_functions = [
 "xmlIORead", "xmlReadIO", "xmlCtxtReadIO",
 "htmlIORead", "htmlReadIO", "htmlCtxtReadIO",
 "xmlReaderNewIO", "xmlBufferDump", "xmlNanoFTPConnect",
-"xmlNanoFTPConnectTo",
+"xmlNanoFTPConnectTo", "xmlNanoHTTPMethod", "xmlNanoHTTPMethodRedir",
 # Complex I/O APIs
 "xmlCreateIOParserCtxt", "xmlParserInputBufferCreateIO",
 "xmlRegisterInputCallbacks", "xmlReaderForIO",
 "xmlOutputBufferCreateIO", "xmlRegisterOutputCallbacks",
-"xmlSaveToIO",
+"xmlSaveToIO", "xmlIOHTTPOpenW",
 # library state cleanup, generate false leak informations and other
 # troubles, heavillyb tested otherwise.
 "xmlCleanupParser", "xmlRelaxNGCleanupTypes", "xmlSetListDoc",
@@ -123,7 +131,7 @@ skipped_functions = [
 "xmlTextReaderReadInnerXml", "xmlTextReaderReadOuterXml",
 "xmlTextReaderReadString",
 # destructor
-"xmlListDelete", "xmlOutputBufferClose", "xmlNanoFTPClose",
+"xmlListDelete", "xmlOutputBufferClose", "xmlNanoFTPClose", "xmlNanoHTTPClose",
 # deprecated
 "xmlCatalogGetPublic", "xmlCatalogGetSystem", "xmlEncodeEntities",
 "xmlNewGlobalNs", "xmlHandleEntity", "xmlNamespaceParseNCName",
@@ -156,7 +164,7 @@ skipped_functions = [
 ]
 
 #
-# Those functions have side effect on the global state
+# These functions have side effects on the global state
 # and hence generate errors on memory allocation tests
 #
 skipped_memcheck = [ "xmlLoadCatalog", "xmlAddEncodingAlias",
@@ -165,7 +173,9 @@ skipped_memcheck = [ "xmlLoadCatalog", "xmlAddEncodingAlias",
    "xmlCatalogRemove", "xmlLoadCatalogs", "xmlCleanupCharEncodingHandlers",
    "xmlInitCharEncodingHandlers", "xmlCatalogCleanup",
    "xmlSchemaGetBuiltInType",
-   "htmlParseFile", # loads the catalogs
+   "htmlParseFile", "htmlCtxtReadFile", # loads the catalogs
+   "xmlTextReaderSchemaValidate", "xmlSchemaCleanupTypes", # initialize the schemas type system
+   "xmlCatalogResolve", "xmlIOParseDTD" # loads the catalogs
 ]
 
 #
@@ -198,6 +208,8 @@ extra_pre_call = {
 extra_post_call = {
    "xmlAddChild": 
        "if (ret_val == NULL) { xmlFreeNode(cur) ; cur = NULL ; }",
+   "xmlAddEntity":
+       "if (ret_val != NULL) { xmlFreeNode(ret_val) ; ret_val = NULL; }",
    "xmlAddChildList": 
        "if (ret_val == NULL) { xmlFreeNodeList(cur) ; cur = NULL ; }",
    "xmlAddSibling":
@@ -225,6 +237,8 @@ extra_post_call = {
               (ret_val != prefix) && (ret_val != memory))
               xmlFree(ret_val);
 	  ret_val = NULL;""",
+   "xmlNewDocElementContent":
+       """xmlFreeDocElementContent(doc, ret_val); ret_val = NULL;""",
    "xmlDictReference": "xmlDictFree(dict);",
    # Functions which deallocates one of their parameters
    "xmlXPathConvertBoolean": """val = NULL;""",
@@ -245,6 +259,8 @@ extra_post_call = {
    "xmlParseDocument": "if (ctxt != NULL) {xmlFreeDoc(ctxt->myDoc); ctxt->myDoc = NULL;}",
    "xmlParseChunk": "if (ctxt != NULL) {xmlFreeDoc(ctxt->myDoc); ctxt->myDoc = NULL;}",
    "xmlParseExtParsedEnt": "if (ctxt != NULL) {xmlFreeDoc(ctxt->myDoc); ctxt->myDoc = NULL;}",
+   "xmlDOMWrapAdoptNode": "if ((node != NULL) && (node->parent == NULL)) {xmlUnlinkNode(node);xmlFreeNode(node);node = NULL;}",
+   "xmlBufferSetAllocationScheme": "if ((buf != NULL) && (scheme == XML_BUFFER_ALLOC_IMMUTABLE) && (buf->content != NULL) && (buf->content != static_buf_content)) { xmlFree(buf->content); buf->content = NULL;}"
 }
 
 modules = []
@@ -318,28 +334,36 @@ def type_convert(str, name, info, module, function, pos):
            string.find(info, "URL") != -1:
 	    if string.find(function, "Save") != -1 or \
 	       string.find(function, "Create") != -1 or \
-	       string.find(function, "Write") != -1:
+	       string.find(function, "Write") != -1 or \
+	       string.find(function, "Fetch") != -1:
 	        return('fileoutput')
 	    return('filepath')
     if res == 'void_ptr':
         if module == 'nanoftp' and name == 'ctx':
 	    return('xmlNanoFTPCtxtPtr')
-        if function == 'xmlNanoFTPNewCtxt':
+        if function == 'xmlNanoFTPNewCtxt' or \
+	   function == 'xmlNanoFTPConnectTo' or \
+	   function == 'xmlNanoFTPOpen':
 	    return('xmlNanoFTPCtxtPtr')
         if module == 'nanohttp' and name == 'ctx':
 	    return('xmlNanoHTTPCtxtPtr')
-        if function == 'xmlIOHTTPOpenW':
+	if function == 'xmlNanoHTTPMethod' or \
+	   function == 'xmlNanoHTTPMethodRedir' or \
+	   function == 'xmlNanoHTTPOpen' or \
+	   function == 'xmlNanoHTTPOpenRedir':
+	    return('xmlNanoHTTPCtxtPtr');
+        if function == 'xmlIOHTTPOpen':
 	    return('xmlNanoHTTPCtxtPtr')
 	if string.find(name, "data") != -1:
-	    return('userdata');
+	    return('userdata')
 	if string.find(name, "user") != -1:
-	    return('userdata');
+	    return('userdata')
     if res == 'xmlDoc_ptr':
-        res = 'xmlDocPtr';
+        res = 'xmlDocPtr'
     if res == 'xmlNode_ptr':
-        res = 'xmlNodePtr';
+        res = 'xmlNodePtr'
     if res == 'xmlDict_ptr':
-        res = 'xmlDictPtr';
+        res = 'xmlDictPtr'
     if res == 'xmlNodePtr' and pos != 0:
         if (function == 'xmlAddChild' and pos == 2) or \
 	   (function == 'xmlAddChildList' and pos == 2) or \
@@ -351,7 +375,7 @@ def type_convert(str, name, info, module, function, pos):
 	   (function == 'xmlAddPrevSibling' and pos == 2):
 	    return('xmlNodePtr_in');
     if res == 'const xmlBufferPtr':
-        res = 'xmlBufferPtr';
+        res = 'xmlBufferPtr'
     if res == 'xmlChar_ptr' and name == 'name' and \
        string.find(function, "EatName") != -1:
         return('eaten_name')
@@ -370,7 +394,7 @@ def type_convert(str, name, info, module, function, pos):
     if res == 'int' and name == 'options':
         if module == 'parser' or module == 'xmlreader':
 	    res = 'parseroptions'
-        
+
     return res
 
 known_param_types = []
@@ -425,17 +449,26 @@ def is_known_return_type(name):
 # Copy the beginning of the C test program result
 #
 
-input = open("testapi.c", "r")
+try:
+    input = open("testapi.c", "r")
+except:
+    input = open(srcPref + "testapi.c", "r")
 test = open('testapi.c.new', 'w')
 
 def compare_and_save():
     global test
 
     test.close()
-    input = open("testapi.c", "r").read()
+    try:
+        input = open("testapi.c", "r").read()
+    except:
+        input = ''
     test = open('testapi.c.new', "r").read()
     if input != test:
-        os.system("rm testapi.c ; mv testapi.c.new testapi.c")
+        try:
+            os.system("rm testapi.c; mv testapi.c.new testapi.c")
+        except:
+	    os.system("mv testapi.c.new testapi.c")
         print("Updated testapi.c")
     else:
         print("Generated testapi.c is identical")
@@ -467,24 +500,53 @@ test.write("/* CUT HERE: everything below that line is generated */\n")
 #
 # Open the input API description
 #
-doc = libxml2.readFile('doc/libxml2-api.xml', None, 0)
+doc = libxml2.readFile(srcPref + 'doc/libxml2-api.xml', None, 0)
 if doc == None:
     print "Failed to load doc/libxml2-api.xml"
     sys.exit(1)
 ctxt = doc.xpathNewContext()
 
 #
+# Generate a list of all function parameters and select only
+# those used in the api tests
+#
+argtypes = {}
+args = ctxt.xpathEval("/api/symbols/function/arg")
+for arg in args:
+    mod = arg.xpathEval('string(../@file)')
+    func = arg.xpathEval('string(../@name)')
+    if (mod not in skipped_modules) and (func not in skipped_functions):
+	type = arg.xpathEval('string(@type)')
+	if not argtypes.has_key(type):
+	    argtypes[type] = func
+
+# similarly for return types
+rettypes = {}
+rets = ctxt.xpathEval("/api/symbols/function/return")
+for ret in rets:
+    mod = ret.xpathEval('string(../@file)')
+    func = ret.xpathEval('string(../@name)')
+    if (mod not in skipped_modules) and (func not in skipped_functions):
+        type = ret.xpathEval('string(@type)')
+	if not rettypes.has_key(type):
+	    rettypes[type] = func
+
+#
 # Generate constructors and return type handling for all enums
+# which are used as function parameters
 #
 enums = ctxt.xpathEval("/api/symbols/typedef[@type='enum']")
 for enum in enums:
-    name = enum.xpathEval('string(@name)')
-    if name == None:
-        continue;
     module = enum.xpathEval('string(@file)')
+    name = enum.xpathEval('string(@name)')
+    #
+    # Skip any enums which are not in our filtered lists
+    #
+    if (name == None) or ((name not in argtypes) and (name not in rettypes)):
+        continue;
     define = 0
 
-    if is_known_param_type(name, name) == 0:
+    if argtypes.has_key(name) and is_known_param_type(name, name) == 0:
 	values = ctxt.xpathEval("/api/symbols/enum[@type='%s']" % name)
 	i = 0
 	vals = []
@@ -497,7 +559,7 @@ for enum in enums:
 		break;
 	    vals.append(vname)
 	if vals == []:
-	    print "Didn't found any value for enum %s" % (name)
+	    print "Didn't find any value for enum %s" % (name)
 	    continue
 	if modules_defines.has_key(module):
 	    test.write("#ifdef %s\n" % (modules_defines[module]))
@@ -511,19 +573,21 @@ for enum in enums:
 	    i = i + 1
 	test.write("""    return(0);
 }
-""");
+
+static void des_%s(int no ATTRIBUTE_UNUSED, %s val ATTRIBUTE_UNUSED, int nr ATTRIBUTE_UNUSED) {
+}
+
+""" % (name, name));
 	known_param_types.append(name)
 
-    if is_known_return_type(name) == 0:
+    if (is_known_return_type(name) == 0) and (name in rettypes):
 	if define == 0 and modules_defines.has_key(module):
 	    test.write("#ifdef %s\n" % (modules_defines[module]))
 	    define = 1
-        test.write("""static void des_%s(int no ATTRIBUTE_UNUSED, %s val ATTRIBUTE_UNUSED, int nr ATTRIBUTE_UNUSED) {
-}
-static void desret_%s(%s val ATTRIBUTE_UNUSED) {
+        test.write("""static void desret_%s(%s val ATTRIBUTE_UNUSED) {
 }
 
-""" % (name, name, name, name))
+""" % (name, name))
 	known_return_types.append(name)
     if define == 1:
         test.write("#endif\n\n")
@@ -628,7 +692,12 @@ def generate_test(module, node):
 	if is_known_param_type(type, rtype) == 0:
 	    add_missing_type(type, name);
 	    no_gen = 1
-	t_args.append((nam, type, rtype, info))
+        if (type[-3:] == 'Ptr' or type[-4:] == '_ptr') and \
+	    rtype[0:6] == 'const ':
+	    crtype = rtype[6:]
+	else:
+	    crtype = rtype
+	t_args.append((nam, type, rtype, crtype, info))
     
     try:
 	rets = node.xpathEval("return")
@@ -667,7 +736,7 @@ test_%s(void) {
     try:
 	conds = node.xpathEval("cond")
 	for cond in conds:
-	    test.write("#ifdef %s\n" % (cond.get_content()))
+	    test.write("#if %s\n" % (cond.get_content()))
 	    nb_cond = nb_cond + 1
     except:
         pass
@@ -688,12 +757,7 @@ test_%s(void) {
 
     # Declare the arguments
     for arg in t_args:
-        (nam, type, rtype, info) = arg;
-        if (type[-3:] == 'Ptr' or type[-4:] == '_ptr') and \
-	    rtype[0:6] == 'const ':
-	    crtype = rtype[6:]
-	else:
-	    crtype = rtype
+        (nam, type, rtype, crtype, info) = arg;
 	# add declaration
 	test.write("    %s %s; /* %s */\n" % (crtype, nam, info))
 	test.write("    int n_%s;\n" % (nam))
@@ -701,7 +765,7 @@ test_%s(void) {
 
     # Cascade loop on of each argument list of values
     for arg in t_args:
-        (nam, type, rtype, info) = arg;
+        (nam, type, rtype, crtype, info) = arg;
 	#
 	test.write("    for (n_%s = 0;n_%s < gen_nb_%s;n_%s++) {\n" % (
 	           nam, nam, type, nam))
@@ -713,7 +777,7 @@ test_%s(void) {
     # prepare the call
     i = 0;
     for arg in t_args:
-        (nam, type, rtype, info) = arg;
+        (nam, type, rtype, crtype, info) = arg;
 	#
 	test.write("        %s = gen_%s(n_%s, %d);\n" % (nam, type, nam, i))
 	i = i + 1;
@@ -725,11 +789,13 @@ test_%s(void) {
 	test.write("\n        ret_val = %s(" % (name))
 	need = 0
 	for arg in t_args:
-	    (nam, type, rtype, info) = arg
+	    (nam, type, rtype, crtype, info) = arg
 	    if need:
 	        test.write(", ")
 	    else:
 	        need = 1
+	    if rtype != crtype:
+	        test.write("(%s)" % rtype)
 	    test.write("%s" % nam);
 	test.write(");\n")
 	if extra_post_call.has_key(name):
@@ -739,11 +805,13 @@ test_%s(void) {
 	test.write("\n        %s(" % (name));
 	need = 0;
 	for arg in t_args:
-	    (nam, type, rtype, info) = arg;
+	    (nam, type, rtype, crtype, info) = arg;
 	    if need:
 	        test.write(", ")
 	    else:
 	        need = 1
+	    if rtype != crtype:
+	        test.write("(%s)" % rtype)
 	    test.write("%s" % nam)
 	test.write(");\n")
 	if extra_post_call.has_key(name):
@@ -754,9 +822,15 @@ test_%s(void) {
     # Free the arguments
     i = 0;
     for arg in t_args:
-        (nam, type, rtype, info) = arg;
-	#
-	test.write("        des_%s(n_%s, %s, %d);\n" % (type, nam, nam, i))
+        (nam, type, rtype, crtype, info) = arg;
+	# This is a hack to prevent generating a destructor for the
+	# 'input' argument in xmlTextReaderSetup.  There should be
+	# a better, more generic way to do this!
+	if string.find(info, 'destroy') == -1:
+	    test.write("        des_%s(n_%s, " % (type, nam))
+	    if rtype != crtype:
+	        test.write("(%s)" % rtype)
+	    test.write("%s, %d);\n" % (nam, i))
 	i = i + 1;
 
     test.write("        xmlResetLastError();\n");
@@ -768,7 +842,7 @@ test_%s(void) {
 	    test_ret++;
 """ % (name));
 	for arg in t_args:
-	    (nam, type, rtype, info) = arg;
+	    (nam, type, rtype, crtype, info) = arg;
 	    test.write("""            printf(" %%d", n_%s);\n""" % (nam))
 	test.write("""            printf("\\n");\n""")
 	test.write("        }\n")

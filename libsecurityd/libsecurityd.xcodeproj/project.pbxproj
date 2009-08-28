@@ -50,7 +50,7 @@
 		4CAF73560536406400D9DA7C /* ucspServer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CAF734F0536405300D9DA7C /* ucspServer.cpp */; };
 		792E34E5092BC6F4007FF9CA /* xdr_auth.h in Headers */ = {isa = PBXBuildFile; fileRef = 79EDA1BA092021D600205D34 /* xdr_auth.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		79EDA1BD092021D600205D34 /* xdr_auth.c in Sources */ = {isa = PBXBuildFile; fileRef = 79EDA1BB092021D600205D34 /* xdr_auth.c */; };
-		C226119106B72038008DD0C6 /* ss_types.defs in Sources */ = {isa = PBXBuildFile; fileRef = C226118F06B72038008DD0C6 /* ss_types.defs */; };
+		B6304AB00E16C414006C13E3 /* handletypes.h in Headers */ = {isa = PBXBuildFile; fileRef = B6304AAF0E16C414006C13E3 /* handletypes.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C226119206B72066008DD0C6 /* ss_types.defs in Headers */ = {isa = PBXBuildFile; fileRef = C226118F06B72038008DD0C6 /* ss_types.defs */; settings = {ATTRIBUTES = (Public, ); }; };
 		C226119306B72080008DD0C6 /* sscommon.h in Headers */ = {isa = PBXBuildFile; fileRef = C22AB9A406B6DE670025E6A9 /* sscommon.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C226119406B72086008DD0C6 /* ss_types.defs in Headers */ = {isa = PBXBuildFile; fileRef = C226118F06B72038008DD0C6 /* ss_types.defs */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -148,14 +148,15 @@
 		4C58E3900540C0DD00B89535 /* securityd_server.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = securityd_server.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C92640B05347DF3004B0E72 /* dictionary.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = dictionary.cpp; path = lib/dictionary.cpp; sourceTree = "<group>"; };
 		4C92640C05347DF3004B0E72 /* dictionary.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = dictionary.h; path = lib/dictionary.h; sourceTree = "<group>"; };
-		4CA1FEBE052A3C8100F22E42 /* securityd_client */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; path = securityd_client; sourceTree = BUILT_PRODUCTS_DIR; };
-		4CA1FECD052A44A100F22E42 /* securityd_server */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; path = securityd_server; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CA1FEBE052A3C8100F22E42 /* securityd_client */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = securityd_client; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CA1FECD052A44A100F22E42 /* securityd_server */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = securityd_server; sourceTree = BUILT_PRODUCTS_DIR; };
 		4CAF734D0536405300D9DA7C /* ucspNotifyReceiver.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = ucspNotifyReceiver.cpp; sourceTree = "<group>"; };
 		4CAF734E0536405300D9DA7C /* ucspNotifySender.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = ucspNotifySender.cpp; sourceTree = "<group>"; };
 		4CAF734F0536405300D9DA7C /* ucspServer.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = ucspServer.cpp; sourceTree = "<group>"; };
 		4CAF73500536405300D9DA7C /* ucspClient.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = ucspClient.cpp; sourceTree = "<group>"; };
 		79EDA1BA092021D600205D34 /* xdr_auth.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = xdr_auth.h; path = lib/xdr_auth.h; sourceTree = "<group>"; };
 		79EDA1BB092021D600205D34 /* xdr_auth.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = xdr_auth.c; path = lib/xdr_auth.c; sourceTree = "<group>"; };
+		B6304AAF0E16C414006C13E3 /* handletypes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = handletypes.h; path = lib/handletypes.h; sourceTree = "<group>"; };
 		C226118F06B72038008DD0C6 /* ss_types.defs */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.mig; path = ss_types.defs; sourceTree = "<group>"; };
 		C22611CB06B72147008DD0C6 /* ss_types.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ss_types.h; path = lib/ss_types.h; sourceTree = "<group>"; };
 		C22AB9A406B6DE670025E6A9 /* sscommon.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = sscommon.h; path = lib/sscommon.h; sourceTree = "<group>"; };
@@ -171,7 +172,7 @@
 		C2A594F9052E4FC200AF1EE3 /* ssblob.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ssblob.h; path = lib/ssblob.h; sourceTree = "<group>"; };
 		C2A59508052E506A00AF1EE3 /* ucsp_types.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ucsp_types.h; path = lib/ucsp_types.h; sourceTree = "<group>"; };
 		C2A788430B7AA33400CFF85C /* ucspClientC.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = ucspClientC.c; sourceTree = "<group>"; };
-		C2A788730B7AA65B00CFF85C /* ucspc */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = ucspc; sourceTree = BUILT_PRODUCTS_DIR; };
+		C2A788730B7AA65B00CFF85C /* ucspc */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = ucspc; sourceTree = BUILT_PRODUCTS_DIR; };
 		C2BD60C50AC849180057FD3D /* cshosting.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cshosting.h; sourceTree = "<group>"; };
 		C2BD60C60AC849180057FD3D /* cshostingClient.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cshostingClient.cpp; sourceTree = "<group>"; };
 		C2BD60C70AC849180057FD3D /* cshostingServer.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cshostingServer.cpp; sourceTree = "<group>"; };
@@ -182,48 +183,6 @@
 		D6942E320A6423BC000E7E2F /* SharedMemoryClient.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = SharedMemoryClient.h; path = lib/SharedMemoryClient.h; sourceTree = "<group>"; };
 		D6E144FA0A6323E6008AA7E8 /* SharedMemoryCommon.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = SharedMemoryCommon.h; path = lib/SharedMemoryCommon.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
-
-/* Begin PBXFrameworkTarget section */
-		4C5635320540A58200DCF0C8 /* securityd_client */ = {
-			isa = PBXFrameworkTarget;
-			buildConfigurationList = C27AD41F0987FCDF001272E0 /* Build configuration list for PBXFrameworkTarget "securityd_client" */;
-			buildPhases = (
-				4C56352D0540A58200DCF0C8 /* Headers */,
-			);
-			dependencies = (
-				4C09A2940557241D00FED7A3 /* PBXTargetDependency */,
-			);
-			name = securityd_client;
-			productInstallPath = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-			productName = securityd;
-			productReference = 4C5635330540A58200DCF0C8 /* securityd_client.framework */;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict/>
-</plist>
-";
-		};
-		4C58E38F0540C0DD00B89535 /* securityd_server */ = {
-			isa = PBXFrameworkTarget;
-			buildConfigurationList = C27AD4270987FCDF001272E0 /* Build configuration list for PBXFrameworkTarget "securityd_server" */;
-			buildPhases = (
-				4C58E38A0540C0DD00B89535 /* Headers */,
-			);
-			dependencies = (
-			);
-			name = securityd_server;
-			productInstallPath = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-			productName = securityd_server;
-			productReference = 4C58E3900540C0DD00B89535 /* securityd_server.framework */;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict/>
-</plist>
-";
-		};
-/* End PBXFrameworkTarget section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		4CA1FEBB052A3C8100F22E42 /* Frameworks */ = {
@@ -360,6 +319,7 @@
 			isa = PBXGroup;
 			children = (
 				D6E144FA0A6323E6008AA7E8 /* SharedMemoryCommon.h */,
+				B6304AAF0E16C414006C13E3 /* handletypes.h */,
 				C22AB9A406B6DE670025E6A9 /* sscommon.h */,
 				C2A594F9052E4FC200AF1EE3 /* ssblob.h */,
 				C2A594F8052E4FC200AF1EE3 /* ssblob.cpp */,
@@ -395,6 +355,7 @@
 				792E34E5092BC6F4007FF9CA /* xdr_auth.h in Headers */,
 				40302BC009C0B96100EF5C72 /* xdr_cssm.h in Headers */,
 				40302BC109C0B96100EF5C72 /* xdr_dldb.h in Headers */,
+				B6304AB00E16C414006C13E3 /* handletypes.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -427,15 +388,50 @@
 		};
 /* End PBXLegacyTarget section */
 
-/* Begin PBXLibraryTarget section */
+/* Begin PBXNativeTarget section */
+		4C5635320540A58200DCF0C8 /* securityd_client */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD41F0987FCDF001272E0 /* Build configuration list for PBXNativeTarget "securityd_client" */;
+			buildPhases = (
+				4C56352D0540A58200DCF0C8 /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				4C09A2940557241D00FED7A3 /* PBXTargetDependency */,
+			);
+			name = securityd_client;
+			productInstallPath = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+			productName = securityd;
+			productReference = 4C5635330540A58200DCF0C8 /* securityd_client.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+		4C58E38F0540C0DD00B89535 /* securityd_server */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD4270987FCDF001272E0 /* Build configuration list for PBXNativeTarget "securityd_server" */;
+			buildPhases = (
+				4C58E38A0540C0DD00B89535 /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = securityd_server;
+			productInstallPath = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+			productName = securityd_server;
+			productReference = 4C58E3900540C0DD00B89535 /* securityd_server.framework */;
+			productType = "com.apple.product-type.framework";
+		};
 		4CA1FEBD052A3C8100F22E42 /* libsecurityd_client */ = {
-			isa = PBXLibraryTarget;
-			buildConfigurationList = C27AD4230987FCDF001272E0 /* Build configuration list for PBXLibraryTarget "libsecurityd_client" */;
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD4230987FCDF001272E0 /* Build configuration list for PBXNativeTarget "libsecurityd_client" */;
 			buildPhases = (
 				4CA1FEBA052A3C8100F22E42 /* Sources */,
 				4CA1FEBB052A3C8100F22E42 /* Frameworks */,
 				4C789BEB055AF4EC00B6FC95 /* ShellScript */,
 				4CD0D449055B0C9D001715CB /* ShellScript */,
+			);
+			buildRules = (
 			);
 			dependencies = (
 				4C52AD510540BC6900536F78 /* PBXTargetDependency */,
@@ -444,15 +440,18 @@
 			productInstallPath = /usr/local/lib;
 			productName = libsecurityd;
 			productReference = 4CA1FEBE052A3C8100F22E42 /* securityd_client */;
+			productType = "com.apple.product-type.library.static";
 		};
 		4CA1FEC8052A44A100F22E42 /* libsecurityd_server */ = {
-			isa = PBXLibraryTarget;
-			buildConfigurationList = C27AD42B0987FCDF001272E0 /* Build configuration list for PBXLibraryTarget "libsecurityd_server" */;
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD42B0987FCDF001272E0 /* Build configuration list for PBXNativeTarget "libsecurityd_server" */;
 			buildPhases = (
 				4CA1FECA052A44A100F22E42 /* Sources */,
 				4CA1FECB052A44A100F22E42 /* Frameworks */,
 				4C789BEE055AF4F400B6FC95 /* ShellScript */,
 				4CD0D44C055B0CC3001715CB /* ShellScript */,
+			);
+			buildRules = (
 			);
 			dependencies = (
 				4C58E3910540C0E600B89535 /* PBXTargetDependency */,
@@ -462,14 +461,17 @@
 			productInstallPath = /usr/local/lib;
 			productName = libsecurityd;
 			productReference = 4CA1FECD052A44A100F22E42 /* securityd_server */;
+			productType = "com.apple.product-type.library.static";
 		};
 		C2A788530B7AA65B00CFF85C /* ucspc */ = {
-			isa = PBXLibraryTarget;
-			buildConfigurationList = C2A7886F0B7AA65B00CFF85C /* Build configuration list for PBXLibraryTarget "ucspc" */;
+			isa = PBXNativeTarget;
+			buildConfigurationList = C2A7886F0B7AA65B00CFF85C /* Build configuration list for PBXNativeTarget "ucspc" */;
 			buildPhases = (
 				C2A788560B7AA65B00CFF85C /* Sources */,
 				C2A7886C0B7AA65B00CFF85C /* Frameworks */,
 				C2A7886E0B7AA65B00CFF85C /* ShellScript */,
+			);
+			buildRules = (
 			);
 			dependencies = (
 				C2A788B20B7AA9A100CFF85C /* PBXTargetDependency */,
@@ -478,8 +480,9 @@
 			productInstallPath = /usr/local/lib;
 			productName = libsecurityd;
 			productReference = C2A788730B7AA65B00CFF85C /* ucspc */;
+			productType = "com.apple.product-type.library.static";
 		};
-/* End PBXLibraryTarget section */
+/* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
@@ -515,7 +518,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tln -fs \"../../../${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework/Versions/A\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework\n\tnmedit -p \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\n\tranlib \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\ndone";
+			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tditto -V \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}${postfix}\" \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\n\tln -fs \"../../../${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework/Versions/A\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework\n\tnmedit -p \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\n\tranlib \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\ndone";
 		};
 		4C789BEE055AF4F400B6FC95 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -528,7 +531,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tln -fs \"../../../${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework/Versions/A\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework\n\tnmedit -p \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\n\tranlib \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\ndone";
+			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tditto -V \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}${postfix}\" \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\n\tln -fs \"../../../${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework/Versions/A\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework\n\tnmedit -p \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\n\tranlib \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\ndone";
 		};
 		4CD0D449055B0C9D001715CB /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -567,7 +570,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "destination=${DSTROOT}/usr/local/SecurityPieces/Frameworks/${PRODUCT_NAME}.framework\nmkdir -p \"$destination\"/Versions/A\nfor variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tcp -p \"${SYMROOT}/${PRODUCT_NAME}${postfix}\" \"$destination\"/Versions/A\n\tranlib \"$destination/Versions/A/${PRODUCT_NAME}${postfix}\"\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" \"$destination\"\ndone\n";
+			shellScript = "destination=${DSTROOT}/usr/local/SecurityPieces/Frameworks/${PRODUCT_NAME}.framework\nmkdir -p \"$destination\"/Versions/A\nfor variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\t# cp -p \"${SYMROOT}/${PRODUCT_NAME}${postfix}\" \"$destination\"/Versions/A\n\tranlib \"$destination/Versions/A/${PRODUCT_NAME}${postfix}\"\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" \"$destination\"\ndone\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -606,7 +609,6 @@
 			files = (
 				4CAF73550536406300D9DA7C /* ucspNotifyReceiver.cpp in Sources */,
 				4CAF73560536406400D9DA7C /* ucspServer.cpp in Sources */,
-				C226119106B72038008DD0C6 /* ss_types.defs in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -669,7 +671,6 @@
 			buildSettings = {
 				BUILD_VARIANTS = debug;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				OTHER_CFLAGS = "";
@@ -689,7 +690,6 @@
 		C27AD41D0987FCDF001272E0 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -724,11 +724,13 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				INFOPLIST_FILE = "Info-securityd_client.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks;
 				PRODUCT_NAME = securityd_client;
 				WRAPPER_EXTENSION = framework;
@@ -739,8 +741,10 @@
 		C27AD4210987FCDF001272E0 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INFOPLIST_FILE = "Info-securityd_client.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks;
 				PRODUCT_NAME = securityd_client;
 				WRAPPER_EXTENSION = framework;
@@ -751,7 +755,10 @@
 		C27AD4220987FCDF001272E0 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
+				INFOPLIST_FILE = "Info-securityd_client.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks;
 				PRODUCT_NAME = securityd_client;
 				WRAPPER_EXTENSION = framework;
@@ -762,10 +769,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 36292;
+				CURRENT_PROJECT_VERSION = 36988;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				HEADER_SEARCH_PATHS = (
@@ -788,7 +796,7 @@
 				OTHER_CPLUSPLUSFLAGS_nopic = "-mdynamic-no-pic $(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_nopic = "-dead_strip $(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
@@ -811,9 +819,10 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 36292;
+				CURRENT_PROJECT_VERSION = 36988;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
@@ -834,7 +843,7 @@
 				OTHER_CPLUSPLUSFLAGS_nopic = "-mdynamic-no-pic $(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_nopic = "-dead_strip $(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
@@ -857,7 +866,9 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 36292;
+				CURRENT_PROJECT_VERSION = 36988;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
@@ -879,7 +890,7 @@
 				OTHER_CPLUSPLUSFLAGS_nopic = "-mdynamic-no-pic $(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_nopic = "-dead_strip $(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
@@ -897,11 +908,13 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				INFOPLIST_FILE = "Info-securityd_server.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Components/securityd;
 				PRODUCT_NAME = securityd_server;
 				WRAPPER_EXTENSION = framework;
@@ -912,8 +925,10 @@
 		C27AD4290987FCDF001272E0 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INFOPLIST_FILE = "Info-securityd_server.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Components/securityd;
 				PRODUCT_NAME = securityd_server;
 				WRAPPER_EXTENSION = framework;
@@ -924,7 +939,10 @@
 		C27AD42A0987FCDF001272E0 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
+				INFOPLIST_FILE = "Info-securityd_server.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Components/securityd;
 				PRODUCT_NAME = securityd_server;
 				WRAPPER_EXTENSION = framework;
@@ -935,10 +953,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 36292;
+				CURRENT_PROJECT_VERSION = 36988;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				HEADER_SEARCH_PATHS = (
@@ -961,7 +980,7 @@
 				OTHER_CPLUSPLUSFLAGS_nopic = "-mdynamic-no-pic $(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_nopic = "-dead_strip $(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
@@ -984,9 +1003,10 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 36292;
+				CURRENT_PROJECT_VERSION = 36988;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
@@ -1007,7 +1027,7 @@
 				OTHER_CPLUSPLUSFLAGS_nopic = "-mdynamic-no-pic $(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_nopic = "-dead_strip $(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
@@ -1030,7 +1050,9 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 36292;
+				CURRENT_PROJECT_VERSION = 36988;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
@@ -1052,7 +1074,7 @@
 				OTHER_CPLUSPLUSFLAGS_nopic = "-mdynamic-no-pic $(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_nopic = "-dead_strip $(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
@@ -1071,7 +1093,6 @@
 			buildSettings = {
 				BUILD_VARIANTS = debug;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				OTHER_CFLAGS = "";
@@ -1091,7 +1112,6 @@
 		C27AD4310987FCDF001272E0 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1151,16 +1171,18 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 36292;
+				CURRENT_PROJECT_VERSION = 36988;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
 				);
+				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks/ucspc.framework/Versions/A;
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
@@ -1177,7 +1199,7 @@
 				OTHER_CPLUSPLUSFLAGS_nopic = "-mdynamic-no-pic $(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_nopic = "-dead_strip $(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
@@ -1200,13 +1222,15 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 36292;
+				CURRENT_PROJECT_VERSION = 36988;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
 				);
+				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks/ucspc.framework/Versions/A;
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
@@ -1223,7 +1247,7 @@
 				OTHER_CPLUSPLUSFLAGS_nopic = "-mdynamic-no-pic $(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_nopic = "-dead_strip $(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
@@ -1246,12 +1270,15 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 36292;
+				CURRENT_PROJECT_VERSION = 36988;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
 				);
+				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks/ucspc.framework/Versions/A;
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
@@ -1268,7 +1295,7 @@
 				OTHER_CPLUSPLUSFLAGS_nopic = "-mdynamic-no-pic $(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_nopic = "-dead_strip $(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
@@ -1295,7 +1322,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
-		C27AD41F0987FCDF001272E0 /* Build configuration list for PBXFrameworkTarget "securityd_client" */ = {
+		C27AD41F0987FCDF001272E0 /* Build configuration list for PBXNativeTarget "securityd_client" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C27AD4200987FCDF001272E0 /* Development */,
@@ -1305,7 +1332,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
-		C27AD4230987FCDF001272E0 /* Build configuration list for PBXLibraryTarget "libsecurityd_client" */ = {
+		C27AD4230987FCDF001272E0 /* Build configuration list for PBXNativeTarget "libsecurityd_client" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C27AD4240987FCDF001272E0 /* Development */,
@@ -1315,7 +1342,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
-		C27AD4270987FCDF001272E0 /* Build configuration list for PBXFrameworkTarget "securityd_server" */ = {
+		C27AD4270987FCDF001272E0 /* Build configuration list for PBXNativeTarget "securityd_server" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C27AD4280987FCDF001272E0 /* Development */,
@@ -1325,7 +1352,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
-		C27AD42B0987FCDF001272E0 /* Build configuration list for PBXLibraryTarget "libsecurityd_server" */ = {
+		C27AD42B0987FCDF001272E0 /* Build configuration list for PBXNativeTarget "libsecurityd_server" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C27AD42C0987FCDF001272E0 /* Development */,
@@ -1355,7 +1382,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
-		C2A7886F0B7AA65B00CFF85C /* Build configuration list for PBXLibraryTarget "ucspc" */ = {
+		C2A7886F0B7AA65B00CFF85C /* Build configuration list for PBXNativeTarget "ucspc" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C2A788700B7AA65B00CFF85C /* Development */,

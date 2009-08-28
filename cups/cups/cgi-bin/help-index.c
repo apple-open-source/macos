@@ -1,9 +1,9 @@
 /*
- * "$Id: help-index.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: help-index.c 7717 2008-07-04 02:35:33Z mike $"
  *
- *   On-line help index routines for the Common UNIX Printing System (CUPS).
+ *   Online help index routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -500,7 +500,7 @@ helpSaveIndex(help_index_t *hi,		/* I - Index */
     else
     {
       if (cupsFilePrintf(fp, "%s %d " CUPS_LLFMT " " CUPS_LLFMT " \"%s\" \"%s\"\n",
-                         node->filename, node->mtime,
+                         node->filename, (int)node->mtime,
                          CUPS_LLCAST node->offset, CUPS_LLCAST node->length,
 			 node->section ? node->section : "", node->text) < 0)
         break;
@@ -1297,7 +1297,7 @@ help_sort_by_score(help_node_t *n1,	/* I - First node */
                 n2, n2->score, n2->section ? n2->section : "", n2->text));
 
   if (n1->score != n2->score)
-    return (n1->score - n2->score);
+    return (n2->score - n1->score);
 
   if (n1->section && !n2->section)
     return (1);
@@ -1327,5 +1327,5 @@ help_sort_words(help_word_t *w1,	/* I - Second word */
 
 
 /*
- * End of "$Id: help-index.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: help-index.c 7717 2008-07-04 02:35:33Z mike $".
  */

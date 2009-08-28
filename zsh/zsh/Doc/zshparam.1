@@ -1,4 +1,4 @@
-.TH "ZSHPARAM" "1" "April 19, 2006" "zsh 4\&.3\&.4"
+.TH "ZSHPARAM" "1" "October 30, 2008" "zsh 4\&.3\&.9"
 .SH "NAME"
 zshparam \- zsh parameters
 .\" Yodl file: Zsh/params.yo
@@ -117,6 +117,13 @@ Subscripts may be used inside braces used to delimit a parameter name, thus
 option is set, the braced form is the only one that works, as bracketed
 expressions otherwise are not treated as subscripts\&.
 .PP
+If the \fBKSH_ARRAYS\fP option is not set, then by default accesses to
+an array element with a subscript that evaluates to zero return an
+empty string, while an attempt to write such an element is treated as
+an error\&.  For backward compatibility the \fBKSH_ZERO_SUBSCRIPT\fP
+option can be set to cause subscript values 0 and 1 to be equivalent; see
+the description of the option in \fIzshoptions\fP(1)\&.
+.PP
 The same subscripting syntax is used for associative arrays, except that
 no arithmetic expansion is applied to \fIexp\fP\&.  However, the parsing
 rules for arithmetic expressions still apply, which affects the way that
@@ -215,7 +222,8 @@ The flags currently understood are:
 \fBw\fP
 If the parameter subscripted is a scalar then this flag makes
 subscripting work on words instead of characters\&.  The default word
-separator is whitespace\&.
+separator is whitespace\&.  This flag may not be used with the \fBi\fP or
+\fBI\fP flag\&.
 .TP
 \fBs:\fP\fIstring\fP\fB:\fP
 This gives the \fIstring\fP that separates words (for use with the
@@ -255,38 +263,30 @@ example (assuming the option \fBKSH_ARRAYS\fP is not in effect):
 .RE
 .PP
 If \fBKSH_ARRAYS\fP is in effect, the \fB\-le\fP should be replaced by \fB\-lt\fP\&.
-.PP
-Note that in subscripts with both `\fBr\fP\&' and `\fBR\fP' pattern characters
-are active even if they were substituted for a parameter (regardless
-of the setting of \fBGLOB_SUBST\fP which controls this feature in normal
-pattern matching)\&.  It is therefore necessary to quote pattern characters
-for an exact string match\&.  Given a string in \fB$key\fP, and assuming
-the \fBEXTENDED_GLOB\fP option is set, the following is sufficient to
-match an element of an array \fB$array\fP containing exactly the value of
-\fB$key\fP:
-.PP
-.RS
-.nf
-\fBkey2=${key//(#m)[\e][()\e\e*?#<>~^]/\e\e$MATCH}
-print ${array[(R)$key2]}\fP
-.fi
-.RE
-.RE
 .TP
 \fBR\fP
 Like `\fBr\fP\&', but gives the last match\&.  For associative arrays, gives
 all possible matches\&. May be used for assigning to ordinary array
-elements, but not for assigning to associative arrays\&.
+elements, but not for assigning to associative arrays\&.  On failure, for
+normal arrays this has the effect of returning the element corresponding to
+subscript 0; this is empty unless one of the options \fBKSH_ARRAYS\fP or
+\fBKSH_ZERO_SUBSCRIPT\fP is in effect\&.
 .RS
 .PP
-Note that this flag can give odd results on failure\&.  For an ordinary array
-the item substituted is that corresponding to subscript 0\&.  If the option
-\fBKSH_ARRAYS\fP is not in effect, this is the same as the element
-corresponding to subscript 1, although the form \fB${array[(I)pattern]}\fP
-will evaluate to 0 for a failed match\&.  If the option \fBKSH_ARRAYS\fP is in
-effect, the subscript is still 0 for a failed match; this cannot be
-distinguished from a successful match without testing \fB${array[0]}\fP
-against the pattern\&.
+Note that in subscripts with both `\fBr\fP\&' and `\fBR\fP' pattern characters
+are active even if they were substituted for a parameter (regardless of the
+setting of \fBGLOB_SUBST\fP which controls this feature in normal pattern
+matching)\&.  The flag `\fBe\fP\&' can be added to inhibit pattern matching\&.  As
+this flag does not inhibit other forms of substitution, care is still
+required; using a parameter to hold the key has the desired effect:
+.PP
+.RS
+.nf
+\fBkey2=\&'original key'
+print ${array[(Re)$key2]}\fP
+.fi
+.RE
+.RE
 .RE
 .TP
 \fBi\fP
@@ -294,26 +294,23 @@ Like `\fBr\fP\&', but gives the index of the match instead; this may not be
 combined with a second argument\&.  On the left side of an assignment,
 behaves like `\fBr\fP\&'\&.  For associative arrays, the key part of each pair
 is compared to the pattern, and the first matching key found is the
-result\&.
-.RS
-.PP
-See `\fBr\fP\&' for discussion of subscripts of failed matches\&.
-.RE
+result\&.  On failure substitutes the length of the array plus one, as
+discussed under the description of `\fBr\fP\&', or the empty string for an
+associative array\&.
 .TP
 \fBI\fP
 Like `\fBi\fP\&', but gives the index of the last match, or all possible
-matching keys in an associative array\&.
-.RS
-.PP
-See `\fBR\fP\&' for discussion of subscripts of failed matches\&.
-.RE
+matching keys in an associative array\&.  On failure substitutes 0, or
+the empty string for an associative array\&.  This flag is best when
+testing for values or keys that do not exist\&.
 .TP
 \fBk\fP
 If used in a subscript on an associative array, this flag causes the keys
 to be interpreted as patterns, and returns the value for the first key
-found where \fIexp\fP is matched by the key\&.  This flag does not work on
-the left side of an assignment to an associative array element\&.  If used
-on another type of parameter, this behaves like `\fBr\fP\&'\&.
+found where \fIexp\fP is matched by the key\&.  Note this could be any
+such key as no ordering of associative arrays is defined\&.
+This flag does not work on the left side of an assignment to an associative
+array element\&.  If used on another type of parameter, this behaves like `\fBr\fP\&'\&.
 .TP
 \fBK\fP
 On an associative array this is like `\fBk\fP\&' but returns all values where
@@ -333,11 +330,18 @@ evaluates to \fIn\fP)\&.  This flag is ignored when the array is associative\&.
 The delimiter character \fB:\fP is arbitrary; see above\&.
 .TP
 \fBe\fP
-This flag has no effect and for ordinary arrays is retained for backward
-compatibility only\&.  For associative arrays, this flag can be used to
-force \fB*\fP or \fB@\fP to be interpreted as a single key rather than as a
-reference to all values\&.  This flag may be used on the left side of an
-assignment\&.
+This flag causes any pattern matching that would be performed on the
+subscript to use plain string matching instead\&.  Hence
+`\fB${array[(re)*]}\fP\&' matches only the array element whose value is \fB*\fP\&.
+Note that other forms of substitution such as parameter substitution are
+not inhibited\&.
+.RS
+.PP
+This flag can also be used to force \fB*\fP or \fB@\fP to be interpreted as
+a single key rather than as a reference to all values\&.  It may be used
+for either purpose on the left side of an assignment\&.
+.RE
+.RE
 .PP
 See \fIParameter Expansion Flags\fP (\fIzshexpn\fP(1)) for additional ways to manipulate the results of array subscripting\&.
 .PP
@@ -384,8 +388,8 @@ The same rule applies to parentheses (`\fB(\fP\&' and `\fB)\fP') and
 braces (`\fB{\fP\&' and `\fB}\fP'): they must appear either in balanced pairs or
 preceded by a backslash, and backslashes that protect parentheses or
 braces are removed during parsing\&.  This is because parameter expansions
-may be surrounded balanced braces, and subscript flags are introduced by
-balanced parenthesis\&.
+may be surrounded by balanced braces, and subscript flags are introduced by
+balanced parentheses\&.
 .PP
 The second difference is that a double\-quote (`\fB"\fP\&') may appear as part
 of a subscript expression without being preceded by a backslash, and
@@ -685,8 +689,11 @@ since the assignment\&.
 Unlike other special parameters, the type of the \fBSECONDS\fP parameter can
 be changed using the \fBtypeset\fP command\&.  Only integer and one of the
 floating point types are allowed\&.  For example, `\fBtypeset \-F SECONDS\fP\&'
-causes the value to be reported as a floating point number\&.  The precision
-is six decimal places, although not all places may be useful\&.
+causes the value to be reported as a floating point number\&.  The
+value is available to microsecond accuracy, although the shell may
+show more or fewer digits depending on the use of \fBtypeset\fP\&.  See
+the documentation for the builtin \fBtypeset\fP in
+\fIzshbuiltins\fP(1) for more details\&.
 .RE
 .TP
 \fBSHLVL\fP <S>
@@ -729,6 +736,15 @@ The vendor, as determined at compile time\&.
 \fBZSH_NAME\fP
 Expands to the basename of the command used to invoke this instance
 of zsh\&.
+.TP
+\fBzsh_scheduled_events\fP
+See the section `The zsh/sched Module\&' in \fIzshmodules\fP(1)\&.
+.TP
+\fBZSH_SUBSHELL\fP
+Readonly integer\&.  Initially zero, incremented each time the shell forks
+to create a subshell for executing code\&.  Hence `\fB(print $ZSH_SUBSHELL)\fP\&'
+and `\fBprint $(print $ZSH_SUBSHELL)\fP\&' output 1, while
+`\fB( (print $ZSH_SUBSHELL) )\fP\&' outputs 2\&.
 .TP
 \fBZSH_VERSION\fP
 The version number of this zsh\&.

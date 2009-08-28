@@ -24,7 +24,7 @@ static int linelen __ARGS((int *has_tab));
 static void do_filter __ARGS((linenr_T line1, linenr_T line2, exarg_T *eap, char_u *cmd, int do_in, int do_out));
 #ifdef FEAT_VIMINFO
 static char_u *viminfo_filename __ARGS((char_u	*));
-static void do_viminfo __ARGS((FILE *fp_in, FILE *fp_out, int want_info, int want_marks, int force_read));
+static void do_viminfo __ARGS((FILE *fp_in, FILE *fp_out, int flags));
 static int viminfo_encoding __ARGS((vir_T *virp));
 static int read_viminfo_up_to_marks __ARGS((vir_T *virp, int forceit, int writing));
 #endif
@@ -49,6 +49,7 @@ do_ascii(eap)
     exarg_T	*eap;
 {
     int		c;
+    int		cval;
     char	buf1[20];
     char	buf2[20];
     char_u	buf3[7];
@@ -75,6 +76,10 @@ do_ascii(eap)
     {
 	if (c == NL)	    /* NUL is stored as NL */
 	    c = NUL;
+	if (c == CAR && get_fileformat(curbuf) == EOL_MAC)
+	    cval = NL;	    /* NL is stored as CR */
+	else
+	    cval = c;
 	if (vim_isprintc_strict(c) && (c < ' '
 #ifndef EBCDIC
 		    || c > '~'
@@ -94,7 +99,7 @@ do_ascii(eap)
 	    buf2[0] = NUL;
 	vim_snprintf((char *)IObuff, IOSIZE,
 		_("<%s>%s%s  %d,  Hex %02x,  Octal %03o"),
-					   transchar(c), buf1, buf2, c, c, c);
+				  transchar(c), buf1, buf2, cval, cval, cval);
 #ifdef FEAT_MBYTE
 	if (enc_utf8)
 	    c = cc[ci++];
@@ -1676,14 +1681,12 @@ viminfo_error(errnum, message, line)
 
 /*
  * read_viminfo() -- Read the viminfo file.  Registers etc. which are already
- * set are not over-written unless force is TRUE. -- webb
+ * set are not over-written unless "flags" includes VIF_FORCEIT. -- webb
  */
     int
-read_viminfo(file, want_info, want_marks, forceit)
-    char_u	*file;
-    int		want_info;
-    int		want_marks;
-    int		forceit;
+read_viminfo(file, flags)
+    char_u	*file;	    /* file name or NULL to use default name */
+    int		flags;	    /* VIF_WANT_INFO et al. */
 {
     FILE	*fp;
     char_u	*fname;
@@ -1691,7 +1694,7 @@ read_viminfo(file, want_info, want_marks, forceit)
     if (no_viminfo())
 	return FAIL;
 
-    fname = viminfo_filename(file);	    /* may set to default if NULL */
+    fname = viminfo_filename(file);	/* get file name in allocated buffer */
     if (fname == NULL)
 	return FAIL;
     fp = mch_fopen((char *)fname, READBIN);
@@ -1701,8 +1704,9 @@ read_viminfo(file, want_info, want_marks, forceit)
 	verbose_enter();
 	smsg((char_u *)_("Reading viminfo file \"%s\"%s%s%s"),
 		fname,
-		want_info ? _(" info") : "",
-		want_marks ? _(" marks") : "",
+		(flags & VIF_WANT_INFO) ? _(" info") : "",
+		(flags & VIF_WANT_MARKS) ? _(" marks") : "",
+		(flags & VIF_GET_OLDFILES) ? _(" oldfiles") : "",
 		fp == NULL ? _(" FAILED") : "");
 	verbose_leave();
     }
@@ -1712,10 +1716,9 @@ read_viminfo(file, want_info, want_marks, forceit)
 	return FAIL;
 
     viminfo_errcnt = 0;
-    do_viminfo(fp, NULL, want_info, want_marks, forceit);
+    do_viminfo(fp, NULL, flags);
 
     fclose(fp);
-
     return OK;
 }
 
@@ -1943,7 +1946,7 @@ write_viminfo(file, forceit)
 	     * root.
 	     */
 	    if (fp_out != NULL)
-		(void)fchown(fileno(fp_out), st_old.st_uid, st_old.st_gid);
+		ignored = fchown(fileno(fp_out), st_old.st_uid, st_old.st_gid);
 #endif
 	}
     }
@@ -1968,7 +1971,7 @@ write_viminfo(file, forceit)
     }
 
     viminfo_errcnt = 0;
-    do_viminfo(fp_in, fp_out, !forceit, !forceit, FALSE);
+    do_viminfo(fp_in, fp_out, forceit ? 0 : (VIF_WANT_INFO | VIF_WANT_MARKS));
 
     fclose(fp_out);	    /* errors are ignored !? */
     if (fp_in != NULL)
@@ -2041,12 +2044,10 @@ viminfo_filename(file)
  * do_viminfo() -- Should only be called from read_viminfo() & write_viminfo().
  */
     static void
-do_viminfo(fp_in, fp_out, want_info, want_marks, force_read)
+do_viminfo(fp_in, fp_out, flags)
     FILE	*fp_in;
     FILE	*fp_out;
-    int		want_info;
-    int		want_marks;
-    int		force_read;
+    int		flags;
 {
     int		count = 0;
     int		eof = FALSE;
@@ -2061,8 +2062,9 @@ do_viminfo(fp_in, fp_out, want_info, want_marks, force_read)
 
     if (fp_in != NULL)
     {
-	if (want_info)
-	    eof = read_viminfo_up_to_marks(&vir, force_read, fp_out != NULL);
+	if (flags & VIF_WANT_INFO)
+	    eof = read_viminfo_up_to_marks(&vir,
+					 flags & VIF_FORCEIT, fp_out != NULL);
 	else
 	    /* Skip info, find start of marks */
 	    while (!(eof = viminfo_readline(&vir))
@@ -2092,8 +2094,9 @@ do_viminfo(fp_in, fp_out, want_info, want_marks, force_read)
 	write_viminfo_bufferlist(fp_out);
 	count = write_viminfo_marks(fp_out);
     }
-    if (fp_in != NULL && want_marks)
-	copy_viminfo_marks(&vir, fp_out, count, eof);
+    if (fp_in != NULL
+	    && (flags & (VIF_WANT_MARKS | VIF_GET_OLDFILES | VIF_FORCEIT)))
+	copy_viminfo_marks(&vir, fp_out, count, eof, flags);
 
     vim_free(vir.vir_line);
 #ifdef FEAT_MBYTE
@@ -2414,8 +2417,8 @@ print_line(lnum, use_number, list)
 	cursor_on();		/* msg_start() switches it off */
 	out_flush();
 	silent_mode = save_silent;
-	info_message = FALSE;
     }
+    info_message = FALSE;
 }
 
 /*
@@ -2704,7 +2707,12 @@ do_write(eap)
 	if (eap->cmdidx == CMD_saveas)
 	{
 	    if (retval == OK)
+	    {
 		curbuf->b_p_ro = FALSE;
+#ifdef FEAT_WINDOWS
+		redraw_tabline = TRUE;
+#endif
+	    }
 	    /* Change directories when the 'acd' option is set. */
 	    DO_AUTOCHDIR
 	}
@@ -3054,7 +3062,8 @@ getfile(fnum, ffname, sfname, setpm, lnum, forceit)
 	retval = 0;	/* it's in the same file */
     }
     else if (do_ecmd(fnum, ffname, sfname, NULL, lnum,
-		(P_HID(curbuf) ? ECMD_HIDE : 0) + (forceit ? ECMD_FORCEIT : 0)) == OK)
+		(P_HID(curbuf) ? ECMD_HIDE : 0) + (forceit ? ECMD_FORCEIT : 0),
+		curwin) == OK)
 	retval = -1;	/* opened another file */
     else
 	retval = 1;	/* error encountered */
@@ -3087,17 +3096,21 @@ theend:
  *	 ECMD_OLDBUF: use existing buffer if it exists
  *	ECMD_FORCEIT: ! used for Ex command
  *	 ECMD_ADDBUF: don't edit, just add to buffer list
+ *   oldwin: Should be "curwin" when editing a new buffer in the current
+ *           window, NULL when splitting the window first.  When not NULL info
+ *           of the previous buffer for "oldwin" is stored.
  *
  * return FAIL for failure, OK otherwise
  */
     int
-do_ecmd(fnum, ffname, sfname, eap, newlnum, flags)
+do_ecmd(fnum, ffname, sfname, eap, newlnum, flags, oldwin)
     int		fnum;
     char_u	*ffname;
     char_u	*sfname;
     exarg_T	*eap;			/* can be NULL! */
     linenr_T	newlnum;
     int		flags;
+    win_T	*oldwin;
 {
     int		other_file;		/* TRUE if editing another file */
     int		oldbuf;			/* TRUE if using existing buffer */
@@ -3269,7 +3282,8 @@ do_ecmd(fnum, ffname, sfname, eap, newlnum, flags)
 	{
 	    if (!cmdmod.keepalt)
 		curwin->w_alt_fnum = curbuf->b_fnum;
-	    buflist_altfpos();
+	    if (oldwin != NULL)
+		buflist_altfpos(oldwin);
 	}
 
 	if (fnum)
@@ -3373,7 +3387,7 @@ do_ecmd(fnum, ffname, sfname, eap, newlnum, flags)
 
 		/* close the link to the current buffer */
 		u_sync(FALSE);
-		close_buffer(curwin, curbuf,
+		close_buffer(oldwin, curbuf,
 				      (flags & ECMD_HIDE) ? 0 : DOBUF_UNLOAD);
 
 #ifdef FEAT_AUTOCMD
@@ -4021,7 +4035,7 @@ ex_z(eap)
     if (eap->forceit)
 	bigness = curwin->w_height;
     else if (firstwin == lastwin)
-	bigness = curwin->w_p_scr * 2;
+	bigness = p_window_unix2003 ? p_window_unix2003 : curwin->w_p_scr * 2;
     else
 	bigness = curwin->w_height - 3;
     if (bigness < 1)
@@ -5616,7 +5630,13 @@ ex_help(eap)
 	     */
 	    alt_fnum = curbuf->b_fnum;
 	    (void)do_ecmd(0, NULL, NULL, NULL, ECMD_LASTL,
-						   ECMD_HIDE + ECMD_SET_HELP);
+			  ECMD_HIDE + ECMD_SET_HELP,
+#ifdef FEAT_WINDOWS
+			  NULL  /* buffer is still open, don't store info */
+#else
+			  curwin
+#endif
+		    );
 	    if (!cmdmod.keepalt)
 		curwin->w_alt_fnum = alt_fnum;
 	    empty_fnum = curbuf->b_fnum;

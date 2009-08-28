@@ -29,10 +29,10 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\"	@(#)telnetd.8	8.3 (Berkeley) 3/1/94
-.\" $FreeBSD: src/libexec/telnetd/telnetd.8,v 1.23 2001/07/15 07:53:42 dd Exp $
+.\"	@(#)telnetd.8	8.4 (Berkeley) 6/1/94
+.\" $FreeBSD: src/contrib/telnet/telnetd/telnetd.8,v 1.21 2005/01/21 21:57:05 ru Exp $
 .\"
-.Dd March 1, 1994
+.Dd January 9, 2005
 .Dt TELNETD 8
 .Os
 .Sh NAME
@@ -42,15 +42,13 @@
 protocol server
 .Sh SYNOPSIS
 .Nm /usr/libexec/telnetd
-.Op Fl Uhlkns
+.Op Fl 46BUhlkns
 .Op Fl D Ar debugmode
-.Op Fl I Ns Ar initid
 .Op Fl S Ar tos
 .Op Fl X Ar authtype
 .Op Fl a Ar authmode
 .Op Fl edebug
 .Op Fl p Ar loginprog
-.Op Fl r Ns Ar lowpty-highpty
 .Op Fl u Ar len
 .Op Fl debug Op Ar port
 .Sh DESCRIPTION
@@ -88,6 +86,14 @@ The
 .Nm
 command accepts the following options:
 .Bl -tag -width indent
+.It Fl 4
+Forces
+.Nm
+to use IPv4 addresses only.
+.It Fl 6
+Forces
+.Nm
+to use IPv6 addresses only.
 .It Fl a Ar authmode
 This option may be used for specifying what mode should
 be used for authentication.
@@ -137,6 +143,19 @@ All user verification will happen through the
 .Xr login 1
 program.
 .El
+.It Fl B
+Specify bftp server mode.
+In this mode,
+.Nm
+causes login to start a
+.Xr bftp 1
+session rather than the user's
+normal shell.
+In bftp daemon mode normal
+logins are not supported, and it must be used
+on a port other than the normal
+.Tn TELNET
+port.
 .It Fl D Ar debugmode
 This option may be used for debugging purposes.
 This allows
@@ -186,23 +205,12 @@ understand the same command arguments as the standard login.
 .It Fl h
 Disable the printing of host-specific information before
 login has been completed.
-.It Fl I Ar initid
-This option is only applicable to
-.Tn UNICOS
-systems prior to 7.0.
-It specifies the
-.Dv ID
-from
-.Pa /etc/inittab
-to use when init starts login sessions.  The default
-.Dv ID
-is
-.Dv fe .
 .It Fl k
 This option is only useful if
 .Nm
 has been compiled with both linemode and kludge linemode
-support.  If the
+support.
+If the
 .Fl k
 option is specified, then if the remote client does not
 support the
@@ -227,8 +235,8 @@ in response to a
 .Dv DO TIMING-MARK )
 for kludge linemode support.
 .It Fl l
-Specify line mode. Try to force clients to use line-
-at-a-time mode.
+Specify line mode.
+Try to force clients to use line-at-a-time mode.
 If the
 .Dv LINEMODE
 option is not supported, it will go
@@ -236,7 +244,8 @@ into kludge linemode.
 .It Fl n
 Disable
 .Dv TCP
-keep-alives.  Normally
+keep-alives.
+Normally
 .Nm
 enables the
 .Tn TCP
@@ -245,49 +254,14 @@ have been idle for some period of time to determine
 if the client is still there, so that idle connections
 from machines that have crashed or can no longer
 be reached may be cleaned up.
-.It Fl r Ar lowpty-highpty
-This option is only enabled when
-.Nm
-is compiled for
-.Dv UNICOS .
-It specifies an inclusive range of pseudo-terminal devices to
-use.  If the system has sysconf variable
-.Dv _SC_CRAY_NPTY
-configured, the default pty search range is 0 to
-.Dv _SC_CRAY_NPTY ;
-otherwise, the default range is 0 to 128.  Either
-.Ar lowpty
-or
-.Ar highpty
-may be omitted to allow changing
-either end of the search range.  If
-.Ar lowpty
-is omitted, the - character is still required so that
-.Nm
-can differentiate
-.Ar highpty
-from
-.Ar lowpty .
-.It Fl s
-This option is only enabled if
-.Nm
-is compiled with support for
-.Tn SecurID
-cards.
-It causes the
-.Fl s
-option to be passed on to
-.Xr login 1 ,
-and thus is only useful if
-.Xr login 1
-supports the
-.Fl s
-flag to indicate that only
-.Tn SecurID
-validated logins are allowed, and is
-usually useful for controlling remote logins
-from outside of a firewall.
 .It Fl S Ar tos
+Sets the IP type-of-service (TOS) option for the telnet
+connection to the value
+.Ar tos ,
+which can be a numeric TOS value or, on systems that support it, a symbolic
+TOS name found in the
+.Pa /etc/iptos
+file.
 .It Fl u Ar len
 This option is used to specify the size of the field
 in the
@@ -451,7 +425,8 @@ is willing to receive an 8 bit data stream.
 Requests that the client handle flow control
 characters remotely.
 .It "DO ECHO"
-This is not really supported, but is sent to identify a 4.2BSD
+This is not really supported, but is sent to identify a
+.Bx 4.2
 .Xr telnet 1
 client, which will improperly respond with
 .Dv WILL ECHO .
@@ -527,7 +502,8 @@ and
 capabilities from
 .Pa /etc/gettytab
 and use that information (if present) to determine
-what to display before the login: prompt. You can
+what to display before the login: prompt.
+You can
 also use a System V style
 .Pa /etc/issue
 file by using the
@@ -544,8 +520,6 @@ will be displayed to both console and remote logins.
 .Bl -tag -width /usr/ucb/bftp -compact
 .It Pa /etc/services
 .It Pa /etc/gettytab
-.It Pa /etc/inittab
-(UNICOS systems only)
 .It Pa /etc/iptos
 (if supported)
 .It Pa /usr/ucb/bftp
@@ -554,9 +528,9 @@ will be displayed to both console and remote logins.
 .Sh "SEE ALSO"
 .Xr bftp 1 ,
 .Xr login 1 ,
-.Xr gettytab 5 ,
 .Xr telnet 1
-(if supported)
+(if supported),
+.Xr gettytab 5
 .Sh STANDARDS
 .Bl -tag -compact -width RFC-1572
 .It Cm RFC-854
@@ -603,16 +577,20 @@ Telnet Environment Option Interoperability Issues
 .It Cm RFC-1572
 Telnet Environment Option
 .El
+.Sh HISTORY
+IPv6 support was added by WIDE/KAME project.
 .Sh BUGS
 Some
 .Tn TELNET
 commands are only partially implemented.
 .Pp
-Because of bugs in the original 4.2 BSD
+Because of bugs in the original
+.Bx 4.2
 .Xr telnet 1 ,
 .Nm
 performs some dubious protocol exchanges to try to discover if the remote
-client is, in fact, a 4.2 BSD
+client is, in fact, a
+.Bx 4.2
 .Xr telnet 1 .
 .Pp
 Binary mode
@@ -627,5 +605,3 @@ never sends
 .Tn TELNET
 .Dv IAC GA
 (go ahead) commands.
-.Sh HISTORY
-IPv6 support was added by WIDE/KAME project.

@@ -72,7 +72,7 @@ public:
 	
 	time_t GetRecordModDate();
 	
-	int GetPrincipalData(unsigned char **outData, int *outDataLen);
+	int GetPrincipalData(unsigned char **outData, size_t *outDataLen);
 	int WritePrincipalToFile(FILE* file);
 	int WritePrincipalToTempFile(int fd);
 	void WritePrincipalToDB();
@@ -95,8 +95,8 @@ private:
 	char* mBuffer;
 	char* mOtherBuffer;
 	bool mOwnsBuffer;
-	int mBufSize;
-	int mOtherBufSize;
+	size_t mBufSize;
+	size_t mOtherBufSize;
 	char* mEntries[kKerberosPrincipalMaxEntries];
 	
 	PWSFKerberosPrincipalList* mListOwner;

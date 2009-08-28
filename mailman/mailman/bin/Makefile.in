@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2006 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -49,7 +49,7 @@ SCRIPTS=	mmsitepass newlist rmlist add_members \
 		list_admins genaliases change_pw mailmanctl qrunner inject \
 		unshunt fix_url.py convert.py transcheck b4b5-archfix \
 		list_owners msgfmt.py show_qfiles discard rb-archfix \
-		reset_pw.py
+		reset_pw.py export.py
 
 BUILDDIR=	../build/bin
 

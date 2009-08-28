@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/vlvctrl.c,v 1.13.2.2 2006/01/03 22:16:09 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/vlvctrl.c,v 1.21.2.3 2008/02/11 23:26:41 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,9 +27,6 @@
  * can be found in the file "build/LICENSE-2.0.1" in this distribution
  * of OpenLDAP Software.
  */
-/* Portions Copyright (C) The Internet Society (1997)
- * ASN.1 fragments are from RFC 2251; see RFC for full legal notices.
- */
 
 #include "portable.h"
 
@@ -50,8 +47,128 @@
    
    Create and encode the Virtual List View control.
 
-   ld        (IN)  An LDAP session handle, as obtained from a call to
-				   ldap_init().
+   ld        (IN)  An LDAP session handle.
+   
+   vlvinfop  (IN)  The address of an LDAPVLVInfo structure whose contents 
+				   are used to construct the value of the control
+				   that is created.
+   
+   value     (OUT) A struct berval that contains the value to be assigned to the ldctl_value member
+				   of an LDAPControl structure that contains the 
+				   VirtualListViewRequest control.
+				   The bv_val member of the berval structure
+				   SHOULD be freed when it is no longer in use by
+				   calling ldap_memfree().
+					  
+   
+   Ber encoding
+   
+   VirtualListViewRequest ::= SEQUENCE {
+		beforeCount  INTEGER (0 .. maxInt),
+		afterCount   INTEGER (0 .. maxInt),
+		CHOICE {
+				byoffset [0] SEQUENCE, {
+				offset        INTEGER (0 .. maxInt),
+				contentCount  INTEGER (0 .. maxInt) }
+				[1] greaterThanOrEqual assertionValue }
+		contextID     OCTET STRING OPTIONAL }
+	  
+   
+   Note:  The first time the VLV control is created, the ldvlv_context
+		  field of the LDAPVLVInfo structure should be set to NULL.
+		  The context obtained from calling ldap_parse_vlv_control()
+		  should be used as the context in the next ldap_create_vlv_control
+		  call.
+
+ ---*/
+
+int
+ldap_create_vlv_control_value(
+	LDAP *ld,
+	LDAPVLVInfo *vlvinfop,
+	struct berval *value )
+{
+	ber_tag_t tag;
+	BerElement *ber;
+
+	if ( ld == NULL || vlvinfop == NULL || value == NULL ) {
+		if ( ld )
+			ld->ld_errno = LDAP_PARAM_ERROR;
+		return LDAP_PARAM_ERROR;
+	}
+
+	assert( LDAP_VALID( ld ) );
+
+	value->bv_val = NULL;
+	value->bv_len = 0;
+
+	ber = ldap_alloc_ber_with_options( ld );
+	if ( ber == NULL ) {
+		ld->ld_errno = LDAP_NO_MEMORY;
+		return ld->ld_errno;
+	}
+
+	tag = ber_printf( ber, "{ii" /*}*/,
+		vlvinfop->ldvlv_before_count,
+		vlvinfop->ldvlv_after_count );
+	if ( tag == LBER_ERROR ) {
+		goto error_return;
+	}
+
+	if ( vlvinfop->ldvlv_attrvalue == NULL ) {
+		tag = ber_printf( ber, "t{iiN}",
+			LDAP_VLVBYINDEX_IDENTIFIER,
+			vlvinfop->ldvlv_offset,
+			vlvinfop->ldvlv_count );
+		if ( tag == LBER_ERROR ) {
+			goto error_return;
+		}
+
+	} else {
+		tag = ber_printf( ber, "tO",
+			LDAP_VLVBYVALUE_IDENTIFIER,
+			vlvinfop->ldvlv_attrvalue );
+		if ( tag == LBER_ERROR ) {
+			goto error_return;
+		}
+	}
+
+	if ( vlvinfop->ldvlv_context ) {
+		tag = ber_printf( ber, "tO",
+			LDAP_VLVCONTEXT_IDENTIFIER,
+			vlvinfop->ldvlv_context );
+		if ( tag == LBER_ERROR ) {
+			goto error_return;
+		}
+	}
+
+	tag = ber_printf( ber, /*{*/ "N}" ); 
+	if ( tag == LBER_ERROR ) {
+		goto error_return;
+	}
+
+	if ( ber_flatten2( ber, value, 1 ) == -1 ) {
+		ld->ld_errno = LDAP_NO_MEMORY;
+	}
+
+	if ( 0 ) {
+error_return:;
+		ld->ld_errno = LDAP_ENCODING_ERROR;
+	}
+
+	if ( ber != NULL ) {
+		ber_free( ber, 1 );
+	}
+
+	return ld->ld_errno;
+}
+
+/*---
+   ldap_create_vlv_control
+   
+   Create and encode the Virtual List View control.
+
+   ld        (IN)  An LDAP session handle.
    
    vlvinfop  (IN)  The address of an LDAPVLVInfo structure whose contents 
 				   are used to construct the value of the control
@@ -87,75 +204,134 @@
  ---*/
 
 int
-ldap_create_vlv_control( LDAP *ld,
-						 LDAPVLVInfo *vlvinfop,
-						 LDAPControl **ctrlp )
+ldap_create_vlv_control(
+	LDAP *ld,
+	LDAPVLVInfo *vlvinfop,
+	LDAPControl **ctrlp )
 {
-	ber_tag_t tag;
-	BerElement *ber;
+	struct berval	value;
 
+	if ( ctrlp == NULL ) {
+		ld->ld_errno = LDAP_PARAM_ERROR;
+		return ld->ld_errno;
+	}
+
+	ld->ld_errno = ldap_create_vlv_control_value( ld, vlvinfop, &value );
+	if ( ld->ld_errno == LDAP_SUCCESS ) {
+
+		ld->ld_errno = ldap_control_create( LDAP_CONTROL_VLVREQUEST,
+			1, &value, 0, ctrlp );
+		if ( ld->ld_errno != LDAP_SUCCESS ) {
+			LDAP_FREE( value.bv_val );
+		}
+	}
+
+	return ld->ld_errno;
+}
+
+/*---
+ apple specific code
+ ldap_parse_vlv_control - APPLE - WRAPPER method added during upgrade from 2.3.27 to 2.4.11
+ to support older clients
+ 
+ Decode the Virtual List View control return information.
+ 
+ ld           (IN)   An LDAP session handle.
+ 
+ ctrls        (IN)   The address of a NULL-terminated array of 
+ LDAPControl structures, typically obtained 
+ by a call to ldap_parse_result().
+ 
+ target_posp	(OUT)  This result parameter is filled in with the list
+ index of the target entry.  If this parameter is
+ NULL, the target position is not returned.
+ 
+ list_countp  (OUT)  This result parameter is filled in with the server's
+ estimate of the size of the list.  If this parameter
+ is NULL, the size is not returned.
+ 
+ contextp     (OUT)  This result parameter is filled in with the address
+ of a struct berval that contains the server-
+ generated context identifier if one was returned by
+ the server.  If the server did not return a context
+ identifier, this parameter will be set to NULL, even
+ if an error occured.
+ The returned context SHOULD be used in the next call
+ to create a VLV sort control.  The struct berval
+ returned SHOULD be disposed of by calling ber_bvfree()
+ when it is no longer needed.  If NULL is passed for
+ contextp, the context identifier is not returned.
+ 
+ errcodep     (OUT)  This result parameter is filled in with the VLV
+ result code.  If this parameter is NULL, the result
+ code is not returned.  
+ 
+ 
+ Ber encoding
+ 
+ VirtualListViewResponse ::= SEQUENCE {
+ targetPosition    INTEGER (0 .. maxInt),
+ contentCount     INTEGER (0 .. maxInt),
+ virtualListViewResult ENUMERATED {
+ success (0),
+ operatonsError (1),
+ unwillingToPerform (53),
+ insufficientAccessRights (50),
+ busy (51),
+ timeLimitExceeded (3),
+ adminLimitExceeded (11),
+ sortControlMissing (60),
+ offsetRangeError (61),
+ other (80) },
+ contextID     OCTET STRING OPTIONAL }
+ 
+ ---*/
+
+int
+ldap_parse_vlv_control(
+					   LDAP           *ld,
+					   LDAPControl    **ctrls,
+					   unsigned long  *target_posp,
+					   unsigned long  *list_countp,
+					   struct berval  **contextp,
+					   int            *errcodep )
+{
+	LDAPControl *pControl;
+	int i;
+	
 	assert( ld != NULL );
 	assert( LDAP_VALID( ld ) );
-	assert( vlvinfop != NULL );
-	assert( ctrlp != NULL );
-
-	if ((ber = ldap_alloc_ber_with_options(ld)) == NULL) {
-		ld->ld_errno = LDAP_NO_MEMORY;
-		return(LDAP_NO_MEMORY);
+	
+	if (contextp) {
+		*contextp = NULL;	 /* Make sure we return a NULL if error occurs. */
 	}
-
-	tag = ber_printf(ber, "{ii" /*}*/,
-		vlvinfop->ldvlv_before_count,
-		vlvinfop->ldvlv_after_count);
-	if( tag == LBER_ERROR ) goto exit;
-
-	if (vlvinfop->ldvlv_attrvalue == NULL) {
-		tag = ber_printf(ber, "t{iiN}",
-			LDAP_VLVBYINDEX_IDENTIFIER,
-			vlvinfop->ldvlv_offset,
-			vlvinfop->ldvlv_count);
-		if( tag == LBER_ERROR ) goto exit;
-
-	} else {
-		tag = ber_printf(ber, "tO",
-			LDAP_VLVBYVALUE_IDENTIFIER,
-			vlvinfop->ldvlv_attrvalue);
-		if( tag == LBER_ERROR ) goto exit;
+	
+	if (ctrls == NULL) {
+		ld->ld_errno = LDAP_CONTROL_NOT_FOUND;
+		return(ld->ld_errno);
 	}
-
-	if (vlvinfop->ldvlv_context) {
-		tag = ber_printf(ber, "tO",
-			LDAP_VLVCONTEXT_IDENTIFIER,
-			vlvinfop->ldvlv_context);
-		if( tag == LBER_ERROR ) goto exit;
+	
+	/* Search the list of control responses for a VLV control. */
+	for (i=0; ctrls[i]; i++) {
+		pControl = ctrls[i];
+		if (!strcmp(LDAP_CONTROL_VLVRESPONSE, pControl->ldctl_oid))
+			return ldap_parse_vlvresponse_control(ld,pControl,(ber_int_t *)target_posp,(ber_int_t *)list_countp,contextp,errcodep);
 	}
-
-	tag = ber_printf(ber, /*{*/ "N}"); 
-	if( tag == LBER_ERROR ) goto exit;
-
-	ld->ld_errno = ldap_create_control(	LDAP_CONTROL_VLVREQUEST,
-		ber, 1, ctrlp);
-
-	ber_free(ber, 1);
-	return(ld->ld_errno);
-
-exit:
-	ber_free(ber, 1);
-	ld->ld_errno = LDAP_ENCODING_ERROR;
+	
+	/* No sort control was found. */
+	ld->ld_errno = LDAP_CONTROL_NOT_FOUND;
 	return(ld->ld_errno);
 }
 
 
 /*---
-   ldap_parse_vlv_control
+   ldap_parse_vlvresponse_control
    
    Decode the Virtual List View control return information.
 
    ld           (IN)   An LDAP session handle.
    
-   ctrls        (IN)   The address of a NULL-terminated array of 
-					   LDAPControl structures, typically obtained 
-					   by a call to ldap_parse_result().
+   ctrl         (IN)   The address of the LDAPControl structure.
    
    target_posp	(OUT)  This result parameter is filled in with the list
 					   index of the target entry.  If this parameter is
@@ -203,18 +379,16 @@ exit:
 ---*/
 
 int
-ldap_parse_vlv_control(
-	LDAP           *ld,
-	LDAPControl    **ctrls,
-	unsigned long  *target_posp,
-	unsigned long  *list_countp,
+ldap_parse_vlvresponse_control(
+	LDAP *ld,
+	LDAPControl *ctrl,
+	ber_int_t *target_posp,
+	ber_int_t *list_countp,
 	struct berval  **contextp,
-	int            *errcodep )
+	ber_int_t *errcodep )
 {
 	BerElement  *ber;
-	LDAPControl *pControl;
-	int i;
-	unsigned long pos, count, err;
+	ber_int_t pos, count, err;
 	ber_tag_t tag, berTag;
 	ber_len_t berLen;
 
@@ -225,25 +399,19 @@ ldap_parse_vlv_control(
 		*contextp = NULL;	 /* Make sure we return a NULL if error occurs. */
 	}
 
-	if (ctrls == NULL) {
+	if (ctrl == NULL) {
+		ld->ld_errno = LDAP_PARAM_ERROR;
+		return(ld->ld_errno);
+	}
+
+	if (strcmp(LDAP_CONTROL_VLVRESPONSE, ctrl->ldctl_oid) != 0) {
+		/* Not VLV Response control */
 		ld->ld_errno = LDAP_CONTROL_NOT_FOUND;
 		return(ld->ld_errno);
 	}
 
-	/* Search the list of control responses for a VLV control. */
-	for (i=0; ctrls[i]; i++) {
-		pControl = ctrls[i];
-		if (!strcmp(LDAP_CONTROL_VLVRESPONSE, pControl->ldctl_oid))
-			goto foundVLVControl;
-	}
-
-	/* No sort control was found. */
-	ld->ld_errno = LDAP_CONTROL_NOT_FOUND;
-	return(ld->ld_errno);
-
-foundVLVControl:
 	/* Create a BerElement from the berval returned in the control. */
-	ber = ber_init(&pControl->ldctl_value);
+	ber = ber_init(&ctrl->ldctl_value);
 
 	if (ber == NULL) {
 		ld->ld_errno = LDAP_NO_MEMORY;
@@ -277,15 +445,9 @@ foundVLVControl:
 	ber_free(ber, 1);
 
 	/* Return data to the caller for items that were requested. */
-	if (target_posp) {
-		*target_posp = pos;
-	}
-	if (list_countp) {
-		*list_countp = count;
-	}
-	if (errcodep) {
-		*errcodep = err;
-	}
+	if (target_posp) *target_posp = pos;
+	if (list_countp) *list_countp = count;
+	if (errcodep) *errcodep = err;
 
 	ld->ld_errno = LDAP_SUCCESS;
 	return(ld->ld_errno);

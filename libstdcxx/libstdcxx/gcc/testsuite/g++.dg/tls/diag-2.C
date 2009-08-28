@@ -1,4 +1,5 @@
 /* Invalid __thread specifiers.  */
+/* { dg-require-effective-target tls } */
 
 __thread extern int g1;		/* { dg-error "'__thread' before 'extern'" } */
 __thread static int g2;		/* { dg-error "'__thread' before 'static'" } */
@@ -21,5 +22,5 @@ __thread void f4 () { }		/* { dg-error "invalid for function" } */
 void bar(__thread int p1);	/* { dg-error "(invalid in parameter)|(specified for parameter)" } */
 
 struct A {
-  __thread int i;		/* { dg-error "specified for field" } */
+  __thread int i;		/* { dg-error "storage class specified" } */
 };

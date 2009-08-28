@@ -7,10 +7,12 @@ collective.schema       Collective attributes (experimental)
 corba.schema            Corba Object
 core.schema             OpenLDAP "core"
 cosine.schema           COSINE Pilot
+duaconf.schema          Client Configuration (work in progress)
 dyngroup.schema			Dynamic Group (experimental)
 inetorgperson.schema    InetOrgPerson
 java.schema             Java Object
 misc.schema             Miscellaneous Schema (experimental)
+nadf.schema             North American Directory Forum (obsolete)
 nis.schema              Network Information Service (experimental)
 openldap.schema         OpenLDAP Project (FYI)
 ppolicy.schema          Password Policy Schema (work in progress)
@@ -20,11 +22,19 @@ using the OpenLDAP Issue Tracking System <http://www.openldap.org/its/>.
 Submissions should include a stable reference to a mature, open
 technical specification (e.g., an RFC) for the schema.
 
+The core.ldif and openldap.ldif files are equivalent to their
+corresponding .schema files. They have been provided as examples
+for use with the dynamic configuration backend. These example files
+are not actually necessary since slapd will automatically convert any
+included *.schema files into LDIF when converting a slapd.conf file
+to a configuration database, but they serve as a model of how to
+convert schema files in general.
+
 ---
 
 This notice applies to all files in this directory.
 
-Copyright 1998-2006 The OpenLDAP Foundation, Redwood City, California, USA
+Copyright 1998-2008 The OpenLDAP Foundation, Redwood City, California, USA
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -67,4 +77,4 @@ PURPOSE.
 
 
 ---
-$OpenLDAP: pkg/ldap/servers/slapd/schema/README,v 1.23.2.4 2006/01/03 22:16:25 kurt Exp $
+$OpenLDAP: pkg/ldap/servers/slapd/schema/README,v 1.29.2.3 2008/02/11 23:26:49 kurt Exp $

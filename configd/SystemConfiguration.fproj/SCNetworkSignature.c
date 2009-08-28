@@ -21,11 +21,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-/* 
+/*
  * SCNetworkSignature.c
  * - implementation of SCNetworkSignatureRef API that allows access to
      network identification information
- *   	
+ *
  */
 /*
  * Modification History
@@ -46,10 +46,6 @@
 #include "SCNetworkSignature.h"
 #include "SCNetworkSignaturePrivate.h"
 
-#if MAC_OS_X_VERSION_MIN_REQUIRED < 1050
-#error MAC_OS_X_VERSION_MIN_REQUIRED < 1050, Check MACOSX_DEPLOYMENT_TARGET
-#endif
-
 const char * kSCNetworkSignatureActiveChangedNotifyName = NETWORK_ID_KEY ".active";
 
 
@@ -67,7 +63,7 @@ store_copy_id_dict(CFAllocatorRef alloc, SCDynamicStoreRef store)
 {
 	CFDictionaryRef	id_dict = NULL;
 	Boolean		release_store = FALSE;
-	
+
 	if (store == NULL) {
 		store = store_create(alloc);
 		if (store == NULL) {
@@ -75,7 +71,7 @@ store_copy_id_dict(CFAllocatorRef alloc, SCDynamicStoreRef store)
 		}
 		release_store = TRUE;
 	}
-	id_dict = SCDynamicStoreCopyValue(store, 
+	id_dict = SCDynamicStoreCopyValue(store,
 					  kSCNetworkIdentificationStoreKey);
 	if (isA_CFDictionary(id_dict) == NULL) {
 		if (id_dict != NULL) {
@@ -91,7 +87,7 @@ store_copy_id_dict(CFAllocatorRef alloc, SCDynamicStoreRef store)
 	return (id_dict);
 }
 
-#pragma - 
+#pragma -
 
 #pragma mark SCNetworkSignature APIs
 
@@ -106,7 +102,7 @@ SCNetworkSignatureCopyActiveIdentifierForAddress(CFAllocatorRef alloc,
 
 	/* only accept 0.0.0.0 (i.e. default) for now */
 	sin_p = (struct sockaddr_in *)addr;
-	if (addr == NULL 
+	if (addr == NULL
 	    || addr->sa_family != AF_INET
 	    || addr->sa_len != sizeof(struct sockaddr_in)
 	    || sin_p->sin_addr.s_addr != 0) {
@@ -161,7 +157,7 @@ SCNetworkSignatureCopyActiveIdentifiers(CFAllocatorRef alloc)
 		}
 	}
 	CFRetain(active);
-	
+
  done:
 	if (id_dict != NULL) {
 		CFRelease(id_dict);

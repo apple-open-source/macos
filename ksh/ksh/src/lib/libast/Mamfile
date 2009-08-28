@@ -1,4 +1,4 @@
-info mam static 00000 1994-07-17 make (AT&T Research) 5.2 2007-06-21
+info mam static 00000 1994-07-17 make (AT&T Research) 5.2 2007-10-18
 setv INSTALLROOT ../../..
 setv PACKAGEROOT ../../../../..
 setv AR ar
@@ -177,6 +177,7 @@ make include/ast_std.h implicit
 make include/regex.h implicit
 prev ast_common.h implicit
 done include/regex.h dontcare
+prev comp/getopt.h implicit
 prev ast_map.h implicit
 make ast_botch.h implicit
 make FEATURE/botch
@@ -305,7 +306,7 @@ prev std/endian.h implicit
 prev std/endian.h implicit
 done port/astmath.c
 exec - X=1
-exec - for N in 1 2 3 4 5 6
+exec - for N in 1 2 3 4 5 6 8
 exec - do	if	${CC} -DN=$N -DIS ${mam_cc_FLAGS} ${CCFLAGS} -I. -Istd  -o astmath.exe port/astmath.c 2>/dev/null
 exec - 	then	: implicit math function N=$N :
 exec - 	elif	${CC} -DN=$N -DIS ${mam_cc_FLAGS} ${CCFLAGS} -I. -Istd  -o astmath.exe port/astmath.c -lm 2>/dev/null
@@ -1957,7 +1958,7 @@ prev misc/proclib.h implicit
 done misc/procrun.c
 meta procrun.o %.c>%.o misc/procrun.c procrun
 prev misc/procrun.c
-exec - ${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS} -I. -Icomp -Imisc -Iinclude -Istd -D__OBSOLETE__=20060101 -D_PACKAGE_ast -c misc/procrun.c
+exec - ${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS} -I. -Icomp -Imisc -Iinclude -Istd -D__OBSOLETE__=20070101 -D_PACKAGE_ast -c misc/procrun.c
 done procrun.o generated
 make procfree.o
 make misc/procfree.c
@@ -3368,7 +3369,6 @@ make getsubopt.o
 make comp/getsubopt.c
 prev include/error.h implicit
 prev include/ast.h implicit
-prev ast_lib.h implicit
 done comp/getsubopt.c
 meta getsubopt.o %.c>%.o comp/getsubopt.c getsubopt
 prev comp/getsubopt.c
@@ -3900,6 +3900,13 @@ done sfgetu.o generated
 make sfcvt.o
 make sfio/sfcvt.c
 prev sfio/sfhdr.h implicit
+make FEATURE/isoc99 implicit
+meta FEATURE/isoc99 features/%>FEATURE/% features/isoc99 isoc99
+make features/isoc99
+done features/isoc99
+prev ast.req
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} '   run features/isoc99
+done FEATURE/isoc99 dontcare generated
 done sfio/sfcvt.c
 meta sfcvt.o %.c>%.o sfio/sfcvt.c sfcvt
 prev sfio/sfcvt.c
@@ -5304,7 +5311,7 @@ prev misc/univlib.h implicit
 done port/astconf.c
 meta astconf.o %.c>%.o port/astconf.c astconf
 prev port/astconf.c
-exec - ${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS} -I. -Icomp -Imisc -Iinclude -Istd -D__OBSOLETE__=20060101 -DCONF_LIBSUFFIX=\""${mam_cc_SUFFIX_DYNAMIC-${mam_cc_SUFFIX_SHARED}}"\" -DCONF_LIBPREFIX=\""${mam_cc_PREFIX_DYNAMIC-${mam_cc_PREFIX_SHARED}}"\" -DHOSTTYPE=\""${mam_cc_HOSTTYPE}"\" -D_PACKAGE_ast -c port/astconf.c
+exec - ${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS} -I. -Icomp -Imisc -Iinclude -Istd -D__OBSOLETE__=20070101 -DCONF_LIBSUFFIX=\""${mam_cc_SUFFIX_DYNAMIC-${mam_cc_SUFFIX_SHARED}}"\" -DCONF_LIBPREFIX=\""${mam_cc_PREFIX_DYNAMIC-${mam_cc_PREFIX_SHARED}}"\" -DHOSTTYPE=\""${mam_cc_HOSTTYPE}"\" -D_PACKAGE_ast -c port/astconf.c
 done astconf.o generated
 make astdynamic.o
 make port/astdynamic.c
@@ -5379,6 +5386,7 @@ make comp/getoptl.c
 prev comp/getopt.h implicit
 prev include/option.h implicit
 prev include/error.h implicit
+prev include/ast_getopt.h implicit
 prev include/ast.h implicit
 done comp/getoptl.c
 meta getoptl.o %.c>%.o comp/getoptl.c getoptl
@@ -5782,7 +5790,7 @@ prev include/sfio_t.h implicit
 done disc/sfstrtmp.c
 meta sfstrtmp.o %.c>%.o disc/sfstrtmp.c sfstrtmp
 prev disc/sfstrtmp.c
-exec - ${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS} -I. -Icomp -Iinclude -Istd -D__OBSOLETE__=20060101 -D_PACKAGE_ast -c disc/sfstrtmp.c
+exec - ${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS} -I. -Icomp -Iinclude -Istd -D__OBSOLETE__=20070101 -D_PACKAGE_ast -c disc/sfstrtmp.c
 done sfstrtmp.o generated
 make spawn.o
 make obsolete/spawn.c
@@ -6903,6 +6911,7 @@ make misc/magic.tab
 done misc/magic.tab
 exec - test '' = 'misc/magic.tab' || ${STDCMP} 2>/dev/null -s misc/magic.tab ${INSTALLROOT}/lib/file/magic || { ${STDMV} ${INSTALLROOT}/lib/file/magic ${INSTALLROOT}/lib/file/magic.old 2>/dev/null || true; ${STDCP} misc/magic.tab ${INSTALLROOT}/lib/file/magic  		    		    ;}
 done ${INSTALLROOT}/lib/file/magic generated
+make ${INSTALLROOT}/include/ast/fmtmsg.h
 prev comp/fmtmsg.h
 prev ast_lib.h
 exec - case ${mam_cc_HOSTTYPE} in
@@ -6921,6 +6930,9 @@ exec - 	fi
 exec - 	}
 exec - 	;;
 exec - esac
+prev ${INSTALLROOT}/include/prototyped.h implicit
+done ${INSTALLROOT}/include/ast/fmtmsg.h generated
+make ${INSTALLROOT}/include/ast/libgen.h
 prev comp/libgen.h
 prev ast_lib.h
 exec - case ${mam_cc_HOSTTYPE} in
@@ -6939,6 +6951,9 @@ exec - 	fi
 exec - 	}
 exec - 	;;
 exec - esac
+prev ${INSTALLROOT}/include/prototyped.h implicit
+done ${INSTALLROOT}/include/ast/libgen.h generated
+make ${INSTALLROOT}/include/ast/syslog.h
 prev comp/syslog.h
 prev ast_lib.h
 exec - case ${mam_cc_HOSTTYPE} in
@@ -6957,6 +6972,9 @@ exec - 	fi
 exec - 	}
 exec - 	;;
 exec - esac
+prev ast_namval.h implicit
+prev ${INSTALLROOT}/include/prototyped.h implicit
+done ${INSTALLROOT}/include/ast/syslog.h generated
 make ${INSTALLROOT}/include/ast/prototyped.h
 prev ${INSTALLROOT}/include/ast
 exec - echo "#include <../prototyped.h>" > 1.${COTEMP}.x

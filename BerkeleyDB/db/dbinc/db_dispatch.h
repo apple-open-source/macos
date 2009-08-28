@@ -1,8 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1996,2007 Oracle.  All rights reserved.
  */
 /*
  * Copyright (c) 1995, 1996
@@ -32,11 +31,15 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: db_dispatch.h,v 1.2 2004/03/30 01:21:28 jtownsen Exp $
+ * $Id: db_dispatch.h,v 12.11 2007/05/17 15:15:05 bostic Exp $
  */
 
 #ifndef _DB_DISPATCH_H_
 #define	_DB_DISPATCH_H_
+
+#if defined(__cplusplus)
+extern "C" {
+#endif
 
 /*
  * Declarations and typedefs for the list of transaction IDs used during
@@ -52,6 +55,7 @@ typedef enum {
 
 #define	DB_TXNLIST_MASK(hp, n)  (n % hp->nslots)
 struct __db_txnhead {
+	void *td;		/* If abort, the detail for the txn. */
 	u_int32_t maxid;	/* Maximum transaction id. */
 	DB_LSN maxlsn;		/* Maximum commit lsn. */
 	DB_LSN ckplsn;		/* LSN of last retained checkpoint. */
@@ -68,6 +72,7 @@ struct __db_txnhead {
 	LIST_HEAD(__db_headlink, __db_txnlist) head[1];
 };
 
+#define	DB_LSN_STACK_SIZE 4
 struct __db_txnlist {
 	db_txnlist_type type;
 	LIST_ENTRY(__db_txnlist) links;
@@ -75,12 +80,12 @@ struct __db_txnlist {
 		struct {
 			u_int32_t txnid;
 			u_int32_t generation;
-			int32_t status;
+			u_int32_t status;
 		} t;
 		struct {
-			u_int32_t ntxns;
-			u_int32_t maxn;
-			DB_LSN *lsn_array;
+			u_int32_t stack_size;
+			u_int32_t stack_indx;
+			DB_LSN *lsn_stack;
 		} l;
 		struct {
 			u_int32_t nentries;
@@ -95,15 +100,8 @@ struct __db_txnlist {
 };
 
 /*
- * Flag value for __db_txnlist_lsnadd. Distinguish whether we are replacing
- * an entry in the transaction list or adding a new one.
- */
-#define	TXNLIST_NEW	0x1
-
-/*
  * States for limbo list processing.
  */
-
 typedef enum {
 	LIMBO_NORMAL,		/* Normal processing. */
 	LIMBO_PREPARE,		/* We are preparing a transaction. */
@@ -111,5 +109,9 @@ typedef enum {
 	LIMBO_TIMESTAMP,	/* We are recovering to a timestamp. */
 	LIMBO_COMPENSATE	/* After recover to ts, generate log records. */
 } db_limbo_state;
+
+#if defined(__cplusplus)
+}
+#endif
 
 #endif /* !_DB_DISPATCH_H_ */

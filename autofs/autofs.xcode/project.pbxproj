@@ -53,9 +53,11 @@
 		EB275CF70A6879D10087A086 /* autofs.conf.5 in CopyFiles */ = {isa = PBXBuildFile; fileRef = EB275CEE0A6879690087A086 /* autofs.conf.5 */; };
 		EB2F19090BDDAF6900E29EAE /* mount_url.c in Sources */ = {isa = PBXBuildFile; fileRef = EB2F19080BDDAF6900E29EAE /* mount_url.c */; };
 		EB2F190E0BDDB02B00E29EAE /* mount_url.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = EB2F19070BDDAF6900E29EAE /* mount_url.8 */; };
-		EB439A6909EDF7830094B7DC /* mount.x in Sources */ = {isa = PBXBuildFile; fileRef = EB439A0509EDF46D0094B7DC /* mount.x */; };
+		EB396FC80EB2BFAD0043ACFB /* selfcheck.c in Sources */ = {isa = PBXBuildFile; fileRef = EBD0B48509FED46C008A1141 /* selfcheck.c */; };
 		EB5243CB09F5BFA80003D38E /* ns_files.c in Sources */ = {isa = PBXBuildFile; fileRef = EB5243C209F5BFA80003D38E /* ns_files.c */; };
 		EB5243CF09F5BFA80003D38E /* ns_generic.c in Sources */ = {isa = PBXBuildFile; fileRef = EB5243C709F5BFA80003D38E /* ns_generic.c */; };
+		EB6B63AE0F86D69400E0E310 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB9C62A80A6729630012D63F /* CoreFoundation.framework */; };
+		EB6B63D10F86D69D00E0E310 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBDCE62F0A671F3E0058A293 /* SystemConfiguration.framework */; };
 		EB6CDCC109D9E5C600EA0B49 /* autod_autofs.c in Sources */ = {isa = PBXBuildFile; fileRef = EB6CDC9F09D9E5C500EA0B49 /* autod_autofs.c */; };
 		EB6CDCC209D9E5C600EA0B49 /* autod_lookup.c in Sources */ = {isa = PBXBuildFile; fileRef = EB6CDCA009D9E5C500EA0B49 /* autod_lookup.c */; };
 		EB6CDCC309D9E5C600EA0B49 /* autod_main.c in Sources */ = {isa = PBXBuildFile; fileRef = EB6CDCA109D9E5C500EA0B49 /* autod_main.c */; };
@@ -63,10 +65,12 @@
 		EB6CDCC509D9E5C600EA0B49 /* autod_nfs.c in Sources */ = {isa = PBXBuildFile; fileRef = EB6CDCA309D9E5C500EA0B49 /* autod_nfs.c */; };
 		EB6CDCC609D9E5C600EA0B49 /* autod_parse.c in Sources */ = {isa = PBXBuildFile; fileRef = EB6CDCA409D9E5C500EA0B49 /* autod_parse.c */; };
 		EB6CDCC709D9E5C600EA0B49 /* autod_readdir.c in Sources */ = {isa = PBXBuildFile; fileRef = EB6CDCA509D9E5C500EA0B49 /* autod_readdir.c */; };
+		EB760C800CBAE64300997C50 /* mount_xdr.c in Sources */ = {isa = PBXBuildFile; fileRef = EB760C7F0CBAE64300997C50 /* mount_xdr.c */; };
 		EB889502097C2FFE00B81AB3 /* autofs_defs.h in Headers */ = {isa = PBXBuildFile; fileRef = EB889501097C2FFE00B81AB3 /* autofs_defs.h */; };
-		EB8CA1AE0ABA3F5600CF2160 /* autofs.exp in Sources */ = {isa = PBXBuildFile; fileRef = EB8CA1AD0ABA3F5600CF2160 /* autofs.exp */; };
 		EB90EEB009DE0811000EE15D /* deflt.c in Sources */ = {isa = PBXBuildFile; fileRef = EB90EEAE09DE0811000EE15D /* deflt.c */; };
 		EB9C62F10A6729630012D63F /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB9C62A80A6729630012D63F /* CoreFoundation.framework */; };
+		EB9F8EA70F86D72C0055F3E7 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB9C62A80A6729630012D63F /* CoreFoundation.framework */; };
+		EB9F8EA80F86D7320055F3E7 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBDCE62F0A671F3E0058A293 /* SystemConfiguration.framework */; };
 		EBB3D87C09DCDEB500176DBC /* autofs_prot.defs in Sources */ = {isa = PBXBuildFile; fileRef = EB0024CE0977617E002F9164 /* autofs_prot.defs */; };
 		EBB4C2B70BC5E58200FFAB32 /* com.apple.autofsd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = EBB4C2B60BC5E57000FFAB32 /* com.apple.autofsd.plist */; };
 		EBB4C2C40BC5E69300FFAB32 /* com.apple.automountd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = EBB4C2C10BC5E66E00FFAB32 /* com.apple.automountd.plist */; };
@@ -84,7 +88,7 @@
 		EBD485520A27C66C005F12BF /* autofs_migtypes.h in Headers */ = {isa = PBXBuildFile; fileRef = EBD485500A27C66B005F12BF /* autofs_migtypes.h */; };
 		EBDAB3120B0D43AE00257263 /* ns_ds.c in Sources */ = {isa = PBXBuildFile; fileRef = EBDAB3100B0D438F00257263 /* ns_ds.c */; };
 		EBDAB3710B0D442300257263 /* DirectoryService.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBDAB3180B0D43F300257263 /* DirectoryService.framework */; };
-		EBDB4B8D0BDDBC7F009FCE76 /* URLMount.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBA5F2A00A37DA4E0032E7C4 /* URLMount.framework */; };
+		EBDB4B8D0BDDBC7F009FCE76 /* NetFS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBA5F2A00A37DA4E0032E7C4 /* NetFS.framework */; };
 		EBDCE6280A671ED10058A293 /* autofsd.c in Sources */ = {isa = PBXBuildFile; fileRef = EBDCE6200A671E8D0058A293 /* autofsd.c */; };
 		EBDCE6530A671F3E0058A293 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBDCE62F0A671F3E0058A293 /* SystemConfiguration.framework */; };
 		EBDFC4300978B2EC00096DCC /* autofs.h in Headers */ = {isa = PBXBuildFile; fileRef = EBDFC42F0978B2EC00096DCC /* autofs.h */; };
@@ -311,7 +315,6 @@
 		EB2F19070BDDAF6900E29EAE /* mount_url.8 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 4; indentWidth = 8; name = mount_url.8; path = mount_url/mount_url.8; sourceTree = "<group>"; tabWidth = 8; };
 		EB2F19080BDDAF6900E29EAE /* mount_url.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.c; name = mount_url.c; path = mount_url/mount_url.c; sourceTree = "<group>"; tabWidth = 8; };
 		EB39DD470A645F7500A4B518 /* nfs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = nfs.h; path = headers/nfs.h; sourceTree = "<group>"; };
-		EB439A0509EDF46D0094B7DC /* mount.x */ = {isa = PBXFileReference; explicitFileType = sourcecode; fileEncoding = 4; indentWidth = 8; path = mount.x; sourceTree = "<group>"; tabWidth = 8; };
 		EB5243C209F5BFA80003D38E /* ns_files.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = ns_files.c; sourceTree = "<group>"; tabWidth = 8; };
 		EB5243C709F5BFA80003D38E /* ns_generic.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = ns_generic.c; sourceTree = "<group>"; tabWidth = 8; };
 		EB6CDC9709D9E59800EA0B49 /* automountd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = automountd; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -322,12 +325,15 @@
 		EB6CDCA309D9E5C500EA0B49 /* autod_nfs.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = autod_nfs.c; sourceTree = "<group>"; tabWidth = 8; };
 		EB6CDCA409D9E5C500EA0B49 /* autod_parse.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = autod_parse.c; sourceTree = "<group>"; tabWidth = 8; };
 		EB6CDCA509D9E5C500EA0B49 /* autod_readdir.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = autod_readdir.c; sourceTree = "<group>"; tabWidth = 8; };
+		EB760C7A0CBAE61F00997C50 /* mount.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = mount.h; sourceTree = "<group>"; };
+		EB760C7F0CBAE64300997C50 /* mount_xdr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = mount_xdr.c; sourceTree = "<group>"; };
+		EB760C830CBAE66D00997C50 /* automountd.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = automountd.h; sourceTree = "<group>"; };
 		EB889501097C2FFE00B81AB3 /* autofs_defs.h */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.h; name = autofs_defs.h; path = headers/autofs_defs.h; sourceTree = "<group>"; tabWidth = 8; };
 		EB8CA1AD0ABA3F5600CF2160 /* autofs.exp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.exports; path = autofs.exp; sourceTree = "<group>"; };
 		EB90EEAE09DE0811000EE15D /* deflt.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = deflt.c; sourceTree = "<group>"; tabWidth = 8; };
 		EB90EEAF09DE0811000EE15D /* deflt.h */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.h; name = deflt.h; path = automountlib/deflt.h; sourceTree = "<group>"; tabWidth = 8; };
 		EB9C62A80A6729630012D63F /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
-		EBA5F2A00A37DA4E0032E7C4 /* URLMount.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = URLMount.framework; path = /System/Library/PrivateFrameworks/URLMount.framework; sourceTree = "<absolute>"; };
+		EBA5F2A00A37DA4E0032E7C4 /* NetFS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = NetFS.framework; path = /System/Library/Frameworks/NetFS.framework; sourceTree = "<absolute>"; };
 		EBAC2EB009DE106700699A69 /* replica.h */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.h; path = replica.h; sourceTree = "<group>"; tabWidth = 8; };
 		EBAC2F2709DE1A0D00699A69 /* nfs_subr.h */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.h; path = nfs_subr.h; sourceTree = "<group>"; tabWidth = 8; };
 		EBB3D6F209DB447800176DBC /* automount.h */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.h; name = automount.h; path = headers/automount.h; sourceTree = "<group>"; tabWidth = 8; };
@@ -382,7 +388,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				EBBBB7650BDDBE6F002F04E3 /* CoreFoundation.framework in Frameworks */,
-				EBDB4B8D0BDDBC7F009FCE76 /* URLMount.framework in Frameworks */,
+				EBDB4B8D0BDDBC7F009FCE76 /* NetFS.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -391,6 +397,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				EBDAB3710B0D442300257263 /* DirectoryService.framework in Frameworks */,
+				EB6B63AE0F86D69400E0E310 /* CoreFoundation.framework in Frameworks */,
+				EB6B63D10F86D69D00E0E310 /* SystemConfiguration.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -399,6 +407,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				EBED8D200BF97A4A002E732D /* DirectoryService.framework in Frameworks */,
+				EB9F8EA70F86D72C0055F3E7 /* CoreFoundation.framework in Frameworks */,
+				EB9F8EA80F86D7320055F3E7 /* SystemConfiguration.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -436,7 +446,7 @@
 				EB9C62A80A6729630012D63F /* CoreFoundation.framework */,
 				EBDAB3180B0D43F300257263 /* DirectoryService.framework */,
 				EBDCE62F0A671F3E0058A293 /* SystemConfiguration.framework */,
-				EBA5F2A00A37DA4E0032E7C4 /* URLMount.framework */,
+				EBA5F2A00A37DA4E0032E7C4 /* NetFS.framework */,
 			);
 			sourceTree = "<group>";
 		};
@@ -547,8 +557,10 @@
 				EB6CDCA409D9E5C500EA0B49 /* autod_parse.c */,
 				EB6CDCA509D9E5C500EA0B49 /* autod_readdir.c */,
 				EB1FAB230A30C67D0012E6D3 /* automountd.8 */,
+				EB760C830CBAE66D00997C50 /* automountd.h */,
 				EBB4C2C10BC5E66E00FFAB32 /* com.apple.automountd.plist */,
-				EB439A0509EDF46D0094B7DC /* mount.x */,
+				EB760C7A0CBAE61F00997C50 /* mount.h */,
+				EB760C7F0CBAE64300997C50 /* mount_xdr.c */,
 				EBD0B4F209FEDA79008A1141 /* nfs_cast.c */,
 				EBD0B6110A02B485008A1141 /* nfs_subr.c */,
 				EBAC2F2709DE1A0D00699A69 /* nfs_subr.h */,
@@ -801,7 +813,6 @@
 				C10DA70605E2C9FB000E258E /* auto_vnops.c in Sources */,
 				C10DA70705E2C9FB000E258E /* auto_vfsops.c in Sources */,
 				C10DA70805E2C9FB000E258E /* auto_subr.c in Sources */,
-				EB8CA1AE0ABA3F5600CF2160 /* autofs.exp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -834,7 +845,6 @@
 				EB6CDCC709D9E5C600EA0B49 /* autod_readdir.c in Sources */,
 				EBB3D87C09DCDEB500176DBC /* autofs_prot.defs in Sources */,
 				EB90EEB009DE0811000EE15D /* deflt.c in Sources */,
-				EB439A6909EDF7830094B7DC /* mount.x in Sources */,
 				EB5243CB09F5BFA80003D38E /* ns_files.c in Sources */,
 				EB5243CF09F5BFA80003D38E /* ns_generic.c in Sources */,
 				EBEDAD6209FDDAB5004505E4 /* auto_subr.c in Sources */,
@@ -848,6 +858,7 @@
 				EBD297630B338F5100063B68 /* ns_fstab.c in Sources */,
 				EBE849CF0CA9D494001FD34E /* host_is_us.c in Sources */,
 				EBE849D40CA9D4B3001FD34E /* we_are_a_server.c in Sources */,
+				EB760C800CBAE64300997C50 /* mount_xdr.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -862,6 +873,7 @@
 				EBED8D080BF97A03002E732D /* ns_files.c in Sources */,
 				EBED8D090BF97A0B002E732D /* ns_fstab.c in Sources */,
 				EBED8D0A0BF97A12002E732D /* ns_generic.c in Sources */,
+				EB396FC80EB2BFAD0043ACFB /* selfcheck.c in Sources */,
 				EBED8D0B0BF97A1F002E732D /* sysctl_fsid.c in Sources */,
 				EBED8D0C0BF97A25002E732D /* umount_by_fsid.c in Sources */,
 				EBE849CE0CA9D494001FD34E /* host_is_us.c in Sources */,
@@ -918,81 +930,37 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		EB0024A909776024002F9164 /* Development */ = {
+		EB0024A909776024002F9164 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = (
-					ppc,
 					i386,
-				);
-				COPY_PHASE_STRIP = NO;
-				EXPORTED_SYMBOLS_FILE = "";
-				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_OPTIMIZATION_LEVEL = 0;
-				HEADER_SEARCH_PATHS = "";
-				INFOPLIST_FILE = kext/Info.plist;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				LIBRARY_SEARCH_PATHS = "";
-				MODULE_NAME = com.apple.kernel.autofs.kext;
-				MODULE_START = auto_module_start;
-				MODULE_STOP = auto_module_stop;
-				MODULE_VERSION = 1.0.0d1;
-				OTHER_CFLAGS = "-D__MigKernelSpecificCode";
-				OTHER_LDFLAGS = "";
-				PRODUCT_NAME = autofs;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-					"-Werror",
-					"-Wunused",
-				);
-				WRAPPER_EXTENSION = kext;
-			};
-			name = Development;
-		};
-		EB0024AA09776024002F9164 /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ARCHS = (
-					ppc,
-					i386,
-				);
-				COPY_PHASE_STRIP = YES;
-				FRAMEWORK_SEARCH_PATHS = "";
-				HEADER_SEARCH_PATHS = "";
-				INFOPLIST_FILE = kext/Info.plist;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				LIBRARY_SEARCH_PATHS = "";
-				MODULE_NAME = com.apple.kernel.autofs.kext;
-				MODULE_START = auto_module_start;
-				MODULE_STOP = auto_module_stop;
-				MODULE_VERSION = 1.0.0d1;
-				OTHER_CFLAGS = "-D__MigKernelSpecificCode";
-				OTHER_LDFLAGS = "";
-				PRODUCT_NAME = autofs;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-					"-Werror",
-					"-Wunused",
-				);
-				WRAPPER_EXTENSION = kext;
-			};
-			name = Deployment;
-		};
-		EB0024AB09776024002F9164 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ARCHS = (
-					ppc,
-					i386,
+					x86_64,
 				);
 				EXPORTED_SYMBOLS_FILE = kext/autofs.exp;
 				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_PROTOTYPE_CONVERSION = NO;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNKNOWN_PRAGMAS = NO;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = kext/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
@@ -1001,194 +969,36 @@
 				MODULE_START = auto_module_start;
 				MODULE_STOP = auto_module_stop;
 				MODULE_VERSION = 1.0.0d1;
-				OTHER_CFLAGS = "-D__MigKernelSpecificCode";
+				OTHER_CFLAGS = (
+					"-D__MigKernelSpecificCode",
+					"-D__MigTypeCheck=1",
+				);
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = autofs;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
+					"-Wall",
+					"-Wextra",
 					"-Wno-unknown-pragmas",
-					"-Werror",
-					"-Wunused",
+					"-Wno-error=deprecated-declarations",
 				);
 				WRAPPER_EXTENSION = kext;
 			};
-			name = Default;
+			name = Debug;
 		};
-		EB0024AD09776024002F9164 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				INSTALL_PATH = /usr/local/bin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = mount_autofs;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Development;
-		};
-		EB0024AE09776024002F9164 /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				INSTALL_PATH = /usr/local/bin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = mount_autofs;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Deployment;
-		};
-		EB0024AF09776024002F9164 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				INSTALL_PATH = /usr/local/bin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = mount_autofs;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Default;
-		};
-		EB0024B509776024002F9164 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				OTHER_CFLAGS = "-D__MigTypeCheck=1";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = "autofs-package";
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Development;
-		};
-		EB0024B609776024002F9164 /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				OTHER_CFLAGS = "-D__MigTypeCheck=1";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = "autofs-package";
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Deployment;
-		};
-		EB0024B709776024002F9164 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				OTHER_CFLAGS = "-D__MigTypeCheck=1";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = "autofs-package";
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Default;
-		};
-		EB0024B909776024002F9164 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-			};
-			name = Development;
-		};
-		EB0024BA09776024002F9164 /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-			};
-			name = Deployment;
-		};
-		EB0024BB09776024002F9164 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-			};
-			name = Default;
-		};
-		EB275CF40A6879B40087A086 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				PRODUCT_NAME = files;
-			};
-			name = Development;
-		};
-		EB275CF50A6879B40087A086 /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				PRODUCT_NAME = files;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		EB275CF60A6879B40087A086 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				PRODUCT_NAME = files;
-			};
-			name = Default;
-		};
-		EB2F18D10BDDAED800E29EAE /* Development */ = {
+		EB0024AA09776024002F9164 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = (
-					ppc,
 					i386,
+					x86_64,
 				);
-				COPY_PHASE_STRIP = NO;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
-				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_MODEL_TUNING = G4;
-				GCC_OPTIMIZATION_LEVEL = 0;
+				EXPORTED_SYMBOLS_FILE = kext/autofs.exp;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
@@ -1196,40 +1006,54 @@
 				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
 				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
 				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_PROTOTYPE_CONVERSION = NO;
 				GCC_WARN_SHADOW = YES;
 				GCC_WARN_SIGN_COMPARE = YES;
 				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNKNOWN_PRAGMAS = NO;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_LABEL = YES;
 				GCC_WARN_UNUSED_PARAMETER = YES;
 				GCC_WARN_UNUSED_VALUE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				INSTALL_PATH = /usr/libexec;
-				OTHER_LDFLAGS = "-lutil";
-				PREBINDING = YES;
-				PRODUCT_NAME = mount_url;
-				ZERO_LINK = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = kext/Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_NAME = com.apple.kernel.autofs.kext;
+				MODULE_START = auto_module_start;
+				MODULE_STOP = auto_module_stop;
+				MODULE_VERSION = 1.0.0d1;
+				OTHER_CFLAGS = (
+					"-D__MigKernelSpecificCode",
+					"-D__MigTypeCheck=1",
+				);
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = autofs;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "i386 x86_64";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wno-unknown-pragmas",
+					"-Wno-error=deprecated-declarations",
+				);
+				WRAPPER_EXTENSION = kext;
 			};
-			name = Development;
+			name = Release;
 		};
-		EB2F18D20BDDAED800E29EAE /* Deployment */ = {
+		EB0024AD09776024002F9164 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = (
-					ppc,
 					i386,
+					x86_64,
 				);
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
-				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				GCC_MODEL_TUNING = G4;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
@@ -1237,81 +1061,162 @@
 				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
 				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
 				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_PROTOTYPE_CONVERSION = NO;
 				GCC_WARN_SHADOW = YES;
 				GCC_WARN_SIGN_COMPARE = YES;
 				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = NO;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNKNOWN_PRAGMAS = NO;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_LABEL = YES;
 				GCC_WARN_UNUSED_PARAMETER = YES;
 				GCC_WARN_UNUSED_VALUE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				INSTALL_PATH = /usr/libexec;
-				OTHER_LDFLAGS = "-lutil";
-				PREBINDING = YES;
-				PRODUCT_NAME = mount_url;
-				ZERO_LINK = NO;
+				INSTALL_PATH = /usr/local/bin;
+				OTHER_CFLAGS = (
+					"-D_DARWIN_USE_64_BIT_INODE",
+					"-D__MigTypeCheck=1",
+				);
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = mount_autofs;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "i386 x86_64";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wno-unknown-pragmas",
+					"-Wno-error=deprecated-declarations",
+				);
 			};
-			name = Deployment;
+			name = Debug;
 		};
-		EB2F18D30BDDAED800E29EAE /* Default */ = {
+		EB0024AE09776024002F9164 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = (
-					ppc,
 					i386,
+					x86_64,
 				);
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
-				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_MODEL_TUNING = G4;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
-				GCC_WARN_EFFECTIVE_CPLUSPLUS_VIOLATIONS = NO;
 				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
 				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
 				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_PROTOTYPE_CONVERSION = NO;
 				GCC_WARN_SHADOW = YES;
 				GCC_WARN_SIGN_COMPARE = YES;
 				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNKNOWN_PRAGMAS = NO;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_LABEL = YES;
 				GCC_WARN_UNUSED_PARAMETER = YES;
 				GCC_WARN_UNUSED_VALUE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				INSTALL_PATH = /usr/libexec;
-				OTHER_LDFLAGS = "-lutil";
-				PREBINDING = YES;
-				PRODUCT_NAME = mount_url;
-				ZERO_LINK = NO;
+				INSTALL_PATH = /usr/local/bin;
+				OTHER_CFLAGS = (
+					"-D_DARWIN_USE_64_BIT_INODE",
+					"-D__MigTypeCheck=1",
+				);
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = mount_autofs;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "i386 x86_64";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wno-unknown-pragmas",
+					"-Wno-error=deprecated-declarations",
+				);
 			};
-			name = Default;
+			name = Release;
 		};
-		EB6CDCDE09D9E73800EA0B49 /* Development */ = {
+		EB0024B509776024002F9164 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = (
-					ppc,
 					i386,
+					x86_64,
 				);
-				COPY_PHASE_STRIP = NO;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "autofs-package";
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "i386 x86_64";
+			};
+			name = Debug;
+		};
+		EB0024B609776024002F9164 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					i386,
+					x86_64,
 				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "autofs-package";
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "i386 x86_64";
+			};
+			name = Release;
+		};
+		EB0024B909776024002F9164 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_OPTIMIZATION_LEVEL = 0;
+			};
+			name = Debug;
+		};
+		EB0024BA09776024002F9164 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		EB275CF40A6879B40087A086 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					i386,
+					x86_64,
+				);
+				GCC_OPTIMIZATION_LEVEL = 0;
+				PRODUCT_NAME = files;
+				VALID_ARCHS = "i386 x86_64";
+			};
+			name = Debug;
+		};
+		EB275CF50A6879B40087A086 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					i386,
+					x86_64,
+				);
+				PRODUCT_NAME = files;
+				VALID_ARCHS = "i386 x86_64";
+			};
+			name = Release;
+		};
+		EB2F18D10BDDAED800E29EAE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					i386,
+					x86_64,
+				);
+				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
+				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_MODEL_TUNING = G4;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
@@ -1319,10 +1224,11 @@
 				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
 				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
 				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_PROTOTYPE_CONVERSION = NO;
 				GCC_WARN_SHADOW = YES;
 				GCC_WARN_SIGN_COMPARE = YES;
 				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = NO;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNKNOWN_PRAGMAS = NO;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_LABEL = YES;
@@ -1330,31 +1236,36 @@
 				GCC_WARN_UNUSED_VALUE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				INSTALL_PATH = /usr/libexec;
+				OTHER_CFLAGS = (
+					"-D_DARWIN_USE_64_BIT_INODE",
+					"-D__MigTypeCheck=1",
+				);
 				OTHER_LDFLAGS = "-lutil";
 				PREBINDING = YES;
-				PRODUCT_NAME = automountd;
-				ZERO_LINK = NO;
+				PRODUCT_NAME = mount_url;
+				VALID_ARCHS = "i386 x86_64";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wno-unknown-pragmas",
+					"-Wno-error=deprecated-declarations",
+				);
 			};
-			name = Development;
+			name = Debug;
 		};
-		EB6CDCDF09D9E73800EA0B49 /* Deployment */ = {
+		EB2F18D20BDDAED800E29EAE /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = (
-					ppc,
 					i386,
+					x86_64,
 				);
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
-				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
+				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_MODEL_TUNING = G4;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
@@ -1362,10 +1273,11 @@
 				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
 				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
 				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_PROTOTYPE_CONVERSION = NO;
 				GCC_WARN_SHADOW = YES;
 				GCC_WARN_SIGN_COMPARE = YES;
 				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = NO;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNKNOWN_PRAGMAS = NO;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_LABEL = YES;
@@ -1373,28 +1285,35 @@
 				GCC_WARN_UNUSED_VALUE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				INSTALL_PATH = /usr/libexec;
+				OTHER_CFLAGS = (
+					"-D_DARWIN_USE_64_BIT_INODE",
+					"-D__MigTypeCheck=1",
+				);
 				OTHER_LDFLAGS = "-lutil";
 				PREBINDING = YES;
-				PRODUCT_NAME = automountd;
-				ZERO_LINK = NO;
+				PRODUCT_NAME = mount_url;
+				VALID_ARCHS = "i386 x86_64";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wno-unknown-pragmas",
+				);
 			};
-			name = Deployment;
+			name = Release;
 		};
-		EB6CDCE009D9E73800EA0B49 /* Default */ = {
+		EB6CDCDE09D9E73800EA0B49 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = (
-					ppc,
 					i386,
+					x86_64,
 				);
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
-				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_MODEL_TUNING = G4;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
@@ -1402,10 +1321,11 @@
 				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
 				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
 				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_PROTOTYPE_CONVERSION = NO;
 				GCC_WARN_SHADOW = YES;
 				GCC_WARN_SIGN_COMPARE = YES;
 				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = NO;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNKNOWN_PRAGMAS = NO;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_LABEL = YES;
@@ -1413,27 +1333,84 @@
 				GCC_WARN_UNUSED_VALUE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				INSTALL_PATH = /usr/libexec;
+				OTHER_CFLAGS = (
+					"-D_DARWIN_USE_64_BIT_INODE",
+					"-D__MigTypeCheck=1",
+				);
 				OTHER_LDFLAGS = "-lutil";
 				PREBINDING = YES;
 				PRODUCT_NAME = automountd;
-				ZERO_LINK = NO;
+				VALID_ARCHS = "i386 x86_64";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wno-unknown-pragmas",
+					"-Wno-error=deprecated-declarations",
+				);
 			};
-			name = Default;
+			name = Debug;
 		};
-		EBC735F30BC72328002AD444 /* Development */ = {
+		EB6CDCDF09D9E73800EA0B49 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = (
-					ppc,
 					i386,
+					x86_64,
 				);
-				COPY_PHASE_STRIP = NO;
-				FRAMEWORK_SEARCH_PATHS = "\"/System/Library/Frameworks\"";
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_MODEL_TUNING = G4;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_PROTOTYPE_CONVERSION = NO;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNKNOWN_PRAGMAS = NO;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /usr/libexec;
+				OTHER_CFLAGS = (
+					"-D_DARWIN_USE_64_BIT_INODE",
+					"-D__MigTypeCheck=1",
+				);
+				OTHER_LDFLAGS = "-lutil";
+				PREBINDING = YES;
+				PRODUCT_NAME = automountd;
+				VALID_ARCHS = "i386 x86_64";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wno-unknown-pragmas",
+					"-Wno-error=deprecated-declarations",
+				);
+			};
+			name = Release;
+		};
+		EBC735F30BC72328002AD444 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					i386,
+					x86_64,
+				);
+				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_MODEL_TUNING = G4;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
@@ -1441,36 +1418,47 @@
 				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
 				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
 				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_PROTOTYPE_CONVERSION = NO;
 				GCC_WARN_SHADOW = YES;
 				GCC_WARN_SIGN_COMPARE = YES;
 				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNKNOWN_PRAGMAS = NO;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_LABEL = YES;
 				GCC_WARN_UNUSED_PARAMETER = YES;
 				GCC_WARN_UNUSED_VALUE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = (
+					"-D_DARWIN_USE_64_BIT_INODE",
+					"-D__MigTypeCheck=1",
+				);
 				OTHER_LDFLAGS = "-lutil";
 				PREBINDING = YES;
 				PRODUCT_NAME = automount;
-				ZERO_LINK = NO;
+				VALID_ARCHS = "i386 x86_64";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wno-unknown-pragmas",
+					"-Wno-error=deprecated-declarations",
+				);
 			};
-			name = Development;
+			name = Debug;
 		};
-		EBC735F40BC72328002AD444 /* Deployment */ = {
+		EBC735F40BC72328002AD444 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = (
-					ppc,
 					i386,
+					x86_64,
 				);
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				FRAMEWORK_SEARCH_PATHS = "\"/System/Library/Frameworks\"";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_MODEL_TUNING = G4;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
@@ -1478,75 +1466,47 @@
 				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
 				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
 				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_PROTOTYPE_CONVERSION = NO;
 				GCC_WARN_SHADOW = YES;
 				GCC_WARN_SIGN_COMPARE = YES;
 				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNKNOWN_PRAGMAS = NO;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_LABEL = YES;
 				GCC_WARN_UNUSED_PARAMETER = YES;
 				GCC_WARN_UNUSED_VALUE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = (
+					"-D_DARWIN_USE_64_BIT_INODE",
+					"-D__MigTypeCheck=1",
+				);
 				OTHER_LDFLAGS = "-lutil";
 				PREBINDING = YES;
 				PRODUCT_NAME = automount;
-				ZERO_LINK = NO;
+				VALID_ARCHS = "i386 x86_64";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wno-unknown-pragmas",
+					"-Wno-error=deprecated-declarations",
+				);
 			};
-			name = Deployment;
+			name = Release;
 		};
-		EBC735F50BC72328002AD444 /* Default */ = {
+		EBDCE62A0A671EEF0058A293 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = (
-					ppc,
 					i386,
+					x86_64,
 				);
-				FRAMEWORK_SEARCH_PATHS = "\"/System/Library/Frameworks\"";
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G4;
-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
-				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
-				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES;
-				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
-				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
-				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
-				GCC_WARN_MISSING_PARENTHESES = YES;
-				GCC_WARN_SHADOW = YES;
-				GCC_WARN_SIGN_COMPARE = YES;
-				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_LABEL = YES;
-				GCC_WARN_UNUSED_PARAMETER = YES;
-				GCC_WARN_UNUSED_VALUE = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				INSTALL_PATH = /usr/sbin;
-				OTHER_LDFLAGS = "-lutil";
-				PREBINDING = YES;
-				PRODUCT_NAME = automount;
-				ZERO_LINK = NO;
-			};
-			name = Default;
-		};
-		EBDCE62A0A671EEF0058A293 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ARCHS = (
-					ppc,
-					i386,
-				);
-				COPY_PHASE_STRIP = NO;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
-				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks\"";
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_MODEL_TUNING = G4;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
@@ -1554,39 +1514,46 @@
 				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
 				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
 				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_PROTOTYPE_CONVERSION = NO;
 				GCC_WARN_SHADOW = YES;
 				GCC_WARN_SIGN_COMPARE = YES;
 				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNKNOWN_PRAGMAS = NO;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_LABEL = YES;
 				GCC_WARN_UNUSED_PARAMETER = YES;
 				GCC_WARN_UNUSED_VALUE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				INSTALL_PATH = /usr/libexec;
+				OTHER_CFLAGS = (
+					"-D_DARWIN_USE_64_BIT_INODE",
+					"-D__MigTypeCheck=1",
+				);
 				OTHER_LDFLAGS = "";
 				PREBINDING = YES;
 				PRODUCT_NAME = autofsd;
-				ZERO_LINK = NO;
+				VALID_ARCHS = "i386 x86_64";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wno-unknown-pragmas",
+					"-Wno-error=deprecated-declarations",
+				);
 			};
-			name = Development;
+			name = Debug;
 		};
-		EBDCE62B0A671EEF0058A293 /* Deployment */ = {
+		EBDCE62B0A671EEF0058A293 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = (
-					ppc,
 					i386,
+					x86_64,
 				);
-				COPY_PHASE_STRIP = YES;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
-				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks\"";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G4;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
@@ -1594,59 +1561,34 @@
 				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
 				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
 				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_PROTOTYPE_CONVERSION = NO;
 				GCC_WARN_SHADOW = YES;
 				GCC_WARN_SIGN_COMPARE = YES;
 				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNKNOWN_PRAGMAS = NO;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_LABEL = YES;
 				GCC_WARN_UNUSED_PARAMETER = YES;
 				GCC_WARN_UNUSED_VALUE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				INSTALL_PATH = /usr/libexec;
+				OTHER_CFLAGS = (
+					"-D_DARWIN_USE_64_BIT_INODE",
+					"-D__MigTypeCheck=1",
+				);
 				OTHER_LDFLAGS = "";
 				PREBINDING = YES;
 				PRODUCT_NAME = autofsd;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		EBDCE62C0A671EEF0058A293 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ARCHS = (
-					ppc,
-					i386,
+				VALID_ARCHS = "i386 x86_64";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wno-unknown-pragmas",
+					"-Wno-error=deprecated-declarations",
 				);
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
-				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks\"";
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G4;
-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
-				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
-				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES;
-				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
-				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
-				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
-				GCC_WARN_MISSING_PARENTHESES = YES;
-				GCC_WARN_SHADOW = YES;
-				GCC_WARN_SIGN_COMPARE = YES;
-				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_LABEL = YES;
-				GCC_WARN_UNUSED_PARAMETER = YES;
-				GCC_WARN_UNUSED_VALUE = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				INSTALL_PATH = /usr/libexec;
-				OTHER_LDFLAGS = "";
-				PREBINDING = YES;
-				PRODUCT_NAME = autofsd;
-				ZERO_LINK = NO;
 			};
-			name = Default;
+			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
@@ -1654,92 +1596,83 @@
 		EB0024A809776024002F9164 /* Build configuration list for PBXNativeTarget "kext" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				EB0024A909776024002F9164 /* Development */,
-				EB0024AA09776024002F9164 /* Deployment */,
-				EB0024AB09776024002F9164 /* Default */,
+				EB0024A909776024002F9164 /* Debug */,
+				EB0024AA09776024002F9164 /* Release */,
 			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationIsVisible = 1;
+			defaultConfigurationName = Release;
 		};
 		EB0024AC09776024002F9164 /* Build configuration list for PBXNativeTarget "mount_autofs" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				EB0024AD09776024002F9164 /* Development */,
-				EB0024AE09776024002F9164 /* Deployment */,
-				EB0024AF09776024002F9164 /* Default */,
+				EB0024AD09776024002F9164 /* Debug */,
+				EB0024AE09776024002F9164 /* Release */,
 			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationIsVisible = 1;
+			defaultConfigurationName = Release;
 		};
 		EB0024B409776024002F9164 /* Build configuration list for PBXAggregateTarget "autofs" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				EB0024B509776024002F9164 /* Development */,
-				EB0024B609776024002F9164 /* Deployment */,
-				EB0024B709776024002F9164 /* Default */,
+				EB0024B509776024002F9164 /* Debug */,
+				EB0024B609776024002F9164 /* Release */,
 			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationIsVisible = 1;
+			defaultConfigurationName = Release;
 		};
 		EB0024B809776024002F9164 /* Build configuration list for PBXProject "autofs" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				EB0024B909776024002F9164 /* Development */,
-				EB0024BA09776024002F9164 /* Deployment */,
-				EB0024BB09776024002F9164 /* Default */,
+				EB0024B909776024002F9164 /* Debug */,
+				EB0024BA09776024002F9164 /* Release */,
 			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationIsVisible = 1;
+			defaultConfigurationName = Release;
 		};
 		EB275CF30A6879B40087A086 /* Build configuration list for PBXAggregateTarget "files" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				EB275CF40A6879B40087A086 /* Development */,
-				EB275CF50A6879B40087A086 /* Deployment */,
-				EB275CF60A6879B40087A086 /* Default */,
+				EB275CF40A6879B40087A086 /* Debug */,
+				EB275CF50A6879B40087A086 /* Release */,
 			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationIsVisible = 1;
+			defaultConfigurationName = Release;
 		};
 		EB2F18D00BDDAED800E29EAE /* Build configuration list for PBXNativeTarget "mount_url" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				EB2F18D10BDDAED800E29EAE /* Development */,
-				EB2F18D20BDDAED800E29EAE /* Deployment */,
-				EB2F18D30BDDAED800E29EAE /* Default */,
+				EB2F18D10BDDAED800E29EAE /* Debug */,
+				EB2F18D20BDDAED800E29EAE /* Release */,
 			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationIsVisible = 1;
+			defaultConfigurationName = Release;
 		};
 		EB6CDCDD09D9E73800EA0B49 /* Build configuration list for PBXNativeTarget "automountd" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				EB6CDCDE09D9E73800EA0B49 /* Development */,
-				EB6CDCDF09D9E73800EA0B49 /* Deployment */,
-				EB6CDCE009D9E73800EA0B49 /* Default */,
+				EB6CDCDE09D9E73800EA0B49 /* Debug */,
+				EB6CDCDF09D9E73800EA0B49 /* Release */,
 			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationIsVisible = 1;
+			defaultConfigurationName = Release;
 		};
 		EBC735F20BC72328002AD444 /* Build configuration list for PBXNativeTarget "automount" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				EBC735F30BC72328002AD444 /* Development */,
-				EBC735F40BC72328002AD444 /* Deployment */,
-				EBC735F50BC72328002AD444 /* Default */,
+				EBC735F30BC72328002AD444 /* Debug */,
+				EBC735F40BC72328002AD444 /* Release */,
 			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationIsVisible = 1;
+			defaultConfigurationName = Release;
 		};
 		EBDCE6290A671EEF0058A293 /* Build configuration list for PBXNativeTarget "autofsd" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				EBDCE62A0A671EEF0058A293 /* Development */,
-				EBDCE62B0A671EEF0058A293 /* Deployment */,
-				EBDCE62C0A671EEF0058A293 /* Default */,
+				EBDCE62A0A671EEF0058A293 /* Debug */,
+				EBDCE62B0A671EEF0058A293 /* Release */,
 			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationIsVisible = 1;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

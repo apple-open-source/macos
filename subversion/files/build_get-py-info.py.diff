@@ -1,0 +1,13 @@
+--- build/get-py-info.py.orig	2007-08-25 18:04:48.000000000 -0700
++++ build/get-py-info.py	2008-12-18 11:58:19.000000000 -0800
+@@ -84,8 +84,8 @@
+       add_option_if_missing(options, "-F%s" % fwprefix)
+ 
+     # Load in the framework
+-    fw = sysconfig.get_config_var('PYTHONFRAMEWORK')
+-    add_option(options, "-framework", fw)
++    #fw = sysconfig.get_config_var('PYTHONFRAMEWORK')
++    #add_option(options, "-framework", fw)
+ 
+   elif sys.platform == 'darwin':
+ 

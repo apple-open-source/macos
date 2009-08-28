@@ -47,19 +47,7 @@ catinit (void) {
 	     * (or when debugging). Also accept en_ZA etc.
 	     * No messages for C locale.
 	     */
-	    char *s, *lg;
-	    s = getenv("NLSPATH");
-	    lg = getenv("LANG");
-	    if (!lg)
-		    lg = getenv("LC_MESSAGES");
-	    if (!lg)
-		    lg = getenv("LC_ALL");
-	    if (lg && strncmp(lg, "en", 2) && strcmp(lg, "C")) {
-		fprintf(stderr,
-		  "Cannot open the message catalog \"%s\" for locale \"%s\"\n"
-		  "(NLSPATH=\"%s\")\n\n",
-			mantexts, lg, s ? s : "<none>");
-	    } else if (debug) {
+	    if (debug) {
 		fprintf(stderr,
 "Looked whether there exists a message catalog %s, but there is none\n"
 "(and for English messages none is needed)\n\n",

@@ -26,7 +26,6 @@
 		02D038EC0A1E3FB400EC6CB7 /* CCLEngine.c in Sources */ = {isa = PBXBuildFile; fileRef = 23237A7C05ED237F005C54E8 /* CCLEngine.c */; };
 		02E8C64A0A47267D00F29FB7 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 02E8C6490A47267D00F29FB7 /* IOKit.framework */; };
 		0C06D5C90B8F94E900AEB35E /* cclparser.m in Sources */ = {isa = PBXBuildFile; fileRef = 0C06D5C80B8F94E900AEB35E /* cclparser.m */; };
-		0C5E6D6C0C4866D200ABD8B0 /* CCLEngine in into libexec */ = {isa = PBXBuildFile; fileRef = 23237B1105ED2CB3005C54E8 /* CCLEngine */; };
 		0C664DCC0B8A2164009D39DE /* cclkeys.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C47D1840B648F9F0072BE14 /* cclkeys.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		0C664F460B8A7FEA009D39DE /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23237C3205ED2E71005C54E8 /* SystemConfiguration.framework */; };
 		0CA08B260B6E789C0041EB29 /* cclparser.h in Headers */ = {isa = PBXBuildFile; fileRef = 0CA08B1C0B6E78520041EB29 /* cclparser.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -61,20 +60,6 @@
 			remoteInfo = ccl;
 		};
 /* End PBXContainerItemProxy section */
-
-/* Begin PBXCopyFilesBuildPhase section */
-		0C5E6D6D0C4866FC00ABD8B0 /* into libexec */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /usr/libexec;
-			dstSubfolderSpec = 0;
-			files = (
-				0C5E6D6C0C4866D200ABD8B0 /* CCLEngine in into libexec */,
-			);
-			name = "into libexec";
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		023A1E4109EC17BB0045D359 /* CCLArgFunctions.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = CCLArgFunctions.h; path = CCLEngine/CCLArgFunctions.h; sourceTree = "<group>"; };
@@ -211,7 +196,6 @@
 				23237B0C05ED2CB3005C54E8 /* Headers */,
 				23237B0D05ED2CB3005C54E8 /* Sources */,
 				23237B0E05ED2CB3005C54E8 /* Frameworks */,
-				0C5E6D6D0C4866FC00ABD8B0 /* into libexec */,
 			);
 			buildRules = (
 				02744F3B0A55B446004BBC7F /* PBXBuildRule */,
@@ -282,7 +266,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				INSTALL_PATH = /System/Library/Extensions/PPPSerial.ppp/Contents/Resources;
+				GCC_ENABLE_OBJC_GC = NO;
+				INSTALL_PATH = /System/Library/Extensions/PPPSerial.ppp/Contents/PlugIns;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -301,7 +286,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				INSTALL_PATH = /System/Library/Extensions/PPPSerial.ppp/Contents/Resources;
+				GCC_ENABLE_OBJC_GC = NO;
+				INSTALL_PATH = /System/Library/Extensions/PPPSerial.ppp/Contents/PlugIns;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -319,7 +305,8 @@
 		0284171F09E580260060E31A /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				INSTALL_PATH = /System/Library/Extensions/PPPSerial.ppp/Contents/Resources;
+				GCC_ENABLE_OBJC_GC = NO;
+				INSTALL_PATH = /System/Library/Extensions/PPPSerial.ppp/Contents/PlugIns;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -339,6 +326,7 @@
 			buildSettings = {
 				GCC_ENABLE_CPP_EXCEPTIONS = NO;
 				GCC_ENABLE_OBJC_EXCEPTIONS = NO;
+				GCC_ENABLE_OBJC_GC = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include;
 			};
@@ -347,14 +335,16 @@
 		0284172209E580260060E31A /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GCC_ENABLE_OBJC_GC = YES;
 				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include;
-				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
+				SDKROOT = "";
 			};
 			name = Deployment;
 		};
 		0284172309E580260060E31A /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GCC_ENABLE_OBJC_GC = YES;
 				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include;
 			};
 			name = Default;
@@ -364,7 +354,6 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /usr/local/lib;
@@ -379,7 +368,6 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/lib;
 				PREBINDING = NO;
@@ -391,7 +379,6 @@
 		0CA08B250B6E78890041EB29 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/lib;
 				PREBINDING = NO;
@@ -415,7 +402,6 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = modemccl;
 				ZERO_LINK = NO;
 			};

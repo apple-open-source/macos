@@ -53,6 +53,7 @@ Database* AttachedInstance::GetDatabaseFromDLDBHandle (const CSSM_DL_DB_HANDLE &
 }
 
 
+/****************************************************************************/
 
 CSSM_RETURN AttachedInstance::StubDbOpen (CSSM_DL_HANDLE dlHandle,
 										  const char* dbName,
@@ -99,228 +100,14 @@ CSSM_RETURN AttachedInstance::StubDbClose (CSSM_DL_DB_HANDLE dldbHandle)
 
 
 
-CSSM_RETURN AttachedInstance::StubDbCreate (CSSM_DL_HANDLE dlHandle,
-										   const char* dbName,
-										   const CSSM_NET_ADDRESS *dbLocation,
-										   const CSSM_DBINFO *dbInfo,
-										   const CSSM_DB_ACCESS_TYPE accessRequest,
-										   const CSSM_RESOURCE_CONTROL_CONTEXT *credAndAclEntry,
-										   const void *openParameters,
-										   CSSM_DB_HANDLE *dbHandle)
-{
-	BEGIN_EXCEPTION_BLOCK
-	
-	// get the instance for the database
-	AttachedInstance* ai = DataStorageLibrary::gDL->HandleToInstance (dlHandle);
-	
-	// ask that instance for a database instance
-	Database *db = ai->MakeDatabaseObject ();
-	
-	// register the database instance
-	*dbHandle = ai->RegisterDatabase (db);
-	
-	db->DbCreate (dbName, dbLocation, dbInfo, accessRequest, credAndAclEntry, openParameters);
-
-	END_EXCEPTION_BLOCK
-}
-
-
-
-CSSM_RETURN AttachedInstance::StubDbDelete (CSSM_DL_HANDLE dlHandle,
-											const char* dbName,
-											const CSSM_NET_ADDRESS *dbLocation,
-											const CSSM_ACCESS_CREDENTIALS *accessCredentials)
-{
-	BEGIN_EXCEPTION_BLOCK
-
-	AttachedInstance* ai = DataStorageLibrary::gDL->HandleToInstance (dlHandle);
-	ai->DeleteDatabase (dbName, dbLocation, accessCredentials);
-
-	END_EXCEPTION_BLOCK
-}
-
-
-
-CSSM_RETURN AttachedInstance::StubCreateRelation (CSSM_DL_DB_HANDLE dldbHandle,
-												  CSSM_DB_RECORDTYPE relationID,
-												  const char* relationName,
-												  uint32 numberOfAttributes,
-												  const CSSM_DB_SCHEMA_ATTRIBUTE_INFO *pAttributeInfo,
-												  uint32 numberOfIndexes,
-												  const CSSM_DB_SCHEMA_INDEX_INFO *pIndexInfo)
-{
-	BEGIN_EXCEPTION_BLOCK
-
-	Database *d = GetDatabaseFromDLDBHandle (dldbHandle);
-	d->DbCreateRelation (relationID, relationName, numberOfAttributes, pAttributeInfo, numberOfIndexes, pIndexInfo);
-
-	END_EXCEPTION_BLOCK
-}
-
-
-
-CSSM_RETURN AttachedInstance::StubDestroyRelation (CSSM_DL_DB_HANDLE dldbHandle,
-												   CSSM_DB_RECORDTYPE relationID)
-{
-	BEGIN_EXCEPTION_BLOCK
-
-	Database *d = GetDatabaseFromDLDBHandle (dldbHandle);
-	d->DbDestroyRelation (relationID);
-
-	END_EXCEPTION_BLOCK
-}
-
-
-
-CSSM_RETURN AttachedInstance::StubAuthenticate (CSSM_DL_DB_HANDLE dldbHandle,
-												CSSM_DB_ACCESS_TYPE accessRequest,
-												const CSSM_ACCESS_CREDENTIALS *accessCred)
-{
-	BEGIN_EXCEPTION_BLOCK
-
-	Database *d = GetDatabaseFromDLDBHandle (dldbHandle);
-	d->DbAuthenticate (accessRequest, accessCred);
-
-	END_EXCEPTION_BLOCK
-}
-
-
-
-CSSM_RETURN AttachedInstance::StubGetDbAcl (CSSM_DL_DB_HANDLE dldbHandle,
-											CSSM_STRING* selectionTag,
-											uint32 *numberOfAclInfos)
-{
-	BEGIN_EXCEPTION_BLOCK
-
-	Database *d = GetDatabaseFromDLDBHandle (dldbHandle);
-	d->DbGetDbAcl (selectionTag, numberOfAclInfos);
-
-	END_EXCEPTION_BLOCK
-}
-
-
-
-CSSM_RETURN AttachedInstance::StubChangeDbAcl (CSSM_DL_DB_HANDLE dldbHandle,
-											   const CSSM_ACCESS_CREDENTIALS *accessCred,
-											   const CSSM_ACL_EDIT *aclEdit)
-{
-	BEGIN_EXCEPTION_BLOCK
-
-	Database *d = GetDatabaseFromDLDBHandle (dldbHandle);
-	d->DbChangeDbAcl (accessCred, aclEdit);
-
-	END_EXCEPTION_BLOCK
-}
-
-
-
-CSSM_RETURN AttachedInstance::StubGetDbOwner (CSSM_DL_DB_HANDLE dldbHandle,
-											  CSSM_ACL_OWNER_PROTOTYPE_PTR owner)
-{
-	BEGIN_EXCEPTION_BLOCK
-
-	Database *d = GetDatabaseFromDLDBHandle (dldbHandle);
-	d->DbGetDbOwner (owner);
-
-	END_EXCEPTION_BLOCK
-}
-
-
-
-CSSM_RETURN AttachedInstance::StubChangeDbOwner (CSSM_DL_DB_HANDLE dldbHandle,
-												 const CSSM_ACCESS_CREDENTIALS *accessCred,
-												 const CSSM_ACL_OWNER_PROTOTYPE *newOwner)
-{
-	BEGIN_EXCEPTION_BLOCK
-
-	Database *d = GetDatabaseFromDLDBHandle (dldbHandle);
-	d->DbChangeDbOwner (accessCred, newOwner);
-
-	END_EXCEPTION_BLOCK
-}
-
-
-
-CSSM_RETURN AttachedInstance::StubGetDbNames (CSSM_DL_HANDLE dlHandle,
-											  CSSM_NAME_LIST_PTR nameList)
-{
-	BEGIN_EXCEPTION_BLOCK
-
-	AttachedInstance* ai = DataStorageLibrary::gDL->HandleToInstance (dlHandle);
-	ai->GetDbNames (nameList);
-
-	END_EXCEPTION_BLOCK
-}
-
-
-
 CSSM_RETURN AttachedInstance::StubGetDbNameFromHandle (CSSM_DL_DB_HANDLE dldbHandle,
 													   char** dbName)
 {
 	BEGIN_EXCEPTION_BLOCK
-
+	
 	Database *d = GetDatabaseFromDLDBHandle (dldbHandle);
 	d->DbGetDbNameFromHandle (dbName);
-
-	END_EXCEPTION_BLOCK
-}
-
-
-
-CSSM_RETURN AttachedInstance::StubFreeNameList (CSSM_DL_HANDLE dlHandle,
-												CSSM_NAME_LIST_PTR nameList)
-{
-	BEGIN_EXCEPTION_BLOCK
-
-	AttachedInstance* ai = DataStorageLibrary::gDL->HandleToInstance (dlHandle);
-	ai->FreeNameList (nameList);
-
-	END_EXCEPTION_BLOCK
-}
-
-
-
-CSSM_RETURN AttachedInstance::StubDataInsert (CSSM_DL_DB_HANDLE dldbHandle,
-											  CSSM_DB_RECORDTYPE recordType,
-											  const CSSM_DB_RECORD_ATTRIBUTE_DATA *attributes,
-											  const CSSM_DATA *data,
-											  CSSM_DB_UNIQUE_RECORD_PTR *uniqueId)
-{
-	BEGIN_EXCEPTION_BLOCK
-
-	Database *d = GetDatabaseFromDLDBHandle (dldbHandle);
-	d->DbDataInsert (recordType, attributes, data, uniqueId);
-
-	END_EXCEPTION_BLOCK
-}
-
-
-
-CSSM_RETURN AttachedInstance::StubDataDelete (CSSM_DL_DB_HANDLE dldbHandle,
-											  const CSSM_DB_UNIQUE_RECORD *uniqueRecordIdentifier)
-{
-	BEGIN_EXCEPTION_BLOCK
-
-	Database *d = GetDatabaseFromDLDBHandle (dldbHandle);
-	d->DbDataDelete (uniqueRecordIdentifier);
-
-	END_EXCEPTION_BLOCK
-}
-
-
-
-CSSM_RETURN AttachedInstance::StubDataModify (CSSM_DL_DB_HANDLE dldbHandle,
-											  CSSM_DB_RECORDTYPE recordType,
-											  CSSM_DB_UNIQUE_RECORD_PTR uniqueRecordIdentifier,
-											  const CSSM_DB_RECORD_ATTRIBUTE_DATA attributesToBeModified,
-											  const CSSM_DATA *dataToBeModified,
-											  CSSM_DB_MODIFY_MODE modifyMode)
-{
-	BEGIN_EXCEPTION_BLOCK
-
-	Database *d = GetDatabaseFromDLDBHandle (dldbHandle);
-	d->DbDataModify (recordType, uniqueRecordIdentifier, attributesToBeModified, dataToBeModified, modifyMode);
-
+	
 	END_EXCEPTION_BLOCK
 }
 
@@ -334,10 +121,10 @@ CSSM_RETURN AttachedInstance::StubDataGetFirst (CSSM_DL_DB_HANDLE dldbHandle,
 												CSSM_DB_UNIQUE_RECORD_PTR *uniqueID)
 {
 	BEGIN_EXCEPTION_BLOCK
-
+	
 	Database *d = GetDatabaseFromDLDBHandle (dldbHandle);
 	*resultsHandle = d->DbDataGetFirst (query, attributes, data, uniqueID);
-
+	
 	END_EXCEPTION_BLOCK
 }
 
@@ -350,10 +137,10 @@ CSSM_RETURN AttachedInstance::StubDataGetNext (CSSM_DL_DB_HANDLE dldbHandle,
 											   CSSM_DB_UNIQUE_RECORD_PTR *uniqueID)
 {
 	BEGIN_EXCEPTION_BLOCK
-
+	
 	Database *d = GetDatabaseFromDLDBHandle (dldbHandle);
 	d->DbDataGetNext (resultsHandle, attributes, data, uniqueID);
-
+	
 	END_EXCEPTION_BLOCK
 }
 
@@ -363,10 +150,10 @@ CSSM_RETURN AttachedInstance::StubDataAbortQuery (CSSM_DL_DB_HANDLE dldbHandle,
 												  CSSM_HANDLE resultsHandle)
 {
 	BEGIN_EXCEPTION_BLOCK
-
+	
 	Database *d = GetDatabaseFromDLDBHandle (dldbHandle);
 	d->DbDataAbortQuery (resultsHandle);
-
+	
 	END_EXCEPTION_BLOCK
 }
 
@@ -378,10 +165,10 @@ CSSM_RETURN AttachedInstance::StubDataGetFromUniqueRecordID (CSSM_DL_DB_HANDLE d
 															 CSSM_DATA_PTR data)
 {
 	BEGIN_EXCEPTION_BLOCK
-
+	
 	Database *d = GetDatabaseFromDLDBHandle (dldbHandle);
 	d->DbDataGetFromUniqueRecordID (uniqueRecord, attributes, data);
-
+	
 	END_EXCEPTION_BLOCK
 }
 
@@ -391,12 +178,150 @@ CSSM_RETURN AttachedInstance::StubFreeUniqueRecord (CSSM_DL_DB_HANDLE dldbHandle
 													CSSM_DB_UNIQUE_RECORD_PTR uniqueRecord)
 {
 	BEGIN_EXCEPTION_BLOCK
-
+	
 	Database *d = GetDatabaseFromDLDBHandle (dldbHandle);
 	d->DbFreeUniqueRecord (uniqueRecord);
-
+	
 	END_EXCEPTION_BLOCK
 }
+
+
+CSSM_RETURN AttachedInstance::StubDbCreate (CSSM_DL_HANDLE dlHandle,
+										   const char* dbName,
+										   const CSSM_NET_ADDRESS *dbLocation,
+										   const CSSM_DBINFO *dbInfo,
+										   const CSSM_DB_ACCESS_TYPE accessRequest,
+										   const CSSM_RESOURCE_CONTROL_CONTEXT *credAndAclEntry,
+										   const void *openParameters,
+										   CSSM_DB_HANDLE *dbHandle)
+{
+	return CSSMERR_DL_FUNCTION_NOT_IMPLEMENTED;
+}
+
+
+
+CSSM_RETURN AttachedInstance::StubDbDelete (CSSM_DL_HANDLE dlHandle,
+											const char* dbName,
+											const CSSM_NET_ADDRESS *dbLocation,
+											const CSSM_ACCESS_CREDENTIALS *accessCredentials)
+{
+	return CSSMERR_DL_FUNCTION_NOT_IMPLEMENTED;
+}
+
+
+
+CSSM_RETURN AttachedInstance::StubCreateRelation (CSSM_DL_DB_HANDLE dldbHandle,
+												  CSSM_DB_RECORDTYPE relationID,
+												  const char* relationName,
+												  uint32 numberOfAttributes,
+												  const CSSM_DB_SCHEMA_ATTRIBUTE_INFO *pAttributeInfo,
+												  uint32 numberOfIndexes,
+												  const CSSM_DB_SCHEMA_INDEX_INFO *pIndexInfo)
+{
+	return CSSMERR_DL_FUNCTION_NOT_IMPLEMENTED;
+}
+
+
+
+CSSM_RETURN AttachedInstance::StubDestroyRelation (CSSM_DL_DB_HANDLE dldbHandle,
+												   CSSM_DB_RECORDTYPE relationID)
+{
+	return CSSMERR_DL_FUNCTION_NOT_IMPLEMENTED;
+}
+
+
+
+CSSM_RETURN AttachedInstance::StubAuthenticate (CSSM_DL_DB_HANDLE dldbHandle,
+												CSSM_DB_ACCESS_TYPE accessRequest,
+												const CSSM_ACCESS_CREDENTIALS *accessCred)
+{
+	return CSSM_OK;  // Not implemented for this module.
+}
+
+
+
+CSSM_RETURN AttachedInstance::StubGetDbAcl (CSSM_DL_DB_HANDLE dldbHandle,
+											CSSM_STRING* selectionTag,
+											uint32 *numberOfAclInfos)
+{
+	return CSSMERR_DL_FUNCTION_NOT_IMPLEMENTED;
+}
+
+
+
+CSSM_RETURN AttachedInstance::StubChangeDbAcl (CSSM_DL_DB_HANDLE dldbHandle,
+											   const CSSM_ACCESS_CREDENTIALS *accessCred,
+											   const CSSM_ACL_EDIT *aclEdit)
+{
+	return CSSMERR_DL_FUNCTION_NOT_IMPLEMENTED;
+}
+
+
+
+CSSM_RETURN AttachedInstance::StubGetDbOwner (CSSM_DL_DB_HANDLE dldbHandle,
+											  CSSM_ACL_OWNER_PROTOTYPE_PTR owner)
+{
+	return CSSMERR_DL_FUNCTION_NOT_IMPLEMENTED;
+}
+
+
+
+CSSM_RETURN AttachedInstance::StubChangeDbOwner (CSSM_DL_DB_HANDLE dldbHandle,
+												 const CSSM_ACCESS_CREDENTIALS *accessCred,
+												 const CSSM_ACL_OWNER_PROTOTYPE *newOwner)
+{
+	return CSSMERR_DL_FUNCTION_NOT_IMPLEMENTED;
+}
+
+
+
+CSSM_RETURN AttachedInstance::StubGetDbNames (CSSM_DL_HANDLE dlHandle,
+											  CSSM_NAME_LIST_PTR nameList)
+{
+	return CSSMERR_DL_FUNCTION_NOT_IMPLEMENTED;
+}
+
+
+
+
+
+CSSM_RETURN AttachedInstance::StubFreeNameList (CSSM_DL_HANDLE dlHandle,
+												CSSM_NAME_LIST_PTR nameList)
+{
+	return CSSMERR_DL_FUNCTION_NOT_IMPLEMENTED;
+}
+
+
+
+CSSM_RETURN AttachedInstance::StubDataInsert (CSSM_DL_DB_HANDLE dldbHandle,
+											  CSSM_DB_RECORDTYPE recordType,
+											  const CSSM_DB_RECORD_ATTRIBUTE_DATA *attributes,
+											  const CSSM_DATA *data,
+											  CSSM_DB_UNIQUE_RECORD_PTR *uniqueId)
+{
+	return CSSMERR_DL_FUNCTION_NOT_IMPLEMENTED;
+}
+
+
+
+CSSM_RETURN AttachedInstance::StubDataDelete (CSSM_DL_DB_HANDLE dldbHandle,
+											  const CSSM_DB_UNIQUE_RECORD *uniqueRecordIdentifier)
+{
+	return CSSMERR_DL_FUNCTION_NOT_IMPLEMENTED;
+}
+
+
+
+CSSM_RETURN AttachedInstance::StubDataModify (CSSM_DL_DB_HANDLE dldbHandle,
+											  CSSM_DB_RECORDTYPE recordType,
+											  CSSM_DB_UNIQUE_RECORD_PTR uniqueRecordIdentifier,
+											  const CSSM_DB_RECORD_ATTRIBUTE_DATA attributesToBeModified,
+											  const CSSM_DATA *dataToBeModified,
+											  CSSM_DB_MODIFY_MODE modifyMode)
+{
+	return CSSMERR_DL_FUNCTION_NOT_IMPLEMENTED;
+}
+
 
 
 
@@ -405,12 +330,7 @@ CSSM_RETURN AttachedInstance::StubPassThrough (CSSM_DL_DB_HANDLE dldbHandle,
 											   const void* inputParams,
 											   void **outputParams)
 {
-	BEGIN_EXCEPTION_BLOCK
-
-	Database *d = GetDatabaseFromDLDBHandle (dldbHandle);
-	d->DbPassThrough (passThroughID, inputParams, outputParams);
-
-	END_EXCEPTION_BLOCK
+	return CSSMERR_DL_FUNCTION_NOT_IMPLEMENTED;
 }
 
 
@@ -538,24 +458,3 @@ void AttachedInstance::DeregisterDatabase (CSSM_DB_HANDLE d)
 }
 
 
-
-void AttachedInstance::DeleteDatabase (const char* dbName,
-									   const CSSM_NET_ADDRESS *dbLocation,
-									   const CSSM_ACCESS_CREDENTIALS *accessCredentials)
-{
-	CSSMError::ThrowCSSMError(CSSMERR_CSSM_INTERNAL_ERROR);
-}
-
-
-
-void AttachedInstance::GetDbNames (CSSM_NAME_LIST_PTR nameList)
-{
-	CSSMError::ThrowCSSMError(CSSMERR_CSSM_INTERNAL_ERROR);
-}
-
-
-
-void AttachedInstance::FreeNameList (CSSM_NAME_LIST_PTR nameList)
-{
-	CSSMError::ThrowCSSMError(CSSMERR_CSSM_INTERNAL_ERROR);
-}

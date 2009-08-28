@@ -1,5 +1,5 @@
 /* 
- * Copyright (c) 2006-2007, The RubyCocoa Project.
+ * Copyright (c) 2006-2008, The RubyCocoa Project.
  * Copyright (c) 2001-2006, FUJIMOTO Hisakuni.
  * All Rights Reserved.
  *
@@ -215,23 +215,26 @@ int rubycocoa_frequently_init_stack()
 
 int RBNotifyException(const char* title, VALUE err)
 {
-  VALUE ary,str;
-  VALUE printf_args[2];
+  volatile VALUE ary;
+  VALUE str;
   int i;
 
   if (! RTEST(rb_obj_is_kind_of(err, rb_eException))) return 0;
   if (! RUBYCOCOA_SUPPRESS_EXCEPTION_LOGGING_P) {
+    VALUE err_class_str = rb_obj_as_string(rb_obj_class(err));
+    VALUE err_str = rb_obj_as_string(err);
     NSLog(@"%s: %s: %s",
           title,
-          STR2CSTR(rb_obj_as_string(rb_obj_class(err))),
-          STR2CSTR(rb_obj_as_string(err)));
+          StringValuePtr(err_class_str),
+          StringValuePtr(err_str));
     ary = rb_funcall(err, rb_intern("backtrace"), 0);
     if (!NIL_P(ary)) {
       for (i = 0; i < RARRAY(ary)->len; i++) {
+        VALUE printf_args[2]; /* GC safe */
         printf_args[0] = rb_str_new2("\t%s\n");
         printf_args[1] = rb_ary_entry(ary, i);
         str = rb_f_sprintf(2, printf_args);
-        rb_write_error(STR2CSTR(str));
+        rb_write_error(StringValuePtr(str));
       }
     }
   }
@@ -906,12 +909,17 @@ static void rb_cocoa_thread_schedule_hook(rb_threadswitch_event_t event,
 
 static void RBCocoaInstallRubyThreadSchedulerHooks()
 {
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_6
+  /* The threading support is not implemented yet in 10.6. */
+  return;
+#else
   if (getenv("RUBYCOCOA_THREAD_HOOK_DISABLE") != NULL) {
     if (rb_cocoa_thread_debug) {
       NSLog(@"RBCocoaInstallRubyThreadSchedulerHooks: warning: disabled hooks due to RUBYCOCOA_THREAD_HOOK_DISABLE environment variable");
     }
     return;
   }
+#endif
   
   rb_cocoa_thread_debug = getenv("RUBYCOCOA_THREAD_DEBUG") != NULL;
   

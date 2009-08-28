@@ -1,12 +1,9 @@
 /*-
- * Portions Copyright (c) Apple Computer, Inc.
- * All rights reserved. 
+ * Portions Copyright (c) 2006-2009 Apple Computer, Inc.
+ * All rights reserved.
  *
  * This module is based on a pam_module with the following copyright:
  * Copyright 2001 Mark R V Murray
- * All rights reserved.
- *
- * Portions Copyright 2006 Apple Computer, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,49 +30,34 @@
 
 #define	PAM_SM_AUTH
 
-#include <pam/pam_modules.h>
-#include <pam/_pam_macros.h>
-#include <pam/pam_mod_misc.h>
+#include <security/pam_modules.h>
+#include <security/pam_appl.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <AppleSystemInfo/ASI_SerialNumber.h>
 #include <sys/mount.h>
+#include <sys/stat.h>
 #include <syslog.h>
 
 #define PASSWORD_PROMPT	"Password:"
 #define UN_LEN	4
 #define FE_MAX	8
-#define FE_BUF	FE_MAX+1
 
 PAM_EXTERN int
 pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
-	int i;
-	int options = 0;
 	const char *user;
-	const char *password;
-	size_t pass_len;
-	CFStringRef cfs;
-	char *snbuffer = NULL;
-	size_t snbuffsz;
-	char firsteight[FE_BUF];
-	struct statfs fs;
+	char *password = NULL;
+	char serialnumber[128];
+	struct stat buf;
 	
-	/* Mind the options */
-	if (NULL != argv) {
-		for(i = 0; (i < argc) && argv[i]; i++) {
-			pam_std_option(&options, argv[i]);
+	/* When we have the serverinstall option, verify that this is a Server Install */
+	if (NULL != openpam_get_option(pamh, "serverinstall")) {
+		if ((0 != stat("/System/Installation/Packages/ServerEssentials.pkg", &buf)) && (0 != stat("/System/Installation/Packages/ASRInstall.pkg", &buf))) {
+			return PAM_IGNORE;
 		}
-	}
-	
-	options |= PAM_OPT_TRY_FIRST_PASS;
-
-	/* Verify that this is a read-only mount*/
-	if (0 != statfs("/", &fs)) {
-		return PAM_IGNORE;
-	}
-
-	if (~fs.f_flags & MNT_RDONLY) {
-		return PAM_IGNORE;
+		if (0 != stat("/System/Library/CoreServices/ServerVersion.plist", &buf)) {
+			return PAM_IGNORE;
+		}
 	}
 
 	/* Verify that the user is root */
@@ -86,41 +68,42 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	if (0 != strncasecmp(user, "root", UN_LEN)) {
 		return PAM_AUTH_ERR;
 	}
-	
-	/* Get the first 8 characters of the serial number */
-	cfs = ASI_CopyFormattedSerialNumber();
-	if (NULL != cfs && 0 < CFStringGetLength(cfs)) {
-		snbuffsz = CFStringGetLength(cfs)+1;
-		if ((2 > snbuffsz) && (128 < snbuffsz)) {
-			return PAM_AUTH_ERR;
-		}
-		snbuffer = malloc(snbuffsz);
-		if (NULL == snbuffer) {
-			return PAM_AUTH_ERR;
-		}
-		CFStringGetCString(cfs, snbuffer, snbuffsz, kCFStringEncodingMacRoman);
-		strlcpy(firsteight, snbuffer, FE_BUF);
-		free(snbuffer);
-	} else {
-		strlcpy(firsteight, "12345678", FE_BUF);
+
+	/* Get the serial number */
+	CFStringRef cfSerialNumber = ASI_CopyFormattedSerialNumber();
+	CFMutableStringRef cfMutableSerialNumber = CFStringCreateMutableCopy(kCFAllocatorDefault, 0, cfSerialNumber);
+	CFRelease(cfSerialNumber);
+	if (NULL == cfMutableSerialNumber) {
+		return PAM_AUTHINFO_UNAVAIL;
+	}
+	CFStringUppercase(cfMutableSerialNumber, CFLocaleGetSystem());
+	if (!CFStringGetCString(cfMutableSerialNumber, serialnumber, sizeof(serialnumber), kCFStringEncodingMacRoman)) {
+		syslog(LOG_ERR, "Authentication error.  The serial number could not be read.");
+		CFRelease(cfMutableSerialNumber);
+		return PAM_AUTHINFO_UNAVAIL;
+	}
+	CFRelease(cfMutableSerialNumber);
+
+	/* Cut the serialnumber to 8 characters if we're in legacy mode. */
+	if (NULL != openpam_get_option(pamh, "legacy")) {
+		serialnumber[FE_MAX] = '\0';
 	}
 
 	/* Verify the 'password' */
-	if (pam_get_pass(pamh, &password, PASSWORD_PROMPT, options)) {
+	if (PAM_SUCCESS != pam_get_item(pamh, PAM_AUTHTOK, (const void **)&password)) {
+		syslog(LOG_ERR, "Authentication error.  Unable to get retrieve the password from the PAM context.");
 		return PAM_AUTH_ERR;
 	}
-	
-	pass_len = strlen(password);
-	if (strlen(firsteight) != pass_len) {
+	if (NULL == password && PAM_SUCCESS != pam_get_authtok(pamh, PAM_AUTHTOK, (const char **)&password, PASSWORD_PROMPT)) {
+		syslog(LOG_ERR, "Authentication error.  Unable to get the password from the user.");
 		return PAM_AUTH_ERR;
 	}
-	
-	if (0 != strncasecmp(password, firsteight, pass_len)) {
+	if (0 != strcmp(password, serialnumber) && FE_MAX <= strlen(serialnumber)) {
 		return PAM_AUTH_ERR;
 	}
-	
+
 	/* Just to be on the safe side... */
-	bzero((void *)password, pass_len);
+	memset(password, 0, strlen(password));
 
 	return PAM_SUCCESS;
 }
@@ -130,7 +113,3 @@ pam_sm_setcred(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
 	return PAM_SUCCESS;
 }
-
-#ifdef PAM_STATIC
-PAM_MODULE_ENTRY("pam_serverinstallonly");
-#endif

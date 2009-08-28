@@ -19,11 +19,11 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)dwarf.c	1.6	06/05/03 SMI"
+#pragma ident	"@(#)dwarf.c	1.9	07/01/10 SMI"
 
 /*
  * DWARF to tdata conversion
@@ -227,7 +227,7 @@ tdesc_bitsize(tdesc_t *tdp)
 		case UNION:
 		case ENUM:
 		case POINTER:
-			return (tdp->t_size);
+			return (tdp->t_size * NBBY);
 
 		case FORWARD:
 			return (0);
@@ -458,10 +458,10 @@ die_attr_ref(dwarf_t *dw, Dwarf_Die die, Dwarf_Half name)
 
 	attr = die_attr(dw, die, name, DW_ATTR_REQ);
 
-    if (dwarf_formref(attr, &off, &dw->dw_err) != DW_DLV_OK) {
-        terminate("die %llu: failed to get ref (form 0x%x)\n",
-            die_off(dw, die), die_attr_form(dw, attr));
-    }
+	if (dwarf_formref(attr, &off, &dw->dw_err) != DW_DLV_OK) {
+		terminate("die %llu: failed to get ref (form 0x%x)\n",
+		    die_off(dw, die), die_attr_form(dw, attr));
+	}
 
 	dwarf_dealloc(dw->dw_dw, attr, DW_DLA_ATTR);
 
@@ -973,19 +973,11 @@ die_sou_create(dwarf_t *dw, Dwarf_Die str, Dwarf_Off off, tdesc_t *tdp,
 	(void) die_unsigned(dw, str, DW_AT_byte_size, &sz, DW_ATTR_REQ);
 	tdp->t_size = sz;
 
+	/*
+	 * GCC allows empty SOUs as an extension.
+	 */
 	if ((mem = die_child(dw, str)) == NULL)
-#if !defined(__APPLE__)
-		terminate("die %llu: %s has no members", off, typename);
-#else
-	{
-		debug(1, "die %llu: %s has no members\n", off, typename);
-
-		if (tdp->t_type == FORWARD)
-			hash_remove(dw->dw_fwdhash, tdp);
-
-		goto workaround; /* Why do we see memberless structs? Read on ... */
-	}
-#endif /* __APPLE__ */
+		goto out;
 
 	mlastp = &tdp->t_members;
 
@@ -1004,10 +996,15 @@ die_sou_create(dwarf_t *dw, Dwarf_Die str, Dwarf_Off off, tdesc_t *tdp,
 
 		ml = xcalloc(sizeof (mlist_t));
 
-		if ((ml->ml_name = die_name(dw, mem)) == NULL) {
-			terminate("die %llu: mem %llu: member has no name\n",
-			    off, memoff);
-		}
+		/*
+		 * This could be a GCC anon struct/union member, so we'll allow
+		 * an empty name, even though nothing can really handle them
+		 * properly.  Note that some versions of GCC miss out debug
+		 * info for anon structs, though recent versions are fixed (gcc
+		 * bug 11816).
+		 */
+		if ((ml->ml_name = die_name(dw, mem)) == NULL)
+			ml->ml_name = "";
 
 		ml->ml_type = die_lookup_pass1(dw, mem, DW_AT_type);
 
@@ -1027,12 +1024,12 @@ die_sou_create(dwarf_t *dw, Dwarf_Die str, Dwarf_Off off, tdesc_t *tdp,
 #ifdef	_BIG_ENDIAN
 			ml->ml_offset += bitoff;
 #else
-			ml->ml_offset += (dw->dw_ptrsz * NBBY - bitoff -
-			    ml->ml_size);
+			ml->ml_offset += tdesc_bitsize(ml->ml_type) - bitoff -
+			    ml->ml_size;
 #endif
 		}
 
-		debug(3, "die %llu: mem %llu: created %s (off %u sz %u)\n",
+		debug(3, "die %llu: mem %llu: created \"%s\" (off %u sz %u)\n",
 		    off, memoff, ml->ml_name, ml->ml_offset, ml->ml_size);
 
 		*mlastp = ml;
@@ -1059,9 +1056,6 @@ die_sou_create(dwarf_t *dw, Dwarf_Die str, Dwarf_Off off, tdesc_t *tdp,
 	 * type won't make it into the output file.  To be safe, we'll also
 	 * change the name.
 	 */
-#if defined(__APPLE__)
-workaround:
-#endif /* __APPLE__ */
 	if (tdp->t_members == NULL) {
 		const char *old = tdesc_name(tdp);
 		size_t newsz = 7 + strlen(old) + 1;
@@ -1073,10 +1067,11 @@ workaround:
 		if (tdp->t_name != NULL)
 			free(tdp->t_name);
 		tdp->t_name = new;
-
+		return;
 	}
 
-	if (tdp->t_name != NULL && tdp->t_members != NULL) {
+out:
+	if (tdp->t_name != NULL) {
 		ii = xcalloc(sizeof (iidesc_t));
 		ii->ii_type = II_SOU;
 		ii->ii_name = xstrdup(tdp->t_name);
@@ -1113,20 +1108,22 @@ die_sou_resolve(tdesc_t *tdp, tdesc_t **tdpp, void *private)
 
 	for (ml = tdp->t_members; ml != NULL; ml = ml->ml_next) {
 		if (ml->ml_size == 0) {
-#if defined(__APPLE__)
-			if (ml->ml_type->t_type == ARRAY && 
-				ml->ml_type->t_size == 0)
-			{
-#warning BOGUS workaround (PADL et al)!
-				/* xnu padding macros (PADL et al) introduce zero length arrays. Force to size 1 byte. */
-				ml->ml_size = 1;
-			}
-			else
-#endif /* __APPLE__ */
-			if ((ml->ml_size = tdesc_bitsize(ml->ml_type)) == 0) {
-				dw->dw_nunres++;
-				return (1);
-			}
+			mt = tdesc_basetype(ml->ml_type);
+
+			if ((ml->ml_size = tdesc_bitsize(mt)) != 0)
+				continue;
+
+			/*
+			 * For empty members, or GCC/C99 flexible array
+			 * members, a size of 0 is correct.
+			 */
+			if (mt->t_members == NULL)
+				continue;
+			if (mt->t_type == ARRAY && mt->t_ardef->ad_nelems == 0)
+				continue;
+
+			dw->dw_nunres++;
+			return (1);
 		}
 
 		if ((mt = tdesc_basetype(ml->ml_type)) == NULL) {
@@ -1167,9 +1164,10 @@ die_sou_failed(tdesc_t *tdp, tdesc_t **tdpp, void *private)
 
 	for (ml = tdp->t_members; ml != NULL; ml = ml->ml_next) {
 		if (ml->ml_size == 0) {
-			fprintf(stderr, "%s %d: failed to size member %s of "
-			    "type %s (%d)\n", typename, tdp->t_id, ml->ml_name,
-			    tdesc_name(ml->ml_type), ml->ml_type->t_id);
+			fprintf(stderr, "%s %d: failed to size member \"%s\" "
+			    "of type %s (%d)\n", typename, tdp->t_id,
+			    ml->ml_name, tdesc_name(ml->ml_type),
+			    ml->ml_type->t_id);
 		}
 	}
 
@@ -1773,7 +1771,7 @@ die_create_one(dwarf_t *dw, Dwarf_Die die)
 
 	if (tdp != NULL)
 		tdp->t_name = die_name(dw, die);
-		
+
 #if defined(__APPLE__)
 #warning BOGUS workaround (nameless base die emitted by gcc)!
 	/* gcc 5402 emits nameless die that are base types. Workaround imminent failure. */
@@ -1857,27 +1855,6 @@ die_resolve(dwarf_t *dw)
 	} while (dw->dw_nunres != 0);
 }
 
-static size_t
-elf_ptrsz(Elf *elf)
-{
-	GElf_Ehdr ehdr;
-
-	if (gelf_getehdr(elf, &ehdr) == NULL) {
-		terminate("failed to read ELF header: %s\n",
-		    elf_errmsg(-1));
-	}
-
-	if (ehdr.e_ident[EI_CLASS] == ELFCLASS32)
-		return (4);
-	else if (ehdr.e_ident[EI_CLASS] == ELFCLASS64)
-		return (8);
-	else
-		terminate("unknown ELF class %d\n", ehdr.e_ident[EI_CLASS]);
-
-	/*NOTREACHED*/
-	return (0);
-}
-
 /*ARGSUSED*/
 int
 dw_read(tdata_t *td, Elf *elf, const char *filename)
@@ -1953,10 +1930,15 @@ dw_read(tdata_t *td, Elf *elf, const char *filename)
 	    &addrsz, &nxthdr, &dw.dw_err)) != DW_DLV_NO_ENTRY)
 		terminate("multiple compilation units not supported\n");
 
-	
 	(void) dwarf_finish(dw.dw_dw, &dw.dw_err);
 
 	die_resolve(&dw);
+
+#if !defined(__APPLE__)
+	cvt_fixups(td, dw.dw_ptrsz);
+#else
+	/* Ignore Solaris gore. See on-src-20080707/usr/src/tools/ctf/cvt/fixup_tdescs.c */
+#endif
 
 	/* leak the dwarf_t */
 

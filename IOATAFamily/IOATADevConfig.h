@@ -50,7 +50,7 @@
 
 class IOATADevConfig : public OSObject {
 
-	OSDeclareDefaultStructors( IOATADevConfig )
+	OSDeclareDefaultStructors( IOATADevConfig );
 	
 	public:
 	
@@ -79,8 +79,6 @@ class IOATADevConfig : public OSObject {
     // intitialize with the 512 byte data from an ATA device identify command
 	IOReturn assignFromData( const UInt16* identifyData );
 
-
-
 	/*!@function setPacketConfig
 	@param packetConfig
 	@abstract 	For ATAPI devices, if the device asserts interrupt after the Packet Command when it is ready to accept the packet, set this value to true (mostly older devices). If the device accepts the packet only by asserting DRQ bit in status, then set this value false. Tells the bus controller whether to wait for packet acceptance or set pending interrupt.
@@ -101,6 +99,7 @@ class IOATADevConfig : public OSObject {
 	@param inModeBitMap bit-significant map of PIO mode
 	*/
 	void setPIOMode( UInt8 inModeBitMap);		// bit-significant map of PIO mode(s)
+	
 	/*!@function getPIOMode
 	@result bit-significant map of PIO mode
 	*/
@@ -110,6 +109,7 @@ class IOATADevConfig : public OSObject {
 	@param inModeBitMap bit-significant map of DMA mode
 	*/
 	void setDMAMode( UInt8 inModeBitMap );	// bit-significant map of DMA mode(s)
+	
 	/*!@function getDMAMode
 	@result bit-significant map of DMA mode
 	*/
@@ -125,7 +125,6 @@ class IOATADevConfig : public OSObject {
 	*/
 	UInt8 getUltraMode( void );
 	
-	
 	// The following cycle time accessors report cycle times in nanoseconds.
 	// A device requesting a mode should also request a cycle time as reported in the device's identification page.
 	// A bus controller will configure the bus not to exceed (go faster than) the minimum time requested.
@@ -135,6 +134,7 @@ class IOATADevConfig : public OSObject {
 	@param inNS PIO cycle time in nanoseconds. 
 	*/
 	void setPIOCycleTime( UInt16 inNS );
+	
 	/*!@function getPIOCycleTime
 	@result reported PIO CycleTime in nanoseconds. 
 	*/
@@ -144,6 +144,7 @@ class IOATADevConfig : public OSObject {
 	@param inNS reported multiword DMA Cycle time in nanoseconds.
 	*/
 	void setDMACycleTime( UInt16 inNS );
+	
 	/*!@function getDMACycleTime
 	@result Reported multiword DMA cycle time in nanoseconds. 
 	*/
@@ -159,7 +160,6 @@ class IOATADevConfig : public OSObject {
 	@result the numerical value of the highest bit set in the field.
 	*/
 	virtual UInt8 bitSigToNumeric( UInt16 binary);
-
 
 	
 	protected:
@@ -193,7 +193,7 @@ class IOATADevConfig : public OSObject {
 protected:
 /*! @struct ExpansionData
     @discussion This structure will be used to expand the capablilties of the IOWorkLoop in the future.
-    */    
+    */
     struct ExpansionData { };
 
 /*! @var reserved
@@ -234,25 +234,6 @@ public:
 
 
 // header doc info goes here. I find putting it within the delcarations more confusing than putting it all in the bottom of the header.
-
-/*! @class 		IOATADevConfig
-	@abstract object used to request and indicate mode and timing information between devices and busses.
-	@discussion  
-*/
-	
-	/*! @function SetIRQForPacket
-    @abstract Set to true if ATAPI device asserts IRQ for packet. 
-    @discussion Older ATAPI devices assert IRQ when ready to accept packet after issuing the command and should set this true. Newer devices accept the packet by asserting DRQ and do not need the interrupt, so these should be false. 
-    @ same as bit 5 of word 0 in IDENTIFY DATA of a PACKET device. (see ATA Standards documents)
-    @param  bool useIRQ true if device asserts IRQ to receive packet, false if only asserts DRQ
-    */
-	
-	/*! @function NeedIRQForPacket
-    @abstract Returns to true if ATAPI device asserts IRQ for packet. 
-    @discussion Older ATAPI devices assert IRQ when ready to accept packet after issuing the command and should set this true. Newer devices accept the packet by asserting DRQ and do not need the interrupt, so these should be false.
-    @param  
-    */
-
 
 
 #endif /* !_IOATADEVCONFIG_H */

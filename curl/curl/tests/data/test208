@@ -1,4 +1,13 @@
 <testcase>
+<info>
+<keywords>
+FTP
+HTTP
+HTTP PUT
+HTTP proxy
+</keywords>
+</info>
+
 # Server-side
 <reply>
 <data>
@@ -20,7 +29,7 @@ http
 ftp
 </features>
  <name>
-HTTP PUT a to a FTP URL with username+password - over HTTP proxy
+HTTP PUT to a FTP URL with username+password - over HTTP proxy
  </name>
  <command>
 -x http://%HOSTIP:%HTTPPORT ftp://daniel:mysecret@host.com/we/want/208 -T log/test208.txt
@@ -47,7 +56,6 @@ the
 PUT ftp://daniel:mysecret@host.com/we/want/208 HTTP/1.1
 Authorization: Basic ZGFuaWVsOm15c2VjcmV0
 Host: host.com:21
-Pragma: no-cache
 Accept: */*
 Proxy-Connection: Keep-Alive
 Content-Length: 78

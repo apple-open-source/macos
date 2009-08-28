@@ -1,0 +1,54 @@
+# -*- tcl -*-
+# configures the site policy with some variant information, like colors.
+
+# Rules for the creation of the memchan website from the .exp files.
+
+proc here {} [list return [file dirname [info script]]]
+
+source [file join [here] site]       ; # load policy, defines template interface too.
+source [file join [here] references] ; # load references used by the site.
+source [file join [here] manpages]   ; # load list of known manpages.
+
+
+proc sfproject {} {return Memchan}
+proc sfgroup   {} {return 34191}
+
+proc bgcolor {} {return lightsteelblue}
+proc hlcolor {} {return lightyellow}
+
+proc author  {} {return "\"Andreas Kupries,,,\""}
+proc border  {} {return border=0}
+
+# Declare the pages of this site upfront ...
+
+sitepage mem/home      "Homepage"          index.html
+sitepage mem/releases  "Releases"          [releases/url]
+sitepage mem/images    "Logos"             images.html
+sitepage mem/anim      "Animations"        animations.html
+sitepage mem/doc       "Documentation"     documentation.html
+sitepage mem/clog      "ChangeLog"         changelog.html
+sitepage mem/copyright "&#169; Disclaimer" disclaimer.html
+sitepage mem/event/gen "Event generation"  mem_event.html
+
+# memchan specific commands
+
+proc mem/latest-release {} {
+    set nfile [file join [state] latest.release]
+    foreach {version date} [split [read [set fh [open $nfile r]]][close $fh] \n] break ; # lassign
+
+    set releasepage [wget [releases/url]]
+
+    regexp {release_id=([0-9]+)} $releasepage -> release_id
+
+    return "[link "version $version" [releases/url]&release_id=$release_id] as of $date"
+}
+
+url mc/doc/nroff/gz  "Archive"  doc/memchan.nroff.tar.gz
+url mc/doc/nroff/bz  "Archive"  doc/memchan.nroff.tar.bz2
+url mc/doc/nroff/zip "Archive"  doc/memchan.nroff.tar.zip
+url mc/doc/html/gz   "Archive"  doc/memchan.html.tar.gz
+url mc/doc/html/bz   "Archive"  doc/memchan.html.tar.bz2
+url mc/doc/html/zip  "Archive"  doc/memchan.html.tar.zip
+url mc/doc/tmml/gz   "Archive"  doc/memchan.tmml.tar.gz
+url mc/doc/tmml/bz   "Archive"  doc/memchan.tmml.tar.bz2
+url mc/doc/tmml/zip  "Archive"  doc/memchan.tmml.tar.zip

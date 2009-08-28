@@ -193,13 +193,13 @@ path to the locate database if set and not empty, ignored if the
 option was specified.
 .El
 .Sh FILES
-.Bl -tag -width /etc/periodic/weekly/310.locate -compact
+.Bl -tag -width /System/Library/LaunchDaemons/com.apple.locate.plist -compact
 .It Pa /var/db/locate.database
 locate database
 .It Pa /usr/libexec/locate.updatedb
 Script to update the locate database
-.It Pa /etc/periodic/weekly/310.locate
-Script that starts the database rebuild
+.It Pa /System/Library/LaunchDaemons/com.apple.locate.plist
+Job that starts the database rebuild
 .El
 .Sh SEE ALSO
 .Xr find 1 ,
@@ -231,8 +231,8 @@ list files that have been removed from the system.
 This is because
 locate only reports files that are present in the database, which is
 typically only regenerated once a week by the
-.Pa /etc/periodic/weekly/310.locate
-script.
+.Pa /System/Library/LaunchDaemons/com.apple.locate.plist
+job.
 Use
 .Xr find 1
 to locate files that are of a more transitory nature.

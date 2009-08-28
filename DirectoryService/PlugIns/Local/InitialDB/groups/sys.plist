@@ -10,6 +10,10 @@
 	<array>
 		<string>3</string>
 	</array>
+	<key>groupmembers</key>
+	<array>
+		<string>FFFFEEEE-DDDD-CCCC-BBBB-AAAA00000000</string>
+	</array>
 	<key>name</key>
 	<array>
 		<string>sys</string>
@@ -21,10 +25,6 @@
 	<key>realname</key>
 	<array>
 		<string>System</string>
-	</array>
-	<key>smb_sid</key>
-	<array>
-		<string>S-1-5-21-103</string>
 	</array>
 	<key>users</key>
 	<array>

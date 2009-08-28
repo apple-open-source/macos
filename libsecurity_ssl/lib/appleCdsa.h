@@ -200,6 +200,12 @@ OSStatus sslDhKeyExchange(
 	SSLContext		*ctx,
 	uint32			deriveSizeInBits,
 	SSLBuffer		*exchanged);
+OSStatus sslEcdhGenerateKeyPair(
+	SSLContext			*ctx,
+	SSL_ECDSA_NamedCurve namedCurve);
+OSStatus sslEcdhKeyExchange(
+	SSLContext		*ctx,
+	SSLBuffer		*exchanged);
 OSStatus sslVerifyNegotiatedCipher(
 	SSLContext 		*ctx);
 

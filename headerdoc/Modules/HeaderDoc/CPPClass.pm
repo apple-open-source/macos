@@ -4,8 +4,7 @@
 # Synopsis: Holds comments pertaining to a C++ class, as parsed by HeaderDoc
 # from a C++ header
 #
-# Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2005/10/15 01:26:29 $
+# Last Updated: $Date: 2009/03/30 19:38:50 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -41,7 +40,7 @@ use HeaderDoc::APIOwner;
 
 use strict;
 use vars qw($VERSION @ISA);
-$VERSION = '$Revision: 1.13.2.14.2.33 $';
+$HeaderDoc::CPPClass::VERSION = '$Revision: 1.16 $';
 
 # Inheritance
 @ISA = qw( HeaderDoc::APIOwner );
@@ -149,7 +148,8 @@ sub _old_getCompositePageString {
     }
 
     my $discussion = $self->discussion();
-    if (length($discussion)) {
+    my $checkDisc = $self->halfbaked_discussion();
+    if (length($checkDisc)) {
 	    $compositePageString .= "<h2>Discussion</h2>\n";
 	    $compositePageString .= $discussion;
     }
@@ -217,207 +217,6 @@ sub _old_getCompositePageString {
 	    $compositePageString .= $contentString;
     }  
     return $compositePageString;
-}
-
-
-
-# overriding inherited method to add access type on line above declaration
-sub _old__getFunctionDetailString {
-    my $self = shift;
-    my $composite = shift;
-    my @funcObjs = $self->functions();
-    my $className = $self->name();
-    my $contentString;
-    # my $apiUIDPrefix = HeaderDoc::APIOwner->apiUIDPrefix();
-
-    $contentString = $self->_getFunctionEmbeddedTOC($composite);
-
-    my @tempobjs = ();
-    if ($HeaderDoc::sort_entries) {
-	@tempobjs = sort objName @funcObjs;
-    } else {
-	@tempobjs = @funcObjs;
-    }
-
-    foreach my $obj (@tempobjs) {
-        my $name = $obj->name();
-        my $desc = $obj->discussion();
-	my $throws = $obj->throws();
-        my $abstract = $obj->abstract();
-        my $availability = $obj->availability();
-        my $updated = $obj->updated();
-        my $declaration = $obj->declarationInHTML();
-        my $declarationRaw = $obj->declaration();
-        my $accessControl = $obj->accessControl();
-        my @params = $obj->taggedParameters();
-        my $result = $obj->result();
-	my $list_attributes = $obj->getAttributeLists($composite);
-
-	$contentString .= "<hr>";
-	# if ($declaration !~ /#define/o) { # not sure how to handle apple_refs with macros yet
-	        my $methodType = $self->getMethodType($declarationRaw);
-		# registerUID($uid);
-        	# $contentString .= "<a name=\"$uid\"></a>\n";
-		my $apiref = "";
-		$apiref = $obj->apiref($composite);
-		$contentString .= $apiref;
-        # }
-	my $parentclass = $obj->origClass();
-	if (length($parentclass)) { $parentclass .= "::"; }
-	if ($self->CClass()) {
-		# Don't do this for pseudo-classes.
-		$parentclass = "";
-	}
-	$contentString .= "<table border=\"0\"  cellpadding=\"2\" cellspacing=\"2\" width=\"300\">";
-	$contentString .= "<tr>";
-	$contentString .= "<td valign=\"top\" height=\"12\" colspan=\"5\">";
-	my $urlname = sanitize($name, 1);
-	$contentString .= "<h2><a name=\"$urlname\">$parentclass$name</a></h2>\n";
-	$contentString .= "</td>";
-	$contentString .= "</tr></table>";
-	# $contentString .= "<hr>";
-
-	if (length($throws)) {  
-		$contentString .= "<b>Throws:</b>\n$throws<BR>\n";
-	}
-	if (length($abstract)) {
-            # $contentString .= "<b>Abstract:</b> $abstract<BR>\n";
-            $contentString .= "$abstract<BR>\n";
-        }
-	if (length($availability)) {
-	    $contentString .= "<b>Availability:</b> $availability<BR>\n";
-	}
-	if (length($updated)) {
-	    $contentString .= "<b>Updated:</b> $updated<BR>\n";
-	}
-	if (length($list_attributes)) {
-	    $contentString .= $list_attributes;
-	}
-        $contentString .= "<blockquote><pre><tt>$accessControl</tt>\n<br>$declaration</pre></blockquote>\n";
-        if (length($desc)) {$contentString .= "<h5><font face=\"Lucida Grande,Helvetica,Arial\">Discussion</font></h5><p>$desc</p>\n"; }
-	    my $arrayLength = @params;
-	    if ($arrayLength > 0) {
-	        my $paramContentString;
-	        foreach my $element (@params) {
-	            my $pName = $element->name();
-	            my $pDesc = $element->discussion();
-	            if (length ($pName)) {
-	                # $paramContentString .= "<tr><td align=\"center\"><tt>$pName</tt></td><td>$pDesc</td></tr>\n";
-	                $paramContentString .= "<dt><tt>$pName</tt></dt><dd>$pDesc</dd>\n";
-	            }
-	        }
-	        if (length ($paramContentString)){
-		        $contentString .= "<h5><font face=\"Lucida Grande,Helvetica,Arial\">Parameters</font></h5>\n";
-		        $contentString .= "<blockquote>\n";
-		        # $contentString .= "<table border=\"1\"  width=\"90%\">\n";
-		        # $contentString .= "<thead><tr><th>Name</th><th>Description</th></tr></thead>\n";
-			$contentString .= "<dl>\n";
-	            $contentString .= $paramContentString;
-		        # $contentString .= "</table>\n</blockquote>\n";
-		        $contentString .= "</dl>\n</blockquote>\n";
-		    }
-	    }
-	if (length($result)) {
-            $contentString .= "<dl><dt><i>function result</i></dt><dd>$result</dd></dl>\n";
-        }
-	    # $contentString .= "<hr>\n";
-    }
-    $contentString .= "<hr>\n";
-    return $contentString;
-}
-
-sub _old__getVarDetailString {
-    my $self = shift;
-    my $composite = shift;
-    my @varObjs = $self->vars();
-    my $contentString;
-
-    my @tempobjs = ();
-    if ($HeaderDoc::sort_entries) {
-	@tempobjs = sort objName @varObjs;
-    } else {
-	@tempobjs = @varObjs;
-    }
-    foreach my $obj (@tempobjs) {
-        my $name = $obj->name();
-	my $abstract = $obj->abstract();
-	my $availability = $obj->availability();
-	my $updated = $obj->updated();
-        my $desc = $obj->discussion();
-        my $declaration = $obj->declarationInHTML();
-        my $accessControl = $obj->accessControl();
-        my @fields = ();
-        my $fieldHeading;
-        if ($obj->can('fields')) { # for Structs, Unions, and Typedefs
-            @fields = $obj->fields();
-            $fieldHeading = "Fields";
-        } elsif ($obj->can('constants')) { # for enums
-            @fields = $obj->constants();
-            $fieldHeading = "Constants";
-        }
-        if ($obj->can('isFunctionPointer')) {
-        	if ($obj->isFunctionPointer()) {
-            	$fieldHeading = "Parameters";
-        	}
-        }
-
-	my $methodType = "data"; # $self->getMethodType($declarationRaw);
-	# my $apiUIDPrefix = HeaderDoc::APIOwner->apiUIDPrefix();
-	my $apiowner = $self->apiOwner();
-	my $headerObject = $apiowner->headerObject();
-	# my $className = (HeaderDoc::APIOwner->headerObject())->name();
-	my $className = $self->name();
-	$contentString .= "<hr>";
-	# my $uid = "//$apiUIDPrefix/cpp/$methodType/$className/$name";
-	# registerUID($uid);
-	# $contentString .= "<a name=\"$uid\"></a>\n";
-	# Don't potentially change the uid....
-	my $apiref = $obj->apiref($composite); # , $methodType);
-	$contentString .= $apiref;
-        
-	$contentString .= "<table border=\"0\"  cellpadding=\"2\" cellspacing=\"2\" width=\"300\">";
-	$contentString .= "<tr>";
-	$contentString .= "<td valign=\"top\" height=\"12\" colspan=\"5\">";
-	my $urlname = sanitize($name, 1);
-	$contentString .= "<h2><a name=\"$urlname\">$name</a></h2>\n";
-	$contentString .= "</td>";
-	$contentString .= "</tr></table>";
-	# $contentString .= "<hr>";
-	if (length($abstract)) {
-		# $contentString .= "<b>Abstract:</b> $abstract<BR>\n";
-		$contentString .= "$abstract<BR>\n";
-	}
-	if (length($availability)) {
-		$contentString .= "<b>Availability:</b> $availability<BR>\n";
-	}
-	if (length($updated)) {
-		$contentString .= "<b>Updated:</b> $updated<BR>\n";
-	}
-        $contentString .= "<blockquote><tt>$accessControl</tt> $declaration</blockquote>\n";
-        if (length($desc)) {$contentString .= "<h5><font face=\"Lucida Grande,Helvetica,Arial\">Discussion</font></h5><p>$desc</p>\n"; }
-        # $contentString .= "<p>$desc</p>\n";
-	    my $arrayLength = @fields;
-	    if ($arrayLength > 0) {
-	        $contentString .= "<h5><font face=\"Lucida Grande,Helvetica,Arial\">$fieldHeading</font></h5>\n";
-	        $contentString .= "<blockquote>\n";
-	        # $contentString .= "<table border=\"1\"  width=\"90%\">\n";
-	        # $contentString .= "<thead><tr><th>Name</th><th>Description</th></tr></thead>\n";
-		$contentString .= "<dl>\n";
-	        foreach my $element (@fields) {
-	            my $fName = $element->name();
-	            my $fDesc = $element->discussion();
-	            # $contentString .= "<tr><td align=\"center\"><tt>$fName</tt></td><td>$fDesc</td></tr>\n";
-	            $contentString .= "<dt><tt>$fName</tt></dt><dd>$fDesc</dd>\n";
-	        }
-	        # $contentString .= "</table>\n</blockquote>\n";
-	        $contentString .= "</dl>\n</blockquote>\n";
-	    }
-	    # if (length($updated)) {
-		# $contentString .= "<b>Updated:</b> $updated\n";
-	    # }
-    }
-    $contentString .= "<hr>\n";
-    return $contentString;
 }
 
 sub getMethodType {
@@ -525,8 +324,8 @@ sub printObject {
     my $self = shift;
  
     $self->SUPER::printObject();
-    print "CPPClass\n";
-    print "\n";
+    print STDERR "CPPClass\n";
+    print STDERR "\n";
 }
 
 1;

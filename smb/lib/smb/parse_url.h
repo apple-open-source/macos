@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 - 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2006 - 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,11 +23,11 @@
 #ifndef _PARSE_URL_H_
 #define _PARSE_URL_H_
 
-#define SMB_SCHEMA_STRING  "smb"
+#define SMB_SCHEME_STRING  "smb"
 
 void CreateSMBFromName(struct smb_ctx *ctx, char *fromname, int maxlen);
 int ParseSMBURL(struct smb_ctx *ctx, int sharetype);
-int CreateSMBURL(struct smb_ctx *ctx, const char *url);
+CFURLRef CreateSMBURL(const char *url);
 int smb_url_to_dictionary(CFURLRef url, CFDictionaryRef *dict);
 int smb_dictionary_to_url(CFDictionaryRef dict, CFURLRef *url);
 

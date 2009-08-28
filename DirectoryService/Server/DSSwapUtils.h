@@ -26,52 +26,33 @@
  * Provides routines to byte swap endian data buffers.
  */
 
-#ifndef __DSSwapUtils_h__
-#define __DSSwapUtils_h__ 1
+#ifndef __DSSWAPUTILS_H
+#define __DSSWAPUTILS_H
 
-#ifndef __BIG_ENDIAN__
-
-#include <machine/byte_order.h>
-#include "DirServicesConst.h"
+#include <stdbool.h>
+#include <stdint.h>
+#include <unistd.h>
 #include "DirServicesTypes.h"
 
-#ifndef dsBool
-	#define	dsBool	int
-#endif
+enum
+{
+	kDSSwapHostToNetworkOrder	= 0,
+	kDSSwapNetworkToHostOrder	= 1,
+};
 
-enum { kDSSwapToBig, kDSSwapToHost };
+typedef uint32_t eSwapDirection;
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#define DSSwapLong(a,b)		DSGetAndSwapLong(a,b)
 
-    void DSSwapObjectData	(	UInt32 type,
-								char* data,
-								UInt32 size,
-								dsBool swapAuth,
-								dsBool isCustomCall,
-								UInt32 inCustomRequestNum,
-								const char* inPluginName,
-								dsBool isAPICallResponse,
-								dsBool inToBig);
+__BEGIN_DECLS
+
+void DSSwapObjectData( UInt32 type, char* data, UInt32 size, bool swapAuth, bool isCustomCall,
+					   UInt32 inCustomRequestNum, const char* inPluginName, bool isAPICallResponse,
+					   eSwapDirection inSwapDir );
+
+UInt32 DSGetLong( void* ptr, eSwapDirection inSwapDir );
+UInt32 DSGetAndSwapLong( void* ptr, eSwapDirection inSwapDir );
     
-    void DSSwapStandardBuf(char* data, UInt32 size, dsBool inToBig);
-    void DSSwapRecordEntry(char* data, UInt32 type, dsBool inToBig);
-
-    UInt32 DSGetLong(void* ptr, dsBool inToBig);
-    unsigned short DSGetShort(void* ptr, dsBool inToBig);
-    
-    UInt32 DSGetAndSwapLong(void* ptr, dsBool inToBig);
-    unsigned short DSGetAndSwapShort(void* ptr, dsBool inToBig);
-    
-    void DSSwapLong(void* ptr, dsBool inToBig);
-    void DSSwapShort(void* ptr, dsBool inToBig);
-
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif
+__END_DECLS
 
 #endif

@@ -210,12 +210,6 @@ AC_SUBST(zprofile)dnl
 AC_SUBST(zlogin)dnl
 AC_SUBST(zlogout)dnl
 
-dnl Do you want large file support, if available?
-ifdef([lfs],[undefine([lfs])])dnl
-AC_ARG_ENABLE(lfs,
-AC_HELP_STRING([--disable-lfs], [turn off support for large files]),
-[lfs="$enableval"], [lfs=yes])
-
 dnl Do you want dynamically loaded binary modules.
 ifdef([dynamic],[undefine([dynamic])])dnl
 AC_ARG_ENABLE(dynamic,
@@ -334,6 +328,19 @@ fi],
 [AC_DEFINE(MAX_FUNCTION_DEPTH, 1000)]
 )
 
+ifdef([default_readnullcmd],[undefine([default_readnullcmd])])dnl
+AH_TEMPLATE([DEFAULT_READNULLCMD],
+[Define default pager used by readnullcmd])
+AC_ARG_ENABLE(readnullcmd,
+AC_HELP_STRING([--enable-readnullcmd=PAGER], [pager used when READNULLCMD is not set]),
+[if test x$enableval = xyes; then
+  AC_DEFINE(DEFAULT_READNULLCMD,"more")
+elif test x$enableval != xno; then
+  AC_DEFINE_UNQUOTED(DEFAULT_READNULLCMD,"$enableval")
+fi],
+[AC_DEFINE(DEFAULT_READNULLCMD,"more")]
+)
+
 dnl Do you want to look for pcre support?
 AC_ARG_ENABLE(pcre,
 AC_HELP_STRING([--enable-pcre],
@@ -343,6 +350,10 @@ dnl Do you want to look for capability support?
 AC_ARG_ENABLE(cap,
 AC_HELP_STRING([--enable-cap],
 [enable the search for POSIX capabilities (may require additional headers to be added by hand)]))
+
+AC_ARG_ENABLE(gdbm,
+AC_HELP_STRING([--disable-gdbm], [turn off search for gdbm library]),
+[gdbm="$enableval"], [gdbm=yes])
 
 dnl ------------------
 dnl CHECK THE COMPILER
@@ -354,16 +365,14 @@ test -z "${LDFLAGS+set}" && LDFLAGS= auto_ldflags=1
 AC_PROG_CC
 
 dnl Check for large file support.
-dnl This needs to be done early to get the stuff into the flags.
-if test x$lfs != xno; then
+
 dnl Gross hack for ReliantUNIX - GCC does not understand getconf options
 dnl For now just disable LFS in this case
 dnl Any takers?
-  if test "$host" = mips-sni-sysv4 && test -n "$GCC"; then
-    : 
-  else
-    zsh_LARGE_FILE_SUPPORT
-  fi
+if test "$host" = mips-sni-sysv4 && test -n "$GCC"; then
+  : 
+else
+  AC_SYS_LARGEFILE
 fi
 
 dnl if the user hasn't specified CFLAGS, then
@@ -557,7 +566,8 @@ AC_CHECK_HEADERS(sys/time.h sys/times.h sys/select.h termcap.h termio.h \
 		 unistd.h sys/capability.h \
 		 utmp.h utmpx.h sys/types.h pwd.h grp.h poll.h sys/mman.h \
 		 netinet/in_systm.h pcre.h langinfo.h wchar.h stddef.h \
-		 sys/stropts.h iconv.h)
+		 sys/stropts.h iconv.h ncurses.h ncursesw/ncurses.h \
+		 ncurses/ncurses.h)
 if test x$dynamic = xyes; then
   AC_CHECK_HEADERS(dlfcn.h)
   AC_CHECK_HEADERS(dl.h)
@@ -636,48 +646,66 @@ AC_CHECK_LIB(c, printf, [LIBS="$LIBS -lc"])
 
 AC_CHECK_LIB(m, pow)
 
+dnl Various features of ncurses depend on having the right header
+dnl (the system's own curses.h may well not be good enough).
+dnl So don't search for ncurses unless we found the header.
+if test x$ac_cv_header_ncurses_h = xyes || test x$ac_cv_header_ncurses_ncurses_h = xyes || test x$ac_cv_header_ncursesw_ncurses_h = xyes; then
+  ncursesw_test=ncursesw
+  ncurses_test=ncurses
+else
+  ncursesw_test=
+  ncurses_test=
+fi
+
 dnl Prefer BSD termcap library to SysV curses library, except on certain
 dnl SYSV-derived systems.  However, if we find terminfo and termcap
 dnl stuff in the same library we will use that; typically this
 dnl is ncurses or curses.
 dnl On HPUX, Hcurses is reported to work better than curses.
-dnl Prefer ncurses to curses on all systems; prefer it to tinfo
-dnl if we were told to use curses.  tinfo isn't very common now.
-AC_ARG_WITH(curses-terminfo,
-AC_HELP_STRING([--with-curses-terminfo], [use terminfo support from curses library]),
-[if test x$withval = xyes; then
-  termcap_curses_order="ncurses tinfo curses termcap"
+dnl Prefer ncurses to curses on all systems.  tinfo isn't very common now.
+AC_ARG_WITH(term-lib,
+AC_HELP_STRING([--with-term-lib=LIBS], [search space-separated LIBS for terminal handling]),
+[if test "x$withval" != xno && test "x$withval" != x ; then
+  termcap_curses_order="$withval"
   AC_SEARCH_LIBS(tigetstr, [$termcap_curses_order])
 else
-  termcap_curses_order="tinfo termcap ncurses curses"
+  termcap_curses_order="$ncursesw_test tinfo termcap $ncurses_test curses"
 fi],
 [case "$host_os" in
   hpux10.*|hpux11.*|solaris*)
-      termcap_curses_order="Hcurses ncurses curses termcap" ;;
-  *)             termcap_curses_order="tinfo termcap ncurses curses" ;;
+   termcap_curses_order="Hcurses $ncursesw_test $ncurses_test curses termcap" ;;
+  *)
+   termcap_curses_order="$ncursesw_test tinfo termcap $ncurses_test curses" ;;
 esac])dnl
 
-AH_TEMPLATE([HAVE_BOOLCODES],
-[Define if you have the termcap boolcodes symbol.])
-AH_TEMPLATE([HAVE_NUMCODES],
-[Define if you have the termcap numcodes symbol.])
-AH_TEMPLATE([HAVE_STRCODES],
-[Define if you have the termcap strcodes symbol.])
-AH_TEMPLATE([HAVE_BOOLNAMES],
-[Define if you have the terminfo boolnames symbol.])
-AH_TEMPLATE([HAVE_NUMNAMES],
-[Define if you have the terminfo numnames symbol.])
-AH_TEMPLATE([HAVE_STRNAMES],
-[Define if you have the terminfo strnames symbol.])
-AH_TEMPLATE([TERM_H_NEEDS_CURSES_H],
-[Define if term.h chokes without curses.h.])
+AH_TEMPLATE([ZSH_NO_XOPEN],
+[Define if _XOPEN_SOURCE_EXTENDED should not be defined to avoid clashes])
+AC_CACHE_CHECK(if _XOPEN_SOURCE_EXTENDED should not be defined,
+zsh_cv_no_xopen,
+[[case "$host_os" in
+  *openbsd*|*freebsd5*|*freebsd6.[012]*|*aix*)
+  zsh_cv_no_xopen=yes
+  ;;
+  *)
+  zsh_cv_no_xopen=no
+  ;;
+esac]])
+if test x$zsh_cv_no_xopen = xyes; then
+  AC_DEFINE(ZSH_NO_XOPEN)
+fi
+
 dnl Check for tigetflag (terminfo) before tgetent (termcap).
 dnl That's so that on systems where termcap and [n]curses are
 dnl both available and both contain termcap functions, while
 dnl only [n]curses contains terminfo functions, we only link against
 dnl [n]curses.
 AC_SEARCH_LIBS(tigetflag, [$termcap_curses_order])
-AC_SEARCH_LIBS(tgetent, [$termcap_curses_order])
+AC_SEARCH_LIBS(tgetent, [$termcap_curses_order],
+  true,
+  AC_MSG_FAILURE(["No terminal handling library was found on your system.
+This is probably a library called 'curses' or 'ncurses'.  You may
+need to install a package called 'curses-devel' or 'ncurses-devel' on your
+system."], 255))
 AC_CHECK_HEADERS(curses.h, [],
 [AC_CACHE_CHECK(for Solaris 8 curses.h mistake, ac_cv_header_curses_solaris,
 AC_TRY_COMPILE([#include <curses.h>], [],
@@ -688,63 +716,20 @@ ac_cv_header_curses_solaris=no))
 if test x$ac_cv_header_curses_solaris = xyes; then
 AC_DEFINE(HAVE_CURSES_H)
 fi])
-AC_CHECK_HEADERS(term.h,
-[AC_MSG_CHECKING(if term.h needs curses.h)
-AC_TRY_COMPILE([#include <term.h>], [char **test = boolcodes;], boolcodes_with_only_term_h=yes,
-boolcodes_with_only_term_h=no)
-AC_TRY_COMPILE([#include <curses.h>
-#include <term.h>], [char **test = boolcodes;], boolcodes_with_curses_h_and_term_h=yes,
-boolcodes_with_curses_h_and_term_h=no)
-if test "x$boolcodes_with_curses_h_and_term_h" = xyes && test "x$boolcodes_with_only_term_h" = xno;
-then
-AC_DEFINE(TERM_H_NEEDS_CURSES_H)
-AC_MSG_RESULT(yes)
-else
-AC_MSG_RESULT(no)
-fi
 
-AC_MSG_CHECKING(if boolcodes is available)
-AC_TRY_LINK([#ifdef TERM_H_NEEDS_CURSES_H
-#include <curses.h>
-#endif
-#include <term.h>], [char **test = boolcodes; printf(*test);],
-AC_DEFINE(HAVE_BOOLCODES) boolcodes=yes, boolcodes=no)
-AC_MSG_RESULT($boolcodes)
-AC_MSG_CHECKING(if numcodes is available)
-AC_TRY_LINK([#ifdef TERM_H_NEEDS_CURSES_H
-#include <curses.h>
-#endif
-#include <term.h>], [char **test = numcodes; printf(*test);],
-AC_DEFINE(HAVE_NUMCODES) numcodes=yes, numcodes=no)
-AC_MSG_RESULT($numcodes)
-AC_MSG_CHECKING(if strcodes is available)
-AC_TRY_LINK([#ifdef TERM_H_NEEDS_CURSES_H
-#include <curses.h>
-#endif
-#include <term.h>], [char **test = strcodes; printf(*test);],
-AC_DEFINE(HAVE_STRCODES) strcodes=yes, strcodes=no)
-AC_MSG_RESULT($strcodes)
-AC_MSG_CHECKING(if boolnames is available)
-AC_TRY_LINK([#include <curses.h>
-#include <term.h>], [char **test = boolnames; printf(*test);],
-AC_DEFINE(HAVE_BOOLNAMES) boolnames=yes, boolnames=no)
-AC_MSG_RESULT($boolnames)
-AC_MSG_CHECKING(if numnames is available)
-AC_TRY_LINK([#include <curses.h>
-#include <term.h>], [char **test = numnames; printf(*test);],
-AC_DEFINE(HAVE_NUMNAMES) numnames=yes, numnames=no)
-AC_MSG_RESULT($numnames)
-AC_MSG_CHECKING(if strnames is available)
-AC_TRY_LINK([#include <curses.h>
-#include <term.h>], [char **test = strnames; printf(*test);],
-AC_DEFINE(HAVE_STRNAMES) strnames=yes, strnames=no)
-AC_MSG_RESULT($strnames)
-])
+dnl If our terminal library is not ncurses, don't try including
+dnl any ncurses headers.
+AC_CACHE_CHECK(if we need to ignore ncurses, zsh_cv_ignore_ncurses,
+[case $LIBS in
+  *-lncurses*)
+  zsh_cv_ignore_ncurses=no
+  ;;
+  *)
+  zsh_cv_ignore_ncurses=yes
+  ;;
+esac])
 
-dnl Some systems (Solaris 2.x, Linux Redhat 5.x) require
-dnl libnsl (Network Services Library) to find yp_all
-
-AC_SEARCH_LIBS(yp_all, nsl)
+AC_SEARCH_LIBS(getpwnam, nsl)
 
 dnl I am told that told that unicos reqire these for nis_list
 if test `echo $host_os | sed 's/^\(unicos\).*/\1/'` = unicos; then
@@ -783,8 +768,13 @@ if test "x$ac_cv_header_iconv_h" = "xyes"; then
       [ #include <iconv.h> ])
   fi
 fi
+AH_TEMPLATE([ICONV_FROM_LIBICONV],
+[Define to 1 if iconv() is linked from libiconv])
 if test "x$ac_found_iconv" = xyes; then
   AC_DEFINE(HAVE_ICONV, 1, [Define if you have the iconv() function.])
+  AC_TRY_LINK([#include <iconv.h>],
+    [int myversion = _libiconv_version],
+    AC_DEFINE(ICONV_FROM_LIBICONV), )
 fi
 
 dnl Check if iconv uses const in prototype declaration
@@ -846,6 +836,11 @@ if test x$zsh_cv_decl_ospeed_include_defines = xyes; then
 elif test x$zsh_cv_decl_ospeed_must_define = xyes; then
   AC_DEFINE(HAVE_OSPEED)
   AC_DEFINE(MUST_DEFINE_OSPEED)
+fi
+
+if test x$gdbm != xno; then
+  AC_CHECK_HEADERS(gdbm.h)
+  AC_CHECK_LIB(gdbm, gdbm_open)
 fi
 
 dnl --------------
@@ -919,26 +914,22 @@ main() { return sizeof(ino_t) < 8; }
     AC_DEFINE(INO_T_IS_64_BIT)
   fi
 
-  if test x$lfs != xno -o x$zsh_cv_off_t_is_64_bit = xyes \
+  if test x$enable_largefile != xno -o x$zsh_cv_off_t_is_64_bit = xyes \
   -o $zsh_cv_ino_t_is_64_bit = yes; then
     AC_CACHE_CHECK(if compiler has a 64 bit type, zsh_cv_64_bit_type,
-    [if test x$lfs != xyes && test x$lfs != xno; then
-      zsh_64_BIT_TYPE(${lfs}, zsh_cv_64_bit_type, force)
-     else
-       zsh_64_BIT_TYPE(long long, zsh_cv_64_bit_type)
-       if test "$zsh_cv_64_bit_type" = no; then
-         zsh_64_BIT_TYPE(quad_t, zsh_cv_64_bit_type)
-       fi
-       if test "$zsh_cv_64_bit_type" = no; then
-         zsh_64_BIT_TYPE(__int64_t, zsh_cv_64_bit_type)
-       fi
-       dnl As a last resort, if we know off_t has 64 bits, use that as
-       dnl the 64-bit integer type.  I don't dare try ino_t since there's
-       dnl probably nothing to stop that being unsigned.
-       if test "$zsh_cv_64_bit_type" = no &&
-          test "$zsh_cv_off_t_is_64_bit" = yes; then
-         zsh_64_BIT_TYPE(off_t, zsh_cv_64_bit_type)
-       fi
+    [zsh_64_BIT_TYPE(long long, zsh_cv_64_bit_type)
+     if test "$zsh_cv_64_bit_type" = no; then
+       zsh_64_BIT_TYPE(quad_t, zsh_cv_64_bit_type)
+     fi
+     if test "$zsh_cv_64_bit_type" = no; then
+       zsh_64_BIT_TYPE(__int64_t, zsh_cv_64_bit_type)
+     fi
+     dnl As a last resort, if we know off_t has 64 bits, use that as
+     dnl the 64-bit integer type.  I don't dare try ino_t since there's
+     dnl probably nothing to stop that being unsigned.
+     if test "$zsh_cv_64_bit_type" = no &&
+        test "$zsh_cv_off_t_is_64_bit" = yes; then
+       zsh_64_BIT_TYPE(off_t, zsh_cv_64_bit_type)
      fi])
     if test "$zsh_cv_64_bit_type" != no; then
       AC_DEFINE_UNQUOTED(ZSH_64_BIT_TYPE, $zsh_cv_64_bit_type)
@@ -972,6 +963,17 @@ AH_TEMPLATE([sigset_t],
 if test x$zsh_cv_type_sigset_t = xno; then
   AC_DEFINE(sigset_t, unsigned int)
 fi
+
+dnl check structures for high resolution timestamps
+AC_CHECK_MEMBERS([struct stat.st_atim.tv_nsec,
+                  struct stat.st_atimespec.tv_nsec,
+                  struct stat.st_atimensec,
+                  struct stat.st_mtim.tv_nsec,
+                  struct stat.st_mtimespec.tv_nsec,
+                  struct stat.st_mtimensec,
+                  struct stat.st_ctim.tv_nsec,
+                  struct stat.st_ctimespec.tv_nsec,
+                  struct stat.st_ctimensec])
 
 dnl Check for struct timezone since some old SCO versions do not define it
 zsh_TYPE_EXISTS([
@@ -1121,21 +1123,24 @@ AC_CHECK_FUNCS(strftime strptime mktime timelocal \
 	       getlogin getpwent getpwnam getpwuid getgrgid getgrnam \
 	       initgroups nis_list \
 	       setuid seteuid setreuid setresuid setsid \
-	       memcpy memmove strstr strerror \
+	       memcpy memmove strstr strerror strtoul \
 	       getrlimit getrusage \
 	       setlocale \
 	       uname \
 	       signgam \
-	       putenv getenv \
+	       putenv getenv setenv unsetenv xw\
 	       brk sbrk \
 	       pathconf sysconf \
-	       tgetent tigetflag tigetnum tigetstr setupterm \
+	       tgetent tigetflag tigetnum tigetstr setupterm initscr \
+	       getcchar setcchar waddwstr wget_wch win_wch use_default_colors \
 	       pcre_compile pcre_study pcre_exec \
 	       nl_langinfo \
 	       erand48 open_memstream \
 	       wctomb iconv \
 	       grantpt unlockpt ptsname \
-	       htons ntohs)
+	       htons ntohs \
+	       regcomp regexec regerror regfree \
+	       gdbm_open)
 AC_FUNC_STRCOLL
 
 if test x$enable_cap = xyes; then
@@ -1324,7 +1329,6 @@ sed 's/\\\\\\\\/\//g' |
 $AWK '{ if ($1 ~ /err/) files[[$1]] = $1 }
   END { for (var in files) print var }'`"
 rm -f nametmp.c
-lnerrs=0
 for ERRNO_TRY_H in $errfile_list /dev/null
 do
   dnl Try to make sure it doesn't get confused by files that don't
@@ -1336,9 +1340,8 @@ do
   nerrs=`test -f $ERRNO_TRY_H && \
   $EGREP '#[ 	]*define[ 	][ 	]*E[0-9A-Z]*[ 	]*(_HURD_ERRNO )?\(?[_A-Z0-9]' $ERRNO_TRY_H | \
   wc -l | sed 's/[ 	]//g'`
-  if test "x$nerrs" != x && test "$nerrs" -ge 1 && test "$nerrs" -gt "$lnerrs"
+  if test "x$nerrs" != x && test "$nerrs" -ge 1
   then
-    lnerrs=$nerrs
     ERRNO_H="$ERRNO_H $ERRNO_TRY_H"
   fi
 done
@@ -1349,6 +1352,158 @@ zsh_cv_path_errno_h="$ERRNO_H"
 ])
 ERRNO_H="$zsh_cv_path_errno_h"
 AC_SUBST(ERRNO_H)dnl
+
+AC_CACHE_CHECK(location of curses header, zsh_cv_path_curses_header,
+[if test x$zsh_cv_ignore_ncurses = xyes; then
+  if test x$ac_cv_header_curses_h = xyes; then
+    zsh_cv_path_curses_header=curses.h
+  else
+    zsh_cv_path_curses_header=none
+  fi
+elif test x$ac_cv_header_ncursesw_ncurses_h = xyes; then
+  zsh_cv_path_curses_header=ncursesw/ncurses.h
+elif test x$ac_cv_header_ncurses_ncurses_h = xyes; then
+  zsh_cv_path_curses_header=ncurses/ncurses.h
+elif test x$ac_cv_header_ncurses_h = xyes; then
+  zsh_cv_path_curses_header=ncurses.h
+elif test x$ac_cv_header_curses_h = xyes; then
+  zsh_cv_path_curses_header=curses.h
+else
+  zsh_cv_path_curses_header=none
+fi])
+AH_TEMPLATE([ZSH_HAVE_CURSES_H],
+[Define to 1 if some variant of a curses header can be included])
+if test x$zsh_cv_path_curses_header != xnone; then
+  AC_DEFINE(ZSH_HAVE_CURSES_H)
+  ZSH_CURSES_H=$zsh_cv_path_curses_header
+else
+  ZSH_CURSES_H=
+fi
+AC_SUBST(ZSH_CURSES_H)
+
+dnl Where are curses key definitions located?  Need for keypad() mode.
+AC_CACHE_CHECK(where curses key definitions are located, zsh_cv_path_curses_keys_h,
+[dnl This is an identical trick to errno.h, except we use ncurses.h
+dnl if we can.
+if test x$zsh_cv_path_curses_header = xnone; then
+  echo >nametmp.c
+else
+  echo "#include <$zsh_cv_path_curses_header>" >nametmp.c
+fi
+
+curses_list="`$CPP nametmp.c |
+sed -n -e 's/^#line[ 	].*\"\(.*\)\"/\1/p' \
+       -e 's/^#[ 	0-9].*\"\(.*\)\"/\1/p' |
+sed 's/\\\\\\\\/\//g' |
+$AWK '{ if ($1 ~ /\.h/) files[[$1]] = $1 }
+  END { for (var in files) print var }'`"
+rm -f nametmp.c
+for CURSES_TRY_H in $curses_list /dev/null
+do
+  nkeys=`test -f $CURSES_TRY_H && \
+  $EGREP '#[ 	]*define[ 	][ 	]*KEY_' $CURSES_TRY_H | \
+  wc -l | sed 's/[ 	]//g'`
+  if test "x$nkeys" != x && test "$nkeys" -ge 10
+  then
+    CURSES_KEYS_H=$CURSES_TRY_H
+    break
+  fi
+done
+zsh_cv_path_curses_keys_h="$CURSES_KEYS_H"
+])
+CURSES_KEYS_H="$zsh_cv_path_curses_keys_h"
+AC_SUBST(CURSES_KEYS_H)dnl
+
+dnl See if there are variants of term.h.  For testing each one
+dnl we include the most likely variant of the curses header.
+AC_CHECK_HEADERS(ncursesw/term.h,
+true, true,
+[#include <ncursesw/ncurses.h>])
+AC_CHECK_HEADERS(ncurses/term.h,
+true, true,
+[#include <ncurses/ncurses.h>])
+AC_CHECK_HEADERS(term.h,
+true, true,
+[#include <curses.h>])
+
+dnl See if term.h is bundled along with the curses library we
+dnl are using.  If this isn't the default system curses, compilation
+dnl could barf unless we include from the right subdirectory.
+AC_CACHE_CHECK(where term.h is located, zsh_cv_path_term_header,
+[case x$zsh_cv_path_curses_header in
+  xncursesw/*)
+  if test x$ac_cv_header_ncursesw_term_h = xyes; then
+    zsh_cv_path_term_header=ncursesw/term.h
+  fi
+  ;;
+  xncurses/*)
+  if test x$ac_cv_header_ncurses_term_h = xyes; then
+    zsh_cv_path_term_header=ncurses/term.h
+  fi
+  ;;
+esac
+if test x$zsh_cv_path_term_header = x; then
+  if test x$ac_cv_header_term_h = xyes; then
+    zsh_cv_path_term_header=term.h
+  else
+    zsh_cv_path_term_header=none
+  fi
+fi])
+
+AH_TEMPLATE([ZSH_HAVE_TERM_H],
+[Define to 1 if some variant of term.h can be included])
+AH_TEMPLATE([HAVE_BOOLCODES],
+[Define if you have the termcap boolcodes symbol.])
+AH_TEMPLATE([HAVE_NUMCODES],
+[Define if you have the termcap numcodes symbol.])
+AH_TEMPLATE([HAVE_STRCODES],
+[Define if you have the termcap strcodes symbol.])
+AH_TEMPLATE([HAVE_BOOLNAMES],
+[Define if you have the terminfo boolnames symbol.])
+AH_TEMPLATE([HAVE_NUMNAMES],
+[Define if you have the terminfo numnames symbol.])
+AH_TEMPLATE([HAVE_STRNAMES],
+[Define if you have the terminfo strnames symbol.])
+
+if test x$zsh_cv_path_term_header != xnone; then
+  AC_DEFINE(ZSH_HAVE_TERM_H)
+  ZSH_TERM_H=$zsh_cv_path_term_header
+  if test x$zsh_cv_path_curses_header != xnone; then
+    term_includes="#include <$zsh_cv_path_curses_header>
+#include <$zsh_cv_path_term_header>"
+  else
+    term_includes="#include <$zsh_cv_path_term_header>"
+  fi
+
+  AC_MSG_CHECKING(if boolcodes is available)
+  AC_TRY_LINK($term_includes, [char **test = boolcodes; printf(*test);],
+  AC_DEFINE(HAVE_BOOLCODES) boolcodes=yes, boolcodes=no)
+  AC_MSG_RESULT($boolcodes)
+  AC_MSG_CHECKING(if numcodes is available)
+  AC_TRY_LINK($term_includes, [char **test = numcodes; printf(*test);],
+  AC_DEFINE(HAVE_NUMCODES) numcodes=yes, numcodes=no)
+  AC_MSG_RESULT($numcodes)
+  AC_MSG_CHECKING(if strcodes is available)
+  AC_TRY_LINK($term_includes, [char **test = strcodes; printf(*test);],
+  AC_DEFINE(HAVE_STRCODES) strcodes=yes, strcodes=no)
+  AC_MSG_RESULT($strcodes)
+  AC_MSG_CHECKING(if boolnames is available)
+  AC_TRY_LINK($term_includes, [char **test = boolnames; printf(*test);],
+  AC_DEFINE(HAVE_BOOLNAMES) boolnames=yes, boolnames=no)
+  AC_MSG_RESULT($boolnames)
+  AC_MSG_CHECKING(if numnames is available)
+  AC_TRY_LINK($term_includes, [char **test = numnames; printf(*test);],
+  AC_DEFINE(HAVE_NUMNAMES) numnames=yes, numnames=no)
+  AC_MSG_RESULT($numnames)
+  AC_MSG_CHECKING(if strnames is available)
+  AC_TRY_LINK($term_includes, [char **test = strnames; printf(*test);],
+  AC_DEFINE(HAVE_STRNAMES) strnames=yes, strnames=no)
+  AC_MSG_RESULT($strnames)
+else
+  ZSH_TERM_H=
+fi
+AC_SUBST(ZSH_TERM_H)
+
 
 dnl -----------------------------------------------------
 dnl Look for the file containing the RLIMIT_* definitions
@@ -1672,6 +1827,9 @@ AC_CACHE_CHECK(for NIS, zsh_cv_sys_nis,
 zsh_cv_sys_nis=yes || zsh_cv_sys_nis=no])
 if test x$zsh_cv_sys_nis = xyes; then
   AC_DEFINE(HAVE_NIS)
+dnl Some systems (Solaris 2.x, Linux Redhat 5.x) require
+dnl libnsl (Network Services Library) to find yp_all
+  AC_SEARCH_LIBS(yp_all, nsl)
 fi
 
 dnl -----------------
@@ -2119,8 +2277,63 @@ wmemcpy wmemmove wmemset; do
 ])
 AH_TEMPLATE([MULTIBYTE_SUPPORT],
 [Define to 1 if you want support for multibyte character sets.])
+AH_TEMPLATE([BROKEN_WCWIDTH],
+[Define to 1 if the wcwidth() function is present but broken.])
 if test x$zsh_cv_c_unicode_support = xyes; then
   AC_DEFINE(MULTIBYTE_SUPPORT)
+
+  dnl Test for a wcwidth() implementation that gives the wrong width for
+  dnl zero-width combining characters.
+  dnl For the test we use a combining acute accent (\u0301).
+  dnl We input it as UTF-8 since that is the standard we can rely
+  dnl upon most:  we can't rely on a wchar_t being stored as a
+  dnl Unicode code point on all systems.
+  dnl The programme returns 0 only if all the conditions for brokenness
+  dnl are met:
+  dnl - the programme compiled, linked and ran
+  dnl - we successfully set a UTF-8 locale
+  dnl - the locale we set plausibly converted the UTF-8 string
+  dnl   for a zero-width combining character (the only way to be
+  dnl   100% sure would be to output it and ask if it looked right)
+  dnl - the converted wide character gave a non-zero width.
+  dnl locale -a is a fallback; on most systems we should find en_US.UTF-8.
+  [locale_prog='char *my_locales[] = {
+  "en_US.UTF-8", "en_GB.UTF-8", "en.UTF-8", '
+  locale_prog="$locale_prog"`locale -a 2>/dev/null | \
+    sed -e 's/utf8/UTF-8/' | grep UTF-8 | \
+    while read line; do echo " \"$line\","; done;`
+  locale_prog="$locale_prog 0 };
+  #define _XOPEN_SOURCE
+  #include <stdlib.h>
+  #include <locale.h>
+  #include <wchar.h>
+
+  int main() {
+    char **localep;
+    char comb_acute_mb[] = { (char)0xcc, (char)0x81 };
+    wchar_t wc;
+
+    for (localep = my_locales; *localep; localep++)
+      if (setlocale(LC_ALL, *localep) &&
+          mbtowc(&wc, comb_acute_mb, 2) == 2)
+	  break;
+    if (!*localep)
+      return 1;
+    if (wcwidth(wc) == 0)
+      return 1;
+    return 0;
+  }
+  "]
+
+  AC_CACHE_CHECK(if the wcwidth() function is broken,
+  zsh_cv_c_broken_wcwidth,
+  [AC_TRY_RUN([$locale_prog],
+  zsh_cv_c_broken_wcwidth=yes,
+  zsh_cv_c_broken_wcwidth=no,
+  zsh_cv_c_broken_wcwidth=no)])
+  if test x$zsh_cv_c_broken_wcwidth = xyes; then
+    AC_DEFINE(BROKEN_WCWIDTH)
+  fi
 fi
 
 dnl
@@ -2249,6 +2462,10 @@ char *argv[];
   zsh_cv_sys_elf=yes,
   zsh_cv_sys_elf=no,
   zsh_cv_sys_elf=yes)])
+
+  # We use [0-9]* in case statements, so need to change quoting
+  changequote(, )
+
   DL_EXT="${DL_EXT=so}"
   if test x$zsh_cv_sys_elf = xyes; then
     case "$host" in
@@ -2302,7 +2519,8 @@ char *argv[];
     esac
   fi
   case "$host_os" in
-    *freebsd*|linux*|irix*|osf*|gnu*|dragonfly*) DLLDFLAGS="${DLLDFLAGS=-shared}" ;;
+    osf*) DLLDFLAGS="${DLLDFLAGS=-shared -expect_unresolved '*'}" ;;
+    *freebsd*|linux*|irix*|gnu*|dragonfly*) DLLDFLAGS="${DLLDFLAGS=-shared}" ;;
     sunos*)       DLLDFLAGS="${DLLDFLAGS=-assert nodefinitions}" ;;
     sysv4*|esix*) DLLDFLAGS="${DLLDFLAGS=-G $ldflags}" ;;
     netbsd*)      DLLDFLAGS="${DLLDFLAGS=${DLLDARG}-x -shared --whole-archive}" ;;
@@ -2326,7 +2544,6 @@ char *argv[];
   esac
   case "$host" in
     *-hpux*)  EXTRA_LDFLAGS="${EXTRA_LDFLAGS=-Wl,-E}" ;;
-    *-freebsd[3-9]*|*-kfreebsd*|*-linux*|gnu*) EXTRA_LDFLAGS="${EXTRA_LDFLAGS=-rdynamic}" ;;
     *openbsd*)
        if test x$zsh_cv_sys_elf = xyes; then
 	 EXTRA_LDFLAGS="${EXTRA_LDFLAGS=-Wl,-E}"
@@ -2352,6 +2569,17 @@ char *argv[];
       esac
     ;;
   esac
+
+  # Done with our shell code, so restore autotools quoting
+  changequote([, ])
+
+AC_CACHE_CHECK(if we can use -rdynamic, zsh_cv_rdynamic_available,
+old_LDFLAGS="$LDFLAGS"
+LDFLAGS="$LDFLAGS -rdynamic"
+AC_TRY_LINK([], [], [zsh_cv_rdynamic_available=yes
+EXTRA_LDFLAGS="${EXTRA_LDFLAGS=-rdynamic}"],
+[zsh_cvs_rdynamic_available=no])
+LDFLAGS="$old_LDFLAGS")
   AC_CACHE_CHECK(if your dlsym() needs a leading underscore,
    zsh_cv_func_dlsym_needs_underscore,
    [echo failed >conftestval && cat >conftest.c <<EOM
@@ -2691,13 +2919,13 @@ source code location      : ${srcdir}
 compiler                  : ${CC}
 preprocessor flags        : ${CPPFLAGS}
 executable compiler flags : ${CFLAGS}"
-if test "$dynamic" = yes; then
+if test "x$dynamic" = xyes; then
   echo "\
 module compiler flags     : ${CFLAGS} ${DLCFLAGS}"
 fi
 echo "\
 executable linker flags   : ${LDFLAGS} ${EXELDFLAGS} ${EXTRA_LDFLAGS}"
-if test "$dynamic" = yes; then
+if test "x$dynamic" = xyes; then
   echo "\
 module linker flags       : ${LDFLAGS} ${LIBLDFLAGS} ${DLLDFLAGS}"
 fi
@@ -2713,4 +2941,13 @@ fi
 echo "See config.modules for installed modules and functions.
 "
 
+case x$LIBS in
+  *-lgdbm*)
+  echo "WARNING: zsh has been linked against libgdbm.
+This means the binary is covered by the GNU General Public License.
+This does not affect the source code.
+Run configure with --disable-gdbm if required."
+  ;;
+esac
 
+exit 0

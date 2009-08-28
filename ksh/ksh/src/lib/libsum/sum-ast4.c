@@ -1,10 +1,10 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*           Copyright (c) 1996-2007 AT&T Knowledge Ventures            *
+*          Copyright (c) 1996-2007 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
-*                      by AT&T Knowledge Ventures                      *
+*                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
 *            http://www.opensource.org/licenses/cpl1.0.txt             *
@@ -97,7 +97,7 @@ ast4_block(Sum_t* p, const void* s, size_t n)
 }
 
 static int
-ast4_print(Sum_t* p, Sfio_t* sp, int flags)
+ast4_print(Sum_t* p, Sfio_t* sp, int flags, size_t scale)
 {
 	register Ast4_sum_t*	a;
 

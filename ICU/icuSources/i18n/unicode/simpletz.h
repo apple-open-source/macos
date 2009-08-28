@@ -1,24 +1,25 @@
 /*
-* Copyright (C) {1997-2005}, International Business Machines Corporation and others. All Rights Reserved.
-*                                                                              *
-********************************************************************************
-*
-* File SIMPLETZ.H
-*
-* Modification History:
-*
-*   Date        Name        Description
-*   04/21/97    aliu        Overhauled header.
-*    08/10/98    stephen        JDK 1.2 sync
-*                            Added setStartRule() / setEndRule() overloads
-*                            Added hasSameRules()
-*    09/02/98    stephen        Added getOffset(monthLen)
-*                            Changed getOffset() to take UErrorCode
-*    07/09/99    stephen     Removed millisPerHour (unused, for HP compiler)
-*   12/02/99    aliu        Added TimeMode and constructor and setStart/EndRule
-*                           methods that take TimeMode. Added to docs.
-********************************************************************************
-*/
+ ********************************************************************************
+ * Copyright (C) 1997-2008, International Business Machines                     *
+ * Corporation and others. All Rights Reserved.                                 *
+ ********************************************************************************
+ *
+ * File SIMPLETZ.H
+ *
+ * Modification History:
+ *
+ *   Date        Name        Description
+ *   04/21/97    aliu        Overhauled header.
+ *   08/10/98    stephen     JDK 1.2 sync
+ *                           Added setStartRule() / setEndRule() overloads
+ *                           Added hasSameRules()
+ *   09/02/98    stephen     Added getOffset(monthLen)
+ *                           Changed getOffset() to take UErrorCode
+ *   07/09/99    stephen     Removed millisPerHour (unused, for HP compiler)
+ *   12/02/99    aliu        Added TimeMode and constructor and setStart/EndRule
+ *                           methods that take TimeMode. Added to docs.
+ ********************************************************************************
+ */
 
 #ifndef SIMPLETZ_H
 #define SIMPLETZ_H
@@ -32,9 +33,14 @@
  
 #if !UCONFIG_NO_FORMATTING
 
-#include "unicode/timezone.h"
+#include "unicode/basictz.h"
 
 U_NAMESPACE_BEGIN
+
+// forward declaration
+class InitialTimeZoneRule;
+class TimeZoneTransition;
+class AnnualTimeZoneRule;
 
 /**
  * <code>SimpleTimeZone</code> is a concrete subclass of <code>TimeZone</code>
@@ -52,7 +58,7 @@ U_NAMESPACE_BEGIN
  * @see      TimeZone
  * @author   D. Goldsmith, Mark Davis, Chen-Lieh Huang, Alan Liu
  */
-class U_I18N_API SimpleTimeZone: public TimeZone {
+class U_I18N_API SimpleTimeZone: public BasicTimeZone {
 public:
 
     /**
@@ -611,6 +617,13 @@ public:
                            int32_t& dstOffset, UErrorCode& ec) const;
 
     /**
+     * Get time zone offsets from local wall time.
+     * @internal
+     */
+    virtual void getOffsetFromLocal(UDate date, int32_t nonExistingTimeOpt, int32_t duplicatedTimeOpt,
+        int32_t& rawOffset, int32_t& dstOffset, UErrorCode& status) /*const*/;
+
+    /**
      * Returns the TimeZone's raw GMT offset (i.e., the number of milliseconds to add
      * to GMT to get local time, before taking daylight savings time into account).
      *
@@ -687,6 +700,56 @@ public:
      * @stable ICU 2.0
      */
     virtual TimeZone* clone(void) const;
+
+    /**
+     * Gets the first time zone transition after the base time.
+     * @param base      The base time.
+     * @param inclusive Whether the base time is inclusive or not.
+     * @param result    Receives the first transition after the base time.
+     * @return  TRUE if the transition is found.
+     * @stable ICU 4.0
+     */
+    virtual UBool getNextTransition(UDate base, UBool inclusive, TimeZoneTransition& result) /*const*/;
+
+    /**
+     * Gets the most recent time zone transition before the base time.
+     * @param base      The base time.
+     * @param inclusive Whether the base time is inclusive or not.
+     * @param result    Receives the most recent transition before the base time.
+     * @return  TRUE if the transition is found.
+     * @stable ICU 4.0
+     */
+    virtual UBool getPreviousTransition(UDate base, UBool inclusive, TimeZoneTransition& result) /*const*/;
+
+    /**
+     * Returns the number of <code>TimeZoneRule</code>s which represents time transitions,
+     * for this time zone, that is, all <code>TimeZoneRule</code>s for this time zone except
+     * <code>InitialTimeZoneRule</code>.  The return value range is 0 or any positive value.
+     * @param status    Receives error status code.
+     * @return The number of <code>TimeZoneRule</code>s representing time transitions.
+     * @stable ICU 4.0
+     */
+    virtual int32_t countTransitionRules(UErrorCode& status) /*const*/;
+
+    /**
+     * Gets the <code>InitialTimeZoneRule</code> and the set of <code>TimeZoneRule</code>
+     * which represent time transitions for this time zone.  On successful return,
+     * the argument initial points to non-NULL <code>InitialTimeZoneRule</code> and
+     * the array trsrules is filled with 0 or multiple <code>TimeZoneRule</code>
+     * instances up to the size specified by trscount.  The results are referencing the
+     * rule instance held by this time zone instance.  Therefore, after this time zone
+     * is destructed, they are no longer available.
+     * @param initial       Receives the initial timezone rule
+     * @param trsrules      Receives the timezone transition rules
+     * @param trscount      On input, specify the size of the array 'transitions' receiving
+     *                      the timezone transition rules.  On output, actual number of
+     *                      rules filled in the array will be set.
+     * @param status        Receives error status code.
+     * @stable ICU 4.0
+     */
+    virtual void getTimeZoneRules(const InitialTimeZoneRule*& initial,
+        const TimeZoneRule* trsrules[], int32_t& trscount, UErrorCode& status) /*const*/;
+
 
 public:
 
@@ -805,6 +868,16 @@ private:
      * Typically one hour; sometimes 30 minutes.
      */
     int32_t dstSavings;
+
+    /* Private for BasicTimeZone implementation */
+    void initTransitionRules(UErrorCode& status);
+    void clearTransitionRules(void);
+    void deleteTransitionRules(void);
+    UBool   transitionRulesInitialized;
+    InitialTimeZoneRule*    initialRule;
+    TimeZoneTransition*     firstTransition;
+    AnnualTimeZoneRule*     stdRule;
+    AnnualTimeZoneRule*     dstRule;
 };
 
 inline void SimpleTimeZone::setStartRule(int32_t month, int32_t dayOfWeekInMonth,

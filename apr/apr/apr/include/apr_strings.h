@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -109,12 +109,14 @@ APR_DECLARE(char *) apr_pstrdup(apr_pool_t *p, const char *s);
 APR_DECLARE(char *) apr_pstrmemdup(apr_pool_t *p, const char *s, apr_size_t n);
 
 /**
- * duplicate the first n characters of a string into memory allocated 
- * out of a pool; the new string will be null-terminated
+ * Duplicate at most n characters of a string into memory allocated 
+ * out of a pool; the new string will be NUL-terminated
  * @param p The pool to allocate out of
  * @param s The string to duplicate
- * @param n The number of characters to duplicate
+ * @param n The maximum number of characters to duplicate
  * @return The new string
+ * @remark The amount of memory allocated from the pool is the length
+ *         of the returned string including the NUL terminator
  */
 APR_DECLARE(char *) apr_pstrndup(apr_pool_t *p, const char *s, apr_size_t n);
 
@@ -309,6 +311,8 @@ APR_DECLARE(char *) apr_off_t_toa(apr_pool_t *p, apr_off_t n);
  *   or 0.  If base is zero, buf will be treated as base ten unless its
  *   digits are prefixed with '0x', in which case it will be treated as
  *   base 16.
+ * @bug *end breaks type safety; where *buf is const, *end needs to be
+ * declared as const in APR 2.0
  */
 APR_DECLARE(apr_status_t) apr_strtoff(apr_off_t *offset, const char *buf, 
                                       char **end, int base);

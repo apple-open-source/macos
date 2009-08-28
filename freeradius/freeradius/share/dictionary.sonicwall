@@ -2,7 +2,7 @@
 #
 #	Sonicwall Firewall dictionary
 #
-#	$Id: dictionary.sonicwall,v 1.2.4.1 2005/11/30 22:17:31 aland Exp $
+#	$Id$
 #
 
 VENDOR		SonicWall			8741

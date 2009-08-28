@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2004,2008 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -203,7 +203,7 @@ SDCSPSession::UnwrapKey(CSSM_CC_HANDLE CCHandle,
 		keyInContext ? lookupKey(*keyInContext).keyHandle() : noKey;
 
 	KeyHandle unwrappedKeyHandle;
-	clientSession().unwrapKey(database, context, contextKeyHandle,
+	clientSession().unwrapKey(ClientSession::toIPCHandle(database), context, contextKeyHandle,
 							  publicKey, WrappedKey, KeyUsage, KeyAttr,
 							  cred, owner, DescriptiveData, unwrappedKeyHandle,
 							  UnwrappedKey.header(), *this);	
@@ -241,13 +241,13 @@ SDCSPSession::DeriveKey(CSSM_CC_HANDLE ccHandle,
 	case CSSM_ALGID_KEYCHAIN_KEY:
 		{
 			// special interpretation: take DLDBHandle -> DbHandle from params
-			clientSession().extractMasterKey(database, context,
+			clientSession().extractMasterKey(ClientSession::toIPCHandle(database), context,
 				getDatabase(param.interpretedAs<CSSM_DL_DB_HANDLE>(CSSMERR_CSP_INVALID_ATTR_DL_DB_HANDLE)),
 				keyUsage, keyAttr, cred, owner, keyHandle, derivedKey.header());
 		}
 		break;
 	default:
-		clientSession().deriveKey(database, context, contextKeyHandle, keyUsage,
+            clientSession().deriveKey(ClientSession::toIPCHandle(database), context, contextKeyHandle, keyUsage,
 					keyAttr, param, cred, owner, keyHandle, derivedKey.header());
 		break;
 	}
@@ -275,7 +275,7 @@ SDCSPSession::GenerateKey(CSSM_CC_HANDLE ccHandle,
 	}
 
 	KeyHandle keyHandle;
-	clientSession().generateKey(database, context, keyUsage,
+	clientSession().generateKey(ClientSession::toIPCHandle(database), context, keyUsage,
 								keyAttr, cred, owner, keyHandle, key.header());
 	makeReferenceKey(keyHandle, key, database, keyAttr, keyLabel);
 }
@@ -315,7 +315,7 @@ SDCSPSession::GenerateKeyPair(CSSM_CC_HANDLE ccHandle,
 			CssmError::throwMe(CSSMERR_CSP_INVALID_KEYATTR_MASK);
 	}
 	KeyHandle pubKeyHandle, privKeyHandle;
-	clientSession().generateKey(database, context,
+	clientSession().generateKey(ClientSession::toIPCHandle(database), context,
 							   publicKeyUsage, publicKeyAttr,
 							   privateKeyUsage, privateKeyAttr,
 							   cred, owner,

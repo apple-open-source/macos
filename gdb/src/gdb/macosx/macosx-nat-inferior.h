@@ -43,6 +43,8 @@ struct private_thread_info
 {
   thread_t app_thread_port;
   void* core_thread_state;
+  int gdb_suspend_count;
+  int gdb_dont_suspend_stepping;
 };
 
 void macosx_check_new_threads (thread_array_t thread_list, unsigned int nthreads);
@@ -82,5 +84,5 @@ macho_calculate_offsets_for_dsym (struct objfile *main_objfile,
    platform specific nat code.  It allows each platform to add platform specific
    stuff to the macosx_child_target.  */
 void macosx_complete_child_target (struct target_ops *target);
-
+int macosx_get_task_for_pid_rights (void);
 #endif /* __GDB_MACOSX_NAT_INFERIOR_H__ */

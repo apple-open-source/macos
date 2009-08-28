@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -76,12 +76,13 @@ __private_extern__
 void
 do_dictSetKey(int argc, char **argv)
 {
-	CFMutableArrayRef	array     = NULL;
-	Boolean			doArray   = FALSE;
-	Boolean			doBoolean = FALSE;
-	Boolean			doNumeric = FALSE;
+	CFMutableArrayRef	array		= NULL;
+	Boolean			doArray		= FALSE;
+	Boolean			doBoolean	= FALSE;
+	Boolean			doNumeric	= FALSE;
 	CFStringRef		key;
-	CFTypeRef		val;
+	CFMutableDictionaryRef	newValue;
+	CFTypeRef		val		= NULL;
 
 	if (value == NULL) {
 		SCPrint(TRUE, stdout, CFSTR("d.add: dictionary must be initialized.\n"));
@@ -92,10 +93,6 @@ do_dictSetKey(int argc, char **argv)
 		SCPrint(TRUE, stdout, CFSTR("d.add: data (fetched from configuration server) is not a dictionary.\n"));
 		return;
 	}
-
-	val = CFDictionaryCreateMutableCopy(NULL, 0, value);
-	CFRelease(value);
-	value = val;
 
 	key = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
 	argv++; argc--;
@@ -123,6 +120,7 @@ do_dictSetKey(int argc, char **argv)
 		doArray = TRUE;
 	} else if (!doArray && (argc == 0)) {
 		SCPrint(TRUE, stdout, CFSTR("d.add: no values.\n"));
+		CFRelease(key);
 		return;
 	}
 
@@ -146,9 +144,8 @@ do_dictSetKey(int argc, char **argv)
 				val = CFRetain(kCFBooleanFalse);
 			} else {
 				SCPrint(TRUE, stdout, CFSTR("d.add: invalid data.\n"));
-				if (doArray) {
-					CFRelease(array);
-				}
+				if (doArray) CFRelease(array);
+				CFRelease(key);
 				return;
 			}
 		} else if (doNumeric) {
@@ -158,9 +155,8 @@ do_dictSetKey(int argc, char **argv)
 				val = CFNumberCreate(NULL, kCFNumberIntType, &intValue);
 			} else {
 				SCPrint(TRUE, stdout, CFSTR("d.add: invalid data.\n"));
-				if (doArray) {
-					CFRelease(array);
-				}
+				if (doArray) CFRelease(array);
+				CFRelease(key);
 				return;
 			}
 		} else {
@@ -169,18 +165,24 @@ do_dictSetKey(int argc, char **argv)
 
 		if (doArray) {
 			CFArrayAppendValue(array, val);
+			CFRelease(val);
+			argv++; argc--;
+		} else {
+			break;
 		}
-
-		argv++; argc--;
 	}
 
+	newValue = CFDictionaryCreateMutableCopy(NULL, 0, value);
 	if (doArray) {
-		val = array;
+		CFDictionarySetValue(newValue, key, array);
+		CFRelease(array);
+	} else {
+		CFDictionarySetValue(newValue, key, val);
+		CFRelease(val);
 	}
-
-	CFDictionarySetValue((CFMutableDictionaryRef)value, key, val);
-	CFRelease(val);
 	CFRelease(key);
+	CFRelease(value);
+	value = newValue;
 
 	return;
 }

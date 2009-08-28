@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -142,6 +142,7 @@ getPath(SCPreferencesRef prefs, CFStringRef path, CFDictionaryRef *entity)
 			}
 
 			newElements = CFArrayCreateMutableCopy(NULL, 0, linkElements);
+			CFRelease(linkElements);
 			CFArrayAppendArray(newElements,
 					   elements,
 					   CFRangeMake(i + 1, nElements-i - 1));
@@ -267,6 +268,7 @@ setPath(SCPreferencesRef prefs, CFStringRef path, CFDictionaryRef entity)
 			}
 
 			newElements = CFArrayCreateMutableCopy(NULL, 0, linkElements);
+			CFRelease(linkElements);
 			CFArrayAppendArray(newElements,
 					   elements,
 					   CFRangeMake(i + 1, nElements-i - 1));

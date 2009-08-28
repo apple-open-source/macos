@@ -1,6 +1,7 @@
 LIBRARY libxslt
 EXPORTS
 xslDebugStatus DATA
+xsltConstNamespaceNameXSLT DATA
 xsltDocDefaultLoader DATA
 xsltEngineVersion DATA
 xsltExtMarker DATA
@@ -11,6 +12,7 @@ xsltGenericErrorContext DATA
 xsltLibxmlVersion DATA
 xsltLibxsltVersion DATA
 xsltMaxDepth DATA
+xsltXSLTAttrMarker DATA
 xslAddCall
 xslDropCall
 xslHandleDebugger
@@ -34,6 +36,7 @@ xsltAttribute
 xsltCalibrateAdjust
 xsltCallTemplate
 xsltCheckExtPrefix
+xsltCheckExtURI
 xsltCheckRead
 xsltCheckWrite
 xsltChoose
@@ -78,6 +81,8 @@ xsltExtModuleElementLookup
 xsltExtModuleElementPreComputeLookup
 xsltExtModuleFunctionLookup
 xsltExtModuleTopLevelLookup
+xsltExtensionInstructionResultFinalize
+xsltExtensionInstructionResultRegister
 xsltFindDocument
 xsltFindElemSpaceHandling
 xsltFindTemplate
@@ -123,7 +128,10 @@ xsltGetTemplate
 xsltGetUTF8Char
 xsltGetXIncludeDefault
 xsltIf
+xsltInit
+xsltInitAllDocKeys
 xsltInitCtxtExts
+xsltInitCtxtKey
 xsltInitCtxtKeys
 xsltInitElemPreComp
 xsltIsBlank
@@ -131,6 +139,8 @@ xsltKeyFunction
 xsltLoadDocument
 xsltLoadStyleDocument
 xsltLoadStylesheetPI
+xsltLocalVariablePop
+xsltLocalVariablePush
 /*xsltMatchPattern*/
 xsltMessage
 xsltNamespaceAlias
@@ -145,8 +155,10 @@ xsltNextImport
 xsltNormalizeCompSteps
 xsltNumber
 xsltNumberFormat
+xsltParseAnyXSLTElem
 xsltParseGlobalParam
 xsltParseGlobalVariable
+xsltParseSequenceConstructor
 xsltParseStylesheetAttributeSet
 xsltParseStylesheetCallerParam
 xsltParseStylesheetDoc
@@ -159,6 +171,10 @@ xsltParseStylesheetParam
 xsltParseStylesheetProcess
 xsltParseStylesheetVariable
 xsltParseTemplateContent
+xsltPointerListAddSize
+xsltPointerListClear
+xsltPointerListCreate
+xsltPointerListFree
 xsltPreComputeExtModuleElement
 xsltPrintErrorContext
 xsltProcessingInstruction
@@ -177,10 +193,13 @@ xsltRegisterExtModuleFunction
 xsltRegisterExtModuleTopLevel
 xsltRegisterExtPrefix
 xsltRegisterExtras
+xsltRegisterLocalRVT
 xsltRegisterPersistRVT
 xsltRegisterTestModule
 xsltRegisterTmpRVT
+xsltReleaseRVT
 xsltResolveStylesheetAttributeSet
+xsltRestoreDocumentNamespaces
 xsltRunStylesheet
 xsltRunStylesheetUser
 xsltSaveProfiling
@@ -210,12 +229,16 @@ xsltSort
 xsltSplitQName
 xsltStyleGetExtData
 xsltStylePreCompute
+xsltStyleStylesheetLevelGetExtData
 xsltSystemPropertyFunction
 xsltTemplateProcess
 xsltTestCompMatchList
 xsltText
 xsltTimestamp
+xsltTransStorageAdd
+xsltTransStorageRemove
 xsltTransformError
+xsltUninit
 xsltUnparsedEntityURIFunction
 xsltUnregisterExtModule
 xsltUnregisterExtModuleElement

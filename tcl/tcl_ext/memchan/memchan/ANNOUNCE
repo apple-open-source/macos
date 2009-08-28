@@ -1,0 +1,27 @@
+Hello world,
+
+We hereby announce memchan 2.2.1.
+
+It is 
+	an extension implementing several new channel-types.
+	Instances store their contents in memory, not on disk.
+    
+Changes from 2.2.0 to 2.2.1
+
+*	Enhanced stubs API to permit Memchan channels to be created by
+	third party extensions. See memchanapi(n).
+
+Changes from 2.2a4 to 2.2.0
+
+*	New channels types random and zero.
+
+*	Improved compilation support for Windows.
+
+
+The distribution can be found at
+	<http://memchan.sourceforge.net/>
+
+Sincerely
+	Andreas Kupries <andreas_kupries@users.sourceforge.net>
+	Patrick Thoyts <patthoyts@users.sourceforge.net>
+	DEC-03-2004

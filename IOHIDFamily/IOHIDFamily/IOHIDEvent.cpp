@@ -195,8 +195,6 @@ IOHIDEvent * IOHIDEvent::withEventData (
                     me = IOHIDEvent::buttonEvent(timeStamp, data->compound.misc.L[1], options);
                     break;
                 case NX_SUBTYPE_AUX_CONTROL_BUTTONS:
-                    uint32_t usagePage = 0;
-                    uint32_t usage = 0;
                     uint16_t flavor = data->compound.misc.L[0] >> 16;
                     switch ( flavor ) {
                         case NX_KEYTYPE_SOUND_UP:
@@ -341,14 +339,25 @@ IOHIDEvent * IOHIDEvent::accelerometerEvent(
                                         IOFixed                 x,
                                         IOFixed                 y,
                                         IOFixed                 z,
+                                        IOHIDAccelerometerType  type,
                                         IOOptionBits            options)
 {
-    return IOHIDEvent::_axisEvent(      kIOHIDEventTypeAccelerometer, 
-                                        timeStamp, 
-                                        x,
-                                        y,
-                                        z,
-                                        options);
+    IOHIDEvent *                    event;
+    IOHIDAccelerometerEventData *   data;    
+    
+    event = IOHIDEvent::_axisEvent( kIOHIDEventTypeAccelerometer, 
+                                    timeStamp, 
+                                    x,
+                                    y,
+                                    z,
+                                    options);
+
+    if ( event ) {
+        data = (IOHIDAccelerometerEventData *)event->_data;
+        data->acclType = type;
+    }
+    
+    return event;
 }
 
 //==============================================================================

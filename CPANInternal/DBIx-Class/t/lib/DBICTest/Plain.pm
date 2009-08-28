@@ -15,7 +15,13 @@ mkdir("t/var") unless -d "t/var";
 my $dsn = "dbi:SQLite:${db_file}";
 
 __PACKAGE__->load_classes("Test");
-my $schema = __PACKAGE__->compose_connection(__PACKAGE__, $dsn);
+my $schema = __PACKAGE__->compose_connection(
+  __PACKAGE__,
+  $dsn,
+  undef,
+  undef,
+  { AutoCommit => 1 }
+);
 
 my $dbh = DBI->connect($dsn);
 

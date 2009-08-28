@@ -377,7 +377,7 @@ NTSTATUS _net_auth(pipes_struct *p, NET_Q_AUTH *q_u, NET_R_AUTH *r_u)
 		become_root();
 		dirStatus = opendirectory_cred_session_key(&p->dc->clnt_chal,
 				&p->dc->srv_chal, mach_acct,
-				p->dc->sess_key);
+				p->dc->sess_key, 0);
 		unbecome_root();
 		DEBUG(4, ("_net_auth opendirectory_cred_session_key [%d]\n",
 				dirStatus));
@@ -448,6 +448,7 @@ NTSTATUS _net_auth_2(pipes_struct *p, NET_Q_AUTH_2 *q_u, NET_R_AUTH_2 *r_u)
 	fstring mach_acct;
 	fstring remote_machine;
 	DOM_CHAL srv_chal_out;
+	u_int32_t session_key_type = 0;
 
 	rpcstr_pull(mach_acct, q_u->clnt_id.uni_acct_name.buffer,sizeof(fstring),
 				q_u->clnt_id.uni_acct_name.uni_str_len*2,0);
@@ -456,10 +457,16 @@ NTSTATUS _net_auth_2(pipes_struct *p, NET_Q_AUTH_2 *q_u, NET_R_AUTH_2 *r_u)
 	rpcstr_pull(remote_machine, q_u->clnt_id.uni_comp_name.buffer,sizeof(fstring),
 				q_u->clnt_id.uni_comp_name.uni_str_len*2,0);
 
+	if (q_u->clnt_flgs.neg_flags & NETLOGON_NEG_128BIT) {
+		DEBUG(4, ("_net_auth2: NETLOGON_NEG_128BIT auth attempt\n"));
+		session_key_type = 1;
+	}
+
 	if (!p->dc || !p->dc->challenge_sent) {
 		DEBUG(0,("_net_auth2: no challenge sent to client %s\n",
 			remote_machine ));
-		return NT_STATUS_ACCESS_DENIED;
+		status = NT_STATUS_ACCESS_DENIED;
+		goto exit_on_error;
 	}
 
 	if ( (lp_server_schannel() == True) &&
@@ -469,35 +476,29 @@ NTSTATUS _net_auth_2(pipes_struct *p, NET_Q_AUTH_2 *q_u, NET_R_AUTH_2 *r_u)
 		DEBUG(0,("_net_auth2: schannel required but client failed "
 			"to offer it. Client was %s\n",
 			mach_acct ));
-		return NT_STATUS_ACCESS_DENIED;
+		status = NT_STATUS_ACCESS_DENIED;
+		goto exit_on_error;
 	}
 
+
 	if (lp_opendirectory()) {
+		//check acct_ctrl flags
+		tDirStatus dirStatus;
+		become_root();
+		dirStatus =
+			opendirectory_cred_session_key(&p->dc->clnt_chal,
+					&p->dc->srv_chal, mach_acct,
+					p->dc->sess_key, session_key_type);
+		unbecome_root();
+		DEBUG(4, ("_net_auth_2: "
+			"opendirectory_cred_session_key [%d] session_key_type[%d]\n",
+				dirStatus,session_key_type));
 
-		/* XXX Open Directory doesn't support 128bit challenges yet. */
-		if (q_u->clnt_flgs.neg_flags & NETLOGON_NEG_128BIT) {
-			DEBUG(2, ("refusing NETLOGON_NEG_128BIT auth attempt\n"));
-			status = NT_STATUS_NOT_SUPPORTED;
-		} else {
-
-			//check acct_ctrl flags
-			tDirStatus dirStatus;
-			become_root();
-			dirStatus =
-			    opendirectory_cred_session_key(&p->dc->clnt_chal,
-					    &p->dc->srv_chal, mach_acct,
-					    p->dc->sess_key);
-			unbecome_root();
-			DEBUG(4, ("_net_auth_2: "
-				"opendirectory_cred_session_key [%d]\n",
-				    dirStatus));
-
-			/* FIXME: there should be a proper error mapping from
-			 * tDirStatus to NT_ERROR types -- jpeach
-			 */
-			status = (dirStatus == eDSNoErr) ? NT_STATUS_OK
-							: NT_STATUS_UNSUCCESSFUL;
-		}
+		/* FIXME: there should be a proper error mapping from
+		 * tDirStatus to NT_ERROR types -- jpeach
+		 */
+		status = (dirStatus == eDSNoErr) ? NT_STATUS_OK
+		: NT_STATUS_UNSUCCESSFUL;
 
 	} else {
 		status = get_md4pw((char *)p->dc->mach_pw, mach_acct,
@@ -509,7 +510,8 @@ NTSTATUS _net_auth_2(pipes_struct *p, NET_Q_AUTH_2 *q_u, NET_R_AUTH_2 *r_u)
 			"account %s: %s\n",
 			mach_acct, nt_errstr(status) ));
 		/* always return NT_STATUS_ACCESS_DENIED */
-		return NT_STATUS_ACCESS_DENIED;
+		status = NT_STATUS_ACCESS_DENIED;
+		goto exit_on_error;
 	}
 
 	/* From the client / server challenges and md4 password, generate sess key */
@@ -525,31 +527,40 @@ NTSTATUS _net_auth_2(pipes_struct *p, NET_Q_AUTH_2 *q_u, NET_R_AUTH_2 *r_u)
 		DEBUG(0,("_net_auth2: creds_server_check failed. Rejecting auth "
 			"request from client %s machine account %s\n",
 			remote_machine, mach_acct ));
-		return NT_STATUS_ACCESS_DENIED;
+		status = NT_STATUS_ACCESS_DENIED;
+		goto exit_on_error;
+	} else {
+		DEBUG(4, ("_net_auth2: creds_server_check - server validated client challenge session_key_type[%d]\n", session_key_type));
+		status = NT_STATUS_OK;
 	}
 
+exit_on_error:
+	/* set server capabalities on return */
 	srv_flgs.neg_flags = 0x000001ff;
 
 	if (lp_server_schannel() != False) {
 		srv_flgs.neg_flags |= NETLOGON_NEG_SCHANNEL;
 	}
-
+	if (session_key_type == 1) {
+		srv_flgs.neg_flags |= NETLOGON_NEG_128BIT;
+	}
 	/* set up the LSA AUTH 2 response */
-	init_net_r_auth_2(r_u, &srv_chal_out, &srv_flgs, NT_STATUS_OK);
+	init_net_r_auth_2(r_u, &srv_chal_out, &srv_flgs, status);
 
-	fstrcpy(p->dc->mach_acct, mach_acct);
-	fstrcpy(p->dc->remote_machine, remote_machine);
-	fstrcpy(p->dc->domain, lp_workgroup() );
+	if (NT_STATUS_IS_OK(status)) {
+		fstrcpy(p->dc->mach_acct, mach_acct);
+		fstrcpy(p->dc->remote_machine, remote_machine);
+		fstrcpy(p->dc->domain, lp_workgroup() );
 
-	p->dc->authenticated = True;
+		p->dc->authenticated = True;
 
-	/* Store off the state so we can continue after client disconnect. */
-	become_root();
-	secrets_store_schannel_session_info(p->mem_ctx,
-					remote_machine,
-					p->dc);
-	unbecome_root();
-
+		/* Store off the state so we can continue after client disconnect. */
+		become_root();
+		secrets_store_schannel_session_info(p->mem_ctx,
+						remote_machine,
+						p->dc);
+		unbecome_root();
+	}
 	return r_u->status;
 }
 

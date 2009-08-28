@@ -9,7 +9,6 @@ MANPAGES = ufs.util.8
             InfoPlist.strings PkgInfo version.plist ufs.util.8
 
 Extra_CC_Flags = -Wall -mdynamic-no-pic \
-	-D_DARWIN_USE_64_BIT_INODE=1 \
 	-I../disklib
 Extra_LD_Flags = -dead_strip \
 	-L"$(SYMROOT)" -ldisk 

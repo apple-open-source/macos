@@ -2,9 +2,11 @@
 <!-- SECTION: References -->
 <HEAD>
 	<TITLE>cupsd.conf</TITLE>
+	<LINK REL="STYLESHEET" TYPE="text/css" HREF="../cups-printable.css">
 </HEAD>
 <BODY>
 
+<H1 CLASS="title">cupsd.conf</H1>
 
 <P>The <VAR>/etc/cups/cupsd.conf</VAR> file contains
 configuration <I>directives</I> that control how the server
@@ -71,6 +73,38 @@ information to the system log instead of a plain file.</P>
 <VAR>@CUPS_LOGDIR@/access_log</VAR>.</P>
 
 
+<H2 CLASS="title"><A NAME="AccessLogLevel">AccessLogLevel</A></H2>
+
+<H3>Examples</H3>
+
+<PRE CLASS="command">
+AccessLogLevel config
+AccessLogLevel actions
+AccessLogLevel all
+</PRE>
+
+<H3>Description</H3>
+
+<P>The <CODE>AccessLogLevel</CODE> directive controls which requests are logged
+to the access log file. The following levels are defined:</P>
+
+<UL>
+
+	<LI><CODE>config</CODE>; Log when printers and classes are added,
+	deleted, or modified and when configuration files are accessed or
+	updated.</LI>
+
+	<LI><CODE>actions</CODE>; Log when print jobs are submitted,
+	held, released, modified, or canceled, and any of the conditions
+	for <CODE>config</CODE>.</LI>
+
+	<LI><CODE>all</CODE>; Log all requests.</LI>
+
+</UL>
+
+<P>The default access log level is <CODE>@CUPS_ACCESS_LOG_LEVEL@</CODE>.</P>
+
+
 <H2 CLASS="title"><A NAME="Allow">Allow</A></H2>
 
 <H3>Examples</H3>
@@ -101,8 +135,14 @@ information to the system log instead of a plain file.</P>
 address, or network that is allowed access to the server. 
 <CODE>Allow</CODE> directives are cummulative, so multiple
 <CODE>Allow</CODE> directives can be used to allow access for
-multiple hosts or networks.  The <CODE>/mm</CODE> notation
-specifies a CIDR netmask, as shown in Table 1.</P>
+multiple hosts or networks.</P>
+
+<P>Host and domain name matching require that you enable the <A
+HREF="#HostNameLookups"><CODE>HostNameLookups</CODE></A>
+directive.</P>
+
+<P>The <CODE>/mm</CODE> notation specifies a CIDR netmask, as shown in
+<A HREF="#TABLE1">Table 1</A>.</P>
 
 <DIV CLASS="table"><TABLE SUMMARY="CIDR Netmasks">
 <CAPTION>Table 1: <A NAME="TABLE1">CIDR Netmasks</A></CAPTION>
@@ -354,10 +394,10 @@ browse packets from all hosts.</P>
 HREF="#HostNameLookups"><CODE>HostNameLookups</CODE></A>
 directive.</P>
 
-<P>IP address matching supports exact matches, partial addresses
-that match networks using netmasks of 255.0.0.0, 255.255.0.0, and
-255.255.255.0, or network addresses using the specified netmask
-or bit count.</P>
+<P>IP address matching supports exact matches, partial addresses that match
+networks using netmasks of 255.0.0.0, 255.255.0.0, and 255.255.255.0, or network
+addresses using the specified netmask or bit count. The <CODE>/mm</CODE>
+notation specifies a CIDR netmask, a shown in <A HREF="TABLE1">Table 1</A>.</P>
 
 <P>The <CODE>@LOCAL</CODE> name will allow browse data from all
 local interfaces. The <CODE>@IF(name)</CODE> name will allow
@@ -392,10 +432,10 @@ browse packets from any hosts.</P>
 HREF="#HostNameLookups"><CODE>HostNameLookups</CODE></A>
 directive.</P>
 
-<P>IP address matching supports exact matches, partial addresses
-that match networks using netmasks of 255.0.0.0, 255.255.0.0, and
-255.255.255.0, or network addresses using the specified netmask
-or bit count.</P>
+<P>IP address matching supports exact matches, partial addresses that match
+networks using netmasks of 255.0.0.0, 255.255.0.0, and 255.255.255.0, or network
+addresses using the specified netmask or bit count. The <CODE>/mm</CODE>
+notation specifies a CIDR netmask, a shown in <A HREF="TABLE1">Table 1</A>.</P>
 
 <P>The <CODE>@LOCAL</CODE> name will block browse data from all
 local interfaces. The <CODE>@IF(name)</CODE> name will block
@@ -427,7 +467,7 @@ value. Otherwise printers and classes will disappear from client
 systems between updates.</P>
 
 
-<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.2</SPAN><A NAME="BrowseLDAPBindDN">BrowseLDAPBindDN</A></H2>
+<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.2/Mac OS X 10.5</SPAN><A NAME="BrowseLDAPBindDN">BrowseLDAPBindDN</A></H2>
 
 <H3>Examples</H3>
 
@@ -442,7 +482,21 @@ domain name to use when listening for printer registrations. The
 default is undefined.</P>
 
 
-<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.2</SPAN><A NAME="BrowseLDAPDN">BrowseLDAPDN</A></H2>
+<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.4/Mac OS X 10.6</SPAN><A NAME="BrowseLDAPCACertFile">BrowseLDAPCACertFile</A></H2>
+
+<H3>Examples</H3>
+
+<PRE CLASS="command">
+BrowseLDAPCACertFile /etc/cups/ssl/certs
+</PRE>
+
+<H3>Description</H3>
+
+<P>The <CODE>BrowseLDAPCACertFile</CODE> directive specifies the SSL certificate
+authority file to use for LDAP + SSL. The default is undefined.</P>
+
+
+<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.2/Mac OS X 10.5</SPAN><A NAME="BrowseLDAPDN">BrowseLDAPDN</A></H2>
 
 <H3>Examples</H3>
 
@@ -457,7 +511,7 @@ domain name to use when registering local shared printers. The
 default is undefined.</P>
 
 
-<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.2</SPAN><A NAME="BrowseLDAPPassword">BrowseLDAPPassword</A></H2>
+<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.2/Mac OS X 10.5</SPAN><A NAME="BrowseLDAPPassword">BrowseLDAPPassword</A></H2>
 
 <H3>Examples</H3>
 
@@ -472,7 +526,7 @@ access password to use when connecting to the LDAP server. The
 default is undefined.</P>
 
 
-<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.2</SPAN><A NAME="BrowseLDAPServer">BrowseLDAPServer</A></H2>
+<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.2/Mac OS X 10.5</SPAN><A NAME="BrowseLDAPServer">BrowseLDAPServer</A></H2>
 
 <H3>Examples</H3>
 
@@ -503,7 +557,7 @@ additional IPP backend options to advertise with local shared
 printers. The default is to not include any options.</P>
 
 
-<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.2</SPAN><A NAME="BrowseLocalProtocols">BrowseLocalProtocols</A></H2>
+<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.2/Mac OS X 10.5</SPAN><A NAME="BrowseLocalProtocols">BrowseLocalProtocols</A></H2>
 
 <H3>Examples</H3>
 
@@ -513,7 +567,9 @@ BrowseLocalProtocols none
 BrowseLocalProtocols cups
 BrowseLocalProtocols dnssd
 BrowseLocalProtocols ldap
+BrowseLocalProtocols lpd
 BrowseLocalProtocols slp
+BrowseLocalProtocols smb
 BrowseLocalProtocols cups dnssd
 </PRE>
 
@@ -522,7 +578,7 @@ BrowseLocalProtocols cups dnssd
 <P>The <CODE>BrowseLocalProtocols</CODE> directive specifies the
 protocols to use when advertising local shared printers on the
 network. Multiple protocols can be specified by separating them
-with spaces. The default is <CODE>@CUPS_BROWSE_REMOTE_PROTOCOLS@</CODE>.</P>
+with spaces. The default is "<CODE>@CUPS_BROWSE_LOCAL_PROTOCOLS@</CODE>".</P>
 
 
 <H2 CLASS="title"><A NAME="BrowseOrder">BrowseOrder</A></H2>
@@ -606,7 +662,9 @@ BrowseProtocols none
 BrowseProtocols cups
 BrowseProtocols dnssd
 BrowseProtocols ldap
+BrowseProtocols lpd
 BrowseProtocols slp
+BrowseProtocols smb
 BrowseProtocols cups dnssd
 </PRE>
 
@@ -616,9 +674,9 @@ BrowseProtocols cups dnssd
 protocols to use when showing and advertising shared printers on
 the local network. Multiple protocols can be specified by
 separating them with spaces. The default protocol is
-<CODE>@CUPS_BROWSE_LOCAL_PROTOCOLS@</CODE> for
+"<CODE>@CUPS_BROWSE_LOCAL_PROTOCOLS@</CODE>" for
 <A HREF="#BrowseLocalProtocols"><CODE>BrowseLocalProtocols</CODE></A> and
-<CODE>@CUPS_BROWSE_REMOTE_PROTOCOLS@</CODE> for
+"<CODE>@CUPS_BROWSE_REMOTE_PROTOCOLS@</CODE>" for
 <A HREF="#BrowseRemoteProtocols"><CODE>BrowseRemoteProtocols</CODE></A>.</P>
 
 <BLOCKQUOTE><B>Note:</B>
@@ -682,7 +740,7 @@ the options replace any options specified by the remote server.
 The default is to not include any options.</P>
 
 
-<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.2</SPAN><A NAME="BrowseRemoteProtocols">BrowseRemoteProtocols</A></H2>
+<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.2/Mac OS X 10.5</SPAN><A NAME="BrowseRemoteProtocols">BrowseRemoteProtocols</A></H2>
 
 <H3>Examples</H3>
 
@@ -690,10 +748,8 @@ The default is to not include any options.</P>
 BrowseRemoteProtocols all
 BrowseRemoteProtocols none
 BrowseRemoteProtocols cups
-BrowseRemoteProtocols dnssd
 BrowseRemoteProtocols ldap
 BrowseRemoteProtocols slp
-BrowseRemoteProtocols cups dnssd
 </PRE>
 
 <H3>Description</H3>
@@ -701,7 +757,7 @@ BrowseRemoteProtocols cups dnssd
 <P>The <CODE>BrowseRemoteProtocols</CODE> directive specifies the
 protocols to use when finding remote shared printers on the
 network. Multiple protocols can be specified by separating them
-with spaces. The default is <CODE>@CUPS_BROWSE_REMOTE_PROTOCOLS@</CODE>.</P>
+with spaces. The default is "<CODE>@CUPS_BROWSE_REMOTE_PROTOCOLS@</CODE>".</P>
 
 
 <H2 CLASS="title"><A NAME="BrowseShortNames">BrowseShortNames</A></H2>
@@ -746,6 +802,22 @@ than the <A
 HREF="#BrowseInterval"><CODE>BrowseInterval</CODE></A> value.
 Otherwise printers and classes will disappear from client systems
 between updates.</P>
+
+
+<H2 CLASS="title"><A NAME="BrowseWebIF">BrowseWebIF</A></H2>
+
+<H3>Examples</H3>
+
+<PRE CLASS="command">
+BrowseWebIF On
+BrowseWebIF Off
+</PRE>
+
+<H3>Description</H3>
+
+<P>The <CODE>BrowseWebIF</CODE> directive controls whether the CUPS web
+interface is advertised via DNS-SD. The default setting is
+<CODE>Off</CODE>.</P>
 
 
 <H2 CLASS="title"><A NAME="Browsing">Browsing</A></H2>
@@ -854,7 +926,7 @@ DataDir /usr/share/cups
 for data files.</P>
 
 
-<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.2</SPAN><A NAME="DefaultAuthType">DefaultAuthType</A></H2>
+<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.2/Mac OS X 10.5</SPAN><A NAME="DefaultAuthType">DefaultAuthType</A></H2>
 
 <H3>Examples</H3>
 
@@ -891,7 +963,7 @@ character set for the language specified by the client or the
 <CODE>DefaultLanguage</CODE> directive.</P>
 
 
-<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.2</SPAN><A NAME="DefaultEncryption">DefaultEncryption</A></H2>
+<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.2/Mac OS X 10.5</SPAN><A NAME="DefaultEncryption">DefaultEncryption</A></H2>
 
 <H3>Examples</H3>
 
@@ -929,7 +1001,27 @@ language localization file exists for it. The default language
 is "en" for English.</P>
 
 
-<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.2</SPAN><A NAME="DefaultPolicy">DefaultPolicy</A></H2>
+<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.4/Mac OS X 10.6</SPAN><A NAME="DefaultPaperSize">DefaultPaperSize</A></H2>
+
+<H3>Examples</H3>
+
+<PRE CLASS="command">
+DefaultPaperSize Letter
+DefaultPaperSize A4
+DefaultPaperSize Auto
+DefaultPaperSize None
+</PRE>
+
+<H3>Description</H3>
+
+<P>The <CODE>DefaultPaperSize</CODE> directive specifies the default paper
+size to use when creating new printers. The default is <CODE>Auto</CODE>
+which uses a paper size appropriate for the system default locale. A value
+of <CODE>None</CODE> tells the scheduler to not set the default paper
+size.</P>
+
+
+<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.2/Mac OS X 10.5</SPAN><A NAME="DefaultPolicy">DefaultPolicy</A></H2>
 
 <H3>Examples</H3>
 
@@ -945,7 +1037,7 @@ policy to use for IPP operation. The default is
 <CODE>default</CODE>.</P>
 
 
-<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.2</SPAN><A NAME="DefaultShared">DefaultShared</A></H2>
+<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.2/Mac OS X 10.5</SPAN><A NAME="DefaultShared">DefaultShared</A></H2>
 
 <H3>Examples</H3>
 
@@ -991,9 +1083,14 @@ printers are shared (published) by default. The default is
 address, or network that is denied access to the server.
 <CODE>Deny</CODE> directives are cummulative, so multiple
 <CODE>Deny</CODE> directives can be used to allow access for
-multiple hosts or networks. The <CODE>/mm</CODE> notation
-specifies a CIDR netmask, a shown in <A HREF="TABLE1">Table
-1</A>.</P>
+multiple hosts or networks.</P>
+
+<P>Host and domain name matching require that you enable the <A
+HREF="#HostNameLookups"><CODE>HostNameLookups</CODE></A>
+directive.</P>
+
+<P>The <CODE>/mm</CODE> notation specifies a CIDR netmask, a shown in
+<A HREF="TABLE1">Table 1</A>.</P>
 
 <P>The <CODE>@LOCAL</CODE> name will deny access from all local
 interfaces. The <CODE>@IF(name)</CODE> name will deny access from
@@ -1005,6 +1102,22 @@ arriving on the interface from a foreign network will
 <P>The <CODE>Deny</CODE> directive must appear inside a <A
 HREF="#Location"><CODE>Location</CODE></A> or <A
 HREF="#Limit"><CODE>Limit</CODE></A> section.</P>
+
+
+<H2 CLASS="title"><A NAME="DirtyCleanInterval">DirtyCleanInterval</A></H2>
+
+<H3>Examples</H3>
+
+<PRE CLASS="command">
+DirtyCleanInterval 30
+DirtyCleanInterval 0
+</PRE>
+
+<H3>Description</H3>
+
+<P>The <CODE>DirtyCleanInterval</CODE> directive specifies the number of
+seconds to wait before updating configuration and state files for printers,
+classes, subscriptions, and jobs. The default is 30 seconds.</P>
 
 
 <H2 CLASS="title"><A NAME="DocumentRoot">DocumentRoot</A></H2>
@@ -1080,7 +1193,7 @@ default error log file is <VAR>@CUPS_LOGDIR@/error_log</VAR>.</P>
 information to the system log instead of a plain file.</P>
 
 
-<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.3</SPAN><A NAME="ErrorPolicy">ErrorPolicy</A></H2>
+<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.3/Mac OS X 10.5</SPAN><A NAME="ErrorPolicy">ErrorPolicy</A></H2>
 
 <H3>Examples</H3>
 
@@ -1108,11 +1221,65 @@ printer.</P>
 	HREF="#JobRetryInterval"><CODE>JobRetryInterval</CODE></A>
 	directive controls the value of N</LI>
 
+	<LI><CODE>retry-this-job</CODE> - Retry the current job immediately
+	and indefinitely.</LI>
+
 	<LI><CODE>stop-printer</CODE> - Stop the printer and keep
 	the job for future printing; this is the default
 	value</LI>
 
 </UL>
+
+
+
+<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.4/Mac OS X 10.6</SPAN><A NAME="FatalErrors">FatalErrors</A></H2>
+
+<H3>Examples</H3>
+
+<PRE CLASS="command">
+FatalErrors none
+FatalErrors all
+FatalErrors browse
+FatalErrors config
+FatalErrors listen
+FatalErrors log
+FatalErrors permissions
+FatalErrors all -permissions
+FatalErrors config permissions log
+</PRE>
+
+<H3>Description</H3>
+
+<P>The <CODE>FatalErrors</CODE> directive determines whether certain kinds of
+errors are fatal. The following kinds of errors are currently recognized:</P>
+
+<UL>
+
+	<LI><CODE>none</CODE> - No errors are fatal</LI>
+
+	<LI><CODE>all</CODE> - All of the errors below are fatal</LI>
+
+	<LI><CODE>browse</CODE> - Browsing initialization errors are fatal,
+	for example failed binding to the CUPS browse port or failed connections
+	to LDAP servers</LI>
+
+	<LI><CODE>config</CODE> - Configuration file syntax errors are
+	fatal</LI>
+
+	<LI><CODE>listen</CODE> - Listen or Port errors are fatal, except for
+	IPv6 failures on the loopback or "any" addresses</LI>
+
+	<LI><CODE>log</CODE> - Log file creation or write errors are fatal</LI>
+
+	<LI><CODE>permissions</CODE> - Bad startup file permissions are
+	fatal, for example shared SSL certificate and key files with world-
+	read permissions</LI>
+
+</UL>
+
+<P>Multiple errors can be listed, and the form "-kind" can be used with
+<CODE>all</CODE> to remove specific kinds of errors. The default setting is
+<CODE>@CUPS_FATAL_ERRORS@</CODE>.</P>
 
 
 <H2 CLASS="title"><SPAN CLASS="info">CUPS 1.1.18</SPAN><A NAME="FileDevice">FileDevice</A></H2>
@@ -1226,20 +1393,6 @@ system-specific but is usually <CODE>lp</CODE> or
 <CODE>nobody</CODE>.</P>
 
 
-<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.3</SPAN><A NAME="GSSServiceName">GSSServiceName</A></H2>
-
-<H3>Examples</H3>
-
-<PRE CLASS="command">
-GSSServiceName IPP
-GSSServiceName HTTP
-</PRE>
-
-<H3>Description</H3>
-
-<P>The <CODE>GSSServiceName</CODE> directive specifies the Kerberos service name that is used when passing authorization tickets. The default name is <CODE>IPP</CODE>.</P>
-
-
 <H2 CLASS="title"><SPAN CLASS="info">CUPS 1.1.10</SPAN><A NAME="HideImplicitMembers">HideImplicitMembers</A></H2>
 
 <H3>Examples</H3>
@@ -1341,7 +1494,7 @@ the file is assumed to be relative to the <A
 HREF="#ServerRoot"><CODE>ServerRoot</CODE></A> directory.</P>
 
 
-<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.2</SPAN><A NAME="JobRetryInterval">JobRetryInterval</A></H2>
+<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.2/Mac OS X 10.5</SPAN><A NAME="JobRetryInterval">JobRetryInterval</A></H2>
 
 <H3>Examples</H3>
 
@@ -1359,7 +1512,23 @@ print queues whose error policy is <CODE>retry-job</CODE>. The
 default is 30 seconds.</P>
 
 
-<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.2</SPAN><A NAME="JobRetryLimit">JobRetryLimit</A></H2>
+<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.4/Mac OS X 10.6</SPAN><A NAME="JobKillDelay">JobKillDelay</A></H2>
+
+<H3>Examples</H3>
+
+<PRE CLASS="command">
+JobKillDelay 30
+JobKillDelay 120
+</PRE>
+
+<H3>Description</H3>
+
+<P>The <CODE>JobKillDelay</CODE> directive specifies the number of seconds to
+wait before killing the filters and backend associated with a canceled or held
+job. The default is 30 seconds.</P>
+
+
+<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.2/Mac OS X 10.5</SPAN><A NAME="JobRetryLimit">JobRetryLimit</A></H2>
 
 <H3>Examples</H3>
 
@@ -1411,7 +1580,7 @@ KeepAliveTimeout 30
 
 <P>The <CODE>KeepAliveTimeout</CODE> directive controls how long
 a persistent HTTP connection will remain open after the last
-request. The default is 60 seconds.</P>
+request. The default is 30 seconds.</P>
 
 
 <H2 CLASS="title"><SPAN CLASS="info">CUPS 1.1.7</SPAN><A NAME="Limit">Limit (Location)</A></H2>
@@ -1443,7 +1612,7 @@ The request type names are case-sensitive for compatibility with
 Apache.</P>
 
 
-<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.2</SPAN><A NAME="LimitIPP">Limit (Policy)</A></H2>
+<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.2/Mac OS X 10.5</SPAN><A NAME="LimitIPP">Limit (Policy)</A></H2>
 
 <H3>Examples</H3>
 
@@ -1787,7 +1956,7 @@ location will override ones from <CODE>/printers</CODE>.
 Directives inside <CODE>/printers</CODE> will override ones from
 <CODE>/</CODE>. None of the directives are inherited.</P>
 
-<DIV CLASS="table"><TABLE SUMMARY="Common Locaions on the Server">
+<DIV CLASS="table"><TABLE SUMMARY="Common Locations on the Server">
 <CAPTION>Table 3: <A NAME="TABLE3">Common Locations on the Server</A></CAPTION>
 <THEAD>
 <TR><TH>Location</TH><TH>Description</TH></TR>
@@ -1806,6 +1975,24 @@ Directives inside <CODE>/printers</CODE> will override ones from
 <TR><TD><CODE>/printers/name.ppd</CODE></TD><TD>The PPD file path for printer <CODE>name</CODE></TD></TR>
 </TBODY>
 </TABLE></DIV>
+
+
+<H2 CLASS="title"><A NAME="LogDebugHistory">LogDebugHistory</A></H2>
+
+<H3>Examples</H3>
+
+<PRE CLASS="command">
+LogDebugHistory 0
+LogDebugHistory 200
+</PRE>
+
+<H3>Description</H3>
+
+<P>When <A HREF="#LogLevel"><CODE>LogLevel</CODE></A> is not set to
+<CODE>debug</CODE> or <CODE>debug2</CODE>, the <CODE>LogDebugHistory</CODE>
+directive specifies the number of debugging messages that are logged when an
+error occurs during printing. The default is 200 messages. A value of 0
+disables debugging history entirely and is not recommended.</P>
 
 
 <H2 CLASS="title"><SPAN CLASS="info">CUPS 1.1.15</SPAN><A NAME="LogFilePerm">LogFilePerm</A></H2>
@@ -1868,7 +2055,7 @@ everything under the preceding levels):</P>
 	<LI><CODE>notice</CODE> - Log temporary error conditions</LI>
 
 	<LI><CODE>info</CODE> - Log all requests and state
-	changes (default)</LI>
+	changes</LI>
 
 	<LI><CODE>debug</CODE> - Log basic debugging
 	information</LI>
@@ -1877,6 +2064,25 @@ everything under the preceding levels):</P>
 	information</LI>
 
 </UL>
+
+<p>The default <code>LogLevel</code> is <code>@CUPS_LOG_LEVEL@</code>.</p>
+
+
+<H2 CLASS="title"><A NAME="LogTimeFormat">LogTimeFormat</A></H2>
+
+<H3>Examples</H3>
+
+<PRE CLASS="command">
+LogTimeFormat standard
+LogTimeFormat usecs
+</PRE>
+
+<H3>Description</H3>
+
+<P>The <CODE>LogTimeFormat</CODE> directive specifies the format used for the
+date and time in the log files. <CODE>Standard</CODE> uses the standard Apache
+Common Log Format date and time while <CODE>usecs</CODE> adds microseconds.
+The default is <CODE>standard</CODE>.</P>
 
 
 <H2 CLASS="title"><A NAME="MaxClients">MaxClients</A></H2>
@@ -2057,6 +2263,22 @@ HREF="#LimitRequestBody"><CODE>LimitRequestBody</CODE></A>
 directive instead.</P>
 
 
+<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.4/Mac OS X 10.6</SPAN><A NAME="MultipleOperationTimeout">MultipleOperationTimeout</A></H2>
+
+<H3>Examples</H3>
+
+<PRE CLASS="command">
+MultipleOperationTimeout 60
+MultipleOperationTimeout 300
+MultipleOperationTimeout 86400
+</PRE>
+
+<H3>Description</H3>
+
+<P>The <CODE>MultipleOperationTimeout</CODE> directive sets the maximum amount
+of time between files in a multi-file print job. The default is 300 seconds.</P>
+
+
 <H2 CLASS="title"><A NAME="Order">Order</A></H2>
 
 <H3>Examples</H3>
@@ -2118,7 +2340,49 @@ default page log file is <VAR>@CUPS_LOGDIR@/page_log</VAR>.</P>
 information to the system log instead of a plain file.</P>
 
 
-<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.2</SPAN><A NAME="PassEnv">PassEnv</A></H2>
+<H2 CLASS="title"><A NAME="PageLogFormat">PageLogFormat</A></H2>
+
+<H3>Examples</H3>
+
+<PRE CLASS="command">
+PageLogFormat %p %j %u %T %P %C %{job-billing} %{job-originating-host-name} %{job-name} %{media} %{sides}
+PageLogFormat PAGE %p %j %u %P %C %{job-billing} %{job-originating-host-name}
+</PRE>
+
+<H3>Description</H3>
+
+<P>The <CODE>PageLogFormat</CODE> directive sets the format of lines
+that are logged to the page log file. Sequences beginning with percent (%)
+characters are replaced with the corresponding information, while all other
+characters are copied literally. The following percent sequences are
+recognized:</P>
+
+<UL>
+
+	<LI><CODE>%%</CODE>: Inserts a single percent character.</LI>
+
+	<LI><CODE>%{name}</CODE>: Inserts the value of the specified IPP
+	attribute.</LI>
+
+	<LI><CODE>%C</CODE>: Inserts the number of copies for the current page.</LI>
+
+	<LI><CODE>%P</CODE>: Inserts the current page number.</LI>
+
+	<LI><CODE>%T</CODE>: Inserts the current date and time in common log
+	format.</LI>
+
+	<LI><CODE>%j</CODE>: Inserts the job ID.</LI>
+
+	<LI><CODE>%p</CODE>: Inserts the printer name.</LI>
+
+	<LI><CODE>%u</CODE>: Inserts the username.</LI>
+
+</UL>
+
+<P>The default is "%p %j %u %T %P %C %{job-billing} %{job-originating-host-name} %{job-name} %{media} %{sides}".</P>
+
+
+<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.2/Mac OS X 10.5</SPAN><A NAME="PassEnv">PassEnv</A></H2>
 
 <H3>Examples</H3>
 
@@ -2137,7 +2401,7 @@ scheduler only passes the <CODE>DYLD_LIBRARY_PATH</CODE>,
 environment variables to child processes.</P>
 
 
-<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.2</SPAN><A NAME="Policy">Policy</A></H2>
+<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.2/Mac OS X 10.5</SPAN><A NAME="Policy">Policy</A></H2>
 
 <H3>Examples</H3>
 
@@ -2253,6 +2517,7 @@ files as soon as each job is completed, canceled, or aborted.</P>
 Printcap
 Printcap /etc/printcap
 Printcap /etc/printers.conf
+Printcap /Library/Preferences/org.cups.printers.plist
 </PRE>
 
 <H3>Description</H3>
@@ -2261,9 +2526,9 @@ Printcap /etc/printers.conf
 printcap file is automatically generated and updated with a list
 of available printers. If specified with no value, then no
 printcap file will be generated. The default is to generate a
-file named <VAR>/etc/printcap</VAR>.</P>
+file named <VAR>@CUPS_DEFAUL_PRINTCAP@</VAR>.</P>
 
-<P>When a filename is specified (e.g. <VAR>/etc/printcap</VAR>),
+<P>When a filename is specified (e.g. <VAR>@CUPS_DEFAULT_PRINTCAP@</VAR>),
 the printcap file is written whenever a printer is added or
 removed. The printcap file can then be used by applications that
 are hardcoded to look at the printcap file for the available
@@ -2277,13 +2542,14 @@ printers.</P>
 <PRE CLASS="command">
 PrintcapFormat BSD
 PrintcapFormat Solaris
+PrintcapFormat plist
 </PRE>
 
 <H3>Description</H3>
 
-<P>The <CODE>PrintcapFormat</CODE> directive controls the output
-format of the printcap file. The default is to generate a BSD
-printcap file.</P>
+<P>The <CODE>PrintcapFormat</CODE> directive controls the output format of the
+printcap file. The default is to generate the plist format on Mac OS X, the
+Solaris format on Solaris, and the BSD format on other operating systems.</P>
 
 
 <H2 CLASS="title"><SPAN CLASS="info">CUPS 1.1.13</SPAN><A NAME="PrintcapGUI">PrintcapGUI</A></H2>
@@ -2308,14 +2574,14 @@ There is no default program.</P>
 
 <PRE CLASS="command">
 ReloadTimeout 0
-ReloadTimeout 60
+ReloadTimeout 30
 </PRE>
 
 <H3>Description</H3>
 
 <P>The <CODE>ReloadTimeout</CODE> directive specifies the number
 of seconds the scheduler will wait for active jobs to complete
-before doing a restart. The default is 60 seconds.</P>
+before doing a restart. The default is 30 seconds.</P>
 
 
 <H2 CLASS="title"><SPAN CLASS="info">CUPS 1.1.3</SPAN><A NAME="RemoteRoot">RemoteRoot</A></H2>
@@ -2477,7 +2743,7 @@ administrator email address is <CODE>root@server</CODE>, where
 HREF="#ServerName"><CODE>ServerName</CODE></A>.</P>
 
 
-<H2 CLASS="title"><A NAME="ServerAlias">ServerAlias</A></H2>
+<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.3.10</SPAN><A NAME="ServerAlias">ServerAlias</A></H2>
 
 <H3>Examples</H3>
 
@@ -2485,13 +2751,27 @@ HREF="#ServerName"><CODE>ServerName</CODE></A>.</P>
 ServerAlias althost
 ServerAlias althost.foo.com
 ServerAlias althost.bar.com
+ServerAlias *
 </PRE>
 
 <H3>Description</H3>
 
 <P>The <CODE>ServerAlias</CODE> directive specifies alternate names that the
 server is known by. By default it contains a list of all aliases associated
-with the <A HREF="#ServerName"><CODE>ServerName</CODE></A>.</P>
+with the <A HREF="#ServerName"><CODE>ServerName</CODE></A>. The special name
+"*" can be used to allow any hostname when accessing CUPS via an external
+network interfaces.</P>
+
+<BLOCKQUOTE><B>Note</B>
+
+<P>The <CODE>ServerAlias</CODE> directive is used for HTTP Host header
+validation when clients connect to the scheduler from external interfaces.
+Using the special name "*" can expose your system to known browser-based
+DNS rebinding attacks, even when accessing sites through a firewall. If the
+auto-discovery of alternate names does not work, we recommend listing each
+alternate name with a ServerAlias directive instead of using "*".</P>
+
+</BLOCKQUOTE>
 
 
 <H2 CLASS="title"><A NAME="ServerBin">ServerBin</A></H2>
@@ -2651,7 +2931,7 @@ the text that is returned. The default is
 </TABLE></DIV>
 
 
-<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.2</SPAN><A NAME="SetEnv">SetEnv</A></H2>
+<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.2/Mac OS X 10.5</SPAN><A NAME="SetEnv">SetEnv</A></H2>
 
 <H3>Examples</H3>
 
@@ -2666,25 +2946,43 @@ SetEnv MY_ENV_VAR foo
 variable that should be passed to child processes.</P>
 
 
-<H2 CLASS="title"><A NAME="SSLListen">SSLListen</A></H2>
+<H2 CLASS="title"><A NAME="SSLOptions">SSLOptions</A></H2>
 
 <H3>Examples</H3>
 
 <PRE CLASS="command">
-SSLListen 127.0.0.1:443
-SSLListen 192.0.2.1:443
+SSLOptions 127.0.0.1:443
+SSLOptions 192.0.2.1:443
 </PRE>
 
 <H3>Description</H3>
 
-<P>The <CODE>SSLListen</CODE> directive specifies a network
+<P>The <CODE>SSLOptions</CODE> directive specifies a network
 address and port to listen for secure connections. Multiple
-<CODE>SSLListen</CODE> directives can be provided to listen on
+<CODE>SSLOptions</CODE> directives can be provided to listen on
 multiple addresses.</P>
 
-<P>The <CODE>SSLListen</CODE> directive is similar to the <A
+<P>The <CODE>SSLOptions</CODE> directive is similar to the <A
 HREF="#SSLPort"><CODE>SSLPort</CODE></A> directive but allows you
 to restrict access to specific interfaces or networks.</P>
+
+
+<H2 CLASS="title"><A NAME="SSLOptions">SSLOptions</A></H2>
+
+<H3>Examples</H3>
+
+<PRE CLASS="command">
+SSLOptions None
+SSLOptions NoEmptyFragments
+</PRE>
+
+<H3>Description</H3>
+
+<P>The <CODE>SSLOptions</CODE> directive specifies additional SSL/TLS
+protocol options to use for encrypted connected. Currently only two
+options are supported - <code>None</code> (the default) for the most
+secure mode and <code>NoEmptyFragments</code> to allow CUPS to work with
+Microsoft Windows with the FIPS conformance mode enabled.</p>
 
 
 <H2 CLASS="title"><A NAME="SSLPort">SSLPort</A></H2>
@@ -2765,7 +3063,7 @@ to wait before an active HTTP or IPP request times out. The
 default timeout is 300 seconds.</P>
 
 
-<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.2</SPAN><A NAME="UseNetworkDefault">UseNetworkDefault</A></H2>
+<H2 CLASS="title"><SPAN CLASS="info">CUPS 1.2/Mac OS X 10.5</SPAN><A NAME="UseNetworkDefault">UseNetworkDefault</A></H2>
 
 <H3>Examples</H3>
 

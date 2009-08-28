@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2007, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2008, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -20,15 +20,20 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: util.h,v 1.13 2007-02-22 02:51:55 yangtse Exp $
+ * $Id: util.h,v 1.20 2008-09-18 16:21:09 yangtse Exp $
  ***************************************************************************/
 
 void logmsg(const char *msg, ...);
 
 #define TEST_DATA_PATH "%s/data/test%ld"
 
+#define SERVERLOGS_LOCK "log/serverlogs.lock"
+
 /* global variable, where to find the 'data' dir */
 extern const char *path;
+
+/* global variable, log file name */
+extern const char *serverlogfile;
 
 #ifdef WIN32
 #include <process.h>
@@ -48,5 +53,13 @@ void win32_cleanup(void);
 
 /* returns the path name to the test case file */
 char *test2file(long testno);
+
+int wait_ms(int timeout_ms);
+
+int write_pidfile(const char *filename);
+
+void set_advisor_read_lock(const char *filename);
+
+void clear_advisor_read_lock(const char *filename);
 
 #endif  /* __SERVER_UTIL_H */

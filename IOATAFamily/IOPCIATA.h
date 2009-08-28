@@ -27,20 +27,21 @@
 #include <IOKit/IOTypes.h>
 #include "IOATAController.h"
 #include <IOKit/IOMemoryCursor.h>
+#include <IOKit/IOBufferMemoryDescriptor.h>
 
 #include <IOKit/IOInterruptEventSource.h>
 
-/*! @class IOPCIATA : public IOATAController
+/*! @class IOPCIATA
     @abstract The base class for  PCI-IDE ata controller family.
     @discussion class defining the common elements of bus-mastering PCI ATA controllers which meet or at least loosely follow the pci bus mastering pci-ide controller spec. Header doc is incomplete, but source is heavily commented.
 
-*/    
+*/
 
 
 
 class IOPCIATA : public IOATAController
 {
-    OSDeclareDefaultStructors(IOPCIATA)
+    OSDeclareDefaultStructors(IOPCIATA);
 
 public:
 
@@ -162,8 +163,11 @@ protected:
 protected:
 /*! @struct ExpansionData
     @discussion This structure will be used to expand the capablilties of the IOPCIATA class in the future.
-    */    
-    struct ExpansionData { };
+    */
+    typedef struct ExpansionData
+    {
+    	IOBufferMemoryDescriptor*	_prdBuffer;
+    } ExpansionData;
 
 /*! @var reserved
     Reserved for future use.  (Internal use only)  */

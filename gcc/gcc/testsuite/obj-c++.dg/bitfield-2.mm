@@ -1,4 +1,3 @@
-/* APPLE LOCAL file mainline */
 /* Check if bitfield ivars are inherited correctly (i.e., without
    being "promoted" to ints).  */
 /* Contributed by Ziemowit Laski <zlaski@apple.com>.  */

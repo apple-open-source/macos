@@ -1,7 +1,7 @@
 /*
  *  connectionpooling.c
  *
- *  $Id: connectionpooling.c,v 1.5 2006/07/10 13:46:57 source Exp $
+ *  $Id: connectionpooling.c,v 1.6 2007/02/02 11:58:14 source Exp $
  *
  *  The iODBC driver manager.
  *
@@ -151,6 +151,10 @@ create_connectionpool (HWND hwnd, TCONNECTIONPOOLING *choose_t)
   gtk_window_set_modal (GTK_WINDOW (connectionpool), TRUE);
   gtk_window_set_policy (GTK_WINDOW (connectionpool), FALSE, FALSE, FALSE);
 
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_widget_show (connectionpool);
+#endif
+
   dialog_vbox1 = GTK_DIALOG (connectionpool)->vbox;
   gtk_object_set_data (GTK_OBJECT (connectionpool), "dialog_vbox1",
       dialog_vbox1);
@@ -173,7 +177,11 @@ create_connectionpool (HWND hwnd, TCONNECTIONPOOLING *choose_t)
   gtk_widget_show (l_question);
   gtk_fixed_put (GTK_FIXED (fixed1), l_question, 8, 8);
   gtk_widget_set_uposition (l_question, 8, 8);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_widget_set_usize (l_question, 376, 36);
+#else
   gtk_widget_set_usize (l_question, 376, 24);
+#endif
   gtk_label_set_justify (GTK_LABEL (l_question), GTK_JUSTIFY_LEFT);
 
   l_time = gtk_label_new ("Timeout:");
@@ -181,8 +189,13 @@ create_connectionpool (HWND hwnd, TCONNECTIONPOOLING *choose_t)
   gtk_object_set_data_full (GTK_OBJECT (connectionpool), "l_time",
       l_time, (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (l_time);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed1), l_time, 8, 48);
+  gtk_widget_set_uposition (l_time, 8, 48);
+#else
   gtk_fixed_put (GTK_FIXED (fixed1), l_time, 8, 40);
   gtk_widget_set_uposition (l_time, 8, 40);
+#endif
   gtk_widget_set_usize (l_time, 60, 24);
   gtk_label_set_justify (GTK_LABEL (l_time), GTK_JUSTIFY_RIGHT);
 
@@ -191,8 +204,13 @@ create_connectionpool (HWND hwnd, TCONNECTIONPOOLING *choose_t)
   gtk_object_set_data_full (GTK_OBJECT (connectionpool), "t_cptimeout",
       t_cptimeout, (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (t_cptimeout);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed1), t_cptimeout, 80, 48);
+  gtk_widget_set_uposition (t_cptimeout, 80, 48);
+#else
   gtk_fixed_put (GTK_FIXED (fixed1), t_cptimeout, 80, 40);
   gtk_widget_set_uposition (t_cptimeout, 80, 40);
+#endif
   gtk_widget_set_usize (t_cptimeout, 300, 22);
 
   if (choose_t)
@@ -203,8 +221,13 @@ create_connectionpool (HWND hwnd, TCONNECTIONPOOLING *choose_t)
   gtk_object_set_data_full (GTK_OBJECT (connectionpool), "l_probe",
       l_probe, (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (l_probe);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed1), l_probe, 8, 78);
+  gtk_widget_set_uposition (l_probe, 8, 78);
+#else
   gtk_fixed_put (GTK_FIXED (fixed1), l_probe, 8, 70);
   gtk_widget_set_uposition (l_probe, 8, 70);
+#endif
   gtk_widget_set_usize (l_probe, 60, 24);
   gtk_label_set_justify (GTK_LABEL (l_probe), GTK_JUSTIFY_RIGHT);
 
@@ -213,8 +236,13 @@ create_connectionpool (HWND hwnd, TCONNECTIONPOOLING *choose_t)
   gtk_object_set_data_full (GTK_OBJECT (connectionpool), "t_probe",
       t_probe, (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (t_probe);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed1), t_probe, 80, 78);
+  gtk_widget_set_uposition (t_probe, 80, 78);
+#else
   gtk_fixed_put (GTK_FIXED (fixed1), t_probe, 80, 70);
   gtk_widget_set_uposition (t_probe, 80, 70);
+#endif
   gtk_widget_set_usize (t_probe, 300, 22);
 
   if (choose_t)

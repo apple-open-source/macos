@@ -34,14 +34,6 @@
 
 #define debugerr(ERR, A, args...)	if (gVerbose && (ERR)) {fprintf(stderr, (A), ##args);}
 
-extern "C" {
-extern tDirStatus dsFillAuthBuffer(
-	tDataBufferPtr inOutAuthBuffer,
-	unsigned long inCount,
-	unsigned long inLen,
-	const void *inData, ... );
-};
-
 // Static Locals
 const 	long		kBuffSize			= 8192;
 
@@ -147,7 +139,7 @@ tDirStatus PwdPolicyTool::Deinitialize ( void )
 	siStatus = CloseDirectoryNode( fLocalNodeRef );
 	if ( siStatus != eDSNoErr )
 	{
-		::fprintf( stderr, "error in  CloseDirectoryNode %ld\n", siStatus );
+		::fprintf( stderr, "error in  CloseDirectoryNode %ld\n", (long) siStatus );
 	}
 
 	// search node
@@ -284,7 +276,7 @@ tDirStatus PwdPolicyTool::DeallocateTDataBuff ( void )
 tDirStatus PwdPolicyTool::DoGetRecordList (	tDirNodeReference   inNodeRef,
 										const char			*inRecName,
 										const char			*inRecType,
-										char				*inAttrType,
+										const char			*inAttrType,
 										tDirPatternMatch	 inMatchType,	// eDSExact, eDSContains ...
 										char				**outAuthAuthority,
 										char				**outNodeName )
@@ -332,7 +324,7 @@ tDirStatus PwdPolicyTool::DoGetRecordList (	tDirNodeReference   inNodeRef,
 						fTDataBuff = nil;
 						fTDataBuff = dsDataBufferAllocate( fDSRef, buffSize * 2 );
 					}
-				} while ( ((error == eDSNoErr) && (context != nil)) || (error == eDSBufferTooSmall) );
+				} while ( ((error == eDSNoErr) && (context != 0)) || (error == eDSBufferTooSmall) );
 
 				error2 = dsDataListDeallocate( fDSRef, pAttrType );
 				if ( error2 != eDSNoErr )
@@ -772,7 +764,7 @@ PwdPolicyTool::DoNodePWAuth(
 	const char *inName,
 	const char *inPasswd,
 	const char *inMethod,
-	char *inUserName,
+	const char *inUserName,
 	const char *inOther,
 	const char *inRecordType,
 	char *outResult )
@@ -898,7 +890,7 @@ PwdPolicyTool::DoNodePWAuth(
 //
 //--------------------------------------------------------------------------------------------------
 
-tDirStatus PwdPolicyTool::DoNodeNativeAuth ( tDirNodeReference inNode, const char *inName, char *inPasswd )
+tDirStatus PwdPolicyTool::DoNodeNativeAuth ( tDirNodeReference inNode, const char *inName, const char *inPasswd )
 {
 	tDirStatus		error			= eDSNoErr;
 	tDirStatus		error2			= eDSNoErr;
@@ -1097,7 +1089,7 @@ PwdPolicyTool::GetUserByName(
 	
 	if ( status != eDSNoErr )
 	{
-		fprintf( stderr, "  *** GetRecordList failed with error = %ld.\n", status );
+		fprintf( stderr, "  *** GetRecordList failed with error = %ld.\n", (long) status );
 	}
 
 	return( status );

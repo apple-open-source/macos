@@ -753,8 +753,8 @@ void InlineTextBox::paintSpellingOrGrammarMarker(GraphicsContext* pt, int tx, in
 
 void InlineTextBox::paintTextMatchMarker(GraphicsContext* pt, int tx, int ty, DocumentMarker marker, RenderStyle* style, const Font& font)
 {
-   // Use same y positioning and height as for selection, so that when the selection and this highlight are on
-   // the same word there are no pieces sticking out.
+    // Use same y positioning and height as for selection, so that when the selection and this highlight are on
+    // the same word there are no pieces sticking out.
     int y = selectionTop();
     int h = selectionHeight();
     
@@ -770,8 +770,8 @@ void InlineTextBox::paintTextMatchMarker(GraphicsContext* pt, int tx, int ty, Do
     // Optionally highlight the text
     if (renderer()->document()->frame()->markedTextMatchesAreHighlighted()) {
         Color color = marker.activeMatch ?
-            theme()->platformActiveTextSearchHighlightColor() :
-            theme()->platformInactiveTextSearchHighlightColor();
+            renderer()->theme()->platformActiveTextSearchHighlightColor() :
+            renderer()->theme()->platformInactiveTextSearchHighlightColor();
         pt->save();
         updateGraphicsContext(pt, color, color, 0);  // Don't draw text at all!
         pt->clip(IntRect(tx + m_x, ty + y, m_width, h));

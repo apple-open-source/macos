@@ -93,7 +93,7 @@ static struct tms shtms;
 /* 1 if ttyctl -f has been executed */
  
 /**/
-int ttyfrozen;
+mod_export int ttyfrozen;
 
 /* Previous values of errflag and breaks if the signal handler had to
  * change them. And a flag saying if it did that. */
@@ -153,6 +153,15 @@ findproc(pid_t pid, Job *jptr, Process *pptr, int aux)
 
     for (i = 1; i <= maxjob; i++)
     {
+	/*
+	 * We are only interested in jobs with processes still
+	 * marked as live.  Careful in case there's an identical
+	 * process number in a job we haven't quite got around
+	 * to deleting.
+	 */
+	if (jobtab[i].stat & STAT_DONE)
+	    continue;
+
 	for (pn = aux ? jobtab[i].auxprocs : jobtab[i].procs;
 	     pn; pn = pn->next)
 	    if (pn->pid == pid) {
@@ -450,7 +459,7 @@ update_job(Job jn)
     if ((isset(NOTIFY) || job == thisjob) && (jn->stat & STAT_LOCKED)) {
 	if (printjob(jn, !!isset(LONGLISTJOBS), 0) &&
 	    zleactive)
-	    zrefreshptr();
+	    zleentry(ZLE_CMD_REFRESH);
     }
     if (sigtrapped[SIGCHLD] && job != thisjob)
 	dotrap(SIGCHLD);
@@ -821,10 +830,7 @@ printjob(Job jn, int lng, int synch)
     int doneprint = 0;
     FILE *fout = (synch == 2) ? stdout : shout;
 
-    /*
-     * Wow, what a hack.  Did I really write this? --- pws
-     */
-    if (jn < jobtab || jn >= jobtab + jobtabsize)
+    if (oldjobtab != NULL)
 	job = jn - oldjobtab;
     else
 	job = jn - jobtab;
@@ -889,7 +895,7 @@ printjob(Job jn, int lng, int synch)
 	Process qn;
 
 	if (!synch)
-	    trashzleptr();
+	    zleentry(ZLE_CMD_TRASH);
 	if (doputnl && !synch) {
 	    doneprint = 1;
 	    putc('\n', fout);
@@ -1173,7 +1179,8 @@ waitforpid(pid_t pid, int wait_cmd)
 
 	last_signal = -1;
 	signal_suspend(SIGCHLD);
-	if (last_signal != SIGCHLD && wait_cmd) {
+	if (last_signal != SIGCHLD && wait_cmd && last_signal >= 0 &&
+	    (sigtrapped[last_signal] & ZSIG_TRAPPED)) {
 	    /* wait command interrupted, but no error: return */
 	    restore_queue_signals(q);
 	    return 128 + last_signal;
@@ -1211,7 +1218,8 @@ zwaitjob(int job, int wait_cmd)
 	       !(jn->stat & STAT_DONE) &&
 	       !(interact && (jn->stat & STAT_STOPPED))) {
 	    signal_suspend(SIGCHLD);
-	    if (last_signal != SIGCHLD && wait_cmd)
+	    if (last_signal != SIGCHLD && wait_cmd && last_signal >= 0 &&
+		(sigtrapped[last_signal] & ZSIG_TRAPPED))
 	    {
 		/* builtin wait interrupted by trapped signal */
 		restore_queue_signals(q);
@@ -1286,6 +1294,7 @@ clearjobtab(int monitor)
 
     if (monitor && oldmaxjob) {
 	int sz = oldmaxjob * sizeof(struct job);
+	DPUTS(oldjobtab != NULL, "BUG: saving job table twice\n");
 	oldjobtab = (struct job *)zalloc(sz);
 	memcpy(oldjobtab, jobtab, sz);
 
@@ -1296,6 +1305,15 @@ clearjobtab(int monitor)
 
     memset(jobtab, 0, jobtabsize * sizeof(struct job)); /* zero out table */
     maxjob = 0;
+
+    /*
+     * Although we don't have job control in subshells, we
+     * sometimes needs control structures for other purposes such
+     * as multios.  Grab a job for this purpose; any will do
+     * since we've freed them all up (so there's no question
+     * of problems with the job table size here).
+     */
+    thisjob = initjob();
 }
 
 static int initnewjob(int i)
@@ -1461,10 +1479,19 @@ setcurjob(void)
  * to a job number.                                             */
 
 /**/
-static int
-getjob(char *s, char *prog)
+mod_export int
+getjob(const char *s, const char *prog)
 {
-    int jobnum, returnval;
+    int jobnum, returnval, mymaxjob;
+    Job myjobtab;
+
+    if (oldjobtab) {
+	myjobtab = oldjobtab;
+	mymaxjob = oldmaxjob;
+    } else {
+	myjobtab= jobtab;
+	mymaxjob = maxjob;
+    }
 
     /* if there is no %, treat as a name */
     if (*s != '%')
@@ -1473,7 +1500,8 @@ getjob(char *s, char *prog)
     /* "%%", "%+" and "%" all represent the current job */
     if (*s == '%' || *s == '+' || !*s) {
 	if (curjob == -1) {
-	    zwarnnam(prog, "no current job");
+	    if (prog)
+		zwarnnam(prog, "no current job");
 	    returnval = -1;
 	    goto done;
 	}
@@ -1483,7 +1511,8 @@ getjob(char *s, char *prog)
     /* "%-" represents the previous job */
     if (*s == '-') {
 	if (prevjob == -1) {
-	    zwarnnam(prog, "no previous job");
+	    if (prog)
+		zwarnnam(prog, "no previous job");
 	    returnval = -1;
 	    goto done;
 	}
@@ -1493,12 +1522,20 @@ getjob(char *s, char *prog)
     /* a digit here means we have a job number */
     if (idigit(*s)) {
 	jobnum = atoi(s);
-	if (jobnum && jobnum <= maxjob && jobtab[jobnum].stat &&
-	    !(jobtab[jobnum].stat & STAT_SUBJOB) && jobnum != thisjob) {
+	if (jobnum && jobnum <= mymaxjob && myjobtab[jobnum].stat &&
+	    !(myjobtab[jobnum].stat & STAT_SUBJOB) &&
+	    /*
+	     * If running jobs in a subshell, we are allowed to
+	     * refer to the "current" job (it's not really the
+	     * current job in the subshell).  It's possible we
+	     * should reset thisjob to -1 on entering the subshell.
+	     */
+	    (myjobtab == oldjobtab || jobnum != thisjob)) {
 	    returnval = jobnum;
 	    goto done;
 	}
-	zwarnnam(prog, "%%%s: no such job", s);
+	if (prog)
+	    zwarnnam(prog, "%%%s: no such job", s);
 	returnval = -1;
 	goto done;
     }
@@ -1506,15 +1543,17 @@ getjob(char *s, char *prog)
     if (*s == '?') {
 	struct process *pn;
 
-	for (jobnum = maxjob; jobnum >= 0; jobnum--)
-	    if (jobtab[jobnum].stat && !(jobtab[jobnum].stat & STAT_SUBJOB) &&
+	for (jobnum = mymaxjob; jobnum >= 0; jobnum--)
+	    if (myjobtab[jobnum].stat &&
+		!(myjobtab[jobnum].stat & STAT_SUBJOB) &&
 		jobnum != thisjob)
-		for (pn = jobtab[jobnum].procs; pn; pn = pn->next)
+		for (pn = myjobtab[jobnum].procs; pn; pn = pn->next)
 		    if (strstr(pn->text, s + 1)) {
 			returnval = jobnum;
 			goto done;
 		    }
-	zwarnnam(prog, "job not found: %s", s);
+	if (prog)
+	    zwarnnam(prog, "job not found: %s", s);
 	returnval = -1;
 	goto done;
     }
@@ -1763,7 +1802,7 @@ bin_fg(char *name, char **argv, Options ops, int func)
     In the default case for bg, fg and disown, the argument will be provided by
     the above routine.  We now loop over the arguments. */
     for (; (firstjob != -1) || *argv; (void)(*argv && argv++)) {
-	int stopped, ocj = thisjob;
+	int stopped, ocj = thisjob, jstat;
 
         func = ofunc;
 
@@ -1789,6 +1828,11 @@ bin_fg(char *name, char **argv, Options ops, int func)
 	    thisjob = ocj;
 	    continue;
 	}
+	if (func != BIN_JOBS && oldjobtab != NULL) {
+	    zwarnnam(name, "can't manipulate jobs in subshell");
+	    unqueue_signals();
+	    return 1;
+	}
 	/* The only type of argument allowed now is a job spec.  Check it. */
 	job = (*argv) ? getjob(*argv, name) : firstjob;
 	firstjob = -1;
@@ -1796,9 +1840,10 @@ bin_fg(char *name, char **argv, Options ops, int func)
 	    retval = 1;
 	    break;
 	}
-	if (!(jobtab[job].stat & STAT_INUSE) ||
-	    (jobtab[job].stat & STAT_NOPRINT)) {
-	    zwarnnam(name, "%%%d: no such job", job);
+	jstat = oldjobtab ? oldjobtab[job].stat : jobtab[job].stat;
+	if (!(jstat & STAT_INUSE) ||
+	    (jstat & STAT_NOPRINT)) {
+	    zwarnnam(name, "%s: no such job", *argv);
 	    unqueue_signals();
 	    return 1;
 	}
@@ -1806,7 +1851,7 @@ bin_fg(char *name, char **argv, Options ops, int func)
          * on disown), we actually do a bg and then delete the job table entry. */
 
         if (isset(AUTOCONTINUE) && func == BIN_DISOWN &&
-            jobtab[job].stat & STAT_STOPPED)
+            jstat & STAT_STOPPED)
             func = BIN_BG;
 
 	/* We have a job number.  Now decide what to do with it. */
@@ -1896,7 +1941,7 @@ bin_fg(char *name, char **argv, Options ops, int func)
 	        deletejob(jobtab + job);
 	    break;
 	case BIN_JOBS:
-	    printjob(job + jobtab, lng, 2);
+	    printjob(job + (oldjobtab ? oldjobtab : jobtab), lng, 2);
 	    break;
 	case BIN_DISOWN:
 	    if (jobtab[job].stat & STAT_STOPPED) {
@@ -2043,7 +2088,7 @@ bin_kill(char *nam, char **argv, UNUSED(Options ops), UNUSED(int func))
 		}
 		sig = zstrtol(*argv, &endp, 10);
 		if (*endp) {
-		    zwarnnam(nam, "invalid signal number: %s", signame);
+		    zwarnnam(nam, "invalid signal number: %s", *argv);
 		    return 1;
 		}
 	    } else {
@@ -2138,7 +2183,7 @@ bin_kill(char *nam, char **argv, UNUSED(Options ops), UNUSED(int func))
 
 /**/
 mod_export int
-getsignum(char *s)
+getsignum(const char *s)
 {
     int x, i;
 
@@ -2196,7 +2241,7 @@ gettrapnode(int sig, int ignoredisable)
 {
     char fname[20];
     HashNode hn;
-    HashNode (*getptr)(HashTable ht, char *name);
+    HashNode (*getptr)(HashTable ht, const char *name);
     int i;
     if (ignoredisable)
 	getptr = shfunctab->getnode2;
@@ -2269,7 +2314,7 @@ bin_suspend(char *name, UNUSED(char **argv), Options ops, UNUSED(int func))
 
 /**/
 int
-findjobnam(char *s)
+findjobnam(const char *s)
 {
     int jobnum;
 

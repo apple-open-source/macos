@@ -75,7 +75,7 @@ main(int argc, char *argv[])
 	mode_t *set = NULL;
 	long val = 0;
 	int oct = 0;
-	int Hflag, Lflag, Rflag, ch, fts_options, hflag, rval;
+	int Hflag, Lflag, Pflag, Rflag, ch, fts_options, hflag, rval;
 	int vflag;
 	char *ep, *mode;
 	mode_t newmode, omode;
@@ -89,7 +89,7 @@ main(int argc, char *argv[])
 
 	set = NULL;
 	omode = 0;
-	Hflag = Lflag = Rflag = fflag = hflag = vflag = 0;
+	Hflag = Lflag = Pflag = Rflag = fflag = hflag = vflag = 0;
 #ifndef __APPLE__
 	while ((ch = getopt(argc, argv, "HLPRXfghorstuvwx")) != -1)
 #else
@@ -99,13 +99,16 @@ main(int argc, char *argv[])
 		case 'H':
 			Hflag = 1;
 			Lflag = 0;
+			Pflag = 0;
 			break;
 		case 'L':
 			Lflag = 1;
 			Hflag = 0;
+			Pflag = 0;
 			break;
 		case 'P':
 			Hflag = Lflag = 0;
+			Pflag = 1;
 			break;
 		case 'R':
 			Rflag = 1;
@@ -189,10 +192,12 @@ done:	argv += optind;
 #ifdef __APPLE__
 	if (argc < ((acloptflags & ACL_FLAG) ? 1 : 2))
 		usage();
-#else
+	if (!Rflag && (Hflag || Lflag || Pflag))
+		warnx("options -H, -L, -P only useful with -R");
+#else  /* !__APPLE__ */
 	if (argc < 2)
 		usage();
-#endif
+#endif	/* __APPLE__ */
 
 #ifdef __APPLE__
 	if (!(acloptflags & ACL_FLAG) && ((acloptlen = strlen(argv[0])) > 1) && (argv[0][1] == 'a')) {
@@ -233,7 +238,7 @@ done:	argv += optind;
 					    || aclpos < 0)
 						errno = ERANGE;
 					if (errno || *ep)
-						err(1, "Invalid ACL entry number: %s", aclpos);
+						errx(1, "Invalid ACL entry number: %d", aclpos);
 					if (acloptflags & ACL_DELETE_FLAG)
 						ace_arg_not_required = 1;
 
@@ -246,7 +251,7 @@ done:	argv += optind;
 					 */
 					inheritance_level++;
 					if (inheritance_level > 1)
-						warn("Inheritance across more than one generation is not currently supported");
+						warnx("Inheritance across more than one generation is not currently supported");
 					if (inheritance_level >= MAX_INHERITANCE_LEVEL)
 						goto apdone;
 					break;
@@ -297,7 +302,7 @@ apnoacl:
 		} while ((readval > 0) && (readtotal <= MAX_ACL_TEXT_SIZE));
 			
 		if (0 == readtotal)
-			err(1, "-E specified, but read from STDIN failed");
+			errx(1, "-E specified, but read from STDIN failed");
 		else
 			mode[readtotal - 1] = '\0';
 		--argv;
@@ -321,8 +326,7 @@ apnoacl:
                         /* Parse the text into an ACL*/
 			acl_input = parse_acl_entries(mode);
 			if (acl_input == NULL) {
-				errno = EINVAL;
-				err(1, "Invalid ACL specification: %s", mode);
+				errx(1, "Invalid ACL specification: %s", mode);
 			}
 		}
 	}
@@ -394,7 +398,7 @@ apnoacl:
 			if ((newmode & ALLPERMS) == (p->fts_statp->st_mode & ALLPERMS))
 				continue;
 			if ((*change_mode)(p->fts_accpath, newmode) && !fflag) {
-				warn("%s", p->fts_path);
+				warn("Unable to change file mode on %s", p->fts_path);
 				rval = 1;
 			} else {
 				if (vflag) {
@@ -440,7 +444,7 @@ usage(void)
 #ifdef __APPLE__
 	(void)fprintf(stderr,
 		      "usage:\tchmod [-fhv] [-R [-H | -L | -P]] [-a | +a | =a  [i][# [ n]]] mode|entry file ...\n"
-		      "\tchmod [-fhv] [-R [-H | -L | -P]] [-E | -C | -i | -I] file ...\n"); /* add -A and -V when implemented */
+		      "\tchmod [-fhv] [-R [-H | -L | -P]] [-E | -C | -N | -i | -I] file ...\n"); /* add -A and -V when implemented */
 #else
 	(void)fprintf(stderr,
 	    "usage: chmod [-fhv] [-R [-H | -L | -P]] mode file ...\n");

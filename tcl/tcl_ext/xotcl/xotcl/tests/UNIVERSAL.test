@@ -1,0 +1,48 @@
+# $Id $
+#if {[set ::tcl_platform(platform)] == "windows"} {lappend auto_path .}
+
+package require XOTcl; namespace import -force xotcl::*
+set pkgdir  [file dir [info script]]/..
+lappend auto_path $pkgdir
+
+package require xotcl::test
+
+set tclsh [info nameofexecutable]
+set dir [file dir [info script]]
+set univApps $dir/../apps/actiweb/univ
+
+set startCmd "$tclsh $univApps/UNIVERSAL.xotcl \
+    -instanceFile $univApps/UNIVERSAL.rdf \
+    -cssFile UNIVERSAL.css \
+    -root $dir/../apps/actiweb/univ \
+    -pkgdir $pkgdir"
+puts stderr "starting $startCmd"
+set PIPE [open "|$startCmd"]
+
+package require xotcl::comm::httpAccess
+proc printError msg {puts stderr !!!$msg!!!}
+
+Class T -superclass Test -parameter {
+  {count 1}
+  {errorReport {
+    puts "\tcontent-length: \[r0::sink set contentLength\]\n\
+          \tstatus-code: \[\[r0 set token\] set responseCode\]\n\[r0 getContent]"
+  }}}
+
+T new -msg "Load homepage frame von univ ... " \
+    -setResult {expr [r0::sink set contentLength] == 358} \
+    -cmd [list SimpleRequest r0 -url http://localhost:8095/ ]
+T new -msg "Load Catalog ... " \
+    -setResult {expr [r0::sink set contentLength] == 1744} \
+    -cmd [list SimpleRequest r0 -url http://localhost:8095/univ+catalog ]
+T new -msg "Detail Page ... " \
+    -setResult {expr [r0::sink set contentLength] == 2327} \
+    -cmd [list SimpleRequest r0 -url http://localhost:8095/univ+details+http://nm.wu-wien.ac.at/Lehre/oo1/]
+T new -msg "terminate" -cmd [list SimpleRequest r0 -url http://localhost:8095/receiver::exit] \
+    -setResult {set x 1} \
+    -post {catch {close $::PIPE}; exit}
+
+after 1000 {Test run}
+vwait forever
+
+

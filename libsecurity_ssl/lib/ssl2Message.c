@@ -285,8 +285,8 @@ SSL2EncodeClientHello(SSLBuffer *msg, SSLContext *ctx)
 			if(CIPHER_SUITE_IS_SSLv2(ctx->validCipherSpecs[i].cipherSpec)) {
 				continue;
 			}
-			sslLogNegotiateDebug("ssl2EncodeClientHello sending spec %x", 
-				ctx->validCipherSpecs[i].cipherSpec);
+			sslLogNegotiateVerbDebug("ssl2EncodeClientHello sending spec %x", 
+				(unsigned)ctx->validCipherSpecs[i].cipherSpec);
             charPtr = SSLEncodeInt(charPtr, ctx->validCipherSpecs[i].cipherSpec, 3);
     	}
 	}
@@ -295,7 +295,7 @@ SSL2EncodeClientHello(SSLBuffer *msg, SSLContext *ctx)
     for (i = 0; i < SSL2CipherMapCount; i++)
         for (j = 0; j < ctx->numValidCipherSpecs; j++)
             if (ctx->validCipherSpecs[j].cipherSpec == SSL2CipherMap[i].cipherSuite) {   
-				sslLogNegotiateDebug("ssl2EncodeClientHello sending spec %x", 
+				sslLogNegotiateVerbDebug("ssl2EncodeClientHello sending spec %x", 
 					SSL2CipherMap[i].cipherKind);		
 				charPtr = SSLEncodeInt(charPtr, SSL2CipherMap[i].cipherKind, 3);
                 break;

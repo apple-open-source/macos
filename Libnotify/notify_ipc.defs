@@ -18,64 +18,59 @@ routine _notify_server_post
 	server : mach_port_t;
 	name : notify_name;
 	out status : int;
-	SecToken token : security_token_t
+	ServerAuditToken token : audit_token_t
 );
 
 routine _notify_server_register_plain
 (
 	server : mach_port_t;
 	name : notify_name;
-	task : task_t;
 	out client_id : int;
 	out status : int;
-	SecToken token : security_token_t
+	ServerAuditToken token : audit_token_t
 );
 
 routine _notify_server_register_check
 (
 	server : mach_port_t;
 	name : notify_name;
-	task : task_t;
 	out size : int;
 	out slot : int;
 	out client_id : int;
 	out status : int;
-	SecToken token : security_token_t
+	ServerAuditToken token : audit_token_t
 );
 
 routine _notify_server_register_signal
 (
 	server : mach_port_t;
 	name : notify_name;
-	task : task_t;
 	sig: int;
 	out client_id : int;
 	out status : int;
-	SecToken token : security_token_t
+	ServerAuditToken token : audit_token_t
 );
 
 routine _notify_server_register_file_descriptor
 (
 	server : mach_port_t;
 	name : notify_name;
-	task : task_t;
 	path : notify_name;
 	ntoken : int;
 	out client_id : int;
 	out status : int;
-	SecToken token : security_token_t
+	ServerAuditToken token : audit_token_t
 );
 
 routine _notify_server_register_mach_port
 (
 	server : mach_port_t;
 	name : notify_name;
-	task : task_t;
 	port : mach_port_move_send_t;
 	ntoken : int;
 	out client_id : int;
 	out status : int;
-	SecToken token : security_token_t
+	ServerAuditToken token : audit_token_t
 );
 
 routine _notify_server_set_owner
@@ -85,7 +80,7 @@ routine _notify_server_set_owner
 	user : int;
 	group : int;
 	out status : int;
-	SecToken token : security_token_t
+	ServerAuditToken token : audit_token_t
 );
 
 routine _notify_server_get_owner
@@ -95,7 +90,7 @@ routine _notify_server_get_owner
 	out user : int;
 	out group : int;
 	out status : int;
-	SecToken token : security_token_t
+	ServerAuditToken token : audit_token_t
 );
 
 routine _notify_server_set_access
@@ -104,7 +99,7 @@ routine _notify_server_set_access
 	name : notify_name;
 	mode : int;
 	out status : int;
-	SecToken token : security_token_t
+	ServerAuditToken token : audit_token_t
 );
 
 routine _notify_server_get_access
@@ -113,7 +108,7 @@ routine _notify_server_get_access
 	name : notify_name;
 	out mode : int;
 	out status : int;
-	SecToken token : security_token_t
+	ServerAuditToken token : audit_token_t
 );
 
 routine _notify_server_release_name
@@ -121,7 +116,7 @@ routine _notify_server_release_name
 	server : mach_port_t;
 	name : notify_name;
 	out status : int;
-	SecToken token : security_token_t
+	ServerAuditToken token : audit_token_t
 );
 
 routine _notify_server_cancel
@@ -129,7 +124,7 @@ routine _notify_server_cancel
 	server : mach_port_t;
 	client_id : int;
 	out status : int;
-	SecToken token : security_token_t
+	ServerAuditToken token : audit_token_t
 );
 
 routine _notify_server_check
@@ -138,7 +133,7 @@ routine _notify_server_check
 	client_id : int;
 	out check : int;
 	out status : int;
-	SecToken token : security_token_t
+	ServerAuditToken token : audit_token_t
 );
 
 routine _notify_server_get_state
@@ -147,7 +142,7 @@ routine _notify_server_get_state
 	client_id : int;
 	out state : uint64_t;
 	out status : int;
-	SecToken token : security_token_t
+	ServerAuditToken token : audit_token_t
 );
 
 routine _notify_server_set_state
@@ -156,7 +151,7 @@ routine _notify_server_set_state
 	client_id : int;
 	state : uint64_t;
 	out status : int;
-	SecToken token : security_token_t
+	ServerAuditToken token : audit_token_t
 );
 
 routine _notify_server_get_val
@@ -165,7 +160,7 @@ routine _notify_server_get_val
 	client_id : int;
 	out val : int;
 	out status : int;
-	SecToken token : security_token_t
+	ServerAuditToken token : audit_token_t
 );
 
 routine _notify_server_set_val
@@ -174,7 +169,7 @@ routine _notify_server_set_val
 	client_id : int;
 	val : int;
 	out status : int;
-	SecToken token : security_token_t
+	ServerAuditToken token : audit_token_t
 );
 
 routine _notify_server_monitor_file
@@ -184,7 +179,7 @@ routine _notify_server_monitor_file
 	path : notify_name;
 	flags : int;
 	out status : int;
-	SecToken token : security_token_t
+	ServerAuditToken token : audit_token_t
 );
 
 routine _notify_server_get_event
@@ -194,5 +189,5 @@ routine _notify_server_get_event
 	out event_type : int;
 	out name : inline_data_t;
 	out status : int;
-	SecToken token : security_token_t
+	ServerAuditToken token : audit_token_t
 );

@@ -23,72 +23,127 @@
 #ifndef __Mbrd_UserGroup_h__
 #define	__Mbrd_UserGroup_h__		1
 
+#include "Mbrd_HashTable.h"
+
 #include <sys/types.h>
+#include <sys/kauth.h>
+#include <unistd.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include "DSmemberdMIG_types.h"
+#include <dispatch/dispatch.h>
 
-struct HashTable;
-struct UserGroup;
- 
+enum
+{
+	kUGRecordTypeUser			= 0x00000001,
+	kUGRecordTypeComputer		= 0x00000002,
+	kUGRecordTypeGroup			= 0x00000004,
+	kUGRecordTypeComputerGroup	= 0x00000008,
+	kUGRecordTypeUnknown		= 0xffffffff
+};
+
+enum
+{
+	kUGFoundByID			= 0x00000001,
+	kUGFoundByGUID			= 0x00000002,
+	kUGFoundByName			= 0x00000004,
+	kUGFoundBySID			= 0x00000008,
+	kUGFoundByNestedGroup	= 0x00000010,
+	kUGFoundByX509DN		= 0x00000020,
+	kUGFoundByKerberos		= 0x00000040,
+	
+	// this flag says that a search was scheduled already
+	// if a conflict was found, then the previous answer will be invalid (erratic behavior, which is expected)
+	// if the same answer is found, then it'll be tagged as such
+	kUGFoundByIDSched			= 0x00010000,
+	kUGFoundByGUIDSched			= 0x00020000,
+	kUGFoundByNameSched			= 0x00040000,
+	kUGFoundBySIDSched			= 0x00080000,
+//	kUGFoundByNestedGroupSched	-- not used for searches
+	kUGFoundByX509DNSched		= 0x00100000,
+	kUGFoundByKerberosSched		= 0x00200000,
+};
+
+enum
+{
+	kUGFlagHasID			= 0x00000001,
+	kUGFlagHasGUID			= 0x00000002,
+	kUGFlagHasName			= 0x00000004,
+	kUGFlagHasSID			= 0x00000008,
+	kUGFlagHasX509DN		= 0x00000010,
+	kUGFlagHasKerberos		= 0x00000020,
+	
+	kUGFlagReservedID		= 0x00200000,
+	kUGFlagReservedName		= 0x00400000,
+	kUGFlagReservedSID		= 0x00800000,
+	
+	kUGFlagBuiltinChecked	= 0x04000000,
+	kUGFlagIsBuiltin		= 0x08000000,
+	
+	kUGFlagValidMembership	= 0x20000000,
+	kUGFlagLocalAccount		= 0x40000000,
+	kUGFlagNotFound			= 0x80000000,
+};
+
+#define kMaxAltIdentities	5
+
 typedef struct UserGroup
 {
-	uint32_t			fExpiration;
-	uint32_t			fLoginExpiration;
-	guid_t				fGUID;
-	ntsid_t*			fSID;
-	uid_t				fID;
-	gid_t				fPrimaryGroup;
-	char*				fName;
-	struct HashTable*   fGUIDMembershipHash;
-	struct HashTable*   fSIDMembershipHash;
-	struct HashTable*   fGIDMembershipHash;
-	uint16_t			fRefCount;
-	uint16_t			fCheckVal;
-	struct UserGroup*   fLink;
+	int32_t				fMagic;
+	volatile int32_t	fRefCount;
+
+	pthread_mutex_t		fMutex;
+	struct UserGroup*   fLink;		// owned by the Mbrd_Cache
 	struct UserGroup*   fBackLink;
-	char				fIsUser;
-	char				fIsComputer;
-	char				fIsLocalAccount;
-	char				fNotFound;
+	uint32_t			fExpiration;
+	uint32_t			fMaximumRefresh;
+	uuid_t				fGUID;
+	ntsid_t				fSID;
+	id_t				fID;
+	gid_t				fPrimaryGroup;
+	char *				fX509DN[kMaxAltIdentities];
+	char *				fKerberos[kMaxAltIdentities];
+	uint32_t			fFlags;
+	
+	// used for validation purposes so we don't flush entries
+	char*				fNode;
+	uint32_t            fToken;
+	bool                fNodeAvailable;
+	dispatch_queue_t	fQueue;
+	dispatch_queue_t	fRefreshQueue;
+	bool				fRefreshActive;	// used to track inflight refresh
+
+	char*				fName;
+	int32_t				fRecordType;
+	uint32_t			fFoundBy;
+	time_t				fTimestamp;
+	
+	pthread_mutex_t		fHashLock;
+	struct HashTable	fGUIDMembershipHash;
+	struct HashTable	fSIDMembershipHash;
+	struct HashTable	fGIDMembershipHash;
 } UserGroup;
-
-extern int gLoginExpiration;
-
-#define kUseLoginTimeOutMask 1
 
 __BEGIN_DECLS
 
-void Mbrd_InitializeUserGroup(int numToCache, int defaultExpiration, int defaultNegativeExpiration, int loginExp);
+UserGroup* UserGroup_Create( void );
+#define UserGroup_Retain(a)			((UserGroup *) dsRetainObject(a, &a->fRefCount))
+void UserGroup_Release( UserGroup *source );
+void UserGroup_Free( UserGroup *source );
+void UserGroup_Initialize( UserGroup *source );
+void UserGroup_Merge( UserGroup *existing, UserGroup *source, bool includeMemberships );
 
-void OpenDirService(void);
-void Mbrd_ResetCache(void);
-void Mbrd_DumpState(void);
+bool UserGroup_AddToHashes( UserGroup *item, UserGroup *group );
+int UserGroup_ResetMemberships( UserGroup *ug );
 
-uint32_t GetElapsedSeconds(void);
-uint64_t GetElapsedMicroSeconds(void);
-void AddToAverage(uint32_t* average, uint32_t* numDataPoints, uint32_t newDataPoint);
+int UserGroup_Get16Groups( UserGroup* user, gid_t* gidArray );
+int UserGroup_GetGroups( UserGroup* user, gid_t** gidArray );
 
-void SetThreadFlags(int flags);
+const char *UserGroup_GetRecordTypeString( UserGroup *user );
+const char *UserGroup_GetFoundByString( UserGroup *user, char *buffer, size_t bufferLen );
 
-UserGroup* GetItemWithGUID(guid_t* guid);
-UserGroup* GetItemWithSID(ntsid_t* sid);
-UserGroup* GetUserWithUID(int uid);
-UserGroup* GetGroupWithGID(int gid);
-UserGroup* GetUserWithName(char* name);
-UserGroup* GetGroupWithName(char* name);
-
-int IsUserMemberOfGroupByGUID(UserGroup* user, guid_t* groupGUID);
-int IsUserMemberOfGroupBySID(UserGroup* user, ntsid_t* groupSID);
-int IsUserMemberOfGroupByGID(UserGroup* user, int gid);
-
-int Get16Groups(UserGroup* user, gid_t* gidArray);
-int GetAllGroups(UserGroup* user, gid_t** gidArray);
-
-void ConvertGUIDToString(guid_t* data, char* string);
-void ConvertSIDToString(char* string, ntsid_t* sid);
-
-void TouchItem(UserGroup* item);
+// Utility functions
+uint32_t GetElapsedSeconds( void );
+uint64_t GetElapsedMicroSeconds( void );
 
 __END_DECLS
 

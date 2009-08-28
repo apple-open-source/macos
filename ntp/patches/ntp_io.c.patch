@@ -1,6 +1,6 @@
---- ntpd/ntp_io.c.orig	2008-10-08 14:35:15.000000000 -0700
-+++ ntpd/ntp_io.c	2008-10-08 14:37:37.000000000 -0700
-@@ -1966,6 +1966,7 @@ sendpkt(
+--- ntpd/ntp_io.c+orig	2008-04-30 19:19:08.000000000 -0700
++++ ntpd/ntp_io.c	2008-04-30 19:23:16.000000000 -0700
+@@ -2472,6 +2472,7 @@ sendpkt(
  	)
  {
  	int cc, slot;
@@ -8,21 +8,19 @@
  #ifdef SYS_WINNT
  	DWORD err;
  #endif /* SYS_WINNT */
-@@ -2134,8 +2135,11 @@ sendpkt(
- 				exit(1);
+@@ -2646,13 +2647,16 @@ sendpkt(
+ 			default:  /* don't care if not supported */
+ 				break;
  			}
- 
+-
 -			netsyslog(LOG_ERR, "sendto(%s) (fd=%d): %m",
 -				  stoa(dest), inter->fd);
-+ 			if (last_errno != errno) {
-+ 				last_errno = errno;
-+ 				netsyslog(LOG_ERR, "sendto(%s) (fd=%d): %m",
-+ 					  stoa(dest), inter->fd);
-+ 			}
- #ifdef __APPLE__
- 			switch (errno) { /* interface probably changed address or disconnected */
- 			case ENETDOWN:
-@@ -2162,6 +2166,7 @@ sendpkt(
++			if (last_errno != errno) {
++				last_errno = errno;
++				netsyslog(LOG_ERR, "sendto(%s) (fd=%d): %m",
++					  stoa(dest), inter->fd);
++			}
+ 		}
  	}
  	else
  	{

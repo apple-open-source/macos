@@ -166,7 +166,7 @@ bool AppleIntelPIIXPATA::start( IOService * provider )
 
     if ( _channel > kPIIX_CHANNEL_SECONDARY )
     {
-        IOLog("%s: invalid ATA channel number %ld\n", getName(), _channel);
+        IOLog("%s: invalid ATA channel number %d\n", getName(), (int)_channel);
         goto fail;
     }
 
@@ -416,17 +416,17 @@ void AppleIntelPIIXPATA::free( void )
     RELEASE( _tfStatusCmdReg );
     RELEASE( _tfAltSDevCReg  );
 
-    // IOATAController should release this.
+	if( _DMACursor != NULL )
+	{
+		_DMACursor->release();
+		_DMACursor = NULL;
+	}
 
-    if ( _doubleBuffer.logicalBuffer )
-    {
-        IOFree( (void *) _doubleBuffer.logicalBuffer,
-                         _doubleBuffer.bufferSize );
-        _doubleBuffer.bufferSize     = 0;
-        _doubleBuffer.logicalBuffer  = 0;
-        _doubleBuffer.physicalBuffer = 0;
-    }
-
+	if( _workLoop != NULL )
+	{
+		_workLoop->release();
+	}
+	
     // What about _workloop, _cmdGate, and _timer in the superclass?
 
     super::free();
@@ -544,8 +544,8 @@ bool AppleIntelPIIXPATA::getBMBaseAddress( IOPCIDevice * provider,
 
     if ( (bmiba & kPIIX_PCI_BMIBA_RTE) == 0 )
     {
-        IOLog("%s: PCI memory range 0x%02x (0x%08lx) is not an I/O range\n",
-              getName(), kPIIX_PCI_BMIBA, bmiba);
+        IOLog("%s: PCI memory range 0x%02x (0x%08x) is not an I/O range\n",
+              getName(), (int)kPIIX_PCI_BMIBA, (int)bmiba);
         return false;
     }
 
@@ -1285,7 +1285,7 @@ bool AppleIntelPIIXPATA::setDriveProperty( UInt32       driveUnit,
 {
     char keyString[40];
     
-    snprintf(keyString, 40, "Drive %ld %s", driveUnit, key);
+    snprintf(keyString, 40, "Drive %d %s", (int)driveUnit, key);
     
     return super::setProperty( keyString, value, numberOfBits );
 }
@@ -1350,7 +1350,7 @@ IOReturn AppleIntelPIIXPATA::createChannelCommands( void )
 		xferDataPtr = (UInt8 *) physSegment32.fIOVMAddr;
         xferCount   = physSegment32.fLength;
 
-        if ( (UInt32) xferDataPtr & 0x01 )
+        if ( (uintptr_t) xferDataPtr & 0x01 )
         {
             IOLog("%s: DMA buffer %p not 2 byte aligned\n",
                   getName(), xferDataPtr);
@@ -1359,8 +1359,8 @@ IOReturn AppleIntelPIIXPATA::createChannelCommands( void )
 
         if ( xferCount & 0x01 )
         {
-            IOLog("%s: DMA buffer length %ld is odd\n",
-                  getName(), xferCount);
+            IOLog("%s: DMA buffer length %d is odd\n",
+                  getName(), (int)xferCount);
         }
 		
 		if( xferCount > bytesRemaining )
@@ -1373,7 +1373,7 @@ IOReturn AppleIntelPIIXPATA::createChannelCommands( void )
         xfrPosition += xferCount;
             
         // Examine the segment to see whether it crosses (a) 64k boundary(s)
-        starting64KBlock = (UInt8*) ( (UInt32) xferDataPtr & 0xffff0000);
+        starting64KBlock = (UInt8*) ( (uintptr_t) xferDataPtr & 0xffff0000);
         ptr2EndData  = xferDataPtr + xferCount;
         next64KBlock = starting64KBlock + 0x10000;
 
@@ -1425,8 +1425,8 @@ IOReturn AppleIntelPIIXPATA::createChannelCommands( void )
 
     if (index == 0)
     {
-        IOLog("%s: rejected command with zero PRD count (0x%lx bytes)\n",
-              getName(), _currentCommand->getByteCount());
+        IOLog("%s: rejected command with zero PRD count (0x%x bytes)\n",
+              getName(), (uint32_t)_currentCommand->getByteCount());
         return kATADeviceError;
     }
 
@@ -1441,17 +1441,24 @@ IOReturn AppleIntelPIIXPATA::createChannelCommands( void )
 
 bool AppleIntelPIIXPATA::allocDMAChannel( void )
 {
-    _prdTable = (PRD *) IOMallocContiguous(
-                        /* size  */ sizeof(PRD) * kATAMaxDMADesc, 
-                        /* align */ 0x10000, 
-                        /* phys  */ &_prdTablePhysical );
-
-    if ( !_prdTable )
+	
+	_prdBuffer = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(
+		kernel_task,
+		kIODirectionInOut | kIOMemoryPhysicallyContiguous,
+		sizeof(PRD) * kATAMaxDMADesc,
+		0xFFFF0000UL );
+    
+    if ( !_prdBuffer )
     {
-        IOLog("%s: PRD table allocation failed\n", getName());
+        IOLog("%s: PRD buffer allocation failed\n", getName());
         return false;
     }
-
+ 	
+	_prdBuffer->prepare ( );
+	
+	_prdTable			= (PRD *) _prdBuffer->getBytesNoCopy();
+	_prdTablePhysical	= _prdBuffer->getPhysicalAddress();
+	
     _DMACursor = IONaturalMemoryCursor::withSpecification(
                           /* max segment size  */ 0x10000,
                           /* max transfer size */ kMaxATAXfer );
@@ -1473,13 +1480,18 @@ bool AppleIntelPIIXPATA::allocDMAChannel( void )
 
 bool AppleIntelPIIXPATA::freeDMAChannel( void )
 {
-    if ( _prdTable )
+    if ( _prdBuffer )
     {
         // make sure the engine is stopped.
         stopDMA();
 
         // free the descriptor table.
-        IOFreeContiguous(_prdTable, sizeof(PRD) * kATAMaxDMADesc);
+        _prdBuffer->complete();
+        _prdBuffer->release();
+        _prdBuffer = NULL;
+        _prdTable = NULL;
+        _prdTablePhysical = 0;
+        
     }
 
     return true;

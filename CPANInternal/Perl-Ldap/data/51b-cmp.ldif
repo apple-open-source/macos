@@ -1,0 +1,79 @@
+
+dn: cn=All Staff, ou=Groups, o=University of Michigan, c=US
+member: cn=Manager, o=University of Michigan, c=US
+member: cn=Barbara Jensen, ou=Information Technology Division, ou=People, o=Un
+ iversity of Michigan, c=US
+member: cn=Jane Doe, ou=Alumni Association, ou=People, o=University of Michiga
+ n, c=US
+member: cn=John Doe, ou=Information Technology Division, ou=People, o=Universi
+ ty of Michigan, c=US
+member: cn=Mark Elliot, ou=Alumni Association, ou=People, o=University of Mich
+ igan, c=US
+member: cn=James A Jones 1, ou=Alumni Association, ou=People, o=University of 
+ Michigan, c=US
+member: cn=James A Jones 2, ou=Information Technology Division, ou=People, o=U
+ niversity of Michigan, c=US
+member: cn=Jennifer Smith, ou=Alumni Association, ou=People, o=University of M
+ ichigan, c=US
+member: cn=Dorothy Stevens, ou=Alumni Association, ou=People, o=University of 
+ Michigan, c=US
+member: cn=Ursula Hampster, ou=Alumni Association, ou=People, o=University of 
+ Michigan, c=US
+member: cn=Bjorn Jensen, ou=Information Technology Division, ou=People, o=Univ
+ ersity of Michigan, c=US
+owner: cn=Manager, o=University of Michigan, c=US
+cn: All Staff
+description: Everyone in the sample data
+objectclass: groupOfNames
+
+dn: cn=Alumni Assoc Staff, ou=Groups, o=University of Michigan, c=US
+member: cn=Manager, o=University of Michigan, c=US
+member: cn=Dorothy Stevens, ou=Alumni Association, ou=People, o=University of 
+ Michigan, c=US
+member: cn=James A Jones 1, ou=Alumni Association, ou=People, o=University of 
+ Michigan, c=US
+member: cn=Jane Doe, ou=Alumni Association, ou=People, o=University of Michiga
+ n, c=US
+member: cn=Jennifer Smith, ou=Alumni Association, ou=People, o=University of M
+ ichigan, c=US
+member: cn=Mark Elliot, ou=Alumni Association, ou=People, o=University of Mich
+ igan, c=US
+member: cn=Ursula Hampster, ou=Alumni Association, ou=People, o=University of 
+ Michigan, c=US
+owner: cn=Manager, o=University of Michigan, c=US
+description: All Alumni Assoc Staff
+cn: Alumni Assoc Staff
+objectclass: groupOfNames
+
+dn: cn=ITD Staff, ou=Groups, o=University of Michigan, c=US
+owner: cn=Manager, o=University of Michigan, c=US
+description: All ITD Staff
+cn: ITD Staff
+objectclass: groupOfNames
+member: cn=Manager, o=University of Michigan, c=US
+member: cn=Bjorn Jensen, ou=Information Technology Division, ou=People, o=Univ
+ ersity of Michigan, c=US
+member: cn=James A Jones 2, ou=Information Technology Division, ou=People, o=U
+ niversity of Michigan, c=US
+member: cn=John Doe, ou=Information Technology Division, ou=People, o=Universi
+ ty of Michigan, c=US
+
+dn: cn=James A Jones 1, ou=Alumni Association, ou=People, o=University of Mich
+ igan, c=US
+objectclass: OpenLDAPperson
+cn: James A Jones 1
+cn: James Jones
+cn: Jim Jones
+uid: james
+sn: Jones
+postaladdress: Alumni Association $ 111 Maple St $ Ann Arbor, MI 48109
+seealso: cn=All Staff, ou=Groups, o=University of Michigan, c=US
+userpassword: jaj
+homepostaladdress: 3882 Beverly Rd. $ Ann Arbor, MI 48105
+homephone: +1 313 555 4772
+description: Outstanding
+title: Mad Cow Researcher, UM Alumni Association
+pager: +1 313 555 3923
+mail: jaj@mail.alumni.umich.edu
+facsimiletelephonenumber: +1 313 555 4332
+telephonenumber: +1 313 555 0895

@@ -43,7 +43,7 @@ sub _monikerize {
 sub run_tests {
     my $self = shift;
 
-    plan tests => 76;
+    plan tests => 88;
 
     $self->create();
 
@@ -100,8 +100,13 @@ sub run_tests {
     }
 
     my $conn = $schema_class->clone;
-    my $monikers = $schema_class->loader->monikers;
-    my $classes = $schema_class->loader->classes;
+    my $monikers = {};
+    my $classes = {};
+    foreach my $source_name ($schema_class->sources) {
+        my $table_name = $schema_class->source($source_name)->from;
+        $monikers->{$table_name} = $source_name;
+        $classes->{$table_name} = $schema_class . q{::} . $source_name;
+    }
 
     my $moniker1 = $monikers->{loader_test1};
     my $class1   = $classes->{loader_test1};
@@ -239,7 +244,7 @@ sub run_tests {
     is( $obj2->id, 2 );
 
     SKIP: {
-        skip $self->{skip_rels}, 42 if $self->{skip_rels};
+        skip $self->{skip_rels}, 50 if $self->{skip_rels};
 
         my $moniker3 = $monikers->{loader_test3};
         my $class3   = $classes->{loader_test3};
@@ -297,6 +302,14 @@ sub run_tests {
         my $class22   = $classes->{loader_test22};
         my $rsobj22   = $conn->resultset($moniker22);
 
+        my $moniker25 = $monikers->{loader_test25};
+        my $class25   = $classes->{loader_test25};
+        my $rsobj25   = $conn->resultset($moniker25);
+
+        my $moniker26 = $monikers->{loader_test26};
+        my $class26   = $classes->{loader_test26};
+        my $rsobj26   = $conn->resultset($moniker26);
+
         isa_ok( $rsobj3, "DBIx::Class::ResultSet" );
         isa_ok( $rsobj4, "DBIx::Class::ResultSet" );
         isa_ok( $rsobj5, "DBIx::Class::ResultSet" );
@@ -311,6 +324,8 @@ sub run_tests {
         isa_ok( $rsobj20, "DBIx::Class::ResultSet" );
         isa_ok( $rsobj21, "DBIx::Class::ResultSet" );
         isa_ok( $rsobj22, "DBIx::Class::ResultSet" );
+        isa_ok( $rsobj25, "DBIx::Class::ResultSet" );
+        isa_ok( $rsobj26, "DBIx::Class::ResultSet" );
 
         # basic rel test
         my $obj4 = $rsobj4->find(123);
@@ -352,6 +367,22 @@ sub run_tests {
         # XXX test m:m 18 <- 20 -> 19
         
         # XXX test double-fk m:m 21 <- 22 -> 21
+
+        # test double multi-col fk 26 -> 25
+        my $obj26 = $rsobj26->find(33);
+
+        my $rs_rel25_one = $obj26->loader_test25_id_rel1;
+        isa_ok($rs_rel25_one, $class25);
+        is($rs_rel25_one->dat, 'x25');
+
+        my $rs_rel25_two = $obj26->loader_test25_id_rel2;
+        isa_ok($rs_rel25_two, $class25);
+        is($rs_rel25_two->dat, 'y25');
+
+        my $obj25 = $rsobj25->find(3,42);
+        my $rs_rel26 = $obj25->search_related('loader_test26_id_rel1s');
+        isa_ok($rs_rel26->first, $class26);
+        is($rs_rel26->first->id, 3);
 
         # from Chisel's tests...
         SKIP: {
@@ -440,6 +471,36 @@ sub run_tests {
             isa_ok( $obj15->loader_test14, $class14 );
         }
     }
+
+    # rescan test
+    SKIP: {
+        skip $self->{skip_rels}, 4 if $self->{skip_rels};
+
+        my @statements_rescan = (
+            qq{
+                CREATE TABLE loader_test30 (
+                    id INTEGER NOT NULL PRIMARY KEY,
+                    loader_test2 INTEGER NOT NULL,
+                    FOREIGN KEY (loader_test2) REFERENCES loader_test2 (id)
+                ) $self->{innodb}
+            },
+            q{ INSERT INTO loader_test30 (id,loader_test2) VALUES(123, 1) },
+            q{ INSERT INTO loader_test30 (id,loader_test2) VALUES(321, 2) },
+        );
+
+        my $dbh = $self->dbconnect(1);
+        $dbh->do($_) for @statements_rescan;
+        $dbh->disconnect;
+
+        my @new = $conn->rescan;
+        is(scalar(@new), 1);
+        is($new[0], 'LoaderTest30');
+
+        my $rsobj30   = $conn->resultset('LoaderTest30');
+        isa_ok($rsobj30, 'DBIx::Class::ResultSet');
+        my $obj30 = $rsobj30->find(123);
+        isa_ok( $obj30->loader_test2, $class2);
+    }
 }
 
 sub dbconnect {
@@ -465,6 +526,7 @@ sub create {
 
     $self->{_created} = 1;
 
+    my $make_auto_inc = $self->{auto_inc_cb} || sub {};
     my @statements = (
         qq{
             CREATE TABLE loader_test1 (
@@ -472,6 +534,7 @@ sub create {
                 dat VARCHAR(32) NOT NULL UNIQUE
             ) $self->{innodb}
         },
+        $make_auto_inc->(qw/loader_test1 id/),
 
         q{ INSERT INTO loader_test1 (dat) VALUES('foo') },
         q{ INSERT INTO loader_test1 (dat) VALUES('bar') }, 
@@ -485,6 +548,7 @@ sub create {
                 UNIQUE (dat2, dat)
             ) $self->{innodb}
         },
+        $make_auto_inc->(qw/loader_test2 id/),
 
         q{ INSERT INTO loader_test2 (dat, dat2) VALUES('aaa', 'zzz') }, 
         q{ INSERT INTO loader_test2 (dat, dat2) VALUES('bbb', 'yyy') }, 
@@ -671,6 +735,32 @@ sub create {
         q{ INSERT INTO loader_test22 (parent, child) VALUES (7,11)},
         q{ INSERT INTO loader_test22 (parent, child) VALUES (11,13)},
         q{ INSERT INTO loader_test22 (parent, child) VALUES (13,17)},
+
+	qq{
+            CREATE TABLE loader_test25 (
+                id1 INTEGER NOT NULL,
+                id2 INTEGER NOT NULL,
+                dat VARCHAR(8),
+                PRIMARY KEY (id1,id2)
+            ) $self->{innodb}
+        },
+
+        q{ INSERT INTO loader_test25 (id1,id2,dat) VALUES (33,5,'x25') },
+        q{ INSERT INTO loader_test25 (id1,id2,dat) VALUES (33,7,'y25') },
+        q{ INSERT INTO loader_test25 (id1,id2,dat) VALUES (3,42,'z25') },
+
+        qq{
+            CREATE TABLE loader_test26 (
+               id INTEGER NOT NULL PRIMARY KEY,
+               rel1 INTEGER NOT NULL,
+               rel2 INTEGER NOT NULL,
+               FOREIGN KEY (id, rel1) REFERENCES loader_test25 (id1, id2),
+               FOREIGN KEY (id, rel2) REFERENCES loader_test25 (id1, id2)
+            ) $self->{innodb}
+        },
+
+        q{ INSERT INTO loader_test26 (id,rel1,rel2) VALUES (33,5,7) },
+        q{ INSERT INTO loader_test26 (id,rel1,rel2) VALUES (3,42,42) },
     );
 
     my @statements_advanced = (
@@ -681,6 +771,7 @@ sub create {
                 loader_test11 INTEGER
             ) $self->{innodb}
         },
+        $make_auto_inc->(qw/loader_test10 id10/),
 
         qq{
             CREATE TABLE loader_test11 (
@@ -690,6 +781,7 @@ sub create {
                 FOREIGN KEY (loader_test10) REFERENCES loader_test10 (id10)
             ) $self->{innodb}
         },
+        $make_auto_inc->(qw/loader_test11 id11/),
 
         (q{ ALTER TABLE loader_test10 ADD CONSTRAINT } .
          q{ loader_test11_fk FOREIGN KEY (loader_test11) } .
@@ -739,7 +831,7 @@ sub create {
         },
 
         q{ INSERT INTO loader_test15 (id,loader_test14) VALUES (1,123) },
-   );
+    );
 
     $self->drop_tables;
 
@@ -779,6 +871,11 @@ sub drop_tables {
         LOADER_TEST23
         LoAdEr_test24
     /;
+    
+    my @tables_auto_inc = (
+        [ qw/loader_test1 id/ ],
+        [ qw/loader_test2 id/ ],
+    );
 
     my @tables_reltests = qw/
         loader_test4
@@ -795,12 +892,19 @@ sub drop_tables {
         loader_test18
         loader_test22
         loader_test21
+        loader_test26
+        loader_test25
     /;
 
     my @tables_advanced = qw/
         loader_test11
         loader_test10
     /;
+    
+    my @tables_advanced_auto_inc = (
+        [ qw/loader_test10 id10/ ],
+        [ qw/loader_test11 id11/ ],
+    );
 
     my @tables_inline_rels = qw/
         loader_test13
@@ -812,13 +916,17 @@ sub drop_tables {
         loader_test14
     /;
 
+    my @tables_rescan = qw/ loader_test30 /;
+
     my $drop_fk_mysql =
-        q{ALTER TABLE loader_test10 DROP FOREIGN KEY loader_test11_fk;};
+        q{ALTER TABLE loader_test10 DROP FOREIGN KEY loader_test11_fk};
 
     my $drop_fk =
-        q{ALTER TABLE loader_test10 DROP CONSTRAINT loader_test11_fk;};
+        q{ALTER TABLE loader_test10 DROP CONSTRAINT loader_test11_fk};
 
     my $dbh = $self->dbconnect(0);
+
+    my $drop_auto_inc = $self->{auto_inc_drop_cb} || sub {};
 
     unless($self->{skip_rels}) {
         $dbh->do("DROP TABLE $_") for (@tables_reltests);
@@ -830,6 +938,7 @@ sub drop_tables {
                 $dbh->do($drop_fk);
             }
             $dbh->do("DROP TABLE $_") for (@tables_advanced);
+            $dbh->do($_) for map { $drop_auto_inc->(@$_) } @tables_advanced_auto_inc;
         }
         unless($self->{no_inline_rels}) {
             $dbh->do("DROP TABLE $_") for (@tables_inline_rels);
@@ -837,8 +946,10 @@ sub drop_tables {
         unless($self->{no_implicit_rels}) {
             $dbh->do("DROP TABLE $_") for (@tables_implicit_rels);
         }
+        $dbh->do("DROP TABLE $_") for (@tables_rescan);
     }
     $dbh->do("DROP TABLE $_") for (@tables);
+    $dbh->do($_) for map { $drop_auto_inc->(@$_) } @tables_auto_inc;
     $dbh->disconnect;
 }
 

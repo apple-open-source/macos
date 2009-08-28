@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2001-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,7 +38,6 @@
 typedef struct {
     CFStringRef		username;
     CFStringRef		password;
-    Boolean		one_time_password;
     Boolean		user_cancelled;
 } UserPasswordDialogueResponse, *UserPasswordDialogueResponseRef;
 
@@ -53,8 +52,9 @@ typedef struct UserPasswordDialogue_s UserPasswordDialogue,
 UserPasswordDialogueRef
 UserPasswordDialogue_create(UserPasswordDialogueResponseCallBack func,
 			    const void * arg1, const void * arg2, 
-			    CFStringRef message, CFStringRef username, 
-			    CFStringRef password, bool one_time_password);
+			    CFStringRef icon,
+			    CFStringRef title, CFStringRef message, 
+			    CFStringRef username, CFStringRef password);
 
 void
 UserPasswordDialogue_free(UserPasswordDialogueRef * dialogue_p_p);
@@ -73,7 +73,8 @@ typedef struct TrustDialogue_s TrustDialogue, *TrustDialogueRef;
 TrustDialogueRef
 TrustDialogue_create(TrustDialogueResponseCallBack func,
 		     const void * arg1, const void * arg2,
-		     CFDictionaryRef trust_info, CFStringRef caller_label);
+		     CFDictionaryRef trust_info, 
+		     CFStringRef icon, CFStringRef title);
 
 CFDictionaryRef
 TrustDialogue_trust_info(TrustDialogueRef dialogue);

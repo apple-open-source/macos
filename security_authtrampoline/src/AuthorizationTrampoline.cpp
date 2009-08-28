@@ -26,12 +26,13 @@
 #include <fcntl.h>
 #include <syslog.h>
 #include <Security/Authorization.h>
+#include <Security/AuthorizationTags.h>
 #include <security_utilities/endian.h>
 #include <security_utilities/debugging.h>
 #include <security_utilities/logging.h>
 
 
-#define EXECUTERIGHT "system.privilege.admin"
+#define EXECUTERIGHT kAuthorizationRightExecute
 
 
 static void fail(OSStatus cause) __attribute__ ((noreturn));

@@ -1,10 +1,9 @@
-/* APPLE LOCAL file mainline */
 /* Negative test case for constant string layout.  */
 /* Contributed by Ziemowit Laski  <zlaski@apple.com>.  */
 
+/* APPLE LOCAL constant cfstrings */
 /* { dg-options "-fno-constant-cfstrings -fconstant-string-class=MyConstantString" } */
 /* { dg-do compile } */
-/* { dg-skip-if "" { *-*-darwin* } { "-m64" } { "" } } */
 
 @interface MyBase {
   char p;

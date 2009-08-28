@@ -85,6 +85,8 @@ setwins_almost=subdirs=`(cd $$wd; find . -type d -print)`; \
 
 doit:
 
+.NOTPARALLEL: # Avoid lisp autoload races
+
 $(lisp)/cus-load.el:
 	touch $@
 custom-deps: $(lisp)/subdirs.el $(lisp)/loaddefs.el $(lisp)/cus-load.el doit

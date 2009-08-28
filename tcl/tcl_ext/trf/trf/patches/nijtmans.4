@@ -1,0 +1,742 @@
+*** configure.in.orig	Wed Jan 15 09:46:42 1997
+--- configure.in	Wed Jan 15 09:48:08 1997
+***************
+*** 254,260 ****
+  	ZLIB_LIB_FILE=libz.a
+  	LIBDES_LIB_FILE=libdes.a
+  	;;
+! 	*) ;;
+      esac
+  
+      MAKE_ZLIB="${SHLIB_LD_ALL} -o ${ZLIB_LIB_FILE} \${ZLIB_OBJ} ${SHLIB_LD_LIBS}"
+--- 254,262 ----
+  	ZLIB_LIB_FILE=libz.a
+  	LIBDES_LIB_FILE=libdes.a
+  	;;
+! 	*)
+! 	SHLIB_LD_ALL="$SHLIB_LD"
+! 	;;
+      esac
+  
+      MAKE_ZLIB="${SHLIB_LD_ALL} -o ${ZLIB_LIB_FILE} \${ZLIB_OBJ} ${SHLIB_LD_LIBS}"
+*** registry.c.orig	Wed Jan 15 10:08:24 1997
+--- registry.c	Wed Jan 15 10:09:49 1997
+***************
+*** 680,686 ****
+  
+  	memcpy ((VOID*) buf, (VOID*) trans->result, toRead);
+  	if (trans->used > toRead) {
+! 	  memmove ((VOID*) trans->result, (VOID*) trans->result + toRead, toRead - trans->used);
+  	}
+  
+  	trans->used -= toRead;
+--- 680,686 ----
+  
+  	memcpy ((VOID*) buf, (VOID*) trans->result, toRead);
+  	if (trans->used > toRead) {
+! 	  memmove ((VOID*) trans->result, (VOID*) (trans->result + toRead), toRead - trans->used);
+  	}
+  
+  	trans->used -= toRead;
+*** digest.c.orig	Wed Jan 15 10:11:47 1997
+--- digest.c	Wed Jan 15 10:13:09 1997
+***************
+*** 671,677 ****
+        if ((c->charCount + bufLen) <= md->digest_size) {
+  	/* extend ring buffer */
+  
+! 	memcpy ( (VOID*) c->digest_buffer + c->charCount, (VOID*) buffer, bufLen);
+  	c->charCount += bufLen;
+        } else {
+  	/*
+--- 671,677 ----
+        if ((c->charCount + bufLen) <= md->digest_size) {
+  	/* extend ring buffer */
+  
+! 	memcpy ( (VOID*) (c->digest_buffer + c->charCount), (VOID*) buffer, bufLen);
+  	c->charCount += bufLen;
+        } else {
+  	/*
+*** cipher.c.orig	Tue Jan 14 18:48:47 1997
+--- cipher.c	Tue Jan 14 18:49:38 1997
+***************
+*** 34,40 ****
+   */
+  
+  static Trf_ControlBlock CreateEncoder  _ANSI_ARGS_ ((ClientData writeClientData,
+! 						     Trf_WriteProc fun,
+  						     Trf_Options optInfo,
+  						     Tcl_Interp*   interp,
+  						     ClientData clientData));
+--- 34,40 ----
+   */
+  
+  static Trf_ControlBlock CreateEncoder  _ANSI_ARGS_ ((ClientData writeClientData,
+! 						     Trf_WriteProc *fun,
+  						     Trf_Options optInfo,
+  						     Tcl_Interp*   interp,
+  						     ClientData clientData));
+***************
+*** 56,62 ****
+  
+  
+  static Trf_ControlBlock CreateDecoder  _ANSI_ARGS_ ((ClientData writeClientData,
+! 						     Trf_WriteProc fun,
+  						     Trf_Options optInfo,
+  						     Tcl_Interp*   interp,
+  						     ClientData clientData));
+--- 56,62 ----
+  
+  
+  static Trf_ControlBlock CreateDecoder  _ANSI_ARGS_ ((ClientData writeClientData,
+! 						     Trf_WriteProc *fun,
+  						     Trf_Options optInfo,
+  						     Tcl_Interp*   interp,
+  						     ClientData clientData));
+***************
+*** 196,202 ****
+  static Trf_ControlBlock
+  CreateEncoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData    clientData;
+--- 196,202 ----
+  static Trf_ControlBlock
+  CreateEncoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc *fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData    clientData;
+***************
+*** 401,407 ****
+  static Trf_ControlBlock
+  CreateDecoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData    clientData;
+--- 401,407 ----
+  static Trf_ControlBlock
+  CreateDecoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc *fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData    clientData;
+*** zip.c.orig	Tue Jan 14 19:06:06 1997
+--- zip.c	Tue Jan 14 19:06:37 1997
+***************
+*** 34,40 ****
+   */
+  
+  static Trf_ControlBlock CreateEncoder  _ANSI_ARGS_ ((ClientData writeClientData,
+! 						     Trf_WriteProc fun,
+  						     Trf_Options optInfo,
+  						     Tcl_Interp*   interp,
+  						     ClientData clientData));
+--- 34,40 ----
+   */
+  
+  static Trf_ControlBlock CreateEncoder  _ANSI_ARGS_ ((ClientData writeClientData,
+! 						     Trf_WriteProc *fun,
+  						     Trf_Options optInfo,
+  						     Tcl_Interp*   interp,
+  						     ClientData clientData));
+***************
+*** 55,61 ****
+  						     ClientData clientData));
+  
+  static Trf_ControlBlock CreateDecoder  _ANSI_ARGS_ ((ClientData writeClientData,
+! 						     Trf_WriteProc fun,
+  						     Trf_Options optInfo,
+  						     Tcl_Interp*   interp,
+  						     ClientData clientData));
+--- 55,61 ----
+  						     ClientData clientData));
+  
+  static Trf_ControlBlock CreateDecoder  _ANSI_ARGS_ ((ClientData writeClientData,
+! 						     Trf_WriteProc *fun,
+  						     Trf_Options optInfo,
+  						     Tcl_Interp*   interp,
+  						     ClientData clientData));
+***************
+*** 189,195 ****
+  static Trf_ControlBlock
+  CreateEncoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData clientData;
+--- 189,195 ----
+  static Trf_ControlBlock
+  CreateEncoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc *fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData clientData;
+***************
+*** 518,524 ****
+  static Trf_ControlBlock
+  CreateDecoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData clientData;
+--- 518,524 ----
+  static Trf_ControlBlock
+  CreateDecoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc *fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData clientData;
+*** blowfish/blowfish.c.orig	Tue Jan 14 18:57:02 1997
+--- blowfish/blowfish.c	Tue Jan 14 19:00:58 1997
+***************
+*** 33,41 ****
+  #endif
+  
+  /*inline*/ void
+! Blowfish_encipher (Blowfish_keyschedule* keyschedule,
+! 		   UWORD_32bits*         xl,
+! 		   UWORD_32bits*         xr)
+  {
+    union aword  Xl;
+    union aword  Xr;
+--- 33,42 ----
+  #endif
+  
+  /*inline*/ void
+! Blowfish_encipher (keyschedule, xl, xr)
+! 		   Blowfish_keyschedule* keyschedule;
+! 		   UWORD_32bits*         xl;
+! 		   UWORD_32bits*         xr;
+  {
+    union aword  Xl;
+    union aword  Xr;
+***************
+*** 60,68 ****
+  
+  
+  void
+! Blowfish_decipher (Blowfish_keyschedule* keyschedule,
+! 		   UWORD_32bits*         xl,
+! 		   UWORD_32bits*         xr)
+  {
+     union aword  Xl;
+     union aword  Xr;
+--- 61,70 ----
+  
+  
+  void
+! Blowfish_decipher (keyschedule, xl, xr)
+! 		   Blowfish_keyschedule* keyschedule;
+! 		   UWORD_32bits*         xl;
+! 		   UWORD_32bits*         xr;
+  {
+     union aword  Xl;
+     union aword  Xr;
+***************
+*** 88,96 ****
+  
+  /* FIXME: Blowfish_Initialize() ??? */
+  short
+! InitializeBlowfish (UBYTE_08bits          key [],
+! 		    short                 keybytes,
+! 		    Blowfish_keyschedule* keyschedule)
+  {
+    short          i;		/* FIXME: unsigned int, char? */
+    short          j;		/* FIXME: unsigned int, char? */
+--- 90,99 ----
+  
+  /* FIXME: Blowfish_Initialize() ??? */
+  short
+! InitializeBlowfish (key, keybytes, keyschedule)
+! 		    UBYTE_08bits          key [];
+! 		    short                 keybytes;
+! 		    Blowfish_keyschedule* keyschedule;
+  {
+    short          i;		/* FIXME: unsigned int, char? */
+    short          j;		/* FIXME: unsigned int, char? */
+*** blowfish/blowfish.h.orig	Tue Jan 14 18:55:31 1997
+--- blowfish/blowfish.h	Tue Jan 14 18:56:36 1997
+***************
+*** 113,130 ****
+  /* Encrypt the specified 64bit block with the given keyschedule.
+   */
+  
+  extern void
+! Blowfish_encipher (Blowfish_keyschedule* keyschedule,
+  		   UWORD_32bits*         xl,
+! 		   UWORD_32bits*         xr);
+  
+  /* Decrypt the specified 64bit block with the given keyschedule.
+   */
+  
+  extern void
+! Blowfish_decipher (Blowfish_keyschedule* keyschedule,
+  		   UWORD_32bits*         xl,
+! 		   UWORD_32bits*         xr);
+  
+  /* Use the specified key (key, keybytes) to initialize the
+   * keyschedule the last argument refers to.  The value of
+--- 113,132 ----
+  /* Encrypt the specified 64bit block with the given keyschedule.
+   */
+  
++ #include <tcl.h>
++ 
+  extern void
+! Blowfish_encipher _ANSI_ARGS_((Blowfish_keyschedule* keyschedule,
+  		   UWORD_32bits*         xl,
+! 		   UWORD_32bits*         xr));
+  
+  /* Decrypt the specified 64bit block with the given keyschedule.
+   */
+  
+  extern void
+! Blowfish_decipher _ANSI_ARGS_((Blowfish_keyschedule* keyschedule,
+  		   UWORD_32bits*         xl,
+! 		   UWORD_32bits*         xr));
+  
+  /* Use the specified key (key, keybytes) to initialize the
+   * keyschedule the last argument refers to.  The value of
+***************
+*** 132,139 ****
+   */
+  
+  extern short
+! InitializeBlowfish (unsigned char         key [],
+  		    short                 keybytes,
+! 		    Blowfish_keyschedule* keyschedule);
+  
+  #endif /* BLOWFISH_H */
+--- 134,141 ----
+   */
+  
+  extern short
+! InitializeBlowfish _ANSI_ARGS_((unsigned char         key [],
+  		    short                 keybytes,
+! 		    Blowfish_keyschedule* keyschedule));
+  
+  #endif /* BLOWFISH_H */
+*** haval/haval.c.orig	Tue Jan 14 18:35:55 1997
+--- haval/haval.c	Tue Jan 14 18:36:28 1997
+***************
+*** 607,613 ****
+  }
+  
+  /* tailor the last output */
+! static void haval_tailor (haval_state *state)
+  {
+  #if (FPTLEN != 224) && (FPTLEN != 256) /* aku, Sep 23, 1996, define temp only if necessary */
+    haval_word temp;
+--- 607,614 ----
+  }
+  
+  /* tailor the last output */
+! static void haval_tailor(state)
+!     haval_state *state;
+  {
+  #if (FPTLEN != 224) && (FPTLEN != 256) /* aku, Sep 23, 1996, define temp only if necessary */
+    haval_word temp;
+*** idea/idea.h.orig	Tue Jan 14 18:50:08 1997
+--- idea/idea.h	Tue Jan 14 18:54:47 1997
+***************
+*** 21,29 ****
+--- 21,32 ----
+  typedef unsigned short         u_int16; /* unsigned 16-bit integer (or larger)*/
+  typedef unsigned char           u_int8; /* unsigned 8-bit integer             */
+  
++ #include <tcl.h>
++ #ifdef _USING_PROTOTYPES_
+  #define ANSI_C                   /* If 'ANSI_C' is defined the preprocessed   */
+                                   /* source code is ANSI-C or C++ code, other- */
+                                   /* wise it is Kerninghan & Ritchie C code.   */
++ #endif
+  
+  /******************************************************************************/
+  /* It is possible to change this values.                                      */
+*** md5/md5.c.orig	Tue Jan 14 18:31:57 1997
+--- md5/md5.c	Tue Jan 14 18:35:20 1997
+***************
+*** 97,103 ****
+  /* The routine MD5Init initializes the message-digest context
+     mdContext. All fields are set to zero.
+   */
+! void MD5Init ( MD5_CTX *mdContext)
+  {
+    mdContext->i[0] = mdContext->i[1] = (UINT4)0;
+  
+--- 97,104 ----
+  /* The routine MD5Init initializes the message-digest context
+     mdContext. All fields are set to zero.
+   */
+! void MD5Init (mdContext)
+!     MD5_CTX *mdContext;
+  {
+    mdContext->i[0] = mdContext->i[1] = (UINT4)0;
+  
+***************
+*** 113,120 ****
+     account for the presence of each of the characters inBuf[0..inLen-1]
+     in the message whose digest is being computed.
+   */
+! void MD5Update (register MD5_CTX *mdContext, unsigned char *inBuf,
+! 		 unsigned int inLen)
+  {
+    register int i, ii;
+    int mdi;
+--- 114,123 ----
+     account for the presence of each of the characters inBuf[0..inLen-1]
+     in the message whose digest is being computed.
+   */
+! void MD5Update (mdContext, inBuf, inLen)
+!     register MD5_CTX *mdContext;
+!     unsigned char *inBuf;
+!     unsigned int inLen;
+  {
+    register int i, ii;
+    int mdi;
+***************
+*** 149,155 ****
+  /* The routine MD5Final terminates the message-digest computation and
+     ends with the desired message digest in mdContext->digest[0...15].
+   */
+! void MD5Final (unsigned char digest[16], MD5_CTX *mdContext)
+  {
+    UINT4 in[16];
+    int mdi;
+--- 152,160 ----
+  /* The routine MD5Final terminates the message-digest computation and
+     ends with the desired message digest in mdContext->digest[0...15].
+   */
+! void MD5Final (digest, mdContext)
+!     unsigned char digest[16];
+!     MD5_CTX *mdContext;
+  {
+    UINT4 in[16];
+    int mdi;
+***************
+*** 188,194 ****
+     Constants are arranged backwards in little-endian order and decrypted with
+     the DES they produce OCCULT MESSAGES!
+   */
+! void Transform(register UINT4 *buf,register UINT4 *in)
+  {
+    register UINT4 a = buf[0], b = buf[1], c = buf[2], d = buf[3];
+  
+--- 193,201 ----
+     Constants are arranged backwards in little-endian order and decrypted with
+     the DES they produce OCCULT MESSAGES!
+   */
+! void Transform(buf, in)
+!     register UINT4 *buf;
+!     register UINT4 *in;
+  {
+    register UINT4 a = buf[0], b = buf[1], c = buf[2], d = buf[3];
+  
+*** md5/md5.h.orig	Tue Jan 14 18:32:16 1997
+--- md5/md5.h	Tue Jan 14 18:33:31 1997
+***************
+*** 62,70 ****
+    unsigned char in[64];                              /* input buffer */
+  } MD5_CTX;
+  
+! void MD5Init(MD5_CTX *mdContext);
+! void MD5Update(MD5_CTX *mdContext, unsigned char *bug, unsigned int len);
+! void MD5Final(unsigned char digest[16], MD5_CTX *mdContext);
+! void Transform(UINT4 *buf, UINT4 *in);
+  
+  #endif
+--- 62,72 ----
+    unsigned char in[64];                              /* input buffer */
+  } MD5_CTX;
+  
+! #include <tcl.h>
+  
++ void MD5Init _ANSI_ARGS_((MD5_CTX *mdContext));
++ void MD5Update _ANSI_ARGS_((MD5_CTX *mdContext, unsigned char *bug, unsigned int len));
++ void MD5Final _ANSI_ARGS_((unsigned char digest[16], MD5_CTX *mdContext));
++ void Transform _ANSI_ARGS_((UINT4 *buf, UINT4 *in));
++ 
+  #endif
+*** rc4/rc4.c.orig	Tue Jan 14 19:03:37 1997
+--- rc4/rc4.c	Tue Jan 14 19:05:37 1997
+***************
+*** 9,21 ****
+  #include "rc4.h"
+  
+  static void
+! swap_byte (unsigned char* a,
+! 	   unsigned char* b);
+  
+  void
+! rc4_prepare_key (unsigned char* key_data_ptr,
+! 		 int            key_data_len,
+! 		 rc4_key*       key)
+  {
+    /*  unsigned char  swapByte; -- not used, aku, Sep 26, 1996 */
+    unsigned char  index1;
+--- 9,22 ----
+  #include "rc4.h"
+  
+  static void
+! swap_byte _ANSI_ARGS_((unsigned char* a,
+! 	   unsigned char* b));
+  
+  void
+! rc4_prepare_key (key_data_ptr, key_data_len, key)
+! 		 unsigned char* key_data_ptr;
+! 		 int            key_data_len;
+! 		 rc4_key*       key;
+  {
+    /*  unsigned char  swapByte; -- not used, aku, Sep 26, 1996 */
+    unsigned char  index1;
+***************
+*** 47,55 ****
+  
+  
+  void
+! rc4_crypt (unsigned char* buffer_ptr,
+! 	   int            buffer_len,
+! 	   rc4_key*       key)
+  {
+    unsigned char  x;
+    unsigned char  y;
+--- 48,57 ----
+  
+  
+  void
+! rc4_crypt (buffer_ptr, buffer_len, key)
+! 	   unsigned char* buffer_ptr;
+! 	   int            buffer_len;
+! 	   rc4_key*       key;
+  {
+    unsigned char  x;
+    unsigned char  y;
+***************
+*** 81,88 ****
+  
+  
+  static void
+! swap_byte (unsigned char* a,
+! 	   unsigned char* b)
+  {
+    unsigned char swapByte;
+  
+--- 83,91 ----
+  
+  
+  static void
+! swap_byte (a,b)
+! 	   unsigned char* a;
+! 	   unsigned char* b;
+  {
+    unsigned char swapByte;
+  
+*** rc4/rc4.h.orig	Tue Jan 14 19:02:08 1997
+--- rc4/rc4.h	Tue Jan 14 19:02:55 1997
+***************
+*** 16,30 ****
+       unsigned char y;
+  } rc4_key;
+  
+  
+  void
+! rc4_prepare_key (unsigned char* key_data_ptr,
+  		 int            key_data_len,
+! 		 rc4_key*       key);
+  
+  void
+! rc4_crypt (unsigned char* buffer_ptr,
+  	   int            buffer_len,
+! 	   rc4_key*       key);
+     
+  #endif /* RC4_H */
+--- 16,31 ----
+       unsigned char y;
+  } rc4_key;
+  
++ #include <tcl.h>
+  
+  void
+! rc4_prepare_key _ANSI_ARGS_((unsigned char* key_data_ptr,
+  		 int            key_data_len,
+! 		 rc4_key*       key));
+  
+  void
+! rc4_crypt _ANSI_ARGS_((unsigned char* buffer_ptr,
+  	   int            buffer_len,
+! 	   rc4_key*       key));
+     
+  #endif /* RC4_H */
+*** sha/sha.c.orig	Tue Jan 14 18:37:03 1997
+--- sha/sha.c	Tue Jan 14 18:41:01 1997
+***************
+*** 35,41 ****
+  
+  /* do SHA transformation */
+  
+! static void sha_transform(SHA_INFO *sha_info)
+  {
+      int i;
+      LONG temp, A, B, C, D, E, W[80];
+--- 35,42 ----
+  
+  /* do SHA transformation */
+  
+! static void sha_transform(sha_info)
+!     SHA_INFO *sha_info;
+  {
+      int i;
+      LONG temp, A, B, C, D, E, W[80];
+***************
+*** 99,105 ****
+  
+  /* change endianness of data */
+  
+! static void byte_reverse(LONG *buffer, int count)
+  {
+      int i;
+      BYTE ct[4], *cp;
+--- 100,108 ----
+  
+  /* change endianness of data */
+  
+! static void byte_reverse(buffer, count)
+!     LONG *buffer;
+!     int count;
+  {
+      int i;
+      BYTE ct[4], *cp;
+***************
+*** 123,129 ****
+  
+  /* initialize the SHA digest */
+  
+! void sha_init(SHA_INFO *sha_info)
+  {
+      sha_info->digest[0] = 0x67452301L;
+      sha_info->digest[1] = 0xefcdab89L;
+--- 126,133 ----
+  
+  /* initialize the SHA digest */
+  
+! void sha_init(sha_info)
+!     SHA_INFO *sha_info;
+  {
+      sha_info->digest[0] = 0x67452301L;
+      sha_info->digest[1] = 0xefcdab89L;
+***************
+*** 136,142 ****
+  
+  /* update the SHA digest */
+  
+! void sha_update(SHA_INFO *sha_info, BYTE *buffer, int count)
+  {
+      if ((sha_info->count_lo + ((LONG) count << 3)) < sha_info->count_lo) {
+  	++sha_info->count_hi;
+--- 140,149 ----
+  
+  /* update the SHA digest */
+  
+! void sha_update(sha_info, buffer, count)
+!     SHA_INFO *sha_info;
+!     BYTE *buffer;
+!     int count;
+  {
+      if ((sha_info->count_lo + ((LONG) count << 3)) < sha_info->count_lo) {
+  	++sha_info->count_hi;
+***************
+*** 157,163 ****
+  
+  /* finish computing the SHA digest */
+  
+! void sha_final(SHA_INFO *sha_info)
+  {
+      int count;
+      LONG lo_bit_count, hi_bit_count;
+--- 164,171 ----
+  
+  /* finish computing the SHA digest */
+  
+! void sha_final(sha_info)
+!     SHA_INFO *sha_info;
+  {
+      int count;
+      LONG lo_bit_count, hi_bit_count;
+***************
+*** 188,194 ****
+  
+  #define BLOCK_SIZE	8192
+  
+! void sha_stream(SHA_INFO *sha_info, FILE *fin)
+  {
+      int i;
+      BYTE data[BLOCK_SIZE];
+--- 196,204 ----
+  
+  #define BLOCK_SIZE	8192
+  
+! void sha_stream(sha_info, fin)
+!     SHA_INFO *sha_info;
+!     FILE *fin;
+  {
+      int i;
+      BYTE data[BLOCK_SIZE];
+***************
+*** 202,208 ****
+  
+  /* print a SHA digest */
+  
+! void sha_print(SHA_INFO *sha_info)
+  {
+      printf("%08lx %08lx %08lx %08lx %08lx\n",
+  	sha_info->digest[0], sha_info->digest[1], sha_info->digest[2],
+--- 212,219 ----
+  
+  /* print a SHA digest */
+  
+! void sha_print(sha_info)
+!     SHA_INFO *sha_info;
+  {
+      printf("%08lx %08lx %08lx %08lx %08lx\n",
+  	sha_info->digest[0], sha_info->digest[1], sha_info->digest[2],
+*** sha/sha.h.orig	Tue Jan 14 18:37:13 1997
+--- sha/sha.h	Tue Jan 14 18:38:13 1997
+***************
+*** 18,28 ****
+      LONG data[16];		/* SHA data buffer */
+  } SHA_INFO;
+  
+! void sha_init(SHA_INFO *);
+! void sha_update(SHA_INFO *, BYTE *, int);
+! void sha_final(SHA_INFO *);
+  
+! void sha_stream(SHA_INFO *, FILE *);
+! void sha_print(SHA_INFO *);
+  
+  #endif /* SHA_H */
+--- 18,30 ----
+      LONG data[16];		/* SHA data buffer */
+  } SHA_INFO;
+  
+! #include <tcl.h>
+  
+! void sha_init _ANSI_ARGS_((SHA_INFO *));
+! void sha_update _ANSI_ARGS_((SHA_INFO *, BYTE *, int));
+! void sha_final _ANSI_ARGS_((SHA_INFO *));
+  
++ void sha_stream _ANSI_ARGS_((SHA_INFO *, FILE *));
++ void sha_print _ANSI_ARGS_((SHA_INFO *));
++ 
+  #endif /* SHA_H */
+

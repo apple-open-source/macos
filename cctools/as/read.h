@@ -46,12 +46,16 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
  */
 typedef struct {
     char *poc_name;	/* assembler mnemonic, lower case, no '.' */
-    void (*poc_handler)(int poc_val);	/* Do the work */
-    int  poc_val;	/* Value to pass to handler */
+    void (*poc_handler)(uintptr_t poc_val);	/* Do the work */
+    uintptr_t  poc_val;	/* Value to pass to handler */
 } pseudo_typeS;
 
 extern char *input_line_pointer; /* -> char we are parsing now. */
 extern char *buffer_limit;	 /* -> 1 + last char in buffer. */
+
+/* FROM line 60 */
+extern int target_big_endian;
+
 extern
 #ifndef PPC
 const
@@ -59,7 +63,16 @@ const
 char lex_type[];
 extern char is_end_of_line(
     int c);
-extern unsigned long text_nsect;
+extern uint32_t text_nsect;
+
+/*
+ * These variable are set with .inlineasmstart and used when reporting errors
+ * for the properties of GCC function-scope inline asms.
+ */
+extern int inlineasm_checks;
+extern char *inlineasm_file_name;
+extern int inlineasm_line_number;
+extern int inlineasm_column_number;
 
 extern void read_begin(
     void);
@@ -71,6 +84,8 @@ void read_a_source_file(
     char *buffer);
 extern signed_target_addr_t get_absolute_expression(
     void);
+extern char *demand_copy_C_string(
+    int *len_pointer);
 extern void demand_empty_rest_of_line(
     void);
 extern void ignore_rest_of_line(
@@ -84,25 +99,36 @@ extern void totally_ignore_line(
 
 /* globally known pseudo-op functions (used by some assemblers in MACHINE.c) */
 extern void stringer(
-    int append_zero);
+    uintptr_t append_zero);
 extern void s_space(
-    int value);
+    uintptr_t value);
 extern void s_abs(
-    int value);
+    uintptr_t value);
 extern void float_cons(
-    int float_type);
+    uintptr_t float_type);
 extern void cons(
-    int nbytes);
+    uintptr_t nbytes);
 extern void s_globl(
-    int value);
+    uintptr_t value);
+void s_app_file(
+    uintptr_t value);
 extern void s_ignore(
-    int arg);
+    uintptr_t arg);
 extern void s_line(
-    int value);
+    uintptr_t value);
 extern void s_macro(
-    int value);
+    uintptr_t value);
 extern void s_endmacro(
-    int value);
+    uintptr_t value);
 extern void big_cons(
-    int nbytes);
+    uintptr_t nbytes);
+extern void pseudo_set(
+    symbolS *symbolP);
+extern int output_leb128(
+    char *p,
+    valueT value,
+    int sign);
+extern int sizeof_leb128(
+    valueT value,
+    int sign);
 #endif /* _READ_H_ */

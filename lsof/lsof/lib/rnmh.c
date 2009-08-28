@@ -38,7 +38,7 @@
 # if	!defined(lint)
 static char copyright[] =
 "@(#) Copyright 1997 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: rnmh.c,v 1.11 2005/08/08 19:42:23 abe Exp abe $";
+static char *rcsid = "$Id: rnmh.c,v 1.13 2008/10/21 16:13:23 abe Exp $";
 # endif	/* !defined(lint) */
 
 #include "../lsof.h"
@@ -739,5 +739,5 @@ ncache_lookup(buf, blen, fp)
 	return(cp);
 }
 #else	/* !defined(HASNCACHE) || !defined(USE_LIB_RNMH) */
-static char d1[] = "d"; static char *d2 = d1;
+char rnmh_d1[] = "d"; char *rnmh_d2 = rnmh_d1;
 #endif	/* defined(HASNCACHE) && defined(USE_LIB_RNMH) */

@@ -69,6 +69,9 @@ BUILDING
     make test TEST_VERBOSE=1   (if any of the t/* tests fail)
     make install (if the tests look okay)
 
+The perl you use to execute Makefile.PL should be the first one in your PATH.
+If you want to use some installed perl then modify your PATH to match.
+
 IF YOU HAVE PROBLEMS:
 
 First, carefully read the notes at the bottom of this file.
@@ -119,19 +122,26 @@ Tim Bunce.
 
 ---
 If you get an error like "gcc: command not found" or "cc: command not found"
-you need to install a compiler. But also read the next item:
+you need to either install a compiler, or you may be able to install a
+precompiled binary of DBI using a package manager (e.g., ppm for ActiveState,
+Synaptic for Ubuntu, port for FreeBSD etc) 
 
 ---
 If you get compiler errors refering to Perl's own header files
 (.../CORE/*.h) or the compiler complains about bad options etc then
-there is something wrong with your installation.  It is best to use a
-Perl that was built on the system you are trying to use and it's also
-important to use the same compiler that was used to build the Perl you
-are using.
+there is something wrong with your perl installation. If the compiler complains
+of missing files (.../perl.h: error: sys/types.h: No such file) then you may
+need to install extra packages for your operating system.
 
----
-If you get an error like "fatal: relocation error: symbol not found: ..."
-on Solaris when using gcc <3.x then try not using GNU as or GNU ld.
+Generally it's best to use a Perl that was built on the system you are trying
+to use and it's also important to use the same compiler that was used to build
+the Perl you are using.
+
+If you installed Perl using a binary distribution, such as ActiveState Perl,
+or if Perl came installed with the operating system you use, such as Debian or
+Ubuntu, then you may be able to install a precompiled binary of DBI using a
+package manager.  Check the package manager for your distribution of Perl (e.g.
+ppm for ActiveState) or for your operating system (e.g Synaptic for Ubuntu).
 
 ---
 If you get compiler warnings like "value computed is not used" and

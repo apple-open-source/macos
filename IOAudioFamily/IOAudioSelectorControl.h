@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2009 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -23,7 +23,11 @@
 #ifndef _IOKIT_IOAUDIOSELECTORCONTROL_H
 #define _IOKIT_IOAUDIOSELECTORCONTROL_H
 
+#ifndef IOAUDIOFAMILY_SELF_BUILD
 #include <IOKit/audio/IOAudioControl.h>
+#else
+#include "IOAudioControl.h"
+#endif
 
 class OSString;
 class OSArray;

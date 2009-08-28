@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2004,2007 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,7 +30,13 @@
 #ifndef _SECURITY_AUTHORIZATION_H_
 #define _SECURITY_AUTHORIZATION_H_
 
+#include <TargetConditionals.h>
+#if TARGET_OS_EMBEDDED
+#include <MacTypes.h>
+#else
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
+#endif
+
 #include <stdio.h>
 
 #if defined(__cplusplus)
@@ -73,10 +79,12 @@ extern "C" {
     The comments must not be multi-line, and should be in a form meaningful to an end user. If
     a different or additional comment is needed, it can be put in the header doc format, or on a
     line that does not start with errZZZ.
+
+    errAuthorizationSuccess can't include a string as it's also errSecSuccess in libsecurity_keychain/lib/SecBase.h
 */
 
 enum {
-	errAuthorizationSuccess                 = 0,      /* The operation completed successfully. */
+	errAuthorizationSuccess                 = 0,
 	errAuthorizationInvalidSet              = -60001, /* The authorization rights are invalid. */
 	errAuthorizationInvalidRef              = -60002, /* The authorization reference is invalid. */
 	errAuthorizationInvalidTag              = -60003, /* The authorization tag is invalid. */

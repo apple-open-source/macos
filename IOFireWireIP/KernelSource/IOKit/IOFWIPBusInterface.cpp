@@ -333,7 +333,7 @@ bool IOFWIPBusInterface::attachIOFireWireIP(IOFireWireIP *provider)
 		IOLog("IOFWIPBusInterface::attachIOFireWireIP - Couldn't createAsyncStreamListener\n");
 		return false;
 	}
-	
+
 	// Create pseudo address space
 	if ( createIPFifoAddress (kMaxPseudoAddressSize) != kIOReturnSuccess)
 	{
@@ -943,7 +943,7 @@ DRB *IOFWIPBusInterface::initDRBwithDevice(UWIDE eui64, IOFireWireNub *device, b
 	else
 		fIPLocalNode->getBytesFromGUID((void*)(&fwuid), drb->fwaddr, GUID_TYPE);
 		
-	drb->deviceID	= (UInt32)device;
+	drb->deviceID	= (void*)device;
 	drb->eui64		= eui64;
 	drb->itsMac		= itsMac;
 	drb->maxSpeed	= kFWSpeed100MBit;      
@@ -989,7 +989,7 @@ UInt32 IOFWIPBusInterface::outputPacket(mbuf_t pkt, void * param)
 			break;
 			
 		default :
-			fIPLocalNode->freePacket((struct mbuf*)pkt);
+			fIPLocalNode->freePacket(pkt);
 			break;
 	}
 
@@ -1004,7 +1004,7 @@ UInt32 IOFWIPBusInterface::outputPacket(mbuf_t pkt, void * param)
 			|| ((fIPLocalNode->fIPoFWDiagnostics.fActiveCmds - fIPLocalNode->fIPoFWDiagnostics.fInActiveCmds)  <= 1))
 		{
 			// So far, too many stalls. Sink the packets, till we have manageable queue
-			fIPLocalNode->freePacket((struct mbuf*)pkt);
+			fIPLocalNode->freePacket(pkt);
 			fIPLocalNode->networkStatAdd(&(fIPLocalNode->getNetStats())->outputErrors);
 			status = kIOReturnOutputDropped;
 		}
@@ -1144,8 +1144,8 @@ SInt32 IOFWIPBusInterface::txARP(mbuf_t m, UInt16 nodeID, UInt32 busGeneration, 
 	mbuf_t n = m;
 		
 	// Get the buffer pointer from the command pool
-	UInt8	*buf = (UInt8*)cmd->getBufferFromDesc();
-	UInt32	dstBufLen = cmd->getMaxBufLen();
+	UInt8	*buf		= (UInt8*)cmd->getBufferFromDesc();
+	UInt32	dstBufLen	= cmd->getMaxBufLen();
 	
 	UInt32	offset = sizeof(struct firewire_header);
 	UInt32	cmdLen = mbuf_pkthdr_len(m) - offset;
@@ -1187,7 +1187,7 @@ SInt32 IOFWIPBusInterface::txARP(mbuf_t m, UInt16 nodeID, UInt32 busGeneration, 
 	if(status != kIOReturnSuccess)
 		fIPLocalNode->networkStatAdd(&(fIPLocalNode->getNetStats())->outputErrors);
 	
-	fIPLocalNode->freePacket((struct mbuf*)m);
+	fIPLocalNode->freePacket(m);
 					
     IORecursiveLockUnlock(fIPLock);
 					
@@ -1214,7 +1214,7 @@ SInt32	IOFWIPBusInterface::txBroadcastIP(const mbuf_t m, UInt16 nodeID, UInt32 b
 	if (datagramSize + sizeof(IP1394_UNFRAG_HDR) > maxPayload)
 	{
 		fIPLocalNode->networkStatAdd(&(fIPLocalNode->getNetStats())->outputErrors);
-		fIPLocalNode->freePacket((struct mbuf*)m);
+		fIPLocalNode->freePacket(m);
 		return status;
 	}
 
@@ -1229,7 +1229,7 @@ SInt32	IOFWIPBusInterface::txBroadcastIP(const mbuf_t m, UInt16 nodeID, UInt32 b
 	if(asyncStreamCmd == NULL)
 	{
 		fIPLocalNode->networkStatAdd(&(fIPLocalNode->getNetStats())->outputErrors);
-		fIPLocalNode->freePacket((struct mbuf*)m);
+		fIPLocalNode->freePacket(m);
 		fIPLocalNode->fIPoFWDiagnostics.fNoBCastCommands++;
 		return status;
 	}
@@ -1278,7 +1278,7 @@ SInt32	IOFWIPBusInterface::txBroadcastIP(const mbuf_t m, UInt16 nodeID, UInt32 b
 	if(status != kIOReturnSuccess)
 		fIPLocalNode->networkStatAdd(&(fIPLocalNode->getNetStats())->outputErrors);
 	
-	fIPLocalNode->freePacket((struct mbuf*)m);
+	fIPLocalNode->freePacket(m);
 
     IORecursiveLockUnlock(fIPLock);
 
@@ -1295,7 +1295,7 @@ SInt32 IOFWIPBusInterface::txUnicastUnFragmented(IOFireWireNub *device, const FW
 
 	if( not mBufCommand )
 	{
-		fIPLocalNode->freePacket((struct mbuf*)m);
+		fIPLocalNode->freePacket(m);
 		fIPLocalNode->networkStatAdd(&(fIPLocalNode->getNetStats())->outputErrors);
 		return status;
 	}
@@ -1343,7 +1343,7 @@ SInt32 IOFWIPBusInterface::txUnicastFragmented(IOFireWireNub *device, const FWAd
 
 	if( not mBufCommand )
 	{
-		fIPLocalNode->freePacket((struct mbuf*)m);
+		fIPLocalNode->freePacket(m);
 		fIPLocalNode->networkStatAdd(&(fIPLocalNode->getNetStats())->outputErrors);
 		return status;
 	}
@@ -1419,7 +1419,7 @@ SInt32 IOFWIPBusInterface::txUnicastIP(mbuf_t m, UInt16 nodeID, UInt32 busGenera
 	
 	if(arb == NULL)
 	{
-		fIPLocalNode->freePacket((struct mbuf*)m);
+		fIPLocalNode->freePacket(m);
 		fIPLocalNode->networkStatAdd(&(fIPLocalNode->getNetStats())->outputErrors);
 		IORecursiveLockUnlock(fIPLock);
 		return status;
@@ -1431,7 +1431,7 @@ SInt32 IOFWIPBusInterface::txUnicastIP(mbuf_t m, UInt16 nodeID, UInt32 busGenera
 	// Node had disappeared, but entry exists for specified timer value
 	if(device == NULL) 
 	{
-		fIPLocalNode->freePacket((struct mbuf*)m);
+		fIPLocalNode->freePacket(m);
 		fIPLocalNode->networkStatAdd(&(fIPLocalNode->getNetStats())->outputErrors);
 		IORecursiveLockUnlock(fIPLock);
 		return status;
@@ -1487,7 +1487,7 @@ SInt32 IOFWIPBusInterface::txIP(mbuf_t m, UInt16 nodeID, UInt32 busGeneration, U
 	// If its not a packet header
 	if(not (mbuf_flags(m) & M_PKTHDR))
 	{
-		fIPLocalNode->freePacket((struct mbuf*)m);
+		fIPLocalNode->freePacket(m);
 		fIPLocalNode->networkStatAdd(&(fIPLocalNode->getNetStats())->outputErrors);
 		return kIOReturnError;
 	}
@@ -1672,7 +1672,7 @@ UInt32 IOFWIPBusInterface::rxUnicast( void		*refcon,
 	// Handle the unfragmented packet
 	if (lf == UNFRAGMENTED) 
 	{
-		void	*datagram		= (void *) ((UInt32) ip1394Hdr + sizeof(IP1394_UNFRAG_HDR));
+		void	*datagram		= (void *) ((UInt64) ip1394Hdr + sizeof(IP1394_UNFRAG_HDR));
 		UInt16	datagramSize	= len - sizeof(IP1394_UNFRAG_HDR);
 		UInt16	type			= ntohs(ip1394Hdr->etherType);
 
@@ -1711,7 +1711,7 @@ UInt32 IOFWIPBusInterface::rxUnicast( void		*refcon,
 IOReturn IOFWIPBusInterface::rxFragmentedUnicast(UInt16 nodeID, IP1394_FRAG_HDR *pkt, UInt32 len)
 {
 	IP1394_FRAG_HDR *fragmentHdr	= (IP1394_FRAG_HDR*) pkt;  // Different header layout
-	void			*fragment		= (void *) ((UInt32) fragmentHdr + sizeof(IP1394_FRAG_HDR));
+	void			*fragment		= (void *) ((UInt64) fragmentHdr + sizeof(IP1394_FRAG_HDR));
 	UInt16			fragmentSize	= len - sizeof(IP1394_FRAG_HDR);
 	
 	UInt8	lf				= htons(fragmentHdr->datagramSize) >> 14;
@@ -1744,7 +1744,7 @@ IOReturn IOFWIPBusInterface::rxFragmentedUnicast(UInt16 nodeID, IP1394_FRAG_HDR 
 			{
 				fIPLocalNode->fIPoFWDiagnostics.fNoRCBCommands++;
 				cleanRCBCache();
-				fIPLocalNode->freePacket((struct mbuf*)rxMBuf, 0);
+				fIPLocalNode->freePacket(rxMBuf, 0);
 				return kIOReturnError;
 			}
 		 
@@ -1786,7 +1786,7 @@ IOReturn IOFWIPBusInterface::rxFragmentedUnicast(UInt16 nodeID, IP1394_FRAG_HDR 
 					fIPLocalNode->receivePackets (rcb->mBuf, mbuf_pkthdr_len(rcb->mBuf), false);
 				else
 				{
-					fIPLocalNode->freePacket((struct mbuf*)rcb->mBuf, 0); 
+					fIPLocalNode->freePacket(rcb->mBuf, 0); 
 					result = kIOReturnError;
 				}
 
@@ -1864,11 +1864,12 @@ void IOFWIPBusInterface::rxAsyncStream(void	*refCon, const void	*buffer)
 		return;
     }
    
-   datagram = (void *) ((UInt32) buffer + sizeof(GASP));
+   datagram = (void *) ((UInt64) buffer + sizeof(GASP));
    datagramSize = gasp->dataLength - (sizeof(GASP_HDR) + sizeof(IP1394_UNFRAG_HDR));
    type = ntohs(gasp->ip1394Hdr.etherType);
-	//IOLog("   Ether type 0x%04X (data length %d)\n\r",htons(gasp->ip1394Hdr.etherType), datagramSize);
-   
+
+   //IOLog("   Ether type 0x%04X (data length %d)\n\r",htons(gasp->ip1394Hdr.etherType), datagramSize);
+
 	switch (type) {
 		case FWTYPE_IPV6:
 		case FWTYPE_IP:
@@ -2025,9 +2026,10 @@ void IOFWIPBusInterface::rxMCAP(LCB *lcb, UInt16 mcapSourceID, IP1394_MCAP *mcap
 			}
 		}
 		dataSize -= MIN(groupDescr->length, dataSize);
-		groupDescr = (MCAST_DESCR*)((UInt32) groupDescr + groupDescr->length);
+		groupDescr = (MCAST_DESCR*)((UInt64)groupDescr + groupDescr->length);
 	}
 }
+
 
 /*!
 	@function rxIP
@@ -2085,7 +2087,7 @@ IOReturn IOFWIPBusInterface::rxIP(void *pkt, UInt32 len, UInt32 flags, UInt16 ty
         else
         {
             if(rxMBuf != NULL)
-                fIPLocalNode->freePacket((struct mbuf*)rxMBuf, 0);
+                fIPLocalNode->freePacket(rxMBuf, 0);
 
             fIPLocalNode->networkStatAdd(&(fIPLocalNode->getNetStats())->inputErrors);
         }
@@ -2668,7 +2670,7 @@ ARB *IOFWIPBusInterface::updateARBwithDevice(IOFireWireNub *device, UWIDE eui64)
 	// Update the device object in the address resolution block used in the ARP resolve routine
 	if(arb != NULL)
 	{
-		arb->handle.unicast.deviceID	= (UInt32)device;
+		arb->handle.unicast.deviceID	= device;
 		arb->handle.unicast.maxRec		= device->maxPackLog(true); 
 		arb->handle.unicast.spd			= device->FWSpeed();
 		arb->itsMac = false;
@@ -2718,7 +2720,7 @@ void IOFWIPBusInterface::cleanRCBCache()
     @param itsMac - destination is Mac or not.
 	@result Returns IOFireWireNub if successfull else 0.
 */
-UInt32 IOFWIPBusInterface::getDeviceID(UWIDE eui64, bool *itsMac) {  
+void* IOFWIPBusInterface::getDeviceID(UWIDE eui64, bool *itsMac) {  
 
     // Returns DRB if EUI-64 matches
     DRB *drb = getDrbFromEui64(eui64);   
@@ -2792,7 +2794,7 @@ void IOFWIPBusInterface::releaseRCB(RCB *rcb, bool freeMbuf)
 
 	if(freeMbuf && rcb->mBuf != NULL)
 	{
-		fIPLocalNode->freePacket((struct mbuf*)rcb->mBuf, 0);
+		fIPLocalNode->freePacket(rcb->mBuf, 0);
 		rcb->mBuf = NULL;
 	}
 	activeRcb->removeObject(rcb);
@@ -2982,10 +2984,10 @@ ARB *IOFWIPBusInterface::getARBFromEui64(UWIDE eui64)
 		{
 			if (arb->eui64.hi == eui64.hi && arb->eui64.lo == eui64.lo)
 				break;
-	    }
+		}
 	   
 		iterator->release();
-		
+	
 		if(arb == NULL)
 		{
 			// Create a new entry if it does not exist
@@ -2998,7 +3000,7 @@ ARB *IOFWIPBusInterface::getARBFromEui64(UWIDE eui64)
 			unicastArb->setObject(arb);  
 		}
 	}
-	
+   
     IORecursiveLockUnlock(fIPLock);
 	
     return(arb);
@@ -3106,7 +3108,7 @@ DRB *IOFWIPBusInterface::getDrbFromDeviceID(void *deviceID)
 	if( iterator )
 	{
 		while( NULL != (drb = OSDynamicCast(DRB, iterator->getNextObject())) )
-			if (drb->deviceID == (UInt32)deviceID)
+			if (drb->deviceID == deviceID)
 				break;
 				
 		iterator->release();
@@ -3250,7 +3252,7 @@ void IOFWIPMBufCommand::releaseWithStatus(IOReturn status)
 			if( fMbuf && (fStatus != kIOFireWireOutOfTLabels) )
 			{
 				fIPLocalNode->fIPoFWDiagnostics.inActiveMbufs++;
-				fIPLocalNode->freePacket((struct mbuf*)fMbuf);
+				fIPLocalNode->freePacket(fMbuf);
 				fMbuf = NULL;
 			}
 			fIPLocalNode = NULL;
@@ -3294,10 +3296,10 @@ static mbuf_t getPacket( UInt32 size,
 		
 		while(size && m)
 		{
-			vm_address_t alignedStart, originalStart;
+			uintptr_t alignedStart, originalStart;
 			
-			originalStart = (vm_address_t)mbuf_data(m);
-			alignedStart = (originalStart + smask) & ~smask;
+			originalStart = (uintptr_t)mbuf_data(m);
+			alignedStart = (originalStart + smask) & ~((uintptr_t)smask);
 			mbuf_setdata(m,  (caddr_t)alignedStart, (mbuf_maxlen(m) - (alignedStart - originalStart)) & ~lmask);
 			
 			if(mbuf_len(m) > size)
@@ -3306,9 +3308,6 @@ static mbuf_t getPacket( UInt32 size,
 			size -= mbuf_len(m);
 			m = mbuf_next(m);
 		}
-		
-		// mbuf_settype(packet, MBUF_TYPE_PCB);
-				
 		return packet;
 	}
 	else
@@ -3383,6 +3382,7 @@ bool IOFWIPBusInterface::bufferToMbuf(mbuf_t m,
 	// Get the source
 	mbuf_t srcm = m; 
 	SInt32 srcLen = mbuf_len(srcm);
+
     vm_address_t src = (vm_offset_t)mbuf_data(srcm);
 
 	// Mbuf manipulated to point at the correct offset
@@ -3400,7 +3400,6 @@ bool IOFWIPBusInterface::bufferToMbuf(mbuf_t m,
     for (;;) {
 	
         if (srcLen < dstLen) {
-
             // Copy remainder of buffer to current mbuf upto m_len.
             BCOPY(dst, src, srcLen);
             dst += srcLen;

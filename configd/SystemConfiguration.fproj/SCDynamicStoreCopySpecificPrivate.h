@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2005, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,6 +24,7 @@
 #ifndef _SCDYNAMICSTORECOPYSPECIFICPRIVATE_H
 #define _SCDYNAMICSTORECOPYSPECIFICPRIVATE_H
 
+#include <Availability.h>
 #include <sys/cdefs.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SCDynamicStore.h>
@@ -41,14 +42,22 @@ __BEGIN_DECLS
 /*
  * Predefined keys for the console session dictionaries
  */
-extern const CFStringRef kSCConsoleSessionID;			/* value is CFNumber */
-extern const CFStringRef kSCConsoleSessionUserName;		/* value is CFString */
-extern const CFStringRef kSCConsoleSessionUID;			/* value is CFNumber (a uid_t) */
-extern const CFStringRef kSCConsoleSessionConsoleSet;		/* value is CFNumber */
-extern const CFStringRef kSCConsoleSessionOnConsole;		/* value is CFBoolean */
-extern const CFStringRef kSCConsoleSessionLoginDone;		/* value is CFBoolean */
-extern const CFStringRef kSCConsoleSessionSystemSafeBoot;	/* value is CFBoolean */
-extern const CFStringRef kSCConsoleSessionLoginwindowSafeLogin;	/* value is CFBoolean */
+extern const CFStringRef kSCConsoleSessionID			/* value is CFNumber */
+		__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_NA);
+extern const CFStringRef kSCConsoleSessionUserName		/* value is CFString */
+		__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_NA);
+extern const CFStringRef kSCConsoleSessionUID			/* value is CFNumber (a uid_t) */
+		__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_NA);
+extern const CFStringRef kSCConsoleSessionConsoleSet		/* value is CFNumber */
+		__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_NA);
+extern const CFStringRef kSCConsoleSessionOnConsole		/* value is CFBoolean */
+		__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_NA);
+extern const CFStringRef kSCConsoleSessionLoginDone		/* value is CFBoolean */
+		__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_NA);
+extern const CFStringRef kSCConsoleSessionSystemSafeBoot	/* value is CFBoolean */
+		__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_NA);
+extern const CFStringRef kSCConsoleSessionLoginwindowSafeLogin	/* value is CFBoolean */
+		__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_NA);
 
 /*!
 	@function SCDynamicStoreCopyConsoleInformation
@@ -68,7 +77,7 @@ extern const CFStringRef kSCConsoleSessionLoginwindowSafeLogin;	/* value is CFBo
 CFArrayRef
 SCDynamicStoreCopyConsoleInformation	(
 					SCDynamicStoreRef	store
-					);
+					)			__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_NA);
 
 
 __END_DECLS

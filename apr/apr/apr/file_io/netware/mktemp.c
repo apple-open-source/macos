@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -41,8 +41,12 @@ APR_DECLARE(apr_status_t) apr_file_mktemp(apr_file_t **fp, char *template, apr_i
     if ((rv = apr_file_open(fp, template, flags|APR_FILE_NOCLEANUP,
                             APR_UREAD | APR_UWRITE, p)) == APR_SUCCESS) {
 
-        apr_pool_cleanup_register((*fp)->pool, (void *)(*fp),
-                                  apr_unix_file_cleanup, apr_unix_file_cleanup);
+
+	if (!(flags & APR_FILE_NOCLEANUP)) {
+	    apr_pool_cleanup_register((*fp)->pool, (void *)(*fp),
+				      apr_unix_file_cleanup,
+				      apr_unix_child_file_cleanup);
+	}
     }
 
     return rv;

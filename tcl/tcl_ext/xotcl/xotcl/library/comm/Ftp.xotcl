@@ -1,0 +1,175 @@
+# $Id: Ftp.xotcl,v 1.3 2005/09/09 21:09:01 neumann Exp $
+
+package provide xotcl::comm::ftp 0.9
+package require xotcl::comm::httpAccess
+
+package require XOTcl
+
+namespace eval ::xotcl::comm::ftp {
+    namespace import ::xotcl::*
+
+    Class Ftp -superclass NetAccess -parameter {user passwd}
+    Ftp instproc initialize args {
+	#my showCall
+	my instvar port caching user passwd loginMsg resp blocksize
+	set port 21
+	set blocksize 1024
+	set caching 0
+	set user ftp
+	set passwd cineast@
+	set loginMsg {}
+	set resp(connect)       {220 provideUser}
+	set resp(provideUser)   {331 providePasswd}
+	set resp(providePasswd) {230 loginFinished}
+	set resp(loginFinished) {227 pasv}
+	set resp(pasv)          {200 type}
+	set resp(type-list)     {150 list}
+	set resp(type-retr)     {150 retr 550 retry-retrieve}
+	set resp(transfer)      {226 transferDone}
+	next
+    }
+    Ftp instproc err {state reply} {
+	my abort "Error in $state: $reply"
+    }
+    Ftp instproc queryServer {query state} {
+	my instvar S
+	puts $S $query
+	flush $S
+	fileevent $S readable [::list [self] response $state]
+    }
+    Ftp instproc response {state} {
+	#my showCall
+	my instvar S code msg
+	set reply [gets $S]
+	#my showVars reply
+	if {[regexp {^([0-9]+)[-](.*)$} $reply _ code msg]} {
+	    fileevent $S readable [::list [self] responseMulti $state]
+	} else {
+	    regexp {^([0-9]+) (.*)$} $reply _ code msg 
+	    my responseEnd $state
+	}
+    }
+    Ftp instproc responseMulti {state} {
+	# multi line response
+	my instvar S code msg 
+	set m [gets $S]
+	if {[regexp "^$code " $m]} { 
+	    my responseEnd $state
+	} else {
+	    # try to strip code and dash
+	    regexp "^$code-(.*)\$" $m _ m
+	    append msg \n$m
+	}
+    }
+    Ftp instproc responseEnd {state} {
+	my instvar S code msg resp
+	fileevent $S readable {}
+	#puts stderr "code=$code, msg=<$msg>"
+	foreach {c newState} $resp($state) {
+	    if {$c == $code} { return [my $newState] }
+	}
+	my err $state "expected=$resp($state), got $code $msg"
+    }
+    Ftp instproc GET {} {
+	my instvar S  host port url
+	regexp {^(.*):([0-9]+)$} $host _ host port
+	my running
+	# rb running my $url ;# ???
+	# proxy ?
+	set S [socket -async $host $port]
+	fconfigure $S -blocking false -translation {auto crlf}
+	fileevent $S readable [::list [self] response connect]
+    }
+    Ftp instproc provideUser {} {
+	my instvar user msg loginMsg
+	set loginMsg $msg
+	my queryServer "USER $user" provideUser
+    }
+    Ftp instproc providePasswd {} {
+	my instvar passwd
+	#  if {[pwdManager requirePasswd "Ftp $user\@$host" $user password]} {
+	#    my queryServer "PASS $password" providePasswd
+	#  }
+	my queryServer "PASS $passwd" providePasswd
+    }
+    Ftp instproc loginFinished {} {  
+	my instvar msg loginMsg
+	append  loginMsg \n$msg
+	my queryServer "PASV" loginFinished
+    }
+    Ftp instproc pasv {} {
+	my instvar S D msg
+	set d {([0-9]+)}
+	if {[regexp "\[(]$d,$d,$d,$d,$d,$d" $msg _ 1 2 3 4 p1 p2]} {
+	    if {[catch {set D [socket -async $1.$2.$3.$4 [expr {$p1*256 + $p2}]]} err
+		]} {
+		return [my err $proc $err] 
+	    }
+	    fconfigure $D -blocking no -translation binary
+	} else {
+	    return [my err $proc $msg] 
+	}
+	my queryServer "TYPE I" pasv
+    }
+    Ftp instproc type {} {
+	my instvar path
+	if {$path=={}} {
+	    my queryServer "LIST" type-list
+	} elseif {[regexp /$ $path]} { 
+	    my queryServer "LIST $path" type-list
+	} else {
+	    my queryServer "RETR $path" type-retr
+	}
+    }
+    Ftp instproc retry-retrieve {} {
+	my instvar path url
+	append url /
+	my queryServer "LIST $path/" type-list
+    }
+    Ftp instproc list {} {
+	my instvar S D contentType
+	set contentType text/dirlist
+	my headerDone
+	fileevent $S readable [::list [self] response transfer]
+	fileevent $D readable [::list [self] readData]
+    }
+    Ftp instproc read {} {
+	# the method read is called by the more general method readData
+	my instvar D block blocksize
+	if {[::eof $D]} {
+	    set block ""
+	    close $D
+	    unset D
+	} else {
+	    #puts stderr blocksize=$blocksize
+	    set block [::read $D $blocksize]
+	    #puts stderr read:[string length $block]bytes
+	}
+    }
+    Ftp instproc transferDone {} {
+	my instvar D S
+	if {[info exists D]} {
+	    fileevent $S readable {}
+	    set block ""
+	    close $D
+	    unset D
+	} 
+	my finish
+    }
+    Ftp instproc retr {} {
+	my instvar S D msg totalsize contentType path
+	regexp {[(]([0-9]+)[ ]+[Bb]ytes} $msg _ totalsize
+	set contentType [Mime guessContentType $path]
+	my headerDone
+	if {[info exists S]} {
+	    # file dialog was not canceled
+	    fileevent $S readable [::list [self] response transfer]
+	    fileevent $D readable [::list [self] readData]
+	    fconfigure $D -translation binary
+	}
+    }
+
+    namespace export Ftp
+}
+
+namespace import ::xotcl::comm::ftp::*

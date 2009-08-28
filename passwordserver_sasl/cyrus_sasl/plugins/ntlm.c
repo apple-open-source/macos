@@ -74,6 +74,7 @@
 #endif /* WIN32 */
 
 #include <openssl/md4.h>
+#include <openssl/md5.h>
 #include <openssl/hmac.h>
 #include <openssl/des.h>
 #include <openssl/opensslv.h>

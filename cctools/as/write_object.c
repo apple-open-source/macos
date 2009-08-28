@@ -25,6 +25,9 @@
 #ifdef SPARC
 #include <mach-o/sparc/reloc.h>
 #endif
+#ifdef ARM
+#include <mach-o/arm/reloc.h>
+#endif
 #if defined(I386) && defined(ARCH64)
 #include <mach-o/x86_64/reloc.h>
 #endif
@@ -75,6 +78,11 @@
 #define RELOC_LOCAL_SECTDIFF	GENERIC_RELOC_LOCAL_SECTDIFF
 #define RELOC_PAIR		GENERIC_RELOC_PAIR
 #endif
+#ifdef ARM
+#define RELOC_SECTDIFF		ARM_RELOC_SECTDIFF
+#define RELOC_LOCAL_SECTDIFF	ARM_RELOC_SECTDIFF
+#define RELOC_PAIR		ARM_RELOC_PAIR
+#endif
 
 /*
  * These variables are set by layout_symbols() to organize the symbol table and
@@ -89,32 +97,32 @@
  *	strings for local symbols
  */
 /* index to and number of local symbols */
-static unsigned long ilocalsym = 0;
-static unsigned long nlocalsym = 0;
+static uint32_t ilocalsym = 0;
+static uint32_t nlocalsym = 0;
 /* index to, number of and array of sorted externally defined symbols */
-static unsigned long iextdefsym = 0;
-static unsigned long nextdefsym = 0;
+static uint32_t iextdefsym = 0;
+static uint32_t nextdefsym = 0;
 static symbolS **extdefsyms = NULL;
 /* index to, number of and array of sorted undefined symbols */
-static unsigned long iundefsym = 0;
-static unsigned long nundefsym = 0;
+static uint32_t iundefsym = 0;
+static uint32_t nundefsym = 0;
 static symbolS **undefsyms = NULL;
 
-static unsigned long layout_indirect_symbols(
+static uint32_t layout_indirect_symbols(
      void);
 static void layout_symbols(
-    long *symbol_number,
-    long *string_byte_count);
+    int32_t *symbol_number,
+    int32_t *string_byte_count);
 static int qsort_compare(
     const symbolS **sym1,
     const symbolS **sym2);
-static unsigned long nrelocs_for_fix(
+static uint32_t nrelocs_for_fix(
     struct fix *fixP);
-static unsigned long fix_to_relocation_entries(
+static uint32_t fix_to_relocation_entries(
     struct fix *fixP,
-    unsigned long sect_addr,
+    uint64_t sect_addr,
     struct relocation_info *riP,
-    unsigned long debug_section);
+    uint32_t debug_section);
 #ifdef I860
 static void
     I860_tweeks(void);
@@ -132,13 +140,13 @@ char *out_file_name)
     segment_command_t		reloc_segment;
     struct symtab_command	symbol_table;
     struct dysymtab_command	dynamic_symbol_table;
-    unsigned long		section_type;
+    uint32_t			section_type;
     uint32_t			*indirect_symbols;
     isymbolS			*isymbolP;
-    unsigned long		i, j, nsects, nsyms, strsize, nindirectsyms;
+    uint32_t			i, j, nsects, nsyms, strsize, nindirectsyms;
 
     /* locals to fill in section struct fields */
-    unsigned long offset, zero;
+    uint32_t offset, zero;
 
     /* The GAS data structures */
     struct frchain *frchainP, *p;
@@ -146,19 +154,19 @@ char *out_file_name)
     struct frag *fragP;
     struct fix *fixP;
 
-    unsigned long output_size;
+    uint32_t output_size;
     char *output_addr;
     kern_return_t r;
 
     enum byte_sex host_byte_sex;
-    unsigned long reloff, nrelocs;
-    long count;
+    uint32_t reloff, nrelocs;
+    int32_t count;
     char *fill_literal;
-    long fill_size;
-    long num_bytes;
+    int32_t fill_size;
+    int32_t num_bytes;
     char *symbol_name;
     int fd;
-    unsigned long local;
+    uint32_t local;
     struct stat stat_buf;
 
 #ifdef I860
@@ -197,7 +205,7 @@ char *out_file_name)
 	 */
 	nsyms = 0;
 	strsize = 0;
-	layout_symbols((long *)&nsyms, (long *)&strsize);
+	layout_symbols((int32_t *)&nsyms, (int32_t *)&strsize);
 
 	/* fill in the Mach-O header */
 	header.magic = MH_MAGIC_VALUE;
@@ -278,7 +286,7 @@ char *out_file_name)
 	    reloc_segment.vmsize = frchainP->frch_section.addr +
 				   frchainP->frch_section.size;
 	}
-	offset = round(offset, sizeof(long));
+	offset = round(offset, sizeof(int32_t));
 
 	/*
 	 * Count the number of relocation entries for each section.
@@ -293,7 +301,7 @@ char *out_file_name)
 	/*
 	 * Fill in the offset to the relocation entries of the sections.
 	 */
-	offset = round(offset, sizeof(long));
+	offset = round(offset, sizeof(int32_t));
 	reloff = offset;
 	nrelocs = 0;
 	for(frchainP = frchain_root; frchainP; frchainP = frchainP->frch_next){
@@ -325,7 +333,7 @@ char *out_file_name)
 	    else{
 		dynamic_symbol_table.nindirectsyms = nindirectsyms;
 		dynamic_symbol_table.indirectsymoff = offset;
-		offset += nindirectsyms * sizeof(unsigned long);
+		offset += nindirectsyms * sizeof(uint32_t);
 	    }
 
 	    dynamic_symbol_table.tocoff = 0;
@@ -355,8 +363,8 @@ char *out_file_name)
 	    symbol_table.stroff = 0;
 	else
 	    symbol_table.stroff = offset;
-	symbol_table.strsize = round(strsize, sizeof(unsigned long));
-	offset += round(strsize, sizeof(unsigned long));
+	symbol_table.strsize = round(strsize, sizeof(uint32_t));
+	offset += round(strsize, sizeof(uint32_t));
 
 	/*
 	 * The second group of things to do is now with the size of everything
@@ -370,7 +378,7 @@ char *out_file_name)
 	output_size = offset;
 	if((r = vm_allocate(mach_task_self(), (vm_address_t *)&output_addr,
 			    output_size, TRUE)) != KERN_SUCCESS)
-	    as_fatal("can't vm_allocate() buffer for output file of size %lu",
+	    as_fatal("can't vm_allocate() buffer for output file of size %u",
 		     output_size);
 
 	/* put the headers in the output file's buffer */
@@ -555,14 +563,14 @@ char *out_file_name)
 				N_TYPE) == N_ABS)
 				local |= INDIRECT_SYMBOL_ABS;
 			    memcpy(output_addr + offset, (char *)(&local),
-	   			   sizeof(unsigned long));
+	   			   sizeof(uint32_t));
 			}
 			else{
 			    memcpy(output_addr + offset,
 				   (char *)(&isymbolP->isy_symbol->sy_number),
-				   sizeof(unsigned long));
+				   sizeof(uint32_t));
 			}
-			offset += sizeof(unsigned long);
+			offset += sizeof(uint32_t);
 		    }
 		}
 	    }
@@ -631,11 +639,11 @@ char *out_file_name)
  * pointers.  It returns the total count of indirect symbol table entries.
  */
 static
-unsigned long
+uint32_t
 layout_indirect_symbols(void)
 {
     struct frchain *frchainP;
-    unsigned long section_type, total, count, stride;
+    uint32_t section_type, total, count, stride;
     isymbolS *isymbolP;
     symbolS *symbolP;
 
@@ -833,10 +841,10 @@ set_BINCL_checksums()
 static
 void
 layout_symbols(
-long *symbol_number,
-long *string_byte_count)
+int32_t *symbol_number,
+int32_t *string_byte_count)
 {
-    unsigned long i, j;
+    uint32_t i, j;
     symbolS *symbolP;
     symbolS **symbolPP;
     char *name;
@@ -944,12 +952,6 @@ long *string_byte_count)
 		    as_bad("Undefined symbol: %s can't be a weak_definition",
 			   symbolP->sy_name);
 		}
-		else if((symbolP->sy_type & N_TYPE) != N_SECT ||
-			is_section_coalesced(symbolP->sy_other) == FALSE){
-		  as_bad("symbol: %s can't be a weak_definition (currently "
-		         "only supported in section of type coalesced)",
-			 symbolP->sy_name);
-		}
 	    }
 	}
 
@@ -1021,15 +1023,22 @@ const symbolS **sym2)
  * specified fix structure.
  */
 static
-unsigned long
+uint32_t
 nrelocs_for_fix(
 struct fix *fixP)
 {
 	/*
 	 * If fx_addsy is NULL then this fix needs no relocation entry.
 	 */
-	if(fixP->fx_addsy == NULL)
+	if(fixP->fx_addsy == NULL){
+#ifdef ARM
+	    if(archflag_cpusubtype == CPU_SUBTYPE_ARM_V7 &&
+	       (fixP->fx_r_type == ARM_THUMB_32BIT_BRANCH ||
+	        fixP->fx_r_type == ARM_THUMB_RELOC_BR22))
+		return(1);
+#endif
 	    return(0);
+	}
 
 	/*
 	 * If this fix has a subtract symbol it is a SECTDIFF relocation which
@@ -1083,33 +1092,54 @@ struct fix *fixP)
  * placed at riP.
  */
 static
-unsigned long
+uint32_t
 fix_to_relocation_entries(
 struct fix *fixP,
-unsigned long sect_addr,
+uint64_t sect_addr,
 struct relocation_info *riP,
-unsigned long debug_section)
+uint32_t debug_section)
 {
     struct symbol *symbolP;
-    unsigned long count;
+#ifdef ARM
+    struct symbol fake_arm_thumb_symbol;
+#endif
+    uint32_t count;
     struct scattered_relocation_info sri;
-    unsigned long sectdiff;
+    uint32_t sectdiff;
 #ifdef HPPA
-    unsigned long left21, right14;
+    uint32_t left21, right14;
 #endif
 
 	/*
 	 * If fx_addsy is NULL then this fix needs no relocation entry.
 	 */
-	if(fixP->fx_addsy == NULL)
-	    return(0);
+	if(fixP->fx_addsy == NULL){
+#ifdef ARM
+	    if(archflag_cpusubtype != CPU_SUBTYPE_ARM_V7 ||
+	       (fixP->fx_r_type != ARM_THUMB_32BIT_BRANCH &&
+	        fixP->fx_r_type != ARM_THUMB_RELOC_BR22))
+#endif
+	    	return(0);
+	}
 
 #ifdef TC_VALIDATE_FIX
 	TC_VALIDATE_FIX(fixP, sect_addr, 0);
 #endif
 
 	memset(riP, '\0', sizeof(struct relocation_info));
-	symbolP = fixP->fx_addsy;
+#ifdef ARM
+	if(fixP->fx_addsy == NULL &&
+	   archflag_cpusubtype == CPU_SUBTYPE_ARM_V7 &&
+	   (fixP->fx_r_type == ARM_THUMB_32BIT_BRANCH ||
+	    fixP->fx_r_type == ARM_THUMB_RELOC_BR22)){
+	    memset(&fake_arm_thumb_symbol, '\0', sizeof(struct symbol));
+	    symbolP = &fake_arm_thumb_symbol;
+	    symbolP->sy_type = N_ABS;
+	    fixP->fx_r_type = ARM_THUMB_32BIT_BRANCH;
+	}
+	else
+#endif /* ARM */
+	    symbolP = fixP->fx_addsy;
 
 	switch(fixP->fx_size){
 	    case 1:
@@ -1143,7 +1173,7 @@ unsigned long debug_section)
 	riP->r_type = fixP->fx_r_type;
 	/*
 	 * For undefined symbols this will be an external relocation entry.
-	 * Or if this is an external coalesced symbol.
+	 * Or if this is an external coalesced symbol or weak symbol.
 	 */
 #if defined(I386) && defined(ARCH64)
 	if(fixP->fx_subsy == NULL &&
@@ -1155,7 +1185,8 @@ unsigned long debug_section)
 	if((symbolP->sy_type & N_TYPE) == N_UNDF ||
 	   ((symbolP->sy_type & N_EXT) == N_EXT &&
 	    (symbolP->sy_type & N_TYPE) == N_SECT &&
-	    is_section_coalesced(symbolP->sy_other) &&
+	    (is_section_coalesced(symbolP->sy_other) ||
+	     (symbolP->sy_desc & N_WEAK_DEF) == N_WEAK_DEF) &&
 	    fixP->fx_subsy == NULL)){
 #endif
 	    riP->r_extern = 1;
@@ -1387,6 +1418,10 @@ unsigned long debug_section)
 	if(fixP->fx_r_type == SPARC_RELOC_HI22 ||
 	   fixP->fx_r_type == SPARC_RELOC_LO10)
 #endif
+#ifdef ARM
+	if(FALSE) /* currently don't have any arm machine specific relocs
+		     that have a pair relocation entry */
+#endif
 	{
 	    memset(riP, '\0', sizeof(struct relocation_info));
 	    switch(fixP->fx_size){
@@ -1500,7 +1535,7 @@ void
 set_default_section_align(
 char *segname,
 char *sectname,
-unsigned long align)
+uint32_t align)
 {
     frchainS *frcP;
 

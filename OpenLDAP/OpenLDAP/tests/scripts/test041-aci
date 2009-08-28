@@ -1,8 +1,8 @@
 #! /bin/sh
-# $OpenLDAP: pkg/ldap/tests/scripts/test041-aci,v 1.3.2.7 2006/01/03 22:16:29 kurt Exp $
+# $OpenLDAP: pkg/ldap/tests/scripts/test041-aci,v 1.9.2.4 2008/02/11 23:26:51 kurt Exp $
 ## This work is part of OpenLDAP Software <http://www.openldap.org/>.
 ##
-## Copyright 1998-2006 The OpenLDAP Foundation.
+## Copyright 1998-2008 The OpenLDAP Foundation.
 ## All rights reserved.
 ##
 ## Redistribution and use in source and binary forms, with or without
@@ -13,11 +13,8 @@
 ## top-level directory of the distribution or, alternatively, at
 ## <http://www.OpenLDAP.org/license.html>.
 
-echo "Test disabled."
-exit 0
-
 case "$BACKEND" in
-bdb|hdb|ldbm)
+bdb|hdb)
 	;;
 *)
 	echo "Test does not support $BACKEND backend"
@@ -258,4 +255,7 @@ if test $? != 0 ; then
 fi
 
 echo ">>>>> Test succeeded"
+
+test $KILLSERVERS != no && wait
+
 exit 0

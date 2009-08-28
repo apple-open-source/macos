@@ -75,12 +75,13 @@ DOM_CLASSES = \
     Console \
     Coordinates \
     Counter \
+    DataGridColumn \
+    DataGridColumnList \
     DOMApplicationCache \
     DOMCoreException \
     DOMImplementation \
     DOMParser \
     DOMSelection \
-    DOMStringList \
     DOMWindow \
     Database \
     Document \
@@ -110,6 +111,10 @@ DOM_CLASSES = \
     HTMLButtonElement \
     HTMLCanvasElement \
     HTMLCollection \
+    HTMLDataGridElement \
+    HTMLDataGridCellElement \
+    HTMLDataGridColElement \
+    HTMLDataGridRowElement \
     HTMLDListElement \
     HTMLDirectoryElement \
     HTMLDivElement \
@@ -515,7 +520,7 @@ XPathGrammar.cpp : xml/XPathGrammar.y $(PROJECT_FILE)
 
 # user agent style sheets
 
-USER_AGENT_STYLE_SHEETS = $(WebCore)/css/html4.css $(WebCore)/css/quirks.css $(WebCore)/css/view-source.css $(WebCore)/css/themeWin.css $(WebCore)/css/themeWinQuirks.css 
+USER_AGENT_STYLE_SHEETS = $(WebCore)/css/html.css $(WebCore)/css/quirks.css $(WebCore)/css/view-source.css $(WebCore)/css/themeWin.css $(WebCore)/css/themeWinQuirks.css 
 
 ifeq ($(findstring ENABLE_SVG,$(FEATURE_DEFINES)), ENABLE_SVG)
     USER_AGENT_STYLE_SHEETS := $(USER_AGENT_STYLE_SHEETS) $(WebCore)/css/svg.css 
@@ -587,8 +592,8 @@ ifeq ($(findstring ENABLE_SVG_FONTS,$(FEATURE_DEFINES)), ENABLE_SVG_FONTS)
     SVG_FLAGS := $(SVG_FLAGS) ENABLE_SVG_FONTS=1
 endif
 
-ifeq ($(findstring ENABLE_SVG_FILTERS,$(FEATURE_DEFINES)), ENABLE_SVG_FILTERS)
-    SVG_FLAGS := $(SVG_FLAGS) ENABLE_SVG_FILTERS=1
+ifeq ($(findstring ENABLE_FILTERS,$(FEATURE_DEFINES)), ENABLE_FILTERS)
+    SVG_FLAGS := $(SVG_FLAGS) ENABLE_FILTERS=1
 ifeq ($(findstring ENABLE_SVG_DOM_OBJC_BINDINGS,$(FEATURE_DEFINES)), ENABLE_SVG_DOM_OBJC_BINDINGS)
     WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.SVG.Filters.exp
 endif

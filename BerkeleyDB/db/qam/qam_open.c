@@ -1,26 +1,16 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1999-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1999,2007 Oracle.  All rights reserved.
+ *
+ * $Id: qam_open.c,v 12.17 2007/05/17 15:15:50 bostic Exp $
  */
 
 #include "db_config.h"
 
-#ifndef lint
-static const char revid[] = "$Id: qam_open.c,v 1.2 2004/03/30 01:23:55 jtownsen Exp $";
-#endif /* not lint */
-
-#ifndef NO_SYSTEM_INCLUDES
-#include <sys/types.h>
-
-#include <string.h>
-#endif
-
 #include "db_int.h"
 #include "dbinc/crypto.h"
 #include "dbinc/db_page.h"
-#include "dbinc/db_shash.h"
 #include "dbinc/db_swap.h"
 #include "dbinc/db_am.h"
 #include "dbinc/lock.h"
@@ -60,8 +50,14 @@ __qam_open(dbp, txn, name, base_pgno, mode, flags)
 	qmeta = NULL;
 
 	if (name == NULL && t->page_ext != 0) {
-		__db_err(dbenv,
+		__db_errx(dbenv,
 	"Extent size may not be specified for in-memory queue database");
+		return (EINVAL);
+	}
+
+	if (MULTIVERSION(dbp)) {
+		__db_errx(dbenv,
+		    "Multiversion queue databases are not supported");
 		return (EINVAL);
 	}
 
@@ -88,12 +84,12 @@ __qam_open(dbp, txn, name, base_pgno, mode, flags)
 	if ((ret =
 	    __db_lget(dbc, 0, base_pgno, DB_LOCK_READ, 0, &metalock)) != 0)
 		goto err;
-	if ((ret = __memp_fget(mpf, &base_pgno, 0, &qmeta)) != 0)
+	if ((ret = __memp_fget(mpf, &base_pgno, dbc->txn, 0, &qmeta)) != 0)
 		goto err;
 
 	/* If the magic number is incorrect, that's a fatal error. */
 	if (qmeta->dbmeta.magic != DB_QAMMAGIC) {
-		__db_err(dbenv, "%s: unexpected file type or format", name);
+		__db_errx(dbenv, "%s: unexpected file type or format", name);
 		ret = EINVAL;
 		goto err;
 	}
@@ -105,23 +101,24 @@ __qam_open(dbp, txn, name, base_pgno, mode, flags)
 		goto err;
 
 	if (mode == 0)
-		mode = __db_omode("rwrw--");
+		mode = __db_omode("rw-rw----");
 	t->mode = mode;
-	t->re_pad = qmeta->re_pad;
+	t->re_pad = (int)qmeta->re_pad;
 	t->re_len = qmeta->re_len;
 	t->rec_page = qmeta->rec_page;
 
 	t->q_meta = base_pgno;
 	t->q_root = base_pgno + 1;
 
-err:	if (qmeta != NULL &&
-	    (t_ret = __memp_fput(mpf, qmeta, 0)) != 0 && ret == 0)
+err:	if (qmeta != NULL && (t_ret =
+	    __memp_fput(mpf, qmeta, dbc->priority)) != 0 && ret == 0)
 		ret = t_ret;
 
 	/* Don't hold the meta page long term. */
-	(void)__LPUT(dbc, metalock);
+	if ((t_ret = __LPUT(dbc, metalock)) != 0 && ret == 0)
+		ret = t_ret;
 
-	if ((t_ret = __db_c_close(dbc)) != 0 && ret == 0)
+	if ((t_ret = __dbc_close(dbc)) != 0 && ret == 0)
 		ret = t_ret;
 
 	return (ret);
@@ -189,7 +186,7 @@ __qam_metachk(dbp, name, qmeta)
 	switch (vers) {
 	case 1:
 	case 2:
-		__db_err(dbenv,
+		__db_errx(dbenv,
 		    "%s: queue version %lu requires a version upgrade",
 		    name, (u_long)vers);
 		return (DB_OLD_VERSION);
@@ -197,7 +194,7 @@ __qam_metachk(dbp, name, qmeta)
 	case 4:
 		break;
 	default:
-		__db_err(dbenv,
+		__db_errx(dbenv,
 		    "%s: unsupported qam version: %lu", name, (u_long)vers);
 		return (EINVAL);
 	}
@@ -234,8 +231,10 @@ __qam_init_meta(dbp, meta)
 	DB *dbp;
 	QMETA *meta;
 {
+	DB_ENV *dbenv;
 	QUEUE *t;
 
+	dbenv = dbp->dbenv;
 	t = dbp->q_internal;
 
 	memset(meta, 0, sizeof(QMETA));
@@ -249,12 +248,12 @@ __qam_init_meta(dbp, meta)
 		FLD_SET(meta->dbmeta.metaflags, DBMETA_CHKSUM);
 	if (F_ISSET(dbp, DB_AM_ENCRYPT)) {
 		meta->dbmeta.encrypt_alg =
-		   ((DB_CIPHER *)dbp->dbenv->crypto_handle)->alg;
-		DB_ASSERT(meta->dbmeta.encrypt_alg != 0);
+		   ((DB_CIPHER *)dbenv->crypto_handle)->alg;
+		DB_ASSERT(dbenv, meta->dbmeta.encrypt_alg != 0);
 		meta->crypto_magic = meta->dbmeta.magic;
 	}
 	meta->dbmeta.type = P_QAMMETA;
-	meta->re_pad = t->re_pad;
+	meta->re_pad = (u_int32_t)t->re_pad;
 	meta->re_len = t->re_len;
 	meta->rec_page = CALC_QAM_RECNO_PER_PAGE(dbp);
 	meta->cur_recno = 1;
@@ -265,7 +264,7 @@ __qam_init_meta(dbp, meta)
 
 	/* Verify that we can fit at least one record per page. */
 	if (QAM_RECNO_PER_PAGE(dbp) < 1) {
-		__db_err(dbp->dbenv,
+		__db_errx(dbenv,
 		    "Record size of %lu too large for page size of %lu",
 		    (u_long)t->re_len, (u_long)dbp->pgsize);
 		return (EINVAL);
@@ -278,12 +277,6 @@ __qam_init_meta(dbp, meta)
  * __qam_new_file --
  * Create the necessary pages to begin a new queue database file.
  *
- * This code appears more complex than it is because of the two cases (named
- * and unnamed).  The way to read the code is that for each page being created,
- * there are three parts: 1) a "get page" chunk (which either uses malloc'd
- * memory or calls __memp_fget), 2) the initialization, and 3) the "put page"
- * chunk which either does a fop write or an __memp_fput.
- *
  * PUBLIC: int __qam_new_file __P((DB *, DB_TXN *, DB_FH *, const char *));
  */
 int
@@ -293,57 +286,62 @@ __qam_new_file(dbp, txn, fhp, name)
 	DB_FH *fhp;
 	const char *name;
 {
-	QMETA *meta;
+	DBT pdbt;
 	DB_ENV *dbenv;
 	DB_MPOOLFILE *mpf;
 	DB_PGINFO pginfo;
-	DBT pdbt;
+	QMETA *meta;
 	db_pgno_t pgno;
-	int ret;
-	void *buf;
+	int ret, t_ret;
 
-	dbenv = dbp->dbenv;
-	mpf = dbp->mpf;
-	buf = NULL;
-	meta = NULL;
-
-	/* Build meta-data page. */
-
-	if (name == NULL) {
+	/*
+	 * Build meta-data page.
+	 *
+	 * This code appears more complex than it is because of the two cases
+	 * (named and unnamed).
+	 *
+	 * For each page being created, there are three parts: 1) a "get page"
+	 * chunk (which either uses malloc'd memory or calls __memp_fget), 2)
+	 * the initialization, and 3) the "put page" chunk which either does a
+	 * fop write or an __memp_fput.
+	 */
+	if (F_ISSET(dbp, DB_AM_INMEM)) {
+		mpf = dbp->mpf;
 		pgno = PGNO_BASE_MD;
-		ret = __memp_fget(mpf, &pgno, DB_MPOOL_CREATE, &meta);
+		if ((ret = __memp_fget(mpf, &pgno, txn,
+		    DB_MPOOL_CREATE | DB_MPOOL_DIRTY, &meta)) != 0)
+			return (ret);
+
+		if ((ret = __qam_init_meta(dbp, meta)) != 0)
+			goto err1;
+
+		if ((ret = __db_log_page(dbp,
+		    txn, &meta->dbmeta.lsn, pgno, (PAGE *)meta)) != 0)
+			goto err1;
+err1:		if ((t_ret =
+		    __memp_fput(mpf, meta, dbp->priority)) != 0 && ret == 0)
+			ret = t_ret;
 	} else {
-		ret = __os_calloc(dbp->dbenv, 1, dbp->pgsize, &buf);
-		meta = (QMETA *)buf;
-	}
-	if (ret != 0)
-		return (ret);
+		dbenv = dbp->dbenv;
+		if ((ret = __os_calloc(dbenv, 1, dbp->pgsize, &meta)) != 0)
+			return (ret);
 
-	if ((ret = __qam_init_meta(dbp, meta)) != 0)
-		goto err;
+		if ((ret = __qam_init_meta(dbp, meta)) != 0)
+			goto err2;
 
-	if (name == NULL)
-		ret = __memp_fput(mpf, meta, DB_MPOOL_DIRTY);
-	else {
 		pginfo.db_pagesize = dbp->pgsize;
 		pginfo.flags =
 		    F_ISSET(dbp, (DB_AM_CHKSUM | DB_AM_ENCRYPT | DB_AM_SWAP));
 		pginfo.type = DB_QUEUE;
-		pdbt.data = &pginfo;
-		pdbt.size = sizeof(pginfo);
+		DB_SET_DBT(pdbt, &pginfo, sizeof(pginfo));
 		if ((ret = __db_pgout(dbenv, PGNO_BASE_MD, meta, &pdbt)) != 0)
-			goto err;
+			goto err2;
 		ret = __fop_write(dbenv, txn, name,
-		    DB_APP_DATA, fhp, dbp->pgsize, 0, 0, buf, dbp->pgsize, 1,
+		    DB_APP_DATA, fhp, dbp->pgsize, 0, 0, meta, dbp->pgsize, 1,
 		    F_ISSET(dbp, DB_AM_NOT_DURABLE) ? DB_LOG_NOT_DURABLE : 0);
-	}
-	if (ret != 0)
-		goto err;
-	meta = NULL;
 
-err:	if (name != NULL)
-		__os_free(dbenv, buf);
-	else if (meta != NULL)
-		(void)__memp_fput(mpf, meta, 0);
+err2:		__os_free(dbenv, meta);
+	}
+
 	return (ret);
 }

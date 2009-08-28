@@ -25,18 +25,19 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+#include <stdint.h>
 #include "stuff/round.h"
 /*
  * round() rounds v to a multiple of r.
  */
 __private_extern__
-unsigned long
+uint32_t
 round(
-unsigned long v,
-unsigned long r)
+uint32_t v,
+uint32_t r)
 {
 	r--;
 	v += r;
-	v &= ~(long)r;
+	v &= ~(int32_t)r;
 	return(v);
 }

@@ -27,47 +27,58 @@
  * Framework and CSSM
  */
 
-#include <Security/SecBase.h>
 #include <Security/SecCertificate.h>
 #include <Security/SecPolicy.h>
+#include <Security/SecTrust.h>
+#include <Security/SecKey.h>
 #include <Security/SecIdentity.h>
+
+#include <TargetConditionals.h>
+#if TARGET_OS_EMBEDDED
+#include <Security/SecItem.h>
+#else
+#include <Security/SecBase.h>
 #include <Security/SecIdentityPriv.h>
 #include <Security/SecIdentitySearch.h>
 #include <Security/SecKeychain.h>
 #include <Security/SecKeychainItem.h>
 #include <Security/SecKeychainItemPriv.h>
-#include <Security/SecKey.h>
+
 #include <Security/SecKeyPriv.h>
-#include <Security/SecTrust.h>
 #include <Security/oidsalg.h>
 #include <Security/cssmapi.h>
 #include <Security/SecPolicySearch.h>
+#endif
+
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include "plog.h"
 #include "debug.h"
 #include "misc.h"
 
+
 #include "crypto_cssm.h"
 
 
-
-static OSStatus FindPolicy(const CSSM_OID *policyOID, SecPolicyRef *policyRef);
 static OSStatus EvaluateCert(SecCertificateRef cert, CFTypeRef policyRef);
-static OSStatus CopySystemKeychain(SecKeychainRef *keychainRef);
 static const char *GetSecurityErrorString(OSStatus err);
-
+#if !TARGET_OS_EMBEDDED
+static OSStatus FindPolicy(const CSSM_OID *policyOID, SecPolicyRef *policyRef);
+static OSStatus CopySystemKeychain(SecKeychainRef *keychainRef);
+#endif
 
 /*
  * Verify cert using security framework
  */
-int crypto_cssm_check_x509cert(vchar_t *cert)
+int crypto_cssm_check_x509cert(vchar_t *cert, CFStringRef hostname)
 {
 	OSStatus			status;
-	SecCertificateRef	certRef = 0;
+	SecCertificateRef	certRef = NULL;
+	SecPolicyRef		policyRef = NULL;
+
+#if !TARGET_OS_EMBEDDED
 	CSSM_DATA			certData;
 	CSSM_OID			ourPolicyOID = CSSMOID_APPLE_TP_IP_SEC; 
-	SecPolicyRef		policyRef = 0;
 
 	// create cert ref
 	certData.Length = cert->l;
@@ -81,14 +92,46 @@ int crypto_cssm_check_x509cert(vchar_t *cert)
 	status = FindPolicy(&ourPolicyOID, &policyRef);
 	if (status != noErr)
 		goto end;
-		
-	// setup policy options ???
 	// no options used at present - verification of subjectAltName fields, etc.
 	// are done elsewhere in racoon in oakley_check_certid()
+		
+#else
+	CFDataRef cert_data = CFDataCreateWithBytesNoCopy(NULL, cert->v, cert->l, kCFAllocatorNull);
+    if (cert_data) {
+        certRef = SecCertificateCreateWithData(NULL, cert_data);
+        CFRelease(cert_data);
+    }
+
+	if (certRef == NULL) {
+		plog(LLV_ERROR, LOCATION, NULL, 
+			"unable to create a certRef.\n");
+		status = -1;
+		goto end;
+	}
+
+	if (hostname) {
+		policyRef = SecPolicyCreateSSL(FALSE, hostname);
+		if (policyRef == NULL) {
+			plog(LLV_ERROR, LOCATION, NULL, 
+				"unable to create a SSL policyRef.\n");
+			status = -1;
+			goto end;
+		}
+	} else
+	  {
+		policyRef = SecPolicyCreateBasicX509();
+		if (policyRef == NULL) {
+			plog(LLV_ERROR, LOCATION, NULL, 
+				"unable to create a Basic X509 policyRef.\n");
+			status = -1;
+			goto end;
+		}
+	}
+	
+#endif
 	
 	// evaluate cert
 	status = EvaluateCert(certRef, policyRef);
-	
 	
 end:
 
@@ -114,27 +157,29 @@ vchar_t* crypto_cssm_getsign(CFDataRef persistentCertRef, vchar_t* hash)
 {
 
 	OSStatus						status;
-	SecCertificateRef				certificateRef = NULL;
 	SecIdentityRef 					identityRef = NULL;
+	SecKeyRef						privateKeyRef = NULL;
+	vchar_t							*sig = NULL;
+
+#if !TARGET_OS_EMBEDDED
+	u_int32_t						bytesEncrypted = 0;
+	SecCertificateRef				certificateRef = NULL;
 	SecIdentitySearchRef			idSearchRef = NULL;
 	SecKeychainRef 					keychainRef = NULL;
-	SecKeyRef						privateKeyRef = NULL;
 	const CSSM_KEY					*cssmKey = NULL;
 	CSSM_CSP_HANDLE 				cspHandle = nil;
 	CSSM_CC_HANDLE					cssmContextHandle = nil;
 	const CSSM_ACCESS_CREDENTIALS	*credentials = NULL;
 	//CSSM_SIZE						bytesEncrypted = 0;	//%%%%HWR fix this - need new headers on Leopard
-	uint32							bytesEncrypted = 0;
 	CSSM_DATA						clearData;
 	CSSM_DATA						cipherData;
 	CSSM_DATA						remData;
 	CSSM_CONTEXT_ATTRIBUTE			newAttr;
-	vchar_t							*sig = NULL;
 
 	remData.Length = 0;
 	remData.Data = 0;
 
-	if (persistentCertRef) {			
+	if (persistentCertRef) {	
 		// get cert from keychain
 		status = SecKeychainItemCopyFromPersistentReference(persistentCertRef, (SecKeychainItemRef*)&certificateRef);
 		if (status != noErr)
@@ -151,6 +196,7 @@ vchar_t* crypto_cssm_getsign(CFDataRef persistentCertRef, vchar_t* hash)
 			goto end;	
 			
 	} else {
+	
 		// copy system keychain
 		status = CopySystemKeychain(&keychainRef);
 		if (status != noErr)
@@ -171,7 +217,6 @@ vchar_t* crypto_cssm_getsign(CFDataRef persistentCertRef, vchar_t* hash)
 			goto end;
 	}
 	
-					
 	// get private key from identity
 	status = SecIdentityCopyPrivateKey(identityRef, &privateKeyRef);
 	if (status != noErr)
@@ -231,20 +276,60 @@ vchar_t* crypto_cssm_getsign(CFDataRef persistentCertRef, vchar_t* hash)
 		
 	sig->l = cipherData.Length;
 	sig->v = (caddr_t)cipherData.Data;
+
+#else
+
+	CFDictionaryRef		persistFind = NULL;
+	const void			*keys_persist[] = { kSecReturnRef, kSecValuePersistentRef };
+	const void			*values_persist[] = { kCFBooleanTrue, persistentCertRef };
+
+	#define SIG_BUF_SIZE 1024
+	
+	/* find identity by persistent ref */
+	persistFind = CFDictionaryCreate(NULL, keys_persist, values_persist,
+		(sizeof(keys_persist) / sizeof(*keys_persist)), NULL, NULL);
+	if (persistFind == NULL)
+		goto end;
+	
+	status = SecItemCopyMatching(persistFind, (CFTypeRef *)&identityRef);
+	if (status != noErr)
+		goto end;
+		
+	status = SecIdentityCopyPrivateKey(identityRef, &privateKeyRef);
+	if (status != noErr)
+		goto end;
+
+	// alloc buffer for result
+	sig = vmalloc(SIG_BUF_SIZE);
+	if (sig == NULL)
+		goto end;
+	
+	status = SecKeyRawSign(privateKeyRef, kSecPaddingPKCS1, hash->v,
+		hash->l, sig->v, &sig->l);				
+
+#endif	
+					
 		
 end:
-	if (certificateRef)
-		CFRelease(certificateRef);
-	if (keychainRef)
-		CFRelease(keychainRef);
 	if (identityRef)
 		CFRelease(identityRef);
 	if (privateKeyRef)
 		CFRelease(privateKeyRef);
+		
+#if !TARGET_OS_EMBEDDED
+	if (certificateRef)
+		CFRelease(certificateRef);
+	if (keychainRef)
+		CFRelease(keychainRef);
 	if (idSearchRef)
 		CFRelease(idSearchRef);
 	if (cssmContextHandle)
 		CSSM_DeleteContext(cssmContextHandle);
+#else
+	if (persistFind)
+		CFRelease(persistFind);
+#endif
+	
 	if (status != noErr) {
 		if (sig) {
 			vfree(sig);
@@ -269,13 +354,14 @@ vchar_t* crypto_cssm_get_x509cert(CFDataRef persistentCertRef)
 {
 
 	OSStatus				status;
-	CSSM_DATA				cssmData;
 	vchar_t					*cert = NULL;
 	SecIdentityRef 			identityRef = NULL;
-	SecIdentitySearchRef	idSearchRef = NULL;
-	SecKeychainRef 			keychainRef = NULL;
 	SecCertificateRef		certificateRef = NULL;
 
+#if !TARGET_OS_EMBEDDED
+	CSSM_DATA				cssmData;	
+	SecIdentitySearchRef	idSearchRef = NULL;
+	SecKeychainRef 			keychainRef = NULL;
 
 	// get cert ref
 	if (persistentCertRef) {
@@ -303,7 +389,7 @@ vchar_t* crypto_cssm_get_x509cert(CFDataRef persistentCertRef)
 			goto end;
 		
 	}
-		
+
 	// get certificate data
 	cssmData.Length = 0;
 	cssmData.Data = NULL;
@@ -321,17 +407,62 @@ vchar_t* crypto_cssm_get_x509cert(CFDataRef persistentCertRef)
 	// cssmData struct just points to the data
 	// data must be copied to be returned
 	memcpy(cert->v, cssmData.Data, cssmData.Length);	
+	
+#else
+		
+	CFDictionaryRef		persistFind = NULL;
+	const void			*keys_persist[] = { kSecReturnRef, kSecValuePersistentRef };
+	const void			*values_persist[] = { kCFBooleanTrue, persistentCertRef };
+	size_t				dataLen;
+	CFDataRef			certData = NULL;
+	
+	/* find identity by persistent ref */
+	persistFind = CFDictionaryCreate(NULL, keys_persist, values_persist,
+		(sizeof(keys_persist) / sizeof(*keys_persist)), NULL, NULL);
+	if (persistFind == NULL)
+		goto end;
+	
+	status = SecItemCopyMatching(persistFind, (CFTypeRef *)&identityRef);
+	if (status != noErr)
+		goto end;
+
+	status = SecIdentityCopyCertificate(identityRef, &certificateRef);
+	if (status != noErr)
+		goto end;
+
+	certData = SecCertificateCopyData(certificateRef);
+	if (certData == NULL)
+		goto end;
+	
+	dataLen = CFDataGetLength(certData);
+	if (dataLen == 0)
+		goto end;
+	
+	cert = vmalloc(dataLen);
+	if (cert == NULL)
+		goto end;	
+	
+	CFDataGetBytes(certData, CFRangeMake(0, dataLen), cert->v); 
+				
+#endif
 		
 end:
 	if (certificateRef)
 		CFRelease(certificateRef);
 	if (identityRef)
 		CFRelease(identityRef);
+#if !TARGET_OS_EMBEDDED
 	if (idSearchRef)
 		CFRelease(idSearchRef);
 	if (keychainRef)
 		CFRelease(keychainRef);
-
+#else
+	if (persistFind)
+		CFRelease(persistFind);
+	if (certData)
+		CFRelease(certData);
+#endif
+	
 	if (status != noErr && status != -1) {
 		plog(LLV_ERROR, LOCATION, NULL, 
 			"error %d %s.\n", status, GetSecurityErrorString(status));
@@ -341,7 +472,7 @@ end:
 
 }
 
-
+#if !TARGET_OS_EMBEDDED
 /*
  * Find a policy ref by OID
  */
@@ -368,7 +499,7 @@ end:
 	}			
 	return status;
 }
-		
+#endif		
 
 /*
  * Evaluate the trust of a cert using the policy provided
@@ -381,8 +512,8 @@ static OSStatus EvaluateCert(SecCertificateRef cert, CFTypeRef policyRef)
 	
 	SecCertificateRef			evalCertArray[1] = { cert };
 	
-	CFArrayRef			cfCertRef = CFArrayCreate((CFAllocatorRef) NULL, (void*)evalCertArray, 1,
-										&kCFTypeArrayCallBacks);
+	CFArrayRef	cfCertRef = CFArrayCreate((CFAllocatorRef) NULL, (void*)evalCertArray, 1,
+								&kCFTypeArrayCallBacks);
 										
 	if (!cfCertRef) {
 		plog(LLV_ERROR, LOCATION, NULL, 
@@ -419,7 +550,7 @@ end:
 	return status;
 }
 
-
+#if !TARGET_OS_EMBEDDED
 /*
  * Copy the system keychain
  */
@@ -444,7 +575,7 @@ end:
 	return status;
 
 }
-
+#endif
 
 /* 
  * Return string representation of Security-related OSStatus.
@@ -465,6 +596,7 @@ GetSecurityErrorString(OSStatus err)
 		/* SecBase.h: */
 		case errSecNotAvailable:
 			return "errSecNotAvailable";
+#if !TARGET_OS_EMBEDDED
 		case errSecReadOnly:
 			return "errSecReadOnly";
 		case errSecAuthFailed:
@@ -479,10 +611,6 @@ GetSecurityErrorString(OSStatus err)
 			return "errSecDuplicateCallback";
 		case errSecInvalidCallback:
 			return "errSecInvalidCallback";
-		case errSecDuplicateItem:
-			return "errSecDuplicateItem";
-		case errSecItemNotFound:
-			return "errSecItemNotFound";
 		case errSecBufferTooSmall:
 			return "errSecBufferTooSmall";
 		case errSecDataTooLarge:
@@ -529,6 +657,11 @@ GetSecurityErrorString(OSStatus err)
 			return "errSecNoAccessForItem";
 		case errSecInvalidOwnerEdit:
 			return "errSecInvalidOwnerEdit";
+#endif
+		case errSecDuplicateItem:
+			return "errSecDuplicateItem";
+		case errSecItemNotFound:
+			return "errSecItemNotFound";
 		default:
 			return "<unknown>";
     }

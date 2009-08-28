@@ -8,7 +8,7 @@
  */
 
 /*
- * diff.c: code for diff'ing two or three buffers.
+ * diff.c: code for diff'ing two, three or four buffers.
  */
 
 #include "vim.h"
@@ -73,6 +73,8 @@ diff_buf_delete(buf)
 	{
 	    tp->tp_diffbuf[i] = NULL;
 	    tp->tp_diff_invalid = TRUE;
+	    if (tp == curtab)
+		diff_redraw(TRUE);
 	}
     }
 }
@@ -102,6 +104,7 @@ diff_buf_adjust(win)
 	    {
 		curtab->tp_diffbuf[i] = NULL;
 		curtab->tp_diff_invalid = TRUE;
+		diff_redraw(TRUE);
 	    }
 	}
     }
@@ -113,7 +116,7 @@ diff_buf_adjust(win)
  * Add a buffer to make diffs for.
  * Call this when a new buffer is being edited in the current window where
  * 'diff' is set.
- * Marks the current buffer as being part of the diff and requireing updating.
+ * Marks the current buffer as being part of the diff and requiring updating.
  * This must be done before any autocmd, because a command may use info
  * about the screen contents.
  */
@@ -131,6 +134,7 @@ diff_buf_add(buf)
 	{
 	    curtab->tp_diffbuf[i] = buf;
 	    curtab->tp_diff_invalid = TRUE;
+	    diff_redraw(TRUE);
 	    return;
 	}
 
@@ -661,6 +665,7 @@ ex_diffupdate(eap)
     char_u	*tmp_diff;
     FILE	*fd;
     int		ok;
+    int		io_error = FALSE;
 
     /* Delete all diffblocks. */
     diff_clear(curtab);
@@ -697,18 +702,26 @@ ex_diffupdate(eap)
     {
 	ok = FALSE;
 	fd = mch_fopen((char *)tmp_orig, "w");
-	if (fd != NULL)
+	if (fd == NULL)
+	    io_error = TRUE;
+	else
 	{
-	    fwrite("line1\n", (size_t)6, (size_t)1, fd);
+	    if (fwrite("line1\n", (size_t)6, (size_t)1, fd) != 1)
+		io_error = TRUE;
 	    fclose(fd);
 	    fd = mch_fopen((char *)tmp_new, "w");
-	    if (fd != NULL)
+	    if (fd == NULL)
+		io_error = TRUE;
+	    else
 	    {
-		fwrite("line2\n", (size_t)6, (size_t)1, fd);
+		if (fwrite("line2\n", (size_t)6, (size_t)1, fd) != 1)
+		    io_error = TRUE;
 		fclose(fd);
 		diff_file(tmp_orig, tmp_new, tmp_diff);
 		fd = mch_fopen((char *)tmp_diff, "r");
-		if (fd != NULL)
+		if (fd == NULL)
+		    io_error = TRUE;
+		else
 		{
 		    char_u	linebuf[LBUFLEN];
 
@@ -761,6 +774,8 @@ ex_diffupdate(eap)
     }
     if (!ok)
     {
+	if (io_error)
+	    EMSG(_("E810: Cannot read or write temp files"));
 	EMSG(_("E97: Cannot create diffs"));
 	diff_a_works = MAYBE;
 #if defined(MSWIN) || defined(MSDOS)
@@ -914,7 +929,7 @@ ex_diffpatch(eap)
 	goto theend;
 
 #ifdef UNIX
-    /* Temporaraly chdir to /tmp, to avoid patching files in the current
+    /* Temporarily chdir to /tmp, to avoid patching files in the current
      * directory when the patch file contains more than one patch.  When we
      * have our own temp dir use that instead, it will be cleaned up when we
      * exit (any .rej files created).  Don't change directory if we can't
@@ -925,10 +940,10 @@ ex_diffpatch(eap)
     {
 # ifdef TEMPDIRNAMES
 	if (vim_tempdir != NULL)
-	    mch_chdir((char *)vim_tempdir);
+	    ignored = mch_chdir((char *)vim_tempdir);
 	else
 # endif
-	    mch_chdir("/tmp");
+	    ignored = mch_chdir("/tmp");
 	shorten_fnames(TRUE);
     }
 #endif
@@ -2114,6 +2129,8 @@ ex_diffgetput(eap)
 	    EMSG2(_("E102: Can't find buffer \"%s\""), eap->arg);
 	    return;
 	}
+	if (buf == curbuf)
+	    return;		/* nothing to do */
 	idx_other = diff_buf_idx(buf);
 	if (idx_other == DB_COUNT)
 	{

@@ -13,6 +13,7 @@
 			buildPhases = (
 			);
 			dependencies = (
+				F99DF9980D35371F0045E43B /* PBXTargetDependency */,
 				1562E06A0AC4F9BD00CF228A /* PBXTargetDependency */,
 				1562E18C0AC4FF5100CF228A /* PBXTargetDependency */,
 				15F005630AC578A200C5C101 /* PBXTargetDependency */,
@@ -23,9 +24,24 @@
 			name = All;
 			productName = All;
 		};
+		F9C8ECA70D3306B90047CE42 /* embedded */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = F9C8ECAA0D3306CA0047CE42 /* Build configuration list for PBXAggregateTarget "embedded" */;
+			buildPhases = (
+			);
+			dependencies = (
+				E0D59B850EEDDD9900916211 /* PBXTargetDependency */,
+				F9DCDCA50D340CDA00A504B0 /* PBXTargetDependency */,
+				F9DCDCA70D340CE000A504B0 /* PBXTargetDependency */,
+				F99DF98A0D340FB50045E43B /* PBXTargetDependency */,
+			);
+			name = embedded;
+			productName = embedded;
+		};
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		152D1B760D4BB30800176920 /* Apple80211.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 152D1B750D4BB30800176920 /* Apple80211.framework */; };
 		1562DFE80AC4F4F800CF228A /* afp.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFA20AC4F4F600CF228A /* afp.h */; };
 		1562DFE90AC4F4F800CF228A /* arp.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFA30AC4F4F600CF228A /* arp.c */; };
 		1562DFEA0AC4F4F800CF228A /* arp.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFA40AC4F4F600CF228A /* arp.h */; };
@@ -64,8 +80,6 @@
 		1562E00E0AC4F4F800CF228A /* interfaces.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFC80AC4F4F700CF228A /* interfaces.h */; };
 		1562E00F0AC4F4F800CF228A /* ioregpath.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFC90AC4F4F700CF228A /* ioregpath.c */; };
 		1562E0100AC4F4F800CF228A /* ioregpath.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFCA0AC4F4F700CF228A /* ioregpath.h */; };
-		1562E0110AC4F4F800CF228A /* ipcfg.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFCB0AC4F4F700CF228A /* ipcfg.c */; };
-		1562E0120AC4F4F800CF228A /* ipcfg.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFCC0AC4F4F700CF228A /* ipcfg.h */; };
 		1562E0140AC4F4F800CF228A /* ipconfig_ext.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFCE0AC4F4F700CF228A /* ipconfig_ext.h */; };
 		1562E0150AC4F4F800CF228A /* ipconfig_types.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFCF0AC4F4F700CF228A /* ipconfig_types.h */; };
 		1562E0160AC4F4F800CF228A /* macnc_options.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFD00AC4F4F700CF228A /* macnc_options.c */; };
@@ -141,7 +155,7 @@
 		15D7F6A60AC5B0D90002BE78 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1562E08B0AC4FBC700CF228A /* CoreFoundation.framework */; };
 		15D7F6A70AC5B0EA0002BE78 /* DHCPServer.c in Sources */ = {isa = PBXBuildFile; fileRef = 15F006F80AC57E9E00C5C101 /* DHCPServer.c */; };
 		15D7F6A80AC5B0EB0002BE78 /* DHCPServer.h in Headers */ = {isa = PBXBuildFile; fileRef = 15F006F90AC57E9E00C5C101 /* DHCPServer.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		15D7F6A90AC5B13A0002BE78 /* libBSDPClient.A.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 15D7F5490AC5B0390002BE78 /* libBSDPClient.A.dylib */; };
+		15D7F6A90AC5B13A0002BE78 /* libBSDPClient.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 15D7F5490AC5B0390002BE78 /* libBSDPClient.dylib */; };
 		15D7F6B50AC5B2510002BE78 /* ipconfig.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 15F005650AC578BD00C5C101 /* ipconfig.8 */; };
 		15D7F6B70AC5B5EC0002BE78 /* libbootplib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1562DF9A0AC4F47B00CF228A /* libbootplib.a */; };
 		15F005660AC578BD00C5C101 /* client.c in Sources */ = {isa = PBXBuildFile; fileRef = 15F005640AC578BD00C5C101 /* client.c */; };
@@ -153,7 +167,96 @@
 		15F007400AC5842500C5C101 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1562E08B0AC4FBC700CF228A /* CoreFoundation.framework */; };
 		15F018C70ACC601200F5902D /* failover.c in Sources */ = {isa = PBXBuildFile; fileRef = 15F018C60ACC601200F5902D /* failover.c */; };
 		15FF29A10ACA138A00AD2676 /* OpenDirectory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15FF29A00ACA138A00AD2676 /* OpenDirectory.framework */; };
+		E0D59B6C0EEDDD8E00916211 /* bootpd.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562E0530AC4F90C00CF228A /* bootpd.c */; };
+		E0D59B6D0EEDDD8E00916211 /* bootpdfile.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562E0550AC4F90C00CF228A /* bootpdfile.c */; };
+		E0D59B6F0EEDDD8E00916211 /* dhcpd.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562E05B0AC4F90C00CF228A /* dhcpd.c */; };
+		E0D59B740EEDDD8E00916211 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1562E08B0AC4FBC700CF228A /* CoreFoundation.framework */; };
+		E0D59B750EEDDD8E00916211 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1562E0930AC4FBF900CF228A /* SystemConfiguration.framework */; };
+		E0D59B770EEDDD8E00916211 /* libbootplib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1562DF9A0AC4F47B00CF228A /* libbootplib.a */; };
+		E0D59B780EEDDD8E00916211 /* libresolv.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1562E0BC0AC4FC1600CF228A /* libresolv.dylib */; };
+		E0D59B7A0EEDDD8E00916211 /* bootps.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 1562E0570AC4F90C00CF228A /* bootps.plist */; };
+		E0D59BAB0EEDDF8100916211 /* subnets.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFE00AC4F4F800CF228A /* subnets.c */; };
+		E0D59BBC0EEDDFFA00916211 /* NICache.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFDA0AC4F4F800CF228A /* NICache.c */; };
+		E0D59BC00EEDE01500916211 /* netinfo.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFD80AC4F4F800CF228A /* netinfo.c */; };
+		E0D59BC70EEDE02800916211 /* hostlist.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFC10AC4F4F700CF228A /* hostlist.c */; };
+		E0D59BCD0EEDE03D00916211 /* inetroute.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFC50AC4F4F700CF228A /* inetroute.c */; };
 		F9035BD30B9F4FC30077F5DF /* ipconfig.defs in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFCD0AC4F4F700CF228A /* ipconfig.defs */; };
+		F95FB5930DDA22C100B58ECC /* ipconfig_types.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFCF0AC4F4F700CF228A /* ipconfig_types.h */; };
+		F9694B4F0D3409EF00FA3943 /* libio80211.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F9694B4E0D3409EF00FA3943 /* libio80211.a */; };
+		F9694B580D340C0000FA3943 /* arp.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFA40AC4F4F600CF228A /* arp.h */; };
+		F9694B590D340C0000FA3943 /* bootp_transmit.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFA60AC4F4F600CF228A /* bootp_transmit.h */; };
+		F9694B5B0D340C0000FA3943 /* bpflib.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFA90AC4F4F600CF228A /* bpflib.h */; };
+		F9694B5C0D340C0000FA3943 /* bsdp.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFAA0AC4F4F600CF228A /* bsdp.h */; };
+		F9694B5D0D340C0000FA3943 /* bsdplib.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFAC0AC4F4F600CF228A /* bsdplib.h */; };
+		F9694B5E0D340C0000FA3943 /* cfutil.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFAE0AC4F4F600CF228A /* cfutil.h */; };
+		F9694B5F0D340C0000FA3943 /* dhcp.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFAF0AC4F4F600CF228A /* dhcp.h */; };
+		F9694B600D340C0000FA3943 /* dhcp_options.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFB10AC4F4F600CF228A /* dhcp_options.h */; };
+		F9694B610D340C0000FA3943 /* dhcplib.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFB30AC4F4F600CF228A /* dhcplib.h */; };
+		F9694B620D340C0000FA3943 /* DNSNameList.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFB50AC4F4F600CF228A /* DNSNameList.h */; };
+		F9694B630D340C0000FA3943 /* dprintf.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFB60AC4F4F600CF228A /* dprintf.h */; };
+		F9694B640D340C0000FA3943 /* dynarray.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFB80AC4F4F700CF228A /* dynarray.h */; };
+		F9694B650D340C0000FA3943 /* gen_dhcp_parse_table.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFB90AC4F4F700CF228A /* gen_dhcp_parse_table.h */; };
+		F9694B660D340C0000FA3943 /* gen_dhcp_tags.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFBA0AC4F4F700CF228A /* gen_dhcp_tags.h */; };
+		F9694B670D340C0000FA3943 /* gen_dhcp_types.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFBB0AC4F4F700CF228A /* gen_dhcp_types.h */; };
+		F9694B6A0D340C0000FA3943 /* in_cksum.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFC40AC4F4F700CF228A /* in_cksum.h */; };
+		F9694B6C0D340C0000FA3943 /* interfaces.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFC80AC4F4F700CF228A /* interfaces.h */; };
+		F9694B6D0D340C0000FA3943 /* ioregpath.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFCA0AC4F4F700CF228A /* ioregpath.h */; };
+		F9694B6F0D340C0000FA3943 /* ipconfig_ext.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFCE0AC4F4F700CF228A /* ipconfig_ext.h */; };
+		F9694B700D340C0000FA3943 /* ipconfig_types.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFCF0AC4F4F700CF228A /* ipconfig_types.h */; };
+		F9694B790D340C0000FA3943 /* ptrlist.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFDE0AC4F4F800CF228A /* ptrlist.h */; };
+		F9694B7A0D340C0000FA3943 /* rfc_options.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFDF0AC4F4F800CF228A /* rfc_options.h */; };
+		F9694B7D0D340C0000FA3943 /* util.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFE70AC4F4F800CF228A /* util.h */; };
+		F9694B800D340C0000FA3943 /* bootp_transmit.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFA50AC4F4F600CF228A /* bootp_transmit.c */; };
+		F9694B810D340C0000FA3943 /* bpflib.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFA80AC4F4F600CF228A /* bpflib.c */; };
+		F9694B820D340C0000FA3943 /* bsdplib.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFAB0AC4F4F600CF228A /* bsdplib.c */; };
+		F9694B830D340C0000FA3943 /* cfutil.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFAD0AC4F4F600CF228A /* cfutil.c */; };
+		F9694B840D340C0000FA3943 /* dhcp_options.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFB00AC4F4F600CF228A /* dhcp_options.c */; };
+		F9694B850D340C0000FA3943 /* dhcplib.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFB20AC4F4F600CF228A /* dhcplib.c */; };
+		F9694B860D340C0000FA3943 /* DNSNameList.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFB40AC4F4F600CF228A /* DNSNameList.c */; };
+		F9694B870D340C0000FA3943 /* dynarray.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFB70AC4F4F600CF228A /* dynarray.c */; };
+		F9694B8A0D340C0000FA3943 /* in_cksum.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFC30AC4F4F700CF228A /* in_cksum.c */; };
+		F9694B8C0D340C0000FA3943 /* interfaces.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFC70AC4F4F700CF228A /* interfaces.c */; };
+		F9694B8D0D340C0000FA3943 /* ioregpath.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFC90AC4F4F700CF228A /* ioregpath.c */; };
+		F9694B940D340C0000FA3943 /* ptrlist.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFDD0AC4F4F800CF228A /* ptrlist.c */; };
+		F9694B970D340C0000FA3943 /* util.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFE60AC4F4F800CF228A /* util.c */; };
+		F9694BAC0D340C9800FA3943 /* macnc_options.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFD00AC4F4F700CF228A /* macnc_options.c */; };
+		F9694BAD0D340C9900FA3943 /* macnc_options.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFD10AC4F4F700CF228A /* macnc_options.h */; };
+		F99DF9200D340EA10045E43B /* ipconfig.defs in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFCD0AC4F4F700CF228A /* ipconfig.defs */; };
+		F99DF9210D340EA10045E43B /* client.c in Sources */ = {isa = PBXBuildFile; fileRef = 15F005640AC578BD00C5C101 /* client.c */; };
+		F99DF9230D340EA10045E43B /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1562E08B0AC4FBC700CF228A /* CoreFoundation.framework */; };
+		F99DF9240D340EA10045E43B /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1562E0930AC4FBF900CF228A /* SystemConfiguration.framework */; };
+		F99DF9250D340EA10045E43B /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1562E1D30AC505F700CF228A /* IOKit.framework */; };
+		F99DF9380D340F3C0045E43B /* libbootplib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F9694B9C0D340C0000FA3943 /* libbootplib.a */; };
+		F99DF9830D340F720045E43B /* arp.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFA30AC4F4F600CF228A /* arp.c */; };
+		F99DF9840D340F780045E43B /* host_identifier.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFBF0AC4F4F700CF228A /* host_identifier.c */; };
+		F99DF9850D340F780045E43B /* host_identifier.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFC00AC4F4F700CF228A /* host_identifier.h */; };
+		F9C8ECC30D3306F50047CE42 /* arp_session.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562E14A0AC4FD8800CF228A /* arp_session.h */; };
+		F9C8ECC40D3306F50047CE42 /* bootp_session.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562E14D0AC4FD8900CF228A /* bootp_session.h */; };
+		F9C8ECC50D3306F50047CE42 /* FDSet.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562E1540AC4FD8900CF228A /* FDSet.h */; };
+		F9C8ECC60D3306F50047CE42 /* globals.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562E1550AC4FD8900CF228A /* globals.h */; };
+		F9C8ECC70D3306F50047CE42 /* ipconfigd.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562E1570AC4FD8900CF228A /* ipconfigd.h */; };
+		F9C8ECC80D3306F50047CE42 /* ipconfigd_globals.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562E1580AC4FD8900CF228A /* ipconfigd_globals.h */; };
+		F9C8ECC90D3306F50047CE42 /* ipconfigd_threads.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562E1590AC4FD8900CF228A /* ipconfigd_threads.h */; };
+		F9C8ECCA0D3306F50047CE42 /* server.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562E15E0AC4FD8900CF228A /* server.h */; };
+		F9C8ECCB0D3306F50047CE42 /* timer.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562E1600AC4FD8900CF228A /* timer.h */; };
+		F9C8ECCC0D3306F50047CE42 /* ipconfig_types.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFCF0AC4F4F700CF228A /* ipconfig_types.h */; };
+		F9C8ECD10D3306F50047CE42 /* ipconfig.defs in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFCD0AC4F4F700CF228A /* ipconfig.defs */; settings = {ATTRIBUTES = (Server, ); }; };
+		F9C8ECD20D3306F50047CE42 /* arp_session.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562E1490AC4FD8800CF228A /* arp_session.c */; };
+		F9C8ECD30D3306F50047CE42 /* bootp.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562E14B0AC4FD8900CF228A /* bootp.c */; };
+		F9C8ECD40D3306F50047CE42 /* bootp_session.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562E14C0AC4FD8900CF228A /* bootp_session.c */; };
+		F9C8ECD50D3306F50047CE42 /* dhcp.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562E14F0AC4FD8900CF228A /* dhcp.c */; };
+		F9C8ECD60D3306F50047CE42 /* FDSet.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562E1530AC4FD8900CF228A /* FDSet.c */; };
+		F9C8ECD70D3306F50047CE42 /* ipconfigd.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562E1560AC4FD8900CF228A /* ipconfigd.c */; };
+		F9C8ECD80D3306F50047CE42 /* linklocal.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562E15B0AC4FD8900CF228A /* linklocal.c */; };
+		F9C8ECD90D3306F50047CE42 /* manual.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562E15C0AC4FD8900CF228A /* manual.c */; };
+		F9C8ECDA0D3306F50047CE42 /* server.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562E15D0AC4FD8900CF228A /* server.c */; };
+		F9C8ECDB0D3306F50047CE42 /* timer.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562E15F0AC4FD8900CF228A /* timer.c */; };
+		F9C8ECDC0D3306F50047CE42 /* failover.c in Sources */ = {isa = PBXBuildFile; fileRef = 15F018C60ACC601200F5902D /* failover.c */; };
+		F9C8ECDE0D3306F50047CE42 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1562E08B0AC4FBC700CF228A /* CoreFoundation.framework */; };
+		F9C8ECDF0D3306F50047CE42 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1562E0930AC4FBF900CF228A /* SystemConfiguration.framework */; };
+		F9C8ECE00D3306F50047CE42 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1562E1D30AC505F700CF228A /* IOKit.framework */; };
+		F9DCDCB50D340E3B00A504B0 /* libbootplib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F9694B9C0D340C0000FA3943 /* libbootplib.a */; };
+		F9F839280E106E4700724F62 /* IPConfiguration.xml in Resources */ = {isa = PBXBuildFile; fileRef = F9F839270E106E4700724F62 /* IPConfiguration.xml */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -163,20 +266,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = 1562E0470AC4F8A100CF228A;
 			remoteInfo = bootpd;
-		};
-		1562E0710AC4FA6200CF228A /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 1562DF830AC4F40F00CF228A /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 1562DF990AC4F47B00CF228A;
-			remoteInfo = bootplib;
-		};
-		1562E1890AC4FF4A00CF228A /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 1562DF830AC4F40F00CF228A /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 1562DF990AC4F47B00CF228A;
-			remoteInfo = bootplib;
 		};
 		1562E18B0AC4FF5100CF228A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -220,19 +309,54 @@
 			remoteGlobalIDString = 15F0055F0AC5789A00C5C101;
 			remoteInfo = ipconfig;
 		};
-		15F0056C0AC5790E00C5C101 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 1562DF830AC4F40F00CF228A /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 1562DF990AC4F47B00CF228A;
-			remoteInfo = bootplib;
-		};
 		15F007140AC580BB00C5C101 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 1562DF830AC4F40F00CF228A /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 15F007110AC580B200C5C101;
 			remoteInfo = bsdpc;
+		};
+		E0D59B840EEDDD9900916211 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1562DF830AC4F40F00CF228A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E0D59B6A0EEDDD8E00916211;
+			remoteInfo = "bootpd(embedded)";
+		};
+		E0D59BB20EEDDFAD00916211 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1562DF830AC4F40F00CF228A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F9694B550D340C0000FA3943;
+			remoteInfo = "bootplib(embedded)";
+		};
+		F99DF9890D340FB50045E43B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1562DF830AC4F40F00CF228A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F99DF91E0D340EA10045E43B;
+			remoteInfo = "ipconfig(embedded)";
+		};
+		F99DF9970D35371F0045E43B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1562DF830AC4F40F00CF228A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1562DF990AC4F47B00CF228A;
+			remoteInfo = bootplib;
+		};
+		F9DCDCA40D340CDA00A504B0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1562DF830AC4F40F00CF228A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F9694B550D340C0000FA3943;
+			remoteInfo = "bootplib(embedded)";
+		};
+		F9DCDCA60D340CE000A504B0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1562DF830AC4F40F00CF228A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F9C8ECBE0D3306F50047CE42;
+			remoteInfo = "IPConfiguration(embedded)";
 		};
 /* End PBXContainerItemProxy section */
 
@@ -277,9 +401,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		E0D59B790EEDDD8E00916211 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/LaunchDaemons;
+			dstSubfolderSpec = 0;
+			files = (
+				E0D59B7A0EEDDD8E00916211 /* bootps.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		152D1B750D4BB30800176920 /* Apple80211.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Apple80211.framework; path = /System/Library/PrivateFrameworks/Apple80211.framework; sourceTree = "<absolute>"; };
 		1562DF9A0AC4F47B00CF228A /* libbootplib.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libbootplib.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		1562DFA20AC4F4F600CF228A /* afp.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = afp.h; path = bootplib/afp.h; sourceTree = "<group>"; };
 		1562DFA30AC4F4F600CF228A /* arp.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = arp.c; path = bootplib/arp.c; sourceTree = "<group>"; };
@@ -322,8 +457,6 @@
 		1562DFC80AC4F4F700CF228A /* interfaces.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = interfaces.h; path = bootplib/interfaces.h; sourceTree = "<group>"; };
 		1562DFC90AC4F4F700CF228A /* ioregpath.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = ioregpath.c; path = bootplib/ioregpath.c; sourceTree = "<group>"; };
 		1562DFCA0AC4F4F700CF228A /* ioregpath.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ioregpath.h; path = bootplib/ioregpath.h; sourceTree = "<group>"; };
-		1562DFCB0AC4F4F700CF228A /* ipcfg.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = ipcfg.c; path = bootplib/ipcfg.c; sourceTree = "<group>"; };
-		1562DFCC0AC4F4F700CF228A /* ipcfg.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ipcfg.h; path = bootplib/ipcfg.h; sourceTree = "<group>"; };
 		1562DFCD0AC4F4F700CF228A /* ipconfig.defs */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.mig; name = ipconfig.defs; path = bootplib/ipconfig.defs; sourceTree = "<group>"; };
 		1562DFCE0AC4F4F700CF228A /* ipconfig_ext.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ipconfig_ext.h; path = bootplib/ipconfig_ext.h; sourceTree = "<group>"; };
 		1562DFCF0AC4F4F700CF228A /* ipconfig_types.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ipconfig_types.h; path = bootplib/ipconfig_types.h; sourceTree = "<group>"; };
@@ -359,7 +492,7 @@
 		1562E0540AC4F90C00CF228A /* bootpd.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = bootpd.h; path = bootpd.tproj/bootpd.h; sourceTree = "<group>"; };
 		1562E0550AC4F90C00CF228A /* bootpdfile.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = bootpdfile.c; path = bootpd.tproj/bootpdfile.c; sourceTree = "<group>"; };
 		1562E0560AC4F90C00CF228A /* bootpdfile.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = bootpdfile.h; path = bootpd.tproj/bootpdfile.h; sourceTree = "<group>"; };
-		1562E0570AC4F90C00CF228A /* bootps.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = bootps.plist; path = bootpd.tproj/bootps.plist; sourceTree = "<group>"; };
+		1562E0570AC4F90C00CF228A /* bootps.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; name = bootps.plist; path = bootpd.tproj/bootps.plist; sourceTree = "<group>"; };
 		1562E0580AC4F90C00CF228A /* bootptab.5 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = bootptab.5; path = bootpd.tproj/bootptab.5; sourceTree = "<group>"; };
 		1562E0590AC4F90C00CF228A /* bsdpd.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = bsdpd.c; path = bootpd.tproj/bsdpd.c; sourceTree = "<group>"; };
 		1562E05A0AC4F90C00CF228A /* bsdpd.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = bsdpd.h; path = bootpd.tproj/bsdpd.h; sourceTree = "<group>"; };
@@ -392,13 +525,13 @@
 		1562E15E0AC4FD8900CF228A /* server.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = server.h; path = IPConfiguration.bproj/server.h; sourceTree = "<group>"; };
 		1562E15F0AC4FD8900CF228A /* timer.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = timer.c; path = IPConfiguration.bproj/timer.c; sourceTree = "<group>"; };
 		1562E1600AC4FD8900CF228A /* timer.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = timer.h; path = IPConfiguration.bproj/timer.h; sourceTree = "<group>"; };
-		1562E1780AC4FE1100CF228A /* English */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.strings; name = English; path = IPConfiguration.bproj/English.lproj/Localizable.strings; sourceTree = "<group>"; };
+		1562E1780AC4FE1100CF228A /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = IPConfiguration.bproj/English.lproj/Localizable.strings; sourceTree = "<group>"; };
 		1562E1D30AC505F700CF228A /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
 		1596FB650AD9CC0600C3C46D /* bootplookup.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = bootplookup.c; path = bootpd.tproj/bootplookup.c; sourceTree = "<group>"; };
 		1596FB660AD9CC0600C3C46D /* bootplookup.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = bootplookup.h; path = bootpd.tproj/bootplookup.h; sourceTree = "<group>"; };
-		15D7F5490AC5B0390002BE78 /* libBSDPClient.A.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libBSDPClient.A.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
-		15D7F54E0AC5B05A0002BE78 /* libDHCPServer.A.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libDHCPServer.A.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
-		15D7F6EB0AC5C4730002BE78 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = Info.plist; path = IPConfiguration.bproj/Info.plist; sourceTree = "<group>"; };
+		15D7F5490AC5B0390002BE78 /* libBSDPClient.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libBSDPClient.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		15D7F54E0AC5B05A0002BE78 /* libDHCPServer.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libDHCPServer.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		15D7F6EB0AC5C4730002BE78 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; name = Info.plist; path = IPConfiguration.bproj/Info.plist; sourceTree = "<group>"; };
 		15F005600AC5789A00C5C101 /* ipconfig */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ipconfig; sourceTree = BUILT_PRODUCTS_DIR; };
 		15F005640AC578BD00C5C101 /* client.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = client.c; path = ipconfig.tproj/client.c; sourceTree = "<group>"; };
 		15F005650AC578BD00C5C101 /* ipconfig.8 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = ipconfig.8; path = ipconfig.tproj/ipconfig.8; sourceTree = "<group>"; };
@@ -411,6 +544,12 @@
 		15F0071E0AC5811100C5C101 /* bsdpc.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = bsdpc.c; path = bsdpc.tproj/bsdpc.c; sourceTree = "<group>"; };
 		15F018C60ACC601200F5902D /* failover.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = failover.c; path = IPConfiguration.bproj/failover.c; sourceTree = "<group>"; };
 		15FF29A00ACA138A00AD2676 /* OpenDirectory.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenDirectory.framework; path = /System/Library/PrivateFrameworks/OpenDirectory.framework; sourceTree = "<absolute>"; };
+		E0D59B820EEDDD8E00916211 /* bootpd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = bootpd; sourceTree = BUILT_PRODUCTS_DIR; };
+		F9694B4E0D3409EF00FA3943 /* libio80211.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libio80211.a; path = /usr/local/lib/libio80211.a; sourceTree = "<absolute>"; };
+		F9694B9C0D340C0000FA3943 /* libbootplib.a */ = {isa = PBXFileReference; comments = embedded; explicitFileType = archive.ar; includeInIndex = 0; path = libbootplib.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		F99DF92C0D340EA10045E43B /* ipconfig */ = {isa = PBXFileReference; comments = embedded; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ipconfig; sourceTree = BUILT_PRODUCTS_DIR; };
+		F9C8ECE60D3306F50047CE42 /* IPConfiguration.bundle */ = {isa = PBXFileReference; comments = "embedded\n"; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IPConfiguration.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
+		F9F839270E106E4700724F62 /* IPConfiguration.xml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; name = IPConfiguration.xml; path = IPConfiguration.bproj/Embedded/IPConfiguration.xml; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -441,6 +580,7 @@
 				1562E1D00AC5059800CF228A /* SystemConfiguration.framework in Frameworks */,
 				1562E1D40AC505F700CF228A /* IOKit.framework in Frameworks */,
 				1562E1D10AC505D300CF228A /* libbootplib.a in Frameworks */,
+				152D1B760D4BB30800176920 /* Apple80211.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -479,8 +619,49 @@
 			buildActionMask = 2147483647;
 			files = (
 				15F007210AC5813C00C5C101 /* CoreFoundation.framework in Frameworks */,
-				15D7F6A90AC5B13A0002BE78 /* libBSDPClient.A.dylib in Frameworks */,
+				15D7F6A90AC5B13A0002BE78 /* libBSDPClient.dylib in Frameworks */,
 				15D7F6B70AC5B5EC0002BE78 /* libbootplib.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E0D59B730EEDDD8E00916211 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E0D59B740EEDDD8E00916211 /* CoreFoundation.framework in Frameworks */,
+				E0D59B750EEDDD8E00916211 /* SystemConfiguration.framework in Frameworks */,
+				E0D59B770EEDDD8E00916211 /* libbootplib.a in Frameworks */,
+				E0D59B780EEDDD8E00916211 /* libresolv.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F9694B980D340C0000FA3943 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F99DF9220D340EA10045E43B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F99DF9230D340EA10045E43B /* CoreFoundation.framework in Frameworks */,
+				F99DF9240D340EA10045E43B /* SystemConfiguration.framework in Frameworks */,
+				F99DF9250D340EA10045E43B /* IOKit.framework in Frameworks */,
+				F99DF9380D340F3C0045E43B /* libbootplib.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F9C8ECDD0D3306F50047CE42 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F9C8ECDE0D3306F50047CE42 /* CoreFoundation.framework in Frameworks */,
+				F9C8ECDF0D3306F50047CE42 /* SystemConfiguration.framework in Frameworks */,
+				F9C8ECE00D3306F50047CE42 /* IOKit.framework in Frameworks */,
+				F9DCDCB50D340E3B00A504B0 /* libbootplib.a in Frameworks */,
+				F9694B4F0D3409EF00FA3943 /* libio80211.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -540,7 +721,6 @@
 				1562DFC60AC4F4F700CF228A /* inetroute.h */,
 				1562DFC80AC4F4F700CF228A /* interfaces.h */,
 				1562DFCA0AC4F4F700CF228A /* ioregpath.h */,
-				1562DFCC0AC4F4F700CF228A /* ipcfg.h */,
 				1562DFCE0AC4F4F700CF228A /* ipconfig_ext.h */,
 				1562DFD10AC4F4F700CF228A /* macnc_options.h */,
 				1562DFD30AC4F4F700CF228A /* nbimages.h */,
@@ -577,7 +757,6 @@
 				1562DFC50AC4F4F700CF228A /* inetroute.c */,
 				1562DFC70AC4F4F700CF228A /* interfaces.c */,
 				1562DFC90AC4F4F700CF228A /* ioregpath.c */,
-				1562DFCB0AC4F4F700CF228A /* ipcfg.c */,
 				1562DFD00AC4F4F700CF228A /* macnc_options.c */,
 				1562DFD20AC4F4F700CF228A /* nbimages.c */,
 				1562DFD40AC4F4F800CF228A /* nbsp.c */,
@@ -595,12 +774,17 @@
 			isa = PBXGroup;
 			children = (
 				1562DF9A0AC4F47B00CF228A /* libbootplib.a */,
+				F9694B4E0D3409EF00FA3943 /* libio80211.a */,
 				1562E0480AC4F8A100CF228A /* bootpd */,
 				1562E1480AC4FD1F00CF228A /* IPConfiguration.bundle */,
 				15F005600AC5789A00C5C101 /* ipconfig */,
 				15F007120AC580B200C5C101 /* bsdpc */,
-				15D7F5490AC5B0390002BE78 /* libBSDPClient.A.dylib */,
-				15D7F54E0AC5B05A0002BE78 /* libDHCPServer.A.dylib */,
+				15D7F5490AC5B0390002BE78 /* libBSDPClient.dylib */,
+				15D7F54E0AC5B05A0002BE78 /* libDHCPServer.dylib */,
+				F9C8ECE60D3306F50047CE42 /* IPConfiguration.bundle */,
+				F9694B9C0D340C0000FA3943 /* libbootplib.a */,
+				F99DF92C0D340EA10045E43B /* ipconfig */,
+				E0D59B820EEDDD8E00916211 /* bootpd */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -689,6 +873,7 @@
 				1562E0930AC4FBF900CF228A /* SystemConfiguration.framework */,
 				1562E1D30AC505F700CF228A /* IOKit.framework */,
 				15FF29A00ACA138A00AD2676 /* OpenDirectory.framework */,
+				152D1B750D4BB30800176920 /* Apple80211.framework */,
 				1562E0BC0AC4FC1600CF228A /* libresolv.dylib */,
 			);
 			name = "External Frameworks and Libraries";
@@ -741,6 +926,7 @@
 		1562E1320AC4FCB500CF228A /* Supporting Files */ = {
 			isa = PBXGroup;
 			children = (
+				F9F839230E106E2200724F62 /* Embedded */,
 				15D7F6EB0AC5C4730002BE78 /* Info.plist */,
 				1562E15A0AC4FD8900CF228A /* IPConfiguration.xml */,
 				1562E1770AC4FE1100CF228A /* Localizable.strings */,
@@ -856,6 +1042,14 @@
 			name = Headers;
 			sourceTree = "<group>";
 		};
+		F9F839230E106E2200724F62 /* Embedded */ = {
+			isa = PBXGroup;
+			children = (
+				F9F839270E106E4700724F62 /* IPConfiguration.xml */,
+			);
+			name = Embedded;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
@@ -886,7 +1080,6 @@
 				1562E00C0AC4F4F800CF228A /* inetroute.h in Headers */,
 				1562E00E0AC4F4F800CF228A /* interfaces.h in Headers */,
 				1562E0100AC4F4F800CF228A /* ioregpath.h in Headers */,
-				1562E0120AC4F4F800CF228A /* ipcfg.h in Headers */,
 				1562E0140AC4F4F800CF228A /* ipconfig_ext.h in Headers */,
 				1562E0150AC4F4F800CF228A /* ipconfig_types.h in Headers */,
 				1562E0170AC4F4F800CF228A /* macnc_options.h in Headers */,
@@ -939,6 +1132,63 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		F95FB5920DDA22B800B58ECC /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F95FB5930DDA22C100B58ECC /* ipconfig_types.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F9694B560D340C0000FA3943 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F9694B580D340C0000FA3943 /* arp.h in Headers */,
+				F9694B590D340C0000FA3943 /* bootp_transmit.h in Headers */,
+				F9694B5B0D340C0000FA3943 /* bpflib.h in Headers */,
+				F9694B5C0D340C0000FA3943 /* bsdp.h in Headers */,
+				F9694B5D0D340C0000FA3943 /* bsdplib.h in Headers */,
+				F9694B5E0D340C0000FA3943 /* cfutil.h in Headers */,
+				F9694B5F0D340C0000FA3943 /* dhcp.h in Headers */,
+				F9694B600D340C0000FA3943 /* dhcp_options.h in Headers */,
+				F9694B610D340C0000FA3943 /* dhcplib.h in Headers */,
+				F9694B620D340C0000FA3943 /* DNSNameList.h in Headers */,
+				F9694B630D340C0000FA3943 /* dprintf.h in Headers */,
+				F9694B640D340C0000FA3943 /* dynarray.h in Headers */,
+				F9694B650D340C0000FA3943 /* gen_dhcp_parse_table.h in Headers */,
+				F9694B660D340C0000FA3943 /* gen_dhcp_tags.h in Headers */,
+				F9694B670D340C0000FA3943 /* gen_dhcp_types.h in Headers */,
+				F9694B6A0D340C0000FA3943 /* in_cksum.h in Headers */,
+				F9694B6C0D340C0000FA3943 /* interfaces.h in Headers */,
+				F9694B6D0D340C0000FA3943 /* ioregpath.h in Headers */,
+				F9694B6F0D340C0000FA3943 /* ipconfig_ext.h in Headers */,
+				F9694B700D340C0000FA3943 /* ipconfig_types.h in Headers */,
+				F9694B790D340C0000FA3943 /* ptrlist.h in Headers */,
+				F9694B7A0D340C0000FA3943 /* rfc_options.h in Headers */,
+				F9694B7D0D340C0000FA3943 /* util.h in Headers */,
+				F9694BAD0D340C9900FA3943 /* macnc_options.h in Headers */,
+				F99DF9850D340F780045E43B /* host_identifier.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F9C8ECC20D3306F50047CE42 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F9C8ECC30D3306F50047CE42 /* arp_session.h in Headers */,
+				F9C8ECC40D3306F50047CE42 /* bootp_session.h in Headers */,
+				F9C8ECC50D3306F50047CE42 /* FDSet.h in Headers */,
+				F9C8ECC60D3306F50047CE42 /* globals.h in Headers */,
+				F9C8ECC70D3306F50047CE42 /* ipconfigd.h in Headers */,
+				F9C8ECC80D3306F50047CE42 /* ipconfigd_globals.h in Headers */,
+				F9C8ECC90D3306F50047CE42 /* ipconfigd_threads.h in Headers */,
+				F9C8ECCA0D3306F50047CE42 /* server.h in Headers */,
+				F9C8ECCB0D3306F50047CE42 /* timer.h in Headers */,
+				F9C8ECCC0D3306F50047CE42 /* ipconfig_types.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
@@ -972,7 +1222,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				1562E0720AC4FA6200CF228A /* PBXTargetDependency */,
 			);
 			name = bootpd;
 			productName = bootpd;
@@ -993,7 +1242,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				1562E18A0AC4FF4A00CF228A /* PBXTargetDependency */,
 			);
 			name = IPConfiguration;
 			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
@@ -1017,7 +1265,7 @@
 			);
 			name = BSDPClient;
 			productName = BSDPClient;
-			productReference = 15D7F5490AC5B0390002BE78 /* libBSDPClient.A.dylib */;
+			productReference = 15D7F5490AC5B0390002BE78 /* libBSDPClient.dylib */;
 			productType = "com.apple.product-type.library.dynamic";
 		};
 		15D7F54D0AC5B05A0002BE78 /* DHCPServer */ = {
@@ -1035,7 +1283,7 @@
 			);
 			name = DHCPServer;
 			productName = DHCPServer;
-			productReference = 15D7F54E0AC5B05A0002BE78 /* libDHCPServer.A.dylib */;
+			productReference = 15D7F54E0AC5B05A0002BE78 /* libDHCPServer.dylib */;
 			productType = "com.apple.product-type.library.dynamic";
 		};
 		15F0055F0AC5789A00C5C101 /* ipconfig */ = {
@@ -1045,11 +1293,11 @@
 				15F0055D0AC5789A00C5C101 /* Sources */,
 				15F0055E0AC5789A00C5C101 /* Frameworks */,
 				15D7F6B60AC5B26D0002BE78 /* CopyFiles */,
+				F95FB5920DDA22B800B58ECC /* Headers */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				15F0056D0AC5790E00C5C101 /* PBXTargetDependency */,
 			);
 			name = ipconfig;
 			productName = ipconfig;
@@ -1073,6 +1321,78 @@
 			productReference = 15F007120AC580B200C5C101 /* bsdpc */;
 			productType = "com.apple.product-type.tool";
 		};
+		E0D59B6A0EEDDD8E00916211 /* bootpd(embedded) */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E0D59B7F0EEDDD8E00916211 /* Build configuration list for PBXNativeTarget "bootpd(embedded)" */;
+			buildPhases = (
+				E0D59B6B0EEDDD8E00916211 /* Sources */,
+				E0D59B730EEDDD8E00916211 /* Frameworks */,
+				E0D59B790EEDDD8E00916211 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				E0D59BB30EEDDFAD00916211 /* PBXTargetDependency */,
+			);
+			name = "bootpd(embedded)";
+			productName = bootpd;
+			productReference = E0D59B820EEDDD8E00916211 /* bootpd */;
+			productType = "com.apple.product-type.tool";
+		};
+		F9694B550D340C0000FA3943 /* bootplib(embedded) */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F9694B990D340C0000FA3943 /* Build configuration list for PBXNativeTarget "bootplib(embedded)" */;
+			buildPhases = (
+				F9694B560D340C0000FA3943 /* Headers */,
+				F9694B7E0D340C0000FA3943 /* Sources */,
+				F9694B980D340C0000FA3943 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "bootplib(embedded)";
+			productName = bootplib;
+			productReference = F9694B9C0D340C0000FA3943 /* libbootplib.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		F99DF91E0D340EA10045E43B /* ipconfig(embedded) */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F99DF9290D340EA10045E43B /* Build configuration list for PBXNativeTarget "ipconfig(embedded)" */;
+			buildPhases = (
+				F99DF91F0D340EA10045E43B /* Sources */,
+				F99DF9220D340EA10045E43B /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "ipconfig(embedded)";
+			productName = ipconfig;
+			productReference = F99DF92C0D340EA10045E43B /* ipconfig */;
+			productType = "com.apple.product-type.tool";
+		};
+		F9C8ECBE0D3306F50047CE42 /* IPConfiguration(embedded) */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F9C8ECE30D3306F50047CE42 /* Build configuration list for PBXNativeTarget "IPConfiguration(embedded)" */;
+			buildPhases = (
+				F9C8ECC10D3306F50047CE42 /* Darwin Check */,
+				F9C8ECC20D3306F50047CE42 /* Headers */,
+				F9C8ECCD0D3306F50047CE42 /* Resources */,
+				F9C8ECD00D3306F50047CE42 /* Sources */,
+				F9C8ECDD0D3306F50047CE42 /* Frameworks */,
+				F9C8ECE20D3306F50047CE42 /* Rez */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "IPConfiguration(embedded)";
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = IPConfiguration;
+			productReference = F9C8ECE60D3306F50047CE42 /* IPConfiguration.bundle */;
+			productType = "com.apple.product-type.bundle.shallow";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -1087,6 +1407,7 @@
 			projectRoot = "";
 			targets = (
 				1562DF950AC4F46A00CF228A /* All */,
+				F9C8ECA70D3306B90047CE42 /* embedded */,
 				1562DF990AC4F47B00CF228A /* bootplib */,
 				1562E0470AC4F8A100CF228A /* bootpd */,
 				1562E13E0AC4FD1F00CF228A /* IPConfiguration */,
@@ -1094,6 +1415,10 @@
 				15D7F5480AC5B0390002BE78 /* BSDPClient */,
 				15D7F54D0AC5B05A0002BE78 /* DHCPServer */,
 				15F007110AC580B200C5C101 /* bsdpc */,
+				F9C8ECBE0D3306F50047CE42 /* IPConfiguration(embedded) */,
+				F9694B550D340C0000FA3943 /* bootplib(embedded) */,
+				F99DF91E0D340EA10045E43B /* ipconfig(embedded) */,
+				E0D59B6A0EEDDD8E00916211 /* bootpd(embedded) */,
 			);
 		};
 /* End PBXProject section */
@@ -1108,10 +1433,25 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		F9C8ECCD0D3306F50047CE42 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F9F839280E106E4700724F62 /* IPConfiguration.xml in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXRezBuildPhase section */
 		1562E1430AC4FD1F00CF228A /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F9C8ECE20D3306F50047CE42 /* Rez */ = {
 			isa = PBXRezBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -1162,6 +1502,21 @@
 			shellPath = /bin/sh;
 			shellScript = "MY_DARWIN_H=\"${SYMROOT}/my_darwin.h\"\nDARWIN_APPLE80211=\"${SYMROOT}/Apple80211.framework\"\n\nif [ \"${RC_RELEASE}\" = \"Darwin\" ]; then\n\techo \"#define NO_WIRELESS\" > \"${MY_DARWIN_H}\"\n\tmkdir -p \"${DARWIN_APPLE80211}\"\n\techo \"Placeholder for Apple80211 framework\" > \"${DARWIN_APPLE80211}/Apple80211\"\nelse\n\techo \"\" > \"${MY_DARWIN_H}\"\nfi\n\nexit 0";
 		};
+		F9C8ECC10D3306F50047CE42 /* Darwin Check */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				this,
+			);
+			name = "Darwin Check";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "MY_DARWIN_H=\"${SYMROOT}/my_darwin.h\"\nDARWIN_APPLE80211=\"${SYMROOT}/Apple80211.framework\"\n\nif [ \"${RC_RELEASE}\" = \"Darwin\" ]; then\n\techo \"#define NO_WIRELESS\" > \"${MY_DARWIN_H}\"\n\tmkdir -p \"${DARWIN_APPLE80211}\"\n\techo \"Placeholder for Apple80211 framework\" > \"${DARWIN_APPLE80211}/Apple80211\"\nelse\n\techo \"\" > \"${MY_DARWIN_H}\"\nfi\n\nexit 0";
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -1184,7 +1539,6 @@
 				1562E00B0AC4F4F800CF228A /* inetroute.c in Sources */,
 				1562E00D0AC4F4F800CF228A /* interfaces.c in Sources */,
 				1562E00F0AC4F4F800CF228A /* ioregpath.c in Sources */,
-				1562E0110AC4F4F800CF228A /* ipcfg.c in Sources */,
 				1562E0160AC4F4F800CF228A /* macnc_options.c in Sources */,
 				1562E0180AC4F4F800CF228A /* nbimages.c in Sources */,
 				1562E01A0AC4F4F800CF228A /* nbsp.c in Sources */,
@@ -1263,6 +1617,72 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		E0D59B6B0EEDDD8E00916211 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E0D59B6C0EEDDD8E00916211 /* bootpd.c in Sources */,
+				E0D59B6D0EEDDD8E00916211 /* bootpdfile.c in Sources */,
+				E0D59B6F0EEDDD8E00916211 /* dhcpd.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F9694B7E0D340C0000FA3943 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F9694B800D340C0000FA3943 /* bootp_transmit.c in Sources */,
+				F9694B810D340C0000FA3943 /* bpflib.c in Sources */,
+				F9694B820D340C0000FA3943 /* bsdplib.c in Sources */,
+				F9694B830D340C0000FA3943 /* cfutil.c in Sources */,
+				F9694B840D340C0000FA3943 /* dhcp_options.c in Sources */,
+				F9694B850D340C0000FA3943 /* dhcplib.c in Sources */,
+				F9694B860D340C0000FA3943 /* DNSNameList.c in Sources */,
+				F9694B870D340C0000FA3943 /* dynarray.c in Sources */,
+				F9694B8A0D340C0000FA3943 /* in_cksum.c in Sources */,
+				F9694B8C0D340C0000FA3943 /* interfaces.c in Sources */,
+				F9694B8D0D340C0000FA3943 /* ioregpath.c in Sources */,
+				F9694B940D340C0000FA3943 /* ptrlist.c in Sources */,
+				F9694B970D340C0000FA3943 /* util.c in Sources */,
+				F9694BAC0D340C9800FA3943 /* macnc_options.c in Sources */,
+				F99DF9830D340F720045E43B /* arp.c in Sources */,
+				F99DF9840D340F780045E43B /* host_identifier.c in Sources */,
+				E0D59BAB0EEDDF8100916211 /* subnets.c in Sources */,
+				E0D59BBC0EEDDFFA00916211 /* NICache.c in Sources */,
+				E0D59BC00EEDE01500916211 /* netinfo.c in Sources */,
+				E0D59BC70EEDE02800916211 /* hostlist.c in Sources */,
+				E0D59BCD0EEDE03D00916211 /* inetroute.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F99DF91F0D340EA10045E43B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F99DF9200D340EA10045E43B /* ipconfig.defs in Sources */,
+				F99DF9210D340EA10045E43B /* client.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F9C8ECD00D3306F50047CE42 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F9C8ECD10D3306F50047CE42 /* ipconfig.defs in Sources */,
+				F9C8ECD20D3306F50047CE42 /* arp_session.c in Sources */,
+				F9C8ECD30D3306F50047CE42 /* bootp.c in Sources */,
+				F9C8ECD40D3306F50047CE42 /* bootp_session.c in Sources */,
+				F9C8ECD50D3306F50047CE42 /* dhcp.c in Sources */,
+				F9C8ECD60D3306F50047CE42 /* FDSet.c in Sources */,
+				F9C8ECD70D3306F50047CE42 /* ipconfigd.c in Sources */,
+				F9C8ECD80D3306F50047CE42 /* linklocal.c in Sources */,
+				F9C8ECD90D3306F50047CE42 /* manual.c in Sources */,
+				F9C8ECDA0D3306F50047CE42 /* server.c in Sources */,
+				F9C8ECDB0D3306F50047CE42 /* timer.c in Sources */,
+				F9C8ECDC0D3306F50047CE42 /* failover.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -1270,16 +1690,6 @@
 			isa = PBXTargetDependency;
 			target = 1562E0470AC4F8A100CF228A /* bootpd */;
 			targetProxy = 1562E0690AC4F9BD00CF228A /* PBXContainerItemProxy */;
-		};
-		1562E0720AC4FA6200CF228A /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 1562DF990AC4F47B00CF228A /* bootplib */;
-			targetProxy = 1562E0710AC4FA6200CF228A /* PBXContainerItemProxy */;
-		};
-		1562E18A0AC4FF4A00CF228A /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 1562DF990AC4F47B00CF228A /* bootplib */;
-			targetProxy = 1562E1890AC4FF4A00CF228A /* PBXContainerItemProxy */;
 		};
 		1562E18C0AC4FF5100CF228A /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -1311,15 +1721,40 @@
 			target = 15F0055F0AC5789A00C5C101 /* ipconfig */;
 			targetProxy = 15F005620AC578A200C5C101 /* PBXContainerItemProxy */;
 		};
-		15F0056D0AC5790E00C5C101 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 1562DF990AC4F47B00CF228A /* bootplib */;
-			targetProxy = 15F0056C0AC5790E00C5C101 /* PBXContainerItemProxy */;
-		};
 		15F007150AC580BB00C5C101 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 15F007110AC580B200C5C101 /* bsdpc */;
 			targetProxy = 15F007140AC580BB00C5C101 /* PBXContainerItemProxy */;
+		};
+		E0D59B850EEDDD9900916211 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = E0D59B6A0EEDDD8E00916211 /* bootpd(embedded) */;
+			targetProxy = E0D59B840EEDDD9900916211 /* PBXContainerItemProxy */;
+		};
+		E0D59BB30EEDDFAD00916211 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F9694B550D340C0000FA3943 /* bootplib(embedded) */;
+			targetProxy = E0D59BB20EEDDFAD00916211 /* PBXContainerItemProxy */;
+		};
+		F99DF98A0D340FB50045E43B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F99DF91E0D340EA10045E43B /* ipconfig(embedded) */;
+			targetProxy = F99DF9890D340FB50045E43B /* PBXContainerItemProxy */;
+		};
+		F99DF9980D35371F0045E43B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1562DF990AC4F47B00CF228A /* bootplib */;
+			targetProxy = F99DF9970D35371F0045E43B /* PBXContainerItemProxy */;
+		};
+		F9DCDCA50D340CDA00A504B0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F9694B550D340C0000FA3943 /* bootplib(embedded) */;
+			targetProxy = F9DCDCA40D340CDA00A504B0 /* PBXContainerItemProxy */;
+		};
+		F9DCDCA70D340CE000A504B0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F9C8ECBE0D3306F50047CE42 /* IPConfiguration(embedded) */;
+			targetProxy = F9DCDCA60D340CE000A504B0 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1339,7 +1774,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DEAD_CODE_STRIPPING = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.5;
 				STRIPFLAGS = "-S";
 			};
 			name = Debug;
@@ -1350,7 +1784,6 @@
 				DEAD_CODE_STRIPPING = YES;
 				INSTALL_GROUP = wheel;
 				INSTALL_OWNER = root;
-				MACOSX_DEPLOYMENT_TARGET = 10.5;
 				STRIPFLAGS = "-S";
 				WARNING_CFLAGS = (
 					"-Wall",
@@ -1419,7 +1852,6 @@
 				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				INSTALL_PATH = /usr/libexec;
 				PRODUCT_NAME = bootpd;
-				VALID_ARCHS = "i386 ppc";
 			};
 			name = Debug;
 		};
@@ -1430,7 +1862,6 @@
 				GCC_WARN_MISSING_PARENTHESES = NO;
 				INSTALL_PATH = /usr/libexec;
 				PRODUCT_NAME = bootpd;
-				VALID_ARCHS = "i386 ppc";
 				VERSIONING_SYSTEM = "";
 				WARNING_CFLAGS = (
 					"-Wall",
@@ -1445,12 +1876,8 @@
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(SYMROOT)",
-					"$(inherited)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2)",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				HEADER_SEARCH_PATHS = (
 					"$(SYMROOT)",
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/PrivateHeaders",
@@ -1458,12 +1885,8 @@
 				);
 				INFOPLIST_FILE = IPConfiguration.bproj/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
-				OTHER_LDFLAGS = (
-					"-framework",
-					Apple80211,
-				);
 				PRODUCT_NAME = IPConfiguration;
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "i386 x86_64 ppc";
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Wno-four-char-constants",
@@ -1478,12 +1901,8 @@
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(SYMROOT)",
-					"$(inherited)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2)",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				HEADER_SEARCH_PATHS = (
 					"$(SYMROOT)",
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/PrivateHeaders",
@@ -1491,12 +1910,8 @@
 				);
 				INFOPLIST_FILE = IPConfiguration.bproj/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
-				OTHER_LDFLAGS = (
-					"-framework",
-					Apple80211,
-				);
 				PRODUCT_NAME = IPConfiguration;
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "i386 x86_64 ppc";
 				VERSIONING_SYSTEM = "";
 				WARNING_CFLAGS = (
 					"-Wall",
@@ -1566,7 +1981,6 @@
 			buildSettings = {
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = ipconfig;
-				VALID_ARCHS = "i386 ppc";
 			};
 			name = Debug;
 		};
@@ -1576,7 +1990,6 @@
 				COPY_PHASE_STRIP = YES;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = ipconfig;
-				VALID_ARCHS = "i386 ppc";
 				VERSIONING_SYSTEM = "";
 				WARNING_CFLAGS = (
 					"-Wall",
@@ -1592,7 +2005,6 @@
 				COPY_PHASE_STRIP = NO;
 				INSTALL_PATH = /usr/local/bin;
 				PRODUCT_NAME = bsdpc;
-				VALID_ARCHS = "i386 ppc";
 			};
 			name = Debug;
 		};
@@ -1602,13 +2014,165 @@
 				COPY_PHASE_STRIP = YES;
 				INSTALL_PATH = /usr/local/bin;
 				PRODUCT_NAME = bsdpc;
-				VALID_ARCHS = "i386 ppc";
 				VERSIONING_SYSTEM = "";
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
 				);
+			};
+			name = Release;
+		};
+		E0D59B800EEDDD8E00916211 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLY_RULES_IN_COPY_FILES = YES;
+				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_PREPROCESSOR_DEFINITIONS = USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS;
+				INSTALL_PATH = /usr/libexec;
+				PRODUCT_NAME = bootpd;
+			};
+			name = Debug;
+		};
+		E0D59B810EEDDD8E00916211 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLY_RULES_IN_COPY_FILES = YES;
+				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_PREPROCESSOR_DEFINITIONS = USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS;
+				GCC_WARN_MISSING_PARENTHESES = NO;
+				INSTALL_PATH = /usr/libexec;
+				PRODUCT_NAME = bootpd;
+				VERSIONING_SYSTEM = "";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Release;
+		};
+		F9694B9A0D340C0000FA3943 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				HEADER_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				INSTALL_PATH = /usr/local/lib;
+				PRODUCT_NAME = bootplib;
+				SKIP_INSTALL = YES;
+			};
+			name = Debug;
+		};
+		F9694B9B0D340C0000FA3943 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				HEADER_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				INSTALL_PATH = /usr/local/lib;
+				PRODUCT_NAME = bootplib;
+				SKIP_INSTALL = YES;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Release;
+		};
+		F99DF92A0D340EA10045E43B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_PREPROCESSOR_DEFINITIONS = USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS;
+				INSTALL_PATH = /usr/sbin;
+				PRODUCT_NAME = ipconfig;
+			};
+			name = Debug;
+		};
+		F99DF92B0D340EA10045E43B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS;
+				INSTALL_PATH = /usr/sbin;
+				PRODUCT_NAME = ipconfig;
+				VERSIONING_SYSTEM = "";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Release;
+		};
+		F9C8ECA80D3306BA0047CE42 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				PRODUCT_NAME = embedded;
+				SDKROOT_armv6 = /Developer/SDKs/Extra;
+			};
+			name = Debug;
+		};
+		F9C8ECA90D3306BA0047CE42 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				PRODUCT_NAME = embedded;
+				SDKROOT_armv6 = /Developer/SDKs/Extra;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		F9C8ECE40D3306F50047CE42 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(SYMROOT)",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_PREPROCESSOR_DEFINITIONS = USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS;
+				HEADER_SEARCH_PATHS = (
+					"$(SYMROOT)",
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/PrivateHeaders",
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
+				INFOPLIST_FILE = IPConfiguration.bproj/Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				PRODUCT_NAME = IPConfiguration;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = bundle;
+			};
+			name = Debug;
+		};
+		F9C8ECE50D3306F50047CE42 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(SYMROOT)",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_PREPROCESSOR_DEFINITIONS = USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS;
+				HEADER_SEARCH_PATHS = (
+					"$(SYMROOT)",
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/PrivateHeaders",
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
+				INFOPLIST_FILE = IPConfiguration.bproj/Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				PRODUCT_NAME = IPConfiguration;
+				VERSIONING_SYSTEM = "";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = bundle;
 			};
 			name = Release;
 		};
@@ -1692,6 +2256,51 @@
 			buildConfigurations = (
 				15F007180AC580D000C5C101 /* Debug */,
 				15F007190AC580D000C5C101 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E0D59B7F0EEDDD8E00916211 /* Build configuration list for PBXNativeTarget "bootpd(embedded)" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E0D59B800EEDDD8E00916211 /* Debug */,
+				E0D59B810EEDDD8E00916211 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F9694B990D340C0000FA3943 /* Build configuration list for PBXNativeTarget "bootplib(embedded)" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F9694B9A0D340C0000FA3943 /* Debug */,
+				F9694B9B0D340C0000FA3943 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F99DF9290D340EA10045E43B /* Build configuration list for PBXNativeTarget "ipconfig(embedded)" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F99DF92A0D340EA10045E43B /* Debug */,
+				F99DF92B0D340EA10045E43B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F9C8ECAA0D3306CA0047CE42 /* Build configuration list for PBXAggregateTarget "embedded" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F9C8ECA80D3306BA0047CE42 /* Debug */,
+				F9C8ECA90D3306BA0047CE42 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F9C8ECE30D3306F50047CE42 /* Build configuration list for PBXNativeTarget "IPConfiguration(embedded)" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F9C8ECE40D3306F50047CE42 /* Debug */,
+				F9C8ECE50D3306F50047CE42 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -55,3 +55,20 @@ __private_extern__ void webdav_unlock(struct webdavnode *pt)
 	lck_rw_done(&pt->pt_rwlock);
 	pt->pt_lockState = 0;
 }
+
+void timespec_to_webdav_timespec64(struct timespec ts, struct webdav_timespec64 *wts)
+{
+	wts->tv_sec = ts.tv_sec;
+	wts->tv_nsec = ts.tv_nsec;
+}
+
+void webdav_timespec64_to_timespec(struct webdav_timespec64 wts, struct timespec *ts)
+{
+#ifdef __LP64__
+	ts->tv_sec = wts.tv_sec;
+	ts->tv_nsec = wts.tv_nsec;
+#else
+	ts->tv_sec = (uint32_t)wts.tv_sec;
+	ts->tv_nsec = (uint32_t)wts.tv_nsec;	
+#endif
+}

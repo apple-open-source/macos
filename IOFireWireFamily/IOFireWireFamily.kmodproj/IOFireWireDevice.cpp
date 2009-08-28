@@ -48,6 +48,8 @@
 #import "IOFireWireROMCache.h"
 #import <IOKit/firewire/IOFWSimpleContiguousPhysicalAddressSpace.h>
 
+#include <IOKit/firewire/IOFWUtils.h>
+
 OSDefineMetaClassAndStructors(IOFireWireDeviceAux, IOFireWireNubAux);
 OSMetaClassDefineReservedUnused(IOFireWireDeviceAux, 0);
 OSMetaClassDefineReservedUnused(IOFireWireDeviceAux, 1);
@@ -250,7 +252,7 @@ OSSet * IOFireWireDeviceAux::getOpenUnitSet() const
 
 void  IOFireWireDeviceAux::latchResumeTime()
 {
-	clock_get_uptime( &fResumeTime );	// remember when we were resumed
+	IOFWGetAbsoluteTime( &fResumeTime );	// remember when we were resumed
 }
 
 // getResumeTime 
@@ -333,7 +335,7 @@ IOFireWireUnitInfo * IOFireWireUnitInfo::create( void )
 {
     IOFireWireUnitInfo * me;
 	
-    me = new IOFireWireUnitInfo;
+    me = OSTypeAlloc( IOFireWireUnitInfo );
 	
 	return me;
 }
@@ -517,7 +519,7 @@ IOFireWireNubAux * IOFireWireDevice::createAuxiliary( void )
 {
 	IOFireWireDeviceAux * auxiliary;
     
-	auxiliary = new IOFireWireDeviceAux;
+	auxiliary = OSTypeAlloc( IOFireWireDeviceAux );
 
     if( auxiliary != NULL && !auxiliary->init(this) ) 
 	{
@@ -592,7 +594,7 @@ bool IOFireWireDevice::attach(IOService *provider)
     fControl = (IOFireWireController *)provider;
     fControl->retain();
 
-    snprintf(location, sizeof(location), "%lx%08lx", (UInt32)(fUniqueID >> 32), (UInt32)(fUniqueID & 0xffffffff));
+    snprintf(location, sizeof(location), "%x%08x", (uint32_t)(fUniqueID >> 32), (uint32_t)(fUniqueID & 0xffffffff));
     setLocation(location);
     // Stick device in DeviceTree plane for OpenFirmware
     IOService *parent = provider;
@@ -636,6 +638,8 @@ bool IOFireWireDevice::finalize( IOOptionBits options )
 
 void IOFireWireDevice::setNodeROM(UInt32 gen, UInt16 localID, const IOFWNodeScan *info)
 {
+	FWTrace( kFWTDevice, kTPDeviceSetNodeROM, (uintptr_t)(fControl->getLink()), localID, 0, 0);
+	
     OSObject *prop;
     
     IOFireWireROMCache *	rom;
@@ -697,6 +701,8 @@ void IOFireWireDevice::setNodeROM(UInt32 gen, UInt16 localID, const IOFWNodeScan
 		// thread received a bus reset error, double suspending is fine
 		fDeviceROM->setROMState( IOFireWireROMCache::kROMStateSuspended );
         
+		FWTrace( kFWTDevice, kTPDeviceSetNodeROM, (uintptr_t)(fControl->getLink()), localID, 0, 1);
+		
 		messageClients( kIOMessageServiceIsSuspended );
         
 		return;  	// node is suspended
@@ -725,6 +731,8 @@ void IOFireWireDevice::setNodeROM(UInt32 gen, UInt16 localID, const IOFWNodeScan
 	
 	if( !rom_changed )
 	{
+		FWTrace( kFWTDevice, kTPDeviceSetNodeROM, (uintptr_t)(fControl->getLink()), localID, 0, 2);
+		
 		fDeviceROM->setROMState( IOFireWireROMCache::kROMStateResumed, fGeneration );
 		messageClients( kIOMessageServiceIsResumed );	// Safe to continue
 		
@@ -797,7 +805,15 @@ void IOFireWireDevice::setNodeROM(UInt32 gen, UInt16 localID, const IOFWNodeScan
 			romScan->fROMGeneration = fROMGeneration;
 			romScan->fDevice = this;
             retain();	// retain ourself for the thread to use.
-			IOCreateThread( readROMThreadFunc, romScan );
+			
+			thread_t thread;
+			
+			FWTrace( kFWTDevice, kTPDeviceSetNodeROM, (uintptr_t)(fControl->getLink()), localID, (uintptr_t)thread, 3);
+			
+			if( kernel_thread_start((thread_continue_t)readROMThreadFunc, romScan, &thread) == KERN_SUCCESS )
+			{
+				thread_deallocate(thread);
+			}
 		}
 	}
 	else
@@ -850,6 +866,8 @@ void IOFireWireDevice::readROMThreadFunc( void *refcon )
 
 void IOFireWireDevice::processROM( RomScan *romScan )
 {
+	FWTrace( kFWTDevice, kTPDeviceProcessROM, (uintptr_t)(fControl->getLink()), (uintptr_t)this, 0, 1);
+	
 	IOReturn status = kIOReturnSuccess;
 	
 	IOConfigDirectory *		directory = NULL;
@@ -993,6 +1011,8 @@ void IOFireWireDevice::processROM( RomScan *romScan )
 		if( fROMReadRetry > 0 )
 		{
 			fROMReadRetry--;
+			
+			FWTrace( kFWTDevice, kTPDeviceProcessROM, (uintptr_t)(fControl->getLink()), (uintptr_t)this, 0, 2);
 			
 			// something's a miss let's try it all again
 			fControl->resetBus();
@@ -1682,7 +1702,9 @@ IOReturn IOFireWireDevice::processUnitDirectories( OSSet * unitSet )
 					}
 					
 					found->unlockForArbitration();
-										
+					
+					FWTrace( kFWTDevice, kTPDeviceProcessUnitDirectories, (uintptr_t)(fControl->getLink()), (uintptr_t)this, (uintptr_t)found, 1 );
+					
 					found->setConfigDirectory( unit );
 
 					clientSet->removeObject( found );
@@ -1691,7 +1713,7 @@ IOReturn IOFireWireDevice::processUnitDirectories( OSSet * unitSet )
 				}
 
 		
-				newDevice = new IOFireWireUnit;
+				newDevice = OSTypeAlloc( IOFireWireUnit );
 		
 				if (!newDevice || !newDevice->init(propTable, unit))
 					break;
@@ -1700,6 +1722,9 @@ IOReturn IOFireWireDevice::processUnitDirectories( OSSet * unitSet )
 				newDevice->setMaxPackLog(true, false, fMaxWritePackLog);
 				newDevice->setMaxPackLog(false, false, fMaxReadPackLog);
 				newDevice->setMaxPackLog(false, true, fMaxReadROMPackLog);
+				
+				FWTrace( kFWTDevice, kTPDeviceProcessUnitDirectories, (uintptr_t)(fControl->getLink()), (uintptr_t)this, (uintptr_t)newDevice, 2 );
+				
 				if (!newDevice->attach(this))	
 					break;
 				newDevice->registerService();
@@ -1735,6 +1760,7 @@ IOReturn IOFireWireDevice::processUnitDirectories( OSSet * unitSet )
 			
 			if( unit )
 			{
+				FWTrace( kFWTDevice, kTPDeviceProcessUnitDirectories, (uintptr_t)(fControl->getLink()), (uintptr_t)this, (uintptr_t)unit, 3 );
 				unit->terminateUnit();
 			}
 		}
@@ -1921,7 +1947,12 @@ void IOFireWireDevice::handleClose( IOService * forClient, IOOptionBits options 
                 if( getTerminationState() == kNeedsTermination ) 
 				{
 					setTerminationState( kTerminated );
-                    IOCreateThread( terminateDevice, this );
+					
+					thread_t		thread;
+					if( kernel_thread_start((thread_continue_t)terminateDevice, this, &thread) == KERN_SUCCESS )
+					{
+						thread_deallocate(thread);
+					}
                 }
 			}
 		}
@@ -1937,7 +1968,12 @@ void IOFireWireDevice::handleClose( IOService * forClient, IOOptionBits options 
 			if( getTerminationState() == kNeedsTermination ) 
 			{
 				setTerminationState( kTerminated );
-                IOCreateThread(terminateDevice, this);
+				
+				thread_t		thread;
+				if( kernel_thread_start((thread_continue_t)terminateDevice, this, &thread) == KERN_SUCCESS )
+				{
+					thread_deallocate(thread);
+				}
 			}
 		}
     }

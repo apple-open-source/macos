@@ -1,9 +1,9 @@
-/* $Id: browser.c,v 1.113 2006/11/10 02:47:11 dolorous Exp $ */
+/* $Id: browser.c,v 1.119 2007/01/11 21:47:06 dolorous Exp $ */
 /**************************************************************************
  *   browser.c                                                            *
  *                                                                        *
  *   Copyright (C) 2001, 2002, 2003, 2004 Chris Allegretta                *
- *   Copyright (C) 2005, 2006 David Lawrence Ramsey                       *
+ *   Copyright (C) 2005, 2006, 2007 David Lawrence Ramsey                 *
  *   This program is free software; you can redistribute it and/or modify *
  *   it under the terms of the GNU General Public License as published by *
  *   the Free Software Foundation; either version 2, or (at your option)  *
@@ -44,7 +44,7 @@ static size_t selected = 0;
 static bool search_last_file = FALSE;
 	/* Have we gone past the last file while searching? */
 
-/* Our main file browser function.  path is the tilde-expanded path to
+/* Our main file browser function.  path is the tilde-expanded path we
  * start browsing from. */
 char *do_browser(char *path, DIR *dir)
 {
@@ -57,7 +57,7 @@ char *do_browser(char *path, DIR *dir)
 	/* The directory we were in, if any, before backing up via
 	 * browsing to "..". */
     char *ans = NULL;
-	/* The last answer the user typed on the statusbar. */
+	/* The last answer the user typed at the statusbar prompt. */
     size_t old_selected;
 	/* The selected file we had before the current selected file. */
 
@@ -203,11 +203,11 @@ char *do_browser(char *path, DIR *dir)
 		if (selected > filelist_len - 1)
 		    selected = filelist_len - 1;
 		break;
-	    case NANO_FIRSTFILE_ALTKEY:
+	    case NANO_FIRSTFILE_METAKEY:
 		if (meta_key)
 		    selected = 0;
 		break;
-	    case NANO_LASTFILE_ALTKEY:
+	    case NANO_LASTFILE_METAKEY:
 		if (meta_key)
 		    selected = filelist_len - 1;
 		break;
@@ -231,7 +231,9 @@ char *do_browser(char *path, DIR *dir)
 #endif
 		bottombars(browser_list);
 
-		if (i < 0) {
+		/* If the directory begins with a newline (i.e. an
+		 * encoded null), treat it as though it's blank. */
+		if (i < 0 || answer[0] == '\n') {
 		    /* We canceled.  Indicate that on the statusbar, and
 		     * blank out ans, since we're done with it. */
 		    statusbar(_("Cancelled"));
@@ -250,6 +252,11 @@ char *do_browser(char *path, DIR *dir)
 		/* We have a directory.  Blank out ans, since we're done
 		 * with it. */
 		ans = mallocstrcpy(ans, "");
+
+		/* Convert newlines to nulls, just before we go to the
+		 * directory. */
+		sunder(answer);
+		align(&answer);
 
 		new_path = real_dir_from_tilde(answer);
 
@@ -621,19 +628,20 @@ void browser_refresh(void)
 		/* The length of the file information in columns. */
 	int foomaxlen = 7;
 		/* The maximum length of the file information in
-		 * columns: 7 for "--", "(dir)", or the file size, and
-		 * 12 for "(parent dir)". */
+		 * columns: seven for "--", "(dir)", or the file size,
+		 * and 12 for "(parent dir)". */
 	bool dots = (COLS >= 15 && filetaillen >= longest -
 		foomaxlen - 1);
 		/* Do we put an ellipsis before the filename?  Don't set
-		 * this to TRUE if we have fewer than 15 columns (i.e. 1
-		 * column for padding, plus 7 columns for a filename
-		 * other than ".."). */
+		 * this to TRUE if we have fewer than 15 columns (i.e.
+		 * one column for padding, plus seven columns for a
+		 * filename other than ".."). */
 	char *disp = display_string(filetail, dots ? filetaillen -
 		longest + foomaxlen + 4 : 0, longest, FALSE);
-		/* If we put an ellipsis before the filename, reserve 1
-		 * column for padding, plus 7 columns for "--", "(dir)",
-		 * or the file size, plus 3 columns for the ellipsis. */
+		/* If we put an ellipsis before the filename, reserve
+		 * one column for padding, plus seven columns for "--",
+		 * "(dir)", or the file size, plus three columns for the
+		 * ellipsis. */
 
 	/* Start highlighting the currently selected file or
 	 * directory. */
@@ -836,9 +844,8 @@ int filesearch_init(void)
 #ifdef HAVE_REGEX_H
 		/* Use last_search if answer is an empty string, or
 		 * answer if it isn't. */
-		if (ISSET(USE_REGEXP) &&
-			regexp_init((i == -2) ? last_search :
-			answer) == 0)
+		if (ISSET(USE_REGEXP) && !regexp_init((i == -2) ?
+			last_search : answer))
 		    return -1;
 #endif
 		break;
@@ -1022,7 +1029,7 @@ void do_fileresearch(void)
     if (last_search[0] != '\0') {
 #ifdef HAVE_REGEX_H
 	/* Since answer is "", use last_search! */
-	if (ISSET(USE_REGEXP) && regexp_init(last_search) == 0)
+	if (ISSET(USE_REGEXP) && !regexp_init(last_search))
 	    return;
 #endif
 

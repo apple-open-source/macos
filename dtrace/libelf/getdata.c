@@ -18,23 +18,17 @@
  *
  * CDDL HEADER END
  */
-/*	Copyright (c) 1988 AT&T	*/
-/*	  All Rights Reserved  	*/
-
 
 /*
- * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
+/*	Copyright (c) 1988 AT&T	*/
+/*	  All Rights Reserved  	*/
 
-#pragma ident	"@(#)getdata.c	1.22	06/03/03 SMI" 	/* SVr4.0 1.16	*/
+#pragma ident	"@(#)getdata.c	1.23	08/05/31 SMI"
 
-
-// XXX_PRAGMA_WEAK #pragma weak	elf_getdata = _elf_getdata
-
-
-#include "syn.h"
 #include <stdlib.h>
 #include <assert.h>
 #include <errno.h>

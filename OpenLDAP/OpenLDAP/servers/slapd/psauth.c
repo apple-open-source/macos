@@ -451,12 +451,13 @@ long EndServerSession( sPSContextData *inContext, bool inSendQuit )
 		fpurge( inContext->serverOut );
 		fclose( inContext->serverOut );
 		inContext->serverOut = NULL;
-	}
-	if ( inContext->fd > 0 ) {
+		// serverOut was created by calling fdopen() on inContext->fd, so
+		// don't close fd as that would result in a double close.
+		inContext->fd = -1;
+	} else if ( inContext->fd > 0 ) {
 		close( inContext->fd );
+		inContext->fd = -1;
 	}
-	// always set to -1
-	inContext->fd = -1;
 	
 	return 0;
 }
@@ -868,13 +869,14 @@ int CleanContextData ( sPSContextData *inContext )
         {
             fclose(inContext->serverOut);
             inContext->serverOut = NULL;
-        }
-        
-        if (inContext->fd > 0)
+            // serverOut was created by calling fdopen on inContext->fd.
+            // Don't close fd as that would result in a double close.
+            inContext->fd = -1;
+        } else if (inContext->fd > 0)
         {
             close(inContext->fd);
+            inContext->fd = -1;
         }
-		inContext->fd = -1;
         
 		if (inContext->rsaPublicKeyStr != NULL)
 		{

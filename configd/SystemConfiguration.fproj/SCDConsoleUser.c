@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -202,7 +202,7 @@ SCDynamicStoreSetConsoleInformation(SCDynamicStoreRef	store,
 	CFStringRef		consoleUser;
 	CFMutableDictionaryRef	dict		= NULL;
 	CFStringRef		key		= SCDynamicStoreKeyCreateConsoleUser(NULL);
-	Boolean			ok		= TRUE;
+	Boolean			ok		= FALSE;
 	Boolean			tempSession	= FALSE;
 
 	if (store == NULL) {
@@ -211,13 +211,13 @@ SCDynamicStoreSetConsoleInformation(SCDynamicStoreRef	store,
 					     NULL,
 					     NULL);
 		if (store == NULL) {
-			return FALSE;
+			goto done;
 		}
 		tempSession = TRUE;
 	}
 
 	if ((user == NULL) && (sessions == NULL)) {
-		(void) SCDynamicStoreRemoveValue(store, key);
+		ok = SCDynamicStoreRemoveValue(store, key);
 		goto done;
 	}
 
@@ -267,7 +267,7 @@ SCDynamicStoreSetConsoleUser(SCDynamicStoreRef	store,
 	CFMutableDictionaryRef	dict		= NULL;
 	CFStringRef		key		= SCDynamicStoreKeyCreateConsoleUser(NULL);
 	CFNumberRef		num;
-	Boolean			ok		= TRUE;
+	Boolean			ok		= FALSE;
 	Boolean			tempSession	= FALSE;
 
 	if (store == NULL) {
@@ -276,13 +276,13 @@ SCDynamicStoreSetConsoleUser(SCDynamicStoreRef	store,
 					     NULL,
 					     NULL);
 		if (store == NULL) {
-			return FALSE;
+			goto done;
 		}
 		tempSession = TRUE;
 	}
 
 	if (user == NULL) {
-		(void) SCDynamicStoreRemoveValue(store, key);
+		ok = SCDynamicStoreRemoveValue(store, key);
 		goto done;
 	}
 

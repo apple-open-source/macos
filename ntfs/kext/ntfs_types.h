@@ -1,8 +1,8 @@
 /*
  * ntfs_types.h - Defines for NTFS kernel driver specific types.
  *
- * Copyright (c) 2006, 2007 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006, 2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2008 Anton Altaparmakov.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2008 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -109,10 +109,5 @@ typedef sle64 leUSN;
 
 /* Our boolean type. */
 typedef boolean_t BOOL;
-
-typedef enum {
-	CASE_SENSITIVE = 0,
-	IGNORE_CASE = 1,
-} IGNORE_CASE_BOOL;
 
 #endif /* !_OSX_NTFS_TYPES_H */

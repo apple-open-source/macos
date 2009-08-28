@@ -1,8 +1,8 @@
 /* entry.c - routines for dealing with entries */
-/* $OpenLDAP: pkg/ldap/servers/slapd/entry.c,v 1.129.2.10 2006/01/03 22:16:14 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/entry.c,v 1.148.2.7 2008/02/11 23:43:39 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,23 +47,60 @@ const Entry slap_entry_root = {
 	NOID, { 0, "" }, { 0, "" }, NULL, 0, { 0, "" }, NULL
 };
 
+/*
+ * these mutexes must be used when calling the entry2str()
+ * routine since it returns a pointer to static data.
+ */
+ldap_pvt_thread_mutex_t	entry2str_mutex;
+
 static const struct berval dn_bv = BER_BVC("dn");
+
+/*
+ * Entry free list
+ *
+ * Allocate in chunks, minimum of 1000 at a time.
+ */
+#define	CHUNK_SIZE	1000
+typedef struct slap_list {
+	struct slap_list *next;
+} slap_list;
+static slap_list *entry_chunks;
+static Entry *entry_list;
+static ldap_pvt_thread_mutex_t entry_mutex;
 
 int entry_destroy(void)
 {
+	slap_list *e;
 	if ( ebuf ) free( ebuf );
 	ebuf = NULL;
 	ecur = NULL;
 	emaxsize = 0;
-	return 0;
+
+	for ( e=entry_chunks; e; e=entry_chunks ) {
+		entry_chunks = e->next;
+		free( e );
+	}
+
+	ldap_pvt_thread_mutex_destroy( &entry_mutex );
+	ldap_pvt_thread_mutex_destroy( &entry2str_mutex );
+	return attr_destroy();
 }
 
+int
+entry_init(void)
+{
+	ldap_pvt_thread_mutex_init( &entry2str_mutex );
+	ldap_pvt_thread_mutex_init( &entry_mutex );
+	return attr_init();
+}
 
 Entry *
 str2entry( char *s )
 {
 	return str2entry2( s, 1 );
 }
+
+#define bvcasematch(bv1, bv2)	(ber_bvstrcasecmp(bv1, bv2) == 0)
 
 Entry *
 str2entry2( char *s, int checkvals )
@@ -97,8 +134,7 @@ str2entry2( char *s, int checkvals )
 	Debug( LDAP_DEBUG_TRACE, "=> str2entry: \"%s\"\n",
 		s ? s : "NULL", 0, 0 );
 
-	/* initialize reader/writer lock */
-	e = (Entry *) ch_calloc( 1, sizeof(Entry) );
+	e = entry_alloc();
 
 	if( e == NULL ) {
 		Debug( LDAP_DEBUG_ANY,
@@ -132,6 +168,11 @@ str2entry2( char *s, int checkvals )
 			break;
 		}
 		i++;
+		if (i >= lines) {
+			Debug( LDAP_DEBUG_TRACE,
+				"<= str2entry ran past end of entry\n", 0, 0, 0 );
+			goto fail;
+		}
 
 		rc = ldif_parse_line2( s, type+i, vals+i, &freev );
 		freeval[i] = freev;
@@ -141,9 +182,7 @@ str2entry2( char *s, int checkvals )
 			continue;
 		}
 
-		if ( type[i].bv_len == dn_bv.bv_len &&
-			strcasecmp( type[i].bv_val, dn_bv.bv_val ) == 0 ) {
-
+		if ( bvcasematch( &type[i], &dn_bv ) ) {
 			if ( e->e_dn != NULL ) {
 				Debug( LDAP_DEBUG_ANY, "str2entry: "
 					"entry %ld has multiple DNs \"%s\" and \"%s\"\n",
@@ -181,7 +220,7 @@ str2entry2( char *s, int checkvals )
 
 		for (i=0; i<lines; i++) {
 			for ( j=i+1; j<lines; j++ ) {
-				if ( bvmatch( type+i, type+j )) {
+				if ( bvcasematch( type+i, type+j )) {
 					/* out of order, move intervening attributes down */
 					if ( j != i+1 ) {
 						bv = vals[j];
@@ -202,141 +241,157 @@ str2entry2( char *s, int checkvals )
 		}
 	}
 
-	for ( i=0; i<=lines; i++ ) {
-		ad_prev = ad;
-		if ( !ad || ( i<lines && !bvmatch( type+i, &ad->ad_cname ))) {
-			ad = NULL;
-			rc = slap_bv2ad( type+i, &ad, &text );
-
-			if( rc != LDAP_SUCCESS ) {
-				Debug( slapMode & SLAP_TOOL_MODE
-					? LDAP_DEBUG_ANY : LDAP_DEBUG_TRACE,
-					"<= str2entry: str2ad(%s): %s\n", type[i].bv_val, text, 0 );
-				if( slapMode & SLAP_TOOL_MODE ) {
-					goto fail;
-				}
-
-				rc = slap_bv2undef_ad( type+i, &ad, &text, 0 );
+	if ( lines > 0 ) {
+		for ( i=0; i<=lines; i++ ) {
+			ad_prev = ad;
+			if ( !ad || ( i<lines && !bvcasematch( type+i, &ad->ad_cname ))) {
+				ad = NULL;
+				rc = slap_bv2ad( type+i, &ad, &text );
+	
 				if( rc != LDAP_SUCCESS ) {
+					Debug( slapMode & SLAP_TOOL_MODE
+						? LDAP_DEBUG_ANY : LDAP_DEBUG_TRACE,
+						"<= str2entry: str2ad(%s): %s\n", type[i].bv_val, text, 0 );
+					if( slapMode & SLAP_TOOL_MODE ) {
+						goto fail;
+					}
+	
+					rc = slap_bv2undef_ad( type+i, &ad, &text, 0 );
+					if( rc != LDAP_SUCCESS ) {
+						Debug( LDAP_DEBUG_ANY,
+							"<= str2entry: slap_str2undef_ad(%s): %s\n",
+								type[i].bv_val, text, 0 );
+						goto fail;
+					}
+				}
+	
+				/* require ';binary' when appropriate (ITS#5071) */
+				if ( slap_syntax_is_binary( ad->ad_type->sat_syntax ) && !slap_ad_is_binary( ad ) ) {
 					Debug( LDAP_DEBUG_ANY,
-						"<= str2entry: slap_str2undef_ad(%s): %s\n",
-							type[i].bv_val, text, 0 );
+						"str2entry: attributeType %s #%d: "
+						"needs ';binary' transfer as per syntax %s\n", 
+						ad->ad_cname.bv_val, 0,
+						ad->ad_type->sat_syntax->ssyn_oid );
 					goto fail;
 				}
 			}
-		}
-
-		if (( ad_prev && ad != ad_prev ) || ( i == lines )) {
-			int j, k;
-			atail->a_next = (Attribute *) ch_malloc( sizeof(Attribute) );
-			atail = atail->a_next;
-			atail->a_flags = 0;
-			atail->a_desc = ad_prev;
-			atail->a_vals = ch_malloc( (attr_cnt + 1) * sizeof(struct berval));
-			if( ad_prev->ad_type->sat_equality &&
-				ad_prev->ad_type->sat_equality->smr_normalize )
-				atail->a_nvals = ch_malloc( (attr_cnt + 1) * sizeof(struct berval));
-			else
-				atail->a_nvals = NULL;
-			k = i - attr_cnt;
-			for ( j=0; j<attr_cnt; j++ ) {
-				if ( freeval[k] )
-					atail->a_vals[j] = vals[k];
-				else
-					ber_dupbv( atail->a_vals+j, &vals[k] );
-				vals[k].bv_val = NULL;
-				if ( atail->a_nvals ) {
-					atail->a_nvals[j] = nvals[k];
-					nvals[k].bv_val = NULL;
+	
+			if (( ad_prev && ad != ad_prev ) || ( i == lines )) {
+				int j, k;
+				/* FIXME: we only need this when migrating from an unsorted DB */
+				if ( atail != &ahead && atail->a_desc->ad_type->sat_flags & SLAP_AT_SORTED_VAL ) {
+					rc = slap_sort_vals( (Modifications *)atail, &text, &j, NULL );
+					if ( rc == LDAP_SUCCESS ) {
+						atail->a_flags |= SLAP_ATTR_SORTED_VALS;
+					} else if ( rc == LDAP_TYPE_OR_VALUE_EXISTS ) {
+						Debug( LDAP_DEBUG_ANY,
+							"str2entry: attributeType %s value #%d provided more than once\n",
+							atail->a_desc->ad_cname.bv_val, j, 0 );
+						goto fail;
+					}
 				}
-				k++;
+				atail->a_next = attr_alloc( NULL );
+				atail = atail->a_next;
+				atail->a_flags = 0;
+				atail->a_numvals = attr_cnt;
+				atail->a_desc = ad_prev;
+				atail->a_vals = ch_malloc( (attr_cnt + 1) * sizeof(struct berval));
+				if( ad_prev->ad_type->sat_equality &&
+					ad_prev->ad_type->sat_equality->smr_normalize )
+					atail->a_nvals = ch_malloc( (attr_cnt + 1) * sizeof(struct berval));
+				else
+					atail->a_nvals = NULL;
+				k = i - attr_cnt;
+				for ( j=0; j<attr_cnt; j++ ) {
+					if ( freeval[k] )
+						atail->a_vals[j] = vals[k];
+					else
+						ber_dupbv( atail->a_vals+j, &vals[k] );
+					vals[k].bv_val = NULL;
+					if ( atail->a_nvals ) {
+						atail->a_nvals[j] = nvals[k];
+						nvals[k].bv_val = NULL;
+					}
+					k++;
+				}
+				BER_BVZERO( &atail->a_vals[j] );
+				if ( atail->a_nvals ) {
+					BER_BVZERO( &atail->a_nvals[j] );
+				} else {
+					atail->a_nvals = atail->a_vals;
+				}
+				attr_cnt = 0;
+				if ( i == lines ) break;
 			}
-			BER_BVZERO( &atail->a_vals[j] );
-			if ( atail->a_nvals ) {
-				BER_BVZERO( &atail->a_nvals[j] );
-			} else {
-				atail->a_nvals = atail->a_vals;
-			}
-			attr_cnt = 0;
-			if ( i == lines ) break;
-		}
-
-		if( slapMode & SLAP_TOOL_MODE ) {
-			struct berval pval;
-			slap_syntax_validate_func *validate =
-				ad->ad_type->sat_syntax->ssyn_validate;
-			slap_syntax_transform_func *pretty =
-				ad->ad_type->sat_syntax->ssyn_pretty;
-
-			if ( pretty ) {
-#ifdef SLAP_ORDERED_PRETTYNORM
-				rc = ordered_value_pretty( ad,
-					&vals[i], &pval, NULL );
-#else /* ! SLAP_ORDERED_PRETTYNORM */
-				rc = pretty( ad->ad_type->sat_syntax,
-					&vals[i], &pval, NULL );
-#endif /* ! SLAP_ORDERED_PRETTYNORM */
-
-			} else if ( validate ) {
-				/*
-			 	 * validate value per syntax
-			 	 */
-#ifdef SLAP_ORDERED_PRETTYNORM
-				rc = ordered_value_validate( ad, &vals[i], LDAP_MOD_ADD );
-#else /* ! SLAP_ORDERED_PRETTYNORM */
-				rc = validate( ad->ad_type->sat_syntax, &vals[i] );
-#endif /* ! SLAP_ORDERED_PRETTYNORM */
-
-			} else {
+	
+			if ( BER_BVISNULL( &vals[i] ) ) {
 				Debug( LDAP_DEBUG_ANY,
 					"str2entry: attributeType %s #%d: "
-					"no validator for syntax %s\n", 
-					ad->ad_cname.bv_val, attr_cnt,
-					ad->ad_type->sat_syntax->ssyn_oid );
+					"no value\n", 
+					ad->ad_cname.bv_val, attr_cnt, 0 );
 				goto fail;
 			}
-
-			if( rc != 0 ) {
-				Debug( LDAP_DEBUG_ANY,
-					"str2entry: invalid value "
-					"for attributeType %s #%d (syntax %s)\n",
-					ad->ad_cname.bv_val, attr_cnt,
-					ad->ad_type->sat_syntax->ssyn_oid );
-				goto fail;
+	
+			if( slapMode & SLAP_TOOL_MODE ) {
+				struct berval pval;
+				slap_syntax_validate_func *validate =
+					ad->ad_type->sat_syntax->ssyn_validate;
+				slap_syntax_transform_func *pretty =
+					ad->ad_type->sat_syntax->ssyn_pretty;
+	
+				if ( pretty ) {
+					rc = ordered_value_pretty( ad,
+						&vals[i], &pval, NULL );
+	
+				} else if ( validate ) {
+					/*
+				 	 * validate value per syntax
+				 	 */
+					rc = ordered_value_validate( ad, &vals[i], LDAP_MOD_ADD );
+	
+				} else {
+					Debug( LDAP_DEBUG_ANY,
+						"str2entry: attributeType %s #%d: "
+						"no validator for syntax %s\n", 
+						ad->ad_cname.bv_val, attr_cnt,
+						ad->ad_type->sat_syntax->ssyn_oid );
+					goto fail;
+				}
+	
+				if( rc != 0 ) {
+					Debug( LDAP_DEBUG_ANY,
+						"str2entry: invalid value "
+						"for attributeType %s #%d (syntax %s)\n",
+						ad->ad_cname.bv_val, attr_cnt,
+						ad->ad_type->sat_syntax->ssyn_oid );
+					goto fail;
+				}
+	
+				if( pretty ) {
+					if ( freeval[i] ) free( vals[i].bv_val );
+					vals[i] = pval;
+					freeval[i] = 1;
+				}
 			}
-
-			if( pretty ) {
-				if ( freeval[i] ) free( vals[i].bv_val );
-				vals[i] = pval;
-				freeval[i] = 1;
+	
+			if ( ad->ad_type->sat_equality &&
+				ad->ad_type->sat_equality->smr_normalize )
+			{
+				rc = ordered_value_normalize(
+					SLAP_MR_VALUE_OF_ATTRIBUTE_SYNTAX,
+					ad,
+					ad->ad_type->sat_equality,
+					&vals[i], &nvals[i], NULL );
+	
+				if ( rc ) {
+					Debug( LDAP_DEBUG_ANY,
+				   		"<= str2entry NULL (smr_normalize %s %d)\n", ad->ad_cname.bv_val, rc, 0 );
+					goto fail;
+				}
 			}
+	
+			attr_cnt++;
 		}
-
-		if ( ad->ad_type->sat_equality &&
-			ad->ad_type->sat_equality->smr_normalize )
-		{
-#ifdef SLAP_ORDERED_PRETTYNORM
-			rc = ordered_value_normalize(
-				SLAP_MR_VALUE_OF_ATTRIBUTE_SYNTAX,
-				ad,
-				ad->ad_type->sat_equality,
-				&vals[i], &nvals[i], NULL );
-#else /* ! SLAP_ORDERED_PRETTYNORM */
-			rc = ad->ad_type->sat_equality->smr_normalize(
-				SLAP_MR_VALUE_OF_ATTRIBUTE_SYNTAX,
-				ad->ad_type->sat_syntax,
-				ad->ad_type->sat_equality,
-				&vals[i], &nvals[i], NULL );
-#endif /* ! SLAP_ORDERED_PRETTYNORM */
-
-			if ( rc ) {
-				Debug( LDAP_DEBUG_ANY,
-			   		"<= str2entry NULL (smr_normalize %d)\n", rc, 0, 0 );
-				goto fail;
-			}
-		}
-
-		attr_cnt++;
 	}
 
 	free( type );
@@ -426,7 +481,8 @@ entry_clean( Entry *e )
 
 	/* e_private must be freed by the caller */
 	assert( e->e_private == NULL );
-	e->e_private = NULL;
+
+	e->e_id = 0;
 
 	/* free DNs */
 	if ( !BER_BVISNULL( &e->e_name ) ) {
@@ -444,8 +500,12 @@ entry_clean( Entry *e )
 	}
 
 	/* free attributes */
-	attrs_free( e->e_attrs );
-	e->e_attrs = NULL;
+	if ( e->e_attrs ) {
+		attrs_free( e->e_attrs );
+		e->e_attrs = NULL;
+	}
+
+	e->e_ocflags = 0;
 }
 
 void
@@ -453,8 +513,74 @@ entry_free( Entry *e )
 {
 	entry_clean( e );
 
-	free( e );
+	ldap_pvt_thread_mutex_lock( &entry_mutex );
+	e->e_private = entry_list;
+	entry_list = e;
+	ldap_pvt_thread_mutex_unlock( &entry_mutex );
 }
+
+/* These parameters work well on AMD64 */
+#if 0
+#define	STRIDE 8
+#define	STRIPE 5
+#else
+#define	STRIDE 1
+#define	STRIPE 1
+#endif
+#define	STRIDE_FACTOR (STRIDE*STRIPE)
+
+int
+entry_prealloc( int num )
+{
+	Entry *e, **prev, *tmp;
+	slap_list *s;
+	int i, j;
+
+	if (!num) return 0;
+
+#if STRIDE_FACTOR > 1
+	/* Round up to our stride factor */
+	num += STRIDE_FACTOR-1;
+	num /= STRIDE_FACTOR;
+	num *= STRIDE_FACTOR;
+#endif
+
+	s = ch_calloc( 1, sizeof(slap_list) + num * sizeof(Entry));
+	s->next = entry_chunks;
+	entry_chunks = s;
+
+	prev = &tmp;
+	for (i=0; i<STRIPE; i++) {
+		e = (Entry *)(s+1);
+		e += i;
+		for (j=i; j<num; j+= STRIDE) {
+			*prev = e;
+			prev = (Entry **)&e->e_private;
+			e += STRIDE;
+		}
+	}
+	*prev = entry_list;
+	entry_list = (Entry *)(s+1);
+
+	return 0;
+}
+
+Entry *
+entry_alloc( void )
+{
+	Entry *e;
+
+	ldap_pvt_thread_mutex_lock( &entry_mutex );
+	if ( !entry_list )
+		entry_prealloc( CHUNK_SIZE );
+	e = entry_list;
+	entry_list = e->e_private;
+	e->e_private = NULL;
+	ldap_pvt_thread_mutex_unlock( &entry_mutex );
+
+	return e;
+}
+
 
 /*
  * These routines are used only by Backend.
@@ -633,8 +759,9 @@ int entry_encode(Entry *e, struct berval *bv)
 		*ptr++ = '\0';
 		if (a->a_vals) {
 			for (i=0; a->a_vals[i].bv_val; i++);
-				entry_putlen(&ptr, i);
-				for (i=0; a->a_vals[i].bv_val; i++) {
+			assert( i == a->a_numvals );
+			entry_putlen(&ptr, i);
+			for (i=0; a->a_vals[i].bv_val; i++) {
 				entry_putlen(&ptr, a->a_vals[i].bv_len);
 				AC_MEMCPY(ptr, a->a_vals[i].bv_val,
 					a->a_vals[i].bv_len);
@@ -659,56 +786,55 @@ int entry_encode(Entry *e, struct berval *bv)
 }
 
 /* Retrieve an Entry that was stored using entry_encode above.
- * We malloc a single block with the size stored above for the Entry
- * and all of its Attributes. We also must lookup the stored
- * attribute names to get AttributeDescriptions. To detect if the
- * attributes of an Entry are later modified, we note that e->e_attr
- * is always a constant offset from (e).
+ * First entry_header must be called to decode the size of the entry.
+ * Then a single block of memory must be malloc'd to accomodate the
+ * bervals and the bulk data. Next the bulk data is retrieved from
+ * the DB and parsed by entry_decode.
  *
  * Note: everything is stored in a single contiguous block, so
  * you can not free individual attributes or names from this
  * structure. Attempting to do so will likely corrupt memory.
  */
+int entry_header(EntryHeader *eh)
+{
+	unsigned char *ptr = (unsigned char *)eh->bv.bv_val;
+
+	eh->nattrs = entry_getlen(&ptr);
+	if ( !eh->nattrs ) {
+		Debug( LDAP_DEBUG_ANY,
+			"entry_header: attribute count was zero\n", 0, 0, 0);
+		return LDAP_OTHER;
+	}
+	eh->nvals = entry_getlen(&ptr);
+	if ( !eh->nvals ) {
+		Debug( LDAP_DEBUG_ANY,
+			"entry_header: value count was zero\n", 0, 0, 0);
+		return LDAP_OTHER;
+	}
+	eh->data = (char *)ptr;
+	return LDAP_SUCCESS;
+}
+
 #ifdef SLAP_ZONE_ALLOC
-int entry_decode(struct berval *bv, Entry **e, void *ctx)
+int entry_decode(EntryHeader *eh, Entry **e, void *ctx)
 #else
-int entry_decode(struct berval *bv, Entry **e)
+int entry_decode(EntryHeader *eh, Entry **e)
 #endif
 {
-	int i, j, count, nattrs, nvals;
+	int i, j, nattrs, nvals;
 	int rc;
 	Attribute *a;
 	Entry *x;
 	const char *text;
 	AttributeDescription *ad;
-	unsigned char *ptr = (unsigned char *)bv->bv_val;
+	unsigned char *ptr = (unsigned char *)eh->bv.bv_val;
 	BerVarray bptr;
 
-	nattrs = entry_getlen(&ptr);
-	if (!nattrs) {
-		Debug( LDAP_DEBUG_ANY,
-			"entry_decode: attribute count was zero\n", 0, 0, 0);
-		return LDAP_OTHER;
-	}
-	nvals = entry_getlen(&ptr);
-	if (!nvals) {
-		Debug( LDAP_DEBUG_ANY,
-			"entry_decode: value count was zero\n", 0, 0, 0);
-		return LDAP_OTHER;
-	}
-	i = sizeof(Entry) + (nattrs * sizeof(Attribute)) +
-		(nvals * sizeof(struct berval));
-#ifdef SLAP_ZONE_ALLOC
-	x = slap_zn_calloc(1, i + bv->bv_len, ctx);
-	AC_MEMCPY((char*)x + i, bv->bv_val, bv->bv_len);
-	bv->bv_val = (char*)x + i;
-	ptr = (unsigned char *)bv->bv_val;
-	/* pointer is reset, now advance past nattrs and nvals again */
-	entry_getlen(&ptr);
-	entry_getlen(&ptr);
-#else
-	x = ch_calloc(1, i);
-#endif
+	nattrs = eh->nattrs;
+	nvals = eh->nvals;
+	x = entry_alloc();
+	x->e_attrs = attrs_alloc( nattrs );
+	ptr = (unsigned char *)eh->data;
 	i = entry_getlen(&ptr);
 	x->e_name.bv_val = (char *) ptr;
 	x->e_name.bv_len = i;
@@ -720,23 +846,15 @@ int entry_decode(struct berval *bv, Entry **e)
 	Debug( LDAP_DEBUG_TRACE,
 		"entry_decode: \"%s\"\n",
 		x->e_dn, 0, 0 );
-	x->e_bv = *bv;
+	x->e_bv = eh->bv;
 
-	/* A valid entry must have at least one attr, so this
-	 * pointer can never be NULL
-	 */
-	x->e_attrs = (Attribute *)(x+1);
-	bptr = (BerVarray)x->e_attrs;
-	a = NULL;
+	a = x->e_attrs;
+	bptr = (BerVarray)eh->bv.bv_val;
 
 	while ((i = entry_getlen(&ptr))) {
 		struct berval bv;
 		bv.bv_len = i;
 		bv.bv_val = (char *) ptr;
-		if (a) {
-			a->a_next = (Attribute *)bptr;
-		}
-		a = (Attribute *)bptr;
 		ad = NULL;
 		rc = slap_bv2ad( &bv, &ad, &text );
 
@@ -754,13 +872,10 @@ int entry_decode(struct berval *bv, Entry **e)
 		}
 		ptr += i + 1;
 		a->a_desc = ad;
-		bptr = (BerVarray)(a+1);
+		a->a_flags = SLAP_ATTR_DONT_FREE_DATA | SLAP_ATTR_DONT_FREE_VALS;
+		j = entry_getlen(&ptr);
+		a->a_numvals = j;
 		a->a_vals = bptr;
-		a->a_flags = 0;
-#ifdef LDAP_COMP_MATCH
-		a->a_comp_data = NULL;
-#endif
-		count = j = entry_getlen(&ptr);
 
 		while (j) {
 			i = entry_getlen(&ptr);
@@ -791,12 +906,25 @@ int entry_decode(struct berval *bv, Entry **e)
 		} else {
 			a->a_nvals = a->a_vals;
 		}
+		/* FIXME: This is redundant once a sorted entry is saved into the DB */
+		if ( a->a_desc->ad_type->sat_flags & SLAP_AT_SORTED_VAL ) {
+			rc = slap_sort_vals( (Modifications *)a, &text, &j, NULL );
+			if ( rc == LDAP_SUCCESS ) {
+				a->a_flags |= SLAP_ATTR_SORTED_VALS;
+			} else if ( rc == LDAP_TYPE_OR_VALUE_EXISTS ) {
+				/* should never happen */
+				Debug( LDAP_DEBUG_ANY,
+					"entry_decode: attributeType %s value #%d provided more than once\n",
+					a->a_desc->ad_cname.bv_val, j, 0 );
+				return rc;
+			}
+		}
+		a = a->a_next;
 		nattrs--;
 		if ( !nattrs )
 			break;
 	}
 
-	if (a) a->a_next = NULL;
 	Debug(LDAP_DEBUG_TRACE, "<= entry_decode(%s)\n",
 		x->e_dn, 0, 0 );
 	*e = x;
@@ -807,17 +935,88 @@ Entry *entry_dup( Entry *e )
 {
 	Entry *ret;
 
-	ret = (Entry *)ch_calloc( 1, sizeof(*ret) );
+	ret = entry_alloc();
 
 	ret->e_id = e->e_id;
 	ber_dupbv( &ret->e_name, &e->e_name );
 	ber_dupbv( &ret->e_nname, &e->e_nname );
 	ret->e_attrs = attrs_dup( e->e_attrs );
 	ret->e_ocflags = e->e_ocflags;
-	ret->e_bv.bv_val = NULL;
-	ret->e_bv.bv_len = 0;
-	ret->e_private = NULL;
 
 	return ret;
 }
 
+#if 1
+/* Duplicates an entry using a single malloc. Saves CPU time, increases
+ * heap usage because a single large malloc is harder to satisfy than
+ * lots of small ones, and the freed space isn't as easily reusable.
+ *
+ * Probably not worth using this function.
+ */
+Entry *entry_dup_bv( Entry *e )
+{
+	ber_len_t len;
+	int nattrs, nvals;
+	Entry *ret;
+	struct berval *bvl;
+	char *ptr;
+	Attribute *src, *dst;
+
+	ret = entry_alloc();
+
+	entry_partsize(e, &len, &nattrs, &nvals, 1);
+	ret->e_id = e->e_id;
+	ret->e_attrs = attrs_alloc( nattrs );
+	ret->e_ocflags = e->e_ocflags;
+	ret->e_bv.bv_len = len + nvals * sizeof(struct berval);
+	ret->e_bv.bv_val = ch_malloc( ret->e_bv.bv_len );
+
+	bvl = (struct berval *)ret->e_bv.bv_val;
+	ptr = (char *)(bvl + nvals);
+
+	ret->e_name.bv_len = e->e_name.bv_len;
+	ret->e_name.bv_val = ptr;
+	AC_MEMCPY( ptr, e->e_name.bv_val, e->e_name.bv_len );
+	ptr += e->e_name.bv_len;
+	*ptr++ = '\0';
+
+	ret->e_nname.bv_len = e->e_nname.bv_len;
+	ret->e_nname.bv_val = ptr;
+	AC_MEMCPY( ptr, e->e_nname.bv_val, e->e_nname.bv_len );
+	ptr += e->e_name.bv_len;
+	*ptr++ = '\0';
+
+	dst = ret->e_attrs;
+	for (src = e->e_attrs; src; src=src->a_next,dst=dst->a_next ) {
+		int i;
+		dst->a_desc = src->a_desc;
+		dst->a_flags = SLAP_ATTR_DONT_FREE_DATA | SLAP_ATTR_DONT_FREE_VALS;
+		dst->a_vals = bvl;
+		dst->a_numvals = src->a_numvals;
+		for ( i=0; src->a_vals[i].bv_val; i++ ) {
+			bvl->bv_len = src->a_vals[i].bv_len;
+			bvl->bv_val = ptr;
+			AC_MEMCPY( ptr, src->a_vals[i].bv_val, bvl->bv_len );
+			ptr += bvl->bv_len;
+			*ptr++ = '\0';
+			bvl++;
+		}
+		BER_BVZERO(bvl);
+		bvl++;
+		if ( src->a_vals != src->a_nvals ) {
+			dst->a_nvals = bvl;
+			for ( i=0; src->a_nvals[i].bv_val; i++ ) {
+				bvl->bv_len = src->a_nvals[i].bv_len;
+				bvl->bv_val = ptr;
+				AC_MEMCPY( ptr, src->a_nvals[i].bv_val, bvl->bv_len );
+				ptr += bvl->bv_len;
+				*ptr++ = '\0';
+				bvl++;
+			}
+			BER_BVZERO(bvl);
+			bvl++;
+		}
+	}
+	return ret;
+}
+#endif

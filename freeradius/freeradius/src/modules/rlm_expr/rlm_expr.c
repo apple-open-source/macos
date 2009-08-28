@@ -1,7 +1,7 @@
 /*
  * rlm_expr.c
  *
- * Version:	$Id: rlm_expr.c,v 1.7.2.1 2005/08/24 14:37:52 nbk Exp $
+ * Version:	$Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,24 +15,18 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2002  The FreeRADIUS server project
+ * Copyright 2002,2006  The FreeRADIUS server project
  * Copyright 2002  Alan DeKok <aland@ox.org>
  */
 
-#include "autoconf.h"
-#include "libradius.h"
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include "radiusd.h"
-#include "modules.h"
-#include "conffile.h"
-
-static const char rcsid[] = "$Id: rlm_expr.c,v 1.7.2.1 2005/08/24 14:37:52 nbk Exp $";
+#include <freeradius-devel/radiusd.h>
+#include <freeradius-devel/modules.h>
+#include "rlm_expr.h"
 
 /*
  *	Define a structure for our module configuration.
@@ -99,7 +93,7 @@ static int get_number(REQUEST *request, const char **string, int *answer)
 		for (i = 0; map[i].token != TOKEN_LAST; i++) {
 			if (*p == map[i].op) {
 				if (this != TOKEN_NONE) {
-					DEBUG2("rlm_expr: Invalid operator at \"%s\"", p);
+					RDEBUG2("Invalid operator at \"%s\"", p);
 					return -1;
 				}
 				this = map[i].token;
@@ -121,7 +115,7 @@ static int get_number(REQUEST *request, const char **string, int *answer)
 		 */
 		if (*p == ')') {
 			if (this != TOKEN_NONE) {
-				DEBUG2("rlm_expr: Trailing operator before end sub-expression at \"%s\"", p);
+				RDEBUG2("Trailing operator before end sub-expression at \"%s\"", p);
 				return -1;
 			}
 			p++;
@@ -146,7 +140,7 @@ static int get_number(REQUEST *request, const char **string, int *answer)
 			 *  If it isn't, then we die.
 			 */
 			if ((*p < '0') || (*p > '9')) {
-				DEBUG2("rlm_expr: Not a number at \"%s\"", p);
+				RDEBUG2("Not a number at \"%s\"", p);
 				return -1;
 			}
 
@@ -214,8 +208,9 @@ static int get_number(REQUEST *request, const char **string, int *answer)
 /*
  *  Do xlat of strings!
  */
-static int expr_xlat(void *instance, REQUEST *request, char *fmt, char *out, int outlen,
-		                        RADIUS_ESCAPE_STRING func)
+static size_t expr_xlat(void *instance, REQUEST *request, char *fmt,
+			char *out, size_t outlen,
+		     RADIUS_ESCAPE_STRING func)
 {
 	int		rcode, result;
 	rlm_expr_t	*inst = instance;
@@ -242,7 +237,7 @@ static int expr_xlat(void *instance, REQUEST *request, char *fmt, char *out, int
 	 *  We MUST have eaten the entire input string.
 	 */
 	if (*p != '\0') {
-		DEBUG2("rlm_expr: Failed at %s", p);
+		RDEBUG2("Failed at %s", p);
 		return 0;
 	}
 
@@ -263,7 +258,7 @@ static int expr_xlat(void *instance, REQUEST *request, char *fmt, char *out, int
 static int expr_instantiate(CONF_SECTION *conf, void **instance)
 {
 	rlm_expr_t	*inst;
-	char		*xlat_name;
+	const char	*xlat_name;
 
 	/*
 	 *	Set up a storage area for instance data
@@ -281,6 +276,10 @@ static int expr_instantiate(CONF_SECTION *conf, void **instance)
 		inst->xlat_name = strdup(xlat_name);
 		xlat_register(xlat_name, expr_xlat, inst);
 	}
+	/*
+	 * Initialize various paircompare functions
+	 */
+	pair_builtincompare_init();
 	*instance = inst;
 
 	return 0;
@@ -294,6 +293,7 @@ static int expr_detach(void *instance)
 	rlm_expr_t	*inst = instance;
 
 	xlat_unregister(inst->xlat_name, expr_xlat);
+	pair_builtincompare_detach();
 	free(inst->xlat_name);
 
 	free(inst);
@@ -310,16 +310,15 @@ static int expr_detach(void *instance)
  *	is single-threaded.
  */
 module_t rlm_expr = {
+	RLM_MODULE_INIT,
 	"expr",				/* Name */
-	RLM_TYPE_THREAD_SAFE,		/* type */
-	NULL,				/* initialization */
+	RLM_TYPE_CHECK_CONFIG_SAFE,   	/* type */
 	expr_instantiate,		/* instantiation */
+	expr_detach,			/* detach */
 	{
 		NULL,			/* authentication */
 		NULL,			/* authorization */
 		NULL,			/* pre-accounting */
 		NULL			/* accounting */
 	},
-	expr_detach,			/* detach */
-	NULL,				/* destroy */
 };

@@ -1,9 +1,9 @@
-/* $Id: files.c,v 1.322 2006/11/10 02:47:11 dolorous Exp $ */
+/* $Id: files.c,v 1.348.2.18 2007/04/21 20:33:56 dolorous Exp $ */
 /**************************************************************************
  *   files.c                                                              *
  *                                                                        *
  *   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004 Chris Allegretta    *
- *   Copyright (C) 2005, 2006 David Lawrence Ramsey                       *
+ *   Copyright (C) 2005, 2006, 2007 David Lawrence Ramsey                 *
  *   This program is free software; you can redistribute it and/or modify *
  *   it under the terms of the GNU General Public License as published by *
  *   the Free Software Foundation; either version 2, or (at your option)  *
@@ -132,8 +132,8 @@ void open_buffer(const char *filename)
     if (new_buffer)
 	make_new_buffer();
 
-    /* If we have a file and we're loading into a new buffer, update the
-     * filename. */
+    /* If we have a file, and we're loading into a new buffer, update
+     * the filename. */
     if (rc != -1 && new_buffer)
 	openfile->filename = mallocstrcpy(openfile->filename, filename);
 
@@ -150,7 +150,7 @@ void open_buffer(const char *filename)
 #endif
     }
 
-    /* If we have a file and we're loading into a new buffer, move back
+    /* If we have a file, and we're loading into a new buffer, move back
      * to the beginning of the first line of the buffer. */
     if (rc != -1 && new_buffer) {
 	openfile->current = openfile->fileage;
@@ -294,8 +294,8 @@ filestruct *read_line(char *buf, filestruct *prevnode, bool
 {
     filestruct *fileptr = (filestruct *)nmalloc(sizeof(filestruct));
 
-    /* Convert nulls to newlines.  buf_len is the string's real length
-     * here. */
+    /* Convert nulls to newlines.  buf_len is the string's real
+     * length. */
     unsunder(buf, buf_len);
 
     assert(openfile->fileage != NULL && strlen(buf) == buf_len);
@@ -579,17 +579,24 @@ void read_file(FILE *f, const char *filename)
  * "New File" if the file is missing.  Otherwise, say "[filename] not
  * found".
  *
- * Return -2 if we say "New File".  Otherwise, -1 if the file isn't
- * opened, 0 otherwise.  The file might still have an error while
- * reading with a 0 return value.  *f is set to the opened file. */
+ * Return -2 if we say "New File", -1 if the file isn't opened, and 0
+ * otherwise.  The file might still have an error while reading with a 0
+ * return value.  *f is set to the opened file. */
 int open_file(const char *filename, bool newfie, FILE **f)
 {
     struct stat fileinfo;
     int fd;
+    char *full_filename;
 
     assert(filename != NULL && f != NULL);
 
-    if (stat(filename, &fileinfo) == -1) {
+    /* Get the specified file's full path. */
+    full_filename = get_full_path(filename);
+
+    if (full_filename == NULL)
+	full_filename = mallocstrcpy(NULL, filename);
+
+    if (stat(full_filename, &fileinfo) == -1) {
 	if (newfie) {
 	    statusbar(_("New File"));
 	    return -2;
@@ -606,8 +613,9 @@ int open_file(const char *filename, bool newfie, FILE **f)
 		_("\"%s\" is a device file"), filename);
 	beep();
 	return -1;
-    } else if ((fd = open(filename, O_RDONLY)) == -1) {
-	statusbar(_("Error reading %s: %s"), filename, strerror(errno));
+    } else if ((fd = open(full_filename, O_RDONLY)) == -1) {
+	statusbar(_("Error reading %s: %s"), filename,
+		strerror(errno));
 	beep();
  	return -1;
      } else {
@@ -622,6 +630,8 @@ int open_file(const char *filename, bool newfie, FILE **f)
 	} else
 	    statusbar(_("Reading File"));
     }
+
+    free(full_filename);
 
     return 0;
 }
@@ -681,7 +691,7 @@ void do_insertfile(
     int i;
     const char *msg;
     char *ans = mallocstrcpy(NULL, "");
-	/* The last answer the user typed on the statusbar. */
+	/* The last answer the user typed at the statusbar prompt. */
     filestruct *edittop_save = openfile->edittop;
     size_t current_x_save = openfile->current_x;
     ssize_t current_y_save = openfile->current_y;
@@ -691,9 +701,9 @@ void do_insertfile(
     while (TRUE) {
 #ifndef NANO_TINY
 	if (execute) {
-	    msg = 
+	    msg =
 #ifdef ENABLE_MULTIBUFFER
-		ISSET(MULTIBUFFER) ? 
+		ISSET(MULTIBUFFER) ?
 		_("Command to execute in new buffer [from %s] ") :
 #endif
 		_("Command to execute [from %s] ");
@@ -701,7 +711,7 @@ void do_insertfile(
 #endif
 	    msg =
 #ifdef ENABLE_MULTIBUFFER
-		ISSET(MULTIBUFFER) ? 
+		ISSET(MULTIBUFFER) ?
 		_("File to insert into new buffer [from %s] ") :
 #endif
 		_("File to insert [from %s] ");
@@ -728,8 +738,10 @@ void do_insertfile(
 		"./");
 
 	/* If we're in multibuffer mode and the filename or command is
-	 * blank, open a new buffer instead of canceling. */
-	if (i == -1 || (i == -2
+	 * blank, open a new buffer instead of canceling.  If the
+	 * filename or command begins with a newline (i.e. an encoded
+	 * null), treat it as though it's blank. */
+	if (i == -1 || ((i == -2 || answer[0] == '\n')
 #ifdef ENABLE_MULTIBUFFER
 		&& !ISSET(MULTIBUFFER)
 #endif
@@ -799,6 +811,11 @@ void do_insertfile(
 #ifdef ENABLE_MULTIBUFFER
 	    }
 #endif
+
+	    /* Convert newlines to nulls, just before we insert the file
+	     * or execute the command. */
+	    sunder(answer);
+	    align(&answer);
 
 #ifndef NANO_TINY
 	    if (execute) {
@@ -1243,28 +1260,27 @@ int copy_file(FILE *inn, FILE *out)
     return retval;
 }
 
-/* Write a file out.  If f_open isn't NULL, we assume that it is a
- * stream associated with the file, and we don't try to open it
+/* Write a file out to disk.  If f_open isn't NULL, we assume that it is
+ * a stream associated with the file, and we don't try to open it
  * ourselves.  If tmp is TRUE, we set the umask to disallow anyone else
  * from accessing the file, we don't set the filename to its name, and
  * we don't print out how many lines we wrote on the statusbar.
  *
  * tmp means we are writing a temporary file in a secure fashion.  We
- * use it when spell checking or dumping the file on an error.
+ * use it when spell checking or dumping the file on an error.  If
+ * append is APPEND, it means we are appending instead of overwriting.
+ * If append is PREPEND, it means we are prepending instead of
+ * overwriting.  If nonamechange is TRUE, we don't change the current
+ * filename.  nonamechange is ignored if tmp is FALSE, we're appending,
+ * or we're prepending.
  *
- * append == APPEND means we are appending instead of overwriting.
- * append == PREPEND means we are prepending instead of overwriting.
- *
- * nonamechange means don't change the current filename.  It is ignored
- * if tmp is FALSE or if we're appending/prepending.
- *
- * Return 0 on success or -1 on error. */
-int write_file(const char *name, FILE *f_open, bool tmp, append_type
+ * Return TRUE on success or FALSE on error. */
+bool write_file(const char *name, FILE *f_open, bool tmp, append_type
 	append, bool nonamechange)
 {
-    int retval = -1;
+    bool retval = FALSE;
 	/* Instead of returning in this function, you should always
-	 * merely set retval and then goto cleanup_and_exit. */
+	 * set retval and then goto cleanup_and_exit. */
     size_t lineswritten = 0;
     const filestruct *fileptr = openfile->fileage;
     int fd;
@@ -1564,12 +1580,13 @@ int write_file(const char *name, FILE *f_open, bool tmp, append_type
     while (fileptr != NULL) {
 	size_t data_len = strlen(fileptr->data), size;
 
-	/* Newlines to nulls, just before we write to disk. */
+	/* Convert newlines to nulls, just before we write to disk. */
 	sunder(fileptr->data);
 
 	size = fwrite(fileptr->data, sizeof(char), data_len, f);
 
-	/* Nulls to newlines; data_len is the string's real length. */
+	/* Convert nulls to newlines.  data_len is the string's real
+	 * length. */
 	unsunder(fileptr->data, data_len);
 
 	if (size < data_len) {
@@ -1678,21 +1695,23 @@ int write_file(const char *name, FILE *f_open, bool tmp, append_type
 	titlebar(NULL);
     }
 
-    retval = 0;
+    retval = TRUE;
 
   cleanup_and_exit:
     free(realname);
-    free(tempname);
+    if (tempname != NULL)
+	free(tempname);
 
     return retval;
 }
 
 #ifndef NANO_TINY
-/* Write a marked selection from a file out. */
-int write_marked_file(const char *name, FILE *f_open, bool tmp,
+/* Write a marked selection from a file out to disk.  Return TRUE on
+ * success or FALSE on error. */
+bool write_marked_file(const char *name, FILE *f_open, bool tmp,
 	append_type append)
 {
-    int retval = -1;
+    bool retval;
     bool old_modified = openfile->modified;
 	/* write_file() unsets the modified flag. */
     bool added_magicline = FALSE;
@@ -1737,16 +1756,17 @@ int write_marked_file(const char *name, FILE *f_open, bool tmp,
 /* Write the current file to disk.  If the mark is on, write the current
  * marked selection to disk.  If exiting is TRUE, write the file to disk
  * regardless of whether the mark is on, and without prompting if the
- * TEMP_FILE flag is set. */
-int do_writeout(bool exiting)
+ * TEMP_FILE flag is set.  Return TRUE on success or FALSE on error. */
+bool do_writeout(bool exiting)
 {
-    int i, retval = 0;
+    int i;
     append_type append = OVERWRITE;
     char *ans;
-	/* The last answer the user typed on the statusbar. */
+	/* The last answer the user typed at the statusbar prompt. */
 #ifdef NANO_EXTRA
     static bool did_credits = FALSE;
 #endif
+    bool retval = FALSE;
 
     currshortcut = writefile_list;
 
@@ -1755,7 +1775,7 @@ int do_writeout(bool exiting)
 		FALSE);
 
 	/* Write succeeded. */
-	if (retval == 0)
+	if (retval)
 	    return retval;
     }
 
@@ -1776,7 +1796,11 @@ int do_writeout(bool exiting)
 
 	backupstr = ISSET(BACKUP_FILE) ? _(" [Backup]") : "";
 
-	if (!exiting && openfile->mark_set)
+	/* If we're using restricted mode, don't display the "Write
+	 * Selection to File" prompt.  This function is disabled, since
+	 * it allows reading from or writing to files not specified on
+	 * the command line. */
+	if (!ISSET(RESTRICTED) && !exiting && openfile->mark_set)
 	    msg = (append == PREPEND) ?
 		_("Prepend Selection to File") : (append == APPEND) ?
 		_("Append Selection to File") :
@@ -1807,9 +1831,11 @@ int do_writeout(bool exiting)
 #endif
 		);
 
-	if (i < 0) {
+	/* If the filename or command begins with a newline (i.e. an
+	 * encoded null), treat it as though it's blank. */
+	if (i < 0 || answer[0] == '\n') {
 	    statusbar(_("Cancelled"));
-	    retval = -1;
+	    retval = FALSE;
 	    break;
 	} else {
 	    ans = mallocstrcpy(ans, answer);
@@ -1863,46 +1889,61 @@ int do_writeout(bool exiting)
 		strcasecmp(answer, "zzy") == 0) {
 		do_credits();
 		did_credits = TRUE;
-		retval = -1;
+		retval = FALSE;
 		break;
 	    }
 #endif
 
 	    if (append == OVERWRITE) {
-		char *full_answer = get_full_path(answer);
-		char *full_filename = get_full_path(openfile->filename);
-		bool different_name = (strcmp(full_answer,
-			full_filename) != 0);
+		size_t answer_len = strlen(answer);
+		bool name_exists, do_warning;
+		char *full_answer, *full_filename;
 		struct stat st;
-		bool name_exists;
 
-		free(full_filename);
-		free(full_answer);
+		/* Convert newlines to nulls, just before we get the
+		 * full path. */
+		sunder(answer);
 
-		name_exists = (stat(answer, &st) != -1);
+		full_answer = get_full_path(answer);
+		full_filename = get_full_path(openfile->filename);
+		name_exists = (stat((full_answer == NULL) ? answer :
+			full_answer, &st) != -1);
+		if (openfile->filename[0] == '\0')
+		    do_warning = name_exists;
+		else
+		    do_warning = (strcmp((full_answer == NULL) ?
+			answer : full_answer, (full_filename == NULL) ?
+			openfile->filename : full_filename) != 0);
 
-		if (different_name) {
+		/* Convert nulls to newlines.  answer_len is the
+		 * string's real length. */
+		unsunder(answer, answer_len);
+
+		if (full_filename != NULL)
+		    free(full_filename);
+		if (full_answer != NULL)
+		    free(full_answer);
+
+		if (do_warning) {
+		    /* If we're using restricted mode, we aren't allowed
+		     * to overwrite an existing file with the current
+		     * file.  We also aren't allowed to change the name
+		     * of the current file if it has one, because that
+		     * would allow reading from or writing to files not
+		     * specified on the command line. */
+		    if (ISSET(RESTRICTED))
+			continue;
+
 		    if (name_exists) {
-			/* If we're using restricted mode, we aren't
-			 * allowed to save a new file under the name of
-			 * an existing file. */
-			if (ISSET(RESTRICTED))
-			    continue;
-
 			i = do_yesno_prompt(FALSE,
 				_("File exists, OVERWRITE ? "));
 			if (i == 0 || i == -1)
 			    continue;
-		    /* If we're using restricted mode, we aren't allowed
-		     * to change the name of a file once it has one,
-		     * because that would allow reading from or writing
-		     * to files not specified on the command line. */
-		    } else if (!ISSET(RESTRICTED) &&
-			openfile->filename[0] != '\0'
+		    } else
 #ifndef NANO_TINY
-			&& (exiting || !openfile->mark_set)
+		    if (exiting || !openfile->mark_set)
 #endif
-			) {
+		    {
 			i = do_yesno_prompt(FALSE,
 				_("Save file under DIFFERENT NAME ? "));
 			if (i == 0 || i == -1)
@@ -1911,16 +1952,21 @@ int do_writeout(bool exiting)
 		}
 	    }
 
-#ifndef NANO_TINY
+	    /* Convert newlines to nulls, just before we save the
+	     * file. */
+	    sunder(answer);
+	    align(&answer);
+
 	    /* Here's where we allow the selected text to be written to
-	     * a separate file.  If we're using restricted mode, this is
-	     * disabled, since it allows reading from or writing to
-	     * files not specified on the command line. */
-	    if (!ISSET(RESTRICTED) && !exiting && openfile->mark_set)
-		retval = write_marked_file(answer, NULL, FALSE, append);
-	    else
+	     * a separate file.  If we're using restricted mode, this
+	     * function is disabled, since it allows reading from or
+	     * writing to files not specified on the command line. */
+	    retval =
+#ifndef NANO_TINY
+		(!ISSET(RESTRICTED) && !exiting && openfile->mark_set) ?
+		write_marked_file(answer, NULL, FALSE, append) :
 #endif
-		retval = write_file(answer, NULL, FALSE, append, FALSE);
+		write_file(answer, NULL, FALSE, append, FALSE);
 
 	    break;
 	}
@@ -1943,45 +1989,45 @@ void do_writeout_void(void)
  * convert ~user/ and ~/ notation. */
 char *real_dir_from_tilde(const char *buf)
 {
-    char *dirtmp = NULL;
+    char *retval;
 
     assert(buf != NULL);
 
     if (buf[0] == '~') {
-	size_t i;
-	const char *tilde_dir;
+	size_t i = 1;
+	char *tilde_dir;
 
-	/* Figure out how much of the str we need to compare. */
-	for (i = 1; buf[i] != '/' && buf[i] != '\0'; i++)
+	/* Figure out how much of the string we need to compare. */
+	for (; buf[i] != '/' && buf[i] != '\0'; i++)
 	    ;
 
 	/* Get the home directory. */
 	if (i == 1) {
 	    get_homedir();
-	    tilde_dir = homedir;
+	    tilde_dir = mallocstrcpy(NULL, homedir);
 	} else {
 	    const struct passwd *userdata;
 
+	    tilde_dir = mallocstrncpy(NULL, buf, i + 1);
+	    tilde_dir[i] = '\0';
+
 	    do {
 		userdata = getpwent();
-	    } while (userdata != NULL &&
-		strncmp(userdata->pw_name, buf + 1, i - 1) != 0);
+	    } while (userdata != NULL && strcmp(userdata->pw_name,
+		tilde_dir + 1) != 0);
 	    endpwent();
-	    tilde_dir = userdata->pw_dir;
+	    if (userdata != NULL)
+		tilde_dir = mallocstrcpy(tilde_dir, userdata->pw_dir);
 	}
 
-	if (tilde_dir != NULL) {
-	    dirtmp = charalloc(strlen(tilde_dir) + strlen(buf + i) + 1);
-	    sprintf(dirtmp, "%s%s", tilde_dir, buf + i);
-	}
-    }
+	retval = charalloc(strlen(tilde_dir) + strlen(buf + i) + 1);
+	sprintf(retval, "%s%s", tilde_dir, buf + i);
 
-    /* Set a default value for dirtmp, in case the user's home directory
-     * isn't found. */
-    if (dirtmp == NULL)
-	dirtmp = mallocstrcpy(NULL, buf);
+	free(tilde_dir);
+    } else
+	retval = mallocstrcpy(NULL, buf);
 
-    return dirtmp;
+    return retval;
 }
 
 #if !defined(DISABLE_TABCOMP) || !defined(DISABLE_BROWSER)
@@ -2020,15 +2066,19 @@ void free_chararray(char **array, size_t len)
 #endif
 
 #ifndef DISABLE_TABCOMP
-/* Is the given file a directory? */
-int is_dir(const char *buf)
+/* Is the given path a directory? */
+bool is_dir(const char *buf)
 {
-    char *dirptr = real_dir_from_tilde(buf);
+    char *dirptr;
     struct stat fileinfo;
-    int retval = (stat(dirptr, &fileinfo) != -1 &&
-	S_ISDIR(fileinfo.st_mode));
+    bool retval;
 
-    assert(buf != NULL && dirptr != buf);
+    assert(buf != NULL);
+
+    dirptr = real_dir_from_tilde(buf);
+
+    retval = (stat(dirptr, &fileinfo) != -1 &&
+	S_ISDIR(fileinfo.st_mode));
 
     free(dirptr);
 
@@ -2205,7 +2255,7 @@ char *input_tab(char *buf, bool allow_files, size_t *place, bool
 
     /* If the word starts with `~' and there is no slash in the word,
      * then try completing this word as a username. */
-    if (*place > 0 && *buf == '~') {
+    if (*place > 0 && buf[0] == '~') {
 	const char *bob = strchr(buf, '/');
 
 	if (bob == NULL || bob >= buf + *place)
@@ -2218,7 +2268,7 @@ char *input_tab(char *buf, bool allow_files, size_t *place, bool
 	matches = cwd_tab_completion(buf, allow_files, &num_matches,
 		*place);
 
-    if (num_matches <= 0)
+    if (num_matches == 0)
 	beep();
     else {
 	size_t match, common_len = 0;
@@ -2374,15 +2424,16 @@ const char *tail(const char *foo)
 
     if (tmp == NULL)
 	tmp = foo;
-    else if (*tmp == '/')
+    else
 	tmp++;
 
     return tmp;
 }
 
 #if !defined(NANO_TINY) && defined(ENABLE_NANORC)
-/* Return $HOME/.nano_history, or NULL if we can't find the homedir.
- * The string is dynamically allocated, and should be freed. */
+/* Return $HOME/.nano_history, or NULL if we can't find the home
+ * directory.  The string is dynamically allocated, and should be
+ * freed. */
 char *histfilename(void)
 {
     char *nanohist = NULL;
@@ -2419,9 +2470,9 @@ void load_history(void)
 		    ;
 	    }
 	} else {
-	    /* Load a history (first the search history, then the
-	     * replace history) from oldest to newest.  Assume the last
-	     * history entry is a blank line. */
+	    /* Load a history list (first the search history, then the
+	     * replace history) from the oldest entry to the newest.
+	     * Assume the last history entry is a blank line. */
 	    filestruct **history = &search_history;
 	    char *line = NULL;
 	    size_t buflen = 0;
@@ -2453,8 +2504,8 @@ bool writehist(FILE *hist, filestruct *h)
 {
     filestruct *p;
 
-    /* Write history from oldest to newest.  Assume the last history
-     * entry is a blank line. */
+    /* Write a history list from the oldest entry to the newest.  Assume
+     * the last history entry is a blank line. */
     for (p = h; p != NULL; p = p->next) {
 	size_t p_len = strlen(p->data);
 

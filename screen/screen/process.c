@@ -5466,7 +5466,7 @@ char *data;	/* dummy */
       *buf = 0;
       return;
     }
-  act.nr = (int)data;
+  act.nr = (int)(intptr_t)data;
   act.args = noargs;
   act.argl = 0;
   DoAction(&act, -1);

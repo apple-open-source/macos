@@ -71,23 +71,30 @@ public:
 		uint32_t status;			// dynamic status
 		std::string path;			// canonical code path
 		CFRef<CFDictionaryRef> attributes; // matching attributes set
+		CFRef<CFDataRef> cdhash;	// hash of CodeDirectory as specified by host
 		bool dedicated;				// host is dedicated (and this is the only guest)
 		
 		operator bool() const { return attributes; }  // exists
 		SecGuestRef guestRef() const { return handle(); }
 		void setAttributes(const CssmData &attrData);
+		CFDataRef attrData() const;
+		void setHash(const CssmData &given, bool generate);
 		
 		bool isGuestOf(Guest *host, GuestCheck check) const;
 		bool matches(CFIndex count, CFTypeRef keys[], CFTypeRef values[]) const;
 		
 		IFDUMP(void dump() const);
+	
+	private:
+		mutable CFRef<CFDataRef> mAttrData; // XML form of attributes (must live until guest destruction)
 	};
 	
 	void registerCodeSigning(mach_port_t hostingPort, SecCSFlags flags);
 	Port hostingPort() const { return mHostingPort; }
 	
 	SecGuestRef createGuest(SecGuestRef guest,
-		uint32_t status, const char *path, const CssmData &attributes, SecCSFlags flags);
+		uint32_t status, const char *path,
+		const CssmData &cdhash, const CssmData &attributes, SecCSFlags flags);
 	void setGuestStatus(SecGuestRef guest, uint32_t status, const CssmData &attributes);
 	void removeGuest(SecGuestRef host, SecGuestRef guest);
 	

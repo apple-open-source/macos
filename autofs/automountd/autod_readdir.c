@@ -52,13 +52,13 @@
 
 static void build_dir_entry_list(struct rddir_cache *rdcp,
 				struct dir_entry *list);
-static int rddir_cache_enter(char *map, ulong_t bucket_size,
+static int rddir_cache_enter(char *map, uint_t bucket_size,
 				struct rddir_cache **rdcpp);
 int rddir_cache_lookup(char *map, struct rddir_cache **rdcpp);
 static int rddir_cache_delete(struct rddir_cache *rdcp);
-static int create_dirents(struct rddir_cache *rdcp, ulong_t offset,
+static int create_dirents(struct rddir_cache *rdcp, off_t offset,
 				uint32_t rda_count,
-				uint64_t *rddir_offset,
+				off_t *rddir_offset,
 				boolean_t *rddir_eof,
 				byte_buffer *rddir_entries,
 				mach_msg_type_number_t *rddir_entriesCnt);
@@ -72,8 +72,8 @@ pthread_rwlock_t rddir_cache_lock;		/* readdir cache lock */
 struct rddir_cache *rddir_head;		/* readdir cache head */
 
 int
-do_readdir(autofs_pathname rda_map, uint64_t rda_offset,
-    uint32_t rda_count, uint64_t *rddir_offset,
+do_readdir(autofs_pathname rda_map, off_t rda_offset,
+    uint32_t rda_count, off_t *rddir_offset,
     boolean_t *rddir_eof, byte_buffer *rddir_entries,
     mach_msg_type_number_t *rddir_entriesCnt)
 {
@@ -215,8 +215,8 @@ do_readdir(autofs_pathname rda_map, uint64_t rda_offset,
 #define	roundtoint(x)	(((x) + sizeof (int) - 1) & ~(sizeof (int) - 1))
 
 static int
-create_dirents(struct rddir_cache *rdcp, ulong_t offset, uint32_t rda_count,
-    uint64_t *rddir_offset, boolean_t *rddir_eof, byte_buffer *rddir_entries,
+create_dirents(struct rddir_cache *rdcp, off_t offset, uint32_t rda_count,
+    off_t *rddir_offset, boolean_t *rddir_eof, byte_buffer *rddir_entries,
     mach_msg_type_number_t *rddir_entriesCnt)
 {
 	uint_t total_bytes_wanted;
@@ -227,7 +227,7 @@ create_dirents(struct rddir_cache *rdcp, ulong_t offset, uint32_t rda_count,
 	struct dir_entry *list = NULL, *l;
 	kern_return_t ret;
 	vm_address_t buffer_vm_address;
-	struct dirent *dp;
+	struct dirent_nonext *dp;
 	uint8_t *outbuf;
 	struct off_tbl *offtp, *next = NULL;
 	int this_bucket = 0;
@@ -271,8 +271,8 @@ create_dirents(struct rddir_cache *rdcp, ulong_t offset, uint32_t rda_count,
 		trace_prt(1, "%s: offset searches (%d, %d)\n", rdcp->map, x, y);
 
 	total_bytes_wanted = rda_count;
-	bufsize = total_bytes_wanted + sizeof (struct dirent);
-	ret = vm_allocate(mach_task_self(), &buffer_vm_address,
+	bufsize = total_bytes_wanted + sizeof (struct dirent_nonext);
+	ret = vm_allocate(current_task(), &buffer_vm_address,
 	    bufsize, VM_FLAGS_ANYWHERE);
 	if (ret != KERN_SUCCESS) {
 		syslog(LOG_ERR, "memory allocation error: %s",
@@ -283,15 +283,19 @@ create_dirents(struct rddir_cache *rdcp, ulong_t offset, uint32_t rda_count,
 	outbuf = (uint8_t *)buffer_vm_address;
 	memset(outbuf, 0, bufsize);
 	/* LINTED pointer alignment */
-	dp = (struct dirent *)outbuf;
+	dp = (struct dirent_nonext *)outbuf;
 
 	for (;;) {
-		namelen = strlen(l->name);
+		namelen = (int)strlen(l->name);
 		this_reclen = DIRENT_RECLEN(namelen);
 		if (outcount + this_reclen > total_bytes_wanted) {
 			break;
 		}
-		dp->d_ino = l->nodeid;
+
+		/*
+		 * XXX - 64-bit inumbers....
+		 */
+		dp->d_ino = (__uint32_t)l->nodeid;
 		dp->d_reclen = this_reclen;
 #if 0
 		dp->d_type = DT_DIR;
@@ -301,7 +305,7 @@ create_dirents(struct rddir_cache *rdcp, ulong_t offset, uint32_t rda_count,
 		dp->d_namlen = namelen;
 		(void) strcpy(dp->d_name, l->name);
 		outcount += dp->d_reclen;
-		dp = (struct dirent *)((char *)dp + dp->d_reclen);
+		dp = (struct dirent_nonext *)((char *)dp + dp->d_reclen);
 		assert(outcount <= total_bytes_wanted);
 		if (!l->next)
 			break;
@@ -330,7 +334,9 @@ create_dirents(struct rddir_cache *rdcp, ulong_t offset, uint32_t rda_count,
 		*rddir_entriesCnt = 0;
 		*rddir_eof = FALSE;
 		*rddir_entries = NULL;
-		vm_deallocate(mach_task_self(), buffer_vm_address, bufsize);
+		vm_deallocate(current_task(), buffer_vm_address, bufsize);
+		syslog(LOG_ERR,
+			"byte count in readdir too small for one directory entry");
 		error = EIO;
 	}
 	return (error);
@@ -346,7 +352,7 @@ empty:	*rddir_entriesCnt = 0;
  * add new entry to cache for 'map'
  */
 static int
-rddir_cache_enter(char *map, ulong_t bucket_size, struct rddir_cache **rdcpp)
+rddir_cache_enter(char *map, uint_t bucket_size, struct rddir_cache **rdcpp)
 {
 	struct rddir_cache *p;
 #if 0
@@ -518,7 +524,7 @@ static void
 build_dir_entry_list(struct rddir_cache *rdcp, struct dir_entry *list)
 {
 	struct dir_entry *p;
-	ulong_t offset = AUTOFS_DAEMONCOOKIE, offset_list = AUTOFS_DAEMONCOOKIE;
+	off_t offset = AUTOFS_DAEMONCOOKIE, offset_list = AUTOFS_DAEMONCOOKIE;
 	struct off_tbl *offtp, *last = NULL;
 	ino_t inonum = 4;
 

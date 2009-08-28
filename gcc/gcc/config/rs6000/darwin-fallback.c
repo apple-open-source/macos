@@ -1,4 +1,3 @@
-/* APPLE LOCAL file mainline 2005-03-25 3941951 */
 /* Fallback frame-state unwinder for Darwin.
    Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 
@@ -25,8 +24,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-   02111-1307, USA.  */
+   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301, USA.  */
 
 #include "tconfig.h"
 #include "tsystem.h"

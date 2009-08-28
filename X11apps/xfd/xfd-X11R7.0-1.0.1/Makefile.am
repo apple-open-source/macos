@@ -38,7 +38,7 @@ appman_PRE = \
 appdefaultdir = @appdefaultdir@
 
 APPDEFAULTFILES = \
-        Xfd
+        app-defaults/Xfd
 
 SUFFIXES = .ad
 

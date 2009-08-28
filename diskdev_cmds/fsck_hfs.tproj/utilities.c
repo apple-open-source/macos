@@ -1,23 +1,22 @@
 /*
- * Copyright (c) 1999-2000, 2002, 2004, 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2000, 2002, 2004, 2007-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -66,6 +65,7 @@
 #include <string.h>
 #include <unistd.h> 
 #include <stdlib.h>
+#include <sys/sysctl.h>
 
 #include "fsck_hfs.h"
 
@@ -82,24 +82,24 @@ reply(char *question)
 	if (preen)
 		pfatal("INTERNAL ERROR: GOT TO reply()");
 	persevere = !strcmp(question, "CONTINUE");
-plog("\n");
+	plog("\n");
 	if (!persevere && (nflag || fswritefd < 0)) {
-	plog("%s? no\n\n", question);
+		plog("%s? no\n\n", question);
 		return (0);
 	}
 	if (yflag || (persevere && nflag)) {
-	plog("%s? yes\n\n", question);
+		plog("%s? yes\n\n", question);
 		return (1);
 	}
 	do	{
-	plog("%s? [yn] ", question);
+		plog("%s? [yn] ", question);
 		(void) fflush(stdout);
 		c = getc(stdin);
 		while (c != '\n' && getc(stdin) != '\n')
 			if (feof(stdin))
 				return (0);
 	} while (c != 'y' && c != 'Y' && c != 'n' && c != 'N');
-plog("\n");
+	plog("\n");
 	if (c == 'y' || c == 'Y')
 		return (1);
 	return (0);
@@ -146,10 +146,10 @@ ckfini(markclean)
 		flush(fswritefd, &sblk);
 		fsmodified = ofsmodified;
 		if (!preen)
-		plog("\n***** FILE SYSTEM MARKED CLEAN *****\n");
+			plog("\n***** FILE SYSTEM MARKED CLEAN *****\n");
 	}
 	if (debug)
-	plog("cache missed %ld of %ld (%d%%)\n", diskreads,
+		plog("cache missed %ld of %ld (%d%%)\n", diskreads,
 		    totalreads, (int)(diskreads * 100 / totalreads));
 #endif
 	(void)close(fsreadfd);
@@ -167,14 +167,14 @@ blockcheck(char *origname)
 	hotroot = 0;
 	if (stat("/", &stslash) < 0) {
 		perror("/");
-	plog("Can't stat root\n");
+		plog("Can't stat root\n");
 		return (origname);
 	}
 	newname = origname;
 retry:
 	if (stat(newname, &stblock) < 0) {
 		perror(newname);
-	plog("Can't stat %s\n", newname);
+		plog("Can't stat %s\n", newname);
 		return (origname);
 	}
 	if ((stblock.st_mode & S_IFMT) == S_IFBLK) {
@@ -183,13 +183,13 @@ retry:
 		raw = rawname(newname);
 		if (stat(raw, &stchar) < 0) {
 			perror(raw);
-		plog("Can't stat %s\n", raw);
+			plog("Can't stat %s\n", raw);
 			return (origname);
 		}
 		if ((stchar.st_mode & S_IFMT) == S_IFCHR) {
 			return (raw);
 		} else {
-		plog("%s is not a character device\n", raw);
+			plog("%s is not a character device\n", raw);
 			return (origname);
 		}
 	} else if ((stblock.st_mode & S_IFMT) == S_IFCHR && !retried) {
@@ -215,10 +215,10 @@ rawname(char *name)
 	if ((dp = strrchr(name, '/')) == 0)
 		return (0);
 	*dp = 0;
-	(void)strcpy(rawbuf, name);
+	(void)strlcpy(rawbuf, name, sizeof(rawbuf));
 	*dp = '/';
-	(void)strcat(rawbuf, "/r");
-	(void)strcat(rawbuf, &dp[1]);
+	(void)strlcat(rawbuf, "/r", sizeof(rawbuf));
+	(void)strlcat(rawbuf, &dp[1], sizeof(rawbuf));
 
 	return (rawbuf);
 }
@@ -258,12 +258,14 @@ catch(sig)
 // Logging stuff...
 //
 //
+#include <stdarg.h>
 #include <pthread.h>
 #include <time.h>
 
 #define FSCK_LOG_FILE "/var/log/fsck_hfs.log"
 
 extern char lflag;           // indicates if we're doing a live fsck (defined in fsck_hfs.c)
+extern char guiControl;      // indicates if we're outputting for the gui (defined in fsck_hfs.c)
 
 FILE   *log_file = NULL;
 char   *in_mem_log = NULL;
@@ -283,7 +285,7 @@ static volatile int    keep_going = 1;
 #undef printf
 
 // prototype
-void print_to_mem(int type, const char *fmt, const void *arg);
+void print_to_mem(int type, const char *fmt, const char *str, va_list ap);
 
 #define  DO_VPRINT   1    // types for print_to_mem
 #define  DO_STR      2
@@ -319,7 +321,7 @@ fsck_printing_thread(void *arg)
 	    memcpy(buff, in_mem_log, copy_amt);
 
 	    memmove(in_mem_log, &in_mem_log[copy_amt], (cur_in_mem - in_mem_log) - copy_amt);
-	    cur_in_mem = in_mem_log + copy_amt;
+	    cur_in_mem -= copy_amt;
 	} else {
 	    memcpy(buff, in_mem_log, copy_amt);
 	    cur_in_mem = in_mem_log;
@@ -488,6 +490,11 @@ setup_logging(void)
 	return;
     }
 
+    if (guiControl) {
+	    setlinebuf(stdout);
+	    setlinebuf(stderr);
+    }
+
     // our copy of this variable since we may
     // need to change it to make the right thing
     // happen for fsck on the root volume.
@@ -529,8 +536,8 @@ setup_logging(void)
 		cur_in_mem = in_mem_log;
 
 		t = time(NULL);
-		print_to_mem(DO_STR, "\n%s: ", cdevname ? cdevname : "UNKNOWN-DEV"); 
-		print_to_mem(DO_STR, "fsck_hfs run at %s", ctime(&t));
+		print_to_mem(DO_STR, "\n%s: ", cdevname ? cdevname : "UNKNOWN-DEV", NULL); 
+		print_to_mem(DO_STR, "fsck_hfs run at %s", ctime(&t), NULL);
 
 		if (live_fsck && log_file) {
 		    pthread_cond_init(&mem_buf_cond, NULL);
@@ -558,19 +565,16 @@ setup_logging(void)
 
 
 void
-print_to_mem(int type, const char *fmt, const void *arg)
+print_to_mem(int type, const char *fmt, const char *str, va_list ap)
 {
     int ret;
     size_t size_remaining;
-    va_list ap=NULL;
-    char *str=NULL;
-
+    va_list ap_copy;
+    
     if (type == DO_VPRINT) {
-	ap = (va_list)arg;
-    } else if (type == DO_STR) {
-	str = (char *)arg;
+	va_copy(ap_copy, ap);
     }
-
+    
     if (live_fsck) {
 	pthread_mutex_lock(&mem_buf_lock);
     }
@@ -597,7 +601,7 @@ print_to_mem(int type, const char *fmt, const void *arg)
 		pthread_cond_signal(&mem_buf_cond);
 		pthread_mutex_unlock(&mem_buf_lock);
 	    }
-	    return;
+	    goto done;
 	}
 
 	in_mem_size += amt;
@@ -605,7 +609,7 @@ print_to_mem(int type, const char *fmt, const void *arg)
 	in_mem_log = new_log;
 	size_remaining = in_mem_size - (ptrdiff_t)(cur_in_mem - new_log);
 	if (type == DO_VPRINT) {
-	    ret = vsnprintf(cur_in_mem, size_remaining, fmt, ap);
+	    ret = vsnprintf(cur_in_mem, size_remaining, fmt, ap_copy);
 	} else {
 	    ret = snprintf(cur_in_mem, size_remaining, fmt, str);
 	}
@@ -619,7 +623,11 @@ print_to_mem(int type, const char *fmt, const void *arg)
     if (live_fsck) {
 	pthread_cond_signal(&mem_buf_cond);
 	pthread_mutex_unlock(&mem_buf_lock);
-    }	
+    }
+done:
+    if (type == DO_VPRINT) {
+	va_end(ap_copy);
+    }
 }
 
 
@@ -638,11 +646,12 @@ static int need_prefix=1;
 	}
 
 #define VFLOG(fmt, ap) \
+    va_start(ap, fmt); \
     if (log_file && !live_fsck) { \
 	LOG_PREFIX \
 	vfprintf(log_file, fmt, ap); \
     } else { \
-	print_to_mem(DO_VPRINT, fmt, ap);	\
+	print_to_mem(DO_VPRINT, fmt, NULL, ap);	\
     }
 
 #define FLOG(fmt, str) \
@@ -650,7 +659,7 @@ static int need_prefix=1;
 	LOG_PREFIX;				\
 	fprintf(log_file, fmt, str);		\
     } else { \
-	print_to_mem(DO_STR, fmt, str);		\
+	print_to_mem(DO_STR, fmt, str, NULL);	\
     }
 
 
@@ -661,7 +670,7 @@ static int need_prefix=1;
 #endif
 
 /*
- * An unexpected inconsistency occured.
+ * An unexpected inconsistency occurred.
  * Die if preening, otherwise just print message and continue.
  */
 void
@@ -684,7 +693,7 @@ pfatal(fmt, va_alist)
 #endif
 	if (!preen) {
 		(void)vfprintf(stderr, fmt, ap);
-		FLOG(fmt, ap);
+		VFLOG(fmt, ap);
 		va_end(ap);
 		return;
 	}
@@ -738,6 +747,14 @@ pwarn(fmt, va_alist)
 	va_end(ap);
 }
 
+/* Write a string and parameters, if any, directly to the log file.  
+ * These strings will not be printed to standard out/error.
+ */
+void 
+logstring(void *c, const char *str)
+{
+	plog("%s", str);
+}
 
 void
 plog(const char *fmt, ...)
@@ -758,11 +775,22 @@ plog(const char *fmt, ...)
 void
 vplog(const char *fmt, va_list ap)
 {
+    va_list ap_stdout;
+
     setup_logging();
 
-    if (!live_fsck) 
-	vfprintf(stdout, fmt, ap);
-    VFLOG(fmt, ap);
+    if (!live_fsck) {
+        /* copy va_list as it will be used again later */
+		__va_copy(ap_stdout, ap);
+		vfprintf(stdout, fmt, ap_stdout);
+    }
+
+    if (log_file && !live_fsck) {
+	LOG_PREFIX;
+	vfprintf(log_file, fmt, ap);
+    } else {
+	print_to_mem(DO_VPRINT, fmt, NULL, ap);
+    }
 }
 
 void
@@ -779,3 +807,45 @@ fplog(FILE *stream, const char *fmt, ...)
 
     va_end(ap);
 }
+
+#define kProgressToggle	"kern.progressmeterenable"
+#define	kProgress	"kern.progressmeter"
+
+void
+start_progress(void)
+{
+	int rv;
+	int enable = 1;
+	if (hotroot == 0)
+		return;
+	rv = sysctlbyname(kProgressToggle, NULL, NULL, &enable, sizeof(enable));
+	if (debug && rv == -1) {
+		warn("sysctl(%s) failed", kProgressToggle);
+	}
+}
+
+void
+draw_progress(int pct)
+{
+	int rv;
+	if (hotroot == 0)
+		return;
+	rv = sysctlbyname(kProgress, NULL, NULL, &pct, sizeof(pct));
+	if (debug && rv == -1) {
+		warn("sysctl(%s) failed", kProgress);
+	}
+}
+
+void
+end_progress(void)
+{
+	int rv;
+	int enable = 0;
+	if (hotroot == 0)
+		return;
+	rv = sysctlbyname(kProgressToggle, NULL, NULL, &enable, sizeof(enable));
+	if (debug && rv == -1) {
+		warn("sysctl(%s) failed", kProgressToggle);
+	}
+}
+

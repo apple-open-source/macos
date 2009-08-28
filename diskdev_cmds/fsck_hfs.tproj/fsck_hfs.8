@@ -1,4 +1,4 @@
-.\" Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+.\" Copyright (c) 2002,2008 Apple Inc. All rights reserved.
 .\" 
 .\" The contents of this file constitute Original Code as defined in and
 .\" are subject to the Apple Public Source License Version 1.1 (the
@@ -15,7 +15,7 @@
 .\" under the License.
 .\" 
 .\"     @(#)fsck_hfs.8
-.Dd November 21, 2002
+.Dd August 5, 2008
 .Dt FSCK_HFS 8
 .Os "Mac OS X"
 .Sh NAME
@@ -32,7 +32,10 @@
 .Ar special ...
 .Nm fsck_hfs
 .Op Fl n | y | r
-.Op Fl dfgl
+.Op Fl dfgxl
+.Op Fl D Ar flags
+.Op Fl b Ar size
+.Op Fl B Ar path
 .Op Fl m Ar mode
 .Op Fl c Ar size
 .Ar special ...
@@ -94,6 +97,36 @@ Display debugging information.
 This option may provide useful information when 
 .Nm
 cannot repair a damaged file system.
+.It Fl D Ar flags
+Print extra debugging information.  The
+.Ar flags
+are a bitmap that control which kind of debug information is printed.
+The following values are currently implemented:
+.Bl -hang -offset indent -compact
+.It 0x0001
+Informational messages
+.It 0x0002
+Error messages
+.It 0x0010
+Extended attributes related messages
+.It 0x0020
+Overlapped extents related messages
+.El
+.It Fl b Ar size
+Specify the size, in bytes, of the physical blocks used by the
+.Fl B
+option.
+.It Fl B Ar path
+Print the files containing the physical blocks listed in the file
+.Ar path .
+The file should contain one or more decimal, octal (with leading 0) or
+hexadecimal (with leading 0x) numbers separated by white space.  The physical
+block numbers are relative to the start of the partition, so if you
+have block numbers relative to the start of the device, you will have to
+subtract the block number of the start of the partition.  The size of a
+physical block is given with the
+.Fl b
+option; the default is 512 bytes per block.
 .It Fl f
 When used with the
 .Fl p
@@ -108,6 +141,13 @@ Causes
 to generate it's output strings in GUI format.
 This option is used when another application with a graphical user interface
 (like Mac OS X Disk Utility) is envoking the
+.It Fl x
+Causes
+.Nm
+to generate its output strings in XML (plist) format.  This option
+implies the
+.Fl g
+option.
 .Nm
 tool.
 .It Fl l

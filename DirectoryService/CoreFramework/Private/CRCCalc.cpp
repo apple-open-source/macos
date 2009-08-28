@@ -155,8 +155,8 @@ UInt32 CRCCalc::UPDC32 ( register unsigned char b, register UInt32 c )
 UInt32 CalcCRC ( const char *inStr )
 {
 	const char 	   *p			= inStr;
-	SInt32			siI			= 0;
-	SInt32			siStrLen	= 0;
+	size_t			siI			= 0;
+	size_t			siStrLen	= 0;
 	UInt32			uiCRC		= 0xFFFFFFFF;
 	CRCCalc			aCRCCalc;
 	

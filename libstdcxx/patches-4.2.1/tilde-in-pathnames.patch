@@ -1,0 +1,73 @@
+Index: ltconfig
+===================================================================
+RCS file: /cvs/gcc/gcc/ltconfig,v
+retrieving revision 1.32
+retrieving revision 1.32.22.1
+diff -u -p -r1.32 -r1.32.22.1
+--- ltconfig	2 Oct 2004 16:33:06 -0000	1.32
++++ ltconfig	4 Mar 2005 20:13:17 -0000	1.32.22.1
+@@ -626,7 +626,8 @@ old_postuninstall_cmds=
+ 
+ if test -n "$RANLIB"; then
+   old_archive_cmds="$old_archive_cmds~\$RANLIB \$oldlib"
+-  old_postinstall_cmds="~$old_postinstall_cmds~\$RANLIB \$oldlib"
++  # APPLE LOCAL handle ~ in pathnames 2002-01-14 --sts
++  old_postinstall_cmds="\$RANLIB \$oldlib@$old_postinstall_cmds"
+ fi
+ 
+ # Source the script associated with the $tagname tag configuration.
+Index: ltmain.sh
+===================================================================
+RCS file: /cvs/gcc/gcc/ltmain.sh,v
+retrieving revision 1.24.30.1
+retrieving revision 1.24.28.2
+diff -u -p -r1.24.30.1 -r1.24.28.2
+--- ltmain.sh	1 Mar 2005 22:29:34 -0000	1.24.30.1
++++ ltmain.sh	9 Apr 2005 05:59:50 -0000	1.24.28.2
+@@ -495,11 +495,34 @@ if test -z "$show_help"; then
+     # Only attempt this if the compiler in the base compile
+     # command doesn't match the default compiler.
+     if test -n "$available_tags" && test -z "$tagname"; then
++      # APPLE LOCAL begin handle ~ in pathnames 2002-01-14 --sts
++      # Since CC may have args with shell metachars in them, add
++      # doublequotes to args so it looks the same as $base_compile.
++      qCC=
++      for argu in $CC; do
++	case $argu in
++	# Double-quote args containing other shell metacharacters.
++	# Many Bourne shells cannot handle close brackets correctly
++	# in scan sets, so we specify it separately.
++	*[\[\~\#\^\&\*\(\)\{\}\|\;\<\>\?\'\ \	]*|*]*|"")
++	  argu="\"$argu\""
++	  ;;
++	esac
++        # Add the previous argument to qCC.
++        if test -z "$qCC"; then
++	  qCC="$argu"
++        else
++	  qCC="$qCC $argu"
++        fi
++      done
++      # APPLE LOCAL end handle ~ in pathnames 2002-01-14 --sts 
+       case $base_compile in
+-      "$CC "*) ;;
++      # APPLE LOCAL handle ~ in pathnames 2002-01-14 --sts 
++      "$qCC "*) ;;
+       # Blanks in the command may have been stripped by the calling shell,
+       # but not from the CC environment variable when ltconfig was run.
+-      "`$echo $CC` "*) ;;
++      # APPLE LOCAL handle ~ in pathnames 2002-01-14 --sts 
++      "`$echo $qCC` "*) ;;
+       *)
+         for z in $available_tags; do
+           if grep "^### BEGIN LIBTOOL TAG CONFIG: $z$" < "$0" > /dev/null; then
+@@ -5045,7 +5068,8 @@ relink_command=\"$relink_command\""
+ 
+       # Do each command in the postinstall commands.
+       eval cmds=\"$old_postinstall_cmds\"
+-      IFS="${IFS= 	}"; save_ifs="$IFS"; IFS='~'
++      # APPLE LOCAL handle ~ in pathnames 2002-01-14 --sts
++      IFS="${IFS= 	}"; save_ifs="$IFS"; IFS='@'
+       for cmd in $cmds; do
+ 	IFS="$save_ifs"
+ 	$show "$cmd"

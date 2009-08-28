@@ -1,24 +1,160 @@
-2005-04-20  Release Manager
+2007-07-19  Release Manager
 
-	* GCC 4.0.0 released.
+	* GCC 4.2.1 released.
+
+2007-05-13  Release Manager
+
+	* GCC 4.2.0 released.
+
+2007-05-13  Mark Mitchell  <mark@codesourcery.com>
+
+	* gennews (files): Reference GCC 4.2 web pages.
+
+2007-04-04  Eric Christopher  <echristo@apple.com>
+
+	Backport from mainline:
+	2007-04-04  Zack Weinberg  <zack@mrtock.ucsd.edu>
+
+        * texi2pod.pl: Correct handling of @itemize with no argument.
+
+        2007-02-16  Matthias Klose  <doko@debian.org>
+
+        * texi2pod.pl: Handle @subsubsection, ignore @anchor.
+
+        2007-02-06  Richard Sandiford  <richard@codesourcery.com>
+
+	* texi2pod.pl: Handle @multitable.
+
+2006-09-27  Matthew Sachs  <msachs@apple.com>
+
+	* compareSumTests3: POD syntax fix.
+
+2006-09-27  Matthew Sachs  <msachs@apple.com>
+
+	* dglib.pm: Initial commit.
+	* compareSumTests3: Initial commit.
+
+2006-09-18  Bernhard Fischer  <aldot@gcc.gnu.org>
+
+	* dg-cmp-results.sh (compare-$$.awk): Print name[old]
+	and not non-existing nm[old].
+
+2006-07-06  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Port to hosts whose 'sort' and 'tail' implementations
+	treat operands with leading '+' as file names, as POSIX
+	has required since 2001.  However, make sure the code still
+	works on pre-POSIX hosts.
+	* compare_tests: Don't assume "sort +2" is equivalent to
+	"sort -k 3", since POSIX 1003.1-2001 no longer requires this.
+
+2006-06-05  James Lemke  <jwlemke@wasabisystems.com>
+
+	* dg-cmp-results.sh: New script for comparing DejaGNU logs.
+
+2006-06-02  Richard Earnshaw  <rearnsha@arm.com>
+	    Mike Stump  <mrs@apple.com>
+
+	* compare_tests: Handle multilibs better.
+
+2006-05-31  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* texi2pod.pl: Correct handling of absolute @include.
+
+2006-05-02  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* texi2pod.pl: Handle -I.
+
+2006-02-28  Mark Mitchell  <mark@codesourcery.com>
+
+	* gennews (files): Update for GCC 4.1.
+
+2006-01-24  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc_update (files_and_dependencies): Handle
+	libgomp/testsuite/Makefile.in.
+
+2006-01-18  Richard Henderson  <rth@redhat.com>
+	    Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc_update (files_and_dependencies): Add libgomp files.
+
+2005-12-06  Ben Elliston  <bje@au.ibm.com>
+
+	* newcvsroot: Remove.
+
+2005-11-03  Steven Bosscher  <stevenb@suse.de>
+
+	* gcc_build: Fix my previous checking.
+
+2005-11-01  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc_update: Include revision number in LAST_UPDATED.
+
+2005-10-30  Steven Bosscher  <stevenb@suse.de>
+
+	* gcc_build: Use gcc.gnu.org as the default server.  Set up
+	SVN_REPOSITORY correctly.  Add support for checking out branches.
+
+2005-10-28  Andrew Pinski  <pinskia@gcc.gnu.org>
+
+	* gcc_update: When svn update is called and
+	--silent is used, pass -q.
+
+2005-10-28  Andrew Pinski  <pinskia@gcc.gnu.org>
+
+	* gcc_update: Remove the -q from svn invocation.
+
+2005-10-28  Andrew Pinski  <pinskia@gcc.gnu.org>
+
+	* gcc_build: Remove -d from the call to gcc_update.
+
+2005-10-28  Daniel Berlin  <dberlin@dberlin.org>
+	    Ben Elliston <bje@au1.ibm.com>
+
+	* gcc_update: Update for svn.
+	* newcvsroot: Ditto.
+	* gcc_build: Ditto.
+
+2005-10-21  Mark Mitchell  <mark@codesourcery.com>
+
+	* texi2pod.pl: Substitue for @value even when part of @include.
+
+2005-10-21  Bob Wilson  <bob.wilson@acm.org>
+
+	* texi2pod.pl: Convert two single quotes or two backquotes to
+	double quotes.
+
+2005-08-23  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc_update: Update dependencies for libjava/aclocal.m4.
+
+2005-08-14  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* All files: Update with new FSF address.
+
+2005-07-14  Ben Elliston  <bje@au.ibm.com>
+
+	* filter_params.pl: Typo fix.
+	* filter_knr2ansi.pl: Likewise.
+
+2005-06-05  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* gennews (files): Update for egcs-1.0 release pages consolidation.
 
 2005-04-17  Joseph S. Myers  <joseph@codesourcery.com>
 
 	* gennews (files): Update for GCC 4.0.
 
-2005-03-21  Zack Weinberg  <zack@codesourcery.com>
-
-	Merge from mainline:
-
-    2005-03-18  Alexandre Oliva  <aoliva@redhat.com>
+2005-03-18  Alexandre Oliva  <aoliva@redhat.com>
 
 	* gcc_update (silent): Unset instead of initializing to null.
 
-    2005-03-18  Andreas Schwab  <schwab@suse.de>
+2005-03-18  Andreas Schwab  <schwab@suse.de>
 
 	* gcc_update (apply_patch): Properly quote $1.
 
-    2005-03-18  Zack Weinberg  <zack@codesourcery.com>
+2005-03-18  Zack Weinberg  <zack@codesourcery.com>
 
 	* gcc_update: Add --silent option.
 

@@ -92,7 +92,7 @@ protected:
         thread_call_t			_doPortReEnumerateThread;
         bool					_resetInProgress;
         bool					_portHasBeenReset;
-        IORecursiveLock*		_getConfigLock;
+        IORecursiveLock*		_XgetConfigLock;				// Obsolete
         bool					_doneWaiting;                   // Obsolete
         bool					_notifiedWhileBooting;          // Obsolete
         IOWorkLoop *			_workLoop;
@@ -114,6 +114,7 @@ protected:
 		UInt32					_devicePortInfo;
 		bool					_deviceIsInternal;					// Will be set if all our upstream hubs are captive (internal to the computer)
 		bool					_deviceIsInternalIsValid;			// true if we have already determined whether the device is internal
+		bool					_newGetConfigLock;					// new lock, taken within the WL gate, when doing a GetConfig
 		UInt32					_resetAndReEnumerateLock;			// "Lock" to prevent us from doing a reset or a re-enumerate while the other one is in progress				
     };	
     ExpansionData * _expansionData;
@@ -356,15 +357,29 @@ public:
         if no data has been transferred on the bus.
         @param completionTimeout Specifies an amount of time (in ms) after which the command will be aborted if the entire command has
         not been completed.
-	@param completion Function to call when request completes. If omitted then
-        DeviceRequest() executes synchronously, blocking until the request is complete.
+		@param completion Function to call when request completes. If omitted then
+	 DeviceRequest() executes synchronously, blocking until the request is complete.  If the request is asynchronous, the client must make sure that
+	 the IOUSBDevRequest is not released until the callback has occurred.
+
     */
     virtual IOReturn DeviceRequest(IOUSBDevRequest	*request,
 				UInt32 noDataTimeout,
 				UInt32 completionTimeout,
                                 IOUSBCompletion	*completion = 0);
 
-    // Same but with a memory descriptor
+    /*!
+	 @function DeviceRequest
+	 @abstract execute a control request to the default control pipe (pipe zero)
+	 @param request The parameter block to send to the device (with the pData as an IOMemoryDesriptor)
+	 @param noDataTimeout Specifies an amount of time (in ms) after which the command will be aborted
+	 if no data has been transferred on the bus.
+	 @param completionTimeout Specifies an amount of time (in ms) after which the command will be aborted if the entire command has
+	 not been completed.
+	 @param completion Function to call when request completes. If omitted then
+	 DeviceRequest() executes synchronously, blocking until the request is complete.  If the request is asynchronous, the client must make sure that
+	 the IOUSBDevRequest is not released until the callback has occurred.
+	 
+	 */
     OSMetaClassDeclareReservedUsed(IOUSBDevice,  1);
     virtual IOReturn DeviceRequest(IOUSBDevRequestDesc	*request,
 				    UInt32 noDataTimeout,
@@ -484,9 +499,6 @@ private:
 
     void 		TerminateInterfaces(void);
 
-    static void 	ProcessPortSuspendEntry(OSObject *target, thread_call_param_t suspend);
-    void 		ProcessPortSuspend( bool suspend);
-   
     static void 	ProcessPortReEnumerateEntry(OSObject *target, thread_call_param_t options);
     void 		ProcessPortReEnumerate(UInt32 options);
 	
@@ -499,6 +511,9 @@ private:
     UInt32              SimpleUnicodeToUTF8(UInt16 uChar, UInt8 utf8Bytes[4]);
     void                SwapUniWords (UInt16  **unicodeString, UInt32 uniSize);
 
+    IOReturn			TakeGetConfigLock(void);
+    IOReturn			ReleaseGetConfigLock(void);
+    static IOReturn		ChangeGetConfigLock(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
 };
 
 #endif /* _IOKIT_IOUSBDEVICE_H */

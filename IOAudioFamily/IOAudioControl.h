@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2009 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -24,7 +24,11 @@
 #define _IOKIT_IOAUDIOCONTROL_H
 
 #include <IOKit/IOService.h>
+#ifndef IOAUDIOFAMILY_SELF_BUILD
 #include <IOKit/audio/IOAudioEngine.h>
+#else
+#include "IOAudioEngine.h"
+#endif
 
 class IOAudioPort;
 class OSDictionary;
@@ -56,7 +60,7 @@ class IOCommandGate;
  *  has the following sub types: kIOAudioSelectorControlSubTypeOutput for an output selector and 
  *  kIOAudioSelectorControlSubTypeInput for an input selector.  See the subclass documentation for a more 
  *  complete description of each 
- 
+ * 
  *  There are enums for default channel ID values and common channel names in IOAudioTypes.h.  The channel ID 
  *  values are prefixed with 'kIOAudioControlChannelID' and the common channel names are prefixed with
  *  'kIOAudioControlChannelName'.  All of the attributes of the IOAudioControl are stored in the registry.

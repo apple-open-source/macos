@@ -27,19 +27,23 @@
 		6B33D3970B74D1D800DE5CDA /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6B3E4EA508E59B5000BF138E /* CoreFoundation.framework */; };
 		6B33D4B60B74D29900DE5CDA /* CFOpenDirectory.c in Sources */ = {isa = PBXBuildFile; fileRef = 6B3E4C7A08E586DE00BF138E /* CFOpenDirectory.c */; };
 		6B33D4C70B74D33B00DE5CDA /* libobjc.A.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 6B21F23209071C3600316662 /* libobjc.A.dylib */; };
-		6B517C8B0B9C9FB600B87A18 /* OpenDirectoryConsts.h in Headers */ = {isa = PBXBuildFile; fileRef = 6B517C8A0B9C9FB600B87A18 /* OpenDirectoryConsts.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		6B389A900DAE5FBC0059977A /* CFOpenDirectoryConstants.c in Sources */ = {isa = PBXBuildFile; fileRef = 6B389A8F0DAE5FBC0059977A /* CFOpenDirectoryConstants.c */; };
+		6B517C8B0B9C9FB600B87A18 /* OpenDirectoryConsts.h in Headers */ = {isa = PBXBuildFile; fileRef = 6B517C8A0B9C9FB600B87A18 /* OpenDirectoryConsts.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		6B587E5009A53D7D00146231 /* TestApp.m in Sources */ = {isa = PBXBuildFile; fileRef = 6B587E4A09A53D0100146231 /* TestApp.m */; };
 		6B6902F50B74DB77008C4845 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 6B6902F10B74DB77008C4845 /* InfoPlist.strings */; };
 		6B6902F60B74DB77008C4845 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 6B6902F30B74DB77008C4845 /* Localizable.strings */; };
 		6B9C3B9D09A8E0C5005094E5 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6BC94774090698FB007A99B0 /* Foundation.framework */; };
 		6B9C3C6309A8E0CA005094E5 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6B3E4EA508E59B5000BF138E /* CoreFoundation.framework */; };
 		6BC6F5CE0B74D17100D41589 /* CFOpenDirectory.h in Headers */ = {isa = PBXBuildFile; fileRef = 6B3E4C7908E586DE00BF138E /* CFOpenDirectory.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		6BC6F5CF0B74D17100D41589 /* CFOpenDirectoryConsts.h in Headers */ = {isa = PBXBuildFile; fileRef = 6BF7203A094D2BE90087E547 /* CFOpenDirectoryConsts.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		6BC6F5CF0B74D17100D41589 /* CFOpenDirectoryConstants.h in Headers */ = {isa = PBXBuildFile; fileRef = 6BF7203A094D2BE90087E547 /* CFOpenDirectoryConstants.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		6BC6F5D00B74D17100D41589 /* CFOpenDirectoryPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 6BC4F7E0094E9B2600C2C83C /* CFOpenDirectoryPriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		6BCDCB030EE64FEF0089F014 /* NSOpenDirectoryPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 6BCDCB020EE64FEF0089F014 /* NSOpenDirectoryPriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		6BD59AC7090C9F6300784250 /* NSOpenDirectory.h in Headers */ = {isa = PBXBuildFile; fileRef = 6BC9470D090691AB007A99B0 /* NSOpenDirectory.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		6BD59F85090DA32100784250 /* NSOpenDirectory.m in Sources */ = {isa = PBXBuildFile; fileRef = 6BC9470E090691AB007A99B0 /* NSOpenDirectory.m */; };
 		6BD6D05F0B7647B3006342BE /* OpenDirectory.h in Headers */ = {isa = PBXBuildFile; fileRef = 6BD6D05D0B7647B3006342BE /* OpenDirectory.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		6BD6D0600B7647B3006342BE /* OpenDirectoryPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 6BD6D05E0B7647B3006342BE /* OpenDirectoryPriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		6BF9E70D0D9B697800B4B587 /* CFOpenDirectoryTypes.h in Headers */ = {isa = PBXBuildFile; fileRef = 6BF9E70B0D9B697800B4B587 /* CFOpenDirectoryTypes.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		6BF9E70F0D9BCFA000B4B587 /* CFOpenDirectoryErrors.h in Headers */ = {isa = PBXBuildFile; fileRef = 6BF9E70E0D9BCFA000B4B587 /* CFOpenDirectoryErrors.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		8DC2EF530486A6940098B216 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 089C1666FE841158C02AAC07 /* InfoPlist.strings */; };
 /* End PBXBuildFile section */
 
@@ -63,30 +67,34 @@
 /* Begin PBXFileReference section */
 		089C1667FE841158C02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		6B0B4CE90B74CF9D002D37C1 /* CFOpenDirectory.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = CFOpenDirectory.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		6B0B4CEA0B74CF9D002D37C1 /* CFOpenDirectory-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; name = "CFOpenDirectory-Info.plist"; path = "../CFOpenDirectory-Info.plist"; sourceTree = "<group>"; };
+		6B0B4CEA0B74CF9D002D37C1 /* CFOpenDirectory-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "CFOpenDirectory-Info.plist"; path = "../CFOpenDirectory-Info.plist"; sourceTree = "<group>"; };
 		6B1011A709A7D0E500D799E8 /* TestAppCF */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = TestAppCF; sourceTree = BUILT_PRODUCTS_DIR; };
 		6B21F23209071C3600316662 /* libobjc.A.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libobjc.A.dylib; path = /usr/lib/libobjc.A.dylib; sourceTree = "<absolute>"; };
 		6B2DC53709477F1A00EFBD57 /* OpenDirectory.exp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.exports; path = OpenDirectory.exp; sourceTree = "<group>"; };
 		6B33D4F30B74D3E700DE5CDA /* CFOpenDirectory.exp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.exports; path = CFOpenDirectory.exp; sourceTree = "<group>"; };
-		6B3E4C7908E586DE00BF138E /* CFOpenDirectory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CFOpenDirectory.h; sourceTree = "<group>"; usesTabs = 0; };
+		6B389A8F0DAE5FBC0059977A /* CFOpenDirectoryConstants.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = CFOpenDirectoryConstants.c; sourceTree = "<group>"; };
+		6B3E4C7908E586DE00BF138E /* CFOpenDirectory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CFOpenDirectory.h; sourceTree = "<group>"; usesTabs = 1; };
 		6B3E4C7A08E586DE00BF138E /* CFOpenDirectory.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = CFOpenDirectory.c; sourceTree = "<group>"; usesTabs = 0; };
 		6B3E4C9708E58A2F00BF138E /* DirectoryService.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DirectoryService.framework; path = /System/Library/Frameworks/DirectoryService.framework; sourceTree = "<absolute>"; };
 		6B3E4EA508E59B5000BF138E /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
-		6B517C8A0B9C9FB600B87A18 /* OpenDirectoryConsts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OpenDirectoryConsts.h; sourceTree = "<group>"; };
+		6B517C8A0B9C9FB600B87A18 /* OpenDirectoryConsts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OpenDirectoryConsts.h; sourceTree = "<group>"; usesTabs = 1; };
 		6B587E4809A53D0100146231 /* TestApp.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = TestApp.c; sourceTree = "<group>"; };
 		6B587E4A09A53D0100146231 /* TestApp.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = TestApp.m; sourceTree = "<group>"; };
 		6B587E4E09A53D7200146231 /* TestAppCocoa */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = TestAppCocoa; sourceTree = BUILT_PRODUCTS_DIR; };
 		6B6902F20B74DB77008C4845 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		6B6902F40B74DB77008C4845 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/Localizable.strings; sourceTree = "<group>"; };
-		6BC4F7E0094E9B2600C2C83C /* CFOpenDirectoryPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CFOpenDirectoryPriv.h; sourceTree = "<group>"; usesTabs = 0; };
-		6BC9470D090691AB007A99B0 /* NSOpenDirectory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NSOpenDirectory.h; sourceTree = "<group>"; usesTabs = 0; };
-		6BC9470E090691AB007A99B0 /* NSOpenDirectory.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = NSOpenDirectory.m; sourceTree = "<group>"; usesTabs = 0; };
+		6BC4F7E0094E9B2600C2C83C /* CFOpenDirectoryPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CFOpenDirectoryPriv.h; sourceTree = "<group>"; usesTabs = 1; };
+		6BC9470D090691AB007A99B0 /* NSOpenDirectory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NSOpenDirectory.h; sourceTree = "<group>"; usesTabs = 1; };
+		6BC9470E090691AB007A99B0 /* NSOpenDirectory.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = NSOpenDirectory.m; sourceTree = "<group>"; usesTabs = 1; };
 		6BC94774090698FB007A99B0 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
+		6BCDCB020EE64FEF0089F014 /* NSOpenDirectoryPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NSOpenDirectoryPriv.h; sourceTree = "<group>"; };
 		6BD59EBE090D84D100784250 /* PasswordServer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PasswordServer.framework; path = /System/Library/PrivateFrameworks/PasswordServer.framework; sourceTree = "<absolute>"; };
-		6BD6D05D0B7647B3006342BE /* OpenDirectory.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = OpenDirectory.h; sourceTree = "<group>"; };
-		6BD6D05E0B7647B3006342BE /* OpenDirectoryPriv.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = OpenDirectoryPriv.h; sourceTree = "<group>"; };
-		6BF7203A094D2BE90087E547 /* CFOpenDirectoryConsts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CFOpenDirectoryConsts.h; sourceTree = "<group>"; usesTabs = 0; };
+		6BD6D05D0B7647B3006342BE /* OpenDirectory.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = OpenDirectory.h; sourceTree = "<group>"; usesTabs = 1; };
+		6BD6D05E0B7647B3006342BE /* OpenDirectoryPriv.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = OpenDirectoryPriv.h; sourceTree = "<group>"; usesTabs = 1; };
+		6BF7203A094D2BE90087E547 /* CFOpenDirectoryConstants.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CFOpenDirectoryConstants.h; sourceTree = "<group>"; usesTabs = 1; };
 		6BF7CD4B0AC1A9E6006F36F1 /* Kerberos.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kerberos.framework; path = /System/Library/Frameworks/Kerberos.framework; sourceTree = "<absolute>"; };
+		6BF9E70B0D9B697800B4B587 /* CFOpenDirectoryTypes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CFOpenDirectoryTypes.h; sourceTree = "<group>"; usesTabs = 1; };
+		6BF9E70E0D9BCFA000B4B587 /* CFOpenDirectoryErrors.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CFOpenDirectoryErrors.h; sourceTree = "<group>"; };
 		8DC2EF5A0486A6940098B216 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		8DC2EF5B0486A6940098B216 /* OpenDirectory.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = OpenDirectory.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -175,11 +183,15 @@
 		08FB77AEFE84172EC02AAC07 /* Classes */ = {
 			isa = PBXGroup;
 			children = (
-				6BF7203A094D2BE90087E547 /* CFOpenDirectoryConsts.h */,
+				6BF7203A094D2BE90087E547 /* CFOpenDirectoryConstants.h */,
+				6B389A8F0DAE5FBC0059977A /* CFOpenDirectoryConstants.c */,
+				6BF9E70B0D9B697800B4B587 /* CFOpenDirectoryTypes.h */,
+				6BF9E70E0D9BCFA000B4B587 /* CFOpenDirectoryErrors.h */,
 				6BC4F7E0094E9B2600C2C83C /* CFOpenDirectoryPriv.h */,
 				6B3E4C7908E586DE00BF138E /* CFOpenDirectory.h */,
 				6B3E4C7A08E586DE00BF138E /* CFOpenDirectory.c */,
 				6BC9470D090691AB007A99B0 /* NSOpenDirectory.h */,
+				6BCDCB020EE64FEF0089F014 /* NSOpenDirectoryPriv.h */,
 				6BC9470E090691AB007A99B0 /* NSOpenDirectory.m */,
 				6BD6D05D0B7647B3006342BE /* OpenDirectory.h */,
 				6BD6D05E0B7647B3006342BE /* OpenDirectoryPriv.h */,
@@ -236,8 +248,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				6BC6F5CE0B74D17100D41589 /* CFOpenDirectory.h in Headers */,
-				6BC6F5CF0B74D17100D41589 /* CFOpenDirectoryConsts.h in Headers */,
+				6BC6F5CF0B74D17100D41589 /* CFOpenDirectoryConstants.h in Headers */,
 				6BC6F5D00B74D17100D41589 /* CFOpenDirectoryPriv.h in Headers */,
+				6BF9E70D0D9B697800B4B587 /* CFOpenDirectoryTypes.h in Headers */,
+				6BF9E70F0D9BCFA000B4B587 /* CFOpenDirectoryErrors.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -249,6 +263,7 @@
 				6BD6D05F0B7647B3006342BE /* OpenDirectory.h in Headers */,
 				6BD6D0600B7647B3006342BE /* OpenDirectoryPriv.h in Headers */,
 				6B517C8B0B9C9FB600B87A18 /* OpenDirectoryConsts.h in Headers */,
+				6BCDCB030EE64FEF0089F014 /* NSOpenDirectoryPriv.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -379,7 +394,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "cd \"${DSTROOT}/System/Library/PrivateFrameworks/OpenDirectory.framework\"\nln -s Versions/Current/Frameworks Frameworks\n";
+			shellScript = "cd \"${DSTROOT}/System/Library/Frameworks/OpenDirectory.framework\"\nln -s Versions/Current/Frameworks Frameworks\nmkdir -p \"${DSTROOT}/System/Library/PrivateFrameworks\"\ncd \"${DSTROOT}/System/Library/PrivateFrameworks\"\nln -s ../Frameworks/OpenDirectory.framework OpenDirectory.framework\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
@@ -390,6 +405,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				6B33D4B60B74D29900DE5CDA /* CFOpenDirectory.c in Sources */,
+				6B389A900DAE5FBC0059977A /* CFOpenDirectoryConstants.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -466,7 +482,6 @@
 				ARCHS = (
 					ppc,
 					i386,
-					ppc64,
 					x86_64,
 				);
 				COPY_PHASE_STRIP = NO;
@@ -480,9 +495,11 @@
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				FRAMEWORK_VERSION = A;
+				GCC_ENABLE_OBJC_GC = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = "_FORTIFY_SOURCE=2";
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				INFOPLIST_FILE = "CFOpenDirectory-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/OpenDirectory.framework/Versions/A/Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 10.5;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/OpenDirectory.framework/Versions/A/Frameworks";
 				OTHER_CFLAGS = "-fconstant-cfstrings";
 				OTHER_LDFLAGS = (
 					"-weak_framework",
@@ -503,7 +520,6 @@
 				ARCHS = (
 					ppc,
 					i386,
-					ppc64,
 					x86_64,
 				);
 				COPY_PHASE_STRIP = YES;
@@ -517,9 +533,10 @@
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				FRAMEWORK_VERSION = A;
+				GCC_ENABLE_OBJC_GC = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = "_FORTIFY_SOURCE=2";
 				INFOPLIST_FILE = "CFOpenDirectory-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/OpenDirectory.framework/Versions/A/Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 10.5;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/OpenDirectory.framework/Versions/A/Frameworks";
 				OTHER_CFLAGS = "-fconstant-cfstrings";
 				OTHER_LDFLAGS = (
 					"-weak_framework",
@@ -540,7 +557,6 @@
 				ARCHS = (
 					ppc,
 					i386,
-					ppc64,
 					x86_64,
 				);
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -554,8 +570,10 @@
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				FRAMEWORK_VERSION = A;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_ENABLE_OBJC_GC = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = "_FORTIFY_SOURCE=2";
 				INFOPLIST_FILE = "CFOpenDirectory-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/OpenDirectory.framework/Versions/A/Frameworks";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/OpenDirectory.framework/Versions/A/Frameworks";
 				OTHER_CFLAGS = "-fconstant-cfstrings";
 				OTHER_LDFLAGS = (
 					"-weak_framework",
@@ -573,7 +591,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/OpenDirectory.framework/Frameworks\"";
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/OpenDirectory.framework/Frameworks\"";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -593,8 +611,13 @@
 		6B1011B509A7D11800D799E8 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+					x86_64,
+				);
 				COPY_PHASE_STRIP = YES;
-				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/OpenDirectory.framework/Frameworks\"";
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/OpenDirectory.framework/Frameworks\"";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;
@@ -612,7 +635,7 @@
 		6B1011B609A7D11800D799E8 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/OpenDirectory.framework/Frameworks\"";
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/OpenDirectory.framework/Frameworks\"";
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = "$(HOME)/bin";
@@ -660,7 +683,6 @@
 				ARCHS = (
 					i386,
 					ppc,
-					ppc64,
 					x86_64,
 				);
 				COPY_PHASE_STRIP = NO;
@@ -686,17 +708,14 @@
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = "_FORTIFY_SOURCE=2";
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				INFOPLIST_FILE = Info.plist;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				LIBRARY_STYLE = DYNAMIC;
 				MACH_O_TYPE = mh_dylib;
-				MACOSX_DEPLOYMENT_TARGET = 10.5;
-				OTHER_CFLAGS = (
-					"-fconstant-cfstrings",
-					"-F/System/Library/PrivateFrameworks/OpenDirectory.framework/Versions/A/Frameworks",
-				);
+				OTHER_CFLAGS = "-fconstant-cfstrings";
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-framework",
@@ -705,7 +724,7 @@
 					CFOpenDirectory,
 					"-framework",
 					CFOpenDirectory,
-					"-F/System/Library/PrivateFrameworks/OpenDirectory.framework/Versions/A/Frameworks",
+					"-F/System/Library/Frameworks/OpenDirectory.framework/Versions/A/Frameworks",
 				);
 				PREBINDING = NO;
 				PRODUCT_NAME = OpenDirectory;
@@ -727,12 +746,9 @@
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				EXPORTED_SYMBOLS_FILE = OpenDirectory.exp;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2)",
-				);
+				FRAMEWORK_SEARCH_PATHS = "$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)";
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/OpenDirectory.framework/Versions/A/Frameworks\"";
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2 = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/OpenDirectory.framework/Versions/A/Frameworks\"";
 				FRAMEWORK_VERSION = A;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
@@ -740,16 +756,14 @@
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = "_FORTIFY_SOURCE=2";
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				INFOPLIST_FILE = Info.plist;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				LIBRARY_STYLE = DYNAMIC;
 				MACH_O_TYPE = mh_dylib;
-				OTHER_CFLAGS = (
-					"-fconstant-cfstrings",
-					"-F/System/Library/PrivateFrameworks/OpenDirectory.framework/Versions/A/Frameworks",
-				);
+				OTHER_CFLAGS = "-fconstant-cfstrings";
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-framework",
@@ -758,7 +772,7 @@
 					CFOpenDirectory,
 					"-framework",
 					CFOpenDirectory,
-					"-F/System/Library/PrivateFrameworks/OpenDirectory.framework/Versions/A/Frameworks",
+					"-F/System/Library/Frameworks/OpenDirectory.framework/Versions/A/Frameworks",
 				);
 				PREBINDING = NO;
 				PRODUCT_NAME = OpenDirectory;
@@ -775,7 +789,6 @@
 				ARCHS = (
 					i386,
 					ppc,
-					ppc64,
 					x86_64,
 				);
 				COPY_PHASE_STRIP = NO;
@@ -787,30 +800,25 @@
 				DYLIB_CURRENT_VERSION = 1;
 				EXPORTED_SYMBOLS_FILE = OpenDirectory.exp;
 				FRAMEWORK_SEARCH_PATHS = (
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_3)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2)",
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2 = "\"$(SRCROOT)/build/Development\"";
-				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_3 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/OpenDirectory.framework/Frameworks\"";
 				FRAMEWORK_VERSION = A;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
 				GCC_ENABLE_OBJC_GC = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = "_FORTIFY_SOURCE=2";
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				INFOPLIST_FILE = Info.plist;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				LIBRARY_STYLE = DYNAMIC;
 				MACH_O_TYPE = mh_dylib;
-				MACOSX_DEPLOYMENT_TARGET = 10.5;
-				OTHER_CFLAGS = (
-					"-fconstant-cfstrings",
-					"-F/System/Library/PrivateFrameworks/OpenDirectory.framework/Versions/A/Frameworks",
-				);
+				OTHER_CFLAGS = "-fconstant-cfstrings";
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-framework",
@@ -819,7 +827,7 @@
 					CFOpenDirectory,
 					"-framework",
 					CFOpenDirectory,
-					"-F/System/Library/PrivateFrameworks/OpenDirectory.framework/Versions/A/Frameworks",
+					"-F/System/Library/Frameworks/OpenDirectory.framework/Versions/A/Frameworks",
 				);
 				PREBINDING = NO;
 				PRESERVE_DEAD_CODE_INITS_AND_TERMS = YES;
@@ -833,7 +841,6 @@
 		6B3E4C7508E5866D00BF138E /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				MACOSX_DEPLOYMENT_TARGET = 10.5;
 			};
 			name = Development;
 		};
@@ -883,6 +890,11 @@
 		6B587E6109A53D9C00146231 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+					x86_64,
+				);
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",

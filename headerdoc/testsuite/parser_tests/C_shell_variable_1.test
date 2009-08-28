@@ -1,0 +1,499 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$74|set CSH_VAR1="\" \
+CSH_VAR6="foo"
+# this should not be part of the block.
+$20|# /*! Variable 1 */
+$0|$6083|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/C_shell_variable_1.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/C_shell_variable_1.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 2
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => shell
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => 
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 3
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => CSH_VAR6
+$parserState->{preTemplateSymbol} => 
+$parserState->{prekeywordsodname} => 
+$parserState->{prekeywordsodtype} => 
+$parserState->{returntype} => set CSH_VAR1 ="\" \  CSH_VAR6 ="foo"
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => variable
+$parserState->{sodname} => CSH_VAR1
+$parserState->{sodtype} =>  set
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 0
+$parserState->{typestring} => set
+$parserState->{value} => "\" \ CSH_VAR6"foo" 
+$parserState->{valuepending} => 2
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 2
+typelist: variable
+namelist: CSH_VAR6
+posstypes: constant
+value: "\" \ CSH_VAR6"foo"
+returntype:  set
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---set
++--- 
++---CSH_VAR1
++---=
++---"
+|   +---\
+|   +---"
++--- 
++---\
++---[ NEWLINE ]
++---CSH_VAR6
++---=
++---"
+|   +---foo
+|   +---"
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: C shell variable 1
+APIUID: //test_ref/doc/header/C_shell_variable_1.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS PROPERTY: 0
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::Var
+    NAME: CSH_VAR6
+    APIUID: //test_ref/shell/data/CSH_VAR6
+    ABSTRACT: ""
+    DISCUSSION: "<p>Variable 1 "
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: ""\" \ CSH_VAR6"foo""
+    RETURNTYPE: "set"
+    LINENUM: ""
+    CLASS: "HeaderDoc::Var"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "1"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: CSH_VAR6 (HeaderDoc::Var)
++---set
++--- 
++---CSH_VAR1
++---=
++---"
+|   +---\
+|   +---"
++--- 
++---\
++---[ NEWLINE ]
++---CSH_VAR6
++---=
++---"
+|   +---foo
+|   +---"
++---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: CSH_VAR6 (HeaderDoc::Var)
+	<span class="keyword">set</span> <!-- a logicalPath="//test_ref/shell/cl/CSH_VAR1 //test_ref/shell/tdef/CSH_VAR1 //test_ref/shell/tag/CSH_VAR1 //test_ref/shell/econst/CSH_VAR1 //test_ref/shell/struct/CSH_VAR1 //test_ref/shell/clconst/CSH_VAR1 //test_ref/shell/intf/CSH_VAR1" --><span class="type">CSH_VAR1</span><!-- /a -->="\" \ 
+	<!-- a logicalPath="//test_ref/shell/cl/CSH_VAR6 //test_ref/shell/tdef/CSH_VAR6 //test_ref/shell/tag/CSH_VAR6 //test_ref/shell/econst/CSH_VAR6 //test_ref/shell/struct/CSH_VAR6 //test_ref/shell/clconst/CSH_VAR6 //test_ref/shell/intf/CSH_VAR6" --><span class="type">CSH_VAR6</span><!-- /a -->="<span class="string">foo</span>" 
+END OF OBJECT
+
+
+
+__$46|testsuite/parser_tests/C_shell_variable_1.test$5|shell$18|C shell variable 1$6083|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/C_shell_variable_1.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/C_shell_variable_1.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 2
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => shell
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => 
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 3
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => CSH_VAR6
+$parserState->{preTemplateSymbol} => 
+$parserState->{prekeywordsodname} => 
+$parserState->{prekeywordsodtype} => 
+$parserState->{returntype} => set CSH_VAR1 ="\" \  CSH_VAR6 ="foo"
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => variable
+$parserState->{sodname} => CSH_VAR1
+$parserState->{sodtype} =>  set
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 0
+$parserState->{typestring} => set
+$parserState->{value} => "\" \ CSH_VAR6"foo" 
+$parserState->{valuepending} => 2
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 2
+typelist: variable
+namelist: CSH_VAR6
+posstypes: constant
+value: "\" \ CSH_VAR6"foo"
+returntype:  set
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---set
++--- 
++---CSH_VAR1
++---=
++---"
+|   +---\
+|   +---"
++--- 
++---\
++---[ NEWLINE ]
++---CSH_VAR6
++---=
++---"
+|   +---foo
+|   +---"
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: C shell variable 1
+APIUID: //test_ref/doc/header/C_shell_variable_1.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS PROPERTY: 0
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::Var
+    NAME: CSH_VAR6
+    APIUID: //test_ref/shell/data/CSH_VAR6
+    ABSTRACT: ""
+    DISCUSSION: "<p>Variable 1 "
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: ""\" \ CSH_VAR6"foo""
+    RETURNTYPE: "set"
+    LINENUM: ""
+    CLASS: "HeaderDoc::Var"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "1"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: CSH_VAR6 (HeaderDoc::Var)
++---set
++--- 
++---CSH_VAR1
++---=
++---"
+|   +---\
+|   +---"
++--- 
++---\
++---[ NEWLINE ]
++---CSH_VAR6
++---=
++---"
+|   +---foo
+|   +---"
++---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: CSH_VAR6 (HeaderDoc::Var)
+	<span class="keyword">set</span> <!-- a logicalPath="//test_ref/shell/cl/CSH_VAR1 //test_ref/shell/tdef/CSH_VAR1 //test_ref/shell/tag/CSH_VAR1 //test_ref/shell/econst/CSH_VAR1 //test_ref/shell/struct/CSH_VAR1 //test_ref/shell/clconst/CSH_VAR1 //test_ref/shell/intf/CSH_VAR1" --><span class="type">CSH_VAR1</span><!-- /a -->="\" \ 
+	<!-- a logicalPath="//test_ref/shell/cl/CSH_VAR6 //test_ref/shell/tdef/CSH_VAR6 //test_ref/shell/tag/CSH_VAR6 //test_ref/shell/econst/CSH_VAR6 //test_ref/shell/struct/CSH_VAR6 //test_ref/shell/clconst/CSH_VAR6 //test_ref/shell/intf/CSH_VAR6" --><span class="type">CSH_VAR6</span><!-- /a -->="<span class="string">foo</span>" 
+END OF OBJECT
+
+
+
+_$3|csh$6|parser

@@ -1,0 +1,189 @@
+2008-05-01  Andreas Kupries  <andreask@activestate.com>
+
+	* sak.tcl (gd-gen-tap): Added hacks to get proper tap definitions
+	  for Tablelist and its related packages.
+
+2008-02-21  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* installed_modules.tcl:
+	* examples/widget/screenruler.tcl: Added widget::screenruler example
+
+2007-10-19  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* modules/chatwidget:    Added a new widget: 'chatwidget'
+	* installed_modules.tcl: 
+
+2007-09-26  Andreas Kupries  <andreask@activestate.com>
+
+	* installed_modules.tcl: Added 'diagrams' to the list of installed
+	  modules.
+
+2007-06-25  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* examples/ntext/*.tcl (new): examples for ntext module
+
+2007-06-21  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* installed_modules.tcl: added ntext module
+
+2006-08-28  Andreas Kupries <andreask@activestate.com>
+
+	* PACKAGES:               Reverted changes to the files describing
+	* README-0.4.txt:         the last release. At least PACKAGES is
+	                          needed unchanged to enable the comparison
+	                          of the last release to the current state.
+
+2006-08-27  Kevin B. Kenny  <kennykb@acm.org>
+
+	* PACKAGES:               Added KHIM (Kevin's Hacky Input Method)
+	* README-0.4.txt:         to the module list for installation and
+	* installed_modules.tcl:  documentation.  Added rules to
+	* install_actions.tcl:    'install_actions' to install message
+	                          catalogs.
+	* configure:              Regenerated.
+	
+	
+2006-04-26  Andreas Kupries <andreask@activestate.com>
+
+	* sak.tcl (gd-gen-tap): modified to strip non-version characters
+	  out of version numbers.
+
+2006-01-16  Csaba Nemethi <csaba.nemethi@t-online.de>
+
+	* install_action.tcl: Removed the invocation of xcopy for the
+	  images directory from the _tab proc, because the contents of that
+	  Tablelist directory has been replaced with a new script file.
+
+2005-12-02  Andreas Kupries <andreask@activestate.com>
+
+	* sak.tcl (validate_versions_cmp): Fixed typo causing the use of a
+	wrong variable [SF Tcllib Bug 1371186]. Thanks to Wart.
+
+2005-11-10  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tklib 0.4.1 ========================
+	* 
+
+2005-11-02  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tklib 0.4 ========================
+	* 
+
+2005-11-02  Andreas Kupries <andreask@activestate.com>
+
+	* sak.tcl (ppackages): Copied the impl. we have in Tcllib over for
+	  better detection. Does not help table list however.
+
+2005-10-24  Andreas Kupries <andreask@activestate.com>
+
+	* sak.tcl: Added methods for release engineering: rstatus,
+	  release, desc, desc/2, better tap generation.
+	* PACKAGES: New file, empty, will be filled when the release is
+	  committed.
+	* README-0.4.txt: New file, summary changes for 0.4 release.
+
+	* sak.tcl (ipackages): Strip code opening with brace after version
+	  number as well when extracting version numbers from package
+	  indices.
+
+	* tklib_version.tcl: Bumped to 0.4.
+
+2005-10-17  Andreas Kupries <andreask@activestate.com>
+
+	* install_action.tcl (_tab): Bugfix. Have to install the file
+	  'tclIndex' as well to make the package fully-functional.
+
+2005-10-03  Andreas Kupries <andreask@activestate.com>
+
+	* install_action.tcl (_tab): New command for tablelist installation.
+	* installed_modules.tcl: New module: tablelist. Originator/Author:
+	  Csaba Nemethi <csaba.nemethi@t-online.de>
+
+2005-08-24  Andreas Kupries <andreask@activestate.com>
+
+	* installer.tcl (write_out): Cross-ported the fix for [Tcllib SF
+	  Bug 899209] to tklib. Delete an existing file before trying to
+	  overwrite it. See Tcllib ChangeLog entry 2004-03-01.
+
+2005-08-22  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* tklib_version.tcl: updated to 0.3
+	* installed_modules.tcl: Added module 'widget' to the list of
+	  installed modules.
+
+2005-07-27  Andreas Kupries <andreask@activestate.com>
+
+	* installed_modules.tcl: Added module 'tooltip' to the list of
+	  installed modules.
+
+2005-04-01  Andreas Kupries <andreask@activestate.com>
+
+	* installed_modules.tcl: Added new module 'swap_list' to the list
+	  of installed modules.
+
+2005-03-31  Andreas Kupries <andreask@activestate.com>
+
+	* installed_modules.tcl: Added 'get'string' and 'history' to the
+	  list of installed modules. These are new modules added a few
+	  days ago, by Aaron Faupell.
+
+2004-07-22  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* installed_modules.tcl: added ico to list of installed modules.
+	* modules/ico/*: new 'ico' module for extracting icos from exe/ico
+	  files - works x-platform.
+
+2004-06-29  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* install_action.tcl:    Added ctext and style to list of
+	* installed_modules.tcl: installed modules.
+
+2004-05-18  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* New module 'tkpiechart'. This has been donated by Jean-Luc
+	  Fontaine. Thanks. It is based on his stoop OO package, found in
+	  our sibling 'Tcllib'.
+	
+	* installed_modules.tcl: Added tkpiechart to the list of installed
+	  modules.
+
+2004-04-15  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* New module 'plotchart', by Arjen Markus. Thanks for this
+	  donation.
+
+2004-04-04  David N. Welton  <davidw@dedasys.com>
+
+	* New module 'style'. Various Tk styles/themes.
+
+2004-04-15  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* New module 'ctext', by George Peter Staplin. Thanks for this
+	  donation.
+
+2003-11-28  Andreas Kupries  <andreask@activestate.com>
+
+	* Reworked the entire build system to use the same framework as
+	  tcllib does. IOW tklib now uses a swiss army knife tool
+	  (sak.tcl, with all attendant files), and configure/Makefile are
+	  based on that. Generation of distributions, and installer now
+	  also work in the same way as for tcllib.
+
+	* Replaced existing nroff documentation with doctools manpages,
+	  and wrote doctools manpages for the modules which had none. All
+	  (four) modules now have documentation.
+
+2003-07-21 Aaron Faupell <afaupell@users.sourceforge.net>
+
+	* imported ipentry into tklib
+
+2002-09-25  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* Makefile.in: better DESTDIR/libdir support (steffen)
+
+2001-11-07  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* created tklib in CVS
+

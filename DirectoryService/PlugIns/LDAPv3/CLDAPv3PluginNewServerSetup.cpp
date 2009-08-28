@@ -36,6 +36,7 @@
 #include <spawn.h>
 #include <grp.h>
 #include <CommonCrypto/CommonDigest.h>
+#include <uuid/uuid.h>
 
 #include <Security/Authorization.h>
 #include <SystemConfiguration/SCDynamicStoreCopyDHCPInfo.h>
@@ -53,7 +54,7 @@
 #include "LDAPv3SupportFunctions.h"
 
 extern "C" {
-	#include "saslutil.h"
+	#include <sasl/saslutil.h>
 };
 
 #include "CLDAPv3Plugin.h"
@@ -87,6 +88,7 @@ using namespace std;
 #pragma mark -
 #pragma mark Globals and Structures
 
+extern int					krb5_use_broken_arcfour_string2key;
 extern bool					gServerOS;
 extern DSMutexSemaphore		*gKerberosMutex;
 
@@ -94,7 +96,7 @@ extern DSMutexSemaphore		*gKerberosMutex;
 #pragma mark Prototypes
 
 static void RemoveKeytabEntry( const char *inPrinc );
-static krb5_error_code DetermineKVNO( const char *inPrinc, char *inPass, krb5_kvno *outKVNO );
+static krb5_error_code DetermineKVNO( const char *inPrinc, char *inPass, krb5_kvno *outKVNO, bool *legacy );
 static krb5_error_code AddKeytabEntry( const char *inPrinc, char *inPass );
 
 // service table
@@ -138,6 +140,10 @@ static Service gServiceTable[] = {
 
 krb5_error_code AddKeytabEntry( const char *inPrinc, char *inPass )
 {
+	static krb5_enctype		oldTypes[]	= { ENCTYPE_ARCFOUR_HMAC, ENCTYPE_DES3_CBC_SHA1, ENCTYPE_DES_CBC_CRC, 0 };
+	static krb5_enctype		newTypes[]	= { ENCTYPE_AES256_CTS_HMAC_SHA1_96, ENCTYPE_AES128_CTS_HMAC_SHA1_96, 
+											ENCTYPE_ARCFOUR_HMAC, ENCTYPE_DES3_CBC_SHA1, ENCTYPE_DES_CBC_CRC, 0 };
+	
 	const size_t		ktPrefixSize = sizeof("WRFILE:") - 1;
 	char				ktname[MAXPATHLEN + ktPrefixSize + 2];
 	krb5_keytab			kt			= NULL;
@@ -146,8 +152,9 @@ krb5_error_code AddKeytabEntry( const char *inPrinc, char *inPass )
 	krb5_keytab_entry   entry;
 	krb5_data			password;
 	krb5_data			salt;
-	SInt32				types[]		= { ENCTYPE_ARCFOUR_HMAC, ENCTYPE_DES_CBC_CRC, ENCTYPE_DES3_CBC_SHA1, 0 };
-	SInt32				*keyType	= types;
+	krb5_enctype		*keyType	= oldTypes;
+	bool				legacyType	= true;
+	int 				sav_string2key;
 	
 	// let's clear variable contents
 	bzero( &entry, sizeof(entry) );
@@ -166,6 +173,8 @@ krb5_error_code AddKeytabEntry( const char *inPrinc, char *inPass )
 	RemoveKeytabEntry( inPrinc );
 	
 	gKerberosMutex->WaitLock();
+	sav_string2key = krb5_use_broken_arcfour_string2key;
+	krb5_use_broken_arcfour_string2key = 1;
 	
 	retval = krb5_init_context( &kContext );
 	if ( retval == 0 )
@@ -193,9 +202,13 @@ krb5_error_code AddKeytabEntry( const char *inPrinc, char *inPass )
 	if ( retval == 0 )
 	{
 		// determine the vno for this key
-		retval = DetermineKVNO( inPrinc, inPass, &entry.vno );
+		retval = DetermineKVNO( inPrinc, inPass, &entry.vno, &legacyType );
 		if ( retval == 0 && entry.vno != 0 )
 		{
+			if ( legacyType == false ) {
+				keyType = newTypes;
+			}
+			
 			// now let's put it in the keytab accordingly
 			// let's save each key type..
 			do
@@ -264,6 +277,7 @@ krb5_error_code AddKeytabEntry( const char *inPrinc, char *inPass )
 		kContext = NULL;
 	}
 	
+	krb5_use_broken_arcfour_string2key = sav_string2key;
 	gKerberosMutex->SignalLock();
 	
 	return retval;
@@ -298,33 +312,33 @@ void RemoveKeytabEntry( const char *inPrinc )
 	}
 	
 	retval = krb5_kt_start_seq_get( kContext, kt, &cursor );
-	if ( retval == 0 )
+	while( retval == 0 && cursor != NULL )
 	{
-		while( retval != KRB5_KT_END && retval != ENOENT )
+		if ( (retval = krb5_kt_next_entry(kContext, kt, &entry, &cursor)) )
 		{
-			if ( (retval = krb5_kt_next_entry(kContext, kt, &entry, &cursor)) )
-			{
-				break;
-			}
-			
-			if ( krb5_principal_compare(kContext, entry.principal, host_princ) )
-			{
-				// we have to end the sequence here and start over because MIT kerberos doesn't allow
-				// removal while cursoring through
-				krb5_kt_end_seq_get( kContext, kt, &cursor );
-				
-				krb5_kt_remove_entry( kContext, kt, &entry );
-				
-				retval = krb5_kt_start_seq_get( kContext, kt, &cursor );
-			}
-			
-			// need to free the contents so we don't leak
-			krb5_free_keytab_entry_contents( kContext, &entry );
+			break;
 		}
-		if ( cursor != NULL )
+		
+		if ( krb5_principal_compare(kContext, entry.principal, host_princ) )
 		{
+			// we have to end the sequence here and start over because MIT kerberos doesn't allow
+			// removal while cursoring through
 			krb5_kt_end_seq_get( kContext, kt, &cursor );
+			cursor = NULL;
+			
+			retval = krb5_kt_remove_entry( kContext, kt, &entry );
+			if ( retval != 0 )
+				break;
+			
+			retval = krb5_kt_start_seq_get( kContext, kt, &cursor );
 		}
+		
+		// need to free the contents so we don't leak
+		krb5_free_keytab_entry_contents( kContext, &entry );
+	}
+	if ( cursor != NULL )
+	{
+		krb5_kt_end_seq_get( kContext, kt, &cursor );
 	}
 	
 	if ( host_princ )
@@ -352,7 +366,7 @@ void RemoveKeytabEntry( const char *inPrinc )
 #define log_on_krb5_error(A)	\
 if ((A) != 0) DbgLog(kLogDebug, "DetermineKVNO error: File: %s. Line: %d", __FILE__, __LINE__)
 
-static krb5_error_code DetermineKVNO( const char *inPrinc, char *inPass, krb5_kvno *outKVNO )
+static krb5_error_code DetermineKVNO( const char *inPrinc, char *inPass, krb5_kvno *outKVNO, bool *legacy )
 {
     krb5_ticket		*ticket		= NULL;
 	krb5_creds		my_creds;
@@ -417,14 +431,10 @@ static krb5_error_code DetermineKVNO( const char *inPrinc, char *inPass, krb5_kv
 	
 	if ( retval == 0 )
 	{
-		krb5_int32				startTime   = 0;
-		krb5_get_init_creds_opt  options;
+		krb5_int32				startTime	= 0;
+		krb5_get_init_creds_opt options;
 		
 		krb5_get_init_creds_opt_init( &options );
-		krb5_get_init_creds_opt_set_forwardable( &options, 1 );
-		krb5_get_init_creds_opt_set_proxiable( &options, 1 );
-		krb5_get_init_creds_opt_set_address_list( &options, NULL );
-
 		krb5_get_init_creds_opt_set_tkt_life( &options, 300 ); // minimum is 5 minutes
 
 		retval = krb5_get_init_creds_password( krbContext, &my_creds, principal, inPass, NULL, 0, startTime, NULL, &options );
@@ -433,6 +443,25 @@ static krb5_error_code DetermineKVNO( const char *inPrinc, char *inPass, krb5_kv
 	
 	if ( retval == 0 )
 	{
+		if ( legacy != NULL ) 
+		{
+			switch ( my_creds.keyblock.enctype )
+			{
+				// check for legacy key types so we don't try newer key types
+				case ENCTYPE_ARCFOUR_HMAC:
+				case ENCTYPE_DES3_CBC_SHA1:
+				case ENCTYPE_DES_CBC_CRC:
+					(*legacy) = true;
+					DbgLog( kLogInfo, "CLDAPv3PluginNewServerSetup - DetermineKVNO - legacy encryption mode" );
+					break;
+					
+				default:
+					DbgLog( kLogInfo, "CLDAPv3PluginNewServerSetup - DetermineKVNO - using new encryptions" );
+					(*legacy) = false;
+					break;
+			}
+		}
+		
 		retval = krb5_cc_store_cred( krbContext, krbCache, &my_creds );
 		log_on_krb5_error( retval );
 	}
@@ -628,7 +657,7 @@ static int GetHostFromAnywhere( char *inOutHostStr, size_t maxHostStrLen )
 	if ( result != 0 )
 	{
 		// try DNS
-		unsigned long *ipList = NULL;
+		in_addr_t *ipList = NULL;
 		struct hostent *hostEnt = NULL;
 		struct sockaddr_in addr = { sizeof(struct sockaddr_in), AF_INET, 0 };
 		int error_num = 0;
@@ -807,12 +836,13 @@ LDAP *CLDAPv3Plugin::DoSimpleLDAPBind( const char *pServer, bool bSSL, bool bLDA
 	char				ldapURL[256];
 	tDirStatus			dsStatus;
 	
+	if ( DSIsStringEmpty(pServer) == true ) return NULL;
+		
 	// create a URL and create a config and let it do the work
 	snprintf( ldapURL, sizeof(ldapURL), "%s://%s", (bSSL ? "ldaps" : "ldap"), pServer );
 	
 	CLDAPNodeConfig *tempConfig = new CLDAPNodeConfig( fConfigFromXML, ldapURL, false );
 	
-	tempConfig->fLDAPv2ReadOnly = bLDAPv2ReadOnly;
 	tempConfig->fIsSSL = bSSL;
 	
 	pLD = tempConfig->EstablishConnection( &replica, false, NULL, NULL, &dsStatus );
@@ -864,12 +894,12 @@ LDAP *CLDAPv3Plugin::DoSimpleLDAPBind( const char *pServer, bool bSSL, bool bLDA
 
 CFArrayRef CLDAPv3Plugin::GetSASLMethods( LDAP *pLD )
 {
-	char		*pAttributes[]  = { "supportedSASLMechanisms", NULL };
+	const char		*pAttributes[]  = { "supportedSASLMechanisms", NULL };
 	timeval		stTimeout		= { 30, 0 }; // default 30 seconds
 	CFArrayRef  cfSASLMechs		= NULL;
 	LDAPMessage *pLDAPResult	= NULL;
 	
-	if ( ldap_search_ext_s( pLD, LDAP_ROOT_DSE, LDAP_SCOPE_BASE, "(objectclass=*)", pAttributes, false, NULL, NULL, &stTimeout, 0, &pLDAPResult ) == LDAP_SUCCESS )
+	if ( ldap_search_ext_s( pLD, LDAP_ROOT_DSE, LDAP_SCOPE_BASE, "(objectclass=*)", (char **) pAttributes, false, NULL, NULL, &stTimeout, 0, &pLDAPResult ) == LDAP_SUCCESS )
 	{
 		cfSASLMechs = GetLDAPAttributeFromResult( pLD, pLDAPResult, "supportedSASLMechanisms" );
 	}
@@ -936,7 +966,7 @@ bool CLDAPv3Plugin::OverlaySupportsUniqueNameEnforcement( const char *inServer, 
 //	* GetLDAPAttributeFromResult
 // ---------------------------------------------------------------------------
 
-CFMutableArrayRef CLDAPv3Plugin::GetLDAPAttributeFromResult( LDAP *pLD, LDAPMessage *pMessage, char *pAttribute )
+CFMutableArrayRef CLDAPv3Plugin::GetLDAPAttributeFromResult( LDAP *pLD, LDAPMessage *pMessage, const char *pAttribute )
 {
 	berval				**pBValues  = NULL;
 	CFMutableArrayRef   cfResult	= CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
@@ -1271,15 +1301,6 @@ CFStringRef CLDAPv3Plugin::GetServerInfoFromConfig( CFDictionaryRef inDict, char
 		}
 	}
 
-	if ( outLDAPv2ReadOnly )
-	{
-		CFBooleanRef cfBool = (CFBooleanRef) CFDictionaryGetValue( inDict, CFSTR(kXMLLDAPv2ReadOnlyKey) );
-		if ( cfBool != NULL && CFGetTypeID(cfBool) == CFBooleanGetTypeID() )
-		{
-			*outLDAPv2ReadOnly = CFBooleanGetValue( cfBool );
-		}
-	}
-
 	if ( pUsername )
 	{
 		CFStringRef cfUsername = (CFStringRef) CFDictionaryGetValue( inDict, CFSTR(kXMLServerAccountKey) );
@@ -1347,7 +1368,7 @@ SInt32 CLDAPv3Plugin::DoNewServerDiscovery( sDoPlugInCustomCall *inData )
 		// this is an attempt to determine the server, see if we can contact it, and get some basic information
 
 		// first let's get the root DSE and see what we can figure out..
-		char			*pAttributes[]  = { "namingContexts", "defaultNamingContext", NULL };
+		const char		*pAttributes[]  = { "namingContexts", "defaultNamingContext", "isGlobalCatalogReady", NULL };
 		timeval			stTimeout		= { kLDAPDefaultOpenCloseTimeoutInSeconds, 0 }; // default kLDAPDefaultOpenCloseTimeoutInSeconds seconds
 		LDAPMessage		*pLDAPResult	= NULL;
 		SInt32			bindResult		= eDSNoErr;
@@ -1389,7 +1410,7 @@ SInt32 CLDAPv3Plugin::DoNewServerDiscovery( sDoPlugInCustomCall *inData )
 		}
 		
 		// now let's continue our discovery process
-		int iLDAPRetCode = ldap_search_ext_s( pLD, LDAP_ROOT_DSE, LDAP_SCOPE_BASE, "(objectclass=*)", pAttributes, false, NULL, NULL, &stTimeout, 0, &pLDAPResult );
+		int iLDAPRetCode = ldap_search_ext_s( pLD, LDAP_ROOT_DSE, LDAP_SCOPE_BASE, "(objectclass=*)", (char **) pAttributes, false, NULL, NULL, &stTimeout, 0, &pLDAPResult );
 		
 		// This should never fail, unless we aren't really talking to an LDAP server
 		if ( iLDAPRetCode != LDAP_SUCCESS && !bLDAPv2ReadOnly )
@@ -1406,6 +1427,28 @@ SInt32 CLDAPv3Plugin::DoNewServerDiscovery( sDoPlugInCustomCall *inData )
 			cfNameContext = GetLDAPAttributeFromResult( pLD, pLDAPResult, "namingContexts" );
 		}
 		
+		// let's see if this is AD server, if so set a flag so clients can do the right thing
+		CFArrayRef cfGCReady = GetLDAPAttributeFromResult( pLD, pLDAPResult, "isGlobalCatalogReady" );
+		if ( cfGCReady != NULL )
+		{
+			CFDictionarySetValue( cfXMLDict, CFSTR("Active Directory"), kCFBooleanTrue );
+			DbgLog( kLogInfo, "CLDAPv3Plugin::DoNewServerDiscovery - Setting flag that server is Active Directory" );
+			
+			if ( cfNameContext != NULL && CFArrayGetCount(cfNameContext) != 0 ) {
+				CFMutableStringRef domainName = CFStringCreateMutableCopy(kCFAllocatorDefault, 0, 
+																		  (CFStringRef) CFArrayGetValueAtIndex(cfNameContext, 0));
+				
+				CFStringFindAndReplace( domainName, CFSTR(",DC="), CFSTR("."), CFRangeMake(0, CFStringGetLength(domainName)),
+									    kCFCompareCaseInsensitive );
+				CFStringFindAndReplace( domainName, CFSTR("DC="), CFSTR(""), CFRangeMake(0, CFStringGetLength(domainName)),
+									    kCFCompareCaseInsensitive );
+				CFDictionarySetValue( cfXMLDict, CFSTR("Active Directory Domain"), domainName );
+				DSCFRelease( domainName );
+			}
+			
+			DSCFRelease( cfGCReady );
+		}
+		
 		if ( pLDAPResult )
 		{
 			ldap_msgfree( pLDAPResult );
@@ -1420,7 +1463,7 @@ SInt32 CLDAPv3Plugin::DoNewServerDiscovery( sDoPlugInCustomCall *inData )
 		{
 			CFIndex iNumContexts = CFArrayGetCount( cfNameContext );
 			bool	bFound = false;
-			char	*pAttributes2[]  = { "description", NULL };
+			const char	*pAttributes2[]  = { "description", NULL };
 			berval  **pBValues  = NULL;
 			
 			for( CFIndex ii = 0; ii < iNumContexts && !bFound; ii++ )
@@ -1437,7 +1480,7 @@ SInt32 CLDAPv3Plugin::DoNewServerDiscovery( sDoPlugInCustomCall *inData )
 				char *pSearchbase = (char *) calloc( sizeof(char), iLength );
 				CFStringGetCString( cfSearchbase, pSearchbase, iLength, kCFStringEncodingUTF8 );
 				
-				iLDAPRetCode = ldap_search_ext_s( pLD, pSearchbase, LDAP_SCOPE_SUBTREE, "(&(objectclass=organizationalUnit)(ou=macosxodconfig))", pAttributes2, false, NULL, NULL, &stTimeout, 0, &pLDAPResult );
+				iLDAPRetCode = ldap_search_ext_s( pLD, pSearchbase, LDAP_SCOPE_SUBTREE, "(&(objectclass=organizationalUnit)(ou=macosxodconfig))", (char **) pAttributes2, false, NULL, NULL, &stTimeout, 0, &pLDAPResult );
 				
 				if ( iLDAPRetCode == LDAP_SUCCESS )
 				{
@@ -1501,7 +1544,6 @@ SInt32 CLDAPv3Plugin::DoNewServerDiscovery( sDoPlugInCustomCall *inData )
 		
 		CFDictionarySetValue( cfXMLDict, CFSTR(kXMLPortNumberKey), cfPortNumber );
 		CFDictionarySetValue( cfXMLDict, CFSTR(kXMLIsSSLFlagKey), (bSSL ? kCFBooleanTrue : kCFBooleanFalse) );
-		CFDictionarySetValue( cfXMLDict, CFSTR(kXMLLDAPv2ReadOnlyKey), (bLDAPv2ReadOnly ? kCFBooleanTrue : kCFBooleanFalse) );
 		
 		DSCFRelease( cfPortNumber );
 		
@@ -2241,14 +2283,6 @@ SInt32 CLDAPv3Plugin::DoNewServerBind2( sDoPlugInCustomCall *inData )
 			}
 		}
 		
-		// before any computer records are created, make sure the existing ones
-		// have the same owner.
-		if ( !OwnerGUIDsMatch( dsRef, recRef, recRefHost, recRefLKDC ) )
-		{
-			DbgLog( kLogPlugin, "CLDAPv3Plugin: Bind Request - Owner GUIDs in Computer records don't match" );
-			throw( eDSPermissionError );
-		}
-		
 		// Set the Password for the record - 20 characters long.. will be complex..
 		pCompPassword = GenerateRandomComputerPassword();
 		
@@ -2274,6 +2308,12 @@ SInt32 CLDAPv3Plugin::DoNewServerBind2( sDoPlugInCustomCall *inData )
 				// remove it from the dictionary cause this isn't normally in the config...
 				CFDictionaryRemoveValue( cfXMLDict, CFSTR(kDS1AttrENetAddress) );
 			}
+		}
+		
+		// let's just error out here with a permission error as the server may have denied adding the additional names
+		// due to lack of permissions on the record that already has them
+		if ( siResult == eDSSchemaError ) {
+			siResult = eDSPermissionError;
 		}
 		
 		// Kerberosv5 Authentication Authority
@@ -2855,6 +2895,23 @@ CLDAPv3Plugin::DoNewServerBind2b(
 			}
 		}
 		
+		if ( recRef != 0 && recRefHost != 0 )
+		{
+			char *recName1 = dsWrapper.CopyRecordName( recRef );
+			char *recName2 = dsWrapper.CopyRecordName( recRefHost );
+			
+			if ( recName1 != NULL && recName2 != NULL && strcmp(recName1, recName2) == 0 )
+			{
+				dsCloseRecord( recRefHost );
+				recRefHost = 0;
+				hostnameDollar = NULL;
+				DbgLog( kLogInfo, "CLDAPv3Plugin: Bind Request - Main Record and Host record are same record closing Host record" );
+			}
+			
+			DSFree( recName1 );
+			DSFree( recName2 );
+		}
+		
 		if ( !DSIsStringEmpty(hostnameDollar) )
 		{
 			if ( strcmp(pComputerID, hostnameDollar) != 0 )
@@ -2864,7 +2921,7 @@ CLDAPv3Plugin::DoNewServerBind2b(
 						hostnameDollar );
 				
 				siResult = dsWrapper.AddShortName( recRef, hostnameDollar );
-				if ( siResult == eDSNoErr )
+				if ( siResult == eDSNoErr || siResult == eDSSchemaError )
 				{
 					if ( recRefHost != 0 )
 					{
@@ -2889,56 +2946,82 @@ CLDAPv3Plugin::DoNewServerBind2b(
 					throw( siResult );
 				}
 			}
-			else if ( recRefHost != 0 && strcmp(pComputerID, hostnameDollar) == 0 )
+			else if ( recRefHost != 0 )
 			{
 				dsCloseRecord( recRefHost );
 				recRefHost = 0;
 			}
 		}
 		
-		if ( !DSIsStringEmpty(localKDCRealmDollarStr) &&
-			 strcmp(pComputerID, localKDCRealmDollarStr) != 0 )
+		if ( recRef != 0 && recRefLKDC != 0 )
 		{
-			// create the computer record
-			DbgLog( kLogPlugin, "CLDAPv3Plugin: Bind Request - Attempting to add secondary name - %s", localKDCRealmDollarStr );
+			char *recName1 = dsWrapper.CopyRecordName( recRef );
+			char *recName2 = dsWrapper.CopyRecordName( recRefLKDC );
 			
-			siResult = dsWrapper.AddShortName( recRef, localKDCRealmDollarStr );
-			if ( siResult == eDSNoErr )
+			if ( recName1 != NULL && recName2 != NULL && strcmp(recName1, recName2) == 0 )
 			{
-				if ( recRefLKDC != 0 )
+				dsCloseRecord( recRefLKDC );
+				recRefLKDC = 0;
+				localKDCRealmDollarStr = NULL;
+				DbgLog( kLogInfo, "CLDAPv3Plugin: Bind Request - Main Record and Local KDC record are same record closing Local KDC one" );
+			}
+			
+			DSFree( recName1 );
+			DSFree( recName2 );
+		}
+
+		if ( !DSIsStringEmpty(localKDCRealmDollarStr) )
+		{
+			if ( strcmp(pComputerID, localKDCRealmDollarStr) != 0 )
+			{
+				// create the computer record
+				DbgLog( kLogPlugin, "CLDAPv3Plugin: Bind Request - Attempting to add secondary name - %s", localKDCRealmDollarStr );
+				
+				siResult = dsWrapper.AddShortName( recRef, localKDCRealmDollarStr );
+				if ( siResult == eDSNoErr )
 				{
-					tDirStatus deleteResult = dsDeleteRecord( recRefLKDC );
-					if ( deleteResult == eDSNoErr )
+					if ( recRefLKDC != 0 )
 					{
-						recRefLKDC = 0;
-					}
-					else
-					{
-						DbgLog( kLogPlugin,
-							"CLDAPv3Plugin: Bind Request - Warning %d attempting to remove secondary computer record - %s",
-							deleteResult, localKDCRealmDollarStr );
+						tDirStatus deleteResult = dsDeleteRecord( recRefLKDC );
+						if ( deleteResult == eDSNoErr )
+						{
+							recRefLKDC = 0;
+						}
+						else
+						{
+							DbgLog( kLogPlugin,
+								   "CLDAPv3Plugin: Bind Request - Warning %d attempting to remove secondary computer record - %s",
+								   deleteResult, localKDCRealmDollarStr );
+						}
 					}
 				}
+				else
+				{
+					DbgLog( kLogPlugin, "CLDAPv3Plugin: Bind Request - Error %d attempting to add secondary name - %s",
+						   siResult, localKDCRealmDollarStr );
+					throw( siResult );
+				}
 			}
-			else
+			else if ( recRefLKDC != 0 )
 			{
-				DbgLog( kLogPlugin, "CLDAPv3Plugin: Bind Request - Error %d attempting to add secondary name - %s",
-						siResult, localKDCRealmDollarStr );
-				throw( siResult );
+				dsCloseRecord( recRefLKDC );
+				recRefLKDC = 0;
 			}
 		}
 		
-		// put other record names in the pComputerID record so we can
-		// clean up if the server is unbound
-		pAttrName = dsDataNodeAllocateString( dsRef, kDS1AttrComment );
-		
-		DbgLog( kLogPlugin, "CLDAPv3Plugin: Bind Request - Attempting to set a comment in %s with other record names", pComputerID );
-		
+		// if we have individual records, we need to add comment
+		if ( recRefLKDC != 0 || recRefHost != 0 )
 		{
+			DbgLog( kLogPlugin, "CLDAPv3Plugin: Bind Request - Attempting to set a comment in %s with other record names", pComputerID );
+			
+			// put other record names in the pComputerID record so we can
+			// clean up if the server is unbound
+			pAttrName = dsDataNodeAllocateString( dsRef, kDS1AttrComment );
+			
 			char otherRecNames[1024] = {0,};
-			if ( hostnameDollar[0] != '\0' )
+			if ( DSIsStringEmpty(hostnameDollar) == false )
 				strlcpy( otherRecNames, hostnameDollar, sizeof(otherRecNames) );
-			if ( localKDCRealmDollarStr[0] != '\0' )
+			if ( DSIsStringEmpty(localKDCRealmDollarStr) == false )
 			{
 				if ( otherRecNames[0] != '\0' )
 					strlcat( otherRecNames, ",", sizeof(otherRecNames) );
@@ -3095,6 +3178,32 @@ CLDAPv3Plugin::DoNewServerBind2b(
 			}
 		}
 		
+		uuid_t compUUID;
+		struct timespec waitTime = { 0 };
+		
+		if ( gethostuuid(compUUID, &waitTime) == 0 )
+		{
+			uuid_string_t uuidStr = { 0 };
+			
+			pAttrName = dsDataNodeAllocateString( dsRef, kDS1AttrHardwareUUID );
+			
+			uuid_unparse_upper( compUUID, uuidStr );
+			dsBuildListFromStringsAlloc( dsRef, &dataList, uuidStr, NULL );
+			
+			DbgLog( kLogPlugin, "CLDAPv3Plugin: Bind Request - Attempting to set Hardware UUID - %s", uuidStr );
+			
+			siResult = dsSetAttributeValues( recRef, pAttrName, &dataList );			
+			dsDataNodeDeAllocate( dsRef, pAttrName );
+			pAttrName = NULL;
+			
+			dsDataListDeallocatePriv( &dataList );
+			
+			// we silently fail setting the HW UUID
+			if ( siResult != eDSNoErr && siResult != eDSNoStdMappingAvailable ) {
+				DbgLog( kLogPlugin, "CLDAPv3Plugin: Bind Request - Error %d attempting to set Hardware UUID", siResult );
+			}
+		}
+			
 		siResult = dsFillAuthBuffer(
 						sendDataBufPtr, 2,
 						strlen(pComputerID), pComputerID,
@@ -3510,10 +3619,10 @@ SInt32 CLDAPv3Plugin::DoRemoveServer( sDoPlugInCustomCall *inData )
 			{
 				pid_t childPID;
 				int nStatus;
-				char *argv[] = { "/usr/sbin/slapconfig", "-disableproxyusers", realm, NULL };
+				const char *argv[] = { "/usr/sbin/slapconfig", "-disableproxyusers", realm, NULL };
 				
 				// we don't care about status, but we need to reap the child
-				if ( posix_spawn( &childPID, argv[0], NULL, NULL, argv, NULL ) == 0 )
+				if ( posix_spawn( &childPID, argv[0], NULL, NULL, (char **)argv, NULL ) == 0 )
 					while ( waitpid(childPID, &nStatus, 0) == -1 && errno != ECHILD );
 			}
 

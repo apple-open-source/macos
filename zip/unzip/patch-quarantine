@@ -1,0 +1,23 @@
+--- unix/unix.c	2008-09-16 22:38:21.000000000 -0700
++++ /var/tmp/unix.c	2008-09-16 23:18:08.000000000 -0700
+@@ -1031,7 +1031,7 @@ static int get_extattribs(__G__ pzt, z_u
+ /****************************/
+ /* Function close_outfile() */
+ /****************************/
+-
++#include <quarantine.h>
+ void close_outfile(__G)    /* GRR: change to return PK-style warning level */
+     __GDEF
+ {
+@@ -1051,7 +1051,10 @@ void close_outfile(__G)    /* GRR: chang
+     if (fchmod(fileno(G.outfile), 0xffff & G.pInfo->file_attr))
+         perror("chmod (file attributes) error");
+ #endif
+-
++    qtn_file_t qf = qtn_file_alloc();
++    qtn_file_init_with_fd(qf, G.zipfd);
++    qtn_file_apply_to_fd(qf, fileno(G.outfile));
++    qtn_file_free(qf);
+     fclose(G.outfile);
+ 
+ /*---------------------------------------------------------------------------

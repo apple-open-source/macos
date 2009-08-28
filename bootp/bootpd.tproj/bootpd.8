@@ -230,6 +230,14 @@ ignore the DHCP client identifier option (code 61) in the client's
 DHCP packet.   Instead, the DHCP server tries to use the hardware address
 fields (bp_htype, bp_hlen, bp_chaddr) of the DHCP packet to identify the
 client.  The default value of this property is false.
+.It Sy use_server_config_for_dhcp_options
+(Boolean) If this property is set to true, the DHCP server tries to use its own
+configuration to supply the subnet mask, router, DNS server addresses,
+DNS domain, and DNS domain search options, if those options are missing from
+the subnet description.  If the property is false, 
+the server only uses the information in the subnet description to supply
+these DHCP options.
+The default value of this property is true.
 .El
 .Ss "Subnet Entries"
 The "Subnets" property in \fI/etc/bootpd.plist\fR contains an array of 

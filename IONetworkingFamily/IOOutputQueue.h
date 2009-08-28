@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -19,30 +19,9 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- * Copyright (c) 1999 Apple Computer, Inc.  All rights reserved. 
- *
- * IOOutputQueue.h
- *
- * HISTORY
- * 2-Feb-1999       Joe Liu (jliu) created.
- *
- */
 
 #ifndef _IOOUTPUTQUEUE_H
 #define _IOOUTPUTQUEUE_H
-
-#ifndef __MBUF_TRANSITION_STRIP
-#ifdef __MBUF_TRANSITION_
-# ifndef __MBUF_PROTO
-#  define __MBUF_PROTO mbuf_t
-# endif
-#else
-# ifndef __MBUF_PROTO
-#  define __MBUF_PROTO struct mbuf *
-# endif
-#endif
-#endif
 
 #include <IOKit/network/IONetworkInterface.h>
 
@@ -250,7 +229,7 @@ public:
     @result Returns a return code. 
 */
 
-    virtual UInt32 enqueue(__MBUF_PROTO m, void * param) = 0;
+    virtual UInt32 enqueue(mbuf_t m, void * param) = 0;
 
 /*! @function getOutputHandler
     @abstract Returns the address of a function that is designated to handle

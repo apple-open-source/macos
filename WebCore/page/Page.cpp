@@ -46,6 +46,7 @@
 #include "PluginData.h"
 #include "ProgressTracker.h"
 #include "RenderWidget.h"
+#include "RenderTheme.h"
 #include "ScriptController.h"
 #include "SelectionController.h"
 #include "Settings.h"
@@ -57,9 +58,8 @@
 #include <wtf/StdLibExtras.h>
 
 #if ENABLE(DOM_STORAGE)
-#include "LocalStorage.h"
-#include "SessionStorage.h"
 #include "StorageArea.h"
+#include "StorageNamespace.h"
 #endif
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
@@ -90,17 +90,8 @@ static void networkStateChanged()
     }
 
     AtomicString eventName = networkStateNotifier().onLine() ? eventNames().onlineEvent : eventNames().offlineEvent;
-    
-    for (unsigned i = 0; i < frames.size(); i++) {
-        Document* document = frames[i]->document();
-        
-        // If the document does not have a body the event should be dispatched to the document
-        Node* eventTarget = document->body();
-        if (!eventTarget)
-            eventTarget = document;
-        
-        eventTarget->dispatchEvent(eventName, false, false);
-    }
+    for (unsigned i = 0; i < frames.size(); i++)
+        frames[i]->document()->dispatchWindowEvent(eventName, false, false);
 }
 
 Page::Page(ChromeClient* chromeClient, ContextMenuClient* contextMenuClient, EditorClient* editorClient, DragClient* dragClient, InspectorClient* inspectorClient)
@@ -113,6 +104,7 @@ Page::Page(ChromeClient* chromeClient, ContextMenuClient* contextMenuClient, Edi
     , m_settings(new Settings(this))
     , m_progress(new ProgressTracker)
     , m_backForwardList(BackForwardList::create(this))
+    , m_theme(RenderTheme::themeForPage(this))
     , m_editorClient(editorClient)
     , m_frameCount(0)
     , m_tabKeyCyclesThroughElements(true)
@@ -210,7 +202,19 @@ bool Page::goForward()
 void Page::goToItem(HistoryItem* item, FrameLoadType type)
 {
     // Abort any current load if we're going to a history item
-    m_mainFrame->loader()->stopAllLoaders();
+
+    // Define what to do with any open database connections. By default we stop them and terminate the database thread.
+    DatabasePolicy databasePolicy = DatabasePolicyStop;
+
+#if ENABLE(DATABASE)
+    // If we're navigating the history via a fragment on the same document, then we do not want to stop databases.
+    const KURL& currentURL = m_mainFrame->loader()->url();
+    const KURL& newURL = item->url();
+
+    if (newURL.hasRef() && equalIgnoringRef(currentURL, newURL))
+        databasePolicy = DatabasePolicyContinue;
+#endif
+    m_mainFrame->loader()->stopAllLoaders(databasePolicy);
     m_mainFrame->loader()->goToItem(item, type);
 }
 
@@ -545,17 +549,16 @@ void Page::setDebugger(JSC::Debugger* debugger)
 }
 
 #if ENABLE(DOM_STORAGE)
-SessionStorage* Page::sessionStorage(bool optionalCreate)
+StorageNamespace* Page::sessionStorage(bool optionalCreate)
 {
     if (!m_sessionStorage && optionalCreate)
-        m_sessionStorage = SessionStorage::create(this);
+        m_sessionStorage = StorageNamespace::sessionStorageNamespace();
 
     return m_sessionStorage.get();
 }
 
-void Page::setSessionStorage(PassRefPtr<SessionStorage> newStorage)
+void Page::setSessionStorage(PassRefPtr<StorageNamespace> newStorage)
 {
-    ASSERT(newStorage->page() == this);
     m_sessionStorage = newStorage;
 }
 #endif

@@ -4,6 +4,7 @@
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
  * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
+ * Copyright (C) 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -77,6 +78,7 @@
 #include "XMLNames.h"
 #include "htmlediting.h"
 #include <wtf/HashSet.h>
+#include <wtf/PassOwnPtr.h>
 #include <wtf/RefCountedLeakCounter.h>
 #include <wtf/UnusedParam.h>
 
@@ -87,6 +89,10 @@
 #if ENABLE(SVG)
 #include "SVGElementInstance.h"
 #include "SVGUseElement.h"
+#endif
+
+#if ENABLE(XHTMLMP)
+#include "HTMLNoScriptElement.h"
 #endif
 
 #define DUMP_NODE_STATISTICS 0
@@ -276,7 +282,7 @@ void Node::stopIgnoringLeaks()
 #endif
 }
 
-Node::StyleChange Node::diff( RenderStyle *s1, RenderStyle *s2 )
+Node::StyleChange Node::diff(const RenderStyle* s1, const RenderStyle* s2)
 {
     // FIXME: The behavior of this function is just totally wrong.  It doesn't handle
     // explicit inheritance of non-inherited properties and so you end up not re-resolving
@@ -296,6 +302,12 @@ Node::StyleChange Node::diff( RenderStyle *s1, RenderStyle *s2 )
     else if (s1->inheritedNotEqual(s2))
         ch = Inherit;
     
+    // For nth-child and other positional rules, treat styles as different if they have
+    // changed positionally in the DOM. This way subsequent sibling resolutions won't be confused
+    // by the wrong child index and evaluate to incorrect results.
+    if (ch == NoChange && s1->childIndex() != s2->childIndex())
+        ch = NoInherit;
+
     // If the pseudoStyles have changed, we want any StyleChange that is not NoChange
     // because setStyle will do the right thing with anything else.
     if (ch == NoChange && s1->hasPseudoStyle(BEFORE)) {
@@ -501,11 +513,11 @@ PassRefPtr<NodeList> Node::childNodes()
 {
     NodeRareData* data = ensureRareData();
     if (!data->nodeLists()) {
-        data->setNodeLists(auto_ptr<NodeListsNodeData>(new NodeListsNodeData));
+        data->setNodeLists(NodeListsNodeData::create());
         document()->addNodeListCache();
     }
 
-    return ChildNodeList::create(this, &data->nodeLists()->m_childNodeListCaches);
+    return ChildNodeList::create(this, data->nodeLists()->m_childNodeListCaches.get());
 }
 
 Node *Node::lastDescendant() const
@@ -774,7 +786,7 @@ void Node::registerDynamicNodeList(DynamicNodeList* list)
 {
     NodeRareData* data = ensureRareData();
     if (!data->nodeLists()) {
-        data->setNodeLists(auto_ptr<NodeListsNodeData>(new NodeListsNodeData));
+        data->setNodeLists(NodeListsNodeData::create());
         document()->addNodeListCache();
     } else if (!m_document->hasNodeListCaches()) {
         // We haven't been receiving notifications while there were no registered lists, so the cache is invalid now.
@@ -1276,7 +1288,7 @@ void Node::createRendererIfNeeded()
     
     RenderObject* parentRenderer = parent->renderer();
     if (parentRenderer && parentRenderer->canHaveChildren()
-#if ENABLE(SVG)
+#if ENABLE(SVG) || ENABLE(XHTMLMP)
         && parent->childShouldCreateRenderer(this)
 #endif
         ) {
@@ -1297,8 +1309,14 @@ void Node::createRendererIfNeeded()
 
 PassRefPtr<RenderStyle> Node::styleForRenderer()
 {
-    if (isElementNode())
-        return document()->styleSelector()->styleForElement(static_cast<Element*>(this));
+    if (isElementNode()) {
+        bool allowSharing = true;
+#if ENABLE(XHTMLMP)
+        // noscript needs the display property protected - it's a special case
+        allowSharing = localName() != HTMLNames::noscriptTag.localName();
+#endif
+        return document()->styleSelector()->styleForElement(static_cast<Element*>(this), 0, allowSharing);
+    }
     return parentNode() && parentNode()->renderer() ? parentNode()->renderer()->style() : 0;
 }
 
@@ -1341,6 +1359,14 @@ bool Node::canStartSelection() const
 {
     if (isContentEditable())
         return true;
+
+    if (renderer()) {
+        RenderStyle* style = renderer()->style();
+        // We allow selections to begin within an element that has -webkit-user-select: none set,
+        // but if the element is draggable then dragging should take priority over selection.
+        if (style->userDrag() == DRAG_ELEMENT && style->userSelect() == SELECT_NONE)
+            return false;
+    }
     return parent() ? parent()->canStartSelection() : true;
 }
 
@@ -1462,7 +1488,7 @@ PassRefPtr<NodeList> Node::getElementsByTagNameNS(const AtomicString& namespaceU
     
     NodeRareData* data = ensureRareData();
     if (!data->nodeLists()) {
-        data->setNodeLists(auto_ptr<NodeListsNodeData>(new NodeListsNodeData));
+        data->setNodeLists(NodeListsNodeData::create());
         document()->addNodeListCache();
     }
 
@@ -1474,39 +1500,39 @@ PassRefPtr<NodeList> Node::getElementsByTagNameNS(const AtomicString& namespaceU
         
     pair<NodeListsNodeData::TagCacheMap::iterator, bool> result = data->nodeLists()->m_tagNodeListCaches.add(QualifiedName(nullAtom, localNameAtom, namespaceURI), 0);
     if (result.second)
-        result.first->second = new DynamicNodeList::Caches;
+        result.first->second = DynamicNodeList::Caches::create();
     
-    return TagNodeList::create(this, namespaceURI.isEmpty() ? nullAtom : namespaceURI, localNameAtom, result.first->second);
+    return TagNodeList::create(this, namespaceURI.isEmpty() ? nullAtom : namespaceURI, localNameAtom, result.first->second.get());
 }
 
 PassRefPtr<NodeList> Node::getElementsByName(const String& elementName)
 {
     NodeRareData* data = ensureRareData();
     if (!data->nodeLists()) {
-        data->setNodeLists(auto_ptr<NodeListsNodeData>(new NodeListsNodeData));
+        data->setNodeLists(NodeListsNodeData::create());
         document()->addNodeListCache();
     }
 
     pair<NodeListsNodeData::CacheMap::iterator, bool> result = data->nodeLists()->m_nameNodeListCaches.add(elementName, 0);
     if (result.second)
-        result.first->second = new DynamicNodeList::Caches;
+        result.first->second = DynamicNodeList::Caches::create();
     
-    return NameNodeList::create(this, elementName, result.first->second);
+    return NameNodeList::create(this, elementName, result.first->second.get());
 }
 
 PassRefPtr<NodeList> Node::getElementsByClassName(const String& classNames)
 {
     NodeRareData* data = ensureRareData();
     if (!data->nodeLists()) {
-        data->setNodeLists(auto_ptr<NodeListsNodeData>(new NodeListsNodeData));
+        data->setNodeLists(NodeListsNodeData::create());
         document()->addNodeListCache();
     }
 
     pair<NodeListsNodeData::CacheMap::iterator, bool> result = data->nodeLists()->m_classNodeListCaches.add(classNames, 0);
     if (result.second)
-        result.first->second = new DynamicNodeList::Caches;
+        result.first->second = DynamicNodeList::Caches::create();
     
-    return ClassNodeList::create(this, classNames, result.first->second);
+    return ClassNodeList::create(this, classNames, result.first->second.get());
 }
 
 template <typename Functor>
@@ -2159,7 +2185,7 @@ void Node::formatForDebugger(char* buffer, unsigned length) const
 
 void NodeListsNodeData::invalidateCaches()
 {
-    m_childNodeListCaches.reset();
+    m_childNodeListCaches->reset();
     TagCacheMap::const_iterator tagCachesEnd = m_tagNodeListCaches.end();
     for (TagCacheMap::const_iterator it = m_tagNodeListCaches.begin(); it != tagCachesEnd; ++it)
         it->second->reset();
@@ -2182,24 +2208,24 @@ bool NodeListsNodeData::isEmpty() const
     if (!m_listsWithCaches.isEmpty())
         return false;
 
-    if (m_childNodeListCaches.refCount)
+    if (m_childNodeListCaches->refCount())
         return false;
     
     TagCacheMap::const_iterator tagCachesEnd = m_tagNodeListCaches.end();
     for (TagCacheMap::const_iterator it = m_tagNodeListCaches.begin(); it != tagCachesEnd; ++it) {
-        if (it->second->refCount)
+        if (it->second->refCount())
             return false;
     }
 
     CacheMap::const_iterator classCachesEnd = m_classNodeListCaches.end();
     for (CacheMap::const_iterator it = m_classNodeListCaches.begin(); it != classCachesEnd; ++it) {
-        if (it->second->refCount)
+        if (it->second->refCount())
             return false;
     }
 
     CacheMap::const_iterator nameCachesEnd = m_nameNodeListCaches.end();
     for (CacheMap::const_iterator it = m_nameNodeListCaches.begin(); it != nameCachesEnd; ++it) {
-        if (it->second->refCount)
+        if (it->second->refCount())
             return false;
     }
 
@@ -2466,7 +2492,7 @@ bool Node::dispatchGenericEvent(PassRefPtr<Event> prpEvent)
     event->setEventPhase(Event::CAPTURING_PHASE);
 
     if (targetForWindowEvents) {
-        event->setCurrentTarget(targetForWindowEvents->document()); // FIXME: targetForWindowEvents should be the event target.
+        event->setCurrentTarget(targetForWindowEvents);
         targetForWindowEvents->handleEvent(event.get(), true);
         if (event->propagationStopped())
             goto doneDispatching;
@@ -2504,7 +2530,7 @@ bool Node::dispatchGenericEvent(PassRefPtr<Event> prpEvent)
                 goto doneDispatching;
         }
         if (targetForWindowEvents) {
-            event->setCurrentTarget(targetForWindowEvents->document()); // FIXME: targetForWindowEvents should be the event target.
+            event->setCurrentTarget(targetForWindowEvents);
             targetForWindowEvents->handleEvent(event.get(), false);
             if (event->propagationStopped() || event->cancelBubble())
                 goto doneDispatching;
@@ -2607,7 +2633,7 @@ bool Node::dispatchMouseEvent(const PlatformMouseEvent& event, const AtomicStrin
     return dispatchMouseEvent(eventType, button, detail,
         contentsPos.x(), contentsPos.y(), event.globalX(), event.globalY(),
         event.ctrlKey(), event.altKey(), event.shiftKey(), event.metaKey(),
-        false, relatedTarget);
+        false, relatedTarget, 0);
 }
 
 void Node::dispatchSimulatedMouseEvent(const AtomicString& eventType,
@@ -2805,15 +2831,6 @@ void Node::dispatchProgressEvent(const AtomicString &eventType, bool lengthCompu
     ASSERT(!eventDispatchForbidden());
     ExceptionCode ec = 0;
     dispatchEvent(ProgressEvent::create(eventType, lengthComputableArg, loadedArg, totalArg), ec);
-}
-
-void Node::dispatchStorageEvent(const AtomicString &eventType, const String& key, const String& oldValue, const String& newValue, Frame* source)
-{
-#if ENABLE(DOM_STORAGE)
-    ASSERT(!eventDispatchForbidden());
-    ExceptionCode ec = 0;
-    dispatchEvent(StorageEvent::create(eventType, key, oldValue, newValue, source->document()->documentURI(), source->domWindow()), ec);
-#endif
 }
 
 void Node::clearAttributeEventListener(const AtomicString& eventType)
@@ -3080,66 +3097,6 @@ void Node::setOnmousewheel(PassRefPtr<EventListener> eventListener)
     setAttributeEventListener(eventNames().mousewheelEvent, eventListener);
 }
 
-EventListener* Node::onbeforecut() const
-{
-    return getAttributeEventListener(eventNames().beforecutEvent);
-}
-
-void Node::setOnbeforecut(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().beforecutEvent, eventListener);
-}
-
-EventListener* Node::oncut() const
-{
-    return getAttributeEventListener(eventNames().cutEvent);
-}
-
-void Node::setOncut(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().cutEvent, eventListener);
-}
-
-EventListener* Node::onbeforecopy() const
-{
-    return getAttributeEventListener(eventNames().beforecopyEvent);
-}
-
-void Node::setOnbeforecopy(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().beforecopyEvent, eventListener);
-}
-
-EventListener* Node::oncopy() const
-{
-    return getAttributeEventListener(eventNames().copyEvent);
-}
-
-void Node::setOncopy(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().copyEvent, eventListener);
-}
-
-EventListener* Node::onbeforepaste() const
-{
-    return getAttributeEventListener(eventNames().beforepasteEvent);
-}
-
-void Node::setOnbeforepaste(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().beforepasteEvent, eventListener);
-}
-
-EventListener* Node::onpaste() const
-{
-    return getAttributeEventListener(eventNames().pasteEvent);
-}
-
-void Node::setOnpaste(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().pasteEvent, eventListener);
-}
-
 EventListener* Node::ondragenter() const
 {
     return getAttributeEventListener(eventNames().dragenterEvent);
@@ -3210,26 +3167,6 @@ void Node::setOndragend(PassRefPtr<EventListener> eventListener)
     setAttributeEventListener(eventNames().dragendEvent, eventListener);
 }
 
-EventListener* Node::onreset() const
-{
-    return getAttributeEventListener(eventNames().resetEvent);
-}
-
-void Node::setOnreset(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().resetEvent, eventListener);
-}
-
-EventListener* Node::onresize() const
-{
-    return getAttributeEventListener(eventNames().resizeEvent);
-}
-
-void Node::setOnresize(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().resizeEvent, eventListener);
-}
-
 EventListener* Node::onscroll() const
 {
     return getAttributeEventListener(eventNames().scrollEvent);
@@ -3238,16 +3175,6 @@ EventListener* Node::onscroll() const
 void Node::setOnscroll(PassRefPtr<EventListener> eventListener)
 {
     setAttributeEventListener(eventNames().scrollEvent, eventListener);
-}
-
-EventListener* Node::onsearch() const
-{
-    return getAttributeEventListener(eventNames().searchEvent);
-}
-
-void Node::setOnsearch(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().searchEvent, eventListener);
 }
 
 EventListener* Node::onselect() const
@@ -3260,16 +3187,6 @@ void Node::setOnselect(PassRefPtr<EventListener> eventListener)
     setAttributeEventListener(eventNames().selectEvent, eventListener);
 }
 
-EventListener* Node::onselectstart() const
-{
-    return getAttributeEventListener(eventNames().selectstartEvent);
-}
-
-void Node::setOnselectstart(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().selectstartEvent, eventListener);
-}
-
 EventListener* Node::onsubmit() const
 {
     return getAttributeEventListener(eventNames().submitEvent);
@@ -3280,14 +3197,94 @@ void Node::setOnsubmit(PassRefPtr<EventListener> eventListener)
     setAttributeEventListener(eventNames().submitEvent, eventListener);
 }
 
-EventListener* Node::onunload() const
+EventListener* Node::onbeforecut() const
 {
-    return getAttributeEventListener(eventNames().unloadEvent);
+    return getAttributeEventListener(eventNames().beforecutEvent);
 }
 
-void Node::setOnunload(PassRefPtr<EventListener> eventListener)
+void Node::setOnbeforecut(PassRefPtr<EventListener> eventListener)
 {
-    setAttributeEventListener(eventNames().unloadEvent, eventListener);
+    setAttributeEventListener(eventNames().beforecutEvent, eventListener);
+}
+
+EventListener* Node::oncut() const
+{
+    return getAttributeEventListener(eventNames().cutEvent);
+}
+
+void Node::setOncut(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().cutEvent, eventListener);
+}
+
+EventListener* Node::onbeforecopy() const
+{
+    return getAttributeEventListener(eventNames().beforecopyEvent);
+}
+
+void Node::setOnbeforecopy(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().beforecopyEvent, eventListener);
+}
+
+EventListener* Node::oncopy() const
+{
+    return getAttributeEventListener(eventNames().copyEvent);
+}
+
+void Node::setOncopy(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().copyEvent, eventListener);
+}
+
+EventListener* Node::onbeforepaste() const
+{
+    return getAttributeEventListener(eventNames().beforepasteEvent);
+}
+
+void Node::setOnbeforepaste(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().beforepasteEvent, eventListener);
+}
+
+EventListener* Node::onpaste() const
+{
+    return getAttributeEventListener(eventNames().pasteEvent);
+}
+
+void Node::setOnpaste(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().pasteEvent, eventListener);
+}
+
+EventListener* Node::onreset() const
+{
+    return getAttributeEventListener(eventNames().resetEvent);
+}
+
+void Node::setOnreset(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().resetEvent, eventListener);
+}
+
+EventListener* Node::onsearch() const
+{
+    return getAttributeEventListener(eventNames().searchEvent);
+}
+
+void Node::setOnsearch(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().searchEvent, eventListener);
+}
+
+EventListener* Node::onselectstart() const
+{
+    return getAttributeEventListener(eventNames().selectstartEvent);
+}
+
+void Node::setOnselectstart(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().selectstartEvent, eventListener);
 }
 
 } // namespace WebCore

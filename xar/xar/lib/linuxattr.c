@@ -84,7 +84,8 @@
 
 struct _linuxattr_context{
 	const char *file;
-	const char *attr;
+	const char *attrname;
+	xar_ea_t ea;
 	void *buf;
 	int off;
 	int bufsz;
@@ -102,7 +103,7 @@ AGAIN2:
 		if(!LINUXATTR_CONTEXT(context)->buf)
 			goto AGAIN2;
 		memset(LINUXATTR_CONTEXT(context)->buf, 0, LINUXATTR_CONTEXT(context)->bufsz);
-		r = lgetxattr(LINUXATTR_CONTEXT(context)->file, LINUXATTR_CONTEXT(context)->attr+strlen(XAR_EA_FORK)+1, LINUXATTR_CONTEXT(context)->buf, LINUXATTR_CONTEXT(context)->bufsz);
+		r = lgetxattr(LINUXATTR_CONTEXT(context)->file, LINUXATTR_CONTEXT(context)->attrname, LINUXATTR_CONTEXT(context)->buf, LINUXATTR_CONTEXT(context)->bufsz);
 		if( r < 0 ) {
 			switch(errno) {
 			case ERANGE: LINUXATTR_CONTEXT(context)->bufsz *= 2; free(LINUXATTR_CONTEXT(context)->buf); goto AGAIN2;
@@ -117,18 +118,18 @@ AGAIN2:
 	if( (LINUXATTR_CONTEXT(context)->bufsz-LINUXATTR_CONTEXT(context)->off) <= len ) {
 		int32_t ret;
 		ret = LINUXATTR_CONTEXT(context)->bufsz - LINUXATTR_CONTEXT(context)->off;
-		memcpy(buf, LINUXATTR_CONTEXT(context)->buf+LINUXATTR_CONTEXT(context)->off, ret);
+		memcpy(buf, ((char *)LINUXATTR_CONTEXT(context)->buf)+LINUXATTR_CONTEXT(context)->off, ret);
 		LINUXATTR_CONTEXT(context)->off += ret;
 		return(ret);
 	} else {
-		memcpy(buf, LINUXATTR_CONTEXT(context)->buf+LINUXATTR_CONTEXT(context)->off, len);
-		LINUXATTR_CONTEXT(context)->buf += len;
+		memcpy(buf, ((char *)LINUXATTR_CONTEXT(context)->buf)+LINUXATTR_CONTEXT(context)->off, len);
+		LINUXATTR_CONTEXT(context)->buf = ((char *)LINUXATTR_CONTEXT(context)->buf) + len;
 		return len;
 	}
 }
 
 int32_t xar_linuxattr_write(xar_t x, xar_file_t f, void *buf, size_t len, void *context) {
-	return lsetxattr(LINUXATTR_CONTEXT(context)->file, LINUXATTR_CONTEXT(context)->attr+strlen(XAR_EA_FORK)+1, buf, len, 0);
+	return lsetxattr(LINUXATTR_CONTEXT(context)->file, LINUXATTR_CONTEXT(context)->attrname, buf, len, 0);
 }
 #endif
 
@@ -142,11 +143,15 @@ int32_t xar_linuxattr_archive(xar_t x, xar_file_t f, const char* file, const cha
 	struct _linuxattr_context context;
 	
 	memset(&context,0,sizeof(struct _linuxattr_context));
-	
+
 	/* data from buffers don't have linuxattr */
-	if(len){
+	if(len)
 		return 0;
-	}
+	if( file == NULL )
+		return 0;
+
+	if( !xar_check_prop(x, "ea") )
+		return 0;
 	
 TRYAGAIN:
 	buf = malloc(bufsz);
@@ -174,20 +179,19 @@ TRYAGAIN:
 	};
 
 	for( i=buf; (i-buf) < ret; i += strlen(i)+1 ) {
-		char tmpnam[1024];
+		xar_ea_t e;
 
 		context.bufsz = 0;
 		context.off = 0;
 		context.buf = NULL;
 		context.file = file;
-		memset(tmpnam, 0, sizeof(tmpnam));
-		snprintf(tmpnam, sizeof(tmpnam)-1, "%s/%s", XAR_EA_FORK, i);
-		xar_prop_set(f, tmpnam, NULL);
-		xar_attr_set(f, tmpnam, "fstype", fsname);
-		context.attr = tmpnam;
-		xar_attrcopy_to_heap(x, f, tmpnam, xar_linuxattr_read,&context);
+		e = xar_ea_new(f, i);
+		xar_ea_pset(f, e, "fstype", fsname);
+		context.attrname = i;
+		context.ea = e;
+		xar_attrcopy_to_heap(x, f, xar_ea_root(e), xar_linuxattr_read,&context);
 		free(context.buf);
-		context.attr = NULL;
+		context.attrname = NULL;
 	}
 
 BAIL:
@@ -201,11 +205,10 @@ int32_t xar_linuxattr_extract(xar_t x, xar_file_t f, const char* file, char *buf
 {
 #if defined HAVE_SYS_XATTR_H && defined(HAVE_LSETXATTR) && !defined(__APPLE__)
 	const char *fsname = "bogus";
-	const char *prop;
 	struct statfs sfs;
 	int eaopt = 0;
-	xar_iter_t iter;
 	struct _linuxattr_context context;
+	xar_prop_t p;
 	
 	memset(&context,0,sizeof(struct _linuxattr_context));
 	
@@ -231,28 +234,36 @@ int32_t xar_linuxattr_extract(xar_t x, xar_file_t f, const char* file, char *buf
 	case XFS_SUPER_MAGIC:  fsname = "xfs" ; break;
 	};
 
-	iter = xar_iter_new();
-	for(prop = xar_prop_first(f, iter); prop; prop = xar_prop_next(iter)) {
-		const char *fs;
+	for(p = xar_prop_pfirst(f); p; p = xar_prop_pnext(p)) {
+		const char *fs = NULL;
+		const char *prop;
+		const char *eaname = NULL;
+		xar_prop_t tmpp;
+		prop = xar_prop_getkey(p);
 
 		if( strncmp(prop, XAR_EA_FORK, strlen(XAR_EA_FORK)) != 0 )
 			continue;
-		if( strlen(prop) <= strlen(XAR_EA_FORK) )
+		if( strlen(prop) != strlen(XAR_EA_FORK) )
 			continue;
 
-		fs = xar_attr_get(f, prop, "fstype");
+		tmpp = xar_prop_pget(p, "fstype");
+		if( tmpp )
+			fs = xar_prop_getvalue(tmpp);
 		if( !eaopt && fs && strcmp(fs, fsname) != 0 ) {
 			continue;
 		}
 		if( !fs )
 			continue;
 
+		tmpp = xar_prop_pget(p, "name");
+		if( tmpp )
+			eaname = xar_prop_getvalue(tmpp);
+
 		context.file = file;
-		context.attr = prop;
-		xar_attrcopy_from_heap(x, f, prop, xar_linuxattr_write, &context);
+		context.attrname = eaname;
+		xar_attrcopy_from_heap(x, f, p, xar_linuxattr_write, &context);
 
 	}
-	xar_iter_free(iter);
 
 #endif
 	return 0;

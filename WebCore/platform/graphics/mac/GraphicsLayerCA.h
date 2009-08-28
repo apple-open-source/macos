@@ -99,6 +99,9 @@ public:
     virtual void setZPosition(float);
 #endif
 
+    virtual void setGeometryOrientation(CompositingCoordinatesOrientation);
+    virtual CompositingCoordinatesOrientation geometryOrientation() const;
+
 private:
     WebLayer* primaryLayer() const  { return m_transformLayer.get() ? m_transformLayer.get() : m_layer.get(); }
     WebLayer* hostLayerForSublayers() const;
@@ -117,6 +120,9 @@ private:
     bool requiresTiledLayer(const FloatSize&) const;
     void swapFromOrToTiledLayer(bool useTiledLayer);
 
+    CompositingCoordinatesOrientation defaultContentsOrientation() const;
+    void updateContentsTransform();
+    
     void setContentsLayer(WebLayer*);
     WebLayer* contentsLayer() const { return m_contentsLayer.get(); }
     

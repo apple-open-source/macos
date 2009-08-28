@@ -1,0 +1,1073 @@
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+   <meta name="GENERATOR" content="Mozilla/4.72 [en] (X11; U; Linux 2.2.14-5.0 i686) [Netscape]">
+   <meta name="Author" content="Kåre Sjölander">
+   <meta name="Description" content="Manual page for Snack">
+   <title>Snack Manual</title>
+</head>
+<body text="#000000" bgcolor="#FFFFFF" link="#0000EE" vlink="#551A8B" alink="#FE0000">
+
+<h1>
+
+<hr></h1>
+
+<h1>
+<b>Snack v2.2.10 manual</b></h1>
+<font color="#FF6600">Last updated </font><!--#config timefmt="%B %d, %Y" --><!--#flastmod file="tcl-man.html"-->
+
+<dl>
+<dt>
+<a href="#audio">snack::audio</a></dt>
+
+<dt>
+<a href="#debug">snack::debug</a></dt>
+
+<dt>
+<a href="#filter">snack::filter</a></dt>
+
+<dt>
+<a href="#mixer">snack::mixer</a></dt>
+
+<dt>
+<a href="#sound">snack::sound</a></dt>
+
+<dt>
+<a href="#spectrogram">spectrogram canvas item</a></dt>
+
+<dt>
+<a href="#section">spectrum section canvas item</a></dt>
+
+<dt>
+<a href="#waveform">waveform canvas item</a></dt>
+
+<dt>
+&nbsp;</dt>
+
+<dt>
+<a href="#defpack">Standard extension packages</a> (sound, snackogg, snacksphere)</dt>
+
+<dt>
+&nbsp;</dt>
+
+<dt>
+<a href="SnackLib.html">Snack library</a></dt>
+</dl>
+
+<hr>
+<h3>
+<a NAME="audio"></a>NAME</h3>
+snack::audio - Get/set properties of audio devices
+<h3>
+SYNOPSIS</h3>
+<b>snack::audio property</b> ?arg? ...
+<h3>
+DESCRIPTION</h3>
+The audio command is used to get properties of audio devices such as supported
+sample encoding formats and sample rates.
+<p>
+<b>snack::audio active</b>
+<ul>Returns 1 or 0 depending on whether there is any current activity on the audio device.</ul>
+<b>snack::audio currentSound</b>
+<ul>Returns the name of any sound object currently used for playback or record.</ul>
+<b>snack::audio elapsedTime</b>
+<ul>Returns the time in seconds since playback or recording started on the audio device.</ul>
+<b>snack::audio encodings</b>
+<ul>Returns a list of supported sample encoding formats for the current
+selected device.</ul>
+<b>snack::audio inputDevices</b>
+<ul>Returns a list of available audio input devices.</ul>
+<a NAME="latency"></a><b>snack::audio playLatency</b>
+<ul>Sets/queries (in ms) how much sound will be queued up at any
+time to the audio device for playback. A low value makes new sound samples
+reach the loudspeakers quickly at the risk of gaps in the output stream.
+An appropriate value should be chosen with regard to processor speed and
+load. The default value has been choosen to give adequate performance for
+a mix of tasks and might be to low for simple playback in some cases. If
+spurious gaps in the playback stream occur, try using a latency of a couple
+of thousand milliseconds. On UNIX systems, the environment variable PLAYLATENCY
+can also be used to control this property.</ul>
+<b>snack::audio pause</b>
+<ul>Toggles between pause/play for all playback on the audio device.</ul>
+<b>snack::audio play</b>
+<ul>Resumes paused playback on the audio device.</ul>
+<b>snack::audio play_gain</b><i> ?value?</i>
+<ul>Returns the current play gain value if invoked without a parameter.
+If a an integer value is given play gain is set to the given value. Valid
+values are in the range 0-100.</ul>
+<b>snack::audio outputDevices</b>
+<ul>Returns a list of available audio output devices.</ul>
+<b>snack::audio rates</b>
+<ul>Returns a list of supported sample rates for the current selected device.</ul>
+<b>snack::audio record_gain</b><i> ?value?</i>
+<ul>Returns the current record gain value if invoked without a parameter.
+If a an integer value is given record gain is set to the given value. Valid
+values are in the range 0-100.</ul>
+<b>snack::audio selectOutput</b> <i>device</i>
+<ul>Selects an audio output device to be used as default.</ul>
+<b>snack::audio scaling</b><i> ?factor?</i>
+<ul>Scale the global output stream by multiplying with <i>factor</i>.
+Useful to prevent clipping when playing many simultaneous sounds. If no
+value is specified the current factor is returned, default is 1.0.</ul>
+<b>snack::audio selectInput</b> <i>device</i>
+<ul>Selects an audio input device to be used as default.</ul>
+<b>snack::audio stop</b>
+<ul>Stops all playback on the audio device.</ul>
+
+<hr>
+<h3>
+<a NAME="debug"></a>NAME</h3>
+snack::debug - Control Snack debugging facilities
+<h3>
+SYNOPSIS</h3>
+<b>snack::debug</b> level ?logFile? ?audioDumpFile?
+<h3>
+DESCRIPTION</h3>
+The debug command is used to control the debugging facilities of Snack. The level flag is an integer (1-5) specifying the detail level of the generated debug log. Level 1 just prints entry/exit points of sound commands during execution. An optional second filename argument can be given to specify a file where the log will be written. An optional third filename can be given to specify a file where a raw dump of all audio being played through the audio device is to be generated. The sound file will be created in RAW (headerless) format. Note that debugging has to be turned on for each individual <a href="#sound">sound</a> object of interest. Reports on bugs/problems with Snack should typically include a minimal script that shows the problem, any associated sound files, and a debug log in order to facilitate a quick solution.
+<p>
+<hr>
+<h3>
+<a NAME="filter"></a>NAME</h3>
+snack::filter - Create and manipulate filters
+<h3>
+SYNOPSIS</h3>
+<b>snack::filter type</b> ?arg? ...
+<p><i>filterName option ?arg arg ...?</i>
+<h3>
+DESCRIPTION</h3>
+The filter command is used to create filter objects. These can interact
+with sound objects either using the sound <a href="#sfilter">filter</a>
+command or during <a href="#splay">playback</a>. Note that since a filter
+object may contain state information about a sound stream it should only
+be used for one play operation at a time.
+<h3>
+FILTER COMMAND</h3>
+When a filter object is created, Snack returns the name of a newly created
+object command. This command may be used to invoke various operations on
+the filter.
+<p><i>filterCmd</i> <b>configure ?arg ...?</b>
+<ul>Configures the filter command, see the filter types for their
+respective options.</ul>
+<i>filterCmd</i> <b>destroy</b>
+<ul>Removes the filter command and frees the storage associated
+with it. If the filter is currently used for playback an unfiltered stream
+will be output as soon as the internal buffer has been played.</ul>
+
+<h3>
+FILTER TYPES</h3>
+Current filter types.
+
+<p><b>compose</b><i> filter filter ...</i>
+<ul>Creates a new filter which is a linear combination of two or
+more other filters. The output of the first is fed into the input of the
+next and so on.</ul>
+
+<b>echo</b><i> inGain outGain delay decay ?delay decay ...?</i>
+<ul>Creates an echo effect. <i>inGain</i> is a multiplicative factor
+applied on the input stream. <i>outGain</i> is applied on the output. Both
+factors should be between 0.0 and 1.0. For each echo a delay/decay
+pair should be specified. The <i>delay</i> is specified in milliseconds
+and <i>decay</i> is a factor relative to <i>inGain</i>.</ul>
+
+<b>fade</b> <i>direction type length ?floor?</i>
+<ul>An envelope filter for creating fades. The option <i>direction</i> should be either <b>in</b> or <b>out</b>. The option <i>type</i> one of <b>linear</b>, <b>exponential</b>, or <b>logarithmic</b>. <i>length</i> should be given in milliseconds. If needed a minimum fade level (value between 0 and 1.0) can be given as parameter four.</ul>
+
+<b>formant</b> <i>frequency bandwidth</i>
+<ul>A formant filter with given <i>frequency</i> and <i>bandwidth</i>.</ul>
+
+<b>generator</b> <i>frequency ?amplitude? ?shape? ?type? ?ntot?</i>
+<ul>A signal generator with given <i>frequency</i> and <i>amplitude</i>.
+<i>type</i>
+can be any of rectangle, triangle, sine, noise, or sampled. In the case
+of sampled the generator will repeatedly get data from the sound it is
+applied on.
+<i>shape</i>
+is a value between 0.0 and 1.0 used to influence the shape of the signal. It is only useful for rectangle, triangle, or sine types. Use a value of 0.5 with rectangle to get a square wave or with triangle to get a triangle wave. Use a value of 0.0 with sine to get a sine wave and with triangle to get a sawtooth wave. See the demo formant.tcl for an interactive demonstration.
+<i>ntot</i> specifies how many samples to generate. The default,
+-1, will generate forever.</ul>
+
+<b>iir</b><i> ?-denominator list? ?-dither value? ?-impulse list? ?-noise value? ?-numerator list?</i>
+<ul>Creates an IIR or FIR filter. For FIR filters the coefficients are given as a list using the -impulse option. For IIR filters the coefficients are given as lists using the options -numerator and -denominator. The option -dither specifies the amount of triangular dithering to add to the output. The option -noise  specifies the amount of additive gaussian noise to add to the output.</ul>
+
+<b>map</b><i> val ?val val val ...?</i>
+<ul>Applies a linear transformation on each sample frame. For one
+channel sounds this is simply a multiplication. For multi-channel sounds,
+a transformation matrix can be specified with values row by row. One column
+per channel is needed. If mono output is used, only one row needs to be
+specified. If stereo output is used, only two rows needs to be specified.
+If only one value is specified and the filter is used for multi-channel
+data, each channel is multiplied with the given value.</ul>
+<b>reverb</b> <i>outGain time delay ?delay ...?</i>
+<ul>A reverb effect. <i>outGain</i> is a value between 0.0 and
+1.0. <i>time</i> and <i>delay</i> are given in milliseconds.</ul>
+
+<h3>
+BUGS</h3>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; This command still needs work.
+<h3>
+
+<hr WIDTH="100%"></h3>
+
+<h3>
+<a NAME="mixer"></a><b>NAME</b></h3>
+snack::mixer - Get/set properties of mixer devices
+<br>&nbsp;
+<h3>
+<b>SYNOPSIS</b></h3>
+<b>snack::mixer property</b> ?arg? ...
+<h3>
+DESCRIPTION</h3>
+The mixer command is used to get and set properties of mixer devices such
+as current input/output jack, supported ports, mixer lines, and gain.
+<p><b>snack::mixer channels </b><i>line</i>
+<ul>Returns a list with the names of the channels for the specified <i>line</i>.</ul>
+<b>snack::mixer devices</b>
+<ul>Returns a list of available mixer devices.</ul>
+<b>snack::mixer input </b><i>?jack? ?varName?</i>
+<ul>Gets/sets the current input jack. Optionally link a boolean Tcl variable.</ul>
+<a NAME="inputs"></a><b>snack::mixer inputs</b>
+<ul>Returns a list of available input ports.</ul>
+<b>snack::mixer lines</b>
+<ul>Returns a list with the names of the lines of the mixer device.</ul>
+<b>snack::mixer output </b><i>?jack? ?varName?</i>
+<ul>Gets/sets the current output jack. Optionally link a boolean Tcl variable.</ul>
+<a NAME="outputs"></a><b>snack::mixer outputs</b>
+<ul>Returns a list of available output ports.</ul>
+<b>snack::mixer update</b>
+<ul>Updates all linked variables to reflect the status of the mixer device.</ul>
+<b>snack::mixer volume</b><i> line ?varName? ?varName?</i>
+<ul>Return the current volume setting for <i>mixer</i>. Optionally link
+a Tcl variable to the value. If two variable names are specified they are
+used for the left and right channels respectively.</ul>
+<b>snack::mixer select</b><i> ?device?</i>
+<ul>Selects a mixer device to be used as default.</ul>
+
+<hr WIDTH="100%">
+<br>NAME
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; snack::sound - Create and
+manipulate sounds
+<br><a href="#SYNOPSIS">SYNOPSIS</a>
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; snack::sound ?name? ?options?
+<br><a href="#DESCRIPTION">DESCRIPTION</a>
+<br><a href="#CREATING SOUNDS">CREATING SOUNDS</a>
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <a href="#sfile">snack::sound
+?name? ?-load filename?&nbsp;<i> </i>?-file filename?&nbsp; ?-channel channelname?
+?-rate f? ?-channels n? ?-encoding fmt? ?-fileformat fmt? ?-skiphead n?
+?-byteorder endianess? ?-guessproperties boolean?&nbsp; ?-buffersize n?
+?-precision prec? -changecommand procedure? ?-debug level?</a>
+<br><a href="#SOUND COMMAND">SOUND COMMAND</a>
+<dd>
+<a href="#sapp"><i>soundName </i><b>append variable</b> <b>?-rate f? ?-channels
+n? ?-encoding fmt? ?-skiphead n? ?-byteorder endianess? ?-start start?
+?-end end? ?-guessproperties boolean?</b></a></dd>
+
+<dd>
+<a href="#scget"><i>soundName </i><b>cget option</b></a></dd>
+
+<dd>
+<a href="#schanged"><i>soundName </i><b>changed flag</b></a></dd>
+
+<dd>
+<a href="#sconc"><i>soundName </i><b>concatenate sound</b></a></dd>
+
+<dd>
+<a href="#sconf"><i>soundName </i><b>configure option value ...</b></a></dd>
+
+<dd>
+<a href="#sconv"><i>soundName </i><b>convert option value</b></a></dd>
+
+<dd>
+<a href="#scopy"><i>soundName </i><b>copy sound</b> <b>?-start start? ?-end
+end?</b></a></dd>
+
+<dd>
+<a href="#scut"><i>soundName </i><b>cut sound start end</b></a></dd>
+
+<dd>
+<a href="#scrop"><i>soundName </i><b>crop start end</b></a></dd>
+
+<dd>
+<a href="#sdata"><i>soundName </i><b>data variable ?-rate f? ?-channels
+n? ?-encoding fmt? ?-skiphead n? ?-byteorder endianess? ?-start
+start? ?-end end? ?-guessproperties boolean?</b></a></dd>
+
+<dd>
+<a href="#sdata"><i>soundName </i><b>data ?-start start? ?-end end? ?-fileformat
+fileformat? ?-byteorder endianess?</b></a></dd>
+
+<dd>
+<a href="#sdest"><i>soundName </i><b>destroy</b></a></dd>
+
+<dd>
+<a href="#sfft"><i>soundName </i><b>dBPowerSpectrum ?-start sample? ?-end
+sample? ?-skip samples? ?-fftlength length? ?-windowlength length? ?-channel
+channel? ?-preemphasisfactor factor? ?-windowtype type? ?-analysistype type? ?-lpcorder n?</b></a></dd>
+
+<dd>
+<a href="#sfilter"><i>soundName </i><b>filter filterName ?-start sample?
+?-end sample? ?-continedrain boolean? ?-progress callback?</b></a></dd>
+
+<dd>
+<a href="#sflush"><i>soundName </i><b>flush</b></a></dd>
+
+<dd>
+<a href="#sformant"><i>soundName </i><b>formant ?-start sample? ?-end
+sample? ?-framelength t? ?-numformants n? ?-windowlength length?
+?-preemphasisfactor factor? ?-windowtype type? ?-lpctype? ?-lpcorder n? ?-ds_freq?
+?-nom_f1_freq? ?-progress callback?</b></a></dd>
+
+<dd>
+<a href="#sinfo"><i>soundName</i> <b>info</b></a></dd>
+
+<dd>
+<a href="#sins"><i>soundName</i> <b>insert sound position ?-start start?
+?-end end?</b></a></dd>
+
+<dd>
+<a href="#slast"><i>soundName</i> <b>lastIndex</b></a></dd>
+
+<dd>
+<a href="#slen"><i>soundName</i> <b>length ?n? ?-unit u?</b></a></dd>
+
+<dd>
+<a href="#smax"><i>soundName</i> <b>max ?-start start? ?-end end?
+?-channel channel?</b></a></dd>
+
+<dd>
+<a href="#smin"><i>soundName </i><b>min ?-start start? ?-end end?
+?-channel channel?</b></a></dd>
+
+<dd>
+<a href="#smix"><i>soundName </i><b>mix sound</b> <b>?-start start? ?-end
+end? ?-mixscaling factor? ?-prescaling factor? ?-progress callback?</b></a></dd>
+
+<dd>
+<a href="#spause"><i>soundName </i><b>pause</b></a></dd>
+
+<dd>
+<a href="#spitch"><i>soundName </i><b>pitch ?-method m? ?-start start?
+?-end end? ?-framelength t? ?-windowlength length? ?-maxpitch val?
+?-minpitch val? ?-progress callback?</b></a></dd>
+
+<dd>
+<a href="#splay"><i>soundName </i><b>play ?-start start? ?-end end? ?-output
+jack? ?-blocking boolean? -command ?callback? ?-device outputDevice? ?-devicerate rate? ?-devicechannels channels?</b></a></dd>
+
+<dd>
+<a href="#spower"><i>soundName </i><b>power ?-start sample? ?-end
+sample? ?-framelength length? ?-windowlength length? ?-windowtype type? ?-preemphasisfactor factor? ?-channel channel? ?-progress callback?</b></a></dd>
+
+<dd>
+<a href="#spowspect"><i>soundName </i><b>powerSpectrum ?-start sample? ?-end
+sample? ?-skip samples? ?-fftlength length? ?-windowlength length? ?-channel
+channel? ?-preemphasisfactor factor? ?-windowtype type? ?-analysistype type? ?-lpcorder n?</b></a></dd>
+
+<dd>
+<a href="#sread"><i>soundName </i><b>read </b><i>filename</i><b> ?-rate
+f? ?-channels n? ?-encoding fmt? ?-skiphead n? ?-byteorder endianess??-start
+start? ?-end end? ?-guessproperties boolean ?-progress callback?</b></a></dd>
+
+<dd>
+<a href="#srec"><i>soundName </i><b>record ?-input jack? ?-append boolean?
+?-device inputDevice?</b></a></dd>
+
+<dd>
+<a href="#srev"><i>soundName </i><b>reverse ?-start start? ?-end end? ?-progress callback?</b></a></dd>
+
+<dd>
+<a href="#ssamp"><i>soundName </i><b>sample n ?value? ...</b></a></dd>
+
+<dd>
+<a href="#sspeat"><i>soundName </i><b>speatures ?-start start? 
+?-end end? ?-channel channel? ?-framelength length? 
+?-windowlength length? ?-preemphasisfactor factor?
+ ?-windowtype type? ?-nchannels n? ?-ncoeff n?
+?-cepstrallifter boolean? ?-energy boolean? ?-zeromean boolean?
+?-zerothcepstralcoeff boolean? ?-lowcutoff freq?
+?-highcutoff freq?</b></a></dd>
+
+<dd>
+<a href="#sstop"><i>soundName </i><b>stop</b></a></dd>
+
+<dd>
+<a href="#swrite"><i>soundName </i><b>write </b><i>filename</i><b> ?-start
+start? ?-end end?</b> <b>?-fileformat fileformat? ?-progress callback?
+-byteorder ?endianess?</b></a></dd>
+
+<br>
+<hr>
+<h3>
+<a NAME="sound"></a>NAME</h3>
+snack::sound - Create and manipulate sounds
+<h3>
+<a NAME="SYNOPSIS"></a>SYNOPSIS</h3>
+<b>snack::sound </b><i>soundName</i>
+<p><i>soundName option ?arg arg ...?</i>
+<h3>
+<a NAME="DESCRIPTION"></a><b>DESCRIPTION</b></h3>
+The <b>snack::sound</b> command is used to create sound objects. Sound
+objects can interact with files, variables, canvas items and the audio
+hardware.
+<h3>
+<a NAME="CREATING SOUNDS"></a>CREATING SOUNDS</h3>
+The sound command is used to create sound objects. It can take several
+different forms, depending on the option argument. The legal forms are:
+<p><a NAME="sfile"></a><b>snack::sound </b><i>?soundName? ?-load filename?</i>&nbsp;<i>
+?-file filename?</i>&nbsp;<i> ?-channel channelname? ?-rate f? ?-channels
+n? ?-encoding fmt? ?-fileformat fmt? ?-skiphead n? ?-byteorder endianess?
+?-guessproperties boolean?&nbsp; ?-buffersize n? ?-precision prec? ?-changecommand procedure? ?-debug level?</i>
+<p><i>soundName</i> specifies the name of the sound. If it is omitted then
+Snack picks a name of the form sound<i>n</i>, where <i>n</i> is an integer.
+The <b>-load</b> option specifies that the file <i>filename</i> should
+be read into memory after creating the sound. The <b>-file</b> option specifies
+an on-disk file which should be linked to the sound. The <b>-channel</b>
+option specifies that audio data resides on a channel which should be linked
+to the sound. In these cases the audio data is not loaded into memory,
+which is useful when playing large files or when using streaming audio.
+A value of 1 or larger must be specified for the <b>-channels</b> option
+(<b>Mono</b>, or <b>Stereo</b> are also valid). If not specified a default value of 1 is assumed.
+Possible values for sample encoding format, given using the <b>-encoding</b> option,
+are <b>Lin16</b>, <b>Lin8offset</b>, <b>Lin8</b>,<b> Lin24</b>,
+<b>Lin32</b>, <b>Float</b>, <b>Alaw</b>, or <b>Mulaw</b>. Default encoding is <b>Lin16</b>. The option <b>-rate</b> can take any positive value but usually only sample rates supported by the audio hardware are useful. Note that the default value is 16000, a common value for speech related applications, but less frequent for other uses, such as music.
+<b>-fileformat</b> works as for the <b>read</b> command.
+<b>-skiphead</b> is used to skip an unknown file header of size <b>n</b> bytes.
+Byte order can be specified as littleEndian or bigEndian using the
+<b>-byteorder</b> option. The option
+<b>-guessproperties</b>
+is used to specify that Snack should try to infer properties, such as byte
+order, sample encoding format, and sample rate for a raw file by analyzing
+the contents of the file. Byte order is almost always detected correctly.
+For channel based sounds the
+<b>-buffersize</b> option can be used to specify
+the size of the internal buffer in samples. The option <b>-precision</b>
+is used to specify if sound data is to be handled using simple or double
+precision internally. -<b>changecommand</b> is used to specify a procedure
+which is to be called every time a property of the sound is changed. This
+is the Tcl level counterpart of Snack_AddCallback(). The procedure should
+expect one argument, one of the strings <i>New, More, </i>or<i> Destroy</i>.
+This feature is particularly useful when embedding sound objects in other
+higher level constructs. The flag -<b>debug</b> is used to control debug output for operations on the sound object. The option takes a level argument, an integer in the range 1-5, specifying the detail of the trace information.
+<p><a NAME="SOUND COMMAND"></a>SOUND COMMAND
+<br>When a sound object is created, Snack also creates a new object command
+whose name is the same as the sound. This command is used to invoke various
+operations (or sub-commands) on the sound. This is the current set:
+<p><a NAME="sapp"></a><i>soundName</i> <b>append</b> <i>variable</i> <b>?-rate
+f? ?-channels n? ?-encoding fmt? ?-skiphead n? ?-byteorder endianess? ?-start
+start? ?-end</b> <b>end? ?-fileformat fmt?</b> <b>?-guessproperties boolean?</b>
+<ul>Appends binary string data to the end of <i>soundName</i>. The same
+options apply as for the <b>read</b> command. This command applies to in-memory
+sounds only.</ul>
+<a NAME="scget"></a><i>soundName </i><b>cget option</b>
+<ul>The cget command retrieves the current value of an option for a sound.
+Option can be any of the following: <b>-load, -file, -channel, -rate, -channels,
+-encoding, -skiphead, -byteorder, -guessproperties</b>, <b>-precision</b>,
+and <b>-buffersize</b>. See the <a href="#sfile">sound</a> command for
+more information on these.</ul>
+<a NAME="schanged"></a><i>soundName </i><b>changed flag</b>
+<ul>This command is used to inform Snack that the sound object has been
+modified. Normally Snack tracks changes to sound objects automatically,
+but in a few cases this must be performed explicitly. For example, if individual samples are changed using the sample command these will not be tracked for performance reasons.
+Here a <b>changed</b> command might be necessary. <b>flag</b> can be either
+<i>New</i>
+or <i>More</i>. <i>New</i> is used for any type of change while
+<i>More</i>
+only applies to the case where more samples has been appended.</ul>
+<a NAME="sconc"></a><i>soundName </i><b>concatenate sound</b>
+<ul>Concatenates the sample data from <b>sound</b> to the end of <i>soundName</i>.
+The sound to be added must be of the same type as the base sound, i.e. have the same sample rate, sample
+encoding format, and number of channels). Note that even an initially empty sound has these properties defined. This command applies to in-memory
+sounds only.</ul>
+<a NAME="sconf"></a><i>soundName </i><b>configure option value ...</b>
+<ul>The configure command is used to set options for a sound. Options can
+be any of the following: <b>-load, -file, -channel, -rate, -channels, -encoding,
+-skiphead, -byteorder, -guessproperties, -precision, -debug</b> and <b>-buffersize</b>.
+See the <a href="#sfile">sound</a> command for more information on these.</ul>
+<a NAME="sconv"></a><i>soundName </i><b>convert option value ...</b>
+<ul>The convert command is used to convert a sound to a different sample
+encoding, sample rate, or number of channels. Options can be any of the
+following: <b>-rate, -channels,</b> <b>-encoding, </b>and <b>-progress</b>.
+A value of 1 or larger must be specified for the <b>-channels</b> option
+(<b>Mono</b>, or <b>Stereo</b> are also valid). Only conversions from many
+channels to one or the reverse are possible. Values for sample encoding
+format are <b>Lin16</b>, <b>Lin8offset</b>, <b>Lin8</b>,<b> Lin24</b>,
+<b>Lin32</b>,
+<b>Float</b>,
+<b>Alaw</b>,
+or
+<b>Mulaw</b>. The current sample rate conversion algorithm is simple
+and may not be suitable for all needs. See the <a href="#sread">read</a>
+command for a description on how to use the <b>-progress</b> option. This
+command applies to in-memory sounds only.</ul>
+<a NAME="scopy"></a><i>soundName </i><b>copy sound</b> <b>?-start start?
+?-end end?</b>
+<ul>Copies sample data from <b>sound</b>. Optionally a range of samples
+to copy can be specified. Any active play operation is stopped before the
+command is executed if the format of the new sound differs from the current.
+This command applies to in-memory sounds only.</ul>
+<a NAME="scrop"></a><i>soundName </i><b>crop start end</b>
+<ul>Crops the sound to the given range <b>[start end]</b>, i.e. all samples
+before and after these limits will be removed. This command applies to
+in-memory sounds only.</ul>
+<a NAME="scut"></a><i>soundName </i><b>cut start end</b>
+<ul>Cuts the given range <b>[start end]</b> from the sound, i.e. all samples
+between and including these limits will be removed. This command applies
+to in-memory sounds only.</ul>
+<a NAME="sdata"></a><i>soundName </i><b>data ?variable? ?option value?
+...</b>
+<ul>Loads sound data from, or writes to, a binary string.
+<p>When loading data the same options apply as for the <b>read</b> command:
+<p><i>soundName </i><b>data variable ?-rate f? ?-channels n? ?-encoding
+fmt? ?-skiphead n? ?-byteorder endianess?</b> <b>?-start start? ?-end end??-fileformat
+fmt?</b> <b>?-guessproperties boolean?</b>
+<p>The command returns the file format detected. Any active play operation
+is stopped before data is loaded.
+<p>When writing data to a binary string <b>-start</b> and <b>-end</b> options
+can be given (as for the <b>write</b> command). Also, a <b>-fileformat</b>
+option can be given if the file format should be different from the original.
+In the case of RAW file format the endianess can be specified as either
+bigEndian or littleEndian.
+<p><i>soundName </i><b>data ?-start start? ?-end end?</b> <b>?-fileformat
+fileformat? -byteorder ?endianess?</b>
+<p>This command applies to in-memory sounds only.</ul>
+<a NAME="sdest"></a><i>soundName </i><b>destroy</b>
+<ul>Removes the sound command and frees the storage associated with it.</ul>
+<a NAME="sfft"></a><i>soundName </i><b>dBPowerSpectrum</b> <b>?-start sample?
+?-end sample? ?-fftlength length? ?-windowlength length? ?-windowtype
+type? ?-skip samples? ?-channel channel? ?-preemphasisfactor
+factor? ?-analysistype type? ?-lpcorder n?</b>
+<ul>Computes the log FFT power spectrum of the sound at <b>-start</b> and
+returns a list of dB values. Optionally an end point can be given, using
+<b>-end</b>.
+In this case the result is the average of consecutive FFT's in the specified
+range. Their default spacing is taken from <b>-fftlength</b> but this can
+be changed using the <b>-skip</b> option which specifies how many points
+to move the FFT window forward at each step. See the <a href="#section">section item</a> for the rest of the options. </ul>
+<a NAME="sfilter"></a><i>soundName </i><b>filter filterName ?-start sample?
+?-end sample? ?-continuedrain boolean? ?-progress callback?</b>
+<ul>Applies the <a href="#filter">filter</a> <b>filterName</b> to the sound.
+Optionally, a range to apply the filter on can be specified. The <b>-continuedrain
+</b>option
+specifies whether the filter should be allowed to drain out past the end
+point. See the <a href="#sread">read</a> command for a description on how
+to use the <b>-progress</b> option. This command applies to in-memory sounds
+only.</ul>
+<a NAME="sflush"></a><i>soundName </i><b>flush</b>
+<ul>Removes all audio data from the sound. This command applies to in-memory
+sounds only.</ul>
+<a NAME="sformant"></a><i>soundName </i><b>formant ?-start sample? ?-end
+sample? ?-framelength t? ?-numformants n? ?-windowlength length?
+?-preemphasisfactor factor? ?-windowtype type? ?-lpctype? ?-lpcorder n? ?-ds_freq?
+?-nom_f1_freq? ?-progress callback?</b>
+<ul>Estimates speech formant trajectories. Dynamic programming is used to optimize trajectory estimates by imposing frequency continuity constraints. The formant frequencies are selected from  candidates  proposed  by solving for the roots of the linear predictor polynomial computed periodically. The local costs of all possible mappings of the complex roots to formant frequencies are computed at each frame based on the frequencies and bandwidths of the component formants for each mapping. The cost of  connecting each of these mappings with each of the mappings in the previous frame is then minimized using a modified Viterbi algorithm. The command returns a list with one element per frame, each containg a list with formant and bandwidth values, {F1 F2 ... B1 B2 ...}. The first row corresponds to a start time of half the window length, see the <b>-windowlength</b> option. The option <b>-numformants</b> controls how many formants to calculate (default 4, maximum 7). The <b>-framelength</b> option specifies the intervals between the values (default 0.01). The option <b>-windowtype</b> is used to select windowing function, (valid values are Cos^4 (default), Hamming, Hanning, or Rectangle). <b>-windowlength</b> specifies the size of the window in seconds (default 0.049). <b>-preemphasisfactor</b> is used to specify the amount of preemphasis applied to the signal prior to windowing (default 0.7). A range of samples can be given using <b>-start</b> and <b>-end</b>. <b>-lpctype</b> is either 0 (autocorrelation) or 1 (stabilized  covariance). The order of the LPC analysis specified using <b>-lpcorder</b> (default 12). The option <b>-ds_freq</b> specifies the sampling rate of the data to be used in the formant frequency analysis (default 10000). <b>-nom_f1_freq</b> specifies the nominal value of the first formant frequency. This value is used to adjust the nominal values of all other formants and of the ranges over which the formants are permitted to exist. The default value of 500Hz assumes that the vocal tract length is 17 cm and that the speed of  sound is 34000 cm/sec. Nominal F1 values scale directly with sound velocity and inversely with vocal-tract length.</b> See the <a href="#sread">read</a> command for a description on how to use the <b>-progress</b> option.</ul>
+<a NAME="sinfo"></a><i>soundName </i><b>info</b>
+<ul>Returns a list with information about the sound. The entries are {<i>length
+rate "maximum sample" "minimum sample" "sample encoding" "number of channels"
+"file format" "header size in bytes"</i>}</ul>
+<a NAME="sins"></a><i>soundName</i> <b>insert sound position ?-start start?
+?-end end?</b>
+<ul>Inserts sound at position. Optionally a range of samples to insert
+can be specified. This command applies to in-memory sounds only.</ul>
+<a NAME="slast"></a><i>soundName</i> <b>lastIndex</b>
+<ul>Returns the last sample index of the sound object.</ul>
+<a NAME="slen"></a><i>soundName</i> <b>length ?n? ?-unit u?</b>
+<ul>Gets or sets the length of the sound in number of samples (default),
+or seconds, by setting <b>u</b> to either SAMPLES or SECONDS. If the new
+length is larger than the current the sound is padded with additional silence.</ul>
+<a NAME="smax"></a><i>soundName</i> <b>max ?-start start? ?-end end?
+?-channel channel?</b>
+<ul>Returns the largest positive sample value of the sound. A range of
+samples and a channel to be examined can be specified. The default is to
+check all channels and return the maximum value.</ul>
+<a NAME="smin"></a><i>soundName</i> <b>min ?-start start? ?-end end?
+?-channel channel?</b>
+<ul>Returns the largest negative sample value of the sound. A range of
+samples and a channel to be examined can be specified. The default is to
+check all channels and return the minimum value.</ul>
+<a NAME="smix"></a><i>soundName</i> <b>mix sound</b> <b>?-start start?
+?-end end? ?-mixscaling factor? ?-prescaling factor? ?-progress callback?</b>
+<ul>Copies sample data from <b>sound</b>. Optionally a range of samples,
+where the mix operation will be applied, can be specified. The <b>-mixscaling</b> option controls how much to scale <i>soundName</i> before mixing. The option <b>-prescaling</b> controls how much to scale the original sound before mixing.
+This command applies to in-memory sounds only.</ul>
+<a NAME="spause"></a><i>soundName</i> <b>pause</b>
+<ul>Pause current play/record operation. Next <b>pause</b> invocation resumes
+play/record. If several play operations for one sound object are in progress all of them are paused using <b>pause</b>.</ul>
+<a NAME="spitch"></a><i>soundName</i> <b>pitch ?-method m? ?-start start?
+?-end end? ?-framelength t? ?-windowlength length? ?-maxpitch val?
+?-minpitch val? ?-progress callback?</b>
+<ul>Returns a list of pitch values computed using either the
+normalized cross correlation function and dynamic programming or the
+AMDF method. This is selected using the <b>-method</b> option, by specifying either ESPS or AMDF. For ESPS the output list will contain 4 fields for each frame, pitch, probability of voicing, local root mean squared measurements, and the peak normalized cross-correlation value that was found to determine the output pitch value. The values are spaced according to the -framelength option (default 0.01). The first row corresponds to either 0.0 (for AMDF), or to half the window length (for ESPS), see the <b>-windowlength</b> option. A range of samples can be given using <b>-start</b> and <b>-end</b>. If a frequency range of valid pitch values is known this can be specified using the options <b>-maxpitch</b> (default 400) and <b>-minpitch</b> (default 60). <b>-windowlength</b> specifies the size of the window in seconds (default 0.0075).
+See the <a href="#sread">read</a> command for a description on how to use
+the <b>-progress</b> option.</ul>
+<a NAME="splay"></a><i>soundName </i><b>play ?-start start? ?-end end?
+?-output jack??-blocking boolean? ?-command callback? ?-device outputDevice?
+?-filter filter? ?-devicerate f? ?-devicechannels n?</b>
+<ul>Plays a sound. A start position can be specified
+using the <b>-start</b> option and an end position using the <b>-end</b> option. The values should be given in samples and the end of the sound can be given as <b>-1</b>. The <b>-output</b>
+option is used to specify any of the possible output ports returned
+by the <a href="#outputs">audio outputs</a> command.
+The <b>-blocking</b> option is used to specify whether playback
+should be asynchronous or not, i.e. if it is to be played in
+the background or if the <b>play</b> command should return only
+after the sound has been played. Asynchronous playback is only possible if the event loop is running, e.g., if the script uses the
+wish interpreter with a graphical user interface. Otherwise
+the event loop needs to be started using for example <b>vwait</b>.
+The <b>-command</b> option specifies a command to be
+executed when the end of the sound is reached. The <b>-device</b>
+option selects which audio output device to use. The <b>-filter</b>
+option is used to specify a <a href="#filter">filter</a> which is
+to be applied during output. The audio device can be opened with
+different properties from those of the sound object using
+<b>-devicerate</b> and <b>-devicechannels</b>,
+which might be useful in some rare cases. The option
+<b>-starttime</b> is used to schedule the start of playback
+(in ms) relative to a previous play operation. All options
+are ignored if <b>play</b> is used to resume
+a paused play operation. If a <b>play </b>command is issued
+while another one is in progress, the new sound will start
+to play as soon as possible given the internal buffering.
+The lag before the sound is audible can be controlled
+using the <a href="#latency">snack::audio latency</a> command.</ul>
+<a NAME="spower"></a><i>soundName </i><b>power ?-start sample? ?-end
+sample? ?-framelength length? ?-windowlength length? ?-windowtype type? ?-preemphasisfactor factor? ?-channel channel? ?-progress callback?</b>
+<ul>Returns a list of windowed log power values. The <b>-framelength</b> option specifies the intervals between the values. The option <b>-windowtype</b> is used to select windowing function, (valid values are Hamming, Hanning, Bartlett, Blackman, or Rectangle). <b>-windowlength</b> specifies the size
+of the window in points. -<b>preemphasisfactor</b> is used to specify the amount of preemphasis applied to the signal prior to windowing. A range of samples can be given using
+<b>-start</b> and <b>-end</b>. See the <a href="#sread">read</a> command for a description on how to use the <b>-progress</b> option and the <a href="#section">section item</a> for the <b>-channel</b> option.</ul>
+<a NAME="spowspect"></a><i>soundName </i><b>powerSpectrum</b> <b>?-start sample?
+?-end sample? ?-fftlength length? ?-windowlength length? ?-windowtype
+type? ?-skip samples? ?-channel channel? ?-preemphasisfactor
+factor? ?-analysistype type? ?-lpcorder n?</b>
+<ul>Computes the FFT power spectrum of the sound at <b>-start</b> and
+returns a list of magnitude values. Optionally an end point can be given, using
+<b>-end</b>.
+In this case the result is the average of consecutive FFT's in the specified
+range. Their default spacing is taken from <b>-fftlength</b> but this can
+be changed using the <b>-skip</b> option which specifies how many points
+to move the FFT window forward at each step. See the <a href="#section">section item</a> for the rest of the options. </ul>
+<a NAME="sread"></a><i>soundName </i><b>read </b><i>filename</i><b> ?-fileformat
+fmt?</b> <b>?-rate f? ?-channels n? ?-encoding fmt? ?-skiphead n? ?-byteorder
+endianess? ?-start start? ?-end end?</b> <b>?-guessproperties boolean?
+?-progress callback?</b>
+<ul>Reads new sound data from a file. Current supported file formats are
+WAV, MP3, AU, SND, AIFF, SD, SMP, CSL, and RAW binary. The command returns
+the file format detected. It is possible to force a file to be read as
+RAW using "<b>-fileformat
+</b>RAW". In this case the properties of the
+sound data should be specified by hand. <b>-rate</b> and <b>-channels</b>
+are used to set the sampling rate and the number of channels (<b>Mono</b>/<b>Stereo</b>).
+The <b>-encoding</b> option is used to specify sample encoding format.
+Currently, the formats <b>Lin16</b>, <b>Lin8offset</b>, <b>Lin8</b>,<b>
+Lin24</b>,
+<b>Lin32</b>,
+<b>Float</b>,
+<b>Alaw</b>, and
+<b>Mulaw</b> are
+supported.
+<b>-skiphead</b> is used to skip an unknown header of size <b>n</b>
+bytes, and <b>-byteorder</b> is used to specify endianess (<b>bigEndian</b>/<b>littleEndian</b>).&nbsp;
+The option
+<b>-guessproperties</b> is used to specify that Snack should
+try to infer properties, such as byte order, sample encoding format, and
+sample rate for raw files by analyzing the contents of the file. Byte order
+is almost always detected correctly. It is possible to add a progress callback
+procedure which is to be called at regular intervals using the
+<b>-progress</b>
+option. This procedure is called with two arguments, first the string "Read
+sound" and then a double value specifying the fraction of the command that
+currently has been completed.&nbsp; If the callback returns with an error
+code (return -code error) the read operation is cancelled. The convenience
+routine snack::progressCallback opens up a message box with an appropriate
+message if used as argument procedure to this option. Any active play operation
+is stopped before the command is executed, if the format of the new sound
+data differs from the current. This command applies to in-memory sounds
+only.</ul>
+<a NAME="srec"></a><i>soundName </i><b>record ?option value? ...</b>
+<ul>Starts recording data from the audio device into the sound object.
+For in-memory sound objects the command has the following form:
+<p><i>soundName </i><b>record ?-input jack? ?-append boolean? ?-device
+inputDevice?</b>
+The <b>-input</b> option specifies one of the available input
+ports returned by the <a href="#inputs">audio inputs</a> command.
+<b>-append</b> specifies that new audio data should be appended
+at the end of the existing sound instead of replacing it.
+The <b>-device</b> option selects which audio input device to use.
+<p>File and channel based sounds have the options:
+<p><i>soundName </i><b>record ?-input jack? ?-fileformat fmt?
+?-device inputDevice?</b>
+<p>The <b>-fileformat</b> option can be used to specify the file
+format to be used when writing data to a channel. In this case
+there is no file name to infer the format from.
+<p>Note that recording is only possible if the event loop is
+running, e.g., if the script uses the wish interpreter with a
+graphical user interface. Otherwise the event loop needs to be
+started using for example <b>vwait</b>. Just using <b>after n</b> between a <b>record/stop</b> command pair is
+not enough. Use something like <b>after n {set flag 1} ;
+vwait flag</b> in order to make sure the event loop is kept active
+</ul>
+<a NAME="srev"></a><i>soundName </i><b>reverse ?-start start? ?-end end?
+?-progress callback?</b>
+<ul>Reverses a <b>sound</b>. Optionally a range of samples to be reversed
+can be specified. See the <a href="#sread">read</a> command for a description
+on how to use the <b>-progress</b> option. This command applies to in-memory
+sounds only.</ul>
+<a NAME="ssamp"></a><i>soundName </i><b>sample n ?value? ...</b>
+<ul>Gets or sets sample number <b>n</b>. When setting samples one value
+should be specified for each channel. A ? character can be used to specify
+that a certain value should not be affected, i. e. "snd sample 10000 ?
+999", would set the right channel of sample number 10000 of sound snd to
+the value of 999 without influencing the left channel. Samples can be read
+for all sound types but can only be set for in-memory sounds.</ul>
+
+<a NAME="sspeat"></a><i>soundName</i> <b>speatures sound ?-start start? 
+?-end end? ?-channel channel? ?-framelength length? 
+?-windowlength length? ?-preemphasisfactor factor?
+ ?-windowtype type? ?-nchannels n? ?-ncoeff n?
+?-cepstrallifter boolean? ?-energy boolean? ?-zeromean boolean?
+?-zerothcepstralcoeff boolean? ?-lowcutoff freq?
+?-highcutoff freq?</b>
+<ul>Compute speech recognition feature vectors. The resulting parameters will be stored in <b>sound</b>. Parameterization and options are compatible with the ones used by the <a href="http://htk.eng.cam.ac.uk">The Hidden Markov Model Toolkit (HTK)</a>.</ul>
+
+<a NAME="sstop"></a><i>soundName </i><b>stop</b>
+<ul>Stops current play or record operation. If there is a queue of sounds
+to play, each of them can stop playback using <b>stop</b>. Any callbacks
+registered using the <b>-command</b> option of the <b>play</b> command
+will not be executed.</ul>
+<a NAME="swrite"></a><i>soundName </i><b>write </b><i>filename</i><b> ?-start
+start? ?-end end?</b> <b>?-fileformat fileformat? ?-byteorder endianess?
+?-progress callback?</b>
+<ul>Writes sound data to a file. A range of samples to save can be specified
+using the <b>-start</b> and <b>-end</b> options. The file format is inferred
+from the filename extension. Currently, the supported formats are WAV,
+AU, SND, AIFF, SMP, CSL, and RAW. The <b>-fileformat</b> option overrides
+the guess from file name extension. If you specify RAW file format the
+sound will be saved to file without a header using the natural byte order
+of the machine. This can be overridden using the option -<b>byteorder</b>.
+See the <a href="#sread">read</a> command for a description on how to use
+the <b>-progress</b> option.</ul>
+
+<h3>
+
+<hr WIDTH="100%"></h3>
+
+<h3>
+<a NAME="spectrogram"></a>NAME</h3>
+spectrogram - Spectrogram canvas item
+<h3>
+SYNOPSIS</h3>
+<i>pathName</i> <b>create</b> <b>spectrogram</b> x y ?options value option
+value ...?
+<h3>
+OPTIONS</h3>
+
+<dd>
+-<b>anchor</b><i> anchorPos</i></dd>
+
+<dd>
+-<b>brightness</b><i> value</i></dd>
+
+<dd>
+-<b>channel</b><i> channel</i></dd>
+
+<dd>
+-<b>colormap</b><i> colorlist</i></dd>
+
+<dd>
+-<b>contrast</b><i> value</i></dd>
+
+<dd>
+-<b>debug</b><i> level</i></dd>
+
+<dd>
+-<b>end</b><i> sample</i></dd>
+
+<dd>
+-<b>fftlength</b><i> length</i></dd>
+
+<dd>
+-<b>gridcolor</b><i> color</i></dd>
+
+<dd>
+-<b>gridfspacing</b><i> value</i></dd>
+
+<dd>
+-<b>gridtspacing</b><i> value</i></dd>
+
+<dd>
+-<b>height</b><i> size</i></dd>
+
+<dd>
+-<b>pixelspersecond</b><i> value</i></dd>
+
+<dd>
+-<b>preemphasisfactor</b><i> factor</i></dd>
+
+<dd>
+-<b>sound</b><i> name</i></dd>
+
+<dd>
+-<b>start</b><i> sample</i></dd>
+
+<dd>
+-<b>tags </b><i>tagList</i></dd>
+
+<dd>
+-<b>topfrequency</b><i> frequency</i></dd>
+
+<dd>
+-<b>width</b><i> size</i></dd>
+
+<dd>
+-<b>windowtype</b><i> type</i></dd>
+
+<dd>
+-<b>winlength</b><i> length</i></dd>
+
+<h3>
+DESCRIPTION</h3>
+This command draws the spectrogram of a sound. The options -<b>anchor</b>,
+and -<b>tags</b> work as for other Tk canvas items. -<b>sound</b> specifies
+which sound object to link to and -<b>height</b> the height of the spectrogram.
+The option <b>-fftlength</b> specifies the number of FFT points (8, 16,
+32, 64, 128, 256, 512, 1024, 2048, or 4096). The default value is 256. 
+The option <b>-windowtype</b> is used to select windowing function, (valid values are Hamming, Hanning, Bartlett, Blackman, or Rectangle). The default window type is Hamming. <b>-winlength</b> specifies the size
+of the hamming window, which should be equal to or less than the number
+of FFT points. The default window length is 128. -<b>preemphasisfactor</b> is used to specify the amount
+of preemphasis applied to the signal prior to the FFT calculation, default 0.97. <b>-start</b>
+and <b>-end</b> controls which part of the sound to display. <b>-pixelspersecond</b>
+determines the scaling factor in the x-direction. The <b>-width</b> option
+specifies the width of the spectrogram. If both <b>-width</b> and <b>-pixelspersecond</b>
+are specified the spectrogram will be cut at one end depending on if a
+<b>-start</b>
+or <b>-end</b> option was also given. Currently, spectrograms
+have a width limit of 32767 pixels. Use the <b>-channel</b> option to
+select which channel to show for multichannel sounds. Use left, right,
+both, all, -1 (all) or a channel number counting from 0 (left). The default
+is to show all, i.e. to add all channels. -<b>brightness</b> and
+-<b>contrast</b>
+takes values beteween -100.0 and 100.0 with the default being 0.0. -<b>topfrequency</b>
+is the frequency value at the top of the spectrogram, default is the Nyquist
+frequency. -<b>gridtspacing</b> is the spacing between markers in
+seconds (default 0 means no grid) and
+-<b>gridfspacing</b> is the
+frequency spacing in Hz (default 0 means no grid). -<b>gridcolor</b> specifies
+the color of the grid. A colormap for the spectrogram is given with the
+-<b>colormap</b>
+option. It takes a list of colors as parameter and at least two must be
+specified. The first color is used for the lowest intensity in the spectrogram.
+An empty list gives the default 32-level grey scale. The flag -<b>debug</b> is used to control debug output for the item. The option takes a level argument, an integer in the range 1-5, specifying the detail of the trace information.
+<br>See also the code examples in the widget demonstration.
+<h3>
+
+<hr></h3>
+
+<h3>
+<a NAME="section"></a>NAME</h3>
+section - Spectrum section canvas item
+<h3>
+SYNOPSIS</h3>
+<i>pathName</i> <b>create</b> <b>section</b> x y ?options value option
+value ...?
+<h3>
+OPTIONS</h3>
+
+<dd>
+-<b>anchor</b><i> anchorPos</i></dd>
+
+<dd>
+-<b>analysistype</b><i> type</i></dd>
+
+<dd>
+-<b>channel</b><i> channel</i></dd>
+
+<dd>
+-<b>debug</b><i> level</i></dd>
+
+<dd>
+-<b>end</b><i> sample</i></dd>
+
+<dd>
+-<b>fftlength</b><i> length</i></dd>
+
+<dd>
+-<b>fill</b><i> color</i></dd>
+
+<dd>
+-<b>frame</b><i> boolean</i></dd>
+
+<dd>
+-<b>height</b><i> size</i></dd>
+
+<dd>
+-<b>lpcorder</b><i> n</i></dd>
+
+<dd>
+-<b>maxvalue</b><i> value</i></dd>
+
+<dd>
+-<b>minvalue</b><i> value</i></dd>
+
+<dd>
+-<b>preemphasisfactor</b><i> factor</i></dd>
+
+<dd>
+<b>-skip</b><i> points</i></dd>
+
+<dd>
+-<b>sound</b><i> name</i></dd>
+
+<dd>
+-<b>start</b><i> sample</i></dd>
+
+<dd>
+-<b>stipple</b><i> value</i></dd>
+
+<dd>
+-<b>tags </b><i>tagList</i></dd>
+
+<dd>
+-<b>topfrequency</b><i> frequency</i></dd>
+
+<dd>
+-<b>width</b><i> size</i></dd>
+
+<dd>
+-<b>windowtype</b><i> type</i></dd>
+
+<dd>
+-<b>winlength</b><i> length</i></dd>
+
+<h3>
+DESCRIPTION</h3>
+This command draws the FFT log power spectrum section of a sound.
+The options -<b>anchor</b>, -<b>fill</b>, -<b>stipple</b>, and -<b>tags</b>
+work as for other Tk canvas line items. -<b>sound</b> specifies which
+sound object to link to and -<b>height</b> and -<b>width</b> the height/width
+of the section. The option <b>-fftlength</b> specifies the number of FFT
+points (8, 16, 32, 64, 128, 256, 512, 1024, 2048, or 4096). The default value is 512. The option <b>-windowtype</b> is used to select windowing function, (valid values are Hamming, Hanning, Bartlett, Blackman, or Rectangle). The default window type is Hamming. <b>-analysistype</b> is either <b>FFT</b> (default) or <b>LPC</b>, for LPC analysis the order is specified using <b>-lpcorder</b> (default 20). <b>-winlength</b> specifies the size
+of the window, which should be equal to or less than the number of FFT
+points. The default window length is 128. -<b>preemphasisfactor</b> is used to specify the amount of preemphasis
+applied to the signal prior to the FFT calculation (default 0.0).
+<b>-start</b> and <b>-end</b>
+controls which part of the sound to display.
+-<b>topfrequency</b>
+is the frequency value at the right end of the section. -<b>maxvalue</b>
+and -<b>minvalue</b> specify the range (in dB) which will be shown (default
+0.0 to -80.0). Use the <b>-channel</b> option to select which channel to
+show for multichannel sounds. Use left, right, both, all, -1 (all) or a
+channel number counting from 0 (left). The default is to show all, i.e.
+to add all channels. <b>-frame</b> specifies whether a frame will be drawn
+around the spectrum section. The flag -<b>debug</b> is used to control debug output for the item. The option takes a level argument, an integer in the range 1-5, specifying the detail of the trace information.
+<br>See also the code examples in the widget demonstration.
+<p>
+<hr>
+<h3>
+<a NAME="waveform"></a>NAME</h3>
+waveform - Waveform canvas item
+<h3>
+SYNOPSIS</h3>
+<i>pathName</i> <b>create</b> <b>waveform </b>x y ?option value option
+value ...?
+<h3>
+OPTIONS</h3>
+
+<dd>
+-<b>anchor</b><i> anchorPos</i></dd>
+
+<dd>
+-<b>channel</b><i> channel</i></dd>
+
+<dd>
+-<b>debug</b><i> level</i></dd>
+
+<dd>
+-<b>end </b><i>sample</i></dd>
+
+<dd>
+-<b>fill </b><i>color</i></dd>
+
+<dd>
+-<b>frame</b><i> boolean</i></dd>
+
+<dd>
+-<b>height</b><i> size</i></dd>
+
+<dd>
+-<b>limit</b><i> value</i></dd>
+
+<dd>
+-<b>pixelspersecond</b><i> value</i></dd>
+
+<dd>
+<b>-progress</b> <i>procedure</i></dd>
+
+<dd>
+-<b>shapefile</b><i> filename</i></dd>
+
+<dd>
+-<b>sound</b><i> name</i></dd>
+
+<dd>
+-<b>start </b><i>sample</i></dd>
+
+<dd>
+-<b>stipple </b><i>bitmap</i></dd>
+
+<dd>
+-<b>subsample</b><i> value</i></dd>
+
+<dd>
+-<b>tags </b><i>tagList</i></dd>
+
+<dd>
+-<b>width</b><i> size</i></dd>
+
+<dd>
+-<b>zerolevel</b><i> boolean</i></dd>
+
+<h3>
+DESCRIPTION</h3>
+This command draws the waveform of a sound. The options -<b>anchor</b>,
+-<b>fill</b>, -<b>stipple</b>, and -<b>tags</b> work as for other Tk
+canvas line items. -<b>sound</b> specifies which sound object to link to
+and -<b>height</b> the height of the waveform. The options <b>-start</b>
+and <b>-end</b> controls which part of the sound to display. -<b>pixelspersecond</b>
+determines the scaling factor in the x-direction. The <b>-width</b> option
+specifies the width of the waveform. If both <b>-width</b> and <b>-pixelspersecond</b>
+are specified the waveform will be cut at one end depending on if a <b>-start</b>
+or <b>-end</b> option was also given. Use the <b>-channel</b> option to
+select which channel to show for multichannel sounds. Use left, right,
+both, all, -1 (all) or a channel number counting from 0. The default is
+to show all, i.e. to add all channels. Use <b>-limit</b> to specify the
+maximum shown value for the sound amplitude. <b>-zerolevel</b> specifies
+whether the zero level will be displayed (default yes) and <b>-frame</b> whether a frame will be drawn around the waveform (default no). The -<b>subsample</b> option
+is useful for large sounds to specify how precisely they should be analyzed
+for shape calculation. The default value 1 uses every sample in the sound
+to draw the waveform envelope, which can be slow for large sounds. A value
+of 10 uses every 10th. Care should be used when specifying this because
+a large value could lead to an incorrect envelope shape. The option -<b>shapefile</b> is used to specify a file for storing/retrieving precomputed waveform shape
+information. The file specified is created if it does not already exist. If it exists it is
+accessed instead of the sound data itself, thus speeding up on-screen display.
+There exists two convenience routines, snack::deleteInvalidShapeFile and
+snack::makeShapeFileDeleteable, which can be used to enclose a <b>create
+waveform</b> statement when using the shape file functionality. These will
+make sure that shape files are handled properly, see the demo cool.tcl,
+for an example of this. See the <a href="#sread">read</a> command for a
+description on how to use the <b>-progress</b> option. The flag <b>-debug</b> is used to control debug output for the item. The option takes a level argument, an integer in the range 1-5, specifying the detail of the trace information.
+<br>See also code examples in the widget demonstration.
+<p>
+<hr>
+<a NAME="defpack"></a>
+<h3>Standard extension packages</h3>
+<p>The following packages are included in the Snack distribution or can be downloaded separately.
+<p><b>sound</b>
+<ul>The <b>sound</b> package gives you the <b>snack::audio, snack::filter, snack::mixer, </b>and <b>snack::sound </b>commands. Basicly the same functions as the <b>snack</b> package except for graphics. This is useful on some systems if you want to use the tclsh interpreter.</ul>
+<p><b>snackogg</b>
+<ul>The <b>snackogg</b> package adds support for the Ogg/Vorbis compressed sound file format. Ogg format files and streams are detected automatically. Encoding is supported. Simply use the extension .ogg when writing files or use the option <b>-fileformat ogg</b>. When creating Ogg files the additional options <b>-nominalbitrate</b>, <b>-maxbitrate</b>, <b>-minbitrate</b>, and <b>-comment</b> apply.</ul>
+<p><b>snacksphere</b>
+<ul>The <b>snacksphere</b> package adds support for reading the NIST/Sphere sound file formats. Sphere files are detected automatically.</ul>
+<p>
+<hr WIDTH="100%">
+<br><a href="http://www.speech.kth.se/snack/index.html">Snack home</a>
+</body>
+</html>

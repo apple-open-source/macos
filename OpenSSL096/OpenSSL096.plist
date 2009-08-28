@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2003-09-15</string>
+	<key>OpenSourceLicense</key>
+	<string>Apache-style</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>OpenSSL096.txt</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>Fixed path to makedepend in openssl/util/domd</string>
+		<string>Fix to handle different file(1) output better</string>
+		<string>Building "universal" (instead of "fat")</string>
+		<string>Fix for building when .order file is missing</string>
+		<string>Using order files from /usr/local/lib/OrderFiles</string>
+		<string>Patched CAN-2003-0543 and CAN-2003-0544</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>OpenSSL096</string>
+	<key>OpenSourceSHA1</key>
+	<string>4fdd3c5f09b1276bf3c64140a38130c6dd49871c</string>
+	<key>OpenSourceURL</key>
+	<string>http://www.openssl.org/source/openssl-0.9.6l.tar.gz</string>
+	<key>OpenSourceVersion</key>
+	<string>0.9.6l</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://wwww.openssh.org/</string>
+</dict>
+</plist>

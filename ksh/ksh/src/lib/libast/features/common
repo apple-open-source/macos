@@ -265,8 +265,9 @@ tst	- -DN=1 - -DN=2 - -DN=3 - -DN=4 - -DN=5 - -DN=6 - -DN=7 - -DN=8 - -DN=0 outp
 			}
 		}
 		printf("#define _ast_intmax_t		_ast_int%d_t\n", m);
-		if (m == sizeof(long))
-			printf("#define _ast_intmax_long		1\n");
+		printf("#if sizeof(intmax_t) == sizeof(long)\n"
+		printf("#define _ast_intmax_long		1\n");
+		printf("#endif\n");
 		printf("#if __LITTLE_ENDIAN__\n");
 		printf("#define _ast_intswap		7\n");
 		printf("#elif __BIG_ENDIAN__\n");
@@ -386,7 +387,7 @@ typ uintmax_t stdint.h inttypes.h no{
 	typedef unsigned _ast_intmax_t uintmax_t;
 }end
 
-tst	- -DTRY=1 - -DTRY=1 -Dvoid=char - -DTRY=2 - -DTRY=3 - -DTRY=4 output{
+tst	- -DTRY=4 - -DTRY=1 - -DTRY=1 -Dvoid=char - -DTRY=2 - -DTRY=3 output{
 	#if _STD_ && _hdr_stdarg
 	#include <stdarg.h>
 	static void

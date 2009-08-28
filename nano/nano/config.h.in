@@ -1,6 +1,6 @@
 /* config.h.in.  Generated from configure.ac by autoheader.  */
 
-/* Define this to enable nano debug messages and assert warnings. */
+/* Define this to enable debug messages and assert warnings. */
 #undef DEBUG
 
 /* Define this to disable the built-in file browser. */
@@ -9,26 +9,27 @@
 /* Define this to disable the help text display. */
 #undef DISABLE_HELP
 
-/* Define this to disable the justify routine. */
+/* Define this to disable the justify routines. */
 #undef DISABLE_JUSTIFY
 
-/* Define this to disable the mouse functions. */
+/* Define this to disable the mouse support. */
 #undef DISABLE_MOUSE
 
-/* Define this to disable setting of the operating directory (chroot of
+/* Define this to disable the setting of the operating directory (chroot of
    sorts). */
 #undef DISABLE_OPERATINGDIR
 
-/* Define this to disable wrapping as root by default. */
+/* Define this to disable text wrapping as root by default. */
 #undef DISABLE_ROOTWRAPPING
 
 /* Define this to disable the spell checker functions. */
 #undef DISABLE_SPELLER
 
-/* Define to disable the tab completion code Chris worked so hard on! */
+/* Define to disable the tab completion functions for files and search
+   strings. */
 #undef DISABLE_TABCOMP
 
-/* Define this to disable any and all text wrapping. */
+/* Define this to disable all text wrapping. */
 #undef DISABLE_WRAPPING
 
 /* Define this to have syntax highlighting, requires regex.h and ENABLE_NANORC
@@ -38,7 +39,7 @@
 /* Define this to enable multiple file buffers. */
 #undef ENABLE_MULTIBUFFER
 
-/* Define this to use the .nanorc file. */
+/* Define this to use .nanorc files. */
 #undef ENABLE_NANORC
 
 /* Define to 1 if translation of program messages to the user's native
@@ -177,13 +178,13 @@
 /* Define to 1 if you have the `wcwidth' function. */
 #undef HAVE_WCWIDTH
 
-/* Define this to enable the extra stuff. */
+/* Define this to enable extra stuff. */
 #undef NANO_EXTRA
 
 /* Define this to make the nano executable as small as possible. */
 #undef NANO_TINY
 
-/* Shut up the assert warnings :-) */
+/* Shut up assert warnings :-) */
 #undef NDEBUG
 
 /* Name of package */

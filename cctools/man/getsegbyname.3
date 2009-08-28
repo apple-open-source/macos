@@ -1,4 +1,4 @@
-.TH GETSEGBYNAME 3  "April 10, 1998" "Apple Computer, Inc."
+.TH GETSEGBYNAME 3  "October 3, 2008" "Apple, Inc."
 .SH NAME
 getsegbyname \- get the segment command for the named segment
 .SH SYNOPSIS
@@ -21,5 +21,12 @@ just looks through the load commands.  Since these are mapped into the
 segment they are read-only and thus
 .I const
 by default.
+If this is to be used in executables linked with
+.B \-pie
+then the value return by the call to
+.IR _dyld_get_image_vmaddr_slide (0)
+will need to be added to the
+.B vmaddr
+field of the segment_command struct.
 .SH "SEE ALSO"
 end(3), getsectbyname(3)

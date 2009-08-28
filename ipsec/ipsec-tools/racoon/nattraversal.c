@@ -65,6 +65,7 @@
 #include "schedule.h"
 #include "nattraversal.h"
 #include "grabmyaddr.h"
+#include "ike_session.h"
 
 struct natt_ka_addrs {
   struct sockaddr	*src;
@@ -220,6 +221,9 @@ natt_compare_addr_hash (struct ph1handle *iph1, vchar_t *natd_received,
     verified = 1;
   }
 
+    if (iph1->parent_session)
+        iph1->parent_session->natt_flags = iph1->natt_flags;
+
   vfree (natd_computed);
 
   return verified;
@@ -300,98 +304,110 @@ natt_fill_options (struct ph1natt_options *opts, int version)
   return 0;
 }
 
-#ifdef NOT_NOW
-static int
+int
 create_natoa_payloads(struct ph2handle *iph2, vchar_t **natoa_i, vchar_t **natoa_r)
 {
 	int natoa_type = 0;
-	int natt_type;
 	vchar_t		*i;
 	vchar_t		*r;
 	u_int8_t	*p;
-	size_t		src_size;
-	size_t		dst_size;
+	struct sockaddr *i_addr;
+	struct sockaddr *r_addr;
+	size_t		i_size;
+	size_t		r_size;
 	
 	*natoa_i = *natoa_r = NULL;
 	
 
 	/* create natoa payloads if natt being used */
 	/* don't send if type == apple				*/
-	if ((natt_type = natd_hasnat(iph2->ph1)) != 0)
-		if (natt_type == natt_type_rfc)
-			natoa_type = ISAKMP_NPTYPE_NATOA_RFC;
-		else if (natt_type == natt_type_02 || natt_type == natt_type_02N)
-			natoa_type = ISAKMP_NPTYPE_NATOA_DRAFT;
-	
+	if (!iph2->ph1->natt_options)
+		return 0;
+
+	natoa_type = iph2->ph1->natt_options->payload_nat_oa;
 	if (natoa_type == 0)
 		return 0;
-		
-	switch (iph2->src->sa_family) {
-		case AF_INET:
-			src_size = sizeof(in_addr_t);
-			break;
-#ifdef INET6
-		case AF_INET6:
-			src_size = sizeof(struct in6_addr);
-			break;
-#endif
-		default:
-			plog(LLV_ERROR, LOCATION, NULL,
-			"invalid address family: %d\n", iph2->src->sa_family);
-			return -1;		
+
+	if (iph2->side == INITIATOR) {
+		i_addr = iph2->src;
+		r_addr = iph2->dst;
+	} else {
+		i_addr = iph2->dst;
+		r_addr = iph2->src;
 	}
-		
-	switch (iph2->dst->sa_family) {
+
+	switch (i_addr->sa_family) {
 		case AF_INET:
-			dst_size = sizeof(in_addr_t);
+			i_size = sizeof(in_addr_t);
 			break;
 #ifdef INET6
 		case AF_INET6:
-			dst_size = sizeof(struct in6_addr);
+			i_size = sizeof(struct in6_addr);
 			break;
 #endif
 		default:
 			plog(LLV_ERROR, LOCATION, NULL,
-			"invalid address family: %d\n", iph2->dst->sa_family);
+				 "invalid address family: %d\n", i_addr->sa_family);
 			return -1;		
 	}
 
-	i = vmalloc(sizeof(struct isakmp_pl_natoa) + src_size - sizeof(struct isakmp_gen));	
-	r = vmalloc(sizeof(struct isakmp_pl_natoa) + dst_size - sizeof(struct isakmp_gen));
-	if (i == NULL || r == NULL) {
+	switch (r_addr->sa_family) {
+		case AF_INET:
+			r_size = sizeof(in_addr_t);
+			break;
+#ifdef INET6
+		case AF_INET6:
+			r_size = sizeof(struct in6_addr);
+			break;
+#endif
+		default:
+			plog(LLV_ERROR, LOCATION, NULL,
+				 "invalid address family: %d\n", r_addr->sa_family);
+			return -1;		
+	}
+
+	i = vmalloc(sizeof(struct isakmp_pl_natoa) + i_size - sizeof(struct isakmp_gen));
+	if (i == NULL) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to get buffer for natoa payload.\n");
+		return -1;
+	}
+	r = vmalloc(sizeof(struct isakmp_pl_natoa) + r_size - sizeof(struct isakmp_gen));
+	if (r == NULL) {
+		vfree(i);
 		plog(LLV_ERROR, LOCATION, NULL,
 			"failed to get buffer for natoa payload.\n");
 		return -1;
 	}
 	
 	/* copy src address */
-	p = i->v;
+	p = (__typeof__(p))i->v;
 	
-	switch (iph2->src->sa_family) {
+	switch (i_addr->sa_family) {
 		case AF_INET:
 			*p = IPSECDOI_ID_IPV4_ADDR;
-			bcopy(&(((struct sockaddr_in *)iph2->src)->sin_addr.s_addr), p + sizeof(u_int32_t), src_size);
+			bcopy(&(((struct sockaddr_in *)i_addr)->sin_addr.s_addr), p + sizeof(u_int32_t), i_size);
 			break;
 #ifdef INET6
 		case AF_INET6:
 			*p = IPSECDOI_ID_IPV6_ADDR;
-			bcopy(&(((struct sockaddr_in6 *)iph2->src)->sin6_addr), p + sizeof(u_int32_t), src_size);
+			bcopy(&(((struct sockaddr_in6 *)i_addr)->sin6_addr), p + sizeof(u_int32_t), i_size);
 			break;
 #endif
 	}
 
 	/* copy dst address */
-	p = r->v;
+	p = (__typeof__(p))r->v;
 	
-	switch (iph2->dst->sa_family) {
+	switch (r_addr->sa_family) {
 		case AF_INET:
 			*p = IPSECDOI_ID_IPV4_ADDR;
-			bcopy(&(((struct sockaddr_in *)iph2->dst)->sin_addr.s_addr), p + sizeof(u_int32_t), dst_size);
+			bcopy(&(((struct sockaddr_in *)r_addr)->sin_addr.s_addr), p + sizeof(u_int32_t), r_size);
 			break;
 #ifdef INET6
 		case AF_INET6:
 			*p = IPSECDOI_ID_IPV6_ADDR;
-			bcopy(&(((struct sockaddr_in6 *)iph2->dst)->sin6_addr), p + sizeof(u_int32_t), dst_size);
+			bcopy(&(((struct sockaddr_in6 *)r_addr)->sin6_addr), p + sizeof(u_int32_t), r_size);
 			break;
 #endif
 	}
@@ -400,8 +416,49 @@ create_natoa_payloads(struct ph2handle *iph2, vchar_t **natoa_i, vchar_t **natoa
 	*natoa_r = r;
 	return natoa_type;
 }	
-#endif	
-	
+
+struct sockaddr *
+process_natoa_payload(vchar_t *buf)
+{
+	struct sockaddr      *saddr = NULL;
+	struct ipsecdoi_id_b *id_b = (struct ipsecdoi_id_b *)buf->v;
+
+	switch (id_b->type) {
+		case IPSECDOI_ID_IPV4_ADDR:
+			saddr = racoon_malloc(sizeof(struct sockaddr_in));
+			if (!saddr) {
+				plog(LLV_ERROR, LOCATION, NULL,
+					 "error allocating addr for NAT-OA payload\n");
+				return NULL;
+			}
+			saddr->sa_len = sizeof(struct sockaddr_in);
+			saddr->sa_family = AF_INET;
+			((struct sockaddr_in *)saddr)->sin_port = IPSEC_PORT_ANY;
+			memcpy(&((struct sockaddr_in *)saddr)->sin_addr,
+				   buf->v + sizeof(*id_b), sizeof(struct in_addr));
+			break;
+#ifdef INET6
+		case IPSECDOI_ID_IPV6_ADDR:
+			saddr = racoon_malloc(sizeof(struct sockaddr_in6));
+			if (!saddr) {
+				plog(LLV_ERROR, LOCATION, NULL,
+					 "error allocating addr for NAT-OA payload\n");
+				return NULL;
+			}
+			saddr->sa_len = sizeof(struct sockaddr_in6);
+			saddr->sa_family = AF_INET6;
+			((struct sockaddr_in6 *)saddr)->sin6_port = IPSEC_PORT_ANY;
+			memcpy(&((struct sockaddr_in6 *)saddr)->sin6_addr,
+				   buf->v + sizeof(*id_b), sizeof(struct in6_addr));
+			break;
+#endif
+		default:
+			plog(LLV_ERROR, LOCATION, NULL,
+				 "invalid NAT-OA payload %d\n", id_b->type);
+			return NULL;
+	}
+	return saddr;
+}
 
 void
 natt_float_ports (struct ph1handle *iph1)
@@ -429,7 +486,8 @@ natt_float_ports (struct ph1handle *iph1)
 		set_port (iph1->remote, iph1->natt_options->float_port);
 	iph1->natt_flags |= NAT_PORTS_CHANGED | NAT_ADD_NON_ESP_MARKER;
 
-	
+	ike_session_ikev1_float_ports(iph1);
+
 #ifndef __APPLE__
 	natt_keepalive_add_ph1 (iph1);
 #endif
@@ -516,8 +574,16 @@ natt_keepalive_add (struct sockaddr *src, struct sockaddr *dst)
     return -1;
   }
 
-  new_addr->src = dupsaddr(src);
-  new_addr->dst = dupsaddr(dst);
+  if ((new_addr->src = dupsaddr(src)) == NULL) {
+	racoon_free(new_addr);
+    	plog (LLV_ERROR, LOCATION, NULL, "Can't allocate new KA list item\n");
+	return -1;
+  }
+  if ((new_addr->dst = dupsaddr(dst)) == NULL) {
+	racoon_free(new_addr);
+    	plog (LLV_ERROR, LOCATION, NULL, "Can't allocate new KA list item\n");
+	return -1;
+  }
   new_addr->in_use = 1;
   TAILQ_INSERT_TAIL(&ka_tree, new_addr, chain);
 

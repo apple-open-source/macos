@@ -23,7 +23,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 void *
 xmalloc(
-long n)
+size_t n)
 {
     void *retval;
 
@@ -36,7 +36,7 @@ long n)
 void *
 xrealloc(
 void *ptr,
-long n)
+size_t n)
 {
     if((ptr = realloc(ptr, (unsigned)n)) == 0)
 	as_fatal("virtual memory exceeded");

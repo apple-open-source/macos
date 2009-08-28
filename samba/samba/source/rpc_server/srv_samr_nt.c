@@ -1600,7 +1600,10 @@ NTSTATUS _samr_lookup_names(pipes_struct *p, SAMR_Q_LOOKUP_NAMES *q_u, SAMR_R_LO
 				type[i] = SID_NAME_ALIAS;
 			}
 		} else {
-			lookup_global_sam_name(name, 0, &rid[i], &type[i]);
+			DOM_SID tmp;
+			if (lookup_global_sam_name(name, 0, &tmp, &type[i])) {
+				sid_split_rid(&tmp, &rid[i]);
+			}
 		}
 
 		if (type[i] != SID_NAME_UNKNOWN) {
@@ -2579,9 +2582,9 @@ static NTSTATUS can_create(TALLOC_CTX *mem_ctx, const char *new_name)
 	DEBUG(10, ("Checking whether [%s] can be created\n", new_name));
 
 	become_root();
-	/* Lookup in our local databases (only LOOKUP_NAME_ISOLATED set)
+	/* Lookup in our local databases (LOOKUP_NAME_REMOTE not set)
 	 * whether the name already exists */
-	result = lookup_name(mem_ctx, new_name, LOOKUP_NAME_ISOLATED,
+	result = lookup_name(mem_ctx, new_name, LOOKUP_NAME_LOCAL,
 			     NULL, NULL, NULL, &type);
 	unbecome_root();
 
@@ -3444,11 +3447,17 @@ static BOOL set_user_info_pw(uint8 *pass, struct samu *pwd)
 	uint32 len;
 	pstring plaintext_buf;
 	uint32 acct_ctrl;
+	time_t last_set_time;
+	enum pdb_value_state last_set_state;
  
 	DEBUG(5, ("Attempting administrator password change for user %s\n",
 		  pdb_get_username(pwd)));
 
 	acct_ctrl = pdb_get_acct_ctrl(pwd);
+	/* we need to know if it's expired, because this is an admin change, not a
+	   user change, so it's still expired when we're done */
+	last_set_state = pdb_get_init_flags(pwd, PDB_PASSLASTSET);
+	last_set_time = pdb_get_pass_last_set_time(pwd);
 
 	ZERO_STRUCT(plaintext_buf);
  
@@ -3490,6 +3499,9 @@ static BOOL set_user_info_pw(uint8 *pass, struct samu *pwd)
 	}
  
 	ZERO_STRUCT(plaintext_buf);
+
+	/* restore last set time as this is an admin change, not a user pw change */
+	pdb_set_pass_last_set_time (pwd, last_set_time, last_set_state);
  
 	DEBUG(5,("set_user_info_pw: pdb_update_pwd()\n"));
  

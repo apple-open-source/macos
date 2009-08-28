@@ -1,0 +1,88 @@
+.TH XvSetPortAttribute __libmansuffix__  __vendorversion__
+.SH Name
+XvSetPortAttribute \- sets an attribute of a video port 
+.\"
+.SH Syntax
+.B #include <X11/extensions/Xvlib.h>
+.sp
+.nf
+.BI "XvSetPortAttribute(Display *" dpy ", XvPortID " port ",
+.BI "                   Atom " attribute ", int " value ");"
+.fi
+.SH Arguments
+.\"
+.IP \fIdpy\fR 15
+Specifies the connection to the X server.
+.IP \fIport\fR 15
+Specifies the port for which the attribute is to be used.
+.IP \fIattribute\fR 15
+Identifies the port attribute to be set by this request.
+Can be one of the table entries under the column "String," below.
+.IP \fIvalue\fR 15
+Identifies the value to which \fIattribute\fP is to be set.
+Can be one of the table entries under the column "Type," below.
+.\"
+.SH Description
+XvSetPortAttribute(__libmansuffix__) permits a client to set the port attribute
+to specified values.  This request supports the following values:
+.bp
+.PP
+.\" .TS
+.\" tab(@);
+.\" lfHB lfHB lfHB
+.\" lfR  lfR  lfR .
+.\" _
+.\" .PP
+.\" .sp 4p
+.\" Attribute String@Type@Default
+.\" .sp 6p
+.\" _
+.\" .sp 6p
+.\" "XV_ENCODING"@XvEncodingID@Server dependent
+.\" "XV_HUE"@[-1000...1000]@0
+.\" "XV_SATURATION"@[-1000...1000]@0
+.\" "XV_BRIGHTNESS"@[-1000...1000]@0
+.\" "XV_CONTRAST"@[-1000...1000]@0
+.\" .sp 6p
+.\" .TE
+.nf
+Attribute String        Type             Default
+
+"XV_ENCODING"           XvEncodingID     Server dependent
+"XV_HUE"                [-1000...1000]   0
+"XV_SATURATION"         [-1000...1000]   0
+"XV_BRIGHTNESS"         [-1000...1000]   0
+"XV_CONTRAST"           [-1000...1000]   0
+.fi
+.PP
+The supplied encoding must be one of the encodings listed for the
+adaptor, otherwise an Encoding error results.
+.PP
+If the adaptor does not support the exact hue, saturation,
+brightness, and contrast levels supplied, the closest levels
+supported are assumed.  Use XvGetPortAttribute(__libmansuffix__) 
+to query the resulting levels.
+.PP
+When an XvSetPortAttribute(__libmansuffix__) request is processed, a 
+PortControlNotify(__libmansuffix__) event is generated for all clients 
+that have requested for port changes using XvSelectPortNotify(__libmansuffix__).
+.SH Returned Values
+.IP [Success] 8
+Returned if XvSetPortAttribute(__libmansuffix__) completed successfully.
+.IP [XvBadExtension] 8
+Returned if the Xv extension is unavailable.
+.IP [XvBadAlloc] 8
+Returned if XvSelectVideoNotify(__libmansuffix__) failed to allocate memory to process
+the request.
+.SH Diagnostics
+.IP [XvBadPort] 8
+Generated if the requested port does not exist.
+.IP [XvBadEncoding] 8
+Generated if an encoding is specified that does not exist.
+.IP [BadMatch] 8
+Generated if the requested attribute atom does not specify an attribute 
+supported by the adaptor.
+.SH See Also
+.\"
+XvGetPortAttribute(__libmansuffix__), XvSelectPortNotify(__libmansuffix__), XvPortNotify(__libmansuffix__)
+.br

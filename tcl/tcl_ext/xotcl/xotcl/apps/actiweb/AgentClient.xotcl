@@ -1,0 +1,151 @@
+#!/usr/bin/env tclsh
+# $Id: AgentClient.xotcl,v 1.5 2006/09/27 08:12:39 neumann Exp $
+#if {![info exists ACTIWEB_HOME]} {source ~/actiweb/paths.xotcl}
+package require XOTcl; namespace import -force xotcl::*
+package require xotcl::package
+package verbose 1
+
+package require xotcl::actiweb::agent
+package require xotcl::actiweb::httpPlace
+
+Place p
+set receiverHost localhost:8087
+
+#
+# if we migrate an object, we cannot send the result to [self]
+# in this example we just use a small result printer object to
+# print the result to the stderr stream
+#
+Object resultPrinter
+resultPrinter proc printResult {o m code result} {
+  if {$code eq "OK"} {
+    puts stderr "[self] -- Result -- $m:\n$result"
+  } else {
+    puts stderr "[self] -- Error -- $m: \n$result"
+  }
+}
+
+Class CloneableClass -superclass {Agent Class}
+
+CloneableClass AgentExample -superclass Agent -parameter {
+  {invokeAgent hallo.txt}
+  {invokeMethod content}
+}
+AgentExample proc test-calls {} {
+  #showObj [self]
+
+  set host [::set ::receiverHost]
+  my clone $host "" [list [self] class-cloned]
+}
+AgentExample proc class-cloned {args} {
+  my a1
+  my a2
+  my a3
+  my a4
+  a1 synchronousInvokeCall
+  a3 synchronousMigrateCall
+  a4 synchronousCloneCall
+
+  #a1 asynchronousInvokeCall
+  #a1 asynchronousCloneCall
+  #a2 asynchronousMigrateCall
+  exit
+}
+AgentExample instproc computeXXX args {
+  return XXX--[my set var1]--XXXX
+}
+AgentExample instproc init args {
+  next
+  my set var1 xyz
+  my persistent var1
+}
+AgentExample instproc synchronousInvokeCall args {
+
+  set host [::set ::receiverHost]
+  my instvar invokeAgent invokeMethod
+  puts stderr "*******************[self]: [self proc]"
+  puts stderr "Result: [my syncInvoke $host $invokeAgent $invokeMethod]"
+}
+AgentExample instproc synchronousMigrateCall args {
+  set host [::set ::receiverHost]
+  puts stderr "*******************[self]: [self proc]"
+  set result [my syncMigrate $host computeXXX]
+  puts stderr "Result: '$result'"
+}
+AgentExample instproc synchronousCloneCall args {
+  set host [::set ::receiverHost]
+  puts stderr "*******************[self]: [self proc]"
+  set result [my syncClone $host computeXXX]
+  puts stderr "Result: '$result'"
+}
+AgentExample instproc asynchronousInvokeCall args {
+  set host [::set ::receiverHost]
+  my instvar invokeAgent invokeMethod
+  puts stderr "*******************[self]: [self proc]"
+  my invoke [list resultPrinter printResult my INVOKE] $host $invokeAgent $invokeMethod
+}
+AgentExample instproc asynchronousCloneCall args {
+  set host [::set ::receiverHost]
+  puts stderr "*******************[self]: [self proc]"
+  my clone $host computeXXX [list resultPrinter printResult my CLONE]
+}
+AgentExample instproc asynchronousMigrateCall args {
+  set host [::set ::receiverHost]
+  puts stderr "*******************[self]: [self proc]"
+  my migrate $host computeXXX [list resultPrinter printResult my MIGRATE]
+}
+
+
+#AgentExample instproc callSet args {
+#  set host localhost:8087
+#  set agent welcome
+#
+#  puts stderr INVOKE*******************************
+#  set r [my invoke $host welcome set+a+1]
+#  puts stderr result=$r
+#}
+
+AgentExample instproc destroy args {
+  next
+}
+
+Agent registryTest
+
+registryTest proc test args {
+  set host localhost:8087
+  my createRequest "[self] testOnPlaceName $host" http://$host/
+}
+
+registryTest proc testOnPlaceName {host placeName} {
+  set place [Place getInstance]
+  set subject "http://[$place host]:[$place port]/[self]"
+
+  RDFdb [self]::db
+  [self]::db add "http://nestroy.wi-inf.uni-essen.de/schema/service#name" \
+    $subject registryTest
+  [self]::db add "http://nestroy.wi-inf.uni-essen.de/schema/xotcl#class" \
+    $subject [my info class]
+  #
+  # place info als bag machen ...
+  #
+  [self]::db add "http://nestroy.wi-inf.uni-essen.de/schema/agent#place" \
+    $subject $place
+
+  set rdfText [${place}::rdfCreator createFromTriples [[self]::db getTriples]] 
+
+  [self]::db destroy
+
+  my invoke $host ${placeName}::registry register $rdfText
+
+  set r [my invoke $host ${placeName}::registry query registryTest]
+  puts "************************Query: $r\n"
+  set r [my invoke $host ${placeName}::registry queryProperty http://nestroy.wi-inf.uni-essen.de/schema/agent\#place ::p]
+  puts "************************QueryProperty: $r\n"
+}
+
+
+p exportedObjs client 
+#p startEventLoop "registryTest test"
+#p startEventLoop "client callWelcome; registryTest test"
+p startEventLoop "AgentExample test-calls"
+

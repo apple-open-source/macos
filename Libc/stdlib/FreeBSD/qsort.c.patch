@@ -1,13 +1,153 @@
---- qsort.c.orig	2004-12-01 20:08:48.000000000 -0800
-+++ qsort.c	2004-12-01 20:10:50.000000000 -0800
-@@ -44,8 +44,8 @@
+--- qsort.c.orig	2008-09-24 19:55:30.000000000 -0700
++++ qsort.c	2008-09-25 12:28:18.000000000 -0700
+@@ -34,14 +34,19 @@ static char sccsid[] = "@(#)qsort.c	8.1 
+ __FBSDID("$FreeBSD: src/lib/libc/stdlib/qsort.c,v 1.15 2008/01/14 09:21:34 das Exp $");
+ 
+ #include <stdlib.h>
++#include <string.h>
+ 
+ #ifdef I_AM_QSORT_R
+ typedef int		 cmp_t(void *, const void *, const void *);
  #else
  typedef int		 cmp_t(const void *, const void *);
  #endif
 -static inline char	*med3(char *, char *, char *, cmp_t *, void *);
 -static inline void	 swapfunc(char *, char *, int, int);
++#ifdef I_AM_QSORT_B
++static inline char	*med3(char *, char *, char *, cmp_t ^, void *) __attribute__((always_inline));
++#else
 +static inline char	*med3(char *, char *, char *, cmp_t *, void *) __attribute__((always_inline));
++#endif
 +static inline void	 swapfunc(char *, char *, int, int) __attribute__((always_inline));
  
  #define min(a, b)	(a) < (b) ? a : b
  
+@@ -90,7 +95,13 @@ swapfunc(a, b, n, swaptype)
+ #endif
+ 
+ static inline char *
+-med3(char *a, char *b, char *c, cmp_t *cmp, void *thunk
++med3(char *a, char *b, char *c,
++#ifdef I_AM_QSORT_B
++cmp_t ^cmp,
++#else
++cmp_t *cmp,
++#endif
++void *thunk
+ #ifndef I_AM_QSORT_R
+ __unused
+ #endif
+@@ -101,21 +112,47 @@ __unused
+               :(CMP(thunk, b, c) > 0 ? b : (CMP(thunk, a, c) < 0 ? a : c ));
+ }
+ 
++#ifdef __LP64__
++#define DEPTH(x)	(2 * (flsl((long)(x)) - 1))
++#else /* !__LP64__ */
++#define DEPTH(x)	(2 * (fls((int)(x)) - 1))
++#endif /* __LP64__ */
++
+ #ifdef I_AM_QSORT_R
+-void
+-qsort_r(void *a, size_t n, size_t es, void *thunk, cmp_t *cmp)
++int __heapsort_r(void *, size_t, size_t, void *, int (*)(void *, const void *, const void *));
++#endif
++
++static void
++_qsort(void *a, size_t n, size_t es,
++#ifdef I_AM_QSORT_R
++void *thunk,
+ #else
+-#define thunk NULL
+-void
+-qsort(void *a, size_t n, size_t es, cmp_t *cmp)
++#define thunk	NULL
++#endif
++#ifdef I_AM_QSORT_B
++cmp_t ^cmp,
++#else
++cmp_t *cmp,
+ #endif
++int depth_limit)
+ {
+ 	char *pa, *pb, *pc, *pd, *pl, *pm, *pn;
+ 	size_t d, r;
+ 	int cmp_result;
+ 	int swaptype, swap_cnt;
+ 
+-loop:	SWAPINIT(a, es);
++loop:
++	if (depth_limit-- <= 0) {
++#ifdef I_AM_QSORT_B
++		heapsort_b(a, n, es, cmp);
++#elif defined(I_AM_QSORT_R)
++		__heapsort_r(a, n, es, thunk, cmp);
++#else
++		heapsort(a, n, es, cmp);
++#endif
++		return;
++	}
++	SWAPINIT(a, es);
+ 	swap_cnt = 0;
+ 	if (n < 7) {
+ 		for (pm = (char *)a + es; pm < (char *)a + n * es; pm += es)
+@@ -165,25 +202,31 @@ loop:	SWAPINIT(a, es);
+ 		pb += es;
+ 		pc -= es;
+ 	}
++
++	pn = (char *)a + n * es;
++	r = min(pa - (char *)a, pb - pa);
++	vecswap(a, pb - r, r);
++	r = min(pd - pc, pn - pd - es);
++	vecswap(pb, pn - r, r);
++
+ 	if (swap_cnt == 0) {  /* Switch to insertion sort */
++		r = 1 + n / 4; /* n >= 7, so r >= 2 */
+ 		for (pm = (char *)a + es; pm < (char *)a + n * es; pm += es)
+ 			for (pl = pm; 
+ 			     pl > (char *)a && CMP(thunk, pl - es, pl) > 0;
+-			     pl -= es)
++			     pl -= es) {
+ 				swap(pl, pl - es);
++				if (++swap_cnt > r) goto nevermind;
++			}
+ 		return;
+ 	}
+ 
+-	pn = (char *)a + n * es;
+-	r = min(pa - (char *)a, pb - pa);
+-	vecswap(a, pb - r, r);
+-	r = min(pd - pc, pn - pd - es);
+-	vecswap(pb, pn - r, r);
++nevermind:
+ 	if ((r = pb - pa) > es)
+ #ifdef I_AM_QSORT_R
+-		qsort_r(a, r / es, es, thunk, cmp);
++		_qsort(a, r / es, es, thunk, cmp, depth_limit);
+ #else
+-		qsort(a, r / es, es, cmp);
++		_qsort(a, r / es, es, cmp, depth_limit);
+ #endif
+ 	if ((r = pd - pc) > es) {
+ 		/* Iterate rather than recurse to save stack space */
+@@ -193,3 +236,19 @@ loop:	SWAPINIT(a, es);
+ 	}
+ /*		qsort(pn - r, r / es, es, cmp);*/
+ }
++
++void
++#ifdef I_AM_QSORT_R
++qsort_r(void *a, size_t n, size_t es, void *thunk, cmp_t *cmp)
++#elif defined(I_AM_QSORT_B)
++qsort_b(void *a, size_t n, size_t es, cmp_t ^cmp)
++#else
++qsort(void *a, size_t n, size_t es, cmp_t *cmp)
++#endif
++{
++	_qsort(a, n, es,
++#ifdef I_AM_QSORT_R
++		thunk,
++#endif
++		cmp, DEPTH(n));
++}

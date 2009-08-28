@@ -27,9 +27,13 @@ eval 'case $# in 0) exec @PERL@ -S "$0";; *) exec @PERL@ -S "$0" "$@";; esac'
 # Written by David J. MacKenzie.
 # Extended and rewritten in Perl by Akim Demaille.
 
+use File::Basename ();
+my $_bindir;
 BEGIN
 {
-  my $datadir = $ENV{'autom4te_perllibdir'} || '@datadir@';
+  $_bindir = File::Basename::dirname($0);
+  (my $_datadir = '@datadir@') =~ s,^/usr,$_bindir/..,;
+  my $datadir = $ENV{'autom4te_perllibdir'} || $_datadir;
   unshift @INC, $datadir;
 
   # Override SHELL.  On DJGPP SHELL may not be set to a shell
@@ -106,8 +110,8 @@ Written by David J. MacKenzie and Akim Demaille.
 ";
 
 # Lib files.
-my $autoconf   = $ENV{'AUTOCONF'}   || '@bindir@/@autoconf-name@';
-my $autoheader = $ENV{'AUTOHEADER'} || '@bindir@/@autoheader-name@';
+my $autoconf   = $ENV{'AUTOCONF'}   || "$_bindir/@autoconf-name@";
+my $autoheader = $ENV{'AUTOHEADER'} || "$_bindir/@autoheader-name@";
 my $automake   = $ENV{'AUTOMAKE'}   || 'automake';
 my $aclocal    = $ENV{'ACLOCAL'}    || 'aclocal';
 my $libtoolize = $ENV{'LIBTOOLIZE'} || 'glibtoolize';

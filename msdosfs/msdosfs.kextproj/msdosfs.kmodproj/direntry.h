@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -163,15 +163,14 @@ struct dirent;
 void unix2dostime __P((struct timespec *tsp, u_int16_t *ddp, 
 	     u_int16_t *dtp, u_int8_t *dhp));
 void dos2unixtime __P((u_int dd, u_int dt, u_int dh, struct timespec *tsp));
-int dos2unicodefn __P((u_char dn[SHORT_NAME_LEN], u_int16_t *un, int lower));
+size_t dos2unicodefn (u_char dn[SHORT_NAME_LEN], u_int16_t *un, int lower);
 int unicode2dosfn __P((const u_int16_t *un, u_char dn[SHORT_NAME_LEN], int unlen, u_int gen, u_int8_t *lower_case));
 int unicode2winfn __P((const u_int16_t *un, int unlen, struct winentry *wep, int cnt, int chksum));
+int compareUnicodeNames(u_int16_t *x, u_int16_t *y, int length);
 int winChkName __P((const u_int16_t *un, int unlen, struct winentry *wep, int chksum));
 int getunicodefn __P((struct winentry *wep, u_int16_t *ucfn, u_int16_t *unichars, int chksum));
 u_int8_t winChksum __P((u_int8_t *name));
 int winSlotCnt __P((const u_int16_t *un, int unlen));
-void mac2sfmfn __P((u_int16_t *un, size_t unlen));
-void sfm2macfn __P((u_int16_t *un, u_int16_t unlen));
 u_char unicode2dos(u_int16_t uc);
 int msdosfs_fsync_internal(vnode_t vp, int sync, int do_dirs, vfs_context_t context);
 

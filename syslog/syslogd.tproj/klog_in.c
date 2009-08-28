@@ -86,7 +86,7 @@ klog_in_init(void)
 		return -1;
 	}
 
-	return aslevent_addfd(global.kfd, ADDFD_FLAGS_LOCAL, klog_in_acceptmsg, NULL, NULL);
+	return aslevent_addfd(SOURCE_KERN, global.kfd, ADDFD_FLAGS_LOCAL, klog_in_acceptmsg, NULL, NULL);
 }
 
 int

@@ -44,14 +44,19 @@ class Globals
 {
 public:
     Globals();
-	const AccessCredentials *credentials();
+	
+	const AccessCredentials *keychainCredentials();
+	const AccessCredentials *smartcardCredentials();
+	const AccessCredentials *itemCredentials();
+	const AccessCredentials *smartcardItemCredentials();
+
 	void setUserInteractionAllowed(bool bUI) { mUI=bUI; }
 	bool getUserInteractionAllowed() const { return mUI; }
 
 	// Public globals
 	StorageManager storageManager;
 	//DefaultKeychain defaultKeychain;
-	Mutex apiLock;
+
 private:
 
 	// Other "globals"

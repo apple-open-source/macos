@@ -230,14 +230,13 @@ tDirStatus CDSRefMap::VerifyAttrValueRef (	tAttributeValueListRef	inAttributeVal
 //	* NewDirRef
 //------------------------------------------------------------------------------------
 
-tDirStatus CDSRefMap::NewDirRefMap ( UInt32 *outNewRef, SInt32 inPID,
-											UInt32		serverRef,
-											UInt32		messageIndex )
+tDirStatus CDSRefMap::NewDirRefMap ( UInt32 *outNewRef, SInt32 inPID, UInt32 serverRef,
+									 UInt32 messageIndex )
 {
 	tDirStatus		siResult	= eDSDirSrvcNotOpened;
 
 	siResult = GetNewRef( outNewRef, 0, eDirectoryRefType, inPID, serverRef, messageIndex );
-
+	
 	return( siResult );
 
 } // NewDirRef
@@ -259,7 +258,11 @@ tDirStatus CDSRefMap::NewNodeRefMap (	UInt32			*outNewRef,
 	siResult = GetNewRef( outNewRef, inParentID, eNodeRefType, inPID, serverRef, messageIndex );
 	if (siResult == eDSNoErr)
 	{
-		siResult = SetPluginName( *outNewRef, eNodeRefType, inPluginName, inPID );
+		sFWRefMapEntry *pCurrRef = GetTableRef( *outNewRef );
+		if ( pCurrRef != NULL )
+		{
+			pCurrRef->fPluginName = inPluginName;
+		}
 	}
 
 	return( siResult );
@@ -884,10 +887,6 @@ tDirStatus CDSRefMap::RemoveRef ( UInt32 inRefNum, UInt32 inType, SInt32 inPID )
 						pCurrRef = pTable->fTableData[ uiSlot ];
 						pTable->fTableData[ uiSlot ] = nil;
 						pTable->fItemCnt--;
-#ifdef __LITTLE_ENDIAN__
-						//cleanup the servertolocalrefmap if required
-						RemoveServerToLocalRefMap(pCurrRef->fRemoteRefNum);
-#endif						
 						free(pCurrRef);
 						pCurrRef = nil;
 					}
@@ -982,34 +981,6 @@ tDirStatus CDSRefMap::SetMessageTableIndex ( UInt32 inRefNum, UInt32 inType, UIn
 
 
 //------------------------------------------------------------------------------------
-//	* SetPluginName
-//------------------------------------------------------------------------------------
-
-tDirStatus CDSRefMap::SetPluginName ( UInt32 inRefNum, UInt32 inType, char* inPluginName, SInt32 inPID )
-{
-	tDirStatus			siResult	= eDSDirSrvcNotOpened;
-	sFWRefMapEntry	   *pCurrRef	= nil;
-
-	siResult = VerifyReference( inRefNum, inType, inPID );
-	
-	if (siResult == eDSNoErr)
-	{
-		pCurrRef = GetTableRef( inRefNum );
-		
-		siResult = eDSInvalidReference;
-		if ( pCurrRef != nil )
-		{
-			pCurrRef->fPluginName = inPluginName;
-			siResult = eDSNoErr;
-		}
-	}
-    
-	return( siResult );
-
-} // SetPluginName
-
-
-//------------------------------------------------------------------------------------
 //	* GetRefNum
 //------------------------------------------------------------------------------------
 
@@ -1091,275 +1062,4 @@ char* CDSRefMap::GetPluginName( UInt32 inRefNum, SInt32 inPID )
 	return( outPluginName );
 
 } // GetPluginName
-
-
-//------------------------------------------------------------------------------------
-//	* GetRefNumMap
-//------------------------------------------------------------------------------------
-
-UInt32 CDSRefMap::GetRefNumMap ( UInt32 inRefNum, UInt32 inType, SInt32 inPID )
-{
-	SInt32				siResult	= eDSNoErr;
-	UInt32				theRefNum	= inRefNum; //return the input if not found here
-	sFWRefMapEntry	   *pCurrRef	= nil;
-
-	if ((inRefNum & 0x00C00000) != 0)
-	{
-		siResult = VerifyReference( inRefNum, inType, inPID );
-		if (siResult == eDSNoErr)
-		{
-			pCurrRef = GetTableRef( inRefNum );
-			if ( pCurrRef != nil )
-			{
-				theRefNum = pCurrRef->fRemoteRefNum;
-			}
-		}
-	}
-    
-	return( theRefNum );
-
-} // GetRefNumMapMap
-
-
-#ifdef __LITTLE_ENDIAN__
-
-#include <map> //STL map class
-
-typedef std::map<UInt32, UInt32>	tRefMap;
-typedef tRefMap::iterator			tRefMapI;
-
-struct sEndianMaps
-{
-	tRefMap		fServerToLocalRefMap;
-	tRefMap		fMsgIDToServerRefMap;
-	tRefMap		fMsgIDToCustomCodeMap;
-};
-
-//------------------------------------------------------------------------------------
-//	* Statics for Endian use only
-//------------------------------------------------------------------------------------
-
-static sEndianMaps		*gEndianMaps			= NULL;
-static pthread_once_t	_gGlobalsInitialized	= PTHREAD_ONCE_INIT;
-
-//------------------------------------------------------------------------------------
-//	* __ForkChild
-//------------------------------------------------------------------------------------
-
-static void __ForkChild( void )
-{
-	gEndianMaps->fServerToLocalRefMap.clear();
-	gEndianMaps->fMsgIDToServerRefMap.clear();
-	gEndianMaps->fMsgIDToCustomCodeMap.clear();
-}
-
-//------------------------------------------------------------------------------------
-//	* __InitGlobals
-//------------------------------------------------------------------------------------
-
-static void __InitGlobals( void )
-{
-	gEndianMaps = new sEndianMaps;
-	
-	pthread_atfork( NULL, NULL, __ForkChild );
-}
-
-//------------------------------------------------------------------------------------
-//	* MapServerRefToLocalRef
-//------------------------------------------------------------------------------------
-
-void CDSRefMap::MapServerRefToLocalRef( UInt32 inServerRef, UInt32 inLocalRef )
-{
-	pthread_once( &_gGlobalsInitialized, __InitGlobals );
-
-	if (inServerRef != 0 && inLocalRef != 0)
-	{
-		//add this to the fServerToLocalRefMap
-		gEndianMaps->fServerToLocalRefMap[inServerRef] = inLocalRef;
-	}
-} // MapServerRefToLocalRef
-
-
-//------------------------------------------------------------------------------------
-//	* RemoveServerToLocalRefMap
-//------------------------------------------------------------------------------------
-
-void CDSRefMap::RemoveServerToLocalRefMap( UInt32 inServerRef )
-{
-    pthread_once( &_gGlobalsInitialized, __InitGlobals );
-
-	if (inServerRef != 0)
-	{
-		tRefMapI aRefMapI;
-
-//do not think that we need to layer this to add a mutex for this map
-
-		aRefMapI	= gEndianMaps->fServerToLocalRefMap.find(inServerRef);	
-
-		// if it was found, then let's remove it
-		if (aRefMapI != gEndianMaps->fServerToLocalRefMap.end())
-		{
-			gEndianMaps->fServerToLocalRefMap.erase(aRefMapI);
-		}
-	}
-} // RemoveServerToLocalRefMap
-
-
-//------------------------------------------------------------------------------------
-//	* GetLocalRefFromServerMap
-//------------------------------------------------------------------------------------
-
-UInt32 CDSRefMap::GetLocalRefFromServerMap( UInt32 inServerRef )
-{
-	UInt32		retVal = 0;
-
-    pthread_once( &_gGlobalsInitialized, __InitGlobals );
-
-	if (inServerRef != 0)
-	{
-		tRefMapI	aRefMapI;
-		aRefMapI	= gEndianMaps->fServerToLocalRefMap.find(inServerRef);	
-
-		// if it was found, then return it
-		if (aRefMapI != gEndianMaps->fServerToLocalRefMap.end())
-		{
-			retVal = aRefMapI->second;
-		}
-	}
-	return(retVal);
-} // GetLocalRefFromServerMap
-
-
-//------------------------------------------------------------------------------------
-//	* MapMsgIDToServerRef
-//------------------------------------------------------------------------------------
-
-void CDSRefMap::MapMsgIDToServerRef( UInt32 inMsgID, UInt32 inServerRef )
-{
-    pthread_once( &_gGlobalsInitialized, __InitGlobals );
-
-	if (inMsgID != 0 && inServerRef != 0)
-	{
-		//add this to the fMsgIDToServerRefMap
-		gEndianMaps->fMsgIDToServerRefMap[inMsgID] = inServerRef;
-	}
-} // MapMsgIDToServerRef
-
-
-//------------------------------------------------------------------------------------
-//	* RemoveMsgIDToServerRefMap
-//------------------------------------------------------------------------------------
-
-void CDSRefMap::RemoveMsgIDToServerRefMap( UInt32 inMsgID )
-{
-    pthread_once( &_gGlobalsInitialized, __InitGlobals );
-
-	if (inMsgID != 0)
-	{
-		tRefMapI aRefMapI;
-
-//do not think that we need to layer this to add a mutex for this map
-
-		aRefMapI	= gEndianMaps->fMsgIDToServerRefMap.find(inMsgID);	
-
-		// if it was found, then let's remove it
-		if (aRefMapI != gEndianMaps->fMsgIDToServerRefMap.end())
-		{
-			gEndianMaps->fMsgIDToServerRefMap.erase(aRefMapI);
-		}
-	}
-} // RemoveMsgIDToServerRefMap
-
-
-//------------------------------------------------------------------------------------
-//	* GetServerRefFromMsgIDMap
-//------------------------------------------------------------------------------------
-
-UInt32 CDSRefMap::GetServerRefFromMsgIDMap( UInt32 inMsgID )
-{
-	UInt32		retVal = 0;
-
-    pthread_once( &_gGlobalsInitialized, __InitGlobals );
-
-	if (inMsgID != 0)
-	{
-		tRefMapI	aRefMapI;
-		aRefMapI	= gEndianMaps->fMsgIDToServerRefMap.find(inMsgID);	
-
-		// if it was found, then return it
-		if (aRefMapI != gEndianMaps->fMsgIDToServerRefMap.end())
-		{
-			retVal = aRefMapI->second;
-		}
-	}
-	return(retVal);
-} // GetServerRefFromMsgIDMap
-
-
-//------------------------------------------------------------------------------------
-//	* MapMsgIDToCustomCode
-//------------------------------------------------------------------------------------
-
-void CDSRefMap::MapMsgIDToCustomCode( UInt32 inMsgID, UInt32 inCustomCode )
-{
-    pthread_once( &_gGlobalsInitialized, __InitGlobals );
-
-	if (inMsgID != 0 && inCustomCode != 0)
-	{
-		//add this to the fMsgIDToCustomCodeMap
-		gEndianMaps->fMsgIDToCustomCodeMap[inMsgID] = inCustomCode;
-	}
-} // MapMsgIDToCustomCode
-
-
-//------------------------------------------------------------------------------------
-//	* RemoveMsgIDToCustomCodeMap
-//------------------------------------------------------------------------------------
-
-void CDSRefMap::RemoveMsgIDToCustomCodeMap( UInt32 inMsgID )
-{
-    pthread_once( &_gGlobalsInitialized, __InitGlobals );
-
-	if (inMsgID != 0)
-	{
-		tRefMapI aRefMapI;
-
-//do not think that we need to layer this to add a mutex for this map
-
-		aRefMapI	= gEndianMaps->fMsgIDToCustomCodeMap.find(inMsgID);	
-
-		// if it was found, then let's remove it
-		if (aRefMapI != gEndianMaps->fMsgIDToCustomCodeMap.end())
-		{
-			gEndianMaps->fMsgIDToCustomCodeMap.erase(aRefMapI);
-		}
-	}
-} // RemoveMsgIDToCustomCodeMap
-
-
-//------------------------------------------------------------------------------------
-//	* GetCustomCodeFromMsgIDMap
-//------------------------------------------------------------------------------------
-
-UInt32 CDSRefMap::GetCustomCodeFromMsgIDMap( UInt32 inMsgID )
-{
-    pthread_once( &_gGlobalsInitialized, __InitGlobals );
-
-	UInt32		retVal = 0;
-
-	if (inMsgID != 0)
-	{
-		tRefMapI	aRefMapI;
-		aRefMapI	= gEndianMaps->fMsgIDToCustomCodeMap.find(inMsgID);	
-
-		// if it was found, then return it
-		if (aRefMapI != gEndianMaps->fMsgIDToCustomCodeMap.end())
-		{
-			retVal = aRefMapI->second;
-		}
-	}
-	return(retVal);
-} // GetCustomCodeFromMsgIDMap
-
-#endif
 

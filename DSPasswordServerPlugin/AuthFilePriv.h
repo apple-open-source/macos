@@ -79,8 +79,8 @@ typedef struct PWAccessFeaturesCompressed {
     int requiresNumeric:1;					// TRUE == password must have one char in [0-9]
 #endif
     
-    time_t expirationDateGMT;
-	time_t hardExpireDateGMT;
+    int32_t expirationDateGMT;
+	int32_t hardExpireDateGMT;
     
     UInt32 maxMinutesUntilChangePassword;	// if exceeded, users must change password. 0==not used
     UInt32 maxMinutesUntilDisabled;			// if exceeded, users are disabled. 0==not used
@@ -98,10 +98,10 @@ typedef struct PWFileEntryCompressed {
     UInt32 sequenceNumber;
     UInt32 slot;
 	
-    time_t creationDate;
-    time_t modificationDate;
-    time_t modDateOfPassword;
-    time_t lastLogin;
+    int32_t creationDate;
+    int32_t modificationDate;
+    int32_t modDateOfPassword;
+    int32_t lastLogin;
     UInt16 failedLoginAttempts;
     
     PWAccessFeaturesCompressed access;

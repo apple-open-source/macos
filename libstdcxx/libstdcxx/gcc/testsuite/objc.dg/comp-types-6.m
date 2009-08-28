@@ -1,6 +1,7 @@
 /* Test assignments and comparisons involving category protocols.  */
 /* Author: Nicola Pero <nicola@brainstorm.co.uk>.  */
 /* { dg-do compile } */
+
 #include <objc/objc.h>
 
 @protocol MyProtocol
@@ -23,8 +24,8 @@ int main()
   MyClass *obj_cp = nil;
   MyOtherClass *obj_cp2 = nil;
 
-  obj_cp = obj_p;  /* { dg-warning "incompatible pointer type" } */
-  obj_cp2 = obj_p; /* { dg-warning "incompatible pointer type" } */
+  obj_cp = obj_p;  /* { dg-warning "distinct Objective\\-C type" } */
+  obj_cp2 = obj_p; /* { dg-warning "distinct Objective\\-C type" } */
   obj_p = obj_cp;  /* Ok */
   obj_p = obj_cp2; /* Ok */
 

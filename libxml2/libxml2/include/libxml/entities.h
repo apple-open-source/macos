@@ -56,7 +56,9 @@ struct _xmlEntity {
     struct _xmlEntity     *nexte;	/* unused */
     const xmlChar           *URI;	/* the full URI as computed */
     int                    owner;	/* does the entity own the childrens */
-    unsigned long     nbentities;	/* the number of entities references */
+    int			 checked;	/* was the entity content checked */
+					/* this is also used to count entites
+					 * references done from that entity */
 };
 
 /*
@@ -71,8 +73,18 @@ typedef xmlEntitiesTable *xmlEntitiesTablePtr;
  * External functions:
  */
 
-XMLPUBFUN void XMLCALL		
+#ifdef LIBXML_LEGACY_ENABLED
+XMLPUBFUN void XMLCALL
 		xmlInitializePredefinedEntities	(void);
+#endif /* LIBXML_LEGACY_ENABLED */
+
+XMLPUBFUN xmlEntityPtr XMLCALL
+			xmlNewEntity		(xmlDocPtr doc,
+						 const xmlChar *name,
+						 int type,
+						 const xmlChar *ExternalID,
+						 const xmlChar *SystemID,
+						 const xmlChar *content);
 XMLPUBFUN xmlEntityPtr XMLCALL
 			xmlAddDocEntity		(xmlDocPtr doc,
 						 const xmlChar *name,
@@ -80,49 +92,55 @@ XMLPUBFUN xmlEntityPtr XMLCALL
 						 const xmlChar *ExternalID,
 						 const xmlChar *SystemID,
 						 const xmlChar *content);
-XMLPUBFUN xmlEntityPtr XMLCALL		
+XMLPUBFUN xmlEntityPtr XMLCALL
 			xmlAddDtdEntity		(xmlDocPtr doc,
 						 const xmlChar *name,
 						 int type,
 						 const xmlChar *ExternalID,
 						 const xmlChar *SystemID,
 						 const xmlChar *content);
-XMLPUBFUN xmlEntityPtr XMLCALL		
+XMLPUBFUN xmlEntityPtr XMLCALL
 			xmlGetPredefinedEntity	(const xmlChar *name);
-XMLPUBFUN xmlEntityPtr XMLCALL		
+XMLPUBFUN xmlEntityPtr XMLCALL
 			xmlGetDocEntity		(xmlDocPtr doc,
 						 const xmlChar *name);
-XMLPUBFUN xmlEntityPtr XMLCALL		
+XMLPUBFUN xmlEntityPtr XMLCALL
 			xmlGetDtdEntity		(xmlDocPtr doc,
 						 const xmlChar *name);
-XMLPUBFUN xmlEntityPtr XMLCALL		
+XMLPUBFUN xmlEntityPtr XMLCALL
 			xmlGetParameterEntity	(xmlDocPtr doc,
 						 const xmlChar *name);
-XMLPUBFUN const xmlChar * XMLCALL		
+#ifdef LIBXML_LEGACY_ENABLED
+XMLPUBFUN const xmlChar * XMLCALL
 			xmlEncodeEntities	(xmlDocPtr doc,
 						 const xmlChar *input);
-XMLPUBFUN xmlChar * XMLCALL		
+#endif /* LIBXML_LEGACY_ENABLED */
+XMLPUBFUN xmlChar * XMLCALL
 			xmlEncodeEntitiesReentrant(xmlDocPtr doc,
 						 const xmlChar *input);
-XMLPUBFUN xmlChar * XMLCALL		
+XMLPUBFUN xmlChar * XMLCALL
 			xmlEncodeSpecialChars	(xmlDocPtr doc,
 						 const xmlChar *input);
-XMLPUBFUN xmlEntitiesTablePtr XMLCALL	
+XMLPUBFUN xmlEntitiesTablePtr XMLCALL
 			xmlCreateEntitiesTable	(void);
-XMLPUBFUN xmlEntitiesTablePtr XMLCALL	
+#ifdef LIBXML_TREE_ENABLED
+XMLPUBFUN xmlEntitiesTablePtr XMLCALL
 			xmlCopyEntitiesTable	(xmlEntitiesTablePtr table);
-XMLPUBFUN void XMLCALL			
+#endif /* LIBXML_TREE_ENABLED */
+XMLPUBFUN void XMLCALL
 			xmlFreeEntitiesTable	(xmlEntitiesTablePtr table);
 #ifdef LIBXML_OUTPUT_ENABLED
-XMLPUBFUN void XMLCALL			
+XMLPUBFUN void XMLCALL
 			xmlDumpEntitiesTable	(xmlBufferPtr buf,
 						 xmlEntitiesTablePtr table);
-XMLPUBFUN void XMLCALL			
+XMLPUBFUN void XMLCALL
 			xmlDumpEntityDecl	(xmlBufferPtr buf,
 						 xmlEntityPtr ent);
 #endif /* LIBXML_OUTPUT_ENABLED */
-XMLPUBFUN void XMLCALL			
+#ifdef LIBXML_LEGACY_ENABLED
+XMLPUBFUN void XMLCALL
 			xmlCleanupPredefinedEntities(void);
+#endif /* LIBXML_LEGACY_ENABLED */
 
 
 #ifdef __cplusplus

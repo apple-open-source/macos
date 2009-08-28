@@ -48,6 +48,9 @@
 #include "CDSAuthDefs.h"
 #include <PasswordServer/KerberosInterface.h>
 #include <PasswordServer/PSUtilitiesDefs.h>
+#include <dispatch/dispatch.h>
+#include <uuid/uuid.h>
+#include <Mbrd_MembershipResolver.h>
 
 #define kGeneratedUIDStr			"generateduid"
 #define kAuthAuthorityStr			"authentication_authority"
@@ -63,12 +66,16 @@ struct _sIndexMapping
 	char			*fRecordNativeType;
 };
 
-#define kIndexPath					"/var/db/dslocal/indices/Default/"
+#define kIndexDir						"/var/db/dslocal/indices/Default/"
+#define kIndexPath						"/var/db/dslocal/indices/Default/index"
+#define kIndexPrefsPath					"/var/db/dslocal/indices/Default/index.plist"
+#define	kIndexPrefsFactoryPath			"/System/Library/DirectoryServices/DefaultLocalDB/index.plist"
 
-extern CFRunLoopRef	gPluginRunLoop;
 extern dsBool		gDSInstallDaemonMode;
 extern dsBool		gProperShutdown;
 extern dsBool		gSafeBoot;
+extern dsBool		gDSDebugMode;
+extern dsBool		gDSLocalOnlyMode;
 
 #endif
 
@@ -76,42 +83,9 @@ extern dsBool		gSafeBoot;
 #define kURLCharactersToEncode				"/"
 
 #pragma mark -
-#pragma mark Support Routine
-
-bool IntegrityCheckDB( sqlite3 *inDatabase )
-{
-	sqlite3_stmt	*pStmt		= NULL;
-	bool			bValidDB	= false;	// default to invalid DB
-	int				status;
-	
-	status = sqlite3_prepare( inDatabase, "pragma integrity_check", -1, &pStmt, NULL );	
-	if ( status == SQLITE_OK )
-	{
-		status = sqlite3_step( pStmt );
-		
-		// we will loop looking for "ok", in case SQL decides to add some verbosity for good DBs
-		while ( status == SQLITE_ROW ) {
-			if ( sqlite3_column_type(pStmt, 0) == SQLITE_TEXT ) {
-				const char *text = (const char *) sqlite3_column_text( pStmt, 0 );
-				if ( strcmp(text, "ok") == 0 ) {
-					bValidDB = true;
-				}
-			}
-			
-			status = sqlite3_step( pStmt );
-		}
-		
-		sqlite3_finalize( pStmt );
-	}
-	
-	return bValidDB;
-}
-
-#pragma mark -
 #pragma mark Class Routines
 
 CDSLocalPluginNode::CDSLocalPluginNode( CFStringRef inNodeDirFilePath, CDSLocalPlugin* inPlugin ) :	
-	fDBLock("CDSLocalPluginNode:fDBLock"),
 	mOpenRecordsLock("CDSLocalPluginNode:mOpenRecordsLock"), 
 	mRecordTypeLock("CDSLocalPluginNode:mRecordTypeLock")
 	
@@ -126,82 +100,115 @@ CDSLocalPluginNode::CDSLocalPluginNode( CFStringRef inNodeDirFilePath, CDSLocalP
 	
 	DSFree( cStr );
 	
-#if FILE_ACCESS_INDEXING
-	mFileAccessIndexPtr = NULL;
 	mUseIndex = false;
-	mIndexLoading = false;
-	mIndexPath = NULL;
 	mProperShutdown = gProperShutdown;
 	mSafeBoot = gSafeBoot;
+	mDatabaseHelper = NULL; // need to default to none since we may not open DB
 	
-	AddIndexMapping( kDSStdRecordTypeUsers, kDSNAttrRecordName, kDS1AttrDistinguishedName, kDS1AttrUniqueID, kDS1AttrGeneratedUID, NULL );
-	AddIndexMapping( kDSStdRecordTypeComputers, kDSNAttrRecordName, kDS1AttrUniqueID, kDS1AttrENetAddress, kDSNAttrIPAddress, 
-					 kDSNAttrIPv6Address, NULL );
-	AddIndexMapping( kDSStdRecordTypeGroups, kDSNAttrRecordName, kDS1AttrDistinguishedName, kDS1AttrPrimaryGroupID, kDSNAttrMember, 
-					 kDSNAttrGroupMembers, kDSNAttrGroupMembership, NULL );
-	
+	if ( gDSLocalOnlyMode == false && gDSDebugMode == false && gDSInstallDaemonMode == false )
+		EnableTheIndex( inNodeDirFilePath );
+}
+
+void CDSLocalPluginNode::EnableTheIndex( CFStringRef inNodeDirFilePath )
+{
 	CFMutableStringRef	aFilePath	= CFStringCreateMutableCopy( NULL, 0, inNodeDirFilePath );
 	
 	// replace "nodes" with "indices"
 	CFStringFindAndReplace( aFilePath, CFSTR("nodes"), CFSTR("indices"), CFRangeMake(0,CFStringGetLength(aFilePath)), 0 );
 	
-	if ( CFStringCompare(CFSTR(kIndexPath), aFilePath, 0) == kCFCompareEqualTo )
+	if ( CFStringCompare(CFSTR(kIndexDir), aFilePath, 0) == kCFCompareEqualTo )
 	{
-		const char* filePath	= CStrFromCFString( aFilePath, &cStr, NULL, NULL );
-		
-		if ( EnsureDirs(filePath, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH, S_IRWXU) == 0 )
+		if ( EnsureDirs(kIndexDir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH, S_IRWXU) == 0 )
 		{
-			char	fileAccessPath[1024];
-
+			CFDataRef fileData = CreateCFDataFromFile( kIndexPrefsPath );
+			if ( fileData == NULL )
+			{
+				if ( (fileData = CreateCFDataFromFile(kIndexPrefsFactoryPath)) != NULL )
+				{
+					syslog( LOG_INFO, "Local plugin index preference file '%s' was missing, using factory version", kIndexPrefsPath );
+					DbgLog( kLogError, "Local plugin index preference file '%s' was missing, using factory version", kIndexPrefsPath );
+					
+					int fd = open( kIndexPrefsPath, O_RDWR | O_NOFOLLOW | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR );
+					if ( fd != -1 )
+					{
+						if ( write(fd, CFDataGetBytePtr(fileData), CFDataGetLength(fileData)) == -1 ) {
+							const char *errorStr = strerror( errno );
+							
+							syslog( LOG_INFO, "Could not write factory index preference file '%s' - %s", kIndexPrefsPath, errorStr );
+							DbgLog( kLogError, "Could not write factory index preference file '%s' - %s", kIndexPrefsPath, errorStr );
+						}
+					}
+				}
+				else {
+					syslog( LOG_ERR, "Local plugin index preference file '%s' and factory version were missing, proceeding without index", kIndexPrefsPath );
+					DbgLog( kLogError, "Local plugin index preference file '%s' and factory version were missing, proceeding without index", kIndexPrefsPath );
+				}
+			}
+			
+			uint32_t expVersion = 0;
+			if ( fileData != NULL )
+			{
+				CFDictionaryRef recordDict	= (CFDictionaryRef) CFPropertyListCreateFromXMLData( NULL, fileData, kCFPropertyListImmutable, NULL );
+				
+				if ( CFDictionaryGetTypeID() == CFGetTypeID(recordDict) )
+				{
+					CFIndex dictCount = CFDictionaryGetCount( recordDict );
+					if ( dictCount > 0 )
+					{
+						CFTypeRef	keys[dictCount];
+						CFTypeRef	values[dictCount];
+						CFTypeID	stringType = CFStringGetTypeID();
+						CFTypeID	arrayType = CFArrayGetTypeID();
+						
+						CFDictionaryGetKeysAndValues( recordDict, keys, values );
+						
+						for ( CFIndex ii = 0; ii < dictCount; ii++ )
+						{
+							CFStringRef key = (CFStringRef) keys[ii];
+							CFArrayRef value = (CFArrayRef) values[ii];
+							
+							if ( CFGetTypeID(key) == stringType && CFGetTypeID(value) == arrayType ) {
+								AddIndexMapping( key, value );
+							}
+							else {
+								DbgLog( kLogError, "Invalid key or value in '%s'", kIndexPrefsPath );
+							}
+						}
+					}
+					
+					// we use CRC of the data as a version
+					expVersion = CalcCRCWithLength( CFDataGetBytePtr(fileData), CFDataGetLength(fileData) );
+				}
+				
+				DSCFRelease( recordDict );
+				DSCFRelease( fileData );
+			}
+			
 			// build the database file path
-			snprintf( fileAccessPath, sizeof(fileAccessPath), "%s/%s", filePath, "index" );
-			
-			mIndexPath = strdup( fileAccessPath );
-			
-			pthread_t       loadIndexThread;
-			pthread_attr_t	defaultAttrs;
-			
-			pthread_attr_init( &defaultAttrs );
-			pthread_attr_setdetachstate( &defaultAttrs, PTHREAD_CREATE_DETACHED );
-			
+			mDatabaseHelper = new SQLiteHelper( kIndexPath, expVersion );
+		
 			mIndexLoaded.ResetEvent();
-			pthread_create( &loadIndexThread, &defaultAttrs, LoadIndexAsynchronously, (void *) this );
+			
+			dispatch_async( dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT), 
+							^(void) {
+								LoadFileAccessIndex();
+							} );
+
 			if ( mIndexLoaded.WaitForEvent(10 * kMilliSecsPerSec) == false )
 				DbgLog( kLogPlugin, "CDSLocalPluginNode::CDSLocalPluginNode - timed out waiting for index to load continuing without until available" );
-			
-			pthread_attr_destroy( &defaultAttrs );
 		}
-		
-		DSFreeString( cStr );
 	}
 	
 	DSCFRelease( aFilePath );
-#endif
 }
 
 CDSLocalPluginNode::~CDSLocalPluginNode( void )
 {
 #if FILE_ACCESS_INDEXING
 	CloseDatabase();
-
-	DSFreeString( mIndexPath );
 #endif
 
 	DSCFRelease( mNodeDirFilePath );
-}
-
-void *CDSLocalPluginNode::LoadIndexAsynchronously( void *inPtr )
-{
-#if FILE_ACCESS_INDEXING
-	CDSLocalPluginNode *pClassPtr = (CDSLocalPluginNode *) inPtr;
-	
-	// retrieve the index from disk
-	pClassPtr->LoadFileAccessIndex();
-	pClassPtr->mIndexLoaded.PostEvent();
-	OSAtomicCompareAndSwap32Barrier( true, false, &pClassPtr->mIndexLoading );
-#endif
-	
-	return NULL;
 }
 
 #pragma mark -
@@ -210,18 +217,15 @@ void *CDSLocalPluginNode::LoadIndexAsynchronously( void *inPtr )
 void CDSLocalPluginNode::CloseDatabase( void )
 {
 #if FILE_ACCESS_INDEXING
-	fDBLock.WaitLock();
-	if ( mFileAccessIndexPtr != NULL )
+	if ( mDatabaseHelper != NULL )
 	{
 		char	nodeName[128] = { 0, };
 		
 		CFStringGetCString( mNodeDirFilePath, nodeName, sizeof(nodeName), kCFStringEncodingUTF8 );
 		
 		DbgLog( kLogPlugin, "CDSLocalPluginNode::CloseDatabase is shutting down database for %s", nodeName );
-		sqlite3_close( mFileAccessIndexPtr );
-		mFileAccessIndexPtr = NULL;
+		mDatabaseHelper->CloseDatabase();
 	}
-	fDBLock.SignalLock();
 #endif
 }
 
@@ -230,7 +234,7 @@ tDirStatus CDSLocalPluginNode::GetRecords(	CFStringRef			inNativeRecType,
 											CFStringRef			inAttrTypeToMatch,
 											tDirPatternMatch	inPatternMatch,
 											bool				inAttrInfoOnly,
-											unsigned long		maxRecordsToGet,
+											UInt32				maxRecordsToGet,
 											CFMutableArrayRef	recordsArray,
 											bool				useLongNameAlso,
 											CFStringRef*		outRecFilePath)
@@ -239,7 +243,7 @@ tDirStatus CDSLocalPluginNode::GetRecords(	CFStringRef			inNativeRecType,
 	CFDataRef				fileData					= NULL;
 	CFMutableDictionaryRef	mutableRecordDict			= NULL;
 	DIR*					recTypeDir					= NULL;
-	unsigned long			numRecordsFound				= 0;
+	UInt32					numRecordsFound				= 0;
 	CFIndex					numInPatternsToMatch		= 0;
 	bool					bGetAllRecords				= false;
 	bool					bCheckUsersType				= false;
@@ -297,7 +301,6 @@ tDirStatus CDSLocalPluginNode::GetRecords(	CFStringRef			inNativeRecType,
 			//TODO need to expand on this use of already opened records
 			if (maxRecordsToGet == 1) //definitive search on the recordname ie. clearly support auth routine attribute settings
 			{
-				//TODO KW perhaps this call should return more than just the data ie. dirty flag and record file path
 				CFArrayRef openRecordsOfThisType = mPlugin->CreateOpenRecordsOfTypeArray( inNativeRecType );
 				CFIndex numOpenRecords = 0;
 				if ( openRecordsOfThisType != NULL )
@@ -305,33 +308,52 @@ tDirStatus CDSLocalPluginNode::GetRecords(	CFStringRef			inNativeRecType,
 					numOpenRecords = CFArrayGetCount( openRecordsOfThisType );
 				}
 
-				//TODO KW this should not conflict with indexing at the file level
 				//get record data from records if we have already read from file and have them open
 				for ( CFIndex i = 0; ( maxRecordsToGet == 0 || numRecordsFound < maxRecordsToGet ) && ( i < numOpenRecords ); i++ )
 				{
-					CFMutableDictionaryRef aMutableRecordDict = (CFMutableDictionaryRef)CFArrayGetValueAtIndex( openRecordsOfThisType, i );
+					CFMutableDictionaryRef openRecordDict = (CFMutableDictionaryRef)CFArrayGetValueAtIndex( openRecordsOfThisType, i );
+					CFMutableDictionaryRef aMutableRecordDict = (CFMutableDictionaryRef) CFDictionaryGetValue( openRecordDict, 
+																											   CFSTR(kOpenRecordDictAttrsValues) );
 					if (	bGetAllRecords ||
 							this->RecordMatchesCriteria( aMutableRecordDict, inPatternsToMatch, nativeAttrToMatch, inPatternMatch ) ||
 							( bMatchRealName && this->RecordMatchesCriteria( aMutableRecordDict, inPatternsToMatch, CFSTR("realname"), inPatternMatch ) ) )
  					{
-						CFArrayAppendValue( recordsArray, aMutableRecordDict );
-						numRecordsFound++;
+						CFMutableDictionaryRef aAttrDictCopy;
 						
-						//at this point we should flush the record write if required
-						// TODO KW when required?
-						// need a way to determine if this record is dirty ie. has changes in it after being read from its file
-						CFArrayRef recordNames = (CFArrayRef)::CFDictionaryGetValue( aMutableRecordDict, mRecordNameAttrNativeName );
-						if ( recordNames == NULL || CFArrayGetCount( recordNames ) == 0 ) break;
-						CFStringRef recordName = (CFStringRef)CFArrayGetValueAtIndex( recordNames, 0 );
-						if ( recordName == NULL ) break;
-						CFStringRef recFilePath = CreateFilePathForRecord( inNativeRecType, recordName );
-						if (outRecFilePath != NULL)
-						{
-							*outRecFilePath = CFStringCreateCopy(NULL, recFilePath);
+						aAttrDictCopy = (CFMutableDictionaryRef) CFPropertyListCreateDeepCopy( kCFAllocatorDefault, 
+																							   aMutableRecordDict,
+																							   kCFPropertyListMutableContainers );
+						CFArrayAppendValue( recordsArray, aAttrDictCopy );
+						numRecordsFound++;
+						CFRelease( aAttrDictCopy );
+						
+						// if record was changed, let's write it out to disk
+						CFBooleanRef wasChanged = (CFBooleanRef) CFDictionaryGetValue( openRecordDict, CFSTR(kOpenRecordDictRecordWasChanged) );
+						if ( wasChanged != NULL && CFBooleanGetValue(wasChanged) == TRUE ) {
+							// get the path to the record file
+							CFStringRef openRecordFilePath = (CFStringRef) CFDictionaryGetValue( openRecordDict,
+																								 CFSTR(kOpenRecordDictRecordFile) );
+							if ( openRecordFilePath == NULL ) break;
+							
+							// get the record type
+							CFStringRef recordType = (CFStringRef) CFDictionaryGetValue( openRecordDict,
+																						 CFSTR(kOpenRecordDictRecordType) );
+							if ( recordType == NULL ) break;
+							
+							DbgLog( kLogInfo, "CDSLocalPlugin::GetRecords - Flushing open record to disk because it was modified" );
+
+							// write any changes to the record
+							siResult = FlushRecord( openRecordFilePath, recordType, aMutableRecordDict );
+							
+							// flush the cache at this point
+							mPlugin->FlushCaches( mPlugin->RecordStandardTypeForNativeType(recordType) );
+							
+							// reset to false because multiple people may have an open record
+							CFDictionarySetValue( openRecordDict, CFSTR(kOpenRecordDictRecordWasChanged), kCFBooleanFalse );
 						}
-						if ( recFilePath == NULL ) break;
-						this->FlushRecord( recFilePath, inNativeRecType, aMutableRecordDict );
-						DSCFRelease(recFilePath);
+						else {
+							DbgLog( kLogInfo, "CDSLocalPlugin::GetRecords - Did not flush open record because it was not modified" );
+						}
 					}
 				}
 				DSCFRelease( openRecordsOfThisType );
@@ -383,35 +405,31 @@ tDirStatus CDSLocalPluginNode::GetRecords(	CFStringRef			inNativeRecType,
 							
 							snprintf( thisFilePathCStr, sizeof(thisFilePathCStr), "%s/%s", thisRecTypeDirPathCStr, theFile );
 							
-							struct stat statResult;
-							if( stat(thisFilePathCStr, &statResult) == 0 )
+							fileData = CreateCFDataFromFile( thisFilePathCStr );
+							if ( fileData != NULL )
 							{
-								fileData = CreateCFDataFromFile( thisFilePathCStr, statResult.st_size );
-								if ( fileData != NULL )
+								mutableRecordDict = (CFMutableDictionaryRef) CFPropertyListCreateFromXMLData( NULL, fileData, 
+																											  kCFPropertyListMutableContainers, NULL );
+								DSCFRelease( fileData );
+								
+								//here we need to determine if the read file was proper XML and accurately parsed
+								//otherwise we DO NOT throw error here but skip this file and keep on going to the other files if they exist
+								if ( mutableRecordDict != NULL )
 								{
-									mutableRecordDict = (CFMutableDictionaryRef) CFPropertyListCreateFromXMLData( NULL, fileData, 
-																												  kCFPropertyListMutableContainers, NULL );
-									DSCFRelease( fileData );
-									
-									//here we need to determine if the read file was proper XML and accurately parsed
-									//otherwise we DO NOT throw error here but skip this file and keep on going to the other files if they exist
-									if ( mutableRecordDict != NULL )
+									//process the plist record file if it seems valid
+									if ( bGetAllRecords ||
+										this->RecordMatchesCriteria( mutableRecordDict, inPatternsToMatch, nativeAttrToMatch, inPatternMatch ) ||
+										( bMatchRealName && this->RecordMatchesCriteria( mutableRecordDict, inPatternsToMatch, CFSTR("realname"), inPatternMatch ) ) )
 									{
-										//process the plist record file if it seems valid
-										if ( bGetAllRecords ||
-											this->RecordMatchesCriteria( mutableRecordDict, inPatternsToMatch, nativeAttrToMatch, inPatternMatch ) ||
-											( bMatchRealName && this->RecordMatchesCriteria( mutableRecordDict, inPatternsToMatch, CFSTR("realname"), inPatternMatch ) ) )
+										CFArrayAppendValue( recordsArray, mutableRecordDict );
+										numRecordsFound++;
+										if ( (maxRecordsToGet == 1) && (outRecFilePath != NULL) )
 										{
-											CFArrayAppendValue( recordsArray, mutableRecordDict );
-											numRecordsFound++;
-											if ( (maxRecordsToGet == 1) && (outRecFilePath != NULL) )
-											{
-												*outRecFilePath = CFStringCreateWithCString( NULL, thisFilePathCStr, kCFStringEncodingUTF8 );
-											}
+											*outRecFilePath = CFStringCreateWithCString( NULL, thisFilePathCStr, kCFStringEncodingUTF8 );
 										}
-										
-										DSCFRelease( mutableRecordDict );
 									}
+									
+									DSCFRelease( mutableRecordDict );
 								}
 							}
 							else
@@ -453,9 +471,7 @@ tDirStatus CDSLocalPluginNode::GetRecords(	CFStringRef			inNativeRecType,
 					{
 						snprintf( thisFilePathCStr, sizeof(thisFilePathCStr), "%s/%s.plist", thisRecTypeDirPathCStr, aString );
 
-						struct stat statResult;
-						if ( stat(thisFilePathCStr, &statResult) == 0 && 
-						     (fileData = CreateCFDataFromFile(thisFilePathCStr, statResult.st_size)) != NULL )
+						if ( (fileData = CreateCFDataFromFile(thisFilePathCStr)) != NULL )
 						{
 							mutableRecordDict = (CFMutableDictionaryRef)::CFPropertyListCreateFromXMLData( NULL, fileData, kCFPropertyListMutableContainers, NULL );
 							DSCFRelease( fileData );
@@ -491,7 +507,7 @@ tDirStatus CDSLocalPluginNode::GetRecords(	CFStringRef			inNativeRecType,
 					{
 						char	recFileSuffix[]	= ".plist";
 						long	suffixOffset	= strlen( theDirEnt->d_name )-strlen( recFileSuffix );
-						char   *fileSuffix		= "<no suffix>";
+						const char   *fileSuffix		= "<no suffix>";
 
 						if ( suffixOffset > 0 )
 						{
@@ -503,9 +519,7 @@ tDirStatus CDSLocalPluginNode::GetRecords(	CFStringRef			inNativeRecType,
 					
 						snprintf( thisFilePathCStr, sizeof(thisFilePathCStr), "%s/%s", thisRecTypeDirPathCStr, theDirEnt->d_name );
 						
-						struct stat statResult;
-						if ( stat(thisFilePathCStr, &statResult) == 0 &&
-						     (fileData = CreateCFDataFromFile( thisFilePathCStr, statResult.st_size)) != NULL )
+						if ( (fileData = CreateCFDataFromFile(thisFilePathCStr)) != NULL )
 						{
 							mutableRecordDict = (CFMutableDictionaryRef)::CFPropertyListCreateFromXMLData( NULL, fileData, kCFPropertyListMutableContainers, NULL );
 							DSCFRelease( fileData );
@@ -644,7 +658,14 @@ tDirStatus CDSLocalPluginNode::CreateDictionaryForNewRecord( CFStringRef inNativ
 			
 			if ( CFStringGetLength(metaInformation) == 0 ) throw eDSInvalidRecordName;
 		}
-				
+		
+		// check the name length, we can't accept a file name that exceeds our ability to use temp file and plist extension
+		if ( CFStringGetLength(inRecordName) + sizeof(".plist.temp") > NAME_MAX ) {
+			CFDebugLog( kLogError, "CDSLocalPluginNode::CreateDictionaryForNewRecord(), file name is too long: %@",
+					   inRecordName );
+			throw eDSInvalidRecordName;
+		}
+		
 		// build the path to the file for the record
 		recFilePath = CreateFilePathForRecord( inNativeRecType, inRecordName );
 		if ( recFilePath == NULL )
@@ -653,7 +674,7 @@ tDirStatus CDSLocalPluginNode::CreateDictionaryForNewRecord( CFStringRef inNativ
 		// check to see if the file already exists
 		const char* recFilePathCStr = CStrFromCFString( recFilePath, &cStr, &cStrSize, NULL );
 		struct stat statBuffer={};
-		int result = ::stat( recFilePathCStr, &statBuffer );
+		int result = lstat( recFilePathCStr, &statBuffer );
 		if ( result != 0 )
 			result = errno;
 
@@ -906,7 +927,7 @@ CDSLocalPluginNode::DeleteRecord( CFStringRef inRecordFilePath, CFStringRef inNa
 }
 
 
-tDirStatus CDSLocalPluginNode::FlushRecord( CFStringRef inRecordFilePath, CFStringRef inRecordType, CFDictionaryRef inRecordDict )
+tDirStatus CDSLocalPluginNode::FlushRecord( CFStringRef inRecordFilePath, CFStringRef inRecordType, CFMutableDictionaryRef inRecordDict )
 {
 	tDirStatus siResult = eDSNoErr;
 	CFMutableStringRef mutableTempFilePath = NULL;
@@ -940,23 +961,21 @@ tDirStatus CDSLocalPluginNode::FlushRecord( CFStringRef inRecordFilePath, CFStri
 		
 		// normalize behavior through PAM/UNIX paths that only
 		// check the Password attribute. If AuthenticationAuthority is present,
-		// and not exactly == ";basic;" then Password = "********".
+		// and does not contain ";basic;" then Password = "********".
 		bool zapPassword = false;
 		CFArrayRef aaArray = (CFArrayRef) CFDictionaryGetValue( inRecordDict, CFSTR(kAuthAuthorityStr) );
 		if ( aaArray != NULL ) 
 		{
+			zapPassword = true;
 			CFIndex aaArrayCount = CFArrayGetCount( aaArray );
-			if ( aaArrayCount > 1 )
+			for ( int aaArrayIndex = 0; aaArrayIndex < aaArrayCount; aaArrayIndex++ )
 			{
-				zapPassword = true;
-			}
-			else if ( aaArrayCount == 1 )
-			{
-				CFStringRef aaString = (CFStringRef) CFArrayGetValueAtIndex( aaArray, 0 );
-				if ( aaString != NULL && 
-					 CFStringCompare(aaString, CFSTR(kDSValueAuthAuthorityBasic), kCFCompareCaseInsensitive) != kCFCompareEqualTo )
+				CFStringRef aaString = (CFStringRef) CFArrayGetValueAtIndex( aaArray, aaArrayIndex );
+				if ( aaString != NULL &&
+					 CFStringCompare(aaString, CFSTR(kDSValueAuthAuthorityBasic), kCFCompareCaseInsensitive) == kCFCompareEqualTo )
 				{
-					zapPassword = true;
+					zapPassword = false;
+					break;
 				}
 			}
 		}
@@ -1089,7 +1108,7 @@ tDirStatus CDSLocalPluginNode::FlushRecord( CFStringRef inRecordFilePath, CFStri
 		
 #if FILE_ACCESS_INDEXING
 		// we don't use the flag here because we could be indexing asynchronously
-		if ( mFileAccessIndexPtr != NULL )
+		if ( mDatabaseHelper != NULL )
 		{
 			char *pNewName = strrchr( newFileName, '/' );
 			if ( pNewName != NULL )
@@ -1116,7 +1135,9 @@ tDirStatus CDSLocalPluginNode::FlushRecord( CFStringRef inRecordFilePath, CFStri
 	}
 	catch( tDirStatus err )
 	{
-		DbgLog(  kLogPlugin, "CDSLocalPluginNode::FlushRecord(): caught error %d", err );
+		if ( err != eDSNoErr ) {
+			DbgLog(  kLogPlugin, "CDSLocalPluginNode::FlushRecord(): caught error %d", err );
+		}
 		siResult = err;
 	}
 	catch( ... )
@@ -1271,7 +1292,7 @@ tDirStatus CDSLocalPluginNode::RemoveAttributeFromRecord( CFStringRef inNativeAt
 }
 
 tDirStatus CDSLocalPluginNode::RemoveAttributeValueFromRecordByCRC( CFStringRef inNativeAttrType,
-	CFStringRef inNativeRecType, CFMutableDictionaryRef inMutableRecordAttrsValues, unsigned long inCRC )
+	CFStringRef inNativeRecType, CFMutableDictionaryRef inMutableRecordAttrsValues, UInt32 inCRC )
 {
 	tDirStatus siResult = eDSNoErr;
 	char* cStr = NULL;
@@ -1342,7 +1363,7 @@ tDirStatus CDSLocalPluginNode::RemoveAttributeValueFromRecordByCRC( CFStringRef 
 }
 
 tDirStatus CDSLocalPluginNode::ReplaceAttributeValueInRecordByCRC( CFStringRef inNativeAttrType,
-	CFStringRef inNativeRecType, CFMutableDictionaryRef inMutableRecordAttrsValues, unsigned long inCRC,
+	CFStringRef inNativeRecType, CFMutableDictionaryRef inMutableRecordAttrsValues, UInt32 inCRC,
 	CFTypeRef inNewValue )
 {
 	tDirStatus siResult = eDSNoErr;
@@ -1468,7 +1489,7 @@ tDirStatus CDSLocalPluginNode::ReplaceAttributeValueInRecordByCRC( CFStringRef i
 }
 
 tDirStatus CDSLocalPluginNode::ReplaceAttributeValueInRecordByIndex( CFStringRef inNativeAttrType,
-	CFStringRef inNativeRecType, CFMutableDictionaryRef inMutableRecordAttrsValues, unsigned long inIndex,
+	CFStringRef inNativeRecType, CFMutableDictionaryRef inMutableRecordAttrsValues, UInt32 inIndex,
 	CFStringRef inNewValue )
 {
 	tDirStatus siResult = eDSNoErr;
@@ -1487,7 +1508,7 @@ tDirStatus CDSLocalPluginNode::ReplaceAttributeValueInRecordByIndex( CFStringRef
 		if ( mutableAttrValues == NULL )
 			throw( eDSAttributeNotFound );
 		
-		if ( inIndex >= (unsigned long)CFArrayGetCount( mutableAttrValues ) )
+		if ( inIndex >= (UInt32) CFArrayGetCount( mutableAttrValues ) )
 			throw( eDSIndexOutOfRange );
 
 		// if this is an automount and the name is being set, we need to verify the name is proper format
@@ -1647,7 +1668,7 @@ tDirStatus CDSLocalPluginNode::SetAttributeValuesInRecord( CFStringRef inNativeA
 	return siResult;
 }
 
-tDirStatus CDSLocalPluginNode::GetAttributeValueByCRCFromRecord( CFStringRef inNativeAttrType, CFMutableDictionaryRef inMutableRecordAttrsValues, unsigned long inCRC, CFTypeRef* outAttrValue )
+tDirStatus CDSLocalPluginNode::GetAttributeValueByCRCFromRecord( CFStringRef inNativeAttrType, CFMutableDictionaryRef inMutableRecordAttrsValues, UInt32 inCRC, CFTypeRef* outAttrValue )
 {
 	tDirStatus		siResult	= eDSNoErr;
 	char		   *cStr		= NULL;
@@ -1706,7 +1727,7 @@ tDirStatus CDSLocalPluginNode::GetAttributeValueByCRCFromRecord( CFStringRef inN
 	return siResult;
 }
 
-tDirStatus CDSLocalPluginNode::GetAttributeValueByIndexFromRecord( CFStringRef inNativeAttrType, CFMutableDictionaryRef inMutableRecordAttrsValues, unsigned long inIndex, CFTypeRef* outAttrValue )
+tDirStatus CDSLocalPluginNode::GetAttributeValueByIndexFromRecord( CFStringRef inNativeAttrType, CFMutableDictionaryRef inMutableRecordAttrsValues, UInt32 inIndex, CFTypeRef* outAttrValue )
 {
 	tDirStatus siResult = eDSNoErr;
 
@@ -1816,21 +1837,19 @@ CFArrayRef CDSLocalPluginNode::CreateAllRecordTypesArray()
 	return mutableAllRecordTypes;
 }
 
-bool CDSLocalPluginNode::WriteAccessAllowed(	CFDictionaryRef inNodeDict,
-												CFStringRef inNativeRecType,
-												CFStringRef inRecordName,
-											    CFStringRef inNativeAttribute,
-											    CFArrayRef	inWritersAccessRecord,
-											    CFArrayRef	inWritersAccessAttribute,
-											    CFArrayRef	inWritersGroupAccessRecord,
-											    CFArrayRef	inWritersGroupAccessAttribute )
+bool
+CDSLocalPluginNode::AccessAllowed( CFDictionaryRef inNodeDict, CFStringRef inRecType, CFStringRef inNativeAttribute, eDSAccessMode inAccessMode,
+								   CFDictionaryRef inAttributeDict )
 {
 	CFStringRef authedUserName = (CFStringRef) mPlugin->NodeDictCopyValue( inNodeDict, CFSTR(kNodeAuthenticatedUserName) );
+	int euid = 99;
+	
 	CFNumberRef effectiveUID = (CFNumberRef) mPlugin->NodeDictCopyValue( inNodeDict, CFSTR(kNodeEffectiveUIDKey) );
-
-	bool bReturnValue = WriteAccessAllowed( authedUserName, effectiveUID, inNativeRecType, inRecordName, inNativeAttribute, 
-										    inWritersAccessRecord, inWritersAccessAttribute, inWritersGroupAccessRecord, 
-										    inWritersGroupAccessAttribute );
+	if ( effectiveUID != NULL ) {
+		CFNumberGetValue( effectiveUID, kCFNumberIntType, &euid );
+	}
+	
+	bool bReturnValue = AccessAllowed( authedUserName, euid, inRecType, inNativeAttribute, inAccessMode, inAttributeDict );
 	
 	DSCFRelease( authedUserName );
 	DSCFRelease( effectiveUID );
@@ -1838,136 +1857,342 @@ bool CDSLocalPluginNode::WriteAccessAllowed(	CFDictionaryRef inNodeDict,
 	return bReturnValue;
 }
 
-bool CDSLocalPluginNode::WriteAccessAllowed(	CFStringRef inAuthedUserName,
-												CFNumberRef inEffectiveUIDNumber,
-												CFStringRef inNativeRecType,
-												CFStringRef inRecordName,
-												CFStringRef inNativeAttribute,
-												CFArrayRef	inWritersAccessRecord,
-												CFArrayRef	inWritersAccessAttribute,
-												CFArrayRef	inWritersGroupAccessRecord,
-												CFArrayRef	inWritersGroupAccessAttribute )
+static
+bool __checkACLPermissions( bool *inAccessAllowed, CFStringRef inAuthedUserName, CFStringRef inNativeRecType, CFStringRef inNativeAttribute,
+						    CFDictionaryRef inAttributeDict, eDSAccessMode inAccessMode, CFDictionaryRef inGlobalACL )
 {
-	uid_t effectiveUID = 99;
-	if ( inEffectiveUIDNumber != NULL )
-	{
-		::CFNumberGetValue( inEffectiveUIDNumber, kCFNumberLongType, &effectiveUID );
-	}
-	return this->WriteAccessAllowed(	inAuthedUserName,
-										effectiveUID,
-										inNativeRecType,
-										inRecordName,
-										inNativeAttribute,
-										inWritersAccessRecord,
-										inWritersAccessAttribute,
-										inWritersGroupAccessRecord,
-										inWritersGroupAccessAttribute );
-} // WriteAccessAllowed
+	CFStringRef		cfUUID		= NULL;
+	uuid_t			uu;
+	uuid_string_t	uuidStr;
+	CFStringRef		cfACLMode	= NULL;
+	bool			bACLExists	= false;
 
-bool CDSLocalPluginNode::WriteAccessAllowed(	CFStringRef inAuthedUserName,
-												uid_t inEffectiveUID,
-												CFStringRef inNativeRecType,
-												CFStringRef inRecordName,
-												CFStringRef inNativeAttribute,
-												CFArrayRef	inWritersAccessRecord,
-												CFArrayRef	inWritersAccessAttribute,
-												CFArrayRef	inWritersGroupAccessRecord,
-												CFArrayRef	inWritersGroupAccessAttribute )
+	switch ( inAccessMode ) {
+		case eDSAccessModeReadAttr:
+			if ( CFStringCompare(inNativeAttribute, CFSTR("accesscontrolentry"), 0) == kCFCompareEqualTo ) {
+				cfACLMode = CFSTR("readsecurity");
+			}
+			else {
+				cfACLMode = CFSTR("readattr");
+			}
+			break;
+		case eDSAccessModeWriteAttr:
+			if ( CFStringCompare(inNativeAttribute, CFSTR("accesscontrolentry"), 0) == kCFCompareEqualTo ) {
+				cfACLMode = CFSTR("writesecurity");
+			}
+			else {
+				cfACLMode = CFSTR("writeattr");
+			}
+			break;
+		case eDSAccessModeRead:
+			if ( CFStringCompare(inNativeAttribute, CFSTR("accesscontrolentry"), 0) == kCFCompareEqualTo ) {
+				cfACLMode = CFSTR("readsecurity");
+			}
+			else {
+				cfACLMode = CFSTR("read");
+			}
+			break;
+		case eDSAccessModeWrite:
+			if ( CFStringCompare(inNativeAttribute, CFSTR("accesscontrolentry"), 0) == kCFCompareEqualTo ) {
+				cfACLMode = CFSTR("writesecurity");
+			}
+			else {
+				cfACLMode = CFSTR("write");
+			}
+			break;
+		case eDSAccessModeDelete:
+			cfACLMode = CFSTR("delete");
+			break;
+		default:
+			return false;
+	}
+	
+#ifdef ACL_SUPPORT
+	// TODO: deadlock with ourselves because membership APIs come back into local plugin while we hold a lock
+	//       need to resolve locking issues while trying to check ACLs
+
+	// don't use external membership calls, only internal ones
+	if ( inAuthedUserName == NULL ) {
+		if ( Mbrd_ProcessMapIdentifier(ID_TYPE_USERNAME, "_unknown", -1, (guid_t *) uu) == KERN_SUCCESS ) {
+			uuid_unparse_upper( uu, uuidStr );
+			cfUUID = CFStringCreateWithCString( kCFAllocatorDefault, uuidStr, kCFStringEncodingUTF8 );
+		}
+	}
+	else {
+		char username[256];
+		
+		if ( CFStringGetCString(inAuthedUserName, username, sizeof(username), kCFStringEncodingUTF8) == true ) {
+			if ( Mbrd_ProcessMapIdentifier(ID_TYPE_USERNAME, username, -1, (guid_t *) uu) == KERN_SUCCESS ) {
+				uuid_unparse_upper( uu, uuidStr );
+				cfUUID = CFStringCreateWithCString( kCFAllocatorDefault, uuidStr, kCFStringEncodingUTF8 );
+			}
+		}
+	}
+	
+	void (^checkACEList)(CFArrayRef) = ^(CFArrayRef aceList) {
+		CFIndex iCount = CFArrayGetCount( aceList );
+		for ( CFIndex ii = 0; ii < iCount; ii++ )
+		{
+			CFDictionaryRef aceItem = (CFDictionaryRef) CFArrayGetValueAtIndex( aceList, ii );
+			if ( CFGetTypeID(aceItem) == CFDictionaryGetTypeID() )
+			{
+				CFStringRef tempString = (CFStringRef) CFDictionaryGetValue( aceItem, CFSTR("uuid") );
+				if ( tempString != NULL && CFStringGetTypeID() == CFGetTypeID(tempString) )
+				{
+					bool checkPermission = false;
+					
+					CFDebugLog( kLogDebug, "CDSLocalPluginNode::AccessAllowed - checking ACE for '%@' and UUID %@ for record type '%@' attribute '%@'", 
+								cfACLMode, tempString, inNativeRecType, inNativeAttribute );
+					
+					if ( CFStringCompare(tempString, cfUUID, kCFCompareCaseInsensitive) == kCFCompareEqualTo ) {
+						checkPermission = true;
+					}
+					// check the owner access now
+					else if ( inAuthedUserName != NULL && inAttributeDict != NULL && 
+							  CFStringCompare(tempString, CFSTR("ABCDEFAB-CDEF-ABCD-EFAB-CDEF0000000A"), kCFCompareCaseInsensitive) == kCFCompareEqualTo )
+					{
+						// if this is the owner, see if the UUID matches the person trying
+						CFArrayRef guidList = (CFArrayRef) CFDictionaryGetValue( inAttributeDict, CFSTR("generateduid") );
+						if ( guidList != NULL && CFArrayGetCount(guidList) > 0 ) {
+							CFStringRef userUUID = (CFStringRef) CFArrayGetValueAtIndex( guidList, 0 );
+							if ( CFStringCompare(userUUID, cfUUID, kCFCompareCaseInsensitive) == kCFCompareEqualTo ) {
+								checkPermission = true;
+								CFDebugLog( kLogDebug, "CDSLocalPluginNode::AccessAllowed - ACE contains owner UUID ABCDEFAB-CDEF-ABCD-EFAB-CDEF0000000A mode '%@' for '%@' attribute '%@'", 
+											cfACLMode, inNativeRecType, inNativeAttribute );
+							}
+						}
+					}
+					
+					if ( checkPermission == true ) {
+						CFArrayRef permissionList = (CFArrayRef) CFDictionaryGetValue( aceItem, CFSTR("permissions") );
+						if ( permissionList != NULL && CFArrayGetTypeID() == CFGetTypeID(permissionList) ) {
+							if ( CFArrayContainsValue(permissionList, CFRangeMake(0, CFArrayGetCount(permissionList)), cfACLMode) == true ) {
+								(*inAccessAllowed) = true;
+								CFDebugLog( kLogInfo, "CDSLocalPluginNode::AccessAllowed - permitted '%@' for '%@' per ACE under UUID %@ for record type '%@' attribute '%@'", 
+											inAuthedUserName ?: CFSTR("anonymous"), cfACLMode, tempString, inNativeRecType, inNativeAttribute );
+								break;
+							}
+						}
+					}
+				}
+				else if ( tempString != NULL ) {
+					CFDebugLog( kLogError, "CDSLocalPluginNode::AccessAllowed - ACE UUID for record type '%@' attribute '%@' was not a String" );
+				}
+			}
+			else {
+				CFDebugLog( kLogError, "CDSLocalPluginNode::AccessAllowed - ACE entry for record type '%@' attribute '%@' was not a Dictionary at index %d", ii );
+			}
+		}
+		
+		if ( (*inAccessAllowed) == false ) {
+			CFDebugLog( kLogInfo, "CDSLocalPluginNode::AccessAllowed - denied '%@' for '%@' per ACE for record type '%@' attribute '%@'", 
+					    inAuthedUserName ?: CFSTR("anonymous"), cfACLMode, inNativeRecType, inNativeAttribute );
+		}
+	};
+	
+	bool (^checkACLEntry)(CFDictionaryRef) = ^(CFDictionaryRef aclEntry) {
+		// first check specific attribute entry
+		if ( CFDictionaryGetTypeID() == CFGetTypeID(aclEntry) ) {
+			CFArrayRef aceList = (CFArrayRef) CFDictionaryGetValue( aclEntry, inNativeAttribute );
+			if ( aceList != NULL && CFArrayGetTypeID() == CFGetTypeID(aceList) ) {
+				// if we have no UUID we can't check the ACL, but it does exist
+				if ( cfUUID != NULL ) {
+					checkACEList( aceList );
+				}
+				else {
+					CFDebugLog( kLogError, "CDSLocalPluginNode::AccessAllowed - failed to check ACL because no UUID available for user '%@'",
+							    inAuthedUserName ? : CFSTR("_unknown") );
+				}
+				return true;
+			}
+			
+			aceList = (CFArrayRef) CFDictionaryGetValue( aclEntry, CFSTR(kDSAttributesAll) );
+			if ( aceList != NULL && CFArrayGetTypeID() == CFGetTypeID(aceList) ) {
+				// if we have no UUID we can't check the ACL, but it does exist
+				if ( cfUUID != NULL ) {
+					checkACEList( aceList );
+				}
+				else {
+					CFDebugLog( kLogError, "CDSLocalPluginNode::AccessAllowed - failed to check ACL because no UUID available for user '%@'",
+							    inAuthedUserName ? : CFSTR("_unknown") );
+				}
+				return true;
+			}
+		}
+		
+		return false;
+	};
+	
+	bool (^checkPermissions)(CFDictionaryRef) = ^(CFDictionaryRef permissions) {
+		bool bStopChecking = false;
+
+		if ( permissions == inGlobalACL ) {
+			CFDebugLog( kLogDebug, "CDSLocalPluginNode::AccessAllowed --- Checking %s ACL for record type '%@' attribute type '%@'", 
+					    "global", inNativeRecType, inNativeAttribute );
+		}
+		else {
+			CFDebugLog( kLogDebug, "CDSLocalPluginNode::AccessAllowed --- Checking %s ACL for record type '%@' attribute type '%@'", 
+					    "record-level", inNativeRecType, inNativeAttribute );
+		}
+		
+		if ( permissions != NULL && CFDictionaryGetTypeID() == CFGetTypeID(permissions) )
+		{
+			CFDictionaryRef aclEntry = (CFDictionaryRef) CFDictionaryGetValue( permissions, inNativeRecType );
+			if ( aclEntry != NULL ) {
+				CFDebugLog( kLogDebug, "CDSLocalPluginNode::AccessAllowed - ACL %s for record type '%@'", 
+						    "exists", inNativeRecType );
+				bStopChecking = checkACLEntry( aclEntry );
+			}
+			
+			if ( bStopChecking == false ) {
+				aclEntry = (CFDictionaryRef) CFDictionaryGetValue( permissions, CFSTR(kDSRecordsAll) );
+				if ( aclEntry != NULL ) {
+					CFDebugLog( kLogDebug, "CDSLocalPluginNode::AccessAllowed - ACL %s for type 'kDSRecordsAll'", 
+							    "exists" );
+					bStopChecking = checkACLEntry( aclEntry );
+				}
+			}
+		}
+		
+		return bStopChecking;
+	};
+	
+	// checkPermissions returns true if there was an ACE so we stop
+	// TODO: enable per-record ACLs, we only support the global ACL for now until we are certain we want to support per-record
+//	if ( inAttributeDict == NULL ) {
+//		bACLExists = checkPermissions( (CFDictionaryRef) CFDictionaryGetValue(inAttributeDict, CFSTR("accesscontrolentry")) );
+//	}
+	
+	if ( bACLExists == false ) {
+		bACLExists = checkPermissions( inGlobalACL );
+	}
+	
+	DSCFRelease( cfUUID );
+#else
+	if ( CFStringCompare(inNativeAttribute, CFSTR("shadowhashdata"), 0) == kCFCompareEqualTo || 
+		 CFStringCompare(inNativeAttribute, CFSTR("shadowhashpolicy"), 0) == kCFCompareEqualTo )
+	{
+		(*inAccessAllowed) = false;
+		return true;
+	}	
+#endif
+	
+	// fallback to ensure we allow read access if no ACL exists
+	if ( bACLExists == false ) {
+		
+		// if no ACL exists, we always allow read access
+		switch ( inAccessMode ) {
+			case eDSAccessModeReadAttr:
+			case eDSAccessModeRead:
+				(*inAccessAllowed) = true;
+				bACLExists = true;
+				break;
+			default:
+				break;
+		}
+	}
+	
+	// return false means no ACE
+	return bACLExists;
+}
+
+bool
+CDSLocalPluginNode::AccessAllowed( CFStringRef inAuthedUserName, uid_t inEffectiveUID, CFStringRef inNativeRecType, CFStringRef inNativeAttribute,
+								   eDSAccessMode inAccessMode, CFDictionaryRef inAttributeDict )
 {
-	bool writeAllowed = false;
-	CFStringRef	cfTempName = NULL;
+	bool			accessAllowed	= false;
+	CFStringRef		cfTempName		= NULL;
 	
-// TODO implement write controls
+	// return if this is a membership thread lookup
+	if ( (inAccessMode == eDSAccessModeRead || inAccessMode == eDSAccessModeReadAttr) && Mbrd_IsMembershipThread() == true ) {
+		return true;
+	}
+	
+	// workaround for block annoyances in C++
+	if ( __checkACLPermissions(&accessAllowed, inAuthedUserName, inNativeRecType, inNativeAttribute, inAttributeDict,
+							   inAccessMode, mPlugin->mPermissions) == true ) {
+		return accessAllowed;
+	};
+	
+	// root is always allowed
+	if ( inEffectiveUID == 0 || (inAuthedUserName != NULL && CFStringCompare(inAuthedUserName, CFSTR("root"), 0) == kCFCompareEqualTo) ) {
+		return true;
+	}
 
-	if ( inEffectiveUID == 0 )
-	{
-		writeAllowed = true;
-	}
-	else if ( ( inAuthedUserName != NULL ) && ( CFStringCompare( inAuthedUserName, CFSTR("root"), 0 ) == kCFCompareEqualTo ) )
-	{
-		writeAllowed = true;
-	}
-	else if ( inAuthedUserName != NULL ) // this allows all admins to write
-	{
-		writeAllowed = mPlugin->UserIsAdmin( inAuthedUserName, this );
-	}
-	else // if we have no username, we should get it and allow the code below to check _writers_
-	{
-		struct passwd *entry = getpwuid( inEffectiveUID );
-		if( entry != NULL )
-		{
-			cfTempName = CFStringCreateWithCString( NULL, entry->pw_name, kCFStringEncodingUTF8 );
-			inAuthedUserName = cfTempName;
+	// see if user is an admin as that always allows access
+	if ( accessAllowed == false && inAuthedUserName != NULL ) {
+		char username[256];
+		
+		if ( CFStringGetCString(inAuthedUserName, username, sizeof(username), kCFStringEncodingUTF8) == true ) {
+			accessAllowed = dsIsUserMemberOfGroup( username, "admin" );
 		}
 	}
 	
-	if ( !writeAllowed && ( inAuthedUserName != NULL ) && ( CFStringGetLength( inAuthedUserName ) != 0 ) )
+	// support legacy style _writers model only after ACE and admin check
+	if ( accessAllowed == false && inAttributeDict != NULL )
 	{
-		// check for local access model of
-		// either "_writers" or "_writers_inNativeAttribute"  OR
-		// compare to inAuthedUserName
-		// compare user GUID where format must be "GUID:guid_UTF8_value"
-		// TODO add GUID support
-		if (inWritersAccessRecord != NULL)
+		CFArrayRef			attribACL		= NULL;
+		CFMutableStringRef	cfTempAttrib	= CFStringCreateMutableCopy( NULL, 0, CFSTR("_writers_") );
+		CFArrayRef			recordACL		= (CFArrayRef) CFDictionaryGetValue( inAttributeDict, CFSTR("_writers") );
+		
+		if ( cfTempAttrib != NULL ) {
+			CFStringAppend( cfTempAttrib, inNativeAttribute );
+			attribACL = (CFArrayRef) CFDictionaryGetValue( inAttributeDict, cfTempAttrib );
+			DSCFRelease( cfTempAttrib );
+		}
+		
+		// nothing to do if there is no writers attribute
+		if ( attribACL != NULL )
 		{
-			for ( CFIndex i = 0; i < CFArrayGetCount(inWritersAccessRecord); i++ )
+			CFStringRef cfAuthedName = inAuthedUserName;
+			
+			// if we have no username, we should get it and allow the code below to check _writers
+			// since writers allows ubiquitous access based on user session without auth
+			if ( cfAuthedName == NULL )
 			{
-				if ( CFStringCompare( inAuthedUserName, (CFStringRef)CFArrayGetValueAtIndex( inWritersAccessRecord, i ), 0) == kCFCompareEqualTo )
+				char	buffer[1024];
+				struct	passwd entry_storage;
+				struct	passwd *entry;
+				
+				if ( getpwuid_r(inEffectiveUID, &entry_storage, buffer, sizeof(buffer), &entry) == 0 ) {
+					cfTempName = CFStringCreateWithCString( NULL, entry->pw_name, kCFStringEncodingUTF8 );
+					cfAuthedName = cfTempName;
+				}
+			}
+			
+			if ( cfAuthedName != NULL )
+			{
+				// check for access based on "_writers" which means record level access
+				if ( recordACL != NULL )
 				{
-					writeAllowed = true;
-					break;
+					CFIndex iCount = CFArrayGetCount( recordACL );
+					for ( CFIndex i = 0; i < iCount; i++ ) {
+						if ( CFStringCompare(cfAuthedName, (CFStringRef)CFArrayGetValueAtIndex(recordACL, i), 0) == kCFCompareEqualTo ) {
+							accessAllowed = true;
+							break;
+						}
+					}
+				}
+				
+				// check for "_writers_inNativeAttribute" which means attribute level access
+				if ( accessAllowed == false && attribACL != NULL )
+				{
+					CFIndex iCount = CFArrayGetCount( attribACL );
+					for ( CFIndex i = 0; i < iCount; i++ ) {
+						if ( CFStringCompare(cfAuthedName, (CFStringRef)CFArrayGetValueAtIndex(attribACL, i ), 0) == kCFCompareEqualTo ) {
+							accessAllowed = true;
+							break;
+						}
+					}
 				}
 			}
 		}
 		
-		if ( !writeAllowed && (inWritersAccessAttribute != NULL) )
-		{
-			for ( CFIndex i = 0; i < CFArrayGetCount(inWritersAccessAttribute); i++ )
-			{
-				if ( CFStringCompare( inAuthedUserName, (CFStringRef)CFArrayGetValueAtIndex( inWritersAccessAttribute, i ), 0) == kCFCompareEqualTo )
-				{
-					writeAllowed = true;
-					break;
-				}
-			}
-		}
-		
-		// TODO group access control to be added later
-		// either "_writersgroup" or "_writersgroup_inNativeAttribute"
-		// check if inAuthedUserName is in the defined group
-		// compare user GUID where format must be "GUID:guid_UTF8_value"
-		// TODO add GUID support
-		/*
-		if ( !writeAllowed && (inWritersGroupAccessRecord != NULL) )
-		{
-			for ( CFIndex i = 0; i < CFArrayGetCount(inWritersGroupAccessRecord); i++ )
-			{
-				if ( UserInThisGroup( inAuthedUserName, (CFStringRef)CFArrayGetValueAtIndex( inWritersGroupAccessRecord, i ) ) )
-				{
-					writeAllowed = true;
-					break;
-				}
-			}
-		}
-		
-		if ( !writeAllowed && (inWritersGroupAccessAttribute != NULL) )
-		{
-			for ( CFIndex i = 0; i < CFArrayGetCount(inWritersGroupAccessAttribute); i++ )
-			{
-				if ( UserInThisGroup( inAuthedUserName, (CFStringRef)CFArrayGetValueAtIndex( inWritersGroupAccessAttribute, i ) ) )
-				{
-					writeAllowed = true;
-					break;
-				}
-			}
-		}
-		*/
+		DSCFRelease( cfTempName );
 	}
 	
-	DSCFRelease( cfTempName );
-
-	return(writeAllowed);
-} // WriteAccessAllowed
+	return accessAllowed;
+} // AccessAllowed
 
 bool CDSLocalPluginNode::IsLocalNode()
 {
@@ -2595,20 +2820,26 @@ void CDSLocalPluginNode::SetPrincipalStateInLocalRealm(char* principalName, cons
 CFDataRef CDSLocalPluginNode::CreateCFDataFromFile( const char *filename, size_t inLength )
 {
 	CFDataRef	cfData	= NULL;
+	struct stat	sb;
 	
-	if ( filename == NULL || inLength <= 0 )
+	if ( filename == NULL )
+		return NULL;
+
+	if ( inLength == 0 && lstat(filename, &sb) == 0 )
+		inLength = sb.st_size;
+
+	if ( inLength <= 0 )
 		return NULL;
 	
 	int fd = open( filename, O_RDONLY | O_NOFOLLOW );
 	if ( fd != -1 )
 	{
-		void *data = calloc( inLength, sizeof(char) );
+		void *data = calloc( inLength + 1, sizeof(char) );
 	
 		read( fd, data, inLength );
 		
 		cfData = CFDataCreateWithBytesNoCopy( kCFAllocatorDefault, (UInt8 *) data, inLength, kCFAllocatorMalloc );
-		if ( cfData == NULL )
-		{
+		if ( cfData == NULL ) {
 			DSFree( data );
 		}
 		
@@ -2623,48 +2854,35 @@ CFDataRef CDSLocalPluginNode::CreateCFDataFromFile( const char *filename, size_t
 #pragma mark -
 #pragma mark Index routines
 
-void CDSLocalPluginNode::AddIndexMapping( const char *inRecordType, ... )
+void CDSLocalPluginNode::AddIndexMapping( CFStringRef inRecordType, CFArrayRef inList )
 {
-	va_list			args;
-	int				iCount	= 0;
-	IndexMapping	*newMap = (IndexMapping *) calloc( 1, sizeof(IndexMapping) );
+	if ( inRecordType == NULL || inList == NULL ) return;
 	
-	// first count attributes
-	va_start( args, inRecordType );
-	while (va_arg( args, char * ) != NULL)
-		iCount++;
+	CFStringRef cfNativeType = mPlugin->RecordNativeTypeForStandardType( inRecordType );
+	if ( cfNativeType == NULL ) return;
 	
-	CFMutableArrayRef	cfArray	= CFArrayCreateMutable( kCFAllocatorDefault, iCount, &kCFTypeArrayCallBacks );
-	char				*cStr	= NULL;
+	CFIndex iCount = CFArrayGetCount( inList );
+	if ( iCount == 0 ) return;
 	
-	newMap->fRecordType = inRecordType;
-	newMap->fRecordTypeCF = CFStringCreateWithCString( kCFAllocatorDefault, inRecordType, kCFStringEncodingUTF8 );
+	IndexMapping	*newMap		= (IndexMapping *) calloc( 1, sizeof(IndexMapping) );
+	char			*cStr		= NULL;
+	size_t			cStrSize	= 0;
+	
+	newMap->fRecordTypeCF = (CFStringRef) CFRetain( inRecordType );
+	newMap->fAttributesCF = CFArrayCreateCopy( kCFAllocatorDefault, inList );
+	newMap->fRecordType = strdup( CStrFromCFString(inRecordType, &cStr, &cStrSize, NULL) );
+	newMap->fRecordNativeType = strdup( CStrFromCFString(cfNativeType, &cStr, &cStrSize, NULL) );
 	newMap->fAttributes = (const char **) calloc( iCount+1, sizeof(const char *) );
-	newMap->fAttributesCF = cfArray;
 	
-	CFStringRef cfNativeType = mPlugin->RecordNativeTypeForStandardType( newMap->fRecordTypeCF );
-
-	newMap->fRecordNativeType = strdup( CStrFromCFString(cfNativeType, &cStr, NULL, NULL) );
-	DSFree( cStr );
-	
-	iCount = 0;
-	va_start( args, inRecordType );
-	char *attrib = va_arg( args, char * );
-	
-	do
+	for ( CFIndex ii = 0; ii < iCount; ii++ )
 	{
-		newMap->fAttributes[iCount] = attrib; // we don't dup these cause we don't delete them
-		iCount++;
-		
-		CFStringRef cfTempString = CFStringCreateWithCString( kCFAllocatorDefault, attrib, kCFStringEncodingUTF8 );
-		CFArrayAppendValue( cfArray, cfTempString );
-		CFRelease( cfTempString );
-		
-		attrib = va_arg( args, char * );
-		
-	} while( attrib != NULL );
-	
-	mIndexMap[inRecordType] = newMap;
+		CFStringRef tempString = (CFStringRef) CFArrayGetValueAtIndex( inList, ii );
+		newMap->fAttributes[ii] = strdup( CStrFromCFString(tempString, &cStr, &cStrSize, NULL) );
+	}
+
+	DSFree( cStr );
+
+	mIndexMap[newMap->fRecordType] = newMap;
 }
 
 struct sIndexContext
@@ -2694,7 +2912,7 @@ void CDSLocalPluginNode::IndexObject( const void *inValue, void *inContext )
 			status = sqlite3_bind_text( pContext->pStmt, 3, pValue, strlen(pValue), SQLITE_TRANSIENT );
 		
 		if ( status == SQLITE_OK )
-			sqlite3_step( pContext->pStmt );
+			pContext->pNode->mDatabaseHelper->Step( pContext->pStmt );
 		
 		if ( status == SQLITE_OK ) {
 			DbgLog( kLogDebug, "CDSLocalPluginNode::IndexObject - added <%s> to table <%s> for <%s>", pValue, pContext->pAttrib, 
@@ -2713,28 +2931,20 @@ void CDSLocalPluginNode::IndexObject( const void *inValue, void *inContext )
 
 void CDSLocalPluginNode::DatabaseCorrupt( void )
 {
-	if ( OSAtomicCompareAndSwap32Barrier(false, true, &mIndexLoading) == TRUE )
-	{
-		pthread_t       loadIndexThread;
-		pthread_attr_t	defaultAttrs;
-		
-		fDBLock.WaitLock();
-		
-		CloseDatabase();
-		RemoveIndex();
-		
-		fDBLock.SignalLock();
-		
-		pthread_attr_init( &defaultAttrs );
-		pthread_attr_setdetachstate( &defaultAttrs, PTHREAD_CREATE_DETACHED );
-		
-		mIndexLoaded.ResetEvent();
-		pthread_create( &loadIndexThread, &defaultAttrs, LoadIndexAsynchronously, (void *) this );
-		if ( mIndexLoaded.WaitForEvent(10 * kMilliSecsPerSec) == false )
-			DbgLog( kLogPlugin, "CDSLocalPluginNode::DatabaseCorrupt - timed out waiting for index to load continuing without until available" );
-		
-		pthread_attr_destroy( &defaultAttrs );	
-	}
+	__sync_bool_compare_and_swap( &mUseIndex, true, false );
+
+	mDatabaseHelper->CloseDatabase();
+	mDatabaseHelper->RemoveDatabase();
+	
+	mIndexLoaded.ResetEvent();
+
+	dispatch_async( dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT), 
+					^(void) {
+						LoadFileAccessIndex();
+					} );
+	
+	if ( mIndexLoaded.WaitForEvent(10 * kMilliSecsPerSec) == false )
+		DbgLog( kLogPlugin, "CDSLocalPluginNode::DatabaseCorrupt - timed out waiting for index to load continuing without until available" );
 }
 
 void CDSLocalPluginNode::AddRecordIndex( const char *inRecordType, const char *inFileName )
@@ -2749,9 +2959,7 @@ void CDSLocalPluginNode::AddRecordIndex( const char *inRecordType, const char *i
 
 	snprintf( sPath, sizeof(sPath), "%s%s/%s", mNodeDirFilePathCStr, mapping->fRecordNativeType, inFileName );
 	
-	fDBLock.WaitLock();
-	
-	if ( mFileAccessIndexPtr != NULL && lstat(sPath, &statBuffer) == 0 && (aFileData = CreateCFDataFromFile(sPath, statBuffer.st_size)) != NULL )
+	if ( mDatabaseHelper != NULL && lstat(sPath, &statBuffer) == 0 && (aFileData = CreateCFDataFromFile(sPath, statBuffer.st_size)) != NULL )
 	{
 		CFDictionaryRef recordDict = (CFDictionaryRef) CFPropertyListCreateFromXMLData( kCFAllocatorDefault, aFileData, kCFPropertyListImmutable, NULL );
 		DSCFRelease( aFileData );
@@ -2762,7 +2970,7 @@ void CDSLocalPluginNode::AddRecordIndex( const char *inRecordType, const char *i
 			CFIndex	iCount		= CFArrayGetCount( mapping->fAttributesCF );
 			char	command[256];
 			
-			sqlExecSync( "BEGIN TRANSACTION" );
+			mDatabaseHelper->BeginTransaction();
 			
 			for ( CFIndex ii = 0; ii < iCount; ii++ )
 			{
@@ -2778,7 +2986,7 @@ void CDSLocalPluginNode::AddRecordIndex( const char *inRecordType, const char *i
 				snprintf( command, sizeof(command), "DELETE FROM '%s' WHERE filename='%s' AND recordtype='%s';", pAttrib, inFileName, 
 						 mapping->fRecordNativeType );
 				
-				int status = sqlExecSync( command );
+				int status = mDatabaseHelper->ExecSync( command );
 				if ( status == SQLITE_CORRUPT )
 					break;
 				
@@ -2799,7 +3007,7 @@ void CDSLocalPluginNode::AddRecordIndex( const char *inRecordType, const char *i
 				
 				if ( status == SQLITE_OK ) {
 					snprintf( command, sizeof(command), "INSERT INTO '%s' ('filename','recordtype','value') VALUES (?,?,?);", pAttrib );
-					status = sqlite3_prepare_v2( mFileAccessIndexPtr, command, -1, &pStmt, NULL );
+					status = mDatabaseHelper->Prepare( command, -1, &pStmt );
 				}
 				
 				if ( status == SQLITE_OK )
@@ -2824,25 +3032,18 @@ void CDSLocalPluginNode::AddRecordIndex( const char *inRecordType, const char *i
 					DSCFRelease( cfSet );
 				}
 				
-				if ( pStmt != NULL )
-				{
-					sqlite3_finalize( pStmt );
-					pStmt = NULL;
-				}
+				mDatabaseHelper->Finalize( pStmt );
 			}
 			
 			snprintf( command, sizeof(command), "REPLACE INTO '%s' ('filetime','filename') VALUES (%d,'%s');", mapping->fRecordNativeType, 
 					 (int) statBuffer.st_mtimespec.tv_sec, inFileName );
 			sqlExecSync( command );
 			
-			sqlExecSync( "END TRANSACTION" );
-			sqlExecSync( "COMMIT" );
+			mDatabaseHelper->EndTransaction();
 			
 			DSCFRelease( recordDict );
 		}
 	}
-	
-	fDBLock.SignalLock();
 }
 
 void CDSLocalPluginNode::DeleteRecordIndex( const char *inRecordType, const char* inFileName )
@@ -2854,9 +3055,7 @@ void CDSLocalPluginNode::DeleteRecordIndex( const char *inRecordType, const char
 	const char		**attribs	= mapping->fAttributes;
 	char			command[256];
 	
-	fDBLock.WaitLock();
-	
-	sqlExecSync( "BEGIN TRANSACTION" );
+	mDatabaseHelper->BeginTransaction();
 	
 	while ( (*attribs) != NULL )
 	{
@@ -2875,77 +3074,39 @@ void CDSLocalPluginNode::DeleteRecordIndex( const char *inRecordType, const char
 
 	DbgLog( kLogPlugin, "CDSLocalPluginNode::DeleteRecordIndex - deleting index for %s type %s", inFileName, inRecordType );
 
-	sqlExecSync( "END TRANSACTION" );
-	sqlExecSync( "COMMIT" );
-	
-	fDBLock.SignalLock();
-}
-
-void CDSLocalPluginNode::RemoveIndex( void )
-{
-	char	journalPath[PATH_MAX];
-	
-	strlcpy( journalPath, mIndexPath, sizeof(journalPath) );
-	strlcat( journalPath, "-journal", sizeof(journalPath) );
-	
-	unlink( mIndexPath );
-	unlink( journalPath );
+	mDatabaseHelper->EndTransaction();
 }
 
 void CDSLocalPluginNode::LoadFileAccessIndex( void )
 {
-	struct stat statBuffer	= { 0 };
-	bool		bRecreate	= false;
+	struct stat statBuffer		= { 0 };
+	static bool indexLoading	= false;
 	
-	// we don't load the index on the install only daemon
-	if ( gDSInstallDaemonMode == true )
+	// we don't load the index when running debug mode or install only daemon
+	if ( gDSDebugMode == true || gDSInstallDaemonMode == true ) {
 		return;
+	}
+	else if ( __sync_bool_compare_and_swap(&indexLoading, false, true) == false ) {
+		mIndexLoaded.PostEvent();
+		return;
+	}
 
-	fDBLock.WaitLock();
+	mDatabaseHelper->LockDatabase();
 	
-	if ( (stat(mIndexPath, &statBuffer) == 0 && statBuffer.st_size == 0) || mSafeBoot == true || mProperShutdown == false ) {
+	if ( mSafeBoot == true || mProperShutdown == false ) {
 		mProperShutdown = true;
 		mSafeBoot = false;
-		RemoveIndex();
-		bRecreate = true;
+		mDatabaseHelper->RemoveDatabase();
 	}
 	
 TryAgain:
 	
 	// if it fails to open here, we'll remove the file and attempt to open it again in the next if
-	int status = sqlite3_open( mIndexPath, &mFileAccessIndexPtr );
-	if ( status != SQLITE_OK ) {
-		RemoveIndex();
-		bRecreate = true;
-	}
-
-	// we either opened it successfully or it was deleted and we'll try to open again
-	if ( status == SQLITE_OK || sqlite3_open(mIndexPath, &mFileAccessIndexPtr) == SQLITE_OK )
+	if ( mIndexMap.size() != 0 && mDatabaseHelper->OpenDatabase(true) == true )
 	{
 		LocalNodeIndexMapI	iter	= mIndexMap.begin();
-		
-		if ( false == bRecreate ) {
-			
-			// lower cache size especially before integrity check because it pages in the whole DB
-			sqlExecSync( "PRAGMA cache_size = 50" );	// 50 * 1.5k = 75k
-			
-			if ( IntegrityCheckDB(mFileAccessIndexPtr) == false ) {
-				sqlite3_close( mFileAccessIndexPtr );
-				mFileAccessIndexPtr = NULL;
-				DbgLog( kLogCritical, "CDSLocalPluginNode::LoadFileAccessIndex - index failed integrity check - rebuilding" );
-				RemoveIndex();
-				bRecreate = true;
-				goto TryAgain;
-			}
-			else {
-				SrvrLog( kLogApplication, "Local Plugin - index passed integrity check" );
-			}
-		}
 
-		// let's change the default cache for the DB to 500 x 1.5k = 750k
-		sqlExecSync( "PRAGMA cache_size = 500" );
-
-		while( iter != mIndexMap.end() )
+		while ( iter != mIndexMap.end() )
 		{
 			IndexMapping	*mapping	= iter->second;
 			char			sPath[PATH_MAX];
@@ -2956,11 +3117,8 @@ TryAgain:
 			
 			snprintf( command, sizeof(command), "CREATE TABLE '%s' ('filetime' INTEGER, 'filename' TEXT UNIQUE);", mapping->fRecordNativeType );
 			if ( sqlExecSync(command) == SQLITE_CORRUPT ) {
-				sqlite3_close( mFileAccessIndexPtr );
-				mFileAccessIndexPtr = NULL;
 				DbgLog( kLogDebug, "CDSLocalPluginNode::LoadFileAccessIndex - database is corrupted attempting to create table, deleting" );
-				RemoveIndex();
-				bRecreate = true;
+				mDatabaseHelper->RemoveDatabase();
 				goto TryAgain;
 			}
 			
@@ -2983,9 +3141,9 @@ TryAgain:
 					{
 						snprintf( command, sizeof(command), "SELECT filetime FROM '%s' WHERE filename='%s';", mapping->fRecordNativeType, entry->d_name );
 						
-						status = sqlite3_prepare_v2( mFileAccessIndexPtr, command, -1, &pStmt, NULL );
+						int status = mDatabaseHelper->Prepare( command, -1, &pStmt );
 						if ( status == SQLITE_OK )
-							status = sqlite3_step( pStmt );
+							status = mDatabaseHelper->Step( pStmt );
 
 						if ( status == SQLITE_ROW )
 						{
@@ -2993,21 +3151,20 @@ TryAgain:
 								bIndex = false;
 						}
 
-						if ( pStmt != NULL )
-							sqlite3_finalize( pStmt );
+						mDatabaseHelper->Finalize( pStmt );
 					}
 					
 					if ( bIndex == true )
 					{
 						// release the lock here because AddRecordIndex grabs the lock and allow updates to occur while the
 						// index is checked
-						fDBLock.SignalLock();
+						mDatabaseHelper->UnlockDatabase();
 
 						DbgLog( kLogPlugin, "CDSLocalPluginNode::LoadFileAccessIndex - re-indexing type <%s> filename <%s>", mapping->fRecordNativeType, 
 							    entry->d_name );
 						AddRecordIndex( mapping->fRecordType, entry->d_name );
 						
-						fDBLock.WaitLock();
+						mDatabaseHelper->LockDatabase();
 					}
 				}
 				
@@ -3017,10 +3174,13 @@ TryAgain:
 			iter++;
 		}
 		
-		OSAtomicCompareAndSwap32Barrier( false, true, &mUseIndex );
+		__sync_bool_compare_and_swap( &mUseIndex, false, true );
 	}
 	
-	fDBLock.SignalLock();
+	mDatabaseHelper->UnlockDatabase();
+	
+	mIndexLoaded.PostEvent();
+	__sync_bool_compare_and_swap( &indexLoading, true, false );
 }
 
 char** CDSLocalPluginNode::GetFileAccessIndex( CFStringRef inNativeRecType, tDirPatternMatch inPatternMatch, CFStringRef inPatternToMatch, 
@@ -3069,9 +3229,9 @@ char** CDSLocalPluginNode::GetFileAccessIndex( CFStringRef inNativeRecType, tDir
 		else
 			snprintf( command, sizeof(command), "SELECT filename FROM '%s' WHERE value LIKE ? AND recordtype=?;", mapping->fAttributes[iIndex] );
 
-		fDBLock.WaitLock();
+		mDatabaseHelper->LockDatabase();
 
-		int status = sqlite3_prepare_v2( mFileAccessIndexPtr, command, -1, &pStmt, NULL );
+		int status = mDatabaseHelper->Prepare( command, -1, &pStmt );
 		if ( status == SQLITE_OK )
 		{
 			if ( CFGetTypeID(inPatternToMatch) == CFStringGetTypeID() )
@@ -3091,7 +3251,7 @@ char** CDSLocalPluginNode::GetFileAccessIndex( CFStringRef inNativeRecType, tDir
 			status = sqlite3_bind_text( pStmt, 2, mapping->fRecordNativeType, strlen(mapping->fRecordNativeType), SQLITE_STATIC );
 		
 		if ( status == SQLITE_OK )
-			status = sqlite3_step( pStmt );
+			status = mDatabaseHelper->Step( pStmt );
 		
 		int	iCount	= 0;
 		int iMax	= -1; // start -1 so that we are one less for comparing index offset
@@ -3117,39 +3277,33 @@ char** CDSLocalPluginNode::GetFileAccessIndex( CFStringRef inNativeRecType, tDir
 				iCount++;
 			}
 			
-			status = sqlite3_step( pStmt );
+			status = mDatabaseHelper->Step( pStmt );
 		}
 		
-		if ( pStmt != NULL )
-			sqlite3_finalize( pStmt );
+		mDatabaseHelper->Finalize( pStmt );
 
-		fDBLock.SignalLock();
+		mDatabaseHelper->UnlockDatabase();
 	}
 
 	return fileNames;
 }
 
-int CDSLocalPluginNode::sqlExecSync(const char *command, UInt32 length)
+int CDSLocalPluginNode::sqlExecSync(const char *command, int length)
 {
-	int				status	= SQLITE_OK;
-	sqlite3_stmt	*pStmt	= NULL;
+	int	status	= SQLITE_ERROR;
 
-	fDBLock.WaitLock();
-	if ( mFileAccessIndexPtr != NULL )
+	if ( mDatabaseHelper != NULL )
 	{
-		status = sqlite3_prepare_v2( mFileAccessIndexPtr, command, length, &pStmt, NULL );
-		if (status == SQLITE_OK)
-		{
-			status = sqlite3_step( pStmt );
-			sqlite3_finalize( pStmt );
-			
-			if ( status == SQLITE_CORRUPT ) {
-				DbgLog( kLogCritical, "CDSLocalPluginNode::sqlExecSync - SQL database corruption detected, rebuilding" );
-				DatabaseCorrupt();
-			}
+		mDatabaseHelper->LockDatabase();
+		
+		status = mDatabaseHelper->ExecSync( command, length );
+		if ( status == SQLITE_CORRUPT ) {
+			DbgLog( kLogCritical, "CDSLocalPluginNode::sqlExecSync - SQL database corruption detected, rebuilding" );
+			DatabaseCorrupt();
 		}
+		
+		mDatabaseHelper->UnlockDatabase();
 	}
-	fDBLock.SignalLock();
 	
 	return status;
 }

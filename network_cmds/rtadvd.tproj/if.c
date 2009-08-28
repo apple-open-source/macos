@@ -67,8 +67,8 @@
 
 #define NEXT_SA(ap) (ap) = (struct sockaddr *) \
 	((caddr_t)(ap) + ((ap)->sa_len ? ROUNDUP((ap)->sa_len,\
-						 sizeof(u_long)) :\
-			  			 sizeof(u_long)))
+						 sizeof(uint32_t)) :\
+			  			 sizeof(uint32_t)))
 
 struct if_msghdr **iflist;
 int iflist_init_ok;
@@ -150,7 +150,7 @@ if_getmtu(char *name)
 {
 	struct ifaddrs *ifap, *ifa;
 	struct if_data *ifd;
-	u_long mtu = 0;
+	int mtu = 0;
 
 	if (getifaddrs(&ifap) < 0)
 		return(0);

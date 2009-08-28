@@ -31,6 +31,7 @@
 #include <security_cryptkit/falloc.h>
 #include <security_cryptkit/feeFunctions.h>
 #include <SHA1_MD5_Object.h>
+#include <SHA2_Object.h>
 #include <security_cdsa_utilities/digestobject.h>
 
 Allocator *CryptKitFactory::normAllocator;
@@ -108,6 +109,47 @@ bool CryptKitFactory::setup(
 								*privAllocator)));
 					}
 					return true;
+				case CSSM_ALGID_SHA224WithECDSA:
+					if(cspCtx == NULL) {
+						cspCtx = new SignatureContext(session,
+							*(new SHA224Object()),
+							*(new FEEECDSASigner(feeRandCallback, 
+								&session,
+								session,
+								*privAllocator)));
+					}
+					return true;
+				case CSSM_ALGID_SHA256WithECDSA:
+					if(cspCtx == NULL) {
+						cspCtx = new SignatureContext(session,
+							*(new SHA256Object()),
+							*(new FEEECDSASigner(feeRandCallback, 
+								&session,
+								session,
+								*privAllocator)));
+					}
+					return true;
+				case CSSM_ALGID_SHA384WithECDSA:
+					if(cspCtx == NULL) {
+						cspCtx = new SignatureContext(session,
+							*(new SHA384Object()),
+							*(new FEEECDSASigner(feeRandCallback, 
+								&session,
+								session,
+								*privAllocator)));
+					}
+					return true;
+				case CSSM_ALGID_SHA512WithECDSA:
+					if(cspCtx == NULL) {
+						cspCtx = new SignatureContext(session,
+							*(new SHA512Object()),
+							*(new FEEECDSASigner(feeRandCallback, 
+								&session,
+								session,
+								*privAllocator)));
+					}
+					return true;
+
 				case CSSM_ALGID_FEE:
 					if(cspCtx == NULL) {
 						cspCtx = new SignatureContext(session,
@@ -136,6 +178,7 @@ bool CryptKitFactory::setup(
 		case CSSM_ALGCLASS_KEYGEN:
 			switch(context.algorithm()) {
 				case CSSM_ALGID_FEE:
+				case CSSM_ALGID_ECDSA:
 					if(cspCtx == NULL) {
 						cspCtx = new CryptKit::FEEKeyPairGenContext(session, context);
 					}

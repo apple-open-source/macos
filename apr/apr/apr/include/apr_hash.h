@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -126,10 +126,10 @@ APR_DECLARE(void *) apr_hash_get(apr_hash_t *ht, const void *key,
  * an iteration (although the results may be unpredictable unless all you do
  * is delete the current entry) and multiple iterations can be in
  * progress at the same time.
-
- * @example
  */
 /**
+ * @example
+ *
  * <PRE>
  * 
  * int sum_values(apr_pool_t *p, apr_hash_t *ht)
@@ -173,6 +173,12 @@ APR_DECLARE(void) apr_hash_this(apr_hash_index_t *hi, const void **key,
  * @return The number of key/value pairs in the hash table.
  */
 APR_DECLARE(unsigned int) apr_hash_count(apr_hash_t *ht);
+
+/**
+ * Clear any key/value pairs in the hash table.
+ * @param ht The hash table
+ */
+APR_DECLARE(void) apr_hash_clear(apr_hash_t *ht);
 
 /**
  * Merge two hash tables into one new hash table. The values of the overlay

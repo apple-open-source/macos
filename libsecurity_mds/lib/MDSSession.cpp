@@ -39,6 +39,8 @@
 #include <fcntl.h>
 #include <assert.h>
 #include <time.h>
+#include <string>
+#include <unistd.h>
 
 using namespace CssmClient;
 
@@ -46,7 +48,7 @@ using namespace CssmClient;
 /* 
  * The layout of the various MDS DB files on disk is as follows:
  *
- * /var/tmp/mds				-- owner = root, mode = 01777, world writable, sticky
+ * /var/db/mds				-- owner = root, mode = 01777, world writable, sticky
  *    system/				-- owner = root, mode = 0755
  *       mdsObject.db		-- owner = root, mode = 0644, object DB
  *       mdsDirectory.db	-- owner = root, mode = 0644, MDS directory DB
@@ -58,7 +60,7 @@ using namespace CssmClient;
  *       mdsDirectory.db	-- owner = <uid>, mode = 000, MDS directory DB
  *	     mds.lock			-- owner = <uid>, protects updates of previous two files
  * 
- * The /var/tmp/mds/system directory is created at OS install time. The DB files in 
+ * The /var/db/mds/system directory is created at OS install time. The DB files in 
  * it are created by root at MDS_Install time. The ownership and mode of this directory and
  * of its parent is also re-checked and forced to the correct state at MDS_Install time. 
  * Each user has their own private directory with two DB files and a lock. The first time 
@@ -67,7 +69,7 @@ using namespace CssmClient;
  * DB files when they are the source of these copies; this is the same mechanism
  * used by the underlying AtomicFile. 
  *
- * The sticky bit in /var/tmp/mds ensures that users cannot modify other userss private 
+ * The sticky bit in /var/db/mds ensures that users cannot modify other userss private 
  * MDS directories. 
  */
 namespace Security
@@ -89,9 +91,10 @@ namespace Security
 /*
  * Location of MDS database and lock files.
  */
-#define MDS_BASE_DB_DIR			"/private/var/tmp/mds"
+#define MDS_BASE_DB_DIR			"/private/var/db/mds"
 #define MDS_SYSTEM_DB_COMP		"system"
 #define MDS_SYSTEM_DB_DIR		MDS_BASE_DB_DIR "/" MDS_SYSTEM_DB_COMP
+#define MDS_USER_DB_COMP		"mds"
 
 #define MDS_LOCK_FILE_NAME		"mds.lock"			
 #define MDS_INSTALL_LOCK_NAME	"mds.install.lock"	
@@ -103,7 +106,7 @@ namespace Security
 #define MDS_DIRECT_DB_PATH		MDS_SYSTEM_DB_DIR "/" MDS_DIRECT_DB_NAME
 
 /* hard coded modes and a symbolic UID for root */
-#define MDS_BASE_DB_DIR_MODE	(mode_t)01777
+#define MDS_BASE_DB_DIR_MODE	(mode_t)0755
 #define MDS_SYSTEM_DB_DIR_MODE	(mode_t)0755
 #define MDS_SYSTEM_DB_MODE		(mode_t)0644
 #define MDS_USER_DB_DIR_MODE	(mode_t)0700
@@ -127,6 +130,66 @@ namespace Security
 
 /* Trace cleanDir() */
 #define MSCleanDirDbg(args...)	secdebug("MDS_CleanDir", ## args)
+
+static std::string GetMDSBaseDBDir(bool isRoot)
+{
+	// what we return depends on whether or not we are root
+	string retValue;
+	if (isRoot)
+	{
+		retValue = MDS_SYSTEM_DB_DIR;
+	}
+	else
+	{
+		char strBuffer[PATH_MAX + 1];
+		confstr(_CS_DARWIN_USER_CACHE_DIR, strBuffer, sizeof(strBuffer));
+		retValue = strBuffer;
+	}
+	
+	return retValue;
+}
+
+
+
+static std::string GetMDSDBDir()
+{
+	string retValue;
+	bool isRoot = geteuid() == 0;
+	
+	if (isRoot)
+	{
+		retValue = MDS_SYSTEM_DB_DIR;
+	}
+	else
+	{
+		retValue = GetMDSBaseDBDir(isRoot) + "/" + MDS_USER_DB_COMP;
+	}
+	
+	return retValue;
+}
+
+
+
+static std::string GetMDSObjectDBPath()
+{
+	return GetMDSDBDir() + "/" + MDS_OBJECT_DB_NAME;
+}
+
+
+
+static std::string GetMDSDirectDBPath()
+{
+	return GetMDSDBDir() + "/" + MDS_DIRECT_DB_PATH;
+}
+
+
+
+static std::string GetMDSDBLockPath()
+{
+	return GetMDSDBDir() + "/" + MDS_LOCK_FILE_NAME;
+}
+
+
 
 /*
  * Given a path to a directory, remove everything in the directory except for the optional
@@ -986,19 +1049,15 @@ void MDSSession::updateDataBases()
 	 * Obtain various per-user paths. Root is a special case but follows most
 	 * of the same logic from here on.
 	 */
-	char userDbFileDir[MAXPATHLEN+1];
-	char userObjDbFilePath[MAXPATHLEN+1];
-	char userDirectDbFilePath[MAXPATHLEN+1];
+	std::string userDBFileDir = GetMDSDBDir();
+	std::string userObjDBFilePath = GetMDSObjectDBPath();
+	std::string userDirectDBFilePath = GetMDSDirectDBPath();
 	char userBundlePath[MAXPATHLEN+1];
-	char userDbLockPath[MAXPATHLEN+1];
+	std::string userDbLockPath = GetMDSDBLockPath();
 	
 	/* this means "no user bundles" */
 	userBundlePath[0] = '\0';
-	if(isRoot) {
-		strcpy(userDbFileDir, MDS_SYSTEM_DB_DIR);
-		/* no userBundlePath */
-	}
-	else {
+	if(!isRoot) {
 		char *userHome = getenv("HOME");
 		if((userHome == NULL) ||
 		   (strlen(userHome) + strlen(MDS_USER_BUNDLE) + 2) > sizeof(userBundlePath)) {
@@ -1010,30 +1069,20 @@ void MDSSession::updateDataBases()
 			snprintf(userBundlePath, sizeof(userBundlePath), 
 				"%s/%s", userHome, MDS_USER_BUNDLE);
 		}
-		
-		/* DBs go in a per-UID directory in the base MDS DB directory */
-		snprintf(userDbFileDir, sizeof(userDbFileDir),
-			"%s/%d", MDS_BASE_DB_DIR, (int)ourUid);
 	}
-	snprintf(userObjDbFilePath,    sizeof(userObjDbFilePath), 
-		"%s/%s", userDbFileDir, MDS_OBJECT_DB_NAME);
-	snprintf(userDirectDbFilePath, sizeof(userDirectDbFilePath), 
-		"%s/%s", userDbFileDir, MDS_DIRECT_DB_NAME);
-	snprintf(userDbLockPath,       sizeof(userDbLockPath),
-		"%s/%s", userDbFileDir, MDS_LOCK_FILE_NAME);
-	
+
 	/* 
 	 * Create the per-user directory...that's where the lock we'll be using lives.
 	 */
 	if(!isRoot) {
-		if(createDir(userDbFileDir, ourUid, MDS_USER_DB_DIR_MODE)) {
+		if(createDir(userDBFileDir.c_str(), ourUid, MDS_USER_DB_DIR_MODE)) {
 			/* 
 			 * We'll just have to limp along using the read-only system DBs.
 			 * Note that this protects (somewhat) against the DoS attack in 
 			 * Radar 3801292. The only problem is that this user won't be able 
 			 * to use per-user bundles. 
 			 */
-			Syslog::alert("MDS Error: unable to create %s", userDbFileDir);
+			Syslog::alert("MDS Error: unable to create %s", userDBFileDir.c_str());
 			MSDebug("Error creating user DBs; using system DBs");
 			mModule.setDbPath(MDS_SYSTEM_DB_DIR);
 			return;
@@ -1042,7 +1091,7 @@ void MDSSession::updateDataBases()
 
 	/* always release userLockFd no matter what happens */
 	int userLockFd = -1;
-	if(!obtainLock(userDbLockPath, userLockFd, DB_LOCK_TIMEOUT)) {
+	if(!obtainLock(userDbLockPath.c_str(), userLockFd, DB_LOCK_TIMEOUT)) {
 		CssmError::throwMe(CSSM_ERRCODE_MDS_ERROR);
 	}
 	try {
@@ -1056,31 +1105,31 @@ void MDSSession::updateDataBases()
 				 */
 				bool doCopySystem = false;
 				struct stat userObjStat, userDirectStat;
-				if(!doFilesExist(userObjDbFilePath, userDirectDbFilePath, ourUid, true,
+				if(!doFilesExist(userObjDBFilePath.c_str(), userDirectDBFilePath.c_str(), ourUid, true,
 						userObjStat, userDirectStat)) {
 					doCopySystem = true;
 				}
 				else {
 					/* compare the two mdsDirectory.db files */
 					MSIoDbg("stat %s, %s in updateDataBases",
-						MDS_DIRECT_DB_PATH, userDirectDbFilePath);
+						MDS_DIRECT_DB_PATH, userDirectDBFilePath.c_str());
 					struct stat sysStat;
 					if (!stat(MDS_DIRECT_DB_PATH, &sysStat)) {
 						doCopySystem = (sysStat.st_mtimespec.tv_sec > userDirectStat.st_mtimespec.tv_sec) ||
 							((sysStat.st_mtimespec.tv_sec == userDirectStat.st_mtimespec.tv_sec) &&
 								(sysStat.st_mtimespec.tv_nsec > userDirectStat.st_mtimespec.tv_nsec));
 						if(doCopySystem) {
-							MSDebug("user DB files obsolete at %s", userDbFileDir);
+							MSDebug("user DB files obsolete at %s", userDBFileDir.c_str());
 						}
 					}
 				}
 				if(doCopySystem) {
 					/* copy system DBs to user DBs */
-					MSDebug("copying system DBs to user at %s", userDbFileDir);
-					copySystemDbs(userDbFileDir);
+					MSDebug("copying system DBs to user at %s", userDBFileDir.c_str());
+					copySystemDbs(userDBFileDir.c_str());
 				}
 				else {
-					MSDebug("Using existing user DBs at %s", userDbFileDir);
+					MSDebug("Using existing user DBs at %s", userDBFileDir.c_str());
 				}
 			}
 			catch(const CssmError &cerror) {
@@ -1094,7 +1143,7 @@ void MDSSession::updateDataBases()
 				/* 
 				 * Error on delete or create user DBs; fall back on system DBs. 
 				 */
-				Syslog::alert("MDS Error: unable to create user DBs in %s", userDbFileDir);
+				Syslog::alert("MDS Error: unable to create user DBs in %s", userDBFileDir.c_str());
 				MSDebug("doFilesExist(purge) error; using system DBs");
 				mModule.setDbPath(MDS_SYSTEM_DB_DIR);
 				releaseLock(userLockFd);
@@ -1109,7 +1158,7 @@ void MDSSession::updateDataBases()
 		 * Update per-user DBs from both bundle sources (System bundles, user bundles)
 		 * as appropriate. 
 		 */
-		DbFilesInfo dbFiles(*this, userDbFileDir);
+		DbFilesInfo dbFiles(*this, userDBFileDir.c_str());
 		dbFiles.removeOutdatedPlugins();
 		dbFiles.updateSystemDbInfo(NULL, MDS_BUNDLE_PATH);
 		if(userBundlePath[0]) {
@@ -1118,7 +1167,7 @@ void MDSSession::updateDataBases()
 				dbFiles.updateForBundleDir(userBundlePath);
 			}
 		}
-		mModule.setDbPath(userDbFileDir);
+		mModule.setDbPath(userDBFileDir.c_str());
 	}	/* main block protected by mLockFd */
 	catch(...) {
 		releaseLock(userLockFd);
@@ -1505,13 +1554,13 @@ void MDSSession::DbFilesInfo::removeOutdatedPlugins()
 	
 	attrInfo = &theAttrs[0].Info;
 	attrInfo->AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-	attrInfo->Label.AttributeName = "ModuleID";
+	attrInfo->Label.AttributeName = (char*) "ModuleID";
 	attrInfo->AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_STRING;
 	theAttrs[0].NumberOfValues = 0;
 	theAttrs[0].Value = NULL;
 	attrInfo = &theAttrs[1].Info;
 	attrInfo->AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-	attrInfo->Label.AttributeName = "Path";
+	attrInfo->Label.AttributeName = (char*) "Path";
 	attrInfo->AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_STRING;
 	theAttrs[1].NumberOfValues = 0;
 	theAttrs[1].Value = NULL;
@@ -1665,7 +1714,7 @@ bool MDSSession::DbFilesInfo::lookupForPath(
 	recordAttrs.AttributeData = &theAttr;
 	
 	attrInfo->AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-	attrInfo->Label.AttributeName = "Path";
+	attrInfo->Label.AttributeName = (char*) "Path";
 	attrInfo->AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_STRING;
 	
 	theAttr.NumberOfValues = 0;
@@ -1673,7 +1722,7 @@ bool MDSSession::DbFilesInfo::lookupForPath(
 	
 	predicate.DbOperator = CSSM_DB_EQUAL;
 	predicate.Attribute.Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-	predicate.Attribute.Info.Label.AttributeName = "Path";
+	predicate.Attribute.Info.Label.AttributeName = (char*) "Path";
 	predicate.Attribute.Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_STRING;
 	predData.Data = (uint8 *)path;
 	predData.Length = strlen(path);

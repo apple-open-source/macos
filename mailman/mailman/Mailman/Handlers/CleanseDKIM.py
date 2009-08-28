@@ -1,4 +1,4 @@
-# Copyright (C) 2006 by the Free Software Foundation, Inc.
+# Copyright (C) 2006-2007 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -25,9 +25,12 @@ and it will also give the MTA the opportunity to regenerate valid keys
 originating at the Mailman server for the outgoing message.
 """
 
+from Mailman import mm_cfg
 
-
+
 def process(mlist, msg, msgdata):
-    del msg['domainkey-signature']
-    del msg['dkim-signature']
+    if mm_cfg.REMOVE_DKIM_HEADERS:
+        del msg['domainkey-signature']
+        del msg['dkim-signature']
+        del msg['authentication-results']
 

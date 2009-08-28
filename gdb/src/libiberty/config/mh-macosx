@@ -1,0 +1,4 @@
+# APPLE LOCAL - The following macro needs to be defined to allow more
+# than 256 streams to be open at a time.
+
+HDEFINES = -D_DARWIN_UNLIMITED_STREAMS

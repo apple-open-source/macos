@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002 - 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,6 +30,7 @@
 
 #include <mach/std_types.defs>
 #include <mach/mach_types.defs>
+#include <TargetConditionals.h>
 
 subsystem eapolcontroller 22000;
 
@@ -96,12 +97,33 @@ routine eapolcontroller_set_logging (	server		: mach_port_t;
 					level		: int32_t;
 				 out	result		: int);
 
-skip;
-skip;
+
+routine eapolcontroller_provide_user_input (	server	: mach_port_t;
+					if_name		: if_name;
+					user_input	: xmlData;
+				 out	result		: int);
+
+#if ! TARGET_OS_EMBEDDED
+
+routine eapolcontroller_start_system	(	server	: mach_port_t;
+					if_name		: if_name;
+					options_data	: xmlData;
+				 out	result		: int);
+
+routine eapolcontroller_copy_loginwindow_config ( server : mach_port_t;
+     					if_name		: if_name;
+				 out	config		: xmlDataOut, dealloc;
+				 out	result		: int);
+#else /* ! TARGET_OS_EMBEDDED */
+
 skip;
 
+skip;
+
+#endif /* ! TARGET_OS_EMBEDDED */
+
 /*
- * routines called by the 802.1x client process 
+ * routines called by the 802.1X client process 
  */
 routine eapolcontroller_client_attach (	server		: mach_port_t;
 					task		: task_t;

@@ -1,10 +1,10 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
-*                      by AT&T Knowledge Ventures                      *
+*                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
 *            http://www.opensource.org/licenses/cpl1.0.txt             *
@@ -103,7 +103,7 @@ typedef struct Feature_s
 	char*		strict;
 	short		length;
 	short		standard;
-	unsigned short	flags;
+	unsigned int	flags;
 	short		op;
 } Feature_t;
 
@@ -111,7 +111,7 @@ typedef struct
 {
 	Conf_t*		conf;
 	const char*	name;
-	unsigned short	flags;
+	unsigned int	flags;
 	short		call;
 	short		standard;
 	short		section;
@@ -267,7 +267,7 @@ typedef struct
 
 static State_t	state = { "getconf", "_AST_FEATURES", dynamic };
 
-static char*	feature(const char*, const char*, const char*, int, Error_f);
+static char*	feature(const char*, const char*, const char*, unsigned int, Error_f);
 
 /*
  * return fmtbuf() copy of s
@@ -557,7 +557,7 @@ initialize(register Feature_t* fp, const char* path, const char* command, const 
  */
 
 static char*
-format(register Feature_t* fp, const char* path, const char* value, int flags, Error_f conferror)
+format(register Feature_t* fp, const char* path, const char* value, unsigned int flags, Error_f conferror)
 {
 	register Feature_t*	sp;
 	register int		n;
@@ -668,7 +668,7 @@ format(register Feature_t* fp, const char* path, const char* value, int flags, E
  */
 
 static char*
-feature(const char* name, const char* path, const char* value, int flags, Error_f conferror)
+feature(const char* name, const char* path, const char* value, unsigned int flags, Error_f conferror)
 {
 	register Feature_t*	fp;
 	register int		n;
@@ -719,7 +719,7 @@ feature(const char* name, const char* path, const char* value, int flags, Error_
  */
 
 static int
-lookup(register Lookup_t* look, const char* name, int flags)
+lookup(register Lookup_t* look, const char* name, unsigned int flags)
 {
 	register Conf_t*	mid = (Conf_t*)conf;
 	register Conf_t*	lo = mid;
@@ -857,7 +857,7 @@ static char*
 print(Sfio_t* sp, register Lookup_t* look, const char* name, const char* path, int listflags, Error_f conferror)
 {
 	register Conf_t*	p = look->conf;
-	register int		flags = look->flags;
+	register unsigned int	flags = look->flags;
 	char*			call;
 	char*			f;
 	const char*		s;

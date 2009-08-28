@@ -1,7 +1,7 @@
 #
 # Makefile
 #
-# Version:	$Id: Makefile,v 1.1.10.1 2006/02/10 19:47:17 nbk Exp $
+# Version:	$Id$
 #
 
 TARGET     = rlm_passwd

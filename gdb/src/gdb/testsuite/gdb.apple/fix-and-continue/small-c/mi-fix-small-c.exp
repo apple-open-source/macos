@@ -24,11 +24,6 @@ if $tracelevel then {
         strace $tracelevel
 }
 
-if [target_info exists darwin64] {
-   verbose "Fix and continue not supported for x86-64/ppc64."
-   return
-}
-
 set prms_id 0
 set bug_id 0
 
@@ -37,9 +32,17 @@ set binfile ${objdir}/${subdir}/${testfile}
 
 set timeout 30
 
+set arch "i386"
+if [target_info exists darwin64] {
+  set arch "x86_64"
+}
+if [istarget "powerpc-apple-darwin*"] {
+  set arch "ppc"
+}
+
 remote_exec build "sh ${srcdir}/${subdir}/../set-up-objdir.sh ${srcdir}/${subdir} ${objdir}/${subdir}"
 
-remote_exec build "make -C ${objdir}/${subdir} stage1"
+remote_exec build "make ARCH=${arch} -C ${objdir}/${subdir} stage1"
 
 load_lib mi-support.exp
 set MIFLAGS "-i=mi1"
@@ -61,9 +64,9 @@ mi_next "first next"
 # Build a new b.c
 
 
-remote_exec build "make -C $objdir/$subdir stage2"
+remote_exec build "make ARCH=${arch} -C $objdir/$subdir stage2"
 
-# mi_gdb_test "shell make -C $objdir/$subdir stage2" ".*gcc.*b.o.*b-bundlized.o.*b.o.*\\^done" "make version 2 of b.c"
+# mi_gdb_test "shell make ARCH=${arch} -C $objdir/$subdir stage2" ".*gcc.*b.o.*b-bundlized.o.*b.o.*\\^done" "make version 2 of b.c"
 
 mi_gdb_test "38-file-fix-file $objdir/$subdir/b-bundlized.o2 $objdir/$subdir/b.c" ".*38\\^done,replaced-functions=\\\[\\\]" "Bring in fixed b.c version 2"
 
@@ -91,15 +94,15 @@ mi_gdb_test "35-stack-list-frames 0 0" "35\\^done.*\"slurry\".*" "verify that we
 # Build a new verison of b.c
 
 
-remote_exec build "make -C $objdir/$subdir stage3"
+remote_exec build "make ARCH=${arch} -C $objdir/$subdir stage3"
 
-# mi_gdb_test "shell make -C $objdir/$subdir stage3" ".*gcc.*b.o.*b-bundlized.o.*b.o.*\\^done" "make version 3 of b.c"
+# mi_gdb_test "shell make ARCH=${arch} -C $objdir/$subdir stage3" ".*gcc.*b.o.*b-bundlized.o.*b.o.*\\^done" "make version 3 of b.c"
 
 mi_gdb_test "838-file-fix-file $objdir/$subdir/b-bundlized.o3 $objdir/$subdir/b.c" ".*838\\^done,replaced-functions=\\\[\{thread-id=\"1\",replaced=\\\[frame=\{level=\"2\",addr=\"$hex\",fp=\"$hex\",func=\"bar\",file=\"b.c\",line=\"2\[67\]\",dir=\".*\"\},frame=\{level=\"0\",addr=\"$hex\",fp=\"$hex\",func=\"slurry\",file=\"b.c\",line=\"40\",dir=\".*\"\}\\\]\}\\\]" "Bring in fixed b.c version 3"
 
 mi_gdb_test "183-thread-set-pc 1 b.c:36" ".*183\\^done,frame=.*,func=\"slurry\",.*line=\"40\".*" "Set \$pc to the new slurry"
 
-remote_exec build "make -C $objdir/$subdir stage21"
+remote_exec build "make ARCH=${arch} -C $objdir/$subdir stage21"
 
 mi_gdb_test "839-file-fix-file $objdir/$subdir/b-bundlized.o21 $objdir/$subdir/b.c" ".*839\\^done,replaced-functions=\\\[\{thread-id=\"1\",replaced=\\\[frame=\{level=\"2\",addr=\"$hex\",fp=\"$hex\",func=\"bar\",file=\"b.c\",line=\"2\[67\]\",dir=\".*\"\},frame=\{level=\"0\",addr=\"$hex\",fp=\"$hex\",func=\"slurry\",file=\"b.c\",line=\"40\",dir=\".*\"\}\\\]\}\\\]" "Bring in fixed b.c version 21"
 
@@ -110,7 +113,7 @@ mi_gdb_test "840-break-insert static_printer" ".*840\\^done,bkpt.*" "set breakpo
 mi_gdb_test "841-exec-continue" ".*stopped.*" "continue into static_printer"
 
 
-remote_exec build "make -C $objdir/$subdir stage22"
+remote_exec build "make ARCH=${arch} -C $objdir/$subdir stage22"
 
 mi_gdb_test "842-file-fix-file $objdir/$subdir/b-bundlized.o22 $objdir/$subdir/b.c" ".*842\\^done,replaced-functions=.*" "Bring in fixed b.c version 22"
 

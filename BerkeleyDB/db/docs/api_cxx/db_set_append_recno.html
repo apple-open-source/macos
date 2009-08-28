@@ -1,31 +1,28 @@
-<!--$Id: db_set_append_recno.html,v 1.2 2004/03/30 01:21:57 jtownsen Exp $-->
-<!--Copyright 1997-2003 by Sleepycat Software, Inc.-->
-<!--All rights reserved.-->
+<!--$Id: db_set_append_recno.so,v 1.24 2006/05/17 20:47:46 bostic Exp $-->
+<!--Copyright (c) 1997,2007 Oracle.  All rights reserved.-->
 <!--See the file LICENSE for redistribution information.-->
 <html>
 <head>
 <title>Berkeley DB: Db::set_append_recno</title>
 <meta name="description" content="Berkeley DB: An embedded database programmatic toolkit.">
-<meta name="keywords" content="embedded,database,programmatic,toolkit,b+tree,btree,hash,hashing,transaction,transactions,locking,logging,access method,access methods,Java,C,C++">
+<meta name="keywords" content="embedded,database,programmatic,toolkit,btree,hash,hashing,transaction,transactions,locking,logging,access method,access methods,Java,C,C++">
 </head>
 <body bgcolor=white>
-<a name="2"><!--meow--></a>
 <table width="100%"><tr valign=top>
 <td>
 <h3>Db::set_append_recno</h3>
 </td>
 <td align=right>
-<a href="../api_cxx/api_index.html"><img src="../images/api.gif" alt="API"></a>
-<a href="../ref/toc.html"><img src="../images/ref.gif" alt="Ref"></a>
-</td></tr></table>
+<a href="../api_cxx/api_core.html"><img src="../images/api.gif" alt="API"></a>
+<a href="../ref/toc.html"><img src="../images/ref.gif" alt="Ref"></a></td>
+</tr></table>
 <hr size=1 noshade>
 <tt>
 <h3><pre>
 #include &lt;db_cxx.h&gt;
 <p>
 int
-Db::set_append_recno(
-    int (*db_append_recno_fcn)(DB *dbp, Dbt *data, db_recno_t recno));
+Db::set_append_recno(int (*db_append_recno_fcn)(DB *dbp, Dbt *data, db_recno_t recno));
 </pre></h3>
 <hr size=1 noshade>
 <h3>Description: Db::set_append_recno</h3>
@@ -45,23 +42,26 @@ or throws an exception that encapsulates a non-zero error value on
 failure, and returns 0 on success.
 </p>
 <h3>Parameters</h3>
-<p><dl compact>
-<p><dt><b>db_append_recno_fcn</b><dd>
-The <b>db_append_recno_fcn</b> parameter is a function to call after
+<dl compact>
+<dt><b>db_append_recno_fcn</b><dd>The <b>db_append_recno_fcn</b> parameter is a function to call after
 the record number has been selected but before the data has been stored
 into the database.  The function takes three parameters:
-<p><dl compact>
-<p><dt><b>db</b><dd>The <b>db</b> parameter is the enclosing database handle.
-<p><dt><b>dbt</b><dd>The <b>dbt</b> parameter is the data <a href="../api_cxx/dbt_class.html">Dbt</a> to be stored.
-<p><dt><b>recno</b><dd>The <b>recno</b> parameter is the generated record number.
+<dl compact>
+<dt><b>db</b><dd>The <b>db</b> parameter is the enclosing database handle.
+<dt><b>dbt</b><dd>The <b>dbt</b> parameter is the data <a href="../api_cxx/dbt_class.html">Dbt</a> to be stored.
+<dt><b>recno</b><dd>The <b>recno</b> parameter is the generated record number.
 </dl>
-<p>The called function may modify the data <a href="../api_cxx/dbt_class.html">Dbt</a>.
-If the function needs to allocate memory for the <b>data</b> field, the
-<b>flags</b> field of the returned <a href="../api_cxx/dbt_class.html">Dbt</a> should be set to
+<p>The called function may modify the data <a href="../api_cxx/dbt_class.html">Dbt</a>.  If the function
+needs to allocate memory for the <b>data</b> field, the <b>flags</b>
+field of the returned <a href="../api_cxx/dbt_class.html">Dbt</a> should be set to
 DB_DBT_APPMALLOC, which indicates that Berkeley DB should free the
 memory when it is done with it.</p>
 <p>The callback function must return 0 on success and <b>errno</b> or
 a value outside of the Berkeley DB error name space on failure.</p>
+<p>Berkeley DB is not re-entrant.  Callback functions should not attempt to make
+library calls (for example, to release locks or close open handles).
+Re-entering Berkeley DB is not guaranteed to work correctly, and the results
+are undefined.</p>
 </dl>
 <h3>Errors</h3>
 <p>The Db::set_append_recno method
@@ -69,8 +69,8 @@ may fail and throw
 <a href="../api_cxx/except_class.html">DbException</a>,
 encapsulating one of the following non-zero errors, or return one of
 the following non-zero errors:</p>
-<p><dl compact>
-<p><dt>EINVAL<dd>If the method was called after <a href="../api_cxx/db_open.html">Db::open</a> was called; or if an
+<dl compact>
+<dt>EINVAL<dd>If the method was called after <a href="../api_cxx/db_open.html">Db::open</a> was called; or if an
 invalid flag value or parameter was specified.
 </dl>
 <hr size=1 noshade>
@@ -80,8 +80,8 @@ invalid flag value or parameter was specified.
 <a href="../api_cxx/db_list.html">Databases and Related Methods</a>
 </tt>
 <table width="100%"><tr><td><br></td><td align=right>
-<a href="../api_cxx/api_index.html"><img src="../images/api.gif" alt="API"></a><a href="../ref/toc.html"><img src="../images/ref.gif" alt="Ref"></a>
+<a href="../api_cxx/api_core.html"><img src="../images/api.gif" alt="API"></a><a href="../ref/toc.html"><img src="../images/ref.gif" alt="Ref"></a>
 </td></tr></table>
-<p><font size=1><a href="../sleepycat/legal.html">Copyright (c) 1996-2003</a> <a href="http://www.sleepycat.com">Sleepycat Software, Inc.</a> - All rights reserved.</font>
+<p><font size=1>Copyright (c) 1996,2007 Oracle.  All rights reserved.</font>
 </body>
 </html>

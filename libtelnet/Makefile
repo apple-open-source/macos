@@ -1,18 +1,27 @@
-#	From: @(#)Makefile	8.2 (Berkeley) 12/15/93
-# $FreeBSD: src/lib/libtelnet/Makefile,v 1.10 1999/08/28 00:05:40 peter Exp $
+Project  = telnet
+ProductType = staticlib
+Install_Dir = /usr/local/lib
 
-LIB=	telnet
-SRCS=	genget.c getent.c misc.c encrypt.c enc_des.c auth.c kerberos.c krb4encpwd.c kerberos5.c forward.c sra.c read_password.c
-CFLAGS+= -Wno-unused -DHAS_CGETENT -DAUTHENTICATION -DENCRYPTION -DDES_ENCRYPTION -DRSA -DKRB4 -DKRB5 -DFORWARD -DHAVE_STDLIB_H -I.
-NOPIC=	true
+CFILES = auth.c enc_des.c encrypt.c forward.c genget.c getent.c \
+	kerberos.c kerberos5.c krb4encpwd.c \
+	misc.c read_password.c rsaencpwd.c sra.c
 
-#
-# Remove obsolete shared libraries, if any.  We don't bother moving them
-# to/usr/lib/compat, since they were only used by telnet, telnetd and
-# tn3270.
-#
-beforeinstall:
-	rm -f ${DESTDIR}${SHLIBDIR}/lib${LIB}.so.2.0
+Extra_CC_Flags = -Wno-unused
+Extra_CC_Flags += -D__FBSDID=__RCSID \
+	-I. \
+	-DHAS_CGETENT -DAUTHENTICATION -DRSA -DKRB5 -DFORWARD -DHAVE_STDLIB_H \
+	# -DENCRYPTION -DDES_ENCRYPTION -DKRB4 
 
-.include <bsd.lib.mk>
+Install_Headers_Directory = /usr/local/include/libtelnet
+Install_Headers = auth.h auth-proto.h encrypt.h enc-proto.h misc.h misc-proto.h
 
+include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make
+
+OSV = $(DSTROOT)/usr/local/OpenSourceVersions
+OSL = $(DSTROOT)/usr/local/OpenSourceLicenses
+
+after_install:
+	$(MKDIR) $(OSV)
+	$(INSTALL_FILE) $(SRCROOT)/libtelnet.plist $(OSV)
+	$(MKDIR) $(OSL)
+	$(INSTALL_FILE) $(SRCROOT)/LICENSE $(OSL)/libtelnet.txt

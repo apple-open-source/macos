@@ -48,6 +48,9 @@ static const char sccsid[] = "@(#)io.c	8.1 (Berkeley) 6/6/93";
  */
 
 #include <sys/filio.h>
+#ifdef __APPLE__
+#include <sys/ioctl.h>
+#endif
 
 #include <errno.h>
 #include <signal.h>

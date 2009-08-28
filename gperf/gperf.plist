@@ -4,15 +4,15 @@
 	<key>OpenSourceProject</key>
 	<string>gperf</string>
 	<key>OpenSourceVersion</key>
-	<string>3.0.1</string>
+	<string>3.0.3</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.gnu.org/software/gperf/</string>
 	<key>OpenSourceURL</key>
-	<string>http://ftp.gnu.org/gnu/gperf/gperf-3.0.1.tar.gz</string>
-	<key>OpenSourceMD5</key>
-	<string>00c0f7512710e1b68ab37bd2e68081bf</string>
+	<string>http://ftp.gnu.org/gnu/gperf/gperf-3.0.3.tar.gz</string>
+	<key>OpenSourceSHA1</key>
+	<string>3c535d2727eb0dca10ca87cefa03720a8280c7a2</string>
 	<key>OpenSourceImportDate</key>
-	<string>2004-10-26</string>
+	<string>2007-11-02</string>
 	<key>OpenSourceLicense</key>
 	<string>GPL</string>
 	<key>OpenSourceLicenseFile</key>

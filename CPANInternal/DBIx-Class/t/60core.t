@@ -7,7 +7,10 @@ use DBICTest;
 
 my $schema = DBICTest->init_schema();
 
-plan tests => 63;
+plan tests => 78;
+
+eval { require DateTime::Format::MySQL };
+my $NO_DTFM = $@ ? 1 : 0;
 
 # figure out if we've got a version of sqlite that is older than 3.2.6, in
 # which case COUNT(DISTINCT()) doesn't work
@@ -166,6 +169,7 @@ $new = $schema->resultset("Track")->new( {
   cd => 1,
   position => 4,
   title => 'Insert or Update',
+  last_updated_on => '1973-07-19 12:01:02'
 } );
 $new->update_or_insert;
 ok($new->in_storage, 'update_or_insert insert ok');
@@ -174,6 +178,21 @@ ok($new->in_storage, 'update_or_insert insert ok');
 $new->pos(5);
 $new->update_or_insert;
 is( $schema->resultset("Track")->find(100)->pos, 5, 'update_or_insert update ok');
+
+# get_inflated_columns w/relation and accessor alias
+SKIP: {
+    skip "This test requires DateTime::Format::MySQL", 8 if $NO_DTFM;
+
+    isa_ok($new->updated_date, 'DateTime', 'have inflated object via accessor');
+    my %tdata = $new->get_inflated_columns;
+    is($tdata{'trackid'}, 100, 'got id');
+    isa_ok($tdata{'cd'}, 'DBICTest::CD', 'cd is CD object');
+    is($tdata{'cd'}->id, 1, 'cd object is id 1');
+    is($tdata{'position'}, 5, 'got position from pos');
+    is($tdata{'title'}, 'Insert or Update');
+    is($tdata{'last_updated_on'}, '1973-07-19T12:01:02');
+    isa_ok($tdata{'last_updated_on'}, 'DateTime', 'inflated accessored column');
+}
 
 eval { $schema->class("Track")->load_components('DoesNotExist'); };
 
@@ -255,7 +274,7 @@ ok($schema->storage(), 'Storage available');
   cmp_ok(@artsn, '==', 4, "Four artists returned");
   
   # make sure subclasses that don't set source_name are ok
-  ok($schema->source('ArtistSubclass', 'ArtistSubclass exists'));
+  ok($schema->source('ArtistSubclass'), 'ArtistSubclass exists');
 }
 
 my $newbook = $schema->resultset( 'Bookmark' )->find(1);
@@ -277,11 +296,25 @@ ok(!$@, "stringify to false value doesn't cause error");
 # test column_info
 {
   $schema->source("Artist")->{_columns}{'artistid'} = {};
+  $schema->source("Artist")->column_info_from_storage(1);
 
   my $typeinfo = $schema->source("Artist")->column_info('artistid');
   is($typeinfo->{data_type}, 'INTEGER', 'column_info ok');
   $schema->source("Artist")->column_info('artistid');
   ok($schema->source("Artist")->{_columns_info_loaded} == 1, 'Columns info flag set');
+}
+
+# test source_info
+{
+  my $expected = {
+    "source_info_key_A" => "source_info_value_A",
+    "source_info_key_B" => "source_info_value_B",
+    "source_info_key_C" => "source_info_value_C",
+  };
+
+  my $sinfo = $schema->source("Artist")->source_info;
+
+  is_deeply($sinfo, $expected, 'source_info data works');
 }
 
 # test remove_columns
@@ -292,3 +325,22 @@ ok(!$@, "stringify to false value doesn't cause error");
   ok(! exists $schema->source('CD')->_columns->{'year'}, 'year still exists in _columns');
 }
 
+# test get_inflated_columns with objects
+SKIP: {
+    skip "This test requires DateTime::Format::MySQL", 5 if $NO_DTFM;
+    my $event = $schema->resultset('Event')->search->first;
+    my %edata = $event->get_inflated_columns;
+    is($edata{'id'}, $event->id, 'got id');
+    isa_ok($edata{'starts_at'}, 'DateTime', 'start_at is DateTime object');
+    isa_ok($edata{'created_on'}, 'DateTime', 'create_on DateTime object');
+    is($edata{'starts_at'}, $event->starts_at, 'got start date');
+    is($edata{'created_on'}, $event->created_on, 'got created date');
+}
+
+# test resultsource->table return value when setting
+{
+    my $class = $schema->class('Event');
+    diag $class;
+    my $table = $class->table($class->table);
+    is($table, $class->table, '->table($table) returns $table');
+}

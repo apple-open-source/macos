@@ -1,6 +1,6 @@
---- wcstod.c.orig	2007-03-16 01:15:20.000000000 -0700
-+++ wcstod.c	2007-03-16 03:03:41.000000000 -0700
-@@ -27,9 +27,12 @@
+--- wcstod.c.orig	2008-10-09 11:50:53.000000000 -0700
++++ wcstod.c	2008-10-29 00:50:24.000000000 -0700
+@@ -27,9 +27,31 @@
  #include <sys/cdefs.h>
  __FBSDID("$FreeBSD: src/lib/libc/locale/wcstod.c,v 1.4 2004/04/07 09:47:56 tjr Exp $");
  
@@ -10,12 +10,37 @@
  #include <wchar.h>
  #include <wctype.h>
 +#include <_simple.h>
++
++/*
++ * __wcs_end_offset calculates the offset to the end within the wide character
++ * string, assuming numbers and letters are single bytes in multibyte
++ * representation, get the actual decimal string for localeconv_l.  If the
++ * decimal point was within the string, compensate for the fact that the
++ * (possible more than one byte) decimal point one takes one wide character.
++ */
++__private_extern__ size_t
++__wcs_end_offset(const char * __restrict buf, const char * __restrict end, locale_t loc)
++{
++	const char *decimalpoint = localeconv_l(loc)->decimal_point;
++	size_t n = end - buf;
++	char *p;
++
++	if ((p = strnstr(buf, decimalpoint, n)) != NULL)
++		n -= strlen(decimalpoint) - 1;
++	return n;
++}
  
  /*
   * Convert a string to a double-precision number.
-@@ -41,42 +44,43 @@
-  * for at least the digits, radix character and letters.
+@@ -38,45 +60,48 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/
+  * have to duplicate the code of strtod() here, we convert the supplied
+  * wide character string to multibyte and call strtod() on the result.
+  * This assumes that the multibyte encoding is compatible with ASCII
+- * for at least the digits, radix character and letters.
++ * for at least the digits and letters.  The radix character can be more
++ * than one byte.
   */
++
  double
 -wcstod(const wchar_t * __restrict nptr, wchar_t ** __restrict endptr)
 +wcstod_l(const wchar_t * __restrict nptr, wchar_t ** __restrict endptr,
@@ -32,11 +57,11 @@
 +	char mb[MB_CUR_MAX + 1];
 +	const wchar_t *nptr0 = nptr;
 +	const wchar_t *first;
- 
--	while (iswspace(*nptr))
++
 +	NORMALIZE_LOCALE(loc);
 +	ctype = __numeric_ctype(loc);
-+
+ 
+-	while (iswspace(*nptr))
 +	while (iswspace_l(*nptr, ctype))
  		nptr++;
  
@@ -80,12 +105,12 @@
  
  	/*
  	 * We only know where the number ended in the _multibyte_
-@@ -86,9 +90,15 @@
+@@ -86,9 +111,15 @@ wcstod(const wchar_t * __restrict nptr, 
  	 */
  	if (endptr != NULL)
  		/* XXX Assume each wide char is one byte. */
 -		*endptr = (wchar_t *)nptr + (end - buf);
-+		*endptr = (end == buf) ? (wchar_t *)nptr0 : ((wchar_t *)first + (end - buf));
++		*endptr = (end == buf) ? (wchar_t *)nptr0 : ((wchar_t *)first + __wcs_end_offset(buf, end, loc));
  
 -	free(buf);
 +	_simple_sfree(b);

@@ -3,8 +3,8 @@
 
   iconv.c -
 
-  $Author: shyouhei $
-  $Date: 2008-07-02 17:41:13 +0900 (Wed, 02 Jul 2008) $
+  $Author: knu $
+  $Date: 2008-06-06 17:03:49 +0900 (Fri, 06 Jun 2008) $
   created at: Wed Dec  1 20:28:09 JST 1999
 
   All the files in this distribution are covered under the Ruby's
@@ -43,7 +43,11 @@
  * 
  * == Examples
  *
- * 1. Instantiate a new Iconv and use method Iconv#iconv.
+ * 1. Simple conversion between two charsets.
+ *
+ *      converted_text = Iconv.conv('iso-8859-15', 'utf-8', text)
+ *
+ * 2. Instantiate a new Iconv and use method Iconv#iconv.
  *
  *      cd = Iconv.new(to, from)
  *      begin
@@ -53,20 +57,16 @@
  *        cd.close
  *      end
  *
- * 2. Invoke Iconv.open with a block.
+ * 3. Invoke Iconv.open with a block.
  *
  *      Iconv.open(to, from) do |cd|
  *        input.each { |s| output << cd.iconv(s) }
  *        output << cd.iconv(nil)
  *      end
  *
- * 3. Shorthand for (2).
+ * 4. Shorthand for (3).
  *
  *      Iconv.iconv(to, from, *input.to_a)
- *
- * 4. Simple conversion between two charsets.
- *
- *      converted_text = Iconv.new('iso-8859-15', 'utf-8').iconv(text)
  */
 
 /* Invalid value for iconv_t is -1 but 0 for VALUE, I hope VALUE is
@@ -601,7 +601,7 @@ iconv_s_convert
 }
 
 /*
- * Document-method: iconv
+ * Document-method: Iconv::iconv
  * call-seq: Iconv.iconv(to, from, *strs)
  *
  * Shorthand for
@@ -710,7 +710,7 @@ iconv_finish
 }
 
 /*
- * Document-method: iconv
+ * Document-method: Iconv#iconv
  * call-seq: iconv(str, start=0, length=-1)
  *
  * Converts string and returns the result.

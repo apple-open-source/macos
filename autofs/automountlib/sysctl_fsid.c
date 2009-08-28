@@ -46,5 +46,6 @@ sysctl_fsid(int op, fsid_t *fsid, void *oldp, size_t *oldlenp, void *newp,
 	vc.vc_fsid = *fsid;
 	vc.vc_ptr = newp;
 	vc.vc_len = newlen;
-	return (sysctl(ctlname, ctllen + 1, oldp, oldlenp, &vc, sizeof(vc)));
+	return (sysctl(ctlname, (u_int)ctllen + 1, oldp, oldlenp, &vc,
+	    sizeof(vc)));
 }

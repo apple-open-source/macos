@@ -1,0 +1,186 @@
+#
+# ffidl testing - load the intersection
+# of libm and tcl expr and compare the
+# results.
+#
+# Note that both or neither calls must
+# undergo double substitution or the
+# arguments won't have the same values
+#
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import -force ::tcltest::*
+}
+
+package require Ffidl
+package require Ffidlrt
+
+package require Libm 0.1
+namespace import ::libm::*
+set tcl_precision 17
+
+test ffidl-libm {ffidl libm tests} {} {
+    
+    set nfailed 0
+    set ntests 0
+    foreach f [lsort {
+        acos    cos     hypot   sinh
+        asin    cosh    log     sqrt
+        atan    exp     log10   tan
+        atan2   floor   pow     tanh
+        ceil    fmod    sin}] {
+        switch $f {
+            acos - asin - atan - ceil - cos - cosh - exp - floor - log - log10 - sin - sinh -
+            sqrt - tan - tanh {
+                set nary 1
+            }
+            atan2 - fmod - hypot - pow {
+                set nary 2
+            }
+            default {
+                error "missed $f"
+            }
+        }
+        #append msg "testing $f" "\n"
+        set resid 0
+        for {set i 0} {$i < 1000} {incr i} {
+            switch $nary {
+                1 {
+                    set a [expr {rand()}]
+                    set r2 [eval $f $a]
+                    set r1 [expr ${f}($a)]
+                    set e ${f}($a)
+                }
+                2 {
+                    set a [expr {rand()}]
+                    set b [expr {rand()}]
+                    set r2 [eval $f $a $b]
+                    set r1 [expr ${f}($a,$b)]
+                    set e ${f}($a,$b)
+                }
+            }
+            if {$r1 != $r2} {
+                if {abs($r1-$r2)/($r1/2+$r2/2) < 1e-10} {
+                    incr resid
+                } else {
+                    incr nfailed
+                    append msg "$e -> $r1 $r2" "\n"
+                }
+            }
+            incr ntests
+        }
+        if {$resid} {
+            puts "\t$resid errors below 1e-10 relative"
+        }
+    }
+    append msg "$nfailed failures in $ntests tests comparing libm to expr" "\n"
+    
+    #
+    # call each imported libm function with some arguments
+    #
+    
+    foreach proto {
+        {double acos(double)}
+        {double asin(double)}
+        {double atan(double)}
+        {double atan2(double, double)}
+        {double cos(double)}
+        {double sin(double)}
+        {double tan(double)}
+        {double cosh(double)}
+        {double sinh(double)}
+        {double tanh(double)}
+        {double acosh(double)}
+        {double asinh(double)}
+        {double atanh(double)}
+        {double exp(double)}
+        {double frexp(double, OUT int *)}
+        {double ldexp(double, int)}
+        {double log(double)}
+        {double log10(double)}
+        {double expm1(double)}
+        {double log1p(double)}
+        {double logb(double)}
+        {double modf(double, OUT double *)}
+        {double pow(double, double)}
+        {double sqrt(double)}
+        {double cbrt(double)}
+        {double ceil(double)}
+        {double fabs(double)}
+        {double floor(double)}
+        {double fmod(double, double)}
+        {int isinf(double)}
+        {int finite(double)}
+        {double copysign(double, double)}
+        {double scalbn(double, int)}
+        {double drem(double, double)}
+        {double significand(double)}
+        {int isnan(double)}
+        {int ilogb(double)}
+        {double hypot(double, double)}
+        {double erf(double)}
+        {double erfc(double)}
+        {double gamma(double)}
+        {double j0(double)}
+        {double j1(double)}
+        {double jn(int, double)}
+        {double lgamma(double)}
+        {double y0(double)}
+        {double y1(double)}
+        {double yn(int, double)}
+        {double gamma_r(double, OUT int *)}
+        {double lgamma_r(double, OUT int *)}
+        {double rint(double)}
+        {double scalb(double, double)}
+        {double nextafter(double, double)}
+        {double remainder(double, double)}
+    } {
+        if { ! [regexp {^([a-z_]+) ([a-z0-9_]+)\((.*)\)$} $proto all rtype name args]} {
+            append msg "malformed function declaration: $proto" "\n"
+            continue
+        }
+        if {[string length [info command $name]] == 0} {
+            # append msg "function is not defined: $name" "\n"
+            continue
+        }
+        set n 0
+        set test $name
+        set result {}
+        foreach atype [split $args ,] {
+            set atype [string trim $atype]
+            switch -exact $atype {
+                double {
+                    lappend test [expr {rand()}]
+                }
+                int {
+                    lappend test [expr {int(10*rand())}]
+                }
+                {OUT double *} -
+                {OUT int *} {
+                    set fmt [::ffidl::info format [lindex $atype 1]]
+                    lappend test var$n
+                    lappend result "binary scan \$var$n $fmt var$n; set var$n"
+                    set var$n [binary format $fmt 1]
+                }
+                default {
+                    append msg "unimplemented argument type: $atype" "\n"
+                    continue
+                }
+            }
+        }
+        append output "$test -> [eval $test]" "\n"
+        if {[llength $result] != 0} {
+            foreach r $result {
+                append output "	and $r -> [eval $r]" "\n"
+            }
+        }
+    }
+    set msg
+    
+} {0 failures in 19000 tests comparing libm to expr
+}
+
+# cleanup
+::tcltest::cleanupTests
+return

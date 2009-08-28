@@ -140,6 +140,7 @@ typedef struct ifilestruct {	/* input image file  */
   PAGE pages [ MAXPAGE ] ;	/* page data */
 
   long next ;			/* offset to next page (while scanning only) */
+  int totalpages;		/* total number of pages */
 
   /* data for current input page */
 

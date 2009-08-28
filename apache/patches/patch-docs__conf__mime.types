@@ -5,7 +5,7 @@
  application/ocsp-request
  application/ocsp-response
 -application/octet-stream bin dms lha lzh class so iso dmg dist distz pkg bpk dump elc
-+application/octet-stream bin dms lha lzh class so iso dmg dist distz pkg bpk dump elc scpt
++application/octet-stream bin dms lha lzh class so iso dmg dist distz pkg bpk dump elc scpt dmgpart
  application/oda					oda
  application/oebps-package+xml
  application/ogg					ogx

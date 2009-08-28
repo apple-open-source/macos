@@ -121,20 +121,26 @@ static void PrintRcode( u_char rcode )  {
 
 	switch (rcode) {
 		case FMT_ERR:
-			printf("\nFormat Error.");
+			printf("\n  Format Error.\n");
+			break;
 		case SRV_ERR:
-			printf("\nSever failure.");
+			printf("\n  Server failure.\n");
+			break;
 		case IMP_ERR:
-			printf("\nUnsupported request error.\n");
+			printf("\n  Unsupported request error.\n");
+			break;
 		case RFS_ERR:
-			printf("\nRefused error.\n");
+			printf("\n  Refused error.\n");
+			break;
 		case ACT_ERR:
-			printf("\nActive error.\n");
+			printf("\n  Active error.\n");
+			break;
 		case CFT_ERR:
-			printf("\nName in conflict error.\n");
+			printf("\n  Name in conflict error.\n");
+			break;
 		default:
-			printf("\n???=%0x\n", rcode );
-
+			printf("\n  \?\?\?=%0x\n", rcode );
+			break;
 	}	
 }
 #endif
@@ -235,7 +241,7 @@ int AliasHandleUdpNbt(
     if ((char *)(ndh + 1) > pmax)
 	    return(-1);
 #ifdef DEBUG
-	printf("\nType=%02x,", ndh->type );
+	printf("Type=%02x,", ndh->type );
 #endif
 	switch ( ndh->type ) {
 		case DGM_DIRECT_UNIQ:
@@ -367,8 +373,8 @@ AliasHandleResourceNB(
 
 	/* Processing all in_addr array */
 #ifdef DEBUG
-	printf("NB rec[%s", inet_ntoa(nbtarg->oldaddr));
-            printf("->%s, %dbytes] ",inet_ntoa(nbtarg->newaddr ), bcount);
+	printf("  NB rec[%s", inet_ntoa(nbtarg->oldaddr));
+            printf("->%s, %d bytes] ",inet_ntoa(nbtarg->newaddr ), bcount);
 #endif
 	while ( nb != NULL && bcount != 0 )  {
 		if ((char *)(nb + 1) > pmax) {
@@ -577,7 +583,7 @@ AliasHandleResource(
 		if (q == NULL || (char *)(q + 1) > pmax)
 			break;
 #ifdef DEBUG
-		printf("type=%02x, count=%d\n", ntohs(q->type), count );
+		printf("\n  type=%02x, count=%d\n", ntohs(q->type), count );
 #endif
 
 		/* Type and Class filed */
@@ -674,7 +680,7 @@ int AliasHandleUdpNbtNS(
 		ntohs(nsh->ancount),
 		ntohs(nsh->nscount),
 		ntohs(nsh->arcount),
-	(u_char *)p -(u_char *)nsh
+		(int)((u_char *)p -(u_char *)nsh)
     );
 #endif
 
@@ -719,6 +725,7 @@ int AliasHandleUdpNbtNS(
 	}
 
 #ifdef DEBUG
+	if (nsh->rcode)
 	 	PrintRcode(nsh->rcode);
 #endif
     return ((p == NULL) ? -1 : 0);

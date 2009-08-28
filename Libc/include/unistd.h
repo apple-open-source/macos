@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2002-2006, 2008, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -478,7 +478,11 @@ char	*getcwd(char *, size_t);
 gid_t	 getegid(void);
 uid_t	 geteuid(void);
 gid_t	 getgid(void);
+#if defined(_DARWIN_UNLIMITED_GETGROUPS) || defined(_DARWIN_C_SOURCE)
+int	 getgroups(int, gid_t []) __DARWIN_EXTSN(getgroups);
+#else /* !_DARWIN_UNLIMITED_GETGROUPS && !_DARWIN_C_SOURCE */
 int	 getgroups(int, gid_t []);
+#endif /* _DARWIN_UNLIMITED_GETGROUPS || _DARWIN_C_SOURCE */
 long	 gethostid(void);
 int	 gethostname(char *, size_t);
 char	*getlogin(void);
@@ -679,6 +683,7 @@ char	*fflagstostr(unsigned long);
 int	 getdtablesize(void);
 int	 getdomainname(char *, int);
 int	 getgrouplist(const char *, int, int *, int *);
+int	 gethostuuid(uuid_t, const struct timespec *);
 mode_t	 getmode(const void *, mode_t);
 int	 getpagesize(void) __pure2;
 char	*getpass(const char *);
@@ -728,7 +733,15 @@ void	 setkey(const char *) LIBC_ALIAS(setkey);
 int	 setkey(const char *);
 #endif /* __DARWIN_UNIX03 */
 int	 setlogin(const char *);
-void	*setmode(const char *);
+//Begin-Libc
+#ifndef LIBC_ALIAS_SETMODE
+//End-Libc
+void	*setmode(const char *) __DARWIN_ALIAS(setmode);
+//Begin-Libc
+#else /* LIBC_ALIAS_SETMODE */
+void	*setmode(const char *) LIBC_ALIAS(setmode);
+#endif /* !LIBC_ALIAS_SETMODE */
+//End-Libc
 int	 setrgid(gid_t);
 int	 setruid(uid_t);
 int	 setsgroups_np(int, const uuid_t);
@@ -747,6 +760,8 @@ int	 getsubopt(char **, char * const *, char **);
 
 /*  HFS & HFS Plus semantics system calls go here */
 #ifdef __LP64__
+int    fgetattrlist(int,void*,void*,size_t,unsigned int);
+int    fsetattrlist(int,void*,void*,size_t,unsigned int);
 //Begin-Libc
 #ifndef LIBC_ALIAS_GETATTRLIST
 //End-Libc
@@ -767,10 +782,10 @@ int    setattrlist(const char*,void*,void*,size_t,unsigned int) LIBC_ALIAS(setat
 //End-Libc
 int exchangedata(const char*,const char*,unsigned int);
 int    getdirentriesattr(int,void*,void*,size_t,unsigned int*,unsigned int*,unsigned int*,unsigned int);
-int    searchfs(const char*,void*,void*,unsigned int,unsigned int,void*);
 
-int fsctl(const char *,unsigned int,void*,unsigned int);
 #else /* __LP64__ */
+int	fgetattrlist(int,void*,void*,size_t,unsigned long);
+int	fsetattrlist(int,void*,void*,size_t,unsigned long);
 //Begin-Libc
 #ifndef LIBC_ALIAS_GETATTRLIST
 //End-Libc
@@ -791,10 +806,15 @@ int	setattrlist(const char*,void*,void*,size_t,unsigned long) LIBC_ALIAS(setattr
 //End-Libc
 int exchangedata(const char*,const char*,unsigned long);
 int	getdirentriesattr(int,void*,void*,size_t,unsigned long*,unsigned long*,unsigned long*,unsigned long);
-int	searchfs(const char*,void*,void*,unsigned long,unsigned long,void*);
 
-int fsctl(const char *,unsigned long,void*,unsigned long);		
 #endif /* __LP64__ */
+
+struct fssearchblock;
+struct searchstate;
+
+int	 searchfs(const char *, struct fssearchblock *, unsigned long *, unsigned int, unsigned int, struct searchstate *);
+int	 fsctl(const char *,unsigned long,void*,unsigned int);
+int	 ffsctl(int,unsigned long,void*,unsigned int);
 
 extern int optreset;
 

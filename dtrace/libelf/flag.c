@@ -2,9 +2,8 @@
  * CDDL HEADER START
  *
  * The contents of this file are subject to the terms of the
- * Common Development and Distribution License, Version 1.0 only
- * (the "License").  You may not use this file except in compliance
- * with the License.
+ * Common Development and Distribution License (the "License").
+ * You may not use this file except in compliance with the License.
  *
  * You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
  * or http://www.opensolaris.org/os/licensing.
@@ -19,26 +18,17 @@
  *
  * CDDL HEADER END
  */
+
+/*
+ * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
+ * Use is subject to license terms.
+ */
+
 /*	Copyright (c) 1988 AT&T	*/
 /*	  All Rights Reserved  	*/
 
+#pragma ident	"@(#)flag.c	1.11	08/05/31 SMI"
 
-/*
- * Copyright (c) 1998 by Sun Microsystems, Inc.
- * All rights reserved.
- */
-
-#pragma ident	"@(#)flag.c	1.10	05/06/08 SMI" 	/* SVr4.0 1.6	*/
-
-// XXX_PRAGMA_WEAK #pragma weak	elf_flagdata = _elf_flagdata
-// XXX_PRAGMA_WEAK #pragma weak	elf_flagehdr = _elf_flagehdr
-// XXX_PRAGMA_WEAK #pragma weak	elf_flagelf = _elf_flagelf
-// XXX_PRAGMA_WEAK #pragma weak	elf_flagphdr = _elf_flagphdr
-// XXX_PRAGMA_WEAK #pragma weak	elf_flagscn = _elf_flagscn
-// XXX_PRAGMA_WEAK #pragma weak	elf_flagshdr = _elf_flagshdr
-
-
-#include "syn.h"
 #include "libelf.h"
 #include "decl.h"
 #include "msg.h"

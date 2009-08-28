@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2004, 2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,6 +41,7 @@
 __BEGIN_DECLS
 
 void	do_checkReachability		(int argc, char **argv);
+void	do_watchReachability		(int argc, char **argv);
 void	do_showDNSConfiguration		(int argc, char **argv);
 void	do_showProxyConfiguration	(int argc, char **argv);
 void	do_snapshot			(int argc, char **argv);

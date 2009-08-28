@@ -10,7 +10,7 @@ plan skip_all => 'SQL::Translator required' if $@;
 
 my $schema = DBICTest->init_schema;
 
-plan tests => 53;
+plan tests => 60;
 
 my $translator = SQL::Translator->new( 
   parser_args => {
@@ -23,6 +23,10 @@ $translator->parser('SQL::Translator::Parser::DBIx::Class');
 $translator->producer('SQLite');
 
 my $output = $translator->translate();
+
+
+ok($output, "SQLT produced someoutput")
+  or diag($translator->error);
 
 # Note that the constraints listed here are the only ones that are tested -- if
 # more exist in the Schema than are listed here and all listed constraints are
@@ -172,6 +176,16 @@ my %fk_constraints = (
       on_delete => '', on_update => '',
     },
   ],
+  # ForceForeign
+  forceforeign => [
+    {
+      'display' => 'forceforeign->artist',
+      'selftable' => 'forceforeign', 'foreigntable' => 'artist', 
+      'selfcols'  => ['artist'], 'foreigncols' => ['artist_id'], 
+      on_delete => '', on_update => '',
+    },
+  ],
+
 );
 
 my %unique_constraints = (
@@ -209,13 +223,26 @@ my %unique_constraints = (
 #  ],
 );
 
+my %indexes = (
+  artist => [
+    {
+      'fields' => ['name']
+    },
+  ]
+);
+
 my $tschema = $translator->schema();
+# Test that the $schema->sqlt_deploy_hook was called okay and that it removed
+# the 'link' table
+ok( !defined($tschema->get_table('link')), "Link table was removed by hook");
 
 # Test that nonexistent constraints are not found
 my $constraint = get_constraint('FOREIGN KEY', 'cd', ['title'], 'cd', ['year']);
 ok( !defined($constraint), 'nonexistent FOREIGN KEY constraint not found' );
 $constraint = get_constraint('UNIQUE', 'cd', ['artist']);
 ok( !defined($constraint), 'nonexistent UNIQUE constraint not found' );
+$constraint = get_constraint('FOREIGN KEY', 'forceforeign', ['cd'], 'cd', ['cdid']);
+ok( !defined($constraint), 'forced nonexistent FOREIGN KEY constraint not found' );
 
 for my $expected_constraints (keys %fk_constraints) {
   for my $expected_constraint (@{ $fk_constraints{$expected_constraints} }) {
@@ -237,6 +264,13 @@ for my $expected_constraints (keys %unique_constraints) {
       'UNIQUE', $expected_constraint->{table}, $expected_constraint->{cols},
     );
     ok( defined($constraint), "UNIQUE constraint matching `$desc' found" );
+  }
+}
+
+for my $table_index (keys %indexes) {
+  for my $expected_index ( @{ $indexes{$table_index} } ) {
+
+    ok ( get_index($table_index, $expected_index), "Got a matching index on $table_index table");
   }
 }
 
@@ -287,6 +321,34 @@ sub get_constraint {
     return $constraint; # everything passes, found the constraint
   }
   return undef; # didn't find a matching constraint
+}
+
+sub get_index {
+  my ($table_name, $index) = @_;
+
+  my $table = $tschema->get_table($table_name);
+
+ CAND_INDEX:
+  for my $cand_index ( $table->get_indices ) {
+   
+    next CAND_INDEX if $index->{name} && $cand_index->name ne $index->{name}
+                    || $index->{type} && $cand_index->type ne $index->{type};
+
+    my %idx_fields = map { $_ => 1 } $cand_index->fields;
+
+    for my $field ( @{ $index->{fields} } ) {
+      next CAND_INDEX unless $idx_fields{$field};
+    }
+
+    %idx_fields = map { $_ => 1 } @{$index->{fields}};
+    for my $field ( $cand_index->fields) {
+      next CAND_INDEX unless $idx_fields{$field};
+    }
+
+    return $cand_index;
+  }
+
+  return undef; # No matching idx
 }
 
 # Test parameters in a FOREIGN KEY constraint other than columns

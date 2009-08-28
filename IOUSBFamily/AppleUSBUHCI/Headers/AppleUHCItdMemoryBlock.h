@@ -57,4 +57,5 @@ public:
     UHCITransferDescriptorSharedPtr				GetLogicalPtr(UInt32 index);
     
 };
+#endif
 

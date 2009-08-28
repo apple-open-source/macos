@@ -41,27 +41,23 @@
 .Os
 .Sh NAME
 .Nm memset
-.Nd write a byte to a byte string
+.Nd fill a byte string with a byte value
 .Sh LIBRARY
 .Lb libc
 .Sh SYNOPSIS
 .In string.h
 .Ft void *
-.Fo memset
-.Fa "void *b"
-.Fa "int c"
-.Fa "size_t n"
-.Fc
+.Fn memset "void *b" "int c" "size_t len"
 .Sh DESCRIPTION
 The
 .Fn memset
 function
 writes
-.Fa n
+.Fa len
 bytes of value
 .Fa c
-(converted to an unsigned char) to the string
-.Fa s .
+(converted to an unsigned char) to the byte string
+.Fa b .
 .Sh RETURN VALUES
 The
 .Fn memset

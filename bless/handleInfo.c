@@ -162,6 +162,7 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
                                           CFSTR("efi-boot-device"),
                                           CFSTR("efi-boot-device-data"));
             if(ret) {
+                CFRelease(efibootdev);
                 blesscontextprintf(context, kBLLogLevelError,
                                    "XML representation doesn't match true boot preference\n");
                 return 2;                    					
@@ -169,11 +170,13 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
             
             ret = interpretEFIString(context, efibootdev, currentDev);
             if(ret) {
+                CFRelease(efibootdev);
                 blesscontextprintf(context, kBLLogLevelError,
                                    "Can't interpet EFI boot device\n");
                 return 2;                    
             }
             
+            CFRelease(efibootdev);
         } else {
             blesscontextprintf(context, kBLLogLevelError,  "Unknown preboot environment\n");
             return 1;
@@ -378,7 +381,7 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
             uint32_t dirint;
             char cpath[MAXPATHLEN];
             
-            if(!CFNumberGetValue(dirID, kCFNumberLongType, &dirint)) {
+            if(!CFNumberGetValue(dirID, kCFNumberSInt32Type, &dirint)) {
                 continue;
             }
             

@@ -1,4 +1,4 @@
-.TH "ZSHBUILTINS" "1" "April 19, 2006" "zsh 4\&.3\&.4"
+.TH "ZSHBUILTINS" "1" "October 30, 2008" "zsh 4\&.3\&.9"
 .SH "NAME"
 zshbuiltins \- zsh built\-in commands
 .\" Yodl file: Zsh/builtins.yo
@@ -76,6 +76,9 @@ If the \fB\-L\fP flag is present, then print each
 alias in a manner suitable for putting in a startup script\&.  The exit
 status is nonzero if a \fIname\fP (with no \fIvalue\fP) is given for
 which no alias has been defined\&.
+.PP
+For more on aliases, include common problems,
+see the section ALIASING in \fIzshmisc\fP(1)\&.
 .RE
 .TP
 \fBautoload\fP [ {\fB+\fP|\fB\-\fP}\fBUXktz\fP ] [ \fB\-w\fP ] [ \fIname\fP \&.\&.\&. ]
@@ -132,13 +135,13 @@ Same as \fBexit\fP\&.
 See the section `The zsh/cap Module\&' in \fIzshmodules\fP(1)\&.
 .TP
 .PD 0
-\fBcd\fP [ \fB\-sLP\fP ] [ \fIarg\fP ]
+\fBcd\fP [ \fB\-qsLP\fP ] [ \fIarg\fP ]
 .TP
 .PD 0
-\fBcd\fP [ \fB\-sLP\fP ] \fIold\fP \fInew\fP
+\fBcd\fP [ \fB\-qsLP\fP ] \fIold\fP \fInew\fP
 .TP
 .PD
-\fBcd\fP [ \fB\-sLP\fP ] {\fB+\fP|\fB\-\fP}\fIn\fP
+\fBcd\fP [ \fB\-qsLP\fP ] {\fB+\fP|\fB\-\fP}\fIn\fP
 Change the current directory\&.  In the first form, change the
 current directory to \fIarg\fP, or to the value of \fB$HOME\fP if
 \fIarg\fP is not specified\&.  If \fIarg\fP is `\fB\-\fP\&', change to the
@@ -146,7 +149,7 @@ value of \fB$OLDPWD\fP, the previous directory\&.
 .RS
 .PP
 Otherwise, if \fIarg\fP begins with a slash, attempt to change to the
-director given by \fIarg\fP\&.
+directory given by \fIarg\fP\&.
 .PP
 If \fIarg\fP does not begin with a slash, the behaviour depends on whether
 the current directory `\fB\&.\fP\&' occurs in the list of directories contained
@@ -174,11 +177,17 @@ An argument of the form `\fB\-\fP\fIn\fP\&' counts from the right\&.
 If the \fBPUSHD_MINUS\fP option is set, the meanings of `\fB+\fP\&'
 and `\fB\-\fP\&' in this context are swapped\&.
 .PP
+If the \fB\-q\fP (quiet) option is specified, the hook function \fBchpwd\fP
+and the functions in the array \fBchpwd_functions\fP are not called\&.
+This is useful for calls to \fBcd\fP that do not change the environment
+seen by an interactive user\&.
+.PP
 If the \fB\-s\fP option is specified, \fBcd\fP refuses to change the current
 directory if the given pathname contains symlinks\&.  If the \fB\-P\fP option
 is given or the \fBCHASE_LINKS\fP option is set, symbolic links are resolved
 to their true values\&.  If the \fB\-L\fP option is given symbolic links are
-followed regardless of the state of the \fBCHASE_LINKS\fP option\&.
+retained in the directory (and not resolved) regardless of the state of
+the \fBCHASE_LINKS\fP option\&.
 .RE
 .TP
 \fBchdir\fP
@@ -402,10 +411,17 @@ disabled with the \fBdisable\fP builtin command\&.
 .TP
 \fBeval\fP [ \fIarg\fP \&.\&.\&. ]
 Read the arguments as input to the shell and execute the resulting
-command in the current shell process\&.
+command(s) in the current shell process\&.  The return status is
+the same as if the commands had been executed directly by the shell;
+if there are no \fIargs\fP or they contain no commands (i\&.e\&. are
+an empty string or whitespace) the return status is zero\&.
 .TP
-\fBexec\fP \fIsimple command\fP
-See the section `Precommand Modifiers\&'\&.
+\fBexec\fP [ \fB\-cl\fP ] [ \fB\-a\fP \fIargv0\fP ] \fIsimple command\fP
+Replace the current shell with an external command rather than forking\&.
+With \fB\-c\fP clear the environment; with \fB\-l\fP prepend \fB\-\fP to the
+\fBargv[0]\fP string of the command executed (to simulate a login shell);
+with \fB\-a\fP \fIargv0\fP set the \fBargv[0]\fP string of the command
+executed\&.  See the section `Precommand Modifiers\&'\&.
 .TP
 \fBexit\fP [ \fIn\fP ]
 Exit the shell with the exit status specified by \fIn\fP; if none
@@ -740,7 +756,8 @@ Evaluate each \fIarg\fP as an arithmetic expression\&.
 See
 the section `Arithmetic Evaluation\&' in \fIzshmisc\fP(1)
 for a description of arithmetic expressions\&.  The exit status is 0 if the
-value of the last expression is nonzero, and 1 otherwise\&.
+value of the last expression is nonzero, 1 if it is zero, and 2 if
+an error occurred\&.
 .TP
 \fBlimit\fP [ \fB\-hs\fP ] [ \fIresource\fP [ \fIlimit\fP ] ] \&.\&.\&.
 Set or display resource limits\&.  Unless the \fB\-s\fP flag is given,
@@ -865,7 +882,7 @@ Same as \fBexit\fP, except that it only works in a login shell\&.
 \fBnoglob\fP \fIsimple command\fP
 See the section `Precommand Modifiers\&'\&.
 .TP
-\fBpopd\fP [ {\fB+\fP|\fB\-\fP}\fIn\fP ]
+\fBpopd\fP [ [\-q] {\fB+\fP|\fB\-\fP}\fIn\fP ]
 Remove an entry from the directory stack, and perform a \fBcd\fP to
 the new top directory\&.  With no argument, the current top entry is
 removed\&.  An argument of the form `\fB+\fP\fIn\fP\&' identifies a stack
@@ -873,6 +890,13 @@ entry by counting from the left of the list shown by the \fBdirs\fP command,
 starting with zero\&.  An argument of the form \fB\-n\fP counts from the right\&.
 If the \fBPUSHD_MINUS\fP option is set, the meanings of `\fB+\fP\&' and
 `\fB\-\fP\&' in this context are swapped\&.
+.RS
+.PP
+If the \fB\-q\fP (quiet) option is specified, the hook function \fBchpwd\fP
+and the functions in the array \fB$chpwd_functions\fP are not called,
+and the new directory stack is not printed\&.  This is useful for calls to
+\fBpopd\fP that do not change the environment seen by an interactive user\&.
+.RE
 .TP
 .PD 0
 \fBprint\fP [ \fB\-abcDilmnNoOpPrsz\fP ] [ \fB\-u\fP \fIn\fP ] [ \fB\-f\fP \fIformat\fP ] [ \fB\-C\fP \fIcols\fP ]
@@ -1000,13 +1024,13 @@ zero or an empty string had been specified as the argument\&.
 .RE
 .TP
 .PD 0
-\fBpushd\fP [ \fB\-sLP\fP ] [ \fIarg\fP ]
+\fBpushd\fP [ \fB\-qsLP\fP ] [ \fIarg\fP ]
 .TP
 .PD 0
-\fBpushd\fP [ \fB\-sLP\fP ] \fIold\fP \fInew\fP
+\fBpushd\fP [ \fB\-qsLP\fP ] \fIold\fP \fInew\fP
 .TP
 .PD
-\fBpushd\fP [ \fB\-sLP\fP ] {\fB+\fP|\fB\-\fP}\fIn\fP
+\fBpushd\fP [ \fB\-qsLP\fP ] {\fB+\fP|\fB\-\fP}\fIn\fP
 Change the current directory, and push the old current directory
 onto the directory stack\&.  In the first form, change the
 current directory to \fIarg\fP\&.
@@ -1026,8 +1050,14 @@ command, starting with zero\&.  An argument of the form `\fB\-\fP\fIn\fP\&' coun
 from the right\&.  If the \fBPUSHD_MINUS\fP option is set, the meanings
 of `\fB+\fP\&' and `\fB\-\fP' in this context are swapped\&.
 .PP
-If the option \fBPUSHD_SILENT\fP is not set, the directory
-stack will be printed after a \fBpushd\fP is performed\&.
+If the \fB\-q\fP (quiet) option is specified, the hook function \fBchpwd\fP
+and the functions in the array \fB$chpwd_functions\fP are not called,
+and the new directory stack is not printed\&.  This is useful for calls to
+\fBpushd\fP that do not change the environment seen by an interactive user\&.
+.PP
+If the option \fB\-q\fP is not specified and the shell option \fBPUSHD_SILENT\fP
+is not set, the directory stack will be printed after a \fBpushd\fP is
+performed\&.
 .PP
 The options \fB\-s\fP, \fB\-L\fP and \fB\-P\fP have the same meanings as for the
 \fBcd\fP builtin\&.
@@ -1211,7 +1241,8 @@ specified arguments to be sorted before assigning them to the positional
 parameters (or to the array \fIname\fP if \fB\-A\fP is used)\&.  With \fB+s\fP
 sort arguments in descending order\&.  For the meaning of the other flags, see
 \fIzshoptions\fP(1)\&.  Flags may be specified by name using the \fB\-o\fP option\&. If no option
-name is supplied with \fB\-o\fP, the current option states are printed\&.
+name is supplied with \fB\-o\fP, the current option states are printed:  see
+the description of \fBsetopt\fP below for more information on the format\&.
 With \fB+o\fP they are printed in a form that can be used as input
 to the shell\&.
 .RS
@@ -1259,11 +1290,27 @@ See the section `The zsh/cap Module\&' in \fIzshmodules\fP(1)\&.
 .TP
 \fBsetopt\fP [ {\fB+\fP|\fB\-\fP}\fIoptions\fP | {\fB+\fP|\fB\-\fP}\fBo\fP \fIoption_name\fP ] [ \fIname\fP \&.\&.\&. ]
 Set the options for the shell\&.  All options specified either
-with flags or by name are set\&.  If no arguments are supplied,
-the names of all options currently set are printed\&.
+with flags or by name are set\&.
+.RS
+.PP
+If no arguments are supplied, the names of all options currently set are
+printed\&.  The form is chosen so as to minimize the differences from the
+default options for the current emulation (the default emulation being
+native \fBzsh\fP, shown as \fB<Z>\fP in
+\fIzshoptions\fP(1))\&.
+Options that are on by default for the emulation are
+shown with the prefix \fBno\fP only if they are off, while other options are
+shown without the prefix \fBno\fP and only if they are on\&.  In addition to
+options changed from the default state by the user, any options activated
+automatically by the shell (for example, \fBSHIN_STDIN\fP or \fBINTERACTIVE\fP)
+will be shown in the list\&.  The format is further modified by the option
+\fBKSH_OPTION_PRINT\fP, however the rationale for choosing options with
+or without the \fBno\fP prefix remains the same in this case\&.
+.PP
 If the \fB\-m\fP flag is given the arguments are taken as patterns
 (which should be quoted to protect them from filename expansion), and all
 options with names matching these patterns are set\&.
+.RE
 .TP
 \fBshift\fP [ \fIn\fP ] [ \fIname\fP \&.\&.\&. ]
 The positional parameters \fB${\fP\fIn\fP+1\fB}\fP \&.\&.\&. are renamed
@@ -1296,7 +1343,17 @@ The main differences between the conditional expression syntax and the
 syntactically, so for example an empty variable expansion may cause an
 argument to be omitted; syntax errors cause status 2 to be returned instead
 of a shell error; and arithmetic operators expect integer arguments rather
-than arithemetic expressions\&.
+than arithmetic expressions\&.
+.RS
+.PP
+The command attempts to implement POSIX and its extensions where these
+are specified\&.  Unfortunately there are intrinsic ambiguities in
+the syntax; in particular there is no distinction between test operators
+and strings that resemble them\&.  The standard attempts to resolve these
+for small numbers of arguments (up to four); for five or more arguments
+compatibility cannot be relied on\&.  Users are urged wherever possible to
+use the `\fB[[\fP\&' test syntax which does not have these ambiguities\&.
+.RE
 .TP
 \fBtimes\fP
 Print the accumulated user and system times for the shell
@@ -1328,8 +1385,21 @@ If \fIsig\fP is \fBZERR\fP then \fIarg\fP will be executed
 after each command with a nonzero exit status\&.  \fBERR\fP is an alias
 for \fBZERR\fP on systems that have no \fBSIGERR\fP signal (this is the
 usual case)\&.
+.PP
 If \fIsig\fP is \fBDEBUG\fP then \fIarg\fP will be executed
-after each command\&.
+before each command if the option \fBDEBUG_BEFORE_CMD\fP is set
+(as it is by default), else after each command\&.  Here, a `command\&' is
+what is described as a `sublist\&' in the shell grammar, see
+the section SIMPLE COMMANDS & PIPELINES in \fIzshmisc\fP(1)\&.
+If \fBDEBUG_BEFORE_CMD\fP is set various additional features are available\&.
+First, it is possible to skip the next command by setting the option
+\fBERR_EXIT\fP; see the description of the \fBERR_EXIT\fP option in
+\fIzshoptions\fP(1)\&.  Also, the shell parameter
+\fBZSH_DEBUG_CMD\fP is set to the string corresponding to the command
+to be executed following the trap\&.  Note that this string is reconstructed
+from the internal format and may not be formatted the same way as the
+original text\&.  The parameter is unset after the trap is executed\&.
+.PP
 If \fIsig\fP is \fB0\fP or \fBEXIT\fP
 and the \fBtrap\fP statement is executed inside the body of a function,
 then the command \fIarg\fP is executed after the function completes\&.
@@ -1339,7 +1409,9 @@ If \fIsig\fP is \fB0\fP or \fBEXIT\fP
 and the \fBtrap\fP statement is not executed inside the body of a function,
 then the command \fIarg\fP is executed when the shell terminates\&.
 .PP
-\fBZERR\fP, \fBDEBUG\fP, and \fBEXIT\fP traps are not executed inside other traps\&.
+\fBZERR\fP, \fBDEBUG\fP, and \fBEXIT\fP traps are not executed inside other
+traps\&.  \fBZERR\fP and \fBDEBUG\fP traps are kept within subshells, while
+other traps are reset\&.
 .PP
 Note that traps defined with the \fBtrap\fP builtin are slightly different
 from those defined as `\fBTRAP\fP\fINAL\fP () { \&.\&.\&. }\&', as the latter have
@@ -1402,7 +1474,14 @@ retain their special attributes when made local\&.
 .PP
 For each \fIname\fP\fB=\fP\fIvalue\fP assignment, the parameter
 \fIname\fP is set to \fIvalue\fP\&.  Note that arrays currently cannot be
-assigned in \fBtypeset\fP expressions, only scalars and integers\&.
+assigned in \fBtypeset\fP expressions, only scalars and integers\&.  Unless
+the option \fBKSH_TYPESET\fP is set, normal expansion rules apply to
+assignment arguments, so \fIvalue\fP may be split into separate words; if
+the option is set, assignments which can be recognised when expansion is
+performed are treated as single words\&.  For example the command
+\fBtypeset vbl=$(echo one two)\fP is treated as having one argument if
+\fBKSH_TYPESET\fP is set, but otherwise is treated as having the two arguments
+\fBvbl=one\fP and \fBtwo\fP\&.
 .PP
 If the shell option \fBTYPESET_SILENT\fP is not set, for each remaining
 \fIname\fP that refers to a parameter that is set, the name and value of the
@@ -1412,7 +1491,7 @@ given along with the \fIname\fP\&.  Using `\fB+\fP\&' instead of minus to
 introduce an attribute turns it off\&.
 .PP
 If the \fB\-p\fP option is given, parameters and values are printed in the
-form of a typeset comand and an assignment (which will be printed
+form of a typeset command and an assignment (which will be printed
 separately for arrays and associative arrays), regardless of other flags
 and options\&.  Note that the \fB\-h\fP flag on parameters is respected; no
 value will be shown for these parameters\&.
@@ -1468,6 +1547,11 @@ list of the attributes of that parameter (\fBarray\fP, \fBassociation\fP,
 \fBexported\fP, \fBinteger\fP, \fBreadonly\fP)\&.  If \fB+m\fP is used with attribute
 flags, and all those flags are introduced with \fB+\fP, the matching
 parameter names are printed but their values are not\&.
+.PP
+Attribute flags that transform the final value (\fB\-L\fP, \fB\-R\fP, \fB\-Z\fP,
+\fB\-l\fP, \fBu\fP) are only applied to the expanded value at the point
+of a parameter expansion expression using `\fB$\fP\&'\&.  They are not applied
+when a parameter is retrieved internally by the shell for any purpose\&. 
 .PP
 The following attribute flags may be specified:
 .PP
@@ -1569,7 +1653,7 @@ for non\-special parameters\&.
 \fB\-i\fP
 Use an internal integer representation\&.  If \fIn\fP is nonzero it
 defines the output arithmetic base, otherwise it is determined by the
-first assignment\&.
+first assignment\&.  Bases from 2 to 36 inclusive are allowed\&.
 .TP
 \fB\-E\fP
 Use an internal double\-precision floating point representation\&.  On output
@@ -1624,7 +1708,7 @@ unit is printed before each value\&.
 .PP
 When looping over multiple resources, the shell will abort immediately if
 it detects a badly formed argument\&.  However, if it fails to set a limit
-for some other reson it will continue trying to set the remaining limits\&.
+for some other reason it will continue trying to set the remaining limits\&.
 .PP
 .PD 0
 .TP
@@ -1701,7 +1785,9 @@ Same as \fBunhash \-f\fP\&.
 \fBunhash\fP [ \fB\-adfms\fP ] \fIname\fP \&.\&.\&.
 Remove the element named \fIname\fP from an internal hash table\&.  The
 default is remove elements from the command hash table\&.  The \fB\-a\fP
-option causes \fBunhash\fP to remove regular or global aliases\&.
+option causes \fBunhash\fP to remove regular or global aliases; note
+when removing a global aliases that the argument must be quoted to prevent
+it from being expanded before being passed to the command\&.
 The \fB\-s\fP option causes \fBunhash\fP to remove suffix aliases\&.
 The \fB\-f\fP option causes
 \fBunhash\fP to remove shell functions\&.  The \fB\-d\fP options causes
@@ -1943,6 +2029,9 @@ See the section `Zle Builtins\&' in \fIzshzle\fP(1)\&.
 \fBzmodload\fP [ \fB\-dL\fP ] [ \&.\&.\&. ]
 .TP
 .PD 0
+\fBzmodload \-F\fP [ \fB\-lLme\fP \fB\-P\fP \fBparam\fP ] \fImodule\fP [\fB+\-\fP]\fIfeature\&.\&.\&.\fP
+.TP
+.PD 0
 \fBzmodload \-e\fP [ \fB\-A\fP ] [ \&.\&.\&. ]
 .TP
 .PD 0
@@ -1978,21 +2067,24 @@ series of \fBzmodload\fP commands\&.  Forms with arguments are:
 In the simplest case, \fBzmodload\fP loads a binary module\&.  The module must
 be in a file with a name consisting of the specified \fIname\fP followed by
 a standard suffix, usually `\fB\&.so\fP\&' (`\fB\&.sl\fP' on HPUX)\&.
-If the module to be loaded is
-already loaded and the \fB\-i\fP option is given, the duplicate module is
-ignored\&.  Otherwise \fBzmodload\fP prints an error message and returns
-a non\-zero status\&.  If \fBzmodload\fP detects an inconsistency, such as an
+If the module to be loaded is already loaded the duplicate module is
+ignored\&.  If \fBzmodload\fP detects an inconsistency, such as an
 invalid module name or circular dependency list, the current code block is 
-aborted\&.  Hence `\fBzmodload \-i\fP \fImodule\fP \fB2>/dev/null\fP\&' is sufficient
+aborted\&.   Hence `\fBzmodload\fP \fImodule\fP \fB2>/dev/null\fP\&' is sufficient
 to test whether a module is available\&.
 If it is available, the module is loaded if necessary, while if it
-is not available, non\-zero status is silently returned\&.
+is not available, non\-zero status is silently returned\&.  The option
+\fB\-i\fP is accepted for compatibility but has no effect\&.
 .RS
 .PP
 The \fIname\fPd module is searched for in the same way a command is, using
 \fB$module_path\fP instead of \fB$path\fP\&.  However, the path search is
 performed even when the module name contains a `\fB/\fP\&', which it usually does\&.
 There is no way to prevent the path search\&.
+.PP
+If the module supports features (see below), \fBzmodload\fP tries to
+enable all features when loading a module\&.  If the module was successfully
+loaded but not all features could be enabled, \fBzmodload\fP returns status 2\&.
 .PP
 With \fB\-u\fP, \fBzmodload\fP unloads modules\&.  The same \fIname\fP
 must be given that was given when the module was loaded, but it is not
@@ -2003,6 +2095,95 @@ unloaded (or was never loaded)\&.
 Each module has a boot and a cleanup function\&.  The module
 will not be loaded if its boot function fails\&.  Similarly a module
 can only be unloaded if its cleanup function runs successfully\&.
+.RE
+.TP
+\fBzmodload \-F\fP [ \fB\-almLe\fP \fB\-P\fP \fBparam\fP ] \fImodule\fP [\fB+\-\fP]\fIfeature\&.\&.\&.\fP
+\fBzmodload \-F\fP allows more selective control over the features provided
+by modules\&.  With no options apart from \fB\-F\fP, the module named
+\fImodule\fP is loaded, if it was not already loaded, and the list of
+\fIfeature\fPs is set to the required state\&.  If no 
+\fIfeature\fPs are specified, the module is loaded, if it was not already
+loaded, but the state of features is unchanged\&.  Each feature
+may be preceded by a \fB+\fP to turn the feature on, or \fB\-\fP to turn it
+off; the \fB+\fP is assumed if neither character is present\&.
+Any feature not explicitly mentioned is left in its current state;
+if the module was not previously loaded this means any such features will
+remain disabled\&.  The return status is zero if all features were
+set, 1 if the module failed to load, and 2 if some features could
+not be set (for example, a parameter couldn\&'t be added because there
+was a different parameter of the same name) but the module was loaded\&.
+.RS
+.PP
+The standard features are builtins, conditions, parameters and math
+functions; these are indicated by the prefix `\fBb:\fP\&', `\fBc:\fP'
+(`\fBC:\fP\&' for an infix condition), `\fBp:\fP' and `\fBf:\fP', respectively,
+followed by the name that the corresponding feature would have in the
+shell\&.  For example, `\fBb:strftime\fP\&' indicates a builtin named
+\fBstrftime\fP and \fBp:EPOCHSECONDS\fP indicates a parameter named
+\fBEPOCHSECONDS\fP\&.  The module may provide other (`abstract\&') features of
+its own as indicated by its documentation; these have no prefix\&.
+.PP
+With \fB\-l\fP or \fB\-L\fP, features provided by the module are listed\&.  With
+\fB\-l\fP alone, a list of features together with their states is shown, one
+feature per line\&.  With \fB\-L\fP alone, a \fBzmodload \-F\fP command that would
+cause enabled features of the module to be turned on is shown\&.  With
+\fB\-lL\fP, a \fBzmodload \-F\fP command that would cause all the features to be
+set to their current state is shown\&.  If one of these combinations is given
+the option \fB\-P\fP \fIparam\fP then the parameter \fBparam\fP is set to an
+array of features, either features together with their state or (if
+\fB\-L\fP alone is given) enabled features\&.
+.PP
+With the option \fB\-L\fP the module name may be omitted; then a list
+of all enabled features for all modules providing features is printed
+in the form of \fBzmodload \-F\fP commands\&.  If \fB\-l\fP is also given,
+the state of both enabled and disabled features is output in that form\&.
+.PP
+A set of features may be provided together with \fB\-l\fP or \fB\-L\fP and a
+module name; in that case only the state of those features is
+considered\&.  Each feature may be preceded by \fB+\fP or \fB\-\fP but the
+character has no effect\&.  If no set of features is provided, all
+features are considered\&.
+.PP
+With \fB\-e\fP, the command first tests that the module is loaded;
+if it is not, status 1 is returned\&.  If the module is loaded,
+the list of features given as an argument is examined\&.  Any feature
+given with no prefix is simply tested to see if the module provides it;
+any feature given with a prefix \fB+\fP or \fB\-\fP is tested to
+see if is provided and in the given state\&.  If the tests on all features
+in the list succeed, status 0 is returned, else status 1\&.
+.PP
+With \fB\-m\fP, each entry in the given list of features is taken
+as a pattern to be matched against the list of features provided
+by the module\&.  An initial \fB+\fP or \fB\-\fP must be given explicitly\&.
+This may not be combined with the \fB\-a\fP option as autoloads must
+be specified explicitly\&.
+.PP
+With \fB\-a\fP, the given list of features is marked for autoload from
+the specified module, which may not yet be loaded\&.  An optional \fB+\fP
+may appear before the feature name\&.  If the feature is prefixed with
+\fB\-\fP, any existing autoload is removed\&.  The options \fB\-l\fP and \fB\-L\fP
+may be used to list autoloads\&.  Autoloading is specific to individual
+features; when the module is loaded only the requested feature is
+enabled\&.  Autoload requests are preserved if the module is
+subsequently unloaded until an explicit `\fBzmodload \-Fa\fP \fImodule\fP
+\fB\-\fP\fIfeature\fP\&' is issued\&.  It is not an error to request an autoload
+for a feature of a module that is already loaded\&.
+.PP
+When the module is loaded each autoload is checked against the features
+actually provided by the module; if the feature is not provided the
+autoload request is deleted\&.  A warning message is output; if the
+module is being loaded to provide a different feature, and that autoload
+is successful, there is no effect on the status of the current command\&.
+If the module is already loaded at the time when \fBzmodload \-Fa\fP is
+run, an error message is printed and status 1 returned\&.
+.PP
+\fBzmodload \-Fa\fP can be used with the \fB\-l\fP, \fB\-L\fP, \fB\-e\fP and
+\fB\-P\fP options for listing and testing the existence of autoloadable
+features\&.  In this case \fB\-l\fP is ignored if \fB\-L\fP is specified\&.
+\fBzmodload \-FaL\fP with no module name lists autoloads for all modules\&.
+.PP
+Note that only standard features as described above can be autoloaded;
+other features require the module to be loaded before enabling\&.
 .RE
 .TP
 .PD 0
@@ -2037,10 +2218,12 @@ argument is given, all dependencies for that module are removed\&.
 \fBzmodload\fP \fB\-ub\fP [ \fB\-i\fP ] \fIbuiltin\fP \&.\&.\&.
 The \fB\-ab\fP option defines autoloaded builtins\&.  It defines the specified
 \fIbuiltin\fPs\&.  When any of those builtins is called, the module specified
-in the first argument is loaded\&.  If only the \fIname\fP is given, one
-builtin is defined, with the same name as the module\&.  \fB\-i\fP suppresses
-the error if the builtin is already defined or autoloaded, regardless of
-which module it came from\&.
+in the first argument is loaded and all its features are enabled (for
+selective control of features use `\fBzmodload \-F \-a\fP\&' as described
+above)\&.  If only the \fIname\fP is given, one builtin is defined, with
+the same name as the module\&.  \fB\-i\fP suppresses the error if the builtin
+is already defined or autoloaded, but not if another builtin of the
+same name is already defined\&.
 .RS
 .PP
 With \fB\-ab\fP and no arguments, all autoloaded builtins are listed, with the
@@ -2052,6 +2235,9 @@ If \fB\-b\fP is used together with the \fB\-u\fP option, it removes builtins
 previously defined with \fB\-ab\fP\&.  This is only possible if the builtin is
 not yet loaded\&.  \fB\-i\fP suppresses the error if the builtin is already
 removed (or never existed)\&.
+.PP
+Autoload requests are retained if the module is subsequently unloaded
+until an explicit `\fBzmodload \-ub\fP \fIbuiltin\fP\&' is issued\&.
 .RE
 .TP
 .PD 0
@@ -2109,12 +2295,12 @@ Equivalent to \fB\-ab\fP and \fB\-ub\fP\&.
 \fBzmodload \-e\fP [ \fB\-A\fP ] [ \fIstring\fP \&.\&.\&. ]
 The \fB\-e\fP option without arguments lists all loaded modules; if the \fB\-A\fP
 option is also given, module aliases corresponding to loaded modules are
-also shown\&.  With arguments only the return status is set to zero
-if all \fIstring\fPs given as arguments are names of loaded modules
-and to one if at least on \fIstring\fP is not the name of a
-loaded module\&.  This can be used to test for the availability 
-of things implemented by modules\&.  In this case, any aliases are
-automatically resolved and the \fB\-A\fP flag is not used\&.
+also shown\&.  If arguments are provided, nothing is printed;
+the return status is set to zero if all \fIstring\fPs given as arguments
+are names of loaded modules and to one if at least on \fIstring\fP is not
+the name of a loaded module\&.  This can be used to test for the
+availability of things implemented by modules\&.  In this case, any
+aliases are automatically resolved and the \fB\-A\fP flag is not used\&.
 .TP
 \fBzmodload\fP \fB\-A\fP [ \fB\-L\fP ] [ \fImodalias\fP[\fB=\fP\fImodule\fP] \&.\&.\&. ]
 For each argument, if both \fImodalias\fP and \fImodule\fP are given,

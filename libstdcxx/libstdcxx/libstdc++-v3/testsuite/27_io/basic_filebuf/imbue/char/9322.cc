@@ -1,6 +1,8 @@
+// { dg-require-namedlocale "" }
+
 // 2001-05-21 Benjamin Kosnik  <bkoz@redhat.com>
 
-// Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -15,7 +17,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // 27.8.1.4 Overridden virtual functions
@@ -34,10 +36,10 @@ void test07()
   std::filebuf ob;
   VERIFY( ob.getloc() == loc );
 
-  locale::global(__gnu_test::try_named_locale("en_US"));
+  locale::global(locale("en_US"));
   VERIFY( ob.getloc() == loc );
 
-  locale loc_de = __gnu_test::try_named_locale("de_DE");
+  locale loc_de = locale("de_DE");
   locale ret = ob.pubimbue(loc_de);
   VERIFY( ob.getloc() == loc_de );
   VERIFY( ret == loc );

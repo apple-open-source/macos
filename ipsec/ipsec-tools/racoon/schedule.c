@@ -1,3 +1,5 @@
+/*	$NetBSD: schedule.c,v 1.4 2006/09/09 16:22:10 manu Exp $	*/
+
 /*	$KAME: schedule.c,v 1.19 2001/11/05 10:53:19 sakane Exp $	*/
 
 /*
@@ -56,6 +58,7 @@
         for (elm = TAILQ_FIRST(head); elm; elm = TAILQ_NEXT(elm, field))
 #endif
 
+extern int		terminated;
 static struct timeval timeout;
 
 #ifdef FIXY2038PROBLEM
@@ -83,7 +86,7 @@ schedular()
 
 	now = current_time();
 
-        for (p = TAILQ_FIRST(&sctree); p; p = next) {
+	for (p = TAILQ_FIRST(&sctree); p; p = next) {
 		/* if the entry has been dead, remove it */
 		if (p->dead)
 			goto next_schedule;
@@ -96,7 +99,7 @@ schedular()
 
 		/* mark it with dead. and call the function. */
 		p->dead = 1;
-		if (p->func != NULL)
+		if (p->func != NULL && !terminated)
 			(p->func)(p->param);
 
 	   next_schedule:
@@ -308,7 +311,7 @@ getstdin()
 		struct scheddump *scbuf, *p;
 		int len;
 		sched_dump((caddr_t *)&scbuf, &len);
-		if (buf == NULL)
+		if (scbuf == NULL)
 			return;
 		for (p = scbuf; len; p++) {
 			printf("xtime=%ld\n", p->xtime);

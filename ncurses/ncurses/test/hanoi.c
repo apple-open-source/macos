@@ -1,3 +1,30 @@
+/****************************************************************************
+ * Copyright (c) 1998-2006,2008 Free Software Foundation, Inc.              *
+ *                                                                          *
+ * Permission is hereby granted, free of charge, to any person obtaining a  *
+ * copy of this software and associated documentation files (the            *
+ * "Software"), to deal in the Software without restriction, including      *
+ * without limitation the rights to use, copy, modify, merge, publish,      *
+ * distribute, distribute with modifications, sublicense, and/or sell       *
+ * copies of the Software, and to permit persons to whom the Software is    *
+ * furnished to do so, subject to the following conditions:                 *
+ *                                                                          *
+ * The above copyright notice and this permission notice shall be included  *
+ * in all copies or substantial portions of the Software.                   *
+ *                                                                          *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+ * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+ * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+ * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+ * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+ *                                                                          *
+ * Except as contained in this notice, the name(s) of the above copyright   *
+ * holders shall not be used in advertising or otherwise to promote the     *
+ * sale, use or other dealings in this Software without prior written       *
+ * authorization.                                                           *
+ ****************************************************************************/
 /*
  *	Name: Towers of Hanoi.
  *
@@ -14,7 +41,7 @@
  *
  *	Date: 05.Nov.90
  *
- * $Id: hanoi.c,v 1.24 2002/06/29 23:32:18 tom Exp $
+ * $Id: hanoi.c,v 1.27 2008/08/04 10:57:59 tom Exp $
  */
 
 #include <test.priv.h>
@@ -54,6 +81,7 @@ static int TileColour[] =
     COLOR_RED,			/* Length 19 */
 };
 static int NMoves = 0;
+static bool AutoFlag = FALSE;
 
 static void InitTiles(int NTiles);
 static void DisplayTiles(void);
@@ -68,7 +96,6 @@ int
 main(int argc, char **argv)
 {
     int NTiles, FromCol, ToCol;
-    bool AutoFlag = 0;
 
     setlocale(LC_ALL, "");
 
@@ -219,15 +246,18 @@ DisplayTiles(void)
     /* Draw tiles */
     for (peg = 0; peg < NPEGS; peg++) {
 	for (SlotNo = 0; SlotNo < Pegs[peg].Count; SlotNo++) {
-	    memset(TileBuf, ' ', Pegs[peg].Length[SlotNo]);
-	    TileBuf[Pegs[peg].Length[SlotNo]] = '\0';
-	    if (has_colors())
-		attrset(COLOR_PAIR(LENTOIND(Pegs[peg].Length[SlotNo])));
-	    else
-		attrset(A_REVERSE);
-	    mvaddstr(BASELINE - (SlotNo + 1),
-		     (int) (PegPos[peg] - Pegs[peg].Length[SlotNo] / 2),
-		     TileBuf);
+	    unsigned len = Pegs[peg].Length[SlotNo];
+	    if (len < sizeof(TileBuf) - 1 && len < (unsigned) PegPos[peg]) {
+		memset(TileBuf, ' ', len);
+		TileBuf[len] = '\0';
+		if (has_colors())
+		    attrset(COLOR_PAIR(LENTOIND(len)));
+		else
+		    attrset(A_REVERSE);
+		mvaddstr(BASELINE - (SlotNo + 1),
+			 (int) (PegPos[peg] - len / 2),
+			 TileBuf);
+	    }
 	}
     }
     attrset(A_NORMAL);
@@ -251,7 +281,8 @@ GetMove(int *From, int *To)
 	return TRUE;
     *To -= ('0' + 1);
     refresh();
-    napms(500);
+    if (!AutoFlag)
+	napms(500);
 
     move(STATUSLINE, 0);
     clrtoeol();

@@ -1,3 +1,0 @@
-inet_ntop.lo .libs/inet_ntop.o: inet_ntop.c ../config.h
-
-../config.h:

@@ -48,7 +48,6 @@
 **            
 ****************************************************************************/
 
-#pragma option nomaf
 #pragma STDC FENV_ACCESS ON
 
 #include "math.h"
@@ -130,10 +129,10 @@ double complex xdivc( double x, double complex y )   /* returns (real x) / (comp
    double complex      z;
    double   r, denom;
    
-   if ( fabs(Real(y)) >= fabs(Imag(y)) ) {     /* |Real(y)| >= |Imag(y)| */
-      if (fabs(Real(y)) == INFINITY) {   /* Imag(y) and Real(y) are infinite */
-         Real(z) = copysign(0.0,Real(y));
-         Imag(z) = copysign(0.0,-Imag(y));
+   if ( __builtin_fabs(Real(y)) >= __builtin_fabs(Imag(y)) ) {     /* |Real(y)| >= |Imag(y)| */
+      if (__builtin_fabs(Real(y)) == INFINITY) {   /* Imag(y) and Real(y) are infinite */
+         Real(z) = __builtin_copysign(0.0,Real(y));
+         Imag(z) = __builtin_copysign(0.0,-Imag(y));
       }
       else {                             /* |Real(y)| >= finite |Imag(y)| */
          r = Imag(y)/Real(y);
@@ -159,10 +158,10 @@ float complex xdivcf( float x, float complex y )   /* returns (real x) / (comple
    float complex      z;
    float   r, denom;
    
-   if ( fabsf(Real(y)) >= fabsf(Imag(y)) ) {     /* |Real(y)| >= |Imag(y)| */
-      if (fabsf(Real(y)) == INFINITY) {   /* Imag(y) and Real(y) are infinite */
-         Real(z) = copysignf(0.0f,Real(y));
-         Imag(z) = copysignf(0.0f,-Imag(y));
+   if ( __builtin_fabsf(Real(y)) >= __builtin_fabsf(Imag(y)) ) {     /* |Real(y)| >= |Imag(y)| */
+      if (__builtin_fabsf(Real(y)) == INFINITY) {   /* Imag(y) and Real(y) are infinite */
+         Real(z) = __builtin_copysignf(0.0f,Real(y));
+         Imag(z) = __builtin_copysignf(0.0f,-Imag(y));
       }
       else {                             /* |Real(y)| >= finite |Imag(y)| */
          r = Imag(y)/Real(y);
@@ -188,10 +187,10 @@ long double complex xdivcl( long double x, long double complex y )   /* returns 
    long double complex      z;
    long double   r, denom;
    
-   if ( fabsl(Real(y)) >= fabsl(Imag(y)) ) {     /* |Real(y)| >= |Imag(y)| */
-      if (fabsl(Real(y)) == INFINITY) {   /* Imag(y) and Real(y) are infinite */
-         Real(z) = copysignl(0.0L,Real(y));
-         Imag(z) = copysignl(0.0L,-Imag(y));
+   if ( __builtin_fabsl(Real(y)) >= __builtin_fabsl(Imag(y)) ) {     /* |Real(y)| >= |Imag(y)| */
+      if (__builtin_fabsl(Real(y)) == INFINITY) {   /* Imag(y) and Real(y) are infinite */
+         Real(z) = __builtin_copysignl(0.0L,Real(y));
+         Imag(z) = __builtin_copysignl(0.0L,-Imag(y));
       }
       else {                             /* |Real(y)| >= finite |Imag(y)| */
          r = Imag(y)/Real(y);
@@ -278,7 +277,7 @@ double complex csqrt ( double complex z )
 		else if (Real(z) == inf)			// csqrt(° + iNaN) = ° + iNaN
 			return z; 
 		else if (Real(z) == -inf)			// csqrt(-° ± iNaN) = NaN ± i°.
-			return Imag(z) + I*copysign(inf,Imag(z));
+			return Imag(z) + I*__builtin_copysign(inf,Imag(z));
 		else {								// csqrt(x + iNaN) = NaN + iNaN if x is finite.
 			return Imag(z) + I*Imag(z);
 		}
@@ -287,7 +286,7 @@ double complex csqrt ( double complex z )
 	// At this point, we know that y is finite.  Deal with special cases for x:
 	// Special case for x = NaN:
 	if (Real(z) != Real(z)) {				// csqrt(NaN + ix) = NaN + iNaN.
-		return Real(z) + I*copysign(Real(z),Imag(z));
+		return Real(z) + I*__builtin_copysign(Real(z),Imag(z));
 	}
 	
 	// Special cases for x = 0:
@@ -296,15 +295,15 @@ double complex csqrt ( double complex z )
 			return I*Imag(z); 
 		else {								// csqrt(0 ± iy) = sqrt(y/2) ± i sqrt(y/2).
 			u = __builtin_sqrt(0.5*__builtin_fabs(Imag(z)));
-			return u + I*copysign(u, Imag(z) );
+			return u + I*__builtin_copysign(u, Imag(z) );
 		}
 	}
 	
 	// Special cases for infinte x:
 	if (Real(z) == inf)						// csqrt(° ± iy) = ° ± i0 for finite y.
-		return inf + I*copysign(0.0,Imag(z));
+		return inf + I*__builtin_copysign(0.0,Imag(z));
 	if (Real(z) == -inf)					// csqrt(-° ± iy) = 0 ± i° for finite y.
-		return I*copysign(inf,Imag(z));
+		return I*__builtin_copysign(inf,Imag(z));
 	
 	// At this point, we know that x is finite, non-zero and y is finite.
 	else {
@@ -330,7 +329,7 @@ double complex csqrt ( double complex z )
 		 * Otherwise, sqrt(z) = u + I*v.
 		 */
 		if (Real(z) < 0.0) {
-			return __builtin_fabs(v) + I*copysign(u,Imag(z));
+			return __builtin_fabs(v) + I*__builtin_copysign(u,Imag(z));
 		} else {
 			return u + I*v;
 		}
@@ -353,7 +352,7 @@ float complex csqrtf ( float complex z )
 		else if (Real(z) == inf)		// csqrt(° + iNaN) = ° + iNaN
 			return z; 
 		else if (Real(z) == -inf)		// csqrt(-° ± iNaN) = NaN ± i°.
-			return Imag(z) + I*copysignf(inf,Imag(z));
+			return Imag(z) + I*__builtin_copysignf(inf,Imag(z));
 		else {							// csqrt(x + iNaN) = NaN + iNaN if x is finite.
 			return Imag(z) + I*Imag(z);
 		}
@@ -362,7 +361,7 @@ float complex csqrtf ( float complex z )
 	// At this point, we know that y is finite.  Deal with special cases for x:
 	// Special case for x = NaN:
 	if (Real(z) != Real(z)) {			// csqrt(NaN + ix) = NaN + iNaN.
-		return Real(z) + I*copysignf(Real(z),Imag(z));
+		return Real(z) + I*__builtin_copysignf(Real(z),Imag(z));
 	}
 	
 	// Special cases for x = 0:
@@ -371,15 +370,15 @@ float complex csqrtf ( float complex z )
 			return I*Imag(z); 
 		else {							// csqrt(0 ± iy) = sqrt(y/2) ± i sqrt(y/2).
 			u = __builtin_sqrtf(0.5f*__builtin_fabsf(Imag(z)));
-			return u + I*copysign(u, Imag(z) );
+			return u + I*__builtin_copysignf(u, Imag(z) );
 		}
 	}
 	
 	// Special cases for infinte x:
 	if (Real(z) == inf)					// csqrt(° ± iy) = ° ± i0 for finite y.
-		return inf + I*copysign(0.0f,Imag(z));
+		return inf + I*__builtin_copysignf(0.0f,Imag(z));
 	if (Real(z) == -inf)				// csqrt(-° ± iy) = 0 ± i° for finite y.
-		return I*copysign(inf,Imag(z));
+		return I*__builtin_copysignf(inf,Imag(z));
 	
 	// At this point, we know that x is finite, non-zero and y is finite.
 	else {
@@ -405,7 +404,7 @@ float complex csqrtf ( float complex z )
 		 * Otherwise, sqrt(z) = u + I*v.
 		 */
 		if (Real(z) < 0.0f) {
-			return __builtin_fabsf(v) + I*copysignf(u,Imag(z));
+			return __builtin_fabsf(v) + I*__builtin_copysignf(u,Imag(z));
 		} else {
 			return u + I*v;
 		}
@@ -440,7 +439,7 @@ long double complex csqrtl ( long double complex z )  {
 		else if (Real(z) == inf)			// csqrt(° + iNaN) = ° + iNaN
 			return z; 
 		else if (Real(z) == -inf)			// csqrt(-° ± iNaN) = NaN ± i°.
-			return Imag(z) + I*copysignl(inf,Imag(z));
+			return Imag(z) + I*__builtin_copysignl(inf,Imag(z));
 		else {								// csqrt(x + iNaN) = NaN + iNaN if x is finite.
 			return Imag(z) + I*Imag(z);
 		}
@@ -453,30 +452,30 @@ long double complex csqrtl ( long double complex z )  {
 		else {
 			u = __builtin_sqrtl(__builtin_fabsl(Real(z)));
 			if (Real(z) < zero)
-				return zero + I*copysignl(u,Imag(z));
+				return zero + I*__builtin_copysignl(u,Imag(z));
 			else
-				return u + I*copysign(zero,Imag(z));
+				return u + I*__builtin_copysignl(zero,Imag(z));
 		}
 	}
 	
 	// At this point, we know that y is finite.  Deal with special cases for x:
 	// Special case for x = NaN:
 	if (Real(z) != Real(z)) {				// csqrt(NaN + ix) = NaN + iNaN.
-		return Real(z) + I*copysignl(Real(z),Imag(z));
+		return Real(z) + I*__builtin_copysignl(Real(z),Imag(z));
 	}
 	
 	// Special cases for x = 0:
 	if (Real(z) == zero) {
 		// csqrt(0 ± iy) = sqrt(y/2) ± i sqrt(y/2).
 		u = __builtin_sqrtl(half*__builtin_fabsl(Imag(z)));
-		return u + I*copysignl(u, Imag(z) );
+		return u + I*__builtin_copysignl(u, Imag(z) );
 	}
 	
 	// Special cases for infinte x:
 	if (Real(z) == inf)						// csqrt(° ± iy) = ° ± i0 for finite y.
-		return inf + I*copysignl(zero,Imag(z));
+		return inf + I*__builtin_copysignl(zero,Imag(z));
 	if (Real(z) == -inf)					// csqrt(-° ± iy) = 0 ± i° for finite y.
-		return I*copysignl(inf,Imag(z));
+		return I*__builtin_copysignl(inf,Imag(z));
 	
 	// At this point, we know that x and y are finite, non-zero.
 	else {
@@ -522,14 +521,14 @@ long double complex csqrtl ( long double complex z )  {
 			small_scale = 64;
 		small->sexp = small_scale;
 		
-		u = sqrtl( large->ld * large->ld + small->ld * small->ld ) + x;
+		u = __builtin_sqrtl( large->ld * large->ld + small->ld * small->ld ) + x;
 		if (scale%2)
 			scale = 0x3fff - (scale + 1)/2;
 		else {
 			scale = 0x3fff - (scale/2 + 1);
 			u = u + u;
 		}
-		u = sqrtl(u);
+		u = __builtin_sqrtl(u);
 		
 		// Rescale result.
 		
@@ -545,7 +544,7 @@ long double complex csqrtl ( long double complex z )  {
 		 * Otherwise, sqrt(z) = u + I*v.
 		 */
 		if (Real(z) < zero) {
-			return __builtin_fabsl(v) + I*copysignl(u,Imag(z));
+			return __builtin_fabsl(v) + I*__builtin_copysignl(u,Imag(z));
 		} else {
 			return u + I*v;
 		}
@@ -581,7 +580,7 @@ double complex clog ( double complex z )
 	}
 	
 	// handle x,y = NaN
-	if (Real(z) != Real(z)) return Real(z) + I*copysign(Real(z),Imag(z));
+	if (Real(z) != Real(z)) return Real(z) + I*__builtin_copysign(Real(z),Imag(z));
 	if (Imag(z) != Imag(z)) return Imag(z) + I*Imag(z);
 	
 	large = __builtin_fabs(Real(z));
@@ -631,7 +630,7 @@ float complex clogf ( float complex z )
 	}
 	
 	// handle x,y = NaN
-	if (Real(z) != Real(z)) return Real(z) + I*copysignf(Real(z),Imag(z));
+	if (Real(z) != Real(z)) return Real(z) + I*__builtin_copysignf(Real(z),Imag(z));
 	if (Imag(z) != Imag(z)) return Imag(z) + I*Imag(z);
 	
 	large = __builtin_fabsf(Real(z));
@@ -678,7 +677,7 @@ long double complex clogl ( long double complex z )
 	}
 	
 	// handle x,y = NaN
-	if (Real(z) != Real(z)) return Real(z) + I*copysignl(Real(z),Imag(z));
+	if (Real(z) != Real(z)) return Real(z) + I*__builtin_copysignl(Real(z),Imag(z));
 	if (Imag(z) != Imag(z)) return Imag(z) + I*Imag(z);
 	
 	x = __builtin_fabsl(Real(z));
@@ -823,7 +822,7 @@ double complex csinh ( double complex z )
 		if (Imag(z) == 0.0)   // cexp(NaN + 0i) = NaN + 0i
 			Imag(w) = Imag(z);
 		else                  // cexp(NaN + yi) = NaN + NaNi, for y ­ 0
-			Imag(w) = copysign(Real(z), Imag(z));
+			Imag(w) = __builtin_copysign(Real(z), Imag(z));
 		return w;
 	}
 	
@@ -832,11 +831,11 @@ double complex csinh ( double complex z )
 	double reducedx = absx;
 	
 	cosisin(Imag(z), &w); // set w = cos y + i sin y.
-	Real(w) *= copysign(1.0, Real(z)); // w = signof(x) cos y + i sin y
+	Real(w) *= __builtin_copysign(1.0, Real(z)); // w = signof(x) cos y + i sin y
 	
 	// Handle x = ±° cases.
 	if ((absx == INF) && ((Imag(z) == INF) || (Imag(z) != Imag(z)) || (Imag(z) == 0.0))) {
-		Real(w) = copysign(INF, Real(z));
+		Real(w) = __builtin_copysign(INF, Real(z));
 		return w;
 	}
 	
@@ -900,7 +899,7 @@ float complex csinhf ( float complex z )
 		if (Imag(z) == 0.0f)   // cexp(NaN + 0i) = NaN + 0i
 			Imag(w) = Imag(z);
 		else                  // cexp(NaN + yi) = NaN + NaNi, for y ­ 0
-			Imag(w) = copysignf(Real(z), Imag(z));
+			Imag(w) = __builtin_copysignf(Real(z), Imag(z));
 		return w;
 	}
 	
@@ -908,11 +907,11 @@ float complex csinhf ( float complex z )
 	double absx = (double)__builtin_fabsf(Real(z));
 	
 	cosisin((double)Imag(z), &wd); // set w = cos y + i sin y.
-	Real(wd) *= copysign(1.0, (double)Real(z)); // w = signof(x) cos y + i sin y
+	Real(wd) *= __builtin_copysign(1.0, (double)Real(z)); // w = signof(x) cos y + i sin y
 	
 	// Handle x = ±° cases.
 	if ((absx == INF) && ((Imag(z) == INFf) || (Imag(z) != Imag(z)) || (Imag(z) == 0.0f))) {
-		Real(w) = copysignf(INFf, Real(z));
+		Real(w) = __builtin_copysignf(INFf, Real(z));
 		Imag(w) = (float)Imag(wd);
 		return w;
 	}
@@ -971,7 +970,7 @@ long double complex csinhl ( long double complex z )
 		if (Imag(z) == 0.0L)   // cexp(NaN + 0i) = NaN + 0i
 			Imag(w) = Imag(z);
 		else                  // cexp(NaN + yi) = NaN + NaNi, for y ­ 0
-			Imag(w) = copysignl(Real(z), Imag(z));
+			Imag(w) = __builtin_copysignl(Real(z), Imag(z));
 		return w;
 	}
 	
@@ -980,11 +979,11 @@ long double complex csinhl ( long double complex z )
 	long double reducedx = absx;
 	
 	cosisinl(Imag(z), &w); // set w = cos y + i sin y.
-	Real(w) *= copysignl(1.0L, Real(z)); // w = signof(x) cos y + i sin y
+	Real(w) *= __builtin_copysignl(1.0L, Real(z)); // w = signof(x) cos y + i sin y
 	
 	// Handle x = ±° cases.
 	if ((absx == INFl) && ((Imag(z) == INFl) || (Imag(z) != Imag(z)) || (Imag(z) == 0.0L))) {
-		Real(w) = copysignl(INFl, Real(z));
+		Real(w) = __builtin_copysignl(INFl, Real(z));
 		return w;
 	}
 	
@@ -1059,7 +1058,7 @@ double complex ccosh ( double complex z )
 	if (Imag(z) == 0.0)   // cexp(NaN + 0i) = NaN + 0i
 		Imag(w) = Imag(z);
 	else                  // cexp(NaN + yi) = NaN + NaNi, for y ­ 0
-		Imag(w) = copysign(Real(z), Imag(z));
+		Imag(w) = __builtin_copysign(Real(z), Imag(z));
 	return w;
 	}
 	
@@ -1068,7 +1067,7 @@ double complex ccosh ( double complex z )
 	double reducedx = absx;
 	
 	cosisin(Imag(z), &w); // set w = cos y + i sin y.
-	Imag(w) *= copysign(1.0, Real(z)); // w = cos y + i sin y * signof(x)
+	Imag(w) *= __builtin_copysign(1.0, Real(z)); // w = cos y + i sin y * signof(x)
 	
 	// Handle x = ±° cases.
 	if ((absx == INF) && ((Imag(z) == INF) || (Imag(z) != Imag(z)) || (Imag(z) == 0.0))) {
@@ -1078,7 +1077,7 @@ double complex ccosh ( double complex z )
 	
 	// Handle x = 0 cases.
 	if (absx == 0.0) {
-		Imag(w) = Real(z) * copysign(1.0, Imag(z));   // finesse the sign of zero.
+		Imag(w) = Real(z) * __builtin_copysign(1.0, Imag(z));   // finesse the sign of zero.
 		return w;
 	}
 	
@@ -1136,7 +1135,7 @@ float complex ccoshf ( float complex z )
 		if (Imag(z) == 0.0f)   // cexp(NaN + 0i) = NaN + 0i
 			Imag(w) = Imag(z);
 		else                  // cexp(NaN + yi) = NaN + NaNi, for y ­ 0
-			Imag(w) = copysignf(Real(z), Imag(z));
+			Imag(w) = __builtin_copysignf(Real(z), Imag(z));
 		return w;
 	}
 	
@@ -1144,7 +1143,7 @@ float complex ccoshf ( float complex z )
 	double absx = (double)__builtin_fabsf(Real(z));
 	
 	cosisin((double)Imag(z), &wd); // set w = cos y + i sin y.
-	Imag(wd) *= copysign(1.0, (double)Real(z)); // w = cos y + i sin y * signof(x)
+	Imag(wd) *= __builtin_copysign(1.0, (double)Real(z)); // w = cos y + i sin y * signof(x)
 	
 	// Handle x = ±° cases.
 	if ((absx == INF) && ((Imag(z) == INFf) || (Imag(z) != Imag(z)) || (Imag(z) == 0.0f))) {
@@ -1155,7 +1154,7 @@ float complex ccoshf ( float complex z )
 	
 	// Handle x = 0 cases.
 	if (absx == 0.0) {
-		Imag(w) = Real(z) * copysignf(1.0f, Imag(z));   // finesse the sign of zero.
+		Imag(w) = Real(z) * __builtin_copysignf(1.0f, Imag(z));   // finesse the sign of zero.
 		Real(w) = (float)Real(wd);
 		return w;
 	}
@@ -1207,7 +1206,7 @@ long double complex ccoshl ( long double complex z )
 		if (Imag(z) == 0.0L)   // cexp(NaN + 0i) = NaN + 0i
 			Imag(w) = Imag(z);
 		else                  // cexp(NaN + yi) = NaN + NaNi, for y ­ 0
-			Imag(w) = copysignl(Real(z), Imag(z));
+			Imag(w) = __builtin_copysignl(Real(z), Imag(z));
 		return w;
 	}
 	
@@ -1216,7 +1215,7 @@ long double complex ccoshl ( long double complex z )
 	long double reducedx = absx;
 	
 	cosisinl(Imag(z), &w); // set w = cos y + i sin y.
-	Imag(w) *= copysignl(1.0, Real(z)); // w = cos y + i sin y * signof(x)
+	Imag(w) *= __builtin_copysignl(1.0, Real(z)); // w = cos y + i sin y * signof(x)
 	
 	// Handle x = ±° cases.
 	if ((absx == INFl) && ((Imag(z) == INFl) || (Imag(z) != Imag(z)) || (Imag(z) == 0.0L))) {
@@ -1226,7 +1225,7 @@ long double complex ccoshl ( long double complex z )
 	
 	// Handle x = 0 cases.
 	if (absx == 0.0L) {
-		Imag(w) = Real(z) * copysignl(1.0, Imag(z));   // finesse the sign of zero.
+		Imag(w) = Real(z) * __builtin_copysignl(1.0, Imag(z));   // finesse the sign of zero.
 		return w;
 	}
 	
@@ -1297,20 +1296,20 @@ double complex cexp ( double complex z )
 		if (Imag(z) == 0.0)   // cexp(NaN + 0i) = NaN + 0i
 			Imag(w) = Imag(z);
 		else                  // cexp(NaN + yi) = NaN + NaNi, for y ­ 0
-			Imag(w) = copysign(Real(z), Imag(z));
+			Imag(w) = __builtin_copysign(Real(z), Imag(z));
 		return w;
 	}
 	
 	// Handle x = -°, y = ° or NaN:
 	if ((Real(z) == -INF) && ((__builtin_fabs(Imag(z)) == INF) || (Imag(z) != Imag(z)))) {
 		Real(w) = 0.0;
-		Imag(w) = copysign(0.0, Imag(z));
+		Imag(w) = __builtin_copysign(0.0, Imag(z));
 		return w;
 	}
 	
 	if (Imag(z) == 0.0) {  // exact exp(x + 0i) case.
 		Real(w) = exp(Real(z));
-		Imag(w) = 0.0;
+		Imag(w) = __builtin_copysign(0.0, Imag(z));
 		return w;
 	}
 	
@@ -1349,20 +1348,20 @@ float complex cexpf ( float complex z )
 		if (Imag(z) == 0.0f)   // cexp(NaN + 0i) = NaN + 0i
 			Imag(w) = Imag(z);
 		else                  // cexp(NaN + yi) = NaN + NaNi, for y ­ 0
-			Imag(w) = copysignf(Real(z), Imag(z));
+			Imag(w) = __builtin_copysignf(Real(z), Imag(z));
 		return w;
 	}
 	
 	// Handle x = -°, y = ° or NaN:
 	if ((Real(z) == -INFf) && ((__builtin_fabsf(Imag(z)) == INFf) || (Imag(z) != Imag(z)))) {
 		Real(w) = 0.0f;
-		Imag(w) = copysignf(0.0f, Imag(z));
+		Imag(w) = __builtin_copysignf(0.0f, Imag(z));
 		return w;
 	}
 	
 	if (Imag(z) == 0.0f) {  // exact exp(x + 0i) case.
 		Real(w) = expf(Real(z));
-		Imag(w) = 0.0f;
+		Imag(w) = __builtin_copysignf(0.0f, Imag(z));
 		return w;
 	}
 	
@@ -1396,20 +1395,20 @@ long double complex cexpl ( long double complex z )
 		if (Imag(z) == 0.0L)    // cexp(NaN + 0i) = NaN + 0i
 			Imag(w) = Imag(z);
 		else                    // cexp(NaN + yi) = NaN + NaNi, for y ­ 0
-			Imag(w) = copysignl(Real(z), Imag(z));
+			Imag(w) = __builtin_copysignl(Real(z), Imag(z));
 		return w;
 	}
 	
 	// Handle x = -°, y = ° or NaN:
 	if ((Real(z) == -INFl) && ((__builtin_fabsl(Imag(z)) == INFl) || (Imag(z) != Imag(z)))) {
 		Real(w) = 0.0L;
-		Imag(w) = copysignl(0.0L, Imag(z));
+		Imag(w) = __builtin_copysignl(0.0L, Imag(z));
 		return w;
 	}
 	
 	if (Imag(z) == 0.0L) {              // exact exp(x + 0i) case.
 		Real(w) = expl(Real(z));
-		Imag(w) = 0.0L;
+		Imag(w) = __builtin_copysignl(0.0L, Imag(z));
 		return w;
 	}
 	
@@ -1504,7 +1503,7 @@ double complex ctanh( double complex z )
 	double complex w;
 	
 	if (x == INF) {
-		w = 1.0 + I*copysign(0.0, sin(2.0*y));  // ctanh(° + iy) = 1.0 ± i0
+		w = 1.0 + I*__builtin_copysign(0.0, sin(2.0*y));  // ctanh(° + iy) = 1.0 ± i0
 	}
 	
 	else if (Imag(z) != Imag(z) || Real(z) != Real(z)) {
@@ -1522,7 +1521,7 @@ double complex ctanh( double complex z )
 	}
 	
 	else if (x > 19.0) {
-		w = 1.0 + I*copysign(0.0, sin(2.0*y));  // if x is big, tanh(z) = 1 ± i0
+		w = 1.0 + I*__builtin_copysign(0.0, sin(2.0*y));  // if x is big, tanh(z) = 1 ± i0
 	}
 	
 	else {                                    // edge case free!
@@ -1543,8 +1542,8 @@ double complex ctanh( double complex z )
 	}
 	
 	// Patch up signs of return value
-	Real(w) = copysign(Real(w),Real(z));
-	Imag(w) *= copysign(1.0,Imag(z));
+	Real(w) = __builtin_copysign(Real(w),Real(z));
+	Imag(w) *= __builtin_copysign(1.0,Imag(z));
 	
 	return w;
 }
@@ -1558,7 +1557,7 @@ float complex ctanhf( float complex z )
 	float complex w;
 	
 	if (x == INFf) {
-		w = 1.0f + I*copysignf(0.0f, sinf(2.0f*y));  // ctanh(° + iy) = 1.0 ± i0
+		w = 1.0f + I*__builtin_copysignf(0.0f, sinf(2.0f*y));  // ctanh(° + iy) = 1.0 ± i0
 	}
 	
 	else if (Imag(z) != Imag(z) || Real(z) != Real(z)) {
@@ -1576,7 +1575,7 @@ float complex ctanhf( float complex z )
 	}
 	
 	else if (x > 19.0f) {
-		w = 1.0f + I*copysignf(0.0f, sinf(2.0f*y));  // if x is big, tanh(z) = 1 ± i0
+		w = 1.0f + I*__builtin_copysignf(0.0f, sinf(2.0f*y));  // if x is big, tanh(z) = 1 ± i0
 	}
 	
 	else {                                    // edge case free!
@@ -1597,8 +1596,8 @@ float complex ctanhf( float complex z )
 	}
 	
 	// Patch up signs of return value
-	Real(w) = copysignf(Real(w),Real(z));
-	Imag(w) *= copysignf(1.0f,Imag(z));
+	Real(w) = __builtin_copysignf(Real(w),Real(z));
+	Imag(w) *= __builtin_copysignf(1.0f,Imag(z));
 	
 	return w;
 }
@@ -1612,7 +1611,7 @@ long double complex ctanhl( long double complex z )
 	long double complex w;
 	
 	if (x == INFl) {
-		w = 1.0l + I*copysignl(0.0l, sinl(2.0l*y));  // ctanh(° + iy) = 1.0 ± i0
+		w = 1.0l + I*__builtin_copysignl(0.0l, sinl(2.0l*y));  // ctanh(° + iy) = 1.0 ± i0
 	}
 	
 	else if (Imag(z) != Imag(z) || Real(z) != Real(z)) {
@@ -1630,7 +1629,7 @@ long double complex ctanhl( long double complex z )
 	}
 	
 	else if (x > 22.0l) {
-		w = 1.0l + I*copysignl(0.0l, sinl(2.0l*y));  // if x is big, tanh(z) = 1 ± i0
+		w = 1.0l + I*__builtin_copysignl(0.0l, sinl(2.0l*y));  // if x is big, tanh(z) = 1 ± i0
 	}
 	
 	else {                                    // edge case free!
@@ -1651,8 +1650,8 @@ long double complex ctanhl( long double complex z )
 	}
 	
 	// Patch up signs of return value
-	Real(w) = copysignl(Real(w),Real(z));
-	Imag(w) *= copysignl(1.0l,Imag(z));
+	Real(w) = __builtin_copysignl(Real(w),Real(z));
+	Imag(w) *= __builtin_copysignl(1.0l,Imag(z));
 	
 	return w;
 }
@@ -1838,8 +1837,8 @@ double complex casinh ( double complex z )
 	}
 	
 	// Patch up signs to handle z in quadrants II - IV, using symmetry.
-	Real(w) = copysign(Real(w), Real(z));
-	Imag(w) = copysign(Imag(w), Imag(z));
+	Real(w) = __builtin_copysign(Real(w), Real(z));
+	Imag(w) = __builtin_copysign(Imag(w), Imag(z));
 	
 	return w;
 }
@@ -1924,8 +1923,8 @@ float complex casinhf ( float complex z )
 	}
 	
 	// Patch up signs to handle z in quadrants II - IV, using symmetry.
-	Real(w) = copysignf(Real(w), Real(z));
-	Imag(w) = copysignf(Imag(w), Imag(z));
+	Real(w) = __builtin_copysignf(Real(w), Real(z));
+	Imag(w) = __builtin_copysignf(Imag(w), Imag(z));
 	
 	return w;
 }
@@ -2009,8 +2008,8 @@ long double complex casinhl ( long double complex z )
 	}
 	
 	// Patch up signs to handle z in quadrants II - IV, using symmetry.
-	Real(w) = copysignl(Real(w), Real(z));
-	Imag(w) = copysignl(Imag(w), Imag(z));
+	Real(w) = __builtin_copysignl(Real(w), Real(z));
+	Imag(w) = __builtin_copysignl(Imag(w), Imag(z));
 	
 	return w;
 }
@@ -2113,7 +2112,7 @@ double complex cacos ( double complex z )
 	}
 	
 	// Patch up signs to handle z in quadrants II, III & IV, using symmetry.
-	Imag(w) = copysign(Imag(w), -Imag(z));
+	Imag(w) = __builtin_copysign(Imag(w), -Imag(z));
 	
 	if (Real(z) < 0.0)
 		Real(w) = 2.0 * pi2 - Real(w); // No undue cancellation is possible here - Real(w) < ¹/2.
@@ -2210,7 +2209,7 @@ float complex cacosf ( float complex z )
 	}
 	
 	// Patch up signs to handle z in quadrants II, III & IV, using symmetry.
-	Imag(w) = copysignf(Imag(w), -Imag(z));
+	Imag(w) = __builtin_copysignf(Imag(w), -Imag(z));
 	
 	if (Real(z) < 0.0f)
 		Real(w) = 2.0f * pi2f - Real(w); // No undue cancellation is possible here - Real(w) < ¹/2.
@@ -2307,7 +2306,7 @@ long double complex cacosl ( long double complex z )
 	}
 	
 	// Patch up signs to handle z in quadrants II, III & IV, using symmetry.
-	Imag(w) = copysignl(Imag(w), -Imag(z));
+	Imag(w) = __builtin_copysignl(Imag(w), -Imag(z));
 	
 	if (Real(z) < 0.0l)
 		Real(w) = 2.0l * pi2l - Real(w); // No undue cancellation is possible here - Real(w) < ¹/2.
@@ -2410,7 +2409,7 @@ double complex cacosh ( double complex z )
 	if (Real(z) < 0.0)
 		Imag(w) = 2.0 * pi2 - Imag(w); // No undue cancellation is possible here - Real(w) < ¹/2.
 	
-	Imag(w) = copysign(Imag(w), Imag(z));
+	Imag(w) = __builtin_copysign(Imag(w), Imag(z));
 	
 	return w;
 }
@@ -2499,7 +2498,7 @@ float complex cacoshf ( float complex z )
 	if (Real(z) < 0.0f)
 		Imag(w) = 2.0f * pi2f - Imag(w); // No undue cancellation is possible here - Real(w) < ¹/2.
 	
-	Imag(w) = copysignf(Imag(w), Imag(z));
+	Imag(w) = __builtin_copysignf(Imag(w), Imag(z));
 	
 	return w;
 }
@@ -2588,7 +2587,7 @@ long double complex cacoshl ( long double complex z )
 	if (Real(z) < 0.0l)
 		Imag(w) = 2.0l * pi2l - Imag(w); // No undue cancellation is possible here - Real(w) < ¹/2.
 	
-	Imag(w) = copysignl(Imag(w), Imag(z));
+	Imag(w) = __builtin_copysignl(Imag(w), Imag(z));
 	
 	return w;
 }
@@ -2661,25 +2660,25 @@ double complex catanh( double complex z )
    double complex ctemp, w;
    double t1, t2, xi, eta, beta;
    
-   beta = copysign(1.0,Real(z));             /* copes with unsigned zero */
+   beta = __builtin_copysign(1.0,Real(z));             /* copes with unsigned zero */
    
    Imag(z) = -beta*Imag(z);                     /* transform real & imag components */
    Real(z) = beta*Real(z);
    
-   if ((Real(z) > FPKTHETA) || (fabs(Imag(z)) > FPKTHETA)) {
-      eta = copysign(M_PI_2,Imag(z));   /* avoid overflow */
+   if ((Real(z) > FPKTHETA) || (__builtin_fabs(Imag(z)) > FPKTHETA)) {
+      eta = __builtin_copysign(M_PI_2,Imag(z));   /* avoid overflow */
       ctemp = xdivc(1.0,z);
       xi = Real(ctemp);
    }
       
    else if (Real(z) == 1.0) {
-      t1 = fabs(Imag(z)) + FPKRHO;
-      xi = log(sqrt(sqrt(4.0 + t1*t1))/sqrt(fabs(Imag(z))));
-      eta = 0.5*copysign(M_PI-atan(2.0/(fabs(Imag(z))+FPKRHO)),Imag(z));
+      t1 = __builtin_fabs(Imag(z)) + FPKRHO;
+      xi = log(__builtin_sqrt(__builtin_sqrt(4.0 + t1*t1))/__builtin_sqrt(__builtin_fabs(Imag(z))));
+      eta = 0.5*__builtin_copysign(M_PI-atan(2.0/(__builtin_fabs(Imag(z))+FPKRHO)),Imag(z));
    }
    
    else {                                 /* usual case */
-      t2 = fabs(Imag(z)) + FPKRHO;
+      t2 = __builtin_fabs(Imag(z)) + FPKRHO;
       t1 = 1.0 - Real(z);
       t2 = t2*t2;
       xi = 0.25*log1p(4.0*Real(z)/(t1*t1 + t2));
@@ -2698,25 +2697,25 @@ float complex catanhf( float complex z )
    float complex ctemp, w;
    float t1, t2, xi, eta, beta;
    
-   beta = copysignf(1.0f,Real(z));             /* copes with unsigned zero */
+   beta = __builtin_copysignf(1.0f,Real(z));             /* copes with unsigned zero */
    
    Imag(z) = -beta*Imag(z);                     /* transform real & imag components */
    Real(z) = beta*Real(z);
    
-   if ((Real(z) > FPKTHETAf) || (fabsf(Imag(z)) > FPKTHETAf)) {
-      eta = copysignf((float) M_PI_2,Imag(z));   /* avoid overflow */
+   if ((Real(z) > FPKTHETAf) || (__builtin_fabsf(Imag(z)) > FPKTHETAf)) {
+      eta = __builtin_copysignf((float) M_PI_2,Imag(z));   /* avoid overflow */
       ctemp = xdivcf(1.0f,z);
       xi = Real(ctemp);
    }
       
    else if (Real(z) == 1.0f) {
-      t1 = fabsf(Imag(z)) + FPKRHOf;
-      xi = logf(sqrtf(sqrtf(4.0f + t1*t1))/sqrtf(fabsf(Imag(z))));
-      eta = 0.5f*copysignf((float)( M_PI-atan(2.0f/(fabsf(Imag(z))+FPKRHOf))),Imag(z));
+      t1 = __builtin_fabsf(Imag(z)) + FPKRHOf;
+      xi = logf(__builtin_sqrtf(__builtin_sqrtf(4.0f + t1*t1))/__builtin_sqrtf(__builtin_fabsf(Imag(z))));
+      eta = 0.5f*__builtin_copysignf((float)( M_PI-atan(2.0f/(__builtin_fabsf(Imag(z))+FPKRHOf))),Imag(z));
    }
    
    else {                                 /* usual case */
-      t2 = fabsf(Imag(z)) + FPKRHOf;
+      t2 = __builtin_fabsf(Imag(z)) + FPKRHOf;
       t1 = 1.0f - Real(z);
       t2 = t2*t2;
       xi = 0.25f*log1pf(4.0f*Real(z)/(t1*t1 + t2));
@@ -2735,25 +2734,25 @@ long double complex catanhl( long double complex z )
    long double complex ctemp, w;
    long double t1, t2, xi, eta, beta;
    
-   beta = copysignl(1.0L,Real(z));             /* copes with unsigned zero */
+   beta = __builtin_copysignl(1.0L,Real(z));             /* copes with unsigned zero */
    
    Imag(z) = -beta*Imag(z);                     /* transform real & imag components */
    Real(z) = beta*Real(z);
    
-   if ((Real(z) > FPKTHETA) || (fabsl(Imag(z)) > FPKTHETA)) {
-      eta = copysignl(M_PI_2,Imag(z));   /* avoid overflow */
+   if ((Real(z) > FPKTHETA) || (__builtin_fabsl(Imag(z)) > FPKTHETA)) {
+      eta = __builtin_copysignl(M_PI_2,Imag(z));   /* avoid overflow */
       ctemp = xdivcl(1.0L,z);
       xi = Real(ctemp);
    }
       
    else if (Real(z) == 1.0L) {
-      t1 = fabsl(Imag(z)) + FPKRHO;
-      xi = logl(sqrtl(sqrtl(4.0L + t1*t1))/sqrtl(fabsl(Imag(z))));
-      eta = 0.5L*copysignl(M_PI-atanl(2.0L/(fabsl(Imag(z))+FPKRHO)),Imag(z));
+      t1 = __builtin_fabsl(Imag(z)) + FPKRHO;
+      xi = logl(__builtin_sqrtl(__builtin_sqrtl(4.0L + t1*t1))/__builtin_sqrtl(__builtin_fabsl(Imag(z))));
+      eta = 0.5L*__builtin_copysignl(M_PI-atanl(2.0L/(__builtin_fabsl(Imag(z))+FPKRHO)),Imag(z));
    }
    
    else {                                 /* usual case */
-      t2 = fabsl(Imag(z)) + FPKRHO;
+      t2 = __builtin_fabsl(Imag(z)) + FPKRHO;
       t1 = 1.0L - Real(z);
       t2 = t2*t2;
       xi = 0.25L*log1pl(4.0L*Real(z)/(t1*t1 + t2));
@@ -2819,32 +2818,38 @@ double complex cproj( double complex z )
 	double u = __builtin_fabs(Real(z));
 	double v = __builtin_fabs(Imag(z));
     
-	if (EXPECT_FALSE((u == inf) || (v == inf)))
-		return inf + I*copysign(0.0, Imag(z));
-	else
-		return z;
+	if (EXPECT_FALSE((u == inf) || (v == inf))) {
+		__real__ z = inf;
+		__imag__ z = __builtin_copysign(0.0, __imag__ z);
+	}
+	
+	return z;
 }
 
 float complex cprojf( float complex z )
 {
-	static const double inf = __builtin_inff();
+	static const float inff = __builtin_inff();
 	float u = __builtin_fabsf(Real(z));
 	float v = __builtin_fabsf(Imag(z));
+    
+	if (EXPECT_FALSE((u == inff) || (v == inff))) {
+		__real__ z = inff;
+		__imag__ z = __builtin_copysignf(0.0f, __imag__ z);
+	}
 	
-	if (EXPECT_FALSE((u == inf) || (v == inf)))
-		return inf + I*copysignf(0.0f, Imag(z));
-	else
-		return z;	
+	return z;
 }
 
 long double complex cprojl( long double complex z )
 {
-	static const double inf = __builtin_infl();
-	float u = __builtin_fabsl(Real(z));
-	float v = __builtin_fabsl(Imag(z));
+	static const long double infl = __builtin_infl();
+	long double u = __builtin_fabsl(Real(z));
+	long double v = __builtin_fabsl(Imag(z));
 	
-	if (EXPECT_FALSE((u == inf) || (v == inf)))
-		return inf + I*copysignl(0.0l, Imag(z));
-	else
-		return z;
+	if (EXPECT_FALSE((u == infl) || (v == infl))) {
+		__real__ z = infl;
+		__imag__ z = __builtin_copysignl(0.0L, __imag__ z);
+	}
+	
+	return z;
 }

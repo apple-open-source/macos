@@ -1,0 +1,33 @@
+Return-Path: <MAILER-DAEMON@sb7.songbird.com>
+Received: from sl.gomaps.com (www.gomaps.com [207.178.107.65])
+	by sb7.songbird.com (8.12.11.20060308/8.12.11) with ESMTP id
+	k4359uMK016999
+	for <gpc-talk-bounces@grizz.org>; Tue, 2 May 2006 22:09:56 -0700
+Received: from mail pickup service by sl.gomaps.com with Microsoft SMTPSVC;
+	Wed, 3 May 2006 00:09:22 -0500
+Message-ID: <SLND200605030009223890@gomaps.com>
+From: Postmaster <>
+To: gpc-talk-bounces@grizz.org
+Subject: Undeliverable: liberty@gomaps.com
+Date: Wed, 3 May 2006 00:09:22
+MIME-Version: 1.0
+X-Mailer: SpamLion (E 1.60.205)
+Content-Type: text/plain;
+     charset="us-ascii"
+X-OriginalArrivalTime: 03 May 2006 05:09:22.0389 (UTC)
+	FILETIME=[BD5A8850:01C66E6F]
+X-SongbirdInformation: support@songbird.com for more information
+X-Songbird: Clean
+X-Songbird-From: 
+
+--------------------------------------------------------------------------------
+Your Message
+
+To:      <liberty@gomaps.com>
+
+Subject: The results of your email commands
+
+Date:    Tue, 02 May 2006 22:09:32 -0700
+
+Did not reach the following recipient: liberty@gomaps.com
+

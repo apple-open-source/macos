@@ -632,6 +632,12 @@ if_is_wireless(interface_t * if_p)
     return (if_p->is_wireless);
 }
 
+int
+if_link_index(interface_t * if_p)
+{
+    return (if_p->link_address.index);
+}
+
 #ifdef TEST_INTERFACES
 
 #if 0

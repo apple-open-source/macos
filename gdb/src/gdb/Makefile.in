@@ -152,14 +152,12 @@ LIBICONV = @LIBICONV@
 
 # APPLE LOCAL: location of carbon header files & libraries
 
-# APPLE LOCAL: We need to weak link to Carbon for the "open" command.
-CARBON_LDFLAGS = @CARBON_LIBS@
+# APPLE LOCAL: We need to weak link to Carbon for the "open" command, and we
+# need CoreFoundation for the plist parsing code.
+CARBON_LDFLAGS = -framework CoreFoundation @CARBON_LIBS@
 
 # APPLE LOCAL: Use DebugSymbols framework if available for dSYM finding
 DEBUG_SYMBOLS_LDFLAGS = @DEBUG_SYMBOLS_LIBS@
-
-# APPLE LOCAL: switch over to the pre-conformance header files.
-UNIX03_UGH_CFLAGS = @UNIX03_UGH_CFLAGS@
 
 # APPLE LOCAL: Enable MIG checking for macosx/macosx.defs.
 MIG_CHECKING = @MIG_CHECKING@
@@ -382,7 +380,6 @@ INTERNAL_WARN_CFLAGS = \
 	$(BFD_CFLAGS) $(INCLUDE_CFLAGS) \
 	$(MMALLOC_CFLAGS) \
 	$(INTL_CFLAGS) $(ENABLE_CFLAGS) \
-	$(UNIX03_UGH_CFLAGS) \
 	$(MIG_CHECKING) \
 	$(GDB_WARN_CFLAGS)
 INTERNAL_CFLAGS = $(INTERNAL_WARN_CFLAGS) $(GDB_WERROR_CFLAGS)
@@ -429,7 +426,7 @@ DIST=gdb
 LINT=/usr/5bin/lint
 LINTFLAGS= $(GDB_CFLAGS) $(OPCODES_CFLAGS) $(READLINE_CFLAGS) \
 	$(BFD_CFLAGS) $(INCLUDE_CFLAGS) \
-	$(INTL_CFLAGS) $(UNIX03_UGH_CFLAGS) $(MIG_CHECKING)
+	$(INTL_CFLAGS) $(MIG_CHECKING)
 
 RUNTEST = `if [ -f $${rootsrc}/../dejagnu/runtest ] ; then \
 		echo $${rootsrc}/../dejagnu/runtest ; else echo runtest; \
@@ -600,7 +597,7 @@ SFILES = ada-exp.y ada-lang.c ada-typeprint.c ada-valprint.c  \
 	ui-out.c utils.c ui-file.h ui-file.c \
 	user-regs.c \
 	valarith.c valops.c valprint.c value.c varobj.c \
-	wrapper.c i386-amd64-shared-tdep.c
+	wrapper.c x86-shared-tdep.c
 # APPLE LOCAL end subroutine inlining
 
 LINTFILES = $(SFILES) $(YYFILES) $(CONFIG_SRCS) init.c
@@ -724,7 +721,7 @@ fbsd_nat_h = fbsd-nat.h
 f_lang_h = f-lang.h
 frame_base_h = frame-base.h
 # APPLE LOCAL
-i386_amd64_shared_tdep_h = i386-amd64-shared-tdep.h
+x86_shared_tdep_h = x86-shared-tdep.h
 frame_h = frame.h
 frame_unwind_h = frame-unwind.h $(frame_h)
 frv_tdep_h = frv-tdep.h
@@ -999,7 +996,7 @@ BASE_OBS = \
 	fix-and-continue.o \
 	checkpoint.o \
 	solib.o solib-null.o \
-	i386-amd64-shared-tdep.o
+	x86-shared-tdep.o
 # APPLE LOCAL end subroutine inlining
 
 TSOBS = inflow.o
@@ -1271,10 +1268,8 @@ gdb$(EXEEXT): gdb.o libgdb.a $(CONFIG_OBS) $(ADD_DEPS) $(CDEPS) $(TDEPLIBS)
 	echo "__objcInit" > /tmp/macosx-syms-to-remove;
 	-if [ -f .libs/gdb$(EXEEXT) ]; then \
 		strip -R /tmp/macosx-syms-to-remove -X .libs/gdb$(EXEEXT); \
-		chgrp procmod .libs/gdb$(EXEEXT) && chmod g+s .libs/gdb$(EXEEXT); \
 	else \
 		strip -R /tmp/macosx-syms-to-remove -X gdb$(EXEEXT); \
-		chgrp procmod gdb$(EXEEXT) && chmod g+s gdb$(EXEEXT); \
 	fi
 	rm -f /tmp/macosx-syms-to-remove;
 
@@ -1835,7 +1830,7 @@ amd64-tdep.o: amd64-tdep.c $(defs_h) $(arch_utils_h) $(block_h) \
 	$(dummy_frame_h) $(frame_h) $(frame_base_h) $(frame_unwind_h) \
 	$(inferior_h) $(gdbcmd_h) $(gdbcore_h) $(objfiles_h) $(regcache_h) \
 	$(regset_h) $(symfile_h) $(gdb_assert_h) $(amd64_tdep_h) \
-	$(i387_tdep_h)
+	$(i387_tdep_h) $(x86_shared_tdep_h)
 annotate.o: annotate.c $(defs_h) $(annotate_h) $(value_h) $(target_h) \
 	$(gdbtypes_h) $(breakpoint_h)
 arch-utils.o: arch-utils.c $(defs_h) $(arch_utils_h) $(buildsym_h) \
@@ -2150,8 +2145,7 @@ hpux-thread.o: hpux-thread.c $(defs_h) $(gdbthread_h) $(target_h) \
 	$(inferior_h) $(regcache_h) $(gdb_stat_h) $(gdbcore_h) \
 	$(hppa_tdep_h)
 # APPLE LOCAL
-i386-amd64-shared-tdep.o: i386-amd64-shared-tdep.c $(defs_h) \
-	$(i386_amd64_shared_tdep_h)
+x86-shared-tdep.o: x86-shared-tdep.c $(defs_h) $(x86_shared_tdep_h)
 i386bsd-nat.o: i386bsd-nat.c $(defs_h) $(inferior_h) $(regcache_h) \
 	$(gdb_assert_h) $(i386_tdep_h) $(i387_tdep_h) $(i386bsd_nat_h) \
 	$(inf_ptrace_h)
@@ -2203,7 +2197,7 @@ i386-tdep.o: i386-tdep.c $(defs_h) $(arch_utils_h) $(command_h) \
 	$(gdbcmd_h) $(gdbcore_h) $(objfiles_h) $(osabi_h) $(regcache_h) \
 	$(reggroups_h) $(regset_h) $(symfile_h) $(symtab_h) $(target_h) \
 	$(value_h) $(dis_asm_h) $(gdb_assert_h) $(gdb_string_h) \
-	$(i386_tdep_h) $(i387_tdep_h) $(i386_amd64_shared_tdep_h)
+	$(i386_tdep_h) $(i387_tdep_h) $(x86_shared_tdep_h)
 i386v4-nat.o: i386v4-nat.c $(defs_h) $(value_h) $(inferior_h) $(regcache_h) \
 	$(i386_tdep_h) $(i387_tdep_h) $(gregset_h)
 i386v-nat.o: i386v-nat.c $(defs_h) $(frame_h) $(inferior_h) $(language_h) \

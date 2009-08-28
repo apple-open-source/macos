@@ -1,0 +1,50 @@
+# Features covered:  Document Type Declaration
+#
+# This file tests the parser's performance on Document Type Declarations.
+# Sourcing this file into Tcl runs the tests and generates output
+# for errors.  No output means no errors were found.
+#
+# Copyright (c) 1998-2000 Zveno Pty Ltd.
+#
+# $Id: doctype.test,v 1.5 2002/07/28 23:20:37 rolf Exp $
+
+source [file join [file dir [info script]] loadtdom.tcl]
+
+catch {unset result}
+proc doctype {name pub system dtd} {
+    lappend ::result $name $pub $system $dtd
+}
+
+test doctype-1.1 {Document Type Declaration: no internal DTD subset} {
+    set ::result {}
+
+    catch {rename xml::doctype-1.1 {}}
+    set parser [xml::parser doctype-1.1 \
+	-startdoctypedeclcommand doctype]
+    $parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test></Test>
+}
+    set ::result
+} {Test NULL NULL 0}
+
+test doctype-2.1 {Document Type Declaration: internal DTD subset} {
+    set ::result {}
+
+    catch {rename xml::doctype-2.1 {}}
+    set parser [xml::parser doctype-2.1 \
+	-startdoctypedeclcommand doctype]
+    $parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test [<!ELEMENT Test EMPTY>]>
+<Test></Test>
+}
+    set ::result
+} {Test NULL NULL 1}
+
+foreach parser [info commands doctype-*] {
+    $parser free
+}
+
+# cleanup
+::tcltest::cleanupTests
+return

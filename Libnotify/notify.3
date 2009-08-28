@@ -26,12 +26,13 @@
 .\" SUCH DAMAGE.
 .\"
 .\"
-.Dd March 19, 2003
+.Dd September 3, 2008
 .Dt notify 3
 .Os "Mac OS X"
 .Sh NAME
 .Nm notify_post ,
 .Nm notify_register_check ,
+.Nm notify_register_dispatch ,
 .Nm notify_register_signal ,
 .Nm notify_register_mach_port ,
 .Nm notify_register_file_descriptor ,
@@ -46,6 +47,8 @@
 .Fn notify_post "const char *name"
 .Ft uint32_t
 .Fn notify_register_check "const char *name, int *out_token"
+.Ft uint32_t
+.Fn notify_register_dispatch "const char *name, int *out_token" "dispatch_queue_t queue" "notify_handler_t handler"
 .Ft uint32_t
 .Fn notify_register_signal "const char *name, int sig, int *out_token"
 .Ft uint32_t
@@ -62,6 +65,10 @@
 .Fn notify_cancel "int token"
 .Sh DESCRIPTION
 These routines allow processes to exchange stateless notification events.
+Processes post notifications to a single system-wide notification server,
+which then distributes notifications to client processes that have
+registered to receive those notifications, including processes run by
+other users.
 .Pp
 Notifications are associated with names in a namespace shared by all 
 clients of the system.
@@ -76,7 +83,7 @@ required for the desired notification delivery method.
 Clients are
 given an integer token representing the registration.
 .Pp
-The kernel provides limitied queues for mach message and file descriptor messages.
+The kernel provides limited queues for mach message and file descriptor messages.
 It is important to make sure that clients read mach ports and file descriptors frequently
 to prevent messages from being lost due to resource limitations.
 Clients that use signal-based notification should be aware that signals
@@ -115,6 +122,15 @@ It is also important to release the resources consumed
 by a registration with 
 .Fn notify_cancel
 when they are no longer required by the application.
+.Ss notify_register_dispatch
+registers a callback handler in the form of a block which will be
+dispatched to the queue when a notification for the given name is
+received.  This is a convenient way to register callbacks without any
+management of file descriptors, mach ports, or signals on the part of
+the application.  The given queue is retained by the system for the
+lifetime of the notification.  Use
+.Fn notify_cancel
+to release the notification and its reference to the queue.
 .Ss notify_register_signal
 registers a client for notification delivery via a signal.
 This fits
@@ -191,16 +207,17 @@ Other tokens are checked by a call to the notification server.
 .Ss notify_set_state
 Set a 64-bit unsigned integer variable associated with a token.
 .Pp
-Starting with Mac OS X 10.5,
-each registered notification key has an associated 64-bit integer variable,
+Each registered notification key has an associated 64-bit integer variable,
 which may be set using this routine and examined using the
 .Fn notify_get_state
 routine.
 The state variable is free to be used by clients of the notification API.
 It may be used to synchronize state information between cooperating processes or threads.
+(Available in Mac OS X 10.5 or later.)
 .Ss notify_get_state
 Get the 64-bit unsigned integer value associated with a token.
 The default value of a state variable is zero.
+(Available in Mac OS X 10.5 or later.)
 .Ss notify_cancel
 Cancel notification and free resources associated with a notification
 token.
@@ -221,6 +238,14 @@ Apple Computer reserves the portion
 of the namespace prefixed by "com.apple.".
 This policy is not 
 enforced in the current implementation, but may be in the future.
+.Pp
+Names in the space "user.uid.UID", where UID is a numeric user ID number
+are reserved for processes with that UID.
+Names in this protected space may only be accessed or modified by processes
+with the effective UID specified as the UID in the name.
+The name "user.uid.UID" is protected for the given UID, as are any
+names of the form "user.uid.UID.<sub-path>". 
+In the latter case, the name must have a dot character following the UID.
 .Pp
 Third party developers are encouraged to choose a prefix for names
 that will avoid conflicts in the shared namespace.
@@ -327,6 +352,26 @@ A client using file descriptor notifications.
         printf("shutting down\\n");
         notify_cancel(rtoken);
         notify_cancel(qtoken);
+        exit(0);
+    }
+.Pp
+A client using file dispatch notifications.
+.Pp
+    #include <stdio.h>
+    #include <stdlib.h>
+    #include <notify.h>
+    #include <dispatch/dispatch.h>
+.Pp
+    int
+    main(void)
+    {
+        int token, status;
+.Pp
+        status = notify_register_dispatch("com.eg.random.event", &token,
+            dispatch_get_main_queue(), ^(int t) { 
+                printf("com.eg.random.event received!\n"); });
+.Pp
+        dispatch_main();
         exit(0);
     }
 .Sh HISTORY

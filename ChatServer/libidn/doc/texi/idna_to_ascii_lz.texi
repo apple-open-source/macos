@@ -1,3 +1,5 @@
+@subheading idna_to_ascii_lz
+@anchor{idna_to_ascii_lz}
 @deftypefun {int} {idna_to_ascii_lz} (const char * @var{input}, char ** @var{output}, int @var{flags})
 @var{input}: zero terminated input string encoded in the current locale's
 character set.

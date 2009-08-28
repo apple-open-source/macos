@@ -110,4 +110,39 @@ IOSCSIArchitectureModelFamilyDebugAssert ( 	const char * componentNameString,
 	require_action_string( ( 0 != obj ), exceptionLabel, action, message )
 
 
+// Macros for printing debugging information
+
+#define KPRINTF(LEVEL, FMT, ARGS...)	kprintf(FMT "\n", ## ARGS)
+
+// STATUS_LOG logging macros are controlled by USB_MASS_STORAGE_DEBUG,
+// which is in turn defined by the xcodebuild configuration:
+//
+//	xcodebuild			USB_MASS_STORAGE_DEBUG		STATUS_LOG
+//	configuration		value						disposition
+//
+//	"Deployment" 		(undefined)					(compiled out)
+//	"Logging"			1							USBLog
+//	"kprintf"			2							kprintf
+
+#if (USB_MASS_STORAGE_DEBUG == 2)
+
+#define PANIC_NOW(x)	panic x
+#define STATUS_LOG(x)	KPRINTF x
+
+#elif (USB_MASS_STORAGE_DEBUG == 1)
+
+#define PANIC_NOW(x)	panic x
+// Override the debug level for USBLog to make sure our logs make it out and then import
+// the logging header.
+#define DEBUG_LEVEL		1
+#include <IOKit/usb/IOUSBLog.h>
+#define STATUS_LOG(x)	USBLog x
+
+#else
+
+#define STATUS_LOG(x)
+#define PANIC_NOW(x)
+
+#endif
+
 #endif	/* __IOKIT_IO_USB_MSC_DEBUGGING__ */

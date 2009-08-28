@@ -55,7 +55,7 @@ This strategy has several implications:
 	
 -	Since any MDS client process can initiate a rescan, but no
 	two processes should be updating the database at the same
-	time, we use a lock file in /var/tmp to ensure only one
+	time, we use a lock file in /var/db to ensure only one
 	process is scanning at any one time.
 
 DEVIATIONS FROM THE SPEC

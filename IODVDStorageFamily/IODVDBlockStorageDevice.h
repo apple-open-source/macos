@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -89,16 +89,24 @@ public:
     /* New APIs for DVD */
 
     virtual IOReturn	reportKey(IOMemoryDescriptor *buffer,const DVDKeyClass keyClass,
-                                        const UInt32 lba,const UInt8 agid,const DVDKeyFormat keyFormat) = 0;
+                                        const UInt32 lba,const UInt8 agid,const DVDKeyFormat keyFormat)	= 0;
 
     virtual IOReturn	sendKey(IOMemoryDescriptor *buffer,const DVDKeyClass keyClass,
-                                        const UInt8 agid,const DVDKeyFormat keyFormat)			= 0;
+                                        const UInt8 agid,const DVDKeyFormat keyFormat)	= 0;
 
+#ifdef __LP64__
     virtual IOReturn	readDVDStructure(IOMemoryDescriptor *buffer,const DVDStructureFormat format,
-                                        const UInt32 address,const UInt8 layer,const UInt8 agid);
+                                        const UInt32 address,const UInt8 layer,const UInt8 agid)	= 0;
+#else /* !__LP64__ */
+    virtual IOReturn	readDVDStructure(IOMemoryDescriptor *buffer,const DVDStructureFormat format,
+                                        const UInt32 address,const UInt8 layer,const UInt8 agid); /* 10.1.0 */
+#endif /* !__LP64__ */
 
-    OSMetaClassDeclareReservedUsed(IODVDBlockStorageDevice, 0); /* 10.1.0 */
-
+#ifdef __LP64__
+    OSMetaClassDeclareReservedUnused(IODVDBlockStorageDevice,  0);
+#else /* !__LP64__ */
+    OSMetaClassDeclareReservedUsed(IODVDBlockStorageDevice,  0);
+#endif /* !__LP64__ */
     OSMetaClassDeclareReservedUnused(IODVDBlockStorageDevice,  1);
     OSMetaClassDeclareReservedUnused(IODVDBlockStorageDevice,  2);
     OSMetaClassDeclareReservedUnused(IODVDBlockStorageDevice,  3);

@@ -153,6 +153,7 @@
 #endif /* BZ_LCCWIN32 */
 
 #ifdef __APPLE__
+#include <sys/attr.h>
 #include <copyfile.h>
 #endif
 
@@ -1064,6 +1065,27 @@ void applySavedTimeInfoToOutputFile ( Char *dstName )
 #  endif
 }
 
+#ifdef __APPLE__
+static void
+clear_type_and_creator(char *path)
+{
+	struct attrlist alist;
+	struct {
+		u_int32_t length;
+		char info[32];
+	} abuf;
+
+	memset(&alist, 0, sizeof(alist));
+	alist.bitmapcount = ATTR_BIT_MAP_COUNT;
+	alist.commonattr = ATTR_CMN_FNDRINFO;
+
+	if (!getattrlist(path, &alist, &abuf, sizeof(abuf), 0) && abuf.length == sizeof(abuf)) {
+		memset(abuf.info, 0, 8);
+		setattrlist(path, &alist, abuf.info, sizeof(abuf.info), 0);
+	}
+}
+#endif /* __APPLE__ */
+
 static 
 void applySavedFileAttrToOutputFile ( IntNative fd )
 {
@@ -1076,6 +1098,7 @@ void applySavedFileAttrToOutputFile ( IntNative fd )
    (void) fchown ( fd, fileMetaInfo.st_uid, fileMetaInfo.st_gid );
 #if __APPLE__
     copyfile(inName, outName, 0, COPYFILE_ACL | COPYFILE_XATTR);
+    clear_type_and_creator(outName);
 #endif
    /* chown() will in many cases return with EPERM, which can
       be safely ignored.

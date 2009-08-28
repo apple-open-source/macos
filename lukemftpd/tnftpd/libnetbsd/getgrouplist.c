@@ -1,4 +1,4 @@
-/* $Id: getgrouplist.c,v 1.2 2003/12/15 12:18:43 lukem Exp $ */
+/* $NetBSD: getgrouplist.c,v 1.3 2008/09/21 16:35:25 lukem Exp $ */
 /* from	NetBSD: getgrouplist.c,v 1.15 2000/01/22 22:19:10 mycroft Exp */
 
 /*

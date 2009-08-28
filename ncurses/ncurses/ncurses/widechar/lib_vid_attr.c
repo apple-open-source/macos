@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 2002-2004,2005 Free Software Foundation, Inc.              *
+ * Copyright (c) 2002-2006,2007 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -33,7 +33,7 @@
 #include <curses.priv.h>
 #include <term.h>
 
-MODULE_ID("$Id: lib_vid_attr.c,v 1.3 2005/01/29 18:34:00 tom Exp $")
+MODULE_ID("$Id: lib_vid_attr.c,v 1.5 2007/06/30 22:03:02 tom Exp $")
 
 #define doPut(mode) TPUTS_TRACE(#mode); tputs(mode, 1, outc)
 
@@ -72,6 +72,7 @@ vid_puts(attr_t newmode, short pair, void *opts GCC_UNUSED, int (*outc) (int))
 #define fix_pair0 FALSE
 #endif
 
+    newmode &= A_ATTRIBUTES;
     T((T_CALLED("vid_puts(%s,%d)"), _traceattr(newmode), pair));
 
     /* this allows us to go on whether or not newterm() has been called */
@@ -158,16 +159,16 @@ vid_puts(attr_t newmode, short pair, void *opts GCC_UNUSED, int (*outc) (int))
     } else if (set_attributes) {
 	if (turn_on || turn_off) {
 	    TPUTS_TRACE("set_attributes");
-	    tputs(tparm(set_attributes,
-			(newmode & A_STANDOUT) != 0,
-			(newmode & A_UNDERLINE) != 0,
-			(newmode & A_REVERSE) != 0,
-			(newmode & A_BLINK) != 0,
-			(newmode & A_DIM) != 0,
-			(newmode & A_BOLD) != 0,
-			(newmode & A_INVIS) != 0,
-			(newmode & A_PROTECT) != 0,
-			(newmode & A_ALTCHARSET) != 0), 1, outc);
+	    tputs(TPARM_9(set_attributes,
+			  (newmode & A_STANDOUT) != 0,
+			  (newmode & A_UNDERLINE) != 0,
+			  (newmode & A_REVERSE) != 0,
+			  (newmode & A_BLINK) != 0,
+			  (newmode & A_DIM) != 0,
+			  (newmode & A_BOLD) != 0,
+			  (newmode & A_INVIS) != 0,
+			  (newmode & A_PROTECT) != 0,
+			  (newmode & A_ALTCHARSET) != 0), 1, outc);
 	    previous_attr &= ALL_BUT_COLOR;
 	    previous_pair = 0;
 	}

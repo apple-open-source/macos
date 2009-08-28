@@ -1,6 +1,6 @@
 #######################################################################
 #
-# $Id: rules.mak,v 1.6.6.2 2006/07/06 16:54:34 aland Exp $
+# $Id$
 #
 #  Each module should have a few common defines at the TOP of the
 # Makefile, and the 'include ../rules.mak'
@@ -38,7 +38,7 @@ all: build-module
 #
 #######################################################################
 LT_OBJS		= $(SRCS:.c=.lo)
-CFLAGS		+= -I../.. -I$(top_builddir)/src/include
+CFLAGS		+= -I../.. -I$(top_builddir)/src/
 
 #######################################################################
 #
@@ -95,8 +95,10 @@ endif
 #
 #######################################################################
 build-module: $(TARGET).la
-	@[ -d .libs ] && cp .libs/* ../lib
-	@cp $< ../lib
+	@for x in .libs/* $^; do \
+		rm -f $(top_builddir)/src/modules/lib/$$x; \
+		ln -s $(top_builddir)/src/modules/rlm_sql/drivers/$(TARGET)/$$x $(top_builddir)/src/modules/lib/$$x; \
+	done
 
 $(TARGET).la: $(LT_OBJS)
 	$(LIBTOOL) --mode=link $(CC) -release $(RADIUSD_VERSION) \
@@ -142,4 +144,9 @@ reconfig:
 #  Otherwise, install the libraries into $(libdir)
 #
 install:
-	[ "x$(TARGET)" = "x" ] || $(LIBTOOL) --mode=install $(INSTALL) -c $(TARGET).la $(R)$(libdir)/$(TARGET).la
+	if [ "x$(TARGET)" != "x" ]; then \
+	    $(LIBTOOL) --mode=install $(INSTALL) -c \
+		$(TARGET).la $(R)$(libdir)/$(TARGET).la || exit $$?; \
+	    rm -f $(R)$(libdir)/$(TARGET)-$(RADIUSD_VERSION).la; \
+	    ln -s $(TARGET).la $(R)$(libdir)/$(TARGET)-$(RADIUSD_VERSION).la || exit $$?; \
+	fi

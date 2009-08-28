@@ -3,19 +3,20 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -72,8 +73,6 @@
 #define kACWakeOnRing                   0
 #define kACAutomaticRestart             0
 #define kACWakeOnLAN                    1
-#define kACReduceProcessorSpeed         0
-#define kACDynamicPowerStep             1
 #define kACSleepOnPowerButton           1
 #define kACWakeOnClamshell              1
 #define kACWakeOnACChange               0
@@ -91,8 +90,6 @@
 #define kBatteryWakeOnRing              0
 #define kBatteryAutomaticRestart        0
 #define kBatteryWakeOnLAN               0
-#define kBatteryReduceProcessorSpeed    0
-#define kBatteryDynamicPowerStep        1
 #define kBatterySleepOnPowerButton      0
 #define kBatteryWakeOnClamshell         1
 #define kBatteryWakeOnACChange          0
@@ -110,8 +107,6 @@
 #define kUPSWakeOnRing                   kACWakeOnRing
 #define kUPSAutomaticRestart             kACAutomaticRestart
 #define kUPSWakeOnLAN                    kACWakeOnLAN
-#define kUPSReduceProcessorSpeed         kACReduceProcessorSpeed
-#define kUPSDynamicPowerStep             kACDynamicPowerStep
 #define kUPSSleepOnPowerButton           kACSleepOnPowerButton
 #define kUPSWakeOnClamshell              kACWakeOnClamshell
 #define kUPSWakeOnACChange               kACWakeOnACChange
@@ -129,7 +124,7 @@
 #define kIOHibernateDefaultFile     "/var/vm/sleepimage"
 enum { kIOHibernateMinFreeSpace     = 750*1024ULL*1024ULL }; /* 750Mb */
 
-#define kIOPMNumPMFeatures      16
+#define kIOPMNumPMFeatures      14
 
 static char *energy_features_array[kIOPMNumPMFeatures] = {
     kIOPMDisplaySleepKey, 
@@ -138,8 +133,6 @@ static char *energy_features_array[kIOPMNumPMFeatures] = {
     kIOPMWakeOnRingKey,
     kIOPMRestartOnPowerLossKey,
     kIOPMWakeOnLANKey,
-    kIOPMReduceSpeedKey,
-    kIOPMDynamicPowerStepKey,
     kIOPMSleepOnPowerButtonKey,
     kIOPMWakeOnClamshellKey,
     kIOPMWakeOnACChangeKey,
@@ -158,8 +151,6 @@ static const unsigned int battery_defaults_array[] = {
     kBatteryWakeOnRing,
     kBatteryAutomaticRestart,
     kBatteryWakeOnLAN,
-    kBatteryReduceProcessorSpeed,
-    kBatteryDynamicPowerStep,
     kBatterySleepOnPowerButton,
     kBatteryWakeOnClamshell,
     kBatteryWakeOnACChange,
@@ -178,8 +169,6 @@ static const unsigned int ac_defaults_array[] = {
     kACWakeOnRing,
     kACAutomaticRestart,
     kACWakeOnLAN,
-    kACReduceProcessorSpeed,
-    kACDynamicPowerStep,
     kACSleepOnPowerButton,
     kACWakeOnClamshell,
     kACWakeOnACChange,
@@ -198,8 +187,6 @@ static const unsigned int ups_defaults_array[] = {
     kUPSWakeOnRing,
     kUPSAutomaticRestart,
     kUPSWakeOnLAN,
-    kUPSReduceProcessorSpeed,
-    kUPSDynamicPowerStep,
     kUPSSleepOnPowerButton,
     kUPSWakeOnClamshell,
     kUPSWakeOnACChange,
@@ -854,7 +841,7 @@ IOReturn IOPMSetActivePowerProfiles(CFDictionaryRef which_profile)
                             profiles_buffer, buffer_len, 
                             &return_val);
 
-    mach_port_destroy(mach_task_self(), server_port);
+    mach_port_deallocate(mach_task_self(), server_port);
     CFRelease(profiles_data);
 
     if(KERN_SUCCESS == kern_result) {
@@ -1023,6 +1010,8 @@ static void addSystemProfileEnergySettings(
     if(!user_profile_selections) return;
 
     default_profile_selections = _createDefaultProfileSelections();
+    if(!isA_CFDictionary(default_profile_selections))
+        return;
 
     // Copy the full CFArray of system profiles
     system_profiles = IOPMCopyPowerProfiles();
@@ -1556,18 +1545,6 @@ static int sendEnergySettingsToKernel(
         ProcessHibernateSettings(dict, PMRootDomain);
     }
 
-    /* PowerStep and Reduce Processor Speed are handled by a separate configd 
-       plugin that's watching the SCDynamicStore key 
-       State:/IOKit/PowerManagement/CurrentSettings. Changes to the settings 
-       notify the configd plugin, which then activates th processor speed 
-       settings. Note that IOPMActivatePMPreference updates that key in the 
-       SCDynamicStore when we activate new settings. 
-       See DynamicPowerStep configd plugin.
-
-       A separate display manager process handles activating the 
-       Reduce Brightness key through the same mechanism desribed above for 
-       Reduce Process & Dynamic Power Step.
-    */
     CFRelease(number0);
     CFRelease(number1);
     if(power_source_info) CFRelease(power_source_info);

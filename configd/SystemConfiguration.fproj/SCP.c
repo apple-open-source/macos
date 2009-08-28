@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2007, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -52,7 +52,8 @@ __SCPSignatureFromStatbuf(const struct stat *statBuf)
 	sig = (SCPSignatureDataRef)CFDataGetBytePtr(signature);
 	sig->st_dev       = statBuf->st_dev;
 	sig->st_ino       = statBuf->st_ino;
-	sig->st_mtimespec = statBuf->st_mtimespec;
+	sig->tv_sec       = statBuf->st_mtimespec.tv_sec;
+	sig->tv_nsec      = statBuf->st_mtimespec.tv_nsec;
 	sig->st_size      = statBuf->st_size;
 	return signature;
 }

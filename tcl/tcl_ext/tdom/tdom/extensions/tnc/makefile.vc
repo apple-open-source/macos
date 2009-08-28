@@ -1,0 +1,217 @@
+#----------------------------------------------------------------------------
+#   This is derivated from the tcl8.3 win makefile and surely not
+#   perfect. It works for me. 
+#   rolf ade, 2001 (rolf@pointsman.de)
+#   
+#
+#
+#   Project directories
+#
+#   ROOT   = top of source tree
+#
+#   TOOLS32 = location of VC++ 32-bit development tools.
+#
+#   INSTALLDIR = where the install- targets should copy the binaries and
+#                support files
+#
+#----------------------------------------------------------------------------
+
+!if "$(MSVCDIR)" == ""
+MSG = ^
+You'll need to run vcvars32.bat from Developer Studio, first, to setup^
+the environment.
+!error $(MSG)
+!endif
+
+
+#          VC++ 2.0 header files are broken, so you need to use the
+#          ones that come with the developer network CD's, or later
+#          versions of VC++.
+#
+# INSTALLDIR = where the install- targets should copy the binaries and
+#          support files
+#
+
+# Set this to the appropriate value of /MACHINE: for your platform
+MACHINE                = IX86
+ROOT           = ..\..
+INSTALLDIR     = c:\Progra~1\Tcl
+
+TOOLS32        = $(MSVCDIR)
+TOOLS32_rc     = $(MSVCDIR)\..\common\MSDev98
+
+# Uncomment the following line to compile with thread support
+#THREADDEFINES = -DTCL_THREADS=1
+
+# Set NODEBUG to 0 to compile with symbols
+NODEBUG = 1
+
+# The following defines can be used to control the amount of debugging
+# code that is added to the compilation.
+#
+#      -DTCL_MEM_DEBUG         Enables the debugging memory allocator.
+#      -DTCL_COMPILE_DEBUG     Enables byte compilation logging.
+#      -DTCL_COMPILE_STATS     Enables byte compilation statistics gathering.
+#      -DUSE_TCLALLOC=0        Disables the Tcl memory allocator in favor
+#                              of the native malloc implementation.  This is
+#
+# DEBUGDEFINES = -DTCL_MEM_DEBUG -DTCL_COMPILE_DEBUG -DTCL_COMPILE_STATS
+# DEBUGDEFINES = -DUSE_TCLALLOC=0
+
+
+#-------------------------------------------------------------------------
+#
+#   Do not modify below this line
+#
+#-------------------------------------------------------------------------
+
+NAMEPREFIX = libtnc
+STUBPREFIX = $(NAMEPREFIX)stub
+DOTVERSION = 0.3
+PACKAGE_VERSION = \"0.3.0\"
+VERSION = \"0.3\"
+W32VERSION = 03
+TDOMVER = 082
+
+BINROOT         = .
+!IF "$(NODEBUG)" == "1"
+TMPDIRNAME      =
+DBGX            =
+!ELSE
+TMPDIRNAME      = Debug
+DBGX            = d
+!ENDIF
+TMPDIR          = $(BINROOT)
+OUTDIRNAME      = $(TMPDIRNAME)
+OUTDIR          = $(TMPDIR)
+TOP_DIR         = $(BINROOT)\..
+
+TNCLIB         = $(OUTDIR)\$(NAMEPREFIX)$(W32VERSION)$(DBGX).lib
+TNCDLLNAME     = $(NAMEPREFIX)$(W32VERSION)$(DBGX).dll
+TNCDLL         = $(OUTDIR)\$(TNCDLLNAME)
+
+# MKDIR           = .\mkd.bat
+RM              = del
+
+LIB_INSTALL_DIR        = $(INSTALLDIR)\lib
+BIN_INSTALL_DIR        = $(INSTALLDIR)\bin
+SCRIPT_INSTALL_DIR     = $(INSTALLDIR)\lib\tcl$(DOTVERSION)
+INCLUDE_INSTALL_DIR    = $(INSTALLDIR)\include
+
+
+TNCOBJS = $(TMPDIR)\tnc.obj
+
+cc32           = "$(TOOLS32)\bin\cl.exe"
+link32         = "$(TOOLS32)\bin\link.exe"
+rc32           = "$(TOOLS32_rc)\bin\rc.exe"
+include32      = -I"$(TOOLS32)\include"
+libpath32      = /LIBPATH:"$(TOOLS32)\lib"
+tcllibpath     = /LIBPATH:"$(INSTALLDIR)\lib"
+tdomlibpath    = /LIBPATH:"$(ROOT)\win\Release"
+lib32          = "$(TOOLS32)\bin\lib.exe"
+
+TNCDIR         = $(ROOT)\extensions\tnc
+GENERICDIR     = $(ROOT)\generic
+EXPATINCDIR    = $(ROOT)\expat
+TCLINCDIR      = $(INSTALLDIR)\Include
+
+TCL_INCLUDES   = -I"$(TNCDIR)" -I"$(GENERICDIR)" -I"$(EXPATINCDIR)" -I"$(TCLINCDIR)"
+TCL_DEFINES    = $(DEBUGDEFINES) $(THREADDEFINES)
+
+#-------------------------------------------------------------------------
+#
+#   Compile flags
+#
+#-------------------------------------------------------------------------
+
+!IF "$(NODEBUG)" == "1"
+# This cranks the optimization level to maximize speed
+cdebug = -O2 -Gs -GD
+!ELSE
+!IF "$(MACHINE)" == "IA64"
+cdebug = -Od -Zi
+!ELSE
+cdebug = -Z7 -Od
+!ENDIF
+!ENDIF
+
+# declarations common to all compiler options
+cflags = -c -nologo -Fp$(TMPDIR)\ -YX -DXML_DTD -DXML_NS -DUSE_TCL_STUBS -DUSE_TDOM_STUBS -DVERSION=$(VERSION) -DPACKAGE_VERSION=$(PACKAGE_VERSION)
+cvarsdll = -MD$(DBGX)
+
+TCL_CFLAGS     = $(cdebug) $(cflags) $(cvarsdll) $(include32) \
+                       $(TCL_INCLUDES) $(TCL_DEFINES)
+CON_CFLAGS     = $(cdebug) $(cflags) $(include32) -DCONSOLE
+
+#-------------------------------------------------------------------------
+#
+#   Link flags
+#
+#-------------------------------------------------------------------------
+
+!IF "$(NODEBUG)" == "1"
+ldebug = /RELEASE
+!ELSE
+ldebug = -debug:full -debugtype:cv
+!ENDIF
+
+# declarations common to all linker options
+lflags = /NODEFAULTLIB /NOLOGO /MACHINE:$(MACHINE) $(libpath32) $(tcllibpath) $(tdomlibpath) 
+
+# declarations for use on Intel i386, i486, and Pentium systems
+DLLENTRY = @12
+dlllflags = $(lflags) -entry:_DllMainCRTStartup$(DLLENTRY) -dll
+
+
+conlflags = $(lflags) -subsystem:console -entry:mainCRTStartup
+guilflags = $(lflags) -subsystem:windows -entry:WinMainCRTStartup
+
+libc = libc$(DBGX).lib oldnames.lib
+libcdll = msvcrt$(DBGX).lib oldnames.lib
+
+baselibs   = kernel32.lib $(optlibs) advapi32.lib user32.lib tclstub84$(DBGX).lib tdomstub$(TDOMVER).lib 
+winlibs     = $(baselibs) gdi32.lib comdlg32.lib winspool.lib
+
+
+guilibs     = $(libc) $(winlibs)
+conlibs     = $(libc) $(baselibs)
+guilibsdll  = $(libcdll) $(winlibs)
+conlibsdll  = $(libcdll) $(baselibs)
+
+#-------------------------------------------------------------------------
+#
+#   Project specific targets
+#
+#-------------------------------------------------------------------------
+
+release:   setup dlls
+dlls:      setup $(TNCDLL)
+all:       setup dlls $(CAT32)
+
+setup:
+#      @$(MKDIR) $(TMPDIR)
+#      @$(MKDIR) $(OUTDIR)
+
+$(TNCLIB): $(TNCDLL)
+
+$(TNCDLL): $(TNCOBJS)
+       $(link32) $(ldebug) $(dlllflags) \
+               -out:$@ $(guilibsdll) @<<
+$(TNCOBJS)
+<<
+
+#-------------------------------------------------------------------------
+#   Implicit rules
+#-------------------------------------------------------------------------
+
+{$(TNCDIR)}.c{$(TMPDIR)}.obj:
+    $(cc32) -DBUILD_tcl $(TCL_CFLAGS) -Fo$(TMPDIR)\ $<
+
+clean:
+       -@$(RM) $(OUTDIR)\*.exp 2>nul
+       -@$(RM) $(OUTDIR)\*.lib 2>nul
+       -@$(RM) $(OUTDIR)\*.dll 2>nul
+       -@$(RM) $(TMPDIR)\*.pch 2>nul
+       -@$(RM) $(TMPDIR)\*.obj 2>nul
+       -@$(RM) $(TMPDIR)\*.ilk 2>nul
+       -@$(RM) $(TMPDIR)\*.pdb 2>nul

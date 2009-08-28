@@ -1,12 +1,12 @@
 /*
  * normalize local -l* library conventions
  *
- * L [ P1 ... Pn ] :MAPLIB: T1.c ... Tn.c
+ * L [ [ G11 ... G1n ] ... [ Gg1 ... Ggn ] ] :MAPLIB: T1.c ... Tn.c
  *
- * if Pi not specified then P1 == L
- * the first Ti.c that compiles/links with -lP1 ... -lPn
+ * if Giji not specified then G11 == L
+ * the first Ti.c that compiles/links with group -lGi1 ... -lGin
  * but does not compile/link with no libraries maps
- * -lL to to require -lP1 ... -lPn
+ * -lL to to require -lGi1 ... -lGin
  * otherwise -lL is not required and maps to "no library required"
  */
 
@@ -21,11 +21,22 @@
 	$(L).req : (CC) $$(>)
 		r='-'
 		for i in $$(*)
-		do	if	$$(CC) -o $$(<:B:S=.exe) $i $(P:/^/-l) > /dev/null
-			then	$$(CC) -o $$(<:B:S=.exe) $i > /dev/null || {
-					r='$(P:/^/-l)'
-					break
-				}
+		do	if	$$(CC) -c $i > /dev/null
+			then	g=
+				for p in $(P) -
+				do	case $p in
+					-)	if	$$(CC) -o $$(<:B:S=.exe) $i $g > /dev/null
+						then	$$(CC) -o $$(<:B:S=.exe) $i > /dev/null || {
+								r="$g"
+								break 2
+							}
+						fi
+						g=
+						;;
+					*)	g="$g -l$p"
+						;;
+					esac
+				done
 			fi
 		done 2>/dev/null
 		echo " $r" > $$(<)

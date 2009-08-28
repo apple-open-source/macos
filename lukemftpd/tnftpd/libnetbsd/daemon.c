@@ -1,4 +1,4 @@
-/* $Id: daemon.c,v 1.2 2006/12/18 04:04:20 lukem Exp $ */
+/* $NetBSD: daemon.c,v 1.3 2008/09/21 16:35:25 lukem Exp $ */
 /* from	NetBSD: daemon.c,v 1.9 2003/08/07 16:42:46 agc Exp */
 
 /*-

@@ -1,0 +1,41 @@
+# $Id: OnCalleeProxy.xotcl,v 1.4 2005/09/09 21:09:01 neumann Exp $
+
+package provide xotcl::pattern::onCalleeProxy 0.8
+package require XOTcl
+
+namespace eval ::xotcl::pattern::onCalleeProxy {
+    namespace import ::xotcl::*
+
+    Class OnCalleeProxy -superclass Class  
+
+    @ @File {
+	description {
+	    Simple proxy pattern implementation enhanced with the ability to adapt
+	    calls solely for specified calling objects
+	    for each calling obj there may be a different delegator obj
+	}
+    }
+
+    OnCalleeProxy instproc onCalleeProxyFilter args { 
+	set o [string trimleft [self callingobject] :]
+	my instvar callee
+	#puts stderr "[self class]: checking $o -- [self] -- [self calledproc] "
+	if {[info exists callee($o)]} {
+	    return [::eval [set callee($o)] [self calledproc] $args]
+	} else {
+	    next
+	}
+    }
+
+    OnCalleeProxy instproc init args {
+	my instfilter add onCalleeProxyFilter
+	next
+	my instproc setCallee {callingObj a} {
+	    my set callee([string trimleft $callingObj :]) $a
+	}
+    }
+
+    namespace export OnCalleeProxy
+}
+
+namespace import ::xotcl::pattern::onCalleeProxy::*

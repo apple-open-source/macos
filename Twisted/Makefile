@@ -11,36 +11,45 @@ ToolType    = Library
 # Include common makefile targets for B&I
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
+PYTHON_VERSIONS = $(shell \
+  for python in /usr/bin/python2.*[0-9]; do \
+    "$${python}" -c 'import sys; print "%d.%d" % tuple(sys.version_info[0:2])'; \
+  done; \
+)
+
 PYTHON = /usr/bin/python
-EXTRAS := $(shell $(PYTHON) -c 'import sys; print sys.prefix')/Extras
+EXTRAS26 := $(shell "$(PYTHON)2.6" -c 'import sys; print sys.prefix')/Extras
 CORE_SCRIPTS = trial twistd
 
 build:: extract_source
-	$(_v) cd "$(OBJROOT)/$(Project)" && $(Environment) $(PYTHON) setup.py build;
+	$(_v) for version in $(PYTHON_VERSIONS); do \
+	        echo "Building for Python $${version}..."; \
+	        cd $(OBJROOT)/$(Project) && $(Environment) "$(PYTHON)$${version}" setup.py build; \
+	      done;
 
 install::
-	$(_v) cd "$(OBJROOT)/$(Project)" && $(Environment) $(PYTHON) setup.py install --home="$(EXTRAS)" --root="$(DSTROOT)";
+	$(_v) for version in $(PYTHON_VERSIONS); do \
+	        extras="$$("$(PYTHON)$${version}" -c 'import sys; print sys.prefix')/Extras"; \
+	        echo "Installing for Python $${version}..."; \
+	        cd $(OBJROOT)/$(Project) && $(Environment) "$(PYTHON)$${version}" setup.py install --home="$${extras}" --root="$(DSTROOT)"; \
+	        for so in $$(find "$(DSTROOT)$${extras}" -type f -name '*.so'); do $(STRIP) -Sx "$${so}"; done; \
+	        for zsh_turd in "$(DSTROOT)$${extras}/lib/python/twisted/python/zsh/"*; do \
+	          if [ ! -s "$${zsh_turd}" ]; then rm -f "$${zsh_turd}"; fi; \
+	        done; \
+	      done;
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(USRBINDIR)";
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(MANDIR)/man1";
 	$(_v) for script in $(CORE_SCRIPTS); do \
-	    $(LN) -s "$(EXTRAS)/bin/$${script}" "$(DSTROOT)$(USRBINDIR)/$${script}"; \
-	    $(INSTALL_FILE) "$(OBJROOT)/$(Project)/TwistedCore-"*"/doc/man/$${script}.1" "$(DSTROOT)$(MANDIR)/man1/"; \
+	    $(LN) -s "$(EXTRAS26)/bin/$${script}" "$(DSTROOT)$(USRBINDIR)/$${script}"; \
+	    $(INSTALL_FILE) "$(OBJROOT)/$(Project)/doc/core/man/$${script}.1" "$(DSTROOT)$(MANDIR)/man1/"; \
 	done;
-ifdef RC_JASPER
-	$(_v) for so in $$(find "$(DSTROOT)$(EXTRAS)" -type f -name '*.so'); do \
-	    $(STRIP) -Sx "$${so}"; \
-	done;
-	$(_v) for zsh_turd in "$(DSTROOT)$(EXTRAS)/lib/python/twisted/python/zsh/"*; do \
-	    if [ ! -s "$${zsh_turd}" ]; then rm -f "$${zsh_turd}"; fi; \
-	done;
-endif
 
 #
 # Automatic Extract & Patch
 #
 
 AEP	       = YES
-AEP_ProjVers   = $(Project)-2.5.0
+AEP_ProjVers   = $(Project)-8.2.0
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
 AEP_Patches    = 

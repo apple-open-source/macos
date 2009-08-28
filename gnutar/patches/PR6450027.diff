@@ -1,0 +1,18 @@
+--- configure.orig	2008-12-16 14:38:50.000000000 -0800
++++ configure	2008-12-16 14:39:46.000000000 -0800
+@@ -33402,7 +33402,6 @@
+ 
+ 
+   enable_rmt() {
+-    if test $ac_cv_header_sys_mtio_h = yes; then
+       { echo "$as_me:$LINENO: checking for remote tape header files" >&5
+ echo $ECHO_N "checking for remote tape header files... $ECHO_C" >&6; }
+ if test "${pu_cv_header_rmt+set}" = set; then
+@@ -33457,7 +33456,6 @@
+ echo "${ECHO_T}$pu_cv_header_rmt" >&6; }
+       test $pu_cv_header_rmt = yes && PU_RMT_PROG='rmt$(EXEEXT)'
+ 
+-    fi
+   }
+ 
+ 

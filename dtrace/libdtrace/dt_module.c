@@ -2,9 +2,8 @@
  * CDDL HEADER START
  *
  * The contents of this file are subject to the terms of the
- * Common Development and Distribution License, Version 1.0 only
- * (the "License").  You may not use this file except in compliance
- * with the License.
+ * Common Development and Distribution License (the "License").
+ * You may not use this file except in compliance with the License.
  *
  * You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
  * or http://www.opensolaris.org/os/licensing.
@@ -20,11 +19,11 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2005 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)dt_module.c	1.11	05/11/09 SMI"
+#pragma ident	"@(#)dt_module.c	1.13	07/08/07 SMI"
 
 #if !defined(__APPLE__)
 #include <sys/types.h>
@@ -77,12 +76,6 @@
 #include <dirent.h>
 
 #include <dtrace.h>
-
-#define GElf_Addr	__GElf_Addr
-#define GElf_Xword	__GElf_Xword
-#define GElf_Half	__GElf_Half
-#define GElf_Word	__GElf_Word
-#define GElf_Sym	__GElf_Sym
 
 #endif /* __APPLE__ */
 
@@ -456,7 +449,7 @@ static const dt_modops_t dt_modops_64 = {
 #include <libiberty/demangle.h>
 __private_extern__ char * environ = ""; /* libiberty.a xmalloc wants this */
 
-static char 
+char 
 *demangleSymbolCString(const char *mangled)
  {
      if(mangled[0]!='_') return NULL;
@@ -574,7 +567,7 @@ dt_module_symname_macho(dt_module_t *dmp, const char *name,
 			if (idp != NULL)
 				*idp = dsp->ds_symid;
 
-			symp->st_name = (Elf32_Word)(sname - strtab);
+			symp->st_name = (GElf_Sxword)(sname - strtab);
 			symp->st_info = STT_NOTYPE; 
 			symp->st_other = 0;
 			symp->st_shndx = sym->n_sect;
@@ -661,7 +654,7 @@ dt_module_symaddr_macho(dt_module_t *dmp, GElf_Addr addr,
 		if ('_' == name[0])
 			name++; // Lop off omnipresent underscore
 
-		symp->st_name = (Elf32_Word)(name - strtab);
+		symp->st_name = (GElf_Sxword)(name - strtab);
 		symp->st_info = STT_NOTYPE;
 		symp->st_other = 0;
 		symp->st_shndx = sym->n_sect;
@@ -700,11 +693,253 @@ dt_module_symaddr_macho(dt_module_t *dmp, GElf_Addr addr,
 	return (NULL);
 }
 
-static const dt_modops_t dt_modops_macho = {
+static const dt_modops_t dt_modops_macho_32 = {
 	dt_module_syminit_macho,
 	dt_module_symsort_macho,
 	dt_module_symname_macho,
 	dt_module_symaddr_macho
+};
+
+static uint_t
+dt_module_syminit_macho_64(dt_module_t *dmp)
+{
+	const struct nlist_64 *sym = (const struct nlist_64 *)(dmp->dm_symtab.cts_data);
+	const char *base = (const char *)dmp->dm_strtab.cts_data;
+	uint_t i, n = dmp->dm_nsymelems;
+	uint_t asrsv = 0;
+	char *tmp;
+
+	for (i = 0; i < n; i++, sym++) {
+		const char *name = base + sym->n_un.n_strx;
+		uchar_t type = sym->n_type & (N_TYPE | N_EXT);
+
+        // Check that the symbol is a global and that it has a name.
+        if (((N_SECT | N_EXT) != type && (N_ABS | N_EXT) != type))
+            continue;
+			
+		if (STT_FUNC != sym->n_desc && STT_OBJECT != sym->n_desc)
+			continue;
+			
+		if (0 == sym->n_un.n_strx) // iff a null, "", name.
+			continue;
+
+		if ((tmp = demangleSymbolCString(name)))
+			name = tmp;
+
+		if ('_' == name[0])
+			name++; // Lop off omnipresent underscore to match DWARF convention
+		
+		if (sym->n_value != 0)
+			asrsv++; /* reserve space in the address map */
+
+		dt_module_symhash_insert(dmp, name, i);
+	}
+
+	return (asrsv);
+}
+
+static int
+dt_module_symcomp_macho_64(const void *lp, const void *rp)
+{
+	struct nlist_64 *lhs = *((struct nlist_64 **)lp);
+	struct nlist_64 *rhs = *((struct nlist_64 **)rp);
+
+	if (lhs->n_value != rhs->n_value)
+		return (lhs->n_value > rhs->n_value ? 1 : -1);
+
+	if ((lhs->n_desc & N_WEAK_REF) != (rhs->n_desc & N_WEAK_REF))
+		return ((lhs->n_desc & N_WEAK_REF) ? 1 : -1);
+
+	return (strcmp(dt_module_strtab + lhs->n_un.n_strx,
+	    dt_module_strtab + rhs->n_un.n_strx)); // Leading underscores compare equal so leave them be
+}
+
+static void
+dt_module_symsort_macho_64(dt_module_t *dmp)
+{
+	struct nlist_64 *symtab = (struct nlist_64 *)(dmp->dm_symtab.cts_data);
+	struct nlist_64 **sympp = (struct nlist_64 **)dmp->dm_asmap;
+	const dt_sym_t *dsp = dmp->dm_symchains + 1;
+	uint_t i, n = dmp->dm_symfree;
+
+	for (i = 1; i < n; i++, dsp++) {
+		struct nlist_64 *sym = symtab + dsp->ds_symid;
+		if (sym->n_value != 0)
+			*sympp++ = sym;
+	}
+
+	dmp->dm_aslen = (uint_t)(sympp - (struct nlist_64 **)dmp->dm_asmap);
+	assert(dmp->dm_aslen <= dmp->dm_asrsv);
+
+	dt_module_strtab = ((char *)(dmp->dm_symtab.cts_data)) + dmp->dm_symtab.cts_size;
+	qsort(dmp->dm_asmap, dmp->dm_aslen,
+	    sizeof (struct nlist_64 *), dt_module_symcomp_macho_64);
+	dt_module_strtab = NULL;
+}
+
+static GElf_Sym *
+dt_module_symname_macho_64(dt_module_t *dmp, const char *name,
+    GElf_Sym *symp, uint_t *idp)
+{
+	const struct nlist_64 *symtab = (const struct nlist_64 *)(dmp->dm_symtab.cts_data);
+	const char *strtab = (const char *)dmp->dm_strtab.cts_data;
+
+	const struct nlist_64 *sym;
+	const dt_sym_t *dsp;
+	uint_t i, h;
+
+	if (dmp->dm_nsymelems == 0)
+		return (NULL);
+
+	h = dt_strtab_hash(name, NULL) % dmp->dm_nsymbuckets;
+
+	for (i = dmp->dm_symbuckets[h]; i != 0; i = dsp->ds_next) {
+		dsp = &dmp->dm_symchains[i];
+		sym = symtab + dsp->ds_symid;
+		const char *sname = strtab + sym->n_un.n_strx;
+		char *tmp;
+
+		if ((tmp = demangleSymbolCString(sname)))
+			sname = tmp;
+
+		if ('_' == sname[0])
+			sname++; // Lop off omnipresent underscore
+			
+		if (strcmp(name, sname) == 0) {
+			if (idp != NULL)
+				*idp = dsp->ds_symid;
+
+			symp->st_name = (GElf_Sxword)(sname - strtab);
+			symp->st_info = STT_NOTYPE; 
+			symp->st_other = 0;
+			symp->st_shndx = sym->n_sect;
+			symp->st_value = sym->n_value;
+			symp->st_size = 0;
+			
+			if (sym->n_type & N_STAB) { /* Detect C++ methods */
+	
+				switch(sym->n_type) { 
+				case N_FUN:
+					symp->st_info = GELF_ST_INFO((STB_GLOBAL), (STT_FUNC));
+					break;
+				case N_GSYM:
+					symp->st_info = GELF_ST_INFO((STB_GLOBAL), (STT_OBJECT));
+					break;
+				default:
+					break;
+				}
+		
+			} else if ((N_ABS | N_EXT) == (sym->n_type & (N_TYPE | N_EXT)) ||
+				(N_SECT | N_EXT) == (sym->n_type & (N_TYPE | N_EXT))) {
+
+				symp->st_info = GELF_ST_INFO((STB_GLOBAL), (sym->n_desc)); 
+			} else if ((N_UNDF | N_EXT) == (sym->n_type & (N_TYPE | N_EXT)) &&
+						sym->n_sect == NO_SECT) {
+				symp->st_info = GELF_ST_INFO((STB_GLOBAL), (STT_OBJECT)); /* Common */
+			}
+		
+			return symp;
+		}
+	}
+
+	return (NULL);
+}
+
+static GElf_Sym *
+dt_module_symaddr_macho_64(dt_module_t *dmp, GElf_Addr addr,
+    GElf_Sym *symp, uint_t *idp)
+{
+	const struct nlist_64 **asmap = (const struct nlist_64 **)dmp->dm_asmap;
+	const struct nlist_64 *symtab = (const struct nlist_64 *)(dmp->dm_symtab.cts_data);
+	const char *strtab = (const char *)dmp->dm_strtab.cts_data;
+	const struct nlist_64 *sym;
+
+	uint_t i, mid, lo = 0, hi = dmp->dm_aslen - 1;
+	Elf32_Addr v;
+
+	if (dmp->dm_aslen == 0)
+		return (NULL);
+
+	while (hi - lo > 1) {
+		mid = (lo + hi) / 2;
+		if (addr >= asmap[mid]->n_value)
+			lo = mid;
+		else
+			hi = mid;
+	}
+
+	i = addr < asmap[hi]->n_value ? lo : hi;
+	sym = asmap[i];
+	v = sym->n_value;
+
+	/*
+	 * If the previous entry has the same value, improve our choice.  The
+	 * order of equal-valued symbols is determined by the comparison func.
+	 */
+	while (i-- != 0 && asmap[i]->n_value == v)
+		sym = asmap[i];
+
+	/*
+	 * Either addr < asmap[0]->n_value (in which case i is zero), or
+	 * i is the smallest index s.t. asmap[i]->n_value <= addr <= asmap[i+1]->n_value.
+	 * We'd like a st_size bounds check: if (addr - sym->n_value < MAX(sym->st_size, 1)),
+	 * but Mach-o nlist entries don't capture the size attribute, sigh.
+	 * At least make sure addr isn't too small.
+	 */
+	if (sym->n_value <= addr) {
+		const char *name = strtab + sym->n_un.n_strx;
+		char *tmp;
+
+		if ((tmp = demangleSymbolCString(name)))
+			name = tmp;
+
+		if ('_' == name[0])
+			name++; // Lop off omnipresent underscore
+
+		symp->st_name = (GElf_Sxword)(name - strtab);
+		symp->st_info = STT_NOTYPE;
+		symp->st_other = 0;
+		symp->st_shndx = sym->n_sect;
+		symp->st_value = sym->n_value;
+		symp->st_size = 0;
+
+		if (sym->n_type & N_STAB) { /* Detect C++ methods */
+	
+			switch(sym->n_type) {
+			case N_FUN:
+				symp->st_info = GELF_ST_INFO((STB_GLOBAL), (STT_FUNC));
+				break;
+			case N_GSYM:
+				symp->st_info = GELF_ST_INFO((STB_GLOBAL), (STT_OBJECT));
+				break;
+			default:
+				break;
+			}
+		
+		} else if ((N_ABS | N_EXT) == (sym->n_type & (N_TYPE | N_EXT)) ||
+			(N_SECT | N_EXT) == (sym->n_type & (N_TYPE | N_EXT))) {
+
+			symp->st_info = GELF_ST_INFO((STB_GLOBAL), (sym->n_desc)); 
+		} else if ((N_UNDF | N_EXT) == (sym->n_type & (N_TYPE | N_EXT)) &&
+					sym->n_sect == NO_SECT) {
+			symp->st_info = GELF_ST_INFO((STB_GLOBAL), (STT_OBJECT)); /* Common */
+		}
+		
+		if (idp != NULL) {
+			*idp = (uint_t)(sym - symtab);
+		}
+
+		return symp;
+	}
+
+	return (NULL);
+}
+
+static const dt_modops_t dt_modops_macho_64 = {
+	dt_module_syminit_macho_64,
+	dt_module_symsort_macho_64,
+	dt_module_symname_macho_64,
+	dt_module_symaddr_macho_64
 };
 #endif /* __APPLE__ */
 
@@ -729,10 +964,17 @@ dt_module_create(dtrace_hdl_t *dtp, const char *name)
 	dtp->dt_mods[h] = dmp;
 	dtp->dt_nmods++;
 
+#if !defined(__APPLE__)
 	if (dtp->dt_conf.dtc_ctfmodel == CTF_MODEL_LP64)
 		dmp->dm_ops = &dt_modops_64;
 	else
 		dmp->dm_ops = &dt_modops_32;
+#else
+	if (dtp->dt_conf.dtc_ctfmodel == CTF_MODEL_LP64)
+		dmp->dm_ops = &dt_modops_macho_64;
+	else
+		dmp->dm_ops = &dt_modops_macho_32;
+#endif /* __APPLE__ */
 
 	return (dmp);
 }
@@ -829,12 +1071,17 @@ dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	    sizeof (Elf64_Sym) : sizeof (Elf32_Sym);
 #else
 	dmp->dm_symtab.cts_entsize = 
-		dmp->dm_ops == &dt_modops_macho ? sizeof(struct nlist) : 
+		dmp->dm_ops == &dt_modops_macho_32 ? sizeof(struct nlist) : 
+		dmp->dm_ops == &dt_modops_macho_64 ? sizeof(struct nlist_64) : 
 		(dmp->dm_ops == &dt_modops_64 ? sizeof (Elf64_Sym) : sizeof (Elf32_Sym));
 #endif /* __APPLE__ */
 	dmp->dm_symtab.cts_offset = 0;
 
+#if !defined(__APPLE__)
 	dmp->dm_strtab.cts_name = ".strtab";
+#else
+	dmp->dm_strtab.cts_name = ".dir_str_table";
+#endif /* __APPLE__ */
 	dmp->dm_strtab.cts_type = SHT_STRTAB;
 	dmp->dm_strtab.cts_flags = 0;
 	dmp->dm_strtab.cts_data = NULL;
@@ -878,16 +1125,6 @@ dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	bzero(dmp->dm_symbuckets, sizeof (uint_t) * dmp->dm_nsymbuckets);
 	bzero(dmp->dm_symchains, sizeof (dt_sym_t) * dmp->dm_nsymelems + 1);
 
-#if defined(__APPLE__)
-	// Now that we've learned the number of symbols from LC_SYMTAB command we can
-	// adjust the origin of the string table.
-	if (ELF_K_MACHO == dmp->dm_elf->ed_kind) {
-		dmp->dm_strtab.cts_data = 
-			dmp->dm_symtab.cts_data + (dmp->dm_nsymelems*sizeof(struct nlist));
-		dmp->dm_strtab.cts_size = INT32_MAX;
-	}
-#endif /* __APPLE__ */
-
 	/*
 	 * Iterate over the symbol table data buffer and insert each symbol
 	 * name into the name hash if the name and type are valid.  Then
@@ -923,6 +1160,13 @@ dt_module_getctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	if (dmp->dm_ctfp != NULL || dt_module_load(dtp, dmp) != 0)
 		return (dmp->dm_ctfp);
 
+#if defined(__APPLE__)
+	if (dmp->dm_ops == &dt_modops_macho_64)
+		model = CTF_MODEL_LP64;
+	else if (dmp->dm_ops == &dt_modops_macho_32)
+		model = CTF_MODEL_ILP32;
+	else
+#endif /* __APPLE__ */
 	if (dmp->dm_ops == &dt_modops_64)
 		model = CTF_MODEL_LP64;
 	else
@@ -1020,11 +1264,11 @@ dt_module_unload(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	dmp->dm_asrsv = 0;
 	dmp->dm_aslen = 0;
 
-	dmp->dm_text_va = NULL;
+	dmp->dm_text_va = (GElf_Addr)0;
 	dmp->dm_text_size = 0;
-	dmp->dm_data_va = NULL;
+	dmp->dm_data_va = (GElf_Addr)0;
 	dmp->dm_data_size = 0;
-	dmp->dm_bss_va = NULL;
+	dmp->dm_bss_va = (GElf_Addr)0;
 	dmp->dm_bss_size = 0;
 
 	if (dmp->dm_extern != NULL) {
@@ -1102,6 +1346,13 @@ dt_module_extern(dtrace_hdl_t *dtp, dt_module_t *dmp,
 const char *
 dt_module_modelname(dt_module_t *dmp)
 {
+#if defined(__APPLE__)
+	if (dmp->dm_ops == &dt_modops_macho_64)
+		return ("64-bit");
+	else if (dmp->dm_ops == &dt_modops_32)
+		return ("32-bit");
+	else
+#endif /* __APPLE__ */
 	if (dmp->dm_ops == &dt_modops_64)
 		return ("64-bit");
 	else
@@ -1130,6 +1381,8 @@ dt_module_update(dtrace_hdl_t *dtp, const char *name)
 	(void) snprintf(fname, sizeof (fname),
 	    "%s/%s/object", OBJFS_ROOT, name);
 #else
+	unsigned read_cmd = ELF_C_READ;
+	
 	if (0 == strcmp("mach_kernel", name)) {
 		strncpy(fname, "/mach_kernel.ctfsys", sizeof (fname)); // Look for module "mach_kernel"
 		
@@ -1138,6 +1391,8 @@ dt_module_update(dtrace_hdl_t *dtp, const char *name)
 			strncpy(fname, "/mach_kernel", sizeof (fname)); // fallback to /mach_kernel
 		else
 			(void) close(fd); // close successful pre-flight of /mach_kernel.ctfsys
+			
+		read_cmd = ELF_C_RDKERNTYPE;
 	} else {
 	(void) snprintf(fname, sizeof (fname),
 	    "%s/%s/object", OBJFS_ROOT, name);
@@ -1158,7 +1413,11 @@ dt_module_update(dtrace_hdl_t *dtp, const char *name)
 	 * then close the underlying file descriptor immediately.  If this
 	 * succeeds, we know that we can continue safely using dmp->dm_elf.
 	 */
+#if !defined(__APPLE__)
 	dmp->dm_elf = elf_begin(fd, ELF_C_READ, NULL);
+#else
+	dmp->dm_elf = elf_begin(fd, read_cmd, NULL);
+#endif /* __APPLE__ */
 	err = elf_cntl(dmp->dm_elf, ELF_C_FDREAD);
 	(void) close(fd);
 
@@ -1182,11 +1441,11 @@ dt_module_update(dtrace_hdl_t *dtp, const char *name)
 		break;
 #else
 	case ELFCLASS32:
-		dmp->dm_ops = (dmp->dm_elf->ed_kind == ELF_K_MACHO ? &dt_modops_macho : &dt_modops_32);
+		dmp->dm_ops = (dmp->dm_elf->ed_kind == ELF_K_MACHO ? &dt_modops_macho_32 : &dt_modops_32);
 		bits = 32;
 		break;
 	case ELFCLASS64:
-		dmp->dm_ops = (dmp->dm_elf->ed_kind == ELF_K_MACHO ? &dt_modops_macho : &dt_modops_64);
+		dmp->dm_ops = (dmp->dm_elf->ed_kind == ELF_K_MACHO ? &dt_modops_macho_64 : &dt_modops_64);
 		bits = 64;
 		break;
 #endif /* __APPLE__ */
@@ -1289,36 +1548,18 @@ dtrace_update(dtrace_hdl_t *dtp)
 
 	/*
 	 * Cache the pointers to the modules representing the base executable
-	 * and the run-time linker in the dtrace client handle.  We should
-	 * probably have a more generic way of inquiring as to their names.
+	 * and the run-time linker in the dtrace client handle. Note that on
+	 * x86 krtld is folded into unix, so if we don't find it, use unix
+	 * instead.
 	 */
 #if !defined(__APPLE__)
 	dtp->dt_exec = dt_module_lookup_by_name(dtp, "genunix");
 	dtp->dt_rtld = dt_module_lookup_by_name(dtp, "krtld");
+	if (dtp->dt_rtld == NULL)
+		dtp->dt_rtld = dt_module_lookup_by_name(dtp, "unix");
 #else
 	dtp->dt_exec = dt_module_lookup_by_name(dtp, "mach_kernel");
 	dtp->dt_rtld = dt_module_lookup_by_name(dtp, "dyld"); /* XXX to what purpose? */
-	
-	if (NULL != dtp->dt_exec) {
-		// XXX Uggggly -- /mach.sym does not record this information!
-#if defined(__ppc__) || defined(__ppc64__)
-		dtp->dt_exec->dm_text_size = 0x8000000;
-		dtp->dt_exec->dm_text_va = 0xf000;
-		dtp->dt_exec->dm_data_size = 0x8000000;
-		dtp->dt_exec->dm_data_va = 0xf000;
-		dtp->dt_exec->dm_bss_size = 0x8000000;
-		dtp->dt_exec->dm_bss_va = 0xf000;
-#elif defined(__i386__)
-		dtp->dt_exec->dm_text_size = 0x8000000;
-		dtp->dt_exec->dm_text_va = 0x111000;
-		dtp->dt_exec->dm_data_size = 0x8000000;
-		dtp->dt_exec->dm_data_va = 0x111000;
-		dtp->dt_exec->dm_bss_size = 0x8000000;
-		dtp->dt_exec->dm_bss_va = 0x111000;
-#else
-#error Unknown ISA
-#endif
-	}
 #endif /* __APPLE__ */
 	/*
 	 * If this is the first time we are initializing the module list,
@@ -1505,6 +1746,7 @@ dtrace_lookup_by_type(dtrace_hdl_t *dtp, const char *object, const char *name,
 	int found = 0;
 	ctf_id_t id;
 	uint_t n;
+	int justone;
 
 	uint_t mask = 0; /* mask of dt_module flags to match */
 	uint_t bits = 0; /* flag bits that must be present */
@@ -1518,6 +1760,7 @@ dtrace_lookup_by_type(dtrace_hdl_t *dtp, const char *object, const char *name,
 		if (dt_module_load(dtp, dmp) == -1)
 			return (-1); /* dt_errno is set for us */
 		n = 1;
+		justone = 1;
 
 	} else {
 		if (object == DTRACE_OBJ_KMODS)
@@ -1527,6 +1770,7 @@ dtrace_lookup_by_type(dtrace_hdl_t *dtp, const char *object, const char *name,
 
 		dmp = dt_list_next(&dtp->dt_modlist);
 		n = dtp->dt_nmods;
+		justone = 0;
 	}
 
 	if (tip == NULL)
@@ -1538,12 +1782,11 @@ dtrace_lookup_by_type(dtrace_hdl_t *dtp, const char *object, const char *name,
 
 		/*
 		 * If we can't load the CTF container, continue on to the next
-		 * module.  If our search was scoped to only one module (n = 1)
-		 * then return immediately, leaving dt_errno set to the error
-		 * from dt_module_getctf() on the module given by the caller.
+		 * module.  If our search was scoped to only one module then
+		 * return immediately leaving dt_errno unmodified.
 		 */
 		if (dt_module_getctf(dtp, dmp) == NULL) {
-			if (n == 1)
+			if (justone)
 				return (-1);
 			continue;
 		}

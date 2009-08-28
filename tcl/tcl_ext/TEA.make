@@ -11,14 +11,18 @@
 UserType              = Developer
 ToolType              = Libraries
 
-ifndef CoreOSMakefiles
-ifneq ($(TEA_UseXcode),YES)
-# Tcl extensions are GNU Source projects
-include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
+ifneq ($(Configure),:)
+Configure_Products   += config.log
 else
-# Xcode based Tcl extensions
-include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
+Configure_Products    = .
 endif
+
+# avoid complaints about non-existing SYMROOT
+configure::
+	$(_v)- $(MKDIR) $(SYMROOT)
+
+ifndef CoreOSMakefiles
+include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 endif
 
 Install_Flags         = DESTDIR="$(DSTROOT)" $(Extra_Install_Flags)
@@ -30,7 +34,7 @@ Install_Target        = install
 
 TclExtLibDir          = $(NSLIBRARYDIR)/Tcl
 TclExtManDir          = $(MANDIR)/mann
-TclExtHtmlDir         = $(NSDEVELOPERDIR)/Documentation/DeveloperTools/Tcl/$(ProjectName)
+TclExtHtmlDir         = $(SYSTEM_DEVELOPER_TOOLS_DOC_DIR)/Tcl/$(ProjectName)
 
 Tclsh                 = $(USRBINDIR)/tclsh
 TclFramework          = $(NSFRAMEWORKDIR)/Tcl.framework
@@ -47,13 +51,12 @@ TclExtStubConfig      = $(TclExtDir)Config.sh
 
 TEA_Configure_Flags   = --libdir=$(TclExtLibDir) \
                         --with-tcl=$(TclFramework) \
-                        --with-tclinclude=$(TclHeaders) \
                         --with-tk=$(TkFramework) \
-                        --with-tkinclude=$(TkHeaders) \
                         --enable-threads \
                         $(Extra_TEA_Configure_Flags)
 TEA_Environment       = TCLSH_PROG=$(Tclsh) \
                         $(Extra_TEA_Environment)
+TEA_TclConfig         = $(SRCROOT)/../tclconfig
 
 export PATH           := $(shell dirname $(Tclsh)):$(shell dirname $(Wish)):$(PATH)
 export DYLD_FRAMEWORK_PATH := $(shell dirname $(TclFramework)):$(shell dirname $(TkFramework))
@@ -63,54 +66,30 @@ export DYLD_FRAMEWORK_PATH := $(shell dirname $(TclFramework)):$(shell dirname $
 ##
 
 # Remove empty directories from DSTROOT after install
-Find_Cruft            := '(' $(Find_Cruft) ')' -or '(' -mindepth 1 -type d -empty -print ')'
+Find_Cruft            := '(' '(' $(Find_Cruft) ')' -or '(' -mindepth 1 -type d -empty -print ')' ')'
 
-# strip debugging symbols from installed extensions
-strip:
-	$(_v) shopt -s nullglob && $(STRIP) -S "$(DSTROOT)/$(TclExtLibDir)"/$(TclExtDir)*/*.{dylib,a}
+# strip installed extension libraries, fix install_name, delete stub library
+strip::
+	$(_v) shopt -s nullglob && cd "$(DSTROOT)" && \
+	$(RM) -f "./$(TclExtLibDir)"/$(TclExtDir)*/lib*stub*.a && \
+	$(STRIP) -S "./$(TclExtLibDir)"/$(TclExtDir)*/*.{dylib,a} && \
+	for f in "./$(TclExtLibDir)"/$(TclExtDir)*/*.dylib; do \
+	install_name_tool -id "$${f:2}" "$${f}"; done
 
-# move project stub config file to $(USRLIBDIR) where it belongs
+# delete stub config file
 fix-config:
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(USRLIBDIR)"
-	$(_v) $(MV) -f "$(DSTROOT)/$(TclExtLibDir)"/$(TclExtStubConfig) \
-	    "$(DSTROOT)/$(USRLIBDIR)"
+	$(_v) $(RM) -f "$(DSTROOT)/$(TclExtLibDir)"/$(TclExtStubConfig)
 
-# fix owner after custom after-install actions
-fix-owner:
+# fix permissions and owner after install
+fix-perms::
 	$(_v)- $(CHOWN) -R $(Install_User):$(Install_Group) $(DSTROOT)
+	$(_v)- $(FIND) "$(DSTROOT)/$(TclExtLibDir)"/$(TclExtDir)* -type f ! -name "*.dylib" -perm -+x -print0 | $(XARGS) -0 $(CHMOD) -x
+	$(_v)- $(FIND) "$(DSTROOT)/$(TclExtLibDir)"/$(TclExtDir)* -type f -name "*.dylib" ! -perm -+x -print0 | $(XARGS) -0 $(CHMOD) +x
+	$(_v)- $(FIND) $(DSTROOT) -type f ! -perm -+x ! -perm $(Install_File_Mode) -print0 | $(XARGS) -0 $(CHMOD) $(Install_File_Mode)
+	$(_v)- $(FIND) $(DSTROOT) -type f -perm -+x ! -perm $(Install_Program_Mode) -print0 | $(XARGS) -0 $(CHMOD) $(Install_Program_Mode)
+	$(_v)- $(FIND) $(DSTROOT) -type d ! -perm $(Install_Directory_Mode) -print0 | $(XARGS) -0 $(CHMOD) $(Install_Directory_Mode)
 
-#avoid complaints from Find_Cruft and GnuChown about non existing SYMROOT
-build::
-	$(_v)- $(MKDIR) $(SYMROOT)
+.PHONY: strip install-doc fix-config fix-perms
+.NOTPARALLEL:
 
-##
-# Definitions used by Xcode based extensions
-##
-ifeq ($(TEA_UseXcode),YES)
-
-Sources               = $(SRCROOT)/$(Project)
-XCODEBUILD            = /usr/bin/xcodebuild
-XcodeBuild            = cd $(Sources) && $(XCODEBUILD) -configuration Deployment \
-                        $(MAKEOVERRIDES) CC=gcc \
-                        SRCROOT="$(Sources)" OBJROOT="$(OBJROOT)" SYMROOT="$(SYMROOT)" \
-                        $(Environment) $(Extra_Xcode_Flags)
-
-build::
-	@echo "Building $(Project)..."
-	$(_v) $(MKDIR) $(OBJROOT)/Deployment.build/$(ProjectName).build
-	$(_v) $(LN) -fs -fs Deployment.build/$(ProjectName).build $(OBJROOT)/$(ProjectName).build
-	$(_v) $(XcodeBuild)
-
-install:: build
-	@echo "Installing $(Project)..."
-	$(_v) umask $(Install_Mask) ; \
-	    $(XcodeBuild) INSTALL_ROOT="$(DSTROOT)"  $(Install_Flags) $(Install_Target)
-	$(_v) $(FIND) $(DSTROOT) $(Find_Cruft) | $(XARGS) $(RMDIR)
-ifdef AfterInstall
-	$(_v) $(MAKE) $(AfterInstall)
-endif
-
-endif
-
-
-.PHONY: strip install-doc fix-config fix-owner
+include ../Fetch.make

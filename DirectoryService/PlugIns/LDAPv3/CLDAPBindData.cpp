@@ -42,7 +42,6 @@
 #include "DirServicesConst.h"
 #include "DirServicesConstPriv.h"
 #include "DirServicesPriv.h"
-#include "CLDAPPlugInPrefs.h"
 #include "LDAPv3SupportFunctions.h"
 
 #include "CLDAPBindData.h"
@@ -93,10 +92,6 @@ CLDAPBindData::CLDAPBindData( tDataBufferPtr inXMLData, CFMutableDictionaryRef *
 	if ( cfBool != NULL && CFGetTypeID(cfBool) == CFBooleanGetTypeID() )
 		mSSL = CFBooleanGetValue( cfBool );
 	
-	cfBool = (CFBooleanRef) CFDictionaryGetValue( cfXMLDict, CFSTR(kXMLLDAPv2ReadOnlyKey) );
-	if ( cfBool != NULL && CFGetTypeID(cfBool) == CFBooleanGetTypeID() )
-		mLDAPv2Only = CFBooleanGetValue( cfBool );
-
 	CFStringRef cfUsername = (CFStringRef) CFDictionaryGetValue( cfXMLDict, CFSTR(kXMLServerAccountKey) );
 	if ( cfUsername != NULL && CFGetTypeID(cfUsername) == CFStringGetTypeID() && CFStringGetLength(cfUsername) != 0 )
 	{

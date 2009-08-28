@@ -28,6 +28,9 @@
 #elif defined (TARGET_I386)
 #include "i386-macosx-thread-status.h"
 #include "i386-macosx-tdep.h"
+#elif defined (TARGET_ARM)
+#include "arm-macosx-thread-status.h"
+#include "arm-macosx-tdep.h"
 #else
 #error "unsupported architecture"
 #endif
@@ -93,6 +96,11 @@ check_thread (bfd *abfd, asection *asect, unsigned int num)
       "LC_THREAD.i386_THREAD_STATE.",
       "LC_THREAD.x86_THREAD_STATE.",
       "LC_THREAD.x86_THREAD_STATE64."
+    };
+#elif defined (TARGET_ARM)
+  const char *names[] = 
+    {
+      "LC_THREAD.ARM_THREAD_STATE."
     };
 #else
 #error "unsupported architecture"
@@ -329,7 +337,14 @@ struct core_cached_registers_raw
       gdb_x86_float_state64_t * x86_64_fp_regs;
 };
 
-#elif defined (TARGET_I386)
+#elif defined (TARGET_ARM)
+
+struct core_cached_registers_raw
+{
+      gdb_arm_thread_state_t *arm_gp_regs;
+      gdb_arm_thread_fpstate_t *arm_fp_regs;
+};
+
 #else
 #error "unsupported architecture"
 #endif
@@ -383,6 +398,14 @@ core_fetch_cached_thread_registers ()
     
   if (cached_regs_raw->x86_64_fp_regs)
     x86_64_macosx_fetch_fp_registers_raw (cached_regs_raw->x86_64_fp_regs);
+
+#elif defined (TARGET_ARM)
+
+  if (cached_regs_raw->arm_gp_regs)
+    arm_macosx_fetch_gp_registers_raw (cached_regs_raw->arm_gp_regs);
+
+  if (cached_regs_raw->arm_fp_regs)
+    arm_macosx_fetch_vfp_registers_raw (cached_regs_raw->arm_fp_regs);
 
 #else
 
@@ -471,7 +494,6 @@ core_cache_section_registers (asection *sec, int flavour,
 	   memory leak since we will copy out just what we need into a new
 	   buffer.  */
 	ULONGEST sub_flavour = extract_unsigned_integer ((const gdb_byte *)regs, 4);
-	ULONGEST count = extract_unsigned_integer ((const gdb_byte *)regs, 4);
 	if (sub_flavour == BFD_MACH_O_i386_THREAD_STATE)
 	  {
 	    gdb_assert (cached_regs_raw->i386_gp_regs == NULL);
@@ -499,7 +521,6 @@ core_cache_section_registers (asection *sec, int flavour,
 	   memory leak since we will copy out just what we need into a new
 	   buffer.  */
 	ULONGEST sub_flavour = extract_unsigned_integer ((const gdb_byte *)regs, 4);
-	ULONGEST count = extract_unsigned_integer ((const gdb_byte *)regs, 4);
 	if (sub_flavour == BFD_MACH_O_i386_FLOAT_STATE)
 	  {
 	    gdb_assert (cached_regs_raw->i386_fp_regs == NULL);
@@ -521,6 +542,19 @@ core_cache_section_registers (asection *sec, int flavour,
 
     case BFD_MACH_O_i386_EXCEPTION_STATE:
     case BFD_MACH_O_x86_EXCEPTION_STATE64:
+      break;
+    }
+#elif defined (TARGET_ARM)
+  switch (flavour)
+    {
+    case BFD_MACH_O_ARM_THREAD_STATE:
+      cached_regs_raw->arm_gp_regs = (gdb_arm_thread_state_t *) regs;
+      regs = NULL;
+      break;
+      
+    case BFD_MACH_O_ARM_VFP_STATE:
+      cached_regs_raw->arm_fp_regs = (gdb_arm_thread_fpstate_t *) regs;
+      regs = NULL;
       break;
     }
 #else
@@ -643,6 +677,15 @@ delete_core_thread_state_cache (struct thread_info *thrd_info)
 	
       if (cached_regs_raw->x86_64_fp_regs) 
 	xfree (cached_regs_raw->x86_64_fp_regs);
+
+#elif defined (TARGET_ARM)
+
+      if (cached_regs_raw->arm_gp_regs) 
+	xfree (cached_regs_raw->arm_gp_regs);
+	
+      if (cached_regs_raw->arm_fp_regs) 
+	xfree (cached_regs_raw->arm_fp_regs);
+	
 #else
 #error "unsupported architecture"
 #endif
@@ -713,6 +756,9 @@ core_fetch_registers (int regno)
 							    flavour_str);
 #elif defined (TARGET_I386)
 		  flavour = bfd_mach_o_flavour_from_string (BFD_MACH_O_CPU_TYPE_I386, 
+							    flavour_str);
+#elif defined (TARGET_ARM)
+		  flavour = bfd_mach_o_flavour_from_string (BFD_MACH_O_CPU_TYPE_ARM, 
 							    flavour_str);
 #else
 #error "unsupported architecture"
@@ -803,6 +849,15 @@ core_store_registers (int regno)
     
   if (cached_regs_raw->x86_64_fp_regs)
     x86_64_macosx_store_fp_registers_raw (cached_regs_raw->x86_64_fp_regs);
+    
+
+#elif defined (TARGET_ARM)
+
+  if (cached_regs_raw->arm_gp_regs)
+    arm_macosx_store_gp_registers_raw (cached_regs_raw->arm_gp_regs);
+
+  if (cached_regs_raw->arm_fp_regs)
+    arm_macosx_store_vfp_registers_raw (cached_regs_raw->arm_fp_regs);
     
 #else
 #error "unsupported architecture"

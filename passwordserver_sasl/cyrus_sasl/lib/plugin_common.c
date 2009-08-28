@@ -263,7 +263,7 @@ int _plug_strdup(const sasl_utils_t * utils, const char *in,
       return SASL_NOMEM;
   }
 
-  strcpy((char *) *out, in);
+  strlcpy((char *) *out, in, len+1);
 
   if (outlen)
       *outlen = len;

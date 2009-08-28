@@ -1,9 +1,8 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1999-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 1999,2007 Oracle.  All rights reserved.
 #
-# $Id: test067.tcl,v 1.2 2004/03/30 01:24:08 jtownsen Exp $
+# $Id: test067.tcl,v 12.5 2007/05/17 15:15:56 bostic Exp $
 #
 # TEST	test067
 # TEST	Test of DB_CURRENT partial puts onto almost empty duplicate
@@ -31,6 +30,7 @@ proc test067 { method {ndups 1000} {tnum "067"} args } {
 	source ./include.tcl
 	global alphabet
 	global errorCode
+	global is_je_test
 
 	set args [convert_args $method $args]
 	set omethod [convert_method $method]
@@ -68,6 +68,10 @@ proc test067 { method {ndups 1000} {tnum "067"} args } {
 	    $method ($args) Partial puts on near-empty duplicate pages."
 
 	foreach dupopt { "-dup" "-dup -dupsort" } {
+		if { $is_je_test && $dupopt == "-dup" } {
+			continue
+		}
+
 		#
 		# Testdir might get reset from the env's home dir back
 		# to the default if this calls something that sources

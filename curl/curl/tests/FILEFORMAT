@@ -28,15 +28,18 @@ Main sections are 'info', 'reply', 'client' and 'verify'.
 <info>
 <keywords>
 A newline-separated list of keywords describing what this test case uses and
-tests. Try to use an already used keyword. These keywords will be used for
-statistical/informational purposes.
+tests. Try to use an already used keyword.  These keywords will be used for
+statistical/informational purposes and for choosing or skipping classes
+of tests.  "Keywords" must begin with an alphabetic character, "-", "["
+or "{" and may actually consist of multiple words separated by spaces
+which are treated together as a single identifier.
 </keywords>
 </info>
 
 <reply>
-<data [nocheck="1"] [sendzero="yes"] [base64="yes"]>
+<data [nocheck="yes"] [sendzero="yes"] [base64="yes"]>
 data to be sent to the client on its request and later verified that it arrived
-safely. Set the nocheck=1 to prevent the test script to verify the arrival
+safely. Set nocheck="yes" to prevent the test script from verifying the arrival
 of this data.
 
 If the data contains 'swsclose' anywhere within the start and end tag, and
@@ -64,6 +67,13 @@ of [test case number]%10000.
 B) The request was HTTP and included digest details, which adds 1000 to NUM
 C) If a HTTP request is NTLM type-1, it adds 1001 to num
 D) If a HTTP request is NTLM type-3, it adds 1002 to num
+E) If a HTTP request is Basic and num is already >=1000, it adds 1 to num
+
+Dynamically changing num in this way allows the test harness to be used to
+test authentication negotiation where several different requests must be sent
+to complete a transfer. The response to each request is found in its own data
+section.  Validating the entire negotiation sequence can be done by
+specifying a datacheck section.
 </dataNUM>
 <datacheck [nonewline="yes"]>
 if the data is sent but this is what should be checked afterwards. If
@@ -90,7 +100,8 @@ Special-commands for the server.
 For FTP, these are supported:
 
 REPLY [command] [return value] [response string]
- - Changes how the server responds to the [command]
+ - Changes how the server responds to the [command]. [response string] is
+   evaluated as a perl string, so it can contain embedded \r\n, for example.
 COUNT [command] [num]
  - Do the REPLY change for [command] only [num] times and then go back to the
    built-in approach
@@ -104,17 +115,19 @@ RETRNOSIZE
 NOSAVE
  - Don't actually save what is received
 SLOWDOWN
- - Send FTP responses with 0.1 sec delay between each byte
+ - Send FTP responses with 0.01 sec delay between each byte
 PASVBADIP
  - makes PASV send back an illegal IP in its 227 response
 
 For HTTP/HTTPS:
-auth_required - if this is set and a POST/PUT is made without auth, the
+auth_required   if this is set and a POST/PUT is made without auth, the
                 server will NOT wait for the full request body to get sent
-idle -          do nothing after receiving the request, just "sit idle"
-stream -        continuously send data to the client, never-ending
-pipe: [num] -   tell the server to expect this many HTTP requests before
+idle            do nothing after receiving the request, just "sit idle"
+stream          continuously send data to the client, never-ending
+pipe: [num]     tell the server to expect this many HTTP requests before
                 sending back anything, to allow pipelining tests
+skip: [num]     instructs the server to ignore reading this many bytes from a PUT
+                or POST request
 </servercmd>
 </reply>
 
@@ -170,9 +183,9 @@ restart servers.
 
 <precheck>
 A command line that if set gets run by the test script before the test. If an
-output is displayed by the command, the test will be skipped and the
-(single-line) output will be displayed as reason for not running the test.
-Variables are substituted as in the <command> section.
+output is displayed by the command or if the return code is non-zero, the test
+will be skipped and the (single-line) output will be displayed as reason for
+not running the test.  Variables are substituted as in the <command> section.
 </precheck>
 
 <postcheck>
@@ -199,7 +212,7 @@ command is run. They are cleared again after the command has been run.
 Variables are first substituted as in the <command> section.
 </setenv>
 
-<command [option="no-output"]>
+<command [option="no-output"] [timeout="secs"] [delay="secs"]>
 command line to run, there's a bunch of %variables that get replaced
 accordingly.
 
@@ -212,12 +225,27 @@ If a CONNECT is used to the server (to emulate HTTPS etc over proxy), the port
 number given in the CONNECT request will be used to identify which test that
 is being run, if the proxy host name is said to start with 'test'.
 
-Set 'option=no-output' to prevent the test script to slap on the --output
+Set option="no-output" to prevent the test script to slap on the --output
 argument that directs the output to a file. The --output is also not added if
-the client/stdout section is used.
+the verify/stdout section is used.
+
+Set timeout="secs" to override default server logs advisor read lock timeout.
+This timeout is used by the test harness, once that the command has completed
+execution, to wait for the test server to write out server side log files and
+remove the lock that advised not to read them. The "secs" parameter is the not
+negative integer number of seconds for the timeout. This 'timeout' attribute
+is documented for completeness sake, but is deep test harness stuff and only
+needed for very singular and specific test cases. Avoid using it.
+
+Set delay="secs" to introduce a time delay once that the command has completed
+execution and before the <postcheck> section runs. The "secs" parameter is the
+not negative integer number of seconds for the delay. This 'delay' attribute
+is intended for very specific test cases, and normally not needed.
 
 Available substitute variables include:
-%HOSTIP    - IPv6 address of the host running this test
+%CLIENTIP   - IPv4 address of the client running curl
+%CLIENT6IP  - IPv6 address of the client running curl
+%HOSTIP    - IPv4 address of the host running this test
 %HOSTPORT  - Port number of the HTTP server
 %HOST6IP   - IPv6 address of the host running this test
 %HOST6PORT - IPv6 port number of the HTTP server
@@ -226,6 +254,8 @@ Available substitute variables include:
 %FTP6PORT  - IPv6 port number of the FTP server
 %FTPSPORT  - Port number of the FTPS server
 %FTP2PORT  - Port number of the FTP server 2
+%FTPTIME2  - Timeout in seconds that should be just sufficient to receive
+             a response from the test FTP server
 %TFTPPORT  - Port number of the TFTP server
 %TFTP6PORT - IPv6 port number of the TFTP server
 %SSHPORT   - Port number of the SCP/SFTP server
@@ -270,17 +300,21 @@ off the trailing newline of this given data before comparing with the one
 actually sent by the client
 Variables are substituted as in the <command> section.
 </protocol>
-<stdout [mode="text"]>
-This verifies that this data was passed to stdout.
+<stdout [mode="text"] [nonewline="yes"]>
+This verifies that this data was passed to stdout.  Variables are
+substituted as in the <command> section.
 
 Use the mode="text" attribute if the output is in text mode on platforms that
 have a text/binary difference.
+
+If 'nonewline' is set, we will cut off the trailing newline of this given data
+before comparing with the one actually received by the client
 </stdout>
 <file name="log/filename" [mode="text"]>
 The file's contents must be identical to this after the test is complete.
-
 Use the mode="text" attribute if the output is in text mode on platforms that
 have a text/binary difference.
+Variables are substituted as in the <command> section.
 </file>
 <stripfile>
 One perl op per line that operates on the file before being compared. This is

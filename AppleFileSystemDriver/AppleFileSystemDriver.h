@@ -54,10 +54,10 @@ public:
 private:
 
     static bool mediaNotificationHandler(void * target, void * ref,
-                                          IOService * newService );
+										 IOService * newService,
+										 IONotifier * notifier);
     
     static IOReturn readHFSUUID(IOMedia *media, void **uuidPtr);
-    static IOReturn readUFSUUID(IOMedia *media, void **uuidPtr);
         
 };
 

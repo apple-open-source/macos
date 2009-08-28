@@ -5,10 +5,12 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: lib508.c,v 1.5 2006-10-25 09:20:44 yangtse Exp $
+ * $Id: lib508.c,v 1.8 2008-09-20 04:26:57 yangtse Exp $
  */
 
 #include "test.h"
+
+#include "memdebug.h"
 
 static char data[]="this is what we post to the silly web server\n";
 
@@ -31,7 +33,7 @@ static size_t read_callback(void *ptr, size_t size, size_t nmemb, void *userp)
     return 1;                        /* we return 1 byte at a time! */
   }
 
-  return -1;                         /* no more data left to deliver */
+  return 0;                         /* no more data left to deliver */
 }
 
 int test(char *URL)
@@ -59,7 +61,7 @@ int test(char *URL)
   curl_easy_setopt(curl, CURLOPT_URL, URL);
 
   /* Now specify we want to POST data */
-  curl_easy_setopt(curl, CURLOPT_POST, TRUE);
+  curl_easy_setopt(curl, CURLOPT_POST, 1L);
 
   /* Set the expected POST size */
   curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, (long)pooh.sizeleft);
@@ -71,10 +73,10 @@ int test(char *URL)
   curl_easy_setopt(curl, CURLOPT_INFILE, &pooh);
 
   /* get verbose debug output please */
-  curl_easy_setopt(curl, CURLOPT_VERBOSE, 1);
+  curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
 
   /* include headers in the output */
-  curl_easy_setopt(curl, CURLOPT_HEADER, TRUE);
+  curl_easy_setopt(curl, CURLOPT_HEADER, 1L);
 
   /* Perform the request, res will get the return code */
   res = curl_easy_perform(curl);

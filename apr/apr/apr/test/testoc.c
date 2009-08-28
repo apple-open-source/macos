@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -73,7 +73,7 @@ static void test_child_kill(abts_case *tc, void *data)
                              APR_NO_PIPE);
     ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
 
-    rv = apr_proc_create(&newproc, "./occhild" EXTENSION, args, NULL, procattr, p);
+    rv = apr_proc_create(&newproc, TESTBINPATH "occhild" EXTENSION, args, NULL, procattr, p);
     ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
     ABTS_PTR_NOTNULL(tc, newproc.in);
     ABTS_PTR_EQUAL(tc, NULL, newproc.out);

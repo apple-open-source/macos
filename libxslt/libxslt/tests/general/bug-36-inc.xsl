@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
 		xmlns:n="http://xmlsoft.org/"
-		xsl:exclude-result-prefixes="n"
+		exclude-result-prefixes="n"
                 version='1.0'>
 
 <xsl:variable name="var" select="/n:x" />

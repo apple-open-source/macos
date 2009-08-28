@@ -130,8 +130,8 @@ mi_gdb_test {21-file-list-statics -file file-statics.c -shlib file-statics --sim
     "21$either_way" \
     {-file-list-statics: supply file and shlib, no simple}
 
-set static_doesnt_match {varobj=\{exp="static_doesnt_match",value="8",name="var%d",numchild="0",type="int",typecode="INT",dynamic_type="",in_scope="true",block_start_addr="no block",block_end_addr="no block"\}}
-set static_int {varobj=\{exp="static_int",value="7",name="var%d",numchild="0",type="int",typecode="INT",dynamic_type="",in_scope="true",block_start_addr="no block",block_end_addr="no block"\}}
+set static_doesnt_match {varobj=\{exp="static_doesnt_match",value="8",name="var%d",numchild="0",type="int",typecode="INT",dynamic_type="",resolved_type="int",in_scope="true",block_start_addr="no block",block_end_addr="no block"\}}
+set static_int {varobj=\{exp="static_int",value="7",name="var%d",numchild="0",type="int",typecode="INT",dynamic_type="",resolved_type="int",in_scope="true",block_start_addr="no block",block_end_addr="no block"\}}
 set static_doesnt_match_1 [format $static_doesnt_match 1]
 set static_doesnt_match_2 [format $static_doesnt_match 2]
 set static_int_1 [format $static_int 1]
@@ -150,18 +150,18 @@ test_errors file-list-globals
 
 # This is the old style again:
 
-mi_gdb_test {50-file-list-globals file-statics.c file-statics --no-values} \
-    {50\^done,globals=\[\{name="const_char"\},\{name="global_int"\}\]} \
+mi_gdb_test {49-file-list-globals file-statics.c file-statics --no-values} \
+    {49\^done,globals=\[\{name="const_char"\},\{name="global_int"\}\]} \
     {-file-list-globals: Old style - supply file and shlib, no values}
 
 # These are the new style:
 
 mi_gdb_test {50-file-list-globals -file file-statics.c -shlib file-statics --no-values} \
-    {50\^done,globals=\[\{name="const_int"\},\{name="const_char"\},\{name="const_doesnt_match"\},\{name="global_int"\}\]} \
+    {50\^done,globals=\[\{name="const_doesnt_match"\},\{name="const_int"\},\{name="const_char"\},\{name="global_int"\}\]} \
     {-file-list-globals: supply file and shlib, no values}
 
 mi_gdb_test {51-file-list-globals -file file-statics.c -shlib file-statics --no-values -filter _int} \
-    {51\^done,globals=\[\{name="const_char"\},\{name="const_doesnt_match"\}\]} \
+    {51\^done,globals=\[\{name="const_doesnt_match"\},\{name="const_char"\}\]} \
     {-file-list-globals: supply file and shlib, no values}
 
 mi_gdb_test {52-file-list-globals -file file-statics.c -shlib file-statics --no-values -constants 0} \
@@ -169,15 +169,15 @@ mi_gdb_test {52-file-list-globals -file file-statics.c -shlib file-statics --no-
     {-file-list-globals: supply file and shlib, no values, no constants}
 
 mi_gdb_test {53-file-list-globals -file file-statics.c -shlib file-statics --no-values} \
-    {53\^done,globals=\[\{name="const_int"\},\{name="const_char"\},\{name="const_doesnt_match"\},\{name="global_int"\}\]} \
+    {53\^done,globals=\[\{name="const_doesnt_match"\},\{name="const_int"\},\{name="const_char"\},\{name="global_int"\}\]} \
     {-file-list-globals: supply file and shlib, no values}
 
 mi_gdb_test {54-file-list-globals -file file-statics.c -shlib file-statics --simple-values} \
-    {54\^done,globals=\[\{name="const_int",type="const int",value="5"\},\{name="const_char",type="const char \*",value="0x([0-9a-f]+) \\"I am a constant\\""\},\{name="const_doesnt_match",type="const int",value="6"\},\{name="global_int",type="int",value="6"\}\]} \
+    {54\^done,globals=\[\{name="const_doesnt_match",type="const int",value="6"\},\{name="const_int",type="const int",value="5"\},\{name="const_char",type="const char \*",value="0x([0-9a-f]+) \\"I am a constant\\""\},\{name="global_int",type="int",value="6"\}\]} \
     {-file-list-globals: supply file and shlib, simple values}
 
 mi_gdb_test {55-file-list-globals -file "" -shlib file-statics --no-values} \
-    {55\^done,.*file=\[filename=".*/more-statics.c",globals=\[\{name="second_const_int"\},\{name="second_const_char"\},\{name="second_const_doesnt_match"\},\{name="second_global_int"\}\]\],.*file=\[filename=".*/file-statics.c",globals=\[\{name="const_int"\},\{name="const_char"\},\{name="const_doesnt_match"\},\{name="global_int"\}\]\].*} \
+    {55\^done,.*file=\[filename=".*/more-statics.c",globals=\[\{name="second_const_int"\},\{name="second_const_char"\},\{name="second_const_doesnt_match"\},\{name="second_global_int"\}\]\],.*file=\[filename=".*/file-statics.c",globals=\[\{name="const_doesnt_match"\},\{name="const_int"\},\{name="const_char"\},\{name="global_int"\}\]\].*} \
     {-file-list-globals: all files, supply shlib, no values}
 
 # Now test a few C++ cases.
@@ -204,7 +204,7 @@ mi_gdb_test {61-file-list-globals -file file-statics-cpp.cpp -shlib file-statics
     {-file-list-globals: c++ - supply file and shlib, simple values}
 
 mi_gdb_test {62-file-list-globals -file file-statics-cpp.cpp -shlib file-statics-cpp --make-varobjs} \
-    {62\^done,globals=\[varobj={exp=\"Test::myVar\",value=\"0\",name=\"var1\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\"no block\",block_end_addr=\"no block\"}\]} \
+    {62\^done,globals=\[varobj={exp=\"Test::myVar\",value=\"0\",name=\"var1\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\",in_scope=\"true\",block_start_addr=\"no block\",block_end_addr=\"no block\"}\]} \
     {-file-list-globals: c++ - supply file and shlib, make varobjs}
 
 mi_gdb_test {71-file-list-statics -file file-statics-cpp.cpp -shlib file-statics-cpp --simple-values} \
@@ -212,5 +212,5 @@ mi_gdb_test {71-file-list-statics -file file-statics-cpp.cpp -shlib file-statics
     {-file-list-statics: c++ - supply file and shlib, simple values}
 
 mi_gdb_test {72-file-list-statics -file file-statics-cpp.cpp -shlib file-statics-cpp --make-varobjs} \
-    {72\^done,statics=\[varobj={exp=\"const_int\",value=\"5\",name=\"var2\",numchild=\"0\",type=\"const int\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\"no block\",block_end_addr=\"no block\"}\]} \
+    {72\^done,statics=\[varobj={exp=\"const_int\",value=\"5\",name=\"var2\",numchild=\"0\",type=\"const int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"const int\",in_scope=\"true\",block_start_addr=\"no block\",block_end_addr=\"no block\"}\]} \
     {-file-list-statics: c++ - supply file and shlib, make varobjs}

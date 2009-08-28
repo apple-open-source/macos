@@ -1,7 +1,7 @@
 /*
  * rlm_mschap.c
  *
- * Version:	$Id: rlm_mschap.c,v 1.59.2.3.2.3 2006/10/18 21:11:09 aland Exp $
+ * Version:	$Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,9 +15,9 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2000,2001  The FreeRADIUS server project
+ * Copyright 2000,2001,2006  The FreeRADIUS server project
  */
 
 
@@ -42,81 +42,22 @@
 
 /*  MPPE support from Takahiro Wagatsuma <waga@sic.shibaura-it.ac.jp> */
 
-/*
- * Open Directory support from Apple Inc.
- *
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of the GNU General Public License version 2 only, as published by
- *   the Free Software Foundation.
- *
- *   This program is distributed in the hope that it will be useful,
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *   GNU General Public License for more details.
- *
- *   You should have received a copy of the GNU General Public License version 2
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
- *
- * Copyright 2007 Apple Inc.
- */
+#include	<freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include	"autoconf.h"
-#include	"libradius.h"
+#include	<freeradius-devel/radiusd.h>
+#include	<freeradius-devel/modules.h>
+#include	<freeradius-devel/rad_assert.h>
+#include        <freeradius-devel/md5.h>
+#include        <freeradius-devel/sha1.h>
 
-#include	<stdio.h>
-#include	<stdlib.h>
-#include    	<string.h>
 #include 	<ctype.h>
-
-#include	"radiusd.h"
-#include	"modules.h"
-
-#include        "md4.h"
-#include        "md5.h"
-#include	"sha1.h"
-#include	"rad_assert.h"
 
 #include	"smbdes.h"
 
-#if __APPLE__
-#include <DirectoryService/DirectoryService.h>
+#ifdef __APPLE__
+extern int od_mschap_auth(REQUEST *request, VALUE_PAIR *challenge, VALUE_PAIR * usernamepair);
 #endif
-
-static const char rcsid[] = "$Id: rlm_mschap.c,v 1.59.2.3.2.3 2006/10/18 21:11:09 aland Exp $";
-
-static const char *letters = "0123456789ABCDEF";
-
-/*
- *	hex2bin converts hexadecimal strings into binary
- */
-static int hex2bin (const char *szHex, unsigned char* szBin, int len)
-{
-	char * c1, * c2;
-	int i;
-
-   	for (i = 0; i < len; i++) {
-		if( !(c1 = memchr(letters, toupper((int) szHex[i << 1]), 16)) ||
-		    !(c2 = memchr(letters, toupper((int) szHex[(i << 1) + 1]), 16)))
-		     break;
-                 szBin[i] = ((c1-letters)<<4) + (c2-letters);
-        }
-        return i;
-}
-
-/*
- *	bin2hex creates hexadecimal presentation
- *	of binary data
- */
-static void bin2hex (const unsigned char *szBin, char *szHex, int len)
-{
-	int i;
-	for (i = 0; i < len; i++) {
-		szHex[i<<1] = letters[szBin[i] >> 4];
-		szHex[(i<<1) + 1] = letters[szBin[i] & 0x0F];
-	}
-}
-
 
 /* Allowable account control bits */
 #define ACB_DISABLED   0x0001  /* 1 = User account disabled */
@@ -210,7 +151,7 @@ static int pdb_decode_acct_ctrl(const char *p)
  *	ntpwdhash converts Unicode password to 16-byte NT hash
  *	with MD4
  */
-static void ntpwdhash (unsigned char *szHash, const char *szPassword)
+static void ntpwdhash (uint8_t *szHash, const char *szPassword)
 {
 	char szUnicodePass[513];
 	int nPasswordLen;
@@ -227,7 +168,7 @@ static void ntpwdhash (unsigned char *szHash, const char *szPassword)
 	}
 
 	/* Encrypt Unicode password to a 16-byte MD4 hash */
-	md4_calc(szHash, (unsigned char *)szUnicodePass, (nPasswordLen<<1));
+	fr_md4_calc(szHash, (uint8_t *) szUnicodePass, (nPasswordLen<<1) );
 }
 
 
@@ -236,18 +177,19 @@ static void ntpwdhash (unsigned char *szHash, const char *szPassword)
  *	implements RFC2759 ChallengeHash()
  *	generates 64 bit challenge
  */
-static void challenge_hash( const char *peer_challenge,
-			    const char *auth_challenge,
-			    const char *user_name, char *challenge )
+static void challenge_hash( const uint8_t *peer_challenge,
+			    const uint8_t *auth_challenge,
+			    const char *user_name, uint8_t *challenge )
 {
-	SHA1_CTX Context;
-	unsigned char hash[20];
+	fr_SHA1_CTX Context;
+	uint8_t hash[20];
 
-	SHA1Init(&Context);
-	SHA1Update(&Context, (const unsigned char *)peer_challenge, 16);
-	SHA1Update(&Context, (const unsigned char *)auth_challenge, 16);
-	SHA1Update(&Context, (const unsigned char *)user_name, strlen(user_name));
-	SHA1Final(hash, &Context);
+	fr_SHA1Init(&Context);
+	fr_SHA1Update(&Context, peer_challenge, 16);
+	fr_SHA1Update(&Context, auth_challenge, 16);
+	fr_SHA1Update(&Context, (const uint8_t *) user_name,
+		      strlen(user_name));
+	fr_SHA1Final(hash, &Context);
 	memcpy(challenge, hash, 8);
 }
 
@@ -257,39 +199,42 @@ static void challenge_hash( const char *peer_challenge,
  *	returns 42-octet response string
  */
 static void auth_response(const char *username,
-			  const unsigned char *nt_hash_hash,
-			  unsigned char *ntresponse,
-			  char *peer_challenge, char *auth_challenge,
+			  const uint8_t *nt_hash_hash,
+			  uint8_t *ntresponse,
+			  uint8_t *peer_challenge, uint8_t *auth_challenge,
 			  char *response)
 {
-	SHA1_CTX Context;
-	const unsigned char magic1[39] =
+	fr_SHA1_CTX Context;
+	static const uint8_t magic1[39] =
 	{0x4D, 0x61, 0x67, 0x69, 0x63, 0x20, 0x73, 0x65, 0x72, 0x76,
 	 0x65, 0x72, 0x20, 0x74, 0x6F, 0x20, 0x63, 0x6C, 0x69, 0x65,
 	 0x6E, 0x74, 0x20, 0x73, 0x69, 0x67, 0x6E, 0x69, 0x6E, 0x67,
 	 0x20, 0x63, 0x6F, 0x6E, 0x73, 0x74, 0x61, 0x6E, 0x74};
 
-	const unsigned char magic2[41] =
+	static const uint8_t magic2[41] =
 	{0x50, 0x61, 0x64, 0x20, 0x74, 0x6F, 0x20, 0x6D, 0x61, 0x6B,
 	 0x65, 0x20, 0x69, 0x74, 0x20, 0x64, 0x6F, 0x20, 0x6D, 0x6F,
 	 0x72, 0x65, 0x20, 0x74, 0x68, 0x61, 0x6E, 0x20, 0x6F, 0x6E,
 	 0x65, 0x20, 0x69, 0x74, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6F,
 	 0x6E};
 
-	char challenge[8];
-	unsigned char digest[20];
+	static const char hex[16] = "0123456789ABCDEF";
 
-	SHA1Init(&Context);
-	SHA1Update(&Context, nt_hash_hash, 16);
-	SHA1Update(&Context, ntresponse, 24);
-	SHA1Update(&Context, magic1, 39);
-	SHA1Final(digest, &Context);
+	size_t i;
+        uint8_t challenge[8];
+	uint8_t digest[20];
+
+	fr_SHA1Init(&Context);
+	fr_SHA1Update(&Context, nt_hash_hash, 16);
+	fr_SHA1Update(&Context, ntresponse, 24);
+	fr_SHA1Update(&Context, magic1, 39);
+	fr_SHA1Final(digest, &Context);
 	challenge_hash(peer_challenge, auth_challenge, username, challenge);
-	SHA1Init(&Context);
-	SHA1Update(&Context, digest, 20);
-	SHA1Update(&Context, (unsigned char *)challenge, 8);
-	SHA1Update(&Context, magic2, 41);
-	SHA1Final(digest, &Context);
+	fr_SHA1Init(&Context);
+	fr_SHA1Update(&Context, digest, 20);
+	fr_SHA1Update(&Context, challenge, 8);
+	fr_SHA1Update(&Context, magic2, 41);
+	fr_SHA1Final(digest, &Context);
 
 	/*
 	 *	Encode the value of 'Digest' as "S=" followed by
@@ -300,7 +245,14 @@ static void auth_response(const char *username,
 	 */
  	response[0] = 'S';
 	response[1] = '=';
-	bin2hex(digest, response + 2, 20);
+
+	/*
+	 *	The hexadecimal digits [A-F] MUST be uppercase.
+	 */
+	for (i = 0; i < sizeof(digest); i++) {
+		response[2 + (i * 2)] = hex[(digest[i] >> 4) & 0x0f];
+		response[3 + (i * 2)] = hex[digest[i] & 0x0f];
+	}
 }
 
 
@@ -310,9 +262,12 @@ typedef struct rlm_mschap_t {
         int require_strong;
         int with_ntdomain_hack;	/* this should be in another module */
 	char *passwd_file;
-	char *xlat_name;
+	const char *xlat_name;
 	char *ntlm_auth;
-	char *auth_type;
+	const char *auth_type;
+#ifdef __APPLE__
+	int  open_directory;
+#endif  
 } rlm_mschap_t;
 
 
@@ -322,11 +277,11 @@ typedef struct rlm_mschap_t {
  *	Pulls NT-Response, LM-Response, or Challenge from MSCHAP
  *	attributes.
  */
-static int mschap_xlat(void *instance, REQUEST *request,
+static size_t mschap_xlat(void *instance, REQUEST *request,
 		       char *fmt, char *out, size_t outlen,
 		       RADIUS_ESCAPE_STRING func)
 {
-	int		i, data_len;
+	size_t		i, data_len;
 	uint8_t		*data = NULL;
 	uint8_t		buffer[32];
 	VALUE_PAIR	*user_name;
@@ -341,11 +296,11 @@ static int mschap_xlat(void *instance, REQUEST *request,
 	 *	Challenge means MS-CHAPv1 challenge, or
 	 *	hash of MS-CHAPv2 challenge, and peer challenge.
 	 */
-	if (strcasecmp(fmt, "Challenge") == 0) {
+	if (strncasecmp(fmt, "Challenge", 9) == 0) {
 		chap_challenge = pairfind(request->packet->vps,
 					  PW_MSCHAP_CHALLENGE);
 		if (!chap_challenge) {
-			DEBUG2("  rlm_mschap: No MS-CHAP-Challenge in the request.");
+			RDEBUG2("No MS-CHAP-Challenge in the request.");
 			return 0;
 		}
 
@@ -354,8 +309,9 @@ static int mschap_xlat(void *instance, REQUEST *request,
 		 *	for MS-CHAPv2
 		 */
 		if (chap_challenge->length == 8) {
-			DEBUG2(" mschap1: %02x", chap_challenge->strvalue[0]);
-			data = chap_challenge->strvalue;
+			RDEBUG2(" mschap1: %02x",
+			       chap_challenge->vp_octets[0]);
+			data = chap_challenge->vp_octets;
 			data_len = 8;
 
 			/*
@@ -365,11 +321,11 @@ static int mschap_xlat(void *instance, REQUEST *request,
 		} else if (chap_challenge->length == 16) {
 			char *username_string;
 
-			DEBUG2(" mschap2: %02x", chap_challenge->strvalue[0]);
+			RDEBUG2(" mschap2: %02x", chap_challenge->vp_octets[0]);
 			response = pairfind(request->packet->vps,
 					    PW_MSCHAP2_RESPONSE);
 			if (!response) {
-				DEBUG2("  rlm_mschap: MS-CHAP2-Response is required to calculate MS-CHAPv1 challenge.");
+				RDEBUG2("MS-CHAP2-Response is required to calculate MS-CHAPv1 challenge.");
 				return 0;
 			}
 
@@ -377,29 +333,29 @@ static int mschap_xlat(void *instance, REQUEST *request,
 			 *	Responses are 50 octets.
 			 */
 			if (response->length < 50) {
-				radlog(L_AUTH, "rlm_mschap: MS-CHAP-Response has the wrong format.");
+				radlog_request(L_AUTH, 0, request, "MS-CHAP-Response has the wrong format.");
 				return 0;
 			}
 
 			user_name = pairfind(request->packet->vps,
 					     PW_USER_NAME);
 			if (!user_name) {
-				DEBUG2("  rlm_mschap: User-Name is required to calculateMS-CHAPv1 Challenge.");
+				RDEBUG2("User-Name is required to calculateMS-CHAPv1 Challenge.");
 				return 0;
 			}
 
 			/*
 			 *	with_ntdomain_hack moved here, too.
 			 */
-			if ((username_string = strchr((char *)user_name->strvalue, '\\')) != NULL) {
+			if ((username_string = strchr(user_name->vp_strvalue, '\\')) != NULL) {
 				if (inst->with_ntdomain_hack) {
 					username_string++;
 				} else {
-					DEBUG2("  rlm_mschap: NT Domain delimeter found, should we have enabled with_ntdomain_hack?");
-					username_string = (char *)user_name->strvalue;
+					RDEBUG2("NT Domain delimeter found, should we have enabled with_ntdomain_hack?");
+					username_string = user_name->vp_strvalue;
 				}
 			} else {
-				username_string = (char *)user_name->strvalue;
+				username_string = user_name->vp_strvalue;
 			}
 
 			/*
@@ -407,27 +363,27 @@ static int mschap_xlat(void *instance, REQUEST *request,
 			 *	from the MS-CHAPv2 peer challenge,
 			 *	our challenge, and the user name.
 			 */
-			challenge_hash((char *)response->strvalue + 2,
-				       (char *)chap_challenge->strvalue,
-				       username_string, (char *)buffer);
+			challenge_hash(response->vp_octets + 2,
+				       chap_challenge->vp_octets,
+				       username_string, buffer);
 			data = buffer;
 			data_len = 8;
 		} else {
-			DEBUG2("  rlm_mschap: Invalid MS-CHAP challenge length");
+			RDEBUG2("Invalid MS-CHAP challenge length");
 			return 0;
 		}
-		
+
 		/*
 		 *	Get the MS-CHAPv1 response, or the MS-CHAPv2
 		 *	response.
 		 */
-	} else if (strcasecmp(fmt, "NT-Response") == 0) {
+	} else if (strncasecmp(fmt, "NT-Response", 11) == 0) {
 		response = pairfind(request->packet->vps,
 				    PW_MSCHAP_RESPONSE);
 		if (!response) response = pairfind(request->packet->vps,
 						   PW_MSCHAP2_RESPONSE);
 		if (!response) {
-			DEBUG2("  rlm_mschap: No MS-CHAP-Response or MS-CHAP2-Response was found in the request.");
+			RDEBUG2("No MS-CHAP-Response or MS-CHAP2-Response was found in the request.");
 			return 0;
 		}
 
@@ -436,8 +392,8 @@ static int mschap_xlat(void *instance, REQUEST *request,
 		 *	if the second octet says so.
 		 */
 		if ((response->attribute == PW_MSCHAP_RESPONSE) &&
-		    ((response->strvalue[1] & 0x01) == 0)) {
-			DEBUG2("  rlm_mschap: No NT-Response in MS-CHAP-Response");
+		    ((response->vp_octets[1] & 0x01) == 0)) {
+			RDEBUG2("No NT-Response in MS-CHAP-Response");
 			return 0;
 		}
 
@@ -446,18 +402,18 @@ static int mschap_xlat(void *instance, REQUEST *request,
 		 *	the NT-Response at the same offset, and are
 		 *	the same length.
 		 */
-		data = response->strvalue + 26;
+		data = response->vp_octets + 26;
 		data_len = 24;
-		
+
 		/*
 		 *	LM-Response is deprecated, and exists only
 		 *	in MS-CHAPv1, and not often there.
 		 */
-	} else if (strcasecmp(fmt, "LM-Response") == 0) {
+	} else if (strncasecmp(fmt, "LM-Response", 11) == 0) {
 		response = pairfind(request->packet->vps,
 				    PW_MSCHAP_RESPONSE);
 		if (!response) {
-			DEBUG2("  rlm_mschap: No MS-CHAP-Response was found in the request.");
+			RDEBUG2("No MS-CHAP-Response was found in the request.");
 			return 0;
 		}
 
@@ -465,40 +421,40 @@ static int mschap_xlat(void *instance, REQUEST *request,
 		 *	For MS-CHAPv1, the NT-Response exists only
 		 *	if the second octet says so.
 		 */
-		if ((response->strvalue[1] & 0x01) != 0) {
-			DEBUG2("  rlm_mschap: No LM-Response in MS-CHAP-Response");
+		if ((response->vp_octets[1] & 0x01) != 0) {
+			RDEBUG2("No LM-Response in MS-CHAP-Response");
 			return 0;
 		}
-		data = response->strvalue + 2;
+		data = response->vp_octets + 2;
 		data_len = 24;
 
 		/*
 		 *	Pull the NT-Domain out of the User-Name, if it exists.
 		 */
-	} else if (strcasecmp(fmt, "NT-Domain") == 0) {
+	} else if (strncasecmp(fmt, "NT-Domain", 9) == 0) {
 		char *p, *q;
 
 		user_name = pairfind(request->packet->vps, PW_USER_NAME);
 		if (!user_name) {
-			DEBUG2("  rlm_mschap: No User-Name was found in the request.");
+			RDEBUG2("No User-Name was found in the request.");
 			return 0;
 		}
-		
+
 		/*
 		 *	First check to see if this is a host/ style User-Name
 		 *	(a la Kerberos host principal)
 		 */
-		if (strncmp((char *)user_name->strvalue, "host/", 5) == 0) {
+		if (strncmp(user_name->vp_strvalue, "host/", 5) == 0) {
 			/*
 			 *	If we're getting a User-Name formatted in this way,
 			 *	it's likely due to PEAP.  The Windows Domain will be
 			 *	the first domain component following the hostname,
 			 *	or the machine name itself if only a hostname is supplied
 			 */
-			p = strchr((char *)user_name->strvalue, '.');
+			p = strchr(user_name->vp_strvalue, '.');
 			if (!p) {
-				DEBUG2("  rlm_mschap: setting NT-Domain to same as machine name");
-				strNcpy(out, (char *)user_name->strvalue + 5, outlen);
+				RDEBUG2("setting NT-Domain to same as machine name");
+				strlcpy(out, user_name->vp_strvalue + 5, outlen);
 			} else {
 				p++;	/* skip the period */
 				q = strchr(p, '.');
@@ -507,13 +463,13 @@ static int mschap_xlat(void *instance, REQUEST *request,
 				 * only if another period was found
 				 */
 				if (q) *q = '\0';
-				strNcpy(out, p, outlen);
+				strlcpy(out, p, outlen);
 				if (q) *q = '.';
 			}
 		} else {
-			p = strchr((char *)user_name->strvalue, '\\');
+			p = strchr(user_name->vp_strvalue, '\\');
 			if (!p) {
-				DEBUG2("  rlm_mschap: No NT-Domain was found in the User-Name.");
+				RDEBUG2("No NT-Domain was found in the User-Name.");
 				return 0;
 			}
 
@@ -521,7 +477,7 @@ static int mschap_xlat(void *instance, REQUEST *request,
 			 *	Hack.  This is simpler than the alternatives.
 			 */
 			*p = '\0';
-		strNcpy(out, (char *)user_name->strvalue, outlen);
+			strlcpy(out, user_name->vp_strvalue, outlen);
 			*p = '\\';
 		}
 
@@ -530,20 +486,20 @@ static int mschap_xlat(void *instance, REQUEST *request,
 		/*
 		 *	Pull the User-Name out of the User-Name...
 		 */
-	} else if (strcasecmp(fmt, "User-Name") == 0) {
+	} else if (strncasecmp(fmt, "User-Name", 9) == 0) {
 		char *p;
 
 		user_name = pairfind(request->packet->vps, PW_USER_NAME);
 		if (!user_name) {
-			DEBUG2("  rlm_mschap: No User-Name was found in the request.");
+			RDEBUG2("No User-Name was found in the request.");
 			return 0;
 		}
-		
+
 		/*
 		 *	First check to see if this is a host/ style User-Name
 		 *	(a la Kerberos host principal)
 		 */
-		if (strncmp((char *)user_name->strvalue, "host/", 5) == 0) {
+		if (strncmp(user_name->vp_strvalue, "host/", 5) == 0) {
 			/*
 			 *	If we're getting a User-Name formatted in this way,
 			 *	it's likely due to PEAP.  When authenticating this against
@@ -554,22 +510,22 @@ static int mschap_xlat(void *instance, REQUEST *request,
 			 *	from that point to the first period into a string and appending
 			 * 	a $ to the end.
 			 */
-			p = strchr((char *)user_name->strvalue, '.');
+			p = strchr(user_name->vp_strvalue, '.');
 			/*
 			 * use the same hack as above
 			 * only if a period was found
 			 */
 			if (p) *p = '\0';
-			snprintf(out, outlen, "%s$", user_name->strvalue + 5);
+			snprintf(out, outlen, "%s$", user_name->vp_strvalue + 5);
 			if (p) *p = '.';
 		} else {
-			p = strchr((char *)user_name->strvalue, '\\');
+			p = strchr(user_name->vp_strvalue, '\\');
 			if (p) {
 				p++;	/* skip the backslash */
 			} else {
-				p = (char *)user_name->strvalue; /* use the whole User-Name */
+				p = user_name->vp_strvalue; /* use the whole User-Name */
 			}
-			strNcpy(out, p, outlen);
+			strlcpy(out, p, outlen);
 		}
 
 		return strlen(out);
@@ -583,12 +539,12 @@ static int mschap_xlat(void *instance, REQUEST *request,
 		p = fmt + 8;	/* 7 is the length of 'NT-Hash' */
 		if ((p == '\0')	 || (outlen <= 32))
 			return 0;
-		DEBUG("rlm_mschap: NT-Hash: %s",p);
+		RDEBUG("rlm_mschap: NT-Hash: %s",p);
 		ntpwdhash(buffer,p);
 
-		lrad_bin2hex(buffer, out, 16);
+		fr_bin2hex(buffer, out, 16);
 		out[32] = '\0';
-		DEBUG("rlm_mschap: NT-Hash: Result: %s",out);
+		RDEBUG("rlm_mschap: NT-Hash: Result: %s",out);
 		return 32;
 
 		/*
@@ -600,15 +556,15 @@ static int mschap_xlat(void *instance, REQUEST *request,
 		p = fmt + 8;	/* 7 is the length of 'LM-Hash' */
 		if ((p == '\0') || (outlen <= 32))
 			return 0;
-			
-		DEBUG("rlm_mschap: LM-Hash: %s",p);
-		smbdes_lmpwdhash(p,buffer);
-		lrad_bin2hex(buffer, out, 16);
+
+		RDEBUG("rlm_mschap: LM-Hash: %s",p);
+		smbdes_lmpwdhash(p, buffer);
+		fr_bin2hex(buffer, out, 16);
 		out[32] = '\0';
-		DEBUG("rlm_mschap: LM-Hash: Result: %s",out);
+		RDEBUG("rlm_mschap: LM-Hash: Result: %s",out);
 		return 32;
 	} else {
-		DEBUG2("  rlm_mschap: Unknown expansion string \"%s\"",
+		RDEBUG2("Unknown expansion string \"%s\"",
 		       fmt);
 		return 0;
 	}
@@ -619,7 +575,7 @@ static int mschap_xlat(void *instance, REQUEST *request,
 	 *	Didn't set anything: this is bad.
 	 */
 	if (!data) {
-		DEBUG2("  rlm_mschap: Failed to do anything intelligent");
+		RDEBUG2("Failed to do anything intelligent");
 		return 0;
 	}
 
@@ -631,18 +587,18 @@ static int mschap_xlat(void *instance, REQUEST *request,
 	}
 
 	/*
-	 *	
+	 *
 	 */
 	for (i = 0; i < data_len; i++) {
 		sprintf(out + (2 * i), "%02x", data[i]);
 	}
 	out[data_len * 2] = '\0';
-	
+
 	return data_len * 2;
 }
 
 
-static CONF_PARSER module_config[] = {
+static const CONF_PARSER module_config[] = {
 	/*
 	 *	Cache the password by default.
 	 */
@@ -658,6 +614,10 @@ static CONF_PARSER module_config[] = {
 	  offsetof(rlm_mschap_t, passwd_file), NULL,  NULL },
 	{ "ntlm_auth",   PW_TYPE_STRING_PTR,
 	  offsetof(rlm_mschap_t, ntlm_auth), NULL,  NULL },
+#ifdef __APPLE__
+	{ "use_open_directory",    PW_TYPE_BOOLEAN,
+	  offsetof(rlm_mschap_t,open_directory), NULL, "yes" },
+#endif
 
 	{ NULL, -1, 0, NULL, NULL }		/* end the list */
 };
@@ -668,10 +628,9 @@ static CONF_PARSER module_config[] = {
  */
 static int mschap_detach(void *instance){
 #define inst ((rlm_mschap_t *)instance)
-	free(inst->passwd_file);
-	free(inst->ntlm_auth);
 	if (inst->xlat_name) {
 		xlat_unregister(inst->xlat_name, mschap_xlat);
+		free(inst->xlat_name);
 	}
 	free(instance);
 	return 0;
@@ -714,6 +673,7 @@ static int mschap_instantiate(CONF_SECTION *conf, void **instance)
 	 */
 	inst->xlat_name = cf_section_name2(conf);
 	if (!inst->xlat_name) inst->xlat_name = cf_section_name1(conf);
+	inst->xlat_name = strdup(inst->xlat_name);
 	xlat_register(inst->xlat_name, mschap_xlat, inst);
 
 	/*
@@ -732,18 +692,18 @@ static int mschap_instantiate(CONF_SECTION *conf, void **instance)
  *	add_reply() adds either MS-CHAP2-Success or MS-CHAP-Error
  *	attribute to reply packet
  */
-static void add_reply(VALUE_PAIR** vp, unsigned char ident,
+void mschap_add_reply(REQUEST *request, VALUE_PAIR** vp, unsigned char ident,
 		      const char* name, const char* value, int len)
 {
 	VALUE_PAIR *reply_attr;
 	reply_attr = pairmake(name, "", T_OP_EQ);
 	if (!reply_attr) {
-		DEBUG("  rlm_mschap: Failed to create attribute %s: %s\n", name, librad_errstr);
+		RDEBUG("Failed to create attribute %s: %s\n", name, fr_strerror());
 		return;
 	}
 
-	reply_attr->strvalue[0] = ident;
-	memcpy(reply_attr->strvalue + 1, value, len);
+	reply_attr->vp_octets[0] = ident;
+	memcpy(reply_attr->vp_octets + 1, value, len);
 	reply_attr->length = len + 1;
 	pairadd(vp, reply_attr);
 }
@@ -751,19 +711,18 @@ static void add_reply(VALUE_PAIR** vp, unsigned char ident,
 /*
  *	Add MPPE attributes to the reply.
  */
-static void mppe_add_reply(VALUE_PAIR **vp,
-			   const char* name, const char* value, int len)
+static void mppe_add_reply(REQUEST *request,
+			   const char* name, const uint8_t * value, int len)
 {
-       VALUE_PAIR *reply_attr;
-       reply_attr = pairmake(name, "", T_OP_EQ);
-       if (!reply_attr) {
-	       DEBUG("rlm_mschap: mppe_add_reply failed to create attribute %s: %s\n", name, librad_errstr);
+       VALUE_PAIR *vp;
+       vp = radius_pairmake(request, &request->reply->vps, name, "", T_OP_EQ);
+       if (!vp) {
+	       RDEBUG("rlm_mschap: mppe_add_reply failed to create attribute %s: %s\n", name, fr_strerror());
 	       return;
        }
 
-       memcpy(reply_attr->strvalue, value, len);
-       reply_attr->length = len;
-       pairadd(vp, reply_attr);
+       memcpy(vp->vp_octets, value, len);
+       vp->length = len;
 }
 
 
@@ -795,7 +754,7 @@ static int do_mschap(rlm_mschap_t *inst,
 	 */
 	vp = pairfind(request->config_items,
 		      PW_MS_CHAP_USE_NTLM_AUTH);
-	if (vp) do_ntlm_auth = vp->lvalue;
+	if (vp) do_ntlm_auth = vp->vp_integer;
 
 	/*
 	 *	No ntlm_auth configured, attribute to tell us to
@@ -803,7 +762,7 @@ static int do_mschap(rlm_mschap_t *inst,
 	 *	know what to do...
 	 */
 	if (!inst->ntlm_auth && do_ntlm_auth) {
-		DEBUG2("  rlm_mschap: Asked to use ntlm_auth, but it was not configured in the mschap{} section.");
+		RDEBUG2("Asked to use ntlm_auth, but it was not configured in the mschap{} section.");
 		return -1;
 	}
 
@@ -815,22 +774,22 @@ static int do_mschap(rlm_mschap_t *inst,
 		 *	No password: can't do authentication.
 		 */
 		if (!password) {
-			DEBUG2("  rlm_mschap: FAILED: No NT/LM-Password.  Cannot perform authentication.");
+			RDEBUG2("FAILED: No NT/LM-Password.  Cannot perform authentication.");
 			return -1;
 		}
-		
-		smbdes_mschap(password->strvalue, challenge, calculated);
+
+		smbdes_mschap(password->vp_strvalue, challenge, calculated);
 		if (memcmp(response, calculated, 24) != 0) {
 			return -1;
 		}
-		
+
 		/*
 		 *	If the password exists, and is an NT-Password,
 		 *	then calculate the hash of the NT hash.  Doing this
 		 *	here minimizes work for later.
 		 */
 		if (password && (password->attribute == PW_NT_PASSWORD)) {
-			md4_calc(nthashhash, password->strvalue, 16);
+			fr_md4_calc(nthashhash, password->vp_octets, 16);
 		} else {
 			memset(nthashhash, 0, 16);
 		}
@@ -841,29 +800,14 @@ static int do_mschap(rlm_mschap_t *inst,
 		memset(nthashhash, 0, 16);
 
 		/*
-		 *	Run the program, and expect that we get 16 
+		 *	Run the program, and expect that we get 16
 		 */
 		result = radius_exec_program(inst->ntlm_auth, request,
 					     TRUE, /* wait */
 					     buffer, sizeof(buffer),
-					     NULL, NULL);
+					     NULL, NULL, 1);
 		if (result != 0) {
-			char *p;
-			
-			DEBUG2("  rlm_mschap: External script failed.");
-
-			vp = pairmake("Module-Failure-Message", "", T_OP_EQ);
-			if (!vp) {
-				radlog(L_ERR, "No memory");
-				return -1;
-			}
-
-			p = strchr(buffer, '\n');
-			if (p) *p = '\0';
-			snprintf((char *)vp->strvalue, sizeof(vp->strvalue), 
-				 "rlm_mschap: %s", buffer);
-			vp->length = strlen((char *)vp->strvalue);
-			pairadd(&request->packet->vps, vp);
+			RDEBUG2("External script failed.");
 			return -1;
 		}
 
@@ -874,7 +818,7 @@ static int do_mschap(rlm_mschap_t *inst,
 		 *	NT_KEY: 000102030405060708090a0b0c0d0e0f
 		 */
 		if (memcmp(buffer, "NT_KEY: ", 8) != 0) {
-			DEBUG2("  rlm_mschap: Invalid output from ntlm_auth: expecting NT_KEY");
+			RDEBUG2("Invalid output from ntlm_auth: expecting NT_KEY");
 			return -1;
 		}
 
@@ -883,15 +827,15 @@ static int do_mschap(rlm_mschap_t *inst,
 		 *	with an LF at the end.
 		 */
 		if (strlen(buffer + 8) < 32) {
-			DEBUG2("  rlm_mschap: Invalid output from ntlm_auth: NT_KEY has unexpected length");
+			RDEBUG2("Invalid output from ntlm_auth: NT_KEY has unexpected length");
 			return -1;
 		}
 
 		/*
 		 *	Update the NT hash hash, from the NT key.
 		 */
-		if (hex2bin(buffer + 8, nthashhash, 16) != 16) {
-			DEBUG2("  rlm_mschap: Invalid output from ntlm_auth: NT_KEY has non-hex values");
+		if (fr_hex2bin(buffer + 8, nthashhash, 16) != 16) {
+			RDEBUG2("Invalid output from ntlm_auth: NT_KEY has non-hex values");
 			return -1;
 		}
 	}
@@ -947,13 +891,13 @@ static void mppe_GetMasterKey(uint8_t *nt_hashhash,uint8_t *nt_response,
 			      uint8_t *masterkey)
 {
        uint8_t digest[20];
-       SHA1_CTX Context;
+       fr_SHA1_CTX Context;
 
-       SHA1Init(&Context);
-       SHA1Update(&Context,nt_hashhash,16);
-       SHA1Update(&Context,nt_response,24);
-       SHA1Update(&Context,magic1,27);
-       SHA1Final(digest,&Context);
+       fr_SHA1Init(&Context);
+       fr_SHA1Update(&Context,nt_hashhash,16);
+       fr_SHA1Update(&Context,nt_response,24);
+       fr_SHA1Update(&Context,magic1,27);
+       fr_SHA1Final(digest,&Context);
 
        memcpy(masterkey,digest,16);
 }
@@ -964,7 +908,7 @@ static void mppe_GetAsymmetricStartKey(uint8_t *masterkey,uint8_t *sesskey,
 {
        uint8_t digest[20];
        const uint8_t *s;
-       SHA1_CTX Context;
+       fr_SHA1_CTX Context;
 
        memset(digest,0,20);
 
@@ -974,12 +918,12 @@ static void mppe_GetAsymmetricStartKey(uint8_t *masterkey,uint8_t *sesskey,
                s = magic2;
        }
 
-       SHA1Init(&Context);
-       SHA1Update(&Context,masterkey,16);
-       SHA1Update(&Context,SHSpad1,40);
-       SHA1Update(&Context,s,84);
-       SHA1Update(&Context,SHSpad2,40);
-       SHA1Final(digest,&Context);
+       fr_SHA1Init(&Context);
+       fr_SHA1Update(&Context,masterkey,16);
+       fr_SHA1Update(&Context,SHSpad1,40);
+       fr_SHA1Update(&Context,s,84);
+       fr_SHA1Update(&Context,SHSpad2,40);
+       fr_SHA1Final(digest,&Context);
 
        memcpy(sesskey,digest,keylen);
 }
@@ -1018,355 +962,6 @@ static void mppe_chap2_gen_keys128(uint8_t *nt_hashhash,uint8_t *response,
 }
 
 
-#if __APPLE__
-static int getUserNodeRef(char* inUserName, char** outUserName, tDirNodeReference* userNodeRef, tDirReference dsRef)
-{
-	tDataBuffer					*tDataBuff			= NULL;
-	tDirNodeReference			nodeRef				= 0;
-	long						status				= eDSNoErr;
-	tContextData				context				= NULL;
-	unsigned long				nodeCount			= 0;
-	unsigned long				attrIndex			= 0;
-	tDataList				   *nodeName			= NULL;
-	tAttributeEntryPtr			pAttrEntry			= NULL;
-	tDataList				   *pRecName			= NULL;
-	tDataList				   *pRecType			= NULL;
-	tDataList				   *pAttrType			= NULL;
-	unsigned long				recCount			= 0;
-	tRecordEntry		  	 	*pRecEntry			= NULL;
-	tAttributeListRef			attrListRef			= 0;
-	char					   *pUserLocation		= NULL;
-	tAttributeValueListRef		valueRef			= 0;
-	tAttributeValueEntry		*pValueEntry		= NULL;
-	tDataList					*pUserNode			= NULL;
-	int							result				= RLM_MODULE_FAIL;
-	
-	if (inUserName == NULL) {
-		radlog(L_ERR, "rlm_mschap: getUserNodeRef(): no username");
-		return RLM_MODULE_FAIL;
-	}
-    
-	tDataBuff = dsDataBufferAllocate(dsRef, 4096);
-	if (tDataBuff == NULL) {
-		radlog(L_ERR, "rlm_mschap: getUserNodeRef(): dsDataBufferAllocate() status = %ld", status);  
-		return RLM_MODULE_FAIL;
-	}
-	
-	do {
-		// find on search node
-		status = dsFindDirNodes(dsRef, tDataBuff, NULL, eDSAuthenticationSearchNodeName, &nodeCount, &context);
-		if (status != eDSNoErr) {
-			radlog(L_ERR,"rlm_mschap: getUserNodeRef(): no node found? status = %ld", status);  
-			result = RLM_MODULE_FAIL;
-			break;
-		}
-		if (nodeCount < 1) {
-			radlog(L_ERR,"rlm_mschap: getUserNodeRef(): nodeCount < 1, status = %ld", status);  
-			result = RLM_MODULE_FAIL;
-			break;
-		}
-		
-		status = dsGetDirNodeName(dsRef, tDataBuff, 1, &nodeName);
-		if (status != eDSNoErr) {
-			radlog(L_ERR,"rlm_mschap: getUserNodeRef(): dsGetDirNodeName() status = %ld", status);  
-			result = RLM_MODULE_FAIL;
-			break;
-		}
-		
-		status = dsOpenDirNode(dsRef, nodeName, &nodeRef);
-		dsDataListDeallocate(dsRef, nodeName);
-		free(nodeName);
-		nodeName = NULL;
-		
-		if (status != eDSNoErr) {
-			radlog(L_ERR,"rlm_mschap: getUserNodeRef(): dsOpenDirNode() status = %ld", status);  
-			result = RLM_MODULE_FAIL;
-			break;
-		}
-		
-		pRecName = dsBuildListFromStrings(dsRef, inUserName, NULL);
-		pRecType = dsBuildListFromStrings(dsRef, kDSStdRecordTypeUsers, NULL);
-		pAttrType = dsBuildListFromStrings(dsRef, kDSNAttrMetaNodeLocation, kDSNAttrRecordName, NULL);
-		
-		recCount = 1;
-		status = dsGetRecordList(nodeRef, tDataBuff, pRecName, eDSExact, pRecType,
-								  pAttrType , 0, &recCount, &context);
-		if (status != eDSNoErr || recCount == 0) {
-			radlog(L_ERR,"rlm_mschap: getUserNodeRef(): dsGetRecordList() status = %ld, recCount=%lu", status, recCount);  
-			result = RLM_MODULE_FAIL;
-			break;
-		}
-		
-		status = dsGetRecordEntry(nodeRef, tDataBuff, 1, &attrListRef, &pRecEntry);
-		if (status != eDSNoErr) {
-			radlog(L_ERR,"rlm_mschap: getUserNodeRef(): dsGetRecordEntry() status = %ld", status);  
-			result = RLM_MODULE_FAIL;
-			break;	
-		}
-		
-		for (attrIndex = 1; (attrIndex <= pRecEntry->fRecordAttributeCount) && (status == eDSNoErr); attrIndex++)
-		{
-			status = dsGetAttributeEntry(nodeRef, tDataBuff, attrListRef, attrIndex, &valueRef, &pAttrEntry);
-			if (status == eDSNoErr && pAttrEntry != NULL)
-			{
-				if (strcmp(pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrMetaNodeLocation) == 0) {
-					status = dsGetAttributeValue(nodeRef, tDataBuff, 1, valueRef, &pValueEntry);
-					if (status == eDSNoErr && pValueEntry != NULL)
-					{
-						pUserLocation = (char *) calloc(pValueEntry->fAttributeValueData.fBufferLength + 1, sizeof(char));
-						memcpy(pUserLocation, pValueEntry->fAttributeValueData.fBufferData, pValueEntry->fAttributeValueData.fBufferLength);
-					}
-				}
-				else if (strcmp(pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrRecordName) == 0) {
-					status = dsGetAttributeValue(nodeRef, tDataBuff, 1, valueRef, &pValueEntry);
-					if (status == eDSNoErr && pValueEntry != NULL)
-					{
-						*outUserName = (char *) malloc(pValueEntry->fAttributeValueData.fBufferLength + 1);
-						bzero(*outUserName,pValueEntry->fAttributeValueData.fBufferLength + 1);
-						memcpy(*outUserName, pValueEntry->fAttributeValueData.fBufferData, pValueEntry->fAttributeValueData.fBufferLength);
-					}
-				}
-				
-				if (pValueEntry != NULL) {
-					dsDeallocAttributeValueEntry(dsRef, pValueEntry);
-					pValueEntry = NULL;
-				}
-				
-				dsDeallocAttributeEntry(dsRef, pAttrEntry);
-				pAttrEntry = NULL;
-				dsCloseAttributeValueList(valueRef);
-				valueRef = 0;
-			}
-		}
-		
-		pUserNode = dsBuildFromPath(dsRef, pUserLocation, "/");
-		if (pUserNode == NULL) {
-			radlog(L_ERR,"rlm_mschap: getUserNodeRef(): dsBuildFromPath() returned NULL");  
-			result = RLM_MODULE_FAIL;
-			break;
-		}
-		
-		status = dsOpenDirNode(dsRef, pUserNode, userNodeRef);
-		dsDataListDeallocate(dsRef, pUserNode);
-		free(pUserNode);
-		
-		if (status != eDSNoErr) {
-			radlog(L_ERR,"rlm_mschap: getUserNodeRef(): dsOpenDirNode() status = %ld", status);  
-			result = RLM_MODULE_FAIL;
-			break;
-		}
-		
-		result = RLM_MODULE_OK;
-	}
-	while (0);
-	
-	if (pRecEntry != NULL)
-		dsDeallocRecordEntry(dsRef, pRecEntry);
-
-	if (tDataBuff != NULL)
-		dsDataBufferDeAllocate(dsRef, tDataBuff);
-		
-	if (pUserLocation != NULL)
-		free(pUserLocation);
-		
-	if (pRecName != NULL) {
-		dsDataListDeallocate(dsRef, pRecName);
-		free(pRecName);
-	}
-	if (pRecType != NULL) {
-		dsDataListDeallocate(dsRef, pRecType);
-		free(pRecType);
-	}
-	if (pAttrType != NULL) {
-		dsDataListDeallocate(dsRef, pAttrType);
-		free(pAttrType);
-	}
-	if (nodeRef != 0)
-		dsCloseDirNode(nodeRef);
-	
-	return  result;
-}
-
-
-static int od_mschap_auth(REQUEST *request, VALUE_PAIR *challenge, VALUE_PAIR * usernamepair)
-{
-	tDirStatus			status				= eDSNoErr;
-	tDirReference		dsRef				= 0;
-	tDirNodeReference   userNodeRef			= 0;
-	tDataBuffer			*tDataBuff			= NULL;
-	tDataBuffer			*pStepBuff			= NULL;
-	tDataNode			*pAuthType			= NULL;
-	unsigned long		uiCurr				= 0;
-	unsigned long		uiLen				= 0;
-	char				*username_string	= NULL;
-	char				*shortUserName		= NULL;
-	VALUE_PAIR			*response			= pairfind(request->packet->vps, PW_MSCHAP2_RESPONSE);
-	
-	username_string = (char *) malloc(usernamepair->length + 1);
-	if (username_string == NULL)
-		return RLM_MODULE_FAIL;
-	
-	strlcpy(username_string, (char *)usernamepair->strvalue, usernamepair->length + 1);
-	
-	status = dsOpenDirService(&dsRef);
-	if (status != eDSNoErr) {
-		free(username_string);
-		radlog(L_ERR,"rlm_mschap: od_mschap_auth(): dsOpenDirService = %d", status);
-		return RLM_MODULE_FAIL;
-	}
-    
-	status = getUserNodeRef(username_string, &shortUserName, &userNodeRef, dsRef);
-	if(status != RLM_MODULE_OK) {
-		DEBUG2("rlm_osx_od: ds_mschap_auth: getUserNodeRef failed");
-		if (username_string != NULL)
-			free(username_string);
-		return status;
-	}
-	
-	/* We got a node; fill the stepBuffer 
-		kDSStdAuthMSCHAP2
-			MS-CHAPv2 authentication method. The Open Directory plug-in generates the reply data for the client. 
-			The input buffer format consists of 
-				a four byte length specifying the length of the user name that follows, the user name, 
-				a four byte value specifying the length of the server challenge that follows, the server challenge, 
-				a four byte value specifying the length of the peer challenge that follows, the peer challenge, 
-				a four byte value specifying the length of the clientÕs digest that follows, and the clientÕs digest. 
-				The output buffer consists of a four byte value specifying the length of the return digest for the clientÕs challenge.
-		r = FillAuthBuff(pAuthBuff, 5,
-							strlen(inName), inName,						// Directory Services long or short name
-							strlen(schal), schal,						// server challenge
-							strlen(peerchal), peerchal,					// client challenge
-							strlen(p24), p24,							// P24 NT-Response
-							4, "User");									// must match the username that was used for the hash
-		
-		inName		= 	username_string
-		schal		=   challenge->strvalue
-		peerchal	=   response->strvalue + 2 (16 octets)
-		p24			=   response->strvalue + 26 (24 octets)
-	*/
-
-	pStepBuff = dsDataBufferAllocate(dsRef, 4096);
-	tDataBuff = dsDataBufferAllocate(dsRef, 4096);
-	pAuthType = dsDataNodeAllocateString(dsRef, kDSStdAuthMSCHAP2);
-	uiCurr = 0;
-	
-	DEBUG2("	rlm_mschap:username_string = %s, shortUserName=%s (length = %lu)\n", username_string, shortUserName, strlen(shortUserName));
-	
-	// User name length + username
-	uiLen = strlen(shortUserName);
-	memcpy(&(tDataBuff->fBufferData[uiCurr]), &uiLen, sizeof(size_t));
-	uiCurr += sizeof(size_t);
-	memcpy(&(tDataBuff->fBufferData[uiCurr]), shortUserName, uiLen);
-	uiCurr += uiLen;
-#ifndef NDEBUG
-	int t;
-	DEBUG2("	rlm_mschap: stepbuf server challenge:\t");
-	for (t = 0; t < challenge->length; t++) {
-		fprintf(stderr, "%02x", challenge->strvalue[t]);
-	}
-	fprintf(stderr, "\n");
-	fflush(stderr);
-#endif
-	
-	// server challenge (ie. my (freeRADIUS) challenge)
-	uiLen = 16;
-	memcpy(&(tDataBuff->fBufferData[uiCurr]), &uiLen, sizeof(size_t));
-	uiCurr += sizeof(size_t);
-	memcpy(&(tDataBuff->fBufferData[uiCurr]), &(challenge->strvalue[0]), uiLen);
-	uiCurr += uiLen;
-	
-#ifndef NDEBUG
-	DEBUG2("	rlm_mschap: stepbuf peer challenge:\t\t");
-	for (t = 2; t < 18; t++) {
-		fprintf(stderr, "%02x", response->strvalue[t]);
-	}
-	fprintf(stderr, "\n");
-	fflush(stderr);
-#endif
-	
-	// peer challenge (ie. the client-generated response)
-	uiLen = 16;
-	memcpy(&(tDataBuff->fBufferData[uiCurr]), &uiLen, sizeof(size_t));
-	uiCurr += sizeof(size_t);
-	memcpy(&(tDataBuff->fBufferData[uiCurr]), &(response->strvalue[2]), uiLen);
-	uiCurr += uiLen;	
-	
-#ifndef NDEBUG
-	DEBUG2("	rlm_mschap stepbuf p24:\t\t");
-	for (t = 26; t < 50; t++) {
-		fprintf(stderr, "%02x", response->strvalue[t]);
-	}
-	fprintf(stderr, "\n");
-	fflush(stderr);
-#endif
-	
-	// p24 (ie. second part of client-generated response)
-	uiLen =  24; //strlen(&(response->strvalue[26])); may contain NULL byte in the middle.
-	memcpy(&(tDataBuff->fBufferData[uiCurr]), &uiLen, sizeof(size_t));
-	uiCurr += sizeof(size_t);
-	memcpy(&(tDataBuff->fBufferData[uiCurr]), &(response->strvalue[26]) , uiLen);
-	uiCurr += uiLen;
-	
-	// Client generated use name (short name?)
-	uiLen =  strlen(username_string);
-	memcpy(&(tDataBuff->fBufferData[uiCurr]), &uiLen, sizeof(size_t));
-	uiCurr += sizeof(size_t);
-	memcpy(&(tDataBuff->fBufferData[uiCurr]), username_string, uiLen);
-	uiCurr += uiLen;
-
-	fflush(stdout);	
-		
-	tDataBuff->fBufferLength = uiCurr;
-	
-	status = dsDoDirNodeAuth(userNodeRef, pAuthType, 1, tDataBuff, pStepBuff, NULL);
-	if (status == eDSNoErr)
-	{
-		if (pStepBuff->fBufferLength > 4)
-		{
-			unsigned long len;
-			
-			memcpy(&len, pStepBuff->fBufferData, 4);
-			if (len == 40) {
-				char mschap_reply[41] = { '\0' };
-				pStepBuff->fBufferData[len+4] = '\0';
-				mschap_reply[0] = 'S';
-				mschap_reply[1] = '=';
-				memcpy(&(mschap_reply[2]), &(pStepBuff->fBufferData[4]), len);
-				add_reply(&request->reply->vps, *response->strvalue,
-					"MS-CHAP2-Success", mschap_reply, len+2);
-				DEBUG2("rlm_mschap: dsDoDirNodeAuth returns stepbuff: %s (len=%ld)\n", mschap_reply, len);
-			}
-		}
-	}
-
-	/* clean up */
-	if (username_string != NULL)
-		free(username_string);
-	if (shortUserName != NULL)
-		free(shortUserName);
-
-	if (tDataBuff != NULL)
-		dsDataBufferDeAllocate(dsRef, tDataBuff);
-	if (pStepBuff != NULL)
-		dsDataBufferDeAllocate(dsRef, pStepBuff);
-	if (pAuthType != NULL)
-		dsDataNodeDeAllocate(dsRef, pAuthType);
-	if (userNodeRef != 0)
-		dsCloseDirNode(userNodeRef);
-	if (dsRef != 0)
-		dsCloseDirService(dsRef);
-	
-	if (status != eDSNoErr) {
-		errno = EACCES;
-		radlog(L_ERR, "rlm_mschap: authentication failed %d", status); // <-- returns -14091 (eDSAuthMethodNotSupported) -14090
-		return RLM_MODULE_REJECT;
-    }
-	
-	return RLM_MODULE_OK;
-}
-
-#endif
-
 /*
  *	mschap_authorize() - authorize user if we can authenticate
  *	it later. Add Auth-Type attribute if present in module
@@ -1375,9 +970,7 @@ static int od_mschap_auth(REQUEST *request, VALUE_PAIR *challenge, VALUE_PAIR * 
 static int mschap_authorize(void * instance, REQUEST *request)
 {
 #define inst ((rlm_mschap_t *)instance)
-	VALUE_PAIR *challenge = NULL;
-	VALUE_PAIR *response = NULL;
-	VALUE_PAIR *vp;
+	VALUE_PAIR *challenge = NULL, *response = NULL;
 
 	challenge = pairfind(request->packet->vps, PW_MSCHAP_CHALLENGE);
 	if (!challenge) {
@@ -1392,21 +985,26 @@ static int mschap_authorize(void * instance, REQUEST *request)
 	 *	Nothing we recognize.  Don't do anything.
 	 */
 	if (!response) {
-		DEBUG2("  rlm_mschap: Found MS-CHAP-Challenge, but no MS-CHAP-Response.");
+		RDEBUG2("Found MS-CHAP-Challenge, but no MS-CHAP-Response.");
 		return RLM_MODULE_NOOP;
 	}
 
-	DEBUG2("  rlm_mschap: Found MS-CHAP attributes.  Setting 'Auth-Type  = %s'", inst->xlat_name);
+	if (pairfind(request->config_items, PW_AUTH_TYPE)) {
+		RDEBUG2("Found existing Auth-Type.  Not changing it.");
+		return RLM_MODULE_NOOP;
+	}
+
+	RDEBUG2("Found MS-CHAP attributes.  Setting 'Auth-Type  = %s'", inst->xlat_name);
 
 	/*
 	 *	Set Auth-Type to MS-CHAP.  The authentication code
 	 *	will take care of turning clear-text passwords into
 	 *	NT/LM passwords.
 	 */
-	vp = pairmake("Auth-Type", inst->auth_type, T_OP_EQ);
-	if (!vp) return RLM_MODULE_FAIL;
-	pairmove(&request->config_items, &vp);
-	pairfree(&vp);		/* may be NULL */
+	if (!radius_pairmake(request, &request->config_items,
+			     "Auth-Type", inst->auth_type, T_OP_EQ)) {
+		return RLM_MODULE_FAIL;
+	}
 
 	return RLM_MODULE_OK;
 #undef inst
@@ -1421,7 +1019,7 @@ static int mschap_authorize(void * instance, REQUEST *request)
  *
  *	If PW_SMB_ACCOUNT_CTRL is not set to ACB_PWNOTREQ we must have
  *	one of:
- *		PAP:      PW_PASSWORD or
+ *		PAP:      PW_USER_PASSWORD or
  *		MS-CHAP:  PW_MSCHAP_CHALLENGE and PW_MSCHAP_RESPONSE or
  *		MS-CHAP2: PW_MSCHAP_CHALLENGE and PW_MSCHAP2_RESPONSE
  *	In case of password mismatch or locked account we MAY return
@@ -1437,9 +1035,8 @@ static int mschap_authenticate(void * instance, REQUEST *request)
 	VALUE_PAIR *password = NULL;
 	VALUE_PAIR *lm_password, *nt_password, *smb_ctrl;
 	VALUE_PAIR *username;
-	VALUE_PAIR *reply_attr;
 	uint8_t nthashhash[16];
-	uint8_t msch2resp[42];
+	char msch2resp[42];
 	char *username_string;
 	int chap = 0;
 
@@ -1452,9 +1049,13 @@ static int mschap_authenticate(void * instance, REQUEST *request)
 		password = pairfind(request->config_items,
 				    PW_SMB_ACCOUNT_CTRL_TEXT);
 		if (password) {
-			smb_ctrl = pairmake("SMB-Account-CTRL", "0", T_OP_SET);
-			pairadd(&request->config_items, smb_ctrl);
-			smb_ctrl->lvalue = pdb_decode_acct_ctrl((char *)password->strvalue);
+			smb_ctrl = radius_pairmake(request,
+						   &request->config_items,
+						   "SMB-Account-CTRL", "0",
+						   T_OP_SET);
+			if (smb_ctrl) {
+				smb_ctrl->vp_integer = pdb_decode_acct_ctrl(password->vp_strvalue);
+			}
 		}
 	}
 
@@ -1466,8 +1067,8 @@ static int mschap_authenticate(void * instance, REQUEST *request)
 		/*
 		 *	Password is not required.
 		 */
-		if ((smb_ctrl->lvalue & ACB_PWNOTREQ) != 0) {
-			DEBUG2("  rlm_mschap: SMB-Account-Ctrl says no password is required.");
+		if ((smb_ctrl->vp_integer & ACB_PWNOTREQ) != 0) {
+			RDEBUG2("SMB-Account-Ctrl says no password is required.");
 			return RLM_MODULE_OK;
 		}
 	}
@@ -1475,7 +1076,7 @@ static int mschap_authenticate(void * instance, REQUEST *request)
 	/*
 	 *	Decide how to get the passwords.
 	 */
-	password = pairfind(request->config_items, PW_PASSWORD);
+	password = pairfind(request->config_items, PW_CLEARTEXT_PASSWORD);
 
 	/*
 	 *	We need an LM-Password.
@@ -1487,28 +1088,28 @@ static int mschap_authenticate(void * instance, REQUEST *request)
 		 */
 		if ((lm_password->length == 16) ||
 		    ((lm_password->length == 32) &&
-		     (hex2bin((char *)lm_password->strvalue,
-			      lm_password->strvalue, 16) == 16))) {
-			DEBUG2("  rlm_mschap: Found LM-Password");
+		     (fr_hex2bin(lm_password->vp_strvalue,
+				 lm_password->vp_octets, 16) == 16))) {
+			RDEBUG2("Found LM-Password");
 			lm_password->length = 16;
 
 		} else {
-			radlog(L_ERR, "rlm_mschap: Invalid LM-Password");
+			radlog_request(L_ERR, 0, request, "Invalid LM-Password");
 			lm_password = NULL;
 		}
 
 	} else if (!password) {
-		DEBUG2("  rlm_mschap: No User-Password configured.  Cannot create LM-Password.");
+		RDEBUG2("No Cleartext-Password configured.  Cannot create LM-Password.");
 
-	} else {		/* there is a configured User-Password */
-		lm_password = pairmake("LM-Password", "", T_OP_EQ);
+	} else {		/* there is a configured Cleartext-Password */
+		lm_password = radius_pairmake(request, &request->config_items,
+					      "LM-Password", "", T_OP_EQ);
 		if (!lm_password) {
-			radlog(L_ERR, "No memory");
+			radlog_request(L_ERR, 0, request, "No memory");
 		} else {
-			smbdes_lmpwdhash(password->strvalue,
-				       lm_password->strvalue);
+			smbdes_lmpwdhash(password->vp_strvalue,
+					 lm_password->vp_octets);
 			lm_password->length = 16;
-			pairadd(&request->config_items, lm_password);
 		}
 	}
 
@@ -1519,33 +1120,34 @@ static int mschap_authenticate(void * instance, REQUEST *request)
 	if (nt_password) {
 		if ((nt_password->length == 16) ||
 		    ((nt_password->length == 32) &&
-		     (hex2bin((char *)nt_password->strvalue,
-			      nt_password->strvalue, 16) == 16))) {
-			DEBUG2("  rlm_mschap: Found NT-Password");
+		     (fr_hex2bin(nt_password->vp_strvalue,
+				 nt_password->vp_octets, 16) == 16))) {
+			RDEBUG2("Found NT-Password");
 			nt_password->length = 16;
 
                 } else {
-			radlog(L_ERR, "rlm_mschap: Invalid NT-Password");
+			radlog_request(L_ERR, 0, request, "Invalid NT-Password");
 			nt_password = NULL;
 		}
 	} else if (!password) {
-		DEBUG2("  rlm_mschap: No User-Password configured.  Cannot create NT-Password.");
+		RDEBUG2("No Cleartext-Password configured.  Cannot create NT-Password.");
 
-	} else {		/* there is a configured User-Password */
-		nt_password = pairmake("NT-Password", "", T_OP_EQ);
+	} else {		/* there is a configured Cleartext-Password */
+		nt_password = radius_pairmake(request, &request->config_items,
+					      "NT-Password", "", T_OP_EQ);
 		if (!nt_password) {
-			radlog(L_ERR, "No memory");
+			radlog_request(L_ERR, 0, request, "No memory");
 			return RLM_MODULE_FAIL;
 		} else {
-			ntpwdhash(nt_password->strvalue, (char *)password->strvalue);
+			ntpwdhash(nt_password->vp_octets,
+				  password->vp_strvalue);
 			nt_password->length = 16;
-			pairadd(&request->config_items, nt_password);
 		}
 	}
 
 	challenge = pairfind(request->packet->vps, PW_MSCHAP_CHALLENGE);
 	if (!challenge) {
-		DEBUG2("  rlm_mschap: No MS-CHAP-Challenge in the request");
+		RDEBUG2("No MS-CHAP-Challenge in the request");
 		return RLM_MODULE_REJECT;
 	}
 
@@ -1564,7 +1166,7 @@ static int mschap_authenticate(void * instance, REQUEST *request)
 		 *	MS-CHAPv1 challenges are 8 octets.
 		 */
 		if (challenge->length < 8) {
-			radlog(L_AUTH, "rlm_mschap: MS-CHAP-Challenge has the wrong format.");
+			radlog_request(L_AUTH, 0, request, "MS-CHAP-Challenge has the wrong format.");
 			return RLM_MODULE_INVALID;
 		}
 
@@ -1572,7 +1174,7 @@ static int mschap_authenticate(void * instance, REQUEST *request)
 		 *	Responses are 50 octets.
 		 */
 		if (response->length < 50) {
-			radlog(L_AUTH, "rlm_mschap: MS-CHAP-Response has the wrong format.");
+			radlog_request(L_AUTH, 0, request, "MS-CHAP-Response has the wrong format.");
 			return RLM_MODULE_INVALID;
 		}
 
@@ -1580,12 +1182,12 @@ static int mschap_authenticate(void * instance, REQUEST *request)
 		 *	We are doing MS-CHAP.  Calculate the MS-CHAP
 		 *	response
 		 */
-		if (response->strvalue[1] & 0x01) {
-			DEBUG2("  rlm_mschap: Told to do MS-CHAPv1 with NT-Password");
+		if (response->vp_octets[1] & 0x01) {
+			RDEBUG2("Told to do MS-CHAPv1 with NT-Password");
 			password = nt_password;
 			offset = 26;
 		} else {
-			DEBUG2("  rlm_mschap: Told to do MS-CHAPv1 with LM-Password");
+			RDEBUG2("Told to do MS-CHAPv1 with LM-Password");
 			password = lm_password;
 			offset = 2;
 		}
@@ -1593,11 +1195,12 @@ static int mschap_authenticate(void * instance, REQUEST *request)
 		/*
 		 *	Do the MS-CHAP authentication.
 		 */
-		if (do_mschap(inst, request, password, challenge->strvalue,
-			      response->strvalue + offset, nthashhash) < 0) {
-			DEBUG2("  rlm_mschap: MS-CHAP-Response is incorrect.");
-			add_reply(&request->reply->vps, *response->strvalue,
-				  "MS-CHAP-Error", "E=691 R=1", 9);
+		if (do_mschap(inst, request, password, challenge->vp_octets,
+			      response->vp_octets + offset, nthashhash) < 0) {
+			RDEBUG2("MS-CHAP-Response is incorrect.");
+			mschap_add_reply(request, &request->reply->vps,
+					 *response->vp_octets,
+					 "MS-CHAP-Error", "E=691 R=1", 9);
 			return RLM_MODULE_REJECT;
 		}
 
@@ -1610,7 +1213,7 @@ static int mschap_authenticate(void * instance, REQUEST *request)
 		 *	MS-CHAPv2 challenges are 16 octets.
 		 */
 		if (challenge->length < 16) {
-			radlog(L_AUTH, "rlm_mschap: MS-CHAP-Challenge has the wrong format.");
+			radlog_request(L_AUTH, 0, request, "MS-CHAP-Challenge has the wrong format.");
 			return RLM_MODULE_INVALID;
 		}
 
@@ -1618,7 +1221,7 @@ static int mschap_authenticate(void * instance, REQUEST *request)
 		 *	Responses are 50 octets.
 		 */
 		if (response->length < 50) {
-			radlog(L_AUTH, "rlm_mschap: MS-CHAP-Response has the wrong format.");
+			radlog_request(L_AUTH, 0, request, "MS-CHAP-Response has the wrong format.");
 			return RLM_MODULE_INVALID;
 		}
 
@@ -1627,7 +1230,7 @@ static int mschap_authenticate(void * instance, REQUEST *request)
 		 */
 		username = pairfind(request->packet->vps, PW_USER_NAME);
 		if (!username) {
-			radlog(L_AUTH, "rlm_mschap: We require a User-Name for MS-CHAPv2");
+			radlog_request(L_AUTH, 0, request, "We require a User-Name for MS-CHAPv2");
 			return RLM_MODULE_INVALID;
 		}
 
@@ -1635,30 +1238,34 @@ static int mschap_authenticate(void * instance, REQUEST *request)
 		/*
 		 *	with_ntdomain_hack moved here
 		 */
-		if ((username_string = strchr((char *)username->strvalue, '\\')) != NULL) {
+		if ((username_string = strchr(username->vp_strvalue, '\\')) != NULL) {
 		        if (inst->with_ntdomain_hack) {
 			        username_string++;
 			} else {
-				DEBUG2("  rlm_mschap: NT Domain delimeter found, should we have enabled with_ntdomain_hack?");
-				username_string = (char *)username->strvalue;
+				RDEBUG2("  NT Domain delimeter found, should we have enabled with_ntdomain_hack?");
+				username_string = username->vp_strvalue;
 			}
 		} else {
-		        username_string = (char *)username->strvalue;
+		        username_string = username->vp_strvalue;
 		}
-		
-		DEBUG2("  rlm_mschap: Told to do MS-CHAPv2 for %s with NT-Password",
-		       username_string);
 
-#if __APPLE__
-		if (nt_password == NULL)
-		{
-			/* if there is no nt_password do our Open Directory authentication */ 
-			DEBUG2("  rlm_mschap: No NT-Password configured. Trying DirectoryService Authentication.");
-			
-			return od_mschap_auth(request, challenge, username);
+#ifdef __APPLE__
+		/*
+		 *  No "known good" NT-Password attribute.  Try to do
+		 *  OpenDirectory authentication.
+		 *
+		 *  If OD determines the user is an AD user it will return noop, which
+		 *  indicates the auth process should continue directly to AD.
+		 *  Otherwise OD will determine auth success/fail.
+		 */
+		if (!nt_password && inst->open_directory) {
+			RDEBUG2("No NT-Password configured. Trying OpenDirectory Authentication.");
+			int odStatus = od_mschap_auth(request, challenge, username);
+			if (odStatus != RLM_MODULE_NOOP) {
+				return odStatus;
+			}
 		}
 #endif
-
 		/*
 		 *	The old "mschapv2" function has been moved to
 		 *	here.
@@ -1666,19 +1273,20 @@ static int mschap_authenticate(void * instance, REQUEST *request)
 		 *	MS-CHAPv2 takes some additional data to create an
 		 *	MS-CHAPv1 challenge, and then does MS-CHAPv1.
 		 */
-		challenge_hash((char *)response->strvalue + 2, /* peer challenge */
-			       (char *)challenge->strvalue, /* our challenge */
+		challenge_hash(response->vp_octets + 2, /* peer challenge */
+			       challenge->vp_octets, /* our challenge */
 			       username_string,	/* user name */
-			       (char *)mschapv1_challenge); /* resulting challenge */
-		
-		DEBUG2("  rlm_mschap: Told to do MS-CHAPv2 for %s with NT-Password",
+			       mschapv1_challenge); /* resulting challenge */
+
+		RDEBUG2("Told to do MS-CHAPv2 for %s with NT-Password",
 		       username_string);
 
 		if (do_mschap(inst, request, nt_password, mschapv1_challenge,
-			      response->strvalue + 26, nthashhash) < 0) {
-			DEBUG2("  rlm_mschap: FAILED: MS-CHAP2-Response is incorrect");
-			add_reply(&request->reply->vps, *response->strvalue,
-				  "MS-CHAP-Error", "E=691 R=1", 9);
+			      response->vp_octets + 26, nthashhash) < 0) {
+			RDEBUG2("FAILED: MS-CHAP2-Response is incorrect");
+			mschap_add_reply(request, &request->reply->vps,
+					 *response->vp_octets,
+					 "MS-CHAP-Error", "E=691 R=1", 9);
 			return RLM_MODULE_REJECT;
 		}
 
@@ -1690,16 +1298,16 @@ static int mschap_authenticate(void * instance, REQUEST *request)
 
 		auth_response(username_string, /* without the domain */
 			      nthashhash, /* nt-hash-hash */
-			      response->strvalue + 26, /* peer response */
-			      (char *)response->strvalue + 2, /* peer challenge */
-			      (char *)challenge->strvalue, /* our challenge */
-			      (char *)msch2resp); /* calculated MPPE key */
-		add_reply(&request->reply->vps, *response->strvalue,
-			   "MS-CHAP2-Success", (const char *)msch2resp, 42);
+			      response->vp_octets + 26, /* peer response */
+			      response->vp_octets + 2, /* peer challenge */
+			      challenge->vp_octets, /* our challenge */
+			      msch2resp); /* calculated MPPE key */
+		mschap_add_reply(request, &request->reply->vps, *response->vp_octets,
+				 "MS-CHAP2-Success", msch2resp, 42);
 		chap = 2;
 
 	} else {		/* Neither CHAPv1 or CHAPv2 response: die */
-		radlog(L_AUTH, "rlm_mschap: No MS-CHAP response found");
+		radlog_request(L_AUTH, 0, request, "No MS-CHAP response found");
 		return RLM_MODULE_INVALID;
 	}
 
@@ -1715,21 +1323,23 @@ static int mschap_authenticate(void * instance, REQUEST *request)
 		 *	They're found, but they don't exist, so we
 		 *	return 'not found'.
 		 */
-		if (((smb_ctrl->lvalue & ACB_DISABLED) != 0) ||
-		    ((smb_ctrl->lvalue & ACB_NORMAL) == 0)) {
-			DEBUG2("  rlm_mschap: SMB-Account-Ctrl says that the account is disabled, or is not a normal account.");
-			add_reply( &request->reply->vps, *response->strvalue,
-				   "MS-CHAP-Error", "E=691 R=1", 9);
+		if (((smb_ctrl->vp_integer & ACB_DISABLED) != 0) ||
+		    ((smb_ctrl->vp_integer & ACB_NORMAL) == 0)) {
+			RDEBUG2("SMB-Account-Ctrl says that the account is disabled, or is not a normal account.");
+			mschap_add_reply(request, &request->reply->vps,
+					  *response->vp_octets,
+					  "MS-CHAP-Error", "E=691 R=1", 9);
 			return RLM_MODULE_NOTFOUND;
 		}
 
 		/*
 		 *	User is locked out.
 		 */
-		if ((smb_ctrl->lvalue & ACB_AUTOLOCK) != 0) {
-			DEBUG2("  rlm_mschap: SMB-Account-Ctrl says that the account is locked out.");
-			add_reply( &request->reply->vps, *response->strvalue,
-				   "MS-CHAP-Error", "E=647 R=0", 9);
+		if ((smb_ctrl->vp_integer & ACB_AUTOLOCK) != 0) {
+			RDEBUG2("SMB-Account-Ctrl says that the account is locked out.");
+			mschap_add_reply(request, &request->reply->vps,
+					  *response->vp_octets,
+					  "MS-CHAP-Error", "E=647 R=0", 9);
 			return RLM_MODULE_USERLOCK;
 		}
 	}
@@ -1740,10 +1350,10 @@ static int mschap_authenticate(void * instance, REQUEST *request)
 		uint8_t mppe_recvkey[34];
 
 		if (chap == 1){
-			DEBUG2("rlm_mschap: adding MS-CHAPv1 MPPE keys");
+			RDEBUG2("adding MS-CHAPv1 MPPE keys");
 			memset(mppe_sendkey, 0, 32);
 			if (lm_password) {
-				memcpy(mppe_sendkey, lm_password->strvalue, 8);
+				memcpy(mppe_sendkey, lm_password->vp_octets, 8);
 			}
 
 			/*
@@ -1760,34 +1370,31 @@ static int mschap_authenticate(void * instance, REQUEST *request)
 			 */
 			memcpy(mppe_sendkey + 8,
 			       nthashhash, 16);
-			mppe_add_reply(&request->reply->vps,
+			mppe_add_reply(request,
 				       "MS-CHAP-MPPE-Keys",
-				       (const char *)mppe_sendkey, 32);
+				       mppe_sendkey, 32);
 		} else if (chap == 2) {
-			DEBUG2("rlm_mschap: adding MS-CHAPv2 MPPE keys");
+			RDEBUG2("adding MS-CHAPv2 MPPE keys");
 			mppe_chap2_gen_keys128(nthashhash,
-					       response->strvalue + 26,
+					       response->vp_octets + 26,
 					       mppe_sendkey, mppe_recvkey);
-			
-			mppe_add_reply(&request->reply->vps,
+
+			mppe_add_reply(request,
 				       "MS-MPPE-Recv-Key",
-				       (const char *)mppe_recvkey, 16);
-			mppe_add_reply(&request->reply->vps,
+				       mppe_recvkey, 16);
+			mppe_add_reply(request,
 				       "MS-MPPE-Send-Key",
-				       (const char *)mppe_sendkey, 16);
+				       mppe_sendkey, 16);
 
 		}
-		reply_attr = pairmake("MS-MPPE-Encryption-Policy",
-				      (inst->require_encryption)? "0x00000002":"0x00000001",
-				      T_OP_EQ);
-		rad_assert(reply_attr != NULL);
-		pairadd(&request->reply->vps, reply_attr);
-		reply_attr = pairmake("MS-MPPE-Encryption-Types",
-				      (inst->require_strong)? "0x00000004":"0x00000006",
-				      T_OP_EQ);
-		rad_assert(reply_attr != NULL);
-		pairadd(&request->reply->vps, reply_attr);
-
+		radius_pairmake(request, &request->reply->vps,
+				"MS-MPPE-Encryption-Policy",
+				(inst->require_encryption)? "0x00000002":"0x00000001",
+				T_OP_EQ);
+		radius_pairmake(request, &request->reply->vps,
+				"MS-MPPE-Encryption-Types",
+				(inst->require_strong)? "0x00000004":"0x00000006",
+				T_OP_EQ);
 	} /* else we weren't asked to use MPPE */
 
 	return RLM_MODULE_OK;
@@ -1795,20 +1402,19 @@ static int mschap_authenticate(void * instance, REQUEST *request)
 }
 
 module_t rlm_mschap = {
-  "MS-CHAP",
-  RLM_TYPE_THREAD_SAFE,		/* type */
-  NULL,				/* initialize */
-  mschap_instantiate,		/* instantiation */
-  {
-	  mschap_authenticate,	/* authenticate */
-	  mschap_authorize,	/* authorize */
-	  NULL,			/* pre-accounting */
-	  NULL,			/* accounting */
-	  NULL,			/* checksimul */
-	  NULL,			/* pre-proxy */
-	  NULL,			/* post-proxy */
-	  NULL			/* post-auth */
-  },
-  mschap_detach,		/* detach */
-  NULL,				/* destroy */
+	RLM_MODULE_INIT,
+	"MS-CHAP",
+	RLM_TYPE_THREAD_SAFE,		/* type */
+	mschap_instantiate,		/* instantiation */
+	mschap_detach,		/* detach */
+	{
+		mschap_authenticate,	/* authenticate */
+		mschap_authorize,	/* authorize */
+		NULL,			/* pre-accounting */
+		NULL,			/* accounting */
+		NULL,			/* checksimul */
+		NULL,			/* pre-proxy */
+		NULL,			/* post-proxy */
+		NULL			/* post-auth */
+	},
 };

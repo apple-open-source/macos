@@ -1,12 +1,1914 @@
 
-2007-10-16     Nick Kledzik    <kledzik@apple.com>
+----- Tagged ld64-95.2.12
+
+2009-07-02    Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6836647> creation of __unwind_info section can fail if hundreds of functions cannot be compact encoded
+
+
+----- Tagged ld64-95.2.11
+
+2009-06-19    Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6960981> Link Time Optimization errors out when targeting < 10.6
+
+
+----- Tagged ld64-95.2.10
+
+2009-04-02    Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6805002> corrupt metaclass entry in dynamic library
+	* src/ld/ld.cpp: change Section constructor to copy segment and section names
+
+
+----- Tagged ld64-95.2.9
+
+2009-04-02    Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6744267> Update ld64 for new triples introduced in 6654669 to support ARM LLVM
+	* src/ld/LTOReader.hpp: change "arm-" to "arm" so matching works for new triples
+
+
+----- Tagged ld64-95.2.8
+
+2009-03-24    Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6713931> anonymous functions have the compact unwind info computed wrong
+	* ld/MachOReaderRelocatable.hpp: use new compact unwind function in AnonymousAtom
+
+
+----- Tagged ld64-95.2.7
+
+2009-03-11    Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6670421> AddressBook incorrectly gets _objc_msgSend from WebKit
+	* src/ld/MachOReaderDylib.hpp: fix processIndirectLibraries() to not force a private re-export of a dylib
+									that is already explictly or implicitly linked.
+	* unit-tests/test-cases/re-export-optimizations-indirect: add test case
+	
+
+2009-03-10    Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6665853> dyld weak linking optimization leaves some symbols unbound
+	* src/ld/MachOWriterExecutable.hpp: be sure to create bind entry for a reference 
+										to a symbol in a dylib that is a weak definition
+	* unit-tests/test-cases/coalesce_weak_def_in_dylib: add test case
+
+
+2009-03-10    Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6666004> many OS i386 OS dylibs still have __IMPORT segment
+	* ld/MachOReaderRelocatable.hpp: moved where __IMPORT/__pointer is changed to __DATA/__nl_symbol_ptr
+	* unit-tests/test-cases/stripped-indirect-symbol-table:  updated to test for this problem
+
+
+----- Tagged ld64-95.2.6
+
+2009-02-27     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6633530> ld might set MH_WEAK_DEFINES when it should not
+	* src/ld/MachOWriterExecutable.hpp: only consider atoms in fRegularDefAtomsThatOverrideADylibsWeakDef
+										that will be exported when computing MH_WEAK_DEFINES
+	* unit-tests/test-cases/operator-new: updated to reproduce issue
+	
+
+----- Tagged ld64-95.2.5
+
+2009-02-24     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6605499> x86_64 obj-c runtime confused when static lib is stripped
+	* src/ld/MachOWriterExecutable.hpp: in setLocalNlist() don't use 'l' labels for x86_64 strings
+	* unit-tests/test-cases/objc-literal-pointers-strip: added test case
+	
+
+----- Tagged ld64-95.2.4
+
+2009-02-23     Nick Kledzik    <kledzik@apple.com>
+
+	* src/ld/MachOReaderRelocatable.hpp: ignore ARM_THUMB_32BIT_BRANCH relocs
+
+
+2009-02-18     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6583555> Writer<A>::symbolIndex() uses a linear search and does not scale
+	* src/ld/MachOWriterExecutable.hpp: build a std::map so symbolIndex() scales better
+	
+
+2009-02-18     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6312070> Use new compact encodings that handle all register permutations
+	* src/ld/Architectures.hpp: add kSectionOffset24
+	* src/ld/ObjectFile.h: add getFDE()
+	* src/ld/MachOReaderRelocatable.hpp: use new libunwind functions to get new compact encoding
+	* src/ld/MachOWriterExecutable.hpp: use new compact encoding which includes offset in dwarf if needed
+	* src/other/unwinddump.cpp: update unwinddump output to display register save set
+	
+
+2009-02-16     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6511619> runtime error with bundle for 10.5 that has weak external symols
+	* src/ld/ld.cpp: fix hybrid (10.5) compressed linkedit info for data pointing to weak definitions
+	
+
+2009-02-15     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6583757> i386 relocation error with negative offsets from local labels
+	* src/ld/MachOReaderRelocatable.hpp: handle when base addr of scattered relocation does not point to a label
+	* unit-tests/test-cases/relocs-neg-from-local: add test case
+	
+
+2009-02-12     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6578360> -dead_strip inhibits weak coalescing in no_dead_strip section
+	* src/ld/ld.cpp: remove atoms coalesced away from fLiveRootAtoms
+	* unit-tests/test-cases/dead_strip-weak-coalesce: added test case
+
+
+2009-02-12     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6581809> x86_64 weak_import broken for initialized data
+	* src/ld/MachOReaderRelocatable.hpp: use isWeakImportSymbol() in Reader<x86_64>::addRelocReference()
+	* src/other/dyldinfo.cpp: update to display weak_import attribute
+	* unit-tests/test-cases/weak_import: updated test case
+	
+
+2009-02-06     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6541812> ld parsing of __eh_frame unwind information is slow
+	* src/ld/MachOReaderRelocatable.hpp: build a std::map of all __eh_frame relocations for x86_64
+
+
+----- Tagged ld64-95.2.3
+
+2009-02-04     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6545406> ld: warning: can't add line info to anonymous symbol
+	* src/ld/MachOReaderRelocatable.hpp: don't warn about line info in dyld stubs
+
+
+----- Tagged ld64-95.2.2
+
+2009-02-02     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6548268> ld -r does not preserve the N_NO_DEAD_STRIP bit
+	* src/ld/MachOWriterExecutable.hpp: set N_NO_DEAD_STRIP based on dontDeadStrip()
+	* unit-tests/test-cases/dead_strip-r_symbol_desc: added test case
+
+
+----- Tagged ld64-95.2.1
+
+2009-01-29     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6535736> ld coalesces C strings in different segments
+	* src/ld/MachOReaderRelocatable.hpp: only do standard coalescing on __cstring section if is in __TEXT segment
+	* unit-tests/test-cases/cstring-alt-segment: add test case
+	
+
+2009-01-29     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6532377> gcc DejaGnu failure: building longcall/dylib library
+	* src/ld/MachOWriterExecutable.hpp: if no __DATA sections insert non-lazy pointers at end of __TEXT segment
+	* unit-tests/test-cases/no-data-bundle: added test case
+
+
+----- Tagged ld64-95.2
+
+2009-01-06     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6476760> strip -S fails with "new trie is larger than original"
+	* src/other/PruneTrie.cpp: don't align trie more than original trie was aligned
+	
+
+----- Tagged ld64-95.1
+
+2008-12-21     Nick Kledzik    <kledzik@apple.com>
+
+        * src/ld/MachOWriterExecutable.hpp: in new linkedit format, make sure only exported symbols
+					make it into weak binding info
+	
+	
+----- Tagged ld64-95
+
+2008-12-18     Nick Kledzik    <kledzik@apple.com>
+
+	* src/ld/Options.cpp: move check for fSharedRegionEligible until fPrebind has stabilized
+	
+
+2008-12-18     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6305021> Generate new compressed LINKEDIT when targeting 10.6
+	* src/ld/Options.cpp: turn on compressed LINKEDIT by default
+	
+
+----- Tagged ld64-94.1
+
+2008-12-16     Nick Kledzik    <kledzik@apple.com>
+
+	* src/ld/Options.cpp: Fix -F handling in buildSearchPaths()
+
+
+----- Tagged ld64-94
+
+2008-12-15     Nick Kledzik    <kledzik@apple.com>
+
+	* doc/man/man1/ld.1: document new options
+	
+
+2008-12-15     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6134468> linker should enforce all .o files have same sub-type, and ignore sub-type of dylibs
+	* doc/man/man1/ld.1: update man page about -allow_sub_type_mismatches
+	* src/ld/ld.cpp: call validFile() with new arguments
+	* src/ld/MachOReaderRelocatable.hpp: add new arguments to validFile()
+	* src/ld/Options.cpp: Support LD_ALLOW_CPU_SUBTYPE_MISMATCHES and -allow_sub_type_mismatches
+	
+
+2008-12-15     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6438270> -syslibroot should skip standard search paths not in the SDK
+	* src/ld/Options.cpp: in buildSearchPaths() if an SDK is specified don't add 
+							standard search paths not in the SDK.
+
+
+2008-12-15     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6406609> ld: remove "can't make compact unwind encoding" warning
+	* src/ld/ObjectFile.h: add fWarnCompactUnwind
+	* src/ld/Options.cpp: -warn_compact_unwind --> fWarnCompactUnwind
+	* src/ld/MachOReaderRelocatable.hpp: test fWarnCompactUnwind before warning
+
+
+2008-12-15     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6442926> Add dtrace usdt support for arm to ld64
+	* src/ld/MachOWriterExecutable.hpp: handle arm::kDtraceIsEnabledSite
+	* unit-tests/test-cases/dtrace-static-probes: use is-enabled in test case
+
+
+----- Tagged ld64-93
+
+2008-12-11     Nick Kledzik    <kledzik@apple.com>
+
+	* src/ld/ObjectFile.h: add fIPhoneVersionMin to track min iPhoneOS version
+	* src/ld/Options.cpp: use fIPhoneVersionMin 
+	
+
+2008-12-11     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6431277> non-lazy pointer to non-global tentative definition encoded wrong
+	* src/ld/MachOWriterExecutable.hpp: don't use INDIRECT_SYMBOL_LOCAL for tentative definitions
+	* unit-tests/test-cases/non-lazy-r: updated test case
+
+
+2008-12-11     Nick Kledzik    <kledzik@apple.com>
+	
+	<rdar://problem/6437667> kernel fails to boot when ld64 used for intermediate ld -r step
+	* src/ld/MachOWriterExecutable.hpp: in -r mode when generating a scattered sect-diff reloc for
+									i386/arm, special case when from target is not the atom 
+									the relocation is in.
+	* unit-tests/test-cases/relocs-asm: update test case
+	
+
+2008-12-11     Nick Kledzik    <kledzik@apple.com>
+
+	* src/ld/ld.cpp: handle new __program_vars section
+	* src/ld/MachOWriterExecutable.hpp: handle inserting synthesized sections when there is no __dyld section
+
+
+2008-12-11     Nick Kledzik    <kledzik@apple.com>
+
+	* src/ld/MachOReaderRelocatable.hpp: Fix getDescription() to work when direct reference is to anonymous atom
+
+
+2008-12-10     Nick Kledzik    <kledzik@apple.com>
+
+	* src/ld/Options.cpp: enable LD_FORCE_NO_PREBIND to be used with arm
+
+
+2008-12-10     Nick Kledzik    <kledzik@apple.com>
+	
+	<rdar://problem/6258169> Developer tool to print the new compressed LINKEDIT information
+	* src/other/dyldinfo.cpp: fix typo in usage()
+	
+
+2008-12-05     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6308882> SnowLeopard kernel should compile warning free
+	* src/ld/MachOReaderRelocatable.hpp: correct parse two global labels at end of section and make one an alias
+	* unit-tests/test-cases/end-label: update test case
+
+
+2008-12-04     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6342245> Better warning than "PPC_RELOC_JBSR should not be using an external relocation"
+	* src/ld/MachOReaderRelocatable.hpp: issue warning with .o path if it was compiled with -mlong-branch
+
+
+2008-12-04     Nick Kledzik    <kledzik@apple.com>
+	
+	<rdar://problem/6408832> linker should not map __pointers -> __nl_symbol_ptr unless actually making new LINKEDIT
+	* src/ld/ObjectFile.h: add fMakeCompressedDyldInfo for readers to see
+	* src/ld/Options.cpp: set fMakeCompressedDyldInfo for readers to see
+	* src/ld/MachOReaderRelocatable.hpp: check fMakeCompressedDyldInfo
+
+
+2008-12-02     Nick Kledzik    <kledzik@apple.com>
+
+	* src/ld/debugline.c: fix error handling in line_open()
+	
+
+2008-11-26     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6401277> vtable with thumb entries broke after ld -r
+	* src/ld/MachOReaderRelocatable.hpp: if target of reloc is thumb, mask thumb bit off addend
+	* unit-tests/test-cases/thumb-pointer: added test case
+
+
+2008-11-26     Nick Kledzik    <kledzik@apple.com>
+
+	* src/ld/Option.cpp: Fix how crashreporterBuffer is created to not miss some arguments
+	
+
+2008-11-24     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6398605> Security.framework has some duplicate FDEs for some functions
+	* src/ld/ld.cpp: remove fDeadAtoms from fLiveAtoms when there are weak atoms overriden by late loads
+	* unit-tests/test-cases/dead_strip-archive-eh: added test case
+
+
+----- Tagged ld64-92
+
+2008-11-21     Nick Kledzik    <kledzik@apple.com>
+
+	* src/ld/MachOReaderDylib.hpp: if export_size is zero, no need to parse trie
+	* src/abstraction/MachOTrie.hpp: gracefully handle empty trie
+	
+
+2008-11-21     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6257854> strip(1) support for new compressed LINKEDIT information
+	* ld64.xcodeproj/project.pbxproj: build and install new libprunetrie.a
+	* src/other/prune_trie.h: added
+	* src/other/PruneTrie.cpp: implements prune_trie()
+	
+
+2008-11-21     Nick Kledzik    <kledzik@apple.com>
+
+	* src/ld/ld.cpp: if an export file is used and all weak symbols are masked, don't set WEAK_DEFINES
+	* unit-tests/test-cases/weak-def-flag: added test case
+
+
+2008-11-20     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6305021> Generate new compressed LINKEDIT when targeting 10.6
+	* src/ld/MachOWriterExecutable.hpp: support generating new compressed format
+	* src/ld/MachOReaderRelocatable.hpp: new compress format implies non-lazy pointers in __DATA for i386
+	* src/ld/MachOReaderDylib.hpp: support linking aginst new format
+	* src/ld/Options.cpp: suppport -exported_symbols_order and -no_compact_linkedit
+	* src/ld/ld.cpp: track which atoms have weak counter parts in dylibs
+	* src/other/dyldinfo.cpp: added tool to display new LINKEDIT format
+	* ld64.xcodeproj/project.pbxproj: add dyldinfo tool
+	* unit-tests/*: lots of fixes to work with new format
+
+
+2008-11-20     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6389316> ld64 should preserve N_WEAK_REF when linking MH_KEXT_BUNDLEs
+	* src/ld/MachOWriterExecutable.hpp: set up fWeakImportMap in synthesizeKextGOT() 
+
+
+2008-11-19     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6342406> VideoToolbox.framework has bad __TEXT.__eh_frame info
+	* src/ld/Options.cpp: add -no_eh_labels option for use with -r
+	* src/ld/MachOWriterExecutable.hpp: generate correct x86_64 labeless relocs in -r mode
+	* src/ld/MachOReaderRelocatable.hpp: now ignore all labels and relocations in
+		__TEXT/__eh_frame section and rely on getCFIs() from libunwind
+	* unit-tests/test-cases/eh-coalescing-no-labels: add test case
+
+
+2008-11-19     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6378110> LTO doesn't like dtrace symbols
+	* src/ld/LTOReader.hpp: ignore __dtrace_probe undefines in bitcode files
+	
+
+2008-11-14     Nick Kledzik    <kledzik@apple.com>
+
+	* src/abstraction/MachOFileAbstraction.hpp: fix to work with 10.5 headers
+	
+	
+----- Tagged ld64-91
+
+2008-11-07     Nick Kledzik    <kledzik@apple.com>
+
+	Remove COMPACT_UNWIND_SUPPORT conditionalizing
+	
+
+2008-11-06     Nick Kledzik    <kledzik@apple.com>
+
+	Reorganize source layout.  ld sources are now in "ld",
+	and other tools are in "other".
+	
+
+2008-11-05     Nick Kledzik    <kledzik@apple.com>
+
+	* ld64.xcodeproj/project.pbxproj: start installing unwinddump tool
+	* src/UnwindDump.cpp: support -arch option
+	* doc/man/man1/unwinddump.1: create man page
+
+
+2008-11-05     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6337329> linker should put cpusubtype in n_sect field of nlist entry for N_OSO debug note entries
+	* src/ld.cpp: in synthesizeDebugNotes() set other field of OSO to be subtype
+
+
+2008-11-05     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/3738966> Need a linker option to load all objects from one library
+	* src/Options.cpp: support -force_load option
+	* src/ArchiveReader.hpp: Add fForceLoad ivar
+	* doc/man/man1/ld.1:  update man page with -force_load option
+	* unit-tests/test-cases/archive-force-load: add test case
+
+
+2008-11-05     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6308882> Dtrace Probe Warnings: SnowLeopard kernel should compile warning free
+	* src/ld.cpp: don't generate GSYM stabs for old style __dtrace_probe
+	* src/MachOReaderRelocatable.hpp: fix test for deciding if a symbol is an alias
+	
+
+2008-11-04     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6294378> ADOBE: XCODE: ld: duplicate typeinfo in executable
+	* src/ld.cpp: in dead-strip mode, record overriden symbols and later rebind all uses
+	* unit-tests/test-cases/dead_strip-archive-weak: add test case
+	
+
+2008-11-03     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6254202> support increased branch range in Thumb-2
+	* src/MachOReaderRelocatable.hpp: handle full branch range in addRelocReference()
+	* unit-tests/test-cases/branch-distance: added test case
+	
+2008-10-31     Devang Patel    <dpatel@apple.com>
+
+	<rdar://problem/5725712> Sqlite 3.5.4 built with lvm-gcc-4.2 -O4 fails regression test
+	* src/LTOReader.hpp: Use real atom scope when real atom is available.
+	Preserve globals while optimizing an executable.
+
+2008-10-30     Nick Kledzik    <kledzik@apple.com>
+
+	* src/MachOReaderRelocatable.hpp: support all encodings in getEncodedP()
+
+
+----- Tagged ld64-90
+
+2008-10-30     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6327584> icc has dwarf unwind info that is different than gcc
+	* src/MachOReaderRelocatable.hpp: support more encodings in getEncodedP()
+
+
+2008-10-23     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6088653> build ld64 for x86_64
+	* ld64.xcodeproj/project.pbxproj: add X86_64 to valid archs
+	
+
+2008-10-23     Nick Kledzik    <kledzik@apple.com>
+
+	* ld64.xcodeproj/project.pbxproj: use generated @$(DERIVED_FILE_DIR)/linker_opts for extra
+		linker options.  This allows linker to be built if LTO headers and libs are missing.
+
+
+2008-10-23     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6273617> Linker warning not shown in the Xcode build log
+	* src/Options.cpp: add colon to format string in warning()
+
+
+----- Tagged ld64-89.3
+
+2008-10-24     Nick Kledzik    <kledzik@apple.com>
+	
+	<rdar://problem/6317985> ld64-89 broke TOT OpenGL libProgrammability x86_64 build	
+	* src/MachOReaderRelocatable.hpp: add cast in getEncodedP()
+	
+
+----- Tagged ld64-89.2
+
+2008-10-23     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6312895> SnowLeopard: Libsystem built with ld64-89.1 causes crashes
+	* src/MachOReaderRelocatable.hpp: when FDE information causes __text atom to be split, make the 
+			atoms follow-on pairs.
+
+
+----- Tagged ld64-89.1
+
+2008-10-22     Nick Kledzik    <kledzik@apple.com>
+
+	* src/MachOReaderRelocatable.hpp: for x86_64 __eh_frame force direct references
+	
+
+2008-10-21     Nick Kledzik    <kledzik@apple.com>
+
+	* src/ObjectDump.cpp: Use getContentType() to see if content type is a cstring
+	
+
+----- Tagged ld64-89
+
+2008-10-21     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6253171> 10A180 with QT-1119 roots: iTunes and QuickTime cannot play back purchased videos
+	<rdar://problem/5950453> linker should not need .eh labels
+	* src/MachOWriterExecutable.hpp: use kCFIType to set section attributes
+	* src/MachOReaderRelocatable.hpp: use libunwind's CFITuple to parse __eh_frame content
+	* src/ld.cpp: Add adjustScope() phase instead of demoting scope within symboltable.add()
+	* unit-tests/test-cases/eh-stripped-symbols: added test case
+
+
+----- Tagged ld64-88.1
+
+2008-10-16     Nick Kledzik    <kledzik@apple.com>
+
+	* src/MachOReaderRelocatable.hpp: Fix uses of COMPACT_UNWIND_SUPPORT
+	* src/MachOWriterExecutable.hpp: Fix uses of COMPACT_UNWIND_SUPPORT
+
+
+2008-09-30     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6255983> OBJC2: Reorder __DATA,__objc_* sections by writedness
+	* src/ld.cpp: change sorting order of Sections
+
+
+2008-09-29     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6159479> Executable produced by XCode 3.2 on 10.6 crashes on 10.3.9
+	* src/MachOWriterExecutable.hpp: set objc_module_info_addr field of module table
+	
+
+----- Tagged ld64-88
+
+2008-09-25     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5935708> kexts need to be built as MH_BUNDLE mach-o files
+	* src/ld.cpp: use getUndefinedProxyAtom() with kKextBundle
+	* src/MachOFileAbstraction.hpp: add MH_KEXT_BUNDLE
+	* src/Options.cpp: support -kext for all architectures
+	* src/MachOWriterExecutable.hpp: support kKextBundle to make a bundle like kext
+	* unit-tests/test-cases/kext-basic: added test case
+	
+
+2008-09-25     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6052546> ld invoking wrong ld_classic
+	* src/Options.cpp: first look for ld_classic relative to ld itself
+	
+
+2008-09-25     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5855588> ld fails to link references from 32 bit code into 64 bit code
+	<rdar://problem/5955200> Desired 32-bit absolute relocation
+	* src/Architectures.hpp: add x86_64::kPointer32
+	* src/MachOReaderRelocatable.hpp: support X86_64_RELOC_UNSIGNED with length=2
+	* src/MachOWriterExecutable.hpp: support x86_64::kPointer32
+	* unit-tests/test-cases/relocs-asm/relocs-asm.s: added 32-bit pointer tests
+	
+
+2008-09-25     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6075323> Should be able to mark dylibs as auto-dead-dylib-strip
+	* src/Options.h: add fMarkDeadStrippableDylib
+	* src/MachOReaderDylib.hpp: check MH_DEAD_STRIPPABLE_DYLIB
+	* src/ObjectFile.h: add deadStrippable()
+	* src/MachOFileAbstraction.hpp: add MH_DEAD_STRIPPABLE_DYLIB
+	* src/Options.cpp: support -mark_dead_strippable_dylib
+	* src/MachOWriterExecutable.hpp: test reader->deadStrippable(), set MH_DEAD_STRIPPABLE_DYLIB
+	* doc/man/man1/ld.1: update man page
+	* unit-tests/test-cases/dead_strippable_dylib: added test case
+	
+
+2008-09-25     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6197601> ER: Add -seg_page_size option
+	* src/Options.cpp: add -seg_page_size option
+	* src/MachOWriterExecutable.hpp: use new page size info when laying out segments
+	* doc/man/man1/ld.1: update man page
+	
+
+2008-09-24     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5798786> -arch_errors_fatal not working
+	* src/ld.cpp: check fOptions.errorOnOtherArchFiles()
+	* src/Options.cpp: turn -arch_errors_fatal into fOptions.errorOnOtherArchFiles()
+
+
+2008-09-24     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6161215> CrashTracer: [USER] 1 crash in ld at ld: 0x5ce02
+	* src/ld.cpp: abort if resolve() finds an unresolved reference, rather than allow a future crash
+	
+
+2008-09-24     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6157989> linker crashes linking X86-64 with -fwritable-strings
+	* src/MachOReaderRelocatable.hpp: handle unbound cfstring references
+	* unit-tests/test-cases/cfstring-coalesce: update test case
+	
+
+2008-09-24     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6213035> ld64: bl out of range (-17147704 max is +/-16M) on ppc
+	* src/MachOWriterExecutable.hpp: tweak branch island regions to be every 14MB instead of 15MB
+	
+
+2008-09-24     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5907981> -filelist fails with comma in path
+	* src/Options.cpp: in loadFileList() first try without special comma meaning 
+	* unit-tests/test-cases/filelist/Makefile: update test case
+	
+
+2008-09-23     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6203068> nop not used when aligning functions in -r mode
+	* src/MachOWriterExecutable.hpp: change check for when to pad with nops to not test segment's name
+	
+
+2008-09-23     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6238329> "-pie can only be used when linking a main executable" should be a warning, not an error
+	*  src/Options.cpp: make -pie on a dylib or bundle be a warning instead of an error
+	
+	
+2008-09-23     Nick Kledzik    <kledzik@apple.com>
+
+	* src/MachOReaderRelocatable.hpp: add warning if dwarf cannot be encoded as compact unwind
+	
+
+2008-09-18     Nick Kledzik    <kledzik@apple.com>
+
+	* src/LTOReader.hpp: re-enable use of lto_codegen_debug_options()
+
+
+2008-09-16     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6219054> ld does not always set S_CSTRING_LITERALS on __TEXT,__cstring
+	* src/MachOReaderRelocatable.hpp: add getContentType() to SymbolAtom
+	* src/MachOWriterExecutable.hpp: for x86_64 don't override named cstrings with LC* name
+	
+
+2008-09-10     Nick Kledzik    <kledzik@apple.com>
+
+	* Options.cpp: add __crashreporter_info__ to communicate command line to crash reporter
+	* ld64.xcodeproj/project.pbxproj: leave local symbols in ld to provide better crash reports
+
+
+2008-09-08     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6126637> 161569 GCC 4.2 - breakpoints no longer work for a large number of functions
+	* src/MachOReaderRelocatable.hpp: support DW_FORM_strp out-of-line strings when parsing line table
+
+
+2008-09-02     Nick Kledzik    <kledzik@apple.com>
+
+	* src/MachOReaderRelocatable.hpp: fix compact unwind personality for dyld and -slow_stubs
+	
+
+2008-08-29     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6186838> -weak_library no longer forces uses to be weak_import
+	* src/MachOWriterExecutable.hpp: use fWeakImport on dylib to force proxy atoms into fWeakImportMap
+	* unit-tests/test-cases/weak_import-force: added test case
+	
+
+2008-08-29     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6061558> linker should order __DATA segment to reduce dyld dirtied pages
+	* src/Options.cpp: add fOrderData and support -no_data_order
+	* src/ld.cpp: modify tweakLayout() to sort atoms with relocations to start of __data section 
+
+
+2008-08-27     Nick Kledzik    <kledzik@apple.com>
+
+	* src/Options.cpp:  back out <rdar://problem/6174493>
+
+
+----- Tagged ld64-87.5
+
+2008-08-26     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6174493> some projects show _Unwind_Resume coming from libSystem.B.dylib
+	* src/Options.cpp: swap any early symlinks to libSystem with libgcc_s
+
+
+----- Tagged ld64-87.4
+
+2008-08-25     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6174493> some projects show _Unwind_Resume coming from libSystem.B.dylib
+	* src/Options.cpp: swap any early libSystem with libgcc_s
+	
+
+2008-08-15     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5898326> Unable to build ppc debug builds (linker out of range error)
+	* src/MachOWriterExecutable.hpp: in addPPCBranchIslands() look ahead so large atoms don't push out branch islands
+
+	
+----- Tagged ld64-87.3.1
+
+2008-09-08     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6204202> i386 dylibs have incorrect personality pointers when put in dyld shared cache
+	* src/MachOWriterExecutable.hpp: in addCrossSegmentRef() handle kImageOffset32 to __IMPORT segment
+
+	
+----- Tagged ld64-87.3
+
+2008-08-09     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6125381> work around compiler gcc_except_table alignment
+	* src/ObjectFile.h: change getLSDA() to return a reference instead of an atom
+	* src/MachOReaderRelocatable.hpp: special case __eh_frame 64-bit pointer diff relocations
+	* src/MachOWriterExecutable.hpp: track lsda offset when creating __unwind_info section
+	* src/UnwindDump.cpp: log when LDSA content does not start with 0xFF
+
+----- Tagged ld64-87.2
+
+2008-08-07     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6131559> 10A141: libuwind falls back to dwarf and makes whole system super slow
+	* src/MachOWriterExecutable.hpp: Fix sign extension bug with x86_64::kPointerDiff24
+	* src/UnwindDump.cpp: warn about mangled LSDA entries when dumping unwind section
+	
+
+----- Tagged ld64-87.1
+
+2008-08-03     Nick Kledzik    <kledzik@apple.com>
+
+	* src/LTOReader.hpp: Don't use lto_codegen_debug_options until newer libLTO.dylib is available
+
+
+----- Tagged ld64-87
+
+2008-07-21     Nick Kledzik    <kledzik@apple.com>
+
+	* src/Options.cpp: Always set fAutoOrderInitializers=false for dyld
+	
+
+2008-07-21     Nick Kledzik    <kledzik@apple.com>
+
+	* src/MachOWriterExecutable.hpp: fix when regular vs compressed __unwind_info pages are generated
+	* src/UnwindDump.cpp: fix function name decoding in regular pages 
+	
+	
+2008-07-21     Nick Kledzik    <kledzik@apple.com>
+
+	* ld64.xcodeproj/project.pbxproj: don't allow ld to build for x86_64 until libdtrace.dylib is available
+	
+
+2008-07-18     Nick Kledzik    <kledzik@apple.com>
+
+	* src/MachOReaderRelocatable.hpp: don't crash if debug_line section has no line table
+
+
+2008-07-18     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5628149> Duplicate probe firings in Security.framework
+	* src/LTOReader.hpp: optimize() now returns atoms optimized away
+	* src/ObjectFile.h: optimize() should return if it did anything
+	* src/ArchiveReader.hpp: pass through optimize() result
+	* src/ld.cpp: rework dtrace probe processing as a new pass to prevent double counting
+
+
+2008-07-15     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6061904> automatically order initializers to start of __TEXT
+	* src/Options.cpp: add -no_order_inits option
+	* src/MachOReaderRelocatable.hpp: merge __StaticInit into __text
+	* src/ObjectFile.h: add fAutoOrderInitializers
+	* src/ld.cpp: sort initializer to start of __text and terminators to end
+	* doc/man/man1/ld.1: add doc about -no_order_inits
+	* unit-tests/test-cases/init-order: add test case
+
+2008-07-15     Nick Kledzik    <kledzik@apple.com>
+	
+	<rdar://problem/6073697> Only add LC_SEGMENT_SPLIT_INFO to dylibs that might be in the shared cache
+	* src/MachOWriterExecutable.hpp: re-layout load commands after split-seg data computed
+	* src/Options.cpp: non-public install name will disable split-seg load command
+	
+
+2008-07-14     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6069861> ld -r for x86_64 is changing visibility of cstring constants
+	* src/MachOWriterExecutable.hpp: force x86_64 cstring labels to be local in -r mode
+	* unit-tests/test-cases/cstring-label: added test case
+	
+
+2008-07-11     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6070190> ld not adding updating LC_SEGMENT_SPLIT_INFO with __unwind_info section
+	* src/MachOWriterExecutable.hpp: run createSplitSegContent() after __unwind_info section is created
+	
+2008-07-10     Nick Kledzik    <kledzik@apple.com>
+
+	* src/LTOReader.hpp: improve missing symbol error message
+
+
+2008-07-09     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6061558> linker should order __DATA segment to reduce dyld dirtied pages
+	* src/ld.cpp: first phase, order sections
+
+
+2008-07-08     Nick Kledzik    <kledzik@apple.com>
+
+	* src/MachOReaderRelocatable.hpp: remove "coal" sections when creating a final linked image
+
+
+2008-07-08     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6054476> ld: add support for mllvm LTO options
+	* src/Options.cpp: support -mllvm option
+	* src/LTOReader.hpp: call lto_codegen_debug_options() with -mllvm options
+	* src/ld.cpp: pass llvmOptions to optimize()
+	* src/Options.h: add fLLVMOptions
+	* src/ArchiveReader.hpp: add llvmOptions parameter to optimize()
+	* src/ObjectFile.h: add llvmOptions parameter to optimize()
+	* unit-tests/test-cases/lto-llvm-options: add test case
+	
+	
+2008-07-07     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6054296> Linker fails with: 24-bit pointer diff out of range in unwind info in unwind info from...
+	* src/MachOWriterExecutable.hpp: fix when to fallback to uncompressed unwind info
+
+
+2008-07-03     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6001472> ld crash with gcc-4.0 code that uses a zero sized array
+	* src/MachOReaderRelocatable.hpp: handle zero size atom in a zero sized section
+	
+
+2008-07-03     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6016809> ld crashes when bad ppc relocs are found
+	* src/MachOReaderRelocatable.hpp: change all missing PAIR warnings to errors
+	
+
+2008-07-02     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5881324> when linking a kext the static linker should leave a pad in the headers to allow code signing
+	* src/MachOWriterExecutable.hpp: add padding for load commands in object files
+	* unit-tests/test-cases/code-signed-object-file: added test case
+	
+
+2008-07-02     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6048484> LC_SEGMENT_64 filesize incorrect for MH_OBJECT filetype
+	* src/MachOWriterExecutable.hpp: correctly set segment size info in object files
+	* unit-tests/test-cases/no-object-symbols: add test case
+
+
+2008-06-26     Nick Kledzik    <kledzik@apple.com>
+
+	* ld64.xcodeproj/project.pbxproj: enable ld and rebase targets to build for x86_64
+	* src/rebase.cpp: remove unused fRelocBase field that was not 64-bit clean
+	* src/MachOReaderRelocatable.hpp: fix getEncodedP() to be 64-bit clean
+
+
+----- Tagged ld64-86.3
+
+2008-06-17     Nick Kledzik    <kledzik@apple.com>
+	
+	* src/ld.cpp: fix loadUndefines() to double check undefine symbol was not already loaded
+
+	
+----- Tagged ld64-86.2
+	
+2008-06-14     Nick Kledzik    <kledzik@apple.com>
+
+	* srd/ld.cpp: Add NULL check in getTentativesNames()
+	
+	
+----- Tagged ld64-86.1
+
+2008-06-06     Nick Kledzik    <kledzik@apple.com>
+
+	* src/MachOWriterExecutable.hpp: fix header padding calculation for dyld
+	
+
+----- Tagged ld64-86
+
+2008-06-04     Nick Kledzik    <kledzik@apple.com>
+
+	* src/LTOReader.hpp: if lto_codegen_add_module() fails, add explanation to error message
+	
+
+2008-06-04     Nick Kledzik    <kledzik@apple.com>
+
+	* src/ObjectFile.h: add deadAtoms parameter to optimize()
+	* src/ld.cpp: ditto
+	* src/ArchiveReader.hpp: ditto
+	* src/MachOReaderRelocatable.hpp: handle llvm use of 0x1B pointer encodings in CIEs
+	* src/LTOReader.hpp: make sure libLTO.dylib knows about any llvm symbol coalesced away
+	* unit-tests/test-cases/lto-weak-native-override: add test case
+
+
+2008-06-04     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5935600> LTO : 176.gcc and 177.mesa build failure at -O4
+	* src/LTOReader.hpp: make sure internal is returned by getAtoms()
+	* unit-tests/test-cases/lto-archive-dylib: update test case
+
+
+2008-06-03     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5894163> fix for 5613343 need to search for definitions for common symbols is broken
+	* src/ld.cpp: modify loadUndefines() to check for undefines in all files and tentative definitions but only in archives
+	* src/machochecker.cpp: check for undefine symbols and external symbols with same name
+	* unit-tests/test-cases/tentative-and-archive: update test case
+
+
+2008-06-03     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5935237> linker produces wrong result for 16-bit call relocations
+	* src/MachOReaderRelocatable.hpp: properly parse i386 scattered relocs for word sized pc-rel vanilla
+	* src/MachOWriterExecutable.hpp: propery compute displacement for x86::kPCRel16
+	* unit-tests/test-cases/relocs-asm: update test case with callw instructions
+	
+
+2008-06-03     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5905900> Building kext x86_64 with unexported symbols file causes linking problems
+	* src/MachOWriterExecutable.hpp: better check when creating undefined proxy atoms
+	* unit-tests/test-cases/unexported_symbols_list-r: added test case
+	
+
+2008-06-02     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5659338> S_CSTRING_LITERALS section type not preserved in executable
+	* src/ObjectFile.h: added ContentType
+	* src/MachOReaderRelocatable.hpp: set ContentType for anonymous string literals
+	* src/MachOWriterExecutable.hpp: set S_CSTRING_LITERALS if ContentType is kCStringType
+	* unit-tests/test-cases/cstring-custom-section: added test case
+	
+
+2008-06-02     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5980194> linker should produce __unwind_info section in final linked images
+	* src/ld.cpp: sort __unwind_info then __eh_frame section to end of __TEXT
+	* src/Architectures.hpp: add kImageOffset32 and kPointerDiff24
+	* src/ObjectFile.h: add compact unwind info support
+	* src/MachOReaderRelocatable.hpp: add compact unwind info support
+	* src/MachOFileAbstraction.hpp: add C++ wrappers for unwind section layout
+	* src/UnwindDump.cpp: new tool for dumping __unwind_info section
+	* src/MachOWriterExecutable.hpp: create __unwind_info section when needed
+	* src/ObjectDump.cpp: print unwind info
+	
+
+2008-06-02     Nick Kledzik    <kledzik@apple.com>
+
+	* unit-tests/test-cases/llvm-integration: split out some test cases
+	* unit-tests/test-cases/lto-preload-pie: added
+	* unit-tests/test-cases/lto-archive-dylib: added
+
+
+2008-05-30     Nick Kledzik    <kledzik@apple.com>
+
+	* unit-tests: fixes to build all tests with with gcc-4.2 on SnowLeopard
+	
+
+2008-05-30     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5536348> support -preload option to generate MH_PRELOAD binaries compatible with mtoc(1) and EFI
+	* src/ld.cpp: add entryPoint parameter to optimize()
+	* src/ArchiveReader.hpp: ditto
+	* src/ObjectFile.h: ditto
+	* src/LTOReader.hpp: use entryPoint parameter to optimize()
+	* src/Options.h: add kPreload and segment alignment
+	* src/Options.cpp: support -preload and -segalign
+	* src/MachOWriterExecutable.hpp: support kPreload and non-page aligned segments 
+
+
+2008-05-30     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/4431008> ld should warn if passed -r and also dylibs
+	* src/ld.cpp: check for spurious dylibs in Linker::addDylib()
+
+
+----- Tagged ld64-85.6
+	
+2008-11-01     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6254202> support increased branch range in Thumb-2
+	* src/MachOWriterExecutable.hpp: in fixUpReferenceFinal() support new longer branch range
+
+
+2008-11-01     Nick Kledzik    <kledzik@apple.com>
+	
+	<rdar://problem/6104368> ld warning: unknown option to -iphoneos_version_min, not 1.x or 2.x
+	* src/Options.cpp: In setIPhoneVersionMin() support 3.x
+
+	
+----- Tagged ld64-85.5
+
+2008-09-17     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6162415> vtable pointers can be missing thumb bit
+	* src/MachOWriterExecutable.hpp: Writer<arm>::fixUpReferenceFinal() OR in the 1 bit if the target
+		of a arm::kReadOnlyPointer is thumb.
+
+
+----- Tagged ld64-85.4
+
+2008-08-11     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6138961> ld should ignore LD_PREBIND when processing a static archive
+	* src/MachOWriterExecutable.hpp: in setImportNlist() never use N_PBUD for object files
+	
+----- Tagged ld64-85.3
+
+2008-07-14     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/6060912> Prebinding busted in DTSB
+	* src/Options.cpp: check for libstdc++.6.0.[49] in seg_addr_table
+	
+
+----- Tagged ld64-85.2
+
+2008-05-06     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5905889> ARM ld should take W bit off of maxprot for __TEXT segment
+	* src/MachOWriterExecutable.hpp: for iPhone always set maxprot to be initprot in all segments
+
+
+2008-05-06     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5914343> encryptable images may not be signable
+	* src/MachOWriterExecutable.hpp: use minimum header padding when aligning __text section
+	
+
+----- Tagged ld64-85 (Xcode 3.1)
+
+2008-04-29     Nick Kledzik    <kledzik@apple.com>
+
+	* ld64.xcodeproj/project.pbxproj: <llvm-c/lto.h> is moving from /usr/local/include to /Developer/usr/local/include
+
+
+2008-04-29     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5829579> ld doesn't honor "rightmost" -syslibroot argument
+	* src/Options.cpp: if last -syslibroot is /, then ignore all syslibroots
+
+
+2008-04-29     Nick Kledzik    <kledzik@apple.com>
+	
+	<rdar://problem/5866582> GLRendererFloat has bad __eh_frame section caused by mixing llvm-gcc and gcc object files
+	* src/MachOReaderRelocatable.hpp: make all atoms in __eh_frame section have 1-byte alignment
+	* src/MachOWriterExecutable.hpp: make __eh_frame section have pointer sized alignment
+
+
+2008-04-17     Nick Kledzik    <kledzik@apple.com>
+
+	* src/MachOReaderRelocatable.hpp: better cpu subtype support
+
+
+2008-04-14     Nick Kledzik    <kledzik@apple.com>
+	
+	<rdar://problem/5733759> ld64 has bad ARM branch island check
+	* src/MachOWriterExecutable.hpp: in addBranchIslands() don't force large arm programs to fail
+	
+
+2008-04-10     Nick Kledzik    <kledzik@apple.com>
+
+	* src/MachOWriterExecutable.hpp: fix stubs used with lazy dylibs
+	
+
+----- Tagged ld64-84.4
+
+2008-04-10     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5847206> SPEC2000/eon built with -mdynamic-no-pic won't run
+	* src/Architectures.hpp: added arm::kReadOnlyPointer
+	* src/MachOReaderRelocatable.hpp: generate arm::kReadOnlyPointer
+	* src/MachOWriterExecutable.hpp: use arm::kReadOnlyPointer
+	* src/machochecker.cpp: allow MH_PIE bit
+	* unit-tests/test-cases/switch-jump-table: added test cases
+	
+
+----- Tagged ld64-84.3
+
+2008-04-09     Nick Kledzik    <kledzik@apple.com>
+	
+	<rdar://problem/5852023> -undefined dynamic_lookup busted
+	* src/ld.cpp: don't create proxy atom when scanning for dylib duplicates
+	* unit-tests/test-cases/tentative-and-archive: use -undefined dynamic_lookup
+
+
+----- Tagged ld64-84.2
+
+2008-04-04     Nick Kledzik    <kledzik@apple.com>
+
+	* src/ld.cpp: don't add .eh symbols to symbol table in -r mode
+	* unit-tests/test-cases/eh-coalescing-r: update to test out of order coalescing
+	
+
+----- Tagged ld64-84.1
+
+2008-03-28     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5720961> ld should prefer architecture-specific variant over generic in fat object file
+	* src/Options.cpp: fully process -arch arguments into fArchitecture and fSubArchitecture
+	* src/ld.cpp: when -arch with a subtype is used, try to find the exact subtype from fat files
+	* unit-tests/test-cases/cpu-sub-types-preference: added test cases for arm and ppc
+	
+
+----- Tagged ld64-84
+
+2008-03-28     Nick Kledzik    <kledzik@apple.com>
+
+	* src/LTOReader.hpp: don't print lto version, if lto is unavailable
+	
+
+2008-03-26     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5575399> Add LD_WARN_COMMONS to BigBear builds
+	* src/Options.cpp: Add support for LD_WARN_FILE which copies all warnings to a side file
+	
+
+2008-03-26     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5797713> Need encryption tag in mach-o file
+	<rdar://problem/5811920> linker should adjust arm final linked images so __text is never on the same page as the load commands
+	* src/MachOFileAbstraction.hpp: add support for encryption_info_command
+	* src/Options.cpp: add support for LD_NO_ENCRYPT and -no_encryption
+	* src/MachOWriterExecutable.hpp: add EncryptionLoadCommandsAtom
+	* src/machochecker.cpp: validate LC_ENCRYPTION_INFO
+	
+
+2008-03-25     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5712533> ld64 does not recognize LLVM bitcode archive files
+	* src/MachOReaderArchive.hpp: renamed to src/ArchiveReader.hpp
+	* src/ArchiveReader.hpp: sniff each member and instantiate correct reader
+	* src/ld.cpp: rename mach_o::archive::Reader to archive::Reader
+	* ld64.xcodeproj/project.pbxproj: rename MachOReaderArchive.hpp to ArchiveReader.hpp
+	* unit-tests/test-cases/llvm-integration: added test case
+
+
+2008-03-25     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5771658> ld64 should switch to new libLTO.dylib interface
+	<rdar://problem/5675690> Produce llvm bc file in 'ld -r' mode if all .o files are llvm bc
+	* src/LTOReader.hpp: rewrite from LLVMReader.hpp to use new lto_* C interface
+	* unit-tests/test-cases/llvm-integration: update and comment
+	* ld64.xcodeproj/project.pbxproj: update to lazy load libLTO.dylib 
+	* src/ld.cpp: rework and simplify Linker::optimize() 
+	* src/ObjectDump.cpp: Add -nm option
+	
+
+2008-03-25     Nick Kledzik    <kledzik@apple.com>
+
+	* src/MachOReaderRelocatable.cpp: Fix some .objc_class_name_ off by one problem
+	* src/MachOWriterExecutable.cpp: Fix some .objc_class_name_ off by one problem
+
+
+2008-03-24     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5814613> Xcode 3.1 breaks linkage of libgcj.9.dylib from gcc 4.3.0
+	* src/MachOWriterExecutable.cpp: Make sure all ivars in Writer are initialized.
+
+
+2008-03-21     Nick Kledzik    <kledzik@apple.com>
+
+	* src/Options.cpp: warn if -seg1addr value is not page aligned
+	
+
+2008-03-21     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5806437> Move ARM support outside of __OPEN_SOURCE__
+	* src/ld.cpp: remove __OPEN_SOURCE__ around arm support
+	* src/LLVMReader.hpp: remove __OPEN_SOURCE__ around arm support
+	* src/MachOReaderDylib.hpp: remove __OPEN_SOURCE__ around arm support
+	* src/ObjectFile.h: remove __OPEN_SOURCE__ around arm support
+	* src/MachOReaderRelocatable.hpp: remove __OPEN_SOURCE__ around arm support
+	* src/OpaqueSection.hpp: Cover arm support inside __OPEN_SOURCE__ macro check
+	* src/MachOWriterExecutable.hpp: remove __OPEN_SOURCE__ around arm support
+	* src/ObjectDump.cpp: remove __OPEN_SOURCE__ around arm support
+	* ld64.xcodeproj/project.pbxproj: remove ARM_SUPPORT from config.h
+	
+
+----- Tagged ld64-83.2
+	
+2008-03-15     Nick Kledzik    <kledzik@apple.com>
+	
+	<rdar://problem/5801620> ld64-83 removes OBJC_CLASS_$ symbols from projects, causes catastrophic results
+	* src/Options.cpp: restore "case CPU_TYPE_ARM" in switch statement for .objc_class symbols in .exp files
+	* unit-tests/test-cases/objc-exported_symbols_list: added test case
+	
+	
+----- Tagged ld64-83.1
+
+2008-03-14     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5800466> -iphone_version_min ==> -iphoneos_version_min
+	* src/Options.cpp: support -iphoneos_version_min as well
+	
+
+----- Tagged ld64-83
+
+2008-03-10     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5791543> ld needs to strip iphone_version_min option if invoking ld_classic
+	* src/Options.cpp: suppress -iphone_version_min from being passed to ld_classic
+	
+
+2008-03-04     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/4171253> ADOBE XCODE: Linker option to lazy load frameworks (cause dyld is too slow)
+	* src/MachOWriterExecutable.hpp: create lazy stubs and LC_LAZY_LOAD_DYLIB for lazy load dylibs
+	* src/Options.cpp: support -lazy-l, -lazy_library, and -lazy_framework
+	* src/MachOFileAbstraction.hpp: add LC_LAZY_LOAD_DYLIB and S_LAZY_DYLIB_SYMBOL_POINTERS until in cctools
+	* src/MachOReaderDylib.hpp: add isLazyLoadedDylib()
+	* src/ld.cpp: pass lazy helper atom to writer
+	* doc/man/man1/ld.1: document new options
+	* unit-tests/test-cases/lazy-dylib-objc: add test case
+	* unit-tests/test-cases/lazy-dylib: add test case
+	
+
+----- Tagged ld64-82.7
+
+2008-03-07     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5787149> duplicate symbol literal-pointer@__OBJC@__message_refs@...
+	* src/MachOReaderRelocatable.hpp: AnonymousAtom from S_LITERAL_POINTERS section should be weak
+	* unit-tests/test-cases/objc-selector-coalescing: added test case
+
+	
+----- Tagged ld64-82.6
+
+2008-03-04     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5779681> ld crashes building XsanFS for Snow Leopard Builds
+	* src/ld.cpp: add bool dylibsOnly parameter to addJustInTimeAtoms()
+	* unit-tests/test-cases/tentative-and-archive: added test case
+	
+2008-03-04     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5775822> ld64 should not force building with gcc 4.0
+	* ld64.xcodeproj/project.pbxproj: change rules to use "system" compiler instead of 4.0
+	
+
+2008-02-29     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5774730> Simulator frameworks are being build split-seg and not prebound
+	* src/Options.cpp: only splitseg if prebound
+
+
+2008-02-29     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5774231> Linker should not make GSYM debug note for .objc_category_* symbols
+	* src/ld.cpp: suppress GSYM debug notes for absolute symbols
+	* unit-tests/test-cases/objc-category-debug-notes: added test case
+
+
+2008-02-29     Nick Kledzik    <kledzik@apple.com>
+
+    <rdar://problem/5768970> non-ASCII CFString support is broken
+    * src/MachOReaderRelocatable.hpp: only name and coalesce cfstring constants if they use a __cstring
+    * unit-tests/test-cases/cfstring-utf16: add test case
+
+
+2008-02-25     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5366363> ld -r -x 
+	* doc/man/man1/ld.1: update man page to explain -r -x produces auto-stripped labels
+
+
+----- Tagged ld64-82.5
+
+2008-02-12     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5738023> x86_64: -stack_size failure when large __bss is used
+	* src/ld.cpp: only move section already in __DATA segment to new __huge section 
+	* unit-tests/test-cases/stack_size_no_addr: updated test case to add large bss section
+	
+
+----- Tagged ld64-82.4
+
+2008-02-06     Nick Kledzik    <kledzik@apple.com>
+	
+	<rdar://problem/5726215> comdat warnings with ld -r of C++ .o files
+	* unit-tests/test-cases/eh-coalescing-r: added test case
+	* src/ld.cpp: in ld -r mode don't warn about if .eh symbols are not static
+	
+
+2008-02-06     Devang Patel    <dpatel@apple.com>
+
+	<rdar://problem/5724990> LTO of Bom framework with -dead_strip causes ld(1) crash
+	* src/LLVMReader.hpp: Check fAtom while determining LLVMReference target binding.
+	* unit-tests/test-cases/llvm-integration/Makefile: Add new test case.
+	* unit-tests/test-cases/llvm-integration/a15.c: New.
+	* unit-tests/test-cases/llvm-integration/b15.c: New.
+	* unit-tests/test-cases/llvm-integration/c15.c: New.
+	
+2008-02-05     Nick Kledzik    <kledzik@apple.com>
+
+	* src/ld.cpp: fix for -arch ppc -mdynamic-no-pic -pie so PPC_RELOC_HA16 reloc is used
+	
+----- Tagged ld64-82.3
+	
+2008-02-04     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5721186> ld doesn't seem to understand $ld$add$os... and $ld$hide$os... for 10.6 moves
+	* src/ObjectFile.h: add 10.6
+	* src/Options.cpp: add 10.6 support
+	* src/MachOReaderDylib.hpp: recognize $os10.6$
+	
+
+----- Tagged ld64-82.2
+
+2008-01-30     Devang Patel    <dpatel@apple.com>
+
+	<rdar://problem/5714833> Can't build 64-bit Intel binaries with LTO
+	<rdar://problem/5714787> ld64 fails to build with llvm-gcc-4.2
+	* src/LLVMReader.hpp: Fix character count typo in strncmp call.
+	Use const char * to initialize temp. string.
+	* ld64.xcodeproj/project.pbxproj: use $(DEVELOPER_DIR) in header search construction
+	instead of hard coding /Developer.
+	
+----- Tagged ld64-82.1
+
+2008-01-23     Nick Kledzik    <kledzik@apple.com>
+
+	* src/MachOReaderRelocatable.hpp: don't bus error if S_LITERAL_POINTERS is missing relocs
+	
+
+2008-01-22     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5695496> ld uses 32-bits in some places to hold addresses when parsing 64-bit mach-o files
+	* src/MachOReaderRelocatable.hpp: use AddrToAtomMap type that switch address to 64-bits for 64-bit archs
+	* src/MachOWriterExecutable.hpp: verify BR14 does not overflow for external relocs
+	* unit-tests/test-cases/relocs-c: update test case to slide addresses to verify x86_64 .o files
+
+	
+----- Tagged ld64-82
+	
+2008-01-18     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5694612> Bad grammar used in ld warning: cannot exported hidden symbol
+	* src/ld.cpp: fix typo in warning string
+	
+
+2008-01-16     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5565074> Bundle Loader does not work anymore when loader is a bundle
+	<rdar://problem/5590203> ld warns of incorrect architecture when linking a bundle to a bundle
+	* src/MachOReaderDylib.hpp: support linking against bundles via -bundle_loader. Clean up error messages
+	* unit-tests/test-cases/bundle_loader: update test case
+		
+	
+2008-01-16     Nick Kledzik    <kledzik@apple.com>
+	
+	<rdar://problem/5366363> ld -r -x creates debug notes (stabs) when it should not with -x (keep only global symbols)
+	* src/Options.cpp: in reconfigureDefaults() if -r and -x then -S
+	
+
+2008-01-16     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5566068> if ld crashes while writing output file, it should delete the half written file
+	* src/MachOWriterExecutable.hpp: wrap open/write/close in try block and add signal handlers all to delete
+	output file on failure.
+	
+
+2008-01-16     Devang Patel    <dpatel@apple.com>
+
+	* src/LLVMReader.hpp: Use __gnu_cxx::hash_map instead of hash supported by LLVM.
+
+
+2008-01-16     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5593537> GC-supported library can't be linked into GC-required executable
+	* src/ld.cpp: loosen constraint that all objc code must be compiled with same GC settings and
+	allow gc-compatible code to be linked into anything.
+	* unit-tests/test-cases/objc-gc-checks: update test case
+
+
+2008-01-15     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5687976> no debug notes for custom named data
+	* src/ld.cpp: in synthesizeDebugNotes() check getSymbolTableInclusion() instead of for leading underscore
+	* unit-tests/test-cases/dwarf-debug-notes: update test case
+	
+----- Tagged ld64-81.5
+
+2008-01-14     Devang Patel    <dpatel@apple.com>
+
+	<rdar://problem/5683813> llvm-gcc-4.2 fails to build Sqlite 3.5.4 with -O4
+	* src/LLVMReader.hpp: Resolve proxy references. Collect new unbounded references 
+	after optimization.
+	* src/ld.cpp: Resolve additional unbounded references after optimization.
+	
+
+2008-01-14     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5655246> PPC Leopard (Xcode 3.0) linker ld gets "Bus error" sometimes
+	* src/MachOReaderRelocatable.hpp: use same code as x86 to parse ppc and arm sect-diff relocs
+	* src/MachOWriterExecutable.hpp:  use same code as x86 to write ppc and arm sect-diff relocs
+	
+
+2008-01-11     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5637618> PPC Leopard (Xcode 3.0) linker ld reports "unknown scattered relocation type 4"
+	* src/MachOReaderRelocatable.hpp: add PPC_RELOC_HI16 to scattered reloc parsing
+	* unit-tests/test-cases/relocs-asm/relocs-asm.s: added tests for scattered hi/lo instructions
+	
+
+2008-01-11     Nick Kledzik    <kledzik@apple.com>
+
+	* doc/man/man1/ld.1: add doc for -no_implicit_dylibs, -read_only_stubs, -slow_stubs, -interposable_list
+	
+	
+2008-01-11     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/4800212> ld64(1) man page uses ambiguous term "suffix"
+	* doc/man/man1/ld.1: make meaning of "suffix" more explicit
+	
+
+2008-01-11     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5633081> Obj-C Symbols in Leopard Can't Be Weak Linked
+	* src/MachOWriterExecutable.hpp: set weak and lazy attributes on dummy .objc_class_name undefines
+	 to dylibs to support Mac OS X 10.3.x dyld
+	 
+
+2008-01-11     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5669751> Unknown error with linker (dyld: unknown external relocation type)
+	* src/ld.cpp: fix crash when SO stabs are not balanced
+	
+
+2008-01-11     Devang Patel    <dpatel@apple.com>
+
+	<rdar://problem/5667433> LTO does not work if expected output is a dynamic library
+	* src/LLVMReader.hpp: Supply arguments describing output kind to optimizer. Communicate
+	visibility info.
+
+2000-01-10     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5680988> __cls_refs section is losing S_LITERAL_POINTERS section type
+	* src/MachOWriterExecutable.hpp: special case __cls_refs section 
+	* unit-tests/test-cases/objc-literal-pointers: add test case
+
+
+2008-01-03     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5667688> wrong EH information might be used
+	Created new kGroupSubordinate reference kind to model group comdat.  The "signature" atom
+	has kGroupSubordinate references to the other atoms in the group.  If the signature atom
+	is coalesced away, the linker follows kGroupSubordinate references and throws away the
+	other members of the group.
+	* unit-tests/test-cases/eh-coalescing: added test case
+	* src/ld.cpp: added markDead() and use propagate to subordinates
+	* src/Architectures.hpp: added kGroupSubordinate
+	* src/MachOReaderRelocatable.hpp: add kGroupSubordinate reference from a function to its .eh atom
+	  and if used, from .eh atom to its LSDA atom.
+	* src/MachOWriterExecutable.hpp: handle kGroupSubordinate like kNoFixUp
+
+----- Tagged ld64-81.4.1
+
+2007-12-19     Devang Patel    <dpatel@apple.com>
+
+	* src/LLVMReader.hpp: Add LLVM_LTO_VERSION #ifdef check.
+	
+2007-12-19     Devang Patel    <dpatel@apple.com>
+
+	* src/LLVMReader.hpp: Add fOptimizer NULL check before calling printVersion().
+	
+2007-12-19     Devang Patel    <dpatel@apple.com>
+
+	<rdar://problem/5655956> print LLVM LTO version number in verbose mode
+	* src/LLVMReader.hpp: Add printLLVMVersion() to print llvm version string in verbose mode.
+	* src/Options.cpp: Use printLLVMVersion() in verbose mode.
+
+2007-12-19     Devang Patel    <dpatel@apple.com>
+
+	<rdar://problem/5655956> print LLVM LTO version number in verbose mode
+	* src/Options.h: Add verbose() method to check fVerbose flag.
+	* src/LLVMReader.hpp: Print LLVM version string in verbose mode.
+	
+----- Tagged ld64-81.4
+
+2007-12-18     Devang Patel    <dpatel@apple.com>
+
+	* src/LLVMReader.hpp: Invalidate input architecture when optimizer is not available.
+
+----- Tagged ld64-81.3
+
+2007-12-17     Nick Kledzik    <kledzik@apple.com>
+
+	* ld64.xcodeproj/project.pbxproj: remove extraneous header search paths
+	
+
+2007-12-17     Devang Patel    <dpatel@apple.com>
+
+	* src/LLVMReader.hpp: Do not throw exception if LLVMReader is not able to
+	dlopen LTO library. Instead just flag input file as an invalid LLVM bitcode file.
+
+
+2007-12-14     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5645908> gcc DejaGnu failure: gcc.dg/20020312-2.c (test for excess errors) (-fstack-protector-all)
+	* src/MachOWriterExecutable.hpp: fix Writer<x86>::generatesExternalTextReloc() to allow text relocs
+	* unit-tests/test-cases/read-only-relocs: updated test case to link a dynamic main executable compiled with -static
+
+
+2007-12-14     Devang Patel    <dpatel@apple.com>
+
+  <rdar://problem/5648438> Enable Link Time Optimization in Opal
+  * src/LLVMReader.hpp: Locate LLVMlto.dylib relative to ld location in Developer folder.
+  * ld64.xcodeproj/project.pbxproj: Add {DEVELOPER_DIR}/usr/include in header search path.
+  * unit-tests/run-all-unit-tests: Set DYLD_FALLBACK_LIBRARY_PATH to find LLVMlto.dylib during unit testing.
+  * unit-tests/testcases/llvm-integration/Makefile: Point LLVMGCC and LLVMGXX to llvm-gcc-4.2 in Developer folder during unit testing.
+  
+  
+2007-12-13     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5645446> SWB: failures due to ld: pointer in read-only segment not allowed in slidable image, used in ...
+	* src/MachOReaderRelocatable.hpp: in Reader<x86>::addRelocReference() handle weak pc-rel 32-bit vanilla relocs properly
+	
+----- Tagged ld64-81.2	
+
+
+
+2007-12-07     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5615298> support 8-bit relocations for i386
+	* src/Architectures.hpp: add kPCRel8
+	* src/MachOReaderRelocatable.hpp: support 8-bit pc-rel relocations for intel
+	* src/MachOWriterExecutable.hpp: support 8-bit pc-rel relocations for intel
+	* unit-tests/test-cases/relocs-asm: add test cases
+
+
+----- Tagged ld64-81.1	
+
+2007-12-06     Nick Kledzik    <kledzik@apple.com>
+
+	* src/MachOReaderDylib.hpp: rework cycle detection to remove some false positives
+	
+
+2007-12-05     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5628149> Duplicate probe firings in Security.framework
+	* src/ld.cpp: check dtrace probe sites are not in fDeadAtoms before using
+	* unit-tests/test-cases/dtrace-static-probes-coalescing: add test case
+	
+
+2007-12-05     Nick Kledzik    <kledzik@apple.com>
+
+	* src/MachOReaderRelocatable.hpp: fix CFString coalescing to work with -fwritable-strings
+	* unit-tests/test-cases/cfstring-coalesce: add -fwritable-strings to test case
+
+
+----- Tagged ld64-81	
+
+2007-11-15     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/4196067> ld64 should support runtime text relocations
+	* src/MachOWriterExecutable.hpp: add generatesLocalTextReloc() and generatesExternalTextReloc()
+	* src/Options.cpp: process -read_only_relocs option
+	* src/Options.h: add allowTextRelocs() and warnAboutTextRelocs()
+	* src/MachOReaderRelocatable.hpp: add hasLongBranchStubs()
+	* src/machochecker.cpp: allow relocs in read only segments, if section flags are set
+	* unit-tests/test-cases/read-only-relocs: update test case
+
+
+2007-11-08    Devang Patel     <dpatel@apple.com>
+
+	* ld64.xcodeproj/project.pbxproj: add new build phase "build configure.h" for
+	ld target.
+	* src/ld.cpp: Include "configure.h"
+
+
+----- Tagged ld64-80.11
+
+2008-02-12     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5741312> Wrong section name for objc info for ARM when OBJC2 is used
+	* src/MachOWriterExecutable.hpp: switch segment/section name for ARM objc2 image info
+
+----- Tagged ld64-80.10
+	
+2008-02-11     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5733578> ld64 does not support -aspen_version_min 2.0
+	* src/Options.cpp: allow 2.x for -aspen_version_min
+	
+
+2008-02-11     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5733575> ld_classic: unknown flag: -aspen_version_min
+	* src/Options.cpp: change -aspen_version_min x.x to -macosx_version_min 10.5 when invoking ld_classic
+	
+
+----- Tagged ld64-80.9	
+
+2008-01-29     Nick Kledzik    <kledzik@apple.com>
+	
+	<rdar://problem/5713054> -iphone_version_min ==> -aspen_version_min
+	* src/Options.cpp: support -aspen_version_min
+	
+
+----- Tagged ld64-80.8	
+
+2008-01-10     Nick Kledzik    <kledzik@apple.com>
+	
+	* src/Options.cpp: support transition to new objc ABI for ARM by allowing old .objc_class_name_* 
+	style names in export files and map them to new _OBJC_CLASS_$_ style names.
+	
+
+----- Tagged ld64-80.7	
+
+2008-01-02     Nick Kledzik    <kledzik@apple.com>
+	
+	<rdar://problem/5572168> BigBear5A18 isn't fully prebound
+	* src/Options.cpp: make fNeedsModuleTable true for arm
+
+----- Tagged ld64-80.6	
+
+2007-11-30     Nick Kledzik    <kledzik@apple.com>
+	
+	<rdar://problem/5620976> -iphone_version_min
+	* src/Options.cpp: handle -iphone_version_min option
+
+
+----- Tagged ld64-80.5	
+
+2007-11-26     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5601142> need to special case some dylibs in seg_addr_table
+	* src/Options.cpp: retry seg_add_table lookup for a couple of unusual dylibs
+	
+	
+----- Tagged ld64-80.4	
+
+2007-11-06     Nick Kledzik    <kledzik@apple.com>
+	
+	* src/MachOReaderRelocatable.hpp: fix parsing of external and scattered thumb branch22 relocs
+	* unit-tests/test-cases/thumb-blx: add test case to keep blx issues from coming back
+
+----- Tagged ld64-80.3	
+	
+2007-11-03     Nick Kledzik    <kledzik@apple.com>
+	
+	* src/MachOReaderRelocatable.hpp: remove recalc of dstAddr which could cause thumb branches to be +2
+	* src/MachOWriterExecutable.hpp: remove incorrect test for relocateableExternal
+	
+----- Tagged ld64-80.2
+
+2007-11-01     Nick Kledzik    <kledzik@apple.com>
+
+	* src/ld.cpp: hack my own prototype for log2() until math.h is cleaned up
+	
+	
+----- Tagged ld64-80.1
+
+2007-11-01     Nick Kledzik    <kledzik@apple.com>
+
+	* ld64.xcodeproj/project.pbxproj: add HEADER_SEARCH_PATHS for cross builds
+	* src/ld.cpp: temporarily disable LLVM_SUPPORT
+	* src/MachOWriterExecutable.hpp: Don't use CC_MD5() directly
+
+
+2007-10-26     Nick Kledzik    <kledzik@apple.com>
 
 	<rdar://problem/5556038> Cannot build with libm_static.a statically linked
-	* src/MachOWriterExecutable.hpp: fix when extern relocs are used with -r -d
+	* src/MachOWriterExecutable.hpp: Fix makesExternalRelocatableReference() for -r -d case
+	* unit-tests/test-cases/tentative-to-real-hidden: add test case
 
------ Tagged ld64-77
 
-2007-07-3     Nick Kledzik    <kledzik@apple.com>
+----- Tagged ld64-80
+
+2007-10-24     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/4222696> linker should probably warn about trying to export a hidden symbol
+	* src/ld.cpp: if using -exported_symbols_list check each hidden atom as it is added to symbol table
+	* src/Options.h,.cpp: add hasExportMaskList()
+	* unit-tests/test-cases/exported_symbols_list-hidden: added test case
+
+
+2007-10-24     Nick Kledzik    <kledzik@apple.com>
+
+	* src/MachOWriterExecutable.hpp: keep old style dtrace probes externel for kernel builds
+	
+
+2007-10-23     Nick Kledzik    <kledzik@apple.com>
+	
+	<rdar://problem/4556199> unify error and warning messages
+	<rdar://problem/5546450> -w should suppress warnings
+	* src/ld.cpp: use warning() function
+	* src/Options.h: remove emitWarnings()
+	* src/MachOReaderDylib.hpp: use warning() function
+	* src/MachOReaderRelocatable.hpp: use warning() function
+	* src/Options.cpp: use and implement warning()
+	* src/MachOWriterExecutable.hpp: use warning() function
+	* unit-tests/test-cases/visibility-warning: verify -w suppresses warnings
+
+
+2007-10-23     Devang Patel    <dpatel@apple.com>
+
+	* src/ld.cpp: Cover arm support inside __OPEN_SOURCE__ macro check.
+	* src/LLVMReader.hpp: Cover arm support inside __OPEN_SOURCE__ macro check.
+	* src/MachOReaderDylib.hpp: Cover arm support inside __OPEN_SOURCE__ macro check.
+	* src/ObjectFile.h: Cover arm support inside __OPEN_SOURCE__ macro check.
+	* src/MachOReaderRelocatable.hpp: Cover arm support inside __OPEN_SOURCE__ macro check.
+	* src/OpaqueSection.hpp: Cover arm support inside __OPEN_SOURCE__ macro check
+	* src/MachOWriterExecutable.hpp: Cover arm support inside __OPEN_SOURCE__ macro check.
+	* src/ObjectDump.cpp: Cover arm support inside __OPEN_SOURCE__ macro check.
+	
+
+2007-10-22     Nick Kledzik    <kledzik@apple.com>
+
+	* src/Options.cpp: add support for LD_DEAD_STRIP and LD_WARN_COMMONS
+	* src/MachOReaderRelocatable.hpp: fix problem with -dead_strip of ObjC literal pointers
+
+
+2007-10-22     Nick Kledzik    <kledzik@apple.com>
+
+	* src/Options.cpp: have -static arm code link with ld_classic (for now)
+	
+
+2007-10-22     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5396826> Recognize all arm architectures
+	* src/MachOReaderRelocatable.hpp: add support for all ARM sub-types
+	* unit-tests/test-cases/cpu-sub-types: add test cases for all combinations of ARM sub-types
+
+
+2007-10-19     Nick Kledzik    <kledzik@apple.com>
+
+	* src/*: merge in arm support
+	* unit-tests/test-cases/*: fix to work for arm and thumb
+
+----- Tagged ld64-79
+
+2007-10-16     Nick Kledzik    <kledzik@apple.com>
+
+	* src/MachOWriterExecutable.hpp: if -r mode, always set custom alignment (SET_COMM_ALIGN) on common symbols
+	* unit-tests/test-cases/visibility-warning-dylib-v-archive/Makefile: fix warning
+	* unit-tests/test-cases/static-executable/Makefile: fix spurious failure
+
+
+2007-10-16     Nick Kledzik    <kledzik@apple.com>
+
+	* src/MachOWriterExecutable.hpp: fix edge case in branch island generation
+
+
+2007-10-12     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5323449> Add option to create old, slow stubs for i386
+	* src/ObjectFile.h/.cpp: support -read_only_stubs
+	* src/MachOWriterExecutable.hpp: enhance StubAtom<x86> to support old style __symbol_stub/__la_symbol_ptr stubs
+	* unit-tests/test-cases/slow-x86-stubs: add test case
+
+
+2007-10-12     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5427952> ld64's re-export cycle detection logic prevents use of X11 libGL on Leopard
+	* src/Options.cpp: in findFileUsingPaths() don't search for embedded dylibs
+	* unit-tests/test-cases/indirect-path-search/Makefile: added case for a dylib embedded in a framework
+
+
+2007-10-11     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5451987> add option to disable implicit load commands for indirectly used public dylibs
+	* src/Options.cpp: add support for -no_implicit_dylibs
+	* src/ObjectFile.h: add fImplicitlyLinkPublicDylibs
+	* src/MachOReaderDylib.hpp: test fImplicitlyLinkPublicDylibs before hoisting an implicitly linked dylib
+	* unit-tests/test-cases/implicit_dylib: add test case
+
+
+2007-10-11     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5254413> -interposable_list
+	* src/Options.h/cpp: Add fInterposeList and fInterposeMode to support -interposable_list
+	* src/MachOWriterExecutable.hpp: pass symbol name to fOptions.interposable()
+	* unit-tests/test-cases/interposable_list: add test case
+
+
+2007-10-10     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5529626> If only weak_import symbols are used, linker should use LD_LOAD_WEAK_DYLIB
+	* src/MachOWriterExecutable.hpp: automatically use LC_LOAD_WEAK_DYLIB if all symbols used from a dylib are weak_import
+	* unit-tests/test-cases/weak_dylib: added test case
+
+
+2007-10-10     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5504954> linker does not error when dylib ordinal exceeds 250
+	* src/MachOWriterExecutable.hpp: error out if ordinals exceed max allowed
+	
+
+2007-10-10     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/4067110> overriding 'operator new' or 'operator delete' fails if no weak symbols are present
+	* src/ld.cpp: at end of checkUndefines() search dylibs for weak versions of any global external symbols 
+	* src/ObjectFile.h: add hasWeakExternals() method to Reader
+	* src/MachOReaderDylib.hpp: implement hasWeakExternals() method in Reader
+	* src/ExecutableFile.h: add overridesDylibWeakDefines parameter to write()
+	* src/MachOWriterExecutable.hpp: use overridesDylibWeakDefines parameter to write()
+	* unit-tests/test-cases/operator-new: add test case
+	
+
+2007-10-05     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5048861> No warning about tentative definition conflicting with dylib definition
+	<rdar://problem/5132652> .comm variables in shared library, worked with XCode 2.4.1, broken with XCode 3?
+	* src/ld.cpp: at end of checkUndefines() verify if any remaining commons conflict with dylibs
+	* doc/man/man1/ld.1: document -commons and -warn_commons options
+	* unit-tests/test-cases/tentative-and-dylib: added test case
+
+
+2007-10-05     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5346331> NS/CFString constants are not dead strippable
+	* src/MachOReaderRelocatable.hpp: break up __cfstring section into one atom per cfstring, make them coalesable
+	* unit-tests/test-cases/cfstring-coalesce: added test case
+
+
+2007-10-05     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5524973> Dead stripping + exported symbols list using wildcards doesn't seem to do the right thing
+	* src/Options.cpp/h: add hasWildCardExportRestrictList()
+	* src/ld.cpp: if dead stripping code and have wildcard exports, add all global atoms matching wildcards as roots
+	* unit-tests/test-cases/exported-symbols-wildcards-dead_strip: added test case
+
+
+2007-10-04     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5433882> ld shouldn't search /Network/Library/Frameworks by default
+	* src/Options.cpp: remove /Network/Library/Frameworks/ from default search path
+	* doc/man/man1/ld.1: document the change
+	
+
+2007-10-04     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5341567> all binaries should get LD_UUID load commands, not just those with DWARF symbols
+	* src/ld.cpp: default fCreateUUID to be true for non object file output types
+	* unit-tests/test-cases/no-uuid/Makefile: update test case to match new rules
+
+
+----- Tagged ld64-78
+
+2007-09-27     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5476313> range check load commands
+	* src/MachOReaderDylib.hpp: check that load commands all fit in load command size from header
+	* src/MachOReaderRelocatable.hpp: check that load commands all fit in load command size from header
+
+
+2007-09-27     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5433355> Xc8M2540a: ld64 crashes when linking Pascal program
+	* src/ld.cpp: fix findAtomAndOffset() to handle where there are no function atoms 
+
+
+2007-09-27     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5241179> ADOBE Xcode 3: ld -dead_strip does not work with -init from an archive
+	* src/ld.cpp: add bool parameter to entryPoint() so -init atom not looked for too soon
+	* unit-tests/test-cases/dead_strip-init-archive: added test case
+	
+
+2007-09-26     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5459546> Spurious link warnings for inline members of C++ template classes
+	* src/ld.cpp: check definition kinds before warning about visibility mismatches
+	* unit-tests/test-cases/visibility-warning: added test case
+	
+
+2007-09-26     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5394172> an empty .o file with zero load commands will crash linker
+	* src/MachOReaderRelocatable.hpp: have Reader constructor return early of no load commands
+	* unit-tests/test-cases/empty-object: added test case
+	
+	
+2007-09-26     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5453384> 9a527: ppc64 branch islands fail with 4GB pagezeo
+	* src/MachOWriterExecutable.hpp: start range calculations at start of __text not at zero.
+	
+
+----- Tagged ld64-77 (Xcode 3.0)
+
+2007-07-23     Nick Kledzik    <kledzik@apple.com>
 
 	<rdar://problem/5351380> Kernel is linked with some global symbols unsorted
 	* src/MachOWriterExecutable.hpp: Add NListNameSorter to allow global atoms and extra labels to be sorted

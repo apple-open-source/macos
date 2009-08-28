@@ -28,7 +28,7 @@
 #ifndef	_TRUST_SETTINGS_H_
 #define _TRUST_SETTINGS_H_
 
-#include <security_keychain/SecTrust.h>
+#include "SecTrust.h"
 #include <security_keychain/StorageManager.h>
 #include <security_keychain/SecTrustSettings.h>
 
@@ -59,6 +59,9 @@ enum {
 
 class TrustSettings
 {
+private:
+	TrustSettings(SecTrustSettingsDomain domain);
+
 public:
 
 	/* 
@@ -71,18 +74,20 @@ public:
 	 * needed for cert evaluation are discarded. This is for TrustSettings
 	 * that will be cached in memory long-term. 
 	 */
-	TrustSettings(
+	static OSStatus CreateTrustSettings(
 		SecTrustSettingsDomain				domain,
 		bool								create,
-		bool								trim);
+		bool								trim,
+		TrustSettings*&						ts);
 
 	/* 
 	 * Create from external data, obtained by createExternal().
 	 * If externalData is NULL, we'll create an empty mTrustDict.
 	 */
-	TrustSettings(
+	static OSStatus CreateTrustSettings(
 		SecTrustSettingsDomain				domain,
-		CFDataRef							externalData);
+		CFDataRef							externalData,
+		TrustSettings*&						ts);
 
 	~TrustSettings();
 	

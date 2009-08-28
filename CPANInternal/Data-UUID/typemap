@@ -1,0 +1,14 @@
+perl_uuid_t*			T_PV
+uuid_context_t*		T_PTRUUID
+
+INPUT
+T_PTRUUID
+	if (sv_derived_from($arg, \"Data::UUID\")) {
+	    IV tmp = SvIV((SV*)SvRV($arg));
+	    $var = INT2PTR($type,tmp);
+	}
+	else
+	    croak(\"$var is not of type Data::UUID\")
+OUTPUT
+T_PTRUUID
+	sv_setref_pv($arg, \"Data::UUID\", (void*)$var);

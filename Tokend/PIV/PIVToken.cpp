@@ -40,6 +40,8 @@
 #include <vector>
 #include <zlib.h>
 #include <CoreFoundation/CFString.h>
+/* FOR KEYSIZE RETREIVAL */
+#include <Security/Security.h>
 
 #include <algorithm> /* min */
 
@@ -85,6 +87,14 @@ using CssmClient::AclFactory;
 static const unsigned char kSelectPIVApplet[] = { SELECT_PIV_APPLET_LONG };	// or SELECT_PIV_APPLET_SHORT
 
 static const unsigned char kUniversalAID[] = { 0xA0, 0x00, 0x00, 0x01, 0x16, 0xDB, 0x00 };
+
+#pragma mark ---------- Data Description Strings -----------
+
+static const char *sDescripCardCapabilityContainer = "CCC";
+static const char *sDescripCardHolderUniqueIdentifier = "CHUID";
+static const char *sDescripCardHolderFingerprints = "FINGERPRINTS";
+static const char *sDescripPrintedInformation = "PRINTDATA";
+static const char *sDescripCardHolderFacialImage = "FACIALIMAGE";
 
 #pragma mark ---------- Object IDs ----------
 
@@ -141,6 +151,9 @@ void PIVToken::establish(const CSSM_GUID *guid, uint32 subserviceId,
 	const char *workDirectory, char mdsDirectory[PATH_MAX],
 	char printName[PATH_MAX])
 {
+	Tokend::ISO7816Token::establish(guid, subserviceId, flags,
+		cacheDirectory, workDirectory, mdsDirectory, printName);
+
 #ifdef _USECERTIFICATECOMMONNAME
 	std::string commonName = authCertCommonName();
 	::snprintf(printName, 40, "PIV-%s", commonName.c_str());
@@ -153,9 +166,6 @@ void PIVToken::establish(const CSSM_GUID *guid, uint32 subserviceId,
 #endif	/* _USECERTIFICATECOMMONNAME */
 	Tokend::ISO7816Token::name(printName);
 	secdebug("pivtoken", "name: %s", printName);
-
-	Tokend::ISO7816Token::establish(guid, subserviceId, flags,
-		cacheDirectory, workDirectory, mdsDirectory, printName);
 
 	if(mSchema)
 		delete mSchema;
@@ -254,7 +264,12 @@ uint32 PIVToken::probe(SecTokendProbeFlags flags, char tokenUid[TOKEND_MAX_UID])
 #ifndef _USEFALLBACKTOKENUID
 			byte_string cccOid((const unsigned char *)oidCardCapabilityContainer, oidCardCapabilityContainer + sizeof(oidCardCapabilityContainer));
 			byte_string cccdata;
-			getDataCore(cccOid, "CCC", false, true, cccdata);
+			/*
+				Since probe is called before establish, securityd has not passed us
+				the cache directory yet, so we don't try to cache anything right now
+			*/
+			const bool allowCaching = false;
+			getDataCore(cccOid, "CCC", false, allowCaching, cccdata);
 			PIVCCC ccc(cccdata);
 			snprintf(tokenUid, TOKEND_MAX_UID, "PIV-%s", ccc.hexidentifier().c_str());
 
@@ -285,6 +300,30 @@ uint32 PIVToken::probe(SecTokendProbeFlags flags, char tokenUid[TOKEND_MAX_UID])
 	return score;
 }
 
+size_t PIVToken::getKeySize(const byte_string &cert) const {
+	size_t keySize = 0;
+	SecCertificateRef certRef = 0;
+	SecKeyRef keyRef = 0;
+	/* Parse certificate for size */
+	CSSM_DATA certData;
+	certData.Data = (uint8_t*)&cert[0];
+	certData.Length = cert.size();
+	const CSSM_KEY *cssmKey = NULL;
+	OSStatus status = SecCertificateCreateFromData(&certData, CSSM_CERT_X_509v3, CSSM_CERT_ENCODING_BER, &certRef);
+	if(status != noErr) goto done;
+	status = SecCertificateCopyPublicKey(certRef, &keyRef);
+	if(status != noErr) goto done;
+	status = SecKeyGetCSSMKey(keyRef, &cssmKey);
+	if(status != noErr) goto done;
+	keySize = cssmKey->KeyHeader.LogicalKeySizeInBits;
+done:
+	if(keyRef)
+		CFRelease(keyRef);
+	if(certRef)
+		CFRelease(certRef);
+	return keySize;
+}
+
 void PIVToken::populate()
 {
 	/*
@@ -303,7 +342,7 @@ void PIVToken::populate()
 		mSchema->findRelation(CSSM_DL_DB_RECORD_PRIVATE_KEY);
 	Tokend::Relation &dataRelation =
 		mSchema->findRelation(CSSM_DL_DB_RECORD_GENERIC);
-	
+
 	/*
 		Table 1.  SP 800-73 Data Model Containers 
 
@@ -324,30 +363,38 @@ void PIVToken::populate()
 	const size_t sz = sizeof(oidCardCapabilityContainer);
 	
 	//	Card Capability Container 2.16.840.1.101.3.7.1.219.0 '5FC107' [Mandatory]
-	dataRelation.insertRecord(new PIVDataRecord(oidCardCapabilityContainer, sz, "CCC"));
+	if (getDataExists(oidCardCapabilityContainer, sz, sDescripCardCapabilityContainer))
+		dataRelation.insertRecord(new PIVDataRecord(oidCardCapabilityContainer, sz, sDescripCardCapabilityContainer));
 
 	//	Card Holder Unique Identifier 2.16.840.1.101.3.7.2.48.0 '5FC102'  [Mandatory] [CHUID]
-	dataRelation.insertRecord(new PIVDataRecord(oidCardHolderUniqueIdentifier, sz, "CHUID"));
+	if (getDataExists(oidCardHolderUniqueIdentifier, sz, sDescripCardHolderUniqueIdentifier))
+		dataRelation.insertRecord(new PIVDataRecord(oidCardHolderUniqueIdentifier, sz, sDescripCardHolderUniqueIdentifier));
 
 	//	Card Holder Fingerprints 2.16.840.1.101.3.7.2.96.16 '5FC103' [Mandatory]
-	dataRelation.insertRecord(new PIVProtectedRecord(oidCardHolderFingerprints, sz, "FINGERPRINTS"));
+	if (getDataExists(oidCardHolderFingerprints, sz, sDescripCardHolderFingerprints))
+		dataRelation.insertRecord(new PIVProtectedRecord(oidCardHolderFingerprints, sz, sDescripCardHolderFingerprints));
 
 	//	Printed Information 2.16.840.1.101.3.7.2.48.1 '5FC109' [Optional]
-	dataRelation.insertRecord(new PIVProtectedRecord(oidPrintedInformation, sz, "PRINTDATA"));
+	if (getDataExists(oidPrintedInformation, sz, sDescripPrintedInformation))
+		dataRelation.insertRecord(new PIVProtectedRecord(oidPrintedInformation, sz, sDescripPrintedInformation));
 
 	//	Card Holder Facial Image 2.16.840.1.101.3.7.2.96.48 '5FC108' O
-	dataRelation.insertRecord(new PIVProtectedRecord(oidCardHolderFacialImage, sz, "FACIALIMAGE"));
+	if (getDataExists(oidCardHolderFacialImage, sz, sDescripCardHolderFacialImage))
+		dataRelation.insertRecord(new PIVProtectedRecord(oidCardHolderFacialImage, sz, sDescripCardHolderFacialImage));
 
 	// Now describe the keys and certificates
-	
+
+	// Note that the "Card Management Key", keyref 0x9B is a symmetric key
+	// and so is not listed here
+
 	const unsigned char *certids[] = 
 	{
-		oidX509CertificatePIVAuthentication,
-		oidX509CertificateDigitalSignature,
-		oidX509CertificateKeyManagement,
-		oidX509CertificateCardAuthentication
+		oidX509CertificatePIVAuthentication,	// 0x9A
+		oidX509CertificateDigitalSignature,		// 0x9C
+		oidX509CertificateKeyManagement,		// 0x9D
+		oidX509CertificateCardAuthentication	// 0x9E
 	};
-	
+
 	const char *certNames[] = 
 	{
 		"PIV Authentication Certificate",
@@ -355,15 +402,15 @@ void PIVToken::populate()
 		"Key Management Certificate",
 		"Card Authentication Certificate"
 	};
-	
+
 	const char *keyNames[] = 
 	{
-		"PIV Authentication Private Key",
-		"Digital Signature Private Key",
-		"Key Management Private Key",
-		"Card Authentication Private Key"
+		"PIV Authentication Private Key",	// Keyref 9A
+		"Digital Signature Private Key",	// Keyref 9C
+		"Key Management Private Key",		// Keyref 9D
+		"Card Authentication Private Key"	// Keyref 9E
 	};
-	
+
 	const unsigned char keyRefs[] =
 	{
 		PIV_KEYREF_PIV_AUTHENTICATION,
@@ -371,13 +418,22 @@ void PIVToken::populate()
 		PIV_KEYREF_PIV_KEY_MANAGEMENT,
 		PIV_KEYREF_PIV_CARD_AUTHENTICATION
 	};
-	
+
 	for (unsigned int ix=0;ix<sizeof(certids)/sizeof(certids[0]);++ix)
 	{
+		byte_string certData;
+		try {
+			getDataCore(byte_string(certids[ix], certids[ix] + sz), certNames[ix], true, true, certData);
+		} catch(PIVError &e) {
+			continue;
+		}
+		int keySize = getKeySize(certData);
+		if(keySize == 0) continue;
+
 		RefPointer<Tokend::Record> cert(new PIVCertificateRecord(certids[ix], sz, certNames[ix]));
 		certRelation.insertRecord(cert);
 
-		RefPointer<Tokend::Record> key(new PIVKeyRecord(certids[ix], sz, keyNames[ix], privateKeyRelation.metaRecord(), keyRefs[ix]));
+		RefPointer<Tokend::Record> key(new PIVKeyRecord(certids[ix], sz, keyNames[ix], privateKeyRelation.metaRecord(), keyRefs[ix], keySize));
 		privateKeyRelation.insertRecord(key);
 
 		// The Adornment class links a particular PIVCertificateRecord 
@@ -613,48 +669,44 @@ void PIVToken::selectDefault()
 	select(kSelectPIVApplet, sizeof(kSelectPIVApplet));
 }
 
-uint32_t PIVToken::exchangeAPDU(const byte_string &apdu, byte_string &result)
-{
-	static const uint8_t GET_RESULT_TEMPLATE [] = { 0x00, 0xC0, 0x00, 0x00, 0xFF };
-	byte_string getResult(GET_RESULT_TEMPLATE, GET_RESULT_TEMPLATE + sizeof(GET_RESULT_TEMPLATE));
-	const int SIZE_INDEX = 4;
-
+uint16_t PIVToken::simpleExchangeAPDU(const byte_string &apdu, byte_string &result) {
 	transmit(apdu, result);
-	/* Keep pulling more data */
-	while (result.size() >= 2 && result[result.size() - 2] == PIV_RESULT_CONTINUATION_SW1)
-	{
-		size_t expectedLength = result[result.size() - 1];
-		if(expectedLength == 0) /* 256-byte case .. */
-			expectedLength = 256;
-		getResult[SIZE_INDEX] = expectedLength;
-		// Trim off status bytes
-		result.resize(result.size() - 2);
-		size_t appended = transmit(getResult, result);
-		if (appended != (expectedLength + 2))
-        {
-            if (appended < 2)
-                PCSC::Error::throwMe(SCARD_E_PROTO_MISMATCH);
-            else
-                PIVError::throwMe((result[result.size() - 2] << 8)
-					+ result[result.size() - 1]);
-        }
-	}
-
 	if (result.size() < 2)
 		PCSC::Error::throwMe(SCARD_E_PROTO_MISMATCH);
 	uint16_t ret = (result[result.size() - 2] << 8) + result[result.size() - 1];
 	// Trim off status bytes
 	result.resize(result.size() - 2);
-    return ret;
+	return ret;
 }
 
-uint32_t PIVToken::exchangeChainedAPDU(unsigned char cla, unsigned char ins,
+uint16_t PIVToken::exchangeAPDU(const byte_string &apdu, byte_string &result)
+{
+	static const uint8_t GET_RESULT_TEMPLATE [] = { 0x00, 0xC0, 0x00, 0x00, 0xFF };
+	byte_string getResult(GET_RESULT_TEMPLATE, GET_RESULT_TEMPLATE + sizeof(GET_RESULT_TEMPLATE));
+	const int SIZE_INDEX = 4;
+
+	uint16_t ret = simpleExchangeAPDU(apdu, result);
+	/* Keep pulling more data */
+	while ((ret >> 8) == PIV_RESULT_CONTINUATION_SW1)
+	{
+		size_t expectedLength = ret & 0xFF;
+		if(expectedLength == 0) /* 256-byte case .. */
+			expectedLength = 256;
+		getResult[SIZE_INDEX] = expectedLength & 0xFF;
+		ret = simpleExchangeAPDU(getResult, result);
+	}
+	return ret;
+}
+
+uint16_t PIVToken::exchangeChainedAPDU(unsigned char cla, unsigned char ins,
 	unsigned char p1, unsigned char p2,
 	const byte_string &data,
 	byte_string &result)
 {
+	const size_t BASE_CHUNK_LENGTH = 242; /* 242 == reasonably safe data chunk amount well under 256 */
 	byte_string apdu;
-	apdu.reserve(5 + data.size());
+	uint16_t ret;
+	apdu.reserve(5 + BASE_CHUNK_LENGTH);
 	apdu.resize(5);
 	apdu[0] = cla;
 	apdu[1] = ins;
@@ -662,52 +714,66 @@ uint32_t PIVToken::exchangeChainedAPDU(unsigned char cla, unsigned char ins,
 	apdu[3] = p2;
 
 	apdu[0] |= 0x10;
-	apdu += data;
-	const size_t BASE_CHUNK_LENGTH = 256;
+	byte_string::iterator apduDataBegin = apdu.begin() + 5;
 	size_t chunkLength;
 	byte_string::const_iterator iter;
 	/* Chain data and skip last chunk since its in the receiving end */
 	for(iter = data.begin(); (iter + BASE_CHUNK_LENGTH) < data.end(); iter += BASE_CHUNK_LENGTH) {
 		chunkLength = std::min(BASE_CHUNK_LENGTH, (size_t)(data.end() - iter));
-		apdu[5] = chunkLength & 0xFF;
+		apdu.resize(5 + chunkLength);
+		apdu[4] = chunkLength & 0xFF;
+		copy(iter, iter + chunkLength, apduDataBegin);
 		/* Don't send Le */
-		transmit(apdu.begin(), apdu.begin() + 5 + chunkLength, result);
+		ret = simpleExchangeAPDU(apdu, result);
 		/* No real data should come back until chaining is complete */
-		if(result.size() != 2)
-			PCSC::Error::throwMe(SCARD_E_PROTO_MISMATCH);
-		else
-			PIVError::check(result[result.size() - 2] << 8 | result[result.size() - 1]);
-		/* Trim off result SW */
-		result.resize(result.size() - 2);
-		// Trim off old data
-		apdu.erase(apdu.begin() + 5, apdu.begin() + 5 + chunkLength);
+		PIVError::check(ret);
 	}
 	apdu[0] &= ~0x10;
-	apdu[4] = (apdu.size() - 5) & 0xFF;
+	apdu[4] = (data.end() - iter) & 0xFF;
+	apdu.resize(5 + (data.end() - iter));
+	copy(iter, data.end(), apduDataBegin);
 	/* LE BYTE? */
 	return exchangeAPDU(apdu, result);
 }
 
+byte_string PIVToken::buildGetData(const byte_string &oid, int limit /* = -1 */) const {
+	// The APDU only has space for a 3 byte OID
+	if (oid.size() != 3)
+		PCSC::Error::throwMe(SCARD_E_PROTO_MISMATCH);
+
+	const unsigned char dataFieldLen = 0x05;
+	static const unsigned char INITIAL_APDU_TEMPLATE[] = { PIV_GETDATA_APDU_TEMPLATE };
+	/* TODO: Build from ground-up */
+	byte_string initialApdu(INITIAL_APDU_TEMPLATE, INITIAL_APDU_TEMPLATE + sizeof(INITIAL_APDU_TEMPLATE));
+
+	initialApdu[PIV_GETDATA_APDU_INDEX_LEN] = dataFieldLen;
+	initialApdu[PIV_GETDATA_APDU_INDEX_OIDLEN] = oid.size();
+	copy(oid.begin(), oid.end(), initialApdu.begin() + PIV_GETDATA_APDU_INDEX_OID);
+	initialApdu.resize(PIV_GETDATA_APDU_INDEX_OID + oid.size());
+	if(limit > 255)
+		PCSC::Error::throwMe(SCARD_E_PROTO_MISMATCH);
+	if(limit >= 0)
+		initialApdu.push_back(limit);
+	return initialApdu;
+}
 
 /*
 	This is where the actual data for a certificate or other data is retrieved from the token.
-	
+
 	Here is a sample exchange
 
-	APDU: 00 CB 3F FF 05 5C 03 5F C1 05 
-	APDU: 61 00 
+	APDU: 00 CB 3F FF 05 5C 03 5F C1 05
+	APDU: 61 00
 
-	APDU: 00 C0 00 00 00 
+	APDU: 00 C0 00 00 00
 	APDU: 53 82 04 84 70 82 ... 61 00
 
-	APDU: 00 C0 00 00 00 
-	APDU: 68 82 8C 52 65 ... 61 88 
+	APDU: 00 C0 00 00 00
+	APDU: 68 82 8C 52 65 ... 61 88
 
-	APDU: 00 C0 00 00 88 
+	APDU: 00 C0 00 00 88
 	APDU: 50 D0 B2 A2 EF ... 90 00
 */
-
-
 void PIVToken::getDataCore(const byte_string &oid, const char *description, bool isCertificate,
 	bool allowCaching, byte_string &data)
 {
@@ -718,52 +784,18 @@ void PIVToken::getDataCore(const byte_string &oid, const char *description, bool
 		free(cssmData.Data);
 		return;
 	}
-
-	// The APDU only has space for a 3 byte OID
-	if (oid.size() != 3)
-		PCSC::Error::throwMe(SCARD_E_PROTO_MISMATCH);
-	
-	const unsigned char dataFieldLen = 0x05;	// doc says must be 16, but in pratice it is 5
-	static const unsigned char INITIAL_APDU_TEMPLATE[] = { PIV_GETDATA_APDU_TEMPLATE };
-	/* TODO: Build from ground-up */
-	byte_string initialApdu(INITIAL_APDU_TEMPLATE, INITIAL_APDU_TEMPLATE + sizeof(INITIAL_APDU_TEMPLATE));
-
-	initialApdu[PIV_GETDATA_APDU_INDEX_LEN] = dataFieldLen;
-	initialApdu[PIV_GETDATA_APDU_INDEX_OIDLEN] = oid.size();
-	copy(oid.begin(), oid.end(), initialApdu.begin() + PIV_GETDATA_APDU_INDEX_OID);
-	initialApdu.resize(PIV_GETDATA_APDU_INDEX_OID + oid.size());
-
-	static const unsigned char CONTINUATION_APDU_TEMPLATE[] = { PIV_GETDATA_CONT_APDU_TEMPLATE };
-	byte_string continuationApdu(CONTINUATION_APDU_TEMPLATE, CONTINUATION_APDU_TEMPLATE + sizeof(CONTINUATION_APDU_TEMPLATE));
-	
-	byte_string *apdu = &initialApdu;
-
 	// Talk to token here to get data
 	{
+		byte_string getDataApdu = buildGetData(oid);
 		PCSC::Transaction _(*this);
 		selectDefault();
-		uint32_t rx;
-		do
-		{
-			rx = exchangeAPDU(*apdu, data);
-			secdebug("pivtokend", "exchangeAPDU result %02X", rx);
-
-			if ((rx & 0xFF00) != SCARD_BYTES_LEFT_IN_SW2 &&
-				(rx & 0xFF00) != SCARD_SUCCESS)
-				PIVError::check(rx);
-
-			// Switch to the continuation APDU after first exchange
-			apdu = &continuationApdu;
-			
-			// Number of bytes to fetch next time around is in the last byte returned.
-			// For all except the penultimate read, this is 0, indicating that the
-			// token should read all bytes.
-			
-			apdu->at(PIV_GETDATA_CONT_APDU_INDEX_LEN) = static_cast<unsigned char>(rx & 0xFF);
-		} while ((rx & 0xFF00) == SCARD_BYTES_LEFT_IN_SW2);
-	}
-	if(data.size() > PIV_MAX_DATA_SIZE) {
-		PIVError::throwMe(SCARD_RETURNED_DATA_CORRUPTED);
+		/* Continuation handled by exchangeAPDU */
+		uint16_t rx = exchangeAPDU(getDataApdu, data);
+		secdebug("pivtokend", "exchangeAPDU result %02X", rx);
+		PIVError::check(rx);
+		if(data.size() > PIV_MAX_DATA_SIZE) {
+			PIVError::throwMe(SCARD_RETURNED_DATA_CORRUPTED);
+		}
 	}
 	dumpDataRecord(data, oid);
 
@@ -774,9 +806,9 @@ void PIVToken::getDataCore(const byte_string &oid, const char *description, bool
 	if (data.size()<=0)
 		return;
 	if (data[0] != PIV_GETDATA_RESPONSE_TAG)
-			PIVError::throwMe(SCARD_RETURNED_DATA_CORRUPTED);
+		PIVError::throwMe(SCARD_RETURNED_DATA_CORRUPTED);
 
-		if (isCertificate)
+	if (isCertificate)
 		processCertificateRecord(data, oid, description);
 
 	if (!allowCaching)
@@ -784,13 +816,13 @@ void PIVToken::getDataCore(const byte_string &oid, const char *description, bool
 	cssmData.Data = &data[0];
 	cssmData.Length = data.size();
 	cacheObject(0, description, cssmData);
-	}
+}
 
 void PIVToken::processCertificateRecord(byte_string &data, const byte_string &oid, const char *description)
 {
 	bool hasCertificateData = false;
 	bool isCompressed = false;
-	
+
 	// 00000000  53 82 04 84 70 82 04 78  78 da 33 68 62 db 61 d0 
 	TLV_ref tlv;
 	TLVList list;
@@ -967,5 +999,18 @@ size_t PIVToken::transmit(const byte_string::const_iterator &apduBegin, const by
 	/* Trims the data, no expansion occurs */
 	result.resize(index + resultLength);
 	return resultLength;
+}
+
+bool PIVToken::getDataExists(const unsigned char *oid, size_t oidlen, const char *description)
+{
+	/* Read the data object, limiting it at one byte received to help speed things along */
+	byte_string result;
+	byte_string getDataApdu = buildGetData(byte_string(oid, oid + oidlen), 1);
+	uint16_t rx = simpleExchangeAPDU(getDataApdu, result);
+	if(rx == 0x6A82) return false; /* Object certainly doesn't exist */
+	if(rx == 0x6982) return true;  /* Assume security status not satisified == object exists */
+	if(rx & 0xFF00 == SCARD_BYTES_LEFT_IN_SW2) return true; /* More bytes left */
+	if((rx >> 8) == PIV_RESULT_CONTINUATION_SW1) return true; /* More data available */
+	return result.size() > 0; /* Data has been returned */
 }
 

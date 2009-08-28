@@ -60,7 +60,7 @@ chmod 0644 "$SETTINGS_FILE_PATH" || exit(1)
 chmod 0644 "$ROOT_CERT_KC_PATH" || exit(1)
 
 # set the keychain list, using xargs to pass the saved argument list
-#####/bin/echo -n "${SAVED_KC_LIST}" | xargs $SECURITY list -d user -s
+/bin/echo -n "${SAVED_KC_LIST}" | xargs $SECURITY list -d user -s
 
 set POST_KC_LIST=`$SECURITY list -d user`
 printf "Post-save user keychain list:\n%s\n\n" "${POST_KC_LIST}"

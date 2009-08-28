@@ -52,7 +52,7 @@
  * @param inParent The node in which to create this record.
  * @param inName The name of the group record.
  */
-- (id)initInNode:(DSoNode*)inParent name:(NSString*)inName;
+- (id)initInNode:(DSoNode*)inParent name:(NSString*)inName DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method getGid
@@ -60,7 +60,7 @@
  * @discussion This retrieves the GroupID, or gid number
  *		of this group.
  */
-- (gid_t) getGid;
+- (gid_t) getGid DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method isMember:
@@ -69,6 +69,6 @@
  *		user is listed as a member of this group.
  * @param inUser The user to check.
  */
-- (BOOL) isMember:(DSoUser*)inUser;
+- (BOOL) isMember:(DSoUser*)inUser DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 @end

@@ -393,26 +393,26 @@ int idprint(int id, int user)
 	}
 }
 
-void PrintAverageTime(uint32_t numMicroSeconds)
+void PrintAverageTime(uint64_t numMicroSeconds)
 {
-	if (numMicroSeconds < 500)
-		printf(" average time %d uSecs\n", numMicroSeconds);
-	else if (numMicroSeconds < 10 * 1000)
+	if (numMicroSeconds < 500ULL)
+		printf(" average time %llu uSecs\n", numMicroSeconds);
+	else if (numMicroSeconds < 10ULL * 1000ULL)
 	{
-		int numMilliseconds = numMicroSeconds / 1000;
-		int fraction = (numMicroSeconds % 1000) / 100;
-		printf(" average time %d.%d mSecs\n", numMilliseconds, fraction);
+		uint64_t numMilliseconds = numMicroSeconds / 1000ULL;
+		uint64_t fraction = (numMicroSeconds % 1000ULL) / 100ULL;
+		printf(" average time %llu.%llu mSecs\n", numMilliseconds, fraction);
 	}
-	else if (numMicroSeconds < 1000 * 1000)
+	else if (numMicroSeconds < 1000ULL * 1000ULL)
 	{
-		int numMilliseconds = numMicroSeconds / 1000;
-		printf(" average time %d mSecs\n", numMilliseconds);
+		uint64_t numMilliseconds = numMicroSeconds / 1000ULL;
+		printf(" average time %llu mSecs\n", numMilliseconds);
 	}
 	else
 	{
-		int numSeconds = numMicroSeconds / 1000000;
-		int fraction = (numMicroSeconds % 1000000) / 100000;
-		printf(" average time %d.%d seconds\n", numSeconds, fraction);
+		uint64_t numSeconds = numMicroSeconds / 1000000ULL;
+		uint64_t fraction = (numMicroSeconds % 1000000ULL) / 100000ULL;
+		printf(" average time %llu.%llu seconds\n", numSeconds, fraction);
 	}
 }
 
@@ -684,19 +684,19 @@ int statistics( int argc, char *argv[] )
 		hours = temp % 24;
 		temp /= 24;
 		printf("DirectoryService running for %d days, %d hours and %d minutes\n", temp, hours, minutes);
-		printf("%d requests,", stats.fTotalCallsHandled);
+		printf("%llu requests,", stats.fTotalCallsHandled);
 		PrintAverageTime(stats.fAverageuSecPerCall);
-		printf("%d cache hits, %d cache misses\n", stats.fCacheHits, stats.fCacheMisses);
-		printf("%d Directory record lookups (%d failed),", 
+		printf("%llu cache hits, %llu cache misses\n", stats.fCacheHits, stats.fCacheMisses);
+		printf("%llu Directory record lookups (%llu failed),", 
 			   stats.fTotalRecordLookups, stats.fNumFailedRecordLookups);
 		PrintAverageTime(stats.fAverageuSecPerRecordLookup);
-		printf("%d membership searches,", stats.fTotalMembershipSearches);
+		printf("%llu membership searches,", stats.fTotalMembershipSearches);
 		PrintAverageTime(stats.fAverageuSecPerMembershipSearch);
-		printf("%d searches for legacy groups,", stats.fTotalLegacySearches);
+		printf("%llu searches for legacy groups,", stats.fTotalLegacySearches);
 		PrintAverageTime(stats.fAverageuSecPerLegacySearch);
-		printf("%d searches for groups containing user,", stats.fTotalGUIDMemberSearches);
+		printf("%llu searches for groups containing user,", stats.fTotalGUIDMemberSearches);
 		PrintAverageTime(stats.fAverageuSecPerGUIDMemberSearch);
-		printf("%d nested group membership searches,", stats.fTotalNestedMemberSearches);
+		printf("%llu nested group membership searches,", stats.fTotalNestedMemberSearches);
 		PrintAverageTime(stats.fAverageuSecPerNestedMemberSearch);
 	}
 	

@@ -1,9 +1,0 @@
-PUBLIC_HEADER_DIR = /usr/local/include
-LIBRARY_STYLE = STATIC
-STRIP_ON_INSTALL = NO
-BEFORE_INSTALL += debug profile
-OTHERLINKEDOFILES = $(OFILE_DIR)/_version.o
-
-# To set the compiler, uncomment the next two lines, and modify as appropriate
-#export CCOMPILER = /usr/bin/gcc-x.x
-#NEXTSTEP_OBJCPLUS_COMPILER = $(CCOMPILER)

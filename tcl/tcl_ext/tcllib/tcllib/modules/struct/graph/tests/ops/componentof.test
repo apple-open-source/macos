@@ -1,0 +1,153 @@
+# -*- tcl -*-
+# Graph ops tests - Connected components II.
+# Copyright (c) 2008 Andreas Kupries <andreas_kupries@users.sourceforge.net>
+# All rights reserved.
+# RCS: @(#) $Id: componentof.test,v 1.2 2008/11/20 07:26:43 andreas_kupries Exp $
+
+# Syntax: struct::graph::op::connectedComponentOf G
+
+# -------------------------------------------------------------------------
+# Wrong # args: Missing, Too many
+
+test graphop-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-connectedComponentOf-1.0 {connectedComponentOf, wrong args, missing} {
+    catch {struct::graph::op::connectedComponentOf} msg
+    set msg
+} [tcltest::wrongNumArgs struct::graph::op::connectedComponentOf {g n} 0]
+
+test graphop-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-connectedComponentOf-1.1 {connectedComponentOf, wrong args, missing} {
+    catch {struct::graph::op::connectedComponentOf g} msg
+    set msg
+} [tcltest::wrongNumArgs struct::graph::op::connectedComponentOf {g n} 1]
+
+test graphop-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-connectedComponentOf-1.2 {connectedComponentOf, wrong args, too many} {
+    catch {struct::graph::op::connectedComponentOf g x y} msg
+    set msg
+} [tcltest::tooManyArgs struct::graph::op::connectedComponentOf {g n}]
+
+# -------------------------------------------------------------------------
+# Logical arguments checks and failures
+
+test graphop-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-connectedComponentOf-2.0 {connectedComponentOf, bad node} {
+    SETUP
+    catch {struct::graph::op::connectedComponentOf mygraph foo} result
+    mygraph destroy
+    set result
+} {node "foo" does not exist in graph "mygraph"}
+
+# -------------------------------------------------------------------------
+# Ok arguments.
+
+test graphop-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-connectedComponentOf-3.1 {connectedComponentOf, nodes, no arcs} {
+    SETUP
+    mygraph node insert 0 1 2 3 4 5
+    set result [lsort -dict [struct::graph::op::connectedComponentOf mygraph 0]]
+    mygraph destroy
+    set result
+} 0
+
+test graphop-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-connectedComponentOf-3.2 {connectedComponentOf, single CC} {
+    SETUP_A
+    set result [lsort -dict [struct::graph::op::connectedComponentOf mygraph 'node5']]
+    mygraph destroy
+    set result
+} {'node0' 'node1' 'node2' 'node3' 'node4' 'node5' 'node6'}
+
+test graphop-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-connectedComponentOf-3.3 {connectedComponentOf, single CC} {
+    SETUP_B
+    set result [lsort -dict [struct::graph::op::connectedComponentOf mygraph D]]
+    mygraph destroy
+    set result
+} {A B C D E S}
+
+test graphop-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-connectedComponentOf-3.4 {connectedComponentOf, single CC} {
+    SETUP_C
+    set result [lsort -dict [struct::graph::op::connectedComponentOf mygraph D]]
+    mygraph destroy
+    set result
+} {A B C D E F}
+
+test graphop-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-connectedComponentOf-3.5 {connectedComponentOf, single CC} {
+    SETUP_D
+    set result [lsort -dict [struct::graph::op::connectedComponentOf mygraph g]]
+    mygraph destroy
+    set result
+} {a b c d f g h i j}
+
+test graphop-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-connectedComponentOf-3.6 {connectedComponentOf, single CC} {
+    SETUP_E
+    set result [lsort -dict [struct::graph::op::connectedComponentOf mygraph 5b]]
+    mygraph destroy
+    set result
+} {1b 1w 2b 2w 3b 3w 4b 4w 5b 5w 6b 6w 7b 7w 8b 8w}
+
+test graphop-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-connectedComponentOf-3.7 {connectedComponentOf, single CC} {
+    SETUP_F
+    set result [lsort -dict [struct::graph::op::connectedComponentOf mygraph 2w]]
+    mygraph destroy
+    set result
+} {1b 1w 2b 2w 3b 3w 4b 4w}
+
+test graphop-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-connectedComponentOf-3.8 {connectedComponentOf, single CC} {
+    SETUP_G
+    set result [lsort -dict [struct::graph::op::connectedComponentOf mygraph 3b]]
+    mygraph destroy
+    set result
+} {1b 1w 2b 2w 3b 3w 4b 4w 5b 5w}
+
+test graphop-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-connectedComponentOf-3.9 {connectedComponentOf, single CC} {
+    SETUP_H
+    set result [lsort -dict [struct::graph::op::connectedComponentOf mygraph C]]
+    mygraph destroy
+    set result
+} {A B C D E}
+
+test graphop-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-connectedComponentOf-3.10 {connectedComponentOf, single CC} {
+    SETUP_I
+    set result [lsort -dict [struct::graph::op::connectedComponentOf mygraph N4]]
+    mygraph destroy
+    set result
+} {N1 N2 N3 N4 N5}
+
+test graphop-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-connectedComponentOf-3.11.0 {connectedComponentOf, multiple CC} {
+    SETUP_J
+    set result [lsort -dict [struct::graph::op::connectedComponentOf mygraph 4]]
+    mygraph destroy
+    set result
+} {1 4 5}
+
+test graphop-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-connectedComponentOf-3.11.1 {connectedComponentOf, multiple CC} {
+    SETUP_J
+    set result [lsort -dict [struct::graph::op::connectedComponentOf mygraph 2]]
+    mygraph destroy
+    set result
+} 2
+
+test graphop-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-connectedComponentOf-3.11.2 {connectedComponentOf, multiple CC} {
+    SETUP_J
+    set result [lsort -dict [struct::graph::op::connectedComponentOf mygraph 3]]
+    mygraph destroy
+    set result
+} 3
+
+test graphop-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-connectedComponentOf-3.11.3 {connectedComponentOf, multiple CC} {
+    SETUP_J
+    set result [lsort -dict [struct::graph::op::connectedComponentOf mygraph 6]]
+    mygraph destroy
+    set result
+} {6 7}
+
+test graphop-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-connectedComponentOf-3.12.0 {connectedComponentOf, multiple CC} {
+    SETUP_K
+    set result [lsort -dict [struct::graph::op::connectedComponentOf mygraph No3]]
+    mygraph destroy
+    set result
+} {No1 No2 No3 No4}
+
+test graphop-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-connectedComponentOf-3.12.1 {connectedComponentOf, multiple CC} {
+    SETUP_K
+    set result [lsort -dict [struct::graph::op::connectedComponentOf mygraph No5]]
+    mygraph destroy
+    set result
+} No5
+
+# ---------------------------------------------------

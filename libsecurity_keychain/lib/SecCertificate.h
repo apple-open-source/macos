@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2002-2008 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,6 +33,7 @@
 
 #include <CoreFoundation/CFBase.h>
 #include <CoreFoundation/CFArray.h>
+#include <CoreFoundation/CFData.h>
 #include <CoreFoundation/CFDate.h>
 #include <Security/SecBase.h>
 #include <Security/cssmtype.h>
@@ -87,6 +88,15 @@ CFTypeID SecCertificateGetTypeID(void);
 OSStatus SecCertificateCreateFromData(const CSSM_DATA *data, CSSM_CERT_TYPE type, CSSM_CERT_ENCODING encoding, SecCertificateRef *certificate);
 
 /*!
+	@function SecCertificateCreateWithData
+	@abstract Create a certificate reference given its DER representation as a CFData.
+    @param allocator CFAllocator to allocate the certificate data. Pass NULL to use the default allocator.
+    @param certificate DER encoded X.509 certificate.
+	@result On return, a reference to the certificate. Returns NULL if the passed-in data is not a valid DER-encoded X.509 certificate.
+*/
+SecCertificateRef SecCertificateCreateWithData(CFAllocatorRef allocator, CFDataRef data);
+
+/*!
 	@function SecCertificateAddToKeychain
 	@abstract Adds a certificate to the specified keychain.
     @param certificate A reference to a certificate.
@@ -104,6 +114,14 @@ OSStatus SecCertificateAddToKeychain(SecCertificateRef certificate, SecKeychainR
 	@result A result code. See "Security Error Codes" (SecBase.h).
 */
 OSStatus SecCertificateGetData(SecCertificateRef certificate, CSSM_DATA_PTR data);
+
+/*!
+	@function SecCertificateCopyData
+	@abstract Returns the DER representation of an X.509 certificate.
+    @param certificate A reference to a certificate.
+	@result On return, a data reference containing the DER encoded representation of the X.509 certificate.
+*/
+CFDataRef SecCertificateCopyData(SecCertificateRef certificate);
 
 /*!
 	@function SecCertificateGetType
@@ -177,10 +195,19 @@ OSStatus SecCertificateCopyPublicKey(SecCertificateRef certificate, SecKeyRef *k
     @function SecCertificateCopyCommonName
     @abstract Retrieves the common name of the subject of a given certificate.
     @param certificate A reference to the certificate from which to retrieve the common name.
-    @param key On return, a reference to the common name. Your code must release this reference by calling the CFRelease function.
+    @param commonName On return, a reference to the common name. Your code must release this reference by calling the CFRelease function.
     @result A result code. See "Security Error Codes" (SecBase.h).
 */
 OSStatus SecCertificateCopyCommonName(SecCertificateRef certificate, CFStringRef *commonName);
+
+/*!
+	@function SecCertificateCopySubjectSummary
+	@abstract Returns a simple string which hopefully represents a human understandable summary.
+    @param certificate  A reference to the certificate from which to derive the subject summary string.
+    @discussion All the data in this string comes from the certificate itself, and thus it's in whatever language the certificate itself is in.
+	@result On return, a reference to the subject summary string. Your code must release this reference by calling the CFRelease function.
+*/
+CFStringRef SecCertificateCopySubjectSummary(SecCertificateRef certificate);
 
 /*!
     @function SecCertificateCopyEmailAddresses

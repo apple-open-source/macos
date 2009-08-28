@@ -1,0 +1,23 @@
+--- 
+abstract: mro::* interface compatibility for Perls < 5.9.5
+author: Brandon L. Black, <blblack@gmail.com>
+build_requires: 
+  Test::More: 0.47
+distribution_type: module
+generated_by: Module::Install version 0.670
+license: perl
+meta-spec: 
+  url: http://module-build.sourceforge.net/META-spec-v1.3.html
+  version: 1.3
+name: MRO-Compat
+no_index: 
+  directory: 
+    - inc
+    - t
+provides: 
+  MRO::Compat: 
+    file: lib/MRO/Compat.pm
+    version: 0.05
+requires: 
+  Class::C3: 0.19
+version: 0.05

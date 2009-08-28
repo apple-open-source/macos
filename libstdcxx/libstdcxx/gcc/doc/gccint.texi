@@ -48,7 +48,7 @@ included in the section entitled ``GNU Free Documentation License''.
      funds for GNU development.
 @end copying
 @ifnottex
-@dircategory Programming
+@dircategory Software development
 @direntry
 * gccint: (gccint).            Internals of the GNU Compiler Collection.
 @end direntry
@@ -59,15 +59,12 @@ This file documents the internals of the GNU compilers.
 @end ifnottex
 
 @setchapternewpage odd
-@shorttitlepage GNU Compiler Collection Internals (GCC)
 @titlepage
-@center @titlefont{GNU Compiler Collection Internals}
-@sp 2
-@center by Richard M. Stallman and the GCC Developer Community
+@title GNU Compiler Collection Internals
+@versionsubtitle
+@author Richard M. Stallman and the @sc{GCC} Developer Community
 @page
 @vskip 0pt plus 1filll
-For GCC Version @value{version-GCC}@*
-@sp 1
 @insertcopying
 @end titlepage
 @summarycontents
@@ -105,11 +102,13 @@ Additional tutorial information is linked to from
 * Libgcc::          Low-level runtime library used by GCC.
 * Languages::       Languages for which GCC front ends are written.
 * Source Tree::     GCC source tree structure and build system.
+* Options::         Option specification files.
 * Passes::          Order of passes, what they do, and what each file is for.
 * Trees::           The source representation used by the C and C++ front ends.
 * RTL::             The intermediate representation that most passes work on.
 * Control Flow::    Maintaining and manipulating the control flow graph.
 * Tree SSA::        Analysis and optimization of the tree representation.
+* Loop Analysis and Representation:: Analysis and representation of loops
 * Machine Desc::    How to write machine description instruction patterns.
 * Target Macros::   How to write the machine description C macros and functions.
 * Host Config::     Writing the @file{xm-@var{machine}.h} file.
@@ -136,9 +135,11 @@ Additional tutorial information is linked to from
 @include libgcc.texi
 @include languages.texi
 @include sourcebuild.texi
+@include options.texi
 @include passes.texi
 @include c-tree.texi
 @include tree-ssa.texi
+@include loop.texi
 @include rtl.texi
 @include cfg.texi
 @include md.texi

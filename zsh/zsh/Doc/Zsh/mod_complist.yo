@@ -37,7 +37,9 @@ item(tt(di 32))(
 for directories
 )
 item(tt(ln 36))(
-for symbolic links
+for symbolic links.  If this has the special value tt(target),
+symbolic links are dereferenced and the target file used to
+determine the display format.
 )
 item(tt(pi 31))(
 for named pipes (FIFOs)
@@ -51,11 +53,30 @@ for block devices
 item(tt(cd 44;37))(
 for character devices
 )
-item(tt(ex 35))(
-for executable files
+item(tt(or) var(none))(
+for a symlink to nonexistent file (default is the value defined for tt(ln))
 )
 item(tt(mi) var(none))(
-for a non-existent file (default is the value defined for tt(fi))
+for a non-existent file (default is the value defined for tt(fi)); this code
+is currently not used
+)
+item(tt(su 37;41))(
+for files with setuid bit set
+)
+item(tt(sg 30;43))(
+for files with setgid bit set
+)
+item(tt(tw 30;42))(
+for world writable directories with sticky bit set
+)
+item(tt(ow 34;43))(
+for world writable directories without sticky bit set
+)
+item(tt(st 37;44))(
+for directories with sticky bit set but not world writable
+)
+item(tt(ex 35))(
+for executable files
 )
 item(tt(lc \e[))(
 for the left code (see below)
@@ -79,13 +100,14 @@ Apart from these strings, the var(name) may also be an asterisk
 (`tt(*)') followed by any string. The var(value) given for such a
 string will be used for all files whose name ends with the string.
 The var(name) may also be an equals sign (`tt(=)') followed by a
-pattern.  The var(value) given for this pattern will be used for all
+pattern; the tt(EXTENDED_GLOB) option will be turned on for evaluation
+of the pattern.  The var(value) given for this pattern will be used for all
 matches (not just filenames) whose display string are matched by
-the pattern.  Definitions for both of these take precedence over the
-values defined for file types and the form with the leading asterisk 
-takes precedence over the form with the leading equal sign.
+the pattern.  Definitions for the form with the leading equal sign take
+precedence over the values defined for file types, which in turn take
+precedence over the form with the leading asterisk (file extensions).
 
-The last form also allows different parts of the displayed
+The leading-equals form also allows different parts of the displayed
 strings to be colored differently.  For this, the pattern has to use the
 `tt((#b))' globbing flag and pairs of parentheses surrounding the
 parts of the strings that are to be colored differently.  In this case 
@@ -139,7 +161,8 @@ To enable scrolling through a completion list, the tt(LISTPROMPT)
 parameter must be set.  Its value will be used as the prompt; if it
 is the empty string, a default prompt will be used.  The value may
 contain escapes of the form `tt(%x)'.  It supports the escapes
-`tt(%B)', `tt(%b)', `tt(%S)', `tt(%s)', `tt(%U)', `tt(%u)' and
+`tt(%B)', `tt(%b)', `tt(%S)', `tt(%s)', `tt(%U)', `tt(%u)', `tt(%F)',
+`tt(%f)', `tt(%K)', `tt(%k)' and
 `tt(%{...%})' used also in shell prompts as well as three pairs of
 additional sequences: a `tt(%l)' or `tt(%L)' is replaced by the number
 of the last line shown and the total number of lines in the form
@@ -192,8 +215,15 @@ shell is set up to return to the last prompt after showing a
 completion list (see the tt(ALWAYS_LAST_PROMPT) option in
 ifzman(zmanref(zshoptions))\
 ifnzman(noderef(Options))\
-).  It can be invoked directly by
-the widget tt(menu-select) defined by the module.  Alternatively,
+).
+
+Menu selection can be invoked directly by
+the widget tt(menu-select) defined by this module.  This is a standard
+ZLE widget that can be bound to a key in the usual way as described
+in ifzman(zmanref(zshzle))\
+ifnzman(noderef(Zsh Line Editor)).
+
+Alternatively,
 the parameter tt(MENUSELECT) can be set to an integer, which gives the
 minimum number of matches that must be present before menu selection is
 automatically turned on.  This second method requires that menu completion

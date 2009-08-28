@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2009 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -105,38 +105,31 @@ bool IOHIDEventSystem::start(IOService * provider)
 //====================================================================================================
 void IOHIDEventSystem::free()
 {
-	// we are going away. stop the workloop.
-	if (workLoop)
-    {
+    if (workLoop) {
         workLoop->disableAllEventSources();
     }
-
-    if ( _publishNotify )
-    {
+    
+    if ( _publishNotify ) {
         _publishNotify->remove();
         _publishNotify = 0;
     }
     
-    if ( _terminateNotify )
-    {
+    if ( _terminateNotify ) {
         _terminateNotify->remove();
         _terminateNotify = 0;
     }
-
-    if ( _eventServiceInfoArray )
-    {
+    
+    if ( _eventServiceInfoArray ) {
         _eventServiceInfoArray->release();
         _eventServiceInfoArray = 0;
     }
     
-    if ( _commandGate )
-    {
+    if ( _commandGate ) {
         _commandGate->release();
         _commandGate = 0;
     }
     
-    if ( _workLoop )
-    {
+    if ( _workLoop ) {
         _workLoop->release();
         _workLoop = 0;
     }

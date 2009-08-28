@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,6 +35,7 @@
  */
 
 
+#include <TargetConditionals.h>
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -65,14 +66,16 @@ static CFMutableArrayRef	removedPrefsKeys;	/* old prefs keys to be removed */
 static Boolean			_verbose	= FALSE;
 
 
-static void
+static Boolean
 establishNewPreferences()
 {
 	CFBundleRef     bundle;
+	SCNetworkSetRef	current		= NULL;
 	Boolean		ok		= FALSE;
 	int		sc_status	= kSCStatusFailed;
 	SCNetworkSetRef	set		= NULL;
 	CFStringRef	setName		= NULL;
+	Boolean		updated		= FALSE;
 
 	while (TRUE) {
 		ok = SCPreferencesLock(prefs, TRUE);
@@ -82,40 +85,47 @@ establishNewPreferences()
 
 		sc_status = SCError();
 		if (sc_status == kSCStatusStale) {
-			(void) SCPreferencesSynchronize(prefs);
+			SCPreferencesSynchronize(prefs);
 		} else {
 			SCLog(TRUE, LOG_ERR,
 			      CFSTR("Could not acquire network configuration lock: %s"),
 			      SCErrorString(sc_status));
-			return;
+			return FALSE;
 		}
 	}
 
-	set = SCNetworkSetCreate(prefs);
+	current = SCNetworkSetCopyCurrent(prefs);
+	if (current != NULL) {
+		set = current;
+	}
+
 	if (set == NULL) {
-		ok = FALSE;
-		sc_status = SCError();
-		goto done;
-	}
+		set = SCNetworkSetCreate(prefs);
+		if (set == NULL) {
+			ok = FALSE;
+			sc_status = SCError();
+			goto done;
+		}
 
-	bundle = _SC_CFBundleGet();
-	if (bundle != NULL) {
-		setName = CFBundleCopyLocalizedString(bundle,
-						      CFSTR("DEFAULT_SET_NAME"),
-						      CFSTR("Automatic"),
-						      NULL);
-	}
+		bundle = _SC_CFBundleGet();
+		if (bundle != NULL) {
+			setName = CFBundleCopyLocalizedString(bundle,
+							      CFSTR("DEFAULT_SET_NAME"),
+							      CFSTR("Automatic"),
+							      NULL);
+		}
 
-	ok = SCNetworkSetSetName(set, (setName != NULL) ? setName : CFSTR("Automatic"));
-	if (!ok) {
-		sc_status = SCError();
-		goto done;
-	}
+		ok = SCNetworkSetSetName(set, (setName != NULL) ? setName : CFSTR("Automatic"));
+		if (!ok) {
+			sc_status = SCError();
+			goto done;
+		}
 
-	ok = SCNetworkSetSetCurrent(set);
-	if (!ok) {
-		sc_status = SCError();
-		goto done;
+		ok = SCNetworkSetSetCurrent(set);
+		if (!ok) {
+			sc_status = SCError();
+			goto done;
+		}
 	}
 
 	ok = SCNetworkSetEstablishDefaultConfiguration(set);
@@ -130,6 +140,7 @@ establishNewPreferences()
 		ok = SCPreferencesCommitChanges(prefs);
 		if (ok) {
 			SCLog(TRUE, LOG_NOTICE, CFSTR("New network configuration saved"));
+			updated = TRUE;
 		} else {
 			sc_status = SCError();
 			if (sc_status == EROFS) {
@@ -140,7 +151,7 @@ establishNewPreferences()
 
 		/* apply (committed or temporary/read-only) changes */
 		(void) SCPreferencesApplyChanges(prefs);
-	} else if (set != NULL) {
+	} else if ((current == NULL) && (set != NULL)) {
 		(void) SCNetworkSetRemove(set);
 	}
 
@@ -153,28 +164,35 @@ establishNewPreferences()
 	(void)SCPreferencesUnlock(prefs);
 	if (setName != NULL) CFRelease(setName);
 	if (set != NULL) CFRelease(set);
-	return;
+	return updated;
 }
 
 
 static Boolean
-quiet()
+quiet(Boolean *timeout)
 {
 	CFDictionaryRef	dict;
-	Boolean		quiet	= FALSE;
+	Boolean		_quiet		= FALSE;
+	Boolean		_timeout	= FALSE;
 
 	// check if quiet
 	dict = SCDynamicStoreCopyValue(store, initKey);
 	if (dict != NULL) {
-		if (isA_CFDictionary(dict) &&
-		    (CFDictionaryContainsKey(dict, CFSTR("*QUIET*")) ||
-		     CFDictionaryContainsKey(dict, CFSTR("*TIMEOUT*")))) {
-			quiet = TRUE;
+		if (isA_CFDictionary(dict)) {
+			if (CFDictionaryContainsKey(dict, CFSTR("*QUIET*"))) {
+				_quiet = TRUE;
+			}
+			if (CFDictionaryContainsKey(dict, CFSTR("*TIMEOUT*"))) {
+				_timeout = TRUE;
+			}
 		}
 		CFRelease(dict);
 	}
 
-	return quiet;
+	if (timeout != NULL) {
+		*timeout = _timeout;
+	}
+	return _quiet;
 }
 
 
@@ -215,8 +233,8 @@ watchQuietEnable()
 	ok = SCDynamicStoreSetNotificationKeys(store, keys, NULL);
 	CFRelease(keys);
 	if (!ok) {
-		SCPrint(TRUE, stderr,
-			CFSTR("SCDynamicStoreSetNotificationKeys() failed: %s\n"), SCErrorString(SCError()));
+		SCLog(TRUE, LOG_ERR,
+		      CFSTR("SCDynamicStoreSetNotificationKeys() failed: %s\n"), SCErrorString(SCError()));
 		watchQuietDisable();
 	}
 
@@ -226,9 +244,26 @@ watchQuietEnable()
 static void
 watchQuietCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 {
-	if (quiet()) {
+	Boolean	_quiet;
+	Boolean	_timeout	= FALSE;
+
+	_quiet = quiet(&_timeout);
+	if (_quiet
+#if	!TARGET_OS_IPHONE
+	    || _timeout
+#endif	/* !TARGET_OS_IPHONE */
+	   ) {
 		watchQuietDisable();
-		establishNewPreferences();
+	}
+
+	if (_quiet || _timeout) {
+		static int	logged	= 0;
+
+		(void) establishNewPreferences();
+		if (_timeout && (logged++ == 0)) {
+			SCLog(TRUE, LOG_NOTICE,
+			      CFSTR("Network configuration creation timed out waiting for IORegistry"));
+		}
 	}
 
 	return;
@@ -554,6 +589,7 @@ updateConfiguration(SCPreferencesRef		prefs,
 {
 
 
+#if	!TARGET_OS_IPHONE
 	if ((notificationType & kSCPreferencesNotificationCommit) == kSCPreferencesNotificationCommit) {
 		SCNetworkSetRef	current;
 
@@ -564,6 +600,7 @@ updateConfiguration(SCPreferencesRef		prefs,
 			CFRelease(current);
 		}
 	}
+#endif	/* !TARGET_OS_IPHONE */
 
 	if ((notificationType & kSCPreferencesNotificationApply) != kSCPreferencesNotificationApply) {
 		return;
@@ -577,36 +614,6 @@ updateConfiguration(SCPreferencesRef		prefs,
 	/* finished with current prefs, wait for changes */
 	SCPreferencesSynchronize(prefs);
 
-	return;
-}
-
-
-__private_extern__
-void
-stop_PreferencesMonitor(CFRunLoopSourceRef stopRls)
-{
-	// cleanup
-
-	watchQuietDisable();
-
-	if (prefs != NULL) {
-		if (!SCPreferencesUnscheduleFromRunLoop(prefs,
-							CFRunLoopGetCurrent(),
-							kCFRunLoopDefaultMode)) {
-			SCLog(TRUE, LOG_ERR,
-			      CFSTR("SCPreferencesUnscheduleFromRunLoop() failed: %s"),
-			      SCErrorString(SCError()));
-		}
-		CFRelease(prefs);
-		prefs = NULL;
-	}
-
-	if (store != NULL) {
-		CFRelease(store);
-		store = NULL;
-	}
-
-	CFRunLoopSourceSignal(stopRls);
 	return;
 }
 

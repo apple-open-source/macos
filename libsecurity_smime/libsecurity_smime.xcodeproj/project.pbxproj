@@ -24,6 +24,7 @@
 /* Begin PBXBuildFile section */
 		0540498E0A3769AC0035F195 /* libsecurity_smime.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0540498C0A3769AC0035F195 /* libsecurity_smime.plist */; };
 		054049990A376A010035F195 /* libsecurity_smime.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0540498D0A3769AC0035F195 /* libsecurity_smime.txt */; };
+		0588CB2A0E7084880069D232 /* siginfoUtils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0588CB290E7084880069D232 /* siginfoUtils.cpp */; };
 		4C14208F0415845900CA2E66 /* cmsdigdata.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C2741F803E9FC5B00A80181 /* cmsdigdata.c */; };
 		4C21886C0635F4BD00E64E02 /* SecCmsBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4CCC26030635F1A100CBF0D4 /* SecCmsBase.h */; };
 		4C21886D0635F4BD00E64E02 /* SecCmsContentInfo.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4CCC26040635F1A100CBF0D4 /* SecCmsContentInfo.h */; };
@@ -182,8 +183,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		0540498C0A3769AC0035F195 /* libsecurity_smime.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = libsecurity_smime.plist; sourceTree = "<group>"; };
+		0540498C0A3769AC0035F195 /* libsecurity_smime.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; path = libsecurity_smime.plist; sourceTree = "<group>"; };
 		0540498D0A3769AC0035F195 /* libsecurity_smime.txt */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = libsecurity_smime.txt; sourceTree = "<group>"; };
+		0588CB290E7084880069D232 /* siginfoUtils.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = siginfoUtils.cpp; sourceTree = "<group>"; };
 		4C12AFCB056ACE7800589FF2 /* security_asn1.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = security_asn1.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C21887E0635F4D300E64E02 /* security_smime.exp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.exports; path = security_smime.exp; sourceTree = "<group>"; };
 		4C2741F203E9FC5B00A80181 /* cmsarray.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = cmsarray.c; sourceTree = "<group>"; tabWidth = 8; };
@@ -210,7 +212,7 @@
 		4C6D72BC0410298900CA2E66 /* cmsutil.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = cmsutil.c; sourceTree = "<group>"; tabWidth = 8; };
 		4C7183470637153700230DDE /* SecSMIME.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecSMIME.h; sourceTree = "<group>"; };
 		4C7FAB41056AC7A200FE0C44 /* security_smime.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = security_smime.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		4C817F8405ED4D7A007975E6 /* security_smime */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = security_smime; sourceTree = BUILT_PRODUCTS_DIR; };
+		4C817F8405ED4D7A007975E6 /* security_smime */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = security_smime; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C8E166C0438EEE700CA2E66 /* secoid.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = secoid.c; sourceTree = "<group>"; };
 		4C8E166D0438EEE700CA2E66 /* secoid.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = secoid.h; sourceTree = "<group>"; };
 		4C8E166E0438EEE700CA2E66 /* secoidt.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = secoidt.h; sourceTree = "<group>"; };
@@ -240,32 +242,6 @@
 		F64398FF0420118A01CA2DCC /* cert.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cert.h; sourceTree = "<group>"; tabWidth = 8; };
 		F64399000420118A01CA2DCC /* cert.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = cert.c; sourceTree = "<group>"; tabWidth = 8; };
 /* End PBXFileReference section */
-
-/* Begin PBXFrameworkTarget section */
-		4C7FAB40056AC7A200FE0C44 /* security_smime */ = {
-			isa = PBXFrameworkTarget;
-			buildConfigurationList = C23B0CCD09A298C100B7FCED /* Build configuration list for PBXFrameworkTarget "security_smime" */;
-			buildPhases = (
-				4C7FAB3B056AC7A200FE0C44 /* Headers */,
-				4C2188660635F43B00E64E02 /* CopyFiles */,
-				4C2188670635F43E00E64E02 /* CopyFiles */,
-				4C2188680635F44100E64E02 /* CopyFiles */,
-				4C2188690635F44300E64E02 /* CopyFiles */,
-			);
-			dependencies = (
-			);
-			name = security_smime;
-			productInstallPath = /usr/local/SecurityPieces/Components/Security;
-			productName = security_smime;
-			productReference = 4C7FAB41056AC7A200FE0C44 /* security_smime.framework */;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict/>
-</plist>
-";
-		};
-/* End PBXFrameworkTarget section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		4C2741EB03E9FBF700A80181 /* Frameworks */ = {
@@ -309,6 +285,7 @@
 		4C2741F003E9FC2100A80181 /* lib */ = {
 			isa = PBXGroup;
 			children = (
+				0588CB290E7084880069D232 /* siginfoUtils.cpp */,
 				F64399000420118A01CA2DCC /* cert.c */,
 				F64398FF0420118A01CA2DCC /* cert.h */,
 				4C2741F203E9FC5B00A80181 /* cmsarray.c */,
@@ -432,16 +409,18 @@
 		};
 /* End PBXHeadersBuildPhase section */
 
-/* Begin PBXLibraryTarget section */
+/* Begin PBXNativeTarget section */
 		4C2741ED03E9FBF700A80181 /* libsecurity_smime */ = {
-			isa = PBXLibraryTarget;
-			buildConfigurationList = C23B0CD309A298C100B7FCED /* Build configuration list for PBXLibraryTarget "libsecurity_smime" */;
+			isa = PBXNativeTarget;
+			buildConfigurationList = C23B0CD309A298C100B7FCED /* Build configuration list for PBXNativeTarget "libsecurity_smime" */;
 			buildPhases = (
 				4C2741E903E9FBF700A80181 /* Headers */,
 				4C2741EA03E9FBF700A80181 /* Sources */,
 				4C2741EB03E9FBF700A80181 /* Frameworks */,
 				4C681B61056AC6BE00EB41E9 /* ShellScript */,
 				4C681B62056AC6C100EB41E9 /* ShellScript */,
+			);
+			buildRules = (
 			);
 			dependencies = (
 				4C7FAB42056AC7A600FE0C44 /* PBXTargetDependency */,
@@ -451,8 +430,29 @@
 			productInstallPath = /usr/local/lib;
 			productName = libSecurityNssSmime.a;
 			productReference = 4C817F8405ED4D7A007975E6 /* security_smime */;
+			productType = "com.apple.product-type.library.static";
 		};
-/* End PBXLibraryTarget section */
+		4C7FAB40056AC7A200FE0C44 /* security_smime */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C23B0CCD09A298C100B7FCED /* Build configuration list for PBXNativeTarget "security_smime" */;
+			buildPhases = (
+				4C7FAB3B056AC7A200FE0C44 /* Headers */,
+				4C2188660635F43B00E64E02 /* CopyFiles */,
+				4C2188670635F43E00E64E02 /* CopyFiles */,
+				4C2188680635F44100E64E02 /* CopyFiles */,
+				4C2188690635F44300E64E02 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = security_smime;
+			productInstallPath = /usr/local/SecurityPieces/Components/Security;
+			productName = security_smime;
+			productReference = 4C7FAB41056AC7A200FE0C44 /* security_smime.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+/* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
 		4C2741E803E9FBAF00A80181 /* Project object */ = {
@@ -464,7 +464,6 @@
 			productRefGroup = 4C2741EF03E9FBF700A80181 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
-			shouldCheckCompatibility = 1;
 			targets = (
 				4C2741ED03E9FBF700A80181 /* libsecurity_smime */,
 				4C7FAB40056AC7A200FE0C44 /* security_smime */,
@@ -481,7 +480,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tln -fs \"../../../${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework/Versions/A\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework\ndone";
+			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tditto -V \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}${postfix}\" \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\n\tln -fs \"../../../${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework/Versions/A\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework\ndone";
 		};
 		4C681B62056AC6C100EB41E9 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -524,6 +523,7 @@
 				4C8E16790438EFD700CA2E66 /* secitem.c in Sources */,
 				4C8E166F0438EEE700CA2E66 /* secoid.c in Sources */,
 				4CDA0D6704200B0F00CA2E66 /* smimeutil.c in Sources */,
+				0588CB2A0E7084880069D232 /* siginfoUtils.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -558,7 +558,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				PRODUCT_NAME = "Copy Open Source Docs";
 				ZERO_LINK = NO;
@@ -590,8 +589,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INFOPLIST_FILE = "Info-security_smime.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Components/Security;
 				PRODUCT_NAME = security_smime;
 				WRAPPER_EXTENSION = framework;
@@ -602,8 +603,10 @@
 		C23B0CCF09A298C100B7FCED /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INFOPLIST_FILE = "Info-security_smime.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Components/Security;
 				PRODUCT_NAME = security_smime;
 				WRAPPER_EXTENSION = framework;
@@ -615,8 +618,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INFOPLIST_FILE = "Info-security_smime.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Components/Security;
 				LDFLAGS_BUILDFOLDER_SECURITY = "-dylib_file \"$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Versions/A/Security:$(SYMROOT)/Security.framework/Versions/A/Security_debug\" -dylib_file \"$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Versions/A/Security_debug:$(SYMROOT)/Security.framework/Versions/A/Security_debug\"";
 				PRODUCT_NAME = security_smime;
@@ -629,7 +634,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
+				INFOPLIST_FILE = "Info-security_smime.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Components/Security;
 				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG";
 				OTHER_CFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG -O0 -fno-inline";
@@ -644,7 +652,10 @@
 		C23B0CD209A298C100B7FCED /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
+				INFOPLIST_FILE = "Info-security_smime.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Components/Security;
 				PRODUCT_NAME = security_smime;
 				WRAPPER_EXTENSION = framework;
@@ -655,13 +666,13 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 32850;
+				CURRENT_PROJECT_VERSION = 36873;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
 				);
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
@@ -680,12 +691,12 @@
 				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
-				PRIVATE_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/PrivateHeaders/Security";
+				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/PrivateHeaders/Security;
 				PRODUCT_NAME = security_smime;
-				PUBLIC_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/Headers/Security";
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/Headers/Security;
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -703,13 +714,13 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 32850;
+				CURRENT_PROJECT_VERSION = 36873;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
 				);
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
@@ -728,12 +739,12 @@
 				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
-				PRIVATE_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/PrivateHeaders/Security";
+				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/PrivateHeaders/Security;
 				PRODUCT_NAME = security_smime;
-				PUBLIC_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/Headers/Security";
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/Headers/Security;
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -748,13 +759,13 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 32850;
+				CURRENT_PROJECT_VERSION = 36873;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
 				);
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
@@ -774,12 +785,12 @@
 				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
-				PRIVATE_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/PrivateHeaders/Security";
+				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/PrivateHeaders/Security;
 				PRODUCT_NAME = security_smime;
-				PUBLIC_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/Headers/Security";
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/Headers/Security;
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -794,12 +805,13 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 32850;
+				CURRENT_PROJECT_VERSION = 36873;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
 				);
-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
@@ -818,13 +830,13 @@
 				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG -O0 -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
 				PREBINDING = NO;
-				PRIVATE_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/PrivateHeaders/Security";
+				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/PrivateHeaders/Security;
 				PRODUCT_NAME = security_smime;
-				PUBLIC_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/Headers/Security";
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/Headers/Security;
 				SECTORDER_FLAGS = "";
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
@@ -842,12 +854,13 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 32850;
+				CURRENT_PROJECT_VERSION = 36873;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
 				);
-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
@@ -866,12 +879,12 @@
 				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
-				PRIVATE_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/PrivateHeaders/Security";
+				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/PrivateHeaders/Security;
 				PRODUCT_NAME = security_smime;
-				PUBLIC_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/Headers/Security";
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/Headers/Security;
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -937,7 +950,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
-		C23B0CCD09A298C100B7FCED /* Build configuration list for PBXFrameworkTarget "security_smime" */ = {
+		C23B0CCD09A298C100B7FCED /* Build configuration list for PBXNativeTarget "security_smime" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C23B0CCE09A298C100B7FCED /* Development */,
@@ -949,7 +962,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
-		C23B0CD309A298C100B7FCED /* Build configuration list for PBXLibraryTarget "libsecurity_smime" */ = {
+		C23B0CD309A298C100B7FCED /* Build configuration list for PBXNativeTarget "libsecurity_smime" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C23B0CD409A298C100B7FCED /* Development */,

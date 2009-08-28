@@ -74,8 +74,7 @@ svn_diff__tree_insert_token(svn_diff__node_t **node, svn_diff__tree_t *tree,
   svn_diff__node_t *parent;
   int rv;
 
-  if (!token)
-    abort();
+  SVN_ERR_ASSERT(token);
 
   parent = NULL;
   node_ref = &tree->root[hash % SVN_DIFF__HASH_SIZE];
@@ -155,7 +154,7 @@ svn_diff__get_tokens(svn_diff__position_t **position_list,
   hash = 0; /* The callback fn doesn't need to touch it per se */
   while (1)
     {
-      SVN_ERR(vtable->datasource_get_next_token(&hash, &token, 
+      SVN_ERR(vtable->datasource_get_next_token(&hash, &token,
                                                 diff_baton, datasource));
       if (token == NULL)
         break;
@@ -166,7 +165,7 @@ svn_diff__get_tokens(svn_diff__position_t **position_list,
                                           hash, token));
 
       /* Create a new position */
-      position = apr_palloc(pool, sizeof(svn_diff__position_t));
+      position = apr_palloc(pool, sizeof(*position));
       position->next = NULL;
       position->node = node;
       position->offset = offset;

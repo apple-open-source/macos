@@ -31,7 +31,7 @@
 
 
 /*
- * $Id: lsof.h,v 1.59 2007/04/24 16:16:59 abe Exp $
+ * $Id: lsof.h,v 1.61 2008/10/21 16:21:41 abe Exp $
  */
 
 
@@ -100,6 +100,7 @@ struct l_dev {
 #define	FF_DEFERIND	"DFI"
 #define	FF_DELAY	"DLY"
 #define	FF_DIRECT	"DIR"
+#define	FF_DIRECTORY	"DTY"
 #define	FF_DOCLONE	"DOCL"
 #define	FF_DSYNC	"DSYN"
 #define	FF_EVTONLY	"EVO"
@@ -126,9 +127,11 @@ struct l_dev {
 #define	FF_NMFS		"NMFS"
 #define	FF_NDELAY	"ND"
 #define	FF_NET		"NET"
+#define	FF_NOATM	"NATM"
 #define	FF_NOCACHE	"NC"
 #define	FF_NOCTTY	"NTTY"
 #define	FF_NODSYNC	"NDSY"
+#define	FF_NOFOLNK	"NFLK"
 #define	FF_NOTOSTOP	"NOTO"
 #define	FF_NSHARE	"NSH"
 #define	FF_OLRMIRROR	"OLRM"
@@ -136,6 +139,7 @@ struct l_dev {
 #define	FF_POSIX_PIPE	"PP"
 #define	FF_RAIOSIG	"RAIO"
 #define	FF_RCACH	"RC"
+#define	FF_RDWR		"RW"
 #define	FF_READ		"R"
 #define	FF_REVOKED	"REV"
 #define	FF_RSHARE	"RSH"
@@ -361,6 +365,8 @@ static struct utmp dummy_utmp;		/* to get login name length */
 #define TCPTPI_WINDOWS	0x0008		/* report TCP/TPI window sizes */
 #define	TCPTPI_ALL	(TCPTPI_QUEUES | TCPTPI_STATE | TCPTPI_WINDOWS)
 					/* report all TCP/TPI info */
+#define	TCPUDPALLOC	32		/* allocation amount for TCP and UDP
+					 * state tables */
 #define	TMLIMIT		15		/* readlink() & stat() timeout sec */
 #define	TMLIMMIN	2		/* minimum timeout */
 #define	TYPEL		8		/* type character length */
@@ -454,6 +460,7 @@ extern int ZoneColW;
 #define	SELUID		0x0400		/* select UIDs (-u) */
 #define	SELUNX		0x0800		/* select UNIX socket (-U) */
 #define	SELZONE		0x1000		/* select zone (-z) */
+#define	SELEXCLF	0x2000		/* file selection excluded */
 #define	SELALL		(SELCMD|SELCNTX|SELFD|SELNA|SELNET|SELNM|SELNFS|SELPID|SELUID|SELUNX|SELZONE)
 #define	SELPROC		(SELCMD|SELCNTX|SELPGID|SELPID|SELUID|SELZONE)
 					/* process selecters */
@@ -536,11 +543,14 @@ extern int CkPasswd;
 struct str_lst {
 	char *str;			/* string */
 	int len;			/* string length */
-	int f;				/* selected string find state */
+	short f;			/* selected string find state */
+	short x;			/* exclusion (if non-zero) */
 	struct str_lst *next;		/* next list entry */
 };
 extern struct str_lst *Cmdl;
 extern int CmdLim;
+extern int Cmdni;
+extern int Cmdnx;
  
 # if	defined(HASSELINUX)
 typedef struct cntxlist {
@@ -549,6 +559,7 @@ typedef struct cntxlist {
 	struct cntxlist *next;		/* next zone hash entry */
 } cntxlist_t;
 extern cntxlist_t *CntxArg;
+extern int CntxStatus;
 # endif	/* defined(HASSELINUX) */
 
 # if	defined(HASDCACHE)
@@ -596,6 +607,7 @@ extern int Fpgid;
 extern int Fppid;
 extern int Fsize;
 extern int Fsv;
+extern int FsvByf;
 extern int FsvFlagX;
 extern int Ftcptpi;
 extern int Fterse;
@@ -908,17 +920,33 @@ extern char *SzOffFmt_0t;
 extern char *SzOffFmt_d;
 extern char *SzOffFmt_dv;
 extern char *SzOffFmt_x;
+extern int TcpStAlloc;
+extern unsigned char *TcpStI;
+extern int TcpStIn;
+extern int TcpStOff;
+extern unsigned char *TcpStX;
+extern int TcpStXn;
+extern int TcpNstates;
+extern char **TcpSt;
 extern char Terminator;
 extern int TmLimit;
+extern int UdpStAlloc;
+extern unsigned char *UdpStI;
+extern int UdpStIn;
+extern int UdpStOff;
+extern unsigned char *UdpStX;
+extern int UdpStXn;
+extern int UdpNstates;
+extern char **UdpSt;
 
-#if	defined(HASZONES)
+# if	defined(HASZONES)
 typedef struct znhash {
 	char *zn;			/* zone name */
 	int f;				/* "find" flag (used only in ZoneArg) */
 	struct znhash *next;		/* next zone hash entry */
 } znhash_t;
 extern znhash_t **ZoneArg;
-#endif	/* defined(HASZONES) */
+# endif	/* defined(HASZONES) */
 
 #include "proto.h"
 #include "dproto.h"

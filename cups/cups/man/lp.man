@@ -1,9 +1,9 @@
 .\"
-.\" "$Id: lp.man 6649 2007-07-11 21:46:42Z mike $"
+.\" "$Id: lp.man 7889 2008-08-29 22:03:35Z mike $"
 .\"
 .\"   lp man page for the Common UNIX Printing System (CUPS).
 .\"
-.\"   Copyright 2007-2008 by Apple Inc.
+.\"   Copyright 2007-2009 by Apple Inc.
 .\"   Copyright 1997-2006 by Easy Software Products.
 .\"
 .\"   These coded instructions, statements, and computer programs are the
@@ -12,7 +12,7 @@
 .\"   which should have been included with this file.  If this file is
 .\"   file is missing or damaged, see the license at "http://www.cups.org/".
 .\"
-.TH lp 1 "Common UNIX Printing System" "17 November 2008" "Apple Inc."
+.TH lp 1 "CUPS" "17 November 2008" "Apple Inc."
 .SH NAME
 lp - print files
 .SH SYNOPSIS
@@ -258,7 +258,7 @@ is highest priority).
 .br
 http://localhost:631/help
 .SH COPYRIGHT
-Copyright 2007-2008 by Apple Inc.
+Copyright 2007-2009 by Apple Inc.
 .\"
-.\" End of "$Id: lp.man 6649 2007-07-11 21:46:42Z mike $".
+.\" End of "$Id: lp.man 7889 2008-08-29 22:03:35Z mike $".
 .\"

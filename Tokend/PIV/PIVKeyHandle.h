@@ -79,8 +79,8 @@ private:
 	 * TODO: Need spec on how to do this 'right' -- preferred setup would be for
 	 * the data buffer be provided
 	 */
-	static const unsigned MAX_BUFFERS = 2;
-	SecureBufferAllocator<MAX_BUFFERS> bufferAllocator;
+//	static const unsigned MAX_BUFFERS = 2;
+//	SecureBufferAllocator<MAX_BUFFERS> bufferAllocator;
 };
 
 

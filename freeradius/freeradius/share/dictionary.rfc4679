@@ -3,7 +3,7 @@
 #	Attributes and values defined in RFC 4679.
 #	http://www.ietf.org/rfc/4679.txt
 #
-#	$Id: dictionary.rfc4679,v 1.1.2.2 2007/04/08 14:42:07 aland Exp $
+#	$Id$
 #
 
 VENDOR		ADSL-Forum			3561

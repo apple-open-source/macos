@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -67,4 +67,9 @@ APR_DECLARE(int) apr_atomic_dec32(volatile apr_uint32_t *mem)
 APR_DECLARE(void *) apr_atomic_casptr(volatile void **mem, void *with, const void *cmp)
 {
     return (void*)atomic_cmpxchg((unsigned long *)mem,(unsigned long)cmp,(unsigned long)with);
+}
+
+APR_DECLARE(void*) apr_atomic_xchgptr(volatile void **mem, void *with)
+{
+    return (void*)atomic_xchg((unsigned long *)mem,(unsigned long)with);
 }

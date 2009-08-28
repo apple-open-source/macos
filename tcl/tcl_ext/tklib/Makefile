@@ -8,10 +8,15 @@
 Project               = tklib
 ProjectName           = Tklib
 
+# Fetch info
+Release               = 0.4.1.0
+TEApotVersion         = 0.0.0.2008.11.04.09.48.11
+TEApotProject         = $(Project)
+
 Extra_Configure_Flags = $(TEA_Configure_Flags)
 Extra_Environment     = $(TEA_Environment)
 
-GnuAfterInstall       = install-doc fix-owner
+GnuAfterInstall       = install-doc fix-perms
 
 # include TEA Tcl extension build support
 include ../TEA.make

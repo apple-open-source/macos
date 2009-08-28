@@ -1,25 +1,29 @@
+<DIV CLASS="indent">
 <FORM ACTION="/help/{?HELPFILE}" METHOD="GET">
 {TOPIC?<INPUT TYPE="HIDDEN" NAME="TOPIC" VALUE="{TOPIC}">:}
 
 <P ALIGN="CENTER"><B>Search in
 {HELPTITLE?{HELPTITLE}:{TOPIC?{TOPIC}:All Documents}}:</B> <INPUT
-TYPE="TEXT" NAME="QUERY" VALUE="{?QUERY}" SIZE="60"> <INPUT
-TYPE="IMAGE" SRC="/images/button-search.gif" ALT="Search">
-<A HREF="/help/{?HELPFILE}{QUERY?{TOPIC??TOPIC={TOPIC}:}:}"><IMG
-SRC="/images/button-clear.gif" ALT="Clear" CLASS="button"></A></P>
+TYPE="SEARCH" NAME="QUERY" VALUE="{?QUERY}" SIZE="40" PLACEHOLDER=""
+AUTOSAVE="org.cups.help" RESULTS="20">
+<INPUT TYPE="SUBMIT" NAME="SEARCH" VALUE="Search">
+<INPUT TYPE="SUBMIT" NAME="CLEAR" VALUE="Clear"></P>
 
 </FORM>
 
 <!-- Bookmarks -->
-<DIV CLASS="sidebar">
-<H3 CLASS="title">On-Line Help Documents</H3>
+<DIV CLASS="sidebar"><TABLE CLASS="inset" SUMMARY="Contents">
+<TR><TD>
+
+<H3 CLASS="title">Online Help Documents</H3>
 
 <P CLASS="l0"><A HREF="/help/{QUERY??QUERY={QUERY}:}">All Documents</A></P>
 <HR>
 
 {[BMTEXT]<P CLASS="l{BMINDENT}"><A HREF="{BMLINK}">{BMTEXT}</A></P>
 }
-</DIV>
+</TD></TR>
+</TABLE></DIV>
 
 {QUERY?<P>Search Results in {HELPFILE?{HELPTITLE}:{TOPIC?{TOPIC}:All Documents}}\:</P>
 {QTEXT?<UL>
@@ -27,21 +31,21 @@ SRC="/images/button-clear.gif" ALT="Clear" CLASS="button"></A></P>
 {QTEXT?</UL>:}
 :<P>No matches found.</P>}
 <HR NOSHADE>:}
-{HELPTITLE?<H1>{HELPTITLE}
-<A HREF="/help/{HELPFILE}?PRINTABLE=YES" TARGET="_blank"><IMG
-SRC="/images/button-view-printable-version.gif" ALT="View Printable Version"
-CLASS="button"></A></H1>:<H1>CUPS Help Pages</H1>
+{HELPTITLE?<H1>{HELPTITLE}</H1>
+<FORM ACTION="/help/{?HELPFILE}" METHOD="GET"><INPUT TYPE="HIDDEN" NAME="PRINTABLE" VALUE="YES"><INPUT TYPE="SUBMIT" VALUE="View Printable Version"></FORM>:
 
-<P>This is the CUPS on-line help interface. Enter search words
+<H1>Online Help</H1>
+
+<P>This is the CUPS online help interface. Enter search words
 above or click on any of the documentation links to display
-on-line help information.</P>
+online help information.</P>
 
 <P>If you are new to CUPS, read the "<a
-href="overview.html">Overview of CUPS</a>" page. Veteran users
-should read the "<a href="whatsnew.html">What's New in CUPS
-1.3</a>" page.</P>
+href="/help/overview.html">Overview of CUPS</a>" page. Veteran users
+should read the "<a href="/help/whatsnew.html">What's New in CUPS
+1.4</a>" page.</P>
 
-<P>The <A HREF="http://www.cups.org/">CUPS Home Page</A> also
+<P>The <A HREF="http://www.cups.org/">CUPS home page</A> also
 provides many resources including user discussion forums, answers
 to frequently-asked questions, and a form for submitting bug
 reports and feature requests.</P>}

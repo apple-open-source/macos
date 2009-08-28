@@ -3,14 +3,7 @@ export USE_APPLE_PB_SUPPORT = all
 OFLAG = -O
 LEGACY = -D_MACH_I386_THREAD_STATUS_FPSTATE_LEGACY_FIELD_NAMES_ \
 	 -D_ARCHITECTURE_I386_FPU_FPSTATE_LEGACY_FIELD_NAMES_
-ifeq "macos" "$(RC_OS)"
-  X_CFLAGS := $(shell if [ "$(RC_RELEASE)" != "Beaker" ] &&    \
-			 [ "$(RC_RELEASE)" != "Bunsen" ] &&    \
-			 [ "$(RC_RELEASE)" != "Gonzo"  ] &&    \
-			 [ "$(RC_RELEASE)" != "Kodiak" ]; then \
-	     echo -Wno-long-double -no-cpp-precomp -fno-builtin-round; \
-	     fi; )
-endif
+X_CFLAGS = -fno-builtin-round
 
 ifeq "macos" "$(RC_OS)"
   STATIC := $(shell if [ "$(RC_RELEASE)" = "Beaker"    ] || \
@@ -34,11 +27,15 @@ else
   STATIC = -static
 endif
 
+ifeq "$(EFITOOLS)" "efitools"
+	EFI_SUPPORT = -DEFI_SUPPORT
+endif
+
 ifeq "mwccppc" "$(notdir $(CC))"
   CFLAGS = $(OFLAG) -g -I$(SRCROOT)/../include -I$(SRCROOT) $(LEGACY)
 else
-  CFLAGS = $(STATIC) $(OFLAG) -g -Wall -I$(SRCROOT)/../include -I$(SRCROOT) \
-	   $(X_CFLAGS) $(LEGACY)
+  CFLAGS = $(STATIC) $(OFLAG) -g -Wall -I$(SRCROOT)/../include \
+	   -I$(SRCROOT) $(X_CFLAGS) $(LEGACY) $(EFI_SUPPORT)
 endif
 
 USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ] && \
@@ -95,10 +92,14 @@ USRBINDIR = /usr/bin
 
 CFILES = main.c ofile_print.c m68k_disasm.c i860_disasm.c \
 	 m88k_disasm.c i386_disasm.c ppc_disasm.c hppa_disasm.c \
-	 sparc_disasm.c print_objc.c print_objc2.c notify.c
+	 sparc_disasm.c print_objc.c notify.c arm_disasm.c \
+	 print_objc2_64bit.c print_objc2_32bit.c
+ifeq "$(EFITOOLS)" "efitools"
+	CFILES += coff_print.c
+endif
 HFILES = otool.h ofile_print.h m68k_disasm.h i860_disasm.h \
 	 sparc_disasm.h m88k_disasm.h i386_disasm.h ppc_disasm.h hppa_disasm.h \
-	 notify.h
+	 notify.h arm_disasm.h
 OBJS = $(CFILES:.c=.o) ofile.o vers.o
 INSTALL_FILES = $(CFILES) $(HFILES) Makefile notes
 
@@ -121,15 +122,6 @@ else
 .c.o:
 	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -MD -dependency-file $(OFILE_DIR)/$*.d \
 		-o $(OFILE_DIR)/$*.o $<
-	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
-endif
-
-print_objc.o: print_objc.c
-ifeq "NO" "$(USE_DEPENDENCY_FILE)"
-	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -o $(OFILE_DIR)/$*.o $< -ObjC
-else
-	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -MD -dependency-file $(OFILE_DIR)/$*.d \
-		-o $(OFILE_DIR)/$*.o $< -ObjC
 	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
 endif
 

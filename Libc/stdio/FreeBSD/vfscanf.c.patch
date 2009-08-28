@@ -1,6 +1,6 @@
---- vfscanf.c.orig	2004-11-25 11:38:35.000000000 -0800
-+++ vfscanf.c	2005-05-20 00:46:37.000000000 -0700
-@@ -40,6 +40,8 @@
+--- vfscanf.c.orig	2009-02-15 03:11:22.000000000 -0800
++++ vfscanf.c	2009-02-16 00:22:06.000000000 -0800
+@@ -40,6 +40,8 @@ static char sccsid[] = "@(#)vfscanf.c	8.
  #include <sys/cdefs.h>
  __FBSDID("$FreeBSD: src/lib/libc/stdio/vfscanf.c,v 1.37 2004/05/02 10:55:05 das Exp $");
  
@@ -9,7 +9,15 @@
  #include "namespace.h"
  #include <ctype.h>
  #include <inttypes.h>
-@@ -97,10 +99,21 @@
+@@ -50,6 +52,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/v
+ #include <string.h>
+ #include <wchar.h>
+ #include <wctype.h>
++#include <pthread.h>
+ #include "un-namespace.h"
+ 
+ #include "collate.h"
+@@ -97,10 +100,21 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/v
  #define	CT_INT		3	/* %[dioupxX] conversion */
  #define	CT_FLOAT	4	/* %[efgEFG] conversion */
  
@@ -33,16 +41,17 @@
  
  __weak_reference(__vfscanf, vfscanf);
  
-@@ -108,12 +121,24 @@
+@@ -108,12 +122,24 @@ __weak_reference(__vfscanf, vfscanf);
   * __vfscanf - MT-safe version
   */
  int
 -__vfscanf(FILE *fp, char const *fmt0, va_list ap)
 +__vfscanf(FILE * __restrict fp, char const * __restrict fmt0, va_list ap)
-+{
-+	int ret;
-+
-+	FLOCKFILE(fp);
+ {
+ 	int ret;
+ 
+ 	FLOCKFILE(fp);
+-	ret = __svfscanf(fp, fmt0, ap);
 +	ret = __svfscanf_l(fp, __current_locale(), fmt0, ap);
 +	FUNLOCKFILE(fp);
 +	return (ret);
@@ -50,17 +59,16 @@
 +
 +int
 +vfscanf_l(FILE * __restrict fp, locale_t loc, char const * __restrict fmt0, va_list ap)
- {
- 	int ret;
- 
++{
++	int ret;
++
 +	NORMALIZE_LOCALE(loc);
- 	FLOCKFILE(fp);
--	ret = __svfscanf(fp, fmt0, ap);
++	FLOCKFILE(fp);
 +	ret = __svfscanf_l(fp, loc, fmt0, ap);
  	FUNLOCKFILE(fp);
  	return (ret);
  }
-@@ -121,8 +146,8 @@
+@@ -121,8 +147,8 @@ __vfscanf(FILE *fp, char const *fmt0, va
  /*
   * __svfscanf - non-MT-safe version of __vfscanf
   */
@@ -71,7 +79,7 @@
  {
  	const u_char *fmt = (const u_char *)fmt0;
  	int c;			/* character from format, or conversion */
-@@ -132,7 +157,6 @@
+@@ -132,7 +158,6 @@ __svfscanf(FILE *fp, const char *fmt0, v
  	int flags;		/* flags as defined above */
  	char *p0;		/* saves original value of p when necessary */
  	int nassigned;		/* number of fields assigned */
@@ -79,7 +87,7 @@
  	int nread;		/* number of characters consumed from fp */
  	int base;		/* base argument to conversion function */
  	char ccltab[256];	/* character class table for %[...] */
-@@ -140,24 +164,29 @@
+@@ -140,29 +165,37 @@ __svfscanf(FILE *fp, const char *fmt0, v
  	wchar_t *wcp;		/* handy wide character pointer */
  	wchar_t *wcp0;		/* saves original value of wcp */
  	size_t nconv;		/* length of multibyte sequence converted */
@@ -112,7 +120,35 @@
  				nread++, fp->_r--, fp->_p++;
  			continue;
  		}
-@@ -181,6 +210,18 @@
+-		if (c != '%')
++		if (c != '%') {
++			if (fp->_r <= 0 && __srefill(fp))
++				goto input_failure;
+ 			goto literal;
++		}
+ 		width = 0;
+ 		flags = 0;
+ 		/*
+@@ -172,15 +205,35 @@ __svfscanf(FILE *fp, const char *fmt0, v
+ again:		c = *fmt++;
+ 		switch (c) {
+ 		case '%':
++			/* Consume leading white space */
++			for(;;) {
++				if (fp->_r <= 0 && __srefill(fp))
++					goto input_failure;
++				if (!isspace_l(*fp->_p, loc))
++					break;
++				nread++;
++				fp->_r--;
++				fp->_p++;
++			}
+ literal:
+-			if (fp->_r <= 0 && __srefill(fp))
+-				goto input_failure;
+ 			if (*fp->_p != c)
+ 				goto match_failure;
+ 			fp->_r--, fp->_p++;
  			nread++;
  			continue;
  
@@ -131,7 +167,7 @@
  		case '*':
  			flags |= SUPPRESS;
  			goto again;
-@@ -267,7 +308,7 @@
+@@ -267,7 +320,7 @@ literal:
  			break;
  
  		case '[':
@@ -140,7 +176,7 @@
  			flags |= NOSKIP;
  			c = CT_CCL;
  			break;
-@@ -288,7 +329,6 @@
+@@ -288,7 +341,6 @@ literal:
  			break;
  
  		case 'n':
@@ -148,7 +184,7 @@
  			if (flags & SUPPRESS)	/* ??? */
  				continue;
  			if (flags & SHORTSHORT)
-@@ -330,7 +370,7 @@
+@@ -330,7 +382,7 @@ literal:
  		 * that suppress this.
  		 */
  		if ((flags & NOSKIP) == 0) {
@@ -157,7 +193,7 @@
  				nread++;
  				if (--fp->_r > 0)
  					fp->_p++;
-@@ -360,7 +400,7 @@
+@@ -360,7 +412,7 @@ literal:
  					wcp = NULL;
  				n = 0;
  				while (width != 0) {
@@ -166,7 +202,7 @@
  						fp->_flags |= __SERR;
  						goto input_failure;
  					}
-@@ -368,7 +408,7 @@
+@@ -368,7 +420,7 @@ literal:
  					fp->_p++;
  					fp->_r--;
  					mbs = initial;
@@ -175,7 +211,7 @@
  					if (nconv == (size_t)-1) {
  						fp->_flags |= __SERR;
  						goto input_failure;
-@@ -421,7 +461,6 @@
+@@ -421,7 +473,6 @@ literal:
  				nread += r;
  				nassigned++;
  			}
@@ -183,7 +219,7 @@
  			break;
  
  		case CT_CCL:
-@@ -440,7 +479,7 @@
+@@ -440,7 +491,7 @@ literal:
  				n = 0;
  				nchars = 0;
  				while (width != 0) {
@@ -192,7 +228,7 @@
  						fp->_flags |= __SERR;
  						goto input_failure;
  					}
-@@ -448,7 +487,7 @@
+@@ -448,7 +499,7 @@ literal:
  					fp->_p++;
  					fp->_r--;
  					mbs = initial;
@@ -201,7 +237,7 @@
  					if (nconv == (size_t)-1) {
  						fp->_flags |= __SERR;
  						goto input_failure;
-@@ -456,8 +495,8 @@
+@@ -456,8 +507,8 @@ literal:
  					if (nconv == 0)
  						*wcp = L'\0';
  					if (nconv != (size_t)-2) {
@@ -212,7 +248,7 @@
  							while (n != 0) {
  								n--;
  								__ungetc(buf[n],
-@@ -525,7 +564,6 @@
+@@ -525,7 +576,6 @@ literal:
  				nassigned++;
  			}
  			nread += n;
@@ -220,7 +256,7 @@
  			break;
  
  		case CT_STRING:
-@@ -540,8 +578,8 @@
+@@ -540,8 +590,8 @@ literal:
  				else
  					wcp = &twc;
  				n = 0;
@@ -231,7 +267,7 @@
  						fp->_flags |= __SERR;
  						goto input_failure;
  					}
-@@ -549,7 +587,7 @@
+@@ -549,7 +599,7 @@ literal:
  					fp->_p++;
  					fp->_r--;
  					mbs = initial;
@@ -240,7 +276,7 @@
  					if (nconv == (size_t)-1) {
  						fp->_flags |= __SERR;
  						goto input_failure;
-@@ -557,7 +595,7 @@
+@@ -557,7 +607,7 @@ literal:
  					if (nconv == 0)
  						*wcp = L'\0';
  					if (nconv != (size_t)-2) {
@@ -249,7 +285,7 @@
  							while (n != 0) {
  								n--;
  								__ungetc(buf[n],
-@@ -585,7 +623,7 @@
+@@ -585,7 +635,7 @@ literal:
  				}
  			} else if (flags & SUPPRESS) {
  				n = 0;
@@ -258,7 +294,7 @@
  					n++, fp->_r--, fp->_p++;
  					if (--width == 0)
  						break;
-@@ -595,7 +633,7 @@
+@@ -595,7 +645,7 @@ literal:
  				nread += n;
  			} else {
  				p0 = p = va_arg(ap, char *);
@@ -267,7 +303,7 @@
  					fp->_r--;
  					*p++ = *fp->_p++;
  					if (--width == 0)
-@@ -607,7 +645,6 @@
+@@ -607,7 +657,6 @@ literal:
  				nread += p - p0;
  				nassigned++;
  			}
@@ -275,7 +311,7 @@
  			continue;
  
  		case CT_INT:
-@@ -738,9 +775,9 @@
+@@ -738,9 +787,9 @@ literal:
  
  				*p = 0;
  				if ((flags & UNSIGNED) == 0)
@@ -287,7 +323,7 @@
  				if (flags & POINTER)
  					*va_arg(ap, void **) =
  							(void *)(uintptr_t)res;
-@@ -763,43 +800,48 @@
+@@ -763,43 +812,48 @@ literal:
  				nassigned++;
  			}
  			nread += p - buf;
@@ -319,8 +355,9 @@
  					*va_arg(ap, float *) = res;
  				}
 -				if (__scanfdebug && p - buf != width)
+-					abort();
 +				if (__scanfdebug && p - pbuf != width)
- 					abort();
++					LIBC_ABORT("p - pbuf %ld != width %ld", (long)(p - pbuf), width);
  				nassigned++;
  			}
  			nread += width;
@@ -346,7 +383,7 @@
  /*
   * Fill in the given table from the scanset at the given format
   * (just after `[').  Return a pointer to the character past the
-@@ -807,9 +849,10 @@
+@@ -807,9 +861,10 @@ match_failure:
   * considered part of the scanset.
   */
  static const u_char *
@@ -358,7 +395,7 @@
  {
  	int c, n, v, i;
  
-@@ -845,6 +888,7 @@
+@@ -845,6 +900,7 @@ doswitch:
  			return (fmt - 1);
  
  		case '-':
@@ -366,7 +403,7 @@
  			/*
  			 * A scanset of the form
  			 *	[01+-]
-@@ -865,8 +909,8 @@
+@@ -865,8 +921,8 @@ doswitch:
  			 */
  			n = *fmt;
  			if (n == ']'
@@ -377,7 +414,7 @@
  			       )
  			   ) {
  				c = '-';
-@@ -874,14 +918,14 @@
+@@ -874,14 +930,14 @@ doswitch:
  			}
  			fmt++;
  			/* fill in the range */
@@ -395,7 +432,7 @@
  					   )
  						tab[i] = v;
  			}
-@@ -901,7 +945,7 @@
+@@ -901,7 +957,7 @@ doswitch:
  				return (fmt);
  #endif
  			break;
@@ -404,9 +441,56 @@
  		case ']':		/* end of scanset */
  			return (fmt);
  
-@@ -915,18 +959,42 @@
+@@ -914,19 +970,75 @@ doswitch:
+ }
  
  #ifndef NO_FLOATING_POINT
++/*
++ * Maintain a per-thread parsefloat buffer, shared by __svfscanf_l and
++ * __vfwscanf.
++ */
++#ifdef BUILDING_VARIANT
++extern char *__parsefloat_buf(size_t s);
++#else /* !BUILDING_VARIANT */
++__private_extern__ char *
++__parsefloat_buf(size_t s)
++{
++	char *b;
++	static pthread_key_t    parsefloat_tsd_key = (pthread_key_t)-1;
++	static pthread_mutex_t  parsefloat_tsd_lock = PTHREAD_MUTEX_INITIALIZER;
++	static size_t bsiz = 0;
++
++	if (parsefloat_tsd_key == (pthread_key_t)-1) {
++		pthread_mutex_lock(&parsefloat_tsd_lock);
++		if (parsefloat_tsd_key == (pthread_key_t)-1) {
++			parsefloat_tsd_key = __LIBC_PTHREAD_KEY_PARSEFLOAT;
++			pthread_key_init_np(parsefloat_tsd_key, free);
++		}
++		pthread_mutex_unlock(&parsefloat_tsd_lock);
++	}
++	if ((b = (char *)pthread_getspecific(parsefloat_tsd_key)) == NULL) {
++		bsiz = s > BUF ? s : BUF;
++		b = (char *)malloc(bsiz);
++		if (b == NULL) {
++			bsiz = 0;
++			return NULL;
++		}
++		pthread_setspecific(parsefloat_tsd_key, b);
++		return b;
++	}
++	if (s > bsiz) {
++		b = (char *)reallocf(b, s);
++		pthread_setspecific(parsefloat_tsd_key, b);
++		if (b == NULL) {
++			bsiz = 0;
++			return NULL;
++		}
++		bsiz = s;
++	}
++	return b;
++}
++#endif /* BUILDING_VARIANT */
++
  static int
 -parsefloat(FILE *fp, char *buf, char *end)
 +parsefloat(FILE *fp, char **buf, size_t width, locale_t loc)
@@ -424,34 +508,20 @@
 +	char *decpt_start;
  	_Bool gotmantdig = 0, ishex = 0;
 -
-+	static char *b = NULL;
-+	static size_t bsiz = 0;
++	char *b;
 +	char *e;
 +	size_t s;
 +
-+	if (bsiz = 0) {
-+		b = (char *)malloc(BUF);
-+		if (b == NULL) {
-+			*buf = NULL;
-+			return 0;
-+		}
-+		bsiz = BUF;
-+	}
 +	s = (width == 0 ? BUF : (width + 1));
-+	if (s > bsiz) {
-+		b = (char *)reallocf(b, s);
-+		if (b == NULL) {
-+			bsiz = 0;
-+			*buf = NULL;
-+			return 0;
-+		}
-+		bsiz = s;
++	if ((b = __parsefloat_buf(s)) == NULL) {
++		*buf = NULL;
++		return 0;
 +	}
 +	e = b + (s - 1);
  	/*
  	 * We set commit = p whenever the string we have read so far
  	 * constitutes a valid representation of a floating point
-@@ -936,8 +1004,8 @@
+@@ -936,8 +1048,8 @@ parsefloat(FILE *fp, char *buf, char *en
  	 * always necessary to read at least one character that doesn't
  	 * match; thus, we can't short-circuit "infinity" or "nan(...)".
  	 */
@@ -462,7 +532,7 @@
  		c = *fp->_p;
  reswitch:
  		switch (state) {
-@@ -997,7 +1065,7 @@
+@@ -997,7 +1109,7 @@ reswitch:
  				if (c == ')') {
  					commit = p;
  					infnanpos = -2;
@@ -471,7 +541,7 @@
  					goto parsedone;
  				break;
  			}
-@@ -1013,16 +1081,33 @@
+@@ -1013,16 +1125,33 @@ reswitch:
  				goto reswitch;
  			}
  		case S_DIGITS:
@@ -509,7 +579,7 @@
  		case S_FRAC:
  			if (((c == 'E' || c == 'e') && !ishex) ||
  			    ((c == 'P' || c == 'p') && ishex)) {
-@@ -1030,7 +1115,7 @@
+@@ -1030,7 +1159,7 @@ reswitch:
  					goto parsedone;
  				else
  					state = S_EXP;
@@ -518,7 +588,7 @@
  				commit = p;
  				gotmantdig = 1;
  			} else
-@@ -1043,7 +1128,7 @@
+@@ -1043,13 +1172,26 @@ reswitch:
  			else
  				goto reswitch;
  		case S_EXPDIGITS:
@@ -527,29 +597,27 @@
  				commit = p;
  			else
  				goto parsedone;
-@@ -1051,6 +1136,21 @@
+ 			break;
  		default:
- 			abort();
- 		}
+-			abort();
++			LIBC_ABORT("unknown state %d", state);
++		}
 +		if (p >= e) {
 +			ssize_t diff = (p - b);
 +			ssize_t com = (commit - b);
 +			s += BUF;
-+			b = (char *)reallocf(b, s);
++			b = __parsefloat_buf(s);
 +			if (b == NULL) {
-+				bsiz = 0;
 +				*buf = NULL;
 +				return 0;
 +			}
-+			bsiz = s;
 +			e = b + (s - 1);
 +			p = b + diff;
 +			commit = b + com;
-+		}
+ 		}
  		*p++ = c;
  		if (--fp->_r > 0)
- 			fp->_p++;
-@@ -1062,6 +1162,7 @@
+@@ -1062,6 +1204,7 @@ parsedone:
  	while (commit < --p)
  		__ungetc(*(u_char *)p, fp);
  	*++commit = '\0';

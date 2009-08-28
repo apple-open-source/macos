@@ -15,8 +15,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* Provide forward declarations of core types which are referred to by
    most of the compiler.  This allows header files to use these types
@@ -37,12 +37,16 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #ifndef USED_FOR_TARGET
 
+struct bitmap_head_def;
+typedef struct bitmap_head_def *bitmap;
 struct rtx_def;
 typedef struct rtx_def *rtx;
 struct rtvec_def;
 typedef struct rtvec_def *rtvec;
 union tree_node;
 typedef union tree_node *tree;
+union section;
+typedef union section section;
 
 /* Provide forward struct declaration so that we don't have to include
    all of cpplib.h whenever a random prototype includes a pointer.
@@ -56,7 +60,8 @@ struct cpp_token;
    or SYMBOL_REF.  This isn't used much, but both trees and RTL refer
    to it, so it's here.  */
 enum tls_model {
-  TLS_MODEL_GLOBAL_DYNAMIC = 1,
+  TLS_MODEL_NONE,
+  TLS_MODEL_GLOBAL_DYNAMIC,
   TLS_MODEL_LOCAL_DYNAMIC,
   TLS_MODEL_INITIAL_EXEC,
   TLS_MODEL_LOCAL_EXEC

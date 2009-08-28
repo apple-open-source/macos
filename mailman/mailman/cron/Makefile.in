@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2008 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -42,7 +42,7 @@ CRONDIR= 	$(prefix)/cron
 SHELL=		/bin/sh
 
 PROGRAMS=	checkdbs mailpasswds senddigests gate_news \
-		nightly_gzip bumpdigests disabled
+		nightly_gzip bumpdigests disabled cull_bad_shunt
 FILES=  	crontab.in
 
 BUILDDIR=	../build/cron

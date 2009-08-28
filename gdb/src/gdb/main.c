@@ -38,9 +38,13 @@
 #include "gdb_string.h"
 #include "event-loop.h"
 #include "ui-out.h"
+#include "osabi.h"
+#include "arch-utils.h"
 
 #include "interps.h"
 #include "main.h"
+
+#include <pthread.h>
 
 /* If nonzero, display time usage both at startup and for each command.  */
 
@@ -77,6 +81,8 @@ struct ui_file *gdb_stdtargerr;
 
 /* Whether to enable writing into executable and core files */
 extern int write_files;
+/* APPLE LOCAL: Set the osabi via option.  */
+void set_osabi_option (const char *osabi_str);
 
 static void print_gdb_help (struct ui_file *);
 
@@ -111,6 +117,8 @@ captured_command_loop (void *data)
 static int
 captured_main (void *data)
 {
+  /* If you add initializations here, you also need to add then to the
+     proc do_steps_and_nexts in selftest.exp.  */
   struct captured_main_args *context = data;
   int argc = context->argc;
   char **argv = context->argv;
@@ -125,6 +133,9 @@ captured_main (void *data)
   char *corearg = NULL;
   char *cdarg = NULL;
   char *ttyarg = NULL;
+  /* APPLE LOCAL: Set the osabi via option.  */
+  char *osabiarg = NULL;  
+
 
   /* These are static so that we can take their address in an initializer.  */
   static int print_help;
@@ -208,6 +219,11 @@ captured_main (void *data)
   gdb_stdtargerr = gdb_stderr;	/* for moment */
   gdb_stdtargin = gdb_stdin;	/* for moment */
 
+  /* APPLE LOCAL: set our main thread's name */
+#ifdef HAVE_PTHREAD_SETNAME_NP
+  pthread_setname_np ("gdb main thread");
+#endif
+
   /* Set the sysroot path.  */
 #ifdef TARGET_SYSTEM_ROOT_RELOCATABLE
   gdb_sysroot = make_relative_prefix (argv[0], BINDIR, TARGET_SYSTEM_ROOT);
@@ -257,7 +273,8 @@ captured_main (void *data)
       OPT_NOWINDOWS,
       OPT_WINDOWS,
       OPT_WAITFOR,  /* APPLE LOCAL */
-      OPT_ARCH      /* APPLE LOCAL */
+      OPT_ARCH,     /* APPLE LOCAL */
+      OPT_OSABI	    /* APPLE LOCAL */
     };
     static struct option long_options[] =
     {
@@ -321,7 +338,9 @@ captured_main (void *data)
       {"waitfor", required_argument, 0, OPT_WAITFOR},
 /* APPLE LOCAL: */
       {"arch", required_argument, 0, OPT_ARCH},
-     {"l", required_argument, 0, 'l'},
+/* APPLE LOCAL: */
+      {"osabi", required_argument, 0, OPT_OSABI},
+      {"l", required_argument, 0, 'l'},
       {0, no_argument, 0, 0}
     };
 
@@ -375,15 +394,32 @@ captured_main (void *data)
 	    interpreter_p = xstrdup (INTERP_CONSOLE);
 	    use_windows = 0;
 	    break;
-          /* APPLE LOCAL: */
-          case OPT_WAITFOR:
-            attach_waitfor = (char *) xmalloc (10 + strlen (optarg));
-            sprintf (attach_waitfor, "-waitfor %s", optarg);
-            break;
+	  /* APPLE LOCAL: */
+	  case OPT_WAITFOR:
+	    attach_waitfor = (char *) xmalloc (12 + strlen (optarg));
+	    sprintf (attach_waitfor, "-waitfor \"%s\"", optarg);
+	    break;
 	  /* APPLE LOCAL: */
 	  case OPT_ARCH:
 	    initial_arch = xstrdup (optarg);
 	    break;
+	  /* APPLE LOCAL: Set the osabi via option. This option was 
+	     added along with a modification to the gdb driver shell script
+	     for armv6. Binaries with the "arm" architecture (ARM v4T)
+	     and "armv6" (ARM v6) can be inter mixed on armv6 capaable 
+	     targets since all instructions in the ARM v4T instruction set
+	     are present in the ARM v6 instruction set. The same gdb
+	     executable is used for both, and the osabi set/show variable
+	     controls which gets used for cross targets. We need to set this
+	     variable prior to loading any executables so that the correct
+	     slice of a fat file can be selected. Now gdb can be launched
+	     with the "armv6" arch along with an executable and the correct
+	     slice will be selected:
+	     gdb -arch armv6 <file>  */
+	  case OPT_OSABI:
+	    osabiarg = optarg;
+	    break;
+	  /* APPLE LOCAL END */
 	  case 'f':
 	    annotation_level = 1;
 /* We have probably been invoked from emacs.  Disable window interface.  */
@@ -651,6 +687,13 @@ extern int gdbtk_test (char *);
   do_cleanups (ALL_CLEANUPS);
   /* APPLE LOCAL end global gdbinit */
  
+  /* APPLE LOCAL: Set the $_Xcode convenience variable at '0' before sourcing
+     any .gdbinit files.  Xcode will override this to 1 when it is launching
+     gdb but we need to start with a value of 0 so .gdbinit files can use it 
+     in conditional expressions.  */
+  set_internalvar (lookup_internalvar ("_Xcode"),
+                   value_from_longest (builtin_type_int, (LONGEST) 0));
+
   /* Read and execute $HOME/.gdbinit file, if it exists.  This is done
      *before* all the command line arguments are processed; it sets
      global parameters, which are independent of what file you are
@@ -719,6 +762,20 @@ extern int gdbtk_test (char *);
       else
 	warning ("invalid argument \"%s\" for \"--arch\", should be one of "
 		 "\"i386\" or \"x86_64\"\n", initial_arch);
+#elif defined (TARGET_ARM)
+      if (strcmp (initial_arch, "arm") == 0)
+	{
+	  arch_string = "arm";
+	  osabi_string = "Darwin";
+	}
+      else if (strcmp (initial_arch, "armv6") == 0)
+	{
+	  arch_string = "armv6";
+	  osabi_string = "DarwinV6";
+	}
+      else
+	warning ("invalid argument \"%s\" for \"--arch\", should be one of "
+		 "\"armv\" or \"armv6\"\n", initial_arch);
 #endif
       if (arch_string != NULL)
 	{
@@ -729,6 +786,11 @@ extern int gdbtk_test (char *);
 #else
   warning ("--arch option not supported in this gdb.");
 #endif
+
+  /* APPLE LOCAL BEGIN: Set the osabi via option.  */
+  if (osabiarg != NULL)
+    set_osabi_option (osabiarg);
+  /* APPLE LOCAL END */
 
   if (execarg != NULL
       && symarg != NULL
@@ -808,7 +870,9 @@ extern int gdbtk_test (char *);
     if (((globalbuf.st_dev != cwdbuf.st_dev) || (globalbuf.st_ino != cwdbuf.st_ino))
 	&& ((homebuf.st_dev != cwdbuf.st_dev) || (homebuf.st_ino != cwdbuf.st_ino)))
       {
-	catch_command_errors (source_file, gdbinit, 0, RETURN_MASK_ALL);
+        /* APPLE LOCAL: fix for CVE-2005-1705 */
+        if (cwdbuf.st_uid == getuid ())
+	  catch_command_errors (source_file, gdbinit, 0, RETURN_MASK_ALL);
       }
   
   /* These need to be set this late in the initialization to ensure that
@@ -1001,6 +1065,7 @@ Options:\n\n\
   --xdb              XDB compatibility mode.\n\
   --waitfor=PROCNAME Poll continuously for PROCNAME to launch; attach to it.\n\
   --arch=ARCH        Run the slice of a Universal file given by ARCH.\n\
+  --osabi=OSABI      Set the osabi prior to loading any executables.\n\
 "), stream);
   fputs_unfiltered (_("\n\
 For more information, type \"help\" from within GDB, or consult the\n\

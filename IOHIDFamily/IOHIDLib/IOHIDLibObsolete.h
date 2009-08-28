@@ -644,7 +644,7 @@ typedef struct IOHIDQueueInterface
     @param event The event that will be filled.  If a long value is
         present, it is up to the caller to deallocate it.
     @param maxtime UNSUPPORTED.  If non-zero, limits read events to 
-        those that occured on or before maxTime.
+        those that occurred on or before maxTime.
     @param timoutMS UNSUPPORTED.  The timeout in milliseconds, a zero  
         timeout will cause this call to be non-blocking (returning  
         queue empty) if there is a NULL callback, and blocking forever 

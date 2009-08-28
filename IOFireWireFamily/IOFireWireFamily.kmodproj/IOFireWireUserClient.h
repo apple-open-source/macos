@@ -25,6 +25,15 @@
  * HISTORY
  *
  * $Log: IOFireWireUserClient.h,v $
+ * Revision 1.69  2008/07/04 00:05:23  arulchan
+ * fix for rdar://6035774
+ *
+ * Revision 1.68  2008/05/07 03:28:00  collin
+ * 64 bit session ref support
+ *
+ * Revision 1.67  2007/10/16 16:50:21  ayanowit
+ * Removed existing "work-in-progress" support for buffer-fill isoch.
+ *
  * Revision 1.66  2007/04/28 02:54:23  collin
  * *** empty log message ***
  *
@@ -151,7 +160,6 @@ class IOFireWireDevice;
 class IOFWIsochChannel ;
 class IOFWUserObjectExporter ;
 class IOFireWireUserClient ;
-class IOFWBufferFillIsochPort ;
 class IOFireWireNub ;
 //class IOFWCommand ;
 //class IOFWReadCommand ;
@@ -212,6 +220,8 @@ class IOFireWireUserClient : public IOUserClient
 		IOFWUserDebugInfo *					fDebugInfo ;
 #endif
 
+		IOFireWireLib::UserObjectHandle		fSessionRef;
+	
 	public:
 	
 		// OSObject
@@ -224,7 +234,6 @@ class IOFireWireUserClient : public IOUserClient
 		// IOService
 		virtual bool					initWithTask( task_t owningTask, void * securityToken, UInt32 type, OSDictionary * properties );
 		virtual bool 					start ( IOService * provider );
-		virtual void 					stop ( IOService * provider );
 		virtual IOReturn 				message(
 												UInt32 					type,
 												IOService* 				provider,
@@ -267,7 +276,7 @@ class IOFireWireUserClient : public IOUserClient
 #pragma mark -
 		// --- open/close ----------
 		IOReturn						userOpen() ;
-		IOReturn						userOpenWithSessionRef(IOService*	session) ;
+		IOReturn						userOpenWithSessionRef( IOFireWireLib::UserObjectHandle	session) ;
 		IOReturn						seize(IOOptionBits inFlags ) ;
 		IOReturn						userClose() ;
 		
@@ -644,13 +653,6 @@ class IOFireWireUserClient : public IOUserClient
 		
 		IOReturn 						clipMaxRec2K( Boolean clipMaxRec ) ;
 
-//		IOReturn						bufferFillIsochPort_Create(
-//														BufferFillIsochPortCreateParams * params ) ;
-									
-		void							s_userBufferFillPacketProc( 
-														IOFWBufferFillIsochPort *   port,
-														IOVirtualRange				packets[],
-														unsigned					packetCount ) ;
 		//
 		// v7
 		//

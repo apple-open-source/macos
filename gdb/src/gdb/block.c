@@ -25,6 +25,8 @@
 #include "symfile.h"
 #include "gdb_obstack.h"
 #include "cp-support.h"
+/* APPLE LOCAL cache lookup values for improved performance  */
+#include "inferior.h"
 
 /* This is used by struct block to store namespace-related info for
    C++ files, namely using declarations and the current namespace in
@@ -220,12 +222,34 @@ blockvector_for_pc_sect (CORE_ADDR pc, struct bfd_section *section,
   int bot, top, half;
   struct blockvector *bl;
 
+  if (pindex)
+    *pindex = 0;
+
+  /* APPLE LOCAL begin cache lookup values for improved performance  */
+  if (pc == last_blockvector_lookup_pc
+	   && pc == last_mapped_section_lookup_pc
+	   && section == cached_mapped_section
+	   && cached_blockvector)
+    {
+      *pindex = cached_blockvector_index;
+      return cached_blockvector;
+    }
+
+  last_blockvector_lookup_pc = pc;
+  /* APPLE LOCAL end cache lookup values for improved performance  */
+
   if (symtab == 0)		/* if no symtab specified by caller */
     {
       /* First search all symtabs for one whose file contains our pc */
       symtab = find_pc_sect_symtab (pc, section);
       if (symtab == 0)
-	return 0;
+	/* APPLE LOCAL begin cache lookup values for improved performance  */
+	{
+	  cached_blockvector_index = -1;
+	  cached_blockvector = NULL;
+	  return 0;
+	}
+        /* APPLE LOCAL end cache lookup values for improved performance  */
     }
 
   bl = BLOCKVECTOR (symtab);
@@ -278,17 +302,32 @@ blockvector_for_pc_sect (CORE_ADDR pc, struct bfd_section *section,
          highest/lowest addresses are lower than PC.  */
       if (BLOCK_SUPERBLOCK (b) == static_block 
           && BLOCK_LOWEST_PC (b) < pc && BLOCK_HIGHEST_PC (b) < pc)
-        return 0;
+	/* APPLE LOCAL begin cache lookup values for improved performance  */
+	{
+	  cached_blockvector_index = -1;
+	  cached_blockvector = NULL;
+	  return 0;
+	}
+        /* APPLE LOCAL end cache lookup values for improved performance  */
 
       if (block_contains_pc (b, pc))
       /* APPLE LOCAL end address ranges  */
 	{
 	  if (pindex)
 	    *pindex = bot;
+	  /* APPLE LOCAL begom cache lookup values for improved 
+	     performance  */	
+	  cached_blockvector_index = bot;
+	  cached_blockvector = bl;
+	  /* APPLE LOCAL end cache lookup values for improved performance  */
 	  return bl;
 	}
       bot--;
     }
+  /* APPLE LOCAL begin cache lookup values for improved performance  */
+  cached_blockvector_index = -1;
+  cached_blockvector = NULL;
+  /* APPLE LOCAL end cache lookup values for improved performance  */
   return 0;
 }
 
@@ -312,10 +351,24 @@ block_for_pc_sect (CORE_ADDR pc, struct bfd_section *section)
   struct blockvector *bl;
   int index;
 
+  /* APPLE LOCAL begin cache lookup values for improved performance  */
+  if (pc == last_block_lookup_pc
+	   && pc == last_mapped_section_lookup_pc
+	   && section == cached_mapped_section
+	   && cached_block)
+    return cached_block;
+
+  last_block_lookup_pc = pc;
+
   bl = blockvector_for_pc_sect (pc, section, &index, NULL);
   if (bl)
-    return BLOCKVECTOR_BLOCK (bl, index);
+    {
+      cached_block = BLOCKVECTOR_BLOCK (bl, index);
+      return BLOCKVECTOR_BLOCK (bl, index);
+    }
+  cached_block = NULL;
   return 0;
+  /* APPLE LOCAL end cache lookup values for improved performance  */
 }
 
 /* Return the innermost lexical block containing the specified pc value,

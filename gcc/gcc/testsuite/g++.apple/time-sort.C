@@ -46,4 +46,3 @@ int main()
 	d = t5 - t0;
 	std::printf("total time = %f\n", d.sec_ + d.nsec_/1.e9);
 }
-

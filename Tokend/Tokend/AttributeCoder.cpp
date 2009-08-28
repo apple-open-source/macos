@@ -41,7 +41,6 @@
 #include <Security/SecKey.h>
 #include <Security/SecCertificate.h>
 #include <Security/SecKeychainItem.h>
-#include <Security/SecKeychainItemPriv.h>
 
 namespace Tokend
 {

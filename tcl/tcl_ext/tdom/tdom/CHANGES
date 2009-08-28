@@ -1,0 +1,211 @@
+
+--- Release 0.8.2, 15. Aug. 2007 --- See ChangeLog for details ---
+
+2007-08-11  Rolf Ade  <rolf@pointsman.de>
+
+        Now tcldomsh will source ~/.tcldomshrc at start up.
+
+2007-08-05  Rolf Ade  <rolf@pointsman.de>
+
+        In case of asXML with indentation: indent XML comments as
+        well.
+
+        Added method deleteXPathCache: basic control over the xpath
+        expression cache.
+
+        Variable references in XPath queries (at the places allowed by
+        the XPath syntax) will now be resoved as Tcl variables,
+        relative to the scope of the expression. Ignoring the XPath
+        syntax rules at this point, any valid Tcl variable name will
+        work.
+
+2007-07-31  Rolf Ade  <rolf@pointsman.de>
+
+        Update to expat 2.0.1.
+
+2007-07-27  Rolf Ade  <rolf@pointsman.de>
+
+        Updated to TEA 3.6.
+
+2007-07-25  Rolf Ade  <rolf@pointsman.de>
+
+        Fix for the -externalentitycommand problems on (some) 64-bit
+        plattforms.
+
+2006-11-22  Rolf Ade  <rolf@pointsman.de>
+
+        Normalize case of attribute also (not only elements).
+
+2006-08-26  Rolf Ade  <rolf@pointsman.de>
+
+        Updated the TEA build system to 3.5, to fix build problems
+        with newer bash shells.
+
+2005-03-18  Rolf Ade  <rolf@pointsman.de>
+        
+        Added the 'selectNodesNamespace' to documents, to provide a
+        global XPath prefix / namespace mapping. See the user
+        documentation for details.
+
+2005-01-07  Rolf Ade  <rolf@pointsman.de>
+
+        Improved VC++ compiler makefile. Thanks to Pat Thoyts for
+        contribution.
+
+2005-01-06  Rolf Ade  <rolf@pointsman.de>
+
+        Added the methods 'transform' and 'delete' to xsltCmds.
+    
+2004-09-21  Rolf Ade  <rolf@pointsman.de>
+
+        Added the '-namespaces' option to the selectNodes
+        method. Not resolved namespace prefixes within the xpath
+        expression now raises an error.
+        *** POTENTIAL INCOMPATIBILITY ***
+
+2004-08-20  Rolf Ade  <rolf@pointsman.pointsman.de>
+
+        Update to expat 1.95.8.        
+
+2004-08-19  Rolf Ade  <rolf@pointsman.de>
+
+        Made tDOM work out of the box on 64-bit systems like Itanium 2
+        (again) (though --disable-tdomalloc configure option at build
+        time is still needed).
+
+--- Release 0.8.0, 11. Aug. 2004 --- See ChangeLog for details ---
+
+2004-07-27  Rolf Ade  <rolf@pointsman.pointsman.de>
+
+        New method createDocumentNode.
+
+        Added methods nodeType, getElementById, firstChild, lastChild,
+        appendChild, removeChild, hasChildNodes, childNodes,
+        ownerDocument, insertBefore, replaceChild, appendFromList,
+        appendXML, selectNodes, baseURI, appendFromScript and
+        insertBeforeFromScript to dom docs. Beside other things, this
+        allows much easier handling of top level nodes. The result
+        tree may not be an XML document, but a general parsed entity.
+
+        New (experimental) method setObjectCommands.
+
+2004-05-26  Rolf Ade  <rolf@pointsman.de>
+ 
+        Added isPIName, isComment, isCDATA and isPIValue method to the
+        dom command. Created new global (thread wide) flags for name
+        and value checks (Names and FQ Names (element, attribute and
+        processing instruction names), text nodes, comments, CDATA
+        sections and processing instruction values). New methods
+        setNameCheck and setTextCheck to control this flags.
+
+2003-12-17  Rolf Ade  <rolf@pointsman.de>
+
+        Added baseURI method, which returns the current base URI and
+        has an optional argument to set the base URI. (The getBaseURI
+        is deprecated.)
+
+2003-12-11  Rolf Ade  <rolf@pointsman.de>
+
+        Bug fix: Don't quash white space of non white space only
+        content in trim mode.
+
+2003-11-24  Rolf Ade  <rolf@pointsman.de>
+
+        Added domDoc methods omit-xml-declaration, indent, standalone,
+        encoding and mediaType.
+
+2003-10-23  Rolf Ade  <rolf@pointsman.de>
+
+        Update to expat 1.95.7.
+
+2003-10-10  Rolf Ade  <rolf@pointsman.de>
+
+        Added method normalize to domNode and domDoc commands.
+    
+2003-10-07  Rolf Ade  <rolf@pointsman.de>
+
+        Added method insertBeforeFromScript to domNode commands.
+
+2003-10-04  Rolf Ade  <rolf@pointsman.de>
+
+        Added method asText to domDoc and domNode commands.
+
+2003-09-22  Rolf Ade  <rolf@pointsman.de>
+
+        Enhanced insertBefore method: If the refNode argument of that
+        method is the empty string, the newNode argument will be
+        inserted at the end of the list of children of the node.
+    
+2003-09-17  Rolf Ade  <rolf@pointsman.de>
+
+        Added the up to now missing implementation of expatObj method
+        cget. Thanks goes to Harry Moreau for his contribution.
+
+2003-04-09  Rolf Ade  <rolf@pointsman.de>
+
+        Added domDoc method toXSLTcmd, which converts the domDoc to an
+        XSLTcmd. This has no advantage over the current method in
+        one-shot cases (transformation of one XML document) but
+        improves the speed of batch processing of several XML
+        documents or server applications. The implementation was
+        already included in the 0.7.7 release, only the documentation
+        was not included in that release.
+
+        Added option -paramentityparsing to the dom parse method.        
+
+--- Release 0.7.7, 25. Mar. 2003 --- See ChangeLog for details ---
+
+--- Release 0.7.6, 24. Mar. 2003 --- See ChangeLog for details ---
+
+2003-03-19  Rolf Ade  <rolf@pointsman.de>
+
+        Added option -useForeignDTD to dom parse and expat. Added
+        domNode method 'precedes', to compare the relative order of
+        two nodes out of the same document.
+
+2003-02-22  Rolf Ade  <rolf@pointsman.de>
+
+        Added posteriori (DOM) validation capabilities. See the tnc
+        man page for details.
+
+2003-02-09  Rolf Ade  <rolf@pointsman.de>
+
+        Update to expat 1.95.6.    
+
+2003-02-09  Rolf Ade  <rolf@pointsman.de>
+
+        Added 'systemId' and 'publicId' methods to the domDoc
+        commands. Added flag -doctypeDeclaration to the asXML and
+        asHTML methods of the domDoc commands.     
+
+2003-01-29  Rolf Ade  <rolf@pointsman.de>
+
+        Changed the escaping while serializing XML data: in the past
+        """ and "'" was escaped, now it isn't anymore. There isn't a
+        clear rule (to the best of my knowledge) in any of the related
+        specs about this, but now we do things almost along the lines,
+        as saxon (which I regard as the currently most 'rule-setting'
+        xslt processor) does it. In theory (from an XML viewpoint)
+        this should not make a difference, but if somebody postprocess
+        some tDOM output with other tools, there is a small risk, that
+        things (slightly) breaks, therefor:
+        *** POTENTIAL INCOMPATIBILITY ***
+
+2002-12-28  Rolf Ade  <rolf@pointsman.de>
+
+        The xslt method now understands also the options
+          -ignoreUndeclaredParameters and -xsltmessagecmd.
+
+--- Release 0.7.5, 27. Nov. 2002 --- See ChangeLog for details ---
+
+2002-10-01  Zoran Vasiljevic  <zoran@archiware.com>
+
+	The library file lib/tdomhtml.tcl is now moved to a separate
+	package in "extensions" directory. This is a simple, yet very
+	"clever" HTML generator, using advanced tdom HTML capabilities.
+ 	To use, please change to "extensions/tdomhtml" directory and 
+	invoke "configure" followed by "make", followed by "make install".
+        Be sure, however, to build and install the tdom package first.
+
+-EOF-
+

@@ -33,12 +33,7 @@
 /* text attribute mask */
 
 /**/
-unsigned txtattrmask;
-
-/* text change - attribute change made by prompts */
-
-/**/
-mod_export unsigned txtchange;
+mod_export unsigned txtattrmask;
 
 /* the command stack for use with %_ in prompts */
 
@@ -60,46 +55,60 @@ static char *cmdnames[CS_COUNT] = {
     "heredocd", "brace",     "braceparam", "always",
 };
 
+
+struct buf_vars;
+
+struct buf_vars {
+/* Previous set of prompt variables on the stack. */
+
+    struct buf_vars *last;
+
 /* The buffer into which an expanded and metafied prompt is being written, *
  * and its size.                                                           */
 
-static char *buf;
-static int bufspc;
+    char *buf;
+    int bufspc;
 
 /* bp is the pointer to the current position in the buffer, where the next *
  * character will be added.                                                */
 
-static char *bp;
+    char *bp;
 
 /* Position of the start of the current line in the buffer */
 
-static char *bufline;
+    char *bufline;
 
 /* bp1 is an auxiliary pointer into the buffer, which when non-NULL is *
  * moved whenever the buffer is reallocated.  It is used when data is   *
  * being temporarily held in the buffer.                                */
 
-static char *bp1;
+    char *bp1;
 
 /* The format string, for %-expansion. */
 
-static char *fm;
+    char *fm;
 
 /* Non-zero if truncating the current segment of the buffer. */
 
-static int truncwidth;
+    int truncwidth;
 
 /* Current level of nesting of %{ / %} sequences. */
 
-static int dontcount;
+    int dontcount;
 
 /* Level of %{ / %} surrounding a truncation segment. */
 
-static int trunccount;
+    int trunccount;
 
 /* Strings to use for %r and %R (for the spelling prompt). */
 
-static char *rstring, *Rstring;
+    char *rstring, *Rstring;
+};
+
+typedef struct buf_vars *Buf_vars;
+
+/* The currently active prompt output variables */
+static Buf_vars bv;
 
 /*
  * Expand path p; maximum is npath segments where 0 means the whole path.
@@ -144,17 +153,25 @@ promptpath(char *p, int npath, int tilde)
 	zsfree(modp);
 }
 
-/* Perform prompt expansion on a string, putting the result in a *
- * permanently-allocated string.  If ns is non-zero, this string *
- * may have embedded Inpar and Outpar, which indicate a toggling *
- * between spacing and non-spacing parts of the prompt, and      *
- * Nularg, which (in a non-spacing sequence) indicates a         *
- * `glitch' space.                                               */
+/*
+ * Perform prompt expansion on a string, putting the result in a
+ * permanently-allocated string.  If ns is non-zero, this string
+ * may have embedded Inpar and Outpar, which indicate a toggling
+ * between spacing and non-spacing parts of the prompt, and
+ * Nularg, which (in a non-spacing sequence) indicates a
+ * `glitch' space.
+ *
+ * txtchangep gives an integer controlling the attributes of
+ * the prompt.  This is for use in zle to maintain the attributes
+ * consistenly.  Other parts of the shell should not need to use it.
+ */
 
 /**/
 mod_export char *
-promptexpand(char *s, int ns, char *rs, char *Rs)
+promptexpand(char *s, int ns, char *rs, char *Rs, unsigned int *txtchangep)
 {
+    struct buf_vars new_vars;
+
     if(!s)
 	return ztrdup("");
 
@@ -168,35 +185,51 @@ promptexpand(char *s, int ns, char *rs, char *Rs)
 	s = dupstring(s);
 	if (!parsestr(s))
 	    singsub(&s);
+	/*
+	 * We don't need the special Nularg hack here and we're
+	 * going to be using Nularg for other things.
+	 */
+	if (*s == Nularg && s[1] == '\0')
+	    *s = '\0';
 
 	/* Ignore errors and status change in prompt substitution */
 	errflag = olderr;
 	lastval = oldval;
     }
 
-    rstring = rs;
-    Rstring = Rs;
-    fm = s;
-    bp = bufline = buf = zshcalloc(bufspc = 256);
-    bp1 = NULL;
-    truncwidth = 0;
-    putpromptchar(1, '\0');
-    addbufspc(1);
-    if(dontcount)
-	*bp++ = Outpar;
-    *bp = 0;
+    memset(&new_vars, 0, sizeof(new_vars));
+    new_vars.last = bv;
+    bv = &new_vars;
+
+    new_vars.rstring = rs;
+    new_vars.Rstring = Rs;
+    new_vars.fm = s;
+    new_vars.bufspc = 256;
+    new_vars.bp = new_vars.bufline = new_vars.buf = zshcalloc(new_vars.bufspc);
+    new_vars.bp1 = NULL;
+    new_vars.truncwidth = 0;
+
+    putpromptchar(1, '\0', txtchangep);
+    addbufspc(2);
+    if (new_vars.dontcount)
+	*new_vars.bp++ = Outpar;
+    *new_vars.bp = '\0';
     if (!ns) {
 	/* If zero, Inpar, Outpar and Nularg should be removed. */
-	for (bp = buf; *bp; ) {
-	    if (*bp == Meta)
-		bp += 2;
-	    else if (*bp == Inpar || *bp == Outpar || *bp == Nularg)
-		chuck(bp);
+	for (new_vars.bp = new_vars.buf; *new_vars.bp; ) {
+	    if (*new_vars.bp == Meta)
+		new_vars.bp += 2;
+	    else if (*new_vars.bp == Inpar || *new_vars.bp == Outpar ||
+		     *new_vars.bp == Nularg)
+		chuck(new_vars.bp);
 	    else
-		bp++;
+		new_vars.bp++;
 	}
     }
-    return buf;
+
+    bv = new_vars.last;
+
+    return new_vars.buf;
 }
 
 /* Perform %- and !-expansion as required on a section of the prompt.  The *
@@ -205,7 +238,7 @@ promptexpand(char *s, int ns, char *rs, char *Rs)
 
 /**/
 static int
-putpromptchar(int doprint, int endchar)
+putpromptchar(int doprint, int endchar, unsigned int *txtchangep)
 {
     char *ss, *hostnam;
     int t0, arg, test, sep, j, numjobs;
@@ -213,33 +246,33 @@ putpromptchar(int doprint, int endchar)
     time_t timet;
     Nameddir nd;
 
-    for (; *fm && *fm != endchar; fm++) {
+    for (; *bv->fm && *bv->fm != endchar; bv->fm++) {
 	arg = 0;
-	if (*fm == '%' && isset(PROMPTPERCENT)) {
+	if (*bv->fm == '%' && isset(PROMPTPERCENT)) {
 	    int minus = 0;
-	    fm++;
-	    if (*fm == '-') {
+	    bv->fm++;
+	    if (*bv->fm == '-') {
 		minus = 1;
-		fm++;
+		bv->fm++;
 	    }
-	    if (idigit(*fm)) {
-		arg = zstrtol(fm, &fm, 10);
+	    if (idigit(*bv->fm)) {
+		arg = zstrtol(bv->fm, &bv->fm, 10);
 		if (minus)
 		    arg *= -1;
 	    } else if (minus)
 		arg = -1;
-	    if (*fm == '(') {
+	    if (*bv->fm == '(') {
 		int tc, otruncwidth;
 
-		if (idigit(*++fm)) {
-		    arg = zstrtol(fm, &fm, 10);
+		if (idigit(*++bv->fm)) {
+		    arg = zstrtol(bv->fm, &bv->fm, 10);
 		} else if (arg < 0) {
 		    /* negative numbers don't make sense here */
 		    arg *= -1;
 		}
 		test = 0;
 		ss = pwd;
-		switch (tc = *fm) {
+		switch (tc = *bv->fm) {
 		case 'c':
 		case '.':
 		case '~':
@@ -303,8 +336,8 @@ putpromptchar(int doprint, int endchar)
 		    	test = 1;
 		    break;
 		case 'l':
-		    *bp = '\0';
-		    countprompt(bufline, &t0, 0, 0);
+		    *bv->bp = '\0';
+		    countprompt(bv->bufline, &t0, 0, 0);
 		    if (t0 >= arg)
 			test = 1;
 		    break;
@@ -320,6 +353,12 @@ putpromptchar(int doprint, int endchar)
 		    if (arrlen(psvar) >= arg)
 			test = 1;
 		    break;
+		case 'V':
+		    if (arrlen(psvar) >= arg) {
+			if (*psvar[(arg ? arg : 1) - 1])
+			    test = 1;
+		    }
+		    break;
 		case '_':
 		    test = (cmdsp >= arg);
 		    break;
@@ -330,40 +369,42 @@ putpromptchar(int doprint, int endchar)
 		    test = -1;
 		    break;
 		}
-		if (!*fm || !(sep = *++fm))
+		if (!*bv->fm || !(sep = *++bv->fm))
 		    return 0;
-		fm++;
+		bv->fm++;
 		/* Don't do the current truncation until we get back */
-		otruncwidth = truncwidth;
-		truncwidth = 0;
-		if (!putpromptchar(test == 1 && doprint, sep) || !*++fm ||
-		    !putpromptchar(test == 0 && doprint, ')')) {
-		    truncwidth = otruncwidth;
+		otruncwidth = bv->truncwidth;
+		bv->truncwidth = 0;
+		if (!putpromptchar(test == 1 && doprint, sep,
+				   txtchangep) || !*++bv->fm ||
+		    !putpromptchar(test == 0 && doprint, ')',
+				   txtchangep)) {
+		    bv->truncwidth = otruncwidth;
 		    return 0;
 		}
-		truncwidth = otruncwidth;
+		bv->truncwidth = otruncwidth;
 		continue;
 	    }
 	    if (!doprint)
-		switch(*fm) {
+		switch(*bv->fm) {
 		  case '[':
-		    while(idigit(*++fm));
-		    while(*++fm != ']');
+		    while(idigit(*++bv->fm));
+		    while(*++bv->fm != ']');
 		    continue;
 		  case '<':
-		    while(*++fm != '<');
+		    while(*++bv->fm != '<');
 		    continue;
 		  case '>':
-		    while(*++fm != '>');
+		    while(*++bv->fm != '>');
 		    continue;
 		  case 'D':
-		    if(fm[1]=='{')
-			while(*++fm != '}');
+		    if(bv->fm[1]=='{')
+			while(*++bv->fm != '}');
 		    continue;
 		  default:
 		    continue;
 		}
-	    switch (*fm) {
+	    switch (*bv->fm) {
 	    case '~':
 		promptpath(pwd, arg, 1);
 		break;
@@ -384,16 +425,16 @@ putpromptchar(int doprint, int endchar)
 	    case 'h':
 	    case '!':
 		addbufspc(DIGBUFSIZE);
-		convbase(bp, curhist, 10);
-		bp += strlen(bp);
+		convbase(bv->bp, curhist, 10);
+		bv->bp += strlen(bv->bp);
 		break;
 	    case 'j':
 		for (numjobs = 0, j = 1; j <= maxjob; j++)
 		    if (jobtab[j].stat && jobtab[j].procs &&
 		    	!(jobtab[j].stat & STAT_NOPRINT)) numjobs++;
 		addbufspc(DIGBUFSIZE);
-		sprintf(bp, "%d", numjobs);
-		bp += strlen(bp);
+		sprintf(bv->bp, "%d", numjobs);
+		bv->bp += strlen(bv->bp);
 		break;
 	    case 'M':
 		queue_signals();
@@ -421,64 +462,115 @@ putpromptchar(int doprint, int endchar)
 		unqueue_signals();
 		break;
 	    case 'S':
-		txtchangeset(TXTSTANDOUT, TXTNOSTANDOUT);
+		txtchangeset(txtchangep, TXTSTANDOUT, TXTNOSTANDOUT);
 		txtset(TXTSTANDOUT);
-		tsetcap(TCSTANDOUTBEG, 1);
+		tsetcap(TCSTANDOUTBEG, TSC_PROMPT);
 		break;
 	    case 's':
-		txtchangeset(TXTNOSTANDOUT, TXTSTANDOUT);
-		txtset(TXTDIRTY);
+		txtchangeset(txtchangep, TXTNOSTANDOUT, TXTSTANDOUT);
 		txtunset(TXTSTANDOUT);
-		tsetcap(TCSTANDOUTEND, 1);
+		tsetcap(TCSTANDOUTEND, TSC_PROMPT|TSC_DIRTY);
 		break;
 	    case 'B':
-		txtchangeset(TXTBOLDFACE, TXTNOBOLDFACE);
-		txtset(TXTDIRTY);
+		txtchangeset(txtchangep, TXTBOLDFACE, TXTNOBOLDFACE);
 		txtset(TXTBOLDFACE);
-		tsetcap(TCBOLDFACEBEG, 1);
+		tsetcap(TCBOLDFACEBEG, TSC_PROMPT|TSC_DIRTY);
 		break;
 	    case 'b':
-		txtchangeset(TXTNOBOLDFACE, TXTBOLDFACE);
-		txtchangeset(TXTNOSTANDOUT, TXTSTANDOUT);
-		txtchangeset(TXTNOUNDERLINE, TXTUNDERLINE);
-		txtset(TXTDIRTY);
+		txtchangeset(txtchangep, TXTNOBOLDFACE, TXTBOLDFACE);
+		txtchangeset(txtchangep, TXTNOSTANDOUT, TXTSTANDOUT);
+		txtchangeset(txtchangep, TXTNOUNDERLINE, TXTUNDERLINE);
 		txtunset(TXTBOLDFACE);
-		tsetcap(TCALLATTRSOFF, 1);
+		tsetcap(TCALLATTRSOFF, TSC_PROMPT|TSC_DIRTY);
 		break;
 	    case 'U':
-		txtchangeset(TXTUNDERLINE, TXTNOUNDERLINE);
+		txtchangeset(txtchangep, TXTUNDERLINE, TXTNOUNDERLINE);
 		txtset(TXTUNDERLINE);
-		tsetcap(TCUNDERLINEBEG, 1);
+		tsetcap(TCUNDERLINEBEG, TSC_PROMPT);
 		break;
 	    case 'u':
-		txtchangeset(TXTNOUNDERLINE, TXTUNDERLINE);
-		txtset(TXTDIRTY);
+		txtchangeset(txtchangep, TXTNOUNDERLINE, TXTUNDERLINE);
 		txtunset(TXTUNDERLINE);
-		tsetcap(TCUNDERLINEEND, 1);
+		tsetcap(TCUNDERLINEEND, TSC_PROMPT|TSC_DIRTY);
+		break;
+	    case 'F':
+		if (bv->fm[1] == '{') {
+		    bv->fm += 2;
+		    arg = match_colour((const char **)&bv->fm, 1, 0);
+		    if (*bv->fm != '}')
+			bv->fm--;
+		} else
+		    arg = match_colour(NULL, 1, arg);
+		if (arg >= 0 && !(arg & TXTNOFGCOLOUR)) {
+		    txtchangeset(txtchangep, arg & TXT_ATTR_FG_ON_MASK,
+				 TXTNOFGCOLOUR);
+		    txtset(arg & TXT_ATTR_FG_ON_MASK);
+		    set_colour_attribute(arg, COL_SEQ_FG, TSC_PROMPT);
+		    break;
+		}
+		/* else FALLTHROUGH */
+	    case 'f':
+		txtchangeset(txtchangep, TXTNOFGCOLOUR, TXT_ATTR_FG_ON_MASK);
+		txtunset(TXT_ATTR_FG_ON_MASK);
+		set_colour_attribute(TXTNOFGCOLOUR, COL_SEQ_FG, TSC_PROMPT);
+		break;
+	    case 'K':
+		if (bv->fm[1] == '{') {
+		    bv->fm += 2;
+		    arg = match_colour((const char **)&bv->fm, 0, 0);
+		    if (*bv->fm != '}')
+			bv->fm--;
+		} else
+		    arg = match_colour(NULL, 0, arg);
+		if (arg >= 0 && !(arg & TXTNOBGCOLOUR)) {
+		    txtchangeset(txtchangep, arg & TXT_ATTR_BG_ON_MASK,
+				 TXTNOBGCOLOUR);
+		    txtset(arg & TXT_ATTR_BG_ON_MASK);
+		    set_colour_attribute(arg, COL_SEQ_BG, TSC_PROMPT);
+		    break;
+		}
+		/* else FALLTHROUGH */
+	    case 'k':
+		txtchangeset(txtchangep, TXTNOBGCOLOUR, TXT_ATTR_BG_ON_MASK);
+		txtunset(TXT_ATTR_BG_ON_MASK);
+		set_colour_attribute(TXTNOBGCOLOUR, COL_SEQ_BG, TSC_PROMPT);
 		break;
 	    case '[':
-		if (idigit(*++fm))
-		    arg = zstrtol(fm, &fm, 10);
-		if (!prompttrunc(arg, ']', doprint, endchar))
-		    return *fm;
+		if (idigit(*++bv->fm))
+		    arg = zstrtol(bv->fm, &bv->fm, 10);
+		if (!prompttrunc(arg, ']', doprint, endchar, txtchangep))
+		    return *bv->fm;
 		break;
 	    case '<':
 	    case '>':
-		if (!prompttrunc(arg, *fm, doprint, endchar))
-		    return *fm;
+		if (!prompttrunc(arg, *bv->fm, doprint, endchar, txtchangep))
+		    return *bv->fm;
 		break;
 	    case '{': /*}*/
-		if (!dontcount++) {
+		if (!bv->dontcount++) {
 		    addbufspc(1);
-		    *bp++ = Inpar;
+		    *bv->bp++ = Inpar;
+		}
+		if (arg <= 0)
+		    break;
+		/* else */
+		/* FALLTHROUGH */
+	    case 'G':
+		if (arg > 0) {
+		    addbufspc(arg);
+		    while (arg--)
+			*bv->bp++ = Nularg;
+		} else {
+		    addbufspc(1);
+		    *bv->bp++ = Nularg;
 		}
 		break;
 	    case /*{*/ '}':
-		if (trunccount && trunccount >= dontcount)
-		    return *fm;
-		if (dontcount && !--dontcount) {
+		if (bv->trunccount && bv->trunccount >= bv->dontcount)
+		    return *bv->fm;
+		if (bv->dontcount && !--bv->dontcount) {
 		    addbufspc(1);
-		    *bp++ = Outpar;
+		    *bv->bp++ = Outpar;
 		}
 		break;
 	    case 't':
@@ -491,7 +583,7 @@ putpromptchar(int doprint, int endchar)
 		{
 		    char *tmfmt, *dd, *tmbuf = NULL;
 
-		    switch (*fm) {
+		    switch (*bv->fm) {
 		    case 'T':
 			tmfmt = "%K:%M";
 			break;
@@ -505,19 +597,19 @@ putpromptchar(int doprint, int endchar)
 			tmfmt = "%m/%d/%y";
 			break;
 		    case 'D':
-			if (fm[1] == '{' /*}*/) {
-			    for (ss = fm + 2; *ss && *ss != /*{*/ '}'; ss++)
+			if (bv->fm[1] == '{' /*}*/) {
+			    for (ss = bv->fm + 2; *ss && *ss != /*{*/ '}'; ss++)
 				if(*ss == '\\' && ss[1])
 				    ss++;
-			    dd = tmfmt = tmbuf = zalloc(ss - fm);
-			    for (ss = fm + 2; *ss && *ss != /*{*/ '}';
+			    dd = tmfmt = tmbuf = zalloc(ss - bv->fm);
+			    for (ss = bv->fm + 2; *ss && *ss != /*{*/ '}';
 				 ss++) {
 				if(*ss == '\\' && ss[1])
 				    ss++;
 				*dd++ = *ss;
 			    }
 			    *dd = 0;
-			    fm = ss - !*ss;
+			    bv->fm = ss - !*ss;
 			    if (!*tmfmt) {
 				free(tmbuf);
 				continue;
@@ -540,13 +632,13 @@ putpromptchar(int doprint, int endchar)
 		     */
 		    for(j = 0, t0 = strlen(tmfmt)*8; j < 3; j++, t0*=2) {
 			addbufspc(t0);
-			if (ztrftime(bp, t0, tmfmt, tm) >= 0)
+			if (ztrftime(bv->bp, t0, tmfmt, tm) >= 0)
 			    break;
 		    }
 		    /* There is enough room for this because addbufspc(t0)
 		     * allocates room for t0 * 2 bytes. */
-		    metafy(bp, -1, META_NOALLOC);
-		    bp += strlen(bp);
+		    metafy(bv->bp, -1, META_NOALLOC);
+		    bv->bp += strlen(bv->bp);
 		    zsfree(tmbuf);
 		    break;
 		}
@@ -571,22 +663,22 @@ putpromptchar(int doprint, int endchar)
 		break;
 	    case 'L':
 		addbufspc(DIGBUFSIZE);
-		sprintf(bp, "%ld", (long)shlvl);
-		bp += strlen(bp);
+		sprintf(bv->bp, "%ld", (long)shlvl);
+		bv->bp += strlen(bv->bp);
 		break;
 	    case '?':
 		addbufspc(DIGBUFSIZE);
-		sprintf(bp, "%ld", (long)lastval);
-		bp += strlen(bp);
+		sprintf(bv->bp, "%ld", (long)lastval);
+		bv->bp += strlen(bv->bp);
 		break;
 	    case '%':
 	    case ')':
 		addbufspc(1);
-		*bp++ = *fm;
+		*bv->bp++ = *bv->fm;
 		break;
 	    case '#':
 		addbufspc(1);
-		*bp++ = privasserted() ? '#' : '%';
+		*bv->bp++ = privasserted() ? '#' : '%';
 		break;
 	    case 'v':
 		if (!arg)
@@ -597,7 +689,7 @@ putpromptchar(int doprint, int endchar)
 		    stradd(psvar[arg - 1]);
 		break;
 	    case 'E':
-                tsetcap(TCCLEAREOL, 1);
+                tsetcap(TCCLEAREOL, TSC_PROMPT);
 		break;
 	    case '^':
 		if (cmdsp) {
@@ -608,7 +700,7 @@ putpromptchar(int doprint, int endchar)
 			    stradd(cmdnames[cmdstack[t0]]);
 			    if (arg) {
 				addbufspc(1);
-				*bp++=' ';
+				*bv->bp++=' ';
 			    }
 			}
 		    } else {
@@ -619,7 +711,7 @@ putpromptchar(int doprint, int endchar)
 			    stradd(cmdnames[cmdstack[t0]]);
 			    if (arg) {
 				addbufspc(1);
-				*bp++=' ';
+				*bv->bp++=' ';
 			    }
 			}
 		    }
@@ -634,7 +726,7 @@ putpromptchar(int doprint, int endchar)
 			    stradd(cmdnames[cmdstack[t0]]);
 			    if (arg) {
 				addbufspc(1);
-				*bp++=' ';
+				*bv->bp++=' ';
 			    }
 			}
 		    } else {
@@ -645,45 +737,73 @@ putpromptchar(int doprint, int endchar)
 			    stradd(cmdnames[cmdstack[t0]]);
 			    if (arg) {
 				addbufspc(1);
-				*bp++=' ';
+				*bv->bp++=' ';
 			    }
 			}
 		    }
 		}
 		break;
 	    case 'r':
-		if(rstring)
-		    stradd(rstring);
+		if(bv->rstring)
+		    stradd(bv->rstring);
 		break;
 	    case 'R':
-		if(Rstring)
-		    stradd(Rstring);
+		if(bv->Rstring)
+		    stradd(bv->Rstring);
 		break;
+	    case 'I':
+		if (funcstack && funcstack->tp != FS_SOURCE &&
+		    !IN_EVAL_TRAP()) {
+		    /*
+		     * We're in a function or an eval with
+		     * EVALLINENO.  Calculate the line number in
+		     * the file.
+		     */
+		    zlong flineno = lineno + funcstack->flineno;
+		    /* take account of eval line nos. starting at 1 */
+		    if (funcstack->tp == FS_EVAL)
+			lineno--;
+		    addbufspc(DIGBUFSIZE);
+		    sprintf(bv->bp, "%ld", (long)flineno);
+		    bv->bp += strlen(bv->bp);
+		    break;
+		}
+		/* else we're in a file and lineno is already correct */
+		/* FALLTHROUGH */
 	    case 'i':
 		addbufspc(DIGBUFSIZE);
-		sprintf(bp, "%ld", (long)lineno);
-		bp += strlen(bp);
+		sprintf(bv->bp, "%ld", (long)lineno);
+		bv->bp += strlen(bv->bp);
+		break;
+	    case 'x':
+		if (funcstack && funcstack->tp != FS_SOURCE &&
+		    !IN_EVAL_TRAP())
+		    promptpath(funcstack->filename ? funcstack->filename : "",
+			       arg, 0);
+		else
+		    promptpath(scriptfilename ? scriptfilename : argzero,
+			       arg, 0);
 		break;
 	    case '\0':
 		return 0;
 	    case Meta:
-		fm++;
+		bv->fm++;
 		break;
 	    }
-	} else if(*fm == '!' && isset(PROMPTBANG)) {
+	} else if(*bv->fm == '!' && isset(PROMPTBANG)) {
 	    if(doprint) {
-		if(fm[1] == '!') {
-		    fm++;
+		if(bv->fm[1] == '!') {
+		    bv->fm++;
 		    addbufspc(1);
 		    pputc('!');
 		} else {
 		    addbufspc(DIGBUFSIZE);
-		    convbase(bp, curhist, 10);
-		    bp += strlen(bp);
+		    convbase(bv->bp, curhist, 10);
+		    bv->bp += strlen(bv->bp);
 		}
 	    }
 	} else {
-	    char c = *fm == Meta ? *++fm ^ 32 : *fm;
+	    char c = *bv->fm == Meta ? *++bv->fm ^ 32 : *bv->fm;
 
 	    if (doprint) {
 		addbufspc(1);
@@ -692,7 +812,7 @@ putpromptchar(int doprint, int endchar)
 	}
     }
 
-    return *fm;
+    return *bv->fm;
 }
 
 /* pputc adds a character to the buffer, metafying.  There must *
@@ -703,12 +823,12 @@ static void
 pputc(char c)
 {
     if (imeta(c)) {
-	*bp++ = Meta;
+	*bv->bp++ = Meta;
 	c ^= 32;
     }
-    *bp++ = c;
-    if (c == '\n' && !dontcount)
-	bufline = bp;
+    *bv->bp++ = c;
+    if (c == '\n' && !bv->dontcount)
+	bv->bufline = bv->bp;
 }
 
 /* Make sure there is room for `need' more characters in the buffer. */
@@ -718,16 +838,16 @@ static void
 addbufspc(int need)
 {
     need *= 2;   /* for metafication */
-    if((bp - buf) + need > bufspc) {
-	int bo = bp - buf;
-	int bo1 = bp1 ? bp1 - buf : -1;
+    if((bv->bp - bv->buf) + need > bv->bufspc) {
+	int bo = bv->bp - bv->buf;
+	int bo1 = bv->bp1 ? bv->bp1 - bv->buf : -1;
 
 	if(need & 255)
 	    need = (need | 255) + 1;
-	buf = realloc(buf, bufspc += need);
-	bp = buf + bo;
+	bv->buf = realloc(bv->buf, bv->bufspc += need);
+	bv->bp = bv->buf + bo;
 	if(bo1 != -1)
-	    bp1 = buf + bo1;
+	    bv->bp1 = bv->buf + bo1;
     }
 }
 
@@ -783,7 +903,7 @@ stradd(char *d)
 
 	/* Put printed representation into the buffer */
 	while (*pc)
-	    *bp++ = *pc++;
+	    *bv->bp++ = *pc++;
     }
 
     free(ums);
@@ -794,7 +914,7 @@ stradd(char *d)
      * prompt buffer. */
     for (ps = d; *ps; ps++) {
 	for (pc = nicechar(*ps == Meta ? *++ps^32 : *ps); *pc; pc++)
-	    *bp++ = *pc;
+	    *bv->bp++ = *pc;
     }
 #endif
 }
@@ -803,24 +923,25 @@ stradd(char *d)
 
 /**/
 mod_export void
-tsetcap(int cap, int flag)
+tsetcap(int cap, int flags)
 {
     if (tccan(cap) && !isset(SINGLELINEZLE) &&
         !(termflags & (TERM_NOUP|TERM_BAD|TERM_UNKNOWN))) {
-	switch(flag) {
-	case -1:
+	switch (flags & TSC_OUTPUT_MASK) {
+	case TSC_RAW:
 	    tputs(tcstr[cap], 1, putraw);
 	    break;
 	case 0:
+	default:
 	    tputs(tcstr[cap], 1, putshout);
 	    break;
-	case 1:
-	    if (!dontcount) {
+	case TSC_PROMPT:
+	    if (!bv->dontcount) {
 		addbufspc(1);
-		*bp++ = Inpar;
+		*bv->bp++ = Inpar;
 	    }
 	    tputs(tcstr[cap], 1, putstr);
-	    if (!dontcount) {
+	    if (!bv->dontcount) {
 		int glitch = 0;
 
 		if (cap == TCSTANDOUTBEG || cap == TCSTANDOUTEND)
@@ -831,20 +952,20 @@ tsetcap(int cap, int flag)
 		    glitch = 0;
 		addbufspc(glitch + 1);
 		while(glitch--)
-		    *bp++ = Nularg;
-		*bp++ = Outpar;
+		    *bv->bp++ = Nularg;
+		*bv->bp++ = Outpar;
 	    }
 	    break;
 	}
 
-	if (txtisset(TXTDIRTY)) {
-	    txtunset(TXTDIRTY);
+	if (flags & TSC_DIRTY) {
+	    flags &= ~TSC_DIRTY;
 	    if (txtisset(TXTBOLDFACE) && cap != TCBOLDFACEBEG)
-		tsetcap(TCBOLDFACEBEG, flag);
+		tsetcap(TCBOLDFACEBEG, flags);
 	    if (txtisset(TXTSTANDOUT))
-		tsetcap(TCSTANDOUTBEG, flag);
+		tsetcap(TCSTANDOUTBEG, flags);
 	    if (txtisset(TXTUNDERLINE))
-		tsetcap(TCUNDERLINEBEG, flag);
+		tsetcap(TCUNDERLINEBEG, flags);
 	}
     }
 }
@@ -938,17 +1059,19 @@ countprompt(char *str, int *wp, int *hp, int overf)
 		break;
 	    case MB_INVALID:
 		memset(&mbs, 0, sizeof mbs);
-		/* FALL THROUGH */
+		/* Invalid character: assume single width. */
+		multi = 0;
+		w++;
+		break;
 	    case 0:
-		/* Invalid character or null: assume no output. */
 		multi = 0;
 		break;
 	    default:
 		/*
-		 * If the character isn't printable, wcwidth() returns
+		 * If the character isn't printable, WCWIDTH() returns
 		 * -1.  We assume width 1.
 		 */
-		wcw = wcwidth(wc);
+		wcw = WCWIDTH(wc);
 		if (wcw >= 0)
 		    w += wcw;
 		else
@@ -980,62 +1103,63 @@ countprompt(char *str, int *wp, int *hp, int overf)
 
 /**/
 static int
-prompttrunc(int arg, int truncchar, int doprint, int endchar)
+prompttrunc(int arg, int truncchar, int doprint, int endchar,
+	    unsigned int *txtchangep)
 {
     if (arg > 0) {
-	char ch = *fm, *ptr, *truncstr;
+	char ch = *bv->fm, *ptr, *truncstr;
 	int truncatleft = ch == '<';
-	int w = bp - buf;
+	int w = bv->bp - bv->buf;
 
 	/*
 	 * If there is already a truncation active, return so that
 	 * can be finished, backing up so that the new truncation
 	 * can be started afterwards.
 	 */
-	if (truncwidth) {
-	    while (*--fm != '%')
+	if (bv->truncwidth) {
+	    while (*--bv->fm != '%')
 		;
-	    fm--;
+	    bv->fm--;
 	    return 0;
 	}
 
-	truncwidth = arg;
-	if (*fm != ']')
-	    fm++;
-	while (*fm && *fm != truncchar) {
-	    if (*fm == '\\' && fm[1])
-		++fm;
+	bv->truncwidth = arg;
+	if (*bv->fm != ']')
+	    bv->fm++;
+	while (*bv->fm && *bv->fm != truncchar) {
+	    if (*bv->fm == '\\' && bv->fm[1])
+		++bv->fm;
 	    addbufspc(1);
-	    *bp++ = *fm++;
+	    *bv->bp++ = *bv->fm++;
 	}
-	if (!*fm)
+	if (!*bv->fm)
 	    return 0;
-	if (bp - buf == w && truncchar == ']') {
+	if (bv->bp - bv->buf == w && truncchar == ']') {
 	    addbufspc(1);
-	    *bp++ = '<';
+	    *bv->bp++ = '<';
 	}
-	ptr = buf + w;		/* addbufspc() may have realloc()'d buf */
+	ptr = bv->buf + w;		/* addbv->bufspc() may have realloc()'d bv->buf */
 	/*
 	 * Now:
-	 *   buf is the start of the output prompt buffer
+	 *   bv->buf is the start of the output prompt buffer
 	 *   ptr is the start of the truncation string
-	 *   bp is the end of the truncation string
+	 *   bv->bp is the end of the truncation string
 	 */
-	truncstr = ztrduppfx(ptr, bp - ptr);
+	truncstr = ztrduppfx(ptr, bv->bp - ptr);
 
-	bp = ptr;
-	w = bp - buf;
-	fm++;
-	trunccount = dontcount;
-	putpromptchar(doprint, endchar);
-	trunccount = 0;
-	ptr = buf + w;		/* putpromptchar() may have realloc()'d */
-	*bp = '\0';
+	bv->bp = ptr;
+	w = bv->bp - bv->buf;
+	bv->fm++;
+	bv->trunccount = bv->dontcount;
+	putpromptchar(doprint, endchar, txtchangep);
+	bv->trunccount = 0;
+	ptr = bv->buf + w;		/* putpromptchar() may have realloc()'d */
+	*bv->bp = '\0';
 	/*
 	 * Now:
 	 *   ptr is the start of the truncation string and also
 	 *     where we need to start putting any truncated output
-	 *   bp is the end of the string we have just added, which
+	 *   bv->bp is the end of the string we have just added, which
 	 *     may need truncating.
 	 */
 
@@ -1044,28 +1168,28 @@ prompttrunc(int arg, int truncchar, int doprint, int endchar)
 	 * (note that above it was a raw string pointer difference).
 	 * It's the full width of the string we may need to truncate.
 	 *
-	 * truncwidth has come from the user, so we interpret this
+	 * bv->truncwidth has come from the user, so we interpret this
 	 * as a screen width, too.
 	 */
 	countprompt(ptr, &w, 0, -1);
-	if (w > truncwidth) {
+	if (w > bv->truncwidth) {
 	    /*
 	     * We need to truncate.  t points to the truncation string
 	     * -- which is inserted literally, without nice
 	     * representation.  twidth is its printing width, and maxwidth
 	     * is the amount of the main string that we want to keep.
 	     * Note that if the truncation string is longer than the
-	     * truncation length (twidth > truncwidth), the truncation
+	     * truncation length (twidth > bv->truncwidth), the truncation
 	     * string is used in full.
 	     */
 	    char *t = truncstr;
-	    int fullen = bp - ptr;
+	    int fullen = bv->bp - ptr;
 	    int twidth, maxwidth;
 	    int ntrunc = strlen(t);
 
 	    twidth = MB_METASTRWIDTH(t);
-	    if (twidth < truncwidth) {
-		maxwidth = truncwidth - twidth;
+	    if (twidth < bv->truncwidth) {
+		maxwidth = bv->truncwidth - twidth;
 		/*
 		 * It's not safe to assume there are no invisible substrings
 		 * just because the width is less than the full string
@@ -1073,7 +1197,7 @@ prompttrunc(int arg, int truncchar, int doprint, int endchar)
 		 */
 		addbufspc(ntrunc+1);
 		/* may have realloc'd */
-		ptr = bp - fullen;
+		ptr = bv->bp - fullen;
 
 		if (truncatleft) {
 		    /*
@@ -1114,14 +1238,19 @@ prompttrunc(int arg, int truncchar, int doprint, int endchar)
 			    /*
 			     * Text marked as invisible: copy
 			     * regardless, since we don't know what
-			     * this does but it shouldn't affect
-			     * the width.
+			     * this does.  It only affects the width
+			     * if there are Nularg's present.
+			     * However, even in that case we
+			     * can't break the sequence down, so
+			     * we still loop over the entire group.
 			     */
 			    for (;;) {
 				*ptr++ = *fulltextptr;
 				if (*fulltextptr == Outpar ||
 				    *fulltextptr == '\0')
 				    break;
+				if (*fulltextptr == Nularg)
+				    remw--;
 				fulltextptr++;
 			    }
 			} else {
@@ -1157,7 +1286,7 @@ prompttrunc(int arg, int truncchar, int doprint, int endchar)
 				remw--;
 				break;
 			    default:
-				wcw = wcwidth(cc);
+				wcw = WCWIDTH(cc);
 				if (wcw >= 0)
 				    remw -= wcw;
 				else
@@ -1181,7 +1310,7 @@ prompttrunc(int arg, int truncchar, int doprint, int endchar)
 		    while (*fulltextptr)
 			*ptr++ = *fulltextptr++;
 		    /* Mark the end of copying */
-		    bp = ptr;
+		    bv->bp = ptr;
 		} else {
 		    /*
 		     * Truncating at the right is easier: just leave
@@ -1196,8 +1325,15 @@ prompttrunc(int arg, int truncchar, int doprint, int endchar)
 
 		    while (maxwidth > 0 && *skiptext) {
 			if (*skiptext == Inpar) {
-			    for (; *skiptext != Outpar && *skiptext;
-				 skiptext++);
+			    /* see comment on left truncation above */
+			    for (;;) {
+				if (*skiptext == Outpar ||
+				    *skiptext == '\0')
+				    break;
+				if (*skiptext == Nularg)
+				    maxwidth--;
+				skiptext++;
+			    }
 			} else {
 #ifdef MULTIBYTE_SUPPORT
 			    char inchar;
@@ -1222,7 +1358,7 @@ prompttrunc(int arg, int truncchar, int doprint, int endchar)
 				maxwidth--;
 				break;
 			    default:
-				wcw = wcwidth(cc);
+				wcw = WCWIDTH(cc);
 				if (wcw >= 0)
 				    maxwidth -= wcw;
 				else
@@ -1250,19 +1386,19 @@ prompttrunc(int arg, int truncchar, int doprint, int endchar)
 		    ptr = skiptext;
 		    while (*t)
 			*ptr++ = *t++;
-		    bp = ptr;
+		    bv->bp = ptr;
 		    if (*skiptext) {
 			/* Move remaining text so we don't overwrite it */
-			memmove(bp, skiptext, strlen(skiptext)+1);
-			skiptext = bp;
+			memmove(bv->bp, skiptext, strlen(skiptext)+1);
+			skiptext = bv->bp;
 
 			/*
-			 * Copy anything we want, updating bp
+			 * Copy anything we want, updating bv->bp
 			 */
 			while (*skiptext) {
 			    if (*skiptext == Inpar) {
 				for (;;) {
-				    *bp++ = *skiptext;
+				    *bv->bp++ = *skiptext;
 				    if (*skiptext == Outpar ||
 					*skiptext == '\0')
 					break;
@@ -1278,39 +1414,39 @@ prompttrunc(int arg, int truncchar, int doprint, int endchar)
 		/* Just copy truncstr; no other text appears. */
 		while (*t)
 		    *ptr++ = *t++;
-		bp = ptr;
+		bv->bp = ptr;
 	    }
-	    *bp = '\0';
+	    *bv->bp = '\0';
 	}
 	zsfree(truncstr);
-	truncwidth = 0;
+	bv->truncwidth = 0;
 	/*
 	 * We may have returned early from the previous putpromptchar *
 	 * because we found another truncation following this one.    *
 	 * In that case we need to do the rest now.                   *
 	 */
-	if (!*fm)
+	if (!*bv->fm)
 	    return 0;
-	if (*fm != endchar) {
-	    fm++;
+	if (*bv->fm != endchar) {
+	    bv->fm++;
 	    /*
-	     * With truncwidth set to zero, we always reach endchar *
+	     * With bv->truncwidth set to zero, we always reach endchar *
 	     * (or the terminating NULL) this time round.         *
 	     */
-	    if (!putpromptchar(doprint, endchar))
+	    if (!putpromptchar(doprint, endchar, txtchangep))
 		return 0;
 	}
 	/* Now we have to trick it into matching endchar again */
-	fm--;
+	bv->fm--;
     } else {
-	if (*fm != ']')
-	    fm++;
-	while(*fm && *fm != truncchar) {
-	    if (*fm == '\\' && fm[1])
-		fm++;
-	    fm++;
+	if (*bv->fm != ']')
+	    bv->fm++;
+	while(*bv->fm && *bv->fm != truncchar) {
+	    if (*bv->fm == '\\' && bv->fm[1])
+		bv->fm++;
+	    bv->fm++;
 	}
-	if (truncwidth || !*fm)
+	if (bv->truncwidth || !*bv->fm)
 	    return 0;
     }
     return 1;
@@ -1333,4 +1469,482 @@ cmdpop(void)
 	fflush(stderr);
     } else
 	cmdsp--;
+}
+
+
+/*****************************************************************************
+ * Utilities dealing with colour and other forms of highlighting.
+ *
+ * These are shared by prompts and by zle, so it's easiest to have them
+ * in the main shell.
+ *****************************************************************************/
+
+/* Defines standard ANSI colour names in index order */
+static const char *ansi_colours[] = {
+    "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white",
+    "default", NULL
+};
+
+/* Defines the available types of highlighting */
+struct highlight {
+    const char *name;
+    int mask_on;
+    int mask_off;
+};
+
+static const struct highlight highlights[] = {
+    { "none", 0, TXT_ATTR_ON_MASK },
+    { "bold", TXTBOLDFACE, 0 },
+    { "standout", TXTSTANDOUT, 0 },
+    { "underline", TXTUNDERLINE, 0 },
+    { NULL, 0, 0 }
+};
+
+/*
+ * Return index of ANSI colour for which *teststrp is an abbreviation.
+ * Any non-alphabetic character ends the abbreviation.
+ * 8 is the special value for default (note this is *not* the
+ * right sequence for default which is typically 9).
+ * -1 is failure.
+ */
+
+static int
+match_named_colour(const char **teststrp)
+{
+    const char *teststr = *teststrp, *end, **cptr;
+    int len;
+
+    for (end = teststr; ialpha(*end); end++)
+	;
+    len = end - teststr;
+    *teststrp = end;
+
+    for (cptr = ansi_colours; *cptr; cptr++) {
+	if (!strncmp(teststr, *cptr, len))
+	    return cptr - ansi_colours;
+    }
+
+    return -1;
+}
+
+/*
+ * Match just the colour part of a highlight specification.
+ * If teststrp is NULL, use the already parsed numeric colour.
+ * Return the attributes to set in the attribute variable.
+ * Return -1 for out of range.  Does not check the character
+ * following the colour specification.
+ */
+
+/**/
+mod_export int
+match_colour(const char **teststrp, int is_fg, int colour)
+{
+    int shft, on, named = 0, tc;
+
+    if (teststrp) {
+	if ((named = ialpha(**teststrp))) {
+	    colour = match_named_colour(teststrp);
+	    if (colour == 8) {
+		/* default */
+		return is_fg ? TXTNOFGCOLOUR : TXTNOBGCOLOUR;
+	    }
+	}
+	else
+	    colour = (int)zstrtol(*teststrp, (char **)teststrp, 10);
+    }
+    if (colour < 0 || colour >= 256)
+	return -1;
+    if (is_fg) {
+	shft = TXT_ATTR_FG_COL_SHIFT;
+	on = TXTFGCOLOUR;
+	tc = TCFGCOLOUR;
+    } else {
+	shft = TXT_ATTR_BG_COL_SHIFT;
+	on = TXTBGCOLOUR;
+	tc = TCBGCOLOUR;
+    }
+    /*
+     * Try termcap for numbered characters if posible.
+     * Don't for named characters, since our best bet
+     * of getting the names right is with ANSI sequences.
+     */
+    if (!named && tccan(tc)) {
+	if (tccolours >= 0 && colour >= tccolours) {
+	    /*
+	     * Out of range of termcap colours.
+	     * Can we assume ANSI colours work?
+	     */
+	    if (colour > 7)
+		return -1; /* No. */
+	} else {
+	    /*
+	     * We can handle termcap colours and the number
+	     * is in range, so use termcap.
+	     */
+	    on |= is_fg ? TXT_ATTR_FG_TERMCAP :
+		TXT_ATTR_BG_TERMCAP;
+	}
+    }
+    return on | (colour << shft);
+}
+
+/*
+ * Match a set of highlights in the given teststr.
+ * Set *on_var to reflect the values found.
+ */
+
+/**/
+mod_export void
+match_highlight(const char *teststr, int *on_var)
+{
+    int found = 1;
+
+    *on_var = 0;
+    while (found && *teststr) {
+	const struct highlight *hl;
+
+	found = 0;
+	if (strpfx("fg=", teststr) || strpfx("bg=", teststr)) {
+	    int is_fg = (teststr[0] == 'f'), atr;
+
+	    teststr += 3;
+	    atr = match_colour(&teststr, is_fg, 0);
+	    if (*teststr == ',')
+		teststr++;
+	    else if (*teststr)
+		break;
+	    found = 1;
+	    /* skip out of range colours but keep scanning attributes */
+	    if (atr >= 0)
+		*on_var |= atr;
+	} else {
+	    for (hl = highlights; hl->name; hl++) {
+		if (strpfx(hl->name, teststr)) {
+		    const char *val = teststr + strlen(hl->name);
+
+		    if (*val == ',')
+			val++;
+		    else if (*val)
+			break;
+
+		    *on_var |= hl->mask_on;
+		    *on_var &= ~hl->mask_off;
+		    teststr = val;
+		    found = 1;
+		}
+	    }
+	}
+    }
+}
+
+/*
+ * Count or output a string for colour information: used
+ * by output_highlight().
+ */
+
+static int
+output_colour(int colour, int fg_bg, int use_tc, char *buf)
+{
+    int atrlen = 3, len;
+    char *ptr = buf;
+    if (buf) {
+	strcpy(ptr, fg_bg == COL_SEQ_FG ? "fg=" : "bg=");
+	ptr += 3;
+    }
+    /* colour should only be > 7 if using termcap but let's be safe */
+    if (use_tc || colour > 7) {
+	char digbuf[DIGBUFSIZE];
+	sprintf(digbuf, "%d", colour);
+	len = strlen(digbuf);
+	atrlen += len;
+	if (buf)
+	    strcpy(ptr, digbuf);
+    } else {
+	len = strlen(ansi_colours[colour]);
+	atrlen += len;
+	if (buf)
+	    strcpy(ptr, ansi_colours[colour]);
+    }
+
+    return atrlen;
+}
+
+/*
+ * Count the length needed for outputting highlighting information
+ * as a string based on the bits for the attributes.
+ *
+ * If buf is not NULL, output the strings into the buffer, too.
+ * As conventional with strings, the allocated length should be
+ * at least the returned value plus 1 for the NUL byte.
+ */
+
+/**/
+mod_export int
+output_highlight(int atr, char *buf)
+{
+    const struct highlight *hp;
+    int atrlen = 0, len;
+    char *ptr = buf;
+
+    if (atr & TXTFGCOLOUR) {
+	len = output_colour(txtchangeget(atr, TXT_ATTR_FG_COL),
+			    COL_SEQ_FG,
+			    (atr & TXT_ATTR_FG_TERMCAP),
+			    ptr);
+	atrlen += len;
+	if (buf)
+	    ptr += len;
+    }
+    if (atr & TXTBGCOLOUR) {
+	if (atrlen) {
+	    atrlen++;
+	    if (buf) {
+		strcpy(ptr, ",");
+		ptr++;
+	    }
+	}
+	len = output_colour(txtchangeget(atr, TXT_ATTR_BG_COL),
+			    COL_SEQ_BG,
+			    (atr & TXT_ATTR_BG_TERMCAP),
+			    ptr);
+	atrlen += len;
+	if (buf)
+	    ptr += len;
+    }
+    for (hp = highlights; hp->name; hp++) {
+	if (hp->mask_on & atr) {
+	    if (atrlen) {
+		atrlen++;
+		if (buf) {
+		    strcpy(ptr, ",");
+		    ptr++;
+		}
+	    }
+	    len = strlen(hp->name);
+	    atrlen += len;
+	    if (buf) {
+		strcpy(ptr, hp->name);
+		ptr += len;
+	    }
+	}
+    }
+
+    if (atrlen == 0) {
+	if (buf)
+	    strcpy(ptr, "none");
+	return 4;
+    }
+    return atrlen;
+}
+
+/* Structure and array for holding special colour terminal sequences */
+
+/* Start of escape sequence for foreground colour */
+#define TC_COL_FG_START	"\033[3"
+/* End of escape sequence for foreground colour */
+#define TC_COL_FG_END	"m"
+/* Code to reset foreground colour */
+#define TC_COL_FG_DEFAULT	"9"
+
+/* Start of escape sequence for background colour */
+#define TC_COL_BG_START	"\033[4"
+/* End of escape sequence for background colour */
+#define TC_COL_BG_END	"m"
+/* Code to reset background colour */
+#define TC_COL_BG_DEFAULT	"9"
+
+struct colour_sequences {
+    char *start;		/* Escape sequence start */
+    char *end;			/* Escape sequence terminator */
+    char *def;			/* Code to reset default colour */
+};
+struct colour_sequences fg_bg_sequences[2];
+
+/*
+ * We need a buffer for colour sequence compostion.  It may
+ * vary depending on the sequences set.  However, it's inefficient
+ * allocating it separately every time we send a colour sequence,
+ * so do it once per refresh.
+ */
+static char *colseq_buf;
+
+/**/
+void
+set_default_colour_sequences(void)
+{
+    fg_bg_sequences[COL_SEQ_FG].start = ztrdup(TC_COL_FG_START);
+    fg_bg_sequences[COL_SEQ_FG].end = ztrdup(TC_COL_FG_END);
+    fg_bg_sequences[COL_SEQ_FG].def = ztrdup(TC_COL_FG_DEFAULT);
+
+    fg_bg_sequences[COL_SEQ_BG].start = ztrdup(TC_COL_BG_START);
+    fg_bg_sequences[COL_SEQ_BG].end = ztrdup(TC_COL_BG_END);
+    fg_bg_sequences[COL_SEQ_BG].def = ztrdup(TC_COL_BG_DEFAULT);
+}
+
+static void
+set_colour_code(char *str, char **var)
+{
+    char *keyseq;
+    int len;
+
+    zsfree(*var);
+    keyseq = getkeystring(str, &len, GETKEYS_BINDKEY, NULL);
+    *var = metafy(keyseq, len, META_DUP);
+}
+
+/* Allocate buffer for colour code composition */
+
+/**/
+mod_export void
+allocate_colour_buffer(void)
+{
+    char **atrs = getaparam("zle_highlight");
+    int lenfg, lenbg, len;
+
+    if (atrs) {
+	for (; *atrs; atrs++) {
+	    if (strpfx("fg_start_code:", *atrs)) {
+		set_colour_code(*atrs + 14, &fg_bg_sequences[COL_SEQ_FG].start);
+	    } else if (strpfx("fg_default_code:", *atrs)) {
+		set_colour_code(*atrs + 16, &fg_bg_sequences[COL_SEQ_FG].def);
+	    } else if (strpfx("fg_end_code:", *atrs)) {
+		set_colour_code(*atrs + 12, &fg_bg_sequences[COL_SEQ_FG].end);
+	    } else if (strpfx("bg_start_code:", *atrs)) {
+		set_colour_code(*atrs + 14, &fg_bg_sequences[COL_SEQ_BG].start);
+	    } else if (strpfx("bg_default_code:", *atrs)) {
+		set_colour_code(*atrs + 16, &fg_bg_sequences[COL_SEQ_BG].def);
+	    } else if (strpfx("bg_end_code:", *atrs)) {
+		set_colour_code(*atrs + 12, &fg_bg_sequences[COL_SEQ_BG].end);
+	    }
+	}
+    }
+
+    lenfg = strlen(fg_bg_sequences[COL_SEQ_FG].def);
+    /* always need 1 character for non-default code */
+    if (lenfg < 1)
+	lenfg = 1;
+    lenfg += strlen(fg_bg_sequences[COL_SEQ_FG].start) +
+	strlen(fg_bg_sequences[COL_SEQ_FG].end);
+
+    lenbg = strlen(fg_bg_sequences[COL_SEQ_BG].def);
+    /* always need 1 character for non-default code */
+    if (lenbg < 1)
+	lenbg = 1;
+    lenbg += strlen(fg_bg_sequences[COL_SEQ_BG].start) +
+	strlen(fg_bg_sequences[COL_SEQ_BG].end);
+
+    len = lenfg > lenbg ? lenfg : lenbg;
+    colseq_buf = (char *)zalloc(len+1);
+}
+
+/* Free the colour buffer previously allocated. */
+
+/**/
+mod_export void
+free_colour_buffer(void)
+{
+    DPUTS(!colseq_buf, "Freeing colour sequence buffer without alloc");
+    /* Free buffer for colour code composition */
+    free(colseq_buf);
+    colseq_buf = NULL;
+}
+
+/*
+ * Handle outputting of a colour for prompts or zle.
+ * colour is the numeric colour, 0 to 255 (or less if termcap
+ * says fewer are supported).
+ * fg_bg indicates if we're changing the foreground or background.
+ * tc indicates the termcap code to use, if appropriate.
+ * def indicates if we're resetting the default colour.
+ * use_termcap indicates if we should use termcap to output colours.
+ * flags is either 0 or TSC_PROMPT.
+ */
+
+/**/
+mod_export void
+set_colour_attribute(int atr, int fg_bg, int flags)
+{
+    char *ptr;
+    int do_free, is_prompt = (flags & TSC_PROMPT) ? 1 : 0;
+    int colour, tc, def, use_termcap;
+
+    if (fg_bg == COL_SEQ_FG) {
+	colour = txtchangeget(atr, TXT_ATTR_FG_COL);
+	tc = TCFGCOLOUR;
+	def = txtchangeisset(atr, TXTNOFGCOLOUR);
+	use_termcap = txtchangeisset(atr, TXT_ATTR_FG_TERMCAP);
+    } else {
+	colour = txtchangeget(atr, TXT_ATTR_BG_COL);
+	tc = TCBGCOLOUR;
+	def = txtchangeisset(atr, TXTNOBGCOLOUR);
+	use_termcap = txtchangeisset(atr, TXT_ATTR_BG_TERMCAP);
+    }
+
+    /*
+     * If we're not restoring the default, and either have a
+     * colour value that is too large for ANSI, or have been told
+     * to use the termcap sequence, try to use the termcap sequence.
+     *
+     * We have already sanitised the values we allow from the
+     * highlighting variables, so much of this shouldn't be
+     * necessary at this point, but we might as well be safe.
+     */
+    if (!def && (colour > 7 || use_termcap)) {
+	/*
+	 * We can if it's available, and either we couldn't get
+	 * the maximum number of colours, or the colour is in range.
+	 */
+	if (tccan(tc) && (tccolours < 0 || colour < tccolours))
+	{
+	    if (is_prompt)
+	    {
+		if (!bv->dontcount) {
+		    addbufspc(1);
+		    *bv->bp++ = Inpar;
+		}
+		tputs(tgoto(tcstr[tc], colour, colour), 1, putstr);
+		if (!bv->dontcount) {
+		    addbufspc(1);
+		    *bv->bp++ = Outpar;
+		}
+	    } else {
+		tputs(tgoto(tcstr[tc], colour, colour), 1, putshout);
+	    }
+	}
+	/* for 0 to 7 assume standard ANSI works, otherwise it won't. */
+	if (colour > 7)
+	    return;
+    }
+
+    if ((do_free = (colseq_buf == NULL))) {
+	/* This can happen when moving the cursor in trashzle() */
+	allocate_colour_buffer();
+    }
+
+    strcpy(colseq_buf, fg_bg_sequences[fg_bg].start);
+
+    ptr = colseq_buf + strlen(colseq_buf);
+    if (def) {
+	strcpy(ptr, fg_bg_sequences[fg_bg].def);
+	while (*ptr)
+	    ptr++;
+    } else
+	*ptr++ = colour + '0';
+    strcpy(ptr, fg_bg_sequences[fg_bg].end);
+
+    if (is_prompt) {
+	if (!bv->dontcount) {
+	    addbufspc(1);
+	    *bv->bp++ = Inpar;
+	}
+	tputs(colseq_buf, 1, putstr);
+	if (!bv->dontcount) {
+	    addbufspc(1);
+	    *bv->bp++ = Outpar;
+	}
+    } else
+	tputs(colseq_buf, 1, putshout);
+
+    if (do_free)
+	free_colour_buffer();
 }

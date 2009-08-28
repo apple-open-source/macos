@@ -8,12 +8,14 @@
 Project               = tclx
 ProjectName           = Tclx
 
-Extra_Configure_Flags = $(TEA_Configure_Flags)
-Extra_CPP_Flags       = -I$(TclHeaders) -I$(TclPrivateHeaders)
-Extra_LD_Flags        = -L$(TclFramework)
-Extra_Environment     = CPPFLAGS="$(CPPFLAGS)" $(TEA_Environment)
+# Fetch info
+Release               = 8.4
+TEApotVersion         = 0.0.0.2008.06.29.23.11.20
 
-GnuAfterInstall       = strip
+Extra_Configure_Flags = $(TEA_Configure_Flags) --with-help
+Extra_Environment     = $(TEA_Environment)
+
+GnuAfterInstall       = strip fix-perms
 
 # include TEA Tcl extension build support
 include ../TEA.make

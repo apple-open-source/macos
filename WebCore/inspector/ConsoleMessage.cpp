@@ -31,11 +31,10 @@
 #include "config.h"
 #include "ConsoleMessage.h"
 
+#include "InspectorFrontend.h"
+#include "InspectorJSONObject.h"
 #include "ScriptCallStack.h"
-#include "ScriptCallFrame.h"
-#include "ScriptFunctionCall.h"
 #include "ScriptObjectQuarantine.h"
-#include "ScriptString.h"
 
 namespace WebCore {
 
@@ -74,33 +73,16 @@ ConsoleMessage::ConsoleMessage(MessageSource s, MessageLevel l, ScriptCallStack*
         m_wrappedArguments[i] = quarantineValue(callStack->state(), lastCaller.argumentAt(i));
 }
 
-void ConsoleMessage::addToConsole(ScriptState* scriptState, const ScriptObject& webInspector)
+void ConsoleMessage::addToConsole(InspectorFrontend* frontend)
 {
-    ScriptFunctionCall messageConstructor(scriptState, webInspector, "ConsoleMessage");
-    messageConstructor.appendArgument(static_cast<unsigned int>(m_source));
-    messageConstructor.appendArgument(static_cast<unsigned int>(m_level));
-    messageConstructor.appendArgument(m_line);
-    messageConstructor.appendArgument(m_url);
-    messageConstructor.appendArgument(m_groupLevel);
-    messageConstructor.appendArgument(m_repeatCount);
-
-    if (!m_frames.isEmpty()) {
-        for (unsigned i = 0; i < m_frames.size(); ++i)
-            messageConstructor.appendArgument(m_frames[i]);
-    } else if (!m_wrappedArguments.isEmpty()) {
-        for (unsigned i = 0; i < m_wrappedArguments.size(); ++i)
-            messageConstructor.appendArgument(m_wrappedArguments[i]);
-    } else
-        messageConstructor.appendArgument(m_message);
-
-    bool hadException = false;
-    ScriptObject message = messageConstructor.construct(hadException, false);
-    if (hadException)
-        return;
-
-    ScriptFunctionCall addMessageToConsole(scriptState, webInspector, "addMessageToConsole");
-    addMessageToConsole.appendArgument(message);
-    addMessageToConsole.call(hadException, false);
+    InspectorJSONObject jsonObj = frontend->newInspectorJSONObject();
+    jsonObj.set("source", static_cast<int>(m_source));
+    jsonObj.set("level", static_cast<int>(m_level));
+    jsonObj.set("line", static_cast<int>(m_line));
+    jsonObj.set("url", m_url);
+    jsonObj.set("groupLevel", static_cast<int>(m_groupLevel));
+    jsonObj.set("repeatCount", static_cast<int>(m_repeatCount));
+    frontend->addMessageToConsole(jsonObj, m_frames, m_wrappedArguments,  m_message);
 }
 
 bool ConsoleMessage::isEqual(ScriptState* state, ConsoleMessage* msg) const

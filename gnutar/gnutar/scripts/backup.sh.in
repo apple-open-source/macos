@@ -1,6 +1,6 @@
 #! /bin/sh
 # This program is part of GNU tar
-# Copyright 2004, Free Software Foundation
+# Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -14,8 +14,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-# 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301, USA.
 
 PROGNAME=`basename $0`
 CONFIGPATH="$SYSCONFDIR/backup"
@@ -27,25 +27,25 @@ LOGPATH=${CONFIGPATH}/log
 
 # Default functions for running various magnetic tape commands
 mt_begin() {
-    mt -f "$1" retension
+    $MT -f "$1" retension
 }
 
 mt_rewind() {
-    mt -f "$1" rewind
+    $MT -f "$1" rewind
 }
 
 mt_offline() {
-    mt -f "$1" offl
+    $MT -f "$1" offl
 }
 
 mt_status() {
-    mt -f "$1" status
+    $MT -f "$1" status
 }
 
 # The main configuration file may override any of these variables
 MT_BEGIN=mt_begin
 MT_REWIND=mt_rewind
-MT_OFFLINE=mt_offl
+MT_OFFLINE=mt_offline
 MT_STATUS=mt_status
 
 # Insure `mail' is in PATH.
@@ -78,7 +78,7 @@ bailout() {
 
 # Return current date
 now() {
-#IF_DATE_FORMAT_OK	
+#IF_DATE_FORMAT_OK
 	date +%Y-%m-%d
 #ELSE_DATE_FORMAT_OK
         LC_ALL=C date | \
@@ -104,10 +104,10 @@ test_root() {
     if [ ! -w ${ROOT_FS-/} ]; then
 	bailout "The backup must be run as root or else some files will fail to be dumped."
     fi
-    case "${ROOT_FS}" in
-    */)	  ;;
-    *)	  ROOT_FS="${ROOT_FS}/"
-    esac
+}
+
+root_fs() {
+    echo "${ROOT_FS}$1" | tr -s /
 }
 
 advice() {
@@ -139,7 +139,7 @@ init_common() {
 	    advice $LOGPATH
 	    exit 1
 	fi
-    fi	
+    fi
     # Get the values of BACKUP_DIRS, BACKUP_FILES, and other variables.
     if [ ! -r $CONFIGFILE ]; then
 	echo "$PROGNAME: cannot read $CONFIGFILE. Stop." >&2
@@ -151,7 +151,7 @@ init_common() {
 
     test_root
 
-    if [ x"${ADMINISTRATOR}" = x ]; then 
+    if [ x"${ADMINISTRATOR}" = x ]; then
 	bailout "ADMINISTRATOR not defined"
     fi
 
@@ -159,7 +159,7 @@ init_common() {
     [ x"$SLEEP_TIME" = x ] && SLEEP_TIME=60
 
     if [ x$VOLNO_FILE = x ]; then
-	bailout "VOLNO_FILE not specified" 
+	bailout "VOLNO_FILE not specified"
     fi
 
     if [ -r $DIRLIST ]; then
@@ -172,9 +172,23 @@ init_common() {
     if [ \( x"$BACKUP_DIRS" = x \) -a \( x"$BACKUP_FILES" = x \) ]; then
 	bailout "Neither BACKUP_DIRS nor BACKUP_FILES specified"
     fi
-    if [ "$RSH" = "" ]; then
+    if [ -z "$RSH" ]; then
 	RSH=rsh
+	MT_RSH_OPTION=
+    else
+	MT_RSH_OPTION="--rsh-command=$RSH"
     fi
+    if [ -z "$TAPE_FILE" ]; then
+	TAPE_FILE=/dev/tape
+    fi
+
+    # If TAPE_FILE is a remote device, update mt invocation accordingly
+    : ${MT:=mt}
+    case $TAPE_FILE in
+    *:*) MT="$MT $MT_RSH_OPTION";;
+    *)   ;;
+    esac
+
     POSIXLY_CORRECT=1
     export POSIXLY_CORRECT
 }
@@ -239,7 +253,7 @@ wait_time() {
 		    diff = 3600 * (time[1] - now[1]) + 60 * (time[2] - now[2]);
 		    if (diff < 0)
 			diff += 3600 * 24
-		    print diff	
+		    print diff
 		}'`"
 	clear
 	echo "${SLEEP_MESSAGE}"
@@ -278,7 +292,7 @@ flush_level_log() {
 # usage: get_dump_time LEVEL
 get_dump_time() {
     ls -r ${LOGPATH}/log-*-level-$1 \
-        | head -1 \
+        | head -n 1 \
 	| sed "s,.*log-\(.*\)-level-$1,\1,"
 }
 
@@ -306,7 +320,7 @@ print_level() {
     else
     	echo "Level ${1-$DUMP_LEVEL}"
     fi
-}    	
+}
 
 prev_level() {
     print_level `expr $DUMP_LEVEL - 1` | tr A-Z a-z
@@ -325,22 +339,9 @@ remote_run() {
 
 license() {
     cat - <<EOF
-    This program is part of GNU tar
-    Copyright 2004, Free Software Foundation
-
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 1, or (at your option)
-    any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-    02111-1307, USA.
+Copyright (C) 2006 Free Software Foundation, Inc.
+This is free software.  You may redistribute copies of it under the terms of
+the GNU General Public License <http://www.gnu.org/licenses/gpl.html>.
+There is NO WARRANTY, to the extent permitted by law.
 EOF
 }

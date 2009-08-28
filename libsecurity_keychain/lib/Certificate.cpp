@@ -73,6 +73,27 @@ Certificate::Certificate(const Keychain &keychain, const PrimaryKey &primaryKey,
 {
 }
 
+
+
+Certificate* Certificate::make(const Keychain &keychain, const PrimaryKey &primaryKey, const CssmClient::DbUniqueRecord &uniqueId)
+{
+	Certificate* c = new Certificate(keychain, primaryKey, uniqueId);
+	keychain->addItem(primaryKey, c);
+	return c;
+}
+
+
+
+Certificate* Certificate::make(const Keychain &keychain, const PrimaryKey &primaryKey)
+{
+	Certificate* c = new Certificate(keychain, primaryKey);
+	keychain->addItem(primaryKey, c);
+	return c;
+}
+
+
+
+
 // PrimaryKey item constructor
 Certificate::Certificate(const Keychain &keychain, const PrimaryKey &primaryKey) :
 	ItemImpl(keychain, primaryKey),
@@ -119,6 +140,7 @@ Certificate::~Certificate() throw()
 CSSM_HANDLE
 Certificate::certHandle()
 {
+	StLock<Mutex>_(mMutex);
 	const CSSM_DATA *cert = &data();
 	if (!mCertHandle)
 	{
@@ -133,6 +155,7 @@ Certificate::certHandle()
 CSSM_DATA_PTR *
 Certificate::copyFieldValues(const CSSM_OID &field)
 {
+	StLock<Mutex>_(mMutex);
 	CSSM_CL_HANDLE clh = clHandle();
 	CSSM_DATA_PTR fieldValue, *fieldValues;
 	CSSM_HANDLE resultsHandle = 0;
@@ -177,6 +200,7 @@ Certificate::copyFieldValues(const CSSM_OID &field)
 void
 Certificate::releaseFieldValues(const CSSM_OID &field, CSSM_DATA_PTR *fieldValues)
 {
+	StLock<Mutex>_(mMutex);
 	if (fieldValues)
 	{
 		CSSM_CL_HANDLE clh = clHandle();
@@ -191,6 +215,7 @@ Certificate::releaseFieldValues(const CSSM_OID &field, CSSM_DATA_PTR *fieldValue
 void
 Certificate::addParsedAttribute(const CSSM_DB_ATTRIBUTE_INFO &info, const CSSM_OID &field)
 {
+	StLock<Mutex>_(mMutex);
 	CSSM_DATA_PTR *fieldValues = copyFieldValues(field);
 	if (fieldValues)
 	{
@@ -205,6 +230,7 @@ Certificate::addParsedAttribute(const CSSM_DB_ATTRIBUTE_INFO &info, const CSSM_O
 void
 Certificate::addSubjectKeyIdentifier()
 {
+	StLock<Mutex>_(mMutex);
 	const CSSM_DB_ATTRIBUTE_INFO &info = Schema::attributeInfo(kSecSubjectKeyIdentifierItemAttr);
 	const CSSM_OID &field = CSSMOID_SubjectKeyIdentifier;
 	
@@ -237,6 +263,7 @@ Certificate::addSubjectKeyIdentifier()
 CSSM_DATA_PTR
 Certificate::copyFirstFieldValue(const CSSM_OID &field)
 {
+	StLock<Mutex>_(mMutex);
 	CSSM_CL_HANDLE clh = clHandle();
 	CSSM_DATA_PTR fieldValue;
 	CSSM_HANDLE resultsHandle = 0;
@@ -266,6 +293,7 @@ Certificate::copyFirstFieldValue(const CSSM_OID &field)
 void
 Certificate::releaseFieldValue(const CSSM_OID &field, CSSM_DATA_PTR fieldValue)
 {
+	StLock<Mutex>_(mMutex);
 	if (fieldValue)
 	{
 		CSSM_CL_HANDLE clh = clHandle();
@@ -286,6 +314,7 @@ Certificate::releaseFieldValue(const CSSM_OID &field, CSSM_DATA_PTR fieldValue)
 const CssmData &
 Certificate::publicKeyHash()
 {
+	StLock<Mutex>_(mMutex);
 	if (mPublicKeyHash.Length)
 		return mPublicKeyHash;
 
@@ -427,6 +456,7 @@ const CSSM_DATA *SecInferLabelFromX509Name(
 void
 Certificate::inferLabel(bool addLabel, CFStringRef *rtnString)
 {
+	StLock<Mutex>_(mMutex);
 	// Set PrintName and optionally the Alias attribute for this certificate, based on the 
 	// X509 SubjectAltName and SubjectName.
 	const CSSM_DATA *printName = NULL;
@@ -557,6 +587,7 @@ Certificate::inferLabel(bool addLabel, CFStringRef *rtnString)
 void
 Certificate::populateAttributes()
 {
+	StLock<Mutex>_(mMutex);
 	if (mPopulated)
 		return;
 
@@ -591,6 +622,7 @@ Certificate::populateAttributes()
 const CssmData &
 Certificate::data()
 {
+	StLock<Mutex>_(mMutex);
 	CssmDataContainer *data = mData.get();
 	if (!data && mKeychain)
 	{
@@ -615,6 +647,7 @@ Certificate::data()
 CSSM_CERT_TYPE
 Certificate::type()
 {
+	StLock<Mutex>_(mMutex);
 	if (!mHaveTypeAndEncoding)
 	{
 		SecKeychainAttribute attr;
@@ -630,6 +663,7 @@ Certificate::type()
 CSSM_CERT_ENCODING
 Certificate::encoding()
 {
+	StLock<Mutex>_(mMutex);
 	if (!mHaveTypeAndEncoding)
 	{
 		SecKeychainAttribute attr;
@@ -645,6 +679,7 @@ Certificate::encoding()
 const CSSM_X509_ALGORITHM_IDENTIFIER_PTR
 Certificate::algorithmID()
 {
+	StLock<Mutex>_(mMutex);
 	if (!mV1SubjectPublicKeyCStructValue)
 		mV1SubjectPublicKeyCStructValue = copyFirstFieldValue(CSSMOID_X509V1SubjectPublicKeyCStruct);
 
@@ -656,12 +691,14 @@ Certificate::algorithmID()
 CFStringRef
 Certificate::commonName()
 {
+	StLock<Mutex>_(mMutex);
 	return distinguishedName(&CSSMOID_X509V1SubjectNameCStruct, &CSSMOID_CommonName);
 }
 
 CFStringRef
 Certificate::distinguishedName(const CSSM_OID *sourceOid, const CSSM_OID *componentOid)
 {
+	StLock<Mutex>_(mMutex);
 	CFStringRef rtnString = NULL;
 	CSSM_DATA_PTR fieldValue = copyFirstFieldValue(*sourceOid);
 	CSSM_X509_NAME_PTR x509Name = (CSSM_X509_NAME_PTR)fieldValue->Data;
@@ -688,6 +725,7 @@ Certificate::distinguishedName(const CSSM_OID *sourceOid, const CSSM_OID *compon
 CFStringRef
 Certificate::copyFirstEmailAddress()
 {
+	StLock<Mutex>_(mMutex);
 	CFStringRef rtnString;
 
 	const CSSM_OID &sanOid = CSSMOID_SubjectAltName;
@@ -723,6 +761,7 @@ Certificate::copyFirstEmailAddress()
 CFArrayRef
 Certificate::copyEmailAddresses()
 {
+	StLock<Mutex>_(mMutex);
 	CFMutableArrayRef array = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	std::vector<CssmData> emailAddresses;
 
@@ -756,6 +795,7 @@ Certificate::copyEmailAddresses()
 const CSSM_X509_NAME_PTR
 Certificate::subjectName()
 {
+	StLock<Mutex>_(mMutex);
 	if (!mV1SubjectNameCStructValue)
 		if ((mV1SubjectNameCStructValue = copyFirstFieldValue(CSSMOID_X509V1SubjectNameCStruct)) == NULL)
             return NULL;
@@ -766,6 +806,7 @@ Certificate::subjectName()
 const CSSM_X509_NAME_PTR
 Certificate::issuerName()
 {
+	StLock<Mutex>_(mMutex);
 	if (!mV1IssuerNameCStructValue)
 		if ((mV1IssuerNameCStructValue = copyFirstFieldValue(CSSMOID_X509V1IssuerNameCStruct)) == NULL)
             return NULL;
@@ -776,6 +817,7 @@ Certificate::issuerName()
 CSSM_CL_HANDLE
 Certificate::clHandle()
 {
+	StLock<Mutex>_(mMutex);
 	if (!mCL)
 		mCL = clForType(type());
 
@@ -798,6 +840,12 @@ Certificate::operator == (Certificate &other)
 	return data() == other.data();
 }
 
+bool
+Certificate::equal(SecCFObject &other)
+{
+    return (*this) == (Certificate &)other;
+}
+
 void
 Certificate::update()
 {
@@ -807,6 +855,7 @@ Certificate::update()
 Item
 Certificate::copyTo(const Keychain &keychain, Access *newAccess)
 {
+	StLock<Mutex>_(mMutex);
 	/* Certs can't have access controls. */
 	if (newAccess)
 		MacOSError::throwMe(errSecNoAccessForItem);
@@ -824,6 +873,7 @@ Certificate::didModify()
 PrimaryKey
 Certificate::add(Keychain &keychain)
 {
+	StLock<Mutex>_(mMutex);
 	// If we already have a Keychain we can't be added.
 	if (mKeychain)
 		MacOSError::throwMe(errSecDuplicateItem);
@@ -870,6 +920,7 @@ Certificate::add(Keychain &keychain)
 SecPointer<KeyItem>
 Certificate::publicKey()
 {
+	StLock<Mutex>_(mMutex);
 	SecPointer<KeyItem> keyItem;
 	// Return a CSSM_DATA_PTR with the value of the first field specified by field.
 	// Caller must call releaseFieldValue to free the storage allocated by this call.
@@ -946,6 +997,7 @@ Certificate::cursorForEmail(const StorageManager::KeychainList &keychains, const
 SecPointer<Certificate>
 Certificate::findInKeychain(const StorageManager::KeychainList &keychains)
 {
+	StLock<Mutex>_(mMutex);
 	const CSSM_OID &issuerOid = CSSMOID_X509V1IssuerName;
 	CSSM_DATA_PTR issuerPtr = copyFirstFieldValue(issuerOid);
 	CssmData issuer(issuerPtr->Data, issuerPtr->Length);
@@ -1093,6 +1145,7 @@ void Certificate::willRead()
 
 Boolean Certificate::isSelfSigned()
 {	
+	StLock<Mutex>_(mMutex);
 	CSSM_DATA_PTR issuer = NULL;
 	CSSM_DATA_PTR subject = NULL;
 	OSStatus ortn = noErr;

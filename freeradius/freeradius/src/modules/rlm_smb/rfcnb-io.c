@@ -4,6 +4,7 @@
    RFCNB IO Routines ...
 
    Copyright (C) Richard Sharpe 1996
+   Copyright 2006 The FreeRADIUS server project
 
 */
 
@@ -22,6 +23,10 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
+
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
+
 /* #include <features.h> */
 #include "std-includes.h"
 #include "rfcnb-priv.h"
@@ -53,7 +58,6 @@ void rfcnb_alarm(int sig)
 int RFCNB_Set_Timeout(int seconds)
 
 {
-  int temp;
   /* If we are on a Bezerkeley system, use sigvec, else sigaction */
 #ifndef SA_RESTART
   struct sigvec invec, outvec;

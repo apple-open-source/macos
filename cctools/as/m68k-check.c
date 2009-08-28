@@ -28,7 +28,7 @@
 
 struct operand {
     char *string;
-    long type;
+    int32_t type;
 };
 
 struct operand ops[] = {
@@ -1566,8 +1566,8 @@ IS = 1 (index register suppressed, not present)
 struct m68k_opcode
 {
   char *name;
-  unsigned long opcode;
-  unsigned long  match;
+  uint32_t opcode;
+  uint32_t  match;
   char *args;
   char *cpus;
 };
@@ -1582,7 +1582,7 @@ struct m68k_opcode m68k_opcodes[] =
 int numopcodes=sizeof(m68k_opcodes)/sizeof(m68k_opcodes[0]);
 #endif
 
-long types[128]; /* initialized to zero */
+int32_t types[128]; /* initialized to zero */
 
 static void print_op(
     struct operand *op,

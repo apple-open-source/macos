@@ -43,7 +43,6 @@
 
 #include "dynarray.h"
 
-typedef unsigned long time_interval_t;
 typedef long absolute_time_t;
 
 typedef struct timer_callout timer_callout_t;

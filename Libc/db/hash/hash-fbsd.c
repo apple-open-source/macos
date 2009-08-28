@@ -721,7 +721,7 @@ found:
 			return (ERROR);
 		break;
 	default:
-		abort();
+		LIBC_ABORT("illegal action (%d)", action);
 	}
 	save_bufp->flags &= ~BUF_PIN;
 	return (SUCCESS);

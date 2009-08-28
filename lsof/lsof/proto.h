@@ -31,7 +31,7 @@
 
 
 /*
- * $Id: proto.h,v 1.32 2004/10/17 21:39:23 abe Exp $
+ * $Id: proto.h,v 1.34 2008/10/21 16:21:41 abe Exp $
  */
 
 
@@ -70,6 +70,7 @@
 _PROTOTYPE(extern void add_nma,(char *cp, int len));
 _PROTOTYPE(extern void alloc_lfile,(char *nm, int num));
 _PROTOTYPE(extern void alloc_lproc,(int pid, int pgid, int ppid, UID_ARG uid, char *cmd, int pss, int sf));
+_PROTOTYPE(extern void build_IPstates,(void));
 _PROTOTYPE(extern void childx,(void));
 _PROTOTYPE(extern int ck_fd_status,(char *nm, int num));
 _PROTOTYPE(extern int ck_file_arg,(int i, int ac, char *av[], int fv, int rs, struct stat *sbp));
@@ -89,8 +90,15 @@ _PROTOTYPE(extern int enter_dir,(char *d, int descend));
 _PROTOTYPE(extern int enter_fd,(char *f));
 _PROTOTYPE(extern int enter_network_address,(char *na));
 _PROTOTYPE(extern int enter_id,(enum IDType ty, char *p));
+_PROTOTYPE(extern void enter_IPstate,(char *ty, char *nm, int nr));
 _PROTOTYPE(extern void enter_nm,(char *m));
-_PROTOTYPE(extern int enter_str_lst,(char *opt, char *s, struct str_lst **lp));
+
+# if	defined(HASTCPUDPSTATE)
+_PROTOTYPE(extern int enter_state_spec,(char *ss));
+# endif	/* defined(HASTCPUDPSTATE) */
+
+_PROTOTYPE(extern int enter_str_lst,(char *opt, char *s, struct str_lst **lp,
+				     int *incl, int *excl));
 _PROTOTYPE(extern int enter_uid,(char *us));
 _PROTOTYPE(extern void ent_inaddr,(unsigned char *la, int lp, unsigned char *fa, int fp, int af));
 _PROTOTYPE(extern int examine_lproc,(void));
@@ -149,6 +157,7 @@ _PROTOTYPE(extern void safestrprt,(char *sp, FILE *fs, int flags));
 _PROTOTYPE(extern int statsafely,(char *path, struct stat *buf));
 _PROTOTYPE(extern void stkdir,(char *p));
 _PROTOTYPE(extern void usage,(int xv, int fh, int version));
+_PROTOTYPE(extern int util_strftime,(char *fmtr, int fmtl, char *fmt));
 _PROTOTYPE(extern int vfy_dev,(struct l_dev *dp));
 _PROTOTYPE(extern char *x2dev,(char *s, dev_t *d));
 

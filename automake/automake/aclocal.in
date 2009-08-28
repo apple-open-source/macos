@@ -28,9 +28,13 @@ eval 'case $# in 0) exec @PERL@ -S "$0";; *) exec @PERL@ -S "$0" "$@";; esac'
 # Written by Tom Tromey <tromey@redhat.com>, and
 # Alexandre Duret-Lutz <adl@gnu.org>.
 
+use File::Basename ();
+my($_bindir, $_datadir);
 BEGIN
 {
-  my $perllibdir = $ENV{'perllibdir'} || '@datadir@/@PACKAGE@-@APIVERSION@';
+  $_bindir = File::Basename::dirname($0);
+  ($_datadir = '@datadir@') =~ s,^/usr,$_bindir/..,;
+  my $perllibdir = $ENV{'perllibdir'} || "$_datadir/@PACKAGE@-@APIVERSION@";
   unshift @INC, (split '@PATH_SEPARATOR@', $perllibdir);
 }
 
@@ -56,8 +60,8 @@ use Cwd;
 # @system_includes can be augmented with the `dirlist' file.  Also
 # --acdir will reset both @automake_includes and @system_includes.
 my @user_includes = ();
-my @automake_includes = ("@datadir@/aclocal-$APIVERSION");
-my @system_includes = ('@datadir@/aclocal');
+my @automake_includes = ("$_datadir/aclocal-$APIVERSION");
+my @system_includes = ("$_datadir/aclocal");
 
 # Whether we should copy M4 file in $user_includes[0].
 my $install = 0;
@@ -648,7 +652,7 @@ sub trace_used_macros ()
   my %files = map { $map{$_} => 1 } keys %macro_seen;
   %files = strip_redundant_includes %files;
 
-  my $traces = ($ENV{AUTOM4TE} || 'autom4te');
+  my $traces = ($ENV{AUTOM4TE} || "$_bindir/autom4te");
   $traces .= " --language Autoconf-without-aclocal-m4 ";
   # All candidate files.
   $traces .= join (' ', grep { exists $files{$_} } @file_order) . " ";

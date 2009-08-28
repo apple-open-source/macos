@@ -1,4 +1,4 @@
-/* APPLE LOCAL file ms tinfo compat */
+/* APPLE LOCAL file mainline 2007-06-28 ms tinfo compat 4230099 */
 /* { dg-require-visibility "" } */
 /* { dg-options "-fvisibility-ms-compat" } */
 

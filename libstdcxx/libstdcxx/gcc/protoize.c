@@ -1,6 +1,6 @@
 /* Protoize program - Original version by Ron Guilmette (rfg@segfault.us.com).
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -34,7 +34,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
-#undef abort
 #include "version.h"
 
 /* Include getopt.h for the sake of getopt_long.  */
@@ -362,6 +361,8 @@ static const char *pname;
 static int errors = 0;
 
 /* Option flags.  */
+/* ??? The variables are not marked static because some of them have
+   the same names as gcc variables declared in options.h.  */
 /* ??? These comments should say what the flag mean as well as the options
    that set them.  */
 
@@ -369,20 +370,20 @@ static int errors = 0;
    something other than gcc.  */
 static const char *compiler_file_name = "gcc";
 
-static int version_flag = 0;		/* Print our version number.  */
-static int quiet_flag = 0;		/* Don't print messages normally.  */
-static int nochange_flag = 0;		/* Don't convert, just say what files
-					   we would have converted.  */
-static int nosave_flag = 0;		/* Don't save the old version.  */
-static int keep_flag = 0;		/* Don't delete the .X files.  */
+int version_flag = 0;		/* Print our version number.  */
+int quiet_flag = 0;		/* Don't print messages normally.  */
+int nochange_flag = 0;		/* Don't convert, just say what files
+				   we would have converted.  */
+int nosave_flag = 0;		/* Don't save the old version.  */
+int keep_flag = 0;		/* Don't delete the .X files.  */
 static const char ** compile_params = 0;	/* Option string for gcc.  */
 #ifdef UNPROTOIZE
 static const char *indent_string = "     ";	/* Indentation for newly
 						   inserted parm decls.  */
 #else /* !defined (UNPROTOIZE) */
-static int local_flag = 0;		/* Insert new local decls (when?).  */
-static int global_flag = 0;		/* set by -g option */
-static int cplusplus_flag = 0;		/* Rename converted files to *.C.  */
+int local_flag = 0;		/* Insert new local decls (when?).  */
+int global_flag = 0;		/* set by -g option */
+int cplusplus_flag = 0;		/* Rename converted files to *.C.  */
 static const char *nondefault_syscalls_dir = 0; /* Dir to look for
 						   SYSCALLS.c.X in.  */
 #endif /* !defined (UNPROTOIZE) */
@@ -504,12 +505,12 @@ static char * saved_repl_write_ptr;
 
 /* Translate and output an error message.  */
 static void
-notice (const char *msgid, ...)
+notice (const char *cmsgid, ...)
 {
   va_list ap;
   
-  va_start (ap, msgid);
-  vfprintf (stderr, _(msgid), ap);
+  va_start (ap, cmsgid);
+  vfprintf (stderr, _(cmsgid), ap);
   va_end (ap);
 }
 
@@ -641,8 +642,7 @@ in_system_include_dir (const char *path)
 {
   const struct default_include *p;
 
-  if (! IS_ABSOLUTE_PATH (path))
-    abort ();		/* Must be an absolutized filename.  */
+  gcc_assert (IS_ABSOLUTE_PATH (path));
 
   for (p = cpp_include_defaults; p->fname; p++)
     if (!strncmp (path, p->fname, strlen (p->fname))
@@ -679,10 +679,8 @@ file_could_be_converted (const char *path)
 	dir_last_slash = slash;
     }
 #endif
-    if (dir_last_slash)
-      *dir_last_slash = '\0';
-    else
-      abort ();  /* Should have been an absolutized filename.  */
+    gcc_assert (dir_last_slash);
+    *dir_last_slash = '\0';
   }
 
   if (access (path, W_OK))
@@ -723,10 +721,8 @@ file_normally_convertible (const char *path)
 	dir_last_slash = slash;
     }
 #endif
-    if (dir_last_slash)
-      *dir_last_slash = '\0';
-    else
-      abort ();  /* Should have been an absolutized filename.  */
+    gcc_assert (dir_last_slash);
+    *dir_last_slash = '\0';
   }
 
   if (access (path, R_OK))
@@ -1930,7 +1926,7 @@ gen_aux_info_file (const char *base_filename)
 	  }
 	return 1;
       }
-    abort ();
+    gcc_unreachable ();
   }
 }
 
@@ -2742,8 +2738,7 @@ check_source (int cond, const char *clean_p)
 static const char *
 seek_to_line (int n)
 {
-  if (n < last_known_line_number)
-    abort ();
+  gcc_assert (n >= last_known_line_number);
 
   while (n > last_known_line_number)
     {
@@ -3508,7 +3503,8 @@ add_global_decls (const file_info *file_p, const char *clean_text_p)
    separate routine above.  */
 
 static void
-edit_fn_definition (const def_dec_info *def_dec_p, const char *clean_text_p)
+edit_fn_definition (const def_dec_info *def_dec_p,
+		    const char *volatile clean_text_p)
 {
   const char *end_formals;
   const char *function_to_edit = def_dec_p->hash_entry->symbol;
@@ -3670,8 +3666,8 @@ do_cleaning (char *new_clean_text_base, const char *new_clean_text_limit)
 	    {
 	      if (!ISSPACE ((const unsigned char)*scan_p))
 		*scan_p = ' ';
-	      if (++scan_p >= new_clean_text_limit)
-		abort ();
+	      ++scan_p;
+	      gcc_assert (scan_p < new_clean_text_limit);
 	    }
 	  *scan_p++ = ' ';
 	  *scan_p = ' ';
@@ -3685,8 +3681,8 @@ do_cleaning (char *new_clean_text_base, const char *new_clean_text_limit)
 	    {
 	      if (!ISSPACE ((const unsigned char)*scan_p))
 		*scan_p = ' ';
-	      if (++scan_p >= new_clean_text_limit)
-		abort ();
+	      ++scan_p;
+	      gcc_assert (scan_p < new_clean_text_limit);
 	    }
 	  *scan_p++ = ' ';
 	  break;
@@ -3700,8 +3696,8 @@ do_cleaning (char *new_clean_text_base, const char *new_clean_text_limit)
 		scan_p[1] = ' ';
 	      if (!ISSPACE ((const unsigned char)*scan_p))
 		*scan_p = ' ';
-	      if (++scan_p >= new_clean_text_limit)
-		abort ();
+	      ++scan_p;
+	      gcc_assert (scan_p < new_clean_text_limit);
 	    }
 	  *scan_p++ = ' ';
 	  break;
@@ -3715,8 +3711,8 @@ do_cleaning (char *new_clean_text_base, const char *new_clean_text_limit)
 		scan_p[1] = ' ';
 	      if (!ISSPACE ((const unsigned char)*scan_p))
 		*scan_p = ' ';
-	      if (++scan_p >= new_clean_text_limit)
-		abort ();
+	      ++scan_p;
+	      gcc_assert (scan_p < new_clean_text_limit);
 	    }
 	  if (!ISSPACE ((const unsigned char)*scan_p))
 	    *scan_p = ' ';
@@ -4397,6 +4393,9 @@ main (int argc, char **const argv)
      receive the signal.  A different setting is inheritable */
   signal (SIGCHLD, SIG_DFL);
 #endif
+
+  /* Unlock the stdio streams.  */
+  unlock_std_streams ();
 
   gcc_init_libintl ();
 

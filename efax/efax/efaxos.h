@@ -41,6 +41,7 @@ typedef enum ttymodes		/* serial port modes:  */
 
 typedef struct tfilestruct {
   int fd ;
+  void (*onsig)(int sig);
   unsigned char *ip, *iq ;
   unsigned char ibuf [ IBUFSIZE ] ;
   unsigned char *ibitorder, *obitorder ;
@@ -49,6 +50,8 @@ typedef struct tfilestruct {
   time_t start ;
   long mstart ;
   int rd_state ;
+  int modem_wait ;
+  int signal;
 } TFILE ;
 
 /* tgetc() is a macro like getc().  It evaluates to the next

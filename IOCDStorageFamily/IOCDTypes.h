@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -119,28 +119,28 @@ typedef struct
  * Table Of Contents Descriptor Count Convenience Function
  */
 
-static UInt32 __inline CDTOCGetDescriptorCount(CDTOC * toc)
+static inline UInt32 CDTOCGetDescriptorCount(CDTOC * toc)
 {
-    UInt32 tocSize = OSSwapBigToHostInt16(toc->length) + sizeof(toc->length);
+    UInt32 tocSize = OSSwapBigToHostInt16(toc->length) + (UInt32) sizeof(toc->length);
 
-    return (tocSize < sizeof(CDTOC)) ? 0 : 
-           (tocSize - sizeof(CDTOC)) / sizeof(CDTOCDescriptor);
+    return (tocSize < (UInt32) sizeof(CDTOC)) ? 0 : 
+           (tocSize - (UInt32) sizeof(CDTOC)) / (UInt32) sizeof(CDTOCDescriptor);
 }
 
 /*
  * M:S:F To LBA Convenience Function
  */
 
-static UInt32 __inline CDConvertMSFToLBA(CDMSF msf)
+static inline UInt32 CDConvertMSFToLBA(CDMSF msf)
 {
-    return (((msf.minute * 60UL) + msf.second) * 75UL) + msf.frame - 150;
+    return (((msf.minute * 60U) + msf.second) * 75U) + msf.frame - 150U;
 }
 
 /*
  * M:S:F To Clipped LBA Convenience Function
  */
 
-static UInt32 __inline CDConvertMSFToClippedLBA(CDMSF msf)
+static inline UInt32 CDConvertMSFToClippedLBA(CDMSF msf)
 {
     return (msf.minute == 0 && msf.second <= 1) ? 0 : CDConvertMSFToLBA(msf);
 }
@@ -149,7 +149,7 @@ static UInt32 __inline CDConvertMSFToClippedLBA(CDMSF msf)
  * LBA To M:S:F Convenience Function
  */
 
-static CDMSF __inline CDConvertLBAToMSF(UInt32 lba)
+static inline CDMSF CDConvertLBAToMSF(UInt32 lba)
 {
     CDMSF msf;
 
@@ -169,7 +169,7 @@ static CDMSF __inline CDConvertLBAToMSF(UInt32 lba)
  * sized buffer holding the CDTOC contents.
  */
 
-static CDMSF __inline CDConvertTrackNumberToMSF(UInt8 track, CDTOC * toc)
+static inline CDMSF CDConvertTrackNumberToMSF(UInt8 track, CDTOC * toc)
 {
     UInt32 count = CDTOCGetDescriptorCount(toc);
     UInt32 i;

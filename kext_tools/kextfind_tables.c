@@ -28,11 +28,12 @@ int longopt = 0;
 
 struct option opt_info[] = {
     // real options
-    { kOptNameHelp,             no_argument,        NULL, kOptHelp },
-    { kOptNameCaseInsensitive,  no_argument,        NULL, kOptCaseInsensitive },
-    { kOptNameSearchItem,       required_argument,  NULL, kOptSearchItem },
-    { kOptNameSystemExtensions, no_argument,        NULL, kOptSystemExtensions },
-    { kOptNameSubstring,        no_argument,        NULL, kOptSubstring },
+    { kOptNameHelp,             no_argument,        NULL,     kOptHelp },
+    { kOptNameCaseInsensitive,  no_argument,        NULL,     kOptCaseInsensitive },
+    { kOptNameSearchItem,       required_argument,  NULL,     kOptSearchItem },
+    { kOptNameSystemExtensions, no_argument,        NULL,     kOptSystemExtensions },
+    { kOptNameDefaultArch,      required_argument,  &longopt, kLongOptDefaultArch },
+    { kOptNameSubstring,        no_argument,        NULL,     kOptSubstring },
 #ifdef EXTRA_INFO
     { kOptNameExtraInfo,        no_argument,        &longopt, kLongOptExtraInfo },
 #endif

@@ -3,7 +3,7 @@
 /*
  * rad_assert.h	  Debug assertions, with logging.
  *
- * Version:	$Id: rad_assert.h,v 1.1 2001/08/17 19:45:25 aland Exp $
+ * Version:	$Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -17,19 +17,22 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2000,2001  The FreeRADIUS server project
+ * Copyright 2000,2001,2006  The FreeRADIUS server project
  */
 
-extern void rad_assert_fail (const char *file, unsigned int line);
+#include <freeradius-devel/ident.h>
+RCSIDH(rad_assert_h, "$Id$")
+
+extern void rad_assert_fail (const char *file, unsigned int line, const char *expr);
 
 #ifdef NDEBUG
 	#define rad_assert(expr) ((void) (0))
 #else
 	#define rad_assert(expr) \
-		((void) ((expr) ? 0 : \
-			rad_assert_fail (__FILE__, __LINE__)))
+		((void) ((expr) ? (void) 0 : \
+			(void) rad_assert_fail (__FILE__, __LINE__, #expr)))
 #endif
 
 #endif

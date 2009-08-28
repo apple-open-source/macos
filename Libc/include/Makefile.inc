@@ -1,7 +1,6 @@
 .include "${.CURDIR}/include/arpa/Makefile.inc"
 .include "${.CURDIR}/include/libkern/Makefile.inc"
 .include "${.CURDIR}/include/protocols/Makefile.inc"
-.include "${.CURDIR}/include/machine/Makefile.inc"
 .include "${.CURDIR}/include/malloc/Makefile.inc"
 .ifdef FEATURE_LEGACY_NXZONE_APIS
 .include "${.CURDIR}/include/objc/Makefile.inc"
@@ -116,6 +115,8 @@ MAN3 += sysexits.3
 
 INC_INSTHDRS := ${INC_INSTHDRS:S/^/${.CURDIR}\/include\//}
 INSTHDRS += ${INC_INSTHDRS}
+
+LOCALHDRS += ${.CURDIR}/include/spawn_private.h
 
 .include "Makefile.nbsd_begin"
 NBSDHDRS = utmpx.h

@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
 # See usage() for details, or run with --help option.
-# 
+#
 #          .-------------------------------------------------.
 #          |  "An ad hoc format deserves an ad hoc parser."  |
 #          `-------------------------------------------------'
-# 
+#
 # Some Subversion project log messages include parseable data to help
 # track who's contributing what.  The exact syntax is described in
 # hacking.html#crediting, but here's an example, indented by three
@@ -38,16 +38,18 @@
 import os
 import sys
 import re
-import shutil
 import getopt
-from urllib import quote as url_encode
-
-# Pretend we have true booleans on older python versions
 try:
-  True
-except:
-  True = 1
-  False = 0
+  my_getopt = getopt.gnu_getopt
+except AttributeError:
+  my_getopt = getopt.getopt
+try:
+  # Python >=3.0
+  from urllib.parse import quote as urllib_parse_quote
+except ImportError:
+  # Python <3.0
+  from urllib import quote as urllib_parse_quote
+
 
 # Warnings and errors start with these strings.  They are typically
 # followed by a colon and a space, as in "%s: " ==> "WARNING: ".
@@ -65,10 +67,18 @@ def complain(msg, fatal=False):
     sys.exit(1)
 
 
-def html_spam_guard(addr):
+def html_spam_guard(addr, entities_only=False):
   """Return a spam-protected version of email ADDR that renders the
-  same in HTML as the original address."""
-  return "".join(map(lambda x: "<span>&#%d;</span>" % ord(x), addr))
+  same in HTML as the original address.  If ENTITIES_ONLY, use a less
+  thorough mangling scheme involving entities only, avoiding the use
+  of tags."""
+  if entities_only:
+    def mangle(x):
+      return "&#%d;" % ord (x)
+  else:
+    def mangle(x):
+      return "<span>&#%d;</span>" % ord(x)
+  return "".join(map(mangle, addr))
 
 
 def escape_html(str):
@@ -83,19 +93,27 @@ def spam_guard_in_html_block(str):
   """Take a block of HTML data, and run html_spam_guard() on parts of it."""
   return _spam_guard_in_html_block_re.subn(_spam_guard_in_html_block_func,
                                            str)[0]
-  
-def html_header(title):
-  """Write HTML file header.
-  TITLE parameter is expected to already by HTML-escaped if needed."""
+
+def html_header(title, page_heading=None, highlight_targets=False):
+  """Write HTML file header.  TITLE and PAGE_HEADING parameters are
+  expected to already by HTML-escaped if needed.  If HIGHLIGHT_TARGETS
+is true, then write out a style header that causes anchor targets to be
+surrounded by a red border when they are jumped to."""
+  if not page_heading:
+    page_heading = title
   s  = '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"\n'
   s += ' "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">\n'
   s += '<html><head>\n'
   s += '<meta http-equiv="Content-Type"'
   s += ' content="text/html; charset=UTF-8" />\n'
+  if highlight_targets:
+    s += '<style type="text/css">\n'
+    s += ':target { border: 2px solid red; }\n'
+    s += '</style>\n'
   s += '<title>%s</title>\n' % title
   s += '</head>\n\n'
   s += '<body style="text-color: black; background-color: white">\n\n'
-  s += '<h1 style="text-align: center">%s</h1>\n\n' % title
+  s += '<h1 style="text-align: center">%s</h1>\n\n' % page_heading
   s += '<hr />\n\n'
   return s
 
@@ -142,13 +160,14 @@ class Contributor:
     if not log in logs:
       logs.append(log)
 
+  @staticmethod
   def get(username, real_name, email):
     """If this contributor is already registered, just return it;
     otherwise, register it then return it.  Hint: use parse() to
     generate the arguments."""
     c = None
     for key in username, real_name, email:
-      if key and Contributor.all_contributors.has_key(key):
+      if key and key in Contributor.all_contributors:
         c = Contributor.all_contributors[key]
         break
     # If we didn't get a Contributor, create one now.
@@ -170,7 +189,6 @@ class Contributor:
       Contributor.all_contributors[email]     = c
     # This Contributor has never been in better shape; return it.
     return c
-  get = staticmethod(get)
 
   def score(self):
     """Return a contribution score for this contributor."""
@@ -227,6 +245,7 @@ class Contributor:
     """See LogMessage.__hash__() for why this exists."""
     return self.hash_value
 
+  @staticmethod
   def parse(name):
     """Parse NAME, which can be
 
@@ -235,6 +254,8 @@ class Contributor:
        - A space-separated real name followed by an email address in
            angle brackets, or
        - Just an email address in angle brackets.
+
+     (The email address may have '@' disguised as '{_AT_}'.)
 
      Return a tuple of (committer_username, real_name, email_address)
      any of which can be None if not available in NAME."""
@@ -246,7 +267,7 @@ class Contributor:
       name = name_components[0] # Effectively, name = name.strip()
       if name[0] == '<' and name[-1] == '>':
         email = name[1:-1]
-      elif name.find('@') != -1:
+      elif name.find('@') != -1 or name.find('{_AT_}') != -1:
         email = name
       else:
         username = name
@@ -255,8 +276,13 @@ class Contributor:
       email = name_components[-1][1:-1]
     else:
       real_name = ' '.join(name_components)
+
+    if email is not None:
+      # We unobfuscate here and work with the '@' internally, since
+      # we'll obfuscate it again (differently) before writing it out.
+      email = email.replace('{_AT_}', '@')
+
     return username, real_name, email
-  parse = staticmethod(parse)
 
   def canonical_name(self):
     """Return a canonical name for this contributor.  The canonical
@@ -284,14 +310,17 @@ class Contributor:
       except ValueError:
         retval = self.email
     elif self.real_name:
-      # Last resort: construct canonical name based on real name.  
+      # Last resort: construct canonical name based on real name.
       retval = ''.join(self.real_name.lower().split(' '))
     if retval is None:
       complain('Unable to construct a canonical name for Contributor.', True)
-    return url_encode(retval, safe="!#$&'()+,;<=>@[]^`{}~")
+    return urllib_parse_quote(retval, safe="!#$&'()+,;<=>@[]^`{}~")
 
-  def big_name(self, html=False):
-    """Return as complete a name as possible for this contributor."""
+  def big_name(self, html=False, html_eo=False):
+    """Return as complete a name as possible for this contributor.
+    If HTML, then call html_spam_guard() on email addresses.
+    If HTML_EO, then do the same, but specifying entities_only mode."""
+    html = html or html_eo
     name_bits = []
     if self.real_name:
       if html:
@@ -302,7 +331,7 @@ class Contributor:
       if not self.real_name and not self.username:
         name_bits.append(self.email)
       elif html:
-        name_bits.append("&lt;%s&gt;" % html_spam_guard(self.email))
+        name_bits.append("&lt;%s&gt;" % html_spam_guard(self.email, html_eo))
       else:
         name_bits.append("<%s>" % self.email)
     if self.username:
@@ -330,11 +359,11 @@ class Contributor:
     """Create an HTML file named FILENAME, showing all the revisions in which
     this contributor was active."""
     out = open(filename, 'w')
-    out.write(html_header(self.big_name(html=True)))
+    out.write(html_header(self.big_name(html_eo=True),
+                          self.big_name(html=True), True))
     unique_logs = { }
 
-    sorted_activities = self.activities.keys()
-    sorted_activities.sort()
+    sorted_activities = sorted(self.activities.keys())
 
     out.write('<div class="h2" id="activities" title="activities">\n\n')
     out.write('<table border="1">\n')
@@ -358,7 +387,7 @@ class Contributor:
     out.write('</table>\n\n')
     out.write('</div>\n\n')
 
-    sorted_logs = unique_logs.keys()
+    sorted_logs = list(unique_logs.keys())
     sorted_logs.sort()
     for log in sorted_logs:
       out.write('<hr />\n')
@@ -416,6 +445,8 @@ class LogMessage:
   # Maps revision strings (e.g., "r12345") onto LogMessage instances,
   # holding all the LogMessage instances ever created.
   all_logs = { }
+  # Keep track of youngest rev.
+  max_revnum = 0
   def __init__(self, revision, committer, date):
     """Instantiate a log message.  All arguments are strings,
     including REVISION, which should retain its leading 'r'."""
@@ -426,9 +457,12 @@ class LogMessage:
     # Map field names (e.g., "Patch", "Review", "Suggested") onto
     # Field objects.
     self.fields = { }
-    if LogMessage.all_logs.has_key(revision):
+    if revision in LogMessage.all_logs:
       complain("Revision '%s' seen more than once" % revision, True)
     LogMessage.all_logs[revision] = self
+    rev_as_number = int(revision[1:])
+    if rev_as_number > LogMessage.max_revnum:
+       LogMessage.max_revnum = rev_as_number
   def add_field(self, field):
     self.fields[field.name] = field
   def accum(self, line):
@@ -445,7 +479,7 @@ class LogMessage:
     if a > b: return -1
     if a < b: return 1
     else:     return 0
-    
+
   def __hash__(self):
     """I don't really understand why defining __cmp__() but not
     __hash__() renders an object type unfit to be a dictionary key,
@@ -481,11 +515,11 @@ log_header_re = re.compile\
                 ('^(r[0-9]+) \| ([^|]+) \| ([^|]+) \| ([0-9]+)[^0-9]')
 field_re = re.compile('^(Patch|Review(ed)?|Suggested|Found) by:\s*(.*)')
 field_aliases = { 'Reviewed' : 'Review' }
-parenthetical_aside_re = re.compile('^\(.*\)\s*$')
+parenthetical_aside_re = re.compile('^\s*\(.*\)\s*$')
 
 def graze(input):
   just_saw_separator = False
-  
+
   while True:
     line = input.readline()
     if line == '': break
@@ -509,6 +543,7 @@ def graze(input):
           log = LogMessage(m.group(1), m.group(2), m.group(3))
           num_lines = int(m.group(4))
           just_saw_separator = False
+          saw_patch = False
           line = input.readline()
           # Handle 'svn log -v' by waiting for the blank line.
           while line != '\n':
@@ -524,22 +559,32 @@ def graze(input):
               while m:
                 if not field:
                   ident = m.group(1)
-                  if field_aliases.has_key(ident):
+                  if ident in field_aliases:
                     field = Field(field_aliases[ident], ident)
                   else:
                     field = Field(ident)
                 # Each line begins either with "WORD by:", or with whitespace.
                 in_field_re = re.compile('^('
                                          + (field.alias or field.name)
-                                         + ' by:\s+|\s+)(\S.*)+')
+                                         + ' by:\s+|\s+)([^\s(].*)')
                 m = in_field_re.match(line)
                 user, real, email = Contributor.parse(m.group(2))
                 if user == 'me':
                   user = log.committer
                 c = Contributor.get(user, real, email)
                 c.add_activity(field.name, log)
+                if (field.name == 'Patch'):
+                  saw_patch = True
                 field.add_contributor(c)
                 line = input.readline()
+                if line == log_separator:
+                  # If the log message doesn't end with its own
+                  # newline (that is, there's the newline added by the
+                  # svn client, but no further newline), then just move
+                  # on to the next log entry.
+                  just_saw_separator = True
+                  num_lines = 0
+                  break
                 log.accum(line)
                 num_lines -= 1
                 m = in_field_re.match(line)
@@ -552,6 +597,9 @@ def graze(input):
                   log.add_field(field)
                   field = None
             num_lines -= 1
+          if not saw_patch and log.committer != '(no author)':
+            c = Contributor.get(log.committer, None, None)
+            c.add_activity('Patch', log)
         continue
 
 index_introduction = '''
@@ -564,12 +612,13 @@ href="http://subversion.tigris.org/hacking.html#crediting">special
 contribution format</a>.</p>
 
 <p><i>Please do not use this list as a generic guide to who has
-contributed what to Subversion!</i> It omits existing full committers,
-for example, because they are irrelevant to our search for new
-committers.  Also, it merely counts changes, it does not evaluate
-them.  To truly understand what someone has contributed, you have to
-read their changes in detail.  This page can only assist human
-judgement, not substitute for it.</p>
+contributed what to Subversion!</i> It omits existing <a
+href="http://svn.collab.net/repos/svn/trunk/COMMITTERS"
+>full committers</a>, for example, because they are irrelevant to our
+search for new committers.  Also, it merely counts changes, it does
+not evaluate them.  To truly understand what someone has contributed,
+you have to read their changes in detail.  This page can only assist
+human judgement, not substitute for it.</p>
 
 '''
 
@@ -598,7 +647,7 @@ def drop(revision_url_pattern):
     os.mkdir(detail_subdir)
 
   index = open('index.html', 'w')
-  index.write(html_header('Contributors'))
+  index.write(html_header('Contributors as of r%d' % LogMessage.max_revnum))
   index.write(index_introduction)
   index.write('<ol>\n')
   # The same contributor appears under multiple keys, so uniquify.
@@ -607,10 +656,9 @@ def drop(revision_url_pattern):
   # sort by number of contributions, so the most active people appear at
   # the top -- that way we know whom to look at first for commit access
   # proposals.
-  sorted_contributors = Contributor.all_contributors.values()
-  sorted_contributors.sort()
+  sorted_contributors = sorted(Contributor.all_contributors.values())
   for c in sorted_contributors:
-    if not seen_contributors.has_key(c):
+    if c not in seen_contributors:
       if c.score() > 0:
         if c.is_full_committer:
           # Don't even bother to print out full committers.  They are
@@ -623,7 +671,7 @@ def drop(revision_url_pattern):
           urlpath = "%s/%s.html" % (detail_subdir, c.canonical_name())
           fname = os.path.join(detail_subdir, "%s.html" % c.canonical_name())
           index.write('<li><p><a href="%s">%s</a>&nbsp;[%s]%s</p></li>\n'
-                      % (url_encode(urlpath),
+                      % (urllib_parse_quote(urlpath),
                          c.big_name(html=True),
                          c.score_str(), committerness))
           c.html_out(revision_url_pattern, fname)
@@ -644,11 +692,14 @@ def process_committers(committers):
   matcher = re.compile('(\S+)\s+([^\(\)]+)\s+(\([^()]+\)){0,1}')
   line = committers.readline()
   while line:
-    # Every @-sign we see after this point indicates a committer line.
+    # Every @-sign we see after this point indicates a committer line...
     if line == 'Commit access for specific areas:\n':
       in_full_committers = False
+    # ...except in the "dormant committers" area, which comes last anyway.
+    if line == 'Committers who have asked to be listed as dormant:\n':
+      in_full_committers = True
     elif line.find('@') >= 0:
-      line = line.strip()
+      line = line.lstrip()
       m = matcher.match(line)
       user = m.group(1)
       real_and_email = m.group(2).strip()
@@ -660,31 +711,31 @@ def process_committers(committers):
 
 
 def usage():
-  print 'USAGE: %s [-C COMMITTERS_FILE] < SVN_LOG_OR_LOG-V_OUTPUT' \
-        % os.path.basename(sys.argv[0])
-  print ''
-  print 'Create HTML files in the current directory, rooted at index.html,'
-  print 'in which you can browse to see who contributed what.'
-  print ''
-  print 'The log input should use the contribution-tracking format defined'
-  print 'in http://subversion.tigris.org/hacking.html#crediting.'
-  print ''
-  print 'Options:'
-  print ''
-  print '  -h, -H, -?, --help   Print this usage message and exit'
-  print '  -C FILE              Use FILE as the COMMITTERS file'
-  print '  -U URL               Use URL as a Python interpolation pattern to'
-  print '                       generate URLs to link revisions to some kind'
-  print '                       of web-based viewer (e.g. ViewCVS).  The'
-  print '                       interpolation pattern should contain exactly'
-  print '                       one format specifier, \'%s\', which will be'
-  print '                       replaced with the revision number.'
-  print ''
+  print('USAGE: %s [-C COMMITTERS_FILE] < SVN_LOG_OR_LOG-V_OUTPUT' \
+        % os.path.basename(sys.argv[0]))
+  print('')
+  print('Create HTML files in the current directory, rooted at index.html,')
+  print('in which you can browse to see who contributed what.')
+  print('')
+  print('The log input should use the contribution-tracking format defined')
+  print('in http://subversion.tigris.org/hacking.html#crediting.')
+  print('')
+  print('Options:')
+  print('')
+  print('  -h, -H, -?, --help   Print this usage message and exit')
+  print('  -C FILE              Use FILE as the COMMITTERS file')
+  print('  -U URL               Use URL as a Python interpolation pattern to')
+  print('                       generate URLs to link revisions to some kind')
+  print('                       of web-based viewer (e.g. ViewCVS).  The')
+  print('                       interpolation pattern should contain exactly')
+  print('                       one format specifier, \'%s\', which will be')
+  print('                       replaced with the revision number.')
+  print('')
 
 
 def main():
   try:
-    opts, args = getopt.getopt(sys.argv[1:], 'C:U:hH?', [ 'help' ])
+    opts, args = my_getopt(sys.argv[1:], 'C:U:hH?', [ 'help' ])
   except getopt.GetoptError, e:
     complain(str(e) + '\n\n')
     usage()

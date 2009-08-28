@@ -1,8 +1,8 @@
 /* retcode.c - customizable response for client testing purposes */
-/* $OpenLDAP: pkg/ldap/servers/slapd/overlays/retcode.c,v 1.4.2.8 2006/06/02 13:15:49 ando Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/overlays/retcode.c,v 1.18.2.7 2008/02/11 23:26:48 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2005-2006 The OpenLDAP Foundation.
+ * Copyright 2005-2008 The OpenLDAP Foundation.
  * Portions Copyright 2005 Pierangelo Masarati <ando@sys-net.it>
  * All rights reserved.
  *
@@ -31,7 +31,9 @@
 #include <ac/socket.h>
 
 #include "slap.h"
+#include "config.h"
 #include "lutil.h"
+#include "ldif.h"
 
 static slap_overinst		retcode;
 
@@ -40,6 +42,10 @@ static AttributeDescription	*ad_errText;
 static AttributeDescription	*ad_errOp;
 static AttributeDescription	*ad_errSleepTime;
 static AttributeDescription	*ad_errMatchedDN;
+static AttributeDescription	*ad_errUnsolicitedOID;
+static AttributeDescription	*ad_errUnsolicitedData;
+static AttributeDescription	*ad_errDisconnect;
+
 static ObjectClass		*oc_errAbsObject;
 static ObjectClass		*oc_errObject;
 static ObjectClass		*oc_errAuxObject;
@@ -70,6 +76,13 @@ typedef struct retcode_item_t {
 	int			rdi_sleeptime;
 	Entry			rdi_e;
 	slap_mask_t		rdi_mask;
+	struct berval		rdi_unsolicited_oid;
+	struct berval		rdi_unsolicited_data;
+
+	unsigned		rdi_flags;
+#define	RDI_PRE_DISCONNECT	(0x1U)
+#define	RDI_POST_DISCONNECT	(0x2U)
+
 	struct retcode_item_t	*rdi_next;
 } retcode_item_t;
 
@@ -89,6 +102,27 @@ typedef struct retcode_t {
 
 static int
 retcode_entry_response( Operation *op, SlapReply *rs, BackendInfo *bi, Entry *e );
+
+static unsigned int
+retcode_sleep( int s )
+{
+	unsigned int r = 0;
+
+	/* sleep as required */
+	if ( s < 0 ) {
+#if 0	/* use high-order bits for better randomness (Numerical Recipes in "C") */
+		r = rand() % (-s);
+#endif
+		r = ((double)(-s))*rand()/(RAND_MAX + 1.0);
+	} else if ( s > 0 ) {
+		r = (unsigned int)s;
+	}
+	if ( r ) {
+		sleep( r );
+	}
+
+	return r;
+}
 
 static int
 retcode_cleanup_cb( Operation *op, SlapReply *rs )
@@ -122,11 +156,6 @@ retcode_send_onelevel( Operation *op, SlapReply *rs )
 
 		rs->sr_err = test_filter( op, &rdi->rdi_e, op->ors_filter );
 		if ( rs->sr_err == LDAP_COMPARE_TRUE ) {
-			if ( op->ors_slimit == rs->sr_nentries ) {
-				rs->sr_err = LDAP_SIZELIMIT_EXCEEDED;
-				goto done;
-			}
-
 			/* safe default */
 			rs->sr_attrs = op->ors_attrs;
 			rs->sr_operational_attrs = NULL;
@@ -174,11 +203,11 @@ retcode_cb_response( Operation *op, SlapReply *rs )
 {
 	retcode_cb_t	*rdc = (retcode_cb_t *)op->o_callback->sc_private;
 
+	op->o_tag = rdc->rdc_tag;
 	if ( rs->sr_type == REP_SEARCH ) {
 		ber_tag_t	o_tag = op->o_tag;
 		int		rc;
 
-		op->o_tag = rdc->rdc_tag;
 		if ( op->o_tag == LDAP_REQ_SEARCH ) {
 			rs->sr_attrs = rdc->rdc_attrs;
 		}
@@ -188,7 +217,11 @@ retcode_cb_response( Operation *op, SlapReply *rs )
 		return rc;
 	}
 
-	if ( rs->sr_err == LDAP_SUCCESS ) {
+	switch ( rs->sr_err ) {
+	case LDAP_SUCCESS:
+	case LDAP_NO_SUCH_OBJECT:
+		/* in case of noSuchObject, stop the internal search
+		 * for in-directory error stuff */
 		if ( !op->o_abandon ) {
 			rdc->rdc_flags = SLAP_CB_CONTINUE;
 		}
@@ -262,12 +295,7 @@ retcode_op_func( Operation *op, SlapReply *rs )
 	slap_callback		*cb = NULL;
 
 	/* sleep as required */
-	if ( rd->rd_sleep < 0 ) {
-		sleep( rand() % ( - rd->rd_sleep ) );
-
-	} else if ( rd->rd_sleep > 0 ) {
-		sleep( rd->rd_sleep );
-	}
+	retcode_sleep( rd->rd_sleep );
 
 	if ( !dnIsSuffix( &op->o_req_ndn, &rd->rd_npdn ) ) {
 		if ( RETCODE_INDIR( rd ) ) {
@@ -277,8 +305,9 @@ retcode_op_func( Operation *op, SlapReply *rs )
 
 			case LDAP_REQ_BIND:
 				/* skip if rootdn */
+				/* FIXME: better give the db a chance? */
 				if ( be_isroot_pw( op ) ) {
-					return SLAP_CB_CONTINUE;
+					return LDAP_SUCCESS;
 				}
 				return retcode_op_internal( op, rs );
 
@@ -391,6 +420,10 @@ retcode_op_func( Operation *op, SlapReply *rs )
 		rs->sr_text = "retcode not found";
 
 	} else {
+		if ( rdi->rdi_flags & RDI_PRE_DISCONNECT ) {
+			return rs->sr_err = SLAPD_DISCONNECT;
+		}
+
 		rs->sr_err = rdi->rdi_err;
 		rs->sr_text = rdi->rdi_text.bv_val;
 		rs->sr_matched = rdi->rdi_matched.bv_val;
@@ -416,9 +449,7 @@ retcode_op_func( Operation *op, SlapReply *rs )
 			}
 		}
 
-		if ( rdi->rdi_sleeptime > 0 ) {
-			sleep( rdi->rdi_sleeptime );
-		}
+		retcode_sleep( rdi->rdi_sleeptime );
 	}
 
 	switch ( op->o_tag ) {
@@ -433,13 +464,45 @@ retcode_op_func( Operation *op, SlapReply *rs )
 		break;
 
 	default:
-		send_ldap_result( op, rs );
+		if ( rdi && !BER_BVISNULL( &rdi->rdi_unsolicited_oid ) ) {
+			ber_int_t	msgid = op->o_msgid;
+
+			/* RFC 4511 unsolicited response */
+
+			op->o_msgid = 0;
+			if ( strcmp( rdi->rdi_unsolicited_oid.bv_val, "0" ) == 0 ) {
+				send_ldap_result( op, rs );
+
+			} else {
+				ber_tag_t	tag = op->o_tag;
+
+				op->o_tag = LDAP_REQ_EXTENDED;
+				rs->sr_rspoid = rdi->rdi_unsolicited_oid.bv_val;
+				if ( !BER_BVISNULL( &rdi->rdi_unsolicited_data ) ) {
+					rs->sr_rspdata = &rdi->rdi_unsolicited_data;
+				}
+				send_ldap_extended( op, rs );
+				rs->sr_rspoid = NULL;
+				rs->sr_rspdata = NULL;
+				op->o_tag = tag;
+
+			}
+			op->o_msgid = msgid;
+
+		} else {
+			send_ldap_result( op, rs );
+		}
+
 		if ( rs->sr_ref != NULL ) {
 			ber_bvarray_free( rs->sr_ref );
 			rs->sr_ref = NULL;
 		}
 		rs->sr_matched = NULL;
 		rs->sr_text = NULL;
+
+		if ( rdi && rdi->rdi_flags & RDI_POST_DISCONNECT ) {
+			return rs->sr_err = SLAPD_DISCONNECT;
+		}
 		break;
 	}
 
@@ -484,6 +547,7 @@ retcode_entry_response( Operation *op, SlapReply *rs, BackendInfo *bi, Entry *e 
 	Attribute	*a;
 	int		err;
 	char		*next;
+	int		disconnect = 0;
 
 	if ( get_manageDSAit( op ) ) {
 		return SLAP_CB_CONTINUE;
@@ -518,6 +582,15 @@ retcode_entry_response( Operation *op, SlapReply *rs, BackendInfo *bi, Entry *e 
 		}
 	}
 
+	/* disconnect */
+	a = attr_find( e->e_attrs, ad_errDisconnect );
+	if ( a != NULL ) {
+		if ( bvmatch( &a->a_nvals[ 0 ], &slap_true_bv ) ) {
+			return rs->sr_err = SLAPD_DISCONNECT;
+		}
+		disconnect = 1;
+	}
+
 	/* error code */
 	a = attr_find( e->e_attrs, ad_errCode );
 	if ( a == NULL ) {
@@ -534,13 +607,12 @@ retcode_entry_response( Operation *op, SlapReply *rs, BackendInfo *bi, Entry *e 
 	if ( a != NULL && a->a_nvals[ 0 ].bv_val[ 0 ] != '-' ) {
 		int	sleepTime;
 
-		sleepTime = strtoul( a->a_nvals[ 0 ].bv_val, &next, 0 );
-		if ( next != a->a_nvals[ 0 ].bv_val && next[ 0 ] == '\0' ) {
-			sleep( sleepTime );
+		if ( lutil_atoi( &sleepTime, a->a_nvals[ 0 ].bv_val ) == 0 ) {
+			retcode_sleep( sleepTime );
 		}
 	}
 
-	if ( rs->sr_err != LDAP_SUCCESS ) {
+	if ( rs->sr_err != LDAP_SUCCESS && !LDAP_API_ERROR( rs->sr_err )) {
 		BackendDB	db = *op->o_bd,
 				*o_bd = op->o_bd;
 		void		*o_callback = op->o_callback;
@@ -583,7 +655,44 @@ retcode_entry_response( Operation *op, SlapReply *rs, BackendInfo *bi, Entry *e 
 			rs->sr_ref = NULL;
 
 		} else {
-			send_ldap_result( op, rs );
+			a = attr_find( e->e_attrs, ad_errUnsolicitedOID );
+			if ( a != NULL ) {
+				struct berval	oid = BER_BVNULL,
+						data = BER_BVNULL;
+				ber_int_t	msgid = op->o_msgid;
+
+				/* RFC 4511 unsolicited response */
+
+				op->o_msgid = 0;
+
+				oid = a->a_nvals[ 0 ];
+
+				a = attr_find( e->e_attrs, ad_errUnsolicitedData );
+				if ( a != NULL ) {
+					data = a->a_nvals[ 0 ];
+				}
+
+				if ( strcmp( oid.bv_val, "0" ) == 0 ) {
+					send_ldap_result( op, rs );
+
+				} else {
+					ber_tag_t	tag = op->o_tag;
+
+					op->o_tag = LDAP_REQ_EXTENDED;
+					rs->sr_rspoid = oid.bv_val;
+					if ( !BER_BVISNULL( &data ) ) {
+						rs->sr_rspdata = &data;
+					}
+					send_ldap_extended( op, rs );
+					rs->sr_rspoid = NULL;
+					rs->sr_rspdata = NULL;
+					op->o_tag = tag;
+				}
+				op->o_msgid = msgid;
+
+			} else {
+				send_ldap_result( op, rs );
+			}
 		}
 
 		rs->sr_text = NULL;
@@ -591,8 +700,12 @@ retcode_entry_response( Operation *op, SlapReply *rs, BackendInfo *bi, Entry *e 
 		op->o_bd = o_bd;
 		op->o_callback = o_callback;
 	}
-	
+
 	if ( rs->sr_err != LDAP_SUCCESS ) {
+		if ( disconnect ) {
+			return rs->sr_err = SLAPD_DISCONNECT;
+		}
+	
 		op->o_abandon = 1;
 		return rs->sr_err;
 	}
@@ -614,10 +727,12 @@ retcode_response( Operation *op, SlapReply *rs )
 }
 
 static int
-retcode_db_init( BackendDB *be )
+retcode_db_init( BackendDB *be, ConfigReply *cr )
 {
 	slap_overinst	*on = (slap_overinst *)be->bd_info;
 	retcode_t	*rd;
+
+	srand( getpid() );
 
 	rd = (retcode_t *)ch_malloc( sizeof( retcode_t ) );
 	memset( rd, 0, sizeof( retcode_t ) );
@@ -788,6 +903,7 @@ retcode_db_config(
 						} else {
 							fprintf( stderr, "retcode: unknown op \"%s\"\n",
 								ops[ j ] );
+							ldap_charray_free( ops );
 							return 1;
 						}
 					}
@@ -857,7 +973,6 @@ retcode_db_config(
 
 				} else if ( strncasecmp( argv[ i ], "sleeptime=", STRLENOF( "sleeptime=" ) ) == 0 )
 				{
-					char		*next;
 					if ( rdi.rdi_sleeptime != 0 ) {
 						fprintf( stderr, "%s: line %d: retcode: "
 							"\"sleeptime\" already provided.\n",
@@ -865,18 +980,67 @@ retcode_db_config(
 						return 1;
 					}
 
-					rdi.rdi_sleeptime = strtol( &argv[ i ][ STRLENOF( "sleeptime=" ) ], &next, 10 );
-					if ( next == argv[ i ] || next[ 0 ] != '\0' ) {
+					if ( lutil_atoi( &rdi.rdi_sleeptime, &argv[ i ][ STRLENOF( "sleeptime=" ) ] ) ) {
 						fprintf( stderr, "%s: line %d: retcode: "
 							"unable to parse \"sleeptime=%s\".\n",
 							fname, lineno, &argv[ i ][ STRLENOF( "sleeptime=" ) ] );
 						return 1;
 					}
 
+				} else if ( strncasecmp( argv[ i ], "unsolicited=", STRLENOF( "unsolicited=" ) ) == 0 )
+				{
+					char		*data;
+
+					if ( !BER_BVISNULL( &rdi.rdi_unsolicited_oid ) ) {
+						fprintf( stderr, "%s: line %d: retcode: "
+							"\"unsolicited\" already provided.\n",
+							fname, lineno );
+						return 1;
+					}
+
+					data = strchr( &argv[ i ][ STRLENOF( "unsolicited=" ) ], ':' );
+					if ( data != NULL ) {
+						struct berval	oid;
+
+						if ( ldif_parse_line2( &argv[ i ][ STRLENOF( "unsolicited=" ) ],
+							&oid, &rdi.rdi_unsolicited_data, NULL ) )
+						{
+							fprintf( stderr, "%s: line %d: retcode: "
+								"unable to parse \"unsolicited\".\n",
+								fname, lineno );
+							return 1;
+						}
+
+						ber_dupbv( &rdi.rdi_unsolicited_oid, &oid );
+
+					} else {
+						ber_str2bv( &argv[ i ][ STRLENOF( "unsolicited=" ) ], 0, 1,
+							&rdi.rdi_unsolicited_oid );
+					}
+
+				} else if ( strncasecmp( argv[ i ], "flags=", STRLENOF( "flags=" ) ) == 0 )
+				{
+					char *arg = &argv[ i ][ STRLENOF( "flags=" ) ];
+					if ( strcasecmp( arg, "disconnect" ) == 0 ) {
+						rdi.rdi_flags |= RDI_PRE_DISCONNECT;
+
+					} else if ( strcasecmp( arg, "pre-disconnect" ) == 0 ) {
+						rdi.rdi_flags |= RDI_PRE_DISCONNECT;
+
+					} else if ( strcasecmp( arg, "post-disconnect" ) == 0 ) {
+						rdi.rdi_flags |= RDI_POST_DISCONNECT;
+
+					} else {
+						fprintf( stderr, "%s: line %d: retcode: "
+							"unknown flag \"%s\".\n",
+							fname, lineno, arg );
+						return 1;
+					}
+
 				} else {
 					fprintf( stderr, "%s: line %d: retcode: "
 						"unknown option \"%s\".\n",
-							fname, lineno, argv[ i ] );
+						fname, lineno, argv[ i ] );
 					return 1;
 				}
 			}
@@ -925,7 +1089,7 @@ retcode_db_config(
 }
 
 static int
-retcode_db_open( BackendDB *be )
+retcode_db_open( BackendDB *be, ConfigReply *cr)
 {
 	slap_overinst	*on = (slap_overinst *)be->bd_info;
 	retcode_t	*rd = (retcode_t *)on->on_bi.bi_private;
@@ -996,7 +1160,7 @@ retcode_db_open( BackendDB *be )
 		}
 
 		/* sleep time */
-		if ( rdi->rdi_sleeptime > 0 ) {
+		if ( rdi->rdi_sleeptime ) {
 			snprintf( buf, sizeof( buf ), "%d", rdi->rdi_sleeptime );
 			ber_str2bv( buf, 0, 0, &val[ 0 ] );
 
@@ -1049,7 +1213,7 @@ retcode_db_open( BackendDB *be )
 }
 
 static int
-retcode_db_destroy( BackendDB *be )
+retcode_db_destroy( BackendDB *be, ConfigReply *cr )
 {
 	slap_overinst	*on = (slap_overinst *)be->bd_info;
 	retcode_t	*rd = (retcode_t *)on->on_bi.bi_private;
@@ -1104,14 +1268,12 @@ int
 retcode_initialize( void )
 {
 	int		i, code;
-	const char	*err;
 
 	static struct {
-		char			*name;
 		char			*desc;
 		AttributeDescription	**ad;
 	} retcode_at[] = {
-	        { "errCode", "( 1.3.6.1.4.1.4203.666.11.4.1.1 "
+	        { "( 1.3.6.1.4.1.4203.666.11.4.1.1 "
 		        "NAME ( 'errCode' ) "
 		        "DESC 'LDAP error code' "
 		        "EQUALITY integerMatch "
@@ -1119,14 +1281,14 @@ retcode_initialize( void )
 		        "SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 "
 			"SINGLE-VALUE )",
 			&ad_errCode },
-		{ "errOp", "( 1.3.6.1.4.1.4203.666.11.4.1.2 "
+		{ "( 1.3.6.1.4.1.4203.666.11.4.1.2 "
 			"NAME ( 'errOp' ) "
 			"DESC 'Operations the errObject applies to' "
 			"EQUALITY caseIgnoreMatch "
 			"SUBSTR caseIgnoreSubstringsMatch "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 )",
 			&ad_errOp},
-		{ "errText", "( 1.3.6.1.4.1.4203.666.11.4.1.3 "
+		{ "( 1.3.6.1.4.1.4203.666.11.4.1.3 "
 			"NAME ( 'errText' ) "
 			"DESC 'LDAP error textual description' "
 			"EQUALITY caseIgnoreMatch "
@@ -1134,29 +1296,47 @@ retcode_initialize( void )
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 "
 			"SINGLE-VALUE )",
 			&ad_errText },
-		{ "errSleepTime", "( 1.3.6.1.4.1.4203.666.11.4.1.4 "
+		{ "( 1.3.6.1.4.1.4203.666.11.4.1.4 "
 			"NAME ( 'errSleepTime' ) "
 			"DESC 'Time to wait before returning the error' "
 			"EQUALITY integerMatch "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 "
 			"SINGLE-VALUE )",
 			&ad_errSleepTime },
-		{ "errMatchedDN", "( 1.3.6.1.4.1.4203.666.11.4.1.5 "
+		{ "( 1.3.6.1.4.1.4203.666.11.4.1.5 "
 			"NAME ( 'errMatchedDN' ) "
 			"DESC 'Value to be returned as matched DN' "
 			"EQUALITY distinguishedNameMatch "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.12 "
 			"SINGLE-VALUE )",
 			&ad_errMatchedDN },
+		{ "( 1.3.6.1.4.1.4203.666.11.4.1.6 "
+			"NAME ( 'errUnsolicitedOID' ) "
+			"DESC 'OID to be returned within unsolicited response' "
+			"EQUALITY objectIdentifierMatch "
+			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.38 "
+			"SINGLE-VALUE )",
+			&ad_errUnsolicitedOID },
+		{ "( 1.3.6.1.4.1.4203.666.11.4.1.7 "
+			"NAME ( 'errUnsolicitedData' ) "
+			"DESC 'Data to be returned within unsolicited response' "
+			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.40 "
+			"SINGLE-VALUE )",
+			&ad_errUnsolicitedData },
+		{ "( 1.3.6.1.4.1.4203.666.11.4.1.8 "
+			"NAME ( 'errDisconnect' ) "
+			"DESC 'Disconnect without notice' "
+			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.7 "
+			"SINGLE-VALUE )",
+			&ad_errDisconnect },
 		{ NULL }
 	};
 
 	static struct {
-		char		*name;
 		char		*desc;
 		ObjectClass	**oc;
 	} retcode_oc[] = {
-		{ "errAbsObject", "( 1.3.6.1.4.1.4203.666.11.4.3.0 "
+		{ "( 1.3.6.1.4.1.4203.666.11.4.3.0 "
 			"NAME ( 'errAbsObject' ) "
 			"SUP top ABSTRACT "
 			"MUST ( errCode ) "
@@ -1167,14 +1347,17 @@ retcode_initialize( void )
 				"$ errText "
 				"$ errSleepTime "
 				"$ errMatchedDN "
+				"$ errUnsolicitedOID "
+				"$ errUnsolicitedData "
+				"$ errDisconnect "
 			") )",
 			&oc_errAbsObject },
-		{ "errObject", "( 1.3.6.1.4.1.4203.666.11.4.3.1 "
+		{ "( 1.3.6.1.4.1.4203.666.11.4.3.1 "
 			"NAME ( 'errObject' ) "
 			"SUP errAbsObject STRUCTURAL "
 			")",
 			&oc_errObject },
-		{ "errAuxObject", "( 1.3.6.1.4.1.4203.666.11.4.3.2 "
+		{ "( 1.3.6.1.4.1.4203.666.11.4.3.2 "
 			"NAME ( 'errAuxObject' ) "
 			"SUP errAbsObject AUXILIARY "
 			")",
@@ -1183,73 +1366,26 @@ retcode_initialize( void )
 	};
 
 
-	for ( i = 0; retcode_at[ i ].name != NULL; i++ ) {
-		LDAPAttributeType	*at;
-
-		at = ldap_str2attributetype( retcode_at[ i ].desc,
-			&code, &err, LDAP_SCHEMA_ALLOW_ALL );
-		if ( !at ) {
-			fprintf( stderr, "retcode: "
-				"AttributeType load failed: %s %s\n",
-				ldap_scherr2str( code ), err );
+	for ( i = 0; retcode_at[ i ].desc != NULL; i++ ) {
+		code = register_at( retcode_at[ i ].desc, retcode_at[ i ].ad, 0 );
+		if ( code ) {
+			Debug( LDAP_DEBUG_ANY,
+				"retcode: register_at failed\n", 0, 0, 0 );
 			return code;
 		}
 
-#if LDAP_VENDOR_VERSION_MINOR == X || LDAP_VENDOR_VERSION_MINOR > 2
-		code = at_add( at, 0, NULL, &err );
-#else
-		code = at_add( at, &err );
-#endif
-		ldap_memfree( at );
-		if ( code != LDAP_SUCCESS ) {
-			fprintf( stderr, "retcode: "
-				"AttributeType load failed: %s %s\n",
-				scherr2str( code ), err );
-			return code;
-		}
-
-		code = slap_str2ad( retcode_at[ i ].name,
-				retcode_at[ i ].ad, &err );
-		if ( code != LDAP_SUCCESS ) {
-			fprintf( stderr, "retcode: unable to find "
-				"AttributeDescription \"%s\": %d (%s)\n",
-				retcode_at[ i ].name, code, err );
-			return 1;
-		}
+		(*retcode_at[ i ].ad)->ad_type->sat_flags |= SLAP_AT_HIDE;
 	}
 
-	for ( i = 0; retcode_oc[ i ].name != NULL; i++ ) {
-		LDAPObjectClass *oc;
-
-		oc = ldap_str2objectclass( retcode_oc[ i ].desc,
-				&code, &err, LDAP_SCHEMA_ALLOW_ALL );
-		if ( !oc ) {
-			fprintf( stderr, "retcode: "
-				"ObjectClass load failed: %s %s\n",
-				ldap_scherr2str( code ), err );
+	for ( i = 0; retcode_oc[ i ].desc != NULL; i++ ) {
+		code = register_oc( retcode_oc[ i ].desc, retcode_oc[ i ].oc, 0 );
+		if ( code ) {
+			Debug( LDAP_DEBUG_ANY,
+				"retcode: register_oc failed\n", 0, 0, 0 );
 			return code;
 		}
 
-#if LDAP_VENDOR_VERSION_MINOR == X || LDAP_VENDOR_VERSION_MINOR > 2
-		code = oc_add( oc, 0, NULL, &err );
-#else
-		code = oc_add( oc, &err );
-#endif
-		ldap_memfree(oc);
-		if ( code != LDAP_SUCCESS ) {
-			fprintf( stderr, "retcode: "
-				"ObjectClass load failed: %s %s\n",
-				scherr2str( code ), err );
-			return code;
-		}
-
-		*retcode_oc[ i ].oc = oc_find( retcode_oc[ i ].name );
-		if ( *retcode_oc[ i ].oc == NULL ) {
-			fprintf( stderr, "retcode: unable to find "
-				"objectClass \"%s\"\n",
-				retcode_oc[ i ].name );
-			return 1;
-		}
+		(*retcode_oc[ i ].oc)->soc_flags |= SLAP_OC_HIDE;
 	}
 
 	retcode.on_bi.bi_type = "retcode";

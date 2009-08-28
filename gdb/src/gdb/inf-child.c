@@ -157,11 +157,12 @@ inf_child_can_run (void)
   return 1;
 }
 
-static struct symtab_and_line *
+/* APPLE LOCAL */
+int
 inf_child_enable_exception_callback (enum exception_event_kind kind,
 				     int enable)
 {
-  return (struct symtab_and_line *) NULL;
+  return 0;
 }
 
 static struct exception_event_record *

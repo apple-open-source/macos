@@ -1,23 +1,15 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2001-2003
- *	Sleepycat Software.  All rights reserved.
- *
+ * Copyright (c) 2001,2007 Oracle.  All rights reserved.
  *
  * Some parts of this code originally written by Adam Stubblefield,
- * astubble@rice.edu.
+ * -- astubble@rice.edu.
+ *
+ * $Id: aes_method.c,v 12.7 2007/05/17 15:14:55 bostic Exp $
  */
 
 #include "db_config.h"
-
-#ifndef lint
-static const char revid[] = "$Id: aes_method.c,v 1.2 2004/03/30 01:21:23 jtownsen Exp $";
-#endif /* not lint */
-
-#ifndef NO_SYSTEM_INCLUDES
-#include <string.h>
-#endif
 
 #include "db_int.h"
 #include "dbinc/crypto.h"
@@ -64,7 +56,7 @@ __aes_adj_size(len)
 {
 	if (len % DB_AES_CHUNK == 0)
 		return (0);
-	return (DB_AES_CHUNK - (len % DB_AES_CHUNK));
+	return (DB_AES_CHUNK - (u_int)(len % DB_AES_CHUNK));
 }
 
 /*
@@ -271,6 +263,6 @@ __aes_err(dbenv, err)
 		errstr = "AES error unrecognized";
 		break;
 	}
-	__db_err(dbenv, errstr);
+	__db_errx(dbenv, errstr);
 	return;
 }

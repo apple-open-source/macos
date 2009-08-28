@@ -1,6 +1,6 @@
 // std::moneypunct implementation details, generic version -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -15,7 +15,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -35,8 +35,8 @@
 
 #include <locale>
 
-namespace std
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   // Construct and return valid pattern consisting of some combination of:
   // space none symbol sign value
   money_base::pattern
@@ -168,4 +168,5 @@ namespace std
     moneypunct<wchar_t, false>::~moneypunct()
     { delete _M_data; }
 #endif
-}
+
+_GLIBCXX_END_NAMESPACE

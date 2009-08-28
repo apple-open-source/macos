@@ -117,7 +117,7 @@ void)
 {
     nltype *np;
     nltype **sortednlp;
-    unsigned long index;
+    uint32_t index;
 
 	actime = 0.0;
 	printf("\f\n");
@@ -148,7 +148,7 @@ nltype **npp1,
 nltype **npp2)
 {
     double timediff;
-    long calldiff;
+    int32_t calldiff;
 
 	timediff = (*npp2)->time - (*npp1)->time;
 	if(timediff > 0.0)
@@ -176,7 +176,7 @@ void)
 	    printblurb(FLAT_BLURB);
 	}
 	printf("\ngranularity: each sample hit covers %lu byte(s)",
-	       (long)sample_sets->scale * sizeof(UNIT) );
+	       (int32_t)sample_sets->scale * sizeof(UNIT) );
 	if(totime > 0.0){
 	    printf(" for %.2f%% of %.2f seconds\n\n",
 		   100.0/totime , totime / hz );
@@ -207,7 +207,7 @@ nltype *np)
 	printf("%5.1f %10.2f %8.2f",
 	       100 * np->time / totime, actime / hz, np->time / hz);
 	if(np->ncall != 0){
-	    printf(" %8ld %8.2f %8.2f  ", np->ncall,
+	    printf(" %8d %8.2f %8.2f  ", np->ncall,
 		   1000 * np->time / hz / np->ncall,
 		   1000 * (np->time + np->childtime) / hz / np->ncall);
 	}
@@ -227,7 +227,7 @@ void)
 	    printblurb(CALLG_BLURB);
 	}
 	printf("\ngranularity: each sample hit covers %lu byte(s)",
-	       (long)sample_sets->scale * sizeof(UNIT));
+	       (int32_t)sample_sets->scale * sizeof(UNIT));
 	if(printtime > 0.0){
 	    printf(" for %.2f%% of %.2f seconds\n\n",
 		   100.0 / printtime, printtime / hz);
@@ -263,9 +263,9 @@ nltype *np)
 		np -> propself / hz ,
 		np -> propchild / hz );
 	if((np->ncall + np->selfcalls) != 0){
-	    printf(" %7ld", np->ncall);
+	    printf(" %7d", np->ncall);
 	    if(np->selfcalls != 0)
-		printf("+%-7ld", np->selfcalls);
+		printf("+%-7d", np->selfcalls);
 	    else
 		printf(" %7.7s ", "");
 	}
@@ -280,7 +280,7 @@ void
 printgprof(
 nltype **timesortnlp)
 {
-    unsigned long index;
+    uint32_t index;
     nltype *parentp;
 
 	/*
@@ -398,7 +398,7 @@ nltype *childp)
 		/*
 		 * regular parent of child
 		 */
-		printf("%6.6s %5.5s %7.2f %11.2f %7u/%-7ld     ",
+		printf("%6.6s %5.5s %7.2f %11.2f %7u/%-7d     ",
 		       "" , "" ,
 		       arcp->arc_time / hz, arcp->arc_childtime / hz,
 		       arcp->arc_count, cycleheadp->ncall);
@@ -434,7 +434,7 @@ nltype *parentp)
 		/*
 		 * regular child of parent
 		 */
-		printf("%6.6s %5.5s %7.2f %11.2f %7u/%-7ld     ",
+		printf("%6.6s %5.5s %7.2f %11.2f %7u/%-7d     ",
 		       "", "",
 		       arcp->arc_time / hz, arcp->arc_childtime / hz,
 		       arcp->arc_count, childp->cyclehead->ncall);
@@ -583,14 +583,14 @@ nltype *cyclep)
     char kirkbuffer[BUFSIZ];
 
 	sprintf(kirkbuffer, "[%d]", cyclep->index);
-	printf("%-6.6s %5.1f %7.2f %11.2f %7ld",
+	printf("%-6.6s %5.1f %7.2f %11.2f %7d",
 	       kirkbuffer,
 	       100 * (cyclep->propself + cyclep->propchild) / printtime,
 	       cyclep->propself / hz,
 	       cyclep->propchild / hz,
 	       cyclep->ncall);
 	if(cyclep->selfcalls != 0){
-	    printf("+%-7ld", cyclep->selfcalls);
+	    printf("+%-7d", cyclep->selfcalls);
 	}
 	else{
 	    printf(" %7.7s", "");
@@ -611,11 +611,11 @@ nltype *cyclep)
 
 	sortmembers(cyclep);
 	for(memberp = cyclep->cnext; memberp; memberp = memberp->cnext){
-	    printf("%6.6s %5.5s %7.2f %11.2f %7ld", 
+	    printf("%6.6s %5.5s %7.2f %11.2f %7d", 
 		   "", "", memberp->propself / hz, memberp->propchild / hz,
 		   memberp->ncall);
 	    if(memberp->selfcalls != 0){
-		printf("+%-7ld", memberp->selfcalls);
+		printf("+%-7d", memberp->selfcalls);
 	    }
 	    else{
 		printf(" %7.7s", "");
@@ -675,7 +675,7 @@ nltype *this,
 nltype *that)
 {
     double thistime, thattime;
-    long thiscalls, thatcalls;
+    int32_t thiscalls, thatcalls;
 
     thistime = this->propself + this->propchild;
     thattime = that->propself + that->propchild;
@@ -725,14 +725,14 @@ arctype *thatp)
 	    printname(thisparentp);
 	    printf(" calls ");
 	    printname(thischildp);
-	    printf(" %f + %f %u/%ld\n",
+	    printf(" %f + %f %u/%d\n",
 		   thisp->arc_time, thisp->arc_childtime,
 		   thisp->arc_count, thischildp->ncall);
 	    printf("[arccmp] ");
 	    printname(thatparentp);
 	    printf(" calls ");
 	    printname(thatchildp);
-	    printf(" %f + %f %u/%ld\n",
+	    printf(" %f + %f %u/%d\n",
 		thatp->arc_time, thatp->arc_childtime,
 		thatp->arc_count, thatchildp->ncall);
 	    printf("\n");
@@ -823,7 +823,7 @@ void)
 {
     nltype **namesortnlp;
     nltype *nlp;
-    unsigned long index, nnames, todo, i, j;
+    uint32_t index, nnames, todo, i, j;
     char peterbuffer[BUFSIZ];
 
 	/*
@@ -841,7 +841,7 @@ void)
 	}
 	qsort(namesortnlp, nnames, sizeof(nltype *),
 	      (int (*)(const void *, const void *))namecmp);
-	for(index = 1, todo = nnames; index <= (unsigned long)ncycle; index++){
+	for(index = 1, todo = nnames; index <= (uint32_t)ncycle; index++){
 	    namesortnlp[todo++] = &cyclenl[index];
 	}
 	printf("\f\nIndex by function name\n\n");

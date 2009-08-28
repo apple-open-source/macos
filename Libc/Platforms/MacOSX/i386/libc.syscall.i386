@@ -63,6 +63,7 @@ _select$DARWIN_EXTSN$NOCANCEL	___select_nocancel
 _sem_wait	___sem_wait_nocancel
 _sem_wait$NOCANCEL$UNIX2003	___sem_wait_nocancel
 _sem_wait$UNIX2003	___sem_wait
+_semctl$UNIX2003	___semctl
 _sendmsg$NOCANCEL$UNIX2003	___sendmsg_nocancel
 _sendmsg$UNIX2003	___sendmsg
 _sendto$NOCANCEL$UNIX2003	___sendto_nocancel

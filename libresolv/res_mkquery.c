@@ -115,7 +115,7 @@ res_nmkquery(res_state statp,
 	u_char *dnptrs[20], **dpp, **lastdnptr;
 
 #ifdef __APPLE__
-	n = (int)newrr_in; n = 0;
+	n = 0;
 #else
 	UNUSED(newrr_in);
 #endif

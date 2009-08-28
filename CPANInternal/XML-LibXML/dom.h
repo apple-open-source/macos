@@ -1,5 +1,5 @@
 /* dom.h
- * $Id: dom.h,v 1.1.1.1 2004/05/20 17:55:25 jpetri Exp $
+ * $Id: dom.h,v 1.1.1.2 2007/10/10 23:04:13 ahuda Exp $
  * Author: Christian Glahn (2001)
  * 
  * This header file provides some definitions for wrapper functions.
@@ -29,6 +29,8 @@
  * unsortet. 
  **/
 
+void
+domReconcileNs(xmlNodePtr tree);
 
 /**
  * NAME domParseChar
@@ -204,7 +206,7 @@ domReplaceNode( xmlNodePtr old, xmlNodePtr new );
  * NAME domImportNode
  * TYPE function
  * SYNOPSIS
- * node = domImportNode( document, node, move);#
+ * node = domImportNode( document, node, move, reconcileNS);
  *
  * the function will import a node to the given document. it will work safe
  * with namespaces and subtrees. 
@@ -213,11 +215,13 @@ domReplaceNode( xmlNodePtr old, xmlNodePtr new );
  * original document. if move is set to 0, the node will be copied with the 
  * deep option. 
  *
+ * if reconcileNS is 1, namespaces are reconciled.
+ *
  * the function will return the imported node on success. otherwise NULL
  * is returned 
  */
 xmlNodePtr
-domImportNode( xmlDocPtr document, xmlNodePtr node, int move );
+domImportNode( xmlDocPtr document, xmlNodePtr node, int move, int reconcileNS );
 
 /**
  * part C:
@@ -235,7 +239,7 @@ xmlNsPtr
 domNewNs ( xmlNodePtr elem , xmlChar *prefix, xmlChar *href );
 
 xmlAttrPtr
-domHasNsProp(xmlNodePtr node, const xmlChar *name, const xmlChar *namespace);
+domGetAttrNode(xmlNodePtr node, const xmlChar *qname);
 
 xmlAttrPtr
 domSetAttributeNode( xmlNodePtr node , xmlAttrPtr attr );
@@ -245,5 +249,11 @@ domNodeNormalize( xmlNodePtr node );
 
 int
 domNodeNormalizeList( xmlNodePtr nodelist );
+
+int
+domRemoveNsRefs(xmlNodePtr tree, xmlNsPtr ns);
+
+void
+domAttrSerializeContent(xmlBufferPtr buffer, xmlAttrPtr attr);
 
 #endif

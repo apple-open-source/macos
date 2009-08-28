@@ -1,0 +1,109 @@
+; File written on Thu Jun 12 17:56:06 2008
+; dnssec_signzone version 9.5.0
+example.net.		7200	IN SOA	ns1.example.net. hostmaster.example.net. (
+					1213286165 ; serial
+					43200      ; refresh (12 hours)
+					1800       ; retry (30 minutes)
+					1209600    ; expire (2 weeks)
+					7200       ; minimum (2 hours)
+					)
+			7200	RRSIG	SOA 5 2 7200 20080622145605 (
+					20080612145605 35744 example.net.
+					iSF46kemTmJ62ipRyAzcVF0zlND4ZXdMSzAg
+					wGLfXN1xlgt0IwB8ypP1OjDyUx+YwBpbMlJt
+					tFsswvYaZtP11Q== )
+			7200	NS	ns1.example.net.
+			7200	NS	ns2.example.net.
+			7200	RRSIG	NS 5 2 7200 20080622145605 (
+					20080612145605 35744 example.net.
+					fmC9BXzFcy6TRXixIHk51TYTetGd69YcRguc
+					VlqTalvPJTJ99nKkRS5HdP2CZPJqv9bHOmSO
+					yQibjS4TA5Pr3g== )
+			7200	NSEC	localhost.example.net. NS SOA RRSIG NSEC DNSKEY
+			7200	RRSIG	NSEC 5 2 7200 20080622145605 (
+					20080612145605 35744 example.net.
+					kimcFA1awlsIou/66y2XLByBWKc2e7Wm8vis
+					Pz/i0NS4NFoe+oSKIeIjUorWOSf5AkpxxntV
+					91i/sxof6bc61w== )
+			3600	DNSKEY	256 3 5 (
+					BQEAAAABsQvn4MXvSlbajLPMJdGnczsX/Zw5
+					yYSeERYtaO2Wxi+kHz6wiAyKkbBYFUGtmbPJ
+					6JFt+4f9KnNPi1txiBg76Q==
+					) ; key id = 35744
+			3600	DNSKEY	256 3 5 (
+					BQEAAAAB3U9DMT6BkywYADO+5p0lG4VFLLzN
+					vJUMaOc++HqN2N1sKSX4ZTf2V5gtamPZ/1kM
+					rg8gYImKCl6n3K37EjXYBw==
+					) ; key id = 10367
+			3600	DNSKEY	257 3 5 (
+					BQEAAAABDEEycfY6uqWNTpQO8ygi9xms6NOF
+					YGhCjijN109fVGJ4KDnIZtLhoFrOKru9rZn+
+					pyqurlyZG4vESg0BMty6xljVDlr/TegDYFTN
+					19mQuwvlasJhZPv9pjROPqQGnqLaw3O4OKCY
+					9HgTTPdXK1hQ4Mg2rNU4SM2Tu5ki91f5AQqi
+					XF8KYMics0mwVvpj5C2YTDvE9SafLrce68JM
+					6DaiC6E1sQ==
+					) ; key id = 23553
+			3600	RRSIG	DNSKEY 5 2 3600 20080622145605 (
+					20080612145605 23553 example.net.
+					Bfg8AMvj3OmC7E5aMCfotsdL4eJ+hPqtH30E
+					+aGEJojZNgfhnSKZrolMJa5fij4oZ+Fp8U+a
+					V73egxkrYI+NnddGRVium+vT6NDVknYl6hx0
+					kgKmZ8oYMulF8CCmTaw6WXswIX0j/7e17Qtw
+					ZjbkWZagIXWotE5t0qel3doAQ37ZUaKMMAoc
+					SRgJ8s+w7OZ86f1kWyGNdhYeF8yY3AraSx7h
+					fg== )
+			3600	RRSIG	DNSKEY 5 2 3600 20080622145605 (
+					20080612145605 35744 example.net.
+					SrsmKW7eB+zWA+8j2DvlDktthDusinJP4QKV
+					ihsJN1Gq8fTcHsFX2+3EJLyGZfhKyW7Q5Z1W
+					dIM4sjx78Zjh5Q== )
+localhost.example.net.	7200	IN A	127.0.0.1
+			7200	RRSIG	A 5 3 7200 20080622145605 (
+					20080612145605 35744 example.net.
+					DUWSV0Wj/h1U4idKUoDLB+NXgj8M9et1E8BP
+					X0lhAu4CMrPhsiFU1NN+N3bhC16u7S+xxeEI
+					N/c7vC223ejn8A== )
+			7200	NSEC	ns1.example.net. A RRSIG NSEC
+			7200	RRSIG	NSEC 5 3 7200 20080622145605 (
+					20080612145605 35744 example.net.
+					qQ7FB0+O9Ve88VblRspGAm28JXurNAQ23HX9
+					rkmbFLL/Z7Xp7xO2899oJZrgHl3CWLcKRBV+
+					P50QYwYXET3byw== )
+ns1.example.net.	7200	IN A	1.0.0.5
+			7200	RRSIG	A 5 3 7200 20080622145605 (
+					20080612145605 35744 example.net.
+					qv8y5gEQg/5BpSTMoZvwW6AAzMIxT34ds4VK
+					QQ9ScfVYOwtKigsaFmr8Zs97R946rl5vh/cs
+					w8uw5x6/1ECflg== )
+			7200	AAAA	2001:db8::53
+			7200	RRSIG	AAAA 5 3 7200 20080622145605 (
+					20080612145605 35744 example.net.
+					T5MtLR9ZY0e6PKk+nU9cjRpSAWaccH2bGjzI
+					aYEvKRFcLQ0QPDww8gBZNimYL+BYfCSysyXz
+					LNjR7KqYQxrXmg== )
+			7200	NSEC	ns2.example.net. A AAAA RRSIG NSEC
+			7200	RRSIG	NSEC 5 3 7200 20080622145605 (
+					20080612145605 35744 example.net.
+					IlRZWwLVtf7oalaLBCMbqH4pxgqCJ7f0wQzO
+					ftS2jhMGVez+q7SgO8Vpw5f+vhNiSWe6noiN
+					ogRV1rxohxDyCw== )
+ns2.example.net.	7200	IN A	1.2.0.6
+			7200	RRSIG	A 5 3 7200 20080622145605 (
+					20080612145605 35744 example.net.
+					NR3Nkw9U12uZcZs8ChTY+u3a0QisLV/5okqR
+					Cy1Jpg8YkEzBJ0nEdxoGX6WUtnb0u5Kjxea1
+					iTZYEXffLBchmw== )
+			7200	NSEC	sub.example.net. A RRSIG NSEC
+			7200	RRSIG	NSEC 5 3 7200 20080622145605 (
+					20080612145605 35744 example.net.
+					eM1ckSfeiEg6pV8JxJEEkDeDo04i1iblO6a1
+					pWydc4IGMH0vaCuGHvLlfCmSOZK7TWMFSLJN
+					SqabEFO1114AyQ== )
+sub.example.net.	7200	IN NS	ns1.example.net.
+			7200	NSEC	example.net. NS RRSIG NSEC
+			7200	RRSIG	NSEC 5 3 7200 20080622145605 (
+					20080612145605 35744 example.net.
+					nwfqNjzYHKtWWsJgoiM9ZQFY9UKHMS6pkyNB
+					ISgm6pTLeG9QXuwf9vTrtfvhPYAp5DRz96AT
+					db/3/DXIwUnMnA== )

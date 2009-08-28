@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2000-2007 Apple Inc. All rights reserved.
+ * Copyright(c) 2000-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,19 +34,31 @@
  * - initial revision
  */
 
+#include <Availability.h>
+#include <TargetConditionals.h>
+#include <sys/cdefs.h>
+#if	!TARGET_OS_IPHONE
+#include <dispatch/dispatch.h>
+#endif	// !TARGET_OS_IPHONE
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SCPrivate.h>
 #include "SCPreferencesInternal.h"
 #include "SCHelper_client.h"
 
-#include <Security/Security.h>
 #include "dy_framework.h"
 
 #include <fcntl.h>
 #include <pthread.h>
 #include <unistd.h>
 #include <sys/errno.h>
+
+
+static __inline__ CFTypeRef
+isA_SCPreferences(CFTypeRef obj)
+{
+	return (isA_CFType(obj, SCPreferencesGetTypeID()));
+}
 
 
 static CFStringRef
@@ -174,6 +186,7 @@ __SCPreferencesCreatePrivate(CFAllocatorRef	allocator)
 	prefsPrivate->session				= NULL;
 	prefsPrivate->sessionKeyCommit			= NULL;
 	prefsPrivate->sessionKeyApply			= NULL;
+	prefsPrivate->scheduled				= FALSE;
 	prefsPrivate->rls				= NULL;
 	prefsPrivate->rlsFunction			= NULL;
 	prefsPrivate->rlsContext.info			= NULL;
@@ -181,6 +194,9 @@ __SCPreferencesCreatePrivate(CFAllocatorRef	allocator)
 	prefsPrivate->rlsContext.release		= NULL;
 	prefsPrivate->rlsContext.copyDescription	= NULL;
 	prefsPrivate->rlList				= NULL;
+#if	!TARGET_OS_IPHONE
+	prefsPrivate->dispatchQueue			= NULL;
+#endif	// !TARGET_OS_IPHONE
 	prefsPrivate->prefs				= NULL;
 	prefsPrivate->accessed				= FALSE;
 	prefsPrivate->changed				= FALSE;
@@ -196,9 +212,12 @@ __private_extern__ Boolean
 __SCPreferencesCreate_helper(SCPreferencesRef prefs)
 {
 	CFDataRef		data		= NULL;
+	CFMutableDictionaryRef	info;
+	CFNumberRef		num;
 	Boolean			ok;
 	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
 	uint32_t		status		= kSCStatusOK;
+	uint32_t		pid		= getpid();
 
 	// start helper
 	prefsPrivate->helper = _SCHelperOpen(prefsPrivate->authorizationData);
@@ -206,12 +225,24 @@ __SCPreferencesCreate_helper(SCPreferencesRef prefs)
 		goto fail;
 	}
 
-	// serialize the "prefsID"
+	// create a dictionary of information to pass to the helper
+	info = CFDictionaryCreateMutable(NULL,
+					 0,
+					 &kCFTypeDictionaryKeyCallBacks,
+					 &kCFTypeDictionaryValueCallBacks);
 	if (prefsPrivate->prefsID != NULL) {
-		ok = _SCSerializeString(prefsPrivate->prefsID, &data, NULL, NULL);
-		if (!ok) {
-			goto fail;
-		}
+		CFDictionarySetValue(info, CFSTR("prefsID"), prefsPrivate->prefsID);
+	}
+	CFDictionarySetValue(info, CFSTR("name"), prefsPrivate->name);
+	num = CFNumberCreate(NULL, kCFNumberSInt32Type, &pid);
+	CFDictionarySetValue(info, CFSTR("PID"), num);
+	CFRelease(num);
+
+	// serialize the info
+	ok = _SCSerialize(info, &data, NULL, NULL);
+	CFRelease(info);
+	if (data == NULL || !ok) {
+		goto fail;
 	}
 
 	// have the helper "open" the prefs
@@ -406,13 +437,14 @@ __SCPreferencesCreate(CFAllocatorRef	allocator,
 					goto done;
 				}
 
+				SCLog(_sc_verbose, LOG_DEBUG, CFSTR("__SCPreferencesCreate open() failed: %s"), strerror(errno));
 				sc_status = kSCStatusAccessError;
 				break;
 			default :
+				SCLog(TRUE, LOG_ERR, CFSTR("__SCPreferencesCreate open() failed: %s"), strerror(errno));
 				sc_status = kSCStatusFailed;
 				break;
 		}
-		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("__SCPreferencesCreate open() failed: %s"), strerror(errno));
 		goto error;
 	}
 
@@ -533,14 +565,13 @@ __SCPreferencesAccess(SCPreferencesRef	prefs)
 
 	if (fd != -1) {
 		(void) close(fd);
-		fd = -1;
 	}
 
 	if (prefsPrivate->prefs == NULL) {
 		/*
 		 * new file, create empty preferences
 		 */
-		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("__SCPreferencesAccess(): creating new preferences file."));
+//		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("__SCPreferencesAccess(): creating new preferences file."));
 		prefsPrivate->prefs = CFDictionaryCreateMutable(allocator,
 								0,
 								&kCFTypeDictionaryKeyCallBacks,
@@ -571,10 +602,12 @@ SCPreferencesCreateWithAuthorization(CFAllocatorRef	allocator,
 				     CFStringRef	prefsID,
 				     AuthorizationRef	authorization)
 {
-	CFDataRef			authorizationData;
+	CFDataRef			authorizationData	= NULL;
+	SCPreferencesPrivateRef		prefsPrivate;
+
+#if	!TARGET_OS_IPHONE
 	AuthorizationExternalForm	extForm;
 	OSStatus			os_status;
-	SCPreferencesPrivateRef		prefsPrivate;
 
 	os_status = AuthorizationMakeExternalForm(authorization, &extForm);
 	if (os_status != errAuthorizationSuccess) {
@@ -584,6 +617,41 @@ SCPreferencesCreateWithAuthorization(CFAllocatorRef	allocator,
 	}
 
 	authorizationData = CFDataCreate(NULL, (const UInt8 *)extForm.bytes, sizeof(extForm.bytes));
+#else	// !TARGET_OS_IPHONE
+	CFBundleRef	bundle;
+	CFStringRef	bundleID	= NULL;
+
+	/* get the application/executable/bundle name */
+	bundle = CFBundleGetMainBundle();
+	if (bundle != NULL) {
+		bundleID = CFBundleGetIdentifier(bundle);
+		if (bundleID != NULL) {
+			CFRetain(bundleID);
+		} else {
+			CFURLRef	url;
+
+			url = CFBundleCopyExecutableURL(bundle);
+			if (url != NULL) {
+				bundleID = CFURLCopyPath(url);
+				CFRelease(url);
+			}
+		}
+
+		if (bundleID != NULL) {
+			if (CFEqual(bundleID, CFSTR("/"))) {
+				CFRelease(bundleID);
+				bundleID = NULL;
+			}
+		}
+	}
+	if (bundleID == NULL) {
+		bundleID = CFStringCreateWithFormat(NULL, NULL, CFSTR("Unknown(%d)"), getpid());
+	}
+
+	_SCSerializeString(bundleID, &authorizationData, NULL, NULL);
+	CFRelease(bundleID);
+#endif	// !TARGET_OS_IPHONE
+
 	prefsPrivate = __SCPreferencesCreate(allocator, name, prefsID, authorizationData);
 	CFRelease(authorizationData);
 
@@ -670,7 +738,7 @@ __SCPreferencesAddSession(SCPreferencesRef prefs)
 
 	/* establish a dynamic store session */
 	prefsPrivate->session = SCDynamicStoreCreate(allocator,
-						     CFSTR("SCPreferences"),
+						     prefsPrivate->name,
 						     prefsNotify,
 						     &context);
 	if (prefsPrivate->session == NULL) {
@@ -699,7 +767,7 @@ SCPreferencesSetCallback(SCPreferencesRef       prefs,
 {
 	SCPreferencesPrivateRef	prefsPrivate = (SCPreferencesPrivateRef)prefs;
 
-	if (prefs == NULL) {
+	if (!isA_SCPreferences(prefs)) {
 		/* sorry, you must provide a session */
 		_SCErrorSet(kSCStatusNoPrefsSession);
 		return FALSE;
@@ -730,26 +798,38 @@ SCPreferencesSetCallback(SCPreferencesRef       prefs,
 }
 
 
-Boolean
-SCPreferencesScheduleWithRunLoop(SCPreferencesRef       prefs,
-				 CFRunLoopRef		runLoop,
-				 CFStringRef		runLoopMode)
+static Boolean
+__SCPreferencesScheduleWithRunLoop(SCPreferencesRef	prefs,
+				   CFRunLoopRef		runLoop,
+				   CFStringRef		runLoopMode,
+#if	!TARGET_OS_IPHONE
+				   dispatch_queue_t	queue
+#else	// !TARGET_OS_IPHONE
+				   void			*queue
+#endif	// !TARGET_OS_IPHONE
+				   )
 {
+	Boolean			ok		= FALSE;
 	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
-
-	if (prefs == NULL) {
-		/* sorry, you must provide a session */
-		_SCErrorSet(kSCStatusNoPrefsSession);
-		return FALSE;
-	}
 
 	pthread_mutex_lock(&prefsPrivate->lock);
 
-	if (prefsPrivate->rls == NULL) {
+#if	!TARGET_OS_IPHONE
+	if ((prefsPrivate->dispatchQueue != NULL) ||		// if we are already scheduled on a dispatch queue
+	    ((queue != NULL) && prefsPrivate->scheduled)) {	// if we are already scheduled on a CFRunLoop
+		_SCErrorSet(kSCStatusInvalidArgument);
+		goto done;
+	}
+#endif	// !TARGET_OS_IPHONE
+
+	if (!prefsPrivate->scheduled) {
 		CFMutableArrayRef       keys;
 
 		if (prefsPrivate->session == NULL) {
-			__SCPreferencesAddSession(prefs);
+			ok = __SCPreferencesAddSession(prefs);
+			if (!ok) {
+				goto done;
+			}
 		}
 
 		CFRetain(prefs);	// hold a reference to the prefs
@@ -760,83 +840,38 @@ SCPreferencesScheduleWithRunLoop(SCPreferencesRef       prefs,
 		(void) SCDynamicStoreSetNotificationKeys(prefsPrivate->session, keys, NULL);
 		CFRelease(keys);
 
-		prefsPrivate->rls    = SCDynamicStoreCreateRunLoopSource(NULL, prefsPrivate->session, 0);
-		prefsPrivate->rlList = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-	}
-
-	if (!_SC_isScheduled(NULL, runLoop, runLoopMode, prefsPrivate->rlList)) {
-		/*
-		 * if we do not already have notifications scheduled with
-		 * this runLoop / runLoopMode
-		 */
-		CFRunLoopAddSource(runLoop, prefsPrivate->rls, runLoopMode);
-	}
-
-	_SC_schedule(prefs, runLoop, runLoopMode, prefsPrivate->rlList);
-
-	pthread_mutex_unlock(&prefsPrivate->lock);
-	return TRUE;
-}
-
-
-Boolean
-SCPreferencesUnscheduleFromRunLoop(SCPreferencesRef     prefs,
-				   CFRunLoopRef		runLoop,
-				   CFStringRef		runLoopMode)
-{
-	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
-	CFIndex			n;
-	Boolean			ok		= FALSE;
-
-	if (prefs == NULL) {
-		/* sorry, you must provide a session */
-		_SCErrorSet(kSCStatusNoPrefsSession);
-		return FALSE;
-	}
-
-	pthread_mutex_lock(&prefsPrivate->lock);
-
-	if (prefsPrivate->rls == NULL) {
-		/* if not currently scheduled */
-		goto done;
-	}
-
-	if (!_SC_unschedule(NULL, runLoop, runLoopMode, prefsPrivate->rlList, FALSE)) {
-		/* if not currently scheduled */
-		goto done;
-	}
-
-	n = CFArrayGetCount(prefsPrivate->rlList);
-	if (n == 0 || !_SC_isScheduled(NULL, runLoop, runLoopMode, prefsPrivate->rlList)) {
-		/*
-		 * if we are no longer scheduled to receive notifications for
-		 * this runLoop / runLoopMode
-		 */
-		CFRunLoopRemoveSource(runLoop, prefsPrivate->rls, runLoopMode);
-
-		if (n == 0) {
-			CFArrayRef      changedKeys;
-
-			/*
-			 * if *all* notifications have been unscheduled
-			 */
-			CFRunLoopSourceInvalidate(prefsPrivate->rls);
-			CFRelease(prefsPrivate->rls);
-			prefsPrivate->rls = NULL;
-			CFRelease(prefsPrivate->rlList);
-			prefsPrivate->rlList = NULL;
-
-			CFRelease(prefs);	// release our reference to the prefs
-
-			// no need to track changes
-			(void) SCDynamicStoreSetNotificationKeys(prefsPrivate->session, NULL, NULL);
-
-			// clear out any pending notifications
-			changedKeys = SCDynamicStoreCopyNotifiedKeys(prefsPrivate->session);
-			if (changedKeys != NULL) {
-				CFRelease(changedKeys);
-			}
+		if (runLoop != NULL) {
+			prefsPrivate->rls = SCDynamicStoreCreateRunLoopSource(NULL, prefsPrivate->session, 0);
+			prefsPrivate->rlList = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 		}
+
+		prefsPrivate->scheduled = TRUE;
+	}
+
+#if	!TARGET_OS_IPHONE
+	if (queue != NULL) {
+		ok = SCDynamicStoreSetDispatchQueue(prefsPrivate->session, queue);
+		if (!ok) {
+			prefsPrivate->scheduled = FALSE;
+			(void) SCDynamicStoreSetNotificationKeys(prefsPrivate->session, NULL, NULL);
+			CFRelease(prefs);
+			goto done;
+		}
+
+		prefsPrivate->dispatchQueue = queue;
+		dispatch_retain(prefsPrivate->dispatchQueue);
+	} else
+#endif	// !TARGET_OS_IPHONE
+	{
+		if (!_SC_isScheduled(NULL, runLoop, runLoopMode, prefsPrivate->rlList)) {
+			/*
+			 * if we do not already have notifications scheduled with
+			 * this runLoop / runLoopMode
+			 */
+			CFRunLoopAddSource(runLoop, prefsPrivate->rls, runLoopMode);
+		}
+
+		_SC_schedule(prefs, runLoop, runLoopMode, prefsPrivate->rlList);
 	}
 
 	ok = TRUE;
@@ -848,18 +883,152 @@ SCPreferencesUnscheduleFromRunLoop(SCPreferencesRef     prefs,
 }
 
 
+static Boolean
+__SCPreferencesUnscheduleFromRunLoop(SCPreferencesRef	prefs,
+				     CFRunLoopRef	runLoop,
+				     CFStringRef	runLoopMode)
+{
+	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
+	CFIndex			n		= 0;
+	Boolean			ok		= FALSE;
+
+	pthread_mutex_lock(&prefsPrivate->lock);
+
+	if ((runLoop != NULL) && !prefsPrivate->scheduled) {			// if we should be scheduled (but are not)
+		_SCErrorSet(kSCStatusInvalidArgument);
+		goto done;
+	}
+
+#if	!TARGET_OS_IPHONE
+	if (((runLoop == NULL) && (prefsPrivate->dispatchQueue == NULL)) ||	// if we should be scheduled on a dispatch queue (but are not)
+	    ((runLoop != NULL) && (prefsPrivate->dispatchQueue != NULL))) {	// if we should be scheduled on a CFRunLoop (but are scheduled on a dispatch queue)
+		_SCErrorSet(kSCStatusInvalidArgument);
+		goto done;
+	}
+#endif	// !TARGET_OS_IPHONE
+
+#if	!TARGET_OS_IPHONE
+	if (runLoop == NULL) {
+		SCDynamicStoreSetDispatchQueue(prefsPrivate->session, NULL);
+		dispatch_release(prefsPrivate->dispatchQueue);
+		prefsPrivate->dispatchQueue = NULL;
+	} else
+#endif	// !TARGET_OS_IPHONE
+	{
+		if (!_SC_unschedule(prefs, runLoop, runLoopMode, prefsPrivate->rlList, FALSE)) {
+			// if not currently scheduled on this runLoop / runLoopMode
+			_SCErrorSet(kSCStatusInvalidArgument);
+			goto done;
+		}
+
+		n = CFArrayGetCount(prefsPrivate->rlList);
+		if (n == 0 || !_SC_isScheduled(NULL, runLoop, runLoopMode, prefsPrivate->rlList)) {
+			/*
+			 * if we are no longer scheduled to receive notifications for
+			 * this runLoop / runLoopMode
+			 */
+			CFRunLoopRemoveSource(runLoop, prefsPrivate->rls, runLoopMode);
+
+			if (n == 0) {
+				// if *all* notifications have been unscheduled
+				CFRelease(prefsPrivate->rlList);
+				prefsPrivate->rlList = NULL;
+				CFRunLoopSourceInvalidate(prefsPrivate->rls);
+				CFRelease(prefsPrivate->rls);
+				prefsPrivate->rls = NULL;
+			}
+		}
+	}
+
+	if (n == 0) {
+		CFArrayRef      changedKeys;
+
+		// if *all* notifications have been unscheduled
+		prefsPrivate->scheduled = FALSE;
+
+		// no need to track changes
+		(void) SCDynamicStoreSetNotificationKeys(prefsPrivate->session, NULL, NULL);
+
+		// clear out any pending notifications
+		changedKeys = SCDynamicStoreCopyNotifiedKeys(prefsPrivate->session);
+		if (changedKeys != NULL) {
+			CFRelease(changedKeys);
+		}
+
+		// release our reference to the prefs
+		CFRelease(prefs);
+	}
+
+	ok = TRUE;
+
+    done :
+
+	pthread_mutex_unlock(&prefsPrivate->lock);
+	return ok;
+}
+
+Boolean
+SCPreferencesScheduleWithRunLoop(SCPreferencesRef       prefs,
+				 CFRunLoopRef		runLoop,
+				 CFStringRef		runLoopMode)
+{
+	if (!isA_SCPreferences(prefs) || (runLoop == NULL) || (runLoopMode == NULL)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
+	return __SCPreferencesScheduleWithRunLoop(prefs, runLoop, runLoopMode, NULL);
+}
+
+Boolean
+SCPreferencesUnscheduleFromRunLoop(SCPreferencesRef     prefs,
+				   CFRunLoopRef		runLoop,
+				   CFStringRef		runLoopMode)
+{
+	if (!isA_SCPreferences(prefs) || (runLoop == NULL) || (runLoopMode == NULL)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
+	return __SCPreferencesUnscheduleFromRunLoop(prefs, runLoop, runLoopMode);
+}
+
+#if	!TARGET_OS_IPHONE
+Boolean
+SCPreferencesSetDispatchQueue(SCPreferencesRef	prefs,
+			      dispatch_queue_t	queue)
+{
+	Boolean	ok	= FALSE;
+
+	if (!isA_SCPreferences(prefs)) {
+		/* sorry, you must provide a session */
+		_SCErrorSet(kSCStatusNoPrefsSession);
+		return FALSE;
+	}
+
+	if (queue != NULL) {
+		ok = __SCPreferencesScheduleWithRunLoop(prefs, NULL, NULL, queue);
+	} else {
+		ok = __SCPreferencesUnscheduleFromRunLoop(prefs, NULL, NULL);
+	}
+
+	return ok;
+}
+#endif	// !TARGET_OS_IPHONE
+
+
 static void
 __SCPreferencesSynchronize_helper(SCPreferencesRef prefs)
 {
 	Boolean			ok;
 	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
 	uint32_t		status		= kSCStatusOK;
-	
+
 	if (prefsPrivate->helper == -1) {
 		// if no helper
 		return;
 	}
-	
+
 	// have the helper "synchronize" the prefs
 	ok = _SCHelperExec(prefsPrivate->helper,
 			   SCHELPER_MSG_PREFS_SYNCHRONIZE,
@@ -873,17 +1042,17 @@ __SCPreferencesSynchronize_helper(SCPreferencesRef prefs)
 			prefsPrivate->helper = -1;
 		}
 	}
-	
+
 	return;
 }
 
 
 void
-SCPreferencesSynchronize(SCPreferencesRef       prefs)
+SCPreferencesSynchronize(SCPreferencesRef prefs)
 {
 	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
 
-	if (prefs == NULL) {
+	if (!isA_SCPreferences(prefs)) {
 		/* sorry, you must provide a session */
 		_SCErrorSet(kSCStatusNoPrefsSession);
 		return;
@@ -892,7 +1061,6 @@ SCPreferencesSynchronize(SCPreferencesRef       prefs)
 	if (prefsPrivate->authorizationData != NULL) {
 		__SCPreferencesSynchronize_helper(prefs);
 	}
-
 	if (prefsPrivate->prefs != NULL) {
 		CFRelease(prefsPrivate->prefs);
 		prefsPrivate->prefs = NULL;
@@ -903,5 +1071,6 @@ SCPreferencesSynchronize(SCPreferencesRef       prefs)
 	}
 	prefsPrivate->accessed = FALSE;
 	prefsPrivate->changed  = FALSE;
+
 	return;
 }

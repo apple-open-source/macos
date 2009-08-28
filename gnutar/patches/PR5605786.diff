@@ -12,9 +12,9 @@ based on patch:
 
 Index: src/names.c
 ===================================================================
---- src/names.c.orig
-+++ src/names.c
-@@ -958,15 +958,27 @@ hash_string_compare (void const *name1, 
+--- lib/paxnames.c.orig
++++ lib/paxnames.c
+@@ -36,15 +36,27 @@ hash_string_compare (void const *name1, 
    return strcmp (name1, name2) == 0;
  }
  
@@ -24,7 +24,7 @@ Index: src/names.c
 +   otherwise, insert a newly allocated copy of this prefix to TABLE and
 +   return 1.  If RETURN_PREFIX is not NULL, point it to the allocated
 +   copy. */
- static bool
+ bool
 -hash_string_insert (Hash_table **table, char const *string)
 +hash_string_insert_prefix (Hash_table **table, char const *string, size_t len,
 +                          const char **return_prefix)
@@ -46,7 +46,7 @@ Index: src/names.c
    if (! ((t
  	  || (*table = t = hash_initialize (0, 0, hash_string_hasher,
  					    hash_string_compare, 0)))
-@@ -974,7 +986,11 @@ hash_string_insert (Hash_table **table, 
+@@ -52,7 +64,11 @@ hash_string_insert (Hash_table **table, 
      xalloc_die ();
  
    if (e == s)
@@ -59,7 +59,7 @@ Index: src/names.c
    else
      {
        free (s);
-@@ -982,6 +998,14 @@ hash_string_insert (Hash_table **table, 
+@@ -60,6 +76,14 @@ hash_string_insert (Hash_table **table, 
      }
  }
  
@@ -72,9 +72,9 @@ Index: src/names.c
 +}
 +
  /* Return 1 if TABLE contains STRING.  */
- static bool
+ bool
  hash_string_lookup (Hash_table const *table, char const *string)
-@@ -1082,11 +1106,9 @@ safer_name_suffix (char const *file_name
+@@ -121,11 +145,9 @@ safer_name_suffix (char const *file_name
  
        if (prefix_len)
  	{

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -46,6 +46,8 @@
 #include <sys/wait.h>
 #include <objc/objc-runtime.h>
 #include <servers/bootstrap.h>
+#include <vproc.h>
+#include <vproc_priv.h>
 
 #include "configd.h"
 #include "configd_server.h"
@@ -59,6 +61,9 @@ FILE	*_configd_trace			= NULL;		/* non-NULL if tracing enabled */
 
 __private_extern__
 CFMutableSetRef	_plugins_exclude	= NULL;		/* bundle identifiers to exclude from loading */
+
+__private_extern__
+Boolean	_plugins_fork			= FALSE;	/* TRUE if plugins should be exec'd in their own process */
 
 __private_extern__
 CFMutableSetRef	_plugins_verbose	= NULL;		/* bundle identifiers to enable verbose logging */
@@ -95,59 +100,6 @@ usage(const char *prog)
 
 
 static void
-allow_crash_reports(void)
-{
-	mach_msg_type_number_t	i;
-	exception_mask_t	masks[EXC_TYPES_COUNT];
-	mach_msg_type_number_t	n_masks			= 0;
-	mach_port_t		new_exception_port	= MACH_PORT_NULL;
-	exception_port_t	old_handlers[EXC_TYPES_COUNT];
-	exception_behavior_t	old_behaviors[EXC_TYPES_COUNT];
-	thread_state_flavor_t	old_flavors[EXC_TYPES_COUNT];
-	kern_return_t		status;
-
-	status = bootstrap_look_up(bootstrap_port, "com.apple.ReportCrash.DirectoryService", &new_exception_port);
-	if (status != BOOTSTRAP_SUCCESS) {
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("allow_crash_reports bootstrap_look_up() failed: %s"),
-		      bootstrap_strerror(status));
-		return;
-	}
-
-	// get information about the original crash exception port for the task
-	status = task_get_exception_ports(mach_task_self(),
-					  EXC_MASK_CRASH,
-					  masks,
-					  &n_masks,
-					  old_handlers,
-					  old_behaviors,
-					  old_flavors);
-	if (status != KERN_SUCCESS) {
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("allow_crash_reports task_get_exception_ports() failed: %s"),
-		      mach_error_string(status));
-		return;
-	}
-
-	// replace the original crash exception port with our new port
-	for (i = 0; i < n_masks; i++) {
-		status = task_set_exception_ports(mach_task_self(),
-						  masks[i],
-						  new_exception_port,
-						  old_behaviors[i],
-						  old_flavors[i]);
-		if (status != KERN_SUCCESS) {
-			SCLog(TRUE, LOG_ERR,
-			      CFSTR("allow_crash_reports task_set_exception_ports() failed: %s"),
-			      mach_error_string(status));
-		}
-	}
-
-	return;
-}
-
-
-static void
 catcher(int signum)
 {
 	switch (signum) {
@@ -162,7 +114,7 @@ catcher(int signum)
 					 * such, let's also push any remaining log
 					 * messages to stdout/stderr.
 					 */
-					_sc_log++;
+					_sc_log = 2;
 				}
 
 				/*
@@ -330,8 +282,9 @@ main(int argc, char * const argv[])
 						  , NULL
 						  , termMPCopyDescription
 						  };
-	Boolean			enableRestart	= (argc <= 1);	/* only if there are no arguments */
 	Boolean			forceForeground	= FALSE;
+	Boolean			forcePlugin	= FALSE;
+	int64_t			is_launchd_job	= 0;
 	mach_port_limits_t	limits;
 	Boolean			loadBundles	= TRUE;
 	struct sigaction	nact;
@@ -339,7 +292,6 @@ main(int argc, char * const argv[])
 	extern int		optind;
 	const char		*prog		= argv[0];
 	CFRunLoopSourceRef	rls;
-	mach_port_t		service_port	= MACH_PORT_NULL;
 	kern_return_t		status;
 	CFStringRef		str;
 	const char		*testBundle	= NULL;
@@ -349,7 +301,7 @@ main(int argc, char * const argv[])
 
 	/* process any arguments */
 
-	while ((opt = getopt_long(argc, argv, "bB:dt:vV:", longopts, NULL)) != -1) {
+	while ((opt = getopt_long(argc, argv, "bB:dt:vV:f", longopts, NULL)) != -1) {
 		switch(opt) {
 			case 'b':
 				loadBundles = FALSE;
@@ -377,23 +329,16 @@ main(int argc, char * const argv[])
 					CFRelease(str);
 				}
 				break;
+			case 'f':
+				_plugins_fork = TRUE;
+				break;
 			case '?':
 			default :
 				usage(prog);
 		}
 	}
-	argc -= optind;
-	argv += optind;
-
-	/*
-	 * display an error if configd is already running and we are
-	 * not solely executing/testing a bundle.
-	 */
-	if (testBundle == NULL) {
-		if (server_active(&service_port)) {
-			exit (EX_UNAVAILABLE);
-		}
-	}
+//	argc -= optind;
+//	argv += optind;
 
 	/* check credentials */
 	if (getuid() != 0) {
@@ -401,7 +346,16 @@ main(int argc, char * const argv[])
 		exit (EX_NOPERM);
 	}
 
-	if (!forceForeground && (service_port == MACH_PORT_NULL)) {
+	/* check if we have been started by launchd */
+	vproc_swap_integer(NULL, VPROC_GSK_IS_MANAGED, NULL, &is_launchd_job);
+
+	/* ensure that forked plugins behave */
+	if ((testBundle != NULL) && (getenv("__FORKED_PLUGIN__") != NULL)) {
+		forcePlugin = TRUE;
+	}
+
+	/* if needed, daemonize */
+	if (!forceForeground && !is_launchd_job) {
 		/*
 		 * if we haven't been asked to run in the foreground
 		 * and have not been started by launchd (i.e. we're
@@ -423,12 +377,12 @@ main(int argc, char * const argv[])
 	 * close file descriptors, establish stdin/stdout/stderr,
 	 * setup logging.
 	 */
-	if (!forceForeground) {
+	if (!forceForeground || forcePlugin) {
 		int		facility	= LOG_DAEMON;
 		int		logopt		= LOG_CONS|LOG_NDELAY|LOG_PID;
 		struct stat	statbuf;
 
-		if (service_port == MACH_PORT_NULL) {
+		if (!is_launchd_job && !forcePlugin) {
 			init_fds();
 		}
 
@@ -444,9 +398,6 @@ main(int argc, char * const argv[])
 	} else {
 		_sc_log = FALSE;	/* redirect SCLog() to stdout/stderr */
 	}
-
-	/* enable crash reporting */
-	allow_crash_reports();
 
 	/* check/enable trace logging */
 	set_trace();
@@ -508,9 +459,9 @@ main(int argc, char * const argv[])
 
 	if (testBundle == NULL) {
 		/* initialize primary (store management) thread */
-		server_init(service_port, enableRestart);
+		server_init();
 
-		if (!forceForeground && (service_port == MACH_PORT_NULL)) {
+		if (!forceForeground && !is_launchd_job) {
 			/* synchronize with parent process */
 			kill(getppid(), SIGTERM);
 		}

@@ -1,0 +1,273 @@
+'\"
+'\" Generated from tnc.xml
+'\"
+'\" BEGIN man.macros
+.if t .wh -1.3i ^B
+.nr ^l \n(.l
+.ad b
+.de AP
+.ie !"\\$4"" .TP \\$4
+.el \{\
+.   ie !"\\$2"" .TP \\n()Cu
+.   el          .TP 15
+.\}
+.ta \\n()Au \\n()Bu
+.ie !"\\$3"" \{\
+\&\\$1	\\fI\\$2\\fP	(\\$3)
+.\".b
+.\}
+.el \{\
+.br
+.ie !"\\$2"" \{\
+\&\\$1	\\fI\\$2\\fP
+.\}
+.el \{\
+\&\\fI\\$1\\fP
+.\}
+.\}
+..
+.de AS
+.nr )A 10n
+.if !"\\$1"" .nr )A \\w'\\$1'u+3n
+.nr )B \\n()Au+15n
+.\"
+.if !"\\$2"" .nr )B \\w'\\$2'u+\\n()Au+3n
+.nr )C \\n()Bu+\\w'(in/out)'u+2n
+..
+.AS Tcl_Interp Tcl_CreateInterp in/out
+.de BS
+.br
+.mk ^y
+.nr ^b 1u
+.if n .nf
+.if n .ti 0
+.if n \l'\\n(.lu\(ul'
+.if n .fi
+..
+.de BE
+.nf
+.ti 0
+.mk ^t
+.ie n \l'\\n(^lu\(ul'
+.el \{\
+.\"	Draw four-sided box normally, but don't draw top of
+.\"	box if the box started on an earlier page.
+.ie !\\n(^b-1 \{\
+\h'-1.5n'\L'|\\n(^yu-1v'\l'\\n(^lu+3n\(ul'\L'\\n(^tu+1v-\\n(^yu'\l'|0u-1.5n\(ul'
+.\}
+.el \}\
+\h'-1.5n'\L'|\\n(^yu-1v'\h'\\n(^lu+3n'\L'\\n(^tu+1v-\\n(^yu'\l'|0u-1.5n\(ul'
+.\}
+.\}
+.fi
+.br
+.nr ^b 0
+..
+.de VS
+.if !"\\$2"" .br
+.mk ^Y
+.ie n 'mc \s12\(br\s0
+.el .nr ^v 1u
+..
+.de VE
+.ie n 'mc
+.el \{\
+.ev 2
+.nf
+.ti 0
+.mk ^t
+\h'|\\n(^lu+3n'\L'|\\n(^Yu-1v\(bv'\v'\\n(^tu+1v-\\n(^Yu'\h'-|\\n(^lu+3n'
+.sp -1
+.fi
+.ev
+.\}
+.nr ^v 0
+..
+.de ^B
+.ev 2
+'ti 0
+'nf
+.mk ^t
+.if \\n(^b \{\
+.\"	Draw three-sided box if this is the box's first page,
+.\"	draw two sides but no top otherwise.
+.ie !\\n(^b-1 \h'-1.5n'\L'|\\n(^yu-1v'\l'\\n(^lu+3n\(ul'\L'\\n(^tu+1v-\\n(^yu'\h'|0u'\c
+.el \h'-1.5n'\L'|\\n(^yu-1v'\h'\\n(^lu+3n'\L'\\n(^tu+1v-\\n(^yu'\h'|0u'\c
+.\}
+.if \\n(^v \{\
+.nr ^x \\n(^tu+1v-\\n(^Yu
+\kx\h'-\\nxu'\h'|\\n(^lu+3n'\ky\L'-\\n(^xu'\v'\\n(^xu'\h'|0u'\c
+.\}
+.bp
+'fi
+.ev
+.if \\n(^b \{\
+.mk ^y
+.nr ^b 2
+.\}
+.if \\n(^v \{\
+.mk ^Y
+.\}
+..
+.de DS
+.RS
+.nf
+.sp
+..
+.de DE
+.fi
+.RE
+.sp
+..
+.de SO
+.SH "STANDARD OPTIONS"
+.LP
+.nf
+.ta 5.5c 11c
+.ft B
+..
+.de SE
+.fi
+.ft R
+.LP
+See the \\fBoptions\\fR manual entry for details on the standard options.
+..
+.de OP
+.LP
+.nf
+.ta 4c
+Command-Line Name:	\\fB\\$1\\fR
+Database Name:	\\fB\\$2\\fR
+Database Class:	\\fB\\$3\\fR
+.fi
+.IP
+..
+.de CS
+.RS
+.nf
+.ta .25i .5i .75i 1i
+.if t .ft C
+..
+.de CE
+.fi
+.if t .ft R
+.RE
+..
+.de UL
+\\$1\l'|0\(ul'\\$2
+..
+'\" END man.macros
+.TH tnc n "" Tcl ""
+.BS
+.SH NAME
+tnc \- tnc is an expat parser object extension, that validates the XML
+stream against the document DTD while parsing.
+.SH SYNOPSIS
+.nf
+package require tdom
+package require tnc
+
+set parser [expat]
+
+tnc $parser enable
+.fi
+.BE
+.SH DESCRIPTION
+.PP
+\&\fItnc\fR adds the C handler set "tnc" to a tcl expat parser
+obj. This handler set is a simple DTD validator. If the validator detects a
+validation error, it sets the interp result, signals error and stops
+parsing. There isn't any validation error recovering. As a consequence, only
+valid documents are completely parsed.
+.PP
+This handler set has only three methods:
+.TP
+\&\fB\fBtnc\fP \fIparserObj\fB \fBenable\fP
+\&\fR
+.RS
+.PP
+Adds the tnc C handler set to a Tcl expat parser object.
+.RE
+.TP
+\&\fB\fBtnc\fP \fIparserObj\fB \fBremove\fP
+\&\fR
+.RS
+.PP
+Removes the tnc validatore from the parser \fIparserObj\fR
+and frees all information, stored by it.
+.RE
+.TP
+\&\fB\fBtnc\fP \fIparserObj\fB \fBgetValidateCmd\fP \fB?validateCmdName?\fP
+\&\fR
+.RS
+.PP
+Returns a new created validation command, if one is avaliable
+from the parser command, otherwise it signals error. The name of the validation
+command is the \fIvalidateCmdName\fR, if this optional argument was given, or
+a random choosen name. A validation command is avaliable in a parser command,
+if the parser with tnc enabled was previously used, to parse an XML document
+with a valid doctype declaration, a valid external subset, if one was given by
+the doctype declaration, and a valid internal subset. The further document
+doesn't need to be valid, to make the validation command avaliable. The
+validation command can only get received one time from the parser command. The
+created validation command has this syntax:
+
+
+
+.CS
+\&\fBvalidationCmd\fP \fImethod\fR \fI?args?\fR
+.CE
+.PP
+The valid methods are:
+.TP
+\&\fB\fBvalidateDocument\fP \fIdomDocument\fB \fI?varName?\fB
+\&\fRChecks, if the given domDocument is valid against the DTD
+information represented by the validation command. Returns 1, if the document
+ist valid, 0 otherwise. If the \fIvarName\fR argument is given, then the
+variable it names is set to the detected reason for the validation error or to
+the empty string in case of a valid document.
+.TP
+\&\fB\fBvalidateTree\fP \fIelementNode\fB \fI?varName?\fB
+\&\fRChecks, if the given subtree with \fIdomNode\fR as root element
+is a posible valid subtree of a document conforming to the DTD information
+represented by teh validation command. IDREF could not checked, while
+validating only a subtree, but it is checked, that every known ID attribute in
+the subtree is unique. Returns 1, if the subtree is OK, 0 otherwise. If the
+\&\fIvarName\fR argument is given, then the variable it names is set to the
+detected reason for the validation error or to the empty string in case of
+a valid subtree.
+.TP
+\&\fB\fBvalidateAttributes\fP \fIelementNode\fB \fI?varName?\fB
+\&\fRChecks, if there is an element declaration for the name of the
+\&\fIelementNode\fR in the DTD represented by the validation command and, if
+yes, if the attributes of the \fIelementNode\fR are conform to the ATTLIST
+declarations for that element in the DTD. Returns 1, if the attributes and
+there value types are OK, 0 otherwise. If the \fIvarName\fR argument is given,
+then the variable it names is set to the detected reason for the validation
+error or to the empty string in case the element has all its required
+attributes, only declared attributes and the values of the attributes matches
+there type.
+.TP
+\&\fB\fBdelete\fP
+\&\fRDeletes the validation command and frees the memory used by
+it. Returns the empty string.
+.RE
+.SH BUGS
+.PP
+The validation error reports could be much more informative and
+user-friendly.
+.PP
+The validator doesn't detect ambiguous content models (see XML
+recomendation Section 3.2.1 and Appendix E). Most Java validators also doesn't,
+but handle such content models right anyhow. Tnc does not; if your DTD has
+such ambiguous content models, tnc can not used to validate documents against
+such (not completely XML spec compliant) DTDs.
+.PP
+It isn't possible to validate XML documents with standalone="yes" in the
+XML Declaration
+.PP
+Violations of the validity constraints Proper Group/PE Nesting and
+Proper Conditional Section/PE Nesting are not detected. They could only happen
+inside a invalid DTD, not in the content of a document.
+.SH KEYWORDS
+Validation, DTD

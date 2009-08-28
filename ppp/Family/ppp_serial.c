@@ -132,7 +132,7 @@ kern_return_t thread_terminate(register thread_act_t act);
 
 #define LOGLKDBG(lk, text) \
     if (LKIFNET(lk) && (ifnet_flags(LKIFNET(lk)) & IFF_DEBUG)) {	\
-        log text; 		\
+        IOLog text; 		\
     }
 
 
@@ -168,19 +168,19 @@ struct pppserial {
     /* administrative info */
     TAILQ_ENTRY(pppserial) next;
     void			*devp;			/* pointer to device-dep structure */
-    u_short			lref;			/* our line number, as given by mux */
-    u_long			flags;			/* control/status bits */
-    u_long			state;			/* control/status bits */
-    u_long			mru;			/* mru for the line  */
+    u_int16_t		lref;			/* our line number, as given by mux */
+    u_int32_t		flags;			/* control/status bits */
+    u_int32_t		state;			/* control/status bits */
+    u_int32_t		mru;			/* mru for the line  */
 
     /* settings */
     ext_accm 		asyncmap;		/* async control character map */
-    u_long			rasyncmap;		/* receive async control char map */
+    u_int32_t		rasyncmap;		/* receive async control char map */
 
     /* output data */
     struct pppqueue outq;			/* out queue */
     struct pppqueue	oobq;			/* out-of-band out queue */
-    u_short			outfcs;			/* FCS so far for output packet */
+    u_int16_t		outfcs;			/* FCS so far for output packet */
     mbuf_t			outm;			/* mbuf chain currently being output */
 
     /* input data */
@@ -188,8 +188,8 @@ struct pppserial {
     mbuf_t			inm;			/* pointer to input mbuf chain */
     char			*inmp;			/* ptr to next char in input mbuf */
     mbuf_t			inmc;			/* pointer to current input mbuf */
-    short			inlen;			/* length of input packet so far */
-    u_short			infcs;			/* FCS so far (input) */
+    int16_t			inlen;			/* length of input packet so far */
+    u_int16_t		infcs;			/* FCS so far (input) */
 
     /* log purpose */
     u_char			rawin[16];		/* chars as received */
@@ -209,14 +209,14 @@ static int	pppserial_input(int c, struct tty *tp);
 static void	pppserial_start(struct tty *tp);
 
 
-static u_short	pppserial_fcs(u_short fcs, u_char *cp, int len);
+static u_int16_t	pppserial_fcs(u_int16_t fcs, u_char *cp, int len);
 static void	pppserial_getm(struct pppserial *ld);
 static void	pppserial_logchar(struct pppserial *, int);
 static int	pppserial_lk_output(struct ppp_link *link, mbuf_t m);
-static int 	pppserial_lk_ioctl(struct ppp_link *link, u_int32_t cmd, void *data);
+static int 	pppserial_lk_ioctl(struct ppp_link *link, u_long cmd, void *data);
 static int 	pppserial_attach(struct tty *ttyp, struct ppp_link **link);
 static int 	pppserial_detach(struct ppp_link *link);
-static int 	pppserial_findfreeunit(u_short *freeunit);
+static int 	pppserial_findfreeunit(u_int16_t *freeunit);
 
 static void 	pppisr_thread(void);
 static void 	pppserial_intr();
@@ -224,6 +224,14 @@ static void 	pppserial_intr();
 /* -----------------------------------------------------------------------------
 Globals
 ----------------------------------------------------------------------------- */
+
+/*
+ * The locking strategy relies on the global ppp domain mutex 
+ * The mutex is taken when entering a PPP line discpline  function
+ * The mutex is released when calling into the underlying driver, e.g. when calling putc()
+ * The mutex is assumed to be already taken when entering a PPP link function
+ * The mutex protect access to the globals and to the pppserial structure
+ */
 extern lck_mtx_t	*ppp_domain_mutex;
 
 static struct linesw pppserial_disc;
@@ -297,6 +305,8 @@ int pppserial_init()
 {
 	kern_return_t ret;
 
+    /* No need to lock the mutex here as the structures are not known yet */
+
     pppserial_disc = linesw[PPPDISC];
     linesw[PPPDISC] = pppdisc;
 
@@ -324,12 +334,16 @@ int pppserial_dispose()
         return EBUSY;
     
     // be sure are not already terminated
+	lck_mtx_lock(ppp_domain_mutex);
+
     if (!pppsoft_net_terminate) {
         pppsoft_net_terminate = 1;
         wakeup(&pppsoft_net_wakeup);
-        msleep(&pppsoft_net_terminate, 0, PZERO+1, 0, 0);
+        msleep(&pppsoft_net_terminate, ppp_domain_mutex, PZERO+1, 0, 0);
         linesw[PPPDISC] = pppserial_disc;
     }
+
+	lck_mtx_unlock(ppp_domain_mutex);
 	
 	if (pppserial_thread) {
 		thread_deallocate(pppserial_thread);
@@ -367,9 +381,8 @@ int pppserial_attach(struct tty *ttyp, struct ppp_link **link)
     u_short 		unit;
     struct ppp_link  	*lk;
     struct pppserial  	*ld;
-	boolean_t			funnel_state;
 
-    //log(LOGVAL, "pppserial_attach\n");
+    //IOLog("pppserial_attach\n");
 
     // Note : we allocate/find number/insert in queue in that specific order
     // because of funnels and race condition issues
@@ -378,8 +391,11 @@ int pppserial_attach(struct tty *ttyp, struct ppp_link **link)
     if (!ld)
         return ENOMEM;
 		
+	lck_mtx_lock(ppp_domain_mutex);
+    
     if (pppserial_findfreeunit(&unit)) {
         FREE(ld, M_TEMP);
+        lck_mtx_unlock(ppp_domain_mutex);
         return ENOMEM;
     }
         
@@ -408,24 +424,19 @@ int pppserial_attach(struct tty *ttyp, struct ppp_link **link)
     ld->oobq.maxlen = 10;
     pppserial_getm(ld);
     
-	//thread_funnel_switch(KERNEL_FUNNEL, NETWORK_FUNNEL);
-	funnel_state = thread_funnel_set(kernel_flock, FALSE);
-	lck_mtx_lock(ppp_domain_mutex);
     ret = ppp_link_attach(&ld->link);
     if (ret) {
-		lck_mtx_unlock(ppp_domain_mutex);
-        //thread_funnel_switch(NETWORK_FUNNEL, KERNEL_FUNNEL);
-		thread_funnel_set(kernel_flock, funnel_state);
         TAILQ_REMOVE(&pppserial_head, ld, next);
-		log(LOGVAL, "pppserial_attach, error = %d, (ld = 0x%x)\n", ret, &ld->link);
+
+		lck_mtx_unlock(ppp_domain_mutex);
+
+		IOLog("pppserial_attach, error = %d, (ld = 0x%x)\n", ret, &ld->link);
         FREE(ld, M_TEMP);
         return ret;
     }
 	lck_mtx_unlock(ppp_domain_mutex);
-    //thread_funnel_switch(NETWORK_FUNNEL, KERNEL_FUNNEL);
-	thread_funnel_set(kernel_flock, funnel_state);
 
-    //log(LOGVAL, "pppserial_attach, link index = %d, (ld = 0x%x)\n", lk->lk_index, lk);
+    //IOLog("pppserial_attach, link index = %d, (ld = 0x%x)\n", lk->lk_index, lk);
 
     *link = lk;
 
@@ -438,12 +449,13 @@ int pppserial_detach(struct ppp_link *link)
 {
     struct pppserial  	*ld = (struct pppserial *)link;
     mbuf_t			m;
-	boolean_t		funnel_state;
+
+	lck_mtx_lock(ppp_domain_mutex);
 
     ld->state |= STATE_CLOSING; 
     
     while (ld->state & STATE_LKBUSY) {
-        msleep(&ld->state, 0, PZERO+1, 0, 0);
+        msleep(&ld->state, ppp_domain_mutex, PZERO+1, 0, 0);
     }
 
     for (;;) {
@@ -472,17 +484,14 @@ int pppserial_detach(struct ppp_link *link)
         ld->outm = 0;
     }
     
-
     TAILQ_REMOVE(&pppserial_head, ld, next);
 
-    //thread_funnel_switch(KERNEL_FUNNEL, NETWORK_FUNNEL);	
-	funnel_state = thread_funnel_set(kernel_flock, FALSE);
-	lck_mtx_lock(ppp_domain_mutex);
     ppp_link_detach(link);
-    //thread_funnel_switch(NETWORK_FUNNEL, KERNEL_FUNNEL);	
+
 	lck_mtx_unlock(ppp_domain_mutex);
-	thread_funnel_set(kernel_flock, funnel_state);
+
     FREE(ld, M_TEMP);
+
     return 0;
 }
 
@@ -492,9 +501,7 @@ all line discipline share the same thread
 ----------------------------------------------------------------------------- */
 void pppisr_thread(void)
 {
-    boolean_t 	funnel_state;
-
-    funnel_state = thread_funnel_set(kernel_flock, TRUE);
+	lck_mtx_lock(ppp_domain_mutex);
 
     while (!pppsoft_net_terminate) {
         if (pppnetisr) {
@@ -503,12 +510,12 @@ void pppisr_thread(void)
             pppserial_intr();
         }
 
-        msleep(&pppsoft_net_wakeup, 0, PZERO+1, 0, 0);
+        msleep(&pppsoft_net_wakeup, ppp_domain_mutex, PZERO+1, 0, 0);
     }
 
-    wakeup(&pppsoft_net_terminate);
+	lck_mtx_unlock(ppp_domain_mutex);
 
-    thread_funnel_set(kernel_flock, funnel_state);
+    wakeup(&pppsoft_net_terminate);
 
     thread_terminate(current_thread());
     /* NOTREACHED */
@@ -524,9 +531,10 @@ int pppserial_open(dev_t dev, struct tty *tp)
     struct pppserial 	*ld;
     int 		error;
 
-    if ((error = suser(kauth_cred_get(), 0)) != 0)
-        return error;
-
+    if (kauth_cred_issuser(kauth_cred_get()) == 0) {
+        printf("pppserial_open EPERM\n");
+        return EPERM;
+    }
     if (tp->t_line == PPPDISC) {
         ld = (struct pppserial *) tp->t_sc;
         if (ld && ld->devp == (void *)tp) {
@@ -588,8 +596,9 @@ and doesn't specify a unit a priori
 ----------------------------------------------------------------------------- */
 int pppserial_ioctl(struct tty *tp, u_long cmd, caddr_t data, int flag, struct proc *p)
 {
-    struct pppserial 	*ld = (struct pppserial *) tp->t_sc;
-    
+    struct pppserial 	*ld;
+    int error = ENOTTY;
+
     /*
         return -1 is the ioctl is ignored by the line discipline, 
            ttioctl will then be called for further processing
@@ -597,38 +606,46 @@ int pppserial_ioctl(struct tty *tp, u_long cmd, caddr_t data, int flag, struct p
         return any positive error if ioctl is processed with an error
     */
     
+    lck_mtx_lock(ppp_domain_mutex);
+	
+    ld = (struct pppserial *) tp->t_sc;
+    
     switch (cmd) {
         case TIOCGETD:
-            LOGLKDBG(ld, (LOGVAL, "pppserial_ioctl: (ifnet = %s%d) (link = %s%d) TIOCGETD\n", 
+            LOGLKDBG(ld, ("pppserial_ioctl: (ifnet = %s%d) (link = %s%d) TIOCGETD\n", 
                 LKIFNAME(ld), LKIFUNIT(ld), LKNAME(ld), LKUNIT(ld)));
             break;
         case TIOCSETD:
-            LOGLKDBG(ld, (LOGVAL, "pppserial_ioctl: (ifnet = %s%d) (link = %s%d) TIOCSETD\n", 
+            LOGLKDBG(ld, ("pppserial_ioctl: (ifnet = %s%d) (link = %s%d) TIOCSETD\n", 
                 LKIFNAME(ld), LKIFUNIT(ld), LKNAME(ld), LKUNIT(ld)));
             break;
         case TIOCFLUSH:
-            LOGLKDBG(ld, (LOGVAL, "pppserial_ioctl: (ifnet = %s%d) (link = %s%d) TIOCFLUSH\n", 
+            LOGLKDBG(ld, ("pppserial_ioctl: (ifnet = %s%d) (link = %s%d) TIOCFLUSH\n", 
                 LKIFNAME(ld), LKIFUNIT(ld), LKNAME(ld), LKUNIT(ld)));
             break;
         case TCSAFLUSH:
-            LOGLKDBG(ld, (LOGVAL, "pppserial_ioctl: (ifnet = %s%d) (link = %s%d) TCSAFLUSH\n", 
+            LOGLKDBG(ld, ("pppserial_ioctl: (ifnet = %s%d) (link = %s%d) TCSAFLUSH\n", 
                 LKIFNAME(ld), LKIFUNIT(ld), LKNAME(ld), LKUNIT(ld)));
             break;
         case TIOCMGET:
-            LOGLKDBG(ld, (LOGVAL, "pppserial_ioctl: (ifnet = %s%d) (link = %s%d) TIOCMGET\n", 
+            LOGLKDBG(ld, ("pppserial_ioctl: (ifnet = %s%d) (link = %s%d) TIOCMGET\n", 
                 LKIFNAME(ld), LKIFUNIT(ld), LKNAME(ld), LKUNIT(ld)));
             break;
 
-	case PPPIOCGCHAN:
-            LOGLKDBG(ld, (LOGVAL, "pppserial_ioctl: (ifnet = %s%d) (link = %s%d) PPPIOCGCHAN = %d\n", 
+        case PPPIOCGCHAN:
+            LOGLKDBG(ld, ("pppserial_ioctl: (ifnet = %s%d) (link = %s%d) PPPIOCGCHAN = %d\n", 
                 LKIFNAME(ld), LKIFUNIT(ld), LKNAME(ld), LKUNIT(ld), ld ? ld->link.lk_index : 0));
-            if (!ld)
-                return ENXIO;	// can it happen ?
-            *(u_int32_t *)data = ld->link.lk_index;
-            return 0;
-                        
+            if (!ld) {
+                error = ENXIO;	// can it happen ?
+            } else {
+                *(u_int32_t *)data = ld->link.lk_index;
+                error = 0;
+            }
+            break;
     }
-    return ENOTTY;
+	lck_mtx_unlock(ppp_domain_mutex);
+
+    return error;
 }
 
 /* -----------------------------------------------------------------------------
@@ -642,7 +659,7 @@ int pppserial_input(int c, struct tty *tp)
     mbuf_t		m;
     int 		ilen;
 
-    //log(LOGVAL, "pppserial_input, %s c = 0x%x '%c'\n", c == 0x7e ? "----------------" : "", c, ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))? c : '.');
+    //IOLog("pppserial_input, %s c = 0x%x '%c'\n", c == 0x7e ? "----------------" : "", c, ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))? c : '.');
 
     if (ld == NULL || tp != (struct tty *) ld->devp) {
         return 0;
@@ -650,17 +667,19 @@ int pppserial_input(int c, struct tty *tp)
 
     ++tk_nin;
 
-    //log(LOGVAL, "input c = 0x%x\n", c);
+    //IOLog("input c = 0x%x\n", c);
+
+	lck_mtx_lock(ppp_domain_mutex);
 
     if ((tp->t_state & TS_CONNECTED) == 0) {
-        LOGLKDBG(ld, (LOGVAL, "pppserial_input: (ifnet = %s%d) (link = %s%d) no carrier\n", 
+        LOGLKDBG(ld, ("pppserial_input: (ifnet = %s%d) (link = %s%d) no carrier\n", 
             LKIFNAME(ld), LKIFUNIT(ld), LKNAME(ld), LKUNIT(ld)));
         goto flush;
     }
 
     if (c & TTY_ERRORMASK) {
         /* framing error or overrun on this char - abort packet */
-        LOGLKDBG(ld, (LOGVAL, "pppserial_input: (ifnet = %s%d) (link = %s%d) line error %x\n", 
+        LOGLKDBG(ld, ("pppserial_input: (ifnet = %s%d) (link = %s%d) line error %x\n", 
             LKIFNAME(ld), LKIFUNIT(ld), LKNAME(ld), LKUNIT(ld), c & TTY_ERRORMASK));
         goto flush;
     }
@@ -674,14 +693,21 @@ int pppserial_input(int c, struct tty *tp)
         if (c == tp->t_cc[VSTOP] && tp->t_cc[VSTOP] != _POSIX_VDISABLE) {
             if ((tp->t_state & TS_TTSTOP) == 0) {
                 tp->t_state |= TS_TTSTOP;
+                lck_mtx_unlock(ppp_domain_mutex);
                 (*cdevsw[major(tp->t_dev)].d_stop)(tp, 0);
+            } else {
+                lck_mtx_unlock(ppp_domain_mutex);
             }
             return 0;
         }
         if (c == tp->t_cc[VSTART] && tp->t_cc[VSTART] != _POSIX_VDISABLE) {
             tp->t_state &= ~TS_TTSTOP;
-            if (tp->t_oproc != NULL)
+            if (tp->t_oproc != NULL) {
+                lck_mtx_unlock(ppp_domain_mutex);
                 (*tp->t_oproc)(tp);
+            } else {
+                lck_mtx_unlock(ppp_domain_mutex);
+            }
             return 0;
         }
     }
@@ -716,24 +742,28 @@ int pppserial_input(int c, struct tty *tp)
             //s = spltty();
             ld->state |= STATE_PKTLOST;	/* note the dropped packet */
             if ((ld->state & (STATE_FLUSH | STATE_ESCAPED)) == 0){
-                LOGLKDBG(ld, (LOGVAL, "pppserial_input: (ifnet = %s%d) (link = %s%d) bad fcs %x, pkt len %d\n", 
+                LOGLKDBG(ld, ("pppserial_input: (ifnet = %s%d) (link = %s%d) bad fcs %x, pkt len %d\n", 
                     LKIFNAME(ld), LKIFUNIT(ld), LKNAME(ld), LKUNIT(ld), ld->infcs, ilen));
                 ld->link.lk_ierrors++;                
            } else
                 ld->state &= ~(STATE_FLUSH | STATE_ESCAPED);
             //splx(s);
+            lck_mtx_unlock(ppp_domain_mutex);
+
             return 0;
         }
 
         if (ilen < PPP_HDRLEN + PPP_FCSLEN) {
             if (ilen) {
-                LOGLKDBG(ld, (LOGVAL, "pppserial_input: (ifnet = %s%d) (link = %s%d) too short (%d)\n", 
+                LOGLKDBG(ld, ("pppserial_input: (ifnet = %s%d) (link = %s%d) too short (%d)\n", 
                     LKIFNAME(ld), LKIFUNIT(ld), LKNAME(ld), LKUNIT(ld), ilen));
                 //s = spltty();
                 ld->link.lk_ierrors++;
                 ld->state |= STATE_PKTLOST;
                 //splx(s);
             }
+            lck_mtx_unlock(ppp_domain_mutex);
+
             return 0;
         }
 
@@ -766,16 +796,24 @@ int pppserial_input(int c, struct tty *tp)
         schedpppnetisr();
 
         pppserial_getm(ld);
+
+        lck_mtx_unlock(ppp_domain_mutex);
+
         return 0;
     }
 
     if (ld->state & STATE_FLUSH) {
         if (ld->flags & SC_LOG_FLUSH)
             pppserial_logchar(ld, c);
+
+        lck_mtx_unlock(ppp_domain_mutex);
+
         return 0;
     }
 
     if (c < 0x20 && (ld->rasyncmap & (1 << c))) {
+        lck_mtx_unlock(ppp_domain_mutex);
+
         return 0;
     }
 
@@ -786,6 +824,9 @@ int pppserial_input(int c, struct tty *tp)
     } else if (c == PPP_ESCAPE) {
         ld->state |= STATE_ESCAPED;
         //splx(s);
+
+        lck_mtx_unlock(ppp_domain_mutex);
+
         return 0;
     }
     //splx(s);
@@ -805,7 +846,7 @@ int pppserial_input(int c, struct tty *tp)
         if (ld->inm == NULL) {
             pppserial_getm(ld);
             if (ld->inm == NULL) {
-                LOGLKDBG(ld, (LOGVAL, "pppserial_input: (ifnet = %s%d) (link = %s%d) no input mbufs!\n", 
+                LOGLKDBG(ld, ("pppserial_input: (ifnet = %s%d) (link = %s%d) no input mbufs!\n", 
                     LKIFNAME(ld), LKIFUNIT(ld), LKNAME(ld), LKUNIT(ld)));
                 goto flush;
             }
@@ -818,7 +859,7 @@ int pppserial_input(int c, struct tty *tp)
         ld->infcs = PPP_INITFCS;
         if (c != PPP_ALLSTATIONS) {
             if (ld->flags & SC_REJ_COMP_AC) {
-                LOGLKDBG(ld, (LOGVAL, "pppserial_input: (ifnet = %s%d) (link = %s%d) garbage received: 0x%x (need 0xFF)\n", 
+                LOGLKDBG(ld, ("pppserial_input: (ifnet = %s%d) (link = %s%d) garbage received: 0x%x (need 0xFF)\n", 
                     LKIFNAME(ld), LKIFUNIT(ld), LKNAME(ld), LKUNIT(ld), c));
                 goto flush;
             }
@@ -829,7 +870,7 @@ int pppserial_input(int c, struct tty *tp)
         }
     }
     if (ld->inlen == 1 && c != PPP_UI) {
-        LOGLKDBG(ld, (LOGVAL, "pppserial_input: (ifnet = %s%d) (link = %s%d) missing UI (0x3), got 0x%x\n", 
+        LOGLKDBG(ld, ("pppserial_input: (ifnet = %s%d) (link = %s%d) missing UI (0x3), got 0x%x\n", 
             LKIFNAME(ld), LKIFUNIT(ld), LKNAME(ld), LKUNIT(ld), c));
         goto flush;
     }
@@ -840,7 +881,7 @@ int pppserial_input(int c, struct tty *tp)
 		mbuf_setlen(ld->inmc, mbuf_len(ld->inmc) + 1);
     }
     if (ld->inlen == 3 && (c & 1) == 0) {
-        LOGLKDBG(ld, (LOGVAL, "pppserial_input: (ifnet = %s%d) (link = %s%d) bad protocol %x\n", 
+        LOGLKDBG(ld, ("pppserial_input: (ifnet = %s%d) (link = %s%d) bad protocol %x\n", 
             LKIFNAME(ld), LKIFUNIT(ld), LKNAME(ld), LKUNIT(ld), (ld->inmp[-1] << 8) + c));
         goto flush;
     }
@@ -848,7 +889,7 @@ int pppserial_input(int c, struct tty *tp)
     /* packet beyond configured mru? */
     if (++ld->inlen > ld->mru + PPP_HDRLEN + PPP_FCSLEN) {
             LOGLKDBG(ld, 
-                (LOGVAL, "pppserial_input: (ifnet = %s%d) (link = %s%d) packet too big, mru = %d, inlen = %d\n", 
+                ("pppserial_input: (ifnet = %s%d) (link = %s%d) packet too big, mru = %d, inlen = %d\n", 
                 LKIFNAME(ld), LKIFUNIT(ld), LKNAME(ld), LKUNIT(ld), ld->mru, ld->inlen));
         goto flush;
     }
@@ -859,7 +900,7 @@ int pppserial_input(int c, struct tty *tp)
         if (mbuf_next(m) == NULL) {
             pppserial_getm(ld);
             if (mbuf_next(m) == NULL) {
-                LOGLKDBG(ld, (LOGVAL, "pppserial_input: (ifnet = %s%d) (link = %s%d) too few input mbufs!\n", 
+                LOGLKDBG(ld, ("pppserial_input: (ifnet = %s%d) (link = %s%d) too few input mbufs!\n", 
                     LKIFNAME(ld), LKIFUNIT(ld), LKNAME(ld), LKUNIT(ld)));
                 goto flush;
             }
@@ -873,6 +914,9 @@ int pppserial_input(int c, struct tty *tp)
     *ld->inmp++ = c;
     ld->link.lk_ibytes++;	/* the if_bytes reflects the nb of actual PPP bytes received on this link */
     ld->infcs = PPP_FCS(ld->infcs, c);
+
+    lck_mtx_unlock(ppp_domain_mutex);
+
     return 0;
 
 flush:
@@ -884,6 +928,9 @@ flush:
         if (ld->flags & SC_LOG_FLUSH)
             pppserial_logchar(ld, c);
     }
+
+    lck_mtx_unlock(ppp_domain_mutex);
+
     return 0;
 }
 
@@ -897,8 +944,15 @@ int pppserial_ouput(struct pppserial *ld)
     u_char 		*start, *stop, *cp;
     int 		len, n, ndone, done, idle;
 
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
+
+	/* Enforce lock ordering without ref counting: open race window */
+	lck_mtx_unlock(ppp_domain_mutex);
+	tty_lock(tp);
+	lck_mtx_lock(ppp_domain_mutex);
+
     idle = 0;
-    /* XXX assumes atomic access to *tp although we're not at spltty(). */
+
     while (CCOUNT(&tp->t_outq) < tp->t_hiwat) {
         /*
          * See if we have an existing packet partly sent.
@@ -944,7 +998,11 @@ do that if not LCP
              */
             /* XXX as above. */
             if (CCOUNT(&tp->t_outq) == 0) {
+                lck_mtx_unlock(ppp_domain_mutex);
+                
                 (void) putc(PPP_FLAG, &tp->t_outq);
+                
+                lck_mtx_lock(ppp_domain_mutex);
             }
 
             /* Calculate the FCS for the first mbuf's worth. */
@@ -980,16 +1038,17 @@ do that if not LCP
                  * Put it out in a different form.
                  */
                 if (len) {
-                    //s = spltty();
+                    lck_mtx_unlock(ppp_domain_mutex);
                     if (putc(PPP_ESCAPE, &tp->t_outq)) {
-                        //splx(s);
+                        lck_mtx_lock(ppp_domain_mutex);
                         break;
                     }
                     if (putc(*start ^ PPP_TRANS, &tp->t_outq)) {
                         (void) unputc(&tp->t_outq);
-                        //splx(s);
+                        lck_mtx_lock(ppp_domain_mutex);
                         break;
                     }
+                    lck_mtx_lock(ppp_domain_mutex);
                     //splx(s);
                     start++;
                     len--;
@@ -1031,13 +1090,16 @@ do that if not LCP
                  * don't all fit, back out.
                  */
                 //s = spltty();
-                for (q = endseq; q < p; ++q)
+                lck_mtx_unlock(ppp_domain_mutex);
+                for (q = endseq; q < p; ++q) {
                     if (putc(*q, &tp->t_outq)) {
                         done = 0;
                         for (; q > endseq; --q)
                             unputc(&tp->t_outq);
                         break;
                     }
+                }
+                lck_mtx_lock(ppp_domain_mutex);
                         //splx(s);
             }
 
@@ -1066,11 +1128,17 @@ do that if not LCP
         if (m)
             break;
     }
+    
+    /* We release ppp_domain_mutex before calling t_oproc to avoid deadlock */
+	lck_mtx_unlock(ppp_domain_mutex);
 
     /* Call oproc output funtion. */
     if (tp->t_oproc != NULL)
         (*tp->t_oproc)(tp);
 
+	tty_unlock(tp);
+	lck_mtx_lock(ppp_domain_mutex);
+	
     return 0;
 }
 
@@ -1084,6 +1152,8 @@ void pppserial_start(struct tty *tp)
 {
     struct pppserial *ld = (struct pppserial *) tp->t_sc;
 
+    lck_mtx_lock(ppp_domain_mutex);
+
     // clear output flag
     ld->state &= ~STATE_TBUSY;
 
@@ -1095,6 +1165,8 @@ void pppserial_start(struct tty *tp)
 
         schedpppnetisr();
     }
+
+    lck_mtx_unlock(ppp_domain_mutex);
 	
 	ttwwakeup(tp);
 
@@ -1152,7 +1224,7 @@ void pppserial_logchar(struct pppserial *ld, int c)
         ld->rawin[ld->rawinlen++] = c;
     if (ld->rawinlen >= sizeof(ld->rawin)
         || (c < 0 && ld->rawinlen > 0)) {
-        log(LOGVAL, "ppp line %d input: %*D\n", ld->lref, ld->rawinlen, ld->rawin, " ");
+        IOLog("ppp line %d input: %*D\n", ld->lref, ld->rawinlen, ld->rawin, " ");
         ld->rawinlen = 0;
     }
 }
@@ -1171,45 +1243,55 @@ u_short pppserial_fcs(u_short fcs, u_char *cp, int len)
 /* -----------------------------------------------------------------------------
 Process an ioctl request to the ppp link interface
 ----------------------------------------------------------------------------- */
-int pppserial_lk_ioctl(struct ppp_link *link, u_int32_t cmd, void *data)
+int pppserial_lk_ioctl(struct ppp_link *link, u_long cmd, void *data)
 {
     struct pppserial 	*ld = (struct pppserial *)link;
     int 		error = 0;
     u_short		mru;
 
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
+
     switch (cmd) {
 
         case PPPIOCSMRU:
-            LOGLKDBG(ld, (LOGVAL, "pppserial_lk_ioctl: (ifnet = %s%d) (link = %s%d) ld = 0x%x, PPPIOCSMRU = 0x%x\n", 
+            LOGLKDBG(ld, ("pppserial_lk_ioctl: (ifnet = %s%d) (link = %s%d) ld = 0x%x, PPPIOCSMRU = 0x%x\n", 
                     LKIFNAME(ld), LKIFUNIT(ld), LKNAME(ld), LKUNIT(ld), ld, *(u_int32_t *)data));
-            if ((error = suser(kauth_cred_get(), 0)) != 0) 
-                return error;
+            if (kauth_cred_issuser(kauth_cred_get()) == 0) {
+                error = EPERM;
+                break;
+            }
             mru = *(u_int32_t *)data;
             ld->mru = mru;
             pppserial_getm(ld);
             break;
             
         case PPPIOCSASYNCMAP:
-            LOGLKDBG(ld, (LOGVAL, "pppserial_lk_ioctl: (ifnet = %s%d) (link = %s%d) ld = 0x%x, PPPIOCSASYNCMAP = 0x%x\n", 
+            LOGLKDBG(ld, ("pppserial_lk_ioctl: (ifnet = %s%d) (link = %s%d) ld = 0x%x, PPPIOCSASYNCMAP = 0x%x\n", 
                     LKIFNAME(ld), LKIFUNIT(ld), LKNAME(ld), LKUNIT(ld), ld, *(u_int32_t *)data));
-            if ((error = suser(kauth_cred_get(), 0)) != 0) 
-                return error;
-            ld->asyncmap[0] = *(u_long *)data;
+            if (kauth_cred_issuser(kauth_cred_get()) == 0) {
+                error = EPERM;
+                break;
+            }
+            ld->asyncmap[0] = *(u_int32_t *)data;
             break;
 
         case PPPIOCSRASYNCMAP:
-            LOGLKDBG(ld, (LOGVAL, "pppserial_lk_ioctl: (ifnet = %s%d) (link = %s%d) ld = 0x%x, PPPIOCSRASYNCMAP = 0x%x\n", 
+            LOGLKDBG(ld, ("pppserial_lk_ioctl: (ifnet = %s%d) (link = %s%d) ld = 0x%x, PPPIOCSRASYNCMAP = 0x%x\n", 
                     LKIFNAME(ld), LKIFUNIT(ld), LKNAME(ld), LKUNIT(ld), ld, *(u_int32_t *)data));
-            if ((error = suser(kauth_cred_get(), 0)) != 0) 
-                return error;
-            ld->rasyncmap = *(u_long *)data;
+            if (kauth_cred_issuser(kauth_cred_get()) == 0) {
+                error = EPERM;
+                break;
+            }
+            ld->rasyncmap = *(u_int32_t *)data;
             break;
             
         case PPPIOCSXASYNCMAP:
-            LOGLKDBG(ld, (LOGVAL, "pppserial_lk_ioctl: (ifnet = %s%d) (link = %s%d) ld = 0x%x, PPPIOCSXASYNCMAP\n", 
+            LOGLKDBG(ld, ("pppserial_lk_ioctl: (ifnet = %s%d) (link = %s%d) ld = 0x%x, PPPIOCSXASYNCMAP\n", 
                     LKIFNAME(ld), LKIFUNIT(ld), LKNAME(ld), LKUNIT(ld), ld));
-            if ((error = suser(kauth_cred_get(), 0)) != 0) 
-                return error;
+            if (kauth_cred_issuser(kauth_cred_get()) == 0) {
+                error = EPERM;
+                break;
+            }
             bcopy(data, ld->asyncmap, sizeof(ld->asyncmap));
             ld->asyncmap[1] = 0;		/* mustn't escape 0x20 - 0x3f */
             ld->asyncmap[2] &= ~0x40000000;  	/* mustn't escape 0x5e */
@@ -1217,19 +1299,19 @@ int pppserial_lk_ioctl(struct ppp_link *link, u_int32_t cmd, void *data)
             break;
 
          case PPPIOCGASYNCMAP:
-            LOGLKDBG(ld, (LOGVAL, "pppserial_lk_ioctl: (ifnet = %s%d) (link = %s%d) ld = 0x%x, PPPIOCGASYNCMAP = 0x%x\n", 
+            LOGLKDBG(ld, ("pppserial_lk_ioctl: (ifnet = %s%d) (link = %s%d) ld = 0x%x, PPPIOCGASYNCMAP = 0x%x\n", 
                     LKIFNAME(ld), LKIFUNIT(ld), LKNAME(ld), LKUNIT(ld), ld, ld->asyncmap[0]));
             *(u_int32_t *)data = ld->asyncmap[0];
             break;
                 
         case PPPIOCGRASYNCMAP:
-            LOGLKDBG(ld, (LOGVAL, "pppserial_lk_ioctl: (ifnet = %s%d) (link = %s%d) ld = 0x%x, PPPIOCGRASYNCMAP = 0x%x\n", 
+            LOGLKDBG(ld, ("pppserial_lk_ioctl: (ifnet = %s%d) (link = %s%d) ld = 0x%x, PPPIOCGRASYNCMAP = 0x%x\n", 
                     LKIFNAME(ld), LKIFUNIT(ld), LKNAME(ld), LKUNIT(ld), ld, ld->rasyncmap));
             *(u_int32_t *)data = ld->rasyncmap;
             break;
             
          case PPPIOCGXASYNCMAP:
-            LOGLKDBG(ld, (LOGVAL, "pppserial_lk_ioctl: (ifnet = %s%d) (link = %s%d) ld = 0x%x, PPPIOCGXASYNCMAP\n", 
+            LOGLKDBG(ld, ("pppserial_lk_ioctl: (ifnet = %s%d) (link = %s%d) ld = 0x%x, PPPIOCGXASYNCMAP\n", 
                     LKIFNAME(ld), LKIFUNIT(ld), LKNAME(ld), LKUNIT(ld), ld));
             bcopy(ld->asyncmap, data, sizeof(ld->asyncmap));
             break;
@@ -1249,15 +1331,16 @@ int pppserial_lk_output(struct ppp_link *link, mbuf_t m)
 {
     struct pppserial 	*ld = (struct pppserial *)link;
     int 		ret = ENOBUFS;
-	boolean_t   funnel_state;
+
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
 #if 0
     int i;
     u_char *p = mbuf_data(m);
-    log(LOGVAL, "pppserial_lk_output, 0x ");
+    IOLog("pppserial_lk_output, 0x ");
     for (i = 0; i < mbuf_len(m); i++)
-        log(LOGVAL, "%x ", p[i]);
-    log(LOGVAL, "\n");
+        IOLog("%x ", p[i]);
+    IOLog("\n");
 #endif
     
 	/* check for oob packet first */
@@ -1275,10 +1358,6 @@ int pppserial_lk_output(struct ppp_link *link, mbuf_t m)
 			goto dropit;
 		}
 	}
-
-    //thread_funnel_switch(NETWORK_FUNNEL, KERNEL_FUNNEL);
-	lck_mtx_unlock(ppp_domain_mutex);
-	funnel_state = thread_funnel_set(kernel_flock, TRUE);
     
 	if (mbuf_type(m) == MBUF_TYPE_OOBDATA) {
 		mbuf_settype(m, MBUF_TYPE_DATA);
@@ -1293,9 +1372,6 @@ int pppserial_lk_output(struct ppp_link *link, mbuf_t m)
 	}
 	
     schedpppnetisr();
-    //thread_funnel_switch(KERNEL_FUNNEL, NETWORK_FUNNEL);
-	thread_funnel_set(kernel_flock, funnel_state);
-	lck_mtx_lock(ppp_domain_mutex);
 
     return 0;
 	
@@ -1314,7 +1390,8 @@ void pppserial_intr()
     struct pppserial 	*ld;
     struct ppp_link 	*link;
     mbuf_t				m;
-	boolean_t			funnel_state;
+
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     TAILQ_FOREACH(ld, &pppserial_head, next) {
 
@@ -1330,14 +1407,10 @@ void pppserial_intr()
                 && !ppp_qfull(&ld->outq)) {
                 
                 ld->state |= STATE_LKBUSY;
-                //thread_funnel_switch(KERNEL_FUNNEL, NETWORK_FUNNEL);
-				funnel_state = thread_funnel_set(kernel_flock, FALSE);
-				lck_mtx_lock(ppp_domain_mutex);
+
                 link->lk_flags &= ~SC_XMIT_FULL;
                 ppp_link_event(link, PPP_LINK_EVT_XMIT_OK, 0);
-				lck_mtx_unlock(ppp_domain_mutex);
-                //thread_funnel_switch(NETWORK_FUNNEL, KERNEL_FUNNEL);
-				thread_funnel_set(kernel_flock, funnel_state);
+
                 ld->state &= ~STATE_LKBUSY;
                 
                 if (ld->state & STATE_CLOSING) {
@@ -1355,17 +1428,13 @@ void pppserial_intr()
                 break;
 
             ld->state |= STATE_LKBUSY;
-            //thread_funnel_switch(KERNEL_FUNNEL, NETWORK_FUNNEL);
-			funnel_state = thread_funnel_set(kernel_flock, FALSE);
-			lck_mtx_lock(ppp_domain_mutex);
+
             if (mbuf_flags(m) & M_ERRMARK) {
                 ppp_link_event((struct ppp_link *)ld, PPP_LINK_EVT_INPUTERROR, 0);
 				mbuf_setflags(m, mbuf_flags(m) & ~M_ERRMARK);
             }
             ppp_link_input(&ld->link, m);
-			lck_mtx_unlock(ppp_domain_mutex);
-            //thread_funnel_switch(NETWORK_FUNNEL, KERNEL_FUNNEL);
-			thread_funnel_set(kernel_flock, funnel_state);
+
             ld->state &= ~STATE_LKBUSY;
             
             if (ld->state & STATE_CLOSING) {

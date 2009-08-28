@@ -1,0 +1,36 @@
+--- mu-conference_0.8/src/jcomp/jcr_main_stream_error.c	2007-05-20 12:55:58.000000000 -0700
++++ mu-conference_0.8_apple/src/jcomp/jcr_main_stream_error.c	2009-03-27 13:41:10.000000000 -0700
+@@ -35,8 +35,10 @@
+   XML_SetCharacterDataHandler(jcr->parser, (void *)jcr_cdata);
+   XML_SetUserData(jcr->parser, NULL);
+ 
+-  while (jcr_socket_connect()) {
+-    sleep(2);
++  if (jcr_socket_connect()) {
++    log_notice(JDBG, "Failed to connect to remote server.");
++    jcr->stream_state = _STREAM_ERROR;
++    return;
+   }
+ 
+   jcr->gio = g_io_channel_unix_new(jcr->fd);
+@@ -53,17 +55,8 @@
+ void jcr_main_close_stream(void) {
+   extern jcr_instance jcr;
+ 
+-  log_warn(JDBG, "Server stream error, resetting");
+-  jcr->stream_state = _STREAM_ERROR;
+-  g_thread_join(jcr->dthread);
+-
+-  g_source_remove(jcr->gmain_watch_source);
+-  g_io_channel_shutdown(jcr->gio, TRUE, NULL);
+-  g_io_channel_unref(jcr->gio);
+-  g_io_channel_unref(jcr->gio);
+-  close(jcr->fd);
+-  
++  log_warn(JDBG, "Server stream error, shutting down.");
+ 
+-  sleep(2);
+-  jcr_main_new_stream();
++  jcr->stream_state = _STREAM_ERROR;
++  g_main_loop_quit(jcr->gmain);
+ }

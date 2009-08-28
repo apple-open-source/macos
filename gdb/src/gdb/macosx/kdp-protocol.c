@@ -27,13 +27,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdint.h>
 
 #include "kdp-udp.h"
 
 #include "defs.h"
 #define assert CHECK_FATAL
 
-static inline unsigned short
+static uint16_t
 read16u (const unsigned char *s, int bigendian)
 {
   if (bigendian)
@@ -46,7 +47,7 @@ read16u (const unsigned char *s, int bigendian)
     }
 }
 
-static inline unsigned long
+static uint32_t
 read32u (const unsigned char *s, int bigendian)
 {
   if (bigendian)
@@ -59,8 +60,23 @@ read32u (const unsigned char *s, int bigendian)
     }
 }
 
+static uint64_t
+read64u (const unsigned char *s, int bigendian)
+{
+#define U(a) ((uint64_t)(a))
+  if (bigendian)
+    {
+      return (U(s[7]) << 56) + (U(s[6]) << 48) + (U(s[5]) << 40) + (U(s[4]) << 32) + (U(s[3]) << 24) + (U(s[2]) << 16) + (U(s[1]) << 8) + U(s[0]);
+    }
+  else
+    {
+      return (U(s[0]) << 56) + (U(s[1]) << 48) + (U(s[2]) << 40) + (U(s[3]) << 32) + (U(s[4]) << 24) + (U(s[5]) << 16) + (U(s[6]) << 8) + U(s[7]);
+    }
+#undef U
+}
+
 static inline void
-write16u (unsigned char *s, unsigned short i, int bigendian)
+write16u (unsigned char *s, uint16_t i, int bigendian)
 {
   if (bigendian)
     {
@@ -75,7 +91,7 @@ write16u (unsigned char *s, unsigned short i, int bigendian)
 }
 
 static inline void
-write32u (unsigned char *s, unsigned long i, int bigendian)
+write32u (unsigned char *s, uint32_t i, int bigendian)
 {
   if (bigendian)
     {
@@ -90,6 +106,33 @@ write32u (unsigned char *s, unsigned long i, int bigendian)
       s[1] = (i >> 16) & 0xff;
       s[2] = (i >> 8) & 0xff;
       s[3] = (i >> 0) & 0xff;
+    }
+}
+
+static inline void
+write64u (unsigned char *s, uint64_t i, int bigendian)
+{
+  if (bigendian)
+    {
+      s[7] = (i >> 56) & 0xff;
+      s[6] = (i >> 48) & 0xff;
+      s[5] = (i >> 40) & 0xff;
+      s[4] = (i >> 32) & 0xff;
+      s[3] = (i >> 24) & 0xff;
+      s[2] = (i >> 16) & 0xff;
+      s[1] = (i >> 8) & 0xff;
+      s[0] = (i >> 0) & 0xff;
+    }
+  else
+    {
+      s[0] = (i >> 56) & 0xff;
+      s[1] = (i >> 48) & 0xff;
+      s[2] = (i >> 40) & 0xff;
+      s[3] = (i >> 32) & 0xff;
+      s[4] = (i >> 24) & 0xff;
+      s[5] = (i >> 16) & 0xff;
+      s[6] = (i >> 8) & 0xff;
+      s[7] = (i >> 0) & 0xff;
     }
 }
 
@@ -114,8 +157,12 @@ kdp_req_string (kdp_req_t req)
       return "MAXBYTES";
     case KDP_READMEM:
       return "READMEM";
+    case KDP_READMEM64:
+      return "READMEM64";
     case KDP_WRITEMEM:
       return "WRITEMEM";
+    case KDP_WRITEMEM64:
+      return "WRITEMEM64";
     case KDP_READREGS:
       return "READREGS";
     case KDP_WRITEREGS:
@@ -130,14 +177,20 @@ kdp_req_string (kdp_req_t req)
       return "RESUMECPUS";
     case KDP_BREAKPOINT_SET:
       return "BREAKPOINT_SET";
+    case KDP_BREAKPOINT64_SET:
+      return "BREAKPOINT64_SET";
     case KDP_BREAKPOINT_REMOVE:
       return "BREAKPOINT_REMOVE";
+    case KDP_BREAKPOINT64_REMOVE:
+      return "BREAKPOINT64_REMOVE";
     case KDP_EXCEPTION:
       return "EXCEPTION";
     case KDP_TERMINATION:
       return "TERMINATION";
     case KDP_REGIONS:
       return "REGIONS";
+    case KDP_KERNELVERSION:
+      return "KERNELVERSION";
     default:
       return "[UNKNOWN]";
     }
@@ -279,6 +332,10 @@ kdp_log_packet (kdp_log_function * f, kdp_log_level l, const kdp_pkt_t * p)
              "version", p->version_reply.version,
              "feature", p->version_reply.feature);
           break;
+        case KDP_KERNELVERSION:
+          f (l,
+	     "  %8s: \"%s\"\n", "kernelversion", p->kernelversion_reply.version);
+          break;
         case KDP_REGIONS:
           f (l, "  %8s: %d\n", "nregions", p->regions_reply.nregions);
           for (i = 0; i < p->regions_reply.nregions; i++)
@@ -303,11 +360,25 @@ kdp_log_packet (kdp_log_function * f, kdp_log_level l, const kdp_pkt_t * p)
              p->readmem_reply.error, "nbytes", p->readmem_reply.nbytes);
           kdp_log_data (f, l, p->readmem_reply.data, p->readmem_reply.nbytes);
           break;
+        case KDP_READMEM64:
+          f (l,
+             "  %8s: \"%s\" (%d)\n"
+             "  %8s: %d\n",
+             "error", kdp_error_string (p->readmem64_reply.error),
+             p->readmem64_reply.error, "nbytes", p->readmem64_reply.nbytes);
+          kdp_log_data (f, l, p->readmem64_reply.data, p->readmem64_reply.nbytes);
+          break;
         case KDP_WRITEMEM:
           f (l,
              "  %8s: \"%s\" (%d)\n",
              "error", kdp_error_string (p->writemem_reply.error),
              p->writemem_reply.error);
+          break;
+        case KDP_WRITEMEM64:
+          f (l,
+             "  %8s: \"%s\" (%d)\n",
+             "error", kdp_error_string (p->writemem64_reply.error),
+             p->writemem64_reply.error);
           break;
         case KDP_READREGS:
           f (l,
@@ -339,6 +410,13 @@ kdp_log_packet (kdp_log_function * f, kdp_log_level l, const kdp_pkt_t * p)
              "  %8s: \"%s\" (%d)\n",
              "error", kdp_error_string (p->breakpoint_reply.error),
              p->breakpoint_reply.error);
+          break;
+        case KDP_BREAKPOINT64_SET:
+        case KDP_BREAKPOINT64_REMOVE:
+          f (l,
+             "  %8s: \"%s\" (%d)\n",
+             "error", kdp_error_string (p->breakpoint64_reply.error),
+             p->breakpoint64_reply.error);
           break;
         case KDP_SUSPEND:
         case KDP_RESUMECPUS:
@@ -378,6 +456,8 @@ kdp_log_packet (kdp_log_function * f, kdp_log_level l, const kdp_pkt_t * p)
           break;
         case KDP_VERSION:
           break;
+	case KDP_KERNELVERSION:
+	  break;
         case KDP_REGIONS:
           break;
         case KDP_MAXBYTES:
@@ -387,21 +467,42 @@ kdp_log_packet (kdp_log_function * f, kdp_log_level l, const kdp_pkt_t * p)
              "  %8s: 0x%s\n"
              "  %8s: %d\n",
              "addr", paddr_nz (p->readmem_req.address),
-             "nbytes", (unsigned long) p->readmem_req.nbytes);
+             "nbytes", p->readmem_req.nbytes);
+          break;
+        case KDP_READMEM64:
+          f (l,
+             "  %8s: 0x%s\n"
+             "  %8s: %d\n",
+             "addr", paddr_nz (p->readmem64_req.address),
+             "nbytes", p->readmem64_req.nbytes);
           break;
         case KDP_WRITEMEM:
           f (l,
              "  %8s: 0x%s\n"
              "  %8s: %d\n",
              "addr", paddr_nz (p->writemem_req.address),
-             "nbytes", (unsigned long) p->writemem_req.nbytes);
+             "nbytes", p->writemem_req.nbytes);
           kdp_log_data (f, l, p->writemem_req.data, p->writemem_req.nbytes);
+          break;
+        case KDP_WRITEMEM64:
+          f (l,
+             "  %8s: 0x%s\n"
+             "  %8s: %d\n",
+             "addr", paddr_nz (p->writemem64_req.address),
+             "nbytes", p->writemem64_req.nbytes);
+          kdp_log_data (f, l, p->writemem64_req.data, p->writemem64_req.nbytes);
           break;
         case KDP_BREAKPOINT_SET:
         case KDP_BREAKPOINT_REMOVE:
           f (l,
              "  %8s: 0x%s\n",
              "addr", paddr_nz (p->breakpoint_req.address));
+          break;
+        case KDP_BREAKPOINT64_SET:
+        case KDP_BREAKPOINT64_REMOVE:
+          f (l,
+             "  %8s: 0x%s\n",
+             "addr", paddr_nz (p->breakpoint64_req.address));
           break;
         case KDP_READREGS:
           f (l,
@@ -490,6 +591,11 @@ kdp_marshal (kdp_connection *c,
           write32u (s + 8, p->version_reply.version, c->bigendian);
           write32u (s + 12, p->version_reply.feature, c->bigendian);
           break;
+        case KDP_KERNELVERSION:
+          len = 8 + strlen (p->kernelversion_reply.version) + 1;
+          CHECK_LEN_MAX (len, maxlen);
+          memcpy (s + 8, p->kernelversion_reply.version, len - 8);
+          break;
         case KDP_REGIONS:
           {
             const unsigned int REGION_SIZE = 12;
@@ -518,14 +624,28 @@ kdp_marshal (kdp_connection *c,
           CHECK_LEN_MAX (len, maxlen);
           memcpy (s + 12, p->readmem_reply.data, len - 12);
           break;
+        case KDP_READMEM64:
+          len = 12 + p->readmem64_reply.nbytes;
+          CHECK_LEN_MAX (len, maxlen);
+          memcpy (s + 12, p->readmem64_reply.data, len - 12);
+          break;
         case KDP_WRITEMEM:
           len = 12;
           write32u (s + 8, p->writemem_reply.error, c->bigendian);
+          break;
+        case KDP_WRITEMEM64:
+          len = 12;
+          write32u (s + 8, p->writemem64_reply.error, c->bigendian);
           break;
         case KDP_BREAKPOINT_SET:
         case KDP_BREAKPOINT_REMOVE:
           len = 12;
           write32u (s + 8, p->breakpoint_reply.error, c->bigendian);
+          break;
+        case KDP_BREAKPOINT64_SET:
+        case KDP_BREAKPOINT64_REMOVE:
+          len = 12;
+          write32u (s + 8, p->breakpoint64_reply.error, c->bigendian);
           break;
         case KDP_READREGS:
           {
@@ -542,7 +662,7 @@ kdp_marshal (kdp_connection *c,
             for (i = 0; i < (reglen / KDP_REGISTER_SIZE); i++)
               {
                 write32u (s + 12 + (i * KDP_REGISTER_SIZE),
-                          ((unsigned long *) p->readregs_reply.data)[i],
+                          ((uint32_t *) p->readregs_reply.data)[i],
                           c->bigendian);
               }
             break;
@@ -595,6 +715,7 @@ kdp_marshal (kdp_connection *c,
         case KDP_HOSTREBOOT:
         case KDP_HOSTINFO:
         case KDP_VERSION:
+	case KDP_KERNELVERSION:
         case KDP_REGIONS:
         case KDP_MAXBYTES:
           len = 8;
@@ -604,6 +725,11 @@ kdp_marshal (kdp_connection *c,
           write32u (s + 8, p->readmem_req.address, c->bigendian);
           write32u (s + 12, p->readmem_req.nbytes, c->bigendian);
           break;
+        case KDP_READMEM64:
+          len = 20;
+          write64u (s + 8, p->readmem64_req.address, c->bigendian);
+          write32u (s + 16, p->readmem64_req.nbytes, c->bigendian);
+          break;
         case KDP_WRITEMEM:
           len = 16 + p->writemem_req.nbytes;
           CHECK_LEN_MAX (len, maxlen);
@@ -611,10 +737,22 @@ kdp_marshal (kdp_connection *c,
           write32u (s + 12, p->writemem_req.nbytes, c->bigendian);
           memcpy (s + 16, p->writemem_req.data, p->writemem_req.nbytes);
           break;
+        case KDP_WRITEMEM64:
+          len = 20 + p->writemem64_req.nbytes;
+          CHECK_LEN_MAX (len, maxlen);
+          write64u (s + 8, p->writemem64_req.address, c->bigendian);
+          write32u (s + 16, p->writemem64_req.nbytes, c->bigendian);
+          memcpy (s + 20, p->writemem64_req.data, p->writemem64_req.nbytes);
+          break;
         case KDP_BREAKPOINT_SET:
         case KDP_BREAKPOINT_REMOVE:
           len = 12;
           write32u (s + 8, p->breakpoint_req.address, c->bigendian);
+          break;
+        case KDP_BREAKPOINT64_SET:
+        case KDP_BREAKPOINT64_REMOVE:
+          len = 16;
+          write64u (s + 8, p->breakpoint64_req.address, c->bigendian);
           break;
         case KDP_READREGS:
           len = 16;
@@ -641,7 +779,7 @@ kdp_marshal (kdp_connection *c,
             for (i = 0; i < (reglen / KDP_REGISTER_SIZE); i++)
               {
                 write32u (s + 16 + (i * KDP_REGISTER_SIZE),
-                          ((unsigned long *) p->writeregs_req.data)[i],
+                          ((uint32_t *) p->writeregs_req.data)[i],
                           c->bigendian);
               }
             break;
@@ -812,6 +950,11 @@ kdp_unmarshal (kdp_connection *c,
           p->version_reply.version = read32u (s + 8, c->bigendian);
           p->version_reply.feature = read32u (s + 12, c->bigendian);
           break;
+        case KDP_KERNELVERSION:
+          CHECK_PLEN_RLEN (plen, rlen);
+          CHECK_PLEN_MINLEN (plen, 8);
+          memcpy (p->kernelversion_reply.version, s + 8, plen - 8);
+          break;
         case KDP_REGIONS:
           {
             const unsigned int REGION_SIZE = 12;
@@ -845,13 +988,31 @@ kdp_unmarshal (kdp_connection *c,
           p->readmem_reply.nbytes = plen - 12;
           memcpy (p->readmem_reply.data, s + 12, plen - 12);
           break;
+        case KDP_READMEM64:
+          CHECK_PLEN_RLEN (plen, rlen);
+          CHECK_PLEN_MINLEN (plen, 12);
+          p->readmem64_reply.error = read32u (s + 8, c->bigendian);
+          p->readmem64_reply.nbytes = plen - 12;
+          memcpy (p->readmem64_reply.data, s + 12, plen - 12);
+          break;
         case KDP_WRITEMEM:
           CHECK_PLEN_RLEN (plen, rlen);
           CHECK_PLEN_LEN (plen, 12);
           p->writemem_reply.error = read32u (s + 8, c->bigendian);
           break;
+        case KDP_WRITEMEM64:
+          CHECK_PLEN_RLEN (plen, rlen);
+          CHECK_PLEN_LEN (plen, 12);
+          p->writemem64_reply.error = read32u (s + 8, c->bigendian);
+          break;
         case KDP_BREAKPOINT_SET:
         case KDP_BREAKPOINT_REMOVE:
+          CHECK_PLEN_RLEN (plen, rlen);
+          CHECK_PLEN_LEN (plen, 12);
+          p->breakpoint_reply.error = read32u (s + 8, c->bigendian);
+          break;
+        case KDP_BREAKPOINT64_SET:
+        case KDP_BREAKPOINT64_REMOVE:
           CHECK_PLEN_RLEN (plen, rlen);
           CHECK_PLEN_LEN (plen, 12);
           p->breakpoint_reply.error = read32u (s + 8, c->bigendian);
@@ -874,7 +1035,7 @@ kdp_unmarshal (kdp_connection *c,
             p->readregs_reply.nbytes = reglen;
             for (i = 0; i < (reglen / KDP_REGISTER_SIZE); i++)
               {
-                ((unsigned long *) p->readregs_reply.data)[i] =
+                ((uint32_t *) p->readregs_reply.data)[i] =
                   read32u (s + 12 + (i * KDP_REGISTER_SIZE), c->bigendian);
               }
             break;
@@ -948,6 +1109,10 @@ kdp_unmarshal (kdp_connection *c,
           CHECK_PLEN_RLEN (plen, rlen);
           CHECK_PLEN_LEN (plen, 8);
           break;
+        case KDP_KERNELVERSION:
+          CHECK_PLEN_RLEN (plen, rlen);
+          CHECK_PLEN_MINLEN (plen, 8);
+          break;
         case KDP_REGIONS:
           CHECK_PLEN_RLEN (plen, rlen);
           CHECK_PLEN_LEN (plen, 8);
@@ -962,6 +1127,12 @@ kdp_unmarshal (kdp_connection *c,
           p->readmem_req.address = read32u (s + 8, c->bigendian);
           p->readmem_req.nbytes = read32u (s + 12, c->bigendian);
           break;
+        case KDP_READMEM64:
+          CHECK_PLEN_RLEN (plen, rlen);
+          CHECK_PLEN_MINLEN (plen, 20);
+          p->readmem64_req.address = read64u (s + 8, c->bigendian);
+          p->readmem64_req.nbytes = read32u (s + 16, c->bigendian);
+          break;
         case KDP_WRITEMEM:
           CHECK_PLEN_RLEN (plen, rlen);
           CHECK_PLEN_MINLEN (plen, 16);
@@ -969,6 +1140,14 @@ kdp_unmarshal (kdp_connection *c,
           p->writemem_req.nbytes = read32u (s + 12, c->bigendian);
           CHECK_PLEN_LEN (plen, p->writemem_req.nbytes + 16);
           memcpy (p->writemem_req.data, s + 16, plen - 16);
+          break;
+        case KDP_WRITEMEM64:
+          CHECK_PLEN_RLEN (plen, rlen);
+          CHECK_PLEN_MINLEN (plen, 20);
+          p->writemem64_req.address = read64u (s + 8, c->bigendian);
+          p->writemem64_req.nbytes = read32u (s + 16, c->bigendian);
+          CHECK_PLEN_LEN (plen, p->writemem64_req.nbytes + 20);
+          memcpy (p->writemem64_req.data, s + 20, plen - 20);
           break;
         case KDP_READREGS:
           CHECK_PLEN_RLEN (plen, rlen);
@@ -995,7 +1174,7 @@ kdp_unmarshal (kdp_connection *c,
             p->writeregs_req.nbytes = reglen;
             for (i = 0; i < (reglen / KDP_REGISTER_SIZE); i++)
               {
-                ((unsigned long *) p->writeregs_req.data)[i] =
+                ((uint32_t *) p->writeregs_req.data)[i] =
                   read32u (s + 16 + (i * KDP_REGISTER_SIZE), c->bigendian);
               }
             break;
@@ -1023,6 +1202,12 @@ kdp_unmarshal (kdp_connection *c,
           CHECK_PLEN_RLEN (plen, rlen);
           CHECK_PLEN_LEN (plen, 12);
           p->breakpoint_req.address = read32u (s + 8, c->bigendian);
+          break;
+        case KDP_BREAKPOINT64_SET:
+        case KDP_BREAKPOINT64_REMOVE:
+          CHECK_PLEN_RLEN (plen, rlen);
+          CHECK_PLEN_LEN (plen, 16);
+          p->breakpoint64_req.address = read64u (s + 8, c->bigendian);
           break;
         case KDP_EXCEPTION:
           {

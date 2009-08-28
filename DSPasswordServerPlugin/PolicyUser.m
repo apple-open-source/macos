@@ -63,7 +63,7 @@ int ConvertXMLPolicyToSpaceDelimited( const char *inXMLDataStr, char **outPolicy
 			}
 			CFRelease( userPolicyString );
 		}
-		[userPolicyObj free];
+		[userPolicyObj release];
 	}
 
 	// clean up on failure
@@ -110,7 +110,7 @@ int ConvertSpaceDelimitedPoliciesToXML( const char *inPolicyStr, int inPreserveS
 		[userPolicyObj addMiscPolicies:inPolicyStr];
 		[userPolicyObj setPolicy:&policies extraPolicy:&morePolicies];
 		*outXMLDataStr = [userPolicyObj policyAsXMLDataCopy:(BOOL)inPreserveStateInfo];
-		[userPolicyObj free];
+		[userPolicyObj release];
 	}
 	
 	return (*outXMLDataStr == NULL) ? -1 : 0;
@@ -153,6 +153,10 @@ int ConvertSpaceDelimitedPoliciesToXML( const char *inPolicyStr, int inPreserveS
 		
 	if ( StringToPWAccessFeatures_GetValue( warnOfDisableMinutes, &value ) )
 		mWarnOfDisableMinutes = value;
+
+	const char *passwordLastSetTime = strstr( inPolicyStr, kPWPolicyStr_passwordLastSetTime );
+	if ( StringToPWAccessFeatures_GetValue( passwordLastSetTime, &value ) )
+		mModDateOfPassword = value;
 }
 
 
@@ -176,10 +180,10 @@ int ConvertSpaceDelimitedPoliciesToXML( const char *inPolicyStr, int inPreserveS
 	mMoreUserPolicy.requiresMixedCase = [self intValueForKey:CFSTR(kPWPolicyStr_requiresMixedCase) inDictionary:policyDict];
 	mMoreUserPolicy.requiresSymbol = [self intValueForKey:CFSTR(kPWPolicyStr_requiresSymbol) inDictionary:policyDict];
 	mUserPolicy.newPasswordRequired = [self intValueForKey:CFSTR(kPWPolicyStr_newPasswordRequired) inDictionary:policyDict];
-	pwsf_ConvertCFDateToBSDTime( [self dateValueForKey:CFSTR(kPWPolicyStr_expirationDateGMT) inDictionary:policyDict],
-		(struct tm *)&mUserPolicy.expirationDateGMT );
-	pwsf_ConvertCFDateToBSDTime( [self dateValueForKey:CFSTR(kPWPolicyStr_hardExpireDateGMT) inDictionary:policyDict],
-		(struct tm *)&mUserPolicy.hardExpireDateGMT );
+	pwsf_ConvertCFDateToBSDTimeStructCopy( [self dateValueForKey:CFSTR(kPWPolicyStr_expirationDateGMT) inDictionary:policyDict],
+		&mUserPolicy.expirationDateGMT );
+	pwsf_ConvertCFDateToBSDTimeStructCopy( [self dateValueForKey:CFSTR(kPWPolicyStr_hardExpireDateGMT) inDictionary:policyDict],
+		&mUserPolicy.hardExpireDateGMT );
 	mUserPolicy.maxMinutesUntilChangePassword = [self intValueForKey:CFSTR(kPWPolicyStr_maxMinutesUntilChangePW)
 		inDictionary:policyDict];
 	mUserPolicy.maxMinutesUntilDisabled = [self intValueForKey:CFSTR(kPWPolicyStr_maxMinutesUntilDisabled)
@@ -193,6 +197,14 @@ int ConvertSpaceDelimitedPoliciesToXML( const char *inPolicyStr, int inPreserveS
 		inDictionary:policyDict];
 	mMoreUserPolicy.notGuessablePattern = [self intValueForKey:CFSTR(kPWPolicyStr_notGuessablePattern) inDictionary:policyDict];
 	mMoreUserPolicy.isComputerAccount = [self intValueForKey:CFSTR(kPWPolicyStr_isComputerAccount) inDictionary:policyDict];
+
+	if ( CFDictionaryContainsKey(policyDict, CFSTR(kPWPolicyStr_warnOfExpirationMinutes)) )
+		mWarnOfExpirationMinutes = [self intValueForKey:CFSTR(kPWPolicyStr_warnOfExpirationMinutes) inDictionary:policyDict];
+	if ( CFDictionaryContainsKey(policyDict, CFSTR(kPWPolicyStr_warnOfDisableMinutes)) )
+		mWarnOfDisableMinutes = [self intValueForKey:CFSTR(kPWPolicyStr_warnOfDisableMinutes) inDictionary:policyDict];
+	if ( CFDictionaryContainsKey(policyDict, CFSTR(kPWPolicyStr_passwordLastSetTime)) )
+		mModDateOfPassword = [self intValueForKey:CFSTR(kPWPolicyStr_passwordLastSetTime) inDictionary:policyDict];
+
 }
 
 
@@ -205,6 +217,7 @@ int ConvertSpaceDelimitedPoliciesToXML( const char *inPolicyStr, int inPreserveS
 	unsigned int aBoolVal;
 	CFNumberRef warnOfExpirationRef = NULL;
 	CFNumberRef warnOfDisableRef = NULL;
+	CFNumberRef passwordLastSetTimeRef = NULL;
 
 	policyDict = CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
 	if ( policyDict != NULL )
@@ -213,8 +226,8 @@ int ConvertSpaceDelimitedPoliciesToXML( const char *inPolicyStr, int inPreserveS
 		historyNumber = (mUserPolicy.usingHistory != 0);
 		if ( historyNumber > 0 )
 			historyNumber += mUserPolicy.historyCount;
-		pwsf_ConvertBSDTimeToCFDate( (struct tm *)&(mUserPolicy.expirationDateGMT), &expirationDateGMTRef );
-		pwsf_ConvertBSDTimeToCFDate( (struct tm *)&(mUserPolicy.hardExpireDateGMT), &hardExpireDateGMTRef );
+		pwsf_ConvertBSDTimeStructCopyToCFDate( &(mUserPolicy.expirationDateGMT), &expirationDateGMTRef );
+		pwsf_ConvertBSDTimeStructCopyToCFDate( &(mUserPolicy.hardExpireDateGMT), &hardExpireDateGMTRef );
 		
 		CFNumberRef usingHistoryRef = CFNumberCreate( kCFAllocatorDefault, kCFNumberIntType, &historyNumber );
 		
@@ -264,6 +277,9 @@ int ConvertSpaceDelimitedPoliciesToXML( const char *inPolicyStr, int inPreserveS
 			warnOfExpirationRef = CFNumberCreate( kCFAllocatorDefault, kCFNumberLongType, &mWarnOfExpirationMinutes );
 		if ( mWarnOfDisableMinutes > 0 )
 			warnOfDisableRef = CFNumberCreate( kCFAllocatorDefault, kCFNumberLongType, &mWarnOfDisableMinutes );
+
+		if ( mModDateOfPassword > 0 )
+			passwordLastSetTimeRef = CFNumberCreate( kCFAllocatorDefault, kCFNumberLongType, &mModDateOfPassword );
 		
 		if ( usingHistoryRef != NULL )
 		{
@@ -401,6 +417,12 @@ int ConvertSpaceDelimitedPoliciesToXML( const char *inPolicyStr, int inPreserveS
 		{
 			CFDictionaryAddValue( policyDict, CFSTR(kPWPolicyStr_warnOfDisableMinutes), warnOfDisableRef );
 			CFRelease( warnOfDisableRef );
+		}
+
+		if ( passwordLastSetTimeRef != NULL )
+		{
+			CFDictionaryAddValue( policyDict, CFSTR(kPWPolicyStr_passwordLastSetTime), passwordLastSetTimeRef );
+			CFRelease( passwordLastSetTimeRef );
 		}
 	}
 		

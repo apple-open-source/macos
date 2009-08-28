@@ -1,8 +1,8 @@
 /*
  * ntfs_debug.c - NTFS kernel debug support.
  *
- * Copyright (c) 2006, 2007 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006, 2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2008 Anton Altaparmakov.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2008 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -39,12 +39,14 @@
 #include <sys/errno.h>
 #include <sys/kernel_types.h>
 #include <sys/mount.h>
+#include <sys/proc.h>
 #include <sys/sysctl.h>
 
 #include <stdarg.h>
 #include <string.h>
 
 #include <libkern/libkern.h>
+#include <libkern/OSDebug.h>
 
 #include <kern/debug.h>
 #include <kern/locks.h>
@@ -121,11 +123,11 @@ void ntfs_debug_deinit(void)
 /**
  * __ntfs_warning - output a warning to the console
  * @function:	name of function outputting the warning
- * @mp:		mounted ntfs filesystem
+ * @mp:		mounted ntfs file system
  * @fmt:	warning string containing format specifications
  * @...:	a variable number of arguments specified in @fmt
  *
- * Outputs a warning to the console for the mounted ntfs filesystem described
+ * Outputs a warning to the console for the mounted ntfs file system described
  * by @mp.
  *
  * @fmt and the corresponding @... is printf style format string containing
@@ -150,23 +152,26 @@ void __ntfs_warning(const char *function,
 	vsnprintf(ntfs_err_buf, sizeof(ntfs_err_buf), fmt, args);
 	va_end(args);
 	if (mp)
-		printf("NTFS-fs warning (device %s): %s(): %s\n",
-				vfs_statfs(mp)->f_mntfromname,
+		printf("NTFS-fs warning (device %s, pid %d): %s(): %s\n",
+				vfs_statfs(mp)->f_mntfromname, proc_selfpid(),
 				flen ? function : "", ntfs_err_buf);
 	else
-		printf("NTFS-fs warning: %s(): %s\n", flen ? function : "",
-				ntfs_err_buf);
+		printf("NTFS-fs warning (pid %d): %s(): %s\n", proc_selfpid(),
+				flen ? function : "", ntfs_err_buf);
+#ifdef DEBUG
+	OSReportWithBacktrace("");
+#endif
 	lck_spin_unlock(&ntfs_err_buf_lock);
 }
 
 /**
  * __ntfs_error - output an error to the console
  * @function:	name of function outputting the error
- * @mp:		mounted ntfs filesystem
+ * @mp:		mounted ntfs file system
  * @fmt:	error string containing format specifications
  * @...:	a variable number of arguments specified in @fmt
  *
- * Outputs an error to the console for the mounted ntfs filesystem described
+ * Outputs an error to the console for the mounted ntfs file system described
  * by @mp.
  *
  * @fmt and the corresponding @... is printf style format string containing
@@ -191,12 +196,15 @@ void __ntfs_error(const char *function,
 	vsnprintf(ntfs_err_buf, sizeof(ntfs_err_buf), fmt, args);
 	va_end(args);
 	if (mp)
-		printf("NTFS-fs error (device %s): %s(): %s\n",
-				vfs_statfs(mp)->f_mntfromname,
+		printf("NTFS-fs error (device %s, pid %d): %s(): %s\n",
+				vfs_statfs(mp)->f_mntfromname, proc_selfpid(),
 				flen ? function : "", ntfs_err_buf);
 	else
-		printf("NTFS-fs error: %s(): %s\n", flen ? function : "",
-				ntfs_err_buf);
+		printf("NTFS-fs error (pid %d): %s(): %s\n", proc_selfpid(),
+				flen ? function : "", ntfs_err_buf);
+#ifdef DEBUG
+	OSReportWithBacktrace("");
+#endif
 	lck_spin_unlock(&ntfs_err_buf_lock);
 }
 
@@ -233,11 +241,16 @@ void __ntfs_debug(const char *file, int line,
 	lck_spin_unlock(&ntfs_err_buf_lock);
 }
 
-/* Dump a runlist.  Caller has to provide synchronization for @rl. */
-void ntfs_debug_rl_dump(const ntfs_runlist *runlist)
+/**
+ * ntfs_debug_runlist_dump - dump a runlist
+ * @runlist:	the runlist to dump
+ *
+ * Dump a runlist.  Caller has to provide synchronization for @rl.
+ */
+void ntfs_debug_runlist_dump(const ntfs_runlist *runlist)
 {
 	ntfs_rl_element *rl;
-	u32 elements, i;
+	unsigned elements, u;
 	const char *lcn_str[5] = { "LCN_HOLE         ", "LCN_RL_NOT_MAPPED",
 				   "LCN_ENOENT       ", "LCN_unknown      " };
 
@@ -251,8 +264,8 @@ void ntfs_debug_rl_dump(const ntfs_runlist *runlist)
 	rl = runlist->rl;
 	elements = runlist->elements;
 	printf("VCN              LCN               Run length\n");
-	for (i = 0; i < elements; i++) {
-		LCN lcn = rl[i].lcn;
+	for (u = 0; u < elements; u++) {
+		LCN lcn = rl[u].lcn;
 
 		if (lcn < (LCN)0) {
 			int index = -lcn - 1;
@@ -260,26 +273,63 @@ void ntfs_debug_rl_dump(const ntfs_runlist *runlist)
 			if (index > -LCN_ENOENT - 1)
 				index = 3;
 			printf("%-16Lx %s %-16Lx%s\n",
-					(unsigned long long)rl[i].vcn,
+					(unsigned long long)rl[u].vcn,
 					lcn_str[index],
-					(unsigned long long)rl[i].length,
-					rl[i].length ? "" : " (runlist end)");
+					(unsigned long long)rl[u].length,
+					rl[u].length ? "" : " (runlist end)");
 		} else
 			printf("%-16Lx %-16Lx  %-16Lx%s\n",
-					(unsigned long long)rl[i].vcn,
-					(unsigned long long)rl[i].lcn,
-					(unsigned long long)rl[i].length,
-					rl[i].length ? "" : " (runlist end)");
-		if (!rl[i].length)
+					(unsigned long long)rl[u].vcn,
+					(unsigned long long)rl[u].lcn,
+					(unsigned long long)rl[u].length,
+					rl[u].length ? "" : " (runlist end)");
+		if (!rl[u].length)
 			break;
 	}
-	if (i == elements - 1)
+	if (u == elements - 1)
 		printf("Runlist contains specified number of elements (%u).\n",
 				(unsigned)elements);
 	else
 		printf("Error: Runlist contains %s elements than specified "
-				"(%u)!\n", i < elements ? "less" : "more",
+				"(%u)!\n", u < elements ? "less" : "more",
 				(unsigned)elements);
+}
+
+/**
+ * ntfs_debug_attr_list_dump - dump an attribute list attribute
+ * @al:		attribute list attribute value to dump
+ * @size:	size of attribute list attribute value
+ *
+ * Dump the attribute list attribute value @al of size @size bytes.
+ */
+void ntfs_debug_attr_list_dump(const u8 *al, const unsigned size)
+{
+	const u8 *end;
+	ATTR_LIST_ENTRY *entry;
+	unsigned u;
+
+	if (!ntfs_debug_messages)
+		return;
+	end = al + size;
+	printf("NTFS-fs DEBUG: Dumping attribute list (size 0x%x):\n", size);
+	for (entry = (ATTR_LIST_ENTRY*)al, u = 1; (u8*)entry < end;
+			entry = (ATTR_LIST_ENTRY*)((u8*)entry +
+			le16_to_cpu(entry->length)), u++) {
+		printf("--------------- Entry %u ---------------\n", u);
+		printf("Attribute type: 0x%x\n",
+				(unsigned)le32_to_cpu(entry->type));
+		printf("Record length: 0x%x\n",
+				(unsigned)le16_to_cpu(entry->length));
+		printf("Name length: 0x%x\n", (unsigned)entry->name_length);
+		printf("Name offset: 0x%x\n", (unsigned)entry->name_offset);
+		printf("Starting VCN: 0x%llx\n", (unsigned long long)
+				sle64_to_cpu(entry->lowest_vcn));
+		printf("MFT reference: 0x%llx\n", (unsigned long long)
+				MREF_LE(entry->mft_reference));
+		printf("Instance: 0x%x\n",
+				(unsigned)le16_to_cpu(entry->instance));
+	}
+	printf("--------------- End of attribute list ---------------\n");
 }
 
 #endif /* DEBUG */

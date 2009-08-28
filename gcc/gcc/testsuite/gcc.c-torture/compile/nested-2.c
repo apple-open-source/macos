@@ -1,7 +1,6 @@
 /* APPLE LOCAL testsuite nested functions */
 /* { dg-options "-fnested-functions" } */
-/* APPLE LOCAL begin mainline 2005-08-08 */
-/* PR 21894 */
+/* PR 21105 */
 
 void
 CheckFile ()
@@ -17,4 +16,3 @@ CheckFile ()
   if (a == tagname)
     validate ();
 }
-/* APPLE LOCAL end mainline 2005-08-08 */

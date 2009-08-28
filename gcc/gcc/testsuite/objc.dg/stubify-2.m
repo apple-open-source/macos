@@ -1,11 +1,12 @@
-/* APPLE LOCAL file mainline */
+/* APPLE LOCAL file radar 4875206 */
 /* All calls must be properly stubified.  */
 /* Testcase extracted from TextEdit:Document.m.  */
 
-/* { dg-do compile { target *-*-darwin* } } */
-/* { dg-options "-mdynamic-no-pic -fdump-rtl-jump" } */
+/* { dg-do compile { target powerpc*-*-darwin* } } */
+/* APPLE LOCAL axe stubs 5571540 */
+/* { dg-options "-mdynamic-no-pic -fdump-rtl-jump -mmacosx-version-min=10.4" } */
 /* APPLE LOCAL radar 4894756 */
-/* { dg-skip-if "" { *-*-darwin* } { "-m64" } { "" } } */
+/* { dg-require-effective-target ilp32 } */
 
 typedef struct objc_object { } *id ;
 int x = 41 ;
@@ -31,4 +32,4 @@ extern int bogonic (int, int, int) ;
 
 /* Any symbol_ref of an un-stubified objc_msgSend is an error; look
    for "objc_msgSend" in quotes, without the $stub suffix.  */
-/* { dg-final { scan-file-not stubify-2.m.03.jump "symbol_ref.*\"objc_msgSend\"" } } */
+/* { dg-final { scan-rtl-dump-not "symbol_ref.*\"objc_msgSend\"" "jump" } } */

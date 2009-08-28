@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -29,7 +29,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/queue.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #define SYSLOG_NAMES
@@ -39,10 +38,16 @@
 #include <pthread.h>
 #include <vproc_priv.h>
 #include <mach/mach.h>
+#include <vproc.h>
+#include <assert.h>
+#include <libkern/OSAtomic.h>
 #include "daemon.h"
+
+#define LIST_SIZE_DELTA 256
 
 #define streq(A,B) (strcmp(A,B)==0)
 #define forever for(;;)
+#define IndexNull ((uint32_t)-1)
 
 #define ASL_MSG_TYPE_MASK 0x0000000f
 #define ASL_TYPE_ERROR 2
@@ -54,11 +59,26 @@
 #define SYSTEM_RESERVED "com.apple.system"
 #define SYSTEM_RESERVED_LEN 16
 
-extern void disaster_message(asl_msg_t *m);
+#define VERIFY_STATUS_OK 0
+#define VERIFY_STATUS_INVALID_MESSAGE 1
+#define VERIFY_STATUS_EXCEEDED_QUOTA 2
 
+extern void disaster_message(asl_msg_t *m);
 static char myname[MAXHOSTNAMELEN + 1] = {0};
 
-static pthread_mutex_t event_lock = PTHREAD_MUTEX_INITIALIZER;
+static OSSpinLock count_lock = 0;
+
+static vproc_transaction_t vproc_trans = {0};
+
+#define QUOTA_TABLE_SIZE 8192
+#define QUOTA_TABLE_SLOTS 8
+
+#define QUOTA_EXCEEDED_MESSAGE "*** process %d exceeded %d log message per second limit  -  remaining messages this second discarded ***"
+#define QUOTA_EXCEEDED_LEVEL "3"
+
+static time_t quota_table_time = 0;
+static pid_t quota_table_pid[QUOTA_TABLE_SIZE];
+static int32_t quota_table_quota[QUOTA_TABLE_SIZE];
 
 static const char *kern_notify_key[] = 
 {
@@ -70,21 +90,6 @@ static const char *kern_notify_key[] =
 	"com.apple.system.log.kernel.notice",
 	"com.apple.system.log.kernel.info",
 	"com.apple.system.log.kernel.debug"
-};
-
-struct aslevent
-{
-	int fd;
-	unsigned char read:1; 
-	unsigned char write:1; 
-	unsigned char except:1;
-	aslreadfn readfn;
-	aslwritefn writefn;
-	aslexceptfn exceptfn;
-	char *sender;
-	uid_t uid;
-	gid_t gid;
-	TAILQ_ENTRY(aslevent) entries;
 };
 
 struct asloutput
@@ -105,7 +110,228 @@ TAILQ_HEAD(ae, aslevent) Eventq;
 TAILQ_HEAD(ao, asloutput) Outq;
 TAILQ_HEAD(am, aslmatch) Matchq;
 
-static struct aslevent *launchd_event;
+static char **
+_insertString(char *s, char **l, uint32_t x)
+{
+	int i, len;
+
+	if (s == NULL) return l;
+	if (l == NULL) 
+	{
+		l = (char **)malloc(2 * sizeof(char *));
+		if (l == NULL) return NULL;
+
+		l[0] = strdup(s);
+		if (l[0] == NULL)
+		{
+			free(l);
+			return NULL;
+		}
+
+		l[1] = NULL;
+		return l;
+	}
+
+	for (i = 0; l[i] != NULL; i++);
+	len = i + 1; /* count the NULL on the end of the list too! */
+
+	l = (char **)reallocf(l, (len + 1) * sizeof(char *));
+	if (l == NULL) return NULL;
+
+	if ((x >= (len - 1)) || (x == IndexNull))
+	{
+		l[len - 1] = strdup(s);
+		if (l[len - 1] == NULL)
+		{
+			free(l);
+			return NULL;
+		}
+
+		l[len] = NULL;
+		return l;
+	}
+
+	for (i = len; i > x; i--) l[i] = l[i - 1];
+	l[x] = strdup(s);
+	if (l[x] == NULL) return NULL;
+
+	return l;
+}
+
+char **
+explode(const char *s, const char *delim)
+{
+	char **l = NULL;
+	const char *p;
+	char *t, quote;
+	int i, n;
+
+	if (s == NULL) return NULL;
+
+	quote = '\0';
+
+	p = s;
+	while (p[0] != '\0')
+	{
+		/* scan forward */
+		for (i = 0; p[i] != '\0'; i++)
+		{
+			if (quote == '\0')
+			{
+				/* not inside a quoted string: check for delimiters and quotes */
+				if (strchr(delim, p[i]) != NULL) break;
+				else if (p[i] == '\'') quote = p[i];
+				else if (p[i] == '"') quote = p[i];
+			}
+			else
+			{
+				/* inside a quoted string - look for matching quote */
+				if (p[i] == quote) quote = '\0';
+			}
+		}
+
+		n = i;
+		t = malloc(n + 1);
+		if (t == NULL) return NULL;
+
+		for (i = 0; i < n; i++) t[i] = p[i];
+		t[n] = '\0';
+		l = _insertString(t, l, IndexNull);
+		free(t);
+		t = NULL;
+		if (p[i] == '\0') return l;
+		if (p[i + 1] == '\0') l = _insertString("", l, IndexNull);
+		p = p + i + 1;
+	}
+
+	return l;
+}
+
+void
+freeList(char **l)
+{
+	int i;
+
+	if (l == NULL) return;
+	for (i = 0; l[i] != NULL; i++) free(l[i]);
+	free(l);
+}
+
+/*
+ * Quotas are maintained using a very fast fixed-size table.
+ * We hash into the pid table (quota_table_pid) using the last 10
+ * bits of the pid, so the table has 1024 "buckets".  The table is
+ * actually just an array with 8 entry slots (for collisions) per bucket.
+ * If there are more than 8 pids that hash to the same bucket, we
+ * re-use the one with the lowest message usage (highest remaining
+ * quota).  This can lead to "generosity: if there are nine of more
+ * pids with the same last 10 bits all logging like crazy, we may
+ * end up allowing some of them to log more than their quota. 
+ * That would be a remarkably rare occurrence.
+ */
+ 
+static uint32_t
+quota_check(pid_t pid, time_t now, asl_msg_t *msg)
+{
+	int i, x, maxx, max;
+	char *str;
+
+	if (msg == NULL) return VERIFY_STATUS_INVALID_MESSAGE;
+	if (global.mps_limit == 0) return VERIFY_STATUS_OK;
+
+	if (quota_table_time != now)
+	{
+		memset(quota_table_pid, 0, sizeof(quota_table_pid));
+		quota_table_time = now;
+	}
+
+	/* hash is last 10 bits of the pid, shifted up 3 bits to allow 8 slots per bucket */
+	x = (pid & 0x000003ff) << 3;
+	maxx = x;
+	max = quota_table_quota[x];
+
+	for (i = 0; i < QUOTA_TABLE_SLOTS; i++)
+	{
+		if (quota_table_pid[x] == 0)
+		{
+			quota_table_pid[x] = pid;
+			quota_table_quota[x] = global.mps_limit;
+			return VERIFY_STATUS_OK;
+		}
+
+		if (quota_table_pid[x] == pid)
+		{
+			quota_table_quota[x] = quota_table_quota[x] - 1;
+
+			if (quota_table_quota[x] == 0)
+			{
+				quota_table_quota[x] = -1;
+
+				str = NULL;
+				asprintf(&str, QUOTA_EXCEEDED_MESSAGE, (int)pid, global.mps_limit);
+				if (str != NULL)
+				{
+					asl_set(msg, ASL_KEY_MSG, str);
+					free(str);
+					asl_set(msg, ASL_KEY_LEVEL, QUOTA_EXCEEDED_LEVEL);
+				}
+
+				return VERIFY_STATUS_OK;
+			}
+
+			if (quota_table_quota[x] < 0) return VERIFY_STATUS_EXCEEDED_QUOTA;
+
+			return VERIFY_STATUS_OK;
+		}
+
+		if (quota_table_quota[x] > max)
+		{
+			maxx = x;
+			max = quota_table_quota[x];
+		}
+
+		x += 1;
+	}
+
+	/* can't find the pid and no slots were available - reuse slot with highest remaining quota */
+	asldebug("Quotas: reused slot %d pid %d quota %d for new pid %d\n", maxx, (int)quota_table_pid[maxx], quota_table_quota[maxx], (int)pid);
+	quota_table_pid[maxx] = pid;
+	quota_table_quota[maxx] = global.mps_limit;
+
+	return VERIFY_STATUS_OK;
+}
+
+int
+asl_check_option(asl_msg_t *msg, const char *opt)
+{
+	const char *p;
+	uint32_t len;
+
+	if (msg == NULL) return 0;
+	if (opt == NULL) return 0;
+
+	len = strlen(opt);
+	if (len == 0) return 0;
+
+	p = asl_get(msg, ASL_KEY_OPTION);
+	if (p == NULL) return 0;
+
+	while (*p != '\0')
+	{
+		while ((*p == ' ') || (*p == '\t') || (*p == ',')) p++;
+		if (*p == '\0') return 0;
+
+		if (strncasecmp(p, opt, len) == 0)
+		{
+			p += len;
+			if ((*p == ' ') || (*p == '\t') || (*p == ',') || (*p == '\0')) return 1;
+		}
+
+		while ((*p != ' ') && (*p != '\t') && (*p != ',') && (*p != '\0')) p++;
+	}
+
+	return 0;
+}
 
 int
 aslevent_init(void)
@@ -153,7 +379,7 @@ aslevent_addmatch(asl_msg_t *query, char *outid)
 }
 
 void
-aslevent_match(asl_msg_t *msg)
+asl_message_match_and_log(asl_msg_t *msg)
 {
 	struct aslmatch *i;
 
@@ -207,8 +433,36 @@ whatsmyhostname()
 	return (const char *)myname;
 }
 
+void
+asl_client_count_increment()
+{
+	OSSpinLockLock(&count_lock);
+
+	if (global.client_count == 0) vproc_trans = vproc_transaction_begin(NULL);
+	global.client_count++;
+#ifdef DEBUG
+	asldebug("global.client_count++ (%d)\n", global.client_count);
+#endif
+
+	OSSpinLockUnlock(&count_lock);
+}
+
+void
+asl_client_count_decrement()
+{
+	OSSpinLockLock(&count_lock);
+
+	if (global.client_count > 0) global.client_count--;
+	if (global.client_count == 0) vproc_transaction_end(NULL, vproc_trans);
+#ifdef DEBUG
+	asldebug("global.client_count-- (%d)\n", global.client_count);
+#endif
+
+	OSSpinLockUnlock(&count_lock);
+}
+
 int
-aslevent_addfd(int fd, uint32_t flags, aslreadfn readfn, aslwritefn writefn, aslexceptfn exceptfn)
+aslevent_addfd(int source, int fd, uint32_t flags, aslreadfn readfn, aslwritefn writefn, aslexceptfn exceptfn)
 {
 	struct aslevent *e;
 	int found = 0, status;
@@ -264,7 +518,7 @@ aslevent_addfd(int fd, uint32_t flags, aslreadfn readfn, aslwritefn writefn, asl
 		}
 	}
 
-	asldebug("fd %d   flags 0x%08x UID %d   GID %d   Sender %s\n", fd, flags, u, g, (sender == NULL) ? "NULL" : sender );
+	asldebug("source %d fd %d   flags 0x%08x UID %d   GID %d   Sender %s\n", source, fd, flags, u, g, (sender == NULL) ? "NULL" : sender );
 
 	for (e = Eventq.tqh_first; e != NULL; e = e->entries.tqe_next)
 	{
@@ -292,6 +546,7 @@ aslevent_addfd(int fd, uint32_t flags, aslreadfn readfn, aslwritefn writefn, asl
 	e = calloc(1, sizeof(struct aslevent));
 	if (e == NULL) return -1;
 
+	e->source = source;
 	e->fd = fd;
 	e->readfn = readfn;
 	e->writefn = writefn;
@@ -311,23 +566,31 @@ aslevent_addfd(int fd, uint32_t flags, aslreadfn readfn, aslwritefn writefn, asl
 	return 0;
 }
 
-static int
-aslmsg_verify(struct aslevent *e, asl_msg_t *msg, int32_t *kern_post_level)
+/*
+ * Checks message content and sets attributes as required
+ *
+ * SOURCE_INTERNAL log messages sent by syslogd itself
+ * SOURCE_ASL_SOCKET legacy asl(3) TCP socket
+ * SOURCE_BSD_SOCKET legacy syslog(3) UDP socket
+ * SOURCE_UDP_SOCKET from the network
+ * SOURCE_KERN from the kernel
+ * SOURCE_ASL_MESSAGE mach messages sent from Libc by asl(3) and syslog(3)
+ * SOURCE_LAUNCHD forwarded from launchd
+ */
+
+static uint32_t
+aslmsg_verify(uint32_t source, struct aslevent *e, asl_msg_t *msg, int32_t *kern_post_level)
 {
 	const char *val, *fac;
-	char buf[32], *timestr;
+	char buf[64];
 	time_t tick, now;
-	struct tm gtime;
 	uid_t uid;
-	uint32_t level, fnum, kern;
-	int isreserved;
+	uint32_t status, level, fnum;
+	pid_t pid;
 
-	if (msg == NULL) return -1;
+	if (msg == NULL) return VERIFY_STATUS_INVALID_MESSAGE;
 
-	*kern_post_level = -1;
-
-	kern = 0;
-	if ((e != NULL) && (e->fd == global.kfd)) kern = 1;
+	if (kern_post_level != NULL) *kern_post_level = -1;
 
 	/* Time */
 	now = time(NULL);
@@ -339,16 +602,9 @@ aslmsg_verify(struct aslevent *e, asl_msg_t *msg, int32_t *kern_post_level)
 	/* Set time to now if it is unset or from the future (not allowed!) */
 	if ((tick == 0) || (tick > now)) tick = now;
 
-	memset(&gtime, 0, sizeof(struct tm));
-	gmtime_r(&tick, &gtime);
-
-	/* Canonical form: YYYY.MM.DD hh:mm:ss UTC */
-	asprintf(&timestr, "%d.%02d.%02d %02d:%02d:%02d UTC", gtime.tm_year + 1900, gtime.tm_mon + 1, gtime.tm_mday, gtime.tm_hour, gtime.tm_min, gtime.tm_sec);
-	if (timestr != NULL)
-	{
-		asl_set(msg, ASL_KEY_TIME, timestr);
-		free(timestr);
-	}
+	/* Canonical form: seconds since the epoch */
+	snprintf(buf, sizeof(buf) - 1, "%lu", tick);
+	asl_set(msg, ASL_KEY_TIME, buf);
 
 	/* Host */
 	if (e == NULL) asl_set(msg, ASL_KEY_HOST, whatsmyhostname());
@@ -359,66 +615,144 @@ aslmsg_verify(struct aslevent *e, asl_msg_t *msg, int32_t *kern_post_level)
 	}
 
 	/* PID */
+	pid = 0;
+
 	val = asl_get(msg, ASL_KEY_PID);
 	if (val == NULL) asl_set(msg, ASL_KEY_PID, "0");
+	else pid = (pid_t)atoi(val);
+
+	/* if PID is 1 (launchd), use the refpid if there is one */
+	if (pid == 1)
+	{
+		val = asl_get(msg, ASL_KEY_REF_PID);
+		if (val != NULL) pid = (pid_t)atoi(val);
+	}
+
+	/* if quotas are enabled and pid > 1 (not kernel or launchd) check quota */
+	if ((global.mps_limit > 0) && (pid > 1))
+	{
+		status = quota_check(pid, now, msg);
+		if (status != VERIFY_STATUS_OK) return status;
+	}
 
 	/* UID */
 	uid = -2;
 	val = asl_get(msg, ASL_KEY_UID);
-	if (kern == 1)
+
+	switch (source)
 	{
-		uid = 0;
-		asl_set(msg, ASL_KEY_UID, "0");
-	}
-	else if (val == NULL)
-	{
-		if (e == NULL) asl_set(msg, ASL_KEY_UID, "-2");
-		else if (e->uid == 99) asl_set(msg, ASL_KEY_UID, "-2");
-		else
+		case SOURCE_KERN:
+		case SOURCE_INTERNAL:
 		{
-			uid = e->uid;
-			snprintf(buf, sizeof(buf), "%d", e->uid);
-			asl_set(msg, ASL_KEY_UID, buf);
+			/* we know the UID is 0 */
+			uid = 0;
+			asl_set(msg, ASL_KEY_UID, "0");
+			break;
 		}
-	}
-	else if ((e != NULL) && (e->uid != 99))
-	{
-		uid = e->uid;
-		snprintf(buf, sizeof(buf), "%d", e->uid);
-		asl_set(msg, ASL_KEY_UID, buf);
+		case SOURCE_ASL_SOCKET:
+		case SOURCE_ASL_MESSAGE:
+		case SOURCE_LAUNCHD:
+		{
+			/* we trust the UID in the message */
+			if (val != NULL) uid = atoi(val);
+			break;
+		}
+		case SOURCE_BSD_SOCKET:
+		case SOURCE_UDP_SOCKET:
+		{
+			if (val == NULL)
+			{
+				if (e == NULL) asl_set(msg, ASL_KEY_UID, "-2");
+				else if (e->uid == 99) asl_set(msg, ASL_KEY_UID, "-2");
+				else
+				{
+					uid = e->uid;
+					snprintf(buf, sizeof(buf), "%d", e->uid);
+					asl_set(msg, ASL_KEY_UID, buf);
+				}
+			}
+			else if ((e != NULL) && (e->uid != 99))
+			{
+				uid = e->uid;
+				snprintf(buf, sizeof(buf), "%d", e->uid);
+				asl_set(msg, ASL_KEY_UID, buf);
+			}
+		}
+		default:
+		{
+			asl_set(msg, ASL_KEY_UID, "-2");
+		}
 	}
 
 	/* GID */
 	val = asl_get(msg, ASL_KEY_GID);
-	if (kern == 1)
+
+	switch (source)
 	{
-		asl_set(msg, ASL_KEY_GID, "0");
-	}
-	else if (val == NULL)
-	{
-		if (e == NULL) asl_set(msg, ASL_KEY_GID, "-2");
-		else if (e->gid == 99) asl_set(msg, ASL_KEY_GID, "-2");
-		else
+		case SOURCE_KERN:
+		case SOURCE_INTERNAL:
 		{
-			snprintf(buf, sizeof(buf), "%d", e->gid);
-			asl_set(msg, ASL_KEY_GID, buf);
+			/* we know the GID is 0 */
+			asl_set(msg, ASL_KEY_GID, "0");
+			break;
 		}
-	}
-	else if ((e != NULL) && (e->gid != 99))
-	{
-		snprintf(buf, sizeof(buf), "%d", e->gid);
-		asl_set(msg, ASL_KEY_GID, buf);
+		case SOURCE_ASL_SOCKET:
+		case SOURCE_ASL_MESSAGE:
+		case SOURCE_LAUNCHD:
+		{
+			/* we trust the GID in the message */
+			break;
+		}
+		case SOURCE_BSD_SOCKET:
+		case SOURCE_UDP_SOCKET:
+		{
+			if (val == NULL)
+			{
+				if (e == NULL) asl_set(msg, ASL_KEY_GID, "-2");
+				else if (e->gid == 99) asl_set(msg, ASL_KEY_GID, "-2");
+				else
+				{
+					snprintf(buf, sizeof(buf), "%d", e->gid);
+					asl_set(msg, ASL_KEY_GID, buf);
+				}
+			}
+			else if ((e != NULL) && (e->gid != 99))
+			{
+				snprintf(buf, sizeof(buf), "%d", e->gid);
+				asl_set(msg, ASL_KEY_GID, buf);
+			}
+		}
+		default:
+		{
+			asl_set(msg, ASL_KEY_GID, "-2");
+		}
 	}
 
 	/* Sender */
 	val = asl_get(msg, ASL_KEY_SENDER);
 	if (val == NULL)
 	{
-		if (kern == 0) asl_set(msg, ASL_KEY_SENDER, "Unknown");
-		else asl_set(msg, ASL_KEY_SENDER, "kernel");
+		switch (source)
+		{
+			case SOURCE_KERN:
+			{
+				asl_set(msg, ASL_KEY_SENDER, "kernel");
+				break;
+			}
+			case SOURCE_INTERNAL:
+			{
+				asl_set(msg, ASL_KEY_SENDER, "syslogd");
+				break;
+			}
+			default:
+			{
+				asl_set(msg, ASL_KEY_SENDER, "Unknown");
+			}
+		}
 	}
-	else if ((kern == 0) && (uid != 0) && (!strcmp(val, "kernel")))
+	else if ((source != SOURCE_KERN) && (uid != 0) && (!strcmp(val, "kernel")))
 	{
+		/* allow UID 0 to send messages with "Sender kernel", but nobody else */
 		asl_set(msg, ASL_KEY_SENDER, "Unknown");
 	}
 
@@ -433,7 +767,7 @@ aslmsg_verify(struct aslevent *e, asl_msg_t *msg, int32_t *kern_post_level)
 	fac = asl_get(msg, ASL_KEY_FACILITY);
 	if (fac == NULL)
 	{
-		if (kern == 1) fac = "kern";
+		if (source == SOURCE_KERN) fac = "kern";
 		else fac = "user";
 		asl_set(msg, ASL_KEY_FACILITY, fac);
 	}
@@ -448,6 +782,20 @@ aslmsg_verify(struct aslevent *e, asl_msg_t *msg, int32_t *kern_post_level)
 
 		fac = asl_syslog_faciliy_num_to_name(fnum);
 		asl_set(msg, ASL_KEY_FACILITY, fac);
+	}
+	else if (!strncmp(fac, SYSTEM_RESERVED, SYSTEM_RESERVED_LEN))
+	{
+		/* only UID 0 may use "com.apple.system" */
+		if (uid != 0) asl_set(msg, ASL_KEY_FACILITY, FACILITY_USER);
+	}
+
+	/*
+	 * kernel messages are only readable by root and admin group.
+	 */
+	if (source == SOURCE_KERN)
+	{
+		asl_set(msg, ASL_KEY_READ_UID, "0");
+		asl_set(msg, ASL_KEY_READ_GID, "80");
 	}
 
 	/*
@@ -469,26 +817,16 @@ aslmsg_verify(struct aslevent *e, asl_msg_t *msg, int32_t *kern_post_level)
 		asl_set(msg, ASL_KEY_EXPIRE_TIME, buf);
 	}
 
-	if (e != NULL)
-	{
-		isreserved = 0;
-		if (!strncmp(fac, SYSTEM_RESERVED, SYSTEM_RESERVED_LEN))
-		{
-			if (uid != 0) asl_set(msg, ASL_KEY_FACILITY, FACILITY_USER);
-			else isreserved = 1;
-		}
-	}
-
 	/*
 	 * special case handling of kernel disaster messages
 	 */
-	if ((kern == 1) && (level <= KERN_DISASTER_LEVEL))
+	if ((source == SOURCE_KERN) && (level <= KERN_DISASTER_LEVEL))
 	{
-		*kern_post_level = level;
+		if (kern_post_level != NULL) *kern_post_level = level;
 		disaster_message(msg);
 	}
 
-	return 0;
+	return VERIFY_STATUS_OK;
 }
 
 int
@@ -568,12 +906,108 @@ aslevent_cleanup()
 }
 
 void
+list_append_msg(asl_search_result_t *list, asl_msg_t *msg)
+{
+	if (list == NULL) return;
+	if (msg == NULL) return;
+
+	/*
+	 * NB: curr is the list size
+	 * grow list if necessary
+	 */
+	if (list->count == list->curr)
+	{
+		if (list->curr == 0)
+		{
+			list->msg = (asl_msg_t **)calloc(LIST_SIZE_DELTA, sizeof(asl_msg_t *));
+		}
+		else
+		{
+			list->msg = (asl_msg_t **)reallocf(list->msg, (list->curr + LIST_SIZE_DELTA) * sizeof(asl_msg_t *));
+		}
+
+		if (list->msg == NULL)
+		{
+			list->curr = 0;
+			list->count = 0;
+			return;
+		}
+
+		list->curr += LIST_SIZE_DELTA;
+	}
+
+	list->msg[list->count] = msg;
+	list->count++;
+}
+
+void
+work_enqueue(asl_msg_t *m)
+{
+	pthread_mutex_lock(global.work_queue_lock);
+	list_append_msg(global.work_queue, m);
+	pthread_mutex_unlock(global.work_queue_lock);
+	pthread_cond_signal(&global.work_queue_cond);
+}
+
+void
+asl_enqueue_message(uint32_t source, struct aslevent *e, asl_msg_t *msg)
+{
+	int32_t kplevel;
+	uint32_t status;
+
+	if (msg == NULL) return;
+
+	/* set retain count to 1 */
+	msg->type |= 0x10;
+
+	kplevel = -1;
+	status = aslmsg_verify(source, e, msg, &kplevel);
+	if (status == VERIFY_STATUS_OK)
+	{
+		if ((source == SOURCE_KERN) && (kplevel >= 0)) notify_post(kern_notify_key[kplevel]);
+		work_enqueue(msg);
+	}
+	else
+	{
+		asl_msg_release(msg);
+	}
+}
+
+asl_msg_t **
+asl_work_dequeue(uint32_t *count)
+{
+	asl_msg_t **work;
+
+	pthread_mutex_lock(global.work_queue_lock);
+	pthread_cond_wait(&global.work_queue_cond, global.work_queue_lock);
+
+	work = NULL;
+	*count = 0;
+
+	if (global.work_queue->count == 0)
+	{
+		pthread_mutex_unlock(global.work_queue_lock);
+		return NULL;
+	}
+
+	work = global.work_queue->msg;
+	*count = global.work_queue->count;
+
+	global.work_queue->count = 0;
+	global.work_queue->curr = 0;
+	global.work_queue->msg = NULL;
+
+	pthread_mutex_unlock(global.work_queue_lock);
+	return work;
+}
+
+void
 aslevent_handleevent(fd_set *rd, fd_set *wr, fd_set *ex)
 {
 	struct aslevent *e;
 	char *out = NULL;
 	asl_msg_t *msg;
-	int32_t kplevel, cleanup;
+	int32_t cleanup;
 
 //	asldebug("--> aslevent_handleevent\n");
 
@@ -593,25 +1027,7 @@ aslevent_handleevent(fd_set *rd, fd_set *wr, fd_set *ex)
 			msg = e->readfn(e->fd);
 			if (msg == NULL) continue;
 
-			/* type field is overloaded to provide retain/release inside syslogd */
-			msg->type |= 0x10;
-
-			pthread_mutex_lock(&event_lock);
-
-			kplevel = -1;
-			if (aslmsg_verify(e, msg, &kplevel) < 0)
-			{
-				asl_msg_release(msg);
-				asldebug("recieved invalid message\n\n");
-			}
-			else
-			{
-				aslevent_match(msg);
-				asl_msg_release(msg);
-				if (kplevel >= 0) notify_post(kern_notify_key[kplevel]);
-			}
-
-			pthread_mutex_unlock(&event_lock);
+			asl_enqueue_message(e->source, e, msg);
 		}
 
 		if (FD_ISSET(e->fd, ex) && e->exceptfn)
@@ -631,29 +1047,13 @@ int
 asl_log_string(const char *str)
 {
 	asl_msg_t *msg;
-	int32_t unused;
 
 	if (str == NULL) return 1;
 
 	msg = asl_msg_from_string(str);
+	if (msg == NULL) return 1;
 
-	/* set retain count */
-	msg->type |= 0x10;
-
-	pthread_mutex_lock(&event_lock);
-
-	unused = -1;
-	if (aslmsg_verify(NULL, msg, &unused) < 0)
-	{
-		pthread_mutex_unlock(&event_lock);
-		asl_msg_release(msg);
-		return -1;
-	}
-
-	aslevent_match(msg);
-	asl_msg_release(msg);
-
-	pthread_mutex_unlock(&event_lock);
+	asl_enqueue_message(SOURCE_INTERNAL, NULL, msg);
 
 	return 0;
 }
@@ -665,17 +1065,28 @@ asldebug(const char *str, ...)
 	int status;
 	FILE *dfp;
 
-	if (global.debug == 0) return 0;
+	OSSpinLockLock(&global.lock);
+	if (global.debug == 0)
+	{
+		OSSpinLockUnlock(&global.lock);
+		return 0;
+	}
 
 	dfp = stderr;
 	if (global.debug_file != NULL) dfp = fopen(global.debug_file, "a");
-	if (dfp == NULL) return 0;
+	if (dfp == NULL)
+	{
+		OSSpinLockUnlock(&global.lock);
+		return 0;
+	}
 
 	va_start(v, str);
 	status = vfprintf(dfp, str, v);
 	va_end(v);
 
 	if (global.debug_file != NULL) fclose(dfp);
+	OSSpinLockUnlock(&global.lock);
+
 	return status;
 }
 
@@ -962,27 +1373,28 @@ asl_msg_type(asl_msg_t *m)
 void
 asl_msg_release(asl_msg_t *m)
 {
-	uint32_t refcount;
+	int32_t newval;
 
 	if (m == NULL) return;
 
-	refcount = m->type >> 4;
-	if (refcount > 0)
-	{
-		refcount--;
-		m->type -= 0x10;
-	}
+	newval = OSAtomicAdd32(-0x10, (int32_t*)&m->type) >> 4;
+	assert(newval >= 0);
 
-	if (refcount > 0) return;
+	if (newval > 0) return;
+
 	asl_free(m);
 }
 
 asl_msg_t *
 asl_msg_retain(asl_msg_t *m)
 {
+	int32_t newval;
+
 	if (m == NULL) return NULL;
 
-	m->type += 0x10;
+	newval = OSAtomicAdd32(0x10, (int32_t*)&m->type) >> 4;
+	assert(newval > 0);
+
 	return m;
 }
 
@@ -991,20 +1403,12 @@ launchd_callback(struct timeval *when, pid_t from_pid, pid_t about_pid, uid_t se
 {
 	asl_msg_t *m;
 	char str[256];
-	int32_t unused;
-	int status;
 	time_t now;
 
 /*
 	asldebug("launchd_callback Time %lu %lu PID %u RefPID %u UID %d GID %d PRI %d Sender %s Ref %s Session %s Message %s\n",
 	when->tv_sec, when->tv_usec, from_pid, about_pid, sender_uid, sender_gid, priority, from_name, about_name, session_name, msg);
 */
-
-	if (launchd_event != NULL)
-	{
-		launchd_event->uid = sender_uid;
-		launchd_event->gid = sender_gid;
-	}
 
 	m = asl_new(ASL_TYPE_MSG);
 	if (m == NULL) return;
@@ -1037,6 +1441,14 @@ launchd_callback(struct timeval *when, pid_t from_pid, pid_t about_pid, uid_t se
 
 	/* Facility */
 	asl_set(m, ASL_KEY_FACILITY, FACILITY_CONSOLE);
+
+	/* UID */
+	snprintf(str, sizeof(str), "%u", (unsigned int)sender_uid);
+	asl_set(m, ASL_KEY_UID, str);
+
+	/* GID */
+	snprintf(str, sizeof(str), "%u", (unsigned int)sender_gid);
+	asl_set(m, ASL_KEY_GID, str);
 
 	/* PID */
 	if (from_pid != 0)
@@ -1086,23 +1498,15 @@ launchd_callback(struct timeval *when, pid_t from_pid, pid_t about_pid, uid_t se
 		asl_set(m, ASL_KEY_MSG, msg);
 	}
 
-	/* set retain count */
-	m->type |= 0x10;
-
 	/* verify and push to receivers */
-	status = aslmsg_verify(launchd_event, m, &unused);
-	if (status >= 0) aslevent_match(m);
-
-	asl_msg_release(m);
+	asl_enqueue_message(SOURCE_LAUNCHD, NULL, m);
 }
 
 void
 launchd_drain()
 {
-	launchd_event = (struct aslevent *)calloc(1, sizeof(struct aslevent));
-
 	forever
 	{
-		_vprocmgr_log_drain(NULL, &event_lock, launchd_callback);
+		_vprocmgr_log_drain(NULL, NULL, launchd_callback);
 	}
 }

@@ -1,14 +1,14 @@
 Index: DerivedBidiClass.txt
 ===================================================================
 RCS file: /cvs/root/ICU/icuSources/data/unidata/DerivedBidiClass.txt,v
-retrieving revision 1.1.1.4
-retrieving revision 1.3
-diff -u -r1.1.1.4 -r1.3
---- DerivedBidiClass.txt	31 Aug 2006 23:04:21 -0000	1.1.1.4
-+++ DerivedBidiClass.txt	8 Feb 2007 22:36:17 -0000	1.3
-@@ -456,7 +456,15 @@
- A827          ; L # Mc       SYLOTI NAGRI VOWEL SIGN OO
- A840..A873    ; L # Lo  [52] PHAGS-PA LETTER KA..PHAGS-PA LETTER CANDRABINDU
+retrieving revision 1.1.1.5
+retrieving revision 1.4
+diff -u -r1.1.1.5 -r1.4
+--- DerivedBidiClass.txt	11 Jul 2008 18:53:27 -0000	1.1.1.5
++++ DerivedBidiClass.txt	15 Jul 2008 18:54:26 -0000	1.4
+@@ -549,7 +549,15 @@
+ AA50..AA59    ; L # Nd  [10] CHAM DIGIT ZERO..CHAM DIGIT NINE
+ AA5C..AA5F    ; L # Po   [4] CHAM PUNCTUATION SPIRAL..CHAM PUNCTUATION TRIPLE DANDA
  AC00..D7A3    ; L # Lo [11172] HANGUL SYLLABLE GA..HANGUL SYLLABLE HIH
 -E000..F8FF    ; L # Co [6400] <private-use-E000>..<private-use-F8FF>
 +E000..F801    ; L # Co [6146] <private-use-E000>..<private-use-F801>
@@ -23,7 +23,7 @@ diff -u -r1.1.1.4 -r1.3
  F900..FA2D    ; L # Lo [302] CJK COMPATIBILITY IDEOGRAPH-F900..CJK COMPATIBILITY IDEOGRAPH-FA2D
  FA30..FA6A    ; L # Lo  [59] CJK COMPATIBILITY IDEOGRAPH-FA30..CJK COMPATIBILITY IDEOGRAPH-FA6A
  FA70..FAD9    ; L # Lo [106] CJK COMPATIBILITY IDEOGRAPH-FA70..CJK COMPATIBILITY IDEOGRAPH-FAD9
-@@ -581,6 +589,8 @@
+@@ -677,6 +685,8 @@
  07FA          ; R # Lm       NKO LAJANYALAN
  07FB..08FF    ; R # Cn [261] <reserved-07FB>..<reserved-08FF>
  200F          ; R # Cf       RIGHT-TO-LEFT MARK
@@ -32,7 +32,7 @@ diff -u -r1.1.1.4 -r1.3
  FB1D          ; R # Lo       HEBREW LETTER YOD WITH HIRIQ
  FB1F..FB28    ; R # Lo  [10] HEBREW LIGATURE YIDDISH YOD YOD PATAH..HEBREW LETTER WIDE TAV
  FB2A..FB36    ; R # Lo  [13] HEBREW LETTER SHIN WITH SHIN DOT..HEBREW LETTER ZAYIN WITH DAGESH
-@@ -639,6 +649,7 @@
+@@ -738,6 +748,7 @@
  2074..2079    ; EN # No   [6] SUPERSCRIPT FOUR..SUPERSCRIPT NINE
  2080..2089    ; EN # No  [10] SUBSCRIPT ZERO..SUBSCRIPT NINE
  2488..249B    ; EN # No  [20] DIGIT ONE FULL STOP..NUMBER TWENTY FULL STOP
@@ -40,7 +40,7 @@ diff -u -r1.1.1.4 -r1.3
  FF10..FF19    ; EN # Nd  [10] FULLWIDTH DIGIT ZERO..FULLWIDTH DIGIT NINE
  1D7CE..1D7FF  ; EN # Nd  [50] MATHEMATICAL BOLD DIGIT ZERO..MATHEMATICAL MONOSPACE DIGIT NINE
  
-@@ -681,6 +692,7 @@
+@@ -781,6 +792,7 @@
  20A0..20B5    ; ET # Sc  [22] EURO-CURRENCY SIGN..CEDI SIGN
  212E          ; ET # So       ESTIMATED SYMBOL
  2213          ; ET # Sm       MINUS-OR-PLUS SIGN
@@ -48,8 +48,8 @@ diff -u -r1.1.1.4 -r1.3
  FE5F          ; ET # Po       SMALL NUMBER SIGN
  FE69          ; ET # Sc       SMALL DOLLAR SIGN
  FE6A          ; ET # Po       SMALL PERCENT SIGN
-@@ -1077,6 +1089,18 @@
- A720..A721    ; ON # Sk   [2] MODIFIER LETTER STRESS AND HIGH TONE..MODIFIER LETTER STRESS AND LOW TONE
+@@ -1215,6 +1227,18 @@
+ A788          ; ON # Lm       MODIFIER LETTER LOW CIRCUMFLEX ACCENT
  A828..A82B    ; ON # So   [4] SYLOTI NAGRI POETRY MARK-1..SYLOTI NAGRI POETRY MARK-4
  A874..A877    ; ON # Po   [4] PHAGS-PA SINGLE HEAD MARK..PHAGS-PA MARK DOUBLE SHAD
 +F802..F86F    ; ON # So [110] <Apple-Corporate-Use-symbols-and-other-F802>..<Apple-Corporate-Use-symbols-and-other-F86F>
@@ -67,18 +67,18 @@ diff -u -r1.1.1.4 -r1.3
  FD3E          ; ON # Ps       ORNATE LEFT PARENTHESIS
  FD3F          ; ON # Pe       ORNATE RIGHT PARENTHESIS
  FDFD          ; ON # So       ARABIC LIGATURE BISMILLAH AR-RAHMAN AR-RAHEEM
-@@ -1335,6 +1359,9 @@
- A806          ; NSM # Mn       SYLOTI NAGRI SIGN HASANTA
- A80B          ; NSM # Mn       SYLOTI NAGRI SIGN ANUSVARA
- A825..A826    ; NSM # Mn   [2] SYLOTI NAGRI VOWEL SIGN U..SYLOTI NAGRI VOWEL SIGN E
+@@ -1502,6 +1526,9 @@
+ AA35..AA36    ; NSM # Mn   [2] CHAM CONSONANT SIGN LA..CHAM CONSONANT SIGN WA
+ AA43          ; NSM # Mn       CHAM CONSONANT SIGN FINAL NG
+ AA4C          ; NSM # Mn       CHAM CONSONANT SIGN FINAL M
 +F870..F87F    ; NSM # Mn  [16] <Apple-Corporate-Use-transcoding-hints-F870>..<Apple-Corporate-Use-transcoding-hints-F87F>
 +F884..F899    ; NSM # Mn  [22] <Apple Corporate deprecated Thai forms, First>..<Apple Corporate deprecated Thai forms, Last>
 +F89F          ; NSM # Mn       Apple Corporate deprecated Hebrew misc
  FB1E          ; NSM # Mn       HEBREW POINT JUDEO-SPANISH VARIKA
  FE00..FE0F    ; NSM # Mn  [16] VARIATION SELECTOR-1..VARIATION SELECTOR-16
- FE20..FE23    ; NSM # Mn   [4] COMBINING LIGATURE LEFT HALF..COMBINING DOUBLE TILDE RIGHT HALF
-@@ -1391,6 +1418,7 @@
- 0780..07A5    ; AL # Lo  [38] THAANA LETTER HAA..THAANA LETTER WAAVU
+ FE20..FE26    ; NSM # Mn   [7] COMBINING LIGATURE LEFT HALF..COMBINING CONJOINING MACRON
+@@ -1554,6 +1581,7 @@
+ 074D..07A5    ; AL # Lo  [89] SYRIAC LETTER SOGDIAN ZHAIN..THAANA LETTER WAAVU
  07B1          ; AL # Lo       THAANA LETTER NAA
  07B2..07BF    ; AL # Cn  [14] <reserved-07B2>..<reserved-07BF>
 +F882          ; AL # Lo       Apple Corporate Arabic ligature
@@ -88,23 +88,24 @@ diff -u -r1.1.1.4 -r1.3
 Index: DerivedCoreProperties.txt
 ===================================================================
 RCS file: /cvs/root/ICU/icuSources/data/unidata/DerivedCoreProperties.txt,v
-retrieving revision 1.1.1.5
-diff -u -r1.1.1.5 DerivedCoreProperties.txt
---- DerivedCoreProperties.txt	31 Aug 2006 23:04:21 -0000	1.1.1.5
-+++ DerivedCoreProperties.txt	29 Mar 2007 22:42:30 -0000
-@@ -121,6 +121,9 @@
- 29FC          ; Math
- 29FD          ; Math
+retrieving revision 1.1.1.6
+retrieving revision 1.5
+diff -u -r1.1.1.6 -r1.5
+--- DerivedCoreProperties.txt	11 Jul 2008 18:53:27 -0000	1.1.1.6
++++ DerivedCoreProperties.txt	15 Jul 2008 18:54:27 -0000	1.5
+@@ -159,6 +159,9 @@
  29FE..2AFF    ; Math
+ 2B30..2B44    ; Math
+ 2B47..2B4C    ; Math
 +F8BC          ; Math
 +F8BD          ; Math
 +F8C0          ; Math
  FB29          ; Math
  FE61          ; Math
  FE62          ; Math
-@@ -633,6 +636,11 @@
- A827          ; Alphabetic
- A840..A873    ; Alphabetic
+@@ -749,6 +752,11 @@
+ AA4C          ; Alphabetic
+ AA4D          ; Alphabetic
  AC00..D7A3    ; Alphabetic
 +F882          ; Alphabetic
 +F89A..F89E    ; Alphabetic
@@ -114,19 +115,19 @@ diff -u -r1.1.1.5 DerivedCoreProperties.txt
  F900..FA2D    ; Alphabetic
  FA30..FA6A    ; Alphabetic
  FA70..FAD9    ; Alphabetic
-@@ -4074,6 +4082,9 @@
- A806          ; Grapheme_Extend
- A80B          ; Grapheme_Extend
- A825..A826    ; Grapheme_Extend
+@@ -4691,6 +4699,9 @@
+ AA35..AA36    ; Grapheme_Extend
+ AA43          ; Grapheme_Extend
+ AA4C          ; Grapheme_Extend
 +F870..F87F    ; Grapheme_Extend
 +F884..F899    ; Grapheme_Extend
 +F89F          ; Grapheme_Extend
  FB1E          ; Grapheme_Extend
  FE00..FE0F    ; Grapheme_Extend
- FE20..FE23    ; Grapheme_Extend
-@@ -4882,6 +4893,10 @@
- A840..A873    ; Grapheme_Base
- A874..A877    ; Grapheme_Base
+ FE20..FE26    ; Grapheme_Extend
+@@ -5612,6 +5623,10 @@
+ AA50..AA59    ; Grapheme_Base
+ AA5C..AA5F    ; Grapheme_Base
  AC00..D7A3    ; Grapheme_Base
 +F802..F84F    ; Grapheme_Base
 +F880..F883    ; Grapheme_Base
@@ -138,64 +139,73 @@ diff -u -r1.1.1.5 DerivedCoreProperties.txt
 Index: DerivedNumericValues.txt
 ===================================================================
 RCS file: /cvs/root/ICU/icuSources/data/unidata/DerivedNumericValues.txt,v
-retrieving revision 1.1.1.4
-retrieving revision 1.2
-diff -u -r1.1.1.4 -r1.2
---- DerivedNumericValues.txt	31 Aug 2006 23:04:22 -0000	1.1.1.4
-+++ DerivedNumericValues.txt	8 Feb 2007 22:36:17 -0000	1.2
-@@ -51,6 +51,7 @@
- 24FF          ; 0.0 # No       NEGATIVE CIRCLED DIGIT ZERO
- 3007          ; 0.0 # Nl       IDEOGRAPHIC NUMBER ZERO
- 96F6          ; 0.0 # Lo       CJK UNIFIED IDEOGRAPH-96F6
-+F8A1          ; 0.0 # No       Apple corporate digit zero full stop
- FF10          ; 0.0 # Nd       FULLWIDTH DIGIT ZERO
- 1018A         ; 0.0 # No       GREEK ZERO SIGN
- 104A0         ; 0.0 # Nd       OSMANYA DIGIT ZERO
-@@ -60,7 +61,7 @@
- 1D7EC         ; 0.0 # Nd       MATHEMATICAL SANS-SERIF BOLD DIGIT ZERO
- 1D7F6         ; 0.0 # Nd       MATHEMATICAL MONOSPACE DIGIT ZERO
+retrieving revision 1.1.1.5
+retrieving revision 1.3
+diff -u -r1.1.1.5 -r1.3
+--- DerivedNumericValues.txt	11 Jul 2008 18:53:27 -0000	1.1.1.5
++++ DerivedNumericValues.txt	15 Jul 2008 18:54:27 -0000	1.3
+@@ -66,6 +66,7 @@
+ A8D0          ; 0.0 ; ; 0 # Nd       SAURASHTRA DIGIT ZERO
+ A900          ; 0.0 ; ; 0 # Nd       KAYAH LI DIGIT ZERO
+ AA50          ; 0.0 ; ; 0 # Nd       CHAM DIGIT ZERO
++F8A1          ; 0.0 ; ; 0 # No       Apple corporate digit zero full stop
+ F9B2          ; 0.0 ; ; 0 # Lo       CJK COMPATIBILITY IDEOGRAPH-F9B2
+ FF10          ; 0.0 ; ; 0 # Nd       FULLWIDTH DIGIT ZERO
+ 1018A         ; 0.0 ; ; 0 # No       GREEK ZERO SIGN
+@@ -76,7 +77,7 @@
+ 1D7EC         ; 0.0 ; ; 0 # Nd       MATHEMATICAL SANS-SERIF BOLD DIGIT ZERO
+ 1D7F6         ; 0.0 ; ; 0 # Nd       MATHEMATICAL MONOSPACE DIGIT ZERO
  
--# Total code points: 37
-+# Total code points: 38
+-# Total code points: 47
++# Total code points: 48
  
  # ================================================
  
-@@ -888,6 +889,8 @@
- 2480          ; 13.0 # No       PARENTHESIZED NUMBER THIRTEEN
- 2494          ; 13.0 # No       NUMBER THIRTEEN FULL STOP
- 24ED          ; 13.0 # No       NEGATIVE CIRCLED NUMBER THIRTEEN
-+F8A2          ; 13.0 # Nl       Apple corporate roman numeral thirteen
-+F8A5          ; 13.0 # Nl       Apple corporate small roman numeral thirteen
+@@ -995,8 +996,10 @@
+ 2480          ; 13.0 ; ; 13 # No       PARENTHESIZED NUMBER THIRTEEN
+ 2494          ; 13.0 ; ; 13 # No       NUMBER THIRTEEN FULL STOP
+ 24ED          ; 13.0 ; ; 13 # No       NEGATIVE CIRCLED NUMBER THIRTEEN
++F8A2          ; 13.0 ; ; 13 # Nl       Apple corporate roman numeral thirteen
++F8A5          ; 13.0 ; ; 13 # Nl       Apple corporate small roman numeral thirteen
  
- # Total code points: 4
+-# Total code points: 4
++# Total code points: 6
  
-@@ -897,6 +900,8 @@
- 2481          ; 14.0 # No       PARENTHESIZED NUMBER FOURTEEN
- 2495          ; 14.0 # No       NUMBER FOURTEEN FULL STOP
- 24EE          ; 14.0 # No       NEGATIVE CIRCLED NUMBER FOURTEEN
-+F8A3          ; 14.0 # Nl       Apple corporate roman numeral fourteen
-+F8A6          ; 14.0 # Nl       Apple corporate small roman numeral fourteen
+ # ================================================
  
- # Total code points: 4
+@@ -1004,8 +1007,10 @@
+ 2481          ; 14.0 ; ; 14 # No       PARENTHESIZED NUMBER FOURTEEN
+ 2495          ; 14.0 ; ; 14 # No       NUMBER FOURTEEN FULL STOP
+ 24EE          ; 14.0 ; ; 14 # No       NEGATIVE CIRCLED NUMBER FOURTEEN
++F8A3          ; 14.0 ; ; 14 # Nl       Apple corporate roman numeral fourteen
++F8A6          ; 14.0 ; ; 14 # Nl       Apple corporate small roman numeral fourteen
  
-@@ -906,6 +911,8 @@
- 2482          ; 15.0 # No       PARENTHESIZED NUMBER FIFTEEN
- 2496          ; 15.0 # No       NUMBER FIFTEEN FULL STOP
- 24EF          ; 15.0 # No       NEGATIVE CIRCLED NUMBER FIFTEEN
-+F8A4          ; 15.0 # Nl       Apple corporate roman numeral fifteen
-+F8A7          ; 15.0 # Nl       Apple corporate small roman numeral fifteen
+-# Total code points: 4
++# Total code points: 6
  
- # Total code points: 4
+ # ================================================
+ 
+@@ -1013,8 +1018,10 @@
+ 2482          ; 15.0 ; ; 15 # No       PARENTHESIZED NUMBER FIFTEEN
+ 2496          ; 15.0 ; ; 15 # No       NUMBER FIFTEEN FULL STOP
+ 24EF          ; 15.0 ; ; 15 # No       NEGATIVE CIRCLED NUMBER FIFTEEN
++F8A4          ; 15.0 ; ; 15 # Nl       Apple corporate roman numeral fifteen
++F8A7          ; 15.0 ; ; 15 # Nl       Apple corporate small roman numeral fifteen
+ 
+-# Total code points: 4
++# Total code points: 6
+ 
+ # ================================================
  
 Index: EastAsianWidth.txt
 ===================================================================
 RCS file: /cvs/root/ICU/icuSources/data/unidata/EastAsianWidth.txt,v
-retrieving revision 1.1.1.4
-retrieving revision 1.2
-diff -u -r1.1.1.4 -r1.2
---- EastAsianWidth.txt	31 Aug 2006 23:04:22 -0000	1.1.1.4
-+++ EastAsianWidth.txt	8 Feb 2007 22:36:17 -0000	1.2
-@@ -669,7 +669,19 @@
+retrieving revision 1.1.1.5
+retrieving revision 1.3
+diff -u -r1.1.1.5 -r1.3
+--- EastAsianWidth.txt	11 Jul 2008 18:53:27 -0000	1.1.1.5
++++ EastAsianWidth.txt	15 Jul 2008 18:54:27 -0000	1.3
+@@ -679,7 +679,19 @@
  D800..DB7F;N
  DB80..DBFF;N
  DC00..DFFF;N
@@ -219,30 +229,30 @@ diff -u -r1.1.1.4 -r1.2
 Index: GraphemeBreakProperty.txt
 ===================================================================
 RCS file: /cvs/root/ICU/icuSources/data/unidata/GraphemeBreakProperty.txt,v
-retrieving revision 1.1.1.2
-retrieving revision 1.2
-diff -u -r1.1.1.2 -r1.2
---- GraphemeBreakProperty.txt	31 Aug 2006 23:04:36 -0000	1.1.1.2
-+++ GraphemeBreakProperty.txt	8 Feb 2007 22:36:17 -0000	1.2
-@@ -190,6 +190,9 @@
- A806          ; Extend
- A80B          ; Extend
- A825..A826    ; Extend
+retrieving revision 1.1.1.3
+retrieving revision 1.3
+diff -u -r1.1.1.3 -r1.3
+--- GraphemeBreakProperty.txt	11 Jul 2008 18:53:28 -0000	1.1.1.3
++++ GraphemeBreakProperty.txt	15 Jul 2008 18:54:27 -0000	1.3
+@@ -223,6 +223,9 @@
+ AA35..AA36    ; Extend
+ AA43          ; Extend
+ AA4C          ; Extend
 +F870..F87F    ; Extend
 +F884..F899    ; Extend
 +F89F          ; Extend
  FB1E          ; Extend
  FE00..FE0F    ; Extend
- FE20..FE23    ; Extend
+ FE20..FE26    ; Extend
 Index: LineBreak.txt
 ===================================================================
 RCS file: /cvs/root/ICU/icuSources/data/unidata/LineBreak.txt,v
-retrieving revision 1.1.1.5
-retrieving revision 1.3
-diff -u -r1.1.1.5 -r1.3
---- LineBreak.txt	31 Aug 2006 23:04:36 -0000	1.1.1.5
-+++ LineBreak.txt	8 Feb 2007 22:36:17 -0000	1.3
-@@ -1758,7 +1758,28 @@
+retrieving revision 1.1.1.6
+retrieving revision 1.4
+diff -u -r1.1.1.6 -r1.4
+--- LineBreak.txt	11 Jul 2008 18:53:28 -0000	1.1.1.6
++++ LineBreak.txt	15 Jul 2008 18:54:27 -0000	1.4
+@@ -1844,7 +1844,28 @@
  D800..DB7F;SG
  DB80..DBFF;SG
  DC00..DFFF;SG
@@ -275,15 +285,15 @@ diff -u -r1.1.1.5 -r1.3
 Index: Scripts.txt
 ===================================================================
 RCS file: /cvs/root/ICU/icuSources/data/unidata/Scripts.txt,v
-retrieving revision 1.1.1.5
-retrieving revision 1.2
-diff -u -r1.1.1.5 -r1.2
---- Scripts.txt	31 Aug 2006 23:04:38 -0000	1.1.1.5
-+++ Scripts.txt	8 Feb 2007 22:36:17 -0000	1.2
-@@ -362,6 +362,7 @@
- A700..A716    ; Common
- A717..A71A    ; Common
+retrieving revision 1.1.1.6
+retrieving revision 1.3
+diff -u -r1.1.1.6 -r1.3
+--- Scripts.txt	11 Jul 2008 18:53:28 -0000	1.1.1.6
++++ Scripts.txt	15 Jul 2008 18:54:27 -0000	1.3
+@@ -394,6 +394,7 @@
  A720..A721    ; Common
+ A788          ; Common
+ A789..A78A    ; Common
 +F802..F8FF    ; Common
  FD3E          ; Common
  FD3F          ; Common
@@ -291,12 +301,12 @@ diff -u -r1.1.1.5 -r1.2
 Index: UnicodeData.txt
 ===================================================================
 RCS file: /cvs/root/ICU/icuSources/data/unidata/UnicodeData.txt,v
-retrieving revision 1.1.1.5
-retrieving revision 1.3
-diff -u -r1.1.1.5 -r1.3
---- UnicodeData.txt	31 Aug 2006 23:04:40 -0000	1.1.1.5
-+++ UnicodeData.txt	8 Feb 2007 22:36:17 -0000	1.3
-@@ -11834,7 +11834,65 @@
+retrieving revision 1.1.1.7
+retrieving revision 1.5
+diff -u -r1.1.1.7 -r1.5
+--- UnicodeData.txt	11 Jul 2008 18:53:28 -0000	1.1.1.7
++++ UnicodeData.txt	15 Jul 2008 18:54:27 -0000	1.5
+@@ -13139,7 +13139,65 @@
  DC00;<Low Surrogate, First>;Cs;0;L;;;;;N;;;;;
  DFFF;<Low Surrogate, Last>;Cs;0;L;;;;;N;;;;;
  E000;<Private Use, First>;Co;0;L;;;;;N;;;;;

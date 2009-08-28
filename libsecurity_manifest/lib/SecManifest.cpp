@@ -74,12 +74,10 @@ void SecManifestRelease (SecManifestRef manifest)
 
 
 
-#if !defined(NDEBUG) // do this so that we don't get unused function warnings when building deployment
 static const char* GetDescription (CFTypeRef object)
 {
 	return CFStringGetCStringPtr (CFCopyDescription (object), kCFStringEncodingMacRoman);
 }
-#endif
 
 
 

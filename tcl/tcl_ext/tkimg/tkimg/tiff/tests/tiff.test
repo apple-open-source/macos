@@ -1,0 +1,52 @@
+# This file is a Tcl script to test out TIFF reading and writing.
+# It is organized in the standard fashion for Tcl tests.
+#
+
+puts "img::tiff [package require img::tiff]"
+
+set tiffdata \
+{TU0AKgAAAkgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAADw/4Dw/4Dw/4Dw/4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AADw/4Dw/4Dw/4Dw/4Dw/4Dw/4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADw/4Dw/4Dw/4Dw/4Dw
+/4Dw/4Dw/4Dw/4Dw/4Dw/4Dw/4AAAAAAAAAAAAAAAAAAAADw/4Dw/4Dw/4Dw/4Dw/4Dw/4Dw
+/4Dw/4Dw/4Dw/4Dw/4AAAAAAAAAAAAAAAAAAAADw/4Dw/4Dw/4Dw/4Dw/4Dw/4Dw/4Dw/4Dw
+/4Dw/4Dw/4AAAAAAAAAAAAAAAAAAAADw/4Dw/4Dw/4Dw/4Dw/4Dw/4Dw/4Dw/4Dw/4Dw/4Dw
+/4AAAAAAAAAAAAAAAAAAAADw/4Dw/4Dw/4Dw/4Dw/4Dw/4Dw/4Dw/4Dw/4Dw/4Dw/4AAAAAA
+AAAAAAAAAAAAAADw/4Dw/4Dw/4Dw/4Dw/4Dw/4Dw/4Dw/4Dw/4Dw/4Dw/4AAAAAAAAAAAAAA
+AAAAAADw/4Dw/4Dw/4Dw/4Dw/4Dw/4Dw/4Dw/4Dw/4Dw/4Dw/4AAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADgEAAAMAAAAB
+ABAAAAEBAAMAAAABAAwAAAECAAMAAAADAAAC9gEDAAMAAAABAAEAAAEGAAMAAAABAAIAAAER
+AAQAAAABAAAACAESAAMAAAABAAEAAAEVAAMAAAABAAMAAAEWAAMAAAABAAwAAAEXAAQAAAAB
+AAACQAEaAAUAAAABAAAC/AEbAAUAAAABAAADBAEcAAMAAAABAAEAAAEoAAMAAAABAAIAAAAA
+AAAACAAIAAgSwAAAAAQAABLAAAAABAAA}
+
+test tiff-1.1 {} {
+    catch {image delete i}
+    image create photo i -file [file join $tcltest::testsDirectory folder.tif]
+} i
+test tiff-1.2 {} {
+    catch {image delete i}
+    image create photo i
+    i put $tiffdata
+    i data -format {tiff -byteorder bigendian}
+} $tiffdata
+test tiff-1.3 {} {
+    i blank
+    i put $tiffdata -format tiff
+    i data -format {tiff -byteorder bigendian}
+} $tiffdata
+
+if {[info tclversion] < 8.0} {
+    return
+}
+
+test tiff-2.0 {Binary I/O with TIFF images} {
+    i blank
+    set f [open [file join $tcltest::testsDirectory folder.tif] r]
+    fconfigure $f -translation binary
+    set return [catch {i put [read $f]} msg]
+    close $f
+    lappend return $msg
+} {0 {}}
+

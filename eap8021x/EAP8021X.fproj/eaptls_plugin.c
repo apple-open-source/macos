@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 - 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -52,7 +52,6 @@
 #include <Security/SecureTransport.h>
 #include <Security/SecCertificate.h>
 #include <Security/SecIdentity.h>
-#include <Security/SecIdentitySearch.h>
 #include <Security/SecureTransportPriv.h>
 #include "myCFUtil.h"
 #include "printdata.h"
@@ -102,7 +101,6 @@ typedef struct {
     bool			trust_proceed;
     bool			key_data_valid;
     char			key_data[128];
-    CFArrayRef			last_trusted_server_certs;
     CFArrayRef			server_certs;
     bool			resume_sessions;
     bool			session_was_resumed;
@@ -147,7 +145,6 @@ eaptls_free_context(EAPTLSPluginDataRef context)
     }
     my_CFRelease(&context->certs);
     my_CFRelease(&context->server_certs);
-    my_CFRelease(&context->last_trusted_server_certs);
     memoryIOClearBuffers(&context->mem_io);
     free(context);
     return;
@@ -313,14 +310,6 @@ eaptls_verify_server(EAPClientPluginDataRef plugin,
     EAPPacketRef		pkt = NULL;
     memoryBufferRef		write_buf = &context->write_buffer;
 
-    if (context->last_trusted_server_certs != NULL
-	&& context->server_certs != NULL
-	&& EAPSecCertificateListEqual(context->last_trusted_server_certs,
-				      context->server_certs)) {
-	/* user already said OK to this cert chain */
-	context->trust_proceed = TRUE;
-	return (NULL);
-    }
     context->trust_status
 	= EAPTLSVerifyServerCertificateChain(plugin->properties, 
 					     context->server_certs,
@@ -334,15 +323,9 @@ eaptls_verify_server(EAPClientPluginDataRef plugin,
     switch (context->trust_status) {
     case kEAPClientStatusOK:
 	context->trust_proceed = TRUE;
-	my_CFRelease(&context->last_trusted_server_certs);
-	context->last_trusted_server_certs = CFRetain(context->server_certs);
+	eaptls_compute_session_key(context);
 	break;
-    case kEAPClientStatusUnknownRootCertificate:
-    case kEAPClientStatusNoRootCertificate:
-    case kEAPClientStatusCertificateExpired:
-    case kEAPClientStatusCertificateNotYetValid:
-    case kEAPClientStatusServerCertificateNotTrusted:
-    case kEAPClientStatusCertificateRequiresConfirmation:
+    case kEAPClientStatusUserInputRequired:
 	/* ask user whether to proceed or not */
 	*client_status = context->last_client_status 
 	    = kEAPClientStatusUserInputRequired;
@@ -427,7 +410,6 @@ eaptls_handshake(EAPClientPluginDataRef plugin,
     case noErr:
 	/* handshake complete, tunnel established */
 	context->handshake_complete = TRUE;
-	eaptls_compute_session_key(context);
 	eaptls_set_session_was_resumed(context);
 	my_CFRelease(&context->server_certs);
 	(void)EAPSSLCopyPeerCertificates(context->ssl_context,
@@ -482,8 +464,8 @@ eaptls_request(EAPClientPluginDataRef plugin,
 	       EAPClientStatus * client_status)
 {
     EAPTLSPluginDataRef	context = (EAPTLSPluginDataRef)plugin->private;
-    EAPTLSPacket * 	eaptls_in = (EAPTLSPacket *)in_pkt; 
-    EAPTLSLengthIncludedPacket * eaptls_in_l;
+    EAPTLSPacketRef 	eaptls_in = (EAPTLSPacketRef)in_pkt; 
+    EAPTLSLengthIncludedPacketRef eaptls_in_l;
     EAPPacketRef	eaptls_out = NULL;
     int			in_data_length;
     void *		in_data_ptr = NULL;
@@ -494,7 +476,7 @@ eaptls_request(EAPClientPluginDataRef plugin,
     u_int32_t		tls_message_length = 0;
     RequestType		type;
 
-    eaptls_in_l = (EAPTLSLengthIncludedPacket *)in_pkt;
+    eaptls_in_l = (EAPTLSLengthIncludedPacketRef)in_pkt;
     if (in_length < sizeof(*eaptls_in)) {
 	syslog(LOG_NOTICE, "eaptls_request: length %d < %d",
 	       in_length, sizeof(*eaptls_in));
@@ -561,7 +543,7 @@ eaptls_request(EAPClientPluginDataRef plugin,
 	if (type != kRequestTypeStart) {
 	    /* ignore it: XXX should this be an error? */
 	    syslog(LOG_NOTICE, 
-		   "eaptls_request: ignoring non EAP/TLS start frame");
+		   "eaptls_request: ignoring non EAP-TLS start frame");
 	    goto done;
 	}
 	status = SSLHandshake(context->ssl_context);
@@ -833,8 +815,8 @@ eaptls_publish_props(EAPClientPluginDataRef plugin)
 static bool
 eaptls_packet_dump(FILE * out_f, const EAPPacketRef pkt)
 {
-    EAPTLSPacket * 	eaptls_pkt = (EAPTLSPacket *)pkt;
-    EAPTLSLengthIncludedPacket * eaptls_pkt_l;
+    EAPTLSPacketRef 	eaptls_pkt = (EAPTLSPacketRef)pkt;
+    EAPTLSLengthIncludedPacketRef eaptls_pkt_l;
     int			data_length;
     void *		data_ptr = NULL;
     u_int16_t		length = EAPPacketGetLength(pkt);
@@ -854,11 +836,11 @@ eaptls_packet_dump(FILE * out_f, const EAPPacketRef pkt)
 		length, sizeof(*eaptls_pkt));
 	goto done;
     }
-    fprintf(out_f, "EAP/TLS %s: Identifier %d Length %d Flags 0x%x%s",
+    fprintf(out_f, "EAP-TLS %s: Identifier %d Length %d Flags 0x%x%s",
 	    pkt->code == kEAPCodeRequest ? "Request" : "Response",
 	    pkt->identifier, length, eaptls_pkt->flags,
 	    eaptls_pkt->flags != 0 ? " [" : "");
-    eaptls_pkt_l = (EAPTLSLengthIncludedPacket *)pkt;
+    eaptls_pkt_l = (EAPTLSLengthIncludedPacketRef)pkt;
     data_ptr = eaptls_pkt->tls_data;
     tls_message_length = data_length = length - sizeof(EAPTLSPacket);
 
@@ -890,7 +872,7 @@ eaptls_packet_dump(FILE * out_f, const EAPPacketRef pkt)
     }
     fprint_data(out_f, data_ptr, data_length);
  done:
-    return (1);
+    return (TRUE);
 }
 
 static EAPType 

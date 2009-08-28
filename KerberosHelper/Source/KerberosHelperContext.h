@@ -28,11 +28,23 @@
 
 #include <Kerberos/Kerberos.h>
 
-typedef struct {
-	CFStringRef	realm;
-	CFStringRef inHostName;
-	CFStringRef	inAdvertisedPrincipal;
-	char *useName, *useInstance, *useRealm, *defaultRealm;
-	krb5_context	krb5_ctx;
-} KRBhelperContext;
+struct realm_mappings {
+	int lkdc;
+	char *hostname;
+	char *realm;
+};
 
+
+typedef struct KRBhelperContext {
+	CFStringRef     inHostName; /* User input string, still printable */
+	CFStringRef     hostname; /* calculated hostname */
+	CFStringRef	realm;  /* calculated realmname */
+        struct {
+	    struct realm_mappings *data;
+	    size_t len;
+	} realms;
+	CFStringRef	inAdvertisedPrincipal;
+	char            *useName, *useInstance, *useRealm, *defaultRealm;
+	krb5_context	krb5_ctx;
+    unsigned	noGuessing:1;
+} KRBhelperContext;

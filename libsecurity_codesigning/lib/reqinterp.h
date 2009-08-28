@@ -52,7 +52,7 @@ protected:
 		Match(CFStringRef value, MatchOperation op) : mValue(value), mOp(op) { } // explicit
 		Match() : mValue(NULL), mOp(matchExists) { } // explict test for presence
 		bool operator () (CFTypeRef candidate) const; // match to candidate
-		
+
 	protected:
 		bool inequality(CFTypeRef candidate, CFStringCompareFlags flags, CFComparisonResult outcome, bool negate) const;
 		

@@ -1,0 +1,201 @@
+# Commands covered:  ::dom::DOMimplementation serialize
+#
+# This file contains a collection of tests for one or more of the 
+# TclDOM commands.  Sourcing this file into Tcl runs the tests and
+# generates output for errors.  No output means no errors were found.
+#
+# Copyright (c) 1998-2003 Zveno Pty Ltd.
+#
+# $Id: serialization.test,v 1.13 2003/01/26 04:35:15 balls Exp $
+
+package require tcltest ; namespace import -force tcltest::*
+
+if {[catch {package require dom}]} {
+    catch {puts stderr "Cannot load dom package"}
+    return
+}
+
+proc addChild {parent child} {
+    dom::node appendChild $parent $child
+}
+
+# The result may or may not use empty element syntax
+test serialize-1.1 {single element document} -match regexp -body {
+    set doc [::dom::DOMImplementation create]
+    addChild $doc [set top [::dom::document createElement $doc Test]]
+    ::dom::DOMImplementation serialize $doc
+} -result {<\?xml version=('|")1\.0('|")\?>
+(<!DOCTYPE Test>
+)?<Test(/>|></Test>)}
+
+test serialize-1.2 {element-only document} -match regexp -body {
+    addChild $top [set e1 [::dom::document createElement $top Element1]]
+    addChild $top [set e2 [::dom::document createElement $top Element2]]
+    addChild $top [set e3 [::dom::document createElement $top Element3]]
+    ::dom::DOMImplementation serialize $doc
+} -result {<\?xml version=('|")1.0('|")\?>
+(<!DOCTYPE Test>
+)?<Test><Element1/><Element2/><Element3/></Test>}
+
+test serialize-1.3 {serialize element} -constraints {!dom_libxml2} -body {
+    ::dom::DOMImplementation serialize $top
+} -result {<Test><Element1/><Element2/><Element3/></Test>}
+
+test serialize-1.4 {serialize non-empty element} -match regexp -body {
+    addChild $e1 [::dom::document createElement $e1 Child1]
+    ::dom::DOMImplementation serialize $doc
+} -result {<\?xml version=('|")1.0('|")\?>
+(<!DOCTYPE Test>
+)?<Test><Element1><Child1/></Element1><Element2/><Element3/></Test>}
+
+test serialize-2.1 {error: missing document element} -constraints {!dom_libxml2} -body {
+    set doc [::dom::DOMImplementation create]
+    set result [catch {::dom::DOMImplementation serialize $doc} msg]
+    list $result $msg
+} -result {1 {document has no document element}}
+test serialize-2.1 {error: missing document element} -constraints {dom_libxml2} -body {
+    set doc [::dom::DOMImplementation create]
+    set result [catch {::dom::DOMImplementation serialize $doc} msg]
+    list $result $msg
+} -result {0 {<?xml version="1.0"?>
+}}
+
+# The result may or may not use empty element syntax
+test serialize-3.1 {XML declaration: attributes in correct order} -match regexp -body {
+    set doc [::dom::DOMImplementation parse {<?xml version="1.0"?>
+<Test></Test>
+}]
+    dom::DOMImplementation serialize $doc
+} -result {<\?xml version=('|")1\.0('|")\?>
+(<!DOCTYPE Test>
+)?<Test(/>|></Test>)}
+
+# This test fails if using TclExpat
+
+test serialize-3.2 {XML declaration: attributes in correct order} -match regexp -body {
+    set doc [::dom::DOMImplementation parse {<?xml version="1.0" standalone="yes"?>
+<Test></Test>
+}]
+    dom::DOMImplementation serialize $doc
+} -result {<\?xml version=('|")1.0('|") standalone=('|")yes('|")\?>
+(<!DOCTYPE Test>
+)?<Test(/>|></Test>)}
+
+test serialize-3.3 {Doctype declaration} -match regexp -body {
+    set doc [::dom::DOMImplementation parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test></Test>
+}]
+    dom::DOMImplementation serialize $doc
+} -result {<\?xml version=('|")1.0('|")\?>
+(<!DOCTYPE Test>
+)?<Test(/>|></Test>)}
+
+# See bug #525505
+test serialize-3.4 {Document prologue} -match regexp -body {
+    set doc [::dom::parse {<?xml version="1.0"?>
+<!-- a comment in the prologue -->
+<Test/>
+}]
+    dom::serialize $doc
+} -result {<\?xml version=('|")1.0('|")\?>
+(<!DOCTYPE Test>
+)?<!-- a comment in the prologue -->(
+)?<Test/>}
+
+test serialize-3.5 {Document epilogue} -match regexp -body {
+    set doc [::dom::parse {<?xml version="1.0"?>
+<Test/>
+<!-- a comment in the epilogue -->
+}]
+    dom::serialize $doc
+} -result {<\?xml version=('|")1.0('|")\?>
+(<!DOCTYPE Test>
+)?<Test/>(
+)?<!-- a comment in the epilogue -->}
+
+# Test serialization of markup characters:
+
+set stText "<test>LT: &lt; GT: &gt; AMP: &amp;</test>"
+test serialize-4.1 {Serialization of markup characters in #PCDATA} -constraints {!dom_libxml2} -body {
+    set doc [dom::DOMImplementation parse $stText]
+    dom::DOMImplementation serialize [dom::document cget $doc -documentElement]
+} -result $stText
+
+set stText {<tests>
+<test LT='&lt;'/>
+<test GT='&gt;'/>
+<test AMP='&amp;'/>
+<test QUOT='&quot;'/>
+<test APOS='&apos;'/>
+</tests>}
+# Result may use different attribute quotes.
+# Also, only the '<' and '&' are required to be escaped,
+# but its OK for others to be as well.
+test serialize-4.2 {Serialization of markup characters in attribute values} -constraints {!dom_libxml2} -match regexp -body {
+    set doc [dom::DOMImplementation parse $stText]
+    dom::DOMImplementation serialize [dom::document cget $doc -documentElement]
+} -result {<tests>
+<test LT=('|")\&lt;('|")/>
+<test GT=('|")(\&gt;|>)('|")/>
+<test AMP=('|")\&amp;('|")/>
+<test QUOT='(\&quot;|")'/>
+<test APOS="(\&apos;|')"/>
+</tests>}
+
+# CDATA Sections may or may not be serialized using CDATA Section syntax
+set stText \
+    {<test>some plain text <![CDATA[ a CDATA section ]]> more text</test>}
+test serialize-4.3 {Preserve CDATA sections} -constraints {!dom_libxml2} -match regexp -body {
+    set doc [dom::DOMImplementation parse $stText]
+    dom::DOMImplementation serialize [dom::document cget $doc -documentElement]
+} -result {<test>some plain text (<!\[CDATA\[)? a CDATA section (]]>)? more text</test>}
+
+# Test for bug #512704
+test serialize-5.1 {Serialize reserved characters in attribute value} -constraints {!dom_libxml2} -body {
+    set doc [dom::DOMImplementation create]
+    set top [dom::document createElement $doc test]
+    dom::element setAttribute $top q {"all lll" <who@where.com>}
+    dom::DOMImplementation serialize $doc
+} -result {<?xml version='1.0'?>
+<!DOCTYPE test>
+<test q='"all lll" &lt;who@where.com>'/>}
+test serialize-5.1 {Serialize reserved characters in attribute value} -constraints {dom_libxml2} -body {
+    set doc [dom::DOMImplementation create]
+    set top [dom::document createElement $doc test]
+    dom::element setAttribute $top q {"all lll" <who@where.com>}
+    dom::DOMImplementation serialize $doc
+} -result {<?xml version="1.0"?>
+<test q="&quot;all lll&quot; &lt;who@where.com&gt;"/>
+}
+
+# XML Namespace support
+test serialize-6.1 {XML Namespaces - from parsed document} -match regexp -body {
+    set doc61 [dom::DOMImplementation parse {<t:Test xmlns:t='urn:test'><t:Value>ABC</t:Value></t:Test>
+}]
+    dom::DOMImplementation serialize $doc61
+} -result {<\?xml version=("|')1\.0("|')\?>
+(<!DOCTYPE t:Test>
+)?<t:Test xmlns:t=("|')urn:test("|')><t:Value>ABC</t:Value></t:Test>}
+
+test serialize-6.2 {XML Namespaces - from generated document, prefix supplied} -match regexp -body {
+    set doc62 [dom::DOMImplementation create]
+    set de62 [dom::document createElementNS $doc62 urn:test-uri test:Test]
+    dom::document createElementNS $de62 urn:test-uri test:Value
+    dom::DOMImplementation serialize $doc62
+} -result {<\?xml version=("|')1\.0("|')\?>
+<!DOCTYPE test:Test>
+<test:Test xmlns:test=("|')urn:test-uri("|')><test:Value/></test:Test>}
+
+test serialize-6.3 {XML Namespaces - from generated document, prefix not supplied} -match regexp -body {
+    set doc63 [dom::DOMImplementation create]
+    set de63 [dom::document createElementNS $doc63 urn:test-uri Test]
+    dom::document createElementNS $de63 urn:test-uri Value
+    dom::DOMImplementation serialize $doc63
+} -result {<\?xml version=("|')1\.0("|')\?>
+<!DOCTYPE [a-zA-Z0-9]+:Test>
+<[a-zA-Z0-9]+:Test xmlns:[a-zA-Z0-9]+=("|')urn:test-uri("|')><[a-zA-Z0-9]+:Value/></[a-zA-Z0-9]+:Test>}
+
+# cleanup
+::tcltest::cleanupTests
+return

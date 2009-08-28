@@ -3,9 +3,8 @@
   <!-- ID of the router on the network (default: router) -->
   <id>router</id>
 
-  <!-- The process ID file. comment this out if you don't need to know
-       to know the process ID from outside the process (eg for control
-       scripts) -->
+  <!-- The process ID file. Comment this out if you don't need to know
+       the process ID from outside the process (eg for control scripts) -->
   <pidfile>/var/run/jabberd/router.pid</pidfile>
 
   <!-- Log configuration - type is "syslog", "file" or "stdout" -->
@@ -14,38 +13,38 @@
     <ident>jabberd/router</ident>
 
     <!-- If logging to syslog, this is the log facility
-         (local0 - local7)                        [default: local3] -->
-    <facility>local3</facility>
+         (local0 - local7, log_user)                        [default: local3] -->
+    <facility>log_user</facility>
 
     <!-- If logging to file, this is the filename of the logfile -->
     <!--
-    <file>/usr/var/jabberd/log/router.log</file>
+    <file>/var/jabberd/log/router.log</file>
     -->
   </log>
-  
-	<!-- If enabled (set to "1"), this turns on message logging to a flat file. -->
-	<message_logging_enabled>0</message_logging_enabled>
 
-	<!-- If message logging is enabled, what directory to log to -->
-	<message_logging_dir>/var/jabberd/message_archives</message_logging_dir>
-  
-	<!-- If message logging is enabled, what filename to log to -->
-	<message_logging_file>jabberd_user_messages.log</message_logging_file>
+  <!-- If enabled (set to "1"), this turns on message logging to a flat file. -->
+  <message_logging_enabled>0</message_logging_enabled>
 
-	<!-- If message logging is enabled, how often to roll logs (days) (0 to disable) -->
-	<message_logging_roll_days>7</message_logging_roll_days>
+  <!-- If message logging is enabled, what directory to log to -->
+  <message_logging_dir>/var/jabberd/message_archives</message_logging_dir>
 
-	<!-- If message logging is enabled, roll logs if they get larger than this (megabytes) (0 to disable) -->
-	<message_logging_roll_megs>256</message_logging_roll_megs>
+  <!-- If message logging is enabled, what filename to log to -->
+  <message_logging_file>jabberd_user_messages.log</message_logging_file>
 
-	<!-- If enabled (set to "1"), and message_logging_enabled is enabled, include group chats in log -->
-	<log_group_chats>1</log_group_chats>
+  <!-- If message logging is enabled, how often to roll logs (days) (0 to disable) -->
+  <message_logging_roll_days>7</message_logging_roll_days>
 
-	<!-- If defined, and log_group_chats is enabled, any message sent from this component name will not
-		be logged.  The purpose of this preference is to prevent router from logging multiple copies
-		of messages sent to MUC chat rooms.  To prevent the logging of duplicates, this preference should
-		match your MUC component's name.  Messages sent to MUC will still be logged.  -->
-	<filter_muc_messages_from>conference.@HOSTNAME@</filter_muc_messages_from>
+  <!-- If message logging is enabled, roll logs if they get larger than this (megabytes) (0 to disable) -->
+  <message_logging_roll_megs>256</message_logging_roll_megs>
+
+  <!-- If enabled (set to "1"), and message_logging_enabled is enabled, include group chats in log -->
+  <log_group_chats>1</log_group_chats>
+
+  <!-- If defined, and log_group_chats is enabled, any message sent from this component name will not
+        be logged.  The purpose of this preference is to prevent router from logging multiple copies
+        of messages sent to MUC chat rooms.  To prevent the logging of duplicates, this preference should
+        match your MUC component's name.  Messages sent to MUC will still be logged.  -->
+  <filter_muc_messages_from>conference.@HOSTNAME@</filter_muc_messages_from>
 
   <!-- Local network configuration -->
   <local>
@@ -60,16 +59,26 @@
          authentication.-->
     <users>/private/etc/jabberd/router-users.xml</users>
 
-    <!-- Shared secret used to identify legacy components (that is,
+    <!-- Shared secret used to identify XEP-0114 components (that is,
          "jabber:component:accept" components that authenticate using
-         the "handshake" method). If this is commented out, support for
-         legacy components will be disabled. -->
+         the Jabber Component Protocol's "handshake", for example
+         mu-conference). If this is commented out, support for XEP-0114
+         components will be disabled. -->
     <secret>@ROUTERPASSWORD@</secret>
 
-    <!-- File containing a SSL certificate and private key for client
-         connections. If this is commented out, connecting components
-         will not be able to request a SSL-encrypted channel. -->
-    <pemfile>/etc/certificates/Default.crtkey</pemfile>
+    <!-- File containing an SSL certificate and private key for client
+         connections. From SSL_CTX_use_certificate_chain_file(3):
+         "The certificates must be in PEM format and must be sorted
+         starting with the subject's certificate (actual client or
+         server certificate), followed by intermediate CA certificates
+         if applicable, and ending at the highest level (root) CA"
+         (the latter one being optional).
+         If this is commented out, connecting components will not be able
+         to request an SSL-encrypted channel. -->
+    <!--<pemfile/>-->
+
+    <!-- Password for private key if key in pemfile is encrypted -->
+    <!--<private_key_password/>-->
   </local>
 
   <!-- Timed checks -->
@@ -90,7 +99,7 @@
      <keepalive>0</keepalive>
 
   </check>
-  
+
   <!-- input/output settings -->
   <io>
     <!-- Maximum number of file descriptors. Note that the number of
@@ -98,7 +107,11 @@
          the router itself can use up four on its own. If the supply of
          file descriptors is exhausted, new incoming connections will be
          denied (default: 1024) -->
+<!-- Apple Only: This max_fds configuration option is ignored because
+     launchd is responsible for configuring the RLIMIT_NOFILE resource
+     limit
     <max_fds>11000</max_fds>
+-->
 
     <!-- Rate limiting -->
     <limits>
@@ -129,7 +142,7 @@
          determines what happens. -->
     <access>
       <!-- Rule check order (default: allow,deny)
-           
+
            allow,deny - Check allow rules, then check deny rules.
                         Allow by default.
            deny,allow - Check deny rules, then check allow rules.
@@ -192,9 +205,15 @@
     -->
 
     <!-- These users can elect to receive all packets that pass through the router -->
-    <acl type='log'> <!-- DEBUG -->
-      <user>jabberd</user>
+    <!--
+    <acl type='log'>
+      <user>msglog</user>
     </acl>
+    -->
   </aci>
+
+  <!-- File containing packet filter rules.
+       May be used for fine grained packet routing control. -->
+  <filter>/private/etc/jabberd/router-filter.xml</filter>
 
 </router>

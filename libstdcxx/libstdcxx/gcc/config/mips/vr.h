@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.
    NEC VR Series Processors
-   Copyright (c) 2002, 2004 Free Software Foundation, Inc.
+   Copyright (c) 2002, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Red Hat, Inc.
 
 This file is part of GCC.
@@ -17,7 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #define DEFAULT_VR_ARCH "mfix-vr4130"
 #define MIPS_ABI_DEFAULT ABI_EABI

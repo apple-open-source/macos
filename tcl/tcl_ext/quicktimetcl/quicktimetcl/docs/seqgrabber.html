@@ -1,0 +1,354 @@
+<HTML><HEAD><TITLE>QuickTimeTcl Commands - seqgrabber manual 
+page</TITLE></HEAD><BODY>
+
+<DL>
+<DD><A HREF="seqgrabber.html#M1">NAME</A>
+
+<DL>
+<DD>seqgrabber - Create and manipulate a sequence grabber widget for video 
+and audio
+</DL>
+
+<DD><A HREF="seqgrabber.html#M2">SYNOPSIS</A>
+<DL>
+<DD><B>package require QuickTimeTcl</B> ?<I>version</I>?
+<DD><B>seqgrabber </B> <I>pathname</I>  ?<I>options</I>?
+</DL>
+
+<DD><A HREF="seqgrabber.html#M3">WIDGET-SPECIFIC OPTIONS</A>
+
+<DL>
+<DD><A HREF="seqgrabber.html#M31">-audio, audio, Audio</A>
+<DD><A HREF="seqgrabber.html#M30">-audioonly, audioOnly, AudioOnly</A>
+<DD><A HREF="seqgrabber.html#M4">-file, file, File</A>
+<DD><A HREF="seqgrabber.html#M101">-framerate, frameRate, FrameRate</A>
+<DD><A HREF="seqgrabber.html#M5">-height, height, Height</A>
+<DD><A HREF="seqgrabber.html#M6">-overlayimage, overlayImage, 
+OverlayImage</A>
+<DD><A HREF="seqgrabber.html#M40">-playduringrecord, playDuringRecord, PlayDuringRecord</A>
+<DD><A HREF="seqgrabber.html#M7">-quality, quality, Quality</A>
+<DD><A HREF="seqgrabber.html#M41">-showfps, showFPS, ShowFPS</A>
+<DD><A HREF="seqgrabber.html#M8">-size, size, Size</A>
+<DD><A HREF="seqgrabber.html#M100">-videocompressor, videoCompressor, VideoCompressor</A>
+<DD><A HREF="seqgrabber.html#M102">-volume, volume, Volume</A>
+<DD><A HREF="seqgrabber.html#M9">-width, width, Width</A>
+<DD><A HREF="seqgrabber.html#M10">-zoom, zoom, Zoom</A>
+</DL>
+
+<DD><A HREF="seqgrabber.html#M11">DESCRIPTION</A>
+<DD><A HREF="seqgrabber.html#M12">WIDGET COMMAND</A>
+
+<DL>
+<DD><A HREF="seqgrabber.html#M13"><I>pathName </I> <B>audiosettings</B></A>
+<DD><A HREF="seqgrabber.html#M14"><I>pathName </I> <B>cget</B>  
+<I>option</I></A>
+<DD><A HREF="seqgrabber.html#M15"><I>pathName </I> <B>configure</B>  
+?<I>option</I>? ?<I>value option value ...</I>?</A>
+<DD><A HREF="seqgrabber.html#M110"><I>pathName </I> <B>image</B><I>  
+procName imageName</I></A>
+<DD><A HREF="seqgrabber.html#M16"><I>pathName </I> <B>pause</B><I>  boolean 
+</I></A>
+<DD><A HREF="seqgrabber.html#M17"><I>pathName </I> <B>picture</B><I>  
+imageName</I></A>
+<DD><A HREF="seqgrabber.html#M18"><I>pathName </I> <B>record</B></A>
+<DD><A HREF="seqgrabber.html#M19"><I>pathName </I> <B>start</B></A>
+<DD><A HREF="seqgrabber.html#M20"><I>pathName </I> <B>stop</B></A>
+<DD><A HREF="seqgrabber.html#M21"><I>pathName </I> <B>videosettings</B></A>
+</DL>
+
+<DD><A HREF="seqgrabber.html#M22">BUGS</A>
+<DD><A HREF="seqgrabber.html#M23">KEYWORDS</A>
+</DL>
+</DL>
+
+<HR>
+
+<H3><A NAME="M1">NAME</A></H3>
+seqgrabber - Create and manipulate a sequence grabber widget for video and 
+audio
+<H3><A NAME="M2">SYNOPSIS</A></H3>
+<B>package require QuickTimeTcl</B> ?<I>version</I>?<BR>
+<B>seqgrabber </B> <I>pathname</I>  ?<I>options</I>?
+
+<H3><A NAME="M3">WIDGET-SPECIFIC OPTIONS</A></H3>
+
+<DL>
+    
+    <DT>Command-Line Name: <B><A NAME="M31">-audio</A></B>
+    <DT>Database Name: <B>audio</B>
+    <DT>Database Class: <B>Audio</B>
+    <DD>Specifies if audio be included in the grabber.
+    It defaults to true. 
+    
+    <P>     
+    <DT>Command-Line Name: <B><A NAME="M30">-audioonly</A></B>
+    <DT>Database Name: <B>audioOnly</B>
+    <DT>Database Class: <B>AudioOnly</B>
+    <DD>Boolean that defaults to 0. If 1, then no video grabber is created, 
+    only an audio grabber. A widget with <B>-audioonly</B> set shall not 
+    be mapped on the display. It is typically used for recording sound 
+    only. A minimal recording session reads:
+    
+    <PRE>
+seqgrabber .sg -audioonly 1 -file prat.mov
+.sg start
+.sg audiosettings
+.sg record 
+...
+.sg stop
+</PRE>
+    Note that, unlike the video grabber, it is necessary to explicitly 
+    <B>start</B> the audio grabber.
+
+<P>     
+<DT>Command-Line Name: <B><A NAME="M4">-file</A></B>
+<DT>Database Name: <B>file</B>
+<DT>Database Class: <B>File</B>
+<DD>Specifies the file path to a file to save any recording results to.
+
+<P>     
+<DT>Command-Line Name: <B><A NAME="M101">-framerate</A></B>
+<DT>Database Name: <B>frameRate</B>
+<DT>Database Class: <B>FrameRate</B>
+<DD>Specifies the desired framerate when recording. It defaults to 0.0
+which I believe means max frame rate.
+
+<P>
+<DT>Command-Line Name: <B><A NAME="M5">-height</A></B>
+<DT>Database Name: <B>height</B>
+<DT>Database Class: <B>Height</B>
+<DD>Specifies a desired height for the sequence grabber widget.
+If this option isn't specified, the sequence grabber's  height is computed
+from the <B>width</B> option and the physical size of the video source in 
+pixel coordinates. The ratio of <B>height</B> to <B>width</B> is kept 
+identical to the corresponding ratio of the video source. If an explicit 
+nonzero value of the <B>width</B> option is lacking, the height is found 
+from the <B>size</B> option and the ratio of the video source height and 
+width.  If <B>height</B> is put equal to 0 it is disregarded. Both 
+<B>height</B> and <B>width</B> cannot be set simultaneously. Any 
+combination of the options cannot result in a widget size larger than the 
+physical size of the video source in pixel coordinates.
+The framerate typically decreases with the size of the widget.
+<P>
+<DT>Command-Line Name: <B><A NAME="M6">-overlayimage</A></B>
+<DT>Database Name: <B>overlayImage</B>
+<DT>Database Class: <B>OverlayImage</B>
+<DD>(Unimplemented on Windows.) Specifies an existing photo (created via <B>image create photo</B>) 
+that should be displayed on top of the grabbed video sequence or still 
+image. It is usually a small image that is shown in one of the corners, 
+which for the moment defaults to the north east corner. Typically it 
+contains large portions that are transparent. This option cannot be set or 
+changed when the <B>seqgrabber</B> has been mapped on the display.
+
+<P>
+<DT>Command-Line Name: <B><A NAME="M40">-playduringrecord</A></B>
+<DT>Database Name: <B>playDuringRecord</B> 
+<DT>Database Class: <B>PlayDuringRecord</B>
+<DD>Boolean. Defaults to 1. Specifies if previewing shall be on if recording. 
+Sometimes better performance is achieved if not.
+
+<P>
+<DT>Command-Line Name: <B><A NAME="M7">-quality</A></B>
+<DT>Database Name: <B>quality</B>
+<DT>Database Class: <B>Quality</B>
+<DD>Specifies the desired playback quality of the video: <B>fast</B>, 
+<B>normal</B> or <B>high</B>. It defaults to <B>normal</B>. The result can 
+depend on the implementation of the drivers for the specific video source.
+Note that some (mine at least) fails when qulity is set to high, and just
+givs a white background.
+
+<P>
+<DT>Command-Line Name: <B><A NAME="M41">-showfps</A></B> 
+<DT>Database Name: <B>showFPS</B> 
+<DT>Database Class: <B>ShowFPS</B>
+<DD>Boolean. Defaults to 0. If 1 a running counter and an estimated 
+frames-per-second figure is drawn in the preview window.
+
+<P>
+<DT>Command-Line Name: <B><A NAME="M8">-size</A></B>
+<DT>Database Name: <B>size</B>
+<DT>Database Class: <B>Size</B>
+<DD>Sets the wanted size of the grabbed video in terms of fractions of the 
+physical size of the video source in pixel coordinates. It can be any of 
+three values, <B>full</B>, <B>half</B>, or <B>quarter</B>. It defaults to 
+<B>half</B>. If any of the <B>height</B> or <B>width</B> options has been 
+set they override the size of the <B>size</B> option. Performance may be 
+better if the <B>size</B> option is used instead of the <B>height</B> or 
+<B>width</B> options. The framerate typically decreases with the size of 
+the widget.
+
+<P>
+<DT>Command-Line Name: <B><A NAME="M100">-videocompressor</A></B>
+<DT>Database Name: <B>videoCompressor</B>
+<DT>Database Class: <B>VideoCompressor</B>
+<DD>Sets the compressor type when recording video. 
+The compressor is named by a four character text string.
+See <B>::quicktimetcl::info</B> for how to find the available components
+on your system. As a shortcut, use the <B>videosettings</B>, set the wanted
+compressor there, save, and use <B>cget -videcompressor</B> to get the four 
+character code.
+
+<P>
+<DT>Command-Line Name: <B><A NAME="M102">-volume</A></B>
+<DT>Database Name: <B>volume</B>
+<DT>Database Class: <B>Volume</B>
+<DD>Sets the recording volume. It is a number between +1.0 and -1.0.
+Negative numbers means that sound is off, an is used to toggle on-off.
+
+<P>
+<DT>Command-Line Name: <B><A NAME="M9">-width</A></B>
+<DT>Database Name: <B>width</B>
+<DT>Database Class: <B>Width</B>
+<DD>Specifies a desired width for the sequence grabber widget.
+If this option isn't specified, the sequence grabber's width is computed
+from the <B>height</B> option and the physical size of the video source in 
+pixel coordinates. The ratio of <B>height</B> to <B>width</B> is kept 
+identical to the corresponding ratio of the video source. If an explicit 
+nonzero value of the <B>height</B> option is lacking, the width is found 
+from the <B>size</B> option and the ratio of the video source height and 
+width.  If <B>width</B> is put equal to 0 it is disregarded. Both 
+<B>height</B> and <B>width</B> cannot be set simultaneously. Any 
+combination of the options cannot result in a widget size larger than the 
+physical size of the video source in pixel coordinates.
+The framerate typically decreases with the size of the widget.
+<P>
+<DT>Command-Line Name: <B><A NAME="M10">-zoom</A></B>
+<DT>Database Name: <B>zoom</B>
+<DT>Database Class: <B>Zoom</B>
+<DD>The zoom option must be given by a floating point number larger or 
+equal to one (1).
+The video is zoomed in by this factor but the widget size is kept 
+unchanged. As a result, the video source is clipped. The framerate may 
+increase if the video is zoomed since not the complete video source 
+rectangle needs to be captured.
+</DL>
+
+<H3><A NAME="M11">DESCRIPTION</A></H3>
+The sequence grabber widget is a widget for showing and capturing video 
+and audio. Previewing starts automatically when the widget is displayed. 
+It is typically used together with a web camera that has a driver 
+interface to QuickTime.
+The QuickTime interface is general enough to allow for many types of input 
+devices,
+such as DV video, for instance. Moreover, it is not limited to a 
+particular hardware port on the computer, such as ADB (serial), USB, or 
+FireWire. The content in the widget is updated "live", but it is possible 
+to just take snapshots. Recording of video and audio to a movie file on 
+disk is also possible. Standard panels for separately setting
+video and audio parameters are included as commands. Only a single 
+instance of this widget can exist.
+
+<H3><A NAME="M12">WIDGET COMMAND</A></H3>
+The <B>seqgrabber</B> command creates a new Tcl command whose
+name is <I>pathName</I>.  This
+command may be used to invoke various
+operations on the widget.  It has the following general form:
+<PRE><I>pathName option </I>?<I>arg arg ...</I>?</PRE>
+<I>Option</I> and the <I>arg</I>s
+determine the exact behavior of the command.  The following
+commands are possible for sequence grabber widgets:
+<P>
+
+<DL>
+<P>
+<DT><A NAME="M13"><I>pathName </I> <B>audiosettings</B> </A><DD>
+Displays the standard QuickTime audio settings panel as a dialog window. 
+The settings are stored internally in QuickTime. It returns 0 if user 
+canceled, 1 if Ok.
+<P>
+<DT><A NAME="M14"><I>pathName </I> <B>cget</B> <I>option</I></A><DD>
+Returns the current value of the configuration option given
+by <I>option</I>.
+<I>Option</I> may have any of the values accepted by the <B>seqgrabber</B>
+command.
+<P>
+<DT><A NAME="M15"><I>pathName </I> <B>configure</B> ?<I>option</I>? 
+?<I>value option value ...</I>?</A><DD>
+Query or modify the configuration options of the widget.
+If no <I>option</I> is specified, returns a list describing all of
+the available options for <I>pathName</I> (see <B>Tk_ConfigureInfo</B> for
+information on the format of this list).  If <I>option</I> is specified
+with no <I>value</I>, then the command returns a list describing the
+one named option (this list will be identical to the corresponding
+sublist of the value returned if no <I>option</I> is specified).  If
+one or more <I>option-value</I> pairs are specified, then the command
+modifies the given widget option(s) to have the given value(s);  in
+this case the command returns an empty string.
+<I>Option</I> may have any of the values accepted by the <B>seqgrabber</B>
+command.
+
+<P>
+<DT><A NAME="M110"><I>pathName </I> <B>image</B> <I>procName imageName</I></A>
+<DD>
+Takes a snapshot asynchronously of the playback video frame and places it in the 
+<I>imageName</I>, which must already exist. Create the <I>imageName</I> 
+with <B>image create photo</B> <I>imageName</I>.
+The <I>procName</I> must look like:
+
+<pre>
+proc shot {w imageName} {
+   ...
+}
+</pre>
+Note that the image is not written after the <I>pathName </I> <B>image</B>
+returns, but when the <I>procName</I> is invoked. This is much faster
+than the <B>picture</B> command. The grabber must be running for this to work.
+
+<P>
+<DT><A NAME="M16"><I>pathName </I> <B>ispaused</B> </A>
+<DD>
+Returns  1 if the preview process is paused, and 0 if it's unpaused. Note 
+that the process may be stopped but still unpaused.
+<P>
+<DT><A NAME="M16"><I>pathName </I> <B>isrunning</B> </A>
+<DD>
+Returns  1 if the preview process is neither paused, nor stopped, and 0 
+else.
+<P>
+<DT><A NAME="M16"><I>pathName </I> <B>pause</B> <I>boolean</I></A>
+<DD>
+Pauses or unpauses the playback in the widget. It doesn't cause any system 
+resources involved to be released so it's a rather "light" task.
+<P>
+<DT><A NAME="M17"><I>pathName </I> <B>picture</B> <I>imageName</I></A>
+<DD>
+Takes a snapshot of the playback video frame and places it in the 
+<I>imageName</I>, which must already exist. Create the <I>imageName</I> 
+with <B>image create photo</B> <I>imageName</I>.
+See also <A HREF="seqgrabber.html#M110">image</A>
+<P>
+<DT><A NAME="M18"><I>pathName </I> <B>record</B></A>
+<DD>
+Starts recording to the file specified by the <B>file</B> option. A 
+<B>stop</B> or <B>pause</B> command stops the recording.
+<P>
+<DT><A NAME="M19"><I>pathName </I> <B>start</B> </A>
+<DD>
+Starts video playback in the widget. The <B>start</B> and <B>stop</B> 
+commands release and allocate system resources. For a short break it is  
+therefore better to use <B>pause</B>. It also resets any paused state to 
+unpause (?).
+<P>
+<DT><A NAME="M20"><I>pathName </I> <B>stop</B> </A><DD>
+Stops video playback in the widget. It also stops any recording operations.
+<P>
+<DT><A NAME="M21"><I>pathName </I> <B>videosettings</B> </A><DD>
+Displays the standard QuickTime video settings panel as a dialog window. 
+The settings are stored internally in QuickTime. It returns 0 if user 
+canceled, 1 if Ok.
+</DL>
+
+<H3><A NAME="M22">BUGS</A></H3>
+It happens that the <B>quality</B> option just stops previewing. 
+Testing on Windows is limited to the emulated 'vdig' (Video Digitizer) 
+component WinVDIG from "http://www.vdig.com". Experience with Connectix
+QuickCam and Philips ToUcam on Macintosh shows that video drivers are not always
+as robust as one would wish.
+
+<H3><A NAME="M23">KEYWORDS</A></H3>
+<U><A HREF="">Sequence grabber</A></U>, <U><A 
+HREF="movie.html">Movie</A></U>,<U>QuickTime</U> and <A 
+HREF="getOpenFilePreview.html">tk_getOpenFilePreview</A>
+<HR><PRE>
+Copyright &#169; 2000-2001 Mats Bengtsson</PRE>
+</BODY></HTML>

@@ -1,8 +1,7 @@
-diff -ruN ./makefile ../../awk-new/awk/makefile
---- ./makefile	2005-05-03 13:55:49.000000000 -0700
-+++ ../../awk-new/awk/makefile	2005-05-03 14:06:31.000000000 -0700
-@@ -48,7 +48,7 @@
- 	vcvars32.bat buildwin.bat mac.code awk.1
+--- makefile.orig	2008-11-12 11:50:29.000000000 -0800
++++ makefile	2008-11-12 11:42:56.000000000 -0800
+@@ -50,7 +50,7 @@
+ 	vcvars32.bat buildwin.bat awk.1
  
  a.out:	ytab.o $(OFILES)
 -	$(CC) $(CFLAGS) ytab.o $(OFILES) $(ALLOC)  -lm
@@ -10,24 +9,4 @@ diff -ruN ./makefile ../../awk-new/awk/makefile
  
  $(OFILES):	awk.h ytab.h proto.h
  
-diff -ruN ./run.c ../../awk-new/awk/run.c
---- ./run.c	2005-05-03 13:55:50.000000000 -0700
-+++ ../../awk-new/awk/run.c	2005-05-03 14:26:56.000000000 -0700
-@@ -1024,6 +1024,7 @@
- 			FATAL("division by zero in mod");
- 		modf(i/j, &v);
- 		i = i - j * v;
-+		if (i == -0) i = 0;
- 		break;
- 	case UMINUS:
- 		i = -i;
---- ./run.c	2005-06-23 14:32:34.000000000 -0700
-+++ /tmp/run.c	2005-06-23 14:44:29.000000000 -0700
-@@ -1122,6 +1122,7 @@
- 			FATAL("division by zero in %%=");
- 		modf(xf/yf, &v);
- 		xf = xf - yf * v;
-+		if (xf == -0) xf = 0;
- 		break;
- 	case POWEQ:
- 		if (yf >= 0 && modf(yf, &v) == 0.0)	/* pos integer exponent */
+

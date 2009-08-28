@@ -32,7 +32,7 @@ AC_PROG_CC
 AC_PROG_INSTALL
 
 # Checks for pkg-config packages
-XAW_CHECK_XPRINT_SUPPORT(XAW)
+PKG_CHECK_MODULES(XAW, xaw7)
 
 PKG_CHECK_MODULES(ADDITIONAL, freetype2 fontconfig xft)
 

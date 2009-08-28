@@ -67,12 +67,6 @@ __FBSDID("$FreeBSD: src/usr.bin/stat/stat.c,v 1.6 2003/10/06 01:55:17 dougb Exp 
 #include <time.h>
 #include <unistd.h>
 
-#ifdef __APPLE__
-#define stat stat64
-#define fstat fstat64
-#define lstat lstat64
-#endif /* __APPLE__ */
-
 #if HAVE_STRUCT_STAT_ST_FLAGS
 #define DEF_F "%#Xf "
 #define RAW_F "%f "

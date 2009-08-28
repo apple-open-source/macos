@@ -35,13 +35,14 @@ sub MkDirP;
 # CONSTANTS AND GLOBAL VARIABLES
 # Sorces and destinations
 my $g_PathDocRoot=&cmn_ValuePathfile('path_svnbook');
+my $g_PathSubvRoot=&cmn_ValuePathfile('path_subversion');
 my $g_PathMiscIn=&cmn_ValuePathfile('path_setup_in');
 my %g_FilesToCpAndConv=
     (
         'COPYING', 'subversion\SubversionLicense.txt',
         'README', 'subversion\Readme.dist',
         'doc\user\lj_article.txt', 'doc\lj_article.txt',
-        'doc\programmer\WritingChangeLogs.txt', 'doc\WritingChangeLogs.txt', 
+        'doc\programmer\WritingChangeLogs.txt', 'doc\WritingChangeLogs.txt',
     );
 
 # Programs needed for making the documentation
@@ -89,6 +90,9 @@ sub Main
 
     #Make the out dir in "$RootSvnBook\src if needed
     &MkDirP ("$RootSvnBook\\src\\out") unless (-e "$RootSvnBook\\src\\out");
+
+    #Make the in dir for path_setup_in if needed
+    &MkDirP ("$DocOut") unless (-e "$DocOut");
 
     #Check for needed programs
     &CheckForProgs;
@@ -176,12 +180,12 @@ sub CheckForProgs
     if ($bMissingProgs)
       {
         my $Msg="One or more required programs needed for making the docs are missing:\n\n";
-   
+
         for (@MissingProgs)
           {
             $Msg=$Msg . "  - $_\n";
           }
-          
+
           $Msg=$Msg . "\nPlease, check that everything are installed properly as described in\n";
           $Msg=$Msg . "the documentation in packages\\windows-innosetup\\tools\\readme.txt\n";
           Win32::MsgBox($Msg, 0+MB_ICONSTOP, 'ERROR: Missing required programs.');
@@ -198,11 +202,20 @@ sub CopyAndEolU2W
     my $FileSrc='';
     my $FileDest='';
     my $FileCnt='';
+    my $PathWinIsPack='';
+    my $Pwd='';
+
+    # Get absolute path of the current PWD's parent
+    $PathWinIsPack=getcwd;
+    $Pwd=basename($PathWinIsPack);
+    $PathWinIsPack =~ s/\//\\/g;
+    $PathWinIsPack =~ s/\\$Pwd$//;
 
     while (($FileSrc, $FileDest) = each %g_FilesToCpAndConv)
       {
-        $FileSrc = "$g_PathDocRoot\\$FileSrc";
-        $FileDest = "$g_PathMiscIn\\$FileDest";
+#        $FileSrc = "$g_PathDocRoot\\$FileSrc";
+        $FileSrc = "$g_PathSubvRoot\\$FileSrc";
+        $FileDest = "$PathWinIsPack\\$g_PathMiscIn\\$FileDest";
         print "Copying and converting EOL's from $FileSrc to $FileDest\n";
 
         open (FH_SRC, $FileSrc);
@@ -210,7 +223,7 @@ sub CopyAndEolU2W
               {
                 chomp($_);
                 $_ = "$_\r\n";
-                
+
                 if ($FileCnt)
                   {
                     $FileCnt = $FileCnt . $_;
@@ -222,43 +235,13 @@ sub CopyAndEolU2W
               }
          close (FH_SRC);
 
+        #Make the in dir for path_setup_in if needed
+        &MkDirP (dirname($FileDest)) unless (-e dirname($FileDest));
+
         open (FH_DEST, ">" . $FileDest);
             print FH_DEST $FileCnt;
         close (FH_DEST);
 
         $FileCnt='';
-      }
-}
-
-#-------------------------------------------------------------------------
-# FUNCTION   MkDirP
-# DOES       Making a directory. Similar to unix's mkdir -p
-sub MkDirP
-{
-    my $Dir=$_[0];
-    my @SubPaths;
-
-    
-    
-    if (! -e $Dir)
-      {
-        @SubPaths = split (/\\/, $Dir);
-        my $Dir2Make='';
-        for (@SubPaths)
-          {
-            if ($Dir2Make)
-              {
-                $Dir2Make = "$Dir2Make\\$_";
-              }
-            else
-              {
-                $Dir2Make = $_;
-              }
-
-            if (! -e $Dir2Make)
-              {
-                system ("mkdir $Dir2Make");
-              }
-          }
       }
 }

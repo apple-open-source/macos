@@ -25,8 +25,10 @@
 #include "svn_path.h"
 #include "svn_props.h"
 #include "svn_repos.h"
+#include "svn_time.h"
 #include "repos.h"
 #include "svn_private_config.h"
+#include "private/svn_utf_private.h"
 
 
 /*** Commit wrappers ***/
@@ -63,6 +65,34 @@ svn_repos_fs_commit_txn(const char **conflict_p,
 
 /*** Transaction creation wrappers. ***/
 
+
+svn_error_t *
+svn_repos_fs_begin_txn_for_commit2(svn_fs_txn_t **txn_p,
+                                   svn_repos_t *repos,
+                                   svn_revnum_t rev,
+                                   apr_hash_t *revprop_table,
+                                   apr_pool_t *pool)
+{
+  svn_string_t *author = apr_hash_get(revprop_table, SVN_PROP_REVISION_AUTHOR,
+                                      APR_HASH_KEY_STRING);
+  apr_array_header_t *revprops;
+
+  /* Run start-commit hooks. */
+  SVN_ERR(svn_repos__hooks_start_commit(repos, author ? author->data : NULL,
+                                        repos->client_capabilities, pool));
+
+  /* Begin the transaction, ask for the fs to do on-the-fly lock checks. */
+  SVN_ERR(svn_fs_begin_txn2(txn_p, repos->fs, rev,
+                            SVN_FS_TXN_CHECK_LOCKS, pool));
+
+  /* We pass the revision properties to the filesystem by adding them
+     as properties on the txn.  Later, when we commit the txn, these
+     properties will be copied into the newly created revision. */
+  revprops = svn_prop_hash_to_array(revprop_table, pool);
+  return svn_repos_fs_change_txn_props(*txn_p, revprops, pool);
+}
+
+
 svn_error_t *
 svn_repos_fs_begin_txn_for_commit(svn_fs_txn_t **txn_p,
                                   svn_repos_t *repos,
@@ -71,44 +101,17 @@ svn_repos_fs_begin_txn_for_commit(svn_fs_txn_t **txn_p,
                                   const char *log_msg,
                                   apr_pool_t *pool)
 {
-  /* Run start-commit hooks. */
-  SVN_ERR(svn_repos__hooks_start_commit(repos, author, pool));
-
-  /* Begin the transaction, ask for the fs to do on-the-fly lock checks. */
-  SVN_ERR(svn_fs_begin_txn2(txn_p, repos->fs, rev,
-                            SVN_FS_TXN_CHECK_LOCKS, pool));
-
-  /* We pass the author and log message to the filesystem by adding
-     them as properties on the txn.  Later, when we commit the txn,
-     these properties will be copied into the newly created revision. */
-
-  /* User (author). */
+  apr_hash_t *revprop_table = apr_hash_make(pool);
   if (author)
-    {
-      svn_string_t val;
-      val.data = author;
-      val.len = strlen(author);
-      SVN_ERR(svn_fs_change_txn_prop(*txn_p, SVN_PROP_REVISION_AUTHOR,
-                                     &val, pool));
-    }
-    
-  /* Log message. */
+    apr_hash_set(revprop_table, SVN_PROP_REVISION_AUTHOR,
+                 APR_HASH_KEY_STRING,
+                 svn_string_create(author, pool));
   if (log_msg)
-    {
-      /* Heh heh -- this is unexpected fallout from changing most code
-         to use plain strings instead of svn_stringbuf_t and
-         svn_string_t.  The log_msg is passed in as const char * data,
-         but svn_fs_change_txn_prop() is a generic propset function
-         that must accept arbitrary data as values.  So we create an
-         svn_string_t as wrapper here. */
-        svn_string_t l;
-        l.data = log_msg;
-        l.len = strlen(log_msg);
-        SVN_ERR(svn_fs_change_txn_prop(*txn_p, SVN_PROP_REVISION_LOG,
-                                       &l, pool));
-    }
-
-  return SVN_NO_ERROR;
+    apr_hash_set(revprop_table, SVN_PROP_REVISION_LOG,
+                 APR_HASH_KEY_STRING,
+                 svn_string_create(log_msg, pool));
+  return svn_repos_fs_begin_txn_for_commit2(txn_p, repos, rev, revprop_table,
+                                            pool);
 }
 
 
@@ -145,18 +148,64 @@ svn_repos_fs_begin_txn_for_update(svn_fs_txn_t **txn_p,
 /*** Property wrappers ***/
 
 /* Validate that property NAME is valid for use in a Subversion
-   repository. */
+   repository; return SVN_ERR_REPOS_BAD_ARGS if it isn't.  For some "svn:"
+   properties, also validate the value, and return SVN_ERR_BAD_PROPERTY_VALUE
+   if it is not valid.
+
+   Use POOL for temporary allocations.
+ */
 static svn_error_t *
-validate_prop(const char *name,
-              apr_pool_t *pool)
+validate_prop(const char *name, const svn_string_t *value, apr_pool_t *pool)
 {
   svn_prop_kind_t kind = svn_property_kind(NULL, name);
+
+  /* Disallow setting non-regular properties. */
   if (kind != svn_prop_regular_kind)
-    return svn_error_createf 
+    return svn_error_createf
       (SVN_ERR_REPOS_BAD_ARGS, NULL,
        _("Storage of non-regular property '%s' is disallowed through the "
-         "repository interface, and could indicate a bug in your client"), 
+         "repository interface, and could indicate a bug in your client"),
        name);
+
+  /* Validate "svn:" properties. */
+  if (svn_prop_is_svn_prop(name) && value != NULL)
+    {
+      /* Validate that translated props (e.g., svn:log) are UTF-8 with
+       * LF line endings. */
+      if (svn_prop_needs_translation(name))
+        {
+          if (svn_utf__is_valid(value->data, value->len) == FALSE)
+            {
+              return svn_error_createf
+                (SVN_ERR_BAD_PROPERTY_VALUE, NULL,
+                 _("Cannot accept '%s' property because it is not encoded in "
+                   "UTF-8"), name);
+            }
+
+          /* Disallow inconsistent line ending style, by simply looking for
+           * carriage return characters ('\r'). */
+          if (strchr(value->data, '\r') != NULL)
+            {
+              return svn_error_createf
+                (SVN_ERR_BAD_PROPERTY_VALUE, NULL,
+                 _("Cannot accept non-LF line endings in '%s' property"),
+                   name);
+            }
+        }
+
+      /* "svn:date" should be a valid date. */
+      if (strcmp(name, SVN_PROP_REVISION_DATE) == 0)
+        {
+          apr_time_t temp;
+          svn_error_t *err;
+
+          err = svn_time_from_cstring(&temp, value->data, pool);
+          if (err)
+            return svn_error_create(SVN_ERR_BAD_PROPERTY_VALUE,
+                                    err, NULL);
+        }
+    }
+
   return SVN_NO_ERROR;
 }
 
@@ -169,8 +218,25 @@ svn_repos_fs_change_node_prop(svn_fs_root_t *root,
                               apr_pool_t *pool)
 {
   /* Validate the property, then call the wrapped function. */
-  SVN_ERR(validate_prop(name, pool));
+  SVN_ERR(validate_prop(name, value, pool));
   return svn_fs_change_node_prop(root, path, name, value, pool);
+}
+
+
+svn_error_t *
+svn_repos_fs_change_txn_props(svn_fs_txn_t *txn,
+                              apr_array_header_t *txnprops,
+                              apr_pool_t *pool)
+{
+  int i;
+
+  for (i = 0; i < txnprops->nelts; i++)
+    {
+      svn_prop_t *prop = &APR_ARRAY_IDX(txnprops, i, svn_prop_t);
+      SVN_ERR(validate_prop(prop->name, prop->value, pool));
+    }
+
+  return svn_fs_change_txn_props(txn, txnprops, pool);
 }
 
 
@@ -180,183 +246,68 @@ svn_repos_fs_change_txn_prop(svn_fs_txn_t *txn,
                              const svn_string_t *value,
                              apr_pool_t *pool)
 {
-  /* Validate the property, then call the wrapped function. */
-  SVN_ERR(validate_prop(name, pool));
-  return svn_fs_change_txn_prop(txn, name, value, pool);
-}
+  apr_array_header_t *props = apr_array_make(pool, 1, sizeof(svn_prop_t));
+  svn_prop_t prop;
 
+  prop.name = name;
+  prop.value = value;
+  APR_ARRAY_PUSH(props, svn_prop_t) = prop;
 
-/* A revision's changed paths are either all readable, all unreadable,
-   or a mixture of the two. */
-enum rev_readability_level
-{
-  rev_readable = 1,
-  rev_partially_readable,
-  rev_unreadable
-};
-
-
-/* Helper func: examine the changed-paths of REV in FS using
-   AUTHZ_READ_FUNC.  Set *CAN_READ to one of the three
-   readability_level enum values.  Use POOL for invoking the authz func. */
-static svn_error_t *
-get_readability(int *can_read,
-                svn_fs_t *fs,
-                svn_revnum_t rev,
-                svn_repos_authz_func_t authz_read_func,
-                void *authz_read_baton,
-                apr_pool_t *pool)
-{
-  svn_fs_root_t *root;
-  apr_hash_t *changes;
-  apr_hash_index_t *hi;
-  apr_pool_t *subpool = svn_pool_create(pool);
-  svn_boolean_t found_readable = FALSE, found_unreadable = FALSE;
-
-  SVN_ERR(svn_fs_revision_root(&root, fs, rev, pool));
-  SVN_ERR(svn_fs_paths_changed(&changes, root, pool));
-
-  if (apr_hash_count(changes) == 0)
-    {
-      /* No paths changed in this revision?  Uh, sure, I guess the
-         revision is readable, then.  */
-      *can_read = rev_readable;
-      return SVN_NO_ERROR;
-    }
-
-  for (hi = apr_hash_first(pool, changes); hi; hi = apr_hash_next(hi))
-    {
-      const void *key;
-      void *val;
-      svn_fs_path_change_t *change;
-      const char *path;
-      svn_boolean_t readable;
-
-      svn_pool_clear(subpool);
-
-      apr_hash_this(hi, &key, NULL, &val);
-      path = (const char *) key;
-      change = val;
-
-      SVN_ERR(authz_read_func(&readable, root, path,
-                              authz_read_baton, subpool));
-      if (readable)
-        found_readable = TRUE;
-      else
-        found_unreadable = TRUE;
-
-      /* If we have at least one of each (readable/unreadable), we
-         have our answer. */
-      if (found_readable && found_unreadable)
-        goto decision;
-
-      switch (change->change_kind)
-        {
-        case svn_fs_path_change_add:
-        case svn_fs_path_change_replace:
-          {
-            const char *copyfrom_path;
-            svn_revnum_t copyfrom_rev;
-
-            SVN_ERR(svn_fs_copied_from(&copyfrom_rev, &copyfrom_path,
-                                       root, key, subpool));
-            if (copyfrom_path && SVN_IS_VALID_REVNUM(copyfrom_rev))
-              {
-                svn_fs_root_t *copyfrom_root;
-                SVN_ERR(svn_fs_revision_root(&copyfrom_root, fs,
-                                             copyfrom_rev, subpool));
-                SVN_ERR(authz_read_func(&readable,
-                                        copyfrom_root, copyfrom_path,
-                                        authz_read_baton, subpool));
-                if (! readable)
-                  found_unreadable = TRUE;
-
-                /* If we have at least one of each (readable/unreadable), we
-                   have our answer. */
-                if (found_readable && found_unreadable)
-                  goto decision;
-              }
-          }
-          break;
-
-        case svn_fs_path_change_delete:
-        case svn_fs_path_change_modify:
-        default:
-          break;
-        }
-    }
-
- decision:
-  svn_pool_destroy(subpool);
-
-  if (found_unreadable && (! found_readable))
-    *can_read = rev_unreadable;
-  else if (found_readable && (! found_unreadable))
-    *can_read = rev_readable;
-  else  /* found both readable and unreadable */
-    *can_read = rev_partially_readable;
-
-  return SVN_NO_ERROR;
+  return svn_repos_fs_change_txn_props(txn, props, pool);
 }
 
 
 svn_error_t *
-svn_repos_fs_change_rev_prop2(svn_repos_t *repos,
+svn_repos_fs_change_rev_prop3(svn_repos_t *repos,
                               svn_revnum_t rev,
                               const char *author,
                               const char *name,
                               const svn_string_t *new_value,
+                              svn_boolean_t use_pre_revprop_change_hook,
+                              svn_boolean_t use_post_revprop_change_hook,
                               svn_repos_authz_func_t authz_read_func,
                               void *authz_read_baton,
                               apr_pool_t *pool)
 {
   svn_string_t *old_value;
-  int readability = rev_readable;
+  svn_repos_revision_access_level_t readability;
   char action;
 
-  if (authz_read_func)
-    SVN_ERR(get_readability(&readability, repos->fs, rev,
-                            authz_read_func, authz_read_baton, pool));    
-  if (readability == rev_readable)
+  SVN_ERR(svn_repos_check_revision_access(&readability, repos, rev,
+                                          authz_read_func, authz_read_baton,
+                                          pool));
+
+  if (readability == svn_repos_revision_access_full)
     {
-      SVN_ERR(validate_prop(name, pool));
+      SVN_ERR(validate_prop(name, new_value, pool));
       SVN_ERR(svn_fs_revision_prop(&old_value, repos->fs, rev, name, pool));
+
       if (! new_value)
         action = 'D';
       else if (! old_value)
         action = 'A';
       else
         action = 'M';
-      SVN_ERR(svn_repos__hooks_pre_revprop_change(repos, rev, author, name, 
-                                                  new_value, action, pool));
+
+      if (use_pre_revprop_change_hook)
+        SVN_ERR(svn_repos__hooks_pre_revprop_change(repos, rev, author, name,
+                                                    new_value, action, pool));
+
       SVN_ERR(svn_fs_change_rev_prop(repos->fs, rev, name, new_value, pool));
-      SVN_ERR(svn_repos__hooks_post_revprop_change(repos, rev, author,  name,
-                                                   old_value, action, pool));
+
+      if (use_post_revprop_change_hook)
+        SVN_ERR(svn_repos__hooks_post_revprop_change(repos, rev, author,  name,
+                                                     old_value, action, pool));
     }
   else  /* rev is either unreadable or only partially readable */
     {
-      return svn_error_createf 
+      return svn_error_createf
         (SVN_ERR_AUTHZ_UNREADABLE, NULL,
          _("Write denied:  not authorized to read all of revision %ld"), rev);
     }
 
   return SVN_NO_ERROR;
 }
-
-
-
-svn_error_t *
-svn_repos_fs_change_rev_prop(svn_repos_t *repos,
-                             svn_revnum_t rev,
-                             const char *author,
-                             const char *name,
-                             const svn_string_t *new_value,
-                             apr_pool_t *pool)
-{
-  return svn_repos_fs_change_rev_prop2(repos, rev, author, name, new_value,
-                                       NULL, NULL, pool);  
-}     
-
 
 
 svn_error_t *
@@ -368,19 +319,19 @@ svn_repos_fs_revision_prop(svn_string_t **value_p,
                            void *authz_read_baton,
                            apr_pool_t *pool)
 {
-  int readability = rev_readable;
+  svn_repos_revision_access_level_t readability;
 
-  if (authz_read_func)
-    SVN_ERR(get_readability(&readability, repos->fs, rev,
-                            authz_read_func, authz_read_baton, pool));    
+  SVN_ERR(svn_repos_check_revision_access(&readability, repos, rev,
+                                          authz_read_func, authz_read_baton,
+                                          pool));
 
-  if (readability == rev_unreadable)
+  if (readability == svn_repos_revision_access_none)
     {
       /* Property?  What property? */
       *value_p = NULL;
     }
-  else if (readability == rev_partially_readable)
-    {      
+  else if (readability == svn_repos_revision_access_partial)
+    {
       /* Only svn:author and svn:date are fetchable. */
       if ((strncmp(propname, SVN_PROP_REVISION_AUTHOR,
                    strlen(SVN_PROP_REVISION_AUTHOR)) != 0)
@@ -410,19 +361,19 @@ svn_repos_fs_revision_proplist(apr_hash_t **table_p,
                                void *authz_read_baton,
                                apr_pool_t *pool)
 {
-  int readability = rev_readable;
+  svn_repos_revision_access_level_t readability;
 
-  if (authz_read_func)
-    SVN_ERR(get_readability(&readability, repos->fs, rev,
-                            authz_read_func, authz_read_baton, pool));    
+  SVN_ERR(svn_repos_check_revision_access(&readability, repos, rev,
+                                          authz_read_func, authz_read_baton,
+                                          pool));
 
-  if (readability == rev_unreadable)
+  if (readability == svn_repos_revision_access_none)
     {
       /* Return an empty hash. */
       *table_p = apr_hash_make(pool);
     }
-  else if (readability == rev_partially_readable)
-    {      
+  else if (readability == svn_repos_revision_access_partial)
+    {
       apr_hash_t *tmphash;
       svn_string_t *value;
 
@@ -467,6 +418,7 @@ svn_repos_fs_lock(svn_lock_t **lock,
   svn_error_t *err;
   svn_fs_access_t *access_ctx = NULL;
   const char *username = NULL;
+  const char *new_token;
   apr_array_header_t *paths;
 
   /* Setup an array of paths in anticipation of the ra layers handling
@@ -480,13 +432,16 @@ svn_repos_fs_lock(svn_lock_t **lock,
     SVN_ERR(svn_fs_access_get_username(&username, access_ctx));
 
   if (! username)
-    return svn_error_createf 
+    return svn_error_createf
       (SVN_ERR_FS_NO_USER, NULL,
        "Cannot lock path '%s', no authenticated username available.", path);
-  
+
   /* Run pre-lock hook.  This could throw error, preventing
      svn_fs_lock() from happening. */
-  SVN_ERR(svn_repos__hooks_pre_lock(repos, path, username, pool));
+  SVN_ERR(svn_repos__hooks_pre_lock(repos, &new_token, path, username, comment,
+                                    steal_lock, pool));
+  if (*new_token)
+    token = new_token;
 
   /* Lock. */
   SVN_ERR(svn_fs_lock(lock, repos->fs, path, token, comment, is_dav_comment,
@@ -523,14 +478,15 @@ svn_repos_fs_unlock(svn_repos_t *repos,
     SVN_ERR(svn_fs_access_get_username(&username, access_ctx));
 
   if (! break_lock && ! username)
-    return svn_error_createf 
+    return svn_error_createf
       (SVN_ERR_FS_NO_USER, NULL,
        _("Cannot unlock path '%s', no authenticated username available"),
        path);
 
   /* Run pre-unlock hook.  This could throw error, preventing
      svn_fs_unlock() from happening. */
-  SVN_ERR(svn_repos__hooks_pre_unlock(repos, path, username, pool));
+  SVN_ERR(svn_repos__hooks_pre_unlock(repos, path, username, token,
+                                      break_lock, pool));
 
   /* Unlock. */
   SVN_ERR(svn_fs_unlock(repos->fs, path, token, break_lock, pool));
@@ -557,8 +513,8 @@ struct get_locks_baton_t
 
 /* This implements the svn_fs_get_locks_callback_t interface. */
 static svn_error_t *
-get_locks_callback(void *baton, 
-                   svn_lock_t *lock, 
+get_locks_callback(void *baton,
+                   svn_lock_t *lock,
                    apr_pool_t *pool)
 {
   struct get_locks_baton_t *b = baton;
@@ -574,7 +530,7 @@ get_locks_callback(void *baton,
 
   /* If we can read this lock path, add the lock to the return hash. */
   if (readable)
-    apr_hash_set(b->locks, apr_pstrdup(hash_pool, lock->path), 
+    apr_hash_set(b->locks, apr_pstrdup(hash_pool, lock->path),
                  APR_HASH_KEY_STRING, svn_lock_dup(lock, hash_pool));
 
   return SVN_NO_ERROR;
@@ -602,7 +558,7 @@ svn_repos_fs_get_locks(apr_hash_t **locks,
   baton.locks = all_locks;
   baton.authz_read_func = authz_read_func;
   baton.authz_read_baton = authz_read_baton;
-  SVN_ERR(svn_fs_revision_root(&(baton.head_root), repos->fs, 
+  SVN_ERR(svn_fs_revision_root(&(baton.head_root), repos->fs,
                                head_rev, pool));
 
   /* Get all the locks. */
@@ -614,11 +570,85 @@ svn_repos_fs_get_locks(apr_hash_t **locks,
 }
 
 
+svn_error_t *
+svn_repos_fs_get_mergeinfo(svn_mergeinfo_catalog_t *mergeinfo,
+                           svn_repos_t *repos,
+                           const apr_array_header_t *paths,
+                           svn_revnum_t rev,
+                           svn_mergeinfo_inheritance_t inherit,
+                           svn_boolean_t include_descendants,
+                           svn_repos_authz_func_t authz_read_func,
+                           void *authz_read_baton,
+                           apr_pool_t *pool)
+{
+  apr_array_header_t *readable_paths = (apr_array_header_t *) paths;
+  svn_fs_root_t *root;
+  apr_pool_t *iterpool = svn_pool_create(pool);
+  int i;
+
+  if (!SVN_IS_VALID_REVNUM(rev))
+    SVN_ERR(svn_fs_youngest_rev(&rev, repos->fs, pool));
+  SVN_ERR(svn_fs_revision_root(&root, repos->fs, rev, pool));
+
+  /* Filter out unreadable paths before divining merge tracking info. */
+  if (authz_read_func)
+    {
+      for (i = 0; i < paths->nelts; i++)
+        {
+          svn_boolean_t readable;
+          const char *path = APR_ARRAY_IDX(paths, i, char *);
+          svn_pool_clear(iterpool);
+          SVN_ERR(authz_read_func(&readable, root, path, authz_read_baton,
+                                  iterpool));
+          if (readable && readable_paths != paths)
+            APR_ARRAY_PUSH(readable_paths, const char *) = path;
+          else if (!readable && readable_paths == paths)
+            {
+              /* Requested paths differ from readable paths.  Fork
+                 list of readable paths from requested paths. */
+              int j;
+              readable_paths = apr_array_make(pool, paths->nelts - 1,
+                                              sizeof(char *));
+              for (j = 0; j < i; j++)
+                {
+                  path = APR_ARRAY_IDX(paths, j, char *);
+                  APR_ARRAY_PUSH(readable_paths, const char *) = path;
+                }
+            }
+        }
+    }
+
+  /* We consciously do not perform authz checks on the paths returned
+     in *MERGEINFO, avoiding massive authz overhead which would allow
+     us to protect the name of where a change was merged from, but not
+     the change itself. */
+  /* ### TODO(reint): ... but how about descendant merged-to paths? */
+  if (readable_paths->nelts > 0)
+    SVN_ERR(svn_fs_get_mergeinfo(mergeinfo, root, readable_paths, inherit,
+                                 include_descendants, pool));
+  else
+    *mergeinfo = apr_hash_make(pool);
+
+  svn_pool_destroy(iterpool);
+  return SVN_NO_ERROR;
+}
+
+svn_error_t *
+svn_repos_fs_pack(svn_repos_t *repos,
+                  svn_fs_pack_notify_t notify_func,
+                  void *notify_baton,
+                  svn_cancel_func_t cancel_func,
+                  void *cancel_baton,
+                  apr_pool_t *pool)
+{
+  return svn_fs_pack(repos->db_path, notify_func, notify_baton,
+                     cancel_func, cancel_baton, pool);
+}
 
 
 
-/* 
- * vim:ts=4:sw=4:expandtab:tw=80:fo=tcroq 
- * vim:isk=a-z,A-Z,48-57,_,.,-,> 
+/*
+ * vim:ts=4:sw=4:expandtab:tw=80:fo=tcroq
+ * vim:isk=a-z,A-Z,48-57,_,.,-,>
  * vim:cino=>1s,e0,n0,f0,{.5s,}0,^-.5s,=.5s,t0,+1s,c3,(0,u0,\:0
  */

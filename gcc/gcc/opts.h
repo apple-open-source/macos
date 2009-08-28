@@ -1,5 +1,5 @@
 /* Command line option handling.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -15,8 +15,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_OPTS_H
 #define GCC_OPTS_H
@@ -29,32 +29,58 @@ extern void restore_func_cl_pf_opts_mapping (tree);
 extern void copy_func_cl_pf_opts_mapping (tree, tree);
 /* APPLE LOCAL end optimization pragmas 3124235/3420242 */
 
+/* Specifies how a switch's VAR_VALUE relates to its FLAG_VAR.  */
+enum cl_var_type {
+  /* The switch is enabled when FLAG_VAR is nonzero.  */
+  CLVC_BOOLEAN,
+
+  /* The switch is enabled when FLAG_VAR == VAR_VALUE.  */
+  CLVC_EQUAL,
+
+  /* The switch is enabled when VAR_VALUE is not set in FLAG_VAR.  */
+  CLVC_BIT_CLEAR,
+
+  /* The switch is enabled when VAR_VALUE is set in FLAG_VAR.  */
+  CLVC_BIT_SET,
+
+  /* The switch takes a string argument and FLAG_VAR points to that
+     argument.  */
+  CLVC_STRING
+};
+
 struct cl_option
 {
   const char *opt_text;
   const char *help;
   unsigned short back_chain;
   unsigned char opt_len;
+  int neg_index;
   unsigned int flags;
-  int *flag_var;
+  void *flag_var;
   /* APPLE LOCAL optimization pragmas 3124235/3420242 */
   int (*access_flag) (int, unsigned int);
-  int has_set_value;
-  int set_value;
+  enum cl_var_type var_type;
+  int var_value;
 };
 
-/* APPLE LOCAL begin mainline 4840357 */
-extern bool no_unit_at_a_time_default;
-/* APPLE LOCAL end mainline 4840357 */
+/* Records that the state of an option consists of SIZE bytes starting
+   at DATA.  DATA might point to CH in some cases.  */
+struct cl_option_state {
+  const void *data;
+  size_t size;
+  char ch;
+};
+
 extern const struct cl_option cl_options[];
 extern const unsigned int cl_options_count;
 extern const char *const lang_names[];
+extern bool no_unit_at_a_time_default;
 
 /* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
-#define CL_VARUINT		(1 << 20) /* Associated vbl is uint not bool. */
-#define CL_PERFUNC		(1 << 21) /* Changeable per function.  */
+#define CL_VARUINT		(1 << 17) /* Associated vbl is uint not bool. */
+#define CL_PERFUNC		(1 << 18) /* Changeable per function.  */
 /* APPLE LOCAL end optimization pragmas 3124235/3420242 */
-/* APPLE LOCAL mainline */
+#define CL_DISABLED		(1 << 21) /* Disabled in this configuration.  */
 #define CL_TARGET		(1 << 22) /* Target-specific option.  */
 #define CL_REPORT		(1 << 23) /* Report argument with -fverbose-asm  */
 #define CL_JOINED		(1 << 24) /* If takes joined argument.  */
@@ -72,5 +98,11 @@ extern const char **in_fnames;
 /* The count of input filenames.  */
 
 extern unsigned num_in_fnames;
+
+size_t find_opt (const char *input, int lang_mask);
+extern void prune_options (int *argcp, char ***argvp);
+extern void decode_options (unsigned int argc, const char **argv);
+extern int option_enabled (int opt_idx);
+extern bool get_option_state (int, struct cl_option_state *);
 
 #endif

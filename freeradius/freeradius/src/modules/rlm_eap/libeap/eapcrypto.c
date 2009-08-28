@@ -4,7 +4,7 @@
  * The development of the EAP/SIM support was funded by Internet Foundation
  * Austria (http://www.nic.at/ipa).
  *
- * Version:     $Id: eapcrypto.c,v 1.4.4.1 2006/05/19 14:19:15 nbk Exp $
+ * Version:     $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -18,25 +18,28 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
  * Copyright 2003  Michael Richardson <mcr@sandelman.ottawa.on.ca>
- * Copyright 2003  The FreeRADIUS server project
+ * Copyright 2003,2006  The FreeRADIUS server project
  *
  */
 
-#include "autoconf.h"
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
+
+#include <freeradius-devel/autoconf.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 
 #include "eap_types.h"
 #include "eap_sim.h"
-#include "sha1.h"
+#include <freeradius-devel/sha1.h>
 
 void eapsim_calculate_keys(struct eapsim_keys *ek)
 {
-	SHA1_CTX context;
+	fr_SHA1_CTX context;
 	uint8_t fk[160];
 	unsigned char buf[256];
 	unsigned char *p;
@@ -82,9 +85,9 @@ void eapsim_calculate_keys(struct eapsim_keys *ek)
 
 
 	/* do the master key first */
-	SHA1Init(&context);
-	SHA1Update(&context, buf, blen);
-	SHA1Final(ek->master_key, &context);
+	fr_SHA1Init(&context);
+	fr_SHA1Update(&context, buf, blen);
+	fr_SHA1Final(ek->master_key, &context);
 
 	/*
          * now use the PRF to expand it, generated K_aut, K_encr,

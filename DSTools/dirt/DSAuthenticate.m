@@ -240,7 +240,7 @@ extern BOOL doVerbose;
 
 - (tDataBufferPtr) retrieveLocalNode
 {
-    unsigned long int   count   = 0;
+    UInt32				count   = 0;
     tDataBufferPtr		buffer  = NULL;
     tDirStatus			status  = eDSNoErr;
     
@@ -270,7 +270,7 @@ extern BOOL doVerbose;
 
 - (tDataBufferPtr) retrieveSearchPathNode
 {
-    unsigned long int   count   = 0;
+    UInt32				count   = 0;
     tDataBufferPtr		buffer  = NULL;
     tDirStatus			status  = eDSNoErr;
     
@@ -434,10 +434,10 @@ extern BOOL doVerbose;
 				status = dsDeallocAttributeEntry(_DirRef, pAttrEntry);
 				pAttrEntry = nil;
 			}
-			if (valueRef != nil)
+			if (valueRef != 0)
 			{
 				status = dsCloseAttributeValueList(valueRef);
-				valueRef = nil;
+				valueRef = 0;
 			}
 		}
 		[_MasterUserList addObject: userAttributes];
@@ -449,10 +449,10 @@ extern BOOL doVerbose;
 			status = dsDeallocRecordEntry(_DirRef, pRecEntry);
 			pRecEntry = nil;
 		}
-		if (attrListRef != nil)
+		if (attrListRef != 0)
 		{
 			status = dsCloseAttributeList(attrListRef);
-			attrListRef = nil;
+			attrListRef = 0;
 		}
     }
 }
@@ -468,14 +468,14 @@ extern BOOL doVerbose;
 
 - (tDirStatus)fetchRecordListOnNode:(tDirNodeReference)nodeRefToSearch matchingName:(NSString*)inUsername
 {
-    tContextData			localcontext	= nil;
+    tContextData			localcontext	= 0;
     tDataListPtr			recName			= nil;
 	tDataListPtr			recType			= nil;
 	tDataListPtr			attrType		= nil;
     tDataBufferPtr			nodeBuffer		= nil;
     tDirStatus				status			= eDSNoErr;
     unsigned short			blockCount		= 1;
-    unsigned long			returnCount		= 0;
+    UInt32					returnCount		= 0;
     NSAutoreleasePool      *pool			= [[NSAutoreleasePool alloc] init];
 	unsigned long			matchingUsers   = 0;
     
@@ -497,8 +497,8 @@ extern BOOL doVerbose;
         status = dsGetRecordList(nodeRefToSearch, nodeBuffer, recName, eDSExact, recType, attrType, false, &returnCount, &localcontext);
         if (doVerbose)
 		{
-			printf("Count: %lu, Cont: %3s, \n", returnCount,
-					localcontext == nil ? "NO" : "YES");
+			printf("Count: %u, Cont: %3s, \n", (uint32_t) returnCount,
+					localcontext == 0 ? "NO" : "YES");
 			[_dsStat printOutErrorMessage:"Status" withStatus:status];
 		}
 		
@@ -513,10 +513,10 @@ extern BOOL doVerbose;
 		
         [self allocateDataBuffer: &nodeBuffer withNumberOfBlocks: blockCount shouldReallocate: YES];
 		
-    } while (  (status == eDSNoErr && localcontext != NULL) || (status == eDSBufferTooSmall));
+    } while (  (status == eDSNoErr && localcontext != 0) || (status == eDSBufferTooSmall));
             
     // Do Memory cleanup
-    if (localcontext != nil)
+    if (localcontext != 0)
 	{
         dsReleaseContinueData(nodeRefToSearch, localcontext);
 		localcontext = 0;
@@ -660,8 +660,8 @@ extern BOOL doVerbose;
     tDataBufferPtr			step			= NULL;
     tDataBufferPtr			stepResponse	= NULL;    
     tDataNodePtr			authMethod		= NULL;
-    long int				length			= 0;
-    long int				current			= 0;
+    UInt32					length			= 0;
+    UInt32					current			= 0;
     tDirStatus				status			= 0;
 
     [self allocateDataBuffer:&step withNumberOfBlocks:4 shouldReallocate: NO];
@@ -669,14 +669,14 @@ extern BOOL doVerbose;
     authMethod = dsDataNodeAllocateString(_DirRef, kDSStdAuthNodeNativeClearTextOK);
 
     length = strlen( [inUsername UTF8String] );
-    memcpy( &(step->fBufferData[current]), &length, sizeof(long));
-    current += sizeof(long);
+    memcpy( &(step->fBufferData[current]), &length, sizeof(length));
+    current += sizeof(length);
     memcpy( &(step->fBufferData[current]), [inUsername UTF8String], length );
     current +=length;
     
     length = strlen( [inPassword UTF8String] );
-    memcpy( &(step->fBufferData[current]), &length, sizeof(long));
-    current += sizeof(long);
+    memcpy( &(step->fBufferData[current]), &length, sizeof(length));
+    current += sizeof(length);
     memcpy( &(step->fBufferData[current]), [inPassword UTF8String], length );
     
     step->fBufferLength = current + length;

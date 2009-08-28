@@ -1,0 +1,289 @@
+Changes from 2.1p1 to 2.1.3
+
+*	Corrected inconsistency BUILD_Trf / BUILD_trf.
+
+Changes from 2.1 to 2.1p1
+
+*	Fixes in some tools used during installation (findinpath,
+	fixhbline).
+
+*	[zip] is now able to handle additional data behind the
+	compressed stream. By not reading it. No infinite loop for
+	that case anymore. This also means that a pure-tcl version of
+	gzip should be possible. Any takers ?
+
+*	Merged patch from Dave Bodenstab <imdave@mcs.net> to make
+	the error messages better.
+
+*	Uptodate binaries for Windows, via crosscompiling mingw gcc.
+
+
+Changes from 2.0p7 to 2.1
+
+*	Adapted to the rewrite of the stacked channel functionality in
+	8.3.2. A single binary should now support all stubbed cores
+	(8.1 upward) by switching its behaviour at runtime. Some
+	voodoo is used to make sure that it is not relevant which
+	version of the core was used to create that all-purpose
+	binary.
+
+	Only the 8.0.x series requires a separate binary because it is
+	not stubbed.
+
+Changes from 2.0p6 to 2.0p7
+
+*	Bugfixes for
+
+	-	usage of wrong strings in the script 'transform'.
+	-	wrong variable in makefile
+	-	a buffer overun in the quoted-printable encoding.
+	-	static library support.
+
+*	Patch from Jan Nijtmans for usage of TEA build chain with
+	mingw32.
+
+*	Added a link to the TclAH extension (Authentication
+	Hashes) to the documentation.
+
+Changes from 2.0p5 to 2.0p6
+
+*	Bugfixes
+
+	-	in the TEA configure related to md5-crypt (Sigh).
+	-	A memory leak.
+
+*	Better/more support for building Trf as static library.
+
+Changes from 2.0p4 to 2.0p5
+
+*	Bugfix in the TEA configure related to md5-crypt.
+
+Changes from 2.0p3 to 2.0p4
+
+*	Bugfix in the TEA makefile.
+
+Changes from 2.0 to 2.0p3
+
+*	Fixed several small bugs.
+
+*	Fixed some annoying bugs related to the changes made to MD5.
+
+
+Changes from 1.8 to 2.0
+
+*	Dropped support for Tcl 7.6.
+
+*	Added support for TEA compliant building of this extension,
+	see the subdirectory 'tea'. This requires at least Tcl/Tk 8.2.
+
+	The old built facilities (unix, win) still exist and are
+	still usable. Nevertheless TEA is the prefered way for Unix
+	and Windows.
+
+*	Added stubs, i.e. Trf now exports its own stub table. Thanks
+	to Jan Nijtmans for providing the basic changes to get me
+	started.
+
+*	Revamped the way Trf is handling seek requests for
+	transforms.
+	**BEHAVIOURAL INCOMPATIBILITY**
+	**BINARY INCOMPATIBILITY**   (Trf_TypeDefinition's extended)
+
+	See	doc/html/trf_seek.html
+
+*	Added vector for querying the max number of bytes to read.
+	**BINARY INCOMPATIBILITY**   (Trf_TypeDefinition's extended)
+
+*	Squashed the bug in the 'bzip' (de)compressor.
+	Squashed other bugs reported by Matt Newman <matt@sensus.org>
+
+*	Added compile time options to link zlib / bzlib statically.
+		--enable-static-zlib,	-DZLIB_STATIC_BUILD
+		--enable-static-bzlib,	-DBZLIB_STATIC_BUILD
+
+*	MD5 functionality is now loaded on demand. The source of the
+	necessary shared library is part of the distribution and
+	compiled if required (glibc2 Linux systems already have it).
+
+*	New commands:	md5crypt, crypt, use in password authentication.
+	New option:	-nowrap for 'zip' transformation. See documentation.
+
+*	'transform': Added operations 'query/maxRead' and 'query/ratio'.
+
+
+Changes from 1.7 to 1.8
+
+*	Marshall Rose made the 'base64' encoding MIME compliant
+	and additionally donated his 'quoted-printable' converter.
+
+*	Jan Nijtmans donated the 'bzip2' (de)compressor transform. It
+	is unfortunately not yet complete, the decompressor is not
+	working.
+
+*	Rewrote the base code to handle the inclusion of the patch
+	into the Tcl core (since 8.2) and the associated changes
+	to the semantics of some of the functions. It now especially
+	automagically distinguishes between unpatched 8.0, patched 8.0,
+	unpatched 8.1, patched 8.1, 8.2 and beyond, and adapts
+	itself accordingly, either at compile time (8.0.x) or
+	runtime (8.1 and beyond).
+
+Changes from 1.6 to 1.7
+
+*	Headers now usable with a C++ compiler.
+
+*	Marshall Rose <mrose@dbc.mtview.ca.us> donated code to
+	implement the otp variants of md5 and sha1, according
+	to RFC 2289.
+
+*	The option processor now understands '--', it will stop
+	the treatment of the following arguments as options. Again
+	from Marshall Rose.
+
+*	The patchkit for Tcl 8.1 is usable for Tcl 8.1.1 too.
+	No new patchkit was made.
+
+*	Made **thread-safe** if compiled against a thread-enabled 8.1.
+	(Mutex used to serialize access to all written global variables)
+
+
+Changes from 1.6 to 1.6
+
+*	Added the patch kit for tcl 8.1 final
+
+
+Changes from 1.5 to 1.6
+
+*	The following information is valid only if Trf is used in
+	conjunction with a 8.1 interpreter, as that is currently
+	the only one implementing stubs.
+
+	It is known that trf requires a patch to the core for full
+	functionality (stacked channels). The core had to be patched
+	to allow compilation of Trf, and its execution.
+
+	Taking advantage of the new stub-mechanism Trf is now able
+	to check for the existence of its patches at runtime. If
+	loaded by an unpatched interpreter it will disable the
+	features relying on the patch (-attach option of transforms,
+	unstack), but run unimpeded otherwise.
+
+	Due to some magic with #define and #ifdef it is now even
+	possible to compile Trf against unpatched core without
+	causing harm, the resulting library will have the complete
+	functionality.
+
+
+Changes from 1.4 to 1.5
+
+*	Better handling of 'fileevent' and blocking-mode for transforms.
+	Initial patch by Matt Newman <matt@novadigm.com> (<matt@sensus.org>).
+
+*	Fixed a nasty problem with my patch to the tcl core. Caused a crash
+	if one tried to attach a transform to a new socket inside its accept
+	script. Reason: Unwanted interaction between my handling of the
+	refCount for the channel and tcl itself. Found by Matt Newman.
+
+	Reworked all patchkits, except for 8.0[ab]*.
+
+
+Changes from 1.3 to 1.4
+
+*	Upgraded core patches for 8.1b2 and 8.0.4/5.
+
+*	Added detection and usage of stubs.
+
+
+Changes from 1.2 to 1.3
+
+*	*No* functional changes.
+
+*	Fixed several char / unsigned char mismatches and other
+	nits reported by Larry Virden <lvirden@cas.org> and his
+	UltraSparc compiler.
+
+*	Added technical explanation of the inner workings to the
+	documentation, + images.
+
+*	Upgraded core patches for 8.1b1
+
+*	Extended configure with options for the explicit definition
+	of the location of the zlib and crypto libraries. Added
+	intelligence to all pairs of location-options to derive their
+	values from each other if only one of them is specified.
+	Suggested by Larry Virden <lvirden@cas.org>.
+
+*	Added windows binary distribution.
+
+
+Changes from 1.1 to 1.2
+
+*	Moved all encryption aware code and definitions into a
+	separate package, TrfCrypt. This allows the inclusion
+	of the base package into the consortium CD ROM (and
+	the upload to Neosoft).
+
+
+Changes from 1.0 to 1.1
+
+*	Adapted to C-API changes between 8.0 and 8.1
+	Added patches for Tcl 8.1a2
+
+*	Compiles now with Tcl 7.6, 8.0 and 8.1a2
+
+*	binio is more reclusive, it and its support (byteorder patch)
+	will be removed in the next release.
+
+	Please use the official 'binary' command of Tcl 8.x instead.
+
+
+Changes from b3 to final:
+
+*	**** WARNING to all users of earlier versions ****
+
+	The script API was rewritten to take advantage of the Tcl 8.x
+	object API. The ability to operate on channels was retained,
+	albeit under a different syntax. Please reread the manual, at
+	least chapter 5 (Available commands).
+
+*a	Extended C-level API allows for (block)cipher specific option
+	processing.
+
+*	A general transformation was added, under the name 'transform'.
+	It reflects the underlying functionality up into the script level.
+
+*	Added ciphers:
+
+	<>	ROT, for the fun of it.
+	<>	SAFER, by the author of IDEA.
+		(uses *a)
+
+
+Changes from b2 to b3:
+
+*	'binio' command supported, but not included by default, because
+	of equivalent functionality in 8.0b1, see 'binary' and 'fcopy'.
+	Configure option '--enable-binio'.
+
+*	Reorganized code into generic and os dependent parts.
+
+*	Added Windows port.
+
+*	Some bug fixes.
+
+*	More algorithms: RC2, MD2, SHA-1	(SSLeay required)
+			 RIPEMD-160
+
+*	Commands created use the object-interface of tcl8.0b1 now.
+	Runs with 7.6 nevertheless, BUT NOT with 8.0a1 or a2.
+
+
+Changes from b1 to b2:
+
+*	The patches to the core are enhanced to associate channels
+	with byteorder information.
+
+*	A new command 'binio' to pack and/or unpack binary information and
+	to copy between channels (the latter is essentially 'unsupported0').
+	(Un)packing will reorder bytes as needed, using the information
+	mentioned above.

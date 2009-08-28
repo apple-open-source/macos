@@ -68,12 +68,6 @@ enum {
     cfragAbortClosureErr        = -2830    /* Used by notification handlers to abort a closure.*/
 };
 
-enum {
-    paramErr            = -50,
-    unimpErr            = -4
-};
-
-
 typedef UInt32 CFragVersionNumber;
 enum {
     kNullCFragVersion           = 0,

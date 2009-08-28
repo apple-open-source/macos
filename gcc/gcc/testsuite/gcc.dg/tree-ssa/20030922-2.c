@@ -9,9 +9,8 @@ struct rtx_def
 };
 static int *block_to_bb;
 static int target_bb;
-/* APPLE LOCAL begin mainline 4840357 */
+
 int
-/* APPLE LOCAL end mainline 4840357 */
 rgn_rank (rtx insn1, rtx insn2)
 {
   if (block_to_bb[insn1->bb] != block_to_bb[insn2->bb])
@@ -22,3 +21,4 @@ rgn_rank (rtx insn1, rtx insn2)
 
 /* There should be two IF conditionals.  */
 /* { dg-final { scan-tree-dump-times "if " 2 "dom1" } } */
+/* { dg-final { cleanup-tree-dump "dom1" } } */

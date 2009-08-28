@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2004-2006, International Business Machines
+*   Copyright (C) 2004-2008, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -39,8 +39,6 @@ struct UBiDiProps {
 };
 
 /* data loading etc. -------------------------------------------------------- */
-
-#define UBIDI_HARDCODE_DATA 1
 
 #if UBIDI_HARDCODE_DATA
 
@@ -129,7 +127,7 @@ ubidi_openData(UBiDiProps *bdpProto,
     }
 }
 
-U_CAPI UBiDiProps * U_EXPORT2
+U_CFUNC UBiDiProps *
 ubidi_openProps(UErrorCode *pErrorCode) {
     UBiDiProps bdpProto={ NULL }, *bdp;
 
@@ -151,7 +149,7 @@ ubidi_openProps(UErrorCode *pErrorCode) {
     }
 }
 
-U_CAPI UBiDiProps * U_EXPORT2
+U_CFUNC UBiDiProps *
 ubidi_openBinary(const uint8_t *bin, int32_t length, UErrorCode *pErrorCode) {
     UBiDiProps bdpProto={ NULL };
     const DataHeader *hdr;
@@ -188,7 +186,7 @@ ubidi_openBinary(const uint8_t *bin, int32_t length, UErrorCode *pErrorCode) {
 
 #endif
 
-U_CAPI void U_EXPORT2
+U_CFUNC void
 ubidi_closeProps(UBiDiProps *bdp) {
     if(bdp!=NULL) {
 #if !UBIDI_HARDCODE_DATA
@@ -200,26 +198,25 @@ ubidi_closeProps(UBiDiProps *bdp) {
 
 /* UBiDiProps singleton ----------------------------------------------------- */
 
-static UBiDiProps *gBdp=NULL, *gBdpDummy=NULL;
 #if !UBIDI_HARDCODE_DATA
+static UBiDiProps *gBdpDummy=NULL;
+static UBiDiProps *gBdp=NULL;
 static UErrorCode gErrorCode=U_ZERO_ERROR;
 static int8_t gHaveData=0;
-#endif
 
 static UBool U_CALLCONV
 ubidi_cleanup(void) {
-    ubidi_closeProps(gBdp);
-    gBdp=NULL;
     ubidi_closeProps(gBdpDummy);
     gBdpDummy=NULL;
-#if !UBIDI_HARDCODE_DATA
+    ubidi_closeProps(gBdp);
+    gBdp=NULL;
     gErrorCode=U_ZERO_ERROR;
     gHaveData=0;
-#endif
     return TRUE;
 }
+#endif
 
-U_CAPI const UBiDiProps * U_EXPORT2
+U_CFUNC const UBiDiProps *
 ubidi_getSingleton(UErrorCode *pErrorCode) {
 #if UBIDI_HARDCODE_DATA
     if(U_FAILURE(*pErrorCode)) {
@@ -267,7 +264,8 @@ ubidi_getSingleton(UErrorCode *pErrorCode) {
 #endif
 }
 
-U_CAPI const UBiDiProps * U_EXPORT2
+#if !UBIDI_HARDCODE_DATA
+U_CAPI const UBiDiProps *
 ubidi_getDummy(UErrorCode *pErrorCode) {
     UBiDiProps *bdp;
 
@@ -318,6 +316,7 @@ ubidi_getDummy(UErrorCode *pErrorCode) {
         return gBdpDummy;
     }
 }
+#endif
 
 /* set of property starts for UnicodeSet ------------------------------------ */
 
@@ -329,7 +328,7 @@ _enumPropertyStartsRange(const void *context, UChar32 start, UChar32 limit, uint
     return TRUE;
 }
 
-U_CAPI void U_EXPORT2
+U_CFUNC void
 ubidi_addPropertyStarts(const UBiDiProps *bdp, const USetAdder *sa, UErrorCode *pErrorCode) {
     int32_t i, length;
     UChar32 c, start, limit;
@@ -403,21 +402,21 @@ ubidi_getMaxValue(const UBiDiProps *bdp, UProperty which) {
     }
 }
 
-U_CAPI UCharDirection U_EXPORT2
+U_CAPI UCharDirection
 ubidi_getClass(const UBiDiProps *bdp, UChar32 c) {
     uint32_t props;
     GET_PROPS(bdp, c, props);
     return (UCharDirection)UBIDI_GET_CLASS(props);
 }
 
-U_CAPI UBool U_EXPORT2
+U_CFUNC UBool
 ubidi_isMirrored(const UBiDiProps *bdp, UChar32 c) {
     uint32_t props;
     GET_PROPS(bdp, c, props);
     return (UBool)UBIDI_GET_FLAG(props, UBIDI_IS_MIRRORED_SHIFT);
 }
 
-U_CAPI UChar32 U_EXPORT2
+U_CFUNC UChar32
 ubidi_getMirror(const UBiDiProps *bdp, UChar32 c) {
     uint32_t props;
     int32_t delta;
@@ -453,28 +452,28 @@ ubidi_getMirror(const UBiDiProps *bdp, UChar32 c) {
     }
 }
 
-U_CAPI UBool U_EXPORT2
+U_CFUNC UBool
 ubidi_isBidiControl(const UBiDiProps *bdp, UChar32 c) {
     uint32_t props;
     GET_PROPS(bdp, c, props);
     return (UBool)UBIDI_GET_FLAG(props, UBIDI_BIDI_CONTROL_SHIFT);
 }
 
-U_CAPI UBool U_EXPORT2
+U_CFUNC UBool
 ubidi_isJoinControl(const UBiDiProps *bdp, UChar32 c) {
     uint32_t props;
     GET_PROPS(bdp, c, props);
     return (UBool)UBIDI_GET_FLAG(props, UBIDI_JOIN_CONTROL_SHIFT);
 }
 
-U_CAPI UJoiningType U_EXPORT2
+U_CFUNC UJoiningType
 ubidi_getJoiningType(const UBiDiProps *bdp, UChar32 c) {
     uint32_t props;
     GET_PROPS(bdp, c, props);
     return (UJoiningType)((props&UBIDI_JT_MASK)>>UBIDI_JT_SHIFT);
 }
 
-U_CAPI UJoiningGroup U_EXPORT2
+U_CFUNC UJoiningGroup
 ubidi_getJoiningGroup(const UBiDiProps *bdp, UChar32 c) {
     UChar32 start, limit;
 
@@ -489,7 +488,7 @@ ubidi_getJoiningGroup(const UBiDiProps *bdp, UChar32 c) {
 
 /* public API (see uchar.h) ------------------------------------------------- */
 
-U_CAPI UCharDirection U_EXPORT2
+U_CFUNC UCharDirection
 u_charDirection(UChar32 c) {   
     UErrorCode errorCode=U_ZERO_ERROR;
     const UBiDiProps *bdp=ubidi_getSingleton(&errorCode);
@@ -500,14 +499,14 @@ u_charDirection(UChar32 c) {
     }
 }
 
-U_CAPI UBool U_EXPORT2
+U_CFUNC UBool
 u_isMirrored(UChar32 c) {
     UErrorCode errorCode=U_ZERO_ERROR;
     const UBiDiProps *bdp=ubidi_getSingleton(&errorCode);
     return (UBool)(bdp!=NULL && ubidi_isMirrored(bdp, c));
 }
 
-U_CAPI UChar32 U_EXPORT2
+U_CFUNC UChar32
 u_charMirror(UChar32 c) {
     UErrorCode errorCode=U_ZERO_ERROR;
     const UBiDiProps *bdp=ubidi_getSingleton(&errorCode);

@@ -3,7 +3,7 @@
   numeric.c -
 
   $Author: shyouhei $
-  $Date: 2008-08-04 13:31:06 +0900 (Mon, 04 Aug 2008) $
+  $Date: 2008-08-04 13:36:00 +0900 (Mon, 04 Aug 2008) $
   created at: Fri Aug 13 18:33:09 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -102,14 +102,14 @@ rb_num_zerodiv()
 /*
  *  call-seq:
  *     num.coerce(numeric)   => array
- *  
+ *
  *  If <i>aNumeric</i> is the same type as <i>num</i>, returns an array
  *  containing <i>aNumeric</i> and <i>num</i>. Otherwise, returns an
  *  array with both <i>aNumeric</i> and <i>num</i> represented as
  *  <code>Float</code> objects. This coercion mechanism is used by
  *  Ruby to handle mixed-type numeric operations: it is intended to
  *  find a compatible common type between the two operands of the operator.
- *     
+ *
  *     1.coerce(2.5)   #=> [2.5, 1.0]
  *     1.2.coerce(3)   #=> [3.0, 1.2]
  *     1.coerce(2)     #=> [2, 1]
@@ -182,7 +182,7 @@ VALUE
 rb_num_coerce_cmp(x, y)
     VALUE x, y;
 {
-    if (do_coerce(&x, &y, Qfalse)) 
+    if (do_coerce(&x, &y, Qfalse))
 	return rb_funcall(x, ruby_frame->orig_func, 1, y);
     return Qnil;
 }
@@ -215,7 +215,7 @@ num_sadded(x, name)
     rb_raise(rb_eTypeError,
 	     "can't define singleton method \"%s\" for %s",
 	     rb_id2name(rb_to_id(name)),
-	     rb_obj_classname(x)); 
+	     rb_obj_classname(x));
     return Qnil;		/* not reached */
 }
 
@@ -232,7 +232,7 @@ num_init_copy(x, y)
 /*
  *  call-seq:
  *     +num    => num
- *  
+ *
  *  Unary Plus---Returns the receiver's value.
  */
 
@@ -246,7 +246,7 @@ num_uplus(num)
 /*
  *  call-seq:
  *     -num    => numeric
- *  
+ *
  *  Unary Minus---Returns the receiver's value, negated.
  */
 
@@ -265,7 +265,8 @@ num_uminus(num)
 /*
  *  call-seq:
  *     num.quo(numeric)    =>   result
- *  
+ *     num.fdiv(numeric)   =>   result
+ *
  *  Equivalent to <code>Numeric#/</code>, but overridden in subclasses.
  */
 
@@ -282,7 +283,7 @@ static VALUE num_floor(VALUE num);
 /*
  *  call-seq:
  *     num.div(numeric)    => integer
- *  
+ *
  *  Uses <code>/</code> to perform division, then converts the result to
  *  an integer. <code>Numeric</code> does not define the <code>/</code>
  *  operator; this is left to subclasses.
@@ -300,16 +301,16 @@ num_div(x, y)
 /*
  *  call-seq:
  *     num.divmod( aNumeric ) -> anArray
- *  
+ *
  *  Returns an array containing the quotient and modulus obtained by
  *  dividing <i>num</i> by <i>aNumeric</i>. If <code>q, r =
  *  x.divmod(y)</code>, then
  *
  *      q = floor(float(x)/float(y))
  *      x = q*y + r
- *     
+ *
  *  The quotient is rounded toward -infinity, as shown in the following table:
- *     
+ *
  *     a    |  b  |  a.divmod(b)  |   a/b   | a.modulo(b) | a.remainder(b)
  *    ------+-----+---------------+---------+-------------+---------------
  *     13   |  4  |   3,    1     |   3     |    1        |     1
@@ -347,7 +348,7 @@ num_divmod(x, y)
 /*
  *  call-seq:
  *     num.modulo(numeric)    => result
- *  
+ *
  *  Equivalent to
  *  <i>num</i>.<code>divmod(</code><i>aNumeric</i><code>)[1]</code>.
  */
@@ -362,7 +363,7 @@ num_modulo(x, y)
 /*
  *  call-seq:
  *     num.remainder(numeric)    => result
- *  
+ *
  *  If <i>num</i> and <i>numeric</i> have different signs, returns
  *  <em>mod</em>-<i>numeric</i>; otherwise, returns <em>mod</em>. In
  *  both cases <em>mod</em> is the value
@@ -390,7 +391,7 @@ num_remainder(x, y)
 /*
  *  call-seq:
  *     num.integer? -> true or false
- *  
+ *
  *  Returns <code>true</code> if <i>num</i> is an <code>Integer</code>
  *  (including <code>Fixnum</code> and <code>Bignum</code>).
  */
@@ -405,9 +406,9 @@ num_int_p(num)
 /*
  *  call-seq:
  *     num.abs   => num or numeric
- *  
+ *
  *  Returns the absolute value of <i>num</i>.
- *     
+ *
  *     12.abs         #=> 12
  *     (-34.56).abs   #=> 34.56
  *     -34.56.abs     #=> 34.56
@@ -427,7 +428,7 @@ num_abs(num)
 /*
  *  call-seq:
  *     num.zero?    => true or false
- *  
+ *
  *  Returns <code>true</code> if <i>num</i> has a zero value.
  */
 
@@ -445,10 +446,10 @@ num_zero_p(num)
 /*
  *  call-seq:
  *     num.nonzero?    => num or nil
- *  
+ *
  *  Returns <i>num</i> if <i>num</i> is not zero, <code>nil</code>
  *  otherwise. This behavior is useful when chaining comparisons:
- *     
+ *
  *     a = %w( z Bb bB bb BB a aA Aa AA A )
  *     b = a.sort {|a,b| (a.downcase <=> b.downcase).nonzero? || a <=> b }
  *     b   #=> ["A", "a", "AA", "Aa", "aA", "BB", "Bb", "bB", "bb", "z"]
@@ -467,7 +468,7 @@ num_nonzero_p(num)
 /*
  *  call-seq:
  *     num.to_int    => integer
- *  
+ *
  *  Invokes the child class's <code>to_i</code> method to convert
  *  <i>num</i> to an integer.
  */
@@ -481,7 +482,7 @@ num_to_int(num)
 
 
 /********************************************************************
- * 
+ *
  * Document-class: Float
  *
  *  <code>Float</code> objects represent real numbers using the native
@@ -502,7 +503,7 @@ rb_float_new(d)
 /*
  *  call-seq:
  *     flt.to_s    => string
- *  
+ *
  *  Returns a string containing a representation of self. As well as a
  *  fixed or exponential form of the number, the call may return
  *  ``<code>NaN</code>'', ``<code>Infinity</code>'', and
@@ -700,9 +701,9 @@ flodivmod(x, y, divp, modp)
  *  call-seq:
  *     flt % other         => float
  *     flt.modulo(other)   => float
- *  
+ *
  *  Return the modulo after division of <code>flt</code> by <code>other</code>.
- *     
+ *
  *     6543.21.modulo(137)      #=> 104.21
  *     6543.21.modulo(137.24)   #=> 92.9299999999996
  */
@@ -733,7 +734,7 @@ flo_mod(x, y)
 /*
  *  call-seq:
  *     flt.divmod(numeric)    => array
- *  
+ *
  *  See <code>Numeric#divmod</code>.
  */
 
@@ -776,7 +777,7 @@ flo_divmod(x, y)
  *
  * Raises <code>float</code> the <code>other</code> power.
  */
- 
+
 static VALUE
 flo_pow(x, y)
     VALUE x, y;
@@ -796,10 +797,10 @@ flo_pow(x, y)
 /*
  *  call-seq:
  *     num.eql?(numeric)    => true or false
- *  
+ *
  *  Returns <code>true</code> if <i>num</i> and <i>numeric</i> are the
  *  same type and have equal values.
- *     
+ *
  *     1 == 1.0          #=> true
  *     1.eql?(1.0)       #=> false
  *     (1.0).eql?(1.0)   #=> true
@@ -817,7 +818,7 @@ num_eql(x, y)
 /*
  *  call-seq:
  *     num <=> other -> 0 or nil
- *  
+ *
  *  Returns zero if <i>num</i> equals <i>other</i>, <code>nil</code>
  *  otherwise.
  */
@@ -841,13 +842,13 @@ num_equal(x, y)
 /*
  *  call-seq:
  *     flt == obj   => true or false
- *  
+ *
  *  Returns <code>true</code> only if <i>obj</i> has the same value
  *  as <i>flt</i>. Contrast this with <code>Float#eql?</code>, which
  *  requires <i>obj</i> to be a <code>Float</code>.
- *     
+ *
  *     1.0 == 1   #=> true
- *     
+ *
  */
 
 static VALUE
@@ -914,7 +915,7 @@ rb_dbl_cmp(a, b)
 /*
  *  call-seq:
  *     flt <=> numeric   => -1, 0, +1
- *  
+ *
  *  Returns -1, 0, or +1 depending on whether <i>flt</i> is less than,
  *  equal to, or greater than <i>numeric</i>. This is the basis for the
  *  tests in <code>Comparable</code>.
@@ -985,7 +986,7 @@ flo_gt(x, y)
  * call-seq:
  *   flt >= other    =>  true or false
  *
- * <code>true</code> if <code>flt</code> is greater than 
+ * <code>true</code> if <code>flt</code> is greater than
  * or equal to <code>other</code>.
  */
 
@@ -1091,11 +1092,11 @@ flo_le(x, y)
 /*
  *  call-seq:
  *     flt.eql?(obj)   => true or false
- *  
+ *
  *  Returns <code>true</code> only if <i>obj</i> is a
  *  <code>Float</code> with the same value as <i>flt</i>. Contrast this
  *  with <code>Float#==</code>, which performs type conversions.
- *     
+ *
  *     1.0.eql?(1)   #=> false
  */
 
@@ -1130,12 +1131,12 @@ flo_to_f(num)
 /*
  *  call-seq:
  *     flt.abs    => float
- *  
+ *
  *  Returns the absolute value of <i>flt</i>.
- *     
+ *
  *     (-34.56).abs   #=> 34.56
  *     -34.56.abs     #=> 34.56
- *     
+ *
  */
 
 static VALUE
@@ -1149,9 +1150,9 @@ flo_abs(flt)
 /*
  *  call-seq:
  *     flt.zero? -> true or false
- *  
+ *
  *  Returns <code>true</code> if <i>flt</i> is 0.0.
- *     
+ *
  */
 
 static VALUE
@@ -1167,10 +1168,10 @@ flo_zero_p(num)
 /*
  *  call-seq:
  *     flt.nan? -> true or false
- *  
+ *
  *  Returns <code>true</code> if <i>flt</i> is an invalid IEEE floating
  *  point number.
- *     
+ *
  *     a = -1.0      #=> -1.0
  *     a.nan?        #=> false
  *     a = 0.0/0.0   #=> NaN
@@ -1180,7 +1181,7 @@ flo_zero_p(num)
 static VALUE
 flo_is_nan_p(num)
      VALUE num;
-{     
+{
     double value = RFLOAT(num)->value;
 
     return isnan(value) ? Qtrue : Qfalse;
@@ -1189,10 +1190,10 @@ flo_is_nan_p(num)
 /*
  *  call-seq:
  *     flt.infinite? -> nil, -1, +1
- *  
+ *
  *  Returns <code>nil</code>, -1, or +1 depending on whether <i>flt</i>
  *  is finite, -infinity, or +infinity.
- *     
+ *
  *     (0.0).infinite?        #=> nil
  *     (-1.0/0.0).infinite?   #=> -1
  *     (+1.0/0.0).infinite?   #=> 1
@@ -1201,7 +1202,7 @@ flo_is_nan_p(num)
 static VALUE
 flo_is_infinite_p(num)
      VALUE num;
-{     
+{
     double value = RFLOAT(num)->value;
 
     if (isinf(value)) {
@@ -1214,17 +1215,17 @@ flo_is_infinite_p(num)
 /*
  *  call-seq:
  *     flt.finite? -> true or false
- *  
+ *
  *  Returns <code>true</code> if <i>flt</i> is a valid IEEE floating
  *  point number (it is not infinite, and <code>nan?</code> is
  *  <code>false</code>).
- *     
+ *
  */
 
 static VALUE
 flo_is_finite_p(num)
      VALUE num;
-{     
+{
     double value = RFLOAT(num)->value;
 
 #if HAVE_FINITE
@@ -1241,9 +1242,9 @@ flo_is_finite_p(num)
 /*
  *  call-seq:
  *     flt.floor   => integer
- *  
+ *
  *  Returns the largest integer less than or equal to <i>flt</i>.
- *     
+ *
  *     1.2.floor      #=> 1
  *     2.0.floor      #=> 2
  *     (-1.2).floor   #=> -2
@@ -1267,10 +1268,10 @@ flo_floor(num)
 /*
  *  call-seq:
  *     flt.ceil    => integer
- *  
+ *
  *  Returns the smallest <code>Integer</code> greater than or equal to
  *  <i>flt</i>.
- *     
+ *
  *     1.2.ceil      #=> 2
  *     2.0.ceil      #=> 2
  *     (-1.2).ceil   #=> -1
@@ -1294,18 +1295,18 @@ flo_ceil(num)
 /*
  *  call-seq:
  *     flt.round   => integer
- *  
+ *
  *  Rounds <i>flt</i> to the nearest integer. Equivalent to:
- *     
+ *
  *     def round
  *       return (self+0.5).floor if self > 0.0
  *       return (self-0.5).ceil  if self < 0.0
  *       return 0
  *     end
- *     
+ *
  *     1.5.round      #=> 2
  *     (-1.5).round   #=> -2
- *     
+ *
  */
 
 static VALUE
@@ -1329,7 +1330,7 @@ flo_round(num)
  *     flt.to_i       => integer
  *     flt.to_int     => integer
  *     flt.truncate   => integer
- *  
+ *
  *  Returns <i>flt</i> truncated to an <code>Integer</code>.
  */
 
@@ -1354,11 +1355,11 @@ flo_truncate(num)
 /*
  *  call-seq:
  *     num.floor    => integer
- *  
+ *
  *  Returns the largest integer less than or equal to <i>num</i>.
  *  <code>Numeric</code> implements this by converting <i>anInteger</i>
  *  to a <code>Float</code> and invoking <code>Float#floor</code>.
- *     
+ *
  *     1.floor      #=> 1
  *     (-1).floor   #=> -1
  */
@@ -1374,12 +1375,12 @@ num_floor(num)
 /*
  *  call-seq:
  *     num.ceil    => integer
- *  
+ *
  *  Returns the smallest <code>Integer</code> greater than or equal to
  *  <i>num</i>. Class <code>Numeric</code> achieves this by converting
  *  itself to a <code>Float</code> then invoking
  *  <code>Float#ceil</code>.
- *     
+ *
  *     1.ceil        #=> 1
  *     1.2.ceil      #=> 2
  *     (-1.2).ceil   #=> -1
@@ -1396,7 +1397,7 @@ num_ceil(num)
 /*
  *  call-seq:
  *     num.round    => integer
- *  
+ *
  *  Rounds <i>num</i> to the nearest integer. <code>Numeric</code>
  *  implements this by converting itself to a
  *  <code>Float</code> and invoking <code>Float#round</code>.
@@ -1412,7 +1413,7 @@ num_round(num)
 /*
  *  call-seq:
  *     num.truncate    => integer
- *  
+ *
  *  Returns <i>num</i> truncated to an integer. <code>Numeric</code>
  *  implements this by converting its value to a float and invoking
  *  <code>Float#truncate</code>.
@@ -1429,7 +1430,7 @@ num_truncate(num)
 /*
  *  call-seq:
  *     num.step(limit, step ) {|i| block }     => num
- *  
+ *
  *  Invokes <em>block</em> with the sequence of numbers starting at
  *  <i>num</i>, incremented by <i>step</i> on each call. The loop
  *  finishes when the value to be passed to the block is greater than
@@ -1443,12 +1444,12 @@ num_truncate(num)
  *  <code>></code> operator to compare the counter against
  *  <i>limit</i>, and increments itself using the <code>+</code>
  *  operator.
- *     
+ *
  *     1.step(10, 2) { |i| print i, " " }
  *     Math::E.step(Math::PI, 0.2) { |f| print f, " " }
- *     
+ *
  *  <em>produces:</em>
- *     
+ *
  *     1 3 5 7 9
  *     2.71828182845905 2.91828182845905 3.11828182845905
  */
@@ -1460,6 +1461,8 @@ num_step(argc, argv, from)
     VALUE from;
 {
     VALUE to, step;
+
+    RETURN_ENUMERATOR(from, argc, argv);
 
     if (argc == 1) {
 	to = argv[0];
@@ -1752,7 +1755,7 @@ rb_num2ull(val)
  *
  *  <code>Integer</code> is the basis for the two concrete classes that
  *  hold whole numbers, <code>Bignum</code> and <code>Fixnum</code>.
- *     
+ *
  */
 
 
@@ -1779,7 +1782,7 @@ int_to_i(num)
 /*
  *  call-seq:
  *     int.integer? -> true
- *  
+ *
  *  Always returns <code>true</code>.
  */
 
@@ -1792,11 +1795,44 @@ int_int_p(num)
 
 /*
  *  call-seq:
+ *     int.odd? -> true or false
+ *
+ *  Returns <code>true</code> if <i>int</i> is an odd number.
+ */
+
+static VALUE
+int_odd_p(VALUE num)
+{
+    if (rb_funcall(num, '%', 1, INT2FIX(2)) != INT2FIX(0)) {
+        return Qtrue;
+    }
+    return Qfalse;
+}
+
+/*
+ *  call-seq:
+ *     int.even? -> true or false
+ *
+ *  Returns <code>true</code> if <i>int</i> is an even number.
+ */
+
+static VALUE
+int_even_p(VALUE num)
+{
+    if (rb_funcall(num, '%', 1, INT2FIX(2)) == INT2FIX(0)) {
+        return Qtrue;
+    }
+    return Qfalse;
+}
+
+
+/*
+ *  call-seq:
  *     int.next    => integer
  *     int.succ    => integer
- *  
+ *
  *  Returns the <code>Integer</code> equal to <i>int</i> + 1.
- *     
+ *
  *     1.next      #=> 2
  *     (-1).next   #=> 0
  */
@@ -1814,11 +1850,31 @@ int_succ(num)
 
 /*
  *  call-seq:
+ *     int.pred    => integer
+ *
+ *  Returns the <code>Integer</code> equal to <i>int</i> - 1.
+ *
+ *     1.pred      #=> 0
+ *     (-1).pred   #=> -2
+ */
+
+static VALUE
+int_pred(VALUE num)
+{
+    if (FIXNUM_P(num)) {
+        long i = FIX2LONG(num) - 1;
+        return LONG2NUM(i);
+    }
+    return rb_funcall(num, '-', 1, INT2FIX(1));
+}
+
+/*
+ *  call-seq:
  *     int.chr    => string
- *  
+ *
  *  Returns a string containing the ASCII character represented by the
  *  receiver's value.
- *     
+ *
  *     65.chr    #=> "A"
  *     ?a.chr    #=> "a"
  *     230.chr   #=> "\346"
@@ -1837,15 +1893,35 @@ int_chr(num)
     return rb_str_new(&c, 1);
 }
 
+/*
+ *  call-seq:
+ *     int.ord    => int
+ *
+ *  Returns the int itself.
+ *
+ *     ?a.ord    #=> 97
+ *
+ *  This method is intended for compatibility to
+ *  character constant in Ruby 1.9.
+ *  For example, ?a.ord returns 97 both in 1.8 and 1.9.
+ */
+
+static VALUE
+int_ord(num)
+    VALUE num;
+{
+    return num;
+}
+
 /********************************************************************
- * 
+ *
  * Document-class: Fixnum
  *
  *  A <code>Fixnum</code> holds <code>Integer</code> values that can be
  *  represented in a native machine word (minus 1 bit). If any operation
  *  on a <code>Fixnum</code> exceeds this range, the value is
  *  automatically converted to a <code>Bignum</code>.
- *     
+ *
  *  <code>Fixnum</code> objects have immediate value. This means that
  *  when they are assigned or passed as parameters, the actual object is
  *  passed, rather than a reference to that object. Assignment does not
@@ -1965,10 +2041,10 @@ rb_fix2str(x, base)
 /*
  *  call-seq:
  *     fix.to_s( base=10 ) -> aString
- *  
+ *
  *  Returns a string containing the representation of <i>fix</i> radix
  *  <i>base</i> (between 2 and 36).
- *     
+ *
  *     12345.to_s       #=> "12345"
  *     12345.to_s(2)    #=> "11000000111001"
  *     12345.to_s(8)    #=> "30071"
@@ -1998,7 +2074,7 @@ fix_to_s(argc, argv, x)
  *   fix + numeric   =>  numeric_result
  *
  * Performs addition: the class of the resulting object depends on
- * the class of <code>numeric</code> and on the magnitude of the 
+ * the class of <code>numeric</code> and on the magnitude of the
  * result.
  */
 
@@ -2028,7 +2104,7 @@ fix_plus(x, y)
  *   fix - numeric   =>  numeric_result
  *
  * Performs subtraction: the class of the resulting object depends on
- * the class of <code>numeric</code> and on the magnitude of the 
+ * the class of <code>numeric</code> and on the magnitude of the
  * result.
  */
 
@@ -2058,7 +2134,7 @@ fix_minus(x, y)
  *   fix * numeric   =>  numeric_result
  *
  * Performs multiplication: the class of the resulting object depends on
- * the class of <code>numeric</code> and on the magnitude of the 
+ * the class of <code>numeric</code> and on the magnitude of the
  * result.
  */
 
@@ -2124,13 +2200,14 @@ fixdivmod(x, y, divp, modp)
 /*
  *  call-seq:
  *     fix.quo(numeric)    => float
- *  
+ *     fix.fdiv(numeric)   => float
+ *
  *  Returns the floating point result of dividing <i>fix</i> by
  *  <i>numeric</i>.
- *     
+ *
  *     654321.quo(13731)      #=> 47.6528293642124
  *     654321.quo(13731.24)   #=> 47.6519964693647
- *     
+ *
  */
 
 static VALUE
@@ -2149,7 +2226,7 @@ fix_quo(x, y)
  *   fix.div(numeric)   =>  numeric_result
  *
  * Performs division: the class of the resulting object depends on
- * the class of <code>numeric</code> and on the magnitude of the 
+ * the class of <code>numeric</code> and on the magnitude of the
  * result.
  */
 
@@ -2191,7 +2268,7 @@ fix_mod(x, y)
 /*
  *  call-seq:
  *     fix.divmod(numeric)    => array
- *  
+ *
  *  See <code>Numeric#divmod</code>.
  */
 static VALUE
@@ -2209,12 +2286,42 @@ fix_divmod(x, y)
 }
 
 static VALUE
-int_even_p(VALUE num)
+int_pow(x, y)
+    long x;
+    unsigned long y;
 {
-    if (rb_funcall(num, '%', 1, INT2FIX(2)) == INT2FIX(0)) {
-	return Qtrue;
-    }
-    return Qfalse;
+    int neg = x < 0;
+    long z = 1;
+
+    if (neg) x = -x;
+    if (y & 1)
+	z = x;
+    else
+	neg = 0;
+    y &= ~1;
+    do {
+	while (y % 2 == 0) {
+	    long x2 = x * x;
+	    if (x2/x != x || !POSFIXABLE(x2)) {
+		VALUE v;
+	      bignum:
+		v = rb_big_pow(rb_int2big(x), LONG2NUM(y));
+		if (z != 1) v = rb_big_mul(rb_int2big(neg ? -z : z), v);
+		return v;
+	    }
+	    x = x2;
+	    y >>= 1;
+	}
+	{
+	    long xz = x * z;
+	    if (!POSFIXABLE(xz) || xz / x != z) {
+		goto bignum;
+	    }
+	    z = xz;
+	}
+    } while (--y);
+    if (neg) z = -z;
+    return LONG2NUM(z);
 }
 
 /*
@@ -2237,12 +2344,10 @@ fix_pow(x, y)
     long a = FIX2LONG(x);
 
     if (FIXNUM_P(y)) {
-	long b;
+	long b = FIX2LONG(y);
 
-	b = FIX2LONG(y);
 	if (b == 0) return INT2FIX(1);
 	if (b == 1) return x;
-	a = FIX2LONG(x);
 	if (a == 0) {
 	    if (b > 0) return INT2FIX(0);
 	    return rb_float_new(1.0 / zero);
@@ -2255,7 +2360,7 @@ fix_pow(x, y)
 		return INT2FIX(-1);
 	}
 	if (b > 0) {
-	    return rb_big_pow(rb_int2big(a), y);
+	    return int_pow(a, b);
 	}
 	return rb_float_new(pow((double)a, (double)b));
     }
@@ -2270,6 +2375,7 @@ fix_pow(x, y)
 	x = rb_int2big(FIX2LONG(x));
 	return rb_big_pow(x, y);
       case T_FLOAT:
+	if (RFLOAT(y)->value == 0.0) return rb_float_new(1.0);
 	if (a == 0) {
 	    return rb_float_new(RFLOAT(y)->value < 0 ? (1.0 / zero) : 0.0);
 	}
@@ -2303,7 +2409,7 @@ fix_equal(x, y)
 /*
  *  call-seq:
  *     fix <=> numeric    => -1, 0, +1
- *  
+ *
  *  Comparison---Returns -1, 0, or +1 depending on whether <i>fix</i> is
  *  less than, equal to, or greater than <i>numeric</i>. This is the
  *  basis for the tests in <code>Comparable</code>.
@@ -2579,16 +2685,16 @@ fix_rshift(long val, unsigned long i)
 /*
  *  call-seq:
  *     fix[n]     => 0, 1
- *  
+ *
  *  Bit Reference---Returns the <em>n</em>th bit in the binary
  *  representation of <i>fix</i>, where <i>fix</i>[0] is the least
  *  significant bit.
- *     
+ *
  *     a = 0b11001100101010
  *     30.downto(0) do |n| print a[n] end
- *     
+ *
  *  <em>produces:</em>
- *     
+ *
  *     0000000000000000011001100101010
  */
 
@@ -2622,9 +2728,9 @@ fix_aref(fix, idx)
 /*
  *  call-seq:
  *     fix.to_f -> float
- *  
+ *
  *  Converts <i>fix</i> to a <code>Float</code>.
- *     
+ *
  */
 
 static VALUE
@@ -2641,12 +2747,12 @@ fix_to_f(num)
 /*
  *  call-seq:
  *     fix.abs -> aFixnum
- *  
+ *
  *  Returns the absolute value of <i>fix</i>.
- *     
+ *
  *     -12345.abs   #=> 12345
  *     12345.abs    #=> 12345
- *     
+ *
  */
 
 static VALUE
@@ -2663,13 +2769,13 @@ fix_abs(fix)
 /*
  *  call-seq:
  *     fix.id2name -> string or nil
- *  
+ *
  *  Returns the name of the object whose symbol id is <i>fix</i>. If
  *  there is no symbol in the symbol table with this value, returns
  *  <code>nil</code>. <code>id2name</code> has nothing to do with the
  *  <code>Object.id</code> method. See also <code>Fixnum#to_sym</code>,
  *  <code>String#intern</code>, and class <code>Symbol</code>.
- *     
+ *
  *     symbol = :@inst_var    #=> :@inst_var
  *     id     = symbol.to_i   #=> 9818
  *     id.id2name             #=> "@inst_var"
@@ -2679,7 +2785,7 @@ static VALUE
 fix_id2name(fix)
     VALUE fix;
 {
-    char *name = rb_id2name(FIX2UINT(fix));
+    const char *name = rb_id2name(FIX2UINT(fix));
     if (name) return rb_str_new2(name);
     return Qnil;
 }
@@ -2688,10 +2794,10 @@ fix_id2name(fix)
 /*
  *  call-seq:
  *     fix.to_sym -> aSymbol
- *  
+ *
  *  Returns the symbol whose integer value is <i>fix</i>. See also
  *  <code>Fixnum#id2name</code>.
- *     
+ *
  *     fred = :fred.to_i
  *     fred.id2name   #=> "fred"
  *     fred.to_sym    #=> :fred
@@ -2713,10 +2819,10 @@ fix_to_sym(fix)
 /*
  *  call-seq:
  *     fix.size -> fixnum
- *  
+ *
  *  Returns the number of <em>bytes</em> in the machine representation
  *  of a <code>Fixnum</code>.
- *     
+ *
  *     1.size            #=> 4
  *     -1.size           #=> 4
  *     2147483647.size   #=> 4
@@ -2732,14 +2838,14 @@ fix_size(fix)
 /*
  *  call-seq:
  *     int.upto(limit) {|i| block }     => int
- *  
+ *
  *  Iterates <em>block</em>, passing in integer values from <i>int</i>
  *  up to and including <i>limit</i>.
- *     
+ *
  *     5.upto(10) { |i| print i, " " }
- *     
+ *
  *  <em>produces:</em>
- *     
+ *
  *     5 6 7 8 9 10
  */
 
@@ -2747,6 +2853,8 @@ static VALUE
 int_upto(from, to)
     VALUE from, to;
 {
+    RETURN_ENUMERATOR(from, 1, &to);
+
     if (FIXNUM_P(from) && FIXNUM_P(to)) {
 	long i, end;
 
@@ -2770,15 +2878,15 @@ int_upto(from, to)
 /*
  *  call-seq:
  *     int.downto(limit) {|i| block }     => int
- *  
+ *
  *  Iterates <em>block</em>, passing decreasing values from <i>int</i>
  *  down to and including <i>limit</i>.
- *     
+ *
  *     5.downto(1) { |n| print n, ".. " }
  *     print "  Liftoff!\n"
- *     
+ *
  *  <em>produces:</em>
- *     
+ *
  *     5.. 4.. 3.. 2.. 1..   Liftoff!
  */
 
@@ -2786,6 +2894,8 @@ static VALUE
 int_downto(from, to)
     VALUE from, to;
 {
+    RETURN_ENUMERATOR(from, 1, &to);
+
     if (FIXNUM_P(from) && FIXNUM_P(to)) {
 	long i, end;
 
@@ -2809,16 +2919,16 @@ int_downto(from, to)
 /*
  *  call-seq:
  *     int.times {|i| block }     => int
- *  
+ *
  *  Iterates block <i>int</i> times, passing in values from zero to
  *  <i>int</i> - 1.
- *     
+ *
  *     5.times do |i|
  *       print i, " "
  *     end
- *     
+ *
  *  <em>produces:</em>
- *     
+ *
  *     0 1 2 3 4
  */
 
@@ -2826,6 +2936,8 @@ static VALUE
 int_dotimes(num)
     VALUE num;
 {
+    RETURN_ENUMERATOR(num, 0, 0);
+
     if (FIXNUM_P(num)) {
 	long i, end;
 
@@ -2849,9 +2961,9 @@ int_dotimes(num)
 /*
  *  call-seq:
  *     fix.zero?    => true or false
- *  
+ *
  *  Returns <code>true</code> if <i>fix</i> is zero.
- *     
+ *
  */
 
 static VALUE
@@ -2862,6 +2974,38 @@ fix_zero_p(num)
 	return Qtrue;
     }
     return Qfalse;
+}
+
+/*
+ *  call-seq:
+ *     fix.odd? -> true or false
+ *
+ *  Returns <code>true</code> if <i>fix</i> is an odd number.
+ */
+
+static VALUE
+fix_odd_p(VALUE num)
+{
+    if (num & 2) {
+        return Qtrue;
+    }
+    return Qfalse;
+}
+
+/*
+ *  call-seq:
+ *     fix.even? -> true or false
+ *
+ *  Returns <code>true</code> if <i>fix</i> is an even number.
+ */
+
+static VALUE
+fix_even_p(VALUE num)
+{
+    if (num & 2) {
+        return Qfalse;
+    }
+    return Qtrue;
 }
 
 void
@@ -2895,6 +3039,7 @@ Init_Numeric()
     rb_define_method(rb_cNumeric, "<=>", num_cmp, 1);
     rb_define_method(rb_cNumeric, "eql?", num_eql, 1);
     rb_define_method(rb_cNumeric, "quo", num_quo, 1);
+    rb_define_method(rb_cNumeric, "fdiv", num_quo, 1);
     rb_define_method(rb_cNumeric, "div", num_div, 1);
     rb_define_method(rb_cNumeric, "divmod", num_divmod, 1);
     rb_define_method(rb_cNumeric, "modulo", num_modulo, 1);
@@ -2917,13 +3062,17 @@ Init_Numeric()
     rb_undef_method(CLASS_OF(rb_cInteger), "new");
 
     rb_define_method(rb_cInteger, "integer?", int_int_p, 0);
+    rb_define_method(rb_cInteger, "odd?", int_odd_p, 0);
+    rb_define_method(rb_cInteger, "even?", int_even_p, 0);
     rb_define_method(rb_cInteger, "upto", int_upto, 1);
     rb_define_method(rb_cInteger, "downto", int_downto, 1);
     rb_define_method(rb_cInteger, "times", int_dotimes, 0);
     rb_include_module(rb_cInteger, rb_mPrecision);
     rb_define_method(rb_cInteger, "succ", int_succ, 0);
     rb_define_method(rb_cInteger, "next", int_succ, 0);
+    rb_define_method(rb_cInteger, "pred", int_pred, 0);
     rb_define_method(rb_cInteger, "chr", int_chr, 0);
+    rb_define_method(rb_cInteger, "ord", int_ord, 0);
     rb_define_method(rb_cInteger, "to_i", int_to_i, 0);
     rb_define_method(rb_cInteger, "to_int", int_to_i, 0);
     rb_define_method(rb_cInteger, "floor", int_to_i, 0);
@@ -2951,6 +3100,7 @@ Init_Numeric()
     rb_define_method(rb_cFixnum, "modulo", fix_mod, 1);
     rb_define_method(rb_cFixnum, "divmod", fix_divmod, 1);
     rb_define_method(rb_cFixnum, "quo", fix_quo, 1);
+    rb_define_method(rb_cFixnum, "fdiv", fix_quo, 1);
     rb_define_method(rb_cFixnum, "**", fix_pow, 1);
 
     rb_define_method(rb_cFixnum, "abs", fix_abs, 0);
@@ -2974,6 +3124,8 @@ Init_Numeric()
     rb_define_method(rb_cFixnum, "to_f", fix_to_f, 0);
     rb_define_method(rb_cFixnum, "size", fix_size, 0);
     rb_define_method(rb_cFixnum, "zero?", fix_zero_p, 0);
+    rb_define_method(rb_cFixnum, "odd?", fix_odd_p, 0);
+    rb_define_method(rb_cFixnum, "even?", fix_even_p, 0);
 
     rb_cFloat  = rb_define_class("Float", rb_cNumeric);
 

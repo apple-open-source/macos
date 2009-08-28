@@ -66,7 +66,7 @@ int file_check(const char* path, int mode, int uid, int gid);
 int is_safeboot(void);
 
 void clean_files_older_than(const char* path, time_t when);
-void clean_directory(const char* name, int);
+void clean_directories(const char* names[], int);
 
 kern_return_t
 do___dirhelper_create_user_local(
@@ -176,7 +176,7 @@ clean_files_older_than(const char* path, time_t when) {
 	fts = fts_open(path_argv, FTS_PHYSICAL | FTS_XDEV, NULL);
 	if (fts) {
 		FTSENT* ent;
-		asl_log(NULL, NULL, ASL_LEVEL_INFO, "Cleaning %s", path);
+		asl_log(NULL, NULL, ASL_LEVEL_INFO, "Cleaning " VAR_FOLDERS_PATH "%s", path);
 		while ((ent = fts_read(fts))) {
 			switch(ent->fts_info) {
 				case FTS_F:
@@ -186,6 +186,9 @@ clean_files_older_than(const char* path, time_t when) {
 					// that we can avoid a race with other processes
 					// attempting to open the file.
 					if (when == 0) {
+#if DEBUG
+						asl_log(NULL, NULL, ASL_LEVEL_ALERT, "unlink(" VAR_FOLDERS_PATH "%s)", ent->fts_path);
+#endif
 						(void)unlink(ent->fts_path);
 					} else if (S_ISREG(ent->fts_statp->st_mode) && ent->fts_statp->st_atime < when) {
 						int fd = open(ent->fts_path, O_RDONLY | O_NONBLOCK);
@@ -195,6 +198,9 @@ clean_files_older_than(const char* path, time_t when) {
 								struct stat sb;
 								res = fstat(fd, &sb);
 								if (res == 0 && sb.st_atime < when) {
+#if DEBUG
+									asl_log(NULL, NULL, ASL_LEVEL_ALERT, "unlink(" VAR_FOLDERS_PATH "%s)", ent->fts_path);
+#endif
 									(void)unlink(ent->fts_path);
 								}
 								(void)flock(fd, LOCK_UN);
@@ -207,19 +213,25 @@ clean_files_older_than(const char* path, time_t when) {
 				case FTS_SL:
 				case FTS_SLNONE:
 					if (when == 0) {
+#if DEBUG
+						asl_log(NULL, NULL, ASL_LEVEL_ALERT, "unlink(" VAR_FOLDERS_PATH "%s)", ent->fts_path);
+#endif
 						(void)unlink(ent->fts_path);
 					}
 					break;
 					
 				case FTS_DP:
 					if (when == 0) {
+#if DEBUG
+						asl_log(NULL, NULL, ASL_LEVEL_ALERT, "rmdir(" VAR_FOLDERS_PATH "%s)", ent->fts_path);
+#endif
 						(void)rmdir(ent->fts_path);
 					}
 					break;
 					
 				case FTS_ERR:
 				case FTS_NS:
-					asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: %s", ent->fts_path, strerror(ent->fts_errno));
+					asl_log(NULL, NULL, ASL_LEVEL_ERR, VAR_FOLDERS_PATH "%s: %s", ent->fts_path, strerror(ent->fts_errno));
 					break;
 					
 				default:
@@ -228,7 +240,7 @@ clean_files_older_than(const char* path, time_t when) {
 		}
 		fts_close(fts);
 	} else {
-		asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: %s", path, strerror(errno));
+		asl_log(NULL, NULL, ASL_LEVEL_ERR, VAR_FOLDERS_PATH "%s: %s", path, strerror(errno));
 	}
 }
 
@@ -242,6 +254,7 @@ file_check(const char* path, int mode, int uid, int gid) {
 		check = check && ((sb.st_gid == (gid_t)gid) || gid == -1);
 	} else {
 		if (errno != ENOENT) {
+			/* This will print a shorter path after chroot() */
 			asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: %s", path, strerror(errno));
 		}
 		check = 0;
@@ -262,9 +275,10 @@ is_safeboot(void) {
 }
 
 void
-clean_directory(const char* name, int machineBoot) {
+clean_directories(const char* dirs[], int machineBoot) {
 	DIR* d;
 	time_t when = 0;
+	int i;
 
 	if (!machineBoot) {
 		struct timeval now;
@@ -274,8 +288,8 @@ clean_directory(const char* name, int machineBoot) {
 			days = strtol(str, NULL, 0);
 		}
 		(void)gettimeofday(&now, NULL);
-
-		asl_log(NULL, NULL, ASL_LEVEL_INFO, "Cleaning %s older than %ld days", name, days);
+		for (i = 0; dirs[i]; i++)
+			asl_log(NULL, NULL, ASL_LEVEL_INFO, "Cleaning %s older than %ld days", dirs[i], days);
 
 		when = now.tv_sec - (days * 60 * 60 * 24);
 	}
@@ -292,8 +306,12 @@ clean_directory(const char* name, int machineBoot) {
 		asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: %s", VAR_FOLDERS_PATH, "invalid ownership");
 		return;
 	}
-	
-	if ((d = opendir(VAR_FOLDERS_PATH))) {
+
+	if (chroot(VAR_FOLDERS_PATH)) {
+		asl_log(NULL, NULL, ASL_LEVEL_ERR, "chroot(%s) failed: %s",
+			VAR_FOLDERS_PATH, strerror(errno));
+	}
+	if ((d = opendir("/"))) {
 		struct dirent* e;
 		char path[PATH_MAX];
 
@@ -301,7 +319,7 @@ clean_directory(const char* name, int machineBoot) {
 		while ((e = readdir(d))) {
 			if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0) continue;
 			
-			snprintf(path, sizeof(path), "%s%s", VAR_FOLDERS_PATH, e->d_name);
+			snprintf(path, sizeof(path), "%s%s", "/", e->d_name);
 			if (is_root_wheel_directory(path)) {
 				DIR* d2 = opendir(path);
 				if (d2) {
@@ -311,16 +329,17 @@ clean_directory(const char* name, int machineBoot) {
 					while ((e2 = readdir(d2))) {
 						char temporary_items[PATH_MAX];
 						if (strcmp(e2->d_name, ".") == 0 || strcmp(e2->d_name, "..") == 0) continue;
-
-						snprintf(temporary_items, sizeof(temporary_items),
-							"%s/%s/%s", path, e2->d_name, name);
-						if (is_directory(temporary_items)) {
-							// at boot time we clean all files,
-							// otherwise only clean regular files.
-							clean_files_older_than(temporary_items, when);
+						for (i = 0; dirs[i]; i++) {
+							const char *name = dirs[i];
+							snprintf(temporary_items, sizeof(temporary_items),
+								 "%s/%s/%s", path, e2->d_name, name);
+							if (is_directory(temporary_items)) {
+								// at boot time we clean all files,
+								// otherwise only clean regular files.
+								clean_files_older_than(temporary_items, when);
+							}
 						}
 					}
-					
 					closedir(d2);
 				} else {
 					asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: %s", path, strerror(errno));
@@ -343,14 +362,24 @@ main(int argc, char* argv[]) {
 	// Clean up TemporaryItems directory when launched at boot.
 	// It is safe to clean all file types at this time.
 	if (argc > 1 && strcmp(argv[1], "-machineBoot") == 0) {
-		clean_directory(DIRHELPER_TEMP_STR, 1);
-		clean_directory("TemporaryItems", 1);
-		clean_directory("Cleanup At Startup", 1);
-		if (is_safeboot()) clean_directory(DIRHELPER_CACHE_STR, 1);
+		const char *dirs[5];
+		int i = 0;
+		dirs[i++] = DIRHELPER_TEMP_STR;
+		dirs[i++] = "TemporaryItems";
+		dirs[i++] = "Cleanup At Startup";
+		if (is_safeboot()) {
+			dirs[i++] = DIRHELPER_CACHE_STR;
+		}
+		dirs[i] = NULL;
+		clean_directories(dirs, 1);
 		exit(EXIT_SUCCESS);
 	} else if (argc > 1 && strcmp(argv[1], "-cleanTemporaryItems") == 0) {
-		clean_directory(DIRHELPER_TEMP_STR, 0);
-		clean_directory("TemporaryItems", 0);
+		const char *dirs[] = {
+			DIRHELPER_TEMP_STR,
+			"TemporaryItems",
+			NULL
+		};
+		clean_directories(dirs, 0);
 		exit(EXIT_SUCCESS);
 	} else if (argc > 1) {
 		exit(EXIT_FAILURE);
@@ -417,8 +446,13 @@ main(int argc, char* argv[]) {
 	kr = mach_port_get_attributes(mach_task_self(), mp,
 		MACH_PORT_RECEIVE_STATUS, (mach_port_info_t)&status, &status_count);
 	if (kr == KERN_SUCCESS && status.mps_msgcount == 0) {
-		clean_directory(DIRHELPER_TEMP_STR, 0);
-		clean_directory("TemporaryItems", 0);
+		const char *dirs[] = {
+			DIRHELPER_TEMP_STR,
+			"TemporaryItems",
+			NULL
+		};
+		clean_directories(dirs, 0);
+		exit(EXIT_SUCCESS);
 	}
 
 	// main event loop

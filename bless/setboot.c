@@ -441,11 +441,13 @@ static int setit(BLContextPtr context, mach_port_t masterPort, const char *bootv
 
     kret = IORegistryEntrySetCFProperty(optionsNode, bootName, xmlstring);
     if(kret) {
+        CFRelease(bootName);
         IOObjectRelease(optionsNode);
         blesscontextprintf(context, kBLLogLevelError,  "Could not set boot device property: %#x\n", kret);
         return 2;        
     }
     
+    CFRelease(bootName);
     IOObjectRelease(optionsNode);
         
     return 0;
@@ -639,6 +641,8 @@ static int setefibootargs(BLContextPtr context, mach_port_t masterPort)
         strcpy(cStr, "");
     }
     
+    CFRelease(newString);
+    
     ret = BLPreserveBootArgs(context, cStr, newArgs);
     if(ret) {
         return ret;
@@ -650,6 +654,7 @@ static int setefibootargs(BLContextPtr context, mach_port_t masterPort)
     }
 
     ret = setit(context, masterPort, "boot-args", newString);
+    CFRelease(newString);
     if(ret)
         return ret;
     

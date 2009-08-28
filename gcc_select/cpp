@@ -47,8 +47,8 @@
 #
 #	@(#)usr.bin.cpp.sh	6.5 (Berkeley) 4/1/91
 #
-PATH=/usr/bin:/bin
-CPP="/usr/bin/gcc -E"
+PATH="`xcode-select -print-path`/usr/bin:/usr/bin:/bin"
+CPP="gcc -E"
 OUTPUT="-o -"
 ALST="-traditional"
 NSI=no

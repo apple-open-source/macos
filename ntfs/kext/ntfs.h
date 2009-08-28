@@ -1,8 +1,8 @@
 /*
  * ntfs.h - Some generic defines for the NTFS kernel driver.
  *
- * Copyright (c) 2006, 2007 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006, 2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2008 Anton Altaparmakov.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2008 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -47,7 +47,8 @@
 #include <kern/locks.h>
 
 /* The email address of the NTFS developers. */
-__private_extern__ const char *ntfs_dev_email;
+__private_extern__ const char ntfs_dev_email[];
+__private_extern__ const char ntfs_please_email[];
 
 /*
  * Lock group and lock attribute for de-/initialization of locks (defined
@@ -74,9 +75,10 @@ static inline ntfs_volume *NTFS_MP(mount_t mp)
 	return (ntfs_volume*)vfs_fsprivate(mp);
 }
 
-__private_extern__ const char *ntfs_dev_email;
-
 #endif /* KERNEL */
+
+#include "ntfs_endian.h"
+#include "ntfs_types.h"
 
 /* Some useful constants to do with NTFS. */
 enum {
@@ -86,20 +88,39 @@ enum {
 	NTFS_MAX_ATTR_NAME_LEN	= 255,
 	NTFS_MAX_SECTOR_SIZE	= 4096,		/* 4kiB */
 	NTFS_MAX_CLUSTER_SIZE	= 64 * 1024,	/* 64kiB */
+	NTFS_ALLOC_BLOCK	= 1024,
+	NTFS_MAX_HARD_LINKS	= 65535,	/* 2^16 - 1 */
+	NTFS_MAX_ATTR_LIST_SIZE	= 256 * 1024,	/* 256kiB, corresponding to the
+						   VACB_MAPPING_GRANULARITY on
+						   Windows. */
+	NTFS_COMPRESSION_UNIT	= 4,
 };
+
+/*
+ * The maximum attribute size on NTFS is 2^63 - 1 bytes as it is stored in a
+ * signed 64 bit type (s64).
+ */
+#define NTFS_MAX_ATTRIBUTE_SIZE 0x7fffffffffffffffULL
+
+/*
+ * The maximum number of MFT records allowed on NTFS is 2^32 as described in
+ * various documentation to be found on the Microsoft web site.  This is an
+ * imposed limit rather than an inherent NTFS format limit.
+ */
+#define NTFS_MAX_NR_MFT_RECORDS 0x100000000ULL
 
 // TODO: Constants so ntfs_vfsops.c compiles for now...
 enum {
+	/* One of these must be present, default is ON_ERRORS_CONTINUE. */
+	ON_ERRORS_PANIC		= 0x01,
+	ON_ERRORS_REMOUNT_RO	= 0x02,
+	ON_ERRORS_CONTINUE	= 0x04,
+	/* Optional, can be combined with any of the above. */
 	ON_ERRORS_RECOVER	= 0x10,
 };
 
-#include "ntfs_types.h"
-
 /*
  * The NTFS mount options header passed in from user space.
- *
- * Currently we only define major version 0 and minor version 0.  This
- * corresponds to no mount options array following this header at all.
  */
 typedef struct {
 #ifndef KERNEL
@@ -110,14 +131,38 @@ typedef struct {
 } __attribute__((__packed__)) ntfs_mount_options_header;
 
 /*
- * The NTFS mount options passed in from user space.  This directly follows the
- * ntfs_mount_options_header.
+ * The NTFS mount options passed in from user space.  This follows the
+ * ntfs_mount_options_header aligned to an eight byte boundary.
  *
  * This is major version 0, minor version 0, which does not have any options,
  * i.e. is empty.
  */
 typedef struct {
-	// TODO: Add NTFS specific mount options here.
+	/* Mount options version 0.0 does not have any ntfs options. */
 } __attribute__((__packed__)) ntfs_mount_options_0_0;
+
+/*
+ * The currently defined flags for the ntfs mount options structure.
+ */
+enum {
+	/* Below flag(s) appeared in mount options version 1.0. */
+	NTFS_MNT_OPT_CASE_SENSITIVE = const_cpu_to_le32(0x00000001),
+	/* Below flag(s) appeared in mount options version x.y. */
+	// TODO: Add NTFS specific mount options flags here.
+};
+
+typedef le32 NTFS_MNT_OPTS;
+
+/*
+ * The NTFS mount options passed in from user space.  This follows the
+ * ntfs_mount_options_header aligned to an eight byte boundary.
+ *
+ * This is major version 1, minor version 0, which has only one option, a
+ * little endian, 32-bit flags option.
+ */
+typedef struct {
+	NTFS_MNT_OPTS flags;
+	// TODO: Add NTFS specific mount options here.
+} __attribute__((__packed__)) ntfs_mount_options_1_0;
 
 #endif /* !_OSX_NTFS_H */

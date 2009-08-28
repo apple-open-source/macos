@@ -44,6 +44,7 @@ namespace WebCore {
 
     class Storage;
     class Frame;
+    class InspectorFrontend;
 
     class InspectorDOMStorageResource : public RefCounted<InspectorDOMStorageResource> {
     public:
@@ -52,7 +53,7 @@ namespace WebCore {
             return adoptRef(new InspectorDOMStorageResource(domStorage, isLocalStorage, frame));
         }
 
-        void bind(ScriptState*, const ScriptObject& webInspector);
+        void bind(InspectorFrontend* frontend);
         void unbind();
 
         bool isSameHostAndType(Frame*, bool isLocalStorage) const;
@@ -61,12 +62,11 @@ namespace WebCore {
 
         InspectorDOMStorageResource(Storage*, bool isLocalStorage, Frame*);
 
-        ScriptObject m_scriptObject;
         RefPtr<Storage> m_domStorage;
         bool m_isLocalStorage;
         RefPtr<Frame> m_frame;
+        bool m_scriptObjectCreated;
 
-    private:
     };
 
 } // namespace WebCore

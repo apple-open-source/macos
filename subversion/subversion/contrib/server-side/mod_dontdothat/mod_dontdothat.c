@@ -19,6 +19,7 @@
 
 #include <httpd.h>
 #include <http_config.h>
+#include <http_protocol.h>
 #include <http_request.h>
 #include <http_log.h>
 #include <util_filter.h>
@@ -36,6 +37,7 @@ module AP_MODULE_DECLARE_DATA dontdothat_module;
 typedef struct {
   const char *config_file;
   const char *base_path;
+  int no_replay;
 } dontdothat_config_rec;
 
 static void *create_dontdothat_dir_config(apr_pool_t *pool, char *dir)
@@ -43,6 +45,7 @@ static void *create_dontdothat_dir_config(apr_pool_t *pool, char *dir)
   dontdothat_config_rec *cfg = apr_pcalloc(pool, sizeof(*cfg));
 
   cfg->base_path = dir;
+  cfg->no_replay = 1;
 
   return cfg;
 }
@@ -53,6 +56,9 @@ static const command_rec dontdothat_cmds[] =
                 (void *) APR_OFFSETOF(dontdothat_config_rec, config_file),
                 OR_ALL,
                 "Text file containing actions to take for specific requests"),
+  AP_INIT_FLAG("DontDoThatDisallowReplay",  ap_set_flag_slot,
+                (void *) APR_OFFSETOF(dontdothat_config_rec, no_replay),
+                OR_ALL, "Disallow replay requests as if they are other recursive requests."),
   { NULL }
 };
 
@@ -280,10 +286,25 @@ dontdothat_filter(ap_filter_t *f,
                         "mod_dontdothat: client broke the rules, "
                         "returning error");
 
-          f->r->status = 403;
-          f->r->status_line = "403 Forbidden, No Soup For You!";
+          /* Ok, pass an error bucket and an eos bucket back to the client.
+           *
+           * NOTE: The custom error string passed here doesn't seem to be
+           *       used anywhere by httpd.  This is quite possibly a bug.
+           *
+           * TODO: Try and pass back a custom document body containing a
+           *       serialized svn_error_t so the client displays a better
+           *       error message. */
+          bb = apr_brigade_create(f->r->pool, f->c->bucket_alloc);
+          e = ap_bucket_error_create(403, "No Soup For You!",
+                                     f->r->pool, f->c->bucket_alloc);
+          APR_BRIGADE_INSERT_TAIL(bb, e);
+          e = apr_bucket_eos_create(f->c->bucket_alloc);
+          APR_BRIGADE_INSERT_TAIL(bb, e);
 
-          return APR_EGENERAL;
+          /* Don't forget to remove us, otherwise recursion blows the stack. */
+          ap_remove_input_filter(f);
+
+          return ap_pass_brigade(f->r->output_filters, bb);
         }
       else if (ctx->let_it_go || last)
         {
@@ -349,7 +370,7 @@ start_element(void *baton, const char *name, const char **attrs)
       case STATE_BEGINNING:
         if (strcmp(name, "update-report") == 0)
           ctx->state = STATE_IN_UPDATE;
-        else if (strcmp(name, "replay-report") == 0)
+        else if (strcmp(name, "replay-report") == 0 && ctx->cfg->no_replay)
           {
             /* XXX it would be useful if there was a way to override this
              *     on a per-user basis... */
@@ -600,7 +621,9 @@ dontdothat_insert_filters(request_rec *r)
 
       ctx->xmlp = XML_ParserCreate(NULL);
 
-      apr_pool_cleanup_register(r->pool, ctx->xmlp, clean_up_parser, NULL);
+      apr_pool_cleanup_register(r->pool, ctx->xmlp,
+                                clean_up_parser,
+                                apr_pool_cleanup_null);
 
       XML_SetUserData(ctx->xmlp, ctx);
       XML_SetElementHandler(ctx->xmlp, start_element, end_element);

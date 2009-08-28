@@ -44,7 +44,6 @@
 #include <fcntl.h>
 #include <syslog.h>
 #include <netdb.h>
-#include <utmp.h>
 #include <pwd.h>
 #include <setjmp.h>
 #include <sys/param.h>
@@ -88,7 +87,7 @@
 #define DIR_TERMINALS           "/Library/Terminal Scripts/"
 #define DIR_TTYS		"/dev/"
 
-#define PATH_CCL	  	"/usr/libexec/CCLEngine"
+#define SUFFIX_CCLENGINE	  	"/CCLEngine"
 #define PATH_MINITERM	  	"/usr/libexec/MiniTerm.app"
 
 
@@ -109,8 +108,8 @@
 void serial_check_options();
 int serial_connect(int *errorcode);
 void serial_process_extra_options();
-void serial_connect_notifier(void *param, int code);
-void serial_lcpdown_notifier(void *param, int code);
+void serial_connect_notifier(void *param, uintptr_t code);
+void serial_lcpdown_notifier(void *param, uintptr_t code);
 int serial_terminal_window(char *script, int infd, int outfd);
 
 static int modemdict(char **argv);
@@ -135,6 +134,7 @@ static int	modemdialmode = 0;
 static u_char	fullmodemscript[1024];
 static u_char	fullterminalscript[1024];
 static u_char	connectcommand[1024];
+static u_char	pathccl[1024];
 static u_char	altconnectcommand[1024];
 static u_char	disconnectcommand[1024];
 static u_char	terminalcommand[1024];
@@ -229,14 +229,20 @@ int start(CFBundleRef ref)
     if (cancelstrref == 0) return 1;
     CFStringGetCString(cancelstrref, cancelstr, sizeof(cancelstr), kCFStringEncodingUTF8);
     
-    icstrref = CFBundleCopyLocalizedString(bundle, CFSTR("Internet Connect"), CFSTR("Internet Connect"), NULL);
+    icstrref = CFBundleCopyLocalizedString(bundle, CFSTR("Network Connection"), CFSTR("Network Connection"), NULL);
     if (icstrref == 0) return 1;
     CFStringGetCString(icstrref, icstr, sizeof(icstr), kCFStringEncodingUTF8);
     
     urlref = CFBundleCopyResourceURL(bundle, CFSTR("NetworkConnect.icns"), NULL, NULL);
     if (urlref == 0 || ((strref = CFURLGetString(urlref)) == 0)) return 1;
     CFStringGetCString(strref, iconstr, sizeof(iconstr), kCFStringEncodingUTF8);
+	
 	iconstrref = CFStringCreateCopy(NULL, strref);
+    CFRelease(urlref);
+
+	urlref = CFBundleCopyBuiltInPlugInsURL(bundle);
+	if (urlref == 0 || ((CFURLGetFileSystemRepresentation(urlref, TRUE, pathccl, sizeof(pathccl))) == FALSE)) return 1;
+    strlcat(pathccl, SUFFIX_CCLENGINE, sizeof(pathccl) - strlen(pathccl));
     CFRelease(urlref);
     
     // add the socket specific options
@@ -257,15 +263,15 @@ void serial_process_extra_options()
         // first, transform device name
         str[0] = 0;
         if (device[0] != '/') {
-            strcat(str, DIR_TTYS);
+            strlcat(str, DIR_TTYS, sizeof(str));
             if ((device[0] != 't')
                     || (device[1] != 't')
                     || (device[2] != 'y')
                     || (device[3] != 'd'))
-                    strcat(str, "cu.");
+                    strlcat(str, "cu.", sizeof(str));
         }
-        strcat(str, device);
-        strcpy(devnam, str);
+        strlcat(str, device, sizeof(str));
+        strlcpy(devnam, str, sizeof(devnam));
         default_device = 0;
             
         // then check if device is there
@@ -342,18 +348,18 @@ int serial_connect(int *errorcode)
 	*errorcode = 0;
 
     if (modemscript || modemdictref) {
-
+		
 		// ---------- connect and altconnect scripts ----------
 		
-		sprintf(connectcommand, "%s -l %s -x", 
-		PATH_CCL, serviceid);
+		snprintf(connectcommand, sizeof(connectcommand), "%s -l %s -x", 
+		pathccl, serviceid);
 		
 		// duplicate that into the alternate script
 		strcpy(altconnectcommand, connectcommand);
 
 		// ---------- disconnect script ----------
-		sprintf(disconnectcommand, "%s -m 1 -l %s -x", 
-			PATH_CCL, serviceid);
+		snprintf(disconnectcommand, sizeof(disconnectcommand), "%s -m 1 -l %s -x", 
+			pathccl, serviceid);
 		
 		connectdict = CFDictionaryCreateMutable(NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 		if (!connectdict) {
@@ -425,9 +431,9 @@ int serial_connect(int *errorcode)
 			   /* check for ccl */ 
 				err = 0;
 				if (modemscript[0] != '/') {
-					sprintf(fullmodemscript, "%s%s", DIR_MODEMS_SYS, modemscript);
+					snprintf(fullmodemscript, sizeof(fullmodemscript), "%s%s", DIR_MODEMS_SYS, modemscript);
 					if (stat(fullmodemscript, &statbuf) < 0) {
-						sprintf(fullmodemscript, "%s%s", DIR_MODEMS_USER, modemscript);
+						snprintf(fullmodemscript, sizeof(fullmodemscript), "%s%s", DIR_MODEMS_USER, modemscript);
 						err = stat(fullmodemscript, &statbuf);
 					}
 				}
@@ -513,7 +519,7 @@ int serial_connect(int *errorcode)
 
     if (terminalscript) {
         		
-		sprintf(terminalcommand, "%s -l %s -x", PATH_CCL, serviceid);
+		snprintf(terminalcommand, sizeof(terminalcommand), "%s -l %s -x", pathccl, serviceid);
 		
 		terminaldict = CFDictionaryCreateMutable(NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 		if (!terminaldict) {
@@ -570,7 +576,7 @@ int serial_connect(int *errorcode)
 		}
 
 	   /* check for ccl */ 
-		sprintf(fullterminalscript, "%s%s", (terminalscript[0] == '/') ? "" : DIR_TERMINALS, terminalscript);
+		snprintf(fullterminalscript, sizeof(fullterminalscript), "%s%s", (terminalscript[0] == '/') ? "" : DIR_TERMINALS, terminalscript);
 		err = stat(fullterminalscript, &statbuf);
 		if (err) {
 			option_error("Could't find terminal script '%s'", terminalscript);
@@ -620,7 +626,7 @@ int serial_connect(int *errorcode)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-void serial_connect_notifier(void *param, int code)
+void serial_connect_notifier(void *param, uintptr_t code)
 {
     
     switch (code) {
@@ -657,7 +663,7 @@ void serial_connect_notifier(void *param, int code)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-void serial_lcpdown_notifier(void *param, int code)
+void serial_lcpdown_notifier(void *param, uintptr_t code)
 {
 
     if (status == EXIT_HANGUP)
@@ -678,7 +684,7 @@ static int start_listen (char *filestr)
     unlink(filestr);
     bzero(&addr, sizeof(addr));
     addr.sun_family = AF_LOCAL;
-    strcpy(addr.sun_path, filestr);
+    strlcpy(addr.sun_path, filestr, sizeof(addr.sun_path));
     mask = umask(0);
     err = bind(s, (struct sockaddr *)&addr, SUN_LEN(&addr));
     umask(mask);
@@ -797,7 +803,8 @@ static int launch_app(char *app, char *params)
 ----------------------------------------------------------------------------- */
 static int wait_accept(int fd)
 {
-    int 	sacc = 0, nready, len, maxfd;
+    int			sacc = 0, nready, maxfd;
+	socklen_t	len;
     fd_set	allset, rset;
     struct timeval 	timenow, timeout, timeend;
     struct sockaddr_un	addr;
@@ -875,7 +882,7 @@ int serial_terminal_window(char *script, int infd, int outfd)
     char 	str[32];
 
     //sprintf(str, "/var/run/pppd-%d", getpid());
-    sprintf(str, "/var/run/pppd-miniterm");
+    snprintf(str, sizeof(str), "/var/run/pppd-miniterm");
     
     slis = start_listen(str);
     if (slis == -1) {

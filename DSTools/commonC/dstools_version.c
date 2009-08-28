@@ -40,7 +40,7 @@
 
 void dsToolAppleVersionExit( const char *toolName )
 {
-	printf( "%s, Apple Computer, Inc., Version %s\n", toolName, BUILD_VERSION );
+	printf( "%s, Apple Inc., Version %s (build %s)\n", toolName, TOOLS_VERSION, BUILD_VERSION );
 	exit( 0 );
 }
 

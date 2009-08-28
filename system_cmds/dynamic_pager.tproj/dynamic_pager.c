@@ -11,6 +11,7 @@
 #define MACH_BSD
 #endif
 #include <mach/mach_syscalls.h>
+#include <mach/mach_traps.h>
 #include <mach/mig_errors.h>
 #include <sys/param.h>
 #include <sys/mount.h>
@@ -31,10 +32,9 @@
 #include <paths.h>
 #include <dirent.h>
 
-#include <CoreFoundation/CoreFoundation.h>
-#include <IOKit/pwr_mgt/IOPMLibPrivate.h>
-#include <IOKit/ps/IOPowerSources.h>
 #include <IOKit/ps/IOPowerSourcesPrivate.h>
+#include <IOKit/pwr_mgt/IOPMLibPrivate.h>
+#include <CoreFoundation/CoreFoundation.h>
 
 #include <default_pager/default_pager_types.h>
 #include <default_pager_alerts_server.h>
@@ -100,21 +100,11 @@ server_alert_loop(
                      max_size + MAX_TRAILER_SIZE,
                      TRUE)) != KERN_SUCCESS)
       return kr;
-    if ((kr = vm_protect(mach_task_self(),
-                     (vm_address_t)bufRequest,
-                     max_size + MAX_TRAILER_SIZE,
-		     FALSE, VM_PROT_ALL)) != KERN_SUCCESS)
-      return kr;
     mlock(bufRequest, max_size + MAX_TRAILER_SIZE);
     if ((kr = vm_allocate(mach_task_self(),
                      (vm_address_t *)&bufReply,
                      max_size + MAX_TRAILER_SIZE,
                      TRUE)) != KERN_SUCCESS)
-      return kr;
-    if ((kr = vm_protect(mach_task_self(),
-                     (vm_address_t)bufReply,
-                     max_size + MAX_TRAILER_SIZE,
-		     FALSE, VM_PROT_ALL)) != KERN_SUCCESS)
       return kr;
     mlock(bufReply, max_size + MAX_TRAILER_SIZE);
     while(TRUE) {
@@ -212,9 +202,8 @@ default_pager_space_alert(alert_port, flags)
 	int	flags;
 {
 	char subfile[512];
-	FILE *file_ptr;
 	off_t	filesize;
-	int	error;
+	int	error=0, fd=0;
 	kern_return_t	ret;
         int cur_limits;
 	unsigned int cur_size;
@@ -245,19 +234,18 @@ default_pager_space_alert(alert_port, flags)
 		        notifications = HI_WAT_ALERT;
 
 		sprintf(subfile, "%s%d", fileroot, file_count);
-		file_ptr = fopen(subfile, "w+");
-		if (file_ptr == NULL) {
+		fd = open(subfile, O_CREAT|O_EXCL|O_RDWR,(mode_t)(S_IRUSR|S_IWUSR));
+		if (fd == -1) {
 			/* force error recovery below */
 			error = -1;
 		} else {
-			fchmod(fileno(file_ptr), (mode_t)01600);
-			error = fcntl(fileno(file_ptr), F_SETSIZE, &filesize);
+			error = fcntl(fd, F_SETSIZE, &filesize);
 			if(error) {
-				error = ftruncate(fileno(file_ptr), filesize);
+				error = ftruncate(fd, filesize);
 			}
 			if(error)
 				unlink(subfile);
-			fclose(file_ptr);
+			close(fd);
 		}
 
 		if(error == -1) {
@@ -272,6 +260,8 @@ default_pager_space_alert(alert_port, flags)
 			        notifications = HI_WAT_ALERT | LO_WAT_ALERT;
 			else
 			        notifications = HI_WAT_ALERT;
+			
+			notifications |= SWAP_FILE_CREATION_ERROR;
 
 			local_hi_water = local_hi_water>>2;
 			if(notify_high >= (local_hi_water)) {
@@ -286,7 +276,6 @@ default_pager_space_alert(alert_port, flags)
 					notify_high = 0;
 				}
 			}
-			macx_triggers(local_hi_water, limits[cur_limits].low_water, notifications, alert_port);
 		} else {
 			if(hi_water < notify_high) {
 				if(local_hi_water < notify_high) {
@@ -299,7 +288,8 @@ default_pager_space_alert(alert_port, flags)
 				}
 				local_hi_water = hi_water;
 			}
-			ret = macx_swapon(subfile, flags, cur_size, priority);
+			ret = macx_swapon((uint64_t)(uintptr_t)subfile,
+					  flags, cur_size, priority);
 
 			if(ret) {
 				unlink(subfile);
@@ -330,7 +320,6 @@ default_pager_space_alert(alert_port, flags)
 						notify_high = 0;
 					}
 				}
-				macx_triggers(local_hi_water, limits[cur_limits].low_water, notifications, alert_port);
 			} else if(bs_recovery <= cur_size) {
 				if((bs_recovery != 0) && (notify_port)) {
 					backing_store_alert(notify_port,
@@ -360,7 +349,8 @@ default_pager_space_alert(alert_port, flags)
 			notify_high = 0;
 			bs_recovery = 0;
 		}
-		if((error = macx_swapoff(subfile, flags)) == 0) {
+		if((error = macx_swapoff((uint64_t)(uintptr_t)subfile,
+					 flags)) == 0) {
 
 			unlink(subfile);
 			file_count--;
@@ -408,24 +398,22 @@ paging_setup(flags, size, priority, low, high, encrypted)
 {
 	off_t		filesize = size;
 	char 		subfile[512];
-	FILE 		*file_ptr;
-	int		error;
+	int		error, fd = 0;
 
 	file_count = 0;
 	sprintf(subfile, "%s%d", fileroot, file_count);
-	file_ptr = fopen(subfile, "w+");
-	if (file_ptr == NULL) {
+	fd = open(subfile, O_CREAT|O_EXCL|O_RDWR, ((mode_t)(S_IRUSR|S_IWUSR)));
+	if (fd == -1) {
 		fprintf(stderr, "dynamic_pager: cannot create paging file %s!\n",
 			subfile);
 		exit(EXIT_FAILURE);
 	}
-	fchmod(fileno(file_ptr), (mode_t)01600);
 
-	error = fcntl(fileno(file_ptr), F_SETSIZE, &filesize);
+	error = fcntl(fd, F_SETSIZE, &filesize);
 	if(error) {
-		error = ftruncate(fileno(file_ptr), filesize);
+		error = ftruncate(fd, filesize);
 	}
-	fclose(file_ptr);
+	close(fd);
 
 	if (error == -1) {
 		fprintf(stderr, "dynamic_pager: cannot extend paging file size %s to %llu!\n",
@@ -444,7 +432,7 @@ paging_setup(flags, size, priority, low, high, encrypted)
 			(encrypted ? "on" : "off"));
 	}
 
-	macx_swapon(subfile, flags, size, priority);
+	macx_swapon((uint64_t)(uintptr_t)subfile, flags, size, priority);
 
 	if(hi_water) {
 		mach_msg_type_name_t    poly;
@@ -510,9 +498,9 @@ should_encrypt_swap(void)
 	CFTypeRef		value;
 	boolean_t		should_encrypt;
 	boolean_t		explicit_value;
-	CFTypeRef		snap;
 
 	explicit_value = false;
+	should_encrypt = true;
 
 	fileURL = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (const UInt8 *)VM_PREFS_PLIST, strlen(VM_PREFS_PLIST), false);
 	if (fileURL == NULL) {
@@ -559,30 +547,16 @@ should_encrypt_swap(void)
 
 done:
 	if (! explicit_value) {
+#if TARGET_OS_EMBEDDED
+		should_encrypt = FALSE;
+#else
 		/* by default, encrypt swap on laptops only */
-		mach_timespec_t w;
-		kern_return_t kr;
-
-		/* wait up to 60 seconds for IOKit to quiesce */
-		w.tv_sec = 60;
-		w.tv_nsec = 0;
-		kr = IOKitWaitQuiet(kIOMasterPortDefault, &w);
-		if (kr != kIOReturnSuccess) {
-			/*
-			 * Can't tell if we're on a laptop,
-			 * assume we do want encrypted swap.
-			 */
-			should_encrypt = TRUE;
-			/*fprintf(stderr, "dynamic_pager: IOKitWaitQuiet ret 0x%x (%s)\n", kr, mach_error_string(kr));*/
-		} else {
-			/*
-			 * Look for battery power source.
-			 */
-			snap = IOPSCopyPowerSourcesInfo();
-			should_encrypt = (kCFBooleanTrue == IOPSPowerSourceSupported(snap, CFSTR(kIOPMBatteryPowerKey)));
-			CFRelease(snap);
-			/*fprintf(stderr, "dynamic_pager: battery power source: %d\n", should_encrypt);*/
-		}
+		/*
+		 * Look for battery power source.
+		 */
+		should_encrypt = (kCFBooleanTrue == IOPSPowerSourceSupported(NULL, CFSTR(kIOPMBatteryPowerKey)));
+		/*fprintf(stderr, "dynamic_pager: battery power source: %d\n", should_encrypt);*/
+#endif
 	}
 
 	return should_encrypt;
@@ -595,7 +569,7 @@ main(int argc, char **argv)
 	extern int optind;
 	char default_filename[] = "/private/var/vm/swapfile";
 	int ch;
-	int variable_sized = 1;
+	int variable_sized = 1,flags=0;
 	boolean_t	encrypted_swap;
 
 /*
@@ -606,6 +580,7 @@ main(int argc, char **argv)
 	seteuid(getuid());
 	strcpy(fileroot, default_filename);
 
+retry:
 	limits[0].size = 20000000;
 	limits[0].low_water = 0;
 
@@ -693,9 +668,14 @@ main(int argc, char **argv)
 		 * we only want the portion of the pathname that should already exist
 		 */
 	        strcpy(tmp, fileroot);
-		if (q = strrchr(tmp, '/'))
+		if ((q = strrchr(tmp, '/')))
 		        *q = 0;
 
+		/*
+		 * Remove all files in the swap directory.
+		 */
+		clean_swap_directory(tmp);
+		        
 	        if (statfs(tmp, &sfs) == -1) {
 			/*
 			 * Setup the swap directory.
@@ -715,11 +695,6 @@ main(int argc, char **argv)
 			}
 		} 
 		
-		/*
-		 * Remove all files in the swap directory.
-		 */
-		clean_swap_directory(tmp);
-		        
 		if (fs_limit != (u_int64_t) -1) {
 			/*
 			 * Limit the maximum size of a swap file to 1/8 the free
@@ -751,8 +726,16 @@ main(int argc, char **argv)
 		/*
 		 * further limit the maximum size of a swap file
 		 */
-		if (memsize > MAXIMUM_SIZE)
+		if (memsize <= MINIMUM_SIZE) {
+			(void)fprintf(stderr,  "dynamic_pager: Need more space on the disk to enable swapping.\n"); 
+			sleep(30);
+			goto retry;
+		} else if (memsize <= (MINIMUM_SIZE*2)) {
+			(void)fprintf(stderr,  "dynamic_pager: Activating emergency swap file immediately.\n"); 
+			flags |= USE_EMERGENCY_SWAP_FILE_FIRST;
+		} else if (memsize > MAXIMUM_SIZE) {
 		        memsize = MAXIMUM_SIZE;
+		} 
 		
 		size = MINIMUM_SIZE;
 
@@ -797,7 +780,7 @@ main(int argc, char **argv)
 	argc -= optind;
 	argv += optind;
 
-	paging_setup(0, limits[0].size, priority, limits[0].low_water, hi_water,
+	paging_setup(flags, limits[0].size, priority, limits[0].low_water, hi_water,
 		     encrypted_swap);
 
 	return (0);

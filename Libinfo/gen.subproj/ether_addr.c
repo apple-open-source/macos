@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -53,134 +53,58 @@ static const char ethers[] = "/etc/ethers";
  * the corresponding hosts name.
  * Returns zero if successful, non-zero otherwise.
  */
-int ether_line(s, e, hostname)
-	const char *s;		/* the string to be parsed */
-	struct ether_addr *e;	/* ethernet address struct to be filled in */
-	char *hostname;		/* hosts name to be set */
+int
+ether_line(const char *s, struct ether_addr *e, char *hostname)
 {
-	register int i;
+	int i;
 	unsigned int t[6];
 	
-	i = sscanf(s, " %x:%x:%x:%x:%x:%x %s",
-	    &t[0], &t[1], &t[2], &t[3], &t[4], &t[5], hostname);
-	if (i != 7) {
-		return (7 - i);
-	}
-	for (i = 0; i < 6; i++)
-		e->ether_addr_octet[i] = t[i];
-	return (0);
+	i = sscanf(s, " %x:%x:%x:%x:%x:%x %s", &t[0], &t[1], &t[2], &t[3], &t[4], &t[5], hostname);
+	if (i != 7) return (7 - i);
+
+	for (i = 0; i < 6; i++) e->ether_addr_octet[i] = t[i];
+	return 0;
 }
 
 /*
  * Converts a 48 bit ethernet number to its string representation.
  */
-#define EI(i)	(unsigned int)(e->ether_addr_octet[(i)])
+#define EI(i) (unsigned int)(e->ether_addr_octet[(i)])
 char *
-ether_ntoa(e)
-	const struct ether_addr *e;
+ether_ntoa(const struct ether_addr *e)
 {
 	static char *s;
 
-	if (s == 0) {
+	if (s == 0)
+	{
 		s = (char *)malloc(18);
-		if (s == 0)
-			return (0);
+		if (s == 0) return NULL;
 	}
+
 	s[0] = 0;
-	sprintf(s, "%x:%x:%x:%x:%x:%x",
-	    EI(0), EI(1), EI(2), EI(3), EI(4), EI(5));
-	return (s);
+	sprintf(s, "%x:%x:%x:%x:%x:%x", EI(0), EI(1), EI(2), EI(3), EI(4), EI(5));
+	return s;
 }
 
 /*
  * Converts a ethernet address representation back into its 48 bits.
  */
 struct ether_addr *
-ether_aton(s)
-	const char *s;
+ether_aton(const char *s)
 {
 	static struct ether_addr *ep;
-	register int i;
+	int i;
 	unsigned int t[6];
 	
-	if (ep == 0) {
+	if (ep == 0)
+	{
 		ep = (struct ether_addr *)calloc(1, sizeof (struct ether_addr));
-		if (ep == 0)
-			return (0);
-	}
-	i = sscanf(s, " %x:%x:%x:%x:%x:%x",
-	    &t[0], &t[1], &t[2], &t[3], &t[4], &t[5]);
-	if (i != 6)
-	    return ((struct ether_addr *)NULL);
-	for (i = 0; i < 6; i++)
-		ep->ether_addr_octet[i] = t[i];
-	return (ep);
-}
-
-/*
- * Given a host's name, this routine returns its 48 bit ethernet address.
- * Returns zero if successful, non-zero otherwise.
- */
-int _old_ether_hostton(host, e)
-	const char *host;		/* function input */
-	struct ether_addr *e;	/* function output */
-{
-	char currenthost[256];
-	char buf[512];
-	char *val = buf;
-	register int reason;
-	FILE *f;
-
-	if ((f = fopen(ethers, "r")) == NULL)
-	{
-		return (-1);
+		if (ep == 0) return NULL;
 	}
 
-	reason = -1;
-	while (fscanf(f, "%[^\n] ", val) == 1)
-	{
-		if ((ether_line(val, e, currenthost) == 0) &&
-			(strcmp(currenthost, host) == 0))
-		{
-			reason = 0;
-			break;
-		}
-	}
+	i = sscanf(s, " %x:%x:%x:%x:%x:%x", &t[0], &t[1], &t[2], &t[3], &t[4], &t[5]);
+	if (i != 6) return NULL;
 
-	fclose(f);
-	return (reason);
-}
-
-/*
- * Given a 48 bit ethernet address, this routine return its host name.
- * Returns zero if successful, non-zero otherwise.
- */
-int _old_ether_ntohost(host, e)
-	char *host;		/* function output */
-	const struct ether_addr *e;	/* function input */
-{
-	struct ether_addr currente;
-	char buf[512];
-	char *val = buf;
-	register int reason;
-	FILE *f;
-	
-	if ((f = fopen(ethers, "r")) == NULL)
-	{
-		return (-1);
-	}
-
-	reason = -1;
-	while (fscanf(f, "%[^\n] ", val) == 1)
-	{
-		if ((ether_line(val, &currente, host) == 0) &&
-			(bcmp(e, &currente, sizeof(currente)) == 0))
-		{
-			reason = 0;
-			break;
-		}
-	}
-
-	fclose(f);
-	return (reason);
+	for (i = 0; i < 6; i++) ep->ether_addr_octet[i] = t[i];
+	return ep;
 }

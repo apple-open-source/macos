@@ -34,6 +34,9 @@
 #include "block.h"
 #include "linespec.h"
 #include "exceptions.h"
+#include "inlining.h"
+/* APPLE LOCAL Disable breakpoints while updating data formatters.  */
+#include "breakpoint.h"
 
 const char mi_no_values[] = "--no-values";
 const char mi_simple_values[] = "--simple-values";
@@ -69,6 +72,8 @@ mi_cmd_var_create (char *command, char **argv, int argc)
   struct block *block = NULL;
   struct cleanup *old_cleanups;
   struct cleanup *mi_out_cleanup;
+  /* APPLE LOCAL Disable breakpoints while updating data formatters.  */
+  struct cleanup *bp_cleanup;
   enum varobj_type var_type = USE_SELECTED_FRAME;
 
   if (argc != 3)
@@ -95,6 +100,9 @@ mi_cmd_var_create (char *command, char **argv, int argc)
     }
   else if (!isalpha (*name))
     error (_("mi_cmd_var_create: name of object must begin with a letter"));
+
+  /* APPLE LOCAL Disable breakpoints while updating data formatters.  */
+  bp_cleanup = make_cleanup_enable_disable_bpts_during_varobj_operation ();
 
   if (strcmp (frame, "*") == 0)
     var_type = USE_CURRENT_FRAME;
@@ -166,7 +174,12 @@ mi_cmd_var_create (char *command, char **argv, int argc)
 		    {
 		      unsigned i;
 		      struct symbol *func_sym;
-		      func_sym = get_frame_function (selected_frame);
+		      /* APPLE LOCAL begin radar 6545149  */
+		      if (get_frame_type (selected_frame) == INLINED_FRAME)
+			func_sym = get_frame_function_inlined (selected_frame);
+		      else
+			func_sym = get_frame_function (selected_frame);
+		      /* APPLE LOCAL end radar 6545149  */
 		      if (func_sym)
 			/* Iterate through all symtab_and_line structures 
 			   returned and find the one that has the same  
@@ -179,13 +192,26 @@ mi_cmd_var_create (char *command, char **argv, int argc)
 
 			    if (func_sym == sal_sym)
 			      {
+				/* APPLE LOCAL begin radar 6534195  */
+				if (get_frame_type (selected_frame) == 
+				                                INLINED_FRAME
+				    && sals.sals[i].line == line
+				    && func_sym_has_inlining (func_sym,
+							      selected_frame))
+				  {
+				    /* We got a valid block match.  */
+				    var_type = USE_BLOCK_IN_FRAME;
+				    block = block_for_pc (sals.sals[i].pc);
+				    break;
+				  }
 				/* If the requested line is less than the line
 				   found in the matching symtab_and_line 
 				   struct then we must use a global or static 
 				   as the scope since it doesn't fall within  
 				   the symtab_and_line struct that was 
 				   returned.  */
-				if (line && line < sal_sym->line)
+				else if (line && line < sal_sym->line)
+				/* APPLE LOCAL end radar 6534195  */
 				  {
 				    /* Use a global scope.  */
 				    var_type = NO_FRAME_NEEDED;
@@ -242,6 +268,8 @@ mi_cmd_var_create (char *command, char **argv, int argc)
   
   mi_report_var_creation (uiout, var, 1);
 
+  /* APPLE LOCAL Disable breakpoints while updating data formatters.  */
+  do_cleanups (bp_cleanup);
   do_cleanups (old_cleanups);
   return MI_CMD_DONE;
 }
@@ -253,6 +281,7 @@ void
 mi_report_var_creation (struct ui_out *uiout, struct varobj *var, int is_root)
 {  
   char *type;
+  char *resolved_type_string;
 
   if (var == NULL)
     {
@@ -269,6 +298,7 @@ mi_report_var_creation (struct ui_out *uiout, struct varobj *var, int is_root)
       ui_out_field_skip (uiout, "typecode");
       if (is_root)
       ui_out_field_skip (uiout, "in_scope");
+      ui_out_field_skip (uiout, "resolved_type");
       return;
     }
 
@@ -284,16 +314,12 @@ mi_report_var_creation (struct ui_out *uiout, struct varobj *var, int is_root)
 
   if (type == NULL)
     {
-      if (varobj_is_fake_child (var))
-	{
-	  ui_out_field_string (uiout, "type", "");
-	  ui_out_field_string (uiout, "typecode", "FAKE_CHILD");
-	}
-      else
-	{
       ui_out_field_string (uiout, "type", "");
-	  ui_out_field_string (uiout, "typecode", "UNDEF");
-	}
+      resolved_type_string = NULL;
+      if (varobj_is_fake_child (var))
+	ui_out_field_string (uiout, "typecode", "FAKE_CHILD");
+      else
+	ui_out_field_string (uiout, "typecode", "UNDEF");
     }
   else
     {
@@ -302,6 +328,7 @@ mi_report_var_creation (struct ui_out *uiout, struct varobj *var, int is_root)
       typecode = typecode_as_string (var);
       ui_out_field_string (uiout, "typecode", typecode);
       xfree (type);
+      resolved_type_string = varobj_get_resolved_type (var);
     }
 
   type = varobj_get_dynamic_type (var);
@@ -313,6 +340,14 @@ mi_report_var_creation (struct ui_out *uiout, struct varobj *var, int is_root)
     {
       ui_out_field_string (uiout, "dynamic_type", type);
       xfree (type);
+    }
+
+  if (resolved_type_string == NULL)
+    ui_out_field_string (uiout, "resolved_type", "");
+  else
+    {
+      ui_out_field_string (uiout, "resolved_type", resolved_type_string);
+      xfree (resolved_type_string);
     }
 
   /* How could a newly created variable be out of scope, you ask?
@@ -960,6 +995,8 @@ mi_cmd_var_evaluate_expression (char *command, char **argv, int argc)
   int unwinding_was_requested = 0;
   char *expr;
   struct cleanup *old_chain = NULL;
+  /* APPLE LOCAL Disable breakpoints while updating data formatters.  */
+  struct cleanup *bp_cleanup;
 
   if (argc == 1)
     {
@@ -978,11 +1015,14 @@ mi_cmd_var_evaluate_expression (char *command, char **argv, int argc)
   else
     error ("mi_cmd_var_evaluate_expression: Usage: [-u] NAME.");
 
+  /* APPLE LOCAL Disable breakpoints while updating data formatters.  */
+  bp_cleanup = make_cleanup_enable_disable_bpts_during_varobj_operation ();
+
   /* Get varobj handle, if a valid var obj name was specified */
   
   old_chain = make_cleanup (null_cleanup, NULL);
   if (unwinding_was_requested)
-    make_cleanup (set_unwind_on_signal, set_unwind_on_signal (1));
+    make_cleanup_set_restore_unwind_on_signal (1);
 
   var = varobj_get_handle (expr);
   if (var == NULL)
@@ -991,6 +1031,8 @@ mi_cmd_var_evaluate_expression (char *command, char **argv, int argc)
   ui_out_field_string (uiout, "value", varobj_get_value (var));
 
   do_cleanups (old_chain);
+  /* APPLE LOCAL Disable breakpoints while updating data formatters.  */
+  do_cleanups (bp_cleanup);
 
   return MI_CMD_DONE;
 }
@@ -1046,6 +1088,8 @@ mi_cmd_var_update (char *command, char **argv, int argc)
   struct varobj **rootlist;
   struct varobj **cr;
   struct cleanup *cleanup;
+  /* APPLE LOCAL Disable breakpoints while updating data formatters.  */
+  struct cleanup *bp_cleanup;
   int nv;
   enum print_values print_values = PRINT_NO_VALUES;
 
@@ -1058,6 +1102,9 @@ mi_cmd_var_update (char *command, char **argv, int argc)
       argv++;
       argc--;
     }
+
+  /* APPLE LOCAL Disable breakpoints while updating data formatters.  */
+  bp_cleanup = make_cleanup_enable_disable_bpts_during_varobj_operation ();
 
   prepare_tmp_mi_out ();
 
@@ -1072,6 +1119,9 @@ mi_cmd_var_update (char *command, char **argv, int argc)
       if (nv <= 0)
 	{
 	  do_cleanups (cleanup);
+	  /* APPLE LOCAL Disable breakpoints while updating data
+	     formatters.  */
+	  do_cleanups (bp_cleanup);
 	  return MI_CMD_DONE;
 	}
       cr = rootlist;
@@ -1082,6 +1132,8 @@ mi_cmd_var_update (char *command, char **argv, int argc)
 	}
       xfree (rootlist);
       do_cleanups (cleanup);
+      /* APPLE LOCAL Disable breakpoints while updating data formatters.  */
+      do_cleanups (bp_cleanup);
     }
   else
     {
@@ -1100,6 +1152,8 @@ mi_cmd_var_update (char *command, char **argv, int argc)
 	  varobj_update_one (var, print_values);
 	}
       do_cleanups (cleanup);
+      /* APPLE LOCAL Disable breakpoints while updating data formatters.  */
+      do_cleanups (bp_cleanup);
     }
     return MI_CMD_DONE;
 }
@@ -1123,7 +1177,8 @@ varobj_update_one (struct varobj *var, enum print_values print_values)
   /* nc == 0 means that nothing has changed.
      nc == -1 means that an error occured in updating the variable.
      nc == -2 means the variable has changed type. 
-     nc == -3 means that the variable has gone out of scope. */
+     nc == -3 means that the variable has gone out of scope. 
+     nc == -4 means that the variable has come in to scope.  */
      
   if (nc == 0)
     return 1;
@@ -1133,6 +1188,15 @@ varobj_update_one (struct varobj *var, enum print_values print_values)
       cleanup = make_cleanup_ui_out_tuple_begin_end (uiout, "varobj");
       ui_out_field_string (uiout, "name", varobj_get_objname(var));
       ui_out_field_string (uiout, "in_scope", "false");
+      do_cleanups (cleanup);
+      return -1;
+    }
+  else if (nc == -4)
+    {
+      /* APPLE LOCAL: each varobj tuple is named with VAROBJ; not anonymous */
+      cleanup = make_cleanup_ui_out_tuple_begin_end (uiout, "varobj");
+      ui_out_field_string (uiout, "name", varobj_get_objname(var));
+      ui_out_field_string (uiout, "in_scope", "true");
       do_cleanups (cleanup);
       return -1;
     }
@@ -1164,6 +1228,15 @@ varobj_update_one (struct varobj *var, enum print_values print_values)
       else
 	ui_out_field_skip (uiout, "new_dynamic_type");
 
+      type = varobj_get_resolved_type (var);
+      if (type)
+	{
+	  ui_out_field_string (uiout, "new_resolved_type", type);
+	  xfree (type);
+	}
+      else
+	ui_out_field_skip (uiout, "new_resolved_type");
+
       typecode = typecode_as_string (var);
       ui_out_field_string (uiout, "new_typecode", typecode);
       ui_out_field_int (uiout, "new_num_children", 
@@ -1192,6 +1265,8 @@ varobj_update_one (struct varobj *var, enum print_values print_values)
 	      ui_out_field_string (uiout, "type_changed", "true");
 	      ui_out_field_string (uiout, "new_dynamic_type", 
 				   varobj_get_dynamic_type (var));
+	      ui_out_field_string (uiout, "new_resolved_type", 
+				   varobj_get_resolved_type (var));
 	      ui_out_field_int (uiout, "new_num_children", 
 				varobj_get_num_children(var));
 	    }

@@ -6,7 +6,7 @@
  *                                                                          *
  *                           C Implementation File                          *
  *                                                                          *
- *          Copyright (C) 1992-2005, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2006, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -16,8 +16,8 @@
  * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License *
  * for  more details.  You should have  received  a copy of the GNU General *
  * Public License  distributed with GNAT;  see file COPYING.  If not, write *
- * to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, *
- * MA 02111-1307, USA.                                                      *
+ * to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, *
+ * Boston, MA 02110-1301, USA.                                              *
  *                                                                          *
  * As a  special  exception,  if you  link  this file  with other  files to *
  * produce an executable,  this file does not by itself cause the resulting *
@@ -41,7 +41,6 @@
 #include "tree.h"
 #include "real.h"
 #include "rtl.h"
-#include "errors.h"
 #include "diagnostic.h"
 #include "expr.h"
 #include "libfuncs.h"
@@ -95,6 +94,7 @@ static HOST_WIDE_INT gnat_get_alias_set	(tree);
 static void gnat_print_decl		(FILE *, tree, int);
 static void gnat_print_type		(FILE *, tree, int);
 static const char *gnat_printable_name	(tree, int);
+static const char *gnat_dwarf_name	(tree, int);
 static tree gnat_eh_runtime_type	(tree);
 static int gnat_eh_type_covers		(tree, tree);
 static void gnat_parse_file		(int);
@@ -137,8 +137,6 @@ static tree gnat_type_max_size		(tree);
 #define LANG_HOOKS_EXPAND_EXPR		gnat_expand_expr
 #undef  LANG_HOOKS_MARK_ADDRESSABLE
 #define LANG_HOOKS_MARK_ADDRESSABLE	gnat_mark_addressable
-#undef  LANG_HOOKS_TRUTHVALUE_CONVERSION
-#define LANG_HOOKS_TRUTHVALUE_CONVERSION gnat_truthvalue_conversion
 #undef  LANG_HOOKS_PRINT_DECL
 #define LANG_HOOKS_PRINT_DECL		gnat_print_decl
 #undef  LANG_HOOKS_PRINT_TYPE
@@ -147,6 +145,8 @@ static tree gnat_type_max_size		(tree);
 #define LANG_HOOKS_TYPE_MAX_SIZE	gnat_type_max_size
 #undef  LANG_HOOKS_DECL_PRINTABLE_NAME
 #define LANG_HOOKS_DECL_PRINTABLE_NAME	gnat_printable_name
+#undef  LANG_HOOKS_DWARF_NAME
+#define LANG_HOOKS_DWARF_NAME		gnat_dwarf_name
 #undef  LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION
 #define LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION gnat_expand_body
 #undef  LANG_HOOKS_GIMPLIFY_EXPR
@@ -161,6 +161,8 @@ static tree gnat_type_max_size		(tree);
 #define LANG_HOOKS_UNSIGNED_TYPE	gnat_unsigned_type
 #undef  LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE
 #define LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE gnat_signed_or_unsigned_type
+#undef  LANG_HOOKS_ATTRIBUTE_TABLE
+#define LANG_HOOKS_ATTRIBUTE_TABLE	gnat_internal_attribute_table
 
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 
@@ -217,17 +219,26 @@ extern char **gnat_argv;
 
 
 /* Declare functions we use as part of startup.  */
-extern void __gnat_initialize	(void *);
-extern void adainit		(void);
-extern void _ada_gnat1drv	(void);
+extern void __gnat_initialize           (void *);
+extern void __gnat_install_SEH_handler  (void *);
+extern void adainit		        (void);
+extern void _ada_gnat1drv	        (void);
 
 /* The parser for the language.  For us, we process the GNAT tree.  */
 
 static void
 gnat_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 {
+  int seh[2];
+
   /* call the target specific initializations */
   __gnat_initialize (NULL);
+
+  /* ??? call the SEH initialization routine, this is to workaround a
+  bootstrap path problem. The call below should be removed at some point and
+  the seh pointer passed to __gnat_initialize() above.  */
+
+  __gnat_install_SEH_handler((void *)seh);
 
   /* Call the front-end elaboration procedures */
   adainit ();
@@ -250,7 +261,6 @@ gnat_handle_option (size_t scode, const char *arg, int value ATTRIBUTE_UNUSED)
   const struct cl_option *option = &cl_options[scode];
   enum opt_code code = (enum opt_code) scode;
   char *q;
-  unsigned int i;
 
   if (arg == NULL && (option->flags & (CL_JOINED | CL_SEPARATE)))
     {
@@ -278,6 +288,10 @@ gnat_handle_option (size_t scode, const char *arg, int value ATTRIBUTE_UNUSED)
     case OPT_Wstrict_prototypes:
     case OPT_Wwrite_strings:
     case OPT_Wlong_long:
+    case OPT_Wvariadic_macros:
+    case OPT_Wold_style_definition:
+    case OPT_Wmissing_format_attribute:
+    case OPT_Woverlength_strings:
       break;
 
       /* This is handled by the front-end.  */
@@ -289,13 +303,19 @@ gnat_handle_option (size_t scode, const char *arg, int value ATTRIBUTE_UNUSED)
       gnat_argc++;
       break;
 
+    case OPT_ftree_vrp:
+      /* We arrange for post_option to be able to set the corresponding
+	 flag to 1 only when explicitly requested by the user.  */
+      flag_tree_vrp = -value;
+      break;
+
     case OPT_fRTS_:
       gnat_argv[gnat_argc] = xstrdup ("-fRTS");
       gnat_argc++;
       break;
 
     case OPT_gant:
-      warning ("%<-gnat%> misspelled as %<-gant%>");
+      warning (0, "%<-gnat%> misspelled as %<-gant%>");
 
       /* ... fall through ... */
 
@@ -305,32 +325,24 @@ gnat_handle_option (size_t scode, const char *arg, int value ATTRIBUTE_UNUSED)
       gnat_argv[gnat_argc][0] = '-';
       strcpy (gnat_argv[gnat_argc] + 1, arg);
       gnat_argc++;
+      break;
 
-      if (arg[0] == 'O')
-	for (i = 1; i < save_argc - 1; i++)
-	  if (!strncmp (save_argv[i], "-gnatO", 6))
-	    if (save_argv[++i][0] != '-')
-	      {
-		/* Preserve output filename as GCC doesn't save it for GNAT. */
-		gnat_argv[gnat_argc] = xstrdup (save_argv[i]);
-		gnat_argc++;
-		break;
-	      }
+    case OPT_gnatO:
+      gnat_argv[gnat_argc] = xstrdup ("-O");
+      gnat_argc++;
+      gnat_argv[gnat_argc] = xstrdup (arg);
+      gnat_argc++;
       break;
     }
 
   return 1;
 }
 
-static bool tree_sra_requested = false;
-
 /* Initialize for option processing.  */
 
 static unsigned int
 gnat_init_options (unsigned int argc, const char **argv)
 {
-  int i;
-
   /* Initialize gnat_argv with save_argv size.  */
   gnat_argv = (char **) xmalloc ((argc + 1) * sizeof (argv[0]));
   gnat_argv[0] = xstrdup (argv[0]);     /* name of the command */
@@ -341,16 +353,6 @@ gnat_init_options (unsigned int argc, const char **argv)
 
   /* Uninitialized really means uninitialized in Ada.  */
   flag_zero_initialized_in_bss = 0;
-
-  /* Find last option mentioning Tree-SRA.  */
-  for (i = argc - 1; i > 0; i--)
-    if (strcmp(argv[i], "-ftree-sra") == 0)
-      {
-	tree_sra_requested = true;
-	break;
-      }
-    else if (strcmp(argv[i], "-fno-tree-sra") == 0)
-      break;
 
   return CL_Ada;
 }
@@ -367,10 +369,17 @@ gnat_post_options (const char **pfilename ATTRIBUTE_UNUSED)
   if (flag_inline_functions)
     flag_inline_trees = 2;
 
-  /* Do not enable Tree-SRA unless specifically requested as it
-     is known to badly interact with some Ada constructs.  */
-  if (!tree_sra_requested)
-    flag_tree_sra = 0;
+  /* The structural alias analysis machinery essentially assumes that
+     everything is addressable (modulo bit-fields) by disregarding
+     the TYPE_NONALIASED_COMPONENT and DECL_NONADDRESSABLE_P macros.  */
+  flag_tree_salias = 0;
+
+  /* Disable Tree-VRP unless an explicit positive -f has been passed.
+     This forces the default to 0 for Ada.  */
+  if (flag_tree_vrp < 0)
+    flag_tree_vrp = 1;
+  else
+    flag_tree_vrp = 0; 
 
   return false;
 }
@@ -380,12 +389,23 @@ gnat_post_options (const char **pfilename ATTRIBUTE_UNUSED)
 static void
 internal_error_function (const char *msgid, va_list *ap)
 {
-  char buffer[1000];		/* Assume this is big enough.  */
+  text_info tinfo;
+  char *buffer;
   char *p;
   String_Template temp;
   Fat_Pointer fp;
 
-  vsprintf (buffer, msgid, *ap);
+  /* Reset the pretty-printer.  */
+  pp_clear_output_area (global_dc->printer);
+
+  /* Format the message into the pretty-printer.  */
+  tinfo.format_spec = msgid;
+  tinfo.args_ptr = ap;
+  tinfo.err_no = errno;
+  pp_format_verbatim (global_dc->printer, &tinfo);
+
+  /* Extract a (writable) pointer to the formatted text.  */
+  buffer = (char*) pp_formatted_text (global_dc->printer);
 
   /* Go up to the first newline.  */
   for (p = buffer; *p; p++)
@@ -395,8 +415,10 @@ internal_error_function (const char *msgid, va_list *ap)
 	break;
       }
 
-  temp.Low_Bound = 1, temp.High_Bound = strlen (buffer);
-  fp.Array = buffer, fp.Bounds = &temp;
+  temp.Low_Bound = 1;
+  temp.High_Bound = p - buffer;
+  fp.Bounds = &temp;
+  fp.Array = buffer;
 
   Current_Error_Node = error_gnat_node;
   Compiler_Abort (fp, -1);
@@ -480,6 +502,7 @@ gnat_init_gcc_eh (void)
   eh_personality_libfunc = init_one_libfunc ("__gnat_eh_personality");
   lang_eh_type_covers = gnat_eh_type_covers;
   lang_eh_runtime_type = gnat_eh_runtime_type;
+  default_init_unwind_resume_libfunc ();
 
   /* Turn on -fexceptions and -fnon-call-exceptions. The first one triggers
      the generation of the necessary exception runtime tables. The second one
@@ -514,7 +537,12 @@ gnat_print_decl (FILE *file, tree node, int indent)
       break;
 
     case FIELD_DECL:
-      print_node (file, "original field", DECL_ORIGINAL_FIELD (node),
+      print_node (file, "original_field", DECL_ORIGINAL_FIELD (node),
+		  indent + 4);
+      break;
+
+    case VAR_DECL:
+      print_node (file, "renamed_object", DECL_RENAMED_OBJECT (node),
 		  indent + 4);
       break;
 
@@ -589,6 +617,14 @@ gnat_printable_name (tree decl, int verbosity)
   return (const char *) ada_name;
 }
 
+static const char *
+gnat_dwarf_name (tree t, int verbosity ATTRIBUTE_UNUSED)
+{
+  gcc_assert (DECL_P (t));
+
+  return (const char *) IDENTIFIER_POINTER (DECL_NAME (t));
+}
+
 /* Expands GNAT-specific GCC tree nodes.  The only ones we support
    here are  and NULL_EXPR.  */
 
@@ -644,6 +680,14 @@ gnat_expand_body (tree gnu_decl)
     return;
 
   tree_rest_of_compilation (gnu_decl);
+
+  if (DECL_STATIC_CONSTRUCTOR (gnu_decl) && targetm.have_ctors_dtors)
+    targetm.asm_out.constructor (XEXP (DECL_RTL (gnu_decl), 0),
+                                 DEFAULT_INIT_PRIORITY);
+
+  if (DECL_STATIC_DESTRUCTOR (gnu_decl) && targetm.have_ctors_dtors)
+    targetm.asm_out.destructor (XEXP (DECL_RTL (gnu_decl), 0),
+                                DEFAULT_INIT_PRIORITY);
 }
 
 /* Adjusts the RLI used to layout a record after all the fields have been
@@ -719,13 +763,40 @@ gnat_get_alias_set (tree type)
   return -1;
 }
 
-/* GNU_TYPE is a type.  Return its maxium size in bytes, if known.  */
+/* GNU_TYPE is a type.  Return its maxium size in bytes, if known,
+   as a constant when possible.  */
 
 static tree
-gnat_type_max_size (gnu_type)
-     tree gnu_type;
+gnat_type_max_size (tree gnu_type)
 {
-  return max_size (TYPE_SIZE_UNIT (gnu_type), true);
+  /* First see what we can get from TYPE_SIZE_UNIT, which might not be
+     constant even for simple expressions if it has already been gimplified
+     and replaced by a VAR_DECL.  */
+
+  tree max_unitsize = max_size (TYPE_SIZE_UNIT (gnu_type), true);
+
+  /* If we don't have a constant, see what we can get from TYPE_ADA_SIZE,
+     typically not gimplified.  */
+
+  if (!host_integerp (max_unitsize, 1)
+      && (TREE_CODE (gnu_type) == RECORD_TYPE
+	  || TREE_CODE (gnu_type) == UNION_TYPE
+	  || TREE_CODE (gnu_type) == QUAL_UNION_TYPE)
+      && TYPE_ADA_SIZE (gnu_type))
+    {
+      tree max_adasize = max_size (TYPE_ADA_SIZE (gnu_type), true);
+      
+      /* If we have succeded in finding a constant, round it up to the
+	 type's alignment and return the result in byte units.  */
+
+      if (host_integerp (max_adasize, 1))
+	max_unitsize
+	  = size_binop (CEIL_DIV_EXPR,
+			round_up (max_adasize, TYPE_ALIGN (gnu_type)),
+			bitsize_unit_node);
+    }
+
+  return max_unitsize;
 }
 
 /* GNU_TYPE is a type. Determine if it should be passed by reference by

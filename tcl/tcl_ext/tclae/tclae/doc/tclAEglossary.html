@@ -1,0 +1,528 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+
+<HTML>
+<HEAD>
+
+<META http-equiv="content-type"  CONTENT="text/html; charset=macintosh">
+<TITLE>TclÆ Glossary</TITLE>
+<LINK HREF="tclae.css" REL="stylesheet" TYPE="text/css">
+
+
+</HEAD>
+
+<body>
+
+<div class="index">
+<!-- #DOCINDEX TYPE="UL" DEPTH="2" -->
+
+<ul>
+	<li><a href="#TclAE argum">TclÆ arguments</a>
+
+	<ul>
+		<li><a href="#aeclass">aeclass</a>
+		<li><a href="#aeeventID">aeeventID</a>
+		<li><a href="#anAddress">anAddress</a>
+		<li><a href="#coercionHandlerP">coercionHandlerProc</a>
+		<li><a href="#data">data</a>
+		<li><a href="#eventHandlerProc">eventHandlerProc</a>
+		<li><a href="#fromType">fromType</a>
+		<li><a href="#desiredType">desiredType</a>
+		<li><a href="#index">index</a>
+		<li><a href="#keyIfAnyPtr">keyIfAnyPtr</a>
+		<li><a href="#resultDesc">resultDesc</a>
+		<li><a href="#toType">toType</a>
+		<li><a href="#theAEDescList">theAEDescList</a>
+		<li><a href="#theAEKeyword">theAEKeyword</a>
+		<li><a href="#typeCode">typeCode</a>
+		<li><a href="#theReplyAE">theReplyAE</a>
+		<li><a href="#typeCodePtr">typeCodePtr</a>
+	</ul>
+	
+	<li><a href="#TclAE types">TclÆ types</a>
+
+	<ul>
+		<li><a href="#AEAddress">AEAddress</a>
+		<li><a href="#AEDesc">AEDesc</a>
+		<li><a href="#AEDescList">AEDescList</a>
+		<li><a href="#AERecord">AERecord</a>
+		<li><a href="#AEGizmo">AEGizmo</a>
+		<li><a href="#DescType">DescType</a>
+		<li><a href="#FOURCHARCODE">four-character code</a>
+		<li><a href="#TargetID">TargetID</a>
+	</ul>
+	
+</ul>
+
+<!-- /#DOCINDEX -->
+</div>
+
+<div class="narrative">
+
+<P>
+This page describes arguments and types used in TclÆ calls. For 
+information on the associated ToolBox data types, see <A 
+HREF="http://developer.apple.com/techpubs/mac/IAC/IAC-528.html">INSIDE 
+MACINTOSH: Interapplication Communication: Glossary</A>.
+</P>
+
+<HR>
+
+<H1><A NAME="TclAE argum">TclÆ arguments</A></H1>
+
+<div class="definition">
+<H2><A NAME="aeclass"><CODE>aeclass</CODE></A></H2>
+
+<P>
+An <A HREF="#FOURCHARCODE"><CODE>four-character code</CODE></A> attribute 
+that identifies a group of related Apple events. The event class and the 
+event ID identify the action an Apple event performs. See also <A 
+HREF="#aeeventID"><CODE>aeeventID</CODE></A>.
+</P>
+</div>
+
+<div class="definition">
+<H2><A NAME="aeeventID"><CODE>aeeventID</CODE></A></H2>
+
+<P>
+An <A HREF="#FOURCHARCODE"><CODE>four-character code</CODE></A> attribute 
+that identifies a particular Apple event within a group of related Apple 
+events. The event ID and the event class identify the action an Apple event 
+performs. See also <A HREF="#aeclass"><CODE>aeclass</CODE></A>.
+</P>
+</div>
+
+<div class="definition">
+<H2><A NAME="anAddress"><CODE>anAddress</CODE></A></H2>
+
+<P>
+An <a href="#AEAddress"><code>AEAddress</code></a>, an application name,
+an application creator code, or <A HREF="#TargetID"><CODE>TargetID</CODE></A>.
+</P>
+</div>
+
+<div class="definition">
+<H2><A NAME="coercionHandlerP"><CODE>coercionHandlerProc</CODE></A></H2>
+
+<P>
+The name of a Tcl proc that will handle the specified <CODE><A
+HREF="#AEDesc">AEDesc</A></CODE> coercion. The proc must have the following 
+format:
+</P>
+
+<BLOCKQUOTE>
+<PRE>
+proc coercionHandlerProc {<VAR><A HREF="#typeCode">typeCode</A></VAR> <VAR><A HREF="#data">data</A></VAR> <VAR><A HREF="#toType">toType</A></VAR> <VAR><A HREF="#resultDesc">resultDesc</A></VAR>} {
+	# convert $data from $typeCode to $toType
+	# and return in $resultDesc
+}
+</PRE>
+</BLOCKQUOTE>
+
+<P>
+<STRONG>Note!</STRONG> You must not dispose of <CODE><VAR><A 
+HREF="#resultDesc">resultDesc</A></VAR></CODE>.
+</P>
+</div>
+
+<div class="definition">
+<H2><A NAME="data"><CODE>data</CODE></A></H2>
+
+<P>
+Raw ASCII or binary data.
+</P>
+
+<P>
+Tcl's "everything is a string" mentality presents complications for 
+conversion to and from the <EM>heavily</EM> typed world of AppleEvents. 
+After experimenting with a number of different (and unsatisfactory) 
+attempts at automagic conversion, I have settled on the following limited 
+conversions. If you desire anything more elaborate, you can always apply 
+<CODE>[binary format]</CODE> and <CODE>[binary scan]</CODE> to achieve the 
+desired effect.
+</P>
+
+<H3><A NAME="dataInput">input</A></H3> 
+
+<P>
+As an input parameter, <CODE>data</CODE> is ASCII unless it was explicitly 
+created as <CODE>[binary]</CODE>. As a result, numeric values of 
+<CODE>data</CODE> will be sent as a string of ASCII characters. 
+For example, <CODE>"24.5"</CODE> will be sent as <CODE>0x32342E35</CODE>. 
+If you desire to send the number itself, use <CODE>[binary format]</CODE>.
+</P>
+
+<P>
+Binary data is sent exactly as is. ASCII data undergoes 
+UTF-to-External encoding conversion.
+</P>
+
+<H3>output</H3>
+
+<P>
+The data returned depends on the final type of the <CODE><A 
+HREF="#AEDesc">AEDesc</A></CODE>:
+</P>
+
+<DL>
+	<DT><CODE>'TEXT'</CODE> <DD>the data undergoes External-to-UTF 
+	encoding conversion and is returned as a Tcl string object.
+	
+	<DT><CODE>'bool'</CODE> <DD>the data is returned as a Tcl boolean object.
+
+	<DT><CODE>'shor'</CODE> <DD>the data is returned as a Tcl integer object.    
+
+	<DT><CODE>'long'</CODE> <DD>the data is returned as a Tcl long integer 
+	object.
+
+	<DT><CODE>'sing'</CODE>, <CODE>'doub'</CODE> <DD>the data is returned as 
+	a Tcl double precision float object.    
+
+	<DT><CODE>'list'</CODE> <DD>the data from <CODE>AEDescList</CODE> items are 
+	recursively extracted and concatenated in a Tcl list.
+	
+	<DT>all others <DD>the data is returned as raw binary, regardless of 
+	type. If the original type is <CODE>'reco'</CODE>, expect the return 
+	value to be particularly meaningless.
+</DL>
+</div>
+
+<div class="definition">
+<H2><A NAME="eventHandlerProc"><CODE>eventHandlerProc</CODE></A></H2>
+
+<P>
+The name of a Tcl <CODE>proc</CODE> that will handle the specified 
+AppleEvent. The <CODE>proc</CODE> must have the following format:
+</P>
+
+<BLOCKQUOTE>
+<PRE>
+proc eventHandlerProc {<VAR><A HREF="#AppleEvent">theAppleEvent</A></VAR> <VAR><A HREF="#theReplyAE">theReplyAE</A></VAR>}
+	# Extract any pertinent parameters from $theAppleEvent, 
+	# take appropriate action, and return appropriate results
+	# in $theReplyAE
+}
+</PRE>
+</BLOCKQUOTE>
+
+<P>
+In addition to manually adding parameters to <CODE><VAR><A 
+HREF="#theReplyAE">theReplyAE</A></VAR></CODE>, the return result of the 
+<CODE>proc</CODE> will be added as its '<CODE>----</CODE>' direct object. 
+If a direct object has already been added, the <CODE>proc</CODE> result is 
+ignored. If no direct object parameter is desired, pass 
+<CODE>return</CODE> with no argument to avoid the implicit return value.
+</P>
+
+<P>
+If <CODE>proc</CODE> throws an error, the error message and code will be 
+entered in the <CODE>'errs'</CODE> and <CODE>'errn'</CODE> parameters of 
+<CODE><VAR><A HREF="#theReplyAE">theReplyAE</A></VAR></CODE>. The 
+<CODE>'errs'</CODE> parameter is taken from the Tcl result as text.
+</P>
+
+<P>
+The <CODE>'errn'</CODE> parameter is set from an integer value extracted 
+from
+</P>
+
+<OL TYPE="1">
+	<LI>the Tcl <CODE>errorCode</CODE>, or
+	<LI>the second element of a three-element <CODE>errorCode</CODE> list, 
+	consisting of <CODE>{{error type} {error number} {error 
+	message}}</CODE>, or
+	<LI>the Tcl result.
+</OL>
+
+<P>
+If no integer error code is found, <CODE>'errn'</CODE> is omitted.
+</P>
+
+<P>
+<STRONG>Note!</STRONG> You must not dispose of <CODE><VAR><A 
+HREF="#theReplyAE">theReplyAE</A></VAR></CODE>.
+</P>
+</div>
+
+<div class="definition">
+<H2><A NAME="fromType"><CODE>fromType</CODE></A></H2>
+
+<P>
+The <CODE><A HREF="#DescType">DescType</A></CODE> to coerce the <CODE><A 
+HREF="#AEDesc">AEDesc</A></CODE> or <CODE><A HREF="#data">data</A></CODE> 
+from.
+</P>
+</div>
+
+<div class="definition">
+<H2><A NAME="desiredType"><CODE>desiredType</CODE></A></H2>
+
+<P>
+An optional parameter that holds the <CODE><A 
+HREF="#DescType">DescType</A></CODE> to coerce the <CODE><A 
+HREF="#AEDesc">AEDesc</A></CODE>. Omit or pass <CODE>'****'</CODE> for no 
+coercion.
+</P>
+</div>
+
+<div class="definition">
+<H2><A NAME="index"><CODE>index</CODE></A></H2>
+
+<P>
+Numerical index of item in an <CODE><A 
+HREF="#AEDescList">AEDescList</A></CODE> or <CODE><A 
+HREF="#AERecord">AERecord</A></CODE>.
+</P>
+
+<P>
+In the ToolBox, <CODE>AEDescList</CODE>s are <CODE>1</CODE>-based, but TclÆ  
+treats them as <CODE>0</CODE>-based for consistency with Tcl lists. When 
+putting into a list, if <CODE>index</CODE> is <CODE>-1</CODE> it specifies 
+the end of the list. Negative values of <CODE>index</CODE> are an error 
+when getting from a list.
+</P>
+</div>
+
+<div class="definition">
+<H2><A NAME="keyIfAnyPtr"><CODE>keyIfAnyPtr</CODE></A></H2>
+
+<P>
+An optional parameter that holds the name of a variable which will be set 
+to the keyword of the specified descriptor record if the <CODE><A 
+HREF="#AEDescList">AEDescList</A></CODE> it was obtained from is an 
+<CODE><A HREF="#AERecord">AERecord</A></CODE> or <CODE>'****'</CODE> 
+otherwise.
+</P>
+</div>
+
+<div class="definition">
+<H2><A NAME="resultDesc"><CODE>resultDesc</CODE></A></H2>
+
+<P>
+The <CODE><A HREF="#AEDesc">AEDesc</A></CODE> to hold the coerced <CODE><A 
+HREF="#data">data</A></CODE> from a <CODE><A 
+HREF="#coercionHandlerP">coercionHandlerProc</A></CODE>. This <CODE><A 
+HREF="#AEDesc">AEDesc</A></CODE> will already exist when your coercion 
+handler <CODE>proc</CODE> is called and <EM>must not be disposed of by your 
+code</EM>.
+</P>
+</div>
+
+<div class="definition">
+<H2><A NAME="toType"><CODE>toType</CODE></A></H2>
+
+<P>
+The <CODE><A HREF="#DescType">DescType</A></CODE> to coerce the <CODE><A 
+HREF="#AEDesc">AEDesc</A></CODE> or <CODE><A HREF="#data">data</A></CODE> 
+to.
+</P>
+</div>
+
+<div class="definition">
+<H2><A NAME="theAEDescList"><CODE>theAEDescList</CODE></A></H2>
+
+<P>
+An <CODE><A HREF="#AEDescList">AEDescList</A></CODE> or <CODE><A 
+HREF="#AERecord">AERecord</A></CODE>.
+</P>
+</div>
+
+<div class="definition">
+<H2><A NAME="theAEKeyword"><CODE>theAEKeyword</CODE></A></H2>
+
+<P>
+The <CODE><A HREF="#FOURCHARCODE">four-character code</A></CODE> keyword of 
+an item in an <CODE><A HREF="#AERecord">AERecord</A></CODE>.
+</P>
+</div>
+
+<div class="definition">
+<H2><A NAME="typeCode"><CODE>typeCode</CODE></A></H2>
+
+<P>
+Original <CODE><A HREF="#DescType">DescType</A></CODE> associated with 
+<CODE><A HREF="#data">data</A></CODE>.
+</P>
+</div>
+
+<div class="definition">
+<H2><A NAME="theReplyAE"><CODE>theReplyAE</CODE></A></H2>
+
+<P>
+The <CODE><A HREF="#AEDesc">AEDesc</A></CODE> for the reply AppleEvent from 
+an <CODE><A HREF="#eventHandlerProc">eventHandlerProc</A></CODE>. This 
+<CODE><A HREF="#AEDesc">AEDesc</A></CODE> will already exist when your 
+AppleEvent handler <CODE>proc</CODE> is called and must not be disposed of 
+by your code.
+</P>
+</div>
+
+<div class="definition">
+<H2><A NAME="typeCodePtr"><CODE>typeCodePtr</CODE></A></H2>
+
+<P>
+An optional parameter that holds the name of a variable which will be set 
+to the final <CODE><A HREF="#typeCode">typeCode</A></CODE> of the <CODE><A 
+HREF="#AEDesc">AEDesc</A></CODE> in question.
+</P>
+</div>
+
+<H1><A NAME="TclAE types">TclÆ types</A></H1>
+
+<div class="definition">
+<H2><A NAME="AEAddress"><CODE>AEAddress</CODE></A></H2>
+
+<P>
+An <a href="#AEDesc">AEDesc</a> that describes another process. An 
+AEAddress can be one of:
+</P>
+
+<dl COMPACT>
+	
+	<dt>A Macintosh process serial number
+	<dd><code>psn («0123456789ABCDEF»)</code>
+	
+	<dt>A remote process
+	<dd><code>aprl(“eppc://steveo.apple.com/AlphaX”)</code>
+	
+	<dt>A unix process id 
+	<dd><code>kpid(«000004c1»)</code>
+	
+	<div class="warning">
+	Only available on <A HREF="http://www.apple.com/macosx/">Mac OS X</A>
+	</div>
+	
+
+	<dt>A bundle id
+	<dd><code>bund(“net.sourceforge.alphatcl”)</code>	
+
+	<div class="warning">
+	Only available on Panther and above
+	</div>
+</dl>
+
+</div>
+
+<div class="definition">
+<H2><A NAME="AEDesc"><CODE>AEDesc</CODE></A></H2>
+
+<P>
+A hash key tied to an AppleEvent descriptor record. 
+</P>
+
+<P>
+If your procedure received the <CODE>AEDesc</CODE> as an argument, it must 
+<EM>not</EM> dispose of it.
+</P>
+</div>
+
+<div class="definition">
+<H2><A NAME="AEDescList"><CODE>AEDescList</CODE></A></H2>
+
+<P>
+An <CODE><A HREF="#AEDesc">AEDesc</A></CODE> hash key tied to an 
+AppleEvent descriptor list.
+</P>
+</div>
+
+<div class="definition">
+<H2><A NAME="AERecord"><CODE>AERecord</CODE></A></H2>
+
+<P>
+An <CODE><A HREF="#AEDescList">AEDescList</A></CODE> hash key tied to an 
+AppleEvent keyed record.
+</P>
+</div>
+
+<div class="definition">
+<H2><A NAME="AEGizmo"><CODE>AEGizmo</CODE></A></H2>
+
+<P>
+An <CODE>AEGizmo</CODE> is a string in the syntax described by Jens Alfke 
+in the <A HREF="http://www.mooseyard.com/Jens/Software/">AEGizmos</A> 
+documentation. This is the syntax that Alpha has always(?) used for 
+AppleEvents and is the same that is returned by the <A 
+HREF="http://www.westcodesoft.com/FTPOCTools.html">Capture AE</A> control 
+panel.
+</P>
+</div>
+
+<div class="definition">
+<H2><A NAME="DescType"><CODE>DescType</CODE></A></H2>
+
+<P>
+<CODE><A HREF="#FOURCHARCODE">four-character code</A></CODE> defining the 
+data type of an <CODE><A HREF="#AEDesc">AEDesc</A></CODE>.
+</P>
+</div>
+
+<div class="definition">
+<H2><A NAME="FOURCHARCODE"><CODE>four-character code</CODE></A></H2>
+
+<P>
+Will be truncated or padded with spaces to exactly four characters.
+</P>
+</div>
+
+<div class="definition">
+<H2><A NAME="TargetID"><CODE>TargetID</CODE></A></H2>
+
+<P>
+A hash key tied to an AppleEvent target. This target may be on the same 
+machine or located remotely, either on the local AppleTalk network or via 
+AppleTalk-over-IP. The hash key is a text representation of the application 
+name and location.
+</P>
+</div>
+
+</div>
+
+<HR>
+
+<P>
+Copyright © 1999–2004 Jonathan E. Guyer<BR>
+All rights reserved.
+</P>
+
+<p>
+<!-- #LASTMODIFIED TEXT="Last modified" FORM="LONG,WEEKDAY,TIME,SECONDS"-->
+Last modified Saturday, February 28, 2004 12:47:45 PM
+<!-- /#LASTMODIFIED -->
+</p>
+
+<table id=logos>
+	
+	<tr>
+	<td id="Alpha"><a href="http://alphatcl.sourceforge.net/"><img 
+	src="Alpha.png" alt="Assembled in Alpha" width="223" height="72" 
+	border="0"></a></td>
+	
+	<td id="valid">
+	
+	<table>
+		
+		<tr>
+		<td><a href="http://jigsaw.w3.org/css-validator/"><img 
+		style="border:0;width:88px;height:31px"
+		src="http://jigsaw.w3.org/css-validator/images/vcss" alt="Valid CSS!"></a></td>
+		</tr>
+		
+		<tr>
+		<td><a href="http://validator.w3.org/check/referer" id="HTML"><img border="0"
+		src="http://www.w3.org/Icons/valid-html40" alt="Valid HTML 4.0!" 
+		height="31" width="88"></a></td>
+		</tr>
+		
+	</table>
+	
+	</td>
+	
+	<td id="SourceForge"><a href="http://sourceforge.net"><img 
+	src="http://sourceforge.net/sflogo.php?group_id=47775&amp;type=5" 
+	width="210" height="62" border="0" alt="SourceForge.net Logo"></a></td>
+	</tr>
+	
+</table>
+
+</BODY>
+
+</HTML>

@@ -30,9 +30,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)jot.1	8.1 (Berkeley) 6/6/93
-.\" $FreeBSD: src/usr.bin/jot/jot.1,v 1.14 2002/07/03 12:24:11 ru Exp $
+.\" $FreeBSD: src/usr.bin/jot/jot.1,v 1.23 2006/11/06 15:11:50 dds Exp $
 .\"
-.Dd June 6, 1993
+.Dd November 6, 2006
 .Dt JOT 1
 .Os
 .Sh NAME
@@ -106,7 +106,8 @@ and the step size or, for random data, the seed.
 While at least one of them must appear,
 any of the other three may be omitted, and
 will be considered as such if given as
-.Fl "" .
+.Fl ""
+or as an empty string.
 Any three of these arguments determines the fourth.
 If four are specified and the given and computed values of
 .Ar reps
@@ -114,7 +115,7 @@ conflict, the lower value is used.
 If fewer than three are specified, defaults are assigned
 left to right, except for
 .Ar s ,
-which assumes its default unless both
+which assumes a default of 1 or -1 if both
 .Ar begin
 and
 .Ar end
@@ -139,14 +140,41 @@ representing the corresponding value in
 The last argument must be a real number.
 .Pp
 Random numbers are obtained through
-.Xr random 3 .
+.Xr arc4random 3
+when no seed is specified,
+and through
+.Xr random 3
+when a seed is given.
+When
+.Nm
+is asked to generate random integers or characters with begin
+and end values in the range of the random number generator function
+and no format is specified with one of the
+.Fl w ,
+.Fl b ,
+or
+.Fl p
+options,
+.Nm
+will arrange for all the values in the range to appear in the output
+with an equal probability.
+In all other cases be careful to ensure that the output format's
+rounding or truncation will not skew the distribution of output
+values in an unintended way.
+.Pp
 The name
 .Nm
 derives in part from
 .Nm iota ,
 a function in APL.
+.Sh EXIT STATUS
+.Ex -std
 .Sh EXAMPLES
 The command
+.Dl jot - 1 10
+.Pp
+prints the integers from 1 to 10,
+while the command
 .Dl jot 21 -1 1.00
 .Pp
 prints 21 evenly spaced numbers increasing from -1 to 1.
@@ -168,11 +196,11 @@ may be obtained through
 .Pp
 and thirty
 .Xr ed 1
-substitution commands applying to lines 2, 7, 12, etc. is
+substitution commands applying to lines 2, 7, 12, etc.\& is
 the result of
 .Dl jot -w %ds/old/new/ 30 2 - 5
 .Pp
-The stuttering sequence 9, 9, 8, 8, 7, etc. can be
+The stuttering sequence 9, 9, 8, 8, 7, etc.\& can be
 produced by suitable choice of step size,
 as in
 .Dl jot - 9 0 -.5
@@ -187,7 +215,6 @@ from column 10 and ending in column 132, use
 and to print all lines 80 characters or longer,
 .Dl grep `jot -s \&"\&" -b \&. 80`
 .Sh DIAGNOSTICS
-.Ex -std
 The following diagnostic messages deserve special explanation:
 .Bl -diag
 .It "illegal or unsupported format '%s'"
@@ -208,12 +235,16 @@ associated with the requested output format.
 More than one conversion format specifier has been supplied,
 but only one is allowed.
 .El
-.Sh AUTHOR
-John A. Kunze <jak@ucop.edu>
 .Sh SEE ALSO
 .Xr ed 1 ,
 .Xr expand 1 ,
 .Xr rs 1 ,
 .Xr yes 1 ,
+.Xr arc4random 3 ,
 .Xr printf 3 ,
 .Xr random 3
+.Sh HISTORY
+The
+.Nm
+utility first appeared in
+.Bx 4.2 .

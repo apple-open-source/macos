@@ -109,11 +109,11 @@ This is the name to be used for directory binding to the LDAP server. If none is
 .It Fl u Ar username
 Username of a privileged network user to be used in authenticated directory binding.
 .It Fl p Ar password
-Password for the privileged network user.  If this is not specified, you will be prompted for a password.
+Password for the privileged network user.  This is a less secure method of providing a password, as it may be viewed via process list.  For stronger security leave the option off and you will be prompted for a password.
 .It Fl l Ar username
 Username of a local administrator.
 .It Fl q Ar password
-Password for the local administrator.  If this is not specified, you will be prompted for a password.
+Password for the local administrator.  This is a less secure method of providing a password, as it may be viewed via process list.  For stronger security leave the option off and you will be prompted for a password.
 .El                      \" Ends the list
 .Pp                      \" Inserts a space
 .Sh EXAMPLES

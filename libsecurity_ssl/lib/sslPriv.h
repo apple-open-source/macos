@@ -41,6 +41,12 @@ extern "C" {
 #define APPLE_DH		1
 
 /* 
+ * Flags support for ECDSA on the server side.
+ * Not implemented as of 6 Aug 2008.
+ */
+#define SSL_ECDSA_SERVER	0
+
+/* 
  * For ease of porting, we'll keep this around for internal use.
  * It's used extensively; eventually we'll convert over to
  * CFData, as in the public API.

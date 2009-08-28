@@ -32,7 +32,7 @@ public:
 
     virtual int     Peek(void) = 0;
     virtual int     Next(void) = 0;
-    virtual int     Skip(void) = 0;
+    virtual uintptr_t     Skip(void) = 0;
     virtual int     Get(void) = 0;
     virtual Size    Getn(UByte* p, Size n) = 0;
     virtual int     CopyOut(UByte* p, Size& n) = 0;

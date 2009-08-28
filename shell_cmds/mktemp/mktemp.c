@@ -43,16 +43,17 @@
 
 #ifndef lint
 static const char rcsid[] =
-	"$FreeBSD: src/usr.bin/mktemp/mktemp.c,v 1.2.6.1 2000/10/15 11:37:43 alex Exp $";
+	"$FreeBSD: src/usr.bin/mktemp/mktemp.c,v 1.5 2002/03/22 01:33:17 imp Exp $";
 #endif /* not lint */
 
-static void usage __P((void));
+static void usage(void);
 
 int
 main(int argc, char **argv)
 {
 	int c, fd, ret;
-	char *tmpdir, *prefix;
+	char *tmpdir;
+	const char *prefix;
 	char *name;
 	int dflag, qflag, tflag, uflag;
 
@@ -90,8 +91,13 @@ main(int argc, char **argv)
 		tmpdir = getenv("TMPDIR");
 		if (tmpdir == NULL)
 			asprintf(&name, "%s%s.XXXXXXXX", _PATH_TMP, prefix);
-		else
-			asprintf(&name, "%s/%s.XXXXXXXX", tmpdir, prefix);
+		else {
+			int len = strlen(tmpdir);
+			if (len > 0 && tmpdir[len - 1] == '/')
+				asprintf(&name, "%s%s.XXXXXXXX", tmpdir, prefix);
+			else
+				asprintf(&name, "%s/%s.XXXXXXXX", tmpdir, prefix);
+		}
 		/* if this fails, the program is in big trouble already */
 		if (name == NULL) {
 			if (qflag)
@@ -110,6 +116,7 @@ main(int argc, char **argv)
 			argv++;
 			argc--;
 		}
+
 		if (dflag) {
 			if (mkdtemp(name) == NULL) {
 				ret = 1;

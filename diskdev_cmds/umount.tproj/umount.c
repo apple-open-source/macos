@@ -1,23 +1,25 @@
+#ifndef _DARWIN_USE_64_BIT_INODE
+# define _DARWIN_USE_64_BIT_INODE 1
+#endif
 /*
- * Copyright (c) 1999-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -59,15 +61,10 @@
 #include <sys/stat.h>
 #include <sys/mount.h>
 #include <sys/time.h>
-#include <sys/socket.h>
-#include <sys/socketvar.h>
 #include <sys/sysctl.h>
+#include <System/sys/fsctl.h>
 
 #include <netdb.h>
-#include <rpc/rpc.h>
-#include <rpc/pmap_clnt.h>
-#include <rpc/pmap_prot.h>
-#include <nfs/rpcv2.h>
 
 #include <err.h>
 #include <fstab.h>
@@ -77,12 +74,19 @@
 #include <unistd.h>
 #include <errno.h>
 
+#include <pthread.h>
+
+struct syncarg {
+    const char *mntname;
+    int wakeup_flag;
+    pthread_cond_t *wakeup_cond;
+    pthread_mutex_t *wakeup_lock;
+};
+
 typedef enum { MNTON, MNTFROM } mntwhat;
 
 int	fake, fflag, vflag;
 char	*nfshost;
-
-uid_t real_uid, eff_uid;
 
 int	 checkvfsname(const char *, char **);
 char	*getmntname(const char *, mntwhat, char **);
@@ -95,7 +99,29 @@ int	 namematch(struct hostent *);
 int	 umountall(char **);
 int	 umountfs(char *, char **);
 void	 usage(void);
-int	 xdr_dir(XDR *, char *);
+
+static void*
+syncit(void *vap) {
+	int rv;
+	pthread_mutex_t *lock;
+	int full_sync = FSCTL_SYNC_WAIT;
+	struct syncarg *args = vap;
+
+	rv = fsctl(args->mntname, FSIOC_SYNC_VOLUME, &full_sync, 0);
+	if (rv == -1) {
+#ifdef DEBUG
+		warn("fsctl %s", args->mntname);
+#endif
+	}
+		
+	lock = args->wakeup_lock;
+	(void)pthread_mutex_lock(lock);
+        args->wakeup_flag = 1;
+	pthread_cond_signal(args->wakeup_cond);
+	(void)pthread_mutex_unlock(lock);
+
+	return NULL;
+}
 
 int
 main(int argc, char *argv[])
@@ -103,11 +129,6 @@ main(int argc, char *argv[])
 	int all, ch, errs, mnts;
 	char **typelist = NULL;
 	struct statfs *mntbuf;
-
-	/* drop setuid root privs asap */
-	eff_uid = geteuid();
-	real_uid = getuid();
-	seteuid(real_uid); 
 
 	/*
 	 * We used to call sync(2) here, but this should be unneccessary
@@ -134,7 +155,6 @@ main(int argc, char *argv[])
 			fake = 1;
 			break;
 		case 'f':
-			sync();	/* see 5328558 for context */
 			fflag = MNT_FORCE;
 			break;
 		case 'h':	/* -h implies -A. */
@@ -156,7 +176,7 @@ main(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
-	if (argc == 0 && !all || argc != 0 && all)
+	if ((argc == 0 && !all) || (argc != 0 && all))
 		usage();
 
 	/* -h implies "-t nfs" if no -t flag. */
@@ -170,9 +190,7 @@ main(int argc, char *argv[])
 		 */
 		pid_t pid;
 		pid = getpid();
-		seteuid(eff_uid);
 		errs = sysctlbyname("vfs.generic.noremotehang", NULL, NULL, &pid, sizeof(pid));
-		seteuid(real_uid);
 		if ((errs != 0) && vflag)
 		        warn("sysctl vfs.generic.noremotehang");
 	}
@@ -226,13 +244,15 @@ umountall(char **typelist)
 		    strcmp(fs->fs_type, FSTAB_RO) &&
 		    strcmp(fs->fs_type, FSTAB_RQ))
 			continue;
+#if 0
 		/* If an unknown file system type, complain. */
 		if (getvfsbyname(fs->fs_vfstype, &vfc) < 0) {
-			warnx("%s: unknown mount type", fs->fs_vfstype);
+			warnx("%s: unknown mount type `%s'", fs->fs_spec, fs->fs_vfstype);
 			continue;
 		}
 		if (checkvfsname(fs->fs_vfstype, typelist))
 			continue;
+#endif
 
 		/* 
 		 * We want to unmount the file systems in the reverse order
@@ -243,7 +263,9 @@ umountall(char **typelist)
 			err(1, NULL);
 		(void)strcpy(cp, fs->fs_file);
 		rval = umountall(typelist);
-		return (umountfs(cp, typelist) || rval);
+		rval = umountfs(cp, typelist) || rval;
+		free(cp);
+		return (rval);
 	}
 	return (0);
 }
@@ -251,14 +273,10 @@ umountall(char **typelist)
 int
 umountfs(char *name, char **typelist)
 {
-	enum clnt_stat clnt_stat;
 	struct hostent *hp;
-	struct sockaddr_in saddr;
 	struct stat sb;
-	struct timeval pertry, try;
-	CLIENT *clp;
-	int so, isftpfs;
-	char *type, *delimp, *hostp, *mntpt, rname[MAXPATHLEN], *expname, *tname;
+	int isftpfs;
+	char *type, *delimp, *hostp, *mntpt, rname[MAXPATHLEN], *tname;
 	char *pname = name; /* save the name parameter */
 
 	if (fflag & MNT_FORCE) {
@@ -277,8 +295,45 @@ umountfs(char *name, char **typelist)
 			tname = getmntname(mntpt, MNTFROM, &type);
 		}
 		if (mntpt && tname) {
+			/*
+			 * The bulk of this block is to try to do a sync on the filesystem
+			 * being unmounted.  We want to do this in another thread, so we
+			 * can avoid blocking for a hardware or network reason.  We will
+			 * wait 10 seconds for the sync to finish; after that, we just
+			 * ignore it and go ahead with the unmounting.
+			 *
+			 * We only want to do this in the event of a forced unmount.
+			 */
+			int rv;
+			pthread_t tid;
+			pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+                        pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+			struct syncarg args;
+			struct timespec timeout;
+
 			/* we found a match */
-			name = tname;
+			name = mntpt;
+			
+			args.mntname = name;
+			args.wakeup_flag = 0;
+			args.wakeup_cond = &cond;
+                        args.wakeup_lock = &lock;
+
+			timeout.tv_sec = time(NULL) + 10;	/* Wait 10 seconds */
+			timeout.tv_nsec = 0;
+
+			rv = pthread_create(&tid, NULL, &syncit, &args);
+			if (rv == 0 && pthread_mutex_lock(&lock) == 0) {
+				while (args.wakeup_flag == 0 && rv == 0)
+					rv = pthread_cond_timedwait(&cond, &lock, &timeout);
+
+				/* If this fails, not much we can do at this point... */
+				(void)pthread_mutex_unlock(&lock);
+				if (rv != 0) {
+					errno = rv;
+					warn("pthread_cond_timeout failed; continuing with unmount");
+				}
+			}
 			goto got_mount_point;
 		}
 	}
@@ -366,19 +421,16 @@ got_mount_point:
 
 	hp = NULL;
 	delimp = NULL;
-	expname = NULL;
 	if (!strcmp(type, "nfs") && !isftpfs) {
 		if ((delimp = strchr(name, '@')) != NULL) {
 			hostp = delimp + 1;
 			*delimp = '\0';
 			hp = gethostbyname(hostp);
 			*delimp = '@';
-			expname = name;
 		} else if ((delimp = strchr(name, ':')) != NULL) {
 			*delimp = '\0';
 			hostp = name;
 			hp = gethostbyname(hostp);
-			expname = delimp + 1;
 			*delimp = ':';
 		}
 	}
@@ -398,7 +450,7 @@ got_mount_point:
 		 * want this filesystem unmounted (MNT_FORCE), then try doing
 		 * the unmount by fsid.  (Note: the sysctl only works for root)
 		 */
-		if ((real_uid == 0) &&
+		if ((getuid() == 0) &&
 		    ((errno == ESTALE) || (errno == ENOENT) || (fflag & MNT_FORCE))) {
 			if (vflag)
 				warn("unmount(%s)", mntpt);
@@ -406,48 +458,15 @@ got_mount_point:
 				warn("unmount(%s)", mntpt);
 				return (1);
 			}
+		} else if (errno == EBUSY) {
+			fprintf(stderr, "unount(%s): %s -- try 'diskutil unmount'\n", mntpt, strerror(errno));
+			return (1);
 		} else {
 			warn("unmount(%s)", mntpt);
 			return (1);
 		}
 	}
 
-	if ((hp != NULL) && !(fflag & MNT_FORCE)) {
-		*delimp = '\0';
-		memset(&saddr, 0, sizeof(saddr));
-		saddr.sin_family = AF_INET;
-		saddr.sin_port = 0;
-		memmove(&saddr.sin_addr, hp->h_addr, hp->h_length);
-		pertry.tv_sec = 3;
-		pertry.tv_usec = 0;
-		so = RPC_ANYSOCK;
-		/*
-		 * temporarily revert to root, to avoid reserved port
-		 * number restriction (port# less than 1024)
-		 */
-		seteuid(eff_uid);
-		if ((clp = clntudp_create(&saddr,
-		    RPCPROG_MNT, RPCMNT_VER1, pertry, &so)) == NULL) {
-			clnt_pcreateerror("Cannot MNT PRC");
-			seteuid(real_uid);
-			/* unmount succeeded above, so don't actually return error */
-			return (0);
-		}
-		clp->cl_auth = authunix_create_default();
-		seteuid(real_uid);
-		try.tv_sec = 20;
-		try.tv_usec = 0;
-		clnt_stat = clnt_call(clp,
-		    RPCMNT_UMOUNT, (xdrproc_t)xdr_dir, expname,
-		    (xdrproc_t)xdr_void, (caddr_t)0, try);
-		if (clnt_stat != RPC_SUCCESS) {
-			clnt_perror(clp, "Bad MNT RPC");
-			/* unmount succeeded above, so don't actually return error */
-			return (0);
-		}
-		auth_destroy(clp->cl_auth);
-		clnt_destroy(clp);
-	}
 	return (0);
 }
 
@@ -569,15 +588,6 @@ unmount_by_fsid(const char *mntpt, int flag)
 	if (vflag)
 		printf("attempting to unmount %s by fsid\n", mntpt);
 	return sysctl_fsid(VFS_CTL_UMOUNT, &fsid, NULL, 0, &flag, sizeof(flag));
-}
-
-/*
- * xdr routines for mount rpc's
- */
-int
-xdr_dir(XDR *xdrsp, char *dirp)
-{
-	return (xdr_string(xdrsp, &dirp, RPCMNT_PATHLEN));
 }
 
 void

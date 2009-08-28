@@ -25,6 +25,12 @@ module Gem::InstallUpdateOptions
       options[:install_dir] = File.expand_path(value)
     end
 
+    add_option(:"Install/Update", '-n', '--bindir DIR',
+	       'Directory where binary files are',
+	       'located') do |value, options|
+      options[:bin_dir] = File.expand_path(value)
+    end
+
     add_option(:"Install/Update", '-d', '--[no-]rdoc',
                'Generate RDoc documentation for the gem on',
                'install') do |value, options|
@@ -37,7 +43,7 @@ module Gem::InstallUpdateOptions
       options[:generate_ri] = value
     end
 
-    add_option(:"Install/Update", '-E', '--env-shebang',
+    add_option(:"Install/Update", '-E', '--[no-]env-shebang',
                "Rewrite the shebang line on installed",
                "scripts to use /usr/bin/env") do |value, options|
       options[:env_shebang] = value
@@ -82,6 +88,19 @@ module Gem::InstallUpdateOptions
                'If ruby is ruby18, foo_exec will be',
                'foo_exec18') do |value, options|
       options[:format_executable] = value
+    end
+
+    add_option(:"Install/Update",       '--[no-]user-install',
+               'Install in user\'s home directory instead',
+               'of GEM_HOME. Defaults to using home directory',
+               'only if GEM_HOME is not writable.') do |value, options|
+      options[:user_install] = value
+    end
+
+    add_option(:"Install/Update", "--development",
+                "Install any additional development",
+                "dependencies") do |value, options|
+      options[:development] = true
     end
   end
 

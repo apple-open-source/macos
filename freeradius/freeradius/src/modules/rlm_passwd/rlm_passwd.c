@@ -13,19 +13,16 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2000  The FreeRADIUS server project
+ * Copyright 2000,2006  The FreeRADIUS server project
  */
 
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-/*#include "autoconf.h"
-#include "libradius.h"*/
-#include "radiusd.h"
-#include "modules.h"
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
+#include <freeradius-devel/radiusd.h>
+#include <freeradius-devel/modules.h>
 
 struct mypasswd {
 	struct mypasswd *next;
@@ -44,7 +41,7 @@ struct hashtable {
 	struct mypasswd *last_found;
 	char buffer[1024];
 	FILE *fp;
-	char *delimiter;
+	char delimiter;
 };
 
 
@@ -64,7 +61,7 @@ void printpw(struct mypasswd *pw, int nfields){
 #endif
 
 
-static struct mypasswd * mypasswd_malloc(const char* buffer, int nfields, int* len)
+static struct mypasswd * mypasswd_malloc(const char* buffer, int nfields, size_t* len)
 {
 	struct mypasswd *t;
 	/* reserve memory for (struct mypasswd) + listflag (nfields * sizeof (char*)) +
@@ -77,10 +74,11 @@ static struct mypasswd * mypasswd_malloc(const char* buffer, int nfields, int* l
 }
 
 static int string_to_entry(const char* string, int nfields, char delimiter,
-	struct mypasswd *passwd, int bufferlen)
+	struct mypasswd *passwd, size_t bufferlen)
 {
 	char *str;
-	int len, i, fn=0;
+	size_t len, i;
+	int fn=0;
 	char *data_beg;
 
 
@@ -90,7 +88,8 @@ static int string_to_entry(const char* string, int nfields, char delimiter,
 	if(!len) return 0;
 	if (string[len-1] == '\r') len--;
 	if(!len) return 0;
-	if (!len || !passwd || bufferlen < (len + nfields * sizeof (char*) + nfields * sizeof (char) + sizeof (struct mypasswd) + 1) ) return 0;
+	if (!len || !passwd ||
+	    bufferlen < (len + nfields * sizeof (char*) + nfields * sizeof (char) + sizeof (struct mypasswd) + 1) ) return 0;
 	passwd->next = NULL;
 	data_beg=(char *)passwd + sizeof(struct mypasswd);
 	str = data_beg + nfields * sizeof (char) + nfields * sizeof (char*);
@@ -120,7 +119,7 @@ static void destroy_password (struct mypasswd * pass)
 }
 
 
-static unsigned int hash(const unsigned char * username, unsigned int tablesize)
+static unsigned int hash(const char * username, unsigned int tablesize)
 {
 	int h=1;
 	while (*username) {
@@ -155,12 +154,12 @@ static void release_ht(struct hashtable * ht){
 }
 
 static struct hashtable * build_hash_table (const char * file, int nfields,
-	int keyfield, int islist, int tablesize, int ignorenis, char * delimiter)
+	int keyfield, int islist, int tablesize, int ignorenis, char delimiter)
 {
 #define passwd ((struct mypasswd *) ht->buffer)
 	char buffer[1024];
 	struct hashtable* ht;
-	int len;
+	size_t len;
 	unsigned int h;
 	struct mypasswd *hashentry, *hashentry1;
 	char *list;
@@ -182,13 +181,13 @@ static struct hashtable * build_hash_table (const char * file, int nfields,
 	ht->keyfield = keyfield;
 	ht->islist = islist;
 	ht->ignorenis = ignorenis;
-	if (delimiter && *delimiter) ht->delimiter = delimiter;
-	else ht->delimiter = ":";
+	if (delimiter) ht->delimiter = delimiter;
+	else ht->delimiter = ':';
 	if(!tablesize) return ht;
 	if(!(ht->fp = fopen(file,"r"))) {
 		free(ht->filename);
 		free(ht);
-		return NULL;
+		               return NULL;
 	}
 	memset(ht->buffer, 0, 1024);
 	ht->table = (struct mypasswd **) rad_malloc (tablesize * sizeof(struct mypasswd *));
@@ -207,7 +206,7 @@ static struct hashtable * build_hash_table (const char * file, int nfields,
 				release_hash_table(ht);
 				return ht;
 			}
-			len = string_to_entry(buffer, nfields, *ht->delimiter, hashentry, len);
+			len = string_to_entry(buffer, nfields, ht->delimiter, hashentry, len);
 			if(!hashentry->field[keyfield] || *hashentry->field[keyfield] == '\0') {
 				free(hashentry);
 				continue;
@@ -266,10 +265,10 @@ static struct mypasswd * get_next(char *name, struct hashtable *ht)
 		}
 		return NULL;
 	}
-	printf("try to find in file\n");
+	/*	printf("try to find in file\n"); */
 	if (!ht->fp) return NULL;
 	while (fgets(buffer, 1024,ht->fp)) {
-		if(*buffer && *buffer!='\n' && (len = string_to_entry(buffer, ht->nfields, *ht->delimiter, passwd, sizeof(ht->buffer)-1)) &&
+		if(*buffer && *buffer!='\n' && (len = string_to_entry(buffer, ht->nfields, ht->delimiter, passwd, sizeof(ht->buffer)-1)) &&
 			(!ht->ignorenis || (*buffer !='-' && *buffer != '+') ) ){
 			if(!ht->islist) {
 				if(!strcmp(passwd->field[ht->keyfield], name))
@@ -349,7 +348,6 @@ struct passwd_instance {
 	struct mypasswd *pwdfmt;
 	char *filename;
 	char *format;
-	char *authtype;
 	char * delimiter;
 	int allowmultiple;
 	int ignorenislike;
@@ -362,13 +360,11 @@ struct passwd_instance {
 	int ignoreempty;
 };
 
-static CONF_PARSER module_config[] = {
-	{ "filename",   PW_TYPE_STRING_PTR,
+static const CONF_PARSER module_config[] = {
+	{ "filename",   PW_TYPE_FILENAME,
 	   offsetof(struct passwd_instance, filename), NULL,  NULL },
 	{ "format",   PW_TYPE_STRING_PTR,
 	   offsetof(struct passwd_instance, format), NULL,  NULL },
-	{ "authtype",   PW_TYPE_STRING_PTR,
-	   offsetof(struct passwd_instance, authtype), NULL,  NULL },
 	{ "delimiter",   PW_TYPE_STRING_PTR,
 	   offsetof(struct passwd_instance, delimiter), NULL,  ":" },
 	{ "ignorenislike",   PW_TYPE_BOOLEAN,
@@ -388,7 +384,7 @@ static int passwd_instantiate(CONF_SECTION *conf, void **instance)
 	int nfields=0, keyfield=-1, listable=0;
 	char *s;
 	char *lf=NULL; /* destination list flags temporary */
-	int len;
+	size_t len;
 	int i;
 	DICT_ATTR * da;
 
@@ -441,7 +437,7 @@ static int passwd_instantiate(CONF_SECTION *conf, void **instance)
 		free(lf);
 		return -1;
 	}
-	if (! (inst->ht = build_hash_table (inst->filename, nfields, keyfield, listable, inst->hashsize, inst->ignorenislike, inst->delimiter)) ){
+	if (! (inst->ht = build_hash_table (inst->filename, nfields, keyfield, listable, inst->hashsize, inst->ignorenislike, *inst->delimiter)) ){
 		radlog(L_ERR, "rlm_passwd: can't build hashtable from passwd file");
 		free(lf);
 		return -1;
@@ -460,8 +456,8 @@ static int passwd_instantiate(CONF_SECTION *conf, void **instance)
 	}
 
 	memcpy(inst->pwdfmt->listflag, lf, nfields);
-	free(lf);
 
+	free(lf);
 	for (i=0; i<nfields; i++) {
 		if (*inst->pwdfmt->field[i] == '*') inst->pwdfmt->field[i]++;
 		if (*inst->pwdfmt->field[i] == ',') inst->pwdfmt->field[i]++;
@@ -483,7 +479,7 @@ static int passwd_instantiate(CONF_SECTION *conf, void **instance)
 	inst->nfields = nfields;
 	inst->keyfield = keyfield;
 	inst->listable = listable;
-	radlog(L_INFO, "rlm_passwd: nfields: %d keyfield %d(%s) listable: %s", nfields, keyfield, inst->pwdfmt->field[keyfield], listable?"yes":"no");
+	DEBUG("rlm_passwd: nfields: %d keyfield %d(%s) listable: %s", nfields, keyfield, inst->pwdfmt->field[keyfield], listable?"yes":"no");
 	return 0;
 
 #undef inst
@@ -492,16 +488,12 @@ static int passwd_instantiate(CONF_SECTION *conf, void **instance)
 static int passwd_detach (void *instance) {
 #define inst ((struct passwd_instance *)instance)
 	if(inst->ht) release_ht(inst->ht);
-        if (inst->filename != NULL) 	free(inst->filename);
-        if (inst->format != NULL) 	free(inst->format);
-        if (inst->authtype != NULL ) 	free(inst->authtype);
-        if (inst->delimiter != NULL)	free(inst->delimiter);
 	free(instance);
 	return 0;
 #undef inst
 }
 
-static void addresult (struct passwd_instance * inst, VALUE_PAIR ** vp, struct mypasswd * pw, char when, const char *listname)
+static void addresult (struct passwd_instance * inst, REQUEST *request, VALUE_PAIR ** vp, struct mypasswd * pw, char when, const char *listname)
 {
 	int i;
 	VALUE_PAIR *newpair;
@@ -513,15 +505,15 @@ static void addresult (struct passwd_instance * inst, VALUE_PAIR ** vp, struct m
 					radlog(L_AUTH, "rlm_passwd: Unable to create %s: %s", inst->pwdfmt->field[i], pw->field[i]);
 					return;
 				}
-				radlog(L_DBG, "rlm_passwd: Added %s: '%s' to %s ", inst->pwdfmt->field[i], pw->field[i], listname);
+				RDEBUG("Added %s: '%s' to %s ", inst->pwdfmt->field[i], pw->field[i], listname);
 				pairadd (vp, newpair);
 			} else
-				radlog(L_DBG, "rlm_passwd: NOOP %s: '%s' to %s ", inst->pwdfmt->field[i], pw->field[i], listname);
+				RDEBUG("NOOP %s: '%s' to %s ", inst->pwdfmt->field[i], pw->field[i], listname);
 		}
 	}
 }
 
-static int passwd_authorize(void *instance, REQUEST *request)
+static int passwd_map(void *instance, REQUEST *request)
 {
 #define inst ((struct passwd_instance *)instance)
 	char * name;
@@ -530,26 +522,29 @@ static int passwd_authorize(void *instance, REQUEST *request)
 	struct mypasswd * pw;
 	int found = 0;
 
-	if(!request || !request->packet ||!request->packet->vps)
-	 return RLM_MODULE_INVALID;
 	for (key = request->packet->vps;
 	 key && (key = pairfind (key, inst->keyattr));
 	  key = key->next ){
 		switch (inst->keyattrtype) {
 			case PW_TYPE_INTEGER:
-				snprintf(buffer, 1024, "%u", key->lvalue);
+				snprintf(buffer, 1024, "%u", key->vp_integer);
+				name = buffer;
+				break;
+			case PW_TYPE_ETHERNET:
+				vp_prints_value(buffer, sizeof(buffer),
+						key, 0);
 				name = buffer;
 				break;
 			default:
-				name = key->strvalue;
+				name = key->vp_strvalue;
 		}
 		if (! (pw = get_pw_nam(name, inst->ht)) ) {
 			continue;
 		}
 		do {
-			addresult(inst, &request->config_items, pw, 0, "config_items");
-			addresult(inst, &request->reply->vps, pw, 1, "reply_items");
-			addresult(inst, &request->packet->vps, 	pw, 2, "request_items");
+			addresult(inst, request, &request->config_items, pw, 0, "config_items");
+			addresult(inst, request, &request->reply->vps, pw, 1, "reply_items");
+			addresult(inst, request, &request->packet->vps, 	pw, 2, "request_items");
 		} while ( (pw = get_next(name, inst->ht)) );
 		found++;
 		if (!inst->allowmultiple) break;
@@ -557,38 +552,26 @@ static int passwd_authorize(void *instance, REQUEST *request)
 	if(!found) {
 		return RLM_MODULE_NOTFOUND;
 	}
-	if (inst->authtype &&
-	    (key = pairmake ("Auth-Type", inst->authtype, T_OP_EQ))) {
-		radlog(L_INFO, "rlm_passwd: Adding \"Auth-Type = %s\"",
-		       inst->authtype);
-		/*
-		 *	Don't call pairadd.  pairmove doesn't
-		 *	over-write existing attributes.
-		 */
-		pairmove(&request->config_items, &key);
-		pairfree(&key);	/* pairmove may have NOT moved it */
-	}
 	return RLM_MODULE_OK;
 
 #undef inst
 }
 
 module_t rlm_passwd = {
+	RLM_MODULE_INIT,
 	"passwd",
-	RLM_TYPE_THREAD_SAFE, 		/* type */
-	NULL,				/* initialize */
+	RLM_TYPE_CHECK_CONFIG_SAFE | RLM_TYPE_HUP_SAFE,   	/* type */
 	passwd_instantiate,		/* instantiation */
+	passwd_detach,			/* detach */
 	{
 		NULL,			/* authentication */
-		passwd_authorize,	/* authorization */
+		passwd_map,		/* authorization */
 		NULL,			/* pre-accounting */
-		NULL,			/* accounting */
+		passwd_map,		/* accounting */
 		NULL,			/* checksimul */
 		NULL,			/* pre-proxy */
 		NULL,			/* post-proxy */
-		NULL			/* post-auth */
+		passwd_map	       	/* post-auth */
 	},
-	passwd_detach,			/* detach */
-	NULL				/* destroy */
 };
 #endif /* TEST */

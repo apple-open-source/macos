@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2004,2008 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,7 +33,8 @@
 #include "authority.h"
 #include "authhost.h"
 #include <Security/AuthSession.h>
-#include <security_cdsa_utilities/handleobject.h>
+#include <security_cdsa_utilities/handletemplates_defs.h>
+#include <security_cdsa_utilities/u32handleobject.h>
 #include <security_cdsa_utilities/cssmdb.h>
 
 #if __GNUC__ > 2
@@ -57,7 +58,7 @@ class AuthHostInstance;
 // with a modicum of security, and so Sessions are the natural nexus of
 // single-sign-on functionality.
 //
-class Session : public HandleObject, public PerSession {
+class Session : public U32HandleObject, public PerSession {
 public:
     typedef MachPlusPlus::Bootstrap Bootstrap;
 
@@ -93,6 +94,9 @@ protected:
 public:
 	const CredentialSet &authCredentials() const	{ return mSessionCreds; }
 
+    //
+    // For external Authorization clients
+    //
 	OSStatus authCreate(const AuthItemSet &rights, const AuthItemSet &environment,
 		AuthorizationFlags flags, AuthorizationBlob &newHandle, const audit_token_t &auditToken);
 	void authFree(const AuthorizationBlob &auth, AuthorizationFlags flags);
@@ -107,6 +111,13 @@ public:
 	OSStatus authorizationdbGet(AuthorizationString inRightName, CFDictionaryRef *rightDict);
 	OSStatus authorizationdbSet(const AuthorizationBlob &authBlob, AuthorizationString inRightName, CFDictionaryRef rightDict);
 	OSStatus authorizationdbRemove(const AuthorizationBlob &authBlob, AuthorizationString inRightName);
+    
+    //
+    // Authorization methods for securityd's internal use
+    //
+    OSStatus authCheckRight(string &rightName, Connection &connection, bool allowUI);
+    // authCheckRight() with exception-handling and Boolean return semantics
+    bool isRightAuthorized(string &rightName, Connection &connection, bool allowUI);
 
 private:
     struct AuthorizationExternalBlob {
@@ -126,6 +137,8 @@ public:
     static Session &find(SecuritySessionId id);
 	template <class SessionType> static SessionType &find(SecuritySessionId id);
     static void destroy(Port servPort);
+    void invalidateSessionAuthHosts();      // invalidate auth hosts in this session
+    static void invalidateAuthHosts();      // invalidate auth hosts in all sessions
 	
 	static void processSystemSleep();
 	void processLockAll();

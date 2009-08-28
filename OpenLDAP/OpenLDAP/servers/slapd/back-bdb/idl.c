@@ -1,8 +1,8 @@
 /* idl.c - ldap id list handling routines */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/idl.c,v 1.94.2.14 2006/05/11 18:25:42 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/idl.c,v 1.124.2.7 2008/02/11 23:26:45 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2006 The OpenLDAP Foundation.
+ * Copyright 2000-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,29 +27,24 @@
 
 #define IDL_CMP(x,y)	( x < y ? -1 : ( x > y ? 1 : 0 ) )
 
-#define IDL_LRU_DELETE( bdb, e ) do { 					\
-	if ( e->idl_lru_prev != NULL ) {				\
-		e->idl_lru_prev->idl_lru_next = e->idl_lru_next; 	\
-	} else {							\
-		bdb->bi_idl_lru_head = e->idl_lru_next;			\
-	}								\
-	if ( e->idl_lru_next != NULL ) {				\
-		e->idl_lru_next->idl_lru_prev = e->idl_lru_prev;	\
-	} else {							\
-		bdb->bi_idl_lru_tail = e->idl_lru_prev;			\
-	}								\
-} while ( 0 )
-
-#define IDL_LRU_ADD( bdb, e ) do {					\
-	e->idl_lru_next = bdb->bi_idl_lru_head;				\
-	if ( e->idl_lru_next != NULL ) {				\
-		e->idl_lru_next->idl_lru_prev = (e);			\
-	}								\
-	(bdb)->bi_idl_lru_head = (e);					\
-	e->idl_lru_prev = NULL;						\
-	if ( (bdb)->bi_idl_lru_tail == NULL ) {				\
-		(bdb)->bi_idl_lru_tail = (e);				\
-	}								\
+#define IDL_LRU_DELETE( bdb, e ) do { \
+	if ( (e) == (bdb)->bi_idl_lru_head ) { \
+		if ( (e)->idl_lru_next == (bdb)->bi_idl_lru_head ) { \
+			(bdb)->bi_idl_lru_head = NULL; \
+		} else { \
+			(bdb)->bi_idl_lru_head = (e)->idl_lru_next; \
+		} \
+	} \
+	if ( (e) == (bdb)->bi_idl_lru_tail ) { \
+		if ( (e)->idl_lru_prev == (bdb)->bi_idl_lru_tail ) { \
+			assert( (bdb)->bi_idl_lru_head == NULL ); \
+			(bdb)->bi_idl_lru_tail = NULL; \
+		} else { \
+			(bdb)->bi_idl_lru_tail = (e)->idl_lru_prev; \
+		} \
+	} \
+	(e)->idl_lru_next->idl_lru_prev = (e)->idl_lru_prev; \
+	(e)->idl_lru_prev->idl_lru_next = (e)->idl_lru_next; \
 } while ( 0 )
 
 static int
@@ -317,10 +312,7 @@ bdb_idl_cache_get(
 	if ( matched_idl_entry != NULL ) {
 		if ( matched_idl_entry->idl && ids )
 			BDB_IDL_CPY( ids, matched_idl_entry->idl );
-		ldap_pvt_thread_mutex_lock( &bdb->bi_idl_tree_lrulock );
-		IDL_LRU_DELETE( bdb, matched_idl_entry );
-		IDL_LRU_ADD( bdb, matched_idl_entry );
-		ldap_pvt_thread_mutex_unlock( &bdb->bi_idl_tree_lrulock );
+		matched_idl_entry->idl_flags |= CACHE_ENTRY_REFERENCED;
 		if ( matched_idl_entry->idl )
 			rc = LDAP_SUCCESS;
 		else
@@ -340,7 +332,7 @@ bdb_idl_cache_put(
 	int			rc )
 {
 	bdb_idl_cache_entry_t idl_tmp;
-	bdb_idl_cache_entry_t *ee;
+	bdb_idl_cache_entry_t *ee, *eprev;
 
 	if ( rc == DB_NOTFOUND || BDB_IDL_IS_ZERO( ids ))
 		return;
@@ -355,6 +347,7 @@ bdb_idl_cache_put(
 
 	ee->idl_lru_prev = NULL;
 	ee->idl_lru_next = NULL;
+	ee->idl_flags = 0;
 	ber_dupbv( &ee->kstr, &idl_tmp.kstr );
 	ldap_pvt_thread_rdwr_wlock( &bdb->bi_idl_tree_rwlock );
 	if ( avl_insert( &bdb->bi_idl_tree, (caddr_t) ee,
@@ -367,11 +360,34 @@ bdb_idl_cache_put(
 		return;
 	}
 	ldap_pvt_thread_mutex_lock( &bdb->bi_idl_tree_lrulock );
-	IDL_LRU_ADD( bdb, ee );
+	/* LRU_ADD */
+	if ( bdb->bi_idl_lru_head ) {
+		assert( bdb->bi_idl_lru_tail != NULL );
+		assert( bdb->bi_idl_lru_head->idl_lru_prev != NULL );
+		assert( bdb->bi_idl_lru_head->idl_lru_next != NULL );
+
+		ee->idl_lru_next = bdb->bi_idl_lru_head;
+		ee->idl_lru_prev = bdb->bi_idl_lru_head->idl_lru_prev;
+		bdb->bi_idl_lru_head->idl_lru_prev->idl_lru_next = ee;
+		bdb->bi_idl_lru_head->idl_lru_prev = ee;
+	} else {
+		ee->idl_lru_next = ee->idl_lru_prev = ee;
+		bdb->bi_idl_lru_tail = ee;
+	}
+	bdb->bi_idl_lru_head = ee;
+
 	if ( ++bdb->bi_idl_cache_size > bdb->bi_idl_cache_max_size ) {
-		int i = 0;
-		while ( bdb->bi_idl_lru_tail != NULL && i < 10 ) {
-			ee = bdb->bi_idl_lru_tail;
+		int i;
+		ee = bdb->bi_idl_lru_tail;
+		for ( i = 0; ee != NULL && i < 10; i++, ee = eprev ) {
+			eprev = ee->idl_lru_prev;
+			if ( eprev == ee ) {
+				eprev = NULL;
+			}
+			if ( ee->idl_flags & CACHE_ENTRY_REFERENCED ) {
+				ee->idl_flags ^= CACHE_ENTRY_REFERENCED;
+				continue;
+			}
 			if ( avl_delete( &bdb->bi_idl_tree, (caddr_t) ee,
 				    bdb_idl_entry_cmp ) == NULL ) {
 				Debug( LDAP_DEBUG_ANY, "=> bdb_idl_cache_put: "
@@ -385,8 +401,10 @@ bdb_idl_cache_put(
 			ch_free( ee->idl );
 			ch_free( ee );
 		}
+		bdb->bi_idl_lru_tail = eprev;
+		assert( bdb->bi_idl_lru_tail != NULL
+			|| bdb->bi_idl_lru_head == NULL );
 	}
-
 	ldap_pvt_thread_mutex_unlock( &bdb->bi_idl_tree_lrulock );
 	ldap_pvt_thread_rdwr_wunlock( &bdb->bi_idl_tree_rwlock );
 }
@@ -484,7 +502,7 @@ int
 bdb_idl_fetch_key(
 	BackendDB	*be,
 	DB			*db,
-	DB_TXN		*tid,
+	BDB_LOCKER locker,
 	DBT			*key,
 	ID			*ids,
 	DBC                     **saved_cursor,
@@ -557,12 +575,13 @@ bdb_idl_fetch_key(
 
 	/* If we're not reusing an existing cursor, get a new one */
 	if( opflag != DB_NEXT ) {
-		rc = db->cursor( db, tid, &cursor, bdb->bi_db_opflags );
+		rc = db->cursor( db, NULL, &cursor, bdb->bi_db_opflags );
 		if( rc != 0 ) {
 			Debug( LDAP_DEBUG_ANY, "=> bdb_idl_fetch_key: "
 				"cursor failed: %s (%d)\n", db_strerror(rc), rc, 0 );
 			return rc;
 		}
+		CURSOR_SETLOCKER( cursor, locker );
 	} else {
 		cursor = *saved_cursor;
 	}
@@ -695,10 +714,6 @@ bdb_idl_insert_key(
 	}
 
 	assert( id != NOID );
-
-	if ( bdb->bi_idl_cache_size ) {
-		bdb_idl_cache_del( bdb, db, key );
-	}
 
 	DBTzero( &data );
 	data.size = sizeof( ID );
@@ -872,6 +887,12 @@ fail:
 		cursor->c_close( cursor );
 		return rc;
 	}
+	/* If key was added (didn't already exist) and using IDL cache,
+	 * update key in IDL cache.
+	 */
+	if ( !rc && bdb->bi_idl_cache_max_size ) {
+		bdb_idl_cache_add_id( bdb, db, key, id );
+	}
 	rc = cursor->c_close( cursor );
 	if( rc != 0 ) {
 		Debug( LDAP_DEBUG_ANY, "=> bdb_idl_insert_key: "
@@ -904,7 +925,7 @@ bdb_idl_delete_key(
 	}
 	assert( id != NOID );
 
-	if ( bdb->bi_idl_cache_max_size ) {
+	if ( bdb->bi_idl_cache_size ) {
 		bdb_idl_cache_del( bdb, db, key );
 	}
 

@@ -16,7 +16,7 @@ if (is_file("../lib/$config[general_lib_type]/user_info.php3")){
 <meta http-equiv="Content-Type" content="text/html; charset=$config[general_charset]">
 <link rel="stylesheet" href="style.css">
 </head>
-<body bgcolor="#80a040" background="images/greenlines1.gif" link="black" alink="black">
+<body>
 <center>
 <form action="user_admin.php3" method=get>
 <b>User Name&nbsp;&nbsp;</b>
@@ -38,7 +38,7 @@ else{
 <meta http-equiv="Content-Type" content="text/html; charset=$config[general_charset]">
 <link rel="stylesheet" href="style.css">
 </head>
-<body bgcolor="#80a040" background="images/greenlines1.gif" link="black" alink="black">
+<body>
 <center>
 <b>Could not include SQL library functions. Aborting</b>
 </body>
@@ -214,9 +214,9 @@ if ($link){
 	}
 
 	$search = @da_sql_query($link,$config,
-	"SELECT * FROM $config[sql_accounting_table]
-	WHERE username = '$login' AND acctstoptime IS NULL
-	ORDER BY acctstarttime DESC LIMIT 1;");
+	"SELECT " . da_sql_limit(1,0,$config) . " * FROM $config[sql_accounting_table]
+	WHERE username = '$login' AND acctstoptime IS NULL " . da_sql_limit(1,1,$config) . "
+	 ORDER BY acctstarttime DESC " . da_sql_limit(1,2,$config). " ;");
 	if ($search){
 		if (@da_sql_num_rows($search,$config)){
 			$logged_now = 1;
@@ -229,11 +229,11 @@ if ($link){
 				$remaining = $remaining - $lastlog_session_time;
 				if ($remaining < 0)
 					$remaining = 0;
-				$log_color = ($remaining) ? 'green' : 'red'; 
+				$log_color = ($remaining) ? 'green' : 'red';
 			}
 			$lastlog_session_time_jvs = 1000 * $lastlog_session_time;
 			$lastlog_session_time = time2strclock($lastlog_session_time);
-			$lastlog_client_ip = $row['framedipaddress'];	
+			$lastlog_client_ip = $row['framedipaddress'];
 			$lastlog_server_name = @gethostbyaddr($lastlog_server_ip);
 			$lastlog_client_name = @gethostbyaddr($lastlog_client_ip);
 			$lastlog_callerid = $row['callingstationid'];
@@ -255,9 +255,9 @@ if ($link){
 		echo "<b>Database query failed: " . da_sql_error($link,$config) . "</b><br>\n";
 	if (! $logged_now){
 		$search = @da_sql_query($link,$config,
-		"SELECT * FROM $config[sql_accounting_table]
-		WHERE username = '$login' AND acctsessiontime != '0'
-		ORDER BY acctstoptime DESC LIMIT 1;");
+		"SELECT " . da_sql_limit(1,0,$config) . " * FROM $config[sql_accounting_table]
+		WHERE username = '$login' AND acctsessiontime != '0' " . da_sql_limit(1,1,$config) . "
+		 ORDER BY acctstoptime DESC " . da_sql_limit(1,2,$config). " ;");
 		if ($search){
 			if (@da_sql_num_rows($search,$config)){
 				$row = @da_sql_fetch_array($search,$config);
@@ -265,7 +265,7 @@ if ($link){
 				$lastlog_server_ip = $row['nasipaddress'];
 				$lastlog_server_port = $row['nasportid'];
 				$lastlog_session_time = time2str($row['acctsessiontime']);
-				$lastlog_client_ip = $row['framedipaddress'];	
+				$lastlog_client_ip = $row['framedipaddress'];
 		$lastlog_server_name = ($lastlog_server_ip != '') ? @gethostbyaddr($lastlog_server_ip) : '-';
 		$lastlog_client_name = ($lastlog_client_ip != '') ? @gethostbyaddr($lastlog_client_ip) : '-';
 				$lastlog_callerid = $row['callingstationid'];
@@ -320,3 +320,4 @@ EOM;
 }
 
 require('../html/user_admin.html.php3');
+?>

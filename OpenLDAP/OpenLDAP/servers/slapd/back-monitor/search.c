@@ -1,8 +1,8 @@
 /* search.c - monitor backend search function */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/search.c,v 1.32.2.5 2006/01/03 22:16:21 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/search.c,v 1.39.2.5 2008/02/11 23:26:47 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2001-2006 The OpenLDAP Foundation.
+ * Copyright 2001-2008 The OpenLDAP Foundation.
  * Portions Copyright 2001-2003 Pierangelo Masarati.
  * All rights reserved.
  *
@@ -35,8 +35,7 @@ monitor_send_children(
 	Operation	*op,
 	SlapReply	*rs,
 	Entry		*e_parent,
-	int		sub
-)
+	int		sub )
 {
 	monitor_info_t	*mi = ( monitor_info_t * )op->o_bd->be_private;
 	Entry 			*e,
@@ -175,15 +174,12 @@ monitor_back_search( Operation *op, SlapReply *rs )
 	if ( e == NULL ) {
 		rs->sr_err = LDAP_NO_SUCH_OBJECT;
 		if ( matched ) {
-#ifdef SLAP_ACL_HONOR_DISCLOSE
 			if ( !access_allowed_mask( op, matched,
 					slap_schema.si_ad_entry,
 					NULL, ACL_DISCLOSE, NULL, NULL ) )
 			{
 				/* do nothing */ ;
-			} else 
-#endif /* SLAP_ACL_HONOR_DISCLOSE */
-			{
+			} else {
 				rs->sr_matched = matched->e_dn;
 			}
 		}
@@ -204,12 +200,9 @@ monitor_back_search( Operation *op, SlapReply *rs )
 	{
 		monitor_cache_release( mi, e );
 
-#ifdef SLAP_ACL_HONOR_DISCLOSE
 		if ( !ACL_GRANT( mask, ACL_DISCLOSE ) ) {
 			rs->sr_err = LDAP_NO_SUCH_OBJECT;
-		} else 
-#endif /* SLAP_ACL_HONOR_DISCLOSE */
-		{
+		} else {
 			rs->sr_err = LDAP_INSUFFICIENT_ACCESS;
 		}
 
@@ -234,7 +227,9 @@ monitor_back_search( Operation *op, SlapReply *rs )
 		break;
 
 	case LDAP_SCOPE_ONELEVEL:
-		rc = monitor_send_children( op, rs, e, 0 );
+	case LDAP_SCOPE_SUBORDINATE:
+		rc = monitor_send_children( op, rs, e,
+			op->oq_search.rs_scope == LDAP_SCOPE_SUBORDINATE );
 		break;
 
 	case LDAP_SCOPE_SUBTREE:
@@ -249,6 +244,10 @@ monitor_back_search( Operation *op, SlapReply *rs )
 
 		rc = monitor_send_children( op, rs, e, 1 );
 		break;
+
+	default:
+		rc = LDAP_UNWILLING_TO_PERFORM;
+		monitor_cache_release( mi, e );
 	}
 
 	rs->sr_attrs = NULL;

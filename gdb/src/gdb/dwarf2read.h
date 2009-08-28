@@ -1,6 +1,14 @@
 #ifndef DWARF2READ_H
 #define DWARF2READ_H 1
 
+#include "bfd.h"
+
+extern asection *dwarf_frame_section;
+extern asection *dwarf_eh_frame_section;
+
+/* APPLE LOCAL debug map take a bfd parameter */
+char *dwarf2_read_section (struct objfile *, bfd *, asection *);
+
 /* When expanding a psymtab to a symtab we get the
    addresses of all the symbols in the executable (the "final"
    addresses) and the minimal symbols (linker symbols, etc) from
@@ -31,8 +39,7 @@ struct oso_final_addr_tuple {
    addresses we find in the .o file DWARF entries.  */
 
 struct oso_to_final_addr_map {
-  char *pst_filename;
-
+  struct partial_symtab *pst;
   int entries;
   struct oso_final_addr_tuple *tuples;
   

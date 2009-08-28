@@ -172,11 +172,15 @@ if [ -e /var/samba/idmap_cache.tdb ]; then
 	    testerr $0 "failed to clear the idmap cache"
 fi
 
+$ASROOT killall -TERM winbindd
+
 echo searching for user IDs
 ds_search_user_ids > $uid_list
 
 echo searching for group IDs
 ds_search_group_ids > $gid_list
+
+shopt -s extglob
 
 echo mapping $(count_lines $uid_list) user IDs
 while read uid ; do
@@ -186,6 +190,17 @@ while read uid ; do
 	continue
     fi
 
+    # For record with spaces, we don't parse the UID out right, ignore them.
+    case $uid in
+    	+([0-9])) ;;
+    	-+([0-9])) ;;
+	*)
+	echo "skipping invalid uid ($uid)"
+	continue
+	;; 
+    esac
+
+    echo trying uid=$uid
     username=$(ds_lookup_user_name $uid) || testerr $0 "no name for user $uid"
     primary_gid=$(ds_user_primary_group $username) || \
 		    testerr $0 "no primary group ID for $username"
@@ -197,6 +212,7 @@ while read uid ; do
     wb_usid=$(wbinfo -U $uid)
     if [ $? -ne 0 -o "$wb_usid" = "" ]; then
 	failtest
+	echo $context
 	echo "unable to map SID for user $username (uid $uid)"
 	continue
     fi

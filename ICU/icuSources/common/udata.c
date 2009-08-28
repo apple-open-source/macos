@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1999-2006, International Business Machines
+*   Copyright (C) 1999-2008, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -209,15 +209,17 @@ static UHashtable *udata_getHashTable() {
     UBool        cacheIsInitialized;
     UHashtable  *tHT = NULL;
 
-    umtx_lock(NULL);
-    cacheIsInitialized = (gCommonDataCache != NULL);
-    umtx_unlock(NULL);
+    UMTX_CHECK(NULL, (gCommonDataCache != NULL), cacheIsInitialized);
 
     if (cacheIsInitialized) {
         return gCommonDataCache;
     }
 
     tHT = uhash_open(uhash_hashChars, uhash_compareChars, NULL, &err);
+    /* Check for null pointer. */
+    if (tHT == NULL) {
+    	return NULL; /* TODO:  Handle this error better. */
+    }
     uhash_setValueDeleter(tHT, DataCacheElement_deleter);
 
     umtx_lock(NULL);
@@ -479,6 +481,10 @@ static void udata_pathiter_init(UDataPathIterator *iter, const char *path, const
     } else {
       if(uprv_strlen(pkg) + 2 > U_DATA_PATHITER_BUFSIZ) {
           iter->packageStub = uprv_malloc(uprv_strlen(pkg)+2);
+          /* Check for null pointer. */
+          if (iter->packageStub == NULL) {
+        	  return;
+          }
       } else {
           iter->packageStub = iter->packageStubBuf;
       }

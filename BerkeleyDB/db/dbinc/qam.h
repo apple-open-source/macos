@@ -1,14 +1,17 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1999-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1999,2007 Oracle.  All rights reserved.
  *
- * $Id: qam.h,v 1.2 2004/03/30 01:21:29 jtownsen Exp $
+ * $Id: qam.h,v 12.14 2007/05/17 17:22:36 bostic Exp $
  */
 
 #ifndef	_DB_QAM_H_
 #define	_DB_QAM_H_
+
+#if defined(__cplusplus)
+extern "C" {
+#endif
 
 /*
  * QAM data elements: a status field and the data.
@@ -69,8 +72,9 @@ struct __queue {
 };
 
 /* Format for queue extent names. */
-#define	QUEUE_EXTENT "%s%c__dbq.%s.%d"
-#define	QUEUE_EXTENT_HEAD "__dbq.%s."
+#define	QUEUE_EXTENT		"%s%c__dbq.%s.%d"
+#define	QUEUE_EXTENT_HEAD	"__dbq.%s."
+#define	QUEUE_EXTENT_PREFIX	"__dbq."
 
 typedef struct __qam_filelist {
 	DB_MPOOLFILE *mpf;
@@ -78,7 +82,7 @@ typedef struct __qam_filelist {
 } QUEUE_FILELIST;
 
 /*
- * Caculate the page number of a recno
+ * Calculate the page number of a recno.
  *
  * Number of records per page =
  *	Divide the available space on the page by the record len + header.
@@ -94,7 +98,7 @@ typedef struct __qam_filelist {
  */
 #define	CALC_QAM_RECNO_PER_PAGE(dbp)					\
     (((dbp)->pgsize - QPAGE_SZ(dbp)) /					\
-    ALIGN((db_align_t)SSZA(QAMDATA, data) +				\
+    (u_int32_t)DB_ALIGN((uintmax_t)SSZA(QAMDATA, data) +		\
     ((QUEUE *)(dbp)->q_internal)->re_len, sizeof(u_int32_t)))
 
 #define	QAM_RECNO_PER_PAGE(dbp)	(((QUEUE*)(dbp)->q_internal)->rec_page)
@@ -115,20 +119,20 @@ typedef struct __qam_filelist {
 
 #define	QAM_GET_RECORD(dbp, page, index)				\
     ((QAMDATA *)((u_int8_t *)(page) + (QPAGE_SZ(dbp) +			\
-    (ALIGN((db_align_t)SSZA(QAMDATA, data) +				\
+    (DB_ALIGN((uintmax_t)SSZA(QAMDATA, data) +				\
     ((QUEUE *)(dbp)->q_internal)->re_len, sizeof(u_int32_t)) * index))))
 
 #define	QAM_AFTER_CURRENT(meta, recno)					\
-    ((recno) > (meta)->cur_recno &&					\
+    ((recno) >= (meta)->cur_recno &&					\
     ((meta)->first_recno <= (meta)->cur_recno ||			\
     ((recno) < (meta)->first_recno &&					\
     (recno) - (meta)->cur_recno < (meta)->first_recno - (recno))))
 
 #define	QAM_BEFORE_FIRST(meta, recno)					\
     ((recno) < (meta)->first_recno &&					\
-    ((meta->first_recno <= (meta)->cur_recno ||				\
+    ((meta)->first_recno <= (meta)->cur_recno ||			\
     ((recno) > (meta)->cur_recno &&					\
-    (recno) - (meta)->cur_recno > (meta)->first_recno - (recno)))))
+    (recno) - (meta)->cur_recno > (meta)->first_recno - (recno))))
 
 #define	QAM_NOT_VALID(meta, recno)					\
     (recno == RECNO_OOB ||						\
@@ -141,18 +145,10 @@ typedef struct __qam_filelist {
 #define	QAM_SETCUR		0x02
 #define	QAM_TRUNCATE		0x04
 
-/*
- * Parameter to __qam_position.
- */
-typedef enum {
-	QAM_READ,
-	QAM_WRITE,
-	QAM_CONSUME
-} qam_position_mode;
-
 typedef enum {
 	QAM_PROBE_GET,
 	QAM_PROBE_PUT,
+	QAM_PROBE_DIRTY,
 	QAM_PROBE_MPF
 } qam_probe_mode;
 
@@ -165,11 +161,19 @@ typedef enum {
 	QAM_NAME_REMOVE
 } qam_name_op;
 
-#define	__qam_fget(dbp, pgnoaddr, flags, addrp) \
-	__qam_fprobe(dbp, *pgnoaddr, addrp, QAM_PROBE_GET, flags)
+#define	__qam_fget(dbp, pgnoaddr, lsnp, flags, addrp)			\
+	__qam_fprobe(dbp, *pgnoaddr,					\
+	    lsnp, addrp, QAM_PROBE_GET, DB_PRIORITY_UNCHANGED, flags)
 
-#define	__qam_fput(dbp, pageno, addrp, flags) \
-	__qam_fprobe(dbp, pageno, addrp, QAM_PROBE_PUT, flags)
+#define	__qam_fput(dbp, pgno, addrp, priority) \
+	__qam_fprobe(dbp, pgno, NULL, addrp, QAM_PROBE_PUT, priority, 0)
+
+#define	__qam_dirty(dbp, pgno, pagep, lsnp, priority) \
+	__qam_fprobe(dbp, pgno, lsnp, pagep, QAM_PROBE_DIRTY, priority, 0)
+
+#if defined(__cplusplus)
+}
+#endif
 
 #include "dbinc_auto/qam_auto.h"
 #include "dbinc_auto/qam_ext.h"

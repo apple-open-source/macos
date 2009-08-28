@@ -278,7 +278,7 @@ int BLSetBootBlocks(BLContextPtr context,
  * @param outDict result dictionary
  */
 int BLCreateVolumeInformationDictionary(BLContextPtr context,
-					const char * mount,
+					const char * mountpoint,
 					CFDictionaryRef *outDict);
 
 /*!
@@ -427,33 +427,10 @@ int BLIsMountHFS(BLContextPtr context,
  * @param out resulting path (up to MAXPATHLEN characeters will be written)
  */
 int BLLookupFileIDOnMount(BLContextPtr context,
-			  const char * mount,
+			  const char * mountpoint,
 			  uint32_t fileID,
 			  char * out);
 
-
-/*!
- * @function BLLoadXCOFFLoader
- * @abstract Load Old World Secondary Loader into memory
- * @discussion Decode the BootX secondary
- *    loader at <b>xcoff</b> and calculate parameters
- *    for the partition entry
- * @param context Bless Library context
- * @param xcoff path to bootx.coff, usually 
- *    /usr/standalone/ppc/bootx.xcoff
- * @param entrypoint pmBootEntry field in partition entry
- * @param loadbase pmBootAddr field in partition entry
- * @param size pmBootSize field in partition entry
- * @param checksum pmBootCksum field in partition entry
- * @param data CFDataRef containing decoded XCOFF
- */
-int BLLoadXCOFFLoader(BLContextPtr context,
-                        const char * xcoff,
-                        uint32_t *entrypoint,
-                        uint32_t *loadbase,
-                        uint32_t *size,
-                        uint32_t *checksum,
-                        CFDataRef *data);
 
 /*!
  * @function BLGetDiskSectorsForFile

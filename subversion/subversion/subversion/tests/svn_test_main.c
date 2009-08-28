@@ -45,6 +45,9 @@ const char **test_argv;
 /* Test option: Print more output */
 static int verbose_mode = 0;
 
+/* Test option: Print only unexpected results */
+static int quiet_mode = 0;
+
 /* Test option: Remove test directories after success */
 static int cleanup_mode = 0;
 
@@ -53,19 +56,28 @@ enum {
   cleanup_opt = SVN_OPT_FIRST_LONGOPT_ID,
   fstype_opt,
   list_opt,
-  verbose_opt
+  verbose_opt,
+  quiet_opt,
+  config_opt,
+  server_minor_version_opt
 };
 
 static const apr_getopt_option_t cl_options[] =
 {
   {"cleanup",       cleanup_opt, 0,
                     N_("remove test directories after success")},
+  {"config-file",   config_opt, 1,
+                    N_("specify test config file ARG")},
   {"fs-type",       fstype_opt, 1,
                     N_("specify a filesystem backend type ARG")},
   {"list",          list_opt, 0,
                     N_("lists all the tests with their short description")},
   {"verbose",       verbose_opt, 0,
                     N_("print extra information")},
+  {"server-minor-version", server_minor_version_opt, 1,
+                    N_("Set the minor version for the server ('4' or '5')")},
+  {"quiet",         quiet_opt, 0,
+                    N_("print only unexpected results")},
   {0,               0, 0, 0}
 };
 
@@ -88,7 +100,7 @@ cleanup_rmtree(void *data)
       const char *path = data;
 
       /* Ignore errors here. */
-      svn_error_t *err = svn_io_remove_dir(path, pool);
+      svn_error_t *err = svn_io_remove_dir2(path, FALSE, NULL, NULL, pool);
       if (verbose_mode)
         {
           if (err)
@@ -150,8 +162,8 @@ get_array_size(void)
 /* Execute a test number TEST_NUM.  Pretty-print test name and dots
    according to our test-suite spec, and return the result code. */
 static int
-do_test_num(const char *progname, 
-            int test_num, 
+do_test_num(const char *progname,
+            int test_num,
             svn_boolean_t msg_only,
             svn_test_opts_t *opts,
             apr_pool_t *pool)
@@ -160,6 +172,7 @@ do_test_num(const char *progname,
   svn_boolean_t skip, xfail;
   svn_error_t *err;
   int array_size = get_array_size();
+  int test_failed = 0;
   const char *msg = 0;  /* the message this individual test prints out */
 
   /* Check our array bounds! */
@@ -178,6 +191,16 @@ do_test_num(const char *progname,
   /* Do test */
   err = func(&msg, msg_only || skip, opts, pool);
 
+  if (err && err->apr_err == SVN_ERR_TEST_SKIPPED)
+    {
+      svn_error_clear(err);
+      err = SVN_NO_ERROR;
+      skip = TRUE;
+    }
+
+  /* Failure means unexpected results -- FAIL or XPASS. */
+  test_failed = ((err != SVN_NO_ERROR) != (xfail != 0));
+
   /* If we got an error, print it out.  */
   if (err)
     {
@@ -192,14 +215,14 @@ do_test_num(const char *progname,
              (xfail ? "XFAIL" : (skip ? "SKIP" : "")),
              msg ? msg : "(test did not provide name)");
     }
-  else
+  else if ((! quiet_mode) || test_failed)
     {
-      printf("%s %s %d: %s\n", 
+      printf("%s %s %d: %s\n",
              (err
               ? (xfail ? "XFAIL:" : "FAIL: ")
               : (xfail ? "XPASS:" : (skip ? "SKIP: " : "PASS: "))),
              progname,
-             test_num, 
+             test_num,
              msg ? msg : "(test did not provide name)");
     }
 
@@ -213,10 +236,10 @@ do_test_num(const char *progname,
       if (apr_isupper(msg[0]))
         printf("WARNING: Test docstring is capitalized\n");
     }
-    
-  /* Fail on unexpected result -- FAIL or XPASS. */
-  skip_cleanup = ((err != SVN_NO_ERROR) != (xfail != 0));
-  return skip_cleanup;
+
+  skip_cleanup = test_failed;
+
+  return test_failed;
 }
 
 
@@ -238,7 +261,7 @@ main(int argc, const char *argv[])
   char errmsg[200];
   /* How many tests are there? */
   int array_size = get_array_size();
-  
+
   svn_test_opts_t opts = { NULL };
 
   opts.fs_type = DEFAULT_FS_TYPE;
@@ -252,6 +275,12 @@ main(int argc, const char *argv[])
 
   /* set up the global pool */
   pool = svn_pool_create(NULL);
+
+  /* Remember the command line */
+  test_argc = argc;
+  test_argv = argv;
+
+  err = svn_cmdline__getopt_init(&os, argc, argv, pool);
 
   /* Strip off any leading path components from the program name.  */
   prog_name = strrchr(argv[0], '/');
@@ -268,11 +297,6 @@ main(int argc, const char *argv[])
         prog_name = argv[0];
     }
 
-  /* Remember the command line */
-  test_argc = argc;
-  test_argv = argv;
-
-  err = svn_cmdline__getopt_init(&os, argc, argv, pool);
   if (err)
     return svn_cmdline_handle_exit_error(err, pool, prog_name);
   while (1)
@@ -286,7 +310,7 @@ main(int argc, const char *argv[])
       else if (apr_err && (apr_err != APR_BADCH))
         {
           /* Ignore invalid option error to allow passing arbitary options */
-          fprintf(stderr,"apr_getopt_long failed : [%d] %s\n",
+          fprintf(stderr, "apr_getopt_long failed : [%d] %s\n",
                   apr_err, apr_strerror(apr_err, errmsg, sizeof(errmsg)));
           exit(1);
         }
@@ -294,6 +318,9 @@ main(int argc, const char *argv[])
       switch (opt_id) {
         case cleanup_opt:
           cleanup_mode = 1;
+          break;
+        case config_opt:
+          opts.config_file = apr_pstrdup(pool, opt_arg);
           break;
         case fstype_opt:
           opts.fs_type = apr_pstrdup(pool, opt_arg);
@@ -304,7 +331,33 @@ main(int argc, const char *argv[])
         case verbose_opt:
           verbose_mode = 1;
           break;
+        case quiet_opt:
+          quiet_mode = 1;
+          break;
+        case server_minor_version_opt:
+          {
+            char *end;
+            opts.server_minor_version = strtol(opt_arg, &end, 10);
+            if (end == opt_arg || *end != '\0')
+              {
+                fprintf(stderr, "FAIL: Non-numeric minor version given\n");
+                exit(1);
+              }
+            if ((opts.server_minor_version < 3)
+                || (opts.server_minor_version > 5))
+              {
+                fprintf(stderr, "FAIL: Invalid minor version given\n");
+                exit(1);
+              }
+          }
       }
+    }
+
+  /* You can't be both quiet and verbose. */
+  if (quiet_mode && verbose_mode)
+    {
+      fprintf(stderr, "FAIL: --verbose and --quiet are mutually exclusive\n");
+      exit(1);
     }
 
   /* Create an iteration pool for the tests */

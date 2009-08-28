@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2005,2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -201,14 +201,16 @@ int main(int argc, char **argv)
     if ((opt == FSUC_MOUNT || opt == FSUC_UNMOUNT || opt == FSUC_LABEL) && argc < 3)
         usage(); /* mountpoint arg missing! */
 
-    sprintf(rawdevpath, "%s%s", RAWDEV_PREFIX, argv[1]);
+    if (snprintf(rawdevpath, sizeof(rawdevpath), "%s%s", RAWDEV_PREFIX, argv[1]) >= sizeof(rawdevpath))
+    	exit(FSUR_INVAL);
     if (stat(rawdevpath, &sb) != 0) {
         fprintf(stderr, "%s: stat %s failed, %s\n", progname, rawdevpath,
                 strerror(errno));
         exit(FSUR_INVAL);
     }
 
-    sprintf(blockdevpath, "%s%s", BLOCKDEV_PREFIX, argv[1]);
+    if (snprintf(blockdevpath, sizeof(blockdevpath), "%s%s", BLOCKDEV_PREFIX, argv[1]) >= sizeof(blockdevpath))
+    	exit(FSUR_INVAL);
     if (stat(blockdevpath, &sb) != 0) {
         fprintf(stderr, "%s: stat %s failed, %s\n", progname, blockdevpath,
                 strerror(errno));
@@ -278,6 +280,7 @@ static int fs_probe(char *devpath, int removable, int writable)
     struct byte_bpb33 *b33;
     struct byte_bpb50 *b50;
     struct byte_bpb710 *b710;
+    u_int32_t	dev_block_size;
     u_int16_t	bps;
     u_int8_t	spc;
     unsigned	rootDirSectors;
@@ -287,7 +290,19 @@ static int fs_probe(char *devpath, int removable, int writable)
 
     fd = safe_open(devpath, O_RDONLY, 0);
 
-
+    if (ioctl(fd, DKIOCGETBLOCKSIZE, &dev_block_size) < 0)
+    {
+        fprintf(stderr, "%s: ioctl(DKIOCGETBLOCKSIZE) for %s failed, %s\n",
+            progname, devpath, strerror(errno));
+        return FSUR_IO_FAIL;
+    }
+    if (dev_block_size > MAX_DOS_BLOCKSIZE)
+    {
+        fprintf(stderr, "%s: block size of %s is too big (%lu)\n",
+            progname, devpath, (unsigned long) dev_block_size);
+        return FSUR_UNRECOGNIZED;
+    }
+    
     /*
      * Read the boot sector of the filesystem, and then check the
      * boot signature.  If not a dos boot sector then error out.
@@ -319,7 +334,7 @@ static int fs_probe(char *devpath, int removable, int writable)
     /* non-FAT disk meant to boot a PC.  Check some more fields for sensible values. */
 
     /* We only work with 512, 1024, 2048, and 4096 byte sectors */
-    bps = getushort(b33->bpbBytesPerSec);
+    bps = getuint16(b33->bpbBytesPerSec);
     if ((bps < 0x200) || (bps & (bps - 1)) || (bps > MAX_DOS_BLOCKSIZE))
 	{
         return(FSUR_UNRECOGNIZED);
@@ -339,13 +354,13 @@ static int fs_probe(char *devpath, int removable, int writable)
 	}
 	
 	/* Make sure the total sectors is non-zero */
-	if (getushort(b33->bpbSectors) == 0 && getulong(b50->bpbHugeSectors) == 0)
+	if (getuint16(b33->bpbSectors) == 0 && getuint32(b50->bpbHugeSectors) == 0)
 	{
 		return(FSUR_UNRECOGNIZED);
 	}
 
 	/* Make sure there is a root directory */
-	if (getushort(b33->bpbRootDirEnts) == 0 && getulong(b710->bpbRootClust) == 0)
+	if (getuint16(b33->bpbRootDirEnts) == 0 && getuint32(b710->bpbRootClust) == 0)
 	{
 		return(FSUR_UNRECOGNIZED);
 	}
@@ -354,13 +369,13 @@ static int fs_probe(char *devpath, int removable, int writable)
     /* First, find the root directory */
     diskLabel[0] = 0;
     finished = false;
-    rootDirSectors = ((getushort(b50->bpbRootDirEnts) * sizeof(struct dosdirentry)) +
+    rootDirSectors = ((getuint16(b50->bpbRootDirEnts) * sizeof(struct dosdirentry)) +
                       (bps-1)) / bps;
     if (rootDirSectors) {			/* FAT12 or FAT16 */
     	unsigned firstRootDirSecNum;
     	char rootdirbuf[MAX_DOS_BLOCKSIZE];
     	
-        firstRootDirSecNum = getushort(b33->bpbResSectors) + (b33->bpbFATs * getushort(b33->bpbFATsecs));
+        firstRootDirSecNum = getuint16(b33->bpbResSectors) + (b33->bpbFATs * getuint16(b33->bpbFATsecs));
         for (i=0; i< rootDirSectors; i++) {
             safe_read(fd, rootdirbuf, bps, (firstRootDirSecNum+i)*bps);
             dirp = (struct dosdirentry *)rootdirbuf;
@@ -391,13 +406,13 @@ static int fs_probe(char *devpath, int removable, int writable)
         
         bytesPerCluster = (u_int32_t) bps * (u_int32_t) spc;
         rootDirBuffer = malloc(bytesPerCluster);
-        cluster = getulong(b710->bpbRootClust);
+        cluster = getuint32(b710->bpbRootClust);
         
         finished = false;
         while (!finished && cluster >= CLUST_FIRST && cluster < CLUST_RSRVD)
         {
             /* Find sector where clusters start */
-            readOffset = getushort(b710->bpbResSectors) + (b710->bpbFATs * getulong(b710->bpbBigFATsecs));
+            readOffset = getuint16(b710->bpbResSectors) + (b710->bpbFATs * getuint32(b710->bpbBigFATsecs));
             /* Find sector where "cluster" starts */
             readOffset += ((off_t) cluster - CLUST_FIRST) * (off_t) spc;
             /* Convert to byte offset */
@@ -430,7 +445,7 @@ static int fs_probe(char *devpath, int removable, int writable)
             /* Find next cluster in the chain by reading the FAT */
             
             /* Find first sector of FAT */
-            readOffset = getushort(b710->bpbResSectors);
+            readOffset = getuint16(b710->bpbResSectors);
             /* Find sector containing "cluster" entry in FAT */
             readOffset += (cluster * 4) / bps;
             /* Convert to byte offset */
@@ -439,7 +454,7 @@ static int fs_probe(char *devpath, int removable, int writable)
             /* Read one sector of the FAT */
             safe_read(fd, rootDirBuffer, bps, readOffset);
             
-            cluster = getulong(rootDirBuffer + ((cluster * 4) % bps));
+            cluster = getuint32(rootDirBuffer + ((cluster * 4) % bps));
             cluster &= 0x0FFFFFFF;	// ignore reserved upper bits
         }
         free(rootDirBuffer);
@@ -447,7 +462,7 @@ static int fs_probe(char *devpath, int removable, int writable)
 
 	/* else look in the boot blocks */
     if (diskLabel[0] == 0) {
-        if (getushort(b50->bpbRootDirEnts) == 0) { /* Its a FAT32 */
+        if (getuint16(b50->bpbRootDirEnts) == 0) { /* Its a FAT32 */
             if (((struct extboot *)bsp->bs710.bsExt)->exBootSignature == EXBOOTSIG) {
             	strncpy(diskLabel, (char *)((struct extboot *)bsp->bs710.bsExt)->exVolumeLabel, LABEL_LENGTH);
 			}
@@ -553,7 +568,7 @@ static int fs_label(char *devpath, char *volName)
         /* Both partitions tables and boot sectors pass the above test, do do some more */
 
         /* We only work with 512, 1024, 2048 and 4096 byte sectors */
-        bps = getushort(b33->bpbBytesPerSec);
+        bps = getuint16(b33->bpbBytesPerSec);
         if ((bps < 0x200) || (bps & (bps - 1)) || (bps > MAX_DOS_BLOCKSIZE))
                 return(FSUR_UNRECOGNIZED);
 
@@ -563,7 +578,7 @@ static int fs_label(char *devpath, char *volName)
                 return(FSUR_UNRECOGNIZED);
 
         /* we know this disk, find the volume label */
-        if (getushort(b50->bpbRootDirEnts) == 0) {
+        if (getuint16(b50->bpbRootDirEnts) == 0) {
                 /* Its a FAT32 */
                 strncpy((char *)((struct extboot *)bsp->bs710.bsExt)->exVolumeLabel, label, LABEL_LENGTH);
         }

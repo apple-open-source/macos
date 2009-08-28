@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,6 +26,7 @@
 
 #include <sys/cdefs.h>
 #include <sys/socket.h>
+#include <asl.h>
 #include <sys/syslog.h>
 #include <mach/message.h>
 
@@ -58,9 +59,11 @@
  */
 
 /* framework variables */
-extern Boolean	_sc_debug;	/* TRUE if debugging enabled */
-extern Boolean	_sc_verbose;	/* TRUE if verbose logging enabled */
-extern Boolean	_sc_log;	/* TRUE if SCLog() output goes to syslog */
+extern int	_sc_debug;	/* non-zero if debugging enabled */
+extern int	_sc_verbose;	/* non-zero if verbose logging enabled */
+extern int	_sc_log;	/* 0 if SC messages should be written to stdout/stderr,
+				   1 if SC messages should be logged w/asl(3),
+				   2 if SC messages should be written to stdout/stderr AND logged */
 
 /*!
 	@group SCNetworkReachabilityCreateWithOptions #defines
@@ -93,6 +96,13 @@ extern Boolean	_sc_log;	/* TRUE if SCLog() output goes to syslog */
 		other elements must be 0 or the null pointer.
  */
 #define kSCNetworkReachabilityOptionHints	CFSTR("hints")
+
+/*!
+	@constant kSCNetworkReachabilityOptionConnectionOnDemandByPass
+	@discussion A CFBoolean that indicates if we should bypass the VPNOnDemand
+		checks for this target.
+ */
+#define kSCNetworkReachabilityOptionConnectionOnDemandByPass	CFSTR("ConnectionOnDemandByPass")
 
 /*!
 	@group
@@ -261,6 +271,18 @@ void		_SC_sendMachMessage		(mach_port_t		port,
 
 
 /*!
+	@function _SCCopyDescription
+	@discussion Returns a formatted textual description of a CF object.
+	@param cf The CFType object (a generic reference of type CFTypeRef) from
+		which to derive a description.
+	@param formatOptions A dictionary containing formatting options for the object.
+	@result A string that contains a formatted description of cf.
+ */
+CFStringRef	_SCCopyDescription		(CFTypeRef		cf,
+						 CFDictionaryRef	formatOptions);
+
+
+/*!
 	@function SCLog
 	@discussion Conditionally issue a log message.
 	@param condition A boolean value indicating if the message should be logged
@@ -273,6 +295,28 @@ void		SCLog				(Boolean		condition,
 						 int			level,
 						 CFStringRef		formatString,
 						 ...);
+
+
+/*!
+	@function SCLOG
+	@discussion Issue a log message.
+	@param asl An asl client handle to be used for logging. If NULL, a shared
+		handle will be used.
+	@param msg An asl msg structure to be used for logging. If NULL, a default
+		asl msg will be used.
+	@param level A asl(3) logging priority. Passing the complement of a logging
+		priority (e.g. ~ASL_LEVEL_NOTICE) will result in log message lines
+		NOT being split by a "\n".
+	@param formatString The format string
+	@result The specified message will be written to the system message
+		logger (See syslogd(8)).
+ */
+void		SCLOG				(aslclient		asl,
+						 aslmsg			msg,
+						 int			level,
+						 CFStringRef		formatString,
+						 ...);
+
 
 /*!
 	@function SCPrint
@@ -303,6 +347,28 @@ void		SCTrace				(Boolean		condition,
 						 ...);
 
 /*!
+	@function SCNetworkReachabilityCopyOnDemandService
+	@discussion For target hosts that require an OnDemand connection, returns
+		the SCNetworkService associated with the connection and user
+		options to use with SCNetworkConnectionStart.
+	@result The SCNetworkService for the target; NULL if there is
+		no associated OnDemand service.
+ */
+SCNetworkServiceRef
+SCNetworkReachabilityCopyOnDemandService	(SCNetworkReachabilityRef	target,
+						 CFDictionaryRef		*userOptions);
+
+/*!
+	@function SCNetworkReachabilityCopyResolvedAddress
+	@discussion Return the resolved addresses associated with the
+		target host.
+	@result A CFArray[CFData], where each CFData is a (struct sockaddr)
+ */
+CFArrayRef
+SCNetworkReachabilityCopyResolvedAddress	(SCNetworkReachabilityRef	target,
+						 int				*error_num);
+
+/*!
 	@function SCNetworkReachabilityCreateWithOptions
 	@discussion Creates a reference to a specified network host.  The
 		options allow the caller to specify the node name and/or
@@ -321,6 +387,17 @@ SCNetworkReachabilityRef
 SCNetworkReachabilityCreateWithOptions		(CFAllocatorRef		allocator,
 						 CFDictionaryRef	options);
 
+/*!
+	@function _SC_checkResolverReachabilityByAddress
+	@discussion Check the reachability of a reverse DNS query
+ */
+Boolean
+_SC_checkResolverReachabilityByAddress		(SCDynamicStoreRef		*storeP,
+						 SCNetworkReachabilityFlags	*flags,
+						 Boolean			*haveDNS,
+						 struct sockaddr		*sa);
+
+#if	!TARGET_OS_IPHONE
 /*
  * DOS encoding/codepage
  */
@@ -329,11 +406,7 @@ _SC_dos_encoding_and_codepage			(CFStringEncoding	macEncoding,
 						 UInt32			macRegion,
 						 CFStringEncoding	*dosEncoding,
 						 UInt32			*dosCodepage);
-
-CFDataRef
-_SC_dos_copy_string				(CFStringRef		str,
-						 CFStringEncoding	dosEncoding,
-						 UInt32			dosCodepage);
+#endif	// !TARGET_OS_IPHONE
 
 /*
  * object / CFRunLoop  management
@@ -388,6 +461,29 @@ _SC_CFEqual(CFTypeRef val1, CFTypeRef val2)
 	}
 	return FALSE;
 }
+
+/*
+ * debugging
+ */
+
+#ifdef	DEBUG_MACH_PORT_ALLOCATIONS
+	#define __MACH_PORT_DEBUG(cond, str, port)		\
+	do {							\
+		if (cond) _SC_logMachPortReferences(str, port);	\
+	} while (0)
+#else	// DEBUG_MACH_PORT_ALLOCATIONS
+	#define __MACH_PORT_DEBUG(cond, str, port)
+#endif	// DEBUG_MACH_PORT_ALLOCATIONS
+
+void
+_SC_logMachPortStatus				(void);
+
+void
+_SC_logMachPortReferences			(const char		*str,
+						 mach_port_t		port);
+
+CFStringRef
+_SC_copyBacktrace				(void);
 
 __END_DECLS
 

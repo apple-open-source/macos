@@ -1,0 +1,59 @@
+2008-12-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.11.1 ========================
+	* 
+
+2008-11-04  Andreas Kupries  <andreask@activestate.com>
+
+	* uevent_onidle.pcx: Added new package 'uevent::onidle' for
+	* uevent_onidle.tcl: deferal of actions to idle time, merging
+	* uevent_onidle.man: multiple requests.
+	* pkgIndex.tcl:
+
+2008-10-16  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.11 ========================
+	* 
+
+2008-06-14  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* uevent.pcx: New file. Syntax definitions for the public commands
+	  of the uevent package.
+
+2008-03-22  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* uevent.tcl: Added a new command 'uevent::list', in fulfilment of
+	* uevent.man: [Bug 1804388]. Extended the documentation. Bumped
+	* pkgIndex.tcl: the package to version 0.2.
+
+	* uevent.test: New, a testsuite for the package.
+
+2008-03-09  Michael Schlenker <mic42@users.sourceforge.net>
+
+        * uevent.tcl:  Fixed wrong variable name tex in unbind.
+	* pkgIndex.tcl:
+	* uvent.man:
+
+2007-09-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.10 ========================
+	* 
+
+2007-07-20  Andreas Kupries  <andreask@activestate.com>
+
+	* uevent.tcl: Added missing loading of package logger. Bumped
+	* pkgIndex.tcl: version to 0.1.2.
+	* uevent.man:
+
+2007-07-18  Andreas Kupries  <andreask@activestate.com>
+
+	* uevent.tcl (::uevent::generate): Fixed typo in variable name,
+	* uevent.man: used non-existing var. Bumped version to 0.1.1.
+	* pkgIndex.tcl:
+
+2007-07-17  Andreas Kupries  <andreask@activestate.com>
+
+	* New package 'uevent', handling of user events.

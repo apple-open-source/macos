@@ -462,6 +462,14 @@ typedef enum {
      * like SEC_OID_PKCS7_DATA, except the caller's OID is encoded. */
     SEC_OID_OTHER		= 200,
     
+	/* ECDSA */
+	SEC_OID_EC_PUBLIC_KEY  = 201,
+	SEC_OID_ECDSA_WithSHA1 = 202,
+	SEC_OID_DH_SINGLE_STD_SHA1KDF = 203,
+	SEC_OID_SECP_256_R1 = 204,
+	SEC_OID_SECP_384_R1 = 205,
+	SEC_OID_SECP_521_R1 = 206,
+	
     SEC_OID_TOTAL
 } SECOidTag;
 

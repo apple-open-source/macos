@@ -36,12 +36,21 @@
 #if FILE_ACCESS_INDEXING
 #include <sqlite3.h>
 #include <map>
+#include "SQLiteHelper.h"
 
 typedef struct _sIndexMapping			IndexMapping;
 typedef map<string, IndexMapping *>		LocalNodeIndexMap;
 typedef LocalNodeIndexMap::iterator		LocalNodeIndexMapI;
 
 #endif
+
+enum eDSAccessMode {
+	eDSAccessModeRead			= 0L,
+	eDSAccessModeWrite,
+	eDSAccessModeReadAttr,
+	eDSAccessModeWriteAttr,
+	eDSAccessModeDelete
+};
 
 class CDSLocalPluginNode
 {
@@ -53,7 +62,7 @@ class CDSLocalPluginNode
 
 		tDirStatus				GetRecords( CFStringRef inNativeRecType, CFArrayRef inPatternsToMatch,
 									CFStringRef inAttrTypeToMatch, tDirPatternMatch inPatternMatch, bool inAttrInfoOnly,
-									unsigned long maxRecordsToGet, CFMutableArrayRef recordsArray, bool useLongNameAlso = false, CFStringRef* outRecFilePath = NULL );
+									UInt32 maxRecordsToGet, CFMutableArrayRef recordsArray, bool useLongNameAlso = false, CFStringRef* outRecFilePath = NULL );
 		CFStringRef				CreateFilePathForRecord( CFStringRef inNativeRecType, CFStringRef inRecordName );
 		tDirStatus				CreateDictionaryForRecord( CFStringRef inNativeRecType, CFStringRef inRecordName,
 									CFMutableDictionaryRef* outMutableRecordDict, CFStringRef* outRecordFilePath );
@@ -62,7 +71,7 @@ class CDSLocalPluginNode
 		tDirStatus				DeleteRecord( CFStringRef inRecordFilePath, CFStringRef inNativeRecType,
 									CFStringRef inRecordName, CFMutableDictionaryRef inMutableRecordAttrsValues );
 		tDirStatus				FlushRecord( CFStringRef inRecordFilePath, CFStringRef inRecordType,
-									CFDictionaryRef inRecordDict );
+									CFMutableDictionaryRef inRecordDict );
 		tDirStatus				AddAttributeToRecord( CFStringRef inNativeAttrType, CFStringRef inNativeRecType,
 									CFTypeRef inAttrValue, CFMutableDictionaryRef inMutableRecordAttrsValues );
 		tDirStatus				AddAttributeValueToRecord( CFStringRef inNativeAttrType, CFStringRef inNativeRecType,
@@ -71,55 +80,39 @@ class CDSLocalPluginNode
 									CFMutableDictionaryRef inMutableRecordAttrsValues );
 		tDirStatus				RemoveAttributeValueFromRecordByCRC( CFStringRef inNativeAttrType,
 									CFStringRef inNativeRecType, CFMutableDictionaryRef inMutableRecordAttrsValues,
-									unsigned long inCRC );
+									UInt32 inCRC );
 		tDirStatus				ReplaceAttributeValueInRecordByCRC( CFStringRef inNativeAttrType,
 									CFStringRef inNativeRecType, CFMutableDictionaryRef inMutableRecordAttrsValues,
-									unsigned long inCRC, CFTypeRef inNewValue );
+									UInt32 inCRC, CFTypeRef inNewValue );
 		tDirStatus				ReplaceAttributeValueInRecordByIndex( CFStringRef inNativeAttrType,
 									CFStringRef inNativeRecType, CFMutableDictionaryRef inMutableRecordAttrsValues,
-									unsigned long inIndex, CFStringRef inNewValue );
+									UInt32 inIndex, CFStringRef inNewValue );
 		tDirStatus				SetAttributeValuesInRecord( CFStringRef inNativeAttrType, CFStringRef inNativeRecType,
 									CFMutableDictionaryRef inMutableRecordAttrsValues,
 									CFMutableArrayRef inMutableAttrValues );
 		tDirStatus				GetAttributeValueByCRCFromRecord( CFStringRef inNativeAttrType,
-									CFMutableDictionaryRef inMutableRecordAttrsValues, unsigned long inCRC,
+									CFMutableDictionaryRef inMutableRecordAttrsValues, UInt32 inCRC,
 									CFTypeRef* outAttrValue );
 		tDirStatus				GetAttributeValueByIndexFromRecord( CFStringRef inNativeAttrType,
-									CFMutableDictionaryRef inMutableRecordAttrsValues, unsigned long inIndex,
+									CFMutableDictionaryRef inMutableRecordAttrsValues, UInt32 inIndex,
 									CFTypeRef* outAttrValue );
 		bool					IsValidRecordName( CFStringRef inRecordName, CFStringRef inNativeRecType );
 		void					FlushRecordCache();
 		
 		CFArrayRef				CreateAllRecordTypesArray();
-		bool					WriteAccessAllowed(	CFDictionaryRef inNodeDict,
-												    CFStringRef inNativeRecType,
-												    CFStringRef inRecordName,
-												    CFStringRef inNativeAttribute,
-												    CFArrayRef	inWritersAccessRecord = NULL,
-												    CFArrayRef	inWritersAccessAttribute = NULL,
-												    CFArrayRef	inWritersGroupAccessRecord = NULL,
-												    CFArrayRef	inWritersGroupAccessAttribute = NULL );
-		bool					WriteAccessAllowed(	CFStringRef inAuthedUserName,
-													CFNumberRef inEffectiveUIDNumber,
-													CFStringRef inNativeRecType,
-													CFStringRef inRecordName,
-													CFStringRef inNativeAttribute,
-													CFArrayRef	inWritersAccessRecord = NULL,
-													CFArrayRef	inWritersAccessAttribute = NULL,
-													CFArrayRef	inWritersGroupAccessRecord = NULL,
-													CFArrayRef	inWritersGroupAccessAttribute = NULL );
-		bool					WriteAccessAllowed( CFStringRef inAuthedUserName,
-													uid_t inEffectiveUID,
-													CFStringRef inNativeRecType,
-													CFStringRef inRecordName,
-													CFStringRef inNativeAttribute,
-													CFArrayRef	inWritersAccessRecord = NULL,
-													CFArrayRef	inWritersAccessAttribute = NULL,
-													CFArrayRef	inWritersGroupAccessRecord = NULL,
-													CFArrayRef	inWritersGroupAccessAttribute = NULL );
+	
+		bool					AccessAllowed( CFStringRef inAuthedUserName, uid_t inEffectiveUID, CFStringRef inNativeRecType,
+											   CFStringRef inNativeAttribute, eDSAccessMode inAccessMode,
+											   CFDictionaryRef inAttributeDict = NULL );
+	
+		bool					AccessAllowed( CFDictionaryRef inNodeDict, CFStringRef inNativeAttribute, CFStringRef inNativeRecType,
+											   eDSAccessMode inAccessMode, CFDictionaryRef inAttributeDict = NULL );
+	
 		bool					IsLocalNode();
 		uint32_t				GetModValue( void );
-		
+	
+		void					LoadFileAccessIndex( void );
+
 	private:
 		
 		bool					RecordMatchesCriteria( CFDictionaryRef inRecordDict, CFArrayRef inPatternsToMatch,
@@ -144,12 +137,9 @@ class CDSLocalPluginNode
 															    CFTypeRef inAttrValue, CFDictionaryRef inRecordDict );
 		void					SetKerberosTicketsEnabledOrDisabled( CFMutableArrayRef inMutableAttrValues );
 		void					SetPrincipalStateInLocalRealm(char* principalName, const char *realmName, bool enabled);
-		CFDataRef				CreateCFDataFromFile( const char *filename, size_t inLength );
+		CFDataRef				CreateCFDataFromFile( const char *filename, size_t inLength = 0 );
 		
-#if FILE_ACCESS_INDEXING
-		void					AddIndexMapping( const char *inStdRecordType, ... );
-
-		void					LoadFileAccessIndex( void );
+		void					AddIndexMapping( CFStringRef inRecordType, CFArrayRef inList );
 
 		void					AddRecordIndex( const char *inStdRecordType, const char *inFileName );
 		void					DeleteRecordIndex( const char *inStdRecordType, const char *inFileName );
@@ -157,25 +147,20 @@ class CDSLocalPluginNode
 		char**					GetFileAccessIndex(CFStringRef inNativeRecType, tDirPatternMatch inPatternMatch, CFStringRef inPatternToMatch, 
 												   CFStringRef inNativeAttrToMatch, bool *outPreferIndex );
 	
-		int						sqlExecSync( const char *command, UInt32 commandLength = -1 );
+		int						sqlExecSync( const char *command, int commandLength = -1 );
 	
 		int						EnsureDirs( const char *inPath, mode_t inPathMode, mode_t inFinalMode );
-		static void *			LoadIndexAsynchronously( void *inPtr );
-		void					RemoveIndex( void );
 		void					DatabaseCorrupt( void );
 		static void				IndexObject( const void *inValue, void *inContext );
+		void					EnableTheIndex( CFStringRef inNodeDirFilePath );
 
 	private:
-		DSMutexSemaphore			fDBLock;
-		sqlite3*					mFileAccessIndexPtr;
-		char*						mIndexPath;
+		SQLiteHelper				*mDatabaseHelper;
 		int32_t						mUseIndex;
-		int32_t						mIndexLoading;
 		LocalNodeIndexMap			mIndexMap;
 		DSEventSemaphore			mIndexLoaded;
 		bool						mProperShutdown;
 		bool						mSafeBoot;
-#endif
 		
 		CDSLocalPlugin*				mPlugin;
 		DSMutexSemaphore			mOpenRecordsLock;

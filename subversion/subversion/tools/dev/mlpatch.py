@@ -1,12 +1,18 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 # mlpatch.py: Run with no arguments for usage
 
 import sys, os
 import sgmllib
-from htmlentitydefs import entitydefs
+try:
+  # Python >=3.0
+  from html.entities import entitydefs
+  from urllib.request import urlopen as urllib_request_urlopen
+except ImportError:
+  # Python <3.0
+  from htmlentitydefs import entitydefs
+  from urllib2 import urlopen as urllib_request_urlopen
 import fileinput
-from urllib2 import urlopen
 
 CHUNKSIZE = 8 * 1024
 
@@ -33,11 +39,11 @@ class MyParser(sgmllib.SGMLParser):
   def handle_starttag(self, tag, method, attrs):
     if not self.inbody: return
     self.baseclass.handle_starttag(self, tag, method, attrs)
-    
+
   def handle_endtag(self, tag, method):
     if not self.inbody: return
     self.baseclass.handle_endtag(self, tag, method)
-    
+
   def handle_data(self, data):
     if not self.inbody: return
     data = data.replace('\n','')
@@ -61,11 +67,11 @@ class MyParser(sgmllib.SGMLParser):
   def handle_charref(self, ref):
     if not self.inbody: return
     self.baseclass.handle_charref(self, ref)
-    
+
   def handle_entityref(self, ref):
     if not self.inbody: return
     self.baseclass.handle_entityref(self, ref)
-    
+
   def handle_comment(self, comment):
     if comment == ' body="start" ':
       self.inbody = True
@@ -74,15 +80,15 @@ class MyParser(sgmllib.SGMLParser):
 
   def handle_decl(self, data):
     if not self.inbody: return
-    print "DECL: " + data
-    
+    print("DECL: " + data)
+
   def unknown_starttag(self, tag, attrs):
     if not self.inbody: return
-    print "UNKTAG: %s %s" % (tag, attrs)
+    print("UNKTAG: %s %s" % (tag, attrs))
 
   def unknown_endtag(self, tag):
     if not self.inbody: return
-    print "UNKTAG: /%s" % (tag)
+    print("UNKTAG: /%s" % (tag))
 
   def do_br(self, attrs):
     self.complete_line = True
@@ -127,8 +133,8 @@ def main():
     list, year, month, msgno = sys.argv[1:]
     url = "http://svn.haxx.se/" \
         + "%(list)s/archive-%(year)s-%(month)s/%(msgno)s.shtml" % locals()
-    print "MsgUrl: " + url
-    msgfile = urlopen(url)
+    print("MsgUrl: " + url)
+    msgfile = urllib_request_urlopen(url)
     p = MyParser()
     buffer = msgfile.read(CHUNKSIZE)
     while buffer:

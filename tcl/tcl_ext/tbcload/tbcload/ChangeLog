@@ -1,0 +1,121 @@
+2006-10-23  Andreas Kupries  <andreask@activestate.com>
+
+	* cmpRead.c: Fixed initialization bug for Proc structures.
+	* configure.in: Bumped version to 1.6.1. Regenerated configure.
+	* configure:
+
+2006-09-11  Andreas Kupries  <andreask@activestate.com>
+
+	* configure.in: Bumped version to 1.6. Regenerated configure.
+	* configure:
+
+	* cmpInt.h:  Applied patch by Uwe Traum to handle the 8.5
+	* cmpRead.c: specific JumpTableInfo (compiled 'switch'). Made
+	  conditional on the version of Tcl the package is compiled
+	  against.
+
+2006-01-25  Andreas Kupries <andreask@activestate.com>
+
+	* tclconfig/tcl.m4: Updated to TEA 3.5
+	* configure.in:     Ditto.
+	* configure:        Regenerated.
+
+2005-03-18  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* Makefile.in (AR): use @AR@
+	* configure, tclconfig/tcl.m4: TEA 3.2 patch update
+
+2005-03-17  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* configure, tclconfig/tcl.m4: Updated to TEA 3.2
+	* Makefile.in, configure.in:
+	* tclconfig/ChangeLog (removed):
+
+2003-04-04  Andreas Kupries  <andreask@activestate.com>
+
+	* configure.in:
+	* tclconfig/tcl.m4: Updated to newest tcl.m4, regenerated
+	  configure's.
+
+2002-12-02  Andreas Kupries  <andreask@activestate.com>
+
+	* cmpInt.h: Bugfix: Ensure the correct TCL_STORAGE_CLASS on
+	  Windows for the functions exported by the package
+	  'tclcompiler'. Unfortunately their declaration is here, in
+	  'tbcload'. The header cmpInt.h is shared by both packages.
+
+2002-11-28  Andreas Kupries  <andreask@activestate.com>
+
+	* cmpRead.c: Fixed small typos in comments.
+
+2002-10-25  Andreas Kupries  <andreask@activestate.com>
+
+	* cmpRead.c (CreateSimpleObject): Removed unused variable 'savedChar'.
+	  (TbcloadInit): Removed unused variables 'major', and 'minor'.
+
+2002-10-15  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* tclconfig/tcl.m4:
+	* configure:
+	* configure.in: move the CFLAGS definition into TEA_ENABLE_SHARED
+	and make it pick up the env CFLAGS at configure time.
+
+2002-10-15  Andreas Kupries  <andreask@activestate.com>
+
+	* configure.in: Changed to propagate an initial CFLAGS value to
+	  the final definition. A TEA condition (SHARED_BUILD == 1)
+	  squashed it, causing it the build system to loose the
+	  +DAportable we specify for the AS PA-RISC2.2 build host. This is
+	  a problem for _all_ TEA and TEA 2 based configure files.
+
+2002-10-01  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* cmpRead.c (ExtractCompiledLocal): enhanced check for setting
+	VAR_UNDEFINED to only do it for code compiled with < 8.4 and be
+	loaded into >= 8.4.
+
+2002-09-30  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* cmpInt.h:
+	* cmpRead.c (ExtractSignature): reduced overly complex sig check.
+	(TbcloadInit): make formatVersion change with interpreter.
+	Remove dead code.
+
+	* cmpInt.h: bump to version 1.4.0
+	* configure.in:
+
+	* cmpRead.c (ExtractCompiledLocal): add VAR_UNDEFINED to new
+	locals to match the optimization which uses this in 8.4.  Harmless
+	for pre-8.4 interps.
+
+2002-09-30  Andreas Kupries  <andreask@activestate.com>
+
+	* Makefile.in: 
+	* configure.in:
+	* tclconfig:
+	* aclocal.m4: Rewritten to conform to TEA 2.
+
+2001-03-14  Karl Lehenbauer <karl@procplace.com>
+
+	* mkIndex.tcl.in: Altered Nativepath proc to work correctly with 
+	  new Cygwin drive specification syntax when running on Windows.
+
+2000-07-25  Brent Welch  <welch@ajubasolutions.com>
+
+	* mkIndex.tcl.in: Hacked this to set the execute bit on
+	the HP-UX .sl file, which is neccessary before you can load it.
+
+2000-03-29  Jeff Hobbs  <hobbs@scriptics.com>
+
+	* cmpRead.c (CreateSimpleObject): removed savedChar trick and used
+	direct byte count for NewStringObj
+	(CleanupByteCode): added docs, noting that TclCleanupByteCode in
+	tclCompile.c had to add code to account for precompiled ByteCodes,
+	and clean up their literals
+
+2000-03-29  Scott Redman  <redman@scriptics.com>
+
+	* tests/tcl/procRedefNub.tcl:
+	* tests/tcl/procRedef.tcl:
+	* tests/cmpRead.test: added tests for proc redefinition
+

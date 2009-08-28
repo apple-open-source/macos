@@ -27,7 +27,7 @@ AR=@AR@
 LDSHFLAGS=@LDSHFLAGS@ @LDFLAGS@
 MODULE_EXPORTS=@MODULE_EXPORTS@
 WINBIND_NSS_LDSHFLAGS=@WINBIND_NSS_LDSHFLAGS@ @LDFLAGS@
-LDFLAGS=@PIE_LDFLAGS@ @LDFLAGS@
+override LDFLAGS=@PIE_LDFLAGS@ @LDFLAGS@
 AWK=@AWK@
 PICFLAG=@PICFLAG@
 DYNEXP=@DYNEXP@
@@ -45,6 +45,8 @@ KRB5LIBS=@KRB5_LIBS@
 LDAP_LIBS=@LDAP_LIBS@
 NSCD_LIBS=@NSCD_LIBS@
 UUID_LIBS=@UUID_LIBS@
+MACOSX_LIBS=@MACOSX_LIBS@
+LIBS += $(MACOSX_LIBS)
 
 INSTALLCMD=@INSTALL@
 INSTALLLIBCMD_SH=@INSTALLLIBCMD_SH@
@@ -271,7 +273,7 @@ READLINE_OBJ = lib/readline.o
 # Be sure to include them into your application
 POPT_LIB_OBJ = lib/popt_common.o
 
-PARAM_OBJ = dynconfig.o param/loadparm.o param/params.o lib/sharesec.o
+PARAM_OBJ = dynconfig.o param/loadparm.o param/params.o lib/sharesec.o lib/ldap_debug_handler.o
 
 KRBCLIENT_OBJ = libads/kerberos.o libads/ads_status.o
 
@@ -287,12 +289,12 @@ LIBADS_OBJ = libads/ldap.o libads/ldap_printer.o libads/sasl.o \
 	     libads/krb5_setpw.o libads/ldap_user.o \
 	     libads/ads_struct.o libads/kerberos_keytab.o \
              libads/disp_sec.o libads/ads_utils.o libads/ldap_utils.o \
-	     libads/authdata.o libads/cldap.o
+	     libads/authdata.o libads/cldap.o libads/util.o
 
-LIBADS_SERVER_OBJ = libads/util.o libads/kerberos_verify.o \
+LIBADS_SERVER_OBJ = libads/kerberos_verify.o \
 		    libads/ldap_schema.o
 
-SECRETS_OBJ = passdb/secrets.o passdb/machine_sid.o
+SECRETS_OBJ = passdb/secrets.o passdb/machine_sid.o lib/opendirectory.o
 
 LIBNMB_OBJ = libsmb/unexpected.o libsmb/namecache.o libsmb/nmblib.o \
 	     libsmb/namequery.o libsmb/conncache.o libads/dns.o
@@ -434,6 +436,7 @@ VFS_NOTIFY_FAM_OBJ = modules/vfs_notify_fam.o
 VFS_READAHEAD_OBJ = modules/vfs_readahead.o
 VFS_DARWIN_STREAMS_OBJ = modules/vfs_darwin_streams.o
 VFS_DARWINACL_OBJ = modules/vfs_darwin_acls.o
+VFS_NOTIFY_KQUEUE_OBJ = modules/vfs_notify_kqueue.o
 
 PLAINTEXT_AUTH_OBJ = auth/pampass.o auth/pass_check.o
 
@@ -453,9 +456,9 @@ AUTH_OBJ = auth/auth.o @AUTH_STATIC@ auth/auth_util.o auth/auth_compat.o \
 	   auth/auth_ntlmssp.o \
 	   $(PLAINTEXT_AUTH_OBJ) $(SLCACHE_OBJ) $(DCUTIL_OBJ)
 
-ODSAM_PDB_OBJ = lib/opendirectory.o passdb/pdb_odsam.o
-ODSAM_AUTH_OBJ = lib/opendirectory.o auth/auth_odsam.o
-ODSAM_IDMAP_OBJ = lib/opendirectory.o nsswitch/idmap_odsam.o
+ODSAM_PDB_OBJ = lib/opendirectory.o lib/opendirectory_sam.o passdb/pdb_odsam.o
+ODSAM_AUTH_OBJ = lib/opendirectory.o lib/opendirectory_sam.o auth/auth_odsam.o
+ODSAM_IDMAP_OBJ = lib/opendirectory.o lib/opendirectory_sam.o nsswitch/idmap_odsam.o
 
 MANGLE_OBJ = smbd/mangle.o smbd/mangle_hash.o smbd/mangle_map.o smbd/mangle_hash2.o
 
@@ -482,7 +485,7 @@ SMBD_OBJ_SRV = smbd/files.o smbd/chgpasswd.o smbd/connection.o \
 	       $(AFS_SETTOKEN_OBJ) smbd/aio.o smbd/statvfs.o \
 	       smbd/darwin_clone_local_volumes.o \
 	       smbd/darwin_check_share_access.o \
-	       smbd/dmapi.o lib/opendirectory.o \
+	       smbd/dmapi.o \
 	       lib/launchd.o smbd/sockinit.o \
 	       $(MANGLE_OBJ) @VFS_STATIC@
 
@@ -1400,6 +1403,10 @@ bin/darwin_streams.@SHLIBEXT@: $(VFS_DARWIN_STREAMS_OBJ)
 		$(VFS_DARWIN_STREAMS_OBJ) \
 		-framework ByteRangeLocking
 
+bin/notify_kqueue.@SHLIBEXT@: $(VFS_NOTIFY_KQUEUE_OBJ)
+	@echo "Building plugin $@"
+	@$(SHLD_MODULE) $(VFS_NOTIFY_KQUEUE_OBJ)
+
 bin/darwinacl.@SHLIBEXT@: $(VFS_DARWINACL_OBJ)
 	@echo "Building plugin $@"
 	@$(SHLD_MODULE) $(VFS_DARWINACL_OBJ)
@@ -1678,6 +1685,7 @@ python_install: $(PYTHON_OBJ)
 
 python_clean:
 	@-if test -n "$(PYTHON)"; then $(PYTHON) python/setup.py clean; fi
+	@-rm -rf build/
 
 # revert to the previously installed version
 revert:
@@ -1866,6 +1874,7 @@ realclean: clean delheaders
 
 distclean: realclean
 	-rm -f include/stamp-h
+	-rm -f smbadduser
 	-rm -f include/config.h Makefile
 	-rm -f config.status config.cache so_locations
 	-rm -rf .deps TAGS

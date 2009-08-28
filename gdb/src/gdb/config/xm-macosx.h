@@ -36,13 +36,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include <limits.h>
 
-extern void macosx_resize_window_handler (int signal);
+extern void macosx_resize_window_handler (void *);
 extern void macosx_resize_window (int *width, int *height);
 
 #define	SIGWINCH_HANDLER macosx_resize_window_handler
 
 #define	SIGWINCH_HANDLER_BODY \
-void macosx_resize_window_handler (int signal) \
+void macosx_resize_window_handler (void *d) \
 { \
   macosx_resize_window (&lines_per_page, &chars_per_line); \
 }

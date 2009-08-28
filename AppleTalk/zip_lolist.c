@@ -54,43 +54,9 @@
 #include <sys/sockio.h>
 #include <net/if.h>
 
-#include <netat/appletalk.h>
-#include <netat/ddp.h>
-#include <netat/atp.h>
-#include <netat/zip.h>
-#include <netat/at_var.h>
-
 #include "at_proto.h"
 
 #define	SET_ERRNO(e) errno = e
-
-#define TOTAL_ALLOWED ATP_DATA_SIZE-sizeof(at_nvestr_t)
-
-extern int zip_getzonesfrombridge(char *ifName, int *context, 
-				  u_char *zones, int size, int local);
-
-
-/* in_list() returns 1 if ifName is on interface list nameList,
-   and 0, if it's not.  in_list() returns 0 if IfName is NULL or empty.
-*/
-
-int in_list(ifName, nameList)
-     char *ifName;
-     at_ifnames_t *nameList;
-{
-	int ifno;
-
-	if (!ifName || !ifName[0])
-	    return(0);
-
-	/* find matching ifno */
-	for (ifno=0; ifno < IF_TOTAL_MAX; ifno++) {
-	     if (!strcmp(ifName, (char *)nameList->at_if[ifno])) {
-		return(1);
-	     }
-	}
-	return(0);
-}
 
 /* zip_getlocalzones() will return the zone count on success, 
    and -1 on failure. */
@@ -117,62 +83,6 @@ int zip_getlocalzones(
 		*/
 )
 {
-	int start = *context;
-	int if_id;
-	at_state_t      global_state;
-	at_nvestr_t	*pz;
-	int total=0, i, skipped = 0;
-	zone_usage_t	ifz;
-
-	if (start < ZIP_FIRST_ZONE) {
-		return(-1);
-	}
-	if (0 > (if_id = socket(AF_APPLETALK, SOCK_RAW, 0)))
-		return(-1);
-
-	if (ioctl(if_id, AIOCGETSTATE, (caddr_t)&global_state)) {
-		fprintf(stderr,"error getting Appletalk mode\n");
-		(void)close (if_id);
-		return(-1);
-	}
-	if (!(global_state.flags & AT_ST_ROUTER) &&
-	    !(global_state.flags & AT_ST_MULTIHOME)) {
-		(void)close (if_id);
-		return(zip_getzonesfrombridge(ifName, context, zones, 
-					      size, TRUE));
-	} else { /* multihome or router mode */
-
-		pz = (at_nvestr_t *)zones;
-		ifz.zone_index = i = start-1;
-		total=0;
-		for ( ; total < TOTAL_ALLOWED; ifz.zone_index = ++i) {
-			if (ioctl(if_id, AIOCGETZNUSAGE, (caddr_t)&ifz))
-			    if (errno != ENOENT) {
-				fprintf(stderr,"error getting Appletalk local zones\n");
-				(void)close (if_id);
-				return(-1);
-			    } else {
-				*context = ZIP_NO_MORE_ZONES;
-				(void)close (if_id);
-				return(i-start+1-skipped);
-			    }
-			/* if we're looking for a certain interface */
-			if (ifName && strlen(ifName)) {
-				/* if it's not for this interface, get the 
-				   next local zone */
-				if (!in_list(ifName, &ifz.zone_iflist)) {
-					skipped++;
-				  	continue;
-				}
-			}
-			*pz = ifz.zone_name; 
-			total += (pz->len + 1);
-			pz = (at_nvestr_t*)((caddr_t)pz + pz->len +1);
-		}
-		*context = i+2;
-		(void)close (if_id);
-		return(i-start+2-skipped);
-	}
-	(void)close (if_id);
-	return(-1);
+	SET_ERRNO(ENXIO);
+	return (-1);
 }

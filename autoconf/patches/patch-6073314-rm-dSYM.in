@@ -1,0 +1,100 @@
+--- lib/autoconf/c.m4.orig	2006-11-08 00:26:44.000000000 -0800
++++ lib/autoconf/c.m4	2008-08-20 13:15:01.000000000 -0700
+@@ -673,7 +673,7 @@
+ else
+   eval ac_cv_prog_cc_${ac_cc}_c_o=no
+ fi
+-rm -f core conftest*
++rm -f -r core conftest*
+ ])dnl
+ if eval test \$ac_cv_prog_cc_${ac_cc}_c_o = yes; then
+   AC_MSG_RESULT([yes])
+@@ -857,7 +857,7 @@
+ else
+   ac_cv_prog_cxx_c_o=no
+ fi
+-rm -f conftest*])
++rm -f -r conftest*])
+ if test $ac_cv_prog_cxx_c_o = no; then
+   AC_DEFINE(CXX_NO_MINUS_C_MINUS_O, 1,
+             [Define to 1 if your C++ compiler doesn't accept
+--- lib/autoconf/fortran.m4.orig	2006-09-20 11:07:47.000000000 -0700
++++ lib/autoconf/fortran.m4	2008-08-20 13:15:01.000000000 -0700
+@@ -474,7 +474,7 @@
+ else
+   ac_cv_prog_[]_AC_LANG_ABBREV[]_c_o=no
+ fi
+-rm -f conftest*])
++rm -f -r conftest*])
+ if test $ac_cv_prog_[]_AC_LANG_ABBREV[]_c_o = no; then
+   AC_DEFINE([]_AC_FC[]_NO_MINUS_C_MINUS_O, 1,
+             [Define to 1 if your Fortran compiler doesn't accept
+@@ -538,7 +538,7 @@
+ echo "$ac_[]_AC_LANG_ABBREV[]_v_output" >&AS_MESSAGE_LOG_FD
+ _AC_LANG_PREFIX[]FLAGS=$ac_save_FFLAGS
+ 
+-rm -f conftest*
++rm -f -r conftest*
+ 
+ # On HP/UX there is a line like: "LPATH is: /foo:/bar:/baz" where
+ # /foo, /bar, and /baz are search directories for the Fortran linker.
+@@ -808,7 +808,7 @@
+  fi
+  AC_LANG_POP(C)dnl
+  ac_cv_[]_AC_LANG_ABBREV[]_dummy_main=$ac_cv_fortran_dummy_main
+- rm -f conftest*
++ rm -f -r conftest*
+  LIBS=$ac_[]_AC_LANG_ABBREV[]_dm_save_LIBS
+ ])
+ []_AC_FC[]_DUMMY_MAIN=$ac_cv_[]_AC_LANG_ABBREV[]_dummy_main
+@@ -877,7 +877,7 @@
+  done
+  AC_LANG_POP(C)dnl
+  ac_cv_[]_AC_LANG_ABBREV[]_main=$ac_cv_fortran_main
+- rm -f conftest*
++ rm -f -r conftest*
+  LIBS=$ac_[]_AC_LANG_ABBREV[]_m_save_LIBS
+ ])
+ AC_DEFINE_UNQUOTED([]_AC_FC[]_MAIN, $ac_cv_[]_AC_LANG_ABBREV[]_main,
+@@ -989,7 +989,7 @@
+   fi
+ 
+   LIBS=$ac_save_LIBS
+-  rm -f cfortran_test* conftest*],
++  rm -f -r cfortran_test* conftest*],
+   [AC_MSG_FAILURE([cannot compile a simple Fortran program])])
+ ])
+ ])# __AC_FC_NAME_MANGLING
+--- lib/autoconf/functions.m4.orig	2006-10-14 18:12:02.000000000 -0700
++++ lib/autoconf/functions.m4	2008-08-20 13:15:01.000000000 -0700
+@@ -1441,7 +1441,7 @@
+ 		   [Define to the type of args 2, 3 and 4 for `select'.])
+ AC_DEFINE_UNQUOTED(SELECT_TYPE_ARG5, ($[3]),
+ 		   [Define to the type of arg 5 for `select'.])
+-rm -f conftest*
++rm -f -r conftest*
+ ])# AC_FUNC_SELECT_ARGTYPES
+ 
+ 
+--- lib/autoconf/general.m4.orig	2006-11-16 16:37:17.000000000 -0800
++++ lib/autoconf/general.m4	2008-08-20 13:15:21.000000000 -0700
+@@ -2313,7 +2313,7 @@
+   $EGREP "[$1]" >/dev/null 2>&1],
+   [$3],
+   [$4])dnl
+-rm -f conftest*
++rm -f -r conftest*
+ ])# AC_EGREP_CPP
+ 
+ 
+--- lib/autoconf/specific.m4.orig	2006-10-24 12:34:09.000000000 -0700
++++ lib/autoconf/specific.m4	2008-08-20 13:15:01.000000000 -0700
+@@ -144,7 +144,7 @@
+   no | unknown) ;;
+   *) AC_DEFINE_UNQUOTED([$1], [$$3], [$4]);;
+ esac
+-rm -f conftest*[]dnl
++rm -f -r conftest*[]dnl
+ ])# _AC_SYS_LARGEFILE_MACRO_VALUE
+ 
+ 

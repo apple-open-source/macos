@@ -2,9 +2,8 @@ Mailman - The GNU Mailing List Management System
 Copyright (C) 1998-2005 by the Free Software Foundation, Inc.
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA
 
-Note: We're migrating the FAQ to an on-line interactive system called
-      "FAQ Wizard".  To see the Mailman FAQ Wizard in action, go to
-      http://www.python.org/cgi-bin/faqw-mm.py
+Note: We've migrated the FAQ to the wiki at http://wiki.list.org/
+      To see the Mailman FAQ go to http://wiki.list.org/x/AgA3
 
 FREQUENTLY ASKED QUESTIONS
 
@@ -24,10 +23,11 @@ A. What's likely happening is that your MTA is doing DNS resolution on
    turn off synchronous DNS resolution for messages originating from
    the local host.
 
-   In Exim, the value to edit is receiver_verify_hosts.  See
-   README.EXIM for details.  Other MTAs have (of course) different
-   parameters and defaults that control this.  First check the README
-   file for your MTA and then consult your MTA's own documentation.
+   In Exim, the value to edit is receiver_verify_hosts.  Consult the
+   Mailman Installation Manual for details.  Other MTAs have (of
+   course) different parameters and defaults that control this.  First
+   check the README file for your MTA and then consult your MTA's own
+   documentation.
 
 Q. My list members are complaining about Mailman's List-* headers!
    What can I do about this?
@@ -83,7 +83,7 @@ A. The most likely cause of this is that the GID that is compiled into
    (The distributed syslog.conf forwards the message to the loghost,
    when present.  See the syslog man page for more details.)
 
-   If your system is set like this, and you get a failure trying to
+   If your system is set up like this, and you get a failure trying to
    visit the mailman/listinfo web page, and it's due to a UID or GID
    mismatch, then you should get an entry at the end of
    /var/log/syslog identifying the expected and received values.
@@ -131,12 +131,7 @@ A. Make sure that you are using "preline" before calling the "mailman"
        From somebody Mon Oct  9 12:27:34 MDT 2000
 
    before every message and re-running the archive command
-   "bin/arch listname".  The archives should now exist.  See README.QMAIL
-   for more information.
-
-Q. Still having problems?  Running on GNU/Linux?
-
-A. See the README.LINUX file.
+   "bin/arch listname".  The archives should now exist.
 
 Q. I want to get rid of some messages in my archive.  How do I do
    this?
@@ -192,8 +187,7 @@ A. If your Mailman installation run on an SSL-enabled web server
 
 Q. I want to backup my lists.  What do I need to save?
 
-A. See this FAQ wizard entry:
-   http://www.python.org/cgi-bin/faqw-mm.py?req=show&file=faq04.006.htp
+A. See this FAQ entry: http://wiki.list.org/x/5oA9
 
 Q. How do I rename a list?
 

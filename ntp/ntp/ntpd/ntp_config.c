@@ -20,7 +20,6 @@
 #include <isc/result.h>
 
 #include <stdio.h>
-#include <netdb.h>
 #include <ctype.h>
 #ifdef HAVE_SYS_PARAM_H
 #include <sys/param.h>
@@ -129,6 +128,7 @@ static	struct keyword mod_keywords[] = {
 	{ "prefer",		CONF_MOD_PREFER },
 	{ "ttl",		CONF_MOD_TTL },     /* NTP peers */
 	{ "version",		CONF_MOD_VERSION },
+	{ "dynamic",		CONF_MOD_DYNAMIC },
 	{ "",			CONFIG_UNKNOWN }
 };
 
@@ -358,7 +358,6 @@ static char res_file[MAX_PATH];
  */
 
 short default_ai_family = AF_UNSPEC;	/* Default either IPv4 or IPv6 */
-char const *progname;
 char	*sys_phone[MAXPHONE] = {NULL}; /* ACTS phone numbers */
 char	*keysdir = NTP_KEYSDIR;	/* crypto keys directory */
 #if defined(HAVE_SCHED_SETSCHEDULER)
@@ -407,7 +406,7 @@ static	int matchkey P((char *, struct keyword *, int));
 enum gnn_type {
 	t_UNK,		/* Unknown */
 	t_REF,		/* Refclock */
-	t_MSK,		/* Network Mask */
+	t_MSK		/* Network Mask */
 	};
 static	int getnetnum P((const char *, struct sockaddr_storage *, int,
 			 enum gnn_type));
@@ -526,7 +525,7 @@ getconfig(
 	 * Initialize, initialize
 	 */
 	errflg = 0;
-	/* HMS: don't initialize debug to 0 here! */
+	
 #ifndef SYS_WINNT
 	config_file = CONFIG_FILE;
 #else
@@ -545,7 +544,6 @@ getconfig(
 	alt_config_file = alt_config_file_storage;
 
 #endif /* SYS_WINNT */
-	progname = argv[0];
 	res_fp = NULL;
 	ntp_syslogmask = NLOG_SYNCMASK; /* set more via logconfig */
 
@@ -769,6 +767,8 @@ getconfig(
 						    "minpoll: provided value (%d) is below minimum (%d)",
 						    minpoll, NTP_MINPOLL);
 					minpoll = NTP_MINPOLL;
+				    } else {
+				        peerflags |= FLAG_UMINPOLL;
 				    }
 				    break;
 
@@ -786,6 +786,8 @@ getconfig(
 						    "maxpoll: provided value (%d) is above maximum (%d)",
 						    maxpoll, NTP_MAXPOLL);
 					maxpoll = NTP_MAXPOLL;
+				    } else {
+				        peerflags |= FLAG_UMAXPOLL;
 				    }
 				    break;
 
@@ -805,12 +807,17 @@ getconfig(
 				    peerflags |= FLAG_TRUE;
 
 				case CONF_MOD_BURST:
-				    peerflags |= FLAG_BURST;
+				    peerflags |= FLAG_BURST | FLAG_UBURST;
 				    break;
 
 				case CONF_MOD_IBURST:
-				    peerflags |= FLAG_IBURST;
+				    peerflags |= FLAG_IBURST | FLAG_UIBURST;
 				    break;
+
+			        case CONF_MOD_DYNAMIC:
+				    peerflags |= FLAG_DYNAMIC;
+				    break;
+
 #ifdef OPENSSL
 				case CONF_MOD_SKEY:
 				    peerflags |= FLAG_SKEY |
@@ -856,7 +863,7 @@ getconfig(
 			    if (peer_config(&peeraddr,
 				ANY_INTERFACE_CHOOSE(&peeraddr), hmode,
 				peerversion, minpoll, maxpoll, peerflags,
-				ttl, peerkey, peerkeystr) == 0) {
+				ttl, peerkey, peerkeystr, tokens[1]) == 0) {
 					msyslog(LOG_ERR,
 						"configuration of %s failed",
 						stoa(&peeraddr));
@@ -2203,6 +2210,19 @@ getnetnum(
 	struct addrinfo *ptr;
 	int retval;
 
+#if 0
+	printf("getnetnum: <%s> is a %s (%d)\n",
+		num,
+		(a_type == t_UNK)
+		? "t_UNK"
+		: (a_type == t_REF)
+		  ? "t_REF"
+		  : (a_type == t_MSK)
+		    ? "t_MSK"
+		    : "???",
+		a_type);
+#endif
+
 	/* Get host address. Looking for UDP datagram connection */
  	memset(&hints, 0, sizeof (hints));
  	if (addr->ss_family == AF_INET || addr->ss_family == AF_INET6)
@@ -2216,9 +2236,14 @@ getnetnum(
 		hints.ai_family = AF_INET;
 
 	hints.ai_socktype = SOCK_DGRAM;
+
+	if (a_type != t_UNK) {
+		hints.ai_flags = AI_NUMERICHOST;
+	}
+
 #ifdef DEBUG
-		if (debug > 3)
-			printf("getaddrinfo %s\n", num);
+	if (debug > 3)
+		printf("getnetnum: calling getaddrinfo(%s,...)\n", num);
 #endif
 	retval = getaddrinfo(num, "ntp", &hints, &ptr);
 	if (retval != 0 ||
@@ -2249,8 +2274,16 @@ getnetnum(
 	memcpy(addr, ptr->ai_addr, ptr->ai_addrlen);
 #ifdef DEBUG
 	if (debug > 1)
-		printf("getnetnum given %s, got %s \n",
-		   num, stoa(addr));
+		printf("getnetnum given %s, got %s (%s/%d)\n",
+		   num, stoa(addr),
+			(a_type == t_UNK)
+			? "t_UNK"
+			: (a_type == t_REF)
+			  ? "t_REF"
+			  : (a_type == t_MSK)
+			    ? "t_MSK"
+			    : "???",
+			a_type);
 #endif
         freeaddrinfo(ptr);
 	return 1;

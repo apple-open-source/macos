@@ -24,9 +24,9 @@
 /*
  * tcgetsid.c
  */
-#define COMPAT_43_TTY		1
 #include <sys/ioctl.h>
 #include <termios.h>
+#include <sys/ioctl_compat.h>	/* ordering avoid termios.h redeclarations */
 
 pid_t
 tcgetsid(int fildes)

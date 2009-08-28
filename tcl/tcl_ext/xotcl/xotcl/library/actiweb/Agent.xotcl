@@ -1,0 +1,236 @@
+# $Id: Agent.xotcl,v 1.6 2006/09/27 08:12:40 neumann Exp $
+
+package provide xotcl::actiweb::agent 0.8
+
+package require xotcl::trace
+package require xotcl::comm::httpAccess
+package require xotcl::actiweb::webObject
+package require xotcl::store::persistence
+
+package require XOTcl
+
+#
+# current response codes for agent requests:
+#
+# OK      -- content arrived (can be retrieved with sinks content method)
+# ERROR   -- error on the place invocation
+# FAILED  -- call itself failed, e.g. cancel
+#
+
+namespace eval ::xotcl::actiweb::agent {
+    namespace import ::xotcl::*
+
+    Class AgentMemSink \
+	-superclass MemorySink \
+	-parameter {{agent ""} responseCode}
+
+    AgentMemSink instproc startCb {r}   {
+	my set d "" 
+	next
+    }
+    AgentMemSink instproc notifyCb {r} {next}
+    AgentMemSink instproc incCb {r t c} {next}
+    AgentMemSink instproc endCb {r} {
+	if {[Agent exists responseCodes([$r set responseCode])]} {
+	    my set responseCode OK
+	} else {
+	    my set responseCode ERROR
+	}
+	next
+    }
+    AgentMemSink instproc cancelCb {r} {
+	my set responseCode FAILED
+	next
+    }
+    AgentMemSink instproc endReq {r} {
+	my instvar agent 
+	if {[Object isobject $agent]} {
+	    if {[$agent exists sinks($r)]} {
+		$agent unset sinks($r)
+	    }
+	}
+    }
+
+    # sink class that calls the agent's endcmd in async calls
+    # the sink is destroyed automatically after endCmd is called
+    Class AgentAsyncSink -superclass AgentMemSink
+    AgentAsyncSink instproc endCb {r} {
+	next
+	my instvar endCmd responseCode
+	set result [my content]
+	if {[info exists endCmd]} {
+	    eval [concat $endCmd $responseCode \"$result\"]
+	}
+	my endReq $r
+    }
+    AgentAsyncSink instproc cancelCb {r} {
+	my instvar endCmd responseCode
+	if {[info exists endCmd]} {
+	    eval [concat $endCmd $responseCode ""]
+	}
+	next
+	my endReq $r
+    }
+
+    # sink type for sync request 
+    # has to be destroyed with endReq when content is 
+    # read (see createSyncRequest)
+    Class AgentSyncSink -superclass AgentMemSink
+
+
+    Class Agent -superclass WebObject
+    Agent array set responseCodes {
+	200 {OK}
+    }
+
+    Agent instproc init args {
+	#my showCall
+	#my exportProcs invoke
+	my array set endCmds {}
+	my array set sinks {}
+	next
+    }
+
+    #
+    # method to create async requests
+    #
+    # endCmd specifies the command (or object method or proc ...) that
+    # is to be called, when the request has ended, empty for sync requests
+    #
+    # args are to be given in the form -name value, like:
+    #   -contentType text/xml
+    #   -method PUT 
+    #   -data XXX
+    #
+    # returns the request object name
+    #
+    Agent instproc createRequest {endCmd url args} {
+	#my showCall
+	puts stderr "[self] [self proc]"
+	my instvar place
+	set s [AgentAsyncSink create [$place autoname agentmemsink] \
+		   -agent [self]]
+	set cmd [list Access createRequest -caching 0 -url $url \
+		     -informObject $s]
+	foreach {n v} $args {lappend cmd $n $v}
+	$s set endCmd $endCmd
+	set t ::[string trimleft [::eval $cmd $args] :]
+	my set sinks($t) $s
+	return $t
+    }
+    #
+    # method to create sync reqs ... url and args identical to
+    # async req
+    #
+    # returns the result of sync request, if "OK" 
+    # otherwise: Raises an error
+    #
+    Agent instproc createSyncRequest {url args} {
+	#my showCall
+	puts stderr "[self] [self proc]"
+	my instvar place
+	set s [AgentSyncSink [$place autoname agentmemsink] -agent [self]]
+	set cmd [list Access createRequest \
+		     -httpVersion 1.0 \
+		     -caching 0 -url $url -informObject $s -blocking 1]
+	foreach {n v} $args {lappend cmd $n $v}
+	set t ::[string trimleft [::eval $cmd] :]
+	#puts stderr "After SyncRequest t=$t [$s responseCode]"
+	if {[$s responseCode] eq "OK"} {
+	    set content [$s content]
+	    # kill the sink
+	    $s endReq $t
+	    return $content
+	}
+	$s endReq $t
+	error "[self] -- Sync request failed: url=$url, responseCode=[$s responseCode]"
+    }
+    #
+    # invoke a remote method directly along the places' dispatcher 
+    #
+    Agent instproc invoke {endCmd host receiver args} {
+	puts stderr [self proc]----host=$host
+	#my showCall
+	set url http://$host/${receiver}+[url encode $args]
+	my createRequest $endCmd $url
+    }
+    Agent instproc syncInvoke {host receiver args} {
+	puts stderr [self proc]----host=$host
+	#[self] showCall
+	set url http://$host/${receiver}+[url encode $args]
+	my createSyncRequest $url
+    }
+
+    #
+    # invoke a cloning migration 
+    #
+    Agent instproc cloneImpl {async host startcmd {endCmd ""}} {
+	#my showCall
+	set ai [my agentInfo]
+	set place [Place getInstance]
+
+	# get the full name of the agent ns from the places's agent mgr
+	#set ns [${place}::agentMgr::rdfNS searchPrefix agent]
+
+	$ai set agentData(script) [${place}::scriptCreator makeScript [self]]
+	$ai append agentData(script) [my makeVarScript]
+	$ai set agentData(startcmd) $startcmd
+
+	set data [$ai getXMLScript [$ai name]]
+	###puts $data
+
+	#set data [[Place getInstance]::rdfCreator createFromTriples [$ai getTriples]]
+	if {$async} {
+	    return [my createRequest $endCmd http://$host/[my selfName] \
+			-contentType text/xml \
+			-method PUT \
+			-data $data]
+	} else {
+	    return [my createSyncRequest http://$host/[my selfName] \
+			-contentType text/xml \
+			-method PUT \
+			-data $data]
+	}
+    }
+    Agent instproc clone {host startCmd endCmd} {
+	my cloneImpl 1 $host $startCmd $endCmd
+    }
+    Agent instproc syncClone {host startCmd} {
+	my cloneImpl 0 $host $startCmd
+    }
+
+    #
+    # invoke a migration that destroys the object in the current place 
+    #
+    Agent instproc migrateImpl {async host startcmd {endCmd ""}} {
+	### GN ???
+	puts stderr "--- async=$async"
+	if {$async} {
+	    set r [my clone $host $startcmd $endCmd]
+	} else {
+	    set r [my syncClone $host $startcmd]
+	}
+	puts stderr "--- [self] destroy +++ "
+	my destroy  ;### FIXME: this does not work in the asynchronous case
+	return $r
+    }
+    Agent instproc migrate {host startCmd endCmd} {
+	#my migrateImpl 1 $host $startCmd $endCmd
+	my migrateImpl 0 $host $startCmd $endCmd
+    }
+    Agent instproc syncMigrate {host startCmd} {
+	my migrateImpl 0 $host $startCmd
+    }
+    #
+    # query a place with its hostname for its name
+    #
+    Agent instproc getPlaceFromHostName {endCb host} {
+	set r [my autoname __result]
+	my createRequest "[self]::$r set" http://$host/ 
+	return [set [self]::$r]
+    }
+
+    namespace export AgentMemSink AgentAsyncSink AgentSyncSink Agent
+}
+
+namespace import ::xotcl::actiweb::agent::*

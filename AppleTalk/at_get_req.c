@@ -43,17 +43,13 @@
 	
 #include <signal.h>
 #include <unistd.h>
-#include <sys/errno.h>
+#include <errno.h>
 
-#include <netat/appletalk.h>
-#include <netat/atp.h>
-#include <netat/ddp.h>
 
 #include "at_proto.h"
 
 #define	SET_ERRNO(e) errno = e
 
-#define      REQ_ARRIVED(p)    (!*((char *) p))  
 	
 /*
  * atp_getreq()
@@ -75,60 +71,7 @@ atp_getreq(fd, src, reqbuf, reqlen, userdata, xo, tid, bitmap, nowait)
 	u_char		*bitmap;
 	int		nowait;
 {
-	char		cbuf[DDP_DATAGRAM_SIZE+ATP_HDR_SIZE];
-	char		*pcbuf = cbuf;
-	int		len;
-	at_atp_t	*atphdr;
-	at_ddp_t	*ddphdr;
-	int		i;
+	SET_ERRNO(ENXIO);
+	return (-1);
 
-	if (nowait) {
-		/*
-		 * take a look to see if there's any event
-		 */
-		if (atp_look(fd) < 0) {
-			SET_ERRNO(EAGAIN);
-			return (-1);
-		}
-	}
-
-	/*
-	 * get and check the event byte for request indicator
-	 */
-	while (1) {
-		if ((i = read(fd, reqbuf, 1)) == -1)
-			return (-1);
-		if (i == 1) {
-			if (REQ_ARRIVED(reqbuf)) 
-				break;
-		}
-	}
-	
-	/* request has arrived, get it */
-	
-	if ((len = ATPgetreq(fd, cbuf, sizeof(cbuf))) < 0)
-		return (-1);
-	
-	atphdr = (at_atp_t *)(&cbuf[DDP_X_HDR_SIZE]);  
-	ddphdr = (at_ddp_t *) cbuf;
-	
-	/* fill in user return info */
-	*reqlen = len - (DDP_X_HDR_SIZE + ATP_HDR_SIZE);
-	pcbuf += (DDP_X_HDR_SIZE + ATP_HDR_SIZE); /* pcbuf -> user data */
-	if (*reqlen < 0) {
-		SET_ERRNO(EMSGSIZE);
-		return(-1);
-	}
-	memcpy(reqbuf, pcbuf, *reqlen);		/* copy user data */
-	src->net = NET_VALUE(ddphdr->src_net);
-	src->node = ddphdr->src_node;
-	src->socket = ddphdr->src_socket;
-	if (userdata)
-		*userdata = *(unsigned *)atphdr->user_bytes;
-
-	*tid	= UAS_VALUE_NTOH(atphdr->tid);
-	*xo 	= atphdr->xo ? 1 : 0; 
-	*bitmap	= atphdr->bitmap;
-	
-	return (0);
 }

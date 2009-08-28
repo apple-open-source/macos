@@ -1,4 +1,4 @@
-/* $OpenBSD: scp.c,v 1.163 2008/06/13 18:55:22 dtucker Exp $ */
+/* $OpenBSD: scp.c,v 1.164 2008/10/10 04:55:16 stevesk Exp $ */
 /*
  * scp - secure remote copy.  This is basically patched BSD rcp which
  * uses ssh to do the data transfer (instead of using rcmd).
@@ -77,6 +77,9 @@
 #include <sys/param.h>
 #ifdef HAVE_SYS_STAT_H
 # include <sys/stat.h>
+#endif
+#ifdef __APPLE_XSAN__
+#include <sys/mount.h>
 #endif
 #ifdef HAVE_POLL_H
 #include <poll.h>
@@ -459,7 +462,7 @@ main(int argc, char **argv)
 	}
 	/*
 	 * Finally check the exit status of the ssh process, if one was forked
-	 * and no error has occured yet
+	 * and no error has occurred yet
 	 */
 	if (do_cmd_pid != -1 && errs == 0) {
 		if (remin != -1)
@@ -1131,6 +1134,21 @@ sink(int argc, char **argv)
 bad:			run_err("%s: %s", np, strerror(errno));
 			continue;
 		}
+#ifdef __APPLE_XSAN__
+		{
+			/*
+			 * Pre-allocate blocks for the destination file.
+			 */
+			fstore_t fst;
+
+			fst.fst_flags = 0;
+			fst.fst_posmode = F_PEOFPOSMODE;
+			fst.fst_offset = 0;
+			fst.fst_length = size;
+				
+			(void) fcntl(ofd, F_PREALLOCATE, &fst);
+		}
+#endif /* __APPLE_XSAN__ */		
 		(void) atomicio(vwrite, remout, "", 1);
 		if ((bp = allocbuf(&buffer, ofd, COPY_BUFLEN)) == NULL) {
 			(void) close(ofd);

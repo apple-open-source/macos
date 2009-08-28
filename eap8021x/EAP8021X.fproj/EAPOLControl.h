@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,7 +26,7 @@
 #define _EAP8021X_EAPOLCONTROL_H
 #include <CoreFoundation/CFDictionary.h>
 #include <CoreFoundation/CFString.h>
-
+#include <TargetConditionals.h>
 #include <EAP8021X/EAPOLControlTypes.h>
 
 /*
@@ -84,6 +84,27 @@ EAPOLControlStop(const char * interface_name);
 int
 EAPOLControlRetry(const char * interface_name);
 
+/*
+ * Function: EAPOLControlProvideUserInput
+ * Purpose:
+ *   Tell the EAP client that the user has provided input and/or changed
+ *   something in the environment that would allow the authentication to
+ *   continue e.g. modified trust settings.
+ *
+ * Arguments:
+ *   interface_name	name of the BSD interface
+ *   user_input		If ! NULL, contains keys/values
+ *			corresponding to the additional user input.
+ *                      The keys/values are merged into the
+ *                      client configuration dictionary.
+ *
+ *                      If NULL, simply means that the user has changed
+ *       		something in the environment, and the EAP client
+ *			should try to continue the authentication.
+ */
+int
+EAPOLControlProvideUserInput(const char * interface_name,
+			     CFDictionaryRef user_input);
 int
 EAPOLControlCopyStateAndStatus(const char * interface_name, 
 			       EAPOLControlState * state,
@@ -97,4 +118,35 @@ EAPOLControlCopyStateAndStatus(const char * interface_name,
  */
 int
 EAPOLControlSetLogLevel(const char * interface_name, int32_t level);
+
+#if ! TARGET_OS_EMBEDDED
+/*
+ * Functions: EAPOLControlStartSystem
+ * Purpose:
+ *   If a System Mode configuration exists on the given interface, start it.
+ *   This function is used to resume a System mode authentication session
+ *   after calling EAPOLControlStop() when System mode was active on the
+ *   interace.
+ *
+ * Note:
+ *   Currently the 'options' parameter is not used, pass NULL.
+ */
+int
+EAPOLControlStartSystem(const char * interface_name, CFDictionaryRef options);
+
+/*
+ * Function: EAPOLControlCopyLoginWindowConfiguration
+ * Purpose:
+ *   If LoginWindow mode is activated during this login session, returns the
+ *   configuration that was used.  This value is cleared when the user logs out.
+ *
+ * Returns:
+ *   0 and non-NULL CFDictionaryRef value in *config_p on success,
+ *   non-zero on failure
+ */
+int
+EAPOLControlCopyLoginWindowConfiguration(const char * interface_name,
+					 CFDictionaryRef * config_p);
+#endif /* ! TARGET_OS_EMBEDDED */
+
 #endif _EAP8021X_EAPOLCONTROL_H

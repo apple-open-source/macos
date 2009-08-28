@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -41,7 +41,7 @@ static void launch_child(abts_case *tc, apr_lockmech_e mech,
     args[0] = "globalmutexchild" EXTENSION;
     args[1] = (const char*)apr_itoa(p, (int)mech);
     args[2] = NULL;
-    rv = apr_proc_create(proc, "./globalmutexchild" EXTENSION, args, NULL,
+    rv = apr_proc_create(proc, TESTBINPATH "globalmutexchild" EXTENSION, args, NULL,
             procattr, p);
     APR_ASSERT_SUCCESS(tc, "Couldn't launch program", rv);
 }

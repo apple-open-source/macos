@@ -100,10 +100,15 @@ public:
 	result none.	*/	
     void restart( );
 
-/*!	function restart
+/*!	function receiveAsyncStream
 	abstract Callback for receiving Async Stream packets.
 	result none.	*/	
 	static void receiveAsyncStream( DCLCommandStruct *dclProgram );
+
+/*!	function receiveAsyncStream
+	abstract Callback for receiving Async Stream packets.
+	result return kIOReturnSuccess after processing the packet.	*/	
+	static IOReturn receiveAsyncStream(void *refcon, IOFireWireMultiIsochReceivePacket *pPacket);
 
 	UInt32	getClientsCount();
 
@@ -157,6 +162,8 @@ private :
     IORecursiveLock				*rxCommandLock;
 	OSSet						*fAsyncStreamClients;
 	OSIterator					*fAsyncStreamClientIterator;
+	
+	IOFireWireMultiIsochReceiveListener *fListener;
 	
 	DCLCommandStruct *CreateAsyncStreamRxDCLProgram(	DCLCallCommandProc* proc, 
 														void *callbackObject);

@@ -290,7 +290,7 @@ acl_from_text(const char *buf_p)
     int i, error = 0, need_tag, ug_tag;
     char *buf, *orig_buf;
     char *entry, *field, *sub;
-    uuid_t *uu;
+    uuid_t *uu = NULL;
     struct passwd *tpass = NULL;
     struct group *tgrp = NULL;
     acl_entry_t acl_entry;
@@ -386,7 +386,9 @@ acl_from_text(const char *buf_p)
 	/* field 1: <user|group> */
 	field = strsep(&entry, ":");
 
-	if((uu = calloc(1, sizeof(uuid_t))) == NULL)
+	if(uu)
+	    bzero(uu, sizeof(uuid_t));
+	else if((uu = calloc(1, sizeof(uuid_t))) == NULL)
 	{
 	    error = errno;
 	    goto exit;
@@ -561,6 +563,8 @@ acl_from_text(const char *buf_p)
 	acl_set_qualifier(acl_entry, *uu);
     }
 exit:
+    if(uu)
+	free(uu);
     free(orig_buf);
     if (error)
     {
@@ -688,5 +692,5 @@ acl_size(acl_t acl)
 {
 	_ACL_VALIDATE_ACL(acl);
 
-	return(_ACL_HEADER_SIZE + acl->a_entries * _ACL_ENTRY_SIZE);
+	return(KAUTH_FILESEC_SIZE(acl->a_entries));
 }

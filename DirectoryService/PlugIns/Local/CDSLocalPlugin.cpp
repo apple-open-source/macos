@@ -51,8 +51,9 @@
 #include <syslog.h>
 #include <notify.h>
 #include "Mbrd_MembershipResolver.h"
-#include <libkern/OSAtomic.h>
 #include "CCachePlugin.h"
+#include "CRefTable.h"
+#include "CHandlers.h"
 
 #include "buffer_unpackers.h"
 #include "CDSLocalPluginNode.h"
@@ -63,9 +64,9 @@
 
 DSEventSemaphore		gKickLocalNodeRequests;
 CContinue				*gLocalContinueTable = nil;
-extern UInt32			gDaemonPID;
-extern UInt32			gDaemonIPAddress;
-
+extern pid_t			gDaemonPID;
+extern in_addr_t		gDaemonIPAddress;
+extern CRefTable		gRefTable;
 const char*				gProtocolPrefixString = kTopLevelNodeName;
 
 enum
@@ -105,6 +106,11 @@ inline bool SupportedMatchType( tDirPatternMatch matchType )
 	return bReturn;
 }
 
+CFArrayRef dsCopyKerberosServiceList( void )
+{
+	return gLocalNode->CopyKerberosServiceList();
+}
+
 #pragma mark -
 #pragma mark Plugin Entry Points
 
@@ -120,6 +126,7 @@ CDSLocalPlugin::CDSLocalPlugin( FourCharCode inSig, const char *inName ) :
 	mOpenAttrValueListRefs				= CFDictionaryCreateMutable( NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
 	mOpenRecordRefs						= CFDictionaryCreateMutable( NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
 	mAttrNativeToPrefixedNativeMappings	= CFDictionaryCreateMutable( NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
+	mPermissions						= NULL; // created in LoadMappings
 	mAttrNativeToStdMappings			= NULL; // created in LoadMappings
 	mAttrStdToNativeMappings			= NULL; // created in LoadMappings
 	mAttrPrefixedNativeToNativeMappings	= NULL; // created in LoadMappings
@@ -131,10 +138,15 @@ CDSLocalPlugin::CDSLocalPlugin( FourCharCode inSig, const char *inName ) :
 	mDelayFailedLocalAuthReturnsDeltaInSeconds = 1;
 	mPWSFrameworkAvailable				= false;
 	
-	if ( gLocalContinueTable == nil )
-		gLocalContinueTable = new CContinue( CDSLocalPlugin::ContinueDeallocProc, (UInt32)(gServerOS ? 256 : 64) );
+	// not normal references because API references are translated, so we have to keep separate
+	mInternalNodeRef					= 0;
+	mInternalDirRef						= 0;
 	
-	OSAtomicCompareAndSwapPtr( NULL, this, (void **) &gLocalNode );
+	CContinue *pContinue = new CContinue( CDSLocalPlugin::ContinueDeallocProc );
+	if ( __sync_bool_compare_and_swap(&gLocalContinueTable, NULL, pContinue) == false )
+		delete pContinue;
+	
+	__sync_bool_compare_and_swap( &gLocalNode, NULL, this );
 	
 	CFURLRef	cfURL = CFURLCreateWithFileSystemPath( kCFAllocatorDefault, CFSTR("/System/Library/PrivateFrameworks/PasswordServer.framework"), 
 													   kCFURLPOSIXPathStyle, TRUE );
@@ -164,6 +176,7 @@ CDSLocalPlugin::~CDSLocalPlugin( void )
 		CFRelease( mOpenAttrValueListRefs );
 	if ( mOpenRecordRefs != NULL )
 		CFRelease( mOpenRecordRefs );
+	DSCFRelease( mPermissions );
 	if ( mAttrNativeToStdMappings != NULL )
 		CFRelease( mAttrNativeToStdMappings );
 	if ( mAttrStdToNativeMappings != NULL )
@@ -180,6 +193,10 @@ CDSLocalPlugin::~CDSLocalPlugin( void )
 		CFRelease( mRecPrefixedNativeToNativeMappings );
 	if ( mDSRef != 0 )
 		dsCloseDirService( mDSRef );
+	if ( mInternalNodeRef != 0 )
+		gRefTable.RemoveReference( mInternalNodeRef, eRefTypeDirNode, 0, 0 );
+	if ( mInternalDirRef != 0 )
+		gRefTable.RemoveReference( mInternalDirRef, eRefTypeDir, 0, 0 );
 }
 
 void CDSLocalPlugin::CloseDatabases( void )
@@ -438,20 +455,16 @@ SInt32 CDSLocalPlugin::ProcessRequest( void *inData )
 
 void CDSLocalPlugin::AddContinueData( tDirNodeReference inNodeRef, CFMutableDictionaryRef inContinueData, tContextData *inOutAttachReference )
 {
-	if (inContinueData == NULL)
+	if (inContinueData == NULL || *inOutAttachReference != 0)
 		return;
 	
 	CFRetain( inContinueData );
-	
-	gLocalContinueTable->AddItem( inContinueData, inNodeRef );
-	
-	if ( inOutAttachReference )
-		*inOutAttachReference = (tContextData)inContinueData;
+	(*inOutAttachReference) = gLocalContinueTable->AddPointer( inContinueData, inNodeRef );
 }
 
 CFMutableDictionaryRef CDSLocalPlugin::CopyNodeDictForNodeRef( tDirNodeReference inNodeRef )
 {
-	CFNumberRef nodeRefNumber = CFNumberCreate( NULL, kCFNumberLongType, &inNodeRef );
+	CFNumberRef nodeRefNumber = CFNumberCreate( NULL, kCFNumberIntType, &inNodeRef );
 
 	mOpenNodeRefsLock.WaitLock();
 	
@@ -511,6 +524,11 @@ CFArrayRef CDSLocalPlugin::CreateOpenRecordsOfTypeArray( CFStringRef inNativeRec
 	CFDictionaryRef openRecordAttrsValues = NULL;
 	CFBooleanRef isDeleted = kCFBooleanFalse;
 	CFMutableDictionaryRef openRecordAttrsValuesCopy = NULL;
+
+	// don't return the open records if it's a membership call because we can cause a deadlock
+	// only rely on existing results on disk
+	// TODO: need record level locking, not a big lock on all open records
+	if ( Mbrd_IsMembershipThread() == true ) return NULL;
 	
 	// needs to be a rd/rw lock to protect the CF items
 	mOpenRecordRefsLock.WaitLock();
@@ -532,7 +550,7 @@ CFArrayRef CDSLocalPlugin::CreateOpenRecordsOfTypeArray( CFStringRef inNativeRec
 				CFMutableArrayRef mutableRecords = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
 				for ( CFIndex i = 0; i < numOpenRecords; i++ )
 				{
-					CFDictionaryRef openRecordDict = (CFDictionaryRef)values[i];
+					CFMutableDictionaryRef openRecordDict = (CFMutableDictionaryRef)values[i];
 					if ( openRecordDict != NULL )
 					{
 						CFStringRef nativeRecType = (CFStringRef)CFDictionaryGetValue( openRecordDict, CFSTR(kOpenRecordDictRecordType) );
@@ -547,13 +565,7 @@ CFArrayRef CDSLocalPlugin::CreateOpenRecordsOfTypeArray( CFStringRef inNativeRec
 							if ( isDeleted && CFBooleanGetValue( isDeleted ) == TRUE )
 								continue;
 							
-							openRecordAttrsValuesCopy = (CFMutableDictionaryRef) CFPropertyListCreateDeepCopy( NULL, openRecordAttrsValues,
-								kCFPropertyListMutableContainers );
-							
-							if ( openRecordAttrsValuesCopy != NULL ) {
-								CFArrayAppendValue( mutableRecords, openRecordAttrsValuesCopy );
-								CFRelease( openRecordAttrsValuesCopy );
-							}
+							CFArrayAppendValue( mutableRecords, openRecordDict );
 						}
 					}
 				}
@@ -780,77 +792,6 @@ CFStringRef CDSLocalPlugin::GetUserGUID( CFStringRef inUserName, CDSLocalPluginN
 }
 
 
-bool CDSLocalPlugin::UserIsAdmin( CFStringRef inUserName, CDSLocalPluginNode* inNode )
-{
-	bool isAdmin = false;
-	CFMutableDictionaryRef mutableAuthedUserRecordDict = NULL;
-	tDirStatus dirStatus = this->GetRetainedRecordDict( inUserName,
-		this->RecordNativeTypeForStandardType( CFSTR( kDSStdRecordTypeUsers ) ), inNode, &mutableAuthedUserRecordDict );
-	if ( dirStatus != eDSNoErr )
-		DbgLog( kLogPlugin, "CDSLocalPlugin::UserIsAdmin(): got error %d from CDSLocalPlugin::GetRetainedRecordDict()", dirStatus );
-	else
-		isAdmin = this->UserIsAdmin( mutableAuthedUserRecordDict, inNode );
-	
-	DSCFRelease( mutableAuthedUserRecordDict );
-	
-	return isAdmin;
-}
-
-bool CDSLocalPlugin::UserIsAdmin( CFDictionaryRef inRecordDict, CDSLocalPluginNode* inNode )
-{
-	CFArrayRef values = NULL;
-	CFStringRef userGUID = NULL;
-	CFStringRef userRecordName = NULL;
-	CFStringRef userGID = NULL;
-
-	// check to see if the user's GID is the admin group's ID
-	values = (CFArrayRef)CFDictionaryGetValue( inRecordDict,
-		this->AttrNativeTypeForStandardType( CFSTR( kDS1AttrPrimaryGroupID ) ) );
-	if ( values != NULL && CFArrayGetCount( values ) > 0 )
-	{
-		userGID = (CFStringRef)CFArrayGetValueAtIndex( values, 0 );
-		if ( userGID != NULL && CFStringCompare( userGID, CFSTR( "80" ), 0 ) == kCFCompareEqualTo )
-			return true;
-	}
-	
-	values = (CFArrayRef)CFDictionaryGetValue( inRecordDict,
-		this->AttrNativeTypeForStandardType( CFSTR( kDS1AttrGeneratedUID ) ) );
-	if ( values != NULL && CFArrayGetCount( values ) > 0 )
-		userGUID = (CFStringRef)CFArrayGetValueAtIndex( values, 0 );
-	
-	CFMutableArrayRef groups = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
-	CFStringRef adminGroupName = CFSTR( "admin" );
-	CFArrayRef groupNames = CFArrayCreate( NULL, (const void**)&adminGroupName, 1, &kCFTypeArrayCallBacks );
-
-	values = (CFArrayRef)CFDictionaryGetValue( inRecordDict,
-		this->AttrNativeTypeForStandardType( CFSTR( kDSNAttrRecordName ) ) );
-	if ( values != NULL && CFArrayGetCount( values ) > 0 )
-		userRecordName = (CFStringRef)CFArrayGetValueAtIndex( values, 0 );
-	
-	// is the user root?
-	if ( userRecordName != NULL && CFStringCompare( userRecordName, CFSTR( "root" ), 0 ) == kCFCompareEqualTo )
-	{
-		DSCFRelease( groupNames );
-		DSCFRelease( groups );
-		return true;
-	}
-
-	bool isAdmin = false;
-	tDirStatus dirStatus = inNode->GetRecords( this->RecordNativeTypeForStandardType(
-		CFSTR( kDSStdRecordTypeGroups ) ), groupNames, CFSTR( kDSNAttrRecordName ), eDSExact, false, 1, groups );
-	if ( ( dirStatus == eDSNoErr ) && ( CFArrayGetCount( groups ) > 0 ) )
-	{
-		CFDictionaryRef adminGroup = (CFDictionaryRef)CFArrayGetValueAtIndex( groups, 0 );
-		isAdmin = this->RecurseUserIsMemberOfGroup( userRecordName, userGUID, userGID, adminGroup, inNode );
-	}
-	
-	DSCFRelease( groupNames );
-	DSCFRelease( groups );
-	
-	return isAdmin;
-}
-
-
 bool
 CDSLocalPlugin::SearchAllRecordTypes( CFArrayRef inRecTypesArray )
 {
@@ -899,26 +840,125 @@ void CDSLocalPlugin::NodeDictSetValue( CFMutableDictionaryRef inNodeDict, const 
 	mOpenNodeRefsLock.SignalLock();
 }
 
+CFArrayRef CDSLocalPlugin::CopyKerberosServiceList( void )
+{
+	WaitForInit();
+	
+	CFStringRef kerbServices = AttrNativeTypeForStandardType( CFSTR(kDSNAttrKerberosServices) );
+	if ( kerbServices == NULL ) return NULL;
+
+	CDSLocalPluginNode *node = NULL;
+	CFArrayRef result = NULL;
+	
+	mOpenNodeRefsLock.WaitLock();
+	
+	// no need to do anything if we don't have any refs
+	CFIndex numNodeRefs	= CFDictionaryGetCount( mOpenNodeRefs );
+	if ( numNodeRefs > 0 )
+	{
+		// check to see if there's already a node object for this node
+		CFDictionaryRef *values = (CFDictionaryRef *) calloc( numNodeRefs, sizeof(CFDictionaryRef) );
+		assert( values != NULL );
+		
+		CFDictionaryGetKeysAndValues( mOpenNodeRefs, NULL, (const void **) values );
+		
+		for ( CFIndex ii = 0; ii < numNodeRefs; ii++ )
+		{
+			CFStringRef nodePath = (CFStringRef) CFDictionaryGetValue( values[ii], CFSTR(kNodePathkey) );
+			if ( nodePath != NULL && CFStringCompare(nodePath, CFSTR(kLocalNodeDefault), 0) == kCFCompareEqualTo )
+			{
+				node = NodeObjectFromNodeDict( values[ii] );
+				break;
+			}
+		}
+		
+		DSFree( values );
+	}
+		
+	mOpenNodeRefsLock.SignalLock();
+	
+	if ( node != NULL )
+	{
+		CFStringRef nativeRecType = RecordNativeTypeForStandardType( CFSTR(kDSStdRecordTypeComputers) );
+		CFStringRef recordName = CFSTR("localhost");
+		CFArrayRef cfTempArray = CFArrayCreate( kCFAllocatorDefault, (const void **) &recordName, 1, &kCFTypeArrayCallBacks );
+		CFMutableArrayRef results = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
+		
+		node->GetRecords( nativeRecType, cfTempArray, CFSTR(kDSNAttrRecordName), eDSiExact, false, 1, results, false );
+		if ( CFArrayGetCount(results) > 0 )
+		{
+			CFDictionaryRef dict = (CFDictionaryRef) CFArrayGetValueAtIndex( results, 0 );
+			
+			result = (CFArrayRef) CFDictionaryGetValue( dict, kerbServices );
+			if ( result != NULL ) CFRetain( result );
+		}
+		
+		DSCFRelease( cfTempArray );
+		DSCFRelease( results );
+	}
+	
+	return result;
+}
+
 #pragma mark -
 #pragma mark Auth Helper Record Attribute handling Functions
 
-tDirStatus CDSLocalPlugin::CreateRecord( tDirNodeReference inNodeRef, CFStringRef inStdRecType, CFStringRef inRecName, bool inOpenRecord, tRecordReference* outOpenRecordRef )
+tDirNodeReference
+CDSLocalPlugin::GetInternalNodeRef( void )
+{
+	static dispatch_once_t	sPredicate		= 0;
+	__block sOpenDirNode	openNodeStruct; // use __block (6453258)
+	
+	// have to do this when needed, if we do it at initialization, it will cause a problem
+	dispatch_once( &sPredicate, 
+				   ^(void) {
+					   // references are allocated, but the node must have a ref inside of the local plugin
+					   // so we fake a node open to so that mInternalNodeRef is a valid ref to the plugin
+					   gRefTable.CreateReference( &mInternalDirRef, eRefTypeDir, this, 0, 0, 0 );
+					   gRefTable.CreateReference( &mInternalNodeRef, eRefTypeDirNode, this, mInternalDirRef, 0, 0 );
+					   
+					   openNodeStruct.fType = kOpenDirNode;
+					   openNodeStruct.fInDirRef = mInternalDirRef;
+					   openNodeStruct.fInDirNodeName = dsBuildFromPathPriv( gDSLocalOnlyMode ? "/Local/Target" : kLocalNodeDefault, "/" );
+					   openNodeStruct.fOutNodeRef = mInternalNodeRef;
+					   openNodeStruct.fInEffectiveUID = 0;
+					   openNodeStruct.fInUID = 0;
+
+					   OpenDirNode( &openNodeStruct );
+					   
+					   dsDataListDeallocatePriv( openNodeStruct.fInDirNodeName );
+					   free( openNodeStruct.fInDirNodeName );
+					   openNodeStruct.fInDirNodeName = NULL;
+				   } );
+	
+	return mInternalNodeRef;
+}
+
+tDirStatus CDSLocalPlugin::CreateRecord( CFStringRef inStdRecType, CFStringRef inRecName, bool inOpenRecord, tRecordReference* outOpenRecordRef )
 {
 	char* cStr = NULL;
 	size_t cStrSize = 0;
 	char* cStr2 = NULL;
 	size_t cStrSize2 = 0;
-
+	
 	sCreateRecord createRecStruct = {};
 	createRecStruct.fType = inOpenRecord ? kCreateRecordAndOpen : kCreateRecord;
-	createRecStruct.fInNodeRef = inNodeRef;
+	createRecStruct.fInNodeRef = GetInternalNodeRef();
 	createRecStruct.fInRecType = ::dsDataNodeAllocateString( 0, CStrFromCFString( inStdRecType, &cStr, &cStrSize, NULL ) );
 	createRecStruct.fInRecName = ::dsDataNodeAllocateString( 0, CStrFromCFString( inRecName, &cStr2, &cStrSize2, NULL ) );
 	createRecStruct.fInOpen = inOpenRecord;
+	createRecStruct.fOutRecRef = 0;
+
+	if ( inOpenRecord ) {
+		gRefTable.CreateReference( &createRecStruct.fOutRecRef, eRefTypeRecord, this, mInternalNodeRef, 0, 0 );
+		DbgLog( kLogDebug, "CDSLocalPlugin::CreateRecord - internal open using reference %d", createRecStruct.fOutRecRef );
+	}
 	
 	tDirStatus dirStatus = this->CreateRecord( &createRecStruct );
 	if ( ( dirStatus == eDSNoErr ) && inOpenRecord && ( outOpenRecordRef != NULL ) )
 		*outOpenRecordRef = createRecStruct.fOutRecRef;
+	else if ( createRecStruct.fOutRecRef != 0 )
+		gRefTable.RemoveReference( createRecStruct.fOutRecRef, eRefTypeRecord, 0, 0 );
 	
 	::dsDataNodeDeAllocate( 0, createRecStruct.fInRecType );
 	::dsDataNodeDeAllocate( 0, createRecStruct.fInRecName );
@@ -929,7 +969,7 @@ tDirStatus CDSLocalPlugin::CreateRecord( tDirNodeReference inNodeRef, CFStringRe
 	return dirStatus;
 }
 
-tDirStatus CDSLocalPlugin::OpenRecord( tDirNodeReference inNodeRef, CFStringRef inStdRecType, CFStringRef inRecName, tRecordReference* outOpenRecordRef )
+tDirStatus CDSLocalPlugin::OpenRecord( CFStringRef inStdRecType, CFStringRef inRecName, tRecordReference* outOpenRecordRef )
 {
 	char* cStr = NULL;
 	size_t cStrSize = 0;
@@ -941,13 +981,18 @@ tDirStatus CDSLocalPlugin::OpenRecord( tDirNodeReference inNodeRef, CFStringRef 
 	
 	sOpenRecord openRecStruct = {};
 	openRecStruct.fType = kOpenRecord;
-	openRecStruct.fInNodeRef = inNodeRef;
+	openRecStruct.fInNodeRef = GetInternalNodeRef();
 	openRecStruct.fInRecType = ::dsDataNodeAllocateString( 0, CStrFromCFString( inStdRecType, &cStr, &cStrSize, NULL ) );
 	openRecStruct.fInRecName = ::dsDataNodeAllocateString( 0, CStrFromCFString( inRecName, &cStr2, &cStrSize2, NULL ) );
+
+	gRefTable.CreateReference( &openRecStruct.fOutRecRef, eRefTypeRecord, this, mInternalNodeRef, 0, 0 );
+	DbgLog( kLogDebug, "CDSLocalPlugin::OpenRecord - internal open using reference %d", openRecStruct.fOutRecRef );
 
 	tDirStatus dirStatus = this->OpenRecord( &openRecStruct );
 	if ( ( dirStatus == eDSNoErr ) && ( outOpenRecordRef != NULL ) )
 		*outOpenRecordRef = openRecStruct.fOutRecRef;
+	else
+		gRefTable.RemoveReference( openRecStruct.fOutRecRef, eRefTypeRecord, 0, 0 );
 
 	::dsDataNodeDeAllocate( 0, openRecStruct.fInRecType );
 	::dsDataNodeDeAllocate( 0, openRecStruct.fInRecName );
@@ -1095,7 +1140,7 @@ tDirStatus CDSLocalPlugin::AuthOpen( tDirNodeReference inNodeRef, const char* in
 	if ( nodeDict == NULL )
 		return eDSInvalidNodeRef;
 	
-	CFStringRef authedAsName = (inUserIsAdmin ? CFSTR("root") : CFStringCreateWithCString(NULL, inUserName, kCFStringEncodingUTF8));
+	CFStringRef authedAsName = (inIsEffectiveRoot ? CFSTR("root") : CFStringCreateWithCString(NULL, inUserName, kCFStringEncodingUTF8));
 	if ( authedAsName != NULL ) {
 		// remove any old authenticated user name and set new
 		NodeDictSetValue( nodeDict, CFSTR( kNodeAuthenticatedUserName ), authedAsName );
@@ -1255,7 +1300,6 @@ tDirStatus CDSLocalPlugin::OpenDirNode( sOpenDirNode* inData )
 	CFStringRef		nodeNameCFStr		= NULL;
 	CFStringRef		nodePathCFStr		= NULL;
 	CFStringRef		nodeFilePathCFStr	= NULL;
-	const void	  **keys				= NULL;
 	const void	  **values				= NULL;
 	bool			openNodeRefsLocked	= false;
 	char		   *cStr				= NULL;
@@ -1353,8 +1397,8 @@ tDirStatus CDSLocalPlugin::OpenDirNode( sOpenDirNode* inData )
 		newNodeDict = CFDictionaryCreateMutable( NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
 		if ( newNodeDict != NULL )
 		{	// create a node dictionary containing the node file path and the node DS path
-			CFNumberRef	uidNumber			= CFNumberCreate( NULL, kCFNumberLongType, &inData->fInUID );
-			CFNumberRef effectiveUIDNumber	= CFNumberCreate( NULL, kCFNumberLongType, &inData->fInEffectiveUID );
+			CFNumberRef	uidNumber			= CFNumberCreate( NULL, kCFNumberIntType, &inData->fInUID );
+			CFNumberRef effectiveUIDNumber	= CFNumberCreate( NULL, kCFNumberIntType, &inData->fInEffectiveUID );
 			CDSLocalPluginNode* node		= NULL;
 			CFIndex numNodeRefs				= CFDictionaryGetCount( mOpenNodeRefs );
 			
@@ -1362,12 +1406,11 @@ tDirStatus CDSLocalPlugin::OpenDirNode( sOpenDirNode* inData )
 			if (numNodeRefs > 0)
 			{
 				// check to see if there's already a node object for this node
-				keys	= (const void**)calloc( numNodeRefs, sizeof( void* ) );
 				values	= (const void**)calloc( numNodeRefs, sizeof( void* ) );
-				if ( keys == NULL || values == NULL )
+				if ( values == NULL )
 					throw( eMemoryError );
 				
-				CFDictionaryGetKeysAndValues( mOpenNodeRefs, keys, values );
+				CFDictionaryGetKeysAndValues( mOpenNodeRefs, NULL, values );
 				
 				CFMutableDictionaryRef existingNodeDict = NULL;
 				for ( CFIndex i = 0; i < numNodeRefs; i++ )
@@ -1407,7 +1450,7 @@ tDirStatus CDSLocalPlugin::OpenDirNode( sOpenDirNode* inData )
 		}
 		
 		// add the node dict to our dictionary of open refs with the nodeRef as the key
-		CFNumberRef nodeRefNumber = CFNumberCreate( NULL, kCFNumberLongType, &inData->fOutNodeRef );
+		CFNumberRef nodeRefNumber = CFNumberCreate( NULL, kCFNumberIntType, &inData->fOutNodeRef );
 		CFDictionaryAddValue( mOpenNodeRefs, nodeRefNumber, newNodeDict );
 		DSCFRelease( nodeRefNumber );
 	}
@@ -1423,7 +1466,6 @@ tDirStatus CDSLocalPlugin::OpenDirNode( sOpenDirNode* inData )
 	}
 
 	DSCFRelease( newNodeDict );
-	DSFree( keys );		//do not release the keys themselves since obtained from Get
 	DSFree( values );	//do not release the values themselves since obtained from Get
 	DSCFRelease( nodeFilePathCFStr );
 	DSCFRelease( nodeNameCFStr );
@@ -1445,7 +1487,7 @@ tDirStatus CDSLocalPlugin::CloseDirNode( sCloseDirNode* inData )
 	mOpenNodeRefsLock.WaitLock();
 
 	// has a valid context, free the continue datas
-	gLocalContinueTable->RemoveItems( inData->fInNodeRef );
+	gLocalContinueTable->RemovePointersForRefNum( inData->fInNodeRef );
 	
 	node = this->NodeObjectFromNodeDict( nodeDict );
 		
@@ -1481,7 +1523,7 @@ tDirStatus CDSLocalPlugin::CloseDirNode( sCloseDirNode* inData )
 		}
 		
 		// need to retain the write lock the whole time since we delete the dict after deleting the node
-		CFNumberRef nodeRefNumber = CFNumberCreate( NULL, kCFNumberLongType, &inData->fInNodeRef );
+		CFNumberRef nodeRefNumber = CFNumberCreate( NULL, kCFNumberIntType, &inData->fInNodeRef );
 		CFDictionaryRemoveValue( mOpenNodeRefs, nodeRefNumber );
 		DSCFRelease( nodeRefNumber );
 	}
@@ -1504,67 +1546,53 @@ tDirStatus CDSLocalPlugin::CloseDirNode( sCloseDirNode* inData )
 
 tDirStatus CDSLocalPlugin::GetDirNodeInfo( sGetDirNodeInfo* inData )
 {
-	tDirStatus		siResult		= eDSNoErr;
-	CFArrayRef		desiredAttrs	= NULL;
-	CFDataRef		nodeInfoData	= NULL;
-	CFDictionaryRef	nodeInfoDict	= NULL;
-	CFDictionaryRef nodeDict		= NULL;
+	tDirStatus			siResult		= eDSNoErr;
+	CFArrayRef			desiredAttrs	= NULL;
+	CFDictionaryRef		nodeInfoDict	= NULL;
+	CFDictionaryRef		nodeDict		= NULL;
+	CFMutableArrayRef	cfValues		= NULL;
+	SInt32				recCount;
 
-//TODO: RecordType looks at mappings and should really only return existing ones ie. from an index file
-			// if we're searching all record types, then fill in with all the record types that have directories
-			//if ( searchAllRecordTypes )
-			//{
-			//	DSCFRelease( recTypesArray );
-			//	recTypesArray = node->CreateAllRecordTypesArray();
-			//	numRecTypes = CFArrayGetCount( recTypesArray );
-			//}
-				
 	nodeDict = this->CopyNodeDictForNodeRef( inData->fInNodeRef );
 	if ( nodeDict == NULL ) return BaseDirectoryPlugin::GetDirNodeInfo( inData );
 	
-	try
-	{
-		if ( inData->fInDirNodeInfoTypeList == NULL ) throw( eDSEmptyNodeInfoTypeList );
-		desiredAttrs = CDSLocalPluginCFArrayCreateFromDataList( inData->fInDirNodeInfoTypeList, true );
-		if ( desiredAttrs == NULL ) throw( eMemoryAllocError );
-		
-		nodeInfoDict = this->CreateNodeInfoDict( desiredAttrs, inData->fInAttrInfoOnly, nodeDict );
-		nodeInfoData = CFPropertyListCreateXMLData( NULL, nodeInfoDict );
-		if ( nodeInfoData == NULL ) throw( eMemoryAllocError );
-
-		::memset( inData->fOutDataBuff->fBufferData, 0, inData->fOutDataBuff->fBufferSize );
-		inData->fOutDataBuff->fBufferLength = 0;
-
-		const UInt8* dataBytes = CFDataGetBytePtr( nodeInfoData ); //TODO: does not make use of CSBP ie. requires mach round trips
-		unsigned long dataLength = (unsigned long)CFDataGetLength( nodeInfoData );
-		
-		unsigned long buffType = 'Gdni';
-		if ( sizeof( buffType ) + sizeof( dataLength ) + dataLength > inData->fOutDataBuff->fBufferSize ) throw( eDSBufferTooSmall );
-
-		::memcpy( &inData->fOutDataBuff->fBufferData[inData->fOutDataBuff->fBufferLength], &buffType, sizeof( buffType ) );
-		inData->fOutDataBuff->fBufferLength += sizeof( buffType );
-
-		if ( inData->fOutDataBuff->fBufferLength + dataLength + sizeof( dataLength ) > inData->fOutDataBuff->fBufferSize ) throw( eDSBufferTooSmall );
-		
-		::memcpy( &inData->fOutDataBuff->fBufferData[inData->fOutDataBuff->fBufferLength], &dataLength,
-			sizeof( dataLength ) );
-		inData->fOutDataBuff->fBufferLength += sizeof( dataLength );
-		::memcpy( &inData->fOutDataBuff->fBufferData[inData->fOutDataBuff->fBufferLength], dataBytes, dataLength );
-		inData->fOutDataBuff->fBufferLength += dataLength;
-
-		// set the number of attributes
-		CFDictionaryRef attrsDict = (CFDictionaryRef)CFDictionaryGetValue( nodeInfoDict, CFSTR( kNodeInfoAttributes ) );
-		if ( attrsDict == NULL ) throw( ePlugInDataError );
-		inData->fOutAttrInfoCount = CFDictionaryGetCount( attrsDict );
+	if ( inData->fInDirNodeInfoTypeList == NULL ) {
+		siResult = eDSEmptyNodeInfoTypeList;
+		goto failure;
 	}
-	catch( tDirStatus err )
-	{
-		DbgLog( kLogPlugin, "CDSLocalPlugin::GetDirNodeInfo(): failed with error %d", err );
-		siResult = err;
+	
+	desiredAttrs = CDSLocalPluginCFArrayCreateFromDataList( inData->fInDirNodeInfoTypeList, true );
+	if ( desiredAttrs == NULL ) {
+		siResult = eMemoryAllocError;
+		goto failure;
 	}
-
+	
+	// this copy node info uses BDPI format
+	nodeInfoDict = CreateNodeInfoDict( desiredAttrs, nodeDict );
+	if ( nodeInfoDict == NULL ) {
+		siResult = eMemoryAllocError;
+		goto failure;
+	} 
+	
+	cfValues = CFArrayCreateMutable( kCFAllocatorDefault, 1, &kCFTypeArrayCallBacks );
+	CFArrayAppendValue( cfValues, nodeInfoDict );
+	
+	recCount = BaseDirectoryPlugin::FillBuffer( cfValues, inData->fOutDataBuff );
+	
+	// see if we fit anything in the buffer
+	if ( recCount != 0 )
+	{
+		CFDictionaryRef cfAttributes = (CFDictionaryRef) CFDictionaryGetValue( nodeInfoDict, kBDPIAttributeKey );
+		inData->fOutAttrInfoCount = CFDictionaryGetCount( cfAttributes );
+	}
+	else {
+		siResult = eDSBufferTooSmall;
+	}
+	
+	DSCFRelease( cfValues );
+	
+failure:
 	DSCFRelease( desiredAttrs );
-	DSCFRelease( nodeInfoData );
 	DSCFRelease( nodeInfoDict );
 	DSCFRelease( nodeDict );
 	
@@ -1574,7 +1602,7 @@ tDirStatus CDSLocalPlugin::GetDirNodeInfo( sGetDirNodeInfo* inData )
 tDirStatus CDSLocalPlugin::GetRecordList( sGetRecordList* inData )
 {
 	tDirStatus siResult = eDSNoErr;
-	CFMutableDictionaryRef continueDataDict = (CFMutableDictionaryRef)inData->fIOContinueData;
+	CFMutableDictionaryRef continueDataDict = NULL;
 	CFArrayRef recNamesArray = NULL;
 	CFArrayRef recTypesArray = NULL;
 	bool allAttributesRequested = false;
@@ -1597,6 +1625,12 @@ tDirStatus CDSLocalPlugin::GetRecordList( sGetRecordList* inData )
 	nodeDict = this->CopyNodeDictForNodeRef( inData->fInNodeRef );
 	if ( nodeDict == NULL ) return BaseDirectoryPlugin::GetRecordList( inData );
 	
+	if ( inData->fIOContinueData != 0 ) {
+		continueDataDict = (CFMutableDictionaryRef) gLocalContinueTable->GetPointer( inData->fIOContinueData );
+		if ( continueDataDict == NULL || CFGetTypeID(continueDataDict) != CFDictionaryGetTypeID() )
+			return eDSInvalidContinueData;
+	}
+	
 	try
     {
 	
@@ -1614,6 +1648,7 @@ tDirStatus CDSLocalPlugin::GetRecordList( sGetRecordList* inData )
 			// KW this assumes there is no cleanup of the array by any other thread
 			// SNS use the class method
 			this->AddContinueData( inData->fInNodeRef, continueDataDict, &inData->fIOContinueData );
+			CFRelease( continueDataDict ); // release since the continue data now owns it
 			
 			CDSLocalPluginNode* node = this->NodeObjectFromNodeDict( nodeDict );
 
@@ -1675,7 +1710,7 @@ tDirStatus CDSLocalPlugin::GetRecordList( sGetRecordList* inData )
 				}
 			}
 			
-			unsigned long numRecordsToGet = inData->fOutRecEntryCount;
+			UInt32 numRecordsToGet = inData->fOutRecEntryCount;
 			if ( numRecordsToGet == 0 )	// KW guess we will never be able to handlke a request greater than 0xffffffff anyways
 			{
 				numRecordsToGet = 0xffffffff;
@@ -1711,7 +1746,7 @@ tDirStatus CDSLocalPlugin::GetRecordList( sGetRecordList* inData )
 					if ( numRecordsToGet != 0xffffffff )
 					{
 						CFIndex numRecordsGot = CFArrayGetCount( mutableRecordsArray );
-						if ( (unsigned long)numRecordsGot > numRecordsToGet )
+						if ( (UInt32)numRecordsGot > numRecordsToGet )
 						{
 							numRecordsToGet = 0;
 						}
@@ -1738,28 +1773,24 @@ tDirStatus CDSLocalPlugin::GetRecordList( sGetRecordList* inData )
 			CFDictionaryAddValue( continueDataDict, CFSTR( kContinueDataRecordsArrayKey ), mutableRecordsArray );
 			CFRelease( mutableRecordsArray );
 		}
-		else
-		{
-			CFRetain( continueDataDict );
-		}
 		
 		//return the next chunk of records
 		// KW since the first call went ahead and already extracted ALL the results
 		{
 			CFNumberRef numRecordsReturnedNumber = (CFNumberRef)CFDictionaryGetValue( continueDataDict, CFSTR( kContinueDataNumRecordsReturnedKey ) );
-			unsigned long numRecordsReturned = 0;
+			UInt32 numRecordsReturned = 0;
 			if ( numRecordsReturnedNumber != NULL )
 			{
-				CFNumberGetValue( numRecordsReturnedNumber, kCFNumberLongType, &numRecordsReturned );
+				CFNumberGetValue( numRecordsReturnedNumber, kCFNumberIntType, &numRecordsReturned );
 			}
 			
 			// get the full records array out of continueDataDict
 			CFArrayRef recordsArray = (CFArrayRef)CFDictionaryGetValue( continueDataDict, CFSTR( kContinueDataRecordsArrayKey ) );
 			if ( recordsArray == NULL ) throw ( eMemoryError );
 
-			unsigned long numRecordsPacked = 0;
+			UInt32 numRecordsPacked = 0;
 			inData->fOutRecEntryCount = numRecordsPacked;	// set this now in case we didn't find any records at all
-			if ( numRecordsReturned < (unsigned long)CFArrayGetCount( recordsArray ) )
+			if ( numRecordsReturned < (UInt32)CFArrayGetCount( recordsArray ) )
 			{
 				CFArrayRef desiredAttributesArray = (CFArrayRef)CFDictionaryGetValue( continueDataDict, CFSTR( kContinueDataDesiredAttributesArrayKey ) );
 				if ( desiredAttributesArray == NULL )
@@ -1769,26 +1800,21 @@ tDirStatus CDSLocalPlugin::GetRecordList( sGetRecordList* inData )
 				}
 			
 				// pack the records into the buffer
-				siResult = this->PackRecordsIntoBuffer( numRecordsReturned, recordsArray, desiredAttributesArray, inData->fInDataBuff, inData->fInAttribInfoOnly, &numRecordsPacked );
+				siResult = PackRecordsIntoBuffer( nodeDict, numRecordsReturned, recordsArray, desiredAttributesArray, inData->fInDataBuff, inData->fInAttribInfoOnly, &numRecordsPacked );
 				inData->fOutRecEntryCount = numRecordsPacked;
 				if ( siResult != eDSNoErr ) throw( siResult );
 				
 				// update numRecordsReturnedNumber and stick it back into the continueDataDict
 				numRecordsReturned += numRecordsPacked;
-				CFNumberRef newNumRecordsReturnedNumber = CFNumberCreate( kCFAllocatorDefault, kCFNumberLongType, &numRecordsReturned );
+				CFNumberRef newNumRecordsReturnedNumber = CFNumberCreate( kCFAllocatorDefault, kCFNumberIntType, &numRecordsReturned );
 				CFDictionarySetValue( continueDataDict, CFSTR( kContinueDataNumRecordsReturnedKey ), newNumRecordsReturnedNumber );
 				CFRelease( newNumRecordsReturnedNumber );
 			}
 			
-			if ( ( getRecordsStatus != eDSBufferTooSmall ) && ( numRecordsReturned >= (unsigned long)CFArrayGetCount( recordsArray ) ) )
+			if ( ( getRecordsStatus != eDSBufferTooSmall ) && ( numRecordsReturned >= (UInt32)CFArrayGetCount( recordsArray ) ) )
 			{	//remove the continueDataDict.  we're done.
-				sReleaseContinueData releaseContinueData	= {};
-				releaseContinueData.fInDirReference			= inData->fInNodeRef;
-				releaseContinueData.fInContinueData			= (tContextData)continueDataDict;
-				this->ReleaseContinueData( &releaseContinueData );
-				DSCFRelease( continueDataDict );
-				continueDataDict		= NULL;
-				inData->fIOContinueData	= NULL;
+				gLocalContinueTable->RemoveContext( inData->fIOContinueData );
+				inData->fIOContinueData	= 0;
 			}
 		}
 	}
@@ -1800,18 +1826,12 @@ tDirStatus CDSLocalPlugin::GetRecordList( sGetRecordList* inData )
 
 		if ( ( err != eDSBufferTooSmall ) && ( continueDataDict != NULL ) )
 		{
-			sReleaseContinueData releaseContinueData	= {};
-			releaseContinueData.fInDirReference			= inData->fInNodeRef;
-			releaseContinueData.fInContinueData			= (tContextData)continueDataDict;
-			this->ReleaseContinueData ( &releaseContinueData );
-			DSCFRelease( continueDataDict );
-			continueDataDict = NULL;
-			inData->fIOContinueData	= NULL;
+			gLocalContinueTable->RemoveContext( inData->fIOContinueData );
+			inData->fIOContinueData	= 0;
 		}
     }
 
 	DSCFRelease( nodePathCFStr );
-	DSCFRelease( continueDataDict );
 	DSCFRelease( recNamesArray );
 	DSCFRelease( recTypesArray );
 	DSCFRelease( nodeDict );
@@ -1823,7 +1843,7 @@ tDirStatus CDSLocalPlugin::GetRecordList( sGetRecordList* inData )
 tDirStatus CDSLocalPlugin::DoAttributeValueSearch( sDoAttrValueSearch* inData )
 {
 	tDirStatus siResult = eDSNoErr;
-	CFMutableDictionaryRef continueDataDict = (CFMutableDictionaryRef)inData->fIOContinueData;
+	CFMutableDictionaryRef continueDataDict = NULL;
 	CFArrayRef recTypesArray = NULL;
 	CFStringRef attributeType = NULL;
 	CFArrayRef patternsToMatchArray = NULL;
@@ -1856,6 +1876,12 @@ tDirStatus CDSLocalPlugin::DoAttributeValueSearch( sDoAttrValueSearch* inData )
 	nodeDict = this->CopyNodeDictForNodeRef( inData->fInNodeRef );
 	if ( nodeDict == NULL ) return BaseDirectoryPlugin::DoAttributeValueSearch( inData );
 	
+	if ( inData->fIOContinueData != 0 ) {
+		continueDataDict = (CFMutableDictionaryRef) gLocalContinueTable->GetPointer( inData->fIOContinueData );
+		if ( continueDataDict == NULL || CFGetTypeID(continueDataDict) != CFDictionaryGetTypeID() )
+			return eDSInvalidContinueData;
+	}
+	
 	try
     {
 		if ( continueDataDict == NULL )	// if the continueDataDict is NULL, then we need to do the actual search here
@@ -1867,7 +1893,7 @@ tDirStatus CDSLocalPlugin::DoAttributeValueSearch( sDoAttrValueSearch* inData )
 				throw( eMemoryAllocError );
 
 			// add the continue data dict to mContinueDatas so it will be properly retained
-			this->AddContinueData( inData->fInNodeRef, continueDataDict, &inData->fIOContinueData );
+			AddContinueData( inData->fInNodeRef, continueDataDict, &inData->fIOContinueData );
 			CFRelease( continueDataDict );
 			
 			CDSLocalPluginNode* node = this->NodeObjectFromNodeDict( nodeDict );
@@ -1920,7 +1946,7 @@ tDirStatus CDSLocalPlugin::DoAttributeValueSearch( sDoAttrValueSearch* inData )
 
 			nodePathCFStr = (CFStringRef)NodeDictCopyValue( nodeDict, CFSTR( kNodePathkey ) );
 			
-			unsigned long numRecordsToGet = inData->fOutMatchRecordCount;
+			UInt32 numRecordsToGet = inData->fOutMatchRecordCount;
 			if ( numRecordsToGet == 0 )	
 				numRecordsToGet = 0xffffffff;
 			for ( CFIndex i=0; i<numRecTypes && numRecordsToGet > 0 ; i++ )
@@ -1947,7 +1973,7 @@ tDirStatus CDSLocalPlugin::DoAttributeValueSearch( sDoAttrValueSearch* inData )
 					if ( numRecordsToGet != 0xffffffff )
 					{
 						CFIndex numRecordsGot = CFArrayGetCount( mutableRecordsArray );
-						if ( (unsigned long)numRecordsGot > numRecordsToGet )
+						if ( (UInt32)numRecordsGot > numRecordsToGet )
 							numRecordsToGet = 0;
 						else
 							numRecordsToGet -= numRecordsGot;
@@ -1969,18 +1995,15 @@ tDirStatus CDSLocalPlugin::DoAttributeValueSearch( sDoAttrValueSearch* inData )
 
 			CFDictionaryAddValue( continueDataDict, CFSTR( kContinueDataRecordsArrayKey ), mutableRecordsArray );
 			CFRelease( mutableRecordsArray );
-			
-			
-			inData->fIOContinueData = (tContextData)continueDataDict;
 		}
 
 		//return the next chunk of records
 		{
 			CFNumberRef numRecordsReturnedNumber = (CFNumberRef)CFDictionaryGetValue( continueDataDict,
 				CFSTR( kContinueDataNumRecordsReturnedKey ) );
-			unsigned long numRecordsReturned = 0;
+			UInt32 numRecordsReturned = 0;
 			if ( numRecordsReturnedNumber != NULL )
-				CFNumberGetValue( numRecordsReturnedNumber, kCFNumberLongType, &numRecordsReturned );
+				CFNumberGetValue( numRecordsReturnedNumber, kCFNumberIntType, &numRecordsReturned );
 			
 			// get the full records array out of continueDataDict
 			CFArrayRef recordsArray = (CFArrayRef)CFDictionaryGetValue( continueDataDict,
@@ -1988,9 +2011,9 @@ tDirStatus CDSLocalPlugin::DoAttributeValueSearch( sDoAttrValueSearch* inData )
 			if ( recordsArray == NULL )
 				throw ( eMemoryError );
 
-			unsigned long numRecordsPacked = 0;
+			UInt32 numRecordsPacked = 0;
 			inData->fOutMatchRecordCount = numRecordsPacked;	// set this now in case we didn't find any records at all
-			if ( numRecordsReturned < (unsigned long)CFArrayGetCount( recordsArray ) )
+			if ( numRecordsReturned < (UInt32)CFArrayGetCount( recordsArray ) )
 			{
 				CFArrayRef desiredAttributesArray = (CFArrayRef)CFDictionaryGetValue( continueDataDict,
 					CFSTR( kContinueDataDesiredAttributesArrayKey ) );
@@ -2002,7 +2025,7 @@ tDirStatus CDSLocalPlugin::DoAttributeValueSearch( sDoAttrValueSearch* inData )
 				}
 			
 				// pack the records into the buffer
-				siResult = this->PackRecordsIntoBuffer( numRecordsReturned, recordsArray, desiredAttributesArray,
+				siResult = PackRecordsIntoBuffer( nodeDict, numRecordsReturned, recordsArray, desiredAttributesArray,
 					inData->fOutDataBuff, false, &numRecordsPacked );
 				inData->fOutMatchRecordCount = numRecordsPacked;
 				if ( siResult != eDSNoErr )
@@ -2010,7 +2033,7 @@ tDirStatus CDSLocalPlugin::DoAttributeValueSearch( sDoAttrValueSearch* inData )
 				
 				// update numRecordsReturnedNumber and stick it back into the continueDataDict
 				numRecordsReturned += numRecordsPacked;
-				CFNumberRef newNumRecordsReturnedNumber = CFNumberCreate( NULL ,kCFNumberLongType, &numRecordsReturned );
+				CFNumberRef newNumRecordsReturnedNumber = CFNumberCreate( NULL ,kCFNumberIntType, &numRecordsReturned );
 				if ( numRecordsReturnedNumber == NULL )	// add it if it's not already there
 					CFDictionaryAddValue( continueDataDict, CFSTR( kContinueDataNumRecordsReturnedKey ),
 						newNumRecordsReturnedNumber );
@@ -2021,14 +2044,10 @@ tDirStatus CDSLocalPlugin::DoAttributeValueSearch( sDoAttrValueSearch* inData )
 			}
 
 			if ( ( getRecordsStatus != eDSBufferTooSmall ) &&
-				( numRecordsReturned >= (unsigned long)CFArrayGetCount( recordsArray ) ) )
+				( numRecordsReturned >= (UInt32)CFArrayGetCount( recordsArray ) ) )
 			{	//remove the continueDataDict.  we're done.
-				sReleaseContinueData releaseContinueData = {};
-				releaseContinueData.fInDirReference = inData->fInNodeRef;
-				releaseContinueData.fInContinueData = (tContextData)continueDataDict;
-				this->ReleaseContinueData ( &releaseContinueData );
-				continueDataDict = NULL;
-				inData->fIOContinueData = NULL;
+				gLocalContinueTable->RemoveContext( inData->fIOContinueData );
+				inData->fIOContinueData	= 0;
 			}
 		}
 	}
@@ -2040,12 +2059,8 @@ tDirStatus CDSLocalPlugin::DoAttributeValueSearch( sDoAttrValueSearch* inData )
 
 		if ( ( err != eDSBufferTooSmall ) && ( continueDataDict != NULL ) )
 		{
-			sReleaseContinueData releaseContinueData = {};
-			releaseContinueData.fInDirReference = inData->fInNodeRef;
-			releaseContinueData.fInContinueData = (tContextData)continueDataDict;
-			this->ReleaseContinueData ( &releaseContinueData );
-			continueDataDict = NULL;
-			inData->fIOContinueData	= NULL;
+			gLocalContinueTable->RemoveContext( inData->fIOContinueData );
+			inData->fIOContinueData	= 0;
 		}
     }
 
@@ -2065,7 +2080,7 @@ tDirStatus CDSLocalPlugin::DoAttributeValueSearch( sDoAttrValueSearch* inData )
 tDirStatus CDSLocalPlugin::DoAttributeValueSearchWithData( sDoAttrValueSearchWithData* inData )
 {
 	tDirStatus siResult = eDSNoErr;
-	CFMutableDictionaryRef continueDataDict = (CFMutableDictionaryRef)inData->fIOContinueData;
+	CFMutableDictionaryRef continueDataDict = NULL;
 	CFDictionaryRef nodeDict = NULL;
 	CFArrayRef recTypesArray = NULL;
 	CFStringRef attributeType = NULL;
@@ -2099,6 +2114,12 @@ tDirStatus CDSLocalPlugin::DoAttributeValueSearchWithData( sDoAttrValueSearchWit
 	nodeDict = this->CopyNodeDictForNodeRef( inData->fInNodeRef );
 	if ( nodeDict == NULL ) return BaseDirectoryPlugin::DoAttributeValueSearchWithData( inData );
 	
+	if ( inData->fIOContinueData != 0 ) {
+		continueDataDict = (CFMutableDictionaryRef) gLocalContinueTable->GetPointer( inData->fIOContinueData );
+		if ( continueDataDict == NULL || CFGetTypeID(continueDataDict) != CFDictionaryGetTypeID() )
+			return eDSInvalidContinueData;
+	}
+		
 	try
     {
 		if ( continueDataDict == NULL )	// if the continueDataDict is NULL, then we need to do the actual search here
@@ -2178,7 +2199,7 @@ tDirStatus CDSLocalPlugin::DoAttributeValueSearchWithData( sDoAttrValueSearchWit
 			if ( mutableRecordsArray == NULL )
 				throw( eMemoryAllocError );
 
-			unsigned long numRecordsToGet = inData->fOutMatchRecordCount;
+			UInt32 numRecordsToGet = inData->fOutMatchRecordCount;
 			if ( numRecordsToGet == 0 )	
 				numRecordsToGet = 0xffffffff;
 			for ( CFIndex i=0; i<numRecTypes && numRecordsToGet > 0 ; i++ )
@@ -2205,7 +2226,7 @@ tDirStatus CDSLocalPlugin::DoAttributeValueSearchWithData( sDoAttrValueSearchWit
 					if ( numRecordsToGet != 0xffffffff )
 					{
 						CFIndex numRecordsGot = CFArrayGetCount( mutableRecordsArray );
-						if ( (unsigned long)numRecordsGot > numRecordsToGet )
+						if ( (UInt32)numRecordsGot > numRecordsToGet )
 							numRecordsToGet = 0;
 						else
 							numRecordsToGet -= numRecordsGot;
@@ -2229,18 +2250,15 @@ tDirStatus CDSLocalPlugin::DoAttributeValueSearchWithData( sDoAttrValueSearchWit
 
 			CFDictionaryAddValue( continueDataDict, CFSTR( kContinueDataRecordsArrayKey ), mutableRecordsArray );
 			CFRelease( mutableRecordsArray );
-			
-			
-			inData->fIOContinueData = (tContextData)continueDataDict;
 		}
 
 		//return the next chunk of records
 		{
 			CFNumberRef numRecordsReturnedNumber = (CFNumberRef)CFDictionaryGetValue( continueDataDict,
 				CFSTR( kContinueDataNumRecordsReturnedKey ) );
-			unsigned long numRecordsReturned = 0;
+			UInt32 numRecordsReturned = 0;
 			if ( numRecordsReturnedNumber != NULL )
-				CFNumberGetValue( numRecordsReturnedNumber, kCFNumberLongType, &numRecordsReturned );
+				CFNumberGetValue( numRecordsReturnedNumber, kCFNumberIntType, &numRecordsReturned );
 			
 			// get the full records array out of continueDataDict
 			CFArrayRef recordsArray = (CFArrayRef)CFDictionaryGetValue( continueDataDict,
@@ -2248,9 +2266,9 @@ tDirStatus CDSLocalPlugin::DoAttributeValueSearchWithData( sDoAttrValueSearchWit
 			if ( recordsArray == NULL )
 				throw ( eMemoryError );
 
-			unsigned long numRecordsPacked = 0;
+			UInt32 numRecordsPacked = 0;
 			inData->fOutMatchRecordCount = numRecordsPacked;	// set this now in case we didn't find any records at all
-			if ( numRecordsReturned < (unsigned long)CFArrayGetCount( recordsArray ) )
+			if ( numRecordsReturned < (UInt32)CFArrayGetCount( recordsArray ) )
 			{
 				CFArrayRef desiredAttributesArray = (CFArrayRef)CFDictionaryGetValue( continueDataDict,
 					CFSTR( kContinueDataDesiredAttributesArrayKey ) );
@@ -2262,7 +2280,7 @@ tDirStatus CDSLocalPlugin::DoAttributeValueSearchWithData( sDoAttrValueSearchWit
 				}
 			
 				// pack the records into the buffer
-				siResult = this->PackRecordsIntoBuffer( numRecordsReturned, recordsArray, desiredAttributesArray,
+				siResult = PackRecordsIntoBuffer( nodeDict, numRecordsReturned, recordsArray, desiredAttributesArray,
 					inData->fOutDataBuff, inData->fInAttrInfoOnly, &numRecordsPacked );
 				inData->fOutMatchRecordCount = numRecordsPacked;
 				if ( siResult != eDSNoErr )
@@ -2270,7 +2288,7 @@ tDirStatus CDSLocalPlugin::DoAttributeValueSearchWithData( sDoAttrValueSearchWit
 				
 				// update numRecordsReturnedNumber and stick it back into the continueDataDict
 				numRecordsReturned += numRecordsPacked;
-				CFNumberRef newNumRecordsReturnedNumber = CFNumberCreate( NULL ,kCFNumberLongType, &numRecordsReturned );
+				CFNumberRef newNumRecordsReturnedNumber = CFNumberCreate( NULL ,kCFNumberIntType, &numRecordsReturned );
 				if ( numRecordsReturnedNumber == NULL )	// add it if it's not already there
 					CFDictionaryAddValue( continueDataDict, CFSTR( kContinueDataNumRecordsReturnedKey ),
 						newNumRecordsReturnedNumber );
@@ -2281,14 +2299,10 @@ tDirStatus CDSLocalPlugin::DoAttributeValueSearchWithData( sDoAttrValueSearchWit
 			}
 
 			if ( ( getRecordsStatus != eDSBufferTooSmall ) &&
-				( numRecordsReturned >= (unsigned long)CFArrayGetCount( recordsArray ) ) )
+				( numRecordsReturned >= (UInt32)CFArrayGetCount( recordsArray ) ) )
 			{	//remove the continueDataDict.  we're done.
-				sReleaseContinueData releaseContinueData = {};
-				releaseContinueData.fInDirReference = inData->fInNodeRef;
-				releaseContinueData.fInContinueData = (tContextData)continueDataDict;
-				this->ReleaseContinueData ( &releaseContinueData );
-				continueDataDict = NULL;
-				inData->fIOContinueData = NULL;
+				gLocalContinueTable->RemoveContext( inData->fIOContinueData );
+				inData->fIOContinueData	= 0;
 			}
 		}
 	}
@@ -2300,12 +2314,8 @@ tDirStatus CDSLocalPlugin::DoAttributeValueSearchWithData( sDoAttrValueSearchWit
 
 		if ( ( err != eDSBufferTooSmall ) && ( continueDataDict != NULL ) )
 		{
-			sReleaseContinueData releaseContinueData = {};
-			releaseContinueData.fInDirReference = inData->fInNodeRef;
-			releaseContinueData.fInContinueData = (tContextData)continueDataDict;
-			this->ReleaseContinueData ( &releaseContinueData );
-			continueDataDict = NULL;
-			inData->fIOContinueData	= NULL;
+			gLocalContinueTable->RemoveContext( inData->fIOContinueData );
+			inData->fIOContinueData	= 0;
 		}
     }
 	
@@ -2325,7 +2335,7 @@ tDirStatus CDSLocalPlugin::DoAttributeValueSearchWithData( sDoAttrValueSearchWit
 tDirStatus CDSLocalPlugin::DoMultipleAttributeValueSearch( sDoMultiAttrValueSearch* inData )
 {
 	tDirStatus siResult = eDSNoErr;
-	CFMutableDictionaryRef continueDataDict = (CFMutableDictionaryRef)inData->fIOContinueData;
+	CFMutableDictionaryRef continueDataDict = NULL;
 	CFDictionaryRef nodeDict = NULL;
 	CFArrayRef recTypesArray = NULL;
 	CFStringRef attributeType = NULL;
@@ -2357,6 +2367,12 @@ tDirStatus CDSLocalPlugin::DoMultipleAttributeValueSearch( sDoMultiAttrValueSear
 	// get the node dict
 	nodeDict = this->CopyNodeDictForNodeRef( inData->fInNodeRef );
 	if ( nodeDict == NULL ) return BaseDirectoryPlugin::DoAttributeValueSearch( (sDoAttrValueSearch *)inData );
+		
+	if ( inData->fIOContinueData != 0 ) {
+		continueDataDict = (CFMutableDictionaryRef) gLocalContinueTable->GetPointer( inData->fIOContinueData );
+		if ( continueDataDict == NULL || CFGetTypeID(continueDataDict) != CFDictionaryGetTypeID() )
+			return eDSInvalidContinueData;
+	}
 		
 	try
     {
@@ -2414,7 +2430,7 @@ tDirStatus CDSLocalPlugin::DoMultipleAttributeValueSearch( sDoMultiAttrValueSear
 
 			nodePathCFStr = (CFStringRef)NodeDictCopyValue( nodeDict, CFSTR( kNodePathkey ) );
 			
-			unsigned long numRecordsToGet = inData->fOutMatchRecordCount;
+			UInt32 numRecordsToGet = inData->fOutMatchRecordCount;
 			if ( numRecordsToGet == 0 )	
 				numRecordsToGet = 0xffffffff;
 			for ( CFIndex i=0; i<numRecTypes && numRecordsToGet > 0 ; i++ )
@@ -2441,7 +2457,7 @@ tDirStatus CDSLocalPlugin::DoMultipleAttributeValueSearch( sDoMultiAttrValueSear
 					if ( numRecordsToGet != 0xffffffff )
 					{
 						CFIndex numRecordsGot = CFArrayGetCount( mutableRecordsArray );
-						if ( (unsigned long)numRecordsGot > numRecordsToGet )
+						if ( (UInt32)numRecordsGot > numRecordsToGet )
 							numRecordsToGet = 0;
 						else
 							numRecordsToGet -= numRecordsGot;
@@ -2463,18 +2479,15 @@ tDirStatus CDSLocalPlugin::DoMultipleAttributeValueSearch( sDoMultiAttrValueSear
 
 			CFDictionaryAddValue( continueDataDict, CFSTR( kContinueDataRecordsArrayKey ), mutableRecordsArray );
 			CFRelease( mutableRecordsArray );
-			
-			
-			inData->fIOContinueData = (tContextData)continueDataDict;
 		}
 
 		//return the next chunk of records
 		{
 			CFNumberRef numRecordsReturnedNumber = (CFNumberRef)CFDictionaryGetValue( continueDataDict,
 				CFSTR( kContinueDataNumRecordsReturnedKey ) );
-			unsigned long numRecordsReturned = 0;
+			UInt32 numRecordsReturned = 0;
 			if ( numRecordsReturnedNumber != NULL )
-				CFNumberGetValue( numRecordsReturnedNumber, kCFNumberLongType, &numRecordsReturned );
+				CFNumberGetValue( numRecordsReturnedNumber, kCFNumberIntType, &numRecordsReturned );
 			
 			// get the full records array out of continueDataDict
 			CFArrayRef recordsArray = (CFArrayRef)CFDictionaryGetValue( continueDataDict,
@@ -2482,9 +2495,9 @@ tDirStatus CDSLocalPlugin::DoMultipleAttributeValueSearch( sDoMultiAttrValueSear
 			if ( recordsArray == NULL )
 				throw ( eMemoryError );
 
-			unsigned long numRecordsPacked = 0;
+			UInt32 numRecordsPacked = 0;
 			inData->fOutMatchRecordCount = numRecordsPacked;	// set this now in case we didn't find any records at all
-			if ( numRecordsReturned < (unsigned long)CFArrayGetCount( recordsArray ) )
+			if ( numRecordsReturned < (UInt32)CFArrayGetCount( recordsArray ) )
 			{
 				CFArrayRef desiredAttributesArray = (CFArrayRef)CFDictionaryGetValue( continueDataDict,
 					CFSTR( kContinueDataDesiredAttributesArrayKey ) );
@@ -2496,7 +2509,7 @@ tDirStatus CDSLocalPlugin::DoMultipleAttributeValueSearch( sDoMultiAttrValueSear
 				}
 			
 				// pack the records into the buffer
-				siResult = this->PackRecordsIntoBuffer( numRecordsReturned, recordsArray, desiredAttributesArray,
+				siResult = PackRecordsIntoBuffer( nodeDict, numRecordsReturned, recordsArray, desiredAttributesArray,
 					inData->fOutDataBuff, false, &numRecordsPacked );
 				inData->fOutMatchRecordCount = numRecordsPacked;
 				if ( siResult != eDSNoErr )
@@ -2504,7 +2517,7 @@ tDirStatus CDSLocalPlugin::DoMultipleAttributeValueSearch( sDoMultiAttrValueSear
 				
 				// update numRecordsReturnedNumber and stick it back into the continueDataDict
 				numRecordsReturned += numRecordsPacked;
-				CFNumberRef newNumRecordsReturnedNumber = CFNumberCreate( NULL ,kCFNumberLongType, &numRecordsReturned );
+				CFNumberRef newNumRecordsReturnedNumber = CFNumberCreate( NULL ,kCFNumberIntType, &numRecordsReturned );
 				if ( numRecordsReturnedNumber == NULL )	// add it if it's not already there
 					CFDictionaryAddValue( continueDataDict, CFSTR( kContinueDataNumRecordsReturnedKey ),
 						newNumRecordsReturnedNumber );
@@ -2515,14 +2528,10 @@ tDirStatus CDSLocalPlugin::DoMultipleAttributeValueSearch( sDoMultiAttrValueSear
 			}
 
 			if ( ( getRecordsStatus != eDSBufferTooSmall ) &&
-				( numRecordsReturned >= (unsigned long)CFArrayGetCount( recordsArray ) ) )
+				( numRecordsReturned >= (UInt32)CFArrayGetCount( recordsArray ) ) )
 			{	//remove the continueDataDict.  we're done.
-				sReleaseContinueData releaseContinueData = {};
-				releaseContinueData.fInDirReference = inData->fInNodeRef;
-				releaseContinueData.fInContinueData = (tContextData)continueDataDict;
-				this->ReleaseContinueData ( &releaseContinueData );
-				continueDataDict = NULL;
-				inData->fIOContinueData = NULL;
+				gLocalContinueTable->RemoveContext( inData->fIOContinueData );
+				inData->fIOContinueData	= 0;
 			}
 		}
 	}
@@ -2534,12 +2543,8 @@ tDirStatus CDSLocalPlugin::DoMultipleAttributeValueSearch( sDoMultiAttrValueSear
 
 		if ( ( err != eDSBufferTooSmall ) && ( continueDataDict != NULL ) )
 		{
-			sReleaseContinueData releaseContinueData = {};
-			releaseContinueData.fInDirReference = inData->fInNodeRef;
-			releaseContinueData.fInContinueData = (tContextData)continueDataDict;
-			this->ReleaseContinueData ( &releaseContinueData );
-			continueDataDict = NULL;
-			inData->fIOContinueData	= NULL;
+			gLocalContinueTable->RemoveContext( inData->fIOContinueData );
+			inData->fIOContinueData	= 0;
 		}
     }
 
@@ -2559,7 +2564,7 @@ tDirStatus CDSLocalPlugin::DoMultipleAttributeValueSearch( sDoMultiAttrValueSear
 tDirStatus CDSLocalPlugin::DoMultipleAttributeValueSearchWithData( sDoMultiAttrValueSearchWithData* inData )
 {
 	tDirStatus siResult = eDSNoErr;
-	CFMutableDictionaryRef continueDataDict = (CFMutableDictionaryRef)inData->fIOContinueData;
+	CFMutableDictionaryRef continueDataDict = NULL;
 	CFDictionaryRef nodeDict = NULL;
 	CFArrayRef recTypesArray = NULL;
 	CFStringRef attributeType = NULL;
@@ -2592,6 +2597,12 @@ tDirStatus CDSLocalPlugin::DoMultipleAttributeValueSearchWithData( sDoMultiAttrV
 	// get the node dict
 	nodeDict = this->CopyNodeDictForNodeRef( inData->fInNodeRef );
 	if ( nodeDict == NULL ) return BaseDirectoryPlugin::DoAttributeValueSearchWithData( (sDoAttrValueSearchWithData *)inData );
+		
+	if ( inData->fIOContinueData != 0 ) {
+		continueDataDict = (CFMutableDictionaryRef) gLocalContinueTable->GetPointer( inData->fIOContinueData );
+		if ( continueDataDict == NULL || CFGetTypeID(continueDataDict) != CFDictionaryGetTypeID() )
+			return eDSInvalidContinueData;
+	}
 		
 	try
     {
@@ -2667,7 +2678,7 @@ tDirStatus CDSLocalPlugin::DoMultipleAttributeValueSearchWithData( sDoMultiAttrV
 			if ( mutableRecordsArray == NULL )
 				throw( eMemoryAllocError );
 
-			unsigned long numRecordsToGet = inData->fOutMatchRecordCount;
+			UInt32 numRecordsToGet = inData->fOutMatchRecordCount;
 			if ( numRecordsToGet == 0 )	
 				numRecordsToGet = 0xffffffff;
 			for ( CFIndex i=0; i<numRecTypes && numRecordsToGet > 0 ; i++ )
@@ -2694,7 +2705,7 @@ tDirStatus CDSLocalPlugin::DoMultipleAttributeValueSearchWithData( sDoMultiAttrV
 					if ( numRecordsToGet != 0xffffffff )
 					{
 						CFIndex numRecordsGot = CFArrayGetCount( mutableRecordsArray );
-						if ( (unsigned long)numRecordsGot > numRecordsToGet )
+						if ( (UInt32)numRecordsGot > numRecordsToGet )
 							numRecordsToGet = 0;
 						else
 							numRecordsToGet -= numRecordsGot;
@@ -2718,18 +2729,15 @@ tDirStatus CDSLocalPlugin::DoMultipleAttributeValueSearchWithData( sDoMultiAttrV
 
 			CFDictionaryAddValue( continueDataDict, CFSTR( kContinueDataRecordsArrayKey ), mutableRecordsArray );
 			CFRelease( mutableRecordsArray );
-			
-			
-			inData->fIOContinueData = (tContextData)continueDataDict;
 		}
 
 		//return the next chunk of records
 		{
 			CFNumberRef numRecordsReturnedNumber = (CFNumberRef)CFDictionaryGetValue( continueDataDict,
 				CFSTR( kContinueDataNumRecordsReturnedKey ) );
-			unsigned long numRecordsReturned = 0;
+			UInt32 numRecordsReturned = 0;
 			if ( numRecordsReturnedNumber != NULL )
-				CFNumberGetValue( numRecordsReturnedNumber, kCFNumberLongType, &numRecordsReturned );
+				CFNumberGetValue( numRecordsReturnedNumber, kCFNumberIntType, &numRecordsReturned );
 			
 			// get the full records array out of continueDataDict
 			CFArrayRef recordsArray = (CFArrayRef)CFDictionaryGetValue( continueDataDict,
@@ -2737,9 +2745,9 @@ tDirStatus CDSLocalPlugin::DoMultipleAttributeValueSearchWithData( sDoMultiAttrV
 			if ( recordsArray == NULL )
 				throw ( eMemoryError );
 
-			unsigned long numRecordsPacked = 0;
+			UInt32 numRecordsPacked = 0;
 			inData->fOutMatchRecordCount = numRecordsPacked;	// set this now in case we didn't find any records at all
-			if ( numRecordsReturned < (unsigned long)CFArrayGetCount( recordsArray ) )
+			if ( numRecordsReturned < (UInt32)CFArrayGetCount( recordsArray ) )
 			{
 				CFArrayRef desiredAttributesArray = (CFArrayRef)CFDictionaryGetValue( continueDataDict,
 					CFSTR( kContinueDataDesiredAttributesArrayKey ) );
@@ -2751,7 +2759,7 @@ tDirStatus CDSLocalPlugin::DoMultipleAttributeValueSearchWithData( sDoMultiAttrV
 				}
 			
 				// pack the records into the buffer
-				siResult = this->PackRecordsIntoBuffer( numRecordsReturned, recordsArray, desiredAttributesArray,
+				siResult = PackRecordsIntoBuffer( nodeDict, numRecordsReturned, recordsArray, desiredAttributesArray,
 					inData->fOutDataBuff, inData->fInAttrInfoOnly, &numRecordsPacked );
 				inData->fOutMatchRecordCount = numRecordsPacked;
 				if ( siResult != eDSNoErr )
@@ -2759,7 +2767,7 @@ tDirStatus CDSLocalPlugin::DoMultipleAttributeValueSearchWithData( sDoMultiAttrV
 				
 				// update numRecordsReturnedNumber and stick it back into the continueDataDict
 				numRecordsReturned += numRecordsPacked;
-				CFNumberRef newNumRecordsReturnedNumber = CFNumberCreate( NULL ,kCFNumberLongType, &numRecordsReturned );
+				CFNumberRef newNumRecordsReturnedNumber = CFNumberCreate( NULL ,kCFNumberIntType, &numRecordsReturned );
 				if ( numRecordsReturnedNumber == NULL )	// add it if it's not already there
 					CFDictionaryAddValue( continueDataDict, CFSTR( kContinueDataNumRecordsReturnedKey ),
 						newNumRecordsReturnedNumber );
@@ -2770,14 +2778,10 @@ tDirStatus CDSLocalPlugin::DoMultipleAttributeValueSearchWithData( sDoMultiAttrV
 			}
 
 			if ( ( getRecordsStatus != eDSBufferTooSmall ) &&
-				( numRecordsReturned >= (unsigned long)CFArrayGetCount( recordsArray ) ) )
+				( numRecordsReturned >= (UInt32)CFArrayGetCount( recordsArray ) ) )
 			{	//remove the continueDataDict.  we're done.
-				sReleaseContinueData releaseContinueData = {};
-				releaseContinueData.fInDirReference = inData->fInNodeRef;
-				releaseContinueData.fInContinueData = (tContextData)continueDataDict;
-				this->ReleaseContinueData ( &releaseContinueData );
-				continueDataDict = NULL;
-				inData->fIOContinueData = NULL;
+				gLocalContinueTable->RemoveContext( inData->fIOContinueData );
+				inData->fIOContinueData	= 0;
 			}
 		}
 	}
@@ -2789,12 +2793,8 @@ tDirStatus CDSLocalPlugin::DoMultipleAttributeValueSearchWithData( sDoMultiAttrV
 
 		if ( ( err != eDSBufferTooSmall ) && ( continueDataDict != NULL ) )
 		{
-			sReleaseContinueData releaseContinueData = {};
-			releaseContinueData.fInDirReference = inData->fInNodeRef;
-			releaseContinueData.fInContinueData = (tContextData)continueDataDict;
-			this->ReleaseContinueData ( &releaseContinueData );
-			continueDataDict = NULL;
-			inData->fIOContinueData	= NULL;
+			gLocalContinueTable->RemoveContext( inData->fIOContinueData );
+			inData->fIOContinueData	= 0;
 		}
     }
 	
@@ -2812,337 +2812,11 @@ tDirStatus CDSLocalPlugin::DoMultipleAttributeValueSearchWithData( sDoMultiAttrV
 }
 
 
-tDirStatus CDSLocalPlugin::GetAttributeEntry( sGetAttributeEntry* inData )
-{
-	tDirStatus siResult = eDSNoErr;
-	CFDataRef buffData = NULL;
-	CFDictionaryRef nodeInfoDict = NULL;
-	CFStringRef cfString = NULL;
-	CFStringRef errorString = NULL;
-	const void** keys = NULL;
-	tAttributeEntry* attrInfo = NULL;
-	char* cStr = NULL;
-	size_t cStrSize = 0;
-	
-	if ( inData->fInAttrInfoIndex == 0 ) return eDSInvalidIndex;
-	
-	CFDictionaryRef nodeDict = this->CopyNodeDictForNodeRef( inData->fInNodeRef );
-	if ( nodeDict == NULL ) return BaseDirectoryPlugin::GetAttributeEntry( inData );
-	
-	DSCFRelease( nodeDict );
-
-	unsigned long bufferOffset = 0;
-	bufferOffset += sizeof( unsigned long );	// skip past the buffer type;
-	unsigned long dataLength = 0;
-	::memcpy( &dataLength, &inData->fInOutDataBuff->fBufferData[bufferOffset], sizeof( dataLength ) );
-	bufferOffset += sizeof( dataLength );
-	const char* dataBytes = &(inData->fInOutDataBuff->fBufferData[bufferOffset]);
-	
-	buffData = CFDataCreate( NULL, (const UInt8*)dataBytes, (CFIndex)dataLength );
-	if ( buffData == NULL )
-		return( eMemoryAllocError );
-	
-	try
-	{
-		nodeInfoDict = (CFDictionaryRef)CFPropertyListCreateFromXMLData( NULL, buffData, kCFPropertyListImmutable,
-			&errorString );
-		if ( nodeInfoDict == NULL )
-		{
-			DbgLog( kLogPlugin, "CDSLocalPlugin::GetAttributeEntry(): got error creating nodeInfoDict from data. errorstring:\"%s\"",
-				CStrFromCFString( errorString, &cStr, &cStrSize, NULL ) );
-			throw( eMemoryAllocError );
-		}
-
-		cfString = (CFStringRef)CFDictionaryGetValue( nodeInfoDict, CFSTR( kDictionaryType ) );
-		if ( cfString == NULL )
-		{
-			DbgLog( kLogPlugin, "CDSLocalPlugin::GetAttributeEntry(): nodeInfoDict has no dictionary type key. bailing" );
-			throw( ePlugInDataError );
-		}
-
-		if ( CFStringCompare( cfString, CFSTR( kNodeInfoDictType ), 0 ) != kCFCompareEqualTo )
-		{
-			DbgLog( kLogPlugin, "CDSLocalPlugin::GetAttributeEntry(): nodeInfoDict's dictionary type is not nodeinfo. bailing" );
-			throw( ePlugInDataError );
-		}
-
-		CFDictionaryRef attributesDict = (CFDictionaryRef)CFDictionaryGetValue( nodeInfoDict, CFSTR( kNodeInfoAttributes ) );
-		if ( attributesDict == NULL )
-			throw( ePlugInDataError );
-
-		CFIndex numAttributes = CFDictionaryGetCount( attributesDict );
-		
-		if ( inData->fInAttrInfoIndex > (unsigned long)numAttributes )
-			throw( eDSIndexOutOfRange );
-		
-		keys = (const void**)malloc( numAttributes * sizeof( void* ) );
-		if ( keys == NULL )
-			throw( eMemoryAllocError );
-
-		CFDictionaryGetKeysAndValues( attributesDict, keys, NULL );
-		
-		CFStringRef key = (CFStringRef)keys[inData->fInAttrInfoIndex - 1];
-
-		const char* keyCStr = CStrFromCFString( key, &cStr, &cStrSize, NULL );
-		if ( keyCStr == NULL )
-			throw( eMemoryAllocError );
-
-		size_t keySize = strlen( keyCStr ) + 1;
-		attrInfo = (tAttributeEntry*)::calloc( 1, sizeof( tAttributeEntry ) + keySize + eBuffPad );
-		if ( attrInfo == NULL )
-			throw( eMemoryAllocError );
-
-		if ( CFStringCompare( key, CFSTR( kDSNAttrNodePath ), 0 ) == kCFCompareEqualTo )
-		{
-			CFArrayRef valuesArray = (CFArrayRef)CFDictionaryGetValue( attributesDict, key );
-			if ( valuesArray == NULL )
-				throw( ePlugInDataError );
-			
-			attrInfo->fAttributeValueCount = (unsigned long)CFArrayGetCount( valuesArray );
-		}
-		else if ( CFStringCompare( key, CFSTR( kDS1AttrReadOnlyNode ), 0 ) == kCFCompareEqualTo )
-		{
-			// this is just going to be a single string, so no need to check it
-			attrInfo->fAttributeValueCount = 1;
-		}
-		else if ( CFStringCompare( key, CFSTR( "dsAttrTypeStandard:TrustInformation" ), 0 ) == kCFCompareEqualTo )
-		{
-			// this is just going to be a single string, so no need to check it
-			attrInfo->fAttributeValueCount = 1;
-		}
-		else if ( CFStringCompare( key, CFSTR( kDS1AttrDataStamp ), 0 ) == kCFCompareEqualTo )
-		{
-			// this is just going to be a single string, so no need to check it
-			attrInfo->fAttributeValueCount = 1;
-		}
-		else if ( CFStringCompare( key, CFSTR( kDSNAttrRecordType ), 0 ) == kCFCompareEqualTo )
-		{
-			CFArrayRef valuesArray = (CFArrayRef)CFDictionaryGetValue( attributesDict, key );
-			if ( valuesArray == NULL )
-				throw( ePlugInDataError );
-			
-			attrInfo->fAttributeValueCount = (unsigned long)CFArrayGetCount( valuesArray );
-		}
-		else if ( CFStringCompare( key, CFSTR( kDSNAttrAuthMethod ), 0 ) == kCFCompareEqualTo )
-		{
-			CFArrayRef valuesArray = (CFArrayRef)CFDictionaryGetValue( attributesDict, key );
-			if ( valuesArray == NULL )
-				throw( ePlugInDataError );
-			
-			attrInfo->fAttributeValueCount = (unsigned long)CFArrayGetCount( valuesArray );
-		}
-		else
-			throw( ePlugInDataError );	// somehow, some unexpected attribute name ended up in there
-
-		// fill in the rest of the attrInfo
-		attrInfo->fAttributeDataSize = 0;		// FAH: Jason says nobody uses this so I haven't bothered computing it
-		attrInfo->fAttributeSignature.fBufferSize = keySize + eBuffPad;
-		attrInfo->fAttributeSignature.fBufferLength = keySize;
-		::memcpy( attrInfo->fAttributeSignature.fBufferData, keyCStr, keySize );
-		inData->fOutAttrInfoPtr = attrInfo;
-		
-		// create a mapping table for attrValueListRef's if there isn't one already
-		CFMutableDictionaryRef mutableAttrValueListRefDict = CFDictionaryCreateMutable( NULL, 0,
-			&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
-		if ( mutableAttrValueListRefDict == NULL )
-			throw( eMemoryAllocError );
-
-		// add the attribute name
-		CFDictionaryAddValue( mutableAttrValueListRefDict, CFSTR( kAttrValueListRefAttrName ), key );
-
-		// save a mapping from the attrValueListRef to the name of the attribute being asked for
-		CFNumberRef attrValueListRefNum = CFNumberCreate( NULL, kCFNumberLongType, &inData->fOutAttrValueListRef );
-		mOpenAttrValueListRefsLock.WaitLock();
-		CFDictionaryAddValue( mOpenAttrValueListRefs, attrValueListRefNum, mutableAttrValueListRefDict );
-		DSCFRelease(mutableAttrValueListRefDict);
-		mOpenAttrValueListRefsLock.SignalLock();
-		DSCFRelease( attrValueListRefNum );
-		attrValueListRefNum = NULL;
-
-		attrInfo = NULL;	// everything worked, so mark this NULL so it doesn't get freed below
-	}
-	catch( tDirStatus err )
-	{
-		DbgLog( kLogPlugin, "CDSLocalPlugin::GetAttributeEntry(): got error %d", err );
-		siResult = err;
-	}
-
-	if ( buffData != NULL )
-	{
-		CFRelease( buffData );
-		buffData = NULL;
-	}
-	if ( nodeInfoDict != NULL )
-	{
-		CFRelease( nodeInfoDict );
-		nodeInfoDict = NULL;
-	}
-	if ( errorString != NULL )
-	{
-		CFRelease( errorString );
-		errorString = NULL;
-	}
-	if ( keys != NULL )
-	{
-		::free( keys );
-		keys = NULL;
-	}
-	if ( attrInfo != NULL )
-	{
-		::free( attrInfo );
-		attrInfo = NULL;
-	}
-	if ( cStr != NULL )
-	{
-		free( cStr );
-		cStr = NULL;
-		cStrSize = 0;
-	}
-
-	return siResult;
-}
-
-tDirStatus CDSLocalPlugin::GetAttributeValue( sGetAttributeValue* inData )
-{
-	tDirStatus siResult = eDSNoErr;
-	CFDataRef buffData = NULL;
-	CFDictionaryRef nodeInfoDict = NULL;
-	CFStringRef cfString = NULL;
-	CFStringRef errorString = NULL;
-	tAttributeValueEntry* attrValueEntry = NULL;
-	char* cStr = NULL;
-	size_t cStrSize = 0;
-	const void *dataValue = NULL;
-	
-	if ( inData->fInAttrValueIndex == 0 ) return eDSInvalidIndex;
-	
-	CFDictionaryRef nodeDict = this->CopyNodeDictForNodeRef( inData->fInNodeRef );
-	if ( nodeDict == NULL ) return BaseDirectoryPlugin::GetAttributeValue( inData );
-	
-	DSCFRelease( nodeDict );
-	
-	try
-	{
-		CFNumberRef attrValueListRefNum = CFNumberCreate( NULL, kCFNumberLongType, &inData->fInAttrValueListRef );
-		
-		mOpenAttrValueListRefsLock.WaitLock();
-		CFDictionaryRef attrValueListRefDict = (CFDictionaryRef)CFDictionaryGetValue( mOpenAttrValueListRefs, attrValueListRefNum );
-		DSCFRelease(attrValueListRefNum);
-		mOpenAttrValueListRefsLock.SignalLock();
-		if ( attrValueListRefDict == NULL )
-			throw( ePlugInDataError );
-		
-		CFStringRef attrName = (CFStringRef)CFDictionaryGetValue( attrValueListRefDict,
-			CFSTR( kAttrValueListRefAttrName ) );
-		if ( attrName == NULL )
-			throw( ePlugInDataError );
-		
-		unsigned long bufferOffset = 0;
-		bufferOffset += sizeof( unsigned long );	// skip past the buffer type;
-		unsigned long dataLength = 0;
-		::memcpy( &dataLength, &inData->fInOutDataBuff->fBufferData[bufferOffset], sizeof( dataLength ) );
-		bufferOffset += sizeof( dataLength );
-		const char* dataBytes = &(inData->fInOutDataBuff->fBufferData[bufferOffset]);
-
-		buffData = CFDataCreate( NULL, (const UInt8*)dataBytes, (CFIndex)dataLength );
-		if ( buffData == NULL )
-			throw( eMemoryAllocError );
-		
-		nodeInfoDict = (CFDictionaryRef)CFPropertyListCreateFromXMLData( NULL, buffData, kCFPropertyListImmutable,
-			&errorString );
-		if ( nodeInfoDict == NULL )
-		{
-			DbgLog( kLogPlugin, "CDSLocalPlugin::GetAttributeValue(): got error creating nodeInfoDict from data. errorstring:\"%s\"",
-				CStrFromCFString( errorString, &cStr, &cStrSize, NULL ) );
-			throw( eMemoryAllocError );
-		}
-		
-		cfString = (CFStringRef)CFDictionaryGetValue( nodeInfoDict, CFSTR( kDictionaryType ) );
-		if ( cfString == NULL )
-			throw( ePlugInDataError );
-		
-		if ( CFStringCompare( cfString, CFSTR( kNodeInfoDictType ), 0 ) != kCFCompareEqualTo )
-			throw( ePlugInDataError );
-		
-		CFDictionaryRef attributesDict = (CFDictionaryRef)CFDictionaryGetValue( nodeInfoDict,
-			CFSTR( kNodeInfoAttributes ) );
-		if ( attributesDict == NULL )
-			throw( ePlugInDataError );
-		
-		CFArrayRef values = (CFArrayRef)CFDictionaryGetValue( attributesDict, attrName );
-		if ( values == NULL )
-			throw( ePlugInDataError );
-		
-		if ( inData->fInAttrValueIndex > (UInt32) CFArrayGetCount(values) )
-			throw( eDSIndexOutOfRange );
-
-		CFTypeRef attrValue = (CFStringRef)CFArrayGetValueAtIndex( values, inData->fInAttrValueIndex - 1 );
-		if ( attrValue == NULL ) throw( eMemoryError );
-
-		size_t attrValueLen = 0;
-		UInt32 aCRCValue = 0;
-		
-		CFTypeID attrValueTypeID = CFGetTypeID(attrValue);
-		if ( attrValueTypeID == CFStringGetTypeID() )
-		{
-			dataValue = CStrFromCFString( (CFStringRef)attrValue, &cStr, &cStrSize, NULL );
-			if ( dataValue == NULL ) throw( eMemoryAllocError );
-			attrValueLen = (size_t) strlen( (char *)dataValue );
-			aCRCValue = CalcCRCWithLength( dataValue, attrValueLen );
-		}
-		else //CFDataRef since we only return this or a CFStringRef
-		{
-			dataValue = CFDataGetBytePtr( (CFDataRef)attrValue );
-			attrValueLen = (size_t) CFDataGetLength( (CFDataRef)attrValue );
-			aCRCValue = CalcCRCWithLength( dataValue, attrValueLen );
-		}
-		
-		size_t attrValueEntrySize = sizeof( tAttributeValueEntry ) + attrValueLen  + 1 + eBuffPad;
-		attrValueEntry = (tAttributeValueEntry*)::calloc( 1, attrValueEntrySize );
-		if ( attrValueEntry == NULL ) throw( eMemoryAllocError );
-		
-		attrValueEntry->fAttributeValueID = aCRCValue;
-		attrValueEntry->fAttributeValueData.fBufferSize = attrValueLen;
-		attrValueEntry->fAttributeValueData.fBufferLength = attrValueLen;
-		
-		::memcpy( attrValueEntry->fAttributeValueData.fBufferData, dataValue, attrValueLen );
-		
-		inData->fOutAttrValue = attrValueEntry;
-		
-		attrValueEntry = NULL;	//everything's fine, so set this to NULL so it doesn't get free'd below
-	}
-	catch( tDirStatus err )
-	{
-		DbgLog( kLogPlugin, "CDSLocalPlugin::GetAttributeValue(): got error %d", err );
-		siResult = err;
-	}
-	
-	DSFreeString( cStr );
-	DSFree( attrValueEntry );
-	if ( errorString != NULL )
-	{
-		CFRelease( errorString );
-		errorString = NULL;
-	}
-	if ( buffData != NULL )
-	{
-		CFRelease( buffData );
-		buffData = NULL;
-	}
-	if ( nodeInfoDict != NULL )
-	{
-		CFRelease( nodeInfoDict );
-		nodeInfoDict = NULL;
-	}
-	
-	return siResult;
-}
-
 tDirStatus CDSLocalPlugin::CloseAttributeValueList( sCloseAttributeValueList* inData )
 {
 	tDirStatus siResult = eDSInvalidReference;
 
-	CFNumberRef attrValueListRefNum = CFNumberCreate( NULL, kCFNumberLongType, &inData->fInAttributeValueListRef );
+	CFNumberRef attrValueListRefNum = CFNumberCreate( NULL, kCFNumberIntType, &inData->fInAttributeValueListRef );
 	
 	mOpenAttrValueListRefsLock.WaitLock();
 	if ( CFDictionaryContainsValue(mOpenAttrValueListRefs, attrValueListRefNum) )
@@ -3221,13 +2895,7 @@ tDirStatus CDSLocalPlugin::OpenRecord( sOpenRecord* inData )
 					CFBooleanRef isDeleted = (CFBooleanRef) CFDictionaryGetValue( mutableDict, CFSTR(kOpenRecordDictIsDeleted) );
 					if ( CFBooleanGetValue(isDeleted) == FALSE )
 					{
-						// if we're opening a record internally, get a reference because one
-						// is not provided from the caller.
-						if ( inData->fOutRecRef == 0 ) {
-							GetDirServiceRef( NULL );
-							CRefTable::NewRecordRef( (UInt32 *)&inData->fOutRecRef, this, mDSRef, gDaemonPID, gDaemonIPAddress );
-						}
-						recordRefNumber = CFNumberCreate( NULL, kCFNumberLongType, &inData->fOutRecRef );
+						recordRefNumber = CFNumberCreate( NULL, kCFNumberIntType, &inData->fOutRecRef );
 						CFDictionaryAddValue( mOpenRecordRefs, recordRefNumber, mutableDict );
 						DSCFRelease( recordRefNumber );
 						bFound = true;
@@ -3253,6 +2921,7 @@ tDirStatus CDSLocalPlugin::OpenRecord( sOpenRecord* inData )
 				CFDictionaryAddValue( mutableOpenRecordDict, CFSTR( kOpenRecordDictRecordType ), nativeRecType );
 				CFDictionaryAddValue( mutableOpenRecordDict, CFSTR( kOpenRecordDictNodeDict ), nodeDict );
 				CFDictionaryAddValue( mutableOpenRecordDict, CFSTR( kOpenRecordDictIsDeleted ), kCFBooleanFalse );
+				CFDictionaryAddValue( mutableOpenRecordDict, CFSTR( kOpenRecordDictRecordWasChanged ), kCFBooleanFalse );
 				
 				// now add the metanode location to the record when it is opened
 				nodePathCFStr = (CFStringRef)NodeDictCopyValue( nodeDict, CFSTR( kNodePathkey ) );
@@ -3263,14 +2932,7 @@ tDirStatus CDSLocalPlugin::OpenRecord( sOpenRecord* inData )
 					CFRelease( nodePathValues );
 					
 					// everything looks good, so go ahead  and  add the open record dictionary to the open refs
-					
-					// if we're opening a record internally, get a reference because one
-					// is not provided from the caller.
-					if ( inData->fOutRecRef == 0 ) {
-						GetDirServiceRef( NULL );
-						siResult = CRefTable::NewRecordRef( (UInt32 *)&inData->fOutRecRef, this, mDSRef, gDaemonPID, gDaemonIPAddress );
-					}
-					recordRefNumber = CFNumberCreate( NULL, kCFNumberLongType, &inData->fOutRecRef );
+					recordRefNumber = CFNumberCreate( NULL, kCFNumberIntType, &inData->fOutRecRef );
 					CFDictionaryAddValue( mOpenRecordRefs, recordRefNumber, mutableOpenRecordDict );
 					DSCFRelease( recordRefNumber );
 				}
@@ -3318,7 +2980,7 @@ tDirStatus CDSLocalPlugin::CloseRecord( sCloseRecord* inData )
 	CFNumberRef recordRefNumber = NULL;
 	CFDictionaryRef nodeDict = NULL;
 	
-	recordRefNumber = CFNumberCreate( NULL, kCFNumberLongType, &inData->fInRecRef );
+	recordRefNumber = CFNumberCreate( NULL, kCFNumberIntType, &inData->fInRecRef );
 	if ( recordRefNumber == NULL )
 		return( eMemoryAllocError );
 
@@ -3326,7 +2988,7 @@ tDirStatus CDSLocalPlugin::CloseRecord( sCloseRecord* inData )
 
 	try
 	{
-		CFDictionaryRef openRecordDict = RecordDictForRecordRef( inData->fInRecRef );
+		CFMutableDictionaryRef openRecordDict = RecordDictForRecordRef( inData->fInRecRef );
 		if ( openRecordDict == NULL ) throw BaseDirectoryPlugin::CloseRecord( inData );
 
 		// get the path to the record file
@@ -3346,7 +3008,7 @@ tDirStatus CDSLocalPlugin::CloseRecord( sCloseRecord* inData )
 		nodeDict = this->CopyNodeDictandNodeObject( openRecordDict, &node );
 
 		// get the attributes and values for the record
-		CFDictionaryRef openRecordAttrsValuesDict = (CFDictionaryRef)CFDictionaryGetValue( openRecordDict,
+		CFMutableDictionaryRef openRecordAttrsValuesDict = (CFMutableDictionaryRef)CFDictionaryGetValue( openRecordDict,
 			CFSTR( kOpenRecordDictAttrsValues ) );
 		if ( openRecordAttrsValuesDict == NULL )
 			throw( ePlugInDataError );
@@ -3354,15 +3016,22 @@ tDirStatus CDSLocalPlugin::CloseRecord( sCloseRecord* inData )
 		// write any changes to the record, we need to grab a write lock on this, to ensure it is atomic
 		try
 		{
+			CFBooleanRef wasChanged = (CFBooleanRef) CFDictionaryGetValue( openRecordDict, CFSTR(kOpenRecordDictRecordWasChanged) );
 			CFBooleanRef isDeleted = (CFBooleanRef) CFDictionaryGetValue( openRecordDict, CFSTR(kOpenRecordDictIsDeleted) );
-			if ( CFBooleanGetValue(isDeleted) == FALSE )
+			if ( CFBooleanGetValue(isDeleted) == FALSE && CFBooleanGetValue(wasChanged) == TRUE )
 			{
 				// write any changes to the record
 				siResult = node->FlushRecord( openRecordFilePath, recordType, openRecordAttrsValuesDict );
+				
+				// flush the cache at this point
+				FlushCaches( RecordStandardTypeForNativeType(recordType) );
+				
+				// reset to false because multiple people may have an open record
+				CFDictionarySetValue( openRecordDict, CFSTR(kOpenRecordDictRecordWasChanged), kCFBooleanFalse );
 			}
-			
-			// flush the cache at this point
-			FlushCaches( RecordStandardTypeForNativeType(recordType) );
+			else {
+				DbgLog( kLogInfo, "CDSLocalPlugin::CloseRecord did not flush record to disk no changes or deleted" );
+			}
 			
 			if ( siResult == eDSNoErr )
 				CFDictionaryRemoveValue( mOpenRecordRefs, recordRefNumber );
@@ -3399,7 +3068,7 @@ tDirStatus CDSLocalPlugin::FlushRecord( sFlushRecord* inData )
 
 	try
 	{
-		CFDictionaryRef openRecordDict = RecordDictForRecordRef( inData->fInRecRef );
+		CFMutableDictionaryRef openRecordDict = RecordDictForRecordRef( inData->fInRecRef );
 		if ( openRecordDict == NULL ) throw BaseDirectoryPlugin::FlushRecord( inData );
 
 		// get the path to the record file
@@ -3419,7 +3088,7 @@ tDirStatus CDSLocalPlugin::FlushRecord( sFlushRecord* inData )
 		nodeDict = this->CopyNodeDictandNodeObject( openRecordDict, &node );
 
 		// get the attributes and values for the record
-		CFDictionaryRef openRecordAttrsValuesDict = (CFDictionaryRef)CFDictionaryGetValue( openRecordDict,
+		CFMutableDictionaryRef openRecordAttrsValuesDict = (CFMutableDictionaryRef)CFDictionaryGetValue( openRecordDict,
 			CFSTR( kOpenRecordDictAttrsValues ) );
 		if ( openRecordAttrsValuesDict == NULL )
 			throw( ePlugInDataError );
@@ -3427,15 +3096,22 @@ tDirStatus CDSLocalPlugin::FlushRecord( sFlushRecord* inData )
 		// write any changes to the record, we need to grab a write lock on this, to ensure it is atomic
 		try
 		{
+			CFBooleanRef wasChanged = (CFBooleanRef) CFDictionaryGetValue( openRecordDict, CFSTR(kOpenRecordDictRecordWasChanged) );
 			CFBooleanRef isDeleted = (CFBooleanRef) CFDictionaryGetValue( openRecordDict, CFSTR(kOpenRecordDictIsDeleted) );
-			if ( CFBooleanGetValue(isDeleted) == FALSE )
+			if ( CFBooleanGetValue(isDeleted) == FALSE && CFBooleanGetValue(wasChanged) == TRUE )
 			{
 				// write any changes to the record
 				siResult = node->FlushRecord( openRecordFilePath, recordType, openRecordAttrsValuesDict );
+				
+				// change occured in the local database, flush Users and/or Groups when that happens
+				FlushCaches( RecordStandardTypeForNativeType(recordType) );
+				
+				// reset to false because multiple people may have an open record
+				CFDictionarySetValue( openRecordDict, CFSTR(kOpenRecordDictRecordWasChanged), kCFBooleanFalse );
 			}
-			
-			// change occured in the local database, flush Users and/or Groups when that happens
-			FlushCaches( RecordStandardTypeForNativeType(recordType) );
+			else {
+				DbgLog( kLogInfo, "CDSLocalPlugin::CloseRecord did not flush record to disk no changes or deleted" );
+			}
 		}
 		catch( tDirStatus err )
 		{
@@ -3467,7 +3143,7 @@ tDirStatus CDSLocalPlugin::SetRecordName( sSetRecordName* inData )
 	CFStringRef newValue = NULL;
 	CFDictionaryRef nodeDict = NULL;
 	
-	recRefNumber = CFNumberCreate( NULL, kCFNumberLongType, &inData->fInRecRef );
+	recRefNumber = CFNumberCreate( NULL, kCFNumberIntType, &inData->fInRecRef );
 	if ( recRefNumber == NULL )
 		return eMemoryError;
 	
@@ -3475,7 +3151,7 @@ tDirStatus CDSLocalPlugin::SetRecordName( sSetRecordName* inData )
 	
 	try
 	{
-		CFDictionaryRef openRecordDict = RecordDictForRecordRef( inData->fInRecRef );
+		CFMutableDictionaryRef openRecordDict = RecordDictForRecordRef( inData->fInRecRef );
 		if ( openRecordDict == NULL ) throw BaseDirectoryPlugin::SetRecordName( inData );
 		
 		nodeDict = (CFDictionaryRef)CFDictionaryGetValue( openRecordDict, CFSTR( kOpenRecordDictNodeDict ) );
@@ -3503,8 +3179,10 @@ tDirStatus CDSLocalPlugin::SetRecordName( sSetRecordName* inData )
 		CFStringRef nativeAttrType = this->AttrNativeTypeForStandardType( CFSTR( kDSNAttrRecordName ) );
 		siResult = node->ReplaceAttributeValueInRecordByIndex( nativeAttrType, recordType, mutableRecordAttrsValues,
 			0, newValue );
-		if ( siResult != eDSNoErr )
-			throw( siResult );
+		
+		if ( siResult == eDSNoErr ) {
+			CFDictionarySetValue( openRecordDict, CFSTR(kOpenRecordDictRecordWasChanged), kCFBooleanTrue );
+		}
 	}
 	catch( tDirStatus err )
 	{
@@ -3543,7 +3221,7 @@ tDirStatus CDSLocalPlugin::DeleteRecord( sDeleteRecord* inData )
 
 	try
 	{
-		CFDictionaryRef openRecordDict = RecordDictForRecordRef( inData->fInRecRef );
+		CFMutableDictionaryRef openRecordDict = RecordDictForRecordRef( inData->fInRecRef );
 		if ( openRecordDict == NULL ) throw BaseDirectoryPlugin::DeleteRecord( inData );
 
 		CFStringRef openRecordFilePath = (CFStringRef)CFDictionaryGetValue( openRecordDict, CFSTR( kOpenRecordDictRecordFile ) );
@@ -3552,8 +3230,6 @@ tDirStatus CDSLocalPlugin::DeleteRecord( sDeleteRecord* inData )
 		CFDictionaryRef nodeDict = (CFDictionaryRef)CFDictionaryGetValue( openRecordDict, CFSTR( kOpenRecordDictNodeDict ) );
 		if ( nodeDict == NULL ) throw( ePlugInDataError );
 		
-		CDSLocalPluginNode* node = this->NodeObjectFromNodeDict( nodeDict );
-
 		CFMutableDictionaryRef mutableRecordAttrsValues = (CFMutableDictionaryRef)CFDictionaryGetValue( openRecordDict, CFSTR( kOpenRecordDictAttrsValues ) );
 		if ( mutableRecordAttrsValues == NULL ) throw( ePlugInDataError );
 		CFArrayRef recordNames = (CFArrayRef)CFDictionaryGetValue( mutableRecordAttrsValues, this->AttrNativeTypeForStandardType( CFSTR( kDSNAttrRecordName ) ) );
@@ -3566,14 +3242,8 @@ tDirStatus CDSLocalPlugin::DeleteRecord( sDeleteRecord* inData )
 		CFStringRef recordType = (CFStringRef)CFDictionaryGetValue( openRecordDict, CFSTR( kOpenRecordDictRecordType ) );
 		if ( recordType == NULL ) throw( ePlugInDataError );
 
-		if ( !node->WriteAccessAllowed(	nodeDict,
-										recordType,
-										recordName,
-										CFSTR( kDSAttributesAll ),
-										(CFArrayRef)CFDictionaryGetValue( mutableRecordAttrsValues, CFSTR( "_writers" ) ),
-										NULL,
-										(CFArrayRef)CFDictionaryGetValue( mutableRecordAttrsValues, CFSTR( "_writergroups" ) ),
-										NULL ) )
+		CDSLocalPluginNode* node = NodeObjectFromNodeDict( nodeDict );
+		if ( node->AccessAllowed(nodeDict, recordType, CFSTR(kDSRecordsAll), eDSAccessModeDelete) == false ) 
 			throw( eDSPermissionError );
 
 		try
@@ -3597,7 +3267,7 @@ tDirStatus CDSLocalPlugin::DeleteRecord( sDeleteRecord* inData )
 			
 			DSCFRelease( openRecordDict );
 
-			CFNumberRef recRefNumber = CFNumberCreate( NULL, kCFNumberLongType, &inData->fInRecRef );
+			CFNumberRef recRefNumber = CFNumberCreate( NULL, kCFNumberIntType, &inData->fInRecRef );
 			if ( recRefNumber != NULL )
 			{
 				CFDictionaryRemoveValue( mOpenRecordRefs, recRefNumber );
@@ -3647,17 +3317,13 @@ tDirStatus CDSLocalPlugin::CreateRecord( sCreateRecord* inData )
 		stdRecType = CFStringCreateWithCString( NULL, inData->fInRecType->fBufferData, kCFStringEncodingUTF8 );
 		if ( stdRecType == NULL ) throw( eMemoryAllocError );
 
-		CFStringRef nativeRecType = this->RecordNativeTypeForStandardType( stdRecType );
-		if ( nativeRecType == NULL ) throw eDSInvalidRecordType;
+		CFStringRef recordType = this->RecordNativeTypeForStandardType( stdRecType );
+		if ( recordType == NULL ) throw eDSInvalidRecordType;
 
-		if ( !node->WriteAccessAllowed(	nodeDict,
-										nativeRecType,
-										recName,
-										CFSTR( kDSAttributesAll )
-										) )
+		if ( !node->AccessAllowed(nodeDict, recordType, CFSTR(kDSRecordsAll), eDSAccessModeWrite) )
 			throw( eDSPermissionError );
 
-		siResult = node->CreateDictionaryForNewRecord( nativeRecType, recName, openRecord ? &mutableRecordAttrsValues : NULL, openRecord ? &recordFilePath : NULL );
+		siResult = node->CreateDictionaryForNewRecord( recordType, recName, openRecord ? &mutableRecordAttrsValues : NULL, openRecord ? &recordFilePath : NULL );
 		if ( siResult != eDSNoErr ) throw( siResult );
 		
 		if ( openRecord )
@@ -3668,12 +3334,13 @@ tDirStatus CDSLocalPlugin::CreateRecord( sCreateRecord* inData )
 			CFDictionaryAddValue( mutableOpenRecordDict, CFSTR( kOpenRecordDictAttrsValues ), mutableRecordAttrsValues );
 			CFDictionaryAddValue( mutableOpenRecordDict, CFSTR( kOpenRecordDictRecordFile ), recordFilePath );
 			CFDictionaryAddValue( mutableOpenRecordDict, CFSTR( kOpenRecordDictNodeDict ), nodeDict );
-			CFDictionaryAddValue( mutableOpenRecordDict, CFSTR( kOpenRecordDictRecordType ), nativeRecType );
+			CFDictionaryAddValue( mutableOpenRecordDict, CFSTR( kOpenRecordDictRecordType ), recordType );
 			CFDictionaryAddValue( mutableOpenRecordDict, CFSTR( kOpenRecordDictIsDeleted ), kCFBooleanFalse );
+			CFDictionaryAddValue( mutableOpenRecordDict, CFSTR( kOpenRecordDictRecordWasChanged ), kCFBooleanTrue );
 			
 			// everything looks good, so go ahead  and  add the open record dictionary to the open refs
 			
-			CFNumberRef recordRefNumber = CFNumberCreate( NULL, kCFNumberLongType, &inData->fOutRecRef );
+			CFNumberRef recordRefNumber = CFNumberCreate( NULL, kCFNumberIntType, &inData->fOutRecRef );
 			mOpenRecordRefsLock.WaitLock();
 			CFDictionaryAddValue( mOpenRecordRefs, recordRefNumber, mutableOpenRecordDict );
 			mOpenRecordRefsLock.SignalLock();
@@ -3696,21 +3363,84 @@ tDirStatus CDSLocalPlugin::CreateRecord( sCreateRecord* inData )
 	return siResult;
 }
 
+bool CDSLocalPlugin::CheckForShellAndValidate( CFDictionaryRef nodeDict, CDSLocalPluginNode *node, 
+											   CFStringRef nativeAttrType, const char *buffer, UInt32 bufferLen )
+{
+	bool	bReturn			= false;
+	uid_t	effectiveUID	= 99;
+	
+	CFNumberRef inEffectiveUIDNumber = (CFNumberRef) NodeDictCopyValue( nodeDict, CFSTR(kNodeEffectiveUIDKey) );
+	if ( inEffectiveUIDNumber != NULL ) {
+		CFNumberGetValue( inEffectiveUIDNumber, kCFNumberIntType, &effectiveUID );
+	}
+	
+	CFStringRef authedUserName;
+	if ( effectiveUID != 0 && (authedUserName = (CFStringRef) NodeDictCopyValue(nodeDict, CFSTR(kNodeAuthenticatedUserName))) != NULL )
+	{
+		char username[256];
+		
+		if ( CFStringGetCString(authedUserName, username, sizeof(username), kCFStringEncodingUTF8) == true &&
+			 dsIsUserMemberOfGroup(username, "admin") == true )
+		{
+			effectiveUID = 0;
+		}
+		CFRelease( authedUserName );
+	}
+	
+	if ( effectiveUID != 0 && 
+		CFStringCompare(nativeAttrType, AttrNativeTypeForStandardType(CFSTR(kDS1AttrUserShell)), 0) == kCFCompareEqualTo )
+	{
+		struct stat sb;
+		
+		if ( bufferLen > 0 && lstat("/etc/shells", &sb) == 0 )
+		{
+			FILE *shellFile = fopen( "/etc/shells", "r" );
+			if ( shellFile != NULL )
+			{
+				char *shellList = (char *) calloc( sb.st_size + 1, sizeof(char) );
+				
+				if ( fread(shellList, sb.st_size + 1, sizeof(char), shellFile) == 0 )
+				{
+					char *shell;
+					
+					while ((shell = strsep(&shellList, " \n\r")) != NULL)
+					{
+						if ( shell[0] == '/' )
+						{
+							if ( strncmp(buffer, shell, bufferLen) == 0 ) {
+								bReturn = true;
+								break;
+							}
+						}
+					}
+				}
+				
+				fclose( shellFile );
+				DSFree( shellFile );
+			}
+		}
+	}
+	else
+	{
+		bReturn = true;
+	}
+	
+	return bReturn;
+}
+
 tDirStatus CDSLocalPlugin::AddAttribute( sAddAttribute* inData, const char *inRecTypeStr )
 {
 	tDirStatus			siResult			= eDSNoErr;
 	CFNumberRef			recRefNumber		= NULL;
 	CFStringRef			stdAttrType			= NULL;
 	CFTypeRef			attrValue			= NULL;
-	CFMutableStringRef	writersAttr			= NULL;
-	CFMutableStringRef	writerGroupsAttr	= NULL;
 	CFDictionaryRef		nodeDict			= NULL;
 
 	// don't allow user to set the value of kDSNAttrMetaNodeLocation or kDS1AttrMetaAutomountMap, just return eDSNoErr
 	if ( inData->fInNewAttr != NULL && (strcmp(inData->fInNewAttr->fBufferData, kDSNAttrMetaNodeLocation) == 0 || strcmp(inData->fInNewAttr->fBufferData, kDS1AttrMetaAutomountMap) == 0) )
 		return eDSNoErr;
 
-	recRefNumber = CFNumberCreate( NULL, kCFNumberLongType, &inData->fInRecRef );
+	recRefNumber = CFNumberCreate( NULL, kCFNumberIntType, &inData->fInRecRef );
 	if ( recRefNumber == NULL )
 		return eMemoryError;
 	
@@ -3718,7 +3448,7 @@ tDirStatus CDSLocalPlugin::AddAttribute( sAddAttribute* inData, const char *inRe
 	
 	try
 	{
-		CFDictionaryRef openRecordDict = RecordDictForRecordRef( inData->fInRecRef );
+		CFMutableDictionaryRef openRecordDict = RecordDictForRecordRef( inData->fInRecRef );
 		if ( openRecordDict == NULL ) throw BaseDirectoryPlugin::AddAttribute( inData, inRecTypeStr );
 
 		CDSLocalPluginNode *node = NULL;
@@ -3737,29 +3467,23 @@ tDirStatus CDSLocalPlugin::AddAttribute( sAddAttribute* inData, const char *inRe
 		
 		CFStringRef nativeAttrType = this->AttrNativeTypeForStandardType( stdAttrType );
 		
-		writersAttr = CFStringCreateMutableCopy( NULL, 0, CFSTR("_writers_") );
-		CFStringAppend(writersAttr, nativeAttrType);
-		writerGroupsAttr = CFStringCreateMutableCopy( NULL, 0, CFSTR("_writergroups_") );
-		CFStringAppend(writerGroupsAttr, nativeAttrType);
-		CFArrayRef recNames = NULL;
-		recNames = (CFArrayRef)CFDictionaryGetValue( mutableRecordAttrsValues, this->AttrNativeTypeForStandardType( CFSTR( kDSNAttrRecordName ) ) );
-
-		if ( !node->WriteAccessAllowed(	nodeDict,
-										recordType,
-										( CFArrayGetCount( recNames ) > 0 ) ? (CFStringRef)CFArrayGetValueAtIndex( recNames, 0 ) : NULL,
-										nativeAttrType,
-										(CFArrayRef)CFDictionaryGetValue( mutableRecordAttrsValues, CFSTR( "_writers" ) ),
-										(CFArrayRef)CFDictionaryGetValue( mutableRecordAttrsValues, writersAttr ),
-										(CFArrayRef)CFDictionaryGetValue( mutableRecordAttrsValues, CFSTR( "_writergroups" ) ),
-										(CFArrayRef)CFDictionaryGetValue( mutableRecordAttrsValues, writerGroupsAttr )
-										 ) )
+		if ( !node->AccessAllowed(nodeDict, recordType, nativeAttrType, eDSAccessModeWriteAttr, mutableRecordAttrsValues) )
 			throw( eDSPermissionError );
+		
+		if ( inData->fInFirstAttrValue != NULL && CheckForShellAndValidate(nodeDict, node, nativeAttrType, inData->fInFirstAttrValue->fBufferData,
+																		   inData->fInFirstAttrValue->fBufferLength) == false )
+		{
+			throw eDSSchemaError;
+		}
 		
 		// we don't care if it exists, we just add the empty list anyway
 		if ( inData->fInFirstAttrValue != NULL && inData->fInFirstAttrValue->fBufferData != NULL )
 			attrValue = GetAttrValueFromInput( inData->fInFirstAttrValue->fBufferData, inData->fInFirstAttrValue->fBufferLength );
 
 		siResult = node->AddAttributeToRecord( nativeAttrType, recordType, attrValue, mutableRecordAttrsValues );
+		if ( siResult == eDSNoErr ) {
+			CFDictionarySetValue( openRecordDict, CFSTR(kOpenRecordDictRecordWasChanged), kCFBooleanTrue );
+		}
 	}
 	catch( tDirStatus err )
 	{
@@ -3773,8 +3497,6 @@ tDirStatus CDSLocalPlugin::AddAttribute( sAddAttribute* inData, const char *inRe
 	DSCFRelease( recRefNumber );
 	DSCFRelease( stdAttrType );
 	DSCFRelease( attrValue );
-	DSCFRelease( writersAttr );
-	DSCFRelease( writerGroupsAttr );
 		
 	return siResult;
 }
@@ -3786,15 +3508,13 @@ tDirStatus CDSLocalPlugin::AddAttributeValue( sAddAttributeValue* inData, const 
 	CFNumberRef			recRefNumber		= NULL;
 	CFStringRef			stdAttrType			= NULL;
 	CFTypeRef			attrValue			= NULL;
-	CFMutableStringRef	writersAttr			= NULL;
-	CFMutableStringRef	writerGroupsAttr	= NULL;
 	CFDictionaryRef		nodeDict			= NULL;
 	
 	// don't allow user to set the value of kDSNAttrMetaNodeLocation or kDS1AttrMetaAutomountMap, just return eDSNoErr
 	if ( inData->fInAttrType != NULL && (strcmp(inData->fInAttrType->fBufferData, kDSNAttrMetaNodeLocation) == 0 || strcmp(inData->fInAttrType->fBufferData, kDS1AttrMetaAutomountMap) == 0) )
 		return eDSNoErr;		
 
-	recRefNumber = CFNumberCreate( NULL, kCFNumberLongType, &inData->fInRecRef );
+	recRefNumber = CFNumberCreate( NULL, kCFNumberIntType, &inData->fInRecRef );
 	if ( recRefNumber == NULL )
 		return eMemoryError;
 	
@@ -3802,7 +3522,7 @@ tDirStatus CDSLocalPlugin::AddAttributeValue( sAddAttributeValue* inData, const 
 
 	try
 	{
-		CFDictionaryRef openRecordDict = RecordDictForRecordRef( inData->fInRecRef );
+		CFMutableDictionaryRef openRecordDict = RecordDictForRecordRef( inData->fInRecRef );
 		if ( openRecordDict == NULL ) throw BaseDirectoryPlugin::AddAttributeValue( inData, inRecTypeStr );
 		
 		CDSLocalPluginNode *node = NULL;
@@ -3821,28 +3541,22 @@ tDirStatus CDSLocalPlugin::AddAttributeValue( sAddAttributeValue* inData, const 
 		
 		CFStringRef nativeAttrType = this->AttrNativeTypeForStandardType( stdAttrType );
 
-		writersAttr = CFStringCreateMutableCopy( NULL, 0, CFSTR("_writers_") );
-		CFStringAppend(writersAttr, nativeAttrType);
-		writerGroupsAttr = CFStringCreateMutableCopy( NULL, 0, CFSTR("_writergroups_") );
-		CFStringAppend(writerGroupsAttr, nativeAttrType);
-		CFArrayRef recNames = NULL;
-		recNames = (CFArrayRef)CFDictionaryGetValue( mutableRecordAttrsValues, this->AttrNativeTypeForStandardType( CFSTR( kDSNAttrRecordName ) ) );
-
-		if ( !node->WriteAccessAllowed(	nodeDict,
-										recordType,
-										( CFArrayGetCount( recNames ) > 0 ) ? (CFStringRef)CFArrayGetValueAtIndex( recNames, 0 ) : NULL,
-										nativeAttrType,
-										(CFArrayRef)CFDictionaryGetValue( mutableRecordAttrsValues, CFSTR( "_writers" ) ),
-										(CFArrayRef)CFDictionaryGetValue( mutableRecordAttrsValues, writersAttr ),
-										(CFArrayRef)CFDictionaryGetValue( mutableRecordAttrsValues, CFSTR( "_writergroups" ) ),
-										(CFArrayRef)CFDictionaryGetValue( mutableRecordAttrsValues, writerGroupsAttr )
-										 ) )
+		if ( !node->AccessAllowed(nodeDict, recordType, nativeAttrType, eDSAccessModeWriteAttr, mutableRecordAttrsValues) )
 			throw( eDSPermissionError );
 
+		if ( inData->fInAttrValue != NULL && CheckForShellAndValidate(nodeDict, node, nativeAttrType, inData->fInAttrValue->fBufferData,
+																	  inData->fInAttrValue->fBufferLength) == false )
+		{
+			throw eDSSchemaError;
+		}
+		
 		// handle binary write here
 		attrValue = GetAttrValueFromInput( inData->fInAttrValue->fBufferData, inData->fInAttrValue->fBufferLength );
 
 		siResult = node->AddAttributeValueToRecord( nativeAttrType, recordType, attrValue, mutableRecordAttrsValues );
+		if ( siResult == eDSNoErr ) {
+			CFDictionarySetValue( openRecordDict, CFSTR(kOpenRecordDictRecordWasChanged), kCFBooleanTrue );
+		}
 	}
 	catch( tDirStatus err )
 	{
@@ -3856,8 +3570,6 @@ tDirStatus CDSLocalPlugin::AddAttributeValue( sAddAttributeValue* inData, const 
 	DSCFRelease( recRefNumber );
 	DSCFRelease( stdAttrType );
 	DSCFRelease( attrValue );
-	DSCFRelease( writersAttr );
-	DSCFRelease( writerGroupsAttr );
 		
 	return siResult;
 }
@@ -3868,8 +3580,6 @@ tDirStatus CDSLocalPlugin::RemoveAttribute( sRemoveAttribute* inData, const char
 	tDirStatus			siResult			= eDSNoErr;
 	CFNumberRef			recRefNumber		= NULL;
 	CFStringRef			stdAttrType			= NULL;
-	CFMutableStringRef	writersAttr			= NULL;
-	CFMutableStringRef	writerGroupsAttr	= NULL;
 	CFDictionaryRef		nodeDict			= NULL;
 
 	// don't allow user to set the value of kDSNAttrMetaNodeLocation or kDS1AttrMetaAutomountMap, just return eDSNoErr
@@ -3880,7 +3590,7 @@ tDirStatus CDSLocalPlugin::RemoveAttribute( sRemoveAttribute* inData, const char
 		return eDSNoErr;
 	}
 	
-	recRefNumber = CFNumberCreate( NULL, kCFNumberLongType, &inData->fInRecRef );
+	recRefNumber = CFNumberCreate( NULL, kCFNumberIntType, &inData->fInRecRef );
 	if ( recRefNumber == NULL )
 		return eMemoryError;
 
@@ -3888,7 +3598,7 @@ tDirStatus CDSLocalPlugin::RemoveAttribute( sRemoveAttribute* inData, const char
 	
 	try
 	{
-		CFDictionaryRef openRecordDict = RecordDictForRecordRef( inData->fInRecRef );
+		CFMutableDictionaryRef openRecordDict = RecordDictForRecordRef( inData->fInRecRef );
 		if ( openRecordDict == NULL ) throw BaseDirectoryPlugin::RemoveAttribute( inData, inRecTypeStr );
 		
 		CDSLocalPluginNode *node = NULL;
@@ -3907,28 +3617,17 @@ tDirStatus CDSLocalPlugin::RemoveAttribute( sRemoveAttribute* inData, const char
 		
 		CFStringRef nativeAttrType = this->AttrNativeTypeForStandardType( stdAttrType );
 
-		writersAttr = CFStringCreateMutableCopy( NULL, 0, CFSTR("_writers_") );
-		CFStringAppend(writersAttr, nativeAttrType);
-		writerGroupsAttr = CFStringCreateMutableCopy( NULL, 0, CFSTR("_writergroups_") );
-		CFStringAppend(writerGroupsAttr, nativeAttrType);
-		CFArrayRef recNames = NULL;
-		recNames = (CFArrayRef)CFDictionaryGetValue( mutableRecordAttrsValues, this->AttrNativeTypeForStandardType( CFSTR( kDSNAttrRecordName ) ) );
-
-		if ( !node->WriteAccessAllowed(	nodeDict,
-										recordType,
-										( CFArrayGetCount( recNames ) > 0 ) ? (CFStringRef)CFArrayGetValueAtIndex( recNames, 0 ) : NULL,
-										nativeAttrType,
-										(CFArrayRef)CFDictionaryGetValue( mutableRecordAttrsValues, CFSTR( "_writers" ) ),
-										(CFArrayRef)CFDictionaryGetValue( mutableRecordAttrsValues, writersAttr ),
-										(CFArrayRef)CFDictionaryGetValue( mutableRecordAttrsValues, CFSTR( "_writergroups" ) ),
-										(CFArrayRef)CFDictionaryGetValue( mutableRecordAttrsValues, writerGroupsAttr )
-										 ) )
+		if ( !node->AccessAllowed(nodeDict, recordType, nativeAttrType, eDSAccessModeWriteAttr, mutableRecordAttrsValues) )
 			throw( eDSPermissionError );
 
-		siResult = node->RemoveAttributeFromRecord( nativeAttrType, recordType, mutableRecordAttrsValues );
-		if ( siResult != eDSNoErr ) throw( siResult );
+		if ( CheckForShellAndValidate(nodeDict, node, nativeAttrType, "", 0) == false ) {
+			throw eDSSchemaError;
+		}
 		
-		DSCFRelease( recRefNumber );
+		siResult = node->RemoveAttributeFromRecord( nativeAttrType, recordType, mutableRecordAttrsValues );
+		if ( siResult == eDSNoErr ) {
+			CFDictionarySetValue( openRecordDict, CFSTR(kOpenRecordDictRecordWasChanged), kCFBooleanTrue );
+		}
 	}
 	catch( tDirStatus err )
 	{
@@ -3941,8 +3640,6 @@ tDirStatus CDSLocalPlugin::RemoveAttribute( sRemoveAttribute* inData, const char
 	DSCFRelease( nodeDict );
 	DSCFRelease( recRefNumber );
 	DSCFRelease( stdAttrType );
-	DSCFRelease( writersAttr );
-	DSCFRelease( writerGroupsAttr );
 		
 	return siResult;
 }
@@ -3953,15 +3650,13 @@ tDirStatus CDSLocalPlugin::RemoveAttributeValue( sRemoveAttributeValue* inData, 
 	CFNumberRef					recRefNumber		= NULL;
 	CFStringRef					stdAttrType			= NULL;
 	tAttributeValueEntry	   *attrValueEntry		= NULL;
-	CFMutableStringRef			writersAttr			= NULL;
-	CFMutableStringRef			writerGroupsAttr	= NULL;
 	CFDictionaryRef				nodeDict			= NULL;
 	
 	// don't allow user to set the value of kDSNAttrMetaNodeLocation or kDS1AttrMetaAutomountMap, just return eDSNoErr
 	if ( inData->fInAttrType != NULL && (strcmp(inData->fInAttrType->fBufferData, kDSNAttrMetaNodeLocation) == 0 || strcmp(inData->fInAttrType->fBufferData, kDS1AttrMetaAutomountMap) == 0) )
 		return eDSNoErr;
 	
-	recRefNumber = CFNumberCreate( NULL, kCFNumberLongType, &inData->fInRecRef );
+	recRefNumber = CFNumberCreate( NULL, kCFNumberIntType, &inData->fInRecRef );
 	if ( recRefNumber == NULL )
 		return eMemoryError;
 	
@@ -3969,7 +3664,7 @@ tDirStatus CDSLocalPlugin::RemoveAttributeValue( sRemoveAttributeValue* inData, 
 
 	try
 	{
-		CFDictionaryRef openRecordDict = RecordDictForRecordRef( inData->fInRecRef );
+		CFMutableDictionaryRef openRecordDict = RecordDictForRecordRef( inData->fInRecRef );
 		if ( openRecordDict == NULL ) throw BaseDirectoryPlugin::RemoveAttributeValue( inData, inRecTypeStr );
 		
 		CDSLocalPluginNode *node = NULL;
@@ -3989,26 +3684,17 @@ tDirStatus CDSLocalPlugin::RemoveAttributeValue( sRemoveAttributeValue* inData, 
 		// get the attribute value
 		CFStringRef nativeAttrType = this->AttrNativeTypeForStandardType( stdAttrType );
 
-		writersAttr = CFStringCreateMutableCopy( NULL, 0, CFSTR("_writers_") );
-		CFStringAppend(writersAttr, nativeAttrType);
-		writerGroupsAttr = CFStringCreateMutableCopy( NULL, 0, CFSTR("_writergroups_") );
-		CFStringAppend(writerGroupsAttr, nativeAttrType);
-		CFArrayRef recNames = NULL;
-		recNames = (CFArrayRef)CFDictionaryGetValue( mutableRecordAttrsValues, this->AttrNativeTypeForStandardType( CFSTR( kDSNAttrRecordName ) ) );
-
-		if ( !node->WriteAccessAllowed(	nodeDict,
-										recordType,
-										( CFArrayGetCount( recNames ) > 0 ) ? (CFStringRef)CFArrayGetValueAtIndex( recNames, 0 ) : NULL,
-										nativeAttrType,
-										(CFArrayRef)CFDictionaryGetValue( mutableRecordAttrsValues, CFSTR( "_writers" ) ),
-										(CFArrayRef)CFDictionaryGetValue( mutableRecordAttrsValues, writersAttr ),
-										(CFArrayRef)CFDictionaryGetValue( mutableRecordAttrsValues, CFSTR( "_writergroups" ) ),
-										(CFArrayRef)CFDictionaryGetValue( mutableRecordAttrsValues, writerGroupsAttr )
-										 ) )
+		if ( !node->AccessAllowed(nodeDict, recordType, nativeAttrType, eDSAccessModeWriteAttr, mutableRecordAttrsValues) )
 			throw( eDSPermissionError );
 
+		if ( CheckForShellAndValidate(nodeDict, node, nativeAttrType, "", 0) == false ) {
+			throw eDSSchemaError;
+		}
+				
 		siResult = node->RemoveAttributeValueFromRecordByCRC( nativeAttrType, recordType, mutableRecordAttrsValues, inData->fInAttrValueID );
-		if ( siResult != eDSNoErr ) throw( siResult );
+		if ( siResult == eDSNoErr ) {
+			CFDictionarySetValue( openRecordDict, CFSTR(kOpenRecordDictRecordWasChanged), kCFBooleanTrue );
+		}
 	}
 	catch( tDirStatus err )
 	{
@@ -4022,8 +3708,6 @@ tDirStatus CDSLocalPlugin::RemoveAttributeValue( sRemoveAttributeValue* inData, 
 	DSCFRelease( recRefNumber );
 	DSCFRelease( stdAttrType );
 	DSFree( attrValueEntry );
-	DSCFRelease( writersAttr );
-	DSCFRelease( writerGroupsAttr );
 		
 	return siResult;
 }
@@ -4035,8 +3719,6 @@ tDirStatus CDSLocalPlugin::SetAttributeValue( sSetAttributeValue* inData, const 
 	CFStringRef					stdAttrType					= NULL;
 	tAttributeValueEntry	   *attrValueEntry				= NULL;
 	CFTypeRef					newValue					= NULL;
-	CFMutableStringRef			writersAttr					= NULL;
-	CFMutableStringRef			writerGroupsAttr			= NULL;
 	CFDictionaryRef				nodeDict					= NULL;
 	CFMutableDictionaryRef		mutableRecordAttrsValues	= NULL;
 	
@@ -4044,7 +3726,7 @@ tDirStatus CDSLocalPlugin::SetAttributeValue( sSetAttributeValue* inData, const 
 	if ( inData->fInAttrType != NULL && (strcmp(inData->fInAttrType->fBufferData, kDSNAttrMetaNodeLocation) == 0 || strcmp(inData->fInAttrType->fBufferData, kDS1AttrMetaAutomountMap) == 0) )
 		return eDSNoErr;
 	
-	recRefNumber = CFNumberCreate( NULL, kCFNumberLongType, &inData->fInRecRef );
+	recRefNumber = CFNumberCreate( NULL, kCFNumberIntType, &inData->fInRecRef );
 	if ( recRefNumber == NULL )
 		return eMemoryError;
 	
@@ -4052,7 +3734,7 @@ tDirStatus CDSLocalPlugin::SetAttributeValue( sSetAttributeValue* inData, const 
 
 	try
 	{
-		CFDictionaryRef openRecordDict = RecordDictForRecordRef( inData->fInRecRef );
+		CFMutableDictionaryRef openRecordDict = RecordDictForRecordRef( inData->fInRecRef );
 		if ( openRecordDict == NULL ) throw BaseDirectoryPlugin::SetAttributeValue( inData, inRecTypeStr );
 		
 		CDSLocalPluginNode *node = NULL;
@@ -4069,32 +3751,26 @@ tDirStatus CDSLocalPlugin::SetAttributeValue( sSetAttributeValue* inData, const 
 		CFStringRef recordType = (CFStringRef)CFDictionaryGetValue( openRecordDict, CFSTR( kOpenRecordDictRecordType ) );
 		if ( recordType == NULL ) throw( ePlugInDataError );
 		
-		// set the attribute value
+		// get the attribute value
 		CFStringRef nativeAttrType = this->AttrNativeTypeForStandardType( stdAttrType );
 
-		writersAttr = CFStringCreateMutableCopy( NULL, 0, CFSTR("_writers_") );
-		CFStringAppend(writersAttr, nativeAttrType);
-		writerGroupsAttr = CFStringCreateMutableCopy( NULL, 0, CFSTR("_writergroups_") );
-		CFStringAppend(writerGroupsAttr, nativeAttrType);
-		CFArrayRef recNames = NULL;
-		recNames = (CFArrayRef)CFDictionaryGetValue( mutableRecordAttrsValues, this->AttrNativeTypeForStandardType( CFSTR( kDSNAttrRecordName ) ) );
-
-		if ( !node->WriteAccessAllowed(	nodeDict,
-										recordType,
-										( CFArrayGetCount( recNames ) > 0 ) ? (CFStringRef)CFArrayGetValueAtIndex( recNames, 0 ) : NULL,
-										nativeAttrType,
-										(CFArrayRef)CFDictionaryGetValue( mutableRecordAttrsValues, CFSTR( "_writers" ) ),
-										(CFArrayRef)CFDictionaryGetValue( mutableRecordAttrsValues, writersAttr ),
-										(CFArrayRef)CFDictionaryGetValue( mutableRecordAttrsValues, CFSTR( "_writergroups" ) ),
-										(CFArrayRef)CFDictionaryGetValue( mutableRecordAttrsValues, writerGroupsAttr )
-										 ) )
+		if ( !node->AccessAllowed(nodeDict, recordType, nativeAttrType, eDSAccessModeWriteAttr, mutableRecordAttrsValues) )
 			throw( eDSPermissionError );
 
+		if ( inData->fInAttrValueEntry != NULL && 
+			 CheckForShellAndValidate(nodeDict, node, nativeAttrType, inData->fInAttrValueEntry->fAttributeValueData.fBufferData,
+									  inData->fInAttrValueEntry->fAttributeValueData.fBufferLength) == false )
+		{
+			throw eDSSchemaError;
+		}
+				
 		// handle binary write here
 		newValue = GetAttrValueFromInput( inData->fInAttrValueEntry->fAttributeValueData.fBufferData, inData->fInAttrValueEntry->fAttributeValueData.fBufferLength );
 
 		siResult = node->ReplaceAttributeValueInRecordByCRC( nativeAttrType, recordType, mutableRecordAttrsValues, inData->fInAttrValueEntry->fAttributeValueID, newValue );
-		if ( siResult != eDSNoErr ) throw( siResult );
+		if ( siResult == eDSNoErr ) {
+			CFDictionarySetValue( openRecordDict, CFSTR(kOpenRecordDictRecordWasChanged), kCFBooleanTrue );
+		}
 	}
 	catch( tDirStatus err )
 	{
@@ -4109,8 +3785,6 @@ tDirStatus CDSLocalPlugin::SetAttributeValue( sSetAttributeValue* inData, const 
 	DSCFRelease( stdAttrType );
 	DSFree( attrValueEntry );
 	DSCFRelease( newValue );
-	DSCFRelease( writersAttr );
-	DSCFRelease( writerGroupsAttr );
 		
 	return siResult;
 }
@@ -4122,8 +3796,6 @@ tDirStatus CDSLocalPlugin::SetAttributeValues( sSetAttributeValues* inData, cons
 	CFStringRef					stdAttrType					= NULL;
 	tAttributeValueEntry	   *attrValueEntry				= NULL;
 	CFMutableArrayRef			mutableAttrValues			= NULL;
-	CFMutableStringRef			writersAttr					= NULL;
-	CFMutableStringRef			writerGroupsAttr			= NULL;
 	CFDictionaryRef				nodeDict					= NULL;
 	CFMutableDictionaryRef		mutableRecordAttrsValues	= NULL;
 	
@@ -4132,7 +3804,7 @@ tDirStatus CDSLocalPlugin::SetAttributeValues( sSetAttributeValues* inData, cons
 		 (strcmp(inData->fInAttrType->fBufferData, kDSNAttrMetaNodeLocation) == 0 || strcmp(inData->fInAttrType->fBufferData, kDS1AttrMetaAutomountMap) == 0) )
 		return eDSNoErr;		
 	
-	recRefNumber = CFNumberCreate( NULL, kCFNumberLongType, &inData->fInRecRef );
+	recRefNumber = CFNumberCreate( NULL, kCFNumberIntType, &inData->fInRecRef );
 	if ( recRefNumber == NULL )
 		return eMemoryError;
 	
@@ -4140,7 +3812,7 @@ tDirStatus CDSLocalPlugin::SetAttributeValues( sSetAttributeValues* inData, cons
 		
 	try
 	{
-		CFDictionaryRef openRecordDict = RecordDictForRecordRef( inData->fInRecRef );
+		CFMutableDictionaryRef openRecordDict = RecordDictForRecordRef( inData->fInRecRef );
 		if ( openRecordDict == NULL ) throw BaseDirectoryPlugin::SetAttributeValue( (sSetAttributeValue *)inData, inRecTypeStr );
 		
 		CDSLocalPluginNode *node = NULL;
@@ -4160,24 +3832,20 @@ tDirStatus CDSLocalPlugin::SetAttributeValues( sSetAttributeValues* inData, cons
 		// set the attribute type
 		CFStringRef nativeAttrType = this->AttrNativeTypeForStandardType( stdAttrType );
 
-		writersAttr = CFStringCreateMutableCopy( NULL, 0, CFSTR("_writers_") );
-		CFStringAppend(writersAttr, nativeAttrType);
-		writerGroupsAttr = CFStringCreateMutableCopy( NULL, 0, CFSTR("_writergroups_") );
-		CFStringAppend(writerGroupsAttr, nativeAttrType);
-		CFArrayRef recNames = NULL;
-		recNames = (CFArrayRef)CFDictionaryGetValue( mutableRecordAttrsValues, this->AttrNativeTypeForStandardType( CFSTR( kDSNAttrRecordName ) ) );
-
-		if ( !node->WriteAccessAllowed(	nodeDict,
-										recordType,
-										( CFArrayGetCount( recNames ) > 0 ) ? (CFStringRef)CFArrayGetValueAtIndex( recNames, 0 ) : NULL,
-										nativeAttrType,
-										(CFArrayRef)CFDictionaryGetValue( mutableRecordAttrsValues, CFSTR( "_writers" ) ),
-										(CFArrayRef)CFDictionaryGetValue( mutableRecordAttrsValues, writersAttr ),
-										(CFArrayRef)CFDictionaryGetValue( mutableRecordAttrsValues, CFSTR( "_writergroups" ) ),
-										(CFArrayRef)CFDictionaryGetValue( mutableRecordAttrsValues, writerGroupsAttr )
-										 ) )
+		if ( !node->AccessAllowed(nodeDict, recordType, nativeAttrType, eDSAccessModeWriteAttr, mutableRecordAttrsValues) )
 			throw( eDSPermissionError );
 
+		// even though shell is a single-value attribute, we have to check anyway
+		tDataBufferPriv *buffer = (tDataBufferPriv *) inData->fInAttrValueList->fDataListHead;
+		while ( buffer != NULL )
+		{
+			if ( CheckForShellAndValidate(nodeDict, node, nativeAttrType, buffer->fBufferData, buffer->fBufferLength) == false ) {
+				throw eDSSchemaError;
+			}
+			
+			buffer = (tDataBufferPriv *) buffer->fNextPtr;
+		}
+		
 		// handle binary write here
 		mutableAttrValues = CreateCFArrayFromGenericDataList( inData->fInAttrValueList );
 		if ( mutableAttrValues == NULL ) throw( eDSEmptyAttributeValue );
@@ -4197,7 +3865,9 @@ tDirStatus CDSLocalPlugin::SetAttributeValues( sSetAttributeValues* inData, cons
 			CFRelease( openRecordDict );
 		}
 		
-		if ( siResult != eDSNoErr ) throw( siResult );
+		if ( siResult == eDSNoErr ) {
+			CFDictionarySetValue( openRecordDict, CFSTR(kOpenRecordDictRecordWasChanged), kCFBooleanTrue );
+		}
 	}
 	catch( tDirStatus err )
 	{
@@ -4212,8 +3882,6 @@ tDirStatus CDSLocalPlugin::SetAttributeValues( sSetAttributeValues* inData, cons
 	DSCFRelease( stdAttrType );
 	DSFree( attrValueEntry );
 	DSCFRelease( mutableAttrValues );
-	DSCFRelease( writersAttr );
-	DSCFRelease( writerGroupsAttr );
 		
 	return siResult;
 }
@@ -4233,9 +3901,9 @@ tDirStatus CDSLocalPlugin::GetRecAttrValueByID( sGetRecordAttributeValueByID* in
 
 	try
 	{
-		recRefNumber = CFNumberCreate( NULL, kCFNumberLongType, &inData->fInRecRef );
+		recRefNumber = CFNumberCreate( NULL, kCFNumberIntType, &inData->fInRecRef );
 		
-		CFDictionaryRef openRecordDict = RecordDictForRecordRef( inData->fInRecRef );
+		CFMutableDictionaryRef openRecordDict = RecordDictForRecordRef( inData->fInRecRef );
 		if ( openRecordDict == NULL ) throw BaseDirectoryPlugin::GetRecAttrValueByID( inData );
 		
 		CDSLocalPluginNode *node = NULL;
@@ -4251,8 +3919,13 @@ tDirStatus CDSLocalPlugin::GetRecAttrValueByID( sGetRecordAttributeValueByID* in
 		if ( stdAttrType == NULL )
 			throw( eMemoryAllocError );
 		
+		CFStringRef recordType = (CFStringRef)CFDictionaryGetValue( openRecordDict, CFSTR( kOpenRecordDictRecordType ) );
+		if ( recordType == NULL ) throw( ePlugInDataError );
+		
 		// get the attribute value
 		CFStringRef nativeAttrType = this->AttrNativeTypeForStandardType( stdAttrType );
+		if ( node->AccessAllowed(nodeDict, recordType, nativeAttrType, eDSAccessModeReadAttr) == false ) 
+			throw( eDSPermissionError );
 		
 		//handle binary read here
 		CFTypeRef attrValue = NULL;
@@ -4327,9 +4000,9 @@ tDirStatus CDSLocalPlugin::GetRecAttrValueByIndex( sGetRecordAttributeValueByInd
 	
 	try
 	{		
-		recRefNumber = CFNumberCreate( NULL, kCFNumberLongType, &inData->fInRecRef );
+		recRefNumber = CFNumberCreate( NULL, kCFNumberIntType, &inData->fInRecRef );
 		
-		CFDictionaryRef openRecordDict = RecordDictForRecordRef( inData->fInRecRef );
+		CFMutableDictionaryRef openRecordDict = RecordDictForRecordRef( inData->fInRecRef );
 		if ( openRecordDict == NULL ) throw BaseDirectoryPlugin::GetRecAttrValueByIndex( inData );
 		
 		nodeDict = this->CopyNodeDictandNodeObject( openRecordDict, &node );
@@ -4347,8 +4020,13 @@ tDirStatus CDSLocalPlugin::GetRecAttrValueByIndex( sGetRecordAttributeValueByInd
 		if ( stdAttrType == NULL )
 			throw( eMemoryAllocError );
 		
+		CFStringRef recordType = (CFStringRef)CFDictionaryGetValue( openRecordDict, CFSTR( kOpenRecordDictRecordType ) );
+		if ( recordType == NULL ) throw( ePlugInDataError );
+		
 		// get the attribute value
 		CFStringRef nativeAttrType = this->AttrNativeTypeForStandardType( stdAttrType );
+		if ( node->AccessAllowed(nodeDict, recordType, nativeAttrType, eDSAccessModeReadAttr) == false ) 
+			throw( eDSPermissionError );
 		
 		//handle binary read here
 		CFTypeRef attrValue = NULL;
@@ -4417,7 +4095,7 @@ tDirStatus CDSLocalPlugin::GetRecAttrValueByValue( sGetRecordAttributeValueByVal
 	const void *dataValue = NULL;
 	CFTypeRef attrValue = NULL;
 	
-	recRefNumber = CFNumberCreate( NULL, kCFNumberLongType, &inData->fInRecRef );
+	recRefNumber = CFNumberCreate( NULL, kCFNumberIntType, &inData->fInRecRef );
 	if ( recRefNumber == NULL )
 		return( ePlugInDataError );
 	
@@ -4425,7 +4103,7 @@ tDirStatus CDSLocalPlugin::GetRecAttrValueByValue( sGetRecordAttributeValueByVal
 
 	try
 	{
-		CFDictionaryRef openRecordDict = RecordDictForRecordRef( inData->fInRecRef );
+		CFMutableDictionaryRef openRecordDict = RecordDictForRecordRef( inData->fInRecRef );
 		if ( openRecordDict == NULL ) throw BaseDirectoryPlugin::GetRecAttrValueByValue( inData );
 		
 		CDSLocalPluginNode *node = NULL;
@@ -4443,8 +4121,13 @@ tDirStatus CDSLocalPlugin::GetRecAttrValueByValue( sGetRecordAttributeValueByVal
 		if ( stdAttrType == NULL )
 			throw( eMemoryAllocError );
 		
+		CFStringRef recordType = (CFStringRef)CFDictionaryGetValue( openRecordDict, CFSTR( kOpenRecordDictRecordType ) );
+		if ( recordType == NULL ) throw( ePlugInDataError );
+		
 		// get the attribute value
 		CFStringRef nativeAttrType = this->AttrNativeTypeForStandardType( stdAttrType );
+		if ( node->AccessAllowed(nodeDict, recordType, nativeAttrType, eDSAccessModeReadAttr) == false ) 
+			throw( eDSPermissionError );
 		
 		// create reference
 		attrValue = CFStringCreateWithCStringNoCopy( NULL, inData->fInAttrValue->fBufferData, kCFStringEncodingUTF8, kCFAllocatorNull );
@@ -4526,9 +4209,9 @@ tDirStatus CDSLocalPlugin::GetRecRefInfo( sGetRecRefInfo* inData )
 	
 	try
 	{
-		recRefNumber = CFNumberCreate( NULL, kCFNumberLongType, &inData->fInRecRef );
+		recRefNumber = CFNumberCreate( NULL, kCFNumberIntType, &inData->fInRecRef );
 		
-		CFDictionaryRef openRecordDict = RecordDictForRecordRef( inData->fInRecRef );
+		CFMutableDictionaryRef openRecordDict = RecordDictForRecordRef( inData->fInRecRef );
 		if ( openRecordDict == NULL ) throw BaseDirectoryPlugin::GetRecRefInfo( inData );
 		
 		CFDictionaryRef nodeDict = (CFDictionaryRef)CFDictionaryGetValue( openRecordDict,
@@ -4614,19 +4297,20 @@ tDirStatus CDSLocalPlugin::GetRecAttribInfo( sGetRecAttribInfo* inData )
 	CFNumberRef recRefNumber = NULL;
 	tAttributeEntry* attrEntry = NULL;
 	CFStringRef attrType = NULL;
+	CFDictionaryRef nodeDict = NULL;
 	
 	mOpenRecordRefsLock.WaitLock();
 
 	try
 	{
-		recRefNumber = CFNumberCreate( NULL, kCFNumberLongType, &inData->fInRecRef );
+		recRefNumber = CFNumberCreate( NULL, kCFNumberIntType, &inData->fInRecRef );
 		
-		CFDictionaryRef openRecordDict = RecordDictForRecordRef( inData->fInRecRef );
+		CFMutableDictionaryRef openRecordDict = RecordDictForRecordRef( inData->fInRecRef );
 		if ( openRecordDict == NULL ) throw BaseDirectoryPlugin::GetRecAttribInfo( inData );
 		
-		CFDictionaryRef nodeDict = (CFDictionaryRef)CFDictionaryGetValue( openRecordDict,
-			CFSTR( kOpenRecordDictNodeDict ) );
-		if ( nodeDict == NULL )
+		CDSLocalPluginNode *node = NULL;
+		nodeDict = this->CopyNodeDictandNodeObject( openRecordDict, &node );
+		if ( nodeDict == NULL || node == NULL )
 			throw( ePlugInDataError );
 
 		CFMutableDictionaryRef mutableRecordAttrsValues = (CFMutableDictionaryRef)CFDictionaryGetValue( openRecordDict,
@@ -4638,8 +4322,14 @@ tDirStatus CDSLocalPlugin::GetRecAttribInfo( sGetRecAttribInfo* inData )
 		if ( attrType == NULL )
 			throw( eMemoryAllocError );
 
+		CFStringRef recordType = (CFStringRef)CFDictionaryGetValue( openRecordDict, CFSTR( kOpenRecordDictRecordType ) );
+		if ( recordType == NULL ) throw( ePlugInDataError );
+		
+		// get the attribute value
 		CFStringRef nativeAttrType = AttrNativeTypeForStandardType( attrType );
-
+		if ( node->AccessAllowed(nodeDict, recordType, nativeAttrType, eDSAccessModeReadAttr) == false ) 
+			throw( eDSPermissionError );
+		
 		// need to handle both attribute with no values and no attribute cases.
 		CFArrayRef attrValues = NULL;
 		if ( ! CFDictionaryGetValueIfPresent(mutableRecordAttrsValues, nativeAttrType, (const void **)&attrValues) )
@@ -4656,7 +4346,7 @@ tDirStatus CDSLocalPlugin::GetRecAttribInfo( sGetRecAttribInfo* inData )
 		if ( attrValues == NULL )
 			attrEntry->fAttributeValueCount = 0;
 		else
-			attrEntry->fAttributeValueCount = (unsigned long)CFArrayGetCount( attrValues );
+			attrEntry->fAttributeValueCount = (UInt32)CFArrayGetCount( attrValues );
 		attrEntry->fAttributeValueMaxSize = 1024;
 
 		inData->fOutAttrInfoPtr = attrEntry;
@@ -4673,6 +4363,7 @@ tDirStatus CDSLocalPlugin::GetRecAttribInfo( sGetRecAttribInfo* inData )
 	
 	DSCFRelease( recRefNumber );
 	DSCFRelease( attrType );
+	DSCFRelease( nodeDict );
 	
 	if ( attrEntry != NULL )
 	{
@@ -4743,11 +4434,11 @@ tDirStatus CDSLocalPlugin::DoAuthentication( sDoDirNodeAuth *inData, const char 
 		
 		CFNumberRef uidNumber = (CFNumberRef)CFDictionaryGetValue( nodeDict, CFSTR( kNodeUIDKey ) );
 		uid_t uid = 99;
-		CFNumberGetValue( uidNumber, kCFNumberLongType, &uid );
+		CFNumberGetValue( uidNumber, kCFNumberIntType, &uid );
 
 		CFNumberRef effectiveUIDNumber = (CFNumberRef)CFDictionaryGetValue( nodeDict, CFSTR( kNodeEffectiveUIDKey ) );
 		uid_t effectiveUID = 99;
-		CFNumberGetValue( effectiveUIDNumber, kCFNumberLongType, &effectiveUID );
+		CFNumberGetValue( effectiveUIDNumber, kCFNumberIntType, &effectiveUID );
 		
 		CDSLocalPluginNode* node = this->NodeObjectFromNodeDict( nodeDict );
 		
@@ -4755,11 +4446,11 @@ tDirStatus CDSLocalPlugin::DoAuthentication( sDoDirNodeAuth *inData, const char 
 			this->ReadHashConfig( node );
 
 		CFMutableDictionaryRef continueDataDict = NULL;
-		if ( inData->fIOContinueData != NULL )
+		if ( inData->fIOContinueData != 0 )
 		{
 			// get info from continue
-			continueDataDict = (CFMutableDictionaryRef)inData->fIOContinueData;
-			if ( CFGetTypeID( continueDataDict ) != CFDictionaryGetTypeID() )
+			continueDataDict = (CFMutableDictionaryRef) gLocalContinueTable->GetPointer( inData->fIOContinueData );
+			if ( continueDataDict == NULL || CFGetTypeID( continueDataDict ) != CFDictionaryGetTypeID() )
 				throw( eDSInvalidContinueData );
 
 			CFStringRef aaTagString = (CFStringRef)CFDictionaryGetValue( continueDataDict, CFSTR(kAuthContinueDataHandlerTag) );
@@ -4817,7 +4508,7 @@ tDirStatus CDSLocalPlugin::DoAuthentication( sDoDirNodeAuth *inData, const char 
 				guidCStr = CStrFromCFString( guid, &cStr, &cStrSize, NULL );
 			}
 			
-			siResult = (handlerProc)( inData->fInNodeRef, (CDSLocalAuthParams &)inParams, &continueDataDict,
+			siResult = (handlerProc)( inData->fInNodeRef, (CDSLocalAuthParams &)inParams, &inData->fIOContinueData,
 				inData->fInAuthStepData, inData->fOutAuthStepDataResponse, inData->fInDirNodeAuthOnlyFlag, false, authAuthorityList,
 				guidCStr, authedUserIsAdmin, mutableRecordDict, mHashList, this, node, authedUserName, uid, effectiveUID,
 				nativeRecType );
@@ -4861,7 +4552,7 @@ tDirStatus CDSLocalPlugin::DoAuthentication( sDoDirNodeAuth *inData, const char 
 			}
 			
 			// For user policy, we need the GUID
-			if ( inParams.uiAuthMethod == kAuthGetPolicy || inParams.uiAuthMethod == kAuthSetPolicy )
+			if ( inParams.uiAuthMethod == kAuthGetEffectivePolicy || inParams.uiAuthMethod == kAuthGetPolicy || inParams.uiAuthMethod == kAuthSetPolicy )
 			{
 				if ( userName == NULL )
 					throw( eDSInvalidBuffFormat );
@@ -4883,11 +4574,11 @@ tDirStatus CDSLocalPlugin::DoAuthentication( sDoDirNodeAuth *inData, const char 
 						guid = (CFStringRef)CFArrayGetValueAtIndex( guids, 0 );
 					
 					guidCStr = CStrFromCFString( guid, &cStr, &cStrSize, NULL );
-					if ( inParams.uiAuthMethod == kAuthGetPolicy )
+					if ( inParams.uiAuthMethod == kAuthGetPolicy || inParams.uiAuthMethod == kAuthGetEffectivePolicy )
 					{
 						// no permissions required, just do it.
 						siResult = CDSLocalAuthHelper::DoShadowHashAuth( inData->fInNodeRef, (CDSLocalAuthParams &)inParams,
-								&continueDataDict, inData->fInAuthStepData, inData->fOutAuthStepDataResponse,
+								&inData->fIOContinueData, inData->fInAuthStepData, inData->fOutAuthStepDataResponse,
 								inData->fInDirNodeAuthOnlyFlag, false, authAuthorityList, guidCStr, authedUserIsAdmin, mutableRecordDict,
 								mHashList, this, node, authedUserName, uid, effectiveUID, nativeRecType );
 					
@@ -4927,23 +4618,13 @@ tDirStatus CDSLocalPlugin::DoAuthentication( sDoDirNodeAuth *inData, const char 
 						throw( eDSAuthUnknownUser );
 					
 					// check to see if the authenticator is an admin
-					authedUserName = CFStringCreateWithCString( NULL, inParams.pAdminUser, kCFStringEncodingUTF8 );
-					CFMutableDictionaryRef mutableAuthedUserRecordDict = NULL;
-					siResult = this->GetRetainedRecordDict( authedUserName,
-						this->RecordNativeTypeForStandardType( CFSTR( kDSStdRecordTypeUsers ) ), node,
-						&mutableAuthedUserRecordDict );
-					if ( siResult != eDSNoErr )
-						throw( siResult );
-					
-					authedUserIsAdmin = this->UserIsAdmin( mutableAuthedUserRecordDict, node );
-					if ( mutableAuthedUserRecordDict != NULL )
-						DSCFRelease( mutableAuthedUserRecordDict );
+					authedUserIsAdmin = dsIsUserMemberOfGroup( inParams.pAdminUser, "admin" );
 				}
 				else
 				{
 					// go directly to shadowhash, do not pass go...
 					siResult = CDSLocalAuthHelper::DoShadowHashAuth( inData->fInNodeRef, (CDSLocalAuthParams &)inParams,
-									&continueDataDict, inData->fInAuthStepData, inData->fOutAuthStepDataResponse,
+									&inData->fIOContinueData, inData->fInAuthStepData, inData->fOutAuthStepDataResponse,
 									inData->fInDirNodeAuthOnlyFlag, false, authAuthorityList, guidCStr, authedUserIsAdmin, 
 									mutableRecordDict, mHashList, this, node, authedUserName, uid, effectiveUID,
 									nativeRecType );
@@ -4956,14 +4637,11 @@ tDirStatus CDSLocalPlugin::DoAuthentication( sDoDirNodeAuth *inData, const char 
 			{
 				if ( authedUserName != NULL )
 				{
-					CFMutableDictionaryRef mutableAuthedUserRecordDict = NULL;
-					siResult = this->GetRetainedRecordDict( authedUserName, this->RecordNativeTypeForStandardType(
-						CFSTR( kDSStdRecordTypeUsers ) ), node, &mutableAuthedUserRecordDict );
-					if ( siResult != eDSNoErr )
-						throw( siResult );
-				
-					authedUserIsAdmin = this->UserIsAdmin( mutableAuthedUserRecordDict, node );
-					DSCFRelease( mutableAuthedUserRecordDict );
+					char username[256];
+					
+					if ( CFStringGetCString(authedUserName, username, sizeof(username), kCFStringEncodingUTF8) == true ) {
+						authedUserIsAdmin = dsIsUserMemberOfGroup( username, "admin" );
+					}
 				}
 			}
 			else if ( effectiveUID == 0 )
@@ -4983,9 +4661,8 @@ tDirStatus CDSLocalPlugin::DoAuthentication( sDoDirNodeAuth *inData, const char 
 						(AuthorizationExternalForm *)inData->fInAuthStepData->fBufferData, &authRef);
 					if (siResult != (tDirStatus)errAuthorizationSuccess)
 					{
-						DbgLog( kLogError, "CDSLocalPlugin::DoAuthentication(): AuthorizationCreateFromExternalForm() \
+						DbgLog( kLogNotice, "CDSLocalPlugin::DoAuthentication(): AuthorizationCreateFromExternalForm() \
 							returned error %d", siResult );
-						syslog( LOG_ALERT, "AuthorizationCreateFromExternalForm returned error %d", siResult );
 						throw( eDSPermissionError );
 					}
 
@@ -5001,9 +4678,8 @@ tDirStatus CDSLocalPlugin::DoAuthentication( sDoDirNodeAuth *inData, const char 
 					}
 					if (siResult != (tDirStatus)errAuthorizationSuccess)
 					{
-						DbgLog( kLogError, "CDSLocalPlugin::DoAuthentication(): AuthorizationCopyRights returned error %d",
+						DbgLog( kLogNotice, "CDSLocalPlugin::DoAuthentication(): AuthorizationCopyRights returned error %d",
 							siResult );
-						syslog( LOG_ALERT, "AuthorizationCopyRights returned error %d", siResult );
 						throw( eDSPermissionError );
 					}
 					if (inData->fInDirNodeAuthOnlyFlag == false)
@@ -5024,7 +4700,7 @@ tDirStatus CDSLocalPlugin::DoAuthentication( sDoDirNodeAuth *inData, const char 
 					// policies.
 					
 					siResult = CDSLocalAuthHelper::DoShadowHashAuth( inData->fInNodeRef, (CDSLocalAuthParams &)inParams,
-							&continueDataDict, inData->fInAuthStepData, inData->fOutAuthStepDataResponse,
+							&inData->fIOContinueData, inData->fInAuthStepData, inData->fOutAuthStepDataResponse,
 							inData->fInDirNodeAuthOnlyFlag, false, authAuthorityList, NULL, authedUserIsAdmin, mutableRecordDict,
 							mHashList, this, node, authedUserName, uid, effectiveUID, nativeRecType );
 				}
@@ -5072,29 +4748,7 @@ tDirStatus CDSLocalPlugin::DoAuthentication( sDoDirNodeAuth *inData, const char 
 						//not eDSNoErr AND local node only
 						if ( ( node->IsLocalNode() ) && !(inData->fInDirNodeAuthOnlyFlag) && (siResult != eDSNoErr) )
 						{
-							//check if user is in the admin group
-							int IsMember = 0;
-							guid_t user_uuid;
-							guid_t admin_uuid;
-							kauth_identity_extlookup	request;
-							
-							Mbrd_ProcessMapName( true, userNameCStr, &user_uuid );
-							Mbrd_ProcessMapName( false, "admin", &admin_uuid );
-							
-							// we formulate the request ourself here so no need to dispatch to ourself..
-							request.el_seqno = 1;  // used as byte order field
-							request.el_flags = KAUTH_EXTLOOKUP_VALID_UGUID | KAUTH_EXTLOOKUP_VALID_GGUID | KAUTH_EXTLOOKUP_WANT_MEMBERSHIP;
-							memcpy( &request.el_uguid, &user_uuid, sizeof(guid_t) );
-							memcpy( &request.el_gguid, &admin_uuid, sizeof(guid_t) );
-
-							Mbrd_ProcessLookup( &request );
-
-							if ((request.el_flags & KAUTH_EXTLOOKUP_VALID_MEMBERSHIP) != 0 && (request.el_flags & KAUTH_EXTLOOKUP_ISMEMBER) != 0)
-							{
-								IsMember = 1;
-							}
-
-							if (IsMember == 1 )
+							if ( dsIsUserMemberOfGroup(userNameCStr, "admin") == true )
 							{
 								tDataList *usersNode = NULL;
 								const char* memberNameCStr = CStrFromCFString( userName, &cStr, &cStrSize, NULL );
@@ -5103,7 +4757,7 @@ tDirStatus CDSLocalPlugin::DoAuthentication( sDoDirNodeAuth *inData, const char 
 								{
 									SInt32				aResult		= eDSNoErr;
 									tDirNodeReference	aNodeRef	= 0;
-									tContextData		tContinue	= NULL;
+									tContextData		tContinue	= 0;
 
 									aResult = this->GetDirServiceRef( NULL );
 									if ( aResult == eDSNoErr )
@@ -5243,7 +4897,7 @@ tDirStatus CDSLocalPlugin::DoAuthentication( sDoDirNodeAuth *inData, const char 
 							AuthAuthorityHandlerProc handlerProc = CDSLocalAuthHelper::GetAuthAuthorityHandler( aaTag );
 							if (handlerProc != NULL)
 							{
-								siResult = (handlerProc)(inData->fInNodeRef, (CDSLocalAuthParams &)inParams, &continueDataDict, 
+								siResult = (handlerProc)(inData->fInNodeRef, (CDSLocalAuthParams &)inParams, &inData->fIOContinueData, 
 												inData->fInAuthStepData, inData->fOutAuthStepDataResponse,
 												inData->fInDirNodeAuthOnlyFlag, bIsSecondary, authAuthorityList, guidCStr,
 												authedUserIsAdmin, mutableRecordDict, mHashList, this, node,
@@ -5252,6 +4906,10 @@ tDirStatus CDSLocalPlugin::DoAuthentication( sDoDirNodeAuth *inData, const char 
 								
 								if (siResult == eDSNoErr)
 								{
+									if (inData->fIOContinueData != 0) {
+										continueDataDict = (CFMutableDictionaryRef)gLocalContinueTable->GetPointer(inData->fIOContinueData);
+									}
+
 									if (continueDataDict != NULL)
 									{
 										// we are supposed to return continue data
@@ -5305,7 +4963,7 @@ tDirStatus CDSLocalPlugin::DoAuthentication( sDoDirNodeAuth *inData, const char 
 					{
 						// revert to basic
 						siResult = CDSLocalAuthHelper::DoBasicAuth( inData->fInNodeRef, (CDSLocalAuthParams &)inParams, 
-										&continueDataDict, inData->fInAuthStepData, inData->fOutAuthStepDataResponse,
+										&inData->fIOContinueData, inData->fInAuthStepData, inData->fOutAuthStepDataResponse,
 										inData->fInDirNodeAuthOnlyFlag, false, authAuthorityList, NULL, authedUserIsAdmin,
 										mutableRecordDict, mHashList, this, node, authedUserName, uid, effectiveUID, nativeRecType );
 						if (continueDataDict != NULL && siResult == eDSNoErr)
@@ -5372,7 +5030,7 @@ tDirStatus CDSLocalPlugin::DoAuthentication( sDoDirNodeAuth *inData, const char 
 						guidCStr = CStrFromCFString( guid, &cStr, &cStrSize, NULL );
 						
 						siResult = CDSLocalAuthHelper::DoShadowHashAuth(inData->fInNodeRef, (CDSLocalAuthParams &)inParams,
-										&continueDataDict, inData->fInAuthStepData, inData->fOutAuthStepDataResponse,
+										&inData->fIOContinueData, inData->fInAuthStepData, inData->fOutAuthStepDataResponse,
 										inData->fInDirNodeAuthOnlyFlag, false, authAuthorityList, guidCStr, authedUserIsAdmin,
 										mutableRecordDict, mHashList, this, node, authedUserName, uid, effectiveUID, nativeRecType );
 					}
@@ -5469,7 +5127,7 @@ CDSLocalPlugin::FreeExternalNodesInDict( CFMutableDictionaryRef inNodeDict )
 	// LDAP node
 	CFNumberRef aNodeRefNumber = (CFNumberRef)CFDictionaryGetValue( inNodeDict, CFSTR(kNodeLDAPNodeRef) );
 	if( aNodeRefNumber != NULL )
-		CFNumberGetValue( aNodeRefNumber, kCFNumberLongType, &aNodeRef );
+		CFNumberGetValue( aNodeRefNumber, kCFNumberIntType, &aNodeRef );
 	if ( aNodeRef != 0 )
 	{
 		dsCloseDirNode( aNodeRef );
@@ -5479,7 +5137,7 @@ CDSLocalPlugin::FreeExternalNodesInDict( CFMutableDictionaryRef inNodeDict )
 	// Password Server node
 	aNodeRefNumber = (CFNumberRef)CFDictionaryGetValue( inNodeDict, CFSTR(kNodePWSNodeRef) );
 	if( aNodeRefNumber != NULL )
-		CFNumberGetValue( aNodeRefNumber, kCFNumberLongType, &aNodeRef );
+		CFNumberGetValue( aNodeRefNumber, kCFNumberIntType, &aNodeRef );
 	if ( aNodeRef != 0 )
 	{
 		dsCloseDirNode( aNodeRef );
@@ -5587,48 +5245,71 @@ const char*	CDSLocalPlugin::GetProtocolPrefixString()
 
 bool CDSLocalPlugin::LoadMappings()
 {
-	//TODO: Question is whether we allow for different local nodes to have different mapping files
-	CFStringRef attrMappingsPath = CFSTR( "/var/db/dslocal/dsmappings/AttributeMappings.plist");
-	CFStringRef recMappingsPath = CFSTR("/var/db/dslocal/dsmappings/RecordMappings.plist");
+	// TODO: Question is whether we allow for different local nodes to have different mapping files
+	CFTypeRef		paths[] = {
+		CFSTR("/var/db/dslocal/dsmappings/AttributeMappings.plist"), 
+		CFSTR("/var/db/dslocal/dsmappings/RecordMappings.plist"),
+#ifdef ACL_SUPPORT
+		CFSTR("/var/db/dslocal/dsmappings/permissions.plist"),
+#endif
+	};
 	
-	CFMutableArrayRef mappingsFilePaths = CFArrayCreateMutable( NULL, 0, &kCFTypeArrayCallBacks );
-	CFArrayAppendValue( mappingsFilePaths, attrMappingsPath );
-	CFArrayAppendValue( mappingsFilePaths, recMappingsPath );
+	CFArrayRef mappingsFilePaths = CFArrayCreate( kCFAllocatorDefault, paths, sizeof(paths) / sizeof(CFStringRef), &kCFTypeArrayCallBacks );
 	CFDictionaryRef mappingsDictsDict = this->CreateDictionariesFromFiles( mappingsFilePaths );
 	if (mappingsDictsDict != NULL)
 	{
-		DSCFRelease(mappingsFilePaths);
+		DSCFRelease( mappingsFilePaths );
 		
-		mAttrStdToNativeMappings = (CFDictionaryRef)CFDictionaryGetValue( mappingsDictsDict, attrMappingsPath );
-		mRecStdToNativeMappings = (CFDictionaryRef)CFDictionaryGetValue( mappingsDictsDict, recMappingsPath );
-		if (mAttrStdToNativeMappings != NULL)
-			CFRetain( mAttrStdToNativeMappings );
-		if (mRecStdToNativeMappings != NULL)
-			CFRetain( mRecStdToNativeMappings );
+		mAttrStdToNativeMappings = (CFDictionaryRef) CFDictionaryGetValue( mappingsDictsDict, paths[0] );
+		mRecStdToNativeMappings = (CFDictionaryRef) CFDictionaryGetValue( mappingsDictsDict, paths[1] );
+#ifdef ACL_SUPPORT
+		mPermissions = (CFDictionaryRef) CFDictionaryGetValue( mappingsDictsDict, paths[2] );
+#endif
 	}
 
-	if ( (mAttrStdToNativeMappings == NULL) || (mRecStdToNativeMappings == NULL) )
+	// if one of them is bad ignore them and read defaults
+	if ( mAttrStdToNativeMappings == NULL || mRecStdToNativeMappings == NULL
+#ifdef ACL_SUPPORT
+		 || mPermissions == NULL
+#endif
+		)
 	{
-#warning VERIFY the attr and rec local mappings default are up to date with the mappings files
-		//fallback to internal defaults if file is unreadable or was corrupted
-		UInt32 uiDataSize = sizeof( kDefaultLocalAttrMappings ) - 1;
-		CFDataRef dataRef = ::CFDataCreate( nil, (const UInt8 *)kDefaultLocalAttrMappings, uiDataSize );
-		if ( dataRef != nil )
+		// fallback to internal defaults if file is unreadable or was corrupted
+		CFTypeRef		defaultFiles[] = {
+			CFSTR("/System/Library/DirectoryServices/DefaultLocalDB/dsmappings/AttributeMappings.plist"), 
+			CFSTR("/System/Library/DirectoryServices/DefaultLocalDB/dsmappings/RecordMappings.plist"),
+#ifdef ACL_SUPPORT
+			CFSTR("/System/Library/DirectoryServices/DefaultLocalDB/dsmappings/permissions.plist"),
+#endif
+		};
+		
+		mappingsFilePaths = CFArrayCreate( kCFAllocatorDefault, defaultFiles, sizeof(defaultFiles) / sizeof(CFStringRef), &kCFTypeArrayCallBacks );
+		mappingsDictsDict = this->CreateDictionariesFromFiles( mappingsFilePaths );
+		if ( mappingsDictsDict != NULL )
 		{
-			mAttrStdToNativeMappings = (CFDictionaryRef)::CFPropertyListCreateFromXMLData( kCFAllocatorDefault, dataRef, kCFPropertyListImmutable, nil );
-			DSCFRelease(dataRef);
-		}
-		uiDataSize = sizeof( kDefaultLocalRecMappings ) - 1;
-		dataRef = ::CFDataCreate( nil, (const UInt8 *)kDefaultLocalRecMappings, uiDataSize );
-		if ( dataRef != nil )
-		{
-			mRecStdToNativeMappings = (CFDictionaryRef)::CFPropertyListCreateFromXMLData( kCFAllocatorDefault, dataRef, kCFPropertyListImmutable, nil );
-			DSCFRelease(dataRef);
+			DSCFRelease(mappingsFilePaths);
+			
+			mAttrStdToNativeMappings = (CFDictionaryRef) CFDictionaryGetValue( mappingsDictsDict, paths[0] );
+			mRecStdToNativeMappings = (CFDictionaryRef) CFDictionaryGetValue( mappingsDictsDict, paths[1] );
+#ifdef ACL_SUPPORT
+			mPermissions = (CFDictionaryRef) CFDictionaryGetValue( mappingsDictsDict, paths[2] );
+#endif
 		}
 	}
-	DSCFRelease(mappingsDictsDict);
-	DSCFRelease(attrMappingsPath);
-	DSCFRelease(recMappingsPath);
+
+#ifdef ACL_SUPPORT
+	assert( mAttrStdToNativeMappings != NULL && mRecStdToNativeMappings != NULL && mPermissions != NULL );
+#else
+	assert( mAttrStdToNativeMappings != NULL && mRecStdToNativeMappings != NULL );
+#endif
+	
+	CFRetain( mAttrStdToNativeMappings );
+	CFRetain( mRecStdToNativeMappings );
+#ifdef ACL_SUPPORT
+	CFRetain( mPermissions );
+#endif
+	
+	DSCFRelease( mappingsDictsDict );
 	
 	// now build the reverse mapping tables
 	CFIndex numKeys = 0;
@@ -5730,12 +5411,13 @@ void CDSLocalPlugin::LoadSettings()
 		CFRelease( prefsDict );
 }
 
-tDirStatus CDSLocalPlugin::PackRecordsIntoBuffer(	unsigned long		inFirstRecordToReturnIndex,
+tDirStatus CDSLocalPlugin::PackRecordsIntoBuffer(	CFDictionaryRef		inNodeDict,
+													UInt32				inFirstRecordToReturnIndex,
 													CFArrayRef			inRecordsArray,
 													CFArrayRef			inDesiredAttributes,
 													tDataBufferPtr		inBuff,
 													bool				inAttrInfoOnly,
-													unsigned long	   *outNumRecordsPacked )
+													UInt32				*outNumRecordsPacked )
 {
 	tDirStatus			siResult					= eDSNoErr;
 	CBuff			   *buff						= NULL;
@@ -5759,6 +5441,8 @@ tDirStatus CDSLocalPlugin::PackRecordsIntoBuffer(	unsigned long		inFirstRecordTo
 		*outNumRecordsPacked = 0;
 		return eDSNoErr;
 	}
+	
+	CDSLocalPluginNode* node = NodeObjectFromNodeDict( inNodeDict );
 	
 	CFRange rangeOfDesiredAttributes = CFRangeMake( 0, CFArrayGetCount( inDesiredAttributes ) );
 	if ( CFArrayGetFirstIndexOfValue( inDesiredAttributes, rangeOfDesiredAttributes, CFSTR( kDSAttributesAll ) ) != kCFNotFound )
@@ -5787,11 +5471,12 @@ tDirStatus CDSLocalPlugin::PackRecordsIntoBuffer(	unsigned long		inFirstRecordTo
 		siResult = (tDirStatus)buff->SetBuffType( 'StdA' );
 		if ( siResult != eDSNoErr ) throw ( siResult );
 
-		unsigned long numRecordsPacked = 0;
-		CFIndex numRecordsInArray = (unsigned long)CFArrayGetCount( inRecordsArray );
+		UInt32 numRecordsPacked = 0;
+		CFIndex numRecordsInArray = (UInt32)CFArrayGetCount( inRecordsArray );
 		for ( CFIndex i=(CFIndex)inFirstRecordToReturnIndex; i < numRecordsInArray; i++ )
 		{
 			CFDictionaryRef recordDict = (CFDictionaryRef)CFArrayGetValueAtIndex( inRecordsArray, i );
+			CFStringRef nativeRecType = NULL;
 			if ( recordDict == NULL )
 			{
 				DbgLog( kLogDebug, "CDSLocalPlugin::PackRecordsIntoBuffer(): recordDict for a found record came back NULL!" );
@@ -5818,6 +5503,8 @@ tDirStatus CDSLocalPlugin::PackRecordsIntoBuffer(	unsigned long		inFirstRecordTo
 				CFStringRef stdRecTypeCFStr = (CFStringRef)CFArrayGetValueAtIndex( recTypeArray, 0 );
 				if (stdRecTypeCFStr == NULL) continue;
 				cStrPtr = CStrFromCFString( stdRecTypeCFStr, &allocatedCStr, &allocatedCStrSize, &cStrAllocated );
+				
+				nativeRecType = RecordNativeTypeForStandardType( stdRecTypeCFStr );
 
 				recData->AppendShort( ::strlen( cStrPtr ) );
 				recData->AppendString( cStrPtr );
@@ -5890,6 +5577,9 @@ tDirStatus CDSLocalPlugin::PackRecordsIntoBuffer(	unsigned long		inFirstRecordTo
 						
 						// if this maps to a standard attribute, don't return the native
 						if ( packThisStdAttr == true ) packThisNativeAttr = false;
+						
+						if ( node->AccessAllowed(inNodeDict, nativeRecType, AttrNativeTypeForStandardType((CFStringRef) keys[j]), eDSAccessModeReadAttr) == false ) 
+							continue;
 
 						for ( CFIndex m = ( packThisNativeAttr ? 0 : 1 ); m < ( packThisStdAttr ? 2 : 1 ); m++ )
 						{
@@ -5979,6 +5669,10 @@ tDirStatus CDSLocalPlugin::PackRecordsIntoBuffer(	unsigned long		inFirstRecordTo
 						if ( requestedAttrName == NULL ) continue;
 						nativeAttrName	= this->AttrNativeTypeForStandardType( requestedAttrName );
 						if ( nativeAttrName == NULL ) continue;
+						
+						if ( node->AccessAllowed(inNodeDict, nativeRecType, nativeAttrName, eDSAccessModeReadAttr) == false ) 
+							continue;
+						
 						CFArrayRef attrValues = (CFArrayRef)CFDictionaryGetValue(recordDict, nativeAttrName);
 						if ( attrValues != NULL )
 						{
@@ -6315,201 +6009,115 @@ CFDictionaryRef CDSLocalPlugin::CreateDictionariesFromFiles( CFArrayRef inFilePa
 	return mutableResults;
 }
 
-CFDictionaryRef CDSLocalPlugin::CreateNodeInfoDict( CFArrayRef inDesiredAttrs, bool attrInfoOnly, CFDictionaryRef inNodeDict )
+CFDictionaryRef CDSLocalPlugin::CreateNodeInfoDict( CFArrayRef inAttributes, CFDictionaryRef inNodeDict )
 {
-	CFMutableDictionaryRef mutableNodeInfoDict = NULL;
-	CFMutableDictionaryRef mutableAttrsDict = NULL;
-	CFMutableArrayRef mutableArray = NULL;
-	tDirStatus error = eDSNoErr;
-
-	try
+	CFMutableDictionaryRef	cfNodeInfo		= CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks,
+																		&kCFTypeDictionaryValueCallBacks );
+	CFMutableDictionaryRef	cfAttributes	= CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks,
+																		&kCFTypeDictionaryValueCallBacks );
+	CFRange					cfAttribRange	= CFRangeMake( 0, CFArrayGetCount(inAttributes) );
+	bool					bNeedAll		= CFArrayContainsValue( inAttributes, cfAttribRange, CFSTR(kDSAttributesAll) );
+	
+	CFDictionarySetValue( cfNodeInfo, kBDPINameKey, CFSTR("DirectoryNodeInfo") );
+	CFDictionarySetValue( cfNodeInfo, kBDPITypeKey, CFSTR(kDSStdRecordTypeDirectoryNodeInfo) );
+	CFDictionarySetValue( cfNodeInfo, kBDPIAttributeKey, cfAttributes );
+	
+	if (bNeedAll || CFArrayContainsValue(inAttributes, cfAttribRange, CFSTR(kDS1AttrDistinguishedName)))
 	{
-		mutableAttrsDict = CFDictionaryCreateMutable( NULL, 0, &kCFTypeDictionaryKeyCallBacks,
-			&kCFTypeDictionaryValueCallBacks );
-		if ( mutableAttrsDict == NULL )
-			throw( eMemoryAllocError );
-
-		CFStringRef possibleAttrs[] = { CFSTR( kDSNAttrNodePath ), CFSTR( kDS1AttrReadOnlyNode ),
-			CFSTR( kDSNAttrRecordType ), CFSTR( kDSNAttrAuthMethod ), CFSTR( "dsAttrTypeStandard:TrustInformation" ), CFSTR( kDS1AttrDataStamp ) };
-		CFIndex numPossibleAttrs = sizeof( possibleAttrs ) / sizeof( possibleAttrs[0] );
+		CFStringRef cfRealName	= (CFStringRef) CFDictionaryGetValue( inNodeDict, CFSTR(kNodeNamekey) );
+		CFArrayRef	cfValue		= CFArrayCreate( kCFAllocatorDefault, (const void **) &cfRealName, 1, &kCFTypeArrayCallBacks );
 		
-		CFIndex numDesiredAttrs = CFArrayGetCount( inDesiredAttrs );
+		CFDictionarySetValue( cfAttributes, CFSTR(kDS1AttrDistinguishedName), cfValue );
 		
-		bool returnAllAttrs = false;
-		if ( CFArrayGetFirstIndexOfValue( inDesiredAttrs, CFRangeMake( 0, numDesiredAttrs ),
-				CFSTR( kDSAttributesAll ) ) != kCFNotFound )
-			returnAllAttrs = true;
+		DSCFRelease( cfValue );
+	}
+	
+	if ( bNeedAll || CFArrayContainsValue(inAttributes, cfAttribRange, CFSTR(kDSNAttrNodePath)) == true )
+	{
+		CFMutableArrayRef mutableArray = CFArrayCreateMutable( NULL, 2, &kCFTypeArrayCallBacks );
 		
-		for ( CFIndex i=0; i<numPossibleAttrs; i++ )
-		{
-			if ( CFStringCompare( possibleAttrs[i], CFSTR( kDSNAttrNodePath ), 0 ) == kCFCompareEqualTo )
-			{
-				if ( returnAllAttrs || ( CFArrayGetFirstIndexOfValue( inDesiredAttrs, CFRangeMake( 0, numDesiredAttrs ),
-					possibleAttrs[i] ) != kCFNotFound ) )
-				{
-					if ( attrInfoOnly )
-						CFDictionaryAddValue( mutableAttrsDict, possibleAttrs[i], CFSTR( "" ) );
-					else
-					{
-						mutableArray = CFArrayCreateMutable( NULL, 2, &kCFTypeArrayCallBacks );
-
-						CFStringRef prefixString = CFStringCreateWithCString( NULL, this->GetProtocolPrefixString(),
-								kCFStringEncodingUTF8 );
-						if ( prefixString == NULL )
-							throw( eMemoryAllocError );
-						CFArrayAppendValue( mutableArray, prefixString );
-						DSCFRelease(prefixString);
-
-						CFStringRef nodeName = (CFStringRef)CFDictionaryGetValue( inNodeDict, CFSTR( kNodeNamekey ) );
-						if ( nodeName == NULL )
-							throw( ePlugInDataError );
-						CFArrayAppendValue( mutableArray, nodeName );
-						
-						CFDictionaryAddValue( mutableAttrsDict, possibleAttrs[i], mutableArray );
-						CFRelease( mutableArray );
-						mutableArray = NULL;
-					}
-				}
-			}
-			else if ( CFStringCompare( possibleAttrs[i], CFSTR( kDS1AttrReadOnlyNode ), 0 ) == kCFCompareEqualTo )
-			{
-				if ( returnAllAttrs || ( CFArrayGetFirstIndexOfValue( inDesiredAttrs, CFRangeMake( 0, numDesiredAttrs ),
-					possibleAttrs[i] ) != kCFNotFound ) )
-				{
-					if ( attrInfoOnly )
-						CFDictionaryAddValue( mutableAttrsDict, possibleAttrs[i], CFSTR( "" ) );
-					else
-					{
-						CFStringRef valueString = CFSTR( "ReadWrite" );
-						CFArrayRef array = CFArrayCreate( NULL, (const void**)&valueString, 1, &kCFTypeArrayCallBacks );
-						CFDictionaryAddValue( mutableAttrsDict, possibleAttrs[i], array );
-						CFRelease( array );
-						array = NULL;
-					}
-				}
-			}
-			else if ( CFStringCompare( possibleAttrs[i], CFSTR( "dsAttrTypeStandard:TrustInformation" ), 0 ) == kCFCompareEqualTo )
-			{
-				if ( returnAllAttrs || ( CFArrayGetFirstIndexOfValue( inDesiredAttrs, CFRangeMake( 0, numDesiredAttrs ),
-					possibleAttrs[i] ) != kCFNotFound ) )
-				{
-					if ( attrInfoOnly )
-						CFDictionaryAddValue( mutableAttrsDict, possibleAttrs[i], CFSTR( "" ) );
-					else
-					{
-						CFStringRef valueString = CFSTR( "FullTrust" );
-						CFArrayRef array = CFArrayCreate( NULL, (const void**)&valueString, 1, &kCFTypeArrayCallBacks );
-						CFDictionaryAddValue( mutableAttrsDict, possibleAttrs[i], array );
-						CFRelease( array );
-						array = NULL;
-					}
-				}
-			}
-			else if ( CFStringCompare( possibleAttrs[i], CFSTR( kDS1AttrDataStamp ), 0 ) == kCFCompareEqualTo )
-			{
-				if ( returnAllAttrs || ( CFArrayGetFirstIndexOfValue( inDesiredAttrs, CFRangeMake( 0, numDesiredAttrs ),
-					possibleAttrs[i] ) != kCFNotFound ) )
-				{
-					if ( attrInfoOnly )
-						CFDictionaryAddValue( mutableAttrsDict, possibleAttrs[i], CFSTR( "" ) );
-					else
-					{
-						CDSLocalPluginNode* node = this->NodeObjectFromNodeDict( inNodeDict );
-						CFStringRef valueString = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR("%u"), node->GetModValue() );
-						CFArrayRef array = CFArrayCreate( NULL, (const void**)&valueString, 1, &kCFTypeArrayCallBacks );
-						CFDictionaryAddValue( mutableAttrsDict, possibleAttrs[i], array );
-						DSCFRelease( valueString );
-						DSCFRelease( array );
-					}
-				}
-			}
-			else if ( CFStringCompare( possibleAttrs[i], CFSTR( kDSNAttrRecordType ), 0 ) == kCFCompareEqualTo )
-			{
-				if ( returnAllAttrs || ( CFArrayGetFirstIndexOfValue( inDesiredAttrs, CFRangeMake( 0, numDesiredAttrs ),
-					possibleAttrs[i] ) != kCFNotFound ) )
-				{
-					if ( attrInfoOnly )
-						CFDictionaryAddValue( mutableAttrsDict, possibleAttrs[i], CFSTR( "" ) );
-					else
-					{
-						CFIndex numRecordTypes = CFDictionaryGetCount( mRecStdToNativeMappings );
-						const void** keys = (const void**)malloc( numRecordTypes * sizeof( void* ) );
-						CFDictionaryGetKeysAndValues( mRecStdToNativeMappings, keys, NULL );
-						mutableArray = CFArrayCreateMutable( NULL, 0, &kCFTypeArrayCallBacks );
-
-						for ( CFIndex j=0; j<numRecordTypes; j++ )
-							CFArrayAppendValue( mutableArray, (CFStringRef)keys[j] );
-						CFDictionaryAddValue( mutableAttrsDict, possibleAttrs[i], mutableArray );
-
-						CFRelease( mutableArray );
-						mutableArray = NULL;
-						::free( keys );
-					}
-				}
-			}
-			else if ( CFStringCompare( possibleAttrs[i], CFSTR( kDSNAttrAuthMethod ), 0 ) == kCFCompareEqualTo )
-			{
-				if ( returnAllAttrs || ( CFArrayGetFirstIndexOfValue( inDesiredAttrs, CFRangeMake( 0, numDesiredAttrs ),
-					possibleAttrs[i] ) != kCFNotFound ) )
-				{
-					if ( attrInfoOnly )
-						CFDictionaryAddValue( mutableAttrsDict, possibleAttrs[i], CFSTR( "" ) );
-					else
-					{
-						mutableArray = CFArrayCreateMutable( NULL, 0, &kCFTypeArrayCallBacks );
-
-						CFArrayAppendValue( mutableArray, CFSTR( kDSStdAuthCrypt ) );
-						CFArrayAppendValue( mutableArray, CFSTR( kDSStdAuthClearText ) );
-						CFArrayAppendValue( mutableArray, CFSTR( kDSStdAuthNodeNativeNoClearText ) );
-						CFArrayAppendValue( mutableArray, CFSTR( kDSStdAuthNodeNativeClearTextOK ) );
-						
-						CFDictionaryAddValue( mutableAttrsDict, possibleAttrs[i], mutableArray );
-						CFRelease( mutableArray );
-						mutableArray = NULL;
-					}
-				}
-			}
+		CFStringRef prefixString = CFStringCreateWithCString( kCFAllocatorDefault, GetProtocolPrefixString(),
+															  kCFStringEncodingUTF8 );
+		if ( prefixString != NULL ) {
+			CFArrayAppendValue( mutableArray, prefixString );
+			DSCFRelease(prefixString);
 		}
-		mutableNodeInfoDict = CFDictionaryCreateMutable( NULL, 0, &kCFTypeDictionaryKeyCallBacks,
-			&kCFTypeDictionaryValueCallBacks );
-		if ( mutableNodeInfoDict == NULL )
-			throw( eMemoryAllocError );
 		
-		CFDictionaryAddValue( mutableNodeInfoDict, CFSTR( kNodeInfoAttributes ), mutableAttrsDict );
-		CFDictionaryAddValue( mutableNodeInfoDict, CFSTR( kDictionaryType ), CFSTR( kNodeInfoDictType ) );
-		CFRelease( mutableAttrsDict );
-		mutableAttrsDict = NULL;
-	}
-	catch( tDirStatus err )
-	{
-		DbgLog( kLogPlugin, "CDSLocalPlugin::CreateNodeInfoDict(): Got error %d", err );
-		error = err;
-	}
-	
-	if ( mutableAttrsDict != NULL )
-	{
-		CFRelease( mutableAttrsDict );
-		mutableAttrsDict = NULL;
-	}
-	if ( mutableArray != NULL )
-	{
-		CFRelease( mutableArray );
-		mutableArray = NULL;
-	}
-	
-	if ( error != eDSNoErr )
-	{
-		if ( mutableNodeInfoDict != NULL )
-		{
-			CFRelease( mutableNodeInfoDict );
-			mutableNodeInfoDict = NULL;
+		CFStringRef nodeName = (CFStringRef)CFDictionaryGetValue( inNodeDict, CFSTR(kNodeNamekey) );
+		if ( nodeName != NULL ) {
+			CFArrayAppendValue( mutableArray, nodeName );
 		}
-		throw( error );
+		
+		CFDictionarySetValue( cfAttributes, CFSTR(kDSNAttrNodePath), mutableArray );
+		DSCFRelease( mutableArray );
 	}
 	
-	return mutableNodeInfoDict;
+	if ( bNeedAll || CFArrayContainsValue(inAttributes, cfAttribRange, CFSTR(kDS1AttrReadOnlyNode)) == true )
+	{
+		CFStringRef	cfReadOnly	= CFSTR("ReadWrite");
+		CFArrayRef	cfValue		= CFArrayCreate( kCFAllocatorDefault, (const void **) &cfReadOnly, 1, &kCFTypeArrayCallBacks );
+		
+		CFDictionarySetValue( cfAttributes, CFSTR(kDS1AttrReadOnlyNode), cfValue );
+		
+		DSCFRelease( cfValue );
+	}
+	
+	if ( bNeedAll || CFArrayContainsValue(inAttributes, cfAttribRange, CFSTR(kDSNAttrTrustInformation)) == true )
+	{
+		CFStringRef cfTrustValue	= CFSTR("FullTrust");
+		CFArrayRef	cfValue			= CFArrayCreate( kCFAllocatorDefault, (const void **) &cfTrustValue, 1, &kCFTypeArrayCallBacks );
+		
+		CFDictionarySetValue( cfAttributes, CFSTR(kDSNAttrTrustInformation), cfValue );
+		
+		DSCFRelease( cfValue );
+	}
+
+	if ( bNeedAll || CFArrayContainsValue(inAttributes, cfAttribRange, CFSTR(kDS1AttrDataStamp)) == true )
+	{
+		CDSLocalPluginNode*	node			= NodeObjectFromNodeDict( inNodeDict );
+		CFStringRef			cfStampValue	= CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR("%u"), node->GetModValue() );
+		CFArrayRef			cfValue			= CFArrayCreate( kCFAllocatorDefault, (const void **) &cfStampValue, 1, &kCFTypeArrayCallBacks );
+		
+		DSCFRelease( cfStampValue );
+		
+		CFDictionarySetValue( cfAttributes, CFSTR(kDS1AttrDataStamp), cfValue );
+		
+		DSCFRelease( cfValue );
+	}
+	
+	if ( bNeedAll || CFArrayContainsValue(inAttributes, cfAttribRange, CFSTR(kDSNAttrRecordType)) == true )
+	{
+		CFIndex		numRecordTypes	= CFDictionaryGetCount( mRecStdToNativeMappings );
+		CFTypeRef	*keys			= (CFTypeRef *) malloc( numRecordTypes * sizeof(CFTypeRef) );
+		CFArrayRef	cfValue			= NULL;
+		
+		CFDictionaryGetKeysAndValues( mRecStdToNativeMappings, keys, NULL );
+		
+		cfValue = CFArrayCreate( kCFAllocatorDefault, keys, numRecordTypes, &kCFTypeArrayCallBacks );
+		CFDictionarySetValue( cfAttributes, CFSTR(kDSNAttrRecordType), cfValue );
+
+		DSCFRelease( cfValue );
+		DSFree( keys );
+	}
+
+	if ( bNeedAll || CFArrayContainsValue(inAttributes, cfAttribRange, CFSTR(kDSNAttrAuthMethod)) == true )
+	{
+		CFMutableArrayRef mutableArray = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
+		
+		CFArrayAppendValue( mutableArray, CFSTR(kDSStdAuthCrypt) );
+		CFArrayAppendValue( mutableArray, CFSTR(kDSStdAuthClearText) );
+		CFArrayAppendValue( mutableArray, CFSTR(kDSStdAuthNodeNativeNoClearText) );
+		CFArrayAppendValue( mutableArray, CFSTR(kDSStdAuthNodeNativeClearTextOK) );
+		
+		CFDictionarySetValue( cfAttributes, CFSTR(kDSNAttrAuthMethod), mutableArray );
+		
+		DSCFRelease( mutableArray );
+	}
+	
+	DSCFRelease( cfAttributes );
+	
+	return cfNodeInfo;
 }
-
 
 tDirStatus CDSLocalPlugin::GetRetainedRecordDict( CFStringRef inRecordName, CFStringRef inNativeRecType,
 	CDSLocalPluginNode* inNode, CFMutableDictionaryRef* outRecordDict )
@@ -6747,8 +6355,8 @@ tDirStatus CDSLocalPlugin::ReleaseContinueData( sReleaseContinueData *inData )
 {
 	tDirStatus siResult = eDSNoErr;
 	
-	// RemoveItem calls our ContinueDeallocProc to clean up
-	if ( gLocalContinueTable->RemoveItem( inData->fInContinueData ) != eDSNoErr )
+	// RemoveContext calls our ContinueDeallocProc to clean up
+	if ( gLocalContinueTable->RemoveContext( inData->fInContinueData ) != eDSNoErr )
 		siResult = eDSInvalidContext;
 	
 	return siResult;
@@ -6770,23 +6378,6 @@ void CDSLocalPlugin::ContinueDeallocProc( void *inContinueData )
 		CFRelease( pContinue );
 	}
 } // ContinueDeallocProc
-
-void CDSLocalPlugin::HandleFlushCaches( CFRunLoopTimerRef timer, void *inInfo )
-{
-	uint32_t	theType		= (uint32_t) inInfo;
-	const char	*theTypeStr	= (theType == CACHE_ENTRY_TYPE_USER ? "user" : "group");
-	
-	DbgLog( kLogDebug, "CDSLocalPlugin::FlushRecord type %s - flushing membership cache", theTypeStr );
-	Mbrd_ProcessResetCache();
-	
-	if ( gCacheNode != NULL )
-	{
-		DbgLog( kLogDebug, "CDSLocalPlugin::FlushRecord type %s - flushing libinfo cache", theTypeStr );
-		gCacheNode->EmptyCacheEntryType( theType );
-	}
-	
-	DbgLog( kLogPlugin, "CDSLocalPlugin::FlushRecord type %s - finished flushing various caches", theTypeStr );
-}
 
 void CDSLocalPlugin::FlushCaches( CFStringRef inStdType )
 {
@@ -6816,25 +6407,31 @@ void CDSLocalPlugin::FlushCaches( CFStringRef inStdType )
 	
 	if ( theType != 0xffffffff )
 	{
-		CFRunLoopTimerContext	context		= { 0, (void *) theType, NULL, NULL, NULL };
-		CFRunLoopTimerRef		timerRef	= CFRunLoopTimerCreate( kCFAllocatorDefault, CFAbsoluteTimeGetCurrent(), 0, 0, 0, HandleFlushCaches, &context );
+		const char *theTypeStr	= (theType == CACHE_ENTRY_TYPE_USER ? "user" : "group");
 		
-		// we use the plugin runloop unless we don't have one, then we just use the main
-		CFRunLoopAddTimer( (fPluginRunLoop != NULL ? fPluginRunLoop : CFRunLoopGetMain()) , timerRef, kCFRunLoopDefaultMode );
-		
-		CFRelease( timerRef );
+		dispatch_async( dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_HIGH),
+					    ^(void) {
+							DbgLog( kLogDebug, "CDSLocalPlugin::FlushRecord type %s - flushing membership cache", theTypeStr );
+							dsFlushMembershipCache();
+			
+							if ( gCacheNode != NULL )
+							{
+								DbgLog( kLogDebug, "CDSLocalPlugin::FlushRecord type %s - flushing libinfo cache", theTypeStr );
+								gCacheNode->EmptyCacheEntryType( theType );
+							}
+						} );
 	}
 }
 
-CFDictionaryRef CDSLocalPlugin::RecordDictForRecordRef( tRecordReference inRecordRef )
+CFMutableDictionaryRef CDSLocalPlugin::RecordDictForRecordRef( tRecordReference inRecordRef )
 {
-	CFNumberRef		recRefNumber	= CFNumberCreate( kCFAllocatorDefault, kCFNumberLongType, &inRecordRef );
-	CFDictionaryRef returnValue		= NULL;
+	CFNumberRef		recRefNumber	= CFNumberCreate( kCFAllocatorDefault, kCFNumberIntType, &inRecordRef );
+	CFMutableDictionaryRef returnValue		= NULL;
 	
 	if ( recRefNumber != NULL )
 	{
 		mOpenRecordRefsLock.WaitLock();
-		returnValue = (CFDictionaryRef) CFDictionaryGetValue( mOpenRecordRefs, recRefNumber );
+		returnValue = (CFMutableDictionaryRef) CFDictionaryGetValue( mOpenRecordRefs, recRefNumber );
 		
 		// see if the record was deleted
 		if ( returnValue != NULL )

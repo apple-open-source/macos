@@ -1,7 +1,7 @@
 /**
  *******************************************************************************
- * Copyright (C) 2006, International Business Machines Corporation and others. *
- * All Rights Reserved.                                                        *
+ * Copyright (C) 2006-2008, International Business Machines Corporation        *
+ * and others. All Rights Reserved.                                            *
  *******************************************************************************
  */
 
@@ -231,7 +231,6 @@ private:
     UStack      fNodeStack;     // Stack of nodes to process
     UVector32   fBranchStack;   // Stack of which branch we are working on
     TernaryNode *fRoot;         // Root node
-    static const char fgClassID;
     enum StackBranch {
         kLessThan,
         kEqual,
@@ -240,8 +239,8 @@ private:
     };
 
 public:
-    static UClassID U_EXPORT2 getStaticClassID(void) { return (UClassID)&fgClassID; }
-    virtual UClassID getDynamicClassID(void) const { return getStaticClassID(); }
+    static UClassID U_EXPORT2 getStaticClassID(void);
+    virtual UClassID getDynamicClassID(void) const;
 public:
     MutableTrieEnumeration(TernaryNode *root, UErrorCode &status) 
         : fNodeStack(status), fBranchStack(status) {
@@ -341,7 +340,7 @@ public:
     }
 };
 
-const char MutableTrieEnumeration::fgClassID = '\0';
+UOBJECT_DEFINE_RTTI_IMPLEMENTATION(MutableTrieEnumeration)
 
 StringEnumeration *
 MutableTrieDictionary::openWords( UErrorCode &status ) const {
@@ -547,11 +546,10 @@ private:
     UVector32               fNodeStack;     // Stack of nodes to process
     UVector32               fIndexStack;    // Stack of where in node we are
     const CompactTrieHeader *fHeader;       // Trie data
-    static const char fgClassID;
 
 public:
-    static UClassID U_EXPORT2 getStaticClassID(void) { return (UClassID)&fgClassID; }
-    virtual UClassID getDynamicClassID(void) const { return getStaticClassID(); }
+    static UClassID U_EXPORT2 getStaticClassID(void);
+    virtual UClassID getDynamicClassID(void) const;
 public:
     CompactTrieEnumeration(const CompactTrieHeader *header, UErrorCode &status) 
         : fNodeStack(status), fIndexStack(status) {
@@ -590,7 +588,7 @@ public:
     }
 };
 
-const char CompactTrieEnumeration::fgClassID = '\0';
+UOBJECT_DEFINE_RTTI_IMPLEMENTATION(CompactTrieEnumeration)
 
 const UnicodeString *
 CompactTrieEnumeration::snext(UErrorCode &status) {
@@ -808,6 +806,7 @@ compactOneNode(const TernaryNode *node, UBool parentEndsWord, UStack &nodes, UEr
                 new BuildCompactTrieHorizontalNode(parentEndsWord, nodes, status);
         if (hResult == NULL) {
             status = U_MEMORY_ALLOCATION_ERROR;
+            return NULL;
         }
         if (U_SUCCESS(status)) {
             walkHorizontal(node, hResult, nodes, status);
@@ -820,7 +819,7 @@ compactOneNode(const TernaryNode *node, UBool parentEndsWord, UStack &nodes, UEr
         if (vResult == NULL) {
             status = U_MEMORY_ALLOCATION_ERROR;
         }
-        if (U_SUCCESS(status)) {
+        else if (U_SUCCESS(status)) {
             UBool   endsWord = FALSE;
             // Take up nodes until we end a word, or hit a node with < or > links
             do {
@@ -876,6 +875,7 @@ static void walkHorizontal(const TernaryNode *node,
 }
 
 U_NAMESPACE_END
+U_NAMESPACE_USE
 U_CDECL_BEGIN
 static int32_t U_CALLCONV
 _sortBuildNodes(const void * /*context*/, const void *voidl, const void *voidr) {
@@ -1069,6 +1069,7 @@ CompactTrieDictionary::compactMutableTrieDictionary( const MutableTrieDictionary
     int32_t count = nodes.size();
     int32_t nodeCount = 1;              // The sentinel node we already have
     BuildCompactTrieNode *node;
+    int32_t i;
     UVector32 translate(count, status); // Should be no growth needed after this
     translate.push(0, status);          // The sentinel node
     
@@ -1076,7 +1077,7 @@ CompactTrieDictionary::compactMutableTrieDictionary( const MutableTrieDictionary
         return NULL;
     }
 
-    for (int32_t i = 1; i < count; ++i) {
+    for (i = 1; i < count; ++i) {
         node = (BuildCompactTrieNode *)nodes[i];
         if (node->fNodeID == i) {
             // Only one node out of each duplicate set is used
@@ -1124,7 +1125,7 @@ CompactTrieDictionary::compactMutableTrieDictionary( const MutableTrieDictionary
     uint32_t offset = offsetof(CompactTrieHeader,offsets)+(nodeCount*sizeof(uint32_t));
     nodeCount = 1;
     // Now write the data
-    for (int32_t i = 1; i < count; ++i) {
+    for (i = 1; i < count; ++i) {
         node = (BuildCompactTrieNode *)nodes[i];
         if (node->fNodeID == i) {
             header->offsets[nodeCount++] = offset;
@@ -1147,19 +1148,19 @@ CompactTrieDictionary::compactMutableTrieDictionary( const MutableTrieDictionary
     size_t hItemCount = 0;
     size_t vItemCount = 0;
     uint32_t previousOff = offset;
-    for (uint16_t i = nodeCount-1; i >= 2; --i) {
-        const CompactTrieNode *node = getCompactNode(header, i);
+    for (uint16_t nodeIdx = nodeCount-1; nodeIdx >= 2; --nodeIdx) {
+        const CompactTrieNode *node = getCompactNode(header, nodeIdx);
         if (node->flagscount & kVerticalNode) {
             vCount += 1;
             vItemCount += (node->flagscount & kCountMask);
-            vSize += previousOff-header->offsets[i];
+            vSize += previousOff-header->offsets[nodeIdx];
         }
         else {
             hCount += 1;
             hItemCount += (node->flagscount & kCountMask);
-            hSize += previousOff-header->offsets[i];
+            hSize += previousOff-header->offsets[nodeIdx];
         }
-        previousOff = header->offsets[i];
+        previousOff = header->offsets[nodeIdx];
     }
     fprintf(stderr, "Horizontal nodes: %d total, average %f bytes with %f items\n", hCount,
                 (double)hSize/hCount, (double)hItemCount/hCount);

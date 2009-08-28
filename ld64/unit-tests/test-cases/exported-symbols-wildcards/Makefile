@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2007 Apple Inc. All rights reserved.
+# Copyright (c) 2007-2008 Apple Inc. All rights reserved.
 #
 # @APPLE_LICENSE_HEADER_START@
 # 
@@ -30,48 +30,48 @@ include ${TESTROOT}/include/common.makefile
 run: all
 
 all:
-	${CC} -dynamiclib foo.c -o libfoo.dylib -Wl,-exported_symbol -Wl,'_foo*bar'
-	nm -j -g -f libfoo.dylib | diff - expect1 | ${FAIL_IF_STDIN}
+	${CC} ${CCFLAGS} -dynamiclib foo.c -o libfoo.dylib -Wl,-exported_symbol -Wl,'_foo*bar'
+	nm -j -g -f -s __TEXT __text libfoo.dylib | diff - expect1 | ${FAIL_IF_STDIN}
 	${FAIL_IF_BAD_MACHO} libfoo.dylib
 
-	${CC} -dynamiclib foo.c -o libfoo.dylib -Wl,-exported_symbol -Wl,'_f?o'
-	nm -j -g -f libfoo.dylib | diff - expect2 | ${FAIL_IF_STDIN}
+	${CC} ${CCFLAGS} -dynamiclib foo.c -o libfoo.dylib -Wl,-exported_symbol -Wl,'_f?o'
+	nm -j -g -f -s __TEXT __text libfoo.dylib | diff - expect2 | ${FAIL_IF_STDIN}
 	${FAIL_IF_BAD_MACHO} libfoo.dylib
 
-	${CC} -dynamiclib foo.c -o libfoo.dylib -Wl,-exported_symbol -Wl,'_foo*'
-	nm -j -g -f libfoo.dylib | diff - expect3 | ${FAIL_IF_STDIN}
+	${CC} ${CCFLAGS} -dynamiclib foo.c -o libfoo.dylib -Wl,-exported_symbol -Wl,'_foo*'
+	nm -j -g -f -s __TEXT __text libfoo.dylib | diff - expect3 | ${FAIL_IF_STDIN}
 	${FAIL_IF_BAD_MACHO} libfoo.dylib
 
-	${CC} -dynamiclib foo.c -o libfoo.dylib -Wl,-exported_symbol -Wl,'_f*o*'
-	nm -j -g -f libfoo.dylib | diff - expect4 | ${FAIL_IF_STDIN}
+	${CC} ${CCFLAGS} -dynamiclib foo.c -o libfoo.dylib -Wl,-exported_symbol -Wl,'_f*o*'
+	nm -j -g -f -s __TEXT __text libfoo.dylib | diff - expect4 | ${FAIL_IF_STDIN}
 	${FAIL_IF_BAD_MACHO} libfoo.dylib
 
-	${CC} -dynamiclib foo.c -o libfoo.dylib -Wl,-exported_symbol -Wl,_foo -Wl,-exported_symbol -Wl,'_*bar'
-	nm -j -g -f libfoo.dylib | diff - expect5 | ${FAIL_IF_STDIN}
+	${CC} ${CCFLAGS} -dynamiclib foo.c -o libfoo.dylib -Wl,-exported_symbol -Wl,_foo -Wl,-exported_symbol -Wl,'_*bar'
+	nm -j -g -f -s __TEXT __text libfoo.dylib | diff - expect5 | ${FAIL_IF_STDIN}
 	${FAIL_IF_BAD_MACHO} libfoo.dylib
 
-	${CC} -dynamiclib foo.c -o libfoo.dylib -exported_symbols_list list5
-	nm -j -g -f libfoo.dylib | diff - expect5 | ${FAIL_IF_STDIN}
+	${CC} ${CCFLAGS} -dynamiclib foo.c -o libfoo.dylib -exported_symbols_list list5
+	nm -j -g -f -s __TEXT __text libfoo.dylib | diff - expect5 | ${FAIL_IF_STDIN}
 	${FAIL_IF_BAD_MACHO} libfoo.dylib
 
-	${CC} -dynamiclib foo.c -o libfoo.dylib -Wl,-unexported_symbol -Wl,'_*2*'
-	nm -j -g -f libfoo.dylib | diff - expect6 | ${FAIL_IF_STDIN}
+	${CC} ${CCFLAGS} -dynamiclib foo.c -o libfoo.dylib -Wl,-unexported_symbol -Wl,'_*2*'
+	nm -j -g -f -s __TEXT __text libfoo.dylib | diff - expect6 | ${FAIL_IF_STDIN}
 	${FAIL_IF_BAD_MACHO} libfoo.dylib
 
-	${CC} -dynamiclib foo.c -o libfoo.dylib -Wl,-exported_symbol -Wl,'_f[abcdef]o'
-	nm -j -g -f libfoo.dylib | diff - expect7 | ${FAIL_IF_STDIN}
+	${CC} ${CCFLAGS} -dynamiclib foo.c -o libfoo.dylib -Wl,-exported_symbol -Wl,'_f[abcdef]o'
+	nm -j -g -f -s __TEXT __text libfoo.dylib | diff - expect7 | ${FAIL_IF_STDIN}
 	${FAIL_IF_BAD_MACHO} libfoo.dylib
 
-	${CC} -dynamiclib foo.c -o libfoo.dylib -Wl,-exported_symbol -Wl,'_f[a-f]o'
-	nm -j -g -f libfoo.dylib | diff - expect7 | ${FAIL_IF_STDIN}
+	${CC} ${CCFLAGS} -dynamiclib foo.c -o libfoo.dylib -Wl,-exported_symbol -Wl,'_f[a-f]o'
+	nm -j -g -f -s __TEXT __text libfoo.dylib | diff - expect7 | ${FAIL_IF_STDIN}
 	${FAIL_IF_BAD_MACHO} libfoo.dylib
 
-	${CC} -dynamiclib foo.c -o libfoo.dylib -Wl,-exported_symbol -Wl,'_f[a-z]o'
-	nm -j -g -f libfoo.dylib | diff - expect8 | ${FAIL_IF_STDIN}
+	${CC} ${CCFLAGS} -dynamiclib foo.c -o libfoo.dylib -Wl,-exported_symbol -Wl,'_f[a-z]o'
+	nm -j -g -f -s __TEXT __text libfoo.dylib | diff - expect8 | ${FAIL_IF_STDIN}
 	${FAIL_IF_BAD_MACHO} libfoo.dylib
 
-	${CC} -dynamiclib foo.c -o libfoo.dylib -Wl,-exported_symbol -Wl,'_f[a-fnop]o'
-	nm -j -g -f libfoo.dylib | diff - expect8 | ${FAIL_IF_STDIN}
+	${CC} ${CCFLAGS} -dynamiclib foo.c -o libfoo.dylib -Wl,-exported_symbol -Wl,'_f[a-fnop]o'
+	nm -j -g -f -s __TEXT __text libfoo.dylib | diff - expect8 | ${FAIL_IF_STDIN}
 	${PASS_IFF_GOOD_MACHO} libfoo.dylib
 	
 clean:

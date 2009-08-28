@@ -8,17 +8,21 @@
 </names>
 
 <usage>
-	<arg>filename [ filename ... ]<desc>the filename(s) to be processed</desc></arg>
+	<flag optional="1">M<arg>man_section</arg><desc>the manual section for the output files</desc></flag>
+	<arg>filename<desc>the filename(s) to be processed</desc></arg>
+	<arg optional="1">...</arg>
 </usage>
 
 <environment>
 	This tool was designed to translate from headerdoc's XML output to an mxml
-	file for use with xml2man.
+	file for use with xml2man.  The tool takes a list of XML files generated
+	with headerdoc2html (with the -X flag) and outputs a series of .mxml
+	files (suitable for use with xml2man) in the current directory.
 </environment>
 
 <seealso>
-	<p>For more information on xml2man, see</p>
-	<manpage>xml2man<section>1</section>, </manpage>
+	<p>For more information on xml2man, see:</p>
+	<manpage>xml2man<section>1</section></manpage>
 </seealso>
 
 </manpage>

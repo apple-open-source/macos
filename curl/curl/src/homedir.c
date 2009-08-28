@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2005, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2007, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: homedir.c,v 1.9 2005/12/18 15:36:14 yangtse Exp $
+ * $Id: homedir.c,v 1.11 2008-09-12 11:18:18 yangtse Exp $
  ***************************************************************************/
 
 #include "setup.h"
@@ -71,7 +71,7 @@ char *GetEnv(const char *variable, char do_expand)
 #ifdef  VMS
   env = getenv(variable);
   if (env && strcmp("HOME",variable) == 0) {
-        env = decc$translate_vms(env);
+        env = decc_translate_vms(env);
   }
 #else
   /* no length control */
@@ -100,7 +100,7 @@ char *homedir(void)
 
    if (pw) {
 #ifdef VMS
-     home = decc$translate_vms(pw->pw_dir);
+     home = decc_translate_vms(pw->pw_dir);
 #else
      home = pw->pw_dir;
 #endif

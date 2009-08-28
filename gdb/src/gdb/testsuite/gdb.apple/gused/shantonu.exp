@@ -41,6 +41,11 @@ set testfile "shantonu"
 set srcfile ${testfile}.c
 set binfile ${objdir}/${subdir}/${testfile}
 
+if [target_info exists darwin64] {
+   verbose "This test file not applicable for x86-64, skipping."
+   return
+}
+
 set additional_flags "additional_flags=-gstabs+ -feliminate-unused-debug-symbols"
 
 if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable $additional_flags ] != "" } {

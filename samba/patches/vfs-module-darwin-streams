@@ -2,7 +2,7 @@ Index: samba/source/modules/vfs_darwin_streams.c
 ===================================================================
 --- /dev/null
 +++ samba/source/modules/vfs_darwin_streams.c
-@@ -0,0 +1,2155 @@
+@@ -0,0 +1,2171 @@
 +/*
 + * Darwin ACL VFS module
 + *
@@ -27,6 +27,9 @@ Index: samba/source/modules/vfs_darwin_streams.c
 + * headers.
 + */
 +#include <sys/types.h>
++
++#include <stdint.h>
++
 +typedef enum BRLMForkType {kBRLMDataFork = 1, kBRLMResFork= 2} BRLMForkType;
 +typedef enum BRLMLockType {kBRLMFree = 0x0000, kBRLMRLock = 0x0001, kBRLMWLock=0x0002} BRLMLockType;
 +typedef enum BRLMStatus {
@@ -80,8 +83,8 @@ Index: samba/source/modules/vfs_darwin_streams.c
 +                        int32_t creatPermissions,
 +                        mode_t mode,
 +                        BRLMRef* ref,
-+                        u_int32_t sessionID,
-+						u_int32_t options);
++                        uint32_t sessionID,
++						uint32_t options);
 +BRLMStatus BRLMCloseRef(BRLMRef ref);
 +BRLMStatus BRLMByteRangeLock(const BRLMRef ref, BRLMLockType type, u_int64_t start, u_int64_t count);
 +BRLMStatus BRLMByteRangeUnlock(const BRLMRef ref, BRLMLockType type, u_int64_t start, u_int64_t count);
@@ -91,7 +94,7 @@ Index: samba/source/modules/vfs_darwin_streams.c
 +int32_t BRLMGetDescriptor(BRLMRef ref);
 +int16_t BRLMGetForkRefNum(BRLMRef ref);
 +
-+BRLMStatus NLMDebug(u_int32_t i);
++BRLMStatus NLMDebug(uint32_t i);
 +BRLMStatus BRLMExchange(BRLMRef ref1, BRLMRef ref2);
 +
 +#undef DEBUGLEVEL
@@ -218,6 +221,17 @@ Index: samba/source/modules/vfs_darwin_streams.c
 +			name += (strlen(name) + 1);
 +		}
 +	}
++}
++
++/* Return TRUE if we are only opening for attribute access. */
++static BOOL is_attribute_open(const struct files_struct * fsp)
++{
++    BOOL rwopen;
++
++    rwopen = fsp->access_mask & (FILE_READ_DATA | FILE_WRITE_DATA |
++	    GENERIC_READ_ACCESS | GENERIC_WRITE_ACCESS);
++
++    return rwopen ? False : True;
 +}
 +
 +/* Map from a stream name to one of the special xattr names reserved by Apple.
@@ -349,8 +363,8 @@ Index: samba/source/modules/vfs_darwin_streams.c
 +	valid = filter_name_list(list, total, exclude_stream_names);
 +
 +	DEBUG(MODULE_TRACE,
-+		("%d bytes of xattr names filtered down to %d bytes\n",
-+		 total, valid));
++		("%u bytes of xattr names filtered down to %u bytes\n",
++		 (unsigned)total, (unsigned)valid));
 +	return valid;
 +}
 +
@@ -828,8 +842,7 @@ Index: samba/source/modules/vfs_darwin_streams.c
 +
 +	/* Attempt to read past EOF. */
 +	if (sz <= offset) {
-+		errno = EINVAL;
-+		return -1;
++		return 0;
 +	}
 +
 +	overlap = (offset + count) > sz ? (sz - offset) : count;
@@ -997,7 +1010,8 @@ Index: samba/source/modules/vfs_darwin_streams.c
 +
 +	DEBUG(MODULE_TRACE,
 +		("rsrc st_size=%u, st_blocks=%u, st_ino=%u\n",
-+		sbuf->st_size, sbuf->st_blocks, sbuf->st_ino));
++		(unsigned)sbuf->st_size, (unsigned)sbuf->st_blocks,
++		(unsigned)sbuf->st_ino));
 +	return 0;
 +}
 +
@@ -1010,8 +1024,8 @@ Index: samba/source/modules/vfs_darwin_streams.c
 +
 +	DEBUG(MODULE_TRACE,
 +		("stream '%s' st_size=%u, st_blocks=%u, st_ino=%u\n",
-+		sio->xtra.xattr.sname, sbuf->st_size,
-+		sbuf->st_blocks, sbuf->st_ino));
++		sio->xtra.xattr.sname, (unsigned)sbuf->st_size,
++		(unsigned)sbuf->st_blocks, (unsigned)sbuf->st_ino));
 +
 +	sbuf->st_size = get_xattr_size(NULL, fd, sio->xtra.xattr.sname, 0);
 +	if (sbuf->st_size == -1) {
@@ -1045,8 +1059,8 @@ Index: samba/source/modules/vfs_darwin_streams.c
 +
 +	DEBUG(MODULE_TRACE,
 +		("stream '%s' st_size=%u, st_blocks=%u, st_ino=%u\n",
-+		sio->xtra.xattr.sname, sbuf->st_size,
-+		sbuf->st_blocks, sbuf->st_ino));
++		sio->xtra.xattr.sname, (unsigned)sbuf->st_size,
++		(unsigned)sbuf->st_blocks, (unsigned)sbuf->st_ino));
 +	return 0;
 +}
 +
@@ -1278,7 +1292,8 @@ Index: samba/source/modules/vfs_darwin_streams.c
 +		return -1;
 +	}
 +
-+	if (lp_parm_bool(SNUM(handle->conn), MODULE_NAME, "brlm", False)) {
++	if (lp_parm_bool(SNUM(handle->conn), MODULE_NAME, "brlm", False) &&
++	    !is_attribute_open(fsp)) {
 +		fd = darwin_open_brlm(handle, fullname, fsp,
 +			    kBRLMResFork, flags, mode);
 +	} else {
@@ -1446,8 +1461,8 @@ Index: samba/source/modules/vfs_darwin_streams.c
 +	/* If it's not a stream, punt it. */
 +	if (!(*sname)) {
 +		int ret;
-+		if (lp_parm_bool(SNUM(handle->conn),
-+			    MODULE_NAME, "brlm", False)) {
++		if (lp_parm_bool(SNUM(handle->conn), MODULE_NAME, "brlm", False) &&
++		    !is_attribute_open(fsp)) {
 +			ret = darwin_open_brlm(handle, fname, fsp,
 +					    kBRLMDataFork, flags, mode);
 +		} else {
@@ -1626,9 +1641,9 @@ Index: samba/source/modules/vfs_darwin_streams.c
 +			const char *path, pstring name)
 +{
 +	struct attrlist attrlist;
-+	char attrbuf[sizeof(struct attrreference) + sizeof(u_int32_t) + NAME_MAX + 1];
++	char attrbuf[sizeof(struct attrreference) + sizeof(uint32_t) + NAME_MAX + 1];
 +	struct attrreference * data = (struct attrreference *)attrbuf;
-+	u_int32_t *nmlen;
++	uint32_t *nmlen;
 +	char *preserved_name = NULL;
 +	int len, maxlen;
 +
@@ -1642,11 +1657,12 @@ Index: samba/source/modules/vfs_darwin_streams.c
 +		return False;
 +	}
 +	/* Make sure we didn't get something bad */
-+	maxlen = data->attr_dataoffset - (sizeof(struct attrreference) +  sizeof(u_int32_t));
-+	nmlen = (u_int32_t *)(attrbuf+sizeof(struct attrreference));
++	maxlen = data->attr_dataoffset - (sizeof(struct attrreference) + sizeof(uint32_t));
++	nmlen = (uint32_t *)(attrbuf+sizeof(struct attrreference));
 +	/* Should never happen, but just to be safe */
 +	if (*nmlen > maxlen) {
-+		DEBUG(5, ("name length to large for buffer nmlen = %d  maxlen = %d\n", nmlen, maxlen));
++		DEBUG(5, ("name length to large for buffer nmlen = %d  maxlen = %u\n",
++			    *nmlen, maxlen));
 +		return False;
 +	}
 +	len = *nmlen++;
@@ -1992,7 +2008,7 @@ Index: samba/source/modules/vfs_darwin_streams.c
 +		}
 +
 +		DEBUG(MODULE_TRACE, ("stream '%s' is %u bytes\n",
-+			    name, (*sizes)[scount]));
++			    name, (unsigned)(*sizes)[scount]));
 +
 +		++scount;
 +	}
@@ -2162,7 +2178,7 @@ Index: samba/source/Makefile.in
 ===================================================================
 --- samba/source/Makefile.in.orig
 +++ samba/source/Makefile.in
-@@ -432,6 +432,7 @@ VFS_COMMIT_OBJ = modules/vfs_commit.o
+@@ -433,6 +433,7 @@ VFS_COMMIT_OBJ = modules/vfs_commit.o
  VFS_GPFS_OBJ = modules/vfs_gpfs.o modules/gpfs.o modules/nfs4_acls.o
  VFS_NOTIFY_FAM_OBJ = modules/vfs_notify_fam.o
  VFS_READAHEAD_OBJ = modules/vfs_readahead.o
@@ -2170,7 +2186,7 @@ Index: samba/source/Makefile.in
  
  PLAINTEXT_AUTH_OBJ = auth/pampass.o auth/pass_check.o
  
-@@ -1364,6 +1365,13 @@ bin/macosxfs.@SHLIBEXT@: proto_exists $(
+@@ -1365,6 +1366,13 @@ bin/macosxfs.@SHLIBEXT@: proto_exists $(
  # NOTE, there is no build rule for a dynamic default VFS module because
  # this one MUST MUST MUST be built statically.
  
@@ -2184,7 +2200,7 @@ Index: samba/source/Makefile.in
  bin/audit.@SHLIBEXT@: proto_exists $(VFS_AUDIT_OBJ)
  	@echo "Building plugin $@"
  	@$(SHLD_MODULE) $(VFS_AUDIT_OBJ)
-@@ -1524,7 +1532,6 @@ bin/timelimit@EXEEXT@: script/tests/time
+@@ -1525,7 +1533,6 @@ bin/timelimit@EXEEXT@: script/tests/time
  
  install: installservers installbin @INSTALL_CIFSMOUNT@ installman installscripts installdat installswat installmodules @INSTALL_LIBSMBCLIENT@ @INSTALL_LIBMSRPC@ @INSTALL_PAM_MODULES@ @INSTALL_LIBSMBSHAREMODES@
  
@@ -2196,9 +2212,9 @@ Index: samba/source/configure.in
 ===================================================================
 --- samba/source/configure.in.orig
 +++ samba/source/configure.in
-@@ -816,8 +816,13 @@ main() {
+@@ -831,8 +831,13 @@ main() {
  	# that needs to be removed. -- jpeach
- 	SMBD_LIBS="$SMBD_LIBS -framework DirectoryService"
+ 	SMBD_LIBS="$SMBD_LIBS $(MACOSX_LIBS)"
  
 +	# This is needed to build against the BRLM framework. It should
 +	# go away. -- jpeach
@@ -2210,10 +2226,10 @@ Index: samba/source/configure.in
  
  	;;
      *hurd*)
-@@ -6205,6 +6210,7 @@ SMB_MODULE(vfs_prealloc, \$(VFS_PREALLOC
- SMB_MODULE(vfs_commit, \$(VFS_COMMIT_OBJ), "bin/commit.$SHLIBEXT", VFS)
+@@ -6267,6 +6272,7 @@ SMB_MODULE(vfs_commit, \$(VFS_COMMIT_OBJ
  SMB_MODULE(vfs_gpfs, \$(VFS_GPFS_OBJ), "bin/gpfs.$SHLIBEXT", VFS)
  SMB_MODULE(vfs_readahead, \$(VFS_READAHEAD_OBJ), "bin/readahead.$SHLIBEXT", VFS)
+ SMB_MODULE(vfs_notify_fam, \$(VFS_NOTIFY_FAM_OBJ), "bin/notify_fam.$SHLIBEXT", VFS)
 +SMB_MODULE(vfs_darwin_streams, \$(VFS_DARWIN_STREAMS_OBJ), "bin/darwin_streams.$SHLIBEXT", VFS)
  
  SMB_SUBSYSTEM(VFS,smbd/vfs.o)
@@ -2297,7 +2313,7 @@ Index: samba/source/locking/posix.c
  
  	if (!ret && ((errno == EFBIG) || (errno == ENOLCK) || (errno ==  EINVAL))) {
  
-@@ -1058,13 +1066,17 @@ BOOL set_posix_lock_windows_flavour(file
+@@ -1061,13 +1069,17 @@ BOOL set_posix_lock_windows_flavour(file
  		DEBUG(5,("set_posix_lock_windows_flavour: Real lock: Type = %s: offset = %.0f, count = %.0f\n",
  			posix_lock_type_name(posix_lock_type), (double)offset, (double)count ));
  
@@ -2316,7 +2332,7 @@ Index: samba/source/locking/posix.c
  	}
  
  	if (!ret) {
-@@ -1178,7 +1190,8 @@ BOOL release_posix_lock_windows_flavour(
+@@ -1181,7 +1193,8 @@ BOOL release_posix_lock_windows_flavour(
  		DEBUG(5,("release_posix_lock_windows_flavour: downgrading lock to READ: offset = %.0f, count = %.0f\n",
  			(double)offset, (double)count ));
  
@@ -2326,7 +2342,7 @@ Index: samba/source/locking/posix.c
  			DEBUG(0,("release_posix_lock_windows_flavour: downgrade of lock failed with error %s !\n", strerror(errno) ));
  			talloc_destroy(ul_ctx);
  			return False;
-@@ -1189,6 +1202,7 @@ BOOL release_posix_lock_windows_flavour(
+@@ -1192,6 +1205,7 @@ BOOL release_posix_lock_windows_flavour(
  	 * Release the POSIX locks on the list of ranges returned.
  	 */
  
@@ -2334,7 +2350,7 @@ Index: samba/source/locking/posix.c
  	for(; ulist; ulist = ulist->next) {
  		offset = ulist->start;
  		count = ulist->size;
-@@ -1197,7 +1211,9 @@ BOOL release_posix_lock_windows_flavour(
+@@ -1200,7 +1214,9 @@ BOOL release_posix_lock_windows_flavour(
  			(double)offset, (double)count ));
  
  		if (!posix_fcntl_lock(fsp,SMB_F_SETLK,offset,count,F_UNLCK)) {
@@ -2345,7 +2361,7 @@ Index: samba/source/locking/posix.c
  		}
  	}
  
-@@ -1242,6 +1258,10 @@ BOOL set_posix_lock_posix_flavour(files_
+@@ -1245,6 +1261,10 @@ BOOL set_posix_lock_posix_flavour(files_
  	}
  
  	if (!posix_fcntl_lock(fsp,SMB_F_SETLK,offset,count,posix_lock_type)) {
@@ -2356,7 +2372,7 @@ Index: samba/source/locking/posix.c
  		*errno_ret = errno;
  		DEBUG(5,("set_posix_lock_posix_flavour: Lock fail !: Type = %s: offset = %.0f, count = %.0f. Errno = %s\n",
  			posix_lock_type_name(posix_lock_type), (double)offset, (double)count, strerror(errno) ));
-@@ -1331,7 +1351,9 @@ BOOL release_posix_lock_posix_flavour(fi
+@@ -1334,7 +1354,9 @@ BOOL release_posix_lock_posix_flavour(fi
  			(double)offset, (double)count ));
  
  		if (!posix_fcntl_lock(fsp,SMB_F_SETLK,offset,count,F_UNLCK)) {

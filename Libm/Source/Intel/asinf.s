@@ -128,9 +128,10 @@ T1:		.double	 +2.7174503090559850822332204,  -8.3122365980471962999776635
 			If the rounding mode is round-to-nearest, return arcsine(x)
 			faithfully rounded.
 
-			Returns a value in [-pi/2, +pi/2] (C 7.12.4.2 3).  Note that this
+			Return a value in [-pi/2, +pi/2] (C 7.12.4.2 3).  Note that this
 			prohibits returning correctly rounded values for asinf(-1) and
-			asinf(+1), since pi/2 rounded to a float lies outside that interval.
+			asinf(+1), since pi/2 rounded to a float lies outside that
+			interval.
 		
 			Not implemented:  In other rounding modes, return arcsine(x)
 			possibly with slightly worse error, not necessarily honoring the

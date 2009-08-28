@@ -99,6 +99,7 @@
 #include <IOKit/network/IONetworkInterface.h>
 #include <IOKit/network/IOEthernetController.h>
 #include <servers/bootstrap.h>
+#include <arpa/inet.h>
 #include <bsm/libbsm.h>
 
 #include "pppcontroller.h"
@@ -123,6 +124,7 @@
 #define IP_LIST(ip)	IP_CH(ip)[0],IP_CH(ip)[1],IP_CH(ip)[2],IP_CH(ip)[3]
 
 #define PPP_NKE_PATH 	"/System/Library/Extensions/PPP.kext"
+#define PPP_NKE_ID		"com.apple.nke.ppp"
 
 /* We can get an EIO error on an ioctl if the modem has hung up */
 #define ok_error(num) ((num)==EIO)
@@ -150,9 +152,8 @@ static int make_ppp_unit(void);
 static int get_ether_addr __P((u_int32_t, struct sockaddr_dl *));
 static int connect_pfppp();
 //static void sys_pidchange(void *arg, int pid);
-static void sys_phasechange(void *arg, int phase);
-static void sys_exitnotify(void *arg, int exitcode);
-int sys_getconsoleuser(uid_t *uid);
+static void sys_phasechange(void *arg, uintptr_t phase);
+static void sys_exitnotify(void *arg, uintptr_t exitcode);
 int publish_keyentry(CFStringRef key, CFStringRef entry, CFTypeRef value);
 int publish_dictnumentry(CFStringRef dict, CFStringRef entry, int val);
 int publish_dictstrentry(CFStringRef dict, CFStringRef entry, char *str, int encoding);
@@ -162,9 +163,9 @@ int publish_dns_wins_entry(CFStringRef entity, CFStringRef property1, CFTypeRef 
 						CFStringRef property2, CFTypeRef ref2,
 						CFStringRef property3, CFTypeRef ref3, int clean);
 int unpublish_dictentry(CFStringRef dict, CFStringRef entry);
-static void sys_eventnotify(void *param, int code);
-static void sys_timeremaining(void *param, int info);
-static void sys_authpeersuccessnotify(void *param, int info);
+static void sys_eventnotify(void *param, uintptr_t code);
+static void sys_timeremaining(void *param, uintptr_t info);
+static void sys_authpeersuccessnotify(void *param, uintptr_t info);
 int publish_stateaddr(u_int32_t o, u_int32_t h, u_int32_t m);
 int route_interface(int cmd, struct in_addr host, struct in_addr mask, char iftype, char *ifname, int is_host);
 int route_gateway(int cmd, struct in_addr dest, struct in_addr mask, struct in_addr gateway, int use_gway_flag);
@@ -209,6 +210,7 @@ int			looped;			/* 1 if using loop */
 int	 		ppp_sockfd = -1;	/* fd for PF_PPP socket */
 char 			*serviceid = NULL; 	/* configuration service ID to publish */
 char 			*serverid = NULL; 	/* server ID that spwaned this service */
+static CFStringRef	server_peer = NULL;	/* remote peer address for server */
 static char 	*network_signature = NULL; 	/* network signature */
 bool	 		noload = 0;		/* don't load the kernel extension */
 bool                    looplocal = 0;  /* Don't loop local traffic destined to the local address some applications rely on this default behavior */
@@ -281,7 +283,7 @@ void closeallfrom(int from)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-u_long load_kext(char *kext)
+u_long load_kext(char *kext, int byBundleID)
 {
     int pid;
 
@@ -291,7 +293,10 @@ u_long load_kext(char *kext)
     if (pid == 0) {
         closeall();
         // PPP kernel extension not loaded, try load it...
-        execle("/sbin/kextload", "kextload", kext, (char *)0, (char *)0);
+		if (byBundleID)
+			execle("/sbin/kextload", "kextload", "-b", kext, (char *)0, (char *)0);
+		else
+			execle("/sbin/kextload", "kextload", kext, (char *)0, (char *)0);
         exit(1);
     }
 
@@ -357,13 +362,12 @@ int sys_check_controller()
 CFPropertyListRef Unserialize(void *data, u_int32_t dataLen)
 {
     CFDataRef           	xml;
-    CFStringRef         	xmlError;
     CFPropertyListRef	ref = 0;
 
     xml = CFDataCreate(NULL, data, dataLen);
     if (xml) {
         ref = CFPropertyListCreateFromXMLData(NULL,
-                xml,  kCFPropertyListImmutable, &xmlError);
+                xml,  kCFPropertyListImmutable, NULL);
         CFRelease(xml);
     }
 
@@ -377,7 +381,7 @@ void CopyControllerData()
 	mach_port_t			server;
 	kern_return_t		status;
 	void				*data			= NULL;
-	int				datalen;
+	unsigned int		datalen;
 	int				result			= kSCStatusFailed;
 	audit_token_t		audit_token;
 	uid_t               euid;
@@ -518,9 +522,7 @@ void sys_init()
         strref = CFUUIDCreateString(NULL, uuid);
         CFStringGetCString(strref, str, sizeof(str), kCFStringEncodingUTF8);
 
-        if (serviceid = malloc(strlen(str) + 1))
-            strcpy(serviceid, str);
-        else 
+        if ((serviceid = strdup(str)) == NULL)
             fatal("Couldn't allocate memory to create temporary service id: %m(%d)", errno);
 
         CFRelease(strref);
@@ -668,6 +670,19 @@ void set_network_signature(char *key1, char *val1, char *key2, char *val2)
 
 
 /* ----------------------------------------------------------------------------- 
+ ----------------------------------------------------------------------------- */
+void set_server_peer(struct in_addr peer)
+{
+	if (server_peer) {
+		CFRelease(server_peer);
+		server_peer = NULL;
+	}
+	
+	server_peer = CFStringCreateWithCString(NULL, inet_ntoa(peer), kCFStringEncodingASCII);
+}
+
+
+/* ----------------------------------------------------------------------------- 
 ----------------------------------------------------------------------------- */
 void sys_close()
 {
@@ -713,7 +728,7 @@ static void set_flags (int fd, int flags)
 
 /* ----------------------------------------------------------------------------- 
 ----------------------------------------------------------------------------- */
-void sys_notify(u_int32_t message, u_int32_t code1, u_int32_t code2)
+void sys_notify(u_int32_t message, uintptr_t code1, uintptr_t code2)
 {
     struct ppp_msg_hdr	*hdr;
     int 		servlen, totlen;
@@ -755,13 +770,13 @@ void sys_notify(u_int32_t message, u_int32_t code1, u_int32_t code2)
 /* ----------------------------------------------------------------------------- 
 we installed the notifier with the event as the parameter
 ----------------------------------------------------------------------------- */
-void sys_eventnotify(void *param, int code)
+void sys_eventnotify(void *param, uintptr_t code)
 {
     
     if (param == (void*)PPP_EVT_CONN_FAILED) 
         code = EXIT_CONNECT_FAILED;
 
-    sys_notify(PPPD_EVENT, (u_int32_t)param, code);
+    sys_notify(PPPD_EVENT, (uintptr_t)param, code);
 }
 
 /* ----------------------------------------------------------------------------- 
@@ -805,7 +820,11 @@ the steps detailed in the README.MacOSX file.\n";
     // if that works, the kernel extension is loaded.
     if ((s = socket(PF_PPP, SOCK_RAW, PPPPROTO_CTL)) < 0) {
     
-        if (!noload && !load_kext(PPP_NKE_PATH))
+#ifndef TARGET_EMBEDDED_OS
+        if (!noload && !load_kext(PPP_NKE_PATH, 0))
+#else
+        if (!noload && !load_kext(PPP_NKE_ID, 1))
+#endif
             s = socket(PF_PPP, SOCK_RAW, PPPPROTO_CTL);
             
         if (s < 0)
@@ -1295,7 +1314,9 @@ void output(int unit, u_char *p, int len)
     
     // link protocol are sent to the link
     // other protocols are send to the bundle
-    if (write((ntohs(*(u_short*)p) >= 0xC000) ? ppp_fd : ppp_sockfd, p, len) < 0) {
+  /* test was changed because compiler strangeness for embedded os */
+//    if (write((ntohs(*(u_short*)p) >= 0xC000) ? ppp_fd : ppp_sockfd, p, len) < 0) {
+	if (write((p[0] >= 0xC0) ? ppp_fd : ppp_sockfd, p, len) < 0) {
 	if (errno != EIO)
 	    error("write: %m");
     }
@@ -2314,6 +2335,11 @@ int publish_stateaddr(u_int32_t o, u_int32_t h, u_int32_t m)
 		}
 	}
 
+    /* add the remote server peer address */
+    if (server_peer) {
+        CFDictionarySetValue(ipv4_dict, CFSTR("ServerAddress"), server_peer);
+    }
+	
     /* update the store now */
     if (str = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainState, serviceidRef, kSCEntNetIPv4)) {
         
@@ -2468,6 +2494,7 @@ set wins information
 ----------------------------------------------------------------------------- */
 int sifwins(u_int32_t wins1, u_int32_t wins2)
 {    
+#ifndef TARGET_EMBEDDED_OS
     CFStringRef		str1 = 0, str2 = 0;
     int				result = 0, clean = 1;
 
@@ -2488,6 +2515,9 @@ done:
 		CFRelease(str2);
 
 	return result;
+#else
+	return 0;
+#endif
 }
 
 /* -----------------------------------------------------------------------------
@@ -2503,7 +2533,11 @@ clear wins information
 ----------------------------------------------------------------------------- */
 int cifwins(u_int32_t wins1, u_int32_t wins2)
 {
+#ifndef TARGET_EMBEDDED_OS
     return unpublish_dict(kSCEntNetSMB);
+#else
+	return 0;
+#endif
 }
 
 
@@ -2850,11 +2884,11 @@ int sys_loadplugin(char *arg)
         strlcpy(path, arg, sizeof(path));
     }
     else {
-        strcpy(path, "/System/Library/Extensions/");
+        strlcpy(path, "/System/Library/Extensions/", sizeof(path));
         strlcat(path, arg, sizeof(path));
     } 
 
-    url = CFURLCreateFromFileSystemRepresentation(NULL, path, strlen(path), TRUE);
+    url = CFURLCreateFromFileSystemRepresentation(NULL, (const UInt8 *)path, strlen(path), TRUE);
     if (url) {        
         bundle =  CFBundleCreate(NULL, url);
         if (bundle) {
@@ -2883,14 +2917,14 @@ int sys_eaploadplugin(char *arg, eap_ext *eap)
     CFDictionaryRef	dict;
 
     if (arg[0] == '/') {
-        strcpy(path, arg);
+        strlcpy(path, arg, sizeof(path));
     }
     else {
-        strcpy(path, "/System/Library/Extensions/");
-        strcat(path, arg);
+        strlcpy(path, "/System/Library/Extensions/", sizeof(path));
+        strlcat(path, arg, sizeof(path));
     } 
 
-    url = CFURLCreateFromFileSystemRepresentation(NULL, path, strlen(path), TRUE);
+    url = CFURLCreateFromFileSystemRepresentation(NULL, (const UInt8 *)path, strlen(path), TRUE);
     if (url) {        
 
         dict = CFBundleCopyInfoDictionaryForURL(url);
@@ -3080,21 +3114,6 @@ int unpublish_dictentry(CFStringRef dict, CFStringRef entry)
 }
 
 /* -----------------------------------------------------------------------------
-get the current logged in user
------------------------------------------------------------------------------ */
-int sys_getconsoleuser(uid_t *uid)
-{
-    CFStringRef 	str;
-
-    if (str = SCDynamicStoreCopyConsoleUser(cfgCache, uid, 0)) {
-        CFRelease(str);
-        return 0;
-    }
-        
-    return -1;
-}
-
-/* -----------------------------------------------------------------------------
 get mach asbolute time, for timeout purpose independent of date changes
 ----------------------------------------------------------------------------- */
 int getabsolutetime(struct timeval *timenow)
@@ -3113,7 +3132,7 @@ int getabsolutetime(struct timeval *timenow)
 /* -----------------------------------------------------------------------------
 our new phase hook
 ----------------------------------------------------------------------------- */
-void sys_phasechange(void *arg, int p)
+void sys_phasechange(void *arg, uintptr_t p)
 {
 
     publish_dictnumentry(kSCEntNetPPP, kSCPropNetPPPStatus, p);
@@ -3160,7 +3179,7 @@ void sys_phasechange(void *arg, int p)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-void sys_authpeersuccessnotify(void *param, int info)
+void sys_authpeersuccessnotify(void *param, uintptr_t info)
 {
     struct auth_peer_success_info *peerinfo = (struct auth_peer_success_info *)info;
 
@@ -3169,7 +3188,7 @@ void sys_authpeersuccessnotify(void *param, int info)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-void sys_timeremaining(void *param, int info)
+void sys_timeremaining(void *param, uintptr_t info)
 {
     struct lcp_timeremaining_info *timeinfo = (struct lcp_timeremaining_info *)info;
     u_int32_t	val = 0, curtime = mach_absolute_time() * timeScaleSeconds;
@@ -3220,13 +3239,15 @@ void sys_reinit()
 /* ----------------------------------------------------------------------------- 
 we are exiting
 ----------------------------------------------------------------------------- */
-void sys_exitnotify(void *arg, int exitcode)
+void sys_exitnotify(void *arg, uintptr_t exitcode)
 {
    
     // unpublish the various info about the connection
     unpublish_dict(kSCEntNetPPP);
     unpublish_dict(kSCEntNetDNS);
+#ifndef TARGET_EMBEDDED_OS
     unpublish_dict(kSCEntNetSMB);
+#endif
     unpublish_dict(kSCEntNetInterface);
 
     sys_eventnotify((void*)PPP_EVT_DISCONNECTED, exitcode);
@@ -3252,11 +3273,17 @@ route_interface(int cmd, struct in_addr host, struct in_addr addr_mask, char ift
         struct sockaddr_in	mask;
     } rtmsg;
     
+	char            host_str[INET_ADDRSTRLEN];
+	char            mask_str[INET_ADDRSTRLEN];
     int 			sockfd = -1;
 
     if ((sockfd = socket(PF_ROUTE, SOCK_RAW, AF_INET)) < 0) {
-	error("route_interface: open routing socket failed, %m");
-	return (0);
+		error("route_interface: open routing socket failed, %m. (address %s, mask %s, interface %s, host %d).",
+			  addr2ascii(AF_INET, &host, sizeof(host), host_str),
+			  addr2ascii(AF_INET, &addr_mask, sizeof(addr_mask), mask_str),
+			  ifname,
+			  is_host);
+		return (0);
     }
 
     memset(&rtmsg, 0, sizeof(rtmsg));
@@ -3288,9 +3315,13 @@ route_interface(int cmd, struct in_addr host, struct in_addr addr_mask, char ift
     len = sizeof(rtmsg);
     rtmsg.hdr.rtm_msglen = len;
     if (write(sockfd, &rtmsg, len) < 0) {
-	error("route_interface: write routing socket failed, %m");
-	close(sockfd);
-	return (0);
+		error("route_interface: write routing socket failed, %m. (address %s, mask %s, interface %s, host %d).",
+			  addr2ascii(AF_INET, &host, sizeof(host), host_str),
+			  addr2ascii(AF_INET, &addr_mask, sizeof(addr_mask), mask_str),
+			  ifname,
+			  is_host);
+		close(sockfd);
+		return (0);
     }
 
     close(sockfd);
@@ -3303,6 +3334,9 @@ route_interface(int cmd, struct in_addr host, struct in_addr addr_mask, char ift
 int
 route_gateway(int cmd, struct in_addr dest, struct in_addr mask, struct in_addr gateway, int use_gway_flag)
 {
+	char            dest_str[INET_ADDRSTRLEN];
+	char            mask_str[INET_ADDRSTRLEN];
+	char            gateway_str[INET_ADDRSTRLEN];
     int 			len;
     int 			rtm_seq = 0;
 
@@ -3316,9 +3350,13 @@ route_gateway(int cmd, struct in_addr dest, struct in_addr mask, struct in_addr 
     int 			sockfd = -1;
     
     if ((sockfd = socket(PF_ROUTE, SOCK_RAW, AF_INET)) < 0) {
-	syslog(LOG_INFO, "host_gateway: open routing socket failed, %s",
-	       strerror(errno));
-	return (0);
+		syslog(LOG_INFO, "host_gateway: open routing socket failed, %s. (address %s, mask %s, gateway %s, use-gateway %d).",
+			   strerror(errno),
+			   addr2ascii(AF_INET, &dest, sizeof(dest), dest_str),
+			   addr2ascii(AF_INET, &mask, sizeof(mask), mask_str),
+			   addr2ascii(AF_INET, &gateway, sizeof(gateway), gateway_str),
+			   use_gway_flag);
+		return (0);
     }
 
     memset(&rtmsg, 0, sizeof(rtmsg));
@@ -3342,9 +3380,14 @@ route_gateway(int cmd, struct in_addr dest, struct in_addr mask, struct in_addr 
     len = sizeof(rtmsg);
     rtmsg.hdr.rtm_msglen = len;
     if (write(sockfd, &rtmsg, len) < 0) {
-	syslog(LOG_ERR, "host_gateway: write routing socket failed, %s", strerror(errno));
-	close(sockfd);
-	return (0);
+		syslog(LOG_ERR, "host_gateway: write routing socket failed, %s. (address %s, mask %s, gateway %s, use-gateway %d).",
+			   strerror(errno),
+			   addr2ascii(AF_INET, &dest, sizeof(dest), dest_str),
+			   addr2ascii(AF_INET, &mask, sizeof(mask), mask_str),
+			   addr2ascii(AF_INET, &gateway, sizeof(gateway), gateway_str),
+			   use_gway_flag);
+		close(sockfd);
+		return (0);
     }
 
     close(sockfd);

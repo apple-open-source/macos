@@ -69,10 +69,10 @@ int main (int argc, const char * argv[]) {
     /* Put a breakpoint on sayHello, see if we can stop there.  */
     [third_var sayHello];
 
-    printf ("first_var isa is 0x%x\n", first_var->isa);
-    printf ("second_var isa is 0x%x\n", second_var->isa);
-    printf ("third_var isa is 0x%x\n", third_var->isa);
-    printf ("fourth_var isa is 0x%x\n", fourth_var->isa);
+    printf ("first_var isa is %p\n", first_var->isa);
+    printf ("second_var isa is %p\n", second_var->isa);
+    printf ("third_var isa is %p\n", third_var->isa);
+    printf ("fourth_var isa is %p\n", fourth_var->isa);
 
     [pool release];
     return 0;

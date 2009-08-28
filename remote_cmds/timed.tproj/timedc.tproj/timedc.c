@@ -1,26 +1,3 @@
-/*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
 /*-
  * Copyright (c) 1985, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -54,38 +31,40 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__unused static char copyright[] =
+static const char copyright[] =
 "@(#) Copyright (c) 1985, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
-__unused static char sccsid[] = "@(#)timedc.c	8.1 (Berkeley) 6/6/93";
-#endif /* not lint */
-
-#ifdef sgi
-#ident "$Revision: 1.2 $"
+#if 0
+static char sccsid[] = "@(#)timedc.c	8.1 (Berkeley) 6/6/93";
 #endif
+static const char rcsid[] =
+  "$FreeBSD: src/usr.sbin/timed/timedc/timedc.c,v 1.6 2007/11/07 10:53:41 kevlo Exp $";
+#endif /* not lint */
+#include <sys/cdefs.h>
 
 #include "timedc.h"
-#include <strings.h>
-#include <signal.h>
 #include <ctype.h>
+#include <err.h>
 #include <setjmp.h>
-#include <unistd.h>
+#include <signal.h>
 #include <stdlib.h>
+#include <string.h>
 #include <syslog.h>
+#include <unistd.h>
 
 int trace = 0;
 FILE *fd = 0;
 int	margc;
 int	fromatty;
-char	*margv[20];
+#define	MAX_MARGV	20
+char	*margv[MAX_MARGV];
 char	cmdline[200];
 jmp_buf	toplevel;
-static struct cmd *getcmd __P((char *));
+static struct cmd *getcmd(char *);
 
 int
 main(argc, argv)
@@ -99,10 +78,8 @@ main(argc, argv)
 	/*
 	 * security dictates!
 	 */
-	if (priv_resources() < 0) {
-		fprintf(stderr, "Could not get privileged resources\n");
-		exit(1);
-	}
+	if (priv_resources() < 0)
+		errx(1, "could not get privileged resources");
 	(void) setuid(getuid());
 
 	if (--argc > 0) {
@@ -208,7 +185,7 @@ makeargv()
 	register char **argp = margv;
 
 	margc = 0;
-	for (cp = cmdline; *cp;) {
+	for (cp = cmdline; margc < MAX_MARGV - 1 && *cp; ) {
 		while (isspace(*cp))
 			cp++;
 		if (*cp == '\0')

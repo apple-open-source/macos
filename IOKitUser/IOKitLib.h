@@ -1,21 +1,22 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2009 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -79,7 +80,7 @@ typedef void
     @param refcon The refcon passed when the notification was installed.
     @param service The IOService whose state has changed.
     @param messageType A messageType enum, defined by IOKit/IOMessage.h or by the IOService's family.
-    @param messageArgument An argument for the message, dependent on the messageType.
+    @param messageArgument An argument for the message, dependent on the messageType.  If the message data is larger than sizeof(void*), then messageArgument contains a pointer to the message data; otherwise, messageArgument contains the message data.
 */
 
 typedef void
@@ -268,15 +269,38 @@ IOObjectIsEqualTo(
 	io_object_t	object,
 	io_object_t	anObject );
 
-/*! @function IOObjectGetRetainCount
+/*! @function IOObjectGetKernelRetainCount
     @abstract Returns kernel retain count of an IOKit object.
-    @discussion This function may be used in diagnostics to determine the current retain count of the kernel object.
+    @discussion This function may be used in diagnostics to determine the current retain count of the kernel object at the kernel level.
+    @param object An IOKit object.
+    @result If the object handle is valid, the kernel objects retain count is returned, otherwise zero is returned. */
+
+uint32_t
+IOObjectGetKernelRetainCount(
+	io_object_t	object )
+AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+
+/*! @function IOObjectGetUserRetainCount
+    @abstract Returns the retain count for the current process of an IOKit object.
+    @discussion This function may be used in diagnostics to determine the current retain count for the calling process of the kernel object.
+    @param object An IOKit object.
+    @result If the object handle is valid, the objects user retain count is returned, otherwise zero is returned. */
+
+uint32_t
+IOObjectGetUserRetainCount(
+	io_object_t	object )
+AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+
+/*! @function IOObjectGetRetainCount
+    @abstract Returns kernel retain count of an IOKit object. Identical to IOObjectGetKernelRetainCount() but available prior to Mac OS 10.6.
+    @discussion This function may be used in diagnostics to determine the current retain count of the kernel object at the kernel level.
     @param object An IOKit object.
     @result If the object handle is valid, the kernel objects retain count is returned, otherwise zero is returned. */
 
 uint32_t
 IOObjectGetRetainCount(
 	io_object_t	object );
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -567,7 +591,8 @@ IOConnectSetNotificationPort(
     @param ofSize The size of the mapping created is passed back on success.
     @result A kern_return_t error code. */
 
-#if !__LP64__
+#if !__LP64__ || defined(IOCONNECT_MAPMEMORY_10_6)
+
 kern_return_t
 IOConnectMapMemory(
 	io_connect_t	connect,
@@ -577,11 +602,32 @@ IOConnectMapMemory(
 	vm_size_t	*ofSize,
 	IOOptionBits	 options );
 
-kern_return_t IOConnectMapMemory64
 #else
-kern_return_t IOConnectMapMemory
-#endif
-	(io_connect_t		connect,
+
+kern_return_t
+IOConnectMapMemory(
+	 io_connect_t		connect,
+	 uint32_t		memoryType,
+	 task_port_t		intoTask,
+	 mach_vm_address_t	*atAddress,
+	 mach_vm_size_t		*ofSize,
+	 IOOptionBits		 options );
+
+#endif /* !__LP64__ || defined(IOCONNECT_MAPMEMORY_10_6) */
+
+
+/*! @function IOConnectMapMemory64
+    @abstract Map hardware or shared memory into the caller's task.
+    @discussion This is a generic method to create a mapping in the callers task. The family will interpret the type parameter to determine what sort of mapping is being requested. Cache modes and placed mappings may be requested by the caller.
+    @param connect The connect handle created by IOServiceOpen.
+    @param memoryType What is being requested to be mapped, not interpreted by IOKit and family defined. The family may support physical hardware or shared memory mappings.
+    @param intoTask The task port for the task in which to create the mapping. This may be different to the task which the opened the connection.
+    @param atAddress An in/out parameter - if the kIOMapAnywhere option is not set, the caller should pass the address where it requests the mapping be created, otherwise nothing need to set on input. The address of the mapping created is passed back on sucess.
+    @param ofSize The size of the mapping created is passed back on success.
+    @result A kern_return_t error code. */
+
+kern_return_t IOConnectMapMemory64(
+	 io_connect_t		connect,
 	 uint32_t		memoryType,
 	 task_port_t		intoTask,
 	 mach_vm_address_t	*atAddress,
@@ -597,7 +643,8 @@ kern_return_t IOConnectMapMemory
     @param atAddress The address of the mapping to be removed.
     @result A kern_return_t error code. */
 
-#if !__LP64__
+#if !__LP64__ || defined(IOCONNECT_MAPMEMORY_10_6)
+
 kern_return_t
 IOConnectUnmapMemory(
 	io_connect_t	connect,
@@ -605,14 +652,33 @@ IOConnectUnmapMemory(
 	task_port_t	fromTask,
 	vm_address_t	atAddress );
 
-kern_return_t IOConnectUnmapMemory64
 #else
-kern_return_t IOConnectUnmapMemory
-#endif
-	(io_connect_t		connect,
+
+kern_return_t
+IOConnectUnmapMemory(
+	io_connect_t	connect,
+	uint32_t	memoryType,
+	task_port_t	fromTask,
+	mach_vm_address_t	atAddress );
+
+
+#endif /* !__LP64__ || defined(IOCONNECT_MAPMEMORY_10_6) */
+
+/*! @function IOConnectUnmapMemory64
+    @abstract Remove a mapping made with IOConnectMapMemory64.
+    @discussion This is a generic method to remove a mapping in the callers task.
+    @param connect The connect handle created by IOServiceOpen.
+    @param memoryType The memory type originally requested in IOConnectMapMemory.
+    @param intoTask The task port for the task in which to remove the mapping. This may be different to the task which the opened the connection.
+    @param atAddress The address of the mapping to be removed.
+    @result A kern_return_t error code. */
+
+kern_return_t IOConnectUnmapMemory64(
+	io_connect_t		connect,
 	 uint32_t		memoryType,
 	 task_port_t		fromTask,
 	 mach_vm_address_t	atAddress );
+
 
 /*! @function IOConnectSetCFProperties
     @abstract Set CF container based properties on a connection.
@@ -936,6 +1002,18 @@ IORegistryEntryGetPath(
 	const io_name_t         plane,
 	io_string_t		path );
 
+/*! @function IORegistryEntryGetRegistryEntryID
+    @abstract Returns an ID for the registry entry that is global to all tasks.
+    @discussion The entry ID returned by IORegistryEntryGetRegistryEntryID can be used to identify a registry entry across all tasks. A registry entry may be looked up by its entryID by creating a matching dictionary with IORegistryEntryIDMatching() to be used with the IOKit matching functions. The ID is valid only until the machine reboots.
+    @param entry The registry entry handle whose ID to look up.
+    @param entryID The resulting ID.
+    @result A kern_return_t error code. */
+
+kern_return_t
+IORegistryEntryGetRegistryEntryID(
+	io_registry_entry_t	entry,
+	uint64_t *		entryID );
+
 /*! @function IORegistryEntryCreateCFProperties
     @abstract Create a CF dictionary representation of a registry entry's property table.
     @discussion This function creates an instantaneous snapshot of a registry entry's property table, creating a CFDictionary analogue in the caller's task. Not every object available in the kernel is represented as a CF container; currently OSDictionary, OSArray, OSSet, OSSymbol, OSString, OSData, OSNumber, OSBoolean are created as their CF counterparts. 
@@ -1144,6 +1222,16 @@ IOOpenFirmwarePathMatching(
 	mach_port_t	masterPort,
 	uint32_t	options,
 	const char *	path );
+
+/*! @function IORegistryEntryIDMatching
+    @abstract Create a matching dictionary that specifies an IOService match based on a registry entry ID.
+    @discussion This function creates a matching dictionary that will match a registered, active IOService found with the given registry entry ID. The entry ID for a registry entry is returned by IORegistryEntryGetRegistryEntryID().
+    @param entryID The registry entry ID to be found. 
+    @result The matching dictionary created, is returned on success, or zero on failure. The dictionary is commonly passed to IOServiceGetMatchingServices or IOServiceAddNotification which will consume a reference, otherwise it should be released with CFRelease by the caller. */
+
+CFMutableDictionaryRef
+IORegistryEntryIDMatching(
+	uint64_t	entryID );
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 

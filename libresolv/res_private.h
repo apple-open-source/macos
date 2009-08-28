@@ -94,7 +94,7 @@ void res_client_close(res_state res);
  */
 extern uint32_t notify_register_plain(const char *name, int *out_token);
 
-__private_extern__ int res_query_mDNSResponder(res_state statp, const char *name, int class, int type, u_char *answer, int anslen, struct sockaddr *from, uint32_t *fromlen);
+extern int res_query_mDNSResponder(res_state statp, const char *name, int class, int type, u_char *answer, int anslen, struct sockaddr *from, uint32_t *fromlen);
 
 int dns_res_once(struct sockaddr *server, struct timeval *timeout, int options, const char *name, int class, int type, u_char *res, int *reslen);
 
@@ -103,8 +103,8 @@ int dns_res_once(struct sockaddr *server, struct timeval *timeout, int options, 
  */
 void res_interrupt_requests_enable(void);
 void res_interrupt_requests_disable(void);
-void res_interrupt_requests(void* token);
-void* res_init_interrupt_token(void);
-void res_delete_interrupt_token(void* token);
+void res_interrupt_request(void *token);
+void *res_init_interrupt_token(void);
+void res_delete_interrupt_token(void *token);
 
 #endif

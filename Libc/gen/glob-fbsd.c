@@ -176,10 +176,9 @@ static int	 globexp2(const Char *, const Char *, glob_t *, int *, int *, locale_
 static void	 qprintf(const char *, Char *);
 #endif
 
-int
-glob(pattern, flags, errfunc, pglob)
+static int
+__glob(pattern, pglob)
 	const char *pattern;
-	int flags, (*errfunc)(const char *, int);
 	glob_t *pglob;
 {
 	const u_char *patnext;
@@ -192,25 +191,23 @@ glob(pattern, flags, errfunc, pglob)
 	int mb_cur_max = MB_CUR_MAX_L(loc);
 
 	patnext = (u_char *) pattern;
-	if (!(flags & GLOB_APPEND)) {
+	if (!(pglob->gl_flags & GLOB_APPEND)) {
 		pglob->gl_pathc = 0;
 		pglob->gl_pathv = NULL;
-		if (!(flags & GLOB_DOOFFS))
+		if (!(pglob->gl_flags & GLOB_DOOFFS))
 			pglob->gl_offs = 0;
 	}
-	if (flags & GLOB_LIMIT) {
+	if (pglob->gl_flags & GLOB_LIMIT) {
 		limit = pglob->gl_matchc;
 		if (limit == 0)
 			limit = ARG_MAX;
 	} else
 		limit = 0;
-	pglob->gl_flags = flags & ~GLOB_MAGCHAR;
-	pglob->gl_errfunc = errfunc;
 	pglob->gl_matchc = 0;
 
 	bufnext = patbuf;
 	bufend = bufnext + MAXPATHLEN - 1;
-	if (flags & GLOB_NOESCAPE) {
+	if (pglob->gl_flags & GLOB_NOESCAPE) {
 		memset(&mbs, 0, sizeof(mbs));
 		while (bufend - bufnext >= mb_cur_max) {
 			clen = mbrtowc_l(&wc, (const char *)patnext, MB_LEN_MAX, &mbs, loc);
@@ -244,11 +241,40 @@ glob(pattern, flags, errfunc, pglob)
 	}
 	*bufnext = EOS;
 
-	if (flags & GLOB_BRACE)
+	if (pglob->gl_flags & GLOB_BRACE)
 	    return globexp1(patbuf, pglob, &limit, loc);
 	else
 	    return glob0(patbuf, pglob, &limit, loc);
 }
+
+int
+glob(pattern, flags, errfunc, pglob)
+	const char *pattern;
+	int flags, (*errfunc)(const char *, int);
+	glob_t *pglob;
+{
+#ifdef __BLOCKS__
+	pglob->gl_flags = flags & ~(GLOB_MAGCHAR | _GLOB_ERR_BLOCK);
+#else /* !__BLOCKS__ */
+	pglob->gl_flags = flags & ~GLOB_MAGCHAR;
+#endif /* __BLOCKS__ */
+	pglob->gl_errfunc = errfunc;
+	return __glob(pattern, pglob);
+}
+
+#ifdef __BLOCKS__
+int
+glob_b(pattern, flags, errblk, pglob)
+	const char *pattern;
+	int flags, (^errblk)(const char *, int);
+	glob_t *pglob;
+{
+	pglob->gl_flags = flags & ~GLOB_MAGCHAR;
+	pglob->gl_flags |= _GLOB_ERR_BLOCK;
+	pglob->gl_errblk = errblk;
+	return __glob(pattern, pglob);
+}
+#endif /* __BLOCKS__ */
 
 /*
  * Expand recursively a glob {} pattern. When there is no more expansion
@@ -678,6 +704,12 @@ glob3(pathbuf, pathend, pathend_last, pattern, restpattern, pglob, limit, loc)
 		if (pglob->gl_errfunc) {
 			if (g_Ctoc(pathbuf, buf, sizeof(buf), loc))
 				return (GLOB_ABORTED);
+#ifdef __BLOCKS__
+			if (pglob->gl_flags & _GLOB_ERR_BLOCK) {
+				if (pglob->gl_errblk(buf, errno))
+					return (GLOB_ABORTED);
+			} else
+#endif /* __BLOCKS__ */
 			if (pglob->gl_errfunc(buf, errno))
 				return (GLOB_ABORTED);
 		}

@@ -1,10 +1,10 @@
 /*
  * svn_string.h:  routines to manipulate counted-length strings
  *                (svn_stringbuf_t and svn_string_t) and C strings.
- *                
+ *
  *
  * ====================================================================
- * Copyright (c) 2000-2004 CollabNet.  All rights reserved.
+ * Copyright (c) 2000-2008 CollabNet.  All rights reserved.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution.  The terms
@@ -22,16 +22,16 @@
 
 #include <string.h>      /* for memcpy(), memcmp(), strlen() */
 #include <apr_lib.h>     /* for apr_isspace() */
-#include <apr_md5.h>
 #include <apr_fnmatch.h>
 #include "svn_string.h"  /* loads "svn_types.h" and <apr_pools.h> */
+#include "svn_ctype.h"
 
 
 
 /* Our own realloc, since APR doesn't have one.  Note: this is a
    generic realloc for memory pools, *not* for strings. */
 static void *
-my__realloc(char *data, apr_size_t oldsize, apr_size_t request, 
+my__realloc(char *data, apr_size_t oldsize, apr_size_t request,
             apr_pool_t *pool)
 {
   void *new_area;
@@ -49,7 +49,7 @@ my__realloc(char *data, apr_size_t oldsize, apr_size_t request,
   memcpy(new_area, data, oldsize);
 
   /* I'm NOT freeing old area here -- cuz we're using pools, ugh. */
-  
+
   /* return new area */
   return new_area;
 }
@@ -111,7 +111,7 @@ create_string(const char *data, apr_size_t size,
 {
   svn_string_t *new_string;
 
-  new_string = apr_palloc(pool, sizeof(*new_string)); 
+  new_string = apr_palloc(pool, sizeof(*new_string));
 
   new_string->data = data;
   new_string->len = size;
@@ -219,35 +219,46 @@ svn_string_find_char_backward(const svn_string_t *str, char ch)
 /* svn_stringbuf functions */
 
 static svn_stringbuf_t *
-create_stringbuf(char *data, apr_size_t size, apr_pool_t *pool)
+create_stringbuf(char *data, apr_size_t size, apr_size_t blocksize, apr_pool_t *pool)
 {
   svn_stringbuf_t *new_string;
 
-  new_string = apr_palloc(pool, sizeof(*new_string)); 
+  new_string = apr_palloc(pool, sizeof(*new_string));
 
   new_string->data = data;
   new_string->len = size;
-  new_string->blocksize = size + 1; /* we know there is a null-term */
+  new_string->blocksize = blocksize;
   new_string->pool = pool;
 
   return new_string;
 }
 
 svn_stringbuf_t *
+svn_stringbuf_create_ensure(apr_size_t blocksize, apr_pool_t *pool)
+{
+  char *data = apr_palloc(pool, ++blocksize); /* + space for '\0' */
+
+  data[0] = '\0';
+
+  /* wrap an svn_stringbuf_t around the new data buffer. */
+  return create_stringbuf(data, 0, blocksize, pool);
+}
+
+svn_stringbuf_t *
 svn_stringbuf_ncreate(const char *bytes, apr_size_t size, apr_pool_t *pool)
 {
-  char *data;
+  /* Ensure string buffer of size + 1 */
+  svn_stringbuf_t *strbuf = svn_stringbuf_create_ensure(size, pool);
 
-  data = apr_palloc(pool, size + 1);
-  memcpy(data, bytes, size);
+  memcpy(strbuf->data, bytes, size);
 
   /* Null termination is the convention -- even if we suspect the data
      to be binary, it's not up to us to decide, it's the caller's
      call.  Heck, that's why they call it the caller! */
-  data[size] = '\0';
+  strbuf->data[size] = '\0';
+  strbuf->len = size;
 
-  /* wrap an svn_stringbuf_t around the new data */
-  return create_stringbuf(data, size, pool);
+  return strbuf;
 }
 
 
@@ -269,9 +280,10 @@ svn_stringbuf_t *
 svn_stringbuf_createv(apr_pool_t *pool, const char *fmt, va_list ap)
 {
   char *data = apr_pvsprintf(pool, fmt, ap);
+  apr_size_t size = strlen(data);
 
   /* wrap an svn_stringbuf_t around the new data */
-  return create_stringbuf(data, strlen(data), pool);
+  return create_stringbuf(data, size, size + 1, pool);
 }
 
 
@@ -289,7 +301,7 @@ svn_stringbuf_createf(apr_pool_t *pool, const char *fmt, ...)
 }
 
 
-void 
+void
 svn_stringbuf_fillchar(svn_stringbuf_t *str, unsigned char c)
 {
   memset(str->data, c, str->len);
@@ -367,7 +379,7 @@ svn_stringbuf_ensure(svn_stringbuf_t *str, apr_size_t minimum_size)
 
 
 void
-svn_stringbuf_appendbytes(svn_stringbuf_t *str, const char *bytes, 
+svn_stringbuf_appendbytes(svn_stringbuf_t *str, const char *bytes,
                           apr_size_t count)
 {
   apr_size_t total_len;
@@ -391,7 +403,7 @@ svn_stringbuf_appendbytes(svn_stringbuf_t *str, const char *bytes,
 
 
 void
-svn_stringbuf_appendstr(svn_stringbuf_t *targetstr, 
+svn_stringbuf_appendstr(svn_stringbuf_t *targetstr,
                         const svn_stringbuf_t *appendstr)
 {
   svn_stringbuf_appendbytes(targetstr, appendstr->data, appendstr->len);
@@ -405,8 +417,6 @@ svn_stringbuf_appendcstr(svn_stringbuf_t *targetstr, const char *cstr)
 }
 
 
-
-
 svn_stringbuf_t *
 svn_stringbuf_dup(const svn_stringbuf_t *original_string, apr_pool_t *pool)
 {
@@ -417,7 +427,7 @@ svn_stringbuf_dup(const svn_stringbuf_t *original_string, apr_pool_t *pool)
 
 
 svn_boolean_t
-svn_stringbuf_compare(const svn_stringbuf_t *str1, 
+svn_stringbuf_compare(const svn_stringbuf_t *str1,
                       const svn_stringbuf_t *str2)
 {
   return string_compare(str1->data, str2->data, str1->len, str2->len);
@@ -481,14 +491,14 @@ svn_cstring_split_append(apr_array_header_t *array,
 
   pats = apr_pstrdup(pool, input);  /* strtok wants non-const data */
   p = apr_strtok(pats, sep_chars, &last);
-  
+
   while (p)
     {
       if (chop_whitespace)
         {
           while (apr_isspace(*p))
             p++;
-          
+
           {
             char *e = p + (strlen(p) - 1);
             while ((e >= p) && (apr_isspace(*e)))
@@ -498,7 +508,7 @@ svn_cstring_split_append(apr_array_header_t *array,
         }
 
       if (p[0] != '\0')
-        (*((const char **) apr_array_push(array))) = p;
+        APR_ARRAY_PUSH(array, const char *) = p;
 
       p = apr_strtok(NULL, sep_chars, &last);
     }
@@ -560,19 +570,32 @@ int svn_cstring_count_newlines(const char *msg)
 }
 
 char *
-svn_cstring_join(apr_array_header_t *strings,
+svn_cstring_join(const apr_array_header_t *strings,
                  const char *separator,
                  apr_pool_t *pool)
 {
   svn_stringbuf_t *new_str = svn_stringbuf_create("", pool);
   int sep_len = strlen(separator);
   int i;
-  
+
   for (i = 0; i < strings->nelts; i++)
     {
-      const char *string = ((const char **) (strings->elts))[i];
+      const char *string = APR_ARRAY_IDX(strings, i, const char *);
       svn_stringbuf_appendbytes(new_str, string, strlen(string));
       svn_stringbuf_appendbytes(new_str, separator, sep_len);
     }
   return new_str->data;
+}
+
+int
+svn_cstring_casecmp(const char *str1, const char *str2)
+{
+  for (;;)
+    {
+      const int a = *str1++;
+      const int b = *str2++;
+      const int cmp = svn_ctype_casecmp(a, b);
+      if (cmp || !a || !b)
+        return cmp;
+    }
 }

@@ -2,11 +2,12 @@
  *  rlm_sql_log.c	Append the SQL queries in a log file which
  *			is read later by the radsqlrelay program
  *
- *  Version:    $Id: rlm_sql_log.c,v 1.3.2.2 2005/12/12 17:44:35 nbk Exp $
+ *  Version:    $Id$
  *
  *  Author:     Nicolas Baradakis <nicolas.baradakis@cegetel.net>
  *
  *  Copyright (C) 2005 Cegetel
+ *  Copyright 2006 The FreeRADIUS server project
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -20,22 +21,17 @@
  *
  *  You should have received a copy of the GNU General Public License
  *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include "autoconf.h"
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
+
+#include <freeradius-devel/radiusd.h>
+#include <freeradius-devel/modules.h>
 
 #include <fcntl.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <sys/stat.h>
-
-#include "libradius.h"
-#include "radiusd.h"
-#include "modules.h"
-#include "conffile.h"
-
-static const char rcsid[] = "$Id: rlm_sql_log.c,v 1.3.2.2 2005/12/12 17:44:35 nbk Exp $";
 
 static int sql_log_instantiate(CONF_SECTION *conf, void **instance);
 static int sql_log_detach(void *instance);
@@ -48,7 +44,6 @@ static int sql_log_postauth(void *instance, REQUEST *request);
  *	Define a structure for our module configuration.
  */
 typedef struct rlm_sql_log_t {
-	char		*name;
 	char		*path;
 	char		*postauth_query;
 	char		*sql_user_name;
@@ -87,7 +82,6 @@ static char *allowed_chars = NULL;
  */
 static int sql_log_instantiate(CONF_SECTION *conf, void **instance)
 {
-	const char	*name;
 	rlm_sql_log_t	*inst;
 
         /*
@@ -100,22 +94,11 @@ static int sql_log_instantiate(CONF_SECTION *conf, void **instance)
         }
 
 	/*
-	 *      Get the name of the current section in the conf file.
-	 */
-	name = cf_section_name2(conf);
-	if (name == NULL)
-		name = cf_section_name1(conf);
-	if (name == NULL)
-		name = "sql_log";
-	inst->name = strdup(name);
-
-	/*
 	 *	If the configuration parameters can't be parsed,
 	 *	then fail.
 	 */
 	if (cf_section_parse(conf, inst, module_config) < 0) {
-		radlog(L_ERR, "rlm_sql_log (%s): Unable to parse parameters",
-		       inst->name);
+		radlog(L_ERR, "rlm_sql_log: Unable to parse parameters");
 		sql_log_detach(inst);
 		return -1;
 	}
@@ -134,11 +117,6 @@ static int sql_log_detach(void *instance)
 	int i;
 	char **p;
 	rlm_sql_log_t *inst = (rlm_sql_log_t *)instance;
-
-	if (inst->name) {
-		free(inst->name);
-		inst->name = NULL;
-	}
 
 	/*
 	 *	Free up dynamically allocated string pointers.
@@ -169,7 +147,7 @@ static int sql_log_detach(void *instance)
 /*
  *	Translate the SQL queries.
  */
-static int sql_escape_func(char *out, int outlen, const char *in)
+static size_t sql_escape_func(char *out, size_t outlen, const char *in)
 {
 	int len = 0;
 
@@ -230,7 +208,7 @@ static int sql_set_user(rlm_sql_log_t *inst, REQUEST *request, char *sqlusername
 	pairdelete(&request->packet->vps, PW_SQL_USER_NAME);
 
 	if (username != NULL) {
-		strNcpy(tmpuser, username, MAX_STRING_LEN);
+		strlcpy(tmpuser, username, MAX_STRING_LEN);
 	} else if (inst->sql_user_name[0] != '\0') {
 		radius_xlat(tmpuser, sizeof(tmpuser), inst->sql_user_name,
 			    request, NULL);
@@ -239,12 +217,11 @@ static int sql_set_user(rlm_sql_log_t *inst, REQUEST *request, char *sqlusername
 	}
 
 	if (tmpuser[0] != '\0') {
-		strNcpy(sqlusername, tmpuser, sizeof(tmpuser));
-		DEBUG2("rlm_sql_log (%s): sql_set_user escaped user --> '%s'",
-		       inst->name, sqlusername);
+		strlcpy(sqlusername, tmpuser, sizeof(tmpuser));
+		RDEBUG2("sql_set_user escaped user --> '%s'", sqlusername);
 		vp = pairmake("SQL-User-Name", sqlusername, 0);
 		if (vp == NULL) {
-			radlog(L_ERR, "%s", librad_errstr);
+			radlog(L_ERR, "%s", fr_strerror());
 			return -1;
 		}
 
@@ -267,8 +244,8 @@ static int sql_xlat_query(rlm_sql_log_t *inst, REQUEST *request, const char *que
 
 	/* Add attribute 'SQL-User-Name' */
 	if (sql_set_user(inst, request, sqlusername, NULL) <0) {
-		radlog(L_ERR, "rlm_sql_log (%s): Couldn't add SQL-User-Name attribute",
-			       inst->name);
+		radlog_request(L_ERR, 0, request, 
+			       "Couldn't add SQL-User-Name attribute");
 		return RLM_MODULE_FAIL;
 	}
 
@@ -276,8 +253,8 @@ static int sql_xlat_query(rlm_sql_log_t *inst, REQUEST *request, const char *que
 	xlat_query[0] = '\0';
 	radius_xlat(xlat_query, len, query, request, sql_escape_func);
 	if (xlat_query[0] == '\0') {
-		radlog(L_ERR, "rlm_sql_log (%s): Couldn't xlat the query %s",
-		       inst->name, query);
+		radlog_request(L_ERR, 0, request, "Couldn't xlat the query %s",
+		       query);
 		return RLM_MODULE_FAIL;
 	}
 
@@ -311,30 +288,31 @@ static int sql_log_write(rlm_sql_log_t *inst, REQUEST *request, const char *line
 
 	path[0] = '\0';
 	radius_xlat(path, sizeof(path), inst->path, request, NULL);
-	if (path[0] == '\0')
+	if (path[0] == '\0') {
 		return RLM_MODULE_FAIL;
+	}
 
 	while (!locked) {
 		if ((fd = open(path, O_WRONLY | O_APPEND | O_CREAT, 0666)) < 0) {
-			radlog(L_ERR, "rlm_sql_log (%s): Couldn't open file %s: %s",
-			       inst->name, path, strerror(errno));
+			radlog_request(L_ERR, 0, request, "Couldn't open file %s: %s",
+				       path, strerror(errno));
 			return RLM_MODULE_FAIL;
 		}
 		if (setlock(fd) != 0) {
-			radlog(L_ERR, "rlm_sql_log (%s): Couldn't lock file %s: %s",
-			       inst->name, path, strerror(errno));
+			radlog_request(L_ERR, 0, request, "Couldn't lock file %s: %s",
+				       path, strerror(errno));
 			close(fd);
 			return RLM_MODULE_FAIL;
 		}
 		if (fstat(fd, &st) != 0) {
-			radlog(L_ERR, "rlm_sql_log (%s): Couldn't stat file %s: %s",
-			       inst->name, path, strerror(errno));
+			radlog_request(L_ERR, 0, request, "Couldn't stat file %s: %s",
+				       path, strerror(errno));
 			close(fd);
 			return RLM_MODULE_FAIL;
 		}
 		if (st.st_nlink == 0) {
-			DEBUG("rlm_sql_log (%s): File %s removed by another program, retrying",
-			      inst->name, path);
+			RDEBUG("File %s removed by another program, retrying",
+			      path);
 			close(fd);
 			continue;
 		}
@@ -342,8 +320,8 @@ static int sql_log_write(rlm_sql_log_t *inst, REQUEST *request, const char *line
 	}
 
 	if ((fp = fdopen(fd, "a")) == NULL) {
-		radlog(L_ERR, "rlm_sql_log (%s): Couldn't associate a stream with file %s: %s",
-		       inst->name, path, strerror(errno));
+		radlog_request(L_ERR, 0, request, "Couldn't associate a stream with file %s: %s",
+			       path, strerror(errno));
 		close(fd);
 		return RLM_MODULE_FAIL;
 	}
@@ -360,30 +338,29 @@ static int sql_log_accounting(void *instance, REQUEST *request)
 {
 	int		ret;
 	char		querystr[MAX_QUERY_LEN];
-	char		*cfquery;
+	const char	*cfquery;
 	rlm_sql_log_t	*inst = (rlm_sql_log_t *)instance;
 	VALUE_PAIR	*pair;
 	DICT_VALUE	*dval;
 	CONF_PAIR	*cp;
 
-	DEBUG("rlm_sql_log (%s): Processing sql_log_accounting", inst->name);
+	RDEBUG("Processing sql_log_accounting");
 
 	/* Find the Acct Status Type. */
 	if ((pair = pairfind(request->packet->vps, PW_ACCT_STATUS_TYPE)) == NULL) {
-		radlog(L_ERR, "rlm_sql_log (%s): Packet has no account status type",
-		       inst->name);
+		radlog_request(L_ERR, 0, request, "Packet has no account status type");
 		return RLM_MODULE_INVALID;
 	}
 
 	/* Search the query in conf section of the module */
-	if ((dval = dict_valbyattr(PW_ACCT_STATUS_TYPE, pair->lvalue)) == NULL) {
-		radlog(L_ERR, "rlm_sql_log (%s): Unsupported Acct-Status-Type = %d",
-		       inst->name, pair->lvalue);
+	if ((dval = dict_valbyattr(PW_ACCT_STATUS_TYPE, pair->vp_integer)) == NULL) {
+		radlog_request(L_ERR, 0, request, "Unsupported Acct-Status-Type = %d",
+			       pair->vp_integer);
 		return RLM_MODULE_NOOP;
 	}
 	if ((cp = cf_pair_find(inst->conf_section, dval->name)) == NULL) {
-		DEBUG("rlm_sql_log (%s): Couldn't find an entry %s in the config section",
-		      inst->name, dval->name);
+		RDEBUG("Couldn't find an entry %s in the config section",
+		       dval->name);
 		return RLM_MODULE_NOOP;
 	}
 	cfquery = cf_pair_value(cp);
@@ -406,7 +383,7 @@ static int sql_log_postauth(void *instance, REQUEST *request)
 	char		querystr[MAX_QUERY_LEN];
 	rlm_sql_log_t	*inst = (rlm_sql_log_t *)instance;
 
-	DEBUG("rlm_sql_log (%s): Processing sql_log_postauth", inst->name);
+	RDEBUG("Processing sql_log_postauth");
 
 	/* Xlat the query */
 	ret = sql_xlat_query(inst, request, inst->postauth_query,
@@ -428,10 +405,11 @@ static int sql_log_postauth(void *instance, REQUEST *request)
  *	is single-threaded.
  */
 module_t rlm_sql_log = {
+	RLM_MODULE_INIT,
 	"sql_log",
-	RLM_TYPE_THREAD_SAFE,		/* type */
-	NULL,				/* initialization */
+	RLM_TYPE_THREAD_UNSAFE | RLM_TYPE_CHECK_CONFIG_SAFE | RLM_TYPE_HUP_SAFE,		/* type */
 	sql_log_instantiate,		/* instantiation */
+	sql_log_detach,			/* detach */
 	{
 		NULL,			/* authentication */
 		NULL,			/* authorization */
@@ -442,6 +420,4 @@ module_t rlm_sql_log = {
 		NULL,			/* post-proxy */
 		sql_log_postauth	/* post-auth */
 	},
-	sql_log_detach,			/* detach */
-	NULL,				/* destroy */
 };

@@ -719,6 +719,10 @@ RUNRUBY
 EXTOUT
 ARCHFILE
 RDOCTARGET
+cppflags
+cflags
+optflags
+debugflags
 XCFLAGS
 XLDFLAGS
 LIBRUBY_LDSHARED
@@ -747,6 +751,7 @@ MAKEFILES
 arch
 sitearch
 sitedir
+vendordir
 configure_args
 NROFF
 MANTYPE
@@ -1341,16 +1346,6 @@ if test -n "$ac_init_help"; then
 Optional Features:
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
-  --enable-fat-binary=ARCHS
-                          build an Apple/NeXT Multi Architecture Binary (MAB);
-                          ARCHS is a comma-delimited list of architectures for
-                          which to build; if ARCHS is omitted, then the package
-                          will be built for all architectures supported by the
-                          platform ("ppc" for MacOS/X and Darwin; "ppc,i386"
-                          for Rhapsody; "m68k,i386,sparc" for OpenStep;
-                          "m68k,i386,sparc,hppa" for NextStep); if this option
-                          is disabled or omitted entirely, then the package
-                          will be built only for the target platform
   --enable-frame-address  use GCC __builtin_frame_address().
   --disable-largefile     omit support for large files
   --enable-pthread        use pthread library.
@@ -1366,10 +1361,12 @@ Optional Packages:
   --without-gcc           never use gcc
   --with-winsock2         link winsock2 (MinGW only)
   --with-libc_r           link libc_r if possible (FreeBSD only)
+  --with-setjmp-type      select setjmp type
   --with-default-kcode=CODE specify default value for \$KCODE (utf8|euc|sjis|none)
   --with-dln-a-out        use dln_a_out if possible
   --with-static-linked-ext link external modules statically
-  --with-sitedir=DIR      site libraries in DIR PREFIX/lib/ruby/site_ruby
+  --with-sitedir=DIR      site libraries in DIR [LIBDIR/ruby/site_ruby]
+  --with-vendordir=DIR    vendor libraries in DIR [LIBDIR/ruby/vendor_ruby]
   --with-search-path=DIR specify the additional search path
   --with-mantype=TYPE specify man page type; TYPE is one of man and doc
 
@@ -1819,10 +1816,26 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
+unset GREP_OPTIONS
 rb_version=`grep RUBY_VERSION $srcdir/version.h`
 MAJOR=`expr "$rb_version" : '#define RUBY_VERSION "\([0-9][0-9]*\)\.[0-9][0-9]*\.[0-9][0-9]*"'`
 MINOR=`expr "$rb_version" : '#define RUBY_VERSION "[0-9][0-9]*\.\([0-9][0-9]*\)\.[0-9][0-9]*"'`
 TEENY=`expr "$rb_version" : '#define RUBY_VERSION "[0-9][0-9]*\.[0-9][0-9]*\.\([0-9][0-9]*\)"'`
+if test "$MAJOR" = ""; then
+  { { echo "$as_me:$LINENO: error: could not determine MAJOR number from version.h" >&5
+echo "$as_me: error: could not determine MAJOR number from version.h" >&2;}
+   { (exit 1); exit 1; }; }
+fi
+if test "$MINOR" = ""; then
+  { { echo "$as_me:$LINENO: error: could not determine MINOR number from version.h" >&5
+echo "$as_me: error: could not determine MINOR number from version.h" >&2;}
+   { (exit 1); exit 1; }; }
+fi
+if test "$TEENY" = ""; then
+  { { echo "$as_me:$LINENO: error: could not determine TEENY number from version.h" >&5
+echo "$as_me: error: could not determine TEENY number from version.h" >&2;}
+   { (exit 1); exit 1; }; }
+fi
 
 
 
@@ -2012,58 +2025,7 @@ test -n "$target_alias" &&
 target_os=`echo $target_os | sed 's/linux-gnu$/linux/;s/linux-gnu/linux-/'`
 ac_install_sh='' # unusable for extension libraries.
 
-# Check whether --enable-fat-binary was given.
-if test "${enable_fat_binary+set}" = set; then
-  enableval=$enable_fat_binary; fat_binary=$enableval
-else
-  fat_binary=no
-fi
-
-if test "$fat_binary" != no; then
-
-    { echo "$as_me:$LINENO: checking target architectures" >&5
-echo $ECHO_N "checking target architectures... $ECHO_C" >&6; }
-
-    # Respect TARGET_ARCHS setting from environment if available.
-    if test -z "$TARGET_ARCHS"; then
-	# Respect ARCH given to --enable-fat-binary if present.
-	if test "$fat_binary" != yes; then
-	    TARGET_ARCHS=`echo "$fat_binary" | tr ',' ' '`
-	else
-	    # Choose a default set of architectures based upon platform.
-	    case "$target_os" in
-	    darwin*)
-		TARGET_ARCHS="ppc"
-		;;
-	    rhapsody*)
-		TARGET_ARCHS="ppc i386"
-		;;
-	    openstep*)
-		TARGET_ARCHS="m68k i386 sparc"
-		;;
-	    nextstep*)
-		TARGET_ARCHS="m68k i386 sparc hppa"
-		;;
-	    *)
-		TARGET_ARCHS=`arch`
-	    esac
-	fi
-    fi
-
-    { echo "$as_me:$LINENO: result: $TARGET_ARCHS" >&5
-echo "${ECHO_T}$TARGET_ARCHS" >&6; }
-
-    # /usr/lib/arch_tool -archify_list $TARGET_ARCHS
-    ARCH_FLAG=
-    for archs in $TARGET_ARCHS
-    do
-        ARCH_FLAG="$ARCH_FLAG -arch $archs"
-    done
-    cat >>confdefs.h <<\_ACEOF
-#define NEXT_FAT_BINARY 1
-_ACEOF
-
-fi
+fat_binary=no
 
 case $target_cpu in
   i?86) frame_address=yes;;
@@ -10300,7 +10262,58 @@ case "$target_os" in
 nextstep*)	;;
 openstep*)	;;
 rhapsody*)	;;
-darwin*)	LIBS="-lobjc $LIBS";;
+darwin*)	LIBS="-lobjc $LIBS"
+		CPPFLAGS="$CPPFLAGS -D_XOPEN_SOURCE -D_DARWIN_C_SOURCE"
+		cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <AvailabilityMacros.h>
+		    #if MAC_OS_X_VERSION_MAX_ALLOWED <= 1040
+		    #error pre OS X 10.4
+		    [!<===== pre OS X 10.4 =====>]
+		    #endif
+
+_ACEOF
+if { (ac_try="$ac_cpp conftest.$ac_ext"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_cpp conftest.$ac_ext") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } >/dev/null && {
+	 test -z "$ac_c_preproc_warn_flag$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       }; then
+
+		    test "x$target_cpu" = xppc && ac_cv_header_ucontext_h=no
+
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+
+		    cat >>confdefs.h <<\_ACEOF
+#define BROKEN_SETREUID 1
+_ACEOF
+
+		    cat >>confdefs.h <<\_ACEOF
+#define BROKEN_SETREGID 1
+_ACEOF
+
+
+fi
+
+rm -f conftest.err conftest.$ac_ext
+		;;
 hpux*)		LIBS="-lm $LIBS"
 		ac_cv_c_inline=no;;
 human*)		ac_cv_func_getpgrp_void=yes
@@ -10352,6 +10365,14 @@ msdosdjgpp*)	LIBS="-lm $LIBS"
 		ac_cv_func_setrlimit=no
 		;;
 bsdi*)          LIBS="-lm $LIBS"
+		cat >>confdefs.h <<\_ACEOF
+#define BROKEN_SETREUID 1
+_ACEOF
+
+		cat >>confdefs.h <<\_ACEOF
+#define BROKEN_SETREGID 1
+_ACEOF
+
                 ac_cv_sizeof_rlim_t=8;;
 freebsd*)	LIBS="-lm $LIBS"
 		{ echo "$as_me:$LINENO: checking whether -lxpg4 has to be linked" >&5
@@ -13450,6 +13471,8 @@ done
 
 
 
+
+
 for ac_func in fmod killpg wait4 waitpid syscall chroot fsync getcwd eaccess\
 	      truncate ftruncate chsize times utimes fcntl lockf lstat symlink link\
 	      readlink setitimer setruid seteuid setreuid setresuid\
@@ -13457,7 +13480,7 @@ for ac_func in fmod killpg wait4 waitpid syscall chroot fsync getcwd eaccess\
 	      lchown lchmod getpgrp setpgrp getpgid setpgid initgroups\
 	      getgroups setgroups getpriority getrlimit setrlimit sysconf\
 	      group_member dlopen sigprocmask\
-	      sigaction _setjmp setsid telldir seekdir fchmod\
+	      sigaction sigsetjmp _setjmp _longjmp setsid telldir seekdir fchmod\
 	      mktime timegm gettimeofday\
 	      cosh sinh tanh round setuid setgid setenv unsetenv
 do
@@ -13551,6 +13574,123 @@ _ACEOF
 
 fi
 done
+
+
+{ echo "$as_me:$LINENO: checking for __builtin_setjmp" >&5
+echo $ECHO_N "checking for __builtin_setjmp... $ECHO_C" >&6; }
+if test "${ac_cv_func___builtin_setjmp+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <setjmp.h>
+    jmp_buf jb; void t(v) int v; {__builtin_longjmp(jb, v);}
+int
+main ()
+{
+__builtin_setjmp(jb);
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_link") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest$ac_exeext &&
+       $as_test_x conftest$ac_exeext; then
+  ac_cv_func___builtin_setjmp=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	ac_cv_func___builtin_setjmp=no
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
+      conftest$ac_exeext conftest.$ac_ext
+
+fi
+{ echo "$as_me:$LINENO: result: $ac_cv_func___builtin_setjmp" >&5
+echo "${ECHO_T}$ac_cv_func___builtin_setjmp" >&6; }
+
+test x$ac_cv_func__longjmp = xno && ac_cv_func__setjmp=no
+
+{ echo "$as_me:$LINENO: checking for setjmp type" >&5
+echo $ECHO_N "checking for setjmp type... $ECHO_C" >&6; }
+
+# Check whether --with-setjmp-type was given.
+if test "${with_setjmp_type+set}" = set; then
+  withval=$with_setjmp_type;
+	case $withval in
+	__builtin_setjmp) setjmp_prefix=__builtin_;;
+	_setjmp) setjmp_prefix=_;;
+	sigsetjmp) setjmp_prefix=sig;;
+	setjmp) setjmp_prefix=;;
+	'') unset setjmp_prefix;;
+	*)   { { echo "$as_me:$LINENO: error: invalid setjmp type: $withval" >&5
+echo "$as_me: error: invalid setjmp type: $withval" >&2;}
+   { (exit 1); exit 1; }; };;
+	esac
+else
+  unset setjmp_prefix
+fi
+
+if test ${setjmp_prefix+set}; then
+    if test "${setjmp_prefix}" && eval test '$ac_cv_func_'${setjmp_prefix}setjmp = no; then
+	{ { echo "$as_me:$LINENO: error: ${setjmp_prefix}setjmp is not available" >&5
+echo "$as_me: error: ${setjmp_prefix}setjmp is not available" >&2;}
+   { (exit 1); exit 1; }; }
+    fi
+elif test "$ac_cv_func___builtin_setjmp" = yes; then
+    setjmp_prefix=__builtin_
+elif test "$ac_cv_func__setjmp" = yes; then
+    setjmp_prefix=_
+elif test "$ac_cv_func_sigsetjmp" = yes; then
+    case $target_os in
+    solaris*|cygwin*)
+	setjmp_prefix=;;
+    *)
+	setjmp_prefix=sig;;
+    esac
+else
+    setjmp_prefix=
+fi
+if test x$setjmp_prefix = xsig; then
+    setjmp_sigmask=yes
+else
+    unset setjmp_sigmask
+fi
+{ echo "$as_me:$LINENO: result: ${setjmp_prefix}setjmp" >&5
+echo "${ECHO_T}${setjmp_prefix}setjmp" >&6; }
+cat >>confdefs.h <<_ACEOF
+#define RUBY_SETJMP(env) ${setjmp_prefix}setjmp(env${setjmp_sigmask+,0})
+_ACEOF
+
+cat >>confdefs.h <<_ACEOF
+#define RUBY_LONGJMP(env,val) ${setjmp_prefix}longjmp(env,val)
+_ACEOF
+
+cat >>confdefs.h <<_ACEOF
+#define RUBY_JMP_BUF ${setjmp_sigmask+${setjmp_prefix}}jmp_buf
+_ACEOF
+
 
 # Check whether --enable-setreuid was given.
 if test "${enable_setreuid+set}" = set; then
@@ -14002,9 +14142,13 @@ _ACEOF
 cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
+
+#ifndef _XOPEN_SOURCE
 #define _XOPEN_SOURCE 1
-    #include <time.h>
-    const volatile void *volatile t;
+#endif
+#include <time.h>
+;
+const volatile void *volatile t;
 int
 main ()
 {
@@ -14037,10 +14181,14 @@ _ACEOF
 cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
+
+#ifndef _XOPEN_SOURCE
 #define _XOPEN_SOURCE 1
-        #include <time.h>
-        extern $t timezone;
-        const volatile void *volatile t;
+#endif
+#include <time.h>
+;
+extern $t timezone;
+const volatile void *volatile t;
 int
 main ()
 {
@@ -14109,9 +14257,13 @@ _ACEOF
 cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
+
+#ifndef _XOPEN_SOURCE
 #define _XOPEN_SOURCE 1
-    #include <time.h>
-    const volatile void *volatile t;
+#endif
+#include <time.h>
+;
+const volatile void *volatile t;
 int
 main ()
 {
@@ -14144,10 +14296,14 @@ _ACEOF
 cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
+
+#ifndef _XOPEN_SOURCE
 #define _XOPEN_SOURCE 1
-        #include <time.h>
-        extern $t altzone;
-        const volatile void *volatile t;
+#endif
+#include <time.h>
+;
+extern $t altzone;
+const volatile void *volatile t;
 int
 main ()
 {
@@ -14299,7 +14455,7 @@ _ACEOF
 fi
 done
 
-  if test "$ ac_cv_func_timezone" = yes; then
+  if test "$ac_cv_func_timezone" = yes; then
     { echo "$as_me:$LINENO: checking whether timezone requires zero arguments" >&5
 echo $ECHO_N "checking whether timezone requires zero arguments... $ECHO_C" >&6; }
 if test "${rb_cv_func_timezone_void+set}" = set; then
@@ -16454,11 +16610,27 @@ echo $ECHO_N "checking whether OS depend dynamic link works... $ECHO_C" >&6; }
     esac
   fi
 
+
+  # Check whether --enable-rpath was given.
+if test "${enable_rpath+set}" = set; then
+  enableval=$enable_rpath; enable_rpath=$enableval
+else
+  enable_rpath="$rb_cv_binary_elf"
+fi
+
+  if test "$enable_rpath" = yes; then
+    LIBPATHFLAG=" -L%1\$-s"
+    RPATHFLAG=" ${linker_flag}-R%1\$-s"
+  fi
+
   case "$target_os" in
 	hpux*)		DLDFLAGS="$DLDFLAGS -E"
 			: ${LDSHARED='ld -b'}
 			XLDFLAGS="$XLDFLAGS -Wl,-E"
 			: ${LIBPATHENV=SHLIB_PATH}
+			if test "$rb_cv_prog_gnu_ld" = no; then
+			    RPATHFLAG=' +b %1$-s'
+			fi
 			rb_cv_dlopen=yes;;
 	solaris*) 	if test "$GCC" = yes; then
                           : ${LDSHARED='$(CC) -shared'}
@@ -16524,11 +16696,11 @@ echo $ECHO_N "checking whether OS depend dynamic link works... $ECHO_C" >&6; }
         aix*)           if test "$GCC" = yes; then
 			    : ${LDSHARED='$(CC) -shared'}
 			else
-			    : ${LDSHARED='/usr/ccs/bin/ld'}
+			    : ${LDSHARED='$(CC)'}
 			fi
-			DLDFLAGS="${linker_flag}-G"' -eInit_$(TARGET)'
-			LDFLAGS="${LDFLAGS} ${linker_flag}-brtl"
-			XLDFLAGS="${linker_flag}-bE:ruby.imp"
+			LDSHARED="$LDSHARED ${linker_flag}-G"
+			DLDFLAGS='-eInit_$(TARGET)'
+			XLDFLAGS="${linker_flag}-bE:ruby.imp ${linker_flag}-brtl"
                         : ${ARCHFILE="ruby.imp"}
                         TRY_LINK='$(CC) $(LDFLAGS) -oconftest $(INCFLAGS) -I$(hdrdir) $(CPPFLAGS)'
                         TRY_LINK="$TRY_LINK"' $(CFLAGS) $(src) $(LIBPATH) $(LOCAL_LIBS) $(LIBS)'
@@ -16569,18 +16741,6 @@ echo $ECHO_N "checking whether OS depend dynamic link works... $ECHO_C" >&6; }
   esac
   { echo "$as_me:$LINENO: result: $rb_cv_dlopen" >&5
 echo "${ECHO_T}$rb_cv_dlopen" >&6; }
-
-  # Check whether --enable-rpath was given.
-if test "${enable_rpath+set}" = set; then
-  enableval=$enable_rpath; enable_rpath=$enableval
-else
-  enable_rpath="$rb_cv_binary_elf"
-fi
-
-  if test "$enable_rpath" = yes; then
-    LIBPATHFLAG=" -L%1\$-s"
-    RPATHFLAG=" ${linker_flag}-R%1\$-s"
-  fi
 fi
 
 
@@ -17136,9 +17296,10 @@ if test x"$cross_compiling" = xyes; then
   PREP=fake.rb
   RUNRUBY='$(MINIRUBY) -I`cd $(srcdir)/lib; pwd`'
 else
-  MINIRUBY='./miniruby$(EXEEXT)'
+  MINIRUBY='./miniruby$(EXEEXT) -I$(srcdir)/lib'
+  MINIRUBY="$MINIRUBY"' -I$(EXTOUT)/common -I./- -r$(srcdir)/ext/purelib.rb'
   PREP='miniruby$(EXEEXT)'
-  RUNRUBY='$(MINIRUBY) $(srcdir)/runruby.rb --extout=$(EXTOUT) --'
+  RUNRUBY='$(MINIRUBY) $(srcdir)/runruby.rb --extout=$(EXTOUT)'
 fi
 
 
@@ -17228,7 +17389,7 @@ if test "$enable_shared" = 'yes'; then
 	LIBRUBY_ALIASES='lib$(RUBY_SO_NAME).sl.$(MAJOR).$(MINOR) lib$(RUBY_SO_NAME).sl'
 	;;
     aix*)
-	LIBRUBY_DLDFLAGS="${linker_flag}-G ${linker_flag}-bnoentry $XLDFLAGS"
+	LIBRUBY_DLDFLAGS="${linker_flag}-bnoentry $XLDFLAGS"
 	LIBRUBYARG_SHARED='-L${libdir} -l${RUBY_SO_NAME}'
 	SOLIBS='-lm -lc'
 	;;
@@ -17380,6 +17541,9 @@ case "$build_os" in
 esac
 
 CPPFLAGS="$CPPFLAGS "'$(DEFS)'
+test -z "$CFLAGS" || CFLAGS="$CFLAGS "; CFLAGS="$CFLAGS"'${cflags}'
+test -z "$CPPFLAGS" || CPPFLAGS="$CPPFLAGS "; CPPFLAGS="$CPPFLAGS"'${cppflags}'
+cflags='${optflags} ${debugflags}'
 
 
 
@@ -17422,32 +17586,29 @@ case "$target_os" in
     rubyw_install_name="$RUBYW_INSTALL_NAME"
     ;;
 esac
-case "$target_os" in
-  cygwin*|mingw*|*djgpp*|os2-emx*)
-    RUBY_LIB_PREFIX="/lib/ruby"
-    ;;
-  *)
-    RUBY_LIB_PREFIX="${prefix}/lib/ruby"
-    ;;
-esac
-RUBY_LIB_PATH="${RUBY_LIB_PREFIX}/${MAJOR}.${MINOR}"
+RUBY_LIB_PREFIX=`eval echo \\"${libdir}/ruby\\"`
 
 
 # Check whether --with-sitedir was given.
 if test "${with_sitedir+set}" = set; then
   withval=$with_sitedir; sitedir=$withval
 else
-  sitedir='${prefix}/lib/ruby/site_ruby'
+  sitedir='${libdir}/ruby/site_ruby'
 fi
 
 SITE_DIR=`eval echo \\"${sitedir}\\"`
+
 case "$target_os" in
   cygwin*|mingw*|*djgpp*|os2-emx*)
-    RUBY_SITE_LIB_PATH="`expr "$SITE_DIR" : "$prefix\(/.*\)"`" ||
-    RUBY_SITE_LIB_PATH="$SITE_DIR";;
+    RUBY_LIB_PREFIX="`eval echo "$RUBY_LIB_PREFIX" | sed 's|^NONE/|/|;s|^'"$prefix"'/|/|'`"
+    RUBY_SITE_LIB_PATH="`eval echo "$SITE_DIR" | sed 's|^NONE/|/|;s|^'"$prefix"'/|/|'`"
+    ;;
   *)
-    RUBY_SITE_LIB_PATH="$SITE_DIR";;
+    RUBY_LIB_PREFIX="`eval echo \\"$RUBY_LIB_PREFIX\\" | sed 's|^NONE/|'"$prefix"'/|'`"
+    RUBY_SITE_LIB_PATH="`eval echo \\"$SITE_DIR\\" | sed 's|^NONE/|'"$prefix"'/|'`"
+    ;;
 esac
+RUBY_LIB_PATH="${RUBY_LIB_PREFIX}/${MAJOR}.${MINOR}"
 RUBY_SITE_LIB_PATH2="${RUBY_SITE_LIB_PATH}/${MAJOR}.${MINOR}"
 
 cat >>confdefs.h <<_ACEOF
@@ -17460,6 +17621,34 @@ _ACEOF
 
 cat >>confdefs.h <<_ACEOF
 #define RUBY_SITE_LIB2 "${RUBY_SITE_LIB_PATH2}"
+_ACEOF
+
+
+
+# Check whether --with-vendordir was given.
+if test "${with_vendordir+set}" = set; then
+  withval=$with_vendordir; vendordir=$withval
+else
+  vendordir='${libdir}/ruby/vendor_ruby'
+fi
+
+VENDOR_DIR=`eval echo \\"${vendordir}\\"`
+case "$target_os" in
+  cygwin*|mingw*|*djgpp*|os2-emx*)
+    RUBY_VENDOR_LIB_PATH="`eval echo "$VENDOR_DIR" | sed 's|^NONE/|/|;s|^'"$prefix"'/|/|'`"
+    ;;
+  *)
+    RUBY_VENDOR_LIB_PATH="`eval echo \\"$VENDOR_DIR\\" | sed 's|^NONE/|'"$prefix"'/|'`"
+    ;;
+esac
+RUBY_VENDOR_LIB_PATH2="${RUBY_VENDOR_LIB_PATH}/${MAJOR}.${MINOR}"
+
+cat >>confdefs.h <<_ACEOF
+#define RUBY_VENDOR_LIB "${RUBY_VENDOR_LIB_PATH}"
+_ACEOF
+
+cat >>confdefs.h <<_ACEOF
+#define RUBY_VENDOR_LIB2 "${RUBY_VENDOR_LIB_PATH2}"
 _ACEOF
 
 
@@ -17479,21 +17668,23 @@ _ACEOF
 _ACEOF
 
     cat >>confdefs.h <<_ACEOF
+#define RUBY_VENDOR_THIN_ARCHLIB "${RUBY_VENDOR_LIB_PATH}/" __ARCHITECTURE__ "-${target_os}"
+_ACEOF
+
+    cat >>confdefs.h <<_ACEOF
 #define RUBY_PLATFORM __ARCHITECTURE__ "-${target_os}"
 _ACEOF
 
 else
-    arch="universal-${target_os}"
+    arch="${target_cpu}-${target_os}"
     cat >>confdefs.h <<_ACEOF
 #define RUBY_PLATFORM "${arch}"
-#define RUBY_THIN_ARCHLIB "${RUBY_LIB_PATH}/powerpc-${target_os}"
-#define RUBY_SITE_THIN_ARCHLIB "${RUBY_SITE_LIB_PATH2}/powerpc-${target_os}"
 _ACEOF
 
 fi
 
 case "$target_os" in
-  mingw*) sitearch="i386-$rb_cv_msvcrt" ;;
+  mingw*) sitearch="$target_cpu-$rb_cv_msvcrt" ;;
   *) sitearch="${arch}" ;;
 esac
 
@@ -17503,6 +17694,10 @@ _ACEOF
 
 cat >>confdefs.h <<_ACEOF
 #define RUBY_SITE_ARCHLIB "${RUBY_SITE_LIB_PATH2}/${sitearch}"
+_ACEOF
+
+cat >>confdefs.h <<_ACEOF
+#define RUBY_VENDOR_ARCHLIB "${RUBY_VENDOR_LIB_PATH2}/${sitearch}"
 _ACEOF
 
 
@@ -17599,6 +17794,7 @@ else
   tr -d '\015' < confdefs.h > config.h
 fi
 tr -d '\015' < largefile.h > confdefs.h
+rm largefile.h
 
 ac_config_files="$ac_config_files $FIRSTMAKEFILE"
 
@@ -18387,6 +18583,10 @@ RUNRUBY!$RUNRUBY$ac_delim
 EXTOUT!$EXTOUT$ac_delim
 ARCHFILE!$ARCHFILE$ac_delim
 RDOCTARGET!$RDOCTARGET$ac_delim
+cppflags!$cppflags$ac_delim
+cflags!$cflags$ac_delim
+optflags!$optflags$ac_delim
+debugflags!$debugflags$ac_delim
 XCFLAGS!$XCFLAGS$ac_delim
 XLDFLAGS!$XLDFLAGS$ac_delim
 LIBRUBY_LDSHARED!$LIBRUBY_LDSHARED$ac_delim
@@ -18415,13 +18615,14 @@ MAKEFILES!$MAKEFILES$ac_delim
 arch!$arch$ac_delim
 sitearch!$sitearch$ac_delim
 sitedir!$sitedir$ac_delim
+vendordir!$vendordir$ac_delim
 configure_args!$configure_args$ac_delim
 NROFF!$NROFF$ac_delim
 MANTYPE!$MANTYPE$ac_delim
 LTLIBOBJS!$LTLIBOBJS$ac_delim
 _ACEOF
 
-  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 42; then
+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 47; then
     break
   elif $ac_last_try; then
     { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5

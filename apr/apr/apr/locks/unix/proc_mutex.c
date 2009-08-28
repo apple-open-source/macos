@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -22,11 +22,6 @@
 APR_DECLARE(apr_status_t) apr_proc_mutex_destroy(apr_proc_mutex_t *mutex)
 {
     return apr_pool_cleanup_run(mutex->pool, mutex, apr_proc_mutex_cleanup);
-}
-
-static apr_status_t proc_mutex_no_tryacquire(apr_proc_mutex_t *new_mutex)
-{
-    return APR_ENOTIMPL;
 }
 
 #if APR_HAS_POSIXSEM_SERIALIZE || APR_HAS_FCNTL_SERIALIZE || \
@@ -84,23 +79,22 @@ static apr_status_t proc_mutex_posix_create(apr_proc_mutex_t *new_mutex,
      * implementation. Versions previous to Darwin 6.2 had the 14
      * char limit, but later rev's allow up to 31 characters.
      *
-     * FIXME: There is a small window of opportunity where
-     * instead of getting a new semaphore descriptor, we get
-     * a previously obtained one. This can happen if the requests
-     * are made at the "same time" and in the small span of time between
-     * the sem_open and the sem_unlink. Use of O_EXCL does not
-     * help here however...
-     *
      */
     now = apr_time_now();
     sec = apr_time_sec(now);
     usec = apr_time_usec(now);
     apr_snprintf(semname, sizeof(semname), "/ApR.%lxZ%lx", sec, usec);
-    psem = sem_open(semname, O_CREAT, 0644, 1);
-    if ((psem == (sem_t *)SEM_FAILED) && (errno == ENAMETOOLONG)) {
-        /* Oh well, good try */
-        semname[13] = '\0';
-        psem = sem_open(semname, O_CREAT, 0644, 1);
+    psem = sem_open(semname, O_CREAT | O_EXCL, 0644, 1);
+    if (psem == (sem_t *)SEM_FAILED) {
+        if (errno == ENAMETOOLONG) {
+            /* Oh well, good try */
+            semname[13] = '\0';
+        } else if (errno == EEXIST) {
+            apr_snprintf(semname, sizeof(semname), "/ApR.%lxZ%lx", usec, sec);
+        } else {
+            return errno;
+        }
+        psem = sem_open(semname, O_CREAT | O_EXCL, 0644, 1);
     }
 
     if (psem == (sem_t *)SEM_FAILED) {
@@ -119,6 +113,18 @@ static apr_status_t proc_mutex_posix_create(apr_proc_mutex_t *new_mutex,
 static apr_status_t proc_mutex_posix_acquire(apr_proc_mutex_t *mutex)
 {
     if (sem_wait(mutex->psem_interproc) < 0) {
+        return errno;
+    }
+    mutex->curr_locked = 1;
+    return APR_SUCCESS;
+}
+
+static apr_status_t proc_mutex_posix_tryacquire(apr_proc_mutex_t *mutex)
+{
+    if (sem_trywait(mutex->psem_interproc) < 0) {
+        if (errno == EAGAIN) {
+            return APR_EBUSY;
+        }
         return errno;
     }
     mutex->curr_locked = 1;
@@ -145,7 +151,7 @@ static const apr_proc_mutex_unix_lock_methods_t mutex_posixsem_methods =
 #endif
     proc_mutex_posix_create,
     proc_mutex_posix_acquire,
-    proc_mutex_no_tryacquire,
+    proc_mutex_posix_tryacquire,
     proc_mutex_posix_release,
     proc_mutex_posix_cleanup,
     proc_mutex_no_child_init,
@@ -157,6 +163,7 @@ static const apr_proc_mutex_unix_lock_methods_t mutex_posixsem_methods =
 #if APR_HAS_SYSVSEM_SERIALIZE
 
 static struct sembuf proc_mutex_op_on;
+static struct sembuf proc_mutex_op_try;
 static struct sembuf proc_mutex_op_off;
 
 static void proc_mutex_sysv_setup(void)
@@ -164,6 +171,9 @@ static void proc_mutex_sysv_setup(void)
     proc_mutex_op_on.sem_num = 0;
     proc_mutex_op_on.sem_op = -1;
     proc_mutex_op_on.sem_flg = SEM_UNDO;
+    proc_mutex_op_try.sem_num = 0;
+    proc_mutex_op_try.sem_op = -1;
+    proc_mutex_op_try.sem_flg = SEM_UNDO | IPC_NOWAIT;
     proc_mutex_op_off.sem_num = 0;
     proc_mutex_op_off.sem_op = 1;
     proc_mutex_op_off.sem_flg = SEM_UNDO;
@@ -222,6 +232,23 @@ static apr_status_t proc_mutex_sysv_acquire(apr_proc_mutex_t *mutex)
     return APR_SUCCESS;
 }
 
+static apr_status_t proc_mutex_sysv_tryacquire(apr_proc_mutex_t *mutex)
+{
+    int rc;
+
+    do {
+        rc = semop(mutex->interproc->filedes, &proc_mutex_op_try, 1);
+    } while (rc < 0 && errno == EINTR);
+    if (rc < 0) {
+        if (errno == EAGAIN) {
+            return APR_EBUSY;
+        }
+        return errno;
+    }
+    mutex->curr_locked = 1;
+    return APR_SUCCESS;
+}
+
 static apr_status_t proc_mutex_sysv_release(apr_proc_mutex_t *mutex)
 {
     int rc;
@@ -245,7 +272,7 @@ static const apr_proc_mutex_unix_lock_methods_t mutex_sysv_methods =
 #endif
     proc_mutex_sysv_create,
     proc_mutex_sysv_acquire,
-    proc_mutex_no_tryacquire,
+    proc_mutex_sysv_tryacquire,
     proc_mutex_sysv_release,
     proc_mutex_sysv_cleanup,
     proc_mutex_no_child_init,
@@ -263,7 +290,7 @@ static apr_status_t proc_mutex_proc_pthread_cleanup(void *mutex_)
 
     if (mutex->curr_locked == 1) {
         if ((rv = pthread_mutex_unlock(mutex->pthread_interproc))) {
-#ifdef PTHREAD_SETS_ERRNO
+#ifdef HAVE_ZOS_PTHREADS
             rv = errno;
 #endif
             return rv;
@@ -272,7 +299,7 @@ static apr_status_t proc_mutex_proc_pthread_cleanup(void *mutex_)
     /* curr_locked is set to -1 until the mutex has been created */
     if (mutex->curr_locked != -1) {
         if ((rv = pthread_mutex_destroy(mutex->pthread_interproc))) {
-#ifdef PTHREAD_SETS_ERRNO
+#ifdef HAVE_ZOS_PTHREADS
             rv = errno;
 #endif
             return rv;
@@ -310,14 +337,14 @@ static apr_status_t proc_mutex_proc_pthread_create(apr_proc_mutex_t *new_mutex,
     new_mutex->curr_locked = -1; /* until the mutex has been created */
 
     if ((rv = pthread_mutexattr_init(&mattr))) {
-#ifdef PTHREAD_SETS_ERRNO
+#ifdef HAVE_ZOS_PTHREADS
         rv = errno;
 #endif
         proc_mutex_proc_pthread_cleanup(new_mutex);
         return rv;
     }
     if ((rv = pthread_mutexattr_setpshared(&mattr, PTHREAD_PROCESS_SHARED))) {
-#ifdef PTHREAD_SETS_ERRNO
+#ifdef HAVE_ZOS_PTHREADS
         rv = errno;
 #endif
         proc_mutex_proc_pthread_cleanup(new_mutex);
@@ -328,7 +355,7 @@ static apr_status_t proc_mutex_proc_pthread_create(apr_proc_mutex_t *new_mutex,
 #ifdef HAVE_PTHREAD_MUTEX_ROBUST
     if ((rv = pthread_mutexattr_setrobust_np(&mattr, 
                                                PTHREAD_MUTEX_ROBUST_NP))) {
-#ifdef PTHREAD_SETS_ERRNO
+#ifdef HAVE_ZOS_PTHREADS
         rv = errno;
 #endif
         proc_mutex_proc_pthread_cleanup(new_mutex);
@@ -336,7 +363,7 @@ static apr_status_t proc_mutex_proc_pthread_create(apr_proc_mutex_t *new_mutex,
         return rv;
     }
     if ((rv = pthread_mutexattr_setprotocol(&mattr, PTHREAD_PRIO_INHERIT))) {
-#ifdef PTHREAD_SETS_ERRNO
+#ifdef HAVE_ZOS_PTHREADS
         rv = errno;
 #endif
         proc_mutex_proc_pthread_cleanup(new_mutex);
@@ -346,7 +373,7 @@ static apr_status_t proc_mutex_proc_pthread_create(apr_proc_mutex_t *new_mutex,
 #endif /* HAVE_PTHREAD_MUTEX_ROBUST */
 
     if ((rv = pthread_mutex_init(new_mutex->pthread_interproc, &mattr))) {
-#ifdef PTHREAD_SETS_ERRNO
+#ifdef HAVE_ZOS_PTHREADS
         rv = errno;
 #endif
         proc_mutex_proc_pthread_cleanup(new_mutex);
@@ -357,7 +384,7 @@ static apr_status_t proc_mutex_proc_pthread_create(apr_proc_mutex_t *new_mutex,
     new_mutex->curr_locked = 0; /* mutex created now */
 
     if ((rv = pthread_mutexattr_destroy(&mattr))) {
-#ifdef PTHREAD_SETS_ERRNO
+#ifdef HAVE_ZOS_PTHREADS
         rv = errno;
 #endif
         proc_mutex_proc_pthread_cleanup(new_mutex);
@@ -376,10 +403,10 @@ static apr_status_t proc_mutex_proc_pthread_acquire(apr_proc_mutex_t *mutex)
     apr_status_t rv;
 
     if ((rv = pthread_mutex_lock(mutex->pthread_interproc))) {
-#ifdef PTHREAD_SETS_ERRNO
+#ifdef HAVE_ZOS_PTHREADS
         rv = errno;
 #endif
-#ifdef HAVE_PTHREAD_MUTEXATTR_SETROBUST_NP
+#ifdef HAVE_PTHREAD_MUTEX_ROBUST
         /* Okay, our owner died.  Let's try to make it consistent again. */
         if (rv == EOWNERDEAD) {
             pthread_mutex_consistent_np(mutex->pthread_interproc);
@@ -394,7 +421,32 @@ static apr_status_t proc_mutex_proc_pthread_acquire(apr_proc_mutex_t *mutex)
     return APR_SUCCESS;
 }
 
-/* TODO: Add proc_mutex_proc_pthread_tryacquire(apr_proc_mutex_t *mutex) */
+static apr_status_t proc_mutex_proc_pthread_tryacquire(apr_proc_mutex_t *mutex)
+{
+    apr_status_t rv;
+ 
+    if ((rv = pthread_mutex_trylock(mutex->pthread_interproc))) {
+#ifdef HAVE_ZOS_PTHREADS 
+        rv = errno;
+#endif
+        if (rv == EBUSY) {
+            return APR_EBUSY;
+        }
+#ifdef HAVE_PTHREAD_MUTEX_ROBUST
+        /* Okay, our owner died.  Let's try to make it consistent again. */
+        if (rv == EOWNERDEAD) {
+            pthread_mutex_consistent_np(mutex->pthread_interproc);
+            rv = APR_SUCCESS;
+        }
+        else
+            return rv;
+#else
+        return rv;
+#endif
+    }
+    mutex->curr_locked = 1;
+    return rv;
+}
 
 static apr_status_t proc_mutex_proc_pthread_release(apr_proc_mutex_t *mutex)
 {
@@ -402,7 +454,7 @@ static apr_status_t proc_mutex_proc_pthread_release(apr_proc_mutex_t *mutex)
 
     mutex->curr_locked = 0;
     if ((rv = pthread_mutex_unlock(mutex->pthread_interproc))) {
-#ifdef PTHREAD_SETS_ERRNO
+#ifdef HAVE_ZOS_PTHREADS
         rv = errno;
 #endif
         return rv;
@@ -415,7 +467,7 @@ static const apr_proc_mutex_unix_lock_methods_t mutex_proc_pthread_methods =
     APR_PROCESS_LOCK_MECH_IS_GLOBAL,
     proc_mutex_proc_pthread_create,
     proc_mutex_proc_pthread_acquire,
-    proc_mutex_no_tryacquire,
+    proc_mutex_proc_pthread_tryacquire,
     proc_mutex_proc_pthread_release,
     proc_mutex_proc_pthread_cleanup,
     proc_mutex_no_child_init,
@@ -505,6 +557,27 @@ static apr_status_t proc_mutex_fcntl_acquire(apr_proc_mutex_t *mutex)
     return APR_SUCCESS;
 }
 
+static apr_status_t proc_mutex_fcntl_tryacquire(apr_proc_mutex_t *mutex)
+{
+    int rc;
+
+    do {
+        rc = fcntl(mutex->interproc->filedes, F_SETLK, &proc_mutex_lock_it);
+    } while (rc < 0 && errno == EINTR);
+    if (rc < 0) {
+#if FCNTL_TRYACQUIRE_EACCES
+        if (errno == EACCES) {
+#else
+        if (errno == EAGAIN) {
+#endif
+            return APR_EBUSY;
+        }
+        return errno;
+    }
+    mutex->curr_locked = 1;
+    return APR_SUCCESS;
+}
+
 static apr_status_t proc_mutex_fcntl_release(apr_proc_mutex_t *mutex)
 {
     int rc;
@@ -528,7 +601,7 @@ static const apr_proc_mutex_unix_lock_methods_t mutex_fcntl_methods =
 #endif
     proc_mutex_fcntl_create,
     proc_mutex_fcntl_acquire,
-    proc_mutex_no_tryacquire,
+    proc_mutex_fcntl_tryacquire,
     proc_mutex_fcntl_release,
     proc_mutex_fcntl_cleanup,
     proc_mutex_no_child_init,
@@ -602,6 +675,23 @@ static apr_status_t proc_mutex_flock_acquire(apr_proc_mutex_t *mutex)
     return APR_SUCCESS;
 }
 
+static apr_status_t proc_mutex_flock_tryacquire(apr_proc_mutex_t *mutex)
+{
+    int rc;
+
+    do {
+        rc = flock(mutex->interproc->filedes, LOCK_EX | LOCK_NB);
+    } while (rc < 0 && errno == EINTR);
+    if (rc < 0) {
+        if (errno == EWOULDBLOCK) {
+            return APR_EBUSY;
+        }
+        return errno;
+    }
+    mutex->curr_locked = 1;
+    return APR_SUCCESS;
+}
+
 static apr_status_t proc_mutex_flock_release(apr_proc_mutex_t *mutex)
 {
     int rc;
@@ -649,7 +739,7 @@ static const apr_proc_mutex_unix_lock_methods_t mutex_flock_methods =
 #endif
     proc_mutex_flock_create,
     proc_mutex_flock_acquire,
-    proc_mutex_no_tryacquire,
+    proc_mutex_flock_tryacquire,
     proc_mutex_flock_release,
     proc_mutex_flock_cleanup,
     proc_mutex_flock_child_init,

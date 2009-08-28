@@ -1,4 +1,4 @@
-# Copyright (C) 2002-2004 by the Free Software Foundation, Inc.
+# Copyright (C) 2002-2008 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,7 +12,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 """Base class for all web GUI components."""
 
@@ -77,8 +78,20 @@ class GUIBase:
                             re.compile(addr)
                         except re.error:
                             raise ValueError
+                    elif (wtype == mm_cfg.EmailListEx and addr.startswith('@')
+                            and property.endswith('_these_nonmembers')):
+                        # XXX Needs to be reviewed for list@domain names.
+                        # don't reference your own list
+                        if addr[1:] == mlist.internal_name():
+                            raise ValueError
+                        # check for existence of list?  For now allow
+                        # reference to list before creating it.
                     else:
                         raise
+                if property in ('regular_exclude_lists',
+                                'regular_include_lists'):
+                    if addr.lower() == mlist.GetListEmail().lower():
+                        raise Errors.EmailAddressError
                 addrs.append(addr)
             return addrs
         # This is a host name, i.e. verbatim
@@ -86,6 +99,11 @@ class GUIBase:
             return val
         # This is a number, either a float or an integer
         if wtype == mm_cfg.Number:
+            # The int/float code below doesn't work if we are called from
+            # config_list with a value that is already a float.  It will
+            # truncate the value to an int.
+            if isinstance(val, float):
+                return val
             num = -1
             try:
                 num = int(val)
@@ -122,10 +140,6 @@ class GUIBase:
         # Validate all the attributes for this category
         pass
 
-    def _escape(self, property, value):
-        value = value.replace('<', '&lt;')
-        return value
-
     def handleForm(self, mlist, category, subcat, cgidata, doc):
         for item in self.GetConfigInfo(mlist, category, subcat):
             # Skip descriptions and legacy non-attributes
@@ -144,10 +158,9 @@ class GUIBase:
             elif not cgidata.has_key(property):
                 continue
             elif isinstance(cgidata[property], ListType):
-                val = [self._escape(property, x.value)
-                       for x in cgidata[property]]
+                val = [x.value for x in cgidata[property]]
             else:
-                val = self._escape(property, cgidata[property].value)
+                val = cgidata[property].value
             # Coerce the value to the expected type, raising exceptions if the
             # value is invalid.
             try:

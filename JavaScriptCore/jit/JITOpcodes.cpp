@@ -65,7 +65,7 @@ void JIT::emit_op_end(Instruction* currentInstruction)
         JITStubCall(this, JITStubs::cti_op_end).call();
     ASSERT(returnValueRegister != callFrameRegister);
     emitGetVirtualRegister(currentInstruction[1].u.operand, returnValueRegister);
-    push(Address(callFrameRegister, RegisterFile::ReturnPC * static_cast<int>(sizeof(Register))));
+    restoreReturnAddressBeforeReturn(Address(callFrameRegister, RegisterFile::ReturnPC * static_cast<int>(sizeof(Register))));
     ret();
 }
 
@@ -159,18 +159,18 @@ void JIT::emit_op_instanceof(Instruction* currentInstruction)
     emitJumpSlowCaseIfNotJSCell(regT1);
 
     // Check that baseVal is an object, that it 'ImplementsHasInstance' but that it does not 'OverridesHasInstance'.
-    loadPtr(Address(regT0, FIELD_OFFSET(JSCell, m_structure)), regT0);
-    addSlowCase(branch32(NotEqual, Address(regT0, FIELD_OFFSET(Structure, m_typeInfo.m_type)), Imm32(ObjectType)));
-    addSlowCase(branchTest32(Zero, Address(regT0, FIELD_OFFSET(Structure, m_typeInfo.m_flags)), Imm32(ImplementsDefaultHasInstance)));
+    loadPtr(Address(regT0, OBJECT_OFFSETOF(JSCell, m_structure)), regT0);
+    addSlowCase(branch32(NotEqual, Address(regT0, OBJECT_OFFSETOF(Structure, m_typeInfo.m_type)), Imm32(ObjectType)));
+    addSlowCase(branchTest32(Zero, Address(regT0, OBJECT_OFFSETOF(Structure, m_typeInfo.m_flags)), Imm32(ImplementsDefaultHasInstance)));
 
     // If value is not an Object, return false.
     Jump valueIsImmediate = emitJumpIfNotJSCell(regT2);
-    loadPtr(Address(regT2, FIELD_OFFSET(JSCell, m_structure)), regT0);
-    Jump valueIsNotObject = branch32(NotEqual, Address(regT0, FIELD_OFFSET(Structure, m_typeInfo.m_type)), Imm32(ObjectType));
+    loadPtr(Address(regT2, OBJECT_OFFSETOF(JSCell, m_structure)), regT0);
+    Jump valueIsNotObject = branch32(NotEqual, Address(regT0, OBJECT_OFFSETOF(Structure, m_typeInfo.m_type)), Imm32(ObjectType));
 
     // Check proto is object.
-    loadPtr(Address(regT1, FIELD_OFFSET(JSCell, m_structure)), regT0);
-    addSlowCase(branch32(NotEqual, Address(regT0, FIELD_OFFSET(Structure, m_typeInfo.m_type)), Imm32(ObjectType)));
+    loadPtr(Address(regT1, OBJECT_OFFSETOF(JSCell, m_structure)), regT0);
+    addSlowCase(branch32(NotEqual, Address(regT0, OBJECT_OFFSETOF(Structure, m_typeInfo.m_type)), Imm32(ObjectType)));
 
     // Optimistically load the result true, and start looping.
     // Initially, regT1 still contains proto and regT2 still contains value.
@@ -180,8 +180,8 @@ void JIT::emit_op_instanceof(Instruction* currentInstruction)
 
     // Load the prototype of the object in regT2.  If this is equal to regT1 - WIN!
     // Otherwise, check if we've hit null - if we have then drop out of the loop, if not go again.
-    loadPtr(Address(regT2, FIELD_OFFSET(JSCell, m_structure)), regT2);
-    loadPtr(Address(regT2, FIELD_OFFSET(Structure, m_prototype)), regT2);
+    loadPtr(Address(regT2, OBJECT_OFFSETOF(JSCell, m_structure)), regT2);
+    loadPtr(Address(regT2, OBJECT_OFFSETOF(Structure, m_prototype)), regT2);
     Jump isInstance = branchPtr(Equal, regT2, regT1);
     branchPtr(NotEqual, regT2, ImmPtr(JSValue::encode(jsNull())), loop);
 
@@ -251,9 +251,9 @@ void JIT::emit_op_get_scoped_var(Instruction* currentInstruction)
 
     emitGetFromCallFrameHeaderPtr(RegisterFile::ScopeChain, regT0);
     while (skip--)
-        loadPtr(Address(regT0, FIELD_OFFSET(ScopeChainNode, next)), regT0);
+        loadPtr(Address(regT0, OBJECT_OFFSETOF(ScopeChainNode, next)), regT0);
 
-    loadPtr(Address(regT0, FIELD_OFFSET(ScopeChainNode, object)), regT0);
+    loadPtr(Address(regT0, OBJECT_OFFSETOF(ScopeChainNode, object)), regT0);
     emitGetVariableObjectRegister(regT0, currentInstruction[2].u.operand, regT0);
     emitPutVirtualRegister(currentInstruction[1].u.operand);
 }
@@ -265,9 +265,9 @@ void JIT::emit_op_put_scoped_var(Instruction* currentInstruction)
     emitGetFromCallFrameHeaderPtr(RegisterFile::ScopeChain, regT1);
     emitGetVirtualRegister(currentInstruction[3].u.operand, regT0);
     while (skip--)
-        loadPtr(Address(regT1, FIELD_OFFSET(ScopeChainNode, next)), regT1);
+        loadPtr(Address(regT1, OBJECT_OFFSETOF(ScopeChainNode, next)), regT1);
 
-    loadPtr(Address(regT1, FIELD_OFFSET(ScopeChainNode, object)), regT1);
+    loadPtr(Address(regT1, OBJECT_OFFSETOF(ScopeChainNode, object)), regT1);
     emitPutVariableObjectRegister(regT0, regT1, currentInstruction[1].u.operand);
 }
 
@@ -303,9 +303,8 @@ void JIT::emit_op_ret(Instruction* currentInstruction)
     emitGetFromCallFrameHeaderPtr(RegisterFile::CallerFrame, callFrameRegister);
 
     // Return.
-    push(regT1);
+    restoreReturnAddressBeforeReturn(regT1);
     ret();
-
 }
 
 void JIT::emit_op_new_array(Instruction* currentInstruction)
@@ -328,8 +327,8 @@ void JIT::emit_op_construct_verify(Instruction* currentInstruction)
     emitGetVirtualRegister(currentInstruction[1].u.operand, regT0);
 
     emitJumpSlowCaseIfNotJSCell(regT0);
-    loadPtr(Address(regT0, FIELD_OFFSET(JSCell, m_structure)), regT2);
-    addSlowCase(branch32(NotEqual, Address(regT2, FIELD_OFFSET(Structure, m_typeInfo) + FIELD_OFFSET(TypeInfo, m_type)), Imm32(ObjectType)));
+    loadPtr(Address(regT0, OBJECT_OFFSETOF(JSCell, m_structure)), regT2);
+    addSlowCase(branch32(NotEqual, Address(regT2, OBJECT_OFFSETOF(Structure, m_typeInfo) + OBJECT_OFFSETOF(TypeInfo, m_type)), Imm32(ObjectType)));
 
 }
 
@@ -408,11 +407,11 @@ void JIT::emit_op_resolve_global(Instruction* currentInstruction)
     // Check Structure of global object
     move(ImmPtr(globalObject), regT0);
     loadPtr(structureAddress, regT1);
-    Jump noMatch = branchPtr(NotEqual, regT1, Address(regT0, FIELD_OFFSET(JSCell, m_structure))); // Structures don't match
+    Jump noMatch = branchPtr(NotEqual, regT1, Address(regT0, OBJECT_OFFSETOF(JSCell, m_structure))); // Structures don't match
 
     // Load cached property
     // Assume that the global object always uses external storage.
-    loadPtr(Address(regT0, FIELD_OFFSET(JSGlobalObject, m_externalStorage)), regT0);
+    loadPtr(Address(regT0, OBJECT_OFFSETOF(JSGlobalObject, m_externalStorage)), regT0);
     load32(offsetAddr, regT1);
     loadPtr(BaseIndex(regT0, regT1, ScalePtr), regT0);
     emitPutVirtualRegister(currentInstruction[1].u.operand);
@@ -460,8 +459,8 @@ void JIT::emit_op_jeq_null(Instruction* currentInstruction)
     Jump isImmediate = emitJumpIfNotJSCell(regT0);
 
     // First, handle JSCell cases - check MasqueradesAsUndefined bit on the structure.
-    loadPtr(Address(regT0, FIELD_OFFSET(JSCell, m_structure)), regT2);
-    addJump(branchTest32(NonZero, Address(regT2, FIELD_OFFSET(Structure, m_typeInfo.m_flags)), Imm32(MasqueradesAsUndefined)), target + 2);
+    loadPtr(Address(regT0, OBJECT_OFFSETOF(JSCell, m_structure)), regT2);
+    addJump(branchTest32(NonZero, Address(regT2, OBJECT_OFFSETOF(Structure, m_typeInfo.m_flags)), Imm32(MasqueradesAsUndefined)), target + 2);
     Jump wasNotImmediate = jump();
 
     // Now handle the immediate cases - undefined & null
@@ -481,8 +480,8 @@ void JIT::emit_op_jneq_null(Instruction* currentInstruction)
     Jump isImmediate = emitJumpIfNotJSCell(regT0);
 
     // First, handle JSCell cases - check MasqueradesAsUndefined bit on the structure.
-    loadPtr(Address(regT0, FIELD_OFFSET(JSCell, m_structure)), regT2);
-    addJump(branchTest32(Zero, Address(regT2, FIELD_OFFSET(Structure, m_typeInfo.m_flags)), Imm32(MasqueradesAsUndefined)), target + 2);
+    loadPtr(Address(regT0, OBJECT_OFFSETOF(JSCell, m_structure)), regT2);
+    addJump(branchTest32(Zero, Address(regT2, OBJECT_OFFSETOF(Structure, m_typeInfo.m_flags)), Imm32(MasqueradesAsUndefined)), target + 2);
     Jump wasNotImmediate = jump();
 
     // Now handle the immediate cases - undefined & null
@@ -506,18 +505,11 @@ void JIT::emit_op_jneq_ptr(Instruction* currentInstruction)
     RECORD_JUMP_TARGET(target + 3);
 }
 
-void JIT::emit_op_unexpected_load(Instruction* currentInstruction)
-{
-    JSValue v = m_codeBlock->unexpectedConstant(currentInstruction[2].u.operand);
-    move(ImmPtr(JSValue::encode(v)), regT0);
-    emitPutVirtualRegister(currentInstruction[1].u.operand);
-}
-
 void JIT::emit_op_jsr(Instruction* currentInstruction)
 {
     int retAddrDst = currentInstruction[1].u.operand;
     int target = currentInstruction[2].u.operand;
-    DataLabelPtr storeLocation = storePtrWithPatch(Address(callFrameRegister, sizeof(Register) * retAddrDst));
+    DataLabelPtr storeLocation = storePtrWithPatch(ImmPtr(0), Address(callFrameRegister, sizeof(Register) * retAddrDst));
     addJump(jump(), target + 2);
     m_jsrSites.append(JSRInfo(storeLocation, label()));
     killLastResultRegister();
@@ -623,22 +615,10 @@ void JIT::emit_op_throw(Instruction* currentInstruction)
     stubCall.addArgument(currentInstruction[1].u.operand, regT2);
     stubCall.call();
     ASSERT(regT0 == returnValueRegister);
-#if PLATFORM(X86_64)
-    addPtr(Imm32(0x48), X86::esp);
-    pop(X86::ebx);
-    pop(X86::r15);
-    pop(X86::r14);
-    pop(X86::r13);
-    pop(X86::r12);
-    pop(X86::ebp);
-    ret();
-#else
-    addPtr(Imm32(0x1c), X86::esp);
-    pop(X86::ebx);
-    pop(X86::edi);
-    pop(X86::esi);
-    pop(X86::ebp);
-    ret();
+#ifndef NDEBUG
+    // cti_op_throw always changes it's return address,
+    // this point in the code should never be reached.
+    breakpoint();
 #endif
 }
 
@@ -683,8 +663,8 @@ void JIT::emit_op_to_jsnumber(Instruction* currentInstruction)
     Jump wasImmediate = emitJumpIfImmediateInteger(regT0);
 
     emitJumpSlowCaseIfNotJSCell(regT0, srcVReg);
-    loadPtr(Address(regT0, FIELD_OFFSET(JSCell, m_structure)), regT2);
-    addSlowCase(branch32(NotEqual, Address(regT2, FIELD_OFFSET(Structure, m_typeInfo.m_type)), Imm32(NumberType)));
+    loadPtr(Address(regT0, OBJECT_OFFSETOF(JSCell, m_structure)), regT2);
+    addSlowCase(branch32(NotEqual, Address(regT2, OBJECT_OFFSETOF(Structure, m_typeInfo.m_type)), Imm32(NumberType)));
     
     wasImmediate.link(this);
 
@@ -702,7 +682,7 @@ void JIT::emit_op_push_new_scope(Instruction* currentInstruction)
 void JIT::emit_op_catch(Instruction* currentInstruction)
 {
     killLastResultRegister(); // FIXME: Implicitly treat op_catch as a labeled statement, and remove this line of code.
-    peek(callFrameRegister, offsetof(struct JITStackFrame, callFrame) / sizeof (void*));
+    peek(callFrameRegister, OBJECT_OFFSETOF(struct JITStackFrame, callFrame) / sizeof (void*));
     emitPutVirtualRegister(currentInstruction[1].u.operand);
 }
 
@@ -772,7 +752,7 @@ void JIT::emit_op_new_error(Instruction* currentInstruction)
 {
     JITStubCall stubCall(this, JITStubs::cti_op_new_error);
     stubCall.addArgument(Imm32(currentInstruction[2].u.operand));
-    stubCall.addArgument(ImmPtr(JSValue::encode(m_codeBlock->unexpectedConstant(currentInstruction[3].u.operand))));
+    stubCall.addArgument(ImmPtr(JSValue::encode(m_codeBlock->getConstant(currentInstruction[3].u.operand))));
     stubCall.addArgument(Imm32(m_bytecodeIndex));
     stubCall.call(currentInstruction[1].u.operand);
 }
@@ -794,8 +774,8 @@ void JIT::emit_op_eq_null(Instruction* currentInstruction)
     emitGetVirtualRegister(src1, regT0);
     Jump isImmediate = emitJumpIfNotJSCell(regT0);
 
-    loadPtr(Address(regT0, FIELD_OFFSET(JSCell, m_structure)), regT2);
-    setTest32(NonZero, Address(regT2, FIELD_OFFSET(Structure, m_typeInfo.m_flags)), Imm32(MasqueradesAsUndefined), regT0);
+    loadPtr(Address(regT0, OBJECT_OFFSETOF(JSCell, m_structure)), regT2);
+    setTest32(NonZero, Address(regT2, OBJECT_OFFSETOF(Structure, m_typeInfo.m_flags)), Imm32(MasqueradesAsUndefined), regT0);
 
     Jump wasNotImmediate = jump();
 
@@ -819,8 +799,8 @@ void JIT::emit_op_neq_null(Instruction* currentInstruction)
     emitGetVirtualRegister(src1, regT0);
     Jump isImmediate = emitJumpIfNotJSCell(regT0);
 
-    loadPtr(Address(regT0, FIELD_OFFSET(JSCell, m_structure)), regT2);
-    setTest32(Zero, Address(regT2, FIELD_OFFSET(Structure, m_typeInfo.m_flags)), Imm32(MasqueradesAsUndefined), regT0);
+    loadPtr(Address(regT0, OBJECT_OFFSETOF(JSCell, m_structure)), regT2);
+    setTest32(Zero, Address(regT2, OBJECT_OFFSETOF(Structure, m_typeInfo.m_flags)), Imm32(MasqueradesAsUndefined), regT0);
 
     Jump wasNotImmediate = jump();
 
@@ -841,7 +821,7 @@ void JIT::emit_op_enter(Instruction*)
     // Even though CTI doesn't use them, we initialize our constant
     // registers to zap stale pointers, to avoid unnecessarily prolonging
     // object lifetime and increasing GC pressure.
-    size_t count = m_codeBlock->m_numVars + m_codeBlock->numberOfConstantRegisters();
+    size_t count = m_codeBlock->m_numVars;
     for (size_t j = 0; j < count; ++j)
         emitInitRegister(j);
 
@@ -852,7 +832,7 @@ void JIT::emit_op_enter_with_activation(Instruction* currentInstruction)
     // Even though CTI doesn't use them, we initialize our constant
     // registers to zap stale pointers, to avoid unnecessarily prolonging
     // object lifetime and increasing GC pressure.
-    size_t count = m_codeBlock->m_numVars + m_codeBlock->numberOfConstantRegisters();
+    size_t count = m_codeBlock->m_numVars;
     for (size_t j = 0; j < count; ++j)
         emitInitRegister(j);
 
@@ -879,14 +859,14 @@ void JIT::emit_op_convert_this(Instruction* currentInstruction)
     emitGetVirtualRegister(currentInstruction[1].u.operand, regT0);
 
     emitJumpSlowCaseIfNotJSCell(regT0);
-    loadPtr(Address(regT0, FIELD_OFFSET(JSCell, m_structure)), regT1);
-    addSlowCase(branchTest32(NonZero, Address(regT1, FIELD_OFFSET(Structure, m_typeInfo.m_flags)), Imm32(NeedsThisConversion)));
+    loadPtr(Address(regT0, OBJECT_OFFSETOF(JSCell, m_structure)), regT1);
+    addSlowCase(branchTest32(NonZero, Address(regT1, OBJECT_OFFSETOF(Structure, m_typeInfo.m_flags)), Imm32(NeedsThisConversion)));
 
 }
 
 void JIT::emit_op_profile_will_call(Instruction* currentInstruction)
 {
-    peek(regT1, FIELD_OFFSET(JITStackFrame, enabledProfilerReference) / sizeof (void*));
+    peek(regT1, OBJECT_OFFSETOF(JITStackFrame, enabledProfilerReference) / sizeof (void*));
     Jump noProfiler = branchTestPtr(Zero, Address(regT1));
 
     JITStubCall stubCall(this, JITStubs::cti_op_profile_will_call);
@@ -898,7 +878,7 @@ void JIT::emit_op_profile_will_call(Instruction* currentInstruction)
 
 void JIT::emit_op_profile_did_call(Instruction* currentInstruction)
 {
-    peek(regT1, FIELD_OFFSET(JITStackFrame, enabledProfilerReference) / sizeof (void*));
+    peek(regT1, OBJECT_OFFSETOF(JITStackFrame, enabledProfilerReference) / sizeof (void*));
     Jump noProfiler = branchTestPtr(Zero, Address(regT1));
 
     JITStubCall stubCall(this, JITStubs::cti_op_profile_did_call);
@@ -956,10 +936,10 @@ void JIT::emitSlow_op_get_by_val(Instruction* currentInstruction, Vector<SlowCas
     // This is slow void JIT::emitSlow_that handles accesses to arrays above the fast cut-off.
     // First, check if this is an access to the vector
     linkSlowCase(iter);
-    branch32(AboveOrEqual, regT1, Address(regT2, FIELD_OFFSET(ArrayStorage, m_vectorLength)), beginGetByValSlow);
+    branch32(AboveOrEqual, regT1, Address(regT2, OBJECT_OFFSETOF(ArrayStorage, m_vectorLength)), beginGetByValSlow);
 
     // okay, missed the fast region, but it is still in the vector.  Get the value.
-    loadPtr(BaseIndex(regT2, regT1, ScalePtr, FIELD_OFFSET(ArrayStorage, m_vector[0])), regT2);
+    loadPtr(BaseIndex(regT2, regT1, ScalePtr, OBJECT_OFFSETOF(ArrayStorage, m_vector[0])), regT2);
     // Check whether the value loaded is zero; if so we need to return undefined.
     branchTestPtr(Zero, regT2, beginGetByValSlow);
     move(regT2, regT0);
@@ -994,16 +974,6 @@ void JIT::emitSlow_op_loop_if_less(Instruction* currentInstruction, Vector<SlowC
         stubCall.call();
         emitJumpSlowToHot(branchTest32(NonZero, regT0), target + 3);
     }
-}
-
-void JIT::emitSlow_op_put_by_id(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
-{
-    compilePutByIdSlowCase(currentInstruction[1].u.operand, &(m_codeBlock->identifier(currentInstruction[2].u.operand)), currentInstruction[3].u.operand, iter, m_propertyAccessInstructionIndex++);
-}
-
-void JIT::emitSlow_op_get_by_id(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
-{
-    compileGetByIdSlowCase(currentInstruction[1].u.operand, currentInstruction[2].u.operand, &(m_codeBlock->identifier(currentInstruction[3].u.operand)), iter, m_propertyAccessInstructionIndex++);
 }
 
 void JIT::emitSlow_op_loop_if_lesseq(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)

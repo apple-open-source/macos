@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/proto-bdb.h,v 1.111.2.9 2006/01/03 22:16:17 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/proto-bdb.h,v 1.137.2.9 2008/02/12 00:34:58 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2006 The OpenLDAP Foundation.
+ * Copyright 2000-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -74,7 +74,7 @@ int bdb_back_init_cf( BackendInfo *bi );
 int
 bdb_db_cache(
     Backend	*be,
-    const char *name,
+    struct berval *name,
 	DB **db );
 
 /*
@@ -84,7 +84,7 @@ bdb_db_cache(
 
 int bdb_dn2entry LDAP_P(( Operation *op, DB_TXN *tid,
 	struct berval *dn, EntryInfo **e, int matched,
-	u_int32_t locker, DB_LOCK *lock ));
+	BDB_LOCKER locker, DB_LOCK *lock ));
 
 /*
  * dn2id.c
@@ -97,9 +97,10 @@ int bdb_dn2entry LDAP_P(( Operation *op, DB_TXN *tid,
 
 int bdb_dn2id(
 	Operation *op,
-	DB_TXN *tid,
 	struct berval *dn,
-	EntryInfo *ei );
+	EntryInfo *ei,
+	BDB_LOCKER locker,
+	DB_LOCK *lock );
 
 int bdb_dn2id_add(
 	Operation *op,
@@ -120,20 +121,27 @@ int bdb_dn2id_children(
 
 int bdb_dn2idl(
 	Operation *op,
-	Entry *e,
+	BDB_LOCKER locker,
+	struct berval *ndn,
+	EntryInfo *ei,
 	ID *ids,
 	ID *stack );
 
 #ifdef BDB_HIER
 #define bdb_dn2id_parent			BDB_SYMBOL(dn2id_parent)
+#define bdb_dup_compare				BDB_SYMBOL(dup_compare)
 #define bdb_fix_dn					BDB_SYMBOL(fix_dn)
 
 int bdb_dn2id_parent(
 	Operation *op,
-	DB_TXN *txn,
-	u_int32_t locker,
+	BDB_LOCKER locker,
 	EntryInfo *ei,
 	ID *idp );
+
+int bdb_dup_compare(
+	DB *db,
+	const DBT *usrkey,
+	const DBT *curkey );
 
 int bdb_fix_dn( Entry *e, int checkit );
 #endif
@@ -166,6 +174,7 @@ char *ebcdic_dberror( int rc );
 
 int bdb_filter_candidates(
 	Operation *op,
+	BDB_LOCKER locker,
 	Filter	*f,
 	ID *ids,
 	ID *tmp,
@@ -199,7 +208,7 @@ int bdb_id2entry_delete(
 int bdb_id2entry(
 	BackendDB *be,
 	DB_TXN *tid,
-	u_int32_t locker,
+	BDB_LOCKER locker,
 	ID id,
 	Entry **e);
 #endif
@@ -282,7 +291,7 @@ unsigned bdb_idl_search( ID *ids, ID id );
 int bdb_idl_fetch_key(
 	BackendDB	*be,
 	DB			*db,
-	DB_TXN		*tid,
+	BDB_LOCKER locker,
 	DBT			*key,
 	ID			*ids,
 	DBC                     **saved_cursor,
@@ -325,17 +334,18 @@ int bdb_idl_append_one( ID *ids, ID id );
 /*
  * index.c
  */
-#define bdb_index_is_indexed		BDB_SYMBOL(index_is_indexed)
+#define bdb_index_mask				BDB_SYMBOL(index_mask)
 #define bdb_index_param				BDB_SYMBOL(index_param)
 #define bdb_index_values			BDB_SYMBOL(index_values)
 #define bdb_index_entry				BDB_SYMBOL(index_entry)
 #define bdb_index_recset			BDB_SYMBOL(index_recset)
 #define bdb_index_recrun			BDB_SYMBOL(index_recrun)
 
-extern int
-bdb_index_is_indexed LDAP_P((
+extern AttrInfo *
+bdb_index_mask LDAP_P((
 	Backend *be,
-	AttributeDescription *desc ));
+	AttributeDescription *desc,
+	struct berval *name ));
 
 extern int
 bdb_index_param LDAP_P((
@@ -388,7 +398,7 @@ extern int
 bdb_key_read(
     Backend	*be,
 	DB *db,
-	DB_TXN *txn,
+	BDB_LOCKER locker,
     struct berval *k,
 	ID *ids,
     DBC **saved_cursor,
@@ -409,7 +419,7 @@ bdb_key_change(
 #define bdb_next_id					BDB_SYMBOL(next_id)
 #define bdb_last_id					BDB_SYMBOL(last_id)
 
-int bdb_next_id( BackendDB *be, DB_TXN *tid, ID *id );
+int bdb_next_id( BackendDB *be, ID *id );
 int bdb_last_id( BackendDB *be, DB_TXN *tid );
 
 /*
@@ -426,35 +436,53 @@ int bdb_modify_internal(
 	char *textbuf,
 	size_t textlen );
 
+/*
+ * monitor.c
+ */
+
+#define bdb_monitor_db_init	BDB_SYMBOL(monitor_db_init)
+#define bdb_monitor_db_open	BDB_SYMBOL(monitor_db_open)
+#define bdb_monitor_db_close	BDB_SYMBOL(monitor_db_close)
+#define bdb_monitor_db_destroy	BDB_SYMBOL(monitor_db_destroy)
+
+int bdb_monitor_db_init( BackendDB *be );
+int bdb_monitor_db_open( BackendDB *be );
+int bdb_monitor_db_close( BackendDB *be );
+int bdb_monitor_db_destroy( BackendDB *be );
+
+#ifdef BDB_MONITOR_IDX
+#define bdb_monitor_idx_add	BDB_SYMBOL(monitor_idx_add)
+int
+bdb_monitor_idx_add(
+	struct bdb_info		*bdb,
+	AttributeDescription	*desc,
+	slap_mask_t		type );
+#endif /* BDB_MONITOR_IDX */
 
 /*
  * cache.c
  */
 #define bdb_cache_entry_db_unlock	BDB_SYMBOL(cache_entry_db_unlock)
+#define bdb_cache_return_entry_rw	BDB_SYMBOL(cache_return_entry_rw)
 
 #define	bdb_cache_entryinfo_lock(e) \
 	ldap_pvt_thread_mutex_lock( &(e)->bei_kids_mutex )
 #define	bdb_cache_entryinfo_unlock(e) \
 	ldap_pvt_thread_mutex_unlock( &(e)->bei_kids_mutex )
+#define	bdb_cache_entryinfo_trylock(e) \
+	ldap_pvt_thread_mutex_trylock( &(e)->bei_kids_mutex )
 
 /* What a mess. Hopefully the current cache scheme will stabilize
  * and we can trim out all of this stuff.
  */
-#if 0
-void bdb_cache_return_entry_rw( DB_ENV *env, Cache *cache, Entry *e,
+void bdb_cache_return_entry_rw( struct bdb_info *bdb, Entry *e,
 	int rw, DB_LOCK *lock );
-#else
-#define bdb_cache_return_entry_rw( env, cache, e, rw, lock ) \
-	bdb_cache_entry_db_unlock( env, lock )
-#define	bdb_cache_return_entry( env, lock ) \
-	bdb_cache_entry_db_unlock( env, lock )
-#endif
-#define bdb_cache_return_entry_r(env, c, e, l) \
-	bdb_cache_return_entry_rw((env), (c), (e), 0, (l))
-#define bdb_cache_return_entry_w(env, c, e, l) \
-	bdb_cache_return_entry_rw((env), (c), (e), 1, (l))
+#define bdb_cache_return_entry_r(bdb, e, l) \
+	bdb_cache_return_entry_rw((bdb), (e), 0, (l))
+#define bdb_cache_return_entry_w(bdb, e, l) \
+	bdb_cache_return_entry_rw((bdb), (e), 1, (l))
 #if 0
-void bdb_unlocked_cache_return_entry_rw( Cache *cache, Entry *e, int rw );
+void bdb_unlocked_cache_return_entry_rw( struct bdb_info *bdb, Entry *e, int rw );
 #else
 #define	bdb_unlocked_cache_return_entry_rw( a, b, c )	((void)0)
 #endif
@@ -486,7 +514,8 @@ int bdb_cache_add(
 	EntryInfo *pei,
 	Entry   *e,
 	struct berval *nrdn,
-	u_int32_t locker
+	BDB_LOCKER locker,
+	DB_LOCK *lock
 );
 int bdb_cache_modrdn(
 	struct bdb_info *bdb,
@@ -494,19 +523,19 @@ int bdb_cache_modrdn(
 	struct berval *nrdn,
 	Entry	*new,
 	EntryInfo *ein,
-	u_int32_t locker,
+	BDB_LOCKER locker,
 	DB_LOCK *lock
 );
 int bdb_cache_modify(
+	struct bdb_info *bdb,
 	Entry *e,
 	Attribute *newAttrs,
-	DB_ENV *env,
-	u_int32_t locker,
+	BDB_LOCKER locker,
 	DB_LOCK *lock
 );
 int bdb_cache_find_ndn(
 	Operation *op,
-	DB_TXN	*txn,
+	BDB_LOCKER	locker,
 	struct berval   *ndn,
 	EntryInfo	**res
 );
@@ -514,28 +543,29 @@ EntryInfo * bdb_cache_find_info(
 	struct bdb_info *bdb,
 	ID id
 );
+
+#define	ID_LOCKED	1
+#define	ID_NOCACHE	2
 int bdb_cache_find_id(
 	Operation *op,
 	DB_TXN	*tid,
 	ID		id,
 	EntryInfo **eip,
-	int	islocked,
-	u_int32_t	locker,
+	int	flag,
+	BDB_LOCKER	locker,
 	DB_LOCK		*lock
 );
 int
 bdb_cache_find_parent(
 	Operation *op,
-	DB_TXN *txn,
-	u_int32_t	locker,
+	BDB_LOCKER	locker,
 	ID id,
 	EntryInfo **res
 );
 int bdb_cache_delete(
-	Cache	*cache,
+	struct bdb_info *bdb,
 	Entry	*e,
-	DB_ENV	*env,
-	u_int32_t locker,
+	BDB_LOCKER locker,
 	DB_LOCK	*lock
 );
 void bdb_cache_delete_cleanup(
@@ -543,12 +573,6 @@ void bdb_cache_delete_cleanup(
 	EntryInfo *ei
 );
 void bdb_cache_release_all( Cache *cache );
-void bdb_cache_delete_entry(
-	struct bdb_info *bdb,
-	EntryInfo *ei,
-	u_int32_t locker,
-	DB_LOCK *lock
-);
 
 #ifdef BDB_HIER
 int hdb_cache_load(
@@ -560,21 +584,23 @@ int hdb_cache_load(
 
 #define bdb_cache_entry_db_relock		BDB_SYMBOL(cache_entry_db_relock)
 int bdb_cache_entry_db_relock(
-	DB_ENV *env,
-	u_int32_t locker,
+	struct bdb_info *bdb,
+	BDB_LOCKER locker,
 	EntryInfo *ei,
 	int rw,
 	int tryOnly,
 	DB_LOCK *lock );
 
 int bdb_cache_entry_db_unlock(
-	DB_ENV *env,
+	struct bdb_info *bdb,
 	DB_LOCK *lock );
 
 #ifdef BDB_REUSE_LOCKERS
 
 #define bdb_locker_id				BDB_SYMBOL(locker_id)
-int bdb_locker_id( Operation *op, DB_ENV *env, u_int32_t *locker );
+#define bdb_locker_flush			BDB_SYMBOL(locker_flush)
+int bdb_locker_id( Operation *op, DB_ENV *env, BDB_LOCKER *locker );
+void bdb_locker_flush( DB_ENV *env );
 
 #define	LOCK_ID_FREE(env, locker)	((void)0)
 #define	LOCK_ID(env, locker)	bdb_locker_id(op, env, locker)
@@ -618,7 +644,6 @@ bdb_trans_backoff( int num_retries );
 #define bdb_tool_entry_put		BDB_SYMBOL(tool_entry_put)
 #define bdb_tool_entry_reindex		BDB_SYMBOL(tool_entry_reindex)
 #define bdb_tool_dn2id_get		BDB_SYMBOL(tool_dn2id_get)
-#define bdb_tool_id2entry_get		BDB_SYMBOL(tool_id2entry_get)
 #define bdb_tool_entry_modify		BDB_SYMBOL(tool_entry_modify)
 #define bdb_tool_idl_add		BDB_SYMBOL(tool_idl_add)
 
@@ -649,7 +674,6 @@ extern BI_tool_entry_get		bdb_tool_entry_get;
 extern BI_tool_entry_put		bdb_tool_entry_put;
 extern BI_tool_entry_reindex		bdb_tool_entry_reindex;
 extern BI_tool_dn2id_get		bdb_tool_dn2id_get;
-extern BI_tool_id2entry_get		bdb_tool_id2entry_get;
 extern BI_tool_entry_modify		bdb_tool_entry_modify;
 
 int bdb_tool_idl_add( BackendDB *be, DB *db, DB_TXN *txn, DBT *key, ID id );

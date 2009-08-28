@@ -59,7 +59,6 @@
 #include <fcntl.h>
 #include <syslog.h>
 #include <netdb.h>
-#include <utmp.h>
 #include <pwd.h>
 #include <setjmp.h>
 
@@ -85,13 +84,7 @@
 #define MODE_ANSWER	"answer"
 
 #define PPPOE_NKE	"PPPoE.kext"
-
-// PPPoE error codes (bits 8..15 of last cause key)
-#define EXIT_PPPoE_NOSERVER  		1
-#define EXIT_PPPoE_NOSERVICE  		2
-#define EXIT_PPPoE_NOAC 		3
-#define EXIT_PPPoE_NOACSERVICE 		4
-#define EXIT_PPPoE_CONNREFUSED 		5
+#define PPPOE_NKE_ID	"com.apple.nke.pppoe"
 
 /* -----------------------------------------------------------------------------
  Forward declarations
@@ -105,12 +98,12 @@ void pppoe_cleanup();
 int pppoe_establish_ppp(int);
 void pppoe_wait_input();
 void pppoe_disestablish_ppp(int);
-void pppoe_link_down(void *arg, int p);
+void pppoe_link_down(void *arg, uintptr_t p);
 
 static int pppoe_dial();
 static int pppoe_listen();
 static void closeall();
-static u_long load_kext(char *kext);
+static u_long load_kext(char *kext, int byBundleID);
 
 /* -----------------------------------------------------------------------------
  PPP globals
@@ -183,7 +176,7 @@ int start(CFBundleRef ref)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-void pppoe_link_down(void *arg, int p)
+void pppoe_link_down(void *arg, uintptr_t p)
 {
     linkdown = 1;
 }
@@ -246,7 +239,7 @@ int pppoe_connect(int *errorcode)
     
 	*errorcode = 0;
 
-    sprintf(dev, "socket[%d:%d]", PF_PPP, PPPPROTO_PPPOE);
+    snprintf(dev, sizeof(dev), "socket[%d:%d]", PF_PPP, PPPPROTO_PPPOE);
     strlcpy(ppp_devnam, dev, sizeof(ppp_devnam));
 
     hungup = 0;
@@ -285,16 +278,20 @@ int pppoe_connect(int *errorcode)
             if (!noload) {
                 if (url = CFBundleCopyBundleURL(bundle)) {
                     name[0] = 0;
-                    CFURLGetFileSystemRepresentation(url, 0, name, MAXPATHLEN - 1);
+                    CFURLGetFileSystemRepresentation(url, 0, (UInt8 *)name, MAXPATHLEN - 1);
                     CFRelease(url);
-                    strcat(name, "/");
+                    strlcat(name, "/", sizeof(name));
                     if (url = CFBundleCopyBuiltInPlugInsURL(bundle)) {
-                        CFURLGetFileSystemRepresentation(url, 0, name + strlen(name), 
+                        CFURLGetFileSystemRepresentation(url, 0, (UInt8 *)(name + strlen(name)), 
                             MAXPATHLEN - strlen(name) - strlen(PPPOE_NKE) - 1);
                         CFRelease(url);
-                        strcat(name, "/");
-                        strcat(name, PPPOE_NKE);
-                        if (!load_kext(name))
+                        strlcat(name, "/", sizeof(name));
+                        strlcat(name, PPPOE_NKE, sizeof(name));
+#ifndef TARGET_EMBEDDED_OS
+                        if (!load_kext(name, 0))
+#else
+                        if (!load_kext(PPPOE_NKE_ID, 1))
+#endif
                             sockfd = socket(PF_PPP, SOCK_DGRAM, PPPPROTO_PPPOE);
                     }	
                 }
@@ -443,7 +440,8 @@ int pppoe_dial()
     u_short 			len, i;
 	unsigned char ac_address[ETHER_ADDR_LEN];
 	char ac_string[ETHER_ADDR_LEN * 3];
-	int ac_len = ETHER_ADDR_LEN, err;
+	socklen_t ac_len = ETHER_ADDR_LEN;
+	int err;
     
     // if the specific pppoe option are not used, try to see 
     // if the remote address generic field can be decomposed
@@ -459,7 +457,7 @@ int pppoe_dial()
         }
         if (i < len) {
             if (access_concentrator = malloc(len - i))
-                strcpy(access_concentrator, &remoteaddress[i + 1]);
+                strlcpy(access_concentrator, &remoteaddress[i + 1], len - i);
         }
     }
     
@@ -509,7 +507,7 @@ int pppoe_dial()
 		warning("PPPoE cannot retrieve access concentrator address, %m");
 	}
 	else {
-		sprintf(ac_string, "%02X:%02X:%2X:%02X:%02X:%02X", ac_address[0], ac_address[1], ac_address[2], ac_address[3], ac_address[4], ac_address[5]);
+		snprintf(ac_string, sizeof(ac_string), "%02X:%02X:%2X:%02X:%02X:%02X", ac_address[0], ac_address[1], ac_address[2], ac_address[3], ac_address[4], ac_address[5]);
 		set_network_signature("PPPoE.AccessConcentratorAddress", ac_string, 0, 0);
 	}
 	
@@ -523,7 +521,8 @@ int pppoe_dial()
 int pppoe_listen()
 {
     struct sockaddr_pppoe 	addr;
-    int				len, fd;
+    socklen_t				len;
+	int						fd;
 
     notice("PPPoE listening on service '%s' [access concentrator '%s']...\n", 
             service ? service : "", 
@@ -576,7 +575,7 @@ void closeall()
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-u_long load_kext(char *kext)
+u_long load_kext(char *kext, int byBundleID)
 {
     int pid;
 
@@ -586,7 +585,10 @@ u_long load_kext(char *kext)
     if (pid == 0) {
         closeall();
         // PPP kernel extension not loaded, try load it...
-        execle("/sbin/kextload", "kextload", kext, (char *)0, (char *)0);
+		if (byBundleID)
+			execle("/sbin/kextload", "kextload", "-b", kext, (char *)0, (char *)0);
+		else
+			execle("/sbin/kextload", "kextload", kext, (char *)0, (char *)0);
         exit(1);
     }
 

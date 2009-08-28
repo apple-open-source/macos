@@ -28,7 +28,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/getconf/getconf.c,v 1.9 2003/08/22 17:32:07 markm Exp $");
+__FBSDID("$FreeBSD: src/usr.bin/getconf/getconf.c,v 1.10 2006/12/06 12:00:26 maxim Exp $");
 
 #include <sys/types.h>
 
@@ -139,21 +139,23 @@ static void
 do_confstr(const char *name, int key)
 {
 	size_t len;
+	int savederr;
 
+	savederr = errno;
 	errno = 0;
 	len = confstr(key, 0, 0);
 	if (len == 0) {
-		if (errno != 0) {
+		if (errno)
 			err(EX_OSERR, "confstr: %s", name);
-		} else {
+		else
 			printf("undefined\n");
-		}
 	} else {
 		char buf[len + 1];
 
 		confstr(key, buf, len);
 		printf("%s\n", buf);
 	}
+	errno = savederr;
 }
 
 static void

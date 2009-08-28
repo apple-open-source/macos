@@ -456,6 +456,7 @@ lcp_close(unit, reason)
     if (phase != PHASE_DEAD)
 	new_phase(PHASE_TERMINATE);
     if (f->state == STOPPED && f->flags & (OPT_PASSIVE|OPT_SILENT)) {
+	notice("LCP close (%s).", reason);
 	/*
 	 * This action is not strictly according to the FSM in RFC1548,
 	 * but it does mean that the program terminates if you do a
@@ -470,6 +471,7 @@ lcp_close(unit, reason)
 #ifdef __APPLE__
 	/* should be done in fsm, but it has side effect on ncps */ 
 	if (f->state == INITIAL)
+		notice("LCP close (%s).", reason);
 		lcp_finished(f);
 #endif
 	}
@@ -2467,7 +2469,7 @@ lcp_received_timeremaining (f, id, inp, len)
     info.time = time;
     info.text = inp;
     info.textlen = len - 8;
-    notify(lcp_timeremaining_notify, (int)&info);
+    notify_with_ptr(lcp_timeremaining_notify, (uintptr_t)&info);
 
 }
 #endif

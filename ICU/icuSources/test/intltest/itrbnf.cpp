@@ -1,6 +1,6 @@
 /*
  *******************************************************************************
- * Copyright (C) 1996-2005, International Business Machines Corporation and    *
+ * Copyright (C) 1996-2008, International Business Machines Corporation and    *
  * others. All Rights Reserved.                                                *
  *******************************************************************************
  */
@@ -64,6 +64,8 @@ void IntlTestRBNF::runIndexedTest(int32_t index, UBool exec, const char* &name, 
         TESTCASE(14, TestLocalizations);
         TESTCASE(15, TestAllLocales);
         TESTCASE(16, TestHebrewFraction);
+        TESTCASE(17, TestPortugueseSpellout);
+        TESTCASE(18, TestMultiplierSubstitution);
 #else
         TESTCASE(0, TestRBNFDisabled);
 #endif
@@ -377,7 +379,7 @@ void IntlTestRBNF::TestFractionalRuleSet()
     if (U_FAILURE(status)) {
         errln("FAIL: could not construct formatter");
     } else {
-        static const char* testData[][2] = {
+        static const char* const testData[][2] = {
             { "0", "0" },
             { ".1", "1/10" },
             { ".11", "1/9" },
@@ -1046,7 +1048,7 @@ IntlTestRBNF::TestEnglishSpellout()
     if (U_FAILURE(status)) {
         errln("FAIL: could not construct formatter");
     } else {
-        static const char* testData[][2] = {
+        static const char* const testData[][2] = {
             { "1", "one" },
             { "2", "two" },
             { "15", "fifteen" },
@@ -1099,7 +1101,7 @@ IntlTestRBNF::TestOrdinalAbbreviations()
     if (U_FAILURE(status)) {
         errln("FAIL: could not construct formatter");
     } else {
-        static const char* testData[][2] = {
+        static const char* const testData[][2] = {
             { "1", "1st" },
             { "2", "2nd" },
             { "3", "3rd" },
@@ -1135,7 +1137,7 @@ IntlTestRBNF::TestDurations()
     if (U_FAILURE(status)) {
         errln("FAIL: could not construct formatter");
     } else {
-        static const char* testData[][2] = {
+        static const char* const testData[][2] = {
             { "3,600", "1:00:00" },     //move me and I fail
             { "0", "0 sec." },
             { "1", "1 sec." },
@@ -1174,7 +1176,7 @@ IntlTestRBNF::TestSpanishSpellout()
     if (U_FAILURE(status)) {
         errln("FAIL: could not construct formatter");
     } else {
-        static const char* testData[][2] = {
+        static const char* const testData[][2] = {
             { "1", "uno" },
             { "6", "seis" },
             { "16", "diecis\\u00e9is" },
@@ -1214,7 +1216,7 @@ IntlTestRBNF::TestFrenchSpellout()
     if (U_FAILURE(status)) {
         errln("FAIL: could not construct formatter");
     } else {
-        static const char* testData[][2] = {
+        static const char* const testData[][2] = {
             { "1", "un" },
             { "15", "quinze" },
             { "20", "vingt" },
@@ -1259,7 +1261,7 @@ IntlTestRBNF::TestFrenchSpellout()
     delete formatter;
 }
 
-static const char* swissFrenchTestData[][2] = {
+static const char* const swissFrenchTestData[][2] = {
     { "1", "un" },
     { "15", "quinze" },
     { "20", "vingt" },
@@ -1331,12 +1333,12 @@ IntlTestRBNF::TestItalianSpellout()
     if (U_FAILURE(status)) {
         errln("FAIL: could not construct formatter");
     } else {
-        static const char* testData[][2] = {
+        static const char* const testData[][2] = {
             { "1", "uno" },
             { "15", "quindici" },
             { "20", "venti" },
-            { "23", "ventitre" },
-            { "73", "settantatre" },
+            { "23", "ventitr\\u00E9" },
+            { "73", "settantatr\\u00E9" },
             { "88", "ottantotto" },
             { "100", "cento" },
             { "106", "centosei" },
@@ -1349,9 +1351,9 @@ IntlTestRBNF::TestItalianSpellout()
             { "2,000", "duemila" },
             { "3,004", "tremilaquattro" },
             { "4,567", "quattromilacinquecentosessantasette" },
-            { "15,943", "quindicimilanovecentoquarantatre" },
-            { "-36", "meno trentisei" },
-            { "234.567", "duecentotrentiquattro virgola cinque sei sette" },
+            { "15,943", "quindicimilanovecentoquarantatr\\u00E9" },
+            { "-36", "meno trentasei" },
+            { "234.567", "duecentotrentaquattro virgola cinque sei sette" },
             { NULL, NULL}
         };
         
@@ -1360,6 +1362,44 @@ IntlTestRBNF::TestItalianSpellout()
     delete formatter;
 }
 
+void 
+IntlTestRBNF::TestPortugueseSpellout() 
+{
+    UErrorCode status = U_ZERO_ERROR;
+    RuleBasedNumberFormat* formatter
+        = new RuleBasedNumberFormat(URBNF_SPELLOUT, Locale("pt","BR",""), status);
+
+    if (U_FAILURE(status)) {
+        errln("FAIL: could not construct formatter");
+    } else {
+        static const char* const testData[][2] = {
+            { "1", "um" },
+            { "15", "quinze" },
+            { "20", "vinte" },
+            { "23", "vinte e tr\\u00EAs" },
+            { "73", "setenta e tr\\u00EAs" },
+            { "88", "oitenta e oito" },
+            { "100", "cem" },
+            { "106", "cento e seis" },
+            { "108", "cento e oito" },
+            { "127", "cento e vinte e sete" },
+            { "181", "cento e oitenta e um" },
+            { "200", "duzcentos" },
+            { "579", "quinhentos e setenta e nove" },
+            { "1,000", "mil" },
+            { "2,000", "dois mil" },
+            { "3,004", "tr\\u00EAs mil e quatro" },
+            { "4,567", "quatro mil quinhentos e sessenta e sete" },
+            { "15,943", "quinze mil novecentos e quarenta e tr\\u00EAs" },
+            { "-36", "menos trinta e seis" },
+            { "234.567", "duzcentos e trinta e quatro ponto cinco seis sete" },
+            { NULL, NULL}
+        };
+        
+        doTest(formatter, testData, TRUE);
+    }
+    delete formatter;
+}
 void 
 IntlTestRBNF::TestGermanSpellout() 
 {
@@ -1370,7 +1410,7 @@ IntlTestRBNF::TestGermanSpellout()
     if (U_FAILURE(status)) {
         errln("FAIL: could not construct formatter");
     } else {
-        static const char* testData[][2] = {
+        static const char* const testData[][2] = {
             { "1", "eins" },
             { "15", "f\\u00fcnfzehn" },
             { "20", "zwanzig" },
@@ -1415,7 +1455,7 @@ IntlTestRBNF::TestThaiSpellout()
     if (U_FAILURE(status)) {
         errln("FAIL: could not construct formatter");
     } else {
-        static const char* testData[][2] = {
+        static const char* const testData[][2] = {
             { "0", "\\u0e28\\u0e39\\u0e19\\u0e22\\u0e4c" },
             { "1", "\\u0e2b\\u0e19\\u0e36\\u0e48\\u0e07" },
             { "10", "\\u0e2a\\u0e34\\u0e1a" },
@@ -1518,7 +1558,7 @@ IntlTestRBNF::TestSmallValues()
     if (U_FAILURE(status)) {
         errln("FAIL: could not construct formatter");
     } else {
-        static const char* testDataDefault[][2] = {
+        static const char* const testDataDefault[][2] = {
         { "0.001", "zero point zero zero one" },
         { "0.0001", "zero point zero zero zero one" },
         { "0.00001", "zero point zero zero zero zero one" },
@@ -1550,12 +1590,12 @@ IntlTestRBNF::TestSmallValues()
         { "123.321", "one hundred and twenty-three point three two one" },
         { "0.0000000011754944", "zero point zero zero zero zero zero zero zero zero one one seven five four nine four four" },
         { "0.000001175494351", "zero point zero zero zero zero zero one one seven five four nine four three five one" },
-            { NULL, NULL }
-    };
+        { NULL, NULL }
+        };
 
         doTest(formatter, testDataDefault, TRUE);
 
-    delete formatter;
+        delete formatter;
     }
 }
 
@@ -1573,7 +1613,7 @@ IntlTestRBNF::TestLocalizations(void)
         errln("FAIL: could not construct formatter");           
     } else {
         {
-            static const char* testData[][2] = {
+            static const char* const testData[][2] = {
                 { "0", "nada" },
                 { "5", "yah, some" },
                 { "423", "plenty" },
@@ -1585,7 +1625,7 @@ IntlTestRBNF::TestLocalizations(void)
 
         {
             UnicodeString loc("<<%main, %other>,<en, Main, Other>,<fr, leMain, leOther>,<de, 'das Main', 'etwas anderes'>>");
-            static const char* testData[][2] = {
+            static const char* const testData[][2] = {
                 { "0", "no" },
                 { "5", "some" },
                 { "423", "a lot" },
@@ -1728,7 +1768,32 @@ IntlTestRBNF::TestAllLocales()
 }
 
 void 
-IntlTestRBNF::doTest(RuleBasedNumberFormat* formatter, const char* testData[][2], UBool testParsing) 
+IntlTestRBNF::TestMultiplierSubstitution(void) {
+  UnicodeString rules("=#,##0=;1,000,000: <##0.###< million;");
+  UErrorCode status = U_ZERO_ERROR;
+  UParseError parse_error;
+  RuleBasedNumberFormat *rbnf = 
+    new RuleBasedNumberFormat(rules, Locale::getUS(), parse_error, status);
+  if (U_SUCCESS(status)) {
+    UnicodeString res;
+    FieldPosition pos;
+    double n = 1234000.0;
+    rbnf->format(n, res, pos);
+    delete rbnf;
+
+    UnicodeString expected = UNICODE_STRING_SIMPLE("1.234 million");
+    if (expected != res) {
+      UnicodeString msg = "Expected: ";
+      msg.append(expected);
+      msg.append(" but got ");
+      msg.append(res);
+      errln(msg);
+    }
+  }
+}
+
+void 
+IntlTestRBNF::doTest(RuleBasedNumberFormat* formatter, const char* const testData[][2], UBool testParsing) 
 {
   // man, error reporting would be easier with printf-style syntax for unicode string and formattable
 
@@ -1759,7 +1824,7 @@ IntlTestRBNF::doTest(RuleBasedNumberFormat* formatter, const char* testData[][2]
                     errln(msg);
                     break;
                 } else {
-                    UnicodeString expectedString = UnicodeString(expectedWords).unescape();
+                    UnicodeString expectedString = UnicodeString(expectedWords, -1, US_INV).unescape();
                     if (actualString != expectedString) {
                         UnicodeString msg = "FAIL: check failed for ";
                         decFmt.format(expectedNumber, msg, status);

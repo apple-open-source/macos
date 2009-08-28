@@ -1,0 +1,239 @@
+#!/usr/bin/perl
+#
+# Copyright (c) 2007, 2008 Apple Inc. All rights reserved.
+#
+# @APPLE_LICENSE_HEADER_START@
+# 
+# This file contains Original Code and/or Modifications of Original Code
+# as defined in and that are subject to the Apple Public Source License
+# Version 2.0 (the 'License'). You may not use this file except in
+# compliance with the License. Please obtain a copy of the License at
+# http://www.opensource.apple.com/apsl/ and read it before using this
+# file.
+# 
+# The Original Code and all software distributed under the License are
+# distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+# EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+# INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+# Please see the License for the specific language governing rights and
+# limitations under the License.
+#-----------------------------------------------------------------------
+# 
+# This program is a wrapper for gcc and other GNU compilers:
+#
+# 1) When given a -no64 argument, all 64-bit -arch arguments are stripped.
+#
+# 2) When SDKROOT and _TC_SPLIT_ARCHS are both defined, and we are building
+# multiple architectures, split between the SDKROOT architectures (defined
+# by tconf --archs) and the regular architectures.  Then we compile those
+# SDKROOT architectures with the appropriate SKDROOT flags, and the regular
+# architectures without those flags.  Finally, the two binaries are lipo-ed
+# together.
+#
+# 3) If _TC_SPLIT_ARCHS is not defined, we will always add the SDKROOT flags
+# if SDKROOT is defined.
+
+use strict;
+use DirHandle;
+use File::Basename ();
+use File::chdir;
+use File::Spec;
+use File::Temp ();
+
+my $MyName = File::Basename::basename($0);
+
+my $sdkroot = $ENV{SDKROOT};
+my $splitarchs = $ENV{_TC_SPLIT_ARCHS};
+
+my %SDKArchs;
+%SDKArchs = map {($_ => 1)} split(' ', `tconf --archs`)
+    if defined($sdkroot) && defined($splitarchs);
+
+my $compile = 0;
+my $doprint = 0;
+my $got_arch = 0;
+my $got_o = 0;
+my $no64 = 0;
+my $output;
+my(%sdkarchhash, %sdk64archhash, %regulararchhash, %regular64archhash, @otherargs);
+for(@ARGV) {
+    if($got_arch) {
+	if($SDKArchs{$_}) {
+	    if(/64$/) {
+		$sdk64archhash{$_} = 1;
+	    } else {
+		$sdkarchhash{$_} = 1;
+	    }
+	} elsif(/64$/) {
+	    $regular64archhash{$_} = 1;
+	} else {
+	    $regulararchhash{$_} = 1;
+	}
+	$got_arch = 0;
+	next;
+    }
+    if($got_o) {
+	$output = $_;
+	$got_o = 0;
+	next;
+    }
+    if($_ eq '-arch') {
+	$got_arch++;
+	next;
+    }
+    if($_ eq '-no64') {
+	$no64++;
+	next;
+    }
+    if($_ eq '-o') {
+	$got_o++;
+	next;
+    }
+    $compile++ if $_ eq '-c';
+    push(@otherargs, $_);
+}
+my @sdkarchlist = map {('-arch', $_)} keys(%sdkarchhash);
+my @sdk64archlist = map {('-arch', $_)} keys(%sdk64archhash);
+my @regulararchlist = map {('-arch', $_)} keys(%regulararchhash);
+my @regular64archlist = map {('-arch', $_)} keys(%regular64archhash);
+if(scalar(@sdk64archlist) > 0) {
+    if($no64) {
+	# ignore @sdk64archlist
+	$doprint++;
+    } else {
+	# otherwise, append them to @sdkarchlist
+	push(@sdkarchlist, @sdk64archlist);
+    }
+}
+if(scalar(@regular64archlist) > 0) {
+    if($no64) {
+	# ignore @regular64archlist
+	$doprint++;
+    } else {
+	# otherwise, append them to @regulararchlist
+	push(@regulararchlist, @regular64archlist);
+    }
+}
+
+if(!defined($splitarchs)) {
+    my @args = ("/usr/bin/$MyName", @regulararchlist);
+    if(defined($sdkroot)) {
+	push(@args, $compile ? ('-isysroot', $sdkroot) :
+	    "-Wl,-syslibroot,$sdkroot");
+	$doprint = 1;
+    }
+    push(@args, '-o', $output) if defined($output);
+    push(@args, @otherargs);
+    print STDERR "===>@args\n" if $doprint;
+    exec @args;
+    exit 1; # exec failed
+}
+
+if(scalar(@regulararchlist) > 0 && scalar(@sdkarchlist) > 0) {
+    my @args;
+    # We create a temp directory where the temp files are created (and any
+    # other cruft); this directory is automatically removed when this
+    # program exits.
+    my $tmpdir = File::Temp::tempdir('compilertempXXXXXXXX', CLEANUP => 1, TMPDIR => 1);
+    if(defined($output)) {
+	# The -o option was specified, so we just use -o for each set of
+	# architectures, and lipo the results together.
+	my $sdkfile = File::Spec->join($tmpdir, "sdkfile");
+	if($compile) {
+	    @args = ("/usr/bin/$MyName", @sdkarchlist, '-isysroot', $sdkroot, '-o', $sdkfile, @otherargs);
+	} else {
+	    @args = ("/usr/bin/$MyName", @sdkarchlist, "-Wl,-syslibroot,$sdkroot", '-o', $sdkfile, @otherargs);
+	}
+	print STDERR "===>@args\n";
+	system(@args) == 0 or exit 1;
+	my $regularfile = File::Spec->join($tmpdir, "regularfile");
+	@args = ("/usr/bin/$MyName", @regulararchlist, '-o', $regularfile, @otherargs);
+	print STDERR "===>@args\n";
+	system(@args) == 0 or exit 1;
+	@args = ('lipo', '-create', $sdkfile, $regularfile, '-output', $output);
+	print STDERR "===>@args\n";
+	system(@args) == 0 or exit 1;
+    } else {
+	# We don't have -o, so we create two subdirectories, chdir into each
+	# to do the compile, chdir back and lipo the files in the two sub-
+	# directories together.  But first, we need make symlinks in each
+	# of these directories pointing to each files/directories in the
+	# current directory.
+	my $sdkdir = File::Spec->join($tmpdir, "sdkdir");
+	mkdir $sdkdir or die "Can't mkdir($sdkdir): $!\n";
+	my $regulardir = File::Spec->join($tmpdir, "regulardir");
+	mkdir $regulardir or die "Can't mkdir($regulardir): $!\n";
+	my $d = DirHandle->new('.') or die "Can't DirHandle->new('.'): $!\n";
+	while(defined($_ = $d->read)) {
+	    next if $_ eq '.' || $_ eq '..';
+	    my $oldname = File::Spec->join($CWD, $_);
+	    my $newname = File::Spec->join($sdkdir, $_);
+	    symlink($oldname, $newname)
+		or die "Can't symlink($oldname, $newname): $!\n";
+	    $newname = File::Spec->join($regulardir, $_);
+	    symlink($oldname, $newname)
+		or die "Can't symlink($oldname, $newname): $!\n";
+	}
+	undef $d;
+	if($compile) {
+	    @args = ("/usr/bin/$MyName", @sdkarchlist,
+		'-isysroot', $sdkroot, @otherargs);
+	} else {
+	    @args = ("/usr/bin/$MyName", @sdkarchlist,
+		"-Wl,-syslibroot,$sdkroot", @otherargs);
+	}
+	print STDERR "===>@args\n";
+	my @filelist;
+	{
+	    local $CWD = $sdkdir; # chdir to $sdkdir within this block
+	    system(@args) == 0 or exit 1;
+	    my $d = DirHandle->new('.')
+		or die "Can't DirHandle->new('.'): $!\n";
+	    while(defined($_ = $d->read)) {
+		push(@filelist, $_) if !-l $_ && -f _;
+	    }
+	}
+	@args = ("/usr/bin/$MyName", @regulararchlist, @otherargs);
+	print STDERR "===>@args\n";
+	{
+	    local $CWD = $regulardir; # chdir to $regulardir within this block
+	    system(@args) == 0 or exit 1;
+	}
+	for(@filelist) {
+	    @args = (
+		'lipo',
+		'-create',
+		File::Spec->join($sdkdir, $_),
+		File::Spec->join($regulardir, $_),
+		'-output',
+		$_
+	    );
+	    print STDERR "===>@args\n";
+	    system(@args) == 0 or exit 1;
+	}
+    }
+    exit 0;
+} else {
+    push(@regulararchlist, @sdkarchlist);
+}
+
+if(scalar(@regulararchlist) == 0) { # no -arch flag was specified
+    chomp(my $nativearch = `arch`);
+    # If $nativearch is in %SDKArchs, we push it into @sdkarchlist.  This
+    # will cause the appropriate SDKROOT flag to be added, even though no
+    # -arch flag will be used.
+    push(@sdkarchlist, $nativearch) if $SDKArchs{$nativearch};
+}
+
+my @args = ("/usr/bin/$MyName", @regulararchlist);
+if(scalar(@sdkarchlist)) {
+    push(@args, $compile ? ('-isysroot', $sdkroot) :
+	"-Wl,-syslibroot,$sdkroot");
+    $doprint = 1;
+}
+push(@args, '-o', $output) if defined($output);
+push(@args, @otherargs);
+print STDERR "===>@args\n" if $doprint;
+exec @args;
+exit 1; # exec failed

@@ -16,10 +16,12 @@
  */
 
 #include "bdb_compat.h"
+
 #include "svn_fs.h"
+#include "private/svn_skel.h"
+
 #include "../fs.h"
 #include "../err.h"
-#include "../util/skel.h"
 #include "../util/fs_skels.h"
 #include "../../libsvn_fs/fs-loader.h"
 #include "bdb-err.h"
@@ -27,6 +29,7 @@
 #include "rev-table.h"
 
 #include "svn_private_config.h"
+#include "private/svn_fs_util.h"
 
 
 /* Opening/creating the `revisions' table.  */
@@ -40,9 +43,9 @@ int svn_fs_bdb__open_revisions_table(DB **revisions_p,
 
   BDB_ERR(svn_fs_bdb__check_version());
   BDB_ERR(db_create(&revisions, env, 0));
-  BDB_ERR(revisions->open(SVN_BDB_OPEN_PARAMS(revisions, NULL),
-                          "revisions", 0, DB_RECNO,
-                          open_flags, 0666));
+  BDB_ERR((revisions->open)(SVN_BDB_OPEN_PARAMS(revisions, NULL),
+                            "revisions", 0, DB_RECNO,
+                            open_flags, 0666));
 
   *revisions_p = revisions;
   return 0;
@@ -63,7 +66,7 @@ svn_fs_bdb__get_rev(revision_t **revision_p,
   base_fs_data_t *bfd = fs->fsap_data;
   int db_err;
   DBT key, value;
-  skel_t *skel;
+  svn_skel_t *skel;
   revision_t *revision;
 
   /* Turn the revision number into a Berkeley DB record number.
@@ -87,7 +90,7 @@ svn_fs_bdb__get_rev(revision_t **revision_p,
   SVN_ERR(BDB_WRAP(fs, _("reading filesystem revision"), db_err));
 
   /* Parse REVISION skel.  */
-  skel = svn_fs_base__parse_skel(value.data, value.size, pool);
+  skel = svn_skel__parse(value.data, value.size, pool);
   if (! skel)
     return svn_fs_base__err_corrupt_fs_revision(fs, rev);
 
@@ -113,7 +116,7 @@ svn_fs_bdb__put_rev(svn_revnum_t *rev,
   base_fs_data_t *bfd = fs->fsap_data;
   int db_err;
   db_recno_t recno = 0;
-  skel_t *skel;
+  svn_skel_t *skel;
   DBT key, value;
 
   /* Convert native type to skel. */
@@ -164,7 +167,7 @@ svn_fs_bdb__youngest_rev(svn_revnum_t *youngest_p,
   DBT key, value;
   db_recno_t recno;
 
-  SVN_ERR(svn_fs_base__check_fs(fs));
+  SVN_ERR(svn_fs__check_fs(fs, TRUE));
 
   /* Create a database cursor.  */
   svn_fs_base__trail_debug(trail, "revisions", "cursor");
@@ -173,16 +176,16 @@ svn_fs_bdb__youngest_rev(svn_revnum_t *youngest_p,
                                           &cursor, 0)));
 
   /* Find the last entry in the `revisions' table.  */
-  db_err = cursor->c_get(cursor,
-                         svn_fs_base__recno_dbt(&key, &recno),
-                         svn_fs_base__nodata_dbt(&value),
-                         DB_LAST);
+  db_err = svn_bdb_dbc_get(cursor,
+                           svn_fs_base__recno_dbt(&key, &recno),
+                           svn_fs_base__nodata_dbt(&value),
+                           DB_LAST);
 
   if (db_err)
     {
       /* Free the cursor.  Ignore any error value --- the error above
          is more interesting.  */
-      cursor->c_close(cursor);
+      svn_bdb_dbc_close(cursor);
 
       if (db_err == DB_NOTFOUND)
         /* The revision 0 should always be present, at least.  */
@@ -203,7 +206,7 @@ svn_fs_bdb__youngest_rev(svn_revnum_t *youngest_p,
      2) using a cursor after committing its transaction can cause
      undetectable database corruption.  */
   SVN_ERR(BDB_WRAP(fs, "getting youngest revision (closing cursor)",
-                   cursor->c_close(cursor)));
+                   svn_bdb_dbc_close(cursor)));
 
   /* Turn the record number into a Subversion revision number.
      Revisions are numbered starting with zero; Berkeley DB record

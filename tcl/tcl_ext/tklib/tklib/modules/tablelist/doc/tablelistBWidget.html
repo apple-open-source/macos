@@ -1,0 +1,241 @@
+<html>
+<head>
+  <title>Interactive Tablelist Cell Editing Using the BWidget Package</title>
+
+  <meta name="Author" content="Csaba Nemethi">
+  <meta name="Keywords" content="tablelist, editing, BWidget">
+</head>
+
+<body bgcolor="#FFFFFF">
+  <div align="center">
+    <h1>Interactive Tablelist Cell Editing Using the BWidget Package</h1>
+
+    <h3>by</h3>
+
+    <h2>Csaba Nemethi</h2>
+
+    <address>
+      <a href="mailto:csaba.nemethi@t-online.de">csaba.nemethi@t-online.de</a>
+    </address>
+  </div>
+
+  <hr>
+
+  <h2><a name="contents"></a>Contents</h2>
+
+  <ul>
+    <li><a href="#overview">Overview</a></li>
+
+    <li><a href="#Entry">The <code><b>tablelist::addBWidgetEntry</b></code>
+    Command</a></li>
+
+    <li><a href="#SpinBox">The <code><b>tablelist::addBWidgetSpinBox</b></code>
+    Command</a></li>
+
+    <li><a href="#ComboBox">The
+    <code><b>tablelist::addBWidgetComboBox</b></code> Command</a></li>
+  </ul>
+
+  <div align="center">
+    <p><a href="index.html">Start page</a></p>
+  </div>
+
+  <hr>
+
+  <h2><a name="overview"></a>Overview</h2>
+
+  <p>The BWidget package is a library extension for Tcl/Tk version 8.1.1 or
+  higher, written in pure Tcl/Tk code.&nbsp; Its download location is</p>
+
+  <blockquote>
+    <address>
+      <a href="http://tcllib.sourceforge.net">http://tcllib.sourceforge.net</a>
+    </address>
+  </blockquote>
+
+  <p>Tablelist supports interactive cell editing with the aid of the Entry,
+  SpinBox, and ComboBox widgets from the BWidget package.&nbsp; The steps
+  needed for using one of these widgets for editing the cells of a given column
+  are as follows:</p>
+
+  <ol>
+    <li>Register the desired widget for interactive cell editing by invoking
+    one of the commands described in this reference page.<br>
+    &nbsp;</li>
+
+    <li>Use the tablelist widget's <code><b><a href=
+    "tablelistWidget.html#columnconfigure">columnconfigure</a></b></code>
+    subcommand to set the given column's <code><b><a href=
+    "tablelistWidget.html#col_editable">-editable</a></b></code> option to true
+    and its <code><b><a href=
+    "tablelistWidget.html#col_editwindow">-editwindow</a></b></code> option to
+    the value returned by the command mentioned above.&nbsp; (These options are
+    supported at cell level, too, with the aid of the <code><b><a href=
+    "tablelistWidget.html#cellconfigure">cellconfigure</a></b></code>
+    subcommand.)</li>
+  </ol>
+
+  <div align="center">
+    <p><a href="#contents">Contents</a>&nbsp;&nbsp;&nbsp;&nbsp; <a href=
+    "index.html">Start page</a></p>
+  </div>
+
+  <hr>
+
+  <h2><a name="Entry"></a>The <code><b>tablelist::addBWidgetEntry</b></code>
+  Command</h2>
+
+  <dl>
+    <dt><b>NAME</b></dt>
+
+    <dd><code>tablelist::addBWidgetEntry</code> - Register the Entry widget
+    from the BWidget package for interactive cell editing</dd>
+
+    <dt><br>
+    <b>SYNOPSIS</b></dt>
+
+    <dd>
+      <pre>
+<b>tablelist::addBWidgetEntry</b> ?<i>name</i>?
+</pre>
+    </dd>
+
+    <dt><b>DESCRIPTION</b></dt>
+
+    <dd>This command registers the Entry widget from the BWidget package for
+    interactive cell editing in tablelist widgets.&nbsp; The optional argument
+    specifies the name to be used for the Entry widget as the value of the
+    <code><b><a href=
+    "tablelistWidget.html#col_editwindow">-editwindow</a></b></code> column or
+    cell configuration option.&nbsp; It may be any string that is different
+    from <code><b>entry</b></code>, <code><b>text</b></code>,
+    <code><b>spinbox</b></code>, <code><b>checkbutton</b></code>,
+    <code><b>ttk::entry</b></code>, <code><b>ttk::checkbutton</b></code>, and
+    <code><b>ttk::combobox</b></code>.&nbsp; The default is
+    <code><b>Entry</b></code>.&nbsp; The command returns its
+    <code><i>name</i></code> argument.</dd>
+
+    <dt><br>
+    <b>KEYWORDS</b></dt>
+
+    <dd>tablelist, editing, BWidget, Entry</dd>
+  </dl>
+
+  <div align="center">
+    <p><a href="#contents">Contents</a>&nbsp;&nbsp;&nbsp;&nbsp; <a href=
+    "index.html">Start page</a></p>
+  </div>
+
+  <hr>
+
+  <h2><a name="SpinBox"></a>The
+  <code><b>tablelist::addBWidgetSpinBox</b></code> Command</h2>
+
+  <dl>
+    <dt><b>NAME</b></dt>
+
+    <dd><code>tablelist::addBWidgetSpinBox</code> - Register the SpinBox widget
+    from the BWidget package for interactive cell editing</dd>
+
+    <dt><br>
+    <b>SYNOPSIS</b></dt>
+
+    <dd>
+      <pre>
+<b>tablelist::addBWidgetSpinBox</b> ?<i>name</i>?
+</pre>
+    </dd>
+
+    <dt><b>DESCRIPTION</b></dt>
+
+    <dd>This command registers the SpinBox widget from the BWidget package for
+    interactive cell editing in tablelist widgets.&nbsp; The optional argument
+    specifies the name to be used for the SpinBox widget as the value of the
+    <code><b><a href=
+    "tablelistWidget.html#col_editwindow">-editwindow</a></b></code> column or
+    cell configuration option.&nbsp; It may be any string that is different
+    from <code><b>entry</b></code>, <code><b>text</b></code>,
+    <code><b>spinbox</b></code>, <code><b>checkbutton</b></code>,
+    <code><b>ttk::entry</b></code>, <code><b>ttk::checkbutton</b></code>, and
+    <code><b>ttk::combobox</b></code>.&nbsp; The default is
+    <code><b>SpinBox</b></code>.&nbsp; The command returns its
+    <code><i>name</i></code> argument.</dd>
+
+    <dd><br>
+    The temporary embedded SpinBox widget associated with the above
+    <code><i>name</i></code> will be created with its
+    <code><b>-editable</b></code> option set to <code>1</code>.&nbsp; You can
+    use the script corresponding to the <code><b><a href=
+    "tablelistWidget.html#editstartcommand">-editstartcommand</a></b></code>
+    tablelist configuration option to make the SpinBox non-editable or define
+    validations for it, as well as for setting its (range of) values and its
+    <code><b>-wrap</b></code> option.</dd>
+
+    <dt><br>
+    <b>KEYWORDS</b></dt>
+
+    <dd>tablelist, editing, BWidget, SpinBox</dd>
+  </dl>
+
+  <div align="center">
+    <p><a href="#contents">Contents</a>&nbsp;&nbsp;&nbsp;&nbsp; <a href=
+    "index.html">Start page</a></p>
+  </div>
+
+  <hr>
+
+  <h2><a name="ComboBox"></a>The
+  <code><b>tablelist::addBWidgetComboBox</b></code> Command</h2>
+
+  <dl>
+    <dt><b>NAME</b></dt>
+
+    <dd><code>tablelist::addBWidgetComboBox</code> - Register the ComboBox
+    widget from the BWidget package for interactive cell editing</dd>
+
+    <dt><br>
+    <b>SYNOPSIS</b></dt>
+
+    <dd>
+      <pre>
+<b>tablelist::addBWidgetComboBox</b> ?<i>name</i>?
+</pre>
+    </dd>
+
+    <dt><b>DESCRIPTION</b></dt>
+
+    <dd>This command registers the ComboBox widget from the BWidget package for
+    interactive cell editing in tablelist widgets.&nbsp; The optional argument
+    specifies the name to be used for the ComboBox widget as the value of the
+    <code><b><a href=
+    "tablelistWidget.html#col_editwindow">-editwindow</a></b></code> column or
+    cell configuration option.&nbsp; It may be any string that is different
+    from <code><b>entry</b></code>, <code><b>text</b></code>,
+    <code><b>spinbox</b></code>, <code><b>checkbutton</b></code>,
+    <code><b>ttk::entry</b></code>, <code><b>ttk::checkbutton</b></code>, and
+    <code><b>ttk::combobox</b></code>.&nbsp; The default is
+    <code><b>ComboBox</b></code>.&nbsp; The command returns its
+    <code><i>name</i></code> argument.</dd>
+
+    <dd><br>
+    The temporary embedded ComboBox widget associated with the above
+    <code><i>name</i></code> will be created with its
+    <code><b>-editable</b></code> option set to <code>1</code>.&nbsp; You can
+    use the script corresponding to the <code><b><a href=
+    "tablelistWidget.html#editstartcommand">-editstartcommand</a></b></code>
+    tablelist configuration option to make the ComboBox non-editable or define
+    validations for it, as well as for populating its listbox component (with
+    the aid of the ComboBox widget's <code><b>-values</b></code> option).</dd>
+
+    <dt><br>
+    <b>KEYWORDS</b></dt>
+
+    <dd>tablelist, editing, BWidget, ComboBox</dd>
+  </dl>
+
+  <div align="center">
+    <p><a href="#contents">Contents</a>&nbsp;&nbsp;&nbsp;&nbsp; <a href=
+    "index.html">Start page</a></p>
+  </div>
+</body>
+</html>

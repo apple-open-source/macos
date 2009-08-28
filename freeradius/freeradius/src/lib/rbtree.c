@@ -1,7 +1,7 @@
 /*
  * rbtree.c	Red-black balanced binary trees.
  *
- * Version:	$Id: rbtree.c,v 1.10.4.2 2006/03/15 15:37:57 nbk Exp $
+ * Version:	$Id$
  *
  *   This library is free software; you can redistribute it and/or
  *   modify it under the terms of the GNU Lesser General Public
@@ -17,18 +17,13 @@
  *   License along with this library; if not, write to the Free Software
  *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- *  Copyright 2004  The FreeRADIUS server project
+ *  Copyright 2004,2006  The FreeRADIUS server project
  */
 
-static const char rcsid[] = "$Id: rbtree.c,v 1.10.4.2 2006/03/15 15:37:57 nbk Exp $";
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include "autoconf.h"
-
-#include <stdlib.h>
-#include <string.h>
-
-#include "missing.h"
-#include "libradius.h"
+#include <freeradius-devel/libradius.h>
 
 /* red-black tree description */
 typedef enum { Black, Red } NodeColor;
@@ -42,7 +37,7 @@ struct rbnode_t {
 };
 
 #define NIL &Sentinel           /* all leafs are sentinels */
-static const rbnode_t Sentinel = { NIL, NIL, NULL, Black, NULL};
+static rbnode_t Sentinel = { NIL, NIL, NULL, Black, NULL};
 
 struct rbtree_t {
 #ifndef NDEBUG
@@ -233,7 +228,7 @@ static void InsertFixup(rbtree_t *tree, rbnode_t *X)
 /*
  *	Insert an element into the tree.
  */
-int rbtree_insert(rbtree_t *tree, void *Data)
+rbnode_t *rbtree_insertnode(rbtree_t *tree, void *Data)
 {
 	rbnode_t *Current, *Parent, *X;
 
@@ -256,7 +251,7 @@ int rbtree_insert(rbtree_t *tree, void *Data)
 			 *	Don't replace the entry.
 			 */
 			if (tree->replace_flag == 0) {
-				return 0;
+				return NULL;
 			}
 
 			/*
@@ -264,7 +259,7 @@ int rbtree_insert(rbtree_t *tree, void *Data)
 			 */
 			if (tree->freeNode) tree->freeNode(Current->Data);
 			Current->Data = Data;
-			return 1;
+			return Current;
 		}
 
 		Parent = Current;
@@ -296,7 +291,13 @@ int rbtree_insert(rbtree_t *tree, void *Data)
 
 	tree->num_elements++;
 
-	return 1;
+	return X;
+}
+
+int rbtree_insert(rbtree_t *tree, void *Data)
+{
+	if (rbtree_insertnode(tree, Data)) return 1;
+	return 0;
 }
 
 static void DeleteFixup(rbtree_t *tree, rbnode_t *X, rbnode_t *Parent)
@@ -408,21 +409,41 @@ void rbtree_delete(rbtree_t *tree, rbnode_t *Z)
 		tree->Root = X;
 
 	if (Y != Z) {
-		/*
-		 *	Move the child's data to here, and then
-		 *	re-balance the tree.
-		 */
 		if (tree->freeNode) tree->freeNode(Z->Data);
 		Z->Data = Y->Data;
 		Y->Data = NULL;
-	} else if (tree->freeNode) {
-		tree->freeNode(Z->Data);
+
+		if (Y->Color == Black && X != NIL)
+			DeleteFixup(tree, X, Parent);
+
+		/*
+		 *	The user structure in Y->Data MAY include a
+		 *	pointer to Y.  In that case, we CANNOT delete
+		 *	Y.  Instead, we copy Z (which is now in the
+		 *	tree) to Y, and fix up the parent/child
+		 *	pointers.
+		 */
+		memcpy(Y, Z, sizeof(*Y));
+
+		if (!Y->Parent) {
+			tree->Root = Y;
+		} else {
+			if (Y->Parent->Left == Z) Y->Parent->Left = Y;
+			if (Y->Parent->Right == Z) Y->Parent->Right = Y;
+		}
+		if (Y->Left->Parent == Z) Y->Left->Parent = Y;
+		if (Y->Right->Parent == Z) Y->Right->Parent = Y;
+
+		free(Z);
+
+	} else {
+		if (tree->freeNode) tree->freeNode(Y->Data);
+
+		if (Y->Color == Black && X != NIL)
+			DeleteFixup(tree, X, Parent);
+
+		free(Y);
 	}
-
-	if (Y->Color == Black && X != NIL)
-		DeleteFixup(tree, X, Parent);
-
-	free(Y);
 
 	tree->num_elements--;
 }
@@ -434,7 +455,7 @@ void rbtree_delete(rbtree_t *tree, rbnode_t *Z)
 int rbtree_deletebydata(rbtree_t *tree, const void *data)
 {
 	rbnode_t *node = rbtree_find(tree, data);
-	
+
 	if (!node) return 0;	/* false */
 
 	rbtree_delete(tree, node);
@@ -599,4 +620,19 @@ void *rbtree_node2data(rbtree_t *tree, rbnode_t *node)
 	if (!node) return NULL;
 
 	return node->Data;
+}
+
+/*
+ *	Return left-most child.
+ */
+void *rbtree_min(rbtree_t *tree)
+{
+	rbnode_t *Current;
+
+	if (!tree || !tree->Root) return NULL;
+
+	Current = tree->Root;
+	while (Current->Left != NIL) Current = Current->Left;
+
+	return Current->Data;
 }

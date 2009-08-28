@@ -1,0 +1,77 @@
+# This file is a Tcl script to test out PCX reading and writing.
+# It is organized in the standard fashion for Tcl tests.
+#
+
+puts "img::pcx [package require img::pcx]"
+
+set pcxdata \
+{CgUBCAAAAABRAAsALAEsAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAADUgABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAADB/wDE/wDC/wDC/wDC/wDC/wDE/wDC/wDC/wDC/wDC/wDE
+/wDC/wDC/wDC/wDC/wDE/wDC/wDC/wDC/wDH/wDC/wDC/wDC/wDE/wDC/wDC/wDC/wDC/wDE
+/wDC/wDC/wDC/wDC/wDE/wDC/wDC/wDC/wDC/wDE/wDC/wDC/wDC/wDH/wDC/wDC/wDC/wDE
+/wDC/wDC/wDC/wDC/wDE/wDC/wDC/wDC/wDC/wDE/wDC/wDC/wDC/wDC/wDE/wDC/wDC/wDC
+/wDH/wDC/wDC/wDB/8H/ygDJ/8QAwf/HAMH/AML/AML/zADC/wDC/wDC/8YAwf/FAMn/AML/
+ygDJ/8QAwf/HAMH/AML/AML/zADC/wDC/wDC/8YAwf/FAMn/AML/ygDJ/8QAwf/HAMH/AML/
+AML/zADC/wDC/wDC/8YAwf/FAMn/AMH/wf/KAMn/wwDB/wDB/8IAwf/CAMH/AMP/AML/wwDB
+/8IAwf/CAMH/wgDF/wDD/8IAwf8Awv/CAML/AMb/AML/AML/ygDJ/8MAwf8Awf/CAMH/wgDB
+/wDD/wDC/8MAwf/CAMH/wgDB/8IAxf8Aw//CAMH/AML/wgDC/wDG/wDC/wDC/8oAyf/DAMH/
+AMH/wgDB/8IAwf8Aw/8Awv/DAMH/wgDB/8IAwf/CAMX/AMP/wgDB/wDC/8IAwv8Axv8Awv8A
+wf/B/8oAyf8Awf8Awv/CAML/wgDB/wDD/wDC/8wAxf8Aw/8Awv8Aw/8Awv8Axv8Awv8Awv/K
+AMn/AMH/AML/wgDC/8IAwf8Aw/8Awv/MAMX/AMP/AML/AMP/AML/AMb/AML/AML/ygDJ/wDB
+/wDC/8IAwv/CAMH/AMP/AML/zADF/wDD/wDC/wDD/wDC/wDG/wDC/wDB/8H/ygDJ/84Awv8A
+wv/MAML/AML/AML/xgDB/8UAyf/CAMH/ygDJ/84Awv8Awv/MAML/AML/AML/xgDB/8UAyf/C
+AMH/ygDJ/84Awv8Awv/MAML/AML/AML/xgDB/8UAyf/CAMH/ygDJ/8gAwf/CAMH/wgDB/8IA
+wv/GAMH/wgDB/8IAwv8Aw/8Awf/DAMH/wgDB/8IAwf/CAMP/AML/AML/AML/ygDJ/8gAwf/C
+AMH/wgDB/8IAwv/GAMH/wgDB/8IAwv8Aw/8Awf/DAMH/wgDB/8IAwf/CAMP/AML/AML/AML/
+ygDJ/8gAwf/CAMH/wgDB/8IAwv/GAMH/wgDB/8IAwv8Aw/8Awf/DAMH/wgDB/8IAwf/CAMP/
+AML/AML/AMH/wf/KAMn/AMH/wgDE/8MAyf/LAML/AMb/AMn/AMn/AML/ygDJ/wDB/8IAxP/D
+AMn/ywDC/wDG/wDJ/wDJ/wDC/8oAyf8Awf/CAMT/wwDJ/8sAwv8Axv8Ayf8Ayf8Awf/B/8oA
+yf/LAML/AML/AML/yQDB/8IAwv8Awv8Awv/DAMH/wgDB/8IAwf/CAMn/AML/ygDJ/8sAwv8A
+wv8Awv/JAMH/wgDC/wDC/wDC/8MAwf/CAMH/wgDB/8IAyf8Awv/KAMn/ywDC/wDC/wDC/8kA
+wf/CAML/AML/AML/wwDB/8IAwf/CAMH/wgDJ/wDB/8H/ygDJ/8sAwf/CAMH/zQDB/8IAwf8A
+wf8Awv8Awv/FAMH/wgDB/8MAxf8Awv8Awv/KAMn/ywDB/8IAwf/NAMH/wgDB/wDB/wDC/wDC
+/8UAwf/CAMH/wwDF/wDC/wDC/8oAyf/LAMH/wgDB/80Awf/CAMH/AMH/AML/AML/xQDB/8IA
+wf/DAMX/AML/AMH/wf/KAMn/AMH/AML/wgDC/8IAxf8Awv/MAML/AMb/AML/AMb/AMn/AML/
+ygDJ/wDB/wDC/8IAwv/CAMX/AML/zADC/wDG/wDC/wDG/wDJ/wDC/8oAyf8Awf8Awv/CAML/
+wgDF/wDC/8wAwv8Axv8Awv8Axv8Ayf8Awf/B//8A0QDC//8A0QDC//8A0QDB/8H/AMH/wgDB
+/8IAwf8Awv8Awv8Awf/CAMH/wgDB/8IAwf8Awv8Awv8Awf/CAMH/wgDB/8IAwf8Awv8Awv8A
+wf/CAMH/wgDB/wDC/wDC/wDC/wDB/8IAwf/CAMH/AML/AML/AML/AMH/wgDB/8IAwf8Awv8A
+wv8Awf/CAMH/wgDB/8IAwf8Awv8Awv8Awf/CAMH/wgDB/8IAwf8Awv8Awv8Awf/CAMH/wgDB
+/wDC/wDC/wDC/wDB/8IAwf/CAMH/AML/AML/AML/AMH/wgDB/8IAwf8Awv8Awv8Awf/CAMH/
+wgDB/8IAwf8Awv8Awv8Awf/CAMH/wgDB/8IAwf8Awv8Awv8Awf/CAMH/wgDB/wDC/wDC/wDC
+/wDB/8IAwf/CAMH/AML/AML/AMH/}
+
+
+test pcx-1.1 {} {
+    catch {image delete i}
+    image create photo i -file [file join $tcltest::testsDirectory hori_bw.pcx]
+    i data -format pcx
+} $pcxdata
+test pcx-1.2 {} {
+    catch {image delete i}
+    image create photo i -data $pcxdata
+    set data [i data -format pcx]
+} $pcxdata
+test pcx-1.3 {} {
+    i blank
+    i put $pcxdata
+    set data [i data -format pcx]
+} $pcxdata
+test pcx-1.4 {} {
+    i blank
+    i put $pcxdata -format pcx
+    set data [i data -format pcx]
+} $pcxdata
+if {[info tclversion] < 8.0} {
+    return
+}
+
+test pcx-2.0 {Binary I/O with PCX images} {
+    i blank
+    set f [open [file join $tcltest::testsDirectory hori_bw.pcx] r]
+    fconfigure $f -translation binary
+    set return [catch {i put [read $f]} msg]
+    close $f
+    lappend return $msg
+} {0 {}}

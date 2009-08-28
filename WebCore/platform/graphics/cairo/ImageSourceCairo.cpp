@@ -34,12 +34,9 @@
 #include "ICOImageDecoder.h"
 #include "JPEGImageDecoder.h"
 #include "PNGImageDecoder.h"
+#include "XBMImageDecoder.h"
 #include "SharedBuffer.h"
 #include <cairo.h>
-
-#if !PLATFORM(WIN)
-#include "XBMImageDecoder.h"
-#endif
 
 namespace WebCore {
 
@@ -78,13 +75,11 @@ ImageDecoder* createDecoder(const Vector<char>& data)
     // CURs begin with 2-byte 0 followed by 2-byte 2.
     if (!memcmp(contents, "\000\000\001\000", 4) ||
         !memcmp(contents, "\000\000\002\000", 4))
-        return new ICOImageDecoder();
+        return new ICOImageDecoder(IntSize());
 
-#if !PLATFORM(WIN)
     // XBMs require 8 bytes of info.
     if (length >= 8 && strncmp(contents, "#define ", 8) == 0)
         return new XBMImageDecoder();
-#endif
 
     // Give up. We don't know what the heck this is.
     return 0;
@@ -190,14 +185,10 @@ NativeImagePtr ImageSource::createFrameAtIndex(size_t index)
 
     // Cairo does not like zero height images.
     // If we have a zero height image, just pretend we don't have enough data yet.
-    if (!buffer->height())
+    if (!size().height())
         return 0;
 
-    return cairo_image_surface_create_for_data((unsigned char*)buffer->bytes().data(),
-                                               CAIRO_FORMAT_ARGB32,
-                                               size().width(),
-                                               buffer->height(),
-                                               size().width()*4);
+    return buffer->asNewNativeImage();
 }
 
 bool ImageSource::frameIsCompleteAtIndex(size_t index)

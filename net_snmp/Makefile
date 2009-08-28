@@ -7,10 +7,17 @@ Project		= net-snmp
 ProjectName	= net_snmp
 UserType	= Administration
 ToolType	= Commands
-Submission	= 121
+Submission	= 127
 
 #
 # Settings for the net-snmp project.
+#
+########################
+#
+# NOTE: when shipping library updates instead of the full package, you must also ship the updated
+#       /usr/include/net-snmp/net-snmp-config.h
+#
+########################
 #
 # Justification for #defines:
 # CONFORMANCE is to avoid confusing configure
@@ -102,7 +109,7 @@ AEP		= YES
 AEP_Version	= 5.4.2.1
 AEP_Patches    = diskio.patch IPv6.patch universal_builds.patch \
 			cache.patch container.patch darwin-header.patch \
-			dir_utils.patch disk.patch host.patch \
+			dir_utils.patch disk.patch host.patch 6581429.patch \
 			lmsensors.patch darwin-sensors.patch swinst.patch swrun.patch \
 			system.patch table.patch darwin64.patch perl-cc.patch
 AEP_LaunchdConfigs	= org.net-snmp.snmpd.plist
@@ -216,6 +223,8 @@ install-macosx:
 	$(_v) $(FIND) $(DSTROOT)$(SHAREDIR)/snmp -type f -exec chmod 644 {} \;
 	$(_v) $(RM) $(DSTROOT)$(USRLIBDIR)/*.a $(DSTROOT)$(USRLIBDIR)/*.la
 	$(_v) $(FIND) $(DSTROOT)$(MANDIR) -type f -exec chmod 644 {} \;
+	@echo "Removing perllocal.pod..."
+	$(_v) $(RM) -rf "$(DSTROOT)/System/Library/Perl"
 	@echo "Eliminating architecture flags from $(CONFIGTOOL)..."
 	$(MV) $(DSTROOT)$(CONFIGTOOL) $(DSTROOT)$(CONFIGTOOL).old
 	$(SED) -Ee 's/-arch [-_a-z0-9]{3,10}//g' \
@@ -232,3 +241,5 @@ install-mibs:
 
 install-compat:
 	$(_v) $(TAR) -C $(DSTROOT)$(USRLIBDIR) -xzf $(SRCROOT)/libs-5.2.1.tar.gz
+	@echo "Fixing privs on libnetsnmp.5.dylib ref bug# 6877106"
+	$(_v) $(CHMOD) -h 755 $(DSTROOT)$(USRLIBDIR)/libnetsnmp.5.dylib

@@ -44,6 +44,7 @@ class KeychainPromptAclSubject : public SimpleAclSubject {
 public:
     bool validate(const AclValidationContext &baseCtx, const TypedList &sample) const;
     CssmList toList(Allocator &alloc) const;
+    bool hasAuthorizedForSystemKeychain() const;
     
     KeychainPromptAclSubject(string description, const CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR &selector);
     

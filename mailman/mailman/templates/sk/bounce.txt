@@ -1,0 +1,15 @@
+Toto je správa od automatického systému pre detekciu
+neplatných elektronických adries systému Mailman.
+
+
+    Konferencia: %(listname)s
+    Účastník:   %(addr)s
+    Akcia:      Účasť %(negative)s%(did)s.
+    Dôvod:      Prekročenie počtu nedoručiteľných príspevkov.
+    %(but)s
+
+%(reenable)s
+Správa, ktorú nejde doručiť je priložená nižšie.
+
+Ďalšie otázky?  
+Kontaktuje správcu systému na adrese %(owneraddr)s.

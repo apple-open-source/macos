@@ -1,4 +1,4 @@
-# $Id: Parser.pm,v 1.1.1.1 2004/05/20 17:55:25 jpetri Exp $
+# $Id: Parser.pm,v 1.1.1.2 2007/10/10 23:04:14 ahuda Exp $
 
 package XML::LibXML::SAX::Parser;
 
@@ -10,7 +10,7 @@ use XML::LibXML::Common qw(:libxml);
 use XML::SAX::Base;
 use XML::SAX::DocumentLocator;
 
-$VERSION = '1.50';
+$VERSION = "1.65"; # VERSION TEMPLATE: DO NOT CHANGE
 @ISA = ('XML::SAX::Base');
 
 sub _parse_characterstream {
@@ -43,6 +43,36 @@ sub generate {
     my $self = shift;
     my ($node) = @_;
 
+    my $doc = $node->ownerDocument();
+    {
+      # precompute some DocumentLocator values
+      my %locator = (
+	PublicId => undef,
+	SystemId => undef,
+	Encoding => undef,
+	XMLVersion => undef,
+       );
+      my $dtd = defined $doc ? $doc->externalSubset() : undef;
+      if (defined $dtd) {
+	$locator{PublicId} = $dtd->publicId();
+	$locator{SystemId} = $dtd->systemId();
+      }
+      if (defined $doc) {
+	$locator{Encoding} = $doc->encoding();
+	$locator{XMLVersion} = $doc->version();
+      }
+      $self->set_document_locator(
+	XML::SAX::DocumentLocator->new(
+	  sub { $locator{PublicId} },
+	  sub { $locator{SystemId} },
+	  sub { defined($self->{current_node}) ? $self->{current_node}->line_number() : undef },
+	  sub { 1 },
+	  sub { $locator{Encoding} },
+	  sub { $locator{XMLVersion} },
+	 ),
+       );
+    }
+
     if ( $node->nodeType() == XML_DOCUMENT_NODE
          || $node->nodeType == XML_HTML_DOCUMENT_NODE ) {
         $self->start_document({});
@@ -54,6 +84,8 @@ sub generate {
 
 sub process_node {
     my ($self, $node) = @_;
+
+    local $self->{current_node} = $node;
 
     my $node_type = $node->nodeType();
     if ($node_type == XML_COMMENT_NODE) {
@@ -102,6 +134,7 @@ sub process_node {
     else {
         # warn("unsupported node type: $node_type");
     }
+
 }
 
 sub process_element {

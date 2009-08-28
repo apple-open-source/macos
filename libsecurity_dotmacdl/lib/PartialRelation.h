@@ -56,7 +56,7 @@ public:
 	CSSM_DB_ATTRIBUTE_FORMAT GetColumnFormat (int i) {return mColumnFormat[i];}
 																		// returns the format of a column
 	
-	void SetColumnNames (char* column0, ...);							// sets the names of columns.
+	void SetColumnNames (const char* column0, ...);							// sets the names of columns.
 	void SetColumnFormats (CSSM_DB_ATTRIBUTE_FORMAT column0, ...);		// set the formats of columns.
 	void SetColumnIDs (uint32 column0, ...);							// set the column id's
 	uint32* GetColumnIDs ();											// gets the column id's

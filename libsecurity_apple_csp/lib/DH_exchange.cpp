@@ -52,8 +52,8 @@ void DeriveKey_DH (
 	
 	/*
 	 * Public key ("their" key) can come from two places:
-	 * -- in the context as a CSSM_ATTRIBUTE_PUBLIC_KEY. THis is how 
-	 *    public keys in X509 for must be used in this function
+	 * -- in the context as a CSSM_ATTRIBUTE_PUBLIC_KEY. This is how 
+	 *    public keys in X509 format must be used in this function
 	 * -- in the incoming Param, the raw unformatted (PKCS3) form 
 	 */
 	bool mallocdPubKey = false;

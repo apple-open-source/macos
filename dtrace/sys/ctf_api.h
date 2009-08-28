@@ -50,6 +50,16 @@
 #include <sys/ctf.h>
 #else /* is Apple Mac OS X */
 
+#if defined(__LP64__)
+#if !defined(_LP64)
+#define _LP64 /* Solaris vs. Darwin */
+#endif
+#else
+#if !defined(_ILP32)
+#define _ILP32 /* Solaris vs. Darwin */
+#endif
+#endif
+
 #ifdef KERNEL
 #ifndef _KERNEL
 #define _KERNEL /* Solaris vs. Darwin */

@@ -49,7 +49,7 @@ appdefaultdir = @appdefaultdir@
 
 
 APPDEFAULTFILES = \
-        XClipboard
+        app-defaults/XClipboard
 
 SUFFIXES = .ad
 

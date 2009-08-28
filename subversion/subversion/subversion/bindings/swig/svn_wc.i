@@ -1,8 +1,6 @@
 /*
- * svn_wc.i :  SWIG interface file for svn_wc.h
- *
  * ====================================================================
- * Copyright (c) 2000-2003 CollabNet.  All rights reserved.
+ * Copyright (c) 2000-2006, 2009 CollabNet.  All rights reserved.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution.  The terms
@@ -14,23 +12,20 @@
  * individuals.  For exact contribution history, see the revision
  * history and logs, available at http://subversion.tigris.org/.
  * ====================================================================
+ *
+ * svn_wc.i: SWIG interface file for svn_wc.h
  */
 
-#if defined(SWIGPERL)
+#if defined(SWIGPYTHON)
+%module(package="libsvn") wc
+#elif defined(SWIGPERL)
 %module "SVN::_Wc"
 #elif defined(SWIGRUBY)
 %module "svn::ext::wc"
-#else
-%module wc
 #endif
 
-%include typemaps.i
-
 %include svn_global.swg
-%import apr.swg
 %import core.i
-%import svn_types.swg
-%import svn_string.swg
 %import svn_delta.i
 %import svn_ra.i
 
@@ -43,35 +38,21 @@
 /* ### ignore this structure because the accessors will need a pool */
 %ignore svn_wc_keywords_t;
 
+#ifdef SWIGRUBY
+%ignore svn_wc_external_item_create;
+%ignore svn_wc_external_item_dup;
+%ignore svn_wc_external_item2_dup;
+%ignore svn_wc_revision_status;
+%ignore svn_wc_committed_queue_create;
+%ignore svn_wc_init_traversal_info;
+%ignore svn_wc_entry;
+%ignore svn_wc_notify;
+
+#endif
+
 /* -----------------------------------------------------------------------
    %apply-ing of typemaps defined elsewhere
 */
-
-%apply SWIGTYPE **OUTPARAM {
-    svn_wc_entry_t **,
-    svn_wc_adm_access_t **,
-    svn_wc_status_t **,
-    svn_wc_status2_t **,
-    svn_wc_revision_status_t **
-};
-
-/*
-   svn_wc_check_wc(wc_format)
-   svn_wc_merge(wc_format)
-*/
-%apply int *OUTPUT {
-  int *,
-  enum svn_wc_merge_outcome_t *
-};
-
-/*
-   svn_wc_prop_list()
-   svn_wc_get_prop_diffs()
-*/
-%apply apr_hash_t **PROPHASH {
-  apr_hash_t **props,
-  apr_hash_t **original_props
-};
 
 /* svn_wc_get_prop_diffs() */
 %apply apr_array_header_t **OUTPUT_OF_PROP {
@@ -84,6 +65,39 @@
   apr_hash_t *new_props
 };
 
+/*
+   svn_wc_queue_committed()
+   svn_wc_process_committed4()
+   svn_wc_process_committed3()
+   svn_wc_process_committed2()
+   svn_wc_process_committed()
+*/
+#ifdef SWIGPYTHON
+%typemap(in) apr_array_header_t *wcprop_changes
+  (apr_pool_t *_global_pool = NULL, PyObject *_global_py_pool = NULL)
+{
+  if (_global_pool == NULL)
+  {
+    if (svn_swig_py_get_parent_pool(args, $descriptor(apr_pool_t *),
+                                    &_global_py_pool, &_global_pool))
+      SWIG_fail;
+  }
+
+  $1 = svn_swig_py_proparray_from_dict($input, _global_pool);
+  if (PyErr_Occurred()) {
+    SWIG_fail;
+  }
+}
+#endif
+
+/* svn_wc_match_ignore_list() */
+%apply const apr_array_header_t *STRINGLIST {
+  apr_array_header_t *list
+}
+
+%apply const apr_array_header_t *STRINGLIST_MAY_BE_NULL {
+  apr_array_header_t *changelists
+}
 
 /* svn_wc_cleanup2() */
 %apply const char *MAY_BE_NULL {
@@ -97,242 +111,130 @@
     const char *trail_url
 }
 
-/* svn_wc_transmit_text_deltas2() */
-%apply (const svn_delta_editor_t *EDITOR, void *BATON)
-{
-  (const svn_delta_editor_t *editor, void *file_baton),
-  (const svn_delta_editor_t *editor, void *baton)
-}
+%hash_argout_typemap(entries, svn_wc_entry_t *)
+%hash_argout_typemap(externals_p, svn_wc_external_item_t *)
+
+#ifdef SWIGPYTHON
+%callback_typemap(svn_wc_notify_func_t notify_func, void *notify_baton,
+                  svn_swig_py_notify_func,
+                  ,
+                  )
+#endif
+
+#ifndef SWIGPERL
+%callback_typemap(svn_wc_notify_func2_t notify_func, void *notify_baton,
+                  svn_swig_py_notify_func2,
+                  ,
+                  svn_swig_rb_notify_func2)
+#endif
+
+#ifdef SWIGRUBY
+%callback_typemap(const svn_wc_entry_callbacks2_t *walk_callbacks,
+                  void *walk_baton,
+                  ,
+                  ,
+                  svn_swig_rb_wc_entry_callbacks2())
+#endif
+
+#ifndef SWIGRUBY
+%callback_typemap(svn_wc_status_func_t status_func, void *status_baton,
+                  svn_swig_py_status_func,
+                  svn_swig_pl_status_func,
+                  )
+#endif
+
+#ifndef SWIGPERL
+%callback_typemap(svn_wc_status_func2_t status_func, void *status_baton,
+                  svn_swig_py_status_func2,
+                  ,
+                  svn_swig_rb_wc_status_func)
+#endif
+
+#ifndef SWIGPERL
+%callback_typemap(const svn_wc_diff_callbacks2_t *callbacks,
+                  void *callback_baton,
+                  svn_swig_py_setup_wc_diff_callbacks2(&$2, $input,
+                                                       _global_pool),
+                  ,
+                  svn_swig_rb_wc_diff_callbacks2())
+#endif
+
+#ifdef SWIGRUBY
+%callback_typemap(svn_wc_relocation_validator3_t validator,
+                  void *validator_baton,
+                  ,
+                  ,
+                  svn_swig_rb_wc_relocation_validator3)
+#endif
 
 
-%apply const char **OUTPUT { char **url };
+#ifdef SWIGRUBY
+%apply const char *NOT_NULL {
+  const char *changelist,
+  const char *matching_changelist
+};
+#endif
 
 
-/* -----------------------------------------------------------------------
-   apr_hash_t ** <const char *, const svn_wc_entry_t *>
-   svn_wc_entries_read()
+/* svn_wc_translated2() */
+#ifdef SWIGRUBY
+%apply const char **TO_TEMP_FILE {
+    const char **xlated_path
+};
+#endif
+
+/* svn_wc_queue_committed() */
+#ifdef SWIGRUBY
+%typemap(in) svn_wc_committed_queue_t **queue (void *tempp=NULL) {
+  SWIG_ConvertPtr($input, &tempp, $*1_descriptor, 0);
+  $1 = ($1_ltype)&tempp;
+};
+
+%typemap(argout) svn_wc_committed_queue_t **queue {
+  %append_output(argv[0]);
+};
+#endif
+
+/*
+   svn_wc_get_update_editor3()
+   svn_wc_get_switch_editor3()
 */
-
-%typemap(python, in, numinputs=0) apr_hash_t **entries = apr_hash_t **OUTPUT;
-%typemap(python, argout, fragment="t_output_helper") apr_hash_t **entries {
-    $result = t_output_helper(
-        $result,
-        svn_swig_py_convert_hash(*$1, $descriptor(svn_wc_entry_t *),
-          _global_svn_swig_py_pool));
-}
-
-%typemap(ruby, in, numinputs=0) apr_hash_t **entries = apr_hash_t **OUTPUT;
-%typemap(ruby, argout, fragment="output_helper") apr_hash_t **entries
+#ifdef SWIGRUBY
+%typemap(in) svn_revnum_t *target_revision
 {
-  $result = output_helper($result,
-                          svn_swig_rb_apr_hash_to_hash_swig_type
-                            (*$1, "svn_wc_entry_t *"));
-}
-
-/* -----------------------------------------------------------------------
-   apr_hash_t **externals_old
-   apr_hash_t **externals_new
-   svn_wc_edited_externals()
-*/
-
-%typemap(ruby, in, numinputs=0) apr_hash_t **externals_old = apr_hash_t **OUTPUT;
-%typemap(ruby, argout, fragment="output_helper") apr_hash_t **externals_old
-{
-  $result = output_helper($result,
-                          svn_swig_rb_apr_hash_to_hash_string(*$1));
-}
-
-%typemap(ruby, in, numinputs=0) apr_hash_t **externals_new = apr_hash_t **externals_old;
-%typemap(ruby, argout, fragment="output_helper") apr_hash_t **externals_new = apr_hash_t **externals_old;
-
-
-/* -----------------------------------------------------------------------
-   apr_array_header_t **externals_p
-   svn_wc_parse_externals_description2()
-*/
-
-%typemap(ruby, in, numinputs=0)
-     apr_array_header_t **externals_p (apr_array_header_t *temp)
-{
-  $1 = &temp;
-}
-%typemap(ruby, argout, fragment="output_helper")
-     apr_array_header_t **externals_p
-{
-  $result = output_helper($result,
-                          svn_swig_rb_apr_array_to_array_external_item(*$1));
-}
-
-/* -----------------------------------------------------------------------
-   apr_array_header_t **patterns
-   svn_wc_get_default_ignores()
-*/
-
-%typemap(ruby, in, numinputs=0)
-     apr_array_header_t **patterns (apr_array_header_t *temp)
-{
-  $1 = &temp;
-}
-%typemap(ruby, argout, fragment="output_helper")
-     apr_array_header_t **patterns
-{
-  $result = output_helper($result,
-                          svn_swig_rb_apr_array_to_array_string(*$1));
-}
-
-/* -----------------------------------------------------------------------
-   apr_array_header_t *wcprop_changes
-   svn_wc_process_committed2()
-*/
-
-%typemap(ruby, in) apr_array_header_t *wcprop_changes
-{
-  VALUE rb_pool;
-  apr_pool_t *pool;
-
-  svn_swig_rb_get_pool(argc, argv, self, &rb_pool, &pool);
-        
-  $1 = svn_swig_rb_array_to_apr_array_prop($input, pool);
-}
-
-/* -----------------------------------------------------------------------
-   apr_array_header_t *propchanges
-   svn_wc_merge_props()
-*/
-%typemap(ruby, in) apr_array_header_t *propchanges
-{
-  VALUE rb_pool;
-  apr_pool_t *pool;
-
-  svn_swig_rb_get_pool(argc, argv, self, &rb_pool, &pool);
-        
-  $1 = svn_swig_rb_array_to_apr_array_prop($input, pool);
-}
-
-/* -----------------------------------------------------------------------
-   apr_array_header_t *merge_options
-   svn_wc_merge2()
-*/
-%typemap(ruby, in) apr_array_header_t *merge_options
-{
+  $1 = apr_palloc(_global_pool, sizeof(svn_revnum_t));
   if (NIL_P($input)) {
-    $1 = NULL;
+    *$1 = SVN_INVALID_REVNUM;
   } else {
-    VALUE rb_pool;
-    apr_pool_t *pool;
-
-    svn_swig_rb_get_pool(argc, argv, self, &rb_pool, &pool);
-    $1 = svn_swig_rb_array_to_apr_array_prop($input, pool);
+    *$1 = NUM2LONG($input);
   }
 }
 
-/* -----------------------------------------------------------------------
-   Callback: svn_wc_notify_func_t
-   svn_client_ctx_t
-   svn_wc many
-*/
-
-%typemap(python,in) (svn_wc_notify_func_t notify_func, void *notify_baton) {
-  $1 = svn_swig_py_notify_func;
-  $2 = $input; /* our function is the baton. */
-}
-
-/* -----------------------------------------------------------------------
-   Callback: svn_wc_notify_func2_t
-   svn_client_ctx_t
-   svn_wc many
-*/
-
-%typemap(ruby, in) (svn_wc_notify_func2_t notify_func, void *notify_baton)
+%typemap(argout) svn_revnum_t *target_revision
 {
-  $1 = svn_swig_rb_notify_func2;
-  $2 = (void *)svn_swig_rb_make_baton($input, _global_svn_swig_rb_pool);
+  %append_output(LONG2NUM((long)$1));
 }
+#endif
 
-/* -----------------------------------------------------------------------
-   Callback: svn_wc_entry_callbacks_t
-   svn_wc_walk_entries2()
-*/
-
-%typemap(ruby, in) (const svn_wc_entry_callbacks_t *walk_callbacks,
-                    void *walk_baton)
+/* svn_wc_notify_t */
+#ifdef SWIGRUBY
+%typemap(out) svn_error_t *err
 {
-  $1 = svn_swig_rb_wc_entry_callbacks();
-  $2 = (void *)svn_swig_rb_make_baton($input, _global_svn_swig_rb_pool);
+  $result = $1 ? svn_swig_rb_svn_error_to_rb_error($1) : Qnil;
 }
+#endif
 
-/* -----------------------------------------------------------------------
-   Callback: svn_wc_status_func_t
-   svn_client_status()
-   svn_wc_get_status_editor()
-*/
-
-%typemap(python,in) (svn_wc_status_func_t status_func, void *status_baton) {
-  $1 = svn_swig_py_status_func;
-  $2 = $input; /* our function is the baton. */
-}
-
-%typemap(perl5,in) (svn_wc_status_func_t status_func, void *status_baton) {
-  $1 = svn_swig_pl_status_func;
-  $2 = $input; /* our function is the baton. */
-}
-
-/* -----------------------------------------------------------------------
-   Callback: svn_wc_status_func2_t
-   svn_client_status2()
-   svn_wc_get_status_editor2()
-*/
-
-%typemap(ruby, in) (svn_wc_status_func2_t status_func,
-                    void *status_baton)
-{
-  $1 = svn_swig_rb_wc_status_func;
-  $2 = (void *)svn_swig_rb_make_baton($input, _global_svn_swig_rb_pool);
-}
-
-/* -----------------------------------------------------------------------
-   Callback: svn_wc_callbacks2_t
-   svn_wc_get_diff_editor3()
-*/
-
-%typemap(ruby, in) (const svn_wc_diff_callbacks2_t *callbacks,
-                    void *callback_baton)
-{
-  $1 = svn_swig_rb_wc_diff_callbacks2();
-  $2 = (void *)svn_swig_rb_make_baton($input, _global_svn_swig_rb_pool);
-}
-
-/* -----------------------------------------------------------------------
-   Callback: svn_wc_relocation_validator2_t
-   svn_wc_relocate2()
-*/
-
-%typemap(ruby, in) (svn_wc_relocation_validator2_t validator,
-                    void *validator_baton)
-{
-  $1 = svn_swig_rb_wc_relocation_validator2;
-  $2 = (void *)svn_swig_rb_make_baton($input, _global_svn_swig_rb_pool);
-}
 
 /* ----------------------------------------------------------------------- */
 
 %{
+#include <apr_md5.h>
 #include "svn_md5.h"
-
-#ifdef SWIGPYTHON
-#include "swigutil_py.h"
-#endif
-
-#ifdef SWIGPERL
-#include "swigutil_pl.h"
-#endif
-
-#ifdef SWIGRUBY
-#include "swigutil_rb.h"
-#endif
 %}
 
 %include svn_wc_h.swg
+
+
 
 %inline %{
 static svn_error_t *
@@ -348,4 +250,100 @@ svn_wc_swig_init_asp_dot_net_hack (apr_pool_t *pool)
 
 #if defined(SWIGPYTHON)
 %pythoncode %{ svn_wc_swig_init_asp_dot_net_hack() %}
+#endif
+
+#ifdef SWIGRUBY
+%extend svn_wc_external_item2_t
+{
+  svn_wc_external_item2_t(apr_pool_t *pool) {
+    svn_error_t *err;
+    const svn_wc_external_item2_t *self;
+    err = svn_wc_external_item_create(&self, pool);
+    if (err)
+      svn_swig_rb_handle_svn_error(err);
+    return (svn_wc_external_item2_t *)self;
+  };
+
+  ~svn_wc_external_item2_t() {
+  };
+
+  svn_wc_external_item2_t *dup(apr_pool_t *pool) {
+    return svn_wc_external_item2_dup(self, pool);
+  };
+}
+
+%extend svn_wc_revision_status_t
+{
+  svn_wc_revision_status_t(const char *wc_path,
+                           const char *trail_url,
+                           svn_boolean_t committed,
+                           svn_cancel_func_t cancel_func,
+                           void *cancel_baton,
+                           apr_pool_t *pool) {
+    svn_error_t *err;
+    svn_wc_revision_status_t *self;
+    err = svn_wc_revision_status(&self, wc_path, trail_url, committed,
+                                 cancel_func, cancel_baton, pool);
+    if (err)
+      svn_swig_rb_handle_svn_error(err);
+    return self;
+  };
+
+  ~svn_wc_revision_status_t() {
+  };
+}
+
+/* Dummy declaration */
+struct svn_wc_committed_queue_t
+{
+};
+
+%extend svn_wc_committed_queue_t
+{
+  svn_wc_committed_queue_t(apr_pool_t *pool) {
+    return svn_wc_committed_queue_create(pool);
+  };
+
+  ~svn_wc_committed_queue_t() {
+  };
+}
+
+/* Dummy declaration */
+struct svn_wc_traversal_info_t
+{
+};
+
+%extend svn_wc_traversal_info_t
+{
+  svn_wc_traversal_info_t(apr_pool_t *pool) {
+    return svn_wc_init_traversal_info(pool);
+  };
+
+  ~svn_wc_traversal_info_t() {
+  };
+}
+
+%extend svn_wc_entry_t
+{
+  svn_wc_entry_t(const char *path, svn_wc_adm_access_t *adm_access,
+                 svn_boolean_t show_hidden, apr_pool_t *pool) {
+    const svn_wc_entry_t *self;
+    svn_wc_entry(&self, path, adm_access, show_hidden, pool);
+    return (svn_wc_entry_t *)self;
+  };
+
+  ~svn_wc_entry_t() {
+  };
+}
+
+%extend svn_wc_notify_t
+{
+  svn_wc_notify_t(const char *path, svn_wc_notify_action_t action,
+                  apr_pool_t *pool) {
+    return svn_wc_create_notify(path, action, pool);
+  };
+
+  ~svn_wc_notify_t() {
+  };
+}
 #endif

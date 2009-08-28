@@ -3,7 +3,7 @@
   process.c -
 
   $Author: shyouhei $
-  $Date: 2008-06-29 18:33:11 +0900 (Sun, 29 Jun 2008) $
+  $Date: 2008-06-29 18:34:43 +0900 (Sun, 29 Jun 2008) $
   created at: Tue Aug 10 14:30:50 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -96,11 +96,6 @@ static VALUE S_Tms;
 #undef HAVE_SETRGID
 #endif
 
-#if defined(__bsdi__)
-#define BROKEN_SETREUID 1
-#define BROKEN_SETREGID 1
-#endif
-
 #ifdef BROKEN_SETREUID
 #define setreuid ruby_setreuid
 #endif
@@ -108,7 +103,7 @@ static VALUE S_Tms;
 #define setregid ruby_setregid
 #endif
 
-#if defined(HAVE_44BSD_SETUID)
+#if defined(HAVE_44BSD_SETUID) || defined(__MacOS_X__)
 #if !defined(USE_SETREUID) && !defined(BROKEN_SETREUID)
 #define OBSOLETE_SETREUID 1
 #endif
@@ -995,7 +990,6 @@ proc_exec_v(argv, prog)
     }
 #endif /* MSDOS or __human68k__ or __EMX__ */
     before_exec();
-    rb_thread_cancel_timer();
     execv(prog, argv);
     preserving_errno(after_exec());
     return -1;
@@ -1030,9 +1024,11 @@ int
 rb_proc_exec(str)
     const char *str;
 {
+#ifndef _WIN32
     const char *s = str;
     char *ss, *t;
     char **argv, **a;
+#endif
 
     while (*str && ISSPACE(*str))
 	str++;
@@ -1095,7 +1091,9 @@ proc_spawn_v(argv, prog)
     char **argv;
     char *prog;
 {
+#if defined(__human68k__)
     char *extension;
+#endif
     int status;
 
     if (!prog)
@@ -1411,12 +1409,12 @@ rb_syswait(pid)
 {
     static int overriding;
 #ifdef SIGHUP
-    RETSIGTYPE (*hfunc)_((int));
+    RETSIGTYPE (*hfunc)_((int)) = 0;
 #endif
 #ifdef SIGQUIT
-    RETSIGTYPE (*qfunc)_((int));
+    RETSIGTYPE (*qfunc)_((int)) = 0;
 #endif
-    RETSIGTYPE (*ifunc)_((int));
+    RETSIGTYPE (*ifunc)_((int)) = 0;
     int status;
     int i, hooked = Qfalse;
 
@@ -1638,6 +1636,10 @@ rb_f_sleep(argc, argv)
 }
 
 
+#if defined(SIGCLD) && !defined(SIGCHLD)
+# define SIGCHLD SIGCLD
+#endif
+
 /*
  *  call-seq:
  *     Process.getpgrp   => integer
@@ -1649,14 +1651,12 @@ rb_f_sleep(argc, argv)
  *     Process.getpgrp      #=> 25527
  */
 
-#if defined(SIGCLD) && !defined(SIGCHLD)
-# define SIGCHLD SIGCLD
-#endif
-
 static VALUE
 proc_getpgrp()
 {
+#if defined(HAVE_GETPGRP) && defined(GETPGRP_VOID)
     int pgrp;
+#endif
 
     rb_secure(2);
 #if defined(HAVE_GETPGRP) && defined(GETPGRP_VOID)
@@ -3582,6 +3582,7 @@ Init_process()
 #endif
 #endif
 
+    rb_define_singleton_method(rb_mProcess, "exec", rb_f_exec, -1);
     rb_define_singleton_method(rb_mProcess, "fork", rb_f_fork, 0);
     rb_define_singleton_method(rb_mProcess, "exit!", rb_f_exit_bang, -1);
     rb_define_singleton_method(rb_mProcess, "exit", rb_f_exit, -1);   /* in eval.c */
@@ -3639,15 +3640,18 @@ Init_process()
     rb_define_module_function(rb_mProcess, "getrlimit", proc_getrlimit, 1);
     rb_define_module_function(rb_mProcess, "setrlimit", proc_setrlimit, -1);
 #ifdef RLIM2NUM
-#ifdef RLIM_INFINITY
-    rb_define_const(rb_mProcess, "RLIM_INFINITY", RLIM2NUM(RLIM_INFINITY));
-#endif
+    {
+        VALUE inf = RLIM2NUM(RLIM_INFINITY), v;
+        rb_define_const(rb_mProcess, "RLIM_INFINITY", inf);
 #ifdef RLIM_SAVED_MAX
-    rb_define_const(rb_mProcess, "RLIM_SAVED_MAX", RLIM2NUM(RLIM_SAVED_MAX));
+        v = RLIM_INFINITY == RLIM_SAVED_MAX ? inf : RLIM2NUM(RLIM_SAVED_MAX);
+        rb_define_const(rb_mProcess, "RLIM_SAVED_MAX", v);
 #endif
 #ifdef RLIM_SAVED_CUR
-    rb_define_const(rb_mProcess, "RLIM_SAVED_CUR", RLIM2NUM(RLIM_SAVED_CUR));
+        v = RLIM_INFINITY == RLIM_SAVED_CUR ? inf : RLIM2NUM(RLIM_SAVED_CUR);
+        rb_define_const(rb_mProcess, "RLIM_SAVED_CUR", v);
 #endif
+    }
 #ifdef RLIMIT_CORE
     rb_define_const(rb_mProcess, "RLIMIT_CORE", INT2FIX(RLIMIT_CORE));
 #endif

@@ -34,8 +34,7 @@
 #undef check
 
 
-namespace Security
-{
+namespace Security {
 
 
 //
@@ -53,12 +52,6 @@ public:
 
     virtual OSStatus osStatus() const = 0;
 	virtual int unixError() const = 0;
-	
-protected:
-	virtual void debugDiagnose(const void *id) const;	// used internally for debug logging
-	
-private:
-	mutable bool mCarrier;	// primary carrier of exception flow
 };
 
 
@@ -80,10 +73,7 @@ public:
     static void throwMe(int err = errno) __attribute__((noreturn));
 
     // @@@ This is a hack for the Network protocol state machine
-    static UnixError make(int err = errno);
-
-private:
-	IFDEBUG(void debugDiagnose(const void *id) const);
+    static UnixError make(int err = errno) DEPRECATED_ATTRIBUTE;
 };
 
 
@@ -120,7 +110,7 @@ public:
 	virtual const char *what () const throw ();
 	
 	template <class T>
-	static void check(T p)		{ if (!p) throwMe(); }
+	static void check(const T &p)		{ if (!p) throwMe(); }
 
 	static void throwMe() __attribute__((noreturn));
 };

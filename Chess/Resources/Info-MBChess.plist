@@ -21,14 +21,24 @@
 			</array>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.apple.chess.game</string>
+			</array>
 			<key>LSTypeIsPackage</key>
-			<true/>
+			<false/>
 			<key>NSDocumentClass</key>
 			<string>MBCDocument</string>
 			<key>NSExportableAs</key>
 			<array>
 				<string>moves</string>
 			</array>
+			<key>NSExportableTypes</key>
+			<array>
+				<string>com.apple.chess.pgn</string>
+			</array>
+			<key>NSPersistentStoreTypeKey</key>
+			<string>Binary</string>
 		</dict>
 		<dict>
 			<key>CFBundleTypeExtensions</key>
@@ -45,6 +55,10 @@
 			</array>
 			<key>CFBundleTypeRole</key>
 			<string>None</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.apple.chess.pgn</string>
+			</array>
 			<key>LSTypeIsPackage</key>
 			<false/>
 		</dict>
@@ -52,11 +66,11 @@
 	<key>CFBundleExecutable</key>
 	<string>Chess</string>
 	<key>CFBundleGetInfoString</key>
-	<string>2.4.1, Copyright 2003-2008 Apple Inc.</string>
+	<string>2.4.2, Copyright 2003-2009 Apple Inc.</string>
 	<key>CFBundleHelpBookFolder</key>
-	<string>ChessHelp</string>
+	<string>Chess.help</string>
 	<key>CFBundleHelpBookName</key>
-	<string>Chess Help</string>
+	<string>com.apple.Chess.help</string>
 	<key>CFBundleIconFile</key>
 	<string>chess.icns</string>
 	<key>CFBundleIdentifier</key>
@@ -68,16 +82,47 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.4.1</string>
+	<string>2.4.2</string>
 	<key>CFBundleSignature</key>
 	<string>mbch</string>
 	<key>CFBundleVersion</key>
-	<string>2.4.1</string>
+	<string>2.4.2</string>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright 2003-2008 Apple Inc.</string>
+	<string>Copyright 2003-2009 Apple Inc.</string>
 	<key>NSMainNibFile</key>
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSSupportsSuddenTermination</key>
+	<true/>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.utf8-plain-text</string>
+			</array>
+			<key>UTTypeIdentifier</key>
+			<string>com.apple.chess.game</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<string>game</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.utf8-plain-text</string>
+			</array>
+			<key>UTTypeIdentifier</key>
+			<string>com.apple.chess.pgn</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<string>pgn</string>
+			</dict>
+		</dict>
+	</array>
 </dict>
 </plist>

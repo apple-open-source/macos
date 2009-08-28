@@ -125,7 +125,7 @@ IOReturn IOFireLog::initialize( void )
     
     fLogSize = kFireLogSize + sizeof(FireLogHeader);
     
-    clock_get_uptime(&time);
+    IOFWGetAbsoluteTime(&time);
     fRandomID = (uint32_t)AbsoluteTime_to_scalar(&time);
     fRandomID &= 0x00ffffff;
     
@@ -297,7 +297,7 @@ void IOFireLog::logString( const char *format, va_list ap )
         cycleTime = 0;
     
     // get uptime
-    clock_get_uptime( &absolute_time );
+    IOFWGetAbsoluteTime( &absolute_time );
     absolutetime_to_nanoseconds( absolute_time, &time );
 
     // clear the temp buffer

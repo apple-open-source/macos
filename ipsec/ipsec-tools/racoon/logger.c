@@ -87,7 +87,7 @@ log_open(siz, fname)
 
 	p->siz = siz;
 	if (fname)
-		p->fname = strdup(fname);
+		p->fname = racoon_strdup(fname);
 
 	return p;
 }
@@ -105,7 +105,7 @@ log_add(p, str)
 	/* syslog if p->fname == NULL? */
 	if (p->buf[p->head])
 		racoon_free(p->buf[p->head]);
-	p->buf[p->head] = strdup(str);
+	p->buf[p->head] = racoon_strdup(str);
 	p->tbuf[p->head] = time(NULL);
 	p->head++;
 	p->head %= p->siz;

@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2006 International Business Machines
+// * Copyright (C) 2008 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/de_BE.xml
@@ -13,13 +13,7 @@ de_BE{
             "Franken",
         }
     }
-    NumberPatterns{
-        "#,##0.###",
-        "#,##0.00 ¤",
-        "#,##0%",
-        "#E0",
-    }
-    Version{"1.42"}
+    Version{"1.56"}
     calendar{
         gregorian{
             DateTimeElements:intvector{
@@ -27,13 +21,13 @@ de_BE{
                 4,
             }
             DateTimePatterns{
-                "HH 'h' mm 'min' ss 's' z",
+                "HH 'h' mm 'min' ss 's' v",
                 "HH:mm:ss z",
                 "HH:mm:ss",
                 "HH:mm",
                 "EEEE d MMMM yyyy",
                 "d MMMM yyyy",
-                "d-MMM-yy",
+                "dd.MM.yyyy",
                 "d/MM/yy",
                 "{1} {0}",
             }
@@ -54,17 +48,17 @@ de_BE{
                 format{
                     abbreviated{
                         "Jan",
-                        "Februar",
+                        "Feb",
                         "Mär",
                         "Apr",
                         "Mai",
                         "Jun",
                         "Jul",
-                        "August",
-                        "September",
-                        "Oktober",
-                        "November",
-                        "Dezember",
+                        "Aug",
+                        "Sep",
+                        "Okt",
+                        "Nov",
+                        "Dez",
                     }
                 }
             }

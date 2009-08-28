@@ -32,7 +32,6 @@
 #include <fcntl.h>
 #include <syslog.h>
 #include <netdb.h>
-#include <utmp.h>
 #include <paths.h>
 #include <sys/queue.h>
 		

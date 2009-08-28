@@ -1,0 +1,1196 @@
+# Features covered: XSLT transformation
+#
+# This file contains a collection of tests for the XSLT engine of
+# tDOM. It is focused mainly on the tcl interface of the engine and on
+# verification, that the created result tree behaves as if it would
+# have been parsed from an according XML source; the vaste majority of
+# xslt compliance tests are done outside the tcltest framework.
+#
+# Tested commands and object commands:
+#    xslt-1.*: xpath Lexer/parser tests
+#    xslt-2.*: xslt method command variants, -parameters option
+#    xslt-3.*: xslt vars, scope, parameters
+#    xslt-4.*: xslt transformations on modified/created from the scratch docs
+#    xslt-5.*: External documents: document(), xsl:import, xsl:include
+#    xslt-6.*: xsl:output
+#    xslt-7.*: tests related to the created result doc
+#    xslt-8.*: Additional xslt rec compliance tests (details not covered by
+#              by the external xslt compliance test suite).
+#
+# Copyright (c) 2002 - 2005 Rolf Ade.
+#
+# RCS: @(#) $Id: xslt.test,v 1.26 2007/08/23 16:34:19 rolf Exp $
+
+source [file join [file dir [info script]] loadtdom.tcl]
+
+test xslt-1.1 {unicode chars outside of US-ASCII in var name} {need_i18n} {
+     set xml [dom parse {<root/>}]
+     set xslt [dom parse [tDOM::xmlReadFile [file join [pwd] [file dir [info script]] data/xslt_1.xsl]]]
+     set xmlroot [$xml documentElement]
+     $xmlroot xslt $xslt resultDoc
+     set resultroot [$resultDoc documentElement]
+     set result [$resultroot asXML]
+     $xml delete
+     $xslt delete
+     $resultDoc delete
+     set result
+} {foo}
+
+
+test xslt-1.2 {xpath parse real number} {
+     set xml [dom parse {<root/>}]
+     set xslt [dom parse {<xsl:stylesheet 
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  version="1.0">
+  <xsl:template match="/">
+      <xsl:value-of select=".12345"/>
+  </xsl:template>
+</xsl:stylesheet>}]
+     set xmlroot [$xml documentElement]
+     $xmlroot xslt $xslt resultDoc
+     set resultroot [$resultDoc documentElement]
+     set result [$resultroot asXML]
+     $xml delete
+     $xslt delete
+     $resultDoc delete
+     set result
+} {0.12345}
+
+test xslt-1.3 {xpath parse real number} {
+    set xml [dom parse {<root/>}]
+    set xslt [dom parse {<xsl:stylesheet 
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  version="1.0">
+  <xsl:template match="/">
+      <xsl:value-of select="-.12345"/>
+  </xsl:template>
+</xsl:stylesheet>}]
+    set xmlroot [$xml documentElement]
+    $xmlroot xslt $xslt resultDoc
+    set resultroot [$resultDoc documentElement]
+    set result [$resultroot asXML]
+    $xml delete
+    $xslt delete
+    $resultDoc delete
+    set result
+} {-0.12345}
+
+test xslt-1.4 {pattern IsFQElement with FillNodeList} {
+     set xml [dom parse {<m:elem xmlns:m="foo"/>}]
+    set xslt [dom parse {<xsl:stylesheet 
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  xmlns:m="foo"
+  version="1.0">
+
+    <xsl:template match="m:elem[1]">
+      <out><xsl:value-of select="name(.)"/></out>
+    </xsl:template>
+</xsl:stylesheet>}]
+    $xml xslt $xslt resultDoc
+    set result [$resultDoc asXML -indent none]
+    $xslt delete
+    $xml delete
+    $resultDoc delete
+    set result
+} {<out xmlns:m="foo">m:elem</out>}
+
+test xslt-1.5 {space between \$ and varname} {
+    set xml [dom parse {<root/>}]
+    set xslt [dom parse {<xsl:stylesheet 
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  version="1.0">
+     <xsl:variable name="var" select="'value'"/>
+     <xsl:template match="/">
+       <out><xsl:value-of select="$  var"/></out>
+     </xsl:template>
+</xsl:stylesheet>}]
+    set xsltCmd [$xslt toXSLTcmd]
+    set result [catch {set resultDoc [$xsltCmd transform $xml]} errMsg]
+    $xsltCmd delete
+    $xml delete
+    lappend result $errMsg
+} {1 {Expected variable name}}
+
+test xslt-1.6 {space in nodetest node(  )} {
+    set xml [dom parse {<doc><e/>text<e/></doc>}]
+    set xslt [dom parse {<xsl:stylesheet 
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  version="1.0">
+     <xsl:template match="doc">
+       <xsl:value-of select="count(node(   ))"/>
+     </xsl:template>
+   </xsl:stylesheet>}]
+    set xsltCmd [$xslt toXSLTcmd]
+    set resultDoc [$xsltCmd transform $xml]
+    $xsltCmd delete
+    $xml delete
+    set result [$resultDoc asText]
+    $resultDoc delete
+    set result
+} {3}
+
+test xslt-2.1 {xslt top level parameter: use default value} {
+    set xml [dom parse {<root/>}]
+    set xslt [dom parse {<xsl:stylesheet 
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  version="1.0">
+  <xsl:param name="parameter1" select="'parameter1Value'"/>
+  <xsl:template match="/">
+    <xsl:value-of select="$parameter1"/>
+  </xsl:template>
+</xsl:stylesheet>}] 
+    set xmlroot [$xml documentElement]
+    $xmlroot xslt $xslt resultDoc
+    set resultroot [$resultDoc documentElement]
+    set result [$resultroot asXML]
+    $xml delete
+    $xslt delete
+    $resultDoc delete
+    set result
+} {parameter1Value}
+
+test xslt-2.2 {xslt top level parameter: overwrite default value with -parameters} {
+    set xml [dom parse {<root/>}]
+    set xslt [dom parse {<xsl:stylesheet 
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  version="1.0">
+  <xsl:param name="parameter1" select="'parameter1Value'"/>
+  <xsl:template match="/">
+    <xsl:value-of select="$parameter1"/>
+  </xsl:template>
+</xsl:stylesheet>}] 
+    set xmlroot [$xml documentElement]
+    $xmlroot xslt -parameters {parameter1 startValue} $xslt resultDoc
+    set resultroot [$resultDoc documentElement]
+    set result [$resultroot asXML]
+    $xml delete
+    $xslt delete
+    $resultDoc delete
+    set result
+} {startValue}
+
+
+test xslt-2.3 {xslt top level parameter: overwrite default value with -parameters} {
+    set xml [dom parse -keepEmpties {<root/>}]
+    set xslt [dom parse -keepEmpties {<xsl:stylesheet 
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  version="1.0">
+  <xsl:param name="parameter1" select="'parameter1Value'"/>
+  <xsl:param name="parameter2" select="'parameter2Value'"/>
+  <xsl:template match="/">
+    <xsl:value-of select="$parameter1"/>
+    <xsl:text> </xsl:text>
+    <xsl:value-of select="$parameter2"/>
+  </xsl:template>
+</xsl:stylesheet>}] 
+    set xmlroot [$xml documentElement]
+    $xmlroot xslt -parameters {parameter1 startValue} $xslt resultDoc
+    set resultroot [$resultDoc documentElement]
+    set result [$resultroot asXML]
+    $xml delete
+    $xslt delete
+    $resultDoc delete
+    set result
+} {startValue parameter2Value}
+
+test xslt-2.4 {xslt top level parameter: overwrite default value with -parameters} {
+    set xml [dom parse -keepEmpties {<root/>}]
+    set xslt [dom parse -keepEmpties {<xsl:stylesheet 
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  version="1.0">
+  <xsl:param name="parameter1" select="'parameter1Value'"/>
+  <xsl:param name="parameter2" select="'parameter2Value'"/>
+  <xsl:template match="/">
+    <xsl:value-of select="$parameter1"/>
+    <xsl:text> </xsl:text>
+    <xsl:value-of select="$parameter2"/>
+  </xsl:template>
+</xsl:stylesheet>}] 
+    set xmlroot [$xml documentElement]
+    $xmlroot xslt -parameters {parameter1 startValue1 parameter2 startValue2} $xslt resultDoc
+    set resultroot [$resultDoc documentElement]
+    set result [$resultroot asXML]
+    $xml delete
+    $xslt delete
+    $resultDoc delete
+    set result
+} {startValue1 startValue2}
+
+test xslt-2.5 {xslt top level parameter: try to set nonexisted param} {
+    set xml [dom parse -keepEmpties {<root/>}]
+    set xslt [dom parse -keepEmpties {<xsl:stylesheet 
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  version="1.0">
+  <xsl:param name="parameter1" select="'parameter1Value'"/>
+  <xsl:param name="parameter2" select="'parameter2Value'"/>
+  <xsl:template match="/">
+    <xsl:value-of select="$parameter1"/>
+    <xsl:text> </xsl:text>
+    <xsl:value-of select="$parameter2"/>
+  </xsl:template>
+</xsl:stylesheet>}] 
+    set xmlroot [$xml documentElement]
+    catch {$xmlroot xslt -parameters {nonExistend foo} $xslt resultDoc} errMsg
+    $xml delete
+    $xslt delete
+    set errMsg
+} {There isn't a parameter named "nonExistend" defined at top level in the stylesheet.}
+
+test xslt-2.6 {xslt top level parameter: try to set variable} {
+    set xml [dom parse -keepEmpties {<root/>}]
+    set xslt [dom parse -keepEmpties {<xsl:stylesheet 
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  version="1.0">
+  <xsl:variable name="variable1" select="'variable1Value'"/>
+  <xsl:param name="parameter2" select="'parameter2Value'"/>
+  <xsl:template match="/">
+    <xsl:value-of select="$variable1"/>
+    <xsl:text> </xsl:text>
+    <xsl:value-of select="$parameter2"/>
+  </xsl:template>
+</xsl:stylesheet>}] 
+    set xmlroot [$xml documentElement]
+    catch {$xmlroot xslt -parameters {variable1 foo} $xslt resultDoc} errMsg
+    $xml delete
+    $xslt delete
+    set errMsg
+} {"variable1" is defined as variable, not as parameter.}
+
+test xslt-2.7 {xslt top level parameter} {
+    set xml [dom parse -keepEmpties {<root/>}]
+    set xslt [dom parse -keepEmpties {<xsl:stylesheet 
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  version="1.0">
+  <xsl:variable name="variable1" select="'variable1Value'"/>
+  <xsl:param name="parameter2" select="'parameter2Value'"/>
+  <xsl:template match="/">
+    <xsl:value-of select="$variable1"/>
+    <xsl:text> </xsl:text>
+    <xsl:value-of select="$parameter2"/>
+  </xsl:template>
+</xsl:stylesheet>}] 
+    set xmlroot [$xml documentElement]
+    catch {$xmlroot xslt -parameters {parameter2 foo} $xslt resultDoc} errMsg
+    set resultroot [$resultDoc documentElement]
+    set result [$resultroot asXML]
+    $xml delete
+    $xslt delete
+    $resultDoc delete
+    set result
+} {variable1Value foo}
+
+test xslt-2.8 {xslt top level parameter: wrong usage of -parameters option} {
+    set xml [dom parse {<root/>}]
+    set xslt [dom parse {<xsl:stylesheet 
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  version="1.0">
+  <xsl:param name="parameter1" select="'parameter1Value'"/>
+  <xsl:template match="/">
+    <xsl:value-of select="$parameter1"/>
+  </xsl:template>
+</xsl:stylesheet>}] 
+    set xmlroot [$xml documentElement]
+    catch {$xmlroot xslt -parameters $xslt resultDoc} errMsg
+    $xml delete
+    $xslt delete
+    set errMsg
+} {parameter value missing: the -parameters option needs a list of parameter name and parameter value pairs}
+
+test xslt-2.9 {xslt top level parameter: wrong usage of -parameters option} {
+    set xml [dom parse {<root/>}]
+    set xslt [dom parse {<xsl:stylesheet 
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  version="1.0">
+  <xsl:param name="parameter1" select="'parameter1Value'"/>
+  <xsl:template match="/">
+    <xsl:value-of select="$parameter1"/>
+  </xsl:template>
+</xsl:stylesheet>}] 
+    set xmlroot [$xml documentElement]
+    catch {$xmlroot xslt -parameters {foo bar baz} $xslt resultDoc} errMsg
+    $xml delete
+    $xslt delete
+    set errMsg
+} {parameter value missing: the -parameters option needs a list of parameter name and parameter value pairs}
+
+test xslt-2.10 {no resultDoc variable name} {
+    set xml [dom parse {<root/>}]
+    set xslt [dom parse {<xsl:stylesheet 
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  version="1.0">
+  <xsl:param name="parameter1" select="'parameter1Value'"/>
+  <xsl:template match="/">
+    <xsl:value-of select="$parameter1"/>
+  </xsl:template>
+</xsl:stylesheet>}] 
+    set xmlroot [$xml documentElement]
+    set resultDoc [$xmlroot xslt $xslt]
+    set resultroot [$resultDoc documentElement]
+    set result [$resultroot asXML]
+    $xml delete
+    $xslt delete
+    $resultDoc delete
+    set result
+} {parameter1Value}
+
+test xslt-2.11 {xslt top level parameter: set with 'strange' value} {
+    set xml [dom parse {<root/>}]
+    set xslt [dom parse {<xsl:stylesheet 
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  version="1.0">
+  <xsl:param name="parameter1" select="'parameter1Value'"/>
+  <xsl:template match="/">
+    <xsl:value-of select="$parameter1"/>
+  </xsl:template>
+</xsl:stylesheet>}] 
+    set xmlroot [$xml documentElement]
+    $xmlroot xslt -parameters {parameter1 foo\"'<>bar} $xslt resultDoc
+    set resultroot [$resultDoc documentElement]
+    set result [$resultroot asXML]
+    $xml delete
+    $xslt delete
+    $resultDoc delete
+    set result
+} {foo"'&lt;&gt;bar}
+
+# emacs: "
+
+test xslt-2.12 {xslt top level parameter: set FQ top-level param} {
+    set xml [dom parse {<root/>}]
+    set xslt [dom parse {<xsl:stylesheet 
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  xmlns:foo="bar"  
+  version="1.0">
+  <xsl:param name="foo:parameter1" select="'parameter1Value'"/>
+  <xsl:template match="/">
+    <xsl:value-of select="$foo:parameter1"/>
+  </xsl:template>
+</xsl:stylesheet>}] 
+    set xmlroot [$xml documentElement]
+    $xmlroot xslt -parameters {foo:parameter1 setValue} $xslt resultDoc
+    set resultroot [$resultDoc documentElement]
+    set result [$resultroot asXML]
+    $xml delete
+    $xslt delete
+    $resultDoc delete
+    set result
+} {setValue}
+
+
+test xslt-2.13 {xslt top level parameter: set FQ top-level param} {
+    set xml [dom parse {<root/>}]
+    set xslt [dom parse {<xsl:stylesheet 
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  xmlns:foo="bar"  
+  version="1.0">
+  <xsl:param name="boo:parameter1" select="'parameter1Value'" xmlns:boo="bar"/>
+  <xsl:template match="/">
+    <xsl:value-of select="$foo:parameter1"/>
+  </xsl:template>
+</xsl:stylesheet>}] 
+    set xmlroot [$xml documentElement]
+    $xmlroot xslt -parameters {foo:parameter1 setValue} $xslt resultDoc
+    set resultroot [$resultDoc documentElement]
+    set result [$resultroot asXML]
+    $xml delete
+    $xslt delete
+    $resultDoc delete
+    set result
+} {setValue}
+
+test xslt-2.14 {xslt top level parameter: set FQ top-level param} {
+    set xml [dom parse {<root/>}]
+    set xslt [dom parse {<xsl:stylesheet 
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  xmlns:foo="bar"  
+  version="1.0">
+  <xsl:param name="boo:parameter1" select="'parameter1Value'" xmlns:boo="bar"/>
+  <xsl:template match="/">
+    <xsl:value-of select="$boz:parameter1" xmlns:boz="bar"/>
+  </xsl:template>
+</xsl:stylesheet>}] 
+    set xmlroot [$xml documentElement]
+    $xmlroot xslt -parameters {foo:parameter1 setValue} $xslt resultDoc
+    set resultroot [$resultDoc documentElement]
+    set result [$resultroot asXML]
+    $xml delete
+    $xslt delete
+    $resultDoc delete
+    set result
+} {setValue}
+
+test xslt-2.15 {xslt top level parameter:\
+        try to set nonexisted param with ignore} {
+    set xml [dom parse -keepEmpties {<root/>}]
+    set xslt [dom parse -keepEmpties {<xsl:stylesheet 
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  version="1.0">
+  <xsl:param name="parameter1" select="'parameter1Value'"/>
+  <xsl:param name="parameter2" select="'parameter2Value'"/>
+  <xsl:template match="/">
+    <xsl:value-of select="$parameter1"/>
+    <xsl:text> </xsl:text>
+    <xsl:value-of select="$parameter2"/>
+  </xsl:template>
+</xsl:stylesheet>}] 
+    set xmlroot [$xml documentElement]
+    set result [catch {$xmlroot xslt -ignoreUndeclaredParameters\
+                                     -parameters {nonExistend foo}\
+                                     $xslt resultDoc} errMsg]
+    $resultDoc delete
+    $xml delete
+    $xslt delete
+    set result
+} {0}
+
+test xslt-2.16 {xslt top level parameter: try to set nonexisted param with ignore} {
+    set xml [dom parse -keepEmpties {<root/>}]
+    set xslt [dom parse -keepEmpties {<xsl:stylesheet 
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  version="1.0">
+  <xsl:param name="parameter1" select="'parameter1Value'"/>
+  <xsl:param name="parameter2" select="'parameter2Value'"/>
+  <xsl:template match="/">
+    <xsl:value-of select="$parameter1"/>
+    <xsl:text> </xsl:text>
+    <xsl:value-of select="$parameter2"/>
+  </xsl:template>
+</xsl:stylesheet>}] 
+    set xmlroot [$xml documentElement]
+    $xmlroot xslt -ignoreUndeclaredParameters \
+                  -parameters {nonExistend foo parameter2 givenValue} \
+                  $xslt resultDoc
+    set resultroot [$resultDoc documentElement]
+    set result [$resultroot nodeValue]
+    $resultDoc delete
+    $xml delete
+    $xslt delete
+    set result
+} {parameter1Value givenValue}
+
+proc xsltmessagecmd {msg terminate} {
+    global xsltMsgs
+    global terminatingMsg
+
+    append xsltMsgs "$msg terminate: $terminate "
+    if {$terminate} {
+        set terminatingMsg 1
+    } else {
+        set terminatingMsg 0
+    }
+}
+
+test xslt-2.17 {xslt - to less arguments to the method} {
+    set xml [dom parse {<root/>}]
+    set result [catch {$xml xslt}]
+    $xml delete
+    set result
+} {1}
+
+test xslt-2.18 {xslt -xsltmessagecmd} {
+    set xml [dom parse -keepEmpties {<root/>}]
+    set xslt [dom parse -keepEmpties {<xsl:stylesheet 
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  version="1.0">
+  <xsl:template match="/">
+    <xsl:text>some text</xsl:text>
+    <xsl:message>1. call</xsl:message>
+    <xsl:message terminate="no">2. call</xsl:message>
+    <xsl:message>3. call</xsl:message>
+  </xsl:template>
+</xsl:stylesheet>}] 
+    set xmlroot [$xml documentElement]
+    set ::xsltMsgs ""
+    $xmlroot xslt -xsltmessagecmd xsltmessagecmd $xslt resultDoc
+    $resultDoc delete
+    $xml delete
+    $xslt delete
+    set ::xsltMsgs
+} {1. call terminate: 0 2. call terminate: 0 3. call terminate: 0 }
+
+test xslt-2.19 {xslt -xsltmessagecmd} {
+    set xml [dom parse -keepEmpties {<root/>}]
+    set xslt [dom parse -keepEmpties {<xsl:stylesheet 
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  version="1.0">
+  <xsl:template match="/">
+    <xsl:text>some text</xsl:text>
+    <xsl:message>1. call</xsl:message>
+    <xsl:message terminate="yes">2. call</xsl:message>
+    <xsl:message>3. call</xsl:message>
+  </xsl:template>
+</xsl:stylesheet>}] 
+    set xmlroot [$xml documentElement]
+    set ::xsltMsgs ""
+    catch {$xmlroot xslt -xsltmessagecmd xsltmessagecmd $xslt resultDoc}
+    $xml delete
+    $xslt delete
+    set ::terminatingMsg
+} {1}
+
+test xslt-2.20 {xslt top level parameter: use top level param to set a top level var} {
+    set xml [dom parse -keepEmpties {<root/>}]
+    set xslt [dom parse -keepEmpties {<xsl:stylesheet 
+        xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+        version="1.0">
+        <xsl:param name="sortentity"></xsl:param>
+        <xsl:variable name="sortcolumn" select="$sortentity"/>
+        <xsl:template match="/">
+          <out><xsl:value-of select="$sortcolumn"/></out>
+        </xsl:template>
+        </xsl:stylesheet>}]
+    $xml xslt -parameters {sortentity "the parameter value"} $xslt resultDoc
+    set result [$resultDoc asXML -indent none]
+    $resultDoc delete
+    $xml delete
+    $xslt delete
+    set result
+} {<out>the parameter value</out>}
+
+test xslt-3.1 {xslt variable scope} {
+    set xml [dom parse {<root/>}]
+    set xslt [dom parse {<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="1.0">
+  <xsl:template match="/">
+    <xsl:variable name="main" select="'main'"/>
+    <xsl:call-template name="first"/>
+  </xsl:template>
+  <xsl:template name="first">
+    <xsl:variable name="firstVar" select="'firstVar'"/>
+    <xsl:call-template name="second"/>
+  </xsl:template>
+  <xsl:template name="second">
+    <xsl:variable name="secondVar" select="'secondVar'"/>
+    <xsl:value-of select="$main"/>
+    <xsl:value-of select="$firstVar"/>
+    <xsl:value-of select="$secondVar"/>
+  </xsl:template>
+    </xsl:stylesheet>}]
+    set xmlroot [$xml documentElement]
+    catch {$xmlroot xslt $xslt resultDoc} errMsg
+    $xml delete
+    $xslt delete
+    set errMsg
+} {Variable "main" has not been declared.}
+
+test xslt-3.2 {xslt error msg of variable redeclaration in one template} {
+    set xml [dom parse {<root/>}]
+    set xslt [dom parse {<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="1.0">
+  <xsl:template match="/">
+    <xsl:variable name="var" select="'first valule'"/>
+    <xsl:variable name="var" select="'second valule'"/>
+    <xsl:value-of select="$var"/>    
+  </xsl:template>
+        </xsl:stylesheet>}]
+    catch {$xml xslt $xslt resultDoc} errMsg
+    $xml delete
+    $xslt delete
+    set errMsg
+} {Variable 'var' is already declared in this template}
+
+test xslt-3.3 {use top level var to set a top level var} {
+    set xml [dom parse -keepEmpties {<root/>}]
+    set xslt [dom parse -keepEmpties {<xsl:stylesheet 
+        xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+        version="1.0">
+        <xsl:variable name="var1" select="'var1Value'"></xsl:variable>
+        <xsl:variable name="var2" select="$var1"/>
+        <xsl:template match="/">
+          <out><xsl:value-of select="$var2"/></out>
+        </xsl:template>
+        </xsl:stylesheet>}]
+    $xml xslt $xslt resultDoc
+    set result [$resultDoc asXML -indent none]
+    $resultDoc delete
+    $xml delete
+    $xslt delete
+    set result
+} {<out>var1Value</out>}
+
+test xslt-4.1 {xslt transformation of a source which was modifed after parsing} {
+    dom parse -baseurl file:///tmp/abc.xml {<test/>} doc
+    $doc documentElement root
+    $root appendXML <child/>
+    dom parse {<xsl:stylesheet 
+    version="1.0" 
+    xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+    <xsl:template match="/">
+    <xsl:copy-of select="."/>
+    </xsl:template>
+    </xsl:stylesheet>} xslDoc
+    
+    $root xslt $xslDoc newDoc
+    set result [$newDoc asXML -indent none]
+    $doc delete
+    $xslDoc delete
+    $newDoc delete
+    set result
+} {<test><child/></test>}
+
+set xslt {
+    <xsl:stylesheet
+      version="1.0" 
+      exclude-result-prefixes="my"
+      xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+      
+      xmlns:my="http://my.data">
+      
+      <xsl:template match="/">
+        <out><xsl:value-of select="document('')/*/my:data"/></out>
+      </xsl:template>
+
+      <my:data>Data stored in the stylesheet</my:data>
+    
+    </xsl:stylesheet>}
+
+proc 5.1-extref {baseURI systemId publicId} {
+    if {$baseURI != ""} {
+        error "baseURI not empty"
+    }
+    if {$systemId != ""} {
+        error "systemId not empty"
+    }
+    return [list string "" $::xslt]
+}
+
+test xslt-5.1 {xslt document('') with empty baseURI} {
+    dom parse <dontMatter/> xmldoc
+    dom parse -externalentitycommand 5.1-extref $xslt xsltdoc
+    $xmldoc xslt $xsltdoc resultDoc
+    set result [$resultDoc asXML -indent none]
+    $resultDoc delete
+    $xsltdoc delete
+    $xmldoc delete
+    set result
+} {<out>Data stored in the stylesheet</out>}
+
+proc xslt-5.2 {args} {
+    error "script error in xslt-5.2 external enitity resolver"
+}
+
+set xslt {
+    <xsl:stylesheet
+      version="1.0" 
+      xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+      
+      <xsl:template match="/">
+        <out><xsl:value-of select="document('foo')/*"/></out>
+      </xsl:template>
+    </xsl:stylesheet>}
+
+test xslt-5.2 {xslt document() with script error in -externalentitycommand} {
+    dom parse <dontMatter/> xmldoc
+    dom parse -externalentitycommand xslt-5.2 $xslt xsltdoc
+    set result [catch {$xmldoc xslt $xsltdoc resultDoc} errMsg]
+    $xmldoc delete
+    $xsltdoc delete
+    lappend result $errMsg
+} {1 {script error in xslt-5.2 external enitity resolver}}
+    
+proc xslt-5.3 {args} {
+    return [list string file://some/base "<not-wellformed<"]
+}
+
+test xslt-5.3 {xslt document() with script error in -externalentitycommand} {
+    dom parse <dontMatter/> xmldoc
+    dom parse -externalentitycommand xslt-5.3 $xslt xsltdoc
+    set result [catch {$xmldoc xslt $xsltdoc resultDoc} errMsg]
+    $xmldoc delete
+    $xsltdoc delete
+    lappend result $errMsg
+} {1 {Error while processing external entity "foo":
+At line 1 character 15: not well-formed (invalid token)}}
+
+proc xslt-5.4 {base systemId publicId} {
+    
+    switch $systemId {
+        "firstlevel" {
+            return [list string file://some/base/first {
+                <xsl:stylesheet
+                  version="1.0" 
+                  xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+                
+                  <xsl:import href="secondlevel"/>
+                
+                  <xsl:template match="foo">
+                    <out><xsl:value-of select="."/></out>
+                  </xsl:template>
+                </xsl:stylesheet>}]
+
+        }
+        "secondlevel" {
+            return [list string file://some/base/second "<not-wellformed<"]
+        }
+        default {
+            error "error within the test"
+        }
+    }
+}
+
+set xslt {
+    <xsl:stylesheet
+      version="1.0" 
+      xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+
+      <xsl:import href="firstlevel"/>
+
+      <xsl:template match="/">
+        <out>foo</out>
+      </xsl:template>
+    </xsl:stylesheet>}
+
+test xslt-5.4 {xslt document() with script error in -externalentitycommand} {
+    dom parse <dontMatter/> xmldoc
+    dom parse -externalentitycommand xslt-5.4 $xslt xsltdoc
+    set result [catch {$xmldoc xslt $xsltdoc resultDoc} errMsg]
+    $xmldoc delete
+    $xsltdoc delete
+    lappend result $errMsg
+} {1 {Error while processing external entity "secondlevel":
+At line 1 character 15: not well-formed (invalid token)}}
+
+set xslt {
+    <xsl:stylesheet
+      version="1.0" 
+      xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+
+      <xsl:import href=""/>
+
+      <xsl:template match="/">
+        <out>foo</out>
+      </xsl:template>
+    </xsl:stylesheet>}
+
+test xslt-5.5 {xsl:import href == ""} {
+    dom parse <dontMatter/> xmldoc
+    dom parse -externalentitycommand xslt-5.4 $xslt xsltdoc
+    set result [catch {$xmldoc xslt $xsltdoc resultDoc} errMsg]
+    $xmldoc delete
+    $xsltdoc delete
+    lappend result $errMsg
+} {1 {Recursive import/include: stylesheet tries to access itself.}}
+
+set xslt {
+    <xsl:stylesheet
+      version="1.0" 
+      xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+    
+    <xsl:output
+      indent="yes"
+      omit-xml-declaration="no"
+      method="text"
+      encoding="ISO-8859-1"
+      standalone="yes"
+      media-type="text/foo"
+      />
+    
+    <xsl:template match="/">
+      <out/>
+    </xsl:template>
+    </xsl:stylesheet>
+}
+
+test xslt-6.1 {xsl:output} {
+    dom parse <dontMatter/> xmldoc
+    dom parse $xslt xsltdoc
+    $xmldoc xslt $xsltdoc resultDoc
+    set result [$resultDoc indent]
+    lappend result [$resultDoc omit-xml-declaration]
+    lappend result [$resultDoc encoding]
+    lappend result [$resultDoc mediaType]
+    lappend result [$resultDoc standalone]
+    lappend result [$resultDoc getDefaultOutputMethod]
+    $resultDoc delete
+    $xsltdoc delete
+    $xmldoc delete
+    set result
+} {1 0 ISO-8859-1 text/foo 1 text}
+
+
+set xslt {
+    <xsl:stylesheet
+      version="1.0" 
+      xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+      xmlns:my="http://my.uri">
+      
+    <xsl:template match="/">
+      <out>
+        <my:element/>
+      </out>
+    </xsl:template>
+    </xsl:stylesheet>}
+
+test xslt-7.1 {namespaces in the result doc} {
+    dom parse <dontMatter/> xmldoc
+    dom parse $xslt xsltdoc
+    $xmldoc xslt $xsltdoc resultDoc
+    set nodes [$resultDoc getElementsByTagNameNS "http://my.uri" element]
+    set result ""
+    foreach node $nodes {
+        lappend result [$node nodeName]
+    }
+    $resultDoc delete
+    $xmldoc delete
+    $xsltdoc delete
+    set result
+} {my:element}
+
+test xslt-7.2 {namespaces in the result doc} {
+    dom parse <dontMatter/> xmldoc
+    dom parse $xslt xsltdoc
+    $xmldoc xslt $xsltdoc resultDoc
+    set result [$resultDoc asXML -indent none]
+    $resultDoc delete
+    $xmldoc delete
+    $xsltdoc delete
+    set result
+} {<out xmlns:my="http://my.uri"><my:element/></out>}
+
+test xslt-7.3 {namespaces in the result doc} {
+    dom parse <dontMatter/> xmldoc
+    dom parse $xslt xsltdoc
+    $xmldoc xslt $xsltdoc resultDoc
+    $resultDoc documentElement root
+    set my:element [$root firstChild]
+    set result [${my:element} namespaceURI]
+    $resultDoc delete
+    $xmldoc delete
+    $xsltdoc delete
+    set result
+} {http://my.uri}
+
+set xslt {
+    <xsl:stylesheet
+      version="1.0" 
+      xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+      xmlns:my="http://my.uri">
+      
+    <xsl:template match="/">
+      <out xmlns="out.ns">
+        <element xmlns=""/>
+      </out>
+    </xsl:template>
+    </xsl:stylesheet>}
+
+test xslt-7.4 {namespaces in the result doc} {
+    dom parse <dontMatter/> xmldoc
+    dom parse $xslt xsltdoc
+    $xmldoc xslt $xsltdoc resultDoc
+    set nodes [$resultDoc getElementsByTagNameNS "" element]
+    set result ""
+    foreach node $nodes {
+        lappend result [$node nodeName]
+    }
+    $resultDoc delete
+    $xmldoc delete
+    $xsltdoc delete
+    set result
+} {element}
+
+test xslt-7.5 {namespaces in the result doc} {
+    dom parse <dontMatter/> xmldoc
+    dom parse $xslt xsltdoc
+    $xmldoc xslt $xsltdoc resultDoc
+    set nodes [$resultDoc getElementsByTagName element]
+    set result ""
+    foreach node $nodes {
+        lappend result [$node nodeName]
+    }
+    $resultDoc delete
+    $xmldoc delete
+    $xsltdoc delete
+    set result
+} {element}
+
+set xslt {
+    <xsl:stylesheet
+      version="1.0" 
+      xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+      xmlns:my="http://my.uri">
+      
+    <xsl:template match="/">
+      <out>
+        <xsl:element name="element" namespace="element.uri"/>
+      </out>
+    </xsl:template>
+    </xsl:stylesheet>}
+
+test xslt-7.6 {namespaces in the result doc} {
+    dom parse <dontMatter/> xmldoc
+    dom parse $xslt xsltdoc
+    $xmldoc xslt $xsltdoc resultDoc
+    set nodes [$resultDoc getElementsByTagNameNS "element.uri" *]
+    set result ""
+    foreach node $nodes {
+        lappend result [$node nodeName]
+    }
+    $resultDoc delete
+    $xmldoc delete
+    $xsltdoc delete
+    set result
+} {element}
+
+test xslt-7.7 {parent of the result doc documentElement} {
+    dom parse <dontMatter/> xmldoc
+    dom parse $xslt xsltdoc
+    $xmldoc xslt $xsltdoc resultDoc
+    set resultRoot [$resultDoc documentElement]
+    set result [$resultRoot parentNode]
+    $resultDoc delete
+    $xmldoc delete
+    $xsltdoc delete
+    set result
+} {}
+
+set xslt {
+    <xsl:stylesheet
+      version="1.0" 
+      xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+      xmlns:my="http://my.uri">
+      
+    <xsl:template match="/">
+        <my:element>
+          <elem>
+             <my:foo/>
+          </elem>
+        </my:element> 
+    </xsl:template>
+    </xsl:stylesheet>}
+
+test xslt-7.8 {namespaces in the result doc} {
+    dom parse <dontMatter/> xmldoc
+    dom parse $xslt xsltdoc
+    $xmldoc xslt $xsltdoc resultDoc
+    set nodes [$resultDoc getElementsByTagNameNS "http://my.uri" *]
+    set result ""
+    foreach node $nodes {
+        lappend result [$node nodeName]
+    }
+    $resultDoc delete
+    $xmldoc delete
+    $xsltdoc delete
+    set result
+} {my:element my:foo}
+
+set xslt {
+    <xsl:stylesheet
+      version="1.0" 
+      xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+      xmlns:my="http://my.uri">
+      
+    <xsl:template match="/">
+      <xsl:element name="outroot"/>
+    </xsl:template>
+    </xsl:stylesheet>}
+
+test xslt-7.9 {parent of the result doc documentElement} {
+    dom parse <dontMatter/> xmldoc
+    dom parse $xslt xsltdoc
+    $xmldoc xslt $xsltdoc resultDoc
+    set resultRoot [$resultDoc documentElement]
+    set result [list [$resultDoc asXML -indent none] [$resultRoot parentNode]]
+    $resultDoc delete
+    $xmldoc delete
+    $xsltdoc delete
+    set result
+} {<outroot/> {}}
+
+set xslt {
+    <xsl:stylesheet
+      version="1.0" 
+      xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+      xmlns:my="http://my.uri">
+      
+    <xsl:template match="/">
+      <xsl:element name="e1"/>
+      <xsl:element name="e1"/>
+    </xsl:template>
+    </xsl:stylesheet>}
+
+test xslt-7.10 {parent of the result doc documentElement} {
+    dom parse <dontMatter/> xmldoc
+    dom parse $xslt xsltdoc
+    $xmldoc xslt $xsltdoc resultDoc
+    set result [list [$resultDoc asXML -indent none]]
+    foreach toplevelNode [$resultDoc childNodes] {
+        lappend result [$toplevelNode parentNode]
+    }
+    $resultDoc delete
+    $xmldoc delete
+    $xsltdoc delete
+    set result
+} {<e1/><e1/> {} {}}
+
+set xslt {
+    <xsl:stylesheet
+      version="1.0" 
+      xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+      
+    <xsl:template match="*[current() != 'notthis']">
+          <out/>
+    </xsl:template>
+    </xsl:stylesheet>}
+
+set xml {<dontMatter/>}
+
+test xslt-8.1 {current() not allowed in pattern} {
+    dom parse $xml xmldoc
+    dom parse $xslt xsltdoc
+    catch {$xmldoc xslt $xsltdoc resultDoc} errMsg
+    $xmldoc delete
+    $xsltdoc delete
+    set errMsg
+} {The 'current' function is not allowed in Pattern. for '*[current() != 'notthis']' 
+
+Parsed symbols:
+     0 WCARDNAME        0    0.000     0  *
+     1 LBRACKET         0    0.000     1  
+     2 FUNCTION         0    0.000     8  current
+     3 LPAR             0    0.000     9  
+     4 RPAR             0    0.000    10  
+     5 NOTEQ            0    0.000    13  
+     6 LITERAL          0    0.000    23  notthis
+     7 RBRACKET         0    0.000    24  }
+
+set xslt-8.2.xml {<?xml version="1.0"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet" xmlns:html="http://www.w3.org/TR/REC-html40">
+	<DocumentProperties xmlns="urn:schemas-microsoft-com:office:office">
+	</DocumentProperties>
+	<OfficeDocumentSettings xmlns="urn:schemas-microsoft-com:office:office">
+	</OfficeDocumentSettings>
+	<ExcelWorkbook xmlns="urn:schemas-microsoft-com:office:excel">
+	</ExcelWorkbook>
+	<Worksheet ss:Name="generals">
+		<Table ss:ExpandedColumnCount="242"/>
+	</Worksheet>
+	<Worksheet ss:Name="urban">
+		<Table ss:ExpandedColumnCount="242"/>
+	</Worksheet>
+	<Worksheet ss:Name="landuse">
+		<Table ss:ExpandedColumnCount="242"/>
+	</Worksheet>
+</Workbook>}
+
+set xslt-8.2.xsl {<?xml version="1.0" encoding="ISO-8859-1"?>
+<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet" xmlns:html="http://www.w3.org/TR/REC-html40">
+	<xsl:output method="xml" encoding="ISO-8859-1"/>
+	<xsl:template match="/ss:Workbook">
+		<xsl:copy>
+			<xsl:copy-of select="./*[not(name() = 'Worksheet') or (name() = 'Worksheet' and @ss:Name = 'generals' )]"/>
+		</xsl:copy> 
+	</xsl:template>
+</xsl:stylesheet>}
+
+set xslt-8.2.output {<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet" xmlns:html="http://www.w3.org/TR/REC-html40"><DocumentProperties xmlns="urn:schemas-microsoft-com:office:office">
+	</DocumentProperties><OfficeDocumentSettings xmlns="urn:schemas-microsoft-com:office:office">
+	</OfficeDocumentSettings><ExcelWorkbook xmlns="urn:schemas-microsoft-com:office:excel">
+	</ExcelWorkbook><Worksheet ss:Name="generals">
+		<Table ss:ExpandedColumnCount="242"/>
+	</Worksheet></Workbook>}
+
+test xslt-8.2 {namespace handling of copy-of} {
+    dom parse -keepEmpties ${xslt-8.2.xml} xmldoc
+    dom parse -keepEmpties ${xslt-8.2.xsl} xsltdoc
+    $xmldoc xslt $xsltdoc resultDoc
+    $xmldoc delete
+    $xsltdoc delete
+    set result [$resultDoc asXML -indent none]
+    $resultDoc delete
+    set result
+} ${xslt-8.2.output}
+
+test xslt-8.3 {format-number() runding} {
+    set xml {<Sample>
+  <Value>1.999</Value>
+  <Value>1.998</Value>
+  <Value>1.997</Value>
+  <Value>1.996</Value>
+  <Value>1.995</Value>
+  <Value>1.994</Value>
+  <Value>1.99</Value>
+  <Value>1.9</Value>
+  <Value>1.</Value>
+</Sample>}
+    set xslt {<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+  <xsl:output method="text"/>
+  <xsl:template match="/">
+    <xsl:for-each select="/Sample/Value">
+      <xsl:value-of select="format-number(.,'#0.00')"/>
+      <xsl:text> </xsl:text>
+    </xsl:for-each>
+  </xsl:template>
+</xsl:stylesheet>}
+    dom parse -keepEmpties $xml xmldoc
+    dom parse -keepEmpties $xslt xsltdoc
+    $xmldoc xslt $xsltdoc resultDoc
+    $xmldoc delete
+    $xsltdoc delete
+    set result [$resultDoc asXML -indent none]
+    $resultDoc delete
+    set result
+} {2.00 2.00 2.00 2.00 2.00 1.99 1.99 1.90 1.00 }
+
+test xslt-8.4 {Erroneous XPath expr as match attribute of a template} {
+    set xmlDoc [dom parse {<!--yes-->  <doc><e1/></doc><?foo bar?>}]
+    set xslt {<?xml version="1.0" encoding="ISO-8859-1"?>
+<xsl:transform version="1.0"
+xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+<xsl:template match="/[position()=1]">
+     <xsl:for-each select="table/row">
+     </xsl:for-each>
+</xsl:template>
+</xsl:transform>
+}
+
+    set xsltDoc [dom parse $xslt]
+    set result [catch {$xmlDoc xslt $xsltDoc} errMsg]
+    $xmlDoc delete
+    $xsltDoc delete
+    set result
+} {1}
+    
+# Below is code, which replaces the dom cmd with a version, which parses
+# the xml into a dom tree, then transformations this dom tree with the
+# xslt identity transformation and returns the result tree of that
+# transformation. This is used to test, that the result tree of an xslt
+# transformation could be used as any 'ordinary' tree created with
+# [dom parse]. It is here, because I didn't want to hold it seperated.
+# It is commented out, because some of the tests in the sourced test files
+# need line/column or baseURI information, to work correctly, and this
+# information is not preserved by an xslt identity transformation and
+# I was up to now too lazy, to trick around this few tests with some
+# test constraints.
+# 
+# set identityTransformation [dom parse {<xsl:stylesheet version="1.0"
+#  xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+# <xsl:template match="@*|node()">
+#   <xsl:copy>
+#     <xsl:apply-templates select="@*|node()"/>
+#   </xsl:copy>
+# </xsl:template>
+#     </xsl:stylesheet>}]
+
+# rename dom _dom
+
+# proc dom {args} {
+#     global identityTransformation
+
+#     switch [lindex $args 0] {
+#         "parse" {
+#             set resultdoc [uplevel 1 [linsert $args 0 _dom]]
+#             return [$resultdoc xslt $identityTransformation]
+#         }
+#         default {
+#             return [uplevel 1 [linsert $args 0 _dom]]
+#         }
+#     }
+# }            
+
+# source [file join [file dir [info script]] i18n.test]
+# source [file join [file dir [info script]] dom.test]
+
+# rename dom {}
+# rename _dom dom
+
+# cleanup
+::tcltest::cleanupTests
+return

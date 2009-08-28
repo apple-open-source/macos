@@ -1,5 +1,5 @@
 /* Specific flags and argument handling of the Treelang front-end.
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -15,8 +15,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -24,8 +24,6 @@ Boston, MA 02111-1307, USA.  */
 
 #include "coretypes.h"
 #include "tm.h"
-
-const struct spec_function lang_specific_spec_functions[] = {{0,0}};
 
 void
 lang_specific_driver (int *in_argc, const char *const **in_argv,
@@ -40,7 +38,7 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
 	{
 	  printf ("\
 GNU Treelang (GCC %s)\n\
-Copyright (C) 2005 Free Software Foundation, Inc.\n\
+Copyright (C) 2006 Free Software Foundation, Inc.\n\
 \n\
 GNU Treelang comes with NO WARRANTY, to the extent permitted by law.\n\
 You may redistribute copies of GNU Treelang\n\

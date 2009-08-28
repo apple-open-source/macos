@@ -3,9 +3,11 @@
 <keywords>
 HTTP
 HTTP GET
+HTTP proxy
 HTTP proxy Basic auth
 </keywords>
 </info>
+
 # Server-side
 <reply>
 <data>
@@ -26,7 +28,7 @@ the content goes here
 http
 </server>
  <name>
-HTTP with proxy athorization
+HTTP with proxy authorization
  </name>
  <command>
  -U fake@user:§§§looooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong -x %HOSTIP:%HTTPPORT http://we.want.that.site.com/16
@@ -42,7 +44,6 @@ HTTP with proxy athorization
 GET http://we.want.that.site.com/16 HTTP/1.1
 Proxy-Authorization: Basic ZmFrZUB1c2VyOqenp2xvb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29uZw==
 Host: we.want.that.site.com
-Pragma: no-cache
 Accept: */*
 Proxy-Connection: Keep-Alive
 

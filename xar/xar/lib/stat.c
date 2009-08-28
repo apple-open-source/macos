@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Rob Braun
+ * Copyright (c) 2007 Rob Braun
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,7 +28,7 @@
  */
 /*
  * 03-Apr-2005
- * DRI: Rob Braun <bbraun@opendarwin.org>
+ * DRI: Rob Braun <bbraun@synack.net>
  */
 /*
  * Portions Copyright 2003, Apple Computer, Inc.
@@ -53,7 +53,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/time.h>
-#include <sys/fcntl.h>
+#include <fcntl.h>
 #include <time.h>
 #include <pwd.h>
 #include <grp.h>
@@ -69,6 +69,7 @@
 #include "xar.h"
 #include "arcmod.h"
 #include "archive.h"
+#include "util.h"
 
 #ifndef LLONG_MIN
 #define LLONG_MIN LONG_LONG_MIN
@@ -117,13 +118,17 @@ static xar_file_t xar_link_lookup(xar_t x, dev_t dev, ino_t ino, xar_file_t f) {
 	return ret;
 }
 
-static int32_t aacls(xar_file_t f, const char *file) {
+static int32_t aacls(xar_t x, xar_file_t f, const char *file) {
 #ifdef HAVE_SYS_ACL_H
+#if !defined(__APPLE__)
 	acl_t a;
 	const char *type;
 
 	xar_prop_get(f, "type", &type);
 	if( !type || (strcmp(type, "symlink") == 0) )
+		return 0;
+
+	if( !xar_check_prop(x, "acl") )
 		return 0;
 
 	a = acl_get_file(file, ACL_TYPE_DEFAULT);
@@ -161,12 +166,36 @@ NEXT:
 		acl_free(a);
 	}
 DONE:
+#else /* !__APPLE__ */
+	acl_entry_t e = NULL;
+	acl_t a;
+	int i;
+
+	if( !xar_check_prop(x, "acl") )
+		return 0;
+
+	a = acl_get_file(file, ACL_TYPE_EXTENDED);
+	if( !a )
+		return 0;
+
+	for( i = 0; acl_get_entry(a, e == NULL ? ACL_FIRST_ENTRY : ACL_NEXT_ENTRY, &e) == 0; i++ ) {
+		char *t;
+		t = acl_to_text(a, NULL);
+		if( t ) {
+			xar_prop_set(f, "acl/appleextended", t);
+			acl_free(t);
+		}
+		
+	}
+	acl_free(a);
+#endif /* !__APPLE__ */
 #endif
 	return 0;
 }
 
 static int32_t eacls(xar_t x, xar_file_t f, const char *file) {
 #ifdef HAVE_SYS_ACL_H
+#if !defined(__APPLE__)
 	const char *t;
 	acl_t a;
 	const char *type;
@@ -213,9 +242,150 @@ static int32_t eacls(xar_t x, xar_file_t f, const char *file) {
 				xar_err_set_file(x, f);
 				xar_err_callback(x, XAR_SEVERITY_NONFATAL, XAR_ERR_ARCHIVE_EXTRACTION);
 			}
+			acl_free(a);
 		}
 	}
+#else /* !__APPLE__ */
+	const char *t;
+	acl_t a;
+
+	xar_prop_get(f, "acl/appleextended", &t);
+	if( t ) {
+		a = acl_from_text(t);
+		if( !a ) {
+			xar_err_new(x);
+			xar_err_set_errno(x, errno);
+			xar_err_set_string(x, "Error extracting access acl from toc");
+			xar_err_set_file(x, f);
+			xar_err_callback(x, XAR_SEVERITY_NONFATAL, XAR_ERR_ARCHIVE_EXTRACTION);
+		} else {
+			if( acl_set_file(file, ACL_TYPE_ACCESS, a) != 0 ) {
+				xar_err_new(x);
+				xar_err_set_errno(x, errno);
+				xar_err_set_string(x, "Error setting access acl");
+				xar_err_set_file(x, f);
+				xar_err_callback(x, XAR_SEVERITY_NONFATAL, XAR_ERR_ARCHIVE_EXTRACTION);
+			}
+			acl_free(a);
+		}
+	}
+#endif /* !__APPLE__ */
 #endif
+	return 0;
+}
+
+#ifdef HAVE_STRUCT_STAT_ST_FLAGS
+#define XAR_FLAG_FORK "flags"
+static void x_addflag(xar_file_t f, const char *name) {
+	char opt[1024];
+	memset(opt, 0, sizeof(opt));
+	snprintf(opt, sizeof(opt)-1, "%s/%s", XAR_FLAG_FORK, name);
+	xar_prop_set(f, opt, NULL);
+	return;
+}
+#endif
+
+static int32_t flags_archive(xar_t x, xar_file_t f, const struct stat *sb) {
+#ifdef HAVE_STRUCT_STAT_ST_FLAGS
+	if( !sb->st_flags )
+		return 0;
+	
+	if( !xar_check_prop(x, XAR_FLAG_FORK) )
+		return 0;
+#ifdef UF_NODUMP
+	if( sb->st_flags & UF_NODUMP )
+		x_addflag(f, "UserNoDump");
+#endif
+#ifdef UF_IMMUTABLE
+	if( sb->st_flags & UF_IMMUTABLE )
+		x_addflag(f, "UserImmutable");
+#endif
+#ifdef UF_APPEND
+	if( sb->st_flags & UF_APPEND )
+		x_addflag(f, "UserAppend");
+#endif
+#ifdef UF_OPAQUE
+	if( sb->st_flags & UF_OPAQUE )
+		x_addflag(f, "UserOpaque");
+#endif
+#ifdef SF_ARCHIVED
+	if( sb->st_flags & SF_ARCHIVED )
+		x_addflag(f, "SystemArchived");
+#endif
+#ifdef SF_IMMUTABLE
+	if( sb->st_flags & SF_IMMUTABLE )
+		x_addflag(f, "SystemImmutable");
+#endif
+#ifdef SF_APPEND
+	if( sb->st_flags & SF_APPEND )
+		x_addflag(f, "SystemAppend");
+#endif
+
+#endif /* HAVE_STRUCT_STAT_ST_FLAGS */
+	return 0;
+}
+
+#ifdef HAVE_CHFLAGS
+static int32_t x_getprop(xar_file_t f, const char *name, char **value) {
+	char v[1024];
+	memset(v, 0, sizeof(v));
+	snprintf(v, sizeof(v)-1, "%s/%s", XAR_FLAG_FORK, name);
+	return xar_prop_get(f, v, (const char **)value);
+}
+#endif
+
+int32_t xar_flags_extract(xar_t x, xar_file_t f, const char *file, char *buffer, size_t len) {
+#ifdef HAVE_CHFLAGS
+	char *tmp;
+	u_int flags = 0;
+
+	if( xar_prop_get(f, XAR_FLAG_FORK, NULL) )
+		return 0;
+
+#ifdef UF_NODUMP
+	if( x_getprop(f, "UserNoDump", (char **)&tmp) == 0 )
+		flags |= UF_NODUMP;
+#endif
+#ifdef UF_IMMUTABLE
+	if( x_getprop(f, "UserImmutable", (char **)&tmp) == 0 )
+		flags |= UF_IMMUTABLE;
+#endif
+#ifdef UF_APPEND
+	if( x_getprop(f, "UserAppend", (char **)&tmp) == 0 )
+		flags |= UF_APPEND;
+#endif
+#ifdef UF_OPAQUE
+	if( x_getprop(f, "UserOpaque", (char **)&tmp) == 0 )
+		flags |= UF_OPAQUE;
+#endif
+#ifdef SF_ARCHIVED
+	if( x_getprop(f, "SystemArchived", (char **)&tmp) == 0 )
+		flags |= SF_ARCHIVED;
+#endif
+#ifdef SF_IMMUTABLE
+	if( x_getprop(f, "SystemImmutable", (char **)&tmp) == 0 )
+		flags |= SF_IMMUTABLE;
+#endif
+#ifdef SF_APPEND
+	if( x_getprop(f, "SystemAppend", (char **)&tmp) == 0 )
+		flags |= SF_APPEND;
+#endif
+
+	if( !flags )
+		return 0;
+
+	if( chflags(file, flags) != 0 ) {
+		char e[1024];
+		memset(e, 0, sizeof(e));
+		snprintf(e, sizeof(e)-1, "chflags: %s", strerror(errno));
+		xar_err_new(x);
+		xar_err_set_file(x, f);
+		xar_err_set_string(x, e);
+		xar_err_callback(x, XAR_SEVERITY_NONFATAL, XAR_ERR_ARCHIVE_EXTRACTION);
+		return -1;
+	}
+#endif
+	
 	return 0;
 }
 
@@ -229,7 +399,8 @@ int32_t xar_stat_archive(xar_t x, xar_file_t f, const char *file, const char *bu
 
 	/* no stat attributes for data from a buffer, it is just a file */
 	if(len){
-		xar_prop_set(f, "type", "file");
+		if( xar_check_prop(x, "type") )
+			xar_prop_set(f, "type", "file");
 		return 0;
 	}
 	
@@ -244,17 +415,33 @@ int32_t xar_stat_archive(xar_t x, xar_file_t f, const char *file, const char *bu
 			return -1;
 		}
 		tmpf = xar_link_lookup(x, XAR(x)->sbcache.st_dev, XAR(x)->sbcache.st_ino, f);
-		xar_prop_set(f, "type", "hardlink");
-		if( tmpf ) {
-			const char *id;
-			id = xar_attr_get(tmpf, NULL, "id");
-			xar_attr_set(f, "type", "link", id);
-		} else {
-			xar_attr_set(f, "type", "link", "original");
+		if( xar_check_prop(x, "type") ) {
+			xar_prop_set(f, "type", "hardlink");
+			if( tmpf ) {
+				const char *id;
+				id = xar_attr_get(tmpf, NULL, "id");
+				xar_attr_set(f, "type", "link", id);
+			} else {
+				xar_attr_set(f, "type", "link", "original");
+			}
 		}
 	} else {
 		type = filetype_name(XAR(x)->sbcache.st_mode & S_IFMT);
-		xar_prop_set(f, "type", type);
+		if( xar_check_prop(x, "type") )
+			xar_prop_set(f, "type", type);
+	}
+
+	/* Record major/minor device node numbers */
+	if( xar_check_prop(x, "device") && (S_ISBLK(XAR(x)->sbcache.st_mode) || S_ISCHR(XAR(x)->sbcache.st_mode))) {
+		uint32_t major, minor;
+		char tmpstr[12];
+		xar_devmake(XAR(x)->sbcache.st_rdev, &major, &minor);
+		memset(tmpstr, 0, sizeof(tmpstr));
+		snprintf(tmpstr, sizeof(tmpstr)-1, "%u", major);
+		xar_prop_set(f, "device/major", tmpstr);
+		memset(tmpstr, 0, sizeof(tmpstr));
+		snprintf(tmpstr, sizeof(tmpstr)-1, "%u", minor);
+		xar_prop_set(f, "device/minor", tmpstr);
 	}
 
 	if( S_ISLNK(XAR(x)->sbcache.st_mode) ) {
@@ -272,45 +459,75 @@ int32_t xar_stat_archive(xar_t x, xar_file_t f, const char *file, const char *bu
 		}
 	}
 
-	asprintf(&tmpstr, "%04o", XAR(x)->sbcache.st_mode & (~S_IFMT));
-	xar_prop_set(f, "mode", tmpstr);
-	free(tmpstr);
+	if( xar_check_prop(x, "inode") ) {
+		asprintf(&tmpstr, "%"INO_STRING, XAR(x)->sbcache.st_ino);
+		xar_prop_set(f, "inode", tmpstr);
+		free(tmpstr);
+	}
 
-	asprintf(&tmpstr, "%"PRIu64, (uint64_t)XAR(x)->sbcache.st_uid);
-	xar_prop_set(f, "uid", tmpstr);
-	free(tmpstr);
+	if( xar_check_prop(x, "deviceno") ) {
+		asprintf(&tmpstr, "%"DEV_STRING, XAR(x)->sbcache.st_dev);
+		xar_prop_set(f, "deviceno", tmpstr);
+		free(tmpstr);
+	}
 
-	pw = getpwuid(XAR(x)->sbcache.st_uid);
-	if( pw )
-		xar_prop_set(f, "user", pw->pw_name);
+	if( xar_check_prop(x, "mode") ) {
+		asprintf(&tmpstr, "%04o", XAR(x)->sbcache.st_mode & (~S_IFMT));
+		xar_prop_set(f, "mode", tmpstr);
+		free(tmpstr);
+	}
 
-	asprintf(&tmpstr, "%"PRIu64, (uint64_t)XAR(x)->sbcache.st_gid);
-	xar_prop_set(f, "gid", tmpstr);
-	free(tmpstr);
+	if( xar_check_prop(x, "uid") ) {
+		asprintf(&tmpstr, "%"PRIu64, (uint64_t)XAR(x)->sbcache.st_uid);
+		xar_prop_set(f, "uid", tmpstr);
+		free(tmpstr);
+	}
 
-	gr = getgrgid(XAR(x)->sbcache.st_gid);
-	if( gr )
-		xar_prop_set(f, "group", gr->gr_name);
+	if( xar_check_prop(x, "user") ) {
+		pw = getpwuid(XAR(x)->sbcache.st_uid);
+		if( pw )
+			xar_prop_set(f, "user", pw->pw_name);
+	}
 
-	gmtime_r(&XAR(x)->sbcache.st_atime, &t);
-	memset(time, 0, sizeof(time));
-	strftime(time, sizeof(time), "%FT%T", &t);
-	strcat(time, "Z");
-	xar_prop_set(f, "atime", time);
+	if( xar_check_prop(x, "gid") ) {
+		asprintf(&tmpstr, "%"PRIu64, (uint64_t)XAR(x)->sbcache.st_gid);
+		xar_prop_set(f, "gid", tmpstr);
+		free(tmpstr);
+	}
 
-	gmtime_r(&XAR(x)->sbcache.st_mtime, &t);
-	memset(time, 0, sizeof(time));
-	strftime(time, sizeof(time), "%FT%T", &t);
-	strcat(time, "Z");
-	xar_prop_set(f, "mtime", time);
+	if( xar_check_prop(x, "group") ) {
+		gr = getgrgid(XAR(x)->sbcache.st_gid);
+		if( gr )
+			xar_prop_set(f, "group", gr->gr_name);
+	}
 
-	gmtime_r(&XAR(x)->sbcache.st_ctime, &t);
-	memset(time, 0, sizeof(time));
-	strftime(time, sizeof(time), "%FT%T", &t);
-	strcat(time, "Z");
-	xar_prop_set(f, "ctime", time);
+	if( xar_check_prop(x, "atime") ) {
+		gmtime_r(&XAR(x)->sbcache.st_atime, &t);
+		memset(time, 0, sizeof(time));
+		strftime(time, sizeof(time), "%FT%T", &t);
+		strcat(time, "Z");
+		xar_prop_set(f, "atime", time);
+	}
 
-	aacls(f, file);
+	if( xar_check_prop(x, "mtime") ) {
+		gmtime_r(&XAR(x)->sbcache.st_mtime, &t);
+		memset(time, 0, sizeof(time));
+		strftime(time, sizeof(time), "%FT%T", &t);
+		strcat(time, "Z");
+		xar_prop_set(f, "mtime", time);
+	}
+
+	if( xar_check_prop(x, "ctime") ) {
+		gmtime_r(&XAR(x)->sbcache.st_ctime, &t);
+		memset(time, 0, sizeof(time));
+		strftime(time, sizeof(time), "%FT%T", &t);
+		strcat(time, "Z");
+		xar_prop_set(f, "ctime", time);
+	}
+
+	flags_archive(x, f, &(XAR(x)->sbcache));
+
+	aacls(x, f, file);
 
 	return 0;
 }
@@ -324,6 +541,7 @@ int32_t xar_set_perm(xar_t x, xar_file_t f, const char *file, char *buffer, size
 	struct tm t;
 	enum {ATIME=0, MTIME};
 	struct timeval tv[2];
+	char savesuid = 0;
 
 	/* when writing to a buffer, there are no permissions to set */
 	if ( len )
@@ -352,6 +570,7 @@ int32_t xar_set_perm(xar_t x, xar_file_t f, const char *file, char *buffer, size
 				g = gr->gr_gid;
 			}
 		}
+		savesuid = 1;
 	}
 	if( opt && (strcmp(opt, XAR_OPT_VAL_NUMERIC) == 0) ) {
 		xar_prop_get(f, "uid", &opt);
@@ -373,8 +592,13 @@ int32_t xar_set_perm(xar_t x, xar_file_t f, const char *file, char *buffer, size
 			}
 			g = (gid_t)tmp;
 		}
+		savesuid = 1;
 	}
 
+	opt = xar_opt_get(x, XAR_OPT_SAVESUID);
+	if( opt && (strcmp(opt, XAR_OPT_VAL_TRUE) == 0) ) {
+		savesuid = 1;
+	}
 
 	xar_prop_get(f, "mode", &opt);
 	if( opt ) {
@@ -384,19 +608,35 @@ int32_t xar_set_perm(xar_t x, xar_file_t f, const char *file, char *buffer, size
 			return -1;
 		}
 		m = (mode_t)tmp;
+		if( !savesuid ) {
+			m &= ~S_ISUID;
+			m &= ~S_ISGID;
+		}
 		mset = 1;
 	}
 
 	xar_prop_get(f, "type", &opt);
+	if( opt && !mset ) {
+		mode_t u = umask(0);
+		umask(u);
+		if( strcmp(opt, "directory") == 0 ) {
+			m = (mode_t)(0777 & ~u);
+		} else {
+			m = (mode_t)(0666 & ~u);
+		}
+		mset = 1;
+	}
 	if( opt && (strcmp(opt, "symlink") == 0) ) {
-#ifndef __APPLE__
+#ifdef HAVE_LCHOWN
 		if( lchown(file, u, g) ) {
 			xar_err_new(x);
 			xar_err_set_file(x, f);
 			xar_err_set_string(x, "perm: could not lchown symlink");
 			xar_err_callback(x, XAR_SEVERITY_NONFATAL, XAR_ERR_ARCHIVE_EXTRACTION);
+			m &= ~S_ISUID;
+			m &= ~S_ISGID;
 		}
-#ifndef __linux__
+#ifdef HAVE_LCHMOD
 		if( mset )
 			if( lchmod(file, m) ) {
 				xar_err_new(x);
@@ -405,7 +645,7 @@ int32_t xar_set_perm(xar_t x, xar_file_t f, const char *file, char *buffer, size
 				xar_err_callback(x, XAR_SEVERITY_NONFATAL, XAR_ERR_ARCHIVE_EXTRACTION);
 			}
 #endif
-#endif /* __APPLE__ */
+#endif 
 	} else {
 		if( chown(file, u, g) ) {
 			xar_err_new(x);
@@ -413,6 +653,8 @@ int32_t xar_set_perm(xar_t x, xar_file_t f, const char *file, char *buffer, size
 			xar_err_set_string(x, "perm: could not chown file");
 			xar_err_set_errno(x, errno);
 			xar_err_callback(x, XAR_SEVERITY_NONFATAL, XAR_ERR_ARCHIVE_EXTRACTION);
+			m &= ~S_ISUID;
+			m &= ~S_ISGID;
 		}
 		if( mset )
 			if( chmod(file, m) ) {
@@ -451,8 +693,46 @@ int32_t xar_set_perm(xar_t x, xar_file_t f, const char *file, char *buffer, size
 int32_t xar_stat_extract(xar_t x, xar_file_t f, const char *file, char *buffer, size_t len) {
 	const char *opt;
 	int ret, fd;
+	mode_t modet = 0;
 
 	xar_prop_get(f, "type", &opt);
+	if(opt && (strcmp(opt, "character special") == 0))
+		modet = S_IFCHR;
+	if(opt && (strcmp(opt, "block special") == 0))
+		modet = S_IFBLK;
+
+	if( modet ) {
+		uint32_t major, minor;
+		long long tmpll;
+		dev_t devt;
+
+		xar_prop_get(f, "device/major", &opt);
+		tmpll = strtoll(opt, NULL, 10);
+		if( ( (tmpll == LLONG_MIN) || (tmpll == LLONG_MAX) ) && (errno == ERANGE) )
+			return -1;
+		if( (tmpll < 0) || (tmpll > 255) )
+			return -1;
+		major = tmpll;
+
+		xar_prop_get(f, "device/minor", &opt);
+		tmpll = strtoll(opt, NULL, 10);
+		if( ( (tmpll == LLONG_MIN) || (tmpll == LLONG_MAX) ) && (errno == ERANGE) )
+			return -1;
+		if( (tmpll < 0) || (tmpll > 255) )
+			return -1;
+		minor = tmpll;
+		
+		devt = xar_makedev(major, minor);
+		unlink(file);
+		if( mknod(file, modet, devt) ) {
+			xar_err_new(x);
+			xar_err_set_file(x, f);
+			xar_err_set_string(x, "mknod: Could not create character device");
+			xar_err_callback(x, XAR_SEVERITY_NONFATAL, XAR_ERR_ARCHIVE_EXTRACTION);
+			return -1;
+		}
+		return 0;
+	}
 	if(opt && (strcmp(opt, "directory") == 0)) {
 		ret = mkdir(file, 0700);
 		if( (ret != 0) && (errno != EEXIST) ) {
@@ -500,7 +780,7 @@ int32_t xar_stat_extract(xar_t x, xar_file_t f, const char *file, char *buffer, 
 			if( errno == ENOENT ) {
 				xar_iter_t i;
 				const char *ptr;
-				i = xar_iter_new(x);
+				i = xar_iter_new();
 				for(ptr = xar_prop_first(tmpf, i); ptr; ptr = xar_prop_next(i)) {
 					xar_iter_t a;
 					const char *val = NULL;
@@ -512,7 +792,7 @@ int32_t xar_stat_extract(xar_t x, xar_file_t f, const char *file, char *buffer, 
 						continue;
 	
 					xar_prop_set(f, ptr, val);
-					a = xar_iter_new(x);
+					a = xar_iter_new();
 					for(akey = xar_attr_first(tmpf, ptr, a); akey; akey = xar_attr_next(a)) {
 						aval = xar_attr_get(tmpf, ptr, akey);
 						xar_attr_set(f, ptr, akey, aval);
@@ -530,6 +810,23 @@ int32_t xar_stat_extract(xar_t x, xar_file_t f, const char *file, char *buffer, 
 				return -1;
 			}
 		}
+		return 0;
+	}
+
+	if(opt && (strcmp(opt, "fifo") == 0)) {
+		unlink(file);
+		if( mkfifo(file, 0) ) {
+			xar_err_new(x);
+			xar_err_set_file(x, f);
+			xar_err_set_string(x, "mkfifo: Could not create fifo");
+			xar_err_callback(x, XAR_SEVERITY_NONFATAL, XAR_ERR_ARCHIVE_EXTRACTION);
+			return -1;
+		}
+		return 0;
+	}
+
+	/* skip sockets */
+	if(opt && (strcmp(opt, "socket") == 0)) {
 		return 0;
 	}
 

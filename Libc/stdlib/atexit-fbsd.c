@@ -51,11 +51,17 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/atexit.c,v 1.7 2003/12/19 17:11:20 kan E
 #include "atexit.h"
 #include "un-namespace.h"
 
+#ifdef __BLOCKS__
+#include <Block.h>
+#endif /* __BLOCKS__ */
 #include "libc_private.h"
 
 #define	ATEXIT_FN_EMPTY	0
 #define	ATEXIT_FN_STD	1
 #define	ATEXIT_FN_CXA	2
+#ifdef __BLOCKS__
+#define	ATEXIT_FN_BLK	3
+#endif /* __BLOCKS__ */
 
 static pthread_mutex_t atexit_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -70,6 +76,9 @@ struct atexit {
 		union {
 			void (*std_func)(void);
 			void (*cxa_func)(void *);
+#ifdef __BLOCKS__
+			void (^block)(void);
+#endif /* __BLOCKS__ */
 		} fn_ptr;			/* function pointer */
 		void *fn_arg;			/* argument for CXA callback */
 		void *fn_dso;			/* shared module handle */
@@ -129,7 +138,7 @@ atexit(void (*func)(void))
 	int error;
 
 	fn.fn_type = ATEXIT_FN_STD;
-	fn.fn_ptr.std_func = func;;
+	fn.fn_ptr.std_func = func;
 	fn.fn_arg = NULL;
 #if defined(__DYNAMIC__)
 	if ( dladdr(func, &info) )
@@ -143,6 +152,31 @@ atexit(void (*func)(void))
  	error = atexit_register(&fn);	
 	return (error);
 }
+
+#ifdef __BLOCKS__
+int
+atexit_b(void (^block)(void))
+{
+	struct atexit_fn fn;
+	struct dl_info info;
+	int error;
+
+	fn.fn_type = ATEXIT_FN_BLK;
+	fn.fn_ptr.block = Block_copy(block);
+	fn.fn_arg = NULL;
+#if defined(__DYNAMIC__)
+	if ( dladdr(block, &info) )
+		fn.fn_dso = info.dli_fbase;
+	else 
+		fn.fn_dso = NULL;
+#else /* ! defined(__DYNAMIC__) */
+	fn.fn_dso = NULL;
+#endif /* defined(__DYNAMIC__) */
+
+ 	error = atexit_register(&fn);	
+	return (error);
+}
+#endif /* __BLOCKS__ */
 
 /*
  * Register a function to be performed at exit or when an shared object
@@ -197,6 +231,10 @@ restart:
 				fn.fn_ptr.cxa_func(fn.fn_arg);
 			else if (fn.fn_type == ATEXIT_FN_STD)
 				fn.fn_ptr.std_func();
+#ifdef __BLOCKS__
+			else if (fn.fn_type == ATEXIT_FN_BLK)
+				fn.fn_ptr.block();
+#endif /* __BLOCKS__ */
 			_MUTEX_LOCK(&atexit_mutex);
 			if (new_registration)
 			    goto restart;

@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/extended.c,v 1.32.2.5 2006/01/03 22:16:08 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/extended.c,v 1.39.2.4 2008/02/11 23:26:41 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -12,9 +12,18 @@
  * top-level directory of the distribution or, alternatively, at
  * <http://www.OpenLDAP.org/license.html>.
  */
-/* Portions Copyright (C) The Internet Society (1997).
- * ASN.1 fragments are from RFC 2251; see RFC for full legal notices.
- */
+
+#include "portable.h"
+
+#include <stdio.h>
+#include <ac/stdlib.h>
+
+#include <ac/socket.h>
+#include <ac/string.h>
+#include <ac/time.h>
+
+#include "ldap-int.h"
+#include "ldap_log.h"
 
 /*
  * LDAPv3 Extended Operation Request
@@ -30,19 +39,8 @@
  *		response         [11] OCTET STRING OPTIONAL
  *	}
  *
+ * (Source RFC 4511)
  */
-
-#include "portable.h"
-
-#include <stdio.h>
-#include <ac/stdlib.h>
-
-#include <ac/socket.h>
-#include <ac/string.h>
-#include <ac/time.h>
-
-#include "ldap-int.h"
-#include "ldap_log.h"
 
 int
 ldap_extended_operation(
@@ -140,7 +138,7 @@ ldap_extended_operation_s(
         return( rc );
 	}
  
-    if ( ldap_result( ld, msgid, 1, (struct timeval *) NULL, &res ) == -1 ) {
+    if ( ldap_result( ld, msgid, LDAP_MSG_ALL, (struct timeval *) NULL, &res ) == -1 || !res ) {
         return( ld->ld_errno );
 	}
 
@@ -210,13 +208,8 @@ ldap_parse_extended_result (
 		return ld->ld_errno;
 	}
 
-#ifdef LDAP_NULL_IS_NULL
 	rc = ber_scanf( ber, "{eAA" /*}*/, &errcode,
 		&ld->ld_matched, &ld->ld_error );
-#else /* ! LDAP_NULL_IS_NULL */
-	rc = ber_scanf( ber, "{eaa" /*}*/, &errcode,
-		&ld->ld_matched, &ld->ld_error );
-#endif /* ! LDAP_NULL_IS_NULL */
 
 	if( rc == LBER_ERROR ) {
 		ld->ld_errno = LDAP_DECODING_ERROR;
@@ -248,9 +241,7 @@ ldap_parse_extended_result (
 			return ld->ld_errno;
 		}
 
-#ifdef LDAP_NULL_IS_NULL
 		assert( resoid[ 0 ] != '\0' );
-#endif /* LDAP_NULL_IS_NULL */
 
 		tag = ber_peek_tag( ber, &len );
 	}
@@ -300,7 +291,6 @@ ldap_parse_intermediate (
 	int				freeit )
 {
 	BerElement *ber;
-	ber_tag_t rc;
 	ber_tag_t tag;
 	ber_len_t len;
 	struct berval *resdata;
@@ -324,6 +314,7 @@ ldap_parse_intermediate (
 
 	if( retoidp != NULL ) *retoidp = NULL;
 	if( retdatap != NULL ) *retdatap = NULL;
+	if( serverctrls != NULL ) *serverctrls = NULL;
 
 	ber = ber_dup( res->lm_ber );
 
@@ -332,9 +323,9 @@ ldap_parse_intermediate (
 		return ld->ld_errno;
 	}
 
-	rc = ber_scanf( ber, "{" /*}*/ );
+	tag = ber_scanf( ber, "{" /*}*/ );
 
-	if( rc == LBER_ERROR ) {
+	if( tag == LBER_ERROR ) {
 		ld->ld_errno = LDAP_DECODING_ERROR;
 		ber_free( ber, 0 );
 		return ld->ld_errno;
@@ -359,9 +350,7 @@ ldap_parse_intermediate (
 			return ld->ld_errno;
 		}
 
-#ifdef LDAP_NULL_IS_NULL
 		assert( resoid[ 0 ] != '\0' );
-#endif /* LDAP_NULL_IS_NULL */
 
 		tag = ber_peek_tag( ber, &len );
 	}
@@ -377,16 +366,16 @@ ldap_parse_intermediate (
 	}
 
 	if ( serverctrls == NULL ) {
-		rc = LDAP_SUCCESS;
+		ld->ld_errno = LDAP_SUCCESS;
 		goto free_and_return;
 	}
 
 	if ( ber_scanf( ber, /*{*/ "}" ) == LBER_ERROR ) {
-		rc = LDAP_DECODING_ERROR;
+		ld->ld_errno = LDAP_DECODING_ERROR;
 		goto free_and_return;
 	}
 
-	rc = ldap_pvt_get_controls( ber, serverctrls );
+	ld->ld_errno = ldap_pvt_get_controls( ber, serverctrls );
 
 free_and_return:
 	ber_free( ber, 0 );
@@ -407,6 +396,6 @@ free_and_return:
 		ldap_msgfree( res );
 	}
 
-	return LDAP_SUCCESS;
+	return ld->ld_errno;
 }
 

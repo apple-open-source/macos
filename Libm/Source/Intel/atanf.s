@@ -16,7 +16,6 @@ pPoint1:	.double	+16777216
 nHalfPi:	.double	-1.5707963267948966192313217
 One:		.double	 1
 pHalfPi:	.double	+1.5707963267948966192313217
-Three:		.double	 3
 
 // Define a coefficient for center polynomial (used for x in [-1, +1]).
 C2:			.double	 0.0029352921857004596570518
@@ -116,7 +115,7 @@ T10:	.double	 0.1730466268612773143731748,  0.1408679409162453515360961
 		For arctangent of +/- zero, return zero with same sign (C F.9 12 and
 		F.9.1.3).
 
-		For arctangent of +/- infinity, return +/- pi/2.  (C F.9.1.3).
+		For arctangent of +/- infinity, return +/- pi/2 (C F.9.1.3).
 
 		For a NaN, return the same NaN (C F.9 11 and 13).  (If the NaN is a
 		signalling NaN, we return the "same" NaN quieted.)
@@ -126,7 +125,7 @@ T10:	.double	 0.1730466268612773143731748,  0.1408679409162453515360961
 			If the rounding mode is round-to-nearest, return arctangent(x)
 			faithfully rounded.
 
-			Returns a value in [-pi/2, +pi/2] (C 7.12.4.3 3).  Note that this
+			Return a value in [-pi/2, +pi/2] (C 7.12.4.3 3).  Note that this
 			prohibits returning correctly rounded values for atanf of large
 			positive or negative arguments, since pi/2 rounded to a float lies
 			outside that interval.
@@ -319,7 +318,7 @@ NegativeTail:
 
 
 	.literal8
-/*	Define value near +/- pi/2 that yield +/- pi/2 rounded toward zero when
+/*	Define values near +/- pi/2 that yield +/- pi/2 rounded toward zero when
 	converted to single precision.  This allows us to generate inexact and
 	return the desired values for atanf of big positive and negative numbers.
 */

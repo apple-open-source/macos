@@ -1,9 +1,9 @@
-/* $Id: nano.c,v 1.573 2006/11/10 02:47:11 dolorous Exp $ */
+/* $Id: nano.c,v 1.582 2007/01/12 02:58:12 dolorous Exp $ */
 /**************************************************************************
  *   nano.c                                                               *
  *                                                                        *
  *   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004 Chris Allegretta    *
- *   Copyright (C) 2005, 2006 David Lawrence Ramsey                       *
+ *   Copyright (C) 2005, 2006, 2007 David Lawrence Ramsey                 *
  *   This program is free software; you can redistribute it and/or modify *
  *   it under the terms of the GNU General Public License as published by *
  *   the Free Software Foundation; either version 2, or (at your option)  *
@@ -47,7 +47,7 @@ static bool no_rcfiles = FALSE;
 static struct termios oldterm;
 	/* The user's original terminal settings. */
 static struct sigaction act;
-	/* For all our fun signal handlers. */
+	/* Used to set up all our fun signal handlers. */
 
 /* Create a new filestruct node.  Note that we do not set prevnode->next
  * to the new line. */
@@ -168,8 +168,8 @@ void renumber(filestruct *fileptr)
 	fileptr->lineno = ++line;
 }
 
-/* Partition a filestruct so it begins at (top, top_x) and ends at (bot,
- * bot_x). */
+/* Partition a filestruct so that it begins at (top, top_x) and ends at
+ * (bot, bot_x). */
 partition *partition_filestruct(filestruct *top, size_t top_x,
 	filestruct *bot, size_t bot_x)
 {
@@ -221,8 +221,8 @@ partition *partition_filestruct(filestruct *top, size_t top_x,
     return p;
 }
 
-/* Unpartition a filestruct so it begins at (fileage, 0) and ends at
- * (filebot, strlen(filebot->data)) again. */
+/* Unpartition a filestruct so that it begins at (fileage, 0) and ends
+ * at (filebot, strlen(filebot->data)) again. */
 void unpartition_filestruct(partition **p)
 {
     char *tmp;
@@ -523,7 +523,7 @@ void print_view_warning(void)
     statusbar(_("Key invalid in view mode"));
 }
 
-/* What we do when we're all set to exit. */
+/* Make nano exit gracefully. */
 void finish(void)
 {
     /* Blank the statusbar (and shortcut list, if applicable), and move
@@ -547,10 +547,11 @@ void finish(void)
     thanks_for_all_the_fish();
 #endif
 
+    /* Get out. */
     exit(0);
 }
 
-/* Die (gracefully?). */
+/* Make nano die gracefully. */
 void die(const char *msg, ...)
 {
     va_list ap;
@@ -605,15 +606,14 @@ void die_save_file(const char *die_filename)
     if (ISSET(RESTRICTED))
 	return;
 
-    /* If we can't save, we have REAL bad problems, but we might as well
-     * TRY. */
+    /* If we can't save, we have really bad problems, but we might as
+     * well try. */
     if (die_filename[0] == '\0')
 	die_filename = "nano";
 
     retval = get_next_filename(die_filename, ".save");
     if (retval[0] != '\0')
-	failed = (write_file(retval, NULL, TRUE, OVERWRITE,
-		TRUE) == -1);
+	failed = !write_file(retval, NULL, TRUE, OVERWRITE, TRUE);
 
     if (!failed)
 	fprintf(stderr, _("\nBuffer written to %s\n"), retval);
@@ -698,7 +698,7 @@ void mouse_init(void)
 
 /* Print one usage string to the screen.  This cuts down on duplicate
  * strings to translate, and leaves out the parts that shouldn't be
- * translatable (the flag names). */
+ * translatable (i.e. the flag names). */
 void print_opt_full(const char *shortflag
 #ifdef HAVE_GETOPT_LONG
 	, const char *longflag
@@ -924,6 +924,11 @@ void nano_disabled_msg(void)
     statusbar(_("Sorry, support for this function has been disabled"));
 }
 
+/* If the current file buffer has been modified, and the TEMP_FILE flag
+ * isn't set, ask whether or not to save the file buffer.  If the
+ * TEMP_FILE flag is set, save it unconditionally.  Then, if more than
+ * one file buffer is open, close the current file buffer and switch to
+ * the next one.  If only one file buffer is open, exit from nano. */
 void do_exit(void)
 {
     int i;
@@ -946,7 +951,7 @@ void do_exit(void)
 
     /* If the user chose not to save, or if the user chose to save and
      * the save succeeded, we're ready to exit. */
-    if (i == 0 || (i == 1 && do_writeout(TRUE) == 0)) {
+    if (i == 0 || (i == 1 && do_writeout(TRUE))) {
 #ifdef ENABLE_MULTIBUFFER
 	/* Exit only if there are no more open file buffers. */
 	if (!close_buffer())
@@ -1553,8 +1558,8 @@ void do_output(char *output, size_t output_len, bool allow_cntrls)
     current_len = strlen(openfile->current->data);
 
     while (i < output_len) {
-	/* If allow_cntrls is FALSE, filter out nulls and newlines,
-	 * since they're ASCII control characters. */
+	/* If allow_cntrls is TRUE, convert nulls and newlines
+	 * properly. */
 	if (allow_cntrls) {
 	    /* Null to newline, if needed. */
 	    if (output[i] == '\0')
@@ -1579,7 +1584,7 @@ void do_output(char *output, size_t output_len, bool allow_cntrls)
 	    continue;
 
 	/* If the NO_NEWLINES flag isn't set, when a character is
-	 * added to the magicline, it means we need a new magicline! */
+	 * added to the magicline, it means we need a new magicline. */
 	if (!ISSET(NO_NEWLINES) && openfile->filebot ==
 		openfile->current)
 	    new_magicline();

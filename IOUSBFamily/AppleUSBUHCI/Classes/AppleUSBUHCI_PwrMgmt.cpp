@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2007 Apple Inc. All rights reserved.
+ * Copyright © 2004-2009 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,6 +37,7 @@
 #include <libkern/libkern.h>
 
 #include "AppleUSBUHCI.h"
+#include "USBTracepoints.h"
 
 //================================================================================================
 //
@@ -49,7 +50,7 @@
 #define _controllerCanSleep				_expansionData->_controllerCanSleep
 
 #ifndef kACPIDevicePathKey
-	#define kACPIDevicePathKey			"acpi-path"
+#define kACPIDevicePathKey			"acpi-path"
 #endif
 
 
@@ -174,6 +175,7 @@ AppleUSBUHCI::ResumeController(void)
     UInt16			cmd;
 	int				i;
     
+	USBTrace( kUSBTUHCI, KTPUHCIResumeController , (uintptr_t)this, 0, 0, 0);
 	showRegisters(7, "+ResumeController");
 	
 	cmd = ioRead16(kUHCI_CMD);
@@ -250,7 +252,8 @@ AppleUSBUHCI::SuspendController(void)
     UInt16				cmd, value;
 	int					i;
     
-    USBLog(5, "%s[%p]::SuspendController", getName(), this);
+	USBTrace( kUSBTUHCI, kTPUHCISuspendController, (uintptr_t)this, 0, 0, 1 );
+	USBLog(5, "%s[%p]::SuspendController", getName(), this);
     USBLog(5, "%s[%p]: cmd state %x, status %x", getName(), this, ioRead16(kUHCI_CMD), ioRead16(kUHCI_STS));
 
     // Stop the controller
@@ -280,6 +283,7 @@ AppleUSBUHCI::SuspendController(void)
 		{
 			// if so, clear it or we won't suspend.
 			USBLog(1, "AppleUSBUHCI[%p]::SuspendController - port[%d] had the overcurrent bit set.  Clearing it", this, i);
+			USBTrace( kUSBTUHCI, kTPUHCISuspendController, (uintptr_t)this, i, 0, 2 );
 			WritePortStatus(i, kUHCI_PORTSC_OCI); // clear overcurrent indicator
 		}
 	}
@@ -347,7 +351,7 @@ AppleUSBUHCI::RestoreControllerStateFromSleep(void)
 
 //================================================================================================
 //
-//   ResetControllerState
+// ResetControllerState
 //
 //================================================================================================
 //
@@ -357,6 +361,7 @@ AppleUSBUHCI::ResetControllerState(void)
 	UInt32				value;
 	int					i;
 
+	USBTrace( kUSBTUHCI, KTPUHCIResetControllerState, (uintptr_t)this, 0, 0, 0);
 	USBLog(5, "AppleUSBUHCI[%p]::+ResetControllerState", this);
 
 	// reset the controller
@@ -378,6 +383,11 @@ AppleUSBUHCI::ResetControllerState(void)
         ioWrite32(kUHCI_FRBASEADDR, _framesPaddr);
 	}
 	
+	for (i = 0; i < kUHCI_NUM_PORTS; i++)
+	{
+		_lastPortStatus[i] = 0;
+	}
+	
 	// Use 64-byte packets, and mark controller as configured
 	Command(kUHCI_CMD_MAXP | kUHCI_CMD_CF);
 
@@ -395,6 +405,7 @@ AppleUSBUHCI::ResetControllerState(void)
 IOReturn
 AppleUSBUHCI::RestartControllerFromReset(void)
 {
+	USBTrace( kUSBTUHCI, KTPUHCIRestartControllerFromReset, (uintptr_t)this, 0, 0, 0);
 	USBLog(5, "AppleUSBUHCI[%p]::RestartControllerFromReset - _myBusState(%d) CMD(%p) STS(%p) FRBASEADDR(%p) IOPCIConfigCommand(%p)", this, (int)_myBusState, (void*)ioRead16(kUHCI_CMD), (void*)ioRead16(kUHCI_STS), (void*)ioRead32(kUHCI_FRBASEADDR), (void*)_device->configRead16(kIOPCIConfigCommand));
 
 	Run(true);
@@ -416,6 +427,7 @@ AppleUSBUHCI::RestartControllerFromReset(void)
 IOReturn
 AppleUSBUHCI::EnableInterruptsFromController(bool enable)
 {
+	USBTrace( kUSBTUHCI, KTPUHCIEnableInterrupts, (uintptr_t)this, enable, 0, 0);
 	if (enable)
 	{
 		USBLog(5, "AppleUSBUHCI[%p]::EnableInterruptsFromController - enabling interrupts, USBIntr(%p) _savedUSBIntr(%p)", this, (void*)ioRead16(kUHCI_INTR), (void*)_saveInterrupts);
@@ -444,10 +456,26 @@ AppleUSBUHCI::EnableInterruptsFromController(bool enable)
 IOReturn
 AppleUSBUHCI::DozeController(void)
 {
+    UInt16				cmd;
+
+	USBTrace( kUSBTUHCI, KTPUHCIDozeController, (uintptr_t)this, 0, 0, 0);
+	
+	USBLog(6, "AppleUSBUHCI[%p]::DozeController", this);
 	showRegisters(7, "+DozeController -  stopping controller");
 	Run(false);
+
+	// In order to get a Resume Detected interrupt, the controller needs to be in Global suspend mode, so we will do that even when "dozing".
 	
+	USBLog(6, "AppleUSBUHCI[%p]::DozeController  Globally suspending", this);
+   // Put the controller in Global Suspend
+    cmd = ioRead16(kUHCI_CMD) & ~kUHCI_CMD_FGR;
+    cmd |= kUHCI_CMD_EGSM;
+    ioWrite16(kUHCI_CMD, cmd);
+
 	_myBusState = kUSBBusStateSuspended;
+	
+	IOSleep(3);
+	
 	return kIOReturnSuccess;
 }
 
@@ -461,6 +489,61 @@ AppleUSBUHCI::DozeController(void)
 IOReturn				
 AppleUSBUHCI::WakeControllerFromDoze(void)
 {
+    UInt16				cmd;
+	int					i;
+	bool				portHasRD[kUHCI_NUM_PORTS];
+    UInt16				status;
+
+	USBTrace( kUSBTUHCI, KTPUHCIWakeFromDoze, (uintptr_t)this, 0, 0, 0);
+	// First, see if we have any ports that have the RD bit set.  If they do, then we can go ahead and clear it after we waited the 20ms for the
+	// Global resume
+	for (i=0; i<kUHCI_NUM_PORTS; i++) 
+	{
+		status = ReadPortStatus(i);
+		if (status & kUHCI_PORTSC_RD) 
+		{
+			USBLog(6, "AppleUSBUHCI[%p]::WakeControllerFromDoze controller port %d has kUHCI_PORTSC_RD set", this, i+1);
+			portHasRD[i] = true;
+		}
+		else
+		{
+			portHasRD[i] = false;
+		}
+    }
+	
+	// If we are in Global Suspend mode, we need to resume the controller.   We will wait 20ms with the gate held.  However, since we only
+	// get into this mode if all devices are suspended, then delaying while holding the wl will not prevent any completions from happening, since
+	// there aren't any.
+	cmd = ioRead16(kUHCI_CMD);
+
+	if (cmd & kUHCI_CMD_EGSM)
+	{
+		USBLog(6, "AppleUSBUHCI[%p]::WakeControllerFromDoze controller is globally suspended - forcing resume", this);
+		cmd |= kUHCI_CMD_FGR;
+		ioWrite16(kUHCI_CMD, cmd);
+		cmd = ioRead16(kUHCI_CMD);
+		USBLog(6, "AppleUSBUHCI[%p]::WakeControllerFromDoze after EGSM->FGR, cmd is[%p], sleeping 20ms", this, (void*)cmd);
+		IOSleep(20);
+		cmd &= ~kUHCI_CMD_FGR;
+		cmd &= ~kUHCI_CMD_EGSM;
+		ioWrite16(kUHCI_CMD, cmd);
+		
+		// Clear any RD bits in the port if they were set, now that we have waited 20ms
+		for (i=0; i<kUHCI_NUM_PORTS; i++) 
+		{
+			if (portHasRD[i] )
+			{
+				status = ReadPortStatus(i) & kUHCI_PORTSC_MASK;
+				status &= ~(kUHCI_PORTSC_RD | kUHCI_PORTSC_SUSPEND);
+				USBLog(6, "AppleUSBUHCI[%p]::WakeControllerFromDoze  de-asserting resume signal for port %d by writing (%p)", this, i+1, (void*)status);
+				WritePortStatus(i, status);
+				IOSync();
+				IOSleep(2);																	// allow it to kick in
+			}
+		}
+	}
+
+	USBLog(6, "AppleUSBUHCI[%p]::WakeControllerFromDoze calling Run(true)", this);
 	Run(true);
 	_myBusState = kUSBBusStateRunning;
 	showRegisters(7, "-WakeControllerFromDoze");
@@ -477,6 +560,7 @@ AppleUSBUHCI::WakeControllerFromDoze(void)
 IOReturn
 AppleUSBUHCI::powerStateWillChangeTo ( IOPMPowerFlags capabilities, unsigned long newState, IOService* whichDevice)
 {
+	USBTrace( kUSBTUHCI, KTPUHCIPowerState, (uintptr_t)this, newState, 0, 1);
 	USBLog(5, "AppleUSBUHCI[%p]::powerStateWillChangeTo new state (%d)", this, (int)newState);
 	showRegisters(7, "powerStateWillChangeTo");
 	return super::powerStateWillChangeTo(capabilities, newState, whichDevice);
@@ -492,6 +576,7 @@ AppleUSBUHCI::powerStateWillChangeTo ( IOPMPowerFlags capabilities, unsigned lon
 IOReturn
 AppleUSBUHCI::powerStateDidChangeTo ( IOPMPowerFlags capabilities, unsigned long newState, IOService* whichDevice)
 {
+	USBTrace( kUSBTUHCI, KTPUHCIPowerState, (uintptr_t)this, newState, 0, 2);
 	USBLog(5, "AppleUSBUHCI[%p]::powerStateDidChangeTo new state (%d)", this, (int)newState);
 	showRegisters(7, "powerStateDidChangeTo");
 	return super::powerStateDidChangeTo(capabilities, newState, whichDevice);
@@ -509,6 +594,7 @@ AppleUSBUHCI::powerChangeDone ( unsigned long fromState)
 {
 	unsigned long newState = getPowerState();
 	
+	USBTrace( kUSBTUHCI, KTPUHCIPowerState, (uintptr_t)this, fromState, newState, 3);
 	USBLog((fromState == newState) ? 7 : 5, "AppleUSBUHCI[%p]::powerChangeDone from state (%d) to state (%d) _controllerAvailable(%s)", this, (int)fromState, (int)newState, _controllerAvailable ? "true" : "false");
 	if (_controllerAvailable)
 		showRegisters(7, "powerChangeDone");
@@ -603,6 +689,7 @@ static bool HasExpressCardUSB( IORegistryEntry * acpiDevice, UInt32 * portnum )
 						if (portnum)
 							*portnum = strtoul(port->getLocation(), NULL, 10);
 						match = true;
+						USBLog(3, "AppleUSBUHCI for acpiDevice: %p:  HasExpressCardUSB: portNum: %d", acpiDevice, (uint32_t)*portnum);
 					}
 				}
 			}
@@ -619,8 +706,8 @@ static bool HasExpressCardUSB( IORegistryEntry * acpiDevice, UInt32 * portnum )
 //
 //   ExpressCardPort
 //
-//   Checks for ExpressCard connected to this controller, and returns the port number (1 based)
-//   Will return 0 if no ExpressCard is connected to this controller.
+// Checks for ExpressCard connected to this controller, and returns the port number (1 based)
+// Will return 0 if no ExpressCard is connected to this controller.
 //
 //================================================================================================
 //

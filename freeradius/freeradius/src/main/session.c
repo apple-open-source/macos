@@ -1,7 +1,7 @@
 /*
  * session.c	session management
  *
- * Version:	$Id: session.c,v 1.21.2.1.2.3 2007/05/15 09:50:51 aland Exp $
+ * Version:	$Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,38 +15,30 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2000  The FreeRADIUS server project
+ * Copyright 2000,2006  The FreeRADIUS server project
  */
 
+#include	<freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include	"autoconf.h"
+#include	<freeradius-devel/radiusd.h>
+#include	<freeradius-devel/modules.h>
+#include	<freeradius-devel/rad_assert.h>
 
-#include	<stdio.h>
-#include	<stdlib.h>
-#include	<string.h>
-
-#ifdef HAVE_UNISTD_H
-#include	<unistd.h>
-#endif
-
-#include	<signal.h>
-#include	<errno.h>
+#ifdef HAVE_SYS_WAIT_H
 #include	<sys/wait.h>
-
-#ifdef HAVE_NETINET_IN_H
-#include	<netinet/in.h>
 #endif
 
-#include	"radiusd.h"
-#include	"rad_assert.h"
-#include	"modules.h"
-
-/* End a session by faking a Stop packet to all accounting modules */
+#ifdef WITH_SESSION_MGMT
+/*
+ *	End a session by faking a Stop packet to all accounting modules.
+ */
 int session_zap(REQUEST *request, uint32_t nasaddr, unsigned int port,
 		const char *user,
-		const char *sessionid, uint32_t cliaddr, char proto)
+		const char *sessionid, uint32_t cliaddr, char proto,
+		int session_time)
 {
 	REQUEST *stopreq;
 	VALUE_PAIR *vp, *userpair;
@@ -54,6 +46,7 @@ int session_zap(REQUEST *request, uint32_t nasaddr, unsigned int port,
 
 	stopreq = request_alloc_fake(request);
 	stopreq->packet->code = PW_ACCOUNTING_REQUEST; /* just to be safe */
+	stopreq->listener = request->listener;
 	rad_assert(stopreq != NULL);
 
 	/* Hold your breath */
@@ -67,8 +60,8 @@ int session_zap(REQUEST *request, uint32_t nasaddr, unsigned int port,
 		vp->e = v; \
 		pairadd(&(stopreq->packet->vps), vp); \
 	} while(0)
-#define INTPAIR(n,v) PAIR(n,v,PW_TYPE_INTEGER,lvalue)
-#define IPPAIR(n,v) PAIR(n,v,PW_TYPE_IPADDR,lvalue)
+#define INTPAIR(n,v) PAIR(n,v,PW_TYPE_INTEGER,vp_integer)
+#define IPPAIR(n,v) PAIR(n,v,PW_TYPE_IPADDR,vp_ipaddr)
 #define STRINGPAIR(n,v) do { \
 	if(!(vp = paircreate(n, PW_TYPE_STRING))) { \
 		request_free(&stopreq); \
@@ -76,7 +69,7 @@ int session_zap(REQUEST *request, uint32_t nasaddr, unsigned int port,
 		pairfree(&(stopreq->packet->vps)); \
 		return 0; \
 	} \
-	strNcpy((char *)vp->strvalue, v, sizeof vp->strvalue); \
+	strlcpy((char *)vp->vp_strvalue, v, sizeof vp->vp_strvalue); \
 	vp->length = strlen(v); \
 	pairadd(&(stopreq->packet->vps), vp); \
 	} while(0)
@@ -99,7 +92,7 @@ int session_zap(REQUEST *request, uint32_t nasaddr, unsigned int port,
 	}
 	if(cliaddr != 0)
 		IPPAIR(PW_FRAMED_IP_ADDRESS, cliaddr);
-	INTPAIR(PW_ACCT_SESSION_TIME, 0);
+	INTPAIR(PW_ACCT_SESSION_TIME, session_time);
 	INTPAIR(PW_ACCT_INPUT_OCTETS, 0);
 	INTPAIR(PW_ACCT_OUTPUT_OCTETS, 0);
 	INTPAIR(PW_ACCT_INPUT_PACKETS, 0);
@@ -118,9 +111,15 @@ int session_zap(REQUEST *request, uint32_t nasaddr, unsigned int port,
 	return ret;
 }
 
+#ifndef __MINGW32__
 
 /*
  *	Check one terminal server to see if a user is logged in.
+ *
+ *	Return values:
+ *		0 The user is off-line.
+ *		1 The user is logged in.
+ *		2 Some error occured.
  */
 int rad_check_ts(uint32_t nasaddr, unsigned int portnum, const char *user,
 		 const char *session_id)
@@ -130,11 +129,15 @@ int rad_check_ts(uint32_t nasaddr, unsigned int portnum, const char *user,
 	char	address[16];
 	char	port[11];
 	RADCLIENT *cl;
+	fr_ipaddr_t ipaddr;
+
+	ipaddr.af = AF_INET;
+	ipaddr.ipaddr.ip4addr.s_addr = nasaddr;
 
 	/*
 	 *	Find NAS type.
 	 */
-	cl = client_find(nasaddr);
+	cl = client_find_old(&ipaddr);
 	if (!cl) {
 		/*
 		 *  Unknown NAS, so trusting radutmp.
@@ -147,7 +150,7 @@ int rad_check_ts(uint32_t nasaddr, unsigned int portnum, const char *user,
 	/*
 	 *  No nastype, or nas type 'other', trust radutmp.
 	 */
-	if ((cl->nastype[0] == '\0') ||
+	if (!cl->nastype || (cl->nastype[0] == '\0') ||
 	    (strcmp(cl->nastype, "other") == 0)) {
 		DEBUG2("checkrad: No NAS type, or type \"other\" not checking");
 		return 1;
@@ -158,7 +161,7 @@ int rad_check_ts(uint32_t nasaddr, unsigned int portnum, const char *user,
 	 */
 	if ((pid = rad_fork()) < 0) { /* do wait for the fork'd result */
 		radlog(L_ERR, "Accounting: Failed in fork(): Cannot run checkrad\n");
-		return -1;
+		return 2;
 	}
 
 	if (pid > 0) {
@@ -183,8 +186,6 @@ int rad_check_ts(uint32_t nasaddr, unsigned int portnum, const char *user,
 		return WEXITSTATUS(status);
 	}
 
-	closefrom(3);
-
 	/*
 	 *  We don't close fd's 0, 1, and 2.  If we're in debugging mode,
 	 *  then they should go to stdout (etc), along with the other
@@ -193,6 +194,7 @@ int rad_check_ts(uint32_t nasaddr, unsigned int portnum, const char *user,
 	 *  If we're not in debugging mode, then the code in radiusd.c
 	 *  takes care of connecting fd's 0, 1, and 2 to /dev/null.
 	 */
+	closefrom(3);
 
 	ip_ntoa(address, nasaddr);
 	snprintf(port, 11, "%u", portnum);
@@ -213,5 +215,32 @@ int rad_check_ts(uint32_t nasaddr, unsigned int portnum, const char *user,
 	 *	Exit - 2 means "some error occured".
 	 */
 	exit(2);
-	return -1;
+	return 2;
 }
+#else
+int rad_check_ts(UNUSED uint32_t nasaddr, UNUSED unsigned int portnum,
+		 UNUSED const char *user, UNUSED const char *session_id)
+{
+	radlog(L_ERR, "Simultaneous-Use is not supported");
+	return 2;
+}
+#endif
+
+#else
+/* WITH_SESSION_MGMT */
+
+int session_zap(UNUSED REQUEST *request, UNUSED uint32_t nasaddr, UNUSED unsigned int port,
+		UNUSED const char *user,
+		UNUSED const char *sessionid, UNUSED uint32_t cliaddr, UNUSED char proto,
+		UNUSED int session_time)
+{
+	return RLM_MODULE_FAIL;
+}
+
+int rad_check_ts(UNUSED uint32_t nasaddr, UNUSED unsigned int portnum,
+		 UNUSED const char *user, UNUSED const char *session_id)
+{
+	radlog(L_ERR, "Simultaneous-Use is not supported");
+	return 2;
+}
+#endif

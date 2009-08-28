@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in
-SUBDIRS=examples
+SUBDIRS=devhelp examples
 
 # The top-level SGML file.
 DOC_MAIN_XML_FILE=gnome-xml.xml
@@ -26,7 +26,11 @@ EXTRA_DIST=xmlcatalog_man.xml tutorial/*.html tutorial/*.c tutorial/*.pdf \
 
 man_MANS = xmllint.1 xmlcatalog.1
 
-all: web $(top_srcdir)/NEWS libxml2.xsa $(man_MANS)
+if REBUILD_DOCS
+all: web $(top_builddir)/NEWS libxml2.xsa $(man_MANS)
+else
+all:
+endif
 
 api: libxml2-api.xml libxml2-refs.xml $(APIPAGES) $(srcdir)/html/index.html $(WIN32_DIR)/libxml2.def.src ../elfgcchack.h
 
@@ -49,9 +53,9 @@ $(PAGES): xml.html site.xsl
 	  echo "Validating the HTML Web pages" ; \
 	  $(XMLLINT) --nonet --valid --noout $(PAGES) ; fi );
 
-$(top_srcdir)/NEWS: $(top_srcdir)/doc/news.xsl $(top_srcdir)/doc/news.html
+$(top_builddir)/NEWS: $(top_srcdir)/doc/news.xsl $(top_srcdir)/doc/news.html
 	-@(if [ -x $(XSLTPROC) ] ; then \
-	  $(XSLTPROC) --nonet $(top_srcdir)/doc/news.xsl $(top_srcdir)/doc/news.html > $(top_srcdir)/NEWS ; fi );
+	  $(XSLTPROC) --nonet $(top_srcdir)/doc/news.xsl $(top_srcdir)/doc/news.html > $(top_builddir)/NEWS ; fi );
 
 libxml2.xsa: $(top_srcdir)/doc/xsa.xsl $(top_srcdir)/doc/news.html
 	-@(if [ -x $(XSLTPROC) ] ; then \
@@ -75,6 +79,11 @@ $(srcdir)/html/index.html: libxml2-api.xml $(srcdir)/newapi.xsl
 	  echo "Validating the resulting XHTML pages" ; \
 	  $(XMLLINT) --nonet --valid --noout html/*.html ; fi );
 
+wiki: libxml2-api.xml $(srcdir)/wiki.xsl
+	-@(if [ -x $(XSLTPROC) ] ; then \
+		echo "Rebuilding the wiki HTML pages from the XML API" ; \
+		$(XSLTPROC) --nonet $(srcdir)/wiki.xsl libxml2-api.xml; fi )
+
 $(WIN32_DIR)/libxml2.def.src: libxml2-api.xml
 	-@(if [ -x $(XSLTPROC) ] ; then \
 	  $(XSLTPROC) -o $(WIN32_DIR)/libxml2.def.src \
@@ -82,6 +91,8 @@ $(WIN32_DIR)/libxml2.def.src: libxml2-api.xml
 
 libxml2-api.xml libxml2-refs.xml: apibuild.py ../include/libxml/*.h ../*.c
 	-(./apibuild.py)
+	-@(cd .. ; $(MAKE) rebuild_testapi)
+
 
 xmllint.1: xmllint.xml
 	-@($(XSLTPROC) --nonet xmllint.xml)
@@ -92,7 +103,7 @@ xmlcatalog.1: xmlcatalog_man.xml
 clean-local:
 	rm -f *~ *.bak *.hierarchy *.signals *-unused.txt
 
-maintainer-clean-local: clean
+maintainer-clean-local: clean-local
 	rm -rf libxml-decl-list.txt libxml-decl.txt 
 
 rebuild: api all
@@ -103,7 +114,6 @@ install-data-local:
 	$(mkinstalldirs) $(DESTDIR)$(HTML_DIR)/html
 	-@INSTALL@ -m 0644 $(srcdir)/html/*.html $(DESTDIR)$(HTML_DIR)/html
 	-@INSTALL@ -m 0644 $(srcdir)/html/*.png $(DESTDIR)$(HTML_DIR)/html
-	-@INSTALL@ -m 0644 $(srcdir)/html/index.sgml $(DESTDIR)$(HTML_DIR)/html
 	$(mkinstalldirs) $(DESTDIR)$(HTML_DIR)/tutorial
 	-@INSTALL@ -m 0644 $(srcdir)/tutorial/*.* \
 		$(DESTDIR)$(HTML_DIR)/tutorial

@@ -15,7 +15,7 @@
 //
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // 3.5 function template mem_fn
@@ -39,7 +39,7 @@ struct dumb_ptr
 };
 
 // Test mem_fn with a data member
-void test01()
+void test01(int r = 0)
 {
   using std::tr1::mem_fn;
 
@@ -69,6 +69,9 @@ void test01()
   const int& bypc = mem_fn(&X::bar)(ypc);
   const int& byd = mem_fn(&X::bar)(yd);
   const int& bydc = mem_fn(&X::bar)(ydc);
+  
+  // Avoid unused variable warnings.
+  r = bx + bxc + bxp + bxpc + bxd + bxdc + by + byc + byp + bypc + byd + bydc;
 }
 
 int main()

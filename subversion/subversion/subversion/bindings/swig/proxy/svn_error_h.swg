@@ -5,13 +5,19 @@
 #ifdef SWIGPYTHON
 #endif
 
-/* Includes */
+/* Callback typemaps */
 #ifdef SWIGPYTHON
-%import proxy.swg
-%import apr.swg
-%include svn_types_h.swg
-%include svn_error_codes_h.swg
+%apply CALLABLE_CALLBACK {
+  svn_error_malfunction_handler_t
+};
+%apply CALLABLE_CALLBACK * {
+  svn_error_malfunction_handler_t *
+};
 #endif
+
+/* Baton typemaps */
+
+/* Includes */
 %{
 #include "svn_error.h"
 %}
@@ -24,4 +30,14 @@
 /* Callbacks */
 
 %inline %{
+static svn_error_t * svn_error_invoke_malfunction_handler(
+  svn_error_malfunction_handler_t _obj, svn_boolean_t can_return, const char *file, int line, const char *expr) {
+  return _obj(can_return, file, line, expr);
+}
+
 %}
+
+#ifdef SWIGPYTHON
+%funcptr_proxy(svn_error_malfunction_handler_t, svn_error_invoke_malfunction_handler);
+
+#endif

@@ -183,6 +183,10 @@
 /* .IP "\fBvirtual_transport (virtual)\fR"
 /*	The default mail delivery transport and next-hop destination for
 /*	final delivery to domains listed with $virtual_mailbox_domains.
+/* .PP
+/*	Available in Postfix version 2.5.3 and later:
+/* .IP "\fBstrict_mailbox_ownership (yes)\fR"
+/*	Defer delivery when a mailbox file is not owned by its recipient.
 /* LOCKING CONTROLS
 /* .ad
 /* .fi
@@ -329,6 +333,7 @@ char   *var_virt_mailbox_base;
 char   *var_virt_mailbox_lock;
 int     var_virt_mailbox_limit;
 char   *var_mail_spool_dir;		/* XXX dependency fix */
+bool    var_strict_mbox_owner;
 
  /*
   * Mappings.
@@ -490,18 +495,22 @@ MAIL_VERSION_STAMP_DECLARE;
 
 int     main(int argc, char **argv)
 {
-    static CONFIG_INT_TABLE int_table[] = {
+    static const CONFIG_INT_TABLE int_table[] = {
 	VAR_VIRT_MINUID, DEF_VIRT_MINUID, &var_virt_minimum_uid, 1, 0,
 	VAR_VIRT_MAILBOX_LIMIT, DEF_VIRT_MAILBOX_LIMIT, &var_virt_mailbox_limit, 0, 0,
 	0,
     };
-    static CONFIG_STR_TABLE str_table[] = {
+    static const CONFIG_STR_TABLE str_table[] = {
 	VAR_MAIL_SPOOL_DIR, DEF_MAIL_SPOOL_DIR, &var_mail_spool_dir, 0, 0,
 	VAR_VIRT_MAILBOX_MAPS, DEF_VIRT_MAILBOX_MAPS, &var_virt_mailbox_maps, 0, 0,
 	VAR_VIRT_UID_MAPS, DEF_VIRT_UID_MAPS, &var_virt_uid_maps, 0, 0,
 	VAR_VIRT_GID_MAPS, DEF_VIRT_GID_MAPS, &var_virt_gid_maps, 0, 0,
 	VAR_VIRT_MAILBOX_BASE, DEF_VIRT_MAILBOX_BASE, &var_virt_mailbox_base, 1, 0,
 	VAR_VIRT_MAILBOX_LOCK, DEF_VIRT_MAILBOX_LOCK, &var_virt_mailbox_lock, 1, 0,
+	0,
+    };
+    static const CONFIG_BOOL_TABLE bool_table[] = {
+	VAR_STRICT_MBOX_OWNER, DEF_STRICT_MBOX_OWNER, &var_strict_mbox_owner,
 	0,
     };
 
@@ -513,6 +522,7 @@ int     main(int argc, char **argv)
     single_server_main(argc, argv, local_service,
 		       MAIL_SERVER_INT_TABLE, int_table,
 		       MAIL_SERVER_STR_TABLE, str_table,
+		       MAIL_SERVER_BOOL_TABLE, bool_table,
 		       MAIL_SERVER_PRE_INIT, pre_init,
 		       MAIL_SERVER_POST_INIT, post_init,
 		       MAIL_SERVER_PRE_ACCEPT, pre_accept,

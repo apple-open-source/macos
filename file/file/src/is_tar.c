@@ -38,20 +38,26 @@
  */
 
 #include "file.h"
+
+#ifndef lint
+FILE_RCSID("@(#)$File: is_tar.c,v 1.36 2009/02/03 20:27:51 christos Exp $")
+#endif
+
 #include "magic.h"
 #include <string.h>
 #include <ctype.h>
-#include <sys/types.h>
 #include "tar.h"
-
-#ifndef lint
-FILE_RCSID("@(#)$Id: is_tar.c,v 1.25 2004/09/11 19:15:57 christos Exp $")
-#endif
 
 #define	isodigit(c)	( ((c) >= '0') && ((c) <= '7') )
 
 private int is_tar(const unsigned char *, size_t);
 private int from_oct(int, const char *);	/* Decode octal number */
+
+static const char tartype[][32] = {
+	"tar archive",
+	"POSIX tar archive",
+	"POSIX tar archive (GNU)",
+};
 
 protected int
 file_is_tar(struct magic_set *ms, const unsigned char *buf, size_t nbytes)
@@ -60,27 +66,28 @@ file_is_tar(struct magic_set *ms, const unsigned char *buf, size_t nbytes)
 	 * Do the tar test first, because if the first file in the tar
 	 * archive starts with a dot, we can confuse it with an nroff file.
 	 */
-	switch (is_tar(buf, nbytes)) {
-	case 1:
-	        if (file_printf(ms, (ms->flags & MAGIC_MIME) ?
-		    "application/x-tar" : "tar archive") == -1)
-			return -1;
-		return 1;
-	case 2:
-		if (file_printf(ms, (ms->flags & MAGIC_MIME) ?
-		    "application/x-tar, POSIX" : "POSIX tar archive") == -1)
-			return -1;
-		return 1;
-	default:
+	int tar;
+	int mime = ms->flags & MAGIC_MIME;
+
+	if ((ms->flags & MAGIC_APPLE) != 0)
 		return 0;
-	}
+
+	tar = is_tar(buf, nbytes);
+	if (tar < 1 || tar > 3)
+		return 0;
+
+	if (file_printf(ms, "%s", mime ? "application/x-tar" :
+	    tartype[tar - 1]) == -1)
+		return -1;
+	return 1;
 }
 
 /*
  * Return 
  *	0 if the checksum is bad (i.e., probably not a tar archive), 
  *	1 for old UNIX tar file,
- *	2 for Unix Std (POSIX) tar file.
+ *	2 for Unix Std (POSIX) tar file,
+ *	3 for GNU tar file.
  */
 private int
 is_tar(const unsigned char *buf, size_t nbytes)
@@ -113,7 +120,9 @@ is_tar(const unsigned char *buf, size_t nbytes)
 	if (sum != recsum)
 		return 0;	/* Not a tar archive */
 	
-	if (0==strcmp(header->header.magic, TMAGIC)) 
+	if (strcmp(header->header.magic, GNUTMAGIC) == 0) 
+		return 3;		/* GNU Unix Standard tar archive */
+	if (strcmp(header->header.magic, TMAGIC) == 0) 
 		return 2;		/* Unix Standard tar archive */
 
 	return 1;			/* Old fashioned tar archive */

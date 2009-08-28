@@ -2,7 +2,7 @@
   File:		MBCBoardViewAccessibility.mm
   Contains:	Accessibility navigation for chess board
   Version:	1.0
-  Copyright:	© 2004-2007 by Apple Computer, Inc., all rights reserved.
+  Copyright:	Â© 2004-2008 by Apple Computer, Inc., all rights reserved.
   File Ownership:
   
   DRI:				Matthias Neeracher    x43683
@@ -14,6 +14,12 @@
   Change History (most recent first):
   
   $Log: MBCBoardViewAccessibility.mm,v $
+  Revision 1.5  2008/11/20 23:59:10  neerache
+  <rdar://problem/6153077> Chess.app accessibility bug using AXUIElementGetAttributeValueCount
+
+  Revision 1.4  2008/04/22 18:40:55  neerache
+  Merge late Leopard changes into trunk
+
   Revision 1.3.2.1  2007/06/20 05:02:54  neerache
   <rdar://problem/5221088> Accessibility Verifier reports Role Verification warnings and errors
 
@@ -53,6 +59,11 @@
 {
 	return [other isKindOfClass:[MBCBoardAccessibilityProxy class]]
 		&& fSquare == other->fSquare;
+}
+
+- (unsigned)hash {
+    // Equal objects must hash the same.
+    return [fView hash] + fSquare;
 }
 
 - (NSString *) description
@@ -114,7 +125,7 @@
 - (id)accessibilityAttributeValue:(NSString *)attribute 
 {
 	if ([attribute isEqual:NSAccessibilityParentAttribute])
-		return [fView window];
+		return fView;
 	else if ([attribute isEqual:NSAccessibilityChildrenAttribute])
 		return [NSArray array];
 	else if ([attribute isEqual:NSAccessibilityWindowAttribute])
@@ -130,7 +141,7 @@
 		return [NSValue valueWithSize:
 							[self accessibilityFocusRingBounds].size];
 	else if ([attribute isEqual:NSAccessibilityTitleAttribute])
-		return [NSString stringWithFormat:@"%c%u", Col(fSquare), Row(fSquare)];
+		return [fView describeSquare:fSquare];
 	else if ([attribute isEqual:NSAccessibilityDescriptionAttribute])
 		return [fView describeSquare:fSquare];
 	else if ([attribute isEqual:NSAccessibilityValueAttribute])
@@ -188,6 +199,11 @@
 		[kids addObject: [MBCBoardAccessibilityProxy proxyWithView:self 
 													 square:square]];
 	return kids;
+}
+
+- (BOOL)accessibilityIsIgnored
+{
+	return NO;
 }
 
 - (id)accessibilityHitTest:(NSPoint)point

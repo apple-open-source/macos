@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -53,6 +53,7 @@
 #define NetBIOS_SMBSERVER		"*SMBSERVER"
 
 /* Used by mount_smbfs to pass mount option into the smb_mount call */
+#define kNotifyOffMountKey	CFSTR("SMBNotifyOffMount")
 #define kStreamstMountKey	CFSTR("SMBStreamsMount")
 #define kdirModeKey			CFSTR("SMBDirModes")
 #define kfileModeKey		CFSTR("SMBFileModes")
@@ -77,8 +78,8 @@
 
 #define getwle(buf,ofs)	(*((u_int16_t*)(&((u_int8_t*)(buf))[ofs])))
 #define getdle(buf,ofs)	(*((u_int32_t*)(&((u_int8_t*)(buf))[ofs])))
-#define getwbe(buf,ofs)	(ntohs(getwle(buf,ofs)))
-#define getdbe(buf,ofs)	(ntohl(getdle(buf,ofs)))
+#define getwbe(buf,ofs)	(OSSwapInt16(getwle(buf,ofs)))
+#define getdbe(buf,ofs)	(OSSwapInt32(getdle(buf,ofs)))
 
 #define setwle(buf,ofs,val) getwle(buf,ofs)=val
 #define setwbe(buf,ofs,val) getwle(buf,ofs)=htons(val)
@@ -88,19 +89,16 @@
 #else	/* (BYTE_ORDER == LITTLE_ENDIAN) */
 #define getwbe(buf,ofs) (*((u_int16_t*)(&((u_int8_t*)(buf))[ofs])))
 #define getdbe(buf,ofs) (*((u_int32_t*)(&((u_int8_t*)(buf))[ofs])))
-#define getwle(buf,ofs) (NXSwapShort(getwbe(buf,ofs)))
-#define getdle(buf,ofs) (NXSwapLong(getdbe(buf,ofs)))
+#define getwle(buf,ofs) (OSSwapInt16(getwbe(buf,ofs)))
+#define getdle(buf,ofs) (OSSwapInt32(getdbe(buf,ofs)))
 
 #define setwbe(buf,ofs,val) getwbe(buf,ofs)=val
-#define setwle(buf,ofs,val) getwbe(buf,ofs)=NXSwapShort(val)
+#define setwle(buf,ofs,val) getwbe(buf,ofs)=OSSwapInt16(val)
 #define setdbe(buf,ofs,val) getdbe(buf,ofs)=val
-#define setdle(buf,ofs,val) getdbe(buf,ofs)=NXSwapLong(val)
+#define setdle(buf,ofs,val) getdbe(buf,ofs)=OSSwapInt32(val)
 
 #endif	/* (BYTE_ORDER == LITTLE_ENDIAN) */
 
-/* Constants for smb port behavior  */
-#define TRY_BOTH_PORTS		1	/* Try port 445 -- if unsuccessful try NetBIOS */
-#define USE_THIS_PORT_ONLY	2	/* Try supplied port -- if unsuccessful quit ( Could be 139, 445, or other) */
 
 /*
  * nb environment
@@ -118,30 +116,31 @@ struct nb_ctx {
  * to establish connection to an SMB server.
  */
 struct smb_ctx {
-	CFStringRef scheme;		/* Must always be the first entry, required by the NetFS calls */
 	pthread_mutex_t ctx_mutex;
-	CFURLRef	ct_url;
-	UInt32		ct_flags;	/* SMBCF_ */
-	int			ct_fd;		/* handle of connection */
-	int			ct_level;
-	UInt32   	ct_port_behavior; 
-	UInt16		ct_port;
-	CFStringRef	serverDisplayName; /* Server name from URL or Bonjour Service Name*/
-	char *		ct_fullserver; /* Server name from URL */
-	char *		netbios_dns_name;	/* Given a NetBIOS name this is the DNS name (or IP Dot Notation) found in the configuration file */
-	struct nb_ctx ct_nb;
+	CFURLRef		ct_url;
+	u_int32_t		ct_flags;	/* SMBCF_ */
+	int				ct_fd;		/* handle of connection */
+	u_int32_t		ct_level;
+	u_int32_t   	ct_port_behavior; 
+	u_int16_t		ct_port;
+	CFStringRef		serverNameRef; /* Display Server name obtain from URL or Bonjour Service Name */
+	char *			serverName;		/* Server name obtain from the URL */
+	char *			netbios_dns_name;	/* Given a NetBIOS name this is the DNS name (or IP Dot Notation) found in the configuration file */
+	struct nb_ctx		ct_nb;
 	struct smbioc_ossn	ct_ssn;
-	struct smbioc_oshare	ct_sh;
-	char *		ct_origshare;
-	char *		ct_path;
-	char *		ct_kerbPrincipalName;
-	int32_t		ct_kerbPrincipalName_len;
-	int			debug_level;
-	int			altflags;
-	u_int32_t	ct_vc_caps;		/* Obtained from the negotiate message */
-	u_int32_t	ct_vc_flags;	/* Obtained from the negotiate message */
-	u_int32_t	ct_vc_shared;	/* Obtained from the negotiate message, currently only tells if the vc is shared */
-	char		LocalNetBIOSName[SMB_MAXUSERNAMELEN + 1];	/* Local NetBIOS Name or host name used for port 139 only */
+	struct smbioc_setup ct_setup;
+	struct smbioc_share	ct_sh;
+	int32_t			ct_saddr_len;
+	struct sockaddr	*ct_saddr;
+	int32_t			ct_laddr_len;
+	struct sockaddr	*ct_laddr;
+	char *			ct_origshare;
+	CFStringRef		mountPath;
+	int32_t			debug_level;
+	int				altflags;
+	u_int32_t		ct_vc_caps;		/* Obtained from the negotiate message */
+	u_int32_t		ct_vc_flags;	/* Obtained from the negotiate message */
+	u_int32_t		ct_vc_shared;	/* Obtained from the negotiate message, currently only tells if the vc is shared */
 };
 
 #define	SMBCF_RESOLVED		0x00000001	/* We have reolved the address and name */
@@ -151,15 +150,14 @@ struct smb_ctx {
 #define	SMBCF_READ_PREFS	0x00000010	/* We already read the preference */
 #define SMBCF_MOUNTSMBFS	0x00000020	/* Called from the mount_smbfs command */
 #define SMBCF_EXPLICITPWD	0x00010000	/* The password set by the url */
-#define SMBCF_RESOLVED_NetBIOS	0x00020000	/* We have reolved the address and name using NetBIOS */
 
 #define SMBCF_CONNECT_STATE	SMBCF_CONNECTED | SMBCF_AUTHORIZED | SMBCF_SHARE_CONN
 /*
  * request handling structures
  */
 struct smb_lib_mbuf {
-	int					m_len;
-	int					m_maxlen;
+	size_t				m_len;
+	size_t				m_maxlen;
 	char				*m_data;
 	struct smb_lib_mbuf *m_next;
 };
@@ -168,10 +166,10 @@ struct mbdata {
 	struct smb_lib_mbuf *mb_top;
 	struct smb_lib_mbuf *mb_cur;
 	char				*mb_pos;
-	int					mb_count;
+	size_t				mb_count;
 };
 
-#define SMB_LIB_M_ALIGN(len)	(((len) + (sizeof(long)) - 1) & ~((sizeof(long)) - 1))
+#define SMB_LIB_M_ALIGN(len)	(((len) + (sizeof(u_int32_t)) - 1) & ~((sizeof(u_int32_t)) - 1))
 #define	SMB_LIB_M_BASESIZE	(sizeof(struct smb_lib_mbuf))
 #define	SMB_LIB_M_MINSIZE	(256 - SMB_LIB_M_BASESIZE)
 #define SMB_LIB_M_TOP(m)	((char*)(m) + SMB_LIB_M_BASESIZE)
@@ -196,15 +194,18 @@ __BEGIN_DECLS
 
 struct sockaddr;
 
-int smb_load_library(char *codepage);
+int smb_load_library(void);
 struct rcfile * smb_open_rcfile(int NoUserPreferences);
 void smb_log_info(const char *, int, int,...);
 
+#ifdef SMB_DEBUG
+void smb_ctx_hexdump(const char */* func */, const char */* comments */, unsigned char */* buf */, size_t /* inlen */);
+#endif // SMB_DEBUG
 /*
  * Context management
  */
-void *smb_create_ctx();
-int  smb_ctx_init(struct smb_ctx **out_ctx, const char *url, int level, int sharetype, int NoUserPreferences);
+void *smb_create_ctx(void);
+int  smb_ctx_init(struct smb_ctx **out_ctx, const char *url, u_int32_t level, int sharetype, int NoUserPreferences);
 void smb_ctx_cancel_connection(struct smb_ctx *ctx);
 void smb_ctx_done(void *);
 
@@ -217,7 +218,6 @@ int smb_connect(struct smb_ctx *ctx);
 int smb_session_security(struct smb_ctx *ctx, char *clientpn, char *servicepn);
 int smb_share_connect(struct smb_ctx *ctx);
 
-void smb_ctx_setserver(struct smb_ctx *ctx, const char *name);
 int  smb_ctx_setuser(struct smb_ctx *, const char *);
 int  smb_ctx_setshare(struct smb_ctx *, const char *, int);
 int  smb_ctx_setdomain(struct smb_ctx *, const char *);
@@ -227,8 +227,9 @@ u_int16_t smb_ctx_flags2(struct smb_ctx *);
 u_int16_t smb_ctx_connstate(struct smb_ctx *ctx);
 int  smb_smb_open_print_file(struct smb_ctx *, int, int, const char *, smbfh*);
 int  smb_smb_close_print_file(struct smb_ctx *, smbfh);
-int  smb_read(struct smb_ctx *, smbfh, off_t, size_t, char *);
-int  smb_write(struct smb_ctx *, smbfh, off_t, size_t, const char *);
+int  smb_read(struct smb_ctx *, smbfh, off_t, u_int32_t, char *);
+int  smb_write(struct smb_ctx *, smbfh, off_t, u_int32_t, const char *);
+void smb_ctx_get_user_mount_info(const char * /*mntonname */, CFMutableDictionaryRef);
 
 #define smb_rq_getrequest(rqp)	(&(rqp)->rq_rq)
 #define smb_rq_getreply(rqp)	(&(rqp)->rq_rp)
@@ -237,14 +238,10 @@ int  smb_rq_init(struct smb_ctx *, u_char, size_t, struct smb_rq **);
 void smb_rq_done(struct smb_rq *);
 void smb_rq_wend(struct smb_rq *);
 int  smb_rq_simple(struct smb_rq *);
-int  smb_rq_dmem(struct mbdata *, const char *, size_t);
 int  smb_rq_dstring(struct mbdata *, const char *);
 
 int  smb_t2_request(struct smb_ctx *, int, u_int16_t *, const char *,
 	int, void *, int, void *, int *, void *, int *, void *, int *);
-
-void smb_simplecrypt(char *dst, const char *src);
-int  smb_simpledecrypt(char *dst, const char *src);
 
 int  smb_lib_mbuf_getm(struct smb_lib_mbuf *, size_t, struct smb_lib_mbuf **);
 int  smb_lib_m_lineup(struct smb_lib_mbuf *, struct smb_lib_mbuf **);
@@ -260,20 +257,18 @@ int  mb_put_uint32le(struct mbdata *, u_int32_t);
 int  mb_put_uint64be(struct mbdata *, u_int64_t);
 int  mb_put_uint64le(struct mbdata *, u_int64_t);
 int  mb_put_mem(struct mbdata *, const char *, size_t);
-int  mb_put_pstring(struct mbdata *mbp, const char *s);
 int  mb_put_mbuf(struct mbdata *, struct smb_lib_mbuf *);
 
 int  mb_get_uint8(struct mbdata *, u_int8_t *);
 int  mb_get_uint16(struct mbdata *, u_int16_t *);
 int  mb_get_uint16le(struct mbdata *, u_int16_t *);
 int  mb_get_uint16be(struct mbdata *, u_int16_t *);
-int  mb_get_uint32(struct mbdata *, u_int32_t *);
 int  mb_get_uint32be(struct mbdata *, u_int32_t *);
 int  mb_get_uint32le(struct mbdata *, u_int32_t *);
-int  mb_get_uint64(struct mbdata *, u_int64_t *);
-int  mb_get_uint64be(struct mbdata *, u_int64_t *);
 int  mb_get_uint64le(struct mbdata *, u_int64_t *);
-int  mb_get_mem(struct mbdata *, char *, size_t);
+int  mb_get_uint64be(struct mbdata *mbp, u_int64_t *x);
+
+int  mb_get_mem(struct mbdata *, char *, u_int32_t);
 
 __END_DECLS
 

@@ -4,7 +4,7 @@
 #include "ppc-opcode.h"
 
 static int bits(
-    unsigned long width);
+    uint32_t width);
 
 static char *cond[] = { "lt", "gt", "eq", "un"};
 static char *pred[] = { "+", "-" };
@@ -15,7 +15,7 @@ int argc,
 char *argv[],
 char *envp[])
 {
-    long i, j, x, d, p, doing_jbsr, add_pred;
+    int32_t i, j, x, d, p, doing_jbsr, add_pred;
 
 	add_pred = 0;
 	doing_jbsr = 0;
@@ -144,7 +144,7 @@ char *envp[])
 		    printf("0");
 		    break;
 		case JBSR:
-		    printf("_long_branch_stub");
+		    printf("_mong_branch_stub");
 		    doing_jbsr = 1;
 		    break;
 		case FXM:
@@ -186,7 +186,7 @@ char *envp[])
 static
 int
 bits(
-unsigned long width)
+uint32_t width)
 {
      static int x = 1;
 

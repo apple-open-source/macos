@@ -106,31 +106,10 @@ static orte_std_cntr_t total_num_apps = 0;
 static bool want_prefix_by_default = (bool) ORTE_WANT_ORTERUN_PREFIX_BY_DEFAULT;
 
 /*
- * setup globals for catching orterun command line options
+ * Globals
  */
-struct globals_t {
-    bool help;
-    bool version;
-    bool verbose;
-    bool quiet;
-    bool exit;
-    bool no_wait_for_job_completion;
-    bool by_node;
-    bool by_slot;
-    bool do_not_launch;
-    bool debugger;
-    int num_procs;
-    int exit_status;
-    char *hostfile;
-    char *env_val;
-    char *appfile;
-    char *wdir;
-    char *path;
-    opal_mutex_t lock;
-    opal_condition_t cond;
-} orterun_globals;
-static bool globals_init = false;
-
+struct globals_t orterun_globals;
+bool globals_init = false;
 
 opal_cmd_line_init_t cmd_line_init[] = {
     /* Various "obvious" options */
@@ -985,13 +964,12 @@ static int parse_globals(int argc, char* argv[])
     /* Do we want a user-level debugger? */
 
     if (orterun_globals.debugger) {
-        orte_run_debugger(orterun_basename, argc, argv);
+        orte_run_debugger(orterun_basename, &cmd_line, argc, argv);
     }
 
     /* Allocate and map by node or by slot?  Shortcut for setting an
        MCA param. */
 
-    /* JMS To be changed post-beta to LAM's C/N command line notation */
     /* Don't initialize the MCA parameter here unless we have to,
      * since it really should be initialized in rmaps_base_open */
     if (orterun_globals.by_node || orterun_globals.by_slot) {
@@ -1344,7 +1322,18 @@ static int create_app(int argc, char* argv[], orte_app_context_t **app_ptr,
     app->env = opal_argv_copy(*app_env);
     for (i = 0; NULL != environ[i]; ++i) {
         if (0 == strncmp("OMPI_", environ[i], 5)) {
-            opal_argv_append_nosize(&app->env, environ[i]);
+            /* check for duplicate in app->env - this
+             * would have been placed there by the
+             * cmd line processor. By convention, we
+             * always let the cmd line override the
+             * environment
+             */
+            param = strdup(environ[i]);
+            value = strchr(param, '=');
+            *value = '\0';
+            value++;
+            opal_setenv(param, value, false, &app->env);
+            free(param);
         }
     }
 

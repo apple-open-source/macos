@@ -287,4 +287,18 @@ bool launchd_load_job(const LaunchService& svc)
     return run_helper(unload_cmd);
 }
 
+bool smbcontrol_reconfigure(const char * daemon)
+{
+    const char * smbcontrol_cmd[] =
+    {
+	"/usr/bin/smbcontrol",
+	NULL,
+	"reload-config",
+	NULL
+    };
+
+    smbcontrol_cmd[1] = daemon;
+    return run_helper(smbcontrol_cmd);
+}
+
 /* vim: set cindent ts=8 sts=4 tw=79 : */

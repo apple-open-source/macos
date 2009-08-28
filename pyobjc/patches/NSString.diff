@@ -1,0 +1,11 @@
+--- pyobjc-framework-Cocoa/Lib/Foundation/PyObjC.bridgesupport.orig	2009-06-23 15:35:32.000000000 -0700
++++ pyobjc-framework-Cocoa/Lib/Foundation/PyObjC.bridgesupport	2009-06-24 00:58:42.000000000 -0700
+@@ -11237,7 +11237,7 @@
+     </method>
+     <method selector='stringByAppendingString:'>
+       <retval type='@' />
+-      <arg index='0' type='@' />
++      <arg index='0' printf_format='true' />
+     </method>
+     <method selector='stringByDeletingLastPathComponent'>
+       <retval type='@' />

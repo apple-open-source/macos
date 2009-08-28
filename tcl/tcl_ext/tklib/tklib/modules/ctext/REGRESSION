@@ -1,0 +1,2 @@
+
+Due to changes between the 2.7 and 3.1 release you may need to remove escapes in your class patterns.  This is due to my former improper use of quotes, which I have now replaced with lists.  The escaping is no longer necessary.

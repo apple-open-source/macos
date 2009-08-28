@@ -8,11 +8,9 @@
 Project               = tnc
 
 Extra_Configure_Flags = $(TEA_Configure_Flags)
-Extra_CC_Flags        = -fno-common -DUSE_TDOM_STUBS=1
-Extra_LD_Flags        = -L$(TclFramework)
-Extra_Environment     = CC=gcc $(TEA_Environment)
+Extra_Environment     = $(TEA_Environment)
 
-GnuAfterInstall       = strip -f Makefile.$(Project)
+GnuAfterInstall       = strip fix-perms -f Makefile.$(Project)
 
 # include TEA Tcl extension build support
 include ../TEA.make

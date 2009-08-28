@@ -1,7 +1,7 @@
 /*
  * opendirectory.h
  *
- * Copyright (C) 2003-2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2003-2009 Apple Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,6 +27,15 @@
 
 #include <DirectoryService/DirServicesConst.h>
 #include <DirectoryService/DirServicesUtils.h>
+
+#include <membership.h>
+
+/* These conflict with enum id_type. */
+#undef ID_TYPE_UID
+#undef ID_TYPE_GID
+
+#define MBR_ID_TYPE_UID 0
+#define MBR_ID_TYPE_GID 1
 
 /* Definitions */
 #ifdef __cplusplus
@@ -95,8 +104,12 @@ tDirStatus opendirectory_sam_searchname(
 
 tDirStatus opendirectory_insert_search_results(tDirNodeReference node,
 				    CFMutableArrayRef recordsArray,
-				    const unsigned long recordCount,
+				    const UInt32 recordCount,
 				    tDataBufferPtr dataBuffer);
+
+BOOL opendirectory_match_record_attribute(CFDictionaryRef record,
+				    const char *attribute,
+				    const char * value);
 
 /* High-level SAM policy APIs. */
 
@@ -118,8 +131,15 @@ CFDictionaryRef opendirectory_find_record_from_groupsid(
 				struct opendirectory_session *session,
 				const DOM_SID *group_sid);
 
+CFDictionaryRef opendirectory_sam_searchugid_first(
+				struct opendirectory_session *session,
+				const char *type,
+				const char *attr,
+				const id_t ugid);
+
 /* Miscellaneous helper APIs. */
 
+tDataListPtr opendirectory_config_attrlist(struct opendirectory_session *session);
 tDataListPtr opendirectory_sam_attrlist(struct opendirectory_session *session);
 const char ** opendirectory_local_paths(struct opendirectory_session *session);
 
@@ -127,6 +147,52 @@ char *opendirectory_get_record_attribute(void *talloc_ctx,
 				    CFDictionaryRef record,
 				    const char *attribute);
 char * opendirectory_talloc_cfstr(void *talloc_ctx, CFStringRef cfstring);
+
+BOOL opendirectory_node_path_is_local(
+				const struct opendirectory_session *session,
+				const char * node_path);
+
+typedef  CFDictionaryRef (*domain_sid_search_func) (
+				struct opendirectory_session *session,
+				const char *domain_name,
+				const DOM_SID *domain_sid,
+				const void *match_data);
+
+CFDictionaryRef opendirectory_search_domain_sid_cache(
+			    struct opendirectory_session *session,
+			    const void *match_data,
+			    domain_sid_search_func match);
+
+BOOL chop_sid_string(char * sid_string);
+BOOL convert_DOMSID_to_ntsid(nt_sid_t * ntsid, const DOM_SID * domsid);
+BOOL convert_ntsid_to_DOMSID(DOM_SID * domsid, const nt_sid_t * ntsid);
+BOOL is_compatibility_guid(const uuid_t guid, int * id_type, id_t * ugid);
+
+BOOL memberd_sid_to_uuid(const DOM_SID * sid, uuid_t uuid);
+BOOL memberd_uuid_to_sid(const uuid_t uuid, DOM_SID * sid);
+
+/* SAM SID configuration APIs. */
+
+tDirStatus opendirectory_query_machine_sid(
+				struct opendirectory_session *session,
+				DOM_SID *machine_sid);
+
+tDirStatus opendirectory_store_machine_sid(
+				struct opendirectory_session *session,
+				const DOM_SID *machine_sid);
+
+tDirStatus opendirectory_query_domain_sid(
+				struct opendirectory_session *session,
+				const char *domain,
+				DOM_SID *domain_sid);
+
+BOOL opendirectory_domain_sid_from_path(void * talloc_ctx,
+				struct opendirectory_session * session,
+				const char * node_path,
+				DOM_SID *samsid);
+
+void opendirectory_fill_domain_sid_cache(void * talloc_ctx,
+			    struct opendirectory_session *session);
 
 /* Authentication APIs. */
 
@@ -163,7 +229,8 @@ tDirStatus opendirectory_ntlmv2user_session_key(const char *account_name,
 tDirStatus opendirectory_cred_session_key(const DOM_CHAL *client_challenge,
 				const DOM_CHAL *server_challenge,
 				const char *machine_acct,
-				char *session_key);
+				char *session_key,
+				u_int32_t option);
 
 tDirStatus opendirectory_set_workstation_nthash(const char *account_name,
 				const char *nt_hash);
@@ -259,6 +326,11 @@ enum ds_trace_level
            	SAFE_FREE(dserr); \
 		LOG_DS_CHECK_BADREF(status); \
     	} while(0)
+
+/* The DirectoryService framework is deprecated in 10.6, but we still use it
+ * and don't want to see the warnings.
+ */
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
 #ifdef __cplusplus
 }

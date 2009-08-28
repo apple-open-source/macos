@@ -16,8 +16,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 (define_predicate "s_register_operand"
   (match_code "reg,subreg")
@@ -110,25 +110,13 @@
         "offsettable_address_p (reload_completed | reload_in_progress,
 				mode, XEXP (op, 0))")))
 
-;; True if the operand is a memory reference which is, or can be made,
-;; word aligned by adjusting the offset.
-(define_predicate "alignable_memory_operand"
-  (match_code "mem")
-{
-  rtx reg;
-
-  op = XEXP (op, 0);
-
-  return ((GET_CODE (reg = op) == REG
-	   || (GET_CODE (op) == SUBREG
-	       && GET_CODE (reg = SUBREG_REG (op)) == REG)
-	   || (GET_CODE (op) == PLUS
-	       && GET_CODE (XEXP (op, 1)) == CONST_INT
-	       && (GET_CODE (reg = XEXP (op, 0)) == REG
-		   || (GET_CODE (XEXP (op, 0)) == SUBREG
-		       && GET_CODE (reg = SUBREG_REG (XEXP (op, 0))) == REG))))
-	  && REGNO_POINTER_ALIGN (REGNO (reg)) >= 32);
-})
+;; True if the operand is a memory operand that does not have an
+;; automodified base register (and thus will not generate output reloads).
+(define_predicate "call_memory_operand"
+  (and (match_code "mem")
+       (and (match_test "GET_RTX_CLASS (GET_CODE (XEXP (op, 0)))
+			 != RTX_AUTOINC")
+	    (match_operand 0 "memory_operand"))))
 
 (define_predicate "arm_reload_memory_operand"
   (and (match_code "mem,reg,subreg")

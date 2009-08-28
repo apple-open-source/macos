@@ -1,6 +1,7 @@
 /* Definitions of target machine for GNU compiler.
    Motorola 68HC11 and 68HC12.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
    Contributed by Stephane Carrez (stcarrez@nerim.fr)
 
 This file is part of GCC.
@@ -17,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.
 
 Note:
    A first 68HC11 port was made by Otto Lind (otto@coactive.com)
@@ -117,44 +118,14 @@ typedef int enum_machine_mode;
 
 /* Run-time compilation parameters selecting different hardware subsets.  */
 
-extern int target_flags;
-
 extern short *reg_renumber;	/* def in local_alloc.c */
 
-/* Macros used in the machine description to test the flags.  */
-
-/* 6811 specific options
- *
- * For 68HC12, the auto inc/dec mode is disabled by default. The reason
- * is that for most programs, the reload pass will fail because it needs
- * more registers to save the value of the indexed register after the
- * memory access.  For simple programs, you can enable this
- * with -mauto-incdec.
- */
-
-#define MASK_SHORT              0002	/* Compile with 16-bit `int' */
-#define MASK_AUTO_INC_DEC       0004
-#define MASK_M6811              0010
-#define MASK_M6812              0020
-#define MASK_M68S12             0040
-#define MASK_NO_DIRECT_MODE     0100
-#define MASK_MIN_MAX            0200
-#define MASK_LONG_CALLS         0400
-
 #define TARGET_OP_TIME		(optimize && optimize_size == 0)
-#define TARGET_SHORT            (target_flags & MASK_SHORT)
-#define TARGET_M6811            (target_flags & MASK_M6811)
-#define TARGET_M6812            (target_flags & MASK_M6812)
-#define TARGET_M68S12           (target_flags & MASK_M68S12)
-#define TARGET_AUTO_INC_DEC     (target_flags & MASK_AUTO_INC_DEC)
-#define TARGET_MIN_MAX          (target_flags & MASK_MIN_MAX)
-#define TARGET_NO_DIRECT_MODE   (target_flags & MASK_NO_DIRECT_MODE)
 #define TARGET_RELAX            (TARGET_NO_DIRECT_MODE)
-#define TARGET_LONG_CALLS       (target_flags & MASK_LONG_CALLS)
 
 /* Default target_flags if no switches specified.  */
 #ifndef TARGET_DEFAULT
-# define TARGET_DEFAULT		(MASK_M6811)
+# define TARGET_DEFAULT		0
 #endif
 
 /* Define this macro as a C expression for the initializer of an
@@ -167,75 +138,6 @@ extern short *reg_renumber;	/* def in local_alloc.c */
 # else
 #  define MULTILIB_DEFAULTS { "m68hc12" }
 # endif
-#endif
-
-/* Macro to define tables used to set the flags. This is a list in braces of
-   pairs in braces, each pair being { "NAME", VALUE } where VALUE is the bits
-   to set or minus the bits to clear. An empty string NAME is used to
-   identify the default VALUE.  */
-
-#define TARGET_SWITCHES						\
-{ { "short", MASK_SHORT,					\
-    N_("Compile with 16-bit integer mode")},			\
-  { "noshort", - MASK_SHORT,					\
-    N_("Compile with 32-bit integer mode")},			\
-  { "auto-incdec", MASK_AUTO_INC_DEC,				\
-    N_("Auto pre/post decrement increment allowed")},		\
-  { "noauto-incdec", - MASK_AUTO_INC_DEC,			\
-    N_("Auto pre/post decrement increment not allowed")},	\
-  { "inmax", MASK_MIN_MAX,                                      \
-    N_("Min/max instructions allowed")},                        \
-  { "nominmax", - MASK_MIN_MAX,                                 \
-    N_("Min/max instructions not allowed")},                    \
-  { "long-calls", MASK_LONG_CALLS,				\
-    N_("Use call and rtc for function calls and returns")},	\
-  { "nolong-calls", - MASK_LONG_CALLS,				\
-    N_("Use jsr and rts for function calls and returns")},	\
-  { "relax", MASK_NO_DIRECT_MODE,                               \
-    N_("Do not use direct addressing mode for soft registers")},\
-  { "norelax", -MASK_NO_DIRECT_MODE,                            \
-    N_("Use direct addressing mode for soft registers")},       \
-  { "68hc11", MASK_M6811,					\
-    N_("Compile for a 68HC11")},				\
-  { "68hc12", MASK_M6812,					\
-    N_("Compile for a 68HC12")},				\
-  { "68hcs12", MASK_M6812 | MASK_M68S12,			\
-    N_("Compile for a 68HCS12")},				\
-  { "6811",   MASK_M6811,					\
-    N_("Compile for a 68HC11")},				\
-  { "6812",   MASK_M6812,					\
-    N_("Compile for a 68HC12")},				\
-  { "68S12",  MASK_M6812 | MASK_M68S12,				\
-    N_("Compile for a 68HCS12")},				\
-  { "", TARGET_DEFAULT, 0 }}
-
-/* This macro is similar to `TARGET_SWITCHES' but defines names of
-   command options that have values.  Its definition is an
-   initializer with a subgrouping for each command option.
-
-   Each subgrouping contains a string constant, that defines the
-   fixed part of the option name, and the address of a variable.  The
-   variable, type `char *', is set to the variable part of the given
-   option if the fixed part matches.  The actual option name is made
-   by appending `-m' to the specified name.  */
-#define TARGET_OPTIONS							\
-{ { "reg-alloc=",	&m68hc11_reg_alloc_order,                       \
-    N_("Specify the register allocation order"), 0},			\
-  { "soft-reg-count=",	&m68hc11_soft_reg_count,                        \
-    N_("Indicate the number of soft registers available"), 0},		\
-  SUBTARGET_OPTIONS							\
-}
-
-/* These are meant to be redefined in the host dependent files */
-#define SUBTARGET_SWITCHES
-#define SUBTARGET_OPTIONS
-
-extern const char *m68hc11_regparm_string;
-extern const char *m68hc11_reg_alloc_order;
-extern const char *m68hc11_soft_reg_count;
-
-#ifndef TARGET_M68HC12
-# define TARGET_M68HC11 1
 #endif
 
 /* Print subsidiary information on the compiler version in use.  */
@@ -387,7 +289,7 @@ extern const struct processor_costs *m68hc11_cost;
 /* The Z register does not really exist in the 68HC11.  This a fake register
    for GCC.  It is treated exactly as an index register (X or Y).  It is only
    in the A_REGS class, which is the BASE_REG_CLASS for GCC.  Defining this
-   register helps the reload pass of GCC.  Otherwise, the reload often aborts
+   register helps the reload pass of GCC.  Otherwise, the reload often dies
    with register spill failures.
 
    The Z register is replaced by either X or Y during the machine specific
@@ -548,7 +450,7 @@ SOFT_REG_FIRST+28, SOFT_REG_FIRST+29,SOFT_REG_FIRST+30,SOFT_REG_FIRST+31
    For any two classes, it is very desirable that there be another
    class that represents their union.  */
 
-/* The M68hc11 has so fiew registers that it's not possible for GCC to
+/* The M68hc11 has so few registers that it's not possible for GCC to
    do any register allocation without breaking. We extend the processor
    registers by having soft registers. These registers are treated as
    hard registers by GCC but they are located in memory and accessed by page0
@@ -898,14 +800,14 @@ extern enum reg_class m68hc11_tmp_regs_class;
    makes the stack pointer a smaller address.  */
 #define STACK_GROWS_DOWNWARD
 
-/* Define this if the nominal address of the stack frame
+/* Define this to nonzero if the nominal address of the stack frame
    is at the high-address end of the local variables;
    that is, each additional local variable allocated
    goes at a more negative offset in the frame.
 
-   Don't define for 68HC11, the frame pointer is the bottom
+   Define to 0 for 68HC11, the frame pointer is the bottom
    of local variables.  */
-/* #define FRAME_GROWS_DOWNWARD */
+#define FRAME_GROWS_DOWNWARD		0
 
 /* Define this if successive arguments to a function occupy decreasing 
    addresses in the stack.  */
@@ -1135,6 +1037,13 @@ typedef struct m68hc11_args
 
 /* Addressing modes, and classification of registers for them.  */
 
+#define ADDR_STRICT       0x01  /* Accept only registers in class A_REGS  */
+#define ADDR_INCDEC       0x02  /* Post/Pre inc/dec */
+#define ADDR_INDEXED      0x04  /* D-reg index */
+#define ADDR_OFFSET       0x08
+#define ADDR_INDIRECT     0x10  /* Accept (mem (mem ...)) for [n,X] */
+#define ADDR_CONST        0x20  /* Accept const and symbol_ref  */
+
 /* The 68HC12 has all the post/pre increment/decrement modes.  */
 #define HAVE_POST_INCREMENT (TARGET_M6812 && TARGET_AUTO_INC_DEC)
 #define HAVE_PRE_INCREMENT  (TARGET_M6812 && TARGET_AUTO_INC_DEC)
@@ -1160,7 +1069,7 @@ extern enum reg_class m68hc11_index_reg_class;
 
 
 /* Internal macro, return 1 if REGNO is a valid base register.  */
-#define REG_VALID_P(REGNO) (1)	/* ? */
+#define REG_VALID_P(REGNO) ((REGNO) >= 0)
 
 extern unsigned char m68hc11_reg_valid_for_base[FIRST_PSEUDO_REGISTER];
 #define REG_VALID_FOR_BASE_P(REGNO) \
@@ -1588,27 +1497,6 @@ do {                                                                    \
 
 
 /* Miscellaneous Parameters.  */
-
-/* Define the codes that are matched by predicates in m68hc11.c.  */
-#define PREDICATE_CODES \
-{"stack_register_operand",   {SUBREG, REG}},				\
-{"d_register_operand",       {SUBREG, REG}},				\
-{"hard_addr_reg_operand",    {SUBREG, REG}},				\
-{"hard_reg_operand",         {SUBREG, REG}},				\
-{"m68hc11_logical_operator", {AND, IOR, XOR}},				\
-{"m68hc11_arith_operator",   {AND, IOR, XOR, PLUS, MINUS,		\
-			      ASHIFT, ASHIFTRT, LSHIFTRT,		\
-			      ROTATE, ROTATERT }},			\
-{"m68hc11_non_shift_operator", {AND, IOR, XOR, PLUS, MINUS}},		\
-{"m68hc11_unary_operator",   {NEG, NOT, SIGN_EXTEND, ZERO_EXTEND}},	\
-{"m68hc11_shift_operator",   {ASHIFT, ASHIFTRT, LSHIFTRT, ROTATE, ROTATERT}},\
-{"m68hc11_eq_compare_operator", {EQ, NE}},                              \
-{"non_push_operand",         {SUBREG, REG, MEM}},			\
-{"splitable_operand",        {SUBREG, REG, MEM}},			\
-{"reg_or_some_mem_operand",  {SUBREG, REG, MEM}},			\
-{"tst_operand",              {SUBREG, REG, MEM}},			\
-{"cmp_operand",              {SUBREG, REG, MEM, SYMBOL_REF, LABEL_REF,	\
-			     CONST_INT, CONST_DOUBLE}},
 
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */

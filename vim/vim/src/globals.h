@@ -1349,7 +1349,6 @@ EXTERN garray_T error_ga
 
 #ifdef FEAT_NETBEANS_INTG
 EXTERN char *netbeansArg INIT(= NULL);	/* the -nb[:host:port:passwd] arg */
-EXTERN int netbeansCloseFile INIT(= 0);	/* send killed if != 0 */
 EXTERN int netbeansFireChanges INIT(= 1); /* send buffer changes if != 0 */
 EXTERN int netbeansForcedQuit INIT(= 0);/* don't write modified files */
 EXTERN int netbeansReadFile INIT(= 1);	/* OK to read from disk if != 0 */
@@ -1556,6 +1555,14 @@ EXTERN int xsmp_icefd INIT(= -1);   /* The actual connection */
 
 /* For undo we need to know the lowest time possible. */
 EXTERN time_t starttime;
+
+/*
+ * Some compilers warn for not using a return value, but in some situations we
+ * can't do anything useful with the value.  Assign to this variable to avoid
+ * the warning.
+ */
+EXTERN int ignored;
+EXTERN char *ignoredp;
 
 /*
  * Optional Farsi support.  Include it here, so EXTERN and INIT are defined.

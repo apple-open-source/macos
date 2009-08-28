@@ -1,0 +1,67 @@
+Announcing XOTcl 1.5.1
+*************************
+
+Hi everybody. We are pleased to announce the availability of XOTcl 1.5.1.
+Major changes relative to 1.5.0 are:
+
+    * Improved Functionality
+
+        + Improved interface to develop XOTcl methods in C
+           (Many thanks to Scott Gargash for the constructive discussions
+           and suggestions).
+
+           New functions imported through the XOTcl's stub interface:
+            - XOTclNextCmd()
+            - XOTclCallMethodWithArgs
+
+          New constant XOTCL_NONLEAF_METHOD to allow C-implemented
+          methods to call next. This constant can be passed as 5th
+          argument to XOTclAddIMethod (or ...AddPMethod). The
+          following is a short example for defining and registering
+          a C-implemented constructor "init" to a class.
+
+              static int MyClassInit( ClientData cdata, Tcl_Interp *interp,
+                        int objc, Tcl_Obj *CONST objv[] )   {
+                 int rc;
+                 /*** before next ***/
+                 rc = XOTclNextObjCmd(cdata, interp, objc,objv);
+                 /*** after next ***/
+                 return rc;
+              }
+              ...
+              MyClass = XOTclGetClass(interp, "MyClass" );
+              XOTclAddIMethod(interp, MyClass, "init", MyClassInit,
+                         XOTCL_NONLEAF_METHOD, 0 );
+
+
+    * Improved code quality: 
+       + fixed a bug with the backward-compatible and deprecated
+           "setter" interface (many thanks to Manfred Stelzhammer for
+           reporting the bug)
+        + fixed a bug in parsing nonpositional arguments, when
+           e.g. square brackets are used in type declarations for
+           parameters (Many thanks to Stefan Sobernig for reporting)
+        + fixed autoname crash under Windows NT (Many thanks to Mark
+           Janssen for reporting and providing a patch)
+        + fixed serializer to handle deeper stratification layers
+        + simplification and speedup of dispatcher
+        + Makefile.in improvements for genstubs
+        + Changed "test -e" to "test -f" in Makefile.in, since the
+           standard test command in Solaris does not understand 
+           "test -e" (Many thanks to Andreas Kupries for reporting)
+        + improved 64-bit compatibility on POWER5+
+
+ For more details about the changes, please consult the ChangeLog and
+ documentation.
+
+MORE INFO
+  General and more detailed information about XOTcl and its components
+  can be found at http://www.xotcl.org
+
+
+Best regards,
+
+Gustaf Neumann
+Uwe Zdun
+
+

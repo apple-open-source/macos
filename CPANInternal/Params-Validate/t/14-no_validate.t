@@ -6,23 +6,23 @@ use lib './t';
 
 use Params::Validate qw(validate);
 
-use Test;
-plan test => $] == 5.006 ? 2 : 3;
+use Test::More;
+plan tests => $] == 5.006 ? 2 : 3;
 
 eval { foo() };
-ok( $@ =~ /parameter 'foo'/ );
+like( $@, qr/parameter 'foo'/ );
 
 {
     local $Params::Validate::NO_VALIDATION = 1;
 
     eval { foo() };
-    ok( ! $@ );
+    is( $@, q{} );
 }
 
 unless ( $] == 5.006 )
 {
     eval { foo() };
-    ok( $@ =~ /parameter 'foo'/ );
+    like( $@, qr/parameter 'foo'/ );
 }
 
 sub foo

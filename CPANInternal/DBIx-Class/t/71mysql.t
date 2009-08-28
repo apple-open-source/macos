@@ -15,9 +15,9 @@ plan skip_all => 'Set $ENV{DBICTEST_MYSQL_DSN}, _USER and _PASS to run this test
 
 plan tests => 5;
 
-DBICTest::Schema->compose_connection('MySQLTest' => $dsn, $user, $pass);
+my $schema = DBICTest::Schema->connect($dsn, $user, $pass);
 
-my $dbh = MySQLTest->schema->storage->dbh;
+my $dbh = $schema->storage->dbh;
 
 $dbh->do("DROP TABLE IF EXISTS artist;");
 
@@ -25,17 +25,18 @@ $dbh->do("CREATE TABLE artist (artistid INTEGER NOT NULL AUTO_INCREMENT PRIMARY 
 
 #'dbi:mysql:host=localhost;database=dbic_test', 'dbic_test', '');
 
-MySQLTest::Artist->load_components('PK::Auto');
+# This is in Core now, but it's here just to test that it doesn't break
+$schema->class('Artist')->load_components('PK::Auto');
 
 # test primary key handling
-my $new = MySQLTest::Artist->create({ name => 'foo' });
+my $new = $schema->resultset('Artist')->create({ name => 'foo' });
 ok($new->artistid, "Auto-PK worked");
 
 # test LIMIT support
 for (1..6) {
-    MySQLTest::Artist->create({ name => 'Artist ' . $_ });
+    $schema->resultset('Artist')->create({ name => 'Artist ' . $_ });
 }
-my $it = MySQLTest::Artist->search( {},
+my $it = $schema->resultset('Artist')->search( {},
     { rows => 3,
       offset => 2,
       order_by => 'artistid' }
@@ -80,9 +81,11 @@ SKIP: {
         $test_type_info->{charfield}->{data_type} = 'VARCHAR';
     }
 
-    my $type_info = MySQLTest->schema->storage->columns_info_for('artist');
+    my $type_info = $schema->storage->columns_info_for('artist');
     is_deeply($type_info, $test_type_info, 'columns_info_for - column data types');
 }
 
 # clean up our mess
-$dbh->do("DROP TABLE artist");
+END {
+    $dbh->do("DROP TABLE artist") if $dbh;
+}

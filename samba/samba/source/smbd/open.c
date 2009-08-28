@@ -1375,7 +1375,7 @@ NTSTATUS open_file_ntcreate(connection_struct *conn,
 	}
 #endif /* O_SYNC */
   
-	if (posix_open & (access_mask & FILE_APPEND_DATA)) {
+	if (posix_open && (access_mask & FILE_APPEND_DATA)) {
 		flags2 |= O_APPEND;
 	}
 
@@ -1520,10 +1520,15 @@ NTSTATUS open_file_ntcreate(connection_struct *conn,
 				can_access_mask = FILE_READ_DATA;
 			}
 
+#if HAVE_ACCESSX_NP
+			can_access = can_access_file(conn, fname, psbuf,
+						    can_access_mask);
+#else
 			if (((can_access_mask & FILE_WRITE_DATA) && !CAN_WRITE(conn)) ||
 			    !can_access_file(conn,fname,psbuf,can_access_mask)) {
 				can_access = False;
 			}
+#endif
 
 			/* 
 			 * If we're returning a share violation, ensure we
@@ -1847,9 +1852,15 @@ NTSTATUS open_file_ntcreate(connection_struct *conn,
 		if (lp_map_archive(SNUM(conn)) ||
 		    lp_store_dos_attributes(SNUM(conn))) {
 			if (!posix_open) {
-				file_set_dosmode(conn, fname,
-					 new_dos_attributes | aARCH, NULL,
-					 parent_dir);
+				SMB_STRUCT_STAT tmp_sbuf;
+				SET_STAT_INVALID(tmp_sbuf);
+				if (file_set_dosmode(
+						conn, fname,
+						new_dos_attributes | aARCH,
+						&tmp_sbuf,
+						parent_dir) == 0) {
+					unx_mode = tmp_sbuf.st_mode;
+				}
 			}
 		}
 	}
@@ -1968,6 +1979,7 @@ static NTSTATUS mkdir_internal(connection_struct *conn,
 	char *parent_dir;
 	const char *dirname;
 	NTSTATUS status;
+	BOOL posix_open = False;
 
 	if(!CAN_WRITE(conn)) {
 		DEBUG(5,("mkdir_internal: failing create on read-only share "
@@ -1986,6 +1998,7 @@ static NTSTATUS mkdir_internal(connection_struct *conn,
 	}
 
 	if (file_attributes & FILE_FLAG_POSIX_SEMANTICS) {
+		posix_open = True;
 		mode = (mode_t)(file_attributes & ~FILE_FLAG_POSIX_SEMANTICS);
 	} else {
 		mode = unix_mode(conn, aDIR, name, parent_dir);
@@ -2008,6 +2021,14 @@ static NTSTATUS mkdir_internal(connection_struct *conn,
 		DEBUG(0, ("Directory just '%s' created is not a directory\n",
 			  name));
 		return NT_STATUS_ACCESS_DENIED;
+	}
+
+	if (lp_store_dos_attributes(SNUM(conn))) {
+		if (!posix_open) {
+			file_set_dosmode(conn, name,
+				 file_attributes | aDIR, NULL,
+				 parent_dir);
+		}
 	}
 
 	if (lp_inherit_perms(SNUM(conn))) {

@@ -1,5 +1,5 @@
-/* APPLE LOCAL file mainline */
 /* Based on objc/execute/va_method.m, by Nicola Pero */
+
 /* { dg-do run } */
 
 /* APPLE LOCAL radar 4894756 */
@@ -65,11 +65,11 @@ extern "C" int some_func(id self, SEL _cmd, int firstN, int secondN, int thirdN,
 int main (void)
 {
   if ([MathClass sum: 1, 2, 3, 4, 5, -1] != 15)
-      abort ();
+    abort ();
   if ([MathClass prod: 4, 5, 6] != 120)
-      abort ();
+    abort ();
   if ([MathClass minimum: 17, 9, 133, 84, 35, -1] != 9)
-      abort ();
+    abort ();
   
   return 0;
 }

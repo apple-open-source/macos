@@ -1,8 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1996,2007 Oracle.  All rights reserved.
  */
 /*
  * Copyright (c) 1989, 1991, 1993
@@ -31,18 +30,15 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
+ * $Id: getcwd.c,v 12.9 2007/05/17 15:14:54 bostic Exp $
  */
 
 #include "db_config.h"
 
-#ifndef lint
-static const char revid[] = "$Id: getcwd.c,v 1.2 2004/03/30 01:21:22 jtownsen Exp $";
-#endif /* not lint */
+#include "db_int.h"
 
-#ifndef NO_SYSTEM_INCLUDES
-#include <sys/types.h>
-#include <sys/stat.h>
-
+#ifdef HAVE_SYSTEM_INCLUDE_FILES
 #if HAVE_DIRENT_H
 # include <dirent.h>
 # define NAMLEN(dirent) strlen((dirent)->d_name)
@@ -59,21 +55,14 @@ static const char revid[] = "$Id: getcwd.c,v 1.2 2004/03/30 01:21:22 jtownsen Ex
 #  include <ndir.h>
 # endif
 #endif
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
 #endif
-
-#include "db_int.h"
 
 #define	ISDOT(dp) \
 	(dp->d_name[0] == '.' && (dp->d_name[1] == '\0' || \
 	    (dp->d_name[1] == '.' && dp->d_name[2] == '\0')))
 
 #ifndef dirfd
-#define   dirfd(dirp)     ((dirp)->dd_fd)
+#define	dirfd(dirp)     ((dirp)->dd_fd)
 #endif
 
 /*

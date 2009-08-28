@@ -1,0 +1,12 @@
+#compdef ionice
+
+_arguments \
+  '(* -)-h[display usage information]' \
+  '(*)-p[interpret args as process ID]:pid:_pids' \
+  '-c[scheduling class]:class:(( 1\:realtime 2\:best-effort 3\:idle ))' \
+  '-n[scheduling class priority]:class-priority:((
+    0\:high\ priority
+    {6..1}\:
+    7\:low\ priority
+  ))' \
+  '*::command:_normal'

@@ -39,21 +39,21 @@
 struct seg_addr_table {
     char *install_name;
     enum bool split;
-    unsigned long seg1addr;
-    unsigned long segs_read_only_addr;
-    unsigned long segs_read_write_addr;
-    unsigned long line;
+    uint32_t seg1addr;
+    uint32_t segs_read_only_addr;
+    uint32_t segs_read_write_addr;
+    uint32_t line;
 };
 
 extern struct seg_addr_table *parse_default_seg_addr_table(
     char **seg_addr_table_name,
-    unsigned long *table_size);
+    uint32_t *table_size);
 
 extern struct seg_addr_table * parse_seg_addr_table(
     char *file_name,
     char *flag,
     char *argument,
-    unsigned long *table_size);
+    uint32_t *table_size);
 
 extern struct seg_addr_table * search_seg_addr_table(
     struct seg_addr_table *seg_addr_table,

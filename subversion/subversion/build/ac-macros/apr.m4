@@ -14,7 +14,7 @@ AC_DEFUN(SVN_LIB_APR,
 
   AC_MSG_NOTICE([Apache Portable Runtime (APR) library configuration])
 
-  APR_FIND_APR("$srcdir/apr", "./apr", 1, [0 1])
+  APR_FIND_APR("$abs_srcdir/apr", "$abs_builddir/apr", 1, [1 0])
 
   if test $apr_found = "no"; then
     AC_MSG_WARN([APR not found])
@@ -111,11 +111,12 @@ AC_DEFUN(SVN_DOWNLOAD_APR,
   echo "get it with SVN and put it in a subdirectory of this source:"
   echo ""
   echo "   svn co \\"
-  echo "    http://svn.apache.org/repos/asf/apr/apr/branches/0.9.x \\"
+  echo "    http://svn.apache.org/repos/asf/apr/apr/branches/1.2.x \\"
   echo "    apr"
   echo ""
-  echo "Run that right here in the top level of the Subversion tree,"
-  echo "then run autogen.sh again."
+  echo "Run that right here in the top level of the Subversion tree."
+  echo "Afterwards, run apr/buildconf in that subdirectory and"
+  echo "then run configure again here."
   echo ""
   echo "Whichever of the above you do, you probably need to do"
   echo "something similar for apr-util, either providing both"
@@ -123,7 +124,7 @@ AC_DEFUN(SVN_DOWNLOAD_APR,
   echo "getting both from SVN with:"
   echo ""
   echo "   svn co \\"
-  echo "    http://svn.apache.org/repos/asf/apr/apr-util/branches/0.9.x \\"
+  echo "    http://svn.apache.org/repos/asf/apr/apr-util/branches/1.2.x \\"
   echo "    apr-util"
   echo ""
   AC_MSG_ERROR([no suitable apr found])

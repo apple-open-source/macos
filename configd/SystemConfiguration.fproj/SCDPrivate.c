@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -48,6 +48,10 @@
 #include <mach/mach_error.h>
 #include <pthread.h>
 
+#include <execinfo.h>
+#include <libproc.h>
+#include <unistd.h>
+
 #define	N_QUICK	32
 
 
@@ -60,7 +64,12 @@ _SC_cfstring_to_cstring(CFStringRef cfstr, char *buf, CFIndex bufLen, CFStringEn
 {
 	CFIndex	converted;
 	CFIndex	last	= 0;
-	CFIndex	len	= CFStringGetLength(cfstr);
+	CFIndex	len;
+
+	if (cfstr == NULL) {
+		cfstr = CFSTR("");
+	}
+	len = CFStringGetLength(cfstr);
 
 	/* how much buffer space will we really need? */
 	converted = CFStringGetBytes(cfstr,
@@ -326,7 +335,7 @@ _SCSerializeString(CFStringRef str, CFDataRef *data, void **dataRef, CFIndex *da
 		*dataLen = CFDataGetLength(myData);
 		status = vm_read(mach_task_self(),
 				 (vm_address_t)CFDataGetBytePtr(myData),	// address
-				 (vm_size_t)   CFDataGetLength(myData),		// size
+				 *dataLen,					// size
 				 (void *)dataRef,
 				 &len);
 		if (status != KERN_SUCCESS) {
@@ -387,7 +396,7 @@ _SCSerializeData(CFDataRef data, void **dataRef, CFIndex *dataLen)
 	*dataLen = CFDataGetLength(data);
 	status = vm_read(mach_task_self(),
 			 (vm_address_t)CFDataGetBytePtr(data),	// address
-			 CFDataGetLength(data),			// size
+			 *dataLen,				// size
 			 (void *)dataRef,
 			 &len);
 	if (status != KERN_SUCCESS) {
@@ -825,6 +834,7 @@ _SC_CFBundleCopyNonLocalizedString(CFBundleRef bundle, CFStringRef key, CFString
 #pragma mark DOS encoding/codepage
 
 
+#if	!TARGET_OS_IPHONE
 void
 _SC_dos_encoding_and_codepage(CFStringEncoding	macEncoding,
 			      UInt32		macRegion,
@@ -911,209 +921,224 @@ _SC_dos_encoding_and_codepage(CFStringEncoding	macEncoding,
 	*dosCodepage = CFStringConvertEncodingToWindowsCodepage(*dosEncoding);
 	return;
 }
-
-
-#include <unicode/uset.h>
-#include <unicode/ucnv.h>
-
-
-CFDataRef
-_SC_dos_copy_string(CFStringRef str, CFStringEncoding dosEncoding, UInt32 dosCodepage)
-{
-	USet			*charSet	= NULL;
-	UConverter		*conv		= NULL;
-	UErrorCode		ec		= U_ZERO_ERROR;
-	char			ianaName[16];
-	CFDataRef		line		= NULL;
-	CFMutableStringRef	newStr		= NULL;
-	CFStringRef		set		= NULL;
-	int32_t			setSize;
-	UChar			*setChars;
-	CFStringRef		transform;
-
-	/*
-	 * using ICU, convert the target character set into the
-	 * set of Unicode characters that can be converted to
-	 * that character set.
-	 *
-	 * Note: a full list of character set identifiers accepted
-	 *       by ICU can be found at :
-	 *
-	 *       http://dev.icu-project.org/cgi-bin/viewcvs.cgi/icu/source/data/mappings/convrtrs.txt?view=co
-	 */
-	snprintf(ianaName, sizeof(ianaName), "cp%d", (int)dosCodepage);
-	charSet = uset_open(0, 0);
-	//ec = U_ZERO_ERROR;
-	conv = ucnv_open(ianaName, &ec);
-	if (U_FAILURE(ec)) {
-		SCPrint(TRUE, stderr, CFSTR("ucnv_open() failed, ec = %s\n"), u_errorName(ec));
-		goto done;
-	}
-	//ec = U_ZERO_ERROR;
-	ucnv_getUnicodeSet(conv, charSet, UCNV_ROUNDTRIP_SET, &ec);
-	if (U_FAILURE(ec)) {
-		SCPrint(TRUE, stderr, CFSTR("ucnv_getUnicodeSet() failed, ec = %s\n"), u_errorName(ec));
-		goto done;
-	}
-
-	/*
-	 * Next, we create a transform pattern that will transform *only*
-	 * the characters that are not in the target charset.
-	 */
-	//ec = U_ZERO_ERROR;
-	setSize = uset_toPattern(charSet, NULL, 0, FALSE, &ec);
-	if (U_FAILURE(ec)  && (ec != U_BUFFER_OVERFLOW_ERROR)) {
-		SCPrint(TRUE, stderr, CFSTR("uset_toPattern() failed, ec = %s\n"), u_errorName(ec));
-		goto done;
-	}
-	setChars = (UChar *)calloc(setSize, sizeof(UChar));
-	ec = U_ZERO_ERROR;
-	(void)uset_toPattern(charSet, setChars, setSize, FALSE, &ec);
-	set = CFStringCreateWithCharacters(NULL, setChars, setSize);
-	free(setChars);
-
-	/*
-	 * Now make a transform pattern that will:
-	 * 1. Only affect characters *not* in the target character set
-	 * 2. Convert curly quotes, etc. to ASCII equivalents
-	 * 3. Convert any non-Latin characters to Latin
-	 * 4. Decompose any combining marks if possible
-	 * 5. Remove anything that's not ASCII
-	 *
-	 * ... and transform the string
-	 */
-	transform = CFStringCreateWithFormat(NULL, NULL,
-					     CFSTR("[^%@]; Publishing-Any; Any-Latin; NFKD; [:^ASCII:] Remove"),
-					     set);
-	newStr = CFStringCreateMutableCopy(NULL, 0, str);
-	CFStringNormalize(newStr, kCFStringNormalizationFormC);
-	if (!CFStringTransform(newStr, NULL, transform, FALSE)) {
-		CFRelease(newStr);
-		newStr = NULL;
-	}
-	CFRelease(transform);
-
-    done :
-
-	if (newStr != NULL) {
-		line = CFStringCreateExternalRepresentation(NULL, newStr, dosEncoding, 0);
-		CFRelease(newStr);
-	}
-
-	if (charSet != NULL)	uset_close(charSet);
-	if (conv != NULL)	ucnv_close(conv);
-	if (set != NULL)	CFRelease(set);
-
-	return line;
-}
+#endif	// !TARGET_OS_IPHONE
 
 
 #pragma mark -
 #pragma mark Debugging
 
 
+/*
+ * print status of in-use mach ports
+ */
 void
-__showMachPortStatus(void)
+_SC_logMachPortStatus(void)
 {
-#ifdef	DEBUG
-	/* print status of in-use mach ports */
-	if (_sc_debug) {
-		kern_return_t		status;
-		mach_port_name_array_t	ports;
-		mach_port_type_array_t	types;
-		int			pi, pn, tn;
-		CFMutableStringRef	str;
+	kern_return_t		status;
+	mach_port_name_array_t	ports;
+	mach_port_type_array_t	types;
+	mach_msg_type_number_t	pi, pn, tn;
+	CFMutableStringRef	str;
 
-		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("----------"));
+	SCLog(TRUE, LOG_DEBUG, CFSTR("----------"));
 
-		/* report on ALL mach ports associated with this task */
-		status = mach_port_names(mach_task_self(), &ports, &pn, &types, &tn);
-		if (status == MACH_MSG_SUCCESS) {
-			str = CFStringCreateMutable(NULL, 0);
-			for (pi = 0; pi < pn; pi++) {
-				char	rights[16], *rp = &rights[0];
+	/* report on ALL mach ports associated with this task */
+	status = mach_port_names(mach_task_self(), &ports, &pn, &types, &tn);
+	if (status == MACH_MSG_SUCCESS) {
+		str = CFStringCreateMutable(NULL, 0);
+		for (pi = 0; pi < pn; pi++) {
+			char	rights[16], *rp = &rights[0];
 
-				if (types[pi] != MACH_PORT_TYPE_NONE) {
-					*rp++ = ' ';
-					*rp++ = '(';
-					if (types[pi] & MACH_PORT_TYPE_SEND)
-						*rp++ = 'S';
-					if (types[pi] & MACH_PORT_TYPE_RECEIVE)
-						*rp++ = 'R';
-					if (types[pi] & MACH_PORT_TYPE_SEND_ONCE)
-						*rp++ = 'O';
-					if (types[pi] & MACH_PORT_TYPE_PORT_SET)
-						*rp++ = 'P';
-					if (types[pi] & MACH_PORT_TYPE_DEAD_NAME)
-						*rp++ = 'D';
-					*rp++ = ')';
-				}
-				*rp = '\0';
-				CFStringAppendFormat(str, NULL, CFSTR(" %d%s"), ports[pi], rights);
+			if (types[pi] != MACH_PORT_TYPE_NONE) {
+				*rp++ = ' ';
+				*rp++ = '(';
+				if (types[pi] & MACH_PORT_TYPE_SEND)
+					*rp++ = 'S';
+				if (types[pi] & MACH_PORT_TYPE_RECEIVE)
+					*rp++ = 'R';
+				if (types[pi] & MACH_PORT_TYPE_SEND_ONCE)
+					*rp++ = 'O';
+				if (types[pi] & MACH_PORT_TYPE_PORT_SET)
+					*rp++ = 'P';
+				if (types[pi] & MACH_PORT_TYPE_DEAD_NAME)
+					*rp++ = 'D';
+				*rp++ = ')';
 			}
-			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("Task ports (n=%d):%@"), pn, str);
-			CFRelease(str);
-		} else {
-			/* log (but ignore) errors */
-			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("mach_port_names(): %s"), mach_error_string(status));
+			*rp = '\0';
+			CFStringAppendFormat(str, NULL, CFSTR(" %d%s"), ports[pi], rights);
 		}
+		SCLog(TRUE, LOG_DEBUG, CFSTR("Task ports (n=%d):%@"), pn, str);
+		CFRelease(str);
 	}
-#endif	/* DEBUG */
+
 	return;
 }
 
 
 void
-__showMachPortReferences(mach_port_t port)
+_SC_logMachPortReferences(const char *str, mach_port_t port)
 {
-#ifdef	DEBUG
-	kern_return_t		status;
+	const char		*blanks		= "                                                            ";
+	char			buf[60];
+	mach_port_type_t	pt;
+	mach_port_status_t	recv_status	= { 0 };
 	mach_port_urefs_t	refs_send	= 0;
 	mach_port_urefs_t	refs_recv	= 0;
 	mach_port_urefs_t	refs_once	= 0;
 	mach_port_urefs_t	refs_pset	= 0;
 	mach_port_urefs_t	refs_dead	= 0;
+	kern_return_t		status;
 
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("user references for mach port %d"), port);
+	buf[0] = '\0';
+	if (str != NULL) {
+		static int	is_configd	= -1;
 
-	status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_SEND,      &refs_send);
-	if (status != KERN_SUCCESS) {
-		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  mach_port_get_refs(MACH_PORT_RIGHT_SEND): %s"), mach_error_string(status));
-		return;
+		if (is_configd == -1) {
+			char	name[64]	= "";
+
+			(void) proc_name(getpid(), name, sizeof(name));
+			is_configd = (strncmp(name, "configd", sizeof(name)) == 0);
+		}
+		if (is_configd == 1) {
+			// if "configd", add indication if this is the M[ain] or [P]lugin thread
+			strlcpy(buf,
+				(CFRunLoopGetMain() == CFRunLoopGetCurrent()) ? "M " : "P ",
+				sizeof(buf));
+		}
+
+		// add provided string
+		strlcat(buf, str, sizeof(buf));
+
+		// fill
+		strlcat(buf, blanks, sizeof(buf));
+		if (strcmp(&buf[sizeof(buf) - 3], "  ") == 0) {
+			buf[sizeof(buf) - 3] = ':';
+		}
 	}
 
-	status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_RECEIVE,   &refs_recv);
+	status = mach_port_type(mach_task_self(), port, &pt);
 	if (status != KERN_SUCCESS) {
-		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  mach_port_get_refs(MACH_PORT_RIGHT_RECEIVE): %s"), mach_error_string(status));
-		return;
+		SCLog(TRUE, LOG_DEBUG,
+		      CFSTR("%smach_port_get_refs(..., %d, MACH_PORT_RIGHT_SEND): %s"),
+		      buf,
+		      port,
+		      mach_error_string(status));
 	}
 
-	status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_SEND_ONCE, &refs_once);
-	if (status != KERN_SUCCESS) {
-		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  mach_port_get_refs(MACH_PORT_RIGHT_SEND_ONCE): %s"), mach_error_string(status));
-		return;
+	if ((pt & MACH_PORT_TYPE_SEND) != 0) {
+		status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_SEND,      &refs_send);
+		if (status != KERN_SUCCESS) {
+			SCLog(TRUE, LOG_DEBUG,
+			      CFSTR("%smach_port_get_refs(..., %d, MACH_PORT_RIGHT_SEND): %s"),
+			      buf,
+			      port,
+			      mach_error_string(status));
+		}
 	}
 
-	status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_PORT_SET,  &refs_pset);
-	if (status != KERN_SUCCESS) {
-		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  mach_port_get_refs(MACH_PORT_RIGHT_PORT_SET): %s"), mach_error_string(status));
-		return;
+	if ((pt & MACH_PORT_TYPE_RECEIVE) != 0) {
+		mach_msg_type_number_t	count;
+
+		status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_RECEIVE,   &refs_recv);
+		if (status != KERN_SUCCESS) {
+			SCLog(TRUE, LOG_DEBUG,
+			      CFSTR("%smach_port_get_refs(..., %d, MACH_PORT_RIGHT_RECEIVE): %s"),
+			      buf,
+			      port,
+			      mach_error_string(status));
+		}
+
+		count = MACH_PORT_RECEIVE_STATUS_COUNT;
+		status = mach_port_get_attributes(mach_task_self(),
+					       port,
+					       MACH_PORT_RECEIVE_STATUS,
+					       (mach_port_info_t)&recv_status,
+					       &count);
+		if (status != KERN_SUCCESS) {
+			SCLog(TRUE, LOG_DEBUG,
+			      CFSTR("%mach_port_get_attributes(..., %d, MACH_PORT_RECEIVE_STATUS): %s"),
+			      buf,
+			      port,
+			      mach_error_string(status));
+		}
 	}
 
-	status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_DEAD_NAME, &refs_dead);
-	if (status != KERN_SUCCESS) {
-		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  mach_port_get_refs(MACH_PORT_RIGHT_DEAD_NAME): %s"), mach_error_string(status));
-		return;
+	if ((pt & MACH_PORT_TYPE_SEND_ONCE) != 0) {
+		status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_SEND_ONCE, &refs_once);
+		if (status != KERN_SUCCESS) {
+			SCLog(TRUE, LOG_DEBUG,
+			      CFSTR("%smach_port_get_refs(..., %d, MACH_PORT_RIGHT_SEND_ONCE): %s"),
+			      buf,
+			      port,
+			      mach_error_string(status));
+		}
 	}
 
-	SCLog(_sc_verbose, LOG_DEBUG,
-	       CFSTR("  send = %d, receive = %d, send once = %d, port set = %d, dead name = %d"),
-	       refs_send,
-	       refs_recv,
-	       refs_once,
-	       refs_pset,
-	       refs_dead);
+	if ((pt & MACH_PORT_TYPE_PORT_SET) != 0) {
+		status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_PORT_SET,  &refs_pset);
+		if (status != KERN_SUCCESS) {
+			SCLog(TRUE, LOG_DEBUG,
+			      CFSTR("%smach_port_get_refs(..., %d, MACH_PORT_RIGHT_PORT_SET): %s"),
+			      buf,
+			      port,
+			      mach_error_string(status));
+		}
+	}
 
-#endif	/* DEBUG */
+	if ((pt & MACH_PORT_TYPE_DEAD_NAME) != 0) {
+		status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_DEAD_NAME, &refs_dead);
+		if (status != KERN_SUCCESS) {
+			SCLog(TRUE, LOG_DEBUG,
+			      CFSTR("%smach_port_get_refs(..., %d, MACH_PORT_RIGHT_DEAD_NAME): %s"),
+			      buf,
+			      port,
+			      mach_error_string(status));
+		}
+	}
+
+	SCLog(TRUE, LOG_DEBUG,
+	      CFSTR("%smach port 0x%x (%d): send=%d, receive=%d, send once=%d, port set=%d, dead name=%d%s%s"),
+	      buf,
+	      port,
+	      port,
+	      refs_send,
+	      refs_recv,
+	      refs_once,
+	      refs_pset,
+	      refs_dead,
+	      recv_status.mps_nsrequest ? ", no more senders"   : "",
+	      ((pt & MACH_PORT_TYPE_DEAD_NAME) != 0) ? ", dead name request" : "");
+
 	return;
+}
+
+
+CFStringRef
+_SC_copyBacktrace()
+{
+	int			n;
+	void			*stack[64];
+	char			**symbols;
+	CFMutableStringRef	trace;
+
+	n = backtrace(stack, sizeof(stack)/sizeof(stack[0]));
+	if (n == -1) {
+		SCLog(TRUE, LOG_ERR, CFSTR("backtrace() failed: %s"), strerror(errno));
+		return NULL;
+	}
+
+	trace = CFStringCreateMutable(NULL, 0);
+
+	symbols = backtrace_symbols(stack, n);
+	if (symbols != NULL) {
+		int	i;
+
+		for (i = 0; i < n; i++) {
+			CFStringAppendFormat(trace, NULL, CFSTR("%s\n"), symbols[i]);
+		}
+
+		free(symbols);
+	}
+
+	return trace;
 }

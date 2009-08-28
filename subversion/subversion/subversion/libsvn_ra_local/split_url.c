@@ -17,7 +17,6 @@
  */
 
 #include "ra_local.h"
-#include <assert.h>
 #include <string.h>
 #include "svn_path.h"
 #include "svn_private_config.h"
@@ -39,32 +38,41 @@ svn_ra_local__split_URL(svn_repos_t **repos,
 
   /* First, check for the "file://" prefix. */
   if (strncmp(URL, "file://", 7) != 0)
-    return svn_error_createf 
-      (SVN_ERR_RA_ILLEGAL_URL, NULL, 
+    return svn_error_createf
+      (SVN_ERR_RA_ILLEGAL_URL, NULL,
        _("Local URL '%s' does not contain 'file://' prefix"), URL);
-  
+
   /* Then, skip what's between the "file://" prefix and the next
      occurance of '/' -- this is the hostname, and we are considering
      everything from that '/' until the end of the URL to be the
-     absolute path portion of the URL. */
+     absolute path portion of the URL.
+     If we got just "file://", treat it the same as "file:///". */
   hostname = URL + 7;
-  path = strchr(hostname, '/');
-  if (! path)
-    return svn_error_createf 
-      (SVN_ERR_RA_ILLEGAL_URL, NULL, 
-       _("Local URL '%s' contains only a hostname, no path"), URL);
-
-  /* Treat localhost as an empty hostname. */
-  if (hostname != path)
+  if (*hostname == '\0')
     {
-      hostname = svn_path_uri_decode(apr_pstrmemdup(pool, hostname,
-                                                    path - hostname), pool);
-      if (strncmp(hostname, "localhost", 9) == 0)
-	  hostname = NULL;
+      path = "/";
+      hostname = NULL;
     }
   else
-    hostname = NULL;
-  
+    {
+      path = strchr(hostname, '/');
+      if (! path)
+        return svn_error_createf
+          (SVN_ERR_RA_ILLEGAL_URL, NULL,
+           _("Local URL '%s' contains only a hostname, no path"), URL);
+
+      /* Treat localhost as an empty hostname. */
+      if (hostname != path)
+        {
+          hostname = svn_path_uri_decode(apr_pstrmemdup(pool, hostname,
+                                                        path - hostname), pool);
+          if (strncmp(hostname, "localhost", 9) == 0)
+            hostname = NULL;
+        }
+      else
+        hostname = NULL;
+    }
+
   /* Duplicate the URL, starting at the top of the path.
      At the same time, we URI-decode the path. */
 #if defined(WIN32) || defined(__CYGWIN__)
@@ -113,7 +121,7 @@ svn_ra_local__split_URL(svn_repos_t **repos,
      are the empty string and 'localhost'. */
   if (hostname)
     return svn_error_createf
-      (SVN_ERR_RA_ILLEGAL_URL, NULL, 
+      (SVN_ERR_RA_ILLEGAL_URL, NULL,
        _("Local URL '%s' contains unsupported hostname"), URL);
 
   repos_root = svn_path_uri_decode(path, pool);
@@ -122,16 +130,23 @@ svn_ra_local__split_URL(svn_repos_t **repos,
   /* Search for a repository in the full path. */
   repos_root = svn_repos_find_root_path(repos_root, pool);
   if (!repos_root)
-    return svn_error_createf 
+    return svn_error_createf
       (SVN_ERR_RA_LOCAL_REPOS_OPEN_FAILED, NULL,
        _("Unable to open repository '%s'"), URL);
 
   /* Attempt to open a repository at URL. */
   err = svn_repos_open(repos, repos_root, pool);
   if (err)
-    return svn_error_createf 
+    return svn_error_createf
       (SVN_ERR_RA_LOCAL_REPOS_OPEN_FAILED, err,
        _("Unable to open repository '%s'"), URL);
+
+  /* Assert capabilities directly, since client == server. */
+  {
+    apr_array_header_t *caps = apr_array_make(pool, 1, sizeof(const char *));
+    APR_ARRAY_PUSH(caps, const char *) = SVN_RA_CAPABILITY_MERGEINFO;
+    SVN_ERR(svn_repos_remember_client_capabilities(*repos, caps));
+  }
 
   /* What remains of URL after being hacked at in the previous step is
      REPOS_URL.  FS_PATH is what we've hacked off in the process.
@@ -143,6 +158,10 @@ svn_ra_local__split_URL(svn_repos_t **repos,
   *fs_path = svn_path_uri_decode(path, pool)
     + (strlen(repos_root)
        - (hostname ? strlen(hostname) + 2 : 0));
+
+  /* Ensure that *FS_PATH has its leading slash. */
+  if (**fs_path != '/')
+    *fs_path = apr_pstrcat(pool, "/", *fs_path, NULL);
 
   /* Remove the path components in *fs_path from the original URL, to get
      the URL to the repository root. */

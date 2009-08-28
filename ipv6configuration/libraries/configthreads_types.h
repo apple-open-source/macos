@@ -3,24 +3,25 @@
 #define _CONFIGTHREADS_TYPES_H
 
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -58,7 +59,7 @@ ip6config_status_string(ip6config_status_t status)
 	"no router advertisement response"
     };
     if (status < 0 || status >= ip6config_status_last_e)
-		return ("<unknown>");
+	return ("<unknown>");
     return (str[status]);
 }
 
@@ -81,10 +82,10 @@ ip6config_method_string(ip6config_method_t m)
 		"RTADV",
 		"MANUAL",
 		"6TO4",
-                "LINKLOCAL"
+		"LINKLOCAL"
     };
     if (m < 0 || m >= ip6config_method_last_e)
-		return ("<unknown>");
+	return ("<unknown>");
     return (str[m]);
 }
 
@@ -100,22 +101,22 @@ static __inline__ const char *
 relay_address_type_string(relay_address_type_t m)
 {
     static const char * str[] = {
-        "NONE",
-        "IPV6",
-        "IPV4",
-        "DNS"
+	"NONE",
+	"IPV6",
+	"IPV4",
+	"DNS"
     };
     if (m < 0 || m >= relay_address_type_last_e)
-        return ("<unknown>");
+	return ("<unknown>");
     return (str[m]);
 }
 
 typedef struct {
     relay_address_type_t	addr_type;
     union {
-        struct in6_addr	ip6_relay_addr;
-        struct in_addr	ip4_relay_addr;
-        char *		dns_relay_addr;
+	struct in6_addr	ip6_relay_addr;
+	struct in_addr	ip4_relay_addr;
+	char *		dns_relay_addr;
     } relay_address_u;
 } relay_address_t;
 
@@ -129,18 +130,18 @@ typedef struct {
     unsigned char	n_ip6;		/* number of addresses in list */
     stf_method_data_t	stf_data;
     struct {
-        struct in6_addr	addr;
-        int		prefixLen;
-        int		flags;
+	struct in6_addr	addr;
+	int		prefixLen;
+	int		flags;
     } ip6[0];
 } ip6config_method_data_t;
 
 typedef struct {
 	struct in6_addr	addr;
 	struct in6_addr	prefixmask;
-	int			prefixlen;
-	
-	int			flags;
+	int		prefixlen;
+
+	int		flags;
 } ip6_addrinfo_t;
 
 typedef struct {

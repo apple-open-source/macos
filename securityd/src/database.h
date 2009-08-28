@@ -37,7 +37,7 @@
 #include "dbcrypto.h"
 #include "notifications.h"
 #include <security_utilities/utilities.h>
-#include <security_cdsa_utilities/handleobject.h>
+#include <security_cdsa_utilities/u32handleobject.h>
 #include <security_cdsa_utilities/cssmdb.h>
 #include <security_utilities/machserver.h>
 #include <security_agent_client/agentclient.h>
@@ -68,6 +68,8 @@ public:
 
 	virtual void sleepProcessing();		// generic action on system sleep
 	virtual void lockProcessing();		// generic action on "lock" requests
+	
+	virtual bool belongsToSystem() const; // belongs to system (root) security domain
 
 protected:
 	void notify(NotificationEvent event, const DLDbIdentifier &ident);
@@ -189,8 +191,9 @@ public:
 public:
 	// SecurityServerAcl personality
 	AclKind aclKind() const;
-	GenericHandle aclHandle() const;
 	Database *relatedDatabase();
+	
+	bool belongsToSystem() const { return common().belongsToSystem(); }
 	
 public:
 	// support ACL remote secret validation (default is no support)

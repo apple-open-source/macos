@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: multi-debugcallback.c,v 1.2 2006-10-13 14:01:19 bagder Exp $
+ * $Id: multi-debugcallback.c,v 1.4 2008-05-22 21:20:09 danf Exp $
  *
  * This is a very simple example using the multi interface and the debug
  * callback.
@@ -74,7 +74,7 @@ void dump(const char *text,
 
 static
 int my_trace(CURL *handle, curl_infotype type,
-             unsigned char *data, size_t size,
+             char *data, size_t size,
              void *userp)
 {
   const char *text;
@@ -121,7 +121,7 @@ int main(int argc, char **argv)
   curl_easy_setopt(http_handle, CURLOPT_URL, "http://www.haxx.se/");
 
   curl_easy_setopt(http_handle, CURLOPT_DEBUGFUNCTION, my_trace);
-  curl_easy_setopt(http_handle, CURLOPT_VERBOSE, TRUE);
+  curl_easy_setopt(http_handle, CURLOPT_VERBOSE, 1L);
 
   /* init a multi stack */
   multi_handle = curl_multi_init();

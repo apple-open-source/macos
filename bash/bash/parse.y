@@ -3376,7 +3376,7 @@ read_token_word (character)
       if (pass_next_character)
 	{
 	  pass_next_character = 0;
-	  goto got_character;
+	  goto got_escaped_character;
 	}
 
       cd = current_delimiter (dstack);
@@ -3650,11 +3650,13 @@ read_token_word (character)
 
     got_character:
 
-      all_digit_token &= DIGIT (character);
-      dollar_present |= character == '$';
-
       if (character == CTLESC || character == CTLNUL)
 	token[token_index++] = CTLESC;
+
+    got_escaped_character:
+
+      all_digit_token &= DIGIT (character);
+      dollar_present |= character == '$';
 
       token[token_index++] = character;
 
@@ -4364,7 +4366,7 @@ not_escape:
   if (promptvars || posixly_correct)
     {
       last_exit_value = last_command_exit_value;
-      list = expand_prompt_string (result, Q_DOUBLE_QUOTES);
+      list = expand_prompt_string (result, Q_DOUBLE_QUOTES, 0);
       free (result);
       result = string_list (list);
       dispose_words (list);

@@ -207,8 +207,8 @@ char *indata;
 	}
 
 	for (prog=0x40000000; prog<0x5fffffff; prog++) {
-		if (sts = svc_register(transp, prog, 1,
-		    yppush_xfrrespprog_1, IPPROTO_UDP))
+		if ((sts = svc_register(transp, prog, 1,
+		    yppush_xfrrespprog_1, IPPROTO_UDP)))
 			break;
 	}
 

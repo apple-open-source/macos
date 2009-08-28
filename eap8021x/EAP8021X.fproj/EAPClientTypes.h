@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -51,9 +51,8 @@ enum {
     kEAPClientStatusCertificateNotYetValid = 13,
     kEAPClientStatusCertificateRequiresConfirmation = 14,
     kEAPClientStatusUserInputNotPossible = 15,
-
-    /* this is here for backwards compatibility: */
-    kEAPClientStatusConfigurationIncomplete = kEAPClientStatusUserInputRequired,
+    kEAPClientStatusResourceUnavailable = 16,
+    kEAPClientStatusProtocolError = 17,
 
     /* domain specific errors */
     kEAPClientStatusDomainSpecificErrorStart = 1000,

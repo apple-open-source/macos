@@ -1,7 +1,7 @@
 /* Delete entries from a tar archive.
 
-   Copyright (C) 1988, 1992, 1994, 1996, 1997, 2000, 2001, 2003 Free
-   Software Foundation, Inc.
+   Copyright (C) 1988, 1992, 1994, 1996, 1997, 2000, 2001, 2003, 2004,
+   2005, 2006 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -15,9 +15,10 @@
 
    You should have received a copy of the GNU General Public License along
    with this program; if not, write to the Free Software Foundation, Inc.,
-   59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 #include <system.h>
+#include <system-ioctl.h>
 
 #include "common.h"
 #include <rmt.h>
@@ -33,12 +34,12 @@ extern union block *record_end;
 extern union block *current_block;
 extern union block *recent_long_name;
 extern union block *recent_long_link;
-extern off_t records_read; 
+extern off_t records_read;
 extern off_t records_written;
 
 /* The number of records skipped at the start of the archive, when
    passing over members that are not deleted.  */
-static off_t records_skipped;
+off_t records_skipped;
 
 /* Move archive descriptor by COUNT records worth.  If COUNT is
    positive we move forward, else we move negative.  If it's a tape,
@@ -184,7 +185,7 @@ delete_archive_members (void)
 	      skip_member ();
 	      break;
 	    }
-	  
+
 	  /* Fall through.  */
 	case HEADER_SUCCESS_EXTENDED:
 	  logical_status = status;
@@ -261,9 +262,9 @@ delete_archive_members (void)
 	  if (current_block == record_end)
 	    flush_archive ();
 	  status = read_header (false);
-	  
+
 	  xheader_decode (&current_stat_info);
-	  
+
 	  if (status == HEADER_ZERO_BLOCK && ignore_zeros_option)
 	    {
 	      set_next_block_after (current_header);
@@ -293,7 +294,7 @@ delete_archive_members (void)
 		  set_next_block_after (current_header);
 		  blocks_to_skip = (current_stat_info.stat.st_size
 				    + BLOCKSIZE - 1) / BLOCKSIZE;
-
+		  
 		  while (record_end - current_block <= blocks_to_skip)
 		    {
 		      blocks_to_skip -= (record_end - current_block);
@@ -306,10 +307,10 @@ delete_archive_members (void)
 	    }
 	  /* Copy header.  */
 
-	  if (extended_header.size)
+	  if (current_stat_info.xhdr.size)
 	    {
-	      write_recent_bytes (extended_header.buffer,
-				  extended_header.size);
+	      write_recent_bytes (current_stat_info.xhdr.buffer,
+				  current_stat_info.xhdr.size);
 	    }
 	  else
 	    {

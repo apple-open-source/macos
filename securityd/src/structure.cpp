@@ -153,7 +153,7 @@ NodeCore::NodeCore()
 // override this to add text to your Node type's state dump output
 void NodeCore::dumpNode()
 {
-	Debug::dump("%s@%p rc=%u", Debug::typeName(*this).c_str(), this, unsigned(refCountForDebuggingOnly()));
+ Debug::dump("%s@%p rc=%u", Debug::typeName(*this).c_str(), this, unsigned(refCountForDebuggingOnly()));
 	if (mParent)
 		Debug::dump(" parent=%p", mParent.get());
 	if (mReferent)
@@ -164,7 +164,7 @@ void NodeCore::dumpNode()
 // override this to completely re-implement the dump format for your Node type
 void NodeCore::dump()
 {
-	dumpNode();
+ dumpNode();
 	if (!mReferences.empty()) {
 		Debug::dump(" {");
 		for (ReferenceSet::const_iterator it = mReferences.begin(); it != mReferences.end(); it++) {
@@ -180,7 +180,7 @@ void NodeCore::dump()
 // dump all known nodes
 void NodeCore::dumpAll()
 {
-	StLock<Mutex> _(mCoreLock);
+ StLock<Mutex> _(mCoreLock);
 	time_t now; time(&now);
 	Debug::dump("\nNODE DUMP (%24.24s)\n", ctime(&now));
 	for (set<NodeCore *>::const_iterator it = mCoreNodes.begin(); it != mCoreNodes.end(); it++)

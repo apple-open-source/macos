@@ -1,3 +1,4 @@
+// $OpenLDAP: pkg/ldap/contrib/ldapc++/src/LDAPMessage.h,v 1.4.10.3 2008/04/14 23:09:26 quanah Exp $
 /*
  * Copyright 2000, OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
@@ -21,7 +22,7 @@ class LDAPRequest;
  */
 class LDAPMsg{
     public:
-        //public Constants defining the Message types
+        //public Constants defining the response message types
         static const int BIND_RESPONSE=LDAP_RES_BIND;
         static const int SEARCH_ENTRY=LDAP_RES_SEARCH_ENTRY;
         static const int SEARCH_DONE=LDAP_RES_SEARCH_RESULT;
@@ -32,6 +33,17 @@ class LDAPMsg{
         static const int MODDN_RESPONSE=LDAP_RES_MODDN;
         static const int COMPARE_RESPONSE=LDAP_RES_COMPARE;
         static const int EXTENDED_RESPONSE=LDAP_RES_EXTENDED;
+        //public Constants defining the request message types
+        static const int BIND_REQUEST=LDAP_REQ_BIND;
+        static const int UNBIND_REQUEST=LDAP_REQ_UNBIND;
+        static const int SEARCH_REQUEST=LDAP_REQ_SEARCH;
+        static const int MODIFY_REQUEST=LDAP_REQ_MODIFY;
+        static const int ADD_REQUEST=LDAP_REQ_ADD;
+        static const int DELETE_REQUEST=LDAP_REQ_DELETE;
+        static const int MODRDN_REQUEST=LDAP_REQ_MODRDN;
+        static const int COMPARE_REQUEST=LDAP_REQ_COMPARE;
+        static const int ABANDON_REQUEST=LDAP_REQ_ABANDON;
+        static const int EXTENDED_REQUEST=LDAP_REQ_EXTENDED;
        
         /**
          * The destructor has no implemenation, because this is an abstract
@@ -98,6 +110,7 @@ class LDAPMsg{
          * Only for internal use.
          */
         LDAPMsg(LDAPMessage *msg);
+        LDAPMsg(int msgType, int msgID);
        
         /**
          * This attribute stores Server-Control that were returned with the

@@ -1,5 +1,5 @@
 --- XML-Parser/Makefile.PL 2003-07-27 04:07:10.000000000 -0700
-+++ /tmp/Makefile.PL    2006-01-24 15:30:12.000000000 -0800
++++ XML-Parser/Makefile.PL 2006-01-24 15:30:12.000000000 -0800
 @@ -1,8 +1,8 @@
  use ExtUtils::MakeMaker;
  use Config;

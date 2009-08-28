@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2008 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -499,7 +499,7 @@ class ListAdmin:
             subject = _('Request to mailing list %(realname)s rejected')
         finally:
             i18n.set_translation(otrans)
-        msg = Message.UserNotification(recip, self.GetBouncesEmail(),
+        msg = Message.UserNotification(recip, self.GetOwnerEmail(),
                                        subject, text, lang)
         msg.send(self)
 
@@ -538,7 +538,21 @@ class ListAdmin:
             except IOError, e:
                 if e.errno <> errno.ENOENT: raise
                 self.__db = {}
-        for id, (op, info) in self.__db.items():
+        for id, x in self.__db.items():
+            # A bug in versions 2.1.1 through 2.1.11 could have resulted in
+            # just info being stored instead of (op, info)
+            if len(x) == 2:
+                op, info = x
+            elif len(x) == 6:
+                # This is the buggy info. Check for digest flag.
+                if x[4] in (0, 1):
+                    op = SUBSCRIPTION
+                else:
+                    op = HELDMSG
+                self.__db[id] = op, x
+                continue
+            else:
+                assert False, 'Unknown record format in %s' % self.__filename
             if op == SUBSCRIPTION:
                 if len(info) == 4:
                     # pre-2.1a2 compatibility
@@ -553,7 +567,8 @@ class ListAdmin:
                     assert len(info) == 6, 'Unknown subscription record layout'
                     continue
                 # Here's the new layout
-                self.__db[id] = when, addr, fullname, passwd, digest, lang
+                self.__db[id] = op, (when, addr, fullname, passwd,
+                                     digest, lang)
             elif op == HELDMSG:
                 if len(info) == 5:
                     when, sender, subject, reason, text = info
@@ -562,7 +577,8 @@ class ListAdmin:
                     assert len(info) == 6, 'Unknown held msg record layout'
                     continue
                 # Here's the new layout
-                self.__db[id] = when, sender, subject, reason, text, msgdata
+                self.__db[id] = op, (when, sender, subject, reason,
+                                     text, msgdata)
         # All done
         self.__closedb()
 

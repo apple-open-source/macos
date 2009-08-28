@@ -1,6 +1,6 @@
 /**
  *******************************************************************************
- * Copyright (C) 2006, International Business Machines Corporation and others. *
+ * Copyright (C) 2006-2008, International Business Machines Corporation and others. *
  * All Rights Reserved.                                                        *
  *******************************************************************************
  */
@@ -81,8 +81,10 @@ DictionaryBreakEngine::findBreaks( UText *text,
 }
 
 void
-DictionaryBreakEngine::setCharacters( UnicodeSet &set ) {
+DictionaryBreakEngine::setCharacters( const UnicodeSet &set ) {
     fSet = set;
+    // Compact for caching
+    fSet.compact();
 }
 
 /*void
@@ -218,6 +220,7 @@ ThaiBreakEngine::ThaiBreakEngine(const TrieWordDictionary *adoptDictionary, UErr
         setCharacters(fThaiWordSet);
     }
     fMarkSet.applyPattern(UNICODE_STRING_SIMPLE("[[:Thai:]&[:LineBreak=SA:]&[:M:]]"), status);
+    fMarkSet.add(0x0020);
     fEndWordSet = fThaiWordSet;
     fEndWordSet.remove(0x0E31);             // MAI HAN-AKAT
     fEndWordSet.remove(0x0E40, 0x0E44);     // SARA E through SARA AI MAIMALAI
@@ -225,6 +228,12 @@ ThaiBreakEngine::ThaiBreakEngine(const TrieWordDictionary *adoptDictionary, UErr
     fBeginWordSet.add(0x0E40, 0x0E44);      // SARA E through SARA AI MAIMALAI
     fSuffixSet.add(THAI_PAIYANNOI);
     fSuffixSet.add(THAI_MAIYAMOK);
+
+    // Compact for caching.
+    fMarkSet.compact();
+    fEndWordSet.compact();
+    fBeginWordSet.compact();
+    fSuffixSet.compact();
 }
 
 ThaiBreakEngine::~ThaiBreakEngine() {
@@ -315,7 +324,7 @@ foundBest:
                 int32_t remaining = rangeEnd - (current+wordLength);
                 UChar32 pc = utext_current32(text);
                 int32_t chars = 0;
-                while (TRUE) {
+                for (;;) {
                     utext_next32(text);
                     uc = utext_current32(text);
                     // TODO: Here we're counting on the fact that the SA languages are all

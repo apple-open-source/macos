@@ -1,0 +1,11 @@
+--- src/s/darwin.h+orig	2008-03-18 17:40:43.000000000 -0700
++++ src/s/darwin.h	2008-03-18 17:41:00.000000000 -0700
+@@ -261,7 +261,7 @@ Boston, MA 02110-1301, USA.  */
+ /* Definitions for how to compile & link.  */
+ 
+ /* Indicate that we are compiling for Mac OS X.  */
+-#define C_SWITCH_SYSTEM -fpascal-strings -DMAC_OSX
++#define C_SWITCH_SYSTEM -DMAC_OSX
+ 
+ /* Link in the Carbon lib. */
+ #ifdef HAVE_CARBON

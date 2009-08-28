@@ -41,28 +41,38 @@ notes for different frag kinds. See how code pans out.
  */
 struct frag			/* a code fragment */
 {
-    unsigned long fr_address;	/* Object file address. */
+    uint32_t fr_address;	/* Object file address. */
+    uint32_t last_fr_address;	/* When relaxing multiple times, remember the */
+				/* address the frag had in the last relax pass*/
     struct frag *fr_next;	/* Chain forward; ascending address order. */
 				/* Rooted in frch_root. */
 
-    long fr_fix;		/* (Fixed) number of chars we know we have. */
+    int32_t fr_fix;		/* (Fixed) number of chars we know we have. */
 				/* May be 0. */
-    long fr_var;		/* (Variable) number of chars after above. */
+    int32_t fr_var;		/* (Variable) number of chars after above. */
 				/* May be 0. */
     struct symbol *fr_symbol;	/* For variable-length tail. */
-    long fr_offset;		/* For variable-length tail. */
+    int32_t fr_offset;		/* For variable-length tail. */
     char *fr_opcode;		/* ->opcode low addr byte,for relax()ation*/
     relax_stateT fr_type;	/* What state is my tail in? */
     relax_substateT fr_subtype;	/* Used to index in to md_relax_table for */
 				/*  fr_type == rs_machine_dependent frags. */
+#ifdef ARM
+    /* Where the frag was created, or where it became a variant frag.  */
+    char *fr_file;
+    unsigned int fr_line;
+    /* Flipped each relax pass so we can easily determine whether
+       fr_address has been adjusted.  */
+    unsigned int relax_marker:1,
+		 pad:31;
+#endif /* ARM */
     char fr_literal[1];		/* Chars begin here. */
 				/* One day we will compile fr_literal[0]. */
 };
-typedef struct frag fragS;
 
 /* We want to say fr_literal[0] below */
 #define SIZEOF_STRUCT_FRAG \
- ((int)zero_address_frag.fr_literal - (int)&zero_address_frag)
+ ((uintptr_t)zero_address_frag.fr_literal - (uintptr_t)&zero_address_frag)
 
 /*
  * frag_now points at the current frag we are building. This frag is incomplete.
@@ -94,7 +104,7 @@ extern char *frag_var(
     int var,
     relax_substateT subtype,
     symbolS *symbol,
-    long offset,
+    int32_t offset,
     char *opcode);
 extern void frag_wane(
     fragS *fragP);

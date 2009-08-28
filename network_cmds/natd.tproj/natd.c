@@ -55,6 +55,8 @@
 #include <arpa/inet.h>
 
 #include <alias.h>
+void DumpInfo(void);
+
 #include <ctype.h>
 #include <err.h>
 #include <errno.h>
@@ -65,6 +67,7 @@
 #include <string.h>
 #include <syslog.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <mach/mach_time.h>
 #include <mach/clock_types.h>
 
@@ -84,7 +87,7 @@
  * NOTES:   - Port values are not stored in network byte order.
  */
 
-typedef u_long port_range;
+typedef uint32_t port_range;
 
 #define GETLOPORT(x)     ((x) >> 0x10)
 #define GETNUMPORTS(x)   ((x) & 0x0000ffff)
@@ -124,6 +127,7 @@ static int 	StrToProto (const char* str);
 static int      StrToAddrAndPortRange (const char* str, struct in_addr* addr, char* proto, port_range *portRange);
 static void	ParseArgs (int argc, char** argv);
 static void	FlushPacketBuffer (int fd);
+static void	DiscardIncomingPackets (int fd);
 static void	SetupPunchFW(const char *strValue);
 
 /*
@@ -158,7 +162,14 @@ static	int			dumpinfo;
 #define	NATPORTMAP		1
 
 #ifdef NATPORTMAP
-#define				NATPMPORT	5351
+
+/*
+ * Note: more details on NAT-PMP can be found at :
+ *         <http://files.dns-sd.org/draft-cheshire-nat-pmp.txt>
+ */
+
+#define NATPMP_ANNOUNCEMENT_PORT	5350
+#define NATPMP_PORT					5351
 
 #define NATPMVERSION	0
 #define PUBLICADDRREQ	0
@@ -166,7 +177,6 @@ static	int			dumpinfo;
 #define MAPTCPREQ		2
 #define MAPUDPTCPREQ	3
 #define SERVERREPLYOP   128
-#define PUBLICADDRRLY   SERVERREPLYOP+PUBLICADDRREQ
 
 #define SUCCESS					0
 #define NOTSUPPORTEDVERSION		1
@@ -174,50 +184,49 @@ static	int			dumpinfo;
 #define NETWORKFAILURE			3
 #define OUTOFRESOURCES			4
 #define UNSUPPORTEDOPCODE		5
+
 #define MAXRETRY        10
 #define TIMER_RATE      250000
 
 #define FAILED					-1
 
 typedef struct  stdportmaprequest {
-	char			version;
-	unsigned char   opcode;
-	unsigned short  result;
-	char			data[4];
+	uint8_t			version;
+	uint8_t			opcode;
 } stdportmaprequest;
 
-typedef struct  publicaddrreply {
-	char			version;
-	unsigned char   opcode;
-	unsigned short  result;
-	unsigned int	epoch;
-	struct in_addr  addr;
- } publicaddrreply;
-
 typedef struct  publicportreq {
-	char			version;
-	unsigned char   opcode;
-	unsigned short  result;
-	unsigned short  privateport;
-	unsigned short  publicport;
-	int				lifetime;		/* in second */
+	uint8_t			version;
+	uint8_t			opcode;
+	uint16_t		reserved;
+	uint16_t		privateport;
+	uint16_t		publicport;
+	uint32_t		lifetime;		/* in seconds */
 } publicportreq;
 
+typedef struct  publicaddrreply {
+	uint8_t			version;
+	uint8_t			opcode;
+	uint16_t		result;
+	uint32_t		epoch;
+	struct in_addr  addr;
+} publicaddrreply;
+
 typedef struct  publicportreply {
-	char			version;
-	unsigned char   opcode;
-	unsigned short  result;
-	unsigned int    epoch;
-	unsigned short  privateport;
-	unsigned short  publicport;
-	int             lifetime;               /* in second */
+	uint8_t			version;
+	uint8_t			opcode;
+	uint16_t		result;
+	uint32_t		epoch;
+	uint16_t		privateport;
+	uint16_t		publicport;
+	uint32_t		lifetime;		/* in seconds */
 } publicportreply;
 
 typedef struct  stderrreply {
-	char			version;
-	unsigned char   opcode;
-	unsigned short  result;
-	unsigned int	epoch;
+	uint8_t			version;
+	uint8_t			opcode;
+	uint16_t		result;
+	uint32_t		epoch;
 } stderrreply;
 
 
@@ -227,7 +236,6 @@ static	int		portmapSock = -1;
 static	struct  in_addr *forwardedinterfaceaddr;
 static	char	**forwardedinterfacename;
 static	int		numofinterfaces = 0;			/* has to be at least one */
-static  u_short natPMPport;
 static int      numoftries=MAXRETRY;
 static struct itimerval itval;
 static	int		Natdtimerset = 0;
@@ -245,11 +253,10 @@ static void		SendPortMapMulti( );
 static void		NotifyPublicAddress();
 static void		DoPortMapping( int fd, struct sockaddr_in *clientaddr, int clientaddrlen, publicportreq *req);
 static void		NatPortMapPInit();
-static u_short  get_natportmap_port(void);
 
 extern int FindAliasPortOut(struct in_addr src_addr,  struct in_addr dst_addr, u_short src_port, u_short pub_port, u_char proto, int lifetime, char addmapping);
 
-#endif
+#endif /* NATPORTMAP */
 
 int main (int argc, char** argv)
 {
@@ -261,6 +268,7 @@ int main (int argc, char** argv)
 	fd_set			readMask;
 	fd_set			writeMask;
 	int			fdMax;
+	int			fdFlags;
 /* 
  * Initialize packet aliasing software.
  * Done already here to be able to alter option bits
@@ -404,12 +412,11 @@ int main (int argc, char** argv)
 	if (icmpSock == -1)
 		Quit ("Unable to create ICMP socket.");
 
-/*
- * And disable reads for the socket, otherwise it slowly fills
- * up with received icmps which we do not use.
- */
-	shutdown(icmpSock, SHUT_RD);
-
+	if ((fdFlags = fcntl(icmpSock, F_GETFL, 0)) == -1)
+		Quit ("fcntl F_GETFL ICMP socket.");
+	fdFlags |= O_NONBLOCK;
+	if (fcntl(icmpSock, F_SETFL, fdFlags) == -1)
+		Quit ("fcntl F_SETFL ICMP socket.");	
 
 #if NATPORTMAP
 	if ( enable_natportmap )
@@ -418,10 +425,9 @@ int main (int argc, char** argv)
 		portmapSock = socket( AF_INET, SOCK_DGRAM, 0);
 		if ( portmapSock != -1 )
 		{
-		    natPMPport = htons(get_natportmap_port());
 			addr.sin_family         = AF_INET;
 			addr.sin_addr.s_addr    = INADDR_ANY;
-			addr.sin_port           = htons(NATPMPORT);
+			addr.sin_port           = htons(NATPMP_PORT);
 
 			if (bind ( portmapSock,
 				  (struct sockaddr*) &addr,
@@ -436,7 +442,8 @@ int main (int argc, char** argv)
                         signal(SIGALRM, Natdtimer);
                 }
 	}
-#endif
+#endif /* NATPORTMAP */
+
 /*
  * Become a daemon unless verbose mode was requested.
  */
@@ -482,6 +489,9 @@ int main (int argc, char** argv)
 	if (routeSock > fdMax)
 		fdMax = routeSock;
 
+	if (icmpSock > fdMax)
+		fdMax = icmpSock;
+	
 #ifdef NATPORTMAP
 	if ( portmapSock > fdMax )
 		fdMax = portmapSock;
@@ -525,6 +535,9 @@ int main (int argc, char** argv)
 
 			if (divertInOut != -1)
 				FD_SET (divertInOut, &readMask);
+
+			if (icmpSock != -1)
+				FD_SET(icmpSock, &readMask);
 		}
 /*
  * Routing info is processed always.
@@ -570,6 +583,11 @@ int main (int argc, char** argv)
 		if (routeSock != -1)
 			if (FD_ISSET (routeSock, &readMask))
 				HandleRoutingInfo (routeSock);
+
+		if (icmpSock != -1)
+			if (FD_ISSET (icmpSock, &readMask))
+				DiscardIncomingPackets (icmpSock);
+
 #ifdef NATPORTMAP
 		if ( portmapSock != -1)
 			if (FD_ISSET (portmapSock, &readMask))
@@ -596,6 +614,22 @@ static void DaemonMode ()
 		fprintf (pidFile, "%d\n", getpid ());
 		fclose (pidFile);
 	}
+
+#ifdef	DEBUG
+#include <fcntl.h>
+	{
+		int	fd;
+
+		fd = open("/var/run/natd.log", O_WRONLY|O_CREAT|O_TRUNC, 0644);
+		if (fd >= 0) {
+			if (fd != STDOUT_FILENO) {
+				dup2(fd, STDOUT_FILENO);
+				close(fd);
+			}
+			dup2(STDOUT_FILENO, STDERR_FILENO);
+		}
+	}
+#endif
 }
 
 static void ParseArgs (int argc, char** argv)
@@ -834,6 +868,17 @@ static void HandleRoutingInfo (int fd)
 	}
 }
 
+static void DiscardIncomingPackets (int fd)
+{
+	struct sockaddr_in sin;
+	char buffer[80];
+	socklen_t slen = sizeof(sin);
+	
+	while (recvfrom(fd, buffer, sizeof(buffer), 0, (struct sockaddr *)&sin, &slen) != -1) {
+		;
+	}
+}
+
 #ifdef NATPORTMAP
 
 void getdivisor()
@@ -846,27 +891,15 @@ void getdivisor()
 
 }
 
-unsigned int getuptime()
+uint32_t getuptime()
 {
 	uint64_t	now;
-	unsigned long	epochtime;
+	uint32_t	epochtime;
 
-        now = mach_absolute_time();
-	epochtime = (now / secdivisor) /USEC_PER_SEC; 
-	return( epochtime );
+	now = mach_absolute_time();
+	epochtime = (now / secdivisor) / USEC_PER_SEC; 
+	return ( epochtime );
 
-}
-
-/* return NATPORTMAP port defined in /etc/servcies if there's one, else use NATPMPORT */
-static u_short get_natportmap_port(void)
-{
-	struct servent *ent;
-	
-	ent = getservbyname( "natportmap", "udp" );
-	if (ent != NULL){
-		return( ent->s_port );
-	}
-	return( NATPMPORT );
 }
 
 /* set up neccessary info for doing NatPortMapP */
@@ -880,7 +913,10 @@ static void NatPortMapPInit()
 	bzero(forwardedinterfaceaddr, 
 	      numofinterfaces * sizeof(*forwardedinterfaceaddr));
 	/* interface address hasn't been set up, get interface address */
-	getifaddrs(&ifap);
+
+	if (getifaddrs(&ifap) == -1)
+		Quit ("getifaddrs failed.");
+
 	for ( ifa= ifap; ifa; ifa=ifa->ifa_next)
 	{
 		struct sockaddr_in * a;
@@ -916,8 +952,8 @@ static  void SendPortMapResponse( int fd, struct sockaddr_in *clientaddr, int cl
 	
 	reply.version = NATPMVERSION;
 	reply.opcode = origopcode + SERVERREPLYOP;
-	reply.result = result;
-	reply.epoch = getuptime();
+	reply.result = htons(result);
+	reply.epoch = htonl(getuptime());
 	bytes = sendto( fd, (void*)&reply, sizeof(reply), 0, (struct sockaddr*)clientaddr, clientaddrlen );
 	if ( bytes != sizeof(reply) )
 		printf( "PORTMAP::problem sending portmap reply - opcode %d\n", reply.opcode );
@@ -935,7 +971,7 @@ static void SendPublicAddress( int fd, struct sockaddr_in *clientaddr, int clien
 	reply.opcode = SERVERREPLYOP + PUBLICADDRREQ;
 	reply.result = SUCCESS;
 	reply.addr = lastassignaliasAddr;
-	reply.epoch = getuptime();
+	reply.epoch = htonl(getuptime());
 
 	bytes = sendto (fd, (void*)&reply, sizeof(reply), 0, (struct sockaddr*)clientaddr, clientaddrlen);
 	if ( bytes != sizeof(reply) )
@@ -956,11 +992,11 @@ static void SendPublicPortResponse( int fd, struct sockaddr_in *clientaddr, int 
 	reply.opcode = SERVERREPLYOP + req->opcode;
 	if (result)
 		/* error in port mapping */
-		reply.result = OUTOFRESOURCES;
+		reply.result = htons(OUTOFRESOURCES);
 	else
 		reply.result = SUCCESS;
 	
-	reply.epoch = getuptime();
+	reply.epoch = htonl(getuptime());
 
 	reply.privateport = req->privateport;
 
@@ -990,7 +1026,7 @@ static void SendPortMapMulti()
 	memset(&multiaddr,0,sizeof(struct sockaddr_in));
 	multiaddr.sin_family=AF_INET;
 	multiaddr.sin_addr.s_addr=inet_addr(LOCALGROUP);
-	multiaddr.sin_port=htons(NATPMPORT);
+	multiaddr.sin_port=htons(NATPMP_ANNOUNCEMENT_PORT);
 	reply.version = NATPMVERSION;
 	reply.opcode = SERVERREPLYOP + PUBLICADDRREQ;
 	reply.result = SUCCESS;
@@ -1100,7 +1136,13 @@ void DoPortMapping( int fd, struct sockaddr_in *clientaddr, int clientaddrlen, p
 	if ( req->lifetime == 0)
 	{
 		/* remove port mapping */
-		if ( !FindAliasPortOut(  clientaddr->sin_addr, inany , req->privateport, req->publicport, proto, req->lifetime, 0))
+		if ( !FindAliasPortOut( clientaddr->sin_addr,
+								inany,
+								req->privateport,
+								req->publicport,
+								proto,
+								ntohl(req->lifetime),
+								0) )
 			/* FindAliasPortOut returns no error, port successfully removed, return no error response to client */
 			SendPublicPortResponse( fd, clientaddr, clientaddrlen, req, 0, 0 );
 		else
@@ -1111,13 +1153,13 @@ void DoPortMapping( int fd, struct sockaddr_in *clientaddr, int clientaddrlen, p
 	{
 		/* look for port mapping - public port is ignored in this case */
 		/* create port mapping - map provided public port to private port if public port is not 0 */
-		aliasport = FindAliasPortOut(  clientaddr->sin_addr, 
-			inany, /* lastassignaliasAddr */
-			req->privateport, 
-			0, 
-			proto, 
-			req->lifetime, 
-			1);
+		aliasport = FindAliasPortOut( clientaddr->sin_addr, 
+									  inany, /* lastassignaliasAddr */
+									  req->privateport, 
+									  0, 
+									  proto, 
+									  ntohl(req->lifetime), 
+									  1);
 		/* aliasport should be non zero if mapping is successfully, else -1 is returned, alias port shouldn't be zero???? */
 		SendPublicPortResponse( fd, clientaddr, clientaddrlen, req, aliasport, 0 );
 			
@@ -1144,6 +1186,12 @@ static void HandlePortMap( int fd )
 		printf( "Read NATPM port error\n");
 		return;
 	}
+	else if ( bytes < sizeof(stdportmaprequest) )
+	{
+		/* drop any requests that are too short */
+		return;
+	}
+
 	req = (struct stdportmaprequest*)buffer;
 	
 	#ifdef DEBUG
@@ -1158,6 +1206,13 @@ static void HandlePortMap( int fd )
 		printf("\n");
 	}
 	#endif			
+
+	/* drop any reply packets that we receive on the floor */
+	if ( req->opcode >= SERVERREPLYOP )
+	{
+		return;
+	}
+
 	/* check client version */
 	if ( req->version > NATPMVERSION )
 		result = NOTSUPPORTEDVERSION;
@@ -1175,7 +1230,8 @@ static void HandlePortMap( int fd )
 	{
 		case PUBLICADDRREQ:
 		{
-			SendPublicAddress(fd, &clientaddr, clientaddrlen);
+			if ( bytes == sizeof(stdportmaprequest) )
+				SendPublicAddress(fd, &clientaddr, clientaddrlen);
 			break;
 		}
 		
@@ -1183,7 +1239,8 @@ static void HandlePortMap( int fd )
 		case MAPTCPREQ:
 		case MAPUDPTCPREQ:
 		{
-			DoPortMapping( fd, &clientaddr, clientaddrlen, (publicportreq*)req);
+			if ( bytes == sizeof(publicportreq) )
+				DoPortMapping( fd, &clientaddr, clientaddrlen, (publicportreq*)req);
 			break;
 		}
 		
@@ -1194,8 +1251,7 @@ static void HandlePortMap( int fd )
 		
 }
 
-
-#endif
+#endif /* NATPORTMAP */
 
 static void PrintPacket (struct ip* ip)
 {
@@ -1334,7 +1390,7 @@ SetAliasAddressFromIfName(const char *ifn)
 			char *cp = (char *)(ifam + 1);
 
 #define ROUNDUP(a) \
-	((a) > 0 ? (1 + (((a) - 1) | (sizeof(long) - 1))) : sizeof(long))
+	((a) > 0 ? (1 + (((a) - 1) | (sizeof(uint32_t) - 1))) : sizeof(uint32_t))
 #define ADVANCE(x, n) (x += ROUNDUP((n)->sa_len))
 
 			for (i = 1; i < RTA_IFA; i <<= 1)

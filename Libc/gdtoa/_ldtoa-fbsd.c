@@ -65,9 +65,7 @@ __ldtoa(long double *ld, int mode, int ndigits, int *decpt, int *sign,
 #ifdef Honor_FLT_ROUNDS
 	int rounding = Flt_Rounds;
 #endif
-#if defined(__ppc__) || defined(__ppc64__)
 	int type;
-#endif /* defined(__ppc__) || defined(__ppc64__) */
 
 	u.e = *ld;
 #if defined(__ppc__) || defined(__ppc64__)
@@ -80,16 +78,20 @@ __ldtoa(long double *ld, int mode, int ndigits, int *decpt, int *sign,
 		type = FP_SUBNORMAL;
 	if (type == FP_SUBNORMAL)
 		u.e *= 1.0e32L;
+#else /* !defined(__ppc__) && !defined(__ppc64__) */
+	type = fpclassify(u.e);
 #endif /* defined(__ppc__) || defined(__ppc64__) */
 	*sign = u.bits.sign;
 	be = u.bits.exp - (LDBL_MAX_EXP - 1) - (LDBL_MANT_DIG - 1);
-	LDBL_TO_ARRAY32(u, bits);
-
 #if defined(__ppc__) || defined(__ppc64__)
-	switch (type) {
-	case FP_SUBNORMAL:
+	be -= LDBL_TO_ARRAY32(u, bits);
 #else /* !defined(__ppc__) && !defined(__ppc64__) */
-	switch (fpclassify(u.e)) {
+	LDBL_TO_ARRAY32(u, bits);
+#endif /* defined(__ppc__) || defined(__ppc64__) */
+
+	switch (type) {
+#if defined(__ppc__) || defined(__ppc64__)
+	case FP_SUBNORMAL:
 #endif /* defined(__ppc__) || defined(__ppc64__) */
 	case FP_NORMAL:
 	case FP_SUPERNORMAL:
@@ -117,7 +119,7 @@ __ldtoa(long double *ld, int mode, int ndigits, int *decpt, int *sign,
 		kind = STRTOG_NaN;
 		break;
 	default:
-		abort();
+		LIBC_ABORT("fpclassify returned %d", type);
 	}
 
 #ifdef Honor_FLT_ROUNDS

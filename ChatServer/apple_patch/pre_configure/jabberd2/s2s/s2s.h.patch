@@ -1,0 +1,62 @@
+--- /tmp/jabberd-2.1.24.1/s2s/s2s.h	2008-04-27 02:57:31.000000000 -0700
++++ ./jabberd2/s2s/s2s.h	2009-06-08 17:55:19.000000000 -0700
+@@ -32,6 +32,9 @@
+ # include <sys/stat.h>
+ #endif
+ 
++#include <sys/resource.h>
++#include <sys/syslimits.h>
++
+ /* forward decl */
+ typedef struct s2s_st       *s2s_t;
+ typedef struct pkt_st       *pkt_t;
+@@ -48,6 +51,8 @@ struct s2s_st {
+     char                *router_user;
+     char                *router_pass;
+     char                *router_pemfile;
++    char                *router_cachain;
++    char                *router_private_key_password;
+     int                 router_default;
+ 
+     /** mio context */
+@@ -100,6 +105,9 @@ struct s2s_st {
+     /** pemfile for peer connections */
+     char                *local_pemfile;
+ 
++    /** private key password for local pemfile, if encrypted */
++    char                *local_private_key_password;
++
+     /** certificate chain */
+     char                *local_cachain;
+ 
+@@ -119,6 +127,12 @@ struct s2s_st {
+     int                 check_keepalive;
+     int                 check_idle;
+ 
++    /** Apple security options */
++	int					require_tls;
++	int					enable_whitelist;
++	char                **whitelist_domains;
++	int					n_whitelist_domains;
++
+     time_t              last_queue_check;
+     time_t              last_invalid_check;
+ 
+@@ -231,6 +245,7 @@ extern sig_atomic_t s2s_lost_router;
+ 
+ int             s2s_router_mio_callback(mio_t m, mio_action_t a, mio_fd_t fd, void *data, void *arg);
+ int             s2s_router_sx_callback(sx_t s, sx_event_t e, void *data, void *arg);
++int             s2s_domain_in_whitelist(s2s_t s2s, char *in_domain);
+ 
+ char            *s2s_route_key(pool_t p, char *local, char *remote);
+ char            *s2s_db_key(pool_t p, char *secret, char *remote, char *id);
+@@ -246,6 +261,9 @@ int             in_mio_callback(mio_t m,
+ /* sx flag for outgoing dialback streams */
+ #define S2S_DB_HEADER   (1<<10)
+ 
++/* max length of FQDN for whitelist matching */
++#define MAX_DOMAIN_LEN	1023
++
+ int             s2s_db_init(sx_env_t env, sx_plugin_t p, va_list args);
+ 
+ /* union for xhash_iter_get to comply with strict-alias rules for gcc3 */

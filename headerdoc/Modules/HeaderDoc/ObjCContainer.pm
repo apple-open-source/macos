@@ -3,9 +3,7 @@
 # Class name: ObjCContainer
 # Synopsis: Container for doc declared in an Objective-C interface.
 #
-#
-# Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2007/07/18 23:13:26 $
+# Last Updated: $Date: 2009/03/30 19:38:51 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -44,7 +42,7 @@ use HeaderDoc::APIOwner;
 
 use strict;
 use vars qw($VERSION @ISA);
-$VERSION = '$Revision: 1.4.2.5.2.19 $';
+$HeaderDoc::ObjCContainer::VERSION = '$Revision: 1.9 $';
 
 ################ Portability ###################################
 my $isMacOS;
@@ -91,7 +89,8 @@ sub _old_getCompositePageString {
     }
 
     my $discussion = $self->discussion();
-    if (length($discussion)) {
+    my $checkDisc = $self->halfbaked_discussion();
+    if (length($checkDisc)) {
 	    $compositePageString .= "<h2>Discussion</h2>\n";
 	    $compositePageString .= $discussion;
     }
@@ -198,12 +197,12 @@ sub conformsToList {
     my $string = shift;
     my $localDebug = 0;
 
-    print "ObjC object ".$self->name." conforms to: ".$string."\n" if ($localDebug);
+    print STDERR "ObjC object ".$self->name." conforms to: ".$string."\n" if ($localDebug);
     $string =~ s/\s*//sg;
     $string =~ s/,/\cA/g;
 
     if ($string ne "") {
-	$self->attribute("Conforms&nbsp;to", $string, 0);
+	$self->attribute("Conforms&nbsp;to", $string, 0, 1);
     }
 }
 
@@ -212,10 +211,10 @@ sub conformsToList {
 sub printObject {
     my $self = shift;
  
-    print "------------------------------------\n";
-    print "ObjCContainer\n";
-    print "    - no ivars\n";
-    print "Inherits from:\n";
+    print STDERR "------------------------------------\n";
+    print STDERR "ObjCContainer\n";
+    print STDERR "    - no ivars\n";
+    print STDERR "Inherits from:\n";
     $self->SUPER::printObject();
 }
 

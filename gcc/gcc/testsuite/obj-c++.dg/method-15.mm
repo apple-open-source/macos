@@ -1,8 +1,7 @@
-/* APPLE LOCAL file mainline */
 /* Check if finding multiple signatures for a method is handled gracefully when method lookup succeeds (see also method-7.m).  */
 /* Contributed by Ziemowit Laski <zlaski@apple.com>  */
+/* { dg-options "-Wstrict-selector-match" } */
 /* { dg-do compile } */
-
 /* APPLE LOCAL radar 4894756 */
 #include "../objc/execute/Object2.h"
 
@@ -32,16 +31,13 @@
 + (NTGridDataObject*)dataObject:(id<MyObject, MyCoding>)data
 {
     NTGridDataObject *result = [[NTGridDataObject alloc] initWithData:data];
-     /* { dg-warning "multiple methods named .\\-initWithData:. found" "" { target *-*-* } 34 } */
-     /* { dg-warning "using .\\-\\(id\\)initWithData:\\(Object \\*\\)data." "" { target *-*-* } 10 } */
-     /* { dg-warning "also found .\\-\\(id\\)initWithData:\\(id <MyObject, MyCoding>\\)data." "" { target *-*-* } 18 } */
-     /* { dg-warning "also found .\\-\\(id\\)initWithData:\\(int\\)data." "" { target *-*-* } 14 } */
+     /* { dg-warning "multiple methods named .\\-initWithData:. found" "" { target *-*-* } 33 } */
+     /* { dg-warning "using .\\-\\(id\\)initWithData:\\(Object \\*\\)data." "" { target *-*-* } 9 } */
+     /* { dg-warning "also found .\\-\\(id\\)initWithData:\\(id <MyObject, MyCoding>\\)data." "" { target *-*-* } 17 } */
+     /* { dg-warning "also found .\\-\\(id\\)initWithData:\\(int\\)data." "" { target *-*-* } 13 } */
 
      /* The following warning is a consequence of picking the "wrong" method signature.  */
-     /* { dg-warning "passing argument 1 of .initWithData:. from distinct Objective\\-C type" "" { target *-*-* } 34 } */
+     /* { dg-warning "passing argument 1 of .initWithData:. from distinct Objective\\-C type" "" { target *-*-* } 33 } */
     return result;
 }
 @end
-
-/* { dg-options "-Wstrict-selector-match" } */
-

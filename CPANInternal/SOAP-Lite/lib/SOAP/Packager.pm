@@ -4,7 +4,7 @@
 # SOAP::Lite is free software; you can redistribute it
 # and/or modify it under the same terms as Perl itself.
 #
-# $Id: Packager.pm,v 1.6 2006/01/27 20:45:36 byrnereese Exp $
+# $Id: Packager.pm,v 1.7 2006/08/16 14:07:38 byrnereese Exp $
 #
 # ======================================================================
 
@@ -140,7 +140,8 @@ sub package {
    require MIME::Entity;
    local $MIME::Entity::BOUNDARY_DELIMITER = "\r\n";
    my $top = MIME::Entity->build('Type'     => "Multipart/Related");
-   $top->attach('Type'                      => $context->soapversion == 1.1 ? "text/xml" : "application/soap+xml",
+   my $soapversion = defined($context) ? $context->soapversion : '1.1';
+   $top->attach('Type'                      => $soapversion == 1.1 ? "text/xml" : "application/soap+xml",
                 'Content-Transfer-Encoding' => $self->transfer_encoding(),
                 'Content-Location'          => $self->env_location(),
                 'Content-ID'                => $self->env_id(),
@@ -293,7 +294,8 @@ sub package {
    require DIME::Payload;
    my $message = DIME::Message->new;
    my $top = DIME::Payload->new;
-   $top->attach('MIMEType' => $context->soapversion == 1.1 ? 
+   my $soapversion = defined($context) ? $context->soapversion : '1.1';
+   $top->attach('MIMEType' => $soapversion == 1.1 ? 
                   "http://schemas.xmlsoap.org/soap/envelope/" : "application/soap+xml",
                 'Data'     => $envelope );
    $message->add_payload($top);

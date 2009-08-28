@@ -36,221 +36,116 @@ RelationMap *LDAPDLModule::mRelationMap;
 void LDAPDLModule::SetupSchemaRelationRelation ()
 {
 	// setup the CSSM_DL_DB_SCHEMA_INDEXES
-	mSchemaRelationRelation = new TableRelation (CSSM_DL_DB_SCHEMA_INFO, 2);
-	mSchemaRelationRelation->SetColumnNames ("RelationID", "RelationName");
-	mSchemaRelationRelation->SetColumnIDs (0, 1);
-	mSchemaRelationRelation->SetColumnFormats (CSSM_DB_ATTRIBUTE_FORMAT_UINT32, CSSM_DB_ATTRIBUTE_FORMAT_STRING);
+	
+	static columnInfoLoader ciLoader[] = {
+		{ 0, "RelationID", CSSM_DB_ATTRIBUTE_FORMAT_UINT32 },
+		{ 0, "RelationName", CSSM_DB_ATTRIBUTE_FORMAT_STRING },
+	};
+	
+	mSchemaRelationRelation = new TableRelation (CSSM_DL_DB_SCHEMA_INFO, (sizeof(ciLoader) / sizeof(columnInfoLoader)), ciLoader);	
+	
 	mSchemaRelationRelation->AddTuple (new UInt32Value (CSSM_DL_DB_SCHEMA_INFO), new StringValue ("CSSM_DL_DB_SCHEMA_INFO"));
 	mSchemaRelationRelation->AddTuple (new UInt32Value (CSSM_DL_DB_SCHEMA_ATTRIBUTES), new StringValue ("CSSM_DL_DB_SCHEMA_ATTRIBUTES"));
 	mSchemaRelationRelation->AddTuple (new UInt32Value (CSSM_DL_DB_SCHEMA_INDEXES), new StringValue ("CSSM_DL_DB_SCHEMA_INDEXES"));
 	mSchemaRelationRelation->AddTuple (new UInt32Value (CSSM_DL_DB_SCHEMA_PARSING_MODULE), new StringValue ("CSSM_DL_DB_SCHEMA_PARSING_MODULE"));
+	mSchemaRelationRelation->AddTuple (new UInt32Value (CSSM_DL_DB_RECORD_X509_CERTIFICATE), new StringValue ("CSSM_DL_DB_RECORD_X509_CERTIFICATE"));
 	(*mRelationMap)[CSSM_DL_DB_SCHEMA_INFO] = mSchemaRelationRelation;
+	(*mRelationMap)[CSSM_DL_DB_SCHEMA_INDEXES] = mSchemaRelationRelation;
 }
 
 
+struct attributeLoader {
+	UInt32 relationID;
+	UInt32 attrID;
+	const char * attrName;
+	UInt32 attrFormat;
+};
 
 void LDAPDLModule::SetupSchemaAttributeRelation ()
 {
-	mSchemaAttributeRelation = new TableRelation (CSSM_DL_DB_SCHEMA_ATTRIBUTES, 6);
-	mSchemaAttributeRelation->SetColumnNames ("RelationID", "AttributeID", "AttributeNameFormat", "AttributeName", "AttributeNameID", "AttributeFormat");
-	mSchemaAttributeRelation->SetColumnFormats (CSSM_DB_ATTRIBUTE_FORMAT_UINT32, CSSM_DB_ATTRIBUTE_FORMAT_UINT32, CSSM_DB_ATTRIBUTE_FORMAT_UINT32,
-												CSSM_DB_ATTRIBUTE_FORMAT_STRING, CSSM_DB_ATTRIBUTE_FORMAT_UINT32, CSSM_DB_ATTRIBUTE_FORMAT_UINT32);
-	mSchemaAttributeRelation->SetColumnIDs (0, 1, 2, 3, 4, 5);
-												
-	// setup the index
-	mSchemaAttributeRelation->AddTuple (new UInt32Value (CSSM_DL_DB_SCHEMA_INFO),
-										new UInt32Value (0),
-										new UInt32Value (CSSM_DB_ATTRIBUTE_NAME_AS_STRING),
-										new StringValue ("RelationID"),
-										NULL,
-										new UInt32Value (CSSM_DB_ATTRIBUTE_FORMAT_UINT32));
-	mSchemaAttributeRelation->AddTuple (new UInt32Value (CSSM_DL_DB_SCHEMA_INFO),
-										new UInt32Value (1),
-										new UInt32Value (CSSM_DB_ATTRIBUTE_NAME_AS_STRING),
-										new StringValue ("RelationName"),
-										NULL,
-										new UInt32Value (CSSM_DB_ATTRIBUTE_FORMAT_STRING));
+	static columnInfoLoader ciLoader[] = {
+		{ 0, "RelationID", CSSM_DB_ATTRIBUTE_FORMAT_UINT32 },
+		{ 1, "AttributeID", CSSM_DB_ATTRIBUTE_FORMAT_UINT32 },
+		{ 2, "AttributeNameFormat", CSSM_DB_ATTRIBUTE_FORMAT_UINT32 },
+		{ 3, "AttributeName", CSSM_DB_ATTRIBUTE_FORMAT_STRING },
+		{ 4, "AttributeNameID", CSSM_DB_ATTRIBUTE_FORMAT_UINT32 },
+		{ 5, "AttributeFormat", CSSM_DB_ATTRIBUTE_FORMAT_UINT32 },
+	};
+	mSchemaAttributeRelation = new TableRelation (CSSM_DL_DB_SCHEMA_ATTRIBUTES, (sizeof(ciLoader) / sizeof(columnInfoLoader)), ciLoader);	
 	
-	// setup the attribute table
-	mSchemaAttributeRelation->AddTuple (new UInt32Value (CSSM_DL_DB_SCHEMA_ATTRIBUTES),
-										new UInt32Value (0),
-										new UInt32Value (CSSM_DB_ATTRIBUTE_NAME_AS_STRING),
-										new StringValue ("RelationID"),
-										NULL,
-										new UInt32Value (CSSM_DB_ATTRIBUTE_FORMAT_UINT32));
-	mSchemaAttributeRelation->AddTuple (new UInt32Value (CSSM_DL_DB_SCHEMA_ATTRIBUTES),
-										new UInt32Value (1),
-										new UInt32Value (CSSM_DB_ATTRIBUTE_NAME_AS_STRING),
-										new StringValue ("AttributeID"),
-										NULL,
-										new UInt32Value (CSSM_DB_ATTRIBUTE_FORMAT_UINT32));
-	mSchemaAttributeRelation->AddTuple (new UInt32Value (CSSM_DL_DB_SCHEMA_ATTRIBUTES),
-										new UInt32Value (2),
-										new UInt32Value (CSSM_DB_ATTRIBUTE_NAME_AS_STRING),
-										new StringValue ("AttributeNameFormat"),
-										NULL,
-										new UInt32Value (CSSM_DB_ATTRIBUTE_FORMAT_UINT32));
-	mSchemaAttributeRelation->AddTuple (new UInt32Value (CSSM_DL_DB_SCHEMA_ATTRIBUTES),
-										new UInt32Value (3),
-										new UInt32Value (CSSM_DB_ATTRIBUTE_NAME_AS_STRING),
-										new StringValue ("AttributeName"),
-										NULL,
-										new UInt32Value (CSSM_DB_ATTRIBUTE_FORMAT_UINT32));
-	mSchemaAttributeRelation->AddTuple (new UInt32Value (CSSM_DL_DB_SCHEMA_ATTRIBUTES),
-										new UInt32Value (4),
-										new UInt32Value (CSSM_DB_ATTRIBUTE_NAME_AS_STRING),
-										new StringValue ("AttributeName"),
-										NULL,
-										new UInt32Value (CSSM_DB_ATTRIBUTE_FORMAT_STRING));
-	mSchemaAttributeRelation->AddTuple (new UInt32Value (CSSM_DL_DB_SCHEMA_ATTRIBUTES),
-										new UInt32Value (5),
-										new UInt32Value (CSSM_DB_ATTRIBUTE_NAME_AS_STRING),
-										new StringValue ("AttributeNameID"),
-										NULL,
-										new UInt32Value (CSSM_DB_ATTRIBUTE_FORMAT_UINT32));
+	static struct attributeLoader loader[] = {	
+		// setup the index
+		{  CSSM_DL_DB_SCHEMA_INFO, 0, "RelationID", CSSM_DB_ATTRIBUTE_FORMAT_UINT32 },
+		{  CSSM_DL_DB_SCHEMA_INFO, 1, "RelationName", CSSM_DB_ATTRIBUTE_FORMAT_STRING },
+		
+		// setup the attribute table
+		{  CSSM_DL_DB_SCHEMA_ATTRIBUTES, 0, "RelationID", CSSM_DB_ATTRIBUTE_FORMAT_UINT32 },
+		{  CSSM_DL_DB_SCHEMA_ATTRIBUTES, 1, "AttributeID", CSSM_DB_ATTRIBUTE_FORMAT_UINT32 },
+		{  CSSM_DL_DB_SCHEMA_ATTRIBUTES, 2, "AttributeNameFormat", CSSM_DB_ATTRIBUTE_FORMAT_UINT32 },
+		{  CSSM_DL_DB_SCHEMA_ATTRIBUTES, 3, "AttributeName", CSSM_DB_ATTRIBUTE_FORMAT_UINT32 },
+		{  CSSM_DL_DB_SCHEMA_ATTRIBUTES, 4, "AttributeName", CSSM_DB_ATTRIBUTE_FORMAT_STRING },
+		{  CSSM_DL_DB_SCHEMA_ATTRIBUTES, 5, "AttributeNameID", CSSM_DB_ATTRIBUTE_FORMAT_UINT32 },
+
+		// setup the index table
+		{  CSSM_DL_DB_SCHEMA_INDEXES, 0, "RelationID", CSSM_DB_ATTRIBUTE_FORMAT_UINT32 },
+		{  CSSM_DL_DB_SCHEMA_INDEXES, 1, "IndexID", CSSM_DB_ATTRIBUTE_FORMAT_UINT32 },
+		{  CSSM_DL_DB_SCHEMA_INDEXES, 2, "AttributeID", CSSM_DB_ATTRIBUTE_FORMAT_UINT32 },
+		{  CSSM_DL_DB_SCHEMA_INDEXES, 3, "IndexType", CSSM_DB_ATTRIBUTE_FORMAT_UINT32 },
+		{  CSSM_DL_DB_SCHEMA_INDEXES, 4, "IndexedDataLocation", CSSM_DB_ATTRIBUTE_FORMAT_UINT32 },
+
+		// setup the schema parsing module
+		{  CSSM_DL_DB_SCHEMA_PARSING_MODULE, 0, "RelationID", CSSM_DB_ATTRIBUTE_FORMAT_UINT32 },
+		{  CSSM_DL_DB_SCHEMA_PARSING_MODULE, 1, "AttributeID", CSSM_DB_ATTRIBUTE_FORMAT_UINT32 },
+		{  CSSM_DL_DB_SCHEMA_PARSING_MODULE, 2, "ModuleID", CSSM_DB_ATTRIBUTE_FORMAT_BLOB },
+		{  CSSM_DL_DB_SCHEMA_PARSING_MODULE, 3, "AddInVersion", CSSM_DB_ATTRIBUTE_FORMAT_STRING },
+		{  CSSM_DL_DB_SCHEMA_PARSING_MODULE, 4, "SSID", CSSM_DB_ATTRIBUTE_FORMAT_UINT32 },
+		{  CSSM_DL_DB_SCHEMA_PARSING_MODULE, 5, "SubserviceType", CSSM_DB_ATTRIBUTE_FORMAT_UINT32 },
+
+	};
 	
-	// setup the index table
-	mSchemaAttributeRelation->AddTuple (new UInt32Value (CSSM_DL_DB_SCHEMA_INDEXES),
-										new UInt32Value (0),
-										new UInt32Value (CSSM_DB_ATTRIBUTE_NAME_AS_STRING),
-										new StringValue ("RelationID"),
-										NULL,
-										new UInt32Value (CSSM_DB_ATTRIBUTE_FORMAT_UINT32));
-	mSchemaAttributeRelation->AddTuple (new UInt32Value (CSSM_DL_DB_SCHEMA_INDEXES),
-										new UInt32Value (1),
-										new UInt32Value (CSSM_DB_ATTRIBUTE_NAME_AS_STRING),
-										new StringValue ("IndexID"),
-										NULL,
-										new UInt32Value (CSSM_DB_ATTRIBUTE_FORMAT_UINT32));
-	mSchemaAttributeRelation->AddTuple (new UInt32Value (CSSM_DL_DB_SCHEMA_INDEXES),
-										new UInt32Value (2),
-										new UInt32Value (CSSM_DB_ATTRIBUTE_NAME_AS_STRING),
-										new StringValue ("AttributeID"),
-										NULL,
-										new UInt32Value (CSSM_DB_ATTRIBUTE_FORMAT_UINT32));
-	mSchemaAttributeRelation->AddTuple (new UInt32Value (CSSM_DL_DB_SCHEMA_INDEXES),
-										new UInt32Value (3),
-										new UInt32Value (CSSM_DB_ATTRIBUTE_NAME_AS_STRING),
-										new StringValue ("IndexType"),
-										NULL,
-										new UInt32Value (CSSM_DB_ATTRIBUTE_FORMAT_UINT32));
-	mSchemaAttributeRelation->AddTuple (new UInt32Value (CSSM_DL_DB_SCHEMA_INDEXES),
-										new UInt32Value (4),
-										new UInt32Value (CSSM_DB_ATTRIBUTE_NAME_AS_STRING),
-										new StringValue ("IndexedDataLocation"),
-										NULL,
-										new UInt32Value (CSSM_DB_ATTRIBUTE_FORMAT_UINT32));
-	
-	// setup the schema parsing module
-	mSchemaAttributeRelation->AddTuple (new UInt32Value (CSSM_DL_DB_SCHEMA_PARSING_MODULE),
-										new UInt32Value (0),
-										new UInt32Value (CSSM_DB_ATTRIBUTE_NAME_AS_STRING),
-										new StringValue ("RelationID"),
-										NULL,
-										new UInt32Value (CSSM_DB_ATTRIBUTE_FORMAT_UINT32));
-	mSchemaAttributeRelation->AddTuple (new UInt32Value (CSSM_DL_DB_SCHEMA_PARSING_MODULE),
-										new UInt32Value (1),
-										new UInt32Value (CSSM_DB_ATTRIBUTE_NAME_AS_STRING),
-										new StringValue ("AttributeID"),
-										NULL,
-										new UInt32Value (CSSM_DB_ATTRIBUTE_FORMAT_UINT32));
-	mSchemaAttributeRelation->AddTuple (new UInt32Value (CSSM_DL_DB_SCHEMA_PARSING_MODULE),
-										new UInt32Value (2),
-										new UInt32Value (CSSM_DB_ATTRIBUTE_NAME_AS_STRING),
-										new StringValue ("ModuleID"),
-										NULL,
-										new UInt32Value (CSSM_DB_ATTRIBUTE_FORMAT_BLOB));
-	mSchemaAttributeRelation->AddTuple (new UInt32Value (CSSM_DL_DB_SCHEMA_PARSING_MODULE),
-										new UInt32Value (3),
-										new UInt32Value (CSSM_DB_ATTRIBUTE_NAME_AS_STRING),
-										new StringValue ("AddInVersion"),
-										NULL,
-										new UInt32Value (CSSM_DB_ATTRIBUTE_FORMAT_STRING));
-	mSchemaAttributeRelation->AddTuple (new UInt32Value (CSSM_DL_DB_SCHEMA_PARSING_MODULE),
-										new UInt32Value (4),
-										new UInt32Value (CSSM_DB_ATTRIBUTE_NAME_AS_STRING),
-										new StringValue ("SSID"),
-										NULL,
-										new UInt32Value (CSSM_DB_ATTRIBUTE_FORMAT_UINT32));
-	mSchemaAttributeRelation->AddTuple (new UInt32Value (CSSM_DL_DB_SCHEMA_PARSING_MODULE),
-										new UInt32Value (5),
-										new UInt32Value (CSSM_DB_ATTRIBUTE_NAME_AS_STRING),
-										new StringValue ("SubserviceType"),
-										NULL,
-										new UInt32Value (CSSM_DB_ATTRIBUTE_FORMAT_UINT32));
+	int nrows = sizeof(loader) / sizeof(struct attributeLoader);
+	for(int i=0; i < nrows; i++) 	
+		mSchemaAttributeRelation->AddTuple (new UInt32Value (loader[i].relationID),new UInt32Value (loader[i].attrID),new UInt32Value (CSSM_DB_ATTRIBUTE_NAME_AS_STRING),new StringValue (loader[i].attrName), NULL, new UInt32Value (loader[i].attrFormat));
+
 	(*mRelationMap)[CSSM_DL_DB_SCHEMA_ATTRIBUTES] = mSchemaAttributeRelation;
 }
 
 
 
+struct indexLoader {
+	UInt32 relationID;
+	UInt32 indexID;
+	UInt32 attributeID;
+	UInt32 indexType;
+	UInt32 indexedDataLocation;
+};
+
 void LDAPDLModule::SetupSchemaIndexRelation ()
 {
-	mSchemaIndexRelation = new TableRelation (CSSM_DL_DB_SCHEMA_INDEXES, 5);
-	mSchemaIndexRelation->SetColumnNames ("RelationID", "IndexID", "AttributeID", "IndexType", "IndexedDataLocation");
-	mSchemaIndexRelation->SetColumnFormats (CSSM_DB_ATTRIBUTE_FORMAT_UINT32, CSSM_DB_ATTRIBUTE_FORMAT_UINT32, CSSM_DB_ATTRIBUTE_FORMAT_UINT32,
-											CSSM_DB_ATTRIBUTE_FORMAT_UINT32, CSSM_DB_ATTRIBUTE_FORMAT_UINT32);
-	mSchemaIndexRelation->SetColumnIDs (0, 1, 2, 3, 4);
+	static columnInfoLoader ciLoader[] = {
+		{ 0, "RelationID", CSSM_DB_ATTRIBUTE_FORMAT_UINT32 },
+		{ 1, "IndexID", CSSM_DB_ATTRIBUTE_FORMAT_UINT32 },
+		{ 2, "AttributeID", CSSM_DB_ATTRIBUTE_FORMAT_UINT32 },
+		{ 3, "IndexType", CSSM_DB_ATTRIBUTE_FORMAT_UINT32 },
+		{ 4, "IndexedDataLocation", CSSM_DB_ATTRIBUTE_FORMAT_UINT32 },
+	};
+	mSchemaIndexRelation = new TableRelation (CSSM_DL_DB_SCHEMA_INDEXES, (sizeof(ciLoader) / sizeof(columnInfoLoader)), ciLoader);
 
-	// none of our table relations is indexed, but the certificate relation is, sort of.  Add an index relation for the certificate relation
-	mSchemaIndexRelation->AddTuple (new UInt32Value (CSSM_DL_DB_RECORD_X509_CERTIFICATE),
-									new UInt32Value (0),
-									new UInt32Value ('ctyp'),
-									new UInt32Value (0),
-									new UInt32Value (1));
-
-	mSchemaIndexRelation->AddTuple (new UInt32Value (CSSM_DL_DB_RECORD_X509_CERTIFICATE),
-									new UInt32Value (0),
-									new UInt32Value ('issu'),
-									new UInt32Value (0),
-									new UInt32Value (1));
-
-	mSchemaIndexRelation->AddTuple (new UInt32Value (CSSM_DL_DB_RECORD_X509_CERTIFICATE),
-									new UInt32Value (0),
-									new UInt32Value ('snbr'),
-									new UInt32Value (0),
-									new UInt32Value (1));
-
-	mSchemaIndexRelation->AddTuple (new UInt32Value (CSSM_DL_DB_RECORD_X509_CERTIFICATE),
-									new UInt32Value (1),
-									new UInt32Value ('ctyp'),
-									new UInt32Value (1),
-									new UInt32Value (1));
-
-	mSchemaIndexRelation->AddTuple (new UInt32Value (CSSM_DL_DB_RECORD_X509_CERTIFICATE),
-									new UInt32Value (2),
-									new UInt32Value ('alis'),
-									new UInt32Value (1),
-									new UInt32Value (1));
-
-	mSchemaIndexRelation->AddTuple (new UInt32Value (CSSM_DL_DB_RECORD_X509_CERTIFICATE),
-									new UInt32Value (3),
-									new UInt32Value ('subj'),
-									new UInt32Value (1),
-									new UInt32Value (1));
-
-	mSchemaIndexRelation->AddTuple (new UInt32Value (CSSM_DL_DB_RECORD_X509_CERTIFICATE),
-									new UInt32Value (4),
-									new UInt32Value ('issu'),
-									new UInt32Value (1),
-									new UInt32Value (1));
-
-	mSchemaIndexRelation->AddTuple (new UInt32Value (CSSM_DL_DB_RECORD_X509_CERTIFICATE),
-									new UInt32Value (5),
-									new UInt32Value ('snbr'),
-									new UInt32Value (1),
-									new UInt32Value (1));
-
-	mSchemaIndexRelation->AddTuple (new UInt32Value (CSSM_DL_DB_RECORD_X509_CERTIFICATE),
-									new UInt32Value (6),
-									new UInt32Value ('skid'),
-									new UInt32Value (1),
-									new UInt32Value (1));
-
-	mSchemaIndexRelation->AddTuple (new UInt32Value (CSSM_DL_DB_RECORD_X509_CERTIFICATE),
-									new UInt32Value (7),
-									new UInt32Value ('hpky'),
-									new UInt32Value (1),
-									new UInt32Value (1));
+	static struct indexLoader loader[] = {	
+		{ CSSM_DL_DB_RECORD_X509_CERTIFICATE, 0, 'ctyp', 0, 1 },
+		{ CSSM_DL_DB_RECORD_X509_CERTIFICATE, 1, 'issu', 0, 1 },
+		{ CSSM_DL_DB_RECORD_X509_CERTIFICATE, 2, 'snbr', 0, 1 },
+		{ CSSM_DL_DB_RECORD_X509_CERTIFICATE, 3, 'alis', 1, 1 },
+		{ CSSM_DL_DB_RECORD_X509_CERTIFICATE, 4, 'subj', 1, 1 },
+		{ CSSM_DL_DB_RECORD_X509_CERTIFICATE, 5, 'issu', 1, 1 },
+		{ CSSM_DL_DB_RECORD_X509_CERTIFICATE, 6, 'snbr', 1, 1 },
+		{ CSSM_DL_DB_RECORD_X509_CERTIFICATE, 7, 'skid', 1, 1 },
+		{ CSSM_DL_DB_RECORD_X509_CERTIFICATE, 8, 'hpky', 1, 1 },
+	};
+	
+	int nrows = sizeof(loader) / sizeof(struct indexLoader);
+	for(int i=0; i < nrows; i++) 	
+		mSchemaIndexRelation->AddTuple (new UInt32Value (loader[i].relationID),new UInt32Value (loader[i].indexID), new UInt32Value (loader[i].attributeID), new UInt32Value (loader[i].indexType), new UInt32Value (loader[i].indexedDataLocation));
 
 	(*mRelationMap)[CSSM_DL_DB_SCHEMA_INDEXES] = mSchemaIndexRelation;
 }
@@ -259,9 +154,15 @@ void LDAPDLModule::SetupSchemaIndexRelation ()
 
 void LDAPDLModule::SetupSchemaParsingModuleRelation ()
 {
-	mSchemaParsingModuleRelation = new TableRelation (CSSM_DL_DB_SCHEMA_PARSING_MODULE, 6);
-	mSchemaParsingModuleRelation->SetColumnNames ("RelationID", "AttributeID", "ModuleID", "AddinVersion", "SSID", "SubserviceType");
-	mSchemaParsingModuleRelation->SetColumnIDs (0, 1, 2, 3, 4, 5);
+	static columnInfoLoader ciLoader[] = {
+		{ 0, "RelationID", CSSM_DB_ATTRIBUTE_FORMAT_UINT32 },
+		{ 1, "AttributeID", CSSM_DB_ATTRIBUTE_FORMAT_UINT32 },
+		{ 2, "ModuleID", CSSM_DB_ATTRIBUTE_FORMAT_BLOB },
+		{ 3, "AddinVersion", CSSM_DB_ATTRIBUTE_FORMAT_STRING },
+		{ 4, "SSID", CSSM_DB_ATTRIBUTE_FORMAT_UINT32 },
+		{ 5, "SubserviceType", CSSM_DB_ATTRIBUTE_FORMAT_UINT32 },
+	};
+	mSchemaParsingModuleRelation = new TableRelation (CSSM_DL_DB_SCHEMA_PARSING_MODULE, (sizeof(ciLoader) / sizeof(columnInfoLoader)), ciLoader);
 	(*mRelationMap)[CSSM_DL_DB_SCHEMA_PARSING_MODULE] = mSchemaParsingModuleRelation;
 }
 
@@ -269,23 +170,25 @@ void LDAPDLModule::SetupSchemaParsingModuleRelation ()
 
 void LDAPDLModule::SetupX509Relation ()
 {
-	mX509Relation = new DSX509Relation ();
+	static columnInfoLoader ciLoader[] = {
+		{ 'ctyp', "CertType", CSSM_DB_ATTRIBUTE_FORMAT_UINT32 },
+		{ 'cenc', "CertEncoding", CSSM_DB_ATTRIBUTE_FORMAT_UINT32 },
+		{ 'labl', "PrintName", CSSM_DB_ATTRIBUTE_FORMAT_BLOB },
+		{ 'alis', "Alias", CSSM_DB_ATTRIBUTE_FORMAT_BLOB },
+		{ 'subj', "Subject", CSSM_DB_ATTRIBUTE_FORMAT_BLOB },
+		{ 'issu', "Issuer", CSSM_DB_ATTRIBUTE_FORMAT_BLOB },
+		{ 'snbr', "SerialNumber", CSSM_DB_ATTRIBUTE_FORMAT_BLOB },
+		{ 'skid', "SubjectKeyIdentifier", CSSM_DB_ATTRIBUTE_FORMAT_BLOB },
+		{ 'hpky', "PublicKeyHash", CSSM_DB_ATTRIBUTE_FORMAT_BLOB }
+	};
+	mX509Relation = new DSX509Relation (CSSM_DL_DB_RECORD_X509_CERTIFICATE, (sizeof(ciLoader) / sizeof(columnInfoLoader)), ciLoader);
 	
 	// add the relation to the attributes table
-	int i;
 	int max = mX509Relation->GetNumberOfColumns ();
-	uint32* columnIDs = mX509Relation->GetColumnIDs ();
-	Tuple* columnNames = mX509Relation->GetColumnNames ();
 
-	for (i = 0; i < max; ++i)
-	{
-		mSchemaAttributeRelation->AddTuple (new UInt32Value (CSSM_DL_DB_RECORD_X509_CERTIFICATE),
-											new UInt32Value (columnIDs[i]),
-											new UInt32Value (CSSM_DB_ATTRIBUTE_NAME_AS_STRING),
-											columnNames->GetValue (i),
-											NULL,
-											new UInt32Value (mX509Relation->GetColumnFormat (i)));
-	}
+	for (int i = 0; i < max; ++i)
+		mSchemaAttributeRelation->AddTuple (new UInt32Value (CSSM_DL_DB_RECORD_X509_CERTIFICATE), new UInt32Value (mX509Relation->GetColumnIDs (i)), new UInt32Value (CSSM_DB_ATTRIBUTE_NAME_AS_STRING), 
+											mX509Relation->GetColumnName (i), NULL, new UInt32Value (mX509Relation->GetColumnFormat (i)));
 	(*mRelationMap)[CSSM_DL_DB_RECORD_X509_CERTIFICATE] = mX509Relation;
 
 	// add to the attribute info database
@@ -311,9 +214,7 @@ LDAPDLModule::LDAPDLModule (pthread_mutex_t *globalLock, CSSM_SPI_ModuleEventHan
 	DataStorageLibrary (globalLock, CssmNotifyCallback, CssmNotifyCallbackCtx)
 {
 	if (mSchemaRelationRelation == NULL)
-	{
 		InitializeRelations ();
-	}
 }
 
 
@@ -335,9 +236,7 @@ Relation* LDAPDLModule::LookupRelation (CSSM_DB_RECORDTYPE recordType)
 {
 	RelationMap::iterator r = (*mRelationMap).find (recordType);
 	if (r == (*mRelationMap).end ())
-	{
-		throw CSSMError (CSSMERR_DL_INVALID_RECORDTYPE);
-	}
+		CSSMError::ThrowCSSMError (CSSMERR_DL_INVALID_RECORDTYPE);
 	
 	return (*r).second;
 }
@@ -367,15 +266,11 @@ void LDAPDatabase::DbOpen (const char* DbName, const CSSM_NET_ADDRESS *dbLocatio
 						   const CSSM_ACCESS_CREDENTIALS *accessCredentials, const void* openParameters)
 {
 	if (DbName == NULL)
-	{
-		throw CSSMError (CSSMERR_CSSM_INVALID_POINTER);
-	}
+		CSSMError::ThrowCSSMError (CSSMERR_CSSM_INVALID_POINTER);
 	
 	// this database can only be opened read only.  Any attempt to gain write permissions will be dealt with severely
 	if (accessRequest != CSSM_DB_ACCESS_READ)
-	{
-		throw CSSMError (CSSMERR_DL_INVALID_ACCESS_REQUEST);
-	}
+		CSSMError::ThrowCSSMError (CSSMERR_DL_INVALID_ACCESS_REQUEST);
 	
 	mDatabaseName = DbName;
 }
@@ -402,54 +297,39 @@ void LDAPDatabase::DbGetDbNameFromHandle (char** dbName)
 void LDAPDatabase::CopyAttributes (Relation *r, Tuple *t, CSSM_DB_RECORD_ATTRIBUTE_DATA_PTR attributes)
 {
 	// fill out each attribute requested
+	if(t == NULL || r == NULL || attributes == NULL) return;
+	
 	uint32 i;
 	CSSM_DB_ATTRIBUTE_DATA* d = attributes->AttributeData;
-
-	for (i = 0; i < attributes->NumberOfAttributes; ++i)
-	{
+	attributes->DataRecordType = r->GetRecordType ();
+	Value *v;
+	
+	for (i = 0; i < attributes->NumberOfAttributes; ++i, d++) {
 		int columnNumber;
-		switch (d->Info.AttributeNameFormat)
-		{
-			case CSSM_DB_ATTRIBUTE_NAME_AS_STRING:
-			{
-				columnNumber = r->GetColumnNumber (d->Info.Label.AttributeName);
-				break;
-			}
-			
-			case CSSM_DB_ATTRIBUTE_NAME_AS_INTEGER:
-			{
-				columnNumber = r->GetColumnNumber (d->Info.Label.AttributeID);
-				break;
-			}
-			
-			default:
-			{
-				throw CSSMError (CSSMERR_DL_INVALID_FIELD_NAME);
-			}
+		switch (d->Info.AttributeNameFormat) {
+		case CSSM_DB_ATTRIBUTE_NAME_AS_STRING:
+			columnNumber = r->GetColumnNumber (d->Info.Label.AttributeName);
+			break;			
+		case CSSM_DB_ATTRIBUTE_NAME_AS_INTEGER:
+			columnNumber = r->GetColumnNumber (d->Info.Label.AttributeID);
+			break;			
+		default:
+			columnNumber = r->GetColumnNumber (d->Info.Label.AttributeID);
+			break;
 		}
 		
-		// copy the value from the tuple into the field
-		Value *v = t->GetValue (columnNumber);
-		d->Value = (CSSM_DATA_PTR) mAttachedInstance->malloc (sizeof (CSSM_DATA));
-		if (v != NULL)
-		{
+		if ( columnNumber != -1 && (v = t->GetValue (columnNumber)) != NULL) {
+			d->Value = (CSSM_DATA_PTR) mAttachedInstance->malloc (sizeof (CSSM_DATA));
 			d->Info.AttributeFormat = v->GetValueType();
 			uint32 numItems, length;
-			uint8* value;
 			
-			value = v->CloneContents (mAttachedInstance, numItems, length);
-			d->Value->Data = value;
+			d->Value->Data = v->CloneContents (mAttachedInstance, numItems, length);
 			d->Value->Length = length;
 			d->NumberOfValues = numItems;
-		}
-		else
-		{
-			d->Value->Data = NULL;
-			d->Value->Length = 0;
+		} else {
+			d->Value = NULL;
 			d->NumberOfValues = 0;
 		}
-		
-		d += 1;
 	}
 }
 
@@ -472,117 +352,111 @@ void LDAPDatabase::GetDataFromTuple (Tuple *t, CSSM_DATA &data)
 }
 
 
+void LDAPDatabase::processNext(CSSM_DB_RECORD_ATTRIBUTE_DATA_PTR attributes, CSSM_DATA_PTR data,CSSM_DB_UNIQUE_RECORD_PTR *uniqueID, Query *q, Relation *r)
+{
+	UniqueIdentifier *id;
+	Tuple* t = q->GetNextTuple (id);
+	
+	if (t == NULL)  CSSMError::ThrowCSSMError (CSSMERR_DL_ENDOFDATA);
+	if(attributes != NULL)  CopyAttributes (r, t, attributes);
+	if (data != NULL) GetDataFromTuple (t, *data);
+	
+	// new record unique ID
+	ExportUniqueID (id, uniqueID);
+}
 
 CSSM_HANDLE LDAPDatabase::DbDataGetFirst (const CSSM_QUERY *query,
 										  CSSM_DB_RECORD_ATTRIBUTE_DATA_PTR attributes,
 										  CSSM_DATA_PTR data,
 										  CSSM_DB_UNIQUE_RECORD_PTR *uniqueID)
 {
-	// do error checking on the attributes
-	if (attributes && attributes->SemanticInformation != 0)
-	{
-		throw CSSMError (CSSMERR_DL_INVALID_QUERY);
+	// since we really only track one record type, record type CSSM_DL_DB_RECORD_ANY is the same as
+	// CSSM_DL_DB_RECORD_X509_CERTIFICATE
+
+	*uniqueID = NULL;
+
+	if(!query) CSSMError::ThrowCSSMError (CSSMERR_DL_ENDOFDATA);
+
+	CSSM_DB_RECORDTYPE recordType = query->RecordType;
+
+	switch (recordType) {
+		case CSSM_DL_DB_RECORD_ANY:
+			recordType = CSSM_DL_DB_RECORD_X509_CERTIFICATE;
+			break;
+		case CSSM_DL_DB_SCHEMA_INFO:
+			break;
+		case CSSM_DL_DB_SCHEMA_INDEXES:
+			break;
+		case CSSM_DL_DB_SCHEMA_ATTRIBUTES:
+			break;
+		case CSSM_DL_DB_SCHEMA_PARSING_MODULE:
+		 	break;
+		case CSSM_DL_DB_RECORD_X509_CERTIFICATE:
+			break;
+		default:
+			CSSMError::ThrowCSSMError (CSSMERR_DL_ENDOFDATA);
+			break;
 	}
+	
+	
+	// do error checking on the attributes
+	if ((attributes != NULL) && (attributes->SemanticInformation != 0)) CSSMError::ThrowCSSMError (CSSMERR_DL_INVALID_QUERY);
 	
 	// set an arbitrary limit on the number of selection predicates -- mostly for range checking
-	if (query->NumSelectionPredicates > kMaximumSelectionPredicates)
-	{
-		throw CSSMError (CSSMERR_DL_UNSUPPORTED_NUM_SELECTION_PREDS);
-	}
+	if (query->NumSelectionPredicates > kMaximumSelectionPredicates) CSSMError::ThrowCSSMError (CSSMERR_DL_UNSUPPORTED_NUM_SELECTION_PREDS);
 	
 	// lookup our relation in the relation map
-	Relation* r = LDAPDLModule::LookupRelation (query->RecordType);
+	Relation* r = LDAPDLModule::LookupRelation (recordType);
 	
 	// make a query for this request
 	Query *q = r->MakeQuery (query);
 	
-	UniqueIdentifier *id;
-	Tuple* t = q->GetNextTuple (id);
+	if(!q) CSSMError::ThrowCSSMError (CSSMERR_DL_ENDOFDATA);
 	
-	if (t == NULL)
-	{
-		*uniqueID = NULL;
-		delete q;
-		throw CSSMError (CSSMERR_DL_ENDOFDATA);
-	}
-	else
-	{
-		if (attributes != NULL)
-		{
-			CopyAttributes (r, t, attributes);
-		}
-		
-		if (data != NULL)
-		{
-			GetDataFromTuple (t, *data);
-		}
-
-		// make a new handle for this query
-		CSSM_HANDLE h = mNextHandle++;
-		mQueryMap[h] = q;
-		*uniqueID = new CSSM_DB_UNIQUE_RECORD;
-		ExportUniqueID (id, uniqueID);
-		return h; // for now
-	}
+	processNext(attributes, data, uniqueID, q, r);
+	
+	// make a new handle for this query
+	CSSM_HANDLE h = mNextHandle++;
+	mQueryMap[h] = q;
+	return h;
 }
 
+
+bool LDAPDatabase::DbDataGetNext (CSSM_HANDLE resultsHandle,
+								  CSSM_DB_RECORD_ATTRIBUTE_DATA_PTR attributes,
+								  CSSM_DATA_PTR data,
+								  CSSM_DB_UNIQUE_RECORD_PTR *uniqueID)
+{
+	*uniqueID = NULL;
+	
+	QueryMap::iterator it = mQueryMap.find (resultsHandle);
+	if (it == mQueryMap.end ())  CSSMError::ThrowCSSMError (CSSMERR_DL_ENDOFDATA);
+	
+	Query* q = (*it).second;
+	
+	if(!q) CSSMError::ThrowCSSMError (CSSMERR_DL_ENDOFDATA);
+	Relation *r = q->GetRelation ();
+
+	processNext(attributes, data, uniqueID, q, r);
+	
+	return true;
+}
 
 
 void LDAPDatabase::ExportUniqueID (UniqueIdentifier *id, CSSM_DB_UNIQUE_RECORD_PTR *uniqueID)
 {
 	CSSM_DB_UNIQUE_RECORD *ur = new CSSM_DB_UNIQUE_RECORD;
-	id->Export (*ur);
+	// id->Export (*ur);
 	ur->RecordIdentifier.Length = sizeof (id);
 	ur->RecordIdentifier.Data = (uint8*) id;
 	*uniqueID = ur;
 }
 
 
-
-void LDAPDatabase::DbDataGetNext (CSSM_HANDLE resultsHandle,
-								  CSSM_DB_RECORD_ATTRIBUTE_DATA_PTR attributes,
-								  CSSM_DATA_PTR data,
-								  CSSM_DB_UNIQUE_RECORD_PTR *uniqueID)
-{
-	QueryMap::iterator it = mQueryMap.find (resultsHandle);
-	if (it == mQueryMap.end ())
-	{
-		throw CSSMError (CSSMERR_DL_INVALID_DB_HANDLE);
-	}
-	
-	Query* q = (*it).second;
-	
-	UniqueIdentifier* id;
-	Tuple *t = q->GetNextTuple (id);
-	Relation *r = q->GetRelation ();
-
-	if (t == NULL)
-	{
-		delete q;
-		mQueryMap.erase (resultsHandle);
-		throw CSSMError (CSSMERR_DL_ENDOFDATA);
-	}
-	else
-	{
-		if (attributes)
-		{
-			CopyAttributes (r, t, attributes);
-		}
-		
-		// make a new handle for this query
-		ExportUniqueID (id, uniqueID);
-	}
-}
-
-
-
 void LDAPDatabase::DbDataAbortQuery (CSSM_HANDLE resultsHandle)
 {
 	QueryMap::iterator it = mQueryMap.find (resultsHandle);
-	if (it == mQueryMap.end ())
-	{
-		throw CSSMError (CSSMERR_DL_INVALID_DB_HANDLE);
-	}
+	if (it == mQueryMap.end ()) return;
 	
 	Query* q = (*it).second;
 	delete q;
@@ -605,13 +479,18 @@ void LDAPDatabase::DbDataGetFromUniqueRecordID (const CSSM_DB_UNIQUE_RECORD_PTR 
 												CSSM_DATA_PTR data)
 {
 	// recover the identifier
+	if(uniqueRecord == NULL) return;
+	
 	UniqueIdentifier* id = (UniqueIdentifier*) uniqueRecord->RecordIdentifier.Data;
+	if(id==NULL) return;
+	
 	CSSM_DB_RECORDTYPE recordType = id->GetRecordType ();
 	Relation* r = LDAPDLModule::LookupRelation (recordType);
+	if(r == NULL)return;
+	
 	Tuple* t = r->GetTupleFromUniqueIdentifier (id);
-	if (attributes)
-	{
-		CopyAttributes (r, t, attributes);
-	}
-	t->GetData (*data);
+	if(t == NULL) return;
+	
+	if(attributes != NULL)  CopyAttributes (r, t, attributes);
+	if (data != NULL) GetDataFromTuple (t, *data);
 }

@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 1999-2004, International Business Machines
+*   Copyright (C) 1999-2007, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -20,6 +20,8 @@
 #include "unicode/uchar.h"
 #include "unicode/unistr.h"
 
+U_NAMESPACE_BEGIN
+
 UnicodeString& 
 UnicodeString::trim()
 {
@@ -27,8 +29,10 @@ UnicodeString::trim()
     return *this;
   }
 
+  UChar *array = getArrayStart();
   UChar32 c;
-  int32_t i = fLength, length;
+  int32_t oldLength = this->length();
+  int32_t i = oldLength, length;
 
   // first cut off trailing white space
   for(;;) {
@@ -36,13 +40,13 @@ UnicodeString::trim()
     if(i <= 0) {
       break;
     }
-    UTF_PREV_CHAR(fArray, 0, i, c);
+    U16_PREV(array, 0, i, c);
     if(!(c == 0x20 || u_isWhitespace(c))) {
       break;
     }
   }
-  if(length < fLength) {
-    fLength = length;
+  if(length < oldLength) {
+    setLength(length);
   }
 
   // find leading white space
@@ -53,7 +57,7 @@ UnicodeString::trim()
     if(i >= length) {
       break;
     }
-    UTF_NEXT_CHAR(fArray, i, length, c);
+    U16_NEXT(array, i, length, c);
     if(!(c == 0x20 || u_isWhitespace(c))) {
       break;
     }
@@ -66,3 +70,5 @@ UnicodeString::trim()
 
   return *this;
 }
+
+U_NAMESPACE_END

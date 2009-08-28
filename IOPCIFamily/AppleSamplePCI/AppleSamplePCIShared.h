@@ -15,24 +15,24 @@ enum {
 };
 
 struct AppleSampleStructForMethod2 {
-    mach_vm_address_t	data_pointer;
-    mach_vm_size_t	data_length;
-    uint32_t		parameter1;
-    uint32_t		__pad;
+    mach_vm_address_t   data_pointer;
+    mach_vm_size_t      data_length;
+    uint32_t            parameter1;
+    uint32_t            __pad;
 };
 #ifndef __cplusplus
 typedef struct AppleSampleStructForMethod2 AppleSampleStructForMethod2;
 #endif
 
 struct AppleSampleResultsForMethod2 {
-    uint64_t		results1;
+    uint64_t            results1;
 };
 #ifndef __cplusplus
 typedef struct AppleSampleResultsForMethod2 AppleSampleResultsForMethod2;
 #endif
 
 
-#define kAppleSamplePCIClassName	"AppleSamplePCI"
+#define kAppleSamplePCIClassName        "AppleSamplePCI"
 
 // types for IOServiceOpen()
 enum {
@@ -47,10 +47,10 @@ enum {
 
 // memory structure to be shared between the kernel user client object and client.
 struct AppleSampleSharedMemory {
-    uint32_t	field1;
-    uint32_t	field2;
-    uint32_t	field3;
-    char	string[100];
+    uint32_t    field1;
+    uint32_t    field2;
+    uint32_t    field3;
+    char        string[100];
 };
 #ifndef __cplusplus
 typedef struct AppleSampleSharedMemory AppleSampleSharedMemory;

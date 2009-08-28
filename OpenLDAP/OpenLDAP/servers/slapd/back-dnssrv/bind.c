@@ -1,8 +1,8 @@
 /* bind.c - DNS SRV backend bind function */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-dnssrv/bind.c,v 1.19.2.4 2006/01/03 22:16:17 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-dnssrv/bind.c,v 1.22.2.3 2008/02/11 23:26:46 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2006 The OpenLDAP Foundation.
+ * Copyright 2000-2008 The OpenLDAP Foundation.
  * Portions Copyright 2000-2003 Kurt D. Zeilenga.
  * All rights reserved.
  *
@@ -32,30 +32,42 @@
 
 int
 dnssrv_back_bind(
-    Operation		*op,
-    SlapReply		*rs )
+	Operation	*op,
+	SlapReply	*rs )
 {
-	Debug( LDAP_DEBUG_TRACE, "DNSSRV: bind %s (%d)\n",
-		op->o_req_dn.bv_val == NULL ? "" : op->o_req_dn.bv_val, 
-		op->oq_bind.rb_method, NULL );
-		
-	if ( op->oq_bind.rb_method == LDAP_AUTH_SIMPLE &&
-		!BER_BVISNULL( &op->oq_bind.rb_cred ) &&
-		!BER_BVISEMPTY( &op->oq_bind.rb_cred ) )
+	Debug( LDAP_DEBUG_TRACE, "DNSSRV: bind dn=\"%s\" (%d)\n",
+		BER_BVISNULL( &op->o_req_dn ) ? "" : op->o_req_dn.bv_val, 
+		op->orb_method, 0 );
+
+	/* allow rootdn as a means to auth without the need to actually
+ 	 * contact the proxied DSA */
+	switch ( be_rootdn_bind( op, NULL ) ) {
+	case LDAP_SUCCESS:
+		/* frontend will send result */
+		return rs->sr_err;
+
+	default:
+		/* treat failure and like any other bind, otherwise
+		 * it could reveal the DN of the rootdn */
+		break;
+	}
+
+	if ( !BER_BVISNULL( &op->orb_cred ) &&
+		!BER_BVISEMPTY( &op->orb_cred ) )
 	{
+		/* simple bind */
 		Statslog( LDAP_DEBUG_STATS,
-		   	"%s DNSSRV BIND dn=\"%s\" provided passwd\n",
+		   	"%s DNSSRV BIND dn=\"%s\" provided cleartext passwd\n",
 	   		op->o_log_prefix,
 			BER_BVISNULL( &op->o_req_dn ) ? "" : op->o_req_dn.bv_val , 0, 0, 0 );
-
-		Debug( LDAP_DEBUG_TRACE,
-			"DNSSRV: BIND dn=\"%s\" provided cleartext password\n",
-			BER_BVISNULL( &op->o_req_dn ) ? "" : op->o_req_dn.bv_val, 0, 0 );
 
 		send_ldap_error( op, rs, LDAP_UNWILLING_TO_PERFORM,
 			"you shouldn't send strangers your password" );
 
 	} else {
+		/* unauthenticated bind */
+		/* NOTE: we're not going to get here anyway:
+		 * unauthenticated bind is dealt with by the frontend */
 		Debug( LDAP_DEBUG_TRACE, "DNSSRV: BIND dn=\"%s\"\n",
 			BER_BVISNULL( &op->o_req_dn ) ? "" : op->o_req_dn.bv_val, 0, 0 );
 

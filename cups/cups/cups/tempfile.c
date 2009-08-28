@@ -1,9 +1,9 @@
 /*
- * "$Id: tempfile.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: tempfile.c 7337 2008-02-22 04:44:04Z mike $"
  *
  *   Temp file utilities for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -155,13 +155,13 @@ cupsTempFd(char *filename,		/* I - Pointer to buffer */
  * 'cupsTempFile()' - Generates a temporary filename.
  *
  * The temporary filename is returned in the filename buffer.
- * This function is deprecated - use cupsTempFd() or cupsTempFile2()
- * instead.
+ * This function is deprecated - use @link cupsTempFd@ or
+ * @link cupsTempFile2@ instead.
  *
  * @deprecated@
  */
 
-char *					/* O - Filename or NULL on error */
+char *					/* O - Filename or @code NULL@ on error */
 cupsTempFile(char *filename,		/* I - Pointer to buffer */
              int  len)			/* I - Size of buffer */
 {
@@ -206,10 +206,10 @@ cupsTempFile(char *filename,		/* I - Pointer to buffer */
  * The temporary filename is returned in the filename buffer.
  * The temporary file is opened for writing.
  *
- * @since CUPS 1.2@
+ * @since CUPS 1.2/Mac OS X 10.5@
  */
 
-cups_file_t *				/* O - CUPS file or NULL on error */
+cups_file_t *				/* O - CUPS file or @code NULL@ on error */
 cupsTempFile2(char *filename,		/* I - Pointer to buffer */
               int  len)			/* I - Size of buffer */
 {
@@ -231,5 +231,5 @@ cupsTempFile2(char *filename,		/* I - Pointer to buffer */
 
 
 /*
- * End of "$Id: tempfile.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: tempfile.c 7337 2008-02-22 04:44:04Z mike $".
  */

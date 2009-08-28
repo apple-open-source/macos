@@ -74,7 +74,6 @@
 #include <fcntl.h>
 #include <syslog.h>
 #include <netdb.h>
-#include <utmp.h>
 #include <pwd.h>
 #include <setjmp.h>
 #include <sys/param.h>
@@ -512,14 +511,19 @@ main(argc, argv)
      */
     if (!nodetach && !updetach)
 	detach();
-    p = getlogin();
+#ifndef __APPLE__
+	// radar 6153490
+	p = getlogin();
     if (p == NULL) {
+#endif
 	pw = getpwuid(uid);
 	if (pw != NULL && pw->pw_name != NULL)
 	    p = pw->pw_name;
 	else
 	    p = "(unknown)";
+#ifndef __APPLE__
     }
+#endif
 #ifdef __APPLE__
     syslog(LOG_NOTICE, "pppd %s (Apple version %s) started by %s, uid %d", VERSION, PPP_VERSION,  p, uid);
 #else
@@ -611,6 +615,13 @@ main(argc, argv)
 
 #ifdef __APPLE__
         if (start_link_hook) {
+            if (the_channel->pre_start_link_check) {
+                if (the_channel->pre_start_link_check()) {
+                    status = EXIT_PEER_UNREACHABLE;
+                    goto end;
+                }
+            }
+
             t = (*start_link_hook)();
             if (t == 0) {	
                // cancelled
@@ -2380,6 +2391,22 @@ void
 notify(notif, val)
     struct notifier *notif;
     int val;
+{
+    struct notifier *np;
+
+    while ((np = notif) != 0) {
+	notif = np->next;
+	(*np->func)(np->arg, val);
+    }
+}
+
+/*
+ * notify - call a set of functions registered with add_notifier using a unsigned 64-bit val (e.g a pointer).
+ */
+void
+notify_with_ptr(notif, val)
+    struct notifier *notif;
+    uintptr_t val;
 {
     struct notifier *np;
 

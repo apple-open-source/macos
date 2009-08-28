@@ -28,13 +28,13 @@
 #ifndef __CLauncher_h__
 #define __CLauncher_h__ 1
 
-#include "CInternalDispatchThread.h"
+#include "DSCThread.h"
 #include "DSEventSemaphore.h"
 #include "PrivateTypes.h"
 
 class	CServerPlugin;
 
-class CLauncher : public CInternalDispatchThread
+class CLauncher : public DSCThread
 {
 public:
 					CLauncher			( CServerPlugin *inPlugin );

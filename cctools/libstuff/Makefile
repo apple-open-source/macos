@@ -1,25 +1,31 @@
 RC_OS = macos
 OFLAG = -O
+LTO = -DLTO_SUPPORT
+OPEN = -D__OPEN_SOURCE__
 LEGACY = -D_MACH_I386_THREAD_STATUS_FPSTATE_LEGACY_FIELD_NAMES_ \
 	 -D_ARCHITECTURE_I386_FPU_FPSTATE_LEGACY_FIELD_NAMES_
+
+ifeq "" "$(NEXT_ROOT)"
 KERN = -fno-builtin -finline -fno-keep-inline-functions -fsigned-bitfields \
-       -force_cpusubtype_ALL -msoft-float -nostdinc \
+       -msoft-float -nostdinc \
+       -iwithsysroot /System/Library/Frameworks/Kernel.framework/PrivateHeaders/libsa \
+       -iwithsysroot /System/Library/Frameworks/Kernel.framework/PrivateHeaders \
+       -iwithsysroot /System/Library/Frameworks/Kernel.framework/Headers/libsa \
+       -iwithsysroot /System/Library/Frameworks/Kernel.framework/Headers/bsd \
+       -iwithsysroot /System/Library/Frameworks/Kernel.framework/Headers \
+       -DKERNEL -DKERNEL_PRIVATE -DAPPLE -DNeXT -DLIBSA_PRIVATE
+else
+KERN = -fno-builtin -finline -fno-keep-inline-functions -fsigned-bitfields \
+       -msoft-float -nostdinc \
 -I$(NEXT_ROOT)/System/Library/Frameworks/Kernel.framework/PrivateHeaders/libsa \
 -I$(NEXT_ROOT)/System/Library/Frameworks/Kernel.framework/PrivateHeaders \
        -I$(NEXT_ROOT)/System/Library/Frameworks/Kernel.framework/Headers/libsa \
        -I$(NEXT_ROOT)/System/Library/Frameworks/Kernel.framework/Headers/bsd \
        -I$(NEXT_ROOT)/System/Library/Frameworks/Kernel.framework/Headers \
        -DKERNEL -DKERNEL_PRIVATE -DAPPLE -DNeXT -DLIBSA_PRIVATE
-
-ifeq "macos" "$(RC_OS)"
-  X_CFLAGS := $(shell if [ "$(RC_RELEASE)" != "Beaker" ] &&    \
-			 [ "$(RC_RELEASE)" != "Bunsen" ] &&    \
-			 [ "$(RC_RELEASE)" != "Gonzo"  ] &&    \
-			 [ "$(RC_RELEASE)" != "Kodiak" ]; then \
-	     echo -Wno-long-double -no-cpp-precomp -fno-builtin-round; \
-	     fi; )
 endif
 
+X_CFLAGS = -fno-builtin-round
 
 USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ] && \
 				  [ "$(RC_XBS)" != "YES" ]; then \
@@ -27,9 +33,10 @@ USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ] && \
 	     fi; )
 	
 ifeq "mwccppc" "$(notdir $(CC))"
-  CFLAGS = $(OFLAG) -g -gccinc -I$(SRCROOT)/../include $(LEGACY)
+  CFLAGS = $(OFLAG) $(OPEN) $(LTO) -g -gccinc -I$(SRCROOT)/../include $(LEGACY)
 else
-  CFLAGS = $(OFLAG) -g -I$(SRCROOT)/../include -Wall $(X_CFLAGS) $(LEGACY)
+  CFLAGS = $(OFLAG) $(OPEN) $(LTO) -g -I$(SRCROOT)/../include -Wall \
+	   $(X_CFLAGS) $(LEGACY)
 endif
 
 ifneq "" "$(wildcard /bin/mkdirs)"
@@ -47,6 +54,11 @@ OFILE_DIRS = $(OBJROOT)/static_obj $(OBJROOT)/dynamic_obj \
 OFILE_DIR = $(OBJROOT)
 VPATH = $(OFILE_DIR)
 
+ifeq "$(EFITOOLS)" "efitools"
+	COFF_BYTESEX = coff_bytesex.c
+else
+	COFF_BYTESEX =
+endif
 CFILES = allocate.c errors.c arch.c execute.c bytesex.c round.c hppa.c \
 	  swap_headers.c reloc.c version_number.c get_toc_byte_sex.c \
 	  best_arch.c fatals.c arch_usage.c ofile.c ofile_error.c print.c \
@@ -54,11 +66,17 @@ CFILES = allocate.c errors.c arch.c execute.c bytesex.c round.c hppa.c \
 	  breakout.c writeout.c checkout.c fatal_arch.c ofile_get_word.c \
 	  vm_flush_cache.c hash_string.c dylib_roots.c guess_short_name.c \
 	  SymLoc.c get_arch_from_host.c crc32.c macosx_deployment_target.c \
-	  symbol_list.c unix_standard_mode.c
+	  symbol_list.c unix_standard_mode.c lto.c $(COFF_BYTESEX)
 OBJS = $(CFILES:.c=.o)
 INSTALL_FILES = $(CFILES) Makefile notes
 
-all: $(OFILE_DIRS) $(SYMROOT) static dynamic profile static_kld $(RC_OS)
+ifeq "$(OLD_LIBKLD)" "YES"
+	STATIC_KLD = static_kld
+else
+	STATIC_KLD = 
+endif
+
+all: $(OFILE_DIRS) $(SYMROOT) static dynamic profile $(STATIC_KLD) $(RC_OS)
 
 lib_ofiles: $(OFILE_DIRS) $(SYMROOT) dynamic
 
@@ -220,9 +238,21 @@ $(PRODUCT):	$(OFILE_DIR) $(SYMROOT) $(OBJS)
 ifeq "NO" "$(USE_DEPENDENCY_FILE)"
 .c.o:
 	$(CC) $(CFLAGS) $(RC_CFLAGS) $(COPTS) -c -o $(OFILE_DIR)/$*.o $<
+
+lto.o: lto.c
+	$(CC) -std=c99 $(CFLAGS) $(RC_CFLAGS) $(COPTS) -c \
+		-I/Developer/usr/local/include \
+		-o $(OFILE_DIR)/$*.o $<
 else
 .c.o:
 	$(CC) $(CFLAGS) $(RC_CFLAGS) $(COPTS) -c \
+		-MD -dependency-file $(OFILE_DIR)/$*.d \
+		-o $(OFILE_DIR)/$*.o $<
+	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
+
+lto.o: lto.c
+	$(CC) -std=c99 $(CFLAGS) $(RC_CFLAGS) $(COPTS) -c \
+		-I/Developer/usr/local/include \
 		-MD -dependency-file $(OFILE_DIR)/$*.d \
 		-o $(OFILE_DIR)/$*.o $<
 	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d

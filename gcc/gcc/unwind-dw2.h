@@ -25,8 +25,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-   02111-1307, USA.  */
+   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301, USA.  */
 
 /* A target can override (perhaps for backward compatibility) how
    many dwarf2 columns are unwound.  */
@@ -53,7 +53,9 @@ typedef struct
 	REG_UNSAVED,
 	REG_SAVED_OFFSET,
 	REG_SAVED_REG,
-	REG_SAVED_EXP
+	REG_SAVED_EXP,
+	REG_SAVED_VAL_OFFSET,
+	REG_SAVED_VAL_EXP
       } how;
     } reg[DWARF_FRAME_REGISTERS+1];
 
@@ -83,6 +85,7 @@ typedef struct
   unsigned char fde_encoding;
   unsigned char lsda_encoding;
   unsigned char saw_z;
+  unsigned char signal_frame;
   void *eh_ptr;
 } _Unwind_FrameState;
 

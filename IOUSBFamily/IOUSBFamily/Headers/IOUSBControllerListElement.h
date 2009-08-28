@@ -33,6 +33,10 @@
 #include <IOKit/usb/USB.h>
 
 
+/*!
+ @class IOUSBControllerListElement
+ @abstract Used by the IOUSBController to manage the USB controller lists that are common between EHCI and UHCI.
+ */
 class IOUSBControllerListElement : public OSObject
 {
     OSDeclareDefaultStructors(IOUSBControllerListElement)

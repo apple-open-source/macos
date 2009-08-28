@@ -1,0 +1,61 @@
+# This is the export list from the version of libauto.dylib that shipped on Leopard.
+# It is used to construct the compatibility dylib shim that is used
+# for backward compatibility for apps that directly linked libauto.dylib
+# on Leopard, when auto gets merged into libsystem.
+# It is parsed by a custom build rule in both the libauto.a target and the compatibility shim dylib target.
+# In the libauto.a case it is used as a list of symbols to hide on 10.5.
+# In the compatibility shim dylib it is used as a list of symbols to add back in.
+# Export list for libauto
+# Includes only functions listed in auto_zone.h.
+_auto_zone_create
+_auto_zone
+_auto_zone_introspection
+_auto_zone_start_monitor
+_auto_zone_set_class_list
+_auto_zone_retain
+_auto_zone_release
+_auto_zone_retain_count
+_auto_zone_retain_count_no_lock
+_auto_zone_base_pointer
+_auto_zone_is_finalized
+_auto_zone_is_valid_pointer
+_auto_zone_size
+_auto_zone_size_no_lock
+_auto_zone_write_barrier
+_auto_zone_set_write_barrier
+_auto_zone_write_barrier_range
+_auto_zone_atomicCompareAndSwap
+_auto_zone_write_barrier_memmove
+_auto_zone_statistics
+_auto_collection_statistics
+_auto_collection_parameters
+_auto_collector_disable
+_auto_collector_reenable
+_auto_collect_multithreaded
+_auto_zone_is_enabled
+_auto_zone_is_collecting
+_auto_collect
+_auto_zone_set_layout_type
+_auto_zone_get_layout_type
+_auto_zone_get_layout_type_no_lock
+_auto_zone_allocate_object
+_auto_zone_create_copy
+_auto_zone_register_thread
+_auto_zone_unregister_thread
+_auto_zone_touched_size
+_auto_zone_utilization
+_auto_assign_weak_reference
+_auto_read_weak_reference
+_auto_zone_set_associative_ref
+_auto_zone_get_associative_ref
+_auto_weak_find_first_referrer
+_auto_zone_add_root
+_auto_zone_root_write_barrier
+_auto_enumerate_references
+_auto_enumerate_references_no_lock
+# for debugging porpoises...
+_auto_zone_stats
+_auto_zone_write_stats
+_auto_zone_stats_string
+_auto_trace_collection_set_callouts
+_auto_gdb_enumerate_roots

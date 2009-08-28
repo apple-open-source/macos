@@ -63,7 +63,8 @@ ItemImpl::ItemImpl(SecItemClass itemClass, OSType itemCreator, UInt32 length, co
 	: mDbAttributes(new DbAttributes()),
 	mKeychain(NULL),
 	mDoNotEncrypt(false),
-	mInCache(false)
+	mInCache(false),
+	mMutex(Mutex::recursive)
 {
 	if (length && data)
 		mData = new CssmDataContainer(data, length);
@@ -78,7 +79,8 @@ ItemImpl::ItemImpl(SecItemClass itemClass, SecKeychainAttributeList *attrList, U
 	: mDbAttributes(new DbAttributes()),
 	mKeychain(NULL),
 	mDoNotEncrypt(false),
-	mInCache(false)
+	mInCache(false),
+	mMutex(Mutex::recursive)
 {
 	if (length && data)
 		mData = new CssmDataContainer(data, length);
@@ -98,19 +100,37 @@ ItemImpl::ItemImpl(SecItemClass itemClass, SecKeychainAttributeList *attrList, U
 // DbItemImpl constructor
 ItemImpl::ItemImpl(const Keychain &keychain, const PrimaryKey &primaryKey, const DbUniqueRecord &uniqueId)
 	: mUniqueId(uniqueId), mKeychain(keychain), mPrimaryKey(primaryKey),
-	mDoNotEncrypt(false), mInCache(false)
+	mDoNotEncrypt(false), mInCache(false),
+	mMutex(Mutex::recursive)
 {
-	mKeychain->addItem(mPrimaryKey, this);
 }
 
 // PrimaryKey ItemImpl constructor
 ItemImpl::ItemImpl(const Keychain &keychain, const PrimaryKey &primaryKey)
 	: mKeychain(keychain), mPrimaryKey(primaryKey), mDoNotEncrypt(false),
-	mInCache(false)
+	mInCache(false),
+	mMutex(Mutex::recursive)
 {
-	mKeychain->addItem(mPrimaryKey, this);
 }
 
+ItemImpl* ItemImpl::make(const Keychain &keychain, const PrimaryKey &primaryKey, const CssmClient::DbUniqueRecord &uniqueId)
+{
+	ItemImpl* ii = new ItemImpl(keychain, primaryKey, uniqueId);
+	keychain->addItem(primaryKey, ii);
+	return ii;
+}
+
+
+
+ItemImpl* ItemImpl::make(const Keychain &keychain, const PrimaryKey &primaryKey)
+{
+	ItemImpl* ii = new ItemImpl(keychain, primaryKey);
+	keychain->addItem(primaryKey, ii);
+	return ii;
+}
+
+
+	
 // Constructor used when copying an item to a keychain.
 
 ItemImpl::ItemImpl(ItemImpl &item) :
@@ -118,7 +138,8 @@ ItemImpl::ItemImpl(ItemImpl &item) :
 	mDbAttributes(new DbAttributes()),
 	mKeychain(NULL),
 	mDoNotEncrypt(false),
-	mInCache(false)
+	mInCache(false),
+	mMutex(Mutex::recursive)
 {
 	mDbAttributes->recordType(item.recordType());
 	CSSM_DB_RECORD_ATTRIBUTE_INFO *schemaAttributes = NULL;
@@ -153,14 +174,23 @@ ItemImpl::ItemImpl(ItemImpl &item) :
 
 ItemImpl::~ItemImpl()
 {
-	// SecCFRuntime is already holding globals().apiLock for us.
+}
+
+
+
+void
+ItemImpl::aboutToDestruct()
+{
 	if (mKeychain && *mPrimaryKey)
 		mKeychain->removeItem(mPrimaryKey, this);
 }
 
+
+
 void
 ItemImpl::didModify()
 {
+	StLock<Mutex>_(mMutex);
 	mData = NULL;
 	mDbAttributes.reset(NULL);
 }
@@ -198,6 +228,7 @@ ItemImpl::defaultAttributeValue(const CSSM_DB_ATTRIBUTE_INFO &info)
 
 PrimaryKey ItemImpl::addWithCopyInfo (Keychain &keychain, bool isCopy)
 {
+	StLock<Mutex>_(mMutex);
 	// If we already have a Keychain we can't be added.
 	if (mKeychain)
 		MacOSError::throwMe(errSecDuplicateItem);
@@ -292,7 +323,13 @@ PrimaryKey ItemImpl::addWithCopyInfo (Keychain &keychain, bool isCopy)
 	else if (useSecureStorage(db))
 	{
 		// Add the item to the secure storage db
-		SSDb ssDb(safe_cast<SSDbImpl *>(&(*db)));
+		SSDbImpl* impl = dynamic_cast<SSDbImpl *>(&(*db));
+		if (impl == NULL)
+		{
+			CssmError::throwMe(CSSMERR_CSSM_INVALID_POINTER);
+		}
+		
+		SSDb ssDb(impl);
 
 		TrackingAllocator allocator(Allocator::standard());
                 
@@ -408,6 +445,7 @@ ItemImpl::add (Keychain &keychain)
 Item
 ItemImpl::copyTo(const Keychain &keychain, Access *newAccess)
 {
+	StLock<Mutex>_(mMutex);
 	Item item(*this);
 	if (newAccess)
 		item->setAccess(newAccess);
@@ -429,6 +467,7 @@ ItemImpl::copyTo(const Keychain &keychain, Access *newAccess)
 void
 ItemImpl::update()
 {
+	StLock<Mutex>_(mMutex);
 	if (!mKeychain)
 		MacOSError::throwMe(errSecNoSuchKeychain); 
 		
@@ -464,11 +503,16 @@ ItemImpl::update()
 	else if (useSecureStorage(db))
 	{
 		// Add the item to the secure storage db
-		SSDbUniqueRecord ssUniqueId(safe_cast<SSDbUniqueRecordImpl *>
-									(&(*mUniqueId)));
+		SSDbUniqueRecordImpl * impl = dynamic_cast<SSDbUniqueRecordImpl *>(&(*mUniqueId));
+		if (impl == NULL)
+		{
+			CssmError::throwMe(CSSMERR_CSSM_INVALID_POINTER);
+		}
+		
+		SSDbUniqueRecord ssUniqueId(impl);
 
 		// @@@ Share this instance
-		const AccessCredentials *autoPrompt = globals().credentials();
+		const AccessCredentials *autoPrompt = globals().itemCredentials();
 
 
 		// Only call this is user interaction is enabled.
@@ -503,6 +547,7 @@ ItemImpl::update()
 void
 ItemImpl::getClass(SecKeychainAttribute &attr, UInt32 *actualLength)
 {
+	StLock<Mutex>_(mMutex);
 	if (actualLength)
 		*actualLength = sizeof(SecItemClass);
 
@@ -516,12 +561,14 @@ ItemImpl::getClass(SecKeychainAttribute &attr, UInt32 *actualLength)
 void
 ItemImpl::setAttribute(SecKeychainAttribute& attr)
 {
+	StLock<Mutex>_(mMutex);
     setAttribute(Schema::attributeInfo(attr.tag), CssmData(attr.data, attr.length));
 }
 
 CSSM_DB_RECORDTYPE
-ItemImpl::recordType() const
+ItemImpl::recordType()
 {
+	StLock<Mutex>_(mMutex);
 	if (mDbAttributes.get())
 		return mDbAttributes->recordType();
 
@@ -529,32 +576,37 @@ ItemImpl::recordType() const
 }
 
 const DbAttributes *
-ItemImpl::modifiedAttributes() const
+ItemImpl::modifiedAttributes()
 {
+	StLock<Mutex>_(mMutex);
 	return mDbAttributes.get();
 }
 
 const CssmData *
-ItemImpl::modifiedData() const
+ItemImpl::modifiedData()
 {
+	StLock<Mutex>_(mMutex);
 	return mData.get();
 }
 
 void
 ItemImpl::setData(UInt32 length,const void *data)
 {
+	StLock<Mutex>_(mMutex);
 	mData = new CssmDataContainer(data, length);
 }
 
 void
 ItemImpl::setAccess(Access *newAccess)
 {
+	StLock<Mutex>_(mMutex);
 	mAccess = newAccess;
 }
 
 CssmClient::DbUniqueRecord
 ItemImpl::dbUniqueRecord()
 {
+	StLock<Mutex>_(mMutex);
     if (!isPersistent()) // is there no database attached?
     {
         MacOSError::throwMe(errSecNotAvailable);
@@ -571,31 +623,32 @@ ItemImpl::dbUniqueRecord()
 }
 
 PrimaryKey
-ItemImpl::primaryKey() const
+ItemImpl::primaryKey()
 {
 	return mPrimaryKey;
 }
 
 bool
-ItemImpl::isPersistent() const
+ItemImpl::isPersistent()
 {
 	return mKeychain;
 }
 
 bool
-ItemImpl::isModified() const
+ItemImpl::isModified()
 {
+	StLock<Mutex>_(mMutex);
 	return mData.get() || mDbAttributes.get();
 }
 
 Keychain
-ItemImpl::keychain() const
+ItemImpl::keychain()
 {
 	return mKeychain;
 }
 
 bool
-ItemImpl::operator < (const ItemImpl &other) const
+ItemImpl::operator < (const ItemImpl &other)
 {
 	if (mData && *mData)
 	{
@@ -609,6 +662,7 @@ ItemImpl::operator < (const ItemImpl &other) const
 void
 ItemImpl::setAttribute(const CssmDbAttributeInfo &info, const CssmPolyData &data)
 {
+	StLock<Mutex>_(mMutex);
 	if (!mDbAttributes.get())
 	{
 		mDbAttributes.reset(new DbAttributes());
@@ -644,6 +698,7 @@ ItemImpl::setAttribute(const CssmDbAttributeInfo &info, const CssmPolyData &data
 void
 ItemImpl::modifyContent(const SecKeychainAttributeList *attrList, UInt32 dataLength, const void *inData)
 {
+	StLock<Mutex>_(mMutex);
 	if (!mDbAttributes.get())
 	{
 		mDbAttributes.reset(new DbAttributes());
@@ -669,7 +724,7 @@ ItemImpl::modifyContent(const SecKeychainAttributeList *attrList, UInt32 dataLen
 void
 ItemImpl::getContent(SecItemClass *itemClass, SecKeychainAttributeList *attrList, UInt32 *length, void **outData)
 {
-
+	StLock<Mutex>_(mMutex);
     // If the data hasn't been set we can't return it.
     if (!mKeychain && outData)
     {
@@ -767,6 +822,7 @@ ItemImpl::freeContent(SecKeychainAttributeList *attrList, void *data)
 void
 ItemImpl::modifyAttributesAndData(const SecKeychainAttributeList *attrList, UInt32 dataLength, const void *inData)
 {
+	StLock<Mutex>_(mMutex);
 	if (!mKeychain)
 		MacOSError::throwMe(errSecNoSuchKeychain);
 
@@ -814,6 +870,7 @@ void
 ItemImpl::getAttributesAndData(SecKeychainAttributeInfo *info, SecItemClass *itemClass,
 							   SecKeychainAttributeList **attrList, UInt32 *length, void **outData)
 {
+	StLock<Mutex>_(mMutex);
 	// If the data hasn't been set we can't return it.
 	if (!mKeychain && outData)
 	{
@@ -918,6 +975,7 @@ ItemImpl::freeAttributesAndData(SecKeychainAttributeList *attrList, void *data)
 void
 ItemImpl::getAttribute(SecKeychainAttribute& attr, UInt32 *actualLength)
 {
+	StLock<Mutex>_(mMutex);
 	if (attr.tag == kSecClassItemAttr)
 		return getClass(attr, actualLength);
 
@@ -944,6 +1002,7 @@ ItemImpl::getAttribute(SecKeychainAttribute& attr, UInt32 *actualLength)
 void
 ItemImpl::getAttributeFrom(CssmDbAttributeData *data, SecKeychainAttribute &attr, UInt32 *actualLength)
 {
+	StLock<Mutex>_(mMutex);
     static const uint32 zero = 0;
     uint32 length;
     const void *buf = NULL;
@@ -1038,6 +1097,7 @@ ItemImpl::getAttributeFrom(CssmDbAttributeData *data, SecKeychainAttribute &attr
 void
 ItemImpl::getData(CssmDataContainer& outData)
 {
+	StLock<Mutex>_(mMutex);
 	if (!mKeychain)
 	{
 		CssmData *data = mData.get();
@@ -1062,6 +1122,7 @@ ItemImpl::getData(CssmDataContainer& outData)
 SSGroup
 ItemImpl::group()
 {
+	StLock<Mutex>_(mMutex);
 	SSGroup group;
 	if (!!mUniqueId)
 	{
@@ -1077,6 +1138,7 @@ ItemImpl::group()
 
 void ItemImpl::getLocalContent(SecKeychainAttributeList *attributeList, UInt32 *outLength, void **outData)
 {
+	StLock<Mutex>_(mMutex);
 	willRead();
     Allocator &allocator = Allocator::standard(); // @@@ This might not match the one used originally
 	if (outData)
@@ -1123,24 +1185,31 @@ void ItemImpl::getLocalContent(SecKeychainAttributeList *attributeList, UInt32 *
 void
 ItemImpl::getContent(DbAttributes *dbAttributes, CssmDataContainer *itemData)
 {
+	StLock<Mutex>_(mMutex);
     // Make sure mUniqueId is set.
     dbUniqueRecord();
     if (itemData)
     {
-            Db db(mUniqueId->database());
-			if (mDoNotEncrypt)
+		Db db(mUniqueId->database());
+		if (mDoNotEncrypt)
+		{
+			mUniqueId->getWithoutEncryption (dbAttributes, itemData);
+			return;
+		}
+		if (useSecureStorage(db))
+		{
+			SSDbUniqueRecordImpl* impl = dynamic_cast<SSDbUniqueRecordImpl *>(&(*mUniqueId));
+			if (impl == NULL)
 			{
-				mUniqueId->getWithoutEncryption (dbAttributes, itemData);
-				return;
+				CssmError::throwMe(CSSMERR_CSSM_INVALID_POINTER);
 			}
-			else if (useSecureStorage(db))
-            {
-                    SSDbUniqueRecord ssUniqueId(safe_cast<SSDbUniqueRecordImpl *>(&(*mUniqueId)));
-                    const AccessCredentials *autoPrompt = globals().credentials();
-                    ssUniqueId->get(dbAttributes, itemData, autoPrompt);
-                    return;
-            }
-    }
+			
+			SSDbUniqueRecord ssUniqueId(impl);
+			const AccessCredentials *autoPrompt = globals().itemCredentials();
+			ssUniqueId->get(dbAttributes, itemData, autoPrompt);
+			return;
+		}
+	}
 
     mUniqueId->get(dbAttributes, itemData); 
 }
@@ -1148,6 +1217,7 @@ ItemImpl::getContent(DbAttributes *dbAttributes, CssmDataContainer *itemData)
 bool
 ItemImpl::useSecureStorage(const Db &db)
 {
+	StLock<Mutex>_(mMutex);
 	switch (recordType())
 	{
 	case CSSM_DL_DB_RECORD_GENERIC_PASSWORD:
@@ -1169,6 +1239,7 @@ void ItemImpl::willRead()
 
 void ItemImpl::copyPersistentReference(CFDataRef &outDataRef)
 {
+	StLock<Mutex>_(mMutex);
     // item must be in a keychain and have a primary key to be persistent
     if (!mKeychain || !mPrimaryKey) {
         MacOSError::throwMe(errSecItemNotFound);
@@ -1192,6 +1263,7 @@ void ItemImpl::copyPersistentReference(CFDataRef &outDataRef)
 
 void ItemImpl::copyRecordIdentifier(CSSM_DATA &data)
 {
+	StLock<Mutex>_(mMutex);
 	CssmClient::DbUniqueRecord uniqueRecord = dbUniqueRecord ();
 	uniqueRecord->getRecordIdentifier(data);
 }
@@ -1204,6 +1276,7 @@ void ItemImpl::copyRecordIdentifier(CSSM_DATA &data)
  */
 const CssmData &ItemImpl::itemID()
 {
+	StLock<Mutex>_(mMutex);
 	if(mPrimaryKey->length() == 0) {
 		/* not in a keychain; we don't have a primary key */
 		MacOSError::throwMe(errSecNoSuchAttr);
@@ -1253,28 +1326,28 @@ Item::Item(SecItemClass itemClass, SecKeychainAttributeList *attrList, UInt32 le
 Item::Item(const Keychain &keychain, const PrimaryKey &primaryKey, const CssmClient::DbUniqueRecord &uniqueId)
 	: SecPointer<ItemImpl>(
 		primaryKey->recordType() == CSSM_DL_DB_RECORD_X509_CERTIFICATE
-		? new Certificate(keychain, primaryKey, uniqueId)
+		? Certificate::make(keychain, primaryKey, uniqueId)
 		: (primaryKey->recordType() == CSSM_DL_DB_RECORD_PUBLIC_KEY
 		   || primaryKey->recordType() == CSSM_DL_DB_RECORD_PRIVATE_KEY
 		   || primaryKey->recordType() == CSSM_DL_DB_RECORD_SYMMETRIC_KEY)
-		? new KeyItem(keychain, primaryKey, uniqueId)
+		? KeyItem::make(keychain, primaryKey, uniqueId)
 		: primaryKey->recordType() == CSSM_DL_DB_RECORD_EXTENDED_ATTRIBUTE
-		   ? new ExtendedAttribute(keychain, primaryKey, uniqueId)
-		   : new ItemImpl(keychain, primaryKey, uniqueId))
+		   ? ExtendedAttribute::make(keychain, primaryKey, uniqueId)
+		   : ItemImpl::make(keychain, primaryKey, uniqueId))
 {
 }
 
 Item::Item(const Keychain &keychain, const PrimaryKey &primaryKey)
 	: SecPointer<ItemImpl>(
 		primaryKey->recordType() == CSSM_DL_DB_RECORD_X509_CERTIFICATE
-		? new Certificate(keychain, primaryKey)
+		? Certificate::make(keychain, primaryKey)
 		: (primaryKey->recordType() == CSSM_DL_DB_RECORD_PUBLIC_KEY
 		   || primaryKey->recordType() == CSSM_DL_DB_RECORD_PRIVATE_KEY
 		   || primaryKey->recordType() == CSSM_DL_DB_RECORD_SYMMETRIC_KEY)
-		? new KeyItem(keychain, primaryKey)
+		? KeyItem::make(keychain, primaryKey)
 		: primaryKey->recordType() == CSSM_DL_DB_RECORD_EXTENDED_ATTRIBUTE
-		   ? new ExtendedAttribute(keychain, primaryKey) 
-		   : new ItemImpl(keychain, primaryKey))
+		   ? ExtendedAttribute::make(keychain, primaryKey) 
+		   : ItemImpl::make(keychain, primaryKey))
 {
 }
 

@@ -629,7 +629,6 @@ pascal_type_print_base (struct type *type, struct ui_file *stream, int show,
 	      struct fn_field *f = TYPE_FN_FIELDLIST1 (type, i);
 	      int j, len2 = TYPE_FN_FIELDLIST_LENGTH (type, i);
 	      char *method_name = TYPE_FN_FIELDLIST_NAME (type, i);
-	      char *name = type_name_no_tag (type);
 	      /* this is GNU C++ specific
 	         how can we know constructor/destructor?
 	         It might work for GNU pascal */

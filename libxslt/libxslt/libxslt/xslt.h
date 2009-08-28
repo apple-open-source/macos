@@ -83,6 +83,13 @@ XSLTPUBVAR const int xsltLibxsltVersion;
 XSLTPUBVAR const int xsltLibxmlVersion;
 
 /*
+ * Global initialization function.
+ */
+
+XSLTPUBFUN void XSLTCALL
+		xsltInit		(void);
+
+/*
  * Global cleanup function.
  */
 XSLTPUBFUN void XSLTCALL	

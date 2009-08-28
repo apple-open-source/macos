@@ -503,6 +503,14 @@ LINUX_CLIB		specifies the definition of the Linux C library:
 			default: ""             (standard C library)
 			others: -DGLIBCV=2      (glibc2)
 
+LINUX_HASSELINUX	If this environment variable has a value of "Y" or "y",
+			Configure unconditionally activates SELinux support.
+			If it has any other value, Configure unconditionally
+			inhibits SELinux suport.
+
+			Default: assumed to be "Y" if <selinux/selinux.h>
+				 exists
+
 LINUX_LSEEK		If this environment variable has a value of "Y" or "y",
 			Configure uses Makefile.lseek in place of Makefile in
 			order to enable use of the private lseek() function for
@@ -654,4 +662,4 @@ UW_HAS_NSC		If this environment variable has a value of "Y" or "y",
 			default: tested via /bin/node_self
 
 Vic Abell <abe@purdue.edu>
-March 27, 2006
+April 15, 2008

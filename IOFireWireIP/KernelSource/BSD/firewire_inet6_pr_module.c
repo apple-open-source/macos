@@ -191,30 +191,12 @@ firewire_inet6_resolve_multi(
 
 errno_t
 firewire_inet6_prmod_ioctl(
-						ifnet_t				ifp,
-						protocol_family_t	protocol_family,
-						u_int32_t			command,
-						void				*data)
+						__unused ifnet_t			ifp,
+						__unused protocol_family_t	protocol_family,
+						__unused unsigned long		command,
+						__unused void				*data)
 {
-    struct ifreq *ifr = (struct ifreq *) data;
-    int			error = 0;
-
-    switch (command) 
-	{
-		case SIOCGIFADDR:
-			{
-				struct sockaddr *sa;
-
-				sa = (struct sockaddr *) & ifr->ifr_data;
-				ifnet_lladdr_copy_bytes(ifp, sa->sa_data, FIREWIRE_ADDR_LEN);
-			}
-			break;
-			
-		default:
-			return EOPNOTSUPP;
-	}
-
-	return (error);
+	return EOPNOTSUPP;
 }
 
 int

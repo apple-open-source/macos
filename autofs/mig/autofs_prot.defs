@@ -97,10 +97,10 @@ routine autofs_unmount(
 routine autofs_readdir(
 	server			: mach_port_t;
 	in rda_map		: autofs_pathname;
-	in rda_offset		: uint64_t;	/* starting offset */
+	in rda_offset		: int64_t;	/* starting offset */
 	in rda_count		: uint32_t;	/* total size requested */
 	out status		: int;
-	out rddir_offset	: uint64_t;	/* last offset in list */
+	out rddir_offset	: int64_t;	/* last offset in list */
 	out rddir_eof		: boolean_t;	/* TRUE if last entry in result */
 	out rddir_entries	: byte_buffer, dealloc;
 						/* variable number of entries */

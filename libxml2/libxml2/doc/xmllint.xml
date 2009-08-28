@@ -3,810 +3,914 @@
    href="http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl"?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.1.2//EN"
     "http://www.oasis-open.org/docbook/xml/4.1.2/docbookx.dtd" [
+    
+    <!ENTITY xmllint "<command>xmllint</command>">
 ]>
+
 <refentry>
-  <refentryinfo>
-    <title>xmllint Manual</title>
-    <copyright>
-      <year>2001</year>
-    </copyright>
-    <copyright>
-      <year>2004</year>
-    </copyright>
-    <author>
-      <firstname>John</firstname>
-      <surname>Fleck</surname>
-    </author>
-    <address><email>jfleck@inkstain.net</email></address>
-    <author>
-      <firstname>Ziying</firstname>
-      <surname>Sherwin</surname>
-    </author>
-    <address><email>sherwin@nlm.nih.gov</email></address>
-    <author>
-      <firstname>Heiko</firstname>
-      <surname>Rupp</surname>
-    </author>
-    <address><email>hwr@pilhuhn.de</email></address>
-    
-    <releaseinfo>This is release 0.5 of the xmllint Manual.</releaseinfo>
-  </refentryinfo>
 
-  <refmeta>
-    <refentrytitle>xmllint</refentrytitle>
-    <manvolnum>1</manvolnum>
-  </refmeta>
+<refentryinfo>
+	<title>xmllint Manual</title>
+	<productname>libxml2</productname>
+	<copyright>
+		<year>2001</year>
+		<year>2004</year>
+	</copyright>
+	<authorgroup>
+		<author>
+			<firstname>John</firstname>
+			<surname>Fleck</surname>
+			<affiliation>
+				<address>
+					<email>jfleck@inkstain.net</email>
+				</address>
+			</affiliation>
+		</author>
+		<author>
+			<firstname>Ziying</firstname>
+			<surname>Sherwin</surname>
+			<affiliation>
+				<address>
+					<email>sherwin@nlm.nih.gov</email>
+				</address>
+			</affiliation>
+		</author>
+		<author>
+			<firstname>Heiko</firstname>
+			<surname>Rupp</surname>
+			<affiliation>
+				<address>
+					<email>hwr@pilhuhn.de</email>
+				</address>
+			</affiliation>
+		</author>
+	</authorgroup>
+	<!-- date should be the date of the latest change or the release version -->
+	<date>$Date$</date>
+	<!-- still a bit buggy output, will talk to docbook-xsl upstream to fix this -->
+	<!-- <releaseinfo>This is release 0.5 of the xmllint Manual.</releaseinfo> -->
+	<!-- <edition>0.5</edition> -->
+</refentryinfo>
 
-  <refnamediv>
-    <refname>xmllint</refname>
-    <refpurpose>command line <acronym>XML</acronym> tool</refpurpose>
-  </refnamediv>
+<refmeta>
+	<refentrytitle>xmllint</refentrytitle>
+	<manvolnum>1</manvolnum>
+</refmeta>
 
-  <refsynopsisdiv>
-    <cmdsynopsis>
-      <command>xmllint</command>
-      <group>
-	<arg>--version</arg>
-	<arg>--debug</arg>
-	<arg>--shell</arg>
-	<arg>--debugent</arg>
-	<arg>--copy</arg>
-	<arg>--recover</arg>
-	<arg>--noent</arg>
-	<arg>--noout</arg>
-	<arg>--nonet</arg>
-	<arg>--path <replaceable>paths</replaceable></arg>
-	<arg>--load-trace</arg>
-	<arg>--htmlout</arg>
-	<arg>--nowrap</arg>
-	<arg>--valid</arg>
-	<arg>--postvalid</arg>
-	<arg>--dtdvalid <replaceable>URL</replaceable></arg>
-	<arg>--dtdvalidfpi <replaceable>FPI</replaceable></arg>
-	<arg>--timing</arg>
-	<arg>--output <replaceable>file</replaceable></arg>
-	<arg>--repeat</arg>
-	<arg>--insert</arg>
-	<arg>--compress</arg>
-	<arg>--html</arg>
-	<arg>--xmlout</arg>
-	<arg>--push</arg>
-	<arg>--memory</arg>
-	<arg>--maxmem <replaceable>nbbytes</replaceable></arg>
-	<arg>--nowarning</arg>
-	<arg>--noblanks</arg>
-	<arg>--nocdata</arg>
-	<arg>--format</arg>
-	<arg>--encode <replaceable>encoding</replaceable></arg>
-	<arg>--dropdtd</arg>
-	<arg>--nsclean</arg>
-	<arg>--testIO</arg>
-	<arg>--catalogs</arg>
-	<arg>--nocatalogs</arg>
-	<arg>--auto</arg>
-	<arg>--xinclude</arg>
-	<arg>--noxincludenode</arg>
-	<arg>--loaddtd</arg>
-	<arg>--dtdattr</arg>
-	<arg>--stream</arg>
-	<arg>--walker</arg>
-	<arg>--pattern <replaceable>patternvalue</replaceable></arg>
-	<arg>--chkregister</arg>
-	<arg>--relaxng</arg>
-	<arg>--schema</arg>
-	<arg>--c14n</arg>
-      </group>
-      <arg><option><replaceable>xmlfile</replaceable></option></arg>
-  </cmdsynopsis>
-  </refsynopsisdiv>
+<refnamediv>
+	<refname>xmllint</refname>
+	<refpurpose>command line <acronym>XML</acronym> tool</refpurpose>
+</refnamediv>
 
-  <refsect1 id="introduction">
-    <title>Introduction</title>
-    <para>
-      The xmllint program parses one or more XML files, specified on the
-      command line as <replaceable>xmlfile</replaceable> (or the standard
-      input if the filename provided is - ). It prints various
-      types of output, depending upon the options selected. It is useful for
-      detecting errors both in <acronym>XML</acronym> code and in the
-      <acronym>XML</acronym> parser itself.
-    </para>
+<refsynopsisdiv>
+	<cmdsynopsis>
+	<command>xmllint</command>
+		<group choice="opt">
+			<arg choice="plain"><option>--version</option></arg>
+			<arg choice="plain"><option>--debug</option></arg>
+			<arg choice="plain"><option>--shell</option></arg>
+			<arg choice="plain"><option>--debugent</option></arg>
+			<arg choice="plain"><option>--copy</option></arg>
+			<arg choice="plain"><option>--recover</option></arg>
+			<arg choice="plain"><option>--noent</option></arg>
+			<arg choice="plain"><option>--noout</option></arg>
+			<arg choice="plain"><option>--nonet</option></arg>
+			<arg choice="plain"><option>--path "<replaceable class="option">PATH(S)</replaceable>"</option></arg>
+			<arg choice="plain"><option>--load-trace</option></arg>
+			<arg choice="plain"><option>--htmlout</option></arg>
+			<arg choice="plain"><option>--nowrap</option></arg>
+			<arg choice="plain"><option>--valid</option></arg>
+			<arg choice="plain"><option>--postvalid</option></arg>
+			<arg choice="plain"><option>--dtdvalid <replaceable class="option">URL</replaceable></option></arg>
+			<arg choice="plain"><option>--dtdvalidfpi <replaceable class="option">FPI</replaceable></option></arg>
+			<arg choice="plain"><option>--timing</option></arg>
+			<arg choice="plain"><option>--output <replaceable class="option">FILE</replaceable></option></arg>
+			<arg choice="plain"><option>--repeat</option></arg>
+			<arg choice="plain"><option>--insert</option></arg>
+			<arg choice="plain"><option>--compress</option></arg>
+			<arg choice="plain"><option>--html</option></arg>
+			<arg choice="plain"><option>--xmlout</option></arg>
+			<arg choice="plain"><option>--push</option></arg>
+			<arg choice="plain"><option>--memory</option></arg>
+			<arg choice="plain"><option>--maxmem <replaceable class="option">NBBYTES</replaceable></option></arg>
+			<arg choice="plain"><option>--nowarning</option></arg>
+			<arg choice="plain"><option>--noblanks</option></arg>
+			<arg choice="plain"><option>--nocdata</option></arg>
+			<arg choice="plain"><option>--format</option></arg>
+			<arg choice="plain"><option>--encode <replaceable class="option">ENCODING</replaceable></option></arg>
+			<arg choice="plain"><option>--dropdtd</option></arg>
+			<arg choice="plain"><option>--nsclean</option></arg>
+			<arg choice="plain"><option>--testIO</option></arg>
+			<arg choice="plain"><option>--catalogs</option></arg>
+			<arg choice="plain"><option>--nocatalogs</option></arg>
+			<arg choice="plain"><option>--auto</option></arg>
+			<arg choice="plain"><option>--xinclude</option></arg>
+			<arg choice="plain"><option>--noxincludenode</option></arg>
+			<arg choice="plain"><option>--loaddtd</option></arg>
+			<arg choice="plain"><option>--dtdattr</option></arg>
+			<arg choice="plain"><option>--stream</option></arg>
+			<arg choice="plain"><option>--walker</option></arg>
+			<arg choice="plain"><option>--pattern <replaceable class="option">PATTERNVALUE</replaceable></option></arg>
+			<arg choice="plain"><option>--chkregister</option></arg>
+			<arg choice="plain"><option>--relaxng <replaceable class="option">SCHEMA</replaceable></option></arg>
+			<arg choice="plain"><option>--schema <replaceable class="option">SCHEMA</replaceable></option></arg>
+			<arg choice="plain"><option>--c14n</option></arg>
+		</group>
+		<group choice="req">
+			<arg choice="plain" rep="repeat"><replaceable>XML-FILE(S)</replaceable></arg>
+			<arg choice="plain" rep="norepeat">-</arg>
+		</group>
+	</cmdsynopsis>
+	<cmdsynopsis>
+		<command>xmllint</command>
+		<arg choice="plain"><option>--help</option></arg>
+	</cmdsynopsis>
+</refsynopsisdiv>
 
-    <para>
-      It is included in <application>libxml2</application>.
-    </para>
-  </refsect1>
-  <refsect1 id="options">
-    <title>Options</title>
-    <variablelist>
-      <varlistentry>
-	<term><option>--version</option></term>
-	<listitem>
-	  <simpara>
-	    Display the version of
-	    <application>libxml2</application> used.
-	  </simpara>
-	</listitem>
-      </varlistentry>
+<refsect1 id="description">
+	<title>DESCRIPTION</title>
+	<para>
+		The &xmllint; program parses one or more <acronym>XML</acronym> files,
+		specified on the command line as <replaceable>XML-FILE</replaceable>
+		(or the standard input if the filename provided
+		is <emphasis role="bold">-</emphasis> ). It prints various types of
+		output, depending upon the options selected. It is useful for detecting
+		errors both in <acronym>XML</acronym> code and in
+		the <acronym>XML</acronym> parser itself.
+	</para>
+	<para>&xmllint; is included in <citerefentry>
+		<refentrytitle>libxml</refentrytitle>
+		<manvolnum>3</manvolnum>
+	</citerefentry>.</para>
+</refsect1>
 
-      <varlistentry>
-	<term><option>--debug</option></term>
-	<listitem>
-	  <simpara>
-	    Parse a file and output an annotated tree of the
-	    in-memory version of the document.
-	  </simpara>
-	</listitem>
-      </varlistentry>
+<refsect1 id="options">
+	<title>OPTIONS</title>
+	<para>
+		&xmllint; accepts the following options (in alphabetical order):
+	</para>
 
-      <varlistentry>
-	<term><option>--shell</option></term>
-	<listitem>
-	  <simpara>
-	    Run a navigating shell. Details on available commands in shell mode
-	    are below.
-	  </simpara>
-	</listitem>
-      </varlistentry>
+	<variablelist>
 
-      <varlistentry>
-	<term><option>--debugent</option></term>
-	<listitem>
-	  <simpara>
-	    Debug the entities defined in the document.
-	  </simpara>
-	</listitem>
-      </varlistentry>
-
-      <varlistentry>
-	<term><option>--copy</option> </term>
-	<listitem>
-	  <simpara>
-	    Test the internal copy implementation.
-	  </simpara>
-	</listitem>
-      </varlistentry>
-    
-      
-      <varlistentry>
-	<term><option>--recover</option></term>
-	<listitem>
-	  <simpara>
-	    Output any parsable portions of an invalid
-	    document.
-	  </simpara>
-	</listitem>
-      </varlistentry>
-
-      <varlistentry>
-	<term><option>--noent</option></term>
-	<listitem>
-	  <simpara>
-	    Substitute entity values for entity
-	    references. By default, <application>xmllint</application> leaves entity
-	    references in place.
-	  </simpara>
-	</listitem>
-      </varlistentry>
-   
-      <varlistentry>
-	<term><option>--nocdata</option></term>
-	<listitem>
-	  <simpara>
-	    Substitute CDATA section by equivalent text nodes.
-	  </simpara>
-	</listitem>
-      </varlistentry>
-   
-      <varlistentry>
-	<term><option>--nsclean</option></term>
-	<listitem>
-	  <simpara>
-	    Remove redundant namespace declarations.
-	  </simpara>
-	</listitem>
-      </varlistentry>
-   
-      <varlistentry>
-	<term><option>--noout</option></term>
-	<listitem>
-	  <simpara>
-	    Suppress output. By default,
-	    <application>xmllint</application> outputs the result tree.
-	  </simpara>
-	</listitem>
-      </varlistentry>
-
-      <varlistentry>
-	<term><option>--nonet</option></term>
-	<listitem>
-	  <simpara>
-	    Do not use the Internet to fetch DTD's or entities.
-	  </simpara>
-	</listitem>
-      </varlistentry>
-
-      <varlistentry>
-	<term><option>--nonet</option></term>
-	<listitem>
-	  <simpara>
-	    Do not use the Internet to fetch DTD's or entities.
-	  </simpara>
-	</listitem>
-      </varlistentry>
-
-      <varlistentry>
-	<term> <option>--path</option> <replaceable>paths</replaceable></term>
-	<listitem>
-	  <simpara>
-	    Use the list (separated by space or column) of filesystem path
-	specified by <replaceable>paths</replaceable>  to load
-        <acronym>DTDs</acronym> or entities .
-	  </simpara>
-	</listitem>
-      </varlistentry>
-
-      <varlistentry>
-	<term><option>--load-trace</option></term>
-	<listitem>
-	  <simpara>
-	    Display to stderr all the documents loaded during the processing.
-	  </simpara>
-	</listitem>
-      </varlistentry>
-
-    <varlistentry>
-	<term><option>--htmlout</option></term>
-	<listitem>
-	  <simpara>
-	    Output results as an <acronym>HTML</acronym>
-	    file. This causes <application>xmllint</application> to output
-	    the necessary <acronym>HTML</acronym> tags surrounding the result tree
-	    output so the results can be displayed in a browser. 
-	  </simpara>
-	</listitem>
-      </varlistentry>
-
-    <varlistentry>
-	<term><option>--nowrap </option></term>
-	<listitem>
-	  <simpara>
-	    Do not output HTML doc wrapper.
-	  </simpara>
-	</listitem>
-      </varlistentry>
-
-<varlistentry>
-	<term><option>--valid </option></term>
-	<listitem>
-	  <simpara>
-	    Determine if the document is a valid instance
-	    of the included Document Type Definition (<acronym>DTD</acronym>). A
-	    <acronym>DTD</acronym> to be validated against also can be specified at
-	    the command line using the <option>--dtdvalid</option> option. By default,
-	    <application>xmllint</application> also checks to determine if the
-	    document is well-formed.
-	  </simpara>
-	</listitem>
-      </varlistentry>
-   
- <varlistentry>
-	<term><option>--postvalid</option></term>
-	<listitem>
-	  <simpara>
-	    Validate after parsing is completed.
-	  </simpara>
-	</listitem>
-      </varlistentry>
-   
-    <varlistentry>
-	<term> <option>--dtdvalid</option> <replaceable>URL</replaceable></term>
-	<listitem>
-	  <simpara>
-	    Use the
-      <acronym>DTD</acronym> specified by <replaceable>URL</replaceable> for
-      validation.
-	  </simpara>
-	</listitem>
-      </varlistentry>
-   
-    <varlistentry>
-	<term> <option>--dtdvalidfpi</option> <replaceable>FPI</replaceable></term>
-	<listitem>
-	  <simpara>
-	    Use the
-      <acronym>DTD</acronym> specified by the Public Identifier
-      <replaceable>FPI</replaceable> for validation, note that this
-      will require a Catalog exporting that Public Identifier to work.
-	  </simpara>
-	</listitem>
-      </varlistentry>
-   
-     <varlistentry>
-	<term><option>--timing</option></term>
-	<listitem>
-	  <simpara>
-	    Output information about the time it takes
-	    <application>xmllint</application> to perform the various steps.
-	  </simpara>
-	</listitem>
-      </varlistentry>
-      <varlistentry>
-	<term><option>--output</option> <replaceable>file</replaceable></term>
-	<listitem>
-	  <simpara>Define a file path where xmllint will save the result of
-	  parsing. Usually the programs build a tree and save it on stdout, with
-	  this option the result XML instance will be saved onto a file.</simpara>
-	</listitem>
-      </varlistentry>
-   <varlistentry>
-	<term><option>--repeat</option></term>
-	<listitem>
-	  <simpara>
-	    Repeat 100 times, for timing or profiling.
-	  </simpara>
-	</listitem>
-      </varlistentry>
-   
-    <varlistentry>
-	<term><option>--insert</option></term>
-	<listitem>
-	  <simpara>
-	    Test for valid insertions.
-	  </simpara>
-	</listitem>
-      </varlistentry>
-
-      <varlistentry>
-	<term><option>--compress</option></term>
-	<listitem>
-	  <simpara>
-	    Turn on gzip compression of output.
-	  </simpara>
-	</listitem>
-      </varlistentry>
-   
-    <varlistentry>
-	<term><option>--html</option></term>
-	<listitem>
-	  <simpara>
-	    Use the <acronym>HTML</acronym> parser.
-	  </simpara>
-	</listitem>
-      </varlistentry>
-      <varlistentry>
-	<term><option>--xmlout</option></term>
-	<listitem>
-	  <simpara>Used in conjusntion with <option>--html</option>. Usually
-  when HTML is parsed the document is saved with the HTML serializer, but with
-  this option the resulting document is saved with the XML serializer. This is
-  primarily used to generate XHTML from HTML input.</simpara>
-	</listitem>
-      </varlistentry>
-    <varlistentry>
-	<term><option>--push</option></term>
-	<listitem>
-	  <simpara>
-	    Use the push mode of the parser.
-	  </simpara>
-	</listitem>
-      </varlistentry>
-   
-
-    <varlistentry>
-	<term><option>--memory</option></term>
-	<listitem>
-	  <simpara>
-	   Parse from memory.
-	  </simpara>
-	</listitem>
-      </varlistentry>
-      <varlistentry>
-	<term><option>--maxmem</option> <replaceable>nnbytes</replaceable></term>
-	<listitem>
-	  <simpara>Test the parser memory
-  support. <replaceable>nnbytes</replaceable> is the maximum number of bytes the
-  library is allowed to allocate. This can also be used to make sure batch
-  processing of XML files will not exhaust the virtual memory of the server
-  running them.</simpara>
-	</listitem>
-      </varlistentry>
-    <varlistentry>
-	<term><option>--nowarning</option></term>
-	<listitem>
-	  <simpara>
-	   Do not emit warnings from the parser and/or validator.
-	  </simpara>
-	</listitem>
-      </varlistentry>
-
-    <varlistentry>
-	<term><option>--noblanks</option></term>
-	<listitem>
-	  <simpara>
-	   Drop ignorable blank spaces.
-	  </simpara>
-	</listitem>
-      </varlistentry>
-
-    <varlistentry>
-	<term><option>--format</option></term>
-	<listitem>
-	  <simpara>
-	   Reformat and reindent the output. The $XMLLINT_INDENT
-	   environment variable controls the indentation (default 
-	   value is two spaces &quot;  &quot;).
-	  </simpara>
-	</listitem>
-      </varlistentry>
-
-    <varlistentry>
-	<term><option>--testIO</option></term>
-	<listitem>
-	  <simpara>
-	   Test user input/output support.
-	  </simpara>
-	</listitem>
-      </varlistentry>
-
-    <varlistentry>
-      <term><option>--encode</option> <replaceable>encoding</replaceable></term>
-	<listitem>
-	  <simpara>
-	   Output in the given encoding.
-	  </simpara>
-	</listitem>
-      </varlistentry>
-    
-    <varlistentry>
-	<term><option>--catalogs</option></term>
-	<listitem>
-	  <simpara>
-	   Use the catalogs from $SGML_CATALOG_FILES. Otherwise /etc/xml/catalog
-	   is used by default.
-	  </simpara>
-	</listitem>
-      </varlistentry>
-
-    <varlistentry>
-	<term><option>--nocatalogs</option></term>
-	<listitem>
-	  <simpara>
-	   Do not use any catalogs.
-	  </simpara>
-	</listitem>
-      </varlistentry>
-    
-    <varlistentry>
+		<varlistentry>
 	<term><option>--auto</option></term>
 	<listitem>
-	  <simpara>
-	   Generate a small document for testing purposes.
-	  </simpara>
+		<para>Generate a small document for testing purposes.</para>
 	</listitem>
-      </varlistentry>
+		</varlistentry>
 
-    <varlistentry>
-	<term><option>--xinclude</option></term>
+		<varlistentry>
+	<term><option>--catalogs</option></term>
 	<listitem>
-	  <simpara>
-	   Do XInclude processing.
-	  </simpara>
+		<para>
+			Use the <acronym>SGML</acronym> catalog(s) from <envar>SGML_CATALOG_FILES</envar>.
+			Otherwise <acronym>XML</acronym> catalogs starting
+			from <filename>/etc/xml/catalog</filename> are used by default.
+		</para>
 	</listitem>
-      </varlistentry>
-    <varlistentry>
-	<term><option>--noxincludenode</option></term>
-	<listitem>
-	  <simpara>
-	   Do XInclude processing but do not generate XInclude start and end
-	   nodes.
-	  </simpara>
-	</listitem>
-      </varlistentry>
-    <varlistentry>
-	<term><option>--loaddtd</option></term>
-	<listitem>
-	  <simpara>
-	   Fetch external DTD.
-	  </simpara>
-	</listitem>
-      </varlistentry>
-    
-    <varlistentry>
-	<term><option>--dtdattr</option></term>
-	<listitem>
-	  <simpara>
-	   Fetch external DTD and populate the tree with inherited attributes.
-	  </simpara>
-	</listitem>
-      </varlistentry>
-      <varlistentry>
-	<term><option>--dropdtd</option></term>
-	<listitem>
-	  <simpara>
-	    Remove <acronym>DTD</acronym> from output.
-	  </simpara>
-	</listitem>
-      </varlistentry>
-      <varlistentry>
-	<term><option>--stream</option></term>
-	<listitem>
-	  <simpara>Use streaming API - useful when  used  in combination with
-              --relaxng or --valid options for validation of files that are
-	    too large to be held in memory.</simpara> 
-	</listitem>
-      </varlistentry>
-      <varlistentry>
-	<term><option>--walker</option></term>
-	<listitem>
-	  <simpara>Test the walker module, which is a reader interface but for a
-  document tree, instead of using the reader API on an unparsed document it
-  works on a existing in-memory tree. Used in debugging.</simpara> 
-	</listitem>
-      </varlistentry>
-      <varlistentry>
+		</varlistentry>
+
+		<varlistentry>
 	<term><option>--chkregister</option></term>
 	<listitem>
-	  <simpara>Turn on node registration. Useful for developers testing
-	  libxml2 node tracking code.</simpara>
+		<para>
+			Turn on node registration. Useful for developers testing <citerefentry>
+		<refentrytitle>libxml</refentrytitle>
+		<manvolnum>3</manvolnum>
+	</citerefentry> node tracking code.
+		</para>
 	</listitem>
-      </varlistentry>
-      <varlistentry>
-	<term><option>--pattern</option> <replaceable>patternvalue</replaceable></term>
-	<listitem>
-	  <simpara>Used to exercise the pattern recognition engine, which can be
-	  used with the reader interface to the parser. It allows to select some
-	  nodes in the document based on an XPath (subset) expression. Used for
-	  debugging.</simpara>
-	</listitem>
-      </varlistentry>
-      <varlistentry>
-	<term><option>--relaxng</option> <replaceable>schema</replaceable></term>
-	<listitem>
-	  <simpara>Use RelaxNG file named <replaceable>schema</replaceable> for
-	  validation.</simpara>
-	</listitem>
-      </varlistentry>
-      <varlistentry>
-	<term><option>--schema</option> <replaceable>schema</replaceable></term>
-	<listitem>
-	  <simpara>Use a W3C XML Schema file named <replaceable>schema</replaceable> for validation.</simpara>
-	</listitem>
-      </varlistentry>
-      <varlistentry>
-	<term>
-      <option>--c14n</option></term>
-	<listitem>
-	  <simpara>Use the W3C XML Canonicalisation (C14N) to
-serialize the result of parsing to stdout. It keeps comments in
-the result.</simpara>
-	</listitem>
-      </varlistentry>
-    </variablelist>
-  </refsect1>
+		</varlistentry>
 
-  <refsect1 id="shell">
-    <title>Shell</title>
-    <para>
-      <application>xmllint</application> offers an interactive shell mode
-      invoked with the <option>--shell</option> command. Available commands in
-      shell mode include:
-    </para>
-    <variablelist>
-      <varlistentry>
-	<term><option>base</option></term>
+		<varlistentry>
+	<term><option>--compress</option></term>
 	<listitem>
-	  <simpara>
-	    display XML base of the node
-	  </simpara>
+		<para>
+			Turn on <citerefentry>
+		<refentrytitle>gzip</refentrytitle>
+		<manvolnum>1</manvolnum>
+	</citerefentry> compression of output.
+		</para>
 	</listitem>
-      </varlistentry>
-      <varlistentry>
-	<term><option>bye</option></term>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--copy</option></term>
 	<listitem>
-	  <simpara>
-	    leave shell
-	  </simpara>
+		<para>Test the internal copy implementation.</para>
 	</listitem>
-      </varlistentry>
-      <varlistentry>
-	<term><option>cat <replaceable>node</replaceable></option></term>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--c14n</option></term>
 	<listitem>
-	  <simpara>
-	    Display node if given or current node.
-	  </simpara>
+		<para>
+			Use the W3C <acronym>XML</acronym> Canonicalisation (<acronym>C14N</acronym>) to
+			serialize the result of parsing to <filename class="devicefile">stdout</filename>.
+			It keeps comments in the result.
+		</para>
 	</listitem>
-      </varlistentry>
-      <varlistentry>
-	<term><option>cd <replaceable>path</replaceable></option></term>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--dtdvalid <replaceable class="option">URL</replaceable></option></term>
 	<listitem>
-	  <simpara>
-	    Change the current node to <replaceable>path</replaceable> (if given
-	    and unique) or root if no argument given.
-	  </simpara>
+		<para>
+			Use the <acronym>DTD</acronym> specified by
+			an <replaceable>URL</replaceable> for validation.
+		</para>
 	</listitem>
-      </varlistentry>
-      <varlistentry>
-	<term><option>dir <replaceable>path</replaceable></option></term>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--dtdvalidfpi <replaceable class="option">FPI</replaceable></option></term>
 	<listitem>
-	  <simpara>
-	    Dumps information about the node (namespace, attributes, content).
-	  </simpara>
+		<para>
+			Use the <acronym>DTD</acronym> specified by a Formal Public
+			Identifier <replaceable>FPI</replaceable> for validation, note that this
+			will require a catalog exporting that Formal Public Identifier to work.
+		</para>
 	</listitem>
-      </varlistentry>
-      <varlistentry>
-	<term><option>du <replaceable>path</replaceable></option></term>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--debug</option></term>
 	<listitem>
-	  <simpara>
-	    Show the structure of the subtree under path or the current node.
-	  </simpara>
+		<para>
+			Parse a file and output an annotated tree of the
+			in-memory version of the document.
+		</para>
 	</listitem>
-      </varlistentry>
-      <varlistentry>
-	<term><option>exit</option></term>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--debugent</option></term>
 	<listitem>
-	  <simpara>
-	    Leave the shell.
-	  </simpara>
+		<para>Debug the entities defined in the document.</para>
 	</listitem>
-      </varlistentry>
-      <varlistentry>
-	<term><option>help</option></term>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--dropdtd</option></term>
 	<listitem>
-	  <simpara>
-	    Show this help.
-	  </simpara>
+		<para>Remove <acronym>DTD</acronym> from output.</para>
 	</listitem>
-      </varlistentry>
-      <varlistentry>
-	<term><option>free</option></term>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--dtdattr</option></term>
 	<listitem>
-	  <simpara>
-	    Display memory usage.
-	  </simpara>
+		<para>
+			Fetch external <acronym>DTD</acronym> and populate the tree with
+			inherited attributes.
+		</para>
 	</listitem>
-      </varlistentry>
-      <varlistentry>
-	<term><option>load <replaceable>name</replaceable></option></term>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--encode <replaceable class="option">ENCODING</replaceable></option></term>
 	<listitem>
-	  <simpara>
-	    Load a new document with the given name.
-	  </simpara>
+		<para>Output in the given encoding.</para>
 	</listitem>
-      </varlistentry>
-      <varlistentry>
-	<term><option>ls <replaceable>path</replaceable></option></term>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--format</option></term>
 	<listitem>
-	  <simpara>
-	    List contents of <replaceable>path</replaceable> (if given) or the
-	    current directory.
-	  </simpara>
+		<para>
+			Reformat and reindent the output. The <envar>XMLLINT_INDENT</envar>
+			environment variable controls the indentation. The default value is two
+			spaces &quot;  &quot;).
+		</para>
 	</listitem>
-      </varlistentry>
-      <varlistentry>
-	<term><option>pwd</option></term>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--help</option></term>
 	<listitem>
-	  <simpara>
-	    Display the path to the current node.
-	  </simpara>
+		<para>Print out a short usage summary for &xmllint;.</para>
 	</listitem>
-      </varlistentry>
-      <varlistentry>
-	<term><option>quit</option></term>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--html</option></term>
 	<listitem>
-	  <simpara>
-	    Leave the shell.
-	  </simpara>
+		<para>Use the <acronym>HTML</acronym> parser.</para>
 	</listitem>
-      </varlistentry>
-      <varlistentry>
-	<term><option>save <replaceable>name</replaceable></option></term>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--htmlout</option></term>
 	<listitem>
-	  <simpara>
-	    Saves the current document to <replaceable>name</replaceable> if
-	    given or to the original name.
-	  </simpara>
+		<para>
+			Output results as an <acronym>HTML</acronym> file. This
+			causes &xmllint; to output the necessary <acronym>HTML</acronym>
+			tags surrounding the result tree output so the results can be
+			displayed/viewed in a browser.
+		</para>
 	</listitem>
-      </varlistentry>
-      <varlistentry>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--insert</option></term>
+	<listitem>
+		<para>Test for valid insertions.</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--loaddtd</option></term>
+	<listitem>
+		<para>Fetch an external <acronym>DTD</acronym>.</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--load-trace</option></term>
+	<listitem>
+		<para>
+			Display all the documents loaded during the processing
+			to <filename class="devicefile">stderr</filename>.
+		</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--maxmem <replaceable class="option">NNBYTES</replaceable></option></term>
+	<listitem>
+		<para>
+			Test the parser memory support. <replaceable>NNBYTES</replaceable>
+			is the maximum number of bytes the library is allowed to allocate.
+			This can also be used to make sure batch processing
+			of <acronym>XML</acronym> files will not exhaust the virtual memory
+			of the server running them.
+		</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--memory</option></term>
+	<listitem>
+		<para>Parse from memory.</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--noblanks</option></term>
+	<listitem>
+		<para>Drop ignorable blank spaces.</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--nocatalogs</option></term>
+	<listitem>
+		<para>Do not use any catalogs.</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--nocdata</option></term>
+	<listitem>
+		<para>Substitute CDATA section by equivalent text nodes.</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--noent</option></term>
+	<listitem>
+		<para>
+			Substitute entity values for entity references. By default, &xmllint;
+			leaves entity references in place.
+		</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--nonet</option></term>
+	<listitem>
+		<para>
+			Do not use the Internet to fetch <acronym>DTD</acronym>s or entities.
+		</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--noout</option></term>
+	<listitem>
+		<para>
+			Suppress output. By default, &xmllint; outputs the result tree.
+		</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--nowarning</option></term>
+	<listitem>
+		<para>Do not emit warnings from the parser and/or validator.</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--nowrap</option></term>
+	<listitem>
+		<para>Do not output <acronym>HTML</acronym> doc wrapper.</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--noxincludenode</option></term>
+	<listitem>
+		<para>
+			Do XInclude processing but do not generate XInclude start and end nodes.
+		</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--nsclean</option></term>
+	<listitem>
+		<para>Remove redundant namespace declarations.</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--output <replaceable class="option">FILE</replaceable></option></term>
+	<listitem>
+		<para>
+			Define a file path where &xmllint; will save the result of parsing.
+			Usually the programs build a tree and save it
+			on <filename class="devicefile">stdout</filename>, with this option
+			the result <acronym>XML</acronym> instance will be saved onto a file.
+		</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--path "<replaceable class="option">PATH(S)</replaceable>"</option></term>
+	<listitem>
+		<para>
+			Use the (space- or colon-separated) list of filesystem paths specified
+			by <replaceable>PATHS</replaceable> to load <acronym>DTD</acronym>s or
+			entities. Enclose space-separated lists by quotation marks.
+		</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--pattern <replaceable class="option">PATTERNVALUE</replaceable></option></term>
+	<listitem>
+		<para>
+			Used to exercise the pattern recognition engine, which can be used
+			with the reader interface to the parser. It allows to select some
+			nodes in the document based on an XPath (subset) expression. Used
+			for debugging.
+		</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--postvalid</option></term>
+	<listitem>
+		<para>Validate after parsing has completed.</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--push</option></term>
+	<listitem>
+		<para>Use the push mode of the parser.</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--recover</option></term>
+	<listitem>
+		<para>Output any parsable portions of an invalid document.</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--relaxng <replaceable class="option">SCHEMA</replaceable></option></term>
+	<listitem>
+		<para>
+			Use RelaxNG file named <replaceable class="option">SCHEMA</replaceable>
+			for validation.
+		</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--repeat</option></term>
+	<listitem>
+		<para>Repeat 100 times, for timing or profiling.</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--schema <replaceable>SCHEMA</replaceable></option></term>
+	<listitem>
+		<para>
+			Use a W3C <acronym>XML</acronym> Schema file
+			named <replaceable>SCHEMA</replaceable> for validation.
+		</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--shell</option></term>
+	<listitem>
+		<para>
+			Run a navigating shell. Details on available commands in shell mode
+			are below (see <xref linkend="shell"/>).
+		</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--stream</option></term>
+	<listitem>
+		<para>
+			Use streaming <acronym>API</acronym> - useful when used in combination
+			with <option>--relaxng</option> or <option>--valid</option> options
+			for validation of files that are too large to be held in memory.
+		</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--testIO</option></term>
+	<listitem>
+		<para>Test user input/output support.</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--timing</option></term>
+	<listitem>
+		<para>
+			Output information about the time it takes &xmllint; to perform the
+			various steps.
+		</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--valid</option></term>
+	<listitem>
+		<para>
+			Determine if the document is a valid instance of the included
+			Document Type Definition (<acronym>DTD</acronym>).
+			A <acronym>DTD</acronym> to be validated against also can be
+			specified at the command line using the <option>--dtdvalid</option>
+			option. By default, &xmllint; also checks to determine if the
+			document is well-formed.
+		</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--version</option></term>
+	<listitem>
+		<para>
+			Display the version of <citerefentry>
+		<refentrytitle>libxml</refentrytitle>
+		<manvolnum>3</manvolnum>
+	</citerefentry> used.
+		</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--walker</option></term>
+	<listitem>
+		<para>
+			Test the walker module, which is a reader interface but for a
+			document tree, instead of using the reader <acronym>API</acronym> on
+			an unparsed document it works on an existing in-memory tree. Used for
+			debugging.
+		</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--xinclude</option></term>
+	<listitem>
+		<para>Do XInclude processing.</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><option>--xmlout</option></term>
+	<listitem>
+		<para>
+			Used in conjunction with <option>--html</option>. Usually
+			when <acronym>HTML</acronym> is parsed the document is saved with
+			the <acronym>HTML</acronym> serializer. But with this option the
+			resulting document is saved with the <acronym>XML</acronym>
+			serializer. This is primarily used to
+			generate <acronym>XHTML</acronym> from <acronym>HTML</acronym> input.
+		</para>
+	</listitem>
+		</varlistentry>
+
+	</variablelist>
+</refsect1>
+
+<refsect1 id="shell">
+	<title>SHELL COMMANDS</title>
+	<para>
+		&xmllint; offers an interactive shell mode invoked with
+		the <option>--shell</option> command. Available commands in shell mode
+		include (in alphabetical order):
+	</para>
+	<variablelist>
+
+		<varlistentry>
+	<term><command>base</command></term>
+	<listitem>
+		<para>Display <acronym>XML</acronym> base of the node.</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><command>bye</command></term>
+	<listitem>
+		<para>Leave the shell.</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><command>cat <replaceable>NODE</replaceable></command></term>
+	<listitem>
+		<para>Display the given node or the current one.</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><command>cd <replaceable>PATH</replaceable></command></term>
+	<listitem>
+		<para>
+			Change the current node to the given path (if unique) or root if no
+			argument is given.
+		</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><command>dir <replaceable>PATH</replaceable></command></term>
+	<listitem>
+		<para>
+			Dumps information about the node (namespace, attributes, content).
+		</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><command>du <replaceable>PATH</replaceable></command></term>
+	<listitem>
+		<para>
+			Show the structure of the subtree under the given path or the current node.
+		</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><command>exit</command></term>
+	<listitem>
+		<para>Leave the shell.</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><command>help</command></term>
+	<listitem>
+		<para>Show this help.</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><command>free</command></term>
+	<listitem>
+		<para>Display memory usage.</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><command>load <replaceable>FILENAME</replaceable></command></term>
+	<listitem>
+		<para>Load a new document with the given filename.</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><command>ls <replaceable>PATH</replaceable></command></term>
+	<listitem>
+		<para>List contents of the given path or the current directory.</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><command>pwd</command></term>
+	<listitem>
+		<para>Display the path to the current node.</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><command>quit</command></term>
+	<listitem>
+		<para>Leave the shell.</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><command>save <replaceable>FILENAME</replaceable></command></term>
+	<listitem>
+		<para>
+			Save the current document to the given filename or to the original name.
+		</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
 	<term><option>validate</option></term>
 	<listitem>
-	  <simpara>
-	    Check the document for error.
-	  </simpara>
+		<para>Check the document for errors.</para>
 	</listitem>
-      </varlistentry>
-      <varlistentry>
-	<term><option>write <replaceable>name</replaceable></option></term>
+		</varlistentry>
+
+		<varlistentry>
+	<term><command>write <replaceable>FILENAME</replaceable></command></term>
 	<listitem>
-	  <simpara>
-	    Write the current node to the given filename.
-	  </simpara>
+		<para>Write the current node to the given filename.</para>
 	</listitem>
-      </varlistentry>
-     
-    </variablelist>
-  </refsect1>
-<refsect1>
-   <title>Catalogs</title>
-     <para>Catalog behavior can be changed by redirecting
-     queries to the user's own set of catalogs. This can be done by setting the
-     <varname>XML_CATALOG_FILES</varname> environment variable to a list of
-     catalogs. An empty one should deactivate loading the default
-      <filename>/etc/xml/catalog</filename> default catalog.</para>
-  </refsect1>
-  <refsect1>
-    <title>Debugging Catalogs</title>
-    <para>Setting the environment variable <varname>XML_DEBUG_CATALOG</varname>
-    using the command <command>&quot;export XML_DEBUG_CATALOG=&quot;</command>
-    outputs debugging information related to catalog operations.</para>
-  </refsect1>
-  <refsect1>
-    <title>Error Return Codes</title>
-    <para>On the completion of execution, <application>Xmllint</application>
-    returns the following error codes:</para>
-    <variablelist>
-      <varlistentry>
-	<term>0</term>
+		</varlistentry>
+
+	</variablelist>
+</refsect1>
+
+<refsect1 id="environment">
+	<title>ENVIRONMENT</title>
+	<variablelist>
+
+		<varlistentry>
+	<term><envar>SGML_CATALOG_FILES</envar></term>
 	<listitem>
-	  <simpara>No error</simpara>
+		<para><acronym>SGML</acronym> catalog behavior can be changed by redirecting
+			queries to the user's own set of catalogs. This can be done by setting
+			the <envar>SGML_CATALOG_FILES</envar> environment variable to a list
+			of catalogs. An empty one should deactivate loading the
+			default <filename>/etc/sgml/catalog</filename> catalog.
+		</para>
 	</listitem>
-      </varlistentry>
-      <varlistentry>
-	<term>1</term>
+		</varlistentry>
+
+		<varlistentry>
+	<term><envar>XML_CATALOG_FILES</envar></term>
 	<listitem>
-	  <simpara>Unclassified</simpara>
+		<para><acronym>XML</acronym> catalog behavior can be changed by redirecting
+			queries to the user's own set of catalogs. This can be done by setting
+			the <envar>XML_CATALOG_FILES</envar> environment variable to a list
+			of catalogs. An empty one should deactivate loading the
+			default <filename>/etc/xml/catalog</filename> catalog.
+		</para>
 	</listitem>
-      </varlistentry>
-      <varlistentry>
-	<term>2</term>
+		</varlistentry>
+
+		<varlistentry>
+	<term><envar>XML_DEBUG_CATALOG</envar></term>
 	<listitem>
-	  <simpara>Error in DTD</simpara>
+		<para>Setting the environment variable <envar>XML_DEBUG_CATALOG</envar>
+			to <parameter>non-zero</parameter> using the <command>export</command>
+			command outputs debugging information related to catalog operations.
+		</para>
 	</listitem>
-      </varlistentry>
-      <varlistentry>
-	<term>3</term>
+		</varlistentry>
+
+		<varlistentry>
+	<term><envar>XMLLINT_INDENT</envar></term>
 	<listitem>
-	  <simpara>Validation error</simpara>
+		<para>Setting the environment variable <envar>XMLLINT_INDENT</envar>
+			controls the indentation. The default value is two spaces &quot;  &quot;.
+		</para>
 	</listitem>
-      </varlistentry>
-      <varlistentry>
-	<term>4</term>
+		</varlistentry>
+		
+	</variablelist>
+</refsect1>
+
+<refsect1 id="diagnostics">
+	<title>DIAGNOSTICS</title>
+	<para>
+		&xmllint; return codes provide information that can be used when
+		calling it from scripts.
+	</para>
+	<!-- better use segmentedlist element later,
+	     which is currently only supported in snapshots -->
+	<variablelist>
+
+		<varlistentry>
+	<term><errorcode>0</errorcode></term>
 	<listitem>
-	  <simpara>Validation error</simpara>
+		<para>No error</para>
 	</listitem>
-      </varlistentry>
-      <varlistentry>
-	<term>5</term>
+		</varlistentry>
+
+		<varlistentry>
+	<term><errorcode>1</errorcode></term>
 	<listitem>
-	  <simpara>Error in schema compilation</simpara>
+		<para>Unclassified</para>
 	</listitem>
-      </varlistentry>
-      <varlistentry>
-	<term>6</term>
+		</varlistentry>
+
+		<varlistentry>
+	<term><errorcode>2</errorcode></term>
 	<listitem>
-	  <simpara>Error writing output</simpara>
+		<para>Error in <acronym>DTD</acronym></para>
 	</listitem>
-      </varlistentry>
-      <varlistentry>
-	<term>7</term>
+		</varlistentry>
+
+		<varlistentry>
+	<term><errorcode>3</errorcode></term>
 	<listitem>
-	  <simpara>Error in pattern (generated when
-	  <optional>--pattern</optional> option is used)</simpara>
+		<para>Validation error</para>
 	</listitem>
-      </varlistentry>
-      <varlistentry>
-	<term>8</term>
+		</varlistentry>
+
+		<varlistentry>
+	<term><errorcode>4</errorcode></term>
 	<listitem>
-	  <simpara>Error in Reader registration (generated when
-	  <optional>--chkregister</optional> option is used)</simpara>
+		<para>Validation error</para>
 	</listitem>
-      </varlistentry>
-      <varlistentry>
-	<term>9</term>
+		</varlistentry>
+
+		<varlistentry>
+	<term><errorcode>5</errorcode></term>
 	<listitem>
-	  <simpara>Out of memory error</simpara>
+		<para>Error in schema compilation</para>
 	</listitem>
-      </varlistentry>
-    </variablelist>
-  </refsect1>
+		</varlistentry>
+
+		<varlistentry>
+	<term><errorcode>6</errorcode></term>
+	<listitem>
+		<para>Error writing output</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><errorcode>7</errorcode></term>
+	<listitem>
+		<para>
+			Error in pattern (generated when <option>--pattern</option> option is used)
+		</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><errorcode>8</errorcode></term>
+	<listitem>
+		<para>
+			Error in Reader registration (generated
+			when <option>--chkregister</option> option is used)
+		</para>
+	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+	<term><errorcode>9</errorcode></term>
+	<listitem>
+		<para>Out of memory error</para>
+	</listitem>
+		</varlistentry>
+
+	</variablelist>
+</refsect1>
+
+<refsect1 id="seealso">
+	<title>SEE ALSO</title>
+	<para><citerefentry>
+			<refentrytitle>libxml</refentrytitle>
+			<manvolnum>3</manvolnum>
+		</citerefentry>
+	</para>
+	<para>
+		More information can be found at
+		<itemizedlist>
+			<listitem>
+				<para><citerefentry>
+						<refentrytitle>libxml</refentrytitle>
+						<manvolnum>3</manvolnum>
+					</citerefentry> web page <ulink url="http://www.xmlsoft.org/"/>
+				</para>
+			</listitem>
+			<listitem>
+				<para>W3C <acronym>XSLT</acronym> page <ulink url="http://www.w3.org/TR/xslt"/>
+				</para>
+			</listitem>
+		</itemizedlist>
+	</para>
+</refsect1>
+
 </refentry>

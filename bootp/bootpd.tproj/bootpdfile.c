@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -120,7 +120,7 @@ bootp_readtab(const char * filename)
 	filename = ETC_BOOTPTAB;
     }
     if ((fp = fopen(filename, "r")) == NULL) {
-	syslog(LOG_NOTICE, "can't open %s", filename);
+	syslog(LOG_INFO, "can't open %s", filename);
 	return;
     }
     if (fstat(fileno(fp), &st) == 0 

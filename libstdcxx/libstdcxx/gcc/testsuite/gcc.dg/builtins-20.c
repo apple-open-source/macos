@@ -7,6 +7,8 @@
 
 /* { dg-do link } */
 /* { dg-options "-O2 -ffast-math" } */
+/* { dg-options "-O2 -ffast-math -mmacosx-version-min=10.3" { target powerpc-*-darwin* } } */
+/* { dg-options "-O2 -ffast-math -std=c99" { target *-*-solaris2* } } */
 
 #include "builtins-config.h"
 
@@ -38,6 +40,12 @@ void test1(double x)
 
   if (cos(x)*tan(x) != sin(x))
     link_error ();
+
+  if (sin(x)/tan(x) != cos(x))
+    link_error ();
+
+  if (tan(x)/sin(x) != 1.0/cos(x))
+    link_error ();
 }
 
 void test2(double x, double y)
@@ -65,6 +73,12 @@ void test1f(float x)
     link_error ();
 
   if (cosf(x)*tanf(x) != sinf(x))
+    link_error ();
+
+  if (sinf(x)/tanf(x) != cosf(x))
+    link_error ();
+
+  if (tanf(x)/sinf(x) != 1.0f/cosf(x))
     link_error ();
 #endif
 }
@@ -95,6 +109,12 @@ void test1l(long double x)
     link_error ();
 
   if (cosl(x)*tanl(x) != sinl(x))
+    link_error ();
+
+  if (sinl(x)/tanl(x) != cosl(x))
+    link_error ();
+
+  if (tanl(x)/sinl(x) != 1.0l/cosl(x))
     link_error ();
 #endif
 }

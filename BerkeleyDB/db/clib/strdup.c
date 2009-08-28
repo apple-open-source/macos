@@ -29,21 +29,13 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
+ * $Id: strdup.c,v 12.1 2006/05/05 14:53:08 bostic Exp $
  */
 
 #include "db_config.h"
 
-#ifndef lint
-static const char revid[] = "$Id: strdup.c,v 1.2 2004/03/30 01:21:22 jtownsen Exp $";
-#endif /* not lint */
-
-#ifndef NO_SYSTEM_INCLUDES
-#include <sys/types.h>
-
-#include <stddef.h>
-#include <stdlib.h>
-#include <string.h>
-#endif
+#include "db_int.h"
 
 /*
  * strdup --

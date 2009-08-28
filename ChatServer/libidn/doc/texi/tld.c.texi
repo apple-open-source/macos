@@ -1,3 +1,5 @@
+@subheading tld_get_table
+@anchor{tld_get_table}
 @deftypefun {const Tld_table *} {tld_get_table} (const char * @var{tld}, const Tld_table ** @var{tables})
 @var{tld}: TLD name (e.g. "com") as zero terminated ASCII byte string.
 
@@ -11,6 +13,8 @@ TLD table array.
 thru @code{tables}, or return @code{NULL} if no such structure is found.
 @end deftypefun
 
+@subheading tld_default_table
+@anchor{tld_default_table}
 @deftypefun {const Tld_table *} {tld_default_table} (const char * @var{tld}, const Tld_table ** @var{overrides})
 @var{tld}: TLD name (e.g. "com") as zero terminated ASCII byte string.
 
@@ -26,6 +30,8 @@ looking through @code{overrides} then thru built-in list, or @code{NULL} if
 no such structure found.
 @end deftypefun
 
+@subheading tld_get_4
+@anchor{tld_get_4}
 @deftypefun {int} {tld_get_4} (const uint32_t * @var{in}, size_t @var{inlen}, char ** @var{out})
 @var{in}: Array of unicode code points to process. Does not need to be
 zero terminated.
@@ -41,6 +47,8 @@ string in @code{out}.
 @code{Tld_rc} error code otherwise.
 @end deftypefun
 
+@subheading tld_get_4z
+@anchor{tld_get_4z}
 @deftypefun {int} {tld_get_4z} (const uint32_t * @var{in}, char ** @var{out})
 @var{in}: Zero terminated array of unicode code points to process.
 
@@ -53,6 +61,8 @@ string in @code{out}.
 @code{Tld_rc} error code otherwise.
 @end deftypefun
 
+@subheading tld_get_z
+@anchor{tld_get_z}
 @deftypefun {int} {tld_get_z} (const char * @var{in}, char ** @var{out})
 @var{in}: Zero terminated character array to process.
 
@@ -66,6 +76,8 @@ any ASCII compatible character encoding.
 @code{Tld_rc} error code otherwise.
 @end deftypefun
 
+@subheading tld_check_4t
+@anchor{tld_check_4t}
 @deftypefun {int} {tld_check_4t} (const uint32_t * @var{in}, size_t @var{inlen}, size_t * @var{errpos}, const Tld_table * @var{tld})
 @var{in}: Array of unicode code points to process. Does not need to be
 zero terminated.
@@ -88,6 +100,8 @@ character is not allowed, or additional error codes on general
 failure conditions.
 @end deftypefun
 
+@subheading tld_check_4tz
+@anchor{tld_check_4tz}
 @deftypefun {int} {tld_check_4tz} (const uint32_t * @var{in}, size_t * @var{errpos}, const Tld_table * @var{tld})
 @var{in}: Zero terminated array of unicode code points to process.
 
@@ -107,6 +121,8 @@ character is not allowed, or additional error codes on general
 failure conditions.
 @end deftypefun
 
+@subheading tld_check_4
+@anchor{tld_check_4}
 @deftypefun {int} {tld_check_4} (const uint32_t * @var{in}, size_t @var{inlen}, size_t * @var{errpos}, const Tld_table ** @var{overrides})
 @var{in}: Array of unicode code points to process. Does not need to be
 zero terminated.
@@ -133,6 +149,8 @@ character is not allowed, or additional error codes on general
 failure conditions.
 @end deftypefun
 
+@subheading tld_check_4z
+@anchor{tld_check_4z}
 @deftypefun {int} {tld_check_4z} (const uint32_t * @var{in}, size_t * @var{errpos}, const Tld_table ** @var{overrides})
 @var{in}: Zero-terminated array of unicode code points to process.
 
@@ -156,6 +174,8 @@ character is not allowed, or additional error codes on general
 failure conditions.
 @end deftypefun
 
+@subheading tld_check_8z
+@anchor{tld_check_8z}
 @deftypefun {int} {tld_check_8z} (const char * @var{in}, size_t * @var{errpos}, const Tld_table ** @var{overrides})
 @var{in}: Zero-terminated UTF8 string to process.
 
@@ -181,6 +201,8 @@ character is not allowed, or additional error codes on general
 failure conditions.
 @end deftypefun
 
+@subheading tld_check_lz
+@anchor{tld_check_lz}
 @deftypefun {int} {tld_check_lz} (const char * @var{in}, size_t * @var{errpos}, const Tld_table ** @var{overrides})
 @var{in}: Zero-terminated string in the current locales encoding to process.
 

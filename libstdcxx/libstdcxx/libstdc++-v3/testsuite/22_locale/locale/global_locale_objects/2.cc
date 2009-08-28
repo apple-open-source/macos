@@ -1,6 +1,8 @@
+// { dg-require-namedlocale "" }
+
 // 2000-09-13 Benjamin Kosnik <bkoz@redhat.com>
 
-// Copyright (C) 2000, 2002, 2003 Free Software Foundation
+// Copyright (C) 2000, 2002, 2003, 2005 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -15,7 +17,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // 22.1.1.5 locale static members [lib.locale.statics]
@@ -42,13 +44,13 @@ void test02()
   // named locales work.
   if (testph && testmx)
     {
-      const locale loc_ph = __gnu_test::try_named_locale(ph.c_str());
-      const locale loc_mx = __gnu_test::try_named_locale(mx.c_str());
+      const locale loc_ph = locale(ph.c_str());
+      const locale loc_mx = locale(mx.c_str());
       
       // Use setlocale between two calls to locale("")
-      const locale loc_env_1 = __gnu_test::try_named_locale("");
+      const locale loc_env_1 = locale("");
       setlocale(LC_ALL, ph.c_str());
-      const locale loc_env_2 = __gnu_test::try_named_locale("");
+      const locale loc_env_2 = locale("");
       VERIFY( loc_env_1 == loc_env_2 );
       
       // Change global locale.

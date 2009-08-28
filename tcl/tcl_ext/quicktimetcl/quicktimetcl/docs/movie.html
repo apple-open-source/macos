@@ -1,0 +1,2573 @@
+<HTML>
+
+<HEAD>
+
+<TITLE>QuickTimeTcl Commands - movie manual page</TITLE>
+
+</HEAD>
+
+<BODY>
+
+<DL>
+    <DD><A HREF="movie.html#M1">NAME</A>
+    
+    <DL>
+	<DD>movie - Create and manipulate movie widgets for video and audio
+    </DL>
+    
+    <DD><A HREF="movie.html#M2">SYNOPSIS</A>
+    
+    <DL>
+	<DD><B>package require QuickTimeTcl</B> ?<I>version</I>? 
+	<DD><B>movie </B> <I>pathname</I>  ?<I>options</I>?
+    </DL>
+    
+    <DD><A HREF="movie.html#M3">WIDGET-SPECIFIC OPTIONS</A>
+    
+    <DL>
+	<DD><A HREF="movie.html#M4">-controller, controller, Controller</A> 
+	<DD><A HREF="movie.html#M5">-custombutton, customButton, CustomButton</A> 
+	<DD><A HREF="movie.html#M6">-file, file, File</A> 
+	<DD><A HREF="movie.html#M-highlightbackground">-highlightbackground, highlightBackground, HighlightBackground</A>
+	<DD><A HREF="movie.html#M-highlightcolor">-highlightcolor, highlightColor, HighlightColor</A>
+	<DD><A HREF="movie.html#M-highlightthickness">-highlightthickness, highlightThickness, HighlightThickness</A>
+	<DD><A HREF="movie.html#M7">-height, height, Height</A> 
+	<DD><A HREF="movie.html#M8">-loadcommand, loadCommand, LoadCommand</A> 
+	<DD><A HREF="movie.html#M308">-loadintoram, loadIntoRam, LoadIntoRam</A> 
+	<DD><A HREF="movie.html#M9">-loopstate, loopstate, Loopstate</A> 
+	<DD><A HREF="movie.html#M10"> -mccommand, mcCommand, MCCommand</A> 
+	<DD><A HREF="movie.html#M11"> -mcedit, mcEdit, MCEdit</A> 
+	<DD><A HREF="movie.html#M203"> -palindromeloopstate, palindromeLoopstate, 
+	PalindromeLoopstate</A> 
+	<DD><A HREF="movie.html#M12">-preferredrate, preferredRate, PreferredRate</A> 
+	<DD><A HREF="movie.html#M13">-progressproc, progressProc, ProgressProc</A> 
+	<DD><A HREF="movie.html#M14">-qtprogress, qtProgress, QTProgress</A> 
+	<DD><A HREF="movie.html#M311">-qtvrqualitymotion, qtvrQualityMotion, 
+	QTVRQualityMotion</A> 
+	<DD><A HREF="movie.html#M310">-qtvrqualitystatic, qtvrQualityStatic, QTVRQualityStatic</A> 
+	<DD><A HREF="movie.html#M15">-resizable, resizable, Resizable</A> <DD><A 
+	HREF="movie.html#M300">-swing, swing, Swing</A> <DD><A 
+	HREF="movie.html#M301">-swingspeed, swingSpeed, SwingSpeed</A> <DD><A 
+	HREF="movie.html#M16">-url, url, Url</A> <DD><A 
+	HREF="movie.html#M17">-volume, volume, Volume</A> <DD><A 
+	HREF="movie.html#M18">-width, width, Width</A>
+    </DL>
+    
+    <DD><A HREF="movie.html#M19"> DESCRIPTION </A> 
+    <DD><A HREF="movie.html#M201"> SOUND ONLY </A> 
+    <DD><A HREF="movie.html#M20">EDITING</A> 
+    <DD><A HREF="movie.html#M206"> TEXT </A>
+    <DD><A HREF="movie.html#M212"> STILL IMAGES AS MOVIES </A>
+    <DD><A HREF="movie.html#M313"> MAKING MOVIES </A>
+    <DD><A HREF="movie.html#M306"> SAVING MOVIES </A>
+    <DD><A HREF="movie.html#M327"> VIDEO EFFECTS </A>
+    <DD><A HREF="movie.html#M21"> WIDGET 
+    COMMAND </A>
+    
+    <DL>
+	<DD><A HREF="movie.html#M22"><I>pathName </I><B>add</B></A> 
+
+	<DD><A HREF="movie.html#M500"><I>pathName </I><B>callback</B> ?<I>args</I>?</A> 
+	<DL>
+	    <DD><A HREF="movie.html#M501"><I>pathName</I> <B>callback</B>
+	    <I>movieTime procName</I></A>  
+	    <DD><A HREF="movie.html#M502"><I>pathName</I> <B>callback cancel</B>
+	    <I>token</I></A>  
+	    <DD><A HREF="movie.html#M503"><I>pathName</I> <B>callback info</B></A>  
+	</DL>
+
+	<DD><A 
+	HREF="movie.html#M23"><I>pathName </I><B>cget</B> <I>option</I></A> 
+	<DD><A 
+	HREF="movie.html#M24"><I>pathName </I><B>compress</B> <I>fileName</I> 
+	?<I>boolean</I>?</A> 
+	<DD><A HREF="movie.html#M25"><I>pathName 
+	</I><B>configure</B> ?<I>option</I>? ?<I>value option value ...</I>?</A> 
+	<DD><A HREF="movie.html#M205"><I>pathName </I><B>controllerinfo</B></A> 
+	<DD><A HREF="movie.html#M26"><I>pathName </I><B>copy</B></A> 
+	<DD><A 
+	HREF="movie.html#M27"><I>pathName </I><B>cut</B></A> 
+	<DD><A HREF="movie.html#M28"><I>pathName </I><B>effect</B> <I>startTime</I> 
+	<I>duration</I> ?<I>trackOneID</I>? ?<I>trackTwoID</I>?</A> 
+	<DD><A HREF="movie.html#M29"><I>pathName </I><B>export</B> 
+	?<I>option value ...</I>?</A> 
+	    
+	<DL>
+	    <DD><A HREF="movie.html#M360"><I>-codecsubtype</I></A> 
+	    <DD><A HREF="movie.html#M361"><I>-dialog</I></A> 
+	    <DD><A HREF="movie.html#M362"><I>-file</I></A> 
+	    <DD><A HREF="movie.html#M363"><I>-mediatype</I></A> 
+	    <DD><A HREF="movie.html#M364"><I>-onlytrack</I></A> 
+	    <DD><A HREF="movie.html#M365"><I>-readsettingsfromfile</I></A> 
+	    <DD><A HREF="movie.html#M366"><I>-restrictexport</I></A> 
+	    <DD><A HREF="movie.html#M367"><I>-savesettingstofile</I></A> 
+	    <DD><A HREF="movie.html#M368"><I>-uselatestsettings</I></A> 
+	</DL>
+
+	<DD><A HREF="movie.html#M302"><I>pathName </I><B>fieldofview</B> ?<I>fov</I>?</A> 
+	<DD><A HREF="movie.html#M30"><I>pathName </I><B>flatten</B> 
+	<I>fileName</I> 
+	?<B>-dontinterleave</B> <I>boolean</I>? ?<B>-resource</B> <I>id</I>? ?<B>-dialog</B> <I>boolean</I>? 
+	?<B>-forceresourcebeforedata</B> <I>boolean</I>?</A> 
+	<DD><A HREF="movie.html#M31"><I>pathName </I><B>gettime</B></A> 
+	<DD><A HREF="movie.html#M309"><I>pathName </I><B>haschanged</B></A> 
+	
+	<DD><A HREF="movie.html#M340"><I>pathName </I><B>hotspot</B> ?<I>args</I>?</A> 
+	<DL>
+	    <DD><A HREF="movie.html#M341"><I>pathName </I><B>hotspot configure</B>
+	    <I>nodeId hotspotId</I> ?<B>-enabled</B> <I>boolean</I>? <B>-name</B> <I>text</I>?</A>  
+	    <DD><A HREF="movie.html#M342"><I>pathName </I><B>hotspot setid</B>
+	    <I>nodeId hotspotId newHotspotId</I></A>
+	    <DD><A HREF="movie.html#M343"><I>pathName </I><B>hotspot 
+	    setwiredactions</B>
+	    <I>nodeId hotspotId</I> ?<B>-enabled</B> <I>boolean</I>? 
+	    ?<B>-fov</B> <I>number</I>? ?<B>-pan</B> <I>angle</I>? 
+	    ?<B>-tilt</B> <I>angle</I>?</A>
+	</DL>
+	    
+	<DD><A HREF="movie.html#M32"><I>pathName </I><B>isdone</B></A> 
+	<DD><A HREF="movie.html#M33"><I>pathName </I><B>ismovie</B></A> 
+	<DD><A HREF="movie.html#M34"><I>pathName </I><B>ispanoramic</B></A> 
+	<DD><A HREF="movie.html#M35"><I>pathName </I><B>isscrapmovie</B></A> 
+	<DD><A HREF="movie.html#M202"><I>pathName </I><B>isvisual</B></A> 
+	<DD><A HREF="movie.html#M36"><I>pathName </I><B>new</B> <I>fileName ?-resource id?</I></A> 
+	<DD><A HREF="movie.html#M480"><I>pathName </I><B>nextinterestingtime</B> 
+	<I>mediaTypeList</I> ?<I>movieTime</I>?</A> 
+	<DD><A HREF="movie.html#M303"><I>pathName </I><B>pan</B> ?<I>angle</I>?</A> 
+	<DD><A HREF="movie.html#M312"><I>pathName </I><B>panoinfo</B></A> 
+	<DD><A HREF="movie.html#M37"><I>pathName </I><B>paste</B> ?<I>args</I>?</A> 
+
+	<DL>
+	    <DD><A HREF="movie.html#M207"><I>pathName </I><B>paste</B></A>  
+	    <DD><A HREF="movie.html#M208"><I>pathName </I><B>paste dialog</B></A>
+	    <DD><A HREF="movie.html#M209"><I>pathName </I><B>paste parallel</B> </A> 
+	    <DD><A HREF="movie.html#M210"><I>pathName </I><B>paste replace</B></A>
+	    <DD><A HREF="movie.html#M211"><I>pathName </I><B>paste scaled</B> </A> 
+	</DL>
+	    
+	<DD><A 	HREF="movie.html#M38"><I>pathName </I><B>picture</B> <I>time</I> 
+	<I>imageName</I> ?<B>-height</B> <I>height</I>? ?<B>-width</B> <I>width</I>?</A> 
+	<DD><A HREF="movie.html#M39"><I>pathName </I><B>play</B></A> 
+	<DD><A HREF="movie.html#M510"><I>pathName </I><B>playhints</B> ?<I>-option value ...</I>?</A> 
+	<DD><A HREF="movie.html#M40"><I>pathName </I><B>rate</B> ?<I>rate</I>?</A> 
+	<DD><A HREF="movie.html#M41"><I>pathName </I><B>save</B></A> 
+	<DD><A HREF="movie.html#M305"><I>pathName </I><B>saveas</B> 
+	<I>fileName  ?-resource id?</I></A> 
+	
+	
+	<DD><A HREF="movie.html#M520"><I>pathName </I><B>select</B> ?<I>args</I>?</A> 
+	<DL>
+	    <DD><A HREF="movie.html#M521"><I>pathName </I><B>select all</B></A> 
+	    <DD><A HREF="movie.html#M42"><I>pathName </I><B>select clear</B></A> 
+	    <DD><A HREF="movie.html#M522"><I>pathName </I><B>select none</B></A> 
+	    <DD><A HREF="movie.html#M43"><I>pathName </I><B>select</B> 
+	    ?<I>startTime</I>? ?<I>duration</I>?</A> 
+	</DL>
+
+	
+	<DD><A HREF="movie.html#M44"><I>pathName </I><B>size</B></A> 
+	<DD><A 
+	HREF="movie.html#M204"><I>pathName </I><B>step</B> ?<I>numSteps</I>?</A> 
+	<DD><A 
+	HREF="movie.html#M45"><I>pathName </I><B>stop</B></A> 
+	<DD><A HREF="movie.html#M304"><I>pathName </I><B>tilt</B> ?<I>angle</I>?</A> 
+	<DD><A HREF="movie.html#M46"><I>pathName </I><B>time</B> ?<I>time</I>?</A> 
+	
+	<DD><A HREF="movie.html#M400"><I>pathName</I> <B>timecode</B>  ?<I>args</I>?</A>	
+	<DL>
+	    <DD><A HREF="movie.html#M401"><I>pathName </I><B>timecode delete</B></A> 
+	    <DD><A HREF="movie.html#M402"><I>pathName </I><B>timecode display</B> 
+	    <I>boolean</I></A> 
+	    <DD><A HREF="movie.html#M403"><I>pathName </I><B>timecode get</B></A> 
+	    <DD><A HREF="movie.html#M404"><I>pathName </I><B>timecode new</B> 
+	    <I>videTrackID</I> ?<I>args</I>?</A> 
+	    <DL>
+		<DD><A HREF="movie.html#M405"><I>-anchor</I></A> 
+		<DD><A HREF="movie.html#M406"><I>-background</I></A> 
+		<DD><A HREF="movie.html#M407"><I>-dropframes</I></A> 
+		<DD><A HREF="movie.html#M408"><I>-font</I></A> 
+		<DD><A HREF="movie.html#M409"><I>-foreground</I></A> 
+		<DD><A HREF="movie.html#M410"><I>-frameduration</I></A> 
+		<DD><A HREF="movie.html#M411"><I>-framespersecond</I></A> 
+		<DD><A HREF="movie.html#M412"><I>-pady</I></A> 
+		<DD><A HREF="movie.html#M413"><I>-sourcename</I></A> 
+		<DD><A HREF="movie.html#M414"><I>-startframes</I></A> 
+		<DD><A HREF="movie.html#M415"><I>-starthours</I></A> 
+		<DD><A HREF="movie.html#M416"><I>-startminutes</I></A> 
+		<DD><A HREF="movie.html#M417"><I>-startseconds</I></A> 
+		<DD><A HREF="movie.html#M418"><I>-timescale</I></A> 
+	    </DL>
+	    <DD><A HREF="movie.html#M419"><I>pathName </I><B>timecode toggle</B></A> 
+	</DL>
+	    	   
+	<DD><A HREF="movie.html#M47"><I>pathName </I><B>tracks</B>  ?<I>args</I>?</A>	
+	<DL>
+	    <DD><A HREF="movie.html#M48"><I>pathName </I><B>tracks</B></A>  <DD><A 
+	    HREF="movie.html#M49"><I>pathName </I><B>tracks add</B>  <I>args</I></A>
+	    
+	    <DL>
+		<DD><A HREF="movie.html#M50"><I>pathName </I><B>tracks add chapters</B> 
+		<I>trackID</I> <I>textTrackID</I></A> 
+		<DD><A HREF="movie.html#M51"><I>pathName </I><B>tracks add picture</B> 
+		<I>listOfImages</I></A> 
+		<DD><A HREF="movie.html#M52"><I>pathName </I><B>tracks 
+		add picture</B> <I>trackID startTime duration
+		listOfImages ?option value option value ...?</I></A> 
+		<DD><A HREF="movie.html#M330"><I>pathName </I><B>tracks add picturefile</B> 
+		<I>fileName</I></A> 
+		<DD><A HREF="movie.html#M331"><I>pathName </I><B>tracks 
+		add picturefile</B> <I>trackID startTime duration
+		fileName ?option value option value ...?</I></A> 
+		<DD><A HREF="movie.html#M53"><I>pathName </I><B>tracks add space</B></A> 
+		<DD><A HREF="movie.html#M54"><I>pathName </I><B>tracks add space</B> 
+		<I>trackID</I>  <I>startTime</I> <I>duration</I></A> 
+		<DD><A HREF="movie.html#M56"><I>pathName </I><B>tracks add 
+		text</B> <I>trackID startTime duration text ?option value option value ...?</I></A>
+	    </DL>
+	    
+	    <DD><A HREF="movie.html#M57"><I>pathName </I><B>tracks configure</B> 
+	    <I>trackID</I> ?<I>option</I>? ?<I>value option value ...</I>?</A> 
+	    
+	    <DL>
+		<DD><A HREF="movie.html#M320"><I>-balance</I></A> 
+		<DD><A HREF="movie.html#M328"><I>-enabled</I></A> 
+		<DD><A HREF="movie.html#M321"><I>-graphicsmode</I></A> 
+		<DD><A HREF="movie.html#M322"><I>-graphicsmodecolor</I></A> 
+		<DD><A HREF="movie.html#M323"><I>-layer</I></A> 
+		<DD><A HREF="movie.html#M326"><I>-matrix</I></A> 
+		<DD><A HREF="movie.html#M324"><I>-offset</I></A> 
+		<DD><A HREF="movie.html#M325"><I>-volume</I></A> 
+	    </DL>
+
+	    <DD><A HREF="movie.html#M58"><I>pathName 
+	    </I><B>tracks copy</B></A>  
+	    <DD><A HREF="movie.html#M59"><I>pathName 
+	    </I><B>tracks delete</B> ?<I>args</I>?</A>
+	    
+	    <DL>
+		<DD><A HREF="movie.html#M60"><I>pathName </I><B>tracks delete</B></A> 
+		<DD><A HREF="movie.html#M61"><I>pathName </I><B>tracks delete</B> 
+		<I>trackID</I></A> <DD><A HREF="movie.html#M62"><I>pathName </I><B>tracks 
+		delete</B> <I>trackID</I> <I>startTime</I> <I>duration</I></A>
+	    </DL>
+	    
+	    <DD><A HREF="movie.html#M63"><I>pathName </I><B>tracks disable</B> 
+	    <I>trackID</I></A> 
+	    <DD><A HREF="movie.html#M64"><I>pathName </I><B>tracks 
+	    duplicate</B> <I>trackID</I></A> 
+	    <DD><A HREF="movie.html#M65"><I>pathName 
+	    </I><B>tracks enable</B> <I>trackID</I></A> 
+	    <DD><A HREF="movie.html#M66"><I>pathName </I><B>tracks full</B> 
+	    ?<I>trackID</I>?</A> 
+	    <DD><A HREF="movie.html#M68"><I>pathName </I><B>tracks list</B></A> 
+	    <DD><A HREF="movie.html#M69"><I>pathName </I><B>tracks list -mediatype</B> 
+	    <I>media</I></A> 
+	    <DD><A HREF="movie.html#M70"><I>pathName </I><B>tracks 
+	    list -enabled</B> <I>boolean</I></A> 
+	    
+	    <DD><A HREF="movie.html#M450"><I>pathName </I><B>tracks media</B> <I>args</I></A>
+	    <DL>
+		<DD><A HREF="movie.html#M451"><I>pathName </I>
+		<B>tracks media nextinterestingtime</B> <I>trackID</I> ?<I>mediaTime</I>?</A> 
+		<DD><A HREF="movie.html#M452"><I>pathName </I>
+		<B>tracks media samplecount</B> <I>trackID</I></A> 
+		<DD><A HREF="movie.html#M453"><I>pathName </I>
+		<B>tracks media sampledescriptioncount</B> <I>trackID</I></A> 
+		<DD><A HREF="movie.html#M454"><I>pathName </I>
+		<B>tracks media samplenum</B> <I>trackID</I> ?<I>mediaTime</I>?</A> 
+		<DD><A HREF="movie.html#M455"><I>pathName </I>
+		<B>tracks media syncsamplecount</B> <I>trackID</I></A> 
+		<DD><A HREF="movie.html#M456"><I>pathName </I>
+		<B>tracks media time</B> <I>trackID</I> ?<I>movieTime</I>?</A> 
+		<DD><A HREF="movie.html#M457"><I>pathName </I>
+		<B>tracks media timefromnum</B> <I>trackID sampleNum</I></A> 
+		<DD><A HREF="movie.html#M458"><I>pathName </I>
+		<B>tracks media userdata</B> <I>trackID</I> ?<I>-key value ...</I>?</A> 
+	    </DL>
+	    
+	    <DD><A HREF="movie.html#M71"><I>pathName </I><B>tracks new</B> ?<I>args</I> ?</A>	    
+	    <DL>
+		<DD><A HREF="movie.html#M72"><I>pathName </I><B>tracks new</B> 
+		<B>sound | music</B> ?<I>-timescale scale?</I></A> 
+		<DD><A HREF="movie.html#M73"><I>pathName </I><B>tracks 
+		new</B> <B>text | video | sprite | flash</B> 
+		?<I>width</I><I> height</I>? ?<I>-timescale scale?</I></A>
+	    </DL>
+	    
+	    <DD><A HREF="movie.html#M481"><I>pathName</I> <B>tracks nextinterestingtime</B>
+	    <I>trackID</I> ?<I>movieTime</I>?</A> 
+	    <DD><A HREF="movie.html#M75"><I>pathName </I><B>tracks paste</B></A> 
+	    <DD><A HREF="movie.html#M76"><I>pathName </I><B>tracks picture</B> <I>trackID</I> 
+	    <I>time</I> <I>imageName</I> ?<B>-height</B> <I>height</I>? ?<B>-width</B> <I>width</I>?</A>  
+	    <DD><A HREF="movie.html#M77"><I>pathName 
+	    </I><B>tracks scale</B> <I>args</I></A>
+	    
+	    <DL>
+		<DD><A HREF="movie.html#M78"><I>pathName </I><B>tracks scale</B> 
+		<I>newDuration</I></A> 
+		<DD><A HREF="movie.html#M79"><I>pathName 
+		</I><B>tracks scale</B> <I>trackID</I> <I>startTime</I> <I>duration</I> 
+		<I>newDuration</I></A>
+	    </DL>
+	    
+	    <DD><A HREF="movie.html#M80"><I>pathName </I><B>tracks select clear</B></A> 
+	    <DD><A HREF="movie.html#M81"><I>pathName </I><B>tracks select</B> 
+	    ?<I>trackID</I>? ?<I>startTime</I>? ?<I>duration</I>?</A> 
+	    <DD><A HREF="movie.html#M82"><I>pathName </I><B>tracks size</B> <I>trackID</I> 
+	    ?<I>number</I>?</A>
+	    <DD><A HREF="movie.html#M431"><I>pathName </I><B>tracks userdata</B> <I>trackID</I>
+	    ?<I>-key value ...</I>?</A>
+	</DL>
+	
+	<DD><A HREF="movie.html#M84"><I>pathName </I><B>undo</B></A>
+	
+	<DL>
+	    <DD><A HREF="movie.html#M85"><I>pathName </I><B>undo set</B></A> <DD><A 
+	    HREF="movie.html#M86"><I>pathName </I><B>undo</B> <I>levelNo</I></A>
+	</DL>
+	<DD><A HREF="movie.html#M430"><I>pathName </I><B>userdata</B> ?<I>-key 
+	value ...</I>?</A>
+	
+    </DL>
+    
+    <DD><A HREF="movie.html#M87">BINDINGS</A> <DD><A 
+    HREF="movie.html#M88">BUGS</A> <DD><A HREF="movie.html#M89">KEYWORDS</A>
+</DL>
+
+<HR>
+
+<H3><A NAME="M1">NAME</A></H3>
+
+Movie - Create and manipulate movie widgets for video, audio, animations, 
+and VR panoramic pictures
+
+<H3><A NAME="M2">SYNOPSIS</A></H3>
+
+<B>package require QuickTimeTcl</B> ?<I>version</I>?<BR>
+<B>movie </B> <I>pathname</I>  ?<I>options</I>?
+
+<P>
+To conform better with the Tcl coding practice, the old <B>Movie</B> 
+command (with an uppercase M) has been replaced with the <B>movie</B> 
+command (all lowercase). Although the old <B>Movie</B> command is still 
+supported, its use is discouraged.
+
+<H3><A NAME="M3">WIDGET-SPECIFIC OPTIONS</A></H3>
+
+<DL>
+    <DT>Command-Line Name: <B><A NAME="M4">-controller</A></B>
+    <DT>Database Name: <B>controller</B>
+    <DT>Database Class: <B>Controller</B> <DD>A boolean of 0 or 1 specifies if 
+    the default QuickTime controller should be attached to the movie. It 
+    defaults to 1. The controller allows the user to interact with the movie in 
+    a simple way. Moreover, for an VR panoramic picture a controller is the 
+    only way to interact with the movie. All user actions that is received by a 
+    controller are handled internally in QuickTime. Unless you specify a tcl 
+    command via the  <B>mccommand</B>, tcl is unaware of what is happening the 
+    movie when a controller is attached. If a controller is removed from a 
+    movie that has the <B>loopstate</B> or <B>palindromeloopstate</B> set, 
+    these options are also removed together with the controller.
+    
+    <P>
+    <DT>Command-Line Name: <B><A NAME="M5">-custombutton</A></B>
+    <DT>Database Name: <B>customButton</B>
+    <DT>Database Class: <B>CustomButton</B> <DD>A boolean of 0 or 1 specifies 
+    if the movie controller, if any, has a custom button placed at its right 
+    end. It defaults to 0. To do anything useful, a Tcl command must be 
+    registered with <B>mccommand</B>. The global coordinates of the mouse click 
+    can be used to pop up a Tcl menu, for instance. A custom button is 
+    typically used in the QuickTime plugin for web browsers, where it is used 
+    for a pop up menu so that the user can perform some simple tasks from the 
+    controller directly, such as to save the movie to disk.
+    
+    <P>
+    <DT>Command-Line Name: <B><A NAME="M6">-file</A></B>
+    <DT>Database Name: <B>file</B>
+    <DT>Database Class: <B>File</B> <DD>Specifies the file path for the file to 
+    read the movie from. For instance, the following sequence first displays 
+    the first movie, and then, if necessary, resize, and display the second 
+    movie:
+    
+    <PRE>
+movie .m -file sample.mov
+pack .m
+.m configure -file qtvr.mov
+</PRE>
+
+    Configurations you may have made with the previous movie are likely (?) 
+    to be lost while loading another movie in the same widget.
+
+    <P><DT>Command-Line Name: <B><A NAME="M-highlightbackground">-highlightbackground</A></B>
+    <DT>Database Name: <B>highlightBackground</B>
+    <DT>Database Class: <B>HighlightBackground</B>
+    <DD>Specifies the color to display in the traversal highlight region when
+    the widget does not have the input focus.
+    
+    <P><DT>Command-Line Name: <B><A NAME="M-highlightcolor">-highlightcolor</A></B>
+    <DT>Database Name: <B>highlightColor</B>
+    <DT>Database Class: <B>HighlightColor</B>
+    <DD>Specifies the color to use for the traversal highlight rectangle that is
+    drawn around the widget when it has the input focus.
+    
+    <P><DT>Command-Line Name: <B><A NAME="M-highlightthickness">-highlightthickness</A></B>
+    <DT>Database Name: <B>highlightThickness</B>
+    <DT>Database Class: <B>HighlightThickness</B>
+    <DD>Specifies a non-negative value indicating the width of the highlight
+    rectangle to draw around the outside of the widget when it has the
+    input focus.
+    If the value is zero, no focus highlight is drawn around the widget.
+
+    <P>
+    <DT>Command-Line Name: <B><A NAME="M7">-height</A></B>
+    <DT>Database Name: <B>height</B>
+    <DT>Database Class: <B>Height</B> <DD> By default, the size of the movie 
+    widget is the "natural" size of the movie. If a nonzero value for either 
+    <B>height</B> or <B>width</B> is set, the movie will be this size. The 
+    default of 0 means that this option should be ignored, and the movies 
+    natural height be used. Note that these are "sticky" and are not cleared if 
+    the file name is changed.
+    
+    <P>
+    <DT>Command-Line Name: <B><A NAME="M8">-loadcommand</A></B>
+    <DT>Database Name: <B>loadCommand</B>
+    <DT>Database Class: <B>LoadCommand</B> <DD> Registers a 
+    Tcl command procedure to be called whenever the load state of a remote 
+    movie changes, and it allows the loading to be asynchronous. If a movie is 
+    specified with the <B>url</B> option, the default behaviour is that 
+    everything that needs to be made in order to open the movie, network 
+    connections and such, is done in blocking mode. Since this is usually a 
+    somewhat time consuming process, using the <B>loadcommand</B>, the 
+    <B>movie</B> command returns immediately, and the registered tcl command 
+    gets called when something happens to the process of loading the movie. 
+    Specifying this command only allows the movie to be loaded 
+    asynchronously, it is not required to do so. This is handled internally 
+    in QuickTime, and is beoynd my control.
+    The Tcl procedure should have this form:
+    
+    <PRE>proc MyLoadCommandProc { widget message {err {}} }</PRE>
+    
+    where <CODE>widget</CODE> is the movie widget, and <CODE>message</CODE> is 
+    one of <B>loading</B>, <B>playable</B>, <B>playthroughok</B>, or <B>complete</B>, 
+    in that order. 
+    Not each of the states is necessarily called, and any single state may 
+    be called more than once.
+    The movie cannot be mapped or configured until its state is at 
+    least <B>playable</B>, and it cannot be saved to disk unless it is 
+    <B>complete</B>. When the state is at least <B>playthroughok</B>,
+    the movie can be started and played to end without any intermittency.
+    If <B>err</B> is nonzero, an error has occured, where <B>err</B> contains  a descriptive 
+    message.
+    
+    <P>
+    <DT>Command-Line Name: <B><A NAME="M308">-loadintoram</A></B>
+    <DT>Database Name: <B>loadIntoRam</B>
+    <DT>Database Class: <B>LoadIntoRam</B> <DD>A boolean value determines 
+    if the movie should be completely read into memory. It defaults to 
+    false. This is only 
+    advisable for small movies. Alert sounds, and other small size sounds, that need 
+    to be started without the extra time delay a disk access implies, can 
+    be stored into memory this way.
+    
+    <P>
+    <DT>Command-Line Name: <B><A NAME="M9">-loopstate</A></B>
+    <DT>Database Name: <B>loopstate</B>
+    <DT>Database Class: <B>Loopstate</B> <DD>A boolean value determines the 
+    movie's loopstate. It is 0 for ordinary playback, but if 1, the movie is 
+    restarted from the beginning once it has reached its end, indefinitely. To 
+    start looping a movie, first set its loopstate, and then play it.
+    
+    <P>
+    <DT>Command-Line Name: <B><A NAME="M10">-mccommand</A></B>
+    <DT>Database Name: <B>mcCommand</B>
+    <DT>Database Class: <B>MCCommand</B> <DD> Registers a Tcl command procedure 
+    to be called from the QuickTime movie controller. This enables the script 
+    writer to monitor what is going on inside the controller.  The argument to 
+    <B>mccommand</B> is just the name of the Tcl procedure. The Tcl command 
+    function should have this form:
+    
+    <PRE>proc MyMCCommandProc {widget message {par {}}}</PRE>
+    
+    where widget is the movie widget path, message any of  <B>activate</B>, 
+    <B>customButtonClick</B>, <B>deactivate</B>, <B>key</B>, <B>goToTime</B>, 
+    <B>mouseDown</B>, <B>play</B>, <B>setSelectionBegin</B>, 
+    <B>setSelectionDuration</B>, or <B>setVolume</B>. Some messages have 
+    parameters associated with them; <B>customButtonClick</B> appends a list 
+    {<I>x</I> <I>y</I>}, where <I>x</I> and <I>y</I> are the global coordinates 
+    of the mouse click on the <B>custombutton</B>; the <B>goToTime</B> appends 
+    a list of three time values <CODE>{ <I>hiTime loTime timeScale</I>}</CODE> 
+    as a response to interactions with the scale button, where <I>hiTime</I> is 
+    the high order number of the position (usually 0), <I>loTime</I> the 
+    (lo)position in the movie, and <I>timeScale</I> the movie's time scale; 
+    <B>key</B> appends the actual character pressed; <B>mouseDown</B> appends a 
+    list {<I>x</I> <I>y</I>}, where <I>x</I> and <I>y</I> are the global 
+    coordinates of the mouse click inside the movie; <B>setSelectionBegin</B> 
+    appends the start selection movie time if the controller with -mcedit 
+    enabled is shift dragged, tends to repeat itself also if only 
+    setSelectionDuration changes; <B>setSelectionDuration</B> appends the 
+    duration of the selection in movie time if the controller with -mcedit 
+    enabled is shift dragged; <B>play</B> appends the rate (from 0.0 to 1.0) at 
+    which the movie is played when the play button is clicked, and is 0.0 when 
+    the movie stops; <B>setVolume</B> appends the volume set as a number 
+    between -256 and 256, where 0 is no volume. There are more message types 
+    than can be implemented if needed.
+    
+    <P>
+    For QTVR panoramic movies, not all of the above callbacks apply, and 
+    instead some additional callbacks are valid. The additional messages 
+    are <B>fieldofview</B>, <B>pan</B>, <B>tilt</B>, and <B>triggerhotspot</B>.
+    The parameter associated with the <B>fieldofview</B> is a float of 
+    unknown dimension, <B>pan</B> and <B>tilt</B> are associated angles 
+    in degrees. The <B>triggerhotspot</B> is followed by an id number of 
+    the hot spot the user clicked.
+    
+    <P>
+    If the tcl callback procedure returns a break result code, by
+    <CODE>return -code 3</CODE> (is there a better way?), the corresponding action in the
+    movie is not taken place. This may be used to constrain user actions in 
+    movies.
+    
+    <P>
+    <DT>Command-Line Name: <B><A NAME="M11">-mcedit</A></B>
+    <DT>Database Name: <B>mcEdit</B>
+    <DT>Database Class: <B>MCEdit</B> <DD>A boolean value determines if editing 
+    is possible via the controller. Shift drag the controller to make a movie selection.
+    Many more <B>paste</B> operations are possible since all movie import 
+    components are made available. See <A HREF="movie.html#M20">EDITING</A>.
+    
+    <P>
+    <DT>Command-Line Name: <B><A NAME="M203">-palindromeloopstate</A></B>
+    <DT>Database Name: <B>palindromeLoopstate</B>
+    <DT>Database Class: <B>PalindromeLoopstate</B> <DD>A boolean value 
+    determines the movie's palindrome loopstate. It is 0 for ordinary playback, 
+    but if 1, the movie starts to play backwards when it has reached its end, 
+    and starts to play forward again when it has reached its beginning, 
+    indefinitely. To start palindrome looping a movie, first set its palindrome 
+    loopstate, and then play it.
+    
+    <P>
+    <DT>Command-Line Name: <B><A NAME="M12">-preferredrate</A></B>
+    <DT>Database Name: <B>preferredRate</B>
+    <DT>Database Class: <B>PreferredRate</B> <DD>The default playback rate for 
+    the movie, between -1.0 and 1.0, where 1.0 is the normal play rate. Slow 
+    motion playback is achieved by a rate smaller than 1.0, and the movie runs 
+    backward for negative rates. This option is only effective if the 
+    <B>play</B> command is used---if you use the controller it plays with a 
+    rate 1.0.
+    
+    <P>
+    <DT>Command-Line Name: <B><A NAME="M13">-progressproc</A></B>
+    <DT>Database Name: <B>progressProc</B>
+    <DT>Database Class: <B>ProgressProc</B> <DD> Specifies a Tcl progress 
+    procedure which will be called every once in a while by QuickTime while a 
+    long operation is going on. The argument to <B>progressProc</B> is just the 
+    name of the Tcl procedure. The Tcl progress function should have this form:
+    
+    <PRE>proc MyProgressProc {widget message operation percent}</PRE>
+    
+    where widget is the movie widget path, message any of  <B>open</B>, 
+    <B>percent</B>, <B>close</B>, or <B>cancel</B>, the operation is a text 
+    describing the QuickTime operation taking place, and percent is a number 
+    between 0 and 100 telling the percentage done. If you are going to 
+    cancel the operation, then return a break code: <CODE>return -code 3</CODE> 
+    (is there a better way?).
+    
+    <P>
+    <DT>Command-Line Name: <B><A NAME="M14">-qtprogress</A></B>
+    <DT>Database Name: <B>qtProgress</B>
+    <DT>Database Class: <B>QTProgress</B> <DD>A boolean specifies if the 
+    standard QuickTime progress window should be displayed during long 
+    operations. It defaults to 1. If <B>progressProc</B> is set, that one is 
+    used instead of this.
+    
+    <P>
+    <DT>Command-Line Name: <B><A NAME="M311">-qtvrqualitymotion</A></B>
+    <DT>Database Name: <B>qtvrQualityMotion</B>
+    <DT>Database Class: <B>QTVRQualityMotion</B> <DD>Specifies the imaging 
+    rendering quality for moving images of QTVR panoramas. It is one of 
+    <B>min</B>, <B>low</B>, <B>normal</B>, <B>high</B>, or <B>max</B>. Its 
+    value is normally stored in the movie file.
+    
+    <P>
+    <DT>Command-Line Name: <B><A NAME="M310">-qtvrqualitystatic</A></B>
+    <DT>Database Name: <B>qtvrQualityStatic</B>
+    <DT>Database Class: <B>QTVRQualityStatic</B> <DD>Specifies the imaging 
+    rendering quality for static images of QTVR panoramas. It is one of 
+    <B>min</B>, <B>low</B>, <B>normal</B>, <B>high</B>, or <B>max</B>. Its 
+    value is normally stored in the movie file.
+    
+    <P>
+    <DT>Command-Line Name: <B><A NAME="M15">-resizable</A></B>
+    <DT>Database Name: <B>resizable</B>
+    <DT>Database Class: <B>Resizable</B> <DD> This is a boolean option of 0 or 
+    1 that specifies if a resize button should be placed in the right end of 
+    the controller. It defaults to 0. The resize button enables the user to 
+    resize the movie, keeping the proportions between width and height. By a 
+    click and drag action, a gray ghost rectangle is drawn to show the movies 
+    final size. The size change is automatically propagated to the Tcl geometry 
+    management system when the button is released.
+    
+    <P>
+    <DT>Command-Line Name: <B><A NAME="M300">-swing</A></B>
+    <DT>Database Name: <B>swing</B>
+    <DT>Database Class: <B>Swing</B> <DD> This is a boolean option of 0 or 
+    1 that specifies if a QTVR panoramic movie should transition smoothly 
+    when setting any of <B>fieldofview</B>, <B>pan</B>, or <B>tilt</B>.
+    Only applicable for a QTVR panoramic movie. The speed is set by the 
+    <B>-swingspeed</B> option.
+    
+    <P>
+    <DT>Command-Line Name: <B><A NAME="M301">-swingspeed</A></B>
+    <DT>Database Name: <B>swingSpeed</B>
+    <DT>Database Class: <B>SwingSpeed</B> <DD> This sets the transition 
+    speed when setting any of <B>fieldofview</B>, <B>pan</B>, or <B>tilt</B>.
+    Only applicable for a QTVR panoramic movie. The <B>-swing</B> option must be 
+    enabled.
+    
+    <P>
+    <DT>Command-Line Name: <B><A NAME="M16">-url</A></B>
+    <DT>Database Name: <B>url</B>
+    <DT>Database Class: <B>Url</B> <DD> This is a text string that specifies 
+    where to get the movie. It must be a valid url, and you must be connected 
+    to a network for it to be downloaded. It is allowed to have an 
+    ordinary file path, even relative ones, like <CODE>../Movies/snakes.mov</CODE>.
+    Both the <B>file</B> and the 
+    <B>url</B> option cannot be specified simultaneously. The remote file can 
+    have any format that is accepted by QuickTime. It may be a movie that is 
+    stored on disk on the remote system, or it can be a small (typically 200 
+    bytes) so called sdr file, that specifies how QuickTime should obtain the 
+    movie content as a live streaming audio/video movie. A movie controller 
+    must be attached to the movie to enable the user to control the operation. 
+    The operation to connect to the remote site, and to download as much of the 
+    movie to determine its size etc., is done in blocking mode if not a 
+    <B>loadcommand</B> is specified. On a slow dial up connection it can take 
+    some time; for a sdr file it usually doesn't take very long since it is so 
+    small. In addition, for a live stream (sdr file) the user must press the 
+    start button for QuickTime to make the neccessary connections; this is done 
+    in nonblocking mode. QuickTime recognizes a movie that has a format 
+    prepared for streaming (over ftp or http), and the command returns 
+    when enough has been downloaded to know its size etc. This usually 
+    corresponds to only a small portion of the total movie, and it is 
+    therefore usually reasonably fast.
+    If a <B>loadcommand</B> is specified, the <B>movie</B> 
+    command returns immediately, but the movie cannot be used until the 
+    corresponding Tcl procedure has received a <B>playable</B> message. If you 
+    want to prepare your own movies for streaming they must first be flattened 
+    using the <B>flatten</B> command.
+    
+    <P>
+    <DT>Command-Line Name: <B><A NAME="M17">-volume</A></B>
+    <DT>Database Name: <B>volume</B>
+    <DT>Database Class: <B>Volume</B> <DD> Sets the volume of all the audio 
+    tracks in the movie, if any. It is a number between 0 and 255.
+    
+    <P>
+    <DT>Command-Line Name: <B><A NAME="M18">-width</A></B>
+    <DT>Database Name: <B>width</B>
+    <DT>Database Class: <B>Width</B> <DD> By default, the size of the movie 
+    widget is the "natural" size of the movie. If a nonzero value for either 
+    <B>height</B> or <B>width</B> is set, the movie will be this size. The 
+    default of 0 means that this option should be ignored, and the movies 
+    natural width be used. Note that these are "sticky" and are not cleared if 
+    the file name is changed.
+</DL>
+
+<H3><A NAME="M19">DESCRIPTION</A></H3>
+
+The movie widget is a widget for playback of video, audio, animations, and 
+VR panoramic images. A <I>QuickTime movie</I> is the name of a hierarchical 
+structure that organizes data that has a time structure, such as video and 
+sound. On top of this hierarchy is the QuickTime movie itself. The movie 
+has a timescale associated with it, typically 600, that tells how many 
+"ticks" there are on each second. A position in the movie, or a duration of 
+the movie, is always expressed in terms of the movie's time scale as an 
+integer number. For instance, if a movie has a time scale of 600, then two 
+seconds from the movie's beginning corresponds to a "time" 1200.
+
+<P>
+The movie contains a number of <I>tracks</I>. Each track has a unique ID 
+number, that is unique through the lifetime of the movie. That is, if track 
+1 is deleted, there will never be a track 1 in this movie anymore. Each 
+track may only contain one type of <I>media</I>. A media type specifies the 
+sort of media, for instance, images, sounds, video etc. In the usual Mac 
+way, a four letter combination specifies the media type. Choices are:
+
+<UL>
+    <LI><CODE>hndl</CODE> : handle to the memory
+    <LI><CODE>MPEG</CODE> : MPEG
+    <LI><CODE>musi</CODE> : music
+    <LI><CODE>qd3d</CODE> : QuickDraw 3D model
+    <LI><CODE>rsrc</CODE> : resource
+    <LI><CODE>soun</CODE> : sound
+    <LI><CODE>sprt</CODE> : sprite animation
+    <LI><CODE>text</CODE> : text
+    <LI><CODE>tmcd</CODE> : time code
+    <LI><CODE>twen</CODE> : 'Tween track
+    <LI><CODE>vide</CODE> : video
+</UL>
+
+Each track references one or many <I>media samples</I> which in turn points 
+on the actual data for the movie. Each media has its own timescale which 
+need not be identical to the movie's time scale. For example, a video track 
+can have a time scale of 30 (frames per second), and an audio track 44,100 
+(samples per second). A movie file typically contains a movie, one or more 
+tracks, each containing its own media samples, everything bundled together. 
+A track must not extend from the movies beginning to its end. Instead, the 
+<I>offset</I> specifies the start of the track, and the <I>duration</I> 
+specifies the length of the track. Both values are expressed in terms of 
+the movie's time scale. A movie's <I>rate</I> determines how many time 
+scale units in the movie actually run each real-time second. For instance, 
+if a movie's time scale is 600, a rate 1.0 means that QuickTime will 
+process 600 scale units of the movie each second. A negative rate means the 
+movie is running backwards. The play rate is the "speed" of the movie; if 
+it's not playing it is 0.0. By setting the play rate to a nonzero value the 
+movie may start playing.
+
+<P>
+Each track is associated with a layer, numbered from -32768 to 32767, that 
+controls how tracks are combined to display a movie. QuickTime displays 
+higher ordered layers first, placing lower-numbered layers on top of them. 
+Each layer can be associated with any number of tracks. By default, a newly 
+created track has layer 0.
+
+<P>
+The movie widget supports all formats that QuickTime supports. A few 
+comments: a VR panoramic movie has no time structure but works roughly like 
+an ordinary movie, with exceptions that operations that are time specific 
+doesn't work. QuickTime supports many still image formats. These are 
+included automatically via the <B>image create photo</B> command when 
+QuickTimeTcl is loaded.
+
+<P>
+Movies may be files on a local disk, loaded with the <B>-file</B> option, 
+or remote movies, loaded with the <B>-url</B> option. Realtime streaming 
+movies are usually represented by a so called sdr file, typically with an 
+extension .mov, that gets loaded internally in QuickTime when using the 
+<B>-url</B> option. But it is also possible to get the sdr file, once 
+located in a html page, by other means, such as a web browser or whatever. 
+If this small sdr file on your local disk is specified with the 
+<B>-file</B> option, QuickTime automatically understands that it should 
+connect to a live stream. Well known streaming channels usually keep the 
+sdr file unchanged, so you may speed up the process by using the local sdr 
+file instead of specifying the <B>-url</B> option each time.
+
+<P>
+This package requires QuickTime version 3, but some options, such as the 
+<B>-url</B> option, requires at least QuickTime 4. When new formats are 
+introduced by Apple or others, the API's are usually unchanged, and the new 
+formats are therefore automatically supported by this package. For detailed 
+information on the supported file types for any particular QuickTime 
+version visit  <CODE>www.apple.com/quicktime</CODE>.
+
+<H3><A NAME="M201">SOUND ONLY</A></H3>
+
+Although most movies are associated with visual media, this is not always true,
+for instance, for movies with only a sound track. 
+However, this movie widget is  centered around a graphics widget, so how 
+are sound only movies played if you dont want to see anything on the 
+screen? To help you organize your sound movies, create a fake frame widget 
+that never gets mapped. Then  create your movies the ordinary way, but 
+without a controller. An example:
+
+<PRE>frame .fake
+movie .fake.m -file Madonna.mp3 -controller 0
+.fake.m play
+</PRE>
+
+<H3><A NAME="M20">EDITING</A></H3>
+
+Besides playback capabilities, and commands that are applied to a movie as 
+one entity, there are commands that allow you to pick apart and assemble a 
+movie by <B>cut</B>, <B>copy</B>, and <B>paste</B>.  
+Editing is done in two different modes, either via a controller with editing
+enabled, using the <B>-mcedit</B> command, or without. We denote the last 
+variant "simple" editing. Simple editing can be done with or without a 
+controller, and some if its behaviour is different from editing through the 
+controller, most notably the <B>paste</B> command. This is Apples choice, 
+and not mine. Lets first describe simple editing:
+
+<P>
+There are two 
+different editing capabilities provided for simple editing: <I>movie</I> editing, and 
+<I>track</I> editing. Both way of editing typically use a time value and a 
+duration, both expressed in the movie's time scale.
+Simple editing can only handle pasting other movies from
+the clipboard.
+
+<P>
+The movie editing commands act on all tracks in a movie---cutting a 
+selection removes all tracks in that selection. In addition, there is one 
+command that works selectively on certain tracks, the <B>add</B> command. 
+The <B>add</B> command is like <B>paste</B> but it adds tracks in parallel, 
+possibly using existing tracks to put the media in. A typical movie edit 
+sequence is like:
+
+<PRE>.m select 1200 600
+.m copy
+.m select 2400
+.m paste
+</PRE>
+
+<P>
+Track editing, like <B>tracks copy</B> and <B>tracks paste</B>,  has no 
+high level support, and is only provided by references. There exist not a 
+physical clipboard where track segments are kept, but the track clipboard 
+is a fake clipboard that cannot hold track segments, only references to 
+them. This limits track editing a bit. For instance, there is no tracks cut 
+command. A number of the <B>tracks</B> sub commands act either on complete 
+tracks, or on any existing selection of any track segment in the movie. 
+There may be only a single track selection per movie.
+A typical track edit sequence is like:
+
+<PRE>.m tracks select 1 1200 600
+.m tracks copy
+.m tracks select 1 2400
+.m tracks paste
+</PRE>
+
+<P>
+Beware, do not mix movie editing with tracks editing, they don't work well 
+together since tracks can't be pasted as movies and vice versa. Since track 
+editing works by references, if the content referred to on the track 
+clipboard is changed somehow, the track clipboard is invalidated. The 
+following is valid to avoid interference between the movie and track 
+clipboard, and to make it feel like one and the same clipboard:
+
+<UL>
+    <LI>A movie selection invalidates any track selection and vice versa.
+    <LI>If a movie segment is pasted to the clipboard, any track clipboard 
+    content is zeroed, and vice versa.
+</UL>
+
+Editing via a controller with editing enabled (<B>-mcedit</B>) is like 
+simple movie editing above, but more flexible in some situations. The controller knob 
+changes its appearence when editing is enabled. Selections can be made by 
+shift dragging the knob. The importer not only recognizes other movies, but 
+also text, still images, and everything else that makes sense. This makes 
+the paste command more flexible, and also enables some more options to the 
+paste command.
+
+<H3><A NAME="M206">TEXT</A></H3>
+
+Text can be imported in a number of ways into a text track. The simplest 
+way to import text into a movie is simply to use an ordinary text file for 
+the <B>-file</B> option. The text importer creates a movie that has a text 
+sample for every paragraph of text in the file. Each text sample will have 
+a default duration of two seconds.
+
+<P>
+More control gives the <CODE>pathName tracks add text ...</CODE> command.
+Together with the graphics mode for the track it is possible to set the 
+parts of the text track where no text is transparent. A typical code 
+sequence can be:
+<PRE>% .m tracks new text
+{-undostate 0} 3
+% .m tracks add text 3 0 1200 {Hello world!}
+{-undostate 1}
+% .m tracks configure 3 -graphicsmode transparent -graphicsmodecolor black
+% .m save</PRE>
+
+<P>
+If you want to make a text movie from scratch, one example is the 
+following:
+<PRE>% movie .m
+% .m new myText.mov
+-1
+% .m tracks new text 100 200
+{-undostate 0} 1
+# The track id is 1.
+% pack .m
+% .m tracks add text 1 0 1800 Hello -scrollin 1 -scrollout 1 -font {Times 24 italic}
+{-undostate 1}
+% .m save
+</PRE>
+See the docs for the individual tracks command and options for detailed 
+info.
+
+<P>
+There is also more complex way to import text via so called text descriptors,
+see for instance <A 
+HREF="http://www.apple.com/quicktime/products/tutorials/texttracks.html">
+www.apple.com/quicktime/products/tutorials/texttracks.html</A>, and  
+<A HREF="http://www.apple.com/quicktime/products/tutorials/textdescriptors.html">
+www.apple.com/quicktime/products/tutorials/textdescriptors.html</A>.
+Text descriptors enable many configuration options, such as font selection, 
+colors, position, a time line for placing text, clickable URL's, and much 
+more. The first piece in such a file is <CODE>{QTText}</CODE>. A minimalistic example is:
+<PRE>{QTText}{font:Tekton}{plain}{size:18}{textColor: 0, 0, 0}{backColor: 65535, 65535, 0}
+{justify: center}{timeScale: 600}{width: 240}{height: 40}{shrinkTextBox:on}
+[00:00:00.000]
+{textBox: 10, 0, 30, 240}We forgot to seed!
+[00:00:01.000]
+{textBox: 10, 0, 30, 240}We forgot to what?
+[00:00:02.000]
+{textBox: 10, 10, 30, 240}Yes and No
+[00:00:03.000]
+</PRE>
+The file must end with a time notation, and possibly a new line.
+Place your text descriptors in an ordinary text file, and just open a new 
+movie specify this file as the <B>-file</B> option.
+
+<H3><A NAME="M212">STILL IMAGES AS MOVIES</A></H3>
+
+The movie importer is flexible enough to understand still images as well.
+This can have some advantages compared to the <B>image create photo</B> command,
+even if this command gets extended to many formats with QuickTimeTcl.
+Use <B>-controller 0</B>  to supress the controller. First, images can be 
+resized to any size. Second, using the <B>-url</B> and <B>-loadcommand</B> 
+an image can be loaded remotely and asynchronously. For the moment it is 
+necessary to have a controller for this.
+
+<H3><A NAME="M313">MAKING MOVIES</A></H3>
+
+While this package does not help creating the actual content of a movie, it 
+helps you to assemble the content into a movie. A typical movie contains an audio 
+track and a video track. Assembling the audio track is best made by 
+cutting and pasting of the individual tracks from some original sound track.
+Use the <A HREF="movie.html#M20">tracks editing</A> commands here.
+
+<P>
+A video track consists of a sequence of still images. The images you must 
+produce yourself, save them to disk in an appropriate format, import them 
+into Tcl using the <B>image create photo</B> command. The key command for 
+adding them to a movie is <B>tracks add picture</B>, which has enough 
+options to use most of QuickTime internals for building a movie. In order 
+to build a movie that takes up a minimum of storge, yet has good playback 
+and image qualites, you must know something about compressor types.
+Apple supplies at least six standard types. List the available compressor 
+types by <B>::quicktimetcl::info components imco</B> or 
+<B>::quicktimetcl::info iccodecs</B>.
+The six standard types and their characteristics are:
+<DL>
+    <DT><B>rpza</B>: Video Compressor
+    <DD>Best used for sequences. Use it preferrably for video content than 
+    synthetically generated images.It supports both spatial and temporal 
+    cmpressions.
+    <P>
+    <DT><B>jpeg</B>: Photo Compressor
+    <DD>Not for sequences. Best adapted to images that varies smoothly 
+    without sharp contrasts. Used typically for 24 bit colors and 8 bit 
+    grayscale images.
+    <P>
+    <DT><B>{rle }</B>: Animation Compressor
+    <DD>Best for animation and computer-generated video content. Works by 
+    run-length coding data, either lossless or lossy. Not suited for 
+    photos and sequences that varies rapidly.
+    Works at all pixel depths.
+    <P>
+    <DT><B>{raw }</B>: Raw Compressor
+    <DD>Works by decreasing the color depth of the image.
+    <P>
+    <DT><B>{smc }</B>: Graphics Compressor
+    <DD>Best suited for 8 bit still images and sequences. Gives typically 
+    a doubled compression ratio compared to the Animation Compressor. Has, 
+    however, a slower decompression.
+    <P>
+    <DT><B>cvid</B>: Compact Video Compressor (Cinepak)
+    <DD>Best suited for 24 bit and 16 bit video sequences. Compared to 
+    the Video Compressor, this compressor obtains higher compression 
+    ratios, better image quality, and faster playback speeds. It is, 
+    however, much slower for compression.
+</DL>
+
+There are also DV image compressors. The NTSC DV compressor (<B>{dvc }</B>) generates 720 
+x 480 frames, and the PAL DV compressor (<B>dvcp</B>)generates 720 x 576 frames.
+Since each one of these compressors, and the others at your system, only 
+support a subset of the possible compression options as given by the 
+<B>tracks add picture</B> command, it can be tricky to find a combination 
+that is supported. Use the <B>-dialog 1</B> option to assist you in this 
+search.
+It is important to distinguish between single image compression and 
+sequence compression. Using a list of a number of images for the <B>tracks add 
+picture</B> command is very different from using this command repeatedly on 
+the individual images, since the sequence compression treats the images as 
+a sequence (sic), and thereby achieving considerable compression not 
+possible by adding them separately.
+When using the <B>-dialog 1</B> option, many things are handled 
+automatically internally in the compressor component. You may choose 
+compressors that does not allow sequence compression, even if a list of 
+images is specified.
+
+    
+<H3><A NAME="M306">SAVING MOVIES</A></H3>
+
+Once the movie has been edited, or it has perhaps been obtained remotely 
+using the <B>-url</B> option, it is time to save it. There are four 
+different ways to do it: <B>save</B>, <B>saveas</B>, <B>flatten</B>, 
+<B>compress</B>, or <B>export</B>.
+They typically work as any corresponding menu command would work, but with 
+some important differences. There are two things that complicates this.
+Before discussing this, we must make a distinction between the "movie 
+resource" and "movie data". Each movie consists of these two parts. The 
+movie resource is generally a small structure that keeps track of the 
+movie's data, which contains all video frames, audio etc., and is therefore 
+orders of magnitude larger than the movie's resource.
+
+<P>
+Note these two features that complicate things:
+First, the standard Macintosh file contains both a data fork, and a so 
+called resource fork, whereas Windows lacks this file structure. The 
+resource fork of a file has in principal nothing to do with the movie's 
+resource.
+Second, not all movie files need to be self contained, that is, the movie 
+data must not be in the same file as the movie resource. This may seem 
+like a very weird feature, but is actually very useful since the movie 
+data, which can be several hundred MB in size, need not be duplicated when 
+saving an edited movie.
+
+<P>
+The <B>save</B> command saves the movie back in its original file, using 
+the resource fork or the data fork whichever corresponds to the original 
+file. If you want to store 
+the movie with a different file name, use the <B>saveas</B> command.
+This updates the <B>-filename</B> option to the new file name.
+It does not reorganize the movies internal structure.
+The <B>saveas</B> command saves only the movie resource, and does not 
+duplicate the movie data. You may optionally save the movie resource in 
+the files resource fork, which on Windows creates a separate file. Thus, 
+<B>saveas</B> command does not make self contained movie files.
+
+<P>
+The <B>flatten</B> command is typically used for storing movies that 
+should be distributed via a server to the network. It may reorganize the 
+original movies internal structure. Both the movie resource and its data 
+are saved in the same file, and thus makes a self contained movie file.
+The <B>flatten</B> command does not update the <B>-filename</B> option, 
+and the movie in the actual widget is not affected by <B>flatten</B>. If 
+you want to operate on the flattened movie file, make a new movie widget 
+from the flattened movie file. Also, if you have made a number of edits
+on a movie, there may be media data in the movie that is not used anymore.
+In order to make a "clean" movie, removing unused media data, you may flatten it.
+
+<P>
+The <B>export</B> command is the most versatile, 
+and facilitates storing 
+movies in all formats that there are export components for via dialogs. 
+It leaves the movie corresponding to the widget unchanged.
+The <B>export</B> command is a kind of "saveas" command that enables the
+user to specify the destination file.
+
+<P>
+A typical movie edit session may be like:
+<PRE>.m -file myFile.mov
+.
+edit stuff
+.
+.m saveas myNewFile.mov
+.
+edit stuff
+.
+.m saveas myNewFile2.mov
+.m flatten myCannesWinner.mov
+</PRE>
+
+<H3><A NAME="M327">VIDEO EFFECTS</A></H3>
+The <I>pathName</I> <B>effect</B> command adds real time video effects to a 
+movie. They are categorized as zero, one, or two source effects, see the 
+description below for a details. A two source effect is somewhat more 
+difficult to use since there must be two overlapping tracks, with the 
+overlap equal to the duration of the effect. An example to create a movie 
+from scratch using two images from disk is:
+<PRE>% movie .m
+% .m new myEffect.mov
+% .m tracks new video 200 200
+{-undostate 0} 1
+% .m tracks new video 200 200
+{-undostate 1} 2
+
+# The track id's are 1 and 2.
+# Make two images in tk from two images on disk. 
+# Preferrably of the same size as the video track, else they are scaled 
+automatically.
+% set firstImage [image create photo -file [tk_getOpenFile]]
+% set secondImage [image create photo -file [tk_getOpenFile]]
+% pack .m
+% .m tracks add picture 1 0 6000 $firstImage
+% .m tracks add picture 2 0 6000 $secondImage
+
+# Shift the second track to make the desired overlap.
+% .m tracks configure 2 -offset 3000
+
+# Pick the wanted effect in the dialog.
+% .m effect 3000 3000 1 2
+</PRE>
+
+<P>
+One important feature of the effects dialog is that the command returns 
+almost immediately, before the user has pressed any buttons. A variable
+<B>::quicktimetcl::effectfinished</B> is set to -1 before the effect 
+command returns, and is set to 0 or 1 when the user is finished with the dialog;
+0 if cancelled, 1 if ok.
+Use the following code to be sure that the script after the 
+command is actually executed after the user is finished with the dialog.
+<PRE>.m effect 3000 3000 1 2
+tkwait variable ::quicktimetcl::effectfinished
+...
+.m save
+</PRE>
+
+<H3><A NAME="M21">WIDGET COMMAND</A></H3>
+
+The <B>movie</B> command creates a new Tcl command whose name is 
+<I>pathName</I>.  This command may be used to invoke various operations on 
+the widget.  It has the following general form:
+
+<PRE><I>pathName option </I>?<I>arg arg ...</I>?</PRE>
+
+<I>Option</I> and the <I>arg</I>s determine the exact behavior of the 
+command.  The time values and durations are always given in the movie's 
+time scale if not otherwise stated. The following commands are possible for 
+movie widgets:
+
+<P>
+
+<DL>
+    
+    <P>
+    <DT><A NAME="M22"><I>pathName </I><B>add</B> </A> <DD>This command adds the 
+    tracks from the source movie on the scrap to the destination movie. It 
+    scales the source movie to fit into the selection of the destination movie. 
+    If there is no selection, but merely an insertion point in the destination 
+    movie, QuickTime adds the tracks at the insertion point. In contrast to the 
+    <B>paste</B> command, this command does not "cut through" any existing 
+    tracks, but adds them in parallel to the tracks in the destination movie. 
+    This can be useful for adding a track to an existing movie, such as adding 
+    sound to a silent movie.  It returns the undo number as <CODE>{-undostate 
+    <I>undoNo</I>}</CODE> which may be used to undo this command.
+
+        
+    <P>
+    <DT><A NAME="M500"><I>pathName </I><B>callback</B> ?<I>args</I>?</A> <DD>
+    Handle time events similar to the Tcl <B>after</B> command, but sets up
+    a procedure to be called when the movie reaches a certain time when 
+    played. This is a one-shot timer.
+        
+    <P>    
+    <DL>
+	<DT><A NAME="M501"><I>pathName</I> <B>callback</B> <I>movieTime procName</I></A> 
+	<DD>Sets up the <I>procName</I> to be called when the movie reaches the time 
+	<I>movieTime</I>when played. The call takes place at a safe 
+	(non-interrupt) time after <I>movieTime</I>, which creates a slight time 
+	slip. 
+        The command returns a token (unique identifier) which is used 
+        by other <B>callback</B> commands. 
+	The <I>procName</I> shall have the following form:
+	<CODE>proc MyCallBack {token pathName movieTime} {...}</CODE>.
+	The first argument, <I>token</I>, is the same string that was returned 
+	when setting up the callback. The <I>movieTime</I> is not the actual movie time 
+	(get it with the <B>time</B> command), but the one corresponding to the 
+	<B>callback</B> argument.
+    </DL>
+        
+    <P>    
+    <DL>
+	<DT><A NAME="M502"><I>pathName</I> <B>callback cancel</B> <I>token</I></A> 
+	<DD>Removes the callback event with the specified <I>token</I>.
+    </DL>
+        
+    <P>    
+    <DL>
+	<DT><A NAME="M503"><I>pathName</I> <B>callback info</B> ?<I>token</I>?</A> 
+	<DD>Without the <I>token</I> argument, it returns a list of all callback 
+	tokens registered with this movie. 	
+		
+	If <I>token</I> is supplied, it specifies an existing handler; 
+	<I>token</I> must have been the return value from some previous call to 
+	<B>callback</B>, and it must not have triggered yet or been cancelled. 
+	In this case the command returns a list with two elements. 
+	The first element of the list is the 
+	script associated with <I>token</I>, 
+	and the second element is the movie time corresponding to it. 
+    </DL>
+	
+    <P>
+    <DT><A NAME="M23"><I>pathName </I><B>cget</B> <I>option</I></A><DD> Returns 
+    the current value of the configuration option given by <I>option</I>. 
+    <I>Option</I> may have any of the values accepted by the <B>movie</B> 
+    command.
+    
+    <P>
+    <DT><A NAME="M24"><I>pathName </I><B>compress</B> <I>fileName</I> 
+    ?<I>boolean</I>?</A><DD>Compress the movie to the file specified in 
+    <I>fileName</I>. If the <I>boolean</I> is 1, an export dialog is presented 
+    where the user may select from a number of options for the compression. The 
+    default behaviour is not to show the dialog. Many operations can be very 
+    time consuming, and since the compression is done in blocking mode, it's a 
+    good idee to specify a either the <B>qtprogress</B> option, or a Tcl 
+    procedure via the <B>progressProc</B> option.
+    The <B>export</B> command is much more versatile than <B>compress</B>. 
+    
+    
+    <P>
+    <DT><A NAME="M25"><I>pathName </I><B>configure</B> ?<I>option</I>? 
+    ?<I>value option value ...</I>?</A>
+    <DD> Query or modify the configuration 
+    options of the widget. If no <I>option</I> is specified, returns a list 
+    describing all of the available options for <I>pathName</I> (see 
+    <B>Tk_ConfigureInfo</B> for information on the format of this list).  If 
+    <I>option</I> is specified with no <I>value</I>, then the command returns a 
+    list describing the one named option (this list will be identical to the 
+    corresponding sublist of the value returned if no <I>option</I> is 
+    specified).  If one or more <I>option-value</I> pairs are specified, then 
+    the command modifies the given widget option(s) to have the given value(s); 
+    in this case the command returns an empty string. <I>Option</I> may have 
+    any of the values accepted by the <B>movie</B> command.
+    
+    
+    <P>
+    <DT><A NAME="M205"><I>pathName </I><B>controllerinfo</B> 
+    <DD>Returns a list of <I>option boolean</I> pairs describing the state
+    of the movie controller. The options are <B>
+    -undoavailable, -cutavailable, -copyavailable, -pasteavailable, 
+    -clearavailable, -hassound, -isplaying, -islooping, -isinpalindrome, 
+    -editingenebled</B>. This is helpful for enable/disable menus, for 
+    instance.
+    
+    <P>
+    <DT><A NAME="M26"><I>pathName </I><B>copy</B> </A> 
+    <DD>Copy the selection 
+    made by the <B>select</B> command to the movie scrap. A selection is 
+    necessary before copying.
+    
+    <P>
+    <DT><A NAME="M27"><I>pathName </I><B>cut</B> </A> <DD>Cut the selection 
+    made by the <B>select</B> command. A movie selection is necessary before 
+    cutting. It returns the undo number as <CODE>{-undostate 
+    <I>undoNo</I>}</CODE> which may be used to undo this command.
+    
+    <P>
+    <DT><A NAME="M28"><I>pathName </I><B>effect</B> <I>startTime</I> 
+    <I>duration</I>  ?<I>trackOneID</I>? ?<I>trackTwoID</I>?</A> 
+    <DD> The standard video effect dialog is opened where it is 
+    possible to choose from a large number of video effects. 
+    The effects command returns almost immediately, before the user has pressed any buttons,
+    and before the dialog has popped up. A variable
+    <B>::quicktimetcl::effectfinished</B> is set to -1 before the effect 
+    command returns, and is set to 0 or 1 when the user is finished with the dialog;
+    0 if cancelled, 1 if ok. Use <CODE>tkwait variable ::quicktimetcl::effectfinished</CODE>
+    to wait for the dialog to be finished.
+    <I>startTime</I> and <I>duration</I> give the 
+    starting time and the length of the effect, respectively. There are 
+    zero-source effects, one-source effects, and two-source effects. 
+    The 
+    zero-source effects add effects, such as cloud and fire, that don't require 
+    a source track. A one-source effect acts as a filter for a track, and a 
+    two-source effect is typically a transition effect between two tracks. If 
+    no optional arguments are specified, it will result in a  zero-source effect, if 
+    <I>trackOneID</I> given, a one-source effect, and if also <I>trackTwoID</I> 
+    given, the result will be a two-source effect. For a zero-source 
+    effect, a black background is made transparent in order to make the 
+    original track, if any, show through.
+    A two-source effect requires two overlapping tracks, where the overlap must 
+    coincide with the <I>duration</I>, <I>startTime</I> must coincide with 
+    the start of the second track, and <I>startTime</I> + <I>duration</I> 
+    must coincide with the end of the first track.
+    All tracks involved must 
+    have a visual representation. One or more 
+    additional tracks may be created as a response to this command.
+    You may specify <B>end</B> for <I>duration</I> (and <I>startTime</I>) which extends
+    the duration to the end of the movie.
+    
+    <P>
+    <DT><A NAME="M29"><I>pathName </I><B>export</B> ?<I>option value ...</I>?</A> 
+    <DD>Presents the user 
+    an export dialog, a "Save As" dialog, where a large number of options can 
+    be chosen for the new movie. In contrast to the <B>compress</B> dialog, a 
+    file path is returned from this command, or an empty string if the user 
+    cancels. Many operations can be very 
+    time consuming, and since the compression is done in blocking mode, it's a 
+    good idee to specify a either the <B>qtprogress</B> option, or a Tcl 
+    procedure via the <B>progressProc</B> option. The movie must be mapped
+    to screen for export to work.
+    
+    <P>
+    An export operation takes place via a so called export component of 
+    type <B>spit</B>, and of a certain subtype and manufacturer. These 
+    three parameters are all four character wide strings, and any space in 
+    any of these must be properly conserved by embracing or quoting the 
+    word. The name "manufacturer" is a bit of a misnomer since it usually 
+    specifies the media type that a component supports, or typically <B>appl</B>
+    if more than one media type is exported. 
+    You may investigate the presently available export component on your
+    system from the command <B>::quicktimetcl::info components spit</B>.
+    If you specify any particular export component, you must be confident 
+    that it supports the actual movie.
+    For instance, you can only use the VR export components (manufacture: 
+    <B>vrob</B>, <B>vrsp</B>, <B>vrwe</B>) 
+    for VR movies.
+    
+    <P>
+    For each component the internal parameter settings are stored 
+    internally, and may be reused in the same session without showing a dialog each time. A 
+    typical usage is:
+    <PRE>
+# Investigate our export components.
+::quicktimetcl::info components spit
+... {-type spit -subtype MooV -manufacture appl ...} ...
+
+# Configure a specific export component using its dialog.
+.m export -file kass.mov -codecsubtype MooV -mediatype appl 
+
+# Reuse its settings without showing any dialog.
+.m export -file kass2.mov -codecsubtype MooV -mediatype appl -uselatestsettings 1 -dialog 0
+</PRE>
+    
+    <P>
+    As an alternative, to store component settings between sessions, you 
+    may store them to file, and read in them later without dialog. 
+    You are responsible that the components are identical when settings 
+    are written, and when read in later. It may be helpful to pick a 
+    descriptive name for the settings, such as "MooVapplSorenson3" etc.
+    A typical usage is:
+    <PRE>
+# Configure a specific export component using its dialog.
+.m export -file kass.mov -codecsubtype MooV -mediatype appl  \
+        -savesettingstofile MooVapplSorenson3
+
+# Reuse its settings without showing any dialog.
+.m export -file kass2.mov -codecsubtype MooV -mediatype appl  \
+        -readsettingsfromfile MooVapplSorenson3 -dialog 0
+</PRE>
+
+    <P>
+    <DL>
+	<DT><A NAME="M360"> <B>-codecsubtype</B> <I>fourCharCode</I> </A> 
+	<DD>Specifies the subtype of the export component that shall be picked 
+	for this export operation. If a dialog is to be shown, the settings for 
+	the chosen export component is shown.
+	    
+	<P>
+	<DT><A NAME="M361"> <B>-dialog</B> <I>boolean</I> </A> 
+	<DD>Specifies if a dialog should be presented. Defaults to 1.
+	If no <B>-codecsubtype</B> or <B>-mediatype</B> given, a save as dialog 
+	is presented where the file may be specifed together with any of the 
+	export components that may be used for this specific movie. Most of these 
+	components also support a separate settings dialog which further specify 
+	the detailed parameters for the component. If any specific export 
+	component is required via the options <B>-codecsubtype</B> or 
+	<B>-mediatype</B>,
+	no save as dialog is shown, but only the parameter settings dialog for 
+	the selected component. 
+	
+	<P>
+	<DT><A NAME="M362"> <B>-file</B> <I>filePath</I> </A> 
+	<DD>Specifies the file path of the exported movie. If a save as dialog is 
+	shown, the name of the file is initially displayed. This is a required 
+	option if no save as dialog is shown.
+	
+	<P>
+	<DT><A NAME="M363"> <B>-mediatype</B> <I>fourCharCode</I> </A> 
+	<DD>Specifies the manufacturer, which usually corresponds to the media 
+	type, of the export component that shall be picked 
+	for this export operation. The <B>-codecsubtype</B> must be set else the 
+	system cannot find a component. This parameter corresponds to the <B>-manufacture</B>
+	in the output of the <B>::quicktimetcl::info components</B> command.
+	If a dialog is to be shown, the settings for 
+	the chosen export component is shown.
+	
+	<P>
+	<DT><A NAME="M364"> <B>-onlytrack</B> <I>trackId</I> </A> 
+	<DD>Export only the specified track and not the complete movie.
+	
+	<P>
+	<DT><A NAME="M365"> <B>-readsettingsfromfile</B> <I>filePath</I> </A> 
+	<DD>A previously stored component settings to file (from 
+	<B>-savesettingstofile</B>) may be reused. Be sure that the export component,
+	which's settings are in the file, is identical when you are reusing its 
+	settings. The <B>-codecsubtype</B> or <B>-mediatype</B>
+	options must be specified. If you show the components settings dialog,
+	the initial parameter values are set.
+	
+	<P>
+	<DT><A NAME="M366"> <B>-restrictexport</B> <I>boolean</I> </A> 
+	<DD>Defaults to 1. If 0 some more options are displayed in the save as 
+	dialog.
+	
+	<P>
+	<DT><A NAME="M367"> <B>-savesettingstofile</B> <I>filePath</I> </A> 
+	<DD>For a specific export component, you may store its parameter settings 
+	in a file for permanent reusage. The <B>-codecsubtype</B> or <B>-mediatype</B>
+	options must be specified.
+	
+	<P>
+	<DT><A NAME="M368"> <B>-uselatestsettings</B> <I>boolean</I> </A> 
+	<DD>Defaults to 0.
+	For each export operation that is made with a specific export component
+	using the options <B>-codecsubtype</B> or <B>-mediatype</B>, the 
+	parameter settings are stored internally in memory for each component. For 
+	subsequent usage with this component, you may use the internally stored 
+	parameter settings if you set the <B>-uselatestsettings</B> value to 1.
+	If you show the components settings dialog,
+	the initial parameter values are set.
+    </DL>
+    
+    <P>
+    <DT><A NAME="M302"><I>pathName </I><B>fieldofview</B> ?<I>fov</I>?</A> 
+    <DD>Gets or sets the current field of view (camera zoom) for a QTVR 
+    panoramic movie. Units unknown.
+    
+    <P>
+    <DT><A NAME="M30"><I>pathName </I><B>flatten</B> 
+    <I>fileName ?-dontinterleave boolean? ?-resource id? ?-dialog boolean?
+    ?-forceresourcebeforedata boolean?</I></A> 
+    <DD>Saves the movie in a self contained format. Both movie data and the
+    movie resource are saved in the same file. If the <I>-resource</I> 
+    option is given, the movie resource is stored in the files resource 
+    fork, which on Windows makes a separate file in the same directory. 
+    By default, this command interleaves audio and video data for optimal 
+    playback performance. This can be switched off by the 
+    <I>-dontinterleave</I> option. Only the QTVR (panorama) components support the <B>-dialog</B> 
+    option. The <B>-forceresourcebeforedata</B> (default 1)
+    forces the movie resource to be stored in from of the movie data.
+    This command does not alter the movie in the widget. To 
+    work on the newly flattened movie you need to open it with a new 
+    widget (or <B>configure</B> with the <B>-file</B> option).    
+    <P>
+    The command returns the actual file path for the flattened movie 
+    unless the user has cancelled any dialog which is indicated by an empty
+    return value.
+    
+    <P>
+    <DT><A NAME="M31"><I>pathName </I><B>gettime</B> </A> <DD>Returns a list of 
+    four times: <CODE>{-movietime <I>number</I> -movieduration <I>number</I> 
+    -movietimescale <I>number</I> -postertime <I>number</I>}</CODE>. The 
+    <CODE>-movietime</CODE> is the movie's present position in terms of the 
+    number of ticks from its start; <CODE>-movieduration</CODE> is the total 
+    length of the movie (in movie ticks); <CODE>-movietimescale</CODE> is the 
+    movies time scale as discussed in the DESCRIPTION section above. The 
+    <CODE>-postertime</CODE> is where to find the poster still image that is 
+    representative of the movie.
+    
+    <P>
+    <DT><A NAME="M309"><I>pathName </I><B>haschanged</B> </A> <DD>Returns 1 if the 
+    movie has been edited in any way since it was last saved. Else it returns 0.
+        
+    <P>
+    <DT><A NAME="M340"><I>pathName </I><B>hotspot</B> ?<I>args</I>?</A> <DD>
+    Manipulates various hotspot features. Only for single node QTVR movies.
+        
+    <P>
+    
+    <DL>
+	<DT><A NAME="M341"><I>pathName </I><B>hotspot configure</B>
+	    <I>nodeId hotspotId</I> ?<B>-enabled</B> <I>boolean</I>? <B>-name</B> <I>text</I>?</A> 
+	<DD>Makes changes for the specified <I>hotspotId</I>. The <I>nodeId</I> is just a 
+	dummy.
+	
+	<P>
+	<DL>
+	    <DT> <B>-enabled</B> <I>boolean</I>
+	    <DD>Switches the specified hotspot on or off, which means that all 
+	    displayed features of the hotspot is removed. The hotspot is still 
+	    there. This command takes immediate effect. The change is not 
+	    persistent (it is not saved with the movie).
+	    
+	    <P>
+	    <DT> <B>-name</B> <I>text</I>
+	    <DD>Sets the name of the specified hotspot, which is the text that is 
+	    displayed in the movie controller.  You 
+	    need to <B>save</B> the movie and reopen it for this command to take effect.
+	</DL>
+	
+	<P>
+	<DT><A NAME="M342"><I>pathName </I><B>hotspot setid</B>
+	    <I>nodeId hotspotId newHotspotId</I></A> 
+	<DD>Changes the atom id from <I>hotspotId</I> to <I>newHotspotId</I>. You 
+	need to <B>save</B> the movie and reopen it for this command to take effect.
+	If you set the id to a number that does not exist in the hotspot color 
+	map, any action and its name is removed from the movie. The highlight of 
+	the hotspot remains, however. The <I>nodeId</I> is just a 
+	dummy.
+
+	<P>
+	<DT><A NAME="M343"><I>pathName </I><B>hotspot setwiredactions</B>
+	    <I>nodeId hotspotId</I> ?<B>-enabled</B> <I>boolean</I>? <B>-fov</B> 
+	    <I>number</I>? ?<B>-pan</B> <I>angle</I>? ?<B>-tilt</B> <I>angle</I>?</A> 
+	<DD>Makes changes for the specified <I>hotspotId</I>. The <I>nodeId</I> is just a 
+	dummy. All these changes are persistent, and are saved with the movie.
+	You need to <B>save</B> the movie and reopen it for this command to take effect.
+	The <B>-enabled</B> option is set independent of the others. The other 
+	options, however, must be set at the same time to be valid; if one of 
+	them are set, the others are removed.
+	
+	<P>
+	<DL>
+	    <DT> <B>-enabled</B> <I>boolean</I>
+	    <DD>Switches the specified hotspot on or off, which means that all 
+	    displayed features of the hotspot is removed. The hotspot is still 
+	    there.
+	    
+	    <P>
+	    <DT> <B>-fov</B> <I>number</I>
+	    <DD>Sets the field of view of the specified hotspot. 
+	    
+	    <P>
+	    <DT> <B>-pan</B> <I>angle</I>
+	    <DD>Sets the pan angle of the specified hotspot, so that when it is 
+	    clicked, the view is set to this pan angle.
+	    
+	    <P>
+	    <DT> <B>-tilt</B> <I>angle</I>
+	    <DD>Sets the tilt angle of the specified hotspot, so that when it is 
+	    clicked, the view is set to this tilt angle.
+	</DL>
+    </DL>
+    
+    <P>
+    <DT><A NAME="M32"><I>pathName </I><B>isdone</B> </A> <DD>Returns 1 if the 
+    movie has reached its end, if it's playing forward, or its beginning  if 
+    it's playing backwards. Else it returns 0.
+    
+    <P>
+    <DT><A NAME="M33"><I>pathName </I><B>ismovie</B> </A> <DD>Returns 1 if we 
+    have an ordinary movie and not a VR panoramic movie, and 0 else.
+    
+    <P>
+    <DT><A NAME="M34"><I>pathName </I><B>ispanoramic</B> </A> <DD>Returns 1 if 
+    we have a VR panoramic movie and not an ordinary movie, and 0 else.
+    
+    <P>
+    <DT><A NAME="M35"><I>pathName </I><B>isscrapmovie</B> </A> <DD>Returns 1 if 
+    we have a movie on the clipboard (scrap), and 0 else.
+    
+    <P>
+    <DT><A NAME="M202"><I>pathName </I><B>isvisual</B> </A> <DD>Returns 1 if 
+    there is something for our eyes, except for any movie controller, and 0 
+    else.
+    
+    <P>
+    <DT><A NAME="M36"><I>pathName </I><B>new</B> <I>fileName ?-resource id?</I></A> 
+    <DD>Create 
+    a new movie in file <I>fileName</I>. By default, a single fork movie 
+    file is created with everything in the data fork. This should always be 
+    used on Windows. On the mac, specifying a resource id creates a double 
+    fork movie, with the movie in the resource fork. If  <I>id</I> is 0, 
+    the first empty resource is used, which is always 128 or larger. If a 
+    specific resource id is given, it must be 128 or larger. A resource id 
+    of -1 is the default, and means that the movie is in the data fork.
+    The movies file name is stored internally, and a subsequent <B>save</B>
+    command stores the movie into this file. There must not be another file
+    already associated with this movie, such as by having used <B>-file</B>.
+    Returns the resource number. A new movie file is typically made as:
+    
+<PRE>% movie .m
+% .m new myFile.mov
+-1
+</PRE>
+    
+    <P>
+    <DT><A NAME="M480"><I>pathName</I> <B>nextinterestingtime</B> 
+	<I>mediaTypeList</I> ?<I>movieTime</I>?</A> 
+    <DD>Finds some "interesting times" corresponding to the current movie 
+    time or to any <I>movieTime</I> given as optional argument. The times 
+    corresponding to new sample, edits, and sync samples. The search is 
+    limited to the media types given as a list in the <I>mediaTypeList</I>.
+    In addition to the standard media types (described previously), it is 
+    possible to pick subsets <B>eyes</B> or <B>ears</B> which correspond 
+    to tracks with visual and audial tracks respectively.
+    The answer is returned as a list: <CODE>-sampletime <I>movieTime</I> 
+    -sampleduration <I>movieDuration</I>
+    -edittime <I>movieTime</I> -editduration <I>movieDuration</I> 
+    -syncsampletime <I>movieTime</I> -syncsampleduration <I>movieDuration</I></CODE>.
+
+    <P>
+    <DT><A NAME="M303"><I>pathName </I><B>pan</B> ?<I>angle</I>?</A> 
+    <DD>Gets or sets the current pan angle for a QTVR 
+    panoramic movie.
+    
+    <P>
+    <DT><A NAME="M312"><I>pathName </I><B>panoinfo</B></A> 
+    <DD>Returns miscellaneous information about a QTVR panoramic movie as 
+    a hierarchical list of <I>-key value</I> pairs. Presently, only the information 
+    about the default node is returned. You typically parse the list using 
+    the <B>array set</B> <I>arrName theList</I>  command repeatedly.
+        
+    <P>
+    <DT><A NAME="M37"><I>pathName </I><B>paste</B> ?<I>args</I>?</A> <DD>
+    This command pastes what is stored on the scrap into the movie. It 
+    works differently whether the controller has editing 
+    enabled or not (<B>-mcedit</B>, see <A HREF="movie.html#M20">EDITING</A>).
+    Whenever possible, QuickTime tries to reuse any tracks 
+    that can be reused, but creates new ones if the source movie contains 
+    tracks that can't be matched with any track in the destination movie. The 
+    paste operation cuts through all tracks and adds empty space in existing 
+    tracks if necessary. If you just want to add another movie's tracks in 
+    "parallel" with the destination movie, use the <B>add</B> command. It 
+    returns the undo number as <CODE>{-undostate <I>undoNo</I>}</CODE> which 
+    may be used to undo this command.
+    
+    <P>
+    
+    <DL>
+	<DT><A NAME="M207"><I>pathName </I><B>paste</B> </A> <DD>Pastes the movie on 
+	the scrap at the current position of the target movie. If the target movie 
+	already has a selection, this selection is first removed (not if 
+	controller editing is enabled, I think), and then the 
+	movie on the scrap is pasted in the selections original position. The 
+	current position, or insertion point, is placed with the <B>select</B> 
+	command without any <I>duration</I> option. This works just in the ordinary 
+	Mac way. All of the tracks from the source movie are placed in the 
+	destination movie. 
+		
+	<P>
+	<DT><A NAME="M208"><I>pathName </I><B>paste dialog</B></A> 
+	<DD> Mac only. Need controller editing enabled. 
+	Displays an import dialog that is specific for the type of 
+	content present on the scrap. A number of options can be set to give some 
+	control of how the scrap content should be imported to the movie.
+			
+	<P>
+	<DT><A NAME="M209"><I>pathName </I><B>paste parallel</B></A> 
+	<DD> Need controller editing enabled. If text on scrap, that text is 
+	placed below the actual movie box.
+		
+	<P>
+	<DT><A NAME="M210"><I>pathName </I><B>paste replace</B></A> 
+	<DD> Need controller editing enabled. If the movie has a nonempty 
+	selection, the pasted text replaces that selection. With no selection, 
+	the <EM>entire</EM> movie is replaced. Beware!
+		
+	<P>
+	<DT><A NAME="M211"><I>pathName </I><B>paste scaled</B></A> 
+	<DD> Need controller editing enabled. If text on scrap, it is added in 
+	parallel for the duration of the current selection, or if no selection, 
+	it is added for the duration of the entire movie.
+
+    </DL>
+
+	
+    <P>
+    <DT><A NAME="M38"><I>pathName </I><B>picture</B> <I>time</I> 
+    <I>imageName</I> ?<B>-height</B> <I>height</I>? ?<B>-width</B> <I>width</I>?</A> 
+    <DD>Takes a snapshot from the movie at time 
+    <I>time</I>, and places it in the  <I>image</I> . The  <I>imageName</I> 
+    must first have been created with <B>image create photo</B> 
+    <I>imageName</I>. The movie must have a visual representation. If the movie 
+    is a streaming movie, using <B>-url</B>, time is just running and it can be 
+    difficult to take a snapshot. In that case, try:
+    
+    <PRE>.m picture [.m time] myphoto
+</PRE>
+    
+    If any of the <B>-height</B> or <B>-width</B> options are given, the 
+    <I>imageName</I> is scaled to that size, else it is kept at its "natural" 
+    size.
+    
+    <P>
+    <DT><A NAME="M39"><I>pathName </I><B>play</B></A> <DD>Starts the movie from 
+    its present position at its preferred rate. If the movie has reached its 
+    end, it is restarted from its beginning. If the movie runs backwards and 
+    has reached time 0, then it is restarted from its end. The movie must be 
+    mapped for <B>play</B> to work.
+	
+    <P>
+    <DT><A NAME="M510"><I>pathName </I><B>playhints</B>  
+    ?<B>-allowblacklining</B> <I>bool</I>? ?<B>-allowinterlace</B> <I>bool</I>?
+    ?<B>-dontpurge</B> <I>bool</I>? ?<B>-highquality</B> <I>bool</I>?
+    ?<B>-inactive</B> <I>bool</I>? ?<B>-scrubmode</B> <I>bool</I>?
+    ?<B>-usesoundinterp</B> <I>bool</I>?</A> 
+    <DD>Sets the movies so called play hints. See Apple docs what the meaning
+    of these are. This command doesn't return anything.
+    
+    <P>
+    <DT><A NAME="M40"><I>pathName </I><B>rate</B> ?<I>rate</I>?</A> <DD>Sets or 
+    gets the current rate of the movie. The <I>rate</I> is a number between 
+    -1.0 and 1.0, and represents the current "speed" of the movie playback. 
+    Thus, a rate 0.0 stops the movie, and a positive rate starts the movie, if 
+    it has not reached its end. Negative rates mean it's going backward. If you 
+    want to set the play rate manifest, use the <B>preferredrate</B> option.
+    
+    <P>
+    <DT><A NAME="M41"><I>pathName </I><B>save</B></A> <DD>Saves the movie back 
+    in the original file. The movie must exist on disk with a known file 
+    name already, either by having used <B>-file</B> or <B>new</B>.
+    If we can deduce that the movie resource came from the resource fork, it is saved
+    back in the resource fork, else it is saved to the data fork.
+    
+    <P>
+    <DT><A NAME="M305"><I>pathName </I><B>saveas</B> ?<I>fileName ?-resource id?</I>?</A> 
+    <DD>Saves the movie resource to a new file. By default, a single fork movie 
+    file is created with the movie resource in the data fork. This should always be 
+    used on Windows. Since only the movie's resource is saved, the 
+    corresponding movie file is not selfcontained. The movie data may be 
+    in the original movie file and is not duplicated.
+    On the mac, specifying a resource id creates a double 
+    fork movie, with the movie resource in the resource fork, 
+    which on Windows makes a separate file in the same directory. 
+    If <I>id</I> is 0, 
+    the first empty resource is used, which is always 128 or larger. If a 
+    specific resource id is given, it must be 128 or larger. A resource id 
+    of -1 is the default, and means that the movie is in the data fork.
+    The movies file name is stored internally, and a subsequent <B>save</B>
+    command stores the movie into this file.
+    
+
+    
+    <P>
+    <DT><A NAME="M520"><I>pathName </I><B>select</B> ?<I>args</I>?</A> <DD>This 
+    command handles selection operations of the movie.
+    
+    <P>    
+    <DL>
+	<DT><A NAME="M521"><I>pathName </I><B>select all</B></A> <DD>
+	Selects the complete movie.
+	
+	<P>
+	<DT><A NAME="M42"><I>pathName </I><B>select clear</B></A> <DD>The movie 
+	segment of the current movie selection is removed. After removing the 
+	segment, the duration of the selection is set to 0 and the selection time 
+	remains unchanged.  It returns the undo number as <CODE>{-undostate 
+	<I>undoNo</I>}</CODE> which may be used to undo this command.
+	
+	<P>
+	<DT><A NAME="M522"><I>pathName </I><B>select none</B></A> <DD>
+	Sets the the insertion point at the present movie time, without any selection.
+
+	<P>
+	<DT><A NAME="M43"><I>pathName </I><B>select</B> ?<I>startTime</I>? 
+	?<I>duration</I>?</A> <DD>If neither <I>fromTime</I> nor <I>duration</I> is 
+	given, the present selection is returned as a list <CODE><I>fromTime 
+	duration</I></CODE>. If only <I>fromTime</I> given, the insertion point is 
+	placed here with zero duration. You may specify <B>end</B> as startTime. If both <I>fromTime</I> and <I>duration</I> 
+	given, the corresponding selection is made. Note, all times in the movie's 
+	time as usual. If the <I>duration</I> is <B>end</B>, the selection is extended
+	until the end of the movie
+    </DL>
+
+    
+    <P>
+    <DT><A NAME="M44"><I>pathName </I><B>size</B></A> <DD>Returns 
+    <CODE><I>width</I> <I>height</I></CODE> describing the movies default 
+    (natural) spatial size excluding any movie controller.
+    
+    <P>
+    <DT><A NAME="M204"><I>pathName </I><B>step</B> ?<I>numSteps</I>?</A> <DD>
+    Takes a step forward to the "next interesting time", which usually means
+    a step to the next frame for video. If <I>numSteps</I> is specified as 
+    a positive or negative integer, <I>numSteps</I> is taken in the 
+    direction given by its sign.
+    
+    <P>
+    <DT><A NAME="M45"><I>pathName </I><B>stop</B></A> <DD>Stops the movie if 
+    it' s playing. The movie must be mapped for <B>stop</B> to work.
+    
+    <P>
+    <DT><A NAME="M304"><I>pathName </I><B>tilt</B> ?<I>angle</I>?</A> 
+    <DD>Gets or sets the current tilt angle for a QTVR 
+    panoramic movie.
+    
+    <P>
+    <DT><A NAME="M46"><I>pathName </I><B>time</B>  ?<I>time</I>?</A> <DD>Sets 
+    or gets the current position in the movie, the movie's time.
+    
+    <P>
+    <DT><A NAME="M400"><I>pathName</I> <B>timecode</B> ?<I>args</I>?</A> 
+    <DD>Methods to create and manipulate timecode tracks. A timecode track 
+    displays a video tracks timing information as a text string 
+    <CODE>HH:MM:SS:FF</CODE>, where <CODE>HH</CODE> are hours, <CODE>MM</CODE> minutes, 
+    <CODE>SS</CODE> seconds, 
+    and <CODE>FF</CODE> the number of frames since last second.
+    If drop frames, see below, the last colon is replaced by a semicolon.
+    A timecode track is created with the same duration as the video track 
+    it is referencing. The video track must have a uniform frame duration 
+    for the timecode track to correctly display timing info. You typically 
+    make a timecode track for each clip you make.
+    The timecode track is created with a black background and white text 
+    as default, and the tracks graphics mode is set to <B>addmax</B> (see 
+    Apple docs for this). This has the effect of making the black 
+    background transparent. A tracks graphics transfer modes is 
+    investigated and set via the <B>tracks configure</B> command.
+    If you would like to have black text instead, follow this code example:
+    <PRE>
+.m timecode new 1 -foreground black -background white
+.m tracks configure 4 -graphicsmode addmin
+</PRE>
+Or if the solid background and foreground colors are preferred, set the 
+timecode tracks graphics mode to the copy mode:
+    <PRE>
+.m tracks configure 4 -graphicsmode {dithercopy copy}
+</PRE>
+
+    <P>
+    <DL>
+	<DT><A NAME="M401"><I>pathName </I><B>timecode delete</B></A> 
+	<DD>Deletes all timecode tracks in the movie if any.
+	
+	<P>
+	<DT><A NAME="M402"><I>pathName </I><B>timecode display</B> <I>boolean</I></A> 
+	<DD>Sets the display status of any timecode track.
+	
+	<P>
+	<DT><A NAME="M403"><I>pathName </I><B>timecode get</B> ?<I>movieTime</I>?</A> 
+	<DD>Returns a key-value list of some timecode track options. If no <I>movieTime</I>
+	specified it returns data for the current movie time.
+	
+	<P>
+	<DT><A NAME="M404"><I>pathName</I> <B>timecode new</B> 
+	    <I>videTrackID</I> ?<I>args</I>?</A> 
+	<DD>Deletes any timecode tracks in the movie, and then makes a new one 
+	with the corresponding features. If succesfull it returns a list
+	<CODE>{-undostate <I>number</I>} <I>newTrackID</I></CODE>
+	with the undo id number and the track ID of the newly created timecode track. 
+	The <I>videTrackID</I> must be a track of type 
+	'<B>vide</B>', which is used as reference.
+	The actual time data for the corresponding video track
+	must be known, and the corresponding parameters, <B>-frameduration</B>,
+	<B>-framespersecond</B>, and <B>-timescale</B>, must be set accordingly.
+	The timecode track does not automatically find these characteristics from 
+	the video track.
+	As an example, for the NTSC format with 29.97 frames per second, set
+	<B>-frameduration 100 -framespersecond 30 -timescale 2997 -dropframes 1</B>.
+	
+	<P>
+	<DL>
+	    <DT><A NAME="M405"> <B>-anchor</B> <I>boolean</I></A>
+	    <DD>Sets the anchor position of the timecode track to either <B>n</B> 
+	    (north) or <B>s</B> (south). It defaults to <B>s</B>.
+	    
+	    <P>
+	    <DT><A NAME="M406"> <B>-background</B> <I>color</I></A>
+	    <DD>Sets the background color of the timecode track. It defaults to 
+	    black.
+	    
+	    <P>
+	    <DT><A NAME="M407"> <B>-dropframes</B> <I>boolean</I></A>
+	    <DD>Signals if any so called, drop frames needed to correctly 
+	    reproduce the video tracks original timing characteristics.
+	    
+	    <P>
+	    <DT><A NAME="M408"> <B>-font</B> <I>fontSpec</I></A>
+	    <DD>Tk font for display.
+	    
+	    <P>
+	    <DT><A NAME="M409"> <B>-foreground</B> <I>color</I></A>
+	    <DD>Color for the timecode text.
+	    
+	    <P>
+	    <DT><A NAME="M410"> <B>-frameduration</B> <I>frameDuration</I></A>
+	    <DD>Integer specifying how long each frame lasts in the units of the <I>timeScale</I>.
+	    Defaults to 20.
+	    
+	    <P>
+	    <DT><A NAME="M411"> <B>-framespersecond</B> <I>numFrames</I></A>
+	    <DD>Sets the numnber of frames per second. Defaults to 30.
+	    
+	    <P>
+	    <DT><A NAME="M412"> <B>-pady</B> <I>integer</I></A>
+	    <DD>Integer that specifies the offset from top or bottom for the 
+	    timecode track. Defaults to 0.
+	    
+	    <P>
+	    <DT><A NAME="M413"> <B>-sourcename</B> <I>text</I></A>
+	    <DD>Descriptive text to store as a user data item for the timecode 
+	    track.
+	    
+	    <P>
+	    <DT><A NAME="M414"> <B>-startframes</B> <I>integer</I></A>
+	    <DD>The first frame's timecode offset. Defaults to 0.
+	    
+	    <P>
+	    <DT><A NAME="M415"> <B>-starthours</B> <I>integer</I></A>
+	    <DD>The first frame's timecode offset. Defaults to 0.
+	    
+	    <P>
+	    <DT><A NAME="M416"> <B>-startminutes</B> <I>integer</I></A>
+	    <DD>The first frame's timecode offset. Defaults to 0.
+	    
+	    <P>
+	    <DT><A NAME="M417"> <B>-startseconds</B> <I>integer</I></A>
+	    <DD>The first frame's timecode offset. Defaults to 0.
+	    
+	    <P>
+	    <DT><A NAME="M418"> <B>-timescale</B> <I>timeScale</I></A>
+	    <DD>An integer setting the scale for interpreting the frameDuration value.
+	    It indicates the number of time units per second. Defaults to 600.
+	</DL>
+		    
+	<P>
+	<DT><A NAME="M419"><I>pathName </I><B>timecode toggle</B></A> 
+	<DD>Toogles the display status of any timecode track on/off.
+	
+    </DL>
+    
+    
+    <P>
+    <DT><A NAME="M47"><I>pathName </I><B>tracks</B> ?<I>args</I>?</A> <DD>This 
+    command performs actions that act on a specific track and not on the 
+    complete movie. Each track has a unique integer number, the <I>trackID</I>, 
+    used to identify a track. If not otherwise noted, an operation that affects 
+    the media content of a track invalidates any track selection on this track. 
+    A track clipboard content involving the affected track may also be 
+    invalidated. Beware!
+    <P>
+    Times are given in the movies time scale if not otherwise noted. A <I>startTime</I>
+    <B>end</B> sets that time to the end of the movie, while a <I>duration</I> 
+    <B>end</B> extends the affected track to its end.
+    
+    <P>
+    
+    <DL>
+	<DT><A NAME="M48"><I>pathName </I><B>tracks</B> </A> 
+	<DD>Returns a list of 
+	all the media types for the enabled tracks in the movie. The types are 
+	described in terms of the four letter combinations given in the DESCRIPTION 
+	section above. For a typical movie this will be <CODE>vide</CODE> and 
+	<CODE>soun</CODE>.
+	
+	<P>
+	<DT><A NAME="M49"><I>pathName </I><B>tracks</B> <B>add</B> <I>args</I> </A> 
+	<DD>Inserts still images, text, or empty space in a track. Also creates 
+	chapter lists from a text track.  All <B>add</B> commands return the undo 
+	number as <CODE>{-undostate <I>undoNo</I>}</CODE> which may be used to undo 
+	this command.
+	
+	<P>
+	
+	<DL>
+	    <DT><A NAME="M50"><I>pathName </I> <B>tracks add chapters</B> 
+	    <I>trackID</I> <I>textTrackID</I></A> <DD>Inserts a reference from the 
+	    <I>trackID</I> track to the text track <I>textTrackID</I>, so that a pop up 
+	    menu is shown in the movie controller, with entries for each text in the 
+	    text track. This provides a so called chapter list used to quickly find a 
+	    position in the movie. There must be a controller for this to work, and 
+	    there must be enough space in the controller, else it is not shown. The 
+	    text track can be disabled after the chapters is created. Use short texts 
+	    preferrably. A typical procedure is:
+	    
+	    <PRE>% .m tracks new text
+> {-undostate 0} 3
+% .m tracks add text 3 0 100 Start
+% .m tracks add text 3 12000 100 {Pee Pause}
+% .m tracks add text 3 36000 100 {The End}
+% .m tracks add chapters 1 3
+% .m tracks disable 3
+</PRE>
+	    
+	    <P>
+	    <DT><A NAME="M51"><I>pathName </I> <B>tracks add picture</B> 
+	    <I>listOfImages</I> </A> 
+	    <DD>Deletes the present track selection 
+	    and inserts each of the images in <I>listOfImages</I>, each with the 
+	    duration of the track selection.
+	    Each of the elements in <I>listOfImages</I> is a tk <B>photo</B>. 
+	    The destination track must be a visual track, such as a video 
+	    track, and the inserted image is scaled to fit the track boundaries. There 
+	    must be a valid track selection for this to work. The movie's duration may increase after 
+	    this operation.
+	    
+	    <P>
+	    <DT><A NAME="M52"><I>pathName </I> <B>tracks add picture</B> <I>trackID 
+	    startTime duration listOfImages ?option value option value ...?</I></A> 
+	    <DD>Inserts each of the still 
+	    images in the list <I>listOfImages</I> into the specified track for the 
+	    specified duration of each image.
+	    Each of the elements in <I>listOfImages</I> is a tk <B>photo</B> created with 
+	    <B>image create photo</B> <I>imageName</I>, and filled with some content. The destination 
+	    track must be a visual track, such as a video track, and the inserted 
+	    images 
+	    are scaled to fit the track boundaries. The movie's duration may increase after 
+	    this operation. If the list if photos has length larger than one, the 
+	    images are always added as a sequence, and only compressors 
+	    supporting sequence compression will work. 
+	    Any of the following options may be used, but a 
+	    specific compressor typically only supports a subset of them:
+	    <P>
+	    <DL>
+		<DT> <B>-colordepth</B> <I>integer</I>
+                 <DD>Specifies the color depth for the compressed image. 
+                 Valid numbers are: 1, 2, 4, 8, 16, 24, 32, 34, 36, 40, 
+                 and 0. Zero means default depth. Values 1-32 specify the 
+                 color depth, higher values means gray scale image, with a 
+                 gray scale depth of <I>integer</I> - 32. Thus, 40 means an 
+                 8 bit gray scale image.
+
+		 
+		<P>
+		<DT> <B>-compressor</B> <I>fourCharacterCode</I>
+		<DD>Defaults to <B>{rle }</B>. Specifies the compressor to be used. 
+		See the <A HREF="movie.html#M313">Making Movies</A> section above 
+		for examples and discussion. Do not forget to quote or embrace if the 
+		four character code contains any space character.
+
+		<P>
+		<DT> <B>-dialog</B> <I>boolean</I>
+		<DD>Defaults to false. Specifies if a dialog should be displayed to ask the 
+		user to specify the 
+		compressor, quality, and a number of other options. Different dialogs are
+		showed depending if single frame or sequence. If this option is 1, the 
+		other options are ignored. Use this option to make it easier to find the 
+		supported set of compression options.
+
+		<P>
+		<DT> <B>-keyframerate</B> <I>integer</I>
+		<DD> Defaults to 12. When using temporal compression, a key frame is used 
+		as a reference frame for the following frames, up to the next key frame.
+		The number of frames from one key frame to the next key frame is the key 
+		frame rate.
+
+		<P>
+		<DT> <B>-spatialquality</B> <I>quality</I>
+		<DD>Sets the quality of the compressed image. Better quality results in 
+		a larger movie. Valid values of <I>quality</I> are: <B>min</B>, <B>low</B>, 
+		<B>normal</B>, 
+		<B>high</B>, <B>max</B>, and <B>lossless</B>. It defaults to <B>normal</B>.
+
+		<P>
+		<DT> <B>-temporalquality</B> <I>quality</I>
+		<DD>Sets the quality of the temporal compression. This is only 
+		applicable for sequences.
+		Valid values of <I>quality</I> are: <B>min</B>, <B>low</B>, <B>normal</B>, 
+		<B>high</B>, <B>max</B>, <B>lossless</B>, and <B>0</B>. 
+		<B>0</B> means no temporal compression. It defaults to <B>normal</B>.
+		
+	    </DL>
+	    
+	    <P>
+	    <DT><A NAME="M330"><I>pathName </I> <B>tracks add picturefile</B> 
+	    <I>fileName</I> </A> 
+	    <DD>Deletes the present track selection 
+	    and inserts the image in the file <I>fileName</I>, with the 
+	    duration of the track selection.
+	    The destination track must be a visual track, such as a video 
+	    track, and the inserted image is scaled to fit the track boundaries. There 
+	    must be a valid track selection for this to work. 
+	    Unlike the <B>tracks add picture</B> command, 
+	    it tries to be as faithful as possible to the features of the 
+	    original image,
+	    conserving such things as color depth, color table, compressor etc.
+	    
+	    <P>
+	    <DT><A NAME="M331"><I>pathName </I> <B>tracks add picturefile</B> <I>trackID 
+	    startTime duration fileName ?option value option value ...?</I></A> 
+	    <DD>Inserts the still image in file <I>fileName</I> at the specified 
+	    position and duration of the track. Options are identical to the 
+	    <B>tracks add picture</B> command. Unlike the <B>tracks add picture</B>,
+	    it tries to be as faithful as possible to the features of the 
+	    original image if you don't specify extra options, 
+	    conserving such things as color depth, color table, compressor etc.
+	    It does not just takes the data in the file, but it needs to 
+	    recompress it again. Therefore do not use GIF files since there is no 
+	    such compressor due to a patent debacle.
+	    
+	    <P>
+	    <DT><A NAME="M53"><I>pathName </I> <B>tracks add space</B> </A> 
+	    <DD>Replaces the present track selection with empty space. Empty space is 
+	    white background for visual tracks, and silence for sound tracks. There 
+	    must be a valid track selection for this to work.
+	    
+	    <P>
+	    <DT><A NAME="M54"><I>pathName </I> <B>tracks add space</B> <I>trackID 
+	    startTime duration</I></A> <DD>Inserts empty space into the specified track 
+	    for the specified time. Empty space is white background for visual tracks, 
+	    and silence for sound tracks. The movie's duration may increase after this 
+	    operation.
+	    
+	    <P>
+	    <DT><A NAME="M56"><I>pathName </I> <B>tracks add text</B> <I>trackID 
+	    startTime duration text  ?option value option value ...?</I></A> 
+	    <DD>Inserts the given text into the 
+	    specified track for the specified time. The text is shown centered at the 
+	    top with a standard system font in white. The <I>trackID</I> must be a text track. 
+	    The movie's duration may increase after this operation.
+	    When adding text to a text track any of the following options may be 
+	    used:
+	    <P>
+	    <DL>
+		<DT> <B>-background</B> <I>color</I> </A> 
+		<DD>Sets the background color of the complete video area. 
+		
+		<P>
+		<DT> <B>-cliptobox</B> <I>boolean</I> </A> 
+		<DD>Defaults to false. Specifies if the text should be clipped to the 
+		textbox if any. 
+		
+		<P>
+		<DT> <B>-font</B> <I>fontName</I> </A> 
+		<DD>Sets the background color of the complete video area. 
+		
+		<P>
+		<DT> <B>-foreground</B> <I>color</I> </A> 
+		<DD>Sets the foreground color of the text. 
+		
+		<P>
+		<DT> <B>-justification</B> <I>just</I> </A> 
+		<DD>Sets the justification of the text. The text is justified within the 
+		text box, which defaults to the text tracks video area. The available 
+		values for <I>just</I> are <B>center</B>, <B>right</B>, <B>left</B>, 
+		and <B>default</B>.
+		
+		<P>
+		<DT> <B>-scrolldelay</B> <I>time</I> </A> 
+		<DD>Defaults to zero. Indicates the delay in scrolling associated with 
+		the options <B>-scrollin</B> and <B>-scrollout</B>. If the <I>time</I> 
+		is greater than 0, and the <B>-scrollin</B> is true, the text pauses when 
+		it has scrolled all the way in for the amount of time specified by 
+		<I>time</I>. If the <B>-scrollout</B> is true, the pause occurs first 
+		before the text scrolls out. If both these options are true, the pause 
+		occurs at the midpoint between scrolling in and scrolling out.
+		
+		<P>
+		<DT> <B>-scrollhorizontal</B> <I>boolean</I> </A> 
+		<DD>Defaults to false. If have scrollin or scrollout, it changes the 
+		default vertical scrolldirection to horizontal.
+		
+		<P>
+		<DT> <B>-scrollin</B> <I>boolean</I> </A> 
+		<DD>Defaults to false. If true, scrolls the text in until the last of 
+		the text is in view. 
+		
+		<P>
+		<DT> <B>-scrollout</B> <I>boolean</I> </A> 
+		<DD>Defaults to false. If true, scrolls text out until the last of the 
+		text is out of view. If both of <B>-scrollin</B> and <B>-scrollout</B>
+		is true, the text is scrolled in then out.
+		
+		<P>
+		<DT> <B>-scrollreverse</B> <I>boolean</I> </A> 
+		<DD>Defaults to false. The default scroll direction is from bottom to 
+		top for vertical scrolling, and from left to right for horizontal 
+		scrolling. This option reverses these directions. 
+		
+		<P>
+		<DT> <B>-textbox</B> <I>{x y width height}</I> </A> 
+		<DD>Sets the bounding box of the text in terms of the coordinates of the 
+		text track. The <B>-cliptobox</B> option specifies if text outside the box is 
+		clipped or not. The coordinates start with 0 0 in the upper left corner 
+		of the text track.
+	    </DL>
+
+
+	</DL>
+	
+	<P>
+	<DT><A NAME="M57"><I>pathName </I> <B>tracks configure</B> 
+	<I>trackID</I> ?<I>option</I>? ?<I>value option value ...</I>?</A>
+	<DD> Query or modify the configuration 
+	options of the particular track. If no <I>option</I> is specified, returns a list 
+	of <I>option-value</I> pairs describing all of the available options for this track.  If 
+	<I>option</I> is specified with no <I>value</I>, then the command returns 
+	the value for this option.
+	If one or more <I>option-value</I> pairs are specified, then 
+	the command modifies the given tracks option(s) to have the given value(s); 
+	in this case the command returns an empty string. <I>Option</I> may have 
+	any of the following values:
+	
+	<P>
+	<DL>
+	    <DT><A NAME="M320"> <B>-balance</B> <I>number</I> </A> 
+	    <DD>The balance parameter value may range from -128 to 127. Negative values 
+	    emphasize the left sound channel, while positive values emphasize the right 
+	    sound channel. A value of -128 forces all output through the left channel. 
+	    Similarly, a value of 127 forces all output through the right channel. 
+	    
+	    <P>
+	    <DT><A NAME="M328"><B>-enabled</B> <I>boolean</I></A> 
+	    <DD>Specifies if the track shall be enabled or not. It defaults to 
+	    true. A disabled video or text track, for instance, wont display, and 
+	    a disabled audio track wont play any sound. 
+	    
+	    <P>
+	    <DT><A NAME="M321"><B>-graphicsmode</B> <I>mode</I></A> 
+	    <DD>Specifies the graphics mode of a track. The <I>mode</I> can be any 
+	    of, <B>blend</B>, <B>copy</B>, <B>transparent</B>, <B>addpin</B>, <B>addover</B>, 
+	    <B>subpin</B>, <B>addmax</B>, <B>subover</B>, <B>addmin</B>, <B>straighalpha</B>, 
+	    <B>prewhitealpha</B>, <B>preblackalpha</B>, or <B>straighalphablend</B>.
+	    The <I>mode</I> can also be a list with one of the elements identical 
+	    to any of the above, and the other equal to <B>dithercopy</B>.
+	    Several of these modes must be further 
+	    specified by the <B>-graphicsmodecolor</B> option.
+	    See Apples Inside books for detailed explanation of these modes. The 
+	    most common ones are <B>copy</B>, which just draws the track's images 
+	    on top of any other visual data, <B>transparent</B>, which draws all 
+	    data except the pixels specified with the option 
+	    <B>-graphicsmodecolor</B>. Useful is also the <B>blend</B> mode that 
+	    makes the track partial visible depending on the 
+	    <B>-graphicsmodecolor</B>. For instance, a <B>-graphicsmodecolor</B> 
+	    equal to gray50 makes the track 50% transparent.
+	    
+	    <P>
+	    <DT><A NAME="M322"><B>-graphicsmodecolor</B> <I>color</I></A> 
+	    <DD>Specifies a color to be used in cooperation with the 
+	    <B>-graphicsmode</B> option. 
+	
+	    <P>
+	    <DT><A NAME="M323"><B>-layer</B> <I>layerNo</I></A> 
+	    <DD>Specifies the layer number of the specified 
+	    track. The layer number of a track specifies the stacking order. It 
+	    defaults to 0.
+		
+	    <P>
+	    <DT><A NAME="M326"><B>-matrix</B> <I>{{a b u} {c d v} {tx ty w}}</I></A> 
+	    <DD>Specifies the display matrix for the track. The default value is 
+	    the identity matrix: <CODE>{{1 0 0} {0 1 0} {0 0 1}}</CODE>. Always: u = 0.0, v = 
+	    0.0, and w = 1.0. Any matrix different from the identity matrix gives 
+	    some distortion of the display. Examples: translation = <CODE>{{1 0 0} {0 1 
+	    0} {tx ty 1}}</CODE>, scaling = <CODE>{{sx 0 0} {0 sy 0} {0 0 1}}</CODE>, rotation = 
+	    <CODE>{{cos(theta) sin(theta) 0} {-sin(theta) cos(theta) 0} {0 0 1}}</CODE>,
+	    flipping vertically = <CODE>{{1 0 0} {0 -1 0} {0 0 1}}</CODE>.
+	    Operations are combined by multiplying different matrices. Note that 
+	    the order of the factors is important since matric multiplication is a 
+	    noncommutative operation.
+		
+	    <P>
+	    <DT><A NAME="M324"><B>-offset</B> <I>time</I></A> 
+	    <DD>Specifies the offset of the track. The offset is counted starting 
+	    from 0 when the movie begins, and is expressed in the movies time scale.
+	    The total length of the movie may change as a result of this operation.
+	    
+	    <P>
+	    <DT><A NAME="M325"><B>-volume</B> <I>number</I></A> 
+	    <DD>Specifies the volume of a sound track. The 
+	    <I>number</I> is between -256 and 256, where 0 and smaller means no sound, 
+	    and negative values are used to toggle sound on and off, keeping the volume 
+	    intact. The track's volume is toggled by, for instance:
+	
+<PRE>
+<CODE>.m tracks configure 2 -volume [expr -1*[.m tracks configure 2 -volume]]</CODE>
+</PRE>
+
+	</DL>	    
+	    
+	<P>
+	<DT><A NAME="M58"><I>pathName </I> <B>tracks</B> <B>copy</B> </A> 
+	<DD>Copies the present <I>track</I> selection to the track clipboard.
+	
+	<P>
+	<DT><A NAME="M59"><I>pathName </I> <B>tracks</B> <B>delete</B> 
+	?<I>args</I>?</A> <DD>Deletes segments or complete tracks. It returns the 
+	undo number as <CODE>{-undostate <I>undoNo</I>}</CODE> which may be used to 
+	undo this command. The deleted segment is <I>not</I> placed on the track 
+	clipboard. The movie's length may change as a result. All <B>tracks 
+	delete</B> commands return the undo number as <CODE>{-undostate 
+	<I>undoNo</I>}</CODE> which may be used to undo this command.
+	
+	<P>
+	
+	<DL>
+	    <DT><A NAME="M60"><I>pathName </I> <B>tracks</B> <B>delete</B></A> 
+	    <DD>Deletes the present track selection. There must be a valid track 
+	    selection for this to work.
+	    
+	    <P>
+	    <DT><A NAME="M61"><I>pathName </I> <B>tracks</B> <B>delete</B> 
+	    <I>trackID</I></A> <DD>Deletes the track with number  <I>trackID</I> 
+	    completely.
+	    
+	    <P>
+	    <DT><A NAME="M62"><I>pathName </I> <B>tracks</B> <B>delete</B> <I>trackID 
+	    startTime duration</I></A> <DD>Deletes the track segment with number 
+	    <I>trackID</I>, starting at <I>startTime</I> for the specified 
+	    <I>duration</I>.
+	</DL>
+	
+	<P>
+	<DT><A NAME="M63"><I>pathName </I> <B>tracks</B> <B>disable</B> 
+	<I>trackID</I></A> <DD>Disables track with number  <I>trackID</I>.
+	Its use is discouraged in favour for the <I>pathName </I><B>tracks 
+	configure -enabled</B> command.
+	
+	<P>
+	<DT><A NAME="M64"><I>pathName </I> <B>tracks</B> <B>duplicate</B> 
+	<I>trackID</I></A> <DD>Duplicates track with number  <I>trackID</I>. The 
+	newly created track has the same properties as the original track and the 
+	same media. It returns <CODE>{-undostate <I>number</I>} 
+	<I>newTrackID</I></CODE>
+	
+	<P>
+	<DT><A NAME="M65"><I>pathName </I><B>tracks</B> <B>enable</B> 
+	<I>trackID</I></A> <DD>Enables track with number  <I>trackID</I>.
+	Its use is discouraged in favour for the <I>pathName </I><B>tracks 
+	configure -enabled</B> command.
+	
+	<P>
+	<DT><A NAME="M66"><I>pathName </I><B>tracks</B> <B>full</B> 
+	?<I>trackID</I>?</A> <DD>Returns a list <CODE>-mediatype <I>type</I> 
+	-trackid <I>trackID</I> -tracklayer <I>layerNo</I> -state 
+	enabled|disabled -trackoffset <I>number</I> -trackduration 
+	<I>number</I> -mediaduration <I>number</I> -mediatimescale 
+	<I>number</I></CODE> for the track specified by <I>trackID</I>, or if no 
+	<I>trackID</I> given, it returns the list for all tracks.
+	
+	<P>
+	<DT><A NAME="M68"><I>pathName </I><B>tracks list</B> </A> <DD>Returns a 
+	list of all track ID's.
+	
+	<P>
+	<DT><A NAME="M69"><I>pathName </I><B>tracks list -mediatype</B> 
+	<I>media</I></A> <DD> Returns only tracks of type <I>media</I>.
+	
+	<P>
+	<DT><A NAME="M70"><I>pathName </I><B>tracks list -enabled</B> 
+	<I>boolean</I></A> <DD>Returns only enabled or disabled tracks depending on 
+	<I>boolean</I>.
+	
+	<P>
+	<DT><A NAME="M450"><I>pathName </I> <B>tracks media</B> <I>args</I></A> 
+	<DD>Each track has associated media which is the actual data processed when
+	playing a track. The media has generally different time characteristics
+	than a track (and movie), such as timescale etc. Each track essentially 
+	only consists of references into the media in a very general way. The 
+	beginning of a track may play media from the end etc. Track time and media 
+	time may therefore have a nontrivial relationship. Do not make any 
+	assumptions about this relation.
+	
+	<P>	
+	<DL>
+	    <DT><A NAME="M451"><I>pathName </I> 
+	    <B>tracks media nextinterestingtime</B> <I>trackID</I> ?<I>mediaTime</I>?</A> 
+	    <DD>Returns a list <CODE>-sampletime <I>mediaTime</I> -sampleduration <I>mediaDuration</I>
+	    -edittime <I>mediaTime</I> -editduration <I>mediaTime</I> 
+	    -syncsampletime <I>mediaTime</I>
+	    -syncsampleduration <I>mediaDuration</I></CODE> describing various events in the 
+	    media. If <I>mediaTime</I> is given, the search is started from that 
+	    time, else it is searched from the current time.
+	    
+	    <P>	
+	    <DT><A NAME="M452"><I>pathName </I> 
+	    <B>tracks media samplecount</B> <I>trackID</I></A> 
+	    <DD>Returns the total number of samples in this media.
+	    
+	    <P>	
+	    <DT><A NAME="M453"><I>pathName </I> 
+	    <B>tracks media sampledescriptioncount</B> <I>trackID</I></A> 
+	    <DD>Returns the total number of sample descriptions in this media. 
+	    
+	    <P>	
+	    <DT><A NAME="M454"><I>pathName </I> 
+	    <B>tracks media samplenum</B> <I>trackID</I> ?<I>mediaTime</I>?</A> 
+	    <DD>Returns a list <CODE>-samplenum <I>sampleNum</I> -sampletime 
+	    <I>mediaTime</I> -sampleduration <I>mediaDuration</I></CODE>
+	    describing the media sample number at this <I>mediaTime</I>, or the 
+	    <I>mediaTime</I> corresponding to the current movie time.
+	    The <CODE>-sampletime</CODE> describes the actual start of the sample 
+	    which may be different than the <I>mediaTime</I> given or the current 
+	    time.
+	    
+	    <P>	
+	    <DT><A NAME="M455"><I>pathName </I> 
+	    <B>tracks media syncsamplecount</B> <I>trackID</I></A> 
+	    <DD>Returns the total number of samples that are so called sync 
+	    samples in this media. 
+	    
+	    <P>	
+	    <DT><A NAME="M456"><I>pathName </I> 
+	    <B>tracks media time</B> <I>trackID</I> ?<I>movieTime</I>?</A> 
+	    <DD>Returns the media time corresponding to the corresponding <I>movieTime</I>
+	    (identical to the tracks time), or the media time corresponding 
+	    to the current movie time.
+	    
+	    <P>	
+	    <DT><A NAME="M457"><I>pathName </I> 
+	    <B>tracks media timefromnum</B> <I>trackID sampleNum</I></A> 
+	    <DD>Returns a list <CODE>-sampletime <I>mediaTime</I> -sampleduration
+	    <I>mediaDuration</I></CODE> describing the media time characterestics of 
+	    the sample with given number <I>sampleNum</I>.
+	    
+	    <P>	
+	    <DT><A NAME="M458"><I>pathName</I> 
+	    <B>tracks media userdata</B> <I>trackID</I> ?<I>-key value ...</I>?</A> 
+	    <DD>Sets or gets the user data associated with the media for the track 
+	    given by <I>trackID</I>.
+	    See the <A HREF="movie.html#M430">userdata</A> command for details.
+	</DL>
+		    
+	<P>
+	<DT><A NAME="M71"><I>pathName </I><B>tracks new</B> <I>args</I> </A> 
+	<DD>Creates a new track in the movie and returns <CODE>{-undostate 
+	<I>number</I>} <I>newTrackID</I></CODE>. The created track has the 
+	following <I>media</I> time scales: sound or music track 44100, text track 
+	60, and a video or sprite track 600.  Optionally you may the specify the media time scale.
+	The new track is empty and has zero 
+	offset and zero duration. It returns <CODE>{-undostate <I>number</I>} 
+	<I>newTrackID</I></CODE>
+	
+	<P>	
+	<DL>
+	    <DT><A NAME="M72"><I>pathName </I><B>tracks new sound | music</B>  
+	     ?<I>-timescale scale?</I></A> 
+	    <DD>Creates a new sound or music track in the movie. 
+	    
+	    <P>
+	    <DT><A NAME="M73"><I>pathName </I><B>tracks new text | video | 
+	    sprite | flash</B> 
+	    ?<I>width height</I>? ?<I>-timescale scale?</I> </A> 
+	    <DD>Creates a new text, video, flash, or sprite track 
+	    in the movie. Text is added with the <B>tracks add text</B> command. If 
+	    <I>width height</I> is lacking, the track is created with the movie's 
+	    spatial dimension.
+	</DL>
+
+	<P>
+	<DT><A NAME="M481"><I>pathName</I> <B>tracks nextinterestingtime</B> 
+	<I>trackID</I> ?<I>movieTime</I>?</A> 
+	<DD>Finds some "interesting times" for th given <I>trackID</I> corresponding to the current movie 
+	time or to any <I>movieTime</I> given as optional argument. The times 
+	corresponding to new sample, edits, and sync samples. 
+	The answer is returned as a list: <CODE>-sampletime <I>movieTime</I> 
+	-sampleduration <I>movieDuration</I>
+	-edittime <I>movieTime</I> -editduration <I>movieDuration</I> 
+	-syncsampletime <I>movieTime</I> -syncsampleduration <I>movieDuration</I></CODE>.
+
+    
+	<P>
+	<DT><A NAME="M75"><I>pathName </I><B>tracks paste</B></A> <DD>If there 
+	exist a <I>track</I> selection with nonzero duration, the selected segment 
+	is removed, and the current content in the <I>track</I> clipboard is pasted 
+	at the selections start time. The selection is changed to embrace the newly 
+	pasted segment. The duration of the movie may change as a result of this 
+	operation. It returns <CODE>{-undostate <I>number</I>}</CODE>.
+	
+	<P>
+	<DT><A NAME="M76"><I>pathName </I><B>tracks picture</B> <I>trackID</I> 
+	<I>time</I> <I>imageName</I> ?<B>-height</B> <I>height</I>? ?<B>-width</B> <I>width</I>?</A> 
+	<DD>Takes a snapshot from the movie's 
+	specified track ID at time  <I>time</I>, and places it in the  <I>image</I>. 
+	The  <I>imageName</I> must first have been created with <B>image create 
+	photo</B> <I>imageName</I>. The track must have a visual representation.
+	If any of the <B>-height</B> or <B>-width</B> options are given, the 
+	<I>imageName</I> is scaled to that size, else it is kept at its "natural" 
+	size.
+	
+	<P>
+	<DT><A NAME="M77"><I>pathName </I><B>tracks scale</B> <I>args</I> </A> 
+	<DD>Scales a track segment. This affects a track segments duration. A 
+	visual track segment plays faster or slower, and a sound track shifts its 
+	frequencies. The duration of the movie may change. It returns 
+	<CODE>{-undostate <I>number</I>}</CODE>.
+	
+	<P>
+	
+	<DL>
+	    <DT><A NAME="M78"><I>pathName </I><B>tracks scale</B> <I>newDuration</I> 
+	    </A> <DD>Scales the present <I>track</I> selection to have a new duration 
+	    of <I>newDuration</I>. The track selection is updated to the newly scaled 
+	    segment.
+	    
+	    <P>
+	    <DT><A NAME="M79"><I>pathName </I><B>tracks scale</B> <I>trackID startTime 
+	    duration newDuration</I> </A> <DD>Scales the indicated track segment to 
+	    have a new duration of <I>newDuration</I>.
+	</DL>
+	
+	<P>
+	<DT><A NAME="M80"><I>pathName </I><B>tracks select clear</B></A> <DD>The 
+	track segment of the current track selection is removed. After removing the 
+	segment, the duration of the track selection is set to 0 and the selection 
+	time remains unchanged. The deleted track segment is <I>not</I> pasted onto 
+	the track clipboard. It returns <CODE>{-undostate <I>number</I>}</CODE>.
+	
+	<P>
+	<DT><A NAME="M81"><I>pathName </I><B>tracks select</B> ?<I>trackID 
+	</I>? ?<I>startTime</I>? ?<I>duration</I>? </A> <DD>Makes a <I>track</I> 
+	selection. If no optional arguments are given, the current track selection 
+	is returned as a list: <I>trackId startTime duration</I>. In the case of no
+	tracks selection, an empty value is returned.
+	If only the 
+	<I>trackID</I> is given, that complete track is selected. If also the 
+	<I>startTime</I> is given, this is equivalent to placing the insertion 
+	point here. If all arguments are given, the corresponding track selection 
+	is made. Tracks selections are kept per movie, meaning that only a single
+	track selection exists for a given movie.
+	
+	<P>
+	<DT><A NAME="M82"><I>pathName</I> <B>tracks size</B> <I>trackID </I></A> 
+	<DD>Returns a list <CODE><I>width</I> <I>height</I></CODE> describing the 
+	tracks spatial size excluding any movie controller. A sound track, or 
+	another track without any visual content, has a size 0 0.
+	
+	<P>
+	<DT><A NAME="M431"><I>pathName</I> <B>tracks userdata</B> <I>trackID</I>
+	?<I>-key value ...</I>?</A> 
+	<DD>Sets or gets user data associated with a particular track.
+	See the <A HREF="movie.html#M430">userdata</A> command for details.
+	
+    </DL>
+    
+    <P>
+    <DT><A NAME="M84"><I>pathName </I><B>undo</B> ?<I>args</I>?</A> <DD>This 
+    command handles undo operations on the movie. Without any arguments it
+    returns the current undo level.
+    
+    <P>    
+    <DL>
+	<DT><A NAME="M85"><I>pathName </I><B>undo</B> <B>set</B></A> <DD>Returns a 
+	list <CODE>{-undostate <I>number</I>}</CODE> where 
+	<CODE><I>number</I></CODE> is the number of this undo state.
+	
+	<P>
+	<DT><A NAME="M86"><I>pathName </I><B>undo</B> <I>levelNo</I></A> <DD>Undoes 
+	to level <I>levelNo</I>. All higher undo numbers are lost.
+    </DL>
+
+    <P>
+    <DT><A NAME="M430"><I>pathName </I><B>userdata</B> ?<I>-key value ...</I>?</A> 
+    <DD>Sets or gets user data associated with the movie.
+    If no options, it
+    returns a <I>-key value</I> list for the user data stored in 
+    the movie. For instance, for MP3 music files the movie importer puts 
+    ID3 tags as text user data. 
+    The following keys are recognized as text user data, and correspond to 
+    MP3 ID3 tags: <B>-album</B>, <B>-artist</B>, <B>-author</B>, <B>-chapter</B>, 
+    <B>-comment</B>, <B>-composer</B>, <B>-copyright</B>, <B>-creationdate</B>,
+    <B>-description</B>, <B>-director</B>, <B>-disclaimer</B>, <B>-encodedby</B>,
+    <B>-fullname</B>, <B>-genre</B>, <B>-hostcomputer</B>, <B>-information</B>, 
+    <B>-keywords</B>, <B>-make</B>, <B>-model</B>, <B>-name</B>, <B>-originalartist</B>, 
+    <B>-originalformat</B>, <B>-originalsource</B>, <B>-performers</B>, 
+    <B>-producer</B>, <B>-product</B>, <B>-software</B>, <B>-specialplaybackrequirements</B>, 
+    <B>-track</B>, <B>-warning</B>, <B>-writer</B>, <B>-urllink</B>, <B>-editdate1</B>.
+    In general the key is a four-word-character, similar to other Apple types.
+    Keys starting with the copyright sign,&#169;, are by default treated as text 
+    user data. Else data is stored as binary. 
+    All lower case characters and special characters
+    are reserved for Apple's usage.
+    Permanent storage requires that the movie is saved.
+    
+</DL>
+
+<H3><A NAME="M87">BINDINGS</A></H3>
+
+The binding class for all movie widgets is <B>Movie</B>. 
+QuickTime adds a few bindings by its own.
+For a VR panorama movie, there are number of mouse bindings that 
+are used to control the view in the picture. For an ordinary, linear, movie with a 
+controller, a 
+double click starts the movie, and a single click stops it.
+<P>
+There are a few key bindings that QuickTimeTcl adds. The movie must have
+focus as usual for these to be active. Either click the widget, or set focus 
+by the <B>focus</B> command. Linear means ordinary movie, else it's either 
+a panoramic movie or an object movie.
+
+<DL>
+    <DT>  <B>&lt;Right&gt;</B> <DD>Linear: step 1, else pan -10&#176;
+    <DT>  <B>&lt;Left&gt;</B> <DD>Linear: step -1, else pan 10&#176;
+    <DT>  <B>&lt;Up&gt;</B> <DD>Linear: increases the volume, else tilt 10&#176;
+    <DT>  <B>&lt;Down&gt;</B> <DD>Linear: decreases the volume, else tilt -10&#176;
+    <DT>  <B>&lt;Shift_L&gt;</B> <DD>Linear: nothing, else fieldofview -5
+    <DT>  <B>&lt;Control_L&gt;</B> <DD>Linear: nothing, else fieldofview 5
+    <DT>  <B>&lt;space&gt;</B> <DD>Linear: toggles play/stop, else nothing
+</DL>
+
+
+<H3><A NAME="M88">BUGS</A></H3>
+
+<UL>
+    <LI> There are some slight performance problems for panoramic VR pictures 
+    that is probably related to the flickering cursor.
+    <LI> (Windows) <B>-resizable</B> not working.
+    <LI> (Mac OS X) <B>effect</B> not implemented, yet.
+</UL>
+
+<H3><A NAME="M89">KEYWORDS</A></H3>
+
+<U><A HREF="movie.html">movie</A></U>, <U>QuickTime</U>, <U><A 
+HREF="seqgrabber.html">Sequence grabber</A></U>, and <A 
+HREF="getOpenFilePreview.html">tk_getOpenFilePreview</A>
+<HR>
+
+<PRE>
+Copyright &#169; 1998-1999 Bruce O'Neel 
+Copyright &#169; 2000-2003 Mats Bengtsson</PRE>
+
+</BODY>
+
+</HTML>

@@ -28,6 +28,7 @@
 #include <IOKit/hid/IOHIDUsageTables.h>
 #include <IOKit/hid/IOHIDServiceKeys.h>
 #include <IOKit/hid/IOHIDKeys.h>
+#include <IOKit/hid/AppleEmbeddedHIDKeys.h>
 
 __BEGIN_DECLS
 #include <mach/mach.h>
@@ -90,14 +91,15 @@ IOHIDEventServiceClass::IOHIDEventServiceClass() : IOHIDIUnknown(&sIOCFPlugInInt
     _hidService.pseudoVTable    = (IUnknownVTbl *)  &sIOHIDServiceInterface2;
     _hidService.obj             = this;
     
-    _isOpen                     = FALSE;
     _service                    = MACH_PORT_NULL;
     _connect                    = MACH_PORT_NULL;
+    _isOpen                     = FALSE;
 
     _asyncPort                  = MACH_PORT_NULL;
     _asyncEventSource           = NULL;
         
     _serviceProperties          = NULL;
+    _dynamicServiceProperties   = NULL;
     _servicePreferences         = NULL;
     _eventCallback              = NULL;
     _eventTarget                = NULL;
@@ -168,7 +170,9 @@ IOHIDEventServiceClass::~IOHIDEventServiceClass()
     }
     
     if ( _asyncPort ) {
-        mach_port_deallocate(mach_task_self(), _asyncPort);
+    //  radr://6727552
+    //  mach_port_deallocate(mach_task_self(), _asyncPort);
+        mach_port_mod_refs(mach_task_self(), _asyncPort, MACH_PORT_RIGHT_RECEIVE, -1);
         _asyncPort = MACH_PORT_NULL;
     }
         
@@ -577,11 +581,69 @@ CFTypeRef IOHIDEventServiceClass::getProperty(CFStringRef key)
 }
 
 //---------------------------------------------------------------------------
+// IOHIDEventServiceClass::createFixedProperties
+//---------------------------------------------------------------------------
+CFDictionaryRef IOHIDEventServiceClass::createFixedProperties(CFDictionaryRef floatProperties)
+{
+    CFMutableDictionaryRef  newProperties;
+    CFIndex                 count, index;
+    
+    count = CFDictionaryGetCount(floatProperties);
+    if ( !count )
+        return NULL;
+           
+    newProperties = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    if ( !newProperties )
+        return NULL;
+
+    CFTypeRef   values[count];
+    CFTypeRef   keys[count];
+
+    CFDictionaryGetKeysAndValues(floatProperties, keys, values);
+    
+    for ( index=0; index<count; index++) {
+        CFTypeRef   value       = values[index];
+        CFTypeRef   newValue    = NULL;
+        
+        if ( (CFNumberGetTypeID() == CFGetTypeID(value)) && CFNumberIsFloatType((CFNumberRef)value) ) {
+            double      floatValue  = 0.0;
+            IOFixed     fixedValue  = 0;
+            
+            CFNumberGetValue((CFNumberRef)value, kCFNumberDoubleType, &floatValue);
+            
+            fixedValue = floatValue * 65535;
+            
+            value = newValue = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &fixedValue);            
+        } 
+
+        CFDictionarySetValue(newProperties, keys[index], value);
+        
+        if ( newValue )
+            CFRelease(newValue);
+    }
+    
+    return newProperties;
+}
+
+//---------------------------------------------------------------------------
 // IOHIDEventServiceClass::setProperty
 //---------------------------------------------------------------------------
 boolean_t IOHIDEventServiceClass::setProperty(CFStringRef key, CFTypeRef property)
 {
-    return IORegistryEntrySetCFProperty(_service, key, property) == kIOReturnSuccess;
+    CFDictionaryRef floatProperties = NULL;
+    boolean_t       retVal;
+    
+    // RY: Convert these floating point properties to IOFixed. Limiting to accel shake but can get apply to others as well
+    if ( CFEqual(CFSTR(kIOHIDAccelerometerShakeKey), key) && (CFDictionaryGetTypeID() == CFGetTypeID(property)) ) {
+        property = floatProperties = createFixedProperties((CFDictionaryRef)property);
+    }
+        
+    retVal = (IORegistryEntrySetCFProperty(_service, key, property) == kIOReturnSuccess);
+    
+    if ( floatProperties )
+        CFRelease(floatProperties);
+        
+    return retVal;
 
 /*    
     if (kIOReturnSuccess != IORegistryEntrySetCFProperty(_service, key, property))

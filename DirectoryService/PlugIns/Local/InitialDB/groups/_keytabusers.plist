@@ -17,6 +17,8 @@
 	<key>groupmembers</key>
 	<array>
 		<string>FFFFEEEE-DDDD-CCCC-BBBB-AAAA0000005D</string>
+		<string>FFFFEEEE-DDDD-CCCC-BBBB-AAAA00000054</string>
+		<string>FFFFEEEE-DDDD-CCCC-BBBB-AAAA0000001B</string>
 	</array>
 	<key>name</key>
 	<array>
@@ -29,6 +31,10 @@
 	<key>realname</key>
 	<array>
 		<string>keytabusers</string>
+	</array>
+	<key>passwd</key>
+	<array>
+		<string>*</string>
 	</array>
 	<key>users</key>
 	<array>

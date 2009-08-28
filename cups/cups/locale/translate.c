@@ -1,5 +1,5 @@
 /*
- * "$Id: translate.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: translate.c 7922 2008-09-10 15:56:47Z mike $"
  *
  *   HTTP-based translation program for the Common UNIX Printing System (CUPS).
  *
@@ -7,7 +7,7 @@
  *   several different languages.  The translation isn't perfect, but it's
  *   a start (better than working from scratch.)
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -63,9 +63,9 @@ main(int  argc,				/* I - Number of command-line arguments */
   }
 
   if (access(argv[1], 0))
-    cat = _cupsMessageLoad("cups.pot");
+    cat = _cupsMessageLoad("cups.pot", 1);
   else
-    cat = _cupsMessageLoad(argv[1]);
+    cat = _cupsMessageLoad(argv[1], 1);
 
   if (!cat)
   {
@@ -293,16 +293,16 @@ translate_messages(cups_array_t *cat,	/* I - Message catalog */
       *bufptr = '\0';
 
      /*
-      * Find the first textarea element - that will have the translation data...
+      * Find the div containing translation
       */
 
-      if ((bufptr = strstr(buffer, "<textarea")) == NULL)
+      if ((bufptr = strstr(buffer, "<div id=result_box")) == NULL)
       {
        /*
         * No textarea, abort!
 	*/
 
-        puts("NO TEXTAREA!");
+        puts("NO div id=result_box!");
 	ret = 0;
 	break;
       }
@@ -313,20 +313,20 @@ translate_messages(cups_array_t *cat,	/* I - Message catalog */
         * textarea doesn't end, abort!
 	*/
 
-        puts("TEXTAREA SHORT DATA!");
+        puts("DIV SHORT DATA!");
 	ret = 0;
 	break;
       }
 
       bufptr ++;
 
-      if ((bufend = strstr(bufptr, "</textarea>")) == NULL)
+      if ((bufend = strstr(bufptr, "</div>")) == NULL)
       {
        /*
         * textarea doesn't close, abort!
 	*/
 
-        puts("/TEXTAREA SHORT DATA!");
+        puts("/DIV SHORT DATA!");
 	ret = 0;
 	break;
       }
@@ -439,5 +439,5 @@ write_string(cups_file_t *fp,		/* I - File to write to */
 
 
 /*
- * End of "$Id: translate.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: translate.c 7922 2008-09-10 15:56:47Z mike $".
  */

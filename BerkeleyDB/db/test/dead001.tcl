@@ -1,9 +1,8 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1996-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 1996,2007 Oracle.  All rights reserved.
 #
-# $Id: dead001.tcl,v 1.2 2004/03/30 01:24:07 jtownsen Exp $
+# $Id: dead001.tcl,v 12.7 2007/05/17 15:15:55 bostic Exp $
 #
 # TEST	dead001
 # TEST	Use two different configurations to test deadlock detection among a
@@ -29,10 +28,10 @@ proc dead001 { { procs "2 4 10" } {tests "ring clump" } \
 	foreach t $tests {
 		foreach n $procs {
 			if {$timeout == 0 } {
-				set dpid [exec $util_path/db_deadlock -vw \
+				set dpid [exec $util_path/db_deadlock -v -t 0.100000 \
 				    -h $testdir >& $testdir/dd.out &]
 			} else {
-				set dpid [exec $util_path/db_deadlock -vw \
+				set dpid [exec $util_path/db_deadlock -v -t 0.100000 \
 				    -ae -h $testdir >& $testdir/dd.out &]
 			}
 
@@ -46,10 +45,9 @@ proc dead001 { { procs "2 4 10" } {tests "ring clump" } \
 			for { set i 0 } { $i < $n } { incr i } {
 				set locker [$env lock_id]
 				puts "$tclsh_path $test_path/wrap.tcl \
-				    $testdir/dead$tnum.log.$i \
-				    ddscript.tcl $testdir $t $locker $i $n"
-				set p [exec $tclsh_path \
-					$test_path/wrap.tcl \
+				    ddscript.tcl $testdir/dead$tnum.log.$i \
+				    $testdir $t $locker $i $n"
+				set p [exec $tclsh_path $test_path/wrap.tcl \
 					ddscript.tcl $testdir/dead$tnum.log.$i \
 					$testdir $t $locker $i $n &]
 				lappend pidlist $p

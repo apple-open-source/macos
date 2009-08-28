@@ -1,5 +1,5 @@
 # Configuration file for HeaderDoc
-# $Revision: 1.5.4.1.2.34 $
+# $Revision: 1.3 $
 ###########################################################
 
 # These options set various parameters used in content generation.
@@ -63,4 +63,8 @@ templateStyle => background:#ffffff; color:#761550;
 # index pages.  You can set these limits higher or lower as desired.
 groupHierLimit => 100
 groupHierSubgroupLimit => 30
+
+# To use a different C compiler other than GCC for calculating values
+# of #define macro chains, specify the alternative compiler here.
+cCompiler => /usr/bin/gcc
 

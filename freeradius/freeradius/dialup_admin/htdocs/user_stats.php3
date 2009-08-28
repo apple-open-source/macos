@@ -1,6 +1,8 @@
 <?php
 require('../conf/config.php3');
 require('../lib/functions.php3');
+require('../lib/sql/nas_list.php3');
+require_once('../lib/xlat.php3');
 ?>
 <html>
 <?php
@@ -13,7 +15,7 @@ else{
 <meta http-equiv="Content-Type" content="text/html; charset=$config[general_charset]">
 <link rel="stylesheet" href="style.css">
 </head>
-<body bgcolor="#80a040" background="images/greenlines1.gif" link="black" alink="black">
+<body>
 <center>
 <b>Could not include SQL library functions. Aborting</b>
 </body>
@@ -32,8 +34,10 @@ $start = da_sql_escape_string($start);
 $stop = da_sql_escape_string($stop);
 $pagesize = ($pagesize) ? $pagesize : 10;
 if (!is_numeric($pagesize) && $pagesize != 'all')
-	$pagesize = 10;
-$limit = ($pagesize == 'all') ? '' : "LIMIT $pagesize";
+	$pagezise = 10;
+if ($pagesize > 100)
+	$pagesize = 100;
+$limit = ($pagesize == 'all') ? '100' : "$pagesize";
 $selected[$pagesize] = 'selected';
 $order = ($order) ? $order : $config[general_accounting_info_order];
 if ($order != 'desc' && $order != 'asc')
@@ -52,8 +56,14 @@ $selected[$order] = 'selected';
 $selected[$sortby] = 'selected';
 
 $sql_extra_query = '';
-if ($config[sql_accounting_extra_query] != '')
-	$sql_extra_query = sql_xlat($config[sql_accounting_extra_query],$login,$config);
+if ($config[sql_accounting_extra_query] != ''){
+	$sql_extra_query = xlat($config[sql_accounting_extra_query],$login,$config);
+	$sql_extra_query = da_sql_escape_string($sql_extra_query);
+}
+
+unset($da_name_cache);
+if (isset($_SESSION['da_name_cache']))
+	$da_name_cache = $_SESSION['da_name_cache'];
 
 ?>
 
@@ -61,7 +71,7 @@ if ($config[sql_accounting_extra_query] != '')
 <title>User Statistics</title>
 <link rel="stylesheet" href="style.css">
 </head>
-<body bgcolor="#80a040" background="images/greenlines1.gif" link="black" alink="black">
+<body>
 <center>
 <table border=0 width=550 cellpadding=0 cellspacing=0>
 <tr valign=top>
@@ -100,9 +110,9 @@ EOM;
 $link = @da_sql_pconnect($config);
 if ($link){
 	$search = @da_sql_query($link,$config,
-	"SELECT * FROM $config[sql_total_accounting_table]
-	WHERE acctdate >= '$start' AND acctdate <= '$stop' $server_str $login_str $sql_extra_query
-	ORDER BY $order_attr $order $limit;");
+	"SELECT " . da_sql_limit($limit,0,$config) . " * FROM $config[sql_total_accounting_table]
+	WHERE acctdate >= '$start' AND acctdate <= '$stop' $server_str $login_str $sql_extra_query " . da_sql_limit($limit,1,$config)
+	. " ORDER BY $order_attr $order " . da_sql_limit($limit,2,$config) . " ;");
 
 	if ($search){
 		while( $row = @da_sql_fetch_array($search,$config) ){
@@ -110,8 +120,10 @@ if ($link){
 			$acct_login = $row[username];
 			if ($acct_login == '')
 				$acct_login = '-';
-			else
-				$acct_login = "<a href=\"user_admin.php3?login=$acct_login\" title=\"Edit user $acct_login\">$acct_login</a>";
+			else{
+				$Acct_login = urlencode($acct_login);
+				$acct_login = "<a href=\"user_admin.php3?login=$Acct_login\" title=\"Edit user $acct_login\">$acct_login</a>";
+			}
 			$acct_time = $row[conntotduration];
 			$acct_time = time2str($acct_time);
 			$acct_conn_num = $row[connnum];
@@ -194,6 +206,8 @@ EOM;
 <?php
 foreach ($nas_list as $nas){
 	$name = $nas[name];
+	if ($nas[ip] == '')
+		continue;
 	$servers[$name] = $nas[ip];
 }
 ksort($servers);

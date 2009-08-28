@@ -1,4 +1,4 @@
-# Copyright (C) 2001-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 2001-2008 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,7 +12,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 """Posting moderation filter.
 """
@@ -28,6 +29,7 @@ from Mailman import Errors
 from Mailman.i18n import _
 from Mailman.Handlers import Hold
 from Mailman.Logging.Syslog import syslog
+from Mailman.MailList import MailList
 
 
 
@@ -87,15 +89,16 @@ def process(mlist, msg, msgdata):
     else:
         sender = msg.get_sender()
     # From here on out, we're dealing with non-members.
-    if matches_p(sender, mlist.accept_these_nonmembers):
+    listname = mlist.internal_name()
+    if matches_p(sender, mlist.accept_these_nonmembers, listname):
         return
-    if matches_p(sender, mlist.hold_these_nonmembers):
+    if matches_p(sender, mlist.hold_these_nonmembers, listname):
         Hold.hold_for_approval(mlist, msg, msgdata, Hold.NonMemberPost)
         # No return
-    if matches_p(sender, mlist.reject_these_nonmembers):
+    if matches_p(sender, mlist.reject_these_nonmembers, listname):
         do_reject(mlist)
         # No return
-    if matches_p(sender, mlist.discard_these_nonmembers):
+    if matches_p(sender, mlist.discard_these_nonmembers, listname):
         do_discard(mlist, msg)
         # No return
     # Okay, so the sender wasn't specified explicitly by any of the non-member
@@ -114,9 +117,10 @@ def process(mlist, msg, msgdata):
 
 
 
-def matches_p(sender, nonmembers):
-    # First strip out all the regular expressions
-    plainaddrs = [addr for addr in nonmembers if not addr.startswith('^')]
+def matches_p(sender, nonmembers, listname):
+    # First strip out all the regular expressions and listnames
+    plainaddrs = [addr for addr in nonmembers if not (addr.startswith('^')
+                                                 or addr.startswith('@'))]
     addrdict = Utils.List2Dict(plainaddrs, foldcase=1)
     if addrdict.has_key(sender):
         return 1
@@ -129,6 +133,22 @@ def matches_p(sender, nonmembers):
                 continue
             if cre.search(sender):
                 return 1
+        elif are.startswith('@'):
+            # XXX Needs to be reviewed for list@domain names.
+            try:
+                if are[1:] == listname:
+                    # don't reference your own list
+                    syslog('error',
+                        '*_these_nonmembers in %s references own list',
+                        listname)
+                else:
+                    mother = MailList(are[1:], lock=0)
+                    if mother.isMember(sender):
+                        return 1
+            except Errors.MMUnknownListError:
+                syslog('error',
+                  '*_these_nonmembers in %s references non-existent list %s',
+                  listname, are[1:])
     return 0
 
 

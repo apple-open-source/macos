@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -68,13 +68,18 @@ APU_DECLARE(apr_bucket_brigade *) apr_brigade_create(apr_pool_t *p,
     return b;
 }
 
-APU_DECLARE(apr_bucket_brigade *) apr_brigade_split(apr_bucket_brigade *b,
-                                                    apr_bucket *e)
+APU_DECLARE(apr_bucket_brigade *) apr_brigade_split_ex(apr_bucket_brigade *b,
+                                                       apr_bucket *e,
+                                                       apr_bucket_brigade *a)
 {
-    apr_bucket_brigade *a;
     apr_bucket *f;
 
-    a = apr_brigade_create(b->p, b->bucket_alloc);
+    if (!a) {
+        a = apr_brigade_create(b->p, b->bucket_alloc);
+    }
+    else if (!APR_BRIGADE_EMPTY(a)) {
+        apr_brigade_cleanup(a);
+    }
     /* Return an empty brigade if there is nothing left in 
      * the first brigade to split off 
      */
@@ -90,6 +95,12 @@ APU_DECLARE(apr_bucket_brigade *) apr_brigade_split(apr_bucket_brigade *b,
     return a;
 }
 
+APU_DECLARE(apr_bucket_brigade *) apr_brigade_split(apr_bucket_brigade *b,
+                                                    apr_bucket *e)
+{
+    return apr_brigade_split_ex(b, e, NULL);
+}
+
 APU_DECLARE(apr_status_t) apr_brigade_partition(apr_bucket_brigade *b,
                                                 apr_off_t point,
                                                 apr_bucket **after_point)
@@ -97,6 +108,7 @@ APU_DECLARE(apr_status_t) apr_brigade_partition(apr_bucket_brigade *b,
     apr_bucket *e;
     const char *s;
     apr_size_t len;
+    apr_uint64_t point64;
     apr_status_t rv;
 
     if (point < 0) {
@@ -108,14 +120,25 @@ APU_DECLARE(apr_status_t) apr_brigade_partition(apr_bucket_brigade *b,
         return APR_SUCCESS;
     }
 
+    /*
+     * Try to reduce the following casting mess: We know that point will be
+     * larger equal 0 now and forever and thus that point (apr_off_t) and
+     * apr_size_t will fit into apr_uint64_t in any case.
+     */
+    point64 = (apr_uint64_t)point;
+
     APR_BRIGADE_CHECK_CONSISTENCY(b);
 
     for (e = APR_BRIGADE_FIRST(b);
          e != APR_BRIGADE_SENTINEL(b);
          e = APR_BUCKET_NEXT(e))
     {
-        if ((e->length == (apr_size_t)(-1)) && (point > (apr_size_t)(-1))) {
-            /* point is too far out to simply split this bucket,
+        /* For an unknown length bucket, while 'point64' is beyond the possible
+         * size contained in apr_size_t, read and continue...
+         */
+        if ((e->length == (apr_size_t)(-1))
+            && (point64 > (apr_uint64_t)APR_SIZE_MAX)) {
+            /* point64 is too far out to simply split this bucket,
              * we must fix this bucket's size and keep going... */
             rv = apr_bucket_read(e, &s, &len, APR_BLOCK_READ);
             if (rv != APR_SUCCESS) {
@@ -123,11 +146,15 @@ APU_DECLARE(apr_status_t) apr_brigade_partition(apr_bucket_brigade *b,
                 return rv;
             }
         }
-        if ((point < e->length) || (e->length == (apr_size_t)(-1))) {
-            /* We already checked e->length -1 above, so we now
-             * trust e->length < MAX_APR_SIZE_T.
+        else if ((point64 < (apr_uint64_t)e->length)
+                 || (e->length == (apr_size_t)(-1))) {
+            /* We already consumed buckets where point64 is beyond
+             * our interest ( point64 > APR_SIZE_MAX ), above.
+             * Here point falls between 0 and APR_SIZE_MAX
+             * and is within this bucket, or this bucket's len
+             * is undefined, so now we are ready to split it.
              * First try to split the bucket natively... */
-            if ((rv = apr_bucket_split(e, (apr_size_t)point)) 
+            if ((rv = apr_bucket_split(e, (apr_size_t)point64)) 
                     != APR_ENOTIMPL) {
                 *after_point = APR_BUCKET_NEXT(e);
                 return rv;
@@ -144,17 +171,17 @@ APU_DECLARE(apr_status_t) apr_brigade_partition(apr_bucket_brigade *b,
             /* this assumes that len == e->length, which is okay because e
              * might have been morphed by the apr_bucket_read() above, but
              * if it was, the length would have been adjusted appropriately */
-            if (point < e->length) {
-                rv = apr_bucket_split(e, (apr_size_t)point);
+            if (point64 < (apr_uint64_t)e->length) {
+                rv = apr_bucket_split(e, (apr_size_t)point64);
                 *after_point = APR_BUCKET_NEXT(e);
                 return rv;
             }
         }
-        if (point == e->length) {
+        if (point64 == (apr_uint64_t)e->length) {
             *after_point = APR_BUCKET_NEXT(e);
             return APR_SUCCESS;
         }
-        point -= e->length;
+        point64 -= (apr_uint64_t)e->length;
     }
     *after_point = APR_BRIGADE_SENTINEL(b); 
     return APR_INCOMPLETE;
@@ -165,6 +192,7 @@ APU_DECLARE(apr_status_t) apr_brigade_length(apr_bucket_brigade *bb,
 {
     apr_off_t total = 0;
     apr_bucket *bkt;
+    apr_status_t status = APR_SUCCESS;
 
     for (bkt = APR_BRIGADE_FIRST(bb);
          bkt != APR_BRIGADE_SENTINEL(bb);
@@ -173,16 +201,15 @@ APU_DECLARE(apr_status_t) apr_brigade_length(apr_bucket_brigade *bb,
         if (bkt->length == (apr_size_t)(-1)) {
             const char *ignore;
             apr_size_t len;
-            apr_status_t status;
 
             if (!read_all) {
-                *length = -1;
-                return APR_SUCCESS;
+                total = -1;
+                break;
             }
 
             if ((status = apr_bucket_read(bkt, &ignore, &len,
                                           APR_BLOCK_READ)) != APR_SUCCESS) {
-                return status;
+                break;
             }
         }
 
@@ -190,7 +217,7 @@ APU_DECLARE(apr_status_t) apr_brigade_length(apr_bucket_brigade *bb,
     }
 
     *length = total;
-    return APR_SUCCESS;
+    return status;
 }
 
 APU_DECLARE(apr_status_t) apr_brigade_flatten(apr_bucket_brigade *bb,
@@ -323,6 +350,7 @@ APU_DECLARE(apr_status_t) apr_brigade_to_iovec(apr_bucket_brigade *b,
     apr_bucket *e;
     struct iovec *orig;
     apr_size_t iov_len;
+    const char *iov_base;
     apr_status_t rv;
 
     orig = vec;
@@ -334,15 +362,16 @@ APU_DECLARE(apr_status_t) apr_brigade_to_iovec(apr_bucket_brigade *b,
         if (left-- == 0)
             break;
 
-        rv = apr_bucket_read(e, (const char **)&vec->iov_base, &iov_len,
-                             APR_NONBLOCK_READ);
+        rv = apr_bucket_read(e, &iov_base, &iov_len, APR_NONBLOCK_READ);
         if (rv != APR_SUCCESS)
             return rv;
-        vec->iov_len = iov_len; /* set indirectly in case size differs */
+        /* Set indirectly since types differ: */
+        vec->iov_len = iov_len;
+        vec->iov_base = (void *)iov_base;
         ++vec;
     }
 
-    *nvec = vec - orig;
+    *nvec = (int)(vec - orig);
     return APR_SUCCESS;
 }
 
@@ -645,7 +674,7 @@ APU_DECLARE(apr_status_t) apr_brigade_vprintf(apr_bucket_brigade *b,
     /* the cast, in order of appearance */
     struct brigade_vprintf_data_t vd;
     char buf[APR_BUCKET_BUFF_SIZE];
-    apr_size_t written;
+    int written;
 
     vd.vbuff.curpos = buf;
     vd.vbuff.endpos = buf + APR_BUCKET_BUFF_SIZE;
@@ -659,9 +688,6 @@ APU_DECLARE(apr_status_t) apr_brigade_vprintf(apr_bucket_brigade *b,
     if (written == -1) {
       return -1;
     }
-
-    /* tack on null terminator to remaining string */
-    *(vd.vbuff.curpos) = '\0';
 
     /* write out what remains in the buffer */
     return apr_brigade_write(b, flush, ctx, buf, vd.vbuff.curpos - buf);

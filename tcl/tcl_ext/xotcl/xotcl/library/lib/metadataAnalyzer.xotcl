@@ -1,0 +1,503 @@
+package provide xotcl::metadataAnalyzer 0.84 
+package require XOTcl
+
+namespace eval ::xotcl::metadataAnalyzer {
+    namespace import ::xotcl::*
+
+    @ @File {
+	description {
+	    XOTcl file analyzer for @ metadata. E.g.\ used for 
+	    doumentation with xoDoc (but in the static variant 
+				     StaticMetadataAnalyzer which uses the dynamic 
+				     variant in this file).
+	    <@p>
+	    Sample sample usage:
+	    <@pre>
+	    package require xotcl::metadataAnalyzer
+
+	    # instantiate metadata analyzer object
+	    MetadataAnalyzer @::m
+	    # make this object be known to @ and turn @ metadata processing on
+	    @ analyzerObj @::m
+	    @ onOff 1
+
+	    # read in some metadata tags (in sample file) & execute the file
+	    source lib/testx.xotcl
+
+	    # turn @ metadata processing off again
+	    @ onOff 0
+
+	    # print out all collected metadata
+	    puts [@::m print]
+	    </@pre>
+	}
+    }
+
+    @ Class MetadataToken {
+	description {
+	    Each collected metadata element is stored in a token object.
+	    MetadataToken is superclass of token object classes. Each metadata token
+	    has two interesting parameters: 
+	    <@p>
+	    "properties" contains list of all described metadata properties. E.g. can
+	    be printed with
+	    <@pre>
+	    foreach p [my set properties] { 
+		if {[my exists $p]} {
+		    append c "    $p=[my set $p]\n"
+		}
+	    }
+	    </@pre>
+	    "name" contains the method, object, ... name of the metadata element.
+	    <@p>
+	    All metadata token are aggregated by @. Therefore, 
+	    <@pre>
+	    foreach mdt [@ info children] { 
+		if {[$mdt istype MetadataToken]} {$mdt print}
+	    }
+	    </@pre>
+	    prints all token.
+
+	}
+    }
+    Class MetadataToken -parameter {
+	{name ""}
+	{properties ""}
+    }
+
+    @ MetadataToken proc sortTokenList {l "token list"} {
+	description {Sort a token list with names. Since names are autonames, 
+	    this means order of appearance in the program.}
+    }
+    MetadataToken proc sortTokenList l {
+	foreach t $l {
+	    set names([$t set name]) $t
+	}
+	set sortedNames [lsort [array names names]]
+	set sortedList ""
+	foreach n $sortedNames {
+	    lappend sortedList $names($n)
+	}
+	return $sortedList
+    }
+
+    MetadataToken instproc evaluateMetadata md {
+	my instvar properties
+	foreach {p v} $md {
+	    # only append property, if its not already there
+	    # otherwise just overwrite the value
+	    if {[lsearch $properties $p] == -1} {
+		my lappend properties $p
+	    }
+	    my set $p $v
+	}
+    }
+
+    @ MetadataToken instproc printProperties {} {
+	description {Print metadata properties to stdout.}
+    }
+    MetadataToken instproc printProperties {} {
+	set c ""
+	foreach p [my set properties] { 
+	    if {[my exists $p]} {
+		append c "   [my capitalize $p]=[my set $p]\n"
+	    }
+	}
+	return $c
+    }
+
+    MetadataToken instproc capitalize string {
+	if {$::tcl_version >= 8.3} {
+	    string toupper $string 0 0
+	} else {
+	    return "[string toupper [string range $string 0 0]][string range $string 1 end]"
+	}
+    }
+
+    @ MetadataToken abstract instproc print {} {
+	description {
+	    Abstract method for printing a token to stdout.
+	}
+    }
+    MetadataToken abstract instproc print {}
+
+    @ Class FileToken -superclass MetadataToken {
+	description {
+	    Token for @File Metadata.
+	}
+    }
+    Class FileToken -superclass MetadataToken
+    FileToken instproc print {} {
+	set c "FILE=[my set name]\n"
+	append c [my printProperties]
+	return $c
+    }
+
+    @ Class ConstraintToken -superclass MetadataToken {
+	description {
+	    Token for @Constraint Metadata.
+	}
+    }
+    Class ConstraintToken -superclass MetadataToken
+    ConstraintToken instproc print {} {
+	set c "CONSTRAINT=[my set name]\n"
+	append c [my printProperties]
+	return $c
+    }
+
+    @ Class PackageToken -superclass MetadataToken {
+	description {
+	    Token for Package metadata. Contains additional parameters:
+	    "version" of the package and "type"= either "require" or "provide".
+
+	}
+    }
+    Class PackageToken -superclass MetadataToken -parameter {
+	{version ""}
+	{type ""}
+    }
+
+    @ Class ObjToken -superclass MetadataToken {
+	description {
+	    Token for Object metadata. Contains additional parameters:
+	    "procList" = list of all proc token and "cl"= class name.
+	}
+    }
+    Class ObjToken -superclass MetadataToken -parameter {
+	{procList ""}
+	cl
+    }
+
+    ObjToken instproc printProcs {} {
+	set c "  PROCS:\n"
+	set pl [MetadataToken sortTokenList [my procList]]
+	if {[my istype ClassToken]} {
+	    set pl [concat [MetadataToken sortTokenList [my instprocList]] $pl]
+	}
+	foreach p $pl {
+	    append c "    [$p set name]\n"
+	}
+	return $c
+    }
+
+    ObjToken instproc print {} {
+	set c "OBJECT=[my set name]\n"
+	if {[my exists cl]} {append c "  CLASS=[my set cl]\n"}
+	if {[my exists heritage]} {append c "  HERITAGE=[my set heritage]\n"}
+	append c [my printProperties]
+
+	set pl [MetadataToken sortTokenList [my procList]]
+	if {[my istype ClassToken]} {
+	    set pl [concat [MetadataToken sortTokenList [my instprocList]] $pl]
+	}
+	foreach p $pl {
+	    append c [$p print]
+	}
+
+	return $c
+    }
+
+    @ Class ClassToken -superclass ObjToken {
+	description {
+	    Token for Class metadata. Contains additional parameters:
+	    "instprocList" = list of all instproc token.
+	}
+    }
+    Class ClassToken -superclass ObjToken -parameter {
+	{instprocList ""}
+    }
+    ClassToken instproc print {} {
+	regsub "^OBJECT=" [next] "CLASS=" r
+	return $r
+    }
+
+    @ Class MetaClassToken -superclass ClassToken {
+	description {
+	    Token for Meta-Class metadata.
+	}
+    }
+    Class MetaClassToken -superclass ClassToken
+    MetaClassToken instproc print {} {
+	regsub "^CLASS=" [next] "META-CLASS=" r
+	return $r
+    }
+
+    @ Class MethodToken -superclass MetadataToken {
+	description {
+	    Token for Method metadata. Contains additional parameters:
+	    "arguments" of the method, "returnValue"  of the method, 
+	    "obj" name, "abstract" = 0 or 1 (whether its an abstract method or not).
+	}
+    }
+    Class MethodToken -superclass MetadataToken -parameter {
+	arguments
+	returnValue
+	obj
+	{abstract 0}
+    }
+
+    # Prints out method information
+    MethodToken instproc print {} {
+	set c "  METHOD=[my set name], ARGUMENTS= "
+
+	if {[my exists arguments]} {
+	    foreach {arg argDescription} [my set arguments] {
+		# ignore argDescription and default values
+		if {[llength $arg] > 1} {set arg [lindex $arg 0]}
+		append c $arg " "
+	    }
+	}
+	append c "\n [my printProperties]"
+	return $c
+    }
+
+    @ Class ProcToken -superclass MethodToken {
+	description {
+	    Token for Proc metadata
+	}
+    }
+    Class ProcToken -superclass MethodToken
+    ProcToken instproc print {} {
+	regsub "^  METHOD=" [next] "  PROC=" r
+	return $r
+    }
+
+    @ Class InstprocToken -superclass MethodToken {
+	description {
+	    Token for Instproc metadata.
+	}
+    }
+    Class InstprocToken -superclass MethodToken
+    InstprocToken instproc print {} {
+	regsub "^  METHOD=" [next] "  INSTPROC=" r
+	return $r
+    }
+
+    @ Class MetadataAnalyzer { 
+	description "Handler class for building a metadata runtime structure"
+    }
+
+    Class MetadataAnalyzer -parameter {
+	{objList ""}
+	{packageList ""}
+	{knownMetaclasses "Class"}
+	{ns ""}
+	fileToken
+	{constraintList ""}
+    }
+
+    MetadataAnalyzer instproc init args {
+	next
+    }
+
+    MetadataAnalyzer instproc handleMethod {obj type name {argList ""} {doc ""}} {
+	#puts stderr "+++Method $type $name $argList $doc"
+	set procClass ProcToken
+	set objCl ObjToken
+	if {$type eq "instproc"} {
+	    set procCl InstprocToken
+	    set objCl ClassToken
+	}
+	set t [$procClass create [my autoname ::xotcl::@::t]]
+	
+	set n [$t set name [string trimleft $name :]]
+	$t set obj $obj
+
+	set objFound 0
+	foreach o [my set objList] {
+	    if {[$o set name] == $obj} {
+		set objFound 1
+		if {$type eq "instproc" && ![$o istype ClassToken]} {
+		    $o class ClassToken
+		}
+		break
+	    }
+	}
+	if {$objFound == 0} {
+	    set o [$objCl create [my autoname ::xotcl::@::t]]
+	    $o set name $obj
+	    my lappend objList $o
+	}
+	$o lappend ${type}List $t
+
+	$t set arguments $argList 
+
+	$t evaluateMetadata $doc
+	return $t
+    }
+
+    MetadataAnalyzer instproc handleObj {class name args} {
+	my instvar knownMetaclasses objList extensions
+	set objCl ObjToken
+	if {[lsearch $class $knownMetaclasses] != -1} {
+	    set objCl ClassToken
+	}
+	# if an instproc/proc has created an entry for this obj/class
+	# -> use it and overwrite it with new info
+	if {[set idx [lsearch $name $objList]] != -1} {
+	    set t [lindex $objList $idx]
+	    $t class $objCl
+	} else {
+	    set t [$objCl create [my autoname ::xotcl::@::t]]
+	    my lappend objList $t
+	}
+
+	$t set name $name
+
+	set la [llength $args]
+
+	# evaluate -superclass argument
+	if {($la == 3 || $la == 2) && [lindex $args 0] eq "-superclass"} {
+	    set heritage [$t set heritage [lindex $args 1]]
+	    foreach h $heritage {
+		if {[lsearch $h $knownMetaclasses] != -1} {
+		    # A new metaclass was defined
+		    lappend knownMetaclasses $name
+		    $t class MetaClassToken
+		}
+	    }
+	}
+
+	# evaluate documentation
+	set doc ""
+	if {$la == 1} {
+	    set doc [lindex $args 0]
+	} elseif {$la == 3} {
+	    set doc [lindex $args 2]
+	}
+	$t evaluateMetadata $doc
+	$t set cl $class
+
+	#puts stderr "+++Obj $name $args"
+    }
+
+    MetadataAnalyzer instproc handleFile doc {
+	if {[my exists fileToken]} {
+	    [my set fileToken] evaluateMetadata $doc
+	}
+    }
+
+    MetadataAnalyzer instproc handleConstraint {constraint name args} {
+	set t [ConstraintToken create [my autoname ::xotcl::@::t]]
+	my lappend constraintList $t
+	$t set name $name
+	set doc [lindex $args 0]
+	$t evaluateMetadata $doc
+    }
+
+    MetadataAnalyzer instproc handlePackage args {
+	#puts "$args"
+	if {[llength $args] > 2} {
+	    set type [lindex $args 1]
+	    if {$type eq "provide" || $type eq "require"} {
+		set t [PackageToken create [my autoname ::xotcl::@::t]]
+		my lappend packageList $t
+		$t set name [lindex $args 2]
+		$t set type $type
+		if {[llength $args] > 3} {
+		    $t set version [lindex $args 3]
+		}
+	    }
+	}
+    }
+
+    @ MetadataAnalyzer instproc print {} {
+	description "Print all collected token information to stdout. 
+   This method is also an exmaple how the tokens can be used."
+    }
+    MetadataAnalyzer instproc print {} {
+	my instvar extensions packageList
+	set c ""
+	if {[llength $packageList] > 0} {
+	    append c "PACKAGES:"
+	    foreach t $packageList {
+		if {[$t type] eq "provide"} {
+		    append c "  Package provided: [$t name] [$t version]\n"
+		} elseif {[$t type] eq "require"} {
+		    append c "  Package required: [$t name] [$t version]\n"
+		}
+	    }
+	}
+
+	if {[my exists fileToken]} {
+	    append c [[my set fileToken] print]
+	}
+
+	if {[my exists constraintToken]} {
+	    append c [[my set constraintToken] print]
+	}
+
+	if {[info exists extensions]} {
+	    # Add list of extensions.
+	    foreach extension $extensions {
+		append c "\nExtensions: [$extension name], " \
+		    "Description: [$extension description]"
+	    }
+	}
+
+	set objList [MetadataToken sortTokenList [my objList]]
+
+	if {[llength $objList]>0} {
+	    foreach obj $objList {append c [$obj print]}
+	}
+	return $c
+    }
+
+    @ Class AnalyzerCmd {
+	description {Class that overload the unknown mechanism of @ to provide metadata analysis.}
+    }
+    Class AnalyzerCmd -parameter {
+	{analyzerObj ""}
+	{onOff 0}
+    } 
+    AnalyzerCmd instproc unknown args {
+	my instvar analyzerObj onOff
+
+	if {!$onOff} {return [next]}
+
+	if {[llength $args] > 1} {
+	    set abstract 0
+	    if {[lindex $args 1] eq "abstract"} {
+		if {[llength $args] > 2} {
+		    set p [lindex $args 2]
+		    if {$p eq "proc" || $p eq "instproc"} {
+			set args [lreplace $args 1 1]
+			set abstract 1
+		    }
+		}
+	    }
+	    switch [lindex $args 1] {
+		proc - instproc {
+		    set r [eval $analyzerObj handleMethod $args]
+		    if {$abstract} {$r abstract 1}
+		    return $r
+		}
+		default {
+		    switch [lindex $args 0] {
+			@File {
+			    return [$analyzerObj handleFile [lindex $args 1]]
+			}
+			@Constraint {
+			    return [eval $analyzerObj handleConstraint $args]
+			}
+			default {
+			    return [eval $analyzerObj handleObj $args]
+			}
+		    }
+		}
+	    }
+	}
+	puts stderr "Unknown @ metadata: '$args'"
+    }
+    @ AnalyzerCmd @ {
+	description {Recreate @ with metadata analyis funtionality.}
+    }
+    AnalyzerCmd @
+
+    namespace export \
+	MetadataToken FileToken ConstraintToken PackageToken ObjToken \
+	ClassToken MetaClassToken MethodToken ProcToken InstprocToken \
+	MetadataAnalyzer AnalyzerCmd
+}
+
+namespace import ::xotcl::metadataAnalyzer::*

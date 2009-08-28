@@ -1,0 +1,19 @@
+---
+name: Time-HiRes-Value
+version: 0.05
+author:
+  - 'Paul Evans E<lt>leonerd@leonerd.org.ukE<gt>'
+abstract: |-
+  a class representing a time value or interval in exact
+  microseconds
+license: perl
+requires:
+  Time::HiRes: 0
+build_requires:
+  Test::Exception: 0
+  Test::More: 0
+provides:
+  Time::HiRes::Value:
+    file: lib/Time/HiRes/Value.pm
+    version: 0.05
+generated_by: Module::Build version 0.26

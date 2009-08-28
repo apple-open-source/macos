@@ -14,12 +14,12 @@ use Test::More tests => 19;
 
     eval { validate( @args,\%spec ) };
 
-    ok( ! $@, "validate() single depends(1): no depends, positive" );
+    is( $@, q{}, "validate() single depends(1): no depends, positive" );
 
     @args = ( foo => 1, bar => 1 );
     eval { validate( @args,\%spec ) };
 
-    ok( ! $@, "validate() single depends(2): with depends, positive" );
+    is( $@, q{}, "validate() single depends(2): with depends, positive" );
 
     @args = ( foo => 1 );
     eval { validate( @args, \%spec ) };
@@ -39,18 +39,18 @@ use Test::More tests => 19;
     # positive, no depends (single, multiple)
     my @args = ( bar => 1 );
     eval { validate( @args, \%spec ) };
-    ok( ! $@, "validate() multiple depends(1): no depends, single arg, positive" );
+    is( $@, q{}, "validate() multiple depends(1): no depends, single arg, positive" );
 
     @args = ( bar => 1, baz => 1 );
     eval { validate( @args, \%spec ) };
 
-    ok( ! $@,
+    is( $@, q{},
 	"validate() multiple depends(2): no depends, multiple arg, positive" );
 
     @args = ( foo => 1, bar => 1, baz => 1 );
     eval { validate( @args, \%spec ) };
 
-    ok( ! $@, "validate() multiple depends(3): with depends, positive" );
+    is( $@, q{}, "validate() multiple depends(3): with depends, positive" );
 
     @args = ( foo => 1, bar => 1 );
     eval { validate( @args, \%spec ) };
@@ -90,7 +90,7 @@ use Test::More tests => 19;
     my @args = qw(1);
     eval { validate_pos( @args, @spec ) };
 
-    ok( ! $@, "validate_pos() no depends, positive" );
+    is( $@, q{}, "validate_pos() no depends, positive" );
 }
 
 {
@@ -99,7 +99,7 @@ use Test::More tests => 19;
     my @args = qw(1 1);
     eval { validate_pos( @args, @spec ) };
 
-    ok( ! $@, "validate_pos() single depends (1): with depends, positive" );
+    is( $@, q{}, "validate_pos() single depends (1): with depends, positive" );
 }
 
 {

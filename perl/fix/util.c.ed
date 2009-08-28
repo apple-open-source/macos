@@ -1,3 +1,0 @@
-/const int bufsize/s//int bufsize/
-/Renew(buf, bufsize\*2,/s//Renew(buf, bufsize*=2,/
-w

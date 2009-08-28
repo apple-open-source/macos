@@ -316,6 +316,11 @@ htmlIsBooleanAttr(const xmlChar *name)
 }
 
 #ifdef LIBXML_OUTPUT_ENABLED
+/*
+ * private routine exported from xmlIO.c
+ */
+xmlOutputBufferPtr
+xmlAllocOutputBufferInternal(xmlCharEncodingHandlerPtr encoder);
 /************************************************************************
  *									*
  * 			Output error handlers				*
@@ -348,19 +353,19 @@ htmlSaveErr(int code, xmlNodePtr node, const char *extra)
 
     switch(code) {
         case XML_SAVE_NOT_UTF8:
-	    msg = "string is not in UTF-8";
+	    msg = "string is not in UTF-8\n";
 	    break;
 	case XML_SAVE_CHAR_INVALID:
-	    msg = "invalid character value";
+	    msg = "invalid character value\n";
 	    break;
 	case XML_SAVE_UNKNOWN_ENCODING:
-	    msg = "unknown encoding %s";
+	    msg = "unknown encoding %s\n";
 	    break;
 	case XML_SAVE_NO_DOCTYPE:
-	    msg = "HTML has no DOCTYPE";
+	    msg = "HTML has no DOCTYPE\n";
 	    break;
 	default:
-	    msg = "unexpected error number";
+	    msg = "unexpected error number\n";
     }
     __xmlSimpleError(XML_FROM_OUTPUT, code, node, msg, extra);
 }
@@ -506,16 +511,17 @@ htmlNodeDumpFile(FILE *out, xmlDocPtr doc, xmlNodePtr cur) {
 }
 
 /**
- * htmlDocDumpMemory:
+ * htmlDocDumpMemoryFormat:
  * @cur:  the document
  * @mem:  OUT: the memory pointer
  * @size:  OUT: the memory length
+ * @format:  should formatting spaces been added
  *
  * Dump an HTML document in memory and return the xmlChar * and it's size.
  * It's up to the caller to free the memory.
  */
 void
-htmlDocDumpMemory(xmlDocPtr cur, xmlChar**mem, int *size) {
+htmlDocDumpMemoryFormat(xmlDocPtr cur, xmlChar**mem, int *size, int format) {
     xmlOutputBufferPtr buf;
     xmlCharEncodingHandlerPtr handler = NULL;
     const char *encoding;
@@ -552,6 +558,8 @@ htmlDocDumpMemory(xmlDocPtr cur, xmlChar**mem, int *size) {
 		*size = 0;
 		return;
 	    }
+	} else {
+	    handler = xmlFindCharEncodingHandler(encoding);
 	}
     }
 
@@ -563,14 +571,15 @@ htmlDocDumpMemory(xmlDocPtr cur, xmlChar**mem, int *size) {
     if (handler == NULL)
 	handler = xmlFindCharEncodingHandler("ascii");
 
-    buf = xmlAllocOutputBuffer(handler);
+    buf = xmlAllocOutputBufferInternal(handler);
     if (buf == NULL) {
 	*mem = NULL;
 	*size = 0;
 	return;
     }
 
-    htmlDocContentDumpOutput(buf, cur, NULL);
+	htmlDocContentDumpFormatOutput(buf, cur, NULL, format);
+
     xmlOutputBufferFlush(buf);
     if (buf->conv != NULL) {
 	*size = buf->conv->use;
@@ -580,6 +589,20 @@ htmlDocDumpMemory(xmlDocPtr cur, xmlChar**mem, int *size) {
 	*mem = xmlStrndup(buf->buffer->content, *size);
     }
     (void)xmlOutputBufferClose(buf);
+}
+
+/**
+ * htmlDocDumpMemory:
+ * @cur:  the document
+ * @mem:  OUT: the memory pointer
+ * @size:  OUT: the memory length
+ *
+ * Dump an HTML document in memory and return the xmlChar * and it's size.
+ * It's up to the caller to free the memory.
+ */
+void
+htmlDocDumpMemory(xmlDocPtr cur, xmlChar**mem, int *size) {
+	htmlDocDumpMemoryFormat(cur, mem, size, 1);
 }
 
 
@@ -663,7 +686,9 @@ htmlAttrDumpOutput(xmlOutputBufferPtr buf, xmlDocPtr doc, xmlAttrPtr cur,
 		(cur->parent->ns == NULL) &&
 		((!xmlStrcasecmp(cur->name, BAD_CAST "href")) ||
 	         (!xmlStrcasecmp(cur->name, BAD_CAST "action")) ||
-		 (!xmlStrcasecmp(cur->name, BAD_CAST "src")))) {
+		 (!xmlStrcasecmp(cur->name, BAD_CAST "src")) ||
+		 ((!xmlStrcasecmp(cur->name, BAD_CAST "name")) &&
+		  (!xmlStrcasecmp(cur->parent->name, BAD_CAST "a"))))) {
 		xmlChar *escaped;
 		xmlChar *tmp = value;
 
@@ -758,6 +783,10 @@ htmlNodeDumpFormatOutput(xmlOutputBufferPtr buf, xmlDocPtr doc,
     if ((cur->type == XML_HTML_DOCUMENT_NODE) ||
         (cur->type == XML_DOCUMENT_NODE)){
 	htmlDocContentDumpOutput(buf, (xmlDocPtr) cur, encoding);
+	return;
+    }
+    if (cur->type == XML_ATTRIBUTE_NODE) {
+        htmlAttrDumpOutput(buf, doc, (xmlAttrPtr) cur, encoding);
 	return;
     }
     if (cur->type == HTML_TEXT_NODE) {
@@ -1024,6 +1053,8 @@ htmlDocDump(FILE *f, xmlDocPtr cur) {
 	    handler = xmlFindCharEncodingHandler(encoding);
 	    if (handler == NULL)
 		return(-1);
+	} else {
+	    handler = xmlFindCharEncodingHandler(encoding);
 	}
     }
 
@@ -1186,4 +1217,6 @@ htmlSaveFileEnc(const char *filename, xmlDocPtr cur, const char *encoding) {
 
 #endif /* LIBXML_OUTPUT_ENABLED */
 
+#define bottom_HTMLtree
+#include "elfgcchack.h"
 #endif /* LIBXML_HTML_ENABLED */

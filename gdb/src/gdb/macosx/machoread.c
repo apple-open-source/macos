@@ -34,6 +34,7 @@
 #include "stabsread.h"
 #include "gdbcmd.h"
 #include "completer.h"
+#include "dwarf2read.h"
 
 #include "mach-o.h"
 #include "gdb_assert.h"
@@ -44,6 +45,8 @@
 #if HAVE_MMAP
 static int mmap_strtabflag = 1;
 #endif /* HAVE_MMAP */
+
+static int use_eh_frames_info = 0;
 
 static int mach_o_process_exports_flag = 1;
 
@@ -78,7 +81,6 @@ macho_symfile_init (struct objfile *objfile)
   memset (objfile->deprecated_sym_private, 0, sizeof (struct macho_symfile_info));
 
   objfile->flags |= OBJF_REORDERED;
-  init_entry_point_info (objfile);
 }
 
 /* Scan and build partial symbols for a file with special sections for stabs
@@ -460,6 +462,18 @@ macho_symfile_read (struct objfile *objfile, int mainline)
   CHECK_FATAL (abfd != NULL);
   CHECK_FATAL (abfd->filename != NULL);
 
+  /* If this objfile is pointing to a stub library -- a library whose text
+     and data have been stripped -- stop processing right now.  gdb will
+     try to examine the text or data and does not handle it gracefully when
+     they are not present.  */
+  if (bfd_mach_o_stub_library (abfd))
+    return;
+
+  /* Also, if the binary is encrypted, then it will only confuse us.  We'll skip
+     reading this in, and gdb will read it from memory later on.  */
+  if (bfd_mach_o_encrypted_binary (abfd))
+    return;
+
   init_minimal_symbol_collection ();
   make_cleanup_discard_minimal_symbols ();
 
@@ -483,15 +497,13 @@ macho_symfile_read (struct objfile *objfile, int mainline)
 
   if (dwarf2_has_info (objfile))
     {
-      /* DWARF 2 sections */
       dwarf2_build_psymtabs (objfile, mainline);
-#if 0
-      /* FIXME: This doesn't seem to be right on Mach-O yet.  */
-      /* FIXME: kettenis/20030504: This still needs to be integrated with
-         dwarf2read.c in a better way.  */
+      if (use_eh_frames_info)
+        dwarf2_build_frame_info (objfile);
+    }
+  else if (dwarf_eh_frame_section != NULL && use_eh_frames_info)
+    {
       dwarf2_build_frame_info (objfile);
-
-#endif
     }
 
   if (mach_o_process_exports_flag)
@@ -558,10 +570,10 @@ macho_read_indirect_symbols (bfd *abfd,
                              struct objfile *objfile)
 {
 
-  unsigned long i, nsyms, ret;
+  unsigned int i, nsyms, ret;
   asymbol sym;
   asection *bfdsec = NULL;
-  long section_count;
+  int section_count;
   struct bfd_mach_o_section *section = NULL;
   struct bfd_mach_o_load_command *lcommand = NULL;
 
@@ -621,7 +633,7 @@ macho_read_indirect_symbols (bfd *abfd,
       for (i = 0; i < nsyms; i++)
         {
 
-          unsigned long cursym = section->reserved1 + i;
+          CORE_ADDR cursym = section->reserved1 + i;
           CORE_ADDR stubaddr = section->addr + (i * section->reserved2);
           const char *sname = NULL;
           char nname[4096];
@@ -629,7 +641,7 @@ macho_read_indirect_symbols (bfd *abfd,
           if (cursym >= dysymtab->nindirectsyms)
             {
               warning
-                ("Indirect symbol entry out of range in \"%s\" (%lu >= %lu)",
+                ("Indirect symbol entry out of range in \"%s\" (%llu >= %lu)",
                  abfd->filename, cursym,
                  (unsigned long) dysymtab->nindirectsyms);
               return 0;
@@ -649,7 +661,7 @@ macho_read_indirect_symbols (bfd *abfd,
               sname++;
             }
 
-          CHECK_FATAL ((strlen (sname) + sizeof ("__dyld_stub_") + 1) < 4096);
+          CHECK_FATAL ((strlen (sname) + sizeof ("dyld_stub_") + 1) < 4096);
           sprintf (nname, "dyld_stub_%s", sname);
 
           stubaddr += objfile_section_offset (objfile, osect_idx);
@@ -684,12 +696,13 @@ macho_symfile_offsets (struct objfile *objfile,
   memset (objfile->section_offsets, 0,
           SIZEOF_N_SECTION_OFFSETS (objfile->num_sections));
 
-  /* This code is run when we first add the objfile with symfile_add_with_addrs_or_offsets,
-     when "addrs" not "offsets" are passed in.  The place in symfile.c where the addrs are
-     applied depends on the addrs having section names.  But in the dyld code we build
-     an anonymous array of addrs, so that code is a no-op.  Because of that, we have to
-     apply the addrs to the sections here.  N.B. if an objfile slides after we've already
-     created it, then it goes through objfile_relocate.  */
+  /* This code is run when we first add the objfile with 
+     symfile_add_with_addrs_or_offsets, when "addrs" not "offsets" are passed 
+     in.  The place in symfile.c where the addrs are applied depends on the 
+     addrs having section names.  But in the dyld code we build an anonymous 
+     array of addrs, so that code is a no-op.  Because of that, we have to
+     apply the addrs to the sections here.  N.B. if an objfile slides after 
+     we've already created it, then it goes through objfile_relocate.  */
 
   if (addrs->other[0].addr != 0)
     {
@@ -712,6 +725,9 @@ macho_symfile_offsets (struct objfile *objfile,
      are used to index into the objfile's section_offsets, which in turn 
      is supposed to map to the objfile sections.  So we have to do it this
      way instead.  */
+
+  /* NB: The code below is (mostly) a reimplementation of
+     symfile.c:init_objfile_sect_indices() */
 
   i = 0;
   objfile->sect_index_text = 0;
@@ -856,15 +872,57 @@ macho_calculate_offsets_for_dsym (struct objfile *main_objfile,
     }
   else if (addrs)
     {
-      *sym_offsets = (struct section_offsets *)
-	xmalloc (SIZEOF_N_SECTION_OFFSETS (addrs->num_sections));
-      for (i = 0; i < addrs->num_sections; i++)
+      /* This is kind of gross, but this is how add-symbol-file passes
+	 the addr down if the user just supplied a single address.  But they
+         didn't really intend for us JUST to offset the TEXT_SEGMENT, then
+         meant this is a constant slide.  So do that:  */
+      if (addrs->num_sections == 1 
+	  && strcmp (addrs->other[0].name, TEXT_SEGMENT_NAME) == 0)
 	{
-	  (*sym_offsets)->offsets[i] = dsym_offset;
-	  if (addrs->addrs_are_offsets)
-	    (*sym_offsets)->offsets[i] += addrs->other[0].addr;
+	  CORE_ADDR adjustment = dsym_offset;
+	  if (!addrs->addrs_are_offsets)
+	    {
+	      asection *text_segment = bfd_get_section_by_name (sym_bfd, TEXT_SEGMENT_NAME);
+	      if (text_segment != NULL)
+		adjustment -= bfd_get_section_vma (sym_bfd, text_segment);
+	    }
+	  *sym_num_offsets = bfd_count_sections (sym_bfd);
+	  *sym_offsets = (struct section_offsets *)
+	    xmalloc (SIZEOF_N_SECTION_OFFSETS (*sym_num_offsets));
+	  for (i = 0; i < *sym_num_offsets; i++) 
+	    {
+	      (*sym_offsets)->offsets[i] = dsym_offset + addrs->other[0].addr 
+		+ adjustment;
+	    }
 	}
-      *sym_num_offsets = addrs->num_sections;
+      else
+	{
+	  /* This branch assumes the addrs are in the same order as
+	     the offsets for this objfile.  I actually don't think
+	     that is right, since these addrs are generally right for
+	     the main objfile, and the dsym objfile has different
+	     sections.  
+
+	     This works by because we usually only have a rigid slide,
+	     and we only care about the offsets for the text segment
+	     anyway (using that for baseaddr.)
+
+	     It also doesn't properly handle the
+	     !addrs->addrs_are_offsets case properly.  Then we should
+	     look up the load address of each section and subtract
+	     that from the section addr.  
+	     I'm not going to fix this right now. */
+
+	  *sym_offsets = (struct section_offsets *)
+	  xmalloc (SIZEOF_N_SECTION_OFFSETS (addrs->num_sections));
+	  for (i = 0; i < addrs->num_sections; i++)
+	    {
+	      (*sym_offsets)->offsets[i] = dsym_offset;
+	      if (addrs->addrs_are_offsets)
+		(*sym_offsets)->offsets[i] += addrs->other[0].addr;
+	    }
+	  *sym_num_offsets = addrs->num_sections;
+	}
     }
   else if (dsym_offset != 0)
     {
@@ -906,6 +964,13 @@ Show if GDB should use mmap() to read STABS info."), NULL,
 			   NULL, NULL,
 			   &setlist, &showlist);
 #endif
+
+  add_setshow_boolean_cmd ("use-eh-frame-info", class_obscure,
+			   &use_eh_frames_info, _("\
+Set if GDB should use the EH frame/DWARF CFI information to backtrace."), _("\
+Show if GDB should use the EH frame/DWARF CFI information to backtrace."), NULL,
+			   NULL, NULL,
+			   &setlist, &showlist);
 
   add_setshow_boolean_cmd ("mach-o-process-exports", class_obscure,
 			   &mach_o_process_exports_flag, _("\

@@ -62,15 +62,6 @@
 
 namespace WebCore {
 
-static const unsigned aquaFocusRingColor = 0xFF7DADD9;
-
-Color focusRingColor()
-{
-    static Color focusRingColor = aquaFocusRingColor;
-
-    return focusRingColor;
-}
-
 static inline void setColor(cairo_t* cr, const Color& col)
 {
     float red, green, blue, alpha;
@@ -92,6 +83,7 @@ GraphicsContext::GraphicsContext(PlatformGraphicsContext* cr)
     , m_data(new GraphicsContextPlatformPrivate)
 {
     m_data->cr = cairo_reference(cr);
+    m_data->syncContext(cr);
     setPaintingDisabled(!cr);
 }
 

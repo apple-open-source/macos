@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -71,7 +71,7 @@ union IEEEl2bits {
 
 #define LDBL_HEAD_TAIL_PAIR
 
-__private_extern__ void _ldbl2array32dd(union IEEEl2bits, uint32_t *);
+__private_extern__ int _ldbl2array32dd(union IEEEl2bits, uint32_t *);
 
 #define	LDBL_TO_ARRAY32(u, a) _ldbl2array32dd(u, a)
 

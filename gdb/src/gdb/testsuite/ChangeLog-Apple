@@ -1,3 +1,461 @@
+2009-04-14  Jim Ingham  <jingham@apple.com>
+
+	* gdb.apple/objc-throw-in-inf-fn.{exp,m}: New test cases.
+	
+2009-03-25  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/file-statics.exp: Update to expect new ordering of globals.
+
+2009-03-09  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/sigtramp.c: New source file.
+	* gdb.apple/sigtramp.exp: New test file to do simple backtrace
+	through sigtramp with eh frame info and without.
+
+2009-03-09  Jim Ingham  <jingham@apple.com>
+
+	* gdb.apple/unload.exp: Make a varobj that depends on 
+	the loaded dylib, then verify that it gets deleted when the
+	dylib gets unloaded.
+	* gdb.apple/real.c: Add a structure type.
+	* gdb.apple/loader.c: Call the dummy_function so we can break there.
+	
+2009-03-04  Jim Ingham  <jingham@apple.com>
+
+	* gdb.apple/varobj-sel-frame.{c,exp}: Add another test
+	for a shadowed variable.
+	
+2009-03-03  Jim Ingham  <jingham@apple.com>
+
+	* gdb.apple/varobj-sel-frame.{c,exp}: New tests.
+	
+2009-03-03  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/blocks-queues.exp, blocks-queues.c: Make sure we can
+	retrieve the workqueue thread name and pthread thread names.
+
+2009-02-19  Caroline Tice  <ctice@apple.com>
+
+	* gdb.base/args.exp:  Increase the number of expected arguments,
+	to account for the additional "-arch" that is being added.
+
+2009-02-17  Jim Ingham  <jingham@apple.com>
+
+	* gdb.apple/add-dsym.exp: You won't necessarily get a breakpoint
+	mention when the library it is in slides.  Adapt the test for this.
+	* gdb.apple/r5414488.exp: Ditto
+	* gdb.apple/weak.exp: Ditto.
+	
+2009-02-06  Jim Ingham  <jingham@apple.com>
+
+	* gdb.gdb/selftest.exp (do_steps_and_nexts): Add a couple of test
+	clauses for APPLE LOCAL initializations from captured main.
+
+2008-11-24  Caroline Tice  <ctice@apple.com>
+
+	* gdb.threads/thread_check.exp:  Fix to work with new minsym & symbol
+	lookup stuff (setting extra, valid breakoint).
+
+2008-11-18  Jim Ingham  <jingham@apple.com>
+
+	* gdb.apple/varobj-references.{exp,cc}: Test gdb's handling
+	of variables passed by reference.
+	* lib/mi-support.exp (mi_break_function): New proc.
+	(mi_runto): Use mi_break_function.
+	
+2008-11-14  Caroline Tice  <ctice@apple.com>
+
+	* gdb.apple/r5414488.exp:  Don't expect frame info on
+	every line.
+	
+2008-11-12  Jim Ingham  <jingham@apple.com>
+
+	* gdb.mi/mi2-var-cmd.exp: Add resolved type.
+	
+2008-11-11  Jim Ingham  <jingham@apple.com>
+
+	* gdb.apple/anon-struct.exp: Add resolved_type.
+	* gdb.apple/file-statics.exp: Ditto.
+	* gdb.apple/mi1-varobj.exp: Ditto.
+	* gdb.apple/nested-inlines-*.exp: Ditto.
+	* gdb.apple/var-path-expr.exp: Ditto.
+	* gdb.apple/var-no-print-static.exp: Ditto.
+	* gdb.apple/xcode/var-list-children.exp: Ditto.
+	* gdb.mi/gdb701.exp: Ditto.
+	* gdb.mi/gdb792.exp: Ditto.
+	
+2008-10-29  Caroline Tice  <ctice@apple.com>
+
+	* gdb.apple/nested-inlines-console.x86.exp: Update to match new gdb
+	output.
+	* gdb.apple/nested-inlines-mi.x86.exp: Likewise.
+	* gdb.apple/nested-inlines-xcode-2.x86.exp: Likewise.
+	* gdb.apple/nested-inlines-xcode-3.x86.exp: Likewise.
+	* gdb.apple/nested-inlines-xcode-4.x86.exp: Likewise.
+	* gdb.apple/nested-inlines-xcode-5.x86.exp: Likewise.
+	* gdb.apple/nested-inlines-xcode-6.x86.exp: Likewise.
+	* gdb.apple/nested-inlines-xcode-7.x86.exp: Likewise.
+	* gdb.apple/nested-inlines-xcode-8.x86.exp: Likewise.
+	* gdb.apple/r5414488.exp: Likewise.
+
+1008-10-23  Caroline Tice  <ctice@apple.com>
+
+        * gdb.apple/blocks-linetables.c: Fix to work with new ABI changes.
+	* gdb.apple/blocks-linetables.exp: Likewise.
+	* gdb.apple/blocks-linetables2.c:  Likewise.
+	* gdb.apple/blocks-linetables2.exp:  Likewise.
+	* gdb.apple/blocks.c:  Likewise.
+	* gdb.apple/blocks.exp:  Likewise.
+	* gdb.apple/global-blocks-lines.exp:  Likewise.
+	* gdb.apple/global-blocks-lines2.exp:  Likewise.
+	* gdb.cp/cp-blocks-linetables.cc: Likewise.
+	* gdb.cp/cp-blocks-linetables.exp:  Likewise.
+
+2008-10-16  Jim Ingham  <jingham@apple.com>
+
+	* gdb.apple/mi1-varobj.exp: I fixed gdb so it now gives in_scope=false
+	update notification for variables that go out of scope, but there were
+	two variables that should go out of scope that weren't listed in the
+	testcase...
+	
+2008-10-15  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/mi1-varobj.exp: Update to reflect structure of the 
+	objc-prog.m file and the new runtime's behavior.
+
+2008-09-24  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.base/fileio.c (test_lseek): Use %lld for off_t variable.
+
+2008-09-19  Jason Molenda  (jmolenda@apple.com)
+
+	* maint.exp: Rebuild the break test file before loading it.
+
+2008-09-17  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.base/shmain.c, gdb.base/shr1.c: %p doesn't need a 0x prefix.
+
+2008-09-17  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/fix-and-continue/small-c/fix-small-c.exp: Specify the -arch
+	setting to the Makefile invocations.
+	* gdb.apple/fix-and-continue/small-c/mi-fix-small-c.exp: Specify the 
+	-arch setting to the Makefile invocations.
+	* gdb.apple/fix-and-continue/small-c/Makefile: Handle a -arch setting.
+	* gdb.apple/fix-and-continue/small-objc/fix-small-objc.exp: Specify the 
+	-arch setting to the Makefile invocations.
+	* gdb.apple/fix-and-continue/small-objc/Makefile: Handle a -arch 
+	setting when building the files.
+	* gdb.apple/fix-and-continue/small-objc/main.m: Make the printf 
+	formatting strings correct.
+
+2008-09-16  Jason Molenda  (jmolenda@apple.com)
+
+	* lib/mi-support.exp (mi_gdb_start): Turn off dSYM lookups.
+	* gdb.apple/fix-and-continue/small-c/fix-small-c.exp: Run for x86_64.
+	Fix expected output from dlopen failure instead of NSLinkModule error.
+	* gdb.apple/fix-and-continue/small-c/mi-fix-small-c.exp: Run for x86_64.
+
+2008-09-15  Jason Molenda  (jmolenda@apple.com)
+
+	* mi2-var-child.exp: Add an extra exec-step to step over a linetable
+	entry the compiler is now emitting, but didn't used to.
+
+2008-09-12  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.objc/*: Remove.  These ObjC files aren't being kept up to date.
+	* configure.ac: Don't configure it.
+	* Makefile.in: Don't build it.
+	* configure: Regenerated.
+
+2008-09-12  Jim Ingham  <jingham@apple.com>
+
+	* gdb.apple/po.exp: Make sure that NULL's are pointer sized 0's.
+	
+2008-09-12  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.base/unload.exp: Fix strings to match gdb's output.
+
+2008-09-10  Caroline Tice  <ctice@apple.com>
+
+	* gdb.apple/blocks-linetables.c: Add comments.
+	* gdb.apple/blocks-linetables.exp: Remove line numbers and dependencies
+	on helper function names.
+	* gdb.apple/blocks-linetables2.c: Add comments.
+	* gdb.apple/blocks-linetables2.exp: Remove line numbers and 
+	dependencies on helper function names.
+	* gdb.apple/global-blocks-lines.c: Add comments.
+	* gdb.apple/global-blocks-lines.exp: Change helper function names,
+	and remove line number references.
+	* gdb.apple/global-blocks-lines2.exp: Change helper function names,
+	and remove line number references.
+	* gdb.base/shmain.c:  Use %p for pointer address.
+	* gdb.cp/cp-blocks-linetables.cc: Add comments.
+	* gdb.cp/cp-blocks-linetables.exp: Make tests non-line-number
+	specific; add tests for breaking at main.
+
+2008-09-09  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/single-def-main.cc: use %zd for size_t arg.
+	* gdb.base/fileio.c: Use %zd for size_t arg.  Fix number of args
+	to another printf.
+	* gdb.base/shr1.c: Use %p for pointer address.
+	* gdb.base/sizeof.c: Use %zd for size_t args.
+	* gdb.base/unload.exp: Don't pass strings to printf as the fmt string.
+
+2008-09-09  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/objc-prog.m (stringmaker): Fix NSLog call even more.
+
+2008-09-05  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/objc-prog.m (stringmaker): Fix NSLog call.
+
+2008-09-02  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.base/watchpoint.exp: Reduce timeout to 30 sec from 5 min.
+
+2008-08-24  Caroline Tice  <ctice@apple.com>
+
+	* gdb.apple/blocks-linetables.c: New testcases.
+	* gdb.apple/blocks-linetables.exp: Ditto.
+	* gdb.apple/blocks-linetables2.c: Ditto.
+	* gdb.apple/blocks-linetables2,exp: Ditto.
+	* gdb.apple/global-blocks-lines.c: Ditto.
+	* gdb.apple/global-blocks-lines.exp: Ditto.
+	* gdb.apple/global-blocks-lines2.c: Ditto.
+	* gdb.apple/global-blocks-lines2.exp: Ditto.
+	* gdb.cp/cp-blocks-linetables.cc: Ditto.
+	* gdb.cp/cp-blocks-linetables.exp: Ditto.
+
+2008-08-15  Jim Ingham  <jingham@apple.com>
+
+	* lib/gdb.exp (gdb_continue_to_breakpoint): Add an optional 
+	parameter to test which breakpoint we stopped at, and return
+	the breakpoint we stopped at as well.
+	* gdb.apple/blocks.{c,exp}: New files.
+	
+2008-07-31  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/gused/psym-type-defn.exp: Correct CFLAGS to build
+	-gused with the new compilers.
+
+2008-07-31  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/macscp-inlining.exp, gdb.apple/nested-inlines-console.exp, 
+	gdb.apple/nested-inlines-mi.exp, gdb.apple/nested-inlines-xcode-1.exp, 
+	gdb.apple/nested-inlines-xcode-2.exp, 
+	gdb.apple/nested-inlines-xcode-3.exp, 
+	gdb.apple/nested-inlines-xcode-4.exp, 
+	gdb.apple/nested-inlines-xcode-5.exp, 
+	gdb.apple/nested-inlines-xcode-6.exp, 
+	gdb.apple/nested-inlines-xcode-7.exp, 
+	gdb.apple/nested-inlines-xcode-8.exp, 
+	gdb.apple/nested-inlines-xcode-9.exp: Change the test-skipping 
+	conditional expression to look for the presence of ppc specifically
+	instead of explicitly skipping every other arch.
+
+2008-07-30  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/nested-inlines-console.exp: These test cases aren't correct
+	when built 64-bit; skip them.
+	* gdb.apple/nested-inlines-mi.exp: Same.
+	* gdb.apple/nested-inlines-xcode-1.exp: Same.
+	* gdb.apple/nested-inlines-xcode-2.exp: Same.
+	* gdb.apple/nested-inlines-xcode-3.exp: Same.
+	* gdb.apple/nested-inlines-xcode-4.exp: Same.
+	* gdb.apple/nested-inlines-xcode-5.exp: Same.
+	* gdb.apple/nested-inlines-xcode-6.exp: Same.
+	* gdb.apple/nested-inlines-xcode-7.exp: Same.
+	* gdb.apple/nested-inlines-xcode-8.exp: Same.
+	* gdb.apple/nested-inlines-xcode-9.exp: Same.
+
+	* gdb.apple/gused/coalesced1.exp: Same.
+	* gdb.apple/gused/coalesced2.exp: Same.
+	* gdb.apple/gused/psym-type-defn.exp: Same.
+	* gdb.apple/gused/shantonu.exp: Same.
+	* gdb.apple/gused/split-pi.exp: Same.
+	* gdb.apple/gused/type-qualifications.exp: Same.
+
+2008-07-18  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/prologue-x86.exp: Update for SnowLeopard system function
+	names.
+
+2008-07-18  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/add-dsym.exp: Expect correct backtrace output.
+	* gdb.apple/gen-x86-prologues-patterns.txt: Remove two prologue
+	patterns that had jmp/jcc instructions in them -- the prologue parser
+	will soon stop parsing at those and hand-written assembly that depends
+	on that working are no longer supported.
+	* gdb.apple/gen-x86-prologues.c: Regenerated.
+	* gdb.apple/gen-x86-prologues.exp: Regenerated.
+
+2008-07-10  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/univ-archive.exp: Remove ppc64.
+
+2008-06-06  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/add-dsym.c: Terminate string.
+	* gdb.apple/add-dsym.exp: Don't hard code source line # for bar bp.
+
+2008-06-05  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.objc/myclass.exp: Build with -mmacosx-version-min=10.5.
+	* gdb.base/unload.exp: Build dylib with -mmacosx-version-min=10.5.
+
+2008-06-04  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.base/unload.exp: Set the min macosx version when compiling this.
+
+2008-06-04  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/nick.exp: Update regexp for Snow Leopard.
+	* gdb.apple/sections.exp: Update regexp.
+	* gdb.apple/r4183684.exp: Update regexp.
+	* gdb.apple/objc-rbreak.exp: Update regexp.
+	* gdb.apple/single-def.h: Updated for gcc-4.2 C++ happiness.
+	* gdb.apple/fix-and-continue/small-c/Makefile: Don't hardcode gcc-4.0.
+	* gdb.apple/fix-and-continue/small-objc/Makefile: Same.
+
+2008-06-04  Jason Molenda  (jmolenda@apple.com)
+
+	* lib/gdb.exp (default_gdb_start): Change gdb_opts from a host_info
+	to a target_info.
+	* lib/mi-support.exp (mi_gdb_start): Same.
+
+2008-06-04  Jason Molenda  (jmolenda@apple.com)
+
+	* configure: Regenerated to make gdb.apple/debug-in-ofile test dir.
+
+2008-05-30  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/add-dsym.exp: Make breakpoint in dylib a future-break.
+
+2008-05-29  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/mi1-varobj.exp: Types come back as 'MyClass *' instead of
+	'class MyClass *'.
+
+2008-05-29  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/arch-test.exp: Remove ppc64; won't build on SnowLeopard.
+
+2008-05-23  Jason Molenda  (jmolenda@apple.com)
+
+        * gdb.apple/objc-prog.m (newWithArg): Don't call super init.
+
+2008-05-22  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.base/relocate.exp: Don't look for "_addr" after the text segment
+	name.
+
+2008-03-19  Jason Molenda  (jmolenda@apple.com)
+
+	* lib/gdb.exp (default_gdb_start): Set locate-dsym to 0 so if the
+	person running the test has system library dSYMs somewhere, the
+	testsuites won't be perturbed.
+
+2007-03-14  Caroline Tice  <ctice@apple.com>
+
+	* gdb.apple/nested-inlines-xcode-1.exp: Update to work with latest
+	versions of gcc & gdb.
+	* gdb.apple/nested-inlines-xcode-1.x86.exp: Ditto.
+	* gdb.apple/nested-inlines-xcode-2.exp: Ditto.
+	* gdb.apple/nested-inlines-xcode-2.x86.exp: Ditto.
+	* gdb.apple/nested-inlines-xcode-3.exp: Ditto.
+	* gdb.apple/nested-inlines-xcode-3.x86.exp: Ditto.
+	* gdb.apple/nested-inlines-xcode-4.exp: Ditto.
+	* gdb.apple/nested-inlines-xcode-4.x86.exp: Ditto.
+	* gdb.apple/nested-inlines-xcode-5.exp: Ditto.
+	* gdb.apple/nested-inlines-xcode-5.x86.exp: Ditto.
+	* gdb.apple/nested-inlines-xcode-6.exp: Ditto.
+	* gdb.apple/nested-inlines-xcode-6.x86.exp: Ditto.
+	* gdb.apple/nested-inlines-xcode-7.exp: Ditto.
+	* gdb.apple/nested-inlines-xcode-7.x86.exp: Ditto.
+	* gdb.apple/nested-inlines-xcode-8.exp: Ditto.
+	* gdb.apple/nested-inlines-xcode-8.x86.exp: Ditto.
+	* gdb.apple/nested-inlines-xcode-9.exp: Ditto.
+	* gdb.apple/nested-inlines-xcode-9.x86.exp: Ditto.
+
+2008-03-05  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/bp-cond-objc.exp: Loosen regexp a little.
+	* gdb.apple/dirname-tab.exp: Handle another error condition correctly.
+	* gdb.apple/info-pid.exp: Expect the mi timings output.
+	* gdb.apple/ostype.exp: Expect the mi timings output.
+	* gdb.apple/single-def-classdef.cc: Add a new test function.
+	* gdb.apple/single-def-classdef.h: Add a new test function.
+	* gdb.apple/xcode/stack-list-frames-lite.exp: Expect has_debug field
+	in s-l-f-l output.
+	* gdb.apple/xcode/stack-list-frames-lite-sigtramp.exp: Expect the
+	mi timings output.
+
+2008-01-14  Caroline Tice  <ctice@apple.com>
+
+	* gdb.apple/nested-inlines-console.x86.exp: More modifications to 
+	work with either gcc 4.0.1 or gcc 4.2.
+	* gdb.apple/nested-inlines-mi.x86.exp: Ditto.
+
+2007-12-07  Caroline Tice  <ctice@apple.com>
+
+	* gdb.apple/nested-inlines-console.exp: Modify to work with either
+	gcc 4.0.1 or gcc 4.2.
+	* gdb.apple/nested-inlines-console.x86.exp: Ditto.
+	* gdb.apple/nested-inlines-mi.exp: Ditto.
+	* gdb.apple/nested-inlines-mi.x86.exp: Ditto.
+	* gdb.apple/nested-inlines-xcode-1.exp: Ditto.
+	* gdb.apple/nested-inlines-xcode-2.exp: Ditto.
+	* gdb.apple/nested-inlines-xcode-3.exp: Ditto.
+	* gdb.apple/nested-inlines-xcode-4.exp: Ditto.
+	* gdb.apple/nested-inlines-xcode-5.exp: Ditto.
+	* gdb.apple/nested-inlines-xcode-5.x86.exp: Ditto.
+	* gdb.apple/nested-inlines-xcode-6.exp: Ditto.
+	* gdb.apple/nested-inlines-xcode-7.exp: Ditto.
+	* gdb.apple/nested-inlines-xcode-7.x86.exp: Ditto.
+	* gdb.apple/nested-inlines-xcode-8.exp: Ditto.
+	* gdb.apple/nested-inlines-xcode-9.exp: Ditto.
+	* gdb.apple/nested-inlines-xcode-9.x86.exp: Ditto.
+	* gdb.apple/var-path-expr.cpp: Ditto.
+	* gdb.apple/gused/coalesced1.h: Ditto.
+	* gdb.base/structs.exp: Ditto.
+
+2007-12-05  Jim Ingham  <jingham@apple.com>
+
+	* gdb.base/sizeof.exp: gcc-4.2 doesn't accept -Wno-long-double
+	* gdb.base/store.exp: ditto
+	* gdb.base/structs.exp: ditto
+	* gdb.cp/gdb1355.exp: ditto
+	* gdb.cp/templates.exp: ditto
+	
+2007-10-18  Caroline Tice  <ctice@apple.com>
+
+	* gdb.cp/templates.exp: Update to cope properly with multiple
+	breakpoint choices for breakpoint on destructor.
+
+2007-09-19  Caroline Tice  <ctice@apple.com>
+
+	* gdb.apple/r5414488.exp: Correct expected line number to match new
+	gdb line-finding code.
+
+2007-08-21  Caroline Tice  <ctice@apple.com>
+
+	* gdb.apple/macscp-inlining.exp:  Don't look for 'stepping into/over
+	inlined subroutine' messages.
+	* gdb.apple/macscp-inlining.x86.exp:  Likewise.
+	* gdb.apple/nested-inlines-console.exp:  Likewise.
+	* gdb.apple/nested-inlines-console.x86.exp:  Likewise.
+
+2007-08-21  Caroline Tice  <ctice@apple.com>
+
+	* gdb.apple/r5414488.exp: Test that inlined subroutine data addresses 
+	slide correctly along with the rest of the objfile.
+	* gdb.apple/r5414488.m: File for new testcase.
+	* gdb.apple/r5414488.h: File for new testcase.
+	* gdb.apple/r5414488-libfile.m: File for new testcase.
+
 2007-07-27  Jim Ingham (jingham@apple.com)
 
 	* gdb.apple/unloading.exp: More tests.

@@ -1,0 +1,160 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+<link rel="STYLESHEET" href="mailman-admin.css" type='text/css' />
+<link rel="first" href="mailman-admin.html" title='GNU mailman - list Administration Manual' />
+<link rel='contents' href='contents.html' title="Contents" />
+<link rel='last' href='about.html' title='About this document...' />
+<link rel='help' href='about.html' title='About this document...' />
+<link rel="next" href="node5.html" />
+<link rel="prev" href="node3.html" />
+<link rel="parent" href="node3.html" />
+<link rel="next" href="node5.html" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name='aesop' content='information' />
+<title>1.1 A List's Email Addresses</title>
+</head>
+<body>
+<div class="navigation">
+<div id='top-navigation-panel' xml:id='top-navigation-panel'>
+<table align="center" width="100%" cellpadding="0" cellspacing="2">
+<tr>
+<td class='online-navigation'><a rel="prev" title="1 introduction to GNU"
+  href="node3.html"><img src='previous.png'
+  border='0' height='32'  alt='Previous Page' width='32' /></a></td>
+<td class='online-navigation'><a rel="parent" title="1 introduction to GNU"
+  href="node3.html"><img src='up.png'
+  border='0' height='32'  alt='Up one Level' width='32' /></a></td>
+<td class='online-navigation'><a rel="next" title="1.2 administrative Roles"
+  href="node5.html"><img src='next.png'
+  border='0' height='32'  alt='Next Page' width='32' /></a></td>
+<td align="center" width="100%">GNU Mailman - List Administration Manual</td>
+<td class='online-navigation'><a rel="contents" title="Table of Contents"
+  href="contents.html"><img src='contents.png'
+  border='0' height='32'  alt='Contents' width='32' /></a></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+</tr></table>
+<div class='online-navigation'>
+<b class="navlabel">Previous:</b>
+<a class="sectref" rel="prev" href="node3.html">1 Introduction to GNU</a>
+<b class="navlabel">Up:</b>
+<a class="sectref" rel="parent" href="node3.html">1 Introduction to GNU</a>
+<b class="navlabel">Next:</b>
+<a class="sectref" rel="next" href="node5.html">1.2 Administrative Roles</a>
+</div>
+<hr /></div>
+</div>
+<!--End of Navigation Panel-->
+
+<h2><a name="SECTION002110000000000000000">
+1.1 A List's Email Addresses</a>
+</h2>
+
+<p>
+Every mailing list has a set of email addresses that messages can be
+sent to.  There's always one address for posting messages to the list,
+one address that bounces will be sent to, and addresses for processing
+email commands.  For example, for a mailing list called
+<var>mylist@example.com</var>, you'd find these addresses:
+
+<p>
+
+<ul>
+<li>mylist@example.com - this is the email address people should
+      use for new postings to the list.
+
+<p>
+</li>
+<li>mylist-join@example.com - by sending a message to this address,
+      a new member can request subscription to the list.  Both the
+      <span class="mailheader">Subject:</span> header and body of such a message are
+      ignored.  Note that mylist-subscribe@example.com is an alias for
+      the -join address.
+
+<p>
+</li>
+<li>mylist-leave@example.com - by sending a message to this address,
+      a member can request unsubscription from the list.  As with the
+      -join address, the <span class="mailheader">Subject:</span> header and body of the
+      message is ignored.  Note that mylist-unsubscribe@example.com is
+      an alias for the -leave address.
+
+<p>
+</li>
+<li>mylist-owner@example.com - This address reaches the list owner
+      and list moderators directly.
+
+<p>
+</li>
+<li>mylist-request@example.com - This address reaches a mail robot
+      which processes email commands that can be used to set member
+      subscription options, as well as process other commands.
+
+<p>
+</li>
+<li>mylist-bounces@example.com - This address receives bounces from
+      members who's addresses have become either temporarily or
+      permanently inactive.  The -bounces address is also a mail robot
+      that processes bounces and automatically disables or removes
+      members as configured in the bounce processing settings.  Any
+      bounce messages that are either unrecognized, or do not seem to
+      contain member addresses, are forwarded to the list
+      administrators.
+
+<p>
+</li>
+<li>mylist-confirm@example.com - This address is another email
+      robot, which processes confirmation messages for subscription
+      and unsubscription requests.
+</li>
+</ul>
+
+<p>
+There's also an -admin address which also reaches the list
+administrators, but this address only exists for compatibility with
+older versions of Mailman.
+
+<p>
+
+<div class="navigation">
+<div class='online-navigation'>
+<p></p><hr />
+<table align="center" width="100%" cellpadding="0" cellspacing="2">
+<tr>
+<td class='online-navigation'><a rel="prev" title="1 introduction to GNU"
+  href="node3.html"><img src='previous.png'
+  border='0' height='32'  alt='Previous Page' width='32' /></a></td>
+<td class='online-navigation'><a rel="parent" title="1 introduction to GNU"
+  href="node3.html"><img src='up.png'
+  border='0' height='32'  alt='Up one Level' width='32' /></a></td>
+<td class='online-navigation'><a rel="next" title="1.2 administrative Roles"
+  href="node5.html"><img src='next.png'
+  border='0' height='32'  alt='Next Page' width='32' /></a></td>
+<td align="center" width="100%">GNU Mailman - List Administration Manual</td>
+<td class='online-navigation'><a rel="contents" title="Table of Contents"
+  href="contents.html"><img src='contents.png'
+  border='0' height='32'  alt='Contents' width='32' /></a></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+</tr></table>
+<div class='online-navigation'>
+<b class="navlabel">Previous:</b>
+<a class="sectref" rel="prev" href="node3.html">1 Introduction to GNU</a>
+<b class="navlabel">Up:</b>
+<a class="sectref" rel="parent" href="node3.html">1 Introduction to GNU</a>
+<b class="navlabel">Next:</b>
+<a class="sectref" rel="next" href="node5.html">1.2 Administrative Roles</a>
+</div>
+</div>
+<hr />
+<span class="release-info">Release 2.1, documentation updated on January 11, 2009.</span>
+</div>
+<!--End of Navigation Panel-->
+
+</body>
+</html>

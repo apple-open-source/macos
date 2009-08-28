@@ -1,0 +1,8 @@
+The client and server programs are protypes to test the behavior
+of GLXPixmap shared memory in a controlled environment
+
+The client faults after munmapping and truncating its fd, but the
+server keeps going.  This is a good thing from a security perspective.
+
+The client sees the servers changes, and the server can see the
+client changes, but the server won't fault if the file is truncated.

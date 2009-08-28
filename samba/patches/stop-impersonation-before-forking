@@ -1,0 +1,38 @@
+Index: samba/source/lib/smbrun.c
+===================================================================
+--- samba/source/lib/smbrun.c.orig
++++ samba/source/lib/smbrun.c
+@@ -82,15 +82,23 @@ static int smbrun_internal(const char *c
+ 	 */
+ 
+ 	CatchChildLeaveStatus();
+-                                   	
++
++	/* If we were impersonating with pthread_setugid_np, the assumed
++	 * credential becomes the real credential in the child. Ironically,
++	 * we  need to fork as root to make sure that we can drop privileges.
++	 */
++	become_root();
++
+ 	if ((pid=sys_fork()) < 0) {
++		int errsav = errno;
+ 		DEBUG(0,("smbrun: fork failed with error %s\n", strerror(errno) ));
+ 		CatchChild(); 
+ 		if (outfd) {
+ 			close(*outfd);
+ 			*outfd = -1;
+ 		}
+-		return errno;
++		unbecome_root();
++		return errsav;
+ 	}
+ 
+ 	if (pid) {
+@@ -100,6 +108,7 @@ static int smbrun_internal(const char *c
+ 		int status=0;
+ 		pid_t wpid;
+ 
++		unbecome_root();
+ 		
+ 		/* the parent just waits for the child to exit */
+ 		while((wpid = sys_waitpid(pid,&status,0)) < 0) {

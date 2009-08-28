@@ -194,7 +194,7 @@ static char copyright[] =
  * causing nast effects.
  **************************************************************/
 
-/*static char _id[] = "$Id: snpf.c,v 1.4 2001/04/24 12:34:36 abe Exp $";*/
+/*static char _id[] = "$Id: snpf.c,v 1.5 2008/10/21 16:13:23 abe Exp $";*/
 
 
 /*
@@ -745,5 +745,5 @@ dopr_outch(bp, ep, c)
 }
 
 #else	/* !defined(USE_LIB_SNPF) */
-static char d1[] = "d"; static char *d2 = d1;
+char snpf_d1[] = "d"; char *snpf_d2 = snpf_d1;
 #endif	/* defined(USE_LIB_SNPF) */

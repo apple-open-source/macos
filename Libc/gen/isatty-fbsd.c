@@ -41,6 +41,7 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/isatty.c,v 1.5 2002/02/01 00:57:29 obrien E
 #include <unistd.h>
 #include <sys/filio.h>
 #include <sys/conf.h>
+#include <sys/ioctl.h>
 #include <errno.h>
 
 int

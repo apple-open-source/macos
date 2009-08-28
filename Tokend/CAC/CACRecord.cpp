@@ -134,17 +134,16 @@ Tokend::Attribute *CACCertificateRecord::getDataAttribute(Tokend::TokenContext *
 // CACKeyRecord
 //
 CACKeyRecord::CACKeyRecord(const unsigned char *application,
-	const char *description, const Tokend::MetaRecord &metaRecord,
-	bool signOnly) :
-    CACRecord(application, description),
-	mSignOnly(signOnly)
+	const char *description, const Tokend::MetaRecord &metaRecord) :
+    CACRecord(application, description)
 {
+	// Allow all keys to decrypt, unwrap, sign
     attributeAtIndex(metaRecord.metaAttribute(kSecKeyDecrypt).attributeIndex(),
-                     new Tokend::Attribute(!signOnly));
+                     new Tokend::Attribute(true));
     attributeAtIndex(metaRecord.metaAttribute(kSecKeyUnwrap).attributeIndex(),
-                     new Tokend::Attribute(!signOnly));
+                     new Tokend::Attribute(true));
     attributeAtIndex(metaRecord.metaAttribute(kSecKeySign).attributeIndex(),
-                     new Tokend::Attribute(signOnly));
+                     new Tokend::Attribute(true));
 }
 
 CACKeyRecord::~CACKeyRecord()
@@ -157,9 +156,6 @@ void CACKeyRecord::computeCrypt(CACToken &cacToken, bool sign,
 {
 	if (dataLength > sizeInBits() / 8)
 		CssmError::throwMe(CSSMERR_CSP_BLOCK_SIZE_MISMATCH);
-
-	if (sign != mSignOnly)
-		CssmError::throwMe(CSSMERR_CSP_KEY_USAGE_INCORRECT);
 
 	PCSC::Transaction _(cacToken);
 	cacToken.select(mApplication);
@@ -199,17 +195,19 @@ void CACKeyRecord::getAcl(const char *tag, uint32 &count, AclEntryInfo *&acls)
 		mAclEntries.add(CssmClient::AclFactory::AnySubject(
 			mAclEntries.allocator()),
 			AclAuthorizationSet(CSSM_ACL_AUTHORIZATION_DB_READ, 0));
+
 		// Using this key to sign or decrypt will require PIN1
+		char tmptag[20];
+		const uint32 slot = 1;	// hardwired for now, but...
+		snprintf(tmptag, sizeof(tmptag), "PIN%d", slot);
 		mAclEntries.add(CssmClient::AclFactory::PinSubject(
 			mAclEntries.allocator(), 1),
-			AclAuthorizationSet((mSignOnly
-				? CSSM_ACL_AUTHORIZATION_SIGN
-				: CSSM_ACL_AUTHORIZATION_DECRYPT), 0));
+			AclAuthorizationSet(CSSM_ACL_AUTHORIZATION_SIGN, CSSM_ACL_AUTHORIZATION_DECRYPT, 0),
+			tmptag);
 	}
 	count = mAclEntries.size();
 	acls = mAclEntries.entries();
 }
-
 
 //
 // CACTBRecord
@@ -260,11 +258,11 @@ CACTBRecord::getSize(CACToken &cacToken, size_t &tbsize, size_t &vbsize)
 #endif
 
 /*
-	See NIST IR 6887 â€“ 2003 EDITION, GSC-IS VERSION 2.1
+	See NIST IR 6887 Ð 2003 EDITION, GSC-IS VERSION 2.1
 	5.3.4 Generic Container Provider Virtual Machine Card Edge Interface
 	for a description of how this command works
 	
-	READ BUFFER 0x80 0x52 Off/H Off/L 0x02 <buffer & number bytes to read> â€“ 
+	READ BUFFER 0x80 0x52 Off/H Off/L 0x02 <buffer & number bytes to read> Ð 
 */
 
 Tokend::Attribute *CACTBRecord::getDataAttribute(CACToken &cacToken,

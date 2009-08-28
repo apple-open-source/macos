@@ -148,7 +148,7 @@ S_wait_if(mach_port_t server, int argc, char * argv[])
     if_name_t		name;
     kern_return_t	status;
 
-    strcpy(name, argv[0]);
+    strlcpy(name, argv[0], sizeof(name));
     status = ipconfig_wait_if(server, name);
     if (status == KERN_SUCCESS) {
 	return (0);
@@ -198,7 +198,6 @@ S_bsdp_option(mach_port_t server, int argc, char * argv[])
     void *		data = NULL;
     int			data_len;
     struct dhcp *	dhcp;
-    char		err[256];
     int			length;
     dhcpol_t		options;
     CFDataRef		response = NULL;
@@ -224,7 +223,7 @@ S_bsdp_option(mach_port_t server, int argc, char * argv[])
     }
     dhcp = (struct dhcp *)CFDataGetBytePtr(response);
     length = CFDataGetLength(response);
-    if (dhcpol_parse_packet(&options, dhcp, length, err) == FALSE) {
+    if (dhcpol_parse_packet(&options, dhcp, length, NULL) == FALSE) {
 	goto done;
     }
     if (strcmp(argv[0], SHADOW_MOUNT_PATH_COMMAND) == 0) {
@@ -246,7 +245,7 @@ S_bsdp_option(mach_port_t server, int argc, char * argv[])
 	}
     }
     if (tag == dhcptag_vendor_specific_e && vendor_tag != 0) {
-	if (dhcpol_parse_vendor(&vendor_options, &options, err) == FALSE) {
+	if (dhcpol_parse_vendor(&vendor_options, &options, NULL) == FALSE) {
 	    goto done;
 	}
 	data = dhcpol_get(&vendor_options, vendor_tag, &data_len);
@@ -286,7 +285,7 @@ S_if_addr(mach_port_t server, int argc, char * argv[])
     if_name_t		name;
     kern_return_t	status;
 
-    strcpy(name, argv[0]);
+    strlcpy(name, argv[0], sizeof(name));
     status = ipconfig_if_addr(server, name, (ip_address_t *)&ip);
     if (status == KERN_SUCCESS) {
 	printf("%s\n", inet_ntoa(ip));
@@ -319,23 +318,23 @@ S_get_option(mach_port_t server, int argc, char * argv[])
     inline_data_t 	data;
     unsigned int 	data_len = sizeof(data);
     if_name_t		name;
-    char		err[1024];
+    dhcpo_err_str_t	err;
     int			tag;
     kern_return_t	status;
 
-    strcpy(name, argv[0]);
+    strlcpy(name, argv[0], sizeof(name));
 
     tag = dhcptag_with_name(argv[1]);
     if (tag == -1)
 	tag = atoi(argv[1]);
     status = ipconfig_get_option(server, name, tag, data, &data_len);
     if (status == KERN_SUCCESS) {
-	if (dhcptag_to_str(buf, tag, data, data_len, err)) {
+	if (dhcptag_to_str(buf, sizeof(buf), tag, data, data_len, &err)) {
 	    printf("%s\n", buf);
 	    return (0);
 	}
 	fprintf(stderr, "couldn't convert the option, %s\n",
-		err);
+		err.str);
     }
     else {
 	fprintf(stderr, "ipconfig_get_option failed, %s\n", 
@@ -350,14 +349,16 @@ S_get_packet(mach_port_t server, int argc, char * argv[])
     inline_data_t 	data;
     unsigned int 	data_len = sizeof(data);
     if_name_t		name;
+    int			ret = 1;
     kern_return_t	status;
 
-    strcpy(name, argv[0]);
+    strlcpy(name, argv[0], sizeof(name));
     status = ipconfig_get_packet(server, name, data, &data_len);
     if (status == KERN_SUCCESS) {
 	dhcp_print_packet((struct dhcp *)data, data_len);
+	ret = 0;
     }
-    return (1);
+    return (ret);
 }
 
 static __inline__ boolean_t
@@ -480,7 +481,7 @@ S_set(mach_port_t server, int argc, char * argv[])
 			  &ipstatus);
     if (status != KERN_SUCCESS) {
 	mach_error("ipconfig_set failed", status);
-	exit(1);
+	return (1);
     }
     if (ipstatus != ipconfig_status_success_e) {
 	fprintf(stderr, "ipconfig_set %s %s failed: %s\n",
@@ -501,7 +502,7 @@ S_set_verbose(mach_port_t server, int argc, char * argv[])
     errno = 0;
     if (verbose == 0 && errno != 0) {
 	fprintf(stderr, "conversion to integer of %s failed\n", argv[0]);
-	exit(1);
+	return (1);
     }
     status = ipconfig_set_verbose(server, verbose, &ipstatus);
     if (status != KERN_SUCCESS) {
@@ -527,7 +528,7 @@ S_set_something(mach_port_t server, int argc, char * argv[])
     errno = 0;
     if (verbose == 0 && errno != 0) {
 	fprintf(stderr, "conversion to integer of %s failed\n", argv[0]);
-	exit(1);
+	return (1);
     }
     status = ipconfig_set_something(server, verbose, &ipstatus);
     if (status != KERN_SUCCESS) {
@@ -576,7 +577,7 @@ S_add_or_set_service(mach_port_t server, int argc, char * argv[], bool add)
     if (status != KERN_SUCCESS) {
 	fprintf(stderr, "ipconfig_%s_service failed, %s\n", add ? "add" : "set",
 		mach_error_string(status));
-	exit(1);
+	return (1);
     }
     if (ipstatus != ipconfig_status_success_e) {
 	fprintf(stderr, "ipconfig_%s_service %s %s failed: %s\n",
@@ -617,7 +618,7 @@ S_remove_service_with_id(mach_port_t server, int argc, char * argv[])
 					     &ipstatus);
     if (status != KERN_SUCCESS) {
 	mach_error("ipconfig_remove_service_with_id failed", status);
-	exit(1);
+	return (1);
     }
     if (ipstatus != ipconfig_status_success_e) {
 	fprintf(stderr, "ipconfig_remove_service_with_id %s failed: %s\n",
@@ -659,7 +660,7 @@ S_find_service(mach_port_t server, int argc, char * argv[])
 				   service_id, &service_id_len, &ipstatus);
     if (status != KERN_SUCCESS) {
 	mach_error("ipconfig_find_service failed", status);
-	exit(1);
+	return (1);
     }
     if (ipstatus != ipconfig_status_success_e) {
 	fprintf(stderr, "ipconfig_find_service %s %s failed: %s\n",
@@ -693,7 +694,7 @@ S_remove_service(mach_port_t server, int argc, char * argv[])
 				     (void *)data, data_len, &ipstatus);
     if (status != KERN_SUCCESS) {
 	mach_error("ipconfig_remove_service failed", status);
-	exit(1);
+	return (1);
     }
     if (ipstatus != ipconfig_status_success_e) {
 	fprintf(stderr, "ipconfig_remove_service %s %s failed: %s\n",

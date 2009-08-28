@@ -1,0 +1,181 @@
+# Commands covered:  vfs::filesystem
+#
+# This file contains a collection of tests for one or more of the Tcl
+# built-in commands.  Sourcing this file into Tcl runs the tests and
+# generates output for errors.  No output means no errors were found.
+#
+# Copyright (c) 2001-2002 by Vince Darley.
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+package require vfs
+
+proc filelistrelative {filelist {remove ""}} {
+    if {[llength $remove]} {
+	set newlist {}
+	foreach f $filelist {
+	    if {[lsearch -exact $remove $f] == -1} {
+		lappend newlist $f
+	    }
+	}
+	set filelist $newlist
+    }
+    set dir [file normalize [pwd]]
+    set len [string length $dir]
+    incr len
+    set res {}
+    foreach d $filelist {
+	if {[string first $dir $d] == 0} {
+	   lappend res [string range $d $len end]
+       } else {
+	   lappend res $d
+       }
+    }
+    set res
+}
+
+test vfs-1.1 {mount unmount} {
+    catch {unset res}
+    vfs::filesystem mount foo bar
+    set res [list [catch {vfs::filesystem unmount foo bar} err]]
+    lappend res $err
+    vfs::filesystem unmount foo
+    unset err
+    set res
+} {1 {wrong # args: should be "vfs::filesystem unmount path"}}
+
+
+# Test 2.x sub-interps
+
+test vfs-2.1 {mount unmount in sub interp} {
+    catch {interp delete a}
+    catch {unset res}
+    set remove [vfs::filesystem info]
+    vfs::filesystem mount foo bar
+    vfsCreateInterp a
+    a eval {package require vfs}
+    a eval {vfs::filesystem mount foo2 bar2}
+    set res {}
+    eval lappend res [vfs::filesystem info]
+    a eval {vfs::filesystem unmount foo2}
+    interp delete a
+    eval lappend res [vfs::filesystem info]
+    vfs::filesystem unmount foo
+    filelistrelative $res $remove
+} {foo2 foo foo}
+
+test vfs-2.2 {mount, delete sub interp} {
+    catch {interp delete a}
+    catch {unset res}
+    set remove [vfs::filesystem info]
+    vfs::filesystem mount foo bar
+    vfsCreateInterp a
+    a eval {package require vfs}
+    a eval {vfs::filesystem mount foo2 bar2}
+    set res {}
+    eval lappend res [vfs::filesystem info]
+    interp delete a
+    eval lappend res [vfs::filesystem info]
+    vfs::filesystem unmount foo
+    filelistrelative $res $remove
+} {foo2 foo foo}
+
+test vfs-2.3 {mount where command doesn't exist} {
+    # This is failing in 8.4.0-19, ok in 8.5, but changed message in 8.5.6
+    # and causes the 'error reading package index' in other tests for 8.4
+    vfs::filesystem mount foo bar
+    set code [catch {glob foo/pkgIndex.tcl} msg]
+    vfs::filesystem unmount foo
+    list $code $msg
+} {1 {invalid command name "bar"}}
+
+test vfs-2.4 {mount where command doesn't exist} {
+    # Building on vfs-2.3, but -nocomplain changed in 8.5 to still complain
+    # on real underlying issues (just not on empty result)
+    vfs::filesystem mount foo bar
+    set code [catch {glob -nocomplain foo/pkgIndex.tcl} msg]
+    vfs::filesystem unmount foo
+    if {![package vsatisfies [package require Tcl] 8.5]} {
+	if {$code == 0} {
+	    set code 1 ; set msg {invalid command name "bar"}
+	}
+    }
+    list $code $msg
+} {1 {invalid command name "bar"}}
+
+test vfs-3.1 {vfs helpers: in memory channels} {
+    close [::vfs::memchan]
+    # If we get here, it's ok.  If this test fails,
+    # probably many other tests will fail too.  In particular
+    # any use of 'open', 'source', 'load', and usually also
+    # 'file copy', 'file rename' in a vfs will fail.
+    # 
+    # What this means is that tclvfs can't find some other
+    # extension/code it requires -- you may need to install
+    # the Memchan or Rchan extension for example.
+} {}
+
+test vfs-3.2 {vfs helpers: crc} {
+    # If this test fails, probably many other tests will fail too (at
+    # least anything to do with 'zip' vfs).
+    # 
+    # What this means is that tclvfs can't find some other
+    # extension/code it requires -- you may need to install
+    # the Trf extension for example.
+    ::vfs::crc abcd
+} {Kc*}
+
+test vfs-3.3 {vfs helpers: zip} {
+    # If this test fails, probably many other tests will fail too (at
+    # least anything to do with 'zip' vfs).
+    # 
+    # What this means is that tclvfs can't find some other
+    # extension/code it requires -- you may need to install
+    # the Try extension for example.
+    ::vfs::zip -mode compress 1234567890
+} "\x78\x9c\x33\x34\x32\x36\x31\x35\x33\xb7\xb0\x34\x0\x0\xb\x2c\x2\xe"
+
+test vfs-3.4 {vfs helpers: zip} {
+    # If this test fails, probably many other tests will fail too (at
+    # least anything to do with 'zip' vfs).
+    # 
+    # What this means is that tclvfs can't find some other
+    # extension/code it requires -- you may need to install
+    # the Try extension for example.
+    ::vfs::zip -mode decompress "\x78\x9c\x33\x34\x32\x36\x31\x35\x33\xb7\xb0\x34\x0\x0\xb\x2c\x2\xe"
+} {1234567890}
+
+test vfs-4.1 {vfs glob with .. [Bug 2378350]} -setup {
+    package require vfs::ns 0.5.1
+} -body {
+    namespace eval ::test {}
+    namespace eval ::test {}
+    namespace eval ::test::bar {}
+    namespace eval ::test::baz {}
+    proc ::test::waz {args} { blah blah}
+    proc ::test::bar::lol {args} { body body }
+    proc ::test::baz::noz {args} { moo moo }
+    vfs::ns::Mount :: nstest
+    set res [list]
+    lappend res [catch {lsort [glob nstest/test/*]} msg] $msg \
+	[catch {lsort [glob nstest/test/baz/*]} msg] $msg \
+	[catch {lsort [glob nstest/test/bar/../baz/*]} msg] $msg
+} -cleanup {
+    catch {vfs::unmount nstest}
+    catch {namespace delete ::test}
+} -result [list \
+	       0 {nstest/test/bar nstest/test/baz nstest/test/waz} \
+	       0 {nstest/test/baz/noz} \
+	       0 {nstest/test/bar/../baz/noz} \
+	       ]
+
+# cleanup
+::tcltest::cleanupTests
+return

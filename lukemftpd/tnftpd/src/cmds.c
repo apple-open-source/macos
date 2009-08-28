@@ -1,7 +1,8 @@
-/*	$NetBSD: cmds.c,v 1.7 2006/09/26 06:38:38 lukem Exp $	*/
+/*	$NetBSD: cmds.c,v 1.12 2008/09/21 14:23:39 lukem Exp $	*/
+/*	from	NetBSD: cmds.c,v 1.27 2008/09/13 02:41:52 lukem Exp	*/
 
 /*
- * Copyright (c) 1999-2004 The NetBSD Foundation, Inc.
+ * Copyright (c) 1999-2008 The NetBSD Foundation, Inc.
  * All rights reserved.
  *
  * This code is derived from software contributed to The NetBSD Foundation
@@ -15,13 +16,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *        This product includes software developed by the NetBSD
- *        Foundation, Inc. and its contributors.
- * 4. Neither the name of The NetBSD Foundation nor the names of its
- *    contributors may be used to endorse or promote products derived
- *    from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE NETBSD FOUNDATION, INC. AND CONTRIBUTORS
  * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
@@ -95,13 +89,13 @@
  */
 
 
-#if	HAVE_TNFTPD_H
+#if defined(HAVE_TNFTPD_H)
 #include "tnftpd.h"
-#else	/* ! HAVE_TNFTPD_H */
+#else /* !defined(HAVE_TNFTPD_H) */
 
 #include <sys/cdefs.h>
 #ifndef lint
-__RCSID("$NetBSD: cmds.c,v 1.7 2006/09/26 06:38:38 lukem Exp $");
+__RCSID(" NetBSD: cmds.c,v 1.27 2008/09/13 02:41:52 lukem Exp  ");
 #endif /* not lint */
 
 #include <sys/param.h>
@@ -122,7 +116,7 @@ __RCSID("$NetBSD: cmds.c,v 1.7 2006/09/26 06:38:38 lukem Exp $");
 #include <krb5/krb5.h>
 #endif
 
-#endif	/* ! HAVE_TNFTPD_H */
+#endif /* !defined(HAVE_TNFTPD_H) */
 
 #include "extern.h"
 
@@ -892,7 +886,7 @@ discover_path(last_path, new_path)
 		nomorelink = 1;
 		
 		while ((cp = strstr(++cp, "/")) != NULL) {
-			sz1 = (u_long)cp - (u_long)tp;
+			sz1 = (unsigned long)cp - (unsigned long)tp;
 			if (sz1 > MAXPATHLEN)
 				goto bad;
 			*cp = 0;
@@ -930,7 +924,8 @@ discover_path(last_path, new_path)
 			} else {			
 				/* relative link */
 				for (cq = cp - 1; *cq != '/'; cq--);
-				if (strlen(tp) - ((u_long)cq - (u_long)cp)
+				if (strlen(tp) -
+				    ((unsigned long)cq - (unsigned long)cp)
 				    + 1 + sz2 > MAXPATHLEN)
 					goto bad;
 				(void)memmove(cq + 1 + sz2, 

@@ -1,0 +1,208 @@
+<html><head><base target=k-main></head><body bgcolor=white>
+
+<font face=Times size=3>
+
+<b>class c4_DoubleProp</b> - Double precision properties.
+
+<hr size=1>
+
+<dl>
+  
+  <if !private>
+	<a name="c4_DoubleProp_AsRow_double__const"><dt>
+	  <nobr>
+	  <A HREF="c4_Row.html" >c4_Row</A> 
+	  <b>AsRow</b> (double value_) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Create a row with one double precision value</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_DoubleProp_Get_const__const"><dt>
+	  <nobr>
+	  double 
+	  <b>Get</b> (const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; row_) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Get a double precision property in a row</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_DoubleProp_Set_constdouble__const"><dt>
+	  <nobr>
+	  void 
+	  <b>Set</b> (const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; row_, double value_) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Set a double precision property in a row</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_DoubleProp_c4_DoubleProp_const_"><dt>
+	  <nobr>
+	  
+	  <b>c4_DoubleProp</b> (const char* name_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Construct a new property.</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_DoubleProp_operator___const__const"><dt>
+	  <nobr>
+	  <A HREF="c4_DoubleRef.html" >c4_DoubleRef</A> 
+	  <b>operator()</b> (const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; row_) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Get or set a double precision property in a row</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_DoubleProp_operator___double__const"><dt>
+	  <nobr>
+	  <A HREF="c4_Row.html" >c4_Row</A> 
+	  <b>operator[]</b> (double value_) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Create a row with one double precision value, shorthand for AsRow</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Property_CleanupInternalData___"><dt>
+	  <nobr>
+	  static void 
+	  <b><A HREF='c4_Property.html'>c4_Property</A>::CleanupInternalData</b> ();
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Call this to get rid of som eonternal datastructues (on exit)</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Property_GetId___const"><dt>
+	  <nobr>
+	  int 
+	  <b><A HREF='c4_Property.html'>c4_Property</A>::GetId</b> () <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	   A property object in fact merely represents an entry in a globally
+ maintained symbol table. Each property is assigned a unique id,
+ which remains valid as long as some reference to that property
+ exists. In general, property id's remain unique as long as the
+ application runs. Do not store id's on file, since they are
+ not guaranteed to remain the same across program invocations.
+ All properties with the same name are given the same id.
+<br>
+	  
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Property_Name___const"><dt>
+	  <nobr>
+	  const char* 
+	  <b><A HREF='c4_Property.html'>c4_Property</A>::Name</b> () <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Return the name of this property</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Property_Refs_int__const"><dt>
+	  <nobr>
+	  void 
+	  <b><A HREF='c4_Property.html'>c4_Property</A>::Refs</b> (int) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	   This is part of the implementation and shouldn't normally be called.
+<br>
+	  
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Property_Type___const"><dt>
+	  <nobr>
+	  char 
+	  <b><A HREF='c4_Property.html'>c4_Property</A>::Type</b> () <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Return the type of this property</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Property_operator___const__const"><dt>
+	  <nobr>
+	  <A HREF="c4_Reference.html" >c4_Reference</A> 
+	  <b><A HREF='c4_Property.html'>c4_Property</A>::operator()</b> (const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; row_) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Get or set this untyped property in a row</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Property_operator___const__const"><dt>
+	  <nobr>
+	  <A HREF="c4_View.html" >c4_View</A> 
+	  <b><A HREF='c4_Property.html'>c4_Property</A>::operator, </b> (const <A HREF="c4_Property.html" >c4_Property</A>&#38; prop_) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Return a view like the first, with a property appended to it</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Property_operator___const__"><dt>
+	  <nobr>
+	  void 
+	  <b><A HREF='c4_Property.html'>c4_Property</A>::operator= </b> (const <A HREF="c4_Property.html" >c4_Property</A>&#38; property_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Assignment</font>
+	<p>
+  
+  
+</dl>
+
+<hr size=1 width=50 align=left>
+class 
+<b>c4_DoubleProp</b>
+</font>
+
+</body></html>

@@ -434,8 +434,9 @@ _apt-get () {
     /$'check\0'/ \| \
     /$'source\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" avail' \# \| \
     /$'build-dep\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" avail' \# \| \
+    /$'autoremove\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" installed' \# \| \
     /$'help\0/' \| \
-    /"[]"/	':argument-1::compadd "$expl_action[@]" update upgrade install remove dist-upgrade dselect-upgrade clean autoclean check source build-dep help'
+    /"[]"/	':argument-1::compadd "$expl_action[@]" update upgrade install remove dist-upgrade dselect-upgrade clean autoclean check source build-dep autoremove help'
 
   _apt-get () {
     local expl_action expl_packages
@@ -550,7 +551,7 @@ _apt_releases_update () {
       _cache_invalid APT_releases ) && ! _retrieve_cache APT_releases;
   then
     _apt_releases=(
-${${${${(M)${(f)"$(apt-cache dump)"}:# #Archive:*}# #Archive: #}:#*\(null\)*}/ /}
+${${${${(M)${(f)"$(apt-cache policy)"}:#*release*}#*a=}%%,*}:#now}
     )
     typeset -U _apt_releases
     _store_cache APT_releases _apt_releases
@@ -570,14 +571,14 @@ _apt_releases () {
   _tags apt-releases && compadd -a _apt_releases
 }
 
- _apt_caching_policy () {
-    # rebuild if cache is more than a week old
-      oldp=( "$1"(mw+1) )
-        (( $#oldp )) && return 0
+_apt_caching_policy () {
+  local -a oldp
 
-          [[ /var/cache/apt/pkgcache.bin -nt "$1" ||
-             /var/lib/dpkg/available -nt "$1" ]]
-          }
+  oldp=( "$1"(mw+1) )
+  (( $#oldp )) && return 0
 
+  [[ /var/cache/apt/pkgcache.bin -nt "$1" ||
+     /var/lib/dpkg/available -nt "$1" ]]
+}
 
 _apt "$@"

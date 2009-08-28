@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-sql/config.c,v 1.17.2.6 2006/01/03 22:16:24 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-sql/config.c,v 1.32.2.5 2008/02/11 23:26:48 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2006 The OpenLDAP Foundation.
+ * Copyright 1999-2008 The OpenLDAP Foundation.
  * Portions Copyright 1999 Dmitry Kovalev.
  * Portions Copyright 2002 Pierangelo Masarati.
  * Portions Copyright 2004 Mark Adamson.
@@ -148,7 +148,20 @@ backsql_db_config(
 		}
 		ber_str2bv( argv[ 1 ], 0, 1, &bi->sql_children_cond );
 		Debug( LDAP_DEBUG_TRACE, "<==backsql_db_config(): "
-			"subtree_cond=%s\n", bi->sql_children_cond.bv_val, 0, 0 );
+			"children_cond=%s\n", bi->sql_children_cond.bv_val, 0, 0 );
+
+	} else if ( !strcasecmp( argv[ 0 ], "dn_match_cond" ) ) {
+		if ( argc < 2 ) {
+			Debug( LDAP_DEBUG_TRACE, 
+				"<==backsql_db_config (%s line %d): "
+				"missing SQL condition "
+				"in \"dn_match_cond\" directive\n",
+				fname, lineno, 0 );
+			return 1;
+		}
+		ber_str2bv( argv[ 1 ], 0, 1, &bi->sql_dn_match_cond );
+		Debug( LDAP_DEBUG_TRACE, "<==backsql_db_config(): "
+			"children_cond=%s\n", bi->sql_dn_match_cond.bv_val, 0, 0 );
 
 	} else if ( !strcasecmp( argv[ 0 ], "oc_query" ) ) {
 		if ( argc < 2 ) {
@@ -527,8 +540,8 @@ backsql_db_config(
 			0, 0 );
 
 	} else if ( !strcasecmp( argv[ 0 ], "fetch_attrs" ) ) {
-		char	*str, *s, *next;
-		char	delimstr[] = ",";
+		char		*str, *s, *next;
+		const char	*delimstr = ",";
 
 		if ( argc < 2 ) {
 			Debug( LDAP_DEBUG_TRACE,
@@ -661,10 +674,10 @@ read_baseObject(
 		return LDAP_OTHER;
 	}
 
-	bi->sql_baseObject = (Entry *) SLAP_CALLOC( 1, sizeof(Entry) );
+	bi->sql_baseObject = entry_alloc();
 	if ( bi->sql_baseObject == NULL ) {
 		Debug( LDAP_DEBUG_ANY,
-			"read_baseObject_file: SLAP_CALLOC failed", 0, 0, 0 );
+			"read_baseObject_file: entry_alloc failed", 0, 0, 0 );
 		ldif_close( fp );
 		return LDAP_NO_MEMORY;
 	}
@@ -748,10 +761,10 @@ create_baseObject(
 			"objectClass: extensibleObject\n"
 			"description: builtin baseObject for back-sql\n"
 			"description: all entries mapped "
-			"in the \"ldap_entries\" table\n"
-			"description: must have "
-			"\"" BACKSQL_BASEOBJECT_IDSTR "\" "
-			"in the \"parent\" column",
+				"in table \"ldap_entries\" "
+				"must have "
+				"\"" BACKSQL_BASEOBJECT_IDSTR "\" "
+				"in the \"parent\" column",
 			be->be_suffix[0].bv_val );
 
 	bi->sql_baseObject = str2entry( buf );

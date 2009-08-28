@@ -114,7 +114,7 @@
 		59532CCF068261AC00CA9D0A /* libAppleRAID.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libAppleRAID.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		59532CEB0682647300CA9D0A /* AppleRAIDUserLib.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = AppleRAIDUserLib.c; sourceTree = "<group>"; };
 		59532D0D0682683E00CA9D0A /* AppleRAIDUserLib.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleRAIDUserLib.h; sourceTree = "<group>"; };
-		59532D260682697700CA9D0A /* artest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "compiled.mach-o.executable"; path = artest; sourceTree = BUILT_PRODUCTS_DIR; };
+		59532D260682697700CA9D0A /* artest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = artest; sourceTree = BUILT_PRODUCTS_DIR; };
 		59532D2D068269D800CA9D0A /* artest.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = artest.c; sourceTree = "<group>"; };
 		59532D5506826BE100CA9D0A /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
 		59532D9506826BFE00CA9D0A /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
@@ -133,7 +133,7 @@
 		59CCE30C0505888F0041E990 /* AppleRAIDGlobals.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleRAIDGlobals.cpp; sourceTree = "<group>"; };
 		59CCE30D0505888F0041E990 /* AppleRAIDGlobals.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleRAIDGlobals.h; sourceTree = "<group>"; };
 		59CCE33B05058BF60041E990 /* AppleRAID.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleRAID.cpp; sourceTree = "<group>"; };
-		59CD7BDF0634F4FC00F84FF8 /* AppleRAID-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "AppleRAID-Info.plist"; sourceTree = "<group>"; };
+		59CD7BDF0634F4FC00F84FF8 /* AppleRAID-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "AppleRAID-Info.plist"; sourceTree = "<group>"; };
 		59CD7BE00634F4FC00F84FF8 /* AppleRAID.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleRAID.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		59DF8561069E3FEF00409DEF /* AppleRAIDStripeSet.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleRAIDStripeSet.cpp; sourceTree = "<group>"; };
 		59DF8562069E3FEF00409DEF /* AppleRAIDStripeSet.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleRAIDStripeSet.h; sourceTree = "<group>"; };
@@ -380,10 +380,12 @@
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			buildConfigurationList = 591B6AA508980EDE000BDB04 /* Build configuration list for PBXProject "AppleRAID" */;
+			compatibilityVersion = "Xcode 2.4";
 			hasScannedForEncodings = 1;
 			mainGroup = 089C166AFE841209C02AAC07 /* AppleRAID */;
 			productRefGroup = 59532CD0068261AC00CA9D0A /* Products */;
 			projectDirPath = "";
+			projectRoot = "";
 			targets = (
 				59532CD30682625600CA9D0A /* AppleRAID */,
 				59CD7BC60634F4FC00F84FF8 /* AppleRAIDKext */,
@@ -476,7 +478,7 @@
 		591B6A9608980EDE000BDB04 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -497,14 +499,13 @@
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleRAID;
 				MODULE_VERSION = "";
-				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PREBINDING = NO;
 				PRODUCT_NAME = AppleRAID;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = YES;
@@ -514,7 +515,7 @@
 		591B6A9708980EDE000BDB04 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -539,7 +540,7 @@
 				PREBINDING = NO;
 				PRODUCT_NAME = AppleRAID;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
@@ -549,7 +550,7 @@
 		591B6A9808980EDE000BDB04 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_CPP_EXCEPTIONS = NO;
@@ -572,7 +573,7 @@
 				PREBINDING = NO;
 				PRODUCT_NAME = AppleRAID;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;
 			};
@@ -581,6 +582,7 @@
 		591B6A9A08980EDE000BDB04 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
@@ -593,13 +595,12 @@
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /usr/local/lib;
 				LIBRARY_STYLE = STATIC;
-				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleRAID;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386 ppc64 x86_64";
+				VALID_ARCHS = "ppc i386 x86_64";
 				WARNING_CFLAGS = "-Wmost";
 				ZERO_LINK = YES;
 			};
@@ -608,6 +609,7 @@
 		591B6A9B08980EDE000BDB04 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
@@ -622,7 +624,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleRAID;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386 ppc64 x86_64";
+				VALID_ARCHS = "ppc i386 x86_64";
 				WARNING_CFLAGS = "-Wmost";
 				ZERO_LINK = NO;
 			};
@@ -631,6 +633,7 @@
 		591B6A9C08980EDE000BDB04 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
@@ -643,7 +646,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleRAID;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386 ppc64 x86_64";
+				VALID_ARCHS = "ppc i386 x86_64";
 				WARNING_CFLAGS = "-Wmost";
 			};
 			name = Default;
@@ -651,7 +654,7 @@
 		591B6A9E08980EDE000BDB04 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
@@ -664,14 +667,13 @@
 				GCC_WARN_UNKNOWN_PRAGMAS = NO;
 				INSTALL_PATH = /usr/local/bin;
 				LIBRARY_SEARCH_PATHS = "";
-				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PREBINDING = NO;
 				PRODUCT_NAME = artest;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = "-Wmost";
 				ZERO_LINK = YES;
 			};
@@ -680,7 +682,7 @@
 		591B6A9F08980EDE000BDB04 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
@@ -696,7 +698,7 @@
 				PREBINDING = NO;
 				PRODUCT_NAME = artest;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = "-Wmost";
 				ZERO_LINK = NO;
 			};
@@ -705,7 +707,7 @@
 		591B6AA008980EDE000BDB04 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
@@ -719,7 +721,7 @@
 				PREBINDING = NO;
 				PRODUCT_NAME = artest;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = "-Wmost";
 			};
 			name = Default;
@@ -732,7 +734,6 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -785,6 +786,7 @@
 		591B6AA608980EDE000BDB04 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				SDKROOT = "";
 			};
 			name = Development;
@@ -792,6 +794,7 @@
 		591B6AA708980EDE000BDB04 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				SDKROOT = "";
 			};
 			name = Deployment;
@@ -799,6 +802,7 @@
 		591B6AA808980EDE000BDB04 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				SDKROOT = "";
 			};
 			name = Default;

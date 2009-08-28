@@ -218,16 +218,20 @@
 
 /* Name: MasterBrowser
  * Type: string
- * Legal values: domain, local
+ * Legal values: domain, local, none
  * Whether this server should act as a NetBIOS master browser. If set to
  * "local" we will act as a LMB, if set to "domain" we will act as a DMB.
+ * If set to "none", we will never become any sort of master browser.
+ *
  * If this is not set, we will disable becoming a master browser unless we are
- * in the PDC or BDC role.
+ * in the PDC or BDC role. We will still participate in local master browser
+ * elections if some other parameter has enabled NetBIOS.
  */
 #define kSMBPrefMasterBrowser "MasterBrowser"
 
 #define kSMBPrefMasterBrowserLocal  "local"
 #define kSMBPrefMasterBrowserDomain "domain"
+#define kSMBPrefMasterBrowserNone   "none"
 
 /* Name: RegisterWINSName
  * Type: bool

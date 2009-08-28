@@ -60,6 +60,7 @@ UnlockReferralItem::~UnlockReferralItem()
 //
 PrimaryKey UnlockReferralItem::add(Keychain &keychain)
 {
+	StLock<Mutex>_(mMutex);
 	// If we already have a Keychain we can't be added.
 	if (mKeychain)
 		MacOSError::throwMe(errSecDuplicateItem);

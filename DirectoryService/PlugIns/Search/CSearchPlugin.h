@@ -36,7 +36,7 @@
 #include "CConfigs.h"
 #include "CBuff.h"
 #include "CServerPlugin.h"
-#include "CInternalDispatchThread.h"
+#include "DSCThread.h"
 #include <CoreFoundation/CoreFoundation.h>
 #include "DSEventSemaphore.h"
 
@@ -82,7 +82,7 @@ typedef struct {
 	UInt32				fTotalRecCount;
 	eSearchState		fState;
 	tDataBuffer		   *fDataBuff;
-	void			   *fContextData;
+	tContextData		fContextData;
 	bool				bNodeBuffTooSmall;
 	bool				bIsAugmented;
 	tDataListPtr		fAugmentReqAttribs;
@@ -90,7 +90,7 @@ typedef struct {
 
 typedef struct {
 	sSearchList		   *fSearchNodeList;
-	int32_t				bListChanged;   // int32_t because it's used in OSAtomic calls
+	volatile int32_t	bListChanged;   // int32_t because it's used in atomic calls
 	DSMutexSemaphore   *pSearchListMutex;
 	UInt32				offset;
 	UInt32				fSearchConfigKey;
@@ -104,14 +104,14 @@ typedef struct {
 #endif
 } sSearchContextData;
 
-class CSearchPluginHandlerThread : public CInternalDispatchThread
+class CSearchPluginHandlerThread : public DSCThread
 {
 public:
 					CSearchPluginHandlerThread			( void );
 					CSearchPluginHandlerThread			( const FourCharCode inThreadSignature, int inWhichFunction, void *inNeededClass );
 	virtual		   ~CSearchPluginHandlerThread			( void );
 	
-	virtual	long	ThreadMain			( void );		// we manage our own thread top level
+	virtual	SInt32	ThreadMain			( void );		// we manage our own thread top level
 	virtual	void	StartThread			( void );
 	virtual	void	StopThread			( void );
 
@@ -122,10 +122,6 @@ private:
 	int				fWhichFunction;
 	void		   *fNeededClass;
 };
-
-__BEGIN_DECLS
-int ShouldRegisterWorkstation(void);
-__END_DECLS
 
 class CSearchPlugin : public CServerPlugin
 {
@@ -159,6 +155,8 @@ public:
 	SInt32				CleanSearchListData		( sSearchList *inList );
 	void				EnsureCheckNodesThreadIsRunning	( tDirPatternMatch policyToCheck );
 	void				CheckNodes				( tDirPatternMatch policyToCheck, int32_t *threadFlag, DSEventSemaphore *eventSemaphore );
+
+	static void			NotifySearchPolicyChanged	( void );
 
 	bool				fRegisterWorkstation;
 
@@ -226,7 +224,11 @@ private:
 	void			UpdateContinueForAugmented	(	sSearchContextData *inContext,
 													sSearchContinueData *inContinue,
 													tDataListPtr inAttrTypeRequestList );
+	
+	static void		NodeReachabilityChanged		( void );
 
+	static void		NotifyNodeEvent( SCDynamicStoreRef aSCDStore, CFArrayRef changedKeys, void *inInfo );
+	
 	sSearchContextData*	MakeContextData		( void );
 
 	sSearchList*	DupSearchListWithNewRefs( sSearchList *inSearchList );
@@ -246,6 +248,7 @@ private:
 	CFStringRef			fNLZMACAddress;
 	char			   *fAuthSearchPathCheck;
 	bool				fSomeNodeFailedToOpen;
+	dispatch_source_t	fAugmentTimer;
 	
 #if AUGMENT_RECORDS
 	tDirNodeReference	fAugmentNodeRef;

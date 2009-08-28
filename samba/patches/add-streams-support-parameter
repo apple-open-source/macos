@@ -2,7 +2,7 @@ Index: samba/source/param/loadparm.c
 ===================================================================
 --- samba/source/param/loadparm.c.orig
 +++ samba/source/param/loadparm.c
-@@ -450,6 +450,7 @@ typedef struct {
+@@ -453,6 +453,7 @@ typedef struct {
  	BOOL bMap_acl_inherit;
  	BOOL bAfs_Share;
  	BOOL bEASupport;
@@ -10,7 +10,7 @@ Index: samba/source/param/loadparm.c
  	BOOL bAclCheckPermissions;
  	BOOL bAclMapFullControl;
  	BOOL bAclGroupControl;
-@@ -591,6 +592,7 @@ static service sDefault = {
+@@ -596,6 +597,7 @@ static service sDefault = {
  	False,			/* bMap_acl_inherit */
  	False,			/* bAfs_Share */
  	False,			/* bEASupport */
@@ -18,7 +18,7 @@ Index: samba/source/param/loadparm.c
  	True,			/* bAclCheckPermissions */
  	True,			/* bAclMapFullControl */
  	False,			/* bAclGroupControl */
-@@ -982,6 +984,7 @@ static struct parm_struct parm_table[] =
+@@ -993,6 +995,7 @@ static struct parm_struct parm_table[] =
  	{"acl compatibility", P_ENUM, P_GLOBAL, &Globals.iAclCompat, NULL,  enum_acl_compat_vals, FLAG_ADVANCED | FLAG_SHARE | FLAG_GLOBAL}, 
  	{"defer sharing violations", P_BOOL, P_GLOBAL, &Globals.bDeferSharingViolations, NULL, NULL, FLAG_ADVANCED | FLAG_GLOBAL},
  	{"ea support", P_BOOL, P_LOCAL, &sDefault.bEASupport, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE | FLAG_GLOBAL}, 
@@ -26,7 +26,7 @@ Index: samba/source/param/loadparm.c
  	{"nt acl support", P_BOOL, P_LOCAL, &sDefault.bNTAclSupport, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE | FLAG_GLOBAL}, 
  	{"nt pipe support", P_BOOL, P_GLOBAL, &Globals.bNTPipeSupport, NULL, NULL, FLAG_ADVANCED}, 
  	{"nt status support", P_BOOL, P_GLOBAL, &Globals.bNTStatusSupport, NULL, NULL, FLAG_ADVANCED}, 
-@@ -2122,6 +2125,7 @@ FN_LOCAL_BOOL(lp_force_printername, bFor
+@@ -2144,6 +2147,7 @@ FN_LOCAL_BOOL(lp_force_printername, bFor
  FN_LOCAL_BOOL(lp_nt_acl_support, bNTAclSupport)
  FN_LOCAL_BOOL(lp_force_unknown_acl_user, bForceUnknownAclUser)
  FN_LOCAL_BOOL(lp_ea_support, bEASupport)

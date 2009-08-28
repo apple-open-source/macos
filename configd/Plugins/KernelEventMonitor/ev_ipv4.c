@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2005, 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2005, 2007, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,13 +32,15 @@
 #include "cache.h"
 #include "ev_ipv4.h"
 
-#ifndef kSCEntNetIPv4ARPCollision
-#define kSCEntNetIPv4ARPCollision	CFSTR("IPv4ARPCollision")
-#endif /* kSCEntNetIPv4ARPCollision */
+#ifndef	kSCEntNetIPv4ARPCollision
+#define	kSCEntNetIPv4ARPCollision	CFSTR("IPv4ARPCollision")
+#endif	/* kSCEntNetIPv4ARPCollision */
 
-#ifndef kSCEntNetIPv4PortInUse
-#define kSCEntNetIPv4PortInUse		CFSTR("PortInUse")
-#endif /* kSCEntNetIPv4PortInUse */
+#if	!TARGET_OS_IPHONE
+#ifndef	kSCEntNetIPv4PortInUse
+#define	kSCEntNetIPv4PortInUse		CFSTR("PortInUse")
+#endif	/* kSCEntNetIPv4PortInUse */
+#endif	/* !TARGET_OS_IPHONE */
 
 #define IP_FORMAT	"%d.%d.%d.%d"
 #define IP_CH(ip, i)	(((u_char *)(ip))[i])
@@ -260,6 +262,7 @@ interface_collision_ipv4(const char *if_name, struct in_addr ip_addr, int hw_len
 	return;
 }
 
+#if	!TARGET_OS_IPHONE
 __private_extern__
 void
 port_in_use_ipv4(uint16_t port, pid_t req_pid)
@@ -277,3 +280,4 @@ port_in_use_ipv4(uint16_t port, pid_t req_pid)
 	CFRelease(key);
 	return;
 }
+#endif	/* !TARGET_OS_IPHONE */

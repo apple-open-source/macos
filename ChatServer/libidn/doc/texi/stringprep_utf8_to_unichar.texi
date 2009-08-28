@@ -1,3 +1,5 @@
+@subheading stringprep_utf8_to_unichar
+@anchor{stringprep_utf8_to_unichar}
 @deftypefun {uint32_t} {stringprep_utf8_to_unichar} (const char * @var{p})
 @var{p}: a pointer to Unicode character encoded as UTF-8
 

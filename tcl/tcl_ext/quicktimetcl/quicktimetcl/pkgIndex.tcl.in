@@ -1,0 +1,1 @@
+package ifneeded QuickTimeTcl @PACKAGE_VERSION@ "[list load [file join $dir @PKG_LIB_FILE@] @PACKAGE_NAME@]; [list source [file join $dir movie.tcl]]"

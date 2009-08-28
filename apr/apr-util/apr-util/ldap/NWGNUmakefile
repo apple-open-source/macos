@@ -27,6 +27,7 @@ XINCDIRS	+= \
 			$(APR)/include \
 			$(APR)/include/arch/NetWare \
 			$(APRUTIL)/include \
+			$(APRUTIL)/include/private \
 			$(LDAPSDK)/inc \
 			$(EOLIST)
 
@@ -231,6 +232,8 @@ FILES_lib_objs = \
 	$(OBJDIR)/apr_ldap_init.o \
 	$(OBJDIR)/apr_ldap_option.o \
 	$(OBJDIR)/apr_ldap_url.o \
+	$(OBJDIR)/apr_ldap_rebind.o \
+	$(OBJDIR)/apr_ldap_stub.o \
 	$(EOLIST)
 
 #

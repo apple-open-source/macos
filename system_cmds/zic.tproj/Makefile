@@ -5,6 +5,9 @@ HFILES = private.h
 CFILES = ialloc.c scheck.c zic.c
 MANPAGES = zic.8
 
+Extra_CC_Flags = -Wall -Werror -mdynamic-no-pic
+Extra_LD_Flags = -dead_strip
+
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make
 
 LOCALTIME=	US/Pacific
@@ -53,10 +56,12 @@ after_install:
 	$(INSTALL_FILE) $(DATFILES)/iso3166.tab $(ZONEINFO)
 ifeq "$(Embedded)" "YES"
 	$(INSTALL_DIRECTORY) $(DSTROOT)/private/var/db
-	$(LN) -hfs /usr/share/zoneinfo/$(LOCALTIME) $(DSTROOT)/private/var/db/localtime
+	$(INSTALL_DIRECTORY) -m a+rwx $(DSTROOT)/private/var/db/timezone
+	$(LN) -hfs /usr/share/zoneinfo/$(LOCALTIME) $(DSTROOT)/private/var/db/timezone/localtime
 else
 	$(INSTALL_DIRECTORY) $(DSTROOT)/private/etc
 	$(LN) -hfs /usr/share/zoneinfo/$(LOCALTIME) $(DSTROOT)/private/etc/localtime
 endif
+	$(RM) $(VERSIONFILE)
 	echo $(DATVERS) > $(VERSIONFILE)
 	chmod 444 $(VERSIONFILE)

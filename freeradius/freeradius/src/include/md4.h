@@ -1,16 +1,16 @@
 /*
  * md4.h        Structures and prototypes for md4.
  *
- * Version:     $Id: md4.h,v 1.8.2.1 2004/06/01 20:58:09 aland Exp $
+ * Version:     $Id$
  * License:		LGPL, but largely derived from a public domain source.
  *
  */
 
+#ifndef _FR_MD4_H
+#define _FR_MD4_H
 
-#ifndef _LRAD_MD4_H
-#define _LRAD_MD4_H
-
-#include "autoconf.h"
+#include <freeradius-devel/ident.h>
+RCSIDH(md4_h, "$Id$")
 
 #ifdef HAVE_INTTYPES_H
 #include <inttypes.h>
@@ -26,17 +26,9 @@
 
 #include <string.h>
 
-/*
- *  FreeRADIUS defines to ensure globally unique MD4 function names,
- *  so that we don't pick up other MD4 libraries.
- */
-#define MD4_CTX		librad_MD4_CTX
-#define MD4Init		librad_MD4Init
-#define MD4Update	librad_MD4Update
-#define MD4Final       	librad_MD4Final
+void fr_md4_calc (unsigned char *, const unsigned char *, unsigned int);
 
-void md4_calc (unsigned char *, const unsigned char *, unsigned int);
-
+#ifndef WITH_OPENSSL_MD4
 /*  The below was retrieved from
  *  http://www.openbsd.org/cgi-bin/cvsweb/src/include/md4.h?rev=1.12
  *  With the following changes: uint64_t => uint32_t[2]
@@ -68,30 +60,33 @@ void md4_calc (unsigned char *, const unsigned char *, unsigned int);
 #define	MD4_DIGEST_LENGTH		16
 #define	MD4_DIGEST_STRING_LENGTH	(MD4_DIGEST_LENGTH * 2 + 1)
 
-typedef struct MD4Context {
+typedef struct FR_MD4Context {
 	uint32_t state[4];			/* state */
 	uint32_t count[2];			/* number of bits, mod 2^64 */
 	uint8_t buffer[MD4_BLOCK_LENGTH];	/* input buffer */
-} MD4_CTX;
+} FR_MD4_CTX;
 
 /*#include <sys/cdefs.h>*/
 
 /*__BEGIN_DECLS*/
-void	 MD4Init(MD4_CTX *);
-void	 MD4Update(MD4_CTX *, const uint8_t *, size_t)
+void	 fr_MD4Init(FR_MD4_CTX *);
+void	 fr_MD4Update(FR_MD4_CTX *, const uint8_t *, size_t)
 /*		__attribute__((__bounded__(__string__,2,3)))*/;
-void	 MD4Final(uint8_t [MD4_DIGEST_LENGTH], MD4_CTX *)
+void	 fr_MD4Final(uint8_t [MD4_DIGEST_LENGTH], FR_MD4_CTX *)
 /*		__attribute__((__bounded__(__minbytes__,1,MD4_DIGEST_LENGTH)))*/;
-void	 MD4Transform(uint32_t [4], const uint8_t [MD4_BLOCK_LENGTH])
+void	 fr_MD4Transform(uint32_t [4], const uint8_t [MD4_BLOCK_LENGTH])
 /*		__attribute__((__bounded__(__minbytes__,1,4)))
 		__attribute__((__bounded__(__minbytes__,2,MD4_BLOCK_LENGTH)))*/;
-/*char	*MD4End(MD4_CTX *, char [MD4_DIGEST_STRING_LENGTH])
-		__attribute__((__bounded__(__minbytes__,2,MD4_DIGEST_STRING_LENGTH)));
-char	*MD4File(char *, char [MD4_DIGEST_STRING_LENGTH])
-		__attribute__((__bounded__(__minbytes__,2,MD4_DIGEST_STRING_LENGTH)));
-char	*MD4Data(const uint8_t *, size_t, char [MD4_DIGEST_STRING_LENGTH])
-		__attribute__((__bounded__(__string__,1,2)))
-		__attribute__((__bounded__(__minbytes__,3,MD4_DIGEST_STRING_LENGTH)));*/
 /*__END_DECLS*/
+#else  /* WITH_OPENSSL_MD4 */
 
-#endif /* _LRAD_MD4_H */
+#include <openssl/md4.h>
+
+#define FR_MD4_CTX	MD4_CTX
+#define fr_MD4Init	MD4_Init
+#define fr_MD4Update	MD4_Update
+#define fr_MD4Final	MD4_Final
+#define fr_MD4Transform MD4_Transform
+#endif
+
+#endif /* _FR_MD4_H */

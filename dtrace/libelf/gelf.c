@@ -19,11 +19,11 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)gelf.c	1.28	06/03/23 SMI"
+#pragma ident	"@(#)gelf.c	1.29	07/09/04 SMI"
 
 #include <string.h>
 #include "_libelf.h"
@@ -205,11 +205,7 @@ gelf_newehdr(Elf *elf, int class)
 		return (0);
 
 	if (class == ELFCLASS32)
-#if !defined(__APPLE__)
 		return ((unsigned long)elf32_newehdr(elf));
-#else
-		return ((unsigned long)_elf32_newehdr(elf)); /* prepended underscore copes with pragma weak lossage */
-#endif /* __APPLE__ */
 	else if (class == ELFCLASS64)
 		return ((unsigned long)elf64_newehdr(elf));
 
@@ -275,7 +271,11 @@ gelf_update_phdr(Elf *elf, int ndx, GElf_Phdr *src)
 		return (0);
 
 	if (elf_getphnum(elf, &phnum) == 0)
+#if !defined(__APPLE__)
+		return (NULL);
+#else 
 		return (0);
+#endif /* __ALPPLE__ */
 
 	if (phnum < ndx) {
 		_elf_seterr(EREQ_RAND, 0);
@@ -491,7 +491,7 @@ gelf_getsym(Elf_Data * data, int ndx, GElf_Sym * dst)
 
 	EDATA_READLOCKS(data);
 
-	if ((entsize * ndx) > data->d_size) {
+	if ((entsize * ndx) >= data->d_size) {
 		_elf_seterr(EREQ_RAND, 0);
 		dst = NULL;
 	} else if (class == ELFCLASS32) {
@@ -533,7 +533,7 @@ gelf_update_sym(Elf_Data *dst, int ndx, GElf_Sym *src)
 
 	ELFWLOCK(EDATA_ELF(dst));
 
-	if ((entsize * ndx) > dst->d_size) {
+	if ((entsize * ndx) >= dst->d_size) {
 		_elf_seterr(EREQ_RAND, 0);
 		rc = 0;
 	} else if (class == ELFCLASS32) {
@@ -577,7 +577,7 @@ gelf_getsyminfo(Elf_Data *data, int ndx, GElf_Syminfo *dst)
 	}
 	EDATA_READLOCKS(data);
 
-	if ((entsize * ndx) > data->d_size) {
+	if ((entsize * ndx) >= data->d_size) {
 		_elf_seterr(EREQ_RAND, 0);
 		dst = NULL;
 	} else if (class == ELFCLASS32) {
@@ -613,7 +613,7 @@ gelf_update_syminfo(Elf_Data *dst, int ndx, GElf_Syminfo *src)
 	}
 	ELFWLOCK(EDATA_ELF(dst));
 
-	if ((entsize * ndx) > dst->d_size) {
+	if ((entsize * ndx) >= dst->d_size) {
 		_elf_seterr(EREQ_RAND, 0);
 		rc = 0;
 	} else if (class == ELFCLASS32) {
@@ -647,7 +647,7 @@ gelf_getdyn(Elf_Data *data, int ndx, GElf_Dyn *dst)
 	}
 	EDATA_READLOCKS(data);
 
-	if ((entsize * ndx) > data->d_size) {
+	if ((entsize * ndx) >= data->d_size) {
 		_elf_seterr(EREQ_RAND, 0);
 		dst = NULL;
 	} else if (class == ELFCLASS32) {
@@ -683,7 +683,7 @@ gelf_update_dyn(Elf_Data *dst, int ndx, GElf_Dyn *src)
 	}
 	ELFWLOCK(EDATA_ELF(dst));
 
-	if ((entsize * ndx) > dst->d_size) {
+	if ((entsize * ndx) >= dst->d_size) {
 		_elf_seterr(EREQ_RAND, 0);
 		rc = 0;
 	} else if (class == ELFCLASS32) {
@@ -710,7 +710,7 @@ gelf_getsymshndx(Elf_Data *symdata, Elf_Data *shndxdata,
 		return (NULL);
 	if (shndxdata && xshndx) {
 		EDATA_READLOCKS(shndxdata);
-		if ((ndx * sizeof (Elf32_Word)) > shndxdata->d_size) {
+		if ((ndx * sizeof (Elf32_Word)) >= shndxdata->d_size) {
 			_elf_seterr(EREQ_RAND, 0);
 			EDATA_READUNLOCKS(shndxdata);
 			return (NULL);
@@ -731,7 +731,7 @@ gelf_update_symshndx(Elf_Data *symdata, Elf_Data *shndxdata,
 		return (0);
 	if (shndxdata) {
 		ELFWLOCK(EDATA_ELF(shndxdata));
-		if ((ndx * sizeof (Elf32_Word)) > shndxdata->d_size) {
+		if ((ndx * sizeof (Elf32_Word)) >= shndxdata->d_size) {
 			_elf_seterr(EREQ_RAND, 0);
 			ELFUNLOCK(EDATA_ELF(shndxdata));
 			return (0);
@@ -763,7 +763,7 @@ gelf_getmove(Elf_Data *src, int ndx, GElf_Move *dst)
 	}
 	EDATA_READLOCKS(src);
 
-	if ((entsize * ndx) > src->d_size) {
+	if ((entsize * ndx) >= src->d_size) {
 		_elf_seterr(EREQ_RAND, 0);
 		dst = NULL;
 	} else if (class == ELFCLASS32) {
@@ -773,11 +773,11 @@ gelf_getmove(Elf_Data *src, int ndx, GElf_Move *dst)
 		dst->m_repeat = (Elf64_Xword)m->m_repeat;
 		dst->m_stride = (Elf64_Half)m->m_stride;
 		dst->m_value = (Elf64_Xword)m->m_value;
-		dst->m_info = ELF64_M_INFO(
-			ELF32_M_SYM(m->m_info),
+		dst->m_info = ELF64_M_INFO(ELF32_M_SYM(m->m_info),
 			ELF32_M_SIZE(m->m_info));
-	} else
+	} else {
 		*dst = ((Elf64_Move *)src->d_buf)[ndx];
+	}
 
 	EDATA_READUNLOCKS(src);
 	return (dst);
@@ -803,7 +803,7 @@ gelf_update_move(Elf_Data *dest, int ndx, GElf_Move *src)
 	}
 	ELFWLOCK(EDATA_ELF(dest));
 
-	if ((entsize * ndx) > dest->d_size) {
+	if ((entsize * ndx) >= dest->d_size) {
 		_elf_seterr(EREQ_RAND, 0);
 		rc = 0;
 	} else if (class == ELFCLASS32) {
@@ -813,11 +813,11 @@ gelf_update_move(Elf_Data *dest, int ndx, GElf_Move *src)
 		m->m_repeat = (Elf32_Half)src->m_repeat;
 		m->m_stride = (Elf32_Half)src->m_stride;
 		m->m_value = (Elf32_Lword)src->m_value;
-		m->m_info = (Elf32_Word)ELF32_M_INFO(
-				ELF64_M_SYM(src->m_info),
+		m->m_info = (Elf32_Word)ELF32_M_INFO(ELF64_M_SYM(src->m_info),
 				ELF64_M_SIZE(src->m_info));
-	} else
+	} else {
 		((Elf64_Move *)dest->d_buf)[ndx] = *(Elf64_Move *)src;
+	}
 
 	ELFUNLOCK(EDATA_ELF(dest));
 	return (rc);
@@ -844,7 +844,7 @@ gelf_getrela(Elf_Data *src, int ndx, GElf_Rela *dst)
 	}
 	EDATA_READLOCKS(src);
 
-	if ((entsize * ndx) > src->d_size) {
+	if ((entsize * ndx) >= src->d_size) {
 		_elf_seterr(EREQ_RAND, 0);
 		dst = NULL;
 	} else if (class == ELFCLASS32) {
@@ -889,7 +889,7 @@ gelf_update_rela(Elf_Data *dst, int ndx, GElf_Rela *src)
 	}
 	ELFWLOCK(EDATA_ELF(dst));
 
-	if ((entsize * ndx) > dst->d_size) {
+	if ((entsize * ndx) >= dst->d_size) {
 		_elf_seterr(EREQ_RAND, 0);
 		rc = 0;
 	} else if (class == ELFCLASS32) {
@@ -905,11 +905,11 @@ gelf_update_rela(Elf_Data *dst, int ndx, GElf_Rela *src)
 		 * Elf64's r_info field can have, so ignore it.
 		 */
 		/* LINTED */
-		r->r_info	= ELF32_R_INFO(
-					ELF64_R_SYM(src->r_info),
+		r->r_info	= ELF32_R_INFO(ELF64_R_SYM(src->r_info),
 					ELF64_R_TYPE(src->r_info));
-	} else
+	} else {
 		((Elf64_Rela *)dst->d_buf)[ndx] = *(Elf64_Rela *)src;
+	}
 
 	ELFUNLOCK(EDATA_ELF(dst));
 
@@ -937,7 +937,7 @@ gelf_getrel(Elf_Data *src, int ndx, GElf_Rel *dst)
 	}
 	EDATA_READLOCKS(src);
 
-	if ((entsize * ndx) > src->d_size) {
+	if ((entsize * ndx) >= src->d_size) {
 		_elf_seterr(EREQ_RAND, 0);
 		dst = NULL;
 	} else if (class == ELFCLASS32) {
@@ -980,7 +980,7 @@ gelf_update_rel(Elf_Data *dst, int ndx, GElf_Rel *src)
 	}
 	ELFWLOCK(EDATA_ELF(dst));
 
-	if ((entsize * ndx) > dst->d_size) {
+	if ((entsize * ndx) >= dst->d_size) {
 		_elf_seterr(EREQ_RAND, 0);
 		rc = 0;
 	} else if (class == ELFCLASS32) {
@@ -994,12 +994,12 @@ gelf_update_rel(Elf_Data *dst, int ndx, GElf_Rel *src)
 		 * Elf64's r_info field can have, so ignore it.
 		 */
 		/* LINTED */
-		r->r_info	= ELF32_R_INFO(
-					ELF64_R_SYM(src->r_info),
+		r->r_info	= ELF32_R_INFO(ELF64_R_SYM(src->r_info),
 					ELF64_R_TYPE(src->r_info));
 
-	} else
+	} else {
 		((Elf64_Rel *)dst->d_buf)[ndx] = *(Elf64_Rel *)src;
+	}
 
 	ELFUNLOCK(EDATA_ELF(dst));
 	return (rc);
@@ -1040,7 +1040,7 @@ gelf_getcap(Elf_Data *data, int ndx, GElf_Cap *dst)
 
 	EDATA_READLOCKS(data);
 
-	if ((entsize * ndx) > data->d_size) {
+	if ((entsize * ndx) >= data->d_size) {
 		_elf_seterr(EREQ_RAND, 0);
 		dst = NULL;
 	} else if (class == ELFCLASS32) {
@@ -1076,7 +1076,7 @@ gelf_update_cap(Elf_Data *dst, int ndx, GElf_Cap *src)
 
 	ELFWLOCK(EDATA_ELF(dst));
 
-	if ((entsize * ndx) > dst->d_size) {
+	if ((entsize * ndx) >= dst->d_size) {
 		_elf_seterr(EREQ_RAND, 0);
 		rc = 0;
 	} else if (class == ELFCLASS32) {

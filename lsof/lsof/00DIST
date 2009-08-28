@@ -107,6 +107,10 @@
 		4.76, August 30, 2005
 		4.77, April 10, 2006
 		4.78, April 24, 2007
+		4.79, April 15, 2008
+		4.80, May 12, 2008
+		4.81, October 21, 2008
+		4.82, ??? ???, 2008
 
 
 Dialects Supported
@@ -117,16 +121,10 @@ selected Unix systems.  Version 4 is a source reorganization of
 version 3, itself a major revision of version 2.  Version 4 has
 been tested on:
 
-	AIX 5.[23] and 5.3-ML1
-	Apple Darwin 7.x and 8.x for Power Macintosh systems
+	AIX 5.3
 	FreeBSD 4.9 for x86-based systems
-	FreeBSD 7.0 for AMD64-based systems
+	FreeBSD 7.[01] and 8.0 for AMD64-based systems
 	Linux 2.1.72 and above for x86-based systems
-	NetBSD 1.[456], 2.x and 3.x for Alpha, x86, and SPARC-based
-	    systems
-	NEXTSTEP 3.[13]
-	OpenBSD 2.[89] and 3.[0-9] for x86-based systems
-	SCO OpenServer Release 5.0.6 for x86-based systems
 	Solaris 9 and 10
 
 (The pub/tools/unix/lsof/contrib directory on lsof.itap.purdue.edu
@@ -4099,7 +4097,7 @@ Supplement	Regenerated the 4.04 distribution to correct a non-
 		on OpenBSD 3.8, but David reports lsof 4.76 worked
 		there.
 
-		Ended regression testing of lsof on 32 bit Solars 8
+		Ended regression testing of lsof on 32 bit Solaris 8
 		with the ending of access to a test system.  Lsof
 		continues to be tested on 64 bit Solaris 8.
 
@@ -4164,5 +4162,221 @@ Supplement	Regenerated the 4.04 distribution to correct a non-
 		Support for OpenBSD ends at its version 3.9 for lack of
 		interest in the port.
 
+4.79		April 15, 2008
+
+		**************** IMPORTANT NOTE ******************
+		*                                                *
+		* Lsof support has been reduced to the following *
+		* dialects: AIX, FreeBSD, Linux and Solaris, and *
+		* only in selected versions of those dialects.   *
+		* The selected versions are listed in this file  *
+		* and in other lsof documentation.               *
+		*                                                *
+		* I have made this move because of retirement    *
+		* and because I no longer have many test systems *
+		* available to me.                               *
+		*                                                *
+		* Vic Abell                                      *
+		*                                                *
+		**************************************************
+
+		Fixed a Solaris VXFS permission problem when accessing
+		the VXFS inode offsets.  The bug was reported by
+		Gregory A. Ivanov <ivga@mts.ru>.  Gregory tested the
+		fix.
+
+		Moved an #include <string.h> later in FreeBSD dlsof.h
+		to enable compilation on recent FreeBSD releases.  The
+		change was supplied by Roy Marples <uberlord@gentoo.org>.
+
+		Improved Linux /proc file stream reading speed by applying
+		an expanded version of a patch from Eric Dumazet
+		<dada1@cosmosbay.com> that allocates a page size buffer
+		to each stream.  Improved TCP, TCP6, UDP and UDP6 hashing
+		by determining the hash bucket count from the /proc/net
+		sockstat and sockstat6 files.  The improvement was
+		suggested by Eric and he provided sample code.  Eric also
+		tested both improvements.
+
+		Modified Configure script to build lsof on FreeBSD
+		6.2.  Tested it on a system provided by Larry Rosenman
+		<ler@lerctr.org>.
+
+		Fixed a Linux maps file processing bug that prevented path
+		names from having an embedded colon.  James Lingard
+		<jchl@arastra.com> reported the bug and helped with its
+		fix.
+
+		Based on reports from Eric Dumazet and Samuel Thibault
+		<samuel.thibault@ens-lyon.org> added support for the
+		Linux 2.6.22 kernel's /proc/<PID>/fdinfo files -- i.e.,
+		file offset and flags.  Samuel Thibault provided a test
+		system.
+
+		Fixed a Linux UNIX socket memory leak, reported by
+		Philip Shin <pshin@xceedium.com>.  Phillip supplied the
+		fix.
+
+		With generous assistance from HP added support for an HP-UX
+		11.23 patch that makes TLI/XTI socket address information
+		available.
+
+		Fixed a header file problem for FreeBSD 6.2 on the Alpha
+		architecture.  The problem was reported by Pekka Honkanen
+		<phonkane@cc.hut.fi>.  Pekka tested the fix.
+
+		Based on a report and using suggested fixes from Karel Zak
+		<kzak@redhat.com>, made these changes to Linux lsof: corrected
+		a getpidcon() error message; insured that inode numbers are
+		handled correctly for their unsigned long long type; and
+		improved SELinux handling.  At the request of Alon Bar-Lev
+		<alonbl@gentoo.org> added the LINUX_HASSELINUX environment
+		variable to enable or inhibit SElinux support unconditionally.
+
+		Updated Configure for FreeBSD 8.0-CURRENT and tested lsof on
+		AMD64 there.
+
+		Added a patch provided by Oles Hnatkevych
+		<don_oles@able.com.ua> for FreeBSD systems where the root
+		file system is on a CD9660 device.
+
+		Added compensation for the disappearance of FMARK and FDEFER
+		from the FreeBSD 8.0-CURRENT <sys/file.h>.
+
+		Updated FreeBSD lsof with ZFS support.  Larry Rosenman
+		<ler@lerctr.org>, Erwin Lansing <erwin@FreeBSD.org>, Wesley
+		Shields <wxs@atarininja.org> and Dmitry Morozovsky
+		<marck@rinet.ru> provided test systems.
+
+		Fixed a socket file identification problem reported by
+		Pavol Rusnak <stick@gk2.sk>.  Pavol also reported the
+		cause of the problem.
+
+		Added the ability to format the repeat mode marker line
+		with strftime(3), where the dialect supports the
+		localtime(3) and strftime(3) C library functions.  The
+		addition was suggested by Mike Depot <mdepot@comcast.net>,
+		who also tested it.  The addition required creating a new
+		main lsof source module, util.c, that contains functions
+		whose compilation conflicts with the general header file
+		tree defined by lsof.h and dlsof.h.
+
+		Based on reports from Andrei V. Lavreniyuk
+		<andy.lavr@reactor-xg.kiev.ua> and Pav Lucistnik
+		<pav@FreeBSD.org> updated the FreeBSD 7.0 and above
+		file lock handling to use new locking structures.  The
+		update requires a terrible hack to get a definition for
+		the lock owner structure from a kernel source module
+		into a local lsof header file.
+
+4.80		May 12, 2008
+		Updated for a FreeBSD 7.0 and above byte level locking
+		change.  The problem was reported by Conrad J. Sabatier
+		<conrads@cox.net>, who helped test the update.  Wesley
+		Shields <wxs@FreeBSD.org> provided an 8.0-CURRENT test
+		system.
+
+		Propagated the FreeBSD 7.0 and above locking changes to
+		FreeBSD 6.x, based on a report from Edwin Groothuis
+		<edwin@FreeBSD.org>.
+
+		Added warnings for unsupported dialects or versions.
+
+		Added Linux support for the UDPLITE protocol.  Eric
+		Dumazet <dada1@cosmosbay.com> supplied a patch.
+
+		Added a missing quote to the Configure script's
+		FreeBSD stanza.
+
+		Added a usage.o rule to the HP-UX PSTAT-based
+		Makefile.  I mistakenly deleted the rule at revision
+		4.79.  The missing rule was reported by Kawaljeet Kaur
+		<kawaljeet.malviya@gmail.com> who tested the corrected
+		Makefile.
+
+4.81		October 21, 2008
+		Updated the Darwin libproc sources with changes from
+		Allan Nathanson <ajn@apple.com>.  Tested them on a iMac
+		mini, provided by Apple Inc.
+
+		Changed dummy declarations in library source files to
+		eliminate complaints about unused variables and empty
+		object files.  This change may not work on dialects I
+		can no longer test; it has been tested on some versions
+		of AIX, Darwin, FreeBSD, Linux and Solaris.
+
+		At the request of Hal Brooks <hal@uga.edu> added support
+		for Linux /proc/net/packet files.  Hal tested it.
+
+		Added socket file only performance enhancements to Linux
+		and PSTAT-based HPUX lsof.
+
+		Added htonl call around improper usage of INADDR_LOOPBACK;
+		report from an Apple engineer forwarded by Allan Nathanson
+		<ajn@apple.com>.
+
+		Adjusted for FreeBSD-8.0 change in device number handling.
+		The adjustment should work for FreeBSD 5 and above, should
+		the 8.0 change be propagated downward.  The problem was
+		reported by Pav Lucistnik <pav@FreeBSD.org>.  An updated
+		test system was provided by Erwin Lansing <erwin@FreeBSD.org>.
+
+		Reduced AIX support to version 5.3, since test systems with
+		older versions are no longer available to me.
+
+		At the request of Marjo F. Mercado <mmercado@xceedium.com>
+		and Phil Shin <pshin@xceedium.com> applied some speed
+		improvements to lsof, particularly when the files of
+		interest are /Internet files -- i.e., selected with lsof's 
+		-i" option.  Added a two new options to assist the
+		improvements: 1) "-c^<command>" to tell lsof to exclude the
+		named command(s); and 2) "-stcp|ud>:[^]state' to tell lsof
+		to include in its reporting or exclude ('^') from its
+		reporting Internet files in the named states (e.g., LISTEN,
+		^CLOSE_WAIT, IDLE, etc.)  For the most part these changes
+		apply only to AIX, Darwin, FreeBSD, PSTAT-based HP-UX, Linux
+		and Solaris, since those are the only places I could test
+		them.  They are controlled by the HASTCPUDPSTATE definition
+		in each dialect's machine.h header file.  Marjo and Phil
+		provided HP-UX 11.23 and 11.31 test systems.
+
+		Fixed a stat(2) problem on HP-UX 11.31 while testing the
+		speed improvements.
+
+		Adjusted for kernel header file changes in FreeBSD
+		8.0-CURRENT.  Larry Rosenman <ler@lerctr.org> provided
+		a test system.
+
+		Added a warning for Solaris systems where VxFS node info
+		can't be obtained from the VxFS utility library.  The
+		warning was requested by Tom Matthews <Tom.MATTHEWS@rbs.com>.
+
+		Corrected mishandling of file system path name arguments
+		that have trailing slashes, except, of course, the root
+		file system, "/".  Allan Nathanson <ajn@apple.com> reported
+		the bug.
+
+4.82		??? ??? 2008
+		Corrected an over-zealous exclusion test that caused
+		lsof to report nothing when it was given no arguments
+		and built with HASSECURITY and HASNOSOCKSECURITY enabled.
+		Joshua Kinard <kumba@gentoo.org> reported the bug and
+		supplied information for reproducing it.
+
+		Based on a report from Dan Trinkle <trinkle@cs.purdue.edu>
+		corrected use of <sys/utsname.h> for 32 bit Solaris 10
+		and above compilations.  Simultaneously eliminated a
+		casting complaint in arg.c and updated Configure to use
+		the appropriate 64 bit compilation option (-xarch=v9 or
+		-m64) with the Solaris Sun C compiler.
+
+		Updated for FreeBSD 7.1-PRERELEASE with information
+		supplied by Larry Rosenman <ler@lerctr.org>.
+
+		Updated the Darwin libproc sources with changes from
+		Allan Nathanson <ajn@apple.com>.  Tested them on a iMac
+		mini, provided by Apple Inc.  Allan also provided man
+		page corrections.
+
 Vic Abell <abe@purdue.edu>
-April 24, 2007
+??? ??? 2008

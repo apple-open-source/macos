@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,38 +23,109 @@
 
 #include <IOKit/assert.h>
 #include <IOKit/IOLib.h>
-#include <IOKit/IOSyncer.h>
 #include <IOKit/storage/IOStorage.h>
 
 #define super IOService
 OSDefineMetaClassAndAbstractStructors(IOStorage, IOService)
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
+#ifndef __LP64__
 #define kIOStorageAttributesUnsupported ( ( IOStorage::ExpansionData * ) 1 )
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 IOStorageAttributes gIOStorageAttributesUnsupported = { kIOStorageOptionReserved };
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 extern "C" void _ZN9IOStorage4readEP9IOServiceyP18IOMemoryDescriptor19IOStorageCompletion( IOStorage *, IOService *, UInt64, IOMemoryDescriptor *, IOStorageCompletion );
 extern "C" void _ZN9IOStorage5writeEP9IOServiceyP18IOMemoryDescriptor19IOStorageCompletion( IOStorage *, IOService *, UInt64, IOMemoryDescriptor *, IOStorageCompletion );
 extern "C" void _ZN9IOStorage4readEP9IOServiceyP18IOMemoryDescriptorP19IOStorageAttributesP19IOStorageCompletion( IOStorage *, IOService *, UInt64, IOMemoryDescriptor *, IOStorageAttributes *, IOStorageCompletion * );
 extern "C" void _ZN9IOStorage5writeEP9IOServiceyP18IOMemoryDescriptorP19IOStorageAttributesP19IOStorageCompletion( IOStorage *, IOService *, UInt64, IOMemoryDescriptor *, IOStorageAttributes *, IOStorageCompletion * );
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#define storageAttributes( storage ) ( ( OSMemberFunctionCast( void *, storage, ( void ( IOStorage::* )( IOService *, UInt64, IOMemoryDescriptor *, IOStorageCompletion                          ) ) &IOStorage::read  ) == _ZN9IOStorage4readEP9IOServiceyP18IOMemoryDescriptor19IOStorageCompletion                         ) && \
+                                       ( OSMemberFunctionCast( void *, storage, ( void ( IOStorage::* )( IOService *, UInt64, IOMemoryDescriptor *, IOStorageCompletion                          ) ) &IOStorage::write ) == _ZN9IOStorage5writeEP9IOServiceyP18IOMemoryDescriptor19IOStorageCompletion                        ) && \
+                                       ( OSMemberFunctionCast( void *, storage, ( void ( IOStorage::* )( IOService *, UInt64, IOMemoryDescriptor *, IOStorageAttributes *, IOStorageCompletion * ) ) &IOStorage::read  ) != _ZN9IOStorage4readEP9IOServiceyP18IOMemoryDescriptorP19IOStorageAttributesP19IOStorageCompletion  ) && \
+                                       ( OSMemberFunctionCast( void *, storage, ( void ( IOStorage::* )( IOService *, UInt64, IOMemoryDescriptor *, IOStorageAttributes *, IOStorageCompletion * ) ) &IOStorage::write ) != _ZN9IOStorage5writeEP9IOServiceyP18IOMemoryDescriptorP19IOStorageAttributesP19IOStorageCompletion ) )
+#endif /* !__LP64__ */
 
-static bool storageAttributes( IOStorage * storage )
+class IOStorageSyncerLock
 {
-    return ( OSMemberFunctionCast( void *, storage, ( void ( IOStorage::* )( IOService *, UInt64, IOMemoryDescriptor *, IOStorageCompletion                          ) ) &IOStorage::read  ) == _ZN9IOStorage4readEP9IOServiceyP18IOMemoryDescriptor19IOStorageCompletion                         ) &&
-           ( OSMemberFunctionCast( void *, storage, ( void ( IOStorage::* )( IOService *, UInt64, IOMemoryDescriptor *, IOStorageCompletion                          ) ) &IOStorage::write ) == _ZN9IOStorage5writeEP9IOServiceyP18IOMemoryDescriptor19IOStorageCompletion                        ) &&
-           ( OSMemberFunctionCast( void *, storage, ( void ( IOStorage::* )( IOService *, UInt64, IOMemoryDescriptor *, IOStorageAttributes *, IOStorageCompletion * ) ) &IOStorage::read  ) != _ZN9IOStorage4readEP9IOServiceyP18IOMemoryDescriptorP19IOStorageAttributesP19IOStorageCompletion  ) &&
-           ( OSMemberFunctionCast( void *, storage, ( void ( IOStorage::* )( IOService *, UInt64, IOMemoryDescriptor *, IOStorageAttributes *, IOStorageCompletion * ) ) &IOStorage::write ) != _ZN9IOStorage5writeEP9IOServiceyP18IOMemoryDescriptorP19IOStorageAttributesP19IOStorageCompletion );
-}
+protected:
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    IOLock * _lock;
+
+public:
+
+    inline IOStorageSyncerLock( )
+    {
+        _lock = IOLockAlloc( );
+    }
+
+    inline ~IOStorageSyncerLock( )
+    {
+        if ( _lock ) IOLockFree( _lock );
+    }
+
+    inline void lock( )
+    {
+        IOLockLock( _lock );
+    }
+
+    inline void unlock( )
+    {
+        IOLockUnlock( _lock );
+    }
+
+    inline void sleep( void * event )
+    {
+        IOLockSleep( _lock, event, THREAD_UNINT );
+    }
+
+    inline void wakeup( void * event )
+    {
+        IOLockWakeup( _lock, event, false );
+    }
+};
+
+static IOStorageSyncerLock gIOStorageSyncerLock;
+
+class IOStorageSyncer
+{
+protected:
+
+    IOReturn _status;
+    bool     _wakeup;
+
+public:
+
+    IOStorageSyncer( )
+    {
+        _wakeup = false;
+    }
+
+    IOReturn wait( )
+    {
+        gIOStorageSyncerLock.lock( );
+
+        while ( _wakeup == false )
+        {
+            gIOStorageSyncerLock.sleep( this );
+        }
+
+        gIOStorageSyncerLock.unlock( );
+
+        return _status;
+    }
+
+    void signal( IOReturn status )
+    {
+        _status = status;
+
+        gIOStorageSyncerLock.lock( );
+
+        _wakeup = true;
+
+        gIOStorageSyncerLock.wakeup( this );
+
+        gIOStorageSyncerLock.unlock( );
+    }
+};
 
 static void storageCompletion(void *   target,
                               void *   parameter,
@@ -66,11 +137,10 @@ static void storageCompletion(void *   target,
     //
 
     if (parameter)  *((UInt64 *)parameter) = actualByteCount;
-    ((IOSyncer *)target)->signal(status);
+    ((IOStorageSyncer *)target)->signal(status);
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
+#ifndef __LP64__
 bool IOStorage::init(OSDictionary * properties)
 {
     //
@@ -104,8 +174,6 @@ bool IOStorage::init(OSDictionary * properties)
     return true;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 void IOStorage::complete(IOStorageCompletion completion,
                          IOReturn            status,
                          UInt64              actualByteCount)
@@ -118,8 +186,7 @@ void IOStorage::complete(IOStorageCompletion completion,
 
     complete( &completion, status, actualByteCount );
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#endif /* !__LP64__ */
 
 void IOStorage::complete(IOStorageCompletion * completion,
                          IOReturn              status,
@@ -137,8 +204,6 @@ void IOStorage::complete(IOStorageCompletion * completion,
     }
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 bool IOStorage::open(IOService *     client,
                      IOOptionBits    options,
                      IOStorageAccess access)
@@ -151,12 +216,13 @@ bool IOStorage::open(IOService *     client,
     return super::open(client, options, (void *) access);
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-IOReturn IOStorage::read(IOService *          client,
-                         UInt64               byteStart,
-                         IOMemoryDescriptor * buffer,
-                         UInt64 *             actualByteCount)
+IOReturn IOStorage::read(IOService *           client,
+                         UInt64                byteStart,
+                         IOMemoryDescriptor *  buffer,
+#ifdef __LP64__
+                         IOStorageAttributes * attributes,
+#endif /* __LP64__ */
+                         UInt64 *              actualByteCount)
 {
     //
     // Read data from the storage object at the specified byte offset into the
@@ -165,33 +231,34 @@ IOReturn IOStorage::read(IOService *          client,
     //
 
     IOStorageCompletion	completion;
-    IOSyncer *          completionSyncer;
-
-    // Initialize the lock we will synchronize against.
-
-    completionSyncer = IOSyncer::create();
+    IOStorageSyncer     syncer;
 
     // Fill in the completion information for this request.
 
-    completion.target    = completionSyncer;
+    completion.target    = &syncer;
     completion.action    = storageCompletion;
     completion.parameter = actualByteCount;
 
     // Issue the asynchronous read.
 
-    read(client, byteStart, buffer, completion);
+#ifdef __LP64__
+    read(client, byteStart, buffer, attributes, &completion);
+#else /* !__LP64__ */
+    read(client, byteStart, buffer, NULL, &completion);
+#endif /* !__LP64__ */
 
     // Wait for the read to complete.
 
-    return completionSyncer->wait();
+    return syncer.wait();
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-IOReturn IOStorage::write(IOService *          client,
-                          UInt64               byteStart,
-                          IOMemoryDescriptor * buffer,
-                          UInt64 *             actualByteCount)
+IOReturn IOStorage::write(IOService *           client,
+                          UInt64                byteStart,
+                          IOMemoryDescriptor *  buffer,
+#ifdef __LP64__
+                          IOStorageAttributes * attributes,
+#endif /* __LP64__ */
+                          UInt64 *              actualByteCount)
 {
     //
     // Write data into the storage object at the specified byte offset from the
@@ -200,29 +267,28 @@ IOReturn IOStorage::write(IOService *          client,
     //
 
     IOStorageCompletion completion;
-    IOSyncer *          completionSyncer;
-
-    // Initialize the lock we will synchronize against.
-
-    completionSyncer = IOSyncer::create();
+    IOStorageSyncer     syncer;
 
     // Fill in the completion information for this request.
 
-    completion.target    = completionSyncer;
+    completion.target    = &syncer;
     completion.action    = storageCompletion;
     completion.parameter = actualByteCount;
 
     // Issue the asynchronous write.
 
-    write(client, byteStart, buffer, completion);
+#ifdef __LP64__
+    write(client, byteStart, buffer, attributes, &completion);
+#else /* !__LP64__ */
+    write(client, byteStart, buffer, NULL, &completion);
+#endif /* !__LP64__ */
 
     // Wait for the write to complete.
 
-    return completionSyncer->wait();
+    return syncer.wait();
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
+#ifndef __LP64__
 void IOStorage::read(IOService *          client,
                      UInt64               byteStart,
                      IOMemoryDescriptor * buffer,
@@ -246,8 +312,6 @@ void IOStorage::read(IOService *          client,
     }
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 void IOStorage::write(IOService *          client,
                       UInt64               byteStart,
                       IOMemoryDescriptor * buffer,
@@ -270,8 +334,6 @@ void IOStorage::write(IOService *          client,
         write( client, byteStart, buffer, NULL, &completion );
     }
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 void IOStorage::read(IOService *           client,
                      UInt64                byteStart,
@@ -297,10 +359,6 @@ void IOStorage::read(IOService *           client,
     }
 }
 
-OSMetaClassDefineReservedUsed(IOStorage, 0);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 void IOStorage::write(IOService *           client,
                       UInt64                byteStart,
                       IOMemoryDescriptor *  buffer,
@@ -324,10 +382,7 @@ void IOStorage::write(IOService *           client,
         write( client, byteStart, buffer, completion ? *completion : ( IOStorageCompletion ) { 0 } );
     }
 }
-
-OSMetaClassDefineReservedUsed(IOStorage, 1);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#endif /* !__LP64__ */
 
 IOReturn IOStorage::discard(IOService * client,
                             UInt64      byteStart,
@@ -336,56 +391,25 @@ IOReturn IOStorage::discard(IOService * client,
     return kIOReturnUnsupported;
 }
 
-OSMetaClassDefineReservedUsed(IOStorage, 2);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOStorage, 3);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOStorage, 4);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOStorage, 5);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOStorage, 6);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOStorage, 7);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOStorage, 8);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOStorage, 9);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
+#ifdef __LP64__
+OSMetaClassDefineReservedUnused(IOStorage,  0);
+OSMetaClassDefineReservedUnused(IOStorage,  1);
+OSMetaClassDefineReservedUnused(IOStorage,  2);
+#else /* !__LP64__ */
+OSMetaClassDefineReservedUsed(IOStorage,  0);
+OSMetaClassDefineReservedUsed(IOStorage,  1);
+OSMetaClassDefineReservedUsed(IOStorage,  2);
+#endif /* !__LP64__ */
+OSMetaClassDefineReservedUnused(IOStorage,  3);
+OSMetaClassDefineReservedUnused(IOStorage,  4);
+OSMetaClassDefineReservedUnused(IOStorage,  5);
+OSMetaClassDefineReservedUnused(IOStorage,  6);
+OSMetaClassDefineReservedUnused(IOStorage,  7);
+OSMetaClassDefineReservedUnused(IOStorage,  8);
+OSMetaClassDefineReservedUnused(IOStorage,  9);
 OSMetaClassDefineReservedUnused(IOStorage, 10);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOStorage, 11);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOStorage, 12);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOStorage, 13);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOStorage, 14);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOStorage, 15);

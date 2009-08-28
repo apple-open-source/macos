@@ -4,17 +4,17 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2008-12-10</string>
+		<string>2009-02-17</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>xcbproto</string>
+		<string>xcb-proto</string>
 		<key>OpenSourceSHA1</key>
-		<string>9623d544338cdec292d04200aab5df5c88e96811</string>
+		<string>ab9bb7c875558a3324673bb749e0502046f31083</string>
 		<key>OpenSourceURL</key>
-		<string>http://xcb.freedesktop.org/dist/xcb-proto-1.3.tar.bz2</string>
+		<string>http://xcb.freedesktop.org/dist/xcb-proto-1.4.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.3</string>
+		<string>1.4</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://xcb.freedesktop.org</string>
 	</dict>
@@ -70,17 +70,17 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2008-10-16</string>
+		<string>2009-07-03</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>applewmproto</string>
 		<key>OpenSourceSHA1</key>
-		<string>c2fd52bf9f2ad05141cc37da56e8b46113e73172</string>
+		<string>81e887ce7bc1969544868d7a79270fd21c9e9d4e</string>
 		<key>OpenSourceURL</key>
-		<string>http://xorg.freedesktop.org/archive/individual/proto/applewmproto-1.1.1.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/proto/applewmproto-1.3.0.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.1.1</string>
+		<string>1.3.0</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
@@ -150,17 +150,17 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2008-04-18</string>
+		<string>2009-01-06</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>dri2proto</string>
 		<key>OpenSourceSHA1</key>
-		<string>6429338a703561c02c0aa7516d1d981e7a2bf005</string>
+		<string>0be97cbc1440df50cd950b4b5f36e5fcb44a4ab7</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/individual/proto/dri2proto-1.1.tar.bz2</string>
+		<string>ftp://ftp.x.org/pub/individual/proto/dri2proto-1.99.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.1</string>
+		<string>1.99.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
@@ -246,17 +246,17 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2008-03-10</string>
+		<string>2008-08-27/string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>inputproto</string>
 		<key>OpenSourceSHA1</key>
-		<string>d583df60442615b030910a0791319c015175e4e9</string>
+		<string>c6514843f35e2591fadc13f3fc87bf3752b7197c</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/individual/proto/inputproto-1.4.3.tar.bz2</string>
+		<string>ftp://ftp.x.org/pub/individual/proto/inputproto-1.5.0.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.4.3</string>
+		<string>1.5.0</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
@@ -294,17 +294,17 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2008-07-02</string>
+		<string>2009-03-06</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>randrproto</string>
 		<key>OpenSourceSHA1</key>
-		<string>bc231f1099eea9c5365679053a6ff3353e974ff9</string>
+		<string>442de2a6a2145e49f9ef12cadbea69140f9ca066</string>
 		<key>OpenSourceURL</key>
-		<string>http://xorg.freedesktop.org/archive/individual/proto/randrproto-1.2.2.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/proto/randrproto-1.3.0.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.2.2</string>
+		<string>1.3.0</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
@@ -390,17 +390,17 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2008-03-10</string>
+		<string>2008-12-16</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>util-macros</string>
 		<key>OpenSourceSHA1</key>
-		<string>9d0d08630a3549a02cd6cee181d7fbf1a1c8c05c</string>
+		<string>820737f9aaac814f0e0898ab8cca3be71a689afd</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/individual/util/util-macros-1.1.6.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/util/util-macros-1.2.1.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.1.6</string>
+		<string>1.2.1</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
@@ -438,17 +438,17 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2008-05-28</string>
+		<string>2009-02-13</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xextproto</string>
 		<key>OpenSourceSHA1</key>
-		<string>4a59150f0d9400f3997df542828834969a2c4842</string>
+		<string>d62e704039e7c647da66c9a6531ebdede37dace8</string>
 		<key>OpenSourceURL</key>
-		<string>http://xorg.freedesktop.org/archive/individual/proto/xextproto-7.0.3.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/proto/xextproto-7.0.5.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>7.0.3</string>
+		<string>7.0.5</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
@@ -458,7 +458,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>xf86dgaproto</string>
+		<string>xf86bigfontproto</string>
 		<key>OpenSourceSHA1</key>
 		<string>4a2e84b3f529e4747dbc07bf4496bfe01f40aa85</string>
 		<key>OpenSourceURL</key>
@@ -518,6 +518,22 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
+		<string>2009-01-06</string>
+		<key>OpenSourceLicense</key>
+		<string>MIT</string>
+		<key>OpenSourceProject</key>
+		<string>xf86rushproto</string>
+		<key>OpenSourceSHA1</key>
+		<string>756838c1269412881f23727ac18dd088bb7ce183</string>
+		<key>OpenSourceURL</key>
+		<string>ftp://ftp.x.org/pub/individual/proto/xf86rushproto-1.1.2.tar.bz2</string>
+		<key>OpenSourceVersion</key>
+		<string>1.1.2</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.x.org</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
 		<string>2006-12-01</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
@@ -550,17 +566,17 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2008-11-26</string>
+		<string>2000-03-05</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xproto</string>
 		<key>OpenSourceSHA1</key>
-		<string>cb8b35d290c4c57c78dad06b91136fef08e0f80c</string>
+		<string>891e3f8e2c17128a8fc6930583e42fd3db75839a</string>
 		<key>OpenSourceURL</key>
-		<string>http://xorg.freedesktop.org/archive/individual/proto/xproto-7.0.14.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/proto/xproto-7.0.15.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>7.0.14</string>
+		<string>7.0.15</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>

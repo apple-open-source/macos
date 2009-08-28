@@ -1,7 +1,7 @@
 
 OBJ_FILES = pmset.o powermanagementUser.o
 
-CFLAGS = -g -DSTANDALONE -Wall -arch i386 -arch ppc
+CFLAGS = -g -DSTANDALONE -Wall -arch i386
 FRAMEWORKS = -framework IOKit -framework CoreFoundation -framework SystemConfiguration
 
 pmset: $(OBJ_FILES)

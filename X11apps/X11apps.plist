@@ -20,63 +20,31 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2008-02-23</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>bdftopcf</string>
 		<key>OpenSourceSHA1</key>
-		<string>14796bd237ec8b7a5bff0c704498df1d114fbec5</string>
+		<string>ab1c77b7e9b011afd29242eef0f3cfdcb11771ee</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/apps/bdftopcf-X11R7.0-1.0.0.tar.bz2</string>
+		<string>ftp://ftp.x.org/pub/individual/app/bdftopcf-1.0.1.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.0</string>
+		<string>1.0.1</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2008-02-23</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>bitmap</string>
 		<key>OpenSourceSHA1</key>
-		<string>3bf157e301651037e05049a0700907f0c809be7c</string>
+		<string>ca3b65e25fea6929ee254944b72508f8e39d80ea</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.1/src/update/apps/bitmap-X11R7.1-1.0.2.tar.bz2</string>
-		<key>OpenSourceVersion</key>
-		<string>1.0.2</string>
-		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.x.org</string>
-	</dict>
-	<dict>
-		<key>OpenSourceImportDate</key>
-		<string>2007-03-12</string>
-		<key>OpenSourceLicense</key>
-		<string>MIT</string>
-		<key>OpenSourceProject</key>
-		<string>editres</string>
-		<key>OpenSourceSHA1</key>
-		<string>8c21e30b4c421766b7c9e65240bc3b211ee8466d</string>
-		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.2/src/update/apps/editres-X11R7.2-1.0.2.tar.bz2</string>
-		<key>OpenSourceVersion</key>
-		<string>1.0.2</string>
-		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.x.org</string>
-	</dict>
-	<dict>
-		<key>OpenSourceImportDate</key>
-		<string>2007-03-12</string>
-		<key>OpenSourceLicense</key>
-		<string>MIT</string>
-		<key>OpenSourceProject</key>
-		<string>fonttosfnt</string>
-		<key>OpenSourceSHA1</key>
-		<string>939ec72803863f6ca577b30f7777a79316489837</string>
-		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/individual/apps/fonttosfnt-1.0.3.tar.bz2</string>
+		<string>ftp://ftp.x.org/pub/individual/app/bitmap-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
 		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
@@ -84,31 +52,47 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2008-02-23</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>fslsfonts</string>
+		<string>editres</string>
 		<key>OpenSourceSHA1</key>
-		<string>94e4f753d4f3060e10b24f8fc5463a6ba87a1b0c</string>
+		<string>f87c18325ae169ea349b59f8bad77375f50d65be</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/apps/fslsfonts-X11R7.0-1.0.1.tar.bz2</string>
+		<string>ftp://ftp.x.org/pub/individual/app/editres-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.1</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2008-05-11</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>fstobdf</string>
+		<string>fonttosfnt</string>
 		<key>OpenSourceSHA1</key>
-		<string>e2524a019918d4a2038be796e780738c4f3e1c01</string>
+		<string>a609fba513947e5267c924f85774c0e44a076a7d</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.1/src/update/apps/fstobdf-X11R7.1-1.0.2.tar.bz2</string>
+		<string>ftp://ftp.x.org/pub/individual/app/fonttosfnt-1.0.4.tar.bz2</string>
+		<key>OpenSourceVersion</key>
+		<string>1.0.4</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.x.org</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2008-05-24</string>
+		<key>OpenSourceLicense</key>
+		<string>MIT</string>
+		<key>OpenSourceProject</key>
+		<string>fslsfonts</string>
+		<key>OpenSourceSHA1</key>
+		<string>707710c9360b0554ee1ab9a2ef388025a6a8a27a</string>
+		<key>OpenSourceURL</key>
+		<string>http://xorg.freedesktop.org/archive/individual/app/fslsfonts-1.0.2.tar.bz2</string>
 		<key>OpenSourceVersion</key>
 		<string>1.0.2</string>
 		<key>OpenSourceWebsiteURL</key>
@@ -116,33 +100,49 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2008-05-24</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>iceauth</string>
+		<string>fstobdf</string>
 		<key>OpenSourceSHA1</key>
-		<string>08741f586758b0b9e51fafe50fb7e2be956d01d6</string>
+		<string>c7f9184afe3f7526a51b4e19722af8451b33d873</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/apps/iceauth-X11R7.0-1.0.1.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/app/fstobdf-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.1</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2008-02-23</string>
+		<key>OpenSourceLicense</key>
+		<string>MIT</string>
+		<key>OpenSourceProject</key>
+		<string>iceauth</string>
+		<key>OpenSourceSHA1</key>
+		<string>31cb5e07ea928b2a85af25d69535726e0d8c08d9</string>
+		<key>OpenSourceURL</key>
+		<string>ftp://ftp.x.org/pub/individual/app/iceauth-1.0.2.tar.bz2</string>
+		<key>OpenSourceVersion</key>
+		<string>1.0.2</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.x.org</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2008-02-23</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>ico</string>
 		<key>OpenSourceSHA1</key>
-		<string>37055aa6e7d6d37b58175cd3bba38465e334ec90</string>
+		<string>64940e202d8d53b6c036ad17bc5af9f4823f7fb0</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/apps/ico-X11R7.0-1.0.1.tar.bz2</string>
+		<string>ftp://ftp.x.org/pub/individual/app/ico-1.0.2.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.1</string>
+		<string>1.0.2</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
@@ -164,7 +164,7 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2008-11-02</string>
+		<string>2008-02-23</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
@@ -180,33 +180,33 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2007-03-12</string>
+		<string>2008-03-10</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>mkfontdir</string>
 		<key>OpenSourceSHA1</key>
-		<string>803dffd0c4d92da813006bf382b970db735bfc24</string>
+		<string>1e52e7c42c783435ea72e69bd4adb976e62a9d96</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.1/src/update/apps/mkfontdir-X11R7.1-1.0.2.tar.bz2</string>
+		<string>ftp://ftp.x.org/pub/individual/app/mkfontdir-1.0.4.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.2</string>
+		<string>1.0.4</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2008-12-18</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>mkfontscale</string>
 		<key>OpenSourceSHA1</key>
-		<string>361c638794da5afc3a6762705b48fbb5245e9ced</string>
+		<string>7bb7caa5a365d1e31a25ed9e837ca744aaa83db0</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/individual/apps/mkfontscale-1.0.3.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/app/mkfontscale-1.0.6.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.3</string>
+		<string>1.0.6</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
@@ -228,65 +228,49 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2008-06-10</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>rgb</string>
 		<key>OpenSourceSHA1</key>
-		<string>a6d4d6a69f312e9367d7e6db31b9582b62aebef0</string>
+		<string>89970e73e95819756e6f3fb11631fa917031813a</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.1/src/update/apps/rgb-X11R7.1-1.0.1.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/app/rgb-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.1</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
-		<key>OpenSourceLicense</key>
-		<string>MIT</string>
-		<key>OpenSourceProject</key>
-		<string>scripts</string>
-		<key>OpenSourceSHA1</key>
-		<string>f1927efc39ec54d1b847d007a19a0dace6396070</string>
-		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/apps/scripts-X11R7.0-1.0.1.tar.bz2</string>
-		<key>OpenSourceVersion</key>
-		<string>1.0.1</string>
-		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.x.org</string>
-	</dict>
-	<dict>
-		<key>OpenSourceImportDate</key>
-		<string>2007-03-12</string>
+		<string>2008-06-29</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>sessreg</string>
 		<key>OpenSourceSHA1</key>
-		<string>c46126a6f98ded3317e63370bd96c0879e060390</string>
+		<string>cb82ea3f088559743d05bffed7b9e0378581f776</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.2/src/update/apps/sessreg-X11R7.2-1.0.2.tar.bz2</string>
+		<string>ftp://ftp.x.org/pub/individual/app/sessreg-1.0.4.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.2</string>
+		<string>1.0.4</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2008-05-24</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>showfont</string>
 		<key>OpenSourceSHA1</key>
-		<string>e214873b62d71fc2ec7df8a48f49bb5d4e555575</string>
+		<string>02ad183046d0a2e34bbb8d44e754fbcb0cf27f32</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/apps/showfont-X11R7.0-1.0.1.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/app/showfont-1.0.2.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.1</string>
+		<string>1.0.2</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
@@ -308,17 +292,17 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2007-03-12</string>
+		<string>2008-03-10</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>twm</string>
 		<key>OpenSourceSHA1</key>
-		<string>402dc546c33c125e1c238d5ca5b1a95f29bf2a56</string>
+		<string>7456e90f19e4747e1785f596b93f692d68a9f079</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/individual/apps/twm-1.0.3.tar.bz2</string>
+		<string>ftp://ftp.x.org/pub/individual/app/twm-1.0.4.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.3</string>
+		<string>1.0.4</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
@@ -340,17 +324,17 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2008-03-10</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>x11perf</string>
 		<key>OpenSourceSHA1</key>
-		<string>6e14982e425dd14dbbc70877d04ba9859f69e1e0</string>
+		<string>10e1e1a00c1712c8bab4de7425c8cbf04e77f85d</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.1/src/update/apps/x11perf-X11R7.1-1.4.1.tar.bz2</string>
+		<string>ftp://ftp.x.org/pub/individual/app/x11perf-1.5.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.4.1</string>
+		<string>1.5</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
@@ -388,17 +372,17 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2008-02-23</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xcalc</string>
 		<key>OpenSourceSHA1</key>
-		<string>49b9d6c714da5a4c977b0bf77a05266e682bbb94</string>
+		<string>0bb9691201e403d294779e401a70f32d6d99cdd9</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/apps/xcalc-X11R7.0-1.0.1.tar.bz2</string>
+		<string>ftp://ftp.x.org/pub/individual/app/xcalc-1.0.2.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.1</string>
+		<string>1.0.2</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
@@ -420,49 +404,49 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2008-02-23</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xclock</string>
 		<key>OpenSourceSHA1</key>
-		<string>19716e71df8e26c640ed93ff47705610a2f8ef5c</string>
+		<string>94bd3f1c57d9d6f5c19f25fcdda3b148b99b6dbe</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.1/src/update/apps/xclock-X11R7.1-1.0.2.tar.bz2</string>
+		<string>ftp://ftp.x.org/pub/individual/app/xclock-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.2</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2008-02-23</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xconsole</string>
 		<key>OpenSourceSHA1</key>
-		<string>ce4af6dfc7e2c18d1fb8e9988f5ee467a0dd8b29</string>
+		<string>31408b28b67fe74f3d21c98cc2cada03ff9cefab</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.1/src/update/apps/xconsole-X11R7.1-1.0.2.tar.bz2</string>
+		<string>ftp://ftp.x.org/pub/individual/app/xconsole-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.2</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2008-02-23</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xcursorgen</string>
 		<key>OpenSourceSHA1</key>
-		<string>a552129e591310ab09554a57db289203880738f3</string>
+		<string>467b440779fe7dd34d35f0610ec977d3e51617bc</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.1/src/update/apps/xcursorgen-X11R7.1-1.0.1.tar.bz2</string>
+		<string>ftp://ftp.x.org/pub/individual/app/xcursorgen-1.0.2.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.1</string>
+		<string>1.0.2</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
@@ -484,65 +468,65 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2007-03-12</string>
+		<string>2008-05-22</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xdm</string>
 		<key>OpenSourceSHA1</key>
-		<string>4c4d5f5cdca2a5d76f8db545431eb0c7e882eea2</string>
+		<string>619d810d9cd60e193be72365791cdb4057fc56ce</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.2/src/update/apps/xdm-X11R7.2-1.1.3.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/app/xdm-1.1.8.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.1.3</string>
+		<string>1.1.8</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2008-05-22</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xdpyinfo</string>
 		<key>OpenSourceSHA1</key>
-		<string>94d6bffda6d551fd8d72f8e48287e26e241bc8da</string>
+		<string>5292686ee0be9c08e620b9720982acca2c4b6cfb</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/apps/xdpyinfo-X11R7.0-1.0.1.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/app/xdpyinfo-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.1</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2008-11-25</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xedit</string>
 		<key>OpenSourceSHA1</key>
-		<string>395791bae7ba06854c750c261f4db9171b5d9227</string>
+		<string>e2d9f49dd7e82959e0678c2417256cd59b06772f</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.1/src/update/apps/xedit-X11R7.1-1.0.2.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/app/xedit-1.1.2.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.2</string>
+		<string>1.1.2</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2008-03-10</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xev</string>
 		<key>OpenSourceSHA1</key>
-		<string>8f453d2354d173db13fe690e90cce27315134b6e</string>
+		<string>7dccb225ed41bb468299b89485ea2c004854ea95</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/apps/xev-X11R7.0-1.0.1.tar.bz2</string>
+		<string>ftp://ftp.x.org/pub/individual/app/xev-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.1</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
@@ -580,49 +564,49 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2008-02-23</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xfontsel</string>
 		<key>OpenSourceSHA1</key>
-		<string>49772b190922016cd4b37353b5f9d8b12dd0318d</string>
+		<string>c492444a3bada3e44bc0319cfd85a89cd7770b84</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/apps/xfontsel-X11R7.0-1.0.1.tar.bz2</string>
+		<string>ftp://ftp.x.org/pub/individual/app/xfontsel-1.0.2.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.1</string>
+		<string>1.0.2</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2007-10-31</string>
+		<string>2008-05-24</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xfs</string>
 		<key>OpenSourceSHA1</key>
-		<string>3b5d0a6f86415148124762c780d50d81b73f405c</string>
+		<string>7c7fbae9bee6977aa92d419c93ea8d2dba3b43af8</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/individual/apps/xfs-1.0.5.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/app/xfs-1.0.8.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.5</string>
+		<string>1.0.8</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2008-05-24</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xfsinfo</string>
 		<key>OpenSourceSHA1</key>
-		<string>e5a6c6aaf5b58834b39fe22347cfbe715d654721</string>
+		<string>14088d1b08bc27c02a6806d75dabc4eade</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/apps/xfsinfo-X11R7.0-1.0.1.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/app/xfsinfo-1.0.2.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.1</string>
+		<string>1.0.2</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
@@ -644,33 +628,33 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2008-02-23</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xhost</string>
 		<key>OpenSourceSHA1</key>
-		<string>07806f3c580101b0bc6410de39724146c75008ce</string>
+		<string>307dbce5491c7c22f438d8856cd983004b78b86c</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.1/src/update/apps/xhost-X11R7.1-1.0.1.tar.bz2</string>
+		<string>ftp://ftp.x.org/pub/individual/app/xhost-1.0.2.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.1</string>
+		<string>1.0.2</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2008-02-09</string>
+		<string>2009-04-09</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xinput</string>
 		<key>OpenSourceSHA1</key>
-		<string>84c8316950ebae8f28794759202391303148fd02</string>
+		<string>58117b07b14aebae9d5e8bbb7fc4102c62dd506a</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/individual/app/xinput-1.3.0.tar.bz2</string>
+		<string>ftp://ftp.x.org/pub/individual/app/xinput-1.4.1.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.3.0</string>
+		<string>1.4.1</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
@@ -753,7 +737,8 @@
 		<string>1.0.1</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
-	</dict>	<dict>
+	</dict>
+	<dict>
 		<key>OpenSourceImportDate</key>
 		<string>2006-12-01</string>
 		<key>OpenSourceLicense</key>
@@ -771,17 +756,17 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2008-02-23</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xload</string>
 		<key>OpenSourceSHA1</key>
-		<string>5f441f593266804660cb366ffaa283c1359abd75</string>
+		<string>cbbbf23531e0d781b556f5864cc3b83874f786d2</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/apps/xload-X11R7.0-1.0.1.tar.bz2</string>
+		<string>ftp://ftp.x.org/pub/individual/app/xload-1.0.2.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.1</string>
+		<string>1.0.2</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
@@ -835,47 +820,15 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2008-02-23</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xlsfonts</string>
 		<key>OpenSourceSHA1</key>
-		<string>cb3c1ab05ad12655cd64d51608fb52703bd1321a</string>
+		<string>556c8b94002e834cf61e08ea4f5551a039e2d5c9</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/apps/xlsfonts-X11R7.0-1.0.1.tar.bz2</string>
-		<key>OpenSourceVersion</key>
-		<string>1.0.1</string>
-		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.x.org</string>
-	</dict>
-	<dict>
-		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
-		<key>OpenSourceLicense</key>
-		<string>MIT</string>
-		<key>OpenSourceProject</key>
-		<string>xmag</string>
-		<key>OpenSourceSHA1</key>
-		<string>7db26896f6f812e4663a1f4e21167180caede524</string>
-		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/apps/xmag-X11R7.0-1.0.1.tar.bz2</string>
-		<key>OpenSourceVersion</key>
-		<string>1.0.1</string>
-		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.x.org</string>
-	</dict>
-	<dict>
-		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
-		<key>OpenSourceLicense</key>
-		<string>MIT</string>
-		<key>OpenSourceProject</key>
-		<string>xman</string>
-		<key>OpenSourceSHA1</key>
-		<string>a96a6bec061e7ec97137754aee982d64a2b0ae55</string>
-		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.1/src/update/apps/xman-X11R7.1-1.0.2.tar.bz2</string>
+		<string>ftp://ftp.x.org/pub/individual/app/xlsfonts-1.0.2.tar.bz2</string>
 		<key>OpenSourceVersion</key>
 		<string>1.0.2</string>
 		<key>OpenSourceWebsiteURL</key>
@@ -883,17 +836,49 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2008-02-23</string>
+		<key>OpenSourceLicense</key>
+		<string>MIT</string>
+		<key>OpenSourceProject</key>
+		<string>xmag</string>
+		<key>OpenSourceSHA1</key>
+		<string>081c6c01ad0b132fd5634008464d77a0e929bacb</string>
+		<key>OpenSourceURL</key>
+		<string>ftp://ftp.x.org/pub/individual/app/xmag-1.0.2.tar.bz2</string>
+		<key>OpenSourceVersion</key>
+		<string>1.0.2</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.x.org</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2008-02-23</string>
+		<key>OpenSourceLicense</key>
+		<string>MIT</string>
+		<key>OpenSourceProject</key>
+		<string>xman</string>
+		<key>OpenSourceSHA1</key>
+		<string>1612166e4ccc93e9e18904c0d297b0135ee5dd62</string>
+		<key>OpenSourceURL</key>
+		<string>ftp://ftp.x.org/pub/individual/app/xman-1.0.3.tar.bz2</string>
+		<key>OpenSourceVersion</key>
+		<string>1.0.3</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.x.org</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2008-02-23</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xmessage</string>
 		<key>OpenSourceSHA1</key>
-		<string>d9ba72c3ca025967358768df9abd11ed9ebd7b9d</string>
+		<string>866dea3f01e2c9a3657bb1e56396b6ae1af4be3f</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/apps/xmessage-X11R7.0-1.0.1.tar.bz2</string>
+		<string>ftp://ftp.x.org/pub/individual/app/xmessage-1.0.2.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.1</string>
+		<string>1.0.2</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
@@ -915,17 +900,17 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2007-03-12</string>
+		<string>2008-02-23</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xmodmap</string>
 		<key>OpenSourceSHA1</key>
-		<string>54f49da1916e3b4d1cc3ca0e69ff39bc1b86b182</string>
+		<string>5ad0f99735a13d6bb75ce63b2285f4c9c11be51b</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/individual/apps/xmodmap-1.0.2.tar.bz2</string>
+		<string>ftp://ftp.x.org/pub/individual/app/xmodmap-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.2</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
@@ -947,65 +932,65 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2008-02-23</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xpr</string>
 		<key>OpenSourceSHA1</key>
-		<string>f7dc5d7220cf3daff72690fdc9e30da19639e8c5</string>
+		<string>a35077366b0fc3a1ce665662827000e00d0684f2</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/apps/xpr-X11R7.0-1.0.1.tar.bz2</string>
+		<string>ftp://ftp.x.org/pub/individual/app/xpr-1.0.2.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.1</string>
+		<string>1.0.2</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2007-03-12</string>
+		<string>2008-03-10</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xprop</string>
 		<key>OpenSourceSHA1</key>
-		<string>0c2dee041545e9286c9efb0b003f0bdfbc4ec8d4</string>
+		<string>7f2c5bc518564386a7e22855165b565b44270c2e</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.2/src/update/apps/xprop-X11R7.2-1.0.2.tar.bz2</string>
+		<string>ftp://ftp.x.org/pub/individual/app/xprop-1.0.4.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.2</string>
+		<string>1.0.4</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2009-04-09</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xrandr</string>
 		<key>OpenSourceSHA1</key>
-		<string>3bbcb231fb5b737fe1fe8bfdfa053968169a7356</string>
+		<string>a23eb1b1ab7a3e6cf9d23932fdf8927186630d12</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.1/src/update/apps/xrandr-X11R7.1-1.0.2.tar.bz2</string>
+		<string>ftp://ftp.x.org/pub/individual/app/xrandr-1.3.0.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.2</string>
+		<string>1.3.0</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2008-03-10</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xrdb</string>
 		<key>OpenSourceSHA1</key>
-		<string>12dee9ebe443d42aeb91d3dacac39e069f03be53</string>
+		<string>31251ce7a835aa5c0a4860ee735c7facb99ef958</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.1/src/update/apps/xrdb-X11R7.1-1.0.2.tar.bz2</string>
+		<string>ftp://ftp.x.org/pub/individual/app/xrdb-1.0.5.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.2</string>
+		<string>1.0.5</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
@@ -1027,33 +1012,33 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2008-06-29</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xrx</string>
 		<key>OpenSourceSHA1</key>
-		<string>02bebf9b78628e9a7c1bfe0946572057af336b0a</string>
+		<string>f042381f204e6dbdf03a8536d438e89a278cc087</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/apps/xrx-X11R7.0-1.0.1.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/app/xrx-1.0.2.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.1</string>
+		<string>1.0.2</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2008-03-10</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xset</string>
 		<key>OpenSourceSHA1</key>
-		<string>92eed4020510772d3cfcb84ca93da0c1d09a1f1b</string>
+		<string>3f83c524682cffa2a778c093ba0ed82a13aaa38f</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.1/src/update/apps/xset-X11R7.1-1.0.2.tar.bz2</string>
+		<string>ftp://ftp.x.org/pub/individual/app/xset-1.0.4.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.2</string>
+		<string>1.0.4</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
@@ -1075,33 +1060,33 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2008-02-23</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xsetpointer</string>
 		<key>OpenSourceSHA1</key>
-		<string>3d6eb3c44d9eb07a027efb8b3c23f3ed52ea7a62</string>
+		<string>a8b01c6f27625a6f6943f9be17b1e5511f69d710</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/apps/xsetpointer-X11R7.0-1.0.0.tar.bz2</string>
+		<string>ftp://ftp.x.org/pub/individual/app/xsetpointer-1.0.1.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.0</string>
+		<string>1.0.1</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2008-02-23</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xsetroot</string>
 		<key>OpenSourceSHA1</key>
-		<string>f2331c1f6c46b6f091ebc208334f551aec1ef904</string>
+		<string>55fbfc74d443ebc5bc1bdb3d4276c0b2d62e7e4a</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/apps/xsetroot-X11R7.0-1.0.1.tar.bz2</string>
+		<string>ftp://ftp.x.org/pub/individual/app/xsetroot-1.0.2.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.1</string>
+		<string>1.0.2</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
@@ -1139,17 +1124,17 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2009-01-26</string>
+		<string>2009-04-09</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xterm</string>
 		<key>OpenSourceSHA1</key>
-		<string>d2681e9cd27213a2258487a734443f0ee19d0a0a</string>
+		<string>2d21f9ac13df846053b43d9fcf6ae70eaa63715a</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://invisible-island.net/xterm/xterm-241.tgz</string>
+		<string>ftp://invisible-island.net/xterm/xterm-243.tgz</string>
 		<key>OpenSourceVersion</key>
-		<string>241</string>
+		<string>243</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://invisible-island.net/xterm</string>
 	</dict>
@@ -1187,33 +1172,33 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2008-06-29</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xwd</string>
 		<key>OpenSourceSHA1</key>
-		<string>1c28dc97b6b17f3310f548fff218c635ec4380e9</string>
+		<string>2d936c3fdd441d3a3a253f9e0b47cc10a96a46ab</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/apps/xwd-X11R7.0-1.0.1.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/app/xwd-1.0.2.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.1</string>
+		<string>1.0.2</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2008-06-29</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xwininfo</string>
 		<key>OpenSourceSHA1</key>
-		<string>00036104d491b46fed09ff8f6d6611c1e7a2a081</string>
+		<string>60c0410313da0b17dfd447714b4a0a47c5108747</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.1/src/update/apps/xwininfo-X11R7.1-1.0.2.tar.bz2</string>
+		<string>ftp://ftp.x.org/pub/individual/app/xwininfo-1.0.4.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.2</string>
+		<string>1.0.4</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>

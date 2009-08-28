@@ -1,0 +1,76 @@
+Announcing XOTcl 1.3.0
+**********************
+
+WHAT IS XOTCL?
+
+  XOTcl is an object-oriented extension of Tcl that was derived from
+  OTcl. In short, XOTcl tries to provide a highly flexible,
+  reflective, component-based, and object-oriented environment. It
+  integrates language support for high level concepts which are not
+  found in other languages, with reasonable performance. It prevails
+  the Tcl programming style and the dynamic/introspective nature of
+  the language, rather than introducing other language's styles and
+  rigidness (such as C++) into Tcl.
+
+
+Major changes relative to 1.2.0 are:
+
+  - Qualitative Improvements
+     * Improved portability: 
+       + TEA3 compatible build
+       + Much more polished configure+makefile (many thanks to 
+         Jim Lynch for his help)
+
+     * Improved code quality: 
+       + fixed 2 possible segmentation violations (error handling)
+       + fixed free memory reads (many thanks to Zoran Vasiljevic
+         for his help with purify)
+
+     * Less intrusive usage of XOTcl components:
+       + XOTcl procs and instprocs use now the namespace in which
+         they were defined. One can use XOTcl packages without having 
+         the need to import xotcl globally or to use the xotcl-prefix 
+         in all xotcl procs/instprocs.
+
+  - Functional Improvements 
+     * New forwarding mechanisms for fast delegation:
+       new methods 'forward' and 'instforward' (many thanks
+       to Bryan Schofield for fruitful discussions and suggestions).
+       This method is a superset of tclcmd/insttclcmd, which has
+       been marked as deprecated. See the tutorial for more details. 
+
+     * Nonpositional arguments for xotcl procs/instprocs; this is
+       a flexible way to check arguments, to provide defaults etc
+       for every xotcl proc/instproc. It uses a similar syntax as
+       ad_proc and ad_page_contract in OACS. See the tutorial for
+       more details.
+
+     * Extended methods filter, mixin, instfilter, instmixin as 
+       discussed in the XOTcl mailing list. These commands can be 
+       used more flexibly as follows
+
+             obj mixin               same as: obj info mixin
+             obj mixin {C1 C2}       same as: obj mixin set {C1 C2}
+             obj mixin set {C1 C2}   sets the mixins for obj
+             obj mixin get           same as: obj info mixin
+             obj mixin add C3        adds a mixin on front of the mixin list
+             obj mixin add C3 end    adds a mixin at the end the mixin list
+             obj mixin add C3 3      adds a mixin at the 3rd position
+             obj mixin delete ::C3   removes the mixin from the mixin list
+
+        The same semantics are available as well for filter, instmixin 
+        and instfilter. This change is fully backward compatible.
+        {filter,instfilter,mixin,instmixin}append are deprecated now.
+
+
+ For more details about the changes, please consult the ChangeLog and documentation.
+
+MORE INFO
+  General and more detailed information about XOTcl and its components
+  can be found at http://www.xotcl.org
+
+
+Best regards,
+
+Gustaf Neumann
+Uwe Zdun

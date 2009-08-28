@@ -1403,8 +1403,8 @@ static DEVICEMODE* dup_devicemode(TALLOC_CTX *ctx, DEVICEMODE *devmode)
 
 	len = unistrlen(devmode->formname.buffer);
 	if (len != -1) {
-		d->devicename.buffer = TALLOC_ARRAY(ctx, uint16, len);
-		if (!d->devicename.buffer) {
+		d->formname.buffer = TALLOC_ARRAY(ctx, uint16, len);
+		if (!d->formname.buffer) {
 			return NULL;
 		}
 		if (unistrcpy(d->formname.buffer, devmode->formname.buffer) != len)
@@ -2263,6 +2263,7 @@ static WERROR getprinterdata_printer_server(TALLOC_CTX *ctx, fstring value, uint
 		*type = REG_DWORD;
 		if ( !(*data = TALLOC_ARRAY(ctx, uint8, sizeof(uint32) )) )
 			return WERR_NOMEM;
+		SIVAL(*data, 0, 0x00);
 		*needed = 0x4;
 		return WERR_OK;
 	}

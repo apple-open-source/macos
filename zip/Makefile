@@ -6,9 +6,9 @@ PROJECT=zip
 COMPONENTS=zip unzip
 
 SRCROOT=$(shell pwd)
-OBJROOT=/tmp/$(PROJECT).obj
-SYMROOT=/tmp/$(PROJECT).sym
-DSTROOT=/tmp/$(PROJECT).dst
+OBJROOT?=/tmp/$(PROJECT).obj
+SYMROOT?=/tmp/$(PROJECT).sym
+DSTROOT?=/tmp/$(PROJECT).dst
 
 OSVERSIONS	= /usr/local/OpenSourceVersions
 

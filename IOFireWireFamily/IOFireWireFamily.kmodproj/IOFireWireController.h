@@ -38,6 +38,7 @@
 #include <IOKit/firewire/IOFireWireFamilyCommon.h>
 #include <IOKit/firewire/IOFireWireIRMAllocation.h>
 #include <IOKit/firewire/IOFWPHYPacketListener.h>
+#include <IOKit/firewire/IOFireWireMultiIsochReceive.h>
 
 class OSData;
 class IOWorkLoop;
@@ -343,6 +344,8 @@ protected:
 	UInt8						fPadding;
 	UInt16						fPadding2;
 	
+	IOFWUserObjectExporter *	fSessionRefExporter;
+	
 	/*! 
 		@struct ExpansionData
 		@discussion This structure will be used to expand the capablilties of the class in the future.
@@ -362,8 +365,7 @@ protected:
 	virtual	void 									free ();
 	virtual IOFWDCLPool *							createDCLPool ( unsigned capacity ) const ;	
 	virtual UInt8									getMaxRec( void );
-	virtual IOFWBufferFillIsochPort *				createBufferFillIsochPort() const ;
-
+	
 	virtual UInt64 getFireWirePhysicalAddressMask( void );
 	virtual UInt32 getFireWirePhysicalAddressBits( void );
 	virtual UInt64 getFireWirePhysicalBufferMask( void );
@@ -371,6 +373,8 @@ protected:
 	
 	virtual IOFWSimpleContiguousPhysicalAddressSpace * createSimpleContiguousPhysicalAddressSpace( vm_size_t size, IODirection direction );
 	virtual IOFWSimplePhysicalAddressSpace * createSimplePhysicalAddressSpace( vm_size_t size, IODirection direction );
+	
+	virtual IOFWUserObjectExporter * getSessionRefExporter( void );
 	
 private:
     OSMetaClassDeclareReservedUnused(IOFireWireControllerAux, 0);
@@ -383,6 +387,7 @@ private:
     OSMetaClassDeclareReservedUnused(IOFireWireControllerAux, 7);
 
 };
+
 
 #pragma mark -
 
@@ -478,6 +483,7 @@ protected:
 
 	OSSet *						fIRMAllocations;	// Need to be informed of bus resets
     OSIterator *				fIRMAllocationsIterator;	// Iterator over channels
+	OSSet *						fIRMAllocationsAllocated;	// Need to be informed of bus resets
 
     // Bus management variables (although we aren't a FireWire Bus Manager...)
     AbsoluteTime				fResetTime;		// Time of last reset
@@ -866,7 +872,7 @@ protected:
 	
 	virtual void initSecurity( void );
 	virtual void freeSecurity( void );
-	static bool serverKeyswitchCallback( void * target, void * refCon, IOService * service );
+	static bool serverKeyswitchCallback( void * target, void * refCon, IOService * service, IONotifier * notifier );
 	virtual void setSecurityMode( IOFWSecurityMode mode );
 	virtual IOFWSecurityMode getSecurityMode( void );
 
@@ -1041,6 +1047,33 @@ public:
 protected:
 	void removeAsyncStreamReceiver( IOFWAsyncStreamReceiver *receiver );
 	
+public:
+
+	// Create a multi-isoch-receive listener
+	IOFireWireMultiIsochReceiveListener * createMultiIsochReceiveListener(UInt32 channel,
+																		  FWMultiIsochReceiveListenerCallback callback,
+																		  void *pCallbackRefCon,
+																		  FWMultiIsochReceiveListenerParams *pListenerParams = NULL);
+	
+	// Activate a multi-isoch-receive listener
+	IOReturn activateMultiIsochReceiveListener(IOFireWireMultiIsochReceiveListener *pListener);
+	
+	// Deactivate a multi-isoch-receive listener
+	IOReturn deactivateMultiIsochReceiveListener(IOFireWireMultiIsochReceiveListener *pListener);
+
+	// Call for client to specify he is done with a multi-isoch receiver isoch packet
+	void clientDoneWithMultiIsochReceivePacket(IOFireWireMultiIsochReceivePacket *pPacket);
+
+public:
+    virtual IOFWAsyncStreamCommand * createAsyncStreamCommand( UInt32 generation,
+    			UInt32 channel, UInt32 sync, UInt32 tag, IOMemoryDescriptor *hostMem,
+				UInt32 size, int speed,FWAsyncStreamCallback completion, void *refcon, bool	failOnReset);
+
+private:
+	void addToIRMAllocationSet(IOFireWireIRMAllocation *anObject);
+	void removeFromIRMAllocationSet(IOFireWireIRMAllocation *anObject);
+	
+protected:	
 	OSMetaClassDeclareReservedUnused(IOFireWireController, 0);
     OSMetaClassDeclareReservedUnused(IOFireWireController, 1);
     OSMetaClassDeclareReservedUnused(IOFireWireController, 2);

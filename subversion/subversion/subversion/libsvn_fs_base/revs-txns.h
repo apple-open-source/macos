@@ -1,7 +1,7 @@
 /* revs-txns.h : internal interface to revision and transactions operations
  *
  * ====================================================================
- * Copyright (c) 2000-2004 CollabNet.  All rights reserved.
+ * Copyright (c) 2000-2006, 2009 CollabNet.  All rights reserved.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution.  The terms
@@ -18,8 +18,8 @@
 #ifndef SVN_LIBSVN_FS_REVS_TXNS_H
 #define SVN_LIBSVN_FS_REVS_TXNS_H
 
-#define APU_WANT_DB
-#include <apu_want.h>
+#define SVN_WANT_BDB
+#include "svn_private_config.h"
 
 #include "svn_fs.h"
 
@@ -200,7 +200,10 @@ svn_error_t *svn_fs_base__txn_proplist(apr_hash_t **table_p,
                                        svn_fs_txn_t *txn,
                                        apr_pool_t *pool);
 
-/* Helper func:  variant of __txn_proplist that uses an existing trail. */
+/* Helper func:  variant of __txn_proplist that uses an existing TRAIL.
+ * TXN_ID identifies the transaction.
+ * *TABLE_P will be non-null upon success.
+ */
 svn_error_t *svn_fs_base__txn_proplist_in_trail(apr_hash_t **table_p,
                                                 const char *txn_id,
                                                 trail_t *trail);
@@ -208,6 +211,10 @@ svn_error_t *svn_fs_base__txn_proplist_in_trail(apr_hash_t **table_p,
 svn_error_t *svn_fs_base__change_txn_prop(svn_fs_txn_t *txn, const char *name,
                                           const svn_string_t *value,
                                           apr_pool_t *pool);
+
+svn_error_t *svn_fs_base__change_txn_props(svn_fs_txn_t *txn,
+                                           apr_array_header_t *props,
+                                           apr_pool_t *pool);
 
 
 #ifdef __cplusplus

@@ -1,28 +1,47 @@
+/****************************************************************************
+ * Copyright (c) 2003-2007,2008 Free Software Foundation, Inc.              *
+ *                                                                          *
+ * Permission is hereby granted, free of charge, to any person obtaining a  *
+ * copy of this software and associated documentation files (the            *
+ * "Software"), to deal in the Software without restriction, including      *
+ * without limitation the rights to use, copy, modify, merge, publish,      *
+ * distribute, distribute with modifications, sublicense, and/or sell       *
+ * copies of the Software, and to permit persons to whom the Software is    *
+ * furnished to do so, subject to the following conditions:                 *
+ *                                                                          *
+ * The above copyright notice and this permission notice shall be included  *
+ * in all copies or substantial portions of the Software.                   *
+ *                                                                          *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+ * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+ * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+ * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+ * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+ *                                                                          *
+ * Except as contained in this notice, the name(s) of the above copyright   *
+ * holders shall not be used in advertising or otherwise to promote the     *
+ * sale, use or other dealings in this Software without prior written       *
+ * authorization.                                                           *
+ ****************************************************************************/
 /*
- * $Id: demo_forms.c,v 1.18 2005/10/08 21:54:20 tom Exp $
+ * $Id: demo_forms.c,v 1.30 2008/10/18 20:38:20 tom Exp $
  *
  * Demonstrate a variety of functions from the form library.
  * Thomas Dickey - 2003/4/26
  */
 /*
-TYPE_ALNUM			-
 TYPE_ENUM			-
 TYPE_REGEXP			-
 dup_field			-
-field_arg			-
-field_back			-
-field_count			-
-field_fore			-
 field_init			-
 field_just			-
-field_pad			-
 field_term			-
-field_type			-
 form_init			-
 form_opts			-
 form_opts_off			-
 form_opts_on			-
-form_page			-
 form_request_by_name		-
 form_term			-
 form_userptr			-
@@ -33,7 +52,6 @@ move_field			-
 new_page			-
 pos_form_cursor			-
 set_field_init			-
-set_field_pad			-
 set_field_term			-
 set_fieldtype_arg		-
 set_fieldtype_choice		-
@@ -86,10 +104,10 @@ make_field(int frow, int fcol, int rows, int cols)
 	 * O_STATIC off makes the form library ignore justification.
 	 */
 	set_field_just(f, j_value);
-	set_field_userptr(f, (void *) 0);
 	if (d_option) {
 	    if (has_colors()) {
 		set_field_fore(f, COLOR_PAIR(2));
+		set_field_back(f, A_UNDERLINE | COLOR_PAIR(3));
 	    } else {
 		set_field_fore(f, A_BOLD);
 	    }
@@ -100,6 +118,11 @@ make_field(int frow, int fcol, int rows, int cols)
 	    field_opts_off(f, O_STATIC);
 	    set_max_field(f, m_value);
 	}
+
+	/*
+	 * The userptr is used in edit_field.c's inactive_field().
+	 */
+	set_field_userptr(f, (void *) (long) field_back(f));
 	if (t_value)
 	    set_field_buffer(f, 0, t_value);
     }
@@ -236,7 +259,11 @@ show_current_field(WINDOW *win, FORM * form)
 	waddstr(win, " behind");
     waddch(win, '\n');
     if ((field = current_field(form)) != 0) {
-	wprintw(win, "Field %d:", field_index(field));
+	wprintw(win, "Page %d%s, Field %d/%d%s:",
+		form_page(form),
+		new_page(field) ? "*" : "",
+		field_index(field), field_count(form),
+		field_arg(field) ? "(arg)" : "");
 	if ((type = field_type(field)) != 0) {
 	    if (type == TYPE_ALNUM)
 		waddstr(win, "ALNUM");
@@ -271,6 +298,21 @@ show_current_field(WINDOW *win, FORM * form)
 	    wprintw(win, " size %dx%d (max %d)",
 		    field_rows, field_cols, field_max);
 	}
+
+	waddch(win, ' ');
+	wattrset(win, field_fore(field));
+	waddstr(win, "fore");
+	wattroff(win, field_fore(field));
+
+	waddch(win, '/');
+
+	wattrset(win, field_back(field));
+	waddstr(win, "back");
+	wattroff(win, field_back(field));
+
+	wprintw(win, ", pad '%c'",
+		field_pad(field));
+
 	waddstr(win, "\n");
 	for (nbuf = 0; nbuf <= 2; ++nbuf) {
 	    if ((buffer = field_buffer(field, nbuf)) != 0) {
@@ -290,11 +332,15 @@ demo_forms(void)
 {
     WINDOW *w;
     FORM *form;
-    FIELD *f[100];
+    FIELD *f[100];		/* FIXME memset to zero */
     int finished = 0, c;
     unsigned n = 0;
     int pg;
     WINDOW *also;
+
+#ifdef NCURSES_MOUSE_VERSION
+    mousemask(ALL_MOUSE_EVENTS, (mmask_t *) 0);
+#endif
 
     help_edit_field();
 
@@ -304,6 +350,7 @@ demo_forms(void)
     refresh();
 
     /* describe the form */
+    memset(f, 0, sizeof(f));
     for (pg = 0; pg < 4; ++pg) {
 	char label[80];
 	sprintf(label, "Sample Form Page %d", pg + 1);
@@ -324,10 +371,24 @@ demo_forms(void)
 	    f[n++] = make_field(3, 34, 1, 12);
 	    set_field_type(f[n - 1], TYPE_ALPHA, 1);
 	    break;
+	case 1:
+	    f[n++] = make_label(2, 0, "Last Name");
+	    f[n++] = make_field(3, 0, 1, 18);
+	    set_field_type(f[n - 1], TYPE_ALPHA, 1);
+
+	    f[n++] = make_label(2, 20, "First Name");
+	    f[n++] = make_field(3, 20, 1, 12);
+	    set_field_type(f[n - 1], TYPE_ALPHA, 1);
+
+	    f[n++] = make_label(2, 34, "MI");
+	    f[n++] = make_field(3, 34, 1, 1);
+	    set_field_pad(f[n - 1], '?');
+	    set_field_type(f[n - 1], TYPE_ALPHA, 1);
+	    break;
 	case 2:
 	    f[n++] = make_label(2, 0, "Host Name");
 	    f[n++] = make_field(3, 0, 1, 18);
-	    set_field_type(f[n - 1], TYPE_ALPHA, 1);
+	    set_field_type(f[n - 1], TYPE_ALNUM, 1);
 
 #ifdef NCURSES_VERSION
 	    f[n++] = make_label(2, 20, "IP Address");
@@ -351,39 +412,46 @@ demo_forms(void)
 
 	f[n++] = make_label(5, 0, "Comments");
 	f[n++] = make_field(6, 0, 4, 46);
+	set_field_buffer(f[n - 1], 0, "HELLO\nWORLD!");
+	set_field_buffer(f[n - 1], 1, "Hello\nWorld!");
     }
 
     f[n++] = (FIELD *) 0;
 
-    form = new_form(f);
+    if ((form = new_form(f)) != 0) {
 
-    display_form(form);
+	display_form(form);
 
-    w = form_win(form);
-    also = newwin(getmaxy(stdscr) - getmaxy(w), COLS, getmaxy(w), 0);
-    show_current_field(also, form);
-
-    while (!finished) {
-	switch (edit_field(form, &c)) {
-	case E_OK:
-	    break;
-	case E_UNKNOWN_COMMAND:
-	    finished = my_form_driver(form, c);
-	    break;
-	default:
-	    beep();
-	    break;
-	}
+	w = form_win(form);
+	also = newwin(getmaxy(stdscr) - getmaxy(w), COLS, getmaxy(w), 0);
 	show_current_field(also, form);
+
+	while (!finished) {
+	    switch (edit_field(form, &c)) {
+	    case E_OK:
+		break;
+	    case E_UNKNOWN_COMMAND:
+		finished = my_form_driver(form, c);
+		break;
+	    default:
+		beep();
+		break;
+	    }
+	    show_current_field(also, form);
+	}
+
+	erase_form(form);
+
+	free_form(form);
     }
-
-    erase_form(form);
-
-    free_form(form);
     for (c = 0; f[c] != 0; c++)
 	free_field(f[c]);
     noraw();
     nl();
+
+#ifdef NCURSES_MOUSE_VERSION
+    mousemask(0, (mmask_t *) 0);
+#endif
 }
 
 static void
@@ -412,7 +480,7 @@ main(int argc, char *argv[])
 
     setlocale(LC_ALL, "");
 
-    while ((ch = getopt(argc, argv, "dj:m:o:t:")) != EOF) {
+    while ((ch = getopt(argc, argv, "dj:m:o:t:")) != -1) {
 	switch (ch) {
 	case 'd':
 	    d_option = TRUE;
@@ -450,6 +518,7 @@ main(int argc, char *argv[])
 	start_color();
 	init_pair(1, COLOR_WHITE, COLOR_BLUE);
 	init_pair(2, COLOR_GREEN, COLOR_BLACK);
+	init_pair(3, COLOR_CYAN, COLOR_BLACK);
 	bkgd(COLOR_PAIR(1));
 	refresh();
     }

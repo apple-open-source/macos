@@ -1,5 +1,5 @@
 ;;- Machine description for the pdp11 for GNU C compiler
-;; Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2004
+;; Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2004, 2005
 ;; Free Software Foundation, Inc.
 ;; Contributed by Michael K. Gschwind (mike@vlsivie.tuwien.ac.at).
 
@@ -17,8 +17,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 
 ;; HI is 16 bit
@@ -124,8 +124,7 @@
   rtx br_insn = NEXT_INSN (insn);
   RTX_CODE br_code;
 
-  if (GET_CODE (br_insn) != JUMP_INSN)
-    abort();
+  gcc_assert (GET_CODE (br_insn) == JUMP_INSN);
   br_code =  GET_CODE (XEXP (XEXP (PATTERN (br_insn), 1), 0));
   
   switch(br_code)
@@ -148,7 +147,7 @@
 
     default:
 
-      abort();
+      gcc_unreachable ();
   }
 }"
   [(set_attr "length" "4")])
@@ -872,7 +871,7 @@
 
     default:
 
-      abort();
+      gcc_unreachable ();
   }
 }"
   [(set_attr "length" "5,3,3")])
@@ -1131,8 +1130,7 @@
   ""
   "*
 {
-  if (GET_CODE (operands[2]) == CONST_INT)
-    abort();
+  gcc_assert (GET_CODE (operands[2]) != CONST_INT);
 
   return \"sub %2, %0\";
 }"
@@ -1145,8 +1143,7 @@
   ""
   "*
 {
-  if (GET_CODE (operands[2]) == CONST_INT)
-    abort();
+  gcc_assert (GET_CODE (operands[2]) != CONST_INT);
 
   return \"sub %2, %0\";
 }"

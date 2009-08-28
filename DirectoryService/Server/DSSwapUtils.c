@@ -26,8 +26,6 @@
  * Provides routines to byte swap DSProxy buffers.
  */
  
-#ifndef __BIG_ENDIAN__
-
 #include "DSSwapUtils.h"
 #include <string.h>
 #include <errno.h>			// system call error numbers
@@ -40,85 +38,91 @@
 #include "CSharedData.h"
 #include "SharedConsts.h"
 
-UInt32 DSGetLong(void* ptr, dsBool inToBig)
+UInt32 DSGetLong( void* ptr, eSwapDirection inSwapDir )
 {
-	UInt32 returnVal = *(UInt32*)(ptr);
-	if (!inToBig)
-		returnVal = NXSwapBigIntToHost(returnVal);
-		
-	return returnVal;
+	UInt32	retval = *((UInt32 *) ptr);
+	
+	if ( inSwapDir == kDSSwapNetworkToHostOrder )
+		retval = ntohl( retval );
+	
+	return retval;
 }
 
-unsigned short DSGetShort(void* ptr, dsBool inToBig)
+UInt32 DSGetAndSwapLong( void* ptr, eSwapDirection inSwapDir )
 {
-	unsigned short returnVal = *(unsigned short*)(ptr);
-	if (!inToBig)
-		returnVal = NXSwapBigShortToHost(returnVal);
-		
-	return returnVal;
+	UInt32	retval;
+	UInt32	*value = (UInt32 *) ptr;
+	
+	switch ( inSwapDir )
+	{
+		case kDSSwapHostToNetworkOrder:
+			retval = (*value);
+			(*value) = htonl( retval );
+			break;
+		case kDSSwapNetworkToHostOrder:
+			(*value) = retval = ntohl( *value );
+			break;
+	}
+	
+	return retval;
 }
 
-UInt32 DSGetAndSwapLong(void* ptr, dsBool inToBig)
+UInt16 DSGetAndSwapShort( void* ptr, eSwapDirection inSwapDir )
 {
-	UInt32 returnVal = *(UInt32*)(ptr);
-	if (inToBig)
-		*(UInt32*)(ptr) = NXSwapHostIntToBig(returnVal);
-	else
-		returnVal = *(UInt32*)(ptr) = NXSwapBigIntToHost(returnVal);
-		
-	return returnVal;
+	UInt16	retval;
+	UInt16	*value = (UInt16 *) ptr;
+	
+	switch ( inSwapDir )
+	{
+		case kDSSwapHostToNetworkOrder:
+			retval = (*value);
+			(*value) = ntohs( retval );
+			break;
+		case kDSSwapNetworkToHostOrder:
+			(*value) = retval = htons( *value );
+			break;
+	}
+	
+	return retval;
 }
 
-unsigned short DSGetAndSwapShort(void* ptr, dsBool inToBig)
-{
-	unsigned short returnVal = *(unsigned short*)(ptr);
-	if (inToBig)
-		*(unsigned short*)(ptr) = NXSwapHostShortToBig(returnVal);
-	else
-		returnVal = *(unsigned short*)(ptr) = NXSwapBigShortToHost(returnVal);
-		
-	return returnVal;
-}
-
-void DSSwapLong(void* ptr, dsBool inToBig) { DSGetAndSwapLong(ptr, inToBig); }
-void DSSwapShort(void* ptr, dsBool inToBig) { DSGetAndSwapShort(ptr, inToBig); }
-
-void DSSwapRecordEntry(char* data, UInt32 type, dsBool inToBig)
+void DSSwapRecordEntry(char* data, UInt32 type, eSwapDirection inSwapDir)
 {
 	short i = 0;
 	short j = 0;
 	
     // if at any point we see data that doesn't make sense, we just bail
+	bool bStandardA = (type != 'StdB' && type != 'DbgB');
     
     // start with initial length, then type and name strings (each with two byte length)
-    UInt32 entryLen = DSGetAndSwapLong(data, inToBig);
+    UInt32 entryLen = DSGetAndSwapLong(data, inSwapDir);
     char* dataEnd = data + 4 + entryLen;
     data += 4;
-    unsigned short tempLen = DSGetAndSwapShort(data, inToBig);
+    UInt16 tempLen = DSGetAndSwapShort(data, inSwapDir);
     data += 2 + tempLen;
     if (data > dataEnd) return;
-    tempLen = DSGetAndSwapShort(data, inToBig);
+    tempLen = DSGetAndSwapShort(data, inSwapDir);
     data += 2 + tempLen;
     if (data > dataEnd) return;
     
     // next is the attribute count (2 bytes)
-    unsigned short attrCount = DSGetAndSwapShort(data, inToBig);
+    UInt16 attrCount = DSGetAndSwapShort(data, inSwapDir);
     data += 2;
     
     // go through each attribute entry
     for (i = 0; i < attrCount; i++)
     {
         UInt32 attrLen;
-        if ( (type != 'StdB') || (type != 'DbgB') )
+        if ( bStandardA )
         {
             // 4 byte attribute length
-            attrLen = DSGetAndSwapLong(data, inToBig);
+            attrLen = DSGetAndSwapLong(data, inSwapDir);
             data += 4;
         }
         else
         {
             // 2 byte attribute length
-            attrLen = DSGetAndSwapShort(data, inToBig);
+            attrLen = DSGetAndSwapShort(data, inSwapDir);
             data += 2;
         }
         
@@ -126,28 +130,28 @@ void DSSwapRecordEntry(char* data, UInt32 type, dsBool inToBig)
         if (attrEnd > dataEnd) return;
         
         // next is attr type
-        tempLen = DSGetAndSwapShort(data, inToBig);
+        tempLen = DSGetAndSwapShort(data, inSwapDir);
         data += 2 + tempLen;
         if (data > attrEnd) return;
         
         // next is attr value count
-        unsigned short attrValCount = DSGetAndSwapShort(data, inToBig);
+        UInt16 attrValCount = DSGetAndSwapShort(data, inSwapDir);
         data += 2;
 
         // go through each attribute value
         for (j = 0; j < attrValCount; j++)
         {
             UInt32 attrValueLen;
-            if ( (type != 'StdB') || (type != 'DbgB') )
+			if ( bStandardA )
             {
                 // 4 byte attribute length
-                attrValueLen = DSGetAndSwapLong(data, inToBig);
+                attrValueLen = DSGetAndSwapLong(data, inSwapDir);
                 data += 4;
             }
             else
             {
                 // 2 byte attribute length
-                attrValueLen = DSGetAndSwapShort(data, inToBig);
+                attrValueLen = DSGetAndSwapShort(data, inSwapDir);
                 data += 2;
             }
             
@@ -156,34 +160,34 @@ void DSSwapRecordEntry(char* data, UInt32 type, dsBool inToBig)
     }
 }
 
-void DSSwapStandardBuf(char* data, UInt32 size, dsBool inToBig)
+void DSSwapStandardBuf(char* data, UInt32 size, eSwapDirection inSwapDir)
 {
     // check if this buffer is in one of the known formats
     // Must be at least 12 bytes big
     if (size < 12)
         return;
         
-    UInt32 type = DSGetLong(data, inToBig);
-    if ((type == 'StdA') || (type == 'DbgA') || (type == 'StdB') || (type == 'DbgB') || (type == 'Gdni'))
+    UInt32 type = DSGetLong(data, inSwapDir);
+    if ( (type == 'StdA') || (type == 'DbgA') || (type == 'StdB') || (type == 'DbgB') )
     {
         // these buffers contain an array of offsets at the beginning, with the record data
         // packed in reverse order at the end of the buffer        
         
         // swap the type
-        DSSwapLong(data, inToBig);
-        UInt32 recordCount = DSGetAndSwapLong(data + 4, inToBig);
+        DSSwapLong(data, inSwapDir);
+        UInt32 recordCount = DSGetAndSwapLong(data + 4, inSwapDir);
         
         // now swap record entries
 		UInt32 j = 0;
         for (j = 0; j < recordCount; j++)
         {
-            UInt32 offset = DSGetAndSwapLong(data + (j * 4) + 8, inToBig);
+            UInt32 offset = DSGetAndSwapLong(data + (j * 4) + 8, inSwapDir);
             if (offset > size)	return; // bad buff, so bail
-            DSSwapRecordEntry(data + offset, type, inToBig);
+            DSSwapRecordEntry(data + offset, type, inSwapDir);
         }
         
         // swap the end tag
-        DSSwapLong(data + (recordCount * 4) + 8, inToBig);
+        DSSwapLong(data + (recordCount * 4) + 8, inSwapDir);
     }
     else if (type == 'npss')
     {
@@ -191,22 +195,22 @@ void DSSwapStandardBuf(char* data, UInt32 size, dsBool inToBig)
         // in reverse order at the end, and the data is at the beginning
         
         // swap the type
-        DSSwapLong(data, inToBig);
-        UInt32 nodeCount = DSGetAndSwapLong(data + 4, inToBig);
+        DSSwapLong(data, inSwapDir);
+        UInt32 nodeCount = DSGetAndSwapLong(data + 4, inSwapDir);
         
 		UInt32 i = 0;
         for (i = 0; i < nodeCount; i++)
         {
-            UInt32 offset = DSGetAndSwapLong(data + size - (4 * i) - 4, inToBig);
+            UInt32 offset = DSGetAndSwapLong(data + size - (4 * i) - 4, inSwapDir);
             if (offset > size) return;
             char* tempPtr = data + offset;
-            unsigned short numSegments = DSGetAndSwapShort(tempPtr, inToBig);
+            UInt16 numSegments = DSGetAndSwapShort(tempPtr, inSwapDir);
             tempPtr += 2;
             
 			short j = 0;
             for (j = 0; j < numSegments; j++)
             {
-                unsigned short segmentLen = DSGetAndSwapShort(tempPtr, inToBig);
+                UInt16 segmentLen = DSGetAndSwapShort(tempPtr, inSwapDir);
                 tempPtr += 2 + segmentLen;
                 if (tempPtr - data > (SInt32)size) return;
             }
@@ -217,12 +221,12 @@ void DSSwapStandardBuf(char* data, UInt32 size, dsBool inToBig)
 void DSSwapObjectData(	UInt32 type,
 						char* data,
 						UInt32 size,
-						dsBool swapAuth,
-						dsBool isCustomCall,
+						bool swapAuth,
+						bool isCustomCall,
 						UInt32 inCustomRequestNum,
 						const char* inPluginName,
-						dsBool isAPICallResponse,
-						dsBool inToBig)
+						bool isAPICallResponse,
+						eSwapDirection inSwapDir)
 {
     // first swap the contents of certain object types
     switch (type)
@@ -241,7 +245,7 @@ void DSSwapObjectData(	UInt32 type,
 							UInt32 totalLen = 0;
 							while (totalLen < size)
 							{
-								UInt32 length = DSGetAndSwapLong(data, inToBig);
+								UInt32 length = DSGetAndSwapLong(data, inSwapDir);
 								totalLen += length + 4;
 								data += length + 4;
 							}
@@ -255,7 +259,7 @@ void DSSwapObjectData(	UInt32 type,
 							UInt32 totalLen = 0;
 							while (totalLen < size)
 							{
-								UInt32 length = DSGetAndSwapShort(data, inToBig);
+								UInt32 length = DSGetAndSwapShort(data, inSwapDir);
 								totalLen += length + 2;
 								data += length + 2;
 							}
@@ -266,14 +270,14 @@ void DSSwapObjectData(	UInt32 type,
 					{
 						if (isAPICallResponse)
 						{
-							DSSwapLong(data, inToBig);
+							DSSwapLong(data, inSwapDir);
 						}
 					}
 					else if ( inCustomRequestNum == eDSCustomCallConfigureSCGetKeyValueSize )
 					{
 						if (isAPICallResponse)
 						{
-							DSSwapLong(data, inToBig);
+							DSSwapLong(data, inSwapDir);
 						}
 					}
 				}
@@ -283,7 +287,7 @@ void DSSwapObjectData(	UInt32 type,
 					{
 						if (isAPICallResponse)
 						{
-							DSSwapLong(data, inToBig);
+							DSSwapLong(data, inSwapDir);
 						}
 					}
 				}
@@ -296,7 +300,7 @@ void DSSwapObjectData(	UInt32 type,
 							UInt32 totalLen = 0;
 							while (totalLen < size)
 							{
-								UInt32 length = DSGetAndSwapLong(data, inToBig);
+								UInt32 length = DSGetAndSwapLong(data, inSwapDir);
 								totalLen += length + 4;
 								data += length + 4;
 							}
@@ -307,14 +311,14 @@ void DSSwapObjectData(	UInt32 type,
 					{
 						if (isAPICallResponse)
 						{
-							DSSwapLong(data, inToBig);
+							DSSwapLong(data, inSwapDir);
 						}
 					}
 					else if ( inCustomRequestNum == 1003 ) // eRecordDeleteAndCredentials
 					{
 						if (!isAPICallResponse)
 						{
-							DSSwapLong(data, inToBig);
+							DSSwapLong(data, inSwapDir);
 						}
 					}
 				}
@@ -324,7 +328,7 @@ void DSSwapObjectData(	UInt32 type,
 					{
 						if (isAPICallResponse)
 						{
-							DSSwapLong(data, inToBig);
+							DSSwapLong(data, inSwapDir);
 						}
 					}
 					else if (inCustomRequestNum == 'read' )
@@ -334,7 +338,7 @@ void DSSwapObjectData(	UInt32 type,
 							UInt32 totalLen = 0;
 							while (totalLen < size)
 							{
-								UInt32 length = DSGetAndSwapLong(data, inToBig);
+								UInt32 length = DSGetAndSwapLong(data, inSwapDir);
 								totalLen += length + 4;
 								data += length + 4;
 							}
@@ -349,7 +353,7 @@ void DSSwapObjectData(	UInt32 type,
 							UInt32 totalLen = 0;
 							while (totalLen < size)
 							{
-								UInt32 length = DSGetAndSwapLong(data, inToBig);
+								UInt32 length = DSGetAndSwapLong(data, inSwapDir);
 								totalLen += length + 4;
 								data += length + 4;
 							}
@@ -360,7 +364,7 @@ void DSSwapObjectData(	UInt32 type,
 			}
 			else
 			{
-				DSSwapStandardBuf(data, size, inToBig);
+				DSSwapStandardBuf(data, size, inSwapDir);
 			}
         }
         case kAttrMatch:
@@ -402,7 +406,7 @@ void DSSwapObjectData(	UInt32 type,
             UInt32 totalLen = 0;
             while (totalLen < size)
             {
-                UInt32 length = DSGetAndSwapLong(data, inToBig);
+                UInt32 length = DSGetAndSwapLong(data, inSwapDir);
                 totalLen += length + 4;
                 data += length + 4;
             }
@@ -412,34 +416,34 @@ void DSSwapObjectData(	UInt32 type,
         case ktAttrEntry:
         {
             tAttributeEntry* entry = (tAttributeEntry*)data;
-            DSSwapLong(&entry->fAttributeValueCount, inToBig);
-            DSSwapLong(&entry->fAttributeDataSize, inToBig);
-            DSSwapLong(&entry->fAttributeValueMaxSize, inToBig);
-            DSSwapLong(&entry->fAttributeSignature.fBufferSize, inToBig);
-            DSSwapLong(&entry->fAttributeSignature.fBufferLength, inToBig);
+            DSSwapLong(&entry->fAttributeValueCount, inSwapDir);
+            DSSwapLong(&entry->fAttributeDataSize, inSwapDir);
+            DSSwapLong(&entry->fAttributeValueMaxSize, inSwapDir);
+            DSSwapLong(&entry->fAttributeSignature.fBufferSize, inSwapDir);
+            DSSwapLong(&entry->fAttributeSignature.fBufferLength, inSwapDir);
             break;
         }
         case ktAttrValueEntry:
         {
             tAttributeValueEntry* entry = (tAttributeValueEntry*)data;
-            DSSwapLong(&entry->fAttributeValueID, inToBig);
-            DSSwapLong(&entry->fAttributeValueData.fBufferSize, inToBig);
-            DSSwapLong(&entry->fAttributeValueData.fBufferLength, inToBig);
+            DSSwapLong(&entry->fAttributeValueID, inSwapDir);
+            DSSwapLong(&entry->fAttributeValueData.fBufferSize, inSwapDir);
+            DSSwapLong(&entry->fAttributeValueData.fBufferLength, inSwapDir);
             break;
         }
         case ktRecordEntry:
         {
             short tempLen;
             tRecordEntry* entry = (tRecordEntry*)data;
-            DSSwapLong(&entry->fRecordAttributeCount, inToBig);
-            DSSwapLong(&entry->fRecordNameAndType.fBufferSize, inToBig);
-            DSSwapLong(&entry->fRecordNameAndType.fBufferLength, inToBig);
+            DSSwapLong(&entry->fRecordAttributeCount, inSwapDir);
+            DSSwapLong(&entry->fRecordNameAndType.fBufferSize, inSwapDir);
+            DSSwapLong(&entry->fRecordNameAndType.fBufferLength, inSwapDir);
 
             // fRecordNameAndType has some embedded lengths
             char* ptr = (char*)&entry->fRecordNameAndType.fBufferData[0];
-            tempLen = DSGetAndSwapShort(ptr, inToBig);
+            tempLen = DSGetAndSwapShort(ptr, inSwapDir);
             ptr += tempLen + 2;
-            DSSwapShort(ptr, inToBig);
+            DSGetAndSwapShort(ptr, inSwapDir);
             break;
         }
         
@@ -452,5 +456,3 @@ void DSSwapObjectData(	UInt32 type,
             break;
     }
 }
-
-#endif

@@ -54,7 +54,6 @@ gdb_test "run" ".*Breakpoint $decimal, ..MyClass newWithArg.*" "Run to first rbr
 
 gdb_test "next" ".*" "step #1 in newWithArg:"
 gdb_test "next" ".*" "step #2 in newWithArg:"
-gdb_test "next" ".*" "step #3 in newWithArg:"
 gdb_test "step" "-.MyClass takeArg:.*" "step into ObjC member function"
 gdb_test "fin" "Run till exit.*Value returned is .*struct objc_object.*" "finish out of ObjC member function"
 

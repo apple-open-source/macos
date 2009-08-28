@@ -12,7 +12,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  
 
 # Gcov test driver.
 
@@ -33,9 +33,9 @@ if { ![is_remote host] && [string match "*/*" [lindex $GCC_UNDER_TEST 0]] } {
 dg-init
 
 # Delete old .gcda files.
-set files [glob -nocomplain gcov-*.gcda];
+set files [glob -nocomplain gcov-*.gcda]
 if { $files != "" } {
-    eval "remote_file build delete $files";
+    eval "remote_file build delete $files"
 }
 
 # Main loop.

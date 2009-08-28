@@ -36,7 +36,7 @@ int main()
   
   if (!handle)
     {
-      fprintf (stderr, msg);
+      fprintf (stderr, "%s", msg);
       exit (1);
     }
 
@@ -44,7 +44,7 @@ int main()
 
   if (!unloadshr)
     {
-      fprintf (stderr, dlerror ());
+      fprintf (stderr, "%s", dlerror ());
       exit (1);
     }
 

@@ -39,10 +39,11 @@
 
 #include <sys/types.h>
 
-int	ndrv_socket(char * ifname);
-int	ndrv_socket_bind(int s, u_long family, u_short ether_type);
-int	ndrv_socket_add_multicast(int s, struct sockaddr_dl * dl_p);
-int	ndrv_socket_remove_multicast(int s, struct sockaddr_dl * dl_p);
+int	ndrv_socket(const char * ifname);
+int	ndrv_socket_bind(int s, u_int32_t family,
+			 const u_int16_t * ether_types, int ether_types_count);
+int	ndrv_socket_add_multicast(int s, const struct sockaddr_dl * dl_p);
+int	ndrv_socket_remove_multicast(int s, const struct sockaddr_dl * dl_p);
 
 #endif _S_NDRV_SOCKET_H
 

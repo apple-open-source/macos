@@ -23,13 +23,16 @@
 #ifndef RenderTheme_h
 #define RenderTheme_h
 
-#include "RenderObject.h"
 #if USE(NEW_THEME)
 #include "Theme.h"
 #else
 #include "ThemeTypes.h"
 #endif
+#include "RenderObject.h"
+#include "RenderTheme.h"
 #include "ScrollTypes.h"
+#include <wtf/PassRefPtr.h>
+#include <wtf/RefCounted.h>
 
 namespace WebCore {
 
@@ -38,10 +41,23 @@ class PopupMenu;
 class RenderMenuList;
 class CSSStyleSheet;
 
-class RenderTheme {
-public:
+class RenderTheme : public RefCounted<RenderTheme> {
+protected:
     RenderTheme();
+
+public:
     virtual ~RenderTheme() { }
+
+    // This function is to be implemented in your platform-specific theme implementation to hand back the
+    // appropriate platform theme. When the theme is needed in non-page dependent code, a default theme is
+    // used as fallback, which is returned for a nulled page, so the platform code needs to account for this.
+    static PassRefPtr<RenderTheme> themeForPage(Page* page);
+
+    // When the theme is needed in non-page dependent code, the defaultTheme() is used as fallback.
+    static inline PassRefPtr<RenderTheme> defaultTheme()
+    {
+        return themeForPage(0);
+    };
 
     // This method is called whenever style has been computed for an element and the appearance
     // property has been set to a value other than "none".  The theme should map in all of the appropriate
@@ -62,7 +78,7 @@ public:
     // RenderThemeMac.cpp for Mac OS X.
 
     // These methods return the theme's extra style sheets rules, to let each platform
-    // adjust the default CSS rules in html4.css, quirks.css, or mediaControls.css
+    // adjust the default CSS rules in html.css, quirks.css, or mediaControls.css
     virtual String extraDefaultStyleSheet() { return String(); }
     virtual String extraQuirksStyleSheet() { return String(); }
 #if ENABLE(VIDEO)
@@ -120,6 +136,10 @@ public:
     // Highlighting colors for TextMatches.
     virtual Color platformActiveTextSearchHighlightColor() const;
     virtual Color platformInactiveTextSearchHighlightColor() const;
+
+    static Color focusRingColor();
+    virtual Color platformFocusRingColor() const { return Color(0, 0, 0); }
+    static void setCustomFocusRingColor(const Color&);
 
     virtual void platformColorsDidChange();
 
@@ -224,7 +244,9 @@ protected:
     virtual bool paintMediaSeekForwardButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&) { return true; }
     virtual bool paintMediaSliderTrack(RenderObject*, const RenderObject::PaintInfo&, const IntRect&) { return true; }
     virtual bool paintMediaSliderThumb(RenderObject*, const RenderObject::PaintInfo&, const IntRect&) { return true; }
-    virtual bool paintMediaTimelineContainer(RenderObject*, const RenderObject::PaintInfo&, const IntRect&) { return true; }
+    virtual bool paintMediaRewindButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&) { return true; }
+    virtual bool paintMediaReturnToRealtimeButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&) { return true; }
+    virtual bool paintMediaControlsBackground(RenderObject*, const RenderObject::PaintInfo&, const IntRect&) { return true; }
     virtual bool paintMediaCurrentTime(RenderObject*, const RenderObject::PaintInfo&, const IntRect&) { return true; }
     virtual bool paintMediaTimeRemaining(RenderObject*, const RenderObject::PaintInfo&, const IntRect&) { return true; }
 
@@ -256,10 +278,6 @@ private:
     Theme* m_theme; // The platform-specific theme.
 #endif
 };
-
-// Function to obtain the theme.  This is implemented in your platform-specific theme implementation to hand
-// back the appropriate platform theme.
-RenderTheme* theme();
 
 } // namespace WebCore
 

@@ -1,7 +1,7 @@
 
 # Darwin libproc-based lsof Makefile
 #
-# $Id: Makefile,v 1.7 2007/06/05 21:11:21 ajn Exp $
+# $Id: Makefile,v 1.6 2008/10/21 16:15:16 abe Exp abe $
 
 PROG=	lsof
 
@@ -19,15 +19,15 @@ CDEFS=	${CDEF} ${CFGF}
 INCL=	${DINC}
 override CFLAGS= ${CDEFS} ${INCL} ${DEBUG}
 
-GRP=    admin
+GRP=    wheel
 
 HDR=    lsof.h lsof_fields.h dlsof.h machine.h proto.h dproto.h
 
 SRC=    ddev.c dfile.c dmnt.c dproc.c dsock.c dstore.c \
-	arg.c main.c misc.c node.c print.c proc.c store.c usage.c
+	arg.c main.c misc.c node.c print.c proc.c store.c usage.c util.c
 
 OBJ=	ddev.o dfile.o dmnt.o dproc.o dsock.o dstore.o \
-	arg.o main.o misc.o node.o print.o proc.o store.o usage.o
+	arg.o main.o misc.o node.o print.o proc.o store.o usage.o util.o
 
 MAN=	lsof.8
 
@@ -165,5 +165,7 @@ proc.o:		${HDR} proc.c
 store.o:	${HDR} store.c
 
 usage.o:	${HDR} version.h usage.c
+
+util.o:		${HDR} util.c
 
 # *** Do not add anything here - It will go away. ***

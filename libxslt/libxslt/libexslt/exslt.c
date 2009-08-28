@@ -3,17 +3,9 @@
 
 #include <libxml/xmlversion.h>
 
-#if defined(WIN32) && !defined (__CYGWIN__) && (!__MINGW32__)
-#include <win32config.h>
-#else
 #include "config.h"
-#endif
 
-#if defined(WIN32) && defined(_MSC_VER)
-#include <libxslt/xsltwin32config.h>
-#else
 #include <libxslt/xsltconfig.h>
-#endif
 #include <libxslt/extensions.h>
 
 #include "exsltconfig.h"

@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline */
 /* { dg-options "-fms-extensions" } */
 /* Verify that enabling Microsoft mode doesn't twist C++ as much as
    their corresponding C extensions.  Checked vs
@@ -28,9 +29,7 @@ char testEz[sizeof( ((E *)0)->z )];
 
 typedef struct A typedef_A;
 struct F {
-  /* APPLE LOCAL 4168392 */
-  typedef_A;  /* This Microsoft extension should still work.  */
+  typedef_A;  /* { dg-error "does not declare anything" } */
   char f;
 };
-/* APPLE LOCAL 4168392 */
-char testF[sizeof(F) > sizeof(A) ? 1 : -1];
+char testF[sizeof(F) == sizeof(A) ? 1 : -1];

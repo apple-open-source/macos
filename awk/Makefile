@@ -7,25 +7,23 @@ Project           = awk
 UserType          = Developer
 ToolType          = Commands
 
+Patches = main.c.diff makefile.diff awk.h.diff awkgram.y.diff \
+          b.c.diff lib.c.diff main.c.diff2 run.c.diff tran.c.diff \
+          run-makefile-gcc4.diff awk.1.diff
+
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
-Extra_CC_Flags    = -DHAS_ISBLANK -mdynamic-no-pic
+SDKROOT ?= /
+
+Extra_CC_Flags    = -mdynamic-no-pic -isysroot $(SDKROOT)
 Sources           = $(SRCROOT)/$(Project)
 
 install_source::
 	$(MKDIR) $(Sources)
 	$(TAR) -C $(Sources) -xzf $(SRCROOT)/awk.tar.gz
-	cd $(Sources) && patch -p0 < $(SRCROOT)/patches/main.c.diff
-	cd $(Sources) && patch -p0 < $(SRCROOT)/patches/makefile.diff
-	cd $(Sources) && patch -p0 < $(SRCROOT)/patches/awk.h.diff
-	cd $(Sources) && patch -p0 < $(SRCROOT)/patches/awkgram.y.diff
-	cd $(Sources) && patch -p0 < $(SRCROOT)/patches/b.c.diff
-	cd $(Sources) && patch -p0 < $(SRCROOT)/patches/lib.c.diff
-	cd $(Sources) && patch -p0 < $(SRCROOT)/patches/main.c.diff2
-	cd $(Sources) && patch -p0 < $(SRCROOT)/patches/run.c.diff
-	cd $(Sources) && patch -p0 < $(SRCROOT)/patches/tran.c.diff
-	cd $(Sources) && patch -p0 < $(SRCROOT)/patches/run-makefile-gcc4.diff
-	cd $(Sources) && patch -p0 < $(SRCROOT)/patches/awk.1.diff
+	@for patch in $(Patches); do \
+		(cd $(Sources) && patch -p0 -F0 < $(SRCROOT)/patches/$${patch}) || exit 1; \
+	done
 
 build:: shadow_source
 	$(MAKE) -C $(BuildDirectory) $(Environment)

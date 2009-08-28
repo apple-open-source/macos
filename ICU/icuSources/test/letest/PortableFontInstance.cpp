@@ -1,7 +1,7 @@
 /*
  *******************************************************************************
  *
- *   Copyright (C) 1999-2006, International Business Machines
+ *   Copyright (C) 1999-2008, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  *
  *******************************************************************************
@@ -121,7 +121,7 @@ PortableFontInstance::PortableFontInstance(const char *fileName, float pointSize
 
     fUnitsPerEM   = SWAPW(headTable->unitsPerEm);
     fFontChecksum = SWAPL(headTable->checksumAdjustment);
-    deleteTable(headTable);
+    freeFontTable(headTable);
 
     //nameTable = (NAMETable *) readFontTable(nameTag);
 
@@ -137,7 +137,7 @@ PortableFontInstance::PortableFontInstance(const char *fileName, float pointSize
     //    goto error_exit;
     //}
 
-    //deleteTable(nameTable);
+    //freeFontTable(nameTable);
 
     hheaTable = (HHEATable *) readFontTable(hheaTag);
 
@@ -152,7 +152,7 @@ PortableFontInstance::PortableFontInstance(const char *fileName, float pointSize
 
     fNumLongHorMetrics = SWAPW(hheaTable->numOfLongHorMetrics);
 
-    deleteTable((void *) hheaTable);
+    freeFontTable((void *) hheaTable);
 
     fCMAPMapper = findUnicodeMapper();
 
@@ -174,18 +174,13 @@ PortableFontInstance::~PortableFontInstance()
     if (fFile != NULL) {
         fclose(fFile);
 
-        deleteTable(fHMTXTable);
-        deleteTable(fNAMETable);
+        freeFontTable(fHMTXTable);
+        freeFontTable(fNAMETable);
 
         delete fCMAPMapper;
 
         DELETE_ARRAY(fDirectory);
     }
-}
-
-void PortableFontInstance::deleteTable(const void *table) const
-{
-    DELETE_ARRAY(table);
 }
 
 const DirectoryEntry *PortableFontInstance::findTable(LETag tag) const
@@ -276,7 +271,7 @@ const char *PortableFontInstance::getNameString(le_uint16 nameID, le_uint16 plat
     for(le_int32 i = 0; i < fNameCount; i += 1) {
         const NameRecord *nameRecord = &fNAMETable->nameRecords[i];
         
-        if (SWAPW(nameRecord->platformID) == platformID && SWAPW(nameRecord->encodingID == encodingID) &&
+        if (SWAPW(nameRecord->platformID) == platformID && SWAPW(nameRecord->encodingID) == encodingID &&
             SWAPW(nameRecord->languageID) == languageID && SWAPW(nameRecord->nameID) == nameID) {
             char *name = ((char *) fNAMETable) + fNameStringOffset + SWAPW(nameRecord->offset);
             le_uint16 length = SWAPW(nameRecord->length);
@@ -292,7 +287,48 @@ const char *PortableFontInstance::getNameString(le_uint16 nameID, le_uint16 plat
     return NULL;
 }
 
+const LEUnicode16 *PortableFontInstance::getUnicodeNameString(le_uint16 nameID, le_uint16 platformID, le_uint16 encodingID, le_uint16 languageID) const
+{
+    if (fNAMETable == NULL) {
+        LETag nameTag = LE_NAME_TABLE_TAG;
+        PortableFontInstance *realThis = (PortableFontInstance *) this;
+
+        realThis->fNAMETable = (const NAMETable *) readFontTable(nameTag);
+
+        if (realThis->fNAMETable != NULL) {
+            realThis->fNameCount        = SWAPW(realThis->fNAMETable->count);
+            realThis->fNameStringOffset = SWAPW(realThis->fNAMETable->stringOffset);
+        }
+    }
+
+    for(le_int32 i = 0; i < fNameCount; i += 1) {
+        const NameRecord *nameRecord = &fNAMETable->nameRecords[i];
+        
+        if (SWAPW(nameRecord->platformID) == platformID && SWAPW(nameRecord->encodingID) == encodingID &&
+            SWAPW(nameRecord->languageID) == languageID && SWAPW(nameRecord->nameID) == nameID) {
+            LEUnicode16 *name = (LEUnicode16 *) (((char *) fNAMETable) + fNameStringOffset + SWAPW(nameRecord->offset));
+            le_uint16 length = SWAPW(nameRecord->length) / 2;
+            LEUnicode16 *result = NEW_ARRAY(LEUnicode16, length + 2);
+
+            for (le_int32 c = 0; c < length; c += 1) {
+                result[c] = SWAPW(name[c]);
+            }
+
+            result[length] = 0;
+
+            return result;
+        }
+    }
+
+    return NULL;
+}
+
 void PortableFontInstance::deleteNameString(const char *name) const
+{
+    DELETE_ARRAY(name);
+}
+
+void PortableFontInstance::deleteNameString(const LEUnicode16 *name) const
 {
     DELETE_ARRAY(name);
 }
@@ -309,7 +345,7 @@ void PortableFontInstance::getGlyphAdvance(LEGlyphID glyph, LEPoint &advance) co
 
         if (maxpTable != NULL) {
             realThis->fNumGlyphs = SWAPW(maxpTable->numGlyphs);
-            deleteTable(maxpTable);
+            freeFontTable(maxpTable);
         }
 
         realThis->fHMTXTable = (const HMTXTable *) readFontTable(hmtxTag);

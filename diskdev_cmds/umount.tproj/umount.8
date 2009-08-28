@@ -61,14 +61,14 @@ If either
 or
 .Ar node
 are not provided, the appropriate information is taken from the
-.Xr fstab 5
-file.
+list of filesystems provided by
+.Xr getfsent 3 .
 .Pp
 The options are as follows:
 .Bl -tag -width indent
 .It Fl a
-All the filesystems described in
-.Xr fstab 5
+All the filesystems described via
+.Xr getfsent 3
 are unmounted.
 .It Fl A
 All the currently mounted filesystems except
@@ -81,7 +81,7 @@ The root filesystem cannot be forcibly unmounted.
 .It Fl h Ar host
 Only filesystems mounted from the specified host will be
 unmounted.
-This option is implies the
+This option implies the
 .Fl A
 option and, unless otherwise specified with the
 .Fl t
@@ -110,15 +110,17 @@ and
 Verbose, additional information is printed out as each filesystem
 is unmounted.
 .El
-.Sh FILES
-.Bl -tag -width /etc/fstab -compact
-.It Pa /etc/fstab
-filesystem table
-.El
+.Sh NOTES
+Due to the complex and interwoven nature of Mac OS X,
+.Nm umount
+may fail often.  It is recommended that
+.Xr diskutil 1
+(as in, ``diskutil unmount /mnt'') be used instead.
 .Sh SEE ALSO
 .Xr unmount 2 ,
-.Xr fstab 5 ,
-.Xr mount 8
+.Xr getfsent 3 ,
+.Xr mount 8 ,
+.Xr diskutil 1
 .Sh HISTORY
 A
 .Nm umount

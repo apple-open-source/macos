@@ -120,6 +120,18 @@ open_archive(mode)
 	 */
 opened:
 	r = flock(fd, LOCK_EX|LOCK_NB);
+	if (r && errno == EAGAIN) {
+		/*
+		 * If we get EAGAIN sleep for a second and loop up to 10 times
+		 * trying again.
+		 */
+		static int tries = 0;
+
+		sleep(1);
+		tries++;
+		if (tries < 10)
+		    goto opened;
+	}
 	if (r) {
 		switch (errno)
 		{
@@ -169,8 +181,8 @@ opened:
 				badfmt();
 			error(archive);
 		} else if (bcmp(buf, ARMAG, SARMAG)) {
-			unsigned long magic;
-			memcpy(&magic, buf, sizeof(unsigned long));
+			uint32_t magic;
+			memcpy(&magic, buf, sizeof(uint32_t));
 #ifdef __BIG_ENDIAN__
 			if(magic == FAT_MAGIC)
 #endif /* __BIG_ENDIAN__ */

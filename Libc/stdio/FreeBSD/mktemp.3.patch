@@ -1,5 +1,5 @@
---- mktemp.3	2004-11-25 11:38:35.000000000 -0800
-+++ mktemp.3.edit	2006-07-12 11:24:49.000000000 -0700
+--- mktemp.3.orig	2008-02-29 10:45:39.000000000 -0800
++++ mktemp.3	2008-02-29 11:21:10.000000000 -0800
 @@ -36,20 +36,33 @@
  .Dt MKTEMP 3
  .Os
@@ -57,13 +57,19 @@
  or
  .Fn mkdtemp .
  This is common with programs that were developed before
-@@ -226,12 +239,19 @@
- You must provide your own locking around this and other consumers of the
- .Xr arc4random 3
- API.
+@@ -219,19 +232,19 @@
+ This will ensure that the program does not continue blindly
+ in the event that an attacker has already created the file
+ with the intention of manipulating or reading its contents.
 +.Sh LEGACY SYNOPSIS
 +.Fd #include <unistd.h>
-+.Pp
+ .Pp
+-The implementation of these functions calls
+-.Xr arc4random 3 ,
+-which is not reentrant.
+-You must provide your own locking around this and other consumers of the
+-.Xr arc4random 3
+-API.
 +The include file
 +.In unistd.h
 +is necessary and sufficient for all functions.

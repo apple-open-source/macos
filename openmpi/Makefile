@@ -27,14 +27,16 @@ post-install:
 		$(STRIP) -x $(DSTROOT)/usr/lib/lib$${library}.0.dylib; \
 		$(RM) $(DSTROOT)/usr/lib/lib$${library}.la; \
 	done
+	$(CP) $(DSTROOT)/usr/lib/openmpi/*.so $(SYMROOT)
+	$(STRIP) -S $(DSTROOT)/usr/lib/openmpi/*.so
 
 # Automatic Extract & Patch
 AEP_Project    = openmpi
-AEP_Version    = 1.2.3
+AEP_Version    = 1.2.8
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = build.diff romio-suspend.diff mpi_status_c2f.diff
+AEP_Patches    = romio-suspend.diff xgrid.diff Makefile.in.diff
 
 # Extract the source.
 installsrc:
@@ -42,7 +44,7 @@ installsrc:
 	$(RMDIR) $(SRCROOT)/$(Project)
 	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(Project)
 	for patchfile in $(AEP_Patches); do \
-		(cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/files/$$patchfile) || exit 1; \
+		(cd $(SRCROOT)/$(Project) && patch -p0 -F0 < $(SRCROOT)/files/$$patchfile) || exit 1; \
 	done
 
 OSV = $(DSTROOT)/usr/local/OpenSourceVersions

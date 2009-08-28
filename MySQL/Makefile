@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2001-2007 Apple Computer, Inc.
+# Copyright (c) 2001-2009 Apple Computer, Inc.
 #
 # Starting with MySQL 3.23.54, the source patch to handle installation
 # directories with tildes no longer works. Going forward, this Makefile
@@ -16,7 +16,8 @@ include $(MAKEFILEPATH)/pb_makefiles/platform.make
 include $(MAKEFILEPATH)/pb_makefiles/commands-$(OS).make
 
 PROJECT_NAME	  = MySQL
-MYSQL_VERSION	  = mysql-5.0.67
+MYSQL_VERSION	  = 5.0.82
+MYSQL_BASE_DIR	  = mysql-$(MYSQL_VERSION)
 BUILD_DIR         = /usr
 MYSQL_BUILD_DIR   = build
 MYSQL_SRC_DIR     = $(MYSQL_BUILD_DIR)/src
@@ -37,16 +38,16 @@ MKDIR             = /bin/mkdir
 # Build paths
 
 ifndef SRCROOT
-SRCROOT		:= /tmp/MySQL.roots/MySQL
+SRCROOT		:= /tmp/MySQL.build/MySQL
 endif
 ifndef OBJROOT
-OBJROOT		:= /tmp/MySQL.roots/MySQL~obj
+OBJROOT		:= /tmp/MySQL.build/MySQL~obj
 endif
 ifndef DSTROOT
-DSTROOT		:= /tmp/MySQL.roots/MySQL~dst
+DSTROOT		:= /tmp/MySQL.build/MySQL~dst
 endif
 ifndef SYMROOT
-SYMROOT		:= /tmp/MySQL.roots/MySQL~sym
+SYMROOT		:= /tmp/MySQL.build/MySQL~sym
 endif
 
 #
@@ -84,18 +85,14 @@ CUR_ARCH_STAGING   = $(STAGING_BASE)/$(cur_arch)
 #
 
 FILES_TO_INSTALL		= \
-$(MYSQL_VERSION).tar.gz \
+$(MYSQL_BASE_DIR).tar.gz \
 Makefile \
 MySQL.plist \
 MySQL.txt \
 applemysqlcheckcnf \
 applemysqlcheckcnf.8 \
-config.h.sed \
-my-huge.cnf.patch \
-my-large.cnf.patch \
-mysqld.cc.patch \
 mysqlman.1 \
-mysqld_safe.patch
+patch
 
 FILES_TO_REMOVE = \
 usr/bin/make_win_binary_distribution \
@@ -182,13 +179,14 @@ myisam_ftdump.1 \
 myisamchk.1 \
 myisamlog.1 \
 myisampack.1 \
-mysql.1 \
 mysql-stress-test.pl.1 \
 mysql-test-run.pl.1 \
+mysql.1 \
 mysql.server.1 \
 mysql_client_test.1 \
 mysql_config.1 \
 mysql_convert_table_format.1 \
+mysql_create_system_tables.1 \
 mysql_explain_log.1 \
 mysql_find_rows.1 \
 mysql_fix_extensions.1 \
@@ -199,6 +197,7 @@ mysql_setpermission.1 \
 mysql_tableinfo.1 \
 mysql_tzinfo_to_sql.1 \
 mysql_upgrade.1 \
+mysql_upgrade_shell.1 \
 mysql_waitpid.1 \
 mysql_zap.1 \
 mysqlaccess.1 \
@@ -206,16 +205,18 @@ mysqladmin.1 \
 mysqlbinlog.1 \
 mysqlbug.1 \
 mysqlcheck.1 \
-mysqlmanager-pwgen.1 \
-mysqlmanagerc.1 \
-mysqltest.1 \
 mysqld_multi.1 \
 mysqld_safe.1 \
 mysqldump.1 \
+mysqldumpslow.1 \
 mysqlhotcopy.1 \
 mysqlimport.1 \
 mysqlman.1 \
 mysqlshow.1 \
+mysqltest.1 \
+mysqltestmanager-pwgen.1 \
+mysqltestmanager.1 \
+mysqltestmanagerc.1 \
 perror.1 \
 replace.1 \
 resolve_stack_dump.1 \
@@ -274,13 +275,11 @@ mysqld \
 mysqlmanager
 
 MAN1_FILES_TO_LINK = \
-mysql_create_system_tables.1 \
-mysql_upgrade_shell.1 \
-mysqlbug.1 \
-mysqldumpslow.1 \
 mysqltestmanager.1 \
 mysqltestmanager-pwgen.1 \
-mysqltestmanagerc.1
+mysqltestmanagerc.1 \
+mysql_upgrade.1 \
+mysql_upgrade_shell.1
 
 
 #================================================================================
@@ -308,14 +307,14 @@ mysql: $(OBJROOT)
 	@$(ECHO) "#"
 	@$(ECHO) "# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = ="
 	@$(ECHO) "#"
-	$(SILENT) -$(RM) -rf $(MYSQL_VERSION) mysql $(SRC_BASE)
+	$(SILENT) -$(RM) -rf $(MYSQL_BASE_DIR) mysql $(SRC_BASE)
 	$(SILENT) $(MKDIRS) $(SRC_BASE); \
 	$(foreach cur_arch, $(MYSQL_ARCHS), \
 		$(SILENT) $(ECHO) "#"; \
-		$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] ...expanding sources for arch=$(cur_arch)"; \
+		$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] * expanding sources for arch=$(cur_arch)"; \
 		$(SILENT) $(ECHO) "#"; \
-		$(SILENT) $(CD) $(SRC_BASE); $(TAR) -xzf $(SRCROOT)/$(MYSQL_VERSION).tar.gz; \
-		$(MV) $(MYSQL_VERSION) $(cur_arch); \
+		$(SILENT) $(CD) $(SRC_BASE); $(TAR) -xzf $(SRCROOT)/$(MYSQL_BASE_DIR).tar.gz; \
+		$(MV) $(MYSQL_BASE_DIR) $(cur_arch); \
 	)
 
 untar: mysql 
@@ -345,10 +344,37 @@ CONFIG_STD_OPTS	= \
 		--with-unix-socket-path=/var/mysql/mysql.sock \
 		--prefix=$(BUILD_DIR)
 
-DO_PATCH_CONFIG_H	= $(CP) config.h config.h.sav; $(SED) -f $(SRCROOT)/config.h.sed config.h > config.h.tmp; $(MV) config.h config.h.bak; $(MV) config.h.tmp config.h
-DO_PATCH_IBCONFIG_H	= $(CP) ib_config.h ib_config.h.sav; $(SED) -f $(SRCROOT)/config.h.sed ib_config.h > ib_config.h.tmp; $(MV) ib_config.h ib_config.h.bak; $(MV) ib_config.h.tmp ib_config.h
+GOOGLE_PRECONFIG_FILES_TO_PATCH	= \
+innobase/configure \
+innobase/configure.in \
+innobase/ib_config.h \
+innobase/ib_config.h.in \
+innobase/btr/btr0cur.c \
+innobase/btr/btr0sea.c \
+innobase/buf/buf0buf.c \
+innobase/include/buf0buf.ic \
+innobase/include/os0sync.h \
+innobase/include/os0sync.ic \
+innobase/include/srv0srv.h \
+innobase/include/sync0rw.h \
+innobase/include/sync0rw.ic \
+innobase/include/sync0sync.h \
+innobase/include/sync0sync.ic \
+innobase/include/univ.i \
+innobase/mem/mem0pool.c \
+innobase/row/row0sel.c \
+innobase/srv/srv0srv.c \
+innobase/srv/srv0start.c \
+innobase/sync/sync0arr.c \
+innobase/sync/sync0rw.c \
+innobase/sync/sync0sync.c \
+libmysqld/ha_innodb.cc \
+sql/ha_innodb.cc
 
-configure-do-all: configure-banner configure-do-config configure-do-patch
+APPLE_PATCH_BASE_DIR	= $(SRCROOT)/patch/apple
+GOOGLE_PATCH_BASE_DIR	= $(SRCROOT)/patch/google/5.0.67
+
+configure-do-all: configure-banner configure-do-pre-patch configure-do-config configure-do-post-patch
 
 configure-banner:
 	@$(ECHO) "#"
@@ -359,10 +385,18 @@ configure-banner:
 	@$(ECHO) "# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = ="
 	@$(ECHO) "#"
 
+configure-do-pre-patch:
+	$(foreach cur_arch, $(MYSQL_ARCHS), \
+		$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] * applying Google pre-configure patches; arch=$(cur_arch)"; \
+		$(foreach cur_file, $(GOOGLE_PRECONFIG_FILES_TO_PATCH), \
+			$(SILENT) $(CD) $(CUR_ARCH_SRC); $(PATCH) -u $(cur_file) $(GOOGLE_PATCH_BASE_DIR)/$(cur_file).patch; \
+		) \
+	)
+
 configure-do-config:
 	$(foreach cur_arch, $(MYSQL_ARCHS), \
 		$(SILENT) $(ECHO) "#"; \
-		$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] ...configuring arch=$(cur_arch)..."; \
+		$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] * configuring arch=$(cur_arch)..."; \
 		$(SILENT) $(ECHO) "#"; \
 		$(SILENT) $(CD) $(CUR_ARCH_SRC); \
 		CFLAGS="-O3 -fno-omit-frame-pointer $(RC_CFLAGS)" \
@@ -371,20 +405,12 @@ configure-do-config:
 		./configure --target=$(cur_arch)-apple-darwin $(CONFIG_STD_OPTS); \
 	)
 
-configure-do-patch:
+configure-do-post-patch:
 	$(foreach cur_arch, $(MYSQL_ARCHS), \
 		$(SILENT) $(ECHO) "#"; \
-		$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] ...patching config.h; arch=$(cur_arch)..."; \
+		$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] * patching sql/mysqld.cc; arch=$(cur_arch)..."; \
 		$(SILENT) $(ECHO) "#"; \
-		$(SILENT) $(CD) $(CUR_ARCH_SRC); $(DO_PATCH_CONFIG_H); \
-		$(SILENT) $(ECHO) "#"; \
-		$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] ...patching innobase/ib_config.h; arch=$(cur_arch)..."; \
-		$(SILENT) $(ECHO) "#"; \
-		$(SILENT) $(CD) $(CUR_ARCH_SRC)/innobase; $(DO_PATCH_IBCONFIG_H); \
-		$(SILENT) $(ECHO) "#"; \
-		$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] ...patching sql/mysqld.cc; arch=$(cur_arch)..."; \
-		$(SILENT) $(ECHO) "#"; \
-		$(SILENT) $(CD) $(CUR_ARCH_SRC)/sql; $(PATCH) -u mysqld.cc $(SRCROOT)/mysqld.cc.patch; \
+		$(SILENT) $(CD) $(CUR_ARCH_SRC)/sql; $(PATCH) -u mysqld.cc $(APPLE_PATCH_BASE_DIR)/mysqld.cc.patch; \
 	)
 
 configure: untar configure-do-all
@@ -412,7 +438,7 @@ build-banner:
 build-make:
 	$(foreach cur_arch, $(MYSQL_ARCHS), \
 		$(SILENT) $(ECHO) "#"; \
-		$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] ...building; arch=$(cur_arch)..."; \
+		$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] * building; arch=$(cur_arch)..."; \
 		$(SILENT) $(ECHO) "#"; \
 		$(SILENT) $(CD) $(CUR_ARCH_SRC); RC_ARCHS="$(cur_arch)" RC_CFLAGS="-arch $(cur_arch) $(RC_NONARCH_CFLAGS)" make; \
 	)
@@ -420,18 +446,18 @@ build-make:
 build-patch-support:
 	$(foreach cur_arch, $(MYSQL_ARCHS), \
 		$(SILENT) $(ECHO) "#"; \
-		$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] ...patching support-files; arch=$(cur_arch)..."; \
+		$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] * patching support-files; arch=$(cur_arch)..."; \
 		$(SILENT) $(ECHO) "#"; \
-		$(SILENT) $(CD) $(CUR_ARCH_SRC)/support-files; $(PATCH) -u my-huge.cnf $(SRCROOT)/my-huge.cnf.patch; \
-		$(SILENT) $(CD) $(CUR_ARCH_SRC)/support-files; $(PATCH) -u my-large.cnf $(SRCROOT)/my-large.cnf.patch; \
+		$(SILENT) $(CD) $(CUR_ARCH_SRC)/support-files; $(PATCH) -u my-huge.cnf $(APPLE_PATCH_BASE_DIR)/my-huge.cnf.patch; \
+		$(SILENT) $(CD) $(CUR_ARCH_SRC)/support-files; $(PATCH) -u my-large.cnf $(APPLE_PATCH_BASE_DIR)/my-large.cnf.patch; \
 	)
 
 build-patch-script:
 	$(foreach cur_arch, $(MYSQL_ARCHS), \
 		$(SILENT) $(ECHO) "#"; \
-		$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] ...patching scripts/mysqld_safe; arch=$(cur_arch)..."; \
+		$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] * patching scripts/mysqld_safe; arch=$(cur_arch)..."; \
 		$(SILENT) $(ECHO) "#"; \
-		$(SILENT) $(CD) $(CUR_ARCH_SRC)/scripts; $(PATCH) -u mysqld_safe $(SRCROOT)/mysqld_safe.patch; \
+		$(SILENT) $(CD) $(CUR_ARCH_SRC)/scripts; $(PATCH) -u mysqld_safe $(APPLE_PATCH_BASE_DIR)/mysqld_safe.patch; \
 	)
 
 build: configure build-do-all
@@ -527,12 +553,12 @@ endef
 .PHONY: install-do-all install-disabled install-banner install-clean \
         install-make install-archive install-rename install-man install-info \
 		install-scripts install-unused install-symlink install-thin install-lipo \
-		install-config install-copy install-finish
+		install-config install-copy install-patch-test install-finish
 
 install-do-all: install-banner install-clean install-make \
 				install-rename install-man install-info install-scripts \
 				install-unused install-symlink install-thin install-lipo \
-				install-config install-copy install-finish
+				install-config install-copy install-patch-test install-finish
 
 install-disabled: 
 
@@ -552,43 +578,43 @@ install-clean:
 install-make:
 	$(foreach cur_arch, $(MYSQL_ARCHS), \
 		$(SILENT) $(ECHO) "#"; \
-		$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] ...make-installing; arch=$(cur_arch)"; \
+		$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] * make-installing; arch=$(cur_arch)"; \
 		$(SILENT) $(ECHO) "#"; \
 		$(SILENT) $(CD) $(CUR_ARCH_SRC); make install DESTDIR=$(CUR_ARCH_STAGING); \
 	)
 
 install-archive:
 	@$(ECHO) "#"
-	@$(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] ...archiving staging dirs for checkpoint"
+	@$(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] * archiving staging dirs for checkpoint"
 	@$(ECHO) "#"
 	$(SILENT) $(CD) $(OBJROOT)/$(MYSQL_BUILD_DIR); $(TAR) cvzf /Users/Shared/staging.tgz staging
 
 install-rename:
 	@$(ECHO) "#"
-	@$(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] ...removing arch prefixes from installed files"
+	@$(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] * removing arch prefixes from installed files"
 	@$(ECHO) "#"
 	$(foreach cur_arch, $(MYSQL_ARCHS), \
-		$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] ...removing arch prefixes in /usr/bin; arch=$(cur_arch)"; \
+		$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] * removing arch prefixes in /usr/bin; arch=$(cur_arch)"; \
 		$(foreach cur_file, $(USRBIN_FILES_TO_RENAME), \
 			$(SILENT) $(CD) $(CUR_ARCH_STAGING)/usr/bin; $(MV) $(cur_arch)-apple-darwin-$(cur_file) $(cur_file); \
 		) \
-		$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] ...removing arch prefixes in /usr/libexec; arch=$(cur_arch)"; \
+		$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] * removing arch prefixes in /usr/libexec; arch=$(cur_arch)"; \
 		$(foreach cur_file, $(USRLIBEXEC_FILES_TO_RENAME), \
 			$(SILENT) $(CD) $(CUR_ARCH_STAGING)/usr/libexec; $(MV) $(cur_arch)-apple-darwin-$(cur_file) $(cur_file); \
 		) \
-		$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] ...removing arch prefixes in /usr/mysql-test; arch=$(cur_arch)"; \
+		$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] * removing arch prefixes in /usr/mysql-test; arch=$(cur_arch)"; \
 		$(foreach cur_file, $(USRMYSQLTEST_FILES_TO_RENAME), \
 			$(SILENT) $(CD) $(CUR_ARCH_STAGING)/usr/mysql-test; $(MV) $(cur_arch)-apple-darwin-$(cur_file) $(cur_file); \
 		) \
-		$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] ...removing arch prefixes in /usr/share/man/man1; arch=$(cur_arch)"; \
+		$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] * removing arch prefixes in /usr/share/man/man1; arch=$(cur_arch)"; \
 		$(foreach cur_file, $(USRSHAREMAN1_FILES_TO_RENAME), \
 			$(SILENT) $(CD) $(CUR_ARCH_STAGING)/usr/share/man/man1; $(MV) $(cur_arch)-apple-darwin-$(cur_file) $(cur_file); \
 		) \
-		$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] ...removing arch prefixes in /usr/share/man/man8; arch=$(cur_arch)"; \
+		$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] * removing arch prefixes in /usr/share/man/man8; arch=$(cur_arch)"; \
 		$(foreach cur_file, $(USRSHAREMAN8_FILES_TO_RENAME), \
 			$(SILENT) $(CD) $(CUR_ARCH_STAGING)/usr/share/man/man8; $(MV) $(cur_arch)-apple-darwin-$(cur_file) $(cur_file); \
 		) \
-		$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] ...removing arch prefixes in /usr/share/mysql; arch=$(cur_arch)"; \
+		$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] * removing arch prefixes in /usr/share/mysql; arch=$(cur_arch)"; \
 		$(foreach cur_file, $(USRSHAREMYSQL_FILES_TO_RENAME), \
 			$(SILENT) $(CD) $(CUR_ARCH_STAGING)/usr/share/mysql; $(MV) $(cur_arch)-apple-darwin-$(cur_file) $(cur_file); \
 		) \
@@ -596,16 +622,17 @@ install-rename:
 
 install-man:
 	@$(ECHO) "#"
-	@$(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] ...installing Apple man pages"
+	@$(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] * installing Apple man pages"
 	@$(ECHO) "#"
 	$(SILENT) $(CP) $(SRCROOT)/mysqlman.1 $(FIRST_ARCH_STAGING)/usr/share/man/man1
 	$(SILENT) $(MKDIR) -p -m 755 $(FIRST_ARCH_STAGING)/usr/share/man/man8
 	$(SILENT) $(CHOWN) root:wheel $(FIRST_ARCH_STAGING)/usr/share/man/man8
 	$(SILENT) $(CP) $(SRCROOT)/applemysqlcheckcnf.8 $(FIRST_ARCH_STAGING)/usr/share/man/man8
+	$(SILENT) $(CHMOD) 644 $(FIRST_ARCH_STAGING)/usr/share/man/man8/applemysqlcheckcnf.8
 
 install-info:
 	@$(ECHO) "#"
-	@$(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] ...installing version and license info"
+	@$(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] * installing version and license info"
 	@$(ECHO) "#"
 	$(SILENT) $(MKDIRS) $(FIRST_ARCH_STAGING)/$(VERSIONS_DIR)
 	$(SILENT) $(INSTALL) -m 444 -o root -g wheel $(SRCROOT)/MySQL.plist $(FIRST_ARCH_STAGING)/$(VERSIONS_DIR)
@@ -614,14 +641,14 @@ install-info:
 
 install-scripts:
 	@$(ECHO) "#"
-	@$(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] ...installing Apple support scripts"
+	@$(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] * installing Apple support scripts"
 	@$(ECHO) "#"
 	$(SILENT) $(MKDIRS) $(FIRST_ARCH_STAGING)/$(LIBEXEC_DIR)
 	$(SILENT) $(INSTALL) -m 755 -o root -g wheel $(SRCROOT)/applemysqlcheckcnf $(FIRST_ARCH_STAGING)/$(LIBEXEC_DIR)
 
 install-unused:
 	@$(ECHO) "#"
-	@$(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] ...removing unused files"
+	@$(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] * removing unused files"
 	@$(ECHO) "#"
 	$(SILENT) -$(MV) $(FIRST_ARCH_STAGING)/usr/mysql-test $(FIRST_ARCH_STAGING)/usr/share/mysql
 	$(foreach cur_file, $(FILES_TO_REMOVE), \
@@ -630,7 +657,7 @@ install-unused:
 
 install-symlink:
 	@$(ECHO) "#"
-	@$(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] ...creating symlinks for missing man pages"
+	@$(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] * creating symlinks for missing man pages"
 	@$(ECHO) "#"
 	$(foreach cur_file, $(MAN1_FILES_TO_LINK), \
 		$(SILENT) $(CD) $(FIRST_ARCH_STAGING)/usr/share/man/man1; $(LN) mysqlman.1 $(cur_file); \
@@ -638,21 +665,21 @@ install-symlink:
 
 install-thin:
 	@$(ECHO) "#"
-	@$(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] ...creating thin binaries"
+	@$(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] * creating thin binaries"
 	@$(ECHO) "#"
 	$(if $(ONE_WAY_BUILD), \
 		@$(ECHO) "Skipping install-thin for single arch build ($(MYSQL_ARCHS))."; \
 	, \
 		$(foreach cur_arch, $(MYSQL_ARCHS), \
-			$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] ...creating thin binaries in /usr/bin; arch=$(cur_arch)"; \
+			$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] * creating thin binaries in /usr/bin; arch=$(cur_arch)"; \
 			$(foreach cur_file, $(USRBIN_FILES_TO_LIPO), \
 				$(SILENT) $(call sub_create_thin_binary,$(OBJROOT)/$(MYSQL_STAGING_DIR),$(cur_arch),usr/bin,$(cur_file),ppc7400); \
 			) \
-			$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] ...creating thin binaries in /usr/lib/mysql; arch=$(cur_arch)"; \
+			$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] * creating thin binaries in /usr/lib/mysql; arch=$(cur_arch)"; \
 			$(foreach cur_file, $(USRLIBMYSQL_FILES_TO_LIPO), \
 				$(SILENT) $(call sub_create_thin_binary,$(OBJROOT)/$(MYSQL_STAGING_DIR),$(cur_arch),usr/lib/mysql,$(cur_file),ppc); \
 			) \
-			$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] ...creating thin binaries in /usr/libexec; arch=$(cur_arch)"; \
+			$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] * creating thin binaries in /usr/libexec; arch=$(cur_arch)"; \
 			$(foreach cur_file, $(USRLIBEXEC_FILES_TO_LIPO), \
 				$(SILENT) $(call sub_create_thin_binary,$(OBJROOT)/$(MYSQL_STAGING_DIR),$(cur_arch),usr/libexec,$(cur_file),ppc7400); \
 			) \
@@ -661,24 +688,24 @@ install-thin:
 
 install-lipo: $(SYMROOT)
 	@$(ECHO) "#"
-	@$(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] ...creating universal binaries"
+	@$(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] * creating universal binaries"
 	@$(ECHO) "#"
-	$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] ...creating universal binaries in /usr/bin"
+	$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] * creating universal binaries in /usr/bin"
 	$(foreach cur_file, $(USRBIN_FILES_TO_LIPO), \
 		$(SILENT) $(call sub_create_install_binary,$(OBJROOT)/$(MYSQL_STAGING_DIR),usr/bin,$(cur_file),ppc7400); \
 	)
-	$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] ...creating universal binaries in /usr/lib/mysql"
+	$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] * creating universal binaries in /usr/lib/mysql"
 	$(foreach cur_file, $(USRLIBMYSQL_FILES_TO_LIPO), \
 		$(SILENT) $(call sub_create_install_binary,$(OBJROOT)/$(MYSQL_STAGING_DIR),usr/lib/mysql,$(cur_file),ppc); \
 	)
-	$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] ...creating universal binaries in /usr/libexec"
+	$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] * creating universal binaries in /usr/libexec"
 	$(foreach cur_file, $(USRLIBEXEC_FILES_TO_LIPO), \
 		$(SILENT) $(call sub_create_install_binary,$(OBJROOT)/$(MYSQL_STAGING_DIR),usr/libexec,$(cur_file),ppc7400); \
 	)
 
 install-config:
 	@$(ECHO) "#"
-	@$(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] ...fixing mysql_config script"
+	@$(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] * fixing mysql_config script"
 	@$(ECHO) "#"
 	$(SILENT) $(CP) $(FIRST_ARCH_STAGING)/usr/bin/mysql_config $(FIRST_ARCH_STAGING)/usr/bin/mysql_config-tmp
 	$(SILENT) $(SED) < $(FIRST_ARCH_STAGING)/usr/bin/mysql_config-tmp > $(FIRST_ARCH_STAGING)/usr/bin/mysql_config \
@@ -693,10 +720,16 @@ install-config:
 
 install-copy:
 	@$(ECHO) "#"
-	@$(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] ...copying staging dir to DSTROOT"
+	@$(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] * copying staging dir to DSTROOT"
 	@$(ECHO) "#"
 	$(SILENT) $(CHOWN) -R root:wheel $(FIRST_ARCH_STAGING)/usr/
 	$(SILENT) $(DITTO) $(FIRST_ARCH_STAGING) $(DSTROOT)
+
+install-patch-test:
+	@$(ECHO) "#"
+	@$(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] * patching mysql-test script sources"
+	@$(ECHO) "#"
+	$(SILENT) $(CD) $(DSTROOT)/usr/share/mysql/mysql-test/lib; $(PATCH) -u mtr_timer.pl $(APPLE_PATCH_BASE_DIR)/mtr_timer_pl.patch
 
 install-finish:
 	@$(ECHO) "#"
@@ -732,7 +765,7 @@ installsrc:
 	@$(ECHO) "#"
 	$(SILENT) -$(RM) -rf $(SRCROOT)
 	$(SILENT) $(MKDIRS) $(SRCROOT)
-	$(SILENT) $(CP) -r $(FILES_TO_INSTALL) $(SRCROOT)
+	$(SILENT) $(CP) -R $(FILES_TO_INSTALL) $(SRCROOT)
 
 installhdrs:
 	@$(ECHO) "#"
@@ -752,7 +785,7 @@ clean:
 	@$(ECHO) "#"
 	@$(ECHO) "# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = ="
 	@$(ECHO) "#"
-	$(SILENT) $(RM) -rf $(MYSQL_VERSION) mysql
+	$(SILENT) $(RM) -rf $(MYSQL_BASE_DIR) mysql
 
 #================================================================================
 #

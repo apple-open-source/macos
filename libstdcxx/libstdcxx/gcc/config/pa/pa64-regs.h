@@ -15,8 +15,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Standard register usage.
 
@@ -106,7 +106,7 @@ Boston, MA 02111-1307, USA.  */
   int i;					\
   if (TARGET_DISABLE_FPREGS || TARGET_SOFT_FLOAT)\
     {						\
-      for (i = FP_REG_FIRST; i < FP_REG_LAST; i++)\
+      for (i = FP_REG_FIRST; i <= FP_REG_LAST; i++)\
 	fixed_regs[i] = call_used_regs[i] = 1; 	\
     }						\
   if (flag_pic)					\
@@ -145,11 +145,20 @@ Boston, MA 02111-1307, USA.  */
    This is ordinarily the length in words of a value of mode MODE
    but can be less for certain modes in special long registers.
 
-   For PA64, GPRs and FPRs hold 64 bits worth (we ignore the 32bit
-   addressability of the FPRs).  i.e., we pretend each register holds
-   precisely WORD_SIZE bits.  */
+   For PA64, GPRs and FPRs hold 64 bits worth.  We ignore the 32-bit
+   addressability of the FPRs and pretend each register holds precisely
+   WORD_SIZE bits.  Note that SCmode values are placed in a single FPR.
+   Thus, any patterns defined to operate on these values would have to
+   use the 32-bit addressability of the FPR registers.  */
 #define HARD_REGNO_NREGS(REGNO, MODE)					\
-   ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
+  ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
+
+/* These are the valid FP modes.  */
+#define VALID_FP_MODE_P(MODE)						\
+  ((MODE) == SFmode || (MODE) == DFmode					\
+   || (MODE) == SCmode || (MODE) == DCmode				\
+   || (MODE) == QImode || (MODE) == HImode || (MODE) == SImode		\
+   || (MODE) == DImode)
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.
    On the HP-PA, the cpu registers can hold any mode.  We
@@ -158,8 +167,16 @@ Boston, MA 02111-1307, USA.  */
   ((REGNO) == 0								\
    ? (MODE) == CCmode || (MODE) == CCFPmode				\
    /* Make wide modes be in aligned registers.  */			\
+   : FP_REGNO_P (REGNO)							\
+     ? (VALID_FP_MODE_P (MODE)						\
+	&& (GET_MODE_SIZE (MODE) <= 8					\
+	    || (GET_MODE_SIZE (MODE) == 16 && ((REGNO) & 1) == 0)	\
+	    || (GET_MODE_SIZE (MODE) == 32 && ((REGNO) & 3) == 0)))	\
    : (GET_MODE_SIZE (MODE) <= UNITS_PER_WORD				\
-      || (GET_MODE_SIZE (MODE) <= 2 * UNITS_PER_WORD && ((REGNO) & 1) == 0)))
+      || (GET_MODE_SIZE (MODE) == 2 * UNITS_PER_WORD			\
+	  && ((((REGNO) & 1) == 1 && (REGNO) <= 25) || (REGNO) == 28))	\
+      || (GET_MODE_SIZE (MODE) == 4 * UNITS_PER_WORD			\
+	  && ((REGNO) & 3) == 3 && (REGNO) <= 23)))
 
 /* How to renumber registers for dbx and gdb.
 

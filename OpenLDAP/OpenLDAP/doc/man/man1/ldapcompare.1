@@ -1,6 +1,6 @@
 .TH LDAPCOMPARE 1 "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man1/ldapcompare.1,v 1.8.2.4 2006/01/03 22:16:04 kurt Exp $
-.\" Copyright 1998-2006 The OpenLDAP Foundation All Rights Reserved.
+.\" $OpenLDAP: pkg/ldap/doc/man/man1/ldapcompare.1,v 1.12.2.4 2008/02/11 23:26:39 kurt Exp $
+.\" Copyright 1998-2008 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 ldapcompare \- LDAP compare tool
@@ -56,7 +56,7 @@ ldapcompare \- LDAP compare tool
 .SH DESCRIPTION
 .I ldapcompare
 is a shell-accessible interface to the
-.BR ldap_compare (3)
+.BR ldap_compare_ext (3)
 library call.
 .LP
 .B ldapcompare
@@ -108,6 +108,18 @@ Use \fIpasswd\fP as the password for simple authentication.
 .BI \-y \ passwdfile
 Use complete contents of \fIpasswdfile\fP as the password for
 simple authentication.
+Note that \fIcomplete\fP means that any leading or trailing whitespaces,
+including newlines, will be considered part of the password and,
+unlike other software, they will not be stripped.
+As a consequence, passwords stored in files by commands like
+.BR echo (1)
+will not behave as expected, since
+.BR echo (1)
+by default appends a trailing newline to the echoed string.
+The recommended portable way to store a cleartext password in a file
+for use with this option is to use
+.BR slappasswd (8)
+with \fI{CLEARTEXT}\fP as hash and the option \fI\-n\fP.
 .TP
 .BI \-H \ ldapuri
 Specify URI(s) referring to the ldap server(s); only the protocol/host/port
@@ -176,11 +188,8 @@ the value from.
 .BR ldap.conf (5),
 .BR ldif (5),
 .BR ldap (3),
-.BR ldap_compare (3)
+.BR ldap_compare_ext (3)
 .SH AUTHOR
 The OpenLDAP Project <http://www.openldap.org/>
 .SH ACKNOWLEDGEMENTS
-.B OpenLDAP
-is developed and maintained by The OpenLDAP Project (http://www.openldap.org/).
-.B OpenLDAP
-is derived from University of Michigan LDAP 3.3 Release.  
+.so ../Project

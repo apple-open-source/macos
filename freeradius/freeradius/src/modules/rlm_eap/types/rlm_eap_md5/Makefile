@@ -1,11 +1,13 @@
 #
-# $Id: Makefile.in,v 1.2.4.1 2006/02/10 19:47:12 nbk Exp $
+# Makefile
+#
+# Version:	$Id$
 #
 
 TARGET      = rlm_eap_md5
 SRCS        = rlm_eap_md5.c eap_md5.c
 HEADERS     = eap_md5.h
-RLM_CFLAGS  = -I../.. -I../../libeap $(INCLTDL)
+RLM_CFLAGS  = $(INCLTDL) -I../.. -I../../libeap
 RLM_INSTALL =
 
 RLM_DIR=../../

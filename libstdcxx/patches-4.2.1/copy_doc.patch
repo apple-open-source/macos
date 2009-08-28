@@ -1,0 +1,26 @@
+diff -upr /Users/hhinnant/Documents/libstdcxx_build/libstdcxx.roots/libstdcxx/libstdcxx/libstdc++-v3/ChangeLog /Users/hhinnant/Documents/libstdc++-v3/ChangeLog
+--- libstdc++-v3/ChangeLog	2008-10-27 13:59:02.000000000 -0400
++++ libstdc++-v3/ChangeLog	2008-10-27 14:25:25.000000000 -0400
+@@ -1,5 +1,10 @@
+ 2008-10-27  Howard Hinnant  <hhinnant@apple.com>
+ 
++       * Corrected documentation concerning copy in stl_algobase.h.
++         <rdar://problem/627133>
++
++2008-10-27  Howard Hinnant  <hhinnant@apple.com>
++
+        * Added #pragma GCC system_header to stl_tree.h.
+          <rdar://problem/5485651>
+
+diff -upr /Users/hhinnant/Documents/libstdcxx_build/libstdcxx.roots/libstdcxx/libstdcxx/libstdc++-v3/include/bits/stl_algobase.h /Users/hhinnant/Documents/libstdc++-v3/include/bits/stl_algobase.h
+--- libstdc++-v3/include/bits/stl_algobase.h	2007-01-21 10:34:16.000000000 -0500
++++ libstdc++-v3/include/bits/stl_algobase.h	2008-10-27 12:11:02.000000000 -0400
+@@ -373,7 +373,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
+    *  @param  first  An input iterator.
+    *  @param  last   An input iterator.
+    *  @param  result An output iterator.
+-   *  @return   result + (first - last)
++   *  @return   result + (last - first)
+    *
+    *  This inline function will boil down to a call to @c memmove whenever
+    *  possible.  Failing that, if random access iterators are passed, then the

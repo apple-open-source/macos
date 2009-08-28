@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2005, International Business Machines Corporation and
+ * Copyright (c) 1997-2007, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -8,7 +8,6 @@
 #define UNICODESTRINGTEST_H
 
 #include "unicode/unistr.h"
-#include "unicode/ubrk.h"
 #include "intltest.h"
 
 /**
@@ -75,6 +74,7 @@ public:
     void TestBogus();
     void TestStringEnumeration();
     void TestCharString(void);
+    void TestNameSpace(void);
 };
 
 class StringCaseTest: public IntlTest {
@@ -89,13 +89,7 @@ public:
     void TestCasingImpl(const UnicodeString &input,
                         const UnicodeString &output,
                         int32_t whichCase,
-                        const char *localeID, uint32_t options);
-#if !UCONFIG_NO_BREAK_ITERATION
-    void TestTitleCasing(const UnicodeString &input,
-                         const UnicodeString &output,
-                         const char *localeID,
-                         UBreakIterator *iter);
-#endif
+                        void *iter, const char *localeID, uint32_t options);
     void TestCasing();
 };
 

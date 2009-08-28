@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -691,8 +691,10 @@ void DAMountMapListRefresh2( void )
 }
 
 const CFStringRef kDAPreferenceMountDeferExternalKey  = CFSTR( "DAMountDeferExternal"  );
+const CFStringRef kDAPreferenceMountDeferInternalKey  = CFSTR( "DAMountDeferInternal"  );
 const CFStringRef kDAPreferenceMountDeferRemovableKey = CFSTR( "DAMountDeferRemovable" );
 const CFStringRef kDAPreferenceMountTrustExternalKey  = CFSTR( "DAMountTrustExternal"  );
+const CFStringRef kDAPreferenceMountTrustInternalKey  = CFSTR( "DAMountTrustInternal"  );
 const CFStringRef kDAPreferenceMountTrustRemovableKey = CFSTR( "DAMountTrustRemovable" );
 
 void DAPreferenceListRefresh( void )
@@ -710,8 +712,10 @@ void DAPreferenceListRefresh( void )
      */
 
     CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountDeferExternalKey,  kCFBooleanTrue  );
+    CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountDeferInternalKey,  kCFBooleanFalse );
     CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountDeferRemovableKey, kCFBooleanTrue  );
     CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountTrustExternalKey,  kCFBooleanFalse );
+    CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountTrustInternalKey,  kCFBooleanTrue  );
     CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountTrustRemovableKey, kCFBooleanFalse );
 
     preferences = SCPreferencesCreate( kCFAllocatorDefault, CFSTR( "autodiskmount" ), CFSTR( "autodiskmount.xml" ) );
@@ -754,6 +758,16 @@ void DAPreferenceListRefresh( void )
             }
         }
 
+        value = SCPreferencesGetValue( preferences, kDAPreferenceMountDeferInternalKey );
+
+        if ( value )
+        {
+            if ( CFGetTypeID( value ) == CFBooleanGetTypeID( ) )
+            {
+                CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountDeferInternalKey, value );
+            }
+        }
+
         value = SCPreferencesGetValue( preferences, kDAPreferenceMountDeferRemovableKey );
 
         if ( value )
@@ -771,6 +785,16 @@ void DAPreferenceListRefresh( void )
             if ( CFGetTypeID( value ) == CFBooleanGetTypeID( ) )
             {
                 CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountTrustExternalKey, value );
+            }
+        }
+
+        value = SCPreferencesGetValue( preferences, kDAPreferenceMountTrustInternalKey );
+
+        if ( value )
+        {
+            if ( CFGetTypeID( value ) == CFBooleanGetTypeID( ) )
+            {
+                CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountTrustInternalKey, value );
             }
         }
 

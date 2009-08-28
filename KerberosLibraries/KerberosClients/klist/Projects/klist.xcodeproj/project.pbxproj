@@ -1,0 +1,204 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A181F27C05E553A9006CE0A8 /* klist.c in Sources */ = {isa = PBXBuildFile; fileRef = F5E27E53023715AE01650119 /* klist.c */; };
+		A181F27E05E553A9006CE0A8 /* Kerberos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5E27E5F023718D701650119 /* Kerberos.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A108E6E20A41E86A008545E5 /* Release.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = ../../../Common/Resources/Release.xcconfig; sourceTree = SOURCE_ROOT; };
+		A108E6E30A41E86A008545E5 /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = ../../../Common/Resources/Debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		A181F28105E553A9006CE0A8 /* klist */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = klist; sourceTree = BUILT_PRODUCTS_DIR; };
+		F5033FCE025DFA1D01F62B58 /* klist.M */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 30; path = klist.M; sourceTree = "<group>"; };
+		F5E27E53023715AE01650119 /* klist.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = klist.c; sourceTree = "<group>"; };
+		F5E27E5F023718D701650119 /* Kerberos.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = Kerberos.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A181F27D05E553A9006CE0A8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A181F27E05E553A9006CE0A8 /* Kerberos.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		F5033FCD025DFA1D01F62B58 /* Documentation */ = {
+			isa = PBXGroup;
+			children = (
+				F5033FCE025DFA1D01F62B58 /* klist.M */,
+			);
+			name = Documentation;
+			path = ../Documentation;
+			sourceTree = "<group>";
+		};
+		F5E27E080237083401650119 = {
+			isa = PBXGroup;
+			children = (
+				A108E6E20A41E86A008545E5 /* Release.xcconfig */,
+				A108E6E30A41E86A008545E5 /* Debug.xcconfig */,
+				F5E27E52023715AE01650119 /* Sources */,
+				F5033FCD025DFA1D01F62B58 /* Documentation */,
+				F5E27E5F023718D701650119 /* Kerberos.framework */,
+				F5E27E56023716E301650119 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		F5E27E52023715AE01650119 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				F5E27E53023715AE01650119 /* klist.c */,
+			);
+			name = Sources;
+			path = ../Sources;
+			sourceTree = SOURCE_ROOT;
+		};
+		F5E27E56023716E301650119 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A181F28105E553A9006CE0A8 /* klist */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A181F27805E553A9006CE0A8 /* klist */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A151913D086C8DEC0042CBBC /* Build configuration list for PBXNativeTarget "klist" */;
+			buildPhases = (
+				A181F27B05E553A9006CE0A8 /* Sources */,
+				A181F27D05E553A9006CE0A8 /* Frameworks */,
+				A1C7E152069DEBCE00DF6AFE /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = klist;
+			productInstallPath = /usr/bin;
+			productName = klist;
+			productReference = A181F28105E553A9006CE0A8 /* klist */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		F5E27E070237083401650119 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = A1519141086C8DEC0042CBBC /* Build configuration list for PBXProject "klist" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 1;
+			mainGroup = F5E27E080237083401650119;
+			productRefGroup = F5E27E56023716E301650119 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A181F27805E553A9006CE0A8 /* klist */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		A1C7E152069DEBCE00DF6AFE /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../Documentation/klist.M",
+			);
+			outputPaths = (
+				"$(DSTROOT)/usr/share/man/man1/klist.1",
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "mkdir -p \"${DSTROOT}/usr/share/man/man1\"\ninstall -c -m 644 \"${SRCROOT}/../Documentation/klist.M\" \"${DSTROOT}/usr/share/man/man1/klist.1\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A181F27B05E553A9006CE0A8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A181F27C05E553A9006CE0A8 /* klist.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A151913E086C8DEC0042CBBC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E6E30A41E86A008545E5 /* Debug.xcconfig */;
+			buildSettings = {
+				INSTALL_PATH = /usr/bin;
+				OTHER_CFLAGS = "-D_FORTIFY_SOURCE=2";
+				OTHER_LDFLAGS = "-Wl,-pie";
+				PRODUCT_NAME = klist;
+				VALID_ARCHS = "i386 ppc x86_64";
+			};
+			name = Debug;
+		};
+		A151913F086C8DEC0042CBBC /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E6E20A41E86A008545E5 /* Release.xcconfig */;
+			buildSettings = {
+				INSTALL_PATH = /usr/bin;
+				OTHER_CFLAGS = "-D_FORTIFY_SOURCE=2";
+				OTHER_LDFLAGS = "-Wl,-pie";
+				PRODUCT_NAME = klist;
+				VALID_ARCHS = "i386 ppc x86_64";
+			};
+			name = Release;
+		};
+		A1519142086C8DEC0042CBBC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E6E30A41E86A008545E5 /* Debug.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		A1519143086C8DEC0042CBBC /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E6E20A41E86A008545E5 /* Release.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A151913D086C8DEC0042CBBC /* Build configuration list for PBXNativeTarget "klist" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A151913E086C8DEC0042CBBC /* Debug */,
+				A151913F086C8DEC0042CBBC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		A1519141086C8DEC0042CBBC /* Build configuration list for PBXProject "klist" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1519142086C8DEC0042CBBC /* Debug */,
+				A1519143086C8DEC0042CBBC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = F5E27E070237083401650119 /* Project object */;
+}

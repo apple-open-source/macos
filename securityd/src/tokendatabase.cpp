@@ -767,7 +767,7 @@ TokenDatabase::Search::~Search()
 		try {
 			database().token().tokend().Tokend::ClientSession::releaseSearch(mHandle);
 		} catch (...) {
-			secdebug("tokendb", "%p release search handle %ld threw (ignored)",
+			secdebug("tokendb", "%p release search handle %u threw (ignored)",
 				this, mHandle);
 		}
 }
@@ -778,7 +778,7 @@ TokenDatabase::Record::~Record()
 		try {
 			database().token().tokend().Tokend::ClientSession::releaseRecord(mHandle);
 		} catch (...) {
-			secdebug("tokendb", "%p release record handle %ld threw (ignored)",
+			secdebug("tokendb", "%p release record handle %u threw (ignored)",
 				this, mHandle);
 		}
 }

@@ -200,15 +200,6 @@ signal_mask(int sig)
  * set. Return the old signal set.       */
 
 /**/
-#ifdef POSIX_SIGNALS
-
-/**/
-mod_export sigset_t dummy_sigset1, dummy_sigset2;
-
-/**/
-#else
-
-/**/
 #ifndef BSD_SIGNALS
 
 sigset_t
@@ -216,7 +207,11 @@ signal_block(sigset_t set)
 {
     sigset_t oset;
  
-#ifdef SYSV_SIGNALS
+#ifdef POSIX_SIGNALS
+    sigprocmask(SIG_BLOCK, &set, &oset);
+
+#else
+# ifdef SYSV_SIGNALS
     int i;
  
     oset = blocked_set;
@@ -226,7 +221,7 @@ signal_block(sigset_t set)
             sighold(i);
         }
     }
-#else  /* NO_SIGNAL_BLOCKING */
+# else  /* NO_SIGNAL_BLOCKING */
 /* We will just ignore signals if the system doesn't have *
  * the ability to block them.                             */
     int i;
@@ -238,7 +233,8 @@ signal_block(sigset_t set)
             signal_ignore(i);
         }
    }
-#endif /* SYSV_SIGNALS  */
+# endif /* SYSV_SIGNALS */
+#endif /* POSIX_SIGNALS */
  
     return oset;
 }
@@ -246,19 +242,17 @@ signal_block(sigset_t set)
 /**/
 #endif /* BSD_SIGNALS */
 
-/**/
-#endif /* POSIX_SIGNALS */
-
 /* Unblock the signals in the given signal *
  * set. Return the old signal set.         */
-
-#ifndef POSIX_SIGNALS
 
 sigset_t
 signal_unblock(sigset_t set)
 {
     sigset_t oset;
- 
+
+#ifdef POSIX_SIGNALS
+    sigprocmask(SIG_UNBLOCK, &set, &oset);
+#else
 # ifdef BSD_SIGNALS
     sigfillset(&oset);
     oset = sigsetmask(oset);
@@ -288,11 +282,10 @@ signal_unblock(sigset_t set)
    }
 #  endif /* SYSV_SIGNALS  */
 # endif  /* BSD_SIGNALS   */
+#endif   /* POSIX_SIGNALS */
  
     return oset;
 }
-
-#endif   /* POSIX_SIGNALS */
 
 /* set the process signal mask to *
  * be the given signal mask       */
@@ -415,15 +408,21 @@ zhandler(int sig)
     signal_process(sig);
  
     sigfillset(&newmask);
-    oldmask = signal_block(newmask);        /* Block all signals temporarily           */
+    /* Block all signals temporarily           */
+    oldmask = signal_block(newmask);
  
 #if defined(NO_SIGNAL_BLOCKING)
-    do_jump = suspend_longjmp;              /* do we need to longjmp to signal_suspend */
-    suspend_longjmp = 0;                    /* In case a SIGCHLD somehow arrives       */
+    /* do we need to longjmp to signal_suspend */
+    do_jump = suspend_longjmp;
+    /* In case a SIGCHLD somehow arrives       */
+    suspend_longjmp = 0;
 
-    if (sig == SIGCHLD) {                   /* Traps can cause nested signal_suspend()  */
-        if (do_jump)
-            jump_to = suspend_jmp_buf;      /* Copy suspend_jmp_buf                    */
+    /* Traps can cause nested signal_suspend()  */
+    if (sig == SIGCHLD) {
+        if (do_jump) {
+	    /* Copy suspend_jmp_buf                    */
+            jump_to = suspend_jmp_buf;
+	}
     }
 #endif
 
@@ -432,30 +431,36 @@ zhandler(int sig)
         int temp_rear = ++queue_rear % MAX_QUEUE_SIZE;
 
 	DPUTS(temp_rear == queue_front, "BUG: signal queue full");
-        if (temp_rear != queue_front) { /* Make sure it's not full (extremely unlikely) */
-            queue_rear = temp_rear;                  /* ok, not full, so add to queue   */
-            signal_queue[queue_rear] = sig;          /* save signal caught              */
-            signal_mask_queue[queue_rear] = oldmask; /* save current signal mask        */
+	/* Make sure it's not full (extremely unlikely) */
+        if (temp_rear != queue_front) {
+	    /* ok, not full, so add to queue   */
+            queue_rear = temp_rear;
+	    /* save signal caught              */
+            signal_queue[queue_rear] = sig;
+	    /* save current signal mask        */
+            signal_mask_queue[queue_rear] = oldmask;
         }
         signal_reset(sig);
         return;
     }
  
-    signal_setmask(oldmask);          /* Reset signal mask, signal traps ok now */
+    /* Reset signal mask, signal traps ok now */
+    signal_setmask(oldmask);
  
     switch (sig) {
     case SIGCHLD:
 
 	/* keep WAITING until no more child processes to reap */
-	for (;;)
-	  cont: {
-            int old_errno = errno; /* save the errno, since WAIT may change it */
+	for (;;) {
+	    /* save the errno, since WAIT may change it */
+	    int old_errno = errno;
 	    int status;
 	    Job jn;
 	    Process pn;
-            pid_t pid;
+	    pid_t pid;
 	    pid_t *procsubpid = &cmdoutpid;
 	    int *procsubval = &cmdoutval;
+	    int cont = 0;
 	    struct execstack *es = exstack;
 
 	    /*
@@ -478,8 +483,8 @@ zhandler(int sig)
 # endif
 #endif
 
-            if (!pid)  /* no more children to reap */
-                break;
+	    if (!pid)  /* no more children to reap */
+		break;
 
 	    /* check if child returned was from process substitution */
 	    for (;;) {
@@ -490,7 +495,8 @@ zhandler(int sig)
 		    else
 			*procsubval = WEXITSTATUS(status);
 		    get_usage();
-		    goto cont;
+		    cont = 1;
+		    break;
 		}
 		if (!es)
 		    break;
@@ -498,16 +504,22 @@ zhandler(int sig)
 		procsubval = &es->cmdoutval;
 		es = es->next;
 	    }
+	    if (cont)
+		continue;
 
 	    /* check for WAIT error */
-            if (pid == -1) {
-                if (errno != ECHILD)
-                    zerr("wait failed: %e", errno);
-                errno = old_errno;    /* WAIT changed errno, so restore the original */
-                break;
-            }
+	    if (pid == -1) {
+		if (errno != ECHILD)
+		    zerr("wait failed: %e", errno);
+		/* WAIT changed errno, so restore the original */
+		errno = old_errno;
+		break;
+	    }
 
-	    /* Find the process and job containing this pid and update it. */
+	    /*
+	     * Find the process and job containing this pid and
+	     * update it.
+	     */
 	    if (findproc(pid, &jn, &pn, 0)) {
 #if defined(HAVE_WAIT3) && defined(HAVE_GETRUSAGE)
 		struct timezone dummy_tz;
@@ -524,11 +536,12 @@ zhandler(int sig)
 	    } else {
 		/* If not found, update the shell record of time spent by
 		 * children in sub processes anyway:  otherwise, this
-		 * will get added on to the next found process that terminates.
+		 * will get added on to the next found process that
+		 * terminates.
 		 */
 		get_usage();
 	    }
-        }
+	}
         break;
  
     case SIGHUP:
@@ -692,6 +705,7 @@ dosavetrap(int sig, int level)
 	    newshf->node.nam = ztrdup(shf->node.nam);
 	    newshf->node.flags = shf->node.flags;
 	    newshf->funcdef = dupeprog(shf->funcdef, 0);
+	    newshf->filename = ztrdup(shf->filename);
 	    if (shf->node.flags & PM_UNDEFINED)
 		newshf->funcdef->shf = newshf;
 	}
@@ -949,8 +963,7 @@ endtrapscope(void)
     }
 
     if (exittr) {
-	dotrapargs(SIGEXIT, &exittr, (exittr & ZSIG_FUNC) ?
-		   ((Shfunc)exitfn)->funcdef : (Eprog) exitfn);
+	dotrapargs(SIGEXIT, &exittr, exitfn);
 	if (exittr & ZSIG_FUNC)
 	    shfunctab->freenode((HashNode)exitfn);
 	else
@@ -1063,17 +1076,31 @@ int intrap;
 /**/
 int trapisfunc;
 
+/*
+ * If the current trap is not a function, at what function depth
+ * did the trap get called?
+ */
 /**/
-void
+int traplocallevel;
+
+/*
+ * sig is the signal number.
+ * *sigtr is the value to be taken as the field in sigtrapped (since
+ *   that may have changed by this point if we are exiting).
+ * sigfn is an Eprog with a non-function eval list, or a Shfunc
+ *   with a function trap.  It may be NULL with an ignored signal.
+ */
+
+/**/
+static void
 dotrapargs(int sig, int *sigtr, void *sigfn)
 {
     LinkList args;
     char *name, num[4];
-    int trapret = 0;
     int obreaks = breaks;
     int oretflag = retflag;
     int isfunc;
-    int traperr;
+    int traperr, new_trap_state, new_trap_return;
 
     /* if signal is being ignored or the trap function		      *
      * is NULL, then return					      *
@@ -1109,8 +1136,10 @@ dotrapargs(int sig, int *sigtr, void *sigfn)
     *sigtr |= ZSIG_IGNORED;
 
     lexsave();
+    /* execsave will save the old trap_return and trap_state */
     execsave();
     breaks = retflag = 0;
+    traplocallevel = locallevel;
     runhookdef(BEFORETRAPHOOK, NULL);
     if (*sigtr & ZSIG_FUNC) {
 	int osc = sfcontext;
@@ -1134,53 +1163,41 @@ dotrapargs(int sig, int *sigtr, void *sigfn)
 	sprintf(num, "%d", sig);
 	zaddlinknode(args, num);
 
-	trapreturn = -1;	/* incremented by doshfunc */
+	trap_return = -1;	/* incremented by doshfunc */
+	trap_state = TRAP_STATE_PRIMED;
 	trapisfunc = isfunc = 1;
 
 	sfcontext = SFC_SIGNAL;
-	doshfunc(name, sigfn, args, 0, 1);
+	doshfunc((Shfunc)sigfn, args, 1);
 	sfcontext = osc;
 	freelinklist(args, (FreeFunc) NULL);
 	zsfree(name);
-
     } else {
-	trapreturn = -2;	/* not incremented, used at current level */
+	trap_return = -2;	/* not incremented, used at current level */
+	trap_state = TRAP_STATE_PRIMED;
 	trapisfunc = isfunc = 0;
 
-	execode(sigfn, 1, 0);
+	execode((Eprog)sigfn, 1, 0);
     }
     runhookdef(AFTERTRAPHOOK, NULL);
 
-    if (trapreturn > 0 && isfunc) {
-	/*
-	 * Context was its own function.  We propagate the return
-	 * value specially.  Return value zero means don't do
-	 * anything special, so don't handle it.
-	 */
-	trapret = trapreturn;
-    } else if (trapreturn >= 0 && !isfunc) {
-	/*
-	 * Context was an inline trap.  If an explicit return value
-	 * was used, we need to set `lastval'.  Otherwise we use the
-	 * value restored by execrestore.  In this case, all return
-	 * values indicate an explicit return from the current function,
-	 * so always handle specially.  trapreturn is always restored by
-	 * execrestore.
-	 */
-	trapret = trapreturn + 1;
-    }
     traperr = errflag;
+
+    /* Grab values before they are restored */
+    new_trap_state = trap_state;
+    new_trap_return = trap_return;
+
     execrestore();
     lexrestore();
 
-    if (trapret > 0) {
+    if (new_trap_state == TRAP_STATE_FORCE_RETURN &&
+	/* zero return from function isn't special */
+	!(isfunc && new_trap_return == 0)) {
 	if (isfunc) {
 	    breaks = loops;
 	    errflag = 1;
-	    lastval = trapret;
-	} else {
-	    lastval = trapret-1;
 	}
+	lastval = new_trap_return;
 	/* return triggered */
 	retflag = 1;
     } else {
@@ -1200,7 +1217,7 @@ dotrapargs(int sig, int *sigtr, void *sigfn)
      * need to restore the display.
      */
     if (zleactive && resetneeded)
-	zrefreshptr();
+	zleentry(ZLE_CMD_REFRESH);
 
     if (*sigtr != ZSIG_IGNORED)
 	*sigtr &= ~ZSIG_IGNORED;
@@ -1213,12 +1230,12 @@ dotrapargs(int sig, int *sigtr, void *sigfn)
 void
 dotrap(int sig)
 {
-    Eprog funcprog;
+    void *funcprog;
 
     if (sigtrapped[sig] & ZSIG_FUNC) {
 	HashNode hn = gettrapnode(sig, 0);
 	if (hn)
-	    funcprog = ((Shfunc)hn)->funcdef;
+	    funcprog = hn;
 	else {
 #ifdef DEBUG
 	    dputs("BUG: running function trap which has escaped.");
@@ -1228,7 +1245,11 @@ dotrap(int sig)
     } else
 	funcprog = siglists[sig];
 
-    /* Copied from dotrapargs(). */
+    /*
+     * Copied from dotrapargs().
+     * (In fact, the gain from duplicating this appears to be virtually
+     * zero.  Not sure why it's here.)
+     */
     if ((sigtrapped[sig] & ZSIG_IGNORED) || !funcprog || errflag)
 	return;
 

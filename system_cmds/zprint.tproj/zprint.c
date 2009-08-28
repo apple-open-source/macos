@@ -44,6 +44,8 @@
 #include <mach/mach.h>
 #include <mach_debug/mach_debug.h>
 #include <mach/mach_error.h>
+#include <libutil.h>
+#include <errno.h>
 
 #define streql(a, b)		(strcmp((a), (b)) == 0)
 #define strneql(a, b, n)	(strncmp((a), (b), (n)) == 0)
@@ -89,6 +91,11 @@ main(argc, argv)
 
 	kern_return_t	kr;
 	int		i, j;
+
+	if (0 != reexec_to_match_kernel()) {
+		fprintf(stderr, "Could not re-execute: %d\n", errno);
+		exit(1);
+	}
 
 	program = strrchr(argv[0], '/');
 	if (program == NULL)

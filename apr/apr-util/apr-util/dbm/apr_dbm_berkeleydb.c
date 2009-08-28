@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -25,6 +25,7 @@
 #include <stdlib.h> /* for abort() */
 #endif
 
+#include "apu_config.h"
 #include "apu.h"
 
 #if APU_HAVE_DB 
@@ -385,7 +386,7 @@ static void vt_db_usednames(apr_pool_t *pool, const char *pathname,
 }
 
 
-APU_DECLARE_DATA const apr_dbm_type_t apr_dbm_type_db = {
+APU_MODULE_DECLARE_DATA const apr_dbm_type_t apr_dbm_type_db = {
     "db",
 
     vt_db_open,

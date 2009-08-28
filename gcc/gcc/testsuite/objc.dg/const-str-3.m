@@ -2,7 +2,7 @@
    runtime.  */
 /* Developed by Markus Hitter <mah@jump-ing.de>.  */
 /* APPLE LOCAL radar 4621575 */
-/* { dg-options "-fnext-runtime -fno-constant-cfstrings -fconstant-string-class=Foo -lobjc" } */
+/* { dg-options "-fnext-runtime -fno-constant-cfstrings -fconstant-string-class=Foo -lobjc -Wno-format" } */
 /* { dg-do run { target *-*-darwin* } } */
 /* APPLE LOCAL radar 5272224 */
 /* { dg-require-effective-target ilp32 } */

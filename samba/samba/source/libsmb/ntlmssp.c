@@ -935,11 +935,6 @@ NTSTATUS ntlmssp_server_start(NTLMSSP_STATE **ntlmssp_state)
 		NTLMSSP_NEGOTIATE_SIGN |
 		NTLMSSP_NEGOTIATE_SEAL;
 
-	/* OD Password Server doesn't support 128bit keys yet. */
-	if (lp_opendirectory) {
-		(*ntlmssp_state)->neg_flags &= ~NTLMSSP_NEGOTIATE_128;
-	}
-
 	return NT_STATUS_OK;
 }
 

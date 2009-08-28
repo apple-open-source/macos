@@ -31,6 +31,7 @@
 #include <security_utilities/logging.h>
 #include <security_utilities/pcsc++.h>
 #include <security_utilities/machserver.h>
+#include <security_utilities/alloc.h>
 
 namespace Security {
 namespace Tokend {
@@ -39,7 +40,7 @@ namespace Tokend {
 //
 // The server class that drives this tokend
 //
-class Server : public MachPlusPlus::MachServer, public SecTokendCallbacks {
+    class Server : public MachPlusPlus::MachServer, public SecTokendCallbacks {
 public:
 	int operator() (int argc, const char *argv[], SecTokendCallbackFlags flags);
 
@@ -48,9 +49,7 @@ public:
 	
 	const char *tokenUid() const { return mTokenUid.c_str(); }
 	void tokenUid(const char *uid) { mTokenUid = uid; }
-	
-	void releaseWhenDone(void *) { }	//@@@ unimplemented (share with ss side)
-	
+
 	SecTokendCallbacks &callbacks() { return static_cast<SecTokendCallbacks &>(*this); }
 	
 	void termination(uint32 reason, uint32 options) __attribute__((noreturn));

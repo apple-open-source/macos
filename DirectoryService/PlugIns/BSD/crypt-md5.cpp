@@ -51,7 +51,7 @@ char *
 crypt_md5(const char *pw, const char *salt)
 {
 	MD5_CTX	ctx,ctx1;
-	unsigned long l;
+	u_int32_t l;
 	int sl, pl;
 	u_int i;
 	u_char final[MD5_DIGEST_LENGTH];

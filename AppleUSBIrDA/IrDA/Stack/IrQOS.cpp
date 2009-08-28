@@ -118,7 +118,7 @@ EventTraceCauseDesc IrLogEvents[] = {
     {kLogNormSmallerData,       "IrQOS: shrinking data size to fit, new="}
 };
 
-#define XTRACE(x, y, z) IrDALogAdd( x, y, (int)z & 0xffff, IrLogEvents, true )
+#define XTRACE(x, y, z) IrDALogAdd( x, y, (uintptr_t)z & 0xffff, IrLogEvents, true )
 
 #else
 #define XTRACE(x,y,z)   ((void)0)
@@ -195,7 +195,7 @@ TIrQOS::tIrQOS(USBIrDAQoS *qos)
 {
     TIrQOS *obj = new TIrQOS;
     
-    XTRACE(kLogNew, (int)obj >> 16, obj);
+    XTRACE(kLogNew, 0, obj);
     
     if (obj && !obj->init(qos)) {
 	obj->release();
@@ -223,7 +223,7 @@ bool TIrQOS::init(USBIrDAQoS *qos)
 //--------------------------------------------------------------------------------
 void TIrQOS::free(void)
 {
-    XTRACE(kLogFree, (int)this >> 16, this);     // only reason we have a free
+    XTRACE(kLogFree, 0, this);     // only reason we have a free
     super::free();                                      // is for the log
 }
 
@@ -238,7 +238,7 @@ void TIrQOS::Reset()
     UInt16 THROTTLE = THROTTLE_SPEED;       // 0x3 = 9600 or slower, 0x7 = 19.2, 0f=38.4
 #endif
 
-    XTRACE(kLogReset, (int)this >> 16, this);
+    XTRACE(kLogReset, 0, this);
     
     // todo - could init from kext prefs file instead of compiled-in
 
@@ -670,7 +670,7 @@ IrDAErr TIrQOS::ExtractInfoFromBuffer(CBufferSegment* buffer)
     ULong value;
     UByte idLenVal[3];      // id byte, length byte, value byte
     
-    XTRACE(kLogExtract, (int)buffer >> 16, buffer);
+    XTRACE(kLogExtract, 0, buffer);
 
     // Preset fields to default values (in case some values are not provided)
     fBaudRate           = kQOS9600bps;

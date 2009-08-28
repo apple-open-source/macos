@@ -30,6 +30,14 @@
 extern "C" {
 #endif /* __cplusplus */
 
+typedef enum svn_wc__props_kind_t
+{
+  svn_wc__props_base = 0,
+  svn_wc__props_revert,
+  svn_wc__props_wcprop,
+  svn_wc__props_working
+} svn_wc__props_kind_t;
+
 
 /* If the working item at PATH has properties attached, set HAS_PROPS.
    ADM_ACCESS is an access baton set that contains PATH. */
@@ -38,58 +46,45 @@ svn_error_t *svn_wc__has_props(svn_boolean_t *has_props,
                                svn_wc_adm_access_t *adm_access,
                                apr_pool_t *pool);
 
-
-/* If PROPFILE_PATH exists (and is a file), assume it's full of
-   properties and load this file into HASH.  Otherwise, leave HASH
-   untouched.  */
-svn_error_t *svn_wc__load_prop_file(const char *propfile_path,
-                                    apr_hash_t *hash,
-                                    apr_pool_t *pool);
-
-
-
-/* Given a HASH full of property name/values, write them to a file
-   located at PROPFILE_PATH */
-svn_error_t *svn_wc__save_prop_file(const char *propfile_path,
-                                    apr_hash_t *hash,
-                                    apr_pool_t *pool);
-
-
-/* Given ADM_ACCESS/NAME and an array of PROPCHANGES based on
+/* Given ADM_ACCESS/PATH and an array of PROPCHANGES based on
    SERVER_BASEPROPS, merge the changes into the working copy.
-   Necessary log entries will be appended to ENTRY_ACCUM.
+   Append all necessary log entries to ENTRY_ACCUM.
 
-   If SERVER_BASEPROPS is NULL than base props will be used as
-   PROPCHANGES base.
+   If BASE_PROPS or WORKING_PROPS is NULL, use the props from the
+   working copy.
 
-   If we are attempting to merge changes to a directory, simply pass
-   ADM_ACCESS and NULL for NAME.
+   If SERVER_BASEPROPS is NULL then use base props as PROPCHANGES
+   base.
 
-   If BASE_MERGE is FALSE only the working properties will be changed,
-   if it is TRUE both the base and working properties will be changed.
+   If BASE_MERGE is FALSE then only change working properties;
+   if TRUE, change both the base and working properties.
 
-   If conflicts are found when merging, they are placed into a
-   temporary .prej file within SVN. Log entries are then written to
-   move this file into PATH, or to append the conflicts to the file's
-   already-existing .prej file in ADM_ACCESS. Base properties are modifed
-   unconditionally, if BASE_MERGE is TRUE, they do not generate conficts.
+   If conflicts are found when merging, place them into a temporary
+   .prej file within SVN, and write log commands to move this file
+   into PATH, or append the conflicts to the file's already-existing
+   .prej file in ADM_ACCESS.  Modify base properties unconditionally,
+   if BASE_MERGE is TRUE, they do not generate conficts.
 
    If STATE is non-null, set *STATE to the state of the local properties
    after the merge.  */
 svn_error_t *svn_wc__merge_props(svn_wc_notify_state_t *state,
                                  svn_wc_adm_access_t *adm_access,
-                                 const char *name,
+                                 const char *path,
                                  apr_hash_t *server_baseprops,
+                                 apr_hash_t *base_props,
+                                 apr_hash_t *working_props,
                                  const apr_array_header_t *propchanges,
                                  svn_boolean_t base_merge,
                                  svn_boolean_t dry_run,
+                                 svn_wc_conflict_resolver_func_t conflict_func,
+                                 void *conflict_baton,
                                  apr_pool_t *pool,
                                  svn_stringbuf_t **entry_accum);
 
 
 /* Return a list of wc props for ENTRYNAME in ADM_ACCESS.
    ENTRYNAME must be the name of a file or SVN_WC_ENTRY_THIS_DIR.
-   
+
    The returned WCPROPS may be allocated in POOL, or may be the props
    cached in ADM_ACCESS.  */
 svn_error_t *
@@ -98,7 +93,7 @@ svn_wc__wcprop_list(apr_hash_t **wcprops,
                     svn_wc_adm_access_t *adm_access,
                     apr_pool_t *pool);
 
-/* Set a single 'wcprop' NAME to VALUE for versioned object PATH. 
+/* Set a single 'wcprop' NAME to VALUE for versioned object PATH.
    If VALUE is null, remove property NAME.  ADM_ACCESS is an access
    baton set that contains PATH.
 
@@ -114,20 +109,6 @@ svn_error_t *svn_wc__wcprop_set(const char *name,
                                 svn_boolean_t force_write,
                                 apr_pool_t *pool);
 
-/* Remove wcprops for entry NAME under ADM_ACCESS, or for all files
-   and this_dir if NAME is null.  Recurse into subdirectories if
-   RECURSE is true.  Use POOL for temporary allocations. */
-svn_error_t *svn_wc__remove_wcprops(svn_wc_adm_access_t *adm_access,
-                                    const char *name,
-                                    svn_boolean_t recurse,
-                                    apr_pool_t *pool);
-
-/* Write the wcprops cached in ADM_ACCESS, if any, to disk using POOL for
-   temporary allocations. */
-svn_error_t *
-svn_wc__wcprops_write(svn_wc_adm_access_t *adm_access, apr_pool_t *pool);
-
-
 /* Returns TRUE if PROPS contains the svn:special property */
 svn_boolean_t svn_wc__has_special_property(apr_hash_t *props);
 
@@ -137,24 +118,89 @@ svn_boolean_t svn_wc__has_special_property(apr_hash_t *props);
 svn_boolean_t svn_wc__has_magic_property(const apr_array_header_t *properties);
 
 /* Extend LOG_ACCUM with log entries to install PROPS and, if WRITE_BASE_PROPS
-   is true, BASE_PROPS for the path NAME in ADM_ACCESS, updating the wc entry
-   to reflect the changes.  Use POOL for temporary allocations. */
+   is true, BASE_PROPS for the PATH in ADM_ACCESS, updating the wc entry
+   to reflect the changes.  BASE_PROPS must be supplied even if
+   WRITE_BASE_PROPS is false.  Use POOL for temporary allocations. */
 svn_error_t *svn_wc__install_props(svn_stringbuf_t **log_accum,
                                    svn_wc_adm_access_t *adm_access,
-                                   const char *name,
+                                   const char *path,
                                    apr_hash_t *base_props,
                                    apr_hash_t *props,
                                    svn_boolean_t write_base_props,
                                    apr_pool_t *pool);
 
-/* Load the base and working props for NAME in ADM_ACCESS returning them
-   in *BASE_PROPS_P and *PROPS_P, respectively.  BASE_PROPS or PROPS may be null.
+/* Extend LOG_ACCUM with log entries to save the current baseprops of PATH
+   as revert props.
+
+   Makes sure the baseprops are destroyed if DESTROY_BASEPROPS is TRUE,
+   the baseprops are preserved otherwise.
+*/
+svn_error_t *
+svn_wc__loggy_revert_props_create(svn_stringbuf_t **log_accum,
+                                  const char *path,
+                                  svn_wc_adm_access_t *adm_access,
+                                  svn_boolean_t destroy_baseprops,
+                                  apr_pool_t *pool);
+
+/* Extends LOG_ACCUM to make the revert props back into base props,
+   deleting the revert props. */
+svn_error_t *
+svn_wc__loggy_revert_props_restore(svn_stringbuf_t **log_accum,
+                                   const char *path,
+                                   svn_wc_adm_access_t *adm_access,
+                                   apr_pool_t *pool);
+
+/* Extends LOG_ACCUM to delete PROPS_KIND props installed for PATH. */
+svn_error_t *
+svn_wc__loggy_props_delete(svn_stringbuf_t **log_accum,
+                           const char *path,
+                           svn_wc__props_kind_t props_kind,
+                           svn_wc_adm_access_t *adm_access,
+                           apr_pool_t *pool);
+
+/* Delete PROPS_KIND props for PATH */
+svn_error_t *
+svn_wc__props_delete(const char *path,
+                     svn_wc__props_kind_t props_kind,
+                     svn_wc_adm_access_t *adm_access,
+                     apr_pool_t *pool);
+
+
+/* Flushes wcprops cached in ADM_ACCESS to disk using SCRATCH_POOL for
+   temporary allocations. */
+svn_error_t *
+svn_wc__wcprops_flush(svn_wc_adm_access_t *adm_access,
+                      apr_pool_t *scratch_pool);
+
+/* Install PATHs working props as base props, clearing the
+   has_prop_mods cache value in the entries file.
+
+   Updates the on-disk entries file if SYNC_ENTRIES is TRUE.*/
+svn_error_t *
+svn_wc__working_props_committed(const char *path,
+                                svn_wc_adm_access_t *adm_access,
+                                svn_boolean_t sync_entries,
+                                apr_pool_t *pool);
+
+/* Return in *MOD_TIME the time at which PROPS_KIND props of PATH
+   were last modified, or 0 (zero) if unknown. */
+svn_error_t *
+svn_wc__props_last_modified(apr_time_t *mod_time,
+                            const char *path,
+                            svn_wc__props_kind_t props_kind,
+                            svn_wc_adm_access_t *adm_access,
+                            apr_pool_t *pool);
+
+/* Load the base, working and revert props for PATH in ADM_ACCESS returning
+   them in *BASE_PROPS_P, *PROPS_P and *REVERT_PROPS_P respectively.
+   Any of BASE_PROPS, PROPS and REVERT_PROPS may be null.
    Do all allocations in POOL.  */
 svn_error_t *
 svn_wc__load_props(apr_hash_t **base_props_p,
                    apr_hash_t **props_p,
+                   apr_hash_t **revert_props_p,
                    svn_wc_adm_access_t *adm_access,
-                   const char *name,
+                   const char *path,
                    apr_pool_t *pool);
 
 #ifdef __cplusplus

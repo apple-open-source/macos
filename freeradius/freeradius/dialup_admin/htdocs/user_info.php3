@@ -8,7 +8,7 @@ require('../conf/config.php3');
 <title>Personal information page</title>
 <link rel="stylesheet" href="style.css">
 </head>
-<body bgcolor="#80a040" background="images/greenlines1.gif" link="black" alink="black">
+<body>
 
 <center>
 <table border=0 width=550 cellpadding=0 cellspacing=0>
@@ -49,7 +49,7 @@ if (is_file("../lib/$config[general_lib_type]/user_info.php3"))
 <tr bgcolor="black" valign=top><td colspan=2>
 	<table border=0 width=100% cellpadding=12 cellspacing=0 bgcolor="#ffffd0" valign=top>
 	<tr><td>
-   
+
    <form method=post>
       <input type=hidden name=login value="<?php echo $login?>">
       <input type=hidden name=change value="0">

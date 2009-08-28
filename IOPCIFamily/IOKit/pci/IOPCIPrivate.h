@@ -24,14 +24,16 @@
 #ifndef _IOKIT_IOPCIPRIVATE_H
 #define _IOKIT_IOPCIPRIVATE_H
 
+#if defined(KERNEL)
+
 #include <IOKit/pci/IOPCIDevice.h>
 #include <libkern/OSDebug.h>
 
 #if defined(__i386__) || defined(__x86_64__)
-#define USE_IOPCICONFIGURATOR	1
-#define USE_MSI			1
-#define USE_LEGACYINTS		1
-#define ACPI_SUPPORT		1
+#define USE_IOPCICONFIGURATOR   1
+#define USE_MSI                 1
+#define USE_LEGACYINTS          1
+#define ACPI_SUPPORT            1
 #endif
 
 #if OSTYPES_K64_REV < 1
@@ -41,9 +43,9 @@ typedef long IOInterruptVectorNumber;
 
 struct IOPCIDeviceExpansionData
 {
-    UInt8   pmSleepEnabled;	// T if a client has enabled PCI Power Management
-    UInt8   pmControlStatus;	// if >0 this device supports PCI Power Management
-    UInt16  sleepControlBits;	// bits to set the control/status register to for sleep
+    UInt8   pmSleepEnabled;     // T if a client has enabled PCI Power Management
+    UInt8   pmControlStatus;    // if >0 this device supports PCI Power Management
+    UInt16  sleepControlBits;   // bits to set the control/status register to for sleep
 
     UInt16  expressConfig;
     UInt16  expressCapabilities;
@@ -56,26 +58,26 @@ struct IOPCIDeviceExpansionData
 
 enum
 {
-    kIOPCIConfigShadowSize	= 64 + 8,
-    kIOPCIConfigShadowXPress	= kIOPCIConfigShadowSize - 4,
-    kIOPCIConfigShadowMSI	= kIOPCIConfigShadowSize - 12,
-    kIOPCIConfigShadowRegs 	= 16,
-    kIOPCIVolatileRegsMask 	= ((1 << kIOPCIConfigShadowRegs) - 1)
-				& ~(1 << (kIOPCIConfigVendorID >> 2))
-				& ~(1 << (kIOPCIConfigRevisionID >> 2))
-				& ~(1 << (kIOPCIConfigSubSystemVendorID >> 2))
+    kIOPCIConfigShadowSize      = 64 + 8,
+    kIOPCIConfigShadowXPress    = kIOPCIConfigShadowSize - 4,
+    kIOPCIConfigShadowMSI       = kIOPCIConfigShadowSize - 12,
+    kIOPCIConfigShadowRegs      = 16,
+    kIOPCIVolatileRegsMask      = ((1 << kIOPCIConfigShadowRegs) - 1)
+                                & ~(1 << (kIOPCIConfigVendorID >> 2))
+                                & ~(1 << (kIOPCIConfigRevisionID >> 2))
+                                & ~(1 << (kIOPCIConfigSubSystemVendorID >> 2))
 };
 
 struct IOPCIConfigShadow
 {
-    UInt32	  savedConfig[kIOPCIConfigShadowSize];
+    UInt32        savedConfig[kIOPCIConfigShadowSize];
     UInt32        flags;
     queue_chain_t link;
     IOPCIDevice * device;
     IOPCI2PCIBridge * bridge;
 };
 
-#define configShadow(device)	((IOPCIConfigShadow *) &device->savedConfig[0])
+#define configShadow(device)    ((IOPCIConfigShadow *) &device->savedConfig[0])
 
 
 // flags in kIOPCIConfigShadowFlags
@@ -98,8 +100,8 @@ enum
 #define kIOPCIEjectableKey  "IOPCIEjectable"
 #define kIOPCIHotPlugKey    "IOPCIHotPlug"
 #define kIOPCILinkChangeKey "IOPCILinkChange"
-#define kIOPCIResetKey	    "IOPCIReset"
-#define kIOPCIOnlineKey	    "IOPCIOnline"
+#define kIOPCIResetKey      "IOPCIReset"
+#define kIOPCIOnlineKey     "IOPCIOnline"
 #define kIOPCIConfiguredKey "IOPCIConfigured"
 #define kIOPCIResourcedKey  "IOPCIResourced"
 
@@ -115,13 +117,23 @@ enum
 #define kACPIPCILinkChangeKey       "pci-supports-link-change"
 #endif
 
+#define kIOPCIDeviceDiagnosticsClassKey  "IOPCIDeviceDiagnosticsClass"
+
 extern const IORegistryPlane * gIOPCIACPIPlane;
-extern const OSSymbol *	       gIOPlatformDeviceASPMEnableKey;
+extern const OSSymbol *        gIOPlatformDeviceASPMEnableKey;
 
 enum
 {
     kIOPCIProbeOptionEject = 0x00100000 
 };
+
+#endif /* defined(KERNEL) */
+
+enum
+{
+    kIOPCIDeviceDiagnosticsClientType = 0x99000001
+};
+
 
 #endif /* ! _IOKIT_IOPCIPRIVATE_H */
 

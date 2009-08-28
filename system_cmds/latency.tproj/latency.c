@@ -54,6 +54,8 @@
 #include <sys/kdebug.h>
 #endif /*KERNEL_PRIVATE*/
 
+#include <libutil.h>
+
 #include <sys/sysctl.h>
 #include <errno.h>
 #include <err.h>
@@ -157,9 +159,9 @@ struct ct {
 #define NUMPARMS 23
 
 struct th_info {
-        int  thread;
+        uintptr_t  thread;
         int  type;
-        int  child_thread;
+        uintptr_t  child_thread;
         int  arg1;
         double stime;
         long *pathptr;
@@ -192,19 +194,19 @@ int  cur_max = 0;
 #define DBG_FUNC_ALL	(DBG_FUNC_START | DBG_FUNC_END)
 #define DBG_FUNC_MASK	0xfffffffc
 
-#define CPU_NUMBER(ts)	((ts & KDBG_CPU_MASK) >> KDBG_CPU_SHIFT)
+#define CPU_NUMBER(kp)	kdbg_get_cpu(kp)
 
-#define DBG_ZERO_FILL_FAULT   1
-#define DBG_PAGEIN_FAULT      2
-#define DBG_COW_FAULT         3
-#define DBG_CACHE_HIT_FAULT   4
 
-char *fault_name[5] = {
+char *fault_name[9] = {
         "",
 	"ZeroFill",
 	"PageIn",
 	"COW",
 	"CacheHit",
+	"NoZeroFill",
+	"Guard",
+	"PageInFile",
+	"PageInAnon"
 };
 
 char *pc_to_string();
@@ -749,9 +751,7 @@ exit_usage()
 
 
 int
-main(argc, argv)
-int  argc;
-char *argv[];
+main(int argc, char *argv[])
 {
 	uint64_t start, stop;
 	uint64_t timestamp1;
@@ -770,6 +770,11 @@ char *argv[];
 	void     init_code_file();
 	void     do_kernel_nm();
 	void     open_logfile();
+
+	if (0 != reexec_to_match_kernel()) {
+		fprintf(stderr, "Could not re-execute: %d\n", errno);
+		exit(1);
+	}
 
 	my_policy = THREAD_STANDARD_POLICY;
 	policy_name = "TIMESHARE";
@@ -1111,7 +1116,7 @@ void read_command_map()
 }
 
 
-void create_map_entry(int thread, char *command)
+void create_map_entry(uintptr_t thread, char *command)
 {
     int i, n;
     kd_threadmap *map;
@@ -1167,7 +1172,7 @@ void create_map_entry(int thread, char *command)
 }
 
 
-kd_threadmap *find_thread_map(int thread)
+kd_threadmap *find_thread_map(uintptr_t thread)
 {
     int i;
     kd_threadmap *map;
@@ -1187,7 +1192,7 @@ kd_threadmap *find_thread_map(int thread)
 }
 
 void
-kill_thread_map(int thread)
+kill_thread_map(uintptr_t thread)
 {
     kd_threadmap *map;
 
@@ -1204,7 +1209,7 @@ kill_thread_map(int thread)
 }
 
 
-struct th_info *find_thread(int thread, int type1, int type2) {
+struct th_info *find_thread(uintptr_t thread, int type1, int type2) {
        struct th_info *ti;
 
        for (ti = th_state; ti < &th_state[cur_max]; ti++) {
@@ -1325,7 +1330,7 @@ void sample_sc(uint64_t start, uint64_t stop)
 		void print_entry();
 
 		thread  = kd->arg5;
-		cpunum	= CPU_NUMBER(kd->timestamp);
+		cpunum	= CPU_NUMBER(kd);
 		debugid = kd->debugid;
 		type    = kd->debugid & DBG_FUNC_MASK;
 
@@ -1354,7 +1359,7 @@ void sample_sc(uint64_t start, uint64_t stop)
 				}
 				if ((kd->debugid & DBG_FUNC_MASK) == DECR_TRAP)
 				  {
-				    cpunum = CPU_NUMBER(kd->timestamp);
+				    cpunum = CPU_NUMBER(kd);
 				    last_decrementer_kd[cpunum] = kd;
 				  }
 				else
@@ -1626,7 +1631,7 @@ enter_syscall(FILE *fp, kd_buf *kd, int thread, int type, char *command, double 
        int    cpunum;
        char  *p;
 
-       cpunum = CPU_NUMBER(kd->timestamp);
+       cpunum = CPU_NUMBER(kd);
 
        if (print_info && fp) {
 	       if ((p = find_code(type))) {
@@ -1697,7 +1702,7 @@ exit_syscall(FILE *fp, kd_buf *kd, int thread, int type, char *command, double t
        char   *p;
        uint64_t user_addr;
 
-       cpunum = CPU_NUMBER(kd->timestamp);
+       cpunum = CPU_NUMBER(kd);
 
        ti = find_thread(thread, type, type);
 #if 0
@@ -1713,10 +1718,10 @@ exit_syscall(FILE *fp, kd_buf *kd, int thread, int type, char *command, double t
 	       if ((p = find_code(type))) {
 		       if (type == INTERRUPT) {
 			       fprintf(fp, "INTERRUPT                                                               %-8x  %d  %s\n", thread, cpunum, command);
-		       } else if (type == MACH_vmfault && kd->arg4 <= DBG_CACHE_HIT_FAULT) {
+		       } else if (type == MACH_vmfault && kd->arg4 <= DBG_PAGEIND_FAULT) {
 			       user_addr = ((uint64_t)kd->arg1 << 32) | (uint32_t)kd->arg2;
 
-			       fprintf(fp, "%-28.28s %-8.8s   %-16qx                %-8x  %d  %s\n",
+			       fprintf(fp, "%-28.28s %-10.10s   %-16qx              %-8x  %d  %s\n",
 				       p, fault_name[kd->arg4], user_addr,
 				       thread, cpunum, command);
 		       } else {
@@ -1753,7 +1758,7 @@ print_entry(FILE *fp, kd_buf *kd, int thread, int type, char *command, double ti
        if (!fp)
 	 return;
 
-       cpunum = CPU_NUMBER(kd->timestamp);
+       cpunum = CPU_NUMBER(kd);
 #if 0
        fprintf(fp, "cur_max = %d, type = %x,  thread = %x, cpunum = %d\n", cur_max, type, thread, cpunum);
 #endif
@@ -1841,13 +1846,13 @@ kd_buf *log_decrementer(kd_buf *kd_beg, kd_buf *kd_end, kd_buf *end_of_sample, d
 	fprintf(log_fp, "RelTime(Us)  Delta              debugid                      arg1       arg2       arg3      arg4       thread   cpu   command\n\n");
 
 	thread = kd_beg->arg5;
-	cpunum = CPU_NUMBER(kd_end->timestamp);
+	cpunum = CPU_NUMBER(kd_end);
 
 	for (kd_count = 0, kd_start = kd_beg - 1; (kd_start >= (kd_buf *)my_buffer); kd_start--, kd_count++) {
 	        if (kd_count == MAX_LOG_COUNT)
 		        break;
 
-		if (CPU_NUMBER(kd_start->timestamp) != cpunum)
+		if (CPU_NUMBER(kd_start) != cpunum)
 		        continue;
 										     
 		if ((kd_start->debugid & DBG_FUNC_MASK) == DECR_TRAP)
@@ -1867,7 +1872,7 @@ kd_buf *log_decrementer(kd_buf *kd_beg, kd_buf *kd_end, kd_buf *end_of_sample, d
 		if ((kd_stop->debugid & DBG_FUNC_MASK) == DECR_TRAP)
 		        break;
 
-		if (CPU_NUMBER(kd_stop->timestamp) != cpunum)
+		if (CPU_NUMBER(kd_stop) != cpunum)
 		        continue;
 
 		if (kd_stop->arg5 != thread)
@@ -1892,7 +1897,7 @@ kd_buf *log_decrementer(kd_buf *kd_beg, kd_buf *kd_end, kd_buf *end_of_sample, d
 	        int    mode;
 
 	        thread  = kd->arg5;
-		cpunum	= CPU_NUMBER(kd->timestamp);
+		cpunum	= CPU_NUMBER(kd);
 		debugid = kd->debugid;
 		type    = kd->debugid & DBG_FUNC_MASK;
 
@@ -2090,13 +2095,13 @@ kd_buf *log_decrementer(kd_buf *kd_beg, kd_buf *kd_end, kd_buf *end_of_sample, d
 double handle_decrementer(kd_buf *kd)
 {
         double latency;
-	int    elapsed_usecs;
+	long   elapsed_usecs;
 
-	if ((int)(kd->arg1) >= 0)
+	if ((long)(kd->arg1) >= 0)
 	       latency = 1;
 	else
 	       latency = (((double)(-1 - kd->arg1)) / divisor);
-	elapsed_usecs = (int)latency;
+	elapsed_usecs = (long)latency;
 
 	if (elapsed_usecs < 100)
 	        i_usec_10_bins[elapsed_usecs/10]++;

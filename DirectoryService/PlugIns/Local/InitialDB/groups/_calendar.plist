@@ -10,6 +10,10 @@
 	<array>
 		<string>93</string>
 	</array>
+	<key>groupmembers</key>
+	<array>
+		<string>FFFFEEEE-DDDD-CCCC-BBBB-AAAA0000005E</string>
+	</array>
 	<key>name</key>
 	<array>
 		<string>_calendar</string>
@@ -18,6 +22,10 @@
 	<key>passwd</key>
 	<array>
 		<string>*</string>
+	</array>
+	<key>realname</key>
+	<array>
+		<string>Calendar</string>
 	</array>
 	<key>users</key>
 	<array>

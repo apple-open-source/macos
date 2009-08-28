@@ -2,8 +2,8 @@
 
   struct.c -
 
-  $Author: shyouhei $
-  $Date: 2008-06-15 22:44:44 +0900 (Sun, 15 Jun 2008) $
+  $Author: knu $
+  $Date: 2008-05-31 20:44:49 +0900 (Sat, 31 May 2008) $
   created at: Tue Mar 22 18:44:30 JST 1995
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -20,7 +20,7 @@ static VALUE struct_alloc _((VALUE));
 VALUE
 rb_struct_iv_get(c, name)
     VALUE c;
-    char *name;
+    const char *name;
 {
     ID id;
 
@@ -41,7 +41,10 @@ rb_struct_s_members(klass)
     VALUE members = rb_struct_iv_get(klass, "__members__");
 
     if (NIL_P(members)) {
-	rb_bug("non-initialized struct");
+	rb_raise(rb_eTypeError, "uninitialized struct");
+    }
+    if (TYPE(members) != T_ARRAY) {
+	rb_raise(rb_eTypeError, "corrupted struct");
     }
     return members;
 }
@@ -423,6 +426,7 @@ rb_struct_each(s)
 {
     long i;
 
+    RETURN_ENUMERATOR(s, 0, 0);
     for (i=0; i<RSTRUCT(s)->len; i++) {
 	rb_yield(RSTRUCT(s)->ptr[i]);
     }
@@ -454,6 +458,7 @@ rb_struct_each_pair(s)
     VALUE members;
     long i;
 
+    RETURN_ENUMERATOR(s, 0, 0);
     members = rb_struct_members(s);
     for (i=0; i<RSTRUCT(s)->len; i++) {
 	rb_yield_values(2, rb_ary_entry(members, i), RSTRUCT(s)->ptr[i]);
@@ -465,7 +470,7 @@ static VALUE
 inspect_struct(s)
     VALUE s;
 {
-    char *cname = rb_class2name(rb_obj_class(s));
+    const char *cname = rb_class2name(rb_obj_class(s));
     VALUE str, members;
     long i;
 
@@ -476,7 +481,7 @@ inspect_struct(s)
     for (i=0; i<RSTRUCT(s)->len; i++) {
 	VALUE slot;
 	ID id;
-	char *p;
+	const char *p;
 
 	if (i > 0) {
 	    rb_str_cat2(str, ", ");
@@ -512,7 +517,7 @@ rb_struct_inspect(s)
     VALUE s;
 {
     if (rb_inspecting_p(s)) {
-	char *cname = rb_class2name(rb_obj_class(s));
+	const char *cname = rb_class2name(rb_obj_class(s));
 	size_t len = strlen(cname) + 14;
 	VALUE str = rb_str_new(0, len);
 

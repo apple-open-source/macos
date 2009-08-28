@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -64,6 +64,7 @@
 #include <sys/mount.h>
 #include <sys/sysctl.h>
 #include <sys/time.h>
+#include <sys/socket.h>
 #include <nfs/rpcv2.h>
 #include <nfs/nfsproto.h>
 #include <nfs/nfs.h>
@@ -1021,12 +1022,14 @@ displayActiveUserRec(struct nfs_user_stat_user_rec *rec, u_int flags)
 {
 	struct sockaddr_in	*in; 
 	struct sockaddr_in6	*in6;
-	struct hostent		*hp;
+	struct hostent		*hp = NULL;
 	struct passwd		*pw;
 	struct timeval		now;
 	struct timezone		tz; 
 	uint32_t		now32, hr, min, sec;
 	char			addrbuf[NI_MAXHOST];
+	char			unknown[] = "* * * *";
+	char			*addr = unknown;
 
 	/* get current time for calculating idle time */
 	gettimeofday(&now, &tz);
@@ -1046,55 +1049,33 @@ displayActiveUserRec(struct nfs_user_stat_user_rec *rec, u_int flags)
 	if (rec->sock.ss_family == AF_INET) {
 		/* ipv4 */
 		in = (struct sockaddr_in *)&rec->sock;
-		if (flags & NUMERIC_NET) {
-			if (inet_ntop(AF_INET, &in->sin_addr, addrbuf, sizeof(addrbuf)) == NULL)
-				sprintf(addrbuf, "* * * *");
-		}
-		else {
+		if (!(flags & NUMERIC_NET))
 			hp = gethostbyaddr((char *)&in->sin_addr, sizeof(in->sin_addr), AF_INET);
-			if (hp)
-				sprintf(addrbuf, "%s", hp->h_name);
-			else
-				sprintf(addrbuf, "* * * *");
-		}
-	}
-	else if (rec->sock.ss_family == AF_INET6) {
+		if (hp && hp->h_name)
+			addr = hp->h_name;
+		else if (inet_ntop(AF_INET, &in->sin_addr, addrbuf, sizeof(addrbuf)))
+			addr = addrbuf;
+	} else if (rec->sock.ss_family == AF_INET6) {
 		/* ipv6 */
 		in6 = (struct sockaddr_in6 *)&rec->sock;
-		if (flags & NUMERIC_NET) {
-			if (inet_ntop(AF_INET6, &in6->sin6_addr, addrbuf, sizeof(addrbuf)) == NULL)
-				sprintf(addrbuf, "* * * *");
-		}
-		else {
+		if (!(flags & NUMERIC_NET))
 			hp = gethostbyaddr((char *)&in6->sin6_addr, sizeof(in6->sin6_addr), AF_INET6);
-			if (hp)
-				sprintf(addrbuf, "%s", hp->h_name);
-			else
-				sprintf(addrbuf, "* * * *");
-		}
+		if (hp && hp->h_name)
+			addr = hp->h_name;
+		else if (inet_ntop(AF_INET6, &in6->sin6_addr, addrbuf, sizeof(addrbuf)))
+			addr = addrbuf;
 	}
-	else
-		sprintf(addrbuf, "* * * *");
                                         
-	if (flags & NUMERIC_USER) {
+	if ((flags & NUMERIC_USER) || !(pw = getpwuid(rec->uid))) {
 		/* print uid */
 		printf("%12llu  %12llu  %12llu  %1u:%02u:%02u  %-8u %s\n",
 		    rec->ops, rec->bytes_read, rec->bytes_written,
-		    hr, min, sec, rec->uid, addrbuf);
-	}
-	else
-	{
-		/* get user name from uid */
-		pw = getpwuid(rec->uid);
-
-		if (pw)
-			printf("%12llu  %12llu  %12llu  %1u:%02u:%02u  %-8.8s %s\n",
-			    rec->ops, rec->bytes_read, rec->bytes_written,
-			    hr, min, sec, pw->pw_name, addrbuf);
-		else
-			printf("%12llu  %12llu  %12llu  %1u:%02u:%02u  %-8u %s\n",
-			    rec->ops, rec->bytes_read, rec->bytes_written,
-			    hr, min, sec, rec->uid, addrbuf);
+		    hr, min, sec, rec->uid, addr);
+	} else {
+		/* print user name */
+		printf("%12llu  %12llu  %12llu  %1u:%02u:%02u  %-8.8s %s\n",
+		    rec->ops, rec->bytes_read, rec->bytes_written,
+		    hr, min, sec, pw->pw_name, addr);
 	}
 }
 
@@ -1267,7 +1248,7 @@ printhdr(void)
  * Sets a flag to not wait for the alarm.
  */
 void
-catchalarm(int dummy)
+catchalarm(__unused int dummy)
 {
 	signalled = 1;
 }

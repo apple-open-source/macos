@@ -1,3 +1,4 @@
+// $OpenLDAP: pkg/ldap/contrib/ldapc++/src/LDAPSearchResults.cpp,v 1.1.10.2 2008/04/14 23:09:26 quanah Exp $
 /*
  * Copyright 2000, OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
@@ -7,7 +8,6 @@
 #include "LDAPException.h"
 #include "LDAPSearchResult.h"
 #include "LDAPResult.h"
-#include "LDAPReferralException.h"
 
 #include "LDAPSearchResults.h"
 

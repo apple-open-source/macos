@@ -15,7 +15,7 @@
 //
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 //
 // As a special exception, you may use this file as part of a free software
@@ -37,7 +37,7 @@ using namespace __gnu_test;
 int main()
 {
   typedef __gnu_cxx::hash_set<int, __gnu_cxx::hash<int>, std::equal_to<int>,
-                              tracker_alloc<int> >
+                              tracker_allocator<int> >
     Container;
 
   const int arr10[10]  = { 2, 4, 1, 7, 3, 8, 10, 5, 9, 6 };
@@ -46,7 +46,7 @@ int main()
 
   int buckets;
 
-  allocation_tracker::resetCounts();
+  tracker_allocator_counter::reset();
   {
     Container c;
     buckets = c.bucket_count();
@@ -55,14 +55,14 @@ int main()
   ok = check_construct_destroy("empty container", buckets, buckets) && ok;
 
 
-  allocation_tracker::resetCounts();
+  tracker_allocator_counter::reset();
   {
     Container c(arr10, arr10 + 10);
     ok = check_construct_destroy("Construct from range", buckets+10, 0) && ok;
   }
   ok = check_construct_destroy("Construct from range", buckets+10, buckets+10) && ok;
 
-  allocation_tracker::resetCounts();
+  tracker_allocator_counter::reset();
   {
     Container c(arr10, arr10 + 10);
     c.insert(arr10a[0]);
@@ -70,7 +70,7 @@ int main()
   }
   ok = check_construct_destroy("Insert element", buckets+11, buckets+11) && ok;
 
-  allocation_tracker::resetCounts();
+  tracker_allocator_counter::reset();
   {
     Container c(arr10, arr10 + 10);
     c.insert(arr10a, arr10a+3);
@@ -78,7 +78,7 @@ int main()
   }
   ok = check_construct_destroy("Insert short range", buckets+13, buckets+13) && ok;
 
-  allocation_tracker::resetCounts();
+  tracker_allocator_counter::reset();
   {
     Container c(arr10, arr10 + 10);
     c.insert(arr10a, arr10a+10);

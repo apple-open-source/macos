@@ -149,8 +149,10 @@ typedef enum PWDisableReasonCode {
 
 // this is the version of the time struct that
 // will be written to our db file.
-// If the bsd header ever changes, the new version
-// can be mapped to this one.
+// DOES NOT MATCH struct tm ON 64-BIT MACHINES!!
+// On a 64-bit machine, tm_gmtoff is a long.  Since
+// we have been writing this struct to file, we need
+// to keep tm_gmtoff as a 32-bit int.
 typedef struct BSDTimeStructCopy {
 	int	tm_sec;		/* seconds after the minute [0-60] */
 	int	tm_min;		/* minutes after the hour [0-59] */
@@ -161,10 +163,10 @@ typedef struct BSDTimeStructCopy {
 	int	tm_wday;	/* days since Sunday [0-6] */
 	int	tm_yday;	/* days since January 1 [0-365] */
 	int	tm_isdst;	/* Daylight Savings Time flag */
-	long tm_gmtoff;	/* offset from CUT in seconds */
-	char *tm_zone;	/* timezone abbreviation */
+	int32_t tm_gmtoff;	/* offset from CUT in seconds */
+	uint32_t tm_zone;	/* timezone abbreviation */
 } BSDTimeStructCopy;
-
+        
 typedef struct AuthMethName {
     char method[SASL_MECHNAMEMAX + 1];
 } AuthMethName;
@@ -343,10 +345,10 @@ typedef struct PWFileHeader {
     AuthMethName weakAuthMethods[kPWFileMaxWeakMethods];
                                                     // list of methods that are considered too weak for administration
     
-    unsigned long publicKeyLen;
+    uint32_t publicKeyLen;
     unsigned char publicKey[kPWFileMaxPublicKeyBytes];
                                                     // 1024-bit RSA public key - expected size is 233
-    unsigned long privateKeyLen;
+    uint32_t privateKeyLen;
     unsigned char privateKey[kPWFileMaxPrivateKeyBytes];
                                                     // 1024-bit RSA private key - expected size is 887 or so
 													
@@ -398,19 +400,26 @@ typedef struct PWFileEntry {
 int TimeIsStale( BSDTimeStructCopy *inTime );
 int LoginTimeIsStale( BSDTimeStructCopy *inLastLogin, unsigned long inMaxMinutesOfNonUse );
 void PWGlobalAccessFeaturesToString( PWGlobalAccessFeatures *inAccessFeatures, char *outString );
-void PWGlobalAccessFeaturesToStringExtra( PWGlobalAccessFeatures *inAccessFeatures, PWGlobalMoreAccessFeatures *inExtraFeatures, int inMaxLen, char *outString );
+void PWGlobalAccessFeaturesToStringExtra( PWGlobalAccessFeatures *inAccessFeatures, PWGlobalMoreAccessFeatures *inExtraFeatures, size_t inMaxLen, char *outString );
 void PWAccessFeaturesToString( PWAccessFeatures *inAccessFeatures, char *outString );
-void PWAccessFeaturesToStringExtra( PWAccessFeatures *inAccessFeatures, PWMoreAccessFeatures *inExtraFeatures, int inMaxLen, char *outString );
+void PWAccessFeaturesToStringExtra( PWAccessFeatures *inAccessFeatures, PWMoreAccessFeatures *inExtraFeatures, size_t inMaxLen, char *outString );
 void PWActualAccessFeaturesToString( PWGlobalAccessFeatures *inGAccessFeatures, PWAccessFeatures *inAccessFeatures, char *outString );
-void PWActualAccessFeaturesToStringExtra( PWGlobalAccessFeatures *inGAccessFeatures, PWAccessFeatures *inAccessFeatures, PWMoreAccessFeatures *inExtraFeatures, int inMaxLen, char *outString );
+void PWActualAccessFeaturesToStringExtra( PWGlobalAccessFeatures *inGAccessFeatures, PWAccessFeatures *inAccessFeatures, PWMoreAccessFeatures *inExtraFeatures, size_t inMaxLen, char *outString );
 void PWAccessFeaturesToStringWithoutStateInfo( PWAccessFeatures *inAccessFeatures, char *outString );
-void PWAccessFeaturesToStringWithoutStateInfoExtra( PWAccessFeatures *inAccessFeatures, PWMoreAccessFeatures *inExtraFeatures, int inMaxLen, char *outString );
+void PWAccessFeaturesToStringWithoutStateInfoExtra( PWAccessFeatures *inAccessFeatures, PWMoreAccessFeatures *inExtraFeatures, size_t inMaxLen, char *outString );
 Boolean StringToPWGlobalAccessFeatures( const char *inString, PWGlobalAccessFeatures *inOutAccessFeatures );
 Boolean StringToPWGlobalAccessFeaturesExtra( const char *inString, PWGlobalAccessFeatures *inOutAccessFeatures, PWGlobalMoreAccessFeatures *inOutExtraFeatures );
 Boolean StringToPWAccessFeatures( const char *inString, PWAccessFeatures *inOutAccessFeatures );
 Boolean StringToPWAccessFeaturesExtra( const char *inString, PWAccessFeatures *inOutAccessFeatures, PWMoreAccessFeatures *inOutExtraFeatures );
 Boolean StringToPWAccessFeatures_GetValue( const char *inString, unsigned long *outValue );
 void CrashIfBuiltWrong(void);
+
+void BSDTimeStructCopy2StructTM( const BSDTimeStructCopy* ourTM, struct tm* sysTM );
+void StructTM2BSDTimeStructCopy( const struct tm* sysTM, BSDTimeStructCopy* ourTM );
+time_t BSDTimeStructCopy_timegm(const BSDTimeStructCopy* ourTM);
+void BSDTimeStructCopy_gmtime_r(const time_t* clock, BSDTimeStructCopy* ourTM);
+size_t BSDTimeStructCopy_strftime(char *s, size_t maxsize, const char *format, const BSDTimeStructCopy *ourTM);
+
 
 void pwsf_PreserveUnrepresentedPolicies( const char *inOriginalStr, int inMaxLen, char *inOutString );
 
@@ -426,10 +435,10 @@ void pwsf_EndianAdjustTimeStruct( BSDTimeStructCopy *inOutTimeStruct, int native
 void pwsf_EndianAdjustPWFileHeader( PWFileHeader *inOutHeader, int native );
 void pwsf_EndianAdjustPWFileEntry( PWFileEntry *inOutEntry, int native );
 void pwsf_AddHashesToPWRecord( const char *inRealm, bool inAddNT, bool inAddLM, PWFileEntry *inOutPasswordRec );
-void pwsf_getHashCramMD5(const unsigned char *inPassword, long inPasswordLen, unsigned char *outHash, unsigned long *outHashLen);
-void pwsf_getSaltedSHA1(const unsigned char *inPassword, long inPasswordLen, unsigned char *outHash, unsigned long *outHashLen);
-long pwsf_slotToOffset(long slot);
-void pwsf_getGMTime(struct tm *inOutGMT);
+void pwsf_getHashCramMD5(const unsigned char *inPassword, size_t inPasswordLen, unsigned char *outHash, size_t *outHashLen);
+void pwsf_getSaltedSHA1(const unsigned char *inPassword, size_t inPasswordLen, unsigned char *outHash, size_t *outHashLen);
+off_t pwsf_slotToOffset(uint32_t slot);
+void pwsf_getGMTime(BSDTimeStructCopy *outGMT);
 unsigned long pwsf_getTimeForRef(void);
 unsigned long pwsf_getRandom(void);
 void pwsf_passwordRecRefToString(PWFileEntry *inPasswordRec, char *outRefStr);
@@ -439,10 +448,10 @@ void pwsf_addHashCramMD5( PWFileEntry *inOutPasswordRec );
 void pwsf_addHashSaltedSHA1( PWFileEntry *inOutPasswordRec );
 
 // db codecs
-int pwsf_compress_header( PWFileHeader *inHeader, unsigned char **outCompressedHeader, unsigned int *outCompressedHeaderLength );
-int pwsf_compress_slot( PWFileEntry *inPasswordRec, unsigned char **outCompressedRecord, unsigned int *outCompressedRecordLength );
-int pwsf_expand_header( const unsigned char *inCompressedHeader, unsigned int inCompressedHeaderLength, PWFileHeader *outHeader );
-int pwsf_expand_slot( const unsigned char *inCompressedRecord, unsigned int inCompressedRecordLength, PWFileEntry *inOutPasswordRec );
+int pwsf_compress_header( PWFileHeader *inHeader, unsigned char **outCompressedHeader, size_t *outCompressedHeaderLength );
+int pwsf_compress_slot( PWFileEntry *inPasswordRec, unsigned char **outCompressedRecord, size_t *outCompressedRecordLength );
+int pwsf_expand_header( const unsigned char *inCompressedHeader, size_t inCompressedHeaderLength, PWFileHeader *outHeader );
+int pwsf_expand_slot( const unsigned char *inCompressedRecord, size_t inCompressedRecordLength, PWFileEntry *inOutPasswordRec );
 
 // DES
 void pwsf_DESEncode(void *data, unsigned long inDataLen);
@@ -464,18 +473,21 @@ int pwsf_savexml(const char *inSaveFile, CFDictionaryRef inPList );
 
 // in CAuthFileBase.cpp
 int pwsf_TestDisabledStatus( PWAccessFeatures *inAccess, PWGlobalAccessFeatures *inGAccess, struct tm *inCreationDate, struct tm *inLastLoginTime, UInt16 *inOutFailedLoginAttempts );
-int pwsf_TestDisabledStatusWithReasonCode( PWAccessFeatures *inAccess, PWGlobalAccessFeatures *inGAccess, struct tm *inCreationDate, struct tm *inLastLoginTime, UInt16 *inOutFailedLoginAttempts, PWDisableReasonCode *outReasonCode );
+int pwsf_TestDisabledStatusPWS( PWAccessFeatures *inAccess, PWGlobalAccessFeatures *inGAccess, BSDTimeStructCopy *inCreationDate, BSDTimeStructCopy *inLastLoginTime, UInt16 *inOutFailedLoginAttempts );
+int pwsf_TestDisabledStatusWithReasonCode( PWAccessFeatures *inAccess, PWGlobalAccessFeatures *inGAccess, BSDTimeStructCopy*inCreationDate, BSDTimeStructCopy *inLastLoginTime, UInt16 *inOutFailedLoginAttempts, PWDisableReasonCode *outReasonCode );
 int pwsf_ChangePasswordStatus( PWAccessFeatures *inAccess, PWGlobalAccessFeatures *inGAccess, struct tm *inModDateOfPassword );
+int pwsf_ChangePasswordStatusPWS( PWAccessFeatures *inAccess, PWGlobalAccessFeatures *inGAccess, BSDTimeStructCopy *inModDateOfPassword );
 int pwsf_RequiredCharacterStatus(PWAccessFeatures *access, PWGlobalAccessFeatures *inGAccess, const char *inUsername, const char *inPassword);
 int pwsf_RequiredCharacterStatusExtra(PWAccessFeatures *access, PWGlobalAccessFeatures *inGAccess, const char *inUsername, const char *inPassword, PWMoreAccessFeatures *inExtraFeatures );
-void pwsf_getHashCramMD5(const unsigned char *inPassword, long inPasswordLen, unsigned char *outHash, unsigned long *outHashLen );
 
 // in CReplicaFile.cpp
 CFDictionaryRef pwsf_GetStatusForReplicas( void );
 
 // in CPolicyBase.cpp
 bool pwsf_ConvertCFDateToBSDTime( CFDateRef inDateRef, struct tm *outBSDDate );
+bool pwsf_ConvertCFDateToBSDTimeStructCopy( CFDateRef inDateRef, BSDTimeStructCopy *outBSDDate );
 bool pwsf_ConvertBSDTimeToCFDate( struct tm *inBSDDate, CFDateRef *outDateRef );
+bool pwsf_ConvertBSDTimeStructCopyToCFDate( BSDTimeStructCopy *inBSDDate, CFDateRef *outDateRef );
 
 // in CPolicyGlobalXML.cpp
 int ConvertGlobalXMLPolicyToSpaceDelimited( const char *inXMLDataStr, char **outPolicyStr );

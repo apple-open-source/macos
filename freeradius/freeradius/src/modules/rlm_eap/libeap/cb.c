@@ -1,7 +1,7 @@
 /*
  * cb.c
  *
- * Version:     $Id: cb.c,v 1.1.2.4 2007/04/08 14:39:26 aland Exp $
+ * Version:     $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,10 +15,15 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
  * Copyright 2001  hereUare Communications, Inc. <raghud@hereuare.com>
+ * Copyright 2006  The FreeRADIUS server project
  */
+
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
+
 #include "eap_tls.h"
 
 #ifndef NO_OPENSSL
@@ -27,6 +32,10 @@ void cbtls_info(const SSL *s, int where, int ret)
 {
 	const char *str, *state;
 	int w;
+	EAP_HANDLER *handler = (EAP_HANDLER *)SSL_get_ex_data(s, 0);
+	REQUEST *request = NULL;
+
+	if (handler) request = handler->request;
 
 	w = where & ~SSL_ST_MASK;
 	if (w & SSL_ST_CONNECT) str="    TLS_connect";
@@ -37,11 +46,11 @@ void cbtls_info(const SSL *s, int where, int ret)
 	state = state ? state : "NULL";
 
 	if (where & SSL_CB_LOOP) {
-		DEBUG2("%s: %s\n", str, state);
+		RDEBUG2("%s: %s\n", str, state);
 	} else if (where & SSL_CB_HANDSHAKE_START) {
-		DEBUG2("%s: %s\n", str, state);
+		RDEBUG2("%s: %s\n", str, state);
 	} else if (where & SSL_CB_HANDSHAKE_DONE) {
-		DEBUG2("%s: %s\n", str, state);
+		RDEBUG2("%s: %s\n", str, state);
 	} else if (where & SSL_CB_ALERT) {
 		str=(where & SSL_CB_READ)?"read":"write";
 		radlog(L_ERR,"TLS Alert %s:%s:%s\n", str,
@@ -52,7 +61,7 @@ void cbtls_info(const SSL *s, int where, int ret)
 			radlog(L_ERR, "%s:failed in %s\n", str, state);
 		} else if (ret < 0) {
 			if (SSL_want_read(s)) {
-				DEBUG2("%s: Need to read more data: %s",
+				RDEBUG2("%s: Need to read more data: %s",
 				       str, state);
 			} else {
 				radlog(L_ERR, "%s:error in %s\n", str, state);
@@ -104,15 +113,11 @@ int cbtls_password(char *buf,
 	return(strlen((char *)userdata));
 }
 
-RSA *cbtls_rsa(SSL *s UNUSED, int is_export UNUSED, int keylength)
-{
-	static RSA *rsa_tmp=NULL;
-
-	if (rsa_tmp == NULL) {
-		DEBUG2("Generating temp (%d bit) RSA key...", keylength);
-		rsa_tmp=RSA_generate_key(keylength, RSA_F4, NULL, NULL);
-	}
-	return(rsa_tmp);
-}
+/*
+ *	For callbacks
+ */
+int eaptls_handle_idx = -1;
+int eaptls_conf_idx = -1;
+int eaptls_session_idx = -1;
 
 #endif /* !defined(NO_OPENSSL) */

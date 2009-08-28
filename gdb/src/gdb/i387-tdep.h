@@ -74,7 +74,7 @@ extern void i387_value_to_register (struct frame_info *frame, int regnum,
 #define I387_SIZEOF_FSAVE	108
 #define I387_SIZEOF_FXSAVE	512
 
-extern void i387_swap_fxsave (struct regcache *regcache, const void *fxsave);
+void i387_swap_fxsave (struct regcache *regcache, const uint8_t *fxsave);
 
 /* Fill register REGNUM in REGCACHE with the appropriate value from
    *FSAVE.  This function masks off any of the reserved bits in

@@ -1,10 +1,10 @@
 /*
  * Copyright (c) 2008, 2009, Google Inc. All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
  * met:
- * 
+ *
  *     * Redistributions of source code must retain the above copyright
  * notice, this list of conditions and the following disclaimer.
  *     * Redistributions in binary form must reproduce the above
@@ -14,7 +14,7 @@
  *     * Neither the name of Google Inc. nor the names of its
  * contributors may be used to endorse or promote products derived from
  * this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -37,22 +37,9 @@ namespace WebCore {
 
     class PlatformMouseEvent;
 
-    // This class contains the Chromium scrollbar implementations for Windows
-    // and Linux. All of the symbols here in must be defined somewhere in the
-    // code and we manage the platform specific parts by linking in different,
-    // platform specific, files. Methods that we shared across platforms are
-    // implemented in ScrollbarThemeChromium.cpp
+    // This class contains the scrollbar code which is shared between Chromium
+    // Windows and Linux.
     class ScrollbarThemeChromium : public ScrollbarThemeComposite {
-    public:
-        ScrollbarThemeChromium();
-        virtual ~ScrollbarThemeChromium();
-
-        virtual int scrollbarThickness(ScrollbarControlSize = RegularScrollbar);
-
-        virtual void themeChanged();
-        
-        virtual bool invalidateOnMouseEnterExit();
-
     protected:
         virtual bool hasButtons(Scrollbar*) { return true; }
         virtual bool hasThumb(Scrollbar*);
@@ -62,23 +49,12 @@ namespace WebCore {
         virtual IntRect trackRect(Scrollbar*, bool painting = false);
 
         virtual void paintScrollCorner(ScrollView*, GraphicsContext*, const IntRect&);
-        virtual bool shouldCenterOnThumb(Scrollbar*, const PlatformMouseEvent&);
-        virtual bool shouldSnapBackToDragOrigin(Scrollbar*, const PlatformMouseEvent&);
 
         virtual void paintTrackBackground(GraphicsContext*, Scrollbar*, const IntRect&);
-        virtual void paintTrackPiece(GraphicsContext*, Scrollbar*, const IntRect&, ScrollbarPart);
-        virtual void paintButton(GraphicsContext*, Scrollbar*, const IntRect&, ScrollbarPart);
-        virtual void paintThumb(GraphicsContext*, Scrollbar*, const IntRect&);
         virtual void paintTickmarks(GraphicsContext*, Scrollbar*, const IntRect&);
 
-    private:
-        IntSize buttonSize(Scrollbar*);
-
-        int getThemeState(Scrollbar*, ScrollbarPart) const;
-        int getThemeArrowState(Scrollbar*, ScrollbarPart) const;
-        int getClassicThemeState(Scrollbar*, ScrollbarPart) const;
+        virtual IntSize buttonSize(Scrollbar*) = 0;
     };
-
 } // namespace WebCore
 
 #endif

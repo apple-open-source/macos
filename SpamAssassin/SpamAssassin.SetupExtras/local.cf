@@ -10,19 +10,12 @@
 # trusted_networks 212.17.35.
 
 # Bayesian Auto Learn
-auto_learn 1
+# auto_learn 1
+bayes_auto_learn 1
 
 # Safe Reporting
-safe_reporting 0
-
-# Full/Terse Reporting
-use_terse_report 0
-
-# Subject Tag
-subject_tag *** Warning: Junk Mail ***
-
-# Rewrite the Subject
-rewrite_subject 0
+# safe_reporting 0
+report_safe 0
 
 # Use Bayesian Filtering
 use_bayes 1

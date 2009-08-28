@@ -4,6 +4,7 @@
    Session Routines ...
 
    Copyright (C) Richard Sharpe 1996
+   Copyright 2006 The FreeRADIUS server project
 
 */
 
@@ -22,6 +23,9 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
+
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
 #include <string.h>
 
@@ -228,7 +232,8 @@ int RFCNB_Send(struct RFCNB_Con *Con_Handle, struct RFCNB_Pkt *udata, int Length
 
 int RFCNB_Recv(void *con_Handle, struct RFCNB_Pkt *Data, int Length)
 
-{ struct RFCNB_Pkt *pkt; struct RFCNB_Hdr *hdr;
+{
+  struct RFCNB_Pkt *pkt;
   int ret_len;
 
   if (con_Handle == NULL){

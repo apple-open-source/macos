@@ -15,8 +15,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Common FreeBSD configuration. 
    All FreeBSD architectures should include this file, which will specify
@@ -51,16 +51,7 @@ Boston, MA 02111-1307, USA.  */
 #define FBSD_TARGET_OS_CPP_BUILTINS()					\
   do									\
     {									\
-	if (FBSD_MAJOR == 6)						\
-	  builtin_define ("__FreeBSD__=6");			       	\
-	else if (FBSD_MAJOR == 5)	       				\
-	  builtin_define ("__FreeBSD__=5");			       	\
-	else if (FBSD_MAJOR == 4)			       		\
-	  builtin_define ("__FreeBSD__=4");			       	\
-	else if (FBSD_MAJOR == 3)	       				\
-	  builtin_define ("__FreeBSD__=3");			       	\
-	else								\
-	  builtin_define ("__FreeBSD__");			       	\
+	builtin_define_with_int_value ("__FreeBSD__", FBSD_MAJOR);	\
 	builtin_define_std ("unix");					\
 	builtin_define ("__KPRINTF_ATTRIBUTE__");		       	\
 	builtin_assert ("system=unix");					\
@@ -78,7 +69,7 @@ Boston, MA 02111-1307, USA.  */
 
 #define FBSD_CPP_SPEC "							\
   %(cpp_cpu)								\
-  %{fPIC|fpic|fPIE|fpie:-D__PIC__ -D__pic__}				\
+  %(cpp_arch)								\
   %{posix:-D_POSIX_SOURCE}"
 
 /* Provide a STARTFILE_SPEC appropriate for FreeBSD.  Here we add

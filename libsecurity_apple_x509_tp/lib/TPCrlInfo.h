@@ -120,7 +120,7 @@ public:
 	 * Do I have the same issuer as the specified subject cert? 
 	 * Returns true if so.
 	 */
-	bool TPCrlInfo::hasSameIssuer(
+	bool hasSameIssuer(
 		const TPCertInfo		&subject);
 		
 	/*

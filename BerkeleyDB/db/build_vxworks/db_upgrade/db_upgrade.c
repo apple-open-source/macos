@@ -1,33 +1,25 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1996,2007 Oracle.  All rights reserved.
+ *
+ * $Id: db_upgrade.c,v 12.12 2007/05/17 15:15:04 bostic Exp $
  */
 
 #include "db_config.h"
 
+#include "db_int.h"
+
 #ifndef lint
 static const char copyright[] =
-    "Copyright (c) 1996-2003\nSleepycat Software Inc.  All rights reserved.\n";
-static const char revid[] =
-    "$Id: db_upgrade.c,v 1.2 2004/03/30 01:21:17 jtownsen Exp $";
+    "Copyright (c) 1996,2007 Oracle.  All rights reserved.\n";
 #endif
-
-#ifndef NO_SYSTEM_INCLUDES
-#include <sys/types.h>
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#endif
-
-#include "db_int.h"
 
 int db_upgrade_main __P((int, char *[]));
 int db_upgrade_usage __P((void));
-int db_upgrade_version_check __P((const char *));
+int db_upgrade_version_check __P((void));
+
+const char *progname;
 
 int
 db_upgrade(args)
@@ -50,22 +42,26 @@ db_upgrade_main(argc, argv)
 {
 	extern char *optarg;
 	extern int optind, __db_getopt_reset;
-	const char *progname = "db_upgrade";
 	DB *dbp;
 	DB_ENV *dbenv;
 	u_int32_t flags;
-	int ch, exitval, nflag, ret, t_ret;
+	int ch, exitval, nflag, ret, t_ret, verbose;
 	char *home, *passwd;
 
-	if ((ret = db_upgrade_version_check(progname)) != 0)
+	if ((progname = __db_rpath(argv[0])) == NULL)
+		progname = argv[0];
+	else
+		++progname;
+
+	if ((ret = db_upgrade_version_check()) != 0)
 		return (ret);
 
 	dbenv = NULL;
-	flags = nflag = 0;
+	flags = nflag = verbose = 0;
 	exitval = 0;
 	home = passwd = NULL;
 	__db_getopt_reset = 1;
-	while ((ch = getopt(argc, argv, "h:NP:sV")) != EOF)
+	while ((ch = getopt(argc, argv, "h:NP:sVv")) != EOF)
 		switch (ch) {
 		case 'h':
 			home = optarg;
@@ -88,6 +84,9 @@ db_upgrade_main(argc, argv)
 		case 'V':
 			printf("%s\n", db_version(NULL, NULL, NULL));
 			return (EXIT_SUCCESS);
+		case 'v':
+			verbose = 1;
+			break;
 		case '?':
 		default:
 			return (db_upgrade_usage());
@@ -135,11 +134,12 @@ db_upgrade_main(argc, argv)
 	 * If attaching to a pre-existing environment fails, create a
 	 * private one and try again.
 	 */
-	if ((ret = dbenv->open(dbenv,
-	    home, DB_JOINENV | DB_USE_ENVIRON, 0)) != 0 &&
+	if ((ret = dbenv->open(dbenv, home, DB_USE_ENVIRON, 0)) != 0 &&
+	    (ret == DB_VERSION_MISMATCH ||
 	    (ret = dbenv->open(dbenv, home,
-	    DB_CREATE | DB_INIT_MPOOL | DB_PRIVATE | DB_USE_ENVIRON, 0)) != 0) {
-		dbenv->err(dbenv, ret, "open");
+	    DB_CREATE | DB_INIT_MPOOL | DB_PRIVATE | DB_USE_ENVIRON,
+	    0)) != 0)) {
+		dbenv->err(dbenv, ret, "DB_ENV->open");
 		goto shutdown;
 	}
 
@@ -159,6 +159,13 @@ db_upgrade_main(argc, argv)
 		}
 		if (ret != 0)
 			goto shutdown;
+		/*
+		 * People get concerned if they don't see a success message.
+		 * If verbose is set, give them one.
+		 */
+		if (verbose)
+			printf("%s: %s upgraded successfully\n",
+			    progname, argv[0]);
 	}
 
 	if (0) {
@@ -182,14 +189,13 @@ shutdown:	exitval = 1;
 int
 db_upgrade_usage()
 {
-	fprintf(stderr, "%s\n",
-	    "usage: db_upgrade [-NsV] [-h home] [-P password] db_file ...");
+	fprintf(stderr, "usage: %s %s\n", progname,
+	    "[-NsVv] [-h home] [-P password] db_file ...");
 	return (EXIT_FAILURE);
 }
 
 int
-db_upgrade_version_check(progname)
-	const char *progname;
+db_upgrade_version_check()
 {
 	int v_major, v_minor, v_patch;
 

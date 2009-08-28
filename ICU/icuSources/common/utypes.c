@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1997-2006, International Business Machines
+*   Copyright (C) 1997-2008, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -116,7 +116,8 @@ _uFmtErrorName[U_FMT_PARSE_ERROR_LIMIT - U_FMT_PARSE_ERROR_START] = {
     "U_ILLEGAL_PAD_POSITION",
     "U_UNMATCHED_BRACES",
     "U_UNSUPPORTED_PROPERTY",
-    "U_UNSUPPORTED_ATTRIBUTE"
+    "U_UNSUPPORTED_ATTRIBUTE",
+    "U_ARGUMENT_TYPE_MISMATCH"
 };
 
 static const char * const
@@ -152,7 +153,13 @@ _uRegexErrorName[U_REGEX_ERROR_LIMIT - U_REGEX_ERROR_START] = {
     "U_REGEX_INVALID_BACK_REF",
     "U_REGEX_INVALID_FLAG",
     "U_REGEX_LOOK_BEHIND_LIMIT",
-    "U_REGEX_SET_CONTAINS_STRING"
+    "U_REGEX_SET_CONTAINS_STRING",
+    "U_REGEX_OCTAL_TOO_BIG",
+    "U_REGEX_MISSING_CLOSE_BRACKET",
+    "U_REGEX_INVALID_RANGE",
+    "U_REGEX_STACK_OVERFLOW",
+    "U_REGEX_TIME_OUT",
+    "U_REGEX_STOPPED_BY_CALLER"
 };
 
 static const char * const
@@ -164,7 +171,8 @@ _uIDNAErrorName[U_IDNA_ERROR_LIMIT - U_IDNA_ERROR_START] = {
      "U_IDNA_ACE_PREFIX_ERROR",
      "U_IDNA_VERIFICATION_ERROR",
      "U_IDNA_LABEL_TOO_LONG_ERROR",
-     "U_IDNA_ZERO_LENGTH_LABEL_ERROR"
+     "U_IDNA_ZERO_LENGTH_LABEL_ERROR",
+     "U_IDNA_DOMAIN_NAME_TOO_LONG_ERROR"
 };
 
 U_CAPI const char * U_EXPORT2

@@ -80,7 +80,7 @@ ImageDecoder* createDecoder(const SharedBuffer& data)
     // CURs begin with 2-byte 0 followed by 2-byte 2.
     if (!memcmp(contents, "\000\000\001\000", 4) ||
         !memcmp(contents, "\000\000\002\000", 4))
-        return new ICOImageDecoder();
+        return new ICOImageDecoder(IntSize());
    
     // XBMs require 8 bytes of info.
     if (length >= 8 && strncmp(contents, "#define ", 8) == 0)
@@ -110,6 +110,8 @@ void ImageSource::setData(SharedBuffer* data, bool allDataReceived)
     // This method will examine the data and instantiate an instance of the appropriate decoder plugin.
     // If insufficient bytes are available to determine the image type, no decoder plugin will be
     // made.
+    if (m_decoder)
+        delete m_decoder;
     m_decoder = createDecoder(*data);
     if (!m_decoder)
         return;
@@ -185,56 +187,7 @@ NativeImagePtr ImageSource::createFrameAtIndex(size_t index)
     if (!buffer || buffer->status() == RGBA32Buffer::FrameEmpty)
         return 0;
     
-    IntRect imageRect = buffer->rect();
-    unsigned char* bytes = (unsigned char*)buffer->bytes().data();
-    long colorSize = buffer->bytes().size();
-    
-    typedef wxPixelData<wxBitmap, wxAlphaPixelFormat> PixelData;
-
-    int width = size().width();
-    int height = size().height();
-
-    wxBitmap* bmp = new wxBitmap(width, height, 32);
-    PixelData data(*bmp);
-    
-    int rowCounter = 0;
-    long pixelCounter = 0;
-    
-    PixelData::Iterator p(data);
-    
-    PixelData::Iterator rowStart = p; 
-    
-    // NB: It appears that the data is in BGRA format instead of RGBA format.
-    // This code works properly on both ppc and intel, meaning the issue is
-    // likely not an issue of byte order getting mixed up on different archs. 
-    for (long i = 0; i < buffer->bytes().size()*4; i+=4) {
-        p.Red() = bytes[i+2];
-        p.Green() = bytes[i+1];
-        p.Blue() = bytes[i+0];
-        p.Alpha() = bytes[i+3];
-        
-        p++;
-
-        pixelCounter++;
-        if ( (pixelCounter % width ) == 0 ) {
-            rowCounter++;
-            p = rowStart;
-            p.MoveTo(data, 0, rowCounter);
-        }
-
-    }
-#if !wxCHECK_VERSION(2,9,0)
-    bmp->UseAlpha();
-#endif
-    ASSERT(bmp->IsOk());
-
-#if USE(WXGC)
-    wxGraphicsBitmap* bitmap =  new wxGraphicsBitmap(wxGraphicsRenderer::GetDefaultRenderer()->CreateBitmap(*bmp));
-    delete bmp;
-    return bitmap;
-#else
-    return bmp;
-#endif
+    return buffer->asNewNativeImage();
 }
 
 float ImageSource::frameDurationAtIndex(size_t index)

@@ -16,8 +16,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-   02111-1307, USA.  */
+   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301, USA.  */
 
 /* This file implements the well known algorithm from Lengauer and Tarjan
    to compute the dominators in a control flow graph.  A basic block D is said
@@ -30,7 +30,7 @@
 
    The algorithm computes this dominator tree implicitly by computing for
    each block its immediate dominator.  We use tree balancing and path
-   compression, so its the O(e*a(e,v)) variant, where a(e,v) is the very
+   compression, so it's the O(e*a(e,v)) variant, where a(e,v) is the very
    slowly growing functional inverse of the Ackerman function.  */
 
 #include "config.h"
@@ -41,8 +41,9 @@
 #include "hard-reg-set.h"
 #include "obstack.h"
 #include "basic-block.h"
-#include "errors.h"
+#include "toplev.h"
 #include "et-forest.h"
+#include "timevar.h"
 
 /* Whether the dominators and the postdominators are available.  */
 enum dom_state dom_computed[2];
@@ -51,8 +52,7 @@ enum dom_state dom_computed[2];
    'undefined' or 'end of list'.  The name of each node is given by the dfs
    number of the corresponding basic block.  Please note, that we include the
    artificial ENTRY_BLOCK (or EXIT_BLOCK in the post-dom case) in our lists to
-   support multiple entry points.  As it has no real basic block index we use
-   'last_basic_block' for that.  Its dfs number is of course 1.  */
+   support multiple entry points.  Its dfs number is of course 1.  */
 
 /* Type of Basic Block aka. TBB */
 typedef unsigned int TBB;
@@ -133,10 +133,10 @@ static unsigned n_bbs_in_dom_tree[2];
     {								\
       unsigned int i = 1;    /* Catch content == i.  */		\
       if (! (content))						\
-	(var) = xcalloc ((num), sizeof (type));			\
+	(var) = XCNEWVEC (type, num);				\
       else							\
 	{							\
-	  (var) = xmalloc ((num) * sizeof (type));		\
+	  (var) = XNEWVEC (type, (num));			\
 	  for (i = 0; i < num; i++)				\
 	    (var)[i] = (content);				\
 	}							\
@@ -149,9 +149,7 @@ static unsigned n_bbs_in_dom_tree[2];
 static void
 init_dom_info (struct dom_info *di, enum cdi_direction dir)
 {
-  /* We need memory for n_basic_blocks nodes and the ENTRY_BLOCK or
-     EXIT_BLOCK.  */
-  unsigned int num = n_basic_blocks + 1 + 1;
+  unsigned int num = n_basic_blocks;
   init_ar (di->dfs_parent, TBB, num, 0);
   init_ar (di->path_min, TBB, num, i);
   init_ar (di->key, TBB, num, i);
@@ -216,7 +214,7 @@ calc_dfs_tree_nonrec (struct dom_info *di, basic_block bb,
   /* Ending block.  */
   basic_block ex_block;
 
-  stack = xmalloc ((n_basic_blocks + 3) * sizeof (edge_iterator));
+  stack = XNEWVEC (edge_iterator, n_basic_blocks + 1);
   sp = 0;
 
   /* Initialize our border blocks, and the first edge.  */
@@ -373,7 +371,7 @@ calc_dfs_tree (struct dom_info *di, enum cdi_direction reverse)
   di->nodes = di->dfsnum - 1;
 
   /* This aborts e.g. when there is _no_ path from ENTRY to EXIT at all.  */
-  gcc_assert (di->nodes == (unsigned int) n_basic_blocks + 1);
+  gcc_assert (di->nodes == (unsigned int) n_basic_blocks - 1);
 }
 
 /* Compress the path from V to the root of its set and update path_min at the
@@ -619,6 +617,7 @@ calculate_dominance_info (enum cdi_direction dir)
   if (dom_computed[dir] == DOM_OK)
     return;
 
+  timevar_push (TV_DOMINANCE);
   if (!dom_info_available_p (dir))
     {
       gcc_assert (!n_bbs_in_dom_tree[dir]);
@@ -627,7 +626,7 @@ calculate_dominance_info (enum cdi_direction dir)
 	{
 	  b->dom[dir] = et_new_tree (b);
 	}
-      n_bbs_in_dom_tree[dir] = n_basic_blocks + 2;
+      n_bbs_in_dom_tree[dir] = n_basic_blocks;
 
       init_dom_info (&di, dir);
       calc_dfs_tree (&di, dir);
@@ -646,6 +645,8 @@ calculate_dominance_info (enum cdi_direction dir)
     }
 
   compute_dom_fast_query (dir);
+
+  timevar_pop (TV_DOMINANCE);
 }
 
 /* Free dominance information for direction DIR.  */
@@ -659,11 +660,12 @@ free_dominance_info (enum cdi_direction dir)
 
   FOR_ALL_BB (bb)
     {
-      delete_from_dominance_info (dir, bb);
+      et_free_tree_force (bb->dom[dir]);
+      bb->dom[dir] = NULL;
     }
+  et_free_pools ();
 
-  /* If there are any nodes left, something is wrong.  */
-  gcc_assert (!n_bbs_in_dom_tree[dir]);
+  n_bbs_in_dom_tree[dir] = 0;
 
   dom_computed[dir] = DOM_NONE;
 }
@@ -725,7 +727,7 @@ get_dominated_by (enum cdi_direction dir, basic_block bb, basic_block **bbs)
   for (ason = son->right, n = 1; ason != son; ason = ason->right)
     n++;
 
-  *bbs = xmalloc (n * sizeof (basic_block));
+  *bbs = XNEWVEC (basic_block, n);
   (*bbs)[0] = son->data;
   for (ason = son->right, n = 1; ason != son; ason = ason->right)
     (*bbs)[n++] = ason->data;
@@ -746,15 +748,15 @@ get_dominated_by_region (enum cdi_direction dir, basic_block *region,
   basic_block dom;
 
   for (i = 0; i < n_region; i++)
-    region[i]->rbi->duplicated = 1;
+    region[i]->flags |= BB_DUPLICATED;
   for (i = 0; i < n_region; i++)
     for (dom = first_dom_son (dir, region[i]);
 	 dom;
 	 dom = next_dom_son (dir, dom))
-      if (!dom->rbi->duplicated)
+      if (!(dom->flags & BB_DUPLICATED))
 	doms[n_doms++] = dom;
   for (i = 0; i < n_region; i++)
-    region[i]->rbi->duplicated = 0;
+    region[i]->flags &= ~BB_DUPLICATED;
 
   return n_doms;
 }
@@ -797,6 +799,101 @@ nearest_common_dominator (enum cdi_direction dir, basic_block bb1, basic_block b
   return et_nca (bb1->dom[dir], bb2->dom[dir])->data;
 }
 
+
+/* Find the nearest common dominator for the basic blocks in BLOCKS,
+   using dominance direction DIR.  */
+
+basic_block
+nearest_common_dominator_for_set (enum cdi_direction dir, bitmap blocks)
+{
+  unsigned i, first;
+  bitmap_iterator bi;
+  basic_block dom;
+  
+  first = bitmap_first_set_bit (blocks);
+  dom = BASIC_BLOCK (first);
+  EXECUTE_IF_SET_IN_BITMAP (blocks, 0, i, bi)
+    if (dom != BASIC_BLOCK (i))
+      dom = nearest_common_dominator (dir, dom, BASIC_BLOCK (i));
+
+  return dom;
+}
+
+/*  Given a dominator tree, we can determine whether one thing
+    dominates another in constant time by using two DFS numbers:
+
+    1. The number for when we visit a node on the way down the tree
+    2. The number for when we visit a node on the way back up the tree
+
+    You can view these as bounds for the range of dfs numbers the
+    nodes in the subtree of the dominator tree rooted at that node
+    will contain.
+    
+    The dominator tree is always a simple acyclic tree, so there are
+    only three possible relations two nodes in the dominator tree have
+    to each other:
+    
+    1. Node A is above Node B (and thus, Node A dominates node B)
+
+     A
+     |
+     C
+    / \
+   B   D
+
+
+   In the above case, DFS_Number_In of A will be <= DFS_Number_In of
+   B, and DFS_Number_Out of A will be >= DFS_Number_Out of B.  This is
+   because we must hit A in the dominator tree *before* B on the walk
+   down, and we will hit A *after* B on the walk back up
+   
+   2. Node A is below node B (and thus, node B dominates node A)
+   
+   
+     B
+     |
+     A
+    / \
+   C   D
+
+   In the above case, DFS_Number_In of A will be >= DFS_Number_In of
+   B, and DFS_Number_Out of A will be <= DFS_Number_Out of B.
+   
+   This is because we must hit A in the dominator tree *after* B on
+   the walk down, and we will hit A *before* B on the walk back up
+   
+   3. Node A and B are siblings (and thus, neither dominates the other)
+
+     C
+     |
+     D
+    / \
+   A   B
+
+   In the above case, DFS_Number_In of A will *always* be <=
+   DFS_Number_In of B, and DFS_Number_Out of A will *always* be <=
+   DFS_Number_Out of B.  This is because we will always finish the dfs
+   walk of one of the subtrees before the other, and thus, the dfs
+   numbers for one subtree can't intersect with the range of dfs
+   numbers for the other subtree.  If you swap A and B's position in
+   the dominator tree, the comparison changes direction, but the point
+   is that both comparisons will always go the same way if there is no
+   dominance relationship.
+
+   Thus, it is sufficient to write
+
+   A_Dominates_B (node A, node B)
+   {
+     return DFS_Number_In(A) <= DFS_Number_In(B) 
+            && DFS_Number_Out (A) >= DFS_Number_Out(B);
+   }
+
+   A_Dominated_by_B (node A, node B)
+   {
+     return DFS_Number_In(A) >= DFS_Number_In(A)
+            && DFS_Number_Out (A) <= DFS_Number_Out(B);
+   }  */
+
 /* Return TRUE in case BB1 is dominated by BB2.  */
 bool
 dominated_by_p (enum cdi_direction dir, basic_block bb1, basic_block bb2)
@@ -810,6 +907,28 @@ dominated_by_p (enum cdi_direction dir, basic_block bb1, basic_block bb2)
   	    && n1->dfs_num_out <= n2->dfs_num_out);
 
   return et_below (n1, n2);
+}
+
+/* Returns the entry dfs number for basic block BB, in the direction DIR.  */
+
+unsigned
+bb_dom_dfs_in (enum cdi_direction dir, basic_block bb)
+{
+  struct et_node *n = bb->dom[dir];
+
+  gcc_assert (dom_computed[dir] == DOM_OK);
+  return n->dfs_num_in;
+}
+
+/* Returns the exit dfs number for basic block BB, in the direction DIR.  */
+
+unsigned
+bb_dom_dfs_out (enum cdi_direction dir, basic_block bb)
+{
+  struct et_node *n = bb->dom[dir];
+
+  gcc_assert (dom_computed[dir] == DOM_OK);
+  return n->dfs_num_out;
 }
 
 /* Verify invariants of dominator structure.  */

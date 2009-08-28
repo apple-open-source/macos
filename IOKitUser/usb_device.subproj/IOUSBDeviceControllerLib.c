@@ -1,4 +1,26 @@
 /*
+ * Copyright (c) 2008 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
  *  IOUSBDeviceLib.c
  *  IOUSBDeviceFamily
  *
@@ -244,6 +266,22 @@ IOReturn IOUSBDeviceControllerSendCommand(IOUSBDeviceControllerRef device, CFStr
 	return kr;
 }
 
+IOReturn IOUSBDeviceControllerSetPreferredConfiguration(IOUSBDeviceControllerRef device, int config)
+{
+	IOReturn kr = kIOReturnBadArgument;
+    
+    CFNumberRef config_number = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &config);
+    
+    if ( config_number )
+    {
+        kr = IOUSBDeviceControllerSendCommand(device, CFSTR("SetDevicePreferredConfiguration"), config_number);
+        CFRelease(config_number);
+    }
+        
+	return kr;
+}
+
+
 io_service_t IOUSBDeviceControllerGetService(IOUSBDeviceControllerRef controller)
 {	
 	return controller->deviceIOService;
@@ -419,8 +457,76 @@ void IOUSBDeviceDescriptionSetSerialString(IOUSBDeviceDescriptionRef ref, CFStri
 
 void IOUSBDeviceDescriptionRemoveAllConfigurations(IOUSBDeviceDescriptionRef devDesc)
 {
-	CFArrayRemoveAllValues((CFMutableArrayRef)CFDictionaryGetValue(devDesc->info,	CFSTR("ConfigurationDescriptors")));
+	CFArrayRemoveAllValues((CFMutableArrayRef)CFDictionaryGetValue(devDesc->info, CFSTR("ConfigurationDescriptors")));
 }
+
+int IOUSBDeviceDescriptionGetMatchingConfiguration(IOUSBDeviceDescriptionRef devDesc, CFArrayRef interfaceNames)
+{
+    CFArrayRef  configDescs = (CFMutableArrayRef)CFDictionaryGetValue(devDesc->info, CFSTR("ConfigurationDescriptors"));
+    CFIndex     count, index;
+    Boolean     pass = FALSE;
+    int         config = 0;
+    int         defaultConfig = 0;
+    
+    if ( !configDescs ) 
+        return 0;
+    
+    count = CFArrayGetCount(configDescs);
+    if ( !count )
+        return 0;
+    
+    for ( index=0; index<count && !pass; index++)
+    {
+        CFDictionaryRef configuration   = CFArrayGetValueAtIndex(configDescs, index);
+        CFArrayRef      configInterfaces;
+        CFIndex         configInterfaceCount;
+        
+        if ( !configuration )
+            continue;
+        
+        if ( CFDictionaryGetValue(configuration, CFSTR("DefaultConfiguration")) == kCFBooleanTrue )
+            defaultConfig = index + 1;
+        
+        configInterfaces = CFDictionaryGetValue(configuration, CFSTR("Interfaces"));
+        if ( !configInterfaces )
+            continue;
+                
+        configInterfaceCount = CFArrayGetCount(configInterfaces);
+        if ( !configInterfaceCount )
+            continue;
+        
+        if ( !interfaceNames )
+            continue;
+        CFIndex nameCount = CFArrayGetCount(interfaceNames);            
+        CFIndex nameIndex; 
+        
+        if ( !nameCount )
+            continue;
+        
+        pass = TRUE;
+        for (nameIndex=0; nameIndex<nameCount; nameIndex++)
+        {
+            CFStringRef intefaceName = CFArrayGetValueAtIndex(interfaceNames, nameIndex);
+            
+            if ( kCFNotFound == CFArrayGetFirstIndexOfValue(configInterfaces, CFRangeMake(0, configInterfaceCount), intefaceName) )
+            {
+                pass = FALSE;
+                break;
+            }
+        }
+        if ( pass )
+        {
+            config = index + 1; 
+            break;
+        }            
+    }
+    
+    if ( !config )
+        config = defaultConfig;
+            
+    return config;
+}
+
 
 int IOUSBDeviceDescriptionAppendConfiguration(IOUSBDeviceDescriptionRef devDesc, CFStringRef textDescription, UInt8 attributes, UInt8 maxPower)
 {
@@ -481,7 +587,7 @@ static IOUSBDeviceDescriptionRef __IOUSBDeviceDescriptionCreateFromFile( CFAlloc
 		if(resourceData)
 		{
 			CFDictionaryRef allDescriptions;
-			allDescriptions = CFPropertyListCreateFromXMLData( allocator,resourceData,kCFPropertyListImmutable, NULL);
+			allDescriptions = CFPropertyListCreateFromXMLData( allocator,resourceData,kCFPropertyListMutableContainersAndLeaves, NULL);
 			if(allDescriptions)
 			{
 				int rval;

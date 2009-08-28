@@ -653,14 +653,6 @@ int *fd)
 }
 #endif /* !defined(RLD) */
 
-#ifndef RLD
-/*
- * This is used in this file if we have told PB that there is an "Architecture
- * mismatch".
- */
-static enum bool told_ProjectBuilder = FALSE;
-#endif
-
 /*
  * pass1_fat() is passed a fat file to process.  The reason the swapping of
  * the fat headers is not done in place is so that when running native on a
@@ -746,12 +738,6 @@ enum bool force_weak)
 			error("fat file: %s does not contain an architecture "
 			      "that matches the specified -arch flag: %s ",
 			      file_name, arch_flag.name);
-#ifndef RLD
-			if(told_ProjectBuilder == FALSE){
-			    tell_ProjectBuilder("Architecture mismatch");
-			    told_ProjectBuilder = TRUE;
-			}
-#endif
 		    }
 		    else
 			warning("fat file: %s does not contain an architecture "
@@ -765,12 +751,6 @@ enum bool force_weak)
 			error("fat file: %s does not contain an architecture "
 			    "that matches the objects files (architecture %s) "
 			    "previously loaded", file_name, prev_arch);
-#ifndef RLD
-			if(told_ProjectBuilder == FALSE){
-			    tell_ProjectBuilder("Architecture mismatch");
-			    told_ProjectBuilder = TRUE;
-			}
-#endif
 		    }
 		    else
 			warning("fat file: %s does not contain an architecture "
@@ -1181,13 +1161,6 @@ enum bool force_weak)
 					"an architecture that matches the "
 					"specified -arch flag: %s", file_name,
 					(int)i, ar_name, arch_flag.name);
-#ifndef RLD
-				    if(told_ProjectBuilder == FALSE){
-					tell_ProjectBuilder("Architecture "
-					    "mismatch");
-					told_ProjectBuilder = TRUE;
-				    }
-#endif
 				}
 				else
 				    warning("fat file: %s(%.*s) does not "
@@ -1205,13 +1178,6 @@ enum bool force_weak)
 					"objects files (architecture %s) "
 					"previously loaded", file_name,
 					(int)i, ar_name, prev_arch);
-#ifndef RLD
-				    if(told_ProjectBuilder == FALSE){
-					tell_ProjectBuilder("Architecture "
-					    "mismatch");
-					told_ProjectBuilder = TRUE;
-				    }
-#endif
 				}
 				else
 				    warning("fat file: %s(%.*s) does not "
@@ -4301,13 +4267,6 @@ enum bool bundle_loader)
 				"does not match cputype (%d) for specified "
 				"-arch flag: %s", mh->cputype, new_arch,
 				arch_flag.cputype, arch_flag.name);
-#ifndef RLD
-				if(told_ProjectBuilder == FALSE){
-				    tell_ProjectBuilder("Architecture "
-					"mismatch");
-				    told_ProjectBuilder = TRUE;
-				}
-#endif
 			}
 			else
 			    warning_with_cur_obj("cputype (%d, architecture %s)"
@@ -4322,13 +4281,6 @@ enum bool bundle_loader)
 				"of objects files previously loaded",
 				mh->cputype, new_arch, arch_flag.cputype,
 				prev_arch);
-#ifndef RLD
-				if(told_ProjectBuilder == FALSE){
-				    tell_ProjectBuilder("Architecture "
-					"mismatch");
-				    told_ProjectBuilder = TRUE;
-				}
-#endif
 			}
 			else
 			    warning_with_cur_obj("cputype (%d, architecture %s)"
@@ -4358,13 +4310,6 @@ enum bool bundle_loader)
 				    "%s and -force_cpusubtype_ALL not "
 				    "specified", mh->cpusubtype, new_arch,
 				    arch_flag.cpusubtype, arch_flag.name);
-#ifndef RLD
-				    if(told_ProjectBuilder == FALSE){
-					tell_ProjectBuilder("Architecture "
-					    "mismatch");
-					told_ProjectBuilder = TRUE;
-				    }
-#endif
 			    }
 			    else
 				warning_with_cur_obj("cpusubtype (%d, "
@@ -4384,13 +4329,6 @@ enum bool bundle_loader)
 				    "-force_cpusubtype_ALL not specified",
 				    mh->cpusubtype, new_arch,
 				    arch_flag.cpusubtype, prev_arch);
-#ifndef RLD
-				    if(told_ProjectBuilder == FALSE){
-					tell_ProjectBuilder("Architecture "
-					    "mismatch");
-					told_ProjectBuilder = TRUE;
-				    }
-#endif
 			    }
 			    else
 				warning_with_cur_obj("cpusubtype (%d, "
@@ -4634,7 +4572,8 @@ enum bool bundle_loader)
 		       section_type != S_SYMBOL_STUBS &&
 		       section_type != S_COALESCED &&
 		       section_type != S_MOD_INIT_FUNC_POINTERS &&
-		       section_type != S_MOD_TERM_FUNC_POINTERS){
+		       section_type != S_MOD_TERM_FUNC_POINTERS &&
+		       section_type != S_DTRACE_DOF){
 			error_with_cur_obj("unknown flags (type) of section %lu"
 					   " (%.16s,%.16s) in load command %lu",
 					   j, s->segname, s->sectname, i);
@@ -5712,7 +5651,8 @@ unsigned long strsize)
 		       section_type != S_SYMBOL_STUBS &&
 		       section_type != S_COALESCED &&
 		       section_type != S_MOD_INIT_FUNC_POINTERS &&
-		       section_type != S_MOD_TERM_FUNC_POINTERS){
+		       section_type != S_MOD_TERM_FUNC_POINTERS &&
+		       section_type != S_DTRACE_DOF){
 			error_with_cur_obj("unknown flags (type) of section %lu"
 					   " (%.16s,%.16s) in load command %lu",
 					   j, s->segname, s->sectname, i);

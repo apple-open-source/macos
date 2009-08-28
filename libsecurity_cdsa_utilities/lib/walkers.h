@@ -52,10 +52,10 @@
 namespace Security {
 namespace DataWalkers {
 
-#define WALKERDEBUG 1
+#define WALKERDEBUG 0
 
 
-#if defined(WALKERDEBUG)
+#if WALKERDEBUG
 # define DEBUGWALK(who)	secdebug("walkers", "walk " who " %s@%p (%ld)", \
 									Debug::typeName(addr).c_str(), addr, size)
 #else
@@ -257,17 +257,17 @@ T *copy(const T *obj, void *addr)
 }
 
 template <class T>
-T *copy(const T *obj, Allocator &alloc = Allocator::standard())
-{
-    return obj ? copy(obj, alloc, size(obj)) : NULL;
-}
-
-template <class T>
 T *copy(const T *obj, Allocator &alloc, size_t size)
 {
     if (obj == NULL)
         return NULL;
     return copy(obj, alloc.malloc(size));
+}
+
+template <class T>
+T *copy(const T *obj, Allocator &alloc = Allocator::standard())
+{
+    return obj ? copy(obj, alloc, size(obj)) : NULL;
 }
 
 

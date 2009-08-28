@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc. All rights reserved.
+ * Copyright © 1998-2009 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,6 +41,7 @@
 #include <IOKit/usb/IOUSBPipe.h>
 #include <IOKit/usb/IOUSBHIDDriver.h>
 #include <IOKit/usb/IOUSBHubPolicyMaker.h>
+#import "USBTracepoints.h"
 
 /* Convert USBLog to use kprintf debugging */
 #ifndef IOUSBHIDDriver_USE_KPRINTF 0
@@ -201,6 +202,7 @@ IOUSBHIDDriver::init(OSDictionary *properties)
     }
     _retryCount = kHIDDriverRetryCount;
     _maxReportSize = kMaxHIDReportSize;
+	_HID_LOGGING_LEVEL = 7;
 
     return true;
 }
@@ -285,6 +287,8 @@ IOUSBHIDDriver::start(IOService *provider)
     OSObject *					propertyObj = NULL;
 	OSBoolean *					sixAxisProperty = NULL;
     
+	USBTrace_Start( kUSBTHID, kTPHIDStart, (uintptr_t)this, 0, 0, 0);
+	
     USBLog(7, "IOUSBHIDDriver(%s)[%p]::start", getName(), this);
     IncrementOutstandingIO();			// make sure that once we open we don't close until start is finished
 
@@ -308,6 +312,7 @@ IOUSBHIDDriver::start(IOService *provider)
     if (!super::start(provider))
     {
         USBLog(1, "IOUSBHIDDriver(%s)[%p]::start - super::start returned false!", getName(), this);
+		USBTrace( kUSBTHID,  kTPHIDStart, (uintptr_t)this, 0, 0, 1 );
         goto ErrorExit;
     }
 
@@ -318,6 +323,7 @@ IOUSBHIDDriver::start(IOService *provider)
     if (!commandGate)
     {
         USBLog(1, "IOUSBHIDDriver(%s)[%p]::start - could not get a command gate", getName(), this);
+		USBTrace( kUSBTHID,  kTPHIDStart, (uintptr_t)this, 0, 0, 2 );
         goto ErrorExit;
     }
 
@@ -325,6 +331,7 @@ IOUSBHIDDriver::start(IOService *provider)
     if ( !workLoop)
     {
         USBLog(1, "IOUSBHIDDriver(%s)[%p]::start - unable to find my workloop", getName(), this);
+        USBTrace( kUSBTHID,  kTPHIDStart, (uintptr_t)this, 0, 0, 3 );
         goto ErrorExit;
     }
 
@@ -335,6 +342,7 @@ IOUSBHIDDriver::start(IOService *provider)
     if (workLoop->addEventSource(commandGate) != kIOReturnSuccess)
     {
         USBLog(1, "IOUSBHIDDriver(%s)[%p]::start - unable to add gate to work loop", getName(), this);
+        USBTrace( kUSBTHID,  kTPHIDStart, (uintptr_t)this, 0, 0, 4 );
         goto ErrorExit;
     }
 
@@ -353,6 +361,7 @@ IOUSBHIDDriver::start(IOService *provider)
     if (!_interruptPipe)
     {
         USBLog(1, "IOUSBHIDDriver(%s)[%p]::start - unable to get interrupt pipe", getName(), this);
+        USBTrace( kUSBTHID,  kTPHIDStart, (uintptr_t)this, 0, 0, 5 );
         goto ErrorExit;
     }
 
@@ -382,6 +391,7 @@ IOUSBHIDDriver::start(IOService *provider)
         if ( !_buffer )
         {
             USBLog(1, "IOUSBHIDDriver(%s)[%p]::start - unable to get create buffer", getName(), this);
+            USBTrace( kUSBTHID,  kTPHIDStart, (uintptr_t)this, 0, 0, 6 );
             goto ErrorExit;
         }
     }
@@ -462,6 +472,7 @@ IOUSBHIDDriver::start(IOService *provider)
     if ( !_deviceDeadCheckThread || !_clearFeatureEndpointHaltThread || !_HANDLE_REPORT_THREAD )
     {
         USBLog(1, "[%s]%p: could not allocate all thread functions", getName(), this);
+        USBTrace( kUSBTHID,  kTPHIDStart, (uintptr_t)this, 0, 0, 7 );
         goto ErrorExit;
     }
     
@@ -496,10 +507,12 @@ IOUSBHIDDriver::start(IOService *provider)
     if (err != kIOReturnSuccess)
     {
         USBLog(1, "IOUSBHIDDriver(%s)[%p]::start - err (%x) in StartFinalProcessing", getName(), this, err);
+        USBTrace( kUSBTHID,  kTPHIDStart, (uintptr_t)this, 0, 0, 8 );
         goto ErrorExit;
     }
 
     USBLog(1, "[%p] USB HID Interface #%d of device %s @ %d (0x%x)",this, _interface->GetInterfaceNumber(), _device->getName(), _device->GetAddress(), (uint32_t)_locationID );
+	USBTrace( kUSBTHID,  kTPHIDStart, _interface->GetInterfaceNumber(), _device->GetAddress(), (uint32_t)_locationID, 0);
 
     // Now that we have succesfully added our gate to the workloop, set our member variables
     //
@@ -511,14 +524,19 @@ IOUSBHIDDriver::start(IOService *provider)
 	if (err)
 	{
 		USBLog(1, "IOUSBHIDDriver(%s)[%p]::start - err [%p] from InitializeUSBHIDPowerManagement", getName(), this, (void*)err);
+		USBTrace( kUSBTHID,  kTPHIDStart, (uintptr_t)this, err, 0, 10);
 	}
 				
+	USBTrace_End( kUSBTHID, kTPHIDStart, (uintptr_t)this, 0, 0, 0);
+	
     DecrementOutstandingIO();		// release the hold we put on at the beginning
+	
     return true;
 
 ErrorExit:
 
     USBLog(1, "IOUSBHIDDriver(%s)[%p]::start - @ 0x%x aborting startup", getName(), this, (uint32_t)_locationID);
+	USBTrace( kUSBTHID,  kTPHIDStart, (uintptr_t)this, (uint32_t)_locationID, 0, 9 );
 
     if ( commandGate != NULL )
     {
@@ -579,17 +597,14 @@ IOUSBHIDDriver::message( UInt32 type, IOService * provider,  void * argument )
             
             USBLog(3, "IOUSBHIDDriver(%s)[%p]: received kIOUSBMessagePortHasBeenReset, checking idle and rearming interrupt read", getName(), this);
             
-			// We need to take into account the fact that we did not initiate the reset.  In that cause, we need to make sure that or interrupt pie is 
-			// aborted.
 			if ( _retryCount != 0 )
 			{
-				USBLog(3, "IOUSBHIDDriver(%s)[%p]: received kIOUSBMessagePortHasBeenReset, retryCount was %ld, so we didn't generate the reset", getName(), this, _retryCount);
-                ABORTEXPECTED = TRUE;
-
-                if (_interruptPipe)
-                {
-                    _interruptPipe->Abort();
-                }
+				USBLog(5, "IOUSBHIDDriver(%s)[%p]: received kIOUSBMessagePortHasBeenReset, we did not initiate this reset, so abort our interrupt pipe", getName(), this);
+				ABORTEXPECTED = TRUE;
+				if (_interruptPipe)
+				{
+					_interruptPipe->Abort();
+				}
 			}
 			
             _retryCount = kHIDDriverRetryCount;
@@ -754,9 +769,12 @@ IOUSBHIDDriver::maxCapabilityForDomainState ( IOPMPowerFlags domainState )
 IOReturn
 IOUSBHIDDriver::powerStateWillChangeTo ( IOPMPowerFlags capabilities, unsigned long stateNumber, IOService* whatDevice)
 {
+	USBTrace_Start( kUSBTHID, kTPHIDpowerStateWillChangeTo, (uintptr_t)this, capabilities, stateNumber, (uintptr_t)whatDevice );
+	
 	if (isInactive())
 	{
 		USBLog(1, "IOUSBHIDDriver[%p]::powerStateWillChangeTo - while inactive - ignoring", this);
+		USBTrace( kUSBTHID,  kTPHIDpowerStateWillChangeTo, (uintptr_t)this, IOPMAckImplied, 0, 1 );
 		return IOPMAckImplied;
 	}
 
@@ -772,6 +790,9 @@ IOUSBHIDDriver::powerStateWillChangeTo ( IOPMPowerFlags capabilities, unsigned l
 		_POWERSTATECHANGING = true;
 
 	USBLog(5, "IOUSBHIDDriver(%s)[%p]::powerStateWillChangeTo state (%d) - returning (%p)", getName(), this, (int)stateNumber, (void*)IOPMAckImplied);
+	
+	USBTrace_End( kUSBTHID, kTPHIDpowerStateWillChangeTo, (uintptr_t)this, stateNumber, IOPMAckImplied, 0);
+	
 	return IOPMAckImplied;
 }
 
@@ -780,6 +801,7 @@ IOUSBHIDDriver::powerStateWillChangeTo ( IOPMPowerFlags capabilities, unsigned l
 IOReturn
 IOUSBHIDDriver::setPowerState ( unsigned long powerStateOrdinal, IOService* whatDevice )
 {
+	USBTrace_Start( kUSBTHID, kTPHIDsetPowerState, (uintptr_t)this, powerStateOrdinal, (uintptr_t)whatDevice, 0);
 	
 	if ( isInactive() )
 	{
@@ -793,12 +815,14 @@ IOUSBHIDDriver::setPowerState ( unsigned long powerStateOrdinal, IOService* what
 	if ( whatDevice != this )
 	{
 		USBLog(1,"IOUSBHIDDriver[%p]::setPowerState - whatDevice != this", this);
+		USBTrace( kUSBTHID,  kTPHIDsetPowerState, (uintptr_t)this, 0, 0, 1 );
 		return kIOPMAckImplied;
 	}
 	
 	if (powerStateOrdinal > kUSBHIDPowerStateOn)
 	{
 		USBLog(1,"IOUSBHIDDriver[%p]::setPowerState - bad ordinal(%d)", this, (int)powerStateOrdinal);
+		USBTrace( kUSBTHID,  kTPHIDsetPowerState, (uintptr_t)this, powerStateOrdinal, 0, 2 );
 		return kIOPMNoSuchState;
 	}
 	
@@ -838,7 +862,10 @@ IOUSBHIDDriver::setPowerState ( unsigned long powerStateOrdinal, IOService* what
 		
 		default:
 			USBLog(1, "IOUSBHIDDriver(%s)[%p]::setPowerState - unknown ordinal (%d)", getName(), this, (int)powerStateOrdinal);
+			USBTrace( kUSBTHID,  kTPHIDsetPowerState, (uintptr_t)this, powerStateOrdinal, 0, 3 );
 	}
+	
+	USBTrace_End( kUSBTHID, kTPHIDsetPowerState, (uintptr_t)this, 0, 0, 0);
 	
 	return IOPMAckImplied;
 }
@@ -850,6 +877,8 @@ IOUSBHIDDriver::powerStateDidChangeTo ( IOPMPowerFlags capabilities, unsigned lo
 {
 	IOReturn		err;
 
+	USBTrace_Start( kUSBTHID, kTPHIDpowerStateDidChangeTo, (uintptr_t)this, capabilities, stateNumber, (uintptr_t)whatDevice );
+	
 	if ( isInactive() )
 	{
 		USBLog(3,"IOUSBHIDDriver[%p]::powerStateDidChangeTo - while inactive - ignoring", this);
@@ -873,12 +902,16 @@ IOUSBHIDDriver::powerStateDidChangeTo ( IOPMPowerFlags capabilities, unsigned lo
 		if (err)
 		{
 			USBLog(1, "IOUSBHIDDriver(%s)[%p]::powerStateDidChangeTo - err (%p) returned from RearmInterruptRead", getName(), this, (void*)err);
+			USBTrace( kUSBTHID,  kTPHIDpowerStateDidChangeTo, (uintptr_t)this, err, 0, 0);
 		}
 		if ( _SUSPENDPORT_TIMER )
 		{
 			_SUSPENDPORT_TIMER->setTimeoutMS(_SUSPEND_TIMEOUT_IN_MS);
 		}
 	}
+	
+	USBTrace_End( kUSBTHID, kTPHIDpowerStateDidChangeTo, (uintptr_t)this, 0, 0, 0);
+
 	return IOPMAckImplied;
 }
 
@@ -887,13 +920,16 @@ IOUSBHIDDriver::powerStateDidChangeTo ( IOPMPowerFlags capabilities, unsigned lo
 void
 IOUSBHIDDriver::powerChangeDone ( unsigned long fromState)
 {
+	USBTrace_Start( kUSBTHID, kTPHIDpowerChangeDone, (uintptr_t)this, fromState, 0, 0);
 	
 	if (isInactive())
 	{
 		USBLog(1, "IOUSBHIDDriver[%p]::powerChangeDone - from state (%d)  - ignoring", this, (int)fromState);
+		USBTrace( kUSBTHID,  kTPHIDpowerChangeDone, (uintptr_t)this, fromState, 0, 0);
 		return;
 	}
 
+	USBTrace_End( kUSBTHID, kTPHIDpowerChangeDone, (uintptr_t)this, 0, 0, 0);
 	USBLog((fromState == _MYPOWERSTATE) ? 7 : 5, "IOUSBHIDDriver[%p]::powerChangeDone from state (%d) to state (%d) _device name(%s)", this, (int)fromState, (int)_MYPOWERSTATE, _device->getName());
 	_POWERSTATECHANGING = false;
 	super::powerChangeDone(fromState);
@@ -917,6 +953,7 @@ bool
 IOUSBHIDDriver::handleStart(IOService * provider)
 {
     USBLog(7, "IOUSBHIDDriver(%s)[%p]::handleStart", getName(), this);
+	USBTrace_Start( kUSBTHID, kTPHIDhandleStart, (uintptr_t)this, (uintptr_t)provider, 0, 0);
 
     if ( !super::handleStart(provider))
     {
@@ -928,6 +965,7 @@ IOUSBHIDDriver::handleStart(IOService * provider)
     if( !provider->open(this))
     {
         USBLog(1, "IOUSBHIDDriver(%s)[%p]::handleStart - unable to open provider. returning false", getName(), this);
+		USBTrace( kUSBTHID,  kTPHIDhandleStart, (uintptr_t)this, 0, 0, 1 );
         return (false);
     }
 
@@ -935,6 +973,7 @@ IOUSBHIDDriver::handleStart(IOService * provider)
     if (!_interface)
     {
         USBLog(1, "IOUSBHIDDriver(%s)[%p]::handleStart - Our provider is not an IOUSBInterface!!", getName(), this);
+		USBTrace( kUSBTHID,  kTPHIDhandleStart, (uintptr_t)this, 0, 0, 2 );
         return false;
     }
 
@@ -942,9 +981,11 @@ IOUSBHIDDriver::handleStart(IOService * provider)
     if (!_device)
     {
         USBLog(1, "IOUSBHIDDriver(%s)[%p]::handleStart - Cannot get our provider's USB device.  This is bad.", getName(), this);
+		USBTrace( kUSBTHID,  kTPHIDhandleStart, (uintptr_t)this, 0, 0, 3 );
         return false;
     }
 
+	USBTrace_End( kUSBTHID, kTPHIDhandleStart, (uintptr_t)this, (uintptr_t)_interface, (uintptr_t)_device, 0);
     return true;
 }
 
@@ -1133,7 +1174,7 @@ IOUSBHIDDriver::setReport( IOMemoryDescriptor * 	report,
 	}
         
     DecrementOutstandingIO();
-    USBLog(_HID_LOGGING_LEVEL, "IOUSBHIDDriver[%p](Intfce: %d of device %s @ 0x%x)::setReport returning", this, _INTERFACE_NUMBER, _device->getName(), (uint32_t)_locationID);
+    USBLog(_HID_LOGGING_LEVEL, "IOUSBHIDDriver[%p](Intfce: %d of device %s @ 0x%x)::setReport returning 0x%x", this, _INTERFACE_NUMBER, _device->getName(), (uint32_t)_locationID, (uint32_t)ret);
     
 	return ret;
 }
@@ -1400,14 +1441,15 @@ void
 IOUSBHIDDriver::InterruptReadHandlerEntry(OSObject *target, void *param, IOReturn status, UInt32 bufferSizeRemaining)
 {
     IOUSBHIDDriver *	me = OSDynamicCast(IOUSBHIDDriver, target);
-    AbsoluteTime        timeStamp;
+    uint64_t			timeStamp;
     
     if (!me)
         return;
     
 	// If we don't have a timestamp, we need to fake one up
-    clock_get_uptime(&timeStamp);
-    me->InterruptReadHandler(status, bufferSizeRemaining, timeStamp);
+	timeStamp = mach_absolute_time();
+
+    me->InterruptReadHandler(status, bufferSizeRemaining, *(AbsoluteTime *)&timeStamp);
     me->DecrementOutstandingIO();
 }
 
@@ -1429,8 +1471,6 @@ IOUSBHIDDriver::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining
 {
     bool			queueAnother = false;					// make the default to not queue another - since the callout threads usually do
     IOReturn		err = kIOReturnSuccess;
-    UInt64			timeElapsed;
-    AbsoluteTime	timeStop;
     
 	_PENDINGREAD = false;
 	// Save our timestamp, since we are going to callout to the HID manager
@@ -1438,7 +1478,9 @@ IOUSBHIDDriver::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining
 	
     // Calculate the # of milliseconds since we woke up.  If this is <= the amount specified in _msToIgnoreTransactionsAfterWake, then
     // we will ignore the transaction.
-    //clock_get_uptime(&timeStop);
+	//    UInt64			timeElapsed;
+	//    uint64_t	timeStop;
+    // timeStop = mach_absolute_time();
     //SUB_ABSOLUTETIME(&timeStop, &timeStamp);
     //absolutetime_to_nanoseconds(timeStop, &timeElapsed);
 	//
@@ -1447,6 +1489,17 @@ IOUSBHIDDriver::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining
     // kprintf("IOUSBHIDDriver(%s)[%p]::InterruptReadHandler:  time.hi 0x%x time.lo 0x%x\n", getName(), this, timeStamp.hi, timeStamp.lo);
 
 	USBLog(7, "IOUSBHIDDriver(%s)[%p]::InterruptReadHandler  bufferSizeRemaining: %d, error 0x%x", getName(), this, (uint32_t)bufferSizeRemaining, status);
+		
+	if ( status == kIOReturnSuccess )
+	{
+		vm_size_t	capacity = (_buffer ? _buffer->getCapacity() : 0);
+		
+		USBTrace( kUSBTHID,  kTPHIDInterruptRead, (uintptr_t)this, (uintptr_t)status, capacity - bufferSizeRemaining, capacity);
+	}
+	else
+	{
+		USBTrace( kUSBTHID,  kTPHIDInterruptRead, (uintptr_t)this, (uintptr_t)status, 0, 0);
+	}
 	
 	// Initialize so that we don't queue a clearFeatureEndpointHalt
 	_NEED_TO_CLEARPIPESTALL = false;
@@ -1476,20 +1529,34 @@ IOUSBHIDDriver::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining
             //
             _retryCount = kHIDDriverRetryCount;
 			
+			// If we got a "short" transfer, adjust the length of the buffer so we don't send stale data to the HID family.
+			// We will reset the length before rearming the read
+			if ( bufferSizeRemaining != 0 )
+			{
+				_buffer->setLength(_buffer->getCapacity()-bufferSizeRemaining);
+			}
+
             // Handle the data.  We do this on a callout thread so that we don't block all
             // of USB I/O if the HID system is blocked.  We only do that if we have less than than kMaxQueuedReports pending
             //
 			if ( _QUEUED_REPORTS <= kMaxQueuedReports)
 			{
-				// If thread_call_enter() returns TRUE, then a call is already
-				// pending, and we need to drop our outstandingIO count.
-				IncrementOutstandingIO();
-				if ( thread_call_enter1(_HANDLE_REPORT_THREAD, (thread_call_param_t) &_INTERRUPT_TIMESTAMP) == TRUE)
+				// Do not call handle report if we have no new data in our buffer
+				if ( bufferSizeRemaining != _buffer->getCapacity() )
 				{
-					USBLog(3, "IOUSBHIDDriver(%s)[%p]::InterruptReadHandler  _HANDLE_REPORT_THREAD was already queued!", getName(), this);
-					DecrementOutstandingIO();
+					// If thread_call_enter() returns TRUE, then a call is already
+					// pending, and we need to drop our outstandingIO count.
+					IncrementOutstandingIO();
+					if ( thread_call_enter1(_HANDLE_REPORT_THREAD, (thread_call_param_t) &_INTERRUPT_TIMESTAMP) == TRUE)
+					{
+						USBLog(3, "IOUSBHIDDriver(%s)[%p]::InterruptReadHandler  _HANDLE_REPORT_THREAD was already queued!", getName(), this);
+						DecrementOutstandingIO();
+					}
 				}
-				
+				else
+				{
+					queueAnother = true;
+				}
 			}
 			else
 			{
@@ -1548,6 +1615,8 @@ IOUSBHIDDriver::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining
 			{
                 USBLog(5, "IOUSBHIDDriver(%s)[%p]::InterruptReadHandler error kIOReturnAborted. Expected.  Not rearming interrupt", getName(), this);
 			}
+			
+			USBTrace( kUSBTHID,  kTPHIDInterruptReadError, (uintptr_t)this, ABORTEXPECTED, queueAnother, status);
 			
 			break;
             
@@ -1652,11 +1721,14 @@ IOUSBHIDDriver::CheckForDeadDevice()
     //
     if ( _interface && _device )
     {
+		UInt32		info = 0;
+		
 		_device->retain();
-        err = _device->message(kIOUSBMessageHubIsDeviceConnected, NULL, 0);
+		err = _device->GetDeviceInformation(&info);
 		_device->release();
-    
-        if ( kIOReturnSuccess == err )
+		USBLog(6, "IOUSBHIDDriver(%s)[%p]::CheckForDeadDevice  GetDeviceInformation returned error 0x%x, info: 0x%x, retryCount: %d", getName(), this, err, (uint32_t)info, (uint32_t)_retryCount);
+ 
+        if ( (kIOReturnSuccess == err) && (info & kUSBInformationDeviceIsConnectedMask) )
         {
             // Looks like the device is still plugged in.  Have we reached our retry count limit?
             //
@@ -1722,6 +1794,7 @@ IOUSBHIDDriver::ClearFeatureEndpointHalt( )
     if (!_interruptPipe)
 	{
 		USBLog(1, "IOUSBHIDDriver(%s)[%p]::ClearFeatureEndpointHalt -  no interrupt pipe - bailing", getName(), this);
+		USBTrace( kUSBTHID,  kTPHIDClearFeatureEndpointHalt, (uintptr_t)this, 0, 0, 0);
 		return;
 	}
 	
@@ -1788,20 +1861,28 @@ IOUSBHIDDriver::HandleReport(AbsoluteTime timeStamp)
     IOReturn			status;
     IOUSBDevRequest		request;
     
-	if ( _LOG_HID_REPORTS )
+	if ( _buffer->getLength() > 0 )
 	{
-		USBLog(_HID_LOGGING_LEVEL, "IOUSBHIDDriver(%s)[%p](Intfce: %d of device %s @ 0x%x) Interrupt IN report came in:", getName(), this, _INTERFACE_NUMBER, _device->getName(), (uint32_t)_locationID );
-		LogMemReport(_HID_LOGGING_LEVEL, _buffer, _buffer->getLength() );
-	}
+		if ( _LOG_HID_REPORTS )
+		{
+			USBLog(_HID_LOGGING_LEVEL, "IOUSBHIDDriver(%s)[%p](Intfce: %d of device %s @ 0x%x) Interrupt IN report came in (%d of %d):", getName(), this, _INTERFACE_NUMBER, _device->getName(), (uint32_t)_locationID, (uint32_t)_buffer->getLength(), (uint32_t)_buffer->getCapacity() );
+			LogMemReport(_HID_LOGGING_LEVEL, _buffer, _buffer->getLength() );
+		}
 
-	//status = handleReportWithTime(_INTERRUPT_TIMESTAMP, _buffer);
-	_QUEUED_REPORTS++;
-	status = handleReport(_buffer);
-	if ( status != kIOReturnSuccess)
-	{
-		USBLog(1, "IOUSBHIDDriver(%s)[%p]::HandleReport handleReportWithTime() returned 0x%x:", getName(), this, status);
-    }
-	_QUEUED_REPORTS--;
+		//status = handleReportWithTime(_INTERRUPT_TIMESTAMP, _buffer);
+		_QUEUED_REPORTS++;
+		status = handleReport(_buffer);
+		if ( status != kIOReturnSuccess)
+		{
+			UInt32	bytesToLog = _buffer->getLength() > 16 ? 16 : _buffer->getLength();
+			
+			USBLog(1, "IOUSBHIDDriver(%s)[%p]::HandleReport handleReportWithTime() returned 0x%x (%s), report data (%d of %d bytes):", getName(), this, status, USBStringFromReturn(status), (uint32_t)bytesToLog, (uint32_t)_buffer->getLength());
+			LogMemReport(1, _buffer, bytesToLog );
+			USBTrace( kUSBTHID,  kTPHIDHandleReport, (uintptr_t)this, status, 0, 0);
+		}
+		_QUEUED_REPORTS--;
+	}
+	
 	// Reset our timer, if applicable
 	if ( _SUSPENDPORT_TIMER )
 	{
@@ -2157,17 +2238,6 @@ IOUSBHIDDriver::StartFinalProcessing(void)
     _completion.action = (IOUSBCompletionAction) &IOUSBHIDDriver::InterruptReadHandlerEntry;
     _completion.parameter = (void *)0;
     
-#if 0
-	// this is what we used to do before power management
-	USBLog(6, "IOUSBHIDDriver(%s)[%p]::StartFinalProcessing - rearming interrupt read", getName(), this);
-    err = RearmInterruptRead();
-	
-	if (err)
-	{
-		USBLog(1, "IOUSBHIDDriver[%p]::StartFinalProcessing - err (%p) back from RearmInterruptRead", this, (void*)err);
-	}
-
-#endif
     return err;
 }
 
@@ -2278,6 +2348,7 @@ IOUSBHIDDriver::SuspendPort(bool suspendPort, UInt32 timeoutInMS )
 					if (!_SUSPENDPORT_TIMER)
 					{
 						USBLog(1, "IOUSBHIDDriver(%s)[%p]::SuspendPort - could not create _SUSPENDPORT_TIMER", getName(), this);
+						USBTrace( kUSBTHID,  kTPHIDSuspendPort, (uintptr_t)this, kIOReturnNoResources,0, 1 );
 						status = kIOReturnNoResources;
 						break;
 					}
@@ -2286,6 +2357,7 @@ IOUSBHIDDriver::SuspendPort(bool suspendPort, UInt32 timeoutInMS )
 					if ( status != kIOReturnSuccess)
 					{
 						USBLog(1, "IOUSBHIDDriver(%s)[%p]::SuspendPort - addEventSource returned 0x%x", getName(), this, status);
+						USBTrace( kUSBTHID,  kTPHIDSuspendPort, (uintptr_t)this, status, 0, 2 );
 						break;
 					}
 					
@@ -2296,6 +2368,7 @@ IOUSBHIDDriver::SuspendPort(bool suspendPort, UInt32 timeoutInMS )
 				else
 				{
 					USBLog(1, "IOUSBHIDDriver(%s)[%p]::SuspendPort - no workloop!", getName(), this);
+					USBTrace( kUSBTHID,  kTPHIDSuspendPort, (uintptr_t)this, kIOReturnNoResources, 0, 3 );
 					status = kIOReturnNoResources;
 				}
 			}
@@ -2390,7 +2463,8 @@ IOUSBHIDDriver::AbortAndSuspend(bool suspendPort )
 		
 		if ( status != kIOReturnSuccess )
 		{
-			USBLog(1, "IOUSBHIDDriver(%s)[%p]::SuspendPort resuming the device returned 0x%x", getName(), this, status);
+			USBLog(1, "IOUSBHIDDriver(%s)[%p]::AbortAndSuspend resuming the device returned 0x%x", getName(), this, status);
+			USBTrace( kUSBTHID,  kTPHIDAbortAndSuspend, (uintptr_t)this, status, 0, 0);
 		}
 		
 		// Start up our reads again
@@ -2425,7 +2499,8 @@ IOUSBHIDDriver::ClaimPendingRead(OSObject *target, void *param1, void *param2, v
 	
     if (!me)
     {
-		USBLog(1, "IOUSBHIDDriver::ChangeOutstandingIO - invalid target");
+		USBLog(1, "IOUSBHIDDriver::ClaimPendingRead - invalid target");
+		USBTrace( kUSBTHID,  kTPHIDClaimPendingRead, (uintptr_t)param2, (uintptr_t)param3, (uintptr_t)param4, 1  );
 		return kIOReturnSuccess;
     }
 
@@ -2442,6 +2517,7 @@ IOUSBHIDDriver::ClaimPendingRead(OSObject *target, void *param1, void *param2, v
 	if (!retVal)
 	{
 		USBLog(1, "IOUSBHIDDriver::ClaimPendingRead - NULL retVal!!");
+		USBTrace( kUSBTHID,  kTPHIDClaimPendingRead, (uintptr_t)param2, (uintptr_t)param3, (uintptr_t)param4, 2  );
 	}
 	else
 	{
@@ -2466,6 +2542,7 @@ IOUSBHIDDriver::ChangeOutstandingIO(OSObject *target, void *param1, void *param2
     if (!me)
     {
 		USBLog(1, "IOUSBHIDDriver::ChangeOutstandingIO - invalid target");
+		USBTrace( kUSBTHID,  kTPHIDChangeOutstandingIO, (uintptr_t)me, kIOReturnSuccess, direction, 1 );
 		return kIOReturnSuccess;
     }
     switch (direction)
@@ -2489,6 +2566,7 @@ IOUSBHIDDriver::ChangeOutstandingIO(OSObject *target, void *param1, void *param2
 			
 		default:
 			USBLog(1, "IOUSBHIDDriver(%s)[%p]::ChangeOutstandingIO - invalid direction", me->getName(), me);
+			USBTrace( kUSBTHID,  kTPHIDChangeOutstandingIO, (uintptr_t)me, me->_outstandingIO, kIOReturnSuccess, direction );
     }
     return kIOReturnSuccess;
 }
@@ -2517,6 +2595,7 @@ IOUSBHIDDriver::DecrementOutstandingIO(void)
 		}
 		return;
     }
+	//USBTrace( kUSBTOutstandingIO, kTPHIDDecrement , (uintptr_t)this, (int)_outstandingIO );
     _gate->runAction(ChangeOutstandingIO, (void*)-1);
 }
 
@@ -2535,6 +2614,7 @@ IOUSBHIDDriver::IncrementOutstandingIO(void)
 		_outstandingIO++;
 		return;
     }
+	//USBTrace( kUSBTOutstandingIO, kTPHIDIncrement , (uintptr_t)this, (int)_outstandingIO );
     _gate->runAction(ChangeOutstandingIO, (void*)1);
 }
 
@@ -2625,6 +2705,7 @@ IOUSBHIDDriver::RearmInterruptRead()
     if ( (_buffer == NULL) || (_interruptPipe == NULL))
 	{
 		USBLog(1, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead - no _buffer or _interruptPipe", getName(), this);
+		USBTrace( kUSBTHID,  kTPHIDRearmInterruptRead, (uintptr_t)this, 0, 0, 1 );
         return err;
 	}
     
@@ -2632,6 +2713,7 @@ IOUSBHIDDriver::RearmInterruptRead()
 	if ((_COMPLETION_WITH_TIMESTAMP.action == NULL) && (_completion.action == NULL))
 	{
 		USBLog(1, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead - no action method", getName(), this);
+		USBTrace( kUSBTHID,  kTPHIDRearmInterruptRead, (uintptr_t)this, 0, 0, 2 );
 		return err;
 	}
 	
@@ -2640,6 +2722,7 @@ IOUSBHIDDriver::RearmInterruptRead()
     if (!_gate || _gate->runAction(ClaimPendingRead, (void*)&gotPend))
 	{
 		USBLog(1, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead - unable to check for pending", getName(), this);
+		USBTrace( kUSBTHID,  kTPHIDRearmInterruptRead, (uintptr_t)this, 0, 0, 3 );
 		return err;
 	}
 	
@@ -2649,13 +2732,23 @@ IOUSBHIDDriver::RearmInterruptRead()
 		return kIOReturnSuccess;
 	}
 
+	// Reset the length of the buffer
+	_buffer->setLength(_buffer->getCapacity());
+
 	USBLog(7, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead - _completion.action(%p)", getName(), this, _completion.action);
     IncrementOutstandingIO();
 	
 	while ( (err != kIOReturnSuccess) && ( retries++ < 30 ) && (_buffer != NULL) && (_interruptPipe != NULL))
 	{
 		if (_COMPLETION_WITH_TIMESTAMP.action)
+		{
 			err = _interruptPipe->Read(_buffer, 0, 0, _buffer->getLength(), &_COMPLETION_WITH_TIMESTAMP);
+			if ((err == kIOReturnNotResponding) && (_POWERSTATECHANGING || (_MYPOWERSTATE < kUSBHIDPowerStateOn)))
+			{
+				USBLog(3, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead - err(kIOReturnNotResponding) while _POWERSTATECHANGING(%s) or (_MYPOWERSTATE < kUSBHIDPowerStateOn)(%d) - no posting read", getName(), this, _POWERSTATECHANGING ? "true" : "false", (int)_MYPOWERSTATE);
+				break;			// out of the while loop
+			}
+		}
 		else
 		{
 			// if there is no _COMPLETION_WITH_TIMESTAMP.action, then a subclass has overriden the initialization and didn't fill it in 
@@ -2679,6 +2772,7 @@ IOUSBHIDDriver::RearmInterruptRead()
 		if ( (err != kIOReturnSuccess) && (_interruptPipe != NULL))
 		{
 			USBLog(1, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead  immediate error 0x%x queueing read, clearing stall and trying again(%d)", getName(), this, err, (uint32_t)retries);
+			USBTrace( kUSBTHID,  kTPHIDRearmInterruptRead, (uintptr_t)this, err, (uint32_t)retries, 4 );
 			_interruptPipe->ClearPipeStall(false);			
 		}
     }
@@ -2690,6 +2784,7 @@ IOUSBHIDDriver::RearmInterruptRead()
 		DecrementOutstandingIO();
 	}
 	
+	USBTrace( kUSBTHID,  kTPHIDRearmInterruptRead, (uintptr_t)this, err, 0, 5 );
     return err;
 }
 
@@ -2712,6 +2807,7 @@ IOUSBHIDDriver::InitializeUSBHIDPowerManagement(IOService *provider)
 	if (err)
 	{
 		USBLog(1, "IOUSBHIDDriver(%s)[%p]::InitializeUSBHIDPowerManagement - err [%p] from registerPowerDriver", getName(), this, (void*)err);
+		USBTrace( kUSBTHID,  kTPHIDInitializeUSBHIDPowerManagement, (uintptr_t)this, err, 0, 0);
 		PMstop();
 	}
 	return err;

@@ -54,7 +54,6 @@ extern lck_mtx_t *autofs_nodeid_lock;
  * Tracing macro; expands to nothing for non-debug kernels.
  * Also, define MACH_ASSERT in debug kernels, so assert() does something.
  */
-#define DEBUG
 #ifndef DEBUG
 #define AUTOFS_DPRINT(x)
 #else /* DEBUG */
@@ -247,14 +246,11 @@ typedef struct fnnode {
 	thread_t	fn_thread;		/* thread that has currently */
 						/* modified fn_seen */
 	struct autofs_globals *fn_globals;	/* global variables */
-	struct klist	fn_knotes;		/* knotes attached to this vnode */
 } fnnode_t;
 
 #define vntofn(vp)	((struct fnnode *)(vnode_fsnode(vp)))
 #define	fntovn(fnp)	(((fnp)->fn_vnode))
 #define	vfstofni(mp)	((fninfo_t *)(vfs_fsprivate(mp)))
-
-#define AUTO_KNOTE(vp, hint)	KNOTE(&vntofn(vp)->fn_knotes, (hint))
 
 #define	MF_INPROG	0x002		/* Mount in progress */
 #define	MF_WAITING	0x004
@@ -264,16 +260,6 @@ typedef struct fnnode {
 
 #define	AUTOFS_MODE		0555
 #define	AUTOFS_BLOCKSIZE	1024
-
-struct autofs_callargs {
-	fnnode_t	*fnc_fnp;	/* fnnode */
-	char		*fnc_name;	/* path to lookup/mount */
-	int		fnc_namelen;	/* length of path */
-	thread_t	fnc_origin;	/* thread that fired up this thread */
-					/* used for debugging purposes */
-	kauth_cred_t	fnc_cred;
-	mach_port_t	fnc_gssd_port;	/* mach port for gssd */
-};
 
 struct autofs_globals {
 	fnnode_t		*fng_rootfnnodep;
@@ -314,7 +300,7 @@ extern int auto_enter(fnnode_t *, struct componentname *, const char *,
 extern void auto_unblock_others(fnnode_t *, u_int);
 extern int auto_wait4mount(fnnode_t *, vfs_context_t);
 extern int auto_makefnnode(fnnode_t **, enum vtype, mount_t,
-	struct componentname *, const char *, vnode_t, int, ucred_t,
+	struct componentname *, const char *, vnode_t, int, kauth_cred_t,
 	struct autofs_globals *);
 extern void auto_freefnnode(fnnode_t *);
 extern void auto_disconnect(fnnode_t *, fnnode_t *);
@@ -324,15 +310,17 @@ extern void auto_dprint(int level, const char *fmt, ...)
 	__printflike(2, 3);
 extern void auto_debug_set(int level);
 extern int auto_lookup_aux(fnnode_t *, char *, int, vfs_context_t);
-extern void auto_new_mount_thread(fnnode_t *, char *, int, vfs_context_t);
+extern int auto_do_mount(fnnode_t *, char *, int, vfs_context_t);
 extern int auto_check_trigger_request(fninfo_t *, char *, int, boolean_t *);
 extern int auto_get_automountd_port(mach_port_t *);
-extern void auto_release_automountd_port(mach_port_t);
+extern void auto_release_port(mach_port_t);
 extern int auto_dont_trigger(vnode_t, vfs_context_t);
 extern kern_return_t auto_new_thread(void (*)(void *), void *);
-extern int auto_is_automounter(pid_t);
-extern int auto_is_nowait_process(pid_t);
+extern int auto_is_automounter(int);
+extern int auto_is_nowait_process(int);
 extern int auto_is_autofs(mount_t);
+extern int auto_nobrowse(vnode_t);
+extern void auto_get_attributes(vnode_t, struct vnode_attr *, int);
 
 /*
  * Flags for unmount_tree.
@@ -349,8 +337,8 @@ extern int auto_is_autofs(mount_t);
 extern void unmount_tree(struct autofs_globals *, fsid_t *, int);
 extern void autofs_free_globals(struct autofs_globals *);
 	
-extern void auto_fninfo_lock_shared(fninfo_t *fnip, vfs_context_t ctx);
-extern void auto_fninfo_unlock_shared(fninfo_t *fnip, vfs_context_t ctx);
+extern void auto_fninfo_lock_shared(fninfo_t *fnip, int pid);
+extern void auto_fninfo_unlock_shared(fninfo_t *fnip, int pid);
 
 #endif /* __APPLE_API_PRIVATE */
 

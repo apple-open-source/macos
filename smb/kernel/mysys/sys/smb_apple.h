@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001 - 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2001 - 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,33 +35,9 @@
 #include <kern/thread_call.h>
 #include <string.h>
 
-#ifndef PRIVSYM
-#define PRIVSYM __private_extern__
-#endif
-
 #undef KASSERT
 #define KASSERT(exp,msg)	do { if (!(exp)) panic msg; } while (0)
 
-/* restore iconv.h stuff which vanished with 1.4.1 */
-typedef u_int32_t       ucs_t;
-#ifdef KOBJ_CLASS_FIELDS
-struct iconv_ces_class {
-	KOBJ_CLASS_FIELDS;
-	TAILQ_ENTRY(iconv_ces_class)    cd_link;
-};
-#else
-struct iconv_ces_class;
-#endif
-#ifdef KOBJ_FIELDS
-struct iconv_ces {
-	KOBJ_FIELDS;
-};
-#else
-struct iconv_ces;
-#endif
-extern int  iconv_ces_initstub __P((struct iconv_ces_class *));
-extern int  iconv_ces_donestub __P((struct iconv_ces_class *));
-extern void iconv_ces_noreset __P((struct iconv_ces *));
 
 /*
  * BSD malloc of 0 bytes returns at least 1 byte area.
@@ -77,8 +53,6 @@ extern void iconv_ces_noreset __P((struct iconv_ces *));
 #define M_SMBNODENAME M_TEMP /* HACK XXX CSM */
 #define M_SMBFSDATA M_TEMP /* HACK XXX CSM */
 #define M_SMBFSHASH M_TEMP /* HACK XXX CSM */
-#define M_ICONV M_TEMP /* XXX HACK CSM */
-#define M_ICONVDATA M_TEMP /* XXX HACK CSM */
 #define M_SMBCONN M_TEMP /* HACK CSM XXX */
 #define M_NSMBDEV M_TEMP /* HACK CSM XXX */
 #define M_SMBIOD M_TEMP /* HACK CSM XXX */
@@ -86,7 +60,6 @@ extern void iconv_ces_noreset __P((struct iconv_ces *));
 #define M_SMBDATA M_TEMP /* HACK CSM XXX */
 #define M_SMBSTR M_TEMP /* HACK CSM XXX */
 #define M_SMBTEMP M_TEMP /* HACK CSM XXX */
-#define M_KOBJ M_TEMP /* XXX HACK CSM */
 
 #undef FB_CURRENT
 
@@ -101,7 +74,7 @@ typedef struct kmod_info *module_t;
 typedef int (*modeventhand_t)(module_t mod, int what, void *arg);
 
 typedef struct moduledata {
-	char		*name;  /* module name */
+	const char		*name;  /* module name */
 	modeventhand_t  evhand; /* event handler */
 	void		*priv;  /* extra data */
 } moduledata_t;
@@ -124,26 +97,16 @@ typedef struct moduledata {
 	DECLARE_MODULE(name, name##_mod, SI_SUB_DRIVERS, SI_ORDER_ANY);
 
 struct smbnode;
-struct smb_cred;
-extern int	smb_smb_flush __P((struct smbnode *, struct smb_cred *));
-extern int	smbfs_0extend __P((vnode_t, u_int16_t, u_quad_t, u_quad_t,
-				 struct smb_cred *, int));
+extern int	smb_smb_flush __P((struct smbnode *, vfs_context_t));
+extern int	smbfs_0extend __P((vnode_t, u_int16_t, u_quad_t, u_quad_t, vfs_context_t, int));
 
-extern unsigned		splbio __P((void));
-extern void		splx __P((unsigned));
 extern char *		strchr __P((const char *, int));
 #define index strchr
-extern int		groupmember __P((gid_t, kauth_cred_t));
-extern void		wakeup_one __P((caddr_t chan));
-extern int selwait;
-extern int		tvtohz __P((struct timeval *));
 
 typedef int	 vnop_t __P((void *));
 
 #define vn_todev(vp) (vnode_vtype(vp) == VBLK || vnode_vtype(vp) == VCHR ? \
 		      vnode_specrdev(vp) : NODEV)
-#define RFNOWAIT	(1<<6)
-#define simplelock	slock
 
 typedef __const char *  c_caddr_t;
 

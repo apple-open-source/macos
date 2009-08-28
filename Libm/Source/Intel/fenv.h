@@ -94,34 +94,18 @@ typedef struct {
 typedef unsigned short fexcept_t;
 
 /*    Definitions of floating-point exception macros                          */
-enum {
-  _FE_INEXACT                    = 0x0020,
-  _FE_DIVBYZERO                  = 0x0004,
-  _FE_UNDERFLOW                  = 0x0010,
-  _FE_OVERFLOW                   = 0x0008,
-  _FE_INVALID                    = 0x0001,
-  _FE_ALL_EXCEPT                 = 0x003D /* FE_INEXACT | FE_DIVBYZERO | FE_UNDERFLOW | FE_OVERFLOW | FE_INVALID*/
-};
-
-#define FE_INEXACT              _FE_INEXACT
-#define FE_DIVBYZERO            _FE_DIVBYZERO
-#define FE_UNDERFLOW            _FE_UNDERFLOW
-#define FE_OVERFLOW             _FE_OVERFLOW
-#define FE_INVALID              _FE_INVALID
-#define FE_ALL_EXCEPT           _FE_ALL_EXCEPT
+#define FE_INEXACT          0x0020
+#define FE_UNDERFLOW        0x0010
+#define FE_OVERFLOW         0x0008
+#define FE_DIVBYZERO        0x0004
+#define FE_INVALID          0x0001
+#define FE_ALL_EXCEPT       0x003D
 
 /*    Definitions of rounding direction macros                                */
-enum {
-  _FE_TONEAREST                  = 0x0000,
-  _FE_TOWARDZERO                 = 0x0C00,
-  _FE_UPWARD                     = 0x0800,
-  _FE_DOWNWARD                   = 0x0400
-};
-
-#define FE_TONEAREST    _FE_TONEAREST
-#define FE_TOWARDZERO   _FE_TOWARDZERO
-#define FE_UPWARD       _FE_UPWARD
-#define FE_DOWNWARD     _FE_DOWNWARD
+#define FE_TONEAREST        0x0000
+#define FE_DOWNWARD         0x0400
+#define FE_UPWARD           0x0800
+#define FE_TOWARDZERO       0x0C00
 
 /* default environment object        */
 extern const fenv_t _FE_DFL_ENV;
@@ -138,6 +122,11 @@ extern const fenv_t _FE_DFL_ENV;
 * prevent lengthy stalls that occur in code that encounters denormals. It is   *
 * suggested that you do not use this mode unless you have established that     *
 * denormals are causing trouble for your code. Please use wisely.              *
+*                                                                              *
+* CAUTION: The math library currently is not architected to do the right       *
+* thing in the face of DAZ + FZ mode.  For example, ceil( +denormal) returns   *
+* +denormal rather than 1.0 in some versions of MacOS X. In some circumstances *
+* this may lead to unexpected application behavior. Use at your own risk.      *
 *                                                                              *
 * It is not possible to disable denorm stalls on calculation using the x87 FPU.*
 *******************************************************************************/

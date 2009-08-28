@@ -73,6 +73,30 @@ class TCBoxed < Test::Unit::TestCase
     assert_equal(false, c.in?(a))
   end
   
+  def test_point_plus
+    assert_equal(NSPoint.new(20,42), NSPoint.new(0,0) + NSSize.new(20,42))
+  end
+  
+  def test_point_minus
+    assert_equal(NSPoint.new(80,158), NSPoint.new(100,200) - NSSize.new(20,42))
+  end
+  
+  def test_size_plus
+    assert_equal(NSSize.new(10,15), NSSize.new(5,10) + 5)
+  end
+  
+  def test_size_minus
+    assert_equal(NSSize.new(0,5), NSSize.new(5,10) - 5)
+  end
+  
+  def test_size_mul
+    assert_equal(NSSize.new(35,70), NSSize.new(5,10) * 7)
+  end
+  
+  def test_size_div
+    assert_equal(NSSize.new(10,21), NSSize.new(20,42) / 2)
+  end
+  
   def test_range_contain
     a = NSRange.new(10,20)
     b = NSRange.new(10,20)

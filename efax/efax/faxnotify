@@ -174,7 +174,15 @@ try:
 		if faxuser == '' :
 			faxuser = 'FaxNotify'
 		faxuser = quote(faxuser)
-		command = '/usr/bin/lpr -P ' + printer + ' -U ' + faxuser + ' ' + quote(pdf_file)
+
+		# Add paper size and scale to fit options
+		options = ''
+		paper_id = defaults_read('DefaultPaperID')
+		if paper_id != '' :
+			options = '-o media=' + quote(paper_id)
+		options = options + ' -o fitplot'
+
+		command = '/usr/bin/lpr -P ' + printer + ' -U ' + faxuser + ' ' + options + ' ' + quote(pdf_file)
 		if os.system(command) :
 			print >> sys.stderr, 'faxnotify: Print on printer ' + printer + ' failed'
 

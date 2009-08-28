@@ -1,6 +1,6 @@
 /* idn-free.c --- Invoke the `free' function releasing memory
  *                allocated by libidn functions.
- * Copyright (C) 2004, 2005 Simon Josefsson
+ * Copyright (C) 2004, 2005, 2006, 2007 Simon Josefsson
  *
  * This file is part of GNU Libidn.
  *

@@ -44,8 +44,8 @@ The
 utility updates the database used by
 .Xr locate 1 .
 It is typically run once a week by the
-.Pa /etc/periodic/weekly/310.locate
-script.
+.Pa /System/Library/LaunchDaemons/com.apple.locate.plist
+job.
 .Pp
 The contents of the newly built database can be controlled by the
 .Pa /etc/locate.rc
@@ -64,7 +64,7 @@ the configuration file
 .El
 .Sh SEE ALSO
 .Xr locate 1 ,
-.Xr periodic 8
+.Xr launchd 8
 .Rs
 .%A Woods, James A.
 .%D 1983

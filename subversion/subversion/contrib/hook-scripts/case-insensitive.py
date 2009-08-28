@@ -1,4 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/env python
+
+# Licensed under the same terms as Subversion.
 
 # A pre-commit hook to detect case-insensitive filename clashes.
 #
@@ -30,6 +32,32 @@
 #  - If used with Apache the 'clash' diagnostic must be ASCII irrespective
 #    of the locale, see the 'Force' comment near the end of the script for
 #    one way to achieve this.
+#
+# How to call it:
+#
+#   On a Unix system put this script in the hooks directory and add this to
+#   the pre-commit script:
+#
+#     $REPOS/hooks/case-insensitive.py "$REPOS" "$TXN" || exit 1
+#
+#   On a windows machine add this to pre-commit.bat:
+#
+#     python <path-to-script>\case-insensitive.py %1 %2
+#     if errorlevel 1 goto :ERROR
+#     exit 0
+#     :ERROR
+#     echo Error found in commit 1>&2
+#     exit 1
+#
+#   Make sure the python bindings are installed and working on Windows.  The
+#   zip file can be downloaded from the Subversion site.  The bindings depend
+#   on dll's shipped as part of the Subversion binaries, if the script cannot
+#   load the _fs dll it is because it cannot find the other Subversion dll's.
+#
+# $HeadURL: http://svn.collab.net/repos/svn/branches/1.6.x/contrib/hook-scripts/case-insensitive.py $
+# $LastChangedRevision: 27260 $
+# $LastChangedDate: 2007-10-17 22:04:06 +0000 (Wed, 17 Oct 2007) $
+# $LastChangedBy: philip $
 
 import sys, locale
 sys.path.append('/usr/local/subversion/lib/svn-python')

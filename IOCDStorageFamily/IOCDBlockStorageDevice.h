@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -100,6 +100,7 @@ public:
     virtual IOReturn	readMCN(CDMCN mcn)					= 0;
     virtual IOReturn	readTOC(IOMemoryDescriptor *buffer) = 0;
 
+#ifndef __LP64__
     /*-----------------------------------------*/
     /*  APIs exported by IOCDAudioControl      */
     /*-----------------------------------------*/
@@ -111,36 +112,57 @@ public:
     virtual IOReturn	getAudioStatus(CDAudioStatus *status)	__attribute__ ((deprecated));
     virtual IOReturn	getAudioVolume(UInt8 *leftVolume,UInt8 *rightVolume)	__attribute__ ((deprecated));
     virtual IOReturn	setAudioVolume(UInt8 leftVolume,UInt8 rightVolume)	__attribute__ ((deprecated));
+#endif /* !__LP64__ */
 
     /*-----------------------------------------*/
     /* CD APIs                                 */
     /*-----------------------------------------*/
 
-    virtual IOReturn	getSpeed(UInt16 * kilobytesPerSecond);
+#ifdef __LP64__
+    virtual IOReturn	getSpeed(UInt16 * kilobytesPerSecond)	= 0;
 
-    OSMetaClassDeclareReservedUsed(IOCDBlockStorageDevice, 0); /* 10.1.0 */
-
-    virtual IOReturn	setSpeed(UInt16 kilobytesPerSecond);
-
-    OSMetaClassDeclareReservedUsed(IOCDBlockStorageDevice, 1); /* 10.1.0 */
+    virtual IOReturn	setSpeed(UInt16 kilobytesPerSecond)	= 0;
 
     virtual IOReturn	readTOC(IOMemoryDescriptor *buffer,CDTOCFormat format,
                     	        UInt8 msf,UInt8 trackSessionNumber,
-                    	        UInt16 *actualByteCount);
-
-    OSMetaClassDeclareReservedUsed(IOCDBlockStorageDevice, 2); /* 10.1.3 */
+                    	        UInt16 *actualByteCount)	= 0;
 
     virtual IOReturn	readDiscInfo(IOMemoryDescriptor *buffer,
-                    	             UInt16 *actualByteCount);
-
-    OSMetaClassDeclareReservedUsed(IOCDBlockStorageDevice, 3); /* 10.1.3 */
+                    	             UInt16 *actualByteCount)	= 0;
 
     virtual IOReturn	readTrackInfo(IOMemoryDescriptor *buffer,UInt32 address,
                     	              CDTrackInfoAddressType addressType,
-                    	              UInt16 *actualByteCount);
+                    	              UInt16 *actualByteCount)	= 0;
+#else /* !__LP64__ */
+    virtual IOReturn	getSpeed(UInt16 * kilobytesPerSecond); /* 10.1.0 */
 
-    OSMetaClassDeclareReservedUsed(IOCDBlockStorageDevice, 4); /* 10.1.3 */
+    virtual IOReturn	setSpeed(UInt16 kilobytesPerSecond); /* 10.1.0 */
 
+    virtual IOReturn	readTOC(IOMemoryDescriptor *buffer,CDTOCFormat format,
+                    	        UInt8 msf,UInt8 trackSessionNumber,
+                    	        UInt16 *actualByteCount); /* 10.1.3 */
+
+    virtual IOReturn	readDiscInfo(IOMemoryDescriptor *buffer,
+                    	             UInt16 *actualByteCount); /* 10.1.3 */
+
+    virtual IOReturn	readTrackInfo(IOMemoryDescriptor *buffer,UInt32 address,
+                    	              CDTrackInfoAddressType addressType,
+                    	              UInt16 *actualByteCount); /* 10.1.3 */
+#endif /* !__LP64__ */
+
+#ifdef __LP64__
+    OSMetaClassDeclareReservedUnused(IOCDBlockStorageDevice,  0);
+    OSMetaClassDeclareReservedUnused(IOCDBlockStorageDevice,  1);
+    OSMetaClassDeclareReservedUnused(IOCDBlockStorageDevice,  2);
+    OSMetaClassDeclareReservedUnused(IOCDBlockStorageDevice,  3);
+    OSMetaClassDeclareReservedUnused(IOCDBlockStorageDevice,  4);
+#else /* !__LP64__ */
+    OSMetaClassDeclareReservedUsed(IOCDBlockStorageDevice,  0);
+    OSMetaClassDeclareReservedUsed(IOCDBlockStorageDevice,  1);
+    OSMetaClassDeclareReservedUsed(IOCDBlockStorageDevice,  2);
+    OSMetaClassDeclareReservedUsed(IOCDBlockStorageDevice,  3);
+    OSMetaClassDeclareReservedUsed(IOCDBlockStorageDevice,  4);
+#endif /* !__LP64__ */
     OSMetaClassDeclareReservedUnused(IOCDBlockStorageDevice,  5);
     OSMetaClassDeclareReservedUnused(IOCDBlockStorageDevice,  6);
     OSMetaClassDeclareReservedUnused(IOCDBlockStorageDevice,  7);

@@ -200,7 +200,7 @@ show_ip6fw(struct ip6_fw *chain)
 	printf("%05u ", chain->fw_number);
 
 	if (do_acct)
-		printf("%10lu %10lu ",chain->fw_pcnt,chain->fw_bcnt);
+		printf("%10u %10u ",chain->fw_pcnt,chain->fw_bcnt);
 
 	if (do_time)
 	{
@@ -263,7 +263,7 @@ show_ip6fw(struct ip6_fw *chain)
 	if (mb==128 && do_resolv) {
 		he=gethostbyaddr((char *)&(chain->fw_src),sizeof(chain->fw_src),AF_INET6);
 		if (he==NULL) {
-			printf(inet_ntop(AF_INET6,&chain->fw_src,ntop_buf,sizeof(ntop_buf)));
+			printf("%s", inet_ntop(AF_INET6,&chain->fw_src,ntop_buf,sizeof(ntop_buf)));
 		} else
 			printf("%s",he->h_name);
 	} else {
@@ -271,11 +271,11 @@ show_ip6fw(struct ip6_fw *chain)
 			if (mb == 0) {
 				printf("any");
 			} else {
-				printf(inet_ntop(AF_INET6,&chain->fw_src,ntop_buf,sizeof(ntop_buf)));
+				printf("%s", inet_ntop(AF_INET6,&chain->fw_src,ntop_buf,sizeof(ntop_buf)));
 				printf("/%d",mb);
 			}
 		} else
-			printf(inet_ntop(AF_INET6,&chain->fw_src,ntop_buf,sizeof(ntop_buf)));
+			printf("%s", inet_ntop(AF_INET6,&chain->fw_src,ntop_buf,sizeof(ntop_buf)));
 	}
 
 	if (chain->fw_prot == IPPROTO_TCP || chain->fw_prot == IPPROTO_UDP) {
@@ -295,7 +295,7 @@ show_ip6fw(struct ip6_fw *chain)
 	if (mb==128 && do_resolv) {
 		he=gethostbyaddr((char *)&(chain->fw_dst),sizeof(chain->fw_dst),AF_INET);
 		if (he==NULL) {
-			printf(inet_ntop(AF_INET6,&chain->fw_dst,ntop_buf,sizeof(ntop_buf)));
+			printf("%s", inet_ntop(AF_INET6,&chain->fw_dst,ntop_buf,sizeof(ntop_buf)));
 		} else
 			printf("%s",he->h_name);
 	} else {
@@ -303,11 +303,11 @@ show_ip6fw(struct ip6_fw *chain)
 			if (mb == 0) {
 				printf("any");
 			} else {
-				printf(inet_ntop(AF_INET6,&chain->fw_dst,ntop_buf,sizeof(ntop_buf)));
+				printf("%s", inet_ntop(AF_INET6,&chain->fw_dst,ntop_buf,sizeof(ntop_buf)));
 				printf("/%d",mb);
 			}
 		} else
-			printf(inet_ntop(AF_INET6,&chain->fw_dst,ntop_buf,sizeof(ntop_buf)));
+			printf("%s", inet_ntop(AF_INET6,&chain->fw_dst,ntop_buf,sizeof(ntop_buf)));
 	}
 
 	if (chain->fw_prot == IPPROTO_TCP || chain->fw_prot == IPPROTO_UDP) {

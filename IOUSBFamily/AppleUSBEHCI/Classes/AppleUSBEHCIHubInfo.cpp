@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright © 1998-2009 Apple Inc.  All rights reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -28,6 +28,7 @@
 
 #include "AppleUSBEHCI.h"
 #include "AppleUSBEHCIHubInfo.h"
+#include "USBTracepoints.h"
 
 OSDefineMetaClassAndStructors(AppleUSBEHCIHubInfo, OSObject)
 
@@ -305,6 +306,7 @@ AppleUSBEHCIHubInfo::AvailableIsochBandwidth(UInt32 direction)
 			
 		default:
 			USBLog(1, "AppleUSBEHCIHubInfo[%p]::AvailableIsochBandwidth, invalid direction %d", this, (uint32_t)direction);
+			USBTrace( kUSBTEHCIHubInfo, kTPEHCIAvailableIsochBandwidth , (uintptr_t)this, (uint32_t)direction, 0, 0);
 	}
 	
 	// check to see if the max segment was determined before we exited the loop
@@ -503,6 +505,8 @@ AppleUSBEHCIHubInfo::AllocateIsochBandwidth(AppleEHCIIsochEndpoint	*pEP, UInt32 
 						if (remainder == maxPacketSize)
 							continue;
 						USBLog(1, "AppleUSBEHCIHubInfo[%p]::AllocateIsochBandwidth: ran out of IN frames - need to redo", this);
+						USBTrace( kUSBTEHCIHubInfo, kTPEHCIAllocateIsochBandwidth , kUSBIn, remainder, maxPacketSize, 0);
+						
 						// code needed here to reset the framesUsed and amounstUsed structure
 						// need to check to make sure we are still OK
 					}
@@ -510,6 +514,7 @@ AppleUSBEHCIHubInfo::AllocateIsochBandwidth(AppleEHCIIsochEndpoint	*pEP, UInt32 
 				if (remainder)
 				{
 					USBLog(1, "AppleUSBEHCIHubInfo[%p]::AllocateIsochBandwidth: not enough bandwidth for IN transaction", this);
+					USBTrace( kUSBTEHCIHubInfo, kTPEHCIAllocateIsochBandwidth , kUSBIn, remainder, maxPacketSize, kIOReturnNoBandwidth );
 					return kIOReturnNoBandwidth;
 				}
 			}
@@ -553,6 +558,7 @@ AppleUSBEHCIHubInfo::AllocateIsochBandwidth(AppleEHCIIsochEndpoint	*pEP, UInt32 
 			if (remainder)
 			{
 				USBLog(1, "AppleUSBEHCIHubInfo[%p]::AllocateIsochBandwidth: not enough bandwidth for OUT transaction", this);
+				USBTrace( kUSBTEHCIHubInfo, kTPEHCIAllocateIsochBandwidth , kUSBOut, remainder, maxPacketSize, kIOReturnNoBandwidth );
 				return kIOReturnNoBandwidth;
 			}
 			for (frameIndex=0; (frameIndex < 8) && (framesUsed[frameIndex] < 255); frameIndex++)
@@ -568,7 +574,7 @@ AppleUSBEHCIHubInfo::AllocateIsochBandwidth(AppleEHCIIsochEndpoint	*pEP, UInt32 
 
 		default:
 			USBLog(1, "AppleUSBEHCIHubInfo[%p]::AllocateIsochBandwidth: unknown pEP direction (%d)", this, pEP->direction);
-		
+			USBTrace( kUSBTEHCIHubInfo, kTPEHCIAllocateIsochBandwidth , (uintptr_t)this, pEP->direction, maxPacketSize, 1 );
 	}
 	if (!remainder)
 	{
@@ -577,6 +583,8 @@ AppleUSBEHCIHubInfo::AllocateIsochBandwidth(AppleEHCIIsochEndpoint	*pEP, UInt32 
 		return kIOReturnSuccess;
 	}
 	USBLog(1, "AppleUSBEHCIHubInfo[%p]::AllocateIsochBandwidth: returning kIOReturnNoBandwidth", this);
+	USBTrace( kUSBTEHCIHubInfo, kTPEHCIAllocateIsochBandwidth , maxPacketSize, remainder, kIOReturnNoBandwidth, 2 );
+	
 	return kIOReturnNoBandwidth;
 }
 

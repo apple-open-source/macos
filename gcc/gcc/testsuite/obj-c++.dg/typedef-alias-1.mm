@@ -1,4 +1,3 @@
-/* APPLE LOCAL file mainline */
 /* Typedefs of ObjC types should work without any bogus warnings. */
 /* { dg-do compile } */
 

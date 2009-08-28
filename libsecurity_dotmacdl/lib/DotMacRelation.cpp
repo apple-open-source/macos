@@ -542,18 +542,27 @@ Exit:
 const char* kEmailName = "Alias";
 const char* kPrintName = "PrintName";
 const char* kMacDotCom = "@mac.com";
+const char* kMeDotCom = "@me.com";
 
-
-
-static bool StringEndsWith (const std::string &s, const char* suffix)
+bool DotMacQuery::ValidateQueryString(CSSM_DATA mailAddr)
 {
-	unsigned suffixLength = strlen (suffix);
-	if (suffixLength > s.length ())
-	{
-		return false;
-	}
-	
-	return strncmp (suffix, ((char*) s.c_str ()) + s.length () - suffixLength, suffixLength) == 0;
+	std::string nameAsString ((char*) mailAddr.Data, mailAddr.Length);
+	size_t atPos = nameAsString.find_first_of("@");
+	if(atPos == string::npos)
+		return validQuery = false;
+	queryUserName = nameAsString.substr(0, atPos);
+	queryDomainName = nameAsString.substr(atPos); 	
+	if (!(queryDomainName.compare(kMacDotCom) == 0) && !(queryDomainName.compare(kMeDotCom) == 0)) 
+		return validQuery = false;
+	return validQuery = true;
+}
+
+static bool StringEndsWith (const std::string &s, const std::string &suffix)
+{
+	size_t atPos = s.rfind(suffix);
+	if(atPos == string::npos) return false;
+	if(s.substr(atPos).compare(suffix) == 0) return true;
+	return false;
 }
 
 
@@ -575,7 +584,7 @@ DotMacQuery::DotMacQuery (DotMacRelation* relation, const CSSM_QUERY *queryBase)
 			continue;
 		}
 		char *attrName = mSelectionPredicates[i].GetAttributeName();
-		if(strcmp(attrName, kPrintName) && strcmp(attrName, kEmailName))
+		if(!strcmp(attrName, kPrintName) && !strcmp(attrName, kEmailName))
 		{
 			continue;
 		}
@@ -583,7 +592,7 @@ DotMacQuery::DotMacQuery (DotMacRelation* relation, const CSSM_QUERY *queryBase)
 		if (found)
 		{
 			// oops, we can only have one "Alias" or "PrintName" predicate in the query
-			CSSMError::ThrowCSSMError (CSSMERR_DL_UNSUPPORTED_QUERY);
+			CSSMError::ThrowCSSMError (CSSMERR_DL_ENDOFDATA);
 		}
 		
 		// the operator has to be CSSM_DB_EQUAL or CSSM_DB_CONTAINS. We
@@ -602,17 +611,16 @@ DotMacQuery::DotMacQuery (DotMacRelation* relation, const CSSM_QUERY *queryBase)
 	}
 	if (!found)
 	{
-		CSSMError::ThrowCSSMError (CSSMERR_DL_UNSUPPORTED_QUERY);
+		CSSMError::ThrowCSSMError (CSSMERR_DL_ENDOFDATA);
 	}
 
-	// get the name of the entity. It had better end with "@mac.com". 
-	std::string nameAsString ((char*) name.Data, name.Length);
-	if (!StringEndsWith (nameAsString, kMacDotCom))
-	{
-		CSSMError::ThrowCSSMError (CSSMERR_DL_UNSUPPORTED_QUERY);
-	}
-	CFStringRef userName = CFStringCreateWithBytes (kCFAllocatorDefault, (UInt8*) name.Data, 
-		name.Length - strlen (kMacDotCom), kCFStringEncodingMacRoman, false);
+	// Parse the query string into an e-mail address.  We're looking for something of the form username@me.com or something
+	// in particular the resulting domain name needs to match one of the MobileMe server names.
+
+	if(! ValidateQueryString(name) )
+		CSSMError::ThrowCSSMError(CSSMERR_DL_ENDOFDATA);
+
+	CFStringRef userName = CFStringCreateWithCString (kCFAllocatorDefault, queryUserName.c_str(), kCFStringEncodingMacRoman);
 
 	// now that we've policed the query, make the query URL
 	CFMutableStringRef queryString = CFStringCreateMutable (kCFAllocatorDefault, 0);
@@ -628,7 +636,7 @@ DotMacQuery::DotMacQuery (DotMacRelation* relation, const CSSM_QUERY *queryBase)
 	CFURLRef url = CFURLCreateWithString (kCFAllocatorDefault, queryString, NULL);
 	CFRelease (queryString);
 	
-	secdebug ("dotmacdl", "reading certs for %s", nameAsString.c_str ());
+	secdebug ("dotmacdl", "reading certs for %s", queryUserName.c_str ());
 	ReadCertificatesFromURL (url);
 	CFRelease (url);
 }
@@ -732,10 +740,10 @@ Tuple* DotMacQuery::GetNextTuple (UniqueIdentifier *&id)
 		std::string commonName = std::string ((char*) dp->Data, dp->Length);
 		secdebug ("dotmacdl", "Common name=%s", commonName.c_str ());
 
-		// does the common name end in kMacDotCom?  If not, add it
-		if (!StringEndsWith (commonName, kMacDotCom))
+		// does the common name end in queryDomainName?  If not, add it
+		if (!StringEndsWith (commonName, queryDomainName))
 		{
-			commonName += kMacDotCom;
+			commonName += queryDomainName;
 		}
 	
 		t->SetValue (kCertPrintName, dp == NULL ? NULL : new BlobValue (dp->Data, dp->Length));
@@ -750,12 +758,11 @@ Tuple* DotMacQuery::GetNextTuple (UniqueIdentifier *&id)
 		else
 		{
 			std::string s = std::string ((char*) dp->Data, dp->Length);
-			if (!StringEndsWith (s, kMacDotCom))
+			if (!StringEndsWith (s, queryDomainName))
 			{
-				s += kMacDotCom;
+				s += queryDomainName;
 			}
 			
-			secdebug ("dotmacdl", s.c_str ());
 			t->SetValue (kCertAlias, dp == NULL ? NULL : new BlobValue (dp->Data, dp->Length));
 		}
 		

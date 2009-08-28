@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -136,7 +136,7 @@ __SCDynamicStoreSnapshot(SCDynamicStoreRef store)
 	/* check credentials */
 
 	mySession = getSession(storePrivate->server);
-	if (mySession->callerEUID != 0) {
+	if (!hasRootAccess(mySession)) {
 		return kSCStatusAccessError;
 	}
 
@@ -157,6 +157,7 @@ __SCDynamicStoreSnapshot(SCDynamicStoreRef store)
 		SCPrint(TRUE, f, CFSTR("Plug-in thread :\n\n"));
 		SCPrint(TRUE, f, CFSTR("%@\n"), plugin_runLoop);
 	}
+	listSessions(f);
 	(void) fclose(f);
 
 	/* Save a snapshot of the "store" data */

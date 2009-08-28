@@ -1,5 +1,5 @@
 /* Integer matrix math routines
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>.
 
 This file is part of GCC.
@@ -16,14 +16,13 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
 #include "ggc.h"
-#include "varray.h"
 #include "tree.h"
 #include "lambda.h"
 
@@ -401,9 +400,8 @@ lambda_matrix_inverse_hard (lambda_matrix mat, lambda_matrix inv, int n)
       row = temp[j];
       diagonal = row[j];
 
-      /* If the matrix is singular, abort.  */
-      if (diagonal == 0)
-	abort ();
+      /* The matrix must not be singular.  */
+      gcc_assert (diagonal);
 
       determinant = determinant * diagonal;
 

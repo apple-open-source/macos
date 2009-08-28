@@ -1,10 +1,10 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*           Copyright (c) 1996-2007 AT&T Knowledge Ventures            *
+*          Copyright (c) 1996-2007 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
-*                      by AT&T Knowledge Ventures                      *
+*                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
 *            http://www.opensource.org/licenses/cpl1.0.txt             *
@@ -25,7 +25,7 @@
  * man this is sum library
  */
 
-static const char id[] = "\n@(#)$Id: sumlib (AT&T Research) 2007-03-11 $\0\n";
+static const char id[] = "\n@(#)$Id: sumlib (AT&T Research) 2007-10-29 $\0\n";
 
 #define _SUM_PRIVATE_	\
 			struct Method_s*	method;	\
@@ -49,7 +49,7 @@ typedef struct Method_s
 	int		(*init)(Sum_t*);
 	int		(*block)(Sum_t*, const void*, size_t);
 	int		(*data)(Sum_t*, Sumdata_t*);
-	int		(*print)(Sum_t*, Sfio_t*, int);
+	int		(*print)(Sum_t*, Sfio_t*, int, size_t);
 	int		(*done)(Sum_t*);
 	int		scale;
 } Method_t;
@@ -115,7 +115,7 @@ short_done(Sum_t* p)
 }
 
 static int
-long_print(Sum_t* p, Sfio_t* sp, register int flags)
+long_print(Sum_t* p, Sfio_t* sp, register int flags, size_t scale)
 {
 	register Integral_t*	x = (Integral_t*)p;
 	register uint32_t	c;
@@ -123,16 +123,16 @@ long_print(Sum_t* p, Sfio_t* sp, register int flags)
 	register size_t		n;
 
 	c = (flags & SUM_TOTAL) ? x->total_sum : x->sum;
-	sfprintf(sp, "%I*u", sizeof(c), c);
+	sfprintf(sp, "%.*I*u", (flags & SUM_LEGACY) ? 5 : 1, sizeof(c), c);
 	if (flags & SUM_SIZE)
 	{
 		z = (flags & SUM_TOTAL) ? x->total_size : x->size;
-		if ((flags & SUM_SCALE) && (n = x->method->scale))
+		if ((flags & SUM_SCALE) && ((n = scale) || (n = x->method->scale)))
 			z = SCALE(z, n);
-		sfprintf(sp, " %I*u", sizeof(z), z);
+		sfprintf(sp, " %*I*u", (flags & SUM_LEGACY) ? 6 : 0, sizeof(z), z);
 	}
 	if (flags & SUM_TOTAL)
-		sfprintf(sp, " %I*u", sizeof(x->total_count), x->total_count);
+		sfprintf(sp, " %*I*u", (flags & SUM_LEGACY) ? 6 : 0, sizeof(x->total_count), x->total_count);
 	return 0;
 }
 
@@ -171,9 +171,7 @@ static const Method_t	methods[] =
 	METHOD(crc),
 	METHOD(md5),
 	METHOD(prng),
-#ifdef sha1_description
 	METHOD(sha1),
-#endif
 #ifdef sha256_description
 	METHOD(sha256),
 #endif
@@ -285,9 +283,9 @@ sumdone(Sum_t* p)
  */
 
 int
-sumprint(Sum_t* p, Sfio_t* sp, int flags)
+sumprint(Sum_t* p, Sfio_t* sp, int flags, size_t scale)
 {
-	return (*p->method->print)(p, sp, flags);
+	return (*p->method->print)(p, sp, flags, scale);
 }
 
 /*

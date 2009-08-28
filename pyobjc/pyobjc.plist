@@ -3,13 +3,13 @@
 	<key>OpenSourceProject</key>
 	<string>pyobjc</string>
 	<key>OpenSourceVersion</key>
-	<string>private-Leopard-branch-20071207</string>
+	<string>trunk-20090623</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://pyobjc.sourceforge.net/</string>
 	<key>OpenSourceImportDate</key>
-	<string>2007-12-07</string>
+	<string>2009-06-23</string>
 	<key>OpenSourceSVN</key>
-	<string>svn export http://svn.pythonmac.org/wwdc/</string>
+	<string>svn export http://svn.red-bean.com/pyobjc/trunk/pyobjc</string>
 	<key>OpenSourceLicense</key>
 	<string>MIT</string>
 	<key>OpenSourceLicenseFile</key>

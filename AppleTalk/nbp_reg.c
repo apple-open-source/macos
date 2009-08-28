@@ -58,11 +58,8 @@
 
 #include <ifaddrs.h>
 
-#include <netat/appletalk.h>
-#include <netat/at_var.h>
-#include <netat/nbp.h>
 
-#include <AppleTalk/at_proto.h>
+#include "at_proto.h"
 
 
 #define	SET_ERRNO(e) errno = e
@@ -90,92 +87,8 @@ int nbp_reg_lookup(entity, retry)
      at_entity_t     *entity;
      at_retry_t      *retry;
 {
-	int i, s, got, cnt = 1;
-	at_state_t global_state;
-	at_nbptuple_t tuple;
-	static at_entity_t entity_copy[IF_TOTAL_MAX]; 
-		/* only one home zone per port allowed so this is safe */
-
-	SET_ERRNO(0);
-	entity_copy[0] = *entity;
-
-	if ((s = socket(AF_APPLETALK, SOCK_RAW, 0)) < 0)
-		return(-1);
-
-	if (ioctl(s, AIOCGETSTATE, (caddr_t)&global_state)) {
-		(void)close(s);
-		return(-1);
-	}
-
-	/* in multihome mode, get the default zone for each interface */
-	if ((global_state.flags & AT_ST_MULTIHOME) && (entity->zone.str[0] == '*'))
-	{
-		/* for each interface that is configured for Appletalk */
-		struct ifaddrs *ifaddrs, *ifa;
-		at_if_cfg_t 	cfg;
-		
-		if (getifaddrs(&ifaddrs) < 0)
-			return(-1);	/* getifaddrs properly set errno */
-		
-		for (ifa = ifaddrs; ifa != NULL; ifa = ifa->ifa_next) {
-			unsigned char *p, c;
-			
-			if (ifa->ifa_addr->sa_family != AF_APPLETALK)
-				continue;
-
-			if (*ifa->ifa_name == '\0')
-				continue;
-						
-			/*
-			* Adapt to buggy kernel implementation (> 9 of a type)
-			*/
-			p = &ifa->ifa_name[strlen(ifa->ifa_name)-1];
-			if ((c = *p) > '0'+9)
-				sprintf(p, "%d", c-'0');
-
-			strcpy(cfg.ifr_name, ifa->ifa_name);
-			if (ioctl(s, AIOCGETIFCFG, (caddr_t)&cfg) < 0)
-				continue;
-
-			/* if there's room, terminate the zone string for printing */
-			if (cfg.zonename.len < NBP_NVE_STR_SIZE)
-			  cfg.zonename.str[cfg.zonename.len] = '\0';
-
-			if (cnt)
-			  entity_copy[cnt] = entity_copy[0];
-			entity_copy[cnt++].zone = cfg.zonename;
-		}
-		
-		if(!cnt) {
-			fprintf(stderr,"nbp_reg_lookup: no local zones\n");
-			(void)close(s);
-			SET_ERRNO(ENOENT);
-			return(-1);
-		}
-		
-		freeifaddrs(ifaddrs);
-	}
-
-	(void)close(s);
-	for (i = 0; i < cnt; i++) {
-#ifdef APPLETALK_DEBUG
-		entity_copy[i].object.str[entity_copy[i].object.len] = '\0';
-		entity_copy[i].type.str[entity_copy[i].type.len] = '\0';
-		entity_copy[i].zone.str[entity_copy[i].zone.len] = '\0';
-		printf("entity %d = %s|%s|%s\n", i, entity_copy[i].object.str,
-		       entity_copy[i].type.str, entity_copy[i].zone.str);
-#endif
-		SET_ERRNO(0);
-		if ((got = nbp_lookup(&entity_copy[i], &tuple, 1, retry)) < 0)  {
-			SET_ERRNO(EAGAIN);
-			return(-1);
-		}
-		if (got > 0) {
-			SET_ERRNO(EADDRNOTAVAIL);
-			return(1);
-		}
-	}
-	return(0);
+	SET_ERRNO(ENXIO);
+	return (-1);
 } /* nbp_reg_lookup */
 
 int nbp_register(entity, fd, retry)
@@ -183,47 +96,6 @@ int nbp_register(entity, fd, retry)
 	int		fd;
 	at_retry_t	*retry;
 {
-	int		if_id;
-	ddp_addr_t	ddp_addr;
-	at_nbp_reg_t    reg;
-	
-
-	if (fd < 0) {
-		SET_ERRNO(EBADF);
-		return (-1);
-	}
-
-	/* This gets the config for the *default* interface. */
-	if (ddp_config(fd, &ddp_addr) < 0)
-		return (-1);
-		
-	/* Keep the ddptype and ddp_addr.inet.socket, set address fields to zero. Setting 
-		these values to zero allows nbp_mh_register in kernel to register the entity on 
-		all active interfaces (2762709). */
-	reg.addr.net = 0;
-	reg.addr.node = 0;
-	reg.addr.socket = ddp_addr.inet.socket;
-	reg.ddptype = ddp_addr.ddptype;
-
-	if (nbp_iswild(entity)) {
-		fprintf(stderr,"nbp_register: object and type cannot be wild\n"); 
-		SET_ERRNO(EINVAL);
-		return (-1);
-	}
-	
-	if (nbp_reg_lookup(entity, retry))
-		return (-1);
-
-	reg.name = *entity;
-
-	if ((if_id = socket(AF_APPLETALK, SOCK_RAW, 0)) < 0)
-		return(-1);
-	
-	if ((ioctl(if_id, AIOCNBPREG, (caddr_t)&reg)) < 0) {
-		(void)close(if_id);
-		return(-1);
-	}
-
-	(void)close(if_id);
-	return (0);
+	SET_ERRNO(ENXIO);
+	return (-1);
 } /* nbp_register */	

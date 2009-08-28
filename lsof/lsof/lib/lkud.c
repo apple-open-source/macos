@@ -46,13 +46,13 @@
 # if	!defined(lint)
 static char copyright[] =
 "@(#) Copyright 1997 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: lkud.c,v 1.6 2005/08/08 19:40:37 abe Exp $";
+static char *rcsid = "$Id: lkud.c,v 1.7 2008/10/21 16:12:36 abe Exp $";
 # endif	/* !defined(lint) */
 
 #include "../lsof.h"
 
 #else	/* !defined(HASBLKDEV) && !defined(USE_LIB_LKUPDEV) */
-static char d1[] = "d"; static char *d2 = d1;
+char lkud_d1[] = "d"; char *lkud_d2 = lkud_d1;
 #endif	/* defined(HASBLKDEV) || defined(USE_LIB_LKUPDEV) */
 
 

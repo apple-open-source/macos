@@ -2,21 +2,22 @@
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -124,11 +125,11 @@ static int LRUHit (LRU_t *lru, LRUNode_t *node, int age);
 static int LRUEvict (LRU_t *lru, LRUNode_t *node);
 
 /*
- * CalculateCacheSize
+ * CalculateCacheSizes
  *
- * Determine the cache size that should be used to initialize the cache.   
- * If the user provided value does not validate the conditions described 
- * below, an error is returned.
+ * Determine the cache size values that should be used to initialize the cache.   
+ * If the requested value does not validate according to the conditions described
+ * below, it is adjusted.
  *
  * If no input values are provided, use default values for cache size
  * and cache block size.
@@ -138,31 +139,34 @@ static int LRUEvict (LRU_t *lru, LRUNode_t *node);
  *		b. less than or equal to maximum cache size.  The maximum cache size
  *		   is limited by the maximum value that can be allocated using malloc
  *		   or mmap (maximum value for size_t)
- *		c. multiple of cache block size (checked only if user provided cache size)
+ *		c. multiple of cache block size
  *
- *	Returns: zero on success, non-zero on failure.
+ *	Returns: void
+ *		  *calcBlockSize:  the size of the blocks in the cache
+ *		  *calcTotalBlocks:  the number of blocks in the cache
  */
-int CalculateCacheSize(uint64_t cacheSize, uint32_t *calcBlockSize, uint32_t *calcTotalBlocks, char debug)
+void CalculateCacheSizes(uint64_t cacheSize, uint32_t *calcBlockSize, uint32_t *calcTotalBlocks, char debug)
 {
-	int err = EINVAL;
 	uint32_t blockSize = DefaultCacheBlockSize;
-	size_t	max_size_t = ~0;	/* Maximum value represented by size_t */
+	const size_t	max_size_t = ~0;	/* Maximum value represented by size_t */
 
 	/* Simple case - no user cache size, use default values */
 	if (!cacheSize) {
 		*calcBlockSize = DefaultCacheBlockSize;
 		*calcTotalBlocks = DefaultCacheBlocks;
-		err = 0;
 		goto out;
 	}
 
 	/* User provided cache size - check with minimum and maximum values */
-	if ((cacheSize < MinCacheSize) || 
-		(cacheSize > max_size_t)) {
+	if (cacheSize < MinCacheSize) {
+		cacheSize = MinCacheSize;
+	}
+	if (cacheSize > max_size_t ||
+		cacheSize > MaxCacheSize) {
 		if (debug) {
 			printf ("\tCache size should be greater than %uM and less than %luM\n", MinCacheSize/(1024*1024), max_size_t/(1024*1024));
 		}
-		goto out;
+		cacheSize = MaxCacheSize;
 	}
 
 	/* Cache size should be multiple of cache block size */
@@ -170,28 +174,29 @@ int CalculateCacheSize(uint64_t cacheSize, uint32_t *calcBlockSize, uint32_t *ca
 		if (debug) {
 			printf ("\tCache size should be multiple of cache block size (currently %uK)\n", blockSize/1024);
 		}
-		goto out;
+		cacheSize = (cacheSize / blockSize) * blockSize;
 	}
 
 	*calcBlockSize = blockSize;
 	*calcTotalBlocks = cacheSize / blockSize;
 	
-	err = 0;
-	
 out:
-	if ((err == 0) && debug) {
+	if (debug) {
 		printf ("\tUsing cacheBlockSize=%uK cacheTotalBlock=%u cacheSize=%uK.\n", *calcBlockSize/1024, *calcTotalBlocks, ((*calcBlockSize/1024) * (*calcTotalBlocks)));
 	}
-	return err;
+	return;
 }
 
 /*
  * CacheInit
  *
- *  Initializes the cache for use.
+ *  Initializes the cache for use.  If preTouch is non-zero, the cache memory will
+ *  be iterated through, with one byte per page touched.  (This is to ensure that
+ *  the memory is actually created, and is used to avoid deadlocking due to swapping
+ *  during a live verify of the boot volume.)
  */
 int CacheInit (Cache_t *cache, int fdRead, int fdWrite, uint32_t devBlockSize,
-               uint32_t cacheBlockSize, uint32_t cacheTotalBlocks, uint32_t hashSize)
+               uint32_t cacheBlockSize, uint32_t cacheTotalBlocks, uint32_t hashSize, int preTouch)
 {
 	void **		temp;
 	uint32_t	i;
@@ -215,6 +220,17 @@ int CacheInit (Cache_t *cache, int fdRead, int fdWrite, uint32_t devBlockSize,
 	                        -1,
 	                        0);
 	if (cache->FreeHead == (void *)-1) return (ENOMEM);
+
+	/* If necessary, touch a byte in each page */
+	if (preTouch) {
+		size_t pageSize = getpagesize();
+		unsigned char *ptr = (unsigned char *)cache->FreeHead;
+		unsigned char *end = ptr + (cacheTotalBlocks * cacheBlockSize);
+		while (ptr < end) {
+			*ptr = 0;
+			ptr += pageSize;
+		}
+	}
 
 	/* Initialize the cache memory free list */
 	temp = cache->FreeHead;

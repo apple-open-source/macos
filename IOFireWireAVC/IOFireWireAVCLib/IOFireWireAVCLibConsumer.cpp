@@ -418,7 +418,7 @@ IOReturn IOFireWireAVCLibConsumer::init( IOFireWireAVCLibUnitInterface ** avcUni
 	if( status == kIOReturnSuccess )
 	{
 		fFWUnit = (IOFireWireDeviceInterface**)(*fAVCUnit)->getAncestorInterface( fAVCUnit, 
-									"IOFireWireUnit", 
+									(char*)"IOFireWireUnit", 
 									CFUUIDGetUUIDBytes(kIOFireWireLibTypeID), 
 									CFUUIDGetUUIDBytes(kIOFireWireDeviceInterfaceID) );
 		if( fFWUnit == NULL )

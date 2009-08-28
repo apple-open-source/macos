@@ -37,6 +37,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <ifaddrs.h>
 #include <fcntl.h>
 #include <netdb.h>
 #include <sys/stat.h>
@@ -46,14 +47,11 @@
 
 #include <ctype.h>
 #include <sys/utsname.h>
-#include <sys/ioctl.h>
-#include <net/if.h>		// interface struture ifreq, ifconf
-#include <net/if_dl.h>	// datalink structs
-#include <net/if_types.h>
 
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/un.h>
+#include <sys/event.h>
 
 #include "CPSUtilities.h"
 #include "SASLCode.h"
@@ -306,7 +304,7 @@ PWServerError readFromServerGetErrorCode( char *buf )
 {
     char *tstr = NULL;
     PWServerError result = {0, kPolicyError};
-	int compareLen;
+	size_t compareLen;
 
 	tstr = buf;
     compareLen = strlen(kPasswordServerErrPrefixStr);
@@ -389,7 +387,7 @@ int ConvertBinaryTo64( const char *inData, unsigned long inLen, char *outHexStr 
     if ( tempBuf == NULL )
         return -1;
     
-    result = sasl_encode64( (char *)inData, inLen, tempBuf, bufLen, &outLen );
+    result = sasl_encode64( (char *)inData, (unsigned int)inLen, tempBuf, (unsigned int)bufLen, &outLen );
     tempBuf[outLen] = '\0';
     sprintf( outHexStr, "{%lu}%s", inLen, tempBuf );
     
@@ -424,7 +422,7 @@ int Convert64ToBinary( const char *inHexStr, char *outData, unsigned long maxLen
         readPtr++;
     }
     
-    result = sasl_decode64( readPtr, strlen(readPtr), (char *)outData, maxLen, &sasl_outlen );
+    result = sasl_decode64( readPtr, (unsigned int)strlen(readPtr), (char *)outData, (unsigned int)maxLen, &sasl_outlen );
     
     *outLen = (attached_outlen > 0) ? attached_outlen : (unsigned long)sasl_outlen;
     
@@ -434,7 +432,8 @@ int Convert64ToBinary( const char *inHexStr, char *outData, unsigned long maxLen
 
 int getconn_domain_socket(void)
 {
-    register int s, len;
+    register int s;
+    size_t len;
     struct sockaddr_un sun;
 	
     if ((s = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
@@ -444,7 +443,7 @@ int getconn_domain_socket(void)
     strcpy(sun.sun_path, kPWUNIXDomainSocketAddress);
 	len = sizeof(sun.sun_family) + strlen(sun.sun_path) + 1;
 	
-    if (connect(s, (sockaddr *)&sun, len) < 0)
+    if (connect(s, (sockaddr *)&sun, (socklen_t)len) < 0)
         return -1;
 	
 	return s;
@@ -455,9 +454,9 @@ int getconn_domain_socket(void)
 //	* ConnectToServer
 // ---------------------------------------------------------------------------
 
-long ConnectToServer( sPSContextData *inContext )
+int ConnectToServer( sPSContextData *inContext )
 {
-    long siResult = 0;
+    int siResult = 0;
 	PWServerError pwsError;
     char buf[1024];
 	char *cur, *tptr;
@@ -549,12 +548,12 @@ Boolean Connected( sPSContextData *inContext )
 //	it is set to -1.
 // ----------------------------------------------------------------------------
 
-long IdentifyReachableReplica( CFMutableArrayRef inServerArray, const char *inHexHash, sPSServerEntry *outReplica, int *outSock )
+int IdentifyReachableReplica( CFMutableArrayRef inServerArray, const char *inHexHash, sPSServerEntry *outReplica, int *outSock )
 {
 	sPSServerEntry *entrylist = NULL;
 	CFIndex servIndex = 0;
 	CFIndex servCount = 0;
-	long result = kCPSUtilServiceUnavailable;
+	int result = kCPSUtilServiceUnavailable;
 	
 	if ( ConvertCFArrayToServerArray(inServerArray, &entrylist, &servCount) != kCPSUtilOK )
 		return kCPSUtilServiceUnavailable;
@@ -580,7 +579,7 @@ long IdentifyReachableReplica( CFMutableArrayRef inServerArray, const char *inHe
 						if ( res->ai_family != AF_INET || res->ai_addrlen != sizeof(sockaddr_in) )
 							continue;
 						
-						if ( inet_ntop(AF_INET, &(((struct sockaddr_in *)(res->ai_addr))->sin_addr.s_addr), testStr, sizeof(testStr)) != NULL &&
+						if ( inet_ntop(AF_INET, &(((struct sockaddr_in *)(res->ai_addr))->sin_addr.s_addr), testStr, (socklen_t)sizeof(testStr)) != NULL &&
 							 strcmp(testStr, entrylist[servIndex].ip) != 0 )
 						{
 							strlcpy( entrylist[servIndex].ip, testStr, sizeof(entrylist[servIndex].ip) );
@@ -616,7 +615,7 @@ int pwsf_SortServerEntryCompare(const void *a, const void *b)
 void pwsf_SortServerEntries(sPSServerEntry *inEntryList, CFIndex servCount)
 {
 	CFIndex servIndex = 0;
-	unsigned long *iplist = NULL;
+	in_addr_t *iplist = NULL;
 	
 	if ( servCount <= 1 )
 		return;
@@ -652,14 +651,14 @@ void pwsf_SortServerEntries(sPSServerEntry *inEntryList, CFIndex servCount)
 //	it is set to -1.
 // ----------------------------------------------------------------------------
 
-long IdentifyReachableReplicaByIP(
+int IdentifyReachableReplicaByIP(
 	sPSServerEntry *entrylist,
 	CFIndex servCount,
 	const char *inHexHash,
 	sPSServerEntry *outReplica,
 	int *outSock )
 {
-	long siResult = 0;
+	int siResult = 0;
 	char *portNumStr = NULL;
 	CFIndex servIndex = 0;
 	CFIndex descIndex = 0;
@@ -672,6 +671,7 @@ long IdentifyReachableReplicaByIP(
 	bool checkUDPDescriptors = false;
 	bool fallbackToTCP = false;
 	bool usingDefaultPort106 = true;
+	struct pollfd* pollList = NULL;
 	
 	DEBUGLOG( "IdentifyReachableReplica inHexHash=%s", inHexHash ? inHexHash : "NULL" );
 	
@@ -684,16 +684,21 @@ long IdentifyReachableReplicaByIP(
 	// nothing to do
 	if ( servCount == 0 || entrylist == NULL )
 		return kCPSUtilOK;
-	
+		
 	pwsf_SortServerEntries( entrylist, servCount );
-	
-	socketList = (int *) malloc( servCount * sizeof(int) );
-	if ( socketList == NULL )
-		return kCPSUtilMemoryError;
-	memset( socketList, -1, servCount * sizeof(int) );
-	
+
 	try
 	{
+		socketList = (int *) malloc( servCount * sizeof(int) );
+		if ( socketList == NULL )
+			throw (int)kCPSUtilMemoryError;
+
+		memset( socketList, -1, servCount * sizeof(int) );
+		
+		pollList = (struct pollfd *)malloc( servCount * sizeof(*pollList) );
+		if (pollList == NULL )
+			throw (int)kCPSUtilMemoryError;
+	
 		checkUDPDescriptors = false;
 		
 		for ( servIndex = 0; servIndex < servCount && connectedSocket == -1; servIndex++ )
@@ -766,33 +771,37 @@ long IdentifyReachableReplicaByIP(
 			if ( checkUDPDescriptors && socketList != NULL )
 			{
 				socklen_t structlength;
-				int byteCount = 0;
+				size_t byteCount = 0;
 				int descCount = 0;
 				struct sockaddr_in cin;
 				char packetData[64];
-				fd_set fdset;
-				struct timeval selectTimeout = { 0, (servIndex==0) ? 250000 : 130000 };
+				int pollTimeout = (servIndex==0) ? 250 : 130;  // milliseconds
 				
 				bzero( &cin, sizeof(cin) );
 				cin.sin_family = AF_INET;
 				cin.sin_addr.s_addr = htonl( INADDR_ANY );
 				cin.sin_port = htons( 0 );
 				
-				FD_ZERO( &fdset );
 				for ( descIndex = 0; descIndex < servCount; descIndex++ )
+				{
 					if ( socketList[descIndex] != -1 )
-						FD_SET( socketList[descIndex], &fdset );
+					{
+						pollList[descIndex].fd = socketList[descIndex];
+						pollList[descIndex].events = POLLIN;
+						pollList[descIndex].revents = 0;
+					}
+				}
 				
-				descCount = select( FD_SETSIZE, &fdset, NULL, NULL, &selectTimeout );
-				DEBUGLOG( "select = %d", descCount );
+				descCount = poll( pollList, (nfds_t)servCount, pollTimeout );
+				DEBUGLOG( "poll = %d", descCount );
 				if ( descCount > 0 )
 				{
 					for ( descIndex = 0; descIndex < servCount && connectedSocket == -1; descIndex++ )
 					{
-						if ( socketList[descIndex] > 0 )
+						if ( pollList[descIndex].revents & POLLIN )
 						{
-							structlength = sizeof( cin );
-							byteCount = recvfrom( socketList[descIndex], packetData, sizeof(packetData) - 1,
+							structlength = (socklen_t)sizeof( cin );
+							byteCount = recvfrom( pollList[descIndex].fd, packetData, sizeof(packetData) - 1,
 													MSG_DONTWAIT, (struct sockaddr *)&cin, &structlength );
 							DEBUGLOG( "recvfrom() byteCount=%d", byteCount );
 							
@@ -822,7 +831,7 @@ long IdentifyReachableReplicaByIP(
 									}
 								}
 								
-								connectedSocket = socketList[descIndex];
+								connectedSocket = pollList[descIndex].fd;
 								memcpy( outReplica, &entrylist[descIndex], sizeof(sPSServerEntry) );
 								
 								// can use the new port #
@@ -835,19 +844,8 @@ long IdentifyReachableReplicaByIP(
 				}
 			}
 		}
-		
-		if ( socketList != NULL )
-		{
-			// close all the sockets
-			for ( descIndex = 0; descIndex < servCount; descIndex++ )
-				if ( socketList[descIndex] > 0 )
-					close( socketList[descIndex] );
-			
-			free( socketList );
-			socketList = NULL;
-		}
 	}
-	catch( long error )
+	catch( int error )
 	{
 		siResult = error;
 	}
@@ -856,6 +854,23 @@ long IdentifyReachableReplicaByIP(
 		siResult = kCPSUtilServiceUnavailable;
 	}
 	
+	if ( socketList != NULL )
+	{
+		// close all the sockets
+		for ( descIndex = 0; descIndex < servCount; descIndex++ )
+			if ( socketList[descIndex] > 0 )
+				close( socketList[descIndex] );
+		
+		free( socketList );
+		socketList = NULL;
+	}
+	
+	if ( pollList != NULL )
+	{
+		free( pollList );
+		pollList = NULL;
+	}
+    
 	// make sure to return a replica or an error
 	if ( siResult == 0 && connectedSocket <= 0 )
 		siResult = kCPSUtilServiceUnavailable;
@@ -878,7 +893,7 @@ DEBUGLOG( "IdentifyRR returning %d", (int)siResult );
 //  <outServerArray> contains malloced memory that must be freed by the caller
 // ---------------------------------------------------------------------------
 
-long ConvertCFArrayToServerArray( CFArrayRef inCFArray, sPSServerEntry **outServerArray, CFIndex *outCount )
+int ConvertCFArrayToServerArray( CFArrayRef inCFArray, sPSServerEntry **outServerArray, CFIndex *outCount )
 {
 	CFDataRef serverRef;
 	sPSServerEntry *entrylist = NULL;
@@ -934,9 +949,9 @@ long ConvertCFArrayToServerArray( CFArrayRef inCFArray, sPSServerEntry **outServ
 //	RETURNS: CPSUtilities enum
 // ---------------------------------------------------------------------------
 
-long GetBigNumber( sPSContextData *inContext, char **outBigNumStr )
+int GetBigNumber( sPSContextData *inContext, char **outBigNumStr )
 {
-	long				siResult			= kCPSUtilOK;
+	int                 siResult			= kCPSUtilOK;
     BIGNUM				*nonce				= NULL;
 	char				*bnStr				= NULL;
 	
@@ -1100,11 +1115,11 @@ void StripRSAKey( char *inOutUserID )
 //	error encountered is returned.
 // ---------------------------------------------------------------------------
 
-long
+int
 GetPasswordServerList( CFMutableArrayRef *outServerList, int inConfigSearchOptions )
 {
-	long status = 0;
-	long status1 = 0;
+	int status = 0;
+	int status1 = 0;
 	CFMutableArrayRef serverArray;
 	
 DEBUGLOG( "GetPasswordServerList");
@@ -1149,11 +1164,11 @@ DEBUGLOG( "GetPasswordServerList");
 //	* GetPasswordServerListForKeyHash
 // ---------------------------------------------------------------------------
 
-long
+int
 GetPasswordServerListForKeyHash( CFMutableArrayRef *outServerList, int inConfigSearchOptions, const char *inKeyHash )
 {
-	long status = 0;
-	long status1 = 0;
+	int status = 0;
+	int status1 = 0;
 	CFMutableArrayRef serverArray;
 	
 DEBUGLOG( "GetPasswordServerListForKeyHash");
@@ -1198,7 +1213,7 @@ DEBUGLOG( "GetPasswordServerListForKeyHash");
 //	* GetServerListFromLocalCache
 // ---------------------------------------------------------------------------
 
-long
+int
 GetServerListFromLocalCache( CFMutableArrayRef inOutServerList )
 {
 	CFStringRef myReplicaDataFilePathRef;
@@ -1209,7 +1224,7 @@ GetServerListFromLocalCache( CFMutableArrayRef inOutServerList )
 	CFPropertyListFormat myPLFormat;
 	CFIndex index, arrayCount;
 	CFDataRef dataRef;
-	long status = 0;
+	int status = 0;
     sPSServerEntry *anEntryPtr;
 	bool bLoadPreConfiguredFile = false;
 	struct stat sb;
@@ -1316,7 +1331,7 @@ DEBUGLOG( "GetServerListFromLocalCache");
 //	* GetServerListFromFile
 // ---------------------------------------------------------------------------
 
-long
+int
 GetServerListFromFile( CFMutableArrayRef inOutServerList )
 {
 	return GetServerListFromFileForKeyHash( inOutServerList, NULL );
@@ -1327,10 +1342,10 @@ GetServerListFromFile( CFMutableArrayRef inOutServerList )
 //	* GetServerListFromFileForKeyHash
 // ---------------------------------------------------------------------------
 
-long
+int
 GetServerListFromFileForKeyHash( CFMutableArrayRef inOutServerList, const char *inKeyHash )
 {
-	long status = 0;
+	int status = 0;
 	CReplicaFile *replicaFile = NULL;
 	sPSServerEntry serverEntry;
 	bool gotID;
@@ -1392,9 +1407,9 @@ GetServerListFromFileForKeyHash( CFMutableArrayRef inOutServerList, const char *
 //	* GetServerListFromConfig
 // ---------------------------------------------------------------------------
 
-long GetServerListFromConfig( CFMutableArrayRef *outServerList, CReplicaFile *inReplicaData )
+int GetServerListFromConfig( CFMutableArrayRef *outServerList, CReplicaFile *inReplicaData )
 {
-	long status = 0;
+	int status = 0;
 	CFMutableArrayRef serverArray;
 	
 DEBUGLOG( "GetServerListFromConfig");
@@ -1428,7 +1443,7 @@ DEBUGLOG( "GetServerListFromConfig");
 //	* GetServerListFromXML
 // ---------------------------------------------------------------------------
 
-long
+int
 GetServerListFromXML( CReplicaFile *inReplicaFile, CFMutableArrayRef inOutServerList )
 {
 	CFDictionaryRef serverDict = NULL;
@@ -1436,7 +1451,7 @@ GetServerListFromXML( CReplicaFile *inReplicaFile, CFMutableArrayRef inOutServer
 	UInt32 repIndex;
 	UInt32 repCount;
 	int ipIndex = 0;
-	long status = 0;
+	int status = 0;
 	sPSServerEntry serverEntry;
 	char serverID[33];
 	char ldapServerStr[256] = {0};
@@ -1508,10 +1523,10 @@ DEBUGLOG( "GetServerListFromXML = %d", (int)status);
 //	* GetServerFromDict
 // ---------------------------------------------------------------------------
 
-long
+int
 GetServerFromDict( CFDictionaryRef serverDict, int inIPIndex, sPSServerEntry *outServerEntry )
 {
-	long status = 0;
+	int status = 0;
 	CFTypeRef anIPRef;
 	CFStringRef aString;
 	
@@ -1642,7 +1657,7 @@ DEBUGLOG( "AppendToArrayIfUnique adding: %s %s", inServerEntry->ip, inServerEntr
 //	RETURNS: the priority an IP address should be given for contact
 // --------------------------------------------------------------------------------
 
-ReplicaIPLevel ReplicaPriority( sPSServerEntry *inReplica, unsigned long *iplist )
+ReplicaIPLevel ReplicaPriority( sPSServerEntry *inReplica, in_addr_t *iplist )
 {
 	unsigned char s1, s2;
 	char *ipStr = inReplica->ip;
@@ -1716,9 +1731,9 @@ bool ReplicaInIPSet( sPSServerEntry *inReplica, ReplicaIPLevel inLevel )
 {
 	unsigned char s1, s2;
 	char *ipStr = inReplica->ip;
-	long err = 0;
+	int err = 0;
 	struct in_addr ipAddr, ourIPAddr;
-	unsigned long *iplist = NULL;
+	in_addr_t *iplist = NULL;
 	int index;
 	
 	// any valid IP is in wide
@@ -1829,69 +1844,48 @@ bool ReplicaInIPSet( sPSServerEntry *inReplica, ReplicaIPLevel inLevel )
 //	for calling free() if the returned array is non-NULL.
 // --------------------------------------------------------------------------------
 
-long pwsf_LocalIPList( unsigned long **outIPList )
+int pwsf_LocalIPList( in_addr_t **outIPList )
 {
-	// interface structures
-	struct ifconf ifc;
-	struct ifreq ifrbuf[30];
-	struct ifreq *ifrptr;
-	struct sockaddr_in *sain;
-	unsigned long *iplist;
-	register int sock = 0;
-	register int i = 0;
-	register int ipcount = 0;
-	int rc = 0;
-	long result = kCPSUtilOK;
-	
 	if ( outIPList == NULL )
-		return kCPSUtilParameterError;
-	*outIPList = NULL;
-	
-	iplist = (unsigned long *) calloc( sizeof(unsigned long), kMaxIPAddrs + 1 );
-	if ( iplist == NULL )
-		return kCPSUtilMemoryError;
-	
-	try
-	{
-		sock = socket(AF_INET, SOCK_DGRAM, 0);
-		if ( sock == -1 )
-			throw(1);
-		
-		ifc.ifc_buf = (caddr_t)ifrbuf;
-		ifc.ifc_len = sizeof(ifrbuf);
-		rc = ::ioctl(sock, SIOCGIFCONF, &ifc);
-		close( sock );
-		if ( rc == -1 )
-			throw(1);
-		
-		// walk the interface and  address list, only interested in ethernet and AF_INET
-		ipcount = 0;
-		for ( ifrptr = (struct ifreq *)ifc.ifc_buf, i=0;
-				(char *) ifrptr < &ifc.ifc_buf[ifc.ifc_len] && i < kMaxIPAddrs;
-				ifrptr = IFR_NEXT(ifrptr), i++ )
-		{
-			if ( ifrptr->ifr_addr.sa_family == AF_INET )
-			{
-				sain = (struct sockaddr_in *)&(ifrptr->ifr_addr);
-				iplist[ipcount] = ntohl(sain->sin_addr.s_addr);
-				ipcount++;
-			}
-		}
-	} // try
-	catch ( ... )
-	{
-		if ( iplist != NULL ) {
-			free( iplist );
-			iplist = NULL;
-		}
-		
-		result = kCPSUtilFail;
-	}
-	
-	*outIPList = iplist;
-	
-	return result;
+		return (int)kCPSUtilParameterError;
 
+	int result = (int)kCPSUtilOK;
+	*outIPList = NULL;
+    
+	in_addr_t* ipList = (in_addr_t *) calloc( sizeof(in_addr_t), kMaxIPAddrs + 1 );
+	if ( ipList == NULL )
+    {
+		result = (int)kCPSUtilMemoryError;
+	}
+    else
+    {
+        struct ifaddrs *ifaList = NULL;
+        if (getifaddrs(&ifaList) != 0)
+        {
+            result = (int)kCPSUtilFail;
+            free(ipList);
+            ipList = NULL;
+        }
+        else
+        {
+            int ipCount = 0;
+            struct ifaddrs* ifa;
+            for (ifa = ifaList;  ifa != NULL && ipCount < kMaxIPAddrs;  ifa = ifa->ifa_next)
+            {        
+                if (ifa->ifa_addr != NULL && ifa->ifa_addr->sa_family == AF_INET)
+                {
+                    struct sockaddr_in *sain = (struct sockaddr_in *)(ifa->ifa_addr);
+                    ipList[ipCount++] = ntohl(sain->sin_addr.s_addr);
+                }
+            }
+            
+            freeifaddrs(ifaList);
+            ifaList = NULL;
+        }
+    }
+
+	*outIPList = ipList;
+	return result;
 }
 
 
@@ -1905,21 +1899,20 @@ long pwsf_LocalIPList( unsigned long **outIPList )
 //	the socket is returned in <inOutSocket>. Otherwise, the socket is closed.
 // --------------------------------------------------------------------------------
 
-long getconn_async( const char *host, const char *port, struct timeval *inOpenTimeout, float *outConnectTime, int *inOutSocket )
+int getconn_async( const char *host, const char *port, struct timeval *inOpenTimeout, float *outConnectTime, int *inOutSocket )
 {
     char servername[1024];
     struct sockaddr_in sin;
 	struct addrinfo *res, *res0;
     int sock = -1;
-    long siResult = 0;
+    int siResult = 0;
     int rc, err;
 	struct in_addr inetAddr;
 	char *endPtr = NULL;
 	struct timeval startTime, endTime;
-	struct timeval recvTimeoutVal = { 30, 0 };
-	struct timeval sendTimeoutVal = { 120, 0 };
+	struct timeval recvTimeoutVal = { 10, 0 };
+	struct timeval sendTimeoutVal = { 10, 0 };
 	struct timezone tz = { 0, 0 };
-	fd_set fdset;
 	int fcntlFlags = 0;
 	bool bOurSocketToCloseOnErr = false;
 	
@@ -1946,7 +1939,7 @@ long getconn_async( const char *host, const char *port, struct timeval *inOpenTi
 				err = getaddrinfo( servername, NULL, NULL, &res0 );
 				if (err != 0) {
 					DEBUGLOG("getaddrinfo");
-					throw((long)kCPSUtilServiceUnavailable);
+					throw((int)kCPSUtilServiceUnavailable);
 				}
 				
 				for ( res = res0; res != NULL; res = res->ai_next )
@@ -1964,7 +1957,7 @@ long getconn_async( const char *host, const char *port, struct timeval *inOpenTi
 			sin.sin_port = htons(strtol(port, &endPtr, 10));
 			if ((sin.sin_port == 0) || (endPtr == port)) {
 				DEBUGLOG( "port '%s' unknown", port);
-				throw((long)kCPSUtilParameterError);
+				throw((int)kCPSUtilParameterError);
 			}
 			
 			sin.sin_family = AF_INET;
@@ -1975,7 +1968,7 @@ long getconn_async( const char *host, const char *port, struct timeval *inOpenTi
 				sock = socket(AF_INET, SOCK_STREAM, 0);
 				if (sock < 0) {
 					DEBUGLOG("socket");
-					throw((long)kCPSUtilServiceUnavailable);
+					throw((int)kCPSUtilServiceUnavailable);
 				}
 				
 				if ( sock != 0 )
@@ -1984,33 +1977,33 @@ long getconn_async( const char *host, const char *port, struct timeval *inOpenTi
 			if ( sock == 0 )
 			{
 				DEBUGLOG("socket() keeps giving me zero. hate that!");
-				throw((long)kCPSUtilServiceUnavailable);
+				throw((int)kCPSUtilServiceUnavailable);
 			}
 			
 			gOpenCount++;
 			bOurSocketToCloseOnErr = true;
 			
-			if ( setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &recvTimeoutVal, sizeof(recvTimeoutVal) ) == -1 )
+			if ( setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &recvTimeoutVal, (socklen_t)sizeof(recvTimeoutVal) ) == -1 )
 			{
 				DEBUGLOG("setsockopt SO_RCVTIMEO");
-				throw((long)kCPSUtilServiceUnavailable);
+				throw((int)kCPSUtilServiceUnavailable);
 			}
-			if ( setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &sendTimeoutVal, sizeof(sendTimeoutVal) ) == -1 )
+			if ( setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &sendTimeoutVal, (socklen_t)sizeof(sendTimeoutVal) ) == -1 )
 			{
 				DEBUGLOG("setsockopt SO_SNDTIMEO");
-				//throw((long)kCPSUtilServiceUnavailable); // not fatal
+				//throw((int)kCPSUtilServiceUnavailable); // not fatal
 			}
 			
 			fcntlFlags = fcntl(sock, F_GETFL, 0);
 			if ( fcntlFlags == -1 )
 			{
 				DEBUGLOG("fcntl");
-				throw((long)kCPSUtilServiceUnavailable);
+				throw((int)kCPSUtilServiceUnavailable);
 			}
 			if ( fcntl(sock, F_SETFL, fcntlFlags | O_NONBLOCK) == -1 )
 			{
 				DEBUGLOG("fcntl");
-				throw((long)kCPSUtilServiceUnavailable);
+				throw((int)kCPSUtilServiceUnavailable);
 			}
 		}
 		else
@@ -2019,37 +2012,33 @@ long getconn_async( const char *host, const char *port, struct timeval *inOpenTi
 		}
 		
 		gettimeofday( &startTime, &tz );
-        siResult = connect(sock, (struct sockaddr *) &sin, sizeof (sin));
-		
+        siResult = connect(sock, (struct sockaddr *) &sin, (socklen_t)sizeof (sin));
+        
 		// reset to normal blocking I/O
 		if ( fcntl(sock, F_SETFL, fcntlFlags) == -1 )
 		{
 			DEBUGLOG("fcntl");
-			throw((long)kCPSUtilServiceUnavailable);
+			throw((int)kCPSUtilServiceUnavailable);
 		}
-		
-		// If the connect succeeds immediately, the result is 0.
-		// it should return -1 with errno set to EINPROGRESS.
-		if ( siResult == -1 )
+
+		// If the connect succeeds immediately, the result is 0 and there's nothing more to do.
+		// Normally it'll return -1 with errno set to EINPROGRESS and we need to see if the
+		// connect completes.  If errno is anything else then the connect failed.
+		if ( siResult == -1 && errno == EINPROGRESS )
 		{
-			// threaded, can't depend on errno, so just call select and see what happens
-			// to make things worse, if an IP is valid but there are no listeners on the port,
-			// select returns that the descriptors are ready (it would be more convenient for
-			// this routine if it returned -1).
-			FD_ZERO(&fdset);
-			FD_SET(sock, &fdset);
-			
-			// select() for writing is the recommended way to test for connect() completion
-			siResult = select(FD_SETSIZE, NULL, &fdset, NULL, inOpenTimeout);
-			if ( siResult > 0 )
+			// Now see if the socket is available for writing.	That should indicate
+			// the connection is ready.
+			struct pollfd pfd = { sock, POLLOUT, 0 };
+			siResult = poll( &pfd, 1, (int)(inOpenTimeout->tv_sec * 1000 + inOpenTimeout->tv_usec / 1000) ); 
+			if ( siResult == 1 && (pfd.revents & POLLOUT) )
 			{
 				char test;
 				
 				// we got this far, recvfrom/errno is the only choice for confirmation
 				// if the IP is valid but there are no listeners on the port, errno is ECONNREFUSED.
 				// if recvfrom() == 0 then the connection was reset by peer.
-				errno = 0;
-				siResult = recvfrom( sock, &test, 1, (MSG_PEEK | MSG_DONTWAIT), NULL, NULL );
+				// if errno is EAGAIN then the connect process is still in progress.
+				siResult = (int)recvfrom( sock, &test, 1, (MSG_PEEK | MSG_DONTWAIT), NULL, NULL );
 				DEBUGLOG( "getconn_async recvfrom = %d, errno = %d", (int)siResult, errno );
 				if ( siResult > 0 || (siResult == -1 && errno == EAGAIN) )
 				{
@@ -2060,7 +2049,7 @@ long getconn_async( const char *host, const char *port, struct timeval *inOpenTi
 					close( sock );
 					sock = -1;
 					gOpenCount--;
-					throw((long)kCPSUtilServiceUnavailable);
+					throw((int)kCPSUtilServiceUnavailable);
 				}
 			}
 			else
@@ -2068,16 +2057,16 @@ long getconn_async( const char *host, const char *port, struct timeval *inOpenTi
 				close( sock );
 				sock = -1;
 				gOpenCount--;
-				throw((long)kCPSUtilServiceUnavailable);
+				throw((int)kCPSUtilServiceUnavailable);
 			}
 		}
 		gettimeofday( &endTime, &tz );
 		    
 		if ( outConnectTime != NULL )
-			*outConnectTime = (endTime.tv_sec - startTime.tv_sec) + (float)(endTime.tv_usec - startTime.tv_usec)/(float)1000000;
+			*outConnectTime = (float)(endTime.tv_sec - startTime.tv_sec) + (float)(endTime.tv_usec - startTime.tv_usec)/(float)1000000;
 	}
 	
-    catch( long error )
+    catch( int error )
     {
         siResult = error;
     }
@@ -2104,12 +2093,12 @@ long getconn_async( const char *host, const char *port, struct timeval *inOpenTi
 //	socket is returned in <outSocket>.
 // --------------------------------------------------------------------------------
 
-long testconn_udp( const char *host, const char *port, int *outSocket )
+int testconn_udp( const char *host, const char *port, int *outSocket )
 {
     char servername[1024];
     struct sockaddr_in sin, cin;
     int sock = -1;
-    long siResult = 0;
+    int siResult = 0;
     int rc;
 	struct in_addr inetAddr;
 	char *endPtr = NULL;
@@ -2135,7 +2124,7 @@ long testconn_udp( const char *host, const char *port, int *outSocket )
 			rc = getaddrinfo( servername, NULL, NULL, &res0 );
 			if (rc != 0) {
 				DEBUGLOG("getaddrinfo");
-				throw((long)kCPSUtilServiceUnavailable);
+				throw(kCPSUtilServiceUnavailable);
 			}
 			
 			for ( res = res0; res != NULL; res = res->ai_next )
@@ -2153,7 +2142,7 @@ long testconn_udp( const char *host, const char *port, int *outSocket )
 		sin.sin_port = htons(strtol(port, &endPtr, 10));
 		if ((sin.sin_port == 0) || (endPtr == port)) {
 			DEBUGLOG( "port '%s' unknown", port);
-			throw((long)kCPSUtilParameterError);
+			throw(kCPSUtilParameterError);
 		}
 		
 		sin.sin_family = AF_INET;
@@ -2164,7 +2153,7 @@ long testconn_udp( const char *host, const char *port, int *outSocket )
 			sock = socket(AF_INET, SOCK_DGRAM, 0);
 			if (sock < 0) {
 				DEBUGLOG("socket");
-				throw((long)kCPSUtilServiceUnavailable);
+				throw(kCPSUtilServiceUnavailable);
 			}
 			
 			if ( sock != 0 )
@@ -2173,7 +2162,7 @@ long testconn_udp( const char *host, const char *port, int *outSocket )
 		if ( sock == 0 )
 		{
 			DEBUGLOG("socket() keeps giving me zero. hate that!");
-			throw((long)kCPSUtilServiceUnavailable);
+			throw(kCPSUtilServiceUnavailable);
 		}
 		
 		bzero( &cin, sizeof(cin) );
@@ -2181,22 +2170,22 @@ long testconn_udp( const char *host, const char *port, int *outSocket )
 		cin.sin_addr.s_addr = htonl( INADDR_ANY );
 		cin.sin_port = htons( 0 );
 		
-        siResult = bind( sock, (struct sockaddr *) &cin, sizeof(cin) );
+        siResult = bind( sock, (struct sockaddr *) &cin, (socklen_t)sizeof(cin) );
 		if ( siResult < 0 )
 		{
 			DEBUGLOG( "bind() failed." );
-			throw( (long)kCPSUtilServiceUnavailable );
+			throw( kCPSUtilServiceUnavailable );
 		}
 		
-		byteCount = sendto( sock, packetData, strlen(packetData), 0, (struct sockaddr *)&sin, sizeof(sin) );
+		byteCount = sendto( sock, packetData, strlen(packetData), 0, (struct sockaddr *)&sin, (socklen_t)sizeof(sin) );
 		if ( byteCount < 0 )
 		{
 			DEBUGLOG( "sendto() failed." );
-			throw( (long)kCPSUtilServiceUnavailable );
+			throw( kCPSUtilServiceUnavailable );
 		}
 	}
 	
-    catch( long error )
+    catch( int error )
     {
 		if ( error != 0 && sock > 0 )
 		{
@@ -2209,6 +2198,64 @@ long testconn_udp( const char *host, const char *port, int *outSocket )
     *outSocket = sock;
     
     return siResult;
+}
+
+// ---------------------------------------------------------------------------
+//	* pwsf_pingpws
+//
+//  Returns: 1 if responding, 0 if not, -1 if error
+// ---------------------------------------------------------------------------
+
+int pwsf_pingpws( const char *host, const struct timespec *timeout )
+{
+	int sd = -1;
+	int kq = -1;
+	int ret = 0;
+	int r;
+	struct kevent inev[1];
+	struct kevent outev[1];
+	unsigned char buf[128];
+
+	do {
+		if( testconn_udp( host, kPasswordServerPortStr, &sd) != 0 ) {
+			ret = -1;
+			break;
+		}
+
+		EV_SET(&inev[0], sd, EVFILT_READ, EV_ADD, 0, 0, 0);
+	
+		kq = kqueue();
+		if( kq < 0 ) {
+			ret = -1;
+			break;
+		}
+
+		r = kevent(kq, inev, 1, outev, 1, timeout);
+		if( r == -1 ) {
+			ret = -1;
+			break;
+		} else if( r == 0 ) {
+			ret = 0;
+			break;
+		}
+
+		r = recvfrom(sd, buf, sizeof(buf)-1, MSG_DONTWAIT, NULL, 0);
+		if( r < 0 ) {
+			ret = -1;
+			break;
+		} else if( (r > 0) && (buf[0] != '0') ) {
+			ret = 1;
+			break;
+		}
+		ret = 0;
+	}while(0);
+
+	if( sd != -1 )
+		close(sd);
+	if( kq != -1 )
+		close(kq);
+
+	return ret;
 }
 
 // ---------------------------------------------------------------------------
@@ -2529,7 +2576,7 @@ int pwsf_LaunchTaskWithIO(
 	char *const argv[],
 	const char* inputBuf,
 	char* outputBuf,
-	int outputBufSize,
+	size_t outputBufSize,
 	bool *outExitedBeforeInput)
 {
 	int inputPipe[2];
@@ -2635,7 +2682,7 @@ int pwsf_LaunchTaskWithIO(
 	
 	if (outputBuf != NULL)
 	{
-		int sizeRead;
+		size_t sizeRead;
 		close(outputPipe[1]);
 		sizeRead = read(outputPipe[0], outputBuf, outputBufSize-1);
 		outputBuf[sizeRead] = 0;
@@ -2665,9 +2712,9 @@ int pwsf_LaunchTaskWithIO2(
 	char *const argv[],
 	const char* inputBuf,
 	char* outputBuf,
-	int outputBufSize,
+	size_t outputBufSize,
 	char* errBuf,
-	int errBufSize)
+	size_t errBufSize)
 {
 	int inputPipe[2];
 	int outputPipe[2];
@@ -2779,7 +2826,7 @@ int pwsf_LaunchTaskWithIO2(
 	
 	if (outputBuf != NULL)
 	{
-		int sizeRead;
+		size_t sizeRead;
 		close(outputPipe[1]);
 		sizeRead = read(outputPipe[0], outputBuf, outputBufSize-1);
 		outputBuf[sizeRead] = 0;
@@ -2787,7 +2834,7 @@ int pwsf_LaunchTaskWithIO2(
 	}
 	if (errBuf != NULL)
 	{
-		int sizeRead;
+		size_t sizeRead;
 		close(errPipe[1]);
 		sizeRead = read(errPipe[0], errBuf, errBufSize-1);
 		errBuf[sizeRead] = 0;

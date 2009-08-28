@@ -1,5 +1,5 @@
 
-Eine e-Mail an eine Mailingliste wurde nicht verteilt und benötigt
+Eine E-Mail an eine Mailingliste wurde nicht verteilt und benötigt
 eine Freigabe durch Sie als Listenmoderator:
 
     Liste:   %(listname)s@%(hostname)s
@@ -11,4 +11,4 @@ Bitte besuchen Sie bei Gelegenheit
 
 %(admindb_url)s
         
-um die e-Mail zu genehmigen oder abzulehnen.
+um die E-Mail zu genehmigen oder abzulehnen.

@@ -1,0 +1,126 @@
+# -*- tcl -*-
+# site wide definitions _____________________________
+# the general layout of the website. Change this to
+# adjust the layout. also imposes the interfaces between
+# site policy and templates
+
+source [file join [here] formatting] ; # Make general formatting available.
+
+# Rules for the creation of the website from the .exp files.
+#
+# General layout __________________________
+
+# Header            | [page_begin tag]
+# - Navigation -    |
+# Interlude         | [page_content]
+# - Content -       |
+# Footer            | [page_end]
+
+global    pages
+array set pages {
+    mp   {}
+    tags {}
+}
+
+proc sitepage {tag text url} {
+    global pages
+    if {[info exists pages(t,$tag)]} {
+	error "Page $tag already defined"
+    }
+
+    set     pages(t,$tag) .
+    lappend pages(tags)   $tag
+
+    url $tag $text $url
+    return
+}
+
+proc manpage {tag text url} {
+    global pages
+    if {[info exists pages(t,$tag)]} {
+	error "Page $tag already defined"
+    }
+
+    set     pages(t,$tag) .
+    lappend pages(mp) $tag
+    url $tag $text $url
+    return
+}
+
+proc page_begin {tag} {
+    global pages
+    if {![info exists pages(t,$tag)]} {
+	error "Unknown page $tag"
+    }
+
+    set title    [$tag text]
+    set pages(_) $tag
+
+    set    data [header $title]
+    append data "[table][trtop]"
+    append data "[td]<h1>[sfproject]</h1><hr></td>[td][nbsp]</td>[td]<h1>[pagetitle]</h1></td></tr>"
+    append data [page_navigation_begin]
+}
+
+proc page_content {} {
+    global pages
+    unset  pages(_)
+    page_navigation_end
+}
+
+proc page_end {} {
+    set last_update [readFile [file join [state] sn.time]]
+
+    set     data "<tr><td colspan=3 [use_bg]><hr></td></tr>"
+    append  data "<tr><td [use_bg] colspan=3><b>Last updated @ $last_update</b></td></tr>"
+    append  data "<tr><td [use_bg] colspan=3>"
+    append  data "[table][trtop][td][news]</td>[td][stats]</td></tr></table>"
+    append  data "</td></tr>"
+    append  data "</table></td></tr></table>[trailer]"
+    return $data
+}
+
+proc page_navigation_begin {} {
+    set     data "[trtop][td][table][trtop]<td>[table][trtop]"
+    append  data "[td]<p align=center>[sf/img]<br><br>[trf/logo/120]<br><br>[tcl/sf/img]</td>"
+    append  data "[td][nbsp]</td>[td][sect Crossreferences]"
+    return $data
+}
+
+proc page_navigation_end {} {
+    return "</td></tr></table></td></tr></table></td>[td][nbsp]</td>[td]"
+}
+
+proc nav_link {link} {
+    return $link<br>
+}
+
+proc site_xref {} {
+    global pages
+
+    set data ""
+    foreach tag $pages(tags) {
+	if {0 == [string compare $tag $pages(_)]} {
+	    append data [nav_link "<font color=[hlcolor]><b>[$tag text]</b></font>"]
+	} else {
+	    append data [nav_link [$tag]]
+	}
+    }
+
+    return $data
+}
+
+proc mp_xref {} {
+    global pages
+
+    set data "<hr>[sect Manpages]"
+    foreach tag $pages(mp) {
+	if {0 == [string compare $tag $pages(_)]} {
+	    append data [nav_link "<font color=[hlcolor]><b>[$tag text]</b></font>"]
+	} else {
+	    append data [nav_link [$tag]]
+	}
+    }
+
+    return $data
+}

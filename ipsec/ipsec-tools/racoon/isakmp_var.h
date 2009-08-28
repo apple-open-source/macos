@@ -61,12 +61,16 @@ struct isakmp_pl_nonce;	/* XXX */
 
 extern int isakmp_handler __P((int));
 extern int isakmp_ph1begin_i __P((struct remoteconf *, struct sockaddr *,
-	struct sockaddr *));
+	struct sockaddr *, int));
 
 extern vchar_t *isakmp_parsewoh __P((int, struct isakmp_gen *, int));
 extern vchar_t *isakmp_parse __P((vchar_t *));
 
+#ifndef __APPLE__
 extern int isakmp_init __P((void));
+#else
+extern int isakmp_init __P((int));
+#endif /* __APPLE__ */
 extern void isakmp_cleanup __P((void));
 
 extern const char *isakmp_pindex __P((const isakmp_index *, const u_int32_t));
@@ -84,6 +88,9 @@ extern void isakmp_ph2resend_stub __P((void *));
 extern int isakmp_ph2resend __P((struct ph2handle *));
 extern void isakmp_ph1expire_stub __P((void *));
 extern void isakmp_ph1expire __P((struct ph1handle *));
+extern void isakmp_ph1rekeyexpire_stub __P((void *));
+extern void isakmp_ph1rekeyexpire __P((struct ph1handle *));
+extern int  isakmp_ph1rekeyretry __P((struct ph1handle *));
 extern void isakmp_ph1delete_stub __P((void *));
 extern void isakmp_ph1delete __P((struct ph1handle *));
 extern void isakmp_ph2expire_stub __P((void *));
@@ -126,11 +133,11 @@ extern void log_ph1established __P((const struct ph1handle *));
 
 extern void script_hook __P((struct ph1handle *, int)); 
 extern int script_env_append __P((char ***, int *, char *, char *));
-extern int script_exec __P((int, int, char * const *));
+extern int script_exec __P((char *, int, char * const *));
 
 void purge_remote __P((struct ph1handle *));
 void delete_spd __P((struct ph2handle *));
 #ifdef INET6
 u_int32_t setscopeid __P((struct sockaddr *, struct sockaddr *));
-#endif 
+#endif
 #endif /* _ISAKMP_VAR_H */

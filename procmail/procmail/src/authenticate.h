@@ -1,4 +1,4 @@
-/*$Id: authenticate.h,v 1.1.1.2 2001/07/20 19:38:14 bbraun Exp $*/
+/*$Id: authenticate.h,v 1.5 1999/04/19 06:36:59 guenther Exp $*/
 
 /* Generic authentication interface, substitute a suitable module to
    accomodate arbitrary other authentication databases */

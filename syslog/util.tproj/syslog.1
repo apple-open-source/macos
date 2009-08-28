@@ -135,10 +135,6 @@ is an alias for
 If the
 .Fl l
 option is omitted, the log level defaults to 7 (Debug).
-Note that the log message server
-.Nm syslogd
-filters messages based on log level.
-The default filter for the ASL database excludes Debug and Info level messages.
 .Pp
 .Nm
 only requires one or two leading characters for a level specification.
@@ -508,13 +504,21 @@ or that have a numeric priority level of 4 or less:
 .Pp
 .Dl syslog -k Sender portmap -o -k Level Nle 4
 .Pp
+Log priority levels are internally handled as an integer value between 0 and 7.
+Level values in expressions may either be given as integers, or as string equivalents.
+See the table string values in the SENDING MESSAGES section for details.
+The example query above could also be specified with the command:
+.Pp
+.Dl syslog -k Sender portmap -o -k Level Nle warning
+.Pp
+.Pp
 A special convention exists for matching time stamps.
 An unsigned integer value is regarded as the given number of seconds since
 0 hours, 0 minutes, 0 seconds, January 1, 1970, Coordinated Universal Time.
 An negative integer value is regarded as the given number of seconds before the current time.
-For example, to find all messages of priority level 3 (error) or less which were logged in the last 30 seconds:
+For example, to find all messages of Error priority level (3) or less which were logged in the last 30 seconds:
 .Pp
-.Dl syslog -k Level Nle 3 -k Time ge -30
+.Dl syslog -k Level Nle error -k Time ge -30
 .Pp
 a relative time value may be optionally followed by one of the characters 
 .Dq s ,
@@ -599,12 +603,12 @@ Root access is required to set the per-process filter mask for system (UID 0) pr
 The filtering described above takes place in the client library to determine which messages are sent to the
 .Nm syslogd
 daemon.
-The daemon also contains a filter which determines which messages are saved in the data store.
-Note that this additionally determines which messages are seen when reading messages using the
+The daemon also contains filters which determines which messages are saved in the data store.
+This determines which messages are seen when reading messages using the
 .Nm
-utility.
+utility, or when viewing data store messages in the Console utility application.
 .Pp
-The default data store filter mask saves messages with priority levels from Emergency to Notice (level 0 to 5).
+The default data store filter mask permits all messages with priority levels from Emergency to Debug (level 0 to 7).
 The level may be inspected using:
 .Pp
 .Dl syslog -c syslogd 
@@ -615,6 +619,16 @@ as described above.
 For example, to save messages with priority level Error or less in the data store:
 .Pp
 .Dl syslog -c syslog -e
+.Pp
+The 
+.Nm syslogd
+server also follows filtering rules specified in the /etc/asl.conf file.
+When the remote-control mechanism is used to change the filter of a process,
+.Nm syslogd
+will save any messages received from that process until the remote-control filter is turned off.
+It is no longer necessary to adjust the filtering for both a process and for
+.Nm syslogd 
+to have messages saved in the ASL data store.
 .Sh SEE ALSO
 .Xr syslogd 8 ,
 .Xr logger 1 ,

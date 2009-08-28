@@ -48,7 +48,7 @@ class Topics(GUIBase):
 
              _("""The topic filter categorizes each incoming email message
              according to <a
-            href="http://www.python.org/doc/current/lib/module-re.html">regular
+            href="http://docs.python.org/library/re.html">regular
              expression filters</a> you specify below.  If the message's
              <code>Subject:</code> or <code>Keywords:</code> header contains a
              match against a topic filter, the message is logically placed

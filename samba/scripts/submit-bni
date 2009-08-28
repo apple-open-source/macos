@@ -23,7 +23,7 @@ vrun svn checkout $BNI $CHECKDIR
     set -e
     cd $CHECKDIR
 
-    SRCROOT=$(pwd) vrun make patch
+    vrun make SRCROOT=$(pwd) patch
     echo "GnuNoPatch := YES" > make.local
 
     vrun svn add make.local

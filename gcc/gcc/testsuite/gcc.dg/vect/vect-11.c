@@ -1,6 +1,6 @@
 /* { dg-require-effective-target vect_int } */
-/* APPLE LOCAL 3972875 mainline 2005-04-18  */
 /* { dg-require-effective-target vect_int_mult } */
+
 #include <stdarg.h>
 #include "tree-vect.h"
 
@@ -36,5 +36,5 @@ int main (void)
   return main1 ();
 }
 
-/* APPLE LOCAL 3972875 mainline 2005-04-18 */
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

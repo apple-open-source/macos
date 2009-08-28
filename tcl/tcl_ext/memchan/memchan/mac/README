@@ -1,0 +1,14 @@
+
+		Memory Channels in Tcl
+		(Version 2.2a4 / AUG-20-2002)
+
+		Andreas Kupries	(a.kupries@westend.com)
+
+This is the README file for the Macintosh version of the Memchan extension
+
+
+	I don't have a Mac, nor do I have access one. Because
+	of this I am unable to provide a Mac port of this
+	extension.  I will most happily integrate any required
+	changes, makefiles, et cetera into the distribution,
+	if they are send to me (a.kupries@westend.com).

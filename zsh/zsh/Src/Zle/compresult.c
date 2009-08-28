@@ -469,7 +469,7 @@ cline_str(Cline l, int ins, int *csp, LinkList posl)
 	memcpy(r, zlemetaline + ocs, i);
 	r[i] = '\0';
 	zlemetacs = ocs;
-	foredel(i);
+	foredel(i, CUT_RAW);
 
 	if (csp)
 	    *csp = ncs - ocs;
@@ -707,7 +707,7 @@ hasbrpsfx(Cmatch m, char *pre, char *suf)
 	instmatch(m, NULL);
 
 	zlemetacs = 0;
-	foredel(zlemetall);
+	foredel(zlemetall, CUT_RAW);
 	spaceinline(oll);
 	memcpy(zlemetaline, oline, oll);
 	zlemetacs = ocs;
@@ -778,7 +778,7 @@ do_ambiguous(void)
 	tcs = zlemetacs;
 	zlemetacs = wb;
 	memcpy(old, zlemetaline + wb, we - wb);
-	foredel(we - wb);
+	foredel(we - wb, CUT_RAW);
 
 	/* Now get the unambiguous string and insert it into the line. */
 	cline_str(ainfo->line, 1, NULL, NULL);
@@ -789,7 +789,7 @@ do_ambiguous(void)
 
 	if (lastend < we && !lenchanged && !hasunmatched) {
 	    zlemetacs = wb;
-	    foredel(lastend - wb);
+	    foredel(lastend - wb, CUT_RAW);
 	    inststrlen(old, 0, we - wb);
 	    lastend = we;
 	    zlemetacs = tcs;
@@ -978,7 +978,7 @@ do_single(Cmatch m)
 
     minfo.insc = 0;
     zlemetacs = minfo.pos;
-    foredel(l);
+    foredel(l, CUT_RAW);
 
     if (m->flags & CMF_ALL) {
 	do_allmatches(0);
@@ -1148,7 +1148,7 @@ do_single(Cmatch m)
 		makesuffixstr(m->remf, m->rems, 1);
 	}
     }
-    if (minfo.we && partest && isset(AUTOPARAMKEYS)) {
+    if (minfo.we && partest && isset(AUTOPARAMKEYS) && minfo.insc - parq > 0) {
 	/* the suffix code needs numbers of characters, not octets */
 	int outlen;
 	char *tmpstr = dupstrpfx(zlemetaline + parq, minfo.insc - parq);
@@ -1188,6 +1188,12 @@ do_menucmp(int lst)
 {
     int was_meta;
 
+    /* Just list the matches if the list was requested. */
+    if (lst == COMP_LIST_COMPLETE) {
+	showinglist = -2;
+	return;
+    }
+
     /* Already metafied when called from domenuselect already */
     if (zlemetaline == NULL) {
 	was_meta = 0;
@@ -1195,11 +1201,6 @@ do_menucmp(int lst)
     } else
 	was_meta = 1;
 
-    /* Just list the matches if the list was requested. */
-    if (lst == COMP_LIST_COMPLETE) {
-	showinglist = -2;
-	return;
-    }
     /* Otherwise go to the next match in the array... */
     do {
 	if (!*++(minfo.cur)) {
@@ -1226,6 +1227,9 @@ int
 reverse_menu(UNUSED(Hookdef dummy), UNUSED(void *dummy2))
 {
     int was_meta;
+
+    if (minfo.cur == NULL)
+	return 1;
 
     do {
 	if (minfo.cur == (minfo.group)->matches) {
@@ -1312,7 +1316,7 @@ accept_last(void)
 	l = zlemetacs;
 	zlemetacs = minfo.pos + minfo.len + minfo.insc - (*(minfo.cur))->qisl;
 	if (zlemetacs < l)
-	    foredel(l - zlemetacs);
+	    foredel(l - zlemetacs, CUT_RAW);
 	else if (zlemetacs > zlemetall)
 	    zlemetacs = zlemetall;
 	inststrlen(" ", 1, 1);

@@ -211,3 +211,15 @@ const SecAsn1Template kSecAsn1DHPublicKeyX509Template[] = {
     { 0 }
 };
 
+/* ECDSA Private key */
+const SecAsn1Template kSecAsn1ECDSAPrivateKeyInfoTemplate[] = {
+	{ SEC_ASN1_SEQUENCE, 0, NULL, sizeof(NSS_ECDSA_PrivateKey) },
+    { SEC_ASN1_INTEGER, offsetof(NSS_ECDSA_PrivateKey,version) },
+    { SEC_ASN1_OCTET_STRING, offsetof(NSS_ECDSA_PrivateKey,privateKey) },
+    { SEC_ASN1_OPTIONAL | SEC_ASN1_CONSTRUCTED | SEC_ASN1_EXPLICIT | SEC_ASN1_CONTEXT_SPECIFIC | 0, 
+	  offsetof(NSS_ECDSA_PrivateKey,params), kSecAsn1AnyTemplate},
+    { SEC_ASN1_OPTIONAL | SEC_ASN1_CONSTRUCTED | SEC_ASN1_EXPLICIT | SEC_ASN1_CONTEXT_SPECIFIC | 1, 
+	  offsetof(NSS_ECDSA_PrivateKey,pubKey), kSecAsn1BitStringTemplate },
+    { 0, }
+};
+

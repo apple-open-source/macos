@@ -77,7 +77,7 @@ int BLSetOpenFirmwareBootDevice(BLContextPtr context, const char * mntfrm) {
     pop = popen("/usr/sbin/nvram boot-args", "r");
     if(pop) {
         
-        if(NULL == fgets(oldbootargs, sizeof(oldbootargs), pop)) {
+        if(NULL == fgets(oldbootargs, (int)sizeof(oldbootargs), pop)) {
             contextprintf(context, kBLLogLevelVerbose,  "Could not parse output from /usr/sbin/nvram\n" );
         }
         pclose(pop);

@@ -1,29 +1,20 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1999-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1999,2007 Oracle.  All rights reserved.
+ *
+ * $Id: hash_method.c,v 12.7 2007/05/17 15:15:38 bostic Exp $
  */
 
 #include "db_config.h"
-
-#ifndef lint
-static const char revid[] = "$Id: hash_method.c,v 1.2 2004/03/30 01:23:27 jtownsen Exp $";
-#endif /* not lint */
-
-#ifndef NO_SYSTEM_INCLUDES
-#include <sys/types.h>
-#endif
 
 #include "db_int.h"
 #include "dbinc/db_page.h"
 #include "dbinc/hash.h"
 
-static int __ham_get_h_ffactor __P((DB *, u_int32_t *));
 static int __ham_set_h_ffactor __P((DB *, u_int32_t));
 static int __ham_set_h_hash
 	       __P((DB *, u_int32_t(*)(DB *, const void *, u_int32_t)));
-static int __ham_get_h_nelem __P((DB *, u_int32_t *));
 static int __ham_set_h_nelem __P((DB *, u_int32_t));
 
 /*
@@ -48,10 +39,12 @@ __ham_db_create(dbp)
 	hashp->h_nelem = 0;			/* Defaults. */
 	hashp->h_ffactor = 0;
 	hashp->h_hash = NULL;
+	hashp->h_compare = NULL;
 
 	dbp->get_h_ffactor = __ham_get_h_ffactor;
 	dbp->set_h_ffactor = __ham_set_h_ffactor;
 	dbp->set_h_hash = __ham_set_h_hash;
+	dbp->set_h_compare = __ham_set_h_compare;
 	dbp->get_h_nelem = __ham_get_h_nelem;
 	dbp->set_h_nelem = __ham_set_h_nelem;
 
@@ -73,9 +66,11 @@ __ham_db_close(dbp)
 }
 
 /*
- * __db_get_h_ffactor --
+ * __ham_get_h_ffactor --
+ *
+ * PUBLIC: int __ham_get_h_ffactor __P((DB *, u_int32_t *));
  */
-static int
+int
 __ham_get_h_ffactor(dbp, h_ffactorp)
 	DB *dbp;
 	u_int32_t *h_ffactorp;
@@ -126,9 +121,35 @@ __ham_set_h_hash(dbp, func)
 }
 
 /*
- * __db_get_h_nelem --
+ * __ham_set_h_compare --
+ *	Set the comparison function.
+ *
+ * PUBLIC: int __ham_set_h_compare
+ * PUBLIC:         __P((DB *, int (*)(DB *, const DBT *, const DBT *)));
  */
-static int
+int
+__ham_set_h_compare(dbp, func)
+	DB *dbp;
+	int (*func) __P((DB *, const DBT *, const DBT *));
+{
+	HASH *t;
+
+	DB_ILLEGAL_AFTER_OPEN(dbp, "DB->set_h_compare");
+	DB_ILLEGAL_METHOD(dbp, DB_OK_HASH);
+
+	t = dbp->h_internal;
+
+	t->h_compare = func;
+
+	return (0);
+}
+
+/*
+ * __db_get_h_nelem --
+ *
+ * PUBLIC: int __ham_get_h_nelem __P((DB *, u_int32_t *));
+ */
+int
 __ham_get_h_nelem(dbp, h_nelemp)
 	DB *dbp;
 	u_int32_t *h_nelemp;

@@ -1,5 +1,5 @@
 /*
- * "$Id: image-png.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: image-png.c 7437 2008-04-09 03:16:10Z mike $"
  *
  *   PNG image routines for the Common UNIX Printing System (CUPS).
  *
@@ -311,5 +311,5 @@ _cupsImageReadPNG(
 
 
 /*
- * End of "$Id: image-png.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: image-png.c 7437 2008-04-09 03:16:10Z mike $".
  */

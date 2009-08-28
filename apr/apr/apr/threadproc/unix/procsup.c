@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -28,15 +28,15 @@ APR_DECLARE(apr_status_t) apr_proc_detach(int daemonize)
     /* Don't detach for MPE because child processes can't survive the death of
      * the parent. */
     if (daemonize) {
-	    if ((x = fork()) > 0) {
-	        exit(0);
+        if ((x = fork()) > 0) {
+            exit(0);
         }
-	    else if (x == -1) {
-	        perror("fork");
-	        fprintf(stderr, "unable to fork new process\n");
-	        exit(1);  /* we can't do anything here, so just exit. */
-	    }
-	    /* RAISE_SIGSTOP(DETACH); */
+        else if (x == -1) {
+            perror("fork");
+            fprintf(stderr, "unable to fork new process\n");
+            exit(1);  /* we can't do anything here, so just exit. */
+        }
+        /* RAISE_SIGSTOP(DETACH); */
     }
 #endif
 

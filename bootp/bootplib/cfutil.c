@@ -95,7 +95,7 @@ read_file(const char * filename, size_t * data_length)
 }
 
 static int
-write_file(const char * filename, void * data, size_t data_length)
+write_file(const char * filename, const void * data, size_t data_length)
 {
     char		path[MAXPATHLEN];
     int			fd = -1;
@@ -161,7 +161,7 @@ my_CFPropertyListWriteFile(CFPropertyListRef plist, const char * filename)
 	return (0);
     }
     ret = write_file(filename, 
-		     (void *)CFDataGetBytePtr(data), CFDataGetLength(data));
+		     (const void *)CFDataGetBytePtr(data), CFDataGetLength(data));
     CFRelease(data);
     return (ret);
 }

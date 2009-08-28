@@ -40,6 +40,7 @@
 <!ENTITY refconfig SYSTEM "ref/config.xml">
 
 <!ENTITY refsess SYSTEM "ref/sess.xml">
+<!ENTITY refsessflags SYSTEM "ref/sessflags.xml">
 <!ENTITY referr SYSTEM "ref/err.xml">
 <!ENTITY refopts SYSTEM "ref/opts.xml">
 <!ENTITY refsslvfy SYSTEM "ref/sslvfy.xml">
@@ -51,7 +52,7 @@
 <!ENTITY refreq SYSTEM "ref/req.xml">
 <!ENTITY refreqhdr SYSTEM "ref/reqhdr.xml">
 <!ENTITY refresphdr SYSTEM "ref/resphdr.xml">
-<!ENTITY refreqopts SYSTEM "ref/reqopts.xml">
+<!ENTITY refreqflags SYSTEM "ref/reqflags.xml">
 <!ENTITY refstatus SYSTEM "ref/status.xml">
 <!ENTITY refgetst SYSTEM "ref/getst.xml">
 <!ENTITY refreqbody SYSTEM "ref/reqbody.xml">
@@ -81,10 +82,10 @@
     <author>
       <firstname>Joe</firstname><surname>Orton</surname>
       <affiliation>
-	<address><email>neon@webdav.org</email></address>
+	<address><email>neon@lists.manyfish.co.uk</email></address>
       </affiliation>
     </author>
-    <copyright><year>2001-2006</year><holder>Joe Orton</holder></copyright>
+    <copyright><year>2001-2008</year><holder>Joe Orton</holder></copyright>
 
     <legalnotice>
 
@@ -150,7 +151,8 @@ ignoring the WebDAV support if desired.</para>
     <referenceinfo>
       <title>neon API reference</title>
       <date>&date;</date>
-      <productname>neon &version;</productname>
+      <productname>neon</productname>
+      <productnumber>&version;</productnumber>
     </referenceinfo>
     
     <title>neon API reference</title>
@@ -171,11 +173,12 @@ ignoring the WebDAV support if desired.</para>
     &refiaddr; <!-- ne_iaddr_make -->
     &refalloc; <!-- ne_malloc -->
     &refsess; <!-- ne_session_create -->
+    &refsessflags; <!-- ne_set_session_flag -->
     &refreq; <!-- ne_request_create -->
     &refreqhdr; <!-- ne_add_request_header -->
     &refresphdr; <!-- ne_add_request_header -->
     &refopts; <!-- ne_set_useragent -->
-    &refreqopts; <!-- ne_set_useragent -->
+    &refreqflags; <!-- ne_set_request_flag -->
     &refreqbody; <!-- ne_set_request_body_buffer -->
     &refauth; <!-- ne_set_server_auth -->
     &refshave; <!-- ne_shave -->

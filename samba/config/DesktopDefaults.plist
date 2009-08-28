@@ -40,7 +40,7 @@
 	<string>Standalone</string>
 	<key>VirtualAdminShares</key>
 	<true/>
-	<key>VirtualHomesShares</key>
+	<key>VirtualHomeShares</key>
 	<true/>
 	<key>WINSServerAddressList</key>
 	<array/>

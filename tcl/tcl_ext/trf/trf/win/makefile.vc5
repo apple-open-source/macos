@@ -1,0 +1,432 @@
+# **************************************************************************
+# Visual C++ 2.x and 4.0 makefile for Trf 2.1.3 (DEC-06-2008)
+#
+# See the file "doc/license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# CVS:	$Id: makefile.vc5,v 1.18 2008/12/05 21:36:11 andreas_kupries Exp $
+# 
+# Does not depend on the presence of any environment variables in
+# order to compile tcl; all needed information is derived from 
+# location of the compiler and other directories.
+#
+# **************************************************************************
+#
+#	****	Configuration section	****
+#
+# **************************************************************************
+
+VERSION		= "2.1.3"
+SHORTVERSION	= "21"
+
+# =======================================================================
+# Specify the root directory of the source distribution of this extension
+# Don't modify this.
+
+ROOT	=	..
+
+
+# =======================================================================
+# Specify the directory to place the intermediate files into, for example
+# the object files. The default setting below generates them in place.
+
+TMPDIR	=	.
+
+
+# =======================================================================
+# Information about the setup the MS Visual C++ IDE on your system.
+# If you did not change the default location during the installation the
+# default values should be right.
+
+# =======================================================================
+# Name and placement of an important system DLL, the M$ Visual C RunTime
+
+MSVCRT		= msvcrt.dll
+MSVCRT_SYS	= c:\winnt\system32\msvcrt.dll
+
+# =======================================================================
+# Paths to the binaries and libraries of the Visual C++ environment. Since
+# VC 5.x it is split over two directories :-(.
+#
+
+TOOLS32		= c:\progra~1\devstudio\vc
+TOOLS32_rc	= c:\progra~1\devstudio\sharedIDE
+MS_LIBPATH	= c:\progra~1\devstudio\vc\lib
+
+# For a german installation use
+#
+#TOOLS32	= c:\programme\devstudio\vc
+#TOOLS32_rc	= c:\programme\devstudio\sharedIDE
+#MS_LIBPATH	= c:\programme\devstudio\vc\lib
+
+# =======================================================================
+# Name and path of a zip-compatible compressor application. Required for
+# the generation of binary distributions. Ignore it if you don't want to
+# generate that.
+
+PKZIP		= pkzip.exe
+
+# =======================================================================
+# The name of the SSLeay library changed from crypto32.dll to the value
+# given below. Relevant only for SSLeay 0.9 and opensll 0.9.2b.
+
+#SSL_LIBRARY	= -DSSL_LIB_NAME=\"libeay32.dll\"
+
+# =======================================================================
+# Ok, lets talk about TCL. If you did not change the default location
+# during its installation the default values should be right. The 2nd
+# definition is for a german installation.
+
+# =======================================================================
+# Specify the version of tcl you are using, remove all dots from the
+# number  (8.0.3 => 803)
+
+TCL_SHORTVERS	= 82
+
+
+# =======================================================================
+# Path to the installed include files (or the part of the source
+# distribution containing them.
+
+TCL_INCLUDES	= c:\progra~1\tcl\include
+#TCL_INCLUDES	= c:\programme\tcl\include
+
+
+# =======================================================================
+# Path to the installed libraries (*.dll and *.lib) or the part of the
+# source distribution containing them (*after* its compilation).
+#
+# *Note* If you installed tcl8.0.3 from the Tcl-Blast! CD you have to
+# rename tcl80vc.lib in the specified directory to tcl80.lib to get going.
+#
+# The installation path should differ from the above only if a source
+# distribution of tcl is used as the base of the compilation.
+
+TCL_LIBRARIES		= c:\progra~1\tcl\lib
+#TCL_LIBRARIES		= c:\programme\tcl\lib
+
+PKG_INSTALLBASEDIR	= $(TCL_LIBRARIES)
+
+
+# =======================================================================
+# Path to the installed interpreters or the part of the source
+# distribution containing them (*after* its compilation).
+
+TCL_BINARIES	= c:\progra~1\tcl\bin
+#TCL_BINARIES	= c:\programme\tcl\bin
+
+
+# =======================================================================
+# Set this to the appropriate value of /MACHINE: for your platform
+
+MACHINE	= IX86
+
+
+# =======================================================================
+# Comment the following line to compile with symbols
+NODEBUG=1
+
+
+# =======================================================================
+# uncomment the following line to include the command 'binio'. Not
+# required for tcl 8.x as the 'binary' command contains the official
+# functionality. Recommended for tcl 7.6
+
+#BINIO=-DENABLE_BINIO
+
+# =======================================================================
+# uncomment the following line if you want to
+# compile with stub support.
+STUBS_FLAG=-DUSE_TCL_STUBS
+
+# =======================================================================
+# uncomment the following line if you want to link (b)zlib statically.
+
+#ZLIB_STATIC	= -DZLIB_STATIC_BUILD
+#BZLIB_STATIC	= -DBZLIB_STATIC_BUILD
+
+
+######################################################################
+# Do not modify below this line
+######################################################################
+
+# The interpreters.
+
+TCLSH		= "$(TCL_BINARIES)\tclsh$(TCL_SHORTVERS).exe"
+TCLLIB		= "$(TCL_LIBRARIES)\tclstub$(TCL_SHORTVERS).lib"
+
+# Base name of the generated library, full names for DLL and its stub,
+# and complete installation directory for the package.
+
+TRF		=	trf$(SHORTVERSION)
+TRFLIB		=	$(TRF)$(TCL_SHORTVERS).lib
+TRF_STUB_LIB_FILE=	$(TRF)stub$(TCL_SHORTVERS).lib
+TRFDLL		=	$(TRF).dll
+INSTALLDIR	=	$(PKG_INSTALLBASEDIR)\$(TRF)
+
+# List of the object files to generate and link.
+
+TRFSTUBOBJS	=	\
+	$(TMPDIR)\trfStubLib.obj
+
+TRFOBJS = \
+	$(TMPDIR)\dllEntry.obj \
+	$(TMPDIR)\adler.obj \
+	$(TMPDIR)\asc85code.obj \
+	$(TMPDIR)\b64code.obj \
+	$(TMPDIR)\bincode.obj \
+	$(TMPDIR)\binio.obj \
+	$(TMPDIR)\convert.obj \
+	$(TMPDIR)\crc.obj \
+	$(TMPDIR)\crc_zlib.obj \
+	$(TMPDIR)\dig_opt.obj \
+	$(TMPDIR)\digest.obj \
+	$(TMPDIR)\haval.obj \
+	$(TMPDIR)\hexcode.obj \
+	$(TMPDIR)\init.obj \
+	$(TMPDIR)\load.obj \
+	$(TMPDIR)\crypt.obj \
+	$(TMPDIR)\loadman.obj \
+	$(TMPDIR)\md5dig.obj \
+	$(TMPDIR)\md2.obj \
+	$(TMPDIR)\octcode.obj \
+	$(TMPDIR)\otpcode.obj \
+	$(TMPDIR)\otpmd5.obj \
+	$(TMPDIR)\otpsha1.obj \
+	$(TMPDIR)\registry.obj \
+	$(TMPDIR)\rs_ecc.obj \
+	$(TMPDIR)\sha.obj \
+	$(TMPDIR)\sha1.obj \
+	$(TMPDIR)\rmd160.obj \
+	$(TMPDIR)\rmd128.obj \
+	$(TMPDIR)\unstack.obj \
+	$(TMPDIR)\util.obj \
+	$(TMPDIR)\uucode.obj \
+	$(TMPDIR)\zip.obj \
+	$(TMPDIR)\zip_opt.obj \
+	$(TMPDIR)\zlib.obj \
+	$(TMPDIR)\bz2.obj \
+	$(TMPDIR)\bz2_opt.obj \
+	$(TMPDIR)\bz2lib.obj \
+	$(TMPDIR)\qpcode.obj \
+	$(TMPDIR)\reflect.obj \
+	$(TMPDIR)\ref_opt.obj \
+	$(TMPDIR)\trfStubInit.obj \
+	$(TMPDIR)\tclLoadWin.obj
+
+
+# -- possibly not required -- PATH=$(TOOLS32)\bin;$(PATH)
+
+# Shorthands for the tools we need from MSVC
+
+cc32		= "$(TOOLS32)\bin\cl.exe"
+link32		= "$(TOOLS32)\bin\link.exe"
+rc32		= "$(TOOLS32_rc)\bin\rc.exe"
+include32	= -I"$(TOOLS32)\include"
+lib32		= "$(TOOLS32)\bin\lib.exe"
+CP      	= copy
+RM      	= del
+
+######################################################################
+# Compiler flags
+######################################################################
+
+# Important directories in the distribution
+
+WINDIR          = $(ROOT)\win
+GENERICDIR	= $(ROOT)\generic
+
+# ... and the compiler flags
+
+TRF_INCLUDES	= -I$(WINDIR) -I$(GENERICDIR) -I$(ROOT) -I$(TCL_INCLUDES)
+TRF_DEFINES	= -nologo -D__WIN32__ -DWIN32 -D_WINDOWS -DZLIB_DLL -DTRF_VERSION=\"$(VERSION)\" -DHAVE_STDLIB_H $(BINIO) $(STUBS_FLAG) $(SSL_LIBRARY) -DBUILD_Trf -DBUGS_ON_EXIT $(ZLIB_STATIC) $(BZLIB_STATIC)
+
+
+TRF_CFLAGS	=	$(cdebug) $(cflags) $(cvarsdll) $(include32) \
+			$(TRF_INCLUDES) $(TRF_DEFINES)
+CON_CFLAGS	=	$(cdebug) $(cflags) $(cvars) $(include32) -DCONSOLE
+DOS_CFLAGS	=	$(cdebug) $(cflags) $(include16) -AL 
+
+
+######################################################################
+# Link flags
+######################################################################
+
+!IFDEF NODEBUG
+ldebug = /RELEASE
+!ELSE
+ldebug = -debug:full -debugtype:cv
+!ENDIF
+
+# declarations common to all linker options
+lcommon = /NODEFAULTLIB /RELEASE /NOLOGO
+
+# declarations for use on Intel i386, i486, and Pentium systems
+!IF "$(MACHINE)" == "IX86"
+DLLENTRY = @12
+lflags   = $(lcommon) -align:0x1000 /MACHINE:$(MACHINE)
+!ELSE
+lflags   = $(lcommon) /MACHINE:$(MACHINE)
+!ENDIF
+
+conlflags = $(lflags) -subsystem:console -entry:mainCRTStartup
+guilflags = $(lflags) -subsystem:windows -entry:WinMainCRTStartup
+dlllflags = $(lflags) -entry:_DllMainCRTStartup$(DLLENTRY) -dll
+
+!IF "$(MACHINE)" == "PPC"
+libc = libc.lib
+libcdll = crtdll.lib
+!ELSE
+libc	= libc.lib oldnames.lib
+libcdll = "$(MS_LIBPATH)\msvcrt.lib" "$(MS_LIBPATH)\oldnames.lib"
+!ENDIF
+
+baselibs   =	"$(MS_LIBPATH)\kernel32.lib" $(optlibs)	\
+		"$(MS_LIBPATH)\advapi32.lib"
+winlibs    =	$(baselibs) "$(MS_LIBPATH)\user32.lib" "$(MS_LIBPATH)\gdi32.lib" \
+		"$(MS_LIBPATH)\comdlg32.lib" "$(MS_LIBPATH)\winspool.lib"
+
+guilibs	   = $(libc) $(winlibs)
+conlibs	   = $(libc) $(baselibs)
+guilibsdll = $(libcdll) $(winlibs)
+conlibsdll = $(libcdll) $(baselibs)
+
+######################################################################
+# Compile flags
+######################################################################
+
+!IFDEF NODEBUG
+cdebug = -Ox
+!ELSE
+cdebug = -Z7 -Od -WX
+!ENDIF
+
+# declarations common to all compiler options
+ccommon = -c -W3 -nologo -YX
+
+!IF "$(MACHINE)" == "IX86"
+cflags = $(ccommon) -D_X86_=1
+!ELSE
+!IF "$(MACHINE)" == "MIPS"
+cflags = $(ccommon) -D_MIPS_=1
+!ELSE
+!IF "$(MACHINE)" == "PPC"
+cflags = $(ccommon) -D_PPC_=1
+!ELSE
+!IF "$(MACHINE)" == "ALPHA"
+cflags = $(ccommon) -D_ALPHA_=1
+!ENDIF
+!ENDIF
+!ENDIF
+!ENDIF
+
+cvars      = -DWIN32 -D_WIN32
+cvarsmt    = $(cvars) -D_MT
+cvarsdll   = $(cvarsmt) -D_DLL
+
+######################################################################
+# Project specific targets	(finally :-)
+######################################################################
+
+release:    $(TRFDLL) $(TRF_STUB_LIB_FILE)
+all:	    $(TRFDLL) $(TRF_STUB_LIB_FILE)
+
+test:	    $(TRFDLL)
+	$(TCLSH) <<
+	load $(TRFDLL)
+	cd ../tests
+	source all
+<<
+
+install:	$(TRFDLL)
+	-@md $(INSTALLDIR)
+	$(CP) $(TRFDLL)              $(INSTALLDIR)\$(TRFDLL)
+	$(CP) $(WINDIR)\pkgIndex.tcl $(INSTALLDIR)\pkgIndex.tcl
+
+$(TRF_STUB_LIB_FILE):  $(TRFSTUBOBJS)
+	$(lib32) /out:$@ $(TRFSTUBOBJS)
+
+$(TRFDLL): $(TRFOBJS) $(TMPDIR)\trf.res
+	$(link32)	$(ldebug) $(dlllflags)	\
+			$(TCLLIB) $(guilibsdll)	\
+			$(TMPDIR)\trf.res	\
+			-out:$(TRFDLL)		\
+			$(TRFOBJS)
+
+bindist:      $(TRFDLL)
+	-@md	$(TRF)
+	-@md	$(TRF)\patches
+	-@md	$(TRF)\patches\v7.6
+	-@md	$(TRF)\patches\v8.0
+	-@md	$(TRF)\patches\v8.1b1
+	-@$(CP)	$(TRFDLL)		$(TRF)\$(TRFDLL)
+	-@$(CP)	$(WINDIR)\pkgIndex.tcl	$(TRF)\pkgIndex.tcl
+	-@$(CP)	$(WINDIR)\README.VC	$(TRF)\README.VC
+	-@$(CP) $(MSVCRT_SYS)		$(TRF)\$(MSVCRT)
+	-@$(CP) $(ROOT)\patches\v7.6\byteorder.patch	$(TRF)\patches\v7.6
+	-@$(CP) $(ROOT)\patches\v7.6\standard.patch	$(TRF)\patches\v7.6
+	-@$(CP) $(ROOT)\patches\v7.6\tcl.h		$(TRF)\patches\v7.6
+	-@$(CP) $(ROOT)\patches\v7.6\tclIO.c		$(TRF)\patches\v7.6
+	-@$(CP) $(ROOT)\patches\v7.6p2\byteorder.patch	$(TRF)\patches\v7.6p2
+	-@$(CP) $(ROOT)\patches\v7.6p2\standard.patch	$(TRF)\patches\v7.6p2
+	-@$(CP) $(ROOT)\patches\v7.6p2\tcl.h		$(TRF)\patches\v7.6p2
+	-@$(CP) $(ROOT)\patches\v7.6p2\tclIO.c		$(TRF)\patches\v7.6p2
+	-@$(CP) $(ROOT)\patches\v8.0\byteorder.patch	$(TRF)\patches\v8.0
+	-@$(CP) $(ROOT)\patches\v8.0\standard.patch	$(TRF)\patches\v8.0
+	-@$(CP) $(ROOT)\patches\v8.0\tcl.h		$(TRF)\patches\v8.0
+	-@$(CP) $(ROOT)\patches\v8.0\tclIO.c		$(TRF)\patches\v8.0
+	-@$(CP) $(ROOT)\patches\v8.1b1\byteorder.patch	$(TRF)\patches\v8.1b1
+	-@$(CP) $(ROOT)\patches\v8.1b1\standard.patch	$(TRF)\patches\v8.1b1
+	-@$(CP) $(ROOT)\patches\v8.1b1\tcl.h		$(TRF)\patches\v8.1b1
+	-@$(CP) $(ROOT)\patches\v8.1b1\tclIO.c		$(TRF)\patches\v8.1b1
+	$(PKZIP) -r $(TRF)-win32.zip $(TRF)\*.*
+	-@$(RM)	$(TRF)\$(TRFDLL)
+	-@$(RM)	$(TRF)\pkgIndex.tcl
+	-@$(RM)	$(TRF)\README.VC
+	-@$(RM) $(TRF)\$(MSVCRT)
+	-@$(RM) $(TRF)\patches\v7.6\byteorder.patch
+	-@$(RM) $(TRF)\patches\v7.6\standard.patch
+	-@$(RM) $(TRF)\patches\v7.6\tcl.h
+	-@$(RM) $(TRF)\patches\v7.6\tclIO.c
+	-@rd	$(TRF)\patches\v7.6
+	-@$(RM) $(TRF)\patches\v7.6p2\byteorder.patch
+	-@$(RM) $(TRF)\patches\v7.6p2\standard.patch
+	-@$(RM) $(TRF)\patches\v7.6p2\tcl.h
+	-@$(RM) $(TRF)\patches\v7.6p2\tclIO.c
+	-@rd	$(TRF)\patches\v7.6p2
+	-@$(RM) $(TRF)\patches\v8.0\byteorder.patch
+	-@$(RM) $(TRF)\patches\v8.0\standard.patch
+	-@$(RM) $(TRF)\patches\v8.0\tcl.h
+	-@$(RM) $(TRF)\patches\v8.0\tclIO.c
+	-@rd	$(TRF)\patches\v8.0
+	-@$(RM) $(TRF)\patches\v8.1b1\byteorder.patch
+	-@$(RM) $(TRF)\patches\v8.1b1\standard.patch
+	-@$(RM) $(TRF)\patches\v8.1b1\tcl.h
+	-@$(RM) $(TRF)\patches\v8.1b1\tclIO.c
+	-@rd	$(TRF)\patches\v8.1b1
+	-@rd	$(TRF)\patches
+	-@rd	$(TRF)
+
+#
+# Implicit rules
+#
+
+{$(WINDIR)}.c{$(TMPDIR)}.obj:
+    $(cc32) $(TRF_CFLAGS) -Fo$(TMPDIR)\ $<
+
+{$(GENERICDIR)}.c{$(TMPDIR)}.obj:
+    $(cc32) $(TRF_CFLAGS) -Fo$(TMPDIR)\ $<
+
+{$(ROOT)\compat}.c{$(TMPDIR)}.obj:
+    $(cc32) $(TRF_CFLAGS) -Fo$(TMPDIR)\ $<
+
+{$(WINDIR)}.rc{$(TMPDIR)}.res:
+	$(rc32) -fo $@ -r -i "$(GENERICDIR)" -i "$(WINDIR)" -D__WIN32__ \
+	 $<
+
+clean:
+        -@del *.exp 
+	-@del *.lib 
+	-@del *.dll 
+	-@del *.pch
+        -@del $(TMPDIR)\*.obj

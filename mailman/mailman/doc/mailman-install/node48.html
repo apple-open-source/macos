@@ -1,0 +1,155 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+<link rel="STYLESHEET" href="mailman-install.css" type='text/css' />
+<link rel="first" href="mailman-install.html" title='GNU mailman - installation Manual' />
+<link rel='last' href='about.html' title='About this document...' />
+<link rel='help' href='about.html' title='About this document...' />
+<link rel="next" href="bsd-issues.html" />
+<link rel="prev" href="node47.html" />
+<link rel="parent" href="node47.html" />
+<link rel="next" href="bsd-issues.html" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name='aesop' content='information' />
+<title>15.1 GNU/Linux issues</title>
+</head>
+<body>
+<div class="navigation">
+<div id='top-navigation-panel' xml:id='top-navigation-panel'>
+<table align="center" width="100%" cellpadding="0" cellspacing="2">
+<tr>
+<td class='online-navigation'><a rel="prev" title="15 platform and operating"
+  href="node47.html"><img src='previous.png'
+  border='0' height='32'  alt='Previous Page' width='32' /></a></td>
+<td class='online-navigation'><a rel="parent" title="15 platform and operating"
+  href="node47.html"><img src='up.png'
+  border='0' height='32'  alt='Up one Level' width='32' /></a></td>
+<td class='online-navigation'><a rel="next" title="15.2 bsd issues"
+  href="bsd-issues.html"><img src='next.png'
+  border='0' height='32'  alt='Next Page' width='32' /></a></td>
+<td align="center" width="100%">GNU Mailman - Installation Manual</td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+</tr></table>
+<div class='online-navigation'>
+<b class="navlabel">Previous:</b>
+<a class="sectref" rel="prev" href="node47.html">15 Platform and operating</a>
+<b class="navlabel">Up:</b>
+<a class="sectref" rel="parent" href="node47.html">15 Platform and operating</a>
+<b class="navlabel">Next:</b>
+<a class="sectref" rel="next" href="bsd-issues.html">15.2 BSD issues</a>
+</div>
+<hr /></div>
+</div>
+<!--End of Navigation Panel-->
+
+<h2><a name="SECTION0011510000000000000000">
+15.1 GNU/Linux issues</a>
+</h2>
+
+<p>
+Linux seems to be the most popular platform for running Mailman.  Here are
+some hints on getting Mailman to run on Linux:
+
+<p>
+
+<ul>
+<li>If you are getting errors with hard link creations and/or you are using
+      a special secure kernel (securelinux/openwall/grsecurity), see the file
+      <span class="file">contrib/README.check_perms_grsecurity</span> in the Mailman source
+      distribution.
+
+<p>
+Note that if you are using Linux Mandrake in secure mode, you are
+      probably concerned by this.
+
+<p>
+</li>
+<li>Apparently Mandrake 9.0 changed the permissions on gcc, so if you build
+      as the <code>mailman</code> user, you need to be sure <code>mailman</code> is in the
+      <code>cctools</code> group.
+
+<p>
+</li>
+<li>If you installed Python from your Linux distribution's package manager
+      (e.g. .rpms for Redhat-derived systems or .deb for Debian), you must
+      install the ``development'' package of Python, or you may not get
+      everything you need.
+
+<p>
+For example, using Python 2.2 on Debian, you will need to install the
+      <code>python2.2-dev</code> package.  On Redhat, you probably need the
+      <code>python2-devel</code> package.
+
+<p>
+If you install Python from source, you should be fine.
+
+<p>
+One symptom of this problem, although for unknown reasons, is that you
+      might get an error such as this during your install:
+
+<p>
+<div class="verbatim"><pre>
+          Traceback (most recent call last):
+            File "bin/update", line 44, in ?
+              import paths
+          ImportError: No module named paths
+          make: *** [update] Error 1
+</pre></div>
+
+<p>
+If this happens, install the Python development package and try
+      <b class="program">configure</b> and <b class="program">make install</b> again.  Or install the
+      latest version of Python from source, available from
+      <a class="url" href="http://www.python.org">http://www.python.org</a>.
+
+<p>
+This problem can manifest itself in other Linux distributions in
+      different ways, although usually it appears as <code>ImportErrors</code>.
+</li>
+</ul>
+
+<p>
+
+<div class="navigation">
+<div class='online-navigation'>
+<p></p><hr />
+<table align="center" width="100%" cellpadding="0" cellspacing="2">
+<tr>
+<td class='online-navigation'><a rel="prev" title="15 platform and operating"
+  href="node47.html"><img src='previous.png'
+  border='0' height='32'  alt='Previous Page' width='32' /></a></td>
+<td class='online-navigation'><a rel="parent" title="15 platform and operating"
+  href="node47.html"><img src='up.png'
+  border='0' height='32'  alt='Up one Level' width='32' /></a></td>
+<td class='online-navigation'><a rel="next" title="15.2 bsd issues"
+  href="bsd-issues.html"><img src='next.png'
+  border='0' height='32'  alt='Next Page' width='32' /></a></td>
+<td align="center" width="100%">GNU Mailman - Installation Manual</td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+</tr></table>
+<div class='online-navigation'>
+<b class="navlabel">Previous:</b>
+<a class="sectref" rel="prev" href="node47.html">15 Platform and operating</a>
+<b class="navlabel">Up:</b>
+<a class="sectref" rel="parent" href="node47.html">15 Platform and operating</a>
+<b class="navlabel">Next:</b>
+<a class="sectref" rel="next" href="bsd-issues.html">15.2 BSD issues</a>
+</div>
+</div>
+<hr />
+<span class="release-info">Release 2.1, documentation updated on January 11, 2009.</span>
+</div>
+<!--End of Navigation Panel-->
+
+</body>
+</html>

@@ -1,5 +1,5 @@
 /* Loop Vectorization
-   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Dorit Naishlos <dorit@il.ibm.com>
 
 This file is part of GCC.
@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* Loop Vectorization Pass.
 
@@ -91,7 +91,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
    To vectorize stmt S2, the vectorizer first finds the stmt that defines
    the operand 'b' (S1), and gets the relevant vector def 'vb' from the
-   vector stmt VS1 pointed by STMT_VINFO_VEC_STMT (stmt_info (S1)). The
+   vector stmt VS1 pointed to by STMT_VINFO_VEC_STMT (stmt_info (S1)). The
    resulting sequence would be:
 
    VS1: vb = px[i];
@@ -124,7 +124,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "errors.h"
 #include "ggc.h"
 #include "tree.h"
 #include "target.h"
@@ -138,6 +137,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cfglayout.h"
 #include "expr.h"
 #include "optabs.h"
+#include "params.h"
 #include "toplev.h"
 #include "tree-chrec.h"
 #include "tree-data-ref.h"
@@ -155,21 +155,20 @@ static struct loop *slpeel_tree_duplicate_loop_to_edge_cfg
   (struct loop *, struct loops *, edge);
 static void slpeel_update_phis_for_duplicate_loop 
   (struct loop *, struct loop *, bool after);
-static void slpeel_update_phi_nodes_for_guard (edge, struct loop *, bool, bool);
+static void slpeel_update_phi_nodes_for_guard1 
+  (edge, struct loop *, bool, basic_block *, bitmap *); 
+static void slpeel_update_phi_nodes_for_guard2 
+  (edge, struct loop *, bool, basic_block *);
 static edge slpeel_add_loop_guard (basic_block, tree, basic_block, basic_block);
 
-static void allocate_new_names (bitmap);
 static void rename_use_op (use_operand_p);
-static void rename_def_op (def_operand_p, tree);
 static void rename_variables_in_bb (basic_block);
-static void free_new_names (bitmap);
 static void rename_variables_in_loop (struct loop *);
 
 /*************************************************************************
   General Vectorization Utilities
  *************************************************************************/
 static void vect_set_dump_settings (void);
-static bool need_imm_uses_for (tree);
 
 /* vect_dump will be set to stderr or dump_file if exist.  */
 FILE *vect_dump;
@@ -178,17 +177,14 @@ FILE *vect_dump;
    to mark that it's uninitialized.  */
 enum verbosity_levels vect_verbosity_level = MAX_VERBOSITY_LEVEL;
 
+/* Number of loops, at the beginning of vectorization.  */
+unsigned int vect_loops_num;
 
-/* APPLE LOCAL begin AV data dependence. -dpatel */
-/* Patch is waiting FSF review since mid Sep,  2004.
-   New variable, loops_num.  */
-unsigned int loops_num;
-/* APPLE LOCAL end AV data dependence. -dpatel */
-
-/* APPLE LOCAL begin AV dump */
 /* Loop location.  */
 static LOC vect_loop_location;
-/* APPLE LOCAL end AV dump */
+
+/* Bitmap of virtual variables to be renamed.  */
+bitmap vect_vnames_to_rename;
 
 /*************************************************************************
   Simple Loop Peeling Utilities
@@ -197,72 +193,25 @@ static LOC vect_loop_location;
  *************************************************************************/
 
 
-/* For each definition in DEFINITIONS this function allocates 
-   new ssa name.  */
-
-static void
-allocate_new_names (bitmap definitions)
-{
-  unsigned ver;
-  bitmap_iterator bi;
-
-  EXECUTE_IF_SET_IN_BITMAP (definitions, 0, ver, bi)
-    {
-      tree def = ssa_name (ver);
-      tree *new_name_ptr = xmalloc (sizeof (tree));
-
-      bool abnormal = SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def);
-
-      *new_name_ptr = duplicate_ssa_name (def, SSA_NAME_DEF_STMT (def));
-      SSA_NAME_OCCURS_IN_ABNORMAL_PHI (*new_name_ptr) = abnormal;
-
-      SSA_NAME_AUX (def) = new_name_ptr;
-    }
-}
-
-
 /* Renames the use *OP_P.  */
 
 static void
 rename_use_op (use_operand_p op_p)
 {
-  tree *new_name_ptr;
+  tree new_name;
 
   if (TREE_CODE (USE_FROM_PTR (op_p)) != SSA_NAME)
     return;
 
-  new_name_ptr = SSA_NAME_AUX (USE_FROM_PTR (op_p));
+  new_name = get_current_def (USE_FROM_PTR (op_p));
 
   /* Something defined outside of the loop.  */
-  if (!new_name_ptr)
+  if (!new_name)
     return;
 
   /* An ordinary ssa name defined in the loop.  */
 
-  SET_USE (op_p, *new_name_ptr);
-}
-
-
-/* Renames the def *OP_P in statement STMT.  */
-
-static void
-rename_def_op (def_operand_p op_p, tree stmt)
-{
-  tree *new_name_ptr;
-
-  if (TREE_CODE (DEF_FROM_PTR (op_p)) != SSA_NAME)
-    return;
-
-  new_name_ptr = SSA_NAME_AUX (DEF_FROM_PTR (op_p));
-
-  /* Something defined outside of the loop.  */
-  if (!new_name_ptr)
-    return;
-
-  /* An ordinary ssa name defined in the loop.  */
-
-  SET_DEF (op_p, *new_name_ptr);
-  SSA_NAME_DEF_STMT (DEF_FROM_PTR (op_p)) = stmt;
+  SET_USE (op_p, new_name);
 }
 
 
@@ -274,51 +223,18 @@ rename_variables_in_bb (basic_block bb)
   tree phi;
   block_stmt_iterator bsi;
   tree stmt;
-  stmt_ann_t ann;
-  use_optype uses;
-  vuse_optype vuses;
-  def_optype defs;
-  v_may_def_optype v_may_defs;
-  v_must_def_optype v_must_defs;
-  unsigned i;
+  use_operand_p use_p;
+  ssa_op_iter iter;
   edge e;
   edge_iterator ei;
   struct loop *loop = bb->loop_father;
 
-  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-    rename_def_op (PHI_RESULT_PTR (phi), phi);
-
   for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
     {
       stmt = bsi_stmt (bsi);
-      get_stmt_operands (stmt);
-      ann = stmt_ann (stmt);
-
-      uses = USE_OPS (ann);
-      for (i = 0; i < NUM_USES (uses); i++)
-	rename_use_op (USE_OP_PTR (uses, i));
-
-      defs = DEF_OPS (ann);
-      for (i = 0; i < NUM_DEFS (defs); i++)
-	rename_def_op (DEF_OP_PTR (defs, i), stmt);
-
-      vuses = VUSE_OPS (ann);
-      for (i = 0; i < NUM_VUSES (vuses); i++)
-	rename_use_op (VUSE_OP_PTR (vuses, i));
-
-      v_may_defs = V_MAY_DEF_OPS (ann);
-      for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
-	{
-	  rename_use_op (V_MAY_DEF_OP_PTR (v_may_defs, i));
-	  rename_def_op (V_MAY_DEF_RESULT_PTR (v_may_defs, i), stmt);
-	}
-
-      v_must_defs = V_MUST_DEF_OPS (ann);
-      for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
-	{
-	  rename_use_op (V_MUST_DEF_KILL_PTR (v_must_defs, i));
-	  rename_def_op (V_MUST_DEF_RESULT_PTR (v_must_defs, i), stmt);
-	}
+      FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, 
+				 (SSA_OP_ALL_USES | SSA_OP_ALL_KILLS))
+	rename_use_op (use_p);
     }
 
   FOR_EACH_EDGE (e, ei, bb->succs)
@@ -327,27 +243,6 @@ rename_variables_in_bb (basic_block bb)
 	continue;
       for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
         rename_use_op (PHI_ARG_DEF_PTR_FROM_EDGE (phi, e));
-    }
-}
-
-
-/* Releases the structures holding the new ssa names.  */
-
-static void
-free_new_names (bitmap definitions)
-{
-  unsigned ver;
-  bitmap_iterator bi;
-
-  EXECUTE_IF_SET_IN_BITMAP (definitions, 0, ver, bi)
-    {
-      tree def = ssa_name (ver);
-
-      if (SSA_NAME_AUX (def))
-	{
-	  free (SSA_NAME_AUX (def));
-	  SSA_NAME_AUX (def) = NULL;
-	}
     }
 }
 
@@ -380,12 +275,12 @@ static void
 slpeel_update_phis_for_duplicate_loop (struct loop *orig_loop,
 				       struct loop *new_loop, bool after)
 {
-  tree *new_name_ptr, new_ssa_name;
+  tree new_ssa_name;
   tree phi_new, phi_orig;
   tree def;
   edge orig_loop_latch = loop_latch_edge (orig_loop);
   edge orig_entry_e = loop_preheader_edge (orig_loop);
-  edge new_loop_exit_e = new_loop->exit_edges[0];
+  edge new_loop_exit_e = new_loop->single_exit;
   edge new_loop_entry_e = loop_preheader_edge (new_loop);
   edge entry_arg_e = (after ? orig_loop_latch : orig_entry_e);
 
@@ -432,13 +327,15 @@ slpeel_update_phis_for_duplicate_loop (struct loop *orig_loop,
       if (TREE_CODE (def) != SSA_NAME)
         continue;
 
-      new_name_ptr = SSA_NAME_AUX (def);
-      if (!new_name_ptr)
-        /* Something defined outside of the loop.  */
-        continue;
+      new_ssa_name = get_current_def (def);
+      if (!new_ssa_name)
+	{
+	  /* This only happens if there are no definitions
+	     inside the loop. use the phi_result in this case.  */
+	  new_ssa_name = PHI_RESULT (phi_new);
+	}
 
       /* An ordinary ssa name defined in the loop.  */
-      new_ssa_name = *new_name_ptr;
       add_phi_arg (phi_new, new_ssa_name, loop_latch_edge (new_loop));
 
       /* step 3 (case 1).  */
@@ -460,109 +357,402 @@ slpeel_update_phis_for_duplicate_loop (struct loop *orig_loop,
         controls whether LOOP is to be executed.  GUARD_EDGE is the edge that
         originates from the guard-bb, skips LOOP and reaches the (unique) exit
         bb of LOOP.  This loop-exit-bb is an empty bb with one successor.
-        We denote this bb NEW_MERGE_BB because it had a single predecessor (the
-        LOOP header) before the guard code was added, and now it became a merge
+        We denote this bb NEW_MERGE_BB because before the guard code was added
+        it had a single predecessor (the LOOP header), and now it became a merge
         point of two paths - the path that ends with the LOOP exit-edge, and
         the path that ends with GUARD_EDGE.
+   - NEW_EXIT_BB: New basic block that is added by this function between LOOP
+        and NEW_MERGE_BB. It is used to place loop-closed-ssa-form exit-phis.
 
-        This function creates and updates the relevant phi nodes to account for
-        the new incoming edge (GUARD_EDGE) into NEW_MERGE_BB:
-        1. Create phi nodes at NEW_MERGE_BB.
-        2. Update the phi nodes at the successor of NEW_MERGE_BB (denoted
-           UPDATE_BB).  UPDATE_BB was the exit-bb of LOOP before NEW_MERGE_BB
-           was added:
-
-        ===> The CFG before the guard-code was added:
+   ===> The CFG before the guard-code was added:
         LOOP_header_bb:
-          if (exit_loop) goto update_bb : LOOP_header_bb
+          loop_body
+          if (exit_loop) goto update_bb
+          else           goto LOOP_header_bb
         update_bb:
 
-        ==> The CFG after the guard-code was added:
-        guard_bb: 
-          if (LOOP_guard_condition) goto new_merge_bb : LOOP_header_bb
+   ==> The CFG after the guard-code was added:
+        guard_bb:
+          if (LOOP_guard_condition) goto new_merge_bb
+          else                      goto LOOP_header_bb
         LOOP_header_bb:
-          if (exit_loop_condition) goto new_merge_bb : LOOP_header_bb
+          loop_body
+          if (exit_loop_condition) goto new_merge_bb
+          else                     goto LOOP_header_bb
         new_merge_bb:
           goto update_bb
         update_bb:
 
-   - ENTRY_PHIS: If ENTRY_PHIS is TRUE, this indicates that the phis in 
-        UPDATE_BB are loop entry phis, like the phis in the LOOP header,
-        organized in the same order. 
-        If ENTRY_PHIs is FALSE, this indicates that the phis in UPDATE_BB are
-        loop exit phis.
+   ==> The CFG after this function:
+        guard_bb:
+          if (LOOP_guard_condition) goto new_merge_bb
+          else                      goto LOOP_header_bb
+        LOOP_header_bb:
+          loop_body
+          if (exit_loop_condition) goto new_exit_bb
+          else                     goto LOOP_header_bb
+        new_exit_bb:
+        new_merge_bb:
+          goto update_bb
+        update_bb:
 
-   - IS_NEW_LOOP: TRUE if LOOP is a new loop (a duplicated copy of another
-        "original" loop).  FALSE if LOOP is an original loop (not a newly 
-        created copy).  The SSA_NAME_AUX fields of the defs in the original
-        loop are the corresponding new ssa-names used in the new duplicated
-        loop copy.  IS_NEW_LOOP indicates which of the two args of the phi 
-        nodes in UPDATE_BB takes the original ssa-name, and which takes the 
-        new name: If IS_NEW_LOOP is TRUE, the phi-arg that is associated with
-        the LOOP-exit-edge takes the new-name, and the phi-arg that is 
-        associated with GUARD_EDGE takes the original name.  If IS_NEW_LOOP is
-        FALSE, it's the other way around.
+   This function:
+   1. creates and updates the relevant phi nodes to account for the new
+      incoming edge (GUARD_EDGE) into NEW_MERGE_BB. This involves:
+      1.1. Create phi nodes at NEW_MERGE_BB.
+      1.2. Update the phi nodes at the successor of NEW_MERGE_BB (denoted
+           UPDATE_BB).  UPDATE_BB was the exit-bb of LOOP before NEW_MERGE_BB
+   2. preserves loop-closed-ssa-form by creating the required phi nodes
+      at the exit of LOOP (i.e, in NEW_EXIT_BB).
+
+   There are two flavors to this function:
+
+   slpeel_update_phi_nodes_for_guard1:
+     Here the guard controls whether we enter or skip LOOP, where LOOP is a
+     prolog_loop (loop1 below), and the new phis created in NEW_MERGE_BB are
+     for variables that have phis in the loop header.
+
+   slpeel_update_phi_nodes_for_guard2:
+     Here the guard controls whether we enter or skip LOOP, where LOOP is an
+     epilog_loop (loop2 below), and the new phis created in NEW_MERGE_BB are
+     for variables that have phis in the loop exit.
+
+   I.E., the overall structure is:
+
+        loop1_preheader_bb:
+                guard1 (goto loop1/merg1_bb)
+        loop1
+        loop1_exit_bb:
+                guard2 (goto merge1_bb/merge2_bb)
+        merge1_bb
+        loop2
+        loop2_exit_bb
+        merge2_bb
+        next_bb
+
+   slpeel_update_phi_nodes_for_guard1 takes care of creating phis in
+   loop1_exit_bb and merge1_bb. These are entry phis (phis for the vars
+   that have phis in loop1->header).
+
+   slpeel_update_phi_nodes_for_guard2 takes care of creating phis in
+   loop2_exit_bb and merge2_bb. These are exit phis (phis for the vars
+   that have phis in next_bb). It also adds some of these phis to
+   loop1_exit_bb.
+
+   slpeel_update_phi_nodes_for_guard1 is always called before
+   slpeel_update_phi_nodes_for_guard2. They are both needed in order
+   to create correct data-flow and loop-closed-ssa-form.
+
+   Generally slpeel_update_phi_nodes_for_guard1 creates phis for variables
+   that change between iterations of a loop (and therefore have a phi-node
+   at the loop entry), whereas slpeel_update_phi_nodes_for_guard2 creates
+   phis for variables that are used out of the loop (and therefore have 
+   loop-closed exit phis). Some variables may be both updated between 
+   iterations and used after the loop. This is why in loop1_exit_bb we
+   may need both entry_phis (created by slpeel_update_phi_nodes_for_guard1)
+   and exit phis (created by slpeel_update_phi_nodes_for_guard2).
+
+   - IS_NEW_LOOP: if IS_NEW_LOOP is true, then LOOP is a newly created copy of
+     an original loop. i.e., we have:
+
+           orig_loop
+           guard_bb (goto LOOP/new_merge)
+           new_loop <-- LOOP
+           new_exit
+           new_merge
+           next_bb
+
+     If IS_NEW_LOOP is false, then LOOP is an original loop, in which case we
+     have:
+
+           new_loop
+           guard_bb (goto LOOP/new_merge)
+           orig_loop <-- LOOP
+           new_exit
+           new_merge
+           next_bb
+
+     The SSA names defined in the original loop have a current
+     reaching definition that that records the corresponding new
+     ssa-name used in the new duplicated loop copy.
   */
 
+/* Function slpeel_update_phi_nodes_for_guard1
+   
+   Input:
+   - GUARD_EDGE, LOOP, IS_NEW_LOOP, NEW_EXIT_BB - as explained above.
+   - DEFS - a bitmap of ssa names to mark new names for which we recorded
+            information. 
+   
+   In the context of the overall structure, we have:
+
+        loop1_preheader_bb: 
+                guard1 (goto loop1/merg1_bb)
+LOOP->  loop1
+        loop1_exit_bb:
+                guard2 (goto merge1_bb/merge2_bb)
+        merge1_bb
+        loop2
+        loop2_exit_bb
+        merge2_bb
+        next_bb
+
+   For each name updated between loop iterations (i.e - for each name that has
+   an entry (loop-header) phi in LOOP) we create a new phi in:
+   1. merge1_bb (to account for the edge from guard1)
+   2. loop1_exit_bb (an exit-phi to keep LOOP in loop-closed form)
+*/
+
 static void
-slpeel_update_phi_nodes_for_guard (edge guard_edge, 
-				   struct loop *loop,
-				   bool entry_phis,
-				   bool is_new_loop)
+slpeel_update_phi_nodes_for_guard1 (edge guard_edge, struct loop *loop,
+                                    bool is_new_loop, basic_block *new_exit_bb,
+                                    bitmap *defs)
 {
-  tree orig_phi, new_phi, update_phi;
+  tree orig_phi, new_phi;
+  tree update_phi, update_phi2;
   tree guard_arg, loop_arg;
   basic_block new_merge_bb = guard_edge->dest;
   edge e = EDGE_SUCC (new_merge_bb, 0);
   basic_block update_bb = e->dest;
-  basic_block orig_bb = (entry_phis ? loop->header : update_bb);
+  basic_block orig_bb = loop->header;
+  edge new_exit_e;
+  tree current_new_name;
+  tree name;
+
+  /* Create new bb between loop and new_merge_bb.  */
+  *new_exit_bb = split_edge (loop->single_exit);
+  add_bb_to_loop (*new_exit_bb, loop->outer);
+
+  new_exit_e = EDGE_SUCC (*new_exit_bb, 0);
 
   for (orig_phi = phi_nodes (orig_bb), update_phi = phi_nodes (update_bb);
        orig_phi && update_phi;
        orig_phi = PHI_CHAIN (orig_phi), update_phi = PHI_CHAIN (update_phi))
     {
-      /* 1. Generate new phi node in NEW_MERGE_BB:  */
+      /* Virtual phi; Mark it for renaming. We actually want to call
+	 mar_sym_for_renaming, but since all ssa renaming datastructures
+	 are going to be freed before we get to call ssa_upate, we just
+	 record this name for now in a bitmap, and will mark it for
+	 renaming later.  */
+      name = PHI_RESULT (orig_phi);
+      if (!is_gimple_reg (SSA_NAME_VAR (name)))
+        bitmap_set_bit (vect_vnames_to_rename, SSA_NAME_VERSION (name));
+
+      /** 1. Handle new-merge-point phis  **/
+
+      /* 1.1. Generate new phi node in NEW_MERGE_BB:  */
       new_phi = create_phi_node (SSA_NAME_VAR (PHI_RESULT (orig_phi)),
                                  new_merge_bb);
 
-      /* 2. NEW_MERGE_BB has two incoming edges: GUARD_EDGE and the exit-edge
+      /* 1.2. NEW_MERGE_BB has two incoming edges: GUARD_EDGE and the exit-edge
             of LOOP. Set the two phi args in NEW_PHI for these edges:  */
-      if (entry_phis)
-        {
-          loop_arg = PHI_ARG_DEF_FROM_EDGE (orig_phi,
-                                            EDGE_SUCC (loop->latch, 0));
-          guard_arg = PHI_ARG_DEF_FROM_EDGE (orig_phi, loop->entry_edges[0]);
-        }
-      else /* exit phis */
-        {
-          tree orig_def = PHI_ARG_DEF_FROM_EDGE (orig_phi, e);
-          tree *new_name_ptr = SSA_NAME_AUX (orig_def);
-          tree new_name;
+      loop_arg = PHI_ARG_DEF_FROM_EDGE (orig_phi, EDGE_SUCC (loop->latch, 0));
+      guard_arg = PHI_ARG_DEF_FROM_EDGE (orig_phi, loop_preheader_edge (loop));
 
-          if (new_name_ptr)
-            new_name = *new_name_ptr;
-          else
-            /* Something defined outside of the loop  */
-            new_name = orig_def;
-
-          if (is_new_loop)
-            {
-              guard_arg = orig_def;
-              loop_arg = new_name;
-            }
-          else
-            {
-              guard_arg = new_name;
-              loop_arg = orig_def;
-            }
-        }
-      add_phi_arg (new_phi, loop_arg, loop->exit_edges[0]);
+      add_phi_arg (new_phi, loop_arg, new_exit_e);
       add_phi_arg (new_phi, guard_arg, guard_edge);
 
-      /* 3. Update phi in successor block.  */
+      /* 1.3. Update phi in successor block.  */
       gcc_assert (PHI_ARG_DEF_FROM_EDGE (update_phi, e) == loop_arg
                   || PHI_ARG_DEF_FROM_EDGE (update_phi, e) == guard_arg);
       SET_PHI_ARG_DEF (update_phi, e->dest_idx, PHI_RESULT (new_phi));
+      update_phi2 = new_phi;
+
+
+      /** 2. Handle loop-closed-ssa-form phis  **/
+
+      /* 2.1. Generate new phi node in NEW_EXIT_BB:  */
+      new_phi = create_phi_node (SSA_NAME_VAR (PHI_RESULT (orig_phi)),
+                                 *new_exit_bb);
+
+      /* 2.2. NEW_EXIT_BB has one incoming edge: the exit-edge of the loop.  */
+      add_phi_arg (new_phi, loop_arg, loop->single_exit);
+
+      /* 2.3. Update phi in successor of NEW_EXIT_BB:  */
+      gcc_assert (PHI_ARG_DEF_FROM_EDGE (update_phi2, new_exit_e) == loop_arg);
+      SET_PHI_ARG_DEF (update_phi2, new_exit_e->dest_idx, PHI_RESULT (new_phi));
+
+      /* 2.4. Record the newly created name with set_current_def.
+         We want to find a name such that
+                name = get_current_def (orig_loop_name)
+         and to set its current definition as follows:
+                set_current_def (name, new_phi_name)
+
+         If LOOP is a new loop then loop_arg is already the name we're
+         looking for. If LOOP is the original loop, then loop_arg is
+         the orig_loop_name and the relevant name is recorded in its
+         current reaching definition.  */
+      if (is_new_loop)
+        current_new_name = loop_arg;
+      else
+        {
+          current_new_name = get_current_def (loop_arg);
+	  /* current_def is not available only if the variable does not
+	     change inside the loop, in which case we also don't care
+	     about recording a current_def for it because we won't be
+	     trying to create loop-exit-phis for it.  */
+	  if (!current_new_name)
+	    continue;
+        }
+      gcc_assert (get_current_def (current_new_name) == NULL_TREE);
+
+      set_current_def (current_new_name, PHI_RESULT (new_phi));
+      bitmap_set_bit (*defs, SSA_NAME_VERSION (current_new_name));
+    }
+
+  set_phi_nodes (new_merge_bb, phi_reverse (phi_nodes (new_merge_bb)));
+}
+
+
+/* Function slpeel_update_phi_nodes_for_guard2
+
+   Input:
+   - GUARD_EDGE, LOOP, IS_NEW_LOOP, NEW_EXIT_BB - as explained above.
+
+   In the context of the overall structure, we have:
+
+        loop1_preheader_bb: 
+                guard1 (goto loop1/merg1_bb)
+        loop1
+        loop1_exit_bb: 
+                guard2 (goto merge1_bb/merge2_bb)
+        merge1_bb
+LOOP->  loop2
+        loop2_exit_bb
+        merge2_bb
+        next_bb
+
+   For each name used out side the loop (i.e - for each name that has an exit
+   phi in next_bb) we create a new phi in:
+   1. merge2_bb (to account for the edge from guard_bb) 
+   2. loop2_exit_bb (an exit-phi to keep LOOP in loop-closed form)
+   3. guard2 bb (an exit phi to keep the preceding loop in loop-closed form),
+      if needed (if it wasn't handled by slpeel_update_phis_nodes_for_phi1).
+*/
+
+static void
+slpeel_update_phi_nodes_for_guard2 (edge guard_edge, struct loop *loop,
+                                    bool is_new_loop, basic_block *new_exit_bb)
+{
+  tree orig_phi, new_phi;
+  tree update_phi, update_phi2;
+  tree guard_arg, loop_arg;
+  basic_block new_merge_bb = guard_edge->dest;
+  edge e = EDGE_SUCC (new_merge_bb, 0);
+  basic_block update_bb = e->dest;
+  edge new_exit_e;
+  tree orig_def, orig_def_new_name;
+  tree new_name, new_name2;
+  tree arg;
+
+  /* Create new bb between loop and new_merge_bb.  */
+  *new_exit_bb = split_edge (loop->single_exit);
+  add_bb_to_loop (*new_exit_bb, loop->outer);
+
+  new_exit_e = EDGE_SUCC (*new_exit_bb, 0);
+
+  for (update_phi = phi_nodes (update_bb); update_phi; 
+       update_phi = PHI_CHAIN (update_phi))
+    {
+      orig_phi = update_phi;
+      orig_def = PHI_ARG_DEF_FROM_EDGE (orig_phi, e);
+      /* This loop-closed-phi actually doesn't represent a use
+         out of the loop - the phi arg is a constant.  */ 
+      if (TREE_CODE (orig_def) != SSA_NAME)
+        continue;
+      orig_def_new_name = get_current_def (orig_def);
+      arg = NULL_TREE;
+
+      /** 1. Handle new-merge-point phis  **/
+
+      /* 1.1. Generate new phi node in NEW_MERGE_BB:  */
+      new_phi = create_phi_node (SSA_NAME_VAR (PHI_RESULT (orig_phi)),
+                                 new_merge_bb);
+
+      /* 1.2. NEW_MERGE_BB has two incoming edges: GUARD_EDGE and the exit-edge
+            of LOOP. Set the two PHI args in NEW_PHI for these edges:  */
+      new_name = orig_def;
+      new_name2 = NULL_TREE;
+      if (orig_def_new_name)
+        {
+          new_name = orig_def_new_name;
+	  /* Some variables have both loop-entry-phis and loop-exit-phis.
+	     Such variables were given yet newer names by phis placed in
+	     guard_bb by slpeel_update_phi_nodes_for_guard1. I.e:
+	     new_name2 = get_current_def (get_current_def (orig_name)).  */
+          new_name2 = get_current_def (new_name);
+        }
+  
+      if (is_new_loop)
+        {
+          guard_arg = orig_def;
+          loop_arg = new_name;
+        }
+      else
+        {
+          guard_arg = new_name;
+          loop_arg = orig_def;
+        }
+      if (new_name2)
+        guard_arg = new_name2;
+  
+      add_phi_arg (new_phi, loop_arg, new_exit_e);
+      add_phi_arg (new_phi, guard_arg, guard_edge);
+
+      /* 1.3. Update phi in successor block.  */
+      gcc_assert (PHI_ARG_DEF_FROM_EDGE (update_phi, e) == orig_def);
+      SET_PHI_ARG_DEF (update_phi, e->dest_idx, PHI_RESULT (new_phi));
+      update_phi2 = new_phi;
+
+
+      /** 2. Handle loop-closed-ssa-form phis  **/
+
+      /* 2.1. Generate new phi node in NEW_EXIT_BB:  */
+      new_phi = create_phi_node (SSA_NAME_VAR (PHI_RESULT (orig_phi)),
+                                 *new_exit_bb);
+
+      /* 2.2. NEW_EXIT_BB has one incoming edge: the exit-edge of the loop.  */
+      add_phi_arg (new_phi, loop_arg, loop->single_exit);
+
+      /* 2.3. Update phi in successor of NEW_EXIT_BB:  */
+      gcc_assert (PHI_ARG_DEF_FROM_EDGE (update_phi2, new_exit_e) == loop_arg);
+      SET_PHI_ARG_DEF (update_phi2, new_exit_e->dest_idx, PHI_RESULT (new_phi));
+
+
+      /** 3. Handle loop-closed-ssa-form phis for first loop  **/
+
+      /* 3.1. Find the relevant names that need an exit-phi in
+	 GUARD_BB, i.e. names for which
+	 slpeel_update_phi_nodes_for_guard1 had not already created a
+	 phi node. This is the case for names that are used outside
+	 the loop (and therefore need an exit phi) but are not updated
+	 across loop iterations (and therefore don't have a
+	 loop-header-phi).
+
+	 slpeel_update_phi_nodes_for_guard1 is responsible for
+	 creating loop-exit phis in GUARD_BB for names that have a
+	 loop-header-phi.  When such a phi is created we also record
+	 the new name in its current definition.  If this new name
+	 exists, then guard_arg was set to this new name (see 1.2
+	 above).  Therefore, if guard_arg is not this new name, this
+	 is an indication that an exit-phi in GUARD_BB was not yet
+	 created, so we take care of it here.  */
+      if (guard_arg == new_name2)
+	continue;
+      arg = guard_arg;
+
+      /* 3.2. Generate new phi node in GUARD_BB:  */
+      new_phi = create_phi_node (SSA_NAME_VAR (PHI_RESULT (orig_phi)),
+                                 guard_edge->src);
+
+      /* 3.3. GUARD_BB has one incoming edge:  */
+      gcc_assert (EDGE_COUNT (guard_edge->src->preds) == 1);
+      add_phi_arg (new_phi, arg, EDGE_PRED (guard_edge->src, 0));
+
+      /* 3.4. Update phi in successor of GUARD_BB:  */
+      gcc_assert (PHI_ARG_DEF_FROM_EDGE (update_phi2, guard_edge)
+                                                                == guard_arg);
+      SET_PHI_ARG_DEF (update_phi2, guard_edge->dest_idx, PHI_RESULT (new_phi));
     }
 
   set_phi_nodes (new_merge_bb, phi_reverse (phi_nodes (new_merge_bb)));
@@ -579,7 +769,7 @@ slpeel_make_loop_iterate_ntimes (struct loop *loop, tree niters)
 {
   tree indx_before_incr, indx_after_incr, cond_stmt, cond;
   tree orig_cond;
-  edge exit_edge = loop->exit_edges[0];
+  edge exit_edge = loop->single_exit;
   block_stmt_iterator loop_cond_bsi;
   block_stmt_iterator incr_bsi;
   bool insert_after;
@@ -592,9 +782,7 @@ slpeel_make_loop_iterate_ntimes (struct loop *loop, tree niters)
   LOC loop_loc;
 
   orig_cond = get_loop_exit_condition (loop);
-#ifdef ENABLE_CHECKING
   gcc_assert (orig_cond);
-#endif
   loop_cond_bsi = bsi_for_stmt (orig_cond);
 
   standard_iv_increment_position (loop, &incr_bsi, &insert_after);
@@ -619,7 +807,7 @@ slpeel_make_loop_iterate_ntimes (struct loop *loop, tree niters)
   bsi_insert_before (&loop_cond_bsi, cond_stmt, BSI_SAME_STMT);
 
   /* Remove old loop exit test:  */
-  bsi_remove (&loop_cond_bsi);
+  bsi_remove (&loop_cond_bsi, true);
 
   loop_loc = find_loop_location (loop);
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -648,7 +836,7 @@ slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *loop, struct loops *loops,
   basic_block exit_dest; 
   tree phi, phi_arg;
 
-  at_exit = (e == loop->exit_edges[0]); 
+  at_exit = (e == loop->single_exit); 
   if (!at_exit && e != loop_preheader_edge (loop))
     return NULL;
 
@@ -669,20 +857,22 @@ slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *loop, struct loops *loops,
       return NULL;
     }
 
-  exit_dest = loop->exit_edges[0]->dest;
+  exit_dest = loop->single_exit->dest;
   was_imm_dom = (get_immediate_dominator (CDI_DOMINATORS, 
 					  exit_dest) == loop->header ? 
 		 true : false);
 
-  new_bbs = xmalloc (sizeof (basic_block) * loop->num_nodes);
+  new_bbs = XNEWVEC (basic_block, loop->num_nodes);
 
-  copy_bbs (bbs, loop->num_nodes, new_bbs, NULL, 0, NULL, NULL);
+  copy_bbs (bbs, loop->num_nodes, new_bbs,
+	    &loop->single_exit, 1, &new_loop->single_exit, NULL,
+	    e->src);
 
   /* Duplicating phi args at exit bbs as coming 
      also from exit of duplicated loop.  */
   for (phi = phi_nodes (exit_dest); phi; phi = PHI_CHAIN (phi))
     {
-      phi_arg = PHI_ARG_DEF_FROM_EDGE (phi, loop->exit_edges[0]);
+      phi_arg = PHI_ARG_DEF_FROM_EDGE (phi, loop->single_exit);
       if (phi_arg)
 	{
 	  edge new_loop_exit_edge;
@@ -732,8 +922,6 @@ slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *loop, struct loops *loops,
       set_immediate_dominator (CDI_DOMINATORS, new_loop->header, preheader);
     }
 
-  flow_loop_scan (new_loop, LOOP_ALL);
-  flow_loop_scan (loop, LOOP_ALL);  
   free (new_bbs);
   free (bbs);
 
@@ -766,7 +954,7 @@ slpeel_add_loop_guard (basic_block guard_bb, tree cond, basic_block exit_bb,
   cond_stmt = build3 (COND_EXPR, void_type_node, cond,
    		     then_label, else_label);
   bsi_insert_after (&bsi, cond_stmt, BSI_NEW_STMT);
-  /* Add new edge to connect entry block to the second loop.  */
+  /* Add new edge to connect guard block to the merge/loop-exit block.  */
   new_e = make_edge (guard_bb, exit_bb, EDGE_TRUE_VALUE);
   set_immediate_dominator (CDI_DOMINATORS, exit_bb, dom_bb);
   return new_e;
@@ -784,12 +972,12 @@ slpeel_add_loop_guard (basic_block guard_bb, tree cond, basic_block exit_bb,
 bool
 slpeel_can_duplicate_loop_p (struct loop *loop, edge e)
 {
-  edge exit_e = loop->exit_edges [0];
+  edge exit_e = loop->single_exit;
   edge entry_e = loop_preheader_edge (loop);
   tree orig_cond = get_loop_exit_condition (loop);
   block_stmt_iterator loop_exit_bsi = bsi_last (exit_e->src);
 
-  if (any_marked_for_rewrite_p ())
+  if (need_ssa_update_p ())
     return false;
 
   if (loop->inner
@@ -798,8 +986,7 @@ slpeel_can_duplicate_loop_p (struct loop *loop, edge e)
       || !loop->outer
       || loop->num_nodes != 2
       || !empty_block_p (loop->latch)
-      || loop->num_exits != 1
-      || loop->num_entries != 1
+      || !loop->single_exit
       /* Verify that new loop exit condition can be trivially modified.  */
       || (!orig_cond || orig_cond != bsi_stmt (loop_exit_bsi))
       || (e != exit_e && e != entry_e))
@@ -813,8 +1000,8 @@ void
 slpeel_verify_cfg_after_peeling (struct loop *first_loop,
                                  struct loop *second_loop)
 {
-  basic_block loop1_exit_bb = first_loop->exit_edges[0]->dest;
-  basic_block loop2_entry_bb = second_loop->pre_header;
+  basic_block loop1_exit_bb = first_loop->single_exit->dest;
+  basic_block loop2_entry_bb = loop_preheader_edge (second_loop)->src;
   basic_block loop1_entry_bb = loop_preheader_edge (first_loop)->src;
 
   /* A guard that controls whether the second_loop is to be executed or skipped
@@ -824,11 +1011,10 @@ slpeel_verify_cfg_after_peeling (struct loop *first_loop,
    */
   gcc_assert (EDGE_COUNT (loop1_exit_bb->succs) == 2);
    
-   
   /* 1. Verify that one of the successors of first_loopt->exit is the preheader
         of second_loop.  */
    
-  /* The preheader of new_loop is expected to have two predessors:
+  /* The preheader of new_loop is expected to have two predecessors:
      first_loop->exit and the block that precedes first_loop.  */
 
   gcc_assert (EDGE_COUNT (loop2_entry_bb->preds) == 2 
@@ -892,7 +1078,8 @@ slpeel_tree_peel_loop_to_edge (struct loop *loop, struct loops *loops,
   basic_block bb_before_second_loop, bb_after_second_loop;
   basic_block bb_before_first_loop;
   basic_block bb_between_loops;
-  edge exit_e = loop->exit_edges [0];
+  basic_block new_exit_bb;
+  edge exit_e = loop->single_exit;
   LOC loop_loc;
   
   if (!slpeel_can_duplicate_loop_p (loop, e))
@@ -945,8 +1132,7 @@ slpeel_tree_peel_loop_to_edge (struct loop *loop, struct loops *loops,
       second_loop = loop;
     }
 
-  definitions = marked_ssa_names ();
-  allocate_new_names (definitions);
+  definitions = ssa_names_to_replace ();
   slpeel_update_phis_for_duplicate_loop (loop, new_loop, e == exit_e);
   rename_variables_in_loop (new_loop);
 
@@ -973,17 +1159,17 @@ slpeel_tree_peel_loop_to_edge (struct loop *loop, struct loops *loops,
 
   bb_before_first_loop = split_edge (loop_preheader_edge (first_loop));
   add_bb_to_loop (bb_before_first_loop, first_loop->outer);
-  bb_before_second_loop = split_edge (first_loop->exit_edges[0]);
+  bb_before_second_loop = split_edge (first_loop->single_exit);
   add_bb_to_loop (bb_before_second_loop, first_loop->outer);
-  flow_loop_scan (first_loop, LOOP_ALL);
-  flow_loop_scan (second_loop, LOOP_ALL);
 
   pre_condition =
-        build2 (LE_EXPR, boolean_type_node, first_niters, integer_zero_node);
+    fold_build2 (LE_EXPR, boolean_type_node, first_niters, 
+                 build_int_cst (TREE_TYPE (first_niters), 0));
   skip_e = slpeel_add_loop_guard (bb_before_first_loop, pre_condition,
                                   bb_before_second_loop, bb_before_first_loop);
-  slpeel_update_phi_nodes_for_guard (skip_e, first_loop, true /* entry-phis */,
-                                     first_loop == new_loop);
+  slpeel_update_phi_nodes_for_guard1 (skip_e, first_loop,
+				      first_loop == new_loop,
+				      &new_exit_bb, &definitions);
 
 
   /* 3. Add the guard that controls whether the second loop is executed.
@@ -1012,31 +1198,24 @@ slpeel_tree_peel_loop_to_edge (struct loop *loop, struct loops *loops,
         orig_exit_bb:
    */
 
-  bb_between_loops = split_edge (first_loop->exit_edges[0]);
-  add_bb_to_loop (bb_between_loops, first_loop->outer);
-  bb_after_second_loop = split_edge (second_loop->exit_edges[0]);
+  bb_between_loops = new_exit_bb;
+  bb_after_second_loop = split_edge (second_loop->single_exit);
   add_bb_to_loop (bb_after_second_loop, second_loop->outer);
-  flow_loop_scan (first_loop, LOOP_ALL);
-  flow_loop_scan (second_loop, LOOP_ALL);
 
-  pre_condition = build2 (EQ_EXPR, boolean_type_node, first_niters, niters);
+  pre_condition = 
+	fold_build2 (EQ_EXPR, boolean_type_node, first_niters, niters);
   skip_e = slpeel_add_loop_guard (bb_between_loops, pre_condition,
                                   bb_after_second_loop, bb_before_first_loop);
-  slpeel_update_phi_nodes_for_guard (skip_e, second_loop, false /* exit-phis */,
-                                     second_loop == new_loop);
-
-  /* Flow loop scan does not update loop->single_exit field.  */
-  first_loop->single_exit = first_loop->exit_edges[0];
-  second_loop->single_exit = second_loop->exit_edges[0];
+  slpeel_update_phi_nodes_for_guard2 (skip_e, second_loop,
+                                     second_loop == new_loop, &new_exit_bb);
 
   /* 4. Make first-loop iterate FIRST_NITERS times, if requested.
    */
   if (update_first_loop_count)
     slpeel_make_loop_iterate_ntimes (first_loop, first_niters);
 
-  free_new_names (definitions);
   BITMAP_FREE (definitions);
-  unmark_all_for_rewrite ();
+  delete_update_ssa ();
 
   return new_loop;
 }
@@ -1145,24 +1324,21 @@ vect_set_dump_settings (void)
    For vectorization debug dumps.  */
 
 bool
-/* APPLE LOCAL AV dump */
-vect_print_dump_info (enum verbosity_levels vl, LOC loc ATTRIBUTE_UNUSED)
+vect_print_dump_info (enum verbosity_levels vl)
 {
   if (vl > vect_verbosity_level)
     return false;
 
-  /* APPLE LOCAL begin AV dump */
-  if (!vect_dump)
+  if (!current_function_decl || !vect_dump)
     return false;
 
-   if (vect_loop_location == UNKNOWN_LOC)
-     fprintf (vect_dump, "\n%s:%d: note: ",
-	      DECL_SOURCE_FILE (current_function_decl),
-	      DECL_SOURCE_LINE (current_function_decl));
-   else
-     fprintf (vect_dump, "\n%s:%d: note: ", LOC_FILE (vect_loop_location), 
-	      LOC_LINE (vect_loop_location));
-  /* APPLE LOCAL end AV dump */
+  if (vect_loop_location == UNKNOWN_LOC)
+    fprintf (vect_dump, "\n%s:%d: note: ",
+		 DECL_SOURCE_FILE (current_function_decl),
+		 DECL_SOURCE_LINE (current_function_decl));
+  else
+    fprintf (vect_dump, "\n%s:%d: note: ", 
+	     LOC_FILE (vect_loop_location), LOC_LINE (vect_loop_location));
 
   return true;
 }
@@ -1186,15 +1362,17 @@ new_stmt_vec_info (tree stmt, loop_vec_info loop_vinfo)
   STMT_VINFO_STMT (res) = stmt;
   STMT_VINFO_LOOP_VINFO (res) = loop_vinfo;
   STMT_VINFO_RELEVANT_P (res) = 0;
+  STMT_VINFO_LIVE_P (res) = 0;
   STMT_VINFO_VECTYPE (res) = NULL;
   STMT_VINFO_VEC_STMT (res) = NULL;
+  STMT_VINFO_IN_PATTERN_P (res) = false;
+  STMT_VINFO_RELATED_STMT (res) = NULL;
   STMT_VINFO_DATA_REF (res) = NULL;
-  STMT_VINFO_MEMTAG (res) = NULL;
-  STMT_VINFO_VECT_DR_BASE_ADDRESS (res) = NULL;
-  STMT_VINFO_VECT_INIT_OFFSET (res) = NULL_TREE;
-  STMT_VINFO_VECT_STEP (res) = NULL_TREE;
-  STMT_VINFO_VECT_BASE_ALIGNED_P (res) = false;
-  STMT_VINFO_VECT_MISALIGNMENT (res) = NULL_TREE;
+  if (TREE_CODE (stmt) == PHI_NODE)
+    STMT_VINFO_DEF_TYPE (res) = vect_unknown_def_type;
+  else
+    STMT_VINFO_DEF_TYPE (res) = vect_loop_def;
+  STMT_VINFO_SAME_ALIGN_REFS (res) = VEC_alloc (dr_p, heap, 5);
 
   return res;
 }
@@ -1221,12 +1399,19 @@ new_loop_vec_info (struct loop *loop)
   for (i = 0; i < loop->num_nodes; i++)
     {
       basic_block bb = bbs[i];
+      tree phi;
+
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+        {
+          stmt_ann_t ann = get_stmt_ann (phi);
+          set_stmt_info (ann, new_stmt_vec_info (phi, res));
+        }
+
       for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
 	{
 	  tree stmt = bsi_stmt (si);
 	  stmt_ann_t ann;
 
-	  get_stmt_operands (stmt);
 	  ann = stmt_ann (stmt);
 	  set_stmt_info (ann, new_stmt_vec_info (stmt, res));
 	}
@@ -1237,14 +1422,13 @@ new_loop_vec_info (struct loop *loop)
   LOOP_VINFO_EXIT_COND (res) = NULL;
   LOOP_VINFO_NITERS (res) = NULL;
   LOOP_VINFO_VECTORIZABLE_P (res) = 0;
-  LOOP_DO_PEELING_FOR_ALIGNMENT (res) = false;
+  LOOP_PEELING_FOR_ALIGNMENT (res) = 0;
   LOOP_VINFO_VECT_FACTOR (res) = 0;
-  VARRAY_GENERIC_PTR_INIT (LOOP_VINFO_DATAREF_WRITES (res), 20,
-			   "loop_write_datarefs");
-  VARRAY_GENERIC_PTR_INIT (LOOP_VINFO_DATAREF_READS (res), 20,
-			   "loop_read_datarefs");
+  LOOP_VINFO_DATAREFS (res) = VEC_alloc (data_reference_p, heap, 10);
+  LOOP_VINFO_DDRS (res) = VEC_alloc (ddr_p, heap, 10 * 10);
   LOOP_VINFO_UNALIGNED_DR (res) = NULL;
-  LOOP_VINFO_LOC (res) = UNKNOWN_LOC;
+  LOOP_VINFO_MAY_MISALIGN_STMTS (res)
+    = VEC_alloc (tree, heap, PARAM_VALUE (PARAM_VECT_MAX_VERSION_CHECKS));
 
   return res;
 }
@@ -1275,47 +1459,57 @@ destroy_loop_vec_info (loop_vec_info loop_vinfo)
   for (j = 0; j < nbbs; j++)
     {
       basic_block bb = bbs[j];
-      for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+      tree phi;
+      stmt_vec_info stmt_info;
+
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+        {
+          stmt_ann_t ann = stmt_ann (phi);
+
+          stmt_info = vinfo_for_stmt (phi);
+          free (stmt_info);
+          set_stmt_info (ann, NULL);
+        }
+
+      for (si = bsi_start (bb); !bsi_end_p (si); )
 	{
 	  tree stmt = bsi_stmt (si);
 	  stmt_ann_t ann = stmt_ann (stmt);
 	  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
-	  free (stmt_info);
-	  set_stmt_info (ann, NULL);
+
+	  if (stmt_info)
+	    {
+	      /* Check if this is a "pattern stmt" (introduced by the 
+		 vectorizer during the pattern recognition pass).  */
+	      bool remove_stmt_p = false;
+	      tree orig_stmt = STMT_VINFO_RELATED_STMT (stmt_info);
+	      if (orig_stmt)
+		{
+		  stmt_vec_info orig_stmt_info = vinfo_for_stmt (orig_stmt);
+		  if (orig_stmt_info
+		      && STMT_VINFO_IN_PATTERN_P (orig_stmt_info))
+		    remove_stmt_p = true; 
+		}
+			
+	      /* Free stmt_vec_info.  */
+	      VEC_free (dr_p, heap, STMT_VINFO_SAME_ALIGN_REFS (stmt_info));
+	      free (stmt_info);
+	      set_stmt_info (ann, NULL);
+
+	      /* Remove dead "pattern stmts".  */
+	      if (remove_stmt_p)
+	        bsi_remove (&si, true);
+	    }
+	  bsi_next (&si);
 	}
     }
 
   free (LOOP_VINFO_BBS (loop_vinfo));
-  varray_clear (LOOP_VINFO_DATAREF_WRITES (loop_vinfo));
-  varray_clear (LOOP_VINFO_DATAREF_READS (loop_vinfo));
+  free_data_refs (LOOP_VINFO_DATAREFS (loop_vinfo));
+  free_dependence_relations (LOOP_VINFO_DDRS (loop_vinfo));
+  VEC_free (tree, heap, LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo));
 
   free (loop_vinfo);
-}
-
-
-/* Function vect_strip_conversions
-
-   Strip conversions that don't narrow the mode.  */
-
-tree 
-vect_strip_conversion (tree expr)
-{
-  tree to, ti, oprnd0;
-  
-  while (TREE_CODE (expr) == NOP_EXPR || TREE_CODE (expr) == CONVERT_EXPR)
-    {
-      to = TREE_TYPE (expr);
-      oprnd0 = TREE_OPERAND (expr, 0);
-      ti = TREE_TYPE (oprnd0);
- 
-      if (!INTEGRAL_TYPE_P (to) || !INTEGRAL_TYPE_P (ti))
-	return NULL_TREE;
-      if (GET_MODE_SIZE (TYPE_MODE (to)) < GET_MODE_SIZE (TYPE_MODE (ti)))
-	return NULL_TREE;
-      
-      expr = oprnd0;
-    }
-  return expr; 
 }
 
 
@@ -1361,7 +1555,7 @@ get_vectype_for_scalar_type (tree scalar_type)
   int nunits;
   tree vectype;
 
-  if (nbytes == 0)
+  if (nbytes == 0 || nbytes >= UNITS_PER_SIMD_WORD)
     return NULL_TREE;
 
   /* FORNOW: Only a single vector size per target (UNITS_PER_SIMD_WORD)
@@ -1369,7 +1563,7 @@ get_vectype_for_scalar_type (tree scalar_type)
   nunits = UNITS_PER_SIMD_WORD / nbytes;
 
   vectype = build_vector_type (scalar_type, nunits);
-  if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+  if (vect_print_dump_info (REPORT_DETAILS))
     {
       fprintf (vect_dump, "get vectype with %d units of type ", nunits);
       print_generic_expr (vect_dump, scalar_type, TDF_SLIM);
@@ -1378,18 +1572,16 @@ get_vectype_for_scalar_type (tree scalar_type)
   if (!vectype)
     return NULL_TREE;
 
-  if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+  if (vect_print_dump_info (REPORT_DETAILS))
     {
       fprintf (vect_dump, "vectype: ");
       print_generic_expr (vect_dump, vectype, TDF_SLIM);
     }
 
-  if (!VECTOR_MODE_P (TYPE_MODE (vectype)))
+  if (!VECTOR_MODE_P (TYPE_MODE (vectype))
+      && !INTEGRAL_MODE_P (TYPE_MODE (vectype)))
     {
-      /* TODO: tree-complex.c sometimes can parallelize operations
-         on generic vectors.  We can vectorize the loop in that case,
-         but then we should re-run the lowering pass.  */
-      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+      if (vect_print_dump_info (REPORT_DETAILS))
         fprintf (vect_dump, "mode not supported by target.");
       return NULL_TREE;
     }
@@ -1445,64 +1637,343 @@ vect_supportable_dr_alignment (struct data_reference *dr)
    in reduction/induction computations).  */
 
 bool
-vect_is_simple_use (tree operand, loop_vec_info loop_vinfo, tree *def)
+vect_is_simple_use (tree operand, loop_vec_info loop_vinfo, tree *def_stmt,
+		    tree *def, enum vect_def_type *dt)
 { 
-  tree def_stmt;
   basic_block bb;
+  stmt_vec_info stmt_vinfo;
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
 
-  if (def)
-    *def = NULL_TREE;
-
-  if (TREE_CODE (operand) == INTEGER_CST || TREE_CODE (operand) == REAL_CST)
-    return true;
-
-  if (TREE_CODE (operand) != SSA_NAME)
-    return false;
-
-  def_stmt = SSA_NAME_DEF_STMT (operand);
-  if (def_stmt == NULL_TREE )
+  *def_stmt = NULL_TREE;
+  *def = NULL_TREE;
+  
+  if (vect_print_dump_info (REPORT_DETAILS))
     {
-      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+      fprintf (vect_dump, "vect_is_simple_use: operand ");
+      print_generic_expr (vect_dump, operand, TDF_SLIM);
+    }
+    
+  if (TREE_CODE (operand) == INTEGER_CST || TREE_CODE (operand) == REAL_CST)
+    {
+      *dt = vect_constant_def;
+      return true;
+    }
+    
+  if (TREE_CODE (operand) != SSA_NAME)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "not ssa-name.");
+      return false;
+    }
+    
+  *def_stmt = SSA_NAME_DEF_STMT (operand);
+  if (*def_stmt == NULL_TREE )
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
         fprintf (vect_dump, "no def_stmt.");
       return false;
     }
 
+  if (vect_print_dump_info (REPORT_DETAILS))
+    {
+      fprintf (vect_dump, "def_stmt: ");
+      print_generic_expr (vect_dump, *def_stmt, TDF_SLIM);
+    }
+
   /* empty stmt is expected only in case of a function argument.
      (Otherwise - we expect a phi_node or a modify_expr).  */
-  if (IS_EMPTY_STMT (def_stmt))
+  if (IS_EMPTY_STMT (*def_stmt))
     {
-      tree arg = TREE_OPERAND (def_stmt, 0);
+      tree arg = TREE_OPERAND (*def_stmt, 0);
       if (TREE_CODE (arg) == INTEGER_CST || TREE_CODE (arg) == REAL_CST)
-	return true;
-      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
-	{
-	  fprintf (vect_dump, "Unexpected empty stmt: ");
-	  print_generic_expr (vect_dump, def_stmt, TDF_SLIM);
-	}
-      return false;  
+        {
+          *def = operand;
+          *dt = vect_invariant_def;
+          return true;
+        }
+
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "Unexpected empty stmt.");
+      return false;
     }
 
-  /* phi_node inside the loop indicates an induction/reduction pattern.
-     This is not supported yet.  */
-  bb = bb_for_stmt (def_stmt);
-  if (TREE_CODE (def_stmt) == PHI_NODE && flow_bb_inside_loop_p (loop, bb))
+  bb = bb_for_stmt (*def_stmt);
+  if (!flow_bb_inside_loop_p (loop, bb))
+    *dt = vect_invariant_def;
+  else
     {
-      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
-	fprintf (vect_dump, "reduction/induction - unsupported.");
-      return false; /* FORNOW: not supported yet.  */
+      stmt_vinfo = vinfo_for_stmt (*def_stmt);
+      *dt = STMT_VINFO_DEF_TYPE (stmt_vinfo);
     }
 
-  /* Expecting a modify_expr or a phi_node.  */
-  if (TREE_CODE (def_stmt) == MODIFY_EXPR
-      || TREE_CODE (def_stmt) == PHI_NODE)
+  if (*dt == vect_unknown_def_type)
     {
-      if (def)
-        *def = def_stmt; 	
-      return true;
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "Unsupported pattern.");
+      return false;
     }
 
-  return false;
+  /* stmts inside the loop that have been identified as performing
+     a reduction operation cannot have uses in the loop.  */
+  if (*dt == vect_reduction_def && TREE_CODE (*def_stmt) != PHI_NODE)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "reduction used in loop.");
+      return false;
+    }
+
+  if (vect_print_dump_info (REPORT_DETAILS))
+    fprintf (vect_dump, "type of def: %d.",*dt);
+
+  switch (TREE_CODE (*def_stmt))
+    {
+    case PHI_NODE:
+      *def = PHI_RESULT (*def_stmt);
+      gcc_assert (*dt == vect_induction_def || *dt == vect_reduction_def
+                  || *dt == vect_invariant_def);
+      break;
+
+    case MODIFY_EXPR:
+      *def = TREE_OPERAND (*def_stmt, 0);
+      gcc_assert (*dt == vect_loop_def || *dt == vect_invariant_def);
+      break;
+
+    default:
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "unsupported defining stmt: ");
+      return false;
+    }
+
+  if (*dt == vect_induction_def)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "induction not supported.");
+      return false;
+    }
+
+  return true;
+}
+
+
+/* Function reduction_code_for_scalar_code
+
+   Input:
+   CODE - tree_code of a reduction operations.
+
+   Output:
+   REDUC_CODE - the corresponding tree-code to be used to reduce the
+      vector of partial results into a single scalar result (which
+      will also reside in a vector).
+
+   Return TRUE if a corresponding REDUC_CODE was found, FALSE otherwise.  */
+
+bool
+reduction_code_for_scalar_code (enum tree_code code,
+                                enum tree_code *reduc_code)
+{
+  switch (code)
+  {
+  case MAX_EXPR:
+    *reduc_code = REDUC_MAX_EXPR;
+    return true;
+
+  case MIN_EXPR:
+    *reduc_code = REDUC_MIN_EXPR;
+    return true;
+
+  case PLUS_EXPR:
+    *reduc_code = REDUC_PLUS_EXPR;
+    return true;
+
+  default:
+    return false;
+  }
+}
+
+
+/* Function vect_is_simple_reduction
+
+   Detect a cross-iteration def-use cucle that represents a simple
+   reduction computation. We look for the following pattern:
+
+   loop_header:
+     a1 = phi < a0, a2 >
+     a3 = ...
+     a2 = operation (a3, a1)
+  
+   such that:
+   1. operation is commutative and associative and it is safe to 
+      change the order of the computation.
+   2. no uses for a2 in the loop (a2 is used out of the loop)
+   3. no uses of a1 in the loop besides the reduction operation.
+
+   Condition 1 is tested here.
+   Conditions 2,3 are tested in vect_mark_stmts_to_be_vectorized.  */
+
+tree
+vect_is_simple_reduction (struct loop *loop, tree phi)
+{
+  edge latch_e = loop_latch_edge (loop);
+  tree loop_arg = PHI_ARG_DEF_FROM_EDGE (phi, latch_e);
+  tree def_stmt, def1, def2;
+  enum tree_code code;
+  int op_type;
+  tree operation, op1, op2;
+  tree type;
+
+  if (TREE_CODE (loop_arg) != SSA_NAME)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        {
+          fprintf (vect_dump, "reduction: not ssa_name: ");
+          print_generic_expr (vect_dump, loop_arg, TDF_SLIM);
+        }
+      return NULL_TREE;
+    }
+
+  def_stmt = SSA_NAME_DEF_STMT (loop_arg);
+  if (!def_stmt)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "reduction: no def_stmt.");
+      return NULL_TREE;
+    }
+
+  if (TREE_CODE (def_stmt) != MODIFY_EXPR)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        {
+          print_generic_expr (vect_dump, def_stmt, TDF_SLIM);
+        }
+      return NULL_TREE;
+    }
+
+  operation = TREE_OPERAND (def_stmt, 1);
+  code = TREE_CODE (operation);
+  if (!commutative_tree_code (code) || !associative_tree_code (code))
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        {
+          fprintf (vect_dump, "reduction: not commutative/associative: ");
+          print_generic_expr (vect_dump, operation, TDF_SLIM);
+        }
+      return NULL_TREE;
+    }
+
+  op_type = TREE_CODE_LENGTH (code);
+  if (op_type != binary_op)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        {
+          fprintf (vect_dump, "reduction: not binary operation: ");
+          print_generic_expr (vect_dump, operation, TDF_SLIM);
+        }
+      return NULL_TREE;
+    }
+
+  op1 = TREE_OPERAND (operation, 0);
+  op2 = TREE_OPERAND (operation, 1);
+  if (TREE_CODE (op1) != SSA_NAME || TREE_CODE (op2) != SSA_NAME)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        {
+          fprintf (vect_dump, "reduction: uses not ssa_names: ");
+          print_generic_expr (vect_dump, operation, TDF_SLIM);
+        }
+      return NULL_TREE;
+    }
+
+  /* Check that it's ok to change the order of the computation.  */
+  type = TREE_TYPE (operation);
+  if (TYPE_MAIN_VARIANT (type) != TYPE_MAIN_VARIANT (TREE_TYPE (op1))
+      || TYPE_MAIN_VARIANT (type) != TYPE_MAIN_VARIANT (TREE_TYPE (op2)))
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        {
+          fprintf (vect_dump, "reduction: multiple types: operation type: ");
+          print_generic_expr (vect_dump, type, TDF_SLIM);
+          fprintf (vect_dump, ", operands types: ");
+          print_generic_expr (vect_dump, TREE_TYPE (op1), TDF_SLIM);
+          fprintf (vect_dump, ",");
+          print_generic_expr (vect_dump, TREE_TYPE (op2), TDF_SLIM);
+        }
+      return NULL_TREE;
+    }
+
+  /* CHECKME: check for !flag_finite_math_only too?  */
+  if (SCALAR_FLOAT_TYPE_P (type) && !flag_unsafe_math_optimizations)
+    {
+      /* Changing the order of operations changes the semantics.  */
+      if (vect_print_dump_info (REPORT_DETAILS))
+        {
+          fprintf (vect_dump, "reduction: unsafe fp math optimization: ");
+          print_generic_expr (vect_dump, operation, TDF_SLIM);
+        }
+      return NULL_TREE;
+    }
+  else if (INTEGRAL_TYPE_P (type) && TYPE_OVERFLOW_TRAPS (type))
+    {
+      /* Changing the order of operations changes the semantics.  */
+      if (vect_print_dump_info (REPORT_DETAILS))
+        {
+          fprintf (vect_dump, "reduction: unsafe int math optimization: ");
+          print_generic_expr (vect_dump, operation, TDF_SLIM);
+        }
+      return NULL_TREE;
+    }
+
+  /* reduction is safe. we're dealing with one of the following:
+     1) integer arithmetic and no trapv
+     2) floating point arithmetic, and special flags permit this optimization.
+   */
+  def1 = SSA_NAME_DEF_STMT (op1);
+  def2 = SSA_NAME_DEF_STMT (op2);
+  if (!def1 || !def2)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        {
+          fprintf (vect_dump, "reduction: no defs for operands: ");
+          print_generic_expr (vect_dump, operation, TDF_SLIM);
+        }
+      return NULL_TREE;
+    }
+
+  if (TREE_CODE (def1) == MODIFY_EXPR
+      && flow_bb_inside_loop_p (loop, bb_for_stmt (def1))
+      && def2 == phi)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        {
+          fprintf (vect_dump, "detected reduction:");
+          print_generic_expr (vect_dump, operation, TDF_SLIM);
+        }
+      return def_stmt;
+    }
+  else if (TREE_CODE (def2) == MODIFY_EXPR
+      && flow_bb_inside_loop_p (loop, bb_for_stmt (def2))
+      && def1 == phi)
+    {
+      /* Swap operands (just for simplicity - so that the rest of the code
+	 can assume that the reduction variable is always the last (second)
+	 argument).  */
+      if (vect_print_dump_info (REPORT_DETAILS))
+        {
+          fprintf (vect_dump, "detected reduction: need to swap operands:");
+          print_generic_expr (vect_dump, operation, TDF_SLIM);
+        }
+      swap_tree_operands (def_stmt, &TREE_OPERAND (operation, 0), 
+				    &TREE_OPERAND (operation, 1));
+      return def_stmt;
+    }
+  else
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        {
+          fprintf (vect_dump, "reduction: unknown pattern.");
+          print_generic_expr (vect_dump, operation, TDF_SLIM);
+        }
+      return NULL_TREE;
+    }
 }
 
 
@@ -1534,7 +2005,7 @@ vect_is_simple_iv_evolution (unsigned loop_nb, tree access_fn, tree * init,
   init_expr = unshare_expr (initial_condition_in_loop_num (access_fn,
                                                            loop_nb));
 
-  if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+  if (vect_print_dump_info (REPORT_DETAILS))
     {
       fprintf (vect_dump, "step: ");
       print_generic_expr (vect_dump, step_expr, TDF_SLIM);
@@ -1547,25 +2018,12 @@ vect_is_simple_iv_evolution (unsigned loop_nb, tree access_fn, tree * init,
 
   if (TREE_CODE (step_expr) != INTEGER_CST)
     {
-      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+      if (vect_print_dump_info (REPORT_DETAILS))
         fprintf (vect_dump, "step unknown.");
       return false;
     }
 
   return true;
-}
-
-
-/* Function need_imm_uses_for.
-
-   Return whether we ought to include information for 'var'
-   when calculating immediate uses.  For this pass we only want use
-   information for non-virtual variables.  */
-
-static bool
-need_imm_uses_for (tree var)
-{
-  return is_gimple_reg (var);
 }
 
 
@@ -1576,35 +2034,23 @@ need_imm_uses_for (tree var)
 void
 vectorize_loops (struct loops *loops)
 {
-  /* APPLE LOCAL AV data dependence. -dpatel */
   unsigned int i;
   unsigned int num_vectorized_loops = 0;
 
   /* Fix the verbosity level if not defined explicitly by the user.  */
   vect_set_dump_settings ();
 
-  /* Does the target support SIMD?  */
-  /* FORNOW: until more sophisticated machine modelling is in place.  */
-  if (!UNITS_PER_SIMD_WORD)
-    {
-      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
-	fprintf (vect_dump, "vectorizer: target vector size is not defined.");
-      return;
-    }
-
-#ifdef ENABLE_CHECKING
-  verify_loop_closed_ssa ();
-#endif
-
-  compute_immediate_uses (TDFA_USE_OPS, need_imm_uses_for);
+  /* Allocate the bitmap that records which virtual variables that 
+     need to be renamed.  */
+  vect_vnames_to_rename = BITMAP_ALLOC (NULL);
 
   /*  ----------- Analyze loops. -----------  */
 
   /* If some loop was duplicated, it gets bigger number 
      than all previously defined loops. This fact allows us to run 
      only over initial loops skipping newly generated ones.  */
-  loops_num = loops->num;
-  for (i = 1; i < loops_num; i++)
+  vect_loops_num = loops->num;
+  for (i = 1; i < vect_loops_num; i++)
     {
       loop_vec_info loop_vinfo;
       struct loop *loop = loops->parray[i];
@@ -1612,7 +2058,6 @@ vectorize_loops (struct loops *loops)
       if (!loop)
         continue;
 
-      /* APPLE LOCAL AV dump */
       vect_loop_location = find_loop_location (loop);
       loop_vinfo = vect_analyze_loop (loop);
       loop->aux = loop_vinfo;
@@ -1620,7 +2065,7 @@ vectorize_loops (struct loops *loops)
       if (!loop_vinfo || !LOOP_VINFO_VECTORIZABLE_P (loop_vinfo))
 	continue;
 
-      vect_transform_loop (loop_vinfo, loops); 
+      vect_transform_loop (loop_vinfo, loops);
       /* APPLE LOCAL begin 4095567 */
       /* Now this function uses vectors.  */
       DECL_STRUCT_FUNCTION (current_function_decl)->uses_vector = 1;
@@ -1632,15 +2077,17 @@ vectorize_loops (struct loops *loops)
       /* APPLE LOCAL end opt diary */
       num_vectorized_loops++;
     }
+  vect_loop_location = UNKNOWN_LOC;
 
-  if (vect_print_dump_info (REPORT_VECTORIZED_LOOPS, UNKNOWN_LOC))
+  if (vect_print_dump_info (REPORT_VECTORIZED_LOOPS))
     fprintf (vect_dump, "vectorized %u loops in function.\n",
 	     num_vectorized_loops);
 
   /*  ----------- Finalize. -----------  */
 
-  free_df ();
-  for (i = 1; i < loops_num; i++)
+  BITMAP_FREE (vect_vnames_to_rename);
+
+  for (i = 1; i < vect_loops_num; i++)
     {
       struct loop *loop = loops->parray[i];
       loop_vec_info loop_vinfo;
@@ -1651,8 +2098,4 @@ vectorize_loops (struct loops *loops)
       destroy_loop_vec_info (loop_vinfo);
       loop->aux = NULL;
     }
-
-  rewrite_into_ssa (false);
-  rewrite_into_loop_closed_ssa (); /* FORNOW */
-  bitmap_clear (vars_to_rename);
 }

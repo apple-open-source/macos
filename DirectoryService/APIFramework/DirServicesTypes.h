@@ -99,7 +99,7 @@ typedef UInt32                          FourCharCode;
  *	@constant eDSAuthMasterUnreachable Unable to authenticate to make changes
  *		because the master server is unreachable.
  */
-typedef	enum
+typedef enum
 {
 	eDSNoErr					=	0,
 
@@ -325,6 +325,7 @@ typedef	enum
 	eDSContactMaster			=	-14486,
 	eDSServiceUnavailable		=	-14487,
 	eDSInvalidFilePath			=	-14488,
+	eDSOperationTimeout			=	-14489,
 
 	eFWGetDirNodeNameErr1		=	-14501,
 	eFWGetDirNodeNameErr2		=	-14502,
@@ -438,11 +439,7 @@ typedef	UInt32	tDirNodeReference;
 typedef	void *			tClientData;
 typedef void *			tBuffer;
 
-#ifdef __LP64__
-typedef	UInt32			tContextData;
-#else
-typedef	void *			tContextData;
-#endif
+typedef	UInt32	tContextData;
 
 //-----------------------------------------------
 //-----------------------------------------------

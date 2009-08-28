@@ -1,5 +1,5 @@
 /* MD2.H - header file for MD2C.C
- * $FreeBSD: src/lib/libmd/md2.h,v 1.9 2001/03/17 10:00:50 phk Exp $
+ * $FreeBSD: src/lib/libmd/md2.h,v 1.10 2006/01/17 15:35:56 phk Exp $
  */
 
 /* Copyright (C) 1990-2, RSA Data Security, Inc. Created 1990. All
@@ -24,7 +24,8 @@
 #define _MD2_H_
 
 #ifdef __APPLE__
-#include <openssl/md2.h>
+#define COMMON_DIGEST_FOR_OPENSSL
+#include <CommonCrypto/CommonDigest.h>
 #else /* !__APPLE__ */
 typedef struct MD2Context {
   unsigned char state[16];	/* state */
@@ -38,7 +39,7 @@ typedef struct MD2Context {
 
 __BEGIN_DECLS
 void   MD2Init(MD2_CTX *);
-void   MD2Update(MD2_CTX *, const unsigned char *, unsigned int);
+void   MD2Update(MD2_CTX *, const void *, unsigned int);
 #ifndef __APPLE__
 void   MD2Pad(MD2_CTX *);
 #endif /* !__APPLE__ */
@@ -46,7 +47,7 @@ void   MD2Final(unsigned char [16], MD2_CTX *);
 char * MD2End(MD2_CTX *, char *);
 char * MD2File(const char *, char *);
 char * MD2FileChunk(const char *, char *, off_t, off_t);
-char * MD2Data(const unsigned char *, unsigned int, char *);
+char * MD2Data(const void *, unsigned int, char *);
 __END_DECLS
 
 #endif /* _MD2_H_ */

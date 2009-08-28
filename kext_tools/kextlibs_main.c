@@ -21,493 +21,35 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <CoreFoundation/CoreFoundation.h>
-#include <getopt.h>
-#include <IOKit/kext/KXKextManager.h>
-#include <IOKit/kext/fat_util.h>
-#include <IOKit/kext/macho_util.h>
 
-#include "utility.h"
+#include <IOKit/kext/OSKext.h>
+#include <IOKit/kext/OSKextPrivate.h>
 
-/*******************************************************************************
-* Kext lib private functions that should be in a private header but aren't.
-*******************************************************************************/
-extern  fat_iterator _KXKextCopyFatIterator(KXKextRef aKext);
-typedef SInt64       VERS_version;
-extern  VERS_version _KXKextGetCompatibleVersion(KXKextRef aKext);
+#include "kextlibs_main.h"
+#include "kext_tools_util.h"
 
-/*******************************************************************************
-* Local function prototypes.
-*******************************************************************************/
-Boolean addRepositoryName(
-    const char * optarg,
-    CFMutableArrayRef repositoryDirectories);
-
-static int allocateArray(CFMutableArrayRef * array);
-static int allocateDictionary(CFMutableDictionaryRef * dict);
-char * _cStringForCFString(CFStringRef cfString);
-char * _posixPathForCFString(CFStringRef cfString);
-
-static void usage(int level);
 
 /*******************************************************************************
 * Local function prototypes and misc grotty  bits.
 *******************************************************************************/
-const char * progname;
-int g_verbose_level = kKXKextManagerLogLevelDefault;  // -v, -q options set this
-
-enum {
-    kKextlibsExitOK = 0,
-    kKextlibsExitUndefineds = 1,
-    kKextlibsExitMultiples = 2,
-    kKextlibsExitUnspecified  // any nonzero
-};
-
-#define kErrorStringMemoryAllocation "memory allocation failure\n"
+const char * progname = "(unknown)";
 
 /*******************************************************************************
-* Command-line options (as opposed to query predicate keywords).
-* This data is used by getopt_long_only().
-*******************************************************************************/
-/* Would like a way to automatically combine these into the optstring.
- */
-#define kOptNameHelp                    "help"
-#define kOptNameSystemExtensions        "system-extensions"
-#define kOptNameRepository              "repository"
-#define kOptNameXML                     "xml"
-#define kOptNameCompatible              "compatible-versions"
-#define kOptNameAllSymbols              "all-symbols"
-#define kOptNameNonKPI                  "non-kpi"
-
-#define kOPT_CHARS  "cehr:"
-
-enum {
-    kOptCompatible = 'c',
-    kOptSystemExtensions = 'e',
-    kOptHelp = 'h',
-    kOptRepository = 'r',
-};
-
-/* Options with no single-letter variant.  */
-// Do not use -1, that's getopt() end-of-args return value
-// and can cause confusion
-enum {
-    kLongOptXML = -2,
-    kLongOptAllSymbols = -3,
-    kLongOptNonKPI = -4,
-};
-
-
-int longopt = 0;
-
-struct option opt_info[] = {
-    // real options
-    { kOptNameHelp,             no_argument,        NULL, kOptHelp },
-    { kOptNameSystemExtensions, no_argument,        NULL, kOptSystemExtensions },
-    { kOptNameRepository,       required_argument,  NULL, kOptRepository },
-    { kOptNameCompatible,       no_argument,        NULL, kOptCompatible },
-    { kOptNameXML,              no_argument,        &longopt, kLongOptXML },
-    { kOptNameAllSymbols,       no_argument,        &longopt, kLongOptAllSymbols },
-    { kOptNameNonKPI,           no_argument,        &longopt, kLongOptNonKPI },
-
-    { NULL, 0, NULL, 0 }  // sentinel to terminate list
-};
-
-/*******************************************************************************
-* Suck from a kext's executable all of its undefined symbol names and build
-* an array of empty arrays keyed  by symbol. The arrays will be filled with
-* lib kexts that export that symbol. Also note the cpu arch of the kext to
-* match on that for the libs.
-*******************************************************************************/
-Boolean readSymbolReferences(
-    KXKextRef theKext,
-    cpu_type_t * cpu_type,
-    cpu_subtype_t * cpu_subtype,
-    CFMutableDictionaryRef symbols)
-{
-    Boolean result = false;
-    fat_iterator fiter = NULL;  // must close
-    void * farch = NULL;
-    void * farch_end = NULL;
-    macho_seek_result symtab_result = macho_seek_result_not_found;
-    uint8_t swap = 0;
-    struct symtab_command * symtab = NULL;
-    struct nlist * syms_address;
-    const void * string_list;
-    unsigned int sym_offset;
-    unsigned int str_offset;
-    unsigned int num_syms;
-    unsigned int syms_bytes;
-    unsigned int sym_index;
-    CFMutableArrayRef libsArray = NULL; // must release
-    char kext_name[PATH_MAX];
-
-    if (!CFStringGetFileSystemRepresentation(
-	    KXKextGetBundlePathInRepository(theKext), kext_name, PATH_MAX)) {
-        fprintf(stderr, "%s", kErrorStringMemoryAllocation);
-        goto finish;
-    }
-
-    fiter = _KXKextCopyFatIterator(theKext);
-    if (!fiter) {
-        fprintf(stderr, "Can't open executable for %s\n", kext_name);
-        goto finish;
-    }
-
-    farch = fat_iterator_next_arch(fiter, &farch_end);
-    if (!farch) {
-        fprintf(stderr, "No code in %s\n", kext_name);
-        goto finish;
-    }
-
-    symtab_result = macho_find_symtab(farch, farch_end, &symtab);
-    if (symtab_result != macho_seek_result_found) {
-        fprintf(stderr, "Error in mach-o file for %s\n", kext_name);
-        goto finish;
-    }
-
-    if (MAGIC32(farch) == MH_CIGAM) {
-        swap = 1;
-    }
-
-    *cpu_type = CondSwapInt32(swap, ((struct mach_header *)farch)->cputype);
-    *cpu_subtype = CondSwapInt32(swap, ((struct mach_header *)farch)->cpusubtype);
-
-    sym_offset = CondSwapInt32(swap, symtab->symoff);
-    str_offset = CondSwapInt32(swap, symtab->stroff);
-    num_syms   = CondSwapInt32(swap, symtab->nsyms);
-
-    syms_address = (struct nlist *)(farch + sym_offset);
-    string_list = farch + str_offset;
-    syms_bytes = num_syms * sizeof(struct nlist);
-
-    if ((char *)syms_address + syms_bytes > (char *)farch_end) {
-        fprintf(stderr, "Error in mach-o file for %s\n", kext_name);
-        goto finish;
-    }
-
-    for (sym_index = 0; sym_index < num_syms; sym_index++) {
-        struct nlist * seekptr;
-        uint32_t string_index;
-
-        seekptr = &syms_address[sym_index];
-
-        string_index = CondSwapInt32(swap, seekptr->n_un.n_strx);
-
-        // no need to swap n_type (one-byte value)
-        if (string_index == 0 || seekptr->n_type & N_STAB) {
-            continue;
-        }
-
-        if ((seekptr->n_type & N_TYPE) == N_UNDF) {
-            char * symbol_name;
-            CFStringRef cfSymbolName; // must release
-
-            symbol_name = (char *)(string_list + string_index);
-            if (!allocateArray(&libsArray)) {
-                goto finish;
-            }
-            cfSymbolName = CFStringCreateWithCString(kCFAllocatorDefault,
-                symbol_name, kCFStringEncodingASCII);
-            if (!cfSymbolName) {
-                fprintf(stderr, "%s", kErrorStringMemoryAllocation);
-                goto finish;
-            }
-            CFDictionarySetValue(symbols, cfSymbolName, libsArray);
-            CFRelease(cfSymbolName);
-        }
-    }
-
-    result = true;
-finish:
-    if (fiter)     fat_iterator_close(fiter);
-    if (libsArray) CFRelease(libsArray);
-    return result;
-}
-
-/*******************************************************************************
-* Given a library kext, check all of its exported symbols against the running
-* lists of undef (not yet found) symbols, symbols found once, and symbols
-* found already in other library kexts. Adjust tallies appropriately.
-*******************************************************************************/
-Boolean findSymbols(
-    KXKextRef theKext,
-    cpu_type_t cpu_type,
-    cpu_subtype_t cpu_subtype,
-    CFMutableDictionaryRef undefSymbols,
-    CFMutableDictionaryRef onedefSymbols,
-    CFMutableDictionaryRef multdefSymbols,
-    CFMutableArrayRef multdefLibs)
-{
-    Boolean result = false;
-    fat_iterator fiter = NULL;
-    void * farch = NULL;
-    void * farch_end = NULL;
-    macho_seek_result symtab_result = macho_seek_result_not_found;
-    uint8_t swap = 0;
-    struct symtab_command * symtab = NULL;
-    struct nlist * syms_address;
-    const void * string_list;
-    unsigned int sym_offset;
-    unsigned int str_offset;
-    unsigned int num_syms;
-    unsigned int syms_bytes;
-    unsigned int sym_index;
-    char * symbol_name;
-    Boolean eligible;
-    CFMutableArrayRef libsArray = NULL; // do not release
-    Boolean notedMultdef = false;
-    char kext_name[PATH_MAX];
-
-    if (!CFStringGetFileSystemRepresentation(
-	    KXKextGetBundlePathInRepository(theKext), kext_name, PATH_MAX)) {
-        fprintf(stderr, "%s", kErrorStringMemoryAllocation);
-        goto finish;
-    }
-
-    fiter = _KXKextCopyFatIterator(theKext);
-    if (!fiter) {
-        fprintf(stderr, "Can't open executable for %s\n", kext_name);
-        goto finish;
-    }
-
-    farch = fat_iterator_find_arch(fiter, cpu_type, cpu_subtype, &farch_end);
-    if (!farch) {
-        // This is not necessarily an error here.
-        goto finish;
-    }
-
-    symtab_result = macho_find_symtab(farch, farch_end, &symtab);
-    if (symtab_result != macho_seek_result_found) {
-        fprintf(stderr, "Error in mach-o file for %s\n", kext_name);
-        goto finish;
-    }
-
-    if (MAGIC32(farch) == MH_CIGAM) {
-        swap = 1;
-    }
-
-    sym_offset = CondSwapInt32(swap, symtab->symoff);
-    str_offset = CondSwapInt32(swap, symtab->stroff);
-    num_syms   = CondSwapInt32(swap, symtab->nsyms);
-
-    syms_address = (struct nlist *)(farch + sym_offset);
-    string_list = farch + str_offset;
-    syms_bytes = num_syms * sizeof(struct nlist);
-
-    if ((char *)syms_address + syms_bytes > (char *)farch_end) {
-        fprintf(stderr, "Error in mach-o file for %s\n", kext_name);
-        goto finish;
-    }
-
-    for (sym_index = 0; sym_index < num_syms; sym_index++) {
-        struct nlist * seekptr;
-        uint32_t string_index;
-
-        seekptr = &syms_address[sym_index];
-
-        string_index = CondSwapInt32(swap, seekptr->n_un.n_strx);
-
-        if (string_index == 0 || (seekptr->n_type & N_STAB)) {
-            continue;
-        }
-
-       /* Kernel component kexts are weird; they are just lists of indirect
-        * and undefined symtab entries for the real data in the kernel.
-        */
-
-        // no need to swap n_type (one-byte value)
-        switch (seekptr->n_type & N_TYPE) {
-          case N_UNDF:
-            /* Fall through, only support indirects for KPI for now. */
-          case N_INDR:
-            eligible = KXKextGetIsKernelResource(theKext) ? true : false;
-            break;
-          case N_SECT:
-            eligible = KXKextGetIsKernelResource(theKext) ? false : true;
-            break;
-          default:
-            eligible = false;
-            break;
-        }
-
-        if (eligible) {
-
-            CFStringRef cfSymbolName; // must release
-
-            symbol_name = (char *)(string_list + string_index);
-
-            cfSymbolName = CFStringCreateWithCString(kCFAllocatorDefault,
-                symbol_name, kCFStringEncodingASCII);
-            if (!cfSymbolName) {
-                goto finish;
-            }
-
-           /* Bubble library tallies from undef->onedef->multdef as symbols
-            * are found. Also note any lib that has a duplicate match.
-            */
-            libsArray = (CFMutableArrayRef)CFDictionaryGetValue(
-                multdefSymbols, cfSymbolName);
-            if (libsArray) {
-                result = true;
-                CFArrayAppendValue(libsArray, theKext);
-            } else {
-                libsArray = (CFMutableArrayRef)CFDictionaryGetValue(
-                    onedefSymbols, cfSymbolName);
-                if (libsArray) {
-                    result = true;
-                    CFArrayAppendValue(libsArray, theKext);
-                    CFDictionarySetValue(multdefSymbols, cfSymbolName, libsArray);
-                    CFDictionaryRemoveValue(onedefSymbols, cfSymbolName);
-                    if (!notedMultdef) {
-                        CFArrayAppendValue(multdefLibs, theKext);
-                        notedMultdef = true;
-                    }
-                } else {
-                    libsArray = (CFMutableArrayRef)CFDictionaryGetValue(
-                        undefSymbols, cfSymbolName);
-                    if (libsArray) {
-                        result = true;
-                        CFArrayAppendValue(libsArray, theKext);
-                        CFDictionarySetValue(onedefSymbols, cfSymbolName, libsArray);
-                        CFDictionaryRemoveValue(undefSymbols, cfSymbolName);
-                    }
-                }
-            }
-            CFRelease(cfSymbolName);
-        }
-    }
-finish:
-    if (fiter) fat_iterator_close(fiter);
-    return result;
-}
-
-// XX are symbol names guaranteed to be ASCII?
-/*******************************************************************************
-*
-*******************************************************************************/
-void printUndefSymbol(const void * key, const void * value, void * context)
-{
-    char * cSymbol = NULL; // must free
-
-    cSymbol = _cStringForCFString((CFStringRef)key);
-    if (cSymbol) {
-        fprintf(stderr, "\t%s\n", cSymbol);
-        free(cSymbol);
-    }
-    return;
-}
-
-/*******************************************************************************
-*
-*******************************************************************************/
-void printMultdefSymbol(const void * key, const void * value, void * context)
-{
-    char * cSymbol = NULL; // must free
-    CFArrayRef libs = (CFArrayRef)value;
-    Boolean flag_compatible = *(Boolean *)context;
-    CFIndex count, i;
-
-    cSymbol = _cStringForCFString((CFStringRef)key);
-    if (cSymbol) {
-        fprintf(stderr, "\t%s: in ", cSymbol);
-        free(cSymbol);
-    }
-
-    count = CFArrayGetCount(libs);
-    for (i = 0; i < count; i++) {
-        KXKextRef libKext = (KXKextRef)CFArrayGetValueAtIndex(libs, i);
-        char * libName = NULL;  // must free
-        char * libVers = NULL;  // must free
-
-        libName =_posixPathForCFString(KXKextGetBundlePathInRepository(libKext));
-
-        libVers = _cStringForCFString(CFDictionaryGetValue(
-            KXKextGetInfoDictionary(libKext), flag_compatible ?
-            CFSTR("OSBundleCompatibleVersion") : kCFBundleVersionKey));
-
-        if (libName && libVers) {
-            fprintf(stderr, "%s%s (%s)", i ? ", " : "", libName, libVers);
-        }
-        if (libName) free(libName);
-        if (libVers) free(libVers);
-    }
-    fprintf(stderr, "\n");
-
-    if (cSymbol) free(cSymbol);
-
-    return;
-}
-
-/*******************************************************************************
-*
-*******************************************************************************/
-Boolean kextIsLibrary(KXKextRef aKext, Boolean non_kpi)
-{
-    if (_KXKextGetCompatibleVersion(aKext) <= 0) {
-        return false;
-    }
-    if (!KXKextIsLoadable(aKext, false /* safe boot */)) {
-        return false;
-    }
-    if (KXKextGetIsKernelResource(aKext) && !KXKextGetDeclaresExecutable(aKext)) {
-        return false;
-    }
-    if (non_kpi) {
-        if (CFStringHasPrefix(KXKextGetBundleIdentifier(aKext), CFSTR("com.apple.kpi"))) {
-            return false;
-        }
-    } else {
-        if (CFEqual(KXKextGetBundleIdentifier(aKext), CFSTR("com.apple.kernel.6.0"))) {
-            return false;
-        }
-    }
-    if ((_KXKextGetCompatibleVersion(aKext) > 0) &&
-        !KXKextGetIsKernelResource(aKext) &&
-        !KXKextGetDeclaresExecutable(aKext)) {
-
-        return false;
-    }
-
-    return true;
-}
-
-/*******************************************************************************
-*
 *******************************************************************************/
 int main(int argc, char * const * argv)
 {
-    int exit_code = kKextlibsExitUnspecified;
-    int opt_char = 0;
+    ExitStatus          result              = EX_OSERR;
+    ExitStatus          printResult         = EX_OSERR;
 
-    CFIndex count, i;
+    KextlibsArgs        toolArgs;
+    CFArrayRef          kexts               = NULL;  // must release
+    
+    const NXArchInfo ** arches              = NULL;  // must free
+    KextlibsInfo      * libInfo             = NULL;  // must release contents & free
+    Boolean             libsAreArchSpecific = FALSE;
 
-    CFMutableArrayRef repositoryDirectories = NULL;  // must release
-
-    const char * kext_name;        // from argv
-    CFStringRef kextName = NULL;   // must release
-    CFURLRef    kextURL = NULL;    // must release
-    KXKextRef   theKext = NULL;    // don't release
-
-    cpu_type_t kext_cpu_type;
-    cpu_subtype_t kext_cpu_subtype;
-
-    KXKextManagerRef theKextManager = NULL;          // must release
-    KXKextManagerError kmErr;
-
-    CFMutableArrayRef      libKexts = NULL;        // must release
-    CFMutableDictionaryRef undefSymbols = NULL;    // must release
-    CFMutableDictionaryRef onedefSymbols = NULL;   // must release
-    CFMutableDictionaryRef multdefSymbols = NULL;  // must release
-    CFMutableArrayRef      multdefLibs = NULL;     // must release
-
-    CFIndex undefCount;
-    CFIndex onedefCount;
-    CFIndex multdefCount;
-
-    Boolean flag_xml = false;
-    Boolean flag_compatible = false;
-    Boolean flag_all_syms = false;
-    Boolean flag_non_kpi = false;
+    CFIndex             count, i;
+    CFIndex             numArches;
 
    /*****
     * Find out what the program was invoked as.
@@ -519,370 +61,547 @@ int main(int argc, char * const * argv)
         progname = (char *)argv[0];
     }
 
+   /* Set the OSKext log callback right away.
+    */
+    OSKextSetLogOutputFunction(&tool_log);
+
+    result = readArgs(argc, argv, &toolArgs);
+    if (result != EX_OK) {
+        if (result == kKextlibsExitHelp) {
+            result = EX_OK;
+        }
+        goto finish;
+    }
+
+    result = EX_OSERR;
+
+   /*****
+    * If necessary or requested, add the extensions folders to the
+    * BEGINNING of the list of folders.
+    */
+    count = CFArrayGetCount(toolArgs.repositoryURLs);
+    if (!count || toolArgs.flagSysKexts) {
+        CFArrayRef osExtFolders = OSKextGetSystemExtensionsFolderURLs(); // do not release
+
+        if (!osExtFolders) {
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                "Library error - can't get system extensions folders.");
+            goto finish;
+        }
+
+        count = CFArrayGetCount(osExtFolders);
+        for (i = 0; i < count; i++) {
+            CFTypeRef osExtFolder = CFArrayGetValueAtIndex(osExtFolders, i);
+            CFIndex   folderIndex = CFArrayGetFirstIndexOfValue(
+                toolArgs.repositoryURLs, RANGE_ALL(toolArgs.repositoryURLs),
+                osExtFolder);
+            if (folderIndex == kCFNotFound) {
+                CFArrayInsertValueAtIndex(toolArgs.repositoryURLs, i,
+                    osExtFolder);
+            }
+        }
+    }
+
+    kexts = OSKextCreateKextsFromURLs(kCFAllocatorDefault,
+        toolArgs.repositoryURLs);
+    if (!kexts) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+            "Can't read kexts from folders.");
+        goto finish;
+    }
+    
+    toolArgs.kextURL = CFURLCreateFromFileSystemRepresentation(
+        kCFAllocatorDefault, (u_char *)toolArgs.kextName,
+        strlen(toolArgs.kextName), /* isDirectory */ true);
+    if (!toolArgs.kextURL) {
+        OSKextLogStringError(/* kext */ NULL);
+        goto finish;
+    }
+    toolArgs.theKext = OSKextCreate(kCFAllocatorDefault,toolArgs. kextURL);
+    if (!toolArgs.theKext) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+            "Can't open %s.", toolArgs.kextName);
+        goto finish;
+    }
+
+    arches = OSKextCopyArchitectures(toolArgs.theKext);
+    if (!arches || !arches[0]) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+            "Can't determine architectures of %s.",
+            toolArgs.kextName);
+        goto finish;
+    }
+    
+    result = EX_OK;
+
+    for (numArches = 0; arches[numArches]; numArches++) {
+        /* just counting */
+    }
+    
+    libInfo = (KextlibsInfo *)malloc(numArches * sizeof(KextlibsInfo));
+    if (!libInfo) {
+        OSKextLogMemError();
+        goto finish;
+    }
+
+   /* Find libraries for the kext for each architecture in the kext.
+    */
+    for (i = 0; i < numArches; i++) {
+        OSKextSetArchitecture(arches[i]);
+        
+        libInfo[i].libKexts = OSKextFindLinkDependencies(toolArgs.theKext,
+            toolArgs.flagNonKPI, toolArgs.flagAllowUnsupported,
+            &libInfo[i].undefSymbols, &libInfo[i].onedefSymbols,
+            &libInfo[i].multdefSymbols, &libInfo[i].multdefLibs);
+
+        if (!libInfo[i].libKexts) {
+            OSKextLogMemError();
+            result = EX_OSERR;
+            goto finish;
+        }
+    }
+    
+   /* If there's more than 1 arch, see if we have to print arch-specific
+    * results.
+    */
+    if (numArches >= 2) {
+        for (i = 0; i < numArches - 1; i++) {
+            if (!CFEqual(libInfo[i].libKexts, libInfo[i+1].libKexts)) {
+                libsAreArchSpecific = TRUE;
+                break;
+            }
+        }
+    }
+
+   /* If all the libs are the same for all arches, then just print them
+    * once at the top of the output. Otherwise, only when doing XML,
+    * print the arch-specific XML declarations before the diagnostics.
+    */
+    if (!libsAreArchSpecific) {
+        printResult = printLibs(&toolArgs, NULL, libInfo[0].libKexts,
+            /* extraNewline? */ TRUE);
+
+       /* Higher exit statuses always win.
+        */
+        if (printResult > result) {
+            result = printResult;
+        }
+    } else if (toolArgs.flagXML) {
+
+        for (i = 0; i < numArches; i++) {
+            if (libsAreArchSpecific) {
+                printResult = printLibs(&toolArgs, arches[i],
+                    libInfo[i].libKexts,
+                    /* extraNewline? */ i + 1 == numArches);
+                if (printResult > result) {
+                    result = printResult;
+                }
+            }
+        }
+    }
+
+   /* If all the libs are the same for all arches, then just print them
+    * once at the top of the output. Otherwise, only when doing XML,
+    * print the arch-specific XML declarations before the diagnostics.
+    */
+    for (i = 0; i < numArches; i++) {
+
+        if (libsAreArchSpecific && !toolArgs.flagXML) {
+            printResult = printLibs(&toolArgs, arches[i], libInfo[i].libKexts,
+                /* extraNewline? */ i + 1 == numArches);
+            if (printResult > result) {
+                result = printResult;
+            }
+        }
+
+        printResult = printProblems(&toolArgs, arches[i],
+            libInfo[i].undefSymbols, libInfo[i].onedefSymbols,
+            libInfo[i].multdefSymbols, libInfo[i].multdefLibs,
+            /* printArchFlag */ !libsAreArchSpecific || toolArgs.flagXML,
+            /* extraNewline? */ i + i < numArches);
+
+        if (printResult != EX_OK) {
+           /* Higher exit statuses always win.
+            */
+            if (printResult > result) {
+                result = printResult;
+            }
+        }
+    }
+
+
+finish:
+
+   /* We're done so we just exit without cleaning up.
+    */
+    exit(result);
+
+    SAFE_FREE(arches);
+
+    SAFE_RELEASE(toolArgs.repositoryURLs);
+    SAFE_RELEASE(toolArgs.kextURL);
+    SAFE_RELEASE(toolArgs.theKext);
+    SAFE_RELEASE(kexts);
+
+    if (libInfo) {
+        for (i = 0; numArches; i++) {
+            SAFE_RELEASE_NULL(libInfo[i].libKexts);
+            SAFE_RELEASE_NULL(libInfo[i].undefSymbols);
+            SAFE_RELEASE_NULL(libInfo[i].onedefSymbols);
+            SAFE_RELEASE_NULL(libInfo[i].multdefSymbols);
+            SAFE_RELEASE_NULL(libInfo[i].multdefLibs);
+        }
+        free(libInfo);
+    }
+    return result;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+ExitStatus readArgs(
+    int            argc,
+    char * const * argv,
+    KextlibsArgs * toolArgs)
+{
+    ExitStatus  result  = EX_USAGE;
+    int         optChar = 0;
+
+    bzero(toolArgs, sizeof(*toolArgs));
+
    /*****
     * Allocate collection objects needed for command line argument processing.
     */
-    if (!allocateArray(&repositoryDirectories)) {
-        goto finish;
-    }
-    if (!allocateDictionary(&undefSymbols)) {
-        goto finish;
-    }
-    if (!allocateDictionary(&onedefSymbols)) {
-        goto finish;
-    }
-    if (!allocateDictionary(&multdefSymbols)) {
-        goto finish;
-    }
-    if (!allocateArray(&multdefLibs)) {
+    toolArgs->repositoryURLs = CFArrayCreateMutable(kCFAllocatorDefault, 0,
+        &kCFTypeArrayCallBacks);
+    if (!toolArgs->repositoryURLs) {
+        OSKextLogMemError();
+        result = EX_OSERR;
         goto finish;
     }
 
    /*****
     * Process command-line arguments.
     */
-    while ((opt_char = getopt_long_only(argc, argv, kOPT_CHARS,
-        opt_info, NULL)) != -1) {
+    result = EX_USAGE;
 
-        switch (opt_char) {
+    while ((optChar = getopt_long_only(argc, argv, kOptChars,
+        sOptInfo, NULL)) != -1) {
 
-          case kOptHelp:
-            usage(2);
-            goto finish;
-            break;
+        switch (optChar) {
 
-          case kOptRepository:
-            if (!check_dir(optarg, 0 /* writeable */, 1 /* print error */)) {
+            case kOptHelp:
+                usage(kUsageLevelFull);
+                result = kKextlibsExitHelp;
                 goto finish;
-            }
+                break;
 
-            if (!addRepositoryName(optarg, repositoryDirectories)) {
+            case kOptRepository:
+                result = addRepository(toolArgs, optarg);
+                if (result != EX_OK) {
+                    goto finish;
+                };
+                break;
+
+            case kOptCompatible:
+                toolArgs->flagCompatible = true;
+                break;
+
+            case kOptSystemExtensions:
+                toolArgs->flagSysKexts = true;
+                break;
+
+            case kOptQuiet:
+                beQuiet();
+                break;
+
+            case kOptVerbose:
+                result = setLogFilterForOpt(argc, argv, /* forceOnFlags */ 0);
+                break;
+
+            case 0:
+                switch (longopt) {
+                    case kLongOptXML:
+                        toolArgs->flagXML = true;
+                        break;
+
+                    case kLongOptAllSymbols:
+                        toolArgs->flagPrintUndefSymbols = true;
+                        toolArgs->flagPrintOnedefSymbols = true;
+                        toolArgs->flagPrintMultdefSymbols = true;
+                        break;
+
+                    case kLongOptUndefSymbols:
+                        toolArgs->flagPrintUndefSymbols = true;
+                        break;
+
+                    case kLongOptOnedefSymbols:
+                        toolArgs->flagPrintOnedefSymbols = true;
+                        break;
+
+                    case kLongOptMultdefSymbols:
+                        toolArgs->flagPrintMultdefSymbols = true;
+                        break;
+
+                    case kLongOptNonKPI:
+                        toolArgs->flagNonKPI = true;
+                        break;
+
+                    case kLongOptUnsupported:
+                        toolArgs->flagAllowUnsupported = true;
+                        break;
+
+                }
+                break;
+            
+            default:
+                usage(kUsageLevelBrief);
                 goto finish;
-            };
-            break;
-
-          case kOptCompatible:
-            flag_compatible = true;
-            break;
-
-          case kOptSystemExtensions:
-            CFArrayAppendValue(repositoryDirectories, kKXSystemExtensionsFolder);
-            break;
-
-          case 0:
-            switch (longopt) {
-
-              case kLongOptXML:
-                flag_xml = true;
                 break;
-
-              case kLongOptAllSymbols:
-                flag_all_syms = true;
-                break;
-
-              case kLongOptNonKPI:
-                flag_non_kpi = true;
-                break;
-
             }
-            break;
-        }
     }
 
     argc -= optind;
     argv += optind;
 
     if (!argv[0]) {
-        fprintf(stderr, "no kext specified\n");
-        usage(1);
+        fprintf(stderr, "No kext specified.");
+        usage(kUsageLevelBrief);
         goto finish;
     }
 
-    kext_name = argv[0];
-    kextName = CFStringCreateWithFileSystemRepresentation(kCFAllocatorDefault,
-        kext_name);
+    result = checkPath(argv[0], kOSKextBundleExtension,
+        /* directoryRequired */ TRUE, /* writableRequired */ FALSE);
+    if (result != EX_OK) {
+        goto finish;
+    }
+    toolArgs->kextName = argv[0];
 
-   /*****
-    * Set up the kext manager.
-    */
-    theKextManager = KXKextManagerCreate(kCFAllocatorDefault);
-    if (!theKextManager) {
-        qerror("can't allocate kernel extension manager\n");
+    argc--;
+    argv++;
+
+    if (argc) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+            "Too many arguments starting at '%s'.", argv[0]);
+        usage(kUsageLevelBrief);
+        goto finish;
+    }
+    
+    result = EX_OK;
+finish:
+    return result;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+ExitStatus addRepository(
+    KextlibsArgs * toolArgs,
+    const char   * path)
+{
+    ExitStatus  result = EX_OSERR;
+    CFURLRef    url    = NULL;   // must release
+
+    result = checkPath(path, /* suffix */ NULL,
+        /* dirRequired? */ TRUE, /* writableRequired? */ FALSE);
+    if (result != EX_OK) {
         goto finish;
     }
 
-    kmErr = KXKextManagerInit(theKextManager, true /* load_in_task */,
-        false /* safe_boot_mode */);
-    if (kmErr != kKXKextManagerErrorNone) {
-        qerror("can't initialize kernel extension manager (%s)\n",
-            KXKextManagerErrorStaticCStringForError(kmErr));
+    url = CFURLCreateFromFileSystemRepresentation(
+        kCFAllocatorDefault, (const UInt8 *)path, strlen(path), true);
+    if (!url) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+            "Can't create CFURL for '%s'.", path);
         goto finish;
     }
+    addToArrayIfAbsent(toolArgs->repositoryURLs, url);
 
-    KXKextManagerSetPerformsFullTests(theKextManager, true);
-    KXKextManagerSetPerformsStrictAuthentication(theKextManager, true);
-    KXKextManagerSetLogLevel(theKextManager, kKXKextManagerLogLevelSilent);
-    KXKextManagerSetLogFunction(theKextManager, &verbose_log);
-    KXKextManagerSetErrorLogFunction(theKextManager, &error_log);
-//    KXKextManagerSetUserVetoFunction(theKextManager, &user_approve);
-//    KXKextManagerSetUserApproveFunction(theKextManager, &user_approve);
-//    KXKextManagerSetUserInputFunction(theKextManager, &user_input);
+    result = EX_OK;
+finish:
+    SAFE_RELEASE(url);
+    return result;
+}
 
-   /*****
-    * Disable clearing of relationships until we're done putting everything
-    * together.
-    */
-    KXKextManagerDisableClearRelationships(theKextManager);
+/*******************************************************************************
+* This function prints to stdout, as it represents the only real output of
+* the program and we want to be able to pipe it into pbcopy.
+*******************************************************************************/
+ExitStatus printLibs(
+    KextlibsArgs     * toolArgs,
+    const NXArchInfo * arch,
+    CFArrayRef         libKexts,
+    Boolean            trailingNewlineFlag)
+{
+    ExitStatus         result        = EX_OSERR;
+    const NXArchInfo * genericArch   = NULL;  // do not free
+    char             * libIdentifier = NULL;  // must free
+    CFIndex            count, i;
 
-   /*****
-    * Add the extensions folders to the manager.
-    */
-    count = CFArrayGetCount(repositoryDirectories);
-    if (count == 0) {
-        CFArrayAppendValue(repositoryDirectories, kKXSystemExtensionsFolder);
+    if (arch) {
+        genericArch = NXGetArchInfoFromCpuType(arch->cputype,
+            CPU_SUBTYPE_MULTIPLE);
+        if (!genericArch) {
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                "Can't find generic NXArchInfo for %s.",
+                arch->name);
+            goto finish;
+        }
     }
 
-    count = CFArrayGetCount(repositoryDirectories);
+    count = CFArrayGetCount(libKexts);
+    
+   /* For XML output, don't print anything if we found no libraries;
+    * an empty OSBundleLibraries might look like good output to somebody.
+    */
+    if (toolArgs->flagXML) {
+        if (count) {
+            fprintf(stdout, "\t<key>OSBundleLibraries%s%s</key>\n",
+                genericArch ? "_" : "",
+                genericArch ? genericArch->name : "");
+            fprintf(stdout, "\t<dict>\n");
+        }
+    } else {
+        if (arch) {
+             fprintf(stderr, "For %s:\n", arch->name);
+        } else {
+             fprintf(stderr, "For all architectures:\n");
+        }
+        if (!count) {
+            fprintf(stdout, "    No libraries found.\n");
+        }
+    }
     for (i = 0; i < count; i++) {
-        CFStringRef directory = (CFStringRef)CFArrayGetValueAtIndex(
-            repositoryDirectories, i);
-        CFURLRef directoryURL =
-            CFURLCreateWithFileSystemPath(kCFAllocatorDefault,
-                directory, kCFURLPOSIXPathStyle, true);
-        if (!directoryURL) {
-            qerror("memory allocation failure\n");
-            goto finish;
+        OSKextRef      libKext = (OSKextRef)CFArrayGetValueAtIndex(libKexts, i);
+        OSKextVersion  version;
+        char           versCString[kOSKextVersionMaxLength];
+
+        SAFE_FREE_NULL(libIdentifier);
+
+        libIdentifier = createUTF8CStringForCFString(OSKextGetIdentifier(libKext));
+
+        if (toolArgs->flagCompatible) {
+            version = OSKextGetCompatibleVersion(libKext);
+        } else {
+            version = OSKextGetVersion(libKext);
         }
 
-        kmErr = KXKextManagerAddRepositoryDirectory(theKextManager,
-            directoryURL, true /* scanForKexts */,
-            false /* use_repository_caches */, NULL);
-        if (kmErr != kKXKextManagerErrorNone) {
-            qerror("can't add repository (%s).\n",
-                KXKextManagerErrorStaticCStringForError(kmErr));
-            goto finish;
-        }
-        CFRelease(directoryURL);
-        directoryURL = NULL;
-    }
+        if (libIdentifier && version > kOSKextVersionUndefined) {
+            OSKextVersionGetString(version, versCString, sizeof(versCString));
 
-    kextURL = CFURLCreateWithFileSystemPath(kCFAllocatorDefault,
-        kextName, kCFURLPOSIXPathStyle, true);
-    if (!kextURL) {
-        qerror("memory allocation failure\n");
-        goto finish;
-    }
-
-    kmErr = KXKextManagerAddKextWithURL(theKextManager, kextURL, true, &theKext);
-    if (kmErr != kKXKextManagerErrorNone) {
-        qerror("can't add kernel extension %s (%s)",
-            kext_name, KXKextManagerErrorStaticCStringForError(kmErr));
-        qerror(" (run %s on this kext with -t for diagnostic output)\n",
-            progname);
-        goto finish;
-    }
-
-    KXKextManagerEnableClearRelationships(theKextManager);
-
-    KXKextManagerAuthenticateKexts(theKextManager);
-    KXKextManagerCalculateVersionRelationships(theKextManager);
-    KXKextManagerResolveAllKextDependencies(theKextManager);
-
-    if (!readSymbolReferences(theKext,
-        &kext_cpu_type, &kext_cpu_subtype, undefSymbols)) {
-        goto finish;
-    }
-
-    libKexts = KXKextManagerCopyAllKexts(theKextManager);
-    if (!libKexts) {
-        goto finish;
-    }
-
-   /* Drop from consideration all non-library (and non-kpi) kexts. Sheesh,
-    * this is too complicated. Need to add a lib routine to make this decision.
-    */
-    count = CFArrayGetCount(libKexts);
-    for (i = count; i; i--) {
-        CFIndex index = i - 1;
-        KXKextRef thisKext = (KXKextRef)CFArrayGetValueAtIndex(libKexts, index);
-        if (!kextIsLibrary(thisKext, flag_non_kpi)) {
-
-            CFArrayRemoveValueAtIndex(libKexts, index);
-        }
-    }
-
-    count = CFArrayGetCount(libKexts);
-    for (i = count; i; i--) {
-        CFIndex index = i - 1;
-        KXKextRef libKext = (KXKextRef)CFArrayGetValueAtIndex(libKexts, index);
-        if (!findSymbols(libKext, kext_cpu_type, kext_cpu_subtype,
-            undefSymbols, onedefSymbols, multdefSymbols, multdefLibs)) {
-
-            CFArrayRemoveValueAtIndex(libKexts, index);
-        }
-    }
-
-    undefCount = CFDictionaryGetCount(undefSymbols);
-    onedefCount = CFDictionaryGetCount(onedefSymbols);
-    multdefCount = CFDictionaryGetCount(multdefSymbols);
-
-    count = CFArrayGetCount(libKexts);
-    if (count && flag_xml) {
-        fprintf(stdout, "\t<key>OSBundleLibraries</key>\n");
-        fprintf(stdout, "\t<dict>\n");
-    }
-    for (i = count; i; i--) {
-        CFIndex index = i - 1;
-        KXKextRef libKext = (KXKextRef)CFArrayGetValueAtIndex(libKexts,
-            index);
-        CFDictionaryRef infoDict;
-        CFStringRef versString;
-        char * bundle_id = NULL; // must free
-        char * version = NULL; // must free
-
-	bundle_id = _cStringForCFString(KXKextGetBundleIdentifier(libKext));
-        
-        infoDict = KXKextGetInfoDictionary(libKext);
-        if (infoDict) {
-            infoDict = KXKextGetInfoDictionary(libKext);
-            versString = CFDictionaryGetValue(infoDict, flag_compatible ?
-                CFSTR("OSBundleCompatibleVersion") : kCFBundleVersionKey);
-            if (versString) {
-                version = _cStringForCFString(versString);
-            }
-        }
-	if (bundle_id && version) {
-            if (flag_xml) {
-                fprintf(stdout, "\t\t<key>%s</key>\n", bundle_id);
-                fprintf(stdout, "\t\t<string>%s</string>\n", version);
+            if (toolArgs->flagXML) {
+                fprintf(stdout, "\t\t<key>%s</key>\n", libIdentifier);
+                fprintf(stdout, "\t\t<string>%s</string>\n", versCString);
             } else {
-                fprintf(stdout, "%s = %s\n", bundle_id, version);
+                fprintf(stdout, "    %s = %s\n", libIdentifier, versCString);
             }
+        } else {
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                "Internal error generating library list.");
+            goto finish;
         }
-        if (bundle_id) free(bundle_id);
-        if (version)   free(version);
     }
-    if (count && flag_xml) {
+    if (count && toolArgs->flagXML) {
         fprintf(stdout, "\t</dict>\n");
     }
 
+    if (trailingNewlineFlag) {
+        fprintf(stderr, "\n");
+    }
+    
+    result = kKextlibsExitOK;
+finish:
+    SAFE_FREE(libIdentifier);
+    return result;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+ExitStatus printProblems(
+    KextlibsArgs     * toolArgs,
+    const NXArchInfo * arch,
+    CFDictionaryRef    undefSymbols,
+    CFDictionaryRef    onedefSymbols,
+    CFDictionaryRef    multdefSymbols,
+    CFArrayRef         multdefLibs,
+    Boolean            printArchFlag,
+    Boolean            trailingNewlineFlag)
+{
+    ExitStatus         result              = EX_OSERR;
+    CFIndex            undefCount, onedefCount, multdefCount;
+    CFIndex            count, i;
+
+    onedefCount  = CFDictionaryGetCount(onedefSymbols);
+    undefCount   = CFDictionaryGetCount(undefSymbols);
+    multdefCount = CFDictionaryGetCount(multdefSymbols);
+
+    if (!toolArgs->flagPrintOnedefSymbols && !undefCount && !multdefCount) {
+        result = kKextlibsExitOK;
+        goto finish;
+    }
+
+    if (printArchFlag) {
+        fprintf(stderr, "For %s:\n", arch->name);
+    }
+
+    if (toolArgs->flagPrintOnedefSymbols) {
+        fprintf(stderr, "    %ld symbol%s found in one library kext each%s\n",
+            onedefCount,
+            onedefCount > 1 ? "s" : "",
+            onedefCount && toolArgs->flagPrintOnedefSymbols ? ":" : ".");
+        CFDictionaryApplyFunction(onedefSymbols, printOnedefSymbol,
+            &(toolArgs->flagCompatible));
+    }
+
     if (undefCount) {
-        fprintf(stderr, "%ld symbols not found in any library kext%s\n",
-            undefCount, flag_all_syms ? ":" : "");
-        if (flag_all_syms) {
+        fprintf(stderr, "    %ld symbol%s not found in any library kext%s\n",
+            undefCount,
+            undefCount > 1 ? "s" : "",
+            toolArgs->flagPrintUndefSymbols ? ":" : ".");
+        if (toolArgs->flagPrintUndefSymbols) {
             CFDictionaryApplyFunction(undefSymbols, printUndefSymbol, NULL);
         }
-        exit_code = kKextlibsExitUndefineds;
+        result = kKextlibsExitUndefineds;
     }
     if (multdefCount) {
-        if (flag_all_syms) {
-            fprintf(stderr, "%ld symbols found in more than one library kext:\n",
-                multdefCount);
+        if (toolArgs->flagPrintMultdefSymbols) {
+            fprintf(stderr, "    %ld symbol%s found in more than one library kext:\n",
+                multdefCount,
+                multdefCount > 1 ? "s" : "");
             CFDictionaryApplyFunction(multdefSymbols, printMultdefSymbol,
-                &flag_compatible);
+                &(toolArgs->flagCompatible));
         } else {
             count = CFArrayGetCount(multdefLibs);
-            fprintf(stderr, "multiple symbols found among %ld libraries:\n",
+            fprintf(stderr, "    Multiple symbols found among %ld libraries:\n",
                 count);
             for (i = 0; i < count; i++) {
-                KXKextRef lib = (KXKextRef)CFArrayGetValueAtIndex(multdefLibs, i);
+                OSKextRef lib = (OSKextRef)CFArrayGetValueAtIndex(multdefLibs, i);
                 char * name = NULL; // must free
-                name = _cStringForCFString(KXKextGetBundleIdentifier(lib));
-		if (name) {
+                name = createUTF8CStringForCFString(OSKextGetIdentifier(lib));
+                if (name) {
                     fprintf(stderr, "\t%s\n", name);
-                    free(name);
                 }
+                SAFE_FREE(name);
             }
         }
-        exit_code = kKextlibsExitMultiples;
+        result = kKextlibsExitMultiples;
     }
+
+    if (trailingNewlineFlag) {
+        fprintf(stderr, "\n");
+    }
+
     if (undefCount || multdefCount) {
         goto finish;
     }
 
-    exit_code = kKextlibsExitOK;
-finish:
-    if (repositoryDirectories)  CFRelease(repositoryDirectories);
-    if (kextName)               CFRelease(kextName);
-    if (kextURL)                CFRelease(kextURL);
-    if (theKextManager)         CFRelease(theKextManager);
-
-    if (libKexts)       CFRelease(libKexts);
-    if (undefSymbols)   CFRelease(undefSymbols);
-    if (onedefSymbols)  CFRelease(onedefSymbols);
-    if (multdefSymbols) CFRelease(multdefSymbols);
-    if (multdefLibs)    CFRelease(multdefLibs);
-    return exit_code;
-}
-
-/*******************************************************************************
-*******************************************************************************/
-Boolean addRepositoryName(
-    const char * optarg,
-    CFMutableArrayRef repositoryDirectories)
-{
-    Boolean result = false;
-    CFStringRef name = NULL;   // must release
-
-    name = CFStringCreateWithCString(kCFAllocatorDefault,
-            optarg, kCFStringEncodingUTF8);
-    if (!name) {
-        qerror(kErrorStringMemoryAllocation);
-        goto finish;
-    }
-    CFArrayAppendValue(repositoryDirectories, name);
-
-    result = true;
-finish:
-    if (name) CFRelease(name);
-    return result;
-}
-
-/*******************************************************************************
-* allocateArray()
-*******************************************************************************/
-static int allocateArray(CFMutableArrayRef * array) {
-
-    int result = 1;  // assume success
-
-    if (!array) {
-        qerror("internal error\n");
-        result = 0;
-        goto finish;
-    }
-
-    *array = CFArrayCreateMutable(kCFAllocatorDefault, 0,
-        &kCFTypeArrayCallBacks);
-    if (!*array) {
-        result = 0;
-        qerror(kErrorStringMemoryAllocation);
-        goto finish;
-    }
-
-finish:
-    return result;
-}
-
-/*******************************************************************************
-* allocateDictionary()
-*******************************************************************************/
-static int allocateDictionary(CFMutableDictionaryRef * dict) {
-
-    int result = 1;  // assume success
-
-    if (!dict) {
-        qerror("internal error\n");
-        result = 0;
-        goto finish;
-    }
-
-    *dict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
-        &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    if (!*dict) {
-        result = 0;
-        qerror(kErrorStringMemoryAllocation);
-        goto finish;
-    }
+    result = kKextlibsExitOK;
 
 finish:
     return result;
@@ -891,90 +610,174 @@ finish:
 /*******************************************************************************
 *
 *******************************************************************************/
-char *
-_cStringForCFString(CFStringRef cfString)
+void printUndefSymbol(const void * key, const void * value, void * context)
 {
-    uint32_t stringLength = 0;
-    char * string = NULL;
+    char * cSymbol = NULL; // must free
 
-    stringLength = CFStringGetMaximumSizeForEncoding(
-        CFStringGetLength(cfString), kCFStringEncodingUTF8);
-    string = (char *)malloc(stringLength);
-    if (!string) {
-        goto finish;
+    cSymbol = createUTF8CStringForCFString((CFStringRef)key);
+    if (cSymbol) {
+        fprintf(stderr, "\t%s\n", cSymbol);
     }
-    if (!CFStringGetCString(cfString, string, stringLength,
-        kCFStringEncodingUTF8)) {
-
-        free(string);
-        string = NULL;
-        goto finish;
-    }
-finish:
-    return string;
+    SAFE_FREE(cSymbol);
+    return;
 }
 
 /*******************************************************************************
 *
 *******************************************************************************/
-char *
-_posixPathForCFString(CFStringRef cfString)
+void printOnedefSymbol(const void * key, const void * value, void * context)
 {
-    uint32_t stringLength = 0;
-    char * string = NULL;
+    Boolean       flagCompatible  = *(Boolean *)context;
+    OSKextRef     libKext         = (OSKextRef)value;
+    char        * cSymbol         = NULL; // must free
+    char        * libVers         = NULL; // must free
+    CFURLRef      libKextURL;
+    char          libKextName[PATH_MAX];
+    CFStringRef   libVersString = NULL; // do not release
 
-    stringLength = CFStringGetMaximumSizeForEncoding(
-        CFStringGetLength(cfString), kCFStringEncodingUTF8);
-    string = (char *)malloc(stringLength);
-    if (!string) {
+    cSymbol = createUTF8CStringForCFString((CFStringRef)key);
+    if (!cSymbol) {
+        OSKextLogStringError(/* kext */ NULL);
         goto finish;
     }
-    if (!CFStringGetFileSystemRepresentation(cfString, string, stringLength)) {
 
-        free(string);
-        string = NULL;
+    libKextURL = OSKextGetURL(libKext);
+    if (!CFURLGetFileSystemRepresentation(libKextURL,
+        /* resolveToBase */ false, 
+        (u_char *)libKextName, PATH_MAX)) {
+
+        OSKextLogStringError(/* kext */ NULL);
         goto finish;
     }
+    if (flagCompatible) {
+        libVersString = OSKextGetValueForInfoDictionaryKey(libKext,
+            CFSTR("OSBundleCompatibleVersion"));
+    } else {
+        libVersString = OSKextGetValueForInfoDictionaryKey(libKext,
+            kCFBundleVersionKey);
+    }
+
+    libVers = createUTF8CStringForCFString(libVersString);
+    if (!libVers) {
+        OSKextLogStringError(/* kext */ NULL);
+        goto finish;
+    }
+
+    fprintf(stderr, "    %s in %s (%s%s)\n", cSymbol, libKextName,
+        flagCompatible ? "compatible version " : "", libVers);
+
 finish:
-    return string;
+    SAFE_FREE(cSymbol);
+    SAFE_FREE(libVers);
+
+    return;
+}
+
+/*******************************************************************************
+*
+*******************************************************************************/
+void printMultdefSymbol(const void * key, const void * value, void * context)
+{
+    char        * cSymbol         = NULL; // must free
+    char        * libVers         = NULL; // must free
+    CFArrayRef   libs = (CFArrayRef)value;
+    Boolean      flagCompatible   = *(Boolean *)context;
+    CFIndex      count, i;
+
+    cSymbol = createUTF8CStringForCFString((CFStringRef)key);
+    if (cSymbol) {
+        fprintf(stderr, "    %s: in\n", cSymbol);
+    }
+
+    count = CFArrayGetCount(libs);
+    for (i = 0; i < count; i++) {
+        OSKextRef     libKext = (OSKextRef)CFArrayGetValueAtIndex(libs, i);
+        CFURLRef      libKextURL;
+        char          libKextName[PATH_MAX];
+        CFStringRef   libVersString = NULL; // do not release
+
+        SAFE_FREE_NULL(libVers);
+
+        libKextURL = OSKextGetURL(libKext);
+        if (!CFURLGetFileSystemRepresentation(libKextURL,
+            /* resolveToBase */ true, 
+            (u_char *)libKextName, PATH_MAX)) {
+
+            fprintf(stderr, "string/url conversion error\n");
+            goto finish;
+        }
+        if (flagCompatible) {
+            libVersString = OSKextGetValueForInfoDictionaryKey(libKext,
+                CFSTR("OSBundleCompatibleVersion"));
+        } else {
+            libVersString = OSKextGetValueForInfoDictionaryKey(libKext,
+                kCFBundleVersionKey);
+        }
+
+        libVers = createUTF8CStringForCFString(libVersString);
+        if (!libVers) {
+            fprintf(stderr, "string/url conversion error\n");
+            goto finish;
+        }
+        fprintf(stderr, "        %s (%s%s)\n", libKextName,
+            flagCompatible ? "compatible version " : "", libVers);
+    }
+
+finish:
+    SAFE_FREE(cSymbol);
+    SAFE_FREE(libVers);
+
+    return;
 }
 
 /*******************************************************************************
 * usage()
 *******************************************************************************/
-static void usage(int level)
+static void usage(UsageLevel usageLevel)
 {
-    FILE * stream = stderr;
+    fprintf(stderr, "usage: %s [options] kext\n", progname);
 
-    fprintf(stream,
-      "usage: %s [options] kext"
-      "\n",
-      progname);
-
-    if (level < 1) {
-        return;
-    }
-
-    if (level == 1) {
-        fprintf(stream, "use %s -%s for a list of options\n",
+    if (usageLevel == kUsageLevelBrief) {
+        fprintf(stderr, "\nuse %s -%s for a list of options\n",
             progname, kOptNameHelp);
         return;
     }
 
-    fprintf(stderr, "Options:\n");
-    fprintf(stderr, "  -%s (-%c): look in the system exensions folder\n"
-        "    (assumed if no other folders specified with %s)\n",
-        kOptNameSystemExtensions, kOptSystemExtensions,
-        kOptNameRepository);
-    fprintf(stderr, "  -%s directory (-%c): look directory for library kexts\n",
-        kOptNameRepository, kOptRepository);
-    fprintf(stderr, "  -%s: print XML fragment suitable for pasting\n",
-        kOptNameXML);
-    fprintf(stderr, "  -%s: list all symbols not found or found in multiple\n"
-        "    library kexts\n",
-        kOptNameAllSymbols);
-    fprintf(stderr, "  -%s (-%c): use library kext compatble versions\n"
-        "    rather than current versions\n",
-        kOptNameCompatible, kOptCompatible);
+    fprintf(stderr, "\n");
+
+    // extra newline for spacing
+    fprintf(stderr, "<kext>: the kext to find libraries for\n");
+
+    fprintf(stderr, "-%s <arch>:\n", kOptNameArch);
+    fprintf(stderr, "        resolve for architecture <arch> instead of running kernel's\n");
+    fprintf(stderr, "-%s:   print XML fragment suitable for pasting\n", kOptNameXML);
+
+     // fake out compiler for blank line
+     fprintf(stderr, "\n");
+
+    fprintf(stderr, "-%s (-%c):\n",
+        kOptNameSystemExtensions, kOptSystemExtensions);
+    fprintf(stderr,  "        look in the system exensions folder (assumed if no other folders\n"
+        "        specified with %s)\n",kOptNameRepository);
+    fprintf(stderr, "-%s <directory> (-%c):\n", kOptNameRepository, kOptRepository);
+    fprintf(stderr, "        look in <directory> for library kexts\n");
+    
+    fprintf(stderr, "%s", "\n");
+
+    fprintf(stderr, "-%s:\n", kOptNameAllSymbols);
+    fprintf(stderr, "        list all symbols, found, not found, or found more than once\n");
+    fprintf(stderr, "-%s:\n", kOptNameOnedefSymbols);
+    fprintf(stderr, "        list all symbols found with the library kext they were found in\n");
+    fprintf(stderr, "-%s:\n", kOptNameUndefSymbols);
+    fprintf(stderr, "        list all symbols not found in any library\n");
+    fprintf(stderr, "-%s:\n", kOptNameMultdefSymbols);
+    fprintf(stderr, "        list all symbols found more than once with their library kexts\n");
+
+    fprintf(stderr, "%s", "\n");
+
+    fprintf(stderr, "-%s (-%c):\n", kOptNameCompatible, kOptCompatible);
+    fprintf(stderr, "        use library kext compatble versions rather than current versions\n");
+    fprintf(stderr, "-%s:\n", kOptNameUnsupported);
+    fprintf(stderr, "        look in unsupported kexts for symbols\n");
     return;
 }

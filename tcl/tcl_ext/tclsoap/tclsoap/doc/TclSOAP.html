@@ -1,0 +1,502 @@
+<!doctype HTML public "-//W3O//DTD W3 HTML 2.0//EN">
+  <head>
+    <link href="tclsoap.css" rel="stylesheet" type="text/css">
+    <title>SOAP 1.6 Package for Tcl 8.3</title>
+    <meta http-equiv="Description" name="Description"
+      content="SOAP package for Tcl. Provides remote procedure calls
+      using the SOAP protocol over HTTP and utilities to provide Tcl
+      procedures as SOAP methods via the tclhttpd server." />
+    <meta http-equiv="Keywords" name="Keywords"
+      content="Tcl,SOAP,Simple Object Access Protocol,XML,XML-RPC,
+      Remote Procedure Call, RPC" />
+  </head>
+
+  <!-- ================================================================== -->
+
+  <body>
+  <table class="globaltable">
+  <tr><td class="header" width="15%">
+      <a href="http://sourceforge.net">
+         <img align="middle" alt="SourceForge Logo" border="0" height="31" 
+             src="http://sourceforge.net/sflogo.php?group_id=25970"
+             width="88"></a>
+      </td>
+      <td class="header" width="70%">
+           <h1>Tcl SOAP Client Utility Packages</h1>
+      </td>
+      <td class="logo" width="15%">
+        <img src="tclsoap.gif" alt="TclSOAP Logo" align="middle"
+        border="0" height="84" width="57" />
+      </td>
+  </tr>
+
+  <tr><td class="sidebar">
+    <table>
+<tr><td class="sidehead">Sections</td></tr>
+<tr><td class="sideelt"><a href="#introduction">Introduction</a></td></tr>
+<tr><td class="sideelt"><a href="#methods">Commands</a></td></tr>
+<tr><td class="sideelt"><a href="SOAP-CGI.html">CGI Server</a></td></tr>
+<tr><td class="sideelt"><a href="#implementation">Implementation</a></td></tr>
+<tr><td class="sideelt"><a href="#download">Downloading</a></td></tr>
+<tr><td class="sideelt"><a href="dom-packages.html">DOM packages</a></td></tr>
+<tr><td class="sideelt"><a href="SOAPURLDomain.html">TclHTTPd SOAP</a></td></tr>
+<tr><td class="sideelt"><a href="XMLRPCDomain.html">TclHTTPd XMLRPC</a></td></tr>
+<tr><td class="sideelt"><a href="http://sourceforge.net/docman/display_doc.php?docid=8689&group_id=25970">TclSOAP and SSL</a></td></tr>
+<tr><td class="sidehead">Project</td></tr>
+<tr><td class="sideelt"><A href="http://sourceforge.net/projects/tclsoap">Project Page</A></td></tr>
+<tr><td class="sideelt"><A href="http://sourceforge.net/project/showfiles.php?group_id=25970">File Releases</A></td></tr>
+<tr><td class="sideelt"><A href="http://tclsoap.sourceforge.net/">WebPage</A></td></tr>
+<tr><td class="sideelt"><A href="http://sourceforge.net/docman/?group_id=25970">Documentation</A></td></tr>
+<tr><td class="sideelt"><A href="http://sourceforge.net/forum/?group_id=25970">Forums</A></td></tr>
+<tr><td class="sideelt"><a href="http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/tclsoap/tclsoap">Browse CVS</a></td></tr>
+
+<tr><td class="sidehead">Interop</td></tr>
+<tr><td class="sideelt"><a href="silab/round1.html">Round 1 Tests</a></td></tr>
+<tr><td class="sideelt"><a href="silab/round2base.html">Round 2 Base</a></td></tr>
+<tr><td class="sideelt"><a href="silab/round2B.html">Round 2B</a></td></tr>
+<tr><td class="sideelt"><a href="silab/round2C.html">Round 2C</a></td></tr>
+<tr><td class="sideelt">&nbsp</td></tr>
+<tr><td class="sideelt"><a href="WSDL/">WSDL Files</a></td></tr>
+
+<tr><td class="sidehead">Support</td></tr>
+<tr><td class="sideelt"><A href="http://sourceforge.net/tracker/?aid=385859&group_id=25970&func=browse">Bugs</A></td></tr>
+<tr><td class="sideelt"><A href="http://sourceforge.net/tracker/?aid=385860&group_id=25970&func=browse">Support Requests</A></td></tr>
+<tr><td class="sideelt"><A href="http://sourceforge.net/tracker/?aid=385861&group_id=25970&func=browse">Patches</A></td></tr>
+<tr><td class="sideelt"><a href="http://sourceforge.net/tracker/?aid=385862&group_id=25970&func=browse">Feature Requests</A></td></tr>
+    </table></td>
+
+<td class="body" colspan="2">
+<div class="body">
+
+  <!-- ================================================================== -->
+
+ 
+  <hr noshade="noshade" size="2" />
+
+  <!-- ================================================================== -->
+
+  <h1>Contents</h1>
+  <ol>
+  <li><a href="#introduction">Introduction to TclSOAP</a></li>
+  <li><a href="#methods">SOAP Package Commands</a></li>
+  <li><a href="SOAP-CGI.html">CGI Server Package</a></li>
+  <li><a href="SOAPURLDomain.html">TclHTTPD SOAP Server Utilities</a></li>
+  <li><a href="XMLRPCDomain.html">TclHTTPD XML-RPC Server Utilities</a></li>
+  <li><a href="#download">Download Information</a></li>
+  <li><a href="dom-packages.html">TclDOM Packages for TclSOAP</a></li>
+  <li><a href="https://sourceforge.net/docman/display_doc.php?docid=8689&group_id=25970">
+  TclSOAP over SSL</a></li>
+  </ol>
+
+  <!-- ================================================================== -->
+
+  <h1><a name="introduction">Introduction</a></h1>
+
+  <p>I have been testing out using SOAP from Tcl and have come up with
+  the following package to provide Tcl commands for SOAP remote
+  procedure calls. The following code demonstrates the ease of use for
+  simple RPC calls. This is a work in progress and some parts need
+  more work. In particular the transport layer needs to be able to be
+  configured to cope with proxy HTTP servers and authenticating proxys
+  and the like. Still it may be usefull as-is.</p>
+
+  <p>This example connects the Tcl procedure <tt>getTemp</tt> to the
+  remote method hosted by <a href="http://www.xmethods.net/">XMethods</a>.
+  In all these examples Tcl commands are prefixed with the <tt>%</tt>
+  character that is my prompt under tclsh. Results are printed without
+  the preceeding prompt character.</p>
+<pre>% package require SOAP
+1.6
+% SOAP::create getTemp \
+	-uri "urn:xmethods-Temperature" \
+	-proxy "http://services.xmethods.net/soap/servlet/rpcrouter" \
+	-params { "zipcode" "string" }
+::getTemp
+% getTemp 90810
+41.2</pre>
+
+  We bring in the package and then define the method. The
+  configuration requires a URI for the XML namespace of the SOAP
+  method and a URL for the service. The <i>params</i> configure option
+  allows the Tcl procedure to do simple parameter checking without
+  passing duff packets over the network.
+  </p>
+
+  <p>Another example, this time using the extremely clever 
+    <a href="http://www.soaplite.com/"><tt>SOAP::Lite</tt></a>
+    Perl package as a server, a Celcius to Fahrenheit convertor. We
+    shall test it using that peculiar temperature -40. This time I
+    want the Tcl procedure to be called <tt>C2F</tt>.</p>
+
+<pre>% package require SOAP
+1.6
+% SOAP::create C2F \
+	-uri "http://www.soaplite.com/Temperatures" \
+	-proxy "http://services.soaplite.com/temper.cgi" \
+	-params { "temp" "float"}\
+	-name c2f
+::C2F
+% C2F -40.0
+-40
+%</pre>
+
+    <p>It will be possible to use different transport protocols to
+    transfer the SOAP packets. At this time only HTTP is
+    supported. You may need to configure the transport subsystem so
+    the <tt>SOAP::configure</tt> command has a <i>-transport</i>
+    option. For example, at work I live behind a Microsoft NT
+    firewalling proxy web server. So I need to tell the SOAP transport
+    about the proxy. This is an authenticating proxy, so I have to add
+    a header to all HTTP requests using the Proxy-Authorization HTTP
+    field. Here's how I set up my system and then create a command for
+    the <tt>SOAP::Lite</tt> languages method.</p>
+
+<pre>% package require SOAP
+1.6
+% SOAP::configure -transport http -proxy proxyhost:8080 \
+	-headers { "Proxy-Authorization" "Basic dXNlcm5hbWUgOiBwYXNzd29yZA==" }
+% SOAP::create languages \
+	-uri "http://www.soaplite.com/Demo" \
+	-proxy "http://services.soaplite.com/hibye.cgi" \
+	-params {}
+::languages
+% languages
+Perl sh C
+%</pre>
+
+    <p>To setup a method to use a different transport there is a
+    <i>-transport</i> option for the method configure command. This
+    should be set to the name of a procedure that will be called with
+    the URL of the SOAP service and the XML data of the SOAP
+    request. It should return the reply packet or error. For example,
+    I have a dummy transport procedure that prints the SOAP request
+    and doesn't send it anywhere. To see what is being generated for a
+    method:</p>
+
+<pre># A dummy SOAP transport procedure to examine the SOAP requests generated.
+
+proc SOAP::Transport::print::print {procVarName url soap} {
+    puts "$soap"
+}
+
+% SOAP::configure languages -transport SOAP::Transport::print::print
+::languages
+% languages
+&lt;?xml version='1.0'?&gt;
+&lt;SOAP-ENV:Envelope
+    xmlns:xsi="http://www.w3.org/1999/XMLSchema-instance" 
+    xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" 
+    SOAP-ENV:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" 
+    xmlns:xsd="http://www.w3.org/1999/XMLSchema"&gt;
+&lt;SOAP-ENV:Body&gt;
+   &lt;ns:languages xmlns:ns="http://www.soaplite.com/Demo" /&gt;
+&lt;/SOAP-ENV:Body&gt;
+&lt;/SOAP-ENV:Envelope&gt;
+%</pre>
+
+    For debugging purposes it can be useful to see the XML that was
+    generated for the SOAP method request at each end. The
+    <tt>SOAP::dump</tt> command will return the XML for the last
+    transaction using HTTP for a named method.
+    </p>
+
+    <!-- ================================================================ -->
+
+    <h2>Using Complex Variable Types</h2>
+
+    <p>The SOAP protocol specifies a number of variable types in the
+    default encoding style. Most of these are simply mapped into Tcl
+    however the Array and Struct types create a special problem for
+    Tcl users. Given a string such as <em>"The cat sat on the
+    mat"</em> there is no way in Tcl to determine if this is a string
+    of 6 words, a list with 6 elements or the list representation of a
+    three element array. In SOAP terms, these would be a string, an
+    array of strings, or a struct. To properly implement SOAP clients we must
+    provide a method by which the SOAP framework can determine what
+    the parameters should be mapped into. This is achieved by the
+    <i>-params</i> configuration option and the <tt>rpcvar</tt> package.</p>
+    
+    <p>The -params option is used the specify both the number of
+    parameters, their names and their types. In SOAP, the names of the
+    parameters is supposed to be more important than their
+    positions. So:
+    <table border="0" align="bottom" cellpadding="1" cellspacing = "0"
+           bgcolor="#c0c0c0" width="100%">
+       <tr><td><code>SOAP::create a -params {num double}</code></td>
+       <td>Parameter <em>num</em> is a <tt>double</tt></td></tr>
+       <tr><td><code>SOAP::create a -params {num dateTime}</code></td>
+       <td>Parameter <em>num</em> is a SOAP <tt>dateTime</tt> date.</td></tr>
+       <tr><td><code>SOAP::create a -params {nums int()}</code></td>
+       <td><em>nums</em> is an array of integers</td></tr>
+       <tr><td><code>SOAP::create a -params {dates dateTime()}</code></td>
+       <td><em>dates</em> is an array of SOAP <tt>dateTime</tt> values</tr>
+       <tr><td><code>SOAP::create a -params {anArray array}</code></td>
+       <td><em>anArray</em> is an array of mixed types.</tr>
+    </table>
+    The final version in an untyped array. This can also be specified
+    as <tt>ur-type()</tt> or <tt>any()</tt>. In the SOAP 1.1
+    specification these arrays are set to <tt>ur-type[n]</tt></p>
+
+    <p>Structs can be handled in a similar fashion. The simplest case
+    of a structure of simple guessable types can be handled by
+    specifying a type of <tt>struct</tt>. In this case the parameter
+    is expected to be a list of name-value pairs. For more complex
+    types, particularly structs containing structs we need to define a
+    new type. This is done using the <em>typedef</em> procedure from
+    the <tt>rpcvar</tt> package.</p>
+
+<pre>package require rpcvar
+namespace import -force rpcvar::typedef
+
+typedef {
+   intValue    int
+   floatValue  float
+   stringValue string
+} simpleStruct
+
+SOAP::create a -params {myStruct simpleStruct}
+
+a {intValue 2 stringValue "Hello, World!" floatValue 2.5}</pre>
+
+    <p>An example using a nested struct type can be found in the
+    <tt><a href="../samples/soapinterop.tcl">samples/soapinterop.tcl</a></tt>
+    file shipped with TclSOAP.</p>
+
+    
+    <!-- ================================================================ -->
+
+    <hr size="2" />
+
+    <h1><a name="methods">Methods</a></h1>
+
+<!-- SOAP::create -->
+    <dl>
+    <dt>SOAP::create <i>methodName ?option value ...?</i></dt>
+       <dd><p>Create a Tcl binding for a remote procedure call using
+        SOAP. See <b>configure</b> for the permitted options.</p></dd>
+
+<!-- SOAP::configure -transport -->
+    <dt>SOAP::configure -transport <i>protocol ?option value ...?</i></dt>
+    <dd><p>Used for global configuration of the available
+    transports. The options passed in to this command are dependent on
+    the transport mchanism. The only transports currently available<p>
+
+    <p>The HTTP transport may require a proxy server and possible
+    other headers to be included. This is where to add this
+    information. For example, to pass an authenticating proxy server I
+    need to provide the name of the server and a Proxy-Authorize HTTP
+    header using the Trf package to provide the base64 encoding
+    procedure.</p>
+<pre>
+SOAP::configure -transport http -proxy wwwproxy:8080 \ 
+       -headers { "Proxy-Authorize" "Basic [base64 -enc user:pass]" }
+</pre>
+    </dd>
+
+<!-- SOAP::configure -->
+    <dt>SOAP::configure <i>methodName ?option value ...?</i></dt>
+    <dd><dl>
+
+    <dt>-uri <i>URI</i></dt>
+       <dd>The URI for the XML namespace in which this
+       method has been defined.</dd>
+
+    <dt>-proxy <i>URL</i></dt>
+       <dd>Specify the URL of the server providing the
+       implementation of this method.</dd>
+
+    <dt>-params <i>list</i></dt>
+       <dd>Configure the parameters required for this
+       method. <i>list</i> should be a list of pairs consisting of the
+       parameter name and the parameter type. The Tcl procedure will
+       check the number of parameters when constructing the SOAP
+       request. e.g.: 
+<pre>SOAP::configure getTemp -params { "zipcode" "string" }
+SOAP::configure c2f -params { "temperature" "float" }
+SOAP::configure hi -params {}
+       </pre></dd>
+
+    <dt>-transport <i>protocolProc</i></dt>
+       <dd>Select the transport protocol used for this
+       method. <i>protocolProc</i> should be a Tcl command procedure that
+       takes the URL of the SOAP server and the SOAP XML data to be
+       sent. This procedure will send the request and receive the
+       answer.</dd>
+
+    <dt>-name <i>methodName</i></dt>
+       <dd>By default a Tcl command is
+       created in the current namespace with the same name as the SOAP
+       method. If the Tcl procedure is created with a different name then
+       the <i>-name</i> configuration option must be used to set the SOAP
+       method name explicitly.</dd>
+
+    <dt>-action <i>SOAPActionValue</i></dt>
+       <dd>The SOAP 1.1 specification requires SOAP POST requests to
+       have an HTTP SOAPAction header. This may have an empty value if
+       not required (which is the default) or it may be required to be
+       set to a specific value to pass though firewalls.</dd>
+
+<!--    <dt>-xmlrpc <i>boolean</i></dt>
+       <dd>If this option is set to true then the method is configured
+       to use the XML-RPC protocol instead of the SOAP protocol. This
+       defaults to false for the SOAP package and to true for the
+       XMLRPC package. This is the only configuration option required
+       to convert a method from SOAP to XML-RPC. The effect of setting
+       this flag is to select an alternative XML packaging procedure
+       and an alternative XML parsing procedure (via the <i>-parseProc</i>
+       option). The SOAP package defines one for SOAP replies and
+       another for XML-RPC replies.
+       </dd> -->
+
+    <dt>-wrapProc <i>procedureName</i></dt>
+       <dd>Set the procedure used to wrap up the method parameters for
+       transport to the server. This procedure takes the SOAP
+       methodName followed by all the parameters required for the
+       method call and returns the generated XML data for the RPC
+       call. By default for SOAP requests this is set to
+       <tt>SOAP::soap_request</tt> and for XML-RPC methods to
+       <tt>SOAP::xmlrpc_request</tt>. This option is only likely to be 
+       used if you are implementing a new RPC protocol.
+       </dd>
+
+    <dt>-replyProc <i>procedureName</i></dt>
+       <dd>A hook procedure can be defined to be called once the
+       response packet has been received but before the XML is
+       parsed. Provided the server returned an HTTP 200 response then
+       this procedure is guarunteed to be called even if the reply
+       contains an error response. The procedure is called with two
+       parameters, the first being the SOAP method name and the second
+       being the XML text of the reply. The hook procedure should
+       return the new XML text suitable for processing by the
+       <i>-parseProc</i> procedure. For example:
+<pre>proc my_reply_hook { methodName xml } {
+   puts "$xml"
+   return $xml
+}</pre>
+       </dd>
+
+    <dt>-parseProc <i>procedureName</i></dt>
+       <dd>Specify the procedure used to parse the XML of the reply
+       and to extract the result value. The default depends upon the
+       setting of the <i>-xmlrpc</i> configuration option and is either
+       <tt>SOAP::parse_soap_response</tt> or 
+       <tt>SOAP::parse_xmlrpc_response</tt>. The procedure takes two
+       parameters as for the <i>-replyProc</i> option but should return the
+       result value from the XML packet.</dd>
+
+    <dt>-postProc <i>procedureName</i></dt>
+       <dd>An optional hook procedure may be specified here that will
+       be called once the result value has been obtained from the XML
+       packet. This procedure will take two parameters, the first is
+       the SOAP method name and the second the result value extracted
+       from the XML. The procedure should return the new result value.
+       By default no procedure is defined.</dd>
+
+    <dt>-command <i>callback</i></dt>
+       <dd>Provide support for asynchronous methods. This option
+       causes the SOAP method invocation to return immediately and the
+       <i>callback</i> procedure is called once the round trip finally
+       completes. The procedure will be called with an additional
+       argument that is the data returned by the remote method. The
+       callback procedure must exist before the SOAP method is
+       configured as the procedure name is namespace qualified during
+       configuration.
+<pre>   proc gotInfo {window data} { ... }
+   SOAP::configure getInfo -command {gotInfo .frame1.edit} ...
+</pre></dd>
+
+    </dl></dd><br>
+
+<!-- SOAP::cget -->
+    <dt>SOAP::cget <i>methodName option</i></dt>
+      <dd><p>Retrieve a configuration value from the method. The
+    <i>optionName</i> should be one of those listed for
+    <i>configure</i>. There is one additional read-only value to be
+    obtained:<br>
+    <dl><dt>http</dt>
+      <dd>retrieve the handle for the last HTTP
+      request. This is only set if the transport in use is HTTP. You can
+      examine the HTTP data using  procedures from the http package. i.e.:<br>
+      <tt>puts "[::http::data [SOAP::cget getTemp http]]"</tt><br>
+      or <br>
+      <tt>set r [::http::code [SOAP::cget getTemp http]]</tt>
+      </dd>
+    </dl>
+    </p></dd>
+
+<!-- SOAP::dump -->
+    <dt>SOAP::dump <i>option</i> <i>methodName</i></dt>
+      <dd><p>Returns information about the last HTTP transaction.
+      <dl>
+        <dt>-reply</dt>
+        <dd>returns the XML text of the servers reply</dd>
+        <dt>-request</dt>
+        <dd>returns the XML text that was sent to the server</dd>
+        <dt>-meta</dt>
+        <dd>returns the HTTP protocol meta information</dd>
+      </dl></p></dd>
+
+<!-- SOAP::invoke -->
+    <dt>SOAP::invoke <i>methodName methodParameters</i></dt>
+       <dd><p>Make a SOAP call to the configured server. This is not
+       expected to be called by a user but is called by the Tcl command
+       procedure for this SOAP method.</p></dd>
+
+<!-- SOAP::proxyconfig -->
+    <dt>SOAP::proxyconfig</dt>
+      <dd><p>This command presents a dialog box used to configure the
+      SOAP package to work with a proxy server. The fields are used to
+      call <tt>SOAP::configure -transport http</tt> with the relevant
+      options. The first entry field takes the name and port of the
+      proxy server (eg: webproxy:8080) and the second two fields are
+      used to configure a Basic Authentication HTTP header to allow
+      operation with an authenticating proxy. (such as a Windows NT
+      IIS server).
+      </p></dd>
+
+<!-- end of SOAP commands list -->
+    </dl>
+  </p>
+
+  <hr noshade="noshade" size="2" />
+
+  <h1><a name="download">Download</a></h1>
+
+  <!-- http://prdownloads.sourceforge.net/tclsoap/TclSOAP-X.X.tar.gz -->
+  <p>The package can be downloaded from 
+    <a href="http://sourceforge.net/project/showfiles.php?group_id=25970&release_id=40865">
+       the SourceForge project site
+    </a>.
+    This file should be unpacked somewhere handy and you should set
+    your TCLLIBPATH environment variable to suit. For windows users,
+    you may as well unpack it to <tt>X:\Program Files\Tcl\lib\</tt>
+  </p>
+  
+  <p>You can also obtain the source via 
+  <a href="http://sourceforge.net/cvs/?group_id=25970">
+  anonymous CVS</a> or 
+  <a href="http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/tclsoap/tclsoap">
+  browse the CVS repository</a>. You might also find recent news and
+  update information on the <a href="http://sourceforge.net/projects/tclsoap">
+  TclSOAP project page</a>. This is also the place to report bugs,
+  submit patches and discuss any issues.</p>
+  <br>
+  <br>
+
+  <!-- =================================================================  -->
+
+</div>
+</td></tr>
+<tr class="footer">
+<td class="footer" colspan="3">
+$Id: TclSOAP.html,v 1.22 2003/09/06 17:08:46 patthoyts Exp $
+</td></tr>
+
+    </table>
+  </body>
+</html>
+
+<!-- Local variables:           -->
+<!--   truncate-lines: nil      -->
+<!--   indent-tabs-mode: nil    -->
+<!-- End:                       -->

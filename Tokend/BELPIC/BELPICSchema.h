@@ -31,6 +31,7 @@
 
 #include "Schema.h"
 #include "BELPICKeyHandle.h"
+#include "BELPICAttributeCoder.h"
 
 namespace Tokend
 {
@@ -52,6 +53,9 @@ protected:
 	Tokend::Relation *createKeyRelation(CSSM_DB_RECORDTYPE keyType);
 
 private:
+	// Coders we need.
+	BELPICDataAttributeCoder mBELPICDataAttributeCoder;
+
 	Tokend::ConstAttributeCoder mKeyAlgorithmCoder;
 	Tokend::ConstAttributeCoder mKeySizeCoder;
 

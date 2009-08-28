@@ -1,27 +1,4 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/*
  * Copyright (c) 1983, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -54,10 +31,15 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__unused static char sccsid[] = "@(#)process.c	8.2 (Berkeley) 11/16/93";
+#if 0
+static char sccsid[] = "@(#)process.c	8.2 (Berkeley) 11/16/93";
+#endif
+static const char rcsid[] =
+  "$FreeBSD: src/libexec/talkd/process.c,v 1.11 2005/05/06 15:28:54 delphij Exp $";
 #endif /* not lint */
+
+#include <sys/cdefs.h>
 
 /*
  * process.c handles the requests, which can be of three types:
@@ -72,47 +54,53 @@ __unused static char sccsid[] = "@(#)process.c	8.2 (Berkeley) 11/16/93";
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <protocols/talkd.h>
+#include <ctype.h>
+#include <err.h>
 #include <netdb.h>
-#include <syslog.h>
+#include <paths.h>
 #include <stdio.h>
 #include <string.h>
-#include <paths.h>
-#include "talkd.h"
+#include <syslog.h>
 
-CTL_MSG *find_request();
-CTL_MSG *find_match();
+#include "extern.h"
+
+extern int debug;
 
 void
-process_request(mp, rp)
-	register CTL_MSG *mp;
-	register CTL_RESPONSE *rp;
+process_request(CTL_MSG *mp, CTL_RESPONSE *rp)
 {
-	register CTL_MSG *ptr;
-	extern int debug;
+	CTL_MSG *ptr;
+	char *s;
 
 	rp->vers = TALK_VERSION;
 	rp->type = mp->type;
 	rp->id_num = htonl(0);
 	if (mp->vers != TALK_VERSION) {
-		syslog(LOG_WARNING, "Bad protocol version %d", mp->vers);
+		syslog(LOG_WARNING, "bad protocol version %d", mp->vers);
 		rp->answer = BADVERSION;
 		return;
 	}
 	mp->id_num = ntohl(mp->id_num);
 	mp->addr.sa_family = ntohs(mp->addr.sa_family);
 	if (mp->addr.sa_family != AF_INET) {
-		syslog(LOG_WARNING, "Bad address, family %d",
+		syslog(LOG_WARNING, "bad address, family %d",
 		    mp->addr.sa_family);
 		rp->answer = BADADDR;
 		return;
 	}
 	mp->ctl_addr.sa_family = ntohs(mp->ctl_addr.sa_family);
 	if (mp->ctl_addr.sa_family != AF_INET) {
-		syslog(LOG_WARNING, "Bad control address, family %d",
+		syslog(LOG_WARNING, "bad control address, family %d",
 		    mp->ctl_addr.sa_family);
 		rp->answer = BADCTLADDR;
 		return;
 	}
+	for (s = mp->l_name; *s; s++)
+		if (!isprint(*s)) {
+			syslog(LOG_NOTICE, "illegal user name. Aborting");
+			rp->answer = FAILED;
+			return;
+		}
 	mp->pid = ntohl(mp->pid);
 	if (debug)
 		print_request("process_request", mp);
@@ -155,9 +143,7 @@ process_request(mp, rp)
 }
 
 void
-do_announce(mp, rp)
-	register CTL_MSG *mp;
-	CTL_RESPONSE *rp;
+do_announce(CTL_MSG *mp, CTL_RESPONSE *rp)
 {
 	struct hostent *hp;
 	CTL_MSG *ptr;
@@ -197,18 +183,23 @@ do_announce(mp, rp)
 	}
 }
 
+#ifdef __APPLE__
 #include <utmpx.h>
+#else
+#include <utmp.h>
+#endif
 
 /*
- * Search utmpx for the local user
+ * Search utmp for the local user
  */
 int
-find_user(name, tty)
-	char *name, *tty;
+find_user(const char *name, char *tty)
 {
+#ifdef __APPLE__
 	struct utmpx *u;
 	int status;
 	struct stat statb;
+
 	char line[sizeof(u->ut_line) + 1];
 	char ftty[sizeof(_PATH_DEV) - 1 + sizeof(line)];
 
@@ -239,5 +230,49 @@ find_user(name, tty)
 			}
 		}
 	endutxent();
+#else
+	struct utmp ubuf;
+	int status;
+	FILE *fd;
+	struct stat statb;
+	time_t best = 0;
+	char line[sizeof(ubuf.ut_line) + 1];
+	char ftty[sizeof(_PATH_DEV) - 1 + sizeof(line)];
+
+	if ((fd = fopen(_PATH_UTMP, "r")) == NULL) {
+		warnx("can't read %s", _PATH_UTMP);
+		return (FAILED);
+	}
+#define SCMPN(a, b)	strncmp(a, b, sizeof (a))
+	status = NOT_HERE;
+	(void) strcpy(ftty, _PATH_DEV);
+	while (fread((char *) &ubuf, sizeof ubuf, 1, fd) == 1)
+		if (SCMPN(ubuf.ut_name, name) == 0) {
+			strncpy(line, ubuf.ut_line, sizeof(ubuf.ut_line));
+			line[sizeof(ubuf.ut_line)] = '\0';
+			if (*tty == '\0' || best != 0) {
+				if (best == 0)
+					status = PERMISSION_DENIED;
+				/* no particular tty was requested */
+				(void) strcpy(ftty + sizeof(_PATH_DEV) - 1,
+				    line);
+				if (stat(ftty, &statb) == 0) {
+					if (!(statb.st_mode & 020))
+						continue;
+					if (statb.st_atime > best) {
+						best = statb.st_atime;
+						(void) strcpy(tty, line);
+						status = SUCCESS;
+						continue;
+					}
+				}
+			}
+			if (strcmp(line, tty) == 0) {
+				status = SUCCESS;
+				break;
+			}
+		}
+	fclose(fd);
+#endif
 	return (status);
 }

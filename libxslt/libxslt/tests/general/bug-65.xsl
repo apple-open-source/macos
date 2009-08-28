@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:libxslt="http://xmlsoft.org/XSLT/namespace" xsl:exclude-result-prefixes="libxslt"  version="1.0">
+<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:libxslt="http://xmlsoft.org/XSLT/namespace" exclude-result-prefixes="libxslt"  version="1.0">
   <xsl:output method="xml" indent="yes"/>
   <xsl:variable name="one">
     <xsl:copy-of select="."/>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -44,6 +44,8 @@
 #include <hfs/hfs_format.h>
 #include <hfs/hfs_mount.h>    /* for hfs sysctl values */
 
+#include <System/hfs/hfs_fsctl.h>
+
 #include <errno.h>
 #include <fcntl.h>
 #include <libgen.h>
@@ -73,6 +75,14 @@ struct ExtentsAttrBuf {
 };
 typedef struct ExtentsAttrBuf ExtentsAttrBuf;
 
+#ifndef HFSIOC_GET_JOURNAL_INFO
+# include <sys/ioctl.h>
+struct hfs_journal_info {
+	off_t	jstart;
+	off_t	jsize;
+};
+# define HFSIOC_GET_JOURNAL_INFO	_IOR('h', 17, struct hfs_journal_info)
+#endif
 
 
 #define kIsInvisible 0x4000
@@ -168,7 +178,7 @@ get_start_block(const char *file, uint32_t fs_block_size)
     //printf("%s start offset %lld; byte len %lld (blksize %d)\n",
     // file, phys_start, len, fs_block_size);
 
-    if ((phys_start / (unsigned)fs_block_size) & 0xffffffff00000000LL) {
+    if ((phys_start / (unsigned int)fs_block_size) & 0xffffffff00000000LL) {
 	fprintf(stderr, "%s : starting block is > 32bits!\n", file);
 	return -1;
     }
@@ -190,8 +200,11 @@ get_start_block(const char *file, uint32_t fs_block_size)
 #define HFS_PRI_SECTOR(blksize)          (1024 / (blksize))
 #define HFS_PRI_OFFSET(blksize)          ((blksize) > 1024 ? 1024 : 0)
 
+#include <libkern/OSByteOrder.h>
+
 #define SWAP_BE16(x) ntohs(x)
 #define SWAP_BE32(x) ntohl(x)
+#define SWAP_BE64(x) OSSwapConstInt64(x)
 
 
 off_t
@@ -224,10 +237,9 @@ get_embedded_offset(char *devname)
 	    goto out;
 	}
 
-	// copy the "/dev/"
-	strncpy(rawdev, sfs.f_mntfromname, 5);
-	rawdev[5] = 'r';
-	strcpy(&rawdev[6], &sfs.f_mntfromname[5]);
+	// This assumes it begins with "/dev/".  The old code assumed
+	// it began with five characters.  Should probably use strrchr or equivalent.
+	snprintf(rawdev, sizeof(rawdev), "/dev/r%s", &sfs.f_mntfromname[5]);
 	devname = &rawdev[0];
 	goto restart;
     }
@@ -350,7 +362,11 @@ DoMakeJournaled(char *volname, int jsize)
     // If that's ok then we try to create a symlink (which won't
     // work on plain hfs volumes but will work on hfs+ volumes).
     //
-    sprintf(tmpname, "%s/is_vol_hfs_plus", volname);
+    if (strcmp(sfs.f_fstypename, "devfs") == 0) {
+    	fprintf (stderr, "%s is a device node.  Journal enable only works on a mounted HFS+ volume.\n", volname);
+		return 10;
+    }
+    snprintf(tmpname, sizeof(tmpname), "%s/is_vol_hfs_plus", volname);
     if (strcmp(sfs.f_fstypename, "hfs") != 0 ||
 	((ret = symlink(tmpname, tmpname)) != 0 && errno == ENOTSUP)) {
 	fprintf(stderr, "%s is not an HFS+ volume.  Journaling only works on HFS+ volumes.\n",
@@ -373,7 +389,7 @@ DoMakeJournaled(char *volname, int jsize)
 	// we want at least 8 megs of journal for each 100 gigs of
 	// disk space.  We cap the size at 512 megs though.
 	//
-	scale = ((long long)sfs.f_bsize * (long long)((unsigned)sfs.f_blocks)) / (100*1024*1024*1024ULL);
+	scale = ((long long)sfs.f_bsize * (long long)((unsigned int)sfs.f_blocks)) / (100*1024*1024*1024ULL);
 	journal_size *= (scale + 1);
 	if (journal_size > 512 * 1024 * 1024) {
 	    journal_size = 512 * 1024 * 1024;
@@ -474,8 +490,8 @@ DoMakeJournaled(char *volname, int jsize)
 
     memset(&jib, 'Z', sizeof(jib));
     jib.flags  = kJIJournalInFSMask;
-    jib.offset = (off_t)((unsigned)jstart_block) * (off_t)((unsigned)block_size);
-    jib.size   = (off_t)((unsigned)journal_size);
+    jib.offset = (off_t)((unsigned int)jstart_block) * (off_t)((unsigned int)block_size);
+    jib.size   = (off_t)((unsigned int)journal_size);
 
     fd = open(jib_fname, O_CREAT|O_TRUNC|O_RDWR, 000);
     if (fd < 0) {
@@ -561,8 +577,13 @@ DoUnJournal(char *volname)
 	return 10;
     }
 
+    if (strcmp(sfs.f_fstypename, "hfs") != 0) {
+    	fprintf(stderr, "Volume %s (%s) is not a HFS volume.\n", volname, sfs.f_mntfromname);
+		return 1;
+    }
+
     if ((sfs.f_flags & MNT_JOURNALED) == 0) {
-	fprintf(stderr, "Volume %s is not journaled.\n", volname);
+	fprintf(stderr, "Volume %s (%s) is not journaled.\n", volname, sfs.f_mntfromname);
 	return 1;
     }
 
@@ -584,35 +605,240 @@ DoUnJournal(char *volname)
 	return 20;
     }
 
-    sprintf(jbuf, "%s/%s", volname, journal_fname);
+    snprintf(jbuf, sizeof(jbuf), "%s/%s", volname, journal_fname);
     if (unlink(jbuf) != 0) {
 	fprintf(stderr, "Failed to remove the journal %s (%s)\n",
 		jbuf, strerror(errno));
     }
 
-    sprintf(jbuf, "%s/%s", volname, jib_fname);
+    snprintf(jbuf, sizeof(jbuf), "%s/%s", volname, jib_fname);
     if (unlink(jbuf) != 0) {
 	fprintf(stderr, "Failed to remove the journal info block %s (%s)\n",
 		jbuf, strerror(errno));
     }
 
-    printf("Journaling disabled on %s\n", volname);
+    printf("Journaling disabled on %s mounted at %s.\n", sfs.f_mntfromname, volname);
 	    
     return 0;
+}
+
+
+
+
+int
+get_journal_info(char *devname, struct JournalInfoBlock *jib)
+{
+	int fd = -1, ret = 0;
+	char *buff = NULL, *buff2 = NULL;
+	u_int64_t disksize;
+	u_int64_t blkcnt;
+	u_int32_t blksize;
+	daddr_t   mdb_offset;
+	HFSMasterDirectoryBlock *mdbp;
+	HFSPlusVolumeHeader *vhp;
+	off_t embeddedOffset, pos;
+	struct JournalInfoBlock *myjib;
+
+	fd = open(devname, O_RDONLY);
+	if (fd < 0) {
+		printf("can't open: %s (%s)\n", devname, strerror(errno));
+		ret = -5;
+		goto out;
+	}
+
+	/* Get the real physical block size. */
+	if (ioctl(fd, DKIOCGETBLOCKSIZE, (caddr_t)&blksize) != 0) {
+		printf("can't get the device block size (%s). assuming 512\n", strerror(errno));
+		blksize = 512;
+		ret = -1;
+		goto out;
+	}
+
+	/* Get the number of physical blocks. */
+	if (ioctl(fd, DKIOCGETBLOCKCOUNT, (caddr_t)&blkcnt)) {
+		struct stat st;
+		printf("failed to get block count. trying stat().\n");
+		if (fstat(fd, &st) != 0) {
+			ret = -1;
+			goto out;
+		}
+
+		blkcnt = st.st_size / blksize;
+	}
+
+	/* Compute an accurate disk size */
+	disksize = blkcnt * (u_int64_t)blksize;
+
+	/*
+	 * There are only 31 bits worth of block count in
+	 * the buffer cache.  So for large volumes a 4K
+	 * physical block size is needed.
+	 */
+	if (blksize == 512 && blkcnt > (u_int64_t)0x000000007fffffff) {
+		blksize = 4096;
+	}
+
+	/*
+	 * At this point:
+	 *   blksize has our prefered physical block size
+	 *   blkcnt has the total number of physical blocks
+	 */
+
+	buff  = (char *)malloc(blksize);
+	buff2 = (char *)malloc(blksize);
+	
+	if (pread(fd, buff, blksize, HFS_PRI_SECTOR(blksize)*blksize) != blksize) {
+		printf("failed to read volume header @ offset %d (%s)\n",
+		       HFS_PRI_SECTOR(blksize), strerror(errno));
+		ret = -1;
+		goto out;
+	}
+
+	if (blksize == 512) {
+		mdbp = (HFSMasterDirectoryBlock *)buff;
+	} else {
+		mdbp = (HFSMasterDirectoryBlock *)(buff + 1024);
+	}
+
+	mdbp->drSigWord = SWAP_BE16(mdbp->drSigWord);
+	mdbp->drEmbedSigWord = SWAP_BE16(mdbp->drEmbedSigWord);
+	mdbp->drAlBlSt = SWAP_BE16(mdbp->drAlBlSt);
+	mdbp->drEmbedExtent.startBlock = SWAP_BE16(mdbp->drEmbedExtent.startBlock);
+	mdbp->drAlBlkSiz = SWAP_BE32(mdbp->drAlBlkSiz);
+	mdbp->drEmbedExtent.blockCount = SWAP_BE16(mdbp->drEmbedExtent.blockCount);
+	
+	// first check if it's even hfs at all...
+	if (   mdbp->drSigWord != kHFSSigWord
+	       && mdbp->drSigWord != kHFSPlusSigWord
+	       && mdbp->drSigWord != kHFSXSigWord) {
+
+		ret = -1;
+		goto out;
+	}
+
+	if ((mdbp->drSigWord == kHFSSigWord) && (mdbp->drEmbedSigWord != kHFSPlusSigWord)) {
+		// normal hfs can not ever be journaled
+		goto out;
+	} 
+	
+	/* Get the embedded Volume Header */
+	if (mdbp->drEmbedSigWord == kHFSPlusSigWord) {
+		embeddedOffset = mdbp->drAlBlSt * 512;
+		embeddedOffset += (u_int64_t)mdbp->drEmbedExtent.startBlock *
+			(u_int64_t)mdbp->drAlBlkSiz;
+
+		/*
+		 * If the embedded volume doesn't start on a block
+		 * boundary, then switch the device to a 512-byte
+		 * block size so everything will line up on a block
+		 * boundary.
+		 */
+		if ((embeddedOffset % blksize) != 0) {
+			printf("HFS Mount: embedded volume offset not"
+			       " a multiple of physical block size (%d);"
+			       " switching to 512\n", blksize);
+		
+			blkcnt  *= (blksize / 512);
+			blksize  = 512;
+		}
+
+		disksize = (u_int64_t)mdbp->drEmbedExtent.blockCount *
+			(u_int64_t)mdbp->drAlBlkSiz;
+
+		mdb_offset = (embeddedOffset / blksize) + HFS_PRI_SECTOR(blksize);
+		if (pread(fd, buff, blksize, mdb_offset * blksize) != blksize) {
+			printf("failed to read the embedded vhp @ offset %d\n", mdb_offset * blksize);
+			ret = -1;
+			goto out;
+		}
+
+		vhp = (HFSPlusVolumeHeader*) buff;
+	} else /* pure HFS+ */ {
+		embeddedOffset = 0;
+		vhp = (HFSPlusVolumeHeader*) mdbp;
+	}
+
+	if ((SWAP_BE32(vhp->attributes) & kHFSVolumeJournaledMask) == 0) {
+		ret = 0;
+		goto out;
+	}
+
+	//
+	// Now read the journal info block... (when calculating the
+	// position, make sure to cast to unsigned first, then to
+	// off_t so that things don't get sign-extended improperly
+	// or truncated).
+	//
+	pos = (off_t)((off_t)embeddedOffset +
+		      (off_t)((unsigned int)SWAP_BE32(vhp->journalInfoBlock))*(off_t)((unsigned int)SWAP_BE32(vhp->blockSize)));
+
+	if (pread(fd, buff2, blksize, pos) != blksize) {
+		printf("failed to read the journal info block (%s).\n", strerror(errno));
+		ret = -1;
+		goto out;
+	}
+
+	myjib = (struct JournalInfoBlock *)buff2;
+	myjib->flags  = SWAP_BE32(myjib->flags);
+	myjib->offset = SWAP_BE64(myjib->offset);
+	myjib->size   = SWAP_BE64(myjib->size);
+	
+	memcpy(jib, myjib, sizeof(*myjib));
+	
+	ret = 1;
+
+out:
+	if (buff)
+		free(buff);
+	if (buff2)
+		free(buff2);
+	if (fd >= 0) 
+		close(fd);
+
+	return ret;
 }
 
 
 int
 DoGetJournalInfo(char *volname)
 {
-    int           result;
-    int           sysctl_info[8];
     struct statfs sfs;
-    off_t         jstart, jsize;
+    struct hfs_journal_info jinfo;
 	
+    if (strncmp(volname, "/dev/", 5) == 0 || strncmp(volname, "disk", 4) == 0 || strncmp(volname, "rdisk", 5) == 0) {
+	    struct JournalInfoBlock jib;
+	    int ret;
+	    char fulldevname[256];
+
+	    if (strncmp(volname, "disk", 4) == 0 || strncmp(volname, "rdisk", 5) == 0) {
+		    snprintf(fulldevname, sizeof(fulldevname), "/dev/%s", volname);
+		    volname = &fulldevname[0];
+	    }
+	    
+	    // try the name as a device name...
+	    ret = get_journal_info(volname, &jib);
+	    if (ret == 0) {
+		    printf("Volume %s is not journaled.\n", volname);
+		    return 0;
+	    } else if (ret < 0) {
+		    printf("Volume %s does not appear to be an HFS+ volume.\n", volname);
+		    return 10;
+	    } else {
+		if (jib.flags & kJIJournalInFSMask) {
+			printf("%s : journal size %lld k at offset 0x%llx\n", volname, jib.size/1024, jib.offset);
+		} else {
+			printf("%s: external journal stored on partition with uuid %s on machine w/serial number %s\n",
+			       volname, jib.ext_jnl_uuid, jib.machine_serial_num);
+		}
+
+		return 0;
+	    }
+
+    }
+
     if (statfs(volname, &sfs) != 0) {
-	fprintf(stderr, "Can't stat volume %s (%s).\n", volname, strerror(errno));
-	return 10;
+	    fprintf(stderr, "Unable to get fs info for %s\n", volname);
+	    return 10;
     }
 
     if ((sfs.f_flags & MNT_JOURNALED) == 0) {
@@ -620,30 +846,26 @@ DoGetJournalInfo(char *volname)
 	return 1;
     }
 
-    if (chdir(volname) != 0) {
-	fprintf(stderr, "Can't cd to volume %s to get journal info (%s).\n",
-		volname, strerror(errno));
-	return 10;
-    }
-	
-    memset(sysctl_info, 0, sizeof(sysctl_info));
-    sysctl_info[0] = CTL_VFS;
-    sysctl_info[1] = sfs.f_fsid.val[1];
-    sysctl_info[2] = HFS_GET_JOURNAL_INFO;
-    sysctl_info[3] = (int)&jstart;
-    sysctl_info[4] = (int)&jsize;
-	
-    result = sysctl((void *)sysctl_info, 5, NULL, NULL, NULL, 0);
-    if (result != 0) {
+    if (fsctl(volname, HFSIOC_GET_JOURNAL_INFO,  &jinfo, 0) != 0) {
 	fprintf(stderr, "Failed to get journal info for volume %s (%s)\n",
 		volname, strerror(errno));
 	return 20;
     }
 
-    if (jsize == 0) {
+    if (jinfo.jstart == 0) {
+	    char rawdev[256];
+
+	    snprintf(rawdev, sizeof(rawdev), "/dev/r%s", &sfs.f_mntfromname[5]);
+
+	    // it's an external journal so get the info the
+	    // other way.
+	    return DoGetJournalInfo(&rawdev[0]);
+    }
+
+    if (jinfo.jsize == 0) {
 	printf("%s : not journaled.\n", volname);
     } else {
-	printf("%s : journal size %lld k at offset 0x%llx\n", volname, jsize/1024, jstart);
+	printf("%s : journal size %lld k at offset 0x%llx\n", volname, jinfo.jsize/1024, jinfo.jstart);
     }
 
     return 0;
@@ -654,7 +876,7 @@ int
 RawDisableJournaling(char *devname)
 {
     int fd = -1, ret = 0;
-    char *buff = NULL, rawdev[256];
+    char *buff = NULL, rawdev[256], unrawdev[256];
     u_int64_t disksize;
     u_int64_t blkcnt;
     u_int32_t blksize;
@@ -662,41 +884,51 @@ RawDisableJournaling(char *devname)
     HFSMasterDirectoryBlock *mdbp;
     HFSPlusVolumeHeader *vhp;
     off_t embeddedOffset, hdr_offset;
-    struct statfs sfs;
     struct stat   st;
+    struct statfs *fsinfo;
 	
-  restart:
-    if (stat(devname, &st) != 0) {
-	fprintf(stderr, "Could not access %s (%s)\n", devname, strerror(errno));
-	ret = -1;
-	goto out;
-    }
+	// assume that the name provided is a raw device name
+	strlcpy(rawdev, devname, sizeof(rawdev));
 
-    if (S_ISCHR(st.st_mode) == 0) {
-	// hmmm, it's not the character special raw device so we
-	// should try to figure out the real device.
-	if (S_ISBLK(st.st_mode)) {
-	    strcpy(rawdev, "/dev/r");
-	    strcat(rawdev, devname + 5);
-	} else {
-	    if (statfs(devname, &sfs) != 0) {
-		fprintf(stderr, "Can't find out any info about the fs for path %s (%s)\n",
-		    devname, strerror(errno));
+restart:
+	if (stat(rawdev, &st) != 0) {
+		fprintf(stderr, "Could not access %s (%s)\n", devname, strerror(errno));
 		ret = -1;
 		goto out;
-	    }
-
-	    // copy the "/dev/"
-	    strncpy(rawdev, sfs.f_mntfromname, 5);
-	    rawdev[5] = 'r';
-	    strcpy(&rawdev[6], &sfs.f_mntfromname[5]);
+	}
+	
+	if (S_ISCHR(st.st_mode) == 0) {
+		if (S_ISBLK(st.st_mode)) {
+			// this is a block device, convert the name to 
+			// raw character device and try again
+			snprintf(rawdev, sizeof(rawdev), "/dev/r%s", devname + 5);
+			goto restart;
+		} else {
+			// probably it is a mount point 
+			return DoUnJournal(devname);
+		}
+	} else {
+		// convert the character raw device name to 
+		// block device name to compare with getmntinfo output
+		snprintf(unrawdev, sizeof(unrawdev), "/dev/%s", rawdev + 6);
+	}
+	
+	// make sure that the file system on the device node is not mounted
+	ret = getmntinfo(&fsinfo, MNT_NOWAIT);
+	if (ret == 0) {
+		fprintf (stderr, "Error getting list of mounted filesystems\n"); 
+		ret = -1;
+		goto out;
+	}
+	
+	while (ret--) {
+		// the file system on this device node is currently mounted
+		if (strcmp(unrawdev, fsinfo[ret].f_mntfromname) == 0) {
+			return DoUnJournal(fsinfo[ret].f_mntonname);
+		}
 	}
 
-	devname = &rawdev[0];
-	goto restart;
-    }
-
-    fd = open(devname, O_RDWR);
+    fd = open(rawdev, O_RDWR);
     if (fd < 0) {
 	fprintf(stderr, "can't open: %s (%s)\n", devname, strerror(errno));
 	ret = -1;
@@ -821,7 +1053,7 @@ RawDisableJournaling(char *devname)
 	    fprintf(stderr, "Turned off the journaling bit for %s\n", devname);
 	}
     } else {
-	fprintf(stderr, "disable_journaling: volume was not journaled.\n");
+	fprintf(stderr, "disable_journaling: %s is not journaled.\n", devname);
     }
 
 	
@@ -832,4 +1064,180 @@ RawDisableJournaling(char *devname)
 	close(fd);
 
     return ret;
+}
+
+
+
+int
+SetJournalInFSState(const char *devname, int journal_in_fs)
+{
+	int fd = -1, ret = 0;
+	char *buff = NULL, *buff2 = NULL;
+	u_int64_t blkcnt;
+	u_int32_t blksize;
+	daddr_t   mdb_offset;
+	HFSMasterDirectoryBlock *mdbp;
+	HFSPlusVolumeHeader *vhp;
+	off_t embeddedOffset, pos;
+	struct JournalInfoBlock *myjib;
+
+	fd = open(devname, O_RDWR);
+	if (fd < 0) {
+		printf("can't open: %s (%s)\n", devname, strerror(errno));
+		ret = -1;
+		goto out;
+	}
+
+	/* Get the real physical block size. */
+	if (ioctl(fd, DKIOCGETBLOCKSIZE, (caddr_t)&blksize) != 0) {
+		printf("can't get the device block size (%s). assuming 512\n", strerror(errno));
+		blksize = 512;
+		ret = -1;
+		goto out;
+	}
+
+	/* Get the number of physical blocks. */
+	if (ioctl(fd, DKIOCGETBLOCKCOUNT, (caddr_t)&blkcnt)) {
+		struct stat st;
+		printf("failed to get block count. trying stat().\n");
+		if (fstat(fd, &st) != 0) {
+			ret = -1;
+			goto out;
+		}
+
+		blkcnt = st.st_size / blksize;
+	}
+
+	/*
+	 * There used to only be 31 bits worth of block count in
+	 * the buffer cache.  So for large volumes a 4K
+	 * physical block size is needed.
+	 */
+	if (blksize == 512 && blkcnt > (u_int64_t)0x000000007fffffff) {
+		blksize = 4096;
+	}
+
+	/*
+	 * At this point:
+	 *   blksize has our prefered physical block size
+	 *   blkcnt has the total number of physical blocks
+	 */
+
+	buff  = (char *)malloc(blksize);
+	buff2 = (char *)malloc(blksize);
+	
+	if (pread(fd, buff, blksize, HFS_PRI_SECTOR(blksize)*blksize) != blksize) {
+		printf("failed to read volume header @ offset %d (%s)\n",
+			   HFS_PRI_SECTOR(blksize), strerror(errno));
+		ret = -1;
+		goto out;
+	}
+
+	if (blksize == 512) {
+	    mdbp = (HFSMasterDirectoryBlock *)buff;
+	} else {
+	    mdbp = (HFSMasterDirectoryBlock *)(buff + 1024);
+	}
+
+	// first check if it's even hfs at all...
+	if (   SWAP_BE16(mdbp->drSigWord) != kHFSSigWord
+	    && SWAP_BE16(mdbp->drSigWord) != kHFSPlusSigWord
+	    && SWAP_BE16(mdbp->drSigWord) != kHFSXSigWord) {
+
+	    ret = -1;
+	    goto out;
+	}
+
+	if ((SWAP_BE16(mdbp->drSigWord) == kHFSSigWord) && (SWAP_BE16(mdbp->drEmbedSigWord) != kHFSPlusSigWord)) {
+		// normal hfs can not ever be journaled
+		goto out;
+	} 
+	
+	/* Get the embedded Volume Header */
+	if (SWAP_BE16(mdbp->drEmbedSigWord) == kHFSPlusSigWord) {
+	    embeddedOffset = SWAP_BE16(mdbp->drAlBlSt) * 512;
+	    embeddedOffset += (u_int64_t)SWAP_BE16(mdbp->drEmbedExtent.startBlock) *
+			      (u_int64_t)SWAP_BE32(mdbp->drAlBlkSiz);
+
+	    /*
+	     * If the embedded volume doesn't start on a block
+	     * boundary, then switch the device to a 512-byte
+	     * block size so everything will line up on a block
+	     * boundary.
+	     */
+	    if ((embeddedOffset % blksize) != 0) {
+		printf("HFS Mount: embedded volume offset not"
+		       " a multiple of physical block size (%d);"
+		       " switching to 512\n", blksize);
+		
+		blkcnt  *= (blksize / 512);
+		blksize  = 512;
+	    }
+
+	    mdb_offset = (embeddedOffset / blksize) + HFS_PRI_SECTOR(blksize);
+	    if (pread(fd, buff, blksize, mdb_offset * blksize) != blksize) {
+		printf("failed to read the embedded vhp @ offset %d\n", mdb_offset * blksize);
+		ret = -1;
+		goto out;
+	    }
+
+	    vhp = (HFSPlusVolumeHeader*) buff;
+	} else /* pure HFS+ */ {
+	    embeddedOffset = 0;
+	    vhp = (HFSPlusVolumeHeader*) mdbp;
+	}
+
+	//printf("vol header attributes: 0x%x\n", SWAP_BE32(vhp->attributes));
+	if ((SWAP_BE32(vhp->attributes) & kHFSVolumeJournaledMask) == 0) {
+	    ret = 0;
+	    goto out;
+	}
+
+	//
+	// Now read the journal info block... (when calculating the
+	// position, make sure to cast to unsigned first, then to
+	// off_t so that things don't get sign-extended improperly
+	// or truncated).
+	//
+	pos = (off_t)((off_t)embeddedOffset +
+		      (off_t)((unsigned int )SWAP_BE32(vhp->journalInfoBlock))*(off_t)((unsigned int)SWAP_BE32(vhp->blockSize)));
+
+	if (pread(fd, buff2, blksize, pos) != blksize) {
+	    printf("failed to read the journal info block (%s).\n", strerror(errno));
+	    ret = -1;
+	    goto out;
+	}
+
+	myjib = (struct JournalInfoBlock *)buff2;
+
+	// swap this to host native format so we can diddle with the bits
+	myjib->flags  = SWAP_BE32(myjib->flags);
+	
+	if (journal_in_fs) {
+		myjib->flags |= kJIJournalInFSMask;
+	} else {
+		myjib->flags &= ~kJIJournalInFSMask;
+	}
+	myjib->flags |= kJIJournalNeedInitMask;
+
+	// and now swap back before writing it out
+	myjib->flags  = SWAP_BE32(myjib->flags);
+	
+	if (pwrite(fd, buff2, blksize, pos) != blksize) {
+	    printf("failed to re-write the journal info block (%s).\n", strerror(errno));
+	    ret = -1;
+	    goto out;
+	}
+
+	ret = 0;
+
+  out:
+	if (buff)
+		free(buff);
+	if (buff2)
+		free(buff2);
+	if (fd >= 0) 
+		close(fd);
+
+	return ret;
 }

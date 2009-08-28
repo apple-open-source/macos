@@ -67,50 +67,11 @@
 #define __DRIVERSERVICES__
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 
-#include <sys/param.h>
-#include <sys/mount.h>
+#include <unistd.h>
 
 
 module AP_MODULE_DECLARE_DATA hfs_apple_module;
 
-/*
- *	Support routine: check_file_system
- *	Check if the file system is case-sensitive assuming they all are 
- *	case-sensitive except HFS volumes.
- *	The input path may not necessarily exist but its volume MUST. 
- *	This routine walks the path up if the specified file or directory 
- *	is not found. 
- */
-static int check_file_system(char *path, int *case_sensitive)
-{
-	int					len;
-	int 				err;
-	char				*unixPath;
-	struct statfs		fsInfo;
-
-	*case_sensitive = 1;
-	len = (int) strlen(path);
-	unixPath = malloc(len + 1);
-	if (unixPath == NULL) return (int) memFullErr;
-	strlcpy(unixPath, path, len + 1);
-	
-	err = statfs(unixPath, &fsInfo);
-	
-	/* Now check the type... */
-	if (-1 == err)
-	{
-		#if DEBUG
-		perror("statfs failed because");
-		#endif
-	}
-	else
-	{
-		*case_sensitive = strcmp(fsInfo.f_fstypename, "hfs");
-	}
-
-	free(unixPath);
-	return (int) err;
-}
 
 /*
  *	Our core data structure: each entry in the table is composed
@@ -137,7 +98,7 @@ static void add_directory_entry(request_rec *r, char *path) {
 	char *dir_path;
 	int i,case_sens = 0;
 	dir_rec **elt;
-	int len = strlen(path)+2;
+	size_t len = strlen(path) + 2;
 
 	/* malloc dir_path so we can explicitly free it if the path
 	 * already exists in the cache, rather than leaving it in 
@@ -149,7 +110,7 @@ static void add_directory_entry(request_rec *r, char *path) {
 
 	/* Make sure input path has a trailing slash */
 	if (path[strlen(path) - 1] != '/') 
-		strcat(dir_path, "/");
+		strlcat(dir_path, "/", len);
 	
 	/* If the entry already exists then get out */
 	for (i = 0; i < directories->nelts; i++) {
@@ -161,9 +122,7 @@ static void add_directory_entry(request_rec *r, char *path) {
 	}
 	
 	/* Figure whether the targeted volume is case-sensitive */
-	if (check_file_system(path, &case_sens) != 0) {
-		case_sens = 0;
-	}
+	case_sens = pathconf(path, _PC_CASE_SENSITIVE);
 	
 	/* Add new entry to the table (ignore errors) */
 	elt = apr_array_push(directories);
@@ -246,6 +205,7 @@ static int hfs_apple_module_fixups(request_rec *r) {
 	int i,found;
 	size_t max_n_matches;
 	char *url_path;
+	size_t len;
 	
 	/* First update table of directory entries if necessary */
 	update_directory_entries(r);
@@ -264,17 +224,16 @@ static int hfs_apple_module_fixups(request_rec *r) {
 	 */
 	max_n_matches = 0;
 	found = -1;
-	if (r->filename[strlen(r->filename) - 1] != '/') {
-		url_path = malloc(strlen(r->filename) +2);
+	len = strlen(r->filename);
+	if (r->filename[len - 1] != '/') {
+		url_path = malloc(len + 2);
 		if( url_path == NULL ) return HTTP_FORBIDDEN;
-		strcpy(url_path, r->filename);
-		strcat(url_path, "/");
-		url_path[strlen(url_path)-1] = '\0';
+		strlcpy(url_path, r->filename, len + 2);
+		strlcat(url_path, "/", len + 2);
 	} else {
-		url_path = malloc(strlen(r->filename) +1);
+		url_path = malloc(len + 1);
 		if( url_path == NULL ) return HTTP_FORBIDDEN;
-		strcpy(url_path, r->filename);
-		url_path[strlen(url_path)-1] = '\0';
+		strlcpy(url_path, r->filename, len + 1);
 	}
 	for (i = 0; i < directories->nelts; i++) {
 		int	related;

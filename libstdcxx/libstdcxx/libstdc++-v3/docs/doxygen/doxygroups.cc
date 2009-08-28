@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2005 Free Software Foundation, Inc.
    See license.html for license.
 
    This just provides documentation for stuff that doesn't need to be in the
@@ -17,28 +17,39 @@
 
 // // // // // // // // // // // // // // // // // // // // // // // //
 /** @namespace std
- *  @brief Everything defined by the ISO C++ Standard is within namespace std.
+ *  @brief Everything defined by the ISO C++ Standard is within
+ *  namespace <a class="el" href="namespacestd.html">std</a>.
+*/
+/** @namespace std::__detail
+ *  @brief Implementation details not part of the namespace <a class="el"
+ *  href="namespacestd.html">std</a> interface.
 */
 /** @namespace std::tr1
- *  @brief Everything defined by the TR1 is within namespace std::tr1.
+ *  @brief Everything defined by the ISO C++ TR1 is within namespace std::tr1.
+*/
+/** @namespace std::tr1::__detail
+ *  @brief Implementation details not part of the namespace std::tr1 interface.
 */
 /** @namespace __gnu_cxx
- *  @brief This namespace serves two purposes.
- *
- *  This namespace is used for two things:
- *  -  sequestering internal (implementation-only) names away from the
- *     global namespace; these are details of the implementation and should
- *     not be touched by users
- *  -  GNU extensions for public use
- *
- *  This is still fluid and changing rapidly.  Currently the rule is:  if an
- *  entitity is found in the user-level documentation, it falls into the
- *  second category.
+ *  @brief GNU extensions for public use.
 */
-
+/** @namespace __gnu_cxx::__detail
+ *  @brief Implementation details not part of the namespace __gnu_cxx
+ *  interface.
+*/
+/** @namespace __gnu_cxx::typelist
+ *  @brief GNU typelist extensions for public compile-time use.
+*/
+/** @namespace __gnu_internal
+ *  @brief GNU implemenation details, not for public use or
+ *  export. Used only when anonymous namespaces cannot be substituted.
+*/
+/** @namespace __gnu_debug
+ *  @brief GNU debug mode classes for public use.
+*/
 // // // // // // // // // // // // // // // // // // // // // // // //
 /** @addtogroup SGIextensions STL extensions from SGI
-Because libstdc++-v3 based its implementation of the STL subsections of
+Because libstdc++ based its implementation of the STL subsections of
 the library on the SGI 3.3 implementation, we inherited their extensions
 as well.
 
@@ -120,9 +131,10 @@ All associative containers must meet certain requirements, summarized in
 
 // // // // // // // // // // // // // // // // // // // // // // // //
 /** @namespace abi
- *  @brief The cross-vendor C++ Application Binary Interface.
+ *  @brief The cross-vendor C++ Application Binary Interface. A
+ *  namespace alias to __cxxabiv1.
  *
- *  A brief overview of an ABI is given in the libstdc++-v3 FAQ, question
+ *  A brief overview of an ABI is given in the libstdc++ FAQ, question
  *  5.8 (you may have a copy of the FAQ locally, or you can view the online
  *  version at http://gcc.gnu.org/onlinedocs/libstdc++/faq/index.html#5_8).
  *
@@ -131,10 +143,11 @@ All associative containers must meet certain requirements, summarized in
  *  platform.  It is summarized at http://www.codesourcery.com/cxx-abi/
  *  along with the current specification.
  *
- *  For users of GCC 3.x, entry points are available in <cxxabi.h>, which notes,
- *  <em>"It is not normally necessary for user programs to include this header,
- *  or use the entry points directly.  However, this header is available
- *  should that be needed."</em>
+ *  For users of GCC greater than or equal to 3.x, entry points are
+ *  available in <cxxabi.h>, which notes, <em>"It is not normally
+ *  necessary for user programs to include this header, or use the
+ *  entry points directly.  However, this header is available should
+ *  that be needed."</em>
 */
 
 namespace abi {
@@ -166,7 +179,7 @@ namespace abi {
         this memory using @c free.
 
 
-The demagling is performed using the C++ ABI mangling rules, with
+The demangling is performed using the C++ ABI mangling rules, with
 GNU extensions.  For example, this function is used
 in __gnu_cxx::__verbose_terminate_handler.  See
 http://gcc.gnu.org/onlinedocs/libstdc++/18_support/howto.html#5 for other

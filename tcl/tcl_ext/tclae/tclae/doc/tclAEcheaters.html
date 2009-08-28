@@ -1,0 +1,140 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+
+<HTML>
+
+<HEAD>
+
+<META http-equiv="content-type"  CONTENT="text/html; charset=macintosh">
+<TITLE>Cheater's Guide to Writing AppleEvent Descriptors</TITLE>
+<LINK HREF="tclae.css" REL="stylesheet" TYPE="text/css">
+
+
+</HEAD>
+
+<H1>Cheater's Guide to Writing AppleEvent Descriptors</H1>
+
+<HR>
+
+I pursue a variety of routes to figure out the codes for AEs, but in this case, I snooped on Script Editor sending
+
+<pre>
+     <b>tell</b> application "Finder" <b>to get</b> disks
+</pre>
+
+To snoop, I launch Script Editor from Terminal.app like this:
+
+<pre>
+    [dogbert:~] guyer% setenv AEDebug 1
+    [dogbert:~] guyer% setenv AEDebugSends 1
+    [dogbert:~] guyer% setenv AEDebugReceives 1
+    [dogbert:~] guyer% /Applications/AppleScript/Script\ Editor.app/Contents/MacOS/Script\ Editor
+</pre>
+
+After executing the script, a bunch of garbage will stream by in Terminal.app, and toward the end you'll see:
+
+<pre>
+    AE2000 (28217): Sending an event:
+    ------oo start of event oo------
+    { 1 } 'aevt':  core/getd (ppc ){
+              return id: 1849229319 (0x6e390007)
+         transaction id: 0 (0x0)
+      interaction level: 64 (0x40)
+         reply required: 1 (0x1)
+                 remote: 0 (0x0)
+      target:
+        { 2 } 'psn ':  8 bytes {
+          { 0x0, 0x900001 } (Finder)
+        }
+      optional attributes:
+        { 1 } 'reco':  - 1 items {
+          key 'csig' - 
+            { 1 } 'magn':  4 bytes {
+              65536l (0x10000)
+            }
+        }
+
+      event data:
+        { 1 } 'aevt':  - 1 items {
+          key '----' - 
+            { 1 } 'obj ':  - 4 items {
+              key 'form' - 
+                { 1 } 'enum':  4 bytes {
+                  'indx'
+                }
+              key 'want' - 
+                { 1 } 'type':  4 bytes {
+                  'cdis'
+                }
+              key 'seld' - 
+                { 1 } 'abso':  4 bytes {
+                  'all '
+                }
+              key 'from' - 
+                { -1 } 'null':  null descriptor
+            }
+        }
+    }
+</pre>
+
+I've been doing this for awhile, so I know to ignore most of it. The 
+corresponding TclAE call is
+
+<pre>
+    tclAE::send -r 'MACS' core getd ---- {obj {form:indx, want:type(cdis), seld:abso('all '), from:'null'()}}
+</pre>
+
+<p>
+Recently, Eric Williams released a little app called <a
+href="http://www.oxalyn.com/aemonitor/">AE Monitor</a>. It'll snoop on AE
+traffic and dump it in a variety of formats, including TclAE's (it's not
+quite right, but that's my fault; I didn't have the time to test it when he
+sent it to me; but the basic output should get you close).
+</p>
+
+<H2><CODE>'aete'</CODE> Resources</H2>
+
+<P>
+Even with Capture AE, it's handy to be able to read <CODE>'aete'</CODE> 
+resources (if for no other reason, to decipher what you just blindly copied 
+into your TclÆ statements). Resourcerer has a template to open 
+<CODE>'aete'</CODE> resources and you can decompile them with Rez. If you 
+can manage to find it, Yuji Hachiya of Apple Japan wrote an 
+<CODE>'aete'</CODE> editor for ResEdit. It would appear, though, that Apple 
+has hired the Mossad to hunt down and destroy every copy of this utility 
+(I’ve seen complaints about it, but it's perfectly adequate for 
+<EM>reading</EM> <CODE>'aete'</CODE> resources).
+</P>
+
+<P>
+Although this probably seems like a lot of work, I assure you that 
+it's far preferable to the hunt-and-peck alternative. There's no 
+reason that this methodology won't work with other scriptable 
+applications, either, but I take no responsibility for the implosion 
+of your monitor.
+</P>
+
+<HR>
+
+<P>
+Copyright © 1998–2007 Jonathan E. Guyer<BR>
+All rights reserved.
+</P>
+
+<p>
+<!-- #LASTMODIFIED TEXT="Last modified" FORM="LONG,WEEKDAY,TIME,SECONDS"-->
+Last modified Tuesday, July 10, 2007 10:18:56 PM
+<!-- /#LASTMODIFIED -->
+</p>
+
+<p>
+<a href="http://jigsaw.w3.org/css-validator/"><img 
+style="border:0;width:88px;height:31px" 
+src="http://jigsaw.w3.org/css-validator/images/vcss" alt="Valid CSS!"></a> 
+<a href="http://validator.w3.org/check/referer"><img border="0" 
+src="http://www.w3.org/Icons/valid-html40" alt="Valid HTML 4.0!" 
+height="31" width="88"></a>
+</p>
+
+</BODY>
+
+</HTML>

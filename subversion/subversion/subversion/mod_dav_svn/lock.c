@@ -2,7 +2,7 @@
  * lock.c: mod_dav_svn locking provider functions
  *
  * ====================================================================
- * Copyright (c) 2000-2006 CollabNet.  All rights reserved.
+ * Copyright (c) 2000-2006, 2008 CollabNet.  All rights reserved.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution.  The terms
@@ -16,23 +16,22 @@
  * ====================================================================
  */
 
-
+#include <apr_uuid.h>
+#include <apr_time.h>
 
 #include <httpd.h>
 #include <http_log.h>
 #include <mod_dav.h>
-#include <apr_uuid.h>
-#include <apr_time.h>
 
 #include "svn_fs.h"
 #include "svn_repos.h"
 #include "svn_dav.h"
 #include "svn_time.h"
 #include "svn_pools.h"
+#include "svn_props.h"
+#include "private/svn_log.h"
 
 #include "dav_svn.h"
-
-
 
 
 struct dav_lockdb_private
@@ -117,8 +116,7 @@ svn_lock_to_dav_lock(dav_lock **dlock,
 }
 
 
-
-/* Helper func for dav_lock_to_svn_lock:  take an incoming 
+/* Helper func for dav_lock_to_svn_lock:  take an incoming
    "<D:owner>&lt;foo&gt;</D:owner>" tag and convert it to
    "<foo>". */
 static dav_error *
@@ -129,7 +127,7 @@ unescape_xml(const char **output,
   apr_xml_parser *xml_parser = apr_xml_parser_create(pool);
   apr_xml_doc *xml_doc;
   apr_status_t apr_err;
-  const char *xml_input = apr_pstrcat 
+  const char *xml_input = apr_pstrcat
     (pool, "<?xml version=\"1.0\" encoding=\"utf-8\"?>", input, NULL);
 
   apr_err = apr_xml_parser_feed(xml_parser, xml_input, strlen(xml_input));
@@ -148,7 +146,6 @@ unescape_xml(const char **output,
                   xml_doc->namespaces, NULL, output, NULL);
   return SVN_NO_ERROR;
 }
-
 
 
 /* Helper func:  convert a dav_lock to an svn_lock_t, allocated in pool. */
@@ -182,7 +179,7 @@ dav_lock_to_svn_lock(svn_lock_t **slock,
 
   if (dlock->auth_user)
     lock->owner = apr_pstrdup(pool, dlock->auth_user);
-  
+
   /* We need to be very careful about stripping the <D:owner> tag away
      from the cdata.  It's okay to do for svn clients, but not other
      DAV clients! */
@@ -201,7 +198,7 @@ dav_lock_to_svn_lock(svn_lock_t **slock,
             return derr;
         }
       else
-        { 
+        {
           /* The comment comes from a non-svn client;  don't touch
              this data at all. */
           lock->comment = apr_pstrdup(pool, dlock->owner);
@@ -219,52 +216,13 @@ dav_lock_to_svn_lock(svn_lock_t **slock,
 }
 
 
-
-/* Helper func:  invoke mod_dav_svn's authz_read callback on
-   PATH in HEAD revision, return the readability result in *READABLE. */
-static dav_error *
-check_readability(svn_boolean_t *readable,
-                  request_rec *r,
-                  const dav_svn_repos *repos,
-                  const char *path,
-                  apr_pool_t *pool)
-{
-  svn_error_t *serr;
-  svn_fs_root_t *headroot;
-  svn_revnum_t headrev;
-  dav_svn_authz_read_baton arb;
-
-  arb.r = r;
-  arb.repos = repos;
-
-  serr = svn_fs_youngest_rev(&headrev, repos->fs, pool);
-  if (serr)
-    return dav_svn_convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
-                               "Failed to get youngest filesystem revision.",
-                               pool);
-
-  serr = svn_fs_revision_root(&headroot, repos->fs, headrev, pool);
-  if (serr)
-    return dav_svn_convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
-                               "Failed to open revision root for HEAD.",
-                               pool);
-
-  serr = dav_svn_authz_read(readable, headroot, path, &arb, pool);
-  if (serr)
-    return dav_svn_convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
-                               "Failed to check readability of a path.",
-                               pool);
-  return 0;
-}
-
-
 /* ---------------------------------------------------------------- */
 /* mod_dav locking vtable starts here: */
 
 
 /* Return the supportedlock property for a resource */
 static const char *
-dav_svn_get_supportedlock(const dav_resource *resource)
+get_supportedlock(const dav_resource *resource)
 {
   /* This is imitating what mod_dav_fs is doing.  Note that unlike
      mod_dav_fs, however, we don't support "shared" locks, only
@@ -282,24 +240,22 @@ dav_svn_get_supportedlock(const dav_resource *resource)
 }
 
 
-
 /* Parse a lock token URI, returning a lock token object allocated
  * in the given pool.
  */
 static dav_error *
-dav_svn_parse_locktoken(apr_pool_t *pool,
-                        const char *char_token,
-                        dav_locktoken **locktoken_p)
+parse_locktoken(apr_pool_t *pool,
+                const char *char_token,
+                dav_locktoken **locktoken_p)
 {
   dav_locktoken *token = apr_pcalloc(pool, sizeof(*token));
 
   /* libsvn_fs already produces a valid locktoken URI. */
   token->uuid_str = apr_pstrdup(pool, char_token);
-  
+
   *locktoken_p = token;
   return 0;
 }
-
 
 
 /* Format a lock token object into a URI string, allocated in
@@ -308,13 +264,11 @@ dav_svn_parse_locktoken(apr_pool_t *pool,
  * Always returns non-NULL.
  */
 static const char *
-dav_svn_format_locktoken(apr_pool_t *p,
-                         const dav_locktoken *locktoken)
+format_locktoken(apr_pool_t *p, const dav_locktoken *locktoken)
 {
   /* libsvn_fs already produces a valid locktoken URI. */
   return apr_pstrdup(p, locktoken->uuid_str);
 }
-
 
 
 /* Compare two lock tokens.
@@ -324,12 +278,10 @@ dav_svn_format_locktoken(apr_pool_t *p,
  * Result > 0  => lt1 > lt2
  */
 static int
-dav_svn_compare_locktoken(const dav_locktoken *lt1,
-                          const dav_locktoken *lt2)
+compare_locktoken(const dav_locktoken *lt1, const dav_locktoken *lt2)
 {
   return strcmp(lt1->uuid_str, lt2->uuid_str);
 }
-
 
 
 /* Open the provider's lock database.
@@ -350,10 +302,7 @@ dav_svn_compare_locktoken(const dav_locktoken *lt1,
  * If force != 0, locking operations will definitely occur.
  */
 static dav_error *
-dav_svn_open_lockdb(request_rec *r,
-                    int ro,
-                    int force,
-                    dav_lockdb **lockdb)
+open_lockdb(request_rec *r, int ro, int force, dav_lockdb **lockdb)
 {
   const char *svn_client_options, *version_name;
   dav_lockdb *db = apr_pcalloc(r->pool, sizeof(*db));
@@ -379,11 +328,11 @@ dav_svn_open_lockdb(request_rec *r,
 
   /* 'svn lock' wants to make svn_fs_lock() do an out-of-dateness check. */
   version_name = apr_table_get(r->headers_in, SVN_DAV_VERSION_NAME_HEADER);
-  info->working_revnum = version_name ? 
+  info->working_revnum = version_name ?
                          SVN_STR_TO_REV(version_name): SVN_INVALID_REVNUM;
 
   /* The generic lockdb structure.  */
-  db->hooks = &dav_svn_hooks_locks;
+  db->hooks = &dav_svn__hooks_locks;
   db->ro = ro;
   db->info = info;
 
@@ -392,21 +341,18 @@ dav_svn_open_lockdb(request_rec *r,
 }
 
 
-
 /* Indicates completion of locking operations */
 static void
-dav_svn_close_lockdb(dav_lockdb *lockdb)
+close_lockdb(dav_lockdb *lockdb)
 {
   /* nothing to do here. */
   return;
 }
 
 
-
 /* Take a resource out of the lock-null state. */
 static dav_error *
-dav_svn_remove_locknull_state(dav_lockdb *lockdb,
-                              const dav_resource *resource)
+remove_locknull_state(dav_lockdb *lockdb, const dav_resource *resource)
 {
 
   /* mod_dav_svn supports RFC2518bis which does not actually require
@@ -419,7 +365,6 @@ dav_svn_remove_locknull_state(dav_lockdb *lockdb,
 }
 
 
-
 /*
 ** Create a (direct) lock structure for the given resource. A locktoken
 ** will be created.
@@ -427,36 +372,33 @@ dav_svn_remove_locknull_state(dav_lockdb *lockdb,
 ** The lock provider may store private information into lock->info.
 */
 static dav_error *
-dav_svn_create_lock(dav_lockdb *lockdb,
-                    const dav_resource *resource,
-                    dav_lock **lock)
+create_lock(dav_lockdb *lockdb, const dav_resource *resource, dav_lock **lock)
 {
   svn_error_t *serr;
   dav_locktoken *token = apr_pcalloc(resource->pool, sizeof(*token));
   dav_lock *dlock = apr_pcalloc(resource->pool, sizeof(*dlock));
-  
+
   dlock->rectype = DAV_LOCKREC_DIRECT;
   dlock->is_locknull = resource->exists;
   dlock->scope = DAV_LOCKSCOPE_UNKNOWN;
   dlock->type = DAV_LOCKTYPE_UNKNOWN;
   dlock->depth = 0;
 
-  serr = svn_fs_generate_lock_token(&(token->uuid_str), 
+  serr = svn_fs_generate_lock_token(&(token->uuid_str),
                                     resource->info->repos->fs,
                                     resource->pool);
   if (serr)
-    return dav_svn_convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
-                               "Failed to generate a lock token.",
-                               resource->pool);
+    return dav_svn__convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
+                                "Failed to generate a lock token.",
+                                resource->pool);
   dlock->locktoken = token;
 
   /* allowing mod_dav to fill in dlock->timeout, owner, auth_user. */
   /* dlock->info and dlock->next are NULL by default. */
 
   *lock = dlock;
-  return 0;  
+  return 0;
 }
-
 
 
 /*
@@ -469,28 +411,26 @@ dav_svn_create_lock(dav_lockdb *lockdb,
 ** The locks, if any, are returned as a linked list in no particular
 ** order. If no locks are present, then *locks will be NULL.
 **
-** #define DAV_GETLOCKS_RESOLVED   0    -- resolve indirects to directs 
-** #define DAV_GETLOCKS_PARTIAL    1    -- leave indirects partially filled 
+** #define DAV_GETLOCKS_RESOLVED   0    -- resolve indirects to directs
+** #define DAV_GETLOCKS_PARTIAL    1    -- leave indirects partially filled
 ** #define DAV_GETLOCKS_COMPLETE   2    -- fill out indirect locks
 */
 static dav_error *
-dav_svn_get_locks(dav_lockdb *lockdb,
-                  const dav_resource *resource,
-                  int calltype,
-                  dav_lock **locks)
+get_locks(dav_lockdb *lockdb,
+          const dav_resource *resource,
+          int calltype,
+          dav_lock **locks)
 {
   dav_lockdb_private *info = lockdb->info;
   svn_error_t *serr;
-  dav_error *derr;
   svn_lock_t *slock;
-  svn_boolean_t readable = FALSE;
   dav_lock *lock = NULL;
 
   /* We only support exclusive locks, not shared ones.  So this
      function always returns a "list" of exactly one lock, or just a
      NULL list.  The 'calltype' arg is also meaningless, since we
      don't support locks on collections.  */
-  
+
   /* Sanity check:  if the resource has no associated path in the fs,
      then there's nothing to do.  */
   if (! resource->info->repos_path)
@@ -513,12 +453,7 @@ dav_svn_get_locks(dav_lockdb *lockdb,
 
   /* If the resource's fs path is unreadable, we don't want to say
      anything about locks attached to it.*/
-  derr = check_readability(&readable,
-                           resource->info->r, resource->info->repos,
-                           resource->info->repos_path, resource->pool);
-  if (derr)
-    return derr;
-  if (! readable)
+  if (! dav_svn__allow_read(resource, SVN_INVALID_REVNUM, resource->pool))
     return dav_new_error(resource->pool, HTTP_FORBIDDEN,
                          DAV_ERR_LOCK_SAVE_LOCK,
                          "Path is not accessible.");
@@ -528,9 +463,9 @@ dav_svn_get_locks(dav_lockdb *lockdb,
                          resource->info->repos_path,
                          resource->pool);
   if (serr)
-    return dav_svn_convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
-                               "Failed to check path for a lock.",
-                               resource->pool);
+    return dav_svn__convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
+                                "Failed to check path for a lock.",
+                                resource->pool);
 
   if (slock != NULL)
     {
@@ -541,16 +476,15 @@ dav_svn_get_locks(dav_lockdb *lockdb,
       apr_table_setn(info->r->headers_out, SVN_DAV_CREATIONDATE_HEADER,
                      svn_time_to_cstring(slock->creation_date,
                                          resource->pool));
-      
+
       /* Let svn clients know who "owns" the slock. */
       apr_table_setn(info->r->headers_out, SVN_DAV_LOCK_OWNER_HEADER,
                      slock->owner);
     }
 
   *locks = lock;
-  return 0;  
+  return 0;
 }
-
 
 
 /*
@@ -566,27 +500,20 @@ dav_svn_get_locks(dav_lockdb *lockdb,
 ** lock structure will be filled out as a DAV_LOCKREC_INDIRECT.
 */
 static dav_error *
-dav_svn_find_lock(dav_lockdb *lockdb,
-                  const dav_resource *resource,
-                  const dav_locktoken *locktoken,
-                  int partial_ok,
-                  dav_lock **lock)
+find_lock(dav_lockdb *lockdb,
+          const dav_resource *resource,
+          const dav_locktoken *locktoken,
+          int partial_ok,
+          dav_lock **lock)
 {
   dav_lockdb_private *info = lockdb->info;
   svn_error_t *serr;
-  dav_error *derr;
   svn_lock_t *slock;
   dav_lock *dlock = NULL;
-  svn_boolean_t readable = FALSE;
-  
+
   /* If the resource's fs path is unreadable, we don't want to say
      anything about locks attached to it.*/
-  derr = check_readability(&readable,
-                           resource->info->r, resource->info->repos,
-                           resource->info->repos_path, resource->pool);
-  if (derr)
-    return derr;
-  if (! readable)
+  if (! dav_svn__allow_read(resource, SVN_INVALID_REVNUM, resource->pool))
     return dav_new_error(resource->pool, HTTP_FORBIDDEN,
                          DAV_ERR_LOCK_SAVE_LOCK,
                          "Path is not accessible.");
@@ -596,9 +523,9 @@ dav_svn_find_lock(dav_lockdb *lockdb,
                          resource->info->repos_path,
                          resource->pool);
   if (serr)
-    return dav_svn_convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
-                               "Failed to look up lock by path.",
-                               resource->pool);
+    return dav_svn__convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
+                                "Failed to look up lock by path.",
+                                resource->pool);
 
   if (slock != NULL)
     {
@@ -610,7 +537,7 @@ dav_svn_find_lock(dav_lockdb *lockdb,
 
       svn_lock_to_dav_lock(&dlock, slock, FALSE,
                            resource->exists, resource->pool);
-      
+
       /* Let svn clients know the creationdate of the slock. */
       apr_table_setn(info->r->headers_out, SVN_DAV_CREATIONDATE_HEADER,
                      svn_time_to_cstring(slock->creation_date,
@@ -622,9 +549,8 @@ dav_svn_find_lock(dav_lockdb *lockdb,
     }
 
   *lock = dlock;
-  return 0;  
+  return 0;
 }
-
 
 
 /*
@@ -637,15 +563,11 @@ dav_svn_find_lock(dav_lockdb *lockdb,
 **          exist (i.e. it may not perform timeout checks).
 */
 static dav_error *
-dav_svn_has_locks(dav_lockdb *lockdb,
-                  const dav_resource *resource,
-                  int *locks_present)
+has_locks(dav_lockdb *lockdb, const dav_resource *resource, int *locks_present)
 {
   dav_lockdb_private *info = lockdb->info;
   svn_error_t *serr;
-  dav_error *derr;
   svn_lock_t *slock;
-  svn_boolean_t readable = FALSE;
 
   /* Sanity check:  if the resource has no associated path in the fs,
      then there's nothing to do.  */
@@ -669,12 +591,7 @@ dav_svn_has_locks(dav_lockdb *lockdb,
 
   /* If the resource's fs path is unreadable, we don't want to say
      anything about locks attached to it.*/
-  derr = check_readability(&readable,
-                           resource->info->r, resource->info->repos,
-                           resource->info->repos_path, resource->pool);
-  if (derr)
-    return derr;
-  if (! readable)
+  if (! dav_svn__allow_read(resource, SVN_INVALID_REVNUM, resource->pool))
     return dav_new_error(resource->pool, HTTP_FORBIDDEN,
                          DAV_ERR_LOCK_SAVE_LOCK,
                          "Path is not accessible.");
@@ -684,14 +601,13 @@ dav_svn_has_locks(dav_lockdb *lockdb,
                          resource->info->repos_path,
                          resource->pool);
   if (serr)
-    return dav_svn_convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
-                               "Failed to check path for a lock.",
-                               resource->pool);
+    return dav_svn__convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
+                                "Failed to check path for a lock.",
+                                resource->pool);
 
   *locks_present = slock ? 1 : 0;
   return 0;
 }
-
 
 
 /*
@@ -706,25 +622,19 @@ dav_svn_has_locks(dav_lockdb *lockdb,
 ** Multiple locks are specified using the lock->next links.
 */
 static dav_error *
-dav_svn_append_locks(dav_lockdb *lockdb,
-                     const dav_resource *resource,
-                     int make_indirect,
-                     const dav_lock *lock)
+append_locks(dav_lockdb *lockdb,
+             const dav_resource *resource,
+             int make_indirect,
+             const dav_lock *lock)
 {
   dav_lockdb_private *info = lockdb->info;
   svn_lock_t *slock;
   svn_error_t *serr;
   dav_error *derr;
-  svn_boolean_t readable = FALSE;
 
   /* If the resource's fs path is unreadable, we don't allow a lock to
      be created on it. */
-  derr = check_readability(&readable,
-                           resource->info->r, resource->info->repos,
-                           resource->info->repos_path, resource->pool);
-  if (derr)
-    return derr;
-  if (! readable)
+  if (! dav_svn__allow_read(resource, SVN_INVALID_REVNUM, resource->pool))
     return dav_new_error(resource->pool, HTTP_FORBIDDEN,
                          DAV_ERR_LOCK_SAVE_LOCK,
                          "Path is not accessible.");
@@ -744,6 +654,10 @@ dav_svn_append_locks(dav_lockdb *lockdb,
       svn_fs_root_t *txn_root;
       const char *conflict_msg;
       dav_svn_repos *repos = resource->info->repos;
+      apr_hash_t *revprop_table = apr_hash_make(resource->pool);
+      apr_hash_set(revprop_table, SVN_PROP_REVISION_AUTHOR,
+                   APR_HASH_KEY_STRING, svn_string_create(repos->username,
+                                                          resource->pool));
 
       if (resource->info->repos->is_svn_client)
         return dav_new_error(resource->pool, HTTP_METHOD_NOT_ALLOWED,
@@ -756,52 +670,52 @@ dav_svn_append_locks(dav_lockdb *lockdb,
                              DAV_ERR_LOCK_SAVE_LOCK,
                              "Attempted to lock non-existent path;"
                              " turn on autoversioning first.");
-      
+
       /* Commit a 0-byte file: */
 
       if ((serr = svn_fs_youngest_rev(&rev, repos->fs, resource->pool)))
-        return dav_svn_convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
-                                   "Could not determine youngest revision", 
-                                   resource->pool);
-      
-      if ((serr = svn_repos_fs_begin_txn_for_commit(&txn, repos->repos, rev,
-                                                    repos->username, NULL, 
-                                                    resource->pool)))
-        return dav_svn_convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
-                                   "Could not begin a transaction", 
-                                   resource->pool);
+        return dav_svn__convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
+                                    "Could not determine youngest revision",
+                                    resource->pool);
+
+      if ((serr = svn_repos_fs_begin_txn_for_commit2(&txn, repos->repos, rev,
+                                                     revprop_table,
+                                                     resource->pool)))
+        return dav_svn__convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
+                                    "Could not begin a transaction",
+                                    resource->pool);
 
       if ((serr = svn_fs_txn_root(&txn_root, txn, resource->pool)))
-        return dav_svn_convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
-                                   "Could not begin a transaction", 
-                                   resource->pool);
+        return dav_svn__convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
+                                    "Could not begin a transaction",
+                                    resource->pool);
 
       if ((serr = svn_fs_make_file(txn_root, resource->info->repos_path,
                                    resource->pool)))
-        return dav_svn_convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
-                                   "Could not create empty file.",
-                                   resource->pool);
-      
-      if ((serr = dav_svn_attach_auto_revprops(txn,
-                                               resource->info->repos_path,
-                                               resource->pool)))
-        return dav_svn_convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
-                                   "Could not create empty file.",
-                                   resource->pool);
-      
+        return dav_svn__convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
+                                    "Could not create empty file.",
+                                    resource->pool);
+
+      if ((serr = dav_svn__attach_auto_revprops(txn,
+                                                resource->info->repos_path,
+                                                resource->pool)))
+        return dav_svn__convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
+                                    "Could not create empty file.",
+                                    resource->pool);
+
       if ((serr = svn_repos_fs_commit_txn(&conflict_msg, repos->repos,
                                           &new_rev, txn, resource->pool)))
         {
           svn_error_clear(svn_fs_abort_txn(txn, resource->pool));
-          return dav_svn_convert_err(serr, HTTP_CONFLICT, 
-                                     apr_psprintf(resource->pool,
-                                                  "Conflict when committing "
-                                                  "'%s'.", conflict_msg),
-                                     resource->pool);
+          return dav_svn__convert_err(serr, HTTP_CONFLICT,
+                                      apr_psprintf(resource->pool,
+                                                   "Conflict when committing "
+                                                   "'%s'.", conflict_msg),
+                                      resource->pool);
         }
     }
 
-  /* Convert the dav_lock into an svn_lock_t. */  
+  /* Convert the dav_lock into an svn_lock_t. */
   derr = dav_lock_to_svn_lock(&slock, lock, resource->info->repos_path,
                               info, resource->info->repos->is_svn_client,
                               resource->pool);
@@ -821,13 +735,16 @@ dav_svn_append_locks(dav_lockdb *lockdb,
                            resource->pool);
 
   if (serr && serr->apr_err == SVN_ERR_FS_NO_USER)
-    return dav_new_error(resource->pool, HTTP_UNAUTHORIZED,
-                         DAV_ERR_LOCK_SAVE_LOCK,
-                         "Anonymous lock creation is not allowed.");    
+    {
+      svn_error_clear(serr);
+      return dav_new_error(resource->pool, HTTP_UNAUTHORIZED,
+                           DAV_ERR_LOCK_SAVE_LOCK,
+                           "Anonymous lock creation is not allowed.");
+    }
   else if (serr)
-    return dav_svn_convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
-                               "Failed to create new lock.",
-                               resource->pool);
+    return dav_svn__convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
+                                "Failed to create new lock.",
+                                resource->pool);
 
 
   /* A standard webdav LOCK response doesn't include any information
@@ -847,15 +764,12 @@ dav_svn_append_locks(dav_lockdb *lockdb,
                  slock->owner);
 
   /* Log the locking as a 'high-level' action. */
-  apr_table_set(resource->info->r->subprocess_env, "SVN-ACTION",
-                apr_psprintf(resource->info->r->pool,
-                             "lock '%s'",
-                             svn_path_uri_encode(slock->path,
-                                                 resource->info->r->pool)));
+  dav_svn__operational_log(resource->info,
+                           svn_log__lock_one_path(slock->path, info->lock_steal,
+                                                  resource->info->r->pool));
 
   return 0;
 }
-
 
 
 /*
@@ -864,14 +778,12 @@ dav_svn_append_locks(dav_lockdb *lockdb,
 ** If locktoken == NULL, then ALL locks are removed.
 */
 static dav_error *
-dav_svn_remove_lock(dav_lockdb *lockdb,
-                    const dav_resource *resource,
-                    const dav_locktoken *locktoken)
+remove_lock(dav_lockdb *lockdb,
+            const dav_resource *resource,
+            const dav_locktoken *locktoken)
 {
   dav_lockdb_private *info = lockdb->info;
   svn_error_t *serr;
-  dav_error *derr;
-  svn_boolean_t readable = FALSE;
   svn_lock_t *slock;
   const char *token = NULL;
 
@@ -889,27 +801,22 @@ dav_svn_remove_lock(dav_lockdb *lockdb,
 
   /* If the resource's fs path is unreadable, we don't allow a lock to
      be removed from it. */
-  derr = check_readability(&readable,
-                           resource->info->r, resource->info->repos,
-                           resource->info->repos_path, resource->pool);
-  if (derr)
-    return derr;
-  if (! readable)
+  if (! dav_svn__allow_read(resource, SVN_INVALID_REVNUM, resource->pool))
     return dav_new_error(resource->pool, HTTP_FORBIDDEN,
                          DAV_ERR_LOCK_SAVE_LOCK,
                          "Path is not accessible.");
 
   if (locktoken == NULL)
     {
-      /* Need to manually discover any lock on the resource. */     
+      /* Need to manually discover any lock on the resource. */
       serr = svn_fs_get_lock(&slock,
                              resource->info->repos->fs,
                              resource->info->repos_path,
                              resource->pool);
       if (serr)
-        return dav_svn_convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
-                                   "Failed to check path for a lock.",
-                                   resource->pool);
+        return dav_svn__convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
+                                    "Failed to check path for a lock.",
+                                    resource->pool);
       if (slock)
         token = slock->token;
     }
@@ -930,25 +837,27 @@ dav_svn_remove_lock(dav_lockdb *lockdb,
                                  resource->pool);
 
       if (serr && serr->apr_err == SVN_ERR_FS_NO_USER)
-        return dav_new_error(resource->pool, HTTP_UNAUTHORIZED,
-                             DAV_ERR_LOCK_SAVE_LOCK,
-                             "Anonymous lock removal is not allowed.");
+        {
+          svn_error_clear(serr);
+          return dav_new_error(resource->pool, HTTP_UNAUTHORIZED,
+                               DAV_ERR_LOCK_SAVE_LOCK,
+                               "Anonymous lock removal is not allowed.");
+        }
       else if (serr)
-        return dav_svn_convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
-                                   "Failed to remove a lock.",
-                                   resource->pool);
-    }
+        return dav_svn__convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
+                                    "Failed to remove a lock.",
+                                    resource->pool);
 
-  /* Log the unlocking as a 'high-level' action. */
-  apr_table_set(resource->info->r->subprocess_env, "SVN-ACTION",
-                apr_psprintf(resource->info->r->pool,
-                             "unlock '%s'",
-                             svn_path_uri_encode(resource->info->repos_path,
-                                                 resource->info->r->pool)));
+      /* Log the unlocking as a 'high-level' action. */
+      dav_svn__operational_log(resource->info,
+                               svn_log__unlock_one_path(
+                                   resource->info->repos_path,
+                                   info->lock_break,
+                                   resource->info->r->pool));
+    }
 
   return 0;
 }
-
 
 
 /*
@@ -962,29 +871,22 @@ dav_svn_remove_lock(dav_lockdb *lockdb,
 ** Note that the locks will be fully resolved.
 */
 static dav_error *
-dav_svn_refresh_locks(dav_lockdb *lockdb,
-                      const dav_resource *resource,
-                      const dav_locktoken_list *ltl,
-                      time_t new_time,
-                      dav_lock **locks)
+refresh_locks(dav_lockdb *lockdb,
+              const dav_resource *resource,
+              const dav_locktoken_list *ltl,
+              time_t new_time,
+              dav_lock **locks)
 {
   /* We're not looping over a list of locks, since we only support one
      lock per resource. */
   dav_locktoken *token = ltl->locktoken;
   svn_error_t *serr;
-  dav_error *derr;
   svn_lock_t *slock;
   dav_lock *dlock;
-  svn_boolean_t readable = FALSE;
 
   /* If the resource's fs path is unreadable, we don't want to say
      anything about locks attached to it.*/
-  derr = check_readability(&readable,
-                           resource->info->r, resource->info->repos,
-                           resource->info->repos_path, resource->pool);
-  if (derr)
-    return derr;
-  if (! readable)
+  if (! dav_svn__allow_read(resource, SVN_INVALID_REVNUM, resource->pool))
     return dav_new_error(resource->pool, HTTP_FORBIDDEN,
                          DAV_ERR_LOCK_SAVE_LOCK,
                          "Path is not accessible.");
@@ -995,9 +897,9 @@ dav_svn_refresh_locks(dav_lockdb *lockdb,
                          resource->info->repos_path,
                          resource->pool);
   if (serr)
-    return dav_svn_convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
-                               "Token doesn't point to a lock.",
-                               resource->pool);
+    return dav_svn__convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
+                                "Token doesn't point to a lock.",
+                                resource->pool);
 
   /* Sanity check: does the incoming token actually represent the
      current lock on the incoming resource? */
@@ -1021,13 +923,16 @@ dav_svn_refresh_locks(dav_lockdb *lockdb,
                            resource->pool);
 
   if (serr && serr->apr_err == SVN_ERR_FS_NO_USER)
-    return dav_new_error(resource->pool, HTTP_UNAUTHORIZED,
-                         DAV_ERR_LOCK_SAVE_LOCK,
-                         "Anonymous lock refreshing is not allowed.");    
+    {
+      svn_error_clear(serr);
+      return dav_new_error(resource->pool, HTTP_UNAUTHORIZED,
+                           DAV_ERR_LOCK_SAVE_LOCK,
+                           "Anonymous lock refreshing is not allowed.");
+    }
   else if (serr)
-    return dav_svn_convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
-                               "Failed to refresh existing lock.",
-                               resource->pool);
+    return dav_svn__convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
+                                "Failed to refresh existing lock.",
+                                resource->pool);
 
   /* Convert the refreshed lock into a dav_lock and return it. */
   svn_lock_to_dav_lock(&dlock, slock, FALSE, resource->exists, resource->pool);
@@ -1037,25 +942,22 @@ dav_svn_refresh_locks(dav_lockdb *lockdb,
 }
 
 
-
-
 /* The main locking vtable, provided to mod_dav */
-
-const dav_hooks_locks dav_svn_hooks_locks = {
-  dav_svn_get_supportedlock,
-  dav_svn_parse_locktoken,
-  dav_svn_format_locktoken,
-  dav_svn_compare_locktoken,
-  dav_svn_open_lockdb,
-  dav_svn_close_lockdb,
-  dav_svn_remove_locknull_state,
-  dav_svn_create_lock,
-  dav_svn_get_locks,
-  dav_svn_find_lock,
-  dav_svn_has_locks,
-  dav_svn_append_locks,
-  dav_svn_remove_lock,
-  dav_svn_refresh_locks,
+const dav_hooks_locks dav_svn__hooks_locks = {
+  get_supportedlock,
+  parse_locktoken,
+  format_locktoken,
+  compare_locktoken,
+  open_lockdb,
+  close_lockdb,
+  remove_locknull_state,
+  create_lock,
+  get_locks,
+  find_lock,
+  has_locks,
+  append_locks,
+  remove_lock,
+  refresh_locks,
   NULL,
   NULL                          /* hook structure context */
 };

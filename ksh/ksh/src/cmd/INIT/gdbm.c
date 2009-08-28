@@ -30,6 +30,8 @@
 int
 main()
 {
-	dbm_open();
+	DBM*	dbm = 0;
+
+	dbm_close(dbm);
 	return 0;
 }

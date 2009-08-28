@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,9 +25,9 @@
 #define __IOKIT_SCSI_PARALLEL_TIMER_H__
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Includes
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 // General IOKit includes
 #include <IOKit/IOWorkLoop.h>
@@ -37,16 +37,16 @@
 #include "SCSIParallelTask.h"
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Constants
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 #define kTimeoutValueNone	0
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Class Declarations
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 class SCSIParallelTimer : public IOTimerEventSource
 {
@@ -57,6 +57,8 @@ public:
 	
 	static SCSIParallelTimer *
 	CreateTimerEventSource ( OSObject * owner, Action action = 0 );
+	
+	bool				Init ( OSObject * owner, Action action );
 	
 	void 				Enable ( void );
 	void 				Disable ( void );
@@ -77,17 +79,14 @@ public:
 	
 protected:
 	
-	SInt32				CompareDeadlines ( AbsoluteTime time1, AbsoluteTime time2 );
-	AbsoluteTime		GetDeadline ( SCSIParallelTask * task );
-	void				SetDeadline ( SCSIParallelTask * task, UInt32 inTimeoutMS );
-	SCSIParallelTask *	GetNextTask ( SCSIParallelTask * task );
-	void				SetNextTask ( SCSIParallelTask * task, SCSIParallelTask * next );
-	UInt32				GetTimeoutDuration ( SCSIParallelTask * task );
+	inline static SInt32	CompareDeadlines ( AbsoluteTime time1, AbsoluteTime time2 );
+	AbsoluteTime			GetDeadline ( SCSIParallelTask * task );
+	UInt32					GetTimeoutDuration ( SCSIParallelTask * task );
 	
 	
 private:
 	
-	SCSIParallelTask *		fTimeoutTaskListHead;
+	queue_head_t			fListHead;
 	bool					fHandlingTimeout;
 	
 };

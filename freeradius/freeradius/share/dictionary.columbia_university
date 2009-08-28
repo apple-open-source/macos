@@ -5,7 +5,7 @@ VALUE	Service-Type			Sip-session		12
 #
 #  http://www.cs.columbia.edu/IRT/cinema/release/radius_notes.html
 #
-#	$Id: dictionary.columbia_university,v 1.1.10.1 2005/11/30 22:17:22 aland Exp $
+#	$Id$
 #
 VENDOR		Columbia-University		11862
 

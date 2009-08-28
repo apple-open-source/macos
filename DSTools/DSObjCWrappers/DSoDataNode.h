@@ -60,7 +60,7 @@
  * @param inDataLength The length of the data to be stored in the data node.
  * @param inData A pointer to an array of characters containing the data to be stored.
  */
-- (DSoDataNode*)initWithDir:(DSoDirectory*)inDir bufferSize:(unsigned long)inBufSize dataLength:(unsigned long)inDataLength data:(const void*)inData;
+- (DSoDataNode*)initWithDir:(DSoDirectory*)inDir bufferSize:(unsigned long)inBufSize dataLength:(unsigned long)inDataLength data:(const void*)inData  DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method initWithDir:value:
@@ -71,7 +71,7 @@
  * @param inDir The DS process object to initialize with.
  * @param inValue The NSString or NSData style value to use for the data.
  */
-- (DSoDataNode*)initWithDir:(DSoDirectory*)inDir value:(id)inValue;
+- (DSoDataNode*)initWithDir:(DSoDirectory*)inDir value:(id)inValue DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method initWithDir:string:
@@ -82,7 +82,7 @@
  * @param inDir The DS process object to initialize with.
  * @param inString The NSString style string to use for the data.
  */
-- (DSoDataNode*)initWithDir:(DSoDirectory*)inDir string:(NSString*)inString;
+- (DSoDataNode*)initWithDir:(DSoDirectory*)inDir string:(NSString*)inString DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method initWithDir:cString:
@@ -94,7 +94,7 @@
  * @param inDir The DS process object to initialize with.
  * @param inString The null terminated C-style string to use for the data.
  */
-- (DSoDataNode*)initWithDir:(DSoDirectory*)inDir cString:(const char*)inString;
+- (DSoDataNode*)initWithDir:(DSoDirectory*)inDir cString:(const char*)inString DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method initWithDir:dsDataNode:
@@ -105,7 +105,7 @@
  * @param inDir The DS process object to initialize with.
  * @param inNode A pointer to the tDataNode variable.
  */
-- (DSoDataNode*)initWithDir:(DSoDirectory*)inDir dsDataNode:(tDataNode*)inNode;
+- (DSoDataNode*)initWithDir:(DSoDirectory*)inDir dsDataNode:(tDataNode*)inNode DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method initWithDir:copyOfDsDataNode:
@@ -116,7 +116,7 @@
  * @param inDir The DS process object to initialize with.
  * @param inNode A pointer to the tDataNode variable.
 */
-- (DSoDataNode*)initWithDir:(DSoDirectory*)inDir copyOfDsDataNode:(tDataNode*)inNode;
+- (DSoDataNode*)initWithDir:(DSoDirectory*)inDir copyOfDsDataNode:(tDataNode*)inNode DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 //  accessors.
 
@@ -124,25 +124,26 @@
  * @method getBufferSize
  * @abstract Get the size of the data node's buffer.
  */
-- (unsigned long) getBufferSize;
+- (unsigned long) getBufferSize DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method getDataLength
  * @abstract Get the length of valid data in the data node's buffer.
  */
-- (unsigned long) getDataLength;
+- (unsigned long) getDataLength DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method setDataLength:
  * @abstract Sets the length of valid data in the data node's buffer.
  * @param inLength The new length to use for the data node's buffer.
  */
-- (void) setDataLength:(unsigned long)inLength;
+- (void) setDataLength:(unsigned long)inLength DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method dsDataNode
  * @abstract Method for accessing the low-level data type.
  * @result A pointer to the internally wrapped tDataNode variable.
  */
-- (tDataNodePtr) dsDataNode;
+- (tDataNodePtr) dsDataNode DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
+
 @end

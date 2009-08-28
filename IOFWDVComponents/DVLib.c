@@ -289,6 +289,19 @@ static void closeStream(DVStream *stream);
 static void doDVReadHandleInputUnderrun( DVGlobalInPtr pGlobalData );
 static void doDVHandleOutputUnderrun(  DVGlobalOutPtr	pGlobalData );
 
+#include <CoreFoundation/CFRuntime.h>
+
+#if ( MAC_OS_X_VERSION_MIN_REQUIRED >= 1060 ) && defined(CF_USING_COLLECTABLE_MEMORY)
+#define REGISTER_THREADS_WITH_GC 1
+#else // MAC_OS_X_VERSION_MIN_REQUIRED < 1060
+#define REGISTER_THREADS_WITH_GC 0
+#endif // MAC_OS_X_VERSION_MIN_REQUIRED < 1060
+
+#if REGISTER_THREADS_WITH_GC
+#include <dlfcn.h>
+typedef void (*ObjCRegisterThreadWithCollectorPtr)(void);
+#endif REGISTER_THREADS_WITH_GC
+
 UInt32  AddFWCycleTimeToFWCycleTime( UInt32 cycleTime1, UInt32 cycleTime2 )
 {
     UInt32    secondCount,
@@ -908,6 +921,21 @@ static OSStatus DVthreadExit(DVThread *dvThread, UInt32 params)
 static void *DVRTThreadStart(DVThread *dvThread)
 {
 
+#if REGISTER_THREADS_WITH_GC
+	if (CF_USING_COLLECTABLE_MEMORY)
+	{
+		void *dlhandle = dlopen("/usr/lib/libobjc.dylib", RTLD_LAZY | RTLD_LOCAL);
+		if( dlhandle != NULL ) {
+			ObjCRegisterThreadWithCollectorPtr objcRegisterThreadWithCollector = dlsym( dlhandle, "objc_registerThreadWithCollector" );
+			if( objcRegisterThreadWithCollector != NULL )
+				objcRegisterThreadWithCollector();
+			else syslog(LOG_INFO, "dlsym(objc_registerThreadWithCollector) failed");
+			dlclose( dlhandle );
+		}
+		else syslog(LOG_INFO, "dlopen(/usr/lib/libobjc.dylib) failed");
+	}
+#endif	// REGISTER_THREADS_WITH_GC
+	
     ReceiveMsg msg;
     kern_return_t err;
     int delay;
@@ -972,6 +1000,21 @@ static void *DVRTThreadStart(DVThread *dvThread)
 
 static void *DVRLThreadStart(DVThread *thread)
 {
+#if REGISTER_THREADS_WITH_GC
+	if (CF_USING_COLLECTABLE_MEMORY)
+	{
+		void *dlhandle = dlopen("/usr/lib/libobjc.dylib", RTLD_LAZY | RTLD_LOCAL);
+		if( dlhandle != NULL ) {
+			ObjCRegisterThreadWithCollectorPtr objcRegisterThreadWithCollector = dlsym( dlhandle, "objc_registerThreadWithCollector" );
+			if( objcRegisterThreadWithCollector != NULL )
+				objcRegisterThreadWithCollector();
+			else syslog(LOG_INFO, "dlsym(objc_registerThreadWithCollector) failed");
+			dlclose( dlhandle );
+		}
+		else syslog(LOG_INFO, "dlopen(/usr/lib/libobjc.dylib) failed");
+	}
+#endif	// REGISTER_THREADS_WITH_GC
+	
     CFRunLoopRef loop;
     //syslog(LOG_INFO, "Starting thread: %p\n", thread);
 

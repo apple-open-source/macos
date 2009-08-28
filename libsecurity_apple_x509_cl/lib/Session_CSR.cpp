@@ -180,6 +180,14 @@ void AppleX509CLSession::verifyCsr(
 	CSSM_X509_ALGORITHM_IDENTIFIER sigAlgId = certReq.signatureAlgorithm;
 	CSSM_ALGORITHMS vfyAlg = CL_oidToAlg(sigAlgId.algorithm);
 			
+	/* 
+	 * Handle CSSMOID_ECDSA_WithSpecified, which requires additional
+	 * decode to get the digest algorithm.
+	 */
+	if(vfyAlg == CSSM_ALGID_ECDSA_SPECIFIED) {
+		vfyAlg = CL_nssDecodeECDSASigAlgParams(sigAlgId.parameters, coder);
+	}
+	
 	/*
 	 * 3. Extract the raw bits to be verified and the signature. We 
 	 *    decode the CSR as a CertificationRequestSigned for this, which 

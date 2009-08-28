@@ -1,10 +1,10 @@
 /*
- * "$Id: ipp-support.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: ipp-support.c 7847 2008-08-19 04:22:14Z mike $"
  *
  *   Internet Printing Protocol support functions for the Common UNIX
  *   Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -23,6 +23,8 @@
  *   ippOpValue()     - Return an operation id for the given name.
  *   ippPort()        - Return the default IPP port number.
  *   ippSetPort()     - Set the default port number.
+ *   ippTagString()   - Return the tag name corresponding to a tag value.
+ *   ippTagValue()    - Return the tag value corresponding to a tag name.
  */
 
 /*
@@ -150,6 +152,94 @@ static char	* const ipp_std_ops[] =
 		  "CUPS-Move-Job",
 		  "CUPS-Authenticate-Job",
 		  "CUPS-Get-PPD"
+		},
+		* const ipp_cups_ops2[] =
+		{
+		  "CUPS-Get-Document"
+		},
+		* const ipp_tag_names[] =
+		{			/* Value/group tag names */
+		  "zero",		/* 0x00 */
+		  "operation-attributes-tag",
+					/* 0x01 */
+		  "job-attributes-tag",	/* 0x02 */
+		  "end-of-attributes-tag",
+					/* 0x03 */
+		  "printer-attributes-tag",
+					/* 0x04 */
+		  "unsupported-attributes-tag",
+					/* 0x05 */
+		  "subscription-attributes-tag",
+					/* 0x06 */
+		  "event-notification-attributes-tag",
+					/* 0x07 */
+		  "unknown-08",		/* 0x08 */
+		  "unknown-09",		/* 0x09 */
+		  "unknown-0a",		/* 0x0a */
+		  "unknown-0b",		/* 0x0b */
+		  "unknown-0c",		/* 0x0c */
+		  "unknown-0d",		/* 0x0d */
+		  "unknown-0e",		/* 0x0e */
+		  "unknown-0f",		/* 0x0f */
+		  "unsupported",	/* 0x10 */
+		  "default",		/* 0x11 */
+		  "unknown",		/* 0x12 */
+		  "no-value",		/* 0x13 */
+		  "unknown-14",		/* 0x14 */
+		  "not-settable",	/* 0x15 */
+		  "delete-attribute",	/* 0x16 */
+		  "admin-define",	/* 0x17 */
+		  "unknown-18",		/* 0x18 */
+		  "unknown-19",		/* 0x19 */
+		  "unknown-1a",		/* 0x1a */
+		  "unknown-1b",		/* 0x1b */
+		  "unknown-1c",		/* 0x1c */
+		  "unknown-1d",		/* 0x1d */
+		  "unknown-1e",		/* 0x1e */
+		  "unknown-1f",		/* 0x1f */
+		  "unknown-20",		/* 0x20 */
+		  "integer",		/* 0x21 */
+		  "boolean",		/* 0x22 */
+		  "enum",		/* 0x23 */
+		  "unknown-24",		/* 0x24 */
+		  "unknown-25",		/* 0x25 */
+		  "unknown-26",		/* 0x26 */
+		  "unknown-27",		/* 0x27 */
+		  "unknown-28",		/* 0x28 */
+		  "unknown-29",		/* 0x29 */
+		  "unknown-2a",		/* 0x2a */
+		  "unknown-2b",		/* 0x2b */
+		  "unknown-2c",		/* 0x2c */
+		  "unknown-2d",		/* 0x2d */
+		  "unknown-2e",		/* 0x2e */
+		  "unknown-2f",		/* 0x2f */
+		  "octetString",	/* 0x30 */
+		  "dateTime",		/* 0x31 */
+		  "resolution",		/* 0x32 */
+		  "rangeOfInteger",	/* 0x33 */
+		  "begCollection",	/* 0x34 */
+		  "textWithLanguage",	/* 0x35 */
+		  "nameWithLanguage",	/* 0x36 */
+		  "endCollection",	/* 0x37 */
+		  "unknown-38",		/* 0x38 */
+		  "unknown-39",		/* 0x39 */
+		  "unknown-3a",		/* 0x3a */
+		  "unknown-3b",		/* 0x3b */
+		  "unknown-3c",		/* 0x3c */
+		  "unknown-3d",		/* 0x3d */
+		  "unknown-3e",		/* 0x3e */
+		  "unknown-3f",		/* 0x3f */
+		  "unknown-40",		/* 0x40 */
+		  "textWithoutLanguage",/* 0x41 */
+		  "nameWithoutLanguage",/* 0x42 */
+		  "unknown-43",		/* 0x43 */
+		  "keyword",		/* 0x44 */
+		  "uri",		/* 0x45 */
+		  "uriScheme",		/* 0x46 */
+		  "charset",		/* 0x47 */
+		  "naturalLanguage",	/* 0x48 */
+		  "mimeMediaType",	/* 0x49 */
+		  "memberAttrName"	/* 0x4a */
 		};
 
 
@@ -191,7 +281,7 @@ ippErrorString(ipp_status_t error)	/* I - Error status */
 /*
  * 'ippErrorValue()' - Return a status code for the given name.
  *
- * @since CUPS 1.2@
+ * @since CUPS 1.2/Mac OS X 10.5@
  */
 
 ipp_status_t				/* O - IPP status code */
@@ -225,7 +315,7 @@ ippErrorValue(const char *name)		/* I - Name */
 /*
  * 'ippOpString()' - Return a name for the given operation id.
  *
- * @since CUPS 1.2@
+ * @since CUPS 1.2/Mac OS X 10.5@
  */
 
 const char *				/* O - Name */
@@ -244,6 +334,8 @@ ippOpString(ipp_op_t op)		/* I - Operation ID */
     return ("windows-ext");
   else if (op >= CUPS_GET_DEFAULT && op <= CUPS_GET_PPD)
     return (ipp_cups_ops[op - CUPS_GET_DEFAULT]);
+  else if (op == CUPS_GET_DOCUMENT)
+    return (ipp_cups_ops2[0]);
 
  /*
   * No, build an "unknown-xxxx" operation string...
@@ -258,7 +350,7 @@ ippOpString(ipp_op_t op)		/* I - Operation ID */
 /*
  * 'ippOpValue()' - Return an operation id for the given name.
  *
- * @since CUPS 1.2@
+ * @since CUPS 1.2/Mac OS X 10.5@
  */
 
 ipp_op_t				/* O - Operation ID */
@@ -278,6 +370,10 @@ ippOpValue(const char *name)		/* I - Textual name */
     if (!strcasecmp(name, ipp_cups_ops[i]))
       return ((ipp_op_t)(i + 0x4001));
 
+  for (i = 0; i < (sizeof(ipp_cups_ops2) / sizeof(ipp_cups_ops2[0])); i ++)
+    if (!strcasecmp(name, ipp_cups_ops2[i]))
+      return ((ipp_op_t)(i + 0x4027));
+
   if (!strcasecmp(name, "CUPS-Add-Class"))
     return (CUPS_ADD_MODIFY_CLASS);
 
@@ -295,53 +391,15 @@ ippOpValue(const char *name)		/* I - Textual name */
 int					/* O - Port number */
 ippPort(void)
 {
-  const char	*ipp_port;		/* IPP_PORT environment variable */
-  struct servent *port;			/* Port number info */  
-  int		portnum;		/* Port number */
   _cups_globals_t *cg = _cupsGlobals();	/* Pointer to library globals */
 
 
   DEBUG_puts("ippPort()");
 
   if (!cg->ipp_port)
-  {
-   /*
-    * See if the server definition includes the port number...
-    */
+    _cupsSetDefaults();
 
-    DEBUG_puts("ippPort: Not initialized...");
-
-    cupsServer();
-
-#ifdef DEBUG
-    if (cg->ipp_port)
-      puts("ippPort: Set via cupsServer()...");
-#endif /* DEBUG */
-  }
-
-  if (!cg->ipp_port)
-  {
-    if ((ipp_port = getenv("IPP_PORT")) != NULL)
-    {
-      DEBUG_puts("ippPort: Set via IPP_PORT...");
-      portnum = atoi(ipp_port);
-    }
-    else if ((port = getservbyname("ipp", NULL)) == NULL)
-    {
-      DEBUG_puts("ippPort: Set via CUPS_DEFAULT_IPP_PORT...");
-      portnum = CUPS_DEFAULT_IPP_PORT;
-    }
-    else
-    {
-      DEBUG_puts("ippPort: Set via ipp service entry...");
-      portnum = ntohs(port->s_port);
-    }
-
-    if (portnum > 0)
-      cg->ipp_port = portnum;
-  }
-
-  DEBUG_printf(("ippPort: Returning %d...\n", cg->ipp_port));
+  DEBUG_printf(("1ippPort: Returning %d...", cg->ipp_port));
 
   return (cg->ipp_port);
 }
@@ -354,12 +412,71 @@ ippPort(void)
 void
 ippSetPort(int p)			/* I - Port number to use */
 {
-  DEBUG_printf(("ippSetPort(p=%d)\n", p));
+  DEBUG_printf(("ippSetPort(p=%d)", p));
 
   _cupsGlobals()->ipp_port = p;
 }
 
 
 /*
- * End of "$Id: ipp-support.c 7721 2008-07-11 22:48:49Z mike $".
+ * 'ippTagString()' - Return the tag name corresponding to a tag value.
+ *
+ * The returned names are defined in RFC 2911 and 3382.
+ *
+ * @since CUPS 1.4/Mac OS X 10.6@
+ */
+
+const char *				/* O - Tag name */
+ippTagString(ipp_tag_t tag)		/* I - Tag value */
+{
+  tag &= IPP_TAG_MASK;
+
+  if (tag < (ipp_tag_t)(sizeof(ipp_tag_names) / sizeof(ipp_tag_names[0])))
+    return (ipp_tag_names[tag]);
+  else
+    return ("UNKNOWN");
+}
+
+
+/*
+ * 'ippTagValue()' - Return the tag value corresponding to a tag name.
+ *
+ * The tag names are defined in RFC 2911 and 3382.
+ *
+ * @since CUPS 1.4/Mac OS X 10.6@
+ */
+
+ipp_tag_t				/* O - Tag value */
+ippTagValue(const char *name)		/* I - Tag name */
+{
+  int	i;				/* Looping var */
+
+
+  for (i = 0; i < (sizeof(ipp_tag_names) / sizeof(ipp_tag_names[0])); i ++)
+    if (!strcasecmp(name, ipp_tag_names[i]))
+      return ((ipp_tag_t)i);
+
+  if (!strcasecmp(name, "operation"))
+    return (IPP_TAG_OPERATION);
+  else if (!strcasecmp(name, "job"))
+    return (IPP_TAG_JOB);
+  else if (!strcasecmp(name, "printer"))
+    return (IPP_TAG_PRINTER);
+  else if (!strcasecmp(name, "subscription"))
+    return (IPP_TAG_SUBSCRIPTION);
+  else if (!strcasecmp(name, "language"))
+    return (IPP_TAG_LANGUAGE);
+  else if (!strcasecmp(name, "mimetype"))
+    return (IPP_TAG_MIMETYPE);
+  else if (!strcasecmp(name, "name"))
+    return (IPP_TAG_NAME);
+  else if (!strcasecmp(name, "text"))
+    return (IPP_TAG_TEXT);
+  else
+    return (IPP_TAG_ZERO);
+}
+
+
+/*
+ * End of "$Id: ipp-support.c 7847 2008-08-19 04:22:14Z mike $".
  */

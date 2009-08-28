@@ -1,0 +1,47 @@
+To: vim-dev@vim.org
+Subject: Patch 7.2.101 (extra)
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 7.2.101 (extra)
+Problem:    MSVC version not recognized.
+Solution:   Add the version number to the list.  (Zhong Zhang)
+Files:	    src/Make_mvc.mak
+
+
+*** ../vim-7.2.100/src/Make_mvc.mak	Thu Jul 24 20:49:58 2008
+--- src/Make_mvc.mak	Wed Feb  4 18:32:47 2009
+***************
+*** 354,359 ****
+--- 354,362 ----
+  !if "$(_NMAKE_VER)" == "9.00.21022.08"
+  MSVCVER = 9.0
+  !endif
++ !if "$(_NMAKE_VER)" == "9.00.30729.01"
++ MSVCVER = 9.0
++ !endif
+  !endif
+  
+  # Abort bulding VIM if version of VC is unrecognised.
+*** ../vim-7.2.100/src/version.c	Wed Feb  4 17:49:46 2009
+--- src/version.c	Wed Feb  4 18:34:12 2009
+***************
+*** 678,679 ****
+--- 678,681 ----
+  {   /* Add new patch number below this line */
++ /**/
++     101,
+  /**/
+
+-- 
+Light travels faster than sound.  This is why some people
+appear bright until you hear them speak
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\        download, build and distribute -- http://www.A-A-P.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

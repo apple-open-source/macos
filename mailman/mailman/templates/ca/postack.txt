@@ -1,4 +1,7 @@
-El vostre missatge amb el subjecte:    %(subject)sha estat rebut amb èxit per la llista de correu %(listname)s.Pàgina d'informació de la llista:
-%(listinfo_url)s
-Les vostres preferències:
-%(optionsurl)s
+La llista de correu %(listname)s ha rebut correctament el vostre missatge
+anomenat
+
+    %(subject)s
+
+PÃ gina d'informaciÃ³ de la llista: %(listinfo_url)s.
+Les vostres preferÃ¨ncies: %(optionsurl)s.

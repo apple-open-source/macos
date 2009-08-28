@@ -4,9 +4,10 @@
 # Used by _mac_applications and _mac_files_for_application.
 
 _mac_apps_caching_policy () {
-   # Rebuild if cache is more than a day old
-   oldp=( "$1"(Nmw+1) )
-   (( $#oldp ))
+  # Rebuild if cache is more than a day old
+  local -a oldp
+  oldp=( "$1"(Nmw+1) )
+  (( $#oldp ))
 }
 
 
@@ -47,7 +48,7 @@ _mac_apps_old_retrieve () {
 
   # Get single file applications
   if ! zstyle -t ":completion:${curcontext}:commands" ignore-single; then
-    autoload -U zargs
+    autoload -Uz zargs
     local app_cand nargs envvars
     app_cand=( ${^app_dir}^*.[a-z]#/..namedfork/rsrc(.UrN,.RN^U) )
     envvars="$(builtin typeset -x)"

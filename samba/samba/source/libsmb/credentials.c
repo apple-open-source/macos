@@ -70,9 +70,11 @@ static void creds_init_128(struct dcinfo *dc,
 	DEBUG(5,("\tclnt_chal_in: %s\n", credstr(clnt_chal_in->data)));
 	DEBUG(5,("\tsrv_chal_in : %s\n", credstr(srv_chal_in->data)));
 	dump_data_pw("\tsession_key ", (const unsigned char *)dc->sess_key, 16);
+	DEBUG(5,("\tsession_key : \n"));
+	dump_data(5, (const unsigned char *)dc->sess_key,16);
 
 	/* Generate the next client and server creds. */
-	
+
 	des_crypt112(dc->clnt_chal.data,		/* output */
 			clnt_chal_in->data,		/* input */
 			dc->sess_key,			/* input */
@@ -91,7 +93,7 @@ static void creds_init_128(struct dcinfo *dc,
  * the generated session key because we can't get at the trust account
  * password hash.
  */
-static void creds_init_64_od(struct dcinfo *dc,
+static void creds_init_od(struct dcinfo *dc,
 			const DOM_CHAL *clnt_chal_in,
 			const DOM_CHAL *srv_chal_in,
 			const unsigned char mach_pw[16])
@@ -99,7 +101,7 @@ static void creds_init_64_od(struct dcinfo *dc,
 	SMB_ASSERT(lp_opendirectory());
 
 	/* debug output */
-	DEBUG(5,("creds_init_64\n"));
+	DEBUG(5,("%s\n", __func__));
 	DEBUG(5,("\tclnt_chal_in: %s\n", credstr(clnt_chal_in->data)));
 	DEBUG(5,("\tsrv_chal_in : %s\n", credstr(srv_chal_in->data)));
 	DEBUG(5,("\tsess_key_out : %s\n", credstr(dc->sess_key)));
@@ -220,15 +222,15 @@ void creds_server_init(uint32 neg_flags,
 	dump_data_pw("creds_server_init: machine pass", mach_pw, 16);
 
 	/* Generate the session key and the next client and server creds. */
-	if (neg_flags & NETLOGON_NEG_128BIT) {
-		creds_init_128(dc,
-			clnt_chal,
-			srv_chal,
-			mach_pw);
+	if (lp_opendirectory()) {
+		creds_init_od(dc, clnt_chal,
+			srv_chal, mach_pw);
 	} else {
-		if (lp_opendirectory()) {
-			creds_init_64_od(dc, clnt_chal,
-				srv_chal, mach_pw);
+		if (neg_flags & NETLOGON_NEG_128BIT) {
+		    creds_init_128(dc,
+			    clnt_chal,
+			    srv_chal,
+			    mach_pw);
 		} else {
 			creds_init_64(dc, clnt_chal,
 				srv_chal, mach_pw);
@@ -284,6 +286,10 @@ BOOL creds_server_step(struct dcinfo *dc, const DOM_CRED *received_cred, DOM_CRE
 {
 	BOOL ret;
 	struct dcinfo tmp_dc = *dc;
+
+	if (!received_cred || !cred_out) {
+		return false;
+	}
 
 	/* Do all operations on a temporary copy of the dc,
 	   which we throw away if the checks fail. */

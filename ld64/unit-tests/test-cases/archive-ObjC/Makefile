@@ -38,7 +38,7 @@ all:
 	${CC} ${CCFLAGS} baz.m -c -o baz-${ARCH}.o 
 	${FAIL_IF_BAD_OBJ} baz-${ARCH}.o
 	libtool -static foo-${ARCH}.o bar-${ARCH}.o baz-${ARCH}.o -o libfoobarbaz-${ARCH}.a
-	${CC} ${CCFLAGS} main.c -lfoobarbaz-${ARCH} -L. -o main-${ARCH} -ObjC -framework Foundation
+	${CC} ${CCFLAGS} main.c -lfoobarbaz-${ARCH} -L. -o main-${ARCH} -ObjC -framework Foundation -framework CoreFoundation
 	${FAIL_IF_BAD_MACHO} main-${ARCH}
 	nm main-${ARCH} | grep "_bar" | ${FAIL_IF_STDIN}
 	nm main-${ARCH} | grep "_Foo" | ${FAIL_IF_EMPTY}

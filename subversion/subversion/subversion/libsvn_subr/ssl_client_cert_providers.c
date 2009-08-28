@@ -3,7 +3,7 @@
  * SVN_AUTH_CRED_SSL_CLIENT_CERT
  *
  * ====================================================================
- * Copyright (c) 2000-2004 CollabNet.  All rights reserved.
+ * Copyright (c) 2000-2004, 2008 CollabNet.  All rights reserved.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution.  The terms
@@ -43,8 +43,8 @@ ssl_client_cert_file_first_credentials(void **credentials_p,
                                        const char *realmstring,
                                        apr_pool_t *pool)
 {
-  svn_config_t *cfg = apr_hash_get(parameters, 
-                                   SVN_AUTH_PARAM_CONFIG,
+  svn_config_t *cfg = apr_hash_get(parameters,
+                                   SVN_AUTH_PARAM_CONFIG_CATEGORY_SERVERS,
                                    APR_HASH_KEY_STRING);
   const char *server_group = apr_hash_get(parameters,
                                           SVN_AUTH_PARAM_SERVER_GROUP,
@@ -60,7 +60,7 @@ ssl_client_cert_file_first_credentials(void **credentials_p,
     {
       svn_auth_cred_ssl_client_cert_t *cred =
         apr_palloc(pool, sizeof(*cred));
-      
+
       cred->cert_file = cert_file;
       cred->may_save = FALSE;
       *credentials_p = cred;
@@ -134,7 +134,7 @@ ssl_client_cert_prompt_first_cred(void **credentials_p,
   ssl_client_cert_prompt_provider_baton_t *pb = provider_baton;
   ssl_client_cert_prompt_iter_baton_t *ib =
     apr_pcalloc(pool, sizeof(*ib));
-  const char *no_auth_cache = apr_hash_get(parameters, 
+  const char *no_auth_cache = apr_hash_get(parameters,
                                            SVN_AUTH_PARAM_NO_AUTH_CACHE,
                                            APR_HASH_KEY_STRING);
 
@@ -160,11 +160,11 @@ ssl_client_cert_prompt_next_cred(void **credentials_p,
                                  apr_pool_t *pool)
 {
   ssl_client_cert_prompt_iter_baton_t *ib = iter_baton;
-  const char *no_auth_cache = apr_hash_get(parameters, 
+  const char *no_auth_cache = apr_hash_get(parameters,
                                            SVN_AUTH_PARAM_NO_AUTH_CACHE,
                                            APR_HASH_KEY_STRING);
 
-  if (ib->retries >= ib->pb->retry_limit)
+  if ((ib->pb->retry_limit >= 0) && (ib->retries >= ib->pb->retry_limit))
     {
       /* give up, go on to next provider. */
       *credentials_p = NULL;
@@ -172,11 +172,9 @@ ssl_client_cert_prompt_next_cred(void **credentials_p,
     }
   ib->retries++;
 
-  SVN_ERR(ib->pb->prompt_func((svn_auth_cred_ssl_client_cert_t **)
-                              credentials_p, ib->pb->prompt_baton,
-                              ib->realmstring, ! no_auth_cache, pool));
-
-  return SVN_NO_ERROR;
+  return ib->pb->prompt_func((svn_auth_cred_ssl_client_cert_t **)
+                             credentials_p, ib->pb->prompt_baton,
+                             ib->realmstring, ! no_auth_cache, pool);
 }
 
 

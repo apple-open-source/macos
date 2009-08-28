@@ -60,6 +60,9 @@ int Dir_MTime(struct GNode *);
 void Dir_PrintDirectories(void);
 
 struct Dir *Path_AddDir(struct Path *, const char *);
+#ifdef __APPLE__
+struct Dir *Path_AddDirPrefix(struct Path *, const char *, const char *);
+#endif /* __APPLE__ */
 void Path_Clear(struct Path *);
 void Path_Concat(struct Path *, const struct Path *);
 void Path_Duplicate(struct Path *, const struct Path *);

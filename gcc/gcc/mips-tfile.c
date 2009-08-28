@@ -3,7 +3,7 @@
    in the form of comments (the mips assembler does not support
    assembly access to debug information).
    Copyright (C) 1991, 1993, 1994, 1995, 1997, 1998, 1999, 2000, 2001,
-   2002, 2003, 2004 Free Software Foundation, Inc.
+   2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Michael Meissner (meissner@cygnus.com).
 
 This file is part of GCC.
@@ -20,8 +20,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 /* Here is a brief description of the MIPS ECOFF symbol table.  The
@@ -1750,7 +1750,7 @@ add_string (varray_t *vp, shash_t **hash_tbl, const char *start,
 
 
 /* Add a local symbol.  The symbol string starts at STR_START and the
-   first byte after it is makred by STR_END_P1.  The symbol has type
+   first byte after it is marked by STR_END_P1.  The symbol has type
    TYPE and storage class STORAGE and value VALUE.  INDX is an index
    to local/aux. symbols.  */
 
@@ -2362,7 +2362,7 @@ initialize_init_file (void)
   init_file.fdr.fMerge = 1;
   init_file.fdr.glevel = GLEVEL_2;
 
-#ifdef HOST_WORDS_BIG_ENDIAN
+#ifdef WORDS_BIG_ENDIAN
   init_file.fdr.fBigendian = 1;
 #endif
 
@@ -3984,8 +3984,7 @@ write_varray (varray_t *vp,    /* virtual array */
     return;
 
   if (debug)
-    fprintf (stderr, "\twarray\tvp = " HOST_PTR_PRINTF
-	     ", offset = %7lu, size = %7lu, %s\n",
+    fprintf (stderr, "\twarray\tvp = %p, offset = %7lu, size = %7lu, %s\n",
 	     (void *) vp, (unsigned long) offset,
 	     vp->num_allocated * vp->object_size, str);
 
@@ -4024,8 +4023,7 @@ write_object (void)
   off_t offset;
 
   if (debug)
-    fprintf (stderr, "\n\twrite\tvp = " HOST_PTR_PRINTF
-	     ", offset = %7u, size = %7lu, %s\n",
+    fprintf (stderr, "\n\twrite\tvp = %p, offset = %7u, size = %7lu, %s\n",
 	     (void *) &symbolic_header, 0,
 	     (unsigned long) sizeof (symbolic_header), "symbolic header");
 
@@ -4055,8 +4053,7 @@ write_object (void)
 	pfatal_with_name (object_name);
 
       if (debug)
-	fprintf (stderr, "\twrite\tvp = " HOST_PTR_PRINTF
-		 ", offset = %7lu, size = %7lu, %s\n",
+	fprintf (stderr, "\twrite\tvp = %p, offset = %7lu, size = %7lu, %s\n",
 		 (void *) &orig_linenum, (long) symbolic_header.cbLineOffset,
 		 (long) symbolic_header.cbLine, "Line numbers");
 
@@ -4087,8 +4084,7 @@ write_object (void)
 	pfatal_with_name (object_name);
 
       if (debug)
-	fprintf (stderr, "\twrite\tvp = " HOST_PTR_PRINTF
-		 ", offset = %7lu, size = %7lu, %s\n",
+	fprintf (stderr, "\twrite\tvp = %p, offset = %7lu, size = %7lu, %s\n",
 		 (void *) &orig_opt_syms, (long) symbolic_header.cbOptOffset,
 		 num_write, "Optimizer symbols");
 
@@ -4176,8 +4172,7 @@ write_object (void)
 	   file_ptr = file_ptr->next_file)
 	{
 	  if (debug)
-	    fprintf (stderr, "\twrite\tvp = " HOST_PTR_PRINTF
-		     ", offset = %7lu, size = %7lu, %s\n",
+	    fprintf (stderr, "\twrite\tvp = %p, offset = %7lu, size = %7lu, %s\n",
 		     (void *) &file_ptr->fdr, file_offset,
 		     (unsigned long) sizeof (FDR), "File header");
 
@@ -4209,8 +4204,7 @@ write_object (void)
 	pfatal_with_name (object_name);
 
       if (debug)
-	fprintf (stderr, "\twrite\tvp = " HOST_PTR_PRINTF
-		 ", offset = %7lu, size = %7lu, %s\n",
+	fprintf (stderr, "\twrite\tvp = %p, offset = %7lu, size = %7lu, %s\n",
 		 (void *) &orig_rfds, (long) symbolic_header.cbRfdOffset,
 		 num_write, "Relative file descriptors");
 
@@ -4373,7 +4367,7 @@ copy_object (void)
 
 
   /* Read in each of the sections if they exist in the object file.
-     We read things in in the order the mips assembler creates the
+     We read things in the order the mips assembler creates the
      sections, so in theory no extra seeks are done.
 
      For simplicity sake, round each read up to a page boundary,
@@ -4442,7 +4436,7 @@ copy_object (void)
 
 
 
-  /* Abort if the symbol table is not last.  */
+  /* The symbol table should be last.  */
   if (max_file_offset != (unsigned long) stat_buf.st_size)
     fatal ("symbol table is not last (symbol table ends at %ld, .o ends at %ld",
 	   max_file_offset,
@@ -4777,7 +4771,7 @@ main (int argc, char **argv)
   if (version)
     {
       printf (_("mips-tfile (GCC) %s\n"), version_string);
-      fputs ("Copyright (C) 2004 Free Software Foundation, Inc.\n", stdout);
+      fputs ("Copyright (C) 2006 Free Software Foundation, Inc.\n", stdout);
       fputs (_("This is free software; see the source for copying conditions.  There is NO\n\
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"),
 	     stdout);
@@ -4944,7 +4938,7 @@ pfatal_with_name (const char *msg)
 }
 
 
-/* Procedure to abort with an out of bounds error message.  It has
+/* Procedure to die with an out of bounds error message.  It has
    type int, so it can be used with an ?: expression within the
    ORIG_xxx macros, but the function never returns.  */
 
@@ -5003,7 +4997,7 @@ allocate_cluster (Size_t npages)
     pfatal_with_name ("allocate_cluster");
 
   if (debug > 3)
-    fprintf (stderr, "\talloc\tnpages = %lu, value = " HOST_PTR_PRINTF "\n",
+    fprintf (stderr, "\talloc\tnpages = %lu, value = %p\n",
 	     (unsigned long) npages, (void *) ptr);
 
   return ptr;

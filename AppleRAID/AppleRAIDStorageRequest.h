@@ -56,16 +56,16 @@ protected:
     UInt64			srByteCount;
     AppleRAIDMember		**srActiveMembers;
     IOService			*srClient;
-    IOStorageCompletion		srCompletion;
+    IOStorageCompletion		srClientsCompletion;
     IOMemoryDescriptor		*srMemoryDescriptor;
     IODirection			srMemoryDescriptorDirection;
     
     virtual void free(void);
     
-    virtual void read(IOService *client, UInt64 byteStart, IOMemoryDescriptor * buffer,
-		      IOStorageCompletion completion);
-    virtual void write(IOService *client, UInt64 byteStart, IOMemoryDescriptor * buffer,
-		       IOStorageCompletion completion);
+    virtual void read(IOService *client, UInt64 byteStart, IOMemoryDescriptor *buffer,
+		      IOStorageAttributes *attributes, IOStorageCompletion *completion);
+    virtual void write(IOService *client, UInt64 byteStart, IOMemoryDescriptor *buffer,
+		       IOStorageAttributes *attributes, IOStorageCompletion *completion);
 
 public:
     static AppleRAIDStorageRequest *withAppleRAIDSet(AppleRAIDSet * set);

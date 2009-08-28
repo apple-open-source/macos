@@ -37,27 +37,27 @@
 
 /* get config file from .. or from . */
 #define 		CONFIG_FILE_NAME	"dumpasn1.cfg"
-static char 	*CONFIG_FILE1 = 	"../"CONFIG_FILE_NAME;
-static char 	*CONFIG_FILE2 = 	CONFIG_FILE_NAME;
+static const char 	*CONFIG_FILE1 = 	"../"CONFIG_FILE_NAME;
+static const char 	*CONFIG_FILE2 = 	CONFIG_FILE_NAME;
 /* or from here via getenv */
 #define 		CONFIG_FILE_ENV 	"LOCAL_BUILD_DIR"
 
-static char 	*OID_ENTRY_START = "OID = ";
-static char 	*OID_DESCR_START = "Description = ";
+static const char 	*OID_ENTRY_START = "OID = ";
+static const char 	*OID_DESCR_START = "Description = ";
 /*
  * Read entire file with extra bytes left over in the mallocd buffer. 
  */
 int readFileExtra(
-	char			*fileName,
+	const char		*fileName,
 	unsigned		extraBytes,
 	unsigned char	**bytes,		// mallocd and returned
-	unsigned		*numBytes)		// returned
+	CSSM_SIZE		*numBytes)		// returned
 {
 	int rtn;
 	int fd;
 	unsigned char *buf;
 	struct stat	sb;
-	unsigned size;
+	size_t size;
 	
 	*numBytes = 0;
 	*bytes = NULL;
@@ -112,10 +112,10 @@ static CSSM_DATA_PTR readConfig()
 	}
 	/* malloc one extra byte, we'll null it later */
 	rtn = readFileExtra(CONFIG_FILE1, 1, &configData->Data, 
-		(unsigned *)&configData->Length);
+		&configData->Length);
 	if(rtn) {
 		rtn = readFileExtra(CONFIG_FILE2, 1, &configData->Data, 
-				(unsigned *)&configData->Length);
+				&configData->Length);
 	}
 	if(rtn) {
 		char fileName[100];
@@ -126,7 +126,7 @@ static CSSM_DATA_PTR readConfig()
 		else {
 			sprintf(fileName,  "%s/%s", localBuildDir, CONFIG_FILE_NAME);
 			rtn = readFileExtra(fileName, 1, &configData->Data, 
-					(unsigned *)&configData->Length);
+				&configData->Length);
 		}
 	}
 	if(rtn == 0) {

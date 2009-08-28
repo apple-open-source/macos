@@ -345,11 +345,16 @@ extern void dwarf2_debug_map_psymtab_to_symtab (struct partial_symtab *);
 /* APPLE LOCAL: Scanning pubtypes tables for psymbols.  */
 extern void dwarf2_scan_pubtype_for_psymbols (struct partial_symtab *, 
 					      struct objfile *, enum language);
+/*  APPLE LOCAL debug inlined section  */
+extern void dwarf2_scan_inlined_section_for_psymbols (struct partial_symtab *, 
+						      struct objfile *, 
+						      enum language);
 
 /* From dbxread.c */
 
 extern struct bfd *open_bfd_from_oso (struct partial_symtab *pst, int *cached);
 extern void clear_containing_archive_cache (void);
+extern void close_bfd_or_archive (bfd *abfd);
 
 struct nlist_rec 
 {

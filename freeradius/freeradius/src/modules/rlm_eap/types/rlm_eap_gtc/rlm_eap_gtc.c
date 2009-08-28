@@ -1,7 +1,7 @@
 /*
  * rlm_eap_gtc.c    Handles that are called from eap
  *
- * Version:     $Id: rlm_eap_gtc.c,v 1.3 2004/02/26 19:04:30 aland Exp $
+ * Version:     $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,19 +15,22 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2003  The FreeRADIUS server project
+ * Copyright 2003,2006  The FreeRADIUS server project
  */
 
-#include "autoconf.h"
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
+
+#include <freeradius-devel/autoconf.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 
 #include "eap.h"
 
-#include <rad_assert.h>
+#include <freeradius-devel/rad_assert.h>
 
 /*
  *	EAP-GTC is just ASCII data carried inside of the EAP session.
@@ -58,8 +61,6 @@ static int gtc_detach(void *arg)
 {
 	rlm_eap_gtc_t *inst = (rlm_eap_gtc_t *) arg;
 
-	if (inst->challenge) free(inst->challenge);
-	if (inst->auth_type_name) free(inst->auth_type_name);
 
 	free(inst);
 
@@ -155,7 +156,7 @@ static int gtc_authenticate(void *type_data, EAP_HANDLER *handler)
 	rlm_eap_gtc_t *inst = (rlm_eap_gtc_t *) type_data;
 
 	/*
-	 *	Get the User-Password for this user.
+	 *	Get the Cleartext-Password for this user.
 	 */
 	rad_assert(handler->request != NULL);
 	rad_assert(handler->stage == AUTHENTICATE);
@@ -171,15 +172,15 @@ static int gtc_authenticate(void *type_data, EAP_HANDLER *handler)
 	}
 
 #if 0
-	if (debug_flag > 2) {
+	if ((debug_flag > 2) && fr_log_fp) {
 		int i;
 
 		for (i = 0; i < eap_ds->response->length - 4; i++) {
-			if ((i & 0x0f) == 0) printf("%d: ", i);
+			if ((i & 0x0f) == 0) fprintf(fr_log_fp, "%d: ", i);
 
-			printf("%02x ", eap_ds->response->type.data[i]);
+			fprintf(fr_log_fp, "%02x ", eap_ds->response->type.data[i]);
 
-			if ((i & 0x0f) == 0x0f) printf("\n");
+			if ((i & 0x0f) == 0x0f) fprintf(fr_log_fp, "\n");
 		}
 	}
 #endif
@@ -191,9 +192,9 @@ static int gtc_authenticate(void *type_data, EAP_HANDLER *handler)
 		/*
 		 *	For now, do clear-text password authentication.
 		 */
-		vp = pairfind(handler->request->config_items, PW_PASSWORD);
+		vp = pairfind(handler->request->config_items, PW_CLEARTEXT_PASSWORD);
 		if (!vp) {
-			DEBUG2("  rlm_eap_gtc: ERROR: Clear-test User-Password is required for authentication.");
+			DEBUG2("  rlm_eap_gtc: ERROR: Cleartext-Password is required for authentication.");
 			eap_ds->request->code = PW_EAP_FAILURE;
 			return 0;
 		}
@@ -205,7 +206,7 @@ static int gtc_authenticate(void *type_data, EAP_HANDLER *handler)
 		}
 
 		if (memcmp(eap_ds->response->type.data,
-			   vp->strvalue, vp->length) != 0) {
+			   vp->vp_strvalue, vp->length) != 0) {
 			DEBUG2("  rlm_eap_gtc: ERROR: Passwords are different");
 			eap_ds->request->code = PW_EAP_FAILURE;
 			return 0;
@@ -222,7 +223,7 @@ static int gtc_authenticate(void *type_data, EAP_HANDLER *handler)
 		 *	If there was a User-Password in the request,
 		 *	why the heck are they using EAP-GTC?
 		 */
-		rad_assert(handler->request->password == NULL);
+		pairdelete(&handler->request->packet->vps, PW_USER_PASSWORD);
 
 		vp = pairmake("User-Password", "", T_OP_EQ);
 		if (!vp) {
@@ -230,8 +231,8 @@ static int gtc_authenticate(void *type_data, EAP_HANDLER *handler)
 			return 0;
 		}
 		vp->length = eap_ds->response->type.length;
-		memcpy(vp->strvalue, eap_ds->response->type.data, vp->length);
-		vp->strvalue[vp->length] = 0;
+		memcpy(vp->vp_strvalue, eap_ds->response->type.data, vp->length);
+		vp->vp_strvalue[vp->length] = 0;
 
 		/*
 		 *	Add the password to the request, and allow

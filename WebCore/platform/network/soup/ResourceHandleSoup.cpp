@@ -53,10 +53,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#if PLATFORM(GTK)
-#define USE_GLIB_BASE64
-#endif
-
 namespace WebCore {
 
 class WebCoreSynchronousLoader : public ResourceHandleClient, Noncopyable {
@@ -140,6 +136,9 @@ ResourceHandleInternal::~ResourceHandleInternal()
 
 ResourceHandle::~ResourceHandle()
 {
+    if (d->m_msg)
+        g_signal_handlers_disconnect_matched(d->m_msg, G_SIGNAL_MATCH_DATA,
+                                             0, 0, 0, 0, this);
 }
 
 static void fillResponseFromMessage(SoupMessage* msg, ResourceResponse* response)
@@ -243,24 +242,41 @@ static void gotHeadersCallback(SoupMessage* msg, gpointer data)
     // we got, when we finish downloading.
     soup_message_body_set_accumulate(msg->response_body, FALSE);
 
+    if (msg->status_code == SOUP_STATUS_NOT_MODIFIED) {
+        RefPtr<ResourceHandle> handle = static_cast<ResourceHandle*>(data);
+        if (!handle)
+            return;
+        ResourceHandleInternal* d = handle->getInternal();
+        if (d->m_cancelled)
+            return;
+        ResourceHandleClient* client = handle->client();
+        if (!client)
+            return;
+
+        fillResponseFromMessage(msg, &d->m_response);
+        client->didReceiveResponse(handle.get(), d->m_response);
+    }
+}
+
+static void contentSniffedCallback(SoupMessage* msg, const char* sniffedType, GHashTable *params, gpointer data)
+{
+    if (sniffedType) {
+        const char* officialType = soup_message_headers_get_one(msg->response_headers, "Content-Type");
+
+        if (!officialType || strcmp(officialType, sniffedType))
+            soup_message_headers_set_content_type(msg->response_headers, sniffedType, params);
+    }
+
     // The 304 status code (SOUP_STATUS_NOT_MODIFIED) needs to be fed
     // into WebCore, as opposed to other kinds of redirections, which
     // are handled by soup directly, so we special-case it here and in
     // gotChunk.
     if (SOUP_STATUS_IS_TRANSPORT_ERROR(msg->status_code)
-        || (SOUP_STATUS_IS_REDIRECTION(msg->status_code) && (msg->status_code != SOUP_STATUS_NOT_MODIFIED)))
+        || (SOUP_STATUS_IS_REDIRECTION(msg->status_code) && (msg->status_code != SOUP_STATUS_NOT_MODIFIED))
+        || (msg->status_code == SOUP_STATUS_UNAUTHORIZED))
         return;
 
-    // We still don't know anything about Content-Type, so we will try
-    // sniffing the contents of the file, and then report that we got
-    // headers; we will not do content sniffing for 304 responses,
-    // though, since they do not have a body.
-    const char* contentType = soup_message_headers_get_content_type(msg->response_headers, NULL);
-    if ((msg->status_code != SOUP_STATUS_NOT_MODIFIED)
-        && (!contentType || !g_ascii_strcasecmp(contentType, "text/plain")))
-        return;
-
-    ResourceHandle* handle = static_cast<ResourceHandle*>(data);
+    RefPtr<ResourceHandle> handle = static_cast<ResourceHandle*>(data);
     if (!handle)
         return;
     ResourceHandleInternal* d = handle->getInternal();
@@ -271,8 +287,7 @@ static void gotHeadersCallback(SoupMessage* msg, gpointer data)
         return;
 
     fillResponseFromMessage(msg, &d->m_response);
-    client->didReceiveResponse(handle, d->m_response);
-    d->m_reportedHeaders = true;
+    client->didReceiveResponse(handle.get(), d->m_response);
 }
 
 static void gotChunkCallback(SoupMessage* msg, SoupBuffer* chunk, gpointer data)
@@ -291,21 +306,6 @@ static void gotChunkCallback(SoupMessage* msg, SoupBuffer* chunk, gpointer data)
     ResourceHandleClient* client = handle->client();
     if (!client)
         return;
-
-    if (!d->m_reportedHeaders) {
-        gboolean uncertain;
-        char* contentType = g_content_type_guess(d->m_request.url().lastPathComponent().utf8().data(), reinterpret_cast<const guchar*>(chunk->data), chunk->length, &uncertain);
-        soup_message_headers_set_content_type(msg->response_headers, contentType, NULL);
-        g_free(contentType);
-
-        fillResponseFromMessage(msg, &d->m_response);
-        client->didReceiveResponse(handle.get(), d->m_response);
-        d->m_reportedHeaders = true;
-
-        // the didReceiveResponse call above may have cancelled the request
-        if (d->m_cancelled)
-            return;
-    }
 
     client->didReceiveData(handle.get(), chunk->data, chunk->length, false);
 }
@@ -400,20 +400,14 @@ static gboolean parseDataUrl(gpointer callback_data)
         if (d->m_cancelled)
             return false;
 
-        // Use the GLib Base64 if available, since WebCore's decoder isn't
+        // Use the GLib Base64, since WebCore's decoder isn't
         // general-purpose and fails on Acid3 test 97 (whitespace).
-#ifdef USE_GLIB_BASE64
         size_t outLength = 0;
         char* outData = 0;
         outData = reinterpret_cast<char*>(g_base64_decode(data.utf8().data(), &outLength));
         if (outData && outLength > 0)
             client->didReceiveData(handle, outData, outLength, 0);
         g_free(outData);
-#else
-        Vector<char> out;
-        if (base64Decode(data.latin1().data(), data.latin1().length(), out) && out.size() > 0)
-            client->didReceiveData(handle, out.data(), out.size(), 0);
-#endif
     } else {
         // We have to convert to UTF-16 early due to limitations in KURL
         data = decodeURLEscapeSequences(data, TextEncoding(charset));
@@ -475,20 +469,13 @@ bool ResourceHandle::startHttp(String urlString)
     SoupSession* session = defaultSession();
     ensureSessionIsInitialized(session);
 
-    SoupMessage* msg;
-    msg = soup_message_new(request().httpMethod().utf8().data(), urlString.utf8().data());
-    g_signal_connect(msg, "restarted", G_CALLBACK(restartedCallback), this);
-    g_signal_connect(msg, "got-headers", G_CALLBACK(gotHeadersCallback), this);
-    g_signal_connect(msg, "got-chunk", G_CALLBACK(gotChunkCallback), this);
+    d->m_msg = request().toSoupMessage();
+    g_signal_connect(d->m_msg, "restarted", G_CALLBACK(restartedCallback), this);
+    g_signal_connect(d->m_msg, "got-headers", G_CALLBACK(gotHeadersCallback), this);
+    g_signal_connect(d->m_msg, "content-sniffed", G_CALLBACK(contentSniffedCallback), this);
+    g_signal_connect(d->m_msg, "got-chunk", G_CALLBACK(gotChunkCallback), this);
 
-    g_object_set_data(G_OBJECT(msg), "resourceHandle", reinterpret_cast<void*>(this));
-
-    HTTPHeaderMap customHeaders = d->m_request.httpHeaderFields();
-    if (!customHeaders.isEmpty()) {
-        HTTPHeaderMap::const_iterator end = customHeaders.end();
-        for (HTTPHeaderMap::const_iterator it = customHeaders.begin(); it != end; ++it)
-            soup_message_headers_append(msg->request_headers, it->first.string().utf8().data(), it->second.utf8().data());
-    }
+    g_object_set_data(G_OBJECT(d->m_msg), "resourceHandle", reinterpret_cast<void*>(this));
 
     FormData* httpBody = d->m_request.httpBody();
     if (httpBody && !httpBody->isEmpty()) {
@@ -498,7 +485,7 @@ bool ResourceHandle::startHttp(String urlString)
         if (numElements < 2) {
             Vector<char> body;
             httpBody->flatten(body);
-            soup_message_set_request(msg, d->m_request.httpContentType().utf8().data(),
+            soup_message_set_request(d->m_msg, d->m_request.httpContentType().utf8().data(),
                                      SOUP_MEMORY_COPY, body.data(), body.size());
         } else {
             /*
@@ -507,12 +494,12 @@ bool ResourceHandle::startHttp(String urlString)
              * copying into memory; TODO: support upload of non-local
              * (think sftp://) files by using GIO?
              */
-            soup_message_body_set_accumulate(msg->request_body, FALSE);
+            soup_message_body_set_accumulate(d->m_msg->request_body, FALSE);
             for (size_t i = 0; i < numElements; i++) {
                 const FormDataElement& element = httpBody->elements()[i];
 
                 if (element.m_type == FormDataElement::data)
-                    soup_message_body_append(msg->request_body, SOUP_MEMORY_TEMPORARY, element.m_data.data(), element.m_data.size());
+                    soup_message_body_append(d->m_msg->request_body, SOUP_MEMORY_TEMPORARY, element.m_data.data(), element.m_data.size());
                 else {
                     /*
                      * mapping for uploaded files code inspired by technique used in
@@ -526,31 +513,44 @@ bool ResourceHandle::startHttp(String urlString)
 
                     if (error) {
                         ResourceError resourceError(g_quark_to_string(SOUP_HTTP_ERROR),
-                                                    msg->status_code,
+                                                    d->m_msg->status_code,
                                                     urlString,
                                                     String::fromUTF8(error->message));
                         g_error_free(error);
 
                         d->client()->didFail(this, resourceError);
 
-                        g_object_unref(msg);
+                        g_signal_handlers_disconnect_matched(d->m_msg, G_SIGNAL_MATCH_DATA,
+                                                             0, 0, 0, 0, this);
+                        g_object_unref(d->m_msg);
+                        d->m_msg = 0;
+
                         return false;
                     }
 
                     SoupBuffer* soupBuffer = soup_buffer_new_with_owner(g_mapped_file_get_contents(fileMapping),
                                                                         g_mapped_file_get_length(fileMapping),
                                                                         fileMapping, reinterpret_cast<GDestroyNotify>(g_mapped_file_free));
-                    soup_message_body_append_buffer(msg->request_body, soupBuffer);
+                    soup_message_body_append_buffer(d->m_msg->request_body, soupBuffer);
                     soup_buffer_free(soupBuffer);
                 }
             }
         }
     }
 
-    d->m_msg = static_cast<SoupMessage*>(g_object_ref(msg));
     // balanced by a deref() in finishedCallback, which should always run
     ref();
 
+    // FIXME: For now, we cannot accept content encoded in anything
+    // other than identity, so force servers to do it our way. When
+    // libsoup gets proper Content-Encoding support we will want to
+    // use it here instead.
+    soup_message_headers_replace(d->m_msg->request_headers, "Accept-Encoding", "identity");
+
+    // Balanced in ResourceHandleInternal's destructor; we need to
+    // keep our own ref, because after queueing the message, the
+    // session owns the initial reference.
+    g_object_ref(d->m_msg);
     soup_session_queue_message(session, d->m_msg, finishedCallback, this);
 
     return true;

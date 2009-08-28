@@ -1,3 +1,30 @@
+/****************************************************************************
+ * Copyright (c) 1998-2007,2008 Free Software Foundation, Inc.              *
+ *                                                                          *
+ * Permission is hereby granted, free of charge, to any person obtaining a  *
+ * copy of this software and associated documentation files (the            *
+ * "Software"), to deal in the Software without restriction, including      *
+ * without limitation the rights to use, copy, modify, merge, publish,      *
+ * distribute, distribute with modifications, sublicense, and/or sell       *
+ * copies of the Software, and to permit persons to whom the Software is    *
+ * furnished to do so, subject to the following conditions:                 *
+ *                                                                          *
+ * The above copyright notice and this permission notice shall be included  *
+ * in all copies or substantial portions of the Software.                   *
+ *                                                                          *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+ * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+ * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+ * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+ * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+ *                                                                          *
+ * Except as contained in this notice, the name(s) of the above copyright   *
+ * holders shall not be used in advertising or otherwise to promote the     *
+ * sale, use or other dealings in this Software without prior written       *
+ * authorization.                                                           *
+ ****************************************************************************/
 /* 
  * bs.c - original author: Bruce Holloway
  *		salvo option by: Chuck A DeGaul
@@ -7,7 +34,7 @@
  * v2.0 featuring strict ANSI/POSIX conformance, November 1993.
  * v2.1 with ncurses mouse support, September 1995
  *
- * $Id: bs.c,v 1.41 2005/05/28 21:38:24 tom Exp $
+ * $Id: bs.c,v 1.47 2008/08/03 18:30:28 tom Exp $
  */
 
 #include <test.priv.h>
@@ -149,7 +176,8 @@ static int salvo, blitz, closepack;
 
 static RETSIGTYPE uninitgame(int sig) GCC_NORETURN;
 
-static RETSIGTYPE uninitgame(int sig GCC_UNUSED)
+static RETSIGTYPE
+uninitgame(int sig GCC_UNUSED)
 /* end the game, either normally or due to signal */
 {
     clear();
@@ -190,15 +218,11 @@ intro(void)
 
     srand((unsigned) (time(0L) + getpid()));	/* Kick the random number generator */
 
-    (void) signal(SIGINT, uninitgame);
-    (void) signal(SIGINT, uninitgame);
-    (void) signal(SIGIOT, uninitgame);	/* for assert(3) */
-    if (signal(SIGQUIT, SIG_IGN) != SIG_IGN)
-	(void) signal(SIGQUIT, uninitgame);
+    CATCHALL(uninitgame);
 
     if ((tmpname = getlogin()) != 0) {
 	(void) strcpy(name, tmpname);
-	name[0] = toupper(name[0]);
+	name[0] = toupper(UChar(name[0]));
     } else
 	(void) strcpy(name, dftname);
 
@@ -435,12 +459,13 @@ initgame(void)
 	do {
 	    c = getch();
 	} while
-	    (!strchr("hjklrR", c) || c == FF);
+	    (!(strchr("hjklrR", c) || c == FF));
 
 	if (c == FF) {
 	    (void) clearok(stdscr, TRUE);
 	    (void) refresh();
 	} else if (c == 'r') {
+	    assert(ss != 0);
 	    prompt(1, "Random-placing your %s", ss->name);
 	    randomplace(PLAYER, ss);
 	    placeship(PLAYER, ss, TRUE);
@@ -456,6 +481,7 @@ initgame(void)
 		}
 	    error((char *) NULL);
 	} else if (strchr("hjkl8462", c)) {
+	    assert(ss != 0);
 	    ss->x = curx;
 	    ss->y = cury;
 
@@ -839,7 +865,6 @@ plyturn(void)
 	}
 	(void) printw(m, ss->name);
 	(void) beep();
-	return (awinna() == -1);
     }
     return (hit);
 }
@@ -949,13 +974,17 @@ cpufire(int x, int y)
     attrset(0);
 #endif /* A_COLOR */
 
-    return ((hit ? (sunk ? S_SUNK : S_HIT) : S_MISS) ? TRUE : FALSE);
+    return hit ? (sunk ? S_SUNK : S_HIT) : S_MISS;
 }
 
 /*
  * This code implements a fairly irregular FSM, so please forgive the rampant
  * unstructuredness below. The five labels are states which need to be held
  * between computer turns.
+ *
+ * The FSM is not externally reset to RANDOM_FIRE if the player wins. Instead,
+ * the other states check for "impossible" conditions which signify a new
+ * game, then if found transition to RANDOM_FIRE.
  */
 static bool
 cputurn(void)
@@ -1003,13 +1032,17 @@ cputurn(void)
 	if (navail == 0)	/* no valid places for shots adjacent... */
 	    goto refire;	/* ...so we must random-fire */
 	else {
-	    for (d = 0, n = rnd(navail) + 1; n; n--)
-		while (used[d])
-		    d++;
+	    n = rnd(navail) + 1;
+	    for (d = 0; used[d]; d++) ;
+	    /* used[d] is first that == 0 */
+	    for (; n > 1; n--)
+		while (used[++d]) ;
+	    /* used[d] is next that == 0 */
 
-	    assert(d <= 4);
+	    assert(d < 4);
+	    assert(used[d] == FALSE);
 
-	    used[d] = FALSE;
+	    used[d] = TRUE;
 	    x = ts.x + xincr[d * 2];
 	    y = ts.y + yincr[d * 2];
 
@@ -1040,7 +1073,7 @@ cputurn(void)
 	break;
 
     case REVERSE_JUMP:		/* nail down the ship's other end */
-	d = ts.dir + 4;
+	d = (ts.dir + 4) % 8;
 	x = ts.x + ts.hits * xincr[d];
 	y = ts.y + ts.hits * yincr[d];
 	if (POSSIBLE(x, y) && (hit = cpufire(x, y))) {
@@ -1053,7 +1086,7 @@ cputurn(void)
 	    next = RANDOM_FIRE;
 	break;
 
-    case SECOND_PASS:		/* kill squares not caught on first pass */
+    case SECOND_PASS:		/* continue shooting after reversing */
 	x = ts.x + xincr[ts.dir];
 	y = ts.y + yincr[ts.dir];
 	if (POSSIBLE(x, y) && (hit = cpufire(x, y))) {
@@ -1067,14 +1100,11 @@ cputurn(void)
 	break;
     }
 
-    /* check for continuation and/or winner */
+    /* pause between shots in salvo */
     if (salvo) {
 	(void) refresh();
 	(void) sleep(1);
     }
-    if (awinna() != -1)
-	return (FALSE);
-
 #ifdef DEBUG
     (void) mvprintw(PROMPTLINE + 2, 0,
 		    "New state %d, x=%d, y=%d, d=%d",
@@ -1213,7 +1243,7 @@ main(int argc, char *argv[])
 		    }
 		}
 	    } else
-		while (turn ? cputurn() : plyturn())
+		while ((turn ? cputurn() : plyturn()) && awinna() == -1)
 		    continue;
 	    turn = OTHER;
 	}

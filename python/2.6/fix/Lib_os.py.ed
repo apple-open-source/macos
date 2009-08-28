@@ -1,0 +1,3 @@
+g/import subprocess/s//&, types/
+g/shell=True/s//shell=isinstance(cmd,types.StringTypes)/
+w

@@ -61,8 +61,7 @@ AppleIrDA::newUserClient( task_t owningTask, void*, UInt32 type, IOUserClient **
 	}
     }
     if (ioReturn == kIOReturnSuccess) {
-       // Attach ourself to the client so that this client instance
-       // can call us.
+       // Attach client to our nub.
 	if (client->attach(fNub) == false) {
 	    ioReturn = -3;
 	    ELG(0, 0, 'irda', "Can not attach user client");
@@ -76,7 +75,7 @@ AppleIrDA::newUserClient( task_t owningTask, void*, UInt32 type, IOUserClient **
 	}
     }
     if (ioReturn != kIOReturnSuccess && client != NULL) {
-	client->detach(this);
+	client->detach(fNub);
 	client->release();
     }
     *handler = client;

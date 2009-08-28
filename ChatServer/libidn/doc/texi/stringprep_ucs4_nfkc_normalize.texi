@@ -1,3 +1,5 @@
+@subheading stringprep_ucs4_nfkc_normalize
+@anchor{stringprep_ucs4_nfkc_normalize}
 @deftypefun {uint32_t *} {stringprep_ucs4_nfkc_normalize} (uint32_t * @var{str}, ssize_t @var{len})
 @var{str}: a Unicode string.
 

@@ -1,6 +1,6 @@
 /*
  * ====================================================================
- * Copyright (c) 2000-2004 CollabNet.  All rights reserved.
+ * Copyright (c) 2000-2004, 2008 CollabNet.  All rights reserved.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution.  The terms
@@ -16,6 +16,11 @@
 
 #ifndef SVN_TEST_H
 #define SVN_TEST_H
+
+#ifndef SVN_ENABLE_DEPRECATION_WARNINGS_IN_TESTS
+#undef SVN_DEPRECATED
+#define SVN_DEPRECATED
+#endif /* ! SVN_ENABLE_DEPRECATION_WARNINGS_IN_TESTS */
 
 #include <apr_pools.h>
 #include "svn_delta.h"
@@ -37,11 +42,16 @@ typedef struct svn_test_opts_t
 {
   /* Description of the fs backend that should be used for testing. */
   const char *fs_type;
+  /* Config file. */
+  const char *config_file;
+  /* Minor version to use for servers and FS backends, or zero to use
+     the current latest version. */
+  int server_minor_version;
   /* Add future "arguments" here. */
 } svn_test_opts_t;
 
 /* Prototype for test driver functions. */
-typedef svn_error_t* (*svn_test_driver_t)(const char **msg, 
+typedef svn_error_t* (*svn_test_driver_t)(const char **msg,
                                           svn_boolean_t msg_only,
                                           svn_test_opts_t *opts,
                                           apr_pool_t *pool);
@@ -80,13 +90,17 @@ extern struct svn_test_descriptor_t test_funcs[];
 /* Initializer for XFAIL tests */
 #define SVN_TEST_XFAIL(func) {func, svn_test_xfail}
 
+/* Initializer for conditional XFAIL tests */
+#define SVN_TEST_XFAIL_COND(func, p)\
+                                {func, (p) ? svn_test_xfail : svn_test_pass}
+
 /* Initializer for SKIP tests */
 #define SVN_TEST_SKIP(func, p) {func, ((p) ? svn_test_skip : svn_test_pass)}
 
 
 /* Return a pseudo-random number based on SEED, and modify SEED.
  *
- * This is a "good" pseudo-random number generator, intended to replace 
+ * This is a "good" pseudo-random number generator, intended to replace
  * all those "bad" rand() implementations out there.
  */
 apr_uint32_t svn_test_rand(apr_uint32_t *seed);
@@ -97,8 +111,8 @@ void svn_test_add_dir_cleanup(const char *path);
 
 
 
-/* Set *EDITOR and *EDIT_BATON to an editor that prints its 
- * arguments to OUT_STREAM.  The edit starts at PATH, that is, 
+/* Set *EDITOR and *EDIT_BATON to an editor that prints its
+ * arguments to OUT_STREAM.  The edit starts at PATH, that is,
  * PATH will be prepended to the appropriate paths in the output.
  * Allocate the editor in POOL.
  *
@@ -107,13 +121,13 @@ void svn_test_add_dir_cleanup(const char *path);
  * be the empty string (but it may not be null).
  *
  * VERBOSE is a flag for specifying whether or not your want all the
- * nitty gritty details displayed.  When VERBOSE is FALSE, each 
- * editor function will print only a one-line summary. 
+ * nitty gritty details displayed.  When VERBOSE is FALSE, each
+ * editor function will print only a one-line summary.
  *
  * INDENTATION is the number of spaces to indent by at each level; use
  * 0 for no indentation.  The indent level is always the same for a
  * given call (i.e, stack frame).
- * 
+ *
  * SOME EXAMPLES
  *
  * With an indentation of 3, editor name of "COMMIT-TEST" and with
@@ -135,7 +149,7 @@ void svn_test_add_dir_cleanup(const char *path);
  *    [COMMIT-TEST] close_directory (wc/A)
  *    [COMMIT-TEST] add_file (wc/zeta)
  *    parent: wc
- *    copyfrom_path: 
+ *    copyfrom_path:
  *    copyfrom_revision: 0
  *    [COMMIT-TEST] open_file (wc/iota)
  *    parent: wc
@@ -153,7 +167,7 @@ void svn_test_add_dir_cleanup(const char *path);
  *          [COMMIT-TEST] window_handler (EOT)
  *    [COMMIT-TEST] close_file (wc/zeta)
  * [COMMIT-TEST] close_edit
- *  
+ *
  * The same example as above, but with verbose = FALSE
  *
  * [COMMIT-TEST] open_root (wc)
@@ -185,5 +199,5 @@ svn_error_t *svn_test_get_editor(const svn_delta_editor_t **editor,
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
-     
+
 #endif /* SVN_TEST_H */

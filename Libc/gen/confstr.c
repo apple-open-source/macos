@@ -62,6 +62,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdio.h>	/* for P_tmpdir */
 
 #include <dirhelper_priv.h>
 
@@ -106,7 +107,7 @@ confstr(name, buf, len)
 			buf[len - 1] = '\0';
 			free(p);
 		}
-		return (tlen + 1);
+		return (tlen);
 
 	case _CS_POSIX_V6_ILP32_OFF32_CFLAGS:
 	case _CS_XBS5_ILP32_OFF32_CFLAGS:		/* legacy */
@@ -180,8 +181,17 @@ docopy:
 			errno = ENOMEM;
 			return (CONFSTR_ERR_RET);
 		}
-		if (_dirhelper(DIRHELPER_USER_LOCAL_TEMP, p, PATH_MAX) == NULL)
+		if (_dirhelper(DIRHELPER_USER_LOCAL_TEMP, p, PATH_MAX) == NULL) {
+			/*
+			 * If _dirhelper() fails, try TMPDIR and P_tmpdir,
+			 * finally failing otherwise.
+			 */
+			if ((p = getenv("TMPDIR")) && access(p, W_OK) == 0)
+				goto docopy;
+			if (access(p = P_tmpdir, W_OK) == 0)
+				goto docopy;
 			return (CONFSTR_ERR_RET);
+		}
 		goto docopy;
 
 	case _CS_DARWIN_USER_CACHE_DIR:

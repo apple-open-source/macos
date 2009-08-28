@@ -22,20 +22,22 @@
  */
 
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
 //	Includes
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
 
 #include <IOKit/IOLib.h>
+#include <IOKit/IOKitKeys.h>
 #include <IOKit/storage/IOBlockStorageDriver.h>
 #include "IOUFIStorageServices.h"
 
-//-----------------------------------------------------------------------------
+
+//-------------------------------------------------------------------------------------------------
 //	Macros
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
 
 #if ( USB_MASS_STORAGE_DEBUG == 1 )
-#define PANIC_NOW(x)		IOPanic x
+#define PANIC_NOW(x)		panic x
 // Override the debug level for USBLog to make sure our logs make it out and then import
 // the logging header.
 #define DEBUG_LEVEL			1
@@ -48,11 +50,21 @@
 
 // The command should be tried 5 times.  The original attempt 
 // plus 4 retries.
-#define kNumberRetries		4
+#define kNumberRetries              4
+
+// Default I/O size values.
+enum
+{
+    kMaximumBlockCountRead      = 128,
+    kMaximumBlockCountWrite     = 128,
+    kMaximumByteCountRead       = 65536,
+    kMaximumByteCountWrite      = 65536
+};
 
 // Structure for the asynch client data
 struct BlockServicesClientData
 {
+
 	// The object that owns the copy of this structure.
 	IOUFIStorageServices *		owner;
 
@@ -65,6 +77,7 @@ struct BlockServicesClientData
 	
 	// The internally needed parameters.
 	UInt32						retriesLeft;
+	
 };
 
 typedef struct BlockServicesClientData	BlockServicesClientData;
@@ -73,14 +86,18 @@ typedef struct BlockServicesClientData	BlockServicesClientData;
 OSDefineMetaClassAndStructors ( IOUFIStorageServices, IOBlockStorageDevice );
 
 
-//-----------------------------------------------------------------------------
-//	- attach - attach to provider.									[PROTECTED]
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
+//	  attach - attach to provider.														[PROTECTED]
+//-------------------------------------------------------------------------------------------------
 
 bool
-IOUFIStorageServices::attach( IOService * provider )
+IOUFIStorageServices::attach ( IOService * provider )
 {
-	STATUS_LOG(( 6, "%s[%p]:: attach called", getName(), this ));
+
+    OSDictionary * 				scsiCharacterDict 	= NULL;
+    
+    
+	STATUS_LOG ( ( 6, "%s[%p]:: attach called", getName(), this ) );
 	
 	if ( !super::attach ( provider ) )
 	{
@@ -90,62 +107,155 @@ IOUFIStorageServices::attach( IOService * provider )
 	fProvider = OSDynamicCast ( IOUSBMassStorageUFIDevice, provider );
 	if ( fProvider == NULL )
 	{
-		STATUS_LOG(( 1, "%s[%p]:: attach; wrong provider type!", getName(), this ));
+	
+		STATUS_LOG ( ( 1, "%s[%p]:: attach; wrong provider type!", getName(), this ) );
 		return false;
+		
 	}
 	
 	setProperty ( kIOPropertyProtocolCharacteristicsKey, fProvider->GetProtocolCharacteristicsDictionary ( ) );
 	setProperty ( kIOPropertyDeviceCharacteristicsKey, fProvider->GetDeviceCharacteristicsDictionary ( ) );
-	
+    
+    // Check for a SCSI Device Characteristics dictionary, if not present, set default values.
+    scsiCharacterDict = OSDynamicCast ( OSDictionary, fProvider->getProperty( kIOPropertySCSIDeviceCharacteristicsKey ) );
+    if ( scsiCharacterDict == NULL )
+    {
+        
+        setProperty ( kIOMaximumBlockCountReadKey, kMaximumBlockCountRead );
+        setProperty ( kIOMaximumBlockCountWriteKey, kMaximumBlockCountWrite );
+        setProperty ( kIOMaximumByteCountReadKey, kMaximumByteCountRead );
+        setProperty ( kIOMaximumByteCountWriteKey, kMaximumByteCountWrite );
+        
+    }
+    else
+    {
+     
+        OSNumber    *	number			= NULL;
+        UInt32          maxBlockCount   = 0;
+        UInt64          maxByteCount    = 0;
+            
+        
+        // Set a max block read count, favor SCSI Characteristics property if present. 
+        maxBlockCount = kMaximumBlockCountRead;
+        number = OSDynamicCast ( OSNumber, scsiCharacterDict->getObject ( kIOMaximumBlockCountReadKey ) );
+        if ( number != NULL )
+        {
+            
+            maxBlockCount = number->unsigned32BitValue ( );
+            if ( maxBlockCount == 0 )
+            {
+                maxBlockCount = kMaximumBlockCountRead;
+            }
+            
+        }
+        
+        setProperty ( kIOMaximumBlockCountReadKey, maxBlockCount );
+        
+        // Set a max block write count, favor SCSI Characteristics property if present. 
+        maxBlockCount = kMaximumBlockCountWrite;
+        number = OSDynamicCast ( OSNumber, scsiCharacterDict->getObject ( kIOMaximumBlockCountWriteKey ) );
+        if ( number != NULL )
+        {
+            
+            maxBlockCount = number->unsigned32BitValue ( );
+            if ( maxBlockCount == 0 )
+            {
+                maxBlockCount = kMaximumBlockCountWrite;
+            }
+            
+        }
+        
+        setProperty ( kIOMaximumBlockCountWriteKey, maxBlockCount );
+        
+        // Set a max byte read count, favor SCSI Characteristics property if present. 
+        maxByteCount = kMaximumByteCountRead;
+        number = OSDynamicCast ( OSNumber, scsiCharacterDict->getObject ( kIOMaximumByteCountReadKey ) );
+        if ( number != NULL )
+        {
+            
+            maxByteCount = number->unsigned32BitValue ( );
+            if ( maxByteCount == 0 )
+            {
+                maxByteCount = kMaximumByteCountRead;
+            }
+            
+        }
+        
+        setProperty ( kIOMaximumByteCountReadKey, maxByteCount );
+        
+        // Set a max byte write count, favor SCSI Characteristics property if present. 
+        maxByteCount = kMaximumByteCountWrite;
+        number = OSDynamicCast ( OSNumber, scsiCharacterDict->getObject ( kIOMaximumByteCountWriteKey ) );
+        if ( number != NULL )
+        {
+            
+            maxByteCount = number->unsigned32BitValue ( );
+            if ( maxByteCount == 0 )
+            {
+                maxByteCount = kMaximumByteCountWrite;
+            }
+            
+        }
+        
+        setProperty ( kIOMaximumByteCountWriteKey, maxByteCount );
+        
+    }
+    
 	fMediaChanged			= false;
 	fMediaPresent			= false;
 	
-	fMaxReadBlocks 	= fProvider->ReportDeviceMaxBlocksReadTransfer();
-	fMaxWriteBlocks = fProvider->ReportDeviceMaxBlocksWriteTransfer();
+	STATUS_LOG ( ( 6, "%s[%p]:: attach exiting", getName(), this ) );
 	
-	STATUS_LOG(( 6, "%s[%p]:: attach exiting", getName(), this ));
 	return true;
+	
 }
 
 
-//-----------------------------------------------------------------------------
-//	- detach - detach from provider.								[PROTECTED]
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
+//	  detach - detach from provider.													[PROTECTED]
+//-------------------------------------------------------------------------------------------------
 
 void
 IOUFIStorageServices::detach( IOService * provider )
 {
-	STATUS_LOG(( 6, "%s[%p]: detach called", getName(), this ));
+
+	STATUS_LOG ( ( 6, "%s[%p]: detach called", getName(), this ) );
 		
 	super::detach( provider );
 
-	STATUS_LOG(( 6, "%s[%p]: detach exiting", getName(), this ));
+	STATUS_LOG ( ( 6, "%s[%p]: detach exiting", getName(), this ) );
+	
 }
 
 
-//-----------------------------------------------------------------------------
-//	- message - handles messages.									   [PUBLIC]
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
+//	  message - handles messages.									   					   [PUBLIC]
+//-------------------------------------------------------------------------------------------------
 
 IOReturn
 IOUFIStorageServices::message( 	UInt32 			type,
 								IOService *		nub,
 								void *			arg )
 {
+
 	IOReturn 	status = kIOReturnSuccess;
 	
-	STATUS_LOG(( 6, "%s[%p]::message called", getName(), this ));
+	
+	STATUS_LOG ( ( 6, "%s[%p]::message called", getName(), this ) );
 		
 	switch ( type )
 	{
+	
 		case kIOMessageMediaStateHasChanged:
 		{
-			STATUS_LOG(( 5, "%s[%p]:: type = kIOMessageMediaStateHasChanged, nub = %p", getName(), this, nub ));
+		
+			STATUS_LOG ( ( 5, "%s[%p]:: type = kIOMessageMediaStateHasChanged, nub = %p", getName(), this, nub ) );
 			
 			fMediaChanged	= true;
 			fMediaPresent	= true;
 			status = messageClients ( type, arg, sizeof ( IOMediaState ) );
-			STATUS_LOG(( 5, "%s[%p]:: status = %ld", getName(), this, ( UInt32 ) status ));
+			STATUS_LOG ( ( 5, "%s[%p]:: status = %ld", getName(), this, ( UInt32 ) status ) );
+			
 		}
 		break;
 				
@@ -154,25 +264,29 @@ IOUFIStorageServices::message( 	UInt32 			type,
 			status = super::message ( type, nub, arg );
 		}
 		break;
+		
 	}
 	
 	return status;
+	
 }
 
 
-//-----------------------------------------------------------------------------
-//	- AsyncReadWriteComplete - Completion routine for I/O	  [STATIC][PRIVATE]
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
+//	  AsyncReadWriteComplete - Completion routine for I/O	  					   [STATIC][PRIVATE]
+//-------------------------------------------------------------------------------------------------
 
 void 
-IOUFIStorageServices::AsyncReadWriteComplete(	void * 			clientData,
+IOUFIStorageServices::AsyncReadWriteComplete (	void * 			clientData,
 												IOReturn		status,
 												UInt64 			actualByteCount )
 {
+
 	IOUFIStorageServices *		owner;
 	BlockServicesClientData * 	servicesData;
 	IOStorageCompletion			returnData;
 	bool						commandComplete = true;
+	
 	
 	// Save the IOCompletion information so that it may be returned
 	// to the client.
@@ -180,18 +294,19 @@ IOUFIStorageServices::AsyncReadWriteComplete(	void * 			clientData,
 	returnData 		= servicesData->completionData;
 	owner 			= servicesData->owner;
 
-	STATUS_LOG(( 5, "%s[%p]:: AsyncReadWriteComplete; command status %x", owner->getName(), owner, status ));
+	STATUS_LOG ( ( 5, "%s[%p]:: AsyncReadWriteComplete; command status %x", owner->getName(), owner, status ) );
 	// Check to see if an error occurred that on which the request should be retried.
-	if ((( status != kIOReturnNotAttached ) && ( status != kIOReturnOffline ) &&
-		( status != kIOReturnSuccess )) && ( servicesData->retriesLeft > 0 ))
+	if ( ( ( status != kIOReturnNotAttached ) && ( status != kIOReturnOffline ) &&
+		( status != kIOReturnSuccess ) ) && ( servicesData->retriesLeft > 0 ) )
 	{
+	
 		IOReturn 	requestStatus;
 
-		STATUS_LOG((5, "%s[%p]:: AsyncReadWriteComplete; retry command", owner->getName(), owner ));
+		STATUS_LOG ( (5, "%s[%p]:: AsyncReadWriteComplete; retry command", owner->getName(), owner ) );
 		// An error occurred, but it is one on which the command should be retried.  Decrement
 		// the retry counter and try again.
 		servicesData->retriesLeft--;
-		requestStatus = owner->fProvider->AsyncReadWrite( 
+		requestStatus = owner->fProvider->AsyncReadWrite ( 
 										servicesData->clientBuffer, 
 										servicesData->clientStartingBlock, 
 										servicesData->clientRequestedBlockCount, 
@@ -205,24 +320,28 @@ IOUFIStorageServices::AsyncReadWriteComplete(	void * 			clientData,
 		{
 			commandComplete = false;
 		}
+		
 	}
 	
 	if ( commandComplete == true )
 	{		
+	
 		IOFree ( clientData, sizeof ( BlockServicesClientData ) );
 
 		// Release the retains for this command.
 		owner->fProvider->release();	
 		owner->release();
 		
-		IOStorage::complete ( returnData, status, actualByteCount );
+		IOStorage::complete ( &returnData, status, actualByteCount );
+		
 	}
 }
 
 
-//-----------------------------------------------------------------------------
-//	- doAsyncReadWrite												   [PUBLIC]
-//-----------------------------------------------------------------------------
+// Deprecated !!!
+//--------------------------------------------------------------------------------------------------
+//	doAsyncReadWrite                                                                        [PUBLIC]
+//--------------------------------------------------------------------------------------------------
 
 IOReturn
 IOUFIStorageServices::doAsyncReadWrite (	IOMemoryDescriptor *	buffer,
@@ -230,10 +349,37 @@ IOUFIStorageServices::doAsyncReadWrite (	IOMemoryDescriptor *	buffer,
 											UInt32					nblks,
 											IOStorageCompletion		completion )
 {
+
+	UNUSED ( buffer );
+    UNUSED ( block );
+    UNUSED ( nblks );
+    UNUSED ( completion );
+    
+	
+	return kIOReturnUnsupported;
+	
+}
+
+
+//--------------------------------------------------------------------------------------------------
+//	doAsyncReadWrite                                                                        [PUBLIC]
+//--------------------------------------------------------------------------------------------------
+
+
+IOReturn
+IOUFIStorageServices::doAsyncReadWrite (    IOMemoryDescriptor *    buffer,
+                                            UInt64                  block, 
+                                            UInt64                  nblks,
+                                            IOStorageAttributes *   attributes,
+                                            IOStorageCompletion *   completion )
+{
 	BlockServicesClientData	*	clientData;
 	IODirection					direction;
 	IOReturn					requestStatus;
 	UInt32						requestBlockSize;
+    
+    
+    UNUSED ( attributes );
 	
 	// Return errors for incoming I/O if we have been terminated.
 	if ( isInactive() != false )
@@ -242,17 +388,17 @@ IOUFIStorageServices::doAsyncReadWrite (	IOMemoryDescriptor *	buffer,
 	}
 
 	direction = buffer->getDirection();
-	if (( direction != kIODirectionIn ) && ( direction != kIODirectionOut ))
+	if ( ( direction != kIODirectionIn ) && ( direction != kIODirectionOut ) )
 	{
 		// This is neither a read nor write request (since this is a read/write method,
 		// what kind of request is it?) return an error to the client.
 		return kIOReturnBadArgument;
 	}
 	
-	clientData = (BlockServicesClientData *) IOMalloc( sizeof( BlockServicesClientData ) );
+	clientData = ( BlockServicesClientData * ) IOMalloc ( sizeof( BlockServicesClientData ) );
 	if ( clientData == NULL )
 	{
-		STATUS_LOG(( 1, "%s[%p]:: doAsyncReadWrite; clientData malloc failed!", getName(), this ));
+		STATUS_LOG ( ( 1, "%s[%p]:: doAsyncReadWrite; clientData malloc failed!", getName(), this ) );
 		return kIOReturnNoResources;
 	}
 
@@ -262,13 +408,13 @@ IOUFIStorageServices::doAsyncReadWrite (	IOMemoryDescriptor *	buffer,
 
 	requestBlockSize = fProvider->ReportMediumBlockSize();
 	
-	STATUS_LOG(( 5, "%s[%p]:: doAsyncReadWrite; save completion data!", getName(), this ));
+	STATUS_LOG ( ( 5, "%s[%p]:: doAsyncReadWrite; save completion data!", getName(), this ) );
 
 	// Set the owner of this request.
 	clientData->owner = this;
 	
 	// Save the client's request parameters.
-	clientData->completionData 				= completion;
+	clientData->completionData 				= *completion;
 	clientData->clientBuffer 				= buffer;
 	clientData->clientStartingBlock 		= block;
 	clientData->clientRequestedBlockCount 	= nblks;
@@ -277,12 +423,12 @@ IOUFIStorageServices::doAsyncReadWrite (	IOMemoryDescriptor *	buffer,
 	// Set the retry limit to the maximum
 	clientData->retriesLeft = kNumberRetries;
 	
-	requestStatus = fProvider->AsyncReadWrite( buffer, (UInt64) block, (UInt64) nblks, (UInt64) requestBlockSize, (void *) clientData );
-	if( requestStatus != kIOReturnSuccess )
+	requestStatus = fProvider->AsyncReadWrite ( buffer, block, nblks, ( UInt64 ) requestBlockSize, ( void * ) clientData );
+	if ( requestStatus != kIOReturnSuccess )
 	{
-		if( clientData != NULL )
+		if ( clientData != NULL )
 		{
-			IOFree( clientData, sizeof( BlockServicesClientData ) );
+			IOFree ( clientData, sizeof ( BlockServicesClientData ) );
 		}
 	}
 	
@@ -290,15 +436,16 @@ IOUFIStorageServices::doAsyncReadWrite (	IOMemoryDescriptor *	buffer,
 }
 
 
-//-----------------------------------------------------------------------------
-//	- doSyncReadWrite												   [PUBLIC]
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
+//	  doSyncReadWrite																		[PUBLIC]
+//-------------------------------------------------------------------------------------------------
 
 IOReturn
-IOUFIStorageServices::doSyncReadWrite(		IOMemoryDescriptor * 	buffer,
+IOUFIStorageServices::doSyncReadWrite (		IOMemoryDescriptor * 	buffer,
 											UInt32 					block,
 											UInt32 					nblks )
 {
+
 	IOReturn	result;
 	
 	// Return errors for incoming I/O if we have been terminated
@@ -319,17 +466,20 @@ IOUFIStorageServices::doSyncReadWrite(		IOMemoryDescriptor * 	buffer,
 	release();
 	
 	return result;
+	
 }
 
 
-//-----------------------------------------------------------------------------
-//	- doEjectMedia													   [PUBLIC]
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
+//	  doEjectMedia																			[PUBLIC]
+//--------------------------------------------------------------------------------------------------
 
 IOReturn
-IOUFIStorageServices::doEjectMedia( void )
+IOUFIStorageServices::doEjectMedia ( void )
 {
+
 	IOReturn	result;
+	
 	
 	fMediaPresent = false;
 	
@@ -351,17 +501,20 @@ IOUFIStorageServices::doEjectMedia( void )
 	release();
 	
 	return result;
+	
 }
 
 
-//-----------------------------------------------------------------------------
-//	- doFormatMedia													   [PUBLIC]
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
+//	  doFormatMedia																			[PUBLIC]
+//--------------------------------------------------------------------------------------------------
 
 IOReturn
-IOUFIStorageServices::doFormatMedia( UInt64 byteCapacity )
+IOUFIStorageServices::doFormatMedia ( UInt64 byteCapacity )
 {
+
 	IOReturn result;
+	
 	
 	// Return errors for incoming activity if we have been terminated
 	if ( isInactive() != false )
@@ -382,17 +535,19 @@ IOUFIStorageServices::doFormatMedia( UInt64 byteCapacity )
 	release();
 	
 	return result;
+	
 }
 
 
-//-----------------------------------------------------------------------------
-//	- doGetFormatCapacities											   [PUBLIC]
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
+//	  doGetFormatCapacities																	[PUBLIC]
+//--------------------------------------------------------------------------------------------------
 
 UInt32
-IOUFIStorageServices::doGetFormatCapacities(	UInt64 * capacities,
+IOUFIStorageServices::doGetFormatCapacities (	UInt64 * capacities,
 												UInt32   capacitiesMaxCount ) const
 {
+
 	IOReturn result;
 	
 	// Return errors for incoming activity if we have been terminated
@@ -413,17 +568,19 @@ IOUFIStorageServices::doGetFormatCapacities(	UInt64 * capacities,
 	release();
 	
 	return result;
+	
 }
 
 
-//-----------------------------------------------------------------------------
-//	- doLockUnlockMedia												   [PUBLIC]
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
+//	  doLockUnlockMedia																		[PUBLIC]
+//--------------------------------------------------------------------------------------------------
 
 IOReturn
 IOUFIStorageServices::doLockUnlockMedia ( bool doLock )
 {
-	UNUSED( doLock );
+
+	UNUSED ( doLock );
 	
 	// Return errors for incoming activity if we have been terminated
 	if ( isInactive() != false )
@@ -432,16 +589,18 @@ IOUFIStorageServices::doLockUnlockMedia ( bool doLock )
 	}
 	
 	return kIOReturnSuccess;
+	
 }
 
 
-//-----------------------------------------------------------------------------
-//	- doSynchronizeCache											   [PUBLIC]
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
+//	  doSynchronizeCache																	[PUBLIC]
+//--------------------------------------------------------------------------------------------------
 
 IOReturn
 IOUFIStorageServices::doSynchronizeCache ( void )
 {
+
 	// Return errors for incoming activity if we have been terminated
 	if ( isInactive() != false )
 	{
@@ -449,12 +608,13 @@ IOUFIStorageServices::doSynchronizeCache ( void )
 	}
 	
 	return kIOReturnSuccess;
+	
 }
 
 
-//-----------------------------------------------------------------------------
-//	- getVendorString												   [PUBLIC]
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
+//	  getVendorString																		[PUBLIC]
+//--------------------------------------------------------------------------------------------------
 
 char *
 IOUFIStorageServices::getVendorString ( void )
@@ -463,9 +623,9 @@ IOUFIStorageServices::getVendorString ( void )
 }
 
 
-//-----------------------------------------------------------------------------
-//	- getProductString												   [PUBLIC]
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
+//	  getProductString																		[PUBLIC]
+//--------------------------------------------------------------------------------------------------
 
 char *
 IOUFIStorageServices::getProductString ( void )
@@ -474,9 +634,9 @@ IOUFIStorageServices::getProductString ( void )
 }
 
 
-//-----------------------------------------------------------------------------
-//	- getRevisionString												   [PUBLIC]
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
+//	  getRevisionString																		[PUBLIC]
+//--------------------------------------------------------------------------------------------------
 
 char *
 IOUFIStorageServices::getRevisionString ( void )
@@ -485,134 +645,103 @@ IOUFIStorageServices::getRevisionString ( void )
 }
 
 
-//-----------------------------------------------------------------------------
-//	- getAdditionalDeviceInfoString									   [PUBLIC]
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
+//	  getAdditionalDeviceInfoString															[PUBLIC]
+//--------------------------------------------------------------------------------------------------
 
 char *
 IOUFIStorageServices::getAdditionalDeviceInfoString ( void )
 {
-	STATUS_LOG((6, "%s::%s called", getName ( ), __FUNCTION__ ) );
-	return ( "No Additional Device Info" );
+
+	STATUS_LOG ( (6, "%s::%s called", getName ( ), __FUNCTION__ ) );
+	return ( ( char * ) "No Additional Device Info" );
+	
 }
 
 
-//-----------------------------------------------------------------------------
-//	- reportBlockSize												   [PUBLIC]
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
+//	  reportBlockSize																		[PUBLIC]
+//--------------------------------------------------------------------------------------------------
 
 IOReturn
 IOUFIStorageServices::reportBlockSize ( UInt64 * blockSize )
 {
+
 	*blockSize = fProvider->ReportMediumBlockSize ( );
 	return kIOReturnSuccess;
+	
 }
 
 
-//-----------------------------------------------------------------------------
-//	- reportEjectability											   [PUBLIC]
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
+//	  reportEjectability																	[PUBLIC]
+//--------------------------------------------------------------------------------------------------
 
 IOReturn
 IOUFIStorageServices::reportEjectability ( bool * isEjectable )
 {
+
 	*isEjectable = true;
 	return kIOReturnSuccess;
+	
 }
 
 
-//-----------------------------------------------------------------------------
-//	- reportLockability												   [PUBLIC]
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
+//	  reportLockability																		[PUBLIC]
+//--------------------------------------------------------------------------------------------------
 
 IOReturn
 IOUFIStorageServices::reportLockability ( bool * isLockable )
 {
+
 	*isLockable = true;
 	return kIOReturnSuccess;
+	
 }
 
 
-//-----------------------------------------------------------------------------
-//	- reportPollRequirements										   [PUBLIC]
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
+//	  reportPollRequirements																[PUBLIC]
+//--------------------------------------------------------------------------------------------------
 
 IOReturn
 IOUFIStorageServices::reportPollRequirements ( 	bool * pollIsRequired,
 													bool * pollIsExpensive )
 {
+
 	*pollIsRequired 	= false;
 	*pollIsExpensive 	= false;
 	
 	return kIOReturnSuccess;
+	
 }
 
 
-//-----------------------------------------------------------------------------
-//	- reportMaxReadTransfer											   [PUBLIC]
-//-----------------------------------------------------------------------------
-
-IOReturn
-IOUFIStorageServices::reportMaxReadTransfer ( UInt64 		blockSize,
-												UInt64 * 	max )
-{
-	if ( fMaxReadBlocks == 0 )
-	{
-		*max = blockSize * 256;
-	}
-	
-	else
-	{
-		*max = blockSize * fMaxReadBlocks;
-	}
-	
-	return kIOReturnSuccess;
-}
-
-
-//-----------------------------------------------------------------------------
-//	- reportMaxValidBlock											   [PUBLIC]
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
+//	  reportMaxValidBlock																	[PUBLIC]
+//--------------------------------------------------------------------------------------------------
 
 IOReturn
 IOUFIStorageServices::reportMaxValidBlock ( UInt64 * maxBlock )
 {
+
 	*maxBlock = ( fProvider->ReportMediumTotalBlockCount ( ) - 1 );
 	return kIOReturnSuccess;
+	
 }
 
 
-//-----------------------------------------------------------------------------
-//	- reportMaxWriteTransfer										   [PUBLIC]
-//-----------------------------------------------------------------------------
-
-IOReturn
-IOUFIStorageServices::reportMaxWriteTransfer ( 	UInt64		blockSize,
-												UInt64 * 	max )
-{
-	if ( fMaxWriteBlocks == 0 )
-	{
-		*max = blockSize * 256;
-	}
-	
-	else
-	{
-		*max = blockSize * fMaxWriteBlocks;
-	}
-	
-	return kIOReturnSuccess;
-}
-
-
-//-----------------------------------------------------------------------------
-//	- reportMediaState												   [PUBLIC]
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
+//	  reportMediaState																		[PUBLIC]
+//--------------------------------------------------------------------------------------------------
 
 IOReturn
 IOUFIStorageServices::reportMediaState ( 	bool * mediaPresent,
-												bool * changed )	
+											bool * changed )	
 {
-    STATUS_LOG(( 6, "%s[%p]::reportMediaState.", getName(), this ));
+
+    STATUS_LOG ( ( 6, "%s[%p]::reportMediaState.", getName(), this ) );
 	
 	*mediaPresent 	= fMediaPresent;
 	*changed 		= fMediaChanged;
@@ -623,31 +752,67 @@ IOUFIStorageServices::reportMediaState ( 	bool * mediaPresent,
 	}
 	
 	return kIOReturnSuccess;
+	
 }
 
 
-//-----------------------------------------------------------------------------
-//	- reportRemovability											   [PUBLIC]
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
+//	  reportRemovability																	[PUBLIC]
+//--------------------------------------------------------------------------------------------------
 
 IOReturn
 IOUFIStorageServices::reportRemovability ( bool * isRemovable )
 {
+
 	*isRemovable = true;
 	return kIOReturnSuccess;
+	
 }
 
 
-//-----------------------------------------------------------------------------
-//	- reportWriteProtection											   [PUBLIC]
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
+//	  reportWriteProtection																	[PUBLIC]
+//--------------------------------------------------------------------------------------------------
 
 IOReturn
 IOUFIStorageServices::reportWriteProtection ( bool * isWriteProtected )
 {
+
 	*isWriteProtected = fProvider->ReportMediumWriteProtection();
 	return kIOReturnSuccess;
+	
 }
+
+
+//--------------------------------------------------------------------------------------------------
+//	getWriteCacheState                                                                      [PUBLIC]
+//--------------------------------------------------------------------------------------------------
+
+IOReturn
+IOUFIStorageServices::getWriteCacheState ( bool * enabled )
+{
+
+    UNUSED ( enabled );
+    
+    return ( kIOReturnUnsupported );
+    
+}
+
+
+//--------------------------------------------------------------------------------------------------
+//	setWriteCacheState                                                                      [PUBLIC]
+//--------------------------------------------------------------------------------------------------
+	
+IOReturn
+IOUFIStorageServices::setWriteCacheState ( bool enabled )
+{
+
+    UNUSED ( enabled );
+
+    return ( kIOReturnUnsupported );
+    
+}
+
 
 // Space reserved for future expansion.
 OSMetaClassDefineReservedUnused( IOUFIStorageServices, 1 );
@@ -659,6 +824,6 @@ OSMetaClassDefineReservedUnused( IOUFIStorageServices, 6 );
 OSMetaClassDefineReservedUnused( IOUFIStorageServices, 7 );
 OSMetaClassDefineReservedUnused( IOUFIStorageServices, 8 );
 
-//--------------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
 //							End				Of				File
-//--------------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------

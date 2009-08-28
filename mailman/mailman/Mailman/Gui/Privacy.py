@@ -1,17 +1,17 @@
-# Copyright (C) 2001-2005 by the Free Software Foundation, Inc.
+# Copyright (C) 2001-2008 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software 
+# along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 # USA.
 
@@ -59,7 +59,7 @@ class Privacy(GUIBase):
                             _('Confirm'),
                             _('Require approval'),
                             _('Confirm and approve')),
-                           0, 
+                           0,
                            _('What steps are required for subscription?<br>'),
                            _('''None - no verification steps (<em>Not
                            Recommended </em>)<br>
@@ -112,7 +112,7 @@ class Privacy(GUIBase):
              machine?''')),
 
             sub_cfentry,
-            
+
             ('unsubscribe_policy', mm_cfg.Radio, (_('No'), _('Yes')), 0,
              _("""Is the list moderator's approval required for unsubscription
              requests?  (<em>No</em> is recommended)"""),
@@ -160,7 +160,7 @@ class Privacy(GUIBase):
         adminurl = mlist.GetScriptURL('admin', absolute=1)
         sender_rtn = [
             _("""When a message is posted to the list, a series of
-            moderation steps are take to decide whether the a moderator must
+            moderation steps are taken to decide whether a moderator must
             first approve the message or not.  This section contains the
             controls for moderation of both member and non-member postings.
 
@@ -185,7 +185,7 @@ class Privacy(GUIBase):
 
             <p>In the text boxes below, add one address per line; start the
             line with a ^ character to designate a <a href=
-            "http://www.python.org/doc/current/lib/module-re.html"
+            "http://docs.python.org/library/re.html"
             >Python regular expression</a>.  When entering backslashes, do so
             as if you were using Python raw strings (i.e. you generally just
             use a single backslash).
@@ -241,10 +241,17 @@ class Privacy(GUIBase):
              _("""List of non-member addresses whose postings should be
              automatically accepted."""),
 
+             # XXX Needs to be reviewed for list@domain names.  Also, the
+             # implementation allows the @listname to work in all
+             # *_these_nonmembers. It doesn't make much sense in the others,
+             # but it could be useful. Should we mention it?
              _("""Postings from any of these non-members will be automatically
              accepted with no further moderation applied.  Add member
              addresses one per line; start the line with a ^ character to
-             designate a regular expression match.""")),
+             designate a regular expression match.  A line consisting of
+             the @ character followed by a list name specifies another
+             Mailman list in this installation, all of whose member
+             addresses will be accepted for this list.""")),
 
             ('hold_these_nonmembers', mm_cfg.EmailListEx, (10, WIDTH), 1,
              _("""List of non-member addresses whose postings will be
@@ -363,7 +370,7 @@ class Privacy(GUIBase):
              release, the pattern will always be matched against the entire
              recipient address.""")),
 
-            ('max_num_recipients', mm_cfg.Number, 5, 0, 
+            ('max_num_recipients', mm_cfg.Number, 5, 0,
              _('Ceiling on acceptable number of recipients for a posting.'),
 
              _('''If a posting has this number, or more, of recipients, it is

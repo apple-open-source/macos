@@ -1,8 +1,8 @@
 # -*- perl -*-
 #
-# $Id: Makefile.PL,v 11.20 2004/01/08 14:03:46 timbo Exp $
+# $Id: Makefile.PL 10473 2008-01-04 15:41:49Z timbo $
 #
-#  Copyright (c) 1994-2002  Tim Bunce  England
+#  Copyright (c) 1994-2006  Tim Bunce  Ireland
 #
 # See COPYRIGHT section in DBI.pm for usage and distribution rights.
 
@@ -11,29 +11,12 @@ BEGIN {
     unshift @INC, "lib";
 }
 
-if ($] < 5.008000) {
-	warn qq{\a\a\a
-**************************************************************************
-  Perl versions below 5.6.1 are no longer supported by the DBI.
-  Perl versions 5.6.x may fail during installation with a complaint
-  about the use of =head3 in the pod documentation.
-  Press return to continue...
-**************************************************************************
-};
-    sleep 3;
-    my $pause = <>;
-}
-
-
-use ExtUtils::MakeMaker 5.16, qw(WriteMakefile $Verbose);
+use ExtUtils::MakeMaker 5.16, qw(WriteMakefile $Verbose prompt);
 use Getopt::Long;
 use Config;
 use File::Find;
 use File::Spec;
 use strict;
-
-use Test::Harness;	# tests use it so check it's loadable early
-use Test::More 0.4;	# tests use it so check it's loadable early
 
 use DBI::DBD;
 
@@ -54,6 +37,28 @@ GetOptions(qw(v! g! thread!))
 	or die "Invalid arguments\n";
 
 $::opt_g &&= '-g';  # convert to actual string
+
+if ($] < 5.008000) {
+	warn qq{\a
+**************************************************************************
+  Perl versions below 5.6.1 are no longer supported by the DBI.
+  Perl versions 5.6.x may fail during installation with a complaint
+  about the use of =head3 in the pod documentation.
+**************************************************************************
+};
+    prompt("Press return to continue...");
+}
+
+
+if (($ENV{LANG}||'') =~ m/utf-?8/i) {
+    print "\n";
+    print "*** Your LANG environment variable is set to '$ENV{LANG}'\a\n";
+    print "*** This is known to cause problems for some perl installations.\n";
+    print "*** If you get test failures, please try again with LANG unset.\n";
+    print "*** Please also email dbi-dev\@perl.org and include the output of 'perl -V'\n";
+    print "\a\n";
+    sleep 4;
+}
 
 if ($Config{useithreads}) {
     print "\n";
@@ -104,7 +109,7 @@ if ($@) {
     You do *not* need these modules for typical DBI usage.
 
 MSG
-    sleep 2;
+    sleep 1;
 }
 
 if (@missing) {
@@ -116,7 +121,7 @@ Optional modules are available from any CPAN mirror, in particular
     ftp://ftp.funet.fi/pub/languages/perl/CPAN/modules/by-module
 
 MSG
-    sleep 4;
+    sleep 1;
 }
 
  
@@ -125,12 +130,17 @@ my %opts = (
     AUTHOR => 'Tim Bunce (dbi-users@perl.org)',
     VERSION_FROM  => 'DBI.pm',
     ABSTRACT_FROM => 'DBI.pm',
-    PREREQ_PM => { "Test::Simple" => 0.40, Storable => 1 },
-    EXE_FILES => [ "dbiproxy$ext_pl", "dbiprof$ext_pl" ],
+    PREREQ_PM => {
+        "Test::Simple" => 0.40,
+        "Storable" => 1,
+        "File::Spec" => 0,
+        "Scalar::Util" => 0,
+    },
+    EXE_FILES => [ "dbiproxy$ext_pl", "dbiprof$ext_pl", "dbilogstrip$ext_pl" ],
     DIR => [ ],
     dynamic_lib => { OTHERLDFLAGS => "$::opt_g" },
-    clean => { FILES=> "\$(DISTVNAME) Perl.xsi t/zv*_*.t"
-			." dbiproxy$ext_pl dbiprof$ext_pl dbitrace.log dbi.prof ndtest.prt" },
+    clean => { FILES=> "\$(DISTVNAME) Perl.xsi t/zv*_*.t dbi__null_test_tmp*"
+                ." dbiproxy$ext_pl dbiprof$ext_pl dbilogstrip$ext_pl dbiproxy.*log dbitrace.log dbi.prof ndtest.prt" },
     dist  => {
 	DIST_DEFAULT=> 'clean distcheck disttest tardist',
 	PREOP => '$(MAKE) -f Makefile.old distdir',
@@ -142,13 +152,14 @@ $opts{CAPI} = 'TRUE' if $Config{archname} =~ /-object\b/i;
 if (my $gccversion = $Config{gccversion}) {	# ask gcc to be more pedantic
     warn "WARNING: Your GNU C $gccversion compiler is very old. Please upgrade it and rebuild perl.\n"
 	if $gccversion =~ m/^\D*(1|2\.[1-8])/;
+    print "Your perl was compiled with gcc (version $Config{gccversion}), okay.\n";
     $gccversion =~ s/[^\d\.]//g; # just a number please
     $opts{DEFINE} .= ' -W -Wall -Wpointer-arith -Wbad-function-cast';
     $opts{DEFINE} .= ' -Wno-comment -Wno-sign-compare -Wno-cast-qual';
-    $opts{DEFINE} .= ' -Wdisabled-optimization -Wmissing-noreturn -Wno-unused-parameter'
-        if $gccversion ge "3.0";
+    $opts{DEFINE} .= ' -Wmissing-noreturn -Wno-unused-parameter' if $gccversion ge "3.0";
     if ($is_developer && $::opt_g) {
         $opts{DEFINE} .= ' -DPERL_GCC_PEDANTIC -ansi -pedantic' if $gccversion ge "3.0";
+        $opts{DEFINE} .= ' -Wdisabled-optimization -Wformat'    if $gccversion ge "3.0";
         $opts{DEFINE} .= ' -Wmissing-prototypes';
     }
 }
@@ -286,6 +297,9 @@ sub post_constants {
     my $xst = main::dbd_postamble();
     $xst =~ s/\$\(BASEEXT\)/Perl/g;
     $xst .= '
+dbixs_rev.h: DBIXS.h Driver_xst.h dbipport.h dbivport.h dbixs_rev.pl
+	$(PERL) dbixs_rev.pl
+
 DBI.c: Perl$(OBJ_EXT)
 
 # make Changes file available as installed pod docs "perldoc DBI::Changes"
@@ -293,6 +307,7 @@ DBI.c: Perl$(OBJ_EXT)
 inst_libdbi = ' . File::Spec->catdir($self->{INST_LIB}, 'DBI') . '
 changes_pm = '  . File::Spec->catfile($self->{INST_LIB}, 'DBI', 'Changes.pm') . '
 roadmap_pm = '  . File::Spec->catfile($self->{INST_LIB}, 'DBI', 'Roadmap.pm') . '
+'.q{
 
 config :: $(changes_pm) $(roadmap_pm)
 	$(NOECHO) $(NOOP)
@@ -306,7 +321,23 @@ $(roadmap_pm): Roadmap.pod
 	$(MKPATH) $(inst_libdbi)
 	$(RM_F) $(roadmap_pm)
 	$(CP) Roadmap.pod $(roadmap_pm)
-';
+
+faq:
+	: checkin any local changes not already checked in before overwriting
+	svn commit --message "dbi.tiddlyspot.com FAQ update" dbi.tiddlyspot.com.html
+	wget --ignore-length --output-document=dbi.tiddlyspot.com.html --timestamping http://dbi.tiddlyspot.com/download
+	svn commit --message "dbi.tiddlyspot.com FAQ update" dbi.tiddlyspot.com.html
+
+checkkeywords:
+	$(RM_RF) blib
+	find . -type f \( -name .svn -prune -o -name \*.pm -o -name \*.PL -o -name \*.pl \) \
+            -exec bash -c '[ -z "$$(svn pg svn:keywords {})" ] && echo svn propset svn:keywords \"Id Revision\" {}' \;
+
+checkpod:
+	$(RM_RF) blib
+	find . -type f \( -name .svn -prune -o -name \*.pm -o -name \*.PL -o -name \*.pl \) \
+            -exec podchecker {} \; 2>&1 | grep -v 'pod syntax OK'
+};
 
     return $xst;
 }

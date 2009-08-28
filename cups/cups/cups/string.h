@@ -1,9 +1,9 @@
 /*
- * "$Id: string.h 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: string.h 6649 2007-07-11 21:46:42Z mike $"
  *
  *   String definitions for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -48,8 +48,8 @@
  */
 
 #  if defined(WIN32) || defined(__EMX__)
-#    define strcasecmp	stricmp
-#    define strncasecmp	strnicmp
+#    define strcasecmp	_stricmp
+#    define strncasecmp	_strnicmp
 #  endif /* WIN32 || __EMX__ */
 
 
@@ -66,10 +66,15 @@ extern "C" {
  * String pool structures...
  */
 
+#  define _CUPS_STR_GUARD	0x12344321
+
 typedef struct _cups_sp_item_s		/**** String Pool Item ****/
 {
-  char		*str;			/* String */
+#  ifdef DEBUG_GUARDS
+  unsigned int	guard;			/* Guard word */
+#  endif /* DEBUG_GUARDS */
   unsigned int	ref_count;		/* Reference count */
+  char		str[1];			/* String */
 } _cups_sp_item_t;
 
 
@@ -125,6 +130,7 @@ extern int	_cups_vsnprintf(char *, size_t, const char *, va_list);
 extern char	*_cupsStrAlloc(const char *s);
 extern void	_cupsStrFlush(void);
 extern void	_cupsStrFree(const char *s);
+extern char	*_cupsStrRetain(const char *s);
 extern size_t	_cupsStrStatistics(size_t *alloc_bytes, size_t *total_bytes);
 
 
@@ -149,5 +155,5 @@ extern double	_cupsStrScand(const char *buf, char **bufptr,
 #endif /* !_CUPS_STRING_H_ */
 
 /*
- * End of "$Id: string.h 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: string.h 6649 2007-07-11 21:46:42Z mike $".
  */

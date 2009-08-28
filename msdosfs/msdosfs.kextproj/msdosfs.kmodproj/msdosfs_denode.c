@@ -99,12 +99,12 @@ OSMallocTag  msdosfs_node_tag;
 static lck_mtx_t *msdosfs_hash_lock = NULL;
 
 static struct denode **dehashtbl;
-static u_long dehash;			/* size of hash table - 1 */
+static unsigned long dehash;			/* size of hash table - 1 */
 #define	DEHASH(dev, dcl, doff)	(dehashtbl[(minor(dev) + (dcl) + (doff)) & dehash])
 
 union _qcvt {
 	quad_t qcvt;
-	long val[2];
+	int32_t val[2];
 };
 #define SETHIGH(q, h) { \
 	union _qcvt tmp; \
@@ -120,8 +120,8 @@ union _qcvt {
 }
 
 static struct denode *
-		msdosfs_hashget __P((dev_t dev, u_long dirclust,
-				     u_long diroff));
+		msdosfs_hashget __P((dev_t dev, uint32_t dirclust,
+				     uint32_t diroff));
 static void	msdosfs_hashins __P((struct denode *dep));
 static void	msdosfs_hashrem __P((struct denode *dep));
 
@@ -148,7 +148,7 @@ msdosfs_hash_uninit(void)
  * Assumes the msdosfs_hash_lock has already been acquired.
  */
 static struct denode *
-msdosfs_hashget(dev_t dev, u_long dirclust, u_long diroff)
+msdosfs_hashget(dev_t dev, uint32_t dirclust, uint32_t diroff)
 {
 	int error;
 	struct denode *dep;
@@ -171,9 +171,7 @@ loop:
 				 * We unlock the hash lock while sleeping to avoid deadlock.
 				 */
 				SET(dep->de_flag, DE_WAITINIT);
-				lck_mtx_unlock(msdosfs_hash_lock);
-				msleep(dep, NULL, PINOD, "msdosfs_hashget", 0);
-				lck_mtx_lock(msdosfs_hash_lock);
+				msleep(dep, msdosfs_hash_lock, PINOD, "msdosfs_hashget", 0);
 				goto loop;
 			}
 			
@@ -280,8 +278,8 @@ msdosfs_hashrem(dep)
 __private_extern__ int
 deget(pmp, dirclust, diroffset, dvp, cnp, depp, context)
 	struct msdosfsmount *pmp;	/* so we know the maj/min number */
-	u_long dirclust;			/* cluster this dir entry came from */
-	u_long diroffset;			/* index of entry within the cluster */
+	uint32_t dirclust;			/* cluster this dir entry came from */
+	uint32_t diroffset;			/* index of entry within the cluster */
 	vnode_t dvp;				/* parent directory */
 	struct componentname *cnp;	/* name used to find this node */
 	struct denode **depp;		/* returns the addr of the gotten denode */
@@ -405,11 +403,11 @@ deget(pmp, dirclust, diroffset, dvp, cnp, depp, context)
 					&bp, &direntptr, context);
 			if (!error) {
 				dep->de_CHun = direntptr->deCHundredth;
-				dep->de_CTime = getushort(direntptr->deCTime);
-				dep->de_CDate = getushort(direntptr->deCDate);
-				dep->de_ADate = getushort(direntptr->deADate);
-				dep->de_MTime = getushort(direntptr->deMTime);
-				dep->de_MDate = getushort(direntptr->deMDate);
+				dep->de_CTime = getuint16(direntptr->deCTime);
+				dep->de_CDate = getuint16(direntptr->deCDate);
+				dep->de_ADate = getuint16(direntptr->deADate);
+				dep->de_MTime = getuint16(direntptr->deMTime);
+				dep->de_MDate = getuint16(direntptr->deMDate);
 				buf_brelse(bp);
 				bp = NULL;
 			}
@@ -423,10 +421,10 @@ deget(pmp, dirclust, diroffset, dvp, cnp, depp, context)
 		bcopy(direntptr->deName, dep->de_Name, 11);
 		dep->de_Attributes = direntptr->deAttributes;
 		dep->de_LowerCase = direntptr->deLowerCase;
-		dep->de_StartCluster = getushort(direntptr->deStartCluster);
+		dep->de_StartCluster = getuint16(direntptr->deStartCluster);
 		if (FAT32(pmp))
-			dep->de_StartCluster |= getushort(direntptr->deHighClust) << 16;
-		dep->de_FileSize = getulong(direntptr->deFileSize);
+			dep->de_StartCluster |= getuint16(direntptr->deHighClust) << 16;
+		dep->de_FileSize = getuint32(direntptr->deFileSize);
 
 		/* For directories, the dates/times come from its "." entry */
 		if (direntptr->deAttributes & ATTR_DIRECTORY)
@@ -436,7 +434,7 @@ deget(pmp, dirclust, diroffset, dvp, cnp, depp, context)
 			if (DEBUG)
 			{
 				if (dep->de_StartCluster < CLUST_FIRST || dep->de_StartCluster > pmp->pm_maxcluster)
-					panic("deget: directory de_StartCluster=%lu", dep->de_StartCluster);
+					panic("deget: directory de_StartCluster=%u", dep->de_StartCluster);
 			}
 			error = readep(pmp, dep->de_StartCluster, 0, &bp, &direntptr, context);
 			if (error) goto fail;
@@ -444,11 +442,11 @@ deget(pmp, dirclust, diroffset, dvp, cnp, depp, context)
 		
 		/* Copy the dates and times */
 		dep->de_CHun = direntptr->deCHundredth;
-		dep->de_CTime = getushort(direntptr->deCTime);
-		dep->de_CDate = getushort(direntptr->deCDate);
-		dep->de_ADate = getushort(direntptr->deADate);
-		dep->de_MTime = getushort(direntptr->deMTime);
-		dep->de_MDate = getushort(direntptr->deMDate);
+		dep->de_CTime = getuint16(direntptr->deCTime);
+		dep->de_CDate = getuint16(direntptr->deCDate);
+		dep->de_ADate = getuint16(direntptr->deADate);
+		dep->de_MTime = getuint16(direntptr->deMTime);
+		dep->de_MDate = getuint16(direntptr->deMDate);
 		
 		buf_brelse(bp);
 		bp = NULL;
@@ -465,7 +463,7 @@ deget(pmp, dirclust, diroffset, dvp, cnp, depp, context)
 		 * to find out the length of the directory and plug it into
 		 * the denode structure.
 		 */
-		u_long size;
+		uint32_t size;
 
 		vtype = VDIR;
 		if (dep->de_StartCluster != MSDOSFSROOT) {
@@ -555,7 +553,7 @@ deupdat(dep, waitfor, context)
 #pragma unused (waitfor)
 	int error = 0;
 	int isRoot = 0;
-	u_long dirclust, diroffset;
+	uint32_t dirclust, diroffset;
 	struct buf *bp;
 	struct dosdirentry *dirp;
 	struct timespec ts;
@@ -641,15 +639,15 @@ deupdat(dep, waitfor, context)
 __private_extern__ int
 detrunc(dep, length, flags, context)
 	struct denode *dep;
-	u_long length;
+	uint32_t length;
 	int flags;
 	vfs_context_t context;
 {
     int error;
     int allerror;
     int cluster_locked = 0;
-    u_long eofentry;
-    u_long chaintofree;
+    uint32_t eofentry;
+    uint32_t chaintofree;
     int isadir = dep->de_Attributes & ATTR_DIRECTORY;
     struct msdosfsmount *pmp = dep->de_pmp;
     vnode_t vp = DETOV(dep);
@@ -663,7 +661,7 @@ detrunc(dep, length, flags, context)
      * directory's life.
      */
     if (vnode_isvroot(vp) && !FAT32(pmp)) {
-        printf("detrunc(): can't truncate root directory, clust %ld, offset %ld\n",
+        printf("detrunc(): can't truncate root directory, clust %d, offset %d\n",
                dep->de_dirclust, dep->de_diroffset);
         return (EINVAL);
     }
@@ -690,7 +688,7 @@ detrunc(dep, length, flags, context)
         dep->de_LastCluster = 0;
 	dep->de_cluster_count = 0;
     } else {
-	u_long length_clusters;
+	uint32_t length_clusters;
 	
 	length_clusters = de_clcount(pmp, length);
 	
@@ -808,12 +806,12 @@ exit:
 __private_extern__ int
 deextend(dep, length, flags, context)
 	struct denode *dep;
-	u_long length;
+	uint32_t length;
 	int flags;
 	vfs_context_t context;
 {
     struct msdosfsmount *pmp = dep->de_pmp;
-    u_long count;
+    uint32_t count;
     int error;
 
     /*
@@ -957,7 +955,7 @@ msdosfs_inactive(ap)
 	 * as empty.  (This may not be necessary for the dos filesystem.)
 	 */
 	if (dep->de_refcnt <= 0 && ( !vnode_vfsisrdonly(vp))) {
-		error = detrunc(dep, (u_long) 0, 0, context);
+		error = detrunc(dep, (uint32_t) 0, 0, context);
 		needs_flush = 1;
 		dep->de_flag |= DE_UPDATE;
 		dep->de_Name[0] = SLOT_DELETED;
@@ -1001,9 +999,9 @@ out:
  * FAT32 really only uses 28 bits for cluster number).  Directories (other than the root)
  * always contain at least one cluster for their "." and ".." entries.
  */
-__private_extern__ u_long defileid(struct denode *dep)
+__private_extern__ uint32_t defileid(struct denode *dep)
 {
-    u_long fileid;
+    uint32_t fileid;
     
     fileid = dep->de_StartCluster;
     

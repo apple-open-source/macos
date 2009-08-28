@@ -7,7 +7,7 @@
 
 project=Open MPI
 project_short=OMPI
-version=1.2.3
+version=1.2.8
 language=Fortran 77
 compiler_env=F77
 compiler_flags_env=FFLAGS

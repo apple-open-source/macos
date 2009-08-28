@@ -19,6 +19,10 @@ __PACKAGE__->add_columns(
         data_type => 'integer',
         is_nullable => 1,
     },
+    group_id_2 => {
+        data_type => 'integer',
+        is_nullable => 1,
+    },
     name => {
         data_type => 'varchar',
         size      => 100,

@@ -1,7 +1,7 @@
 Tu system zarz±dzania zwrotami programu Mailman:
 
     Lista:      %(listname)s
-    Cz³onek:    %(addr)s
+    Prenumerator:    %(addr)s
     Dzia³anie:  Subskrybcja %(negative)s%(did)s.
     Przyczyna:  Zbyt wiele zwrotów z adresu
     %(but)s

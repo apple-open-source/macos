@@ -11,7 +11,6 @@
 		40BC5D9B053230FA009E6ADA /* Authorization.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2A593D3052E3AC700AF1EE3 /* Authorization.cpp */; };
 		4C481F05058161C400846F0C /* trampolineClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C481F03058161C400846F0C /* trampolineClient.cpp */; };
 		4C481F06058161C400846F0C /* trampolineServer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C481F04058161C400846F0C /* trampolineServer.cpp */; };
-		4C6848A305815EE4003AC7B2 /* privPortClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C6848A105815EE4003AC7B2 /* privPortClient.cpp */; };
 		4CCB000D0580058D00981D43 /* AuthorizationTags.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 40BC5D9605322F76009E6ADA /* AuthorizationTags.h */; };
 		4CCB000E0580058D00981D43 /* AuthSession.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 40BC5D9805322F76009E6ADA /* AuthSession.h */; };
 		4CCB000F0580058D00981D43 /* Authorization.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 40BC5D9005322F76009E6ADA /* Authorization.h */; };
@@ -100,37 +99,10 @@
 		4C481F04058161C400846F0C /* trampolineServer.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = trampolineServer.cpp; path = lib/trampolineServer.cpp; sourceTree = "<group>"; };
 		4C5635330540A58200DCF0C8 /* security_authorization.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = security_authorization.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C6848A005815EE4003AC7B2 /* privPort.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = privPort.h; path = lib/privPort.h; sourceTree = "<group>"; };
-		4C6848A105815EE4003AC7B2 /* privPortClient.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = privPortClient.cpp; path = lib/privPortClient.cpp; sourceTree = "<group>"; };
-		4CA1FEBE052A3C8100F22E42 /* security_authorization */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; path = security_authorization; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CA1FEBE052A3C8100F22E42 /* security_authorization */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = security_authorization; sourceTree = BUILT_PRODUCTS_DIR; };
 		4CCB0023058005D500981D43 /* security_authorization.exp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.exports; name = security_authorization.exp; path = lib/security_authorization.exp; sourceTree = "<group>"; };
 		C2A593D3052E3AC700AF1EE3 /* Authorization.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = Authorization.cpp; path = lib/Authorization.cpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
-
-/* Begin PBXFrameworkTarget section */
-		4C5635320540A58200DCF0C8 /* security_authorization */ = {
-			isa = PBXFrameworkTarget;
-			buildConfigurationList = C27AD2AF0987FCDD001272E0 /* Build configuration list for PBXFrameworkTarget "security_authorization" */;
-			buildPhases = (
-				4C56352D0540A58200DCF0C8 /* Headers */,
-				4CCB00010580050B00981D43 /* CopyFiles */,
-				4CCB00020580050E00981D43 /* CopyFiles */,
-				4CCB00030580051000981D43 /* CopyFiles */,
-				4CCB00050580051500981D43 /* CopyFiles */,
-			);
-			dependencies = (
-			);
-			name = security_authorization;
-			productInstallPath = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-			productName = securityd;
-			productReference = 4C5635330540A58200DCF0C8 /* security_authorization.framework */;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict/>
-</plist>
-";
-		};
-/* End PBXFrameworkTarget section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		4CA1FEBB052A3C8100F22E42 /* Frameworks */ = {
@@ -172,7 +144,6 @@
 				C2A593D3052E3AC700AF1EE3 /* Authorization.cpp */,
 				40BC5D9405322F76009E6ADA /* AuthorizationPlugin.h */,
 				4C6848A005815EE4003AC7B2 /* privPort.h */,
-				4C6848A105815EE4003AC7B2 /* privPortClient.cpp */,
 				4CCB0023058005D500981D43 /* security_authorization.exp */,
 				4C481F03058161C400846F0C /* trampolineClient.cpp */,
 				4C481F04058161C400846F0C /* trampolineServer.cpp */,
@@ -207,16 +178,38 @@
 		};
 /* End PBXHeadersBuildPhase section */
 
-/* Begin PBXLibraryTarget section */
+/* Begin PBXNativeTarget section */
+		4C5635320540A58200DCF0C8 /* security_authorization */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD2AF0987FCDD001272E0 /* Build configuration list for PBXNativeTarget "security_authorization" */;
+			buildPhases = (
+				4C56352D0540A58200DCF0C8 /* Headers */,
+				4CCB00010580050B00981D43 /* CopyFiles */,
+				4CCB00020580050E00981D43 /* CopyFiles */,
+				4CCB00030580051000981D43 /* CopyFiles */,
+				4CCB00050580051500981D43 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = security_authorization;
+			productInstallPath = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+			productName = securityd;
+			productReference = 4C5635330540A58200DCF0C8 /* security_authorization.framework */;
+			productType = "com.apple.product-type.framework";
+		};
 		4CA1FEBD052A3C8100F22E42 /* libsecurity_authorization */ = {
-			isa = PBXLibraryTarget;
-			buildConfigurationList = C27AD2B30987FCDD001272E0 /* Build configuration list for PBXLibraryTarget "libsecurity_authorization" */;
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD2B30987FCDD001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_authorization" */;
 			buildPhases = (
 				4CA1FEB9052A3C8100F22E42 /* Headers */,
 				4CA1FEBA052A3C8100F22E42 /* Sources */,
 				4CA1FEBB052A3C8100F22E42 /* Frameworks */,
 				4C789BEB055AF4EC00B6FC95 /* ShellScript */,
 				4CD0D449055B0C9D001715CB /* ShellScript */,
+			);
+			buildRules = (
 			);
 			dependencies = (
 				4C52AD510540BC6900536F78 /* PBXTargetDependency */,
@@ -225,8 +218,9 @@
 			productInstallPath = /usr/local/lib;
 			productName = libsecurityd;
 			productReference = 4CA1FEBE052A3C8100F22E42 /* security_authorization */;
+			productType = "com.apple.product-type.library.static";
 		};
-/* End PBXLibraryTarget section */
+/* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
@@ -257,7 +251,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tln -fs \"../../../${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework/Versions/A\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework\ndone";
+			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tditto -V \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}${postfix}\" \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\n\tln -fs \"../../../${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework/Versions/A\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework\ndone";
 		};
 		4CD0D449055B0C9D001715CB /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -280,7 +274,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				40BC5D9B053230FA009E6ADA /* Authorization.cpp in Sources */,
-				4C6848A305815EE4003AC7B2 /* privPortClient.cpp in Sources */,
 				4C481F05058161C400846F0C /* trampolineClient.cpp in Sources */,
 				4C481F06058161C400846F0C /* trampolineServer.cpp in Sources */,
 			);
@@ -301,11 +294,13 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				INFOPLIST_FILE = "Info-security_authorization.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Components/Security;
 				PRODUCT_NAME = security_authorization;
 				WRAPPER_EXTENSION = framework;
@@ -316,8 +311,10 @@
 		C27AD2B10987FCDD001272E0 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INFOPLIST_FILE = "Info-security_authorization.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Components/Security;
 				PRODUCT_NAME = security_authorization;
 				WRAPPER_EXTENSION = framework;
@@ -328,7 +325,10 @@
 		C27AD2B20987FCDD001272E0 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
+				INFOPLIST_FILE = "Info-security_authorization.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Components/Security;
 				PRODUCT_NAME = security_authorization;
 				WRAPPER_EXTENSION = framework;
@@ -339,13 +339,14 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 32564;
+				CURRENT_PROJECT_VERSION = 36329;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
 				);
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				HEADER_SEARCH_PATHS = (
@@ -361,21 +362,22 @@
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
 				OTHER_CFLAGS = (
-					"-DPORTSERVERPATH=\\\"/usr/libexec/security_privportserver\\\"",
-					"-DTRAMPOLINE=\\\"/usr/libexec/security_authtrampoline\\\"",
+					"$(OTHER_CFLAGS_QUOTED_FOR_TARGET_1)",
+					"$(OTHER_CFLAGS_QUOTED_FOR_TARGET_2)",
 				);
+				OTHER_CFLAGS_QUOTED_FOR_TARGET_2 = "-DTRAMPOLINE=\\\"/usr/libexec/security_authtrampoline\\\"";
 				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
 				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
 				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
-				PRIVATE_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/PrivateHeaders/Security";
+				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/PrivateHeaders/Security;
 				PRODUCT_NAME = security_authorization;
-				PUBLIC_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/Headers/Security";
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/Headers/Security;
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -393,12 +395,13 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 32564;
+				CURRENT_PROJECT_VERSION = 36329;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
 				);
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
@@ -412,21 +415,22 @@
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
 				OTHER_CFLAGS = (
-					"-DPORTSERVERPATH=\\\"/usr/libexec/security_privportserver\\\"",
-					"-DTRAMPOLINE=\\\"/usr/libexec/security_authtrampoline\\\"",
+					"$(OTHER_CFLAGS_QUOTED_FOR_TARGET_1)",
+					"$(OTHER_CFLAGS_QUOTED_FOR_TARGET_2)",
 				);
+				OTHER_CFLAGS_QUOTED_FOR_TARGET_2 = "-DTRAMPOLINE=\\\"/usr/libexec/security_authtrampoline\\\"";
 				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
 				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
 				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
-				PRIVATE_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/PrivateHeaders/Security";
+				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/PrivateHeaders/Security;
 				PRODUCT_NAME = security_authorization;
-				PUBLIC_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/Headers/Security";
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/Headers/Security;
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -444,7 +448,9 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 32564;
+				CURRENT_PROJECT_VERSION = 36329;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
@@ -462,21 +468,22 @@
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
 				OTHER_CFLAGS = (
-					"-DPORTSERVERPATH=\\\"/usr/libexec/security_privportserver\\\"",
-					"-DTRAMPOLINE=\\\"/usr/libexec/security_authtrampoline\\\"",
+					"$(OTHER_CFLAGS_QUOTED_FOR_TARGET_1)",
+					"$(OTHER_CFLAGS_QUOTED_FOR_TARGET_2)",
 				);
+				OTHER_CFLAGS_QUOTED_FOR_TARGET_2 = "-DTRAMPOLINE=\\\"/usr/libexec/security_authtrampoline\\\"";
 				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
 				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
 				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
-				PRIVATE_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/PrivateHeaders/Security";
+				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/PrivateHeaders/Security;
 				PRODUCT_NAME = security_authorization;
-				PUBLIC_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/Headers/Security";
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/Headers/Security;
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -514,7 +521,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		C27AD2AF0987FCDD001272E0 /* Build configuration list for PBXFrameworkTarget "security_authorization" */ = {
+		C27AD2AF0987FCDD001272E0 /* Build configuration list for PBXNativeTarget "security_authorization" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C27AD2B00987FCDD001272E0 /* Development */,
@@ -524,7 +531,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
-		C27AD2B30987FCDD001272E0 /* Build configuration list for PBXLibraryTarget "libsecurity_authorization" */ = {
+		C27AD2B30987FCDD001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_authorization" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C27AD2B40987FCDD001272E0 /* Development */,

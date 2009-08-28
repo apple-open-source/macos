@@ -1,9 +1,8 @@
 #!/bin/sh -
-#	$Id: s_java,v 1.2 2004/03/30 01:21:34 jtownsen Exp $
+#	$Id: s_java,v 12.0 2004/11/17 03:43:35 bostic Exp $
 #
 # Build the Java files.
 
+sh s_java_stat		# Create Java stat methods
 sh s_java_swig		# Create core Java API with SWIG
 sh s_java_const		# Create Java constants
-sh s_java_stat		# Create Java stat methods
-sh s_java_camel		# Camel-case the Java API.

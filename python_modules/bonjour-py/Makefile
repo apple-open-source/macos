@@ -1,8 +1,11 @@
 NAME = bonjour-py
-VERSION = 0.2
+VERSION = 0.3
 
 include ../Makefile.inc
 
 custompatching:
-	ed - $(DIR)/bonjour.i < bonjour.i.ed
 	ed - $(DIR)/setup.py < setup.py.ed
+
+postinstall:
+	cp -f $(DIR)/COPYING.txt $(OSL)/$(NAME).txt
+	cp -f $(NAME).partial $(OSV)

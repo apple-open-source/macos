@@ -4,14 +4,16 @@
 $ECHO = "/bin/echo";
 $MKDIR = "/bin/mkdir";
 $MKTEMP_PATH = "/usr/bin/mktemp";
-$PBUDDY = "/usr/libexec/sbs_backup/PBuddy";
+$PBUDDY = "/usr/libexec/PlistBuddy";
 $SQLITE = "/usr/bin/sqlite3";
-$TAR = "/usr/bin/tar";
-$SBS_CONF = "/private/etc/sbs_backup";
-$SBSProgressLogFile = "/private/var/log/sbs_backup/sbs_progress.log";
+$TAR = "/usr/bin/gnutar";
+$SBS_CONF = "/private/etc/server_backup";
+$SBSProgressLogFile = "/private/var/log/server_backup/sbs_progress.log";
 $tmpPath = "/private/var/jabberd/tmp";
-$sqliteDbPath = "/private/var/jabberd/sqlite/jabberd2.db";
+$sqliteDefaultDbPath = "/private/var/jabberd/sqlite/jabberd2.db";
+$sqliteDbPath = "";
 $ServiceConf = "75-iChatServer.plist";
+$servermgrJabberConfigPath = "/Library/Preferences/com.apple.ichatserver.plist";
 $ServiceName = "iChatServer";
 %$BigList = "";
 %dbinfo = {};
@@ -22,20 +24,34 @@ $DEBUG = 0;
 $FUNCLOG = 0;
 $PROGRESS = 0;
 
+# Enum for deciding what to do with output
+($OUTPUT_NONE, $OUTPUT_DEBUG, $OUTPUT_VERBOSE, $OUTPUT_PROGRESS, 
+	$OUTPUT_FUNCLOG, $OUTPUT_PRINT) = (0..5);
+
+$LOG_PATH = &_get_log_path(@ARGV);   # global, for service-specific log path
+
 if($ENV{DEBUG}) {$DEBUG = '1'; print "iChat Server backup DEBUG = 1\n";}
 if($ENV{VERBOSE}) {$VERBOSE = '1'; print "iChat Server backup VERBOSE = 1\n";}
 if($ENV{FUNCLOG} && $DEBUG) {$FUNCLOG = '1'; print "iChat Server backup FUNCLOG = 1\n";}
 if($ENV{PROGRESS} && $DEBUG) {$PROGRESS = '1'; print "iChat Server backup PROGRESS = 1\n";}
 
-if ($VERBOSE) {
-	print("iChatServer_backup was called.\n");
-}
+&_log($OUTPUT_VERBOSE, 	"iChatServer_backup was called.\n");
 
 ParseOptions();
-if ($DEBUG) 
-	{ dumpAssociativeArray(@ARGV); }
 
-validateOptionsAndDispatch(@ARGV);
+if ($DEBUG) 
+	{ &dumpAssociativeArray(@ARGV); }
+
+# find sqlite database path
+my $pbuddyDbPath = qx(${PBUDDY} -c \"Print :jabberdDatabasePath:\" $servermgrJabberConfigPath);
+chomp($pbuddyDbPath);
+if (-e $pbuddyDbPath) {
+    $sqliteDbPath = $pbuddyDbPath;
+} else {
+    $sqliteDbPath = $sqliteDefaultDbPath;
+}
+
+&validateOptionsAndDispatch(@ARGV);
 exit();
 
 ################################################################################
@@ -58,18 +74,15 @@ sub validateOptionsAndDispatch()
 ################################################################################
 sub Actions() 
 {
-	if ($FUNCLOG) 
-		{ print("Start Actions-------------------------------------------------------+\n"); }
+	&_log($OUTPUT_FUNCLOG, "Start Actions-------------------------------------------------------+\n");
 
-	if($VERBOSE) {
-		print (qq(${PBUDDY} -c \"Print :BackupActions\" $SBS_CONF/$ServiceConf) . "\n");
-	}
+	&_log($OUTPUT_VERBOSE, 	(qq(${PBUDDY} -c \"Print :BackupActions\" $SBS_CONF/$ServiceConf) . "\n"));
+
 	$Version = qx(${PBUDDY} -c \"Print :BackupActions\" $SBS_CONF/$ServiceConf);
-	print($Version);
+	&_log($OUTPUT_PRINT, $Version);
 
-	if ($FUNCLOG) 
-		{ print("End   Actions-------------------------------------------------------+\n");
-	}
+	&_log($OUTPUT_FUNCLOG, "End   Actions-------------------------------------------------------+\n");
+
 }
 
 ################################################################################
@@ -80,32 +93,29 @@ sub Backup()
 	my $jabberDataTmpDir = "";
 
 	umask(077);
-	if ($FUNCLOG)
-		{ print("Start Backup-------------------------------------------------------+\n"); }
+
+	&_log($OUTPUT_FUNCLOG, "Start Backup-------------------------------------------------------+\n");
 
     if ($OPT ne "configuration" && $OPT ne "data" && $OPT ne "all") {
-        print "No valid -opt selected for backup operation.\n";
+        &_log($OUTPUT_PRINT, "No valid -opt selected for backup operation.\n");
         return 1;
     }
 
 	#Create our service named folder in the image.
 	my $SBS_PATH=$BigList{"-path"};
 	if ($SBS_PATH eq "") {
-		print "No -path given. Aborting.\n";
+		&_log($OUTPUT_PRINT, "No -path given. Aborting.\n");
 		return 1;
 	}
-		
+
 	if(! -e $SBS_PATH) {
-		if ($DEBUG) { print("${MKDIR} $SBS_PATH"); }
+		&_log($OUTPUT_DEBUG, "${MKDIR} $SBS_PATH\n");
 		qx(${MKDIR} $SBS_PATH);
 	}
 
 	## Configs ##
 	if ($OPT eq "all" || $OPT eq "configuration") {
-		if ($PROGRESS) {
-			$pString = sprintf("\"## PROGRESS :: :: iChat Server :: Backing up configuration files :: %%%f \"", 0);
-			qx($ECHO $pString >> $SBSProgressLogFile);
-		}
+		&_log($OUTPUT_PROGRESS, "Backing up configuration files", 0);
 
 		# backup configs
 #		my $configTarPath = $SBS_PATH."/".&timestamp.".iChatServer.conf.tar.gz";
@@ -130,28 +140,19 @@ sub Backup()
 			# Not quoting confFile- allow for wildcard expansion since there may be any number of sm.xml files
 			$cmd .= " $confFile";
 		}
-		if ($VERBOSE) {
-			print "Executing command: $cmd\n";
-		}	
+		&_log($OUTPUT_PRINT, "Executing command: $cmd\n");
 		system($cmd);
 
-		if ($PROGRESS) {
-			$pString = sprintf("\"## PROGRESS :: :: iChat Server :: Backing up files :: %%%f \"", 100);
-			qx($ECHO $pString >> $SBSProgressLogFile);
-		}
-		if ($VERBOSE) {
-			print "Backed up configuration files to $configTarPath\n";
-		}
+		&_log($OUTPUT_VERBOSE, "Backed up configuration files to $configTarPath\n");
+
 #		push(@MasterFilesList, $configTarPath);iChatServer.conf.tar.gz
 		push(@MasterFilesList, "iChatServer.conf.tar.gz");
+		&_log($OUTPUT_PROGRESS, "Backing up configuration files", 100);
 	}
 	
 	## Data ##
 	if ($OPT eq "all" || $OPT eq "data") {
-		if ($PROGRESS) {
-			$pString = sprintf("\"## PROGRESS :: :: iChat Server :: Backing up data files :: %%%f \"", 0);
-			qx($ECHO $pString >> $SBSProgressLogFile);
-		}
+		&_log($OUTPUT_PROGRESS, "Backing up data files", 0);
 
 		# backup database
 #		my $dataTarPath = $SBS_PATH."/".&timestamp.".iChatServer.data.tar.gz";
@@ -187,21 +188,17 @@ sub Backup()
 	   	unlink("$jabberDataTmpDir/$sqlFilePath");
         qx(rm -Rf $jabberDataTmpDir);
 
-		if ($PROGRESS) {
-			$pString = sprintf("\"## PROGRESS :: :: iChat Server :: Backing up data files :: %%%f \"", 100);
-			qx($ECHO $pString >> $SBSProgressLogFile);
-		}
-		if ($VERBOSE) {
-			print "Backed up database to $dataTarPath\n";
-		}
+		&_log($OUTPUT_PROGRESS, "Backing up data files", 100);
+
+		&_log($OUTPUT_VERBOSE, "Backed up database to $dataTarPath\n");
+
 #		push(@MasterFilesList, $dataTarPath);
 		push(@MasterFilesList, "iChatServer.data.tar.gz");
 	}
 
 	CreateBrowsePlist();
 
-	if ($FUNCLOG) 
-		{ print("End  Backup-------------------------------------------------------+\n"); }
+	&_log($OUTPUT_FUNCLOG, "End  Backup-------------------------------------------------------+\n");
 }
 
 ################################################################################
@@ -240,14 +237,13 @@ sub Size()
 	my $jabberDataTmpDir = "";
 
 	if ($OPT ne "configuration" && $OPT ne "data" && $OPT ne "all") {
-		print "No valid -opt selected for size operation.\n";
+		&_log($OUTPUT_PRINT, "No valid -opt selected for size operation.\n");
 		&Usage;
 	}
 
 	umask(077);
-	if ($FUNCLOG) { 
-		print("Start Size-------------------------------------------------------+\n"); 
-	}
+	&_log($OUTPUT_FUNCLOG, "Start Size-------------------------------------------------------+\n");
+
 
 	$totalsize = 0; #bytes
 	if ($OPT eq "all" || $OPT eq "configuration") {
@@ -286,7 +282,7 @@ sub Size()
 		my $dataTarPath = "$jabberDataTmpDir/iChatServer_data_backup_tmp.tar.gz";
 		if ($VERBOSE) {
 			$cmd = "$TAR -cvzf \"$dataTarPath\" \"$jabberDataTmpDir/$sqlFilePath\"";
-			print "Executing command: $cmd\n";
+			&_log($OUTPUT_PRINT, "Executing command: $cmd\n");
 		} else {
 			$cmd = "$TAR -czf \"$dataTarPath\" \"$jabberDataTmpDir/$sqlFilePath\"";
 		}
@@ -300,28 +296,20 @@ sub Size()
 
 	$totalsize /= 1024; #make kbytes
 	
-	print "total := ".int($totalsize)."\n";
+	&_log($OUTPUT_PRINT, "total := ".int($totalsize)."\n");
 
-	if ($FUNCLOG){
-		print("End   Size-------------------------------------------------------+\n"); 
-	}
+	&_log($OUTPUT_FUNCLOG, "End Size-------------------------------------------------------+\n");
 }
 
 ################################################################################
 sub Version() 
 {
-	if ($FUNCLOG) 
-		{ print("Start Version-------------------------------------------------------+\n"); }
+	&_log($OUTPUT_FUNCLOG, "Start Version-------------------------------------------------------+\n");
 
-	if($VERBOSE) {
-		print (qq(${PBUDDY} -c \"Print :Version\" $SBS_CONF/$ServiceConf) . "\n");
-	}
 	$Version = qx(${PBUDDY} -c \"Print :Version\" $SBS_CONF/$ServiceConf);
-	print($Version);
+	&_log($OUTPUT_PRINT, $Version);
 
-	if ($FUNCLOG) 
-		{ print("End   Version-------------------------------------------------------+\n");
-	}
+	&_log($OUTPUT_FUNCLOG, "End Version-------------------------------------------------------+\n");
 }
 
 ################################################################################
@@ -374,7 +362,7 @@ sub dumpAssociativeArray()
 ################################################################################
 sub timestamp()
 {
-	( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst ) =
+	my ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst ) =
 	localtime(time);
 	$year += 1900;
 	$mon  += 1;
@@ -382,8 +370,8 @@ sub timestamp()
 	if ( $min  =~ /^\d$/ ) { $min  = "0" . $min; }
 	if ( $sec  =~ /^\d$/ ) { $sec  = "0" . $sec; }
 
-	#my $ret = $year."-".$mon."-".$mday."-$hour:$min:$sec";
-	my $ret = $year."-".$mon."-".$mday;
+	my $ret = $year."-".$mon."-".$mday."-$hour:$min:$sec";
+	#my $ret = $year."-".$mon."-".$mday;
 	return $ret;
 }
 
@@ -392,11 +380,11 @@ sub Usage()
 {
 	print "Usage:\n";
 	print "iChatServer_backup supports the following options:\n";
-	#print " -cmd backup -path path -log logPath \n";
+	print " -cmd backup -path path -log logPath \n";
 	print " -cmd backup -path path -opt option\n";
 	print "    where path is the path to the mounted image where the data was backed-up.\n";
 	print "    where option is one of: configuration, data, all\n";
-	#print "    where logPath is the path to the backup log file for this service, it can be found in property list file := $SBS_CONF$ServiceConf\n";
+	print "    where logPath is the path to the backup log file for this service, it can be found in property list file := $SBS_CONF$ServiceConf\n";
 	print " -cmd size -opt option :       Calculate size of the storage requirements for iChatServer.\n";
 	print "    where option is one of: configuration, data, all\n";
 	print " -cmd help :                   Displays this usage.\n";
@@ -404,3 +392,48 @@ sub Usage()
 	exit(0);
 }
 
+################################################################################
+# Handle the various output modes, log to our file
+sub _log {
+	my $type = shift;
+	my $msg = shift;
+	my $progress_percent = shift;  
+
+	# For the progress log, just append to that log file and return
+	if ($PROGRESS && ($type == $OUTPUT_PROGRESS)) {
+		if (! defined($progress_percent)) {
+			&_log($OUTPUT_DEBUG, "ERROR: Missing progress percentage");
+			return;
+		}
+		my $pString = sprintf("\"## PROGRESS :: :: iChat Server :: $msg :: %%%f \"", $progress_percent);
+		qx($ECHO $pString >> $SBSProgressLogFile);
+		return;
+	} 
+	
+	# For everything else, log the message to our service-specific log file
+	if ($LOG_PATH ne "") {
+		open(OUT, ">>$LOG_PATH") || die "ERROR: Cannot open log file at path: $LOG_PATH : $!";
+		print OUT &timestamp."\t".$msg;
+		close(OUT);
+	}
+
+	# print to STDOUT if appropriate
+	if (($type == $OUTPUT_PRINT)  ||
+			($FUNCLOG && ($type == $OUTPUT_FUNCLOG)) ||
+			($DEBUG && ($type == $OUTPUT_DEBUG)) ||
+			($VERBOSE && ($type == $OUTPUT_VERBOSE))) {
+		print $msg;
+	}
+}
+
+# Pull the -log arg from argv
+sub _get_log_path {
+	my ($theKey, $theVal);
+	my %theArgList = @ARGV;
+	while(($theKey, $theVal) = each (%theArgList)) {
+		if ($theKey eq "-log") {
+			return $theVal;
+		}
+	}
+	return "";
+}

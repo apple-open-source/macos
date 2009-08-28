@@ -1,0 +1,5 @@
+g/version_type=darwin//library_names_spec=.*/s//library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'/
+g/cfgfile="${ofile}T"/.+1,.+2s/$RM/& -f/
+g/conftest\*/s/[Rr][Mm]/& -r/
+g/-r \(.*-f*r.* conftest\*\)/s//\1/
+w

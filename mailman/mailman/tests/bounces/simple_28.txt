@@ -1,0 +1,79 @@
+Return-Path: <>
+Received: from fg-out-1718.google.com (fg-out-1718.google.com [72.14.220.152])
+	by alan.rezo.net (Postfix) with ESMTP id 3909F3B0271
+	for <spip-commit-bounces@rezo.net>;
+	Sun, 15 Jun 2008 01:26:23 +0200 (CEST)
+Received: by fg-out-1718.google.com with SMTP id l27so3405949fgb.11
+	for <spip-commit-bounces@rezo.net>;
+	Sat, 14 Jun 2008 16:26:21 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+	d=googlemail.com; s=gamma;
+	h=domainkey-signature:received:received:message-id:from:to:subject
+	:date; bh=BFkuUFhgu/6jTo35rSt+ExVUNbJkbG7m9ZSeWMMiYys=;
+	b=iARaUItND8loi45qRlzvtfufPkNdALsDLbSkg2q1kT7kQ+4v0OXcW2oCV6u8r6c+Ty
+	hOaxiihkqMqgFknPssT6kaYS/u1IWeuEQnSltFULpQNh+rpW4yHC1hxUQ1jP6NRH3hfB
+	y3T3UN69T0sG9Szqe/1zVYEVPxAbdnJnygZ64=
+DomainKey-Signature: a=rsa-sha1; c=nofws; d=googlemail.com; s=gamma;
+	h=message-id:from:to:subject:date;
+	b=FZYhpgymcWTMdaReUBtWfMMdThgG3Lk2UyVlK9XjPB7pwvAoTS8+eXQnP1IOC+iYQ+
+	2wkii49cJP1JmtmMJBDmAJ5Hhq34r5g8R8yQqx5iLvj7I7aLP4AnmGnhSxqb6LbM/CoF
+	xqjobWv+LjVHXV1Cy2oo0//B0M2mWKAv2/xGE=
+Received: by 10.86.26.1 with SMTP id 1mr6414899fgz.49.1213485981022;
+	Sat, 14 Jun 2008 16:26:21 -0700 (PDT)
+Received: by 10.86.26.1 with SMTP id 1mr8116260fgz.49;
+	Sat, 14 Jun 2008 16:26:21 -0700 (PDT)
+Message-ID: <000e0cd25cf4d6b921044fa8b85f@googlemail.com>
+From: Mail Delivery Subsystem <mailer-daemon@googlemail.com>
+To: spip-commit-bounces@rezo.net
+Subject: Delivery Status Notification (Delay)
+Date: Sat, 14 Jun 2008 16:26:21 -0700 (PDT)
+
+This is an automatically generated Delivery Status Notification
+
+THIS IS A WARNING MESSAGE ONLY.
+
+YOU DO NOT NEED TO RESEND YOUR MESSAGE.
+
+Delivery to the following recipient has been delayed:
+
+     luis.hiam@gmail.com
+
+Message will be retried for 2 more day(s)
+
+   ----- Message header follows -----
+
+Received: by 10.86.26.1 with SMTP id 1mr4665798fgz.49.1213394647106;
+        Fri, 13 Jun 2008 15:04:07 -0700 (PDT)
+Return-Path: <spip-commit-bounces@rezo.net>
+Received: from alan.rezo.net (alan.rezo.net [217.24.84.2])
+        by mx.google.com with ESMTP id 4si6055077fgg.9.2008.06.13.15.03.59;
+        Fri, 13 Jun 2008 15:04:07 -0700 (PDT)
+Received-SPF: pass (google.com: best guess record for domain of spip-commit-bounces@rezo.net designates 217.24.84.2 as permitted sender) client-ip=217.24.84.2;
+Authentication-Results: mx.google.com; spf=pass (google.com: best guess record for domain of spip-commit-bounces@rezo.net designates 217.24.84.2 as permitted sender) smtp.mail=spip-commit-bounces@rezo.net
+Received: from alan.rezo.net (localhost.rezo.net [127.0.0.1])
+	by alan.rezo.net (Postfix) with ESMTP id 6A8E131CC54;
+	Sat, 14 Jun 2008 00:00:49 +0200 (CEST)
+Received: by alan.rezo.net (Postfix, from userid 1001)
+	id 17BCA31C00A; Sat, 14 Jun 2008 00:00:04 +0200 (CEST)
+To: spip-commit@rezo.net
+From: webdiff tracspip <spip-commit@rezo.net>
+Message-Id: <20080613220004.17BCA31C00A@alan.rezo.net>
+Date: Sat, 14 Jun 2008 00:00:04 +0200 (CEST)
+Subject: [spip-commit] webdiff tracspip 14.06.2008
+X-BeenThere: spip-commit@rezo.net
+X-Mailman-Version: 2.1.6b2
+Precedence: list
+List-Id: "SPIP : toutes les modifs du code" <spip-commit.rezo.net>
+List-Unsubscribe: <http://listes.rezo.net/mailman/listinfo/spip-commit>,
+	<mailto:spip-commit-request@rezo.net?subject=unsubscribe>
+List-Archive: <http://listes.rezo.net/archives/spip-commit>
+List-Post: <mailto:spip-commit@rezo.net>
+List-Help: <mailto:spip-commit-request@rezo.net?subject=help>
+List-Subscribe: <http://listes.rezo.net/mailman/listinfo/spip-commit>,
+	<mailto:spip-commit-request@rezo.net?subject=subscribe>
+Content-Type: multipart/mixed; boundary="===============0262606712=="
+Sender: spip-commit-bounces@rezo.net
+Errors-To: spip-commit-bounces@rezo.net
+
+   ----- Message body suppressed -----
+

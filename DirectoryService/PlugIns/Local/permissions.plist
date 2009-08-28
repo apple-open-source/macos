@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- DO NOT MODIFY THIS FILE ---- APPLE USE ONLY
+		 permissions are modeled after system ACL design, relevant notes:
+			explicit entries are processed before generic entries
+			stops at first presence of an ACL
+			explicit allow only, no concept of Deny
+			if an explicit ACL is defined, controls apply based on authenticated users, anonymous access is not implicit based
+				(i.e., just cause user requested as UUID X, doesn't mean they have automatic privilege, they must authenticate
+				 to Open Directory)
+			_unknown (UUID ABCDEFAB-CDEF-ABCD-EFAB-CDEF00000063) is used to note anonymous access (i.e., allowing unauthenticated)
+				to do something regardless if authenticated
+			everyone (UUID ABCDEFAB-CDEF-ABCD-EFAB-CDEF0000000C) is used as expected, to denote any authenticated user to do the
+				operation
+	-->
+	<key>users</key>
+	<dict>
+		<!-- no one can read or write this attribute, empty ACE will prevent it -->
+		<key>shadowhashdata</key>
+		<array/>
+		
+		<!-- no one can read or write this attribute, empty ACE will prevent it -->
+		<key>shadowhashstate</key>
+		<array/>
+	</dict>
+</dict>
+</plist>

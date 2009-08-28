@@ -1,0 +1,21 @@
+# Makefile for Windows build of zlib for Safari
+
+name=zlib
+project=$(name)-1.2.3
+
+install:
+	xcopy $(name) "$(SRCROOT)\$(project)" /s/v/i/h/y
+	cd "$(SRCROOT)\$(project)"
+	nmake -f win32\Makefile.msc	
+	xcopy "$(SRCROOT)\$(project)\*.dll" "$(DSTROOT)\AppleInternal\bin" /s/v/i/h/y
+	copy "$(SRCROOT)\$(project)\zlib1.pdb" "$(DSTROOT)\AppleInternal\bin" /v/y
+	xcopy "$(SRCROOT)\$(project)\*.h" "$(DSTROOT)\AppleInternal\include\zlib" /s/v/i/h/y
+	xcopy "$(SRCROOT)\$(project)\*.lib" "$(DSTROOT)\AppleInternal\lib" /s/v/i/h/y
+
+install_DEBUG:
+	xcopy $(name) "$(SRCROOT)\$(project)" /s/v/i/h/y
+	cd "$(SRCROOT)\$(project)"
+	nmake -f win32\Makefile.msc DEBUG=1
+	xcopy "$(SRCROOT)\$(project)\*.dll" "$(DSTROOT)\AppleInternal\bin" /s/v/i/h/y	
+	xcopy "$(SRCROOT)\$(project)\*.lib" "$(DSTROOT)\AppleInternal\lib" /s/v/i/h/y
+	copy "$(SRCROOT)\$(project)\zlib1_debug.pdb" "$(DSTROOT)\AppleInternal\bin\zlib1_debug.pdb" /v/y

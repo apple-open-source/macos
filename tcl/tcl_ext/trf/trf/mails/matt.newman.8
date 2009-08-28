@@ -1,0 +1,133 @@
+MIME-Version: 1.0
+Return-Path: bluepeak.westend.com!popeye
+Return-Path: <popeye@bluepeak.westend.com>
+Received: from popeye.bluepeak.westend.com by bluepeak  with smtp
+	(Smail3.2 #1) id m11UvAp-00027cC; Sat, 25 Sep 1999 18:59:47 +0200 (MEST)
+Received: from genesis for a.kupries
+ with Cubic Circle's cucipop (v1.10 1996/09/06) Sat Sep 25 18:54:29 1999
+Received: from mx3.mail.uk.psi.net (mx3.mail.uk.psi.net [154.32.109.22])
+	by genesis.westend.com (8.8.6/8.8.6) with ESMTP id SAA19476
+	for <a.kupries@westend.com>; Sat, 25 Sep 1999 18:00:16 +0200 (MET DST)
+Received: from host65.novadigm.com (host65.novadigm.com [208.244.224.65])
+	by mx3.mail.uk.psi.net (8.9.1/) with SMTP
+	id RAA01981 for <a.kupries@westend.com>; Sat, 25 Sep 1999 17:00:13 +0100 (BST)
+Received: from LAPCAT by host65.novadigm.com
+          via smtpd (for mx3.mail.uk.psi.net [154.32.109.22]) with SMTP; 25 Sep 1999 16:09:22 UT
+X-From_: matt@sensus.org  Sat Sep 25 18:00:18 1999
+Message-ID: <003f01bf076f$0679c0b0$b3e6f4d0@lapcat>
+Reply-To: "Matt Newman" <matt@sensus.org>
+From: "Matt Newman" <matt@sensus.org>
+To: "Andreas Kupries" <a.kupries@westend.com>
+Subject: Re: [trf1.8] Tcl 8.2 UNSTACK causes GPF
+Date: Sat, 25 Sep 1999 11:59:55 -0400
+X-Priority: 3
+X-MSMail-Priority: Normal
+X-Mailer: Microsoft Outlook Express 4.72.2106.4
+X-MimeOLE: Produced By Microsoft MimeOLE V4.72.2106.4
+Content-Type: multipart/mixed;
+              boundary="----=_NextPart_000_003C_01BF074D.7B66E3C0"
+
+------=_NextPart_000_003C_01BF074D.7B66E3C0
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain;
+              charset="iso-8859-1"
+
+Here is a patch for Immediate transforms - its important for zip transforms
+that produce or work on binary data. Otherwise the transform can fail
+depending on the actual obj type.
+
+I.e.
+
+set zdata [zip -mode compress $data]
+
+write_file zip3 $zdata
+check $zdata [read_file zip3] "test3"
+
+set zdata' [read_file zip3]
+check $zdata ${zdata'} "test4"
+
+check $data [zip -mode decompress ${zdata}] "test5"
+
+check $data [zip -mode decompress ${zdata'}] "test5.1"
+
+test 5.1 can fail even though test4 and test5 suceeds!
+
+Matt Newman
+-----Original Message-----
+From: Andreas Kupries <a.kupries@westend.com>
+To: Matt Newman <matt@novadigm.com>
+Cc: Jean-Claude Wippler <jcw@equi4.com>
+Date: Saturday, September 25, 1999 9:47 AM
+Subject: Re: [trf1.8] Tcl 8.2 UNSTACK causes GPF
+
+
+>
+>> I'm having a problem with the ZIP support in Trf - I have attached a
+>> test script - this fails with tcl8.0/trf1.7 AND tcl8.2/trf1.8.....
+>
+>> test2 fails - can you shed any light on this? I noticed that this
+>> kind of test is not part of your normal test suite .....
+>
+>> Also with tcl 8.2 test3 fails during decompress.
+>
+>> This is windows nt with zlib 1.1.3
+>
+>Confirmed for Linux, Trf 2.0, Tcl 8.2, zlib 1.1.3.
+>
+>I'll check it out and then add the tests to my suite.
+>
+>--
+>So long,
+> Andreas Kupries <a.kupries@westend.com>
+> <http://www.westend.com/~kupries/>
+>---------------------------------------------------------------------------
+----
+
+------=_NextPart_000_003C_01BF074D.7B66E3C0
+Content-Disposition: attachment;
+	filename="trf-patch2"
+Content-Transfer-Encoding: quoted-printable
+Content-Type: application/octet-stream;
+              name="trf-patch2"
+
+Index: generic/registry.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+RCS file: /cvs/tcl/trf/generic/registry.c,v
+retrieving revision 1.5
+diff -c -r1.5 registry.c
+*** registry.c	1999/09/22 20:57:25	1.5
+--- registry.c	1999/09/25 15:54:17
+***************
+*** 1691,1698 ****
+--- 1691,1702 ----
+  #else
+      /* 8.x, argument 'in' is arbitrary object, its string rep. may =
+contain \0.
+       */
++ #if GT81
++     buf =3D (unsigned char*) Tcl_GetByteArrayFromObj (in, &length);
++ #else
+      buf =3D (unsigned char*) Tcl_GetStringFromObj (in, &length);
+  #endif
++ #endif
+ =20
+      if (v->convertBufProc) {
+        /* play it safe, use a copy, avoid clobbering the input. */
+***************
+*** 1787,1793 ****
+--- 1791,1801 ----
+  	r.buf [r.used] =3D '\0';
+  	Tcl_AppendResult (interp, r.buf, (char*) NULL);
+  #else
++ #if GT81
++ 	Tcl_Obj* o =3D Tcl_NewByteArrayObj ((char*) r.buf, r.used);
++ #else
+  	Tcl_Obj* o =3D Tcl_NewStringObj ((char*) r.buf, r.used);
++ #endif
+ =20
+  	Tcl_IncrRefCount (o);
+  	Tcl_SetObjResult (interp, o);
+
+------=_NextPart_000_003C_01BF074D.7B66E3C0--

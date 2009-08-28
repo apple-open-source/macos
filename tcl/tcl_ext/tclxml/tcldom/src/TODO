@@ -1,0 +1,19 @@
+# $Id: TODO,v 1.3 2000/10/12 01:55:13 jenglish Exp $
+
+TO DO LIST for tcldom package, C implementation:
+    30 Jul 2000:
+	* locate original documentation, update it, add to package.
+	  [in progress]
+	* dump Windows- and thread- specific code [done]
+	* integrate with Zveno TclXML package
+	* test suite needs to be vastly expanded.
+	  [partially done, 5 Oct 2000 -- updated dom::tcl test suite]
+	  Possibly grab the original tcldompro suite?
+	* cross-reference DOM spec, make sure all features are implemented
+	* parse external entities
+	* Possibly: redo internal data structures to improve maintainablity:
+	  Instead of separate structures for different node types,
+	  these can all be unified into a single node type.
+	* Possibly: to save space, use TCL_ONE_WORD_KEYS instead
+	  of TCL_STRING_KEYS in NodeHashTable.
+

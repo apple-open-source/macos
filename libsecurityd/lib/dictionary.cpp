@@ -328,23 +328,23 @@ void NameValueDictionary::MakeNameValueDictionaryFromDLDbIdentifier (const DLDbI
 
 
 
-static void CheckNullPointer(const void* p)
+DLDbIdentifier NameValueDictionary::MakeDLDbIdentifierFromNameValueDictionary (const NameValueDictionary &nvd)
 {
-	if (p == NULL)
+	/*
+		According to the code in MakeNameValueDictionaryFromDLDbIdentifier, SSUID_KEY
+		is required, but both DB_NAME and DB_LOCATION are allowed to be missing. In 
+		all of these cases, it is possible that FindByName returns NULL.
+	*/
+	
+	const NameValuePair *nvpSSUID = nvd.FindByName (SSUID_KEY);
+	if (nvpSSUID == NULL)
+		CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);
+		
+	CSSM_SUBSERVICE_UID* uid = (CSSM_SUBSERVICE_UID*) nvpSSUID->Value ().data ();
+	if (uid == NULL)
 	{
 		CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);
 	}
-}
-
-
-
-DLDbIdentifier NameValueDictionary::MakeDLDbIdentifierFromNameValueDictionary (const NameValueDictionary &nvd)
-{
-	const NameValuePair* nvp = nvd.FindByName (SSUID_KEY);
-	CheckNullPointer(nvp);
-	
-	CSSM_SUBSERVICE_UID* uid = (CSSM_SUBSERVICE_UID*) nvp->Value().data ();
-	CheckNullPointer(uid);
 	
 	CSSM_SUBSERVICE_UID baseID = *uid;
 	
@@ -353,12 +353,10 @@ DLDbIdentifier NameValueDictionary::MakeDLDbIdentifierFromNameValueDictionary (c
 	baseID.SubserviceId = n2h (baseID.SubserviceId);
 	baseID.SubserviceType = n2h (baseID.SubserviceType);
 	
-	nvp = nvd.FindByName (DB_NAME);
-	CheckNullPointer(nvp);
+	const NameValuePair *nvpDBNAME = nvd.FindByName (DB_NAME);
+	char* name = nvpDBNAME ? (char*) nvpDBNAME->Value ().data () : NULL;
 	
-	char* name = (char*) nvp->Value ().data ();
-	
-	nvp = nvd.FindByName (DB_LOCATION);
+	const NameValuePair* nvp = nvd.FindByName (DB_LOCATION);
 	CSSM_NET_ADDRESS* address = nvp ? (CSSM_NET_ADDRESS*) nvp->Value ().data () : NULL;
 	
 	return DLDbIdentifier (baseID, name, address);

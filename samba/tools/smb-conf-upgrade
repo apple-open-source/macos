@@ -38,87 +38,41 @@ my $install_dest = shift || '';
 my $install_volume = shift || '';
 my $install_operation = $ENV{SCRIPT_NAME} ? $ENV{SCRIPT_NAME} : 'postupgrade';
 
+my $SMB_BACKUP = $ENV{SMB_BACKUP} ? $ENV{SMB_BACKUP}
+			    : "$install_volume/etc/smb.conf.old";
 my $SMB_CONF = $ENV{SMB_CONF} ? $ENV{SMB_CONF}
 			    : "$install_volume/etc/smb.conf";
 my $SMB_TEMPLATE = $ENV{SMB_TEMPLATE} ? $ENV{SMB_TEMPLATE}
 			    : "$install_volume/etc/smb.conf.template";
 
-# Read the new template file and gather the required section. the required
-# section is all the lines between "BEGIN required" and "END required".
-sub read_new_template
+sub slurp
 {
-    my $template = shift;
+    my $path = shift;
     my $fh;
-    my $lines = [];
-    my $snarf = 0;
+    my $data;
 
-    open ($fh, "< $template")
-	or die "$0: unable to read $template: $!";
+    local $/=undef;
 
-    while (my $line = <$fh>) {
-	if ($line =~ m/BEGIN required/) {
-	    $snarf = 1;
-	} elsif ($line =~ m/END required/) {
-	    push @$lines, ($line);
-	    $snarf = 0;
-	}
+    open ($fh, "< $path") or return undef;
 
-	if ($snarf) {
-	    push @$lines, ($line);
-	}
-    }
-
-    close($fh);
-    return $lines;
+    $data = <$fh>;
+    close $fh;
+    return $data;
 }
 
-# Read the existing config file and replace the required section with the
-# required section taken from the template config file. Pass other lines
-# through unmodified.
-sub generate_new_config
-{
-    my $config = shift;
-    my $template = shift;
-
-    my $replace = 0;
-    my $fh;
-    my $lines = [];
-
-    open ($fh, "< $config")
-	or die "$0: unable to read $config: $!";
-
-    while (my $line = <$fh>) {
-	if ($line =~ m/BEGIN required/) {
-	    $replace = 1;
-	    push @$lines, @$template;
-	    next;
-	} elsif ($line =~ m/END required/) {
-	    $replace = 0;
-	    next;
-	}
-
-	unless ($replace) {
-	    push @$lines, ($line);
-	}
-    }
-
-    close($fh);
-    return $lines;
-}
-
-sub replace_config
+sub write_file
 {
     require File::Temp;
 
     my $config = shift;
-    my $lines = shift;
+    my $data = shift;
 
     my ($fh, $name) = File::Temp::tempfile(
 				TEMPLATE =>'.smb.upgrade.XXXXXXXX',
 				UNLINK => 0,
 				DIR => "$install_volume/etc");
 
-    map { $fh->write($_); } @$lines;
+    $fh->write($data);
     $fh->flush();
     $fh->sync();
 
@@ -131,26 +85,57 @@ sub replace_config
     return 1;
 }
 
-my $template_lines;
-my $config_lines;
+my $template;	# Contents of /etc/smb.conf.template
+my $smbconf;	# Contents of /etc/smb.conf
+my $required;	# /etc/smb.conf.template required section
 
-# Get the new require config section.
-unless ($template_lines = read_new_template($SMB_TEMPLATE)) {
+unless ($template = slurp($SMB_TEMPLATE)) {
     die "$0: smb.conf template is corrupt or missing";
 }
 
-# Replace the existing required section with the new one.
-unless ($config_lines = generate_new_config($SMB_CONF, $template_lines)) {
-    die "$0: smb.conf is corrupt or missing";
+unless ($smbconf = slurp($SMB_CONF)) {
+    # If there's no smb.conf, just keep going and create it.
+    warn "$0: smb.conf is corrupt or missing";
+    $smbconf = "";
 }
 
-if (scalar(@$config_lines) == 0) {
-    print "$0: empty $SMB_CONF?\n";
+# Now capture the required config section from the template.
+$template =~
+m/
+    (
+	;\s+BEGIN\s+required
+	.*
+	;\s+END\s+required[^\n]*$
+    )
+/smx;
+
+if (!defined($1) || length($1) == 0) {
+    print "$0: missing or corrupt required configuration section in $SMB_TEMPLATE\n";
     exit 1;
 }
 
+# We now have the required section from the template.
+$required=$1;
+
+# Now substitute the required config section from the template.
+unless ($smbconf =~
+s/
+	;\s+BEGIN\s+required
+	.*
+	;\s+END\s+required[^\n]*$
+/$required/smx) {
+    # The substitution failed, so /etc/smb.conf is probably in some
+    # munged format that we don't recognize. We should just replace
+    # the whole thing.
+    warn "$0: replacing entire contents of $SMB_CONF";
+    $smbconf = $template;
+}
+
+rename $SMB_CONF, $SMB_BACKUP
+    or warn "$0: unable to back $SMB_CONF up to $SMB_BACKUP: $!";
+
 # Write out the merged config file.
-unless (replace_config($SMB_CONF, $config_lines)) {
+unless (write_file($SMB_CONF, $smbconf)) {
     die "$0: unable to replace $SMB_CONF";
 }
 

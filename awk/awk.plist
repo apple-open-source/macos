@@ -4,15 +4,15 @@
 	<key>OpenSourceProject</key>
 	<string>awk</string>
 	<key>OpenSourceVersion</key>
-	<string>20040207</string>
+	<string>October 23, 2007</string>
 	<key>OpenSourceWebsiteURL</key>
-	<string>http://cm.bell-labs.com/cm/cs/awkbook/</string>
+	<string>http://www.cs.princeton.edu/~bwk/btl.mirror/index.html</string>
 	<key>OpenSourceURL</key>
-	<string>http://cm.bell-labs.com/cm/cs/who/bwk/awk.tar.gz</string>
-	<key>OpenSourceMD5</key>
-	<string>e529168ac32cf43cb7ff8901e9cee785</string>
+	<string>http://www.cs.princeton.edu/~bwk/btl.mirror/awk.tar.gz</string>
+	<key>OpenSourceSHA1</key>
+	<string>433317b8ed6d68bbfb18667384edfe64344b8074</string>
 	<key>OpenSourceImportDate</key>
-	<string>2004-09-29</string>
+	<string>2008-11-12</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>3668527</string>

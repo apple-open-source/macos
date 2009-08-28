@@ -15,8 +15,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #if 0 /* needs some work :-( */
 /* If defined, this macro specifies a table of register pairs used to
@@ -52,8 +52,7 @@ Boston, MA 02111-1307, USA.  */
 	  break;						\
 	}							\
 								\
-      if ((TO) != STACK_POINTER_REGNUM)				\
-	abort ();						\
+      gcc_assert ((TO) == STACK_POINTER_REGNUM);		\
 								\
       switch (FROM)						\
 	{							\
@@ -66,7 +65,7 @@ Boston, MA 02111-1307, USA.  */
 	  break;						\
 								\
 	default:						\
-	  abort ();						\
+	  gcc_unreachable ();					\
 	}							\
     } while (0)
 #endif

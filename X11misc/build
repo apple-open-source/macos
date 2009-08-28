@@ -24,8 +24,8 @@ if($target eq 'clean') {
     chdir($ENV{SRCROOT});
     sys_print("find . -name .svn | xargs rm -rf");
     sys_print("find . -name .uvn | xargs rm -rf");
-    sys_print("find . -name \"*.gz\" | xargs rm");
-    sys_print("find . -name \"*.bz2\" | xargs rm");
+    sys_print("find . -name \"*.tar.gz\" | xargs rm");
+    sys_print("find . -name \"*.tar.bz2\" | xargs rm");
     sys_print("find . -name patches | xargs rm -rf");
     exit();
 }
@@ -57,20 +57,22 @@ if($target eq 'install') {
     $ENV{PATH}="$ENV{DSTROOT}$prefix/bin:$prefix/bin:$ENV{PATH}";
     
     foreach $arch (split(/ /,$ENV{RC_ARCHS})) {
-	$arch_flags_all .= " -arch $arch ";
-	$arch_flags_32 .= " -arch $arch " unless $arch =~ /64/;
+        $arch_flags_lib .= "-arch $arch ";
+        if($ENV{MACOSFORGE_RELEASE} eq "YES") {
+            $arch_flags_exec .= " -arch $arch " unless $arch =~ /64/;
+        } else {
+            $arch_flags_exec .= " -arch $arch " unless $arch =~ /ppc/;
+        }
     }
-    
+
     $ENV{MACOSX_DEPLOYMENT_TARGET}=$osx_version;
     
-    set_arch_32();
+    set_arch_exec();
     build("gccmakedep");
-    build("imake");
     build("lndir");
     build("makedepend");
-    build("xorg-cf-files");
     build("xorg-sgml");
-#    build("xorg-docs");
+    build("xorg-docs");
 
     make_dsyms();
 }
@@ -104,7 +106,7 @@ sub build {
     sys_print("autoreconf -fvi");
 
     print "Configuring...\n";
-    $conf_flags=" --prefix=$prefix --disable-static --disable-dependency-tracking --disable-nls --mandir=$prefix/man ";
+    $conf_flags=" --prefix=$prefix --disable-static --disable-dependency-tracking --disable-nls ";
 
     $conf_flags_path=$ENV{OBJROOT}."/$module/conf_flags";
     $post_config_path=$ENV{OBJROOT}."/$module/post-config";
@@ -118,7 +120,7 @@ sub build {
     if(-e $post_config_path) {
 	sys_print("cd .. && $post_config_path");
     }
-    sys_print("make -j2");
+    sys_print("make -j".`sysctl -n hw.activecpu`);
     sys_print("make install");
     chdir('../..');
 }
@@ -139,14 +141,14 @@ sub make_dsyms {
     close FIND;
 }
 
-sub set_arch_32 {
-    $ENV{CFLAGS}="-I$ENV{DSTROOT}$prefix/include -D__DEBUG__ -g3 -pipe $arch_flags_32";
-    $ENV{LDFLAGS}="-pipe $arch_flags_32";
+sub set_arch_exec {
+    $ENV{CFLAGS}="-I$ENV{DSTROOT}$prefix/include -D__DEBUG__ -ggdb3 -Os -pipe $arch_flags_exec -D_FORTIFY_SOURCE=2 -Wall -Wformat-security";
+    $ENV{LDFLAGS}="-pipe $arch_flags_exec";
 }
 
-sub set_arch_all {
-    $ENV{CFLAGS}="-I$ENV{DSTROOT}$prefix/include -D__DEBUG__ -g3 -pipe $arch_flags_all";
-    $ENV{LDFLAGS}="-pipe $arch_flags_all";
+sub set_arch_lib {
+    $ENV{CFLAGS}="-I$ENV{DSTROOT}$prefix/include -D__DEBUG__ -ggdb3 -Os -pipe $arch_flags_lib -D_FORTIFY_SOURCE=2 -Wall -Wformat-security";
+    $ENV{LDFLAGS}="-pipe $arch_flags_lib";
 }
 
 sub sys_print {

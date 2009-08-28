@@ -32,18 +32,14 @@
  *	Confidential and Proprietary to Apple Computer, Inc.
  */
 
-#include <netat/appletalk.h>
-#include <netat/ddp.h>
-#include <netat/atp.h>
+#include <errno.h>
+
+#define	SET_ERRNO(e) errno = e
 
 int
 atp_look (fd)
 	int		fd;
 {
-	unsigned char event = 0;
-	int ic_len = 1;
-
-	if (at_send_to_dev(fd, AT_ATP_PEEK, &event, &ic_len) == -1)
-	    return -1;
-	return (int)event;
+	SET_ERRNO(ENXIO);
+	return (-1);
 }

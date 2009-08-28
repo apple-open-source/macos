@@ -1,5 +1,5 @@
-# $OpenLDAP: pkg/openldap-guide/admin/slapdconfig.sdf,v 1.79.2.6 2006/01/03 22:16:03 kurt Exp $
-# Copyright 1999-2006 The OpenLDAP Foundation, All Rights Reserved.
+# $OpenLDAP: pkg/openldap-guide/admin/slapdconfig.sdf,v 1.87.2.14 2008/04/14 20:48:16 quanah Exp $
+# Copyright 1999-2008 The OpenLDAP Foundation, All Rights Reserved.
 # COPYING RESTRICTIONS APPLY, see COPYRIGHT.
 
 H1: The slapd Configuration File
@@ -10,10 +10,10 @@ runtime configuration is primarily accomplished through the
 {{slapd.conf}}(5) file, normally installed in the
 {{EX:/usr/local/etc/openldap}} directory.
 
-An alternate configuration file can be specified via a
-command-line option to {{slapd}}(8) or {{slurpd}}(8). This chapter
-describes the general format of the config file, followed by a
-detailed description of commonly used config file directives.
+An alternate configuration file location can be specified via a command-line
+option to {{slapd}}(8). This chapter describes the general format
+of the {{slapd.conf}}(5) configuration file, followed by a detailed
+description of commonly used config file directives.
 
 
 H2: Configuration File Format
@@ -87,13 +87,12 @@ database definition.  Arguments that should be replaced
 by actual text are shown in brackets {{EX:<>}}.
 
 
-H4: access to <what> [ by <who> <accesslevel> <control> ]+
+H4: access to <what> [ by <who> [<accesslevel>] [<control>] ]+
 
-This directive grants access (specified by <accesslevel>) to a
-set of entries and/or attributes (specified by <what>) by one or
-more requesters (specified by <who>).
-See the {{SECT:Access Control}} section of this chapter for a
-summary of basic usage.
+This directive grants access (specified by <accesslevel>) to a set
+of entries and/or attributes (specified by <what>) by one or more
+requestors (specified by <who>).  See the {{SECT:Access Control}} section of 
+this guide for basic usage.
 
 !if 0
 More details discussion of this directive can be found in the
@@ -105,7 +104,7 @@ access control policy, {{EX:access to * by * read}}, allows all
 both authenticated and anonymous users read access.
 
 
-H4: attributetype <{{REF:RFC2252}} Attribute Type Description>
+H4: attributetype <{{REF:RFC4512}} Attribute Type Description>
 
 This directive defines an attribute type.
 Please see the {{SECT:Schema Specification}} chapter
@@ -142,7 +141,7 @@ correspond to what kind of debugging, invoke slapd with {{EX:-?}}
 or consult the table below. The possible values for <integer> are:
 
 !block table; colaligns="RL"; align=Center; \
-	title="Table 5.1: Debugging Levels"
+	title="Table 6.1: Debugging Levels"
 Level	Description
 -1	enable all debugging
 0	no debugging
@@ -172,7 +171,7 @@ logged.
 E: loglevel 256
 
 
-H4: objectclass <{{REF:RFC2252}} Object Class Description>
+H4: objectclass <{{REF:RFC4512}} Object Class Description>
 
 This directive defines an object class.
 Please see the {{SECT:Schema Specification}} chapter for
@@ -229,7 +228,7 @@ H4: backend <type>
 
 This directive marks the beginning of a backend declaration.
 {{EX:<type>}} should be one of the
-supported backend types listed in Table 5.2.
+supported backend types listed in Table 6.2.
 
 !block table; align=Center; coltags="EX,N"; \
 	title="Table 5.2: Database Backends"
@@ -238,7 +237,6 @@ bdb	Berkeley DB transactional backend
 dnssrv	DNS SRV backend
 hdb	Hierarchical variant of bdb backend
 ldap	Lightweight Directory Access Protocol (Proxy) backend
-ldbm	Lightweight DBM backend
 meta	Meta Directory backend
 monitor	Monitor backend
 passwd	Provides read-only access to {{passwd}}(5)
@@ -265,7 +263,7 @@ H4: database <type>
 This directive marks the beginning of a database instance
 declaration.
 {{EX:<type>}} should be one of the
-supported backend types listed in Table 5.2.
+supported backend types listed in Table 6.2.
 
 \Example:
 
@@ -284,70 +282,6 @@ perform" error.
 \Default:
 
 >	readonly off
-
-H4: replica
-
->	replica uri=ldap[s]://<hostname>[:<port>] | host=<hostname>[:<port>]
->		[bindmethod={simple|sasl}]
->		["binddn=<DN>"]
->		[saslmech=<mech>]
->		[authcid=<identity>]
->		[authzid=<identity>]
->		[credentials=<password>]
-
-This directive specifies a replication site for this database. The
-{{EX:uri=}} parameter specifies a scheme, a host and optionally a port where
-the slave slapd instance can be found. Either a domain name
-or IP address may be used for <hostname>. If <port> is not
-given, the standard LDAP port number (389 or 636) is used.
-
-{{EX:host}} is deprecated in favor of the {{EX:uri}} parameter.
-
-{{EX:uri}} allows the replica LDAP server to be specified as an LDAP 
-URI such as {{EX:ldap://slave.example.com:389}} or
-{{EX:ldaps://slave.example.com:636}}.
-
-The {{EX:binddn=}} parameter gives the DN to bind as for updates
-to the slave slapd. It should be a DN which has read/write access
-to the slave slapd's database.  It must also match the {{EX:updatedn}}
-directive in the slave slapd's config file.  Generally, this DN
-{{should not}} be the same as the {{EX:rootdn}} of the master
-database.  Since DNs are likely to contain embedded spaces, the
-entire {{EX:"binddn=<DN>"}} string should be enclosed in double
-quotes.
-
-The {{EX:bindmethod}} is {{EX:simple}} or {{EX:sasl}}, depending
-on whether simple password-based authentication or {{TERM:SASL}}
-authentication is to be used when connecting to the slave slapd.
-
-Simple authentication should not be used unless adequate data
-integrity and confidentiality protections are in place (e.g. TLS
-or IPSEC).  Simple authentication requires specification of
-{{EX:binddn}} and {{EX:credentials}} parameters.
-
-SASL authentication is generally recommended.  SASL authentication
-requires specification of a mechanism using the {{EX:saslmech}} parameter.
-Depending on the mechanism, an authentication identity and/or
-credentials can be specified using {{EX:authcid}} and {{EX:credentials}}
-respectively.  The {{EX:authzid}} parameter may be used to specify
-an authorization identity.
-
-See the chapter entitled {{SECT:Replication with slurpd}} for more
-information on how to use this directive.
-
-
-H4: replogfile <filename>
-
-This directive specifies the name of the replication log file to
-which slapd will log changes. The replication log is typically
-written by slapd and read by slurpd. Normally, this directive is
-only used if slurpd is being used to replicate the database.
-However, you can also use it to generate a transaction log, if
-slurpd is not running. In this case, you will need to periodically
-truncate the file, since it will grow indefinitely otherwise.
-
-See the chapter entitled {{SECT:Replication with slurpd}} for more
-information on how to use this directive.
 
 
 H4: rootdn <DN>
@@ -379,7 +313,7 @@ the rootdn (when the rootdn is set to a DN within the database).
 
 >	rootpw secret
 
-It is also permissible to provide hash of the password in RFC 2307
+It is also permissible to provide hash of the password in {{REF:RFC2307}}
 form.  {{slappasswd}}(8) may be used to generate the password hash.
 
 \Example:
@@ -416,7 +350,7 @@ H4: syncrepl
 >		[type=refreshOnly|refreshAndPersist]
 >		[interval=dd:hh:mm:ss]
 >		[retry=[<retry interval> <# of retries>]+]
->		[searchbase=<base DN>]
+>		searchbase=<base DN>
 >		[filter=<filter str>]
 >		[scope=sub|one|base]
 >		[attrs=<attr list>]
@@ -432,6 +366,17 @@ H4: syncrepl
 >		[credentials=<passwd>]
 >		[realm=<realm>]
 >		[secprops=<properties>]
+>		[starttls=yes|critical]
+>		[tls_cert=<file>]
+>		[tls_key=<file>]
+>		[tls_cacert=<file>]
+>		[tls_cacertdir=<path>]
+>		[tls_reqcert=never|allow|try|demand]
+>		[tls_ciphersuite=<ciphers>]
+>		[tls_crlcheck=none|peer|all]
+>		[logbase=<base DN>]
+>		[logfilter=<filter str>]
+>		[syncdata=default|accesslog|changelog]
 
 
 This directive specifies the current database as a replica of the
@@ -440,8 +385,8 @@ replication consumer site running a syncrepl replication engine.
 The master database is located at the replication provider site
 specified by the {{EX:provider}} parameter. The replica database is
 kept up-to-date with the master content using the LDAP Content
-Synchronization protocol. See {{EX:draft-zeilenga-ldup-sync-xx.txt}}
-({{a work in progress}}) for more information on the protocol.
+Synchronization protocol. See {{REF:RFC4533}}
+for more information on the protocol.
 
 The {{EX:rid}} parameter is used for identification of the current
 {{EX:syncrepl}} directive within the replication consumer server,
@@ -473,10 +418,10 @@ default value and must always be specified. The {{EX:scope}} defaults
 to {{EX:sub}}, the {{EX:filter}} defaults to {{EX:(objectclass=*)}},
 {{EX:attrs}} defaults to {{EX:"*,+"}} to replicate all user and operational
 attributes, and {{EX:attrsonly}} is unset by default. Both {{EX:sizelimit}}
-and {{EX:timelimit}} default to "unlimited", and only integers
+and {{EX:timelimit}} default to "unlimited", and only positive integers
 or "unlimited" may be specified.
 
-The LDAP Content Synchronization protocol has two operation
+The {{TERM[expand]LDAP Sync}} protocol has two operation
 types: {{EX:refreshOnly}} and {{EX:refreshAndPersist}}.
 The operation type is specified by the {{EX:type}} parameter.
 In the {{EX:refreshOnly}} operation, the next synchronization search operation
@@ -484,7 +429,7 @@ is periodically rescheduled at an interval time after each
 synchronization operation finishes. The interval is specified
 by the {{EX:interval}} parameter. It is set to one day by default.
 In the {{EX:refreshAndPersist}} operation, a synchronization search
-remains persistent in the provider slapd. Further updates to the
+remains persistent in the provider {{slapd}} instance. Further updates to the
 master replica will generate {{EX:searchResultEntry}} to the consumer slapd
 as the search responses to the persistent synchronization search.
 
@@ -512,11 +457,11 @@ master database.
 The {{EX:bindmethod}} is {{EX:simple}} or {{EX:sasl}},
 depending on whether simple password-based authentication or
 {{TERM:SASL}} authentication is to be used when connecting
-to the provider slapd.
+to the provider {{slapd}} instance.
 
 Simple authentication should not be used unless adequate data
 integrity and confidentiality protections are in place (e.g. TLS
-or IPSEC). Simple authentication requires specification of {{EX:binddn}}
+or IPsec). Simple authentication requires specification of {{EX:binddn}}
 and {{EX:credentials}} parameters.
 
 SASL authentication is generally recommended.  SASL authentication
@@ -530,34 +475,37 @@ The {{EX:realm}} parameter specifies a realm which a certain
 mechanisms authenticate the identity within. The {{EX:secprops}}
 parameter specifies Cyrus SASL security properties.
 
-The syncrepl replication mechanism is supported by the
-three native backends: back-bdb, back-hdb, and back-ldbm.
+The {{EX:starttls}} parameter specifies use of the StartTLS extended
+operation to establish a TLS session before authenticating to the provider.
+If the {{EX:critical}} argument is supplied, the session will be aborted
+if the StartTLS request fails.  Otherwise the syncrepl session continues
+without TLS.  Note that the main slapd TLS settings are not used by the
+syncrepl engine; by default the TLS parameters from a {{ldap.conf}}(5)
+configuration file will be used.  TLS settings may be specified here,
+in which case any {{ldap.conf}}(5) settings will be completely ignored.
 
-See the {{SECT:LDAP Sync Replication}} chapter of the admin guide
-for more information on how to use this directive.
+Rather than replicating whole entries, the consumer can query logs
+of data modifications.  This mode of operation is referred to as
+{{delta syncrepl}}.  In addition to the above parameters, the
+{{EX:logbase}} and {{EX:logfilter}} parameters must be set appropriately
+for the log that will be used. The {{EX:syncdata}} parameter must
+be set to either {{EX:"accesslog"}} if the log conforms to the
+{{slapo-accesslog}}(5) log format, or {{EX:"changelog"}} if the log
+conforms to the obsolete {{changelog}} format. If the {{EX:syncdata}}
+parameter is omitted or set to {{EX:"default"}} then the log
+parameters are ignored.
 
+The {{syncrepl}} replication mechanism is supported by the {{bdb}} and
+{{hdb}} backends.
 
-H4: updatedn <DN>
+See the {{SECT:LDAP Sync Replication}} chapter of this guide for
+more information on how to use this directive.
 
-This directive is only applicable in a slave slapd. It specifies
-the DN allowed to make changes to the replica.  This may be the DN
-{{slurpd}}(8) binds as when making changes to the replica or the DN
-associated with a SASL identity.
-
-Entry-based Example:
-
->	updatedn "cn=Update Daemon,dc=example,dc=com"
-
-SASL-based Example:
-
->	updatedn "uid=slurpd,cn=example.com,cn=digest-md5,cn=auth"
-
-See the {{SECT:Replication with slurpd}} chapter for more information
-on how to use this directive.
 
 H4: updateref <URL>
 
-This directive is only applicable in a slave slapd. It
+This directive is only applicable in a {{slave}} (or {{shadow}})
+{{slapd}}(8) instance. It
 specifies the URL to return to clients which submit update
 requests upon the replica.
 If specified multiple times, each {{TERM:URL}} is provided.
@@ -585,528 +533,3 @@ containing the database and associated indices live.
 \Default:
 
 >	directory /usr/local/var/openldap-data
-
-
-H3: LDBM Database Directives
-
-Directives in this category only apply to a {{TERM:LDBM}} database.
-That is, they must follow a "database ldbm" line and come before
-any subsequent "backend" or "database" line.  For a complete reference
-of LDBM configuration directives, see {{slapd-ldbm}}(5).
-
-H4: cachesize <integer>
-
-This directive specifies the size in entries of the in-memory
-cache maintained by the LDBM backend database instance.
-
-\Default:
-
->	cachesize 1000
-
-
-H4: dbcachesize <integer>
-
-This directive specifies the size in bytes of the in-memory cache
-associated with each open index file. If not supported by the
-underlying database method, this directive is ignored without
-comment. Increasing this number uses more memory but can
-cause a dramatic performance increase, especially during
-modifies or when building indices.
-
-\Default:
-
->	dbcachesize 100000
-
-
-H4: dbnolocking
-
-This option, if present, disables database locking.
-Enabling this option may improve performance at the expense
-of data security.
-
-
-H4: dbnosync
-
-This option causes on-disk database contents to not be immediately
-synchronized with in memory changes upon change.  Enabling this option
-may improve performance at the expense of data integrity.
-
-
-H4: directory <directory>
-
-This directive specifies the directory where the LDBM files
-containing the database and associated indices live.
-
-\Default:
-
->	directory /usr/local/var/openldap-data
-
-
-H4: index {<attrlist> | default} [pres,eq,approx,sub,none]
-
-This directive specifies the indices to maintain for the given
-attribute. If only an {{EX:<attrlist>}} is given, the default
-indices are maintained.
-
-\Example:
-
->	index default pres,eq
->	index uid
->	index cn,sn pres,eq,sub
->	index objectClass eq
-
-The first line sets the default set of indices to maintain to
-present and equality.  The second line causes the default (pres,eq)
-set of indices to be maintained for the {{EX:uid}} attribute type.
-The third line causes present, equality, and substring indices to
-be maintained for {{EX:cn}} and {{EX:sn}} attribute types.  The
-fourth line causes an equality index for the {{EX:objectClass}}
-attribute type.
-
-By default, no indices are maintained.  It is generally advised
-that minimally an equality index upon objectClass be maintained.
-
->	index objectClass eq
-
-
-
-H4: mode <integer>
-
-This directive specifies the file protection mode that newly
-created database index files should have.
-
-\Default:
-
->	mode 0600
-
-
-H2: Access Control
-
-Access to slapd entries and attributes is controlled by the
-access configuration file directive. The general form of an
-access line is:
-
->	<access directive> ::= access to <what>
->		[by <who> <access> <control>]+
->	<what> ::= * |
->		[dn[.<basic-style>]=<regex> | dn.<scope-style>=<DN>]
->		[filter=<ldapfilter>] [attrs=<attrlist>]
->	<basic-style> ::= regex | exact
->	<scope-style> ::= base | one | subtree | children
->	<attrlist> ::= <attr> [val[.<basic-style>]=<regex>] | <attr> , <attrlist>
->	<attr> ::= <attrname> | entry | children
->	<who> ::= * | [anonymous | users | self
->			| dn[.<basic-style>]=<regex> | dn.<scope-style>=<DN>] 
->		[dnattr=<attrname>]
->		[group[/<objectclass>[/<attrname>][.<basic-style>]]=<regex>]
->		[peername[.<basic-style>]=<regex>]
->		[sockname[.<basic-style>]=<regex>]
->		[domain[.<basic-style>]=<regex>]
->		[sockurl[.<basic-style>]=<regex>]
->		[set=<setspec>]
->		[aci=<attrname>]
->	<access> ::= [self]{<level>|<priv>}
->	<level> ::= none | auth | compare | search | read | write
->	<priv> ::= {=|+|-}{w|r|s|c|x|0}+
->	<control> ::= [stop | continue | break]
-
-where the <what> part selects the entries and/or attributes to which
-the access applies, the {{EX:<who>}} part specifies which entities
-are granted access, and the {{EX:<access>}} part specifies the
-access granted. Multiple {{EX:<who> <access> <control>}} triplets
-are supported, allowing many entities to be granted different access
-to the same set of entries and attributes. Not all of these access
-control options are described here; for more details see the
-{{slapd.access}}(5) man page.
-
-
-H3: What to control access to
-
-The <what> part of an access specification determines the entries
-and attributes to which the access control applies.  Entries are
-commonly selected in two ways: by DN and by filter.  The following
-qualifiers select entries by DN:
-
->	to *
->	to dn[.<basic-style>]=<regex>
->	to dn.<scope-style>=<DN>
-
-The first form is used to select all entries.  The second form may
-be used to select entries by matching a regular expression against
-the target entry's {{normalized DN}}.   (The second form is not
-discussed further in this document.)  The third form is used to
-select entries which are within the requested scope of DN.  The
-<DN> is a string representation of the Distinguished Name, as
-described in {{REF:RFC2253}}.
-
-The scope can be either {{EX:base}}, {{EX:one}}, {{EX:subtree}},
-or {{EX:children}}.  Where {{EX:base}} matches only the entry with
-provided DN, {{EX:one}} matches the entries whose parent is the
-provided DN, {{EX:subtree}} matches all entries in the subtree whose
-root is the provided DN, and {{EX:children}} matches all entries
-under the DN (but not the entry named by the DN).
-
-For example, if the directory contained entries named:
-
->	0: o=suffix
->	1: cn=Manager,o=suffix
->	2: ou=people,o=suffix
->	3: uid=kdz,ou=people,o=suffix
->	4: cn=addresses,uid=kdz,ou=people,o=suffix
->	5: uid=hyc,ou=people,o=suffix
-
-\Then:
-. {{EX:dn.base="ou=people,o=suffix"}} match 2;
-. {{EX:dn.one="ou=people,o=suffix"}} match 3, and 5;
-. {{EX:dn.subtree="ou=people,o=suffix"}} match 2, 3, 4, and 5; and
-. {{EX:dn.children="ou=people,o=suffix"}} match 3, 4, and 5.
-
-
-Entries may also be selected using a filter:
-
->	to filter=<ldap filter>
-
-where <ldap filter> is a string representation of an LDAP
-search filter, as described in {{REF:RFC2254}}.  For example:
-
->	to filter=(objectClass=person)
-
-Note that entries may be selected by both DN and filter by
-including both qualifiers in the <what> clause.
-
->	to dn.one="ou=people,o=suffix" filter=(objectClass=person)
-
-Attributes within an entry are selected by including a comma-separated
-list of attribute names in the <what> selector:
-
->	attrs=<attribute list>
-
-A specific value of an attribute is selected by using a single
-attribute name and also using a value selector:
-
->	attrs=<attribute> val[.<style>]=<regex>
-
-There are two special {{pseudo}} attributes {{EX:entry}} and
-{{EX:children}}.  To read (and hence return) a target entry, the
-subject must have {{EX:read}} access to the target's {{entry}}
-attribute.  To add or delete an entry, the subject must have
-{{EX:write}} access to the entry's {{EX:entry}} attribute AND must
-have {{EX:write}} access to the entry's parent's {{EX:children}}
-attribute.  To rename an entry, the subject must have {{EX:write}}
-access to entry's {{EX:entry}} attribute AND have {{EX:write}}
-access to both the old parent's and new parent's {{EX:children}}
-attributes.  The complete examples at the end of this section should
-help clear things up.
-
-Lastly, there is a special entry selector {{EX:"*"}} that is used to
-select any entry.  It is used when no other {{EX:<what>}}
-selector has been provided.  It's equivalent to "{{EX:dn=.*}}"
-
-
-H3: Who to grant access to
-
-The <who> part identifies the entity or entities being granted
-access. Note that access is granted to "entities" not "entries."
-The following table summarizes entity specifiers:
-
-!block table; align=Center; coltags="EX,N"; \
-	title="Table 5.3: Access Entity Specifiers"
-Specifier|Entities
-*|All, including anonymous and authenticated users
-anonymous|Anonymous (non-authenticated) users
-users|Authenticated users
-self|User associated with target entry
-dn[.<basic-style>]=<regex>|Users matching a regular expression
-dn.<scope-style>=<DN>|Users within scope of a DN
-!endblock
-
-The DN specifier behaves much like <what> clause DN specifiers.
-
-Other control factors are also supported.  For example, a {{EX:<who>}}
-can be restricted by an entry listed in a DN-valued attribute in
-the entry to which the access applies:
-
->	dnattr=<dn-valued attribute name>
-
-The dnattr specification is used to give access to an entry
-whose DN is listed in an attribute of the entry (e.g., give
-access to a group entry to whoever is listed as the owner of
-the group entry).
-
-Some factors may not be appropriate in all environments (or any).
-For example, the domain factor relies on IP to domain name lookups.
-As these can easily spoofed, the domain factor should not be avoided.
-
-
-H3: The access to grant
-
-
-The kind of <access> granted can be one of the following:
-
-
-!block table; colaligns="LRL"; coltags="EX,EX,N"; align=Center; \
-	title="Table 5.4: Access Levels"
-Level	Privileges	Description
-none	=0		no access
-auth	=x		needed to bind
-compare	=cx		needed to compare
-search	=scx		needed to apply search filters
-read	=rscx		needed to read search results
-write	=wrscx		needed to modify/rename
-!endblock
-
-Each level implies all lower levels of access. So, for
-example, granting someone {{EX:write}} access to an entry also
-grants them {{EX:read}}, {{EX:search}}, {{EX:compare}}, and 
-{{EX:auth}} access.  However, one may use the privileges specifier
-to grant specific permissions.
-
-
-H3: Access Control Evaluation
-
-When evaluating whether some requester should be given access to
-an entry and/or attribute, slapd compares the entry and/or attribute
-to the {{EX:<what>}} selectors given in the configuration file.
-For each entry, access controls provided in the database which holds
-the entry (or the first database if not held in any database) apply
-first, followed by the global access directives.  Within this
-priority, access directives are examined in the order in which they
-appear in the config file.  Slapd stops with the first {{EX:<what>}}
-selector that matches the entry and/or attribute. The corresponding
-access directive is the one slapd will use to evaluate access.
-
-Next, slapd compares the entity requesting access to the {{EX:<who>}}
-selectors within the access directive selected above in the order
-in which they appear. It stops with the first {{EX:<who>}} selector
-that matches the requester. This determines the access the entity
-requesting access has to the entry and/or attribute.
-
-Finally, slapd compares the access granted in the selected
-{{EX:<access>}} clause to the access requested by the client. If
-it allows greater or equal access, access is granted. Otherwise,
-access is denied.
-
-The order of evaluation of access directives makes their placement
-in the configuration file important. If one access directive is
-more specific than another in terms of the entries it selects, it
-should appear first in the config file. Similarly, if one {{EX:<who>}}
-selector is more specific than another it should come first in the
-access directive. The access control examples given below should
-help make this clear.
-
-
-
-H3: Access Control Examples
-
-The access control facility described above is quite powerful.  This
-section shows some examples of its use for descriptive purposes.
-
-A simple example:
-
->	access to * by * read
-
-This access directive grants read access to everyone.
-
->	access to *
->		by self write
->		by anonymous auth
->		by * read
-
-This directive allows the user to modify their entry, allows anonymous
-to authentication against these entries, and allows all others to
-read these entries.  Note that only the first {{EX:by <who>}} clause
-which matches applies.  Hence, the anonymous users are granted
-{{EX:auth}}, not {{EX:read}}.  The last clause could just as well
-have been "{{EX:by users read}}".
-
-It is often desirable to restrict operations based upon the level
-of protection in place.  The following shows how security strength
-factors (SSF) can be used.
-
->	access to *
->		by ssf=128 self write
->		by ssf=64 anonymous auth
->		by ssf=64 users read
-
-This directive allows users to modify their own entries if security
-protections have of strength 128 or better have been established,
-allows authentication access to anonymous users, and read access
-when 64 or better security protections have been established.  If
-client has not establish sufficient security protections, the
-implicit {{EX:by * none}} clause would be applied.
-
-The following example shows the use of a style specifiers to select
-the entries by DN in two access directives where ordering is
-significant.
-
->	access to dn.children="dc=example,dc=com"
-> 		by * search
->	access to dn.children="dc=com"
-> 		by * read
-
-Read access is granted to entries under the {{EX:dc=com}} subtree,
-except for those entries under the {{EX:dc=example,dc=com}} subtree,
-to which search access is granted.  No access is granted to
-{{EX:dc=com}} as neither access directive matches this DN.  If the
-order of these access directives was reversed, the trailing directive
-would never be reached, since all entries under {{EX:dc=example,dc=com}}
-are also under {{EX:dc=com}} entries.
-
-Also note that if no {{EX:access to}} directive matches or no {{EX:by
-<who>}} clause, {{B:access is denied}}.  That is, every {{EX:access
-to}} directive ends with an implicit {{EX:by * none}} clause and
-every access list ends with an implicit {{EX:access to * by * none}}
-directive.
-
-The next example again shows the importance of ordering, both of
-the access directives and the {{EX:by <who>}} clauses.  It also
-shows the use of an attribute selector to grant access to a specific
-attribute and various {{EX:<who>}} selectors.
-
->	access to dn.subtree="dc=example,dc=com" attr=homePhone
->		by self write
->		by dn.children="dc=example,dc=com" search
->		by peername.regex=IP:10\..+ read
->	access to dn.subtree="dc=example,dc=com"
->		by self write
->		by dn.children="dc=example,dc=com" search
->		by anonymous auth
-
-This example applies to entries in the "{{EX:dc=example,dc=com}}"
-subtree. To all attributes except {{EX:homePhone}}, an entry can
-write to itself, entries under {{EX:example.com}} entries can search
-by them, anybody else has no access (implicit {{EX:by * none}})
-excepting for authentication/authorization (which is always done
-anonymously).  The {{EX:homePhone}} attribute is writable by the
-entry, searchable by entries under {{EX:example.com}}, readable by
-clients connecting from network 10, and otherwise not readable
-(implicit {{EX:by * none}}).  All other access is denied by the
-implicit {{EX:access to * by * none}}.
-
-Sometimes it is useful to permit a particular DN to add or
-remove itself from an attribute. For example, if you would like to
-create a group and allow people to add and remove only
-their own DN from the member attribute, you could accomplish
-it with an access directive like this:
-
->	access to attr=member,entry
-> 		by dnattr=member selfwrite
-
-The dnattr {{EX:<who>}} selector says that the access applies to
-entries listed in the {{EX:member}} attribute. The {{EX:selfwrite}} access
-selector says that such members can only add or delete their
-own DN from the attribute, not other values. The addition of
-the entry attribute is required because access to the entry is
-required to access any of the entry's attributes.
-
-!if 0
-For more details on how to use the {{EX:access}} directive,
-consult the {{Advanced Access Control}} chapter.
-!endif
-
-
-H2: Configuration File Example
-
-The following is an example configuration file, interspersed
-with explanatory text. It defines two databases to handle
-different parts of the {{TERM:X.500}} tree; both are {{TERM:BDB}}
-database instances. The line numbers shown are provided for
-reference only and are not included in the actual file. First, the
-global configuration section:
-
-E:  1.	# example config file - global configuration section
-E:  2.	include /usr/local/etc/schema/core.schema
-E:  3.	referral ldap://root.openldap.org
-E:  4.	access to * by * read
- 
-Line 1 is a comment. Line 2 includes another config file
-which contains {{core}} schema definitions.
-The {{EX:referral}} directive on line 3
-means that queries not local to one of the databases defined
-below will be referred to the LDAP server running on the
-standard port (389) at the host {{EX:root.openldap.org}}.
-
-Line 4 is a global access control.  It applies to all
-entries (after any applicable database-specific access
-controls).
-
-The next section of the configuration file defines a BDB
-backend that will handle queries for things in the
-"dc=example,dc=com" portion of the tree. The
-database is to be replicated to two slave slapds, one on
-truelies, the other on judgmentday. Indices are to be
-maintained for several attributes, and the {{EX:userPassword}}
-attribute is to be protected from unauthorized access.
-
-E:  5.	# BDB definition for the example.com
-E:  6.	database bdb
-E:  7.	suffix "dc=example,dc=com"
-E:  8.	directory /usr/local/var/openldap-data
-E:  9.	rootdn "cn=Manager,dc=example,dc=com"
-E: 10.	rootpw secret
-E: 11.	# replication directives
-E: 12.	replogfile /usr/local/var/openldap/slapd.replog
-E: 13.	replica uri=ldap://slave1.example.com:389
-E: 14.		binddn="cn=Replicator,dc=example,dc=com"
-E: 15.		bindmethod=simple credentials=secret
-E: 16.	replica uri=ldaps://slave2.example.com:636
-E: 17.		binddn="cn=Replicator,dc=example,dc=com"
-E: 18.		bindmethod=simple credentials=secret
-E: 19.	# indexed attribute definitions
-E: 20.	index uid pres,eq
-E: 21.	index cn,sn,uid pres,eq,approx,sub
-E: 22.	index objectClass eq
-E: 23.	# database access control definitions
-E: 24.	access to attr=userPassword
-E: 25.		by self write
-E: 26.		by anonymous auth
-E: 27.		by dn.base="cn=Admin,dc=example,dc=com" write
-E: 28.		by * none
-E: 29.	access to *
-E: 30.		by self write
-E: 31.		by dn.base="cn=Admin,dc=example,dc=com" write
-E: 32.		by * read
-
-Line 5 is a comment. The start of the database definition is marked
-by the database keyword on line 6. Line 7 specifies the DN suffix
-for queries to pass to this database. Line 8 specifies the directory
-in which the database files will live.
-
-Lines 9 and 10 identify the database {{super-user}} entry and associated
-password. This entry is not subject to access control or size or
-time limit restrictions.
-
-Lines 11 through 18 are for replication. Line 12 specifies the
-replication log file (where changes to the database are logged -
-this file is written by slapd and read by slurpd). Lines 13 through
-15 specify the hostname and port for a replicated host, the DN to
-bind as when performing updates, the bind method (simple) and the
-credentials (password) for the binddn. Lines 16 through 18 specify
-a second replication site.  See the {{SECT:Replication with slurpd}}
-chapter for more information on these directives.
-
-Lines 20 through 22 indicate the indices to maintain for various
-attributes.
-
-Lines 24 through 32 specify access control for entries in this
-database.  As this is the first database, the controls also apply
-to entries not held in any database (such as the Root DSE).  For
-all applicable entries, the {{EX:userPassword}} attribute is writable
-by the entry itself and by the "admin" entry.  It may be used for
-authentication/authorization purposes, but is otherwise not readable.
-All other attributes are writable by the entry and the "admin"
-entry, but may be read by all users (authenticated or not).
-
-The next section of the example configuration file defines another
-BDB database. This one handles queries involving the
-{{EX:dc=example,dc=net}} subtree but is managed by the same entity
-as the first database.  Note that without line 39, the read access
-would be allowed due to the global access rule at line 4.
-
-E: 33.	# BDB definition for example.net
-E: 34.	database bdb
-E: 35.	suffix "dc=example,dc=net"
-E: 36.	directory /usr/local/var/openldap-data-net
-E: 37.	rootdn "cn=Manager,dc=example,dc=com"
-E: 38.	index objectClass eq
-E: 39.	access to * by users read

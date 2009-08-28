@@ -1,7 +1,7 @@
 /*
  *******************************************************************************
  *
- *   Copyright (C) 1999-2006, International Business Machines
+ *   Copyright (C) 1999-2008, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  *
  *******************************************************************************
@@ -201,11 +201,26 @@ int main(int /*argc*/, char *argv[])
 
                     version = pfi->getNameString(NAME_VERSION_STRING, PLATFORM_MACINTOSH, MACINTOSH_ROMAN, MACINTOSH_ENGLISH);
 
-                    fprintf(outputFile, "        <test-font name=\"%s\" version=\"%s\" checksum=\"0x%8.8X\"/>\n\n",
-                        fontName, version, pfi->getFontChecksum());
+                    // The standard recommends that the Macintosh Roman/English name string be present, but
+                    // if it's not, try the Microsoft Unicode/English string.
+                    if (version == NULL) {
+                        const LEUnicode16 *uversion = pfi->getUnicodeNameString(NAME_VERSION_STRING, PLATFORM_MICROSOFT, MICROSOFT_UNICODE_BMP, MICROSOFT_ENGLISH);
 
-                    pfi->deleteNameString(version);
+                        if (uversion != NULL) {
+                            fprintf(outputFile, "        <test-font name=\"%s\" version=\"%S\" checksum=\"0x%8.8X\"/>\n\n",
+                                fontName, uversion, pfi->getFontChecksum());
+
+                            pfi->deleteNameString(uversion);
+                        }
+                    } else {
+                        fprintf(outputFile, "        <test-font name=\"%s\" version=\"%s\" checksum=\"0x%8.8X\"/>\n\n",
+                            fontName, version, pfi->getFontChecksum());
+
+                        pfi->deleteNameString(version);
+                    }
+
                     freeCString(fontName);
+
                     font = pfi;
                 } else if (tag.compare(test_text) == 0) {
                     char *utf8 = NULL;

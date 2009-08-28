@@ -5,32 +5,36 @@
 #include <errno.h>
 #include <err.h>
 #include <fcntl.h>
-#include <launch.h>
 #include <sysexits.h>
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/wait.h>
 #include <pwd.h>
-
+#include <sys/stat.h>
+#include <sys/mman.h>
 #include <mach-o/fat.h>
 #include <mach-o/loader.h>
 #include <mach-o/arch.h>
 
 #include "dumpemacs.h"
 #include "bo.h"			/* generated during build */
+#include "src/version.h"
 
 void usage(void);
 int dumpemacs(int debugflag, char *output);
 int copythintemacs(int debugflag, const char *src, const char *dst);
+void *mmaparch(const char *file, size_t *psize);
+char *verfind(void *, size_t, char, const char *);
 
 int main(int argc, char *argv[]) {
 
-  int debugopt = 0, verboseopt = 0, testopt = 0;
+  int debugopt = 0, verboseopt = 0, testopt = 0, forceopt = 0;
   char output[MAXPATHLEN];
   int ch;
   int ret, fd;
 
-  while ((ch = getopt(argc, argv, "dvnV")) != -1) {
+  umask(022);
+  while ((ch = getopt(argc, argv, "Vdfnv")) != -1) {
     switch (ch) {
     case 'd':
       debugopt = 1;
@@ -41,6 +45,9 @@ int main(int argc, char *argv[]) {
       break;
     case 'n':
       testopt = 1;
+      break;
+    case 'f':
+      forceopt = 1;
       break;
     case 'V':
       puts(kEmacsVersion);
@@ -82,15 +89,34 @@ int main(int argc, char *argv[]) {
       err(1, "close(/dev/null)");
   }
 
-  printf("Checking if emacs is up-to-date\n");
+  if (!forceopt) {
+    int dumpit = 1;
+    char *dumpedVersion = NULL;
+    char *undumpedVersion = NULL;
+    size_t dumpedSize, undumpedSize;
 
-  if(is_emacs_valid(debugopt)) {
-    printf("Emacs is up-to-date. No dumping required\n");
-    return 0;
-  } else {
-    printf("emacs is not up-to-date. Needs dumping\n");
+    void *dumpedMem = mmaparch(kEmacsDumpedPath, &dumpedSize);
+    if (dumpedMem) {
+      /* Break up @(#) to avoid false tags in this binary */
+      dumpedVersion = verfind(dumpedMem, dumpedSize, '@', "(#) emacs");
+      munmap(dumpedMem, dumpedSize);
+    }
+    if (dumpedVersion) {
+      void *undumpedMem = mmaparch(kEmacsUndumpedPath, &undumpedSize);
+      if (undumpedMem) {
+	undumpedVersion = verfind(undumpedMem, undumpedSize, '@', "(#) emacs");
+	munmap(undumpedMem, undumpedSize);
+      }
+    }
+    if (dumpedVersion != NULL && undumpedVersion != NULL &&
+	(0 == strcmp(dumpedVersion, undumpedVersion))) {
+      dumpit = 0;
+    }
+    if (dumpedVersion) free(dumpedVersion);
+    if (undumpedVersion) free(undumpedVersion);
+    if (!dumpit)
+      return 0;
   }
-
   ret = dumpemacs(debugopt, output);
   if(ret != 0)
     errx(1, "Failed to dump native emacs");
@@ -108,7 +134,7 @@ int main(int argc, char *argv[]) {
   newargs[0] = "/bin/cp";
   newargs[1] = "-p";
   newargs[2] = output;
-  newargs[3] = kEmacsArchPath;
+  newargs[3] = kEmacsDumpedPath;
   newargs[4] = NULL;
 
   if(debugopt) printf("Installing dumped emacs\n");
@@ -122,7 +148,7 @@ int main(int argc, char *argv[]) {
 
 void usage(void)
 {
-  fprintf(stderr, "Usage: %s [-d] [-v] [-n]\n", getprogname());
+  fprintf(stderr, "Usage: %s [-d] [-f] [-n] [-v] [-V]\n", getprogname());
   exit(EX_USAGE);
 }
 
@@ -199,9 +225,9 @@ int dumpemacs(int debugflag, char *output)
   /* see emacs/src/doc.c */
   fd = open("buildobj.lst", O_CREAT|O_WRONLY, 0444);
   if(fd < 0)
-	  err(1, "open(buildobj.lst)");
+    err(1, "open(buildobj.lst)");
   if (-1 == write(fd, bo, sizeof(bo)))
-	  err(1, "write to buildobj.lst");
+    err(1, "write to buildobj.lst");
   close(fd);
 
   ret = setenv("LC_ALL", "C", 1);
@@ -318,8 +344,7 @@ int copythintemacs(int debugflag, const char *src, const char *dst)
 
   bestArch = NXFindBestFatArch(thisArch->cputype,
 			       thisArch->cpusubtype,
-			       archs,
-			       archCount);
+			       archs, archCount);
   if(bestArch == NULL)
     errx(1, "No appropriate architecture in %s", src);
   else
@@ -359,3 +384,131 @@ int copythintemacs(int debugflag, const char *src, const char *dst)
   return 0;
 }
 
+void *mmaparch(const char *filename, size_t *psize) {
+  int fd;
+  int ret;
+  char buffer[4096];
+  struct fat_header *fh = (struct fat_header *)buffer;
+  struct fat_arch fakearch;
+  struct fat_arch *archs = NULL, *bestArch = NULL;
+  int archCount = 0;
+  ssize_t readBytes;
+  int isFat = 0;
+  const NXArchInfo *thisArch = NULL;
+  off_t offset;
+
+  bzero(&fakearch, sizeof(fakearch));
+
+  fd = open(filename, O_RDONLY, 0400);
+  if (fd < 0)
+    return NULL;
+
+  readBytes = read(fd, buffer, sizeof(buffer));
+  if(readBytes != sizeof(buffer)) {
+    close(fd);
+    return NULL;
+  }
+    
+
+  if(fh->magic == FAT_MAGIC || fh->magic == FAT_CIGAM) {
+    int i;
+    
+    archs = (struct fat_arch *)(fh + 1);
+
+    fh->magic = OSSwapBigToHostInt32(fh->magic);
+    fh->nfat_arch = OSSwapBigToHostInt32(fh->nfat_arch);
+    if(fh->nfat_arch >= 0x10000)
+      errx(1, "Illegal fat header");
+
+    for(i=0; i < fh->nfat_arch; i++) {
+      archs[i].cputype = OSSwapBigToHostInt32(archs[i].cputype);
+      archs[i].cpusubtype = OSSwapBigToHostInt32(archs[i].cpusubtype);
+      archs[i].offset = OSSwapBigToHostInt32(archs[i].offset);
+      archs[i].size = OSSwapBigToHostInt32(archs[i].size);
+      archs[i].align = OSSwapBigToHostInt32(archs[i].align);
+    }
+    isFat = 1;
+    archCount = fh->nfat_arch;
+  } else if(fh->magic == MH_MAGIC) {
+    struct mach_header *mh = (struct mach_header *)buffer;
+    fakearch.cputype = mh->cputype;
+    fakearch.cpusubtype = mh->cpusubtype;
+    fakearch.offset = 0;
+    fakearch.size = 0;
+    fakearch.align = 0;
+    archs = &fakearch;
+    archCount = 1;
+  } else if(fh->magic == MH_CIGAM) {
+    struct mach_header *mh = (struct mach_header *)buffer;
+    fakearch.cputype = OSSwapInt32(mh->cputype);
+    fakearch.cpusubtype = OSSwapInt32(mh->cpusubtype);
+    fakearch.offset = 0;
+    fakearch.size = 0;
+    fakearch.align = 0;
+    archs = &fakearch;
+    archCount = 1;
+  } else if(fh->magic == MH_MAGIC_64) {
+    struct mach_header_64 *mh = (struct mach_header_64 *)buffer;
+    fakearch.cputype = mh->cputype;
+    fakearch.cpusubtype = mh->cpusubtype;
+    fakearch.offset = 0;
+    fakearch.size = 0;
+    fakearch.align = 0;
+    archs = &fakearch;
+    archCount = 1;
+  } else if(fh->magic == MH_CIGAM_64) {
+    struct mach_header_64 *mh = (struct mach_header_64 *)buffer;
+    fakearch.cputype = OSSwapInt32(mh->cputype);
+    fakearch.cpusubtype = OSSwapInt32(mh->cpusubtype);
+    fakearch.offset = 0;
+    fakearch.size = 0;
+    fakearch.align = 0;
+    archs = &fakearch;
+    archCount = 1;
+  }
+
+  thisArch = NXGetArchInfoFromName(kEmacsArch);
+  if(thisArch == NULL)
+    errx(1, "Unknown architecture: %s", kEmacsArch);
+
+  bestArch = NXFindBestFatArch(thisArch->cputype,
+			       thisArch->cpusubtype,
+			       archs,
+			       archCount);
+  if(bestArch == NULL)
+    errx(1, "No appropriate architecture in %s", filename);
+
+  if(!isFat) {
+    /* mmap the whole file */
+    struct stat statbuf;
+    fstat(fd, &statbuf);
+    *psize = statbuf.st_size;
+    offset = 0;
+  } else {
+    *psize = bestArch->size;
+    offset = bestArch->offset;
+  }
+  void *rc = mmap(NULL, *psize, PROT_READ, MAP_FILE | MAP_PRIVATE, fd, offset);
+  close(fd);
+  if (rc == (void *)-1)
+    return NULL;
+  return rc;
+}
+
+char *verfind(void *mem, size_t size, char marker, const char *search) {
+  char *first = (char *)mem;
+  char *last = first + size;
+  size_t search_size = strlen(search);
+  /* avoid searching past end of mmap region */
+  void *found = memchr(mem, marker, size - (search_size+1));
+
+  while (found != NULL) {
+    char *here = (char *)found;
+    if (0 == strncmp(here+1, search, search_size)) {
+      return strdup(here);
+    } else {
+      found = memchr(here+1, marker, last - (here+1) - (search_size+1));
+    }
+  }
+  return NULL;
+}

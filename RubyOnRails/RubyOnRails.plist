@@ -2,58 +2,153 @@
 <array>
     <dict>
         <key>OpenSourceProject</key>
-        <string>RubyOnRails</string>
+        <string>acts_as_ferret</string>
         <key>OpenSourceVersion</key>
-        <string>1.2.6</string>
+        <string>0.4.3</string>
         <key>OpenSourceWebsiteURL</key>
-        <string>http://www.rubyonrails.org/</string>
+        <string>http://projects.jkraemer.net/acts_as_ferret</string>
         <key>OpenSourceSHA1</key>
-        <string>10b539a69678c3665d61f8b91b6268a863737199</string>
+        <string>88a14d999bc65d5269c52308c7b6b853626f7717</string>
         <key>OpenSourceImportDate</key>
-        <string>2007-11-25</string>
-        <key>OpenSourceLicense</key>
-        <string>MIT</string>
+        <string>2008-09-29</string>
         <key>OpenSourceLicenseFile</key>
-        <string>RubyOnRails.txt</string>
-        <key>OpenSourceModifications</key>
-        <array>
-          <string>rails(1) selects sqlite3 as the default database</string>  
-        </array>
-    </dict>
-    <dict>
-        <key>OpenSourceProject</key>
-        <string>rake</string>
-        <key>OpenSourceVersion</key>
-        <string>0.7.3</string>
-        <key>OpenSourceWebsiteURL</key>
-        <string>http://rake.rubyforge.org</string>
-        <key>OpenSourceSHA1</key>
-        <string>d8e1f09f119b405679b9289cfad3723cddf18432</string>
-        <key>OpenSourceImportDate</key>
-        <string>2007-05-14</string>
-        <key>OpenSourceLicense</key>
-        <string>MIT</string>
-        <key>OpenSourceLicenseFile</key>
-        <string>rake.txt</string>
+        <string>acts_as_ferret.txt</string>
         <key>OpenSourceModifications</key>
         <array>
         </array>
     </dict>
     <dict>
         <key>OpenSourceProject</key>
-        <string>ruby-sqlite3</string>
+        <string>capistrano</string>
         <key>OpenSourceVersion</key>
-        <string>1.2.1</string>
+        <string>2.5.2</string>
         <key>OpenSourceWebsiteURL</key>
-        <string>http://sqlite-ruby.rubyforge.org/</string>
+        <string>http://www.capify.org</string>
         <key>OpenSourceSHA1</key>
-        <string>b749ca7ceff3f568965918d68259081bdd650802</string>
+        <string>62eb55129ff3ad15ec73415ec108ad00fe8281ef</string>
         <key>OpenSourceImportDate</key>
-        <string>2007-03-04</string>
-        <key>OpenSourceLicense</key>
-        <string>BSD</string>
+        <string>2008-12-01</string>
         <key>OpenSourceLicenseFile</key>
-        <string>ruby-sqlite3.txt</string>
+        <string>capistrano.txt</string>
+        <key>OpenSourceModifications</key>
+        <array>
+        </array>
+    </dict>
+    <dict>
+        <key>OpenSourceProject</key>
+        <string>cgi_multipart_eof_fix</string>
+        <key>OpenSourceVersion</key>
+        <string>2.5.0</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://blog.evanweaver.com/pages/code#cgi_multipart_eof_fix</string>
+        <key>OpenSourceSHA1</key>
+        <string>9d6a0a1308b4dd9b94d91b0c192186eb2593722e</string>
+        <key>OpenSourceImportDate</key>
+        <string>2008-09-29</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>cgi_multipart_eof_fix.txt</string>
+        <key>OpenSourceModifications</key>
+        <array>
+        </array>
+    </dict>
+    <dict>
+        <key>OpenSourceProject</key>
+        <string>daemons</string>
+        <key>OpenSourceVersion</key>
+        <string>1.0.10</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://daemons.rubyforge.org</string>
+        <key>OpenSourceSHA1</key>
+        <string>61ad4530249aab8c87c833757127cb593815b88c</string>
+        <key>OpenSourceImportDate</key>
+        <string>2008-09-29</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>daemons.txt</string>
+        <key>OpenSourceModifications</key>
+        <array>
+        </array>
+    </dict>
+    <dict>
+        <key>OpenSourceProject</key>
+        <string>fastthread</string>
+        <key>OpenSourceVersion</key>
+        <string>1.0.1</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>""</string>
+        <key>OpenSourceSHA1</key>
+        <string>2358ba8cb78491952f589f5f911930e18f4688c2</string>
+        <key>OpenSourceImportDate</key>
+        <string>2008-09-29</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>fastthread.txt</string>
+        <key>OpenSourceModifications</key>
+        <array>
+        </array>
+    </dict>
+    <dict>
+        <key>OpenSourceProject</key>
+        <string>ferret</string>
+        <key>OpenSourceVersion</key>
+        <string>0.11.6</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://ferret.davebalmain.com/trac</string>
+        <key>OpenSourceSHA1</key>
+        <string>83e0fada54e20445fe4ed7cd1dcdf9ffe74bb953</string>
+        <key>OpenSourceImportDate</key>
+        <string>2008-09-29</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>ferret.txt</string>
+        <key>OpenSourceModifications</key>
+        <array>
+        </array>
+    </dict>
+    <dict>
+        <key>OpenSourceProject</key>
+        <string>gem_plugin</string>
+        <key>OpenSourceVersion</key>
+        <string>0.2.3</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>""</string>
+        <key>OpenSourceSHA1</key>
+        <string>14cb572dbee665b19ecac26dfcd1150d1f35de1e</string>
+        <key>OpenSourceImportDate</key>
+        <string>2008-09-29</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>gem_plugin.txt</string>
+        <key>OpenSourceModifications</key>
+        <array>
+        </array>
+    </dict>
+    <dict>
+        <key>OpenSourceProject</key>
+        <string>highline</string>
+        <key>OpenSourceVersion</key>
+        <string>1.5.0</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://highline.rubyforge.org</string>
+        <key>OpenSourceSHA1</key>
+        <string>e779b4951ab710e57020f0d444fc719278b380b5</string>
+        <key>OpenSourceImportDate</key>
+        <string>2008-12-01</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>highline.txt</string>
+        <key>OpenSourceModifications</key>
+        <array>
+        </array>
+    </dict>
+    <dict>
+        <key>OpenSourceProject</key>
+        <string>hpricot</string>
+        <key>OpenSourceVersion</key>
+        <string>0.6.164</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://code.whytheluckystiff.net/hpricot/</string>
+        <key>OpenSourceSHA1</key>
+        <string>6a471da7becc98184d45f5afa0fce07f11363dce</string>
+        <key>OpenSourceImportDate</key>
+        <string>2008-12-01</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>hpricot.txt</string>
         <key>OpenSourceModifications</key>
         <array>
         </array>
@@ -62,36 +157,15 @@
         <key>OpenSourceProject</key>
         <string>mongrel</string>
         <key>OpenSourceVersion</key>
-        <string>1.1.4</string>
+        <string>1.1.5</string>
         <key>OpenSourceWebsiteURL</key>
         <string>http://mongrel.rubyforge.org</string>
         <key>OpenSourceSHA1</key>
-        <string>129e801e98d8ac6372c7d104072c716ab8c7dc03</string>
+        <string>ce2393a56d49c5fcf726c744917b9a37b6daa743</string>
         <key>OpenSourceImportDate</key>
-        <string>2008-03-20</string>
-        <key>OpenSourceLicense</key>
-        <string>Other</string>
+        <string>2008-09-29</string>
         <key>OpenSourceLicenseFile</key>
         <string>mongrel.txt</string>
-        <key>OpenSourceModifications</key>
-        <array>
-       </array>
-    </dict>
-    <dict>
-        <key>OpenSourceProject</key>
-        <string>capistrano</string>
-        <key>OpenSourceVersion</key>
-        <string>2.0.0</string>
-        <key>OpenSourceWebsiteURL</key>
-        <string>http://capistrano.rubyforge.org/</string>
-        <key>OpenSourceSHA1</key>
-        <string>0aa567fe60a77c34acd4b48a74c2e46e8ac4b431</string>
-        <key>OpenSourceImportDate</key>
-        <string>2007-07-22</string>
-        <key>OpenSourceLicense</key>
-        <string>MIT</string>
-        <key>OpenSourceLicenseFile</key>
-        <string>capistrano.txt</string>
         <key>OpenSourceModifications</key>
         <array>
         </array>
@@ -102,13 +176,11 @@
         <key>OpenSourceVersion</key>
         <string>1.3.0</string>
         <key>OpenSourceWebsiteURL</key>
-        <string>http://needle.rubyforge.org/</string>
+        <string>http://needle.rubyforge.org</string>
         <key>OpenSourceSHA1</key>
         <string>a17b60ca61dfa7df6a802d935b6ce0b05a0802ec</string>
         <key>OpenSourceImportDate</key>
-        <string>2006-09-18</string>
-        <key>OpenSourceLicense</key>
-        <string>BSD</string>
+        <string>2008-09-29</string>
         <key>OpenSourceLicenseFile</key>
         <string>needle.txt</string>
         <key>OpenSourceModifications</key>
@@ -117,95 +189,153 @@
     </dict>
     <dict>
         <key>OpenSourceProject</key>
-        <string>ruby-net-ssh</string>
+        <string>net-scp</string>
         <key>OpenSourceVersion</key>
-        <string>1.1.2</string>
+        <string>1.0.1</string>
         <key>OpenSourceWebsiteURL</key>
-        <string>http://net-ssh.rubyforge.org/</string>
+        <string>http://net-ssh.rubyforge.org/scp</string>
         <key>OpenSourceSHA1</key>
-        <string>57e041126b9352869bd15b78d7a4c172f5c0026a</string>
+        <string>84c9a895ad203d496262eb24b8f981482d18cfe1</string>
         <key>OpenSourceImportDate</key>
-        <string>2007-06-27</string>
-        <key>OpenSourceLicense</key>
-        <string>BSD</string>
+        <string>2008-09-29</string>
         <key>OpenSourceLicenseFile</key>
-        <string>ruby-net-ssh.txt</string>
+        <string>net-scp.txt</string>
         <key>OpenSourceModifications</key>
         <array>
         </array>
     </dict>
     <dict>
         <key>OpenSourceProject</key>
-        <string>ruby-net-sftp</string>
+        <string>net-sftp</string>
         <key>OpenSourceVersion</key>
-        <string>1.1.0</string>
+        <string>1.1.1</string>
         <key>OpenSourceWebsiteURL</key>
-        <string>http://net-ssh.rubyforge.org/</string>
+        <string>http://net-ssh.rubyforge.org/sftp</string>
         <key>OpenSourceSHA1</key>
-        <string>05542082c57092607df6fccff6985ec9ca371431</string>
+        <string>4f04298dcea1b01cf86d47574cc65c2159a76716</string>
         <key>OpenSourceImportDate</key>
-        <string>2006-09-18</string>
-        <key>OpenSourceLicense</key>
-        <string>BSD</string>
+        <string>2008-09-29</string>
         <key>OpenSourceLicenseFile</key>
-        <string>ruby-net-sftp.txt</string>
+        <string>net-sftp.txt</string>
         <key>OpenSourceModifications</key>
         <array>
         </array>
     </dict>
     <dict>
         <key>OpenSourceProject</key>
-        <string>ruby-termios</string>
+        <string>net-sftp</string>
         <key>OpenSourceVersion</key>
-        <string>0.9.4</string>
+        <string>2.0.1</string>
         <key>OpenSourceWebsiteURL</key>
-        <string>http://termios.rubyforge.org/</string>
+        <string>http://net-ssh.rubyforge.org/sftp</string>
         <key>OpenSourceSHA1</key>
-        <string>bb0fe331cc0a7c5e97284bd30f0d9af7b2b74e0d</string>
+        <string>a98bc3086ddb6f67fcc9b5da36bfee9df3284122</string>
         <key>OpenSourceImportDate</key>
-        <string>2006-09-18</string>
-        <key>OpenSourceLicense</key>
-        <string>Other</string>
+        <string>2008-09-29</string>
         <key>OpenSourceLicenseFile</key>
-        <string>ruby-termios.txt</string>
+        <string>net-sftp.txt</string>
         <key>OpenSourceModifications</key>
         <array>
         </array>
     </dict>
     <dict>
         <key>OpenSourceProject</key>
-        <string>ferret</string>
+        <string>net-ssh</string>
         <key>OpenSourceVersion</key>
-        <string>0.11.4</string>
+        <string>1.1.4</string>
         <key>OpenSourceWebsiteURL</key>
-        <string>http://ferret.davebalmain.com/trac/</string>
+        <string>http://net-ssh.rubyforge.org/ssh</string>
         <key>OpenSourceSHA1</key>
-        <string>7c4fb2f7b20b280236aba7342ff4e7422e7f4485</string>
+        <string>9186243263c5dbebd6d88f07656ac52f87c1eccf</string>
         <key>OpenSourceImportDate</key>
-        <string>2007-05-14</string>
-        <key>OpenSourceLicense</key>
-        <string>MIT</string>
+        <string>2008-09-29</string>
         <key>OpenSourceLicenseFile</key>
-        <string>ferret.txt</string>
+        <string>net-ssh.txt</string>
         <key>OpenSourceModifications</key>
         <array>
         </array>
     </dict>
     <dict>
         <key>OpenSourceProject</key>
-        <string>acts_as_ferret</string>
+        <string>net-ssh</string>
         <key>OpenSourceVersion</key>
-        <string>0.4.1</string>
+        <string>2.0.4</string>
         <key>OpenSourceWebsiteURL</key>
-        <string>http://projects.jkraemer.net/acts_as_ferret/wiki</string>
+        <string>http://net-ssh.rubyforge.org/ssh</string>
         <key>OpenSourceSHA1</key>
-        <string>a7e6282fc2dc0c41b152cb3e6e31dc3d4cd38016</string>
+        <string>a06992be6b0a05df6b13f2277dc1188b1238c911</string>
         <key>OpenSourceImportDate</key>
-        <string>2007-07-22</string>
-        <key>OpenSourceLicense</key>
-        <string>MIT</string>
+        <string>2008-12-01</string>
         <key>OpenSourceLicenseFile</key>
-        <string>acts_as_ferret.txt</string>
+        <string>net-ssh.txt</string>
+        <key>OpenSourceModifications</key>
+        <array>
+        </array>
+    </dict>
+    <dict>
+        <key>OpenSourceProject</key>
+        <string>net-ssh-gateway</string>
+        <key>OpenSourceVersion</key>
+        <string>1.0.0</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://net-ssh.rubyforge.org/gateway</string>
+        <key>OpenSourceSHA1</key>
+        <string>b3623a3f2557b5dabd30d11563ddce34a6a88688</string>
+        <key>OpenSourceImportDate</key>
+        <string>2008-09-29</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>net-ssh-gateway.txt</string>
+        <key>OpenSourceModifications</key>
+        <array>
+        </array>
+    </dict>
+    <dict>
+        <key>OpenSourceProject</key>
+        <string>rake</string>
+        <key>OpenSourceVersion</key>
+        <string>0.8.3</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://rake.rubyforge.org</string>
+        <key>OpenSourceSHA1</key>
+        <string>fc3060c6c3ea3b804ef95576e41706b92fd51243</string>
+        <key>OpenSourceImportDate</key>
+        <string>2008-12-01</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>rake.txt</string>
+        <key>OpenSourceModifications</key>
+        <array>
+        </array>
+    </dict>
+    <dict>
+        <key>OpenSourceProject</key>
+        <string>RedCloth</string>
+        <key>OpenSourceVersion</key>
+        <string>4.1.1</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://redcloth.org/</string>
+        <key>OpenSourceSHA1</key>
+        <string>ba3ec6473005f0905bf98d2a41230e1cdae971ec</string>
+        <key>OpenSourceImportDate</key>
+        <string>2008-12-01</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>RedCloth.txt</string>
+        <key>OpenSourceModifications</key>
+        <array>
+        </array>
+    </dict>
+    <dict>
+        <key>OpenSourceProject</key>
+        <string>ruby-openid</string>
+        <key>OpenSourceVersion</key>
+        <string>2.1.2</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://openidenabled.com/ruby-openid/</string>
+        <key>OpenSourceSHA1</key>
+        <string>241bd1dfa02119c029a871dd3d9c7c8ab24d32ca</string>
+        <key>OpenSourceImportDate</key>
+        <string>2008-09-29</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>ruby-openid.txt</string>
         <key>OpenSourceModifications</key>
         <array>
         </array>
@@ -216,13 +346,11 @@
         <key>OpenSourceVersion</key>
         <string>0.3.4</string>
         <key>OpenSourceWebsiteURL</key>
-        <string>http://www.openidenabled.com/openid/libraries/ruby</string>
+        <string>http://www.openidenabled.com/yadis/libraries/ruby</string>
         <key>OpenSourceSHA1</key>
         <string>7a4550e1faa13dba92aca866b057663dba4c4563</string>
         <key>OpenSourceImportDate</key>
-        <string>2007-01-08</string>
-        <key>OpenSourceLicense</key>
-        <string>Apache</string>
+        <string>2008-09-29</string>
         <key>OpenSourceLicenseFile</key>
         <string>ruby-yadis.txt</string>
         <key>OpenSourceModifications</key>
@@ -231,79 +359,257 @@
     </dict>
     <dict>
         <key>OpenSourceProject</key>
-        <string>ruby-openid</string>
+        <string>sqlite3-ruby</string>
         <key>OpenSourceVersion</key>
-        <string>1.1.4</string>
+        <string>1.2.4</string>
         <key>OpenSourceWebsiteURL</key>
-        <string>http://www.openidenabled.com/openid/libraries/ruby</string>
+        <string>http://sqlite-ruby.rubyforge.org/sqlite3</string>
         <key>OpenSourceSHA1</key>
-        <string>328eef8d03bb845e50f30c91a4c7ed59688bc8de</string>
+        <string>63d6b35bb8364c2971cf6f5397056faf3efb7ae7</string>
         <key>OpenSourceImportDate</key>
-        <string>2007-01-08</string>
-        <key>OpenSourceLicense</key>
-        <string>Apache</string>
+        <string>2008-12-01</string>
         <key>OpenSourceLicenseFile</key>
-        <string>ruby-openid.txt</string>
+        <string>sqlite3-ruby.txt</string>
         <key>OpenSourceModifications</key>
         <array>
         </array>
     </dict>
     <dict>
         <key>OpenSourceProject</key>
-        <string>hpricot</string>
+        <string>termios</string>
         <key>OpenSourceVersion</key>
-        <string>0.6</string>
+        <string>0.9.4</string>
         <key>OpenSourceWebsiteURL</key>
-        <string>http://code.whytheluckystiff.net/hpricot/</string>
+        <string>http://arika.org/ruby/termios</string>
         <key>OpenSourceSHA1</key>
-        <string>4be23c83200d8446f25d2441a5154f53d41a34f2</string>
+        <string>bb0fe331cc0a7c5e97284bd30f0d9af7b2b74e0d</string>
         <key>OpenSourceImportDate</key>
-        <string>2007-06-27</string>
-        <key>OpenSourceLicense</key>
-        <string>MIT</string>
+        <string>2008-09-29</string>
         <key>OpenSourceLicenseFile</key>
-        <string>hpricot.txt</string>
+        <string>termios.txt</string>
         <key>OpenSourceModifications</key>
         <array>
         </array>
     </dict>
     <dict>
         <key>OpenSourceProject</key>
-        <string>RedCloth</string>
+        <string>xmpp4r</string>
         <key>OpenSourceVersion</key>
-        <string>3.0.4</string>
+        <string>0.4</string>
         <key>OpenSourceWebsiteURL</key>
-        <string>http://whytheluckystiff.net/ruby/redcloth/</string>
+        <string>http://home.gna.org/xmpp4r/</string>
         <key>OpenSourceSHA1</key>
-        <string>cfc69c6648b5f1b7b4fd426ccefda4d016bc850f</string>
+        <string>1d29fcb3ab3edf4f16becef8309b3ffe995134be</string>
         <key>OpenSourceImportDate</key>
-        <string>2007-06-27</string>
-        <key>OpenSourceLicense</key>
-        <string>BSD</string>
+        <string>2008-09-29</string>
         <key>OpenSourceLicenseFile</key>
-        <string>RedCloth.txt</string>
+        <string>xmpp4r.txt</string>
         <key>OpenSourceModifications</key>
         <array>
         </array>
     </dict>
     <dict>
         <key>OpenSourceProject</key>
-        <string>highlight</string>
+        <string>actionmailer</string>
         <key>OpenSourceVersion</key>
-        <string>1.2.9</string>
+        <string>1.3.6</string>
         <key>OpenSourceWebsiteURL</key>
-        <string>http://highline.rubyforge.org</string>
+        <string>http://www.rubyonrails.org</string>
         <key>OpenSourceSHA1</key>
-        <string>7c1decedd521ceedadaefd8fc20f039332438030</string>
+        <string>f09102e288f4d8314e5a0dd57a8c151aedadf55d</string>
         <key>OpenSourceImportDate</key>
-        <string>2007-07-22</string>
-        <key>OpenSourceLicense</key>
-        <string>Other</string>
+        <string>2008-12-01</string>
         <key>OpenSourceLicenseFile</key>
-        <string>highline.txt</string>
+        <string>actionmailer.txt</string>
+        <key>OpenSourceModifications</key>
+        <array>
+        </array>
+    </dict>
+    <dict>
+        <key>OpenSourceProject</key>
+        <string>actionpack</string>
+        <key>OpenSourceVersion</key>
+        <string>1.13.6</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://www.rubyonrails.org</string>
+        <key>OpenSourceSHA1</key>
+        <string>449d8923898a9f6dd5c04fd2e0791684fe9d5e18</string>
+        <key>OpenSourceImportDate</key>
+        <string>2008-12-01</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>actionpack.txt</string>
+        <key>OpenSourceModifications</key>
+        <array>
+        </array>
+    </dict>
+    <dict>
+        <key>OpenSourceProject</key>
+        <string>actionwebservice</string>
+        <key>OpenSourceVersion</key>
+        <string>1.2.6</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://www.rubyonrails.org</string>
+        <key>OpenSourceSHA1</key>
+        <string>6499a6c0a1af8c8396faf0a3993d8504bae20893</string>
+        <key>OpenSourceImportDate</key>
+        <string>2008-12-01</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>actionwebservice.txt</string>
+        <key>OpenSourceModifications</key>
+        <array>
+        </array>
+    </dict>
+    <dict>
+        <key>OpenSourceProject</key>
+        <string>activerecord</string>
+        <key>OpenSourceVersion</key>
+        <string>1.15.6</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://www.rubyonrails.org</string>
+        <key>OpenSourceSHA1</key>
+        <string>fa4bb31fd1dd46409f1b725f905a8b4ecd81fe66</string>
+        <key>OpenSourceImportDate</key>
+        <string>2008-12-01</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>activerecord.txt</string>
+        <key>OpenSourceModifications</key>
+        <array>
+        </array>
+    </dict>
+    <dict>
+        <key>OpenSourceProject</key>
+        <string>activesupport</string>
+        <key>OpenSourceVersion</key>
+        <string>1.4.4</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://www.rubyonrails.org</string>
+        <key>OpenSourceSHA1</key>
+        <string>7cb1f5d07995df9838fff204dfe60aa9b74e1db2</string>
+        <key>OpenSourceImportDate</key>
+        <string>2008-12-01</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>activesupport.txt</string>
+        <key>OpenSourceModifications</key>
+        <array>
+        </array>
+    </dict>
+    <dict>
+        <key>OpenSourceProject</key>
+        <string>rails</string>
+        <key>OpenSourceVersion</key>
+        <string>1.2.6</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://www.rubyonrails.org</string>
+        <key>OpenSourceSHA1</key>
+        <string>10b539a69678c3665d61f8b91b6268a863737199</string>
+        <key>OpenSourceImportDate</key>
+        <string>2008-12-01</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>rails.txt</string>
+        <key>OpenSourceModifications</key>
+        <array>
+        </array>
+    </dict>
+    <dict>
+        <key>OpenSourceProject</key>
+        <string>actionmailer</string>
+        <key>OpenSourceVersion</key>
+        <string>2.2.2</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://www.rubyonrails.org</string>
+        <key>OpenSourceSHA1</key>
+        <string>a7f3d228cdc763886fd1fe8b5637c56795df3fd0</string>
+        <key>OpenSourceImportDate</key>
+        <string>2008-12-01</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>actionmailer.txt</string>
+        <key>OpenSourceModifications</key>
+        <array>
+        </array>
+    </dict>
+    <dict>
+        <key>OpenSourceProject</key>
+        <string>actionpack</string>
+        <key>OpenSourceVersion</key>
+        <string>2.2.2</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://www.rubyonrails.org</string>
+        <key>OpenSourceSHA1</key>
+        <string>02b9aec25f90e6237487aa981d993760ce4a3869</string>
+        <key>OpenSourceImportDate</key>
+        <string>2008-12-01</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>actionpack.txt</string>
+        <key>OpenSourceModifications</key>
+        <array>
+        </array>
+    </dict>
+    <dict>
+        <key>OpenSourceProject</key>
+        <string>activerecord</string>
+        <key>OpenSourceVersion</key>
+        <string>2.2.2</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://www.rubyonrails.org</string>
+        <key>OpenSourceSHA1</key>
+        <string>d0874b767d91a644502ece68e36e8b3ba657625b</string>
+        <key>OpenSourceImportDate</key>
+        <string>2008-12-01</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>activerecord.txt</string>
+        <key>OpenSourceModifications</key>
+        <array>
+        </array>
+    </dict>
+    <dict>
+        <key>OpenSourceProject</key>
+        <string>activeresource</string>
+        <key>OpenSourceVersion</key>
+        <string>2.2.2</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://www.rubyonrails.org</string>
+        <key>OpenSourceSHA1</key>
+        <string>03f83fe6227d812465931b6724a113b52548d558</string>
+        <key>OpenSourceImportDate</key>
+        <string>2008-12-01</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>activeresource.txt</string>
+        <key>OpenSourceModifications</key>
+        <array>
+        </array>
+    </dict>
+    <dict>
+        <key>OpenSourceProject</key>
+        <string>activesupport</string>
+        <key>OpenSourceVersion</key>
+        <string>2.2.2</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://www.rubyonrails.org</string>
+        <key>OpenSourceSHA1</key>
+        <string>4fc82b0c7f8f38879c593a722cdd788f876a1868</string>
+        <key>OpenSourceImportDate</key>
+        <string>2008-12-01</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>activesupport.txt</string>
+        <key>OpenSourceModifications</key>
+        <array>
+        </array>
+    </dict>
+    <dict>
+        <key>OpenSourceProject</key>
+        <string>rails</string>
+        <key>OpenSourceVersion</key>
+        <string>2.2.2</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://www.rubyonrails.org</string>
+        <key>OpenSourceSHA1</key>
+        <string>f2c91f1a2397673e3c47d0c792268a2834b9bf66</string>
+        <key>OpenSourceImportDate</key>
+        <string>2008-12-01</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>rails.txt</string>
         <key>OpenSourceModifications</key>
         <array>
         </array>
     </dict>
 </array>
-</plist>

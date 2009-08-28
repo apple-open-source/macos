@@ -1,8 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1996,2007 Oracle.  All rights reserved.
  */
 /*
  * Copyright (c) 1995, 1996
@@ -34,44 +33,34 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
+ * $Id: db_dispatch.c,v 12.37 2007/05/17 15:14:56 bostic Exp $
  */
 
 #include "db_config.h"
 
-#ifndef lint
-static const char revid[] = "$Id: db_dispatch.c,v 1.2 2004/03/30 01:21:24 jtownsen Exp $";
-#endif /* not lint */
-
-#ifndef NO_SYSTEM_INCLUDES
-#include <sys/types.h>
-
-#include <stddef.h>
-#include <stdlib.h>
-#include <string.h>
-#endif
-
 #include "db_int.h"
 #include "dbinc/db_page.h"
-#include "dbinc/db_shash.h"
 #include "dbinc/hash.h"
+#include "dbinc/fop.h"
 #include "dbinc/lock.h"
 #include "dbinc/log.h"
 #include "dbinc/mp.h"
-#include "dbinc/fop.h"
 #include "dbinc/txn.h"
 
-static int __db_limbo_fix __P((DB *,
-    DB_TXN *, DB_TXNLIST *, db_pgno_t *, DBMETA *, db_limbo_state));
+static int __db_limbo_fix __P((DB *, DB_TXN *,
+		DB_TXNLIST *, db_pgno_t *, DBMETA *, db_limbo_state));
 static int __db_limbo_bucket __P((DB_ENV *,
 	     DB_TXN *, DB_TXNLIST *, db_limbo_state));
 static int __db_limbo_move __P((DB_ENV *, DB_TXN *, DB_TXN *, DB_TXNLIST *));
-static int __db_limbo_prepare __P(( DB *, DB_TXN *, DB_TXNLIST *));
+static int __db_limbo_prepare __P((DB *, DB_TXN *, DB_TXNLIST *));
 static int __db_lock_move __P((DB_ENV *,
 		u_int8_t *, db_pgno_t, db_lockmode_t, DB_TXN *, DB_TXN *));
-static int __db_txnlist_find_internal __P((DB_ENV *, void *, db_txnlist_type,
-		u_int32_t, u_int8_t [DB_FILE_ID_LEN], DB_TXNLIST **, int));
 static int __db_txnlist_pgnoadd __P((DB_ENV *, DB_TXNHEAD *,
-		int32_t, u_int8_t [DB_FILE_ID_LEN], char *, db_pgno_t));
+		int32_t, u_int8_t *, char *, db_pgno_t));
+static int __db_txnlist_find_internal __P((DB_ENV *, DB_TXNHEAD *,
+		db_txnlist_type, u_int32_t, u_int8_t *, DB_TXNLIST **,
+		int, u_int32_t *));
 
 /*
  * __db_dispatch --
@@ -84,7 +73,7 @@ static int __db_txnlist_pgnoadd __P((DB_ENV *, DB_TXNHEAD *,
  *
  * PUBLIC: int __db_dispatch __P((DB_ENV *,
  * PUBLIC:     int (**)__P((DB_ENV *, DBT *, DB_LSN *, db_recops, void *)),
- * PUBLIC:     size_t, DBT *, DB_LSN *, db_recops, void *));
+ * PUBLIC:     size_t, DBT *, DB_LSN *, db_recops, DB_TXNHEAD *));
  */
 int
 __db_dispatch(dbenv, dtab, dtabsize, db, lsnp, redo, info)
@@ -94,10 +83,10 @@ __db_dispatch(dbenv, dtab, dtabsize, db, lsnp, redo, info)
 	DBT *db;		/* The log record upon which to dispatch. */
 	DB_LSN *lsnp;		/* The lsn of the record being dispatched. */
 	db_recops redo;		/* Redo this op (or undo it). */
-	void *info;
+	DB_TXNHEAD *info;	/* Transaction list. */
 {
 	DB_LSN prev_lsn;
-	u_int32_t rectype, txnid;
+	u_int32_t rectype, status, txnid;
 	int make_call, ret;
 
 	memcpy(&rectype, db->data, sizeof(rectype));
@@ -105,7 +94,7 @@ __db_dispatch(dbenv, dtab, dtabsize, db, lsnp, redo, info)
 	make_call = ret = 0;
 
 	/* If we don't have a dispatch table, it's hard to dispatch. */
-	DB_ASSERT(dtab != NULL);
+	DB_ASSERT(dbenv, dtab != NULL);
 
 	/*
 	 * If we find a record that is in the user's number space and they
@@ -142,51 +131,82 @@ __db_dispatch(dbenv, dtab, dtabsize, db, lsnp, redo, info)
 		break;
 	case DB_TXN_BACKWARD_ROLL:
 		/*
-		 * Running full recovery in the backward pass.  If we've
-		 * seen this txnid before and added to it our commit list,
-		 * then we do nothing during this pass, unless this is a child
-		 * commit record, in which case we need to process it.  If
-		 * we've never seen it, then we call the appropriate recovery
-		 * routine.
-		 *
-		 * We need to always undo DB___db_noop records, so that we
-		 * properly handle any aborts before the file was closed.
+		 * Running full recovery in the backward pass. In general,
+		 * we only process records during this pass that belong
+		 * to aborted transactions.  Unfortunately, there are several
+		 * exceptions:
+		 * 1. If this is a meta-record, one not associated with
+		 *    a transaction, then we must always process it.
+		 * 2. If this is a transaction commit/abort, we must
+		 *    always process it, so that we know the status of
+		 *    every transaction.
+		 * 3. If this is a child commit, we need to process it
+		 *    because the outcome of the child transaction depends
+		 *    on the outcome of the parent.
+		 * 4. If this is a dbreg_register record, we must always
+		 *    process is because they contain non-transactional
+		 *    closes that must be properly handled.
+		 * 5. If this is a noop, we must always undo it so that we
+		 *    properly handle any aborts before a file was closed.
+		 * 6. If this a file remove, we need to process it to
+		 *    determine if the on-disk file is the same as the
+		 *    one being described.
 		 */
 		switch (rectype) {
+		/*
+		 * These either do not belong to a transaction or (regop)
+		 * must be processed regardless of the status of the
+		 * transaction.
+		 */
 		case DB___txn_regop:
 		case DB___txn_recycle:
 		case DB___txn_ckp:
-		case DB___db_noop:
-		case DB___fop_file_remove:
-		case DB___txn_child:
 			make_call = 1;
 			break;
-
+		/*
+		 * These belong to a transaction whose status must be
+		 * checked.
+		 */
+		case DB___txn_child:
+		case DB___db_noop:
+		case DB___fop_file_remove:
 		case DB___dbreg_register:
-			if (txnid == 0) {
-				make_call = 1;
-				break;
-			}
+			make_call = 1;
+
 			/* FALLTHROUGH */
 		default:
-			if (txnid != 0 && (ret =
-			    __db_txnlist_find(dbenv,
-			    info, txnid)) != TXN_COMMIT && ret != TXN_IGNORE) {
-				/*
-				 * If not found then, this is an incomplete
-				 * abort.
-				 */
-				if (ret == TXN_NOTFOUND)
-					return (__db_txnlist_add(dbenv,
-					    info, txnid, TXN_IGNORE, lsnp));
-				make_call = 1;
-				if (ret == TXN_OK &&
-				    (ret = __db_txnlist_update(dbenv,
-				    info, txnid,
-				    rectype == DB___txn_xa_regop ?
-				    TXN_PREPARE : TXN_ABORT, NULL)) != 0)
-					return (ret);
+			if (txnid == 0)
+				break;
+
+			ret = __db_txnlist_find(dbenv, info, txnid, &status);
+
+			/* If not found, this is an incomplete abort.  */
+			if (ret == DB_NOTFOUND)
+				return (__db_txnlist_add(dbenv,
+				    info, txnid, TXN_IGNORE, lsnp));
+			if (ret != 0)
+				return (ret);
+
+			/*
+			 * If we ignore the transaction, ignore the operation
+			 * UNLESS this is a child commit in which case we need
+			 * to make sure that the child also gets marked as
+			 * ignore.
+			 */
+			if (status == TXN_IGNORE && rectype != DB___txn_child) {
+				make_call = 0;
+				break;
 			}
+			if (status == TXN_COMMIT)
+				break;
+
+			/* Set make_call in case we came through default */
+			make_call = 1;
+			if (status == TXN_OK &&
+			    (ret = __db_txnlist_update(dbenv,
+			    info, txnid, rectype == DB___txn_xa_regop ?
+			    TXN_PREPARE : TXN_ABORT, NULL, &status, 0)) != 0)
+				return (ret);
 		}
 		break;
 	case DB_TXN_FORWARD_ROLL:
@@ -201,19 +221,35 @@ __db_dispatch(dbenv, dtab, dtabsize, db, lsnp, redo, info)
 		case DB___txn_recycle:
 		case DB___txn_ckp:
 		case DB___db_noop:
+		case DB___dbreg_register:
 			make_call = 1;
 			break;
 
 		default:
-			if (txnid != 0 && (ret = __db_txnlist_find(dbenv,
-			    info, txnid)) == TXN_COMMIT)
-				make_call = 1;
-			else if (ret != TXN_IGNORE &&
+			if (txnid == 0)
+				status = 0;
+			else {
+				ret = __db_txnlist_find(dbenv,
+				    info, txnid, &status);
+
+				if (ret == DB_NOTFOUND)
+					/* Break out out of if clause. */
+					;
+				else if (ret != 0)
+					return (ret);
+				else if (status == TXN_COMMIT) {
+					make_call = 1;
+					break;
+				}
+			}
+
+#ifndef HAVE_FTRUNCATE
+			if (status != TXN_IGNORE &&
 			    (rectype == DB___ham_metagroup ||
 			    rectype == DB___ham_groupalloc ||
 			    rectype == DB___db_pg_alloc)) {
 				/*
-				 * Because we cannot undo file extensions
+				 * Because we do not have truncate
 				 * all allocation records must be reprocessed
 				 * during rollforward in case the file was
 				 * just created.  It may not have been
@@ -221,59 +257,15 @@ __db_dispatch(dbenv, dtab, dtabsize, db, lsnp, redo, info)
 				 */
 				make_call = 1;
 				redo = DB_TXN_BACKWARD_ALLOC;
-			} else if (rectype == DB___dbreg_register) {
-				/*
-				 * This may be a transaction dbreg_register.
-				 * If it is, we only make the call on a COMMIT,
-				 * which we checked above. If it's not, then we
-				 * should always make the call, because we need
-				 * the file open information.
-				 */
-				if (txnid == 0)
-					make_call = 1;
 			}
+#endif
 		}
 		break;
-	case DB_TXN_GETPGNOS:
-		/*
-		 * If this is one of DB's own log records, we simply
-		 * dispatch.
-		 */
-		if (rectype < DB_user_BEGIN) {
-			make_call = 1;
-			break;
-		}
-
-		/*
-		 * If we're still here, this is a custom record in an
-		 * application that's doing app-specific logging.  Such a
-		 * record doesn't have a getpgno function for the user
-		 * dispatch function to call--the getpgnos functions return
-		 * which pages replication needs to lock using the TXN_RECS
-		 * structure, which is private and not something we want to
-		 * document.
-		 *
-		 * Thus, we leave any necessary locking for the app's
-		 * recovery function to do during the upcoming
-		 * DB_TXN_APPLY.  Fill in default getpgnos info (we need
-		 * a stub entry for every log record that will get
-		 * DB_TXN_APPLY'd) and return success.
-		 */
-		return (__db_default_getpgnos(dbenv, lsnp, info));
 	case DB_TXN_BACKWARD_ALLOC:
 	default:
 		return (__db_unknown_flag(
 		    dbenv, "__db_dispatch", (u_int32_t)redo));
 	}
-
-	/*
-	 * The switch statement uses ret to receive the return value of
-	 * __db_txnlist_find, which returns a large number of different
-	 * statuses, none of which we will be returning.  For safety,
-	 * let's reset this here in case we ever do a "return(ret)"
-	 * below in the future.
-	 */
-	ret = 0;
 
 	if (make_call) {
 		/*
@@ -304,7 +296,7 @@ __db_dispatch(dbenv, dtab, dtabsize, db, lsnp, redo, info)
 			 * as our sanity check.
 			 */
 			if (rectype > dtabsize || dtab[rectype] == NULL) {
-				__db_err(dbenv,
+				__db_errx(dbenv,
 				    "Illegal record type %lu in log",
 				    (u_long)rectype);
 				return (EINVAL);
@@ -354,14 +346,14 @@ __db_add_recovery(dbenv, dtab, dtabsize, func, ndx)
  *	Initialize transaction linked list.
  *
  * PUBLIC: int __db_txnlist_init __P((DB_ENV *,
- * PUBLIC:     u_int32_t, u_int32_t, DB_LSN *, void *));
+ * PUBLIC:     u_int32_t, u_int32_t, DB_LSN *, DB_TXNHEAD **));
  */
 int
 __db_txnlist_init(dbenv, low_txn, hi_txn, trunc_lsn, retp)
 	DB_ENV *dbenv;
 	u_int32_t low_txn, hi_txn;
 	DB_LSN *trunc_lsn;
-	void *retp;
+	DB_TXNHEAD **retp;
 {
 	DB_TXNHEAD *headp;
 	u_int32_t size, tmp;
@@ -417,46 +409,59 @@ __db_txnlist_init(dbenv, low_txn, hi_txn, trunc_lsn, retp)
 	}
 	ZERO_LSN(headp->ckplsn);
 
-	*(void **)retp = headp;
+	*retp = headp;
 	return (0);
 }
+
+#define	FIND_GENERATION(hp, txnid, gen) do {				\
+	u_int32_t __i;							\
+	for (__i = 0; __i <= (hp)->generation; __i++)			\
+		/* The range may wrap around the end. */		\
+		if ((hp)->gen_array[__i].txn_min <			\
+		    (hp)->gen_array[__i].txn_max ?			\
+		    ((txnid) >= (hp)->gen_array[__i].txn_min &&		\
+		    (txnid) <= (hp)->gen_array[__i].txn_max) :		\
+		    ((txnid) >= (hp)->gen_array[__i].txn_min ||		\
+		    (txnid) <= (hp)->gen_array[__i].txn_max))		\
+			break;						\
+	DB_ASSERT(dbenv, __i <= (hp)->generation);			\
+	gen = (hp)->gen_array[__i].generation;				\
+} while (0)
 
 /*
  * __db_txnlist_add --
  *	Add an element to our transaction linked list.
  *
  * PUBLIC: int __db_txnlist_add __P((DB_ENV *,
- * PUBLIC:     void *, u_int32_t, int32_t, DB_LSN *));
+ * PUBLIC:     DB_TXNHEAD *, u_int32_t, u_int32_t, DB_LSN *));
  */
 int
-__db_txnlist_add(dbenv, listp, txnid, status, lsn)
+__db_txnlist_add(dbenv, hp, txnid, status, lsn)
 	DB_ENV *dbenv;
-	void *listp;
-	u_int32_t txnid;
-	int32_t status;
+	DB_TXNHEAD *hp;
+	u_int32_t txnid, status;
 	DB_LSN *lsn;
 {
-	DB_TXNHEAD *hp;
 	DB_TXNLIST *elp;
 	int ret;
 
 	if ((ret = __os_malloc(dbenv, sizeof(DB_TXNLIST), &elp)) != 0)
 		return (ret);
 
-	hp = (DB_TXNHEAD *)listp;
 	LIST_INSERT_HEAD(&hp->head[DB_TXNLIST_MASK(hp, txnid)], elp, links);
 
+	/* Find the most recent generation containing this ID */
+	FIND_GENERATION(hp, txnid, elp->u.t.generation);
 	elp->type = TXNLIST_TXNID;
 	elp->u.t.txnid = txnid;
 	elp->u.t.status = status;
-	elp->u.t.generation = hp->generation;
 	if (txnid > hp->maxid)
 		hp->maxid = txnid;
 	if (lsn != NULL && IS_ZERO_LSN(hp->maxlsn) && status == TXN_COMMIT)
 		hp->maxlsn = *lsn;
 
-	DB_ASSERT(lsn == NULL ||
-	    status != TXN_COMMIT || log_compare(&hp->maxlsn, lsn) >= 0);
+	DB_ASSERT(dbenv, lsn == NULL ||
+	    status != TXN_COMMIT || LOG_COMPARE(&hp->maxlsn, lsn) >= 0);
 
 	return (0);
 }
@@ -465,19 +470,19 @@ __db_txnlist_add(dbenv, listp, txnid, status, lsn)
  * __db_txnlist_remove --
  *	Remove an element from our transaction linked list.
  *
- * PUBLIC: int __db_txnlist_remove __P((DB_ENV *, void *, u_int32_t));
+ * PUBLIC: int __db_txnlist_remove __P((DB_ENV *, DB_TXNHEAD *, u_int32_t));
  */
 int
-__db_txnlist_remove(dbenv, listp, txnid)
+__db_txnlist_remove(dbenv, hp, txnid)
 	DB_ENV *dbenv;
-	void *listp;
+	DB_TXNHEAD *hp;
 	u_int32_t txnid;
 {
 	DB_TXNLIST *entry;
+	u_int32_t status;
 
 	return (__db_txnlist_find_internal(dbenv,
-	    listp, TXNLIST_TXNID, txnid,
-	    NULL, &entry, 1) == TXN_NOTFOUND ? TXN_NOTFOUND : TXN_OK);
+	    hp, TXNLIST_TXNID, txnid, NULL, &entry, 1, &status));
 }
 
 /*
@@ -488,22 +493,19 @@ __db_txnlist_remove(dbenv, listp, txnid)
  * recovery, we are going to virtually truncate the log and we need
  * to retain the last checkpoint before the truncation point.
  *
- * PUBLIC: void __db_txnlist_ckp __P((DB_ENV *, void *, DB_LSN *));
+ * PUBLIC: void __db_txnlist_ckp __P((DB_ENV *, DB_TXNHEAD *, DB_LSN *));
  */
 void
-__db_txnlist_ckp(dbenv, listp, ckp_lsn)
+__db_txnlist_ckp(dbenv, hp, ckp_lsn)
 	DB_ENV *dbenv;
-	void *listp;
+	DB_TXNHEAD *hp;
 	DB_LSN *ckp_lsn;
 {
-	DB_TXNHEAD *hp;
 
 	COMPQUIET(dbenv, NULL);
 
-	hp = (DB_TXNHEAD *)listp;
-
 	if (IS_ZERO_LSN(hp->ckplsn) && !IS_ZERO_LSN(hp->maxlsn) &&
-	    log_compare(&hp->maxlsn, ckp_lsn) >= 0)
+	    LOG_COMPARE(&hp->maxlsn, ckp_lsn) >= 0)
 		hp->ckplsn = *ckp_lsn;
 }
 
@@ -511,26 +513,24 @@ __db_txnlist_ckp(dbenv, listp, ckp_lsn)
  * __db_txnlist_end --
  *	Discard transaction linked list.
  *
- * PUBLIC: void __db_txnlist_end __P((DB_ENV *, void *));
+ * PUBLIC: void __db_txnlist_end __P((DB_ENV *, DB_TXNHEAD *));
  */
 void
-__db_txnlist_end(dbenv, listp)
+__db_txnlist_end(dbenv, hp)
 	DB_ENV *dbenv;
-	void *listp;
-{
 	DB_TXNHEAD *hp;
-	DB_TXNLIST *p;
+{
 	u_int32_t i;
+	DB_TXNLIST *p;
 
-	if ((hp = (DB_TXNHEAD *)listp) == NULL)
+	if (hp == NULL)
 		return;
 
 	for (i = 0; i < hp->nslots; i++)
 		while (hp != NULL && (p = LIST_FIRST(&hp->head[i])) != NULL) {
-			LIST_REMOVE(p, links);
 			switch (p->type) {
 			case TXNLIST_LSN:
-				__os_free(dbenv, p->u.l.lsn_array);
+				__os_free(dbenv, p->u.l.lsn_stack);
 				break;
 			case TXNLIST_DELETE:
 			case TXNLIST_PGNO:
@@ -542,66 +542,77 @@ __db_txnlist_end(dbenv, listp)
 				 */
 				break;
 			}
+			LIST_REMOVE(p, links);
 			__os_free(dbenv, p);
 		}
 
 	if (hp->gen_array != NULL)
 		__os_free(dbenv, hp->gen_array);
-	__os_free(dbenv, listp);
+	__os_free(dbenv, hp);
 }
 
 /*
  * __db_txnlist_find --
  *	Checks to see if a txnid with the current generation is in the
- *	txnid list.  This returns TXN_NOTFOUND if the item isn't in the
+ *	txnid list.  This returns DB_NOTFOUND if the item isn't in the
  *	list otherwise it returns (like __db_txnlist_find_internal)
  *	the status of the transaction.  A txnid of 0 means the record
  *	was generated while not in a transaction.
  *
- * PUBLIC: int __db_txnlist_find __P((DB_ENV *, void *, u_int32_t));
+ * PUBLIC: int __db_txnlist_find __P((DB_ENV *,
+ * PUBLIC:     DB_TXNHEAD *, u_int32_t, u_int32_t *));
  */
 int
-__db_txnlist_find(dbenv, listp, txnid)
+__db_txnlist_find(dbenv, hp, txnid, statusp)
 	DB_ENV *dbenv;
-	void *listp;
-	u_int32_t txnid;
+	DB_TXNHEAD *hp;
+	u_int32_t txnid, *statusp;
 {
 	DB_TXNLIST *entry;
 
 	if (txnid == 0)
-		return (TXN_NOTFOUND);
-	return (__db_txnlist_find_internal(dbenv, listp,
-	    TXNLIST_TXNID, txnid, NULL, &entry, 0));
+		return (DB_NOTFOUND);
+
+	return (__db_txnlist_find_internal(dbenv, hp,
+	    TXNLIST_TXNID, txnid, NULL, &entry, 0, statusp));
 }
 
 /*
  * __db_txnlist_update --
  *	Change the status of an existing transaction entry.
- *	Returns TXN_NOTFOUND if no such entry exists.
+ *	Returns DB_NOTFOUND if no such entry exists.
  *
- * PUBLIC: int __db_txnlist_update __P((DB_ENV *,
- * PUBLIC:     void *, u_int32_t, int32_t, DB_LSN *));
+ * PUBLIC: int __db_txnlist_update __P((DB_ENV *, DB_TXNHEAD *,
+ * PUBLIC:     u_int32_t, u_int32_t, DB_LSN *, u_int32_t *, int));
  */
 int
-__db_txnlist_update(dbenv, listp, txnid, status, lsn)
+__db_txnlist_update(dbenv, hp, txnid, status, lsn, ret_status, add_ok)
 	DB_ENV *dbenv;
-	void *listp;
-	u_int32_t txnid;
-	int32_t status;
-	DB_LSN *lsn;
-{
 	DB_TXNHEAD *hp;
+	u_int32_t txnid, status;
+	DB_LSN *lsn;
+	u_int32_t *ret_status;
+	int add_ok;
+{
 	DB_TXNLIST *elp;
 	int ret;
 
 	if (txnid == 0)
-		return (TXN_NOTFOUND);
-	hp = (DB_TXNHEAD *)listp;
-	ret = __db_txnlist_find_internal(dbenv,
-	    listp, TXNLIST_TXNID, txnid, NULL, &elp, 0);
+		return (DB_NOTFOUND);
 
-	if (ret == TXN_NOTFOUND || ret == TXN_IGNORE)
+	ret = __db_txnlist_find_internal(dbenv,
+	    hp, TXNLIST_TXNID, txnid, NULL, &elp, 0, ret_status);
+
+	if (ret == DB_NOTFOUND && add_ok) {
+		*ret_status = status;
+		return (__db_txnlist_add(dbenv, hp, txnid, status, lsn));
+	}
+	if (ret != 0)
 		return (ret);
+
+	if (*ret_status == TXN_IGNORE)
+		return (0);
+
 	elp->u.t.status = status;
 
 	if (lsn != NULL && IS_ZERO_LSN(hp->maxlsn) && status == TXN_COMMIT)
@@ -613,44 +624,36 @@ __db_txnlist_update(dbenv, listp, txnid, status, lsn)
 /*
  * __db_txnlist_find_internal --
  *	Find an entry on the transaction list.  If the entry is not there or
- *	the list pointer is not initialized we return TXN_NOTFOUND.  If the
+ *	the list pointer is not initialized we return DB_NOTFOUND.  If the
  *	item is found, we return the status.  Currently we always call this
  *	with an initialized list pointer but checking for NULL keeps it general.
  */
 static int
-__db_txnlist_find_internal(dbenv, listp, type, txnid, uid, txnlistp, delete)
+__db_txnlist_find_internal(dbenv,
+    hp, type, txnid, uid, txnlistp, delete, statusp)
 	DB_ENV *dbenv;
-	void *listp;
+	DB_TXNHEAD *hp;
 	db_txnlist_type type;
 	u_int32_t  txnid;
 	u_int8_t uid[DB_FILE_ID_LEN];
 	DB_TXNLIST **txnlistp;
 	int delete;
+	u_int32_t *statusp;
 {
 	struct __db_headlink *head;
-	DB_TXNHEAD *hp;
 	DB_TXNLIST *p;
-	u_int32_t generation, hash, i;
+	u_int32_t generation, hash;
 	int ret;
 
-	if ((hp = (DB_TXNHEAD *)listp) == NULL)
-		return (TXN_NOTFOUND);
+	ret = 0;
+
+	if (hp == NULL)
+		return (DB_NOTFOUND);
 
 	switch (type) {
 	case TXNLIST_TXNID:
 		hash = txnid;
-		/* Find the most recent generation containing this ID */
-		for (i = 0; i <= hp->generation; i++)
-			/* The range may wrap around the end. */
-			if (hp->gen_array[i].txn_min <
-			    hp->gen_array[i].txn_max ?
-			    (txnid >= hp->gen_array[i].txn_min &&
-			    txnid <= hp->gen_array[i].txn_max) :
-			    (txnid >= hp->gen_array[i].txn_min ||
-			    txnid <= hp->gen_array[i].txn_max))
-				break;
-		DB_ASSERT(i <= hp->generation);
-		generation = hp->gen_array[i].generation;
+		FIND_GENERATION(hp, txnid, generation);
 		break;
 	case TXNLIST_PGNO:
 		memcpy(&hash, uid, sizeof(hash));
@@ -659,13 +662,11 @@ __db_txnlist_find_internal(dbenv, listp, type, txnid, uid, txnlistp, delete)
 	case TXNLIST_DELETE:
 	case TXNLIST_LSN:
 	default:
-		DB_ASSERT(0);
-		return (EINVAL);
+		return (__db_panic(dbenv, EINVAL));
 	}
 
 	head = &hp->head[DB_TXNLIST_MASK(hp, hash)];
-
-	for (p = LIST_FIRST(head); p != NULL; p = LIST_NEXT(p, links)) {
+	LIST_FOREACH(p, head, links) {
 		if (p->type != type)
 			continue;
 		switch (type) {
@@ -673,34 +674,34 @@ __db_txnlist_find_internal(dbenv, listp, type, txnid, uid, txnlistp, delete)
 			if (p->u.t.txnid != txnid ||
 			    generation != p->u.t.generation)
 				continue;
-			ret = p->u.t.status;
+			*statusp = p->u.t.status;
 			break;
 
 		case TXNLIST_PGNO:
 			if (memcmp(uid, p->u.p.uid, DB_FILE_ID_LEN) != 0)
 				continue;
-
-			ret = 0;
+			*statusp = TXN_OK;
 			break;
 		case TXNLIST_DELETE:
 		case TXNLIST_LSN:
 		default:
-			DB_ASSERT(0);
-			ret = EINVAL;
+			return (__db_panic(dbenv, EINVAL));
 		}
 		if (delete == 1) {
 			LIST_REMOVE(p, links);
 			__os_free(dbenv, p);
+			*txnlistp = NULL;
 		} else if (p != LIST_FIRST(head)) {
 			/* Move it to head of list. */
 			LIST_REMOVE(p, links);
 			LIST_INSERT_HEAD(head, p, links);
-		}
-		*txnlistp = p;
+			*txnlistp = p;
+		} else
+			*txnlistp = p;
 		return (ret);
 	}
 
-	return (TXN_NOTFOUND);
+	return (DB_NOTFOUND);
 }
 
 /*
@@ -708,16 +709,15 @@ __db_txnlist_find_internal(dbenv, listp, type, txnid, uid, txnlistp, delete)
  *	Change the current generation number.
  *
  * PUBLIC: int __db_txnlist_gen __P((DB_ENV *,
- * PUBLIC:       void *, int, u_int32_t, u_int32_t));
+ * PUBLIC:       DB_TXNHEAD *, int, u_int32_t, u_int32_t));
  */
 int
-__db_txnlist_gen(dbenv, listp, incr, min, max)
+__db_txnlist_gen(dbenv, hp, incr, min, max)
 	DB_ENV *dbenv;
-	void *listp;
+	DB_TXNHEAD *hp;
 	int incr;
 	u_int32_t min, max;
 {
-	DB_TXNHEAD *hp;
 	int ret;
 
 	/*
@@ -726,13 +726,12 @@ __db_txnlist_gen(dbenv, listp, incr, min, max)
 	 * whenever we take a checkpoint and there are no outstanding
 	 * transactions.  When that happens, we can reset transaction IDs
 	 * back to TXNID_MINIMUM.  Currently we only do the reset
-	 * at then end of recovery.  Recycle records occrur when txnids
+	 * at then end of recovery.  Recycle records occur when txnids
 	 * are exhausted during runtime.  A free range of ids is identified
 	 * and logged.  This code maintains a stack of ranges.  A txnid
 	 * is given the generation number of the first range it falls into
 	 * in the stack.
 	 */
-	hp = (DB_TXNHEAD *)listp;
 	if (incr < 0) {
 		--hp->generation;
 		memmove(hp->gen_array, &hp->gen_array[1],
@@ -754,71 +753,76 @@ __db_txnlist_gen(dbenv, listp, incr, min, max)
 	return (0);
 }
 
-#define	TXN_BUBBLE(AP, MAX) {						\
-	DB_LSN __tmp;							\
-	u_int32_t __j;							\
-									\
-	for (__j = 0; __j < MAX - 1; __j++)				\
-		if (log_compare(&AP[__j], &AP[__j + 1]) < 0) {		\
-			__tmp = AP[__j];				\
-			AP[__j] = AP[__j + 1];				\
-			AP[__j + 1] = __tmp;				\
-		}							\
-}
-
 /*
  * __db_txnlist_lsnadd --
- *	Add to or re-sort the transaction list lsn entry.  Note that since this
- *	is used during an abort, the __txn_undo code calls into the "recovery"
- *	subsystem explicitly, and there is only a single TXNLIST_LSN entry on
- *	the list.
+ *	Save the prev_lsn from a txn_child record.
  *
- * PUBLIC: int __db_txnlist_lsnadd __P((DB_ENV *, void *, DB_LSN *, u_int32_t));
+ * PUBLIC: int __db_txnlist_lsnadd __P((DB_ENV *, DB_TXNHEAD *, DB_LSN *));
  */
 int
-__db_txnlist_lsnadd(dbenv, listp, lsnp, flags)
+__db_txnlist_lsnadd(dbenv, hp, lsnp)
 	DB_ENV *dbenv;
-	void *listp;
-	DB_LSN *lsnp;
-	u_int32_t flags;
-{
 	DB_TXNHEAD *hp;
+	DB_LSN *lsnp;
+{
 	DB_TXNLIST *elp;
-	u_int32_t i;
 	int ret;
 
-	hp = (DB_TXNHEAD *)listp;
+	if (IS_ZERO_LSN(*lsnp))
+		return (0);
 
-	for (elp = LIST_FIRST(&hp->head[0]);
-	    elp != NULL; elp = LIST_NEXT(elp, links))
+	LIST_FOREACH(elp, &hp->head[0], links)
 		if (elp->type == TXNLIST_LSN)
 			break;
 
-	if (elp == NULL)
+	if (elp == NULL) {
+		if ((ret = __db_txnlist_lsninit(dbenv, hp, lsnp)) != 0)
+			return (ret);
 		return (DB_SURPRISE_KID);
+	}
 
-	if (LF_ISSET(TXNLIST_NEW)) {
-		if (elp->u.l.ntxns >= elp->u.l.maxn) {
-			if ((ret = __os_realloc(dbenv,
-			    2 * elp->u.l.maxn * sizeof(DB_LSN),
-			    &elp->u.l.lsn_array)) != 0)
-				return (ret);
-			elp->u.l.maxn *= 2;
+	if (elp->u.l.stack_indx == elp->u.l.stack_size) {
+		elp->u.l.stack_size <<= 1;
+		if ((ret = __os_realloc(dbenv, sizeof(DB_LSN) *
+		     elp->u.l.stack_size, &elp->u.l.lsn_stack)) != 0) {
+			__db_txnlist_end(dbenv, hp);
+			return (ret);
 		}
-		elp->u.l.lsn_array[elp->u.l.ntxns++] = *lsnp;
-	} else
-		/* Simply replace the 0th element. */
-		elp->u.l.lsn_array[0] = *lsnp;
+	}
+	elp->u.l.lsn_stack[elp->u.l.stack_indx++] = *lsnp;
 
-	/*
-	 * If we just added a new entry and there may be NULL entries, so we
-	 * have to do a complete bubble sort, not just trickle a changed entry
-	 * around.
-	 */
-	for (i = 0; i < (!LF_ISSET(TXNLIST_NEW) ? 1 : elp->u.l.ntxns); i++)
-		TXN_BUBBLE(elp->u.l.lsn_array, elp->u.l.ntxns);
+	return (0);
+}
 
-	*lsnp = elp->u.l.lsn_array[0];
+/*
+ * __db_txnlist_lsnget --
+ *
+ * PUBLIC: int __db_txnlist_lsnget __P((DB_ENV *,
+ * PUBLIC:     DB_TXNHEAD *, DB_LSN *, u_int32_t));
+ *	Get the lsn saved from a txn_child record.
+ */
+int
+__db_txnlist_lsnget(dbenv, hp, lsnp, flags)
+	DB_ENV *dbenv;
+	DB_TXNHEAD *hp;
+	DB_LSN *lsnp;
+	u_int32_t flags;
+{
+	DB_TXNLIST *elp;
+
+	COMPQUIET(dbenv, NULL);
+	COMPQUIET(flags, 0);
+
+	LIST_FOREACH(elp, &hp->head[0], links)
+		if (elp->type == TXNLIST_LSN)
+			break;
+
+	if (elp == NULL || elp->u.l.stack_indx == 0) {
+		ZERO_LSN(*lsnp);
+		return (0);
+	}
+
+	*lsnp = elp->u.l.lsn_stack[--elp->u.l.stack_indx];
 
 	return (0);
 }
@@ -844,13 +848,13 @@ __db_txnlist_lsninit(dbenv, hp, lsnp)
 		goto err;
 	LIST_INSERT_HEAD(&hp->head[0], elp, links);
 
-	if ((ret = __os_malloc(dbenv,
-	    12 * sizeof(DB_LSN), &elp->u.l.lsn_array)) != 0)
-		goto err;
 	elp->type = TXNLIST_LSN;
-	elp->u.l.maxn = 12;
-	elp->u.l.ntxns = 1;
-	elp->u.l.lsn_array[0] = *lsnp;
+	if ((ret = __os_malloc(dbenv,
+	    sizeof(DB_LSN) * DB_LSN_STACK_SIZE, &elp->u.l.lsn_stack)) != 0)
+		goto err;
+	elp->u.l.stack_indx = 1;
+	elp->u.l.stack_size = DB_LSN_STACK_SIZE;
+	elp->u.l.lsn_stack[0] = *lsnp;
 
 	return (0);
 
@@ -863,15 +867,15 @@ err:	__db_txnlist_end(dbenv, hp);
  *	Get the file information and call pgnoadd for each page.
  *
  * PUBLIC: int __db_add_limbo __P((DB_ENV *,
- * PUBLIC:      void *, int32_t, db_pgno_t, int32_t));
+ * PUBLIC:      DB_TXNHEAD *, int32_t, db_pgno_t, u_int32_t));
  */
 int
-__db_add_limbo(dbenv, info, fileid, pgno, count)
+__db_add_limbo(dbenv, hp, fileid, pgno, count)
 	DB_ENV *dbenv;
-	void *info;
+	DB_TXNHEAD *hp;
 	int32_t fileid;
 	db_pgno_t pgno;
-	int32_t count;
+	u_int32_t count;
 {
 	DB_LOG *dblp;
 	FNAME *fnp;
@@ -883,7 +887,7 @@ __db_add_limbo(dbenv, info, fileid, pgno, count)
 
 	do {
 		if ((ret =
-		    __db_txnlist_pgnoadd(dbenv, info, fileid, fnp->ufid,
+		    __db_txnlist_pgnoadd(dbenv, hp, fileid, fnp->ufid,
 		    R_ADDR(&dblp->reginfo, fnp->name_off), pgno)) != 0)
 			return (ret);
 		pgno++;
@@ -904,7 +908,7 @@ __db_add_limbo(dbenv, info, fileid, pgno, count)
  * the specific modifications to the free list.
  *
  * If we run out of log space during an abort, then we can't write the
- * compensating transaction, so we abandon the idea of a compenating
+ * compensating transaction, so we abandon the idea of a compensating
  * transaction, and go back to processing how we do during recovery.
  * The reason that this is not the norm is that it's expensive: it requires
  * that we flush any database with an in-question allocation.  Thus if
@@ -957,7 +961,7 @@ __db_do_the_limbo(dbenv, ptxn, txn, hp, state)
 	}
 
 err:	if (ret != 0) {
-		__db_err(dbenv, "Fatal error in abort of an allocation");
+		__db_errx(dbenv, "Fatal error in abort of an allocation");
 		ret = __db_panic(dbenv, ret);
 	}
 
@@ -993,11 +997,11 @@ __db_lock_move(dbenv, fileid, pgno, mode, ptxn, txn)
 	lock_dbt.size = sizeof(lock_obj);
 
 	if ((ret = __lock_get(dbenv,
-	    txn->txnid, 0, &lock_dbt, mode, &lock)) == 0) {
+	    txn->locker, 0, &lock_dbt, mode, &lock)) == 0) {
 		memset(&req, 0, sizeof(req));
 		req.lock = lock;
 		req.op = DB_LOCK_TRADE;
-		ret = __lock_vec(dbenv, ptxn->txnid, 0, &req, 1, NULL);
+		ret = __lock_vec(dbenv, ptxn->locker, 0, &req, 1, NULL);
 	}
 	return (ret);
 }
@@ -1044,6 +1048,7 @@ __db_limbo_bucket(dbenv, txn, elp, state)
 	DB_MPOOLFILE *mpf;
 	DBMETA *meta;
 	DB_TXN *ctxn, *t;
+	FNAME *fname;
 	db_pgno_t last_pgno, pgno;
 	int dbp_created, in_retry, ret, t_ret;
 
@@ -1078,6 +1083,18 @@ retry:		dbp_created = 0;
 		ret = __dbreg_id_to_db(dbenv, t, &dbp, elp->u.p.fileid, 0);
 
 		/*
+		 * If the file was closed and reopened its id could change.
+		 * Look it up the hard way.
+		 */
+		if (ret == DB_DELETED || ret == ENOENT ||
+		    ((ret == 0 &&
+		    memcmp(elp->u.p.uid, dbp->fileid, DB_FILE_ID_LEN) != 0))) {
+			if ((ret = __dbreg_fid_to_fname(
+			    dbenv->lg_handle, elp->u.p.uid, 0, &fname)) == 0)
+				ret = __dbreg_id_to_db(
+				     dbenv, t, &dbp, fname->id, 0);
+		}
+		/*
 		 * File is being destroyed.  No need to worry about
 		 * dealing with recovery of allocations.
 		 */
@@ -1086,7 +1103,7 @@ retry:		dbp_created = 0;
 			goto next;
 
 		if (ret != 0) {
-			if ((ret = db_create(&dbp, dbenv, 0)) != 0)
+			if ((ret = __db_create_internal(&dbp, dbenv, 0)) != 0)
 				goto err;
 
 			/*
@@ -1097,9 +1114,9 @@ retry:		dbp_created = 0;
 			dbp_created = 1;
 
 			/* It is ok if the file is nolonger there. */
-			ret = __db_open(dbp,
-			    t, elp->u.p.fname, NULL, DB_UNKNOWN,
-			    DB_ODDFILESIZE, __db_omode("rw----"), PGNO_BASE_MD);
+			ret = __db_open(dbp, t, elp->u.p.fname, NULL,
+			    DB_UNKNOWN, DB_ODDFILESIZE, __db_omode(OWNER_RW),
+			    PGNO_BASE_MD);
 			if (ret == ENOENT)
 				goto next;
 		}
@@ -1114,9 +1131,12 @@ retry:		dbp_created = 0;
 		mpf = dbp->mpf;
 		last_pgno = PGNO_INVALID;
 
-		if (ctxn == NULL || state == LIMBO_COMPENSATE) {
+		if (meta == NULL &&
+		    (ctxn == NULL || state == LIMBO_COMPENSATE)) {
 			pgno = PGNO_BASE_MD;
-			if ((ret = __memp_fget(mpf, &pgno, 0, &meta)) != 0)
+			if ((ret = __memp_fget(mpf, &pgno, txn,
+			    (state != LIMBO_PREPARE) ? DB_MPOOL_DIRTY : 0,
+			    &meta)) != 0)
 				goto err;
 			last_pgno = meta->free;
 		}
@@ -1138,6 +1158,9 @@ retry:		dbp_created = 0;
 			if (ret == DB_RUNRECOVERY || ctxn == NULL)
 				goto err;
 			in_retry = 1;
+			if ((ret = __txn_abort(ctxn)) != 0)
+				goto err;
+			ctxn = NULL;
 			goto retry;
 		}
 
@@ -1151,13 +1174,11 @@ retry:		dbp_created = 0;
 			 * off the recovery flag briefly.
 			 */
 			if (state == LIMBO_COMPENSATE)
-				F_CLR(
-				    (DB_LOG *)dbenv->lg_handle, DBLOG_RECOVER);
+				F_CLR(dbenv->lg_handle, DBLOG_RECOVER);
 			ret = __txn_commit(ctxn, DB_TXN_NOSYNC);
 			ctxn = NULL;
 			if (state == LIMBO_COMPENSATE)
-				F_SET(
-				    (DB_LOG *)dbenv->lg_handle, DBLOG_RECOVER);
+				F_SET(dbenv->lg_handle, DBLOG_RECOVER);
 			if (ret != 0)
 				goto retry;
 		}
@@ -1170,7 +1191,8 @@ retry:		dbp_created = 0;
 		 */
 		else if (last_pgno == meta->free) {
 			/* No change to page; just put the page back. */
-			if ((ret = __memp_fput(mpf, meta, 0)) != 0)
+			if ((ret =
+			    __memp_fput(mpf, meta, DB_PRIORITY_UNCHANGED)) != 0)
 				goto err;
 			meta = NULL;
 		} else {
@@ -1182,19 +1204,37 @@ retry:		dbp_created = 0;
 			 * first so that it isn't pinned when we try to sync.
 			 */
 			if (!IS_RECOVERING(dbenv) && !T_RESTORED(txn))
-				__db_err(dbenv, "Flushing free list to disk");
-			if ((ret = __memp_fput(mpf, meta, 0)) != 0)
+				__db_errx(dbenv, "Flushing free list to disk");
+			if ((ret =
+			    __memp_fput(mpf, meta, DB_PRIORITY_UNCHANGED)) != 0)
 				goto err;
 			meta = NULL;
-			if ((ret = __db_sync(dbp)) != 0)
-				goto err;
-			pgno = PGNO_BASE_MD;
-			if ((ret = __memp_fget(mpf, &pgno, 0, &meta)) != 0)
-				goto err;
-			meta->free = last_pgno;
-			if ((ret = __memp_fput(mpf, meta, DB_MPOOL_DIRTY)) != 0)
-				goto err;
-			meta = NULL;
+			/*
+			 * If the sync fails then we cannot flush the
+			 * newly allocated pages.  That is, the file
+			 * cannot be extended. Don't let the metapage
+			 * point at them.
+			 * We may lose these pages from the file if it
+			 * can be extended later.  If there is never
+			 * space for the pages, then things will be ok.
+			 */
+			if ((ret = __db_sync(dbp)) == 0) {
+				pgno = PGNO_BASE_MD;
+				if ((ret = __memp_fget(mpf, &pgno, txn,
+				    DB_MPOOL_DIRTY, &meta)) != 0)
+					goto err;
+				meta->free = last_pgno;
+				if ((ret = __memp_fput(mpf,
+				    meta, DB_PRIORITY_UNCHANGED)) != 0)
+					goto err;
+				meta = NULL;
+			} else {
+				__db_err(dbenv, ret, "%s", dbp->fname);
+				__db_errx(dbenv, "%s: %s %s", dbp->fname,
+				    "allocation flush failed, some free pages",
+				    "may not appear in the free list");
+				ret = 0;
+			}
 		}
 
 next:
@@ -1221,7 +1261,7 @@ next:
 	}
 
 err:	if (meta != NULL)
-		(void)__memp_fput(mpf, meta, 0);
+		(void)__memp_fput(mpf, meta, DB_PRIORITY_UNCHANGED);
 	return (ret);
 }
 
@@ -1245,7 +1285,7 @@ __db_limbo_fix(dbp, ctxn, elp, lastp, meta, state)
 	PAGE *freep, *pagep;
 	db_pgno_t next, pgno;
 	u_int32_t i;
-	int put_page, ret, t_ret;
+	int ret, t_ret;
 
 	/*
 	 * Loop through the entries for this txnlist element and
@@ -1255,7 +1295,7 @@ __db_limbo_fix(dbp, ctxn, elp, lastp, meta, state)
 	dbc = NULL;
 	mpf = dbp->mpf;
 	pagep = NULL;
-	put_page = ret = 0;
+	ret = 0;
 
 	for (i = 0; i < elp->u.p.nentries; i++) {
 		pgno = elp->u.p.pgno_array[i];
@@ -1263,13 +1303,12 @@ __db_limbo_fix(dbp, ctxn, elp, lastp, meta, state)
 		if (pgno == PGNO_INVALID)
 			continue;
 
-		if ((ret =
-		    __memp_fget(mpf, &pgno, DB_MPOOL_CREATE, &pagep)) != 0) {
+		if ((ret = __memp_fget(mpf, &pgno, ctxn,
+		    DB_MPOOL_CREATE | DB_MPOOL_EDIT, &pagep)) != 0) {
 			if (ret != ENOSPC)
 				goto err;
 			continue;
 		}
-		put_page = 1;
 
 		if (state == LIMBO_COMPENSATE || IS_ZERO_LSN(LSN(pagep))) {
 			if (ctxn == NULL) {
@@ -1282,11 +1321,11 @@ __db_limbo_fix(dbp, ctxn, elp, lastp, meta, state)
 					if (next == pgno)
 						break;
 					if ((ret = __memp_fget(mpf,
-					    &next, 0, &freep)) != 0)
+					    &next, ctxn, 0, &freep)) != 0)
 						goto err;
 					next = NEXT_PGNO(freep);
-					if ((ret =
-					    __memp_fput(mpf, freep, 0)) != 0)
+					if ((ret = __memp_fput(mpf,
+					    freep, DB_PRIORITY_UNCHANGED)) != 0)
 						goto err;
 				}
 
@@ -1299,9 +1338,9 @@ __db_limbo_fix(dbp, ctxn, elp, lastp, meta, state)
 				}
 			} else if (state == LIMBO_COMPENSATE) {
 				/*
-				 * Generate a log record for what we did
-				 * on the LIMBO_TIMESTAMP pass.  All pages
-				 * here are free so P_OVERHEAD is sufficent.
+				 * Generate a log record for what we did on the
+				 * LIMBO_TIMESTAMP pass.  All pages here are
+				 * free so P_OVERHEAD is sufficient.
 				 */
 				ZERO_LSN(pagep->lsn);
 				memset(&ldbt, 0, sizeof(ldbt));
@@ -1322,9 +1361,19 @@ __db_limbo_fix(dbp, ctxn, elp, lastp, meta, state)
 				 * marked compensating, but in case we didn't
 				 * do the open, we have to mark it explicitly.
 				 */
-				F_SET(dbc, DBC_COMPENSATE);
+				F_SET(dbc, DBC_DONTLOCK);
+
+				/*
+				 * If aborting a txn for a different process
+				 * via XA or failchk, DB_AM_RECOVER will be
+				 * set but we need to log the compensating
+				 * transactions.
+				 */
+				F_CLR(dbc, DBC_RECOVER);
+
 				ret = __db_free(dbc, pagep);
-				put_page = 0;
+				pagep = NULL;
+
 				/*
 				 * On any error, we hope that the error was
 				 * caused due to running out of space, and we
@@ -1336,7 +1385,7 @@ __db_limbo_fix(dbp, ctxn, elp, lastp, meta, state)
 				 */
 				if (ret != 0) {
 					/* Assume that this is out of space. */
-					(void)__db_c_close(dbc);
+					(void)__dbc_close(dbc);
 					dbc = NULL;
 					goto err;
 				}
@@ -1345,18 +1394,19 @@ __db_limbo_fix(dbp, ctxn, elp, lastp, meta, state)
 		else
 			elp->u.p.pgno_array[i] = PGNO_INVALID;
 
-		if (put_page == 1) {
-			ret = __memp_fput(mpf, pagep, DB_MPOOL_DIRTY);
-			put_page = 0;
+		if (pagep != NULL) {
+			ret = __memp_fput(mpf, pagep, DB_PRIORITY_UNCHANGED);
+			pagep = NULL;
 		}
 		if (ret != 0)
 			goto err;
 	}
 
-err:	if (put_page &&
-	    (t_ret = __memp_fput(mpf, pagep, DB_MPOOL_DIRTY)) != 0 && ret == 0)
+err:	if (pagep != NULL &&
+	    (t_ret = __memp_fput(mpf, pagep, DB_PRIORITY_UNCHANGED)) != 0 &&
+	    ret == 0)
 		ret = t_ret;
-	if (dbc != NULL && (t_ret = __db_c_close(dbc)) != 0 && ret == 0)
+	if (dbc != NULL && (t_ret = __dbc_close(dbc)) != 0 && ret == 0)
 		ret = t_ret;
 	return (ret);
 }
@@ -1385,8 +1435,8 @@ __db_limbo_prepare(dbp, txn, elp)
 	for (i = 0; i < elp->u.p.nentries; i++) {
 		pgno = elp->u.p.pgno_array[i];
 
-		if ((ret =
-		    __memp_fget(mpf, &pgno, DB_MPOOL_CREATE, &pagep)) != 0) {
+		if ((ret = __memp_fget(mpf,
+		    &pgno, txn, DB_MPOOL_CREATE, &pagep)) != 0) {
 			if (ret != ENOSPC)
 				return (ret);
 			continue;
@@ -1395,7 +1445,8 @@ __db_limbo_prepare(dbp, txn, elp)
 		if (IS_ZERO_LSN(LSN(pagep)))
 			ret = __db_pg_prepare_log(dbp, txn, &lsn, 0, pgno);
 
-		if ((t_ret = __memp_fput(mpf, pagep, 0)) != 0 && ret == 0)
+		if ((t_ret = __memp_fput(mpf,
+		    pagep, DB_PRIORITY_UNCHANGED)) != 0 && ret == 0)
 			ret = t_ret;
 
 		if (ret != 0)
@@ -1423,20 +1474,22 @@ __db_txnlist_pgnoadd(dbenv, hp, fileid, uid, fname, pgno)
 {
 	DB_TXNLIST *elp;
 	size_t len;
-	u_int32_t hash;
+	u_int32_t hash, status;
 	int ret;
 
 	elp = NULL;
 
-	if (__db_txnlist_find_internal(dbenv, hp,
-	    TXNLIST_PGNO, 0, uid, &elp, 0) != 0) {
+	if ((ret = __db_txnlist_find_internal(dbenv, hp,
+	    TXNLIST_PGNO, 0, uid, &elp, 0, &status)) != 0 && ret != DB_NOTFOUND)
+		goto err;
+
+	if (ret == DB_NOTFOUND || status != TXN_OK) {
 		if ((ret =
 		    __os_malloc(dbenv, sizeof(DB_TXNLIST), &elp)) != 0)
 			goto err;
 		memcpy(&hash, uid, sizeof(hash));
 		LIST_INSERT_HEAD(
 		    &hp->head[DB_TXNLIST_MASK(hp, hash)], elp, links);
-		elp->u.p.fileid = fileid;
 		memcpy(elp->u.p.uid, uid, DB_FILE_ID_LEN);
 
 		len = strlen(fname) + 1;
@@ -1460,70 +1513,33 @@ __db_txnlist_pgnoadd(dbenv, hp, fileid, uid, fname, pgno)
 	}
 
 	elp->u.p.pgno_array[elp->u.p.nentries++] = pgno;
+	/* Update to the latest fileid.  Limbo will find it faster. */
+	elp->u.p.fileid = fileid;
 
 	return (0);
 
-err:	__db_txnlist_end(dbenv, hp);
-	return (ret);
+err:	return (ret);
 }
-
-#ifdef HAVE_REPLICATION
-/*
- * __db_default_getpgnos --
- *	Fill in default getpgnos information for an application-specific
- * log record.
- *
- * PUBLIC: int __db_default_getpgnos __P((DB_ENV *, DB_LSN *lsnp, void *));
- */
-int
-__db_default_getpgnos(dbenv, lsnp, summary)
-	DB_ENV *dbenv;
-	DB_LSN *lsnp;
-	void *summary;
-{
-	TXN_RECS *t;
-	int ret;
-
-	t = (TXN_RECS *)summary;
-
-	if ((ret = __rep_check_alloc(dbenv, t, 1)) != 0)
-		return (ret);
-
-	t->array[t->npages].flags = LSN_PAGE_NOLOCK;
-	t->array[t->npages].lsn = *lsnp;
-	t->array[t->npages].fid = DB_LOGFILEID_INVALID;
-	memset(&t->array[t->npages].pgdesc, 0,
-	    sizeof(t->array[t->npages].pgdesc));
-
-	t->npages++;
-
-	return (0);
-}
-#endif
 
 #ifdef DEBUG
 /*
  * __db_txnlist_print --
  *	Print out the transaction list.
  *
- * PUBLIC: void __db_txnlist_print __P((void *));
+ * PUBLIC: void __db_txnlist_print __P((DB_TXNHEAD *));
  */
 void
-__db_txnlist_print(listp)
-	void *listp;
-{
+__db_txnlist_print(hp)
 	DB_TXNHEAD *hp;
+{
 	DB_TXNLIST *p;
 	u_int32_t i;
 	char *txntype;
 
-	hp = (DB_TXNHEAD *)listp;
-
 	printf("Maxid: %lu Generation: %lu\n",
 	    (u_long)hp->maxid, (u_long)hp->generation);
 	for (i = 0; i < hp->nslots; i++)
-		for (p = LIST_FIRST(&hp->head[i]);
-		    p != NULL; p = LIST_NEXT(p, links)) {
+		LIST_FOREACH(p, &hp->head[i], links) {
 			if (p->type != TXNLIST_TXNID) {
 				printf("Unrecognized type: %d\n", p->type);
 				continue;
@@ -1540,9 +1556,6 @@ __db_txnlist_print(listp)
 				break;
 			case TXN_ABORT:
 				txntype = "abort";
-				break;
-			case TXN_NOTFOUND:
-				txntype = "notfound";
 				break;
 			case TXN_IGNORE:
 				txntype = "ignore";

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2004  Mark Nudelman
+ * Copyright (C) 1984-2007  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -276,6 +276,9 @@
 
 /* Define if you have the <ctype.h> header file.  */
 #define HAVE_CTYPE_H 1
+
+/* Define if you have the <wctype.h> header file.  */
+#define HAVE_WCTYPE_H 1
 
 /* Define if you have the <errno.h> header file.  */
 #define HAVE_ERRNO_H 1

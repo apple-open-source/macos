@@ -59,9 +59,6 @@ public:
 	
 	static void check(unsigned long err) { if (err != SCARD_S_SUCCESS) throwMe(err); }
 	static void throwMe(unsigned long err);
-
-private:
-	IFDEBUG(void debugDiagnose(const void *id) const);
 };
 
 

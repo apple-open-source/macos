@@ -1,0 +1,165 @@
+# $Id: Invoker.xotcl,v 1.6 2006/09/27 08:12:40 neumann Exp $
+
+package provide xotcl::actiweb::invoker 0.8
+
+package require XOTcl
+
+namespace eval ::xotcl::actiweb::invoker {
+    namespace import ::xotcl::*
+
+    Class AbstractInvoker
+    AbstractInvoker abstract instproc invokeCall {o method arguments}
+    AbstractInvoker abstract instproc eval {obj method arguments}
+    #
+    # error types are: tclError, invocationError
+    #
+    AbstractInvoker abstract instproc callError {type msg obj arguments} 
+
+    Class Invoker -superclass AbstractInvoker -parameter {{place [self]}}
+
+    Invoker instproc handleException {response} {
+	if {[my isExceptionObject $response]} {
+	    set exceptionObj $response
+	    switch [$exceptionObj info class] {
+		::RedirectException {
+		    set obj [$exceptionObj obj]
+		    set method [$exceptionObj method]
+		    set arguments [$exceptionObj arguments]
+		    set response [my eval $obj $method $arguments]
+		}
+		::ErrorException {
+		    set response [$exceptionObj set errorText]
+		}
+	    }
+	    $exceptionObj destroy
+	}
+	return $response
+    }
+
+    Invoker instproc invokeCall {o s method arguments} {
+	upvar [self callinglevel] $o obj $s status
+	my instvar place
+	set response ""
+	if {[$place isExportedObj $obj]} {
+	    # if method is not given -> call default on the object
+	    if {$method eq ""} {
+		set method default
+	    }
+	    if {[$obj isExportedProc $method]} {
+		#puts stderr "ExportedProcs of $obj: [$obj exportedProcs]"
+		#puts stderr "Call: $obj -- $method -- $arguments"
+		set response [my eval $obj $method $arguments]
+	    } else {
+		#puts stderr "ExportedProcs of $obj: [$obj exportedProcs]"
+		set response [my callError invocationError [$place startingObj] \
+				  "Method not found or not exported" \
+				  "$obj $method $arguments"]
+		set status 405
+	    }
+	} else {
+	    set called $obj
+	    set obj [$place startingObj]
+	    set response [my callError invocationError $obj \
+			      "Object '$called' unknown" ""]
+	    set status 404
+	}
+	
+	return [my handleException $response]
+    }
+
+    #
+    # tests whether "name" is an exception object or not
+    #
+    Invoker instproc isExceptionObject name {
+	if {[Object isobject $name] && [$name istype Exception]} {
+	    return 1
+	}
+	return 0
+    }
+
+    #
+    # central eval  -- all remote call
+    # are invoked through this method
+    #
+    Invoker instproc eval {obj method arguments} {
+	puts stderr "[clock format [clock seconds] \
+	-format %Y/%m/%d@%H:%M:%S] \
+	Eval Call: $obj $method $arguments"
+	if {[catch {
+	    set r [::eval $obj $method $arguments]
+	} ei]} {
+	    set r [my callError tclError $obj $ei "$obj $method $::errorInfo"]
+	}
+	return $r
+    }
+
+    Invoker instproc callError {type obj msg arguments} {
+	[my set place]::error $type $obj $msg $arguments
+    }
+
+    Class ErrorMgr
+    ErrorMgr instproc isHtml o {
+	if {[my isobject $o]} {
+	    if {[$o exists contentType]} {
+		if {[$o set contentType] eq "text/html"} {
+		    return 1
+		}
+	    }
+	}
+	return 0
+    }
+
+    ErrorMgr instproc invocationError {obj msg arguments} {
+	my showCall
+	set ee [ErrorException [self]::[my autoname ee]]
+	$ee instvar errorText
+	if {[my isHtml $obj]} {
+	    set errorText "<p> invocation error: $msg"
+	    if {[llength $arguments] > 0} {
+		append errorText ":\n<p> object: '[lindex $arguments 0]' \n"
+	    } else {
+		append errorText \n
+	    }
+	    if {[llength $arguments] > 1} {
+		append errorText "<p> call: '[lrange $arguments 1 end]' \n"
+	    }
+	} else {
+	    set errorText "invocation error: $msg $arguments"
+	}
+	return $ee
+    }
+
+    ErrorMgr instproc tclError {obj msg arguments} {
+	set ee [ErrorException [self]::[my autoname ee]]
+	if {[my isHtml $obj]} {
+	    $ee errorText "<p>tcl error: '$msg' \n<code><p><pre>$arguments</pre></code>"
+	} else {
+	    $ee errorText "tcl error: '$msg'\n$::errorInfo"
+	}
+	return $ee
+    }
+
+    #
+    # exceptions in invocation behavior
+    #
+    Class Exception
+    #
+    # Execpetion that tells the invoker to redirect the call to
+    # parameters
+    #
+    Class RedirectException -superclass Exception -parameter {
+	{obj ""}
+	{method ""}
+	{arguments ""}
+    }
+
+    Class ErrorException -superclass Exception -parameter {
+	{errorText ""}
+    }
+
+    namespace export AbstractInvoker \
+	Invoker ErrorMgr Exception \
+	RedirectException ErrorException
+}
+
+namespace import ::xotcl::actiweb::invoker::*

@@ -29,6 +29,7 @@
 #include <DirectoryService/DirectoryService.h>
 #include <DirectoryServiceCore/CLog.h>
 #include <Kerberos/krb5.h>
+#include <dispatch/dispatch.h>
 #include <stack>
 
 using namespace std;
@@ -41,6 +42,58 @@ extern uint32_t	gSystemGoingToSleep;
 int32_t				CLDAPConnectionManager::fCheckThreadActive	= false;
 double				CLDAPConnectionManager::fCheckFailedLastRun	= 0.0;
 DSEventSemaphore	CLDAPConnectionManager::fCheckFailedEvent;
+
+#pragma mark -
+#pragma mark Struct sLDAPContinueData Functions
+
+sLDAPContinueData::sLDAPContinueData( void )
+{
+	fLDAPMsgId = 0;
+	fNodeRef = 0;
+	fLDAPConnection = NULL;
+	fResult = NULL;
+	fRefLD = NULL;
+	fRecNameIndex = 0;
+	fRecTypeIndex = 0;
+	fTotalRecCount = 0;
+	fLimitRecSearch = 0;
+	fAuthHndl = NULL;
+	fAuthHandlerProc = NULL;
+	fAuthAuthorityData = NULL;
+	fPassPlugContinueData = 0;
+}
+
+sLDAPContinueData::~sLDAPContinueData( void )
+{
+	if ( fResult != nil )
+	{
+		ldap_msgfree( fResult );
+		fResult = nil;
+	}
+	
+	if ( fLDAPMsgId > 0 )
+	{
+		if ( fLDAPConnection != nil ) 
+		{
+			LDAP *aHost = fLDAPConnection->LockLDAPSession();
+			if ( aHost != NULL )
+			{
+				if ( aHost == fRefLD )
+				{
+					ldap_abandon_ext( aHost, fLDAPMsgId, NULL, NULL );
+				}
+				
+				fLDAPConnection->UnlockLDAPSession( aHost, false );
+			}
+		}
+		
+		fLDAPMsgId = 0;
+		fRefLD = NULL;			
+	}
+	
+	DSRelease( fLDAPConnection );
+	DSFreeString( fAuthAuthorityData );
+}
 
 #pragma mark -
 #pragma mark Struct sLDAPContextData Functions
@@ -63,6 +116,9 @@ sLDAPContextData::sLDAPContextData( const sLDAPContextData& inContextData )
 	fPWSUserIDLength = 0;
 	fPWSUserID = NULL;
 	
+	fAccruedTimeout.tv_sec = 0;
+	fAccruedTimeout.tv_usec = 0;
+	
 	fLDAPConnection = inContextData.fLDAPConnection->Retain();
 }
 
@@ -79,6 +135,8 @@ sLDAPContextData::sLDAPContextData( CLDAPConnection *inConnection )
 	fPWSUserIDLength = 0;
 	fPWSUserID = NULL;
 	fUID = fEffectiveUID = 0xffffffff;  // this is -1 (nobody)
+	fAccruedTimeout.tv_sec = 0;
+	fAccruedTimeout.tv_usec = 0;
 	
 	if ( inConnection != NULL )
 		fLDAPConnection = inConnection->Retain();
@@ -585,29 +643,14 @@ void CLDAPConnectionManager::CheckFailed( void )
 void CLDAPConnectionManager::LaunchCheckFailedThread( bool bForceCheck )
 {
 	if ( (bForceCheck == true || (CFAbsoluteTimeGetCurrent() - fCheckFailedLastRun) > 30.0) && 
-		 OSAtomicCompareAndSwap32Barrier(false, true, &fCheckThreadActive) == true )
+		 __sync_bool_compare_and_swap(&fCheckThreadActive, false, true) == true )
 	{
-		pthread_t       checkThread;
-		pthread_attr_t	defaultAttrs;
-		
         fCheckFailedEvent.ResetEvent();
-		fCheckThreadActive = true;
-		
-		pthread_attr_init( &defaultAttrs );
-		pthread_attr_setdetachstate( &defaultAttrs, PTHREAD_CREATE_DETACHED );
-		
-		pthread_create( &checkThread, &defaultAttrs, CheckFailedServers, (void *) this );
+		dispatch_async( dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT), 
+					   ^(void) {
+						   CheckFailed();
+						   fCheckFailedLastRun = CFAbsoluteTimeGetCurrent(); // we set the timestamp after we finished our last check
+						   fCheckThreadActive = false;
+					   } );
 	}
-}
-
-void *CLDAPConnectionManager::CheckFailedServers( void *data )
-{
-	CLDAPConnectionManager   *nodeMgr = (CLDAPConnectionManager *) data;
-	
-	nodeMgr->CheckFailed();
-	
-	fCheckFailedLastRun = CFAbsoluteTimeGetCurrent(); // we set the timestamp after we finished our last check
-	OSAtomicCompareAndSwap32Barrier( true, false, &fCheckThreadActive );
-
-	return NULL;
 }

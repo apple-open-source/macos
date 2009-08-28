@@ -1,0 +1,49 @@
+.TH XvQueryExtension __libmansuffix__ __vendorversion__
+.SH Name
+XvQueryExtension \- return version and release of extension
+.\"
+.SH Syntax
+.B #include <X11/extensions/Xvlib.h>
+.sp
+.nf
+.BI "XvQueryExtension(Display *" dpy ", unsigned int *" p_version ",
+.BI "                unsigned int *" p_revision ",
+.BI "                unsigned int *" p_request_base ",
+.BI "                unsigned int *" p_event_base ",
+.BI "                unsigned int *" p_error_base ");"
+.fi
+.SH Arguments
+.\"
+.IP \fIdpy\fR 15
+Specifies the connection to the X server.
+.IP \fIp_version\fR 15
+Pointer to where the current version number of the \fIXv\fP video extension
+is written.
+.IP \fIp_revision\fR 15
+Pointer to where the revision number of the \fIXv\fP video extension
+is written.
+.IP \fIp_request_base\fR 15
+Pointer to where the extension major request number is returned
+.IP \fIp_event_base\fR 15
+Pointer to where the extension event base is returned
+.IP \fIp_error_base\fR 15
+Pointer to where the extension error base is returned
+.\"
+.SH Description
+.\"
+.PP
+XvQueryExtension(__libmansuffix__) returns the version and release
+numbers for the Xv video extension currently loaded 
+on the system.  The extension major request number, event base, and error
+base are also returned.
+.\"
+.SH Returned Values
+.IP [Success] 8
+Returned if XvQueryExtension(__libmansuffix__) completed successfully.
+.IP [XvBadExtension] 8
+Returned if the Xv video extension is not available for 
+the named display.
+.IP [XvBadAlloc] 8
+Returned if XvQueryExtension(__libmansuffix__) failed to allocate memory to process
+the request.
+.br

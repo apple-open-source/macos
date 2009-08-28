@@ -1,0 +1,174 @@
+#!/usr/bin/env tclsh
+# %renumber<^\s*test >%
+
+source [file join [file dir [info script]] initests.tcl]
+
+test 0 {} {
+  catch { package require ? }
+  lindex [package versions Mk4tcl] end
+} $version
+
+test 1 {} {
+  package require Mk4tcl
+} $version
+
+test 2 {no databases} {
+  set v [mk::file open]
+    # ignore one entry if run from a VFS-based TclKit
+  if {[lindex $v 0] == "exe"} {
+    set v [lrange $v 2 end]
+  }
+} {}
+
+test 3 {temp database} -body {
+  # 2003-10-01: this was wrong when run from tclkit, which has "exe" open
+  #C [mk::file open] {db {}}
+  match "*db {}*" [mk::file open]]
+} -setup {mk::file open db} -cleanup {mk::file close db}
+
+test 4 {temp data} -body {
+  mk::view layout db.a {s i:I}
+  set n [mk::row append db.a s one i 1]
+  equal $n db.a!0
+  equal [mk::get $n] {s one i 1}
+  set n [mk::row append db.a s two i 2]
+  equal $n db.a!1
+  equal [mk::get $n] {s two i 2}
+  equal [mk::view size db.a] 2
+  mk::view size db.a 1
+  equal [mk::get db.a!0] {s one i 1}
+  catch {mk::get db.a!1} e
+  equal $e {view index is out of range}
+} -setup {mk::file open db} -cleanup {mk::file close db}
+
+test 5 {use same tag twice} -body {
+  catch {mk::file open db} e
+  equal $e {file already open}
+} -setup {mk::file open db} -cleanup {mk::file close db}
+
+set f f6.tmp
+test 6 {open file} -body {
+  file delete $f
+  set f $f
+  mk::file open db $f
+  # 2003-10-01: this was wrong when run from tclkit, which has "exe" open
+  #C [mk::file open] [list db $f]
+  match "*[list db $f]*" [mk::file open]
+  assert [file exists $f]
+  mk::file commit db
+    # the file size remains zero, because commit detects no change
+  equal [file size $f] 0
+  mk::view layout db.a s
+  mk::file commit db
+  equal [file size $f] 37
+} -cleanup {mk::file close db}
+file delete $f
+
+set f f7.tmp
+test 7 {open same file again} -body {
+  file delete $f
+  equal [mk::file open db2 $f] db2
+  mk::file close db2
+  return
+} -setup {mk::file open db1 $f} -cleanup {mk::file close db1}
+file delete $f
+
+test 8 {simple select} -body {
+  mk::view layout db.a s
+  foreach x {one One two Two three Three four Four} {
+    mk::row append db.a s $x
+  }
+  equal [mk::select db.a] {0 1 2 3 4 5 6 7}
+  equal [mk::select db.a s three] {4 5}
+  equal [mk::select db.a -exact s three] 4
+  equal [mk::select db.a -min s three] {2 3 4 5}
+  equal [mk::select db.a -max s three] {0 1 4 5 6 7}
+  equal [mk::select db.a -glob s t*] {2 4}
+  equal [mk::select db.a -glob s {[tT]*}] {2 3 4 5}
+  equal [mk::select db.a -regexp s o] {0 2 3 6 7}
+  equal [mk::select db.a -regexp s {[tT]+}] {2 3 4 5}
+  equal [mk::select db.a -keyword s t] {2 3 4 5}
+  equal [mk::select db.a -keyword s tw] {2 3}
+  equal [mk::select db.a -keyword s o] {0 1}
+} -setup {mk::file open db} -cleanup {mk::file close db}
+
+test 9 {simple sort} -body {
+  mk::view layout db.a s
+  foreach x {one One two Two three Three four Four} {
+    mk::row append db.a s $x
+  }
+  equal [mk::select db.a -sort s] {6 7 0 1 4 5 2 3}
+  equal [mk::select db.a -rsort s] {2 3 4 5 0 1 6 7}
+} -setup {mk::file open db} -cleanup {mk::file close db}
+
+test 10 {get size} -body {
+  mk::view layout db.v {a:I b:I}
+  mk::row append db.v
+  equal [mk::get db.v!0] {a 0 b 0}
+  equal [mk::get db.v!0 -size] {a 0 b 0}
+  equal [mk::get db.v!0 -size a] 0
+  equal [mk::get db.v!0 -size a b] {0 0}
+  foreach {v c} {1 -1 3 -2 15 -4 127 1 -128 1 32767 2 -32768 2 32768 4} {
+    mk::set db.v!0 a $v
+    equal [mk::get db.v!0 -size a] $c
+  }
+  equal [mk::get db.v!0 -size b a] {0 4}
+} -setup {mk::file open db} -cleanup {mk::file close db}
+
+test 11 {case-insensitive select} -body {
+  mk::view layout db.a s
+  foreach x {one One two Two three Three four Four} {
+    mk::row append db.a s $x
+  }
+  equal [mk::select db.a -glob s t*] {2 4}
+  equal [mk::select db.a -globnc s t*] {2 3 4 5}
+  equal [mk::select db.a -regexp s t] {2 4}
+  equal [mk::select db.a -regexp s (?i)t] {2 3 4 5}
+} -setup {mk::file open db} -cleanup {mk::file close db}
+
+test 12 {channel interface} -body {
+  mk::view layout db.a {m:B}
+  mk::view size db.a 1
+
+  set a 1234567890
+  set b $a$a$a$a$a$a$a$a$a$a
+  set c $b$b$b$b$b$b$b$b$b$b
+  set d $c$c$c$c$c$c$c$c$c$c
+  equal [string length $d] 10000
+
+  set fd [mk::channel db.a!0 m w]
+  puts $fd $a
+  puts $fd $b
+  puts $fd $c
+  puts $fd $d
+  close $fd
+
+  switch $::tcl_platform(platform) {
+    windows { set eolsize 2 }
+    default { set eolsize 1 }
+  }
+  
+  equal [string length [mk::get db.a!0 m]] [expr {11110 + 4 * $eolsize}]
+
+  set fd [mk::channel db.a!0 m]
+  equal [gets $fd] $a
+  equal [gets $fd] $b
+  equal [gets $fd] $c
+  equal [gets $fd] $d
+  equal [gets $fd x] -1
+  close $fd
+} -setup {mk::file open db} -cleanup {mk::file close db}
+
+test 13 {recursive subviews} -body {
+  mk::view layout db.v {tag {nest ^}}
+  
+  mk::row append db.v tag a
+  mk::row append db.v!0.nest tag b
+  mk::row append db.v!0.nest!0.nest tag c
+  
+  equal [mk::get db.v!0 tag] a
+  equal [mk::get db.v!0.nest!0 tag] b
+  equal [mk::get db.v!0.nest!0.nest!0 tag] c
+} -setup {mk::file open db} -cleanup {mk::file close db}
+
+::tcltest::cleanupTests

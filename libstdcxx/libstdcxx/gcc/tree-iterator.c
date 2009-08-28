@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -40,6 +40,7 @@ alloc_stmt_list (void)
   if (list)
     {
       stmt_list_cache = TREE_CHAIN (list);
+      gcc_assert (stmt_list_cache != list);
       memset (list, 0, sizeof(struct tree_common));
       TREE_SET_CODE (list, STATEMENT_LIST);
     }
@@ -54,6 +55,9 @@ free_stmt_list (tree t)
 {
   gcc_assert (!STATEMENT_LIST_HEAD (t));
   gcc_assert (!STATEMENT_LIST_TAIL (t));
+  /* If this triggers, it's a sign that the same list is being freed
+     twice.  */
+  gcc_assert (t != stmt_list_cache || stmt_list_cache == NULL);
   TREE_CHAIN (t) = stmt_list_cache;
   stmt_list_cache = t;
 }
@@ -110,8 +114,11 @@ tsi_link_before (tree_stmt_iterator *i, tree t, enum tsi_iterator_update mode)
     }
   else
     {
-      gcc_assert (!STATEMENT_LIST_TAIL (i->container));
-      STATEMENT_LIST_HEAD (i->container) = head;
+      head->prev = STATEMENT_LIST_TAIL (i->container);
+      if (head->prev)
+       head->prev->next = head;
+      else
+       STATEMENT_LIST_HEAD (i->container) = head;
       STATEMENT_LIST_TAIL (i->container) = tail;
     }
 
@@ -127,7 +134,6 @@ tsi_link_before (tree_stmt_iterator *i, tree t, enum tsi_iterator_update mode)
       i->ptr = tail;
       break;
     case TSI_SAME_STMT:
-      gcc_assert (cur);
       break;
     }
 }
@@ -283,7 +289,8 @@ tsi_split_statement_list_before (tree_stmt_iterator *i)
   STATEMENT_LIST_TAIL (new_sl) = STATEMENT_LIST_TAIL (old_sl);
   STATEMENT_LIST_TAIL (old_sl) = prev;
   cur->prev = NULL;
-  prev->next = NULL;
+  if (prev)
+    prev->next = NULL;
 
   return new_sl;
 }
@@ -328,8 +335,9 @@ expr_last (tree expr)
   return expr;
 }
 
-/* If EXPR is a single statement, naked or in a STATEMENT_LIST, then
-   return it.  Otherwise return NULL.  */
+/* If EXPR is a single statement return it.  If EXPR is a
+   STATEMENT_LIST containing exactly one statement S, return S.
+   Otherwise, return NULL.  */
 
 tree 
 expr_only (tree expr)

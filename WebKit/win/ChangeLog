@@ -1,0 +1,409 @@
+2009-07-15  Steve Falkenburg  <sfalken@apple.com>
+
+        Merge r45892.
+
+    2009-07-14  Steve Falkenburg  <sfalken@apple.com>
+
+        Reorganize JavaScriptCore headers into:
+        API: include/JavaScriptCore/
+        Private: include/private/JavaScriptCore/
+
+        Reviewed by Darin Adler.
+
+        * WebKit.vcproj/WebKit.vcproj:
+
+2009-07-11  Mark Rowe  <mrowe@apple.com>
+
+        <rdar://problem/7047403> Disable channel messaging
+
+        * WebKit.vcproj/WebKit.vcproj:
+
+2009-07-11  Mark Rowe  <mrowe@apple.com>
+
+        <rdar://problem/7048551> Disable datagrid
+
+        * WebKit.vcproj/WebKit.vcproj:
+
+2009-07-09  Drew Wilson  <atwilson@google.com>
+
+        Reviewed by Alexey Proskuryakov.
+
+        https://bugs.webkit.org/show_bug.cgi?id=26903
+
+        Turned on CHANNEL_MESSAGING by default because the MessageChannel API
+        can now be implemented for Web Workers and is reasonably stable.
+
+       * WebKit.vcproj/WebKit.vcproj:
+
+2009-07-09  Brian Weinstein  <bweinstein@apple.com>
+
+        Reviewed by Alice Liu.
+
+        Fix of <rdar://5712929> Add preferences key to remember if the Inspector was docked (14271)
+        https://bugs.webkit.org/show_bug.cgi?id=27140
+
+        Added a preference key to remember whether the user prefers the inspector detached or attached.
+
+        * WebCoreSupport/WebInspectorClient.cpp:
+        (WebInspectorClient::showWindow): Pass both parameters into setWindowVisible
+        (WebInspectorClient::closeWindow): Ditto
+        (WebInspectorClient::attachWindow): Set preference to attached windows here
+        (WebInspectorClient::detachWindow): Set preference to detached windows here
+        (WebInspectorClient::showWindowWithoutNotifications): Read preference for attached vs. detached
+        (WebInspectorClient::onClose): Pass both parameters into setWindowVisible
+
+2009-07-09  Alexey Proskuryakov  <ap@webkit.org>
+
+        Reviewed by Oliver Hunt.
+
+        <rdar://problem/6921671> Visit count shouldn't be incremented by redirects.
+
+        * WebCoreSupport/WebFrameLoaderClient.cpp: (WebFrameLoaderClient::updateGlobalHistory):
+        Do not increase visit count if there is a redirect source. As a result, only pages that were
+        explicitly visited by the user (by typing a URL, choosing one from bookmarks, or clicking
+        a link) will be counted.
+
+        * Interfaces/IWebHistoryItemPrivate.idl:
+        * WebHistory.cpp:
+        (WebHistory::visitedURL):
+        * WebHistory.h:
+        * WebHistoryItem.cpp:
+        (WebHistoryItem::visitedWithTitle):
+        * WebHistoryItem.h:
+        Marshal this new argument all the way down to WebCore.
+
+2009-07-09  Beth Dakin and Jon Honeycutt <bdakin@apple.com>
+
+        Reviewed by Dave Hyatt.
+
+        Make Widget RefCounted to fix:
+
+        <rdar://problem/7038831> REGRESSION (TOT): In Mail, a crash occurs 
+        at WebCore::Widget::afterMouseDown() after clicking To Do's close 
+        box
+        <rdar://problem/6978804> WER #16: Repro Access Violation in 
+        WebCore::PluginView::bindingInstance (1310178023)
+        -and-
+        <rdar://problem/6991251> WER #13: Crash in WebKit!
+        WebCore::PluginView::performRequest+203 (1311461169) 
+
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        (WebFrameLoaderClient::createPlugin):
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebFrame.cpp:
+        (WebFrame::createJavaAppletWidget):
+        * WebFrame.h:
+
+2009-07-09  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Steve Falkenburg.
+
+        Roll out r43848. The quirk is no longer necessary.
+
+        * WebView.cpp:
+        (WebView::userAgentForKURL):
+
+2009-07-07  Ada Chan  <adachan@apple.com>
+
+        Reviewed by Dave Hyatt.
+
+        Missed a call to FocusController::setFocused(true) when handling WM_SETFOCUS in WebView.
+        https://bugs.webkit.org/show_bug.cgi?id=27057
+
+        * WebView.cpp:
+        (WebViewWndProc):
+
+2009-07-02  Erik Arvidsson  <arv@chromium.org>
+
+        Reviewed by Adam Roben.
+
+        [Win] HTML5 Drag and drop, dragend is not fired when pressing Esc
+        https://bugs.webkit.org/show_bug.cgi?id=26699
+
+        * WebDropSource.cpp:
+        (WebDropSource::QueryContinueDrag):
+
+2009-07-02  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        <rdar://problem/6939593> REGRESSION (r37793): Hitting back button on Google often gives non-interactive Google page (26670)
+        <https://bugs.webkit.org/show_bug.cgi?id=26670>
+
+        Make windows loader client match mac behaviour more closely.
+
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        (WebFrameLoaderClient::forceLayout):
+
+2009-06-30  Brent Fulgham  <bfulgham@gmail.com>
+
+        Reviewed by Adam Roben.
+
+        Build DumpRenderTree under Cairo.
+        https://bugs.webkit.org/show_bug.cgi?id=26457
+
+        * WebKit.vcproj/WebKit.sln: Add Cairo targets to the
+          DumpRenderTree build, and use the in the Debug_Cairo
+          and Release_Cairo targets.
+
+2009-07-02  Eric Carlson  <eric.carlson@apple.com>
+
+        Fix Windows build by including missing localized string methods.
+
+        * WebCoreLocalizedStrings.cpp:
+        (WebCore::mediaElementLoadingStateText):
+        (WebCore::mediaElementLiveBroadcastStateText):
+
+2009-07-01  David Hyatt  <hyatt@apple.com>
+
+        Reviewed by Tim Hatcher.
+
+        <rdar://problem/6998524> REGRESSION (r44474): Form text field has focus ring, looks focused,
+        even though the field is not actually focused for keyboard input
+        
+        Add the concept of whether or not the Page is focused by adding a boolean to the focusController.  This allows the
+        focused frame and focused node to both be cached and changed programmatically without causing errors when the Page doesn't
+        have focus.
+
+        * WebView.cpp:
+        (WebViewWndProc):
+
+2009-06-29  David Hyatt  <hyatt@apple.com>
+
+        Fix Windows bustage.  Missed two configurations for enabling DATAGRID.
+
+        * WebKit.vcproj/WebKit.vcproj:
+
+2009-06-29  Jessie Berlin  <jberlin@apple.com>
+
+        Reviewed by Adam Roben.
+        
+        Fix the windows build.
+
+        * WebCoreSupport/WebContextMenuClient.cpp:
+        (WebContextMenuClient::isSpeaking):
+        * WebCoreSupport/WebContextMenuClient.h:
+
+2009-06-29  David Hyatt  <hyatt@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Make sure to patch all configurations to have datagrid enabled.
+
+        * WebKit.vcproj/WebKit.vcproj:
+
+2009-06-29  David Hyatt  <hyatt@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Put <datagrid> behind an ifdef.
+
+        * WebKit.vcproj/WebKit.vcproj:
+
+2009-06-26  Brian Weinstein  <bweinstein@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        https://bugs.webkit.org/show_bug.cgi?id=26695
+
+        Added hit testing on scrollbars, so if you start a gesture over a scrollbar,
+        it isn't counted, and lets the user drag the scrollbar itself instead of a
+        panning gesture. Also cleaned up code in gesture.
+
+        * WebView.cpp:
+        (WebView::gestureNotify):
+        (WebView::gesture):
+
+2009-06-26  Jeremy Orlow  <jorlow@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        https://bugs.webkit.org/show_bug.cgi?id=26767
+
+        Fix a build break due to LocalStorage.h being included in WebKitDLL.cpp
+        despite it being deleted from the repo by the following patch/commit:
+        https://bugs.webkit.org/show_bug.cgi?id=26732
+        http://trac.webkit.org/changeset/45290
+
+        * WebKitDLL.cpp:
+
+2009-06-26  Yongjun Zhang  <yongjun.zhang@nokia.com>
+
+        Reviewed by Eric Seidel.
+
+        Bug 20303: [Qt] Key events are not working in frames.
+
+        Move the scroll handling code to EventHandler so that other
+        ports can share the functionality.
+
+        * WebView.cpp:
+        (WebView::keyDown):
+        (EnumTextMatches::QueryInterface):
+
+2009-06-23  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Darin Adler.
+
+        WebKit side of <rdar://problem/6946094>.
+
+        * Interfaces/IWebUIDelegate.idl:
+        Add a newPasteboard out parameter to willPerformDragSourceAction.
+        
+        * WebCoreSupport/WebDragClient.cpp:
+        (WebDragClient::willPerformDragSourceAction):
+        Implement this. If the client returns a new pasteboard, use it for the drag.
+        
+        * WebCoreSupport/WebInspectorDelegate.h:
+        (WebInspectorDelegate::willPerformDragSourceAction):
+        Add the new parameter.
+
+2009-06-20  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        <rdar://problem/6964221> Need more processing of pluginspage.
+
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        (WebFrameLoaderClient::createPlugin): Check protocolInHTTPFamily.
+
+2009-06-19  Kenneth Rohde Christiansen  <kenneth.christiansen@openbossa.org>
+
+        Reviewed by Steve Falkenburg.
+
+        https://bugs.webkit.org/show_bug.cgi?id=26494
+        Bug 26494: RenderTheme::themeForPage reads from Settings before it has
+        been initialized by WebKit
+
+        Get the shouldPaintNativeControls preference and update the settings
+        before initializing the page, as the page depends on it after the
+        themeForPage change.
+
+        * WebView.cpp:
+        (WebView::initWithFrame):
+
+2009-06-19  Brian Weinstein  <bweinstein@apple.com>
+
+        Reviewed by Steve Falkenburg.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=26488
+        No Support for Single Finger or Two Finger Panning in Windows 7
+        
+        Added the code necessary for single finger and two-finger panning with
+        window bounce. We now register for WM_GESTURENOTIFY and WM_GESTURE messages,
+        and interpret the panning command. Also, added WindowsTouch.h which contains 
+        structs and #defines from the Windows 7 SDK.
+
+        * WebKit.vcproj/WebKit.vcproj:
+        * WebView.cpp:
+        (WebView::gestureNotify): Checks if we are in a pannable region - IE: Not in the scrollbar
+        (WebView::gesture): Handles the Panning gesture, creating the WheelEvent
+        (WebViewWndProc): Added cases for WM_GESTURE and WM_GESTURENOTIFY
+        * WebView.h:
+        * WindowsTouch.h: Added.
+        
+2009-06-18  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Sam Weinig.
+
+        https://bugs.webkit.org/show_bug.cgi?id=26199
+
+        Added preference to enable the XSSAuditor.
+
+        * Interfaces/IWebPreferencesPrivate.idl:
+        * WebPreferenceKeysPrivate.h:
+        * WebPreferences.cpp:
+        (WebPreferences::initializeDefaultSettings):
+        (WebPreferences::isXSSAuditorEnabled):
+        (WebPreferences::setXSSAuditorEnabled):
+        * WebPreferences.h:
+        * WebView.cpp:
+        (WebView::notifyPreferencesChanged):
+
+2009-06-18  Brent Fulgham  <bfulgham@gmail.com>
+
+        Reviewed by Dave Levin.
+
+        Remove some boilerplate using the BitmapInfo struct.
+        https://bugs.webkit.org/show_bug.cgi?id=26425
+
+        * WebFrame.cpp:
+        (WebFrame::spoolPages):
+        * WebIconDatabase.cpp:
+        (createDIB):
+        * WebKit.vcproj/WebKit.sln:
+        * WebNodeHighlight.cpp:
+        (WebNodeHighlight::update):
+        * WebView.cpp:
+        (WebView::ensureBackingStore):
+
+2009-06-17  Steve Falkenburg  <sfalken@apple.com>
+
+        Consolidate WebKit COM interfaces.
+        Moved IID from the highest numbered COM interface to the first interface and combined all methods.
+
+        Numbered interfaces can be combined since the latest shipping Safari 4 supports the latest interfaces.
+        
+        Reviewed by Adam Roben.
+
+        * Interfaces/IWebFrameLoadDelegate.idl:
+        * Interfaces/IWebFrameLoadDelegatePrivate.idl:
+        * Interfaces/IWebResourceLoadDelegatePrivate.idl:
+        * Interfaces/IWebUIDelegate.idl:
+        * Interfaces/IWebUIDelegatePrivate.idl:
+        * Interfaces/WebKit.idl:
+        * WebCoreSupport/WebChromeClient.cpp:
+        * WebCoreSupport/WebChromeClient.h:
+        * WebCoreSupport/WebContextMenuClient.cpp:
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        * WebCoreSupport/WebInspectorDelegate.h:
+        * WebFrame.cpp:
+        * WebView.cpp:
+
+2009-06-16  Kenneth Rohde Christiansen  <kenneth.christiansen@openbossa.org>
+
+        Reviewed by Adam Roben.
+
+        Create a different RenderTheme per page, so that RenderTheme has
+        access to page specific theming. This is needed for the Qt port, as Qt
+        supports setting the theme (style) per widget.
+
+        This change was suggested and discussed with Dave Hyatt.
+
+        More detailed:
+
+        1) Create a theme per page or one global one, depending on the needs
+           of the platform.
+        2) Add an accesser to the theme from RenderObject.
+        3) Change all uses of the theming to access the theme through
+           RenderObject, using the global default theme as fallback, when the
+           document of RenderObject has no page.
+           When we don't have access to a RenderObject, use the default theme.
+        4) Modify all RenderTheme platform implementations to work with the
+           above changes, still creating only one global theme.
+
+        * WebView.cpp:
+        (WebViewWndProc): Get the theme from the associated page.
+
+2009-06-16  Brian Weinstein  <bweinstein@apple.com>
+
+        Reviewed by Adam Roben.
+        
+        Switch Control+Mousewheel Zooming definitions to match other browsers on Windows.
+        Control+Mousewheel-Down now zooms out, Control+Mousewheel-Up now zooms in.
+        https://bugs.webkit.org/show_bug.cgi?id=25875.
+        <rdar://problem/6903976>
+
+        * WebView.cpp:
+        (WebView::mouseWheel):
+
+2009-06-16  Brent Fulgham  <bfulgham@gmail.com>
+
+        Reviewed by Darin Adler.
+
+        Use consistent Windows GUID Comparison Functions.
+        https://bugs.webkit.org/show_bug.cgi?id=26427.
+
+        * WebView.cpp:
+        (EnumTextMatches::QueryInterface):
+
+== Rolled over to ChangeLog-2009-06-16 ==

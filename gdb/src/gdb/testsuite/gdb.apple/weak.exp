@@ -70,8 +70,7 @@ gdb_test "future-break foo" "Breakpoint 1 at $hex: file .*libweak.c.*, line $dec
 
 gdb_test "run" \
 "Starting program: $binfile\[ \r\]*
-Reading symbols for shared libraries \[+\\.]+ done\[ \r\]*
-Breakpoint 1 at $hex: file .*libweak.c.*, line $decimal.\[ \r\]*
+Reading symbols for shared libraries \[+\\.]+ done\[ \r\]*\(Breakpoint 1 at $hex: file .*libweak.c.*, line $decimal.\[ \r\]*\)*
 hi, in main\[ \r\]*
 \[ \r\]*
 Breakpoint 1, foo.*libweak.c.*\[ \r\]*" \

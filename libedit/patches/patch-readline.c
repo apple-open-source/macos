@@ -1,6 +1,6 @@
---- src/readline.c.orig	2006-08-29 12:18:07.000000000 -0700
-+++ src/readline.c	2007-07-20 13:35:09.000000000 -0700
-@@ -88,6 +88,7 @@
+--- src/readline.c.orig	2008-07-12 01:38:05.000000000 -0700
++++ src/readline.c	2008-08-07 13:10:58.000000000 -0700
+@@ -89,6 +89,7 @@
  /* readline compatibility stuff - look at readline sources/documentation */
  /* to see what these variables mean */
  const char *rl_library_version = "EditLine wrapper";
@@ -8,7 +8,7 @@
  static char empty[] = { '\0' };
  static char expand_chars[] = { ' ', '\t', '\n', '=', '(', '\0' };
  static char break_chars[] = { ' ', '\t', '\n', '"', '\\', '\'', '`', '@', '$',
-@@ -131,6 +132,7 @@
+@@ -137,6 +138,7 @@
  VFunction *rl_completion_display_matches_hook = NULL;
  VFunction *rl_prep_term_function = (VFunction *)rl_prep_terminal;
  VFunction *rl_deprep_term_function = (VFunction *)rl_deprep_terminal;
@@ -16,7 +16,7 @@
  
  /*
   * The current prompt string.
-@@ -226,6 +228,22 @@
+@@ -233,6 +235,22 @@
  	return 1;
  }
  
@@ -39,7 +39,7 @@
  
  /*
   * READLINE compatibility stuff
-@@ -1117,6 +1135,139 @@
+@@ -1127,6 +1145,139 @@
  	return (max_input_history != INT_MAX);
  }
  
@@ -179,7 +179,7 @@
  
  /*
   * read history from a file given
-@@ -1128,7 +1279,9 @@
+@@ -1138,7 +1289,9 @@
  
  	if (h == NULL || e == NULL)
  		rl_initialize();
@@ -190,7 +190,7 @@
  }
  
  
-@@ -1142,7 +1295,9 @@
+@@ -1152,7 +1305,9 @@
  
  	if (h == NULL || e == NULL)
  		rl_initialize();
@@ -201,7 +201,7 @@
  }
  
  
-@@ -1166,16 +1321,15 @@
+@@ -1176,16 +1331,15 @@
  		return (NULL);
  	curr_num = ev.num;
  
@@ -212,8 +212,8 @@
  		return (NULL);	/* error */
  
 -	/* look backwards for event matching specified offset */
--	if (history(h, &ev, H_NEXT_EVENT, num))
-+	/* look forwards for event matching specified offset */
+-	if (history(h, &ev, H_NEXT_EVENT, num + 1))
++	/* look forward for event matching specified offset */
 +	if (history(h, &ev, H_NEXT_EVDATA, num, &she.data))
  		return (NULL);
  
@@ -222,38 +222,30 @@
  
  	/* restore pointer to where it was */
  	(void)history(h, &ev, H_SET, curr_num);
-@@ -1209,19 +1363,66 @@
- HIST_ENTRY *
- remove_history(int num)
- {
--	static HIST_ENTRY she;
-+	HIST_ENTRY *he;
- 	HistEvent ev;
- 
-+	if ((he = (HIST_ENTRY *)malloc(sizeof(HIST_ENTRY))) == NULL)
-+		return NULL;
-+
+@@ -1225,20 +1379,64 @@
  	if (h == NULL || e == NULL)
  		rl_initialize();
  
 -	if (history(h, &ev, H_DEL, num) != 0)
-+	if (history(h, &ev, H_DELDATA, num, &he->data) != 0) {
-+		free(he);
++	if ((she = malloc(sizeof(*she))) == NULL)
+ 		return NULL;
+ 
+-	if ((she = malloc(sizeof(*she))) == NULL)
++	if (history(h, &ev, H_DELDATA, num, &she->data) != 0) {
++		free(she);
  		return NULL;
 +	}
  
--	she.line = ev.str;
--	she.data = NULL;
-+	he->line = ev.str;
+ 	she->line = ev.str;
+-	she->data = NULL;
 +	if (history(h, &ev, H_GETSIZE) == 0)
 +		history_length = ev.num;
  
--	return &she;
-+	return he;
-+}
-+
-+
-+/*
+ 	return she;
+ }
+ 
+ 
+ /*
 + * replace the line and data of the num-th entry
 + */
 +HIST_ENTRY *
@@ -291,10 +283,14 @@
 +	(void)history(h, &ev, H_SET, curr_num);
 +
 +	return (he);
- }
- 
- 
-@@ -1234,6 +1435,7 @@
++}
++
++
++/*
+  * clear the history list - delete all entries
+  */
+ void
+@@ -1247,6 +1445,7 @@
  	HistEvent ev;
  
  	history(h, &ev, H_CLEAR);
@@ -302,7 +298,7 @@
  }
  
  
-@@ -1305,13 +1507,17 @@
+@@ -1318,13 +1517,17 @@
  	HistEvent ev;
  	int curr_num;
  
@@ -322,7 +318,7 @@
  		history(h, &ev, H_SET, curr_num);
  		return(-1);
  	}
-@@ -1541,7 +1747,7 @@
+@@ -1554,7 +1757,7 @@
   * bind key c to readline-type function func
   */
  int
@@ -331,7 +327,7 @@
  {
  	int retval = -1;
  
-@@ -1608,6 +1814,20 @@
+@@ -1621,6 +1824,20 @@
  	return (0);
  }
  
@@ -352,7 +348,7 @@
  /*ARGSUSED*/
  int
  rl_newline(int count, int c)
-@@ -1671,7 +1891,7 @@
+@@ -1684,7 +1901,7 @@
  		} else
  			wbuf = NULL;
  		(*(void (*)(const char *))rl_linefunc)(wbuf);
@@ -361,9 +357,14 @@
  	}
  }
  
-@@ -1817,3 +2037,32 @@
- 	rl_point = li->cursor - li->buffer;
- 	rl_end = li->lastchar - li->buffer;
+@@ -1966,7 +2183,30 @@
+ 
+ int
+ /*ARGSUSED*/
+-rl_bind_key_in_map(int key, Function *fun, Keymap k)
++rl_bind_key_in_map(int key, rl_command_func_t *fun, Keymap k)
+ {
+ 	return 0;
  }
 +
 +HISTORY_STATE *
@@ -387,10 +388,4 @@
 +void
 +rl_free_line_state(void)
 +{
-+}
-+
-+int
-+rl_bind_key_in_map (int key, rl_command_func_t *function, Keymap map)
-+{
-+	return -1;
 +}

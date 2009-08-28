@@ -18,6 +18,7 @@ MDSRCS += bcopy.s \
 	strncpy.s \
 	strncmp.s \
 	memcmp.s \
-	bcmp.s \
 	memset.s \
 	ffs.s
+
+SUPPRESSSRCS += bcmp.c

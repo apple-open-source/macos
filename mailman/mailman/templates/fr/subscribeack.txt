@@ -1,6 +1,6 @@
 Bienvenue sur la liste %(real_name)s@%(host_name)s!
 %(welcome)s
-Pour écrire à la liste, envoyez votre message à:
+Pour écrire à la liste, envoyez votre message à :
 
   %(emailaddr)s
 

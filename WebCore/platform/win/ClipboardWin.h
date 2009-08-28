@@ -57,7 +57,8 @@ namespace WebCore {
         bool setData(const String& type, const String& data);
     
         // extensions beyond IE's API
-        HashSet<String> types() const;
+        virtual HashSet<String> types() const;
+        virtual PassRefPtr<FileList> files() const;
     
         void setDragImage(CachedImage*, const IntPoint&);
         void setDragImageElement(Node*, const IntPoint&);
@@ -70,6 +71,8 @@ namespace WebCore {
         virtual bool hasData();
 
         COMPtr<IDataObject> dataObject() { return m_dataObject; }
+
+        void setExternalDataObject(IDataObject *dataObject);
 
     private:
         ClipboardWin(bool isForDragging, IDataObject*, ClipboardAccessPolicy);

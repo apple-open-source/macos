@@ -44,10 +44,10 @@ char **envp)
     const char *AS = "/as";
 
     int i;
-    unsigned long count, verbose;
+    uint32_t count, verbose;
     char *p, c, *arch_name, *as, *as_local;
     char *prefix, buf[MAXPATHLEN], resolved_name[PATH_MAX];
-    uint32_t bufsize;
+    unsigned long bufsize;
     struct arch_flag arch_flag;
     const struct arch_flag *arch_flags, *family_arch_flag;
 
@@ -148,8 +148,17 @@ char **envp)
 	 * get_arch_from_host().
 	 */
 	if(arch_name == NULL){
-	    if(get_arch_from_host(&arch_flag, NULL))
+	    if(get_arch_from_host(&arch_flag, NULL)){
+#if __LP64__
+		/*
+		 * If runing as a 64-bit binary and on an Intel x86 host
+		 * default to the 64-bit assember.
+		 */
+		if(arch_flag.cputype == CPU_TYPE_I386)
+		    arch_flag = *get_arch_family_from_cputype(CPU_TYPE_X86_64);
+#endif /* __LP64__ */
 		arch_name = arch_flag.name;
+	    }
 	    else
 		fatal("unknown host architecture (can't determine which "
 		      "assembler to run)");

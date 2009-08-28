@@ -489,7 +489,11 @@ main(int argc, char *argv[])
 	struct timeval tv;
 	fd_set fdsr;
 	int width, lockfd;
+#ifndef __APPLE__
 	int evil = 0, one, i;
+#else
+	int one, i;
+#endif
 	char pathname[MAXPATHLEN];
 	struct stat st;
 
@@ -621,7 +625,11 @@ main(int argc, char *argv[])
 	rmtca.proc = YPPROC_DOMAIN_NONACK;
 	rmtca.xdr_args = NULL;		/* set at call time */
 	rmtca.args_ptr = NULL;		/* set at call time */
+#ifdef __LP64__
+	rmtcr.port_ptr = (unsigned int*)&rmtcr_port;
+#else
 	rmtcr.port_ptr = &rmtcr_port;
+#endif
 	rmtcr.xdr_results = (xdrproc_t)xdr_bool;
 	rmtcr.results_ptr = (caddr_t)&rmtcr_outval;
 

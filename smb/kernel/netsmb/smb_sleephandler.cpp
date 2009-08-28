@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 - 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2003 - 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,33 +30,34 @@ extern "C"
 #include <sys/kernel.h>
 #include <netsmb/smb_subr.h>
 
-#ifdef DEBUG
+#ifdef SMB_DEBUG
 	int32_t gSMBSleeping = 0;
-#endif // DEBUG
+#endif // SMB_DEBUG
 	struct timespec gWakeTime = {0, 0};
     void wakeup(void *);
 }
 #include <netsmb/smb_sleephandler.h>
 
 
-IOReturn
+static IOReturn
 smb_sleepwakehandler(void *target, void *refCon, UInt32 messageType, IOService *provider, void *messageArgument, vm_size_t argSize)
-{        
+{
+#pragma unused (target, refCon, provider, messageArgument, argSize)
 	switch (messageType) {
 
 	case kIOMessageSystemWillSleep:
 		SMBDEBUG(" going to sleep\n");
-#ifdef DEBUG
+#ifdef SMB_DEBUG
 		gSMBSleeping = 1;
-#endif // DEBUG
+#endif // SMB_DEBUG
 		break;
 
 	case kIOMessageSystemHasPoweredOn:
 		SMBDEBUG("  waking up\n");
-#ifdef DEBUG
+#ifdef SMB_DEBUG
 		gSMBSleeping = 0;
-#endif // DEBUG
-		nanotime(&gWakeTime);
+#endif // SMB_DEBUG
+		nanouptime(&gWakeTime);
 		break;
         
 	default:

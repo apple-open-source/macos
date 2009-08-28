@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/test.c,v 1.50.2.6 2006/04/03 19:49:55 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/test.c,v 1.55.2.3 2008/02/11 23:26:41 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -252,17 +252,7 @@ bind_prompt( LDAP *ld,
 	printf("rebind for request=%ld msgid=%ld url=%s\n",
 		request, (long) msgid, url );
 
-#ifdef LDAP_API_FEATURE_X_OPENLDAP_V2_KBIND
-		get_line( dn, sizeof(dn), stdin,
-		    "re-bind method (0->simple, 1->krbv41, 2->krbv42, 3->krbv41&2)? " );
-	if (( authmethod = atoi( dn )) == 3 ) {
-		authmethod = LDAP_AUTH_KRBV4;
-		} else {
-		authmethod |= 0x80;
-		}
-#else /* LDAP_API_FEATURE_X_OPENLDAP_V2_KBIND */
 	authmethod = LDAP_AUTH_SIMPLE;
-#endif /* LDAP_API_FEATURE_X_OPENLDAP_V2_KBIND */
 
 		get_line( dn, sizeof(dn), stdin, "re-bind dn? " );
 		strcat( dn, dnsuffix );
@@ -287,7 +277,8 @@ main( int argc, char **argv )
 	char		passwd[64], dn[256], rdn[64], attr[64], value[256];
 	char		filter[256], *host, **types;
 	char		**exdn;
-	char		*usage = "usage: %s [-u] [-h host] [-d level] [-s dnsuffix] [-p port] [-t file] [-T file]\n";
+	static const char usage[] =
+		"usage: %s [-u] [-h host] [-d level] [-s dnsuffix] [-p port] [-t file] [-T file]\n";
 	int		bound, all, scope, attrsonly;
 	LDAPMessage	*res;
 	LDAPMod		**mods, **attrs;
@@ -412,13 +403,7 @@ main( int argc, char **argv )
 			break;
 
 		case 'b':	/* asynch bind */
-#ifdef LDAP_API_FEATURE_X_OPENLDAP_V2_KBIND
-			get_line( line, sizeof(line), stdin,
-			    "method (0->simple, 1->krbv41, 2->krbv42)? " );
-			method = atoi( line ) | 0x80;
-#else /* LDAP_API_FEATURE_X_OPENLDAP_V2_KBIND */
 			method = LDAP_AUTH_SIMPLE;
-#endif /* LDAP_API_FEATURE_X_OPENLDAP_V2_KBIND */
 			get_line( dn, sizeof(dn), stdin, "dn? " );
 			strcat( dn, dnsuffix );
 
@@ -438,17 +423,7 @@ main( int argc, char **argv )
 			break;
 
 		case 'B':	/* synch bind */
-#ifdef LDAP_API_FEATURE_X_OPENLDAP_V2_KBIND
-			get_line( line, sizeof(line), stdin,
-			    "method 0->simple 1->krbv41 2->krbv42 3->krb? " );
-			method = atoi( line );
-			if ( method == 3 )
-				method = LDAP_AUTH_KRBV4;
-			else
-				method = method | 0x80;
-#else /* LDAP_API_FEATURE_X_OPENLDAP_V2_KBIND */
 			method = LDAP_AUTH_SIMPLE;
-#endif /* LDAP_API_FEATURE_X_OPENLDAP_V2_KBIND */
 			get_line( dn, sizeof(dn), stdin, "dn? " );
 			strcat( dn, dnsuffix );
 

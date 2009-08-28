@@ -83,7 +83,8 @@ static char sccsid[] = "@(#)rcmd.c	8.3 (Berkeley) 3/26/94";
 #include <rpcsvc/yp_prot.h>
 #include <rpcsvc/ypclnt.h>
 #endif
-#include <arpa/nameser8_compat.h>
+
+#include "nameser8_compat.h"
 
 /* wrapper for KAME-special getnameinfo() */
 #ifndef NI_WITHSCOPEID

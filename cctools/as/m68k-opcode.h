@@ -17,12 +17,13 @@ You should have received a copy of the GNU General Public License
 along with GDB or GAS; see the file COPYING.  If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
    
+#include <stdint.h>
 
 struct m68k_opcode
 {
   char *name;
-  unsigned long opcode;
-  unsigned long  match;
+  uint32_t opcode;
+  uint32_t  match;
   char *args;
   char *cpus;
 };

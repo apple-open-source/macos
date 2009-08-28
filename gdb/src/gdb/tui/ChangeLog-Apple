@@ -1,3 +1,12 @@
+2009-01-09  Jason Molenda  (jmolenda@apple.com)
+
+	* tui-stack.c (tui_show_frame_info): Fix func name typeo.
+
+2008-11-06  Caroline Tice  <ctice@apple.com>
+
+	* tui-stack.c (tui_show_frame_info):  Call 
+	find_pc_partial_function_no_inlined instead of find_pc_partial_function
+
 2002-10-29  Klee Dienes  <kdienes@apple.com>
 
 	* tui.c: Remove malloc.h.

@@ -1,5 +1,5 @@
 This directory contains scripts for testing GNU tar using
-star "test archives". The archives themselves may be obtained
+star "test archives". The archives themselves can be obtained
 from http://download.berlios.de/pub/star/testscripts.
 
 The tests are ignored unless environment variable STAR_TESTSCRIPTS

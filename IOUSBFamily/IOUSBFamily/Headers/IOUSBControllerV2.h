@@ -77,7 +77,6 @@ protected:
     #define _watchdogUSBTimer					_expansionData->watchdogUSBTimer
     #define _controllerTerminating				_expansionData->_terminating
     #define _watchdogTimerActive				_expansionData->_watchdogTimerActive
-    #define _pcCardEjected						_expansionData->_pcCardEjected
     #define _busNumber							_expansionData->_busNumber
     #define _currentSizeOfCommandPool			_expansionData->_currentSizeOfCommandPool
     #define _currentSizeOfIsocCommandPool		_expansionData->_currentSizeOfIsocCommandPool

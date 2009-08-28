@@ -54,6 +54,8 @@ void PowerWatcher::systemIsWaking()
 void PowerWatcher::systemWillPowerDown()
 { }
 
+void PowerWatcher::systemWillPowerOn()
+{ }
 
 //
 // IOPowerWatchers
@@ -110,6 +112,11 @@ void IOPowerWatcher::ioCallback(void *refCon, io_service_t service,
     case kIOMessageCanSystemPowerOff:
         secdebug("powerwatch", "can system power off");
         reaction = allow;
+        break;
+	case kIOMessageSystemWillPowerOn:
+        secdebug("powerwatch", "system will power on");
+		me->systemWillPowerOn();
+        reaction = ignore;
         break;
     default:
         secdebug("powerwatch",

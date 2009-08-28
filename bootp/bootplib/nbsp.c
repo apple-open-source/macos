@@ -113,6 +113,47 @@ get_fsstat_list(int * number)
     return (stat_p);
 }
 
+static int
+lookup_symlink(const char * symlink_dir,
+	       const char * dir_name,
+	       char * link_name, int link_name_len)
+{
+    DIR *		dir_p;
+    int			len = 0;
+    char		path[PATH_MAX];
+    struct dirent *	scan;
+
+    dir_p = opendir(symlink_dir);
+    if (dir_p == NULL) {
+	goto done;
+    }
+    while ((scan = readdir(dir_p)) != NULL) {
+	char		symlink[MAXNAMLEN];
+	ssize_t		symlink_len;
+
+	if (scan->d_type != DT_LNK) {
+	    continue;
+	}
+	snprintf(path, sizeof(path), "%s/%s",
+		 symlink_dir, scan->d_name);
+	symlink_len = readlink(path, symlink, sizeof(symlink) - 1);
+	if (symlink_len <= 0) {
+	    continue;
+	}
+	symlink[symlink_len] = '\0';
+	if (strcmp(symlink, dir_name) == 0) {
+	    strlcpy(link_name, scan->d_name, link_name_len);
+	    len = strlen(link_name);
+	    break;
+	}
+    }
+ done:
+    if (dir_p != NULL) {
+	closedir(dir_p);
+    }
+    return (len);
+}
+
 NBSPListRef
 NBSPList_init(const char * symlink_name, bool readonly_ok)
 {
@@ -164,11 +205,33 @@ NBSPList_init(const char * symlink_name, bool readonly_ok)
 	if (stat(sharelink, &sb) < 0) {
 	    continue;
 	}
-	sharename_len = readlink(sharelink, sharename, sizeof(sharename));
+	sharename_len = readlink(sharelink, sharename, sizeof(sharename) - 1);
 	if (sharename_len <= 0) {
 	    continue;
 	}
 	sharename[sharename_len] = '\0';
+
+	/* remember the actual directory name */
+	snprintf(sharedir, sizeof(sharedir), 
+		 "%s" NETBOOT_DIRECTORY "/%s", root, sharename);
+	sharedir_len = strlen(sharedir);
+	
+	if (readonly_ok) {
+	    int		tftp_symlink_len;
+
+	    /*
+	     * Lookup the directory in the TFTP directory, assume that
+	     * it is the sharename we want to use for both TFTP and HTTP.
+	     * This isn't a safe assumption, we should independently 
+	     * check/remember the TFTP/HTTP symlink names.
+	     */
+	    tftp_symlink_len
+		= lookup_symlink(NETBOOT_TFTP_PATH "/" NETBOOT_TFTP_DIRECTORY,
+				 sharedir, sharename, sizeof(sharename));
+	    if (tftp_symlink_len != 0) {
+		sharename_len = tftp_symlink_len;
+	    }
+	}
 	if (list == NULL) {
 	    list = (dynarray_t *)malloc(sizeof(*list));
 	    if (list == NULL) {
@@ -177,9 +240,6 @@ NBSPList_init(const char * symlink_name, bool readonly_ok)
 	    bzero(list, sizeof(*list));
 	    dynarray_init(list, free, NULL);
 	}
-	snprintf(sharedir, sizeof(sharedir), 
-		 "%s" NETBOOT_DIRECTORY "/%s", root, sharename);
-	sharedir_len = strlen(sharedir);
 	entry = malloc(sizeof(*entry) + sharename_len + sharedir_len + 2);
 	if (entry == NULL) {
 	    continue;

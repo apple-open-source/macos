@@ -266,7 +266,7 @@ x86_64_macosx_store_gp_registers_raw (gdb_x86_thread_state64_t *sp_regs)
 void
 i386_macosx_fetch_fp_registers (gdb_i386_float_state_t *fp_regs)
 {
-  i387_swap_fxsave (current_regcache, &fp_regs->fpu_fcw);
+  i387_swap_fxsave (current_regcache, (uint8_t *) &fp_regs->fpu_fcw);
   i387_supply_fxsave (current_regcache, -1, &fp_regs->fpu_fcw);
 }
 
@@ -279,7 +279,7 @@ i386_macosx_fetch_fp_registers_raw (gdb_i386_float_state_t *fp_regs)
 void
 x86_64_macosx_fetch_fp_registers (gdb_x86_float_state64_t *fp_regs)
 {
-  i387_swap_fxsave (current_regcache, &fp_regs->fpu_fcw);
+  i387_swap_fxsave (current_regcache, (uint8_t *) &fp_regs->fpu_fcw);
   i387_supply_fxsave (current_regcache, -1, &fp_regs->fpu_fcw);
 }
 
@@ -301,7 +301,7 @@ i386_macosx_store_fp_registers (gdb_i386_float_state_t *fp_regs)
 {
   memset (fp_regs, 0, sizeof (gdb_i386_float_state_t));
   i387_fill_fxsave ((unsigned char *) &fp_regs->fpu_fcw, -1);
-  i387_swap_fxsave (current_regcache, &fp_regs->fpu_fcw);
+  i387_swap_fxsave (current_regcache, (uint8_t *) &fp_regs->fpu_fcw);
 
   return 1;
 }
@@ -321,7 +321,7 @@ x86_64_macosx_store_fp_registers (gdb_x86_float_state64_t *fp_regs)
 {
   memset (fp_regs, 0, sizeof (gdb_x86_float_state64_t));
   i387_fill_fxsave ((unsigned char *) &fp_regs->fpu_fcw, -1);
-  i387_swap_fxsave (current_regcache, &fp_regs->fpu_fcw);
+  i387_swap_fxsave (current_regcache, (uint8_t *) &fp_regs->fpu_fcw);
 
   return 1;
 }
@@ -442,6 +442,39 @@ i386_macosx_thread_state_addr_1 (CORE_ADDR start_of_func, CORE_ADDR pc,
   return address_of_struct_mcontext + 12;
 }
 
+/* On entry to _sigtramp, r8 has the address of a ucontext_t structure.
+   48 bytes into the ucontext_t we have the address of an mcontext structure.
+   Starting 16 bytes into the mcontext structure, we have the saved registers,
+   the mapping of them is handled by amd64_macosx_thread_state_reg_offset. 
+   libSystem has eh_frame instructions for doing the same thing; they are of
+   the form,
+         DW_CFA_expression (1, expr(breg3 +48, deref , plus uconst 0x0018))
+   On function entry we can find the ucontext_t structure off of R8; when 
+   _sigtramp calls down into the handler we should look at RBX (reg3) to
+   find it.
+ */
+
+static CORE_ADDR
+amd64_macosx_thread_state_addr (struct frame_info *next_frame)
+{
+  gdb_byte buf[8];
+  CORE_ADDR mcontext_addr, ucontext_addr;
+
+  if (frame_relative_level (next_frame) == -1)
+    {
+      frame_unwind_register (next_frame, AMD64_R8_REGNUM, buf);
+      mcontext_addr = extract_unsigned_integer (buf, 8);
+    }
+  else
+    {
+      frame_unwind_register (next_frame, AMD64_RBX_REGNUM, buf);
+      mcontext_addr = extract_unsigned_integer (buf, 8);
+    }
+
+  ucontext_addr = read_memory_unsigned_integer (mcontext_addr + 48, 8);
+  return ucontext_addr + 0x10;
+}
+
 /* Offsets into the struct i386_thread_state where we'll find the saved regs. */
 /* From <mach/i386/thread_status.h and i386-tdep.h */
 static int i386_macosx_thread_state_reg_offset[] =
@@ -466,7 +499,7 @@ static int i386_macosx_thread_state_reg_offset[] =
 
 /* Offsets into the struct x86_thread_state64 where we'll find the saved regs. */
 /* From <mach/i386/thread_status.h and amd64-tdep.h */
-static int x86_64_macosx_thread_state_reg_offset[] =
+static int amd64_macosx_thread_state_reg_offset[] =
 {
   0 * 8,			/* %rax */
   1 * 8,			/* %rbx */
@@ -507,6 +540,13 @@ i386_integer_to_address (struct gdbarch *gdbarch, struct type *type,
 }
 
 
+/* Align to 16 byte boundary */
+static CORE_ADDR
+i386_macosx_frame_align (struct gdbarch *gdbarch, CORE_ADDR addr)
+{
+   return (addr & -16);
+}
+
 static void
 i386_macosx_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 {
@@ -530,6 +570,7 @@ i386_macosx_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 
   tdep->jb_pc_offset = 20;
   set_gdbarch_integer_to_address (gdbarch, i386_integer_to_address);
+  set_gdbarch_frame_align (gdbarch, i386_macosx_frame_align);
 }
 
 static void
@@ -549,10 +590,9 @@ x86_macosx_init_abi_64 (struct gdbarch_info info, struct gdbarch *gdbarch)
 
   tdep->struct_return = reg_struct_return;
 
-  /* We don't do signals yet. */
-  tdep->sigcontext_addr = NULL;
-  tdep->sc_reg_offset = x86_64_macosx_thread_state_reg_offset;
-  tdep->sc_num_regs = ARRAY_SIZE (x86_64_macosx_thread_state_reg_offset);
+  tdep->sigcontext_addr = amd64_macosx_thread_state_addr;
+  tdep->sc_reg_offset = amd64_macosx_thread_state_reg_offset;
+  tdep->sc_num_regs = ARRAY_SIZE (amd64_macosx_thread_state_reg_offset);
 
   tdep->jb_pc_offset = 148;
   set_gdbarch_integer_to_address (gdbarch, i386_integer_to_address);
@@ -565,11 +605,11 @@ i386_mach_o_query_64bit ()
   int supports64bit;
   size_t sz;
   
-  sz = sizeof(supports64bit);
-  result = sysctlbyname("hw.optional.x86_64", &supports64bit, &sz, NULL, 0);
-  return (result == 0 &&
-          sz == sizeof(supports64bit) &&
-          supports64bit);
+  sz = sizeof (supports64bit);
+  result = sysctlbyname ("hw.optional.x86_64", &supports64bit, &sz, NULL, 0);
+  return (result == 0
+          && sz == sizeof (supports64bit)
+          && supports64bit);
 }
 
 static enum gdb_osabi
@@ -632,6 +672,7 @@ i386_fast_show_stack (unsigned int count_limit, unsigned int print_limit,
      "fp" to get an actual EBP value for walking the stack.  */
 
   fp = get_frame_base (fi);
+  prev_fp = fp;             /* Start with a reasonable default value.  */
   fp = fp - 2 * wordsize;
   prev_fp = prev_fp - 2 * wordsize;
   while (1)
@@ -743,6 +784,87 @@ i386_macosx_get_longjmp_target (CORE_ADDR *pc)
 {
   return i386_macosx_get_longjmp_target_helper (I386_JMPBUF_SAVED_EIP_OFFSET,
                                                 pc);
+}
+
+/* We've stopped at a C++ throw or catch.
+   Knowing the libstdc++ internal exception structure definitions, find
+   the string with the name of the exception we're processing and return
+   that string.
+
+   In our current library, these functions are 
+     __cxa_throw (void *obj, std::type_info *tinfo, void (*dest) (void *))
+     __cxa_begin_catch (void *exc_obj_in) throw()
+   In the case of __cxa_throw, its second argument is a pointer to an address
+   of a symbol like _ZTIi ("typeinfo for int").
+   In the case of __cxa_begin_catch, its argument is a pointer to a
+   _Unwind_Exception struct.  This _Unwind_Exception struct is actually
+   contained within (at the end of) a __cxa_exception struct.  So given
+   the pointer to the _Unwind_Exception, we subtract the necessary amount
+   to get the start of the __cxa_exception object.  The first element of
+   the __cxa_exception struct is the pointer to a symbol like _ZTIi 
+   ("typeinfo for int").  */
+
+char *
+i386_throw_catch_find_typeinfo (struct frame_info *curr_frame,
+                                int exception_type)
+{
+  struct minimal_symbol *typeinfo_sym = NULL;
+  char *typeinfo_str;
+
+  if (gdbarch_osabi (current_gdbarch) == GDB_OSABI_DARWIN64)
+    {
+      if (exception_type == EX_EVENT_THROW)
+        {
+          CORE_ADDR typeinfo_ptr = 
+              get_frame_register_unsigned (curr_frame, AMD64_RSI_REGNUM);
+          typeinfo_sym = lookup_minimal_symbol_by_pc (typeinfo_ptr);
+        }
+      else
+        {
+          ULONGEST typeinfo_ptr;
+          CORE_ADDR unwind_exception = 
+              get_frame_register_unsigned (curr_frame, AMD64_RDI_REGNUM);
+          /* The start of the __cxa_exception structure is the addr of the
+             _Unwind_Exception element minus 80 bytes.  */
+          if (safe_read_memory_unsigned_integer
+              (unwind_exception - 80, 8, &typeinfo_ptr))
+            typeinfo_sym = lookup_minimal_symbol_by_pc (typeinfo_ptr);
+        }
+    }
+  else
+    {
+      CORE_ADDR ebp;
+      ebp = get_frame_register_unsigned (curr_frame, I386_EBP_REGNUM);
+      if (exception_type == EX_EVENT_THROW)
+        {
+          ULONGEST typeinfo_ptr;
+          if (safe_read_memory_unsigned_integer (ebp + 12, 4, &typeinfo_ptr))
+            typeinfo_sym = lookup_minimal_symbol_by_pc (typeinfo_ptr);
+        }
+      else
+        {
+          ULONGEST unwind_exception, typeinfo_ptr;
+          if (safe_read_memory_unsigned_integer (ebp + 8, 4, &unwind_exception))
+            {
+              /* The start of the __cxa_exception structure is the addr of the
+                 _Unwind_Exception element minus 48 bytes.  */
+              if (safe_read_memory_unsigned_integer
+                  (unwind_exception - 48, 4, &typeinfo_ptr))
+                typeinfo_sym = lookup_minimal_symbol_by_pc (typeinfo_ptr);
+            }
+        }
+    }
+
+  if (!typeinfo_sym)
+    return NULL;
+
+  typeinfo_str =
+    typeinfo_sym->ginfo.language_specific.cplus_specific.demangled_name;
+  if ((typeinfo_str == NULL)
+      || (strstr (typeinfo_str, "typeinfo for ") != typeinfo_str))
+    return NULL;
+
+  return typeinfo_str + strlen ("typeinfo for ");
 }
 
 void

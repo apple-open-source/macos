@@ -15,7 +15,7 @@ class IrDATimerEventSource : public IOTimerEventSource
 public:
     typedef void (*Action)(OSObject *owner, IrDATimerEventSource *sender);
 
-    static IrDATimerEventSource *IrDATimerEventSource::timerEventSource(OSObject *inOwner, Action inAction);
+    static IrDATimerEventSource *timerEventSource(OSObject *inOwner, Action inAction);
     Boolean SafeCancelTimeout();
 };
 

@@ -49,7 +49,7 @@ IOFWWorkLoop * IOFWWorkLoop::workLoop()
 {
     IOFWWorkLoop *loop;
     
-    loop = new IOFWWorkLoop;
+    loop = OSTypeAlloc( IOFWWorkLoop );
     if( !loop )
         return loop;
 		
@@ -68,20 +68,44 @@ IOFWWorkLoop * IOFWWorkLoop::workLoop()
 
 bool IOFWWorkLoop::init( void )
 {
-	// create a unique lock group for this instance of the FireWire workloop
-	// this helps elucidate lock statistics
+	bool success = true;
 	
-	SInt32	count = OSIncrementAtomic( &sLockGroupCount );
-	char	name[64];
+	if( success )
+	{
+		// create a unique lock group for this instance of the FireWire workloop
+		// this helps elucidate lock statistics
+		
+		SInt32	count = OSIncrementAtomic( &sLockGroupCount );
+		char	name[64];
+		
+		snprintf( name, sizeof(name), "FireWire %d", (int)count );
+		fLockGroup = lck_grp_alloc_init( name, LCK_GRP_ATTR_NULL );
+		if( !fLockGroup )
+		{
+			success = false;
+		}
+	}
 	
-	snprintf( name, sizeof(name), "FireWire %d", (int)count );
-	fLockGroup = lck_grp_alloc_init( name, LCK_GRP_ATTR_NULL );
-	if( fLockGroup )
+	if( success )
 	{
 		gateLock = IORecursiveLockAllocWithLockGroup( fLockGroup );
 	}
 	
-	return IOWorkLoop::init();
+	if( success )
+	{
+		fRemoveSourceDeferredSet = OSSet::withCapacity( 1 );
+		if( fRemoveSourceDeferredSet == NULL  )
+		{
+			success = false;
+		}
+	}
+
+	if( success )
+	{
+		success = IOWorkLoop::init();
+	}
+	
+	return success;
 }
 
 // free
@@ -96,7 +120,67 @@ void IOFWWorkLoop::free( void )
 		fLockGroup = NULL;
 	}
 	
+	if( fRemoveSourceDeferredSet )
+	{
+		fRemoveSourceDeferredSet->release();
+		fRemoveSourceDeferredSet = NULL;
+	}
+	
 	IOWorkLoop::free();	
+}
+
+// removeEventSource
+//
+//
+
+IOReturn IOFWWorkLoop::removeEventSource(IOEventSource *toRemove)
+{
+	IOReturn status = kIOReturnSuccess;
+	
+	// the PM thread retains ioservices while fiddling with them
+	// that means the PM thread may be the thread that releases the final retain on an ioservices
+	// ioservices may remove and free event sources in their free routines
+	// removing and freeing event sources grabs the workloop lock
+	// if the PM has already put FireWire to sleep we would sleep any thread who grabs the workloop lock
+	// if we sleep the PM thread then sleep hangs. that's bad.
+	
+	// if we could have a do over we should not sleep the entire workloop, but only those that belong
+	// to the core FireWire services. at this point though there are likely too many drivers relying
+	// on a full workloop sleep to change things safely. 
+	
+	// so for now we do these slightly crazy machinations to allow event source removal without sleeping the
+	// calling thread
+	
+	// we only need to do this if the calling thread is the PM workloop, but I don't want to make
+	// assumptions about PM internals that may change so I'll do this for all threads
+	
+	IOWorkLoop::closeGate();
+	
+	if( fRemoveSourceThread != NULL )
+	{
+		IOLog( "IOFWWorkLoop::removeEventSource - fRemoveSourceThread = (%p) != NULL\n", fRemoveSourceThread );
+	}
+	
+	// remember who's removing the event source
+	fRemoveSourceThread = IOThreadSelf();
+	
+	// if we're asleep
+	if( fSleepToken )
+	{
+		// we can't let this object be freed after we return since freeing a command gate grabs the workloop lock
+		// we will flush this set on wake
+		fRemoveSourceDeferredSet->setObject( toRemove );
+	}
+	
+	// do the actual removal, this will succeed since fRemoveSourceThread will be allowed to grab the lock
+	status = IOWorkLoop::removeEventSource( toRemove );
+	
+	// forget the thread
+	fRemoveSourceThread = NULL;
+	
+	IOWorkLoop::openGate();
+	
+	return status;
 }
 
 // closeGate
@@ -106,7 +190,8 @@ void IOFWWorkLoop::free( void )
 void IOFWWorkLoop::closeGate()
 {
     IOWorkLoop::closeGate();
-    if( fSleepToken ) 
+    if( fSleepToken && 
+	    (fRemoveSourceThread != IOThreadSelf()) ) 
 	{
         IOReturn res;
         do 
@@ -128,7 +213,9 @@ bool IOFWWorkLoop::tryCloseGate()
 {
     bool ret;
     ret = IOWorkLoop::tryCloseGate();
-    if( ret && fSleepToken ) 
+    if( ret && 
+	    fSleepToken && 
+	    (fRemoveSourceThread != IOThreadSelf()) ) 
 	{
         openGate();
         ret = false;
@@ -168,7 +255,13 @@ IOReturn IOFWWorkLoop::wake(void *token)
     }
 	
     IORecursiveLockLock( gateLock );
+	
     fSleepToken = NULL;
+	
+	// delete any event sources that were removed during sleep
+	fRemoveSourceDeferredSet->flushCollection();
+	
+	// wake up waiting threads
     wakeupGate( token, false );
     
 	return kIOReturnSuccess;

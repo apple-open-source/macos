@@ -1,9 +1,8 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 2001-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 2001,2007 Oracle.  All rights reserved.
 #
-# $Id: rpc003.tcl,v 1.2 2004/03/30 01:24:08 jtownsen Exp $
+# $Id: rpc003.tcl,v 12.5 2007/05/17 15:15:55 bostic Exp $
 #
 # TEST	rpc003
 # TEST	Test RPC and secondary indices.
@@ -158,6 +157,8 @@ proc rpc003 { } {
 }
 
 proc rpc003_assoc_err { popen sopen msg } {
+	global rpc_svc
+
 	set pdb [eval $popen]
 	error_check_good assoc_err_popen [is_valid_db $pdb] TRUE
 
@@ -168,11 +169,15 @@ proc rpc003_assoc_err { popen sopen msg } {
 	error_check_good db_associate:rdonly $stat 1
 	error_check_good db_associate:inval [is_substr $ret invalid] 1
 
-	puts "$msg.1: non-NULL callback"
-	set stat [catch {eval $pdb associate [callback_n 0] $sdb} ret]
-	error_check_good db_associate:callback $stat 1
-	error_check_good db_associate:rpc \
-	    [is_substr $ret "not supported in RPC"] 1
+	# The Java and JE RPC servers support callbacks.
+	if { $rpc_svc == "berkeley_db_svc" || \
+	     $rpc_svc == "berkeley_db_cxxsvc" } {
+		puts "$msg.1: non-NULL callback"
+		set stat [catch {eval $pdb associate [callback_n 0] $sdb} ret]
+		error_check_good db_associate:callback $stat 1
+		error_check_good db_associate:inval [is_substr $ret invalid] 1
+	}
+
 	error_check_good assoc_sclose [$sdb close] 0
 	error_check_good assoc_pclose [$pdb close] 0
 }

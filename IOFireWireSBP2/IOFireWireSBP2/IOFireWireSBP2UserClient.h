@@ -29,6 +29,8 @@
 #include <IOKit/firewire/IOFireWireController.h>
 #undef FIREWIREPRIVATE
 
+#include <IOKit/firewire/IOFWUserObjectExporter.h>
+
 #include <IOKit/sbp2/IOFireWireSBP2UserClientCommon.h>
 #include <IOKit/sbp2/IOFireWireSBP2LUN.h>
 
@@ -52,6 +54,10 @@ protected:
     OSAsyncReference64		fFetchAgentResetAsyncRef;
 	OSAsyncReference64		fFetchAgentWriteAsyncRef;
 	
+	IOFWUserObjectExporter	*	fExporter;
+	
+	IOFireWireLib::UserObjectHandle		fSessionRef;
+	
  	virtual IOReturn externalMethod(	uint32_t selector, 
 										IOExternalMethodArguments * args,
 										IOExternalMethodDispatch * dispatch, 
@@ -60,6 +66,7 @@ protected:
 public:
 
 	virtual bool initWithTask( task_t owningTask, void * securityToken, UInt32 type, OSDictionary * properties );
+	virtual void free ();
 				
     virtual bool start( IOService * provider );
 

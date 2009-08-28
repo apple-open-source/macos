@@ -15,13 +15,14 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the
-   Free Software Foundation, 59 Temple Place - Suite 330, Boston,
-   MA 02111-1307, USA.  */
+   Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
+   MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
 #include <sys/mman.h>
+#include <limits.h>
 #include "hosthooks.h"
 #include "hosthooks-def.h"
 
@@ -113,8 +114,13 @@ linux_gt_pch_get_address (size_t size, int fd)
   if (TRY_EMPTY_VM_SPACE && addr == (void *) TRY_EMPTY_VM_SPACE)
     return addr;
 
-  /* If we didn't, then we need to look to see if randomization is on.  */
-  f = fopen ("/proc/sys/kernel/exec-shield-randomize", "r");
+  /* If we didn't, then we need to look to see if virtual address
+     randomization is on.  That is recorded in
+     kernel.randomize_va_space.  An older implementation used
+     kernel.exec-shield-randomize.  */
+  f = fopen ("/proc/sys/kernel/randomize_va_space", "r");
+  if (f == NULL)
+    f = fopen ("/proc/sys/kernel/exec-shield-randomize", "r");
   randomize_on = false;
   if (f != NULL)
     {

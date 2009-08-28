@@ -1,0 +1,35 @@
+diff -Naur Authen-Krb5/Krb5.xs /tmp/Krb5-1.6/Krb5.xs
+--- Authen-Krb5/Krb5.xs	2007-11-02 12:32:46.000000000 -0500
++++ /tmp/Krb5-1.6/Krb5.xs	2007-11-02 12:40:31.000000000 -0500
+@@ -108,7 +108,7 @@
+ krb5_init_context()
+ 
+ 	CODE:
+-	if (context) croak("Authen::Krb5 already initialized");
++	if (context) krb5_free_context(context);
+ 	err = krb5_init_context(&context);
+ 	if (err) XSRETURN_UNDEF;
+ 	XSRETURN_YES;
+@@ -142,6 +142,22 @@
+ 	Safefree(realm);
+ 
+ void
++krb5_context_is_inited()
++
++	CODE:
++	if (!context) XSRETURN_UNDEF;
++	XSRETURN_YES;
++
++void
++krb5_set_default_realm(realm)
++	char *realm;
++
++	CODE:
++	err = krb5_set_default_realm(context,realm);
++	if (err) XSRETURN_UNDEF;
++	XSRETURN_YES;
++
++void
+ krb5_get_host_realm(host)
+ 	char *host
+ 

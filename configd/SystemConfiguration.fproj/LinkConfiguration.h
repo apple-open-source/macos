@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002, 2004, 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002, 2004, 2006, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,6 +25,7 @@
 #ifndef _LINKCONFIGURATION_H
 #define _LINKCONFIGURATION_H
 
+#include <Availability.h>
 #include <sys/cdefs.h>
 #include <CoreFoundation/CoreFoundation.h>
 
@@ -62,7 +63,7 @@ NetworkInterfaceCopyMediaOptions(
 				 CFDictionaryRef	*active,
 				 CFArrayRef		*available,
 				 Boolean		filter
-				 )		AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
+				 )		__OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA);
 
 /*!
 	@function NetworkInterfaceCopyMediaSubTypes
@@ -76,7 +77,7 @@ NetworkInterfaceCopyMediaOptions(
 CFArrayRef
 NetworkInterfaceCopyMediaSubTypes(
 				  CFArrayRef		available
-				  )		AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
+				  )		__OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA);
 
 /*!
 	@function NetworkInterfaceCopyMediaSubTypeOptions
@@ -93,7 +94,7 @@ CFArrayRef
 NetworkInterfaceCopyMediaSubTypeOptions(
 					CFArrayRef		available,
 					CFStringRef		subType
-					)	AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
+					)	__OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA);
 
 /*!
 	@function NetworkInterfaceCopyMTU
@@ -116,7 +117,7 @@ NetworkInterfaceCopyMTU(
 			int		*mtu_cur,
 			int		*mtu_min,
 			int		*mtu_max
-			)			AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
+			)			__OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA);
 
 
 __END_DECLS

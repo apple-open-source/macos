@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2002-2008 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,12 +23,14 @@
 
 /*!
     @header SecPolicy
-    The functions provided in SecPolicy implement a representation of a particular trust policy.
+    The functions provided in SecPolicy.h provide an interface to various
+	X.509 certificate trust policies.
 */
 
 #ifndef _SECURITY_SECPOLICY_H_
 #define _SECURITY_SECPOLICY_H_
 
+#include <CoreFoundation/CFBase.h>
 #include <Security/SecBase.h>
 #include <Security/cssmtype.h>
 
@@ -79,6 +81,26 @@ OSStatus SecPolicySetValue(SecPolicyRef policyRef, const CSSM_DATA *value);
     @result A result code.  See "Security Error Codes" (SecBase.h).
 */
 OSStatus SecPolicyGetTPHandle(SecPolicyRef policyRef, CSSM_TP_HANDLE *tpHandle);
+
+/*!
+    @function SecPolicyCreateBasicX509
+    @abstract Returns a policy object for the default X.509 policy.
+    @result A policy object. The caller is responsible for calling CFRelease
+	on this when it is no longer needed.
+*/
+SecPolicyRef SecPolicyCreateBasicX509(void);
+
+/*!
+    @function SecPolicyCreateSSL
+    @abstract Returns a policy object for evaluating SSL certificate chains.
+	@param server Passing true for this parameter create a policy for SSL
+	server certificates.
+	@param hostname (Optional) If present, the policy will require the specified
+	hostname to match the hostname in the leaf certificate.
+    @result A policy object. The caller is responsible for calling CFRelease
+	on this when it is no longer needed.
+*/
+SecPolicyRef SecPolicyCreateSSL(Boolean server, CFStringRef hostname);
 
 #if defined(__cplusplus)
 }

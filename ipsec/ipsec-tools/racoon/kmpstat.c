@@ -65,6 +65,7 @@
 #endif
 #include <err.h>
 #include <sys/ioctl.h> 
+#include <resolv.h>
 
 #include "libpfkey.h"
 
@@ -106,7 +107,7 @@ com_init()
 	memset(&name, 0, sizeof(name));
 	name.sun_family = AF_UNIX;
 	snprintf(name.sun_path, sizeof(name.sun_path),
-		"%s", ADMINSOCK_PATH);
+		"%s", adminsock_path);
 
 	so = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (so < 0)

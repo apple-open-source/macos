@@ -26,6 +26,8 @@
 
 #include "FEEAsymmetricContext.h"
 #include "FEECSPUtils.h"
+#include <security_cryptkit/falloc.h>
+#include <CommonCrypto/CommonDigest.h>
 
 /* validate context for FEED and FEEDExp - no unexpected attributes allowed */
 static void validateFeedContext(
@@ -435,6 +437,168 @@ void CryptKit::FEEDExpContext::decryptBlock(
 		CssmError::throwMe(CSSMERR_CSP_OUTPUT_LENGTH_ERROR);
 	}
 	plainTextLen = actMoved;
+}
+
+/* convert uint32 to big-endian 4 bytes */
+static void int32ToBytes(
+	uint32_t i,
+	unsigned char *b)
+{
+	for(int dex=3; dex>=0; dex--) {
+		b[dex] = i;
+		i >>= 8;
+	}
+}
+
+/* 
+ * X9.63 key derivation with optional SharedInfo passed as 
+ * context attribute CSSM_ATTRIBUTE_SALT.
+ */
+static feeReturn ecdhKdf(
+	const Context &context, 
+	const unsigned char *Z,		/* shared secret, i.e., output of ECDH */
+	unsigned ZLen,
+	CSSM_DATA *K)				/* output RETURNED in K->Data, length K->Length bytes */
+{
+	/* SharedInfo via salt, from context, optional */
+	const unsigned char *sharedInfo = NULL;
+	CSSM_SIZE sharedInfoLen = 0;
+	
+	CssmData *salt = context.get<CssmData>(CSSM_ATTRIBUTE_SALT);
+	if(salt != NULL) {
+		sharedInfo = (const unsigned char *)salt->Data;
+		sharedInfoLen = salt->Length;
+	}
+	
+	unsigned char *outp = K->Data;
+	CSSM_SIZE bytesToGo = K->Length;
+	CC_SHA1_CTX sha1;
+	uint32_t counter = 1;
+	uint8 counterBytes[4];
+	unsigned char digOut[CC_SHA1_DIGEST_LENGTH];
+	
+	do {
+		/* K[i] = Hash(Z || Counter || SharedInfo) */
+		CC_SHA1_Init(&sha1);
+		CC_SHA1_Update(&sha1, Z, ZLen);
+		int32ToBytes(counter, counterBytes);
+		CC_SHA1_Update(&sha1, counterBytes, 4);
+		if(sharedInfoLen) {
+			CC_SHA1_Update(&sha1, sharedInfo, sharedInfoLen);
+		}
+		CC_SHA1_Final(digOut, &sha1);
+		
+		/* digest --> output */
+		unsigned toMove = CC_SHA1_DIGEST_LENGTH;
+		if(toMove > bytesToGo) {
+			toMove = bytesToGo;
+		}
+		memmove(outp, digOut, toMove);
+		
+		counter++;
+		outp += toMove;
+		bytesToGo -= toMove;
+		
+	} while(bytesToGo);
+	
+	return FR_Success;
+}
+
+/*
+ * Elliptic curve Diffie-Hellman key exchange. The public key is 
+ * specified in one of two ways - a raw X9.62 format public key 
+ * string in Param, or a CSSM_KEY in the Context. 
+ * Requested size, in keyData->Length, must be the same size as
+ * the keys' modulus. Data is returned in keyData->Data, which is 
+ * allocated by the caller.
+ * Optionally performs X9.63 key derivation if algId == 
+ * CSSM_ALGID_ECDH_X963_KDF, with the optional SharedInfo passed
+ * as optional context attribute CSSM_ATTRIBUTE_SALT.
+ */
+void CryptKit::DeriveKey_ECDH (
+	const Context &context,
+	CSSM_ALGORITHMS algId,		
+	const CssmData &Param,			// other's public key. may be empty
+	CSSM_DATA *keyData,				// mallocd by caller
+									// we fill in keyData->Length bytes
+	AppleCSPSession &session)
+{
+	bool mallocdPrivKey;
+	size_t privSize;
+	
+	/* private ECDH key from context - required */
+	feePubKey privKey = contextToFeeKey(context, session, CSSM_ATTRIBUTE_KEY,
+		CSSM_KEYCLASS_PRIVATE_KEY, CSSM_KEYUSE_DERIVE, mallocdPrivKey);
+	if(privKey == NULL) {
+		CssmError::throwMe(CSSMERR_CSP_MISSING_ATTR_KEY);
+	}
+	privSize = (feePubKeyBitsize(privKey) + 7) / 8;
+	if((algId == CSSM_ALGID_ECDH) & (privSize != keyData->Length)) {
+		/* exact match required here */
+		CssmError::throwMe(CSSMERR_CSP_OUTPUT_LENGTH_ERROR);
+	}
+	
+	/*
+	 * Public key ("their" key) can come from two places:
+	 * -- in the context as a CSSM_ATTRIBUTE_PUBLIC_KEY. This is how 
+	 *    public keys in X509 format must be used in this function.
+	 * -- in the incoming Param, the raw unformatted (ANSI X9.62) form 
+	 */
+	bool mallocdPubKey = false;
+	feePubKey pubKey = NULL;
+	if(Param.Data == NULL) {
+		/* this throws if no key present */
+		pubKey = contextToFeeKey(context, session, CSSM_ATTRIBUTE_PUBLIC_KEY,
+			CSSM_KEYCLASS_PUBLIC_KEY, CSSM_KEYUSE_DERIVE, mallocdPubKey);
+	}
+	if((pubKey == NULL) && (Param.Data == NULL)) {
+		errorLog0("DeriveKey_ECDH: no pub_key\n");
+		CssmError::throwMe(CSSMERR_CSP_INVALID_KEY);
+	}
+	unsigned char *output = NULL;
+	unsigned outputLen = 0;
+	feeReturn frtn = feePubKeyECDH(privKey, pubKey, 
+		(const unsigned char *)Param.Data, (unsigned)Param.Length,
+		&output, &outputLen);
+	if(frtn) {
+		goto errOut;
+	}
+	switch(algId) {
+		case CSSM_ALGID_ECDH:
+			/*
+			 * Raw ECDH - requested length must match the generated size
+			 * exactly. If so, return the result unmodified.
+			 */
+			if(outputLen != keyData->Length) {
+				errorLog0("DeriveKey_ECDH: length mismatch\n");
+				frtn = FR_Internal;
+				break;
+			}
+			memmove(keyData->Data, output, outputLen);
+			break;
+		case CSSM_ALGID_ECDH_X963_KDF:
+			/* Further processing... */
+			frtn = ecdhKdf(context, output, outputLen, keyData);
+			break;
+		default:
+			/* shouldn't be here */
+			frtn = FR_Internal;
+			break;
+	}
+
+errOut:
+	if(mallocdPrivKey) {
+		feePubKeyFree(privKey);
+	}
+	if(mallocdPubKey) {
+		feePubKeyFree(pubKey);
+	}
+	if(output != NULL) {
+		ffree(output);
+	}
+	if(frtn) {
+		throwCryptKit(frtn, NULL);
+	}
 }
 
 #endif	/* CRYPTKIT_CSP_ENABLE */

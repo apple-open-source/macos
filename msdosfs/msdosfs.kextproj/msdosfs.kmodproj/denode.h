@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2002-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2002-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -139,24 +139,24 @@ struct denode {
 	struct denode **de_prev;	/* Hash chain back */
 	vnode_t de_vnode;			/* addr of vnode we are part of */
 	vnode_t de_devvp;			/* vnode of blk dev we live on */
-	u_long de_flag;				/* flag bits */
+	uint32_t de_flag;				/* flag bits */
 	dev_t de_dev;				/* device where direntry lives */
-	u_long de_dirclust;			/* cluster of the directory file containing this entry */
-	u_long de_diroffset;		/* offset of this entry from the start of parent directory */
-	long de_refcnt;				/* reference count */
+	uint32_t de_dirclust;			/* cluster of the directory file containing this entry */
+	uint32_t de_diroffset;		/* offset of this entry from the start of parent directory */
+	int de_refcnt;				/* reference count */
 	struct msdosfsmount *de_pmp;	/* addr of our mount struct */
 	u_char de_Name[12];			/* name, from DOS directory entry */
 	u_char de_Attributes;		/* attributes, from directory entry */
 	u_char de_LowerCase;		/* NT VFAT lower case flags */
 	u_char de_CHun;				/* Hundredth of second of CTime*/
-	u_short de_CTime;			/* creation time */
-	u_short de_CDate;			/* creation date */
-	u_short de_ADate;			/* access date */
-	u_short de_MTime;			/* modification time */
-	u_short de_MDate;			/* modification date */
-	u_long de_StartCluster;		/* starting cluster of file */
-	u_long de_FileSize;			/* size of file, or length of symlink, in bytes */
-	u_long de_LastCluster;		/* The last cluster of the file, or zero for empty files */
+	uint16_t de_CTime;			/* creation time */
+	uint16_t de_CDate;			/* creation date */
+	uint16_t de_ADate;			/* access date */
+	uint16_t de_MTime;			/* modification time */
+	uint16_t de_MDate;			/* modification date */
+	uint32_t de_StartCluster;		/* starting cluster of file */
+	uint32_t de_FileSize;			/* size of file, or length of symlink, in bytes */
+	uint32_t de_LastCluster;		/* The last cluster of the file, or zero for empty files */
 	u_quad_t de_modrev;			/* Revision level for lease. */
 	struct msdosfs_lockf *de_lockf; /* Head of byte range lock list. */
 	struct denode *de_parent;	/* Parent directory denode */
@@ -170,9 +170,9 @@ struct denode {
 	 * or used in pcbmap).
 	 */
 	lck_mtx_t *de_cluster_lock;	/* Protects the cached extent fields */
-	u_long de_cluster_physical;	/* First physical cluster of cached extent */
-	u_long de_cluster_logical;	/* First logical cluster of cached extent */
-	u_long de_cluster_count;	/* Size of cached extent, in clusters; 0 => no cached extent */
+	uint32_t de_cluster_physical;	/* First physical cluster of cached extent */
+	uint32_t de_cluster_logical;	/* First logical cluster of cached extent */
+	uint32_t de_cluster_count;	/* Size of cached extent, in clusters; 0 => no cached extent */
 };
 
 /*
@@ -192,15 +192,16 @@ struct denode {
 #define DE_EXTERNALIZE(dp, dep)				\
 	 ((dp)->deAttributes = (dep)->de_Attributes,	\
 	 (dp)->deCHundredth = (dep)->de_CHun,		\
-	 putushort((dp)->deCTime, (dep)->de_CTime),	\
-	 putushort((dp)->deCDate, (dep)->de_CDate),	\
-	 putushort((dp)->deADate, (dep)->de_ADate),	\
-	 putushort((dp)->deMTime, (dep)->de_MTime),	\
-	 putushort((dp)->deMDate, (dep)->de_MDate),	\
-	 putushort((dp)->deStartCluster, (dep)->de_StartCluster), \
-	 putulong((dp)->deFileSize,			\
-	     ((dep)->de_Attributes & ATTR_DIRECTORY) ? 0 : (dep)->de_FileSize), \
-	 putushort((dp)->deHighClust, (dep)->de_StartCluster >> 16))
+	 putuint16((dp)->deCTime, (dep)->de_CTime),	\
+	 putuint16((dp)->deCDate, (dep)->de_CDate),	\
+	 putuint16((dp)->deADate, (dep)->de_ADate),	\
+	 putuint16((dp)->deMTime, (dep)->de_MTime),	\
+	 putuint16((dp)->deMDate, (dep)->de_MDate),	\
+	 putuint16((dp)->deStartCluster, (dep)->de_StartCluster), \
+	 putuint32((dp)->deFileSize,			\
+	     ((dep)->de_Attributes & ATTR_DIRECTORY) ? 0 :	\
+			((dep)->de_flag & DE_SYMLINK) ? sizeof(struct symlink) : (dep)->de_FileSize), \
+	 putuint16((dp)->deHighClust, (dep)->de_StartCluster >> 16))
 
 /*
  * DE_EXTERNALIZE_ROOT is used to write the root directory's dates to the
@@ -208,11 +209,11 @@ struct denode {
  */
 #define DE_EXTERNALIZE_ROOT(dp, dep)				\
 	((dp)->deCHundredth = (dep)->de_CHun,		\
-	 putushort((dp)->deCTime, (dep)->de_CTime),	\
-	 putushort((dp)->deCDate, (dep)->de_CDate),	\
-	 putushort((dp)->deADate, (dep)->de_ADate),	\
-	 putushort((dp)->deMTime, (dep)->de_MTime),	\
-	 putushort((dp)->deMDate, (dep)->de_MDate))
+	 putuint16((dp)->deCTime, (dep)->de_CTime),	\
+	 putuint16((dp)->deCDate, (dep)->de_CDate),	\
+	 putuint16((dp)->deADate, (dep)->de_ADate),	\
+	 putuint16((dp)->deMTime, (dep)->de_MTime),	\
+	 putuint16((dp)->deMDate, (dep)->de_MDate))
 
 #define	de_forw		de_chain[0]
 #define	de_back		de_chain[1]
@@ -251,13 +252,13 @@ struct denode {
  * This overlays the fid structure (see mount.h)
  */
 struct defid {
-	u_short defid_len;	/* length of structure */
-	u_short defid_pad;	/* force long alignment */
+	uint16_t defid_len;	/* length of structure */
+	uint16_t defid_pad;	/* force 32-bit alignment of next field */
 
-	u_long defid_dirclust;	/* cluster this dir entry came from */
-	u_long defid_dirofs;	/* offset of entry within the cluster */
+	uint32_t defid_dirclust;	/* cluster this dir entry came from */
+	uint32_t defid_dirofs;	/* offset of entry within the cluster */
 #if 0
-	u_long	defid_gen;	/* generation number */
+	uint32_t	defid_gen;	/* generation number */
 #endif
 };
 
@@ -267,8 +268,8 @@ int msdosfs_lookup __P((struct vnop_lookup_args *ap));
 int msdosfs_lookup_name(
 	struct denode *dep,		/* parent directory */
 	struct componentname *cnp,	/* the name to look up */
-	u_long *dirclust,		/* cluster containing short name entry */
-	u_long *diroffset,		/* byte offset from start of directory */
+	uint32_t *dirclust,		/* cluster containing short name entry */
+	uint32_t *diroffset,		/* byte offset from start of directory */
 	struct dosdirentry *direntry,	/* copy of found directory entry */
 	vfs_context_t context);
 int msdosfs_inactive __P((struct vnop_inactive_args *ap));
@@ -282,21 +283,21 @@ int msdosfs_blockmap __P((struct vnop_blockmap_args *ap));
  */
 void msdosfs_hash_init(void);
 void msdosfs_hash_uninit(void);
-int deget(struct msdosfsmount *pmp, u_long dirclust, u_long diroffset, vnode_t dvp, struct componentname *cnp, struct denode **, vfs_context_t context);
+int deget(struct msdosfsmount *pmp, uint32_t dirclust, uint32_t diroffset, vnode_t dvp, struct componentname *cnp, struct denode **, vfs_context_t context);
 int uniqdosname __P((struct denode *, struct componentname *, u_char *, u_int8_t *lower_case, vfs_context_t context));
 
-int readep __P((struct msdosfsmount *pmp, u_long dirclu, u_long dirofs,  struct buf **bpp, struct dosdirentry **epp, vfs_context_t context));
+int readep __P((struct msdosfsmount *pmp, uint32_t dirclu, uint32_t dirofs,  struct buf **bpp, struct dosdirentry **epp, vfs_context_t context));
 int readde __P((struct denode *dep, struct buf **bpp, struct dosdirentry **epp, vfs_context_t context));
-int deextend __P((struct denode *dep, u_long length, int flags, vfs_context_t context));
+int deextend __P((struct denode *dep, uint32_t length, int flags, vfs_context_t context));
 void reinsert __P((struct denode *dep));
 int dosdirempty __P((struct denode *dep, vfs_context_t context));
-int createde __P((struct denode *dep, struct denode *ddep, struct denode **depp, struct componentname *cnp, u_long offset, u_long long_count, vfs_context_t context));
+int createde __P((struct denode *dep, struct denode *ddep, struct denode **depp, struct componentname *cnp, uint32_t offset, uint32_t long_count, vfs_context_t context));
 int deupdat __P((struct denode *dep, int waitfor, vfs_context_t context));
 int removede __P((struct denode *pdep, uint32_t offset, vfs_context_t context));
-int detrunc __P((struct denode *dep, u_long length, int flags, vfs_context_t context));
+int detrunc __P((struct denode *dep, uint32_t length, int flags, vfs_context_t context));
 int doscheckpath __P(( struct denode *source, struct denode *target, vfs_context_t context));
-int findslots __P((struct denode *dep, struct componentname *cnp, u_int8_t *lower_case, u_long *offset, u_long *long_count, vfs_context_t context));
-u_long defileid(struct denode *dep);
+int findslots __P((struct denode *dep, struct componentname *cnp, u_int8_t *lower_case, uint32_t *offset, uint32_t *long_count, vfs_context_t context));
+uint32_t defileid(struct denode *dep);
 int msdosfs_dir_flush(struct denode *dep, int sync);
 int msdosfs_dir_invalidate(struct denode *dep);
 #endif	/* KERNEL */

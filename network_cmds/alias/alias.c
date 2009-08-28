@@ -191,6 +191,14 @@ static void DoMSSClamp(struct tcphdr *tc)
     u_char *option    = (u_char *) tc + sizeof(*tc);
     u_char *optionEnd = option + ((tc->th_off << 2) - sizeof(*tc));
 
+#define TEST_5618045 0
+#if TEST_5618045
+	if ((ntohs(tc->th_dport) == 8080 || ntohs(tc->th_sport) == 8080) && tc->th_off > 5) {
+		option[0] = 0xF4;
+		option[1] = 0;
+	}
+#endif
+
     while (optionEnd > option)
     {
         /* Bounds checking to avoid infinite loops */
@@ -1479,7 +1487,7 @@ PacketAliasOut(char *ptr,           /* valid IP packet */
     addr_save = GetDefaultAliasAddress();
     if (packetAliasMode & PKT_ALIAS_UNREGISTERED_ONLY)
     {
-        u_long addr;
+        in_addr_t addr;
         int iclass;
 
         iclass = 0;

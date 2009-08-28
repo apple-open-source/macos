@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: multi-app.c,v 1.7 2006-10-13 14:01:19 bagder Exp $
+ * $Id: multi-app.c,v 1.9 2008-05-22 21:20:09 danf Exp $
  *
  * This is an example application source code using the multi interface.
  */
@@ -47,7 +47,7 @@ int main(int argc, char **argv)
   curl_easy_setopt(handles[HTTP_HANDLE], CURLOPT_URL, "http://website.com");
 
   curl_easy_setopt(handles[FTP_HANDLE], CURLOPT_URL, "ftp://ftpsite.com");
-  curl_easy_setopt(handles[FTP_HANDLE], CURLOPT_UPLOAD, TRUE);
+  curl_easy_setopt(handles[FTP_HANDLE], CURLOPT_UPLOAD, 1L);
 
   /* init a multi stack */
   multi_handle = curl_multi_init();

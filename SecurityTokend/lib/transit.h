@@ -27,6 +27,9 @@
 #include "tokend.h"
 #include "server.h"
 #include <security_cdsa_utilities/cssmwalkers.h>
+#include <security_cdsa_utilities/u32handleobject.h>
+#include <Security/cssmtype.h>
+#include <security_utilities/alloc.h>
 
 
 namespace Security {
@@ -80,7 +83,7 @@ public:
 	OutputData(void **outP, mach_msg_type_number_t *outLength)
 		: mData(*outP), mLength(*outLength) { }
 	~OutputData()
-	{ mData = data(); mLength = length(); server->releaseWhenDone(mData); }
+	{ mData = data(); mLength = length(); server->releaseWhenDone(Allocator::standard(), mData); }
     
     void operator = (const CssmData &source)
     { CssmData::operator = (source); }
@@ -113,7 +116,7 @@ Return<T>::~Return()
 	Copier<T> copier(static_cast<T*>(this), Allocator::standard());
 	ptr = base = copier;
 	len = copier.length();
-	server->releaseWhenDone(copier.keep());
+	server->releaseWhenDone(Allocator::standard(), copier.keep());
 }
 
 
@@ -137,6 +140,49 @@ public:
 	
 private:
 	CssmData mData;
+};
+    
+//
+// Tokend handles <---> client-IPC handles
+// the "key" into the map is the 32 bit handle, the value is 64 bit (i.e. native)
+//
+class TokendHandle : public TypedHandle<CSSM_HANDLE>
+{
+public:
+    TokendHandle(CSSM_HANDLE cssmh) : TypedHandle<CSSM_HANDLE>(cssmh)  { }
+    virtual ~TokendHandle()  { }
+};
+
+class TokendHandleObject : public U32HandleObject
+{
+
+public:
+    // typedef TypedHandle<CSSM_HANDLE> TokendHandle;
+	typedef uint32_t TransitHandle;		// maybe should be U32HandleObject::Handle
+	
+public:
+    static TokendHandleObject *make(CSSM_HANDLE cssmh);
+	static CSSM_HANDLE findTDHandle(TransitHandle thdl);
+
+    TokendHandleObject(CSSM_HANDLE tokendh);
+    virtual ~TokendHandleObject();
+    CSSM_HANDLE tokendHandle() const  { return mTokendHandle.handle(); }
+    U32HandleObject::Handle ipcHandle() const  { return U32HandleObject::handle(); }
+
+private:
+    TokendHandle mTokendHandle;
+    
+	// key,value
+    typedef std::map<TransitHandle, TokendHandleObject *> TokendHandleMap;
+    class TokendHandleMapState : public Mutex, public TokendHandleMap
+    {
+    public:
+        TokendHandleMapState();
+        bool handleInUse(CSSM_HANDLE cssmh);
+        void add(TransitHandle thdl, TokendHandleObject *tho);
+		void erase(TransitHandle thdl);
+    };
+    static ModuleNexus<TokendHandleObject::TokendHandleMapState> thmstate;
 };
 
 }	// namespace Tokend

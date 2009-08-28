@@ -1,5 +1,5 @@
 /*
- * $Id: otp_pw_valid.h,v 1.1.2.4 2006/10/24 05:15:47 fcusack Exp $
+ * $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -21,8 +21,8 @@
 #ifndef OTP_PW_VALID_H
 #define OTP_PW_VALID_H
 
-#include "ident.h"
-RCSIDH(otp_pw_valid_h, "$Id: otp_pw_valid.h,v 1.1.2.4 2006/10/24 05:15:47 fcusack Exp $")
+#include <freeradius-devel/ident.h>
+RCSIDH(otp_pw_valid_h, "$Id$")
 
 #include <pthread.h>
 #include <sys/types.h>

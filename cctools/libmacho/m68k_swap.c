@@ -28,7 +28,7 @@ swap_m68k_thread_state_regs(
 struct m68k_thread_state_regs *cpu,
 enum NXByteOrder target_byte_sex)
 {
-    unsigned long i;
+    uint32_t i;
 
 	for(i = 0; i < 8; i++)
 	    cpu->dreg[i] = NXSwapLong(cpu->dreg[i]);
@@ -44,7 +44,7 @@ swap_m68k_thread_state_68882(
 struct m68k_thread_state_68882 *fpu,
 enum NXByteOrder target_byte_sex)
 {
-    unsigned long i, tmp;
+    uint32_t i, tmp;
 
 	for(i = 0; i < 8; i++){
 	                   tmp = NXSwapLong(fpu->regs[i].fp[0]);

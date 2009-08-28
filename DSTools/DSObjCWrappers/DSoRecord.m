@@ -611,7 +611,7 @@
     DSoDataNode    *attrType	= nil;
     tDirStatus		nError		= eDSNoErr;
 
-    if (!inAttributeType || inAttributeType == "")
+    if (!inAttributeType || inAttributeType[0] == '\0')
         return;
     
     attrType = [(DSoDataNode*)[DSoDataNode alloc] initWithDir:mDirectory cString:inAttributeType];

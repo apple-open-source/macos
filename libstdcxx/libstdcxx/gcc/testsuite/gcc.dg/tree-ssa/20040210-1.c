@@ -7,7 +7,7 @@ void exit(int);
 
 int x, y;
 
-static void
+static void __attribute__ ((noinline))
 init_xy(void)
 {
   x = 3;
@@ -30,3 +30,4 @@ main(){
 
 /* Should have no more than two ifs left after straightening.  */
 /* { dg-final { scan-tree-dump-times "if " 2 "phiopt1"} } */
+/* { dg-final { cleanup-tree-dump "phiopt1" } } */

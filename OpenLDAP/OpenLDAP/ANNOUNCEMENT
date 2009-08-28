@@ -1,35 +1,42 @@
-A N N O U N C E M E N T -- OpenLDAP 2.3
+A N N O U N C E M E N T -- OpenLDAP 2.4
 
     The OpenLDAP Project is pleased to announce the availability
-    of OpenLDAP Software 2.3, a suite of the Lightweight Directory
+    of OpenLDAP Software 2.4, a suite of the Lightweight Directory
     Access Protocol (v3) servers, clients, utilities, and
     development tools.
 
     This release contains the following major enhancements:
 
         * Slapd(8) enhancements
-            - Updated slapd "overlay" interface, and several
-              example (and mostly experimental) overlays.
-            - Updated LDAP "sync" Engine with replication support,
-              provider now an "overlay"
-            - Numerous access control enhancements, including
-              experimental "don't disclose on error" capability
-            - Configuration backend
-        * LDAPv3 extensions, including:
-            - LDAP Password Policy
-            - LDAP Component Matching (requires OpenLDAP snacc)
-            - LDAP Modify Increment
+            - Syncrepl enhancements, including push-mode and
+              Multi-Master support
+            - Dynamic configuration enhancements, including
+              online schema editing and full access control
+            - Dynamic monitoring enhancements, including
+              cache usage information
+        * New overlays
+            - Attribute value constraints
+            - Dynamic Directory Services (RFC2589)
+            - Reverse Group Membership maintenance (memberof)
+        * Clients and tools
+            - Full support of request/response controls
+            - New ldapexop tool for arbitrary extend operations
+            - Support of DNS SRV records for default server
+        * Significant performance enhancements throughout
+            the client and server code base
+        * Multiple new features in libldap and liblber
+        * Expanded documentation
+            - Function-complete manual pages
+            - Numerous new examples in the Admin Guide
 
     This release includes the following major components:
 
         * slapd - a stand-alone LDAP directory server
-        * slurpd - a stand-alone LDAP replication server
         * -lldap - a LDAP client library
         * -llber - a lightweight BER/DER encoding/decoding library
         * LDIF tools - data conversion tools for use with slapd
         * LDAP tools - A collection of command line LDAP utilities
         * Admin Guide, Manual Pages - associated documentation
-        * SNACC - ASN.1 development tools for OpenLDAP
 
     In addition, there are some contributed components:
 
@@ -40,9 +47,9 @@ A N N O U N C E M E N T -- OpenLDAP 2.3
 ACKNOWLEDGEMENTS
 
     OpenLDAP Software is developed by the OpenLDAP Project.  The
-    Project consists of a team of volunteers whose use the
+    Project consists of a team of volunteers who use the
     Internet to coordinate their activities.  The Project is
-    managed by the OpenLDAP Foundation.
+    an organized activity of the OpenLDAP Foundation.
 
     OpenLDAP Software is derived from University of Michigan LDAP,
     release 3.3.
@@ -51,7 +58,7 @@ ACKNOWLEDGEMENTS
 AVAILABILITY
 
     This software is available under the OpenLDAP Public License,
-    an non-restrictive, "free", open-source license.  For download
+    an non-restrictive, "free", open-source license.  Download
     information is available at:
 
         http://www.OpenLDAP.org/software/download/
@@ -73,7 +80,7 @@ SUPPORT
         http://www.openldap.org/faq/
 
     In addition, there are also a number of discussion lists
-    related OpenLDAP Software.  A list of mailing lists is
+    related to OpenLDAP Software.  A list of mailing lists is
     available at:
 
         http://www.OpenLDAP.org/lists/
@@ -94,11 +101,11 @@ SUPPORTED PLATFORMS
     platforms including Darwin, FreeBSD, Linux, NetBSD, OpenBSD
     and most commercial UNIX systems.  The release has also been
     ported (in part or in whole) to other platforms including
-    Apple MacOS X, IBM zOS, and Microsoft Windows 2000.
+    Apple MacOS X, IBM zOS, and Microsoft Windows NT/2000/etc.
 
 ---
 OpenLDAP is a registered trademark of the OpenLDAP Foundation.
 
-Copyright 1999-2006 The OpenLDAP Foundation, Redwood City,
+Copyright 1999-2008 The OpenLDAP Foundation, Redwood City,
 California, USA.  All Rights Reserved.  Permission to copy and
 distribute verbatim copies of this document is granted.

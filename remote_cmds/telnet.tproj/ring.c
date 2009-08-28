@@ -31,15 +31,13 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
-
-#ifdef __FBSDID
-__FBSDID("$FreeBSD: src/crypto/telnet/telnet/ring.c,v 1.2.8.2 2002/04/13 10:59:08 markm Exp $");
-#endif
-
+#if 0
 #ifndef lint
 static const char sccsid[] = "@(#)ring.c	8.2 (Berkeley) 5/30/95";
 #endif
+#endif
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/contrib/telnet/telnet/ring.c,v 1.7 2003/05/04 02:54:48 obrien Exp $");
 
 /*
  * This defines a structure for a ring buffer.

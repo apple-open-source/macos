@@ -1,7 +1,7 @@
 /*
  * eap_ttls.h
  *
- * Version:     $Id: eap_ttls.h,v 1.5.4.2 2007/02/16 09:31:34 aland Exp $
+ * Version:     $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,12 +15,16 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
  * Copyright 2003 Alan DeKok <aland@freeradius.org>
+ * Copyright 2006 The FreeRADIUS server project
  */
 #ifndef _EAP_TTLS_H
 #define _EAP_TTLS_H
+
+#include <freeradius-devel/ident.h>
+RCSIDH(eap_ttls_h, "$Id$")
 
 #include "eap_tls.h"
 
@@ -32,6 +36,7 @@ typedef struct ttls_tunnel_t {
 	int		default_eap_type;
 	int		copy_request_to_tunnel;
 	int		use_tunneled_reply;
+	const char	*virtual_server;
 } ttls_tunnel_t;
 
 /*

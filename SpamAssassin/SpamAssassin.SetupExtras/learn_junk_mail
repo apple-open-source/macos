@@ -3,22 +3,91 @@
 # SpamAssassin auto learn script
 #
 
+PROG=$0
+
+DEBUG=false
+JUNK_MAIL_USER=junkmail
+NOT_JUNK_MAIL_USER=notjunkmail
+
+usage()
+{
+  echo "\
+Usage: $PROG [options]
+Options:
+  -d                        debug
+  -h not-junk-mail-user     user whose mail is not junk ('ham') [$NOT_JUNK_MAIL_USER]
+  -s junk-mail-user         user whose mail is all junk ('spam') [$JUNK_MAIL_USER]"
+  exit 1
+}
+
+while getopts dh:s: o
+do
+  case "$o" in
+  d) DEBUG=true
+    ;;
+  h) NOT_JUNK_MAIL_USER=$OPTARG
+    ;;
+  s) JUNK_MAIL_USER=$OPTARG
+    ;;
+  *) usage
+    ;;
+  esac
+done
+shift `expr $OPTIND - 1`
+
+JUNK_MAIL_GUID=`/usr/bin/cvt_mail_data -i "$JUNK_MAIL_USER"`
+if [ `expr "$JUNK_MAIL_GUID" : '[0-9A-F]*-[0-9A-F]*-[0-9A-F]*-[0-9A-F]*-[0-9A-F]*'` -eq 0 ]
+then
+  echo "Can't find GUID for junk mail user $JUNK_MAIL_USER"
+  echo $JUNK_MAIL_GUID
+  exit 1
+fi
+
+NOT_JUNK_MAIL_GUID=`/usr/bin/cvt_mail_data -i "$NOT_JUNK_MAIL_USER"`
+if [ `expr "$NOT_JUNK_MAIL_GUID" : '[0-9A-F]*-[0-9A-F]*-[0-9A-F]*-[0-9A-F]*-[0-9A-F]*'` -eq 0 ]
+then
+  echo "Can't find GUID for not-junk mail user $NOT_JUNK_MAIL_USER"
+  echo $NOT_JUNK_MAIL_GUID
+  exit 1
+fi
+
+PART_MAP_PATH=/etc/dovecot/partition_map.conf
+MAIL_STORE_PATH=`grep "^default:" $PART_MAP_PATH | sed s,default:,,`
+case "$MAIL_STORE_PATH" in
+/*) # OK
+  ;;
+*) echo "Can't determine mail store path from $PART_MAP_PATH"
+  exit 1
+  ;;
+esac
+
+JUNK_MAIL_PATH="$MAIL_STORE_PATH/$JUNK_MAIL_GUID"
+NOT_JUNK_MAIL_PATH="$MAIL_STORE_PATH/$NOT_JUNK_MAIL_GUID"
+
+if $DEBUG
+then
+  echo "Junk user:     $JUNK_MAIL_USER"
+  echo "Not-junk user: $NOT_JUNK_MAIL_USER"
+  echo "Junk GUID:     $JUNK_MAIL_GUID"
+  echo "Not-junk GUID: $NOT_JUNK_MAIL_GUID"
+  echo "Junk path:     $JUNK_MAIL_PATH"
+  echo "Not-junk path: $NOT_JUNK_MAIL_PATH"
+fi
+
 SA_LEARN_PATH="/usr/bin/sa-learn"
-JUNK_MAIL_USER="user/junkmail"
-NOT_JUNK_MAIL_USER="user/notjunkmail"
-MAIL_STORE_PATH=`cat /etc/imapd.conf | grep partition-default | sed 's/^.* / /'`
+DB_PATH=/var/amavis/.spamassassin
 
 # Check for root user
 if [ `whoami` != "root" ]
 then
   echo "You must be root to execute this script"
-  exit 0;
+  exit 1
 fi
 
 # Does the mail store exist
-if [ ! -d $MAIL_STORE_PATH ]
+if [ ! -d "$MAIL_STORE_PATH" ]
 then
-  echo "Database path: $MAIL_STORE_PATH does not exist" 
+  echo "Mail store path: $MAIL_STORE_PATH does not exist" 
   exit 1
 fi
 
@@ -30,28 +99,24 @@ then
 fi
 
 # Has the junk-mail user account been created
-if [ -d $MAIL_STORE_PATH/$JUNK_MAIL_USER ]
+if [ -d "$JUNK_MAIL_PATH" ]
 then
   echo "Learning what is junk mail"
-  cd $MAIL_STORE_PATH/$JUNK_MAIL_USER
-  for file in *. ; do
-    if [ -f $file ]; then
-      cat $file | sudo -u _amavisd sa-learn --dbpath /var/amavis/.spamassassin --spam --no-sync >> /dev/null;
-    fi
+  find "$JUNK_MAIL_PATH/cur" "$JUNK_MAIL_PATH/new" -type f -print | while read file
+  do
+    sudo -u _amavisd $SA_LEARN_PATH --dbpath $DB_PATH --spam --no-sync < "$file" > /dev/null
   done
 fi
 
 # Has the not-junk-mail user account been created
-if [ -d $MAIL_STORE_PATH/$NOT_JUNK_MAIL_USER ]
+if [ -d "$NOT_JUNK_MAIL_PATH" ]
 then
   echo "Learning what is not junk mail"
-  cd $MAIL_STORE_PATH/$NOT_JUNK_MAIL_USER
-  for file in *. ; do
-    if [ -f $file ]; then
-      cat $file | sudo -u _amavisd sa-learn --dbpath /var/amavis/.spamassassin --ham --no-sync >> /dev/null;
-    fi
+  find "$NOT_JUNK_MAIL_PATH/cur" "$NOT_JUNK_MAIL_PATH/new" -type f -print | while read file
+  do
+    sudo -u _amavisd $SA_LEARN_PATH --dbpath $DB_PATH --ham --no-sync < "$file" > /dev/null
   done
 fi
 
 # Force a database sync
-sudo -u _amavisd sa-learn --dbpath /var/amavis/.spamassassin --sync >> /dev/null
+sudo -u _amavisd $SA_LEARN_PATH --dbpath $DB_PATH --sync > /dev/null

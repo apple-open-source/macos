@@ -1,10 +1,10 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
-*                      by AT&T Knowledge Ventures                      *
+*                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
 *            http://www.opensource.org/licenses/cpl1.0.txt             *
@@ -119,6 +119,9 @@ reg Sfdisc_t*	disc;
 	reg Dccache_t	*dcca = NIL(Dccache_t*);
 
 	SFMTXSTART(f, NIL(Sfdisc_t*));
+
+	if((Sfio_t*)disc == f) /* special case to get the top discipline */
+		SFMTXRETURN(f,f->disc);
 
 	if((f->flags&SF_READ) && f->proc && (f->mode&SF_WRITE) )
 	{	/* make sure in read mode to check for read-ahead data */

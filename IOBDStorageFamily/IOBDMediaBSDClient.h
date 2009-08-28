@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -165,7 +165,7 @@ public:
      * Process a BD-specific ioctl.
      */
 
-    virtual int ioctl(dev_t, u_long cmd, caddr_t data, int, proc_t);
+    virtual int ioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc);
 
     OSMetaClassDeclareReservedUnused(IOBDMediaBSDClient, 0);
     OSMetaClassDeclareReservedUnused(IOBDMediaBSDClient, 1);

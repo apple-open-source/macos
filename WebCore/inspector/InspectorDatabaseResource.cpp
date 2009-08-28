@@ -35,9 +35,10 @@
 #include "Database.h"
 #include "Document.h"
 #include "Frame.h"
-#include "ScriptFunctionCall.h"
+#include "InspectorFrontend.h"
+#include "InspectorJSONObject.h"
 #include "ScriptObjectQuarantine.h"
-#include "ScriptValue.h"
+
 
 namespace WebCore {
 
@@ -46,42 +47,30 @@ InspectorDatabaseResource::InspectorDatabaseResource(Database* database, const S
     , m_domain(domain)
     , m_name(name)
     , m_version(version)
+    , m_scriptObjectCreated(false)
 {
 }
 
-void InspectorDatabaseResource::bind(ScriptState* scriptState, const ScriptObject& webInspector)
+void InspectorDatabaseResource::bind(InspectorFrontend* frontend)
 {
-    if (!m_scriptObject.hasNoValue())
+    if (m_scriptObjectCreated)
         return;
 
-    ASSERT(scriptState);
-    ASSERT(!webInspector.hasNoValue());
-    if (!scriptState || webInspector.hasNoValue())
-        return;
-
-    ScriptFunctionCall resourceConstructor(scriptState, webInspector, "Database");
+    InspectorJSONObject jsonObject = frontend->newInspectorJSONObject();
     ScriptObject database;
     if (!getQuarantinedScriptObject(m_database.get(), database))
         return;
-
-    resourceConstructor.appendArgument(database);
-    resourceConstructor.appendArgument(m_domain);
-    resourceConstructor.appendArgument(m_name);
-    resourceConstructor.appendArgument(m_version);
-
-    bool hadException = false;
-    m_scriptObject = resourceConstructor.construct(hadException);
-    if (hadException)
-        return;
-
-    ScriptFunctionCall addDatabase(scriptState, webInspector, "addDatabase");
-    addDatabase.appendArgument(m_scriptObject);
-    addDatabase.call(hadException);
+    jsonObject.set("database", database);
+    jsonObject.set("domain", m_domain);
+    jsonObject.set("name", m_name);
+    jsonObject.set("version", m_version);
+    if (frontend->addDatabase(jsonObject))
+        m_scriptObjectCreated = true;
 }
 
 void InspectorDatabaseResource::unbind()
 {
-    m_scriptObject = ScriptObject();
+    m_scriptObjectCreated = false;
 }
 
 } // namespace WebCore

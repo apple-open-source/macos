@@ -44,6 +44,8 @@
 .Fn removefile_state_get "removefile_state_t state" "uint32_t key" "void * dst"
 .Ft int
 .Fn removefile_state_set "removefile_state_t state" "uint32_t key" "const void * value"
+.Ft int
+.Fn removefile_cancel "removefile_state_t state"
 .Sh DESCRIPTION
 .Pp
 These functions are used to remove a file or directory.  Various levels
@@ -174,6 +176,10 @@ Current file is not deleted and
 .Fn removefile
 exits without continuing further.
 .El
+.Pp
+The
+.Fn removefile_cancel
+function is used to cancel a remove that is in progress.
 .Sh RETURN VALUES
 The family of
 .Fn removefile
@@ -208,11 +214,21 @@ The
 location specifies an immutable file that cannot be deleted.
 .El
 .Pp
-In addition, both functions may return an error from an underlying library or
+.Fn removefile_cancel
+will fail if:
+.Bl -tag -width Er
+.It Bq Er EINVAL
+A
+.Va NULL
+parameter was passed into
+.Fn removefile_cancel .
+.El
+.Pp
+In addition, all functions may return an error from an underlying library or
 system call.
 .Sh NOTES
 .Pp 
-Write protected files owned by another process cannot be removed by
+Write protected files owned by another user cannot be removed by
 .Fn removefile , 
 regardless of the permissions on the directory containing the file.
 .Pp
@@ -220,6 +236,10 @@ If multiple of the REMOVEFILE_SECURE_1_PASS, REMOVEFILE_SECURE_7_PASS, and REMOV
 flags are specified,
 .Fn removefile
 will proceed using the flag that specifies the highest number of overwriting passes.
+.Pp
+.Fn removefile
+is pathname-based; this means that, when descending into a hierarchy, there are potential race conditions
+that may add risk when run with privileges.
 .Sh EXAMPLES
 .Bd -literal -offset indent
 /* Initialize a state variable */

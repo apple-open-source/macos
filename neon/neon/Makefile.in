@@ -1,4 +1,4 @@
-# Copyright (C) 2001-2006 Joe Orton <joe@manyfish.co.uk>
+# Copyright (C) 2001-2008 Joe Orton <joe@manyfish.co.uk>
 # Copyright (C) 1994, 1995-8, 1999, 2000 Free Software Foundation, Inc.
 # This Makefile.in is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
@@ -20,6 +20,7 @@ libdir = @libdir@
 mandir = @mandir@
 man1dir = $(mandir)/man1
 man3dir = $(mandir)/man3
+datarootdir = @datarootdir@
 datadir = @datadir@
 docdir = $(datadir)/doc/neon-@NEON_VERSION@
 includedir = @includedir@
@@ -46,7 +47,7 @@ transform = @program_transform_name@
 LIBTOOL = @LIBTOOL@
 XMLTO = xmlto
 GCOV = gcov
-XGETTEXT_OPTS = --keyword=_ --keyword=N_ --msgid-bugs-address=neon@webdav.org \
+XGETTEXT_OPTS = --keyword=_ --keyword=N_ --msgid-bugs-address=neon@lists.manyfish.co.uk \
 		--default-domain=neon --flag ne_print_request_header:3:c-format \
 		--flag ne_snprintf:3:c-format --flag ne_vsnprintf:3:c-format \
 		--flag ne_set_error:2:c-format
@@ -61,7 +62,7 @@ LINGUAS = @ALL_LINGUAS@
 DIST_HEADERS = ne_request.h ne_session.h ne_utils.h ne_uri.h ne_socket.h  \
 	ne_basic.h ne_207.h ne_props.h ne_xml.h ne_dates.h ne_string.h	  \
 	ne_defs.h ne_locks.h ne_alloc.h ne_md5.h ne_i18n.h ne_redirect.h  \
-	ne_auth.h ne_compress.h ne_acl.h ne_ssl.h ne_xmlreq.h
+	ne_auth.h ne_compress.h ne_acl.h ne_ssl.h ne_xmlreq.h ne_pkcs11.h
 
 all: subdirs
 
@@ -92,7 +93,7 @@ docs: docs-man docs-html
 
 docs-man:
 	rm -rf doc/man; mkdir doc/man
-	$(XMLTO) -o `pwd`/doc/man man doc/manual.xml
+	$(XMLTO) -o `pwd`/doc/man -x doc/man.xsl man doc/manual.xml
 
 docs-pdf:
 	$(XMLTO) -o `pwd`/doc pdf doc/manual.xml
@@ -182,7 +183,7 @@ install-nls-no:
 install-nls-yes:
 	@for f in $(LINGUAS); do \
 	 $(INSTALL) -d $(DESTDIR)$(localedir)/$$f/LC_MESSAGES; \
-	 $(INSTALL_DATA) po/$$f.gmo $(DESTDIR)$(localedir)/$$f/LC_MESSAGES/neon.mo; \
+	 $(INSTALL_DATA) $(srcdir)/po/$$f.gmo $(DESTDIR)$(localedir)/$$f/LC_MESSAGES/neon.mo; \
 	done
 
 ChangeLog:

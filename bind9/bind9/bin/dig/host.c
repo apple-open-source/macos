@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: host.c,v 1.94.18.19 2007/08/28 07:19:55 tbox Exp $ */
+/* $Id: host.c,v 1.116 2007/12/03 00:21:48 marka Exp $ */
 
 /*! \file */
 
@@ -689,6 +689,7 @@ parse_args(isc_boolean_t is_batchfile, int argc, char **argv) {
 				lookup->tcp_mode = ISC_TRUE;
 			} else if (rdtype == dns_rdatatype_ixfr) {
 				lookup->ixfr_serial = serial;
+				lookup->tcp_mode = ISC_TRUE;
 				list_type = rdtype;
 #ifdef WITH_IDN
 			} else if (rdtype == dns_rdatatype_a ||

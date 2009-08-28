@@ -6,9 +6,9 @@
 	<string>iChatServer</string>
 
 	<key>BackupBinaryPath</key>
-	<string>/usr/libexec/sbs_backup/iChatServer_backup</string>
+	<string>/usr/libexec/server_backup/iChatServer_backup</string>
 	<key>BackupLog</key>
-	<string>/private/var/log/sbs_backup/iChatServer_backup.log</string>
+	<string>/private/var/log/server_backup/iChatServer_backup.log</string>
 	<key>BackupActions</key>
 	<dict>
 		<key>Configuration</key>
@@ -22,9 +22,9 @@
 	</dict>
 
 	<key>RestoreBinaryPath</key>
-	<string>/usr/libexec/sbs_backup/iChatServer_restore</string>
+	<string>/usr/libexec/server_backup/iChatServer_restore</string>
 	<key>RestoreLog</key>
-	<string>/private/var/log/sbs_backup/iChatServer_restore.log</string>
+	<string>/private/var/log/server_backup/iChatServer_restore.log</string>
 	<key>RestoreActions</key>
 	<dict>
 		<key>Configuration</key>
@@ -38,9 +38,9 @@
 	</dict>
 
 	<key>VerifyBinaryPath</key>
-	<string>/usr/libexec/sbs_backup/iChatServer_verify</string>
+	<string>/usr/libexec/server_backup/iChatServer_verify</string>
 	<key>VerifyLog</key>
-	<string>/private/var/log/sbs_backup/iChatServer_verify.log</string>
+	<string>/private/var/log/server_backup/iChatServer_verify.log</string>
 	<key>VerifyActions</key>
 	<dict>
 		<key>Configuration</key>
@@ -59,12 +59,13 @@
 		<string>/private/etc/jabberd/*.xml</string>
 		<string>/private/etc/jabberd/jabberd.cfg</string>
 		<string>/Library/Preferences/com.apple.ichatserver.plist</string>
+		<string>/Library/Preferences/com.apple.Proxy65.plist</string>
 	</array>
 	
 	<key>DataFiles</key>
 	<array/>
 
 	<key>Version</key>
-	<string>10.5</string>
+	<string>10.6</string>
 </dict>
 </plist>

@@ -1,0 +1,54 @@
+# -*- tcl -*-
+# configures the site policy with some variant information, like colors.
+
+# Rules for the creation of the trf website from the .exp files.
+
+proc here {} [list return [file dirname [info script]]]
+
+source [file join [here] site]       ; # load policy, defines template interface too.
+source [file join [here] references] ; # load references used by the site.
+source [file join [here] manpages]   ; # load list of known manpages.
+
+
+proc sfproject {} {return Trf}
+proc sfgroup   {} {return 60766}
+
+proc bgcolor {} {return lightsteelblue}
+proc hlcolor {} {return lightyellow}
+
+proc author  {} {return "\"Andreas Kupries,,,\""}
+proc border  {} {return border=0}
+
+# Declare the pages of this site upfront ...
+
+sitepage trf/home      "Homepage"          index.html
+sitepage trf/releases  "Releases"          [releases/url]
+sitepage trf/images    "Logos"             images.html
+sitepage trf/doc       "Documentation"     documentation.html
+sitepage trf/clog      "ChangeLog"         changelog.html
+sitepage trf/copyright "&#169; Disclaimer" disclaimer.html
+
+# trf specific commands
+
+proc trf/latest-release {} {
+    set nfile [file join [state] latest.release]
+    foreach {version date} [split [read [set fh [open $nfile r]]][close $fh] \n] break ; # lassign
+
+    set releasepage [wget [releases/url]]
+
+    if {![regexp {release_id=([0-9]+)} $releasepage -> release_id]} {
+	return "version $version as of $date (No SF releases yet)"
+    }
+
+    return "[link "version $version" [releases/url]&release_id=$release_id] as of $date"
+}
+
+url trf/doc/nroff/gz  "Archive"  doc/trf.nroff.tar.gz
+url trf/doc/nroff/bz  "Archive"  doc/trf.nroff.tar.bz2
+url trf/doc/nroff/zip "Archive"  doc/trf.nroff.tar.zip
+url trf/doc/html/gz   "Archive"  doc/trf.html.tar.gz
+url trf/doc/html/bz   "Archive"  doc/trf.html.tar.bz2
+url trf/doc/html/zip  "Archive"  doc/trf.html.tar.zip
+url trf/doc/tmml/gz   "Archive"  doc/trf.tmml.tar.gz
+url trf/doc/tmml/bz   "Archive"  doc/trf.tmml.tar.bz2
+url trf/doc/tmml/zip  "Archive"  doc/trf.tmml.tar.zip

@@ -1,0 +1,215 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+<link rel="STYLESHEET" href="mailman-admin.css" type='text/css' />
+<link rel="first" href="mailman-admin.html" title='GNU mailman - list Administration Manual' />
+<link rel='contents' href='contents.html' title="Contents" />
+<link rel='last' href='about.html' title='About this document...' />
+<link rel='help' href='about.html' title='About this document...' />
+<link rel="next" href="node23.html" />
+<link rel="prev" href="node21.html" />
+<link rel="parent" href="node20.html" />
+<link rel="next" href="node23.html" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name='aesop' content='information' />
+<title>2.7.2 Sender filters</title>
+</head>
+<body>
+<div class="navigation">
+<div id='top-navigation-panel' xml:id='top-navigation-panel'>
+<table align="center" width="100%" cellpadding="0" cellspacing="2">
+<tr>
+<td class='online-navigation'><a rel="prev" title="2.7.1 subscription rules"
+  href="node21.html"><img src='previous.png'
+  border='0' height='32'  alt='Previous Page' width='32' /></a></td>
+<td class='online-navigation'><a rel="parent" title="2.7 the Privacy Options"
+  href="node20.html"><img src='up.png'
+  border='0' height='32'  alt='Up one Level' width='32' /></a></td>
+<td class='online-navigation'><a rel="next" title="2.7.3 recipient Filters"
+  href="node23.html"><img src='next.png'
+  border='0' height='32'  alt='Next Page' width='32' /></a></td>
+<td align="center" width="100%">GNU Mailman - List Administration Manual</td>
+<td class='online-navigation'><a rel="contents" title="Table of Contents"
+  href="contents.html"><img src='contents.png'
+  border='0' height='32'  alt='Contents' width='32' /></a></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+</tr></table>
+<div class='online-navigation'>
+<b class="navlabel">Previous:</b>
+<a class="sectref" rel="prev" href="node21.html">2.7.1 Subscription rules</a>
+<b class="navlabel">Up:</b>
+<a class="sectref" rel="parent" href="node20.html">2.7 The Privacy Options</a>
+<b class="navlabel">Next:</b>
+<a class="sectref" rel="next" href="node23.html">2.7.3 Recipient Filters</a>
+</div>
+<hr /></div>
+</div>
+<!--End of Navigation Panel-->
+
+<h3><a name="SECTION002272000000000000000">
+2.7.2 Sender filters</a>
+</h3>
+
+<p>
+When a message is posted to the list, a series of moderation criteria are
+applied to determine the disposition of the message.  This section
+contains the modeation controls for postings from both members and
+non-members.
+
+<p>
+<dl>
+<dt><strong>default_member_moderation</strong></dt>
+<dd>Member postings are held for moderation if their <em>moderation
+    flag</em> is turned on.  Note that only the list administrators can
+    change the value of a member's moderation flag.
+
+<p>
+You can control whether new members get their moderation flag
+    turned on or off by default when they subscribe to the list.  By
+    turning this flag off by default, postings by members will be
+    allowed without further intervention (barring other restrictions
+    such as size or implicit recipient lists - see below).  By
+    turning the flag on, you can quarantine new member postings to
+    make sure that they meet your criteria for netiquette, topicality,
+    etc.  Once you determine that the new member understands the
+    community's posting rules, you can turn off their moderation flag
+    and let their postings go through unstopped.
+
+<p>
+E-newsletter style lists can also be set up by using the
+    moderation flag.  By setting the <code>member_moderation_action</code>
+    to <em>Reject</em>, and by turning off the moderation flag for just
+    the few approved senders, your list will operate in essentially a
+    one-way direction.  Note that you'd also need to reject or discard
+    postings from non-members.
+
+<p>
+</dd>
+<dt><strong>member_moderation_action</strong></dt>
+<dd>This is the action to take for postings from a member who's
+    moderation flag is set.  For typical discussion lists, you'll
+    likely set this to <em>Hold</em> so that the list moderator will get
+    a chance to manually approve, reject, or discard the message.  For
+    e-newsletter and announcement lists, you might want to set this to
+    <em>Reject</em> or <em>Discard</em>.
+
+<p>
+Note that when a moderated member posts to your list, and the
+    <code>member_moderation_action</code> is set to <em>Hold</em>, the message
+    will appear on the administrative requests page.  When you dispose
+    of the message, you will be given an opportunity to clear the
+    moderation flag at the same time.   If you're quarantining new
+    posts, this makes it very convenient to both approve a new
+    member's post and de-moderate them at the same time.
+
+<p>
+</dd>
+<dt><strong>member_moderation_notice</strong></dt>
+<dd>When a member's moderation flag is turned on and
+    <code>member_moderation_action</code> is <em>Reject</em>, this variable
+    contains the text sent in the rejection notice.
+</dd>
+</dl>
+
+<p>
+The next batch of variables controls what happens when non-members
+post messages to the list.  Each of these accepts one email address
+per line; regular expressions are allowed if the line starts with the
+(caret) character.  These address lists are always consulted in the
+order in which they're presented on this page (i.e. accepts first,
+followed by holds, rejections, and discards).
+
+<p>
+<dl>
+<dt><strong>accept_these_nonmembers</strong></dt>
+<dd>Postings from non-members whose addresses match this list are
+    accepted, barring other list restrictions due to size, implicit
+    recipients, etc.  You might want to add alternative addresses of
+    approved posters to this list.
+
+<p>
+</dd>
+<dt><strong>hold_these_nonmembers</strong></dt>
+<dd>Postings from non-members whose addresses match this list are
+    held for moderator approval.
+
+<p>
+</dd>
+<dt><strong>reject_these_nonmembers</strong></dt>
+<dd>Postings from non-members whose addresses match this list are
+    rejected, i.e. bounced back to the original sender.  There
+    currently is no way to add additional text to the rejection
+    message.
+
+<p>
+</dd>
+<dt><strong>discard_these_nonmembers</strong></dt>
+<dd>Postings from non-members whose addresses match this list are
+    discarded, with no bounce back message.  You might want to add the
+    addresses of known spammers to this list.
+
+<p>
+</dd>
+<dt><strong>generic_nonmember_action</strong></dt>
+<dd>This variable controls what happens to non-member posts when the
+    address of the sender doesn't match any of the above four lists.
+    If you set this to <em>Hold</em>, the posting will appear on the
+    administrative requests page, and you will be given an opportunity
+    to add the non-member to one of the above four lists at the same
+    time you dispose of the held message.
+
+<p>
+</dd>
+<dt><strong>forward_auto_discards</strong></dt>
+<dd>When messages from non-members are discarded, either because the
+    sender address matched <code>discard_these_nonmembers</code>, or because
+    <code>generic_nonmember_action</code> is <em>Discard</em>, you can choose
+    whether such messages are forwarded to the lsit administrators or
+    not.
+</dd>
+</dl>
+
+<p>
+
+<div class="navigation">
+<div class='online-navigation'>
+<p></p><hr />
+<table align="center" width="100%" cellpadding="0" cellspacing="2">
+<tr>
+<td class='online-navigation'><a rel="prev" title="2.7.1 subscription rules"
+  href="node21.html"><img src='previous.png'
+  border='0' height='32'  alt='Previous Page' width='32' /></a></td>
+<td class='online-navigation'><a rel="parent" title="2.7 the Privacy Options"
+  href="node20.html"><img src='up.png'
+  border='0' height='32'  alt='Up one Level' width='32' /></a></td>
+<td class='online-navigation'><a rel="next" title="2.7.3 recipient Filters"
+  href="node23.html"><img src='next.png'
+  border='0' height='32'  alt='Next Page' width='32' /></a></td>
+<td align="center" width="100%">GNU Mailman - List Administration Manual</td>
+<td class='online-navigation'><a rel="contents" title="Table of Contents"
+  href="contents.html"><img src='contents.png'
+  border='0' height='32'  alt='Contents' width='32' /></a></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+</tr></table>
+<div class='online-navigation'>
+<b class="navlabel">Previous:</b>
+<a class="sectref" rel="prev" href="node21.html">2.7.1 Subscription rules</a>
+<b class="navlabel">Up:</b>
+<a class="sectref" rel="parent" href="node20.html">2.7 The Privacy Options</a>
+<b class="navlabel">Next:</b>
+<a class="sectref" rel="next" href="node23.html">2.7.3 Recipient Filters</a>
+</div>
+</div>
+<hr />
+<span class="release-info">Release 2.1, documentation updated on January 11, 2009.</span>
+</div>
+<!--End of Navigation Panel-->
+
+</body>
+</html>

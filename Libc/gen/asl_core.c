@@ -57,6 +57,11 @@ asl_core_string_hash(const char *s, uint32_t inlen)
 	if (s == NULL) return 0;
 
 	l = inlen;
+	if (l == 0)
+	{
+		if (s[0] == '\0') return 0;
+		l = strlen(s);
+	}
 
 	len = l;
 	a = b = 0x9e3779b9;

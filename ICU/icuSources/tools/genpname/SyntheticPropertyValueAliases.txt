@@ -1,5 +1,5 @@
 ########################################################################
-# Copyright (c) 2006-2006, International Business Machines
+# Copyright (c) 2006-2008, International Business Machines
 # Corporation and others.  All Rights Reserved.
 ########################################################################
 #   file name:      SyntheticPropertyValueAliases.txt
@@ -27,7 +27,6 @@
 sc ; Batk ; Batk 
 sc ; Blis ; Blis 
 sc ; Brah ; Brah 
-sc ; Cham ; Cham 
 sc ; Cirt ; Cirt 
 sc ; Cyrs ; Cyrs 
 sc ; Egyd ; Egyd 
@@ -40,23 +39,40 @@ sc ; Hmng ; Hmng
 sc ; Hung ; Hung 
 sc ; Inds ; Inds 
 sc ; Java ; Java 
-sc ; Kali ; Kali 
+sc ; Jpan ; Jpan 
+sc ; Lana ; Lana
 sc ; Latf ; Latf 
 sc ; Latg ; Latg 
-sc ; Lepc ; Lepc 
 sc ; Lina ; Lina 
 sc ; Mand ; Mand 
 sc ; Maya ; Maya 
 sc ; Mero ; Mero 
+sc ; Moon ; Moon 
+sc ; Mtei ; Mtei 
 sc ; Orkh ; Orkh 
 sc ; Perm ; Perm 
 sc ; Plrd ; Plrd 
 sc ; Roro ; Roro 
 sc ; Sara ; Sara 
+sc ; Sgnw ; Sgnw
 sc ; Syre ; Syre 
 sc ; Syrj ; Syrj 
 sc ; Syrn ; Syrn 
 sc ; Teng ; Teng 
-sc ; Vaii ; Vaii 
 sc ; Visp ; Visp 
 sc ; Zxxx ; Zxxx 
+
+sc ; Armi ; Armi
+sc ; Avst ; Avst
+sc ; Cakm ; Cakm
+sc ; Kore ; Kore
+sc ; Kthi ; Kthi
+sc ; Mani ; Mani
+sc ; Phli ; Phli
+sc ; Phlp ; Phlp
+sc ; Phlv ; Phlv
+sc ; Prti ; Prti
+sc ; Samr ; Samr
+sc ; Tavt ; Tavt
+sc ; Zmth ; Zmth
+sc ; Zsym ; Zsym

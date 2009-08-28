@@ -241,7 +241,7 @@ WebInspector.Console.prototype = {
         delete this.previousMessage;
     },
 
-    completions: function(wordRange, bestMatchOnly)
+    completions: function(wordRange, bestMatchOnly, completionsReadyCallback)
     {
         // Pass less stop characters to rangeOfWord so the range will be a more complete expression.
         const expressionStopCharacters = " =:{;";
@@ -259,22 +259,11 @@ WebInspector.Console.prototype = {
         if (!expressionString && !prefix)
             return;
 
-        var result;
-        if (expressionString) {
-            try {
-                result = this._evalInInspectedWindow(expressionString);
-            } catch(e) {
-                // Do nothing, the prefix will be considered a window property.
-            }
-        } else {
-            // There is no expressionString, so the completion should happen against global properties.
-            // Or if the debugger is paused, against properties in scope of the selected call frame.
-            if (WebInspector.panels.scripts && WebInspector.panels.scripts.paused)
-                result = WebInspector.panels.scripts.variablesInScopeForSelectedCallFrame();
-            else
-                result = InspectorController.inspectedWindow();
-        }
-
+        var reportCompletions = this._reportCompletions.bind(this, bestMatchOnly, completionsReadyCallback, dotNotation, bracketNotation, prefix);
+        this._evalInInspectedWindow(expressionString, reportCompletions);
+    },
+    
+    _reportCompletions: function(bestMatchOnly, completionsReadyCallback, dotNotation, bracketNotation, prefix, result) {
         if (bracketNotation) {
             if (prefix.length && prefix[0] === "'")
                 var quoteUsed = "'";
@@ -305,8 +294,7 @@ WebInspector.Console.prototype = {
             if (bestMatchOnly)
                 break;
         }
-
-        return results;
+        setTimeout(completionsReadyCallback, 0, results);
     },
 
     _toggleButtonClicked: function()
@@ -394,12 +382,17 @@ WebInspector.Console.prototype = {
         event.stopPropagation();
     },
 
-    _evalInInspectedWindow: function(expression)
+    _evalInInspectedWindow: function(expression, callback)
     {
-        if (WebInspector.panels.scripts && WebInspector.panels.scripts.paused)
-            return WebInspector.panels.scripts.evaluateInSelectedCallFrame(expression);
-
-        var inspectedWindow = InspectorController.inspectedWindow();
+        if (WebInspector.panels.scripts && WebInspector.panels.scripts.paused) {
+            WebInspector.panels.scripts.evaluateInSelectedCallFrame(expression, false, callback);
+            return;
+        }
+        this.doEvalInWindow(expression, callback);
+    },
+    
+    _ensureCommandLineAPIInstalled: function(inspectedWindow)
+    {
         if (!inspectedWindow._inspectorCommandLineAPI) {
             inspectedWindow.eval("window._inspectorCommandLineAPI = { \
                 $: function() { return document.getElementById.apply(document, arguments) }, \
@@ -424,12 +417,31 @@ WebInspector.Console.prototype = {
 
             inspectedWindow._inspectorCommandLineAPI.clear = InspectorController.wrapCallback(this.clearMessages.bind(this));
         }
+    },
+    
+    doEvalInWindow: function(expression, callback)
+    {
+        if (!expression) {
+            // There is no expression, so the completion should happen against global properties.
+            expression = "this";
+        }
 
         // Surround the expression in with statements to inject our command line API so that
         // the window object properties still take more precedent than our API functions.
         expression = "with (window._inspectorCommandLineAPI) { with (window) { " + expression + " } }";
 
-        return inspectedWindow.eval(expression);
+        var self = this;
+        function delayedEvaluation()
+        {
+            var inspectedWindow = InspectorController.inspectedWindow();
+            self._ensureCommandLineAPIInstalled(inspectedWindow);
+            try {
+                callback(inspectedWindow.eval(expression));
+            } catch (e) {
+                callback(e, true);
+            }
+        }
+        setTimeout(delayedEvaluation, 0);
     },
 
     _enterKeyPressed: function(event)
@@ -449,20 +461,15 @@ WebInspector.Console.prototype = {
         var commandMessage = new WebInspector.ConsoleCommand(str);
         this.addMessage(commandMessage);
 
-        var result;
-        var exception = false;
-        try {
-            result = this._evalInInspectedWindow(str);
-        } catch(e) {
-            result = e;
-            exception = true;
+        var self = this;
+        function printResult(result, exception)
+        {
+            self.prompt.history.push(str);
+            self.prompt.historyOffset = 0;
+            self.prompt.text = "";
+            self.addMessage(new WebInspector.ConsoleCommandResult(result, exception, commandMessage));
         }
-
-        this.prompt.history.push(str);
-        this.prompt.historyOffset = 0;
-        this.prompt.text = "";
-
-        this.addMessage(new WebInspector.ConsoleCommandResult(result, exception, commandMessage));
+        this._evalInInspectedWindow(str, printResult);
     },
 
     _format: function(output, forceObjectFormat)
@@ -577,31 +584,36 @@ WebInspector.ConsoleMessage = function(source, level, line, url, groupLevel, rep
     this.url = url;
     this.groupLevel = groupLevel;
     this.repeatCount = repeatCount;
-
-    switch (this.level) {
-        case WebInspector.ConsoleMessage.MessageLevel.Trace:
-            var span = document.createElement("span");
-            span.addStyleClass("console-formatted-trace");
-            var stack = Array.prototype.slice.call(arguments, 6);
-            var funcNames = stack.map(function(f) {
-                return f || WebInspector.UIString("(anonymous function)");
-            });
-            span.appendChild(document.createTextNode(funcNames.join("\n")));
-            this.formattedMessage = span;
-            break;
-        case WebInspector.ConsoleMessage.MessageLevel.Object:
-            this.formattedMessage = this._format(["%O", arguments[6]]);
-            break;
-        default:
-            this.formattedMessage = this._format(Array.prototype.slice.call(arguments, 6));
-            break;
-    }
-
-    // This is used for inline message bubbles in SourceFrames, or other plain-text representations.
-    this.message = this.formattedMessage.textContent;
+    if (arguments.length > 6)
+        this.setMessageBody(Array.prototype.slice.call(arguments, 6));
 }
 
 WebInspector.ConsoleMessage.prototype = {
+    setMessageBody: function(args)
+    {
+        switch (this.level) {
+            case WebInspector.ConsoleMessage.MessageLevel.Trace:
+                var span = document.createElement("span");
+                span.addStyleClass("console-formatted-trace");
+                var stack = Array.prototype.slice.call(args);
+                var funcNames = stack.map(function(f) {
+                    return f || WebInspector.UIString("(anonymous function)");
+                });
+                span.appendChild(document.createTextNode(funcNames.join("\n")));
+                this.formattedMessage = span;
+                break;
+            case WebInspector.ConsoleMessage.MessageLevel.Object:
+                this.formattedMessage = this._format(["%O", args[0]]);
+                break;
+            default:
+                this.formattedMessage = this._format(args);
+                break;
+        }
+
+        // This is used for inline message bubbles in SourceFrames, or other plain-text representations.
+        this.message = this.formattedMessage.textContent;
+    },
+
     isErrorOrWarning: function()
     {
         return (this.level === WebInspector.ConsoleMessage.MessageLevel.Warning || this.level === WebInspector.ConsoleMessage.MessageLevel.Error);

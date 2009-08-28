@@ -1,3 +1,17 @@
+2008-09-10  Jason Molenda  (jmolenda@apple.com)
+
+	* i386-dis.c (prefix_user_table): Print "movq" instead of "movd" if
+	there was a rex prefix.
+
+2008-06-27  Jason Molenda  (jmolenda@apple.com)
+
+	* arm-dis.c: Update to FSF gdb sources from 2007-07-02.  This has
+	the Apple local changes merged in.
+
+2007-11-06  Greg Clayton  <gclayton@apple.com>
+
+        * arm-dis.c (print_insn_thumb32): Fixed BLX(1) offset for thumb.
+
 2007-05-09  Jason Molenda  (jmolenda@apple.com)
 
 	* i386-dis.c (print_insn, OP_sI, OP_J): Reapply Eric's Apple local

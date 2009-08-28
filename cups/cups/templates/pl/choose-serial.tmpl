@@ -1,25 +1,28 @@
+<DIV CLASS="indent">
+
+<H2 CLASS="title">{op=modify-printer?Modyfikowanie {printer_name}:Dodawanie drukarki}</H2>
+
 <FORM METHOD="POST" ACTION="/admin">
 <INPUT TYPE="HIDDEN" NAME="OP" VALUE="{op}">
-<INPUT TYPE="HIDDEN" NAME="PRINTER_NAME" VALUE="{printer_name}">
-<INPUT TYPE="HIDDEN" NAME="PRINTER_LOCATION" VALUE="{?printer_location}">
-<INPUT TYPE="HIDDEN" NAME="PRINTER_INFO" VALUE="{?printer_info}">
-<INPUT TYPE="HIDDEN" NAME="DEVICE_URI" VALUE="{device_uri}">
-
-<H2 CLASS="title">Ustawienia portu szeregowego {printer_name}</H2>
+{printer_name?<INPUT TYPE="HIDDEN" NAME="printer_name" VALUE="{printer_name}">:}
 
 <TABLE>
 <TR>
-<TH CLASS="label">Prędkość transmisji:</TH>
+<TH CLASS="label">Połączenie:</TH>
+<TD><INPUT TYPE="HIDDEN" NAME="DEVICE_URI" VALUE="{device_uri}">{device_uri}</TD>
+</TR>
+<TR>
+<TH CLASS="label">Prędkość w baudach:</TH>
 <TD><SELECT NAME="BAUDRATE">
 {[baudrates]<OPTION {?baudrate={baudrates}?SELECTED:}>{baudrates}}
 </SELECT></TD>
 </TR>
 <TR>
-<TH CLASS="label">Parzystość:</TH>
+<TH CLASS="label">Równorzędność:</TH>
 <TD><SELECT NAME="PARITY">
-<OPTION VALUE="none" {?parity=none?SELECTED:}>Brak
-<OPTION VALUE="even" {?parity=even?SELECTED:}>Parzystość
-<OPTION VALUE="odd" {?parity=odd?SELECTED:}>Nieparzystość
+<OPTION VALUE="none" {?parity=none?SELECTED:}>None
+<OPTION VALUE="even" {?parity=even?SELECTED:}>Even
+<OPTION VALUE="odd" {?parity=odd?SELECTED:}>Odd
 </SELECT></TD>
 </TR>
 <TR>
@@ -40,8 +43,9 @@
 </TR>
 <TR>
 <TD></TD>
-<TD><INPUT TYPE="IMAGE" SRC="/images/button-continue.gif" ALT="Kontynuuj"></TD>
+<TD><INPUT TYPE="SUBMIT" VALUE="Kontynuuj"></TD>
 </TR>
 </TABLE>
 
 </FORM>
+</DIV>

@@ -27,9 +27,13 @@
 eval 'case $# in 0) exec @PERL@ -S "$0";; *) exec @PERL@ -S "$0" "$@";; esac'
     if 0;
 
+use File::Basename ();
+my($_bindir, $_datadir);
 BEGIN
 {
-  my $datadir = $ENV{'autom4te_perllibdir'} || '@datadir@';
+  $_bindir = File::Basename::dirname($0);
+  ($_datadir = '@datadir@') =~ s,^/usr,$_bindir/..,;
+  my $datadir = $ENV{'autom4te_perllibdir'} || $_datadir;
   unshift @INC, $datadir;
 
   # Override SHELL.  On DJGPP SHELL may not be set to a shell
@@ -49,14 +53,15 @@ use File::Basename;
 use strict;
 
 # Lib files.
-my $autom4te = $ENV{'AUTOM4TE'} || '@bindir@/@autom4te-name@';
+my $autom4te = $ENV{'AUTOM4TE'} || "$_bindir/@autom4te-name@";
 my $autoconf = "$autom4te --language=autoconf";
 # We need to find m4sugar.
 my @prepend_include;
-my @include = ('@datadir@');
+my @include = ($_datadir);
 my $force = 0;
 # m4.
-my $m4 = $ENV{"M4"} || '@M4@';
+my $_m4 = "$_bindir/" . File::Basename::basename('@M4@');
+my $m4 = $ENV{"M4"} || ((-x $_m4) ? $_m4 : '@M4@');
 
 
 # $HELP

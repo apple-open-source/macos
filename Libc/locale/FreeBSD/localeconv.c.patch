@@ -1,5 +1,5 @@
---- localeconv.c.orig	2008-03-15 10:50:38.000000000 -0700
-+++ localeconv.c	2008-03-26 16:49:24.000000000 -0700
+--- localeconv.c.orig	2008-10-09 11:37:42.000000000 -0700
++++ localeconv.c	2008-10-10 01:37:33.000000000 -0700
 @@ -38,11 +38,71 @@ static char sccsid[] = "@(#)localeconv.c
  #include <sys/cdefs.h>
  __FBSDID("$FreeBSD: src/lib/libc/locale/localeconv.c,v 1.13 2003/06/26 10:46:16 phantom Exp $");
@@ -72,7 +72,7 @@
  /* 
   * The localeconv() function constructs a struct lconv from the current
   * monetary and numeric locales.
-@@ -52,25 +112,37 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/
+@@ -52,25 +112,28 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/
   * lconv structure are computed only when the monetary or numeric 
   * locale has been changed.
   */
@@ -87,52 +87,48 @@
 +localeconv_l(locale_t loc)
  {
 -    static struct lconv ret;
-+    struct __xlocale_st_localeconv *lc;
++    struct lconv *lc;
 +
 +    NORMALIZE_LOCALE(loc);
-+    if (loc->__lc_localeconv && !loc->__mlocale_changed && !loc->__nlocale_changed)
-+	return &loc->__lc_localeconv->__ret;
-+
-+    lc = (struct __xlocale_st_localeconv *)malloc(sizeof(struct __xlocale_st_localeconv));
-+    lc->__refcount = 1;
-+    lc->__free_extra = NULL;
-+    if (loc->__lc_localeconv)
-+	lc->__ret = loc->__lc_localeconv->__ret;
-+    else {
-+	loc->__mlocale_changed = 1;
-+	loc->__nlocale_changed = 1;
-+    }
  
 -    if (__mlocale_changed) {
 +    if (loc->__mlocale_changed) {
++      XL_LOCK(loc);
++      if (loc->__mlocale_changed) {
  	/* LC_MONETARY part */
          struct lc_monetary_T * mptr; 
++	struct lconv *lc = &loc->__lc_localeconv;
  
 -#define M_ASSIGN_STR(NAME) (ret.NAME = (char*)mptr->NAME)
 -#define M_ASSIGN_CHAR(NAME) (ret.NAME = mptr->NAME[0])
-+#define M_ASSIGN_STR(NAME) (lc->__ret.NAME = (char*)mptr->NAME)
-+#define M_ASSIGN_CHAR(NAME) (lc->__ret.NAME = mptr->NAME[0])
++#define M_ASSIGN_STR(NAME) (lc->NAME = (char*)mptr->NAME)
++#define M_ASSIGN_CHAR(NAME) (lc->NAME = mptr->NAME[0])
  
 -	mptr = __get_current_monetary_locale();
 +	mptr = __get_current_monetary_locale(loc);
  	M_ASSIGN_STR(int_curr_symbol);
  	M_ASSIGN_STR(currency_symbol);
  	M_ASSIGN_STR(mon_decimal_point);
-@@ -92,21 +164,41 @@ localeconv()
+@@ -92,21 +155,45 @@ localeconv()
  	M_ASSIGN_CHAR(int_n_sep_by_space);
  	M_ASSIGN_CHAR(int_p_sign_posn);
  	M_ASSIGN_CHAR(int_n_sign_posn);
 -	__mlocale_changed = 0;
 +	loc->__mlocale_changed = 0;
++      }
++      XL_UNLOCK(loc);
      }
  
 -    if (__nlocale_changed) {
 +    if (loc->__nlocale_changed) {
++      XL_LOCK(loc);
++      if (loc->__nlocale_changed) {
  	/* LC_NUMERIC part */
          struct lc_numeric_T * nptr; 
++	struct lconv *lc = &loc->__lc_localeconv;
  
 -#define N_ASSIGN_STR(NAME) (ret.NAME = (char*)nptr->NAME)
-+#define N_ASSIGN_STR(NAME) (lc->__ret.NAME = (char*)nptr->NAME)
++#define N_ASSIGN_STR(NAME) (lc->NAME = (char*)nptr->NAME)
  
 -	nptr = __get_current_numeric_locale();
 +	nptr = __get_current_numeric_locale(loc);
@@ -141,13 +137,12 @@
  	N_ASSIGN_STR(grouping);
 -	__nlocale_changed = 0;
 +	loc->__nlocale_changed = 0;
++      }
++      XL_UNLOCK(loc);
      }
  
 -    return (&ret);
-+    XL_RELEASE(loc->__lc_localeconv);
-+    loc->__lc_localeconv = lc;
-+
-+    return (&lc->__ret);
++    return &loc->__lc_localeconv;
 +}
 +
 +/*

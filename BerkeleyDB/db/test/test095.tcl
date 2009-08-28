@@ -1,15 +1,15 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 2000-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 2000,2007 Oracle.  All rights reserved.
 #
-# $Id: test095.tcl,v 1.2 2004/03/30 01:24:09 jtownsen Exp $
+# $Id: test095.tcl,v 12.5 2007/05/17 15:15:56 bostic Exp $
 #
 # TEST	test095
 # TEST	Bulk get test for methods supporting dups. [#2934]
 proc test095 { method {tnum "095"} args } {
-	global is_qnx_test
 	source ./include.tcl
+	global is_je_test
+	global is_qnx_test
 
 	set args [convert_args $method $args]
 	set omethod [convert_method $method]
@@ -62,6 +62,10 @@ proc test095 { method {tnum "095"} args } {
 	# We run the meat of the test twice: once with unsorted dups,
 	# once with sorted dups.
 	foreach { dflag sort } { -dup unsorted {-dup -dupsort} sorted } {
+		if { $is_je_test && $sort == "unsorted" } {
+			continue
+		}
+
 		set testfile $basename-$sort.db
 		set did [open $dict]
 
@@ -202,16 +206,16 @@ proc t95_gettest_body { db tnum letter bufsize expectfail usecursor } {
 				}
 			}
 
-			# If we expect a failure, be more tolerant if the
-			# above fails; just make sure it's an ENOMEM or
-			# and EINVAL (if the buffer is smaller than the
-			# pagesize, it's EINVAL), mark it, and move along.
+			# If we expect a failure, be more tolerant if the above
+			# fails; just make sure it's a DB_BUFFER_SMALL or an
+			# EINVAL (if the buffer is smaller than the pagesize,
+			# it's EINVAL), mark it, and move along.
 			if { $expectfail != 0 && $ret != 0 } {
-				if { [is_substr $errorCode ENOMEM] != 1 && \
+				if { [is_substr $errorCode DB_BUFFER_SMALL] != 1 && \
 				    [is_substr $errorCode EINVAL] != 1 } {
 					error_check_good \
 					    "$flag failure errcode" \
-					    $errorCode "ENOMEM or EINVAL"
+					    $errorCode "DB_BUFFER_SMALL or EINVAL"
 				}
 				set allpassed FALSE
 				continue
@@ -228,7 +232,7 @@ proc t95_gettest_body { db tnum letter bufsize expectfail usecursor } {
 		if { $expectfail == 1 } {
 			error_check_good allpassed $allpassed FALSE
 			puts "\t\tTest$tnum.$letter:\
-			    returned at least one ENOMEM (as expected)"
+			    returned at least one DB_BUFFER_SMALL (as expected)"
 		} else {
 			error_check_good allpassed $allpassed TRUE
 			puts "\t\tTest$tnum.$letter: succeeded (as expected)"

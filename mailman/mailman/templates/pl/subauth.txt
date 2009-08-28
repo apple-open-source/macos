@@ -1,4 +1,4 @@
-Wymagana jest Twoje potwierdzenie nowej subskrybcji listy dyskusujnej:
+Wymagana jest potwierdzenie nowej subskrypcji:
 
     Dla:   %(username)s
     Lista: %(listname)s@%(hostname)s

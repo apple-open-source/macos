@@ -1,0 +1,73 @@
+Return-Path: <MAILER-DAEMON@sb7.songbird.com>
+Received: from rs-so-b1.amenworld.com (rs-so-b1.amenworld.com [62.193.206.26])
+	by sb7.songbird.com (8.12.11.20060308/8.12.11) with ESMTP id
+	kBH8s3Gg013386
+	for <wed_ride-bounces@grizz.org>; Sun, 17 Dec 2006 00:54:04 -0800
+Received: from av2.amenworld.com (av2.amenworld.com [62.193.206.45])
+	by rs-so-b1.amenworld.com (Postfix) with ESMTP id A808154655
+	for <wed_ride-bounces@grizz.org>; Sun, 17 Dec 2006 09:55:47 +0100 (CET)
+Date: Sun, 17 Dec 2006 09:53:50 +0100
+From: Mail Delivery System <Mail.Delivery.System@sb7.songbird.com>
+To: wed_ride-bounces@grizz.org
+Subject: Delivery status notification
+MIME-Version: 1.0
+Content-Type: multipart/report;
+	boundary="------------I305M09060309060P_699011663456300"
+Message-Id: <20061217085547.A808154655@rs-so-b1.amenworld.com>
+X-SongbirdInformation: support@songbird.com for more information
+X-Songbird: Clean
+X-Songbird-From: 
+
+This is a multi-part message in MIME format.
+
+--------------I305M09060309060P_699011663456300
+Content-Type: text/plain; charset=UTF-8;
+Content-Transfer-Encoding: 8bit
+
+============================================================================
+      This is an automatically generated Delivery Status Notification.      
+
+Delevery to the following recipients failed permanently:
+
+   * hmu@extralumin.com
+
+
+============================================================================
+                             Technical details:                             
+
+SMTP:RCPT host 62.193.203.20: 553 5.3.0 <hmu@extralumin.com>... No such user here
+
+
+============================================================================
+
+
+--------------I305M09060309060P_699011663456300
+Content-Type: message/rfc822; charset=UFT-8;
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment
+
+
+Received: from sb7.songbird.com (sb7.songbird.com [127.0.0.1])
+	by sb7.songbird.com (8.12.11.20060308/8.12.11) with ESMTP id kBH8rlWO013350
+	for <hmu@extralumin.com>; Sun, 17 Dec 2006 00:53:47 -0800
+Subject: reconstitute
+From: wed_ride-owner@grizz.org
+To: hmu@extralumin.com
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============1426064790=="
+Message-ID: <mailman.39762.1166345626.1568.wed_ride@grizz.org>
+Date: Sun, 17 Dec 2006 00:53:46 -0800
+Precedence: bulk
+X-BeenThere: wed_ride@grizz.org
+X-Mailman-Version: 2.1.5
+List-Id: GPC Wednesday Ride List <wed_ride.grizz.org>
+X-List-Administrivia: yes
+Sender: wed_ride-bounces@grizz.org
+Errors-To: wed_ride-bounces@grizz.org
+X-SongbirdInformation: support@songbird.com for more information
+X-Songbird: Clean
+X-Songbird-From: wed_ride-bounces@grizz.org
+
+--------------I305M09060309060P_699011663456300--
+
+

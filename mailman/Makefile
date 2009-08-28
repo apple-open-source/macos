@@ -3,7 +3,7 @@
 #
 
 PROJECT=mailman
-VERSION=2.1.9
+VERSION=2.1.12rc1
 
 SHELL := /bin/sh
 
@@ -22,19 +22,18 @@ SHAREDIR=/usr/share
 SILENT=$(_v)
 ECHO=echo
 PROJECT_NAME=mailman
-STRIP_FLAGS=-s
-SO_STRIPFLAGS=-rx
+STRIP_FLAGS=-S
+SO_STRIP_FLAGS=-rx
 
 HTTP_DIR=/usr/share/httpd/icons
-SERVER_SETUP_DIR=/System/Library/ServerSetup/SetupExtras
-SERVER_MIGRATION_DIR=/System/Library/ServerSetup/MigrationExtras
+COMMON_DIR=/System/Library/ServerSetup/CommonExtras
 DOC_DIR=/Library/Documentation/Services/mailman
 OPEN_SRC_INFO_DIR=/Mailman.OpenSourceInfo
 SETUP_SRC_DIR=/Mailman.Setup
 
 README_FILES=FAQ NEWS README README-I18N.en README.CONTRIB README.NETSCAPE README.USERAGENT
 
-INSTALL_FLAGS = DESTDIR="$(DSTROOT)" BI_RC_CFLAGS="$(RC_CFLAGS)" OPT='-Os -mdynamic-no-pic' INSTALL='/usr/bin/install -g 78'
+INSTALL_FLAGS = DESTDIR="$(DSTROOT)" BI_RC_CFLAGS="$(RC_CFLAGS)" OPT='-Os -mdynamic-no-pic' INSTALL='/usr/bin/install -g 78' DIRSETGID=:
 INSTALL_PREFIX = "$(SHAREDIR)/$(PROJECT)"
 
 MAILMAN_CONFIG = \
@@ -93,29 +92,29 @@ build_mm :
 
 install-strip :
 	$(SILENT) $(ECHO) "---- Stripping language libraries..."
-	$(SILENT) -$(STRIP) $(SO_STRIPFLAGS) \
+	$(SILENT) -$(STRIP) $(SO_STRIP_FLAGS) \
 		$(DSTROOT)$(INSTALL_PREFIX)/pythonlib/japanese/c/_japanese_codecs.so \
 		$(DSTROOT)$(INSTALL_PREFIX)/pythonlib/korean/c/_koco.so \
 		$(DSTROOT)$(INSTALL_PREFIX)/pythonlib/korean/c/hangul.so
-	$(SILENT) -$(STRIP) $(STRIPF_LAGS) \
+	$(SILENT) -$(STRIP) $(STRIP_FLAGS) \
 		$(DSTROOT)$(INSTALL_PREFIX)/cgi-bin/admin \
 		$(DSTROOT)$(INSTALL_PREFIX)/cgi-bin/admindb \
 		$(DSTROOT)$(INSTALL_PREFIX)/cgi-bin/confirm
-	$(SILENT) -$(STRIP) $(STRIPF_LAGS) \
+	$(SILENT) -$(STRIP) $(STRIP_FLAGS) \
 		$(DSTROOT)$(INSTALL_PREFIX)/cgi-bin/create \
 		$(DSTROOT)$(INSTALL_PREFIX)/cgi-bin/edithtml \
 		$(DSTROOT)$(INSTALL_PREFIX)/cgi-bin/listinfo
-	$(SILENT) -$(STRIP) $(STRIPF_LAGS) \
+	$(SILENT) -$(STRIP) $(STRIP_FLAGS) \
 		$(DSTROOT)$(INSTALL_PREFIX)/cgi-bin/options \
 		$(DSTROOT)$(INSTALL_PREFIX)/cgi-bin/private \
 		$(DSTROOT)$(INSTALL_PREFIX)/cgi-bin/rmlist
-	$(SILENT) -$(STRIP) $(STRIPF_LAGS) \
+	$(SILENT) -$(STRIP) $(STRIP_FLAGS) \
 		$(DSTROOT)$(INSTALL_PREFIX)/cgi-bin/roster \
 		$(DSTROOT)$(INSTALL_PREFIX)/cgi-bin/subscribe \
 		$(DSTROOT)$(INSTALL_PREFIX)/mail/mailman
 	$(SILENT) $(ECHO) "---- Stripping language libraries complete."
 
-install-extras : $(DSTROOT)$(HTTP_DIR) $(DSTROOT)$(SERVER_SETUP_DIR) $(DSTROOT)$(SERVER_MIGRATION_DIR)
+install-extras : $(DSTROOT)$(HTTP_DIR) $(DSTROOT)$(COMMON_DIR)
 	$(SILENT) $(ECHO) "---- Installing extras..."
 	$(SILENT) install -d -m 755 $(DSTROOT)/usr/local/OpenSourceVersions
 	$(SILENT) install -d -m 755 $(DSTROOT)/usr/local/OpenSourceLicenses
@@ -123,10 +122,7 @@ install-extras : $(DSTROOT)$(HTTP_DIR) $(DSTROOT)$(SERVER_SETUP_DIR) $(DSTROOT)$
 	install -m 0444 $(SRCROOT)/$(OPEN_SRC_INFO_DIR)/mailman.txt $(DSTROOT)/usr/local/OpenSourceLicenses
 	$(SILENT) $(CP) -p "$(DSTROOT)$(INSTALL_PREFIX)"/icons/* "$(DSTROOT)$(HTTP_DIR)"
 	$(CHGRP) -R wheel "$(DSTROOT)$(HTTP_DIR)"
-	$(SILENT) $(CP) $(SRCROOT)/$(SETUP_SRC_DIR)/SetupScript "$(DSTROOT)$(SERVER_SETUP_DIR)/Mailman"
-	$(SILENT) $(CP) $(SRCROOT)/$(SETUP_SRC_DIR)/SetupScript "$(DSTROOT)$(SERVER_MIGRATION_DIR)/Mailman"
-	$(CHGRP) -R wheel "$(DSTROOT)$(SERVER_SETUP_DIR)/Mailman"
-	$(CHMOD) 755  "$(DSTROOT)$(SERVER_SETUP_DIR)/Mailman"
+	install -m 0755 "$(SRCROOT)/$(SETUP_SRC_DIR)/SetupScript" "$(DSTROOT)$(COMMON_DIR)/SetupMailman.sh"
 	$(SILENT) $(ECHO) "MTA = 'Postfix'" >> "$(DSTROOT)$(INSTALL_PREFIX)/Mailman/mm_cfg.py.dist"
 	$(RM) "$(DSTROOT)$(INSTALL_PREFIX)/Mailman/mm_cfg.py"
 	$(SILENT) $(ECHO) "---- Installing extras complete."
@@ -156,23 +152,22 @@ install-group :
 	$(CHOWN) -R root:mailman "$(DSTROOT)/private/var/mailman/logs"
 	$(CHOWN) -R root:mailman "$(DSTROOT)/private/var/mailman/qfiles"
 	$(CHOWN) -R root:mailman "$(DSTROOT)/private/var/mailman/spam"
-	$(SILENT) $(CD) "$(DSTROOT)/usr/share/mailman/templates" && /bin/ls | xargs chmod 02775
-	$(SILENT) $(CD) "$(DSTROOT)/usr/share/mailman/messages" && /bin/ls | xargs chmod 02775
-	$(SILENT) chmod 02775 "$(DSTROOT)/private/var/mailman"
-	$(SILENT) chmod 02775 "$(DSTROOT)/usr/share/mailman"
-	$(SILENT) chmod 02775 "$(DSTROOT)/usr/share/mailman/pythonlib/email"
-	$(SILENT) chmod 02775 "$(DSTROOT)/usr/share/mailman/pythonlib/japanese"
-	$(SILENT) chmod 02775 "$(DSTROOT)/usr/share/mailman/pythonlib/korean"
-	$(SILENT) chmod 02775 "$(DSTROOT)/usr/share/mailman/pythonlib/lib"
-	$(SILENT) chmod 02775 "$(DSTROOT)/usr/share/mailman/pythonlib/japanese/aliases"
-	$(SILENT) chmod 02775 "$(DSTROOT)/usr/share/mailman/pythonlib/japanese/c"
-	$(SILENT) chmod 02775 "$(DSTROOT)/usr/share/mailman/pythonlib/japanese/mappings"
-	$(SILENT) chmod 02775 "$(DSTROOT)/usr/share/mailman/pythonlib/japanese/python"
-	$(SILENT) chmod 02775 "$(DSTROOT)/usr/share/mailman/pythonlib/korean/c"
-	$(SILENT) chmod 02775 "$(DSTROOT)/usr/share/mailman/pythonlib/korean/mappings"
-	$(SILENT) chmod 02775 "$(DSTROOT)/usr/share/mailman/pythonlib/korean/python"
-	$(SILENT) chmod 02775 "$(DSTROOT)/usr/share/mailman/pythonlib/lib/python2.5"
-	$(SILENT) chmod 02775 "$(DSTROOT)/usr/share/mailman/pythonlib/lib/python2.5/site-packages"
+	$(SILENT) $(CD) "$(DSTROOT)/usr/share/mailman/templates" && /bin/ls | xargs chmod 0775
+	$(SILENT) $(CD) "$(DSTROOT)/usr/share/mailman/messages" && /bin/ls | xargs chmod 0775
+	$(SILENT) chmod 0775 "$(DSTROOT)/private/var/mailman"
+	$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman"
+	$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman/pythonlib/japanese"
+	$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman/pythonlib/korean"
+	$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman/pythonlib/lib"
+	$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman/pythonlib/japanese/aliases"
+	$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman/pythonlib/japanese/c"
+	$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman/pythonlib/japanese/mappings"
+	$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman/pythonlib/japanese/python"
+	$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman/pythonlib/korean/c"
+	$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman/pythonlib/korean/mappings"
+	$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman/pythonlib/korean/python"
+	$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman/pythonlib/lib/python2.6"
+	$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman/pythonlib/lib/python2.6/site-packages"
 	$(SILENT) chmod 02755 "$(DSTROOT)/usr/share/mailman/cgi-bin/admin"
 	$(SILENT) chmod 02755 "$(DSTROOT)/usr/share/mailman/cgi-bin/admindb"
 	$(SILENT) chmod 02755 "$(DSTROOT)/usr/share/mailman/cgi-bin/confirm"
@@ -185,6 +180,13 @@ install-group :
 	$(SILENT) chmod 02755 "$(DSTROOT)/usr/share/mailman/cgi-bin/roster"
 	$(SILENT) chmod 02755 "$(DSTROOT)/usr/share/mailman/cgi-bin/subscribe"
 	$(SILENT) chmod 02755 "$(DSTROOT)/usr/share/mailman/mail/mailman"
+	$(SILENT) chmod 0755 "$(DSTROOT)/usr/share/mailman/messages/"*
+	$(SILENT) chmod 0755 "$(DSTROOT)/usr/share/mailman/messages/gl/LC_MESSAGES"
+	$(SILENT) chmod 0755 "$(DSTROOT)/usr/share/mailman/messages/he/LC_MESSAGES"
+	$(SILENT) chmod 0755 "$(DSTROOT)/usr/share/mailman/messages/sk/LC_MESSAGES"
+	$(SILENT) chmod 0755 "$(DSTROOT)/usr/share/mailman/templates/"*
+	$(SILENT) chmod 0755 "$(DSTROOT)/usr/share/mailman/pythonlib/lib/python2.6"
+	$(SILENT) chmod 0755 "$(DSTROOT)/usr/share/mailman/pythonlib/lib/python2.6/site-packages"
 	$(SILENT) $(ECHO) "---- Setting file permissions complete."
 	
 .PHONY: clean installhdrs installsrc build install 
@@ -195,10 +197,7 @@ $(DSTROOT) :
 $(DSTROOT)$(HTTP_DIR) :
 	$(SILENT) $(MKDIRS) $@
 
-$(DSTROOT)$(SERVER_SETUP_DIR) :
-	$(SILENT) $(MKDIRS) $@
-
-$(DSTROOT)$(SERVER_MIGRATION_DIR) :
+$(DSTROOT)$(COMMON_DIR) :
 	$(SILENT) $(MKDIRS) $@
 
 $(DSTROOT)$(DOC_DIR) :

@@ -42,4 +42,4 @@ void	 store_in_keychain(const char *filename, const char *passphrase);
 void	 remove_from_keychain(const char *filename);
 int	 add_identities_using_keychain(
 	     int (*add_identity)(const char *, const char *));
-char	*keychain_read_passphrase(const char *filename);
+char	*keychain_read_passphrase(const char *filename, int oAskPassGUI);

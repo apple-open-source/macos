@@ -19,7 +19,7 @@
 */
 
 /*
-  cc -Wall -Wno-long-double -I. -I ../sadc.tproj -O -o  sar sar.c
+  cc -Wall -I. -I ../sadc.tproj -O -o  sar sar.c
 */
 
 #include <stdio.h>
@@ -148,7 +148,7 @@ static void read_record_hdr(struct record_hdr *hdr, int writeflag);
 static void read_record_data(char *buf, size_t size, int writeflag);
 static void write_record_hdr(struct record_hdr *hdr);
 static void write_record_data(char *buf, size_t size);
-static long convert_hms(char *string);
+static time_t convert_hms(char *string);
 static char *get_hms_string(time_t, char *);
 static int find_restart_header(struct record_hdr *);
 static void print_all_column_headings (time_t timestamp);

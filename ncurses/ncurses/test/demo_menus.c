@@ -1,5 +1,32 @@
+/****************************************************************************
+ * Copyright (c) 2005-2007,2008 Free Software Foundation, Inc.              *
+ *                                                                          *
+ * Permission is hereby granted, free of charge, to any person obtaining a  *
+ * copy of this software and associated documentation files (the            *
+ * "Software"), to deal in the Software without restriction, including      *
+ * without limitation the rights to use, copy, modify, merge, publish,      *
+ * distribute, distribute with modifications, sublicense, and/or sell       *
+ * copies of the Software, and to permit persons to whom the Software is    *
+ * furnished to do so, subject to the following conditions:                 *
+ *                                                                          *
+ * The above copyright notice and this permission notice shall be included  *
+ * in all copies or substantial portions of the Software.                   *
+ *                                                                          *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+ * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+ * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+ * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+ * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+ *                                                                          *
+ * Except as contained in this notice, the name(s) of the above copyright   *
+ * holders shall not be used in advertising or otherwise to promote the     *
+ * sale, use or other dealings in this Software without prior written       *
+ * authorization.                                                           *
+ ****************************************************************************/
 /*
- * $Id: demo_menus.c,v 1.13 2005/10/01 15:54:31 tom Exp $
+ * $Id: demo_menus.c,v 1.28 2008/08/23 20:31:54 tom Exp $
  *
  * Demonstrate a variety of functions from the menu library.
  * Thomas Dickey - 2005/4/9
@@ -18,10 +45,8 @@ menu_fore			-
 menu_format			-
 menu_grey			-
 menu_init			-
-menu_mark			-
 menu_opts			-
 menu_pad			-
-menu_pattern			-
 menu_request_by_name		-
 menu_request_name		-
 menu_sub			-
@@ -65,13 +90,16 @@ static MENU *mpTrace;
 #endif
 
 typedef enum {
-    eUnknown = -1
-    ,eFile = 0
+    eBanner = -1
+    ,eFile
     ,eSelect
 #ifdef TRACE
     ,eTrace
 #endif
+    ,eMAX
 } MenuNo;
+
+#define okMenuNo(n) (((n) > eBanner) && ((n) < eMAX))
 
 #define MENU_Y	1
 
@@ -79,12 +107,14 @@ static MENU *mpBanner;
 static MENU *mpFile;
 static MENU *mpSelect;
 
+static bool loaded_file = FALSE;
+
 #if !HAVE_STRDUP
 #define strdup my_strdup
 static char *
 strdup(char *s)
 {
-    char *p = (char *) malloc(strlen(s) + 1);
+    char *p = typeMalloc(char, strlen(s) + 1);
     if (p)
 	strcpy(p, s);
     return (p);
@@ -102,14 +132,14 @@ wGetchar(WINDOW *win)
     while ((c = wgetch(win)) == CTRL('T')) {
 	if (_nc_tracing) {
 	    save_trace = _nc_tracing;
-	    _tracef("TOGGLE-TRACING OFF");
+	    Trace(("TOGGLE-TRACING OFF"));
 	    _nc_tracing = 0;
 	} else {
 	    _nc_tracing = save_trace;
 	}
 	trace(_nc_tracing);
 	if (_nc_tracing)
-	    _tracef("TOGGLE-TRACING ON");
+	    Trace(("TOGGLE-TRACING ON"));
     }
 #else
     c = wgetch(win);
@@ -162,7 +192,7 @@ menu_offset(MenuNo number)
 {
     int result = 0;
 
-    if ((int) number >= 0) {
+    if (okMenuNo(number)) {
 	int spc_desc, spc_rows, spc_cols;
 
 #ifdef NCURSES_VERSION
@@ -172,7 +202,7 @@ menu_offset(MenuNo number)
 #endif
 
 	/* FIXME: MENU.itemlen seems the only way to get actual width of items */
-	result = number * (mpBanner->itemlen + spc_rows);
+	result = (number - (eBanner + 1)) * (mpBanner->itemlen + spc_rows);
     }
     return result;
 }
@@ -183,7 +213,7 @@ menu_create(ITEM ** items, int count, int ncols, MenuNo number)
     MENU *result;
     WINDOW *menuwin;
     int mrows, mcols;
-    int y = ((int) number >= 0) ? MENU_Y : 0;
+    int y = okMenuNo(number) ? MENU_Y : 0;
     int x = menu_offset(number);
     int margin = (y == MENU_Y) ? 1 : 0;
     int maxcol = (ncols + x) < COLS ? ncols : (COLS - x - 1);
@@ -228,22 +258,35 @@ menu_create(ITEM ** items, int count, int ncols, MenuNo number)
 static void
 menu_destroy(MENU * m)
 {
-    ITEM **ip;
     int count;
 
+    Trace(("menu_destroy %p", m));
     if (m != 0) {
-	delwin(menu_win(m));
+	ITEM **items = menu_items(m);
+	const char *blob = 0;
 
-	ip = menu_items(m);
 	count = item_count(m);
+	Trace(("menu_destroy %p count %d", m, count));
+	if ((count > 0) && (m == mpSelect)) {
+	    blob = item_name(*items);
+	}
 
+	unpost_menu(m);
 	free_menu(m);
-#if 0
-	if (count > 0) {
-	    while (*ip) {
-		_tracef("freeing item %d:%d", ip - menu_items(m), count);
-		free_item(*ip++);
+
+	/* free the extra data allocated in build_select_menu() */
+	if ((count > 0) && (m == mpSelect)) {
+	    if (blob && loaded_file) {
+		Trace(("freeing blob %p", blob));
+		free((char *) blob);
 	    }
+	    free(items);
+	}
+#ifdef TRACE
+	if ((count > 0) && (m == mpTrace)) {
+	    ITEM **ip = items;
+	    while (*ip)
+		free(*ip++);
 	}
 #endif
     }
@@ -262,7 +305,7 @@ menu_display(MENU * m)
 static void
 build_file_menu(MenuNo number)
 {
-    static const char *labels[] =
+    static CONST_MENUS char *labels[] =
     {
 	"Exit",
 	(char *) 0
@@ -270,7 +313,7 @@ build_file_menu(MenuNo number)
     static ITEM *items[SIZEOF(labels)];
 
     ITEM **ip = items;
-    const char **ap;
+    CONST_MENUS char **ap;
 
     for (ap = labels; *ap; ap++)
 	*ip++ = new_item(*ap, "");
@@ -290,7 +333,7 @@ perform_file_menu(int cmd)
 static void
 build_select_menu(MenuNo number, char *filename)
 {
-    static const char *labels[] =
+    static CONST_MENUS char *labels[] =
     {
 	"Lions",
 	"Tigers",
@@ -310,7 +353,8 @@ build_select_menu(MenuNo number, char *filename)
     static ITEM **items;
 
     ITEM **ip;
-    const char **ap = 0;
+    CONST_MENUS char **ap = 0;
+    CONST_MENUS char **myList = 0;
     unsigned count = 0;
 
     if (filename != 0) {
@@ -318,12 +362,13 @@ build_select_menu(MenuNo number, char *filename)
 	if (stat(filename, &sb) == 0
 	    && (sb.st_mode & S_IFMT) == S_IFREG
 	    && sb.st_size != 0) {
-	    unsigned size = sb.st_size;
+	    size_t size = (size_t) sb.st_size;
 	    unsigned j, k;
-	    char *blob = malloc(size + 1);
-	    const char **list = (const char **) calloc(sizeof(*list), size + 1);
+	    char *blob = typeMalloc(char, size + 1);
+	    CONST_MENUS char **list = typeCalloc(CONST_MENUS char *, size + 1);
 
-	    items = (ITEM **) calloc(sizeof(ITEM *), size + 1);
+	    items = typeCalloc(ITEM *, size + 1);
+	    Trace(("build_select_menu blob=%p, items=%p", blob, items));
 	    if (blob != 0 && list != 0) {
 		FILE *fp = fopen(filename, "r");
 		if (fp != 0) {
@@ -345,16 +390,17 @@ build_select_menu(MenuNo number, char *filename)
 			}
 			list[k] = 0;
 			count = k;
-			ap = list;
+			ap = myList = list;
 		    }
 		    fclose(fp);
 		}
+		loaded_file = TRUE;
 	    }
 	}
     }
     if (ap == 0) {
 	count = SIZEOF(labels) - 1;
-	items = (ITEM **) calloc(count + 1, sizeof(*items));
+	items = typeCalloc(ITEM *, count + 1);
 	ap = labels;
     }
 
@@ -364,6 +410,8 @@ build_select_menu(MenuNo number, char *filename)
     *ip = 0;
 
     mpSelect = menu_create(items, (int) count, 1, number);
+    if (myList != 0)
+	free(myList);
 }
 
 static int
@@ -427,7 +475,7 @@ tracetrace(unsigned tlevel)
 	size_t need = 12;
 	for (n = 0; t_tbl[n].name != 0; n++)
 	    need += strlen(t_tbl[n].name) + 2;
-	buf = (char *) malloc(need);
+	buf = typeMalloc(char, need);
     }
     sprintf(buf, "0x%02x = {", tlevel);
     if (tlevel == 0) {
@@ -494,7 +542,7 @@ perform_trace_menu(int cmd)
 		    newtrace |= t_tbl[item_index(*ip)].mask;
 	    }
 	    trace(newtrace);
-	    _tracef("trace level interactively set to %s", tracetrace(_nc_tracing));
+	    Trace(("trace level interactively set to %s", tracetrace(_nc_tracing)));
 
 	    (void) mvprintw(LINES - 2, 0,
 			    "Trace level is %s\n", tracetrace(_nc_tracing));
@@ -510,7 +558,7 @@ perform_trace_menu(int cmd)
 static int
 menu_number(void)
 {
-    return item_index(current_item(mpBanner));
+    return item_index(current_item(mpBanner)) - (eBanner + 1);
 }
 
 static MENU *
@@ -540,7 +588,7 @@ current_menu(void)
 static void
 build_menus(char *filename)
 {
-    static const char *labels[] =
+    static CONST_MENUS char *labels[] =
     {
 	"File",
 	"Select",
@@ -552,13 +600,13 @@ build_menus(char *filename)
     static ITEM *items[SIZEOF(labels)];
 
     ITEM **ip = items;
-    const char **ap;
+    CONST_MENUS char **ap;
 
     for (ap = labels; *ap; ap++)
 	*ip++ = new_item(*ap, "");
     *ip = (ITEM *) 0;
 
-    mpBanner = menu_create(items, SIZEOF(labels) - 1, SIZEOF(labels) - 1, eUnknown);
+    mpBanner = menu_create(items, SIZEOF(labels) - 1, SIZEOF(labels) - 1, eBanner);
     set_menu_mark(mpBanner, ">");
 
     build_file_menu(eFile);
@@ -568,12 +616,77 @@ build_menus(char *filename)
 #endif
 }
 
+static int
+move_menu(MENU * menu, MENU * current, int by_y, int by_x)
+{
+    WINDOW *top_win = menu_win(menu);
+    WINDOW *sub_win = menu_sub(menu);
+    int y0, x0;
+    int y1, x1;
+    int result;
+
+    getbegyx(top_win, y0, x0);
+    y0 += by_y;
+    x0 += by_x;
+
+    getbegyx(sub_win, y1, x1);
+    y1 += by_y;
+    x1 += by_x;
+
+    if ((result = mvwin(top_win, y0, x0)) != ERR) {
+#if defined(NCURSES_VERSION_PATCH) && (NCURSES_VERSION_PATCH < 20060218)
+	sub_win->_begy = y1;
+	sub_win->_begx = x1;
+#else
+	mvwin(sub_win, y1, x1);
+#endif
+	if (menu == current) {
+	    touchwin(top_win);
+	    wnoutrefresh(top_win);
+	}
+    }
+    return result;
+}
+
+/*
+ * Move the menus around on the screen, to test mvwin().
+ */
+static void
+move_menus(MENU * current, int by_y, int by_x)
+{
+    if (move_menu(mpBanner, current, by_y, by_x) != ERR) {
+	erase();
+	wnoutrefresh(stdscr);
+	move_menu(mpFile, current, by_y, by_x);
+	move_menu(mpSelect, current, by_y, by_x);
+#ifdef TRACE
+	move_menu(mpTrace, current, by_y, by_x);
+#endif
+	doupdate();
+    }
+}
+
+static void
+show_status(int ch, MENU * menu)
+{
+    move(LINES - 1, 0);
+    printw("key %s, menu %d, mark %s, match %s",
+	   keyname(ch),
+	   menu_number(),
+	   menu_mark(menu),
+	   menu_pattern(menu));
+    clrtoeol();
+    refresh();
+}
+
 static void
 perform_menus(void)
 {
     MENU *this_menu;
     MENU *last_menu = mpFile;
-    int code = E_UNKNOWN_COMMAND, cmd, ch;
+    int code = E_UNKNOWN_COMMAND;
+    int cmd;
+    int ch = ERR;
 
 #ifdef NCURSES_MOUSE_VERSION
     mousemask(ALL_MOUSE_EVENTS, (mmask_t *) 0);
@@ -582,7 +695,30 @@ perform_menus(void)
     menu_display(last_menu);
 
     for (;;) {
+
+	if (ch != ERR)
+	    show_status(ch, last_menu);
+
 	ch = menu_getc(mpBanner);
+
+	/*
+	 * Provide for moving the menu around in the screen using shifted
+	 * cursor keys.
+	 */
+	switch (ch) {
+	case KEY_SF:
+	    move_menus(last_menu, 1, 0);
+	    continue;
+	case KEY_SR:
+	    move_menus(last_menu, -1, 0);
+	    continue;
+	case KEY_SLEFT:
+	    move_menus(last_menu, 0, -1);
+	    continue;
+	case KEY_SRIGHT:
+	    move_menus(last_menu, 0, 1);
+	    continue;
+	}
 	cmd = menu_virtualize(ch);
 
 	switch (cmd) {
@@ -664,10 +800,78 @@ destroy_menus(void)
     menu_destroy(mpBanner);
 }
 
+#if HAVE_RIPOFFLINE
+static int
+rip_footer(WINDOW *win, int cols)
+{
+    wbkgd(win, A_REVERSE);
+    werase(win);
+    wmove(win, 0, 0);
+    wprintw(win, "footer: %d columns", cols);
+    wnoutrefresh(win);
+    return OK;
+}
+
+static int
+rip_header(WINDOW *win, int cols)
+{
+    wbkgd(win, A_REVERSE);
+    werase(win);
+    wmove(win, 0, 0);
+    wprintw(win, "header: %d columns", cols);
+    wnoutrefresh(win);
+    return OK;
+}
+#endif /* HAVE_RIPOFFLINE */
+
+static void
+usage(void)
+{
+    static const char *const tbl[] =
+    {
+	"Usage: demo_menus [options]"
+	,""
+	,"Options:"
+#if HAVE_RIPOFFLINE
+	,"  -f       rip-off footer line (can repeat)"
+	,"  -h       rip-off header line (can repeat)"
+#endif
+#ifdef TRACE
+	,"  -t mask  specify default trace-level (may toggle with ^T)"
+#endif
+    };
+    size_t n;
+    for (n = 0; n < SIZEOF(tbl); n++)
+	fprintf(stderr, "%s\n", tbl[n]);
+    ExitProgram(EXIT_FAILURE);
+}
+
 int
 main(int argc, char *argv[])
 {
+    int c;
+
     setlocale(LC_ALL, "");
+
+    while ((c = getopt(argc, argv, "a:de:fhmp:s:t:")) != -1) {
+	switch (c) {
+#if HAVE_RIPOFFLINE
+	case 'f':
+	    ripoffline(-1, rip_footer);
+	    break;
+	case 'h':
+	    ripoffline(1, rip_header);
+	    break;
+#endif /* HAVE_RIPOFFLINE */
+#ifdef TRACE
+	case 't':
+	    trace(strtoul(optarg, 0, 0));
+	    break;
+#endif
+	default:
+	    usage();
+	}
+    }
 
     initscr();
     noraw();
@@ -684,7 +888,7 @@ main(int argc, char *argv[])
     destroy_menus();
 
     endwin();
-    return EXIT_SUCCESS;
+    ExitProgram(EXIT_SUCCESS);
 }
 #else
 int

@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1999-2006, International Business Machines
+*   Copyright (C) 1999-2007, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -11,7 +11,7 @@
 *   indentation:4
 *
 *   created on: 1999aug06
-*   created by: Markus W. Scherer
+*   created by: Markus W. Scherer, updated by Matitiahu Allouche
 */
 
 #ifndef UBIDIIMP_H
@@ -70,6 +70,7 @@ enum {
 /* are there any characters that are LTR or RTL? */
 #define MASK_LTR (DIRPROP_FLAG(L)|DIRPROP_FLAG(EN)|DIRPROP_FLAG(AN)|DIRPROP_FLAG(LRE)|DIRPROP_FLAG(LRO))
 #define MASK_RTL (DIRPROP_FLAG(R)|DIRPROP_FLAG(AL)|DIRPROP_FLAG(RLE)|DIRPROP_FLAG(RLO))
+#define MASK_R_AL (DIRPROP_FLAG(R)|DIRPROP_FLAG(AL))
 
 /* explicit embedding codes */
 #define MASK_LRX (DIRPROP_FLAG(LRE)|DIRPROP_FLAG(LRO))
@@ -149,11 +150,11 @@ typedef struct Run {
 
 #define GET_INDEX(x)   ((x)&~INDEX_ODD_BIT)
 #define GET_ODD_BIT(x) ((uint32_t)(x)>>31)
-#define IS_ODD_RUN(x)  (((x)&INDEX_ODD_BIT)!=0)
-#define IS_EVEN_RUN(x) (((x)&INDEX_ODD_BIT)==0)
+#define IS_ODD_RUN(x)  ((UBool)(((x)&INDEX_ODD_BIT)!=0))
+#define IS_EVEN_RUN(x) ((UBool)(((x)&INDEX_ODD_BIT)==0))
 
 U_CFUNC UBool
-ubidi_getRuns(UBiDi *pBiDi);
+ubidi_getRuns(UBiDi *pBiDi, UErrorCode *pErrorCode);
 
 /** BiDi control code points */
 enum {
@@ -299,41 +300,84 @@ struct UBiDi {
 };
 
 #define IS_VALID_PARA(x) ((x) && ((x)->pParaBiDi==(x)))
-#define IS_VALID_LINE(x) ((x) && ((x)->pParaBiDi) && ((x)->pParaBiDi->pParaBiDi==(x)->pParaBiDi))
 #define IS_VALID_PARA_OR_LINE(x) ((x) && ((x)->pParaBiDi==(x) || (((x)->pParaBiDi) && (x)->pParaBiDi->pParaBiDi==(x)->pParaBiDi)))
+
+typedef union {
+    DirProp *dirPropsMemory;
+    UBiDiLevel *levelsMemory;
+    Para *parasMemory;
+    Run *runsMemory;
+} BidiMemoryForAllocation;
+
+/* Macros for initial checks at function entry */
+#define RETURN_IF_NULL_OR_FAILING_ERRCODE(pErrcode, retvalue)   \
+        if((pErrcode)==NULL || U_FAILURE(*pErrcode)) return retvalue
+#define RETURN_IF_NOT_VALID_PARA(bidi, errcode, retvalue)   \
+        if(!IS_VALID_PARA(bidi)) {  \
+            errcode=U_INVALID_STATE_ERROR;  \
+            return retvalue;                \
+        }
+#define RETURN_IF_NOT_VALID_PARA_OR_LINE(bidi, errcode, retvalue)   \
+        if(!IS_VALID_PARA_OR_LINE(bidi)) {  \
+            errcode=U_INVALID_STATE_ERROR;  \
+            return retvalue;                \
+        }
+#define RETURN_IF_BAD_RANGE(arg, start, limit, errcode, retvalue)   \
+        if((arg)<(start) || (arg)>=(limit)) {       \
+            (errcode)=U_ILLEGAL_ARGUMENT_ERROR;     \
+            return retvalue;                        \
+        }
+
+#define RETURN_VOID_IF_NULL_OR_FAILING_ERRCODE(pErrcode)   \
+        if((pErrcode)==NULL || U_FAILURE(*pErrcode)) return
+#define RETURN_VOID_IF_NOT_VALID_PARA(bidi, errcode)   \
+        if(!IS_VALID_PARA(bidi)) {  \
+            errcode=U_INVALID_STATE_ERROR;  \
+            return;                \
+        }
+#define RETURN_VOID_IF_NOT_VALID_PARA_OR_LINE(bidi, errcode)   \
+        if(!IS_VALID_PARA_OR_LINE(bidi)) {  \
+            errcode=U_INVALID_STATE_ERROR;  \
+            return;                \
+        }
+#define RETURN_VOID_IF_BAD_RANGE(arg, start, limit, errcode)   \
+        if((arg)<(start) || (arg)>=(limit)) {       \
+            (errcode)=U_ILLEGAL_ARGUMENT_ERROR;     \
+            return;                        \
+        }
 
 /* helper function to (re)allocate memory if allowed */
 U_CFUNC UBool
-ubidi_getMemory(void **pMemory, int32_t *pSize, UBool mayAllocate, int32_t sizeNeeded);
+ubidi_getMemory(BidiMemoryForAllocation *pMemory, int32_t *pSize, UBool mayAllocate, int32_t sizeNeeded);
 
 /* helper macros for each allocated array in UBiDi */
 #define getDirPropsMemory(pBiDi, length) \
-        ubidi_getMemory((void **)&(pBiDi)->dirPropsMemory, &(pBiDi)->dirPropsSize, \
+        ubidi_getMemory((BidiMemoryForAllocation *)&(pBiDi)->dirPropsMemory, &(pBiDi)->dirPropsSize, \
                         (pBiDi)->mayAllocateText, (length))
 
 #define getLevelsMemory(pBiDi, length) \
-        ubidi_getMemory((void **)&(pBiDi)->levelsMemory, &(pBiDi)->levelsSize, \
+        ubidi_getMemory((BidiMemoryForAllocation *)&(pBiDi)->levelsMemory, &(pBiDi)->levelsSize, \
                         (pBiDi)->mayAllocateText, (length))
 
 #define getRunsMemory(pBiDi, length) \
-        ubidi_getMemory((void **)&(pBiDi)->runsMemory, &(pBiDi)->runsSize, \
+        ubidi_getMemory((BidiMemoryForAllocation *)&(pBiDi)->runsMemory, &(pBiDi)->runsSize, \
                         (pBiDi)->mayAllocateRuns, (length)*sizeof(Run))
 
 /* additional macros used by ubidi_open() - always allow allocation */
 #define getInitialDirPropsMemory(pBiDi, length) \
-        ubidi_getMemory((void **)&(pBiDi)->dirPropsMemory, &(pBiDi)->dirPropsSize, \
+        ubidi_getMemory((BidiMemoryForAllocation *)&(pBiDi)->dirPropsMemory, &(pBiDi)->dirPropsSize, \
                         TRUE, (length))
 
 #define getInitialLevelsMemory(pBiDi, length) \
-        ubidi_getMemory((void **)&(pBiDi)->levelsMemory, &(pBiDi)->levelsSize, \
+        ubidi_getMemory((BidiMemoryForAllocation *)&(pBiDi)->levelsMemory, &(pBiDi)->levelsSize, \
                         TRUE, (length))
 
 #define getInitialParasMemory(pBiDi, length) \
-        ubidi_getMemory((void **)&(pBiDi)->parasMemory, &(pBiDi)->parasSize, \
+        ubidi_getMemory((BidiMemoryForAllocation *)&(pBiDi)->parasMemory, &(pBiDi)->parasSize, \
                         TRUE, (length)*sizeof(Para))
 
 #define getInitialRunsMemory(pBiDi, length) \
-        ubidi_getMemory((void **)&(pBiDi)->runsMemory, &(pBiDi)->runsSize, \
+        ubidi_getMemory((BidiMemoryForAllocation *)&(pBiDi)->runsMemory, &(pBiDi)->runsSize, \
                         TRUE, (length)*sizeof(Run))
 
 #endif

@@ -1,0 +1,8 @@
+Pre odhlásenie používateľa z konferencie je potrebný Váš súhlas.
+
+    Používateľ: %(username)s
+    E-Mail:   %(listname)s@%(hostname)s
+
+Žiadosť môžete odsúhlasiť alebo odmietnuť na stránke:
+
+    %(admindb_url)s

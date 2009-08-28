@@ -1,9 +1,9 @@
 .\"
-.\" "$Id: cups-polld.man 6649 2007-07-11 21:46:42Z mike $"
+.\" "$Id: cups-polld.man 7600 2008-05-20 21:06:23Z mike $"
 .\"
 .\"   cups-polld man page for the Common UNIX Printing System (CUPS).
 .\"
-.\"   Copyright 2007 by Apple Inc.
+.\"   Copyright 2007-2009 by Apple Inc.
 .\"   Copyright 1997-2006 by Easy Software Products.
 .\"
 .\"   These coded instructions, statements, and computer programs are the
@@ -12,7 +12,7 @@
 .\"   which should have been included with this file.  If this file is
 .\"   file is missing or damaged, see the license at "http://www.cups.org/".
 .\"
-.TH cups-polld 8 "Common UNIX Printing System" "12 February 2006" "Apple Inc."
+.TH cups-polld 8 "CUPS" "12 February 2006" "Apple Inc."
 .SH NAME
 cups-polld \- cups printer polling daemon
 .SH SYNOPSIS
@@ -32,7 +32,7 @@ This program is started automatically by \fIcupsd\fR for every
 .br
 http://localhost:631/help
 .SH COPYRIGHT
-Copyright 2007 by Apple Inc.
+Copyright 2007-2009 by Apple Inc.
 .\"
-.\" End of "$Id: cups-polld.man 6649 2007-07-11 21:46:42Z mike $".
+.\" End of "$Id: cups-polld.man 7600 2008-05-20 21:06:23Z mike $".
 .\"

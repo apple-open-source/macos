@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 1998-2006, International Business Machines
+*   Copyright (C) 1998-2008, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *
@@ -65,13 +65,14 @@
  * their occurrence is rare. Almost all characters in modern use require only
  * a single UChar code unit (i.e., their code point values are <=0xffff).
  *
- * For more details see the User Guide Strings chapter (http://icu.sourceforge.net/userguide/strings.html).
+ * For more details see the User Guide Strings chapter (http://icu-project.org/userguide/strings.html).
  * For a discussion of the handling of unpaired surrogates see also
  * Jitterbug 2145 and its icu mailing list proposal on 2002-sep-18.
  */
 
 /**
-* \defgroup ustring_ustrlen
+ * \defgroup ustring_ustrlen String Length
+ * \ingroup ustring_strlen
  */
 /*@{*/
 /**
@@ -918,12 +919,16 @@ u_memrchr32(const UChar *s, UChar32 c, int32_t count);
  * </pre>
  * @stable ICU 2.0
  */
-#if U_SIZEOF_WCHAR_T==U_SIZEOF_UCHAR && (U_CHARSET_FAMILY==U_ASCII_FAMILY || (U_SIZEOF_UCHAR == 2 && defined(U_WCHAR_IS_UTF16)))
-#   define U_STRING_DECL(var, cs, length) static const wchar_t var[(length)+1]={ L ## cs }
+#if defined(U_DECLARE_UTF16)
+#   define U_STRING_DECL(var, cs, length) static const UChar var[(length)+1]=U_DECLARE_UTF16(cs)
+    /**@stable ICU 2.0 */
+#   define U_STRING_INIT(var, cs, length)
+#elif U_SIZEOF_WCHAR_T==U_SIZEOF_UCHAR && (U_CHARSET_FAMILY==U_ASCII_FAMILY || (U_SIZEOF_UCHAR == 2 && defined(U_WCHAR_IS_UTF16)))
+#   define U_STRING_DECL(var, cs, length) static const UChar var[(length)+1]=L ## cs
     /**@stable ICU 2.0 */
 #   define U_STRING_INIT(var, cs, length)
 #elif U_SIZEOF_UCHAR==1 && U_CHARSET_FAMILY==U_ASCII_FAMILY
-#   define U_STRING_DECL(var, cs, length) static const UChar var[(length)+1]={ (const UChar *)cs }
+#   define U_STRING_DECL(var, cs, length) static const UChar var[(length)+1]=cs
     /**@stable ICU 2.0 */
 #   define U_STRING_INIT(var, cs, length)
 #else
@@ -1101,7 +1106,7 @@ u_strToLower(UChar *dest, int32_t destCapacity,
  * The standard titlecase iterator for the root locale implements the
  * algorithm of Unicode TR 21.
  *
- * This function uses only the first() and next() methods of the
+ * This function uses only the setText(), first() and next() methods of the
  * provided break iterator.
  *
  * The result may be longer or shorter than the original.
@@ -1307,9 +1312,9 @@ u_strFromUTF8(UChar *dest,
  * @return The pointer to destination buffer.
  * @see u_strToUTF8
  * @see u_strFromUTF8WithSub
- * @draft ICU 3.6
+ * @stable ICU 3.6
  */
-U_DRAFT char* U_EXPORT2
+U_STABLE char* U_EXPORT2
 u_strToUTF8WithSub(char *dest,
             int32_t destCapacity,
             int32_t *pDestLength,
@@ -1351,9 +1356,9 @@ u_strToUTF8WithSub(char *dest,
  * @see u_strFromUTF8
  * @see u_strFromUTF8Lenient
  * @see u_strToUTF8WithSub
- * @draft ICU 3.6
+ * @stable ICU 3.6
  */
-U_DRAFT UChar* U_EXPORT2
+U_STABLE UChar* U_EXPORT2
 u_strFromUTF8WithSub(UChar *dest,
               int32_t destCapacity,
               int32_t *pDestLength,
@@ -1407,9 +1412,9 @@ u_strFromUTF8WithSub(UChar *dest,
  * @see u_strFromUTF8
  * @see u_strFromUTF8WithSub
  * @see u_strToUTF8WithSub
- * @draft ICU 3.6
+ * @stable ICU 3.6
  */
-U_CAPI UChar * U_EXPORT2
+U_STABLE UChar * U_EXPORT2
 u_strFromUTF8Lenient(UChar *dest,
                      int32_t destCapacity,
                      int32_t *pDestLength,

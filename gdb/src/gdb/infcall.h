@@ -42,5 +42,7 @@ extern struct value *call_function_by_hand (struct value *function, int nargs,
 
 /* APPLE LOCAL */
 extern int inferior_function_calls_disabled_p;
+int set_hand_function_call_timeout (int newval);
+int hand_function_call_timeout_p ();
 
 #endif

@@ -225,23 +225,36 @@ static bool feeKeySizeVerify(
 	}
 }
 
+static bool ecdsaKeySizeVerify(
+	unsigned keySize)
+{
+	switch(keySize) {
+		case 256:
+		case 384:
+		case 521:
+			return true;
+		default:
+			return false;
+	}
+}
+
 typedef bool (*keySizeVerifyFcn)(unsigned keySize);
 
 /* map between algorithms, string, char selector, OID */
 typedef struct _AlgInfo {
 	CSSM_ALGORITHMS			alg;
-	char					*str;
+	const char				*str;
 	char					selector;
 	const CSSM_OID			*oid;				// only for signatures
 	uint32					defaultKeySize;		// only for keys
-	char					*keyRangeString;	// only for keys
+	const char				*keyRangeString;	// only for keys
 	const struct _AlgInfo	*sigAlgInfo;		// only for keys 	
 	keySizeVerifyFcn		vfyFcn;		// only for keys
 } AlgInfo;
 
 /*
  * Note: CSSM_ALGID_MD2WithRSA does not work due to an inimplemented 
- * Security Server feature. Even though CSP nad CL support this, we
+ * Security Server feature. Even though CSP and CL support this, we
  * don't really want to provide this capability anyway - it's a known
  * insecure digest algorithm.
  */
@@ -267,6 +280,12 @@ static const AlgInfo dsaSigAlgInfo[] =
 	{ CSSM_ALGID_NONE, 			NULL,   0,  NULL }
 };
 
+static const AlgInfo ecdsaSigAlgInfo[] = 
+{
+	{ CSSM_ALGID_SHA1WithECDSA, "ECDSA with SHA1", 's', &CSSMOID_ECDSA_WithSHA1  },
+	{ CSSM_ALGID_NONE, 			NULL,   0,  NULL }
+};
+
 static const AlgInfo keyAlgInfo[] = 
 {
 	{ CSSM_ALGID_RSA, 	"RSA", 'r', NULL, 512, "512..2048", 
@@ -275,6 +294,8 @@ static const AlgInfo keyAlgInfo[] =
 		dsaSigAlgInfo, dsaKeySizeVerify},
 	{ CSSM_ALGID_FEE, 	"FEE", 'f', NULL, 128, "128, 161, 192", 
 		feeSigAlgInfo, feeKeySizeVerify},
+	{ CSSM_ALGID_ECDSA,	"ECDSA", 'e', NULL, 256, "256, 384, 521", 
+		ecdsaSigAlgInfo, ecdsaKeySizeVerify},
 	{ CSSM_ALGID_NONE, 	NULL,   0,  NULL }
 };
 
@@ -419,14 +440,14 @@ OSStatus getSigAlg(
 CU_KeyUsage getKeyUsage(bool isRoot)
 {
 	char resp[200];
-	char *prompt;
+	const char *prompt;
 	
 	if(isRoot) {
 		/* root HAS to be capable of signing */
-		prompt = "Enter cert/key usage (s=signing, b=signing AND encrypting): ";
+		prompt = "Enter cert/key usage (s=signing, b=signing AND encrypting, d(derive AND sign): ";
 	}
 	else {
-		prompt = "Enter cert/key usage (s=signing, e=encrypting, b=both): ";
+		prompt = "Enter cert/key usage (s=signing, e=encrypting, b=both, d=(derive AND sign): ";
 	}
 	while(1) {
 		getStringWithPrompt(prompt, resp, sizeof(resp));
@@ -440,7 +461,10 @@ CU_KeyUsage getKeyUsage(bool isRoot)
 				return kKeyUseEncrypting;
 			case 'b':
 				return kKeyUseSigning | kKeyUseEncrypting;
-				
+			case 'd':
+				return kKeyUseDerive | kKeyUseSigning;
+			default:
+				break;
 		}
 	}
 }

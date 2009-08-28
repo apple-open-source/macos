@@ -28,7 +28,7 @@ Index: samba/source/rpc_server/srv_netlog_nt.c
 +		become_root();
 +		dirStatus = opendirectory_cred_session_key(&p->dc->clnt_chal,
 +				&p->dc->srv_chal, mach_acct,
-+				p->dc->sess_key);
++				p->dc->sess_key, 0);
 +		unbecome_root();
 +		DEBUG(4, ("_net_auth opendirectory_cred_session_key [%d]\n",
 +				dirStatus));
@@ -43,58 +43,146 @@ Index: samba/source/rpc_server/srv_netlog_nt.c
  	if (!NT_STATUS_IS_OK(status)) {
  		DEBUG(0,("_net_auth: creds_server_check failed. Failed to "
  			"get password for machine account %s "
-@@ -454,7 +472,38 @@ NTSTATUS _net_auth_2(pipes_struct *p, NE
- 		return NT_STATUS_ACCESS_DENIED;
+@@ -430,6 +448,7 @@ NTSTATUS _net_auth_2(pipes_struct *p, NE
+ 	fstring mach_acct;
+ 	fstring remote_machine;
+ 	DOM_CHAL srv_chal_out;
++	u_int32_t session_key_type = 0;
+ 
+ 	rpcstr_pull(mach_acct, q_u->clnt_id.uni_acct_name.buffer,sizeof(fstring),
+ 				q_u->clnt_id.uni_acct_name.uni_str_len*2,0);
+@@ -438,10 +457,16 @@ NTSTATUS _net_auth_2(pipes_struct *p, NE
+ 	rpcstr_pull(remote_machine, q_u->clnt_id.uni_comp_name.buffer,sizeof(fstring),
+ 				q_u->clnt_id.uni_comp_name.uni_str_len*2,0);
+ 
++	if (q_u->clnt_flgs.neg_flags & NETLOGON_NEG_128BIT) {
++		DEBUG(4, ("_net_auth2: NETLOGON_NEG_128BIT auth attempt\n"));
++		session_key_type = 1;
++	}
++
+ 	if (!p->dc || !p->dc->challenge_sent) {
+ 		DEBUG(0,("_net_auth2: no challenge sent to client %s\n",
+ 			remote_machine ));
+-		return NT_STATUS_ACCESS_DENIED;
++		status = NT_STATUS_ACCESS_DENIED;
++		goto exit_on_error;
  	}
  
--	status = get_md4pw((char *)p->dc->mach_pw, mach_acct, q_u->clnt_id.sec_chan);
+ 	if ( (lp_server_schannel() == True) &&
+@@ -451,16 +476,42 @@ NTSTATUS _net_auth_2(pipes_struct *p, NE
+ 		DEBUG(0,("_net_auth2: schannel required but client failed "
+ 			"to offer it. Client was %s\n",
+ 			mach_acct ));
+-		return NT_STATUS_ACCESS_DENIED;
++		status = NT_STATUS_ACCESS_DENIED;
++		goto exit_on_error;
++	}
++
++
 +	if (lp_opendirectory()) {
++		//check acct_ctrl flags
++		tDirStatus dirStatus;
++		become_root();
++		dirStatus =
++			opendirectory_cred_session_key(&p->dc->clnt_chal,
++					&p->dc->srv_chal, mach_acct,
++					p->dc->sess_key, session_key_type);
++		unbecome_root();
++		DEBUG(4, ("_net_auth_2: "
++			"opendirectory_cred_session_key [%d] session_key_type[%d]\n",
++				dirStatus,session_key_type));
 +
-+		/* XXX Open Directory doesn't support 128bit challenges yet. */
-+		if (q_u->clnt_flgs.neg_flags & NETLOGON_NEG_128BIT) {
-+			DEBUG(2, ("refusing NETLOGON_NEG_128BIT auth attempt\n"));
-+			status = NT_STATUS_NOT_SUPPORTED;
-+		} else {
-+
-+			//check acct_ctrl flags
-+			tDirStatus dirStatus;
-+			become_root();
-+			dirStatus =
-+			    opendirectory_cred_session_key(&p->dc->clnt_chal,
-+					    &p->dc->srv_chal, mach_acct,
-+					    p->dc->sess_key);
-+			unbecome_root();
-+			DEBUG(4, ("_net_auth_2: "
-+				"opendirectory_cred_session_key [%d]\n",
-+				    dirStatus));
-+
-+			/* FIXME: there should be a proper error mapping from
-+			 * tDirStatus to NT_ERROR types -- jpeach
-+			 */
-+			status = (dirStatus == eDSNoErr) ? NT_STATUS_OK
-+							: NT_STATUS_UNSUCCESSFUL;
-+		}
++		/* FIXME: there should be a proper error mapping from
++		 * tDirStatus to NT_ERROR types -- jpeach
++		 */
++		status = (dirStatus == eDSNoErr) ? NT_STATUS_OK
++		: NT_STATUS_UNSUCCESSFUL;
 +
 +	} else {
 +		status = get_md4pw((char *)p->dc->mach_pw, mach_acct,
 +				q_u->clnt_id.sec_chan);
-+	}
-+
+ 	}
+ 
+-	status = get_md4pw((char *)p->dc->mach_pw, mach_acct, q_u->clnt_id.sec_chan);
  	if (!NT_STATUS_IS_OK(status)) {
  		DEBUG(0,("_net_auth2: failed to get machine password for "
  			"account %s: %s\n",
-@@ -603,35 +652,52 @@ NTSTATUS _net_srv_pwset(pipes_struct *p,
+ 			mach_acct, nt_errstr(status) ));
+ 		/* always return NT_STATUS_ACCESS_DENIED */
+-		return NT_STATUS_ACCESS_DENIED;
++		status = NT_STATUS_ACCESS_DENIED;
++		goto exit_on_error;
+ 	}
+ 
+ 	/* From the client / server challenges and md4 password, generate sess key */
+@@ -476,31 +527,40 @@ NTSTATUS _net_auth_2(pipes_struct *p, NE
+ 		DEBUG(0,("_net_auth2: creds_server_check failed. Rejecting auth "
+ 			"request from client %s machine account %s\n",
+ 			remote_machine, mach_acct ));
+-		return NT_STATUS_ACCESS_DENIED;
++		status = NT_STATUS_ACCESS_DENIED;
++		goto exit_on_error;
++	} else {
++		DEBUG(4, ("_net_auth2: creds_server_check - server validated client challenge session_key_type[%d]\n", session_key_type));
++		status = NT_STATUS_OK;
+ 	}
+ 
++exit_on_error:
++	/* set server capabalities on return */
+ 	srv_flgs.neg_flags = 0x000001ff;
+ 
+ 	if (lp_server_schannel() != False) {
+ 		srv_flgs.neg_flags |= NETLOGON_NEG_SCHANNEL;
+ 	}
+-
++	if (session_key_type == 1) {
++		srv_flgs.neg_flags |= NETLOGON_NEG_128BIT;
++	}
+ 	/* set up the LSA AUTH 2 response */
+-	init_net_r_auth_2(r_u, &srv_chal_out, &srv_flgs, NT_STATUS_OK);
+-
+-	fstrcpy(p->dc->mach_acct, mach_acct);
+-	fstrcpy(p->dc->remote_machine, remote_machine);
+-	fstrcpy(p->dc->domain, lp_workgroup() );
+-
+-	p->dc->authenticated = True;
++	init_net_r_auth_2(r_u, &srv_chal_out, &srv_flgs, status);
+ 
+-	/* Store off the state so we can continue after client disconnect. */
+-	become_root();
+-	secrets_store_schannel_session_info(p->mem_ctx,
+-					remote_machine,
+-					p->dc);
+-	unbecome_root();
++	if (NT_STATUS_IS_OK(status)) {
++		fstrcpy(p->dc->mach_acct, mach_acct);
++		fstrcpy(p->dc->remote_machine, remote_machine);
++		fstrcpy(p->dc->domain, lp_workgroup() );
+ 
++		p->dc->authenticated = True;
++
++		/* Store off the state so we can continue after client disconnect. */
++		become_root();
++		secrets_store_schannel_session_info(p->mem_ctx,
++						remote_machine,
++						p->dc);
++		unbecome_root();
++	}
+ 	return r_u->status;
+ }
+ 
+@@ -603,35 +663,52 @@ NTSTATUS _net_srv_pwset(pipes_struct *p,
  		DEBUG(100,("%02X ", pwd[i]));
  	DEBUG(100,("\n"));
  
 -	old_pw = pdb_get_nt_passwd(sampass);
-+	if (lp_opendirectory()) {
-+		tDirStatus dirStatus = eDSNullParameter;
- 
+-
 -	if (old_pw && memcmp(pwd, old_pw, 16) == 0) {
 -		/* Avoid backend modificiations and other fun if the 
 -		   client changed the password to the *same thing* */
--
++	if (lp_opendirectory()) {
++		tDirStatus dirStatus = eDSNullParameter;
+ 
 -		ret = True;
 -	} else {
 +		become_root();
@@ -159,7 +247,7 @@ Index: samba/source/rpc_server/srv_netlog_nt.c
  	}
  
  	/* set up the LSA Server Password Set response */
-@@ -964,14 +1030,11 @@ static NTSTATUS _net_sam_logon_internal(
+@@ -964,14 +1041,11 @@ static NTSTATUS _net_sam_logon_internal(
  	{
  		DOM_GID *gids = NULL;
  		const DOM_SID *user_sid = NULL;
@@ -174,7 +262,7 @@ Index: samba/source/rpc_server/srv_netlog_nt.c
  		unsigned char user_session_key[16];
  		unsigned char lm_session_key[16];
  		unsigned char pipe_session_key[16];
-@@ -983,28 +1046,14 @@ static NTSTATUS _net_sam_logon_internal(
+@@ -983,28 +1057,14 @@ static NTSTATUS _net_sam_logon_internal(
  		usr_info->ptr_user_info = 0;
  
  		user_sid = pdb_get_user_sid(sampw);
@@ -209,28 +297,15 @@ Index: samba/source/libsmb/credentials.c
 ===================================================================
 --- samba/source/libsmb/credentials.c.orig
 +++ samba/source/libsmb/credentials.c
-@@ -87,6 +87,39 @@ static void creds_init_128(struct dcinfo
- 	memcpy(dc->seed_chal.data, dc->clnt_chal.data, 8);
- }
+@@ -70,9 +70,44 @@ static void creds_init_128(struct dcinfo
+ 	DEBUG(5,("\tclnt_chal_in: %s\n", credstr(clnt_chal_in->data)));
+ 	DEBUG(5,("\tsrv_chal_in : %s\n", credstr(srv_chal_in->data)));
+ 	dump_data_pw("\tsession_key ", (const unsigned char *)dc->sess_key, 16);
++	DEBUG(5,("\tsession_key : \n"));
++	dump_data(5, (const unsigned char *)dc->sess_key,16);
  
-+/* In the OpenDirectory case, DirectoryService has already provided us
-+ * the generated session key because we can't get at the trust account
-+ * password hash.
-+ */
-+static void creds_init_64_od(struct dcinfo *dc,
-+			const DOM_CHAL *clnt_chal_in,
-+			const DOM_CHAL *srv_chal_in,
-+			const unsigned char mach_pw[16])
-+{
-+	SMB_ASSERT(lp_opendirectory());
-+
-+	/* debug output */
-+	DEBUG(5,("creds_init_64\n"));
-+	DEBUG(5,("\tclnt_chal_in: %s\n", credstr(clnt_chal_in->data)));
-+	DEBUG(5,("\tsrv_chal_in : %s\n", credstr(srv_chal_in->data)));
-+	DEBUG(5,("\tsess_key_out : %s\n", credstr(dc->sess_key)));
-+
-+	/* Generate the next client and server creds. */
+ 	/* Generate the next client and server creds. */
+-	
 +
 +	des_crypt112(dc->clnt_chal.data,		/* output */
 +			clnt_chal_in->data,		/* input */
@@ -246,20 +321,50 @@ Index: samba/source/libsmb/credentials.c
 +	memcpy(dc->seed_chal.data, dc->clnt_chal.data, 8);
 +}
 +
- /****************************************************************************
-  Setup the session key and the client and server creds in dc.
-  Used by both client and server creds setup.
-@@ -193,10 +226,13 @@ void creds_server_init(uint32 neg_flags,
- 			srv_chal,
- 			mach_pw);
++/* In the OpenDirectory case, DirectoryService has already provided us
++ * the generated session key because we can't get at the trust account
++ * password hash.
++ */
++static void creds_init_od(struct dcinfo *dc,
++			const DOM_CHAL *clnt_chal_in,
++			const DOM_CHAL *srv_chal_in,
++			const unsigned char mach_pw[16])
++{
++	SMB_ASSERT(lp_opendirectory());
++
++	/* debug output */
++	DEBUG(5,("%s\n", __func__));
++	DEBUG(5,("\tclnt_chal_in: %s\n", credstr(clnt_chal_in->data)));
++	DEBUG(5,("\tsrv_chal_in : %s\n", credstr(srv_chal_in->data)));
++	DEBUG(5,("\tsess_key_out : %s\n", credstr(dc->sess_key)));
++
++	/* Generate the next client and server creds. */
++
+ 	des_crypt112(dc->clnt_chal.data,		/* output */
+ 			clnt_chal_in->data,		/* input */
+ 			dc->sess_key,			/* input */
+@@ -187,16 +222,19 @@ void creds_server_init(uint32 neg_flags,
+ 	dump_data_pw("creds_server_init: machine pass", mach_pw, 16);
+ 
+ 	/* Generate the session key and the next client and server creds. */
+-	if (neg_flags & NETLOGON_NEG_128BIT) {
+-		creds_init_128(dc,
+-			clnt_chal,
+-			srv_chal,
+-			mach_pw);
++	if (lp_opendirectory()) {
++		creds_init_od(dc, clnt_chal,
++			srv_chal, mach_pw);
  	} else {
 -		creds_init_64(dc,
 -			clnt_chal,
 -			srv_chal,
 -			mach_pw);
-+		if (lp_opendirectory()) {
-+			creds_init_64_od(dc, clnt_chal,
-+				srv_chal, mach_pw);
++		if (neg_flags & NETLOGON_NEG_128BIT) {
++		    creds_init_128(dc,
++			    clnt_chal,
++			    srv_chal,
++			    mach_pw);
 +		} else {
 +			creds_init_64(dc, clnt_chal,
 +				srv_chal, mach_pw);
@@ -267,19 +372,27 @@ Index: samba/source/libsmb/credentials.c
  	}
  
  	dump_data_pw("creds_server_init: session key", dc->sess_key, 16);
-Index: samba/source/libsmb/ntlmssp.c
-===================================================================
---- samba/source/libsmb/ntlmssp.c.orig
-+++ samba/source/libsmb/ntlmssp.c
-@@ -935,6 +935,11 @@ NTSTATUS ntlmssp_server_start(NTLMSSP_ST
- 		NTLMSSP_NEGOTIATE_SIGN |
- 		NTLMSSP_NEGOTIATE_SEAL;
+@@ -249,6 +287,10 @@ BOOL creds_server_step(struct dcinfo *dc
+ 	BOOL ret;
+ 	struct dcinfo tmp_dc = *dc;
  
-+	/* OD Password Server doesn't support 128bit keys yet. */
-+	if (lp_opendirectory) {
-+		(*ntlmssp_state)->neg_flags &= ~NTLMSSP_NEGOTIATE_128;
++	if (!received_cred || !cred_out) {
++		return false;
 +	}
 +
- 	return NT_STATUS_OK;
- }
+ 	/* Do all operations on a temporary copy of the dc,
+ 	   which we throw away if the checks fail. */
  
+Index: samba/source/rpc_server/srv_pipe.c
+===================================================================
+--- samba/source/rpc_server/srv_pipe.c.orig
++++ samba/source/rpc_server/srv_pipe.c
+@@ -2062,7 +2062,7 @@ BOOL api_pipe_schannel_process(pipes_str
+ 
+ 	auth_len = p->hdr.auth_len;
+ 
+-	if (auth_len != RPC_AUTH_SCHANNEL_SIGN_OR_SEAL_CHK_LEN) {
++	if (auth_len < RPC_AUTH_SCHANNEL_SIGN_OR_SEAL_CHK_LEN) {
+ 		DEBUG(0,("Incorrect auth_len %u.\n", (unsigned int)auth_len ));
+ 		return False;
+ 	}

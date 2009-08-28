@@ -38,6 +38,8 @@ macosx_internalize_symbol (&intern, &sect_p, extern, abfd)
 
 #define TM_NEXTSTEP 1
 #define MACOSX_DYLD 1
+#define ATTACH_DETACH
+#define ATTACH_NO_WAIT
 
 #define SOLIB_ADD(filename, from_tty, targ, loadsyms) \
   macosx_solib_add (filename, from_tty, targ, loadsyms)

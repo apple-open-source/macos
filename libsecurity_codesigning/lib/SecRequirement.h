@@ -38,12 +38,12 @@
 #ifndef _H_SECREQUIREMENT
 #define _H_SECREQUIREMENT
 
+#include <Security/CSCommon.h>
+#include <Security/SecCertificate.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <Security/CSCommon.h>
-#include <Security/SecCertificate.h>
 
 
 /*!
@@ -70,22 +70,7 @@ CFTypeID SecRequirementGetTypeID(void);
 OSStatus SecRequirementCreateWithData(CFDataRef data, SecCSFlags flags,
 	SecRequirementRef *requirement);
 
-/*!
-	@function SecRequirementCreateWithResource
-	Create a SecRequirement object from binary form obtained from a file.
-	This call is functionally equivalent to reading the entire contents of a file
-	into a CFDataRef and then calling SecRequirementCreateWithData with that.
 	
-	@param resource A CFURL identifying a file containing a (binary) requirement blob.
-	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior.
-	@param requirement On successful return, contains a reference to a SecRequirement
-	object that behaves identically to the one the data blob was obtained from.
-	@result Upon success, noErr. Upon error, an OSStatus value documented in
-	CSCommon.h or certain other Security framework headers.
-*/
-OSStatus SecRequirementCreateWithResource(CFURLRef resource, SecCSFlags flags,
-	SecRequirementRef *requirement);
-
 /*!
 	@function SecRequirementCreateWithString
 	Create a SecRequirement object by compiling a valid text representation
@@ -108,23 +93,6 @@ OSStatus SecRequirementCreateWithString(CFStringRef text, SecCSFlags flags,
 OSStatus SecRequirementCreateWithStringAndErrors(CFStringRef text, SecCSFlags flags,
 	CFErrorRef *errors, SecRequirementRef *requirement);
 
-/*!
-	@function SecRequirementCreateGroup
-	Create a SecRequirement object that represents membership in a developer-defined
-	application	group. Group membership is defined by an entry in the code's
-	Info.plist, and sealed to a particular signing authority.
-	
-	@param groupName A CFString containing the name of the desired application group.
-	@param anchor A reference to a digital certificate representing the signing
-	authority that asserts group membership. If NULL, indicates Apple's authority.
-	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior.
-	@param requirement On successful return, contains a reference to a SecRequirement
-	object that requires group membership to pass validation.
-	@result Upon success, noErr. Upon error, an OSStatus value documented in
-	CSCommon.h or certain other Security framework headers.
-*/
-OSStatus SecRequirementCreateGroup(CFStringRef groupName, SecCertificateRef anchor,
-	SecCSFlags flags, SecRequirementRef *requirement);
 
 /*!
 	@function SecRequirementCopyData

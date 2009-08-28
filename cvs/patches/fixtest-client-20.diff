@@ -1,0 +1,11 @@
+--- src/client.c.orig	2008-07-10 21:11:29.000000000 -0700
++++ src/client.c	2008-07-10 21:11:36.000000000 -0700
+@@ -612,7 +612,7 @@
+     else
+     {
+ 	if (!redirects) redirects = getlist();
+-	push_string (redirects, args);
++	push_string (redirects, xstrdup (args));
+     }
+ 
+     if (referred_since_last_redirect)

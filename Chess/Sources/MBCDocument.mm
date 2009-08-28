@@ -15,8 +15,9 @@
 	Change History (most recent first):
 
 		$Log: MBCDocument.mm,v $
-		Revision 1.5.2.1  2007/03/31 03:47:35  neerache
-		Make document/save system work without UI changes <rdar://problem/4186113>
+		Revision 1.6  2008/11/20 23:13:11  neerache
+		<rdar://problem/5937079> Chess Save menu items/dialogs are incorrect
+		<rdar://problem/6328581> Update Chess copyright statements
 		
 		Revision 1.5  2007/03/02 07:40:46  neerache
 		Revise document handling & saving <rdar://problems/3776337&4186113>
@@ -73,14 +74,22 @@
 	return res;
 }
 
-- (BOOL)writeToURL:(NSURL *)fileURL ofType:(NSString *)docType error:(NSError **)outError
+- (NSArray *)writableTypesForSaveOperation:(NSSaveOperationType)saveOperation
+{
+	//
+	// Don't filter out PGN, even though we're not an editor for that type
+	//
+	return [[self class] writableTypes];
+}
+
+- (BOOL)writeToFile:(NSString *)fileName ofType:(NSString *)docType
 {
 	BOOL res;
 
 	if ([docType isEqualToString:@"moves"])
-		res = [fController saveMovesTo:[fileURL path]];
+		res = [fController saveMovesTo:fileName];
 	else
-		res = [super writeToURL:fileURL ofType:docType error:outError];
+		res = [super writeToFile:fileName ofType:docType];
 
 	return res;
 }
@@ -91,11 +100,6 @@
 			   dataFromPropertyList:[fController saveGameToDict]
 			   format: NSPropertyListXMLFormat_v1_0
 			   errorDescription:nil];
-}
-
-- (BOOL)shouldRunSavePanelWithAccessoryView
-{
-	return NO;
 }
 
 @end

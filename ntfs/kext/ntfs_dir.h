@@ -1,8 +1,8 @@
 /*
  * ntfs_dir.h - Defines for directory handling in the NTFS kernel driver.
  *
- * Copyright (c) 2006, 2007 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006, 2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2008 Anton Altaparmakov.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2008 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -68,5 +68,43 @@ __private_extern__ errno_t ntfs_lookup_inode_by_name(ntfs_inode *dir_ni,
 
 __private_extern__ errno_t ntfs_readdir(ntfs_inode *dir_ni, uio_t uio,
 		int *eofflag, int *numdirent);
+
+__private_extern__ errno_t ntfs_dir_is_empty(ntfs_inode *dir_ni);
+
+__private_extern__ errno_t ntfs_dir_entry_delete(ntfs_inode *dir_ni,
+		ntfs_inode *ni, const FILENAME_ATTR *fn, const u32 fn_len);
+
+__private_extern__ errno_t ntfs_dir_entry_add(ntfs_inode *dir_ni,
+		const FILENAME_ATTR *fn, const u32 fn_len,
+		const leMFT_REF mref);
+
+/**
+ * struct _ntfs_dirhint - directory hint structure
+ *
+ * This is used to store state across directory enumerations, i.e. across calls
+ * to ntfs_readdir().
+ */
+struct _ntfs_dirhint {
+	TAILQ_ENTRY(_ntfs_dirhint) link;
+	unsigned ofs;
+	unsigned time;
+	unsigned fn_size;
+	FILENAME_ATTR *fn;
+};
+typedef struct _ntfs_dirhint ntfs_dirhint;
+
+/*
+ * NTFS_MAX_DIRHINTS cannot be larger than 63 without reducing
+ * NTFS_DIR_POS_MASK, because given the 6-bit tag, at most 63 different tags
+ * can exist.  When NTFS_MAX_DIRHINTS is larger than 63, the same list may
+ * contain dirhints of the same tag, and a staled dirhint may be returned.
+ */
+#define NTFS_MAX_DIRHINTS 32
+#define NTFS_DIRHINT_TTL 45
+#define NTFS_DIR_POS_MASK 0x03ffffff
+#define NTFS_DIR_TAG_MASK 0xfc000000
+#define NTFS_DIR_TAG_SHIFT 26
+
+__private_extern__ void ntfs_dirhints_put(ntfs_inode *ni, BOOL stale_only);
 
 #endif /* !_OSX_NTFS_DIR_H */

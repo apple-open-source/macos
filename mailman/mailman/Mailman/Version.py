@@ -16,7 +16,7 @@
 # USA.
 
 # Mailman version
-VERSION = "2.1.9"
+VERSION = '2.1.12rc1'
 
 # And as a hex number in the manner of PY_VERSION_HEX
 ALPHA = 0xa
@@ -28,16 +28,16 @@ FINAL = 0xf
 
 MAJOR_REV = 2
 MINOR_REV = 1
-MICRO_REV = 9
-REL_LEVEL = FINAL
+MICRO_REV = 12
+REL_LEVEL = GAMMA
 # at most 15 beta releases!
-REL_SERIAL = 0
+REL_SERIAL = 1
 
 HEX_VERSION = ((MAJOR_REV << 24) | (MINOR_REV << 16) | (MICRO_REV << 8) |
                (REL_LEVEL << 4)  | (REL_SERIAL << 0))
 
 # config.pck schema version number
-DATA_FILE_VERSION = 96
+DATA_FILE_VERSION = 97
 
 # qfile/*.db schema version number
 QFILE_SCHEMA_VERSION = 3

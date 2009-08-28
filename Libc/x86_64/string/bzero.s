@@ -36,3 +36,5 @@
 LEAF(_bzero,0)
 	movq	$(_COMM_PAGE_BZERO), %rax
 	jmp		*%rax
+
+X_LEAF(___bzero, _bzero)

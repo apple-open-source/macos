@@ -15,8 +15,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -690,9 +690,11 @@ sbitmap_union_of_preds (sbitmap dst, sbitmap *src, int bb)
 int
 sbitmap_first_set_bit (sbitmap bmap)
 {
-  unsigned int n;
+  unsigned int n = 0;
+  sbitmap_iterator sbi;
 
-  EXECUTE_IF_SET_IN_SBITMAP (bmap, 0, n, { return n; });
+  EXECUTE_IF_SET_IN_SBITMAP (bmap, 0, n, sbi)
+    return n;
   return -1;
 }
 

@@ -224,6 +224,8 @@ VALUE rb_ull2inum _((unsigned LONG_LONG));
 
 #define TYPE(x) rb_type((VALUE)(x))
 
+#define RB_GC_GUARD(v) (*(volatile VALUE *)&(v))
+
 void rb_check_type _((VALUE,int));
 #define Check_Type(v,t) rb_check_type((VALUE)(v),t)
 
@@ -329,6 +331,12 @@ struct RClass {
     struct st_table *m_tbl;
     VALUE super;
 };
+#define RCLASS_IV_TBL(c) (RCLASS(c)->iv_tbl)
+#define RCLASS_M_TBL(c) (RCLASS(c)->m_tbl)
+#define RCLASS_SUPER(c) (RCLASS(c)->super)
+#define RMODULE_IV_TBL(m) RCLASS_IV_TBL(m)
+#define RMODULE_M_TBL(m) RCLASS_M_TBL(m)
+#define RMODULE_SUPER(m) RCLASS_SUPER(m)
 
 struct RFloat {
     struct RBasic basic;
@@ -374,10 +382,15 @@ struct RHash {
     int iter_lev;
     VALUE ifnone;
 };
+#define RHASH_TBL(h) (RHASH(h)->tbl)
+#define RHASH_ITER_LEV(h) (RHASH(h)->iter_lev)
+#define RHASH_IFNONE(h) (RHASH(h)->ifnone)
+#define RHASH_SIZE(h) (RHASH(h)->tbl->num_entries)
+#define RHASH_EMPTY_P(h) (RHASH_SIZE(h) == 0)
 
 struct RFile {
     struct RBasic basic;
-    struct OpenFile *fptr;
+    struct rb_io_t *fptr;
 };
 
 struct RData {
@@ -525,11 +538,11 @@ void rb_gc_register_address _((VALUE*));
 void rb_gc_unregister_address _((VALUE*));
 
 ID rb_intern _((const char*));
-char *rb_id2name _((ID));
+const char *rb_id2name _((ID));
 ID rb_to_id _((VALUE));
 
-char *rb_class2name _((VALUE));
-char *rb_obj_classname _((VALUE));
+const char *rb_class2name _((VALUE));
+const char *rb_obj_classname _((VALUE));
 
 void rb_p _((VALUE));
 
@@ -562,6 +575,8 @@ NORETURN(void rb_notimplement _((void)));
 void rb_warning __((const char*, ...));		/* reports if `-w' specified */
 void rb_sys_warning __((const char*, ...));	/* reports if `-w' specified */
 void rb_warn __((const char*, ...));		/* reports always */
+
+typedef VALUE rb_block_call_func _((VALUE, VALUE));
 
 VALUE rb_each _((VALUE));
 VALUE rb_yield _((VALUE));
@@ -611,6 +626,7 @@ RUBY_EXTERN VALUE rb_cClass;
 RUBY_EXTERN VALUE rb_cCont;
 RUBY_EXTERN VALUE rb_cDir;
 RUBY_EXTERN VALUE rb_cData;
+RUBY_EXTERN VALUE rb_cEnumerator;
 RUBY_EXTERN VALUE rb_cFalseClass;
 RUBY_EXTERN VALUE rb_cFile;
 RUBY_EXTERN VALUE rb_cFixnum;
@@ -645,6 +661,7 @@ RUBY_EXTERN VALUE rb_eFatal;
 RUBY_EXTERN VALUE rb_eArgError;
 RUBY_EXTERN VALUE rb_eEOFError;
 RUBY_EXTERN VALUE rb_eIndexError;
+RUBY_EXTERN VALUE rb_eStopIteration;
 RUBY_EXTERN VALUE rb_eRangeError;
 RUBY_EXTERN VALUE rb_eIOError;
 RUBY_EXTERN VALUE rb_eRuntimeError;

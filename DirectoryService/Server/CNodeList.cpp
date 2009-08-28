@@ -41,8 +41,10 @@
 #include "DSUtils.h"
 #include "CPlugInList.h"
 #include "ServerControl.h"
+#include <DirectoryService/DirServicesPriv.h>
 
 extern	CPlugInList		*gPlugins;
+extern dsBool			gDSLocalOnlyMode;
 
 extern DSEventSemaphore gKickConfigRequests;
 extern DSEventSemaphore gKickNodeRequests;
@@ -300,9 +302,36 @@ SInt32 CNodeList::AddNode ( const char		*inNodeName,
 				break;
 			case kDirNodeType:
 				siResult = AddNodeToTree( &fTreePtr, inNodeName, inListPtr, inType, inPlugInPtr, inToken );
-				fCount++;
-				fNodeChangeToken++;
-				gSrvrCntl->NotifyDirNodeAdded(inNodeName);
+				
+				// not really tDirStatus, anything other than 0 is success
+				if ( siResult != 0 )
+				{
+					CFStringRef newNodeRef = CFStringCreateWithCString( kCFAllocatorDefault, inNodeName, kCFStringEncodingUTF8 );
+					if ( newNodeRef != NULL )
+					{
+						SCDynamicStoreRef store = SCDynamicStoreCreate( kCFAllocatorDefault, NULL, NULL, NULL );
+						if ( store != NULL ) {
+							if ( SCDynamicStoreSetValue(store, CFSTR(kDSStdNotifyDirectoryNodeAdded), newNodeRef) == false ) {
+								DbgLog( kLogError, "Could not notify %s node added via SystemConfiguration", inNodeName );
+							}
+							
+							CFRelease( store );
+							store = NULL;
+						}
+						else {
+							DbgLog( kLogError, "CNodeList::AddNode - SCDynamicStoreCreate failed" );
+						}
+						
+						CFRelease( newNodeRef );
+						newNodeRef = NULL;
+					}
+					else
+					{
+						DbgLog( kLogError, "Could not notify that dir node: (%s) was added due to an encoding problem", inNodeName );
+					}
+					fCount++;
+					fNodeChangeToken++;
+				}
 				break;
 			default:
 				break;
@@ -1347,6 +1376,9 @@ SInt32 CNodeList::GetNodes ( char			   *inStr,
 	}
 	if ( (inMatch == eDSAuthenticationSearchNodeName) && (fAuthenticationSearchNode == nil) )
 	{
+		if ( gDSLocalOnlyMode == true ) {
+			return eDSUnknownNodeName;
+		}
 		WaitForLocalNode();
 		WaitForBSDNode();
         WaitForDHCPLDAPv3Init();
@@ -1354,6 +1386,9 @@ SInt32 CNodeList::GetNodes ( char			   *inStr,
 	}
 	else if ( (inMatch == eDSContactsSearchNodeName) && (fContactsSearchNode == nil) )
 	{
+		if ( gDSLocalOnlyMode == true ) {
+			return eDSUnknownNodeName;
+		}
 		WaitForLocalNode();
 		WaitForBSDNode();
         WaitForDHCPLDAPv3Init();
@@ -1361,6 +1396,9 @@ SInt32 CNodeList::GetNodes ( char			   *inStr,
 	}
 	else if ( (inMatch == eDSNetworkSearchNodeName) && (fNetworkSearchNode == nil) )
 	{
+		if ( gDSLocalOnlyMode == true ) {
+			return eDSUnknownNodeName;
+		}
 		WaitForLocalNode(); //assumes that the local node is part of the networksearchnode path
 		WaitForNetworkSearchNode();
 	}
@@ -1729,7 +1767,36 @@ bool CNodeList::DeleteNode ( char *inStr )
 		found = true;
 		fCount--;
 		fNodeChangeToken++;
-		gSrvrCntl->NotifyDirNodeDeleted(inStr);
+		
+		if ( inStr != NULL )
+		{
+			CFStringRef		oldNodeRef = CFStringCreateWithCString( kCFAllocatorDefault, inStr, kCFStringEncodingUTF8 );
+			
+			if ( oldNodeRef != NULL )
+			{
+				SCDynamicStoreRef store = SCDynamicStoreCreate( kCFAllocatorDefault, NULL, NULL, NULL );
+				if (store != NULL)
+				{
+					if ( SCDynamicStoreSetValue(store, CFSTR(kDSStdNotifyDirectoryNodeDeleted), oldNodeRef) == false ) {
+						ErrLog( kLogApplication, "Could not set the DirectoryService:NotifyDirNodeDeleted in System Configuration" );
+					}
+					
+					CFRelease( store );
+					store = NULL;
+				}
+				else
+				{
+					ErrLog( kLogApplication, "CNodeList::DeleteNode - SCDynamicStoreCreate not yet available from System Configuration" );
+				}
+				
+				CFRelease( oldNodeRef );
+				oldNodeRef = NULL;
+			}
+			else
+			{
+				ErrLog( kLogApplication, "Could not notify that dir node: (%s) was deleted due to an encoding problem", inStr );
+			}
+		}
 	}
 	
 	fMutex.SignalLock();

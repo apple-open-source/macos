@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2007 Apple Inc.  All rights reserved.
+ * Copyright (c) 1999-2009 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -132,6 +132,7 @@ struct nfs_conf_client config =
 #define ALTF_VERS3		0x00004000 /* deprecated */
 #define ALTF_VERS4		0x00008000 /* deprecated */
 #define ALTF_WSIZE		0x00010000
+#define ALTF_DEADTIMEOUT	0x00020000
 
 /* switches */
 #define ALTF_ATTRCACHE		0x00000001
@@ -149,6 +150,7 @@ struct nfs_conf_client config =
 #define ALTF_SOFT		0x00001000
 #define ALTF_TCP		0x00002000
 #define ALTF_UDP		0x00004000
+#define ALTF_MUTEJUKEBOX	0x00008000
 
 /* standard and value-setting options */
 struct mntopt mopts[] = {
@@ -176,6 +178,7 @@ struct mntopt mopts[] = {
 	{ "timeo", 0, ALTF_TIMEO, 1 },
 	{ "vers", 0, ALTF_VERS, 1 },
 	{ "wsize", 0, ALTF_WSIZE, 1 },
+	{ "deadtimeout", 0, ALTF_DEADTIMEOUT, 1 },
 	/**/
 	{ "nfsv2", 0, ALTF_VERS2, 1 }, /* deprecated, use vers=# */
 	{ "nfsv3", 0, ALTF_VERS3, 1 }, /* deprecated, use vers=# */
@@ -196,6 +199,7 @@ struct mntopt mopts_switches[] = {
 	{ "lockd", 0, ALTF_LOCKS, 1 },
 	{ "locks", 0, ALTF_LOCKS, 1 },
 	{ "mntudp", 0, ALTF_MNTUDP, 1 },
+	{ "mutejukebox", 0, ALTF_MUTEJUKEBOX, 1 },
 	{ "negnamecache", 0, ALTF_NEGNAMECACHE, 1 },
 	{ "nlm", 0, ALTF_LOCKS, 1 },
 	{ "rdirplus", 0, ALTF_RDIRPLUS, 1 },
@@ -232,7 +236,8 @@ struct nfs_args nfsdefargs = {
 	NFS_MAXATTRTIMO,			/* reg file max attr cache timeout */
 	NFS_MINDIRATTRTIMO,			/* dir min attr cache timeout */
 	NFS_MAXDIRATTRTIMO,			/* dir max attr cache timeout */
-	0					/* security mechanism flavor */
+	0,					/* security mechanism flavor */
+	0					/* dead timeout */
 };
 
 int nfsproto = IPPROTO_TCP;
@@ -265,12 +270,21 @@ uid_t real_uid, eff_uid;
 int mntflags = 0;
 struct nfs_args nfsargs, *nfsargsp = &nfsargs;
 
+#ifdef __LP64__
+typedef unsigned int	xdr_ulong_t;
+typedef int		xdr_long_t;
+#else
+typedef unsigned long	xdr_ulong_t;
+typedef long		xdr_long_t;
+#endif
+
 struct nfhret {
-	u_long		stat;
-	long		vers;
-	long		auth;
-	long		fhsize;
-	u_char		nfh[NFSX_V3FHMAX];
+	xdr_ulong_t	stat;
+	xdr_long_t	vers;
+	xdr_long_t	auth;
+	bool_t		sysok;
+	xdr_long_t	fhsize;
+	uint8_t		nfh[NFSX_V3FHMAX];
 };
 
 
@@ -292,7 +306,8 @@ int	xdr_fh(XDR *, struct nfhret *);
 int
 main(int argc, char *argv[])
 {
-	int c, num;
+	uint i;
+	int c, num, rv;
 	char name[MAXPATHLEN], *p, *spec;
 
 	/* drop setuid root privs asap */
@@ -303,10 +318,10 @@ main(int argc, char *argv[])
 	/* set up mopts_switches_no from mopts_switches */
 	mopts_switches_no = malloc(sizeof(mopts_switches));
 	if (!mopts_switches_no)
-		errx(1, "memory allocation failed");
+		errx(ENOMEM, "memory allocation failed");
 	bcopy(mopts_switches, mopts_switches_no, sizeof(mopts_switches));
-	for (c=0; c < sizeof(mopts_switches)/sizeof(struct mntopt); c++)
-		mopts_switches_no[c].m_inverse = (mopts_switches[c].m_inverse == 0);
+	for (i=0; i < sizeof(mopts_switches)/sizeof(struct mntopt); i++)
+		mopts_switches_no[i].m_inverse = (mopts_switches[i].m_inverse == 0);
 
 	/* set up defaults and process options */
 	nfsargs = nfsdefargs;
@@ -315,7 +330,7 @@ main(int argc, char *argv[])
 	while ((c = getopt(argc, argv, "234a:bcdg:I:iLlo:PR:r:sTt:Uvw:x:")) != EOF)
 		switch (c) {
 		case '4':
-			errx(1, "sorry, you must specify vers=%s to use the alpha-quality NFSv4 support", SIMON_SAYS_USE_NFSV4);
+			errx(EPERM, "sorry, you must specify vers=%s to use the alpha-quality NFSv4 support", SIMON_SAYS_USE_NFSV4);
 			force4 = 1;
 			checkNFSVersionOptions();
 			break;
@@ -456,10 +471,17 @@ main(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
-	/* soft, read-only mount implies use of local locks */
-	if ((nfsargsp->flags & NFSMNT_SOFT) && (mntflags & MNT_RDONLY) &&
-	    !(nfsargsp->flags & NFSMNT_NOLOCKS) && !nolocallocks)
-		nfsargsp->flags |= NFSMNT_LOCALLOCKS;
+	/* soft, read-only mount implies ... */
+	if ((nfsargsp->flags & NFSMNT_SOFT) && (mntflags & MNT_RDONLY)) {
+		/* ...use of local locks */
+		if (!(nfsargsp->flags & NFSMNT_NOLOCKS) && !nolocallocks)
+			nfsargsp->flags |= NFSMNT_LOCALLOCKS;
+		/* ... dead timeout */
+		if (!(nfsargsp->flags & NFSMNT_DEADTIMEOUT)) {
+			nfsargsp->flags |= NFSMNT_DEADTIMEOUT;
+			nfsargsp->deadtimeout = 60;
+		}
+	}
 
 	if ((argc == 1) && !strcmp(argv[0], "configupdate")) {
 		config_sysctl();
@@ -472,10 +494,10 @@ main(int argc, char *argv[])
 	spec = *argv++;
 
 	if (realpath(*argv, name) == NULL)
-		err(1, "realpath %s", name);
+		err(errno ? errno : 1, "realpath %s", name);
 
-	if (!getnfsargs(spec, nfsargsp))
-		exit(1);
+	if ((rv = getnfsargs(spec, nfsargsp)))
+		exit(rv);
 
 	config_sysctl();
 
@@ -483,7 +505,7 @@ main(int argc, char *argv[])
 		dump_mount_options(name);
 
 	if (mount("nfs", name, mntflags, nfsargsp))
-		err(1, "%s", name);
+		err(errno, "%s", name);
 	exit(0);
 }
 
@@ -491,7 +513,7 @@ void
 checkNFSVersionOptions(void)
 {
 	if ((force2 + force3 + force4) > 1)
-		errx(1,"conflicting NFS version options:%s%s%s",
+		errx(EINVAL,"conflicting NFS version options:%s%s%s",
 			force2 ? " v2" : "", force3 ? " v3" : "",
 			force4 ? " v4" : "");
 }
@@ -510,7 +532,7 @@ handle_mntopts(char *opts)
 	altflags = 0;
 	mop = getmntopts(opts, mopts, &mntflags, &altflags);
 	if (mop == NULL)
-		errx(1, "getmntops failed: %s", opts);
+		errx(EINVAL, "getmntops failed: %s", opts);
 
 	if (altflags & ALTF_ATTRCACHE_VAL) {
 		if ((p2 = getmntoptstr(mop, "actimeo"))) {
@@ -562,6 +584,17 @@ handle_mntopts(char *opts)
 			} else {
 				nfsargsp->acdirmax = num;
 				nfsargsp->flags |= NFSMNT_ACDIRMAX;
+			}
+		}
+	}
+	if (altflags & ALTF_DEADTIMEOUT) {
+		if ((p2 = getmntoptstr(mop, "deadtimeout"))) {
+			num = strtol(p2, &p, 10);
+			if (num < 0) {
+				warnx("illegal deadtimeout value -- %s", p2);
+			} else {
+				nfsargsp->deadtimeout = num;
+				nfsargsp->flags |= NFSMNT_DEADTIMEOUT;
 			}
 		}
 	}
@@ -676,8 +709,8 @@ handle_mntopts(char *opts)
 		else
 			warnx("illegal security value -- %s", p2);
 
-		if (nfsargsp->auth)
-			nfsargsp->flags |= NFSMNT_SECGIVEN;
+		if (nfsargsp->auth == RPCAUTH_SYS)
+			nfsargsp->flags |= NFSMNT_SECSYSOK;
 	}
 	if (altflags & ALTF_TIMEO) {
 		num = getmntoptnum(mop, "timeo");
@@ -709,7 +742,7 @@ handle_mntopts(char *opts)
 				break;
 			case 4:
 				if (strcmp(p2, SIMON_SAYS_USE_NFSV4))
-					errx(1, "sorry, you must specify vers=%s to use the alpha-quality NFSv4 support", SIMON_SAYS_USE_NFSV4);
+					errx(EPERM, "sorry, you must specify vers=%s to use the alpha-quality NFSv4 support", SIMON_SAYS_USE_NFSV4);
 				force4 = 1;
 				nfsargsp->flags &= ~NFSMNT_NFSV3;
 				nfsargsp->flags |= NFSMNT_NFSV4;
@@ -736,7 +769,7 @@ handle_mntopts(char *opts)
 	}
 	if (altflags & ALTF_VERS4) {
 		warnx("option nfsv4 deprecated, use vers=#");
-		errx(1, "sorry, you must specify vers=%s to use the alpha-quality NFSv4 support", SIMON_SAYS_USE_NFSV4);
+		errx(EPERM, "sorry, you must specify vers=%s to use the alpha-quality NFSv4 support", SIMON_SAYS_USE_NFSV4);
 		force4 = 1;
 		nfsargsp->flags &= ~NFSMNT_NFSV3;
 		nfsargsp->flags |= NFSMNT_NFSV4;
@@ -766,7 +799,7 @@ handle_mntopts(char *opts)
 	altflags = 0;
 	mop = getmntopts(opts, mopts_switches, &dummyflags, &altflags);
 	if (mop == NULL)
-		errx(1, "getmntops failed: %s", opts);
+		errx(EINVAL, "getmntops failed: %s", opts);
 	if (verbose > 2)
 		printf("altflags=0x%x\n", altflags);
 
@@ -798,6 +831,8 @@ handle_mntopts(char *opts)
 		nfsargsp->flags &= ~NFSMNT_NOLOCKS;
 	if (altflags & ALTF_MNTUDP)
 		mnttcp_ok = 0;
+	if (altflags & ALTF_MUTEJUKEBOX)
+		nfsargsp->flags |= NFSMNT_MUTEJUKEBOX;
 	if (altflags & ALTF_NEGNAMECACHE)
 		nfsargsp->flags &= ~NFSMNT_NONEGNAMECACHE;
 	if (altflags & ALTF_RDIRPLUS)
@@ -822,7 +857,7 @@ handle_mntopts(char *opts)
 	altflags = 0;
 	mop = getmntopts(opts, mopts_switches_no, &dummyflags, &altflags);
 	if (mop == NULL)
-		errx(1, "getmntops failed: %s", opts);
+		errx(EINVAL, "getmntops failed: %s", opts);
 	if (verbose > 2)
 		printf("altflags=0x%x\n", altflags);
 
@@ -856,6 +891,8 @@ handle_mntopts(char *opts)
 	}
 	if (altflags & ALTF_MNTUDP)
 		mnttcp_ok = 1;
+	if (altflags & ALTF_MUTEJUKEBOX)
+		nfsargsp->flags &= ~NFSMNT_MUTEJUKEBOX;
 	if (altflags & ALTF_NEGNAMECACHE)
 		nfsargsp->flags |= NFSMNT_NONEGNAMECACHE;
 	if (altflags & ALTF_RDIRPLUS)
@@ -1074,10 +1111,9 @@ getnfsargs(char *spec, struct nfs_args *nfsargsp)
 	char *hostp, *delimp;
 	u_short tport = 0;
 	static struct nfhret nfhret;
-	static char nam[MNAMELEN + 1];
+	static char nam[MAXPATHLEN];
 
-	strncpy(nam, spec, MNAMELEN);
-	nam[MNAMELEN] = '\0';
+	strlcpy(nam, spec, MAXPATHLEN);
 	if ((delimp = strchr(spec, '@')) != NULL) {
 		hostp = delimp + 1;
 	} else if ((delimp = strchr(spec, ':')) != NULL) {
@@ -1085,23 +1121,20 @@ getnfsargs(char *spec, struct nfs_args *nfsargsp)
 		spec = delimp + 1;
 	} else {
 		warnx("no <host>:<dirpath> or <dirpath>@<host> spec");
-		return (0);
+		return (EINVAL);
 	}
 	*delimp = '\0';
 
 	/*
 	 * Handle an internet host address
 	 */
-	if (isdigit(*hostp)) {
-		if ((saddr.sin_addr.s_addr = inet_addr(hostp)) == -1) {
-			warnx("bad net address %s", hostp);
-			return (0);
-		}
-	} else if ((hp = gethostbyname(hostp)) != NULL)
+	if ((hp = gethostbyname(hostp)) != NULL) {
 		memmove(&saddr.sin_addr, hp->h_addr, hp->h_length);
-	else {
+	} else if (isdigit(*hostp) && ((saddr.sin_addr.s_addr = inet_addr(hostp)) != INADDR_NONE)) {
+		; /* it was an address */
+	} else {
 		warnx("can't get net id for host");
-		return (0);
+		return (ENOENT);
         }
 
 	if (force4) {
@@ -1180,8 +1213,10 @@ tryagain:
 					tport = pmap_getport_timely(&saddr, RPCPROG_NFS,
 						nfsvers, nfsproto, pmap_timeout);
 				}
-				if (tport == 0 && (opflags & ISBGRND) == 0)
-					clnt_pcreateerror("NFS Portmap");
+				if (tport == 0 && (opflags & ISBGRND) == 0) {
+					char s[] = "NFS Portmap";
+					clnt_pcreateerror(s);
+				}
 			}
 		}
 
@@ -1203,8 +1238,10 @@ tryagain:
 				pertry, &so);
 			seteuid(real_uid);
 			if (clp == NULL) {
-				if ((opflags & ISBGRND) == 0)
-					clnt_pcreateerror("Cannot MNT RPC");
+				if ((opflags & ISBGRND) == 0) {
+					char s[] = "Cannot MNT RPC";
+					clnt_pcreateerror(s);
+				}
 			} else {
 				clp->cl_auth = authunix_create_default();
 				try.tv_sec = 10;
@@ -1224,19 +1261,21 @@ tryagain:
 							~NFSMNT_NFSV3;
 						goto tryagain;
 					} else {
-						errx(1, "%s", clnt_sperror(clp,
-							"MNT RPC"));
+						char s[] = "MNT RPC";
+						errx(EPROGMISMATCH, "%s", clnt_sperror(clp, s));
 					}
 				case RPC_SUCCESS:
+					nfsargsp->flags |= NFSMNT_CALLUMNT;
 					auth_destroy(clp->cl_auth);
 					clnt_destroy(clp);
 					retry = 0;
 					break;
 				default:
 					/* XXX should give up on some errors */
-					if ((opflags & ISBGRND) == 0)
-						warnx("%s", clnt_sperror(clp,
-						    "bad MNT RPC"));
+					if ((opflags & ISBGRND) == 0) {
+						char s[] = "bad MNT RPC";
+						warnx("%s", clnt_sperror(clp, s));
+					}
 					break;
 				}
 			}
@@ -1247,16 +1286,16 @@ tryagain:
 		if (opflags & BGRND) {
 			opflags &= ~BGRND;
 			if (daemon(0, 0))
-				err(1, "nfs bgrnd: fork failed");
+				err(errno, "nfs bgrnd: fork failed");
 			opflags |= ISBGRND;
 		}
 		sleep(60);
 	}
 	if (nfhret.stat) {
 		if (opflags & ISBGRND)
-			exit(1);
+			exit(nfhret.stat);
 		warnx("can't access %s: %s", spec, strerror(nfhret.stat));
-		return (0);
+		return (nfhret.stat);
 	}
 got_everything:
 	saddr.sin_port = forceport ? htons(forceport) : htons(tport);
@@ -1267,7 +1306,9 @@ got_everything:
 	nfsargsp->hostname = nam;
 	nfsargsp->flags |= NFSMNT_SECFLAVOR;
 	nfsargsp->auth = nfhret.auth;
-	return (1);
+	if (nfhret.sysok || nfsargsp->auth == RPCAUTH_SYS)
+		nfsargsp->flags |= NFSMNT_SECSYSOK;
+	return (0);
 }
 
 /*
@@ -1283,9 +1324,10 @@ int
 xdr_fh(XDR *xdrsp, struct nfhret *np)
 {
 	int i, sec_opt;
-	long auth, authcnt, authfnd = 0;
+	xdr_long_t auth, authcnt, authfnd = 0;
 
 	sec_opt = (np->auth) ? 1 : 0;
+	np->sysok = FALSE;
 
 	if (!xdr_u_long(xdrsp, &np->stat))
 		return (0);
@@ -1309,8 +1351,6 @@ xdr_fh(XDR *xdrsp, struct nfhret *np)
 		if (!xdr_long(xdrsp, &authcnt))
 			return (0);
 		for (i = 0; i < authcnt; i++) {
-			if (authfnd)
-				break;
 			if (!xdr_long(xdrsp, &auth))
 				return (0);
 			if (sec_opt) {
@@ -1324,19 +1364,24 @@ xdr_fh(XDR *xdrsp, struct nfhret *np)
 
 			switch (auth) {
 			case RPCAUTH_SYS:
-				np->auth = RPCAUTH_SYS;
+				if (!authfnd)
+					np->auth = RPCAUTH_SYS;
+				np->sysok = TRUE;
 				authfnd = 1;
 				break;
 			case RPCAUTH_KRB5:
-				np->auth = RPCAUTH_KRB5;
+				if (!authfnd)
+					np->auth = RPCAUTH_KRB5;
 				authfnd = 1;
 				break;
 			case RPCAUTH_KRB5I:
-				np->auth = RPCAUTH_KRB5I;
+				if (!authfnd)
+					np->auth = RPCAUTH_KRB5I;
 				authfnd = 1;
 				break;
 			case RPCAUTH_KRB5P:
-				np->auth = RPCAUTH_KRB5P;
+				if (!authfnd)
+					np->auth = RPCAUTH_KRB5P;
 				authfnd = 1;
 				break;
 			}
@@ -1363,7 +1408,7 @@ __dead void
 usage(void)
 {
 	fprintf(stderr, "usage: mount_nfs [-o options] server:/path directory\n");
-	exit(1);
+	exit(EINVAL);
 }
 
 /* Map from mount otions to printable formats. */
@@ -1470,5 +1515,7 @@ dump_mount_options(char *name)
 		(nfsargsp->auth == RPCAUTH_SYS)   ? "sys" :
 		(nfsargsp->auth == RPCAUTH_NULL)  ? "null" : "???",
 		nfsargsp->auth);
+	if ((flags & NFSMNT_DEADTIMEOUT) || (verbose > 1))
+		printf(",deadtimeout=%d", nfsargsp->deadtimeout);
 }
 

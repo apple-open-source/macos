@@ -1,0 +1,75 @@
+--- scandir.3.orig	2009-05-12 11:21:55.000000000 -0700
++++ scandir.3	2009-05-20 15:41:07.000000000 -0700
+@@ -32,15 +32,16 @@
+ .\"     @(#)scandir.3	8.1 (Berkeley) 6/4/93
+ .\" $FreeBSD: src/lib/libc/gen/scandir.3,v 1.8 2002/12/19 09:40:21 ru Exp $
+ .\"
+-.Dd June 4, 1993
++.Dd May 20, 2008
+ .Dt SCANDIR 3
+ .Os
+ .Sh NAME
+ .Nm scandir ,
++#ifdef UNIFDEF_BLOCKS
++.Nm scandir_b ,
++#endif
+ .Nm alphasort
+ .Nd scan a directory
+-.Sh LIBRARY
+-.Lb libc
+ .Sh SYNOPSIS
+ .In sys/types.h
+ .In dirent.h
+@@ -48,6 +49,10 @@
+ .Fn scandir "const char *dirname" "struct dirent ***namelist" "int \\*(lp*select\\*(rp\\*(lpstruct dirent *\\*(rp" "int \\*(lp*compar\\*(rp\\*(lpconst void *, const void *\\*(rp"
+ .Ft int
+ .Fn alphasort "const void *d1" "const void *d2"
++#ifdef UNIFDEF_BLOCKS
++.Ft int
++.Fn scandir_b "const char *dirname" "struct dirent ***namelist" "int \\*(lp^select\\*(rp\\*(lpstruct dirent *\\*(rp" "int \\*(lp^compar\\*(rp\\*(lpconst void *, const void *\\*(rp"
++#endif
+ .Sh DESCRIPTION
+ The
+ .Fn scandir
+@@ -80,6 +85,13 @@
+ .Xr qsort 3
+ to sort the completed array.
+ If this pointer is null, the array is not sorted.
++Note that from within the
++.Fa compar
++subroutine, the two arguments are of type
++.Ft const struct dirent ** ,
++so that a double-dereference is needed to access the fields in the
++.Ft dirent
++structure.
+ .Pp
+ The
+ .Fn alphasort
+@@ -91,6 +103,18 @@
+ The memory allocated for the array can be deallocated with
+ .Xr free 3 ,
+ by freeing each pointer in the array and then the array itself.
++#ifdef UNIFDEF_BLOCKS
++.Pp
++The
++.Fn scandir_b
++function works the same way as the
++.Fn scandir
++function, except that
++.Fa select
++and
++.Fa compar
++are blocks instead of subroutines.
++#endif
+ .Sh DIAGNOSTICS
+ Returns \-1 if the directory cannot be opened for reading or if
+ .Xr malloc 3
+@@ -107,3 +131,8 @@
+ .Fn alphasort
+ functions appeared in
+ .Bx 4.2 .
++#ifdef UNIFDEF_BLOCKS
++The
++.Fn scandir_b
++function appeared in Mac OS X 10.6.
++#endif

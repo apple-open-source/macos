@@ -92,6 +92,20 @@ main (int argc, char **argv)
     
     if (strcmp (arch, "auto") == 0)
     {
+#if defined(__APPLE__) && defined(__MACH__)
+	printf(
+		"#if defined(__ppc__)\n"
+		"#define FC_ARCHITECTURE \"m68k\"\n"
+		"#elif defined(__ppc64__)\n"
+		"#define FC_ARCHITECTURE \"ppc64\"\n"
+		"#elif defined(__i386__)\n"
+		"#define FC_ARCHITECTURE \"x86\"\n"
+		"#elif defined(__x86_64__)\n"
+		"#define FC_ARCHITECTURE \"x86-64\"\n"
+		"#endif\n");
+	fflush (stdout);
+	exit (ferror (stdout));
+#endif
 	arch = NULL;
 	/*
 	 * Search for signature

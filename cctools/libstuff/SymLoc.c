@@ -66,14 +66,17 @@ enum bool no_error_if_missing)
     struct dirent	*dp		= NULL;
     FILE		*file 		= NULL;
     DIR			*dirp		= NULL;
+    DIR			*dirp2		= NULL;
     char		*line		= NULL;
     char		*c		= NULL;
     char		*v		= NULL;
+    char		*viewMap	= NULL;
     int			 releaseLen	= strlen(releaseName);
     char		 buf[MAXPATHLEN+MAXNAMLEN+64];
     char		 readbuf[MAXPATHLEN+64];
     char		 viewPath[MAXPATHLEN];
     char		 dylibList[MAXPATHLEN];
+    char		 installNameList[MAXPATHLEN];
 
     *found_project = FALSE;
 
@@ -83,15 +86,19 @@ enum bool no_error_if_missing)
         return NULL;
     }
 
-    // find ~rc's home directory
-    if (!(passwd = getpwnam("rc"))) {
-        system_error("symLocForDylib(): getpwnam(\"rc\") returns NULL");
-        return NULL;
+    viewMap = getenv("RC_VIEW_MAP_LOCATION");
+    if(!viewMap) {
+        // find ~rc's home directory
+        if (!(passwd = getpwnam("rc"))) {
+            system_error("symLocForDylib(): getpwnam(\"rc\") returns NULL");
+            return NULL;
+        }
+        strcpy(buf, passwd->pw_dir);
+        // open release-to-view file
+        strcat(buf, "/Data/release_to_view.map");
+    } else {  
+        strcpy(buf, viewMap);
     }
-    strcpy(buf, passwd->pw_dir);
-
-    // open release-to-view file
-    strcat(buf, "/Data/release_to_view.map");
     if (!(file = fopen(buf, "r"))) {
         system_error("symLocForDylib(): Can't fopen %s", buf);
         return NULL;
@@ -121,6 +128,15 @@ enum bool no_error_if_missing)
     c = &dylibList[strlen(dylibList)];
     strcpy(c, "/.BuildData/DylibProjects");
     if (!(dirp = opendir(dylibList))) {
+        system_error("symLocForDylib(): Can't opendir %s", buf);
+        return NULL;
+    }
+
+    // open the InstallNames directory
+    strcpy(installNameList, viewPath);
+    c = &installNameList[strlen(installNameList)];
+    strcpy(c, "/.BuildData/InstallNames");
+    if (!(dirp2 = opendir(installNameList))) {
         system_error("symLocForDylib(): Can't opendir %s", buf);
         return NULL;
     }
@@ -178,6 +194,60 @@ enum bool no_error_if_missing)
     }
     if(closedir(dirp) != 0)
 	system_error("closedir() failed");
+
+    if(!c) {    
+         // read InstallNames entries
+        *buf = '\0';
+        v = &installNameList[strlen(installNameList)];
+        *v = '/';
+        v++;
+
+        while ((dp = readdir(dirp2))) {
+
+            // skip "." and ".."
+            if (!strcmp(dp->d_name, ".") || !strcmp(dp->d_name, "..")) continue;
+
+            // open file
+            strcpy(v, dp->d_name);
+            if (!(file = fopen(installNameList, "r"))) {
+                system_error("symLocForDylib(): Can't fopen %s", installNameList);
+                if(closedir(dirp) != 0)
+                    system_error("closedir() failed");
+                return NULL;
+            }
+
+            // parse file
+            while ((line = fgets(readbuf, sizeof(readbuf), file))) {
+                if (!*line || *line == '(' || *line == ')') continue;
+                while (*line == ' ') line++;
+                if (*line != '"') {
+                    warning("symLocForDylib(): %s contains malformed line",
+                        dp->d_name);
+                    continue;
+                }
+                line++;
+                for (c = &buf[0]; *line && *line != '"'; *c++ = *line++);
+                if (*line != '"') {
+                    warning("symLocForDylib(): %s contains malformed line",
+                        dp->d_name);
+                    continue;
+                }
+                *c = '\0';
+                if (!strcmp(buf, installName)) {
+                    c = allocate(strlen(viewPath) + strlen(releaseName) +
+                             strlen(dirname) + strlen(dp->d_name) + 32);
+                    sprintf(c, "%s/Updates/Built%s/%s/%s", viewPath, releaseName,
+                        dirname, dp->d_name);
+                    break;
+                } else {
+                    c = NULL;
+                }
+            }
+            if(fclose(file) != 0)
+                system_error("fclose() failed");
+            if (c) break;
+        }
+   } 
 
     // process return value
     if (!c) {

@@ -35,6 +35,9 @@ namespace Security {
 namespace CodeSigning {
 
 
+class ProcessCode;
+
+
 //
 // The nominal StaticCode representing the kernel on disk.
 // This is barely used, since we don't validate the kernel (it's the root of trust)
@@ -57,8 +60,9 @@ public:
 	KernelCode();
 
 	SecCode *locateGuest(CFDictionaryRef attributes);
-	SecStaticCode *mapGuestToStatic(SecCode *guest);
-	uint32_t getGuestStatus(SecCode *guest);
+	SecStaticCode *identifyGuest(SecCode *guest, CFDataRef *cdhash);
+	SecCodeStatus getGuestStatus(SecCode *guest);
+	void changeGuestStatus(SecCode *guest, SecCodeStatusOperation operation, CFDictionaryRef arguments);
 	
 	static KernelCode *active()		{ return globals().code; }
 	
@@ -71,9 +75,8 @@ public:
 	static ModuleNexus<Globals> globals;
 
 protected:
-	SecStaticCode *getStaticCode();
-
-private:
+	void identify();
+	void csops(ProcessCode *proc, unsigned int op, void *addr = NULL, size_t length = 0);
 };
 
 

@@ -55,8 +55,7 @@ public:
     virtual int unixError() const throw();
     virtual OSStatus osStatus() const throw();
     virtual const char *what () const throw();
-	// @@@ Default value should be internal error.
-    static void throwMe(int err = -1) __attribute((noreturn));
+    static void throwMe(int err) __attribute((noreturn));
 };
 
 

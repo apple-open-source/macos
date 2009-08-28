@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright © 1998-2009 Apple Inc.  All rights reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -33,16 +33,15 @@ extern "C" {
 #include <IOKit/IOFilterInterruptEventSource.h>
 #include <IOKit/IOMemoryCursor.h>
 #include <IOKit/IOMessage.h>
-
-#if !TARGET_OS_EMBEDDED
-	#include <IOKit/pccard/IOPCCard.h>
-#endif
+#include <IOKit/IOKitKeys.h>
 
 #include <IOKit/usb/USB.h>
 #include <IOKit/usb/IOUSBLog.h>
+#include <IOKit/usb/IOUSBRootHubDevice.h>
 
 #include "AppleUSBOHCI.h"
 #include "AppleUSBOHCIMemoryBlocks.h"
+#include "USBTracepoints.h"
 
 #define DEBUGGING_LEVEL 0	// 1 = low; 2 = high; 3 = extreme
 
@@ -96,6 +95,8 @@ ErrorExit:
 bool
 AppleUSBOHCI::start( IOService * provider )
 {
+	uint64_t		currentTime;
+	
     USBLog(5,"+AppleUSBOHCI[%p]::start", this);
 	
     if( !super::start(provider))
@@ -103,8 +104,8 @@ AppleUSBOHCI::start( IOService * provider )
 	
     // Set our initial time for root hub inactivity
     //
-    clock_get_uptime(&_lastCheckedTime);
-    
+	currentTime = mach_absolute_time();
+    _lastCheckedTime = *(AbsoluteTime *)&currentTime;
     USBLog(5,"-AppleUSBOHCI[%p]::start", this);
 	
     return true;
@@ -132,7 +133,7 @@ AppleUSBOHCI::SetVendorInfo(void)
 
 
 IOReturn					
-AppleUSBOHCI::InitializeOperationalRegisters(bool fromReset)
+AppleUSBOHCI::InitializeOperationalRegisters(void)
 {
 	UInt32		hcDoneHead;
 
@@ -163,12 +164,9 @@ AppleUSBOHCI::InitializeOperationalRegisters(bool fromReset)
     OSWriteLittleInt32(&_pOHCIRegisters->hcHCCA, 0, _hccaPhysAddr);
     IOSync();
 	
-	if (fromReset)
-	{
-		// Set the HC to write the donehead to the HCCA, and enable interrupts
-		_pOHCIRegisters->hcInterruptStatus = USBToHostLong(kOHCIHcInterrupt_WDH);
-		IOSync();
-	}
+    // Set the HC to write the donehead to the HCCA, and enable interrupts
+    _pOHCIRegisters->hcInterruptStatus = USBToHostLong(kOHCIHcInterrupt_WDH);
+    IOSync();
 	
     // Set up hcFmInterval.
     UInt32	hcFSMPS;				// in register hcFmInterval
@@ -227,123 +225,216 @@ AppleUSBOHCI::UIMInitialize(IOService * provider)
     IOReturn				err = kIOReturnSuccess;
     UInt32					lvalue;
     IOPhysicalAddress		hcDoneHead;
+	IODMACommand *			dmaCommand = NULL;
+	bool					hccaBufferPrepared = false;
+	char *					logicalBytes;
+	UInt64					offset = 0;
+	IODMACommand::Segment32	segments;
+	UInt32					numSegments = 1;
+    IOPhysicalAddress		pPhysical= 0;
 	
     USBLog(5,"AppleUSBOHCI[%p]::UIMInitialize", this);
 	
-     if (!_uimInitialized) 
+	// the old do while false loop to prevent goto statements
+	do
 	{
-		_device = OSDynamicCast(IOPCIDevice, provider);
-		if(_device == NULL)
-			return kIOReturnBadArgument;
+		if (!_uimInitialized) 
+		{
+			_device = OSDynamicCast(IOPCIDevice, provider);
+			if(_device == NULL)
+			{
+				err = kIOReturnBadArgument;
+				break;
+			}
+			
+			_deviceBase = provider->mapDeviceMemoryWithIndex(0);
+			if (!_deviceBase)
+			{
+				USBError(1,"AppleUSBOHCI[%p]::UIMInitialize unable to get device memory", this);
+				err = kIOReturnNoMemory;
+				break;
+			}
+			
+			USBLog(3, "AppleUSBOHCI[%p]::UIMInitialize config @ %x (%x)", this, (uint32_t)_deviceBase->getVirtualAddress(), (uint32_t)_deviceBase->getPhysicalAddress());
+			
+			SetVendorInfo();
+			
+			// Set up a filter interrupt source (this process both primary (thru filter function) and secondary (thru action function)
+			// interrupts.
+			//
+			_filterInterruptSource = IOFilterInterruptEventSource::filterInterruptEventSource(this, AppleUSBOHCI::InterruptHandler,	 AppleUSBOHCI::PrimaryInterruptFilter, provider );
+			
+			if ( !_filterInterruptSource )
+			{
+				USBError(1,"AppleUSBOHCI[%p]::UIMInitialize unable to get filterInterruptEventSource", this);
+				err = kIOReturnBadArgument;
+				break;
+			}
+			
+			err = _workLoop->addEventSource(_filterInterruptSource);
+			if ( err != kIOReturnSuccess )
+			{
+				USBError(1,"AppleUSBOHCI[%p]::UIMInitialize unable to add filter event source: 0x%x", this, err);
+				err = kIOReturnBadArgument;
+				break;
+			}
+			
+			/*
+			 * Initialize my data and the hardware
+			 */
+			_errataBits = GetErrataBits(_vendorID, _deviceID, _revisionID);
+			setProperty("Errata", _errataBits, 32);
+			
+			if (_errataBits & kErrataLucentSuspendResume)
+			{
+				OSData	*suspendProp;
+				UInt32	portBitmap = 0;
+				
+				// We need to check to see if there are ports that we really should suspend
+				//
+				suspendProp     = OSDynamicCast(OSData, provider->getProperty( "AAPL,SuspendablePorts" ));
+				if (suspendProp)
+				{
+					// Only allow suspend on certain ports
+					//
+					portBitmap = *((UInt32 *) suspendProp->getBytesNoCopy());
+					_disablePortsBitmap = (0xffffffff & (~portBitmap));
+				}
+				else
+					_disablePortsBitmap = (0xffffffff);
+			}
+			
+			USBLog(5,"AppleUSBOHCI[%p]::UIMInitialize errata bits=0x%x", this, (uint32_t) _errataBits);
+			
+			_pOHCIRegisters = (OHCIRegistersPtr) _deviceBase->getVirtualAddress();
+			
+			// leave bus mastering off until we get the setPowerState
+			_device->configWrite16(kIOPCIConfigCommand, kIOPCICommandMemorySpace);
+			
+			// Set up HCCA.
+			
+			// Use IODMACommand to get the physical address
+			dmaCommand = IODMACommand::withSpecification(kIODMACommandOutputHost32, 32, PAGE_SIZE, (IODMACommand::MappingOptions)(IODMACommand::kMapped | IODMACommand::kIterateOnly));
+			if (!dmaCommand)
+			{
+				USBError(1, "AppleUSBOHCI[%p]::UIMInitialize - could not create IODMACommand", this);
+				err = kIOReturnInternalError;
+				break;
+			}
+			USBLog(5, "AppleUSBOHCI[%p]::UIMInitialize - got IODMACommand %p", this, dmaCommand);
+			
+			//
+			_hccaBuffer = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(kernel_task, kIOMemoryUnshared | kIODirectionInOut | kIOMemoryPhysicallyContiguous, kHCCAsize, kOHCIStructureAllocationPhysicalMask);
+			if (_hccaBuffer == NULL) 
+			{
+				USBError(1, "AppleUSBOHCI[%p]::UIMInitialize - could not get HCCA buffer", this);
+				err = kIOReturnNoMemory;
+				break;
+			}
+			
+			err = _hccaBuffer->prepare();
+			if (err)
+			{
+				USBError(1, "AppleUSBOHCI[%p]::UIMInitialize - _hccaBuffer->prepare failed with status(%p)", this, (void*)err);
+				break;
+			}
+			
+			hccaBufferPrepared = true;
+			
+			err = dmaCommand->setMemoryDescriptor(_hccaBuffer);
+			if (err)
+			{
+				USBError(1, "AppleUSBOHCI[%p]::UIMInitialize - setMemoryDescriptor returned err (%p)", this, (void*)err);
+				break;
+			}
+			
+			offset = 0;
+			segments.fIOVMAddr = 0;
+			segments.fLength = 0;
+			numSegments = 1;
+			
+			err = dmaCommand->gen32IOVMSegments(&offset, &segments, &numSegments);
+			if (err || (numSegments != 1) || (segments.fLength != kHCCAsize))
+			{
+				USBError(1, "AppleUSBOHCI[%p]::UIMInitialize - could not generate segments err (%p) numSegments (%d) fLength (%d)", this, (void*)err, (int)numSegments, (int)segments.fLength);
+				dmaCommand->clearMemoryDescriptor();
+				err = err ? err : kIOReturnInternalError;
+				break;
+			}
+			
+			_pHCCA = (Ptr)_hccaBuffer->getBytesNoCopy();
+			_hccaPhysAddr = segments.fIOVMAddr;
+			
+			USBLog(5, "AppleUSBOHCI[%p]::UIMInitialize - HCCA Buffer pPhysical[%p] logical[%p]", this, (void*)_hccaPhysAddr, _pHCCA);
+			
+			dmaCommand->clearMemoryDescriptor();
+			
+			// Release the DMA Command
+			if (dmaCommand)
+			{
+				if (dmaCommand->getMemoryDescriptor())
+				{
+					USBError(1, "AppleUSBOHCI[%p]::UIMInitialize - dmaCommand still has memory descriptor (%p)", this, dmaCommand->getMemoryDescriptor());
+					dmaCommand->clearMemoryDescriptor();
+				}
+				dmaCommand->release();
+				dmaCommand = NULL;
+			}
+			
+			_rootHubFuncAddress = 1;
+			
+			// set up Interrupt transfer tree
+			if ((err = IsochronousInitialize()))	break;
+			if ((err = InterruptInitialize()))		break;
+			if ((err = BulkInitialize()))			break;
+			if ((err = ControlInitialize()))		break;
+			
+			// <rdar://problem/5981624> this will be done in the setPowerState
+			// InitializeOperationalRegisters();
+			
+			// Work around the Philips part which does weird things when a device is plugged in at boot
+			//
+			if (_errataBits & kErrataNeedsPortPowerOff)
+			{
+				USBError(1, "AppleUSBOHCI[%p]::UIMInitialize error, turning off power to ports to clear", this);
+				OHCIRootHubPower(0 /* kOff */);
+				// No need to turn the power back on here, the reset does that anyway.
+			}
+			
+			// Just so we all start from the same place, reset the OHCI.
+			_pOHCIRegisters->hcControl = HostToUSBLong ((kOHCIFunctionalState_Reset << kOHCIHcControl_HCFSPhase));
+			IOSync();
+			
+			// always make sure we stay in reset for at least 50 ms
+			IOSleep(50);
+			
+			// leave the controller in reset until we get the setPowerState
+			
+			if (_errataBits & kErrataLSHSOpti)
+				OptiLSHSFix();
+			
+			CheckSleepCapability();
+			
+		}
+		_uimInitialized = true;
+		_myBusState = kUSBBusStateReset;
+		
+	} while (false);
+	
 
-        _deviceBase = provider->mapDeviceMemoryWithIndex(0);
-        if (!_deviceBase)
-        {
-            USBError(1,"AppleUSBOHCI[%p]::UIMInitialize unable to get device memory", this);
-            return kIOReturnNoMemory;
-        }
-		
-        USBLog(3, "AppleUSBOHCI[%p]::UIMInitialize config @ %x (%x)", this, (uint32_t)_deviceBase->getVirtualAddress(), (uint32_t)_deviceBase->getPhysicalAddress());
-		
-        SetVendorInfo();
-		
-        // Set up a filter interrupt source (this process both primary (thru filter function) and secondary (thru action function)
-        // interrupts.
-        //
-        _filterInterruptSource = IOFilterInterruptEventSource::filterInterruptEventSource(this, AppleUSBOHCI::InterruptHandler,	 AppleUSBOHCI::PrimaryInterruptFilter, provider );
-		
-        if ( !_filterInterruptSource )
-        {
-			USBError(1,"AppleUSBOHCI[%p]::UIMInitialize unable to get filterInterruptEventSource", this);
-            return kIOReturnBadArgument;
-        }
-        
-        err = _workLoop->addEventSource(_filterInterruptSource);
-        if ( err != kIOReturnSuccess )
-        {
-			USBError(1,"AppleUSBOHCI[%p]::UIMInitialize unable to add filter event source: 0x%x", this, err);
-            return kIOReturnBadArgument;
-        }
-		
-        /*
-         * Initialize my data and the hardware
-         */
-        _errataBits = GetErrataBits(_vendorID, _deviceID, _revisionID);
-		setProperty("Errata", _errataBits, 32);
-		
-		if (_errataBits & kErrataLucentSuspendResume)
-        {
-            OSData	*suspendProp;
-            UInt32	portBitmap = 0;
-            
-            // We need to check to see if there are ports that we really should suspend
-            //
-            suspendProp     = OSDynamicCast(OSData, provider->getProperty( "AAPL,SuspendablePorts" ));
-            if (suspendProp)
-            {
-                // Only allow suspend on certain ports
-                //
-                portBitmap = *((UInt32 *) suspendProp->getBytesNoCopy());
-                _disablePortsBitmap = (0xffffffff & (~portBitmap));
-            }
-            else
-                _disablePortsBitmap = (0xffffffff);
-        }
-        
-        USBLog(5,"AppleUSBOHCI[%p]::UIMInitialize errata bits=0x%x", this, (uint32_t) _errataBits);
-		
-        _pOHCIRegisters = (OHCIRegistersPtr) _deviceBase->getVirtualAddress();
-
-        // leave bus mastering off until we get the setPowerState
-        _device->configWrite16(kIOPCIConfigCommand, kIOPCICommandMemorySpace);
-		
-        // Set up HCCA.
-        _pHCCA = (Ptr) IOMallocContiguous(kHCCAsize, kHCCAalignment, &_hccaPhysAddr);
-        if (!_pHCCA)
-        {
-            USBError(1,"AppleUSBOHCI[%p]::UIMInitialize Unable to allocate memory (2)", this);
-            return kIOReturnNoMemory;
-        }
-		
-        _rootHubFuncAddress = 1;
-		
-        // set up Interrupt transfer tree
-        if ((err = IsochronousInitialize()))	return err;
-        if ((err = InterruptInitialize()))	return err;
-		if ((err = BulkInitialize()))		return err;
-        if ((err = ControlInitialize()))	return err;
-		
-		// <rdar://problem/5981624> this will be done in the setPowerState
-		// InitializeOperationalRegisters();
-		
-        // Work around the Philips part which does weird things when a device is plugged in at boot
-        //
-        if (_errataBits & kErrataNeedsPortPowerOff)
-        {
-            USBError(1, "AppleUSBOHCI[%p]::UIMInitialize error, turning off power to ports to clear", this);
-            OHCIRootHubPower(0 /* kOff */);
-            // No need to turn the power back on here, the reset does that anyway.
-        }
-        
-        // Just so we all start from the same place, reset the OHCI.
-        _pOHCIRegisters->hcControl = HostToUSBLong ((kOHCIFunctionalState_Reset << kOHCIHcControl_HCFSPhase));
-        IOSync();
-		
-		// always make sure we stay in reset for at least 50 ms
-		IOSleep(50);
-		
-		// leave the controller in reset until we get the setPowerState
-		
-		if (_errataBits & kErrataLSHSOpti)
-            OptiLSHSFix();
-		
-		CheckSleepCapability();
+	if ( kIOReturnSuccess != err )
+	{
+		if (_hccaBuffer)
+		{
+			if (hccaBufferPrepared)
+				_hccaBuffer->complete();
+			_hccaBuffer->release();
+			_hccaBuffer = NULL;
+		}
 		
 	}
-	_uimInitialized = true;
-	_myBusState = kUSBBusStateReset;
-   
-	return kIOReturnSuccess;
+	
+	return err;
 }
 
 
@@ -449,7 +540,12 @@ AppleUSBOHCI::UIMFinalize(void)
     
     // Free the HCCA memory
     //
-    IOFree ( _pHCCA, kHCCAsize );
+	if (_hccaBuffer)
+	{
+		_hccaBuffer->complete();
+		_hccaBuffer->release();
+		_hccaBuffer = NULL;
+	}
     
     // Remove the interruptEventSource we created
     //
@@ -669,7 +765,7 @@ AppleUSBOHCI::IsochronousInitialize(void)
     pED2->pShared->nextED = HostToUSBLong ((UInt32) pED->pPhysical);
     pED2->pLogicalNext = pED;
     _isochBandwidthAvail = kUSBMaxFSIsocEndpointReqCount;
-	_expansionData->_isochMaxBusStall = 25000;									// set to 25 microseconds for OHCI
+	_expansionData->_isochMaxBusStall = 25000;									// Set to 25 microseconds for OHCI
 	
     return kIOReturnSuccess;
 }
@@ -766,6 +862,7 @@ AppleUSBOHCI::AllocateITD(void)
 		if (!memBlock)
 		{
 			USBLog(1, "AppleUSBOHCI[%p]::AllocateTD - unable to allocate a new memory block!", this);
+			USBTrace( kUSBTOHCI, kTPOHCIAllocateITD, (uintptr_t)this, 0, 0, 1 );
 			return NULL;
 		}
 		// link it in to my list of ED memory blocks
@@ -784,6 +881,7 @@ AppleUSBOHCI::AllocateITD(void)
 			if (!freeITD)
 			{
 				USBLog(1, "AppleUSBOHCI[%p]::AllocateTD - hmm. ran out of TDs in a memory block", this);
+				USBTrace( kUSBTOHCI, kTPOHCIAllocateITD, (uintptr_t)this, i, numTDs, 2 );
 				freeITD = _pFreeITD;
 				break;
 			}
@@ -829,6 +927,7 @@ AppleUSBOHCI::AllocateTD(void)
 		if (!memBlock)
 		{
 			USBLog(1, "AppleUSBOHCI[%p]::AllocateTD - unable to allocate a new memory block!", this);
+			USBTrace( kUSBTOHCI, kTPOHCIAllocateTD, (uintptr_t)this, 0, 0, 1 );
 			return NULL;
 		}
 		// link it in to my list of ED memory blocks
@@ -847,6 +946,7 @@ AppleUSBOHCI::AllocateTD(void)
 			if (!freeTD)
 			{
 				USBLog(1, "AppleUSBOHCI[%p]::AllocateTD - hmm. ran out of TDs in a memory block", this);
+				USBTrace( kUSBTOHCI, kTPOHCIAllocateTD, (uintptr_t)this, 0, 0, 2 );
 				freeTD = _pFreeTD;
 				break;
 			}
@@ -888,6 +988,7 @@ AppleUSBOHCI::AllocateED()
 		if (!memBlock)
 		{
 			USBLog(1, "AppleUSBOHCI[%p]::AllocateED - unable to allocate a new memory block!", this);
+			USBTrace( kUSBTOHCI, kTPOHCIAllocateED, (uintptr_t)this, 0, 0, 1 );
 			return NULL;
 		}
 		// link it in to my list of ED memory blocks
@@ -906,6 +1007,7 @@ AppleUSBOHCI::AllocateED()
 			if (!freeED)
 			{
 				USBLog(1, "AppleUSBOHCI[%p]::AllocateED - hmm. ran out of EDs in a memory block", this);
+				USBTrace( kUSBTOHCI, kTPOHCIAllocateED, (uintptr_t)this, 0, 0, 2 );
 				freeED = _pFreeED;
 				break;
 			}
@@ -1128,7 +1230,8 @@ AppleUSBOHCI::ProcessCompletedITD (AppleOHCIIsochTransferDescriptorPtr pITD, IOR
     bool							hadUnderrun = false;
     UInt32							delta;
     UInt32							curFrame;
-    AbsoluteTime					timeStop, timeStart;
+    AbsoluteTime					timeStart;
+	uint64_t						timeStop;
     UInt64							timeElapsed;
     
     pFrames = pITD->pIsocFrame;
@@ -1157,10 +1260,11 @@ AppleUSBOHCI::ProcessCompletedITD (AppleOHCIIsochTransferDescriptorPtr pITD, IOR
          ( (pITD->pType == kOHCIIsochronousInLowLatencyType) || 
            (pITD->pType == kOHCIIsochronousOutLowLatencyType) ) )
     {
-        clock_get_uptime (&timeStop);
+		timeStop = mach_absolute_time();
+
         timeStart = pLLFrames[pITD->frameNum].frTimeStamp;
         SUB_ABSOLUTETIME(&timeStop, &timeStart); 
-        absolutetime_to_nanoseconds(timeStop, &timeElapsed); 
+        absolutetime_to_nanoseconds(*(AbsoluteTime *)&timeStop, &timeElapsed); 
         
         if ( _lowLatencyIsochTDsProcessed != 0 )
         {
@@ -1268,6 +1372,7 @@ AppleUSBOHCI::ProcessCompletedITD (AppleOHCIIsochTransferDescriptorPtr pITD, IOR
 		if ( _activeIsochTransfers < 0 )
 		{
 			USBLog(1, "AppleUSBOHCI[%p]::ProcessCompletedITD - _activeIsochTransfers went negative (%d).  We lost one somewhere", this, (uint32_t)_activeIsochTransfers);
+			USBTrace( kUSBTOHCI, kTPOHCIProcessCompletedITD, (uintptr_t)this, (uint32_t)_activeIsochTransfers, 0, 0 );
 		}
 		else if (!_activeIsochTransfers && (_expansionData->_isochMaxBusStall != 0))
 			requireMaxBusStall(0);										// remove maximum stall restraint on the PCI bus
@@ -1332,7 +1437,7 @@ AppleUSBOHCI::DoDoneQueueProcessing(IOPhysicalAddress cachedWriteDoneQueueHead, 
     //
     if ( cachedConsumer == cachedProducer)
     {
-        USBLog(3, "AppleUSBOHCI[%p]::DoDoneQueueProcessing  consumer (%d) == producer (%d) Filter count: %d", this, (uint32_t)cachedConsumer, (uint32_t)cachedProducer, (uint32_t)_filterInterruptCount);
+        USBLog(3, "AppleUSBOHCI[%p]::DoDoneQueueProcessing  consumer (%d) == producer (%d) Filter count: %d, nothing to process -- weird", this, (uint32_t)cachedConsumer, (uint32_t)cachedProducer, (uint32_t)_filterInterruptCount);
         return kIOReturnSuccess;
     }
     
@@ -1592,6 +1697,7 @@ AppleUSBOHCI::ReturnTransactions(
             if(isochTransaction == NULL)
             {
                 USBLog(1, "AppleUSBOHCI[%p]::ReturnTransactions: Isoc Return queue broken", this);
+				USBTrace( kUSBTOHCI, kTPOHCIReturnTransactions, (uintptr_t)this, 0, 0, 1 );
                 break;
             }
         }
@@ -1617,6 +1723,7 @@ AppleUSBOHCI::ReturnTransactions(
             if(transaction == NULL)
             {
                 USBLog(1, "AppleUSBOHCI[%p]::ReturnTransactions: Return queue broken", this);
+				USBTrace( kUSBTOHCI, kTPOHCIReturnTransactions, (uintptr_t)this, 0, 0, 2 );
                 break;
             }
         }
@@ -1712,27 +1819,23 @@ AppleUSBOHCI::ReturnOneTransaction(AppleOHCIGeneralTransferDescriptorPtr	transac
 IOReturn 
 AppleUSBOHCI::message( UInt32 type, IOService * provider,  void * argument )
 {
-#if !TARGET_OS_EMBEDDED
-    cs_event_t	pccardevent;
-	
-    // Let our superclass decide handle this method
-    // messages
-    //
-    if ( type == kIOPCCardCSEventMessage)
-    {
-        pccardevent = (uintptr_t) argument;
+	if (type == kIOUSBMessageExpressCardCantWake)
+	{
+		IOService *					nub = (IOService*)argument;
+		const IORegistryPlane *		usbPlane = getPlane(kIOUSBPlane);
+		IOUSBRootHubDevice *		parentHub = OSDynamicCast(IOUSBRootHubDevice, nub->getParentEntry(usbPlane));
 		
-        if ( pccardevent == CS_EVENT_CARD_REMOVAL )
-        {
-            USBLog(5,"AppleUSBOHCI[%p]: Received kIOPCCardCSEventMessage Need to return all transactions",this);
-            _pcCardEjected = true;
-            IOSleep(5);
-            ReturnAllTransactionsInEndpoint(_pControlHead, _pControlTail);
-            ReturnAllTransactionsInEndpoint(_pBulkHead, _pBulkTail);
-            IOSleep(5);
-        }
-    }
-#endif
+		nub->retain();
+		USBLog(1, "AppleUSBOHCI[%p]::message - got kIOUSBMessageExpressCardCantWake from driver %s[%p] argument is %s[%p]", this, provider->getName(), provider, nub->getName(), nub);
+		USBTrace( kUSBTOHCI, kTPOHCIMessage, (uintptr_t)this, kIOUSBMessageExpressCardCantWake, 0, 0 );
+		if (parentHub == _rootHubDevice)
+		{
+			USBLog(3, "AppleUSBOHCI[%p]::message - device is attached to my root hub (port %d)!!", this, (int)_ExpressCardPort);
+			_badExpressCardAttached = true;
+		}
+		nub->release();
+		return kIOReturnSuccess;
+	}
 	
     USBLog(6, "AppleUSBOHCI[%p]::message type: 0x%x, isInactive = %d", this, (uint32_t)type, isInactive());
     return super::message( type, provider, argument );

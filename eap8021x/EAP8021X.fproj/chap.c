@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,7 +40,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <openssl/md5.h>
+#include <CommonCrypto/CommonDigest.h>
 #include "chap.h"
 
 void
@@ -48,23 +48,13 @@ chap_md5(uint8_t identifier, const uint8_t * password, int password_len,
 	 const uint8_t * challenge, int challenge_len,
 	 uint8_t * hash)
 {
-    int				len;
-    uint8_t *			offset;
-    uint8_t *			value = NULL;
+    CC_MD5_CTX			ctx;
 
     /* MD5 hash over the identifier + password + challenge */
-    len = 1 + password_len + challenge_len;
-    value = malloc(len);
-    if (value == NULL) {
-	return;
-    }
-    offset = value;
-    *offset = identifier;
-    offset += 1;
-    bcopy(password, offset, password_len);
-    offset += password_len;
-    bcopy(challenge, offset, challenge_len);
-    MD5(value, len, hash);
-    free(value);
+    CC_MD5_Init(&ctx);
+    CC_MD5_Update(&ctx, &identifier, sizeof(identifier));
+    CC_MD5_Update(&ctx, password, password_len);
+    CC_MD5_Update(&ctx, challenge, challenge_len);
+    CC_MD5_Final(hash, &ctx);
     return;
 }

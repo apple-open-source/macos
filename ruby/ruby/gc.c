@@ -3,7 +3,7 @@
   gc.c -
 
   $Author: shyouhei $
-  $Date: 2008-08-04 12:16:55 +0900 (Mon, 04 Aug 2008) $
+  $Date: 2008-08-04 12:24:26 +0900 (Mon, 04 Aug 2008) $
   created at: Tue Oct  5 09:44:46 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -41,10 +41,12 @@
 #endif
 
 void re_free_registers _((struct re_registers*));
-void rb_io_fptr_finalize _((struct OpenFile*));
+void rb_io_fptr_finalize _((struct rb_io_t*));
 
-#if !defined(setjmp) && defined(HAVE__SETJMP)
-#define setjmp(env) _setjmp(env)
+#define rb_setjmp(env) RUBY_SETJMP(env)
+#define rb_jmp_buf rb_jmpbuf_t
+#ifdef __CYGWIN__
+int _setjmp(), _longjmp();
 #endif
 
 /* Make alloca work the best possible way.  */
@@ -80,6 +82,8 @@ static void run_final();
 static VALUE nomem_error;
 static void garbage_collect();
 
+int ruby_gc_stress = 0;
+
 NORETURN(void rb_exc_jump _((VALUE)));
 
 void
@@ -99,6 +103,41 @@ rb_memerror()
     rb_exc_raise(nomem_error);
 }
 
+/*
+ *  call-seq:
+ *    GC.stress                 => true or false
+ *
+ *  returns current status of GC stress mode.
+ */
+
+static VALUE
+gc_stress_get(self)
+    VALUE self;
+{
+    return ruby_gc_stress ? Qtrue : Qfalse;
+}
+
+/*
+ *  call-seq:
+ *    GC.stress = bool          => bool
+ *
+ *  updates GC stress mode.
+ *
+ *  When GC.stress = true, GC is invoked for all GC opportunity:
+ *  all memory and object allocation.
+ *
+ *  Since it makes Ruby very slow, it is only for debugging.
+ */
+
+static VALUE
+gc_stress_set(self, bool)
+    VALUE self, bool;
+{
+    rb_secure(2);
+    ruby_gc_stress = RTEST(bool);
+    return bool;
+}
+
 void *
 ruby_xmalloc(size)
     long size;
@@ -110,7 +149,7 @@ ruby_xmalloc(size)
     }
     if (size == 0) size = 1;
 
-    if ((malloc_increase+size) > malloc_limit) {
+    if (ruby_gc_stress || (malloc_increase+size) > malloc_limit) {
 	garbage_collect();
     }
     RUBY_CRITICAL(mem = malloc(size));
@@ -150,6 +189,7 @@ ruby_xrealloc(ptr, size)
     }
     if (!ptr) return xmalloc(size);
     if (size == 0) size = 1;
+    if (ruby_gc_stress) garbage_collect();
     RUBY_CRITICAL(mem = realloc(ptr, size));
     if (!mem) {
 	garbage_collect();
@@ -399,7 +439,7 @@ rb_newobj()
     if (during_gc)
 	rb_bug("object allocation during garbage collection phase");
 
-    if (!freelist) garbage_collect();
+    if (ruby_gc_stress || !freelist) garbage_collect();
 
     obj = (VALUE)freelist;
     freelist = freelist->as.free.next;
@@ -536,7 +576,7 @@ init_mark_stack()
 }
 
 #define MARK_STACK_EMPTY (mark_stack_ptr == mark_stack)
-            
+
 static st_table *source_filenames;
 
 char *
@@ -744,7 +784,7 @@ gc_mark(ptr, lev)
 	if (!mark_stack_overflow) {
 	    if (mark_stack_ptr - mark_stack < MARK_STACK_MAX) {
 		*mark_stack_ptr = ptr;
-		mark_stack_ptr++;		
+		mark_stack_ptr++;
 	    }
 	    else {
 		mark_stack_overflow = 1;
@@ -1311,6 +1351,8 @@ rb_gc_mark_frame(frame)
 
 #ifdef __GNUC__
 #if defined(__human68k__) || defined(DJGPP)
+#undef rb_setjmp
+#undef rb_jmp_buf
 #if defined(__human68k__)
 typedef unsigned long rb_jmp_buf[8];
 __asm__ (".even\n\
@@ -1319,9 +1361,6 @@ _rb_setjmp:\n\
 	movem.l	d3-d7/a3-a5,(a0)\n\
 	moveq.l	#0,d0\n\
 	rts");
-#ifdef setjmp
-#undef setjmp
-#endif
 #else
 #if defined(DJGPP)
 typedef unsigned long rb_jmp_buf[6];
@@ -1342,8 +1381,6 @@ _rb_setjmp:\n\
 #endif
 #endif
 int rb_setjmp (rb_jmp_buf);
-#define jmp_buf rb_jmp_buf
-#define setjmp rb_setjmp
 #endif /* __human68k__ or DJGPP */
 #endif /* __GNUC__ */
 
@@ -1398,7 +1435,7 @@ garbage_collect()
 
     FLUSH_REGISTER_WINDOWS;
     /* This assumes that all registers are saved into the jmp_buf (and stack) */
-    setjmp(save_regs_gc_mark);
+    rb_setjmp(save_regs_gc_mark);
     mark_locations_array((VALUE*)save_regs_gc_mark, sizeof(save_regs_gc_mark) / sizeof(VALUE *));
 #if STACK_GROW_DIRECTION < 0
     rb_gc_mark_locations((VALUE*)STACK_END, rb_gc_stack_start);
@@ -1645,6 +1682,7 @@ os_obj_of(of)
 {
     int i;
     int n = 0;
+    volatile VALUE v;
 
     for (i = 0; i < heaps_used; i++) {
 	RVALUE *p, *pend;
@@ -1663,8 +1701,9 @@ os_obj_of(of)
 		    if (FL_TEST(p, FL_SINGLETON)) continue;
 		  default:
 		    if (!p->as.basic.klass) continue;
-		    if (!of || rb_obj_is_kind_of((VALUE)p, of)) {
-			rb_yield((VALUE)p);
+                    v = (VALUE)p;
+		    if (!of || rb_obj_is_kind_of(v, of)) {
+			rb_yield(v);
 			n++;
 		    }
 		}
@@ -1709,16 +1748,21 @@ os_obj_of(of)
  */
 
 static VALUE
-os_each_obj(argc, argv)
+os_each_obj(argc, argv, os)
     int argc;
     VALUE *argv;
+    VALUE os;
 {
     VALUE of;
 
     rb_secure(4);
-    if (rb_scan_args(argc, argv, "01", &of) == 0) {
+    if (argc == 0) {
 	of = 0;
     }
+    else {
+	rb_scan_args(argc, argv, "01", &of);
+    }
+    RETURN_ENUMERATOR(os, 1, &of);
     return os_obj_of(of);
 }
 
@@ -1997,7 +2041,7 @@ id2ref(obj, objid)
  *  call-seq:
  *     obj.__id__       => fixnum
  *     obj.object_id    => fixnum
- *  
+ *
  *  Returns an integer identifier for <i>obj</i>. The same number will
  *  be returned on all calls to <code>id</code> for a given object, and
  *  no two active objects will share an id.
@@ -2009,7 +2053,7 @@ id2ref(obj, objid)
 /*
  *  call-seq:
  *     obj.hash    => fixnum
- *  
+ *
  *  Generates a <code>Fixnum</code> hash value for this object. This
  *  function must have the property that <code>a.eql?(b)</code> implies
  *  <code>a.hash == b.hash</code>. The hash value is used by class
@@ -2072,6 +2116,8 @@ Init_GC()
     rb_define_singleton_method(rb_mGC, "start", rb_gc_start, 0);
     rb_define_singleton_method(rb_mGC, "enable", rb_gc_enable, 0);
     rb_define_singleton_method(rb_mGC, "disable", rb_gc_disable, 0);
+    rb_define_singleton_method(rb_mGC, "stress", gc_stress_get, 0);
+    rb_define_singleton_method(rb_mGC, "stress=", gc_stress_set, 1);
     rb_define_method(rb_mGC, "garbage_collect", rb_gc_start, 0);
 
     rb_mObSpace = rb_define_module("ObjectSpace");

@@ -3,8 +3,7 @@
 # Class name: 	DocReference
 # Synopsis: 	Used by gatherHeaderDoc.pl to hold references to doc 
 #		for individual headers and classes
-# Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2004/10/04 23:11:16 $
+# Last Updated: $Date: 2009/03/30 19:38:50 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -32,7 +31,7 @@ package HeaderDoc::DocReference;
 
 use strict;
 use vars qw($VERSION @ISA);
-$VERSION = '$Revision: 1.2.4.1.2.6 $';
+$HeaderDoc::DocReference::VERSION = '$Revision: 1.4 $';
 
 ################ General Constants ###################################
 my $debugging = 0;
@@ -149,13 +148,13 @@ sub type {
 sub printObject {
     my $self = shift;
  
-    print "----- DocReference Object ------\n";
-    print "uid:  $self->{UID}\n";
-    print "name: $self->{NAME}\n";
-    print "type: $self->{TYPE}\n";
-    print "path: $self->{PATH}\n";
-    print "language: $self->{LANGUAGE}\n";
-    print "\n";
+    print STDERR "----- DocReference Object ------\n";
+    print STDERR "uid:  $self->{UID}\n";
+    print STDERR "name: $self->{NAME}\n";
+    print STDERR "type: $self->{TYPE}\n";
+    print STDERR "path: $self->{PATH}\n";
+    print STDERR "language: $self->{LANGUAGE}\n";
+    print STDERR "\n";
 }
 
 1;

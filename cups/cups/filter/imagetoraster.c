@@ -1,9 +1,9 @@
 /*
- * "$Id: imagetoraster.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: imagetoraster.c 7306 2008-02-15 00:52:38Z mike $"
  *
  *   Image file to raster filter for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 1993-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -37,7 +37,6 @@
 
 #include "common.h"
 #include "image-private.h"
-#include "raster.h"
 #include <unistd.h>
 #include <math.h>
 #include <cups/i18n.h>
@@ -242,8 +241,7 @@ main(int  argc,				/* I - Number of command-line arguments */
       * Child process for pstoraster...  Assign new pipe input to pstoraster...
       */
 
-      close(0);
-      dup(mypipes[0]);
+      dup2(mypipes[0], 0);
       close(mypipes[0]);
       close(mypipes[1]);
 
@@ -266,8 +264,7 @@ main(int  argc,				/* I - Number of command-line arguments */
     * Update stdout so it points at the new pstoraster...
     */
 
-    close(1);
-    dup(mypipes[1]);
+    dup2(mypipes[1], 1);
     close(mypipes[0]);
     close(mypipes[1]);
 
@@ -374,7 +371,11 @@ main(int  argc,				/* I - Number of command-line arguments */
 
   if ((val = cupsGetOption("scaling", num_options, options)) != NULL)
     zoom = atoi(val) * 0.01;
-  else if (cupsGetOption("fitplot", num_options, options))
+  else if ((val = cupsGetOption("fitplot", num_options, options)) != NULL &&
+           !strcasecmp(val, "true"))
+    zoom = 1.0;
+  else if ((val = cupsGetOption("fit-to-page", num_options, options)) != NULL &&
+           !strcasecmp(val, "true"))
     zoom = 1.0;
 
   if ((val = cupsGetOption("ppi", num_options, options)) != NULL)
@@ -4312,5 +4313,5 @@ raster_cb(
 
 
 /*
- * End of "$Id: imagetoraster.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: imagetoraster.c 7306 2008-02-15 00:52:38Z mike $".
  */

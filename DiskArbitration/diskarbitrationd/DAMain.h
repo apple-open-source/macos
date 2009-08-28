@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,6 +40,7 @@ extern CFStringRef            gDAConsoleUser;
 extern gid_t                  gDAConsoleUserGID;
 extern uid_t                  gDAConsoleUserUID;
 extern CFMutableArrayRef      gDADiskList;
+extern Boolean                gDAExit;
 extern CFMutableArrayRef      gDAFileSystemList;
 extern CFMutableArrayRef      gDAFileSystemProbeList;
 extern Boolean                gDAIdle;

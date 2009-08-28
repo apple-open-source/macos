@@ -1,0 +1,38 @@
+2007-08-23  Daniel Steffen  <das@users.sourceforge.net>
+
+	* generic/tclAEAddress.c:	fix warnings.
+	* generic/tclMacOSError.c:
+	* generic/tclAEDescObj.c:
+	* generic/AEPrintCarbon.c:
+	* generic/tclAEDesc.c:
+	* generic/osxMacTcl.c:
+
+	* tclconfig/tcl.m4:	update to latest TEA.
+	* configure:		autoconf-2.59
+
+2007-08-10  Daniel Steffen  <das@users.sourceforge.net>
+
+	* generic/tclAECarbon.h: remove framework #include <Tcl/tcl.h>, as it
+	is now incorrect with TEA.
+
+2007-07-09  Daniel Steffen  <das@users.sourceforge.net>
+
+	* Makefile.in: fix 'test' target when run from outside the source dir.
+
+	* configure.in:	remove 64-bit architectures from the build flags as
+			Carbon is 32-bit only.
+
+	* Makefile.in:		update to TEA 3.6 (tip of tcl CVS)
+	* configure.in:	
+	* tclconfig/tcl.m4:
+
+	* configure: autoconf-2.59
+
+2006-11-20  Jonathan Guyer  <jguyer@users.sourceforge.net>
+
+        -- Converted from VoSe to SVN --
+
+2006-04-12  Daniel Steffen  <das@users.sourceforge.net>
+
+	-- Initial import from VoSe --
+

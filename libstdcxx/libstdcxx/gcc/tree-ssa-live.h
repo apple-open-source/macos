@@ -16,14 +16,15 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 #ifndef _TREE_SSA_LIVE_H
 #define _TREE_SSA_LIVE_H 1
 
 #include "partition.h"
+#include "vecprim.h"
 
 /* Used to create the variable mapping when we go out of SSA form.  */
 typedef struct _var_map
@@ -337,8 +338,8 @@ make_live_on_entry (tree_live_info_p live, basic_block bb , int p)
 
 typedef struct tree_partition_associator_d
 {
-  varray_type trees;
-  varray_type first_partition;
+  VEC(tree,heap) *trees;
+  VEC(int,heap) *first_partition;
   int *next_partition;
   int *partition_to_tree_map;
   int num_trees;
@@ -375,7 +376,7 @@ tpa_num_trees (tpa_p tpa)
 static inline tree
 tpa_tree (tpa_p tpa, int i)
 {
-  return VARRAY_TREE (tpa->trees, i);
+  return VEC_index (tree, tpa->trees, i);
 }
 
 
@@ -384,7 +385,7 @@ tpa_tree (tpa_p tpa, int i)
 static inline int
 tpa_first_partition (tpa_p tpa, int i)
 {
-  return VARRAY_INT (tpa->first_partition, i);
+  return VEC_index (int, tpa->first_partition, i);
 }
 
 
@@ -700,6 +701,7 @@ typedef struct coalesce_list_d
 
 extern coalesce_list_p create_coalesce_list (var_map);
 extern void add_coalesce (coalesce_list_p, int, int, int);
+extern int coalesce_cost (int, bool, bool);
 extern void sort_coalesce_list (coalesce_list_p);
 extern void dump_coalesce_list (FILE *, coalesce_list_p);
 extern void delete_coalesce_list (coalesce_list_p);

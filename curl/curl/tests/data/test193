@@ -1,8 +1,17 @@
 <testcase>
+<info>
+<keywords>
+HTTP
+HTTP GET
+followlocation
+--write-out
+</keywords>
+</info>
+
 #
 # Server-side
 <reply>
-<data nocheck="1">
+<data nocheck="yes">
 HTTP/1.1 302 OK swsbounce swsclose
 Date: Thu, 09 Nov 2010 14:49:00 GMT
 Content-Length: 8
@@ -11,7 +20,7 @@ Location: ./193
 
 monster
 </data>
-<data1 nocheck="1">
+<data1 nocheck="yes">
 HTTP/1.1 200 OK
 Date: Thu, 09 Nov 2010 14:49:00 GMT
 Content-Length: 8
@@ -32,7 +41,7 @@ http
 HTTP GET -w num_connects with redirected fetch (2 connects)
  </name>
  <command>
-http://%HOSTIP:%HTTPPORT/193 -w '%{num_connects}\n' -L
+http://%HOSTIP:%HTTPPORT/193 -w "%{num_connects}\n" -L
 </command>
 </client>
 
@@ -44,11 +53,11 @@ http://%HOSTIP:%HTTPPORT/193 -w '%{num_connects}\n' -L
 </strip>
 <protocol>
 GET /193 HTTP/1.1
-Host: 127.0.0.1:%HTTPPORT
+Host: %HOSTIP:%HTTPPORT
 Accept: */*
 
 GET /193 HTTP/1.1
-Host: 127.0.0.1:%HTTPPORT
+Host: %HOSTIP:%HTTPPORT
 Accept: */*
 
 </protocol>

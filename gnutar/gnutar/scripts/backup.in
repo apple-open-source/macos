@@ -1,6 +1,6 @@
 #! /bin/sh
 # This program is part of GNU tar
-# Copyright 2004, Free Software Foundation
+# Copyright (C) 2004, 2005, 2006 Free Software Foundation
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -14,8 +14,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-# 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301, USA.
 
 # Load library routines
 SYSCONFDIR=${SYSCONFDIR-@sysconfdir@}
@@ -34,11 +34,10 @@ Options are:
    -f, --force             Force backup even if today's log file already
                            exists.
    -v, --verbose[=LEVEL]   Set verbosity level. Default 100.
-   -t, --time=TIME         Wait till TIME, then do backup. 
+   -t, --time=TIME         Wait till TIME, then do backup.
 
-Informational options:   
+Informational options:
    -h, --help              Display this help message.
-   -L, --license           Display program license.
    -V, --version           Display program version.
 
    Optional argument WHEN is for backward compatibility only. It has been
@@ -87,16 +86,14 @@ do
          TIME=$optarg
 	 ;;
   -t)    prev=--t;;
-  -t*)   TIME=`expr $option : "-t\(.*\)"`;;    
+  -t*)   TIME=`expr $option : "-t\(.*\)"`;;
   --t|--ti|--tim|--time)
          prev=$option
     	 ;;
   -V|--v|--ve|--ver|--vers|--versi|--versio|--version)
-    	 echo "backup (@PACKAGE@ @VERSION@)"
-	 exit 0;;
-  -L|--li|--lic|--lice|--licen|--licens|--license)
-    	 license
- 	 exit;;
+    	 echo "backup (@PACKAGE_NAME@) @VERSION@"
+	 license
+	 exit;;
   -h|--h|--he|--hel|--help)
 	 usage
 	 exit;;
@@ -108,13 +105,13 @@ do
          else
             TIME=$option
          fi;;
-  esac	
-done    
+  esac
+done
 
 if [ "x$TIME" = x ]; then
     bailout "No backup time specified. Try $PROGNAME --help for more info."
     exit 1
-fi    
+fi
 
 init_backup
 
@@ -124,7 +121,7 @@ wait_time $TIME
 if [ $DUMP_LEVEL -ne 0 ]; then
     PREV_LEVEL=`expr $DUMP_LEVEL - 1`
     PREV_DATE=`ls -t ${LOGPATH}/log-*-level-$PREV_LEVEL|
-                head -1|
+                head -n 1|
 		sed "s,${LOGPATH}/log-\(.*\)-level.*,\1,"`
     if [ "x$PREV_DATE" = x ]; then
         bailout "Can't determine date of the previous backup"
@@ -138,10 +135,10 @@ fi
 
 if [ "x$FORCE" = "xyes" ]; then
     rm ${LOGFILE}
-fi    
+fi
 
 if [ -f "${LOGFILE}" ] ; then
-   bailout "Log file ${LOGFILE} already exists." 
+   bailout "Log file ${LOGFILE} already exists."
 else
    touch "${LOGFILE}"
 fi
@@ -166,12 +163,13 @@ message 20 "BACKUP_FILES=$BACKUP_FILES"
  while [ $# -ne 0 ] ; do
      date="`date`"
      fs="`echo \"${1}\" | sed -e 's/^.*://'`"
+     fs=`root_fs $fs`
      fsname="`echo \"${1}\" | sed -e 's/\//:/g'`"
      remotehost="`expr \"${1}\" : '\([^/][^/]*\):.*'`"
      if [ -z "$remotehost" ]; then
 	 remotehost=$localhost
      fi
-        
+
      echo "Backing up ${1} at ${date}"
      message 10 "fs=$fs"
      message 10 "fsname=$fsname"
@@ -182,12 +180,12 @@ message 20 "BACKUP_FILES=$BACKUP_FILES"
 	 echo "Last `prev_level` dump on this filesystem was on $PREV_DATE"
 	 remote_run "${remotehost}" cp "`level_log_name ${fsname} $PREV_LEVEL`" "`level_log_name temp`"
      fi
-    	
+
      ${DUMP_BEGIN-:} $DUMP_LEVEL $remotehost $fs $fsname
      backup_host ${remotehost} \
                 "--listed=`level_log_name temp`" \
                 "--label='`print_level` backup of ${fs} on ${remotehost} at ${NOW}'" \
-		-C ${ROOT_FS}${fs} .
+		-C ${fs} .
 
      # `rsh' doesn't exit with the exit status of the remote command.  What
      # stupid lossage.  TODO: think of a reliable workaround.
@@ -198,7 +196,7 @@ message 20 "BACKUP_FILES=$BACKUP_FILES"
      else
          flush_level_log ${remotehost} ${fsname}
      fi
-     ${MT_STATUS}
+     ${MT_STATUS} "$TAPE_FILE"
      ${DUMP_END-:} $DUMP_LEVEL $remotehost $fs $fsname
      echo "sleeping ${SLEEP_TIME} seconds"
      sleep ${SLEEP_TIME}
@@ -213,14 +211,14 @@ message 20 "BACKUP_FILES=$BACKUP_FILES"
      date="`date`"
 
      if [ $DUMP_LEVEL -eq 0 ]; then
-         make_level_log $localhost 
+         make_level_log $localhost
      else
 	 echo "Last `prev_level` dump on this filesystem was on $PREV_DATE"
 	 remote_run "${localhost}" cp "`level_log_name MISC $PREV_LEVEL`" "`level_log_name temp`"
      fi
 
      echo "Backing up miscellaneous files at ${date}"
-    
+
      ${DUMP_BEGIN-:} $DUMP_LEVEL $localhost MISC MISC
      backup_host $localhost \
                "--listed=`level_log_name temp`"\
@@ -234,7 +232,7 @@ message 20 "BACKUP_FILES=$BACKUP_FILES"
      else
 	 flush_level_log $localhost MISC
      fi
-     ${MT_STATUS}
+     ${MT_STATUS} "$TAPE_FILE"
      ${DUMP_END-:} $DUMP_LEVEL $localhost MISC MISC
  else
      echo "No miscellaneous files specified"
@@ -242,7 +240,7 @@ message 20 "BACKUP_FILES=$BACKUP_FILES"
 
  message 1 "final cleanup"
 
- $MT_REWIND "${TAPE_FILE}" 
+ $MT_REWIND "${TAPE_FILE}"
  $MT_OFFLINE "${TAPE_FILE}"
  echo "."
 ) 2>&1 | tee -a "${LOGFILE}"

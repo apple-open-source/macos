@@ -1,6 +1,6 @@
 /* 
    neon test suite
-   Copyright (C) 2002-2006, Joe Orton <joe@manyfish.co.uk>
+   Copyright (C) 2002-2008, Joe Orton <joe@manyfish.co.uk>
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -45,6 +45,7 @@
 #error SSL not supported
 #endif
 
+#include "ne_pkcs11.h"
 
 #define SERVER_CERT "server.cert"
 #define CA_CERT "ca/cert.pem"
@@ -72,6 +73,7 @@ struct ssl_server_args {
     int require_cc; /* require a client cert if non-NULL */
     const char *ca_list; /* file of CA certs to verify client cert against */
     const char *send_ca; /* file of CA certs to send in client cert request */
+    int fail_silently; /* exit with success if handshake fails */
     
     /* session caching: */
     int cache; /* use the session cache if non-zero */
@@ -114,8 +116,11 @@ static int ssl_server(ne_socket *sock, void *userdata)
     ne_ssl_context_set_verify(ctx, args->require_cc, args->send_ca,
                               args->ca_list);
 
-    ONV(ne_sock_accept_ssl(sock, ctx),
-        ("SSL accept failed: %s", ne_sock_error(sock)));
+    ret = ne_sock_accept_ssl(sock, ctx);
+    if (ret && args->fail_silently) {
+        return 0;
+    }
+    ONV(ret, ("SSL accept failed: %s", ne_sock_error(sock)));
 
     args->count++;
 
@@ -294,8 +299,11 @@ static int load_client_cert(void)
     ONN("could not load client.p12", cc == NULL);
     ONN("client.p12 not encrypted!?", !ne_ssl_clicert_encrypted(cc));
     name = ne_ssl_clicert_name(cc);
-    ONN("no friendly name given", name == NULL);
-    ONV(strcmp(name, CC_NAME), ("friendly name was %s not %s", name, CC_NAME));
+    if (name == NULL) {
+        t_warning("no friendly name given");
+    } else {
+        ONV(strcmp(name, CC_NAME), ("friendly name was %s not %s", name, CC_NAME));
+    }
     ONN("failed to decrypt", ne_ssl_clicert_decrypt(cc, "foobar"));
     ne_ssl_clicert_free(cc);
 
@@ -325,12 +333,20 @@ static int load_client_cert(void)
     ONV(name != NULL, ("noclient.p12 had friendly name `%s'", name));
     ne_ssl_clicert_free(cc);
 
-    /* test for ccert without a friendly name, noclient.p12 */
+    /* test for ccert with a bundled CA. */
     cc = ne_ssl_clicert_read("clientca.p12");
     ONN("could not load clientca.p12", cc == NULL);
     ONN("encrypted cert marked unencrypted?", !ne_ssl_clicert_encrypted(cc));
     ONN("could not decrypt clientca.p12", ne_ssl_clicert_decrypt(cc, "foobar"));
     ne_ssl_clicert_free(cc);
+
+    /* test for ccert without a private key, nkclient.p12 */
+    cc = ne_ssl_clicert_read("nkclient.p12");
+    ONN("did not fail to load clicert without pkey", cc != NULL);
+    
+    /* test for ccert without a cert, ncclient.p12 */
+    cc = ne_ssl_clicert_read("ncclient.p12");
+    ONN("did not fail to load clicert without cert", cc != NULL);
 
     /* tests for loading bogus files. */
     cc = ne_ssl_clicert_read("Makefile");
@@ -500,6 +516,11 @@ static int notdns_altname(void)
 static int ipaddr_altname(void)
 {
     return accept_signed_cert_for_hostname("altname5.cert", "127.0.0.1");
+}
+
+static int uri_altname(void)
+{
+    return accept_signed_cert_for_hostname("altname7.cert", "localhost");
 }
 
 /* test that the *most specific* commonName attribute is used. */
@@ -791,6 +812,12 @@ static int fail_host_ipaltname(void)
                             "bad IP altname cert", NE_SSL_IDMISMATCH);
 }
 
+static int fail_bad_urialtname(void)
+{
+    return fail_ssl_request("altname8.cert", CA_CERT, "localhost",
+                            "bad URI altname cert", NE_SSL_IDMISMATCH);
+}
+
 /* Test that the SSL session is cached across connections. */
 static int session_cache(void)
 {
@@ -849,11 +876,14 @@ static int client_cert_provided(void)
     return OK;
 }
 
+#define DN_COUNT 5
+
 static void cc_check_dnames(void *userdata, ne_session *sess,
                             const ne_ssl_dname *const *dns, int dncount)
 {
     int n, *ret = userdata;
-    static const char *expected[4] = {
+    static const char *expected[DN_COUNT] = {
+        CACERT_DNAME,
         "First Random CA, CAs Ltd., Lincoln, Lincolnshire, GB",
         "Second Random CA, CAs Ltd., Falmouth, Cornwall, GB",
         "Third Random CA, CAs Ltd., Ipswich, Suffolk, GB",
@@ -862,13 +892,14 @@ static void cc_check_dnames(void *userdata, ne_session *sess,
 
     ne_ssl_set_clicert(sess, def_cli_cert);
 
-    if (dncount != 4) {
-        t_context("dname count was %d not 4", dncount);
+    if (dncount != DN_COUNT) {
+        t_context("dname count was %d not %d", dncount, 
+                  DN_COUNT);
         *ret = -1;
         return;
     }
     
-    for (n = 0; n < 4; n++) {
+    for (n = 0; n < DN_COUNT; n++) {
         char which[5];
 
         sprintf(which, "%d", n);
@@ -941,6 +972,38 @@ static int ccert_unencrypted(void)
 
     ne_ssl_clicert_free(ccert);
     ne_session_destroy(sess);
+    return OK;
+}
+
+#define NOCERT_MESSAGE "client certificate was requested"
+
+/* Tests for useful error message if a handshake fails where a client
+ * cert was requested. */
+static int no_client_cert(void)
+{
+    ne_session *sess = DEFSESS;
+    struct ssl_server_args args = {SERVER_CERT, NULL};
+    int ret;
+
+    args.require_cc = 1;
+    args.fail_silently = 1;
+
+    ne_ssl_trust_cert(sess, def_ca_cert);
+
+    CALL(spawn_server(7777, ssl_server, &args));
+    
+    ret = any_request(sess, "/failme");
+
+    ONV(ret != NE_ERROR,
+        ("unexpected result %d: %s", ret, ne_get_error(sess)));
+
+    ONV(strstr(ne_get_error(sess), NOCERT_MESSAGE) == NULL,
+        ("error message was '%s', missing '%s'", 
+         ne_get_error(sess), NOCERT_MESSAGE));
+    
+    reap_server();
+
+    ne_session_destroy(sess);    
     return OK;
 }
 
@@ -1094,6 +1157,32 @@ static int auth_tunnel_creds(void)
     return OK;    
 }
 
+static int auth_tunnel_fail(void)
+{
+    ne_session *sess = ne_session_create("https", "localhost", 443);
+    int ret;
+
+    CALL(spawn_server(7777, single_serve_string,
+                      "HTTP/1.1 407 Nyaaaaah\r\n"
+                      "Proxy-Authenticate: GaBoogle\r\n"
+                      "Connection: close\r\n"
+                      "\r\n"));
+    
+    ne_session_proxy(sess, "localhost", 7777);
+
+    ne_set_proxy_auth(sess, apt_creds, NULL);
+     
+    ret = any_request(sess, "/bar");
+    ONV(ret != NE_PROXYAUTH, ("bad error code for tunnel failure: %d", ret));
+
+    ONV(strstr(ne_get_error(sess), "GaBoogle") == NULL,
+        ("bad error string for tunnel failure: %s", ne_get_error(sess)));
+
+    ne_session_destroy(sess);
+
+    return await_server();
+}
+
 /* compare against known digest of notvalid.pem.  Via:
  *   $ openssl x509 -fingerprint -sha1 -noout -in notvalid.pem */
 #define THE_DIGEST "cf:5c:95:93:76:c6:3c:01:8b:62:" \
@@ -1154,6 +1243,7 @@ static int cert_identities(void)
         { "altname2.cert", "nohost.example.com" },
         { "altname4.cert", "localhost" },
         { "ca4.pem", "fourth.example.com" },
+        { "altname8.cert", "http://nohost.example.com/" },
         { NULL, NULL }
     };
     int n;
@@ -1453,6 +1543,74 @@ static int cache_cert(void)
     return OK;
 }
 
+static int nonssl_trust(void)
+{
+    ne_session *sess = ne_session_create("http", "www.example.com", 80);
+    
+    ne_ssl_trust_cert(sess, def_ca_cert);
+    
+    ne_session_destroy(sess);
+
+    return OK;
+}
+
+/* PIN password provider callback. */
+static int pkcs11_pin(void *userdata, int attempt,
+                      const char *slot_descr, const char *token_label,
+                      unsigned int flags, char *pin)
+{
+    char *sekrit = userdata;
+
+    NE_DEBUG(NE_DBG_SSL, "pkcs11: slot = [%s], token = [%s]\n",
+             slot_descr, token_label);
+
+    if (attempt == 0) {
+        strcpy(pin, sekrit);
+        return 0;
+    }
+    else {
+        return -1;
+    }
+}
+
+/* Test that the on-demand client cert provider callback is used. */
+static int pkcs11(void)
+{
+    ne_session *sess = DEFSESS;
+    struct ssl_server_args args = {SERVER_CERT, NULL};
+    ne_ssl_pkcs11_provider *prov;
+    int ret;
+
+    args.require_cc = 1;
+
+    if (access("nssdb", R_OK|X_OK)) {
+        t_warning("NSS required for PKCS#11 testing");
+        return SKIP;
+    }
+
+    ret = ne_ssl_pkcs11_nss_provider_init(&prov, "softokn3", "nssdb/", NULL, 
+                                          NULL, NULL);
+    if (ret) {
+        if (ret == NE_PK11_NOTIMPL)
+            t_context("pakchois library required for PKCS#11 support");
+        else
+            t_context("could not load NSS softokn3 PKCS#11 provider");
+        return SKIP;
+    }
+
+    ne_ssl_pkcs11_provider_pin(prov, pkcs11_pin, "foobar");
+    
+    ne_ssl_set_pkcs11_provider(sess, prov);
+
+    CALL(any_ssl_request(sess, ssl_server, &args, CA_CERT,
+                         NULL, NULL));
+
+    ne_session_destroy(sess);
+    ne_ssl_pkcs11_provider_destroy(prov);
+
+    return OK;
+}
+
 /* TODO: code paths still to test in cert verification:
  * - server cert changes between connections: Mozilla gives
  * a "bad MAC decode" error for this; can do better?
@@ -1495,6 +1653,7 @@ ne_test tests[] = {
     T(ccert_unencrypted),
     T(client_cert_provided),
     T(cc_provided_dnames),
+    T(no_client_cert),
 
     T(parse_cert),
     T(parse_chain),
@@ -1509,6 +1668,7 @@ ne_test tests[] = {
     T(two_subject_altname2),
     T(notdns_altname),
     T(ipaddr_altname),
+    T(uri_altname),
 
     T(multi_commonName),
     T(commonName_first),
@@ -1521,6 +1681,7 @@ ne_test tests[] = {
     T(fail_missing_CN),
     T(fail_host_ipaltname),
     T(fail_bad_ipaltname),
+    T(fail_bad_urialtname),
 
     T(session_cache),
 	
@@ -1528,6 +1689,11 @@ ne_test tests[] = {
     T(proxy_tunnel),
     T(auth_proxy_tunnel),
     T(auth_tunnel_creds),
+    T(auth_tunnel_fail),
+
+    T(nonssl_trust),
+
+    T(pkcs11),
 
     T(NULL) 
 };

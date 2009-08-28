@@ -169,6 +169,10 @@ enum enable_state
 			   automatically enabled and reset when the call 
 			   "lands" (either completes, or stops at another 
 			   eventpoint). */
+    bp_hand_call_disabled, /* APPLE LOCAL. The eventpoint has been disabled
+			      while various mi commands update variables, so
+			      that the hand calls for updating the variables
+			      will not trigger the breakpoints.  */
     bp_permanent	/* There is a breakpoint instruction hard-wired into
 			   the target's code.  Don't try to write another
 			   breakpoint instruction on top of it, or restore
@@ -726,6 +730,10 @@ extern void breakpoint_clear_ignore_counts (void);
 
 extern void break_command (char *, int);
 
+/* APPLE LOCAL: for rbreak_command's setting of breakpoints */
+/* APPLE LOCAL radar 6366048 search both minsyms & syms for bps.  */
+extern void rbr_break_command (char *, int, int);
+
 extern void hbreak_command_wrapper (char *, int);
 extern void thbreak_command_wrapper (char *, int);
 extern void rbreak_command_wrapper (char *, int);
@@ -838,6 +846,9 @@ extern void remove_solib_event_breakpoints (void);
 
 extern void remove_thread_event_breakpoints (void);
 
+/* APPLE LOCAL: ObjC hand-call fail point breakpoint.  */
+extern struct breakpoint *create_objc_hook_breakpoint (char *hookname);
+
 /* APPLE LOCAL breakpoints */
 extern void disable_breakpoints_in_shlibs (int silent);
 
@@ -893,5 +904,16 @@ extern int deprecated_exception_catchpoints_are_fragile;
 /* Indicator of when exception catchpoints set-up should be
    reinitialized -- e.g. when program is re-run.  */
 extern int deprecated_exception_support_initialized;
+
+/* APPLE LOCAL begin radar 6366048 search both minsyms & syms for bps.  */
+extern void remove_duplicate_sals (struct symtabs_and_lines *,
+				   struct symtabs_and_lines,
+				   char **);
+/* APPLE LOCAL end radar 6366048 search both minsyms & syms for bps.  */
+
+extern void breakpoints_relocate (struct objfile *, struct section_offsets *);
+
+/* APPLE LOCAL Disable breakpoints while updating data formatters.  */
+extern struct cleanup * make_cleanup_enable_disable_bpts_during_varobj_operation (void);
 
 #endif /* !defined (BREAKPOINT_H) */

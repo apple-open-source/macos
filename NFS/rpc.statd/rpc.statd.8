@@ -1,5 +1,5 @@
 .\"
-.\" Copyright (c) 2002-2007 Apple Inc.  All rights reserved.
+.\" Copyright (c) 2002-2008 Apple Inc.  All rights reserved.
 .\"
 .\" @APPLE_LICENSE_HEADER_START@
 .\" 
@@ -55,7 +55,7 @@
 .\"
 .\" $FreeBSD$
 .\"
-.Dd January 9, 2007
+.Dd July 5, 2008
 .Dt RPC.STATD 8
 .Os
 .Sh NAME
@@ -65,7 +65,11 @@
 .Nm
 .Op Fl d
 .Nm
+.Op Fl d
 .Fl n
+.Nm
+.Op Fl d
+.Op Fl l | Fl L | Fl N Ar hostname
 .Sh DESCRIPTION
 The
 .Nm
@@ -102,7 +106,7 @@ daemon is running whenever
 is running.
 .Pp
 The following is a list of command line options that are available.
-However, since
+Note that since
 .Nm
 is normally started by
 .Xr launchd 8 ,
@@ -112,13 +116,52 @@ settings in the NFS configuration file.  See
 for a list of tunable parameters.
 .Bl -tag -width indent
 .It Fl d
-Cause debugging information to be written to syslog, recording
-all RPC transactions to the daemon.  These messages are logged with level
-LOG_DEBUG and facility LOG_DAEMON.  Error conditions are logged irrespective
-of this option, using level LOG_ERR.
+Sets the logging level to the maximum.  Note that finer grain control is
+available via the
+.Cm nfs.statd.verbose
+option in
+.Xr nfs.conf 5 Ns .
+.Pp
+Logging is performed via
+.Xr syslog 3
+using the LOG_DAEMON facility.  By default, only messages up to priority
+LOG_WARNING are logged.  Setting the verbose level to one will add
+LOG_NOTICE messages which includes logging failed mount attempts.  A
+verbose level of two will increase the log level to LOG_INFO which
+includes logging successful mount attempts.  A log level of three or
+more will add LOG_DEBUG messages and cause increasing amounts of debug
+information to be logged.  The debug information exposes lots of
+information about
+.Nm Ns 's
+inner workings which is typically only useful to developers.
+Note: the
+.Xr syslog 8
+configuration may need to be adjusted in order to see the increased
+verbosity.
+.El
+.Pp
+The following command line option causes the daemon to run in the
+.Cm statd.notify
+notification service mode:
+.Bl -tag -width indent
 .It Fl n
-Just send SM_NOTIFY messages to notify any hosts of a restart.
-Do not start daemon.
+Send SM_NOTIFY messages to notify any hosts of a restart.
+.El
+.Pp
+The remaining command line options may be useful for viewing or modifying
+the contents of the status file.  They do not start up any daemon or service.
+.Bl -tag -width indent
+.It Fl l
+List each host (and its status) in the status file.
+.It Fl L
+List each host (and its status) in the status file and then
+continue to watch the file and report changes.
+.It Fl N
+Clear the "needs notification" status for
+.Ar hostname
+so the
+.Cm statd.notify
+service will no longer try to notify it.
 .El
 .Sh FILES
 .Bl -tag -width /var/run/statd.notify.pid -compact
@@ -150,17 +193,16 @@ monitoring requests.
 There is no means for the daemon to tell when a monitored host has
 disappeared permanently (eg. catastrophic hardware failure), as opposed
 to transient failure of the host or an intermediate router.  At present,
-it will re-try notification attempts at frequent intervals for 10
-minutes, then hourly, and finally gives up after 24 hours.
+it will pause and re-try notification at frequent intervals for 10
+minutes, then hourly, and finally gives up after 24 hours.  The
+.Fl N
+option may be used to remove the "needs notification" status from such
+hosts.
 .Pp
 The protocol requires that symmetric monitor requests are made to both
 the local and remote daemon in order to establish a monitored relationship.
 This is convenient for the NFS locking protocol, but probably reduces the
 usefulness of the monitoring system for other applications.
-.Pp
-The current implementation uses more than 1Kbyte per monitored host in
-the status file (and also in VM).  This may be inefficient for NFS servers
-with large numbers of clients.
 .Sh STANDARDS
 The implementation is based on the specification in X/Open CAE Specification
 C218, "Protocols for X/Open PC Interworking: XNFS, Issue 4", ISBN 1 872630 66 9

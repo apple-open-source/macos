@@ -1,8 +1,20 @@
---- realpath.3	2003-05-20 15:23:25.000000000 -0700
-+++ realpath.3.edit	2006-09-06 15:43:17.000000000 -0700
-@@ -44,26 +44,28 @@
- .Sh LIBRARY
- .Lb libc
+--- realpath.3.orig	2008-04-05 00:03:06.000000000 -0700
++++ realpath.3	2008-04-05 17:42:41.000000000 -0700
+@@ -35,63 +35,73 @@
+ .\"     @(#)realpath.3	8.2 (Berkeley) 2/16/94
+ .\" $FreeBSD: src/lib/libc/stdlib/realpath.3,v 1.13 2003/03/27 20:48:53 fjoe Exp $
+ .\"
+-.Dd February 16, 1994
++.Dd April 5, 2008
+ .Dt REALPATH 3
+ .Os
+ .Sh NAME
+ .Nm realpath
+ .Nd returns the canonicalized absolute pathname
+-.Sh LIBRARY
+-.Lb libc
++.\" .Sh LIBRARY
++.\" .Lb libc
  .Sh SYNOPSIS
 -.In sys/param.h
  .In stdlib.h
@@ -24,18 +36,32 @@
  .Pa /../
  in
 -.Fa pathname ,
-+.Fa file_name ,
- and copies the resulting absolute pathname into
- the memory referenced by
+-and copies the resulting absolute pathname into
+-the memory referenced by
 -.Fa resolved_path .
-+.Fa resolved_name .
- The
+-The
 -.Fa resolved_path
++.Fa file_name .
++If the
 +.Fa resolved_name
  argument
++is non-NULL, the resulting absolute pathname is copied there (it
  .Em must
  refer to a buffer capable of storing at least
-@@ -74,9 +76,9 @@
+ .Dv PATH_MAX
+-characters.
++characters).
++.Pp
++As a permitted extension to the standard, if
++.Fa resolved_name
++is NULL, 
++memory is allocated for the resulting absolute pathname, and is returned by
++.Fn realpath .
++This memory should be freed by a call to
++.Xr free 3
++when no longer needed.
+ .Pp
+ The
  .Fn realpath
  function will resolve both absolute and relative paths
  and return the absolute pathname corresponding to
@@ -48,42 +74,57 @@
  must exist when
  .Fn realpath
  is called.
-@@ -84,14 +86,14 @@
- The
+ .Sh "RETURN VALUES"
+-The
++On success, the
  .Fn realpath
- function returns
+-function returns
 -.Fa resolved_path
+-on success.
++function returns the address of the resulting absolute pathname, which is
 +.Fa resolved_name
- on success.
++if it was non-NULL, or the address of newly allocated memory.
  If an error occurs,
  .Fn realpath
  returns
 -.Dv NULL ,
-+.Dv NULL
- and
+-and
 -.Fa resolved_path
++.Dv NULL .
++If
 +.Fa resolved_name
++was non-NULL, it will
  contains the pathname which caused the problem.
  .Sh ERRORS
  The function
-@@ -100,7 +102,7 @@
+@@ -99,24 +109,44 @@
+ may fail and set the external variable
  .Va errno
  for any of the errors specified for the library functions
++.Xr alloca 3 ,
++.Xr getattrlist 2 ,
++.Xr getcwd 3 ,
  .Xr lstat 2 ,
 -.Xr readlink 2
 +.Xr readlink 2 ,
++.Xr stat 2 ,
  and
- .Xr getcwd 3 .
- .Sh CAVEATS
-@@ -112,11 +114,26 @@
- version always returns absolute pathnames,
- whereas the Solaris implementation will,
- under certain circumstances, return a relative
--.Fa resolved_path
-+.Fa resolved_name
- when given a relative
--.Fa pathname .
-+.Fa file_name .
+-.Xr getcwd 3 .
+-.Sh CAVEATS
+-This implementation of
++.Xr strdup 3 .
++.\" .Sh CAVEATS
++.\" This implementation of
++.\" .Fn realpath
++.\" differs slightly from the Solaris implementation.
++.\" The
++.\" .Bx 4.4
++.\" version always returns absolute pathnames,
++.\" whereas the Solaris implementation will,
++.\" under certain circumstances, return a relative
++.\" .Fa resolved_name
++.\" when given a relative
++.\" .Fa file_name .
 +.Sh LEGACY SYNOPSIS
 +.Fd #include <sys/param.h>
 +.Fd #include <stdlib.h>
@@ -96,10 +137,20 @@
 +the last component of
 +.Fa file_name
 +does not need to exist when
-+.Fn realpath
+ .Fn realpath
+-differs slightly from the Solaris implementation.
+-The
+-.Bx 4.4
+-version always returns absolute pathnames,
+-whereas the Solaris implementation will,
+-under certain circumstances, return a relative
+-.Fa resolved_path
+-when given a relative
+-.Fa pathname .
 +is called.
  .Sh "SEE ALSO"
 -.Xr getcwd 3
++.Xr free 3 ,
 +.Xr getcwd 3 ,
 +.Xr compat 5
  .Sh HISTORY

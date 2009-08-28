@@ -24,11 +24,11 @@ CVS Archive Server Access
 OpenLink currently provides read-only CVS Archive access throught the
 SourceForge.net servers:
 
-$ cvs -d:pserver:anonymous@cvs.sourceforge.net:/cvsroot/iodbc login
+$ cvs -d:pserver:anonymous@iodbc.cvs.sourceforge.net:/cvsroot/iodbc login 
 
 (The password is blank)
 
-$ cvs -z3 -d:pserver:anonymous@cvs.sourceforge.net:/cvsroot/iodbc co iodbc
+$ cvs -z3 -d:pserver:anonymous@iodbc.cvs.sourceforge.net:/cvsroot/iodbc co iODBC
 
 
 Package Dependencies

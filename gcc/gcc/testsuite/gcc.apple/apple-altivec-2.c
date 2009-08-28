@@ -4,7 +4,7 @@
 
 /* Program to test PowerPC AltiVec instructions.  */
 
-#include "../gcc.dg/altivec_check.h"
+#include "../gcc.target/powerpc/altivec_check.h"
 
 extern void abort (void);
 #define CHECK_IF(E) if(!(E)) abort()

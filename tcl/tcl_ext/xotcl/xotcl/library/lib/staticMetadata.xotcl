@@ -1,0 +1,82 @@
+package require xotcl::metadataAnalyzer
+package provide xotcl::staticMetadataAnalyzer 0.84
+package require XOTcl
+
+namespace eval ::xotcl::staticMetadataAnalyzer {
+  namespace import ::xotcl::*
+
+  @ @File {
+    description {
+      XOTcl file static analyzer for @ metadata. E.g. used for 
+      doumentation with xoDoc. I.e. allows for reading in a 
+      file and evaluating the metadata-related info only.
+    }
+  }
+
+  @ Class StaticMetadataAnalyzer -superclass MetadataAnalyzer {
+    description {
+      Metadata analyzer class that allows for reading in files
+      and  evaluation of the metadata content in the file.
+    }
+  }
+
+  Class StaticMetadataAnalyzer -superclass MetadataAnalyzer \
+      -parameter {{namespace ::}}
+  StaticMetadataAnalyzer instproc cmdsplit {cmd} {
+    # from Jeffrey's tkcon
+    set inc {}
+    set cmds {}
+    foreach cmd [split [string trimleft $cmd] \n] {
+      if {{} ne $inc } {
+	append inc \n$cmd
+      } else {
+	append inc [string trimleft $cmd]
+      }
+      if {[info complete $inc] && ![regexp {[^\\]\\$} $inc]} {
+	if {[regexp "^\[^#\]" $inc]} {lappend cmds $inc}
+	set inc {}
+      }
+    }
+    if {[regexp "^\[^#\]" $inc]} {lappend cmds $inc}
+    return $cmds
+  }
+  StaticMetadataAnalyzer instproc evaluateCommands {c} {
+    my instvar namespace
+    foreach command [my cmdsplit $c] {
+      #puts stderr "$command==========================="
+      if {[regexp "^ *:*@ " $command]} {
+	#puts stderr "$command==========================="
+	namespace eval $namespace $command
+      } elseif {[regexp "^ *package " $command]} {
+	#puts stderr "$command==========================="
+	namespace eval $namespace [list my handlePackage $command]
+      } elseif {[regexp "^ *namespace *eval *(\[^\{\]*) *\{(.*)\}\[^\}\]*$" $command _ namespace nsc]} {
+	#puts stderr "$command==========================="
+	namespace eval $namespace [list my evaluateCommands $nsc]
+      } 
+    }
+  }
+
+
+  @ StaticMetadataAnalyzer instproc analyzeFile {name "File name"} {
+    description "Analyze a file and build up a token structure for each metadata token in the file."
+  }
+  StaticMetadataAnalyzer instproc analyzeFile name {
+    my set cmd ""
+
+    set t [FileToken create [my autoname t]]  
+    $t set name $name
+    my set fileToken $t
+
+    set f [open $name r]
+    set c [read $f]
+    close $f
+    ::@ onOff 1
+    my evaluateCommands $c
+    ::@ onOff 0
+  }
+
+  namespace export StaticMetadataAnalyzer
+}
+
+namespace import ::xotcl::staticMetadataAnalyzer::*

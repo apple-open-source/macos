@@ -20,11 +20,6 @@ SYSCONFDIR=${SYSCONFDIR-@sysconfdir@}
 MT_REWIND
 MT_OFFLINE
 
-volno="`cat \"${VOLNO_FILE}\" 2> /dev/null`"
-if [ $? -ne 0 ]; then
-   volno=0
-fi
-
 # Get a list of people to whom to mail a request for changing the tape.
 # This egregious nightmare parses the output from GNU finger which shows
 # which users are logged into consoles (and thus in the office and capable
@@ -71,30 +66,30 @@ sendmail -oi -t << __EOF__
 From: `basename $0` (backup tape-changing reminder)
 To: ${recipients}
 Cc: ${ADMINISTRATOR}
-Subject: Backup needs new tape for volume ${volno}
+Subject: Backup needs new tape for volume ${TAR_VOLUME}
 Reply-To: ${ADMINISTRATOR}
 
 This is an automated report from the backup script running on 
 `hostname`. 
 
-Volume ${volno} of the backup needs to be put in the tape drive.  Usually
-whoever prepared the backup leaves labeled tapes on top of the drive
-itself.  If there aren't any more, information about where to find tapes
-and how to label them are posted on the wall by apple-gunkies (unhelpfully
-obscured by a bookshelf).  An online copy (which is probably more
-up-to-date) can also be found in ~friedman/etc/fsf/backup.how.
+Volume ${TAR_VOLUME} of the backup needs to be put in the tape drive.
+Usually whoever prepared the backup leaves labeled tapes on top of the
+drive itself.  If there aren't any more, information about where to find
+tapes and how to label them are posted on the wall by apple-gunkies
+(unhelpfully obscured by a bookshelf).  An online copy (which is probably
+more up-to-date) can also be found in ~friedman/etc/fsf/backup.how.
 __EOF__
 
 
-echo "Please put volume ${volno} in tape drive and press RETURN"
+echo "Please put volume ${TAR_VOLUME} in tape drive and press RETURN"
 read input
-echo "Writing volume ${volno}..."
+echo "Writing volume ${TAR_VOLUME}..."
 
 sendmail -oi -t << __EOF__
 From: `basename $0` (backup tape-changing reminder)
 To: ${recipients}
 Cc: ${ADMINISTRATOR}
-Subject: Volume ${volno} for backup has been added
+Subject: Volume ${TAR_VOLUME} for backup has been added
 Reply-To: ${ADMINISTRATOR}
 
 This is an automated report from the backup script running on 

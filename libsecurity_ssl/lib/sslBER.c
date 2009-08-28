@@ -32,10 +32,16 @@
 #include "sslDebug.h"
 #include "sslBER.h"
 #include "appleCdsa.h"
+#include "SecureTransportPriv.h"
 
 #include <string.h>
-//#include <security_asn1/SecNssCoder.h>
+#include <Security/SecAsn1Coder.h>
 #include <Security/keyTemplates.h>
+#include <security_asn1/nssUtils.h>
+#include <Security/oidsattr.h>
+#include <Security/oidsalg.h>
+
+/* we should get rid of this low level stuff and use SecAns1Coder throughout... */
 #include <security_asn1/secasn1.h>
 
 /*
@@ -216,5 +222,138 @@ OSStatus sslEncodeDhParams(
 
     PORT_FreeArena(pool, PR_TRUE);
     return srtn;
+}
+
+/* 
+ * Given an ECDSA key in CSSM format, extract the SSL_ECDSA_NamedCurve
+ * from its algorithm parameters. 
+ */
+OSStatus sslEcdsaPeerCurve(
+	CSSM_KEY_PTR pubKey,
+	SSL_ECDSA_NamedCurve *namedCurve)
+{
+	SecAsn1CoderRef coder = NULL;
+	CSSM_X509_SUBJECT_PUBLIC_KEY_INFO subjPubKeyInfo;
+	CSSM_X509_ALGORITHM_IDENTIFIER *algId = &subjPubKeyInfo.algorithm;
+	CSSM_OID curveOid;
+	OSStatus ortn;
+	
+	CSSM_KEYHEADER *hdr = &pubKey->KeyHeader;
+	if(hdr->AlgorithmId != CSSM_ALGID_ECDSA) {
+	   sslErrorLog("sslEcdsaPeerCurve: bad peer key algorithm\n");
+	   return errSSLProtocol;
+	}
+	if(hdr->BlobType != CSSM_KEYBLOB_RAW) {
+		/* No can do - this must be raw format, it came from the CL */
+	   sslErrorLog("sslEcdsaPeerCurve: bad peer key algorithm\n");
+	   return errSSLProtocol;
+	}
+	if(hdr->Format != CSSM_KEYBLOB_RAW_FORMAT_X509) {
+	   sslErrorLog("sslEcdsaPeerCurve: bad peer key format\n");
+	   return errSSLProtocol;
+	}
+	
+	/* KeyData is an encoded CSSM_X509_SUBJECT_PUBLIC_KEY_INFO */
+	ortn = SecAsn1CoderCreate(&coder);
+	if(ortn) {
+		return errSSLInternal;
+	}
+	/* subsequent errors to errOut: */
+	
+	memset(&subjPubKeyInfo, 0, sizeof(subjPubKeyInfo));
+	ortn = SecAsn1DecodeData(coder, &pubKey->KeyData, kSecAsn1SubjectPublicKeyInfoTemplate,
+		&subjPubKeyInfo);
+	if(ortn) {
+		printf("sslEcdsaPeerCurve: error decoding public key\n");
+		goto errOut;
+	}
+	
+	if(!nssCompareCssmData(&algId->algorithm, &CSSMOID_ecPublicKey)) {
+		printf("sslEcdsaPeerCurve: unexpected algorithm ID in public key\n");
+		ortn = errSSLProtocol;
+		goto errOut;
+	}
+	if((algId->parameters.Data[0] != BER_TAG_OID) ||
+	   (algId->parameters.Length < 2)) {
+		printf("sslEcdsaPeerCurve: missing algorithm parameters in public key\n");
+		ortn = errSSLProtocol;
+		goto errOut;
+	}
+	
+	/*
+	 * The curve OID is DER-encoded since the parameters are ASN_ANY.
+	 * Quickie decode for further processing...
+	 */
+	curveOid.Data = algId->parameters.Data + 2;
+	curveOid.Length = algId->parameters.Length - 2;
+
+	/* algId->parameters is the curve OID */
+	if(nssCompareCssmData(&curveOid, &CSSMOID_secp256r1)) {
+		*namedCurve = SSL_Curve_secp256r1;
+	}
+	else if(nssCompareCssmData(&curveOid, &CSSMOID_secp384r1)) {
+		*namedCurve = SSL_Curve_secp384r1;
+	}
+	else if(nssCompareCssmData(&curveOid, &CSSMOID_secp521r1)) {
+		*namedCurve = SSL_Curve_secp521r1;
+	}
+	/* Others? Later. That's all we support for now. */
+	else {
+		printf("sslEcdsaPeerCurve: missing algorithm parameters in public key\n");
+		ortn = errSSLProtocol;
+	}
+
+errOut:
+	SecAsn1CoderRelease(coder);
+	return ortn;
+}
+
+/*
+ * Given an ECDSA public key in X509 format, extract the raw public key
+ * bits in ECPOint format. 
+ */
+OSStatus sslEcdsaPubKeyBits(
+	CSSM_KEY_PTR	pubKey,
+	SSLBuffer		*pubBits)		/* data mallocd and RETURNED */
+{
+	SecAsn1CoderRef coder = NULL;
+	CSSM_X509_SUBJECT_PUBLIC_KEY_INFO subjPubKeyInfo;
+	OSStatus ortn = noErr;
+	
+	CSSM_KEYHEADER *hdr = &pubKey->KeyHeader;
+	if(hdr->AlgorithmId != CSSM_ALGID_ECDSA) {
+	   sslErrorLog("sslEcdsaPubKeyBits: bad peer key algorithm\n");
+	   return errSSLProtocol;
+	}
+	if(hdr->BlobType != CSSM_KEYBLOB_RAW) {
+		/* No can do - this must be raw format, it came from the CL */
+	   sslErrorLog("sslEcdsaPubKeyBits: bad peer key algorithm\n");
+	   return errSSLProtocol;
+	}
+	if(hdr->Format != CSSM_KEYBLOB_RAW_FORMAT_X509) {
+	   sslErrorLog("sslEcdsaPubKeyBits: bad peer key format\n");
+	   return errSSLProtocol;
+	}
+	
+	/* KeyData is an encoded CSSM_X509_SUBJECT_PUBLIC_KEY_INFO */
+	ortn = SecAsn1CoderCreate(&coder);
+	if(ortn) {
+		return errSSLInternal;
+	}
+	/* subsequent errors to errOut: */
+	
+	memset(&subjPubKeyInfo, 0, sizeof(subjPubKeyInfo));
+	ortn = SecAsn1DecodeData(coder, &pubKey->KeyData, kSecAsn1SubjectPublicKeyInfoTemplate,
+		&subjPubKeyInfo);
+	if(ortn) {
+		printf("sslEcdsaPubKeyBits: error decoding public key\n");
+		goto errOut;
+	}
+	/* that key data is a BITSTRING */
+	ortn = SSLCopyBufferFromData(subjPubKeyInfo.subjectPublicKey.Data,
+		subjPubKeyInfo.subjectPublicKey.Length >> 3, pubBits);
+errOut:
+	SecAsn1CoderRelease(coder);
+	return ortn;
 }
 

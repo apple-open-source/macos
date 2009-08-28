@@ -1,23 +1,22 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2000, 2002, 2007-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -589,7 +588,7 @@ static OSErr	InsertNode	(BTreeControlBlockPtr	 btreePtr,
 #if DEBUG_TREEOPS
 		if ( DoKeyCheck( tempNode->buffer, btreePtr ) != noErr )
 		{
-		plog( "\n%s - bad key order in node num %d: \n", __FUNCTION__ , nodeNum );
+			plog( "\n%s - bad key order in node num %d: \n", __FUNCTION__ , nodeNum );
 			PrintNodeDescriptor( tempNode->buffer );
 			err = fsBTBadRotateErr;
 			goto ErrorExit;
@@ -1060,14 +1059,14 @@ static OSStatus	RotateLeft		(BTreeControlBlockPtr		 btreePtr,
 #if DEBUG_TREEOPS
 	if ( DoKeyCheck( leftNode, btreePtr ) != noErr )
 	{
-	plog( "\n%s - bad key order in left node num %d: \n", __FUNCTION__ , rightNode->bLink );
+		plog( "\n%s - bad key order in left node num %d: \n", __FUNCTION__ , rightNode->bLink );
 		PrintNodeDescriptor( leftNode );
 		err = fsBTBadRotateErr;
 		goto ErrorExit;
 	}
 	if ( DoKeyCheck( rightNode, btreePtr ) != noErr )
 	{
-	plog( "\n%s - bad key order in left node num %d: \n", __FUNCTION__ , leftNode->fLink );
+		plog( "\n%s - bad key order in left node num %d: \n", __FUNCTION__ , leftNode->fLink );
 		PrintNodeDescriptor( rightNode );
 		err = fsBTBadRotateErr;
 		goto ErrorExit;
@@ -1281,7 +1280,7 @@ static OSStatus	AddNewRootNode	(BTreeControlBlockPtr	 btreePtr,
 #if DEBUG_TREEOPS
 	if ( DoKeyCheck( rootNode.buffer, btreePtr ) != noErr )
 	{
-	plog( "\n%s - bad key order in root node num %d: \n", __FUNCTION__ , rootNum );
+		plog( "\n%s - bad key order in root node num %d: \n", __FUNCTION__ , rootNum );
 		PrintNodeDescriptor( rootNode.buffer );
 		err = fsBTBadRotateErr;
 		goto ErrorExit;
@@ -1619,21 +1618,21 @@ static OSStatus	RotateRight		(BTreeControlBlockPtr		 btreePtr,
 #if DEBUG_TREEOPS
 	if ( DoKeyCheck( rightNodePtr, btreePtr ) != noErr )
 	{
-	plog( "\n%s - bad key order in right node num %d: \n", __FUNCTION__ , leftNodePtr->fLink);
+		plog( "\n%s - bad key order in right node num %d: \n", __FUNCTION__ , leftNodePtr->fLink);
 		PrintNodeDescriptor( rightNodePtr );
 		err = fsBTBadRotateErr;
 		goto ErrorExit;
 	}
 	if ( DoKeyCheck( leftNodePtr, btreePtr ) != noErr )
 	{
-	plog( "\n%s - bad key order in left node num %d: \n", __FUNCTION__ , rightNodePtr->bLink);
+		plog( "\n%s - bad key order in left node num %d: \n", __FUNCTION__ , rightNodePtr->bLink);
 		PrintNodeDescriptor( leftNodePtr );
 		err = fsBTBadRotateErr;
 		goto ErrorExit;
 	}
 	if ( DoKeyCheckAcrossNodes( leftNodePtr, rightNodePtr, btreePtr, false ) != noErr )
 	{
-	plog( "\n%s - bad key order across nodes left %d right %d: \n", 
+		plog( "\n%s - bad key order across nodes left %d right %d: \n", 
 			__FUNCTION__ , rightNodePtr->bLink, leftNodePtr->fLink );
 		PrintNodeDescriptor( leftNodePtr );
 		PrintNodeDescriptor( rightNodePtr );
@@ -1719,7 +1718,7 @@ static int	DoKeyCheckAcrossNodes( 	NodeDescPtr theLeftNodePtr,
 
 	if ( printKeys )
 	{
-	plog( "%s - left and right keys:\n", __FUNCTION__ );
+		plog( "%s - left and right keys:\n", __FUNCTION__ );
 		PrintKey( (UInt8 *) myLeftKeyPtr, myLeftKeyLen );
 		PrintKey( (UInt8 *) myRightKeyPtr, myRightKeyLen );
 	}
@@ -1783,7 +1782,7 @@ static int DoKeyCheck( NodeDescPtr nodeP, BTreeControlBlock *btcb )
 
 static void PrintNodeDescriptor( NodeDescPtr  thePtr )
 {
-plog( "    fLink %d bLink %d kind %d height %d numRecords %d \n",
+	plog( "    fLink %d bLink %d kind %d height %d numRecords %d \n",
 			thePtr->fLink, thePtr->bLink, thePtr->kind, thePtr->height, thePtr->numRecords );
 }
 
@@ -1794,9 +1793,9 @@ static void PrintKey( UInt8 *  myPtr, int mySize )
 	
 	for ( i = 0; i < mySize+2; i++ )
 	{
-	plog("%02X", *(myPtr + i) );
+		plog("%02X", *(myPtr + i) );
 	}
-plog("\n" );
+	plog("\n" );
 } /* PrintKey */
 
 

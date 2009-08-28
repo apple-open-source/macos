@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999 - 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,27 +31,27 @@
  * Dieter Siegmund (dieter@apple.com) Tue Jul 14 11:33:50 PDT 1998
  * - created
  */
-#import <sys/param.h>
-#import <sys/socket.h>
-#import <sys/mbuf.h>
-#import <net/if.h>
-#import <net/if_dl.h>
-#import <net/if_types.h>
-#import <net/route.h>
-#import <netinet/in.h>
-#import <sys/sysctl.h>
-#import <netdb.h>
-#import <stdio.h>
-#import <stdlib.h>
-#import <string.h>
-#import <unistd.h>
-#import <sys/cdefs.h>
-#import <sys/types.h>
-#import <sys/socket.h>
-#import <arpa/inet.h> /* has inet_ntoa, etc. */
+#include <sys/param.h>
+#include <sys/socket.h>
+#include <sys/mbuf.h>
+#include <net/if.h>
+#include <net/if_dl.h>
+#include <net/if_types.h>
+#include <net/route.h>
+#include <netinet/in.h>
+#include <sys/sysctl.h>
+#include <netdb.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/cdefs.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h> /* has inet_ntoa, etc. */
 
-#import "inetroute.h"
-#import "util.h"
+#include "inetroute.h"
+#include "util.h"
 
 #define INDEX_NONE	-1
 
@@ -130,8 +130,12 @@ inetroute_list_init()
 	    entry = list_p->list + list_p->count;
 	    bzero(entry, sizeof(*entry));
 	    entry->dest = dst_p->sin_addr;
-	    entry->mask = mask_p->sin_addr;
-	    if (dst_p->sin_addr.s_addr == htonl(INADDR_ANY)) {
+	    if (mask_p->sin_len != 0) {
+		entry->mask = mask_p->sin_addr;
+	    }
+	    /* remember the non-interface-scoped default route */
+	    if ((rtm->rtm_flags & RTF_IFSCOPE) == 0 
+		&& dst_p->sin_addr.s_addr == INADDR_ANY) {
 		list_p->def_index = list_p->count;
 	    }
 	    if (gateway->sa_family == AF_LINK) {
@@ -169,8 +173,14 @@ inetroute_list_free(inetroute_list_t * * list)
 struct in_addr *
 inetroute_default(inetroute_list_t * list_p)
 {
-    if (list_p->def_index != INDEX_NONE) {
-	return (&(list_p->list[list_p->def_index].gateway.inet.sin_addr));
+    inetroute_t * 	entry;
+    
+    if (list_p->def_index == INDEX_NONE) {
+	return (NULL);
+    }
+    entry = list_p->list + list_p->def_index;
+    if (entry->gateway.inet.sin_family == AF_INET) {
+	return (&(entry->gateway.inet.sin_addr));
     }
     return (NULL);
 }
@@ -182,18 +192,22 @@ inetroute_list_print(inetroute_list_t * list_p)
 
     for (i = 0; i < list_p->count; i++) {
 	inetroute_t * entry = list_p->list + i;
-	if (i == list_p->def_index) {
-	    printf("default: %s\n", inet_ntoa(entry->gateway.inet.sin_addr));
-	}
-	else {
+
+	if (entry->gateway.link.sdl_family == AF_LINK) {
 	    printf("%s ==> link %d\n", 
 		   inet_nettoa(entry->dest, entry->mask),
 		   entry->gateway.link.sdl_index);
 	}
+	else {
+	    printf("%s ==> %s\n", 
+		   inet_nettoa(entry->dest, entry->mask),
+		   inet_ntoa(entry->gateway.inet.sin_addr));
+	}
     }
 }
 
-#ifdef TESTING
+#ifdef TEST_INETROUTE
+int
 main()
 {
     inetroute_list_t *	list_p;
@@ -210,4 +224,4 @@ main()
     inetroute_list_free(&list_p);
     exit(0);
 }
-#endif
+#endif /* TEST_INETROUTE */

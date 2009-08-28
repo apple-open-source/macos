@@ -1,5 +1,5 @@
 .\"
-.\" "$Id: cupsd.conf.man.in 7648 2008-06-16 17:41:11Z mike $"
+.\" "$Id: cupsd.conf.man.in 7935 2008-09-11 01:54:11Z mike $"
 .\"
 .\"   cupsd.conf man page for the Common UNIX Printing System (CUPS).
 .\"
@@ -12,7 +12,7 @@
 .\"   which should have been included with this file.  If this file is
 .\"   file is missing or damaged, see the license at "http://www.cups.org/".
 .\"
-.TH cupsd.conf 5 "Common UNIX Printing System" "23 January 2009" "Apple Inc."
+.TH cupsd.conf 5 "CUPS" "19 April 2009" "Apple Inc."
 .SH NAME
 cupsd.conf \- server configuration file for cups
 .SH DESCRIPTION
@@ -32,6 +32,14 @@ AccessLog filename
 AccessLog syslog
 .br
 Defines the access log filename.
+.TP 5
+AccessLogLevel config
+.TP 5
+AccessLogLevel actions
+.TP 5
+AccessLogLevel all
+.br
+Specifies the logging level for the AccessLog file.
 .TP 5
 Allow all
 .TP 5
@@ -138,6 +146,26 @@ BrowseInterval seconds
 .br
 Specifies the maximum interval between printer information broadcasts.
 .TP 5
+BrowseLDAPBindDN
+.br
+Specifies the LDAP domain name to use when registering printers.
+.TP 5
+BrowseLDAPCACertFile
+.br
+Specifies the SSL certificate authority file to use.
+.TP 5
+BrowseLDAPDN
+.br
+Specifies the LDAP domain name to use when discovering printers.
+.TP 5
+BrowseLDAPPassword
+.br
+Specifies the password to use when accessing the LDAP server.
+.TP 5
+BrowseLDAPServer
+.br
+Specifies the LDAP server to use.
+.TP 5
 BrowseOrder allow,deny
 .TP 5
 BrowseOrder deny,allow
@@ -182,6 +210,12 @@ BrowseTimeout seconds
 Specifies the maximum interval between printer information updates before
 remote printers will be removed from the list of available printers.
 .TP 5
+BrowseWebIF Yes
+.TP 5
+BrowseWebIF No
+.br
+Specifies whether the CUPS web interface is advertised via DNS-SD.
+.TP 5
 Browsing Yes
 .TP 5
 Browsing No
@@ -222,9 +256,26 @@ DefaultCharset charset
 .br
 Specifies the default character set to use for text.
 .TP 5
+DefaultEncryption Never
+.TP 5
+DefaultEncryption IfRequested
+.TP 5
+DefaultEncryption Required
+.br
+Specifies the type of encryption to use for authenticated requests.
+.TP 5
 DefaultLanguage locale
 .br
 Specifies the default language to use for text and web content.
+.TP 5
+DefaultPaperSize Auto
+.TP 5
+DefaultPaperSize None
+.TP 5
+DefaultPaperSize sizename
+.br
+Specifies the default paper size for new print queues. "Auto" uses a locale-
+specific default, while "None" specifies there is no default paper size.
 .TP 5
 DefaultPolicy policy-name
 .br
@@ -274,6 +325,15 @@ ErrorLog filename
 ErrorLog syslog
 .br
 Specifies the error log filename.
+.TP 5
+FatalErrors none
+.TP 5
+FatalErrors all -kind [... -kind]
+.TP 5
+FatalErrors kind [... kind]
+.br
+Specifies which errors are fatal, causing the scheduler to exit. "Kind" is
+"browse", "config", "listen", "log", or "permissions".
 .TP 5
 FileDevice Yes
 .TP 5
@@ -333,6 +393,11 @@ Include filename
 .br
 Includes the named file.
 .TP 5
+JobKillDelay seconds
+.br
+Specifies the number of seconds to wait before killing the filters and backend
+associated with a canceled or held job.
+.TP 5
 JobRetryInterval seconds
 .br
 Specifies the interval between retries of jobs in seconds.
@@ -350,10 +415,6 @@ Specifies whether to support HTTP keep-alive connections.
 KeepAliveTimeout seconds
 .br
 Specifies the amount of time that connections are kept alive.
-.TP 5
-Krb5Keytab filename
-.br
-Overrides the Kerberos key tab location.
 .TP 5
 <Limit operations> ... </Limit>
 .br
@@ -381,6 +442,11 @@ Listens to the specified address and port or domain socket path.
 .br
 Specifies access control for the named location.
 .TP 5
+LogDebugHistory #-messages
+.br
+Specifies the number of debugging messages that are logged when an error
+occurs in a print job.
+.TP 5
 LogFilePerm mode
 .br
 Specifies the permissions for all log files that the scheduler writes.
@@ -406,6 +472,12 @@ LogLevel notice
 LogLevel warn
 .br
 Specifies the logging level for the ErrorLog file.
+.TP 5
+LogTimeFormat standard
+.TP 5
+LogTimeFormat usecs
+.br
+Specifies the format of the date and time in the log files.
 .TP 5
 MaxClients number
 .br
@@ -441,6 +513,11 @@ MaxRequestSize number-bytes
 .br
 Specifies the maximum request/file size in bytes (0 for no limit)
 .TP 5
+MultipleOperationTimeout seconds
+.br
+Specifies the maximum amount of time to allow between files in a multiple file
+print job.
+.TP 5
 Order allow,deny
 .TP 5
 Order deny,allow
@@ -452,6 +529,10 @@ PageLog filename
 PageLog syslog
 .br
 Specifies the page log filename.
+.TP 5
+PageLogFormat format string
+.br
+Specifies the format of page log lines.
 .TP 5
 PassEnv variable [... variable]
 .br
@@ -488,6 +569,8 @@ legacy applications); specifying Printcap with no filename
 disables printcap generation.
 .TP 5
 PrintcapFormat bsd
+.TP 5
+PrintcapFormat plist
 .TP 5
 PrintcapFormat solaris
 .br
@@ -542,7 +625,8 @@ Specifies the email address of the server administrator.
 .TP 5
 ServerAlias hostname
 .br
-Specifies an alternate name that the server is known by.
+Specifies an alternate name that the server is known by. The special name "*"
+allows any name to be used.
 .TP 5
 ServerBin directory
 .br
@@ -590,6 +674,12 @@ SSLListen
 .br
 Listens on the specified address and port for encrypted connections.
 .TP 5
+SSLOptions None
+.TP 5
+SSLOptions NoEmptyFragments
+.br
+Sets SSL/TLS protocol options for encrypted connections.
+.TP 5
 SSLPort
 .br
 Listens on the specified port for encrypted connections.
@@ -618,5 +708,5 @@ http://localhost:631/help
 .SH COPYRIGHT
 Copyright 2007-2009 by Apple Inc.
 .\"
-.\" End of "$Id: cupsd.conf.man.in 7648 2008-06-16 17:41:11Z mike $".
+.\" End of "$Id: cupsd.conf.man.in 7935 2008-09-11 01:54:11Z mike $".
 .\"

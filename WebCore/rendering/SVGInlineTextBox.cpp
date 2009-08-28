@@ -38,8 +38,6 @@
 
 #include <float.h>
 
-using std::max;
-
 namespace WebCore {
 
 SVGInlineTextBox::SVGInlineTextBox(RenderObject* obj)

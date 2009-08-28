@@ -98,6 +98,7 @@
 		A68335ED0D450E6600307FE3 /* IONDRVSupport.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 221BC4EA00BB072011CA2A5F /* IONDRVSupport.h */; };
 		A68335EF0D450E6600307FE3 /* IOMacOSTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 221BC4E700BB072011CA2A5F /* IOMacOSTypes.h */; };
 		A68335F00D450E6600307FE3 /* IOMacOSVideo.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 221BC4E800BB072011CA2A5F /* IOMacOSVideo.h */; };
+		A69F8E8B0E67873A00581528 /* IONDRVLibraries.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = A69F8E8A0E67871700581528 /* IONDRVLibraries.h */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -239,6 +240,7 @@
 				A68335EB0D450E6600307FE3 /* IOMacOSVideo.h in CopyFiles */,
 				A68335EC0D450E6600307FE3 /* IONDRVFramebuffer.h in CopyFiles */,
 				A68335ED0D450E6600307FE3 /* IONDRVSupport.h in CopyFiles */,
+				A69F8E8B0E67873A00581528 /* IONDRVLibraries.h in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -284,8 +286,8 @@
 		03E63E0301BD474F03CA2A5F /* IOI2CInterface.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOI2CInterface.h; sourceTree = "<group>"; };
 		03E63E0401BD474F03CA2A5F /* IOI2CInterfacePrivate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOI2CInterfacePrivate.h; sourceTree = "<group>"; };
 		03F3AC4601BD482403CA2A5F /* IOI2CInterface.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOI2CInterface.cpp; sourceTree = "<group>"; };
-		03F3AC4701BD482403CA2A5F /* IONDRVI2CInterface.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = file; path = IONDRVI2CInterface.cpp; sourceTree = "<group>"; };
-		03F3AC4801BD482403CA2A5F /* IONDRVI2CInterface.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = file; path = IONDRVI2CInterface.h; sourceTree = "<group>"; };
+		03F3AC4701BD482403CA2A5F /* IONDRVI2CInterface.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IONDRVI2CInterface.cpp; sourceTree = "<group>"; };
+		03F3AC4801BD482403CA2A5F /* IONDRVI2CInterface.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IONDRVI2CInterface.h; sourceTree = "<group>"; };
 		16E5BDFC00BEE42611CA2A5F /* IOGraphicsInterface.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOGraphicsInterface.h; sourceTree = "<group>"; };
 		16E5BDFD00BEE42611CA2A5F /* IOGraphicsInterfaceTypes.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOGraphicsInterfaceTypes.h; sourceTree = "<group>"; };
 		221BC4E700BB072011CA2A5F /* IOMacOSTypes.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOMacOSTypes.h; sourceTree = "<group>"; };
@@ -302,11 +304,12 @@
 		221BC4F300BB072011CA2A5F /* IOPEFLoader.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = IOPEFLoader.c; sourceTree = "<group>"; };
 		221BC4F400BB072011CA2A5F /* IOPEFLoader.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOPEFLoader.h; sourceTree = "<group>"; };
 		A68335990D450E6600307FE3 /* Info-IOGraphicsFamily.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOGraphicsFamily.plist"; sourceTree = "<group>"; };
-		A683359A0D450E6600307FE3 /* IOGraphicsFamily.kext */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.kernel-extension"; path = IOGraphicsFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		A683359A0D450E6600307FE3 /* IOGraphicsFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOGraphicsFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		A68335B30D450E6600307FE3 /* Info-IONDRVSupport.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IONDRVSupport.plist"; sourceTree = "<group>"; };
-		A68335B40D450E6600307FE3 /* IONDRVSupport.kext */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.kernel-extension"; path = IONDRVSupport.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		A68335B40D450E6600307FE3 /* IONDRVSupport.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IONDRVSupport.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		A68335E20D450E6600307FE3 /* Headers */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Headers; sourceTree = BUILT_PRODUCTS_DIR; };
 		A68335F50D450E6600307FE3 /* IONDRVSupport Headers */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "IONDRVSupport Headers"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A69F8E8A0E67871700581528 /* IONDRVLibraries.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IONDRVLibraries.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -444,6 +447,7 @@
 				221BC4E800BB072011CA2A5F /* IOMacOSVideo.h */,
 				221BC4E900BB072011CA2A5F /* IONDRVFramebuffer.h */,
 				221BC4EA00BB072011CA2A5F /* IONDRVSupport.h */,
+				A69F8E8A0E67871700581528 /* IONDRVLibraries.h */,
 			);
 			path = ndrvsupport;
 			sourceTree = "<group>";
@@ -754,7 +758,6 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";

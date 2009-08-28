@@ -1,0 +1,34 @@
+Vitajte v konferencii %(real_name)s@%(host_name)s!
+%(welcome)s
+Príspevky posielajte na adresu:
+
+  %(emailaddr)s
+
+Všeobecné informácie o konferencii nájdete na stránke:
+
+  %(listinfo_url)s
+
+Ak sa budete chcieť odhlásiť alebo zmeniť Vaše nastavenia (napr.
+zmeniť heslo, súhrnné správy a pod.), navštívte stránku s Vašími
+osobnými nastaveniami na stránke:
+
+  %(optionsurl)s
+%(umbrella)s
+Nastavenia môžete upravovať aj pomocou elektronickej pošty. Zašlite
+správu na adresu:
+
+  %(real_name)s-request@%(host_name)s
+
+so slovom `help' v predmete (Subject:) alebo tele správy a bude Vám
+zaslaná správa s podrobnými vysvetlivkami.
+
+Na zmenu nastavení alebo na odhlásenie budete musieť zadať heslo.
+Vaše aktuálne heslo je:
+
+  %(password)s
+
+Mailman Vám bude každý mesiac posielať správu obsahujúcu heslá do
+konferencií, pokiaľ to nevypnete vo Vaších nastaveniach. Pripomienka
+bude obsahovať aj návod ako sa odhlásiť alebo zmeniť nastavenia. Na
+stránke s Vašími osobnými nastaveniami je tlačidlo, ktorým si môžete
+dať kedykoľvek zaslať heslo e-mailom.

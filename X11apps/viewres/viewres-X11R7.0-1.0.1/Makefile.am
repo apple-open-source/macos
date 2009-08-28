@@ -36,7 +36,7 @@ appdefaultdir = @appdefaultdir@
 
 
 APPDEFAULTFILES = \
-        Viewres
+        app-defaults/Viewres
 
 SUFFIXES = .ad 
 

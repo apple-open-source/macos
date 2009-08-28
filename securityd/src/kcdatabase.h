@@ -32,6 +32,7 @@
 #define _H_KCDATABASE
 
 #include "localdatabase.h"
+#include <securityd_client/ss_types.h>
 
 class KeychainDatabase;
 class KeychainDbCommon;
@@ -117,6 +118,8 @@ public:
 
 	void sleepProcessing();
 	void lockProcessing();
+	
+	bool belongsToSystem() const;
 
 public:
     // debugging
@@ -156,8 +159,9 @@ public:
         const AccessCredentials *cred, const AclEntryPrototype *owner);
 	KeychainDatabase(const DLDbIdentifier &id, const DbBlob *blob, Process &proc,
         const AccessCredentials *cred);
-	// keychain synchronization
-	KeychainDatabase(KeychainDatabase &src, Process &proc, const DbBlob *secretsBlob, const CssmData &agentData);
+	
+	// keychain synchronization recode to a specfic blob:
+	KeychainDatabase(KeychainDatabase &src, Process &proc, DbHandle dbToClone);
 	virtual ~KeychainDatabase();
 
 	KeychainDbCommon &common() const;

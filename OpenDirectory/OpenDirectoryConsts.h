@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2005-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,6 +26,6 @@
 
 #warning This header will be removed, you should not be including this header
 
-#include <CFOpenDirectory/CFOpenDirectoryConsts.h>
+#include <CFOpenDirectory/CFOpenDirectoryConstants.h>
 
 #endif

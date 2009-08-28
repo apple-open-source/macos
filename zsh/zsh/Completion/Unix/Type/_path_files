@@ -6,8 +6,10 @@
 local linepath realpath donepath prepath testpath exppath skips skipped
 local tmp1 tmp2 tmp3 tmp4 i orig eorig pre suf tpre tsuf opre osuf cpre
 local pats haspats ignore pfx pfxsfx sopt gopt opt sdirs ignpar cfopt listsfx
-local nm=$compstate[nmatches] menu matcher mopts sort match mid accex fake
-local listfiles listopts tmpdisp
+local nm=$compstate[nmatches] menu matcher mopts sort mid accex fake
+local listfiles listopts tmpdisp origtmp1 Uopt
+integer npathcheck
+local -a match mbegin mend Mopts
 
 typeset -U prepaths exppaths
 
@@ -101,7 +103,16 @@ if (( $#ignore )); then
   (( $mopts[(I)-F] )) || mopts=( "$mopts[@]" -F _comp_ignore )
 fi
 
-(( $#matcher )) && mopts=( "$mopts[@]" "$matcher[@]" )
+if [[ $#matcher -eq 0 && -o nocaseglob ]]; then
+  # If globbing is case insensitive and there's no matcher,
+  # do case-insensitive matching.
+  matcher=( -M 'm:{a-zA-Z}={A-Za-z}' )
+fi
+
+if (( $#matcher )); then
+  # Add the current matcher to the options to compadd.
+  mopts=( "$mopts[@]" "$matcher[@]" )
+fi
 
 if zstyle -s ":completion:${curcontext}:" file-sort tmp1; then
   case "$tmp1" in
@@ -113,6 +124,7 @@ if zstyle -s ":completion:${curcontext}:" file-sort tmp1; then
   *)                  sort=on;;
   esac
   [[ "$tmp1" = *rev* ]] && sort[1]=O
+  [[ "$tmp1" = *follow* ]] && sort="-${sort}-"
 
   if [[ "$sort" = on ]]; then
     sort=
@@ -197,7 +209,12 @@ eorig="$orig"
 [[ $compstate[insert] = (*menu|[0-9]*) || -n "$_comp_correct" ||
    ( -n "$compstate[pattern_match]" &&
      "${orig#\~}" != (|*[^\\])[][*?#~^\|\<\>]* ) ]] && menu=yes
-[[ -n "$_comp_correct" ]] && cfopt=-
+if [[ -n "$_comp_correct" ]]; then
+    cfopt=-
+    Uopt=-U
+else
+    Mopts=(-M "r:|/=* r:|=*")
+fi
 
 # Now let's have a closer look at the string to complete.
 
@@ -308,6 +325,29 @@ for prepath in "$prepaths[@]"; do
 
   skipped=
   cpre=
+
+  if zstyle -t ":completion:${curcontext}:paths" accept-exact-dirs &&
+    [[ $pre = (#b)(*)/([^/]#) ]]; then
+    # We've been told that we can accept an exact directory
+    # prefix immediately.  Try this with the longest path prefix
+    # first:  this saves stats in the simple case and may get around
+    # automount behaviour if early components don't yet exist.
+    tmp1=$match[1]
+    tpre=$match[2]
+    while true; do
+      if [[ -d $donepath$tmp1 ]]; then
+	donepath=$donepath$tmp1/
+	pre=$tpre
+	break
+      elif [[ $tmp1 = (#b)(*)/([^/]#) ]]; then
+	tmp1=$match[1]
+	tpre=$match[2]/$tpre
+      else
+	break
+      fi
+    done
+  fi
+
   tpre="$pre"
   tsuf="$suf"
   testpath="$donepath"
@@ -317,8 +357,11 @@ for prepath in "$prepaths[@]"; do
 
   tmp1=( "$prepath$realpath$donepath$tmp2" )
 
+  # count of attemps for pws non-canonical hack
+  (( npathcheck = 0 ))
   while true; do
 
+    origtmp1=("${tmp1[@]}")
     # Get the prefix and suffix for matching.
 
     if [[ "$tpre" = */* ]]; then
@@ -340,7 +383,19 @@ for prepath in "$prepaths[@]"; do
 
     tmp2=( "$tmp1[@]" )
 
-    if [[ "$tpre$tsuf" = */* ]]; then
+    # Look for glob qualifiers.
+    # Extra nastiness to be careful about a quoted parenthesis.
+    # The initial tests look for parentheses with zero or an
+    # even number of backslashes in front.
+    # The later test looks for an outstanding quote.
+    if [[ ( -o bareglobqual && \
+	      "$tpre/$tsuf" = (#b)((*[^\\]|)(\\\\)#\()([^\)]#) || \
+            -o extendedglob && \
+		"$tpre/$tsuf" = (#b)((*[^\\]|)(\\\\)#"(#q")([^\)]#) \
+	  ) && -z $compstate[quote] ]]; then
+       compset -p ${#match[1]}
+       _globquals
+    elif [[ "$tpre$tsuf" = */* ]]; then
       compfiles -P$cfopt tmp1 accex "$skipped" "$_matcher $matcher[2]" "$sdirs" fake
     elif [[ "$sopt" = *[/f]* ]]; then
       compfiles -p$cfopt tmp1 accex "$skipped" "$_matcher $matcher[2]" "$sdirs" fake "$pats[@]"
@@ -357,19 +412,30 @@ for prepath in "$prepaths[@]"; do
       # something to match by explicit name.  This is for
       # `clever' filing systems where names pop into existence
       # when referenced.
-      if (( ! $#tmp1 )); then
-	  for tmp3 in "$tmp2[@]"; do
-	      if [[ -n $tmp3 && $tmp3 != */ ]]; then
-		  tmp3+=/
-	      fi
-	      if [[ -e "$tmp3${(Q)PREFIX}${(Q)SUFFIX}" ]] then
-		  tmp1+=("$tmp3${(Q)PREFIX}${(Q)SUFFIX}")
-	      fi
-	  done
+      #
+      # As suggested by Bart, to make sure the "compfiles" checks
+      # still work we repeat the tests above if we successfully
+      # find something that might need adding, but we make sure
+      # we only do this once for completion of each path segment.
+      if (( ! $#tmp1 && npathcheck == 0 )); then
+	(( npathcheck = 1 ))
+	for tmp3 in "$tmp2[@]"; do
+	  if [[ -n $tmp3 && $tmp3 != */ ]]; then
+	    tmp3+=/
+	  fi
+	  if [[ -e "$tmp3${(Q)PREFIX}${(Q)SUFFIX}" ]] then
+	    (( npathcheck = 2 ))
+	  fi
+	done
+	if (( npathcheck == 2 )); then
+	  # repeat loop with same arguments
+	  tmp1=("$origtmp1[@]")
+	  continue
+	fi
       fi
 
       if (( ! $#tmp1 )); then
-        tmp2=( ${^tmp2}/$PREFIX$SUFFIX )
+        tmp2=( ${^${tmp2:#/}}/$PREFIX$SUFFIX )
       elif [[ "$tmp1[1]" = */* ]]; then
         if [[ -n "$_comp_correct" ]]; then
           tmp2=( "$tmp1[@]" )
@@ -472,6 +538,7 @@ for prepath in "$prepaths[@]"; do
     else
       skipped=/
     fi
+    (( npathcheck = 0 ))
   done
 
   # The next loop searches the first ambiguous component.
@@ -550,35 +617,41 @@ for prepath in "$prepaths[@]"; do
 	    # back up the path.
 	    tmp1=("${(@)tmp1%%/*}")
 	    _list_files tmp1 "$prepath$realpath$testpath"
-	    compadd -Qf "$mopts[@]" -p "$linepath$tmp2" -s "/${tmp3#*/}" \
+	    compadd $Uopt -Qf "$mopts[@]" \
+                    -p "${Uopt:+$IPREFIX}$linepath$tmp2" \
+	            -s "/${tmp3#*/}${Uopt:+$ISUFFIX}" \
 	            -W "$prepath$realpath$testpath" \
-		    "$pfxsfx[@]" -M "r:|/=* r:|=*" \
+		    "$pfxsfx[@]" $Mopts \
 		    $listopts \
 	            -a tmp1
           else
 	    # Same with a non-empty suffix
 	    tmp1=("${(@)^tmp1%%/*}/${tmp3#*/}")
 	    _list_files tmp1 "$prepath$realpath$testpath"
-	    compadd -Qf "$mopts[@]" -p "$linepath$tmp2" \
+	    compadd $Uopt -Qf "$mopts[@]" \
+                    -p "${Uopt:+$IPREFIX}$linepath$tmp2" \
+	            -s "${Uopt:+$ISUFFIX}" \
 	            -W "$prepath$realpath$testpath" \
-		    "$pfxsfx[@]" -M "r:|/=* r:|=*" \
+		    "$pfxsfx[@]" $Mopts \
 	            $listopts \
 		    -a tmp1
           fi
 	else
 	  _list_files tmp1 "$prepath$realpath$testpath"
-	  compadd -Qf "$mopts[@]" -p "$linepath$tmp2" \
+	  compadd $Uopt -Qf "$mopts[@]" -p "${Uopt:+$IPREFIX}$linepath$tmp2" \
+	          -s "${Uopt:+$ISUFFIX}" \
 	          -W "$prepath$realpath$testpath" \
-		   "$pfxsfx[@]" -M "r:|/=* r:|=*" \
+		   "$pfxsfx[@]" $Mopts \
 	           $listopts \
 		   -a tmp1
 	fi
       else
 	# We are inserting the match into the command line.
         if [[ "$tmp3" = */* ]]; then
-	  tmp4=( -Qf "$mopts[@]" -p "$linepath$tmp2"
+	  tmp4=( $Uopt -Qf "$mopts[@]" -p "${Uopt:+$IPREFIX}$linepath$tmp2"
+	         -s "${Uopt:+$ISUFFIX}"
 	         -W "$prepath$realpath$testpath"
-	         "$pfxsfx[@]" -M "r:|/=* r:|=*" )
+	         "$pfxsfx[@]" $Mopts )
 	  if [[ -z "$listsfx" ]]; then
             for i in "$tmp1[@]"; do
 	      tmpdisp=("${i%%/*}")
@@ -595,9 +668,10 @@ for prepath in "$prepaths[@]"; do
           fi
         else
 	  _list_files tmp1 "$prepath$realpath$testpath"
-	  compadd -Qf "$mopts[@]" -p "$linepath$tmp2" \
+	  compadd $Uopt -Qf "$mopts[@]" -p "${Uopt:+$IPREFIX}$linepath$tmp2" \
+	          -s "${Uopt:+$ISUFFIX}" \
                   -W "$prepath$realpath$testpath" \
-		  "$pfxsfx[@]" -M "r:|/=* r:|=*" \
+		  "$pfxsfx[@]" $Mopts \
                   $listopts \
 		  -a tmp1
         fi
@@ -663,9 +737,10 @@ for prepath in "$prepaths[@]"; do
       compquote tmp4 tmp2 tmp1
       for i in "$tmp1[@]"; do
 	_list_files tmp2 "$prepath$realpath${mid%/*/}"
-        compadd -Qf "$mopts[@]" -p "$linepath$tmp3/" -s "/$tmp4$i" \
+        compadd $Uopt -Qf "$mopts[@]" -p "${Uopt:+$IPREFIX}$linepath$tmp3/" \
+	        -s "/$tmp4$i${Uopt:+$ISUFFIX}" \
                 -W "$prepath$realpath${mid%/*/}/" \
-	        "$pfxsfx[@]" -M "r:|/=* r:|=*" $listopts - "$tmp2"
+	        "$pfxsfx[@]" $Mopts $listopts - "$tmp2"
       done
     else
       if [[ "$osuf" = */* ]]; then
@@ -693,8 +768,10 @@ for prepath in "$prepaths[@]"; do
       else
 	# Not a pattern match
 	_list_files tmp1 "$prepath$realpath$testpath"
-        compadd -Qf -p "$linepath$tmp4" -W "$prepath$realpath$testpath" \
-	        "$pfxsfx[@]" "$mopts[@]" -M "r:|/=* r:|=*" $listopts -a tmp1
+        compadd $Uopt -Qf -p "${Uopt:+$IPREFIX}$linepath$tmp4" \
+	        -s "${Uopt:+$ISUFFIX}" \
+	        -W "$prepath$realpath$testpath" \
+	        "$pfxsfx[@]" "$mopts[@]" $Mopts $listopts -a tmp1
       fi
     fi
   fi

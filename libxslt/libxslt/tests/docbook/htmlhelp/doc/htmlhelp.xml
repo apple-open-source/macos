@@ -11,7 +11,7 @@
 <year>2001</year>
 <holder>Ji&rcaron;&iacute; Kosek</holder>
 </copyright>
-<releaseinfo>$Id: htmlhelp.xml,v 1.1 2001/06/23 17:06:43 veillard Exp $</releaseinfo>
+<releaseinfo>$Id$</releaseinfo>
 </chapterinfo>
 <title>Using XSL stylesheets to generate HTML Help</title>
 <?dbhtml filename="htmlhelp.html"?>

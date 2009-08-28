@@ -1,5 +1,5 @@
 NAME = SVK
-VERSION = v2.0.1
+VERSION = v2.2.1
 
 include ../Makefile.inc
 

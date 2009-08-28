@@ -1,4 +1,6 @@
-/* { dg-do run { target *-*-linux* powerpc*-*-darwin* } } */
+/* APPLE LOCAL begin mainline 4.3 2007-06-14 */ \
+/* { dg-do run { target hppa*-*-hpux* *-*-linux* powerpc*-*-darwin* *-*-darwin[912]*} } */
+/* APPLE LOCAL end mainline 4.3 2007-06-14 */ \
 /* { dg-options "-fexceptions -fnon-call-exceptions -O2" } */
 /* Verify that cleanups work with exception handling through realtime signal
    frames on alternate stack.  */
@@ -7,6 +9,7 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <unistd.h>
+#include <string.h>
 
 static _Unwind_Reason_Code
 force_unwind_stop (int version, _Unwind_Action actions,
@@ -23,7 +26,7 @@ force_unwind_stop (int version, _Unwind_Action actions,
 static void force_unwind ()
 {
   struct _Unwind_Exception *exc = malloc (sizeof (*exc));
-  exc->exception_class = 0;
+  memset (&exc->exception_class, 0, sizeof (exc->exception_class));
   exc->exception_cleanup = 0;
                    
 #ifndef __USING_SJLJ_EXCEPTIONS__

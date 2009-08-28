@@ -1,7 +1,7 @@
 /*
  * rlm_chap.c
  *
- * Version:  $Id: rlm_chap.c,v 1.7.4.1 2006/11/15 17:35:20 aland Exp $
+ * Version:  $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,9 +15,9 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2001  The FreeRADIUS server project
+ * Copyright 2001,2006  The FreeRADIUS server project
  * Copyright 2001  Kostas Kalevras <kkalev@noc.ntua.gr>
  *
  * Nov 03 2001, Kostas Kalevras <kkalev@noc.ntua.gr>
@@ -25,18 +25,11 @@
  * - Added module messages when rejecting user
  */
 
-#include "autoconf.h"
-#include "libradius.h"
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include "radiusd.h"
-#include "modules.h"
-#include "conffile.h"
-
-static const char rcsid[] = "$Id: rlm_chap.c,v 1.7.4.1 2006/11/15 17:35:20 aland Exp $";
+#include <freeradius-devel/radiusd.h>
+#include <freeradius-devel/modules.h>
 
 static int chap_authorize(void *instance, REQUEST *request)
 {
@@ -45,17 +38,16 @@ static int chap_authorize(void *instance, REQUEST *request)
 	instance = instance;
 	request = request;
 
-	if (!request->password ||
-	    request->password->attribute != PW_CHAP_PASSWORD) {
+	if (!pairfind(request->packet->vps, PW_CHAP_PASSWORD)) {
 		return RLM_MODULE_NOOP;
 	}
 
 	if (pairfind(request->config_items, PW_AUTHTYPE) != NULL) {
-		DEBUG2("  rlm_chap: WARNING: Auth-Type already set.  Not setting to CHAP");
+		RDEBUG2("WARNING: Auth-Type already set.  Not setting to CHAP");
 		return RLM_MODULE_NOOP;
 	}
 
-	DEBUG("  rlm_chap: Setting 'Auth-Type := CHAP'");
+	RDEBUG("Setting 'Auth-Type := CHAP'");
 	pairadd(&request->config_items,
 		pairmake("Auth-Type", "CHAP", T_OP_EQ));
 	return RLM_MODULE_OK;
@@ -70,8 +62,8 @@ static int chap_authorize(void *instance, REQUEST *request)
  */
 static int chap_authenticate(void *instance, REQUEST *request)
 {
-	VALUE_PAIR *passwd_item;
-	char pass_str[MAX_STRING_LEN];
+	VALUE_PAIR *passwd_item, *chap;
+	uint8_t pass_str[MAX_STRING_LEN];
 	VALUE_PAIR *module_fmsg_vp;
 	char module_fmsg[MAX_STRING_LEN];
 
@@ -80,53 +72,61 @@ static int chap_authenticate(void *instance, REQUEST *request)
 	request = request;
 
 	if (!request->username) {
-		radlog(L_AUTH, "rlm_chap: Attribute \"User-Name\" is required for authentication.\n");
+		radlog_request(L_AUTH, 0, request, "rlm_chap: Attribute \"User-Name\" is required for authentication.\n");
 		return RLM_MODULE_INVALID;
 	}
 
-	if (!request->password) {
-		radlog(L_AUTH, "rlm_chap: Attribute \"CHAP-Password\" is required for authentication.");
+	chap = pairfind(request->packet->vps, PW_CHAP_PASSWORD);
+	if (!chap) {
+		radlog_request(L_AUTH, 0, request, "rlm_chap: Attribute \"CHAP-Password\" is required for authentication.");
 		return RLM_MODULE_INVALID;
 	}
 
-	if (request->password->attribute != PW_CHAP_PASSWORD) {
-		radlog(L_AUTH, "rlm_chap: Attribute \"CHAP-Password\" is required for authentication. Cannot use \"%s\".", request->password->name);
+	if (chap->length == 0) {
+		radlog_request(L_ERR, 0, request, "rlm_chap: empty password supplied");
 		return RLM_MODULE_INVALID;
 	}
 
-	if (request->password->length == 0) {
-		radlog(L_ERR, "rlm_chap: empty password supplied");
+	if (chap->length != CHAP_VALUE_LENGTH + 1) {
+		radlog_request(L_ERR, 0, request, "rlm_chap: password supplied has wrong length");
 		return RLM_MODULE_INVALID;
 	}
 
 	/*
 	 *	Don't print out the CHAP password here.  It's binary crap.
 	 */
-	DEBUG("  rlm_chap: login attempt by \"%s\" with CHAP password",
-		request->username->strvalue);
+	RDEBUG("login attempt by \"%s\" with CHAP password",
+		request->username->vp_strvalue);
 
-	if ((passwd_item = pairfind(request->config_items, PW_PASSWORD)) == NULL){
-		DEBUG("  rlm_chap: Could not find clear text password for user %s",request->username->strvalue);
-		snprintf(module_fmsg,sizeof(module_fmsg),"rlm_chap: Clear text password not available");
-		module_fmsg_vp = pairmake("Module-Failure-Message", module_fmsg, T_OP_EQ);
+	if ((passwd_item = pairfind(request->config_items, PW_CLEARTEXT_PASSWORD)) == NULL){
+	  RDEBUG("Cleartext-Password is required for authentication");
+		snprintf(module_fmsg, sizeof(module_fmsg),
+			 "rlm_chap: Clear text password not available");
+		module_fmsg_vp = pairmake("Module-Failure-Message",
+					  module_fmsg, T_OP_EQ);
 		pairadd(&request->packet->vps, module_fmsg_vp);
 		return RLM_MODULE_INVALID;
 	}
 
-	DEBUG("  rlm_chap: Using clear text password \"%s\" for user %s authentication.",
-	      passwd_item->strvalue, request->username->strvalue);
+	RDEBUG("Using clear text password \"%s\" for user %s authentication.",
+	      passwd_item->vp_strvalue, request->username->vp_strvalue);
 
-	rad_chap_encode(request->packet,pass_str,request->password->strvalue[0],passwd_item);
+	rad_chap_encode(request->packet,pass_str,
+			chap->vp_octets[0],passwd_item);
 
-	if (memcmp(pass_str+1,request->password->strvalue+1,CHAP_VALUE_LENGTH) != 0){
-		DEBUG("  rlm_chap: Password check failed");
-		snprintf(module_fmsg,sizeof(module_fmsg),"rlm_chap: Wrong user password");
-		module_fmsg_vp = pairmake("Module-Failure-Message", module_fmsg, T_OP_EQ);
+	if (memcmp(pass_str + 1, chap->vp_octets + 1,
+		   CHAP_VALUE_LENGTH) != 0){
+		RDEBUG("Password check failed");
+		snprintf(module_fmsg, sizeof(module_fmsg),
+			 "rlm_chap: Wrong user password");
+		module_fmsg_vp = pairmake("Module-Failure-Message",
+					  module_fmsg, T_OP_EQ);
 		pairadd(&request->packet->vps, module_fmsg_vp);
 		return RLM_MODULE_REJECT;
 	}
 
-	DEBUG("  rlm_chap: chap user %s authenticated succesfully",request->username->strvalue);
+	RDEBUG("chap user %s authenticated succesfully",
+	      request->username->vp_strvalue);
 
 	return RLM_MODULE_OK;
 }
@@ -141,10 +141,11 @@ static int chap_authenticate(void *instance, REQUEST *request)
  *	is single-threaded.
  */
 module_t rlm_chap = {
+	 RLM_MODULE_INIT,
 	"CHAP",
-	0,				/* type */
-	NULL,				/* initialization */
+	RLM_TYPE_CHECK_CONFIG_SAFE,   	/* type */
 	NULL,				/* instantiation */
+	NULL,				/* detach */
 	{
 		chap_authenticate,	/* authentication */
 		chap_authorize,	 	/* authorization */
@@ -155,6 +156,4 @@ module_t rlm_chap = {
 		NULL,			/* post-proxy */
 		NULL			/* post-auth */
 	},
-	NULL,				/* detach */
-	NULL,				/* destroy */
 };

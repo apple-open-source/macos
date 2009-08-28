@@ -6,7 +6,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 2001 - 2007, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 2001 - 2008, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -19,7 +19,7 @@
 # This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
 # KIND, either express or implied.
 #
-# $Id: curl-config.in,v 1.28 2007-02-17 17:55:19 danf Exp $
+# $Id: curl-config.in,v 1.35 2008-09-03 19:10:48 danf Exp $
 ###########################################################################
 #
 # The idea to this kind of setup info script was stolen from numerous
@@ -41,10 +41,11 @@ Available values for OPTION include:
   --cflags    pre-processor and compiler flags
   --checkfor [version] check for (lib)curl of the specified version
   --features  newline separated list of enabled features
-  --protocols newline separated list of enabled protocols
   --help      display this help and exit
   --libs      library linking information
   --prefix    curl install prefix
+  --protocols newline separated list of enabled protocols
+  --static-libs static libcurl library linking information
   --version   output version information
   --vernum    output the version information as a number (hexadecimal)
 EOF
@@ -79,64 +80,15 @@ while test $# -gt 0; do
 	;;
 
     --feature|--features)
-	if test "@USE_SSLEAY@" = "1"; then
-          echo "SSL"
-          NTLM=1 # OpenSSL implies NTLM
-        elif test -n "@USE_GNUTLS@"; then
-          echo "SSL"
-        fi
-	if test "@KRB4_ENABLED@" = "1"; then
-          echo "KRB4"
-        fi
-	if test "@IPV6_ENABLED@" = "1"; then
-          echo "IPv6"
-        fi
-	if test "@HAVE_LIBZ@" = "1"; then
-          echo "libz"
-        fi
-	if test "@HAVE_ARES@" = "1"; then
-          echo "AsynchDNS"
-        fi
-	if test "@IDN_ENABLED@" = "1"; then
-          echo "IDN"
-        fi
-	if test "@USE_WINDOWS_SSPI@" = "1"; then
-          echo "SSPI"
-          NTLM=1
-        fi
-	if test "$NTLM" = "1"; then
-          echo "NTLM"
-        fi
+        for feature in @SUPPORT_FEATURES@ ""; do
+            test -n "$feature" && echo "$feature"
+        done
 	;;
 
     --protocols)
-	if test "@CURL_DISABLE_HTTP@" != "1"; then
-          echo "HTTP"
-	  if test "@USE_SSLEAY@" = "1"; then
-            echo "HTTPS"
-          fi
-        fi
-	if test "@CURL_DISABLE_FTP@" != "1"; then
-          echo "FTP"
-	  if test "@USE_SSLEAY@" = "1"; then
-            echo "FTPS"
-          fi
-        fi
-	if test "@CURL_DISABLE_FILE@" != "1"; then
-          echo "FILE"
-        fi
-	if test "@CURL_DISABLE_TELNET@" != "1"; then
-          echo "TELNET"
-        fi
-	if test "@CURL_DISABLE_LDAP@" != "1"; then
-          echo "LDAP"
-        fi
-	if test "@CURL_DISABLE_DICT@" != "1"; then
-          echo "DICT"
-        fi
-	if test "@CURL_DISABLE_TFTP@" != "1"; then
-          echo "TFTP"
-        fi
+        for protocol in @SUPPORT_PROTOCOLS@; do
+            echo "$protocol"
+        done
 	;;
     --version)
 	echo libcurl @VERSION@
@@ -181,16 +133,20 @@ while test $# -gt 0; do
        	;;
 
     --libs)
-	if test "X@libdir@" != "X/usr/lib"; then
+	if test "X@libdir@" != "X/usr/lib" -a "X@libdir@" != "X/usr/lib64"; then
 	   CURLLIBDIR="-L@libdir@ "
 	else
 	   CURLLIBDIR=""
 	fi
 	if test "X@REQUIRE_LIB_DEPS@" = "Xyes"; then
-	  echo ${CURLLIBDIR}-lcurl @LIBCURL_LIBS@ @LIBS@
+	  echo ${CURLLIBDIR}-lcurl @LDFLAGS@ @LIBCURL_LIBS@ @LIBS@
 	else
-	  echo ${CURLLIBDIR}-lcurl @LIBS@
+	  echo ${CURLLIBDIR}-lcurl @LDFLAGS@ @LIBS@
 	fi
+	;;
+
+    --static-libs)
+	echo @libdir@/libcurl.@libext@ @LDFLAGS@ @LIBCURL_LIBS@ @LIBS@
 	;;
 
     *)

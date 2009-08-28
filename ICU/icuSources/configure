@@ -309,7 +309,7 @@ ac_includes_default="\
 # include <unistd.h>
 #endif"
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS PACKAGE VERSION LIB_VERSION LIB_VERSION_MAJOR UNICODE_VERSION build build_cpu build_vendor build_os host host_cpu host_vendor host_os CPPFLAGS CC CFLAGS LDFLAGS ac_ct_CC EXEEXT OBJEXT CXX CXXFLAGS ac_ct_CXX INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA U_MAKE DOXYGEN ARFLAGS COMPILE_LINK_ENVVAR LIB_M ENABLE_SHARED ENABLE_STATIC ENABLE_DEBUG ENABLE_RELEASE U_DEFAULT_SHOW_DRAFT RANLIB ac_ct_RANLIB AR U_DISABLE_RENAMING U_ENABLE_TRACING ENABLE_RPATH U_INLINE THREADS_TRUE ICU_USE_THREADS HAVE_MMAP GENCCODE_ASSEMBLY CPP EGREP U_HAVE_INTTYPES_H U_IOSTREAM_SOURCE U_IS_BIG_ENDIAN U_HAVE_NL_LANGINFO U_HAVE_NL_LANGINFO_CODESET U_NL_LANGINFO_CODESET U_HAVE_NAMESPACE U_OVERRIDE_CXX_ALLOCATION U_HAVE_PLACEMENT_NEW U_HAVE_POPEN U_HAVE_TZSET U_TZSET U_HAVE_TZNAME U_TZNAME U_HAVE_TIMEZONE U_TIMEZONE HAVE_INT8_T HAVE_UINT8_T HAVE_INT16_T HAVE_UINT16_T HAVE_INT32_T HAVE_UINT32_T HAVE_INT64_T HAVE_UINT64_T U_HAVE_WCHAR_H U_HAVE_WCSCPY U_SIZEOF_WCHAR_T EXTRAS_TRUE ICUIO_TRUE LAYOUT_TRUE thedatadir pkgicudatadir thepkgicudatadir DATA_PACKAGING_MODE ICULIBSUFFIX U_HAVE_LIB_SUFFIX ICULIBSUFFIXCNAME TESTS_TRUE SAMPLES_TRUE ICUDATA_CHAR platform platform_make_fragment_name platform_make_fragment ld_rpath_suf AIX_SHLIB LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datarootdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS PACKAGE VERSION LIB_VERSION LIB_VERSION_MAJOR UNICODE_VERSION build build_cpu build_vendor build_os host host_cpu host_vendor host_os CPPFLAGS CC CFLAGS LDFLAGS ac_ct_CC EXEEXT OBJEXT CXX CXXFLAGS ac_ct_CXX INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA U_MAKE DOXYGEN ARFLAGS COMPILE_LINK_ENVVAR LIB_M ENABLE_SHARED ENABLE_STATIC ENABLE_DEBUG ENABLE_RELEASE U_DEFAULT_SHOW_DRAFT U_USE_GCC_VISIBILITY_ATTRIBUTE LIBCFLAGS LIBCXXFLAGS RANLIB ac_ct_RANLIB AR U_DISABLE_RENAMING U_ENABLE_TRACING ENABLE_RPATH U_INLINE THREADS_TRUE ICU_USE_THREADS LIB_THREAD HAVE_MMAP GENCCODE_ASSEMBLY CPP EGREP U_HAVE_INTTYPES_H U_IOSTREAM_SOURCE U_IS_BIG_ENDIAN U_HAVE_NL_LANGINFO_CODESET U_NL_LANGINFO_CODESET U_HAVE_NAMESPACE U_OVERRIDE_CXX_ALLOCATION U_HAVE_PLACEMENT_NEW U_HAVE_POPEN U_HAVE_TZSET U_TZSET U_HAVE_TZNAME U_TZNAME U_HAVE_TIMEZONE U_TIMEZONE HAVE_INT8_T HAVE_UINT8_T HAVE_INT16_T HAVE_UINT16_T HAVE_INT32_T HAVE_UINT32_T HAVE_INT64_T HAVE_UINT64_T U_HAVE_WCHAR_H U_HAVE_WCSCPY U_SIZEOF_WCHAR_T U_CHECK_UTF16_STRING EXTRAS_TRUE ICUIO_TRUE LAYOUT_TRUE pkgicudatadir thepkgicudatadir DATA_PACKAGING_MODE ICULIBSUFFIX U_HAVE_LIB_SUFFIX ICULIBSUFFIXCNAME TESTS_TRUE SAMPLES_TRUE ICUDATA_CHAR platform platform_make_fragment_name platform_make_fragment LIBOBJS LTLIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -340,7 +340,8 @@ x_libraries=NONE
 bindir='${exec_prefix}/bin'
 sbindir='${exec_prefix}/sbin'
 libexecdir='${exec_prefix}/libexec'
-datadir='${prefix}/share'
+datarootdir='${prefix}/share'
+datadir='${datarootdir}'
 sysconfdir='${prefix}/etc'
 sharedstatedir='${prefix}/com'
 localstatedir='${prefix}/var'
@@ -385,13 +386,20 @@ do
 
   --config-cache | -C)
     cache_file=config.cache ;;
-
+    
+  -datarootdir | --datarootdir | --datarootdi | --datarootd | --dataroot \
+  | --dataroo | --dataro | --datar)
+    ac_prev=datarootdir ;;
+  -dataroot=* | --datarootdir=* | --datarootdi=* | --datarootd=* \
+  | --dataroot=* | --dataroo=* | --dataro=* | --datar=*)
+    datarootdir=$ac_optarg ;;
+    
   -datadir | --datadir | --datadi | --datad | --data | --dat | --da)
     ac_prev=datadir ;;
   -datadir=* | --datadir=* | --datadi=* | --datad=* | --data=* | --dat=* \
   | --da=*)
     datadir=$ac_optarg ;;
-
+    
   -disable-* | --disable-*)
     ac_feature=`expr "x$ac_option" : 'x-*disable-\(.*\)'`
     # Reject names that are not valid shell variable names.
@@ -667,7 +675,7 @@ do
 done
 
 # Be sure to have absolute paths.
-for ac_var in bindir sbindir libexecdir datadir sysconfdir sharedstatedir \
+for ac_var in bindir sbindir libexecdir datarootdir datadir sysconfdir sharedstatedir \
 	      localstatedir libdir includedir oldincludedir infodir mandir
 do
   eval ac_val=$`echo $ac_var`
@@ -826,6 +834,7 @@ Fine tuning of the installation directories:
   --bindir=DIR           user executables [EPREFIX/bin]
   --sbindir=DIR          system admin executables [EPREFIX/sbin]
   --libexecdir=DIR       program executables [EPREFIX/libexec]
+  --datarootdir=DIR      root of the directory tree for read-only architecture-independent data [PREFIX/share]
   --datadir=DIR          read-only architecture-independent data [PREFIX/share]
   --sysconfdir=DIR       read-only single-machine data [PREFIX/etc]
   --sharedstatedir=DIR   modifiable architecture-independent data [PREFIX/com]
@@ -858,17 +867,20 @@ Optional Features:
   --enable-static         build static libraries default=no
   --enable-debug          build debug libraries default=no
   --enable-release        build release libraries default=yes
-  --enable-draft         enable draft APIs default=yes
+  --enable-draft          enable draft APIs default=yes
   --enable-renaming       add a version suffix to symbols default=yes
-  --enable-tracing        enable function and data tracing default=yes
+  --enable-tracing        enable function and data tracing default=no
   --enable-rpath          use rpath when linking default is only if necessary
   --enable-threads        build ICU with thread safety default=yes
+  --enable-weak-threads   weakly reference the threading library default=no
   --enable-extras         build ICU extras default=yes
   --enable-icuio          build ICU's icuio library default=yes
   --enable-layout         build ICU's layout library default=yes
   --enable-tests          build ICU tests default=yes
   --enable-samples        build ICU samples default=yes
-Additionally, the variable FORCE_LIBS may be set before calling configure. If set, it will REPLACE any automatic list of libraries.
+
+Additionally, the variable FORCE_LIBS may be set before calling configure.
+If set, it will REPLACE any automatic list of libraries.
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -1355,7 +1367,7 @@ LIB_VERSION_MAJOR=`echo $LIB_VERSION | sed 's/\..*//'`
 echo "$as_me:$LINENO: result: release $VERSION, library $LIB_VERSION" >&5
 echo "${ECHO_T}release $VERSION, library $LIB_VERSION" >&6
 
-UNICODE_VERSION="5.0"
+UNICODE_VERSION="5.1"
 
 
 ac_aux_dir=
@@ -3000,71 +3012,14 @@ fi;
         echo "$as_me:$LINENO: checking for 64-bit executable support" >&5
 echo $ECHO_N "checking for 64-bit executable support... $ECHO_C" >&6
     if test "$ENABLE_64BIT_LIBS" != no; then
-        case "${host}" in
-        *-*-solaris*)
-            SPARCV9=`isainfo -n 2>&1 | grep sparcv9`
-            if test "$GCC" = yes; then
-                # We could add a check for -m64 depending on the gcc version.
-                ENABLE_64BIT_LIBS=no
+        if test "$GCC" = yes; then
+                        if test -n "`$CXX -dumpspecs 2>&1 && $CC -dumpspecs 2>&1 | grep -v __LP64__`"; then
+                ENABLE_64BIT_LIBS=yes
             else
-                SOL64=`$CXX -xarch=v9 2>&1 && $CC -xarch=v9 2>&1 | grep -v usage:`
-                if test -z "$SOL64" && test -n "$SPARCV9"; then
-                    CFLAGS="${CFLAGS} -xtarget=ultra -xarch=v9"
-                    CXXFLAGS="${CXXFLAGS} -xtarget=ultra -xarch=v9"
-                    LDFLAGS="${LDFLAGS} -xtarget=ultra -xarch=v9"
-                    ENABLE_64BIT_LIBS=yes
-                else
-                    ENABLE_64BIT_LIBS=no
-                fi
-            fi
-            ;;
-        ia64-*-linux*)
-            if test "$GCC" = yes; then
-                # gcc compiler support
-                if test -n "`$CXX -dumpspecs 2>&1 && $CC -dumpspecs 2>&1 | grep -v __LP64__`"; then
-                    ENABLE_64BIT_LIBS=yes
-                else
-                    ENABLE_64BIT_LIBS=no
-                fi
-            else
-                # check for ecc/ecpc compiler support
-                if test -n "`$CXX --help 2>&1 && $CC --help 2>&1 | grep -v Intel`"; then
-                    if test -n "`$CXX --help 2>&1 && $CC --help 2>&1 | grep -v Itanium`"; then
-                        ENABLE_64BIT_LIBS=yes
-                    else
-                        ENABLE_64BIT_LIBS=no
-                    fi
-                else
-                    # unknown
-                    ENABLE_64BIT_LIBS=no
-                fi
-            fi
-            ;;
-        x86_64-*-linux*)
-            if test "$GCC" = yes; then
-                if test -n "`$CXX -dumpspecs 2>&1 && $CC -dumpspecs 2>&1 | grep -v __LP64__`"; then
-                    ENABLE_64BIT_LIBS=yes
-                else
-                    ENABLE_64BIT_LIBS=no
-                fi
-            else
-                # unknown
-                ENABLE_64BIT_LIBS=no
-            fi
-            ;;
-        x86_64-*-cygwin)
-            if test "$GCC" = yes; then
-                if test -n "`$CXX -dumpspecs 2>&1 && $CC -dumpspecs 2>&1 | grep -v __LP64__`"; then
-                    ENABLE_64BIT_LIBS=yes
-                else
-                    ENABLE_64BIT_LIBS=no
-                fi
-            else
-                ENABLE_64BIT_LIBS=no
-                OLD_CPPFLAGS="${CPPFLAGS}"
-                OLD_LDFLAGS="${LDFLAGS}"
-                CPPFLAGS="${CPPFLAGS} /DWIN64"
-                LDFLAGS="${LDFLAGS} /MACHINE:AMD64"
+                                                OLD_CFLAGS="${CFLAGS}"
+                OLD_CXXFLAGS="${CXXFLAGS}"
+                CFLAGS="${CFLAGS} -m64"
+                CXXFLAGS="${CXXFLAGS} -m64"
                 if test "$cross_compiling" = yes; then
   ENABLE_64BIT_LIBS=no
 else
@@ -3099,15 +3054,77 @@ fi
 rm -f core *.core gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
 fi
                 if test "$ENABLE_64BIT_LIBS" = no; then
-                    CPPFLAGS="${OLD_CPPFLAGS}"
-                    LDFLAGS="${OLD_LDFLAGS}"
+                    # Nope. We're on a 32-bit machine with a 32-bit compiler.
+                    CFLAGS="${OLD_CFLAGS}"
+                    CXXFLAGS="${OLD_CXXFLAGS}"
                 fi
             fi
-            ;;
-        *-*-aix*|powerpc64-*-linux*)
-            if test "$ac_cv_c_compiler_gnu" = no; then
-                # Note: Have not tested 64-bitness with gcc.
-                # Maybe the flag "-maix64" could be used with gcc?
+        else
+            case "${host}" in
+            sparc*-*-solaris*)
+                SPARCV9=`isainfo -n 2>&1 | grep sparcv9`
+                SOL64=`$CXX -m64 2>&1 && $CC -m64 2>&1 | grep -v usage:`
+                if test -n "$SOL64"; then
+                    SOL64=`$CXX -xarch=v9 2>&1 && $CC -xarch=v9 2>&1 | grep -v usage:`
+                    if test -z "$SOL64" && test -n "$SPARCV9"; then
+                        CFLAGS="${CFLAGS} -xtarget=ultra -xarch=v9"
+                        CXXFLAGS="${CXXFLAGS} -xtarget=ultra -xarch=v9"
+                        LDFLAGS="${LDFLAGS} -xtarget=ultra -xarch=v9"
+                        ENABLE_64BIT_LIBS=yes
+                    else
+                        ENABLE_64BIT_LIBS=no
+                    fi
+                elif test -z "$SOL64" && test -n "$SPARCV9"; then
+                    CFLAGS="${CFLAGS} -xtarget=ultra -xarch=sparc -m64"
+                    CXXFLAGS="${CXXFLAGS} -xtarget=ultra -xarch=sparc -m64"
+                    LDFLAGS="${LDFLAGS} -xtarget=ultra -xarch=sparc -m64"
+                    ENABLE_64BIT_LIBS=yes
+                else
+                    ENABLE_64BIT_LIBS=no
+                fi
+                ;;
+            i386-*-solaris*)
+                AMD64=`isainfo -n 2>&1 | grep amd64`
+                # The new compiler option
+                SOL64=`$CXX -m64 2>&1 && $CC -m64 2>&1 | grep -v usage:`
+                if test -z "$SOL64" && test -n "$AMD64"; then
+                    CFLAGS="${CFLAGS} -m64"
+                    CXXFLAGS="${CXXFLAGS} -m64"
+                    ENABLE_64BIT_LIBS=yes
+                else
+                    # The older compiler option
+                    SOL64=`$CXX -xtarget=generic64 2>&1 && $CC -xtarget=generic64 2>&1 | grep -v usage:`
+                    if test -z "$SOL64" && test -n "$AMD64"; then
+                        CFLAGS="${CFLAGS} -xtarget=generic64"
+                        CXXFLAGS="${CXXFLAGS} -xtarget=generic64"
+                        ENABLE_64BIT_LIBS=yes
+                    else
+                        ENABLE_64BIT_LIBS=no
+                    fi
+                fi
+                ;;
+            ia64-*-linux*)
+                # check for ecc/ecpc compiler support
+                if test -n "`$CXX --help 2>&1 && $CC --help 2>&1 | grep -v Intel`"; then
+                    if test -n "`$CXX --help 2>&1 && $CC --help 2>&1 | grep -v Itanium`"; then
+                        ENABLE_64BIT_LIBS=yes
+                    else
+                        ENABLE_64BIT_LIBS=no
+                    fi
+                else
+                    # unknown
+                    ENABLE_64BIT_LIBS=no
+                fi
+                ;;
+            *-*-cygwin)
+                                                if test -n "`$CXX -help 2>&1 | grep 'for x64'`"; then
+                    ENABLE_64BIT_LIBS=yes
+                else
+                    # unknown
+                    ENABLE_64BIT_LIBS=no
+                fi
+                ;;
+            *-*-aix*|powerpc64-*-linux*)
                 OLD_CFLAGS="${CFLAGS}"
                 OLD_CXXFLAGS="${CXXFLAGS}"
                 OLD_LDFLAGS="${LDFLAGS}"
@@ -3157,52 +3174,13 @@ fi
                         ARFLAGS="${ARFLAGS} -X64"
                     esac
                 fi
-            fi
-            ;;
-        *-*-hpux*)
+                ;;
+            *-*-hpux*)
 
-            OLD_CFLAGS="${CFLAGS}"
-            OLD_CXXFLAGS="${CXXFLAGS}"
-            CFLAGS="${CFLAGS} +DD64"
-            CXXFLAGS="${CXXFLAGS} +DD64"
-            if test "$cross_compiling" = yes; then
-  ENABLE_64BIT_LIBS=no
-else
-  cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-int main(void) {return 0;}
-_ACEOF
-rm -f conftest$ac_exeext
-if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
-  (eval $ac_link) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } && { ac_try='./conftest$ac_exeext'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; }; then
-  ENABLE_64BIT_LIBS=yes
-else
-  echo "$as_me: program exited with status $ac_status" >&5
-echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-( exit $ac_status )
-ENABLE_64BIT_LIBS=no
-fi
-rm -f core *.core gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
-fi
-            if test "$ENABLE_64BIT_LIBS" = no; then
-                CFLAGS="${OLD_CFLAGS}"
-                CXXFLAGS="${OLD_CXXFLAGS}"
-                CFLAGS="${CFLAGS} +DA2.0W"
-                CXXFLAGS="${CXXFLAGS} +DA2.0W"
+                OLD_CFLAGS="${CFLAGS}"
+                OLD_CXXFLAGS="${CXXFLAGS}"
+                CFLAGS="${CFLAGS} +DD64"
+                CXXFLAGS="${CXXFLAGS} +DD64"
                 if test "$cross_compiling" = yes; then
   ENABLE_64BIT_LIBS=no
 else
@@ -3239,17 +3217,9 @@ fi
                 if test "$ENABLE_64BIT_LIBS" = no; then
                     CFLAGS="${OLD_CFLAGS}"
                     CXXFLAGS="${OLD_CXXFLAGS}"
-                fi
-            fi
-            ;;
-        *-*ibm-openedition*|*-*-os390*)
-            OLD_CFLAGS="${CFLAGS}"
-            OLD_CXXFLAGS="${CXXFLAGS}"
-            OLD_LDFLAGS="${LDFLAGS}"
-            CFLAGS="${CFLAGS} -Wc,lp64"
-            CXXFLAGS="${CXXFLAGS} -Wc,lp64"
-            LDFLAGS="${LDFLAGS} -Wl,lp64"
-            if test "$cross_compiling" = yes; then
+                    CFLAGS="${CFLAGS} +DA2.0W"
+                    CXXFLAGS="${CXXFLAGS} +DA2.0W"
+                    if test "$cross_compiling" = yes; then
   ENABLE_64BIT_LIBS=no
 else
   cat >conftest.$ac_ext <<_ACEOF
@@ -3282,16 +3252,63 @@ ENABLE_64BIT_LIBS=no
 fi
 rm -f core *.core gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
 fi
-            if test "$ENABLE_64BIT_LIBS" = no; then
-                CFLAGS="${OLD_CFLAGS}"
-                CXXFLAGS="${OLD_CXXFLAGS}"
-                LDFLAGS="${OLD_LDFLAGS}"
-            fi
-            ;;
-        *)
-            ENABLE_64BIT_LIBS=no
-            ;;
-        esac
+                    if test "$ENABLE_64BIT_LIBS" = no; then
+                        CFLAGS="${OLD_CFLAGS}"
+                        CXXFLAGS="${OLD_CXXFLAGS}"
+                    fi
+                fi
+                ;;
+            *-*ibm-openedition*|*-*-os390*)
+                OLD_CFLAGS="${CFLAGS}"
+                OLD_CXXFLAGS="${CXXFLAGS}"
+                OLD_LDFLAGS="${LDFLAGS}"
+                CFLAGS="${CFLAGS} -Wc,lp64"
+                CXXFLAGS="${CXXFLAGS} -Wc,lp64"
+                LDFLAGS="${LDFLAGS} -Wl,lp64"
+                if test "$cross_compiling" = yes; then
+  ENABLE_64BIT_LIBS=no
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+int main(void) {return 0;}
+_ACEOF
+rm -f conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && { ac_try='./conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ENABLE_64BIT_LIBS=yes
+else
+  echo "$as_me: program exited with status $ac_status" >&5
+echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+( exit $ac_status )
+ENABLE_64BIT_LIBS=no
+fi
+rm -f core *.core gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
+fi
+                if test "$ENABLE_64BIT_LIBS" = no; then
+                    CFLAGS="${OLD_CFLAGS}"
+                    CXXFLAGS="${OLD_CXXFLAGS}"
+                    LDFLAGS="${OLD_LDFLAGS}"
+                fi
+                ;;
+            *)
+                ENABLE_64BIT_LIBS=no
+                ;;
+            esac
+        fi
     else
         if test "$GCC" = yes; then
             OLD_CFLAGS="${CFLAGS}"
@@ -3365,33 +3382,70 @@ alpha*-*-linux-gnu)
 	fi ;;
 powerpc*-*-linux*)
 	if test "$GCC" = yes; then
-	  	icu_cv_host_frag=mh-linux
+		icu_cv_host_frag=mh-linux
 	else
-	  	icu_cv_host_frag=mh-linux-va
+		icu_cv_host_frag=mh-linux-va
 	fi ;;
-*-*-linux*) icu_cv_host_frag=mh-linux ;;
-*-*-cygwin)
+*-*-linux*|*-pc-gnu) icu_cv_host_frag=mh-linux ;;
+*-*-cygwin|*-*-mingw32)
 	if test "$GCC" = yes; then
-	  	icu_cv_host_frag=mh-cygwin
+		cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+#ifndef __MINGW32__
+#error This is not MinGW
+#endif
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  icu_cv_host_frag=mh-mingw
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+icu_cv_host_frag=mh-cygwin
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
 	else
-	  	icu_cv_host_frag=mh-cygwin-msvc
-	fi ;;
-*-*-mingw32)
-	if test "$GCC" = yes; then
-	  	icu_cv_host_frag=mh-mingw
-	else
-	  	icu_cv_host_frag=mh-cygwin-msvc
+		icu_cv_host_frag=mh-cygwin-msvc
 	fi ;;
 *-*-*bsd*|*-*-dragonfly*) 	icu_cv_host_frag=mh-bsd-gcc ;;
 *-*-aix*)
 	if test "$GCC" = yes; then
 		icu_cv_host_frag=mh-aix-gcc
 	else
-		if test -n "`$CXX --help 2>&1 | grep 'IBM C and C++ Compilers$'`"; then
-			icu_cv_host_frag=mh-aix
-		else
-			icu_cv_host_frag=mh-aix-va
-		fi
+		icu_cv_host_frag=mh-aix-va
 	fi ;;
 *-*-hpux*)
 	if test "$GCC" = yes; then
@@ -3399,7 +3453,6 @@ powerpc*-*-linux*)
 	else
 		case "$CXX" in
 		*aCC)    icu_cv_host_frag=mh-hpux-acc ;;
-		*CC)     icu_cv_host_frag=mh-hpux-cc ;;
 		esac
 	fi ;;
 *-*ibm-openedition*|*-*-os390*)	icu_cv_host_frag=mh-os390 ;;
@@ -3654,6 +3707,145 @@ if test "$U_DEFAULT_SHOW_DRAFT" = 0; then
 fi
 
 
+echo "$as_me:$LINENO: checking for library API export" >&5
+echo $ECHO_N "checking for library API export... $ECHO_C" >&6
+SHAREDLIBEXPORT=no
+U_USE_GCC_VISIBILITY_ATTRIBUTE=0
+OLD_CFLAGS="${CFLAGS}"
+OLD_CXXFLAGS="${CXXFLAGS}"
+if test "$ac_cv_c_compiler_gnu" = yes; then
+    LIBCFLAGS="-fvisibility=hidden"
+    LIBCXXFLAGS="-fvisibility=hidden"
+    CFLAGS="${CFLAGS} ${LIBCFLAGS}"
+    CXXFLAGS="${CXXFLAGS} ${LIBCXXFLAGS}"
+    cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+__attribute__ ((visibility ("default"))) void f(void);
+#include <stdlib.h>
+int
+main ()
+{
+exit(0);
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  SHAREDLIBEXPORT=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+SHAREDLIBEXPORT=no
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+    if test "$SHAREDLIBEXPORT" = no; then
+        LIBCFLAGS=
+        LIBCXXFLAGS=
+    else
+        U_USE_GCC_VISIBILITY_ATTRIBUTE=1
+    fi
+else
+    case "${host}" in
+    *-*-solaris*)
+        LIBCFLAGS="-xldscope=hidden"
+        LIBCXXFLAGS="-xldscope=hidden"
+        CFLAGS="${CFLAGS} ${LIBCFLAGS}"
+        CXXFLAGS="${CXXFLAGS} ${LIBCXXFLAGS}"
+        cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+__global void f(void);
+#include <stdlib.h>
+int
+main ()
+{
+exit(0);
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  SHAREDLIBEXPORT=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+SHAREDLIBEXPORT=no
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+        if test "$SHAREDLIBEXPORT" = no; then
+            LIBCFLAGS=
+            LIBCXXFLAGS=
+        fi
+        ;;
+    *-*-hpux*)
+                ;;
+    *)
+    esac
+fi
+# Restore to their original state because the Intel compiler chokes
+# on this option when checking for the wchar_t size, but the
+# option otherwise works.
+CFLAGS="${OLD_CFLAGS}"
+CXXFLAGS="${OLD_CXXFLAGS}"
+echo "$as_me:$LINENO: result: $SHAREDLIBEXPORT" >&5
+echo "${ECHO_T}$SHAREDLIBEXPORT" >&6
+
+
+
+
 if test -n "$ac_tool_prefix"; then
   # Extract the first word of "${ac_tool_prefix}ranlib", so it can be a program name with args.
 set dummy ${ac_tool_prefix}ranlib; ac_word=$2
@@ -3796,7 +3988,7 @@ echo "${ECHO_T}$enabled" >&6
 echo "$as_me:$LINENO: checking whether to enable function and data tracing" >&5
 echo $ECHO_N "checking whether to enable function and data tracing... $ECHO_C" >&6
 enabled=yes
-U_ENABLE_TRACING=1
+U_ENABLE_TRACING=0
 # Check whether --enable-tracing or --disable-tracing was given.
 if test "${enable_tracing+set}" = set; then
   enableval="$enable_tracing"
@@ -3911,6 +4103,7 @@ else
 fi
 
 ICU_USE_THREADS=0
+OLD_LIBS=${LIBS}
 
 if test $threads = true; then
 
@@ -4328,6 +4521,22 @@ fi
 
 
 
+# Check whether --enable-weak-threads or --disable-weak-threads was given.
+if test "${enable_weak_threads+set}" = set; then
+  enableval="$enable_weak_threads"
+  case "${enableval}" in
+		yes)
+            LIB_THREAD="${LIBS%${OLD_LIBS}}"
+            LIBS=${OLD_LIBS}
+            ;;
+		no)  ;;
+		*) { { echo "$as_me:$LINENO: error: bad value ${enableval} for --enable-weak-threads" >&5
+echo "$as_me: error: bad value ${enableval} for --enable-weak-threads" >&2;}
+   { (exit 1); exit 1; }; } ;;
+		esac
+fi;
+
+
 
 # The AC_FUNC_MMAP macro doesn't work properly.  It seems to be too specific.
 # Do this check instead.
@@ -4400,12 +4609,21 @@ fi
 
 GENCCODE_ASSEMBLY=
 case "${host}" in
-i*86-*-linux*|x86_64-*-linux*|powerpc*-*-linux*|i*86-*-*bsd*|i*86-*-solaris*)
+i*86-*-linux*|x86_64-*-linux*|powerpc*-*-linux*|i*86-*-*bsd*|i*86-pc-gnu)
     if test "$GCC" = yes; then
                 GENCCODE_ASSEMBLY="-a gcc"
     fi ;;
+i*86-*-solaris*)
+    if test "$GCC" = yes; then
+                GENCCODE_ASSEMBLY="-a gcc"
+    else
+        GENCCODE_ASSEMBLY="-a sun-x86"
+    fi ;;
 sparc-*-solaris*)
     GENCCODE_ASSEMBLY="-a sun"
+    ;;
+ia64-*-hpux*)
+    GENCCODE_ASSEMBLY="-a aCC-ia64"
     ;;
 esac
 
@@ -5581,7 +5799,6 @@ else
   U_HAVE_NL_LANGINFO=0
 fi
 
-
 if test $U_HAVE_NL_LANGINFO -eq 1; then
   echo "$as_me:$LINENO: checking for nl_langinfo's argument to obtain the codeset" >&5
 echo $ECHO_N "checking for nl_langinfo's argument to obtain the codeset... $ECHO_C" >&6
@@ -6370,12 +6587,11 @@ _ACEOF
 cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
-  #include <time.h>
-
+#include <time.h>
 int
 main ()
 {
-  __timezone = 1;
+__timezone = 1;
   ;
   return 0;
 }
@@ -6429,12 +6645,11 @@ _ACEOF
 cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
-    #include <time.h>
-
+#include <time.h>
 int
 main ()
 {
-    _timezone = 1;
+_timezone = 1;
   ;
   return 0;
 }
@@ -7351,14 +7566,10 @@ fi
 
 
 
-ac_default_sizeof_wchar_t=4
-echo "$as_me:$LINENO: checking size of wchar_t" >&5
-echo $ECHO_N "checking size of wchar_t... $ECHO_C" >&6
-if test "${ac_cv_sizeof_wchar_t+set}" = set; then
+echo "$as_me:$LINENO: checking for wchar_t" >&5
+echo $ECHO_N "checking for wchar_t... $ECHO_C" >&6
+if test "${ac_cv_type_wchar_t+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  if test "$cross_compiling" = yes; then
-  ac_cv_sizeof_wchar_t=$ac_default_sizeof_wchar_t
 else
   cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
@@ -7366,6 +7577,7 @@ _ACEOF
 cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
+
 #if STDC_HEADERS
 #include <stddef.h>
 #endif
@@ -7374,13 +7586,422 @@ cat >>conftest.$ac_ext <<_ACEOF
 #include <string.h>
 #include <wchar.h>
 #endif
-#include <stdio.h>
-main()
+
+int
+main ()
 {
-  FILE *f=fopen("conftestval", "w");
-  if (!f) exit(1);
-  fprintf(f, "%d\n", sizeof(wchar_t));
-  exit(0);
+if ((wchar_t *) 0)
+  return 0;
+if (sizeof (wchar_t))
+  return 0;
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_type_wchar_t=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_type_wchar_t=no
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: $ac_cv_type_wchar_t" >&5
+echo "${ECHO_T}$ac_cv_type_wchar_t" >&6
+
+echo "$as_me:$LINENO: checking size of wchar_t" >&5
+echo $ECHO_N "checking size of wchar_t... $ECHO_C" >&6
+if test "${ac_cv_sizeof_wchar_t+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  if test "$ac_cv_type_wchar_t" = yes; then
+  # The cast to unsigned long works around a bug in the HP C Compiler
+  # version HP92453-01 B.11.11.23709.GP, which incorrectly rejects
+  # declarations like `int a3[[(sizeof (unsigned char)) >= 0]];'.
+  # This bug is HP SR number 8606223364.
+  if test "$cross_compiling" = yes; then
+  # Depending upon the size, compute the lo and hi bounds.
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+#if STDC_HEADERS
+#include <stddef.h>
+#endif
+#include <stdlib.h>
+#if HAVE_WCHAR_H
+#include <string.h>
+#include <wchar.h>
+#endif
+
+int
+main ()
+{
+static int test_array [1 - 2 * !(((long) (sizeof (wchar_t))) >= 0)];
+test_array [0] = 0
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_lo=0 ac_mid=0
+  while :; do
+    cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+#if STDC_HEADERS
+#include <stddef.h>
+#endif
+#include <stdlib.h>
+#if HAVE_WCHAR_H
+#include <string.h>
+#include <wchar.h>
+#endif
+
+int
+main ()
+{
+static int test_array [1 - 2 * !(((long) (sizeof (wchar_t))) <= $ac_mid)];
+test_array [0] = 0
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_hi=$ac_mid; break
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_lo=`expr $ac_mid + 1`
+		    if test $ac_lo -le $ac_mid; then
+		      ac_lo= ac_hi=
+		      break
+		    fi
+		    ac_mid=`expr 2 '*' $ac_mid + 1`
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+  done
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+#if STDC_HEADERS
+#include <stddef.h>
+#endif
+#include <stdlib.h>
+#if HAVE_WCHAR_H
+#include <string.h>
+#include <wchar.h>
+#endif
+
+int
+main ()
+{
+static int test_array [1 - 2 * !(((long) (sizeof (wchar_t))) < 0)];
+test_array [0] = 0
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_hi=-1 ac_mid=-1
+  while :; do
+    cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+#if STDC_HEADERS
+#include <stddef.h>
+#endif
+#include <stdlib.h>
+#if HAVE_WCHAR_H
+#include <string.h>
+#include <wchar.h>
+#endif
+
+int
+main ()
+{
+static int test_array [1 - 2 * !(((long) (sizeof (wchar_t))) >= $ac_mid)];
+test_array [0] = 0
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_lo=$ac_mid; break
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_hi=`expr '(' $ac_mid ')' - 1`
+		       if test $ac_mid -le $ac_hi; then
+			 ac_lo= ac_hi=
+			 break
+		       fi
+		       ac_mid=`expr 2 '*' $ac_mid`
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+  done
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_lo= ac_hi=
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+# Binary search between lo and hi bounds.
+while test "x$ac_lo" != "x$ac_hi"; do
+  ac_mid=`expr '(' $ac_hi - $ac_lo ')' / 2 + $ac_lo`
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+#if STDC_HEADERS
+#include <stddef.h>
+#endif
+#include <stdlib.h>
+#if HAVE_WCHAR_H
+#include <string.h>
+#include <wchar.h>
+#endif
+
+int
+main ()
+{
+static int test_array [1 - 2 * !(((long) (sizeof (wchar_t))) <= $ac_mid)];
+test_array [0] = 0
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_hi=$ac_mid
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_lo=`expr '(' $ac_mid ')' + 1`
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+done
+case $ac_lo in
+?*) ac_cv_sizeof_wchar_t=$ac_lo;;
+'') { { echo "$as_me:$LINENO: error: cannot compute sizeof (wchar_t), 77
+See \`config.log' for more details." >&5
+echo "$as_me: error: cannot compute sizeof (wchar_t), 77
+See \`config.log' for more details." >&2;}
+   { (exit 1); exit 1; }; } ;;
+esac
+else
+  if test "$cross_compiling" = yes; then
+  { { echo "$as_me:$LINENO: error: cannot run test program while cross compiling
+See \`config.log' for more details." >&5
+echo "$as_me: error: cannot run test program while cross compiling
+See \`config.log' for more details." >&2;}
+   { (exit 1); exit 1; }; }
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+#if STDC_HEADERS
+#include <stddef.h>
+#endif
+#include <stdlib.h>
+#if HAVE_WCHAR_H
+#include <string.h>
+#include <wchar.h>
+#endif
+
+long longval () { return (long) (sizeof (wchar_t)); }
+unsigned long ulongval () { return (long) (sizeof (wchar_t)); }
+#include <stdio.h>
+#include <stdlib.h>
+int
+main ()
+{
+
+  FILE *f = fopen ("conftest.val", "w");
+  if (! f)
+    exit (1);
+  if (((long) (sizeof (wchar_t))) < 0)
+    {
+      long i = longval ();
+      if (i != ((long) (sizeof (wchar_t))))
+	exit (1);
+      fprintf (f, "%ld\n", i);
+    }
+  else
+    {
+      unsigned long i = ulongval ();
+      if (i != ((long) (sizeof (wchar_t))))
+	exit (1);
+      fprintf (f, "%lu\n", i);
+    }
+  exit (ferror (f) || fclose (f) != 0);
+
+  ;
+  return 0;
 }
 _ACEOF
 rm -f conftest$ac_exeext
@@ -7394,16 +8015,25 @@ if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-  ac_cv_sizeof_wchar_t=`cat conftestval`
+  ac_cv_sizeof_wchar_t=`cat conftest.val`
 else
   echo "$as_me: program exited with status $ac_status" >&5
 echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
 ( exit $ac_status )
-ac_cv_sizeof_wchar_t=0
+{ { echo "$as_me:$LINENO: error: cannot compute sizeof (wchar_t), 77
+See \`config.log' for more details." >&5
+echo "$as_me: error: cannot compute sizeof (wchar_t), 77
+See \`config.log' for more details." >&2;}
+   { (exit 1); exit 1; }; }
 fi
 rm -f core *.core gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
+fi
+fi
+rm -f conftest.val
+else
+  ac_cv_sizeof_wchar_t=0
 fi
 fi
 echo "$as_me:$LINENO: result: $ac_cv_sizeof_wchar_t" >&5
@@ -7414,20 +8044,161 @@ _ACEOF
 
 
 U_SIZEOF_WCHAR_T=$ac_cv_sizeof_wchar_t
+# We do this check to verify that everything is okay.
 if test $U_SIZEOF_WCHAR_T = 0; then
-	if test $U_HAVE_WCHAR_H=1; then
-	   { { echo "$as_me:$LINENO: error: There is wchar.h but the size of wchar_t is 0" >&5
+    if test $U_HAVE_WCHAR_H=1; then
+       { { echo "$as_me:$LINENO: error: There is wchar.h but the size of wchar_t is 0" >&5
 echo "$as_me: error: There is wchar.h but the size of wchar_t is 0" >&2;}
    { (exit 1); exit 1; }; }
-	fi
+    fi
 fi
 
 
-#dnl Echo
-#ECHO_N=$ac_n
-#ECHO_C=$ac_c
-#AC_SUBST(ECHO_N)
-#AC_SUBST(ECHO_C)
+echo "$as_me:$LINENO: checking for UTF-16 string literal support" >&5
+echo $ECHO_N "checking for UTF-16 string literal support... $ECHO_C" >&6
+U_CHECK_UTF16_STRING=1
+CHECK_UTF16_STRING_RESULT="unknown"
+case "${host}" in
+*-*-aix*|powerpc64-*-linux*)
+    if test "$ac_cv_c_compiler_gnu" = no; then
+        OLD_CFLAGS="${CFLAGS}"
+        OLD_CXXFLAGS="${CXXFLAGS}"
+        CFLAGS="${CFLAGS} -qutf"
+        CXXFLAGS="${CXXFLAGS} -qutf"
+        cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+const unsigned short hello[] = u"hello";
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  U_CHECK_UTF16_STRING=1
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+U_CHECK_UTF16_STRING=0
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+        if test "$U_CHECK_UTF16_STRING" = 0; then
+            CFLAGS="${OLD_CFLAGS}"
+            CXXFLAGS="${OLD_CXXFLAGS}"
+        else
+            CHECK_UTF16_STRING_RESULT="-qutf"
+        fi
+    fi
+    ;;
+*-*-solaris*)
+    if test "$ac_cv_c_compiler_gnu" = no; then
+        OLD_CFLAGS="${CFLAGS}"
+        OLD_CXXFLAGS="${CXXFLAGS}"
+        CFLAGS="${CFLAGS} -xustr=ascii_utf16_ushort"
+        CXXFLAGS="${CXXFLAGS} -xustr=ascii_utf16_ushort"
+        cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+const unsigned short hello[] = U"hello";
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  U_CHECK_UTF16_STRING=1
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+U_CHECK_UTF16_STRING=0
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+        if test "$U_CHECK_UTF16_STRING" = 0; then
+            CFLAGS="${OLD_CFLAGS}"
+            CXXFLAGS="${OLD_CXXFLAGS}"
+        else
+            CHECK_UTF16_STRING_RESULT="-xustr=ascii_utf16_ushort"
+
+            # Since we can't detect the availability of this UTF-16 syntax at compile time,
+            # we depend on configure telling us that we can use it.
+            # Since we can't ensure ICU users use -xustr=ascii_utf16_ushort,
+            # we only use this macro within ICU.
+            # If an ICU user uses icu-config, this feature will be enabled.
+            CPPFLAGS="${CPPFLAGS} -DU_CHECK_UTF16_STRING=1"
+            U_CHECK_UTF16_STRING=0
+        fi
+    fi
+    ;;
+*-*-hpux*)
+    if test "$ac_cv_c_compiler_gnu" = no; then
+                CHECK_UTF16_STRING_RESULT="available"
+    fi
+    ;;
+*-*-cygwin)
+        CHECK_UTF16_STRING_RESULT="available"
+    ;;
+*)
+    ;;
+esac
+echo "$as_me:$LINENO: result: $CHECK_UTF16_STRING_RESULT" >&5
+echo "${ECHO_T}$CHECK_UTF16_STRING_RESULT" >&6
+
 
 # Check whether --enable-extras or --disable-extras was given.
 if test "${enable_extras+set}" = set; then
@@ -7506,12 +8277,7 @@ else
   datapackaging=
 fi;
 
-#thesysconfdir=`eval echo $sysconfdir`
-#AC_SUBST(thesysconfdir)
-#thelibdir=`test "x$exec_prefix" = xNONE && exec_prefix="$prefix"; eval echo $libdir`
-#AC_SUBST(thelibdir)
 thedatadir=`eval echo $datadir`
-
 pkgicudatadir=$datadir
 thepkgicudatadir=$thedatadir
 
@@ -7607,6 +8373,7 @@ ICUDATA_CHAR=$U_ENDIAN_CHAR
 case "${host}" in
 	*-*-solaris*) 	platform=U_SOLARIS ;;
 	*-*-linux*) 	platform=U_LINUX ;;
+	*-pc-gnu) 	platform=U_HURD ;;
 	*-*-*bsd*|*-*-dragonfly*) 	platform=U_BSD ;;
 	*-*-aix*) 	platform=U_AIX ;;
 	*-*-hpux*) 	platform=U_HPUX ;;
@@ -7634,57 +8401,10 @@ platform_make_fragment='$(top_srcdir)/config/'"$platform_make_fragment_name"
 
 
 
-case "${host}" in
-	*-*-solaris*) 	ld_rpath_suf=":" ;;
-	*-*-linux*) 	ld_rpath_suf=" " ;;
-	*-*-*bsd*|*-*-dragonfly*) 	ld_rpath_suf=" " ;;
-	*-*-aix*) 	ld_rpath_suf="" ;;
-	*-*-hpux*) 	ld_rpath_suf=":" ;;
-	*-*ibm-openedition*|*-*-os390*)	ld_rpath_suf="" ;;
-	*-*-os400*)	ld_rpath_suf=" " ;;
-	*-*-irix*)      ld_rpath_suf=" " ;;
-	*) 		ld_rpath_suf="" ;;
-esac
-
-
-case "${host}" in
-	*-*-hpux*)
-		if test "${icu_cv_host_frag}" = "mh-hpux-cc"; then
-			for file in samples/date/date \
-			  samples/cal/cal test/cintltst/cintltst \
-			  tools/makeconv/makeconv tools/genrb/genrb \
-			  tools/genrb/derb tools/genccode/genccode \
-			  tools/gencmn/gencmn tools/gencmn/decmn \
-			  tools/gencnval/gencnval tools/gennorm/gennorm \
-			  tools/gennames/gennames tools/gentest/gentest \
-			  tools/pkgdata/pkgdata tools/genprops/genprops \
-                          tools/gencase/gencase \
-                          tools/genbidi/genbidi \
-			  tools/gensprep/gensprep
-			do
-			  if test -f $file.c; then
-			    mv $file.c $file.cpp
-			  else
-			    echo "# $file.c does not exist or is already renamed [warning]"
-			  fi
-			done
-		fi
-	;;
-esac
-
 if test "${FORCE_LIBS}" != ""; then
    echo " *** Overriding automatically chosen LIBS=$LIBS, using instead FORCE_LIBS=${FORCE_LIBS}"  1>&6
    LIBS=${FORCE_LIBS}
 fi
-
-
-if test "${AIX_SHLIB}" != ""; then
-   echo " *** setting AIX_SHLIB (AIX only) to ${AIX_SHLIB}]"  1>&6
-else
-   AIX_SHLIB=makeC++SharedLib_r
-fi
-
-
 
 
 
@@ -7695,7 +8415,7 @@ then
     CXXFLAGS="$CXXFLAGS \$(THREADSCXXFLAGS)"
 fi
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      ac_config_files="$ac_config_files icudefs.mk Makefile data/icupkg.inc config/Makefile.inc data/Makefile stubdata/Makefile common/Makefile i18n/Makefile layout/Makefile layoutex/Makefile io/Makefile extra/Makefile extra/uconv/Makefile extra/scrptrun/Makefile tools/Makefile tools/ctestfw/Makefile tools/toolutil/Makefile tools/makeconv/Makefile tools/genrb/Makefile tools/genuca/Makefile tools/genccode/Makefile tools/gencmn/Makefile tools/gencnval/Makefile tools/genctd/Makefile tools/gennames/Makefile tools/gentest/Makefile tools/gennorm/Makefile tools/genprops/Makefile tools/gencase/Makefile tools/genbidi/Makefile tools/genpname/Makefile tools/genbrk/Makefile tools/gensprep/Makefile tools/icupkg/Makefile tools/icuswap/Makefile tools/pkgdata/Makefile tools/dumpce/Makefile tools/tzcode/Makefile test/Makefile test/testdata/Makefile test/testdata/pkgdata.inc test/hdrtst/Makefile test/intltest/Makefile test/cintltst/Makefile test/iotest/Makefile test/thaitest/Makefile test/testmap/Makefile test/letest/Makefile test/threadtest/Makefile samples/Makefile samples/date/Makefile samples/cal/Makefile samples/csdet/Makefile samples/layout/Makefile common/unicode/platform.h"
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              ac_config_files="$ac_config_files icudefs.mk Makefile data/icupkg.inc config/Makefile.inc data/Makefile stubdata/Makefile common/Makefile i18n/Makefile layout/Makefile layoutex/Makefile io/Makefile extra/Makefile extra/uconv/Makefile extra/scrptrun/Makefile tools/Makefile tools/ctestfw/Makefile tools/toolutil/Makefile tools/makeconv/Makefile tools/genrb/Makefile tools/genuca/Makefile tools/genccode/Makefile tools/gencmn/Makefile tools/gencnval/Makefile tools/genctd/Makefile tools/gennames/Makefile tools/gentest/Makefile tools/gennorm/Makefile tools/genprops/Makefile tools/gencase/Makefile tools/genbidi/Makefile tools/genpname/Makefile tools/genbrk/Makefile tools/gensprep/Makefile tools/icupkg/Makefile tools/icuswap/Makefile tools/pkgdata/Makefile tools/tzcode/Makefile test/Makefile test/compat/Makefile test/testdata/Makefile test/testdata/pkgdata.inc test/hdrtst/Makefile test/intltest/Makefile test/cintltst/Makefile test/iotest/Makefile test/letest/Makefile test/perf/Makefile test/perf/collationperf/Makefile test/perf/ubrkperf/Makefile test/perf/charperf/Makefile test/perf/convperf/Makefile test/perf/normperf/Makefile test/perf/strsrchperf/Makefile test/perf/unisetperf/Makefile test/perf/usetperf/Makefile test/perf/ustrperf/Makefile test/perf/utfperf/Makefile samples/Makefile samples/date/Makefile samples/cal/Makefile samples/layout/Makefile common/unicode/platform.h"
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
 # tests run on this system so they can be shared between configure
@@ -8257,23 +8977,30 @@ do
   "tools/icupkg/Makefile" ) CONFIG_FILES="$CONFIG_FILES tools/icupkg/Makefile" ;;
   "tools/icuswap/Makefile" ) CONFIG_FILES="$CONFIG_FILES tools/icuswap/Makefile" ;;
   "tools/pkgdata/Makefile" ) CONFIG_FILES="$CONFIG_FILES tools/pkgdata/Makefile" ;;
-  "tools/dumpce/Makefile" ) CONFIG_FILES="$CONFIG_FILES tools/dumpce/Makefile" ;;
   "tools/tzcode/Makefile" ) CONFIG_FILES="$CONFIG_FILES tools/tzcode/Makefile" ;;
   "test/Makefile" ) CONFIG_FILES="$CONFIG_FILES test/Makefile" ;;
+  "test/compat/Makefile" ) CONFIG_FILES="$CONFIG_FILES test/compat/Makefile" ;;
   "test/testdata/Makefile" ) CONFIG_FILES="$CONFIG_FILES test/testdata/Makefile" ;;
   "test/testdata/pkgdata.inc" ) CONFIG_FILES="$CONFIG_FILES test/testdata/pkgdata.inc" ;;
   "test/hdrtst/Makefile" ) CONFIG_FILES="$CONFIG_FILES test/hdrtst/Makefile" ;;
   "test/intltest/Makefile" ) CONFIG_FILES="$CONFIG_FILES test/intltest/Makefile" ;;
   "test/cintltst/Makefile" ) CONFIG_FILES="$CONFIG_FILES test/cintltst/Makefile" ;;
   "test/iotest/Makefile" ) CONFIG_FILES="$CONFIG_FILES test/iotest/Makefile" ;;
-  "test/thaitest/Makefile" ) CONFIG_FILES="$CONFIG_FILES test/thaitest/Makefile" ;;
-  "test/testmap/Makefile" ) CONFIG_FILES="$CONFIG_FILES test/testmap/Makefile" ;;
   "test/letest/Makefile" ) CONFIG_FILES="$CONFIG_FILES test/letest/Makefile" ;;
-  "test/threadtest/Makefile" ) CONFIG_FILES="$CONFIG_FILES test/threadtest/Makefile" ;;
+  "test/perf/Makefile" ) CONFIG_FILES="$CONFIG_FILES test/perf/Makefile" ;;
+  "test/perf/collationperf/Makefile" ) CONFIG_FILES="$CONFIG_FILES test/perf/collationperf/Makefile" ;;
+  "test/perf/ubrkperf/Makefile" ) CONFIG_FILES="$CONFIG_FILES test/perf/ubrkperf/Makefile" ;;
+  "test/perf/charperf/Makefile" ) CONFIG_FILES="$CONFIG_FILES test/perf/charperf/Makefile" ;;
+  "test/perf/convperf/Makefile" ) CONFIG_FILES="$CONFIG_FILES test/perf/convperf/Makefile" ;;
+  "test/perf/normperf/Makefile" ) CONFIG_FILES="$CONFIG_FILES test/perf/normperf/Makefile" ;;
+  "test/perf/unisetperf/Makefile" ) CONFIG_FILES="$CONFIG_FILES test/perf/unisetperf/Makefile" ;;
+  "test/perf/usetperf/Makefile" ) CONFIG_FILES="$CONFIG_FILES test/perf/usetperf/Makefile" ;;
+  "test/perf/ustrperf/Makefile" ) CONFIG_FILES="$CONFIG_FILES test/perf/ustrperf/Makefile" ;;
+  "test/perf/utfperf/Makefile" ) CONFIG_FILES="$CONFIG_FILES test/perf/utfperf/Makefile" ;;
+  "test/perf/strsrchperf/Makefile" ) CONFIG_FILES="$CONFIG_FILES test/perf/collationperf/Makefile" ;;
   "samples/Makefile" ) CONFIG_FILES="$CONFIG_FILES samples/Makefile" ;;
   "samples/date/Makefile" ) CONFIG_FILES="$CONFIG_FILES samples/date/Makefile" ;;
   "samples/cal/Makefile" ) CONFIG_FILES="$CONFIG_FILES samples/cal/Makefile" ;;
-  "samples/csdet/Makefile" ) CONFIG_FILES="$CONFIG_FILES samples/csdet/Makefile" ;;
   "samples/layout/Makefile" ) CONFIG_FILES="$CONFIG_FILES samples/layout/Makefile" ;;
   "common/unicode/platform.h" ) CONFIG_FILES="$CONFIG_FILES common/unicode/platform.h" ;;
   "common/icucfg.h" ) CONFIG_HEADERS="$CONFIG_HEADERS common/icucfg.h" ;;
@@ -8344,6 +9071,7 @@ s,@program_transform_name@,$program_transform_name,;t t
 s,@bindir@,$bindir,;t t
 s,@sbindir@,$sbindir,;t t
 s,@libexecdir@,$libexecdir,;t t
+s,@datarootdir@,$datarootdir,;t t
 s,@datadir@,$datadir,;t t
 s,@sysconfdir@,$sysconfdir,;t t
 s,@sharedstatedir@,$sharedstatedir,;t t
@@ -8397,6 +9125,9 @@ s,@ENABLE_STATIC@,$ENABLE_STATIC,;t t
 s,@ENABLE_DEBUG@,$ENABLE_DEBUG,;t t
 s,@ENABLE_RELEASE@,$ENABLE_RELEASE,;t t
 s,@U_DEFAULT_SHOW_DRAFT@,$U_DEFAULT_SHOW_DRAFT,;t t
+s,@U_USE_GCC_VISIBILITY_ATTRIBUTE@,$U_USE_GCC_VISIBILITY_ATTRIBUTE,;t t
+s,@LIBCFLAGS@,$LIBCFLAGS,;t t
+s,@LIBCXXFLAGS@,$LIBCXXFLAGS,;t t
 s,@RANLIB@,$RANLIB,;t t
 s,@ac_ct_RANLIB@,$ac_ct_RANLIB,;t t
 s,@AR@,$AR,;t t
@@ -8406,6 +9137,7 @@ s,@ENABLE_RPATH@,$ENABLE_RPATH,;t t
 s,@U_INLINE@,$U_INLINE,;t t
 s,@THREADS_TRUE@,$THREADS_TRUE,;t t
 s,@ICU_USE_THREADS@,$ICU_USE_THREADS,;t t
+s,@LIB_THREAD@,$LIB_THREAD,;t t
 s,@HAVE_MMAP@,$HAVE_MMAP,;t t
 s,@GENCCODE_ASSEMBLY@,$GENCCODE_ASSEMBLY,;t t
 s,@CPP@,$CPP,;t t
@@ -8413,7 +9145,6 @@ s,@EGREP@,$EGREP,;t t
 s,@U_HAVE_INTTYPES_H@,$U_HAVE_INTTYPES_H,;t t
 s,@U_IOSTREAM_SOURCE@,$U_IOSTREAM_SOURCE,;t t
 s,@U_IS_BIG_ENDIAN@,$U_IS_BIG_ENDIAN,;t t
-s,@U_HAVE_NL_LANGINFO@,$U_HAVE_NL_LANGINFO,;t t
 s,@U_HAVE_NL_LANGINFO_CODESET@,$U_HAVE_NL_LANGINFO_CODESET,;t t
 s,@U_NL_LANGINFO_CODESET@,$U_NL_LANGINFO_CODESET,;t t
 s,@U_HAVE_NAMESPACE@,$U_HAVE_NAMESPACE,;t t
@@ -8437,10 +9168,10 @@ s,@HAVE_UINT64_T@,$HAVE_UINT64_T,;t t
 s,@U_HAVE_WCHAR_H@,$U_HAVE_WCHAR_H,;t t
 s,@U_HAVE_WCSCPY@,$U_HAVE_WCSCPY,;t t
 s,@U_SIZEOF_WCHAR_T@,$U_SIZEOF_WCHAR_T,;t t
+s,@U_CHECK_UTF16_STRING@,$U_CHECK_UTF16_STRING,;t t
 s,@EXTRAS_TRUE@,$EXTRAS_TRUE,;t t
 s,@ICUIO_TRUE@,$ICUIO_TRUE,;t t
 s,@LAYOUT_TRUE@,$LAYOUT_TRUE,;t t
-s,@thedatadir@,$thedatadir,;t t
 s,@pkgicudatadir@,$pkgicudatadir,;t t
 s,@thepkgicudatadir@,$thepkgicudatadir,;t t
 s,@DATA_PACKAGING_MODE@,$DATA_PACKAGING_MODE,;t t
@@ -8453,8 +9184,6 @@ s,@ICUDATA_CHAR@,$ICUDATA_CHAR,;t t
 s,@platform@,$platform,;t t
 s,@platform_make_fragment_name@,$platform_make_fragment_name,;t t
 s,@platform_make_fragment@,$platform_make_fragment,;t t
-s,@ld_rpath_suf@,$ld_rpath_suf,;t t
-s,@AIX_SHLIB@,$AIX_SHLIB,;t t
 s,@LIBOBJS@,$LIBOBJS,;t t
 s,@LTLIBOBJS@,$LTLIBOBJS,;t t
 CEOF

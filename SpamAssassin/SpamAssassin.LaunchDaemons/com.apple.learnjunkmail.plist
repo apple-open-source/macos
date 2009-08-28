@@ -10,7 +10,12 @@
 	<array>
 		<string>learn_junk_mail</string>
 	</array>
-        <key>StartInterval</key>
-        <integer>86400</integer>
+        <key>StartCalendarInterval</key>
+	<dict>
+		<key>Hour</key>
+		<integer>2</integer>
+		<key>Minute</key>
+		<integer>15</integer>
+	</dict>
 </dict>
 </plist>

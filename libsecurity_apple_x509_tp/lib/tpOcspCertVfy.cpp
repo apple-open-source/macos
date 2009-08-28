@@ -377,17 +377,17 @@ OcspRespStatus tpVerifyOcspResp(
 	uint32 numSignerCerts = ocspResp.numSignerCerts();
 	
 	/*
-	 * This cert group, alocated by AppleTPSession::CertGroupVerify(), 
+	 * This cert group, allocated by AppleTPSession::CertGroupVerify(), 
 	 * serves two functions here:
 	 *
 	 * -- it accumulates certs we get from the net (as parts of OCSP responses)
 	 *    for user in verifying OCSPResponse-related certs.
-	 *    TPCertGroup::buildCertGroup() uses this group as one of the many 
+	 *    TPCertGroup::buildCertGroup() uses this group as one of the many 
 	 *    sources of certs when building a cert chain.
 	 *
 	 * -- it provides a container into which to stash TPCertInfos which 
 	 *    persist at least as long as the TPVerifyContext; it's of type TGO_Group,
-	 *    soall of the certs added to it get freed when the group does. 
+	 *    so all of the certs added to it get freed when the group does. 
 	 */
 	assert(vfyCtx.signerCerts != NULL);
 	

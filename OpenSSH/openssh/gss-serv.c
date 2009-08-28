@@ -100,7 +100,7 @@ ssh_gssapi_acquire_cred(Gssctxt *ctx)
 		}
 
 		if ((ctx->major = gss_acquire_cred(&ctx->minor,
-		    ctx->name, 0, oidset, GSS_C_ACCEPT, &ctx->creds, 
+		    GSS_C_NO_NAME, 0, oidset, GSS_C_ACCEPT, &ctx->creds, 
 		    NULL, NULL)))
 			ssh_gssapi_error(ctx);
 

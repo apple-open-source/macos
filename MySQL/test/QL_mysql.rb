@@ -24,7 +24,7 @@ require 'QuickLookTool'
 class MySQLTool < QuickLookTool
 
 	TOOL_NAME = "QL_mysql"
-	TOOL_VERSION = "1.7"
+	TOOL_VERSION = "1.8"
 	SERVICE_NAME = "MySQL"
 	SERVICE_ID = "mysql"
 	SERVICE_DESC = "MySQL Quicklook Test Suite"
@@ -35,7 +35,8 @@ class MySQLTool < QuickLookTool
 
 	MT_PREFIX = "#{MYSQL_TOOL} -S /var/mysql/mysql.sock --password=#{TEST_PWD}"
 	RESET_PWD_CMD = "#{MT_PREFIX} -e \"update mysql.user set password = PASSWORD('') where user='root';\""
-	QUERY_USER_CMD = "#{MT_PREFIX} -e \"use mysql; select Host,User from user;\""
+	QUERY_USER_CMD = "#{MT_PREFIX} -e \"select Host,User from mysql.user;\""
+	QUERY_USER__PWD_CMD = "#{MT_PREFIX} -u root -p -e \"select Host,User from mysql.user;\""
 	MA_VARS_CMD = "mysqladmin -S /var/mysql/mysql.sock variables"
 
 	#----------------------------------------
@@ -61,7 +62,7 @@ class MySQLTool < QuickLookTool
 		])
 
 		# initialize data unique to this service
-		@dataDirPath = "#{self.tempDir}/data"
+		@dataDirPath = "#{self.logDir}/data"
 
 		# create utility instance for accessing serveradmin functions
 		@saCommand = SACommand.new(self, "", nil, nil)
@@ -148,7 +149,7 @@ end
 
 class MySQLQueryUserCommand < QLCommand
 	def initialize(qltool, user)
-		cmd = "#{MySQLTool::QUERY_USER_CMD} | grep localhost | awk '{print $2}'"
+		cmd = "#{MySQLTool::QUERY_USER__PWD_CMD} | grep #{user} | grep localhost | awk '{print $2}'"
 		super(qltool, cmd, user, MANUAL_REDIRECT)
 	end
 end

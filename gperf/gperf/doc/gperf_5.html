@@ -1,28 +1,29 @@
 <HTML>
 <HEAD>
-<!-- Created by texi2html 1.56k from gperf.texi on 12 June 2003 -->
+<!-- This HTML file has been created by texi2html 1.51
+     from gperf.texi on 31 March 2007 -->
 
-<TITLE>Perfect Hash Function Generator - 3. High-Level Description of GNU gperf</TITLE>
+<TITLE>Perfect Hash Function Generator - 3  High-Level Description of GNU gperf</TITLE>
 </HEAD>
 <BODY>
 Go to the <A HREF="gperf_1.html">first</A>, <A HREF="gperf_4.html">previous</A>, <A HREF="gperf_6.html">next</A>, <A HREF="gperf_10.html">last</A> section, <A HREF="gperf_toc.html">table of contents</A>.
 <P><HR><P>
 
 
-<H1><A NAME="SEC7" HREF="gperf_toc.html#TOC7">3. High-Level Description of GNU <CODE>gperf</CODE></A></H1>
+<H1><A NAME="SEC7" HREF="gperf_toc.html#TOC7">3  High-Level Description of GNU <CODE>gperf</CODE></A></H1>
 
 <P>
 The perfect hash function generator <CODE>gperf</CODE> reads a set of
 "keywords" from an input file (or from the standard input by
 default).  It attempts to derive a perfect hashing function that
-recognizes a member of the <EM>static keyword set</EM> with at most a
+recognizes a member of the <STRONG>static keyword set</STRONG> with at most a
 single probe into the lookup table.  If <CODE>gperf</CODE> succeeds in
 generating such a function it produces a pair of C source code routines
 that perform hashing and table lookup recognition.  All generated C code
 is directed to the standard output.  Command-line options described
 below allow you to modify the input and output format to <CODE>gperf</CODE>.
 
-
+</P>
 <P>
 By default, <CODE>gperf</CODE> attempts to produce time-efficient code, with
 less emphasis on efficient space utilization.  However, several options
@@ -34,7 +35,7 @@ statement scheme that minimizes data space storage size.  Furthermore,
 using a C <CODE>switch</CODE> may actually speed up the keyword retrieval time
 somewhat.  Actual results depend on your C compiler, of course.
 
-
+</P>
 <P>
 In general, <CODE>gperf</CODE> assigns values to the bytes it is using
 for hashing until some set of values gives each keyword a unique value.
@@ -42,10 +43,10 @@ A helpful heuristic is that the larger the hash value range, the easier
 it is for <CODE>gperf</CODE> to find and generate a perfect hash function.
 Experimentation is the key to getting the most from <CODE>gperf</CODE>.
 
+</P>
 
 
-
-<H2><A NAME="SEC8" HREF="gperf_toc.html#TOC8">3.1 Input Format to <CODE>gperf</CODE></A></H2>
+<H2><A NAME="SEC8" HREF="gperf_toc.html#TOC8">3.1  Input Format to <CODE>gperf</CODE></A></H2>
 <P>
 <A NAME="IDX4"></A>
 <A NAME="IDX5"></A>
@@ -57,7 +58,7 @@ is similar to GNU utilities <CODE>flex</CODE> and <CODE>bison</CODE> (or UNIX
 utilities <CODE>lex</CODE> and <CODE>yacc</CODE>).  Here's an outline of the general
 format:
 
-
+</P>
 
 <PRE>
 declarations
@@ -72,13 +73,14 @@ functions
 the functions section are optional.  The following sections describe the
 input format for each section.
 
+</P>
 
 <P>
 It is possible to omit the declaration section entirely, if the <SAMP>`-t'</SAMP>
 option is not given.  In this case the input file begins directly with the
 first keyword line, e.g.:
 
-
+</P>
 
 <PRE>
 january
@@ -90,7 +92,7 @@ april
 
 
 
-<H3><A NAME="SEC9" HREF="gperf_toc.html#TOC9">3.1.1 Declarations</A></H3>
+<H3><A NAME="SEC9" HREF="gperf_toc.html#TOC9">3.1.1  Declarations</A></H3>
 
 <P>
 The keyword input file optionally contains a section for including
@@ -98,10 +100,11 @@ arbitrary C declarations and definitions, <CODE>gperf</CODE> declarations that
 act like command-line options, as well as for providing a user-supplied
 <CODE>struct</CODE>.
 
+</P>
 
 
 
-<H4><A NAME="SEC10" HREF="gperf_toc.html#TOC10">3.1.1.1 User-supplied <CODE>struct</CODE></A></H4>
+<H4><A NAME="SEC10" HREF="gperf_toc.html#TOC10">3.1.1.1  User-supplied <CODE>struct</CODE></A></H4>
 
 <P>
 If the <SAMP>`-t'</SAMP> option (or, equivalently, the <SAMP>`%struct-type'</SAMP> declaration)
@@ -114,12 +117,12 @@ This first field must be called <SAMP>`name'</SAMP>, although it is possible to 
 its name with the <SAMP>`-K'</SAMP> option (or, equivalently, the
 <SAMP>`%define slot-name'</SAMP> declaration) described below.
 
-
+</P>
 <P>
 Here is a simple example, using months of the year and their attributes as
 input:
 
-
+</P>
 
 <PRE>
 struct month { char *name; int number; int days; int leap_days; };
@@ -145,12 +148,12 @@ other fields are a pair of consecutive percent signs, <SAMP>`%%'</SAMP>,
 appearing left justified in the first column, as in the UNIX utility
 <CODE>lex</CODE>.
 
-
+</P>
 <P>
 If the <CODE>struct</CODE> has already been declared in an include file, it can
 be mentioned in an abbreviated form, like this:
 
-
+</P>
 
 <PRE>
 struct month;
@@ -161,7 +164,7 @@ january,   1, 31, 31
 
 
 
-<H4><A NAME="SEC11" HREF="gperf_toc.html#TOC11">3.1.1.2 Gperf Declarations</A></H4>
+<H4><A NAME="SEC11" HREF="gperf_toc.html#TOC11">3.1.1.2  Gperf Declarations</A></H4>
 
 <P>
 The declaration section can contain <CODE>gperf</CODE> declarations.  They
@@ -169,7 +172,7 @@ influence the way <CODE>gperf</CODE> works, like command line options do.
 In fact, every such declaration is equivalent to a command line option.
 There are three forms of declarations:
 
-
+</P>
 
 <OL>
 <LI>
@@ -190,11 +193,11 @@ Declarations of names of entities in the output file, like
 When a declaration is given both in the input file and as a command line
 option, the command-line option's value prevails.
 
-
+</P>
 <P>
 The following <CODE>gperf</CODE> declarations are available.
 
-
+</P>
 <DL COMPACT>
 
 <DT><SAMP>`%delimiters=<VAR>delimiter-list</VAR>'</SAMP>
@@ -305,7 +308,7 @@ test like <SAMP>`c &#62;= 'A' &#38;&#38; c &#60;= 'Z''</SAMP> guarantees this.)
 <DD>
 <A NAME="IDX19"></A>
 Compare keyword lengths before trying a string comparison.  This option
-is mandatory for binary comparisons (see section <A HREF="gperf_5.html#SEC17">3.3 Use of NUL bytes</A>).  It also might
+is mandatory for binary comparisons (see section <A HREF="gperf_5.html#SEC17">3.3  Use of NUL bytes</A>).  It also might
 cut down on the number of string comparisons made during the lookup, since
 keywords with different lengths are never compared via <CODE>strcmp</CODE>.
 However, using <SAMP>`%compare-lengths'</SAMP> might greatly increase the size of the
@@ -386,9 +389,17 @@ hash table.  Default name is <SAMP>`wordlist'</SAMP>.  This option permits the
 use of two hash tables in the same file, even when the option <SAMP>`-G'</SAMP>
 (or, equivalently, the <SAMP>`%global-table'</SAMP> declaration) is given.
 
-<DT><SAMP>`%switch=<VAR>count</VAR>'</SAMP>
+<DT><SAMP>`%define length-table-name <VAR>name</VAR>'</SAMP>
 <DD>
 <A NAME="IDX29"></A>
+Allows you to specify the name for the generated array containing the
+length table.  Default name is <SAMP>`lengthtable'</SAMP>.  This option permits the
+use of two length tables in the same file, even when the option <SAMP>`-G'</SAMP>
+(or, equivalently, the <SAMP>`%global-table'</SAMP> declaration) is given.
+
+<DT><SAMP>`%switch=<VAR>count</VAR>'</SAMP>
+<DD>
+<A NAME="IDX30"></A>
 Causes the generated C code to use a <CODE>switch</CODE> statement scheme,
 rather than an array lookup table.  This can lead to a reduction in both
 time and space requirements for some input files.  The argument to this
@@ -401,18 +412,18 @@ was inspired in part by Keith Bostic's original C program.
 
 <DT><SAMP>`%omit-struct-type'</SAMP>
 <DD>
-<A NAME="IDX30"></A>
+<A NAME="IDX31"></A>
 Prevents the transfer of the type declaration to the output file.  Use
 this option if the type is already defined elsewhere.
 </DL>
 
 
 
-<H4><A NAME="SEC12" HREF="gperf_toc.html#TOC12">3.1.1.3 C Code Inclusion</A></H4>
+<H4><A NAME="SEC12" HREF="gperf_toc.html#TOC12">3.1.1.3  C Code Inclusion</A></H4>
 
 <P>
-<A NAME="IDX31"></A>
 <A NAME="IDX32"></A>
+<A NAME="IDX33"></A>
 Using a syntax similar to GNU utilities <CODE>flex</CODE> and <CODE>bison</CODE>, it
 is possible to directly include C source text and comments verbatim into
 the generated output file.  This is accomplished by enclosing the region
@@ -420,7 +431,7 @@ inside left-justified surrounding <SAMP>`%{'</SAMP>, <SAMP>`%}'</SAMP> pairs.  H
 an input fragment based on the previous example that illustrates this
 feature:
 
-
+</P>
 
 <PRE>
 %{
@@ -438,7 +449,7 @@ march,     3, 31, 31
 
 
 
-<H3><A NAME="SEC13" HREF="gperf_toc.html#TOC13">3.1.2 Format for Keyword Entries</A></H3>
+<H3><A NAME="SEC13" HREF="gperf_toc.html#TOC13">3.1.2  Format for Keyword Entries</A></H3>
 
 <P>
 The second input file format section contains lines of keywords and any
@@ -448,7 +459,7 @@ in the first column is considered a comment.  Everything following the
 beginning with <SAMP>`%'</SAMP> in the first column is an option declaration and
 must not occur within the keywords section.
 
-
+</P>
 <P>
 The first field of each non-comment line is always the keyword itself.  It
 can be given in two ways: as a simple name, i.e., without surrounding
@@ -460,7 +471,7 @@ In this context, a "field" is considered to extend up to, but
 not include, the first blank, comma, or newline.  Here is a simple
 example taken from a partial list of C reserved words:
 
-
+</P>
 
 <PRE>
 # These are a few C reserved words, see the c.gperf file 
@@ -480,7 +491,7 @@ return
 Note that unlike <CODE>flex</CODE> or <CODE>bison</CODE> the first <SAMP>`%%'</SAMP> marker
 may be elided if the declaration section is empty.
 
-
+</P>
 <P>
 Additional fields may optionally follow the leading keyword.  Fields
 should be separated by commas, and terminate at the end of line.  What
@@ -491,10 +502,10 @@ declaration section.  If the <SAMP>`-t'</SAMP> option (or, equivalently, the
 these fields are simply ignored.  All previous examples except the last
 one contain keyword attributes.
 
+</P>
 
 
-
-<H3><A NAME="SEC14" HREF="gperf_toc.html#TOC14">3.1.3 Including Additional C Functions</A></H3>
+<H3><A NAME="SEC14" HREF="gperf_toc.html#TOC14">3.1.3  Including Additional C Functions</A></H3>
 
 <P>
 The optional third section also corresponds closely with conventions
@@ -504,10 +515,10 @@ file, is included verbatim into the generated output file.  Naturally,
 it is your responsibility to ensure that the code contained in this
 section is valid C.
 
+</P>
 
 
-
-<H3><A NAME="SEC15" HREF="gperf_toc.html#TOC15">3.1.4 Where to place directives for GNU <CODE>indent</CODE>.</A></H3>
+<H3><A NAME="SEC15" HREF="gperf_toc.html#TOC15">3.1.4  Where to place directives for GNU <CODE>indent</CODE>.</A></H3>
 
 <P>
 If you want to invoke GNU <CODE>indent</CODE> on a <CODE>gperf</CODE> input file,
@@ -517,7 +528,7 @@ interpretation of the input file.  Therefore you have to insert some
 directives for GNU <CODE>indent</CODE>.  More precisely, assuming the most
 general input file structure
 
-
+</P>
 
 <PRE>
 declarations part 1
@@ -535,7 +546,7 @@ functions
 you would insert <SAMP>`*INDENT-OFF*'</SAMP> and <SAMP>`*INDENT-ON*'</SAMP> comments
 as follows:
 
-
+</P>
 
 <PRE>
 /* *INDENT-OFF* */
@@ -555,39 +566,39 @@ functions
 
 
 
-<H2><A NAME="SEC16" HREF="gperf_toc.html#TOC16">3.2 Output Format for Generated C Code with <CODE>gperf</CODE></A></H2>
+<H2><A NAME="SEC16" HREF="gperf_toc.html#TOC16">3.2  Output Format for Generated C Code with <CODE>gperf</CODE></A></H2>
 <P>
-<A NAME="IDX33"></A>
+<A NAME="IDX34"></A>
 
-
+</P>
 <P>
 Several options control how the generated C code appears on the standard 
-output.  Two C function are generated.  They are called <CODE>hash</CODE> and 
+output.  Two C functions are generated.  They are called <CODE>hash</CODE> and 
 <CODE>in_word_set</CODE>, although you may modify their names with a command-line 
 option.  Both functions require two arguments, a string, <CODE>char *</CODE> 
 <VAR>str</VAR>, and a length parameter, <CODE>int</CODE> <VAR>len</VAR>.  Their default 
 function prototypes are as follows:
 
-
+</P>
 <P>
 <DL>
 <DT><U>Function:</U> unsigned int <B>hash</B> <I>(const char * <VAR>str</VAR>, unsigned int <VAR>len</VAR>)</I>
-<DD><A NAME="IDX34"></A>
+<DD><A NAME="IDX35"></A>
 By default, the generated <CODE>hash</CODE> function returns an integer value
 created by adding <VAR>len</VAR> to several user-specified <VAR>str</VAR> byte
-positions indexed into an <EM>associated values</EM> table stored in a
+positions indexed into an <STRONG>associated values</STRONG> table stored in a
 local static array.  The associated values table is constructed
 internally by <CODE>gperf</CODE> and later output as a static local C array
 called <SAMP>`hash_table'</SAMP>.  The relevant selected positions (i.e. indices
 into <VAR>str</VAR>) are specified via the <SAMP>`-k'</SAMP> option when running
-<CODE>gperf</CODE>, as detailed in the <EM>Options</EM> section below (see section <A HREF="gperf_6.html#SEC18">4. Invoking <CODE>gperf</CODE></A>).
+<CODE>gperf</CODE>, as detailed in the <EM>Options</EM> section below (see section <A HREF="gperf_6.html#SEC18">4  Invoking <CODE>gperf</CODE></A>).
 </DL>
 
-
+</P>
 <P>
 <DL>
 <DT><U>Function:</U>  <B>in_word_set</B> <I>(const char * <VAR>str</VAR>, unsigned int <VAR>len</VAR>)</I>
-<DD><A NAME="IDX35"></A>
+<DD><A NAME="IDX36"></A>
 If <VAR>str</VAR> is in the keyword set, returns a pointer to that
 keyword.  More exactly, if the option <SAMP>`-t'</SAMP> (or, equivalently, the
 <SAMP>`%struct-type'</SAMP> declaration) was given, it returns
@@ -595,7 +606,7 @@ a pointer to the matching keyword's structure.  Otherwise it returns
 <CODE>NULL</CODE>.
 </DL>
 
-
+</P>
 <P>
 If the option <SAMP>`-c'</SAMP> (or, equivalently, the <SAMP>`%compare-strncmp'</SAMP>
 declaration) is not used, <VAR>str</VAR> must be a NUL terminated
@@ -604,12 +615,12 @@ string of exactly length <VAR>len</VAR>.  If <SAMP>`-c'</SAMP> (or, equivalently
 simply be an array of <VAR>len</VAR> bytes and does not need to be NUL
 terminated.
 
-
+</P>
 <P>
 The code generated for these two functions is affected by the following
 options:
 
-
+</P>
 <DL COMPACT>
 
 <DT><SAMP>`-t'</SAMP>
@@ -622,7 +633,7 @@ Make use of the user-defined <CODE>struct</CODE>.
 <DD>
 <DT><SAMP>`--switch=<VAR>total-switch-statements</VAR>'</SAMP>
 <DD>
-<A NAME="IDX36"></A>
+<A NAME="IDX37"></A>
 Generate 1 or more C <CODE>switch</CODE> statement rather than use a large,
 (and potentially sparse) static array.  Although the exact time and
 space savings of this approach vary according to your C compiler's
@@ -640,14 +651,14 @@ with the various input and output options, and timing the resulting C
 code, you can determine the best option choices for different keyword
 set characteristics.
 
+</P>
 
 
-
-<H2><A NAME="SEC17" HREF="gperf_toc.html#TOC17">3.3 Use of NUL bytes</A></H2>
+<H2><A NAME="SEC17" HREF="gperf_toc.html#TOC17">3.3  Use of NUL bytes</A></H2>
 <P>
-<A NAME="IDX37"></A>
+<A NAME="IDX38"></A>
 
-
+</P>
 <P>
 By default, the code generated by <CODE>gperf</CODE> operates on zero
 terminated strings, the usual representation of strings in C.  This means
@@ -655,7 +666,7 @@ that the keywords in the input file must not contain NUL bytes,
 and the <VAR>str</VAR> argument passed to <CODE>hash</CODE> or <CODE>in_word_set</CODE>
 must be NUL terminated and have exactly length <VAR>len</VAR>.
 
-
+</P>
 <P>
 If option <SAMP>`-c'</SAMP> (or, equivalently, the <SAMP>`%compare-strncmp'</SAMP>
 declaration) is used, then the <VAR>str</VAR> argument does not need
@@ -664,7 +675,7 @@ access the first <VAR>len</VAR>, not <VAR>len+1</VAR>, bytes starting at <VAR>st
 However, the keywords in the input file still must not contain NUL
 bytes.
 
-
+</P>
 <P>
 If option <SAMP>`-l'</SAMP> (or, equivalently, the <SAMP>`%compare-lengths'</SAMP>
 declaration) is used, then the hash table performs binary
@@ -674,7 +685,7 @@ generated by <CODE>gperf</CODE> will treat NUL like any other byte.
 Also, in this case the <SAMP>`-c'</SAMP> option (or, equivalently, the
 <SAMP>`%compare-strncmp'</SAMP> declaration) is ignored.
 
-
+</P>
 <P><HR><P>
 Go to the <A HREF="gperf_1.html">first</A>, <A HREF="gperf_4.html">previous</A>, <A HREF="gperf_6.html">next</A>, <A HREF="gperf_10.html">last</A> section, <A HREF="gperf_toc.html">table of contents</A>.
 </BODY>

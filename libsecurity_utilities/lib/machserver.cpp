@@ -67,7 +67,6 @@ MachServer::MachServer(const char *name, const Bootstrap &boot)
 
 void MachServer::setup(const char *name)
 {
-	secdebug("machsrv", "%p preparing service for \"%s\"", this, name);
 	workerTimeout = 60 * 2;	// 2 minutes default timeout
 	maxWorkerCount = 100;	// sanity check limit
 	useFloatingThread = false; // tight thread management
@@ -79,7 +78,6 @@ MachServer::~MachServer()
 {
 	// The ReceivePort members will clean themselves up.
 	// The bootstrap server will clear us from its map when our receive port dies.
-	secdebug("machsrv", "%p destroyed", this);
 }
 
 
@@ -90,13 +88,13 @@ MachServer::~MachServer()
 //
 void MachServer::add(Port receiver)
 {
-	secdebug("machsrv", "adding port %d to primary dispatch", receiver.port());
+	SECURITY_MACHSERVER_PORT_ADD(receiver);
 	mPortSet += receiver;
 }
 
 void MachServer::remove(Port receiver)
 {
-	secdebug("machsrv", "removing port %d from primary dispatch", receiver.port());
+	SECURITY_MACHSERVER_PORT_REMOVE(receiver);
 	mPortSet -= receiver;
 }
 
@@ -144,7 +142,9 @@ void MachServer::run(size_t maxSize, mach_msg_options_t options)
 	highestWorkerCount = 1;
 	
 	// run server loop in initial (immortal) thread
+	SECURITY_MACHSERVER_START_THREAD(false);
 	runServerThread(false);
+	SECURITY_MACHSERVER_END_THREAD(false);
 	
 	// primary server thread exited somehow (not currently possible)
 	assert(false);
@@ -169,7 +169,6 @@ void MachServer::runServerThread(bool doTimeout)
 	// all exits from runServerThread are through exceptions
 	try {
 		// register as a worker thread
-		secdebug("machsrv", "%p starting service on port %d", this, int(mServerPort));
 		perThread().server = this;
 
 		for (;;) {
@@ -187,19 +186,16 @@ void MachServer::runServerThread(bool doTimeout)
 				
 				// perform self-timeout processing
 				if (doTimeout) {
-					if (workerCount > maxWorkerCount) {
-						secdebug("machsrv", "%p too many threads; reaping immediately", this);
-						break;
-					}
+					if (workerCount > maxWorkerCount)	// someone reduced maxWorkerCount recently...
+						break;							// ... so release this thread immediately
 					Time::Absolute rightNow = Time::now();
 					if (rightNow >= nextCheckTime) {	// reaping period complete; process
 						UInt32 idlers = leastIdleWorkers;
-						secdebug("machsrv", "%p end of reaping period: %ld (min) idle of %ld total",
-							this, idlers, workerCount);
+						SECURITY_MACHSERVER_REAP(workerCount, idlers);
 						nextCheckTime = rightNow + workerTimeout;
 						leastIdleWorkers = INT_MAX;
-						if (idlers > 1)
-							break;
+						if (idlers > 1)					// multiple idle threads throughout measuring interval...
+							break;						// ... so release this thread now
 					}
 				}
 			}
@@ -219,16 +215,11 @@ void MachServer::runServerThread(bool doTimeout)
 						timeout = workerTimeout;
                 }
 			}
-#if !defined(NDEBUG)
-			if (indefinite)
-				secdebug("machsrvtime", "receive indefinitely");
-			else
-				secdebug("machsrvtime", "receive timeout=%g[ms]",
-					timeout.mSeconds());
-#endif //NDEBUG
+			if (SECURITY_MACHSERVER_RECEIVE_ENABLED())
+				SECURITY_MACHSERVER_RECEIVE(indefinite ? 0 : timeout.seconds());
 			
 			// receive next IPC request (or wait for timeout)
-			switch (mach_msg_return_t mr = indefinite ?
+			mach_msg_return_t mr = indefinite ?
 				mach_msg_overwrite(bufRequest,
 					MACH_RCV_MSG | mMsgOptions,
 					0, mMaxSize, mPortSet,
@@ -239,25 +230,15 @@ void MachServer::runServerThread(bool doTimeout)
 					MACH_RCV_MSG | MACH_RCV_TIMEOUT | MACH_RCV_INTERRUPT | mMsgOptions,
 					0, mMaxSize, mPortSet,
 					mach_msg_timeout_t(timeout.mSeconds()), MACH_PORT_NULL,
-					(mach_msg_header_t *) 0, 0)) {
+					(mach_msg_header_t *) 0, 0);
+					
+			switch (mr) {
 			case MACH_MSG_SUCCESS:
 				// process received request message below
 				break;
-			case MACH_RCV_TIMED_OUT:
-				// back to top for time-related processing
-				continue;
-			case MACH_RCV_TOO_LARGE:
-				// the kernel destroyed the request
-				secdebug("machsrv", "giant incoming message discarded");
-				continue;
-            case MACH_RCV_INTERRUPTED:
-                // receive interrupted, try again
-				secdebug("machsrv", "receive interrupted; continuing");
-                continue;
 			default:
-				// we got an error, but terminating at this point is suicidal.  Pretend it never happened.
-				secdebug("machsrv", "Got an unknown mach message status %X", mr);
- 				continue;
+				SECURITY_MACHSERVER_RECEIVE_ERROR(mr);
+				continue;
 			}
 			
 			// process received message
@@ -269,9 +250,7 @@ void MachServer::runServerThread(bool doTimeout)
 			} else {
 				// normal request message
 				StLock<MachServer, &MachServer::busy, &MachServer::idle> _(*this);
-				secdebug("machsrvreq",
-                    "servicing port %d request id=%d",
-                    bufRequest.localPort().port(), bufRequest.msgId());
+				SECURITY_MACHSERVER_BEGIN(bufRequest.localPort(), bufRequest.msgId());
 				
 				// try subsidiary handlers first
 				bool handled = false;
@@ -286,7 +265,7 @@ void MachServer::runServerThread(bool doTimeout)
                     handle(bufRequest, bufReply);
                 }
 
-				secdebug("machsrvreq", "request complete");
+				SECURITY_MACHSERVER_END();
 			}
 
 			// process reply generated by handler
@@ -315,32 +294,26 @@ void MachServer::runServerThread(bool doTimeout)
              *  To avoid falling off the kernel's fast RPC path unnecessarily,
              *  we only supply MACH_SEND_TIMEOUT when absolutely necessary.
              */
-			switch (mach_msg_return_t mr = mach_msg_overwrite(bufReply,
+			mr = mach_msg_overwrite(bufReply,
                           (MACH_MSGH_BITS_REMOTE(bufReply.bits()) ==
                                                 MACH_MSG_TYPE_MOVE_SEND_ONCE) ?
                           MACH_SEND_MSG | mMsgOptions :
                           MACH_SEND_MSG | MACH_SEND_TIMEOUT | mMsgOptions,
                           bufReply.length(), 0, MACH_PORT_NULL,
-                          0, MACH_PORT_NULL, NULL, 0)) {
+                          0, MACH_PORT_NULL, NULL, 0);
+			switch (mr) {
 			case MACH_MSG_SUCCESS:
 				break;
-			case MACH_SEND_TIMED_OUT:
-				secdebug("machsrv", "reply port full; dropping reply");
-				bufReply.destroy();
-				break;
 			default:
-				secdebug("machsrv", "error 0x%x sending reply to port %d",
-						 mr, bufReply.remotePort().port());
+				SECURITY_MACHSERVER_SEND_ERROR(mr, bufReply.remotePort());
 				bufReply.destroy();
 				break;
 			}
         }
 		perThread().server = NULL;
-		secdebug("machsrv", "%p ending service on port %d", this, int(mServerPort));
 		
 	} catch (...) {
 		perThread().server = NULL;
-		secdebug("machsrv", "%p aborted by exception (port %d)", this, int(mServerPort));
 		throw;
 	}
 }
@@ -396,8 +369,7 @@ void MachServer::releaseWhenDone(Allocator &alloc, void *memory)
     if (memory) {
         set<Allocation> &releaseSet = perThread().deferredAllocations;
         assert(releaseSet.find(Allocation(memory, alloc)) == releaseSet.end());
-        secdebug("machsrvmem", "%p register %p for release with %p",
-            this, memory, &alloc);
+		SECURITY_MACHSERVER_ALLOC_REGISTER(memory, &alloc);
         releaseSet.insert(Allocation(memory, alloc));
     }
 }
@@ -414,7 +386,7 @@ void MachServer::releaseDeferredAllocations()
 {
     set<Allocation> &releaseSet = perThread().deferredAllocations;
 	for (set<Allocation>::iterator it = releaseSet.begin(); it != releaseSet.end(); it++) {
-        secdebug("machsrvmem", "%p release %p with %p", this, it->addr, it->allocator);
+		SECURITY_MACHSERVER_ALLOC_RELEASE(it->addr, it->allocator);
 		it->allocator->free(it->addr);
     }
 	releaseSet.erase(releaseSet.begin(), releaseSet.end());
@@ -455,12 +427,9 @@ void MachServer::ensureReadyThread()
 {
 	if (idleCount == 0) {
 		if (workerCount >= maxWorkerCount) {
-			secdebug("machsrv", "at maximum thread load (%ld)", workerCount);
 			this->threadLimitReached(workerCount);	// call remedial handler
 		}
 		if (workerCount < maxWorkerCount) { // threadLimit() may have raised maxWorkerCount
-			secdebug("machsrv", "spawning new service thread (%ld running and active)",
-				workerCount);
 			(new LoadThread(*this))->run();
 		}
 	}
@@ -476,7 +445,6 @@ void MachServer::ensureReadyThread()
 //
 void MachServer::threadLimitReached(UInt32 limit)
 {
-	secdebug("machsrv", "denying additional thread; deadlock is possible");
 }
 
 
@@ -490,9 +458,12 @@ void MachServer::LoadThread::action()
 	// register the worker thread and go
 	server.addThread(this);
 	try {
+		SECURITY_MACHSERVER_START_THREAD(true);
 		server.runServerThread(true);
+		SECURITY_MACHSERVER_END_THREAD(false);
 	} catch (...) {
 		// fell out of server loop by error. Let the thread go quietly
+		SECURITY_MACHSERVER_END_THREAD(true);
 	}
 	server.removeThread(this);
 }
@@ -506,8 +477,6 @@ void MachServer::addThread(Thread *thread)
 	StLock<Mutex> _(managerLock);
 	workerCount++;
 	idleCount++;
-	secdebug("machsrv", "%p adding worker thread (%ld workers, %ld idle)",
-		this, workerCount, idleCount);
 	workers.insert(thread);
 }
 
@@ -516,8 +485,6 @@ void MachServer::removeThread(Thread *thread)
 	StLock<Mutex> _(managerLock);
 	workerCount--;
 	idleCount--;
-	secdebug("machsrv", "%p removing worker thread (%ld workers, %ld idle)",
-		this, workerCount, idleCount);
 	workers.erase(thread);
 }
 
@@ -541,21 +508,19 @@ bool MachServer::processTimer()
 		if (!(top = static_cast<Timer *>(timers.pop(Time::now()))))
 			return false;				// nothing (more) to be done now
 	}	// drop lock; work has been retrieved
-	secdebug("machsrvtime", "%p timer %p executing at %.3f",
-        this, top, Time::now().internalForm());
 	try {
+		SECURITY_MACHSERVER_TIMER_START(top, top->longTerm(), Time::now().internalForm());
 		StLock<MachServer::Timer,
 			&MachServer::Timer::select, &MachServer::Timer::unselect> _t(*top);
 		if (top->longTerm()) {
 			StLock<MachServer, &MachServer::busy, &MachServer::idle> _(*this);
 			top->action();
-			secdebug("machsrvtime", "%p long timer %p done", this, top);
 		} else {
 			top->action();
-			secdebug("machsrvtime", "%p timer %p done", this, top);
 		}
+		SECURITY_MACHSERVER_TIMER_END(false);
 	} catch (...) {
-		secdebug("machsrvtime", "%p server timer %p failed with exception", this, top);
+		SECURITY_MACHSERVER_TIMER_END(true);
 	}
 	return true;
 }
@@ -582,7 +547,6 @@ void cdsa_mach_notify_dead_name(mach_port_t, mach_port_name_t port)
 	try {
 		MachServer::active().notifyDeadName(port);
 	} catch (...) {
-		secdebug("machsrv", "exception thrown in dead port notifier (ignored)");
 	}
 }
 
@@ -593,7 +557,6 @@ void cdsa_mach_notify_port_deleted(mach_port_t, mach_port_name_t port)
 	try {
 		MachServer::active().notifyPortDeleted(port);
 	} catch (...) {
-		secdebug("machsrv", "exception thrown in port deleted notififier (ignored)");
 	}
 }
 
@@ -604,7 +567,6 @@ void cdsa_mach_notify_port_destroyed(mach_port_t, mach_port_name_t port)
 	try {
 		MachServer::active().notifyPortDestroyed(port);
 	} catch (...) {
-		secdebug("machsrv", "exception thrown in port destroyed notifier (ignored)");
 	}
 }
 
@@ -615,7 +577,6 @@ void cdsa_mach_notify_send_once(mach_port_t port)
 	try {
 		MachServer::active().notifySendOnce(port);
 	} catch (...) {
-		secdebug("machsrv", "exception in send once notifier (ignored)");
 	}
 }
 
@@ -626,7 +587,6 @@ void cdsa_mach_notify_no_senders(mach_port_t port, mach_port_mscount_t count)
 	try {
 		MachServer::active().notifyNoSenders(port, count);
 	} catch (...) {
-		secdebug("machsrv", "exception in no senders notifier (ignored)");
 	}
 }
 

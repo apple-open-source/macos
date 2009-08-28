@@ -36,7 +36,14 @@ if [get_compiler_info ${binfile} "c++"] {
 }
 
 # APPLE LOCAL quiet about long doubles
-if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable {debug c++ additional_flags=-Wno-long-double}] != "" } {
+# APPLE LOCAL: Only gcc-4.0 accepts -Wno-long-double, 4.2 & above do not.
+set flags "debug c++"
+get_compiler_info not_used
+if {[istarget "*-apple-darwin*"] && [regexp {gcc-4-[01]} $compiler_info]} {
+    lappend flags "additional_flags=-Wno-long-double"
+}
+
+if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable $flags] != "" } {
      gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
 
@@ -144,6 +151,12 @@ proc test_template_breakpoints {} {
     if {$hp_aCC_compiler} {setup_xfail hppa*-*-* CLLbs14792}
 
     gdb_test_multiple "break T5<int>::~T5" "destructor_breakpoint" {
+	-re "0. cancel.*\[\r\n\]*.1. all.*\[\r\n\]*.2. T5<int>::~T5\\(\\) at .*\[\r\n\]*.3. T5<int>::~T5\\(\\) at .*\[\r\n\]*> $"
+	{
+	    gdb_test "3" \
+		     ".*Breakpoint.*at.* file .*${testfile}.cc, line.*" \
+		     "destructor breakpoint"
+	}
 	-re "Breakpoint.*at.* file .*${testfile}.cc, line.*$gdb_prompt $"
 	{
 	    pass "destructor breakpoint"

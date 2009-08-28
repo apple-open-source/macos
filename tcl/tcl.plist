@@ -5,33 +5,734 @@
 		<key>OpenSourceProject</key>
 		<string>tcl</string>
 		<key>OpenSourceVersion</key>
-		<string>8.4.7</string>
+		<string>8.5.7</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://tcl.tk/</string>
 		<key>OpenSourceURL</key>
-		<string>http://tcltkaqua.sourceforge.net/darwin-TclBI/tcl/tcl.tar.gz</string>
-		<key>OpenSourceMD5</key>
-		<string>07e256e21bd0d05887770318b540c36f</string>
+		<string>http://osdn.dl.sourceforge.net/sourceforge/tcl/tcl8.5.7-src.tar.gz</string>
+		<key>OpenSourceSHA1</key>
+		<string>a603d27bf0b854739c99f0d658bfc3f1c485f578</string>
+		<key>OpenSourceImportDate</key>
+		<string>2009-04-15</string>
 		<key>OpenSourceLicense</key>
-		<string>Other</string>
+		<string>Tcl</string>
 		<key>OpenSourceLicenseFile</key>
 		<string>tcl.txt</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		    <string>fix path to tclsh in tclsh.1 manpage</string>
+		</array>
 	</dict>
 	<dict>
 		<key>OpenSourceProject</key>
 		<string>tk</string>
 		<key>OpenSourceVersion</key>
-		<string>8.4.7</string>
+		<string>8.5.7</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://tcl.tk/</string>
 		<key>OpenSourceURL</key>
-		<string>http://tcltkaqua.sourceforge.net/darwin-TclBI/tk/tk.tar.gz</string>
-		<key>OpenSourceMD5</key>
-		<string>b86b0db1c28723e6d3139e88250353a6</string>
+		<string>http://cloud.github.com/downloads/das/tcltk/tk8.5.7-decarbon.tar.gz</string>
+		<key>OpenSourceSHA1</key>
+		<string>63de0cff1fb3de1c09130e76fe469abb485c12b7</string>
+		<key>OpenSourceImportDate</key>
+		<string>2009-04-15</string>
+		<key>OpenSourceLicense</key>
+		<string>Tcl</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>tk.txt</string>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>tcl84</string>
+		<key>OpenSourceVersion</key>
+		<string>8.4.19</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://tcl.tk/</string>
+		<key>OpenSourceURL</key>
+		<string>http://osdn.dl.sourceforge.net/sourceforge/tcl/tcl8.4.19-src.tar.gz</string>
+		<key>OpenSourceSHA1</key>
+		<string>ed25c5a206bcd603c2d5e58790354b9be178f331</string>
+		<key>OpenSourceImportDate</key>
+		<string>2008-04-18</string>
+		<key>OpenSourceLicense</key>
+		<string>Tcl</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>tcl.txt</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		    <string>fix path to tclsh in tclsh.1 manpage</string>
+		    <string>changes from tcl SF CVS between 2008-04-17 and 2009-04-15</string>
+		</array>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>tk84</string>
+		<key>OpenSourceVersion</key>
+		<string>8.4.19</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://tcl.tk/</string>
+		<key>OpenSourceURL</key>
+		<string>http://osdn.dl.sourceforge.net/sourceforge/tcl/tk8.4.19-src.tar.gz</string>
+		<key>OpenSourceSHA1</key>
+		<string>56d09be8a7670b2686d76b7526ff24b0240ca120</string>
+		<key>OpenSourceImportDate</key>
+		<string>2008-04-18</string>
+		<key>OpenSourceLicense</key>
+		<string>Tcl</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>tk.txt</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		    <string>fix Tk_FindPhoto.3 manpage</string>
+		    <string>changes from tk SF CVS between 2008-04-17 and 2009-04-14</string>
+		</array>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>bwidget</string>
+		<key>OpenSourceVersion</key>
+		<string>1.8.0</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://sourceforge.net/projects/tcllib</string>
+		<key>OpenSourceURL</key>
+		<string>http://teapot.activestate.com/package/name/Bwidget/ver/0.0.0.2008.10.30.19.39.59/arch/source/file.zip</string>
+		<key>OpenSourceSHA1</key>
+		<string>a9b837a3b1f7b452dedaa37e8f9327e7a1855efb</string>
+		<key>OpenSourceImportDate</key>
+		<string>2008-10-31</string>
+		<key>OpenSourceLicense</key>
+		<string>Tcl</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>bwidget.txt</string>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>expect</string>
+		<key>OpenSourceVersion</key>
+		<string>5.44.1.11</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://expect.nist.gov/</string>
+		<key>OpenSourceURL</key>
+		<string>http://teapot.activestate.com/package/name/Expect-sf/ver/0.0.0.2008.10.20.18.12.54/arch/source/file.zip</string>
+		<key>OpenSourceSHA1</key>
+		<string>6adc169a25587d47637c3291e7653135d60dc1f3</string>
+		<key>OpenSourceImportDate</key>
+		<string>2008-10-21</string>
+		<key>OpenSourceLicense</key>
+		<string>Public Domain</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>expect.txt</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		    <string>fix openpty configure check</string>
+		    <string>remove Tk dependency</string>
+		    <string>disable expect debugger</string>
+		    <string>fix missing string.h #includes</string>
+		</array>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>ffidl</string>
+		<key>OpenSourceVersion</key>
+		<string>0.6.1</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.elf.org/ffidl/</string>
+		<key>OpenSourceURL</key>
+		<string>http://www.categorifiedcoder.info/tcltk/ffidl/ffidl-0.6.1-darwin-9-univ.tar.gz</string>
+		<key>OpenSourceSHA1</key>
+		<string>44c4d67d467bd3a1ccd74fb07538bdd5e7ff5597</string>
+		<key>OpenSourceImportDate</key>
+		<string>2008-08-12</string>
+		<key>OpenSourceLicense</key>
+		<string>MIT</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>ffidl.txt</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		    <string>fix libSystem loading in ffidlrt</string>
+		</array>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>incrtcl</string>
+		<key>OpenSourceVersion</key>
+		<string>3.4</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://incrtcl.sourceforge.net/</string>
+		<key>OpenSourceCVS</key>
+		<string>/usr/bin/cvs -Q -d :pserver:anonymous@incrtcl.cvs.sourceforge.net:/cvsroot/incrtcl export -D 2008-10-05 incrTcl</string>
+		<key>OpenSourceSHA1</key>
+		<string>9c2b344866abe781d43a6207f77c93570947981f</string>
+		<key>OpenSourceImportDate</key>
+		<string>2008-10-05</string>
+		<key>OpenSourceLicense</key>
+		<string>Tcl</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>incrTcl.txt</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		    <string>rename Widget.n manpage to itkWidget.n</string>
+		    <string>fix [unknown] additions for Tcl 8.4 compatibility</string>
+		    <string>fix configure for CVS tclconfig location</string>
+		</array>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>iwidgets</string>
+		<key>OpenSourceVersion</key>
+		<string>4.0.2</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://incrtcl.sourceforge.net/</string>
+		<key>OpenSourceURL</key>
+		<string>http://teapot.activestate.com/package/name/Iwidgets/ver/0.0.0.2008.08.22.18.15.00/arch/source/file.zip</string>
+		<key>OpenSourceSHA1</key>
+		<string>3b7d6feed7181a6e3dd2de87b4e79d12e54f4c90</string>
+		<key>OpenSourceImportDate</key>
+		<string>2008-08-23</string>
+		<key>OpenSourceLicense</key>
+		<string>Tcl</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>iwidgets.txt</string>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>memchan</string>
+		<key>OpenSourceVersion</key>
+		<string>2.2.1</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://memchan.sourceforge.net/</string>
+		<key>OpenSourceURL</key>
+		<string>http://teapot.activestate.com/package/name/Memchan/ver/2.2.1.2008.10.20.18.13.18/arch/source/file.zip</string>
+		<key>OpenSourceSHA1</key>
+		<string>33b08147204714020dc6d9a1cc87ecab1be1844e</string>
+		<key>OpenSourceImportDate</key>
+		<string>2008-10-21</string>
+		<key>OpenSourceLicense</key>
+		<string>Tcl</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>memchan.txt</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		    <string>fix TCLLIBPATH make override</string>
+		</array>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>mk4tcl</string>
+		<key>OpenSourceVersion</key>
+		<string>2.4.9.7</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.equi4.com/metakit/</string>
+		<key>OpenSourceCVS</key>
+		<string>/usr/bin/svn -q export -r {2008-09-06} svn://svn.equi4.com/metakit/trunk metakit</string>
+		<key>OpenSourceSHA1</key>
+		<string>1d64606a88a9a89fbc1c295fb902a2ca7bccd5d4</string>
+		<key>OpenSourceImportDate</key>
+		<string>2008-09-06</string>
+		<key>OpenSourceLicense</key>
+		<string>MIT</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>metakit.txt</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		    <string>fix 64bit build</string>
+		    <string>add missing configure checks</string>
+		    <string>fix config header generation &amp; use</string>
+		    <string>skip doc install</string>
+		</array>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>tbcload</string>
+		<key>OpenSourceVersion</key>
+		<string>1.7</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://tclpro.sourceforge.net/</string>
+		<key>OpenSourceURL</key>
+		<string>http://www.categorifiedcoder.info/tcltk/tbcload-1.7.tar.gz</string>
+		<key>OpenSourceSHA1</key>
+		<string>ef0541c91b7f8e36a4792a4952bbd5fba3ef5a94</string>
+		<key>OpenSourceImportDate</key>
+		<string>2008-04-16</string>
+		<key>OpenSourceLicense</key>
+		<string>Tcl</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>tbcload.txt</string>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>tcllib</string>
+		<key>OpenSourceVersion</key>
+		<string>1.11.1</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://tcl.tk/software/tcllib/</string>
+		<key>OpenSourceURL</key>
+		<string>http://osdn.dl.sourceforge.net/sourceforge/tcllib/tcllib-1.11.1.tar.gz</string>
+		<key>OpenSourceSHA1</key>
+		<string>397d9a3b942ee3d15f3c9d338628b26318a1a7d7</string>
+		<key>OpenSourceImportDate</key>
+		<string>2008-12-15</string>
+		<key>OpenSourceLicense</key>
+		<string>Tcl</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>tcllib.txt</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		    <string>fix installer to allow standalone doc install</string>
+		    <string>add support to doctools nroff for man.macros inlining</string>
+		</array>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>tclsoap</string>
+		<key>OpenSourceVersion</key>
+		<string>1.6.7</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://tclsoap.sourceforge.net/</string>
+		<key>OpenSourceCVS</key>
+		<string>/usr/bin/cvs -Q -d :pserver:anonymous@tclsoap.cvs.sourceforge.net:/cvsroot/tclsoap export -r soap1_6_7_as tclsoap</string>
+		<key>OpenSourceSHA1</key>
+		<string>ef4e3a3e8ed44a26176a9c8cc642f257099ad6d5</string>
+		<key>OpenSourceImportDate</key>
+		<string>2008-02-29</string>
+		<key>OpenSourceLicense</key>
+		<string>MIT</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>tclsoap.txt</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		    <string>fix xmlrpc tests</string>
+		</array>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>tclvfs</string>
+		<key>OpenSourceVersion</key>
+		<string>1.4</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://sourceforge.net/projects/tclvfs</string>
+		<key>OpenSourceURL</key>
+		<string>http://teapot.activestate.com/package/name/vfs/ver/0.0.0.2008.12.04.11.48.37/arch/source/file.zip</string>
+		<key>OpenSourceSHA1</key>
+		<string>ededcb04d2ed1a0e4760a9b5299f003ea416d831</string>
+		<key>OpenSourceImportDate</key>
+		<string>2008-12-05</string>
+		<key>OpenSourceLicense</key>
+		<string>Tcl</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>tclvfs.txt</string>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>tclx</string>
+		<key>OpenSourceVersion</key>
+		<string>8.4</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://tclx.sourceforge.net/</string>
+		<key>OpenSourceURL</key>
+		<string>http://teapot.activestate.com/package/name/Tclx/ver/0.0.0.2008.06.29.23.11.20/arch/source/file.zip</string>
+		<key>OpenSourceSHA1</key>
+		<string>b2936a7ffea27ea4e2d18a3c12ee82c10a7e3f26</string>
+		<key>OpenSourceImportDate</key>
+		<string>2008-06-30</string>
+		<key>OpenSourceLicense</key>
+		<string>Tcl</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>tclx.txt</string>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>tclxml</string>
+		<key>OpenSourceVersion</key>
+		<string>2.6</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://tclxml.sourceforge.net/</string>
+		<key>OpenSourceURL</key>
+		<string>http://osdn.dl.sourceforge.net/sourceforge/tclxml/tclxml-2.6.tar.gz</string>
+		<key>OpenSourceSHA1</key>
+		<string>b57f88ff775d67227b16ff5974fd85b13a689b4e</string>
+		<key>OpenSourceImportDate</key>
+		<string>2003-03-02</string>
 		<key>OpenSourceLicense</key>
 		<string>Other</string>
 		<key>OpenSourceLicenseFile</key>
-		<string>tk.txt</string>
+		<string>tclxml.txt</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		    <string>update buildsystem for latest TEA</string>
+		    <string>skip compatibility with pre-8.1 tcl</string>
+		    <string>fix tclexpat.c compile error</string>
+		    <string>fix pkgIndex.tcl versions</string>
+		    <string>fix testsuite failures</string>
+		</array>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>tcldom</string>
+		<key>OpenSourceVersion</key>
+		<string>2.6</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://tclxml.sourceforge.net/</string>
+		<key>OpenSourceURL</key>
+		<string>http://osdn.dl.sourceforge.net/sourceforge/tclxml/tcldom-2.6.tar.gz</string>
+		<key>OpenSourceSHA1</key>
+		<string>e83260e289a73d1c27c2e98a62faf12149b6839a</string>
+		<key>OpenSourceImportDate</key>
+		<string>2003-03-09</string>
+		<key>OpenSourceLicense</key>
+		<string>Other</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>tcldom.txt</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		    <string>update buildsystem for latest TEA</string>
+		    <string>install missing packages</string>
+		    <string>fix pkgIndex.tcl versions</string>
+		    <string>changes from tclxml SF CVS between 2003-03-09 and 2003-12-03</string>
+		</array>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>tclxslt</string>
+		<key>OpenSourceVersion</key>
+		<string>2.6</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://tclxml.sourceforge.net/</string>
+		<key>OpenSourceURL</key>
+		<string>http://osdn.dl.sourceforge.net/sourceforge/tclxml/tclxslt-2.6.tar.gz</string>
+		<key>OpenSourceSHA1</key>
+		<string>67a356073e86cfd4a5064d9dc3617946219d1844</string>
+		<key>OpenSourceImportDate</key>
+		<string>2003-03-09</string>
+		<key>OpenSourceLicense</key>
+		<string>Other</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>tclxslt.txt</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		    <string>update buildsystem for latest TEA</string>
+		    <string>fix pkgIndex.tcl versions</string>
+		    <string>fix testsuite failures</string>
+		    <string>install tclxslt.n manpage</string>
+		</array>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>tdom</string>
+		<key>OpenSourceVersion</key>
+		<string>0.8.3</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.tdom.org/</string>
+		<key>OpenSourceURL</key>
+		<string>http://teapot.activestate.com/package/name/tdom/ver/0.0.0.2008.08.27.18.17.27/arch/source/file.zip</string>
+		<key>OpenSourceSHA1</key>
+		<string>5dba0521aa4747a27a6c6ba6b370a2f48cc81172</string>
+		<key>OpenSourceImportDate</key>
+		<string>2008-08-28</string>
+		<key>OpenSourceLicense</key>
+		<string>MPL</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>tdom.txt</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		    <string>fix pkgIndex.tcl generation</string>
+		</array>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>thread</string>
+		<key>OpenSourceVersion</key>
+		<string>2.6.5</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://tcl.sourceforge.net/</string>
+		<key>OpenSourceURL</key>
+		<string>http://teapot.activestate.com/package/name/thread/ver/0.0.0.2008.11.04.18.15.38/arch/source/file.zip</string>
+		<key>OpenSourceSHA1</key>
+		<string>3b28e548d9e3315cf4e522f7061da93483d0b722</string>
+		<key>OpenSourceImportDate</key>
+		<string>2008-11-05</string>
+		<key>OpenSourceLicense</key>
+		<string>Tcl</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>thread.txt</string>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>tkcon</string>
+		<key>OpenSourceVersion</key>
+		<string>2.5</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://tkcon.sourceforge.net/</string>
+		<key>OpenSourceURL</key>
+		<string>http://teapot.activestate.com/package/name/tkcon/ver/0.0.0.2008.02.07.23.12.46/arch/source/file.zip</string>
+		<key>OpenSourceSHA1</key>
+		<string>154cb538ab462378180a877aeccb5a18e4142088</string>
+		<key>OpenSourceImportDate</key>
+		<string>2008-02-08</string>
+		<key>OpenSourceLicense</key>
+		<string>Tcl</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>tkcon.txt</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		    <string>fix "Tcl Help" menu item</string>
+		</array>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>tkimg</string>
+		<key>OpenSourceVersion</key>
+		<string>1.4</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://tkimg.sourceforge.net/</string>
+		<key>OpenSourceURL</key>
+		<string>http://teapot.activestate.com/package/name/Img/ver/0.0.0.2008.12.02.10.57.38/arch/source/file.zip</string>
+		<key>OpenSourceSHA1</key>
+		<string>c8b69df92f03b034e86f69d5066f1559588a7578</string>
+		<key>OpenSourceImportDate</key>
+		<string>2008-12-03</string>
+		<key>OpenSourceLicense</key>
+		<string>Tcl</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>tkimg.txt</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		    <string>use system zlib</string>
+		</array>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>tklib</string>
+		<key>OpenSourceVersion</key>
+		<string>0.4.1.0</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://sourceforge.net/projects/tcllib</string>
+		<key>OpenSourceURL</key>
+		<string>http://teapot.activestate.com/package/name/tklib/ver/0.0.0.2008.11.04.09.48.11/arch/source/file.zip</string>
+		<key>OpenSourceSHA1</key>
+		<string>73f76b08c81d71c54f36142f536635cc6026cef2</string>
+		<key>OpenSourceImportDate</key>
+		<string>2008-11-05</string>
+		<key>OpenSourceLicense</key>
+		<string>Tcl</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>tklib.txt</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		    <string>fix as style menu font for rdar://problem/6764654</string>
+		</array>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>tktable</string>
+		<key>OpenSourceVersion</key>
+		<string>2.10</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://tktable.sourceforge.net/</string>
+		<key>OpenSourceURL</key>
+		<string>http://teapot.activestate.com/package/name/Tktable/ver/0.0.0.2008.11.14.18.16.40/arch/source/file.zip</string>
+		<key>OpenSourceSHA1</key>
+		<string>c9071fe62baf50490c2fdaf583df19e02966f251</string>
+		<key>OpenSourceImportDate</key>
+		<string>2008-11-15</string>
+		<key>OpenSourceLicense</key>
+		<string>Tcl</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>tktable.txt</string>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>tktreectrl</string>
+		<key>OpenSourceVersion</key>
+		<string>2.2.8</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://tktreectrl.sourceforge.net/</string>
+		<key>OpenSourceURL</key>
+		<string>http://teapot.activestate.com/package/name/treectrl/ver/0.0.0.2008.10.20.18.16.44/arch/source/file.zip</string>
+		<key>OpenSourceSHA1</key>
+		<string>bf9c658c2b354eb3ae0f3053fdf0365b69d2e36c</string>
+		<key>OpenSourceImportDate</key>
+		<string>2008-10-21</string>
+		<key>OpenSourceLicense</key>
+		<string>Tcl</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>tktreectrl.txt</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		    <string>fix bigendian check</string>
+		</array>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>tls</string>
+		<key>OpenSourceVersion</key>
+		<string>1.6</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://tls.sourceforge.net/</string>
+		<key>OpenSourceURL</key>
+		<string>http://teapot.activestate.com/package/name/tls/ver/0.0.0.2008.06.18.23.14.00/arch/source/file.zip</string>
+		<key>OpenSourceSHA1</key>
+		<string>e11031500aa9b004ca27065d5cc2c7ddaddefa11</string>
+		<key>OpenSourceImportDate</key>
+		<string>2008-06-19</string>
+		<key>OpenSourceLicense</key>
+		<string>Tcl</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>tls.txt</string>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>trf</string>
+		<key>OpenSourceVersion</key>
+		<string>2.1.3</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://tcltrf.sourceforge.net/</string>
+		<key>OpenSourceCVS</key>
+		<string>/usr/bin/cvs -Q -d :pserver:anonymous@tcltrf.cvs.sourceforge.net:/cvsroot/tcltrf export -D 2008-12-12 trf</string>
+		<key>OpenSourceSHA1</key>
+		<string>32523c97c431e357c76f417332d40f90894e5d2d</string>
+		<key>OpenSourceImportDate</key>
+		<string>2008-12-12</string>
+		<key>OpenSourceLicense</key>
+		<string>Tcl</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>trf.txt</string>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>xotcl</string>
+		<key>OpenSourceVersion</key>
+		<string>1.6.2</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.xotcl.org/</string>
+		<key>OpenSourceURL</key>
+		<string>http://media.wu-wien.ac.at/download/xotcl-1.6.2.tar.gz</string>
+		<key>OpenSourceSHA1</key>
+		<string>41a3db391fa4557fdfac03be20b64bc37f66eeb3</string>
+		<key>OpenSourceImportDate</key>
+		<string>2008-11-04</string>
+		<key>OpenSourceLicense</key>
+		<string>MIT</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>xotcl.txt</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		    <string>install store and apps libdirs</string>
+		    <string>remove bogus symlink in /usr/lib</string>
+		    <string>fix xotclsh and xowish scripts</string>
+		    <string>allow configure without Tk</string>
+		    <string>fix XOTcl_ExitProc declaration</string>
+		    <string>fix [package require upvarcompat] error</string>
+		    <string>fix html doc hrefs</string>
+		</array>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>quicktimetcl</string>
+		<key>OpenSourceVersion</key>
+		<string>3.2</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://quicktimetcl.sourceforge.net/</string>
+		<key>OpenSourceURL</key>
+		<string>http://teapot.activestate.com/package/name/QuickTimeTcl/ver/0.0.0.2008.05.06.23.05.17/arch/source/file.zip</string>
+		<key>OpenSourceSHA1</key>
+		<string>eb2dc989f91f7caef01e09214b1e286193da207b</string>
+		<key>OpenSourceImportDate</key>
+		<string>2008-05-07</string>
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>quicktimetcl.txt</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		    <string>TEA buildsystem</string>
+		    <string>fix tcl.h inclusion</string>
+		    <string>fix Tk 8.4 compatibility</string>
+		</array>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>snack</string>
+		<key>OpenSourceVersion</key>
+		<string>2.2.10</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.speech.kth.se/snack/</string>
+		<key>OpenSourceURL</key>
+		<string>http://www.speech.kth.se/snack/dist/snack2.2.10.tar.gz</string>
+		<key>OpenSourceSHA1</key>
+		<string>2c333fde061cf1cb7d5932c9cff4eb968c7d095a</string>
+		<key>OpenSourceImportDate</key>
+		<string>2005-12-15</string>
+		<key>OpenSourceLicense</key>
+		<string>GPL</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>snack.txt</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		    <string>TEA buildsystem</string>
+		</array>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>tclresource</string>
+		<key>OpenSourceVersion</key>
+		<string>1.1.2</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://tclresource.sourceforge.net/</string>
+		<key>OpenSourceURL</key>
+		<string>http://teapot.activestate.com/package/name/resource-source/ver/0.0.0.2007.11.22.23.13.59/arch/source/file.zip</string>
+		<key>OpenSourceSHA1</key>
+		<string>d2e3b9af52dc57b79365fc9b9ee8664289a8d873</string>
+		<key>OpenSourceImportDate</key>
+		<string>2007-11-23</string>
+		<key>OpenSourceLicense</key>
+		<string>Tcl</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>tclresource.txt</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		    <string>adjust doc path</string>
+		</array>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>tclae</string>
+		<key>OpenSourceVersion</key>
+		<string>2.0.3</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://tclae.sourceforge.net/</string>
+		<key>OpenSourceURL</key>
+		<string>http://teapot.activestate.com/package/name/tclAE/ver/0.0.0.2008.01.10.23.11.30/arch/source/file.zip</string>
+		<key>OpenSourceSHA1</key>
+		<string>b63c5355a501363c2ad9c1f95a69c6a6e52b3947</string>
+		<key>OpenSourceImportDate</key>
+		<string>2008-01-11</string>
+		<key>OpenSourceLicense</key>
+		<string>Tcl</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>tclae.txt</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		    <string>sync version number</string>
+		</array>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>tclapplescript</string>
+		<key>OpenSourceVersion</key>
+		<string>1.0</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://tclapplescript.sourceforge.net/</string>
+		<key>OpenSourceURL</key>
+		<string>http://teapot.activestate.com/package/name/Tclapplescript/ver/0.0.0.2007.11.22.23.07.37/arch/source/file.zip</string>
+		<key>OpenSourceSHA1</key>
+		<string>b3593c4d181b6615c8c61e3a18552fb88f2f3e07</string>
+		<key>OpenSourceImportDate</key>
+		<string>2007-11-23</string>
+		<key>OpenSourceLicense</key>
+		<string>Tcl</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>tclapplescript.txt</string>
 	</dict>
 </array>
 </plist>

@@ -93,6 +93,8 @@ protected:
 public:
     FileDesc() : mFd(invalidFd), mAtEnd(false) { }
     FileDesc(int fd) : mFd(fd), mAtEnd(false) { }
+
+	static const mode_t modeMissingOk = S_IFIFO;		// in mode means "do not throw on ENOENT"
     
     // implicit file system open() construction
     explicit FileDesc(const char *path, int flag = O_RDONLY, mode_t mode = 0666)
@@ -201,6 +203,7 @@ public:
 	{ return getAttr(name.c_str(), value, length, position, options); }
 	ssize_t getAttrLength(const char *name);
 	ssize_t getAttrLength(const std::string &name) { return getAttrLength(name.c_str()); }
+	// removeAttr ignore missing attributes. Pass XATTR_REPLACE to fail in that case
 	void removeAttr(const char *name, int options = 0);
 	void removeAttr(const std::string &name, int options = 0)
 	{ return removeAttr(name.c_str(), options); }

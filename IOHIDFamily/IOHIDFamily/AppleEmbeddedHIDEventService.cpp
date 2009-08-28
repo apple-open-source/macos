@@ -36,9 +36,9 @@ OSDefineMetaClassAndAbstractStructors( AppleEmbeddedHIDEventService, super )
 //====================================================================================================
 // AppleEmbeddedHIDEventService::dispatchAccelerometerEvent
 //====================================================================================================
-void AppleEmbeddedHIDEventService::dispatchAccelerometerEvent(AbsoluteTime timestamp, IOFixed x, IOFixed y, IOFixed z, IOOptionBits options)
+void AppleEmbeddedHIDEventService::dispatchAccelerometerEvent(AbsoluteTime timestamp, IOFixed x, IOFixed y, IOFixed z, IOHIDAccelerometerType type, IOOptionBits options)
 {
-    IOHIDEvent * event = IOHIDEvent::accelerometerEvent(timestamp, x, y, z, options);
+    IOHIDEvent * event = IOHIDEvent::accelerometerEvent(timestamp, x, y, z, type, options);
     
     if ( event ) {
         dispatchEvent(event);

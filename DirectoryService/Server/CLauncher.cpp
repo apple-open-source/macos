@@ -38,6 +38,7 @@
 #include "CServerPlugin.h"
 #include "SharedConsts.h"
 #include "CPluginConfig.h"
+#include "CInternalDispatch.h"
 #include <CoreFoundation/CFRunLoop.h>
 
 #include <servers/bootstrap.h>
@@ -60,7 +61,7 @@ extern DSMutexSemaphore    *gKerberosMutex;
 //
 //--------------------------------------------------------------------------------------------------
 
-CLauncher::CLauncher ( CServerPlugin *inPlugin ) : CInternalDispatchThread(kTSLauncherThread)
+CLauncher::CLauncher ( CServerPlugin *inPlugin ) : DSCThread(kTSLauncherThread)
 {
 	fThreadSignature = kTSLauncherThread;
 
@@ -139,6 +140,8 @@ SInt32 CLauncher::ThreadMain ( void )
     volatile	UInt32		uiWaitTime 	= 1;
 				sHeader		aHeader;
 				ePluginState		pluginState	= kUnknownState;
+
+	CInternalDispatch::AddCapability();
 
 	if ( gPlugins != nil )
 	{
@@ -230,7 +233,7 @@ SInt32 CLauncher::ThreadMain ( void )
 			}
 		}
 	}
-
+	
 	return( 0 );
 
 } // ThreadMain

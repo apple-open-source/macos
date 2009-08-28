@@ -1,4 +1,4 @@
-/* $Id: inet_ntop.c,v 1.2 2006/09/26 05:50:29 lukem Exp $ */
+/* $NetBSD: inet_ntop.c,v 1.4 2008/09/21 16:35:25 lukem Exp $ */
 /* from	NetBSD: inet_ntop.c,v 1.3 2006/05/10 21:53:15 mrg Exp */
 
 /*
@@ -25,9 +25,9 @@
  * sizeof(int) < 4.  sizeof(int) > 4 is fine; all the world's not a VAX.
  */
 
-static const char *inet_ntop4(const u_char *src, char *dst, socklen_t size);
+static const char *inet_ntop4(const unsigned char *src, char *dst, socklen_t size);
 #ifdef INET6
-static const char *inet_ntop6(const u_char *src, char *dst, socklen_t size);
+static const char *inet_ntop6(const unsigned char *src, char *dst, socklen_t size);
 #endif /* INET6 */
 
 /* char *
@@ -63,12 +63,12 @@ inet_ntop(int af, const void *src, char *dst, socklen_t size)
  *	`dst' (as a const)
  * notes:
  *	(1) uses no statics
- *	(2) takes a u_char* not an in_addr as input
+ *	(2) takes a unsigned char* not an in_addr as input
  * author:
  *	Paul Vixie, 1996.
  */
 static const char *
-inet_ntop4(const u_char *src, char *dst, socklen_t size)
+inet_ntop4(const unsigned char *src, char *dst, socklen_t size)
 {
 	char tmp[sizeof "255.255.255.255"];
 	int l;
@@ -91,7 +91,7 @@ inet_ntop4(const u_char *src, char *dst, socklen_t size)
  *	Paul Vixie, 1996.
  */
 static const char *
-inet_ntop6(const u_char *src, char *dst, socklen_t size)
+inet_ntop6(const unsigned char *src, char *dst, socklen_t size)
 {
 	/*
 	 * Note that int32_t and int16_t need only be "at least" large enough
@@ -103,7 +103,7 @@ inet_ntop6(const u_char *src, char *dst, socklen_t size)
 	char tmp[sizeof "ffff:ffff:ffff:ffff:ffff:ffff:255.255.255.255"];
 	char *tp, *ep;
 	struct { int base, len; } best, cur;
-	u_int words[NS_IN6ADDRSZ / NS_INT16SZ];
+	unsigned int words[NS_IN6ADDRSZ / NS_INT16SZ];
 	int i;
 	int advance;
 

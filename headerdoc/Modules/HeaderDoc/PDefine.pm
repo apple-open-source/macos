@@ -4,8 +4,7 @@
 # Synopsis: Holds headerDoc comments of the @define type, which
 #           are used to comment symbolic constants declared with #define
 #
-# Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2007/07/19 18:44:59 $
+# Last Updated: $Date: 2009/03/30 19:38:51 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -36,7 +35,8 @@ use HeaderDoc::HeaderElement;
 @ISA = qw( HeaderDoc::HeaderElement );
 use strict;
 use vars qw($VERSION @ISA);
-$VERSION = '$Revision: 1.9.2.8.2.44 $';
+use Carp qw(cluck);
+$HeaderDoc::PDefine::VERSION = '$Revision: 1.16 $';
 
 sub new {
     my($param) = shift;
@@ -90,26 +90,28 @@ sub discussion
 
     if (@_) {
 	if ($localDebug) {
-		print "Set Discussion for #define (or block) to ".@_[0]."..\n";
+		print STDERR "Set Discussion for #define (or block) to ".@_[0]."..\n";
 	}
 	return $self->SUPER::discussion(@_);
     }
 
     my $realdisc = $self->SUPER::discussion();
+    my $realCheckDisc = $self->SUPER::halfbaked_discussion();
 
-    if (!length($realdisc) || ($realdisc !~ /\s/)) {
+    if (!length($realCheckDisc) || ($realCheckDisc !~ /\S/)) {
+	# print "RETURNING BLOCK DISC FOR $self (".$self->name().")\n";
 	return $self->blockDiscussion();
     }
     return $realdisc;
 }
 
 
-sub processComment {
+sub processComment_old {
     my $localDebug = 0;
     my($self) = shift;
     my $fieldArrayRef = shift;
     my @fields = @$fieldArrayRef;
-    my $filename = $self->filename();
+    my $fullpath = $self->fullpath();
     my $linenum = $self->linenum();
     my $olddisc = $self->discussion();
 
@@ -118,13 +120,13 @@ sub processComment {
 	my $top_level_field = 0;
 	if ($field =~ /^(\w+)(\s|$)/) {
 		$fieldname = $1;
-		# print "FIELDNAME: $fieldname\n";
+		# print STDERR "FIELDNAME: $fieldname\n";
 		$top_level_field = validTag($fieldname, 1);
 	}
-	# print "TLF: $top_level_field, FN: \"$fieldname\"\n";
-	if ($localDebug) { print "FIELD: $field\n"; }
+	# print STDERR "TLF: $top_level_field, FN: \"$fieldname\"\n";
+	if ($localDebug) { print STDERR "FIELD: $field\n"; }
         chomp($field);
-	# if ($localDebug) { print "CHOMPED FIELD: $field\n"; }
+	# if ($localDebug) { print STDERR "CHOMPED FIELD: $field\n"; }
 		SWITCH: {
             ($field =~ /^\/\*\!/o)&& do {
                                 my $copy = $field;
@@ -136,7 +138,7 @@ sub processComment {
                         };
             ($field =~ s/^abstract\s+//io) && do {$self->abstract($field); last SWITCH;};
             ($field =~ s/^brief\s+//io) && do {$self->abstract($field, 1); last SWITCH;};
-            ($field =~ s/^discussion(\s+|$)//io) && do {
+            ($field =~ s/^(?:discussion|details)(\s+|$)//io) && do {
 			if ($self->inDefineBlock() && length($olddisc)) {
 				# Silently drop these....
 				$self->{DISCUSSION} = "";
@@ -148,11 +150,13 @@ sub processComment {
             ($field =~ s/^availability\s+//io) && do {$self->availability($field); last SWITCH;};
             ($field =~ s/^since\s+//io) && do {$self->availability($field); last SWITCH;};
             ($field =~ s/^author\s+//io) && do {$self->attribute("Author", $field, 0); last SWITCH;};
+            ($field =~ s/^group\s+//io) && do {$self->group($field); last SWITCH;};
+            ($field =~ s/^indexgroup\s+//io) && do {$self->indexgroup($field); last SWITCH;};
 	    ($field =~ s/^version\s+//io) && do {$self->attribute("Version", $field, 0); last SWITCH;};
             ($field =~ s/^deprecated\s+//io) && do {$self->attribute("Deprecated", $field, 0); last SWITCH;};
             ($field =~ s/^updated\s+//io) && do {$self->updated($field); last SWITCH;};
             ($field =~ s/^parseOnly(\s+|$)//io) && do { $self->parseOnly(1); last SWITCH; };
-            ($field =~ s/^noParse(\s+|$)//io) && do { print "Parsing will be skipped.\n" if ($localDebug); $HeaderDoc::skipNextPDefine = 1; last SWITCH; };
+            ($field =~ s/^noParse(\s+|$)//io) && do { print STDERR "Parsing will be skipped.\n" if ($localDebug); $HeaderDoc::skipNextPDefine = 1; last SWITCH; };
             ($field =~ s/^(param|field)\s+//io) && do {
                     $field =~ s/^\s+|\s+$//go; # trim leading and trailing whitespace
                     # $field =~ /(\w*)\s*(.*)/so;
@@ -170,7 +174,7 @@ sub processComment {
 		    if (length($attname) && length($attdisc)) {
 			$self->attribute($attname, $attdisc, 0);
 		    } else {
-			warn "$filename:$linenum: warning: Missing name/discussion for attribute\n";
+			warn "$fullpath:$linenum: warning: Missing name/discussion for attribute\n";
 		    }
 		    last SWITCH;
 		};
@@ -188,7 +192,7 @@ sub processComment {
 			    $self->attributelist($name, $line);
 			}
 		    } else {
-			warn "$filename:$linenum: warning: Missing name/discussion for attributelist\n";
+			warn "$fullpath:$linenum: warning: Missing name/discussion for attributelist\n";
 		    }
 		    last SWITCH;
 		};
@@ -197,7 +201,7 @@ sub processComment {
 		    if (length($attname) && length($attdisc)) {
 			$self->attribute($attname, $attdisc, 1);
 		    } else {
-			warn "$filename:$linenum: warning: Missing name/discussion for attributeblock\n";
+			warn "$fullpath:$linenum: warning: Missing name/discussion for attributeblock\n";
 		    }
 		    last SWITCH;
 		};
@@ -211,7 +215,11 @@ sub processComment {
 		($top_level_field == 1) && do {
 			my $keepname = 1;
 			my $blockrequest = 0;
- 			if ($field =~ s/^(define(?:d)?|function)(\s+|$)/$2/io) {
+ 			if ($field =~ s/^(availabilitymacro)(\s+|$)/$2/io) {
+				$self->isAvailabilityMacro(1);
+				$keepname = 1;
+				$self->parseOnly(1);
+ 			} elsif ($field =~ s/^(define(?:d)?|function)(\s+|$)/$2/io) {
 				$keepname = 1;
 				$blockrequest = 0;
             		} elsif ($field =~ s/^(define(?:d)?block)(\s+)/$2/io) {
@@ -225,11 +233,11 @@ sub processComment {
 			}
 		    	my ($defname, $defabstract_or_disc, $namedisc) = getAPINameAndDisc($field);
 		    	if ($self->isBlock()) {
-				print "ISBLOCK (BLOCKREQUEST=$blockrequest)\n" if ($localDebug);
+				print STDERR "ISBLOCK (BLOCKREQUEST=$blockrequest)\n" if ($localDebug);
 				# my ($defname, $defabstract_or_disc, $namedisc) = getAPINameAndDisc($field);
 				# In this case, we get a name and abstract.
 				if ($blockrequest) {
-					print "Added block name $defname\n" if ($localDebug);
+					print STDERR "Added block name $defname\n" if ($localDebug);
 					$self->name($defname);
 					if (length($defabstract_or_disc)) {
 						if ($namedisc) {
@@ -239,12 +247,14 @@ sub processComment {
 						}
 					}
 				} else {
-					print "Added block member $defname\n" if ($localDebug);
+					print STDERR "Added block member $defname\n" if ($localDebug);
 					$self->attributelist("Included Defines", $field);
 				}
 		    	} else {
-				# print "NOT BLOCK\n";
-				$self->name($defname);
+				if (length($defname)) {
+					# print STDERR "NOT BLOCK.  NAME IS \"$defname\"\n";
+					$self->name($defname);
+				}
 				if (length($defabstract_or_disc)) {
 					if ($namedisc) {
 						$self->nameline_discussion($defabstract_or_disc);
@@ -255,48 +265,52 @@ sub processComment {
 		    	}
 		    	last SWITCH;
 		};
-	    # my $filename = $HeaderDoc::headerObject->name();
-	    my $filename = $self->filename();
+	    # my $fullpath = $HeaderDoc::headerObject->name();
+	    my $fullpath = $self->fullpath();
 	    my $linenum = $self->linenum();
-            # print "$filename:$linenum:Unknown field in #define comment: $field\n";
-		if (length($field)) { warn "$filename:$linenum: warning: Unknown field (\@$field) in #define comment (".$self->name().")\n"; }
+            # print STDERR "$fullpath:$linenum:Unknown field in #define comment: $field\n";
+		if (length($field)) { warn "$fullpath:$linenum: warning: Unknown field (\@$field) in #define comment (".$self->name().")\n"; }
 		}
 	}
 }
 
-sub setPDefineDeclaration {
+sub setDeclaration {
     my($self) = shift;
     my ($dec) = @_;
     my $localDebug = 0;
     $self->declaration($dec);
-    my $filename = $self->filename();
+    my $fullpath = $self->fullpath();
     my $line = $self->linenum();
 
     # if ($dec =~ /#define.*#define/so && !($self->isBlock)) {
-	# warn("$filename:$line:WARNING: Multiple #defines in \@define.  Use \@defineblock instead.\n");
+	# warn("$fullpath:$line:WARNING: Multiple #defines in \@define.  Use \@defineblock instead.\n");
     # }
     
-    print "============================================================================\n" if ($localDebug);
-    print "Raw #define declaration is: $dec\n" if ($localDebug);
+    print STDERR "============================================================================\n" if ($localDebug);
+    print STDERR "Raw #define declaration is: $dec\n" if ($localDebug);
     $self->declarationInHTML($dec);
     return $dec;
 }
 
-sub isBlock {
+sub isAvailabilityMacro {
     my $self = shift;
 
     if (@_) {
-	$self->{ISBLOCK} = shift;
+	$self->{ISAVAILABILITYMACRO} = shift;
     }
 
-    return $self->{ISBLOCK};
+    return $self->{ISAVAILABILITYMACRO};
 }
 
 
 sub blockDiscussion {
     my $self = shift;
+    my $localDebug = 0;
     
     if (@_) {
+	if ($localDebug) {
+		print STDERR "Set Discussion for #define (or block) to ".@_[0]."..\n";
+	}
         $self->{BLOCKDISCUSSION} = shift;
     }
     return $self->{BLOCKDISCUSSION};
@@ -316,33 +330,10 @@ sub result {
 sub printObject {
     my $self = shift;
  
-    print "#Define\n";
+    print STDERR "#Define\n";
     $self->SUPER::printObject();
-    print "Result: $self->{RESULT}\n";
-    print "\n";
-}
-
-sub parseTreeList
-{
-    my $self = shift;
-    my $localDebug = 0;
-
-    if ($localDebug) {
-      print "OBJ ".$self->name().":\n";
-      foreach my $tree (@{$self->{PARSETREELIST}}) {
-	print "PARSE TREE: $tree\n";
-      }
-    }
-
-    return $self->{PARSETREELIST};
-}
-
-sub addParseTree
-{
-    my $self = shift;
-    my $tree = shift;
-
-    push(@{$self->{PARSETREELIST}}, $tree);
+    print STDERR "Result: $self->{RESULT}\n";
+    print STDERR "\n";
 }
 
 sub parseTree
@@ -359,7 +350,7 @@ sub parseTree
 	$self->SUPER::parseTree($treeref);
 	my $tree = ${$treeref};
 	my ($success, $value) = $tree->getPTvalue();
-	# print "SV: $success $value\n";
+	# print STDERR "SV: $success $value\n";
 	if ($success) {
 		my $vstr = "";
 		if ($xmlmode) {

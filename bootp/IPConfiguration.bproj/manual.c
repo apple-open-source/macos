@@ -73,6 +73,7 @@ typedef struct {
     timer_callout_t *		timer;
     boolean_t			resolve_router_timed_out;
     boolean_t			ignore_link_status;
+    boolean_t			user_warned;
 } Service_manual_t;
 
 static void
@@ -184,7 +185,7 @@ manual_start(Service_t * service_p, IFEventID_t evid, void * event_data)
 	      break;
 	  }
 	  manual_cancel_pending_events(service_p);
-	  arp_client_probe(manual->arp, 
+	  arp_client_probe(manual->arp,
 			   (arp_result_func_t *)manual_start, service_p,
 			   (void *)IFEventID_arp_e, G_ip_zeroes,
 			   service_requested_ip_addr(service_p));
@@ -200,22 +201,34 @@ manual_start(Service_t * service_p, IFEventID_t evid, void * event_data)
 	  }
 	  else {
 	      if (result->in_use) {
-		  char	msg[128];
+		  char			msg[128];
+		  struct timeval	tv;
 
 		  snprintf(msg, sizeof(msg), 
 			   IP_FORMAT " in use by " EA_FORMAT,
 			   IP_LIST(service_requested_ip_addr_ptr(service_p)),
 			   EA_LIST(result->addr.target_hardware));
-		  service_report_conflict(service_p,
-					  service_requested_ip_addr_ptr(service_p),
-					  result->addr.target_hardware,
-					  NULL);
+		  if (manual->user_warned == FALSE) {
+		      manual->user_warned = TRUE;
+		      service_report_conflict(service_p,
+					      service_requested_ip_addr_ptr(service_p),
+					      result->addr.target_hardware,
+					      NULL);
+		  }
 		  my_log(LOG_ERR, "MANUAL %s: %s", 
 			 if_name(if_p), msg);
 		  service_remove_address(service_p);
 		  service_publish_failure(service_p, 
 					  ipconfig_status_address_in_use_e,
 					  msg);
+		  if (G_manual_conflict_retry_interval_secs > 0) {
+		      /* try again in a bit */
+		      tv.tv_sec = G_manual_conflict_retry_interval_secs;
+		      tv.tv_usec = 0;
+		      timer_set_relative(manual->timer, tv, 
+					 (timer_func_t *)manual_start,
+					 service_p, IFEventID_start_e, NULL);
+		  }
 		  break;
 	      }
 	  }
@@ -231,6 +244,7 @@ manual_start(Service_t * service_p, IFEventID_t evid, void * event_data)
 				    service_requested_ip_addr(service_p),
 				    service_requested_ip_mask(service_p),
 				    G_ip_zeroes);
+	  service_remove_conflict(service_p);
 	  if (service_router_is_iaddr_valid(service_p)
 	      && service_resolve_router(service_p, manual->arp,
 					manual_resolve_router_callback,
@@ -362,8 +376,9 @@ manual_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
 		 != 0);
 	  if (ipcfg->ip[0].addr.s_addr
 	      != service_requested_ip_addr(service_p).s_addr
-	      || (ipcfg->u.manual_router.s_addr 
-		  != service_router_iaddr(service_p).s_addr)
+	      || (service_router_is_iaddr_valid(service_p)
+		  && (ipcfg->u.manual_router.s_addr 
+		      != service_router_iaddr(service_p).s_addr))
 	      || (ignore_link_status != manual->ignore_link_status)) {
 	      evdata->needs_stop = TRUE;
 	  }
@@ -396,19 +411,15 @@ manual_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
 		   IP_FORMAT " in use by " EA_FORMAT,
 		   IP_LIST(&arpc->ip_addr), 
 		   EA_LIST(arpc->hwaddr));
-	  service_report_conflict(service_p,
-				  &arpc->ip_addr,
-				  arpc->hwaddr,
-				  NULL);
+	  if (manual->user_warned == FALSE) {
+	      manual->user_warned = TRUE;
+	      service_report_conflict(service_p,
+				      &arpc->ip_addr,
+				      arpc->hwaddr,
+				      NULL);
+	  }
 	  my_log(LOG_ERR, "MANUAL %s: %s", 
 		 if_name(if_p), msg);
-#if 0
-	  service_remove_address(service_p);
-	  service_publish_failure(service_p, 
-				  ipconfig_status_address_in_use_e,
-				  msg);
-	  manual_cancel_pending_events(service_p);
-#endif 0
 	  break;
       }
       case IFEventID_media_e: {
@@ -417,6 +428,7 @@ manual_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
 	  if (manual->ignore_link_status) {
 	      break;
 	  }
+	  manual->user_warned = FALSE;
 	  if (service_link_status(service_p)->valid == TRUE) {
 	      if (service_link_status(service_p)->active == TRUE) {
 		  manual_start(service_p, IFEventID_start_e, NULL);

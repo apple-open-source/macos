@@ -1,6 +1,6 @@
 /*
 ********************************************************************************
-*   Copyright (C) 1997-2006, International Business Machines
+*   Copyright (C) 1997-2009, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 ********************************************************************************
 *
@@ -40,6 +40,7 @@ U_NAMESPACE_BEGIN
 
 class DigitList;
 class ChoiceFormat;
+class UnicodeSet;
 
 /**
  * DecimalFormat is a concrete subclass of NumberFormat that formats decimal
@@ -1185,10 +1186,7 @@ public:
      * @see #setPadCharacter
      * @see #getPadCharacterString
      * @see #setPadPosition
-     * @see #kPadBeforePrefix
-     * @see #kPadAfterPrefix
-     * @see #kPadBeforeSuffix
-     * @see #kPadAfterSuffix
+     * @see #EPadPosition
      * @stable ICU 2.0
      */
     virtual EPadPosition getPadPosition(void) const;
@@ -1206,10 +1204,7 @@ public:
      * @see #setPadCharacter
      * @see #getPadCharacterString
      * @see #getPadPosition
-     * @see #kPadBeforePrefix
-     * @see #kPadAfterPrefix
-     * @see #kPadBeforeSuffix
-     * @see #kPadAfterSuffix
+     * @see #EPadPosition
      * @stable ICU 2.0
      */
     virtual void setPadPosition(EPadPosition padPos);
@@ -1728,7 +1723,8 @@ private:
     
     static int32_t compareSimpleAffix(const UnicodeString& affix,
                                       const UnicodeString& input,
-                                      int32_t pos);
+                                      int32_t pos,
+                                      UBool strict);
     
     static int32_t skipRuleWhiteSpace(const UnicodeString& text, int32_t pos);
     
@@ -1742,7 +1738,10 @@ private:
     static int32_t match(const UnicodeString& text, int32_t pos, UChar32 ch);
 
     static int32_t match(const UnicodeString& text, int32_t pos, const UnicodeString& str);
-
+	
+    static UBool matchSymbol(const UnicodeString &text, int32_t position, int32_t length, const UnicodeString &symbol,
+                             UnicodeSet *sset, UChar32 schar);
+	
     /**
      * Get a decimal format symbol.
      * Returns a const reference to the symbol string.

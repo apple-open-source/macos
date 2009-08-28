@@ -101,6 +101,7 @@ typedef struct {
     int				flags;
     int				export_only;
     int				doing_proxy;
+    int				if_index;
     struct sockaddr_inarp 	sin_m;
     struct sockaddr_dl 		sdl_m;
 } route_options;
@@ -577,6 +578,10 @@ rtmsg(int s, int cmd, route_msg * msg_p, route_options * opt)
 		goto doit;
 	bzero((char *)msg_p, sizeof(*msg_p));
 	rtm->rtm_flags = opt->flags;
+	if (opt->if_index != 0) {
+	    rtm->rtm_index = opt->if_index;
+	    rtm->rtm_flags |= RTF_IFSCOPE;
+	}
 	rtm->rtm_version = RTM_VERSION;
 
 	switch (cmd) {
@@ -660,7 +665,7 @@ rtmsg(int s, int cmd, route_msg * msg_p, route_options * opt)
 }
 
 int
-arp_get(int s, route_msg * msg_p, struct in_addr * iaddr_p)
+arp_get(int s, route_msg * msg_p, struct in_addr * iaddr_p, int if_index)
 {
 	route_options 			opt;
    	register struct sockaddr_inarp *sin;
@@ -671,6 +676,7 @@ arp_get(int s, route_msg * msg_p, struct in_addr * iaddr_p)
     	bzero(&opt, sizeof(opt));
     	opt.sdl_m = blank_sdl;
     	opt.sin_m = blank_sin;
+		opt.if_index = if_index;
     	sin = &opt.sin_m;
     	sin->sin_addr = *iaddr_p;
     
@@ -684,7 +690,7 @@ arp_get(int s, route_msg * msg_p, struct in_addr * iaddr_p)
 		    (rtm->rtm_flags & RTF_LLINFO) &&
 		    !(rtm->rtm_flags & RTF_GATEWAY)) switch (sdl->sdl_type) {
 		case IFT_ETHER: case IFT_FDDI: case IFT_ISO88023:
-		case IFT_ISO88024: case IFT_ISO88025:
+		case IFT_ISO88024: case IFT_ISO88025: case IFT_IEEE1394:
 			goto found_it;
 		}
 		return (ARP_RETURN_PROXY_ONLY);
@@ -692,7 +698,7 @@ arp_get(int s, route_msg * msg_p, struct in_addr * iaddr_p)
       found_it:
 	return (0);
 }
-	
+
 /*
  * Function: arp_set
  *
@@ -742,7 +748,7 @@ arp_set(int s, struct in_addr * iaddr_p, void * hwaddr_p, int hwaddr_len,
 		    (rtm->rtm_flags & RTF_LLINFO) &&
 		    !(rtm->rtm_flags & RTF_GATEWAY)) switch (sdl->sdl_type) {
 		case IFT_ETHER: case IFT_FDDI: case IFT_ISO88023:
-		case IFT_ISO88024: case IFT_ISO88025:
+		case IFT_ISO88024: case IFT_ISO88025: case IFT_IEEE1394:
 			goto overwrite;
 		}
 		if (opt.doing_proxy == 0)

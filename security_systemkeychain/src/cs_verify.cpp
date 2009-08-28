@@ -25,10 +25,10 @@
 // cs_verify - codesign verification operations
 //
 #include "codesign.h"
+#include <Security/SecRequirementPriv.h>
+#include <Security/SecCodePriv.h>
 #include <sys/codesign.h>
 
-
-using namespace CodeSigning;
 using namespace UnixPlusPlus;
 
 static void displayGuestChain(SecCodeRef code);
@@ -37,13 +37,13 @@ static void displayGuestChain(SecCodeRef code);
 //
 // One-time preparation
 //
-static const Requirement *testReqs;		// external requirement (compiled)
+SecRequirementRef testReqs;				// external requirement (compiled)
 
 
 void prepareToVerify()
 {
 	if (testReq)
-		testReqs = readRequirement<Requirement>(testReq);
+		testReqs = readRequirement(testReq);
 }
 
 
@@ -53,42 +53,46 @@ void prepareToVerify()
 //
 void verify(const char *target)
 {
-	CFRef<SecStaticCodeRef> ondiskRef;
-	if (CFRef<SecCodeRef> code = codePath(target)) {	// dynamic specification (running code)
+	CFRef<SecCodeRef> code = codePath(target);		// set if the target is dynamic
+	CFRef<SecStaticCodeRef> staticCode;
+	if (code)
+		MacOSError::check(SecCodeCopyStaticCode(code, kSecCSDefaultFlags, &staticCode.aref()));
+	else
+		MacOSError::check(SecStaticCodeCreateWithPath(CFTempURL(target), kSecCSDefaultFlags, &staticCode.aref()));
+	if (detached)
+		if (CFRef<CFDataRef> dsig = cfLoadFile(detached))
+			MacOSError::check(SecCodeSetDetachedSignature(staticCode, dsig, kSecCSDefaultFlags));
+		else
+			fail("%s: cannot load detached signature", detached);
+	if (code) {
 		ErrorCheck check;
 		check(SecCodeCheckValidityWithErrors(code, kSecCSDefaultFlags, NULL, check));
-		MacOSError::check(SecCodeCopyStaticCode(code, kSecCSDefaultFlags, &ondiskRef.aref()));
 		note(1, "%s: dynamically valid", target);
-	} else {
-		// verify program on disk
-		MacOSError::check(SecStaticCodeCreateWithPath(CFTempURL(target), kSecCSDefaultFlags, &ondiskRef.aref()));
-		if (detached) {
-			CFRef<CFDataRef> dsig = cfLoadFile(detached);
-			MacOSError::check(SecCodeSetDetachedSignature(ondiskRef, dsig, kSecCSDefaultFlags));
-		}
+	}
+	if (!code || verbose > 0) {		// validate statically if static input or verbose dynamic
 		ErrorCheck check;
-		check(SecStaticCodeCheckValidityWithErrors(ondiskRef, verifyOptions, NULL, check));
+		check(SecStaticCodeCheckValidityWithErrors(staticCode, verifyOptions, NULL, check));
 		if (verifyOptions & kSecCSBasicValidateOnly)
 			note(1, "%s: valid on disk (not all contents verified)", target);
 		else
 			note(1, "%s: valid on disk", target);
 	}
 
-	CFRef<SecRequirementRef> designated = NULL;
-	if (OSStatus rc = SecCodeCopyDesignatedRequirement(ondiskRef, kSecCSDefaultFlags, &designated.aref())) {
-		note(0, "%s: cannot retrieve designated requirement\n", target);
-		cssmPerror(target, rc);
-	} else if (rc = SecStaticCodeCheckValidity(ondiskRef, kSecCSBasicValidateOnly, designated)) {
-		note(0, "%s: does not satisfy its designated Requirement", target);
-		if (!exitcode)
-			exitcode = exitNoverify;
-	} else
-		note(3, "%s: satisfies its Designated Requirement", target);
+	if (verbose > 0) {		// self-check designated requirement
+		CFRef<SecRequirementRef> designated = NULL;
+		if (OSStatus rc = SecCodeCopyDesignatedRequirement(staticCode, kSecCSDefaultFlags, &designated.aref())) {
+			cssmPerror(target, rc);
+			fail("%s: cannot retrieve designated requirement", target);
+		} else if (rc = SecStaticCodeCheckValidity(staticCode, kSecCSBasicValidateOnly, designated)) {
+			note(0, "%s: does not satisfy its designated Requirement", target);
+			if (!exitcode)
+				exitcode = exitNoverify;
+		} else
+			note(1, "%s: satisfies its Designated Requirement", target);
+	}
 	
-    if (testReqs) {
-        CFRef<SecRequirementRef> req;
-        MacOSError::check(SecRequirementCreateWithData(CFTempData(*testReqs), kSecCSDefaultFlags, &req.aref()));
-        if (OSStatus rc = SecStaticCodeCheckValidity(ondiskRef, verifyOptions, req)) {
+    if (testReqs) {			// check explicit test requirement
+        if (OSStatus rc = SecStaticCodeCheckValidity(staticCode, verifyOptions, testReqs)) {
             cssmPerror("test-requirement", rc);
             if (!exitcode)
                 exitcode = exitNoverify;
@@ -110,28 +114,29 @@ void hostinginfo(const char *target)
 		fail("%s: not a dynamic code specification", target);
 
 	do {
-		CFRef<CFDictionaryRef> info;
+		CFDictionary info(noErr);
 		MacOSError::check(SecCodeCopySigningInformation(code, kSecCSDynamicInformation, &info.aref()));
-		printf("%s", cfString(CFURLRef(CFDictionaryGetValue(info,
-			kSecCodeInfoMainExecutable))).c_str());
+		printf("%s", cfString(info.get<CFURLRef>(kSecCodeInfoMainExecutable)).c_str());
 		if (verbose > 0) {
 			printf("\t");
-			CFStringRef identifier = CFStringRef(CFDictionaryGetValue(info, kSecCodeInfoIdentifier));
-			if (!identifier)
-				printf("\tUNSIGNED (");
-			else
+			if (info.get<CFStringRef>(kSecCodeInfoIdentifier))
 				printf("(");
-			uint32_t status = cfNumber(CFNumberRef(CFDictionaryGetValue(info, kSecCodeInfoStatus)));
-			if (status & CS_VALID)
-				printf("valid");
 			else
-				printf("INVALID");
-			if (status & CS_KILL)
-				printf(" kill");
-			if (status & CS_HARD)
-				printf(" hard");
-			if (status & ~(CS_VALID | CS_KILL | CS_HARD))	// unrecognized flag
-				printf(" 0x%x", status);
+				printf("UNSIGNED (");
+			if (CFNumberRef state = info.get<CFNumberRef>(kSecCodeInfoStatus)) {
+				uint32_t status = cfNumber(state);
+				if (status & CS_VALID)
+					printf("valid");
+				else
+					printf("INVALID");
+				if (status & CS_KILL)
+					printf(" kill");
+				if (status & CS_HARD)
+					printf(" hard");
+				if (status & ~(CS_VALID | CS_KILL | CS_HARD))	// unrecognized flag
+					printf(" 0x%x", status);
+			} else
+				printf("UNKNOWN");
 			printf(")");
 			}
 		printf("\n");

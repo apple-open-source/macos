@@ -265,7 +265,14 @@ OSStatus impExpKeyNotify(
 	}
 	assert(importKeychain != NULL);
 	Keychain keychain = KeychainImpl::required(importKeychain);
-	CssmClient::SSDb ssDb(safe_cast<CssmClient::SSDbImpl *>(&(*keychain->database())));
+	
+	SSDbImpl* impl = dynamic_cast<CssmClient::SSDbImpl *>(&(*keychain->database()));
+	if (impl == NULL) // did we go bad?
+	{
+		CssmError::throwMe(CSSMERR_CSSM_INVALID_POINTER);
+	}
+	
+	CssmClient::SSDb ssDb(impl);
 	
 	CssmClient::DbAttributes dbAttributes;
 	CssmClient::DbUniqueRecord uniqueId;
@@ -564,14 +571,14 @@ OSStatus impExpImportKeyCommon(
 	/*
 	 * If importKeychain is non-NULL we've already added the key to the keychain.
 	 * If importKeychain is NULL, and outArray is non-NULL, we have to use the
-	 * half-baked SecKeyCreate to give the caller *something*.
+	 * half-baked SecKeyCreateWithCSSMKey to give the caller *something*.
 	 */
 	if(outArray) {
 		if(secKeyRef == NULL) {
 			assert(importKeychain == NULL);
-			ortn = SecKeyCreate(&unwrappedKey, &secKeyRef);
+			ortn = SecKeyCreateWithCSSMKey(&unwrappedKey, &secKeyRef);
 			if(ortn) {
-				SecImpExpDbg("SecKeyCreate failure");
+				SecImpExpDbg("SecKeyCreateWithCSSMKey failure");
 				crtn = ortn;
 				goto errOut;
 			}
@@ -593,7 +600,7 @@ errOut:
 		CFRelease(secKeyRef);
 	}
 	if((unwrappedKey.KeyData.Data != NULL) && !usedSecKeyCreate) {
-		/* skip this free if we used SecKeyCreate() */
+		/* skip this free if we used SecKeyCreateWithCSSMKey() */
 		CSSM_FreeKey(cspHand, NULL, &unwrappedKey, CSSM_FALSE);
 	}
 	return crtn;
@@ -610,7 +617,7 @@ CSSM_RETURN impExpExportKeyCommon(
 	CSSM_ALGORITHMS		wrapAlg,
 	CSSM_ENCRYPT_MODE   wrapMode,
 	CSSM_PADDING		wrapPad,
-	CSSM_KEYBLOB_FORMAT	wrapFormat,		// NONE, PKCS7, PKCS8
+	CSSM_KEYBLOB_FORMAT	wrapFormat,		// NONE, PKCS7, PKCS8, OPENSSL
 	CSSM_ATTRIBUTE_TYPE blobAttrType,	// optional raw key format attr
 	CSSM_KEYBLOB_FORMAT blobForm,		// ditto
 	const CSSM_DATA		*descData,		// optional descriptive data

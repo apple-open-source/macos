@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/liblber/memory.c,v 1.57.2.6 2006/07/28 13:01:35 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/liblber/memory.c,v 1.64.2.4 2008/02/11 23:26:41 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,13 +24,15 @@
 #include <stdio.h>
 #endif
 
-#if LDAP_MEMORY_DEBUG
+#ifdef LDAP_MEMORY_DEBUG
 /*
  * LDAP_MEMORY_DEBUG should only be enabled for the purposes of
  * debugging memory management within OpenLDAP libraries and slapd.
- * It should only be enabled by an experienced developer as it
- * causes the inclusion of numerous assert()'s, many of which may
- * be triggered by a prefectly valid program.
+ *
+ * It should only be enabled by an experienced developer as it causes
+ * the inclusion of numerous assert()'s, many of which may be triggered
+ * by a prefectly valid program.  If LDAP_MEMORY_DEBUG & 2 is true,
+ * that includes asserts known to break both slapd and current clients.
  *
  * The code behind this macro is subject to change as needed to
  * support this testing.
@@ -71,6 +73,7 @@ static const struct ber_mem_hdr ber_int_mem_hdr = { LBER_MEM_JUNK, 0, 0 };
  * put allocations/frees together.  It is then a simple matter to write a script
  * to find any allocations that don't have a buffer free function.
  */
+long ber_int_meminuse = 0;
 #ifdef LDAP_MEMORY_TRACE
 static ber_int_t sequence = 0;
 #endif
@@ -191,11 +194,8 @@ ber_memalloc_x( ber_len_t s, void *ctx )
 {
 	void *new;
 
-#ifdef LDAP_MEMORY_DEBUG
-	assert( s != 0 );
-#endif
-
 	if( s == 0 ) {
+		LDAP_MEMORY_DEBUG_ASSERT( s != 0 );
 		return NULL;
 	}
 
@@ -247,11 +247,8 @@ ber_memcalloc_x( ber_len_t n, ber_len_t s, void *ctx )
 {
 	void *new;
 
-#ifdef LDAP_MEMORY_DEBUG
-	assert( n != 0 && s != 0);
-#endif
-
 	if( n == 0 || s == 0 ) {
+		LDAP_MEMORY_DEBUG_ASSERT( n != 0 && s != 0);
 		return NULL;
 	}
 
@@ -745,6 +742,33 @@ ber_bvarray_free( BerVarray a )
 }
 
 int
+ber_bvarray_dup_x( BerVarray *dst, BerVarray src, void *ctx )
+{
+	int i, j;
+	BerVarray new;
+
+	if ( !src ) {
+		*dst = NULL;
+		return 0;
+	}
+
+	for (i=0; !BER_BVISNULL( &src[i] ); i++) ;
+	new = ber_memalloc_x(( i+1 ) * sizeof(BerValue), ctx );
+	if ( !new )
+		return -1;
+	for (j=0; j<i; j++) {
+		ber_dupbv_x( &new[j], &src[j], ctx );
+		if ( BER_BVISNULL( &new[j] )) {
+			ber_bvarray_free_x( new, ctx );
+			return -1;
+		}
+	}
+	BER_BVZERO( &new[j] );
+	*dst = new;
+	return 0;
+}
+
+int
 ber_bvarray_add_x( BerVarray *a, BerValue *bv, void *ctx )
 {
 	int	n;
@@ -784,6 +808,7 @@ ber_bvarray_add_x( BerVarray *a, BerValue *bv, void *ctx )
 
 	(*a)[n++] = *bv;
 	(*a)[n].bv_val = NULL;
+	(*a)[n].bv_len = 0;
 
 	return n;
 }

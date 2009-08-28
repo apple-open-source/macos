@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2007-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,6 +31,9 @@
 #include <CoreFoundation/CFRuntime.h>
 #include <SystemConfiguration/SCPreferences.h>
 #include <SystemConfiguration/SCDynamicStore.h>
+#if	!TARGET_OS_IPHONE
+#include <dispatch/dispatch.h>
+#endif	// !TARGET_OS_IPHONE
 
 
 #define	PREFS_DEFAULT_DIR		CFSTR("/Library/Preferences/SystemConfiguration")
@@ -65,6 +68,7 @@ typedef struct {
 	Boolean			locked;
 	int			lockFD;
 	char			*lockPath;
+	struct timeval		lockTime;
 
 	/* configuration file signature */
 	CFDataRef		signature;
@@ -77,10 +81,14 @@ typedef struct {
 	CFStringRef		sessionKeyApply;
 
 	/* run loop source, callout, context, rl scheduling info */
+	Boolean			scheduled;
 	CFRunLoopSourceRef      rls;
 	SCPreferencesCallBack	rlsFunction;
 	SCPreferencesContext	rlsContext;
 	CFMutableArrayRef       rlList;
+#if	!TARGET_OS_IPHONE
+	dispatch_queue_t	dispatchQueue;		// SCPreferencesSetDispatchQueue
+#endif	// !TARGET_OS_IPHONE
 
 	/* preferences */
 	CFMutableDictionaryRef	prefs;
@@ -99,10 +107,11 @@ typedef struct {
 
 /* Define signature data */
 typedef struct {
-	dev_t			st_dev;		/* inode's device */
-	ino_t			st_ino;		/* inode's number */
-	struct  timespec	st_mtimespec;	/* time of last data modification */
-	off_t			st_size;	/* file size, in bytes */
+	int64_t		st_dev;		/* inode's device */
+	uint64_t	st_ino;		/* inode's number */
+	uint64_t	tv_sec;		/* time of last data modification */
+	uint64_t	tv_nsec;
+	off_t		st_size;	/* file size, in bytes */
 } SCPSignatureData, *SCPSignatureDataRef;
 
 

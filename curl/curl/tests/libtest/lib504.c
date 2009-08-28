@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: lib504.c,v 1.25 2007-03-10 00:19:05 yangtse Exp $
+ * $Id: lib504.c,v 1.28 2008-09-20 04:26:57 yangtse Exp $
  */
 
 #include "test.h"
@@ -13,6 +13,7 @@
 #include <sys/types.h>
 
 #include "testutil.h"
+#include "memdebug.h"
 
 #define MAIN_LOOP_HANG_TIMEOUT     90 * 1000
 #define MULTI_PERFORM_HANG_TIMEOUT 60 * 1000
@@ -53,9 +54,9 @@ int test(char *URL)
 
   /* the point here being that there must not run anything on the given
      proxy port */
-  curl_easy_setopt(c, CURLOPT_PROXY, arg2);
+  curl_easy_setopt(c, CURLOPT_PROXY, libtest_arg2);
   curl_easy_setopt(c, CURLOPT_URL, URL);
-  curl_easy_setopt(c, CURLOPT_VERBOSE, 1);
+  curl_easy_setopt(c, CURLOPT_VERBOSE, 1L);
 
   if ((m = curl_multi_init()) == NULL) {
     fprintf(stderr, "curl_multi_init() failed\n");

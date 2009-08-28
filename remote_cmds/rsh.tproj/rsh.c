@@ -38,16 +38,20 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__unused static const char copyright[] =
+static const char copyright[] =
 "@(#) Copyright (c) 1983, 1990, 1993, 1994\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
+#if 0
 #ifndef lint
-__unused static const char sccsid[] = "From: @(#)rsh.c	8.3 (Berkeley) 4/6/94";
+static const char sccsid[] = "From: @(#)rsh.c	8.3 (Berkeley) 4/6/94";
 #endif /* not lint */
+#endif
+
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/rsh/rsh.c,v 1.35 2005/05/21 09:55:07 ru Exp $");
 
 #include <sys/param.h>
 #include <sys/signal.h>
@@ -61,6 +65,9 @@ __unused static const char sccsid[] = "From: @(#)rsh.c	8.3 (Berkeley) 4/6/94";
 
 #include <err.h>
 #include <errno.h>
+#ifndef __APPLE__
+#include <libutil.h>
+#endif
 #include <paths.h>
 #include <pwd.h>
 #include <signal.h>
@@ -68,7 +75,10 @@ __unused static const char sccsid[] = "From: @(#)rsh.c	8.3 (Berkeley) 4/6/94";
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <err.h>
+
+#ifdef __APPLE__
+#define _PATH_RLOGIN "/usr/bin/rlogin"
+#endif
 
 /*
  * rsh - remote shell
@@ -99,8 +109,10 @@ main(int argc, char *argv[])
 	argoff = asrsh = dflag = nflag = 0;
 	one = 1;
 	host = user = NULL;
+
 	if (argv[0] == NULL)
 		usage();
+
 	/* if called as something other than "rsh", use it as the host name */
 	if ((p = strrchr(argv[0], '/')))
 		++p;
@@ -117,7 +129,7 @@ main(int argc, char *argv[])
 		argoff = 1;
 	}
 
-#define	OPTIONS	"468KLde:l:nt:w"
+#define	OPTIONS	"468Lde:l:nt:w"
 	while ((ch = getopt(argc - argoff, argv + argoff, OPTIONS)) != -1)
 		switch(ch) {
 		case '4':
@@ -219,7 +231,7 @@ main(int argc, char *argv[])
 			err(1, "fork");
 	}
 	else
-		(void)shutdown(rem, 1);
+		(void)shutdown(rem, SHUT_WR);
 
 	(void)ioctl(rfd2, FIONBIO, &one);
 	(void)ioctl(rem, FIONBIO, &one);
@@ -274,7 +286,7 @@ rewrite:
 			goto reread;
 		goto rewrite;
 done:
-		(void)shutdown(rem, 1);
+		(void)shutdown(rem, SHUT_WR);
 		exit(0);
 	}
 
@@ -302,7 +314,7 @@ done:
 			continue;
 		}
 		if (srval == 0)
-			errx(1, "timeout reached (%d seconds)\n", timeout);
+			errx(1, "timeout reached (%d seconds)", timeout);
 		if (FD_ISSET(rfd2, &ready)) {
 			errno = 0;
 			cc = read(rfd2, buf, sizeof buf);
@@ -368,6 +380,6 @@ usage(void)
 {
 
 	(void)fprintf(stderr,
-	    "usage: rsh [-46dn] [-t timeout] [-l username] host [command]\n");
+	    "usage: rsh [-46dn] [-l username] [-t timeout] host [command]\n");
 	exit(1);
 }

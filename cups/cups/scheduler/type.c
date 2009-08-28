@@ -1,9 +1,9 @@
 /*
- * "$Id: type.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: type.c 7720 2008-07-11 22:46:21Z mike $"
  *
  *   MIME typing routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -61,6 +61,30 @@ static int	patmatch(const char *s, const char *pat);
 
 
 /*
+ * Local globals...
+ */
+
+#ifdef DEBUG
+static const char * const debug_ops[] =
+		{			/* Test names... */
+		  "NOP",		/* No operation */
+		  "AND",		/* Logical AND of all children */
+		  "OR",			/* Logical OR of all children */
+		  "MATCH",		/* Filename match */
+		  "ASCII",		/* ASCII characters in range */
+		  "PRINTABLE",		/* Printable characters (32-255) */
+		  "STRING",		/* String matches */
+		  "CHAR",		/* Character/byte matches */
+		  "SHORT",		/* Short/16-bit word matches */
+		  "INT",		/* Integer/32-bit word matches */
+		  "LOCALE",		/* Current locale matches string */
+		  "CONTAINS",		/* File contains a string */
+		  "ISTRING"		/* Case-insensitive string matches */
+		};
+#endif /* DEBUG */
+
+
+/*
  * 'mimeAddType()' - Add a MIME type to a database.
  */
 
@@ -102,6 +126,7 @@ mimeAddType(mime_t     *mime,		/* I - MIME database */
 
   strlcpy(temp->super, super, sizeof(temp->super));
   strcpy(temp->type, type);		/* Safe: temp->type is allocated */
+  temp->priority = 100;
 
   cupsArrayAdd(mime->types, temp);
 
@@ -156,7 +181,7 @@ mimeAddTypeRule(mime_type_t *mt,	/* I - Type to add to */
   logic  = MIME_MAGIC_NOP;
   invert = 0;
 
-  DEBUG_printf(("%s/%s: %s\n", mt->super, mt->type, rule));
+  DEBUG_printf(("mimeAddTypeRule: %s/%s: %s", mt->super, mt->type, rule));
 
   while (*rule != '\0')
   {
@@ -165,13 +190,13 @@ mimeAddTypeRule(mime_type_t *mt,	/* I - Type to add to */
 
     if (*rule == '(')
     {
-      DEBUG_puts("new parenthesis group");
+      DEBUG_puts("mimeAddTypeRule: New parenthesis group");
       logic = MIME_MAGIC_NOP;
       rule ++;
     }
     else if (*rule == ')')
     {
-      DEBUG_puts("close paren...");
+      DEBUG_puts("mimeAddTypeRule: Close paren...");
       if (current == NULL || current->parent == NULL)
         return (-1);
 
@@ -206,11 +231,12 @@ mimeAddTypeRule(mime_type_t *mt,	/* I - Type to add to */
         current->prev   = NULL;
 	current->parent = temp;
 
-        DEBUG_printf(("creating new AND group %p...\n", temp));
+        DEBUG_printf(("mimeAddTypeRule: Creating new AND group %p...", temp));
       }
-      else
+      else if (current->parent)
       {
-        DEBUG_printf(("setting group %p op to AND...\n", current->parent));
+        DEBUG_printf(("mimeAddTypeRule: Setting group %p op to AND...",
+	              current->parent));
         current->parent->op = MIME_MAGIC_AND;
       }
 
@@ -236,7 +262,8 @@ mimeAddTypeRule(mime_type_t *mt,	/* I - Type to add to */
 	  if ((temp = calloc(1, sizeof(mime_magic_t))) == NULL)
 	    return (-1);
 
-          DEBUG_printf(("creating new AND group %p inside OR group\n", temp));
+          DEBUG_printf(("mimeAddTypeRule: Creating new AND group %p inside OR "
+	                "group", temp));
 
           while (current->prev != NULL)
 	  {
@@ -256,7 +283,7 @@ mimeAddTypeRule(mime_type_t *mt,	/* I - Type to add to */
 	  * This isn't the top rule, so go up one level...
 	  */
 
-          DEBUG_puts("going up one level");
+          DEBUG_puts("mimeAddTypeRule: Going up one level");
 	  current = current->parent;
 	}
       }
@@ -266,7 +293,7 @@ mimeAddTypeRule(mime_type_t *mt,	/* I - Type to add to */
     }
     else if (*rule == '!')
     {
-      DEBUG_puts("NOT");
+      DEBUG_puts("mimeAddTypeRule: NOT");
       invert = 1;
       rule ++;
     }
@@ -360,7 +387,10 @@ mimeAddTypeRule(mime_type_t *mt,	/* I - Type to add to */
 	  length[num_values] = ptr - value[num_values];
 
           if (*rule != ',')
+	  {
+	    num_values ++;
 	    break;
+	  }
 
           rule ++;
 	}
@@ -394,6 +424,11 @@ mimeAddTypeRule(mime_type_t *mt,	/* I - Type to add to */
 	  op = MIME_MAGIC_LOCALE;
 	else if (!strcmp(name, "contains"))
 	  op = MIME_MAGIC_CONTAINS;
+	else if (!strcmp(name, "priority") && num_values == 1)
+	{
+	  mt->priority = atoi(value[0]);
+	  continue;
+	}
 	else
 	  return (-1);
       }
@@ -432,7 +467,8 @@ mimeAddTypeRule(mime_type_t *mt,	/* I - Type to add to */
         * Add parenthetical grouping...
 	*/
 
-        DEBUG_printf(("making new OR group %p for parenthesis...\n", temp));
+        DEBUG_printf(("mimeAddTypeRule: Making new OR group %p for "
+	              "parenthesis...", temp));
 
         temp->op = MIME_MAGIC_OR;
 
@@ -440,13 +476,16 @@ mimeAddTypeRule(mime_type_t *mt,	/* I - Type to add to */
 	  return (-1);
 
 	temp->child->parent = temp;
+	temp->child->invert = temp->invert;
+	temp->invert        = 0;
 
 	temp  = temp->child;
         logic = MIME_MAGIC_OR;
       }
 
-      DEBUG_printf(("adding %p: %s, op = %d, logic = %d, invert = %d\n",
-                    temp, name, op, logic, invert));
+      DEBUG_printf(("mimeAddTypeRule: adding %p: %s, op=MIME_MAGIC_%s(%d), "
+		    "logic=MIME_MAGIC_%s, invert=%d", temp, name, debug_ops[op],
+		    op, debug_ops[logic], invert));
 
      /*
       * Fill in data for the rule...
@@ -529,14 +568,12 @@ mimeFileType(mime_t     *mime,		/* I - MIME database */
 {
   _mime_filebuf_t	fb;		/* File buffer */
   const char		*base;		/* Base filename of file */
-  mime_type_t		*type;		/* File type */
+  mime_type_t		*type,		/* File type */
+			*best;		/* Best match */
 
 
   DEBUG_printf(("mimeFileType(mime=%p, pathname=\"%s\", filename=\"%s\", "
-                "compression=%p)\n",
-                mime, pathname ? pathname : "(nil)",
-		filename ? filename : "(nil)",
-		compression));
+                "compression=%p)", mime, pathname, filename, compression));
 
  /*
   * Range check input parameters...
@@ -575,11 +612,14 @@ mimeFileType(mime_t     *mime,		/* I - MIME database */
   * Then check it against all known types...
   */
 
-  for (type = (mime_type_t *)cupsArrayFirst(mime->types);
+  for (type = (mime_type_t *)cupsArrayFirst(mime->types), best = NULL;
        type;
        type = (mime_type_t *)cupsArrayNext(mime->types))
     if (checkrules(base, &fb, type->rules))
-      break;
+    {
+      if (!best || type->priority > best->priority)
+        best = type;
+    }
 
  /*
   * Finally, close the file and return a match (if any)...
@@ -590,7 +630,7 @@ mimeFileType(mime_t     *mime,		/* I - MIME database */
 
   cupsFileClose(fb.fp);
 
-  return (type);
+  return (best);
 }
 
 
@@ -658,27 +698,9 @@ checkrules(const char      *filename,	/* I - Filename */
 		intv;			/* Integer value */
   short		shortv;			/* Short value */
   unsigned char	*bufptr;		/* Pointer into buffer */
-#ifdef DEBUG
-  const char	* const debug_tests[] =	/* Test names... */
-		{
-		  "NOP",		/* No operation */
-		  "AND",		/* Logical AND of all children */
-		  "OR",			/* Logical OR of all children */
-		  "MATCH",		/* Filename match */
-		  "ASCII",		/* ASCII characters in range */
-		  "PRINTABLE",		/* Printable characters (32-255) */
-		  "STRING",		/* String matches */
-		  "CHAR",		/* Character/byte matches */
-		  "SHORT",		/* Short/16-bit word matches */
-		  "INT",		/* Integer/32-bit word matches */
-		  "LOCALE"		/* Current locale matches string */
-		  "CONTAINS"		/* File contains a string */
-		  "ISTRING"		/* Case-insensitive string matches */
-		};
-#endif /* DEBUG */
 
 
-  DEBUG_printf(("checkrules(filename=\"%s\", fb=%p, rules=%p)\n", filename,
+  DEBUG_printf(("checkrules(filename=\"%s\", fb=%p, rules=%p)", filename,
                 fb, rules));
 
   if (rules == NULL)
@@ -790,7 +812,7 @@ checkrules(const char      *filename,	/* I - Filename */
 	  break;
 
       case MIME_MAGIC_STRING :
-          DEBUG_printf(("    string(%d, \"%s\")\n", rules->offset,
+          DEBUG_printf(("checkrules: string(%d, \"%s\")", rules->offset,
 	                rules->value.stringv));
 
          /*
@@ -809,8 +831,8 @@ checkrules(const char      *filename,	/* I - Filename */
 	                              sizeof(fb->buffer));
 	    fb->offset = rules->offset;
 
-            DEBUG_printf(("        loaded %d byte fb->buffer at %d, starts "
-	                  "with \"%c%c%c%c\"...\n",
+            DEBUG_printf(("checkrules: loaded %d byte fb->buffer at %d, starts "
+	                  "with \"%c%c%c%c\"...",
 	                  fb->length, fb->offset, fb->buffer[0], fb->buffer[1],
 			  fb->buffer[2], fb->buffer[3]));
 	  }
@@ -825,7 +847,7 @@ checkrules(const char      *filename,	/* I - Filename */
 	  else
             result = (memcmp(fb->buffer + rules->offset - fb->offset,
 	                     rules->value.stringv, rules->length) == 0);
-          DEBUG_printf(("    result=%d\n", result));
+          DEBUG_printf(("checkrules: result=%d", result));
 	  break;
 
       case MIME_MAGIC_ISTRING :
@@ -1026,8 +1048,8 @@ checkrules(const char      *filename,	/* I - Filename */
     * the the rule set is false...
     */
 
-    DEBUG_printf(("    result of test %p (MIME_MAGIC_%s) is %d\n", rules,
-                  debug_tests[rules->op], result));
+    DEBUG_printf(("checkrules: result of test %p (MIME_MAGIC_%s) is %d",
+                  rules, debug_ops[rules->op], result));
 
     if ((result && logic == MIME_MAGIC_OR) ||
         (!result && logic == MIME_MAGIC_AND))
@@ -1149,5 +1171,5 @@ patmatch(const char *s,		/* I - String to match against */
 
 
 /*
- * End of "$Id: type.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: type.c 7720 2008-07-11 22:46:21Z mike $".
  */

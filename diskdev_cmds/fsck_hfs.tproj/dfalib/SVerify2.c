@@ -1,23 +1,22 @@
 /*
- * Copyright (c) 1999-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -315,14 +314,14 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 	}		
 
 #if 0
-plog( "\nB-Tree header rec: \n" );
-plog( "    treeDepth     = %d \n", header->treeDepth );
-plog( "    rootNode      = %d \n", header->rootNode );
-plog( "    leafRecords   = %d \n", header->leafRecords );
-plog( "    firstLeafNode = %d \n", header->firstLeafNode );
-plog( "    lastLeafNode  = %d \n", header->lastLeafNode );
-plog( "    totalNodes    = %d \n", header->totalNodes );
-plog( "    freeNodes     = %d \n", header->freeNodes );
+	plog( "\nB-Tree header rec: \n" );
+	plog( "    treeDepth     = %d \n", header->treeDepth );
+	plog( "    rootNode      = %d \n", header->rootNode );
+	plog( "    leafRecords   = %d \n", header->leafRecords );
+	plog( "    firstLeafNode = %d \n", header->firstLeafNode );
+	plog( "    lastLeafNode  = %d \n", header->lastLeafNode );
+	plog( "    totalNodes    = %d \n", header->totalNodes );
+	plog( "    freeNodes     = %d \n", header->freeNodes );
 #endif
 		
 	/*
@@ -378,9 +377,9 @@ plog( "    freeNodes     = %d \n", header->freeNodes );
 				if ( myCounter > 19 )
 				{
 					myCounter = 0;
-				plog( "\n  " );
+					plog( "\n  " );
 				}
-			plog( "%d ", nodeNum );
+				plog( "%d ", nodeNum );
 				
 				myCounter++;
 			}
@@ -727,6 +726,100 @@ exit:
 
 /*------------------------------------------------------------------------------
 
+Routine:	BTCheckUnusedNodes
+
+Function:	Examines all unused nodes and makes sure they are filled with zeroes.
+			If there are any unused nodes which are not zero filled, bit mask
+			S_UnusedNodesNotZero is set in output btStat; the function result
+			is zero in this case.
+			
+Input:		GPtr		- pointer to scavenger global area
+			fileRefNum	- refnum of BTree file
+
+Output:		*btStat		- bit mask S_UnusedNodesNotZero
+			BTCheckUnusedNodes - function result:			
+			0 = no error
+			n = error
+------------------------------------------------------------------------------*/
+
+int BTCheckUnusedNodes(SGlobPtr GPtr, short fileRefNum, UInt16 *btStat)
+{
+	BTreeControlBlock *btcb	= GetBTreeControlBlock(fileRefNum);
+	unsigned char *bitmap = (unsigned char *) ((BTreeExtensionsRec*)btcb->refCon)->BTCBMPtr;
+	unsigned char mask = 0x80;
+	OSErr err;
+	UInt32 nodeNum;
+	BlockDescriptor node;
+	
+	node.buffer = NULL;
+	
+	for (nodeNum = 0; nodeNum < btcb->totalNodes; ++nodeNum)
+	{
+		if ((*bitmap & mask) == 0)
+		{
+			UInt32 i;
+			UInt32 bufferSize;
+			UInt32 *buffer;
+			
+			/* Read the raw node, without going through hfs_swap_BTNode. */
+			err = btcb->getBlockProc(btcb->fcbPtr, nodeNum, kGetBlock, &node);
+			if (err)
+			{
+				if (debug) plog("Couldn't read node #%u\n", nodeNum);
+				return err;
+			}
+			
+			/*
+			 * Make sure node->blockSize bytes at address node->buffer are zero.
+			 */
+			buffer = (UInt32 *) node.buffer;
+			bufferSize = node.blockSize / sizeof(UInt32);
+			
+			for (i = 0; i < bufferSize; ++i)
+			{
+				if (buffer[i])
+				{
+					*btStat |= S_UnusedNodesNotZero;
+					GPtr->TarBlock = nodeNum;
+					fsckPrint(GPtr->context, E_UnusedNodeNotZeroed, nodeNum);
+										
+					if (!debug)
+					{
+						/* Stop now; repair will zero all unused nodes. */
+						goto done;
+					}
+					
+					/* No need to check the rest of this node. */
+					break;
+				}
+			}
+			
+			/* Release the node without going through hfs_swap_BTNode. */
+			(void) btcb->releaseBlockProc(btcb->fcbPtr, &node, kReleaseBlock);
+			node.buffer = NULL;
+		}
+		
+		/* Move to the next bit in the bitmap. */
+		mask >>= 1;
+		if (mask == 0)
+		{
+			mask = 0x80;
+			++bitmap;
+		}
+	}
+done:
+	if (node.buffer)
+	{
+		(void) btcb->releaseBlockProc(btcb->fcbPtr, &node, kReleaseBlock);
+	}
+	
+	return 0;
+} /* end BTCheckUnusedNodes */
+
+
+
+/*------------------------------------------------------------------------------
+
 Routine:	CmpBTH - (Compare BTree Header)
 
 Function:	Compares the scavenger BTH info with the BTH on disk.
@@ -778,49 +871,49 @@ OSErr	CmpBTH( SGlobPtr GPtr, SInt16 fileRefNum )
 		char goodStr[32], badStr[32];
 
 		printMsg = 1;
-		PrintError(GPtr, E_LeafCnt, 0);
+		fsckPrint(GPtr->context, E_LeafCnt);
 		sprintf(goodStr, "%ld", (long)calculatedBTCB->leafRecords);
 		sprintf(badStr, "%ld", (long)bTreeHeader.leafRecords);
-		PrintError(GPtr, E_BadValue, 2, goodStr, badStr);
+		fsckPrint(GPtr->context, E_BadValue, goodStr, badStr);
 	} 
     
 	if ( calculatedBTCB->treeDepth != bTreeHeader.treeDepth ) {
-   		if ( GPtr->logLevel >= kDebugLog ) 
+   		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
             	plog("\tinvalid tree depth - calculated %d header %d \n", 
                     	calculatedBTCB->treeDepth, bTreeHeader.treeDepth);
 			isBTHDamaged = 1;
     	} else if ( calculatedBTCB->rootNode != bTreeHeader.rootNode ) {
-        	if ( GPtr->logLevel >= kDebugLog ) 
+        	if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
             	plog("\tinvalid root node - calculated %d header %d \n", 
                     	calculatedBTCB->rootNode, bTreeHeader.rootNode);
 			isBTHDamaged = 1;
     	} else if ( calculatedBTCB->firstLeafNode != bTreeHeader.firstLeafNode ) {
-        	if ( GPtr->logLevel >= kDebugLog ) 
+        	if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
             	plog("\tinvalid first leaf node - calculated %d header %d \n", 
                     	calculatedBTCB->firstLeafNode, bTreeHeader.firstLeafNode);
 			isBTHDamaged = 1;
 	} else if ( calculatedBTCB->lastLeafNode != bTreeHeader.lastLeafNode ) {
-        	if ( GPtr->logLevel >= kDebugLog ) 
+        	if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
             	plog("\tinvalid last leaf node - calculated %d header %d \n", 
                     	calculatedBTCB->lastLeafNode, bTreeHeader.lastLeafNode);
 			isBTHDamaged = 1;
 	} else if ( calculatedBTCB->nodeSize != bTreeHeader.nodeSize ) {
-        	if ( GPtr->logLevel >= kDebugLog ) 
+        	if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
             	plog("\tinvalid node size - calculated %d header %d \n", 
                     	calculatedBTCB->nodeSize, bTreeHeader.nodeSize);
 			isBTHDamaged = 1;
     	} else if ( calculatedBTCB->maxKeyLength != bTreeHeader.maxKeyLength ) {
-        	if ( GPtr->logLevel >= kDebugLog ) 
+        	if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
             	plog("\tinvalid max key length - calculated %d header %d \n", 
                     	calculatedBTCB->maxKeyLength, bTreeHeader.maxKeyLength);
 			isBTHDamaged = 1;
     	} else if ( calculatedBTCB->totalNodes != bTreeHeader.totalNodes ) {
-        	if ( GPtr->logLevel >= kDebugLog ) 
+        	if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
             	plog("\tinvalid total nodes - calculated %d header %d \n", 
                     	calculatedBTCB->totalNodes, bTreeHeader.totalNodes);
 			isBTHDamaged = 1;
     	} else if ( calculatedBTCB->freeNodes != bTreeHeader.freeNodes ) {
-        	if ( GPtr->logLevel >= kDebugLog ) 
+        	if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
             	plog("\tinvalid free nodes - calculated %d header %d \n", 
                     	calculatedBTCB->freeNodes, bTreeHeader.freeNodes);
 			isBTHDamaged = 1;
@@ -829,7 +922,7 @@ OSErr	CmpBTH( SGlobPtr GPtr, SInt16 fileRefNum )
 	if (isBTHDamaged || printMsg) {
     		*statP = *statP | S_BTH;
 		if (isBTHDamaged) {
-    			PrintError(GPtr, E_InvalidBTreeHeader, 0);
+			fsckPrint(GPtr->context, E_InvalidBTreeHeader);
 		}
 	}
 	return( noErr );
@@ -852,7 +945,7 @@ Output:		CmpBlock	-	result code
 			1 = not equal
 ------------------------------------------------------------------------------*/
 
-OSErr	CmpBlock( void *block1P, void *block2P, UInt32 length )
+OSErr	CmpBlock( void *block1P, void *block2P, size_t length )
 {
 	Byte	*blk1Ptr = block1P;
 	Byte	*blk2Ptr = block2P;
@@ -1041,8 +1134,8 @@ static int BTKeyChk( SGlobPtr GPtr, NodeDescPtr nodeP, BTreeControlBlock *btcb )
 					if ((btcb->maxKeyLength == kHFSPlusCatalogKeyMaximumLength)  &&
 					    (CompareKeys(btcb, prevkeyP, (KeyPtr)&gMetaDataDirKey) == 0))
 					{
-						if (GPtr->logLevel > 0)
-						plog("Problem: b-tree key for \"HFS+ Private Data\" directory is out of order.\n");
+						if (fsckGetVerbosity(GPtr->context) > 0)
+							plog("Problem: b-tree key for \"HFS+ Private Data\" directory is out of order.\n");
 						return( E_KeyOrd + 1000 );
 					} 
 					else
@@ -1127,98 +1220,98 @@ int CmpMDB( SGlobPtr GPtr,  HFSMasterDirectoryBlock * mdbP)
 	 * compare VCB info with MDB
 	 */
 	if ( mdbP->drSigWord	!= vcb->vcbSignature ) {
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid MDB drSigWord \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid MDB drSigWord \n" );
 		isMDBDamaged = 1;
 	}	
 	if ( mdbP->drCrDate	!= vcb->vcbCreateDate )	{
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid MDB drCrDate \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid MDB drCrDate \n" );
 		isMDBDamaged = 1;
 	}	
 	if ( mdbP->drLsMod	!= vcb->vcbModifyDate )	{
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid MDB drLsMod \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid MDB drLsMod \n" );
 		isMDBDamaged = 1;
 	}	
 	if ( mdbP->drAtrb	!= (UInt16)vcb->vcbAttributes )	{
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid MDB drAtrb \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid MDB drAtrb \n" );
 		isMDBDamaged = 1;
 	}	
 	if ( mdbP->drVBMSt	!= vcb->vcbVBMSt )	{
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid MDB drVBMSt \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid MDB drVBMSt \n" );
 		isMDBDamaged = 1;
 	}	
 	if ( mdbP->drNmAlBlks	!= vcb->vcbTotalBlocks ) {
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid MDB drNmAlBlks \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid MDB drNmAlBlks \n" );
 		isMDBDamaged = 1;
 	}	
 	if ( mdbP->drClpSiz	!= vcb->vcbDataClumpSize )	{
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid MDB drClpSiz \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid MDB drClpSiz \n" );
 		isMDBDamaged = 1;
 	}	
 	if ( mdbP->drAlBlSt	!= vcb->vcbAlBlSt )	{
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid MDB drAlBlSt \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid MDB drAlBlSt \n" );
 		isMDBDamaged = 1;
 	}	
 	if ( mdbP->drNxtCNID	!= vcb->vcbNextCatalogID )	{
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid MDB drNxtCNID \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid MDB drNxtCNID \n" );
 		isMDBDamaged = 1;
 	}	
 	if ( CmpBlock( mdbP->drVN, vcb->vcbVN, mdbP->drVN[0]+1 ) )	{
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid MDB drVN \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid MDB drVN \n" );
 		isMDBDamaged = 1;
 	}	
 	if ( mdbP->drVolBkUp	!= vcb->vcbBackupDate )	{
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid MDB drVolBkUp \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid MDB drVolBkUp \n" );
 		isMDBDamaged = 1;
 	}	
 	if ( mdbP->drVSeqNum	!= vcb->vcbVSeqNum )	{
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid MDB drVSeqNum \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid MDB drVSeqNum \n" );
 		isMDBDamaged = 1;
 	}	
 	if ( mdbP->drWrCnt	!= vcb->vcbWriteCount )	{
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid MDB drWrCnt \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid MDB drWrCnt \n" );
 		isMDBDamaged = 1;
 	}	
 	if ( mdbP->drXTClpSiz	!= vcb->vcbExtentsFile->fcbClumpSize )	{
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid MDB drXTClpSiz \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid MDB drXTClpSiz \n" );
 		isMDBDamaged = 1;
 	}	
 	if ( mdbP->drCTClpSiz	!= vcb->vcbCatalogFile->fcbClumpSize )	{
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid MDB drCTClpSiz \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid MDB drCTClpSiz \n" );
 		isMDBDamaged = 1;
 	}	
 	if ( mdbP->drNmRtDirs	!= vcb->vcbNmRtDirs )	{
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid MDB drNmRtDirs \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid MDB drNmRtDirs \n" );
 		isMDBDamaged = 1;
 	}	
 	if ( mdbP->drFilCnt	!= vcb->vcbFileCount )	{
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid MDB drFilCnt \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid MDB drFilCnt \n" );
 		isMDBDamaged = 1;
 	}	
 	if ( mdbP->drDirCnt	!= vcb->vcbFolderCount )	{
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid MDB drDirCnt \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid MDB drDirCnt \n" );
 		isMDBDamaged = 1;
 	}	
 	if ( CmpBlock(mdbP->drFndrInfo, vcb->vcbFinderInfo, 32 ) )	{
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid MDB drFndrInfo \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid MDB drFndrInfo \n" );
 		isMDBDamaged = 1;
 	}	
 
@@ -1292,7 +1385,6 @@ OSErr CompareVolumeHeader( SGlobPtr GPtr, HFSPlusVolumeHeader *volumeHeader )
 	SFCB			*fcbP;
 	UInt32			hfsPlusIOPosOffset;
 	UInt32 			goodValue, badValue;
-	int				isWriteable;
 	char 			goodStr[32], badStr[32];
 	short 			isVHDamaged;
 	short 			printMsg;
@@ -1313,50 +1405,43 @@ OSErr CompareVolumeHeader( SGlobPtr GPtr, HFSPlusVolumeHeader *volumeHeader )
 	// confusing messages.
 	if ( volumeHeader->fileCount != vcb->vcbFileCount && 
 		 (GPtr->CatStat & S_Valence) == 0 ) {
-		PrintError(GPtr, E_FilCnt, 0);
+		fsckPrint(GPtr->context, E_FilCnt);
 		sprintf(goodStr, "%u", vcb->vcbFileCount);
 		sprintf(badStr, "%u", volumeHeader->fileCount);
-		PrintError(GPtr, E_BadValue, 2, goodStr, badStr);
+		fsckPrint(GPtr->context, E_BadValue, goodStr, badStr);
 		printMsg = 1;
 	}
         
 	if ( volumeHeader->folderCount != vcb->vcbFolderCount && 
 		 (GPtr->CatStat & S_Valence) == 0 ) {
-		PrintError(GPtr, E_DirCnt, 0);
+		fsckPrint(GPtr->context, E_DirCnt);
 		sprintf(goodStr, "%u", vcb->vcbFolderCount);
 		sprintf(badStr, "%u", volumeHeader->folderCount);
-		PrintError(GPtr, E_BadValue, 2, goodStr, badStr);
+		fsckPrint(GPtr->context, E_BadValue, goodStr, badStr);
+
 		printMsg = 1;
 	}
         
 	if (volumeHeader->freeBlocks != vcb->vcbFreeBlocks) {
-		PrintError(GPtr, E_FreeBlocks, 0);
+		fsckPrint(GPtr->context, E_FreeBlocks);
 		sprintf(goodStr, "%u", vcb->vcbFreeBlocks); 
 		sprintf(badStr, "%u", volumeHeader->freeBlocks);
-		PrintError(GPtr, E_BadValue, 2, goodStr, badStr);
+		fsckPrint(GPtr->context, E_BadValue, goodStr, badStr);
 		printMsg = 1;
 	}
 	
-	/* 
-	 * some Finder burned CDs will have very small clump sizes, but since 
-	 * clump size for read-only media is irrelevant we skip the clump size 
-	 * check to avoid non useful warnings. 
-	 */
-	isWriteable = 0;
-	ioctl( GPtr->DrvNum, DKIOCISWRITABLE, &isWriteable );
-	if ( isWriteable != 0 && 
-		 volumeHeader->catalogFile.clumpSize != vcb->vcbCatalogFile->fcbClumpSize ) {
-		PrintError(GPtr, E_InvalidClumpSize, 0);
+	if ( volumeHeader->catalogFile.clumpSize != vcb->vcbCatalogFile->fcbClumpSize ) {
+		fsckPrint(GPtr->context, E_InvalidClumpSize);
 		sprintf(goodStr, "%u", vcb->vcbCatalogFile->fcbClumpSize);
 		sprintf(badStr, "%u", volumeHeader->catalogFile.clumpSize);
-		PrintError(GPtr, E_BadValue, 2, goodStr, badStr);
+		fsckPrint(GPtr->context, E_BadValue, goodStr, badStr);
 		printMsg = 1;
 	}
 
 	if ( volumeHeader->signature != kHFSPlusSigWord  &&
 	     volumeHeader->signature != kHFSXSigWord) {
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid VHB signature \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid VHB signature \n" );
 		isVHDamaged = 1;
 	}
 	/* From HFS Plus Volume Format Specification (TN1150), "It is acceptable 
@@ -1368,95 +1453,95 @@ OSErr CompareVolumeHeader( SGlobPtr GPtr, HFSPlusVolumeHeader *volumeHeader )
 	 */
 	 if ( (volumeHeader->encodingsBitmap & vcb->vcbEncodingsBitmap) 
 	 		!= vcb->vcbEncodingsBitmap ) {
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid VHB encodingsBitmap, disk=0x%qx calculated=0x%qx \n", volumeHeader->encodingsBitmap, vcb->vcbEncodingsBitmap );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid VHB encodingsBitmap, disk=0x%qx calculated=0x%qx \n", volumeHeader->encodingsBitmap, vcb->vcbEncodingsBitmap );
 		isVHDamaged = 1;
 	}
 	if ( (UInt16) (hfsPlusIOPosOffset/512)		!= vcb->vcbAlBlSt ) {
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid VHB AlBlSt \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid VHB AlBlSt \n" );
 		isVHDamaged = 1;
 	}
 	if ( volumeHeader->createDate			!= vcb->vcbCreateDate )	{
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid VHB createDate \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid VHB createDate \n" );
 		isVHDamaged = 1;
 	}
 	if ( volumeHeader->modifyDate			!= vcb->vcbModifyDate )	{
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid VHB modifyDate \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid VHB modifyDate \n" );
 		isVHDamaged = 1;
 	}
 	if ( volumeHeader->backupDate			!= vcb->vcbBackupDate )	{
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid VHB backupDate \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid VHB backupDate \n" );
 		isVHDamaged = 1;
 	}
 	if ( volumeHeader->checkedDate			!= vcb->vcbCheckedDate ) {
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid VHB checkedDate \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid VHB checkedDate \n" );
 		isVHDamaged = 1;
 	}
 	if ( volumeHeader->rsrcClumpSize		!= vcb->vcbRsrcClumpSize ) {
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid VHB rsrcClumpSize \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid VHB rsrcClumpSize (VH=%u, vcb=%u)\n", volumeHeader->rsrcClumpSize, vcb->vcbRsrcClumpSize);
 		isVHDamaged = 1;
 	}
 	if ( volumeHeader->dataClumpSize		!= vcb->vcbDataClumpSize ) {
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid VHB dataClumpSize \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid VHB dataClumpSize \n" );
 		isVHDamaged = 1;
 	}
 	if ( volumeHeader->nextCatalogID		!= vcb->vcbNextCatalogID &&
 	     (volumeHeader->attributes & kHFSCatalogNodeIDsReused) == 0)  {
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid VHB nextCatalogID \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid VHB nextCatalogID \n" );
 		isVHDamaged = 1;
 	}
 	if ( volumeHeader->writeCount			!= vcb->vcbWriteCount )	{
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid VHB writeCount \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid VHB writeCount \n" );
 		isVHDamaged = 1;
 	}
 	if ( volumeHeader->nextAllocation		!= vcb->vcbNextAllocation )	{
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid VHB nextAllocation \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid VHB nextAllocation \n" );
 		isVHDamaged = 1;
 	}
 	if ( volumeHeader->totalBlocks			!= vcb->vcbTotalBlocks ) {
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid VHB totalBlocks \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid VHB totalBlocks \n" );
 		isVHDamaged = 1;
 	}
 	if ( volumeHeader->blockSize			!= vcb->vcbBlockSize )	{
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid VHB blockSize \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid VHB blockSize \n" );
 		isVHDamaged = 1;
 	}
 	if ( volumeHeader->attributes			!= vcb->vcbAttributes )	{
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid VHB attributes \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid VHB attributes \n" );
 		isVHDamaged = 1;
 	}
 	if ( volumeHeader->extentsFile.clumpSize	!= vcb->vcbExtentsFile->fcbClumpSize ) {
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid VHB extentsFile.clumpSize \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid VHB extentsFile.clumpSize \n" );
 		isVHDamaged = 1;
 	}
 	if ( volumeHeader->allocationFile.clumpSize	!= vcb->vcbAllocationFile->fcbClumpSize ) {
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid VHB allocationFile.clumpSize \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid VHB allocationFile.clumpSize \n" );
 		isVHDamaged = 1;
 	}
 	if ( (vcb->vcbAttributesFile != NULL) && 
 	     (volumeHeader->attributesFile.clumpSize	!= vcb->vcbAttributesFile->fcbClumpSize )) {
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid VHB attributesFile.clumpSize \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid VHB attributesFile.clumpSize \n" );
 		isVHDamaged = 1;
 	}
 	if ( CmpBlock( volumeHeader->finderInfo, vcb->vcbFinderInfo, sizeof(vcb->vcbFinderInfo) ) )	{
-		if ( GPtr->logLevel >= kDebugLog ) 
-		plog( "\tinvalid VHB finderInfo \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) 
+			plog( "\tinvalid VHB finderInfo \n" );
 		isVHDamaged = 1;
 	}
 

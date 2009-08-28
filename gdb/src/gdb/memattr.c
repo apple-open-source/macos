@@ -161,6 +161,9 @@ mem_command (char *args, int from_tty)
 	attrib.mode = MEM_RO;
       else if (strcmp (tok, "wo") == 0)
 	attrib.mode = MEM_WO;
+      /* APPLE LOCAL: Don't touch memory regions.  */
+      else if (strcmp (tok, "none") == 0)
+	attrib.mode = MEM_NONE;
 
       else if (strcmp (tok, "8") == 0)
 	attrib.width = MEM_WIDTH_8;
@@ -287,6 +290,10 @@ mem_info_command (char *args, int from_tty)
 	case MEM_WO:
 	  printf_filtered ("wo ");
 	  break;
+	  /* APPLE LOCAL: Don't touch memory regions.  */
+	case MEM_NONE:
+	  printf_filtered ("none ");
+	  break;
 	}
 
       switch (attrib->width)
@@ -314,8 +321,11 @@ mem_info_command (char *args, int from_tty)
 	printf_filtered ("swbreak");
 #endif
 
-      if (attrib->cache)
+      if (attrib->cache == 1)
 	printf_filtered ("cache ");
+      /* APPLE LOCAL: We use -1 to suspend caching of cached regions.  */
+      else if (attrib->cache == -1)
+	printf_filtered ("cache temporarily suspended");
       else
 	printf_filtered ("nocache ");
 
@@ -513,6 +523,34 @@ mem_delete_command (char *args, int from_tty)
 
   dont_repeat ();
 }
+
+/* APPLE LOCAL: Allow a way to temporarily suspend caching.
+   For instance when reading in the stabstr & stabs from a
+   file in memory, the caching will just slow us down.  */
+void 
+mem_disable_caching (void)
+{
+  struct mem_region *mreg;
+  
+  for (mreg = mem_region_chain; mreg != NULL; mreg = mreg->next)
+    {
+      if (mreg->attrib.cache == 1)
+	mreg->attrib.cache = -1;
+    }
+}
+
+void
+mem_enable_caching (void *unusued)
+{
+  struct mem_region *mreg;
+  
+  for (mreg = mem_region_chain; mreg != NULL; mreg = mreg->next)
+    {
+      if (mreg->attrib.cache == -1)
+	mreg->attrib.cache = 1;
+    }
+}
+/* END APPLE LOCAL */
 
 extern initialize_file_ftype _initialize_mem; /* -Wmissing-prototype */
 
@@ -522,7 +560,7 @@ _initialize_mem (void)
   add_com ("mem", class_vars, mem_command, _("\
 Define attributes for memory region.\n\
 Usage: mem <lo addr> <hi addr> [<mode> <width> <cache>], \n\
-where <mode>  may be rw (read/write), ro (read-only) or wo (write-only), \n\
+where <mode>  may be rw (read/write), ro (read-only), wo (write-only), or none (don't touch)\n\
       <width> may be 8, 16, 32, or 64, and \n\
       <cache> may be cache or nocache"));
 

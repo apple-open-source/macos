@@ -1,0 +1,209 @@
+--- jabberd.in	2008-04-27 02:57:26.000000000 -0700
++++ /Users/admin/ChatServer.roots/ChatServer~obj/jabberd2.build/src/i386/tools/jabberd.in	2009-03-31 17:54:23.000000000 -0700
+@@ -25,12 +25,14 @@
+ # Define some initial variables and default them as needed.
+ #-----------------------------------------------------------------------------
+ my $Bin = "@bindir@";
++my $LibExec = "@libexecdir@";
+ my $VERSION = "@VERSION@";
+ my $config_dir = "@sysconfdir@";
+ my $config = $config_dir."/jabberd.cfg";
+ $config = "internal" unless (-e $config);
+ my $debug = 0;
+ my $daemon = 0;
++my $g_kill_signal = "";
+ my $select = IO::Select->new();
+ my ($exe) = ($0 =~ /([^\/]+)$/);
+ my %jobs;
+@@ -39,6 +39,8 @@
+ my %fhs;
+ my @programs;
++my $pid_dir = "/var/run/jabberd";
++my $pid_dir_owner = "_jabber";
+ 
+ 
+ #-----------------------------------------------------------------------------
+ # Process the command line arguments
+@@ -87,6 +89,11 @@
+ $jobs{s2s}->{config} = "$config_dir/s2s.xml";
+ $jobs{s2s}->{prefix} = "S2S";
+ 
++$jobs{"mu-conference"}->{cmd} = "$LibExec/mu-conference";
++$jobs{"mu-conference"}->{config} = "$config_dir/muc-jcr.xml";
++$jobs{"mu-conference"}->{prefix} = "MUC";
++$jobs{"mu-conference"}->{args} = "";
++
+ if ($config eq "internal")
+ {
+     $programs[0] = ["router"];
+@@ -94,6 +101,7 @@
+     $programs[2] = ["sm"];
+     $programs[3] = ["c2s"];
+     $programs[4] = ["s2s"];
++    $programs[5] = ["mu-conference"];
+ }
+ else
+ {
+@@ -108,7 +116,12 @@
+         next if /^\#/;
+         next if /^\s*$/;
+         my ($job,$config) = /^\s*(\S+)\s*(\S*)\s*$/;
+-        push(@programs,[$job,$config]);
++        # Assume that all the commands are in the same directory
++        # as the jabberd script. The current configuration file
++        # format does not allow specification of pathnames for commands.
++        #my $cmd = "$Bin/$job";
++        my $cmd = $jobs{$job}->{cmd};
++        push(@programs,[$job,$config,$cmd]);
+     }
+     close(CFG);
+ }
+@@ -124,6 +126,24 @@
+ }
+ 
+ #-----------------------------------------------------------------------------
++# Make sure the pid directory exists
++#-----------------------------------------------------------------------------
++if (! -e $pid_dir)
++{
++    if (! mkdir($pid_dir))
++    {
++        print "ERROR: Could not create $pid_dir: $!\n";
++        exit(1);
++    }
++}
++
++if (chown((getpwnam($pid_dir_owner))[2,3], $pid_dir) != 1)
++{
++    print "ERROR: Unable to configure ownership on $pid_dir to $pid_dir_owner\n";
++    exit(1);
++}
++
++#-----------------------------------------------------------------------------
+ # Launch all of the jobs.
+ #-----------------------------------------------------------------------------
+ if ($#programs == -1)
+@@ -132,7 +145,7 @@
+ 
+ foreach my $job (@programs)
+ {
+-    &LaunchJob($job->[0],$job->[1]);
++    &LaunchJob($job->[0],$job->[1],$job->[2]);
+ }
+ 
+ unless (!$daemon || $debug)
+@@ -155,7 +168,15 @@
+ #-----------------------------------------------------------------------------
+ while (1)
+ {
+-    my @ready = $select->can_read(0);
++    my @ready = $select->can_read();
++    if ($g_kill_signal ne "") {
++        if (($g_kill_signal eq "INT") || ($g_kill_signal eq "TERM")) {
++            &Shutdown($g_kill_signal);
++        } else {
++            &PassSignal($g_kill_signal);
++        }
++        $g_kill_signal = "";
++    }
+     foreach my $fh (@ready)
+     {
+         my $line = <$fh>;
+@@ -166,11 +187,9 @@
+         else
+         {
+             print "ERROR: $fhs{$fh}->{job} died.  Shutting down server.\n";
+-            &Signal("TERM");
++            &Shutdown;
+         }
+     }
+-
+-    select(undef,undef,undef,.01);
+ }
+ 
+ 
+@@ -184,19 +203,32 @@
+ {
+     my $job = shift;
+     my $config = shift;
++    my $cmd = shift;
+ 
+-    my $cmd = $jobs{$job}->{cmd};
+-
++    if (!defined($cmd) || $cmd eq "")
++    {
++        $cmd = $jobs{$job}->{cmd};
++        if ($cmd eq "") {
++            print "cmd is empty, cannot launch\n";
++            return;
++        }
++    }
+     if (defined($config))
+     {
+         $cmd .= " -c ".$config;
+     }
+-    else
++    elsif (defined($jobs{$job}->{config}))
+     {
+         $cmd .= " -c ".$jobs{$job}->{config};
+     }
+-    $cmd .= " -D" if $debug;
+-    
++
++    if ($debug && $jobs{$job}->{prefix} ne "MUC") {
++        $cmd .= " -D";
++    }
++    if (defined($jobs{$job}->{args}) && ($jobs{$job}->{args} ne "")) {
++        $cmd .= " ".$jobs{$job}->{args};
++    }
++
+     &debug("jabberd","stdout","LaunchJob: $job -> $cmd\n");
+ 
+     &CloseJob($job) if exists($jobs{$job}->{launched});
+@@ -255,21 +287,40 @@
+ ##############################################################################
+ sub Signal
+ {
++    $g_kill_signal = shift;
++}
++
++sub PassSignal
++{
+     my $sig = shift;
++    if ((! defined($sig)) || ($sig eq "")) {
++        return;
++    }
+ 
+-    &debug("jabberd","stdout","Got a signal... pass it on.\n");
+-        
+     foreach my $job (keys(%jobs))
+     {
+         next unless exists($jobs{$job}->{launched});
++        &debug("jabberd","stdout","sending $sig to $jobs{$job}->{pid} : $job\n");
+         kill $sig => $jobs{$job}->{pid};
+     }
++}
+ 
+-    if (($sig eq "INT") || ($sig eq "TERM"))
+-    {
+-        &debug("jabberd","stdout","It was a $sig.  Shut it all down!\n");
+-        exit(0);
++sub Shutdown
++{
++    my $sig = shift;
++    if (! defined($sig)) {
++        $sig = "TERM";
++    }
++
++    PassSignal($sig);
++
++    &debug("Shutting down.\n");
++    my $ret;
++    foreach my $job(keys(%jobs)) {
++        $ret = waitpid($jobs{$job}->{pid}, 0) if defined($jobs{$job}->{pid});
+     }
++
++    exit(0);
+ }
+ 
+ 

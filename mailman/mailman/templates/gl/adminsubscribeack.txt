@@ -1,0 +1,3 @@
+%(member)s subscribiuse satisfactoriamente a %(listname)s.
+
+

@@ -1,0 +1,41 @@
+
+dn: cn=Barbara Jensen, ou=Information Technology Division, ou=People, o=Univer
+ sity of Michigan, c=US
+objectclass: OpenLDAPperson
+cn: Barbara Jensen
+cn: Babs Jensen
+uid: babs
+sn: Jensen
+title: Mythical Manager, Research Systems
+postaladdress: ITD Prod Dev & Deployment $ 535 W. William St. Room 4212 $ Ann 
+ Arbor, MI 48103-4943
+seealso: cn=All Staff, ou=Groups, o=University of Michigan, c=US
+userpassword: bjensen
+mail: bjensen@mailgw.umich.edu
+homepostaladdress: 123 Wesley $ Ann Arbor, MI 48103
+description: Mythical manager of the rsdd unix project
+drink: water
+homephone: +1 313 555 2333
+pager: +1 313 555 3233
+facsimiletelephonenumber: +1 313 555 2274
+telephonenumber: +1 313 555 9022
+
+dn: cn=Bjorn Jensen, ou=Information Technology Division, ou=People, o=Universi
+ ty of Michigan, c=US
+objectclass: OpenLDAPperson
+cn: Bjorn Jensen
+cn: Biiff Jensen
+uid: bjorn
+sn: Jensen
+seealso: cn=All Staff, ou=Groups, o=University of Michigan, c=US
+userpassword: bjorn
+homepostaladdress: 19923 Seven Mile Rd. $ South Lyon, MI 49999
+drink: Iced Tea
+description: Hiker, biker
+title: Director, Embedded Systems
+postaladdress: Info Tech Division $ 535 W. William St. $ Ann Arbor, MI 48103
+mail: bjorn@mailgw.umich.edu
+homephone: +1 313 555 5444
+pager: +1 313 555 4474
+facsimiletelephonenumber: +1 313 555 2177
+telephonenumber: +1 313 555 0355

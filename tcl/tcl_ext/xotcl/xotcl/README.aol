@@ -1,0 +1,21 @@
+
+ Starting with Aolserver 4.* xotcl can be loaded via
+ package require. However, it is recommended to install
+ the binaries under the aolserver directory. The
+ recommended configuration is:
+
+   ./configure --enable-threads --prefix=/usr/local/aolserver
+
+ Then, you can do a 
+
+   make
+   make install
+
+ We provide a small .tcl-file for providing xotcl as a module
+ (available in all connection threads) and easing the load of 
+ .xotcl files (to be loaded after the xotcl extension). The
+ support file can be installed via:
+
+   make install-aol
+
+ Zoran, Gustaf

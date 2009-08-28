@@ -1,0 +1,22 @@
+Konferencia %(listname)s -- potvrdenie prihlásenia
+
+Obdržali sme žiadosť (z %(remote)s) o prihlásenie Vašej adresy
+"%(email)s" do konferencie %(listaddr)s. Ak chcete byť do
+konferencie prihlásený, odpovedzte na túto správu bez zmeny
+predmetu (Subject:), alebo navštívte webovú stránku:
+
+    %(confirmurl)s
+
+Alternatívne pošlite správu obsahujúcu iba nasledujúci riadok na
+adresu %(requestaddr)s:
+
+    confirm %(cookie)s
+
+Poznámka: väčšina poštových programov odopovie použitím funkcie
+`odpovedať' (`reply') v správnom tvare (dodatočné "Re:" alebo
+podobný pridaný text v predmete nevadí).
+
+Ak sa do konferencie prihlásiť nechcete, ignorujte túto správu.
+Pokiaľ si myslíte, že sa Vás niekto bez Vašeho vedomia pokúša
+prihlásiť, alebo máte ďalšie otázky, kontaktuje správcu
+konferencie na adrese %(listadmin)s.

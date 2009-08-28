@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.  VAX version.
    Copyright (C) 1987, 1988, 1991, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 /* Target CPU builtins.  */
@@ -60,49 +60,8 @@ Boston, MA 02111-1307, USA.  */
 
 /* Run-time compilation parameters selecting different hardware subsets.  */
 
-extern int target_flags;
-
-#define MASK_UNIX_ASM		1
-#define MASK_VAXC_ALIGNMENT	2
-#define MASK_G_FLOAT		4
-
-
-/* Macros used in the machine description to test the flags.  */
-
-/* Nonzero if compiling code that Unix assembler can assemble.  */
-#define TARGET_UNIX_ASM (target_flags & MASK_UNIX_ASM)
-
-/* Nonzero if compiling with VAX-11 "C" style structure alignment */
-#define	TARGET_VAXC_ALIGNMENT (target_flags & MASK_VAXC_ALIGNMENT)
-
-/* Nonzero if compiling with `G'-format floating point */
-#define TARGET_G_FLOAT (target_flags & MASK_G_FLOAT)
-
 /* Nonzero if ELF.  Redefined by vax/elf.h.  */
 #define TARGET_ELF 0
-
-/* Macro to define tables used to set the flags.
-   This is a list in braces of pairs in braces,
-   each pair being { "NAME", VALUE }
-   where VALUE is the bits to set or minus the bits to clear.
-   An empty string NAME is used to identify the default VALUE.  */
-
-#define TARGET_SWITCHES						\
-  { {"unix", MASK_UNIX_ASM,					\
-     "Generate code for UNIX assembler"},  			\
-    {"gnu", -MASK_UNIX_ASM,					\
-     "Generate code for GNU assembler (gas)"},  		\
-    {"vaxc-alignment", MASK_VAXC_ALIGNMENT,			\
-     "Use VAXC structure conventions"}, 			\
-    {"g", MASK_G_FLOAT,						\
-     "Generate GFLOAT double precision code"},			\
-    {"g-float", MASK_G_FLOAT,					\
-     "Generate GFLOAT double precision code"},			\
-    {"d", -MASK_G_FLOAT,					\
-     "Generate DFLOAT double precision code"},			\
-    {"d-float", -MASK_G_FLOAT,					\
-     "Generate DFLOAT double precision code"},			\
-    { "", TARGET_DEFAULT, 0}}
 
 /* Default target_flags if no switches specified.  */
 
@@ -145,7 +104,7 @@ extern int target_flags;
 #define STRUCTURE_SIZE_BOUNDARY 8
 
 /* A bit-field declared as `int' forces `int' alignment for the struct.  */
-#define PCC_BITFIELD_TYPE_MATTERS (! TARGET_VAXC_ALIGNMENT)
+#define PCC_BITFIELD_TYPE_MATTERS (!TARGET_VAXC_ALIGNMENT)
 
 /* No data type wants to be aligned rounder than this.  */
 #define BIGGEST_ALIGNMENT 32
@@ -191,8 +150,8 @@ extern int target_flags;
    This is ordinarily the length in words of a value of mode MODE
    but can be less for certain modes in special long registers.
    On the VAX, all registers are one word long.  */
-#define HARD_REGNO_NREGS(REGNO, MODE)   \
- ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
+#define HARD_REGNO_NREGS(REGNO, MODE)	\
+  ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.
    On the VAX, all registers can hold all modes.  */
@@ -208,13 +167,13 @@ extern int target_flags;
    The values of these macros are register numbers.  */
 
 /* VAX pc is overloaded on a register.  */
-#define PC_REGNUM 15
+#define PC_REGNUM VAX_PC_REGNUM
 
 /* Register to use for pushing function arguments.  */
-#define STACK_POINTER_REGNUM 14
+#define STACK_POINTER_REGNUM VAX_SP_REGNUM
 
 /* Base register for access to local variables of the function.  */
-#define FRAME_POINTER_REGNUM 13
+#define FRAME_POINTER_REGNUM VAX_FP_REGNUM
 
 /* Value should be nonzero if functions must have frame pointers.
    Zero means the frame pointer need not be set up (and parms
@@ -223,7 +182,7 @@ extern int target_flags;
 #define FRAME_POINTER_REQUIRED 1
 
 /* Base register for access to arguments of the function.  */
-#define ARG_POINTER_REGNUM 12
+#define ARG_POINTER_REGNUM VAX_AP_REGNUM
 
 /* Register in which static-chain is passed to a function.  */
 #define STATIC_CHAIN_REGNUM 0
@@ -251,7 +210,7 @@ extern int target_flags;
 
    For any two classes, it is very desirable that there be another
    class that represents their union.  */
-   
+
 /* The VAX has only one kind of registers, so NO_REGS and ALL_REGS
    are the only classes.  */
 
@@ -266,8 +225,8 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 
 /* Give names of register classes as strings for dump file.  */
 
-#define REG_CLASS_NAMES \
- {"NO_REGS", "ALL_REGS" }
+#define REG_CLASS_NAMES	\
+  { "NO_REGS", "ALL_REGS" }
 
 /* Define which registers fit in which classes.
    This is an initializer for a vector of HARD_REG_SET
@@ -305,7 +264,7 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
    'N' is a value between 0 and 65535 (inclusive)
    `O' is a value between -63 and -1 (inclusive)  */
 
-#define CONST_OK_FOR_LETTER_P(VALUE, C) \
+#define CONST_OK_FOR_LETTER_P(VALUE, C)				\
   (  (C) == 'I' ?	(VALUE) == 0				\
    : (C) == 'J' ?	0 <= (VALUE) && (VALUE) < 64		\
    : (C) == 'O' ?	-63 <= (VALUE) && (VALUE) < 0		\
@@ -316,11 +275,11 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
    : 0)
 
 /* Similar, but for floating constants, and defining letters G and H.
-   Here VALUE is the CONST_DOUBLE rtx itself. 
+   Here VALUE is the CONST_DOUBLE rtx itself.
 
    `G' is a floating-point zero.  */
 
-#define CONST_DOUBLE_OK_FOR_LETTER_P(VALUE, C) \
+#define CONST_DOUBLE_OK_FOR_LETTER_P(VALUE, C)		\
   ((C) == 'G' ? ((VALUE) == CONST0_RTX (DFmode)		\
 		 || (VALUE) == CONST0_RTX (SFmode))	\
    : 0)
@@ -330,9 +289,9 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
    For the VAX, `Q' means that OP is a MEM that does not have a mode-dependent
    address.  */
 
-#define EXTRA_CONSTRAINT(OP, C) \
-  ((C) == 'Q'								\
-   ? GET_CODE (OP) == MEM && ! mode_dependent_address_p (XEXP (OP, 0))	\
+#define EXTRA_CONSTRAINT(OP, C)					\
+  ((C) == 'Q'							\
+   ? MEM_P (OP) && !mode_dependent_address_p (XEXP (OP, 0))	\
    : 0)
 
 /* Given an rtx X being reloaded into a reg required to be
@@ -355,11 +314,11 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
    makes the stack pointer a smaller address.  */
 #define STACK_GROWS_DOWNWARD
 
-/* Define this if the nominal address of the stack frame
+/* Define this to nonzero if the nominal address of the stack frame
    is at the high-address end of the local variables;
    that is, each additional local variable allocated
    goes at a more negative offset in the frame.  */
-#define FRAME_GROWS_DOWNWARD
+#define FRAME_GROWS_DOWNWARD 1
 
 /* Offset within stack frame to start allocating local variables at.
    If FRAME_GROWS_DOWNWARD, this is the offset to the END of the
@@ -389,23 +348,23 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 
    On the VAX, the RET insn pops a maximum of 255 args for any function.  */
 
-#define RETURN_POPS_ARGS(FUNDECL,FUNTYPE,SIZE) \
-  ((SIZE) > 255*4 ? 0 : (SIZE))
+#define RETURN_POPS_ARGS(FUNDECL,FUNTYPE,SIZE)	\
+  ((SIZE) > 255 * 4 ? 0 : (SIZE))
 
 /* Define how to find the value returned by a function.
    VALTYPE is the data type of the value (as a tree).
    If the precise function being called is known, FUNC is its FUNCTION_DECL;
    otherwise, FUNC is 0.  */
 
-/* On the VAX the return value is in R0 regardless.  */   
+/* On the VAX the return value is in R0 regardless.  */
 
-#define FUNCTION_VALUE(VALTYPE, FUNC)  \
+#define FUNCTION_VALUE(VALTYPE, FUNC)	\
   gen_rtx_REG (TYPE_MODE (VALTYPE), 0)
 
 /* Define how to find the value returned by a library function
    assuming the value has mode MODE.  */
 
-/* On the VAX the return value is in R0 regardless.  */   
+/* On the VAX the return value is in R0 regardless.  */
 
 #define LIBCALL_VALUE(MODE)  gen_rtx_REG (MODE, 0)
 
@@ -449,9 +408,9 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
    (TYPE is null for libcalls where that information may not be available.)  */
 
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)	\
- ((CUM) += ((MODE) != BLKmode			\
-	    ? (GET_MODE_SIZE (MODE) + 3) & ~3	\
-	    : (int_size_in_bytes (TYPE) + 3) & ~3))
+  ((CUM) += ((MODE) != BLKmode				\
+	     ? (GET_MODE_SIZE (MODE) + 3) & ~3		\
+	     : (int_size_in_bytes (TYPE) + 3) & ~3))
 
 /* Define where to put the arguments to a function.
    Value is zero to push the argument on the stack,
@@ -466,7 +425,7 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
    NAMED is nonzero if this argument is a named parameter
     (otherwise it is an extra parameter matching an ellipsis).  */
 
-/* On the VAX all args are pushed.  */   
+/* On the VAX all args are pushed.  */
 
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) 0
 
@@ -551,9 +510,9 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
    FRAMEADDR is already the frame pointer of the COUNT frame, so we
    can ignore COUNT.  */
 
-#define RETURN_ADDR_RTX(COUNT, FRAME)	\
-  ((COUNT == 0)				\
-   ? gen_rtx_MEM (Pmode, plus_constant (FRAME, RETURN_ADDRESS_OFFSET)) \
+#define RETURN_ADDR_RTX(COUNT, FRAME)					\
+  ((COUNT == 0)								\
+   ? gen_rtx_MEM (Pmode, plus_constant (FRAME, RETURN_ADDRESS_OFFSET))	\
    : (rtx) 0)
 
 
@@ -571,10 +530,10 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
    Since they use reg_renumber, they are safe only once reg_renumber
    has been allocated, which happens in local-alloc.c.  */
 
-#define REGNO_OK_FOR_INDEX_P(regno)  \
-((regno) < FIRST_PSEUDO_REGISTER || reg_renumber[regno] >= 0)
-#define REGNO_OK_FOR_BASE_P(regno) \
-((regno) < FIRST_PSEUDO_REGISTER || reg_renumber[regno] >= 0)
+#define REGNO_OK_FOR_INDEX_P(regno)	\
+  ((regno) < FIRST_PSEUDO_REGISTER || reg_renumber[regno] >= 0)
+#define REGNO_OK_FOR_BASE_P(regno)	\
+  ((regno) < FIRST_PSEUDO_REGISTER || reg_renumber[regno] >= 0)
 
 /* Maximum number of registers that can appear in a valid memory address.  */
 
@@ -582,15 +541,12 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 
 /* 1 if X is an rtx for a constant that is a valid address.  */
 
-#define CONSTANT_ADDRESS_P(X)   \
-  (GET_CODE (X) == LABEL_REF || GET_CODE (X) == SYMBOL_REF		\
-   || GET_CODE (X) == CONST_INT || GET_CODE (X) == CONST		\
-   || GET_CODE (X) == HIGH)
+#define CONSTANT_ADDRESS_P(X) legitimate_constant_address_p (X)
 
 /* Nonzero if the constant value X is a legitimate general operand.
    It is given that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */
 
-#define LEGITIMATE_CONSTANT_P(X) 1
+#define LEGITIMATE_CONSTANT_P(X) legitimate_constant_p (X)
 
 /* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
    and check its validity for a certain class.
@@ -610,169 +566,35 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 /* Nonzero if X is a hard reg that can be used as an index
    or if it is a pseudo reg.  */
 #define REG_OK_FOR_INDEX_P(X) 1
+
 /* Nonzero if X is a hard reg that can be used as a base reg
    or if it is a pseudo reg.  */
 #define REG_OK_FOR_BASE_P(X) 1
+
+/* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression
+   that is a valid memory address for an instruction.  */
+#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR) \
+  { if (legitimate_address_p ((MODE), (X), 0)) goto ADDR; }
 
 #else
 
 /* Nonzero if X is a hard reg that can be used as an index.  */
 #define REG_OK_FOR_INDEX_P(X) REGNO_OK_FOR_INDEX_P (REGNO (X))
+
 /* Nonzero if X is a hard reg that can be used as a base reg.  */
 #define REG_OK_FOR_BASE_P(X) REGNO_OK_FOR_BASE_P (REGNO (X))
 
-#endif
-
 /* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression
-   that is a valid memory address for an instruction.
-   The MODE argument is the machine mode for the MEM expression
-   that wants to use this address.
+   that is a valid memory address for an instruction.  */
+#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR) \
+  { if (legitimate_address_p ((MODE), (X), 1)) goto ADDR; }
 
-   The other macros defined here are used only in GO_IF_LEGITIMATE_ADDRESS,
-   except for CONSTANT_ADDRESS_P which is actually machine-independent.  */
+#endif
 
-#ifdef NO_EXTERNAL_INDIRECT_ADDRESS
-
-/* Zero if this contains a (CONST (PLUS (SYMBOL_REF) (...))) and the
-   symbol in the SYMBOL_REF is an external symbol.  */
-
-#define INDIRECTABLE_CONSTANT_P(X) \
- (! (GET_CODE ((X)) == CONST					\
-     && GET_CODE (XEXP ((X), 0)) == PLUS			\
-     && GET_CODE (XEXP (XEXP ((X), 0), 0)) == SYMBOL_REF	\
-     && SYMBOL_REF_FLAG (XEXP (XEXP ((X), 0), 0))))
-
-/* Re-definition of CONSTANT_ADDRESS_P, which is true only when there
-   are no SYMBOL_REFs for external symbols present.  */
-
-#define INDIRECTABLE_CONSTANT_ADDRESS_P(X)   				\
-  (GET_CODE (X) == LABEL_REF 						\
-   || (GET_CODE (X) == SYMBOL_REF && !SYMBOL_REF_FLAG (X))		\
-   || (GET_CODE (X) == CONST && INDIRECTABLE_CONSTANT_P(X))		\
-   || GET_CODE (X) == CONST_INT)
-
-
-/* Nonzero if X is an address which can be indirected.  External symbols
-   could be in a sharable image library, so we disallow those.  */
-
-#define INDIRECTABLE_ADDRESS_P(X)  \
-  (INDIRECTABLE_CONSTANT_ADDRESS_P (X) 					\
-   || (GET_CODE (X) == REG && REG_OK_FOR_BASE_P (X))			\
-   || (GET_CODE (X) == PLUS						\
-       && GET_CODE (XEXP (X, 0)) == REG					\
-       && REG_OK_FOR_BASE_P (XEXP (X, 0))				\
-       && INDIRECTABLE_CONSTANT_ADDRESS_P (XEXP (X, 1))))
-
-#else /* not NO_EXTERNAL_INDIRECT_ADDRESS */
-
-#define INDIRECTABLE_CONSTANT_ADDRESS_P(X) CONSTANT_ADDRESS_P(X)
-
-/* Nonzero if X is an address which can be indirected.  */
-#define INDIRECTABLE_ADDRESS_P(X)  \
-  (CONSTANT_ADDRESS_P (X)						\
-   || (GET_CODE (X) == REG && REG_OK_FOR_BASE_P (X))			\
-   || (GET_CODE (X) == PLUS						\
-       && GET_CODE (XEXP (X, 0)) == REG					\
-       && REG_OK_FOR_BASE_P (XEXP (X, 0))				\
-       && CONSTANT_ADDRESS_P (XEXP (X, 1))))
-
-#endif /* not NO_EXTERNAL_INDIRECT_ADDRESS */
-
-/* Go to ADDR if X is a valid address not using indexing.
-   (This much is the easy part.)  */
-#define GO_IF_NONINDEXED_ADDRESS(X, ADDR)  \
-{ register rtx xfoob = (X);						\
-  if (GET_CODE (xfoob) == REG)						\
-    {									\
-      extern rtx *reg_equiv_mem;					\
-      if (! reload_in_progress						\
-	  || reg_equiv_mem[REGNO (xfoob)] == 0				\
-	  || INDIRECTABLE_ADDRESS_P (reg_equiv_mem[REGNO (xfoob)]))	\
-	goto ADDR;							\
-    }									\
-  if (CONSTANT_ADDRESS_P (xfoob)) goto ADDR;				\
-  if (INDIRECTABLE_ADDRESS_P (xfoob)) goto ADDR;			\
-  xfoob = XEXP (X, 0);							\
-  if (GET_CODE (X) == MEM && INDIRECTABLE_ADDRESS_P (xfoob))		\
-    goto ADDR;								\
-  if ((GET_CODE (X) == PRE_DEC || GET_CODE (X) == POST_INC)		\
-      && GET_CODE (xfoob) == REG && REG_OK_FOR_BASE_P (xfoob))		\
-    goto ADDR; }
-
-/* 1 if PROD is either a reg times size of mode MODE and MODE is less
-   than or equal 8 bytes, or just a reg if MODE is one byte.
-   This macro's expansion uses the temporary variables xfoo0 and xfoo1
-   that must be declared in the surrounding context.  */
-#define INDEX_TERM_P(PROD, MODE)   \
-(GET_MODE_SIZE (MODE) == 1						\
- ? (GET_CODE (PROD) == REG && REG_OK_FOR_BASE_P (PROD))			\
- : (GET_CODE (PROD) == MULT && GET_MODE_SIZE (MODE) <= 8		\
-    &&									\
-    (xfoo0 = XEXP (PROD, 0), xfoo1 = XEXP (PROD, 1),			\
-     ((((GET_CODE (xfoo0) == CONST_INT					\
-         && GET_CODE (xfoo1) == REG)					\
-         && INTVAL (xfoo0) == (int)GET_MODE_SIZE (MODE))		\
-         && REG_OK_FOR_INDEX_P (xfoo1))					\
-        ||								\
-      (((GET_CODE (xfoo1) == CONST_INT					\
-         && GET_CODE (xfoo0) == REG)					\
-         && INTVAL (xfoo1) == (int)GET_MODE_SIZE (MODE))		\
-         && REG_OK_FOR_INDEX_P (xfoo0))))))
-
-/* Go to ADDR if X is the sum of a register
-   and a valid index term for mode MODE.  */
-#define GO_IF_REG_PLUS_INDEX(X, MODE, ADDR)	\
-{ register rtx xfooa;							\
-  if (GET_CODE (X) == PLUS)						\
-    { if (GET_CODE (XEXP (X, 0)) == REG					\
-	  && REG_OK_FOR_BASE_P (XEXP (X, 0))				\
-	  && (xfooa = XEXP (X, 1),					\
-	      INDEX_TERM_P (xfooa, MODE)))				\
-	goto ADDR;							\
-      if (GET_CODE (XEXP (X, 1)) == REG					\
-	  && REG_OK_FOR_BASE_P (XEXP (X, 1))				\
-	  && (xfooa = XEXP (X, 0),					\
-	      INDEX_TERM_P (xfooa, MODE)))				\
-	goto ADDR; } }
-
-#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)  \
-{ register rtx xfoo, xfoo0, xfoo1;					\
-  GO_IF_NONINDEXED_ADDRESS (X, ADDR);					\
-  if (GET_CODE (X) == PLUS)						\
-    { /* Handle <address>[index] represented with index-sum outermost */\
-      xfoo = XEXP (X, 0);						\
-      if (INDEX_TERM_P (xfoo, MODE))					\
-	{ GO_IF_NONINDEXED_ADDRESS (XEXP (X, 1), ADDR); }		\
-      xfoo = XEXP (X, 1);						\
-      if (INDEX_TERM_P (xfoo, MODE))					\
-	{ GO_IF_NONINDEXED_ADDRESS (XEXP (X, 0), ADDR); }		\
-      /* Handle offset(reg)[index] with offset added outermost */	\
-      if (INDIRECTABLE_CONSTANT_ADDRESS_P (XEXP (X, 0)))		\
-	{ if (GET_CODE (XEXP (X, 1)) == REG				\
-	      && REG_OK_FOR_BASE_P (XEXP (X, 1)))			\
-	    goto ADDR;							\
-	  GO_IF_REG_PLUS_INDEX (XEXP (X, 1), MODE, ADDR); }		\
-      if (INDIRECTABLE_CONSTANT_ADDRESS_P (XEXP (X, 1)))		\
-	{ if (GET_CODE (XEXP (X, 0)) == REG				\
-	      && REG_OK_FOR_BASE_P (XEXP (X, 0)))			\
-	    goto ADDR;							\
-	  GO_IF_REG_PLUS_INDEX (XEXP (X, 0), MODE, ADDR); } } }
-
 /* Go to LABEL if ADDR (a legitimate address expression)
-   has an effect that depends on the machine mode it is used for.
-   On the VAX, the predecrement and postincrement address depend thus
-   (the amount of decrement or increment being the length of the operand)
-   and all indexed address depend thus (because the index scale factor
-   is the length of the operand).  */
-#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LABEL)	\
- { if (GET_CODE (ADDR) == POST_INC || GET_CODE (ADDR) == PRE_DEC)	\
-     goto LABEL; 							\
-   if (GET_CODE (ADDR) == PLUS)						\
-     { if (CONSTANT_ADDRESS_P (XEXP (ADDR, 0))				\
-	   && GET_CODE (XEXP (ADDR, 1)) == REG);			\
-       else if (CONSTANT_ADDRESS_P (XEXP (ADDR, 1))			\
-		&& GET_CODE (XEXP (ADDR, 0)) == REG);			\
-       else goto LABEL; }}
+   has an effect that depends on the machine mode it is used for.  */
+#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL) \
+  { if (vax_mode_dependent_address_p (ADDR)) goto LABEL; }
 
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */
@@ -843,13 +665,14 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
    after execution of an instruction whose pattern is EXP.
    Do not alter them if the instruction would not alter the cc's.  */
 
-#define NOTICE_UPDATE_CC(EXP, INSN) \
+#define NOTICE_UPDATE_CC(EXP, INSN)	\
   vax_notice_update_cc ((EXP), (INSN))
 
-#define OUTPUT_JUMP(NORMAL, FLOAT, NO_OV)  \
-{ if (cc_status.flags & CC_NO_OVERFLOW)				\
-    return NO_OV;						\
-  return NORMAL; }
+#define OUTPUT_JUMP(NORMAL, FLOAT, NO_OV)	\
+  { if (cc_status.flags & CC_NO_OVERFLOW)	\
+      return NO_OV;				\
+    return NORMAL;				\
+  }
 
 /* Control the assembler format that we output.  */
 
@@ -882,9 +705,9 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
    The register names will be prefixed by REGISTER_PREFIX, if any.  */
 
 #define REGISTER_PREFIX ""
-#define REGISTER_NAMES \
-{"r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", \
- "r9", "r10", "r11", "ap", "fp", "sp", "pc"}
+#define REGISTER_NAMES					\
+  { "r0", "r1",  "r2",  "r3", "r4", "r5", "r6", "r7",	\
+    "r8", "r9", "r10", "r11", "ap", "fp", "sp", "pc", }
 
 /* This is BSD, so it wants DBX format.  */
 
@@ -938,8 +761,8 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 /* This is how to output an insn to pop a register from the stack.
    It need not be very fast code.  */
 
-#define ASM_OUTPUT_REG_POP(FILE,REGNO)  \
-  fprintf (FILE, "\tmovl (%s)+,%s\n", reg_names[STACK_POINTER_REGNUM], \
+#define ASM_OUTPUT_REG_POP(FILE,REGNO)					\
+  fprintf (FILE, "\tmovl (%s)+,%s\n", reg_names[STACK_POINTER_REGNUM],	\
 	   reg_names[REGNO])
 
 /* This is how to output an element of a case-vector that is absolute.
@@ -989,26 +812,26 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 /* This says how to output an assembler line
    to define a global common symbol.  */
 
-#define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED)  \
-( fputs (".comm ", (FILE)),			\
-  assemble_name ((FILE), (NAME)),		\
-  fprintf ((FILE), ",%u\n", (int)(ROUNDED)))
+#define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED)	\
+  ( fputs (".comm ", (FILE)),				\
+    assemble_name ((FILE), (NAME)),			\
+    fprintf ((FILE), ",%u\n", (int)(ROUNDED)))
 
 /* This says how to output an assembler line
    to define a local common symbol.  */
 
-#define ASM_OUTPUT_LOCAL(FILE, NAME, SIZE, ROUNDED)  \
-( fputs (".lcomm ", (FILE)),			\
-  assemble_name ((FILE), (NAME)),		\
-  fprintf ((FILE), ",%u\n", (int)(ROUNDED)))
+#define ASM_OUTPUT_LOCAL(FILE, NAME, SIZE, ROUNDED)	\
+  ( fputs (".lcomm ", (FILE)),				\
+    assemble_name ((FILE), (NAME)),			\
+    fprintf ((FILE), ",%u\n", (int)(ROUNDED)))
 
 /* Store in OUTPUT a string (made with alloca) containing
    an assembler-name for a local static variable named NAME.
    LABELNO is an integer which is different for each call.  */
 
 #define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
-( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
-  sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
+  ( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
+    sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
 
 /* Print an instruction operand X on file FILE.
    CODE is the code from the %-spec that requested printing this operand;
@@ -1043,34 +866,34 @@ VAX operand formatting codes:
 #define PRINT_OPERAND_PUNCT_VALID_P(CODE)				\
   ((CODE) == '#' || (CODE) == '|')
 
-#define PRINT_OPERAND(FILE, X, CODE)  \
+#define PRINT_OPERAND(FILE, X, CODE)					\
 { if (CODE == '#') fputc (ASM_DOUBLE_CHAR, FILE);			\
   else if (CODE == '|')							\
     fputs (REGISTER_PREFIX, FILE);					\
   else if (CODE == 'C')							\
     fputs (rev_cond_name (X), FILE);					\
-  else if (CODE == 'D' && GET_CODE (X) == CONST_INT && INTVAL (X) < 0)	\
+  else if (CODE == 'D' && CONST_INT_P (X) && INTVAL (X) < 0)		\
     fprintf (FILE, "$" NEG_HWI_PRINT_HEX16, INTVAL (X));		\
-  else if (CODE == 'P' && GET_CODE (X) == CONST_INT)			\
+  else if (CODE == 'P' && CONST_INT_P (X))				\
     fprintf (FILE, "$" HOST_WIDE_INT_PRINT_DEC, INTVAL (X) + 1);	\
-  else if (CODE == 'N' && GET_CODE (X) == CONST_INT)			\
+  else if (CODE == 'N' && CONST_INT_P (X))				\
     fprintf (FILE, "$" HOST_WIDE_INT_PRINT_DEC, ~ INTVAL (X));		\
   /* rotl instruction cannot deal with negative arguments.  */		\
-  else if (CODE == 'R' && GET_CODE (X) == CONST_INT)			\
+  else if (CODE == 'R' && CONST_INT_P (X))				\
     fprintf (FILE, "$" HOST_WIDE_INT_PRINT_DEC, 32 - INTVAL (X));	\
-  else if (CODE == 'H' && GET_CODE (X) == CONST_INT)			\
+  else if (CODE == 'H' && CONST_INT_P (X))				\
     fprintf (FILE, "$%d", (int) (0xffff & ~ INTVAL (X)));		\
-  else if (CODE == 'h' && GET_CODE (X) == CONST_INT)			\
+  else if (CODE == 'h' && CONST_INT_P (X))				\
     fprintf (FILE, "$%d", (short) - INTVAL (x));			\
-  else if (CODE == 'B' && GET_CODE (X) == CONST_INT)			\
+  else if (CODE == 'B' && CONST_INT_P (X))				\
     fprintf (FILE, "$%d", (int) (0xff & ~ INTVAL (X)));			\
-  else if (CODE == 'b' && GET_CODE (X) == CONST_INT)			\
+  else if (CODE == 'b' && CONST_INT_P (X))				\
     fprintf (FILE, "$%d", (int) (0xff & - INTVAL (X)));			\
-  else if (CODE == 'M' && GET_CODE (X) == CONST_INT)			\
+  else if (CODE == 'M' && CONST_INT_P (X))				\
     fprintf (FILE, "$%d", ~((1 << INTVAL (x)) - 1));			\
-  else if (GET_CODE (X) == REG)						\
+  else if (REG_P (X))							\
     fprintf (FILE, "%s", reg_names[REGNO (X)]);				\
-  else if (GET_CODE (X) == MEM)						\
+  else if (MEM_P (X))							\
     output_address (XEXP (X, 0));					\
   else if (GET_CODE (X) == CONST_DOUBLE && GET_MODE (X) == SFmode)	\
     { char dstr[30];							\
@@ -1088,9 +911,10 @@ VAX operand formatting codes:
    This uses a function in output-vax.c.  */
 
 #define PRINT_OPERAND_ADDRESS(FILE, ADDR)  \
- print_operand_address (FILE, ADDR)
+  print_operand_address (FILE, ADDR)
 
 /* This is a blatent lie.  However, it's good enough, since we don't
    actually have any code whatsoever for which this isn't overridden
    by the proper FDE definition.  */
 #define INCOMING_RETURN_ADDR_RTX gen_rtx_REG (Pmode, PC_REGNUM)
+

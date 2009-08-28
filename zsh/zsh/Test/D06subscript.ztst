@@ -29,12 +29,11 @@
 >*, [how] I [wonder] what?  You are!
 >] I [
 
-  # $s[(R)x] actually is $s[0], but zsh treats 0 as 1 for subscripting.
   print $s[(i)x] : $s[(I)x]
   print $s[(r)x] : $s[(R)x]
 0:Scalar pattern subscripts that do not match
 >61 : 0
->: T
+>:
 
   print -R $s[$s[(i)\[]] $s[(i)$s[(r)\*]] $s[(i)${(q)s[(r)\]]}]
 0:Scalar subscripting using a pattern subscript to get the index
@@ -146,6 +145,16 @@
 >\2 backcbrack cbrack star
 >\\\4 \\\? star zounds
 
+# It doesn't matter which element we get, since we never guarantee
+# ordering of an associative array.  So just test the number of matches.
+  array=(${(o)A[(k)\]]})
+  print ${#array}
+  array=(${(o)A[(k)\\\]]})
+  print ${#array}
+0:Associative array keys interpreted as patterns, single match
+>1
+>1
+
   typeset -g "A[one\"two\"three\"quotes]"=QQQ
   typeset -g 'A[one\"two\"three\"quotes]'=qqq
   print -R "$A[one\"two\"three\"quotes]"
@@ -179,7 +188,64 @@
 >lower
 >upper
 
-  typeset -a empty_array
-  echo X${${l##*}[-1]}X
+  typeset -ga empty
+  echo X${${empty##*}[-1]}X
 0:Negative index applied to substition result from empty array
 >XX
+
+  print $empty[(i)] $empty[(I)]
+0:(i) returns 1 for empty array, (I) returns 0.
+>1 0
+
+  array=(one two three four)
+  print X$array[0]X
+0:Element zero is empty if KSH_ZERO_SUBSCRIPT is off.
+>XX
+
+  array[0]=fumble
+1:Can't set element zero if KSH_ZERO_SUBSCRIPT is off.
+?(eval):1: array: assignment to invalid subscript range
+
+  print X$array[(R)notfound]X
+0:(R) returns empty if not found if KSH_ZERO_SUBSCRIPT is off.
+>XX
+
+  setopt KSH_ZERO_SUBSCRIPT
+  print X$array[0]X
+0:Element zero is element one if KSH_ZERO_SUBSCRIPT is on.
+>XoneX
+
+  array[0]=fimble
+  print $array
+0:Can set element zero if KSH_ZERO_SUBSCRIPT is on.
+>fimble two three four
+
+  print X$array[(R)notfound]X
+0:(R) yuckily returns the first element on failure withe KSH_ZERO_SUBSCRIPT
+>XfimbleX
+
+  unsetopt KSH_ZERO_SUBSCRIPT
+  array[(R)notfound,(r)notfound]=(help help here come the seventies retreads)
+  print $array
+0:[(R)notfound,(r)notfound] replaces the whole array
+>help help here come the seventies retreads
+
+  string="Why, if it isn't Officer Dibble"
+  print "[${string[0]}][${string[1]}][${string[0,3]}]"
+0:String subscripts with KSH_ZERO_SUBSCRIPT unset
+>[][W][Why]
+
+  setopt KSH_ZERO_SUBSCRIPT
+  print "[${string[0]}][${string[1]}][${string[0,3]}]"
+0:String subscripts with KSH_ZERO_SUBSCRIPT set
+>[W][W][Why]
+
+  unsetopt KSH_ZERO_SUBSCRIPT
+  string[0,3]="Goodness"
+  print $string
+0:Assignment to chunk of string ignores element 0
+>Goodness, if it isn't Officer Dibble
+
+  string[0]=!
+1:Can't set only element zero of string
+?(eval):1: string: assignment to invalid subscript range

@@ -1,6 +1,9 @@
-THIS=$(shell basename `pwd` .tproj)
+Project = localedef
+Install_Dir = /usr/bin
 
-install:: all
+MANPAGES = localedef.1
 
-all installhdrs installsrc clean ${THIS} install::
-	env MAKEOBJDIR=${OBJROOT} bsdmake ARCH_FLAGS="${RC_CFLAGS}" NO_MANCOMPRESS=true DESTDIR=${DSTROOT} -f BSDmakefile $@
+include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make
+
+after_install:
+	$(INSTALL_PROGRAM) localedef $(DSTROOT)$(Install_Dir)

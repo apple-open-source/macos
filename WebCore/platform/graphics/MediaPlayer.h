@@ -49,6 +49,10 @@ class MediaPlayer;
 class MediaPlayerPrivateInterface;
 class String;
 
+#if USE(ACCELERATED_COMPOSITING)
+class GraphicsLayer;
+#endif
+
 class MediaPlayerClient {
 public:
     virtual ~MediaPlayerClient() { }
@@ -65,22 +69,31 @@ public:
     // time has jumped, eg. not as a result of normal playback
     virtual void mediaPlayerTimeChanged(MediaPlayer*) { }
     
-    // a new frame of video is available
-    virtual void mediaPlayerRepaint(MediaPlayer*) { }
-
     // the media file duration has changed, or is now known
     virtual void mediaPlayerDurationChanged(MediaPlayer*) { }
     
     // the playback rate has changed
     virtual void mediaPlayerRateChanged(MediaPlayer*) { }
 
-    // the movie size has changed
-    virtual void mediaPlayerSizeChanged(MediaPlayer*) { }
-
     // The MediaPlayer has found potentially problematic media content.
     // This is used internally to trigger swapping from a <video>
     // element to an <embed> in standalone documents
     virtual void mediaPlayerSawUnsupportedTracks(MediaPlayer*) { }
+
+// Presentation-related methods
+    // a new frame of video is available
+    virtual void mediaPlayerRepaint(MediaPlayer*) { }
+
+    // the movie size has changed
+    virtual void mediaPlayerSizeChanged(MediaPlayer*) { }
+
+#if USE(ACCELERATED_COMPOSITING)
+    // whether the rendering system can accelerate the display of this MediaPlayer.
+    virtual bool mediaPlayerRenderingCanBeAccelerated(MediaPlayer*) { return false; }
+
+    // return the GraphicsLayer that will host the presentation for this MediaPlayer.
+    virtual GraphicsLayer* mediaPlayerGraphicsLayer(MediaPlayer*) { return 0; }
+#endif
 };
 
 class MediaPlayer : Noncopyable {
@@ -94,6 +107,7 @@ public:
     static void getSupportedTypes(HashSet<String>&);
     static bool isAvailable();
 
+    bool supportsFullscreen() const;
     IntSize naturalSize();
     bool hasVideo();
     
@@ -126,6 +140,9 @@ public:
     
     float rate() const;
     void setRate(float);
+
+    bool preservesPitch() const;    
+    void setPreservesPitch(bool);
     
     float maxTimeBuffered();
     float maxTimeSeekable();
@@ -143,6 +160,7 @@ public:
     void setAutobuffer(bool);
 
     void paint(GraphicsContext*, const IntRect&);
+    void paintCurrentFrameInContext(GraphicsContext*, const IntRect&);
     
     enum NetworkState { Empty, Idle, Loading, Loaded, FormatError, NetworkError, DecodeError };
     NetworkState networkState();
@@ -150,6 +168,9 @@ public:
     enum ReadyState  { HaveNothing, HaveMetadata, HaveCurrentData, HaveFutureData, HaveEnoughData };
     ReadyState readyState();
     
+    enum MovieLoadType { Unknown, Download, StoredStream, LiveStream };
+    MovieLoadType movieLoadType() const;
+
     void networkStateChanged();
     void readyStateChanged();
     void volumeChanged();
@@ -168,6 +189,15 @@ public:
     void setMediaPlayerProxy(WebMediaPlayerProxy* proxy);
 #endif
 
+#if USE(ACCELERATED_COMPOSITING)
+    // whether accelerated rendering is supported by the media engine for the current media.
+    bool supportsAcceleratedRendering() const;
+    // called when the rendering system flips the into or out of accelerated rendering mode.
+    void acceleratedRenderingStateChanged();
+#endif
+
+    bool hasSingleSecurityOrigin() const;
+
 private:
     static void initializeMediaEngines();
 
@@ -179,6 +209,7 @@ private:
     bool m_visible;
     float m_rate;
     float m_volume;
+    bool m_preservesPitch;
     bool m_autobuffer;
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
     WebMediaPlayerProxy* m_playerProxy;    // not owned or used, passed to m_private

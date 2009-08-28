@@ -1,0 +1,419 @@
+#!/usr/bin/env tclsh
+package require XOTcl; namespace import -force xotcl::*
+
+#  ./get-regression-nb.xotcl -host swt -parallel 0
+#  ./get-regression-nb.xotcl -host swt -sequential 0
+#
+# mit ~/wafe/src/cineast/webserver.xotcl (benotigt ~/wafe/test/*)
+#  ./get-regression-nb.xotcl  -port 8086
+#
+# Vergleich webserver.xotcl mit Apache:
+# 1) installation von Apache auf port 80
+#
+# 2) installation vom webserver.xotcl auf port 8086
+#
+# 3) von beiden server sollend die files in wafe/test/* unter
+#    http://SERVER+PORT/test/*
+#    erreichbar sein.
+#
+# 4) test der installation
+#    apache:
+#         cd wafe/src/cineast
+#         get-regression-nb.xotcl -sequential 0 
+#      die ausgabe sollte mit totalbytes=6536120
+#      abgeschlossen werden
+#
+#    webserver.xotcl:
+#         cd wafe/src/cineast
+#         get-regression-nb.xotcl -port 8086 -sequential 0 
+#      die ausgabe sollte mit totalbytes=6536120
+#      abgeschlossen werden
+#
+# 5) grosser testlauf:
+#    rsh muss funktionieren: z.B.:   rsh localhost date
+#    
+#    apache:
+#         cd wafe/src/cineast
+#         time get-regression-nb.xotcl -sequential 0 -clients 1
+#
+#    webserver.xotcl:
+#         cd wafe/src/cineast
+#         time get-regression-nb.xotcl -port 8086 -sequential 0 -clients 1
+#
+# Ergebnisse auf meinem Rechner:
+#
+# der xotcl-webserver ist etwa 20% langsamer als apache.
+# das logging (instproc log) aktivieren kostet ein paar weitere prozent....
+# -gn
+#
+# mohegan:~/wafe/src/cineast> time ./get-regression-nb.xotcl -port 8086 -sequential 0 -clients 1
+# Loading source file ~/wafe/src/cineast/Access.xotcl
+# Loading source file ~/wafe/src/cineast/PCache.xotcl
+# Loading source file ~/wafe/src/cineast/Connection.xotcl
+# Loading source file ~/wafe/src/cineast/trace.xotcl
+#  1 clients:   3.07 seconds  (per client   3.07 seconds, 2127.31 KB/sec) server: 2127.31 KB/sec
+#  2 clients:   6.36 seconds  (per client   3.18 seconds, 1028.10 KB/sec) server: 2056.20 KB/sec
+#  3 clients:   7.71 seconds  (per client   2.57 seconds,  847.74 KB/sec) server: 2543.22 KB/sec
+#  4 clients:  11.21 seconds  (per client   2.80 seconds,  582.92 KB/sec) server: 2331.66 KB/sec
+#  5 clients:  10.57 seconds  (per client   2.11 seconds,  618.49 KB/sec) server: 3092.45 KB/sec
+# 10 clients:  25.07 seconds  (per client   2.51 seconds,  260.68 KB/sec) server: 2606.79 KB/sec
+# 20 clients:  45.48 seconds  (per client   2.27 seconds,  143.73 KB/sec) server: 2874.58 KB/sec
+#0.420u 0.450s 1:49.65 0.7%      0+0k 0+0io 113263310pf+0w
+#
+#
+#
+# mohegan:~/wafe/src/cineast> time ./get-regression-nb.xotcl -port 80 -sequential 0 -clients 1
+# Loading source file ~/wafe/src/cineast/Access.xotcl
+# Loading source file ~/wafe/src/cineast/PCache.xotcl
+# Loading source file ~/wafe/src/cineast/Connection.xotcl
+# Loading source file ~/wafe/src/cineast/trace.xotcl
+#  1 clients:   1.85 seconds  (per client   1.85 seconds, 3542.58 KB/sec) server: 3542.58 KB/sec
+#  2 clients:   4.71 seconds  (per client   2.36 seconds, 1387.02 KB/sec) server: 2774.03 KB/sec
+#  3 clients:   4.09 seconds  (per client   1.36 seconds, 1596.58 KB/sec) server: 4789.74 KB/sec
+#  4 clients:   7.74 seconds  (per client   1.94 seconds,  844.43 KB/sec) server: 3377.71 KB/sec
+#  5 clients:   9.46 seconds  (per client   1.89 seconds,  690.67 KB/sec) server: 3453.33 KB/sec
+# 10 clients:  20.91 seconds  (per client   2.09 seconds,  312.52 KB/sec) server: 3125.24 KB/sec
+# 20 clients:  39.01 seconds  (per client   1.95 seconds,  167.55 KB/sec) server: 3351.08 KB/sec
+#0.410u 0.360s 1:27.95 0.8%      0+0k 0+0io 112251994pf+0w
+#
+#
+
+set CACHE_DIR [::xotcl::tmpdir]
+
+package require xotcl::comm::httpAccess
+package require xotcl::trace
+
+set port ""
+set host localhost
+set cachingopts {0 1 2 2}
+set parallel 1
+set sequential 0
+set clients 0
+set local 1
+
+foreach {att val} $argv {
+  switch -exact -- $att {
+    -port {set port $val}
+    -host {set host $val}
+    -memory {set cachingopts 0}
+    -parallel {set parallel $val}
+    -sequential {set sequential $val}
+    -clients {set clients $val}
+    -local {set local $val}
+  }
+}
+
+set hosts {
+  R2H2-11   R2H2-12   R2H2-13   R2H2-21   R2H2-22   R2H2-23   R2H2-31 R2H2-32 
+  R2H2-33   R2H2-41   R2H2-42   R2H2-43   R2H2-51   R2H2-52   R2H2-53 R2H2-61 
+  R2H2-62   R2H2-63   R2H2-73   
+  matush  nashawag  sagumumpsketuck  wawog  willimantic  wonkituck  mashipaug
+  watuppa
+}
+#set hosts {
+#  matush  nashawag  sagumumpsketuck  wawog  willimantic  wonkituck  mashipaug
+#  R2H2-11   R2H2-12   R2H2-13   R2H2-21   R2H2-22   R2H2-23   R2H2-31 R2H2-32 
+#  R2H2-33   R2H2-41   R2H2-42   R2H2-43   R2H2-51   R2H2-52   R2H2-53 R2H2-61 
+#  R2H2-62   R2H2-63   R2H2-73   
+#  watuppa
+#}
+set totalbytes 6536120
+set totalbytes 1293240;# ohne 5m request
+
+
+if {$clients} {
+  proc readable {handle rhost} {
+    if {[eof $handle]} {
+      incr ::running -1
+      if {[catch {close $handle} output]} {
+	if {![string match *$::totalbytes $output]} {
+	  puts stderr "invalid output on client on host $rhost"
+	  puts stderr "***********************************"
+	  puts stderr $output
+	  puts stderr "***********************************"
+	}
+      }
+      #puts stderr clients=$::running
+      if {$::running == 0} {
+	set ::xxx 1
+      }
+    } else {
+      gets $handle
+    }
+  }
+  proc clients {clients} {
+    append cmd "[pwd]/$::argv0 -host $::host " \
+	"-parallel $::parallel -sequential $::sequential"
+    if {$::port ne ""} {append cmd " -port $::port"}
+    set starttime [clock clicks]
+    set ::running $clients
+    for {set s 0} {$s < $clients} {incr s} { 
+      if {$::local} {
+	set rhost localhost
+      } else {
+	set rhost [lindex $::hosts $s]
+      }
+      #puts stderr "rsh $rhost $cmd"
+      puts -nonewline stderr "$rhost "
+      set f($s) [open "| rsh $rhost $cmd"]
+      fconfigure $f($s) -blocking 0
+      fileevent $f($s) readable "readable $f($s) $rhost"
+    }
+    puts stderr ""
+    vwait ::xxx
+    set secs [expr {([clock clicks] -$starttime)/1000000.0}]
+    puts stderr "[format %3d $clients] clients: [format %6.2f $secs] seconds \
+	(per client [format %6.2f [expr {$secs/$clients}]] seconds,\
+	[format %7.2f [expr {$::totalbytes/($secs*1000.0)}]] KB/sec)\
+	server: [format %7.2f [expr {$::totalbytes*$clients/($secs*1000.0)}]] KB/sec"
+  }
+  clients 1
+  clients 2
+  clients 3
+  clients 4
+  clients 5
+  clients 10
+  clients 20
+  exit
+}
+
+persistentCache clear
+
+proc assert {f r} {
+  set got [eval $f]
+  if {$got ne $r } {
+    puts stderr "assertion failed: \[$f\] == $r (got $got)" 
+    quit
+  } else {
+    puts stderr "OK $r = $f"
+  }
+}
+proc head msg {
+  puts stderr ""
+  puts stderr "---------------------------- $msg"
+}
+
+proc test {msg cmd} {
+  set r [Object autoname r]
+  head $msg
+  if {[catch {eval $cmd} msg]} {
+    puts stderr "ERROR: $::errorInfo"
+    quit
+  }
+  $r destroy
+}
+
+Object userPwd 
+userPwd proc user {u} { 
+  my set user $u
+}
+userPwd proc show {realm userVar pwVar} {
+  upvar $userVar u $pwVar pw
+  set u [my set user]
+  set pw jogl
+  return 1
+}
+
+
+
+
+# test "simple request" {
+#   SimpleRequest $r -caching 0 \
+#       -url http://localhost/index.html
+#   assert "$r getContentLength" 81
+# }
+# test "simple request" {
+#   SimpleRequest $r -caching 1 \
+#       -url http://localhost/index.html
+#   assert "$r getContentLength" 81
+# }
+# test "simple request" {
+#   SimpleRequest $r -caching 1 \
+#       -url http://localhost/index.html
+#   assert "$r getContentLength" 81
+# }
+# test "simple request" {
+#   persistentCache invalidate \
+#       http://localhost/index.html
+#   SimpleRequest $r -caching 1 \
+#       -url http://localhost/index.html
+#   assert "$r getContentLength" 81
+# }
+
+# test "simple request" {
+#   SimpleRequest $r -caching 0 \
+#        -url http://localhost/muster-d1klausur.ps
+#   assert "$r getContentLength" 163840
+# }
+set total 0
+proc parallelRequests-1.0 {urls} {
+  ParallelSink psink -httpVersion 1.0 -init -requests $urls
+  incr ::total [psink set totalbytes]
+  psink destroy
+}
+proc parallelRequests-1.1 {urls} {
+  ParallelSink psink -init -requests $urls
+  incr ::total [psink set totalbytes]
+  psink destroy
+}
+if {$port ne ""} {set port :$port}
+
+
+if {$parallel} {
+  parallelRequests-1.0 [list \
+			http://$host$port/test/file500.html \
+			http://$host$port/test/file5k.html \
+			http://$host$port/test/file50k.html \
+			http://$host$port/test/file500k.html \
+			http://$host$port/test/file5m.html \
+			http://$host$port/test/file500.html \
+			http://$host$port/test/file5k.html \
+			http://$host$port/test/file5k.html \
+			http://$host$port/test/file500.html \
+			http://$host$port/test/file500.html \
+			http://$host$port/test/file5k.html \
+			http://$host$port/test/file5k.html \
+			http://$host$port/test/file500.html \
+			http://$host$port/test/file5k.html \
+			http://$host$port/test/file5k.html \
+			http://$host$port/test/file500.html \
+		       ]
+  for {set i 1} {$i<10} {incr i} {
+    parallelRequests-1.1 [list \
+			      http://$host$port/test/file50k.html \
+			      http://$host$port/test/file5k1.html \
+			      http://$host$port/test/file5k2.html \
+			      http://$host$port/test/file5k3.html \
+			      http://$host$port/test/file5k4.html \
+			      http://$host$port/test/file5k5.html 
+			 ]
+  }
+  puts stderr totalbytes=$::total
+}
+
+if {$sequential} {
+  set doc http://$host$port/test/suexec.html
+  set size 20680
+  foreach c $cachingopts {
+    test "caching $c $doc" {
+      SimpleRequest $r -caching $::c -url $::doc
+      assert "$r getContentLength" $::size
+      #puts stderr c=<[$r getContent]>
+    }
+  }
+  
+  set doc http://$host$port/test/xvdocs.ps
+  set size 3678303
+  foreach c $cachingopts {
+    test "caching $c" {
+      SimpleRequest $r -caching $::c -url $::doc
+      assert "$r getContentLength" $::size
+    }
+  }
+  
+}
+exit
+
+test "simple request" {
+  SimpleRequest $r -caching 0 \
+      -url http://nestroy.wi-inf.uni-essen.de/Raumplan.html
+  assert "$r getContentLength" 662
+}
+
+
+test "simple request, larger file" {
+  SimpleRequest $r -caching 0 \
+      -url http://nestroy.wi-inf.uni-essen.de/Lv/muster-d1klausur.ps
+  assert "$r getContentLength" 349970
+}
+
+
+test "use cache" {
+  SimpleRequest $r -caching 1 \
+      -url http://nestroy.wi-inf.uni-essen.de/Lv/muster-d1klausur.ps
+  assert "$r getContentLength" 349970
+}
+
+
+test "specify filename, use cache and validate request" {
+  persistentCache invalidate \
+      http://nestroy.wi-inf.uni-essen.de/Lv/muster-d1klausur.ps
+  exec rm -f test.ps
+  SimpleRequest $r -caching 1 -fileName test.ps \
+      -url http://nestroy.wi-inf.uni-essen.de/Lv/muster-d1klausur.ps
+  assert "$r getContentLength" 349970
+  assert "file size test.ps" 349970
+  assert {lindex [exec md5sum  test.ps] 0} c6029c987e841430f3ca9bab157da12f
+}
+
+
+test  "specify filename, and use cache and a validated file" {
+  exec rm -f test.ps
+  SimpleRequest $r -caching 1 -fileName test.ps \
+      -url http://nestroy.wi-inf.uni-essen.de/Lv/muster-d1klausur.ps
+  assert "$r getContentLength" 349970
+  assert "file size test.ps" 349970
+  assert {lindex [exec md5sum  test.ps] 0} c6029c987e841430f3ca9bab157da12f
+}
+
+test "specify filename, and do not use cache" {
+  exec rm -f test.ps
+  SimpleRequest $r -fileName test.ps -caching 0 \
+      -url http://nestroy.wi-inf.uni-essen.de/Lv/muster-d1klausur.ps
+  assert "$r getContentLength" 349970
+  assert "file size test.ps" 349970
+  assert {lindex [exec md5sum  test.ps] 0} c6029c987e841430f3ca9bab157da12f
+}
+
+test "specify filesink and use cache; no copying neccesary" {
+  persistentCache invalidate \
+      http://nestroy.wi-inf.uni-essen.de/Lv/muster-d1klausur.ps
+  SimpleRequest $r -useFileSink 1 -caching 1 \
+      -url http://nestroy.wi-inf.uni-essen.de/Lv/muster-d1klausur.ps
+  assert "$r getContentLength" 349970
+  assert "file size test.ps" 349970
+}
+
+
+
+test "load a large file to the cache" {
+  persistentCache clearEntry http://swt.wi-inf.uni-essen.de/lx2.1.55
+  SimpleRequest $r -caching 1 \
+      -url http://swt.wi-inf.uni-essen.de/lx2.1.55
+  assert "$r getContentLength" 522411
+}
+
+
+
+test  "load a validated large file" {
+  SimpleRequest $r -caching 1 \
+      -url http://swt.wi-inf.uni-essen.de/lx2.1.55
+  assert "$r getContentLength" 522411
+}
+
+test "pure loading test without cache" {
+  SimpleRequest $r -caching 0 \
+      -url http://swt.wi-inf.uni-essen.de/lx2.1.55
+  assert "$r getContentLength" 522411
+}
+
+
+test  "redirect" {
+  SimpleRequest $r -caching 1 \
+      -url http://mohegan.wi-inf.uni-essen.de/Lv/muster-d1klausur.ps
+  assert "$r getContentLength" 349970
+}
+
+
+test  "authentication" {
+  SimpleRequest $r -caching 1 \
+      -url http://nestroy.wi-inf.uni-essen.de/cgi-bin/w3-msql/Forschung/Publikationen/protected/index.html
+  assert "$r getContentLength" 1164
+}
+
+puts stderr after
+quit
+
+
+### request joining
+### load to file depending on content type

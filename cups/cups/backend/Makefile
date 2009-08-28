@@ -1,9 +1,9 @@
 #
-# "$Id: Makefile 6778 2007-08-08 19:27:51Z mike $"
+# "$Id: Makefile 7924 2008-09-10 17:36:13Z mike $"
 #
 #   Backend makefile for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 2007 by Apple Inc.
+#   Copyright 2007-2009 by Apple Inc.
 #   Copyright 1997-2007 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -17,12 +17,13 @@
 
 include ../Makedefs
 
-RBACKENDS =	ipp lpd
+RBACKENDS =	ipp lpd $(DNSSD_BACKEND)
 UBACKENDS =	$(PAP) $(LEGACY_BACKENDS) serial snmp socket usb
-TARGETS	=	betest test1284 libbackend.a $(RBACKENDS) $(UBACKENDS)
-LIBOBJS	=	ieee1284.o runloop.o
-OBJS	=	betest.o ipp.o lpd.o pap.o parallel.o scsi.o \
-		serial.o snmp.o socket.o test1284.o usb.o
+UNITTESTS =	test1284 testbackend testsupplies
+TARGETS =	libbackend.a $(RBACKENDS) $(UBACKENDS)
+LIBOBJS	=	ieee1284.o network.o runloop.o snmp-supplies.o
+OBJS	=	ipp.o lpd.o dnssd.o pap.o parallel.o scsi.o serial.o snmp.o \
+		socket.o test1284.o testbackend.o testsupplies.o usb.o
 
 
 #
@@ -33,11 +34,25 @@ all:	$(TARGETS)
 
 
 #
+# Make library targets...
+#
+
+libs:
+
+
+#
+# Make unit tests...
+#
+
+unittests:	$(UNITTESTS)
+
+
+#
 # Clean all object files...
 #
 
 clean:
-	$(RM) $(OBJS) $(TARGETS) $(LIBOBJS) http
+	$(RM) $(OBJS) $(TARGETS) $(UNITTESTS) $(LIBOBJS) http mdns
 
 
 #
@@ -52,22 +67,54 @@ depend:
 # Install all targets...
 #
 
-install:	all
+install:	all install-data install-headers install-libs install-exec
+
+
+#
+# Install data files...
+#
+
+install-data:
+
+
+#
+# Install programs...
+#
+
+install-exec:
 	$(INSTALL_DIR) -m 755 $(SERVERBIN)/backend
 	for file in $(RBACKENDS); do \
-		$(LIBTOOL) $(INSTALL) -m 700 $$file $(SERVERBIN)/backend; \
+		$(LIBTOOL) $(INSTALL_BIN) -m 700 $$file $(SERVERBIN)/backend; \
 	done
 	for file in $(UBACKENDS); do \
 		$(INSTALL_BIN) $$file $(SERVERBIN)/backend; \
 	done
 	$(RM) $(SERVERBIN)/backend/http
 	$(LN) ipp $(SERVERBIN)/backend/http
+	if test "x$(DNSSD_BACKEND)" != x; then \
+		$(RM) $(SERVERBIN)/backend/mdns; \
+		$(LN) $(DNSSD_BACKEND) $(SERVERBIN)/backend/mdns; \
+	fi
 	if test "x$(SYMROOT)" != "x"; then \
 		$(INSTALL_DIR) $(SYMROOT); \
 		for file in $(TARGETS); do \
 			cp $$file $(SYMROOT); \
 		done \
 	fi
+
+
+#
+# Install headers...
+#
+
+install-headers:
+
+
+#
+# Install libraries...
+#
+
+install-libs:
 
 
 #
@@ -84,22 +131,34 @@ uninstall:
 
 
 #
-# betest
-#
-
-betest:	betest.o ../cups/$(LIBCUPS)
-	echo Linking $@...
-	$(CC) $(LDFLAGS) -o betest betest.o $(LIBS)
-
-
-#
 # test1284
 #
 
 test1284:	test1284.o ../cups/libcups.a
 	echo Linking $@...
 	$(CC) $(LDFLAGS) -o test1284 test1284.o ../cups/libcups.a \
-		$(SSLLIBS) $(COMMONLIBS) $(LIBZ)
+		$(LIBGSSAPI) $(SSLLIBS) $(DNSSDLIBS) $(COMMONLIBS) $(LIBZ)
+
+
+#
+# testbackend
+#
+
+testbackend:	testbackend.o ../cups/libcups.a
+	echo Linking $@...
+	$(CC) $(LDFLAGS) -o testbackend testbackend.o ../cups/libcups.a \
+		$(LIBGSSAPI) $(SSLLIBS) $(DNSSDLIBS) $(COMMONLIBS) $(LIBZ)
+
+
+#
+# testsupplies
+#
+
+testsupplies:	testsupplies.o libbackend.a ../cups/libcups.a
+	echo Linking $@...
+	$(CC) $(LDFLAGS) -o testsupplies testsupplies.o libbackend.a \
+		../cups/libcups.a $(LIBGSSAPI) $(SSLLIBS) $(DNSSDLIBS) \
+		$(COMMONLIBS) $(LIBZ)
 
 
 #
@@ -114,24 +173,23 @@ libbackend.a:	$(LIBOBJS)
 
 
 #
-# ieee1394
+# dnssd
 #
 
-ieee1394:	ieee1394.o ieee1394-linux.o
+dnssd:	dnssd.o ../cups/$(LIBCUPS) libbackend.a
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o ieee1394 ieee1394.o ieee1394-linux.o -lraw1394 $(LIBS)
-
-ieee1394.o:		ieee1394.h
-ieee1394-linux.o:	ieee1394.h
+	$(CC) $(LDFLAGS) -o dnssd dnssd.o libbackend.a $(LIBS)
+	$(RM) mdns
+	$(LN) dnssd mdns
 
 
 #
 # ipp
 #
 
-ipp:	ipp.o ../cups/$(LIBCUPS)
+ipp:	ipp.o ../cups/$(LIBCUPS) libbackend.a
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o ipp ipp.o $(LIBS)
+	$(CC) $(LDFLAGS) -o ipp ipp.o libbackend.a $(LIBS)
 	$(RM) http
 	$(LN) ipp http
 
@@ -140,9 +198,9 @@ ipp:	ipp.o ../cups/$(LIBCUPS)
 # lpd
 #
 
-lpd:	lpd.o ../cups/$(LIBCUPS)
+lpd:	lpd.o ../cups/$(LIBCUPS) libbackend.a
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o lpd lpd.o $(LIBS)
+	$(CC) $(LDFLAGS) -o lpd lpd.o libbackend.a $(LIBS)
 
 
 #
@@ -207,8 +265,9 @@ socket:	socket.o ../cups/$(LIBCUPS) libbackend.a
 
 usb:	usb.o ../cups/$(LIBCUPS) libbackend.a
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o usb usb.o libbackend.a $(BACKLIBS) $(LIBS)
-usb.o:	usb.c usb-darwin.c usb-unix.c
+	$(CC) $(LDFLAGS) -o usb usb.o libbackend.a $(LIBUSB) \
+		$(BACKLIBS) $(LIBS)
+usb.o:	usb.c usb-darwin.c usb-libusb.c usb-unix.c
 
 
 #
@@ -219,5 +278,5 @@ include Dependencies
 
 
 #
-# End of "$Id: Makefile 6778 2007-08-08 19:27:51Z mike $".
+# End of "$Id: Makefile 7924 2008-09-10 17:36:13Z mike $".
 #

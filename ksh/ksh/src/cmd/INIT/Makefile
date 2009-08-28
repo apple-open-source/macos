@@ -259,7 +259,7 @@ iconv :MAPLIB: iconv.c
 
 intl :MAPLIB: intl.c
 
-m :MAPLIB: m.c m2.c m3.c m4.c m5.c
+m :MAPLIB: m.c m2.c m3.c m4.c m5.c m6.c
 
 nsl :MAPLIB: nsl.c
 
@@ -276,8 +276,9 @@ socket :MAPLIB: socket.c nsl.c
  * more substance abuse
  * gdbm's ndbm "compatibility" doesn't supply <ndbm.h>, instead supplies
  * <gdbm/ndbm.h> which provides K&R prototypes *and* it requires -lgdbm
+ * some <ndbm.h> implementations use -lndbm, others -ldbm, still others -lc
  * this is why unix is starting to look like windows
  * this map allows makefiles to use -ldbm on all systems
  */
 
-dbm gdbm :MAPLIB: gdbm.c gdbm2.c
+dbm gdbm - ndbm - dbm :MAPLIB: gdbm.c gdbm2.c

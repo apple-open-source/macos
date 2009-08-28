@@ -1,8 +1,7 @@
 /*
- *
- * @APPLE_LICENSE_HEADER_START@
+ * Copyright (c) 1999-2008 Apple Computer, Inc.  All Rights Reserved.
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * @APPLE_LICENSE_HEADER_START@
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -31,6 +30,7 @@ import <IOKit/pwr_mgt/powermanagement_mig.h>;
 subsystem powermanagement 73000; 
 serverprefix _;
 
+// PM Settings
 routine io_pm_force_active_settings(
             server      : mach_port_t;
         in  profiles    : pointer_t;
@@ -41,6 +41,14 @@ routine io_pm_set_active_profile(
         in  profiles    : pointer_t;
         out return_val  : int);
 
+// PM Bookkeeping
+routine io_pm_last_wake_time(
+            server      : mach_port_t;
+        out wakeData    : pointer_t;
+        out deltaData   : pointer_t;
+        out return_val  : int);
+
+// IOPMAssertion
 routine io_pm_assertion_create(
             server      : mach_port_t;
         in task_t       : mach_port_t;
@@ -62,6 +70,40 @@ routine io_pm_assertion_release(
         in  task_t      : mach_port_t;
         in  assertion_id: int;
         out return_code : int);
+
+// IOPMConnection
+routine io_pm_connection_create(
+            server      : mach_port_t;
+        in task_in       : mach_port_t;
+        in name         : string_t;
+        in interests    : int;
+        out connection_id : uint32_t;
+        out return_code :int);
+
+routine io_pm_connection_schedule_notification(
+            server      : mach_port_t;
+        in connection_id : uint32_t;
+        in notify_port  : mach_port_t;
+        in disable      : int;
+        out return_code : int);
+        
+routine io_pm_connection_release(
+            server      : mach_port_t;
+        in connection_id : uint32_t;
+        out return_code : int);
+
+routine io_pm_connection_acknowledge_event(
+           server       : mach_port_t;
+        in connection_id : uint32_t;
+        in messageToken : int;
+        in options      : pointer_t;
+        out return_code : int);
+
+routine io_pm_connection_copy_status(
+           server       : mach_port_t;
+        in status_index : int;
+        out status_data : pointer_t;
+        out return_val  : int);
         
 routine io_pm_new_pspowersource(
             server      : mach_port_t;

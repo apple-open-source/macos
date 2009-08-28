@@ -1,21 +1,12 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1996,2007 Oracle.  All rights reserved.
+ *
+ * $Id: qam_upgrade.c,v 12.6 2007/05/17 15:15:50 bostic Exp $
  */
+
 #include "db_config.h"
-
-#ifndef lint
-static const char revid[] = "$Id: qam_upgrade.c,v 1.2 2004/03/30 01:23:55 jtownsen Exp $";
-#endif /* not lint */
-
-#ifndef NO_SYSTEM_INCLUDES
-#include <sys/types.h>
-
-#include <limits.h>
-#include <string.h>
-#endif
 
 #include "db_int.h"
 #include "dbinc/db_upgrade.h"

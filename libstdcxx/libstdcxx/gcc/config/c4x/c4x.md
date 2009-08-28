@@ -1,6 +1,6 @@
 ;; Machine description for the TMS320C[34]x for GCC
 ;; Copyright (C) 1994, 1995, 1996, 1997, 1998,
-;; 1999, 2000, 2002, 2004 Free Software Foundation, Inc.
+;; 1999, 2000, 2002, 2004, 2005 Free Software Foundation, Inc.
 
 ;; Contributed by Michael Hayes (m.hayes@elec.canterbury.ac.nz)
 ;;            and Herman Ten Brugge (Haj.Ten.Brugge@net.HCC.nl)
@@ -19,8 +19,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;
 ; TODO :
@@ -907,6 +907,7 @@
                             (const_int 1) (const_int 0))]
              (const_int 0)))
 
+(include "predicates.md")
 
 ;
 ; C4x INSN PATTERNS:
@@ -5713,7 +5714,7 @@
  }")
 
 
-(define_insn "*cmpstrqi"
+(define_insn "*cmpstrnqi"
   [(set (match_operand:QI 0 "ext_reg_operand" "=d")
         (compare:QI (mem:BLK (match_operand:QI 1 "addr_reg_operand" "+a"))
                     (mem:BLK (match_operand:QI 2 "addr_reg_operand" "+a"))))
@@ -5730,7 +5731,7 @@
     return \"\";
  }")
 
-(define_expand "cmpstrqi"
+(define_expand "cmpstrnqi"
   [(parallel [(set (match_operand:QI 0 "reg_operand" "")
                    (compare:QI (match_operand:BLK 1 "general_operand" "")
                                (match_operand:BLK 2 "general_operand" "")))

@@ -1,5 +1,6 @@
+AC_PREREQ([2.53])
 AC_INIT(rlm_sql.c)
-AC_REVISION($Revision: 1.2 $)
+AC_REVISION($Revision$)
 AC_DEFUN(modname,[rlm_sql])
 
 fail=
@@ -35,7 +36,7 @@ if test x$with_[]modname != xno; then
 
 	SQL_MODULES=
 	if test "x$EXPERIMENTAL" = "xyes"; then
-	  for foo in `ls ./drivers | grep rlm`; do
+	  for foo in `ls ./drivers/rlm_*/Makefile* | sed 's/.*rlm/rlm/;s,/Make.*,,' | sort -u`; do
 	    SQL_MODULES="$SQL_MODULES $foo"
 	  done
 	else
@@ -54,9 +55,9 @@ if test x$with_[]modname != xno; then
 	AC_CONFIG_SUBDIRS($mysubdirs)
 	rm install-sh
 
-	dnl # 
+	dnl #
 	dnl # Don't bother looking for errors in the child directories
-	dnl # 
+	dnl #
 
 	targetname=modname
 else
@@ -71,10 +72,10 @@ if test x"$fail" != x""; then
 		AC_MSG_WARN([silently not building ]modname[.])
 		AC_MSG_WARN([FAILURE: ]modname[ requires: $fail.])
 		if test x"$headersuggestion" != x; then
-			AC_MSG_WARN([$headersuggestion]) 
+			AC_MSG_WARN([$headersuggestion])
 		fi
 		if test x"$libsuggestion" != x; then
-			AC_MSG_WARN([$libsuggestion]) 
+			AC_MSG_WARN([$libsuggestion])
 		fi
 		targetname=""
 	fi

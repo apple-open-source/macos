@@ -81,7 +81,7 @@ const relax_typeS md_relax_table[1];
 static struct hash_control *op_hash = NULL;
 
 #ifdef	NeXT_MOD
-static void s_proc PARAMS ((int));
+static void s_proc PARAMS ((uintptr_t));
 extern void s_seg PARAMS ((int));
 #else	/* NeXT_MOD */
 static void s_data1 PARAMS ((void));
@@ -161,7 +161,7 @@ static unsigned char toHex[256];
 struct sparc_it
   {
     char *error;
-    unsigned long opcode;
+    uint32_t opcode;
     nlist_t *nlistp;
     expressionS exp;
     int pcrel;
@@ -198,8 +198,8 @@ static int special_case_set = 0;
    compatibility with the Sun assembler only */
 
 static void
-s_proc (ignore)
-     int ignore;
+s_proc (
+uintptr_t ignore)
 {
   totally_ignore_line();
 }
@@ -348,11 +348,11 @@ sparc_ip (str)
   char c;
   struct sparc_opcode *insn;
   char *argsStart;
-  unsigned long opcode;
+  uint32_t opcode;
   unsigned int mask = 0;
   int match = 0;
   int comma = 0;
-  long immediate_max = 0;
+  int32_t immediate_max = 0;
 
   for (s = str; islower (*s) || (*s >= '0' && *s <= '3'); ++s)
     ;
@@ -408,7 +408,7 @@ sparc_ip (str)
 
 		  if (isdigit (*s))
 		    {
-		      long num = 0;
+		      int32_t num = 0;
 
 		      while (isdigit (*s))
 			{
@@ -820,7 +820,7 @@ sparc_ip (str)
 	 * link phase be relocatable.  These labels are those that are not L*
 	 */
 	     if (the_insn.exp.X_add_symbol != NULL && !flagseen['L']
-		&& the_insn.exp.X_add_symbol->sy_nlist.n_un.n_name[0] == 'L') {
+		&& the_insn.exp.X_add_symbol->sy_name[0] == 'L') {
 		/* local symbol which will be thrown away.  Don't bother
 		 * to reloc it.
 		 */
@@ -840,7 +840,7 @@ sparc_ip (str)
 		      && the_insn.reloc != SPARC_RELOC_HI22
 		      && (the_insn.exp.X_add_number > immediate_max
 			  || the_insn.exp.X_add_number < ~immediate_max))
-		    as_bad ("constant value must be between %ld and %ld",
+		    as_bad ("constant value must be between %d and %d",
 			    ~immediate_max, immediate_max);
 
 		  if ((the_insn.reloc == SPARC_RELOC_WDISP22 ||

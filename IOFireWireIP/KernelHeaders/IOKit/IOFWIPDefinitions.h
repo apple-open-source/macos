@@ -229,7 +229,7 @@ typedef struct {
  cast addresses (reachable via asynchronous stream packets) */
 
 typedef struct {				/* IP1394 "hardware" address */
-   UInt32	deviceID;			/* Stable reference to unit architecture */
+   void*	deviceID;			/* Stable reference to unit architecture */
    UInt8	maxRec;             /* Maximum asynchronous payload */
    UInt8	spd;                /* Maximum speed */
    UInt16	unicastFifoHi;      /* Upper 16 bits of unicast FIFO address */
@@ -327,7 +327,7 @@ class DRB : public OSObject
 public:
 	UWIDE		eui64;			/* EUI-64 of the IP-capable device */
 	UInt8		fwaddr[kIOFWAddressSize];
-	UInt32		deviceID;		/* Stable "handle" for the IP-capable device */
+	void*		deviceID;		/* Stable "handle" for the IP-capable device */
 	UInt16		maxPayload;		/* Maximum payload and... */
 	IOFWSpeed	maxSpeed;		/* ...speed to device in current topology */
 	bool		itsMac;			/* Indicates whether the destination Macintosh or not */

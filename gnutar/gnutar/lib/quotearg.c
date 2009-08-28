@@ -1,7 +1,7 @@
 /* quotearg.c - quote arguments for output
 
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004 Free Software
-   Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004, 2005, 2006, 2007 Free
+   Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -15,13 +15,11 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software Foundation,
-   Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 /* Written by Paul Eggert <eggert@twinsun.com> */
 
-#if HAVE_CONFIG_H
-# include <config.h>
-#endif
+#include <config.h>
 
 #include "quotearg.h"
 
@@ -33,19 +31,12 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <wchar.h>
+#include <wctype.h>
 
 #include "gettext.h"
 #define _(msgid) gettext (msgid)
 #define N_(msgid) msgid
-
-#if HAVE_WCHAR_H
-
-/* BSD/OS 4.1 wchar.h requires FILE and struct tm to be declared.  */
-# include <stdio.h>
-# include <time.h>
-
-# include <wchar.h>
-#endif
 
 #if !HAVE_MBRTOWC
 /* Disable multibyte processing entirely.  Since MB_CUR_MAX is 1, the
@@ -53,6 +44,8 @@
    syntax.  */
 # undef MB_CUR_MAX
 # define MB_CUR_MAX 1
+# undef mbstate_t
+# define mbstate_t int
 # define mbrtowc(pwc, s, n, ps) ((*(pwc) = *(s)) != 0)
 # define iswprint(wc) isprint ((unsigned char) (wc))
 # undef HAVE_MBSINIT
@@ -60,15 +53,6 @@
 
 #if !defined mbsinit && !HAVE_MBSINIT
 # define mbsinit(ps) 1
-#endif
-
-#ifndef iswprint
-# if HAVE_WCTYPE_H
-#  include <wctype.h>
-# endif
-# if !defined iswprint && !HAVE_ISWPRINT
-#  define iswprint(wc) 1
-# endif
 #endif
 
 #ifndef SIZE_MAX
@@ -122,8 +106,8 @@ struct quoting_options *
 clone_quoting_options (struct quoting_options *o)
 {
   int e = errno;
-  struct quoting_options *p = xmalloc (sizeof *p);
-  *p = *(o ? o : &default_quoting_options);
+  struct quoting_options *p = xmemdup (o ? o : &default_quoting_options,
+				       sizeof *o);
   errno = e;
   return p;
 }
@@ -222,7 +206,8 @@ quotearg_buffer_restyled (char *buffer, size_t buffersize,
     case locale_quoting_style:
     case clocale_quoting_style:
       {
-	/* Get translations for open and closing quotation marks.
+	/* TRANSLATORS:
+	   Get translations for open and closing quotation marks.
 
 	   The message catalog should translate "`" to a left
 	   quotation mark suitable for the locale, and similarly for
@@ -235,7 +220,11 @@ quotearg_buffer_restyled (char *buffer, size_t buffersize,
 	   should translate "'" to U+201D (RIGHT DOUBLE QUOTATION
 	   MARK).  A British English Unicode locale should instead
 	   translate these to U+2018 (LEFT SINGLE QUOTATION MARK) and
-	   U+2019 (RIGHT SINGLE QUOTATION MARK), respectively.  */
+	   U+2019 (RIGHT SINGLE QUOTATION MARK), respectively.
+
+	   If you don't know what to put here, please see
+	   <http://en.wikipedia.org/wiki/Quotation_mark#Glyphs>
+	   and use glyphs suitable for your language.  */
 
 	char const *left = gettext_quote (N_("`"), quoting_style);
 	char const *right = gettext_quote (N_("'"), quoting_style);
@@ -301,6 +290,9 @@ quotearg_buffer_restyled (char *buffer, size_t buffersize,
 		    STORE ('?');
 		    STORE ('\\');
 		    STORE ('?');
+		    break;
+
+		  default:
 		    break;
 		  }
 	      break;
@@ -449,6 +441,9 @@ quotearg_buffer_restyled (char *buffer, size_t buffersize,
 				case '[': case '\\': case '^':
 				case '`': case '|':
 				  goto use_shell_always_quoting_style;
+
+				default:
+				  break;
 				}
 			  }
 
@@ -543,10 +538,45 @@ quotearg_alloc (char const *arg, size_t argsize,
 {
   int e = errno;
   size_t bufsize = quotearg_buffer (0, 0, arg, argsize, o) + 1;
-  char *buf = xmalloc (bufsize);
+  char *buf = xcharalloc (bufsize);
   quotearg_buffer (buf, bufsize, arg, argsize, o);
   errno = e;
   return buf;
+}
+
+/* A storage slot with size and pointer to a value.  */
+struct slotvec
+{
+  size_t size;
+  char *val;
+};
+
+/* Preallocate a slot 0 buffer, so that the caller can always quote
+   one small component of a "memory exhausted" message in slot 0.  */
+static char slot0[256];
+static unsigned int nslots = 1;
+static struct slotvec slotvec0 = {sizeof slot0, slot0};
+static struct slotvec *slotvec = &slotvec0;
+
+void
+quotearg_free (void)
+{
+  struct slotvec *sv = slotvec;
+  unsigned int i;
+  for (i = 1; i < nslots; i++)
+    free (sv[i].val);
+  if (sv[0].val != slot0)
+    {
+      free (sv[0].val);
+      slotvec0.size = sizeof slot0;
+      slotvec0.val = slot0;
+    }
+  if (sv != &slotvec0)
+    {
+      free (sv);
+      slotvec = &slotvec0;
+    }
+  nslots = 1;
 }
 
 /* Use storage slot N to return a quoted version of argument ARG.
@@ -563,50 +593,43 @@ quotearg_n_options (int n, char const *arg, size_t argsize,
 {
   int e = errno;
 
-  /* Preallocate a slot 0 buffer, so that the caller can always quote
-     one small component of a "memory exhausted" message in slot 0.  */
-  static char slot0[256];
-  static unsigned int nslots = 1;
   unsigned int n0 = n;
-  struct slotvec
-    {
-      size_t size;
-      char *val;
-    };
-  static struct slotvec slotvec0 = {sizeof slot0, slot0};
-  static struct slotvec *slotvec = &slotvec0;
+  struct slotvec *sv = slotvec;
 
   if (n < 0)
     abort ();
 
   if (nslots <= n0)
     {
-      unsigned int n1 = n0 + 1;
+      /* FIXME: technically, the type of n1 should be `unsigned int',
+	 but that evokes an unsuppressible warning from gcc-4.0.1 and
+	 older.  If gcc ever provides an option to suppress that warning,
+	 revert to the original type, so that the test in xalloc_oversized
+	 is once again performed only at compile time.  */
+      size_t n1 = n0 + 1;
+      bool preallocated = (sv == &slotvec0);
 
-      if (xalloc_oversized (n1, sizeof *slotvec))
+      if (xalloc_oversized (n1, sizeof *sv))
 	xalloc_die ();
 
-      if (slotvec == &slotvec0)
-	{
-	  slotvec = xmalloc (sizeof *slotvec);
-	  *slotvec = slotvec0;
-	}
-      slotvec = xrealloc (slotvec, n1 * sizeof *slotvec);
-      memset (slotvec + nslots, 0, (n1 - nslots) * sizeof *slotvec);
+      slotvec = sv = xrealloc (preallocated ? NULL : sv, n1 * sizeof *sv);
+      if (preallocated)
+	*sv = slotvec0;
+      memset (sv + nslots, 0, (n1 - nslots) * sizeof *sv);
       nslots = n1;
     }
 
   {
-    size_t size = slotvec[n].size;
-    char *val = slotvec[n].val;
+    size_t size = sv[n].size;
+    char *val = sv[n].val;
     size_t qsize = quotearg_buffer (val, size, arg, argsize, options);
 
     if (size <= qsize)
       {
-	slotvec[n].size = size = qsize + 1;
+	sv[n].size = size = qsize + 1;
 	if (val != slot0)
 	  free (val);
-	slotvec[n].val = val = xmalloc (size);
+	sv[n].val = val = xcharalloc (size);
 	quotearg_buffer (val, size, arg, argsize, options);
       }
 

@@ -15,7 +15,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // 26.2.8 complex transcendentals
@@ -61,6 +61,11 @@ void test01()
   d2 = 1.4;
   test01_do(d1, d2);
 
+#if __LDBL_MANT_DIG__ != 106
+  /* For IBM long double, epsilon is too small (since 1.0 plus any
+     double is representable) to be able to expect results within
+     epsilon * 100 (which may be much less than 1ulp for a particular
+     long double value).  */
   long double ld1 = -1.0l;
   long double ld2 = 0.5l;
   test01_do(ld1, ld2);
@@ -68,6 +73,7 @@ void test01()
   ld1 = -3.2l;
   ld2 = 1.4l;
   test01_do(ld1, ld2);
+#endif
 }
 
 int main()

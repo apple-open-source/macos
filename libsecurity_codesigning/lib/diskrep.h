@@ -29,9 +29,10 @@
 
 #include "cs.h"
 #include "codedirectory.h"
+#include "cdbuilder.h"
 #include "requirement.h"
 #include "resources.h"
-#include "macho++.h"		// for class Architecture
+#include <security_utilities/macho++.h>		// for class Architecture
 #include <security_utilities/refcount.h>
 #include <security_utilities/superblob.h>
 #include <CoreFoundation/CFData.h>
@@ -52,6 +53,7 @@ public:
 	virtual ~DiskRep();
 	virtual DiskRep *base();
 	virtual CFDataRef component(CodeDirectory::SpecialSlot slot) = 0; // fetch component
+	virtual CFDataRef identification() = 0;					// binary lookup identifier
 	virtual std::string mainExecutablePath() = 0;			// path to main executable
 	virtual CFURLRef canonicalPath() = 0;					// path to whole code
 	virtual std::string recommendedIdentifier() = 0;		// default identifier
@@ -79,12 +81,21 @@ public:
 	virtual Writer *writer();
 
 public:
-	static DiskRep *bestGuess(const char *path);			// canonical heuristic, any path
-	static DiskRep *bestFileGuess(const char *path);		// canonical heuristic, single file only
+	struct Context {
+		Context() : arch(Architecture::none), offset(0), fileOnly(false) { }
+		Architecture arch;			// explicit architecture
+		off_t offset;				// explicit file offset
+		bool fileOnly;				// only consider single-file representations
+	};
+
+	static DiskRep *bestGuess(const char *path, const Context *ctx = NULL); // canonical heuristic, any path
+	static DiskRep *bestFileGuess(const char *path, const Context *ctx = NULL); // ctx (if any) + fileOnly
+	static DiskRep *bestGuess(const char *path, size_t archOffset); // Mach-O at given file offset only
 	
-	static DiskRep *bestGuess(const std::string &path)		{ return bestGuess(path.c_str()); }
-	static DiskRep *bestFileGuess(const std::string &path)	{ return bestFileGuess(path.c_str()); }
-	
+	static DiskRep *bestGuess(const std::string &path, const Context *ctx = NULL)
+		{ return bestGuess(path.c_str(), ctx); }
+	static DiskRep *bestGuess(const std::string &path, size_t archOffset) { return bestGuess(path.c_str(), archOffset); }
+	static DiskRep *bestFileGuess(const std::string &path, const Context *ctx = NULL) { return bestFileGuess(path.c_str(), ctx); }
 	
 public:
 	static const size_t segmentedPageSize = 4096;	// default page size for system-paged signatures
@@ -105,6 +116,8 @@ public:
 	virtual ~Writer();
 	virtual void component(CodeDirectory::SpecialSlot slot, CFDataRef data) = 0;
 	virtual uint32_t attributes() const;
+	virtual void addDiscretionary(CodeDirectory::Builder &builder);
+	virtual void remove();
 	virtual void flush();
 
 	bool attribute(uint32_t attr) const		{ return mAttributes & attr; }
@@ -124,6 +137,40 @@ private:
 enum {
 	writerLastResort = 0x0001,			// prefers not to store attributes itself
 	writerNoGlobal = 0x0002,			// has only per-architecture storage
+};
+
+
+//
+// A prefix DiskRep that filters (only) signature-dependent behavior and passes
+// all code-dependent behavior off to an underlying (different) DiskRep.
+// FilterRep subclasses are typically "stacked" on top of their base DiskRep, and
+// then used in their place.
+//
+class FilterRep : public DiskRep {
+public:
+	FilterRep(DiskRep *orig) : mOriginal(orig) { }
+	
+	DiskRep *base()							{ return mOriginal; }
+	
+	// things that look at signature components are filtered
+	CFDataRef component(CodeDirectory::SpecialSlot slot) = 0;
+
+	// the rest of the virtual behavior devolves on the original DiskRep
+	CFDataRef identification()				{ return mOriginal->identification(); }
+	std::string mainExecutablePath()		{ return mOriginal->mainExecutablePath(); }
+	CFURLRef canonicalPath()				{ return mOriginal->canonicalPath(); }
+	std::string recommendedIdentifier()		{ return mOriginal->recommendedIdentifier(); }
+	std::string resourcesRootPath()			{ return mOriginal->resourcesRootPath(); }
+	CFDictionaryRef defaultResourceRules()	{ return mOriginal->defaultResourceRules(); }
+	Universal *mainExecutableImage()		{ return mOriginal->mainExecutableImage(); }
+	size_t signingBase()					{ return mOriginal->signingBase(); }
+	size_t signingLimit()					{ return mOriginal->signingLimit(); }
+	std::string format()					{ return mOriginal->format(); }
+	UnixPlusPlus::FileDesc &fd()			{ return mOriginal->fd(); }
+	void flush()							{ return mOriginal->flush(); }
+
+private:
+	RefPointer<DiskRep> mOriginal;			// underlying representation
 };
 
 

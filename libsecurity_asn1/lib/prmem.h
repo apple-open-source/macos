@@ -57,15 +57,15 @@ PR_BEGIN_EXTERN_C
 ** PR_Malloc, PR_Calloc, PR_Realloc, and PR_Free have the same signatures
 ** as their libc equivalent malloc, calloc, realloc, and free, and have
 ** the same semantics.  (Note that the argument type size_t is replaced
-** by PRUint32.)  Memory allocated by PR_Malloc, PR_Calloc, or PR_Realloc
+** by PRSize.)  Memory allocated by PR_Malloc, PR_Calloc, or PR_Realloc
 ** must be freed by PR_Free.
 */
 
-NSPR_API(void *) PR_Malloc(PRUint32 size);
+NSPR_API(void *) PR_Malloc(PRSize size);
 
-NSPR_API(void *) PR_Calloc(PRUint32 nelem, PRUint32 elsize);
+NSPR_API(void *) PR_Calloc(PRSize nelem, PRSize elsize);
 
-NSPR_API(void *) PR_Realloc(void *ptr, PRUint32 size);
+NSPR_API(void *) PR_Realloc(void *ptr, PRSize size);
 
 NSPR_API(void) PR_Free(void *ptr);
 

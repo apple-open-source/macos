@@ -1,0 +1,14 @@
+--- subversion/libsvn_ra_svn/client.c.orig	2009-04-03 10:27:49.000000000 -0700
++++ subversion/libsvn_ra_svn/client.c	2009-04-03 11:39:23.000000000 -0700
+@@ -443,7 +443,11 @@
+     status = apr_procattr_child_errfn_set(attr, handle_child_process_error);
+   proc = apr_palloc(pool, sizeof(*proc));
+   if (status == APR_SUCCESS)
++#ifdef __APPLE__
++    status = apr_proc_spawn(proc, *args, args, NULL, attr, pool);
++#else
+     status = apr_proc_create(proc, *args, args, NULL, attr, pool);
++#endif
+   if (status != APR_SUCCESS)
+     return svn_error_wrap_apr(status, _("Can't create tunnel"));
+ 

@@ -1,8 +1,8 @@
-/* APPLE LOCAL file radar 4621575 */
 /* Test to make sure that the const objc strings are the same across
    scopes.  */
 /* Developed by Andrew Pinski <pinskia@physics.uc.edu> */
 
+/* APPLE LOCAL radar 4621575 */
 /* { dg-options "-fnext-runtime -fno-constant-cfstrings -fconstant-string-class=Foo -lobjc" } */
 /* { dg-do run { target *-*-darwin* } } */
 

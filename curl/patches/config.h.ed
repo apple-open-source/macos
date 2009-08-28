@@ -19,4 +19,11 @@
 #define SIZEOF_TIME_T 4
 #endif /* __LP64__ */
 .
+/SIZEOF_VOIDP/c
+#ifdef __LP64__
+#define SIZEOF_VOIDP 8
+#else /* !__LP64__ */
+#define SIZEOF_VOIDP 4
+#endif /* __LP64__ */
+.
 w

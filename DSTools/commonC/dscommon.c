@@ -202,7 +202,7 @@ bool				singleAttributeValueMissing	(   tDirReference inDSRef,
 			if (*outResult == eDSBufferTooSmall)
 			{
 				UInt32 bufSize = dataBuff->fBufferSize;
-				if (inVerbose) printf("dsDoAttributeValueSearch returned buffer too small so doubling size of buffer to <%lu>\n", bufSize);
+				if (inVerbose) printf("dsDoAttributeValueSearch returned buffer too small so doubling size of buffer to <%u>\n", (uint32_t) bufSize);
 				dsDataBufferDeAllocate( inDSRef, dataBuff );
 				dataBuff = nil;
 				dataBuff = dsDataBufferAllocate( inDSRef, bufSize * 2 );
@@ -220,7 +220,7 @@ bool				singleAttributeValueMissing	(   tDirReference inDSRef,
 		}
 		if (*outResult != eDSNoErr)
 		{
-			if (inVerbose) printf("dsDoAttributeValueSearch returned the error <%ld>\n", *outResult);
+			if (inVerbose) printf("dsDoAttributeValueSearch returned the error <%d>\n", (int32_t)*outResult);
 		}
 
 		//always leave the while
@@ -482,7 +482,7 @@ tRecordReference createAndOpenRecord(tDirReference inDSRef, tDirNodeReference in
 		*outResult = dsCreateRecordAndOpen( inDSNodeRef, pRecType, pRecName, &outRecordRef );
 		if (*outResult != eDSNoErr)
 		{
-			if (inVerbose) printf("dsCreateRecordAndOpen returned the error <%ld>\n", *outResult);
+			if (inVerbose) printf("dsCreateRecordAndOpen returned the error <%d>\n", (int32_t) *outResult);
 		}
 		if (outRecordRef == 0)
 		{
@@ -557,7 +557,7 @@ SInt32 getAndOutputRecord(tDirReference inDSRef, tDirNodeReference inDSNodeRef, 
 			if (siResult == eDSBufferTooSmall)
 			{
 				UInt32 bufSize = dataBuff->fBufferSize;
-				if (inVerbose) printf("dsGetRecordList returned buffer too small so doubling size of buffer to <%lu>\n", bufSize);
+				if (inVerbose) printf("dsGetRecordList returned buffer too small so doubling size of buffer to <%u>\n", (uint32_t) bufSize);
 				dsDataBufferDeAllocate( aDSRef, dataBuff );
 				dataBuff = nil;
 				dataBuff = dsDataBufferAllocate( aDSRef, bufSize * 2 );
@@ -574,7 +574,7 @@ SInt32 getAndOutputRecord(tDirReference inDSRef, tDirNodeReference inDSNodeRef, 
 		}
 		if (siResult != eDSNoErr)
 		{
-			if (inVerbose) printf("dsGetRecordList returned the error <%ld>\n", siResult);
+			if (inVerbose) printf("dsGetRecordList returned the error <%d>\n", (int32_t) siResult);
 		}
 
 		if ( (siResult == eDSNoErr) && (recCount > 0) )
@@ -610,13 +610,13 @@ SInt32 getAndOutputRecord(tDirReference inDSRef, tDirNodeReference inDSNodeRef, 
 							}
 							else
 							{
-								if (inVerbose) printf("dsGetAttributeValue returned the error <%ld>\n", siResult);
+								if (inVerbose) printf("dsGetAttributeValue returned the error <%d>\n", (int32_t) siResult);
 							}
 						}
 					}
 					else
 					{
-						if (inVerbose) printf("dsGetAttributeEntry returned the error <%ld>\n", siResult);
+						if (inVerbose) printf("dsGetAttributeEntry returned the error <%d>\n", (int32_t) siResult);
 					}
 					dsCloseAttributeValueList(valueRef);
 					if (pAttrEntry != nil)
@@ -628,7 +628,7 @@ SInt32 getAndOutputRecord(tDirReference inDSRef, tDirNodeReference inDSNodeRef, 
 			}//found 1st record entry
 			else
 			{
-				if (inVerbose) printf("dsGetRecordEntry returned the error <%ld>\n", siResult);
+				if (inVerbose) printf("dsGetRecordEntry returned the error <%d>\n", (int32_t) siResult);
 			}
 			dsCloseAttributeList(attrListRef);
 			if (pRecEntry != nil)
@@ -734,7 +734,7 @@ tDirNodeReference getNodeRef(tDirReference inDSRef, char* inNodename, char* inUs
 		} while ( (siResult == eDSBufferTooSmall) && (dataBuff != nil) );
 		if ( siResult != eDSNoErr )
 		{
-			if (inVerbose) printf("dsFindDirNodes returned the error <%ld>\n", siResult);
+			if (inVerbose) printf("dsFindDirNodes returned the error <%d>\n", (int32_t) siResult);
 			break;
 		}
 		if ( nodeCount < 1 )
@@ -753,14 +753,14 @@ tDirNodeReference getNodeRef(tDirReference inDSRef, char* inNodename, char* inUs
 		siResult = dsGetDirNodeName( inDSRef, dataBuff, 1, &nodeName );
 		if ( siResult != eDSNoErr )
 		{
-			if (inVerbose) printf("dsGetDirNodeName returned the error <%ld>\n", siResult);
+			if (inVerbose) printf("dsGetDirNodeName returned the error <%d>\n", (int32_t) siResult);
 			break;
 		}
 
 		siResult = dsOpenDirNode( inDSRef, nodeName, &outNodeRef );
 		if ( siResult != eDSNoErr )
 		{
-			if (inVerbose) printf("dsOpenDirNode returned the error <%ld>\n", siResult);
+			if (inVerbose) printf("dsOpenDirNode returned the error <%d>\n", (int32_t) siResult);
 			break;
 		}
 		if ( nodeName != NULL )
@@ -909,7 +909,7 @@ char* getSingleRecordAttribute(tDirReference inDSRef, tDirNodeReference inDSNode
 			if (*outResult == eDSBufferTooSmall)
 			{
 				UInt32 bufSize = dataBuff->fBufferSize;
-				if (inVerbose) printf("dsGetRecordList returned buffer too small so doubling size of buffer to <%lu>\n", bufSize);
+				if (inVerbose) printf("dsGetRecordList returned buffer too small so doubling size of buffer to <%u>\n", (uint32_t) bufSize);
 				dsDataBufferDeAllocate( aDSRef, dataBuff );
 				dataBuff = nil;
 				dataBuff = dsDataBufferAllocate( aDSRef, bufSize * 2 );
@@ -926,7 +926,7 @@ char* getSingleRecordAttribute(tDirReference inDSRef, tDirNodeReference inDSNode
 		}
 		if (*outResult != eDSNoErr)
 		{
-			if (inVerbose) printf("dsGetRecordList returned the error <%ld>\n", *outResult);
+			if (inVerbose) printf("dsGetRecordList returned the error <%d>\n", (int32_t) *outResult);
 		}
 
 		if ( (*outResult == eDSNoErr) && (recCount > 0) )
@@ -955,13 +955,13 @@ char* getSingleRecordAttribute(tDirReference inDSRef, tDirNodeReference inDSNode
 							}
 							else
 							{
-								if (inVerbose) printf("dsGetAttributeValue returned the error <%ld>\n", *outResult);
+								if (inVerbose) printf("dsGetAttributeValue returned the error <%d>\n", (int32_t) *outResult);
 							}
 						}
 					}
 					else
 					{
-						if (inVerbose) printf("dsGetAttributeEntry returned the error <%ld>\n", *outResult);
+						if (inVerbose) printf("dsGetAttributeEntry returned the error <%d>\n", (int32_t) *outResult);
 					}
 					dsCloseAttributeValueList(valueRef);
 					if (pAttrEntry != nil)
@@ -973,7 +973,7 @@ char* getSingleRecordAttribute(tDirReference inDSRef, tDirNodeReference inDSNode
 			}//found 1st record entry
 			else
 			{
-				if (inVerbose) printf("dsGetRecordEntry returned the error <%ld>\n", *outResult);
+				if (inVerbose) printf("dsGetRecordEntry returned the error <%d>\n", (int32_t) *outResult);
 			}
 			dsCloseAttributeList(attrListRef);
 			if (pRecEntry != nil)
@@ -1056,7 +1056,7 @@ tRecordReference openRecord(tDirReference inDSRef, tDirNodeReference inDSNodeRef
 		*outResult = dsOpenRecord( inDSNodeRef, pRecType, pRecName, &outRecordRef );
 		if (*outResult != eDSNoErr)
 		{
-			if (inVerbose) printf("dsOpenRecord returned the error <%ld>\n", *outResult);
+			if (inVerbose) printf("dsOpenRecord returned the error <%d>\n", (int32_t) *outResult);
 		}
 		if (outRecordRef == 0)
 		{

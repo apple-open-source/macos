@@ -1,7 +1,7 @@
 .TH SLAPD-NULL 5 "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" Copyright 2002-2006 The OpenLDAP Foundation.  All Rights Reserved.
+.\" Copyright 2002-2008 The OpenLDAP Foundation.  All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
-.\" $OpenLDAP: pkg/ldap/doc/man/man5/slapd-null.5,v 1.5.4.4 2006/01/03 22:16:05 kurt Exp $
+.\" $OpenLDAP: pkg/ldap/doc/man/man5/slapd-null.5,v 1.10.2.4 2008/02/11 23:26:40 kurt Exp $
 .SH NAME
 slapd-null \- Null backend to slapd
 .SH SYNOPSIS
@@ -18,7 +18,8 @@ is surely the most useful part of
 .br
 - Updates return success (unless readonly is on) but do nothing.
 .br
-- Binds fail unless the database option "bind on" is given.
+- Binds other than as the rootdn fail unless the database option "bind
+on" is given.
 .br
 - The
 .BR slapadd (8)
@@ -38,7 +39,7 @@ Other database options are described in the
 manual page.
 .TP
 .B bind <on/off>
-Allow binds as DNs in this backend's suffix.
+Allow binds as any DN in this backend's suffix, with any password.
 The default is "off".
 .SH EXAMPLE
 Here is a possible slapd.conf extract using the Null backend:

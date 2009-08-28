@@ -1,15 +1,18 @@
 SHELL		:= /bin/sh
+SDKROOT		?= /
 
 VERSION		= 1.0
-CC		= cc
+CC		= xcrun cc
+CPP		= xcrun c++
 CPPFLAGS	= -I$(SRCROOT)
-CFLAGS		= -Os -g3 -no-cpp-precomp -Wall $(RC_CFLAGS)
+CFLAGS		= -Os -g3 -no-cpp-precomp -Wall $(RC_CFLAGS) -isysroot $(SDKROOT)
 LDFLAGS		= $(RC_CFLAGS) -install_name /usr/lib/libutil.dylib -compatibility_version $(VERSION) \
-		  -current_version $(VERSION)
+		  -current_version $(VERSION) -lstdc++ -exported_symbols_list libutil.exports -isysroot $(SDKROOT)
 INSTALL		= install -c
 LN		= ln
-MKDIR		= mkdir
+MKDIR		= mkdir -p
 STRIP		= strip
+DSYMUTIL	= dsymutil
 AR		= ar
 RANLIB		= ranlib
 
@@ -20,13 +23,15 @@ DSTROOT		=
 
 LIB		:= libutil1.0.dylib
 SRCS		:= _secure_path.c getmntopts.c humanize_number.c \
-	           pidfile.c property.c realhostname.c trimdomain.c uucplock.c
-HDRS		:= libutil.h mntopts.h
+	           pidfile.c property.c realhostname.c trimdomain.c uucplock.c \
+	           ExtentManager.cpp wipefs.cpp reexec_to_match_kernel.c
+HDRS		:= libutil.h mntopts.h wipefs.h
 MAN3		:= _secure_path.3 getmntopts.3 humanize_number.3 pidfile.3 \
-		   property.3 realhostname.3 realhostname_sa.3 trimdomain.3 uucplock.3
+		   property.3 realhostname.3 realhostname_sa.3 trimdomain.3 \
+		   uucplock.3 wipefs.3 reexec_to_match_kernel.3
 
 .SUFFIXES :
-.SUFFIXES : .c .h .o
+.SUFFIXES : .c .cpp .h .o
 
 .PHONY :
 .PHONY : all installsrc installhdrs install clean installlib installman
@@ -57,7 +62,7 @@ installhdrs :
 install : installhdrs installlib strip installman install-plist
 
 clean :
-	rm -f $(patsubst %.c,$(OBJROOT)/%.o,$(SRCS))
+	rm -f $(patsubst %.cpp,$(OBJROOT)/%.o,$(patsubst %.c,$(OBJROOT)/%.o,$(SRCS)))
 	rm -f $(SYMROOT)/*~
 	rm -f $(SRCROOT)/.\#*
 	rm -f $(SYMROOT)/$(LIB)
@@ -69,6 +74,7 @@ strip:
 # Internal targets and rules.
 #
 installlib : $(SYMROOT)/$(LIB)
+	$(DSYMUTIL) $(SYMROOT)/$(LIB) -o $(SYMROOT)/$(LIB).dSYM
 	$(INSTALL) -d $(DSTROOT)/usr/lib
 	$(INSTALL) -m 0755 $< $(DSTROOT)/usr/lib
 	$(LN) -fs libutil1.0.dylib $(DSTROOT)/usr/lib/libutil.dylib
@@ -84,8 +90,12 @@ $(OBJROOT)/%.o : $(SRCROOT)/%.c \
 	     $(patsubst %.h,$(SRCROOT)/%.h,$(HDRS))
 	$(CC) -c $(CPPFLAGS) $(CFLAGS) $< -o $@
 
-$(SYMROOT)/$(LIB) : $(patsubst %.c,$(OBJROOT)/%.o,$(SRCS))
-	$(CC) -dynamiclib $(LDFLAGS) -o $@ $?
+$(OBJROOT)/%.o : $(SRCROOT)/%.cpp \
+	     $(patsubst %.h,$(SRCROOT)/%.h,$(HDRS))
+	$(CPP) -c $(CPPFLAGS) $(CFLAGS) $< -o $@
+
+$(SYMROOT)/$(LIB) : $(patsubst %.cpp,$(OBJROOT)/%.o,$(patsubst %.c,$(OBJROOT)/%.o,$(SRCS)))
+	$(CC) -dynamiclib $(LDFLAGS) -o $@ $(patsubst %.cpp,$(OBJROOT)/%.o,$(patsubst %.c,$(OBJROOT)/%.o,$(SRCS)))
 
 OSV	= $(DSTROOT)/usr/local/OpenSourceVersions
 OSL	= $(DSTROOT)/usr/local/OpenSourceLicenses

@@ -1,4 +1,4 @@
-/*$Header: /src/pub/tcsh/win32/ntport.h,v 1.7 2005/03/25 18:46:42 kim Exp $*/
+/*$Header: /p/tcsh/cvsroot/tcsh/win32/ntport.h,v 1.12 2006/04/07 00:57:59 amold Exp $*/
 /*-
  * Copyright (c) 1980, 1991 The Regents of the University of California.
  * All rights reserved.
@@ -46,6 +46,13 @@
 #include <direct.h>
 #include "dirent.h"
 #include "version.h"
+
+#ifndef WINDOWS_ONLY
+#define STRSAFE_NO_DEPRECATE
+#endif /* WINDOWS_ONLY*/
+#define STRSAFE_LIB
+#define STR_NO_CCH_FUNCTIONS
+#include <strsafe.h>
 
 // These needed for fork(), which controls the heap management.
 #pragma data_seg(".fusrdata")
@@ -113,6 +120,7 @@ pretty */
 #define write(f,b,n)          nt_write((f),(b),(n))
 #define creat(f,m)            nt_creat((f),(m))
 #define _exit(a)              ExitProcess((a))
+#define setmode(a,b)          /* ignore*/
 
 #define chdir(a)              nt_chdir(a)
 
@@ -148,6 +156,7 @@ pretty */
 
 #define setvbuf(a,b,c,d) 
 #define setpgrp(a,b) (-1)
+#define tcsetattr(a,b,c) 0
 
 #undef stdin
 #undef stdout
@@ -172,7 +181,6 @@ pretty */
 #define NOFILE                64
 #define ARG_MAX               1024
 #define MAXSIG                NSIG
-#define NCARGS                ARG_MAX
 
 /*
 mode Value	Checks File For
@@ -214,15 +222,20 @@ typedef int pid_t;
 typedef int speed_t;
 typedef unsigned char u_char;
 typedef size_t caddr_t;
+typedef int sig_atomic_t;
+typedef int mode_t;
 
 struct timeval{
 	long tv_sec;
 	long tv_usec;
 };
+struct termios;
+/*
 struct timezone{
 	int tz_minuteswest;
 	int dsttime;
 };
+*/
 struct rusage {
 
 	 struct timeval ru_utime; /* user time used */
@@ -274,7 +287,7 @@ typedef int                 intptr_t;
 extern char *			 ttyname(int);
 extern struct passwd*    getpwuid(uid_t ) ;
 extern struct group *    getgrgid(gid_t ) ;
-extern struct passwd*    getpwnam(char* ) ;
+extern struct passwd*    getpwnam(const char* ) ;
 extern struct group*     getgrnam(char* ) ;
 extern gid_t 			 getuid(void) ;
 extern gid_t 			 getgid(void) ;
@@ -294,7 +307,7 @@ extern void dprintf(char *,...);
 /* support.c */
 extern void nt_init(void);
 extern int gethostname(char*,int);
-extern char* forward_slash_get_cwd(char *,int len );
+extern char* forward_slash_get_cwd(char *,size_t len );
 extern int  nt_chdir(char*);
 extern void  nt_execve(char *,char**,char**);
 extern void  nt_exec(char *,char**);
@@ -308,10 +321,10 @@ extern char* concat_args_and_quote(char **,char**,char **,unsigned int *, char *
 
 extern int is_nt_executable(char*,char*);
 /* io.c */
-extern int  force_read(int, unsigned char*,int);
-extern int  nt_read(int, unsigned char*,int);
-extern int  nt_write(int, unsigned char*,int);
-extern int stringtable_read(int,char*,int);
+extern int  force_read(int, unsigned char*,size_t);
+extern int  nt_read(int, unsigned char*,size_t);
+extern int  nt_write(int, const unsigned char*,size_t);
+extern int stringtable_read(int,char*,size_t);
 
 /* tparse.c */
 extern int  tc_putc(char,FILE*);
@@ -320,7 +333,7 @@ extern int  tc_putc(char,FILE*);
 void nt_cleanup(void);
 
 /* stdio.c */
-extern int  nt_creat(char*,int);
+extern int  nt_creat(const char*,int);
 extern int  nt_close(int);
 extern int  nt_open(const char*,int ,...);
 extern int  nt_pipe(int*);
@@ -355,7 +368,7 @@ extern int  nt_lseek(int,long,int);
 extern int nt_printf(char*,...);
 extern int nt_access(char*,int);
 extern int nt_fstat(int, struct stat *) ;
-extern int nt_stat(char *, struct stat *) ;
+extern int nt_stat(const char *, struct stat *) ;
 extern void nt_close_on_exec(int , int);
 extern void init_stdio(void) ;
 extern int is_resource_file(int);
@@ -419,6 +432,7 @@ extern void start_ncbs(short **);
 extern void cleanup_netbios(void);
 
 /* ntfunc.c */
+struct command;
 extern void dostart(short **,struct command *);
 extern void docls(short **,struct command *);
 extern void dotitle(short **, struct command * ) ;
@@ -435,10 +449,10 @@ extern void init_shell_dll(void) ;
 extern void try_shell_ex(char**,int,BOOL);
 extern int nt_try_fast_exec(struct command *);
 extern int nt_feed_to_cmd(char*,char**);
-extern short nt_translate_bindkey(short*);
+extern short nt_translate_bindkey(const short*);
 
 extern struct biltins *nt_check_additional_builtins(short *);
-extern void nt_print_builtins(unsigned int);
+extern void nt_print_builtins(size_t);
 
 /* ps.c */
 extern void init_plister(void);
@@ -465,10 +479,10 @@ extern DWORD gdwStackSize;
 #define getppid() 0
 
 struct tms {
-	time_t tms_utime;
-	time_t tms_stime;
-	time_t tms_cutime;
-	time_t tms_cstime;
+	clock_t tms_utime;
+	clock_t tms_stime;
+	clock_t tms_cutime;
+	clock_t tms_cstime;
 };
 #define UT_UNKNOWN 0
 #define DEAD_PROCESS 7
@@ -487,6 +501,8 @@ struct utmp {
 	char ut_host[UT_HOSTSIZE]; /* hostname for rlogin */
 	long ut_addr;  /*ipaddr of remote host */
 };
+
+
 #define ut_name ut_user
 #define killpg kill
 

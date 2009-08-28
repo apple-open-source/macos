@@ -8,34 +8,34 @@
 Project               = expect
 ToolType              = Commands
 
-Extra_Configure_Flags = $(TEA_Configure_Flags) \
-                        --with-tclinclude=$(TclPrivateHeaders) \
-                        --enable-shared --enable-stubs --without-x
-Extra_LD_Flags        = -L$(TclFramework) -F$(shell dirname $(TclFramework))
-Extra_Environment     = TCLHDIRDASHI='-I$(TclHeaders) -I$(TclPrivateHeaders)' \
-                        $(TEA_Environment)
-Extra_Install_Flags   = tcl_libdir='$$(libdir)' EXP_UNSHARED_LIB_FILE=/dev/null
+# Fetch info
+Release               = 5.44.1.11
+TEApotVersion         = 0.0.0.2008.10.20.18.12.54
+TEApotProject         = Expect-sf
 
-GnuAfterInstall       = strip install-binary fix-pkgIndex fix-owner
+Extra_Configure_Flags = $(TEA_Configure_Flags) --no-recursion \
+                        --with-tclinclude=$(TclPrivateHeaders)
+Extra_Environment     = $(TEA_Environment) bin_BINARIES=$(Project) \
+                        MAKE_LIB='$${SHLIB_LD} -o $$@ $$(PKG_OBJECTS) $${SHLIB_LD_LIBS} -install_name $${pkglibdir}/$$@'
+
+GnuAfterInstall       = strip lipo_ppc install-doc fix-perms
 
 # include TEA Tcl extension build support
 include ../TEA.make
 
-Install_Target        = install_shared_lib
-Install_Flags         = INSTALL_ROOT="$(DSTROOT)" $(Extra_Install_Flags)
+Install_Target        = install-binaries
 
-Version               = $(shell eval $$($(GREP) 'VERSION=' "$(Sources)"/configure.in); echo $${VERSION})
-PkgIndex              = $(TclExtLibDir)/$(Project)$(Version)/pkgIndex.tcl
-
-install-binary:
-# manually install statically linked expect executable and expect manpage
-	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)/$(USRBINDIR) $(DSTROOT)/$(MANDIR)/man1
-	$(_v) $(INSTALL_PROGRAM) $(BuildDirectory)/$(Project) $(DSTROOT)/$(USRBINDIR)
+install-doc:
+	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)/$(MANDIR)/man1
 	$(_v) $(INSTALL_FILE) $(Sources)/$(Project).man $(DSTROOT)/$(MANDIR)/man1/$(Project).1
 
-fix-pkgIndex:
-# fix incorrect relative path in pkgIndex.tcl
-	$(_v) $(SED) -e 's/\.\. //' "$(DSTROOT)/$(PkgIndex)" > "$(DSTROOT)/$(PkgIndex).fix"
-	$(_v) $(MV) -f "$(DSTROOT)/$(PkgIndex).fix" "$(DSTROOT)/$(PkgIndex)"
+strip::
+	$(_v) $(STRIP) $(DSTROOT)/$(USRBINDIR)/$(Project)
 
-.PHONY: $(GnuAfterInstall)
+lipo_ppc:
+ifeq '$(RC_ppc)' 'YES'
+	$(_v) lipo -remove ppc7400 -output $(DSTROOT)$(USRBINDIR)/$(Project) \
+		$(DSTROOT)$(USRBINDIR)/$(Project)
+endif
+
+.PHONY: lipo_ppc

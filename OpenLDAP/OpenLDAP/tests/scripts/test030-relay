@@ -1,8 +1,8 @@
 #! /bin/sh
-# $OpenLDAP: pkg/ldap/tests/scripts/test030-relay,v 1.5.2.6 2006/01/03 22:16:29 kurt Exp $
+# $OpenLDAP: pkg/ldap/tests/scripts/test030-relay,v 1.21.2.4 2008/02/11 23:26:51 kurt Exp $
 ## This work is part of OpenLDAP Software <http://www.openldap.org/>.
 ##
-## Copyright 1998-2006 The OpenLDAP Foundation.
+## Copyright 1998-2008 The OpenLDAP Foundation.
 ## All rights reserved.
 ##
 ## Redistribution and use in source and binary forms, with or without
@@ -73,6 +73,10 @@ fi
 echo "Testing virtual naming context mapping with $RELAYS backend(s)..."
 echo ""
 
+tmpfile=savelog.log
+if test -f $tmpfile ; then
+	rm -f $tmpfile
+fi
 first=1
 for RELAY in $RELAYS ; do
 	RUNIT=yes
@@ -89,19 +93,26 @@ for RELAY in $RELAYS ; do
 		if test $first = 1 ; then
 			first=0
 		else
-			echo ">>>>> waiting 10 seconds for things to exit"
-			sleep 10
+			echo ">>>>> waiting for things to exit"
+			test $KILLSERVERS != no && wait
 			echo ""
-	
+
+			mv -f $LOG1 $tmpfile
 			rm -rf $TESTDIR
 		fi
 
 		mkdir -p $TESTDIR $DBDIR1
+
+		if test -f $tmpfile ; then
+			mv $tmpfile $LOG1
+		fi
 	
 		. $SRCDIR/scripts/relay
 	fi
 done
 
 echo ">>>>> Test succeeded"
-exit 0
 
+test $KILLSERVERS != no && wait
+
+exit 0

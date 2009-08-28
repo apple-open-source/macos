@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,6 +39,7 @@
 #include <net/ethernet.h>
 #include <mach/boolean.h>
 #include <stdint.h>
+#include <CoreFoundation/CFString.h>
 
 enum {
 	kKeyTypeDefault = 0,
@@ -48,8 +49,10 @@ enum {
 };
 typedef uint32_t 	wirelessKeyType;
 
-typedef const void *	wireless_t;
-
+typedef const struct _wireless *	wireless_t;
+typedef void (wireless_scan_callback)(wireless_t wref, 
+				      CFArrayRef bssid_list, void * arg);
+typedef wireless_scan_callback * wireless_scan_callback_t;
 /*
  * Function: wireless_bind
  * Purpose:
@@ -77,10 +80,24 @@ wireless_set_key(const wireless_t wref, wirelessKeyType type,
 		 int index, const uint8_t * key, int key_length);
 
 boolean_t
-wireless_set_wpa_session_key(const wireless_t wref, 
-			     const uint8_t * key, int key_length);
+wireless_set_wpa_pmk(const wireless_t wref, 
+		     const struct ether_addr * bssid,
+		     const uint8_t * key, int key_length);
+
+CFStringRef
+wireless_copy_ssid_string(wireless_t wref);
 
 void
 wireless_free(wireless_t handle);
 
-#endif _S_WIRELESS_H
+void
+wireless_scan_cancel(wireless_t wref);
+
+boolean_t
+wireless_scan(wireless_t wref, CFStringRef ssid, int num_scans,
+	      wireless_scan_callback_t func, void * arg);
+
+boolean_t
+wireless_is_wpa_enterprise(wireless_t wref);
+
+#endif /* _S_WIRELESS_H */

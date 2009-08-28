@@ -14,7 +14,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -107,7 +107,7 @@ check_output_buffer (cpp_reader *pfile, size_t n)
       size_t size = pfile->out.cur - pfile->out.base;
       size_t new_size = (size + n) * 3 / 2;
 
-      pfile->out.base = xrealloc (pfile->out.base, new_size);
+      pfile->out.base = XRESIZEVEC (unsigned char, pfile->out.base, new_size);
       pfile->out.limit = pfile->out.base + new_size;
       pfile->out.cur = pfile->out.base + size;
     }
@@ -1069,7 +1069,7 @@ bool
 _cpp_expansions_different_trad (const cpp_macro *macro1,
 				const cpp_macro *macro2)
 {
-  uchar *p1 = xmalloc (macro1->count + macro2->count);
+  uchar *p1 = XNEWVEC (uchar, macro1->count + macro2->count);
   uchar *p2 = p1 + macro1->count;
   uchar quote1 = 0, quote2 = 0;
   bool mismatch;

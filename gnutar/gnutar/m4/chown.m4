@@ -1,16 +1,27 @@
-#serial 10
-# Determine whether we need the chown wrapper.  chown should accept
-# arguments of -1 for uid and gid, and it should dereference symlinks.
-# If it doesn't, arrange to use the replacement function.
+#serial 17
+# Determine whether we need the chown wrapper.
+
+dnl Copyright (C) 1997, 1998, 1999, 2000, 2001, 2003, 2004, 2005, 2007 Free
+dnl Software Foundation, Inc.
+
+dnl This file is free software; the Free Software Foundation
+dnl gives unlimited permission to copy and/or distribute it,
+dnl with or without modifications, as long as this notice is preserved.
+
+# chown should accept arguments of -1 for uid and gid, and it should
+# dereference symlinks.  If it doesn't, arrange to use the replacement
+# function.
+
 # From Jim Meyering.
 
 AC_DEFUN([gl_FUNC_CHOWN],
 [
+  AC_REQUIRE([gl_UNISTD_H_DEFAULTS])
   AC_REQUIRE([AC_TYPE_UID_T])
   AC_REQUIRE([AC_FUNC_CHOWN])
   AC_REQUIRE([gl_FUNC_CHOWN_FOLLOWS_SYMLINK])
 
-  if test $ac_cv_func_chown_works = yes; then
+  if test $ac_cv_func_chown_works = no; then
     AC_DEFINE(CHOWN_FAILS_TO_HONOR_ID_OF_NEGATIVE_ONE, 1,
       [Define if chown is not POSIX compliant regarding IDs of -1.])
   fi
@@ -19,9 +30,8 @@ AC_DEFUN([gl_FUNC_CHOWN],
   if test $ac_cv_func_chown_works$gl_cv_func_chown_follows_symlink = yesyes; then
     : # no wrapper needed
   else
+    REPLACE_CHOWN=1
     AC_LIBOBJ(chown)
-    AC_DEFINE(chown, rpl_chown,
-      [Define to rpl_chown if the replacement function should be used.])
     gl_PREREQ_CHOWN
   fi
 ])
@@ -34,9 +44,7 @@ AC_DEFUN([gl_FUNC_CHOWN_FOLLOWS_SYMLINK],
     gl_cv_func_chown_follows_symlink,
     [
       AC_RUN_IFELSE([AC_LANG_SOURCE([[
-#ifdef HAVE_UNISTD_H
-# include <unistd.h>
-#endif
+#include <unistd.h>
 #include <stdlib.h>
 #include <errno.h>
 
@@ -57,7 +65,7 @@ AC_DEFUN([gl_FUNC_CHOWN_FOLLOWS_SYMLINK],
 	]])],
 	[gl_cv_func_chown_follows_symlink=yes],
 	[gl_cv_func_chown_follows_symlink=no],
-	[gl_cv_func_chown_follows_symlink=no]
+	[gl_cv_func_chown_follows_symlink=yes]
       )
     ]
   )
@@ -71,6 +79,5 @@ AC_DEFUN([gl_FUNC_CHOWN_FOLLOWS_SYMLINK],
 # Prerequisites of lib/chown.c.
 AC_DEFUN([gl_PREREQ_CHOWN],
 [
-  AC_CHECK_HEADERS_ONCE(unistd.h fcntl.h)
   AC_CHECK_FUNC([fchown], , [AC_LIBOBJ(fchown-stub)])
 ])

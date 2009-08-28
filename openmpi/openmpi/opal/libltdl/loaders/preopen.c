@@ -1,34 +1,36 @@
 /* loader-preopen.c -- emulate dynamic linking using preloaded_symbols
-   Copyright (C) 1998, 1999, 2000, 2004, 2006 Free Software Foundation, Inc.
-   Originally by Thomas Tanner <tanner@ffii.org>
+
+   Copyright (C) 1998, 1999, 2000, 2004, 2006,
+                 2007 Free Software Foundation, Inc.
+   Written by Thomas Tanner, 1998
 
    NOTE: The canonical source of this file is maintained with the
    GNU Libtool package.  Report bugs to bug-libtool@gnu.org.
 
-This library is free software; you can redistribute it and/or
+GNU Libltdl is free software; you can redistribute it and/or
 modify it under the terms of the GNU Lesser General Public
 License as published by the Free Software Foundation; either
 version 2 of the License, or (at your option) any later version.
 
 As a special exception to the GNU Lesser General Public License,
 if you distribute this file as part of a program or library that
-is built using GNU libtool, you may include it under the same
-distribution terms that you use for the rest of that program.
+is built using GNU Libtool, you may include this file under the
+same distribution terms that you use for the rest of that program.
 
-This library is distributed in the hope that it will be useful,
+GNU Libltdl is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-Lesser General Public License for more details.
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Lesser General Public License for more details.
 
 You should have received a copy of the GNU Lesser General Public
-License along with this library; if not, write to the Free Software
-Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301  USA
-
+License along with GNU Libltdl; see the file COPYING.LIB.  If not, a
+copy can be downloaded from  http://www.gnu.org/licenses/lgpl.html,
+or obtained by writing to the Free Software Foundation, Inc.,
+51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 */
 
-#include "lt_dlloader.h"
 #include "lt__private.h"
+#include "lt_dlloader.h"
 
 /* Use the preprocessor to rename non-static symbols to avoid namespace
    collisions when the loader code is statically linked into libltdl.
@@ -45,7 +47,8 @@ LT_END_C_DECLS
    libltdl's loader list:  */
 static int	 vl_init  (lt_user_data loader_data);
 static int	 vl_exit  (lt_user_data loader_data);
-static lt_module vm_open  (lt_user_data loader_data, const char *filename);
+static lt_module vm_open  (lt_user_data loader_data, const char *filename,
+                           lt_dladvise advise);
 static int	 vm_close (lt_user_data loader_data, lt_module module);
 static void *	 vm_sym   (lt_user_data loader_data, lt_module module,
 			  const char *symbolname);
@@ -138,7 +141,8 @@ vl_exit (lt_user_data LT__UNUSED loader_data)
    loader.  Returns an opaque representation of the newly opened
    module for processing with this loader's other vtable functions.  */
 static lt_module
-vm_open (lt_user_data LT__UNUSED loader_data, const char *filename)
+vm_open (lt_user_data LT__UNUSED loader_data, const char *filename,
+         lt_dladvise LT__UNUSED advise)
 {
   symlist_chain *lists;
   lt_module	 module = 0;
@@ -318,7 +322,8 @@ lt_dlpreload (const lt_dlsymlist *preloaded)
 
 
 /* Open all the preloaded modules from the named originator, executing
-   a callback for each one.  */
+   a callback for each one.  If ORIGINATOR is NULL, then call FUNC for
+   each preloaded module from the program itself.  */
 int
 lt_dlpreload_open (const char *originator, lt_dlpreload_callback_func *func)
 {
@@ -330,7 +335,8 @@ lt_dlpreload_open (const char *originator, lt_dlpreload_callback_func *func)
   for (list = preloaded_symlists; list; list = list->next)
     {
       /* ...that was preloaded by the requesting ORIGINATOR... */
-      if (streq (list->symlist->name, originator))
+      if ((originator && streq (list->symlist->name, originator))
+          || (!originator && streq (list->symlist->name, "@PROGRAM@")))
 	{
 	  const lt_dlsymlist *symbol;
 	  unsigned int idx = 0;
@@ -356,12 +362,12 @@ lt_dlpreload_open (const char *originator, lt_dlpreload_callback_func *func)
 		}
 	    }
 	}
+    }
 
-      if (!found)
-	{
-	  LT__SETERROR(CANNOT_OPEN);
-	  ++errors;
-	}
+  if (!found)
+    {
+      LT__SETERROR(CANNOT_OPEN);
+      ++errors;
     }
 
   return errors;

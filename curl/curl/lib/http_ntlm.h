@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2005, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -20,7 +20,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: http_ntlm.h,v 1.12 2007-04-10 02:17:06 yangtse Exp $
+ * $Id: http_ntlm.h,v 1.17 2009-02-27 08:53:10 bagder Exp $
  ***************************************************************************/
 
 typedef enum {
@@ -33,7 +33,8 @@ typedef enum {
 } CURLntlm;
 
 /* this is for ntlm header input */
-CURLntlm Curl_input_ntlm(struct connectdata *conn, bool proxy, char *header);
+CURLntlm Curl_input_ntlm(struct connectdata *conn, bool proxy,
+                         const char *header);
 
 /* this is for creating ntlm header output */
 CURLcode Curl_output_ntlm(struct connectdata *conn, bool proxy);
@@ -42,7 +43,6 @@ void Curl_ntlm_cleanup(struct connectdata *conn);
 #ifndef USE_NTLM
 #define Curl_ntlm_cleanup(x)
 #endif
-
 
 /* Flag bits definitions based on http://davenport.sourceforge.net/ntlm.html */
 

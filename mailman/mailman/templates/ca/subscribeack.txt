@@ -1,41 +1,37 @@
-Benvingut a la llista de correu de %(real_name)s@%(host_name)s!
+Us donem la benvinguda a la llista de correu %(real_name)s@%(host_name)s
+%(welcome)s
+Per a enviar correu a aquesta llista, envieu els vostres missatges a:
 
-     %(welcome)s
+  %(emailaddr)s
 
-Per enviar missatges a aquesta llista, envieu-los a:  
+Trobareu informaci√≥ general sobre la llista a:
 
-     %(emailaddr)s
+  %(listinfo_url)s
 
-Podreu trobar informaciÛ general sobre aquesta llista a: 
+En cas que vulgueu cancel¬∑lar la vostra subscripci√≥ o canviar-ne la
+configuraci√≥ (p.ex. per a commutar el mode de missatges agrupats,
+canviar la vostra contrasenya, etc.), podeu anar a la p√†gina personal de
+subscripci√≥ a:
 
-     %(listinfo_url)s
+  %(optionsurl)s
+%(umbrella)s
+Tamb√© podeu aplicar els canvis per correu electr√≤nic si envieu un
+missatge a:
 
-Si mai voleu donar-vos de baixa o canviar les vostres opcions ( per exemple,
-canviar a mode de compilaciÛ, canviar la vostra clau de pas, etc), visiteu
-la vostra p‡gina de subscripciÛ a: 
+  %(real_name)s-request@%(host_name)s
 
-     %(optionsurl)s%(umbrella)s
+amb la paraula ¬´help¬ª (sense cometes) a l'assumpte o al cos. Un cop ho
+h√†giu fet, rebreu un missatge amb instruccions.
 
-TambÈ podeu fer aquests mateixos canvis via correu electrÚnic. Senzillament
-envieu un missatge a: 
+Caldr√† que utilitzeu la vostra contrasenya per a canviar les vostres
+opcions (tamb√© quan vulgueu canviar la contrasenya mateixa) o per a
+cancel¬∑lar la subscripci√≥. √âs la seg√ºent:
 
-     %(real_name)s-request@%(host_name)s
+  %(password)s
 
-amb la paraula 'help' en el subjecte o en el cos del missatge (sense les cometes)
-i rebreu un correu de resposta amb mÈs instruccions.
-
-Necessiteu saber la vostra clau de pas per poder canviar les vostres opcions (fins
-i tot per a canviar la mateixa clau de pas) o per donar-vos de baixa.
-
-La vostra clau de pas Ès:  
-
-     %(password)s
-
-Normalment, Mailman us enviar‡ un correu mensual recordant-vos la clau de
-pas, tot i que, si ho preferiu, podeu deshabilitar aquesta opciÛ.
-
-Aquest recordatori inclour‡ tambÈ instruccions sobre com donar-vos de baixa o
-canviar les opcions del vostre compte.
-
-A la vostra p‡gina d'opcions hi trobareu tambÈ un botÛ que us permet enviar-vos un
-missatge a la vostra adreÁa amb la vostra clau de pas actual.
+El Mailman us recordar√† les vostres contrasenyes a %(host_name)s un cop
+al mes, tot i que podeu inhabilitar aquesta opci√≥.  Aquest recordatori
+tamb√© inclou instruccions per a cancel¬∑lar la subscripci√≥ o canviar les
+opcions del vostre compte.  Tamb√© trobareu un bot√≥ a la vostra p√†gina
+d'opcions que us permetr√† rebre la vostra contrasenya actual per correu
+electr√≤nic.

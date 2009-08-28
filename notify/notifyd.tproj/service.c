@@ -145,7 +145,7 @@ service_check_access(const char *path, int ftype, uid_t uid, gid_t gid)
 	if (path[0] != '/') return NOTIFY_STATUS_INVALID_REQUEST;
 
 	memset(rpath, 0, sizeof(rpath));
-	if (realpath(path, rpath) == NULL) return 0;
+	if (realpath(path, rpath) == NULL) return NOTIFY_STATUS_INVALID_REQUEST;
 	if (!strncasecmp(rpath, ZONEINFO_DIR, sizeof(ZONEINFO_DIR) - 1)) return 0;
 
 	/* Root dir is readable */
@@ -156,20 +156,7 @@ service_check_access(const char *path, int ftype, uid_t uid, gid_t gid)
 		memset(&sb, 0, sizeof(struct stat));
 
 		status = lstat(path, &sb);
-		if (status != 0)
-		{
-			str = strdup(path);
-			p = strrchr(str, '/');
-			if (p == NULL)
-			{
-				free(str);
-				return NOTIFY_STATUS_INVALID_REQUEST;
-			}
-			*p = '\0';
-			status = service_check_access(str, FS_TYPE_DIR, uid, gid);
-			free(str);
-			return status;
-		}
+		if (status != 0) return NOTIFY_STATUS_INVALID_REQUEST;
 		else if ((sb.st_mode & S_IFMT) == S_IFDIR) ftype = FS_TYPE_DIR;
 		else if ((sb.st_mode & S_IFMT) == S_IFREG) ftype = FS_TYPE_FILE;
 		else if ((sb.st_mode & S_IFMT) == S_IFLNK) ftype = FS_TYPE_LINK;
@@ -203,6 +190,7 @@ service_check_access(const char *path, int ftype, uid_t uid, gid_t gid)
 			free(str);
 			return NOTIFY_STATUS_INVALID_REQUEST;
 		}
+
 		*p = '\0';
 		status = service_check_access(str, FS_TYPE_DIR, uid, gid);
 		free(str);

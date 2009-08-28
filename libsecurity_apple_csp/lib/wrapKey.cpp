@@ -302,12 +302,13 @@ void AppleCSPSession::WrapKey(
 							break;
 						case CSSM_KEYBLOB_WRAPPED_FORMAT_OPENSSL:
 							rawFormat = opensslRawKeyFormat(keyAlg);
+							break;
 						default:
 							/* punt and take default for key type */
 							break;
 					}
 				}
-
+	
 				/* 
 				 * DescriptiveData for encoding, currently only used for 
 				 * SSH1 keys.

@@ -1,0 +1,67 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin fileutil::magic::filetype n 1.0.2]
+[moddesc   {file utilities}]
+[titledesc {Procedures implementing file-type recognition}]
+[require Tcl 8.4]
+[require fileutil::magic::filetype [opt 1.0.2]]
+[description]
+[para]
+
+This package provides a command for the recognition of file types in
+pure Tcl.
+
+[para]
+
+The core part of the recognizer was generated from a "magic(5)" file
+containing the checks to perform to recognize files, and associated
+file-types.
+
+[para]
+
+[emph Beware!] This recognizer is large, about 276 Kilobyte of
+generated Tcl code.
+
+[list_begin definitions]
+
+[call [cmd ::fileutil::magic::filetype] [arg filename]]
+
+This command is similar to the command [cmd fileutil::fileType].
+
+[para]
+
+The output of the command for the specified file is a string
+describing the type of the file.
+
+[para]
+
+This list will be empty if the type of the file is not recognized.
+
+[list_end]
+
+[section REFERENCES]
+
+[list_begin enumerated]
+[enum]
+[uri ftp://ftp.astron.com/pub/file/ {File(1) sources}]
+
+This site contains the current sources for the file command, including
+the magic definitions used by it. The latter were used by us to
+generate this recognizer.
+
+[list_end]
+
+[section {BUGS, IDEAS, FEEDBACK}]
+
+This document, and the package it describes, will undoubtedly contain
+bugs and other problems.
+
+Please report such in the category [emph {fileutil :: magic}] of the
+[uri {http://sourceforge.net/tracker/?group_id=12883} {Tcllib SF Trackers}].
+
+Please also report any ideas for enhancements you may have for either
+package and/or documentation.
+
+
+[see_also fileutil file(1) magic(5)]
+[keywords type {file utilities} {file type} {file recognition}]
+[manpage_end]

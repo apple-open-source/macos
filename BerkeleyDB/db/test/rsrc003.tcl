@@ -1,9 +1,8 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1996-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 1996,2007 Oracle.  All rights reserved.
 #
-# $Id: rsrc003.tcl,v 1.2 2004/03/30 01:24:08 jtownsen Exp $
+# $Id: rsrc003.tcl,v 12.6 2007/05/17 15:15:55 bostic Exp $
 #
 # TEST	rsrc003
 # TEST	Recno backing file test.  Try different patterns of adding
@@ -37,12 +36,15 @@ proc rsrc003 { } {
 
 			set recs [lindex $rec 0]
 			set msg [lindex $rec 1]
+
 			# Create the starting files
 			# Note that for the rest of the test, we are going
 			# to append a LF when we 'put' via DB to maintain
 			# file structure and allow us to use 'gets'.
 			set oid1 [open $testdir/rsrc.txt w]
 			set oid2 [open $testdir/check.txt w]
+			fconfigure $oid1 -translation binary
+			fconfigure $oid2 -translation binary
 			foreach record $recs {
 				set r [subst $record]
 				set fixed_len [string length $r]

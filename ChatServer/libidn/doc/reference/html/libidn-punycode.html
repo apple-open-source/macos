@@ -1,30 +1,38 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
 <title>punycode</title>
-<meta name="generator" content="DocBook XSL Stylesheets V1.68.1">
+<meta name="generator" content="DocBook XSL Stylesheets V1.71.0">
 <link rel="start" href="index.html" title="GNU Libidn API Reference Manual">
 <link rel="up" href="ch01.html" title="GNU Libidn API Reference Manual">
 <link rel="prev" href="libidn-pr29.html" title="pr29">
 <link rel="next" href="libidn-tld.html" title="tld">
-<meta name="generator" content="GTK-Doc V1.4 (XML mode)">
+<meta name="generator" content="GTK-Doc V1.7 (XML mode)">
 <link rel="stylesheet" href="style.css" type="text/css">
 <link rel="chapter" href="ch01.html" title="GNU Libidn API Reference Manual">
 </head>
 <body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
-<table class="navigation" width="100%" summary="Navigation header" cellpadding="2" cellspacing="2"><tr valign="middle">
+<table class="navigation" id="top" width="100%" summary="Navigation header" cellpadding="2" cellspacing="2">
+<tr valign="middle">
 <td><a accesskey="p" href="libidn-pr29.html"><img src="left.png" width="24" height="24" border="0" alt="Prev"></a></td>
 <td><a accesskey="u" href="ch01.html"><img src="up.png" width="24" height="24" border="0" alt="Up"></a></td>
 <td><a accesskey="h" href="index.html"><img src="home.png" width="24" height="24" border="0" alt="Home"></a></td>
 <th width="100%" align="center">GNU Libidn API Reference Manual</th>
 <td><a accesskey="n" href="libidn-tld.html"><img src="right.png" width="24" height="24" border="0" alt="Next"></a></td>
-</tr></table>
+</tr>
+<tr><td colspan="5" class="shortcuts"><nobr><a href="#id2558276" class="shortcut">Top</a>
+                  &#160;|&#160;
+                  <a href="#id2561532" class="shortcut">Description</a></nobr></td></tr>
+</table>
 <div class="refentry" lang="en">
 <a name="libidn-punycode"></a><div class="titlepage"></div>
 <div class="refnamediv"><table width="100%"><tr>
 <td valign="top">
-<h2><span class="refentrytitle">punycode</span></h2>
-<p>punycode &#8212; </p>
+<h2>
+<a name="id2558276"></a><span class="refentrytitle">punycode</span>
+</h2>
+<p>punycode</p>
 </td>
 <td valign="top" align="right"></td>
 </tr></table></div>
@@ -50,17 +58,17 @@ int         <a href="libidn-punycode.html#punycode-decode">punycode_decode</a>  
 </pre>
 </div>
 <div class="refsect1" lang="en">
-<a name="id2524513"></a><h2>Description</h2>
+<a name="id2561532"></a><h2>Description</h2>
 <p>
 
 </p>
 </div>
 <div class="refsect1" lang="en">
-<a name="id2524524"></a><h2>Details</h2>
+<a name="id2561547"></a><h2>Details</h2>
 <div class="refsect2" lang="en">
-<a name="id2524530"></a><h3>
+<a name="id2561558"></a><h3>
 <a name="Punycode-status"></a>enum Punycode_status</h3>
-<a class="indexterm" name="id2524541"></a><pre class="programlisting">  typedef enum
+<a class="indexterm" name="id2561571"></a><pre class="programlisting">  typedef enum
   {
     PUNYCODE_SUCCESS = punycode_success,
     PUNYCODE_BAD_INPUT = punycode_bad_input,
@@ -78,28 +86,24 @@ The value 0 is guaranteed to always correspond to success.</p>
 <col align="left" valign="top">
 <tbody>
 <tr>
-<td>
-<span class="term"><code class="literal">PUNYCODE_SUCCESS</code></span></td>
+<td><span class="term"><a name="PUNYCODE-SUCCESS:CAPS"></a><code class="literal">PUNYCODE_SUCCESS</code></span></td>
 <td> Successful operation.  This value is guaranteed
   to always be zero, the remaining ones are only guaranteed to hold
   non-zero values, for logical comparison purposes.
 </td>
 </tr>
 <tr>
-<td>
-<span class="term"><code class="literal">PUNYCODE_BAD_INPUT</code></span></td>
+<td><span class="term"><a name="PUNYCODE-BAD-INPUT:CAPS"></a><code class="literal">PUNYCODE_BAD_INPUT</code></span></td>
 <td> Input is invalid.
 </td>
 </tr>
 <tr>
-<td>
-<span class="term"><code class="literal">PUNYCODE_BIG_OUTPUT</code></span></td>
+<td><span class="term"><a name="PUNYCODE-BIG-OUTPUT:CAPS"></a><code class="literal">PUNYCODE_BIG_OUTPUT</code></span></td>
 <td> Output would exceed the space provided.
 </td>
 </tr>
 <tr>
-<td>
-<span class="term"><code class="literal">PUNYCODE_OVERFLOW</code></span></td>
+<td><span class="term"><a name="PUNYCODE-OVERFLOW:CAPS"></a><code class="literal">PUNYCODE_OVERFLOW</code></span></td>
 <td> Input needs wider integers to process.
 </td>
 </tr>
@@ -108,9 +112,9 @@ The value 0 is guaranteed to always correspond to success.</p>
 </div>
 <hr>
 <div class="refsect2" lang="en">
-<a name="id2526080"></a><h3>
+<a name="id2568510"></a><h3>
 <a name="punycode-strerror"></a>punycode_strerror ()</h3>
-<a class="indexterm" name="id2526090"></a><pre class="programlisting">const char* punycode_strerror               (<a href="libidn-punycode.html#Punycode-status">Punycode_status</a> rc);</pre>
+<a class="indexterm" name="id2568522"></a><pre class="programlisting">const char* punycode_strerror               (<a href="libidn-punycode.html#Punycode-status">Punycode_status</a> rc);</pre>
 <p>
 Convert a return code integer to a text string.  This string can be
 used to output a diagnostic message to the user.
@@ -129,14 +133,12 @@ PUNYCODE_OVERFLOW: Input needs wider integers to process.</p>
 <col align="left" valign="top">
 <tbody>
 <tr>
-<td>
-<span class="term"><em class="parameter"><code>rc</code></em>&#160;:</span></td>
+<td><span class="term"><em class="parameter"><code>rc</code></em>&#160;:</span></td>
 <td> an <a href="libidn-punycode.html#Punycode-status"><span class="type">Punycode_status</span></a> return code.
 </td>
 </tr>
 <tr>
-<td>
-<span class="term"><span class="emphasis"><em>Returns</em></span>&#160;:</span></td>
+<td><span class="term"><span class="emphasis"><em>Returns</em></span>&#160;:</span></td>
 <td> Returns a pointer to a statically allocated string
 containing a description of the error with the return code <em class="parameter"><code>rc</code></em>.
 </td>
@@ -146,9 +148,9 @@ containing a description of the error with the return code <em class="parameter"
 </div>
 <hr>
 <div class="refsect2" lang="en">
-<a name="id2538229"></a><h3>
+<a name="id2568609"></a><h3>
 <a name="punycode-uint"></a>punycode_uint</h3>
-<a class="indexterm" name="id2538238"></a><pre class="programlisting">  typedef uint32_t punycode_uint;
+<a class="indexterm" name="id2568621"></a><pre class="programlisting">  typedef uint32_t punycode_uint;
 </pre>
 <p>
 Unicode code point data type, this is always a 32 bit unsigned
@@ -159,9 +161,9 @@ integer.</p>
 </div>
 <hr>
 <div class="refsect2" lang="en">
-<a name="id2538259"></a><h3>
+<a name="id2568642"></a><h3>
 <a name="punycode-encode"></a>punycode_encode ()</h3>
-<a class="indexterm" name="id2538269"></a><pre class="programlisting">int         punycode_encode                 (size_t input_length,
+<a class="indexterm" name="id2568654"></a><pre class="programlisting">int         punycode_encode                 (size_t input_length,
                                              const <a href="libidn-punycode.html#punycode-uint">punycode_uint</a> input[],
                                              unsigned char case_flags[],
                                              size_t *output_length,
@@ -176,15 +178,13 @@ points) to Punycode.</p>
 <col align="left" valign="top">
 <tbody>
 <tr>
-<td>
-<span class="term"><em class="parameter"><code>input_length</code></em>&#160;:</span></td>
+<td><span class="term"><em class="parameter"><code>input_length</code></em>&#160;:</span></td>
 <td> The number of code points in the <em class="parameter"><code>input</code></em> array and
   the number of flags in the <em class="parameter"><code>case_flags</code></em> array.
 </td>
 </tr>
 <tr>
-<td>
-<span class="term"><em class="parameter"><code>input</code></em>&#160;:</span></td>
+<td><span class="term"><em class="parameter"><code>input</code></em>&#160;:</span></td>
 <td> An array of code points.  They are presumed to be Unicode
   code points, but that is not strictly REQUIRED.  The array
   contains code points, not code units.  UTF-16 uses code units
@@ -195,8 +195,7 @@ points) to Punycode.</p>
 </td>
 </tr>
 <tr>
-<td>
-<span class="term"><em class="parameter"><code>case_flags</code></em>&#160;:</span></td>
+<td><span class="term"><em class="parameter"><code>case_flags</code></em>&#160;:</span></td>
 <td> A <code class="literal">NULL</code> pointer or an array of boolean values parallel
   to the <em class="parameter"><code>input</code></em> array.  Nonzero (true, flagged) suggests that the
   corresponding Unicode character be forced to uppercase after
@@ -210,16 +209,14 @@ points) to Punycode.</p>
 </td>
 </tr>
 <tr>
-<td>
-<span class="term"><em class="parameter"><code>output_length</code></em>&#160;:</span></td>
+<td><span class="term"><em class="parameter"><code>output_length</code></em>&#160;:</span></td>
 <td> The caller passes in the maximum number of ASCII
   code points that it can receive.  On successful return it will
   contain the number of ASCII code points actually output.
 </td>
 </tr>
 <tr>
-<td>
-<span class="term"><em class="parameter"><code>output</code></em>&#160;:</span></td>
+<td><span class="term"><em class="parameter"><code>output</code></em>&#160;:</span></td>
 <td> An array of ASCII code points.  It is *not*
   null-terminated; it will contain zeros if and only if the <em class="parameter"><code>input</code></em>
   contains zeros.  (Of course the caller can leave room for a
@@ -227,11 +224,10 @@ points) to Punycode.</p>
 </td>
 </tr>
 <tr>
-<td>
-<span class="term"><span class="emphasis"><em>Returns</em></span>&#160;:</span></td>
+<td><span class="term"><span class="emphasis"><em>Returns</em></span>&#160;:</span></td>
 <td> The return value can be any of the <a href="libidn-punycode.html#Punycode-status"><span class="type">Punycode_status</span></a>
-  values defined above except <code class="literal">PUNYCODE_BAD_INPUT</code>.  If not
-  <code class="literal">PUNYCODE_SUCCESS</code>, then <em class="parameter"><code>output_size</code></em> and <em class="parameter"><code>output</code></em> might contain
+  values defined above except <a href="libidn-punycode.html#PUNYCODE-BAD-INPUT:CAPS"><code class="literal">PUNYCODE_BAD_INPUT</code></a>.  If not
+  <a href="libidn-punycode.html#PUNYCODE-SUCCESS:CAPS"><code class="literal">PUNYCODE_SUCCESS</code></a>, then <em class="parameter"><code>output_size</code></em> and <em class="parameter"><code>output</code></em> might contain
   garbage.
 </td>
 </tr>
@@ -240,9 +236,9 @@ points) to Punycode.</p>
 </div>
 <hr>
 <div class="refsect2" lang="en">
-<a name="id2547975"></a><h3>
+<a name="id2592950"></a><h3>
 <a name="punycode-decode"></a>punycode_decode ()</h3>
-<a class="indexterm" name="id2547986"></a><pre class="programlisting">int         punycode_decode                 (size_t input_length,
+<a class="indexterm" name="id2592963"></a><pre class="programlisting">int         punycode_decode                 (size_t input_length,
                                              const char input[],
                                              size_t *output_length,
                                              <a href="libidn-punycode.html#punycode-uint">punycode_uint</a> output[],
@@ -257,20 +253,17 @@ Unicode code points).</p>
 <col align="left" valign="top">
 <tbody>
 <tr>
-<td>
-<span class="term"><em class="parameter"><code>input_length</code></em>&#160;:</span></td>
+<td><span class="term"><em class="parameter"><code>input_length</code></em>&#160;:</span></td>
 <td> The number of ASCII code points in the <em class="parameter"><code>input</code></em> array.
 </td>
 </tr>
 <tr>
-<td>
-<span class="term"><em class="parameter"><code>input</code></em>&#160;:</span></td>
+<td><span class="term"><em class="parameter"><code>input</code></em>&#160;:</span></td>
 <td> An array of ASCII code points (0..7F).
 </td>
 </tr>
 <tr>
-<td>
-<span class="term"><em class="parameter"><code>output_length</code></em>&#160;:</span></td>
+<td><span class="term"><em class="parameter"><code>output_length</code></em>&#160;:</span></td>
 <td> The caller passes in the maximum number of code
   points that it can receive into the <em class="parameter"><code>output</code></em> array (which is also
   the maximum number of flags that it can receive into the
@@ -286,15 +279,13 @@ Unicode code points).</p>
 </td>
 </tr>
 <tr>
-<td>
-<span class="term"><em class="parameter"><code>output</code></em>&#160;:</span></td>
+<td><span class="term"><em class="parameter"><code>output</code></em>&#160;:</span></td>
 <td> An array of code points like the input argument of
   <a href="libidn-punycode.html#punycode-encode"><code class="function">punycode_encode()</code></a> (see above).
 </td>
 </tr>
 <tr>
-<td>
-<span class="term"><em class="parameter"><code>case_flags</code></em>&#160;:</span></td>
+<td><span class="term"><em class="parameter"><code>case_flags</code></em>&#160;:</span></td>
 <td> A <code class="literal">NULL</code> pointer (if the flags are not needed by the
   caller) or an array of boolean values parallel to the <em class="parameter"><code>output</code></em>
   array.  Nonzero (true, flagged) suggests that the corresponding
@@ -306,10 +297,9 @@ Unicode code points).</p>
 </td>
 </tr>
 <tr>
-<td>
-<span class="term"><span class="emphasis"><em>Returns</em></span>&#160;:</span></td>
+<td><span class="term"><span class="emphasis"><em>Returns</em></span>&#160;:</span></td>
 <td> The return value can be any of the <a href="libidn-punycode.html#Punycode-status"><span class="type">Punycode_status</span></a>
-  values defined above.  If not <code class="literal">PUNYCODE_SUCCESS</code>, then
+  values defined above.  If not <a href="libidn-punycode.html#PUNYCODE-SUCCESS:CAPS"><code class="literal">PUNYCODE_SUCCESS</code></a>, then
   <em class="parameter"><code>output_length</code></em>, <em class="parameter"><code>output</code></em>, and <em class="parameter"><code>case_flags</code></em> might contain garbage.
 
 </td>
@@ -319,9 +309,5 @@ Unicode code points).</p>
 </div>
 </div>
 </div>
-<table class="navigation" width="100%" summary="Navigation footer" cellpadding="2" cellspacing="0"><tr valign="middle">
-<td align="left"><a accesskey="p" href="libidn-pr29.html"><b>&lt;&lt;&#160;pr29</b></a></td>
-<td align="right"><a accesskey="n" href="libidn-tld.html"><b>tld&#160;&gt;&gt;</b></a></td>
-</tr></table>
 </body>
 </html>

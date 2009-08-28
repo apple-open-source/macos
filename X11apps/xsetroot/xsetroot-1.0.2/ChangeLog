@@ -1,0 +1,198 @@
+commit ba9fbd14258ab44c794bb1a6dd9af51c5f4c01ff
+Author: Matthieu Herrb <matthieu@bluenote.herrb.com>
+Date:   Fri Aug 10 10:45:46 2007 +0200
+
+    Bump version for release
+
+commit d1658d389d7fbad0c2ec2ea5e8563c3d06ed2a47
+Author: Matthieu Herrb <matthieu.herrb@laas.fr>
+Date:   Mon Jul 30 21:17:42 2007 +0200
+
+    Add option to check code with lint/sparse/etc.
+
+commit 9282a4aa79b3cb4ae091a594de61dfc2ecfd9ea3
+Author: Matthieu Herrb <matthieu@bluenote.herrb.com>
+Date:   Mon Jul 30 21:11:20 2007 +0200
+
+    Change xsetroot_CFLAGS to AM_CFLAGS to avoid automake-1.10 warning
+
+commit fe4a33713aca2ce32053f2c8356423efd1f534e1
+Author: Matthieu Herrb <matthieu.herrb@laas.fr>
+Date:   Mon Jul 30 21:08:00 2007 +0200
+
+    - Replace static ChangeLog with disthook to generate from git log
+    - generate INSTALL
+
+commit f479fd29a876d445291d7e55de9e9a22bac419b6
+Author: Matthieu Herrb <matthieu.herrb@laas.fr>
+Date:   Mon Jul 30 21:07:05 2007 +0200
+
+    - renamed .cvsignore -> .gitignore
+    - Replace static ChangeLog with disthook to generate from git log
+
+commit 382e52e07a110628efa0784b64088f6f64ae3112
+Author: Marc Balmer <mbalmer@openbsd.org>
+Date:   Mon Jul 30 20:47:53 2007 +0200
+
+    Typo, it's xsetroot, not setroot.
+
+commit e43e2cc868cff003d3e69c17a69bb7440393c359
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 21 02:29:54 2005 +0000
+
+    Update package version for X11R7 release.
+
+commit 3c3dc25e901fe4a93d308a4456d00783d6fff252
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon Dec 19 16:22:47 2005 +0000
+
+    Stub COPYING files
+
+commit 4e633038f484b9955fe6aa80fdbbcc4d827fa4f3
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:11 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit aa60171a0cf04a787a29e1af3551976652d8ce84
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Dec 6 22:48:26 2005 +0000
+
+    Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+commit a3844b7b2f68e295f69e9a8dbf45f311b717362b
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:28 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit a5056d61df9bc78b10ad200a7fc250842f034204
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Nov 28 22:01:47 2005 +0000
+
+    Change *mandir targets to use new *_MAN_DIR variables set by xorg-macros.m4
+        update to fix bug #5167 (Linux prefers *.1x man pages in man1 subdir)
+
+commit bfc05c358c4c8698292e40729ede000939cfe4a8
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Mon Nov 21 10:35:08 2005 +0000
+
+    Another pass at .cvsignores for apps.
+
+commit 9826f19633f549f2282702f19e33f7e51c4c5e9e
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Nov 21 03:14:16 2005 +0000
+
+    Change dependency from xmu to xmuu since the full xmu (with all its baggage
+        like Xt) is not needed here.
+
+commit d6817bf87bfcd2be3215ea9e28e6d13b1d438657
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Sun Nov 20 22:08:55 2005 +0000
+
+    Add/improve .cvsignore files for apps.
+
+commit 86145da43db031adc122f8bf9baacd45be5e7d84
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:47:57 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit cb52055c08c845309c126a2763bacaba5798ed65
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Oct 17 23:56:25 2005 +0000
+
+    Use @APP_MAN_SUFFIX@ instead of $(APP_MAN_SUFFIX) in macro substitutions to
+        work better with BSD make
+
+commit a10e876217a9354dd26935fd013cae57882369fa
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Oct 14 00:25:48 2005 +0000
+
+    Use sed to fill in variables in man page
+
+commit 7b3f04619ecaec58e16a68037c435363ab27f447
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Aug 1 20:25:32 2005 +0000
+
+    Install man pages to section 1 instead of section m (Patch from Donnie
+        Berkholz)
+
+commit 63dc3c29b9f7af53efe466a7ed1476b4f4f17228
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:38 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit d5e74073175fbfb70a6f859d565262af09938642
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Wed Jul 20 19:32:04 2005 +0000
+
+    Use a unique token for PKG_CHECK_MODULES. Otherwise, if you use a global
+        configure cache, you cache it, and the cached value is probably wrong.
+
+commit 0cc65bf4e9e0522422a9bd5824dc21dd05bf0368
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Fri Jul 15 16:49:26 2005 +0000
+
+    Add dependency on xbitmaps
+
+commit 2f3ed0d66595b15a2893098d0c0b05a568fb01e7
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Fri Jul 1 20:09:06 2005 +0000
+
+    xtrap.pc.in: s/Xfixes/XTrap/ xi.pc.in: s/Xt/Xi/ Xv/src/Makefile.am: remove
+        whitespace after backslash modularizeapp.sh: s/destkop/desktop/
+        modular/symlink.sh: Add bitmaps for xeyes, system.xsm for xsm, and
+        Xvidtune.cpp for xvidtune. Also comment out non-existing mga_bios.h
+    Check in buildsystems for xsetroot, xsm, xstdcmap, xtrap, and xvinfo
+
+commit da9e01ac6c7199ea2d7cac40af7587192c23aff2
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 19:55:06 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit 7cc5582a833e643be56bc5154e86eea988d537a9
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:35:45 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit cb915ca7ff57ceabc129556e9771c2fd2c401a76
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:13:18 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit 10edd9087ebd46ca19500b987054d11f1c8e53fe
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:36:26 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit 0976043e2f31f6bad969c3f996961c59fc953d84
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:24:17 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit 133f2a1c164a945366816cb4a71419ebe5c575ea
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:49:23 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit 500a078602d5db1e420a07c81dada5a676e0cc90
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 15:54:55 2003 +0000
+
+    R6.6 is the Xorg base-line

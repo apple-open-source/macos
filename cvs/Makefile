@@ -13,10 +13,23 @@ Extra_Configure_Flags = --with-gssapi \
                         --enable-encryption \
                         --with-external-zlib \
                         --enable-case-sensitivity \
-                        --with-editor=vim
+                        --with-editor=vim \
+                        ac_cv_func_working_mktime=no
+
+Extra_CC_Flags = -D_DARWIN_NO_64_BIT_INODE
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
+
+ConfigStamp2 = $(ConfigStamp)2
+
+configure:: $(ConfigStamp2)
+
+$(ConfigStamp2): $(ConfigStamp)
+	ed - $(OBJROOT)/config.h < $(SRCROOT)/patches/config.h.ed
+	echo TESTDIR=/private/tmp/cvs-sanity >> $(OBJROOT)/src/sanity.config.sh
+	echo TMPDIR=/private/tmp/cvs-sanity/tmp >> $(OBJROOT)/src/sanity.config.sh
+	touch $(ConfigStamp2)
 
 Install_Target = install
 
@@ -50,13 +63,18 @@ AEP_Patches    = error_msg.diff \
                  i18n.diff \
                  endian.diff \
                  zlib.diff \
-                 PR5178707.diff
+                 PR5178707.diff \
+                 fixtest-recase.diff \
+                 fixtest-client-20.diff \
+                 initgroups.diff
 
 # Extract the source.
 install_source::
 	$(TAR) -C $(SRCROOT) -jxf $(SRCROOT)/$(AEP_Filename)
 	$(RMDIR) $(SRCROOT)/$(AEP_Project)
 	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(AEP_Project)
+	@set -x && \
+	cd $(SRCROOT)/$(Project) && \
 	for patchfile in $(AEP_Patches); do \
-		cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile || exit 1; \
+		patch -p0 -F0 -i $(SRCROOT)/patches/$$patchfile || exit 1; \
 	done

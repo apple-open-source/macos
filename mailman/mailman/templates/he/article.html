@@ -1,0 +1,49 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+ <HEAD>
+   <TITLE> %(title)s
+   </TITLE>
+   <LINK REL="Index" HREF="index.html" >
+   <LINK REL="made" HREF="mailto:%(email_url)s?Subject=%(subject_url)s&In-Reply-To=%(in_reply_to_url)s">
+   <META NAME="robots" CONTENT="index,nofollow">
+   %(encoding)s
+   %(prev)s
+   %(next)s
+ </HEAD>
+ <BODY BGCOLOR="#ffffff" dir="rtl">
+   <H1>%(subject_html)s</H1>
+    <B>%(author_html)s</B> 
+    <A HREF="mailto:%(email_url)s?Subject=%(subject_url)s&In-Reply-To=%(in_reply_to_url)s"
+       TITLE="%(subject_html)s">%(email_html)s
+       </A><BR>
+    <I>%(datestr_html)s</I>
+    <P><UL>
+        %(prev_wsubj)s
+        %(next_wsubj)s
+         <LI> <B>המסרים ממוינים לפי:</B> 
+              <a href="date.html#%(sequence)s">[ תאריך ]</a>
+              <a href="thread.html#%(sequence)s">[ שיחה ]</a>
+              <a href="subject.html#%(sequence)s">[ נושא ]</a>
+              <a href="author.html#%(sequence)s">[ מאת ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+%(body)s
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	%(prev_wsubj)s
+	%(next_wsubj)s
+         <LI> <B>המסרים ממוינים לפי:</B> 
+              <a href="date.html#%(sequence)s">[ תאריך ]</a>
+              <a href="thread.html#%(sequence)s">[ שיחה ]</a>
+              <a href="subject.html#%(sequence)s">[ נושא ]</a>
+              <a href="author.html#%(sequence)s">[ מאת ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="%(listurl)s">מידע נוסף אודות רשימת הדיוור %(listname)s</a><br>
+</body></html>

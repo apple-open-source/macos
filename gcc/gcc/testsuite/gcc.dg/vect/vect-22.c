@@ -1,4 +1,5 @@
 /* { dg-require-effective-target vect_int } */
+/* { dg-require-effective-target vect_float } */
 
 #include <stdarg.h>
 #include "tree-vect.h"
@@ -33,6 +34,17 @@ main1 ()
 
   short sa[N];
   short sb[N] =
+    {1,1,0,0,1,0,1,0,
+     1,1,0,0,1,0,1,0,
+     1,1,0,0,1,0,1,0,
+     1,1,0,0,1,0,1,0,
+     1,1,0,0,1,0,1,0,
+     1,1,0,0,1,0,1,0,
+     1,1,0,0,1,0,1,0,
+     1,1,0,0,1,0,1,0};
+
+  float fa[N];
+  float fb[N] =
     {1,1,0,0,1,0,1,0,
      1,1,0,0,1,0,1,0,
      1,1,0,0,1,0,1,0,
@@ -84,6 +96,20 @@ main1 ()
         abort ();
     }
 
+  /* Check floats.  */
+
+  for (i = 0; i < N; i++)
+    {
+      fa[i] = -fb[i];
+    }
+
+  /* check results:  */
+  for (i = 0; i <N; i++)
+    {
+      if (fa[i] != -fb[i])
+        abort ();
+    }
+
   return 0;
 }
 
@@ -94,6 +120,7 @@ int main (void)
   return main1 ();
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 3 loops" 1 "vect" { xfail *-*-* } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 4 loops" 1 "vect" } } */
 /* { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 0 "vect" } } */
 
+/* { dg-final { cleanup-tree-dump "vect" } } */

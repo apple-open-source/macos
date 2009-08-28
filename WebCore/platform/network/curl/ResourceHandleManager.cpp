@@ -46,12 +46,6 @@
 #include <stdio.h>
 #include <wtf/Vector.h>
 
-#if PLATFORM(GTK)
-    #if GLIB_CHECK_VERSION(2,12,0)
-        #define USE_GLIB_BASE64
-    #endif
-#endif
-
 namespace WebCore {
 
 const int selectTimeoutMS = 5;
@@ -320,9 +314,9 @@ void ResourceHandleManager::downloadTimerCallback(Timer<ResourceHandleManager>* 
             if (d->client())
                 d->client()->didFinishLoading(job);
         } else {
-#ifndef NDEBUG
             char* url = 0;
             curl_easy_getinfo(d->m_handle, CURLINFO_EFFECTIVE_URL, &url);
+#ifndef NDEBUG
             fprintf(stderr, "Curl ERROR for url='%s', error: '%s'\n", url, curl_easy_strerror(msg->data.result));
 #endif
             if (d->client())
@@ -512,20 +506,10 @@ static void parseDataUrl(ResourceHandle* handle)
         response.setTextEncodingName(charset);
         client->didReceiveResponse(handle, response);
 
-        // Use the GLib Base64 if available, since WebCore's decoder isn't
-        // general-purpose and fails on Acid3 test 97 (whitespace).
-#ifdef USE_GLIB_BASE64
-        size_t outLength = 0;
-        char* outData = 0;
-        outData = reinterpret_cast<char*>(g_base64_decode(data.utf8().data(), &outLength));
-        if (outData && outLength > 0)
-            client->didReceiveData(handle, outData, outLength, 0);
-        g_free(outData);
-#else
+        // WebCore's decoder fails on Acid3 test 97 (whitespace).
         Vector<char> out;
         if (base64Decode(data.latin1().data(), data.latin1().length(), out) && out.size() > 0)
             client->didReceiveData(handle, out.data(), out.size(), 0);
-#endif
     } else {
         // We have to convert to UTF-16 early due to limitations in KURL
         data = decodeURLEscapeSequences(data, TextEncoding(charset));
@@ -606,8 +590,11 @@ void ResourceHandleManager::initializeHandle(ResourceHandle* job)
     if (kurl.isLocalFile()) {
         String query = kurl.query();
         // Remove any query part sent to a local file.
-        if (!query.isEmpty())
-            url = url.left(url.find(query));
+        if (!query.isEmpty()) {
+            int queryIndex = url.find(query);
+            if (queryIndex != -1)
+                url = url.left(queryIndex - 1);
+        }
         // Determine the MIME type based on the path.
         d->m_response.setMimeType(MIMETypeRegistry::getMIMETypeForPath(url));
     }

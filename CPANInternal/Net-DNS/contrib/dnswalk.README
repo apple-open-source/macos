@@ -1,0 +1,6 @@
+$Id: dnswalk.README 264 2005-04-06 09:16:15Z olaf $
+
+Dave Barr's dnswalk now uses Net::DNS.  You can get a copy from:
+
+   http://www.cis.ohio-state.edu/~barr/dnswalk/
+

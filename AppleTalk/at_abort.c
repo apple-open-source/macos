@@ -32,11 +32,11 @@
  *	Confidential and Proprietary to Apple Computer, Inc.
  */
 
-#include <netat/appletalk.h>
-#include <netat/ddp.h>
-#include <netat/atp.h>
+#include <errno.h>
 
 #include "at_proto.h"
+
+#define SET_ERRNO(e) errno = e
 
 int
 atp_abort (fd,dest,tid)
@@ -44,31 +44,6 @@ atp_abort (fd,dest,tid)
 	at_inet_t 	*dest;
 	u_short		tid;
 {
-	int len;
-	unsigned int tr_tid;
-	at_ddp_t *ddp;
-	at_atp_t  *atp;
-	char buff[TOTAL_ATP_HDR_SIZE];
-
-  if (dest != (at_inet_t *)0) {
-	/*
-	 *	abort an ATP reponse transaction
-	 */
-	ddp = (at_ddp_t *)buff;
-	*(u_short *)&ddp->src_net = *(u_short *)&dest->net;
-	ddp->src_node = dest->node;
-	ddp->src_socket = dest->socket;
-	atp = ATP_ATP_HDR(ddp);
-	*(u_short *)&atp->tid = tid;
-	len = sizeof(buff);
-	return at_send_to_dev(fd, AT_ATP_RELEASE_RESPONSE, buff, &len);
-
-  } else {
-	/*
-	 *	abort an ATP request transaction
-	 */
-	tr_tid = (unsigned int)tid;
-	len = sizeof(tr_tid);
-	return at_send_to_dev(fd, AT_ATP_CANCEL_REQUEST, &tr_tid, &len);
-  }
+	SET_ERRNO(ENXIO);
+	return -1;
 }

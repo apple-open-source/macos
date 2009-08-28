@@ -20,7 +20,7 @@ autogen definitions fixincl;
 FIXINC_DEBUG = yes;
 #endif
 
-/* APPLE LOCAL begin mainline 4.1 2005-07-07 */
+
 /*
  *  On Mac OS 10.3.9, the 'long double' functions are available in
  *  libSystem, but are not prototyped in math.h.
@@ -34,7 +34,11 @@ fix = {
 /* This file prototypes the long double functions available on Mac OS
    10.3.9.  */
 #ifndef __MATH__
+# undef __APPLE_CC__
+# define __APPLE_CC__  1345
 # include_next <architecture/ppc/math.h>
+# undef __APPLE_CC__
+# define __APPLE_CC__ 1
 # ifndef __LIBMLDBL_COMPAT
 #  ifdef __LONG_DOUBLE_128__
 #   define __LIBMLDBL_COMPAT(sym) __asm("_" #sym "$LDBL128")
@@ -126,7 +130,6 @@ fix = {
   
   test_text = '#include "architecture/ppc/math.h"';
 };
-/* APPLE LOCAL end mainline 4.1 2005-07-07 */
 
 
 /* APPLE LOCAL begin pragma fenv */
@@ -229,13 +232,13 @@ fix = {
 
 	#if defined(__FD_ZERO) && !defined(__GLIBC__)
 	#undef __FD_ZERO
-	# define __FD_ZERO(fdsetp) \\
-	  do { \\
-	    int __d0, __d1; \\
-		__asm__ __volatile__("cld ; rep ; stosl" \\
-        	: "=&c" (__d0), "=&D" (__d1) \\
-        	: "a" (0), "0" (__FDSET_LONGS), \\
-		  "1" ((__fd_set *) (fdsetp)) :"memory"); \\
+	# define __FD_ZERO(fdsetp) \
+	  do { \
+	    int __d0, __d1; \
+	        __asm__ __volatile__("cld ; rep ; stosl" \
+	        : "=&c" (__d0), "=&D" (__d1) \
+	        : "a" (0), "0" (__FDSET_LONGS), \
+	          "1" ((__fd_set *) (fdsetp)) :"memory"); \
 	  } while (0)
 	#endif
 
@@ -1054,6 +1057,8 @@ fix = {
 /*
  *  Remove `extern double cabs' declarations from math.h.
  *  This conflicts with C99.  Discovered on AIX.
+ *  IRIX 5 and IRIX 6 before 6.5.18 (where C99 support was introduced)
+ *  declares cabs() to take a struct __cabs_s argument.
  *  SunOS4 has its cabs() declaration followed by a comment which
  *  terminates on the following line.
  *  Darwin hides its broken cabs in architecture-specific subdirs.
@@ -1063,11 +1068,10 @@ fix = {
     files    = "math.h";
     files    = "architecture/ppc/math.h";
     files    = "architecture/i386/math.h";
-    select   = '^extern[ \t]+double[ \t]+cabs';
+    select   = "^extern[ \t]+double[ \t]+cabs";
 
-    c_fix     = format;
-    c_fix_arg = "";
-    c_fix_arg = "^extern[ \t]+double[ \t]+cabs[ \t]*\\([^\\)]*\\);";
+    sed       = "s/^extern[ \t]*double[ \t]*cabs[ \t]*\([^\\\)]*\);//";
+    sed       = "s/^extern[ \t]*long[ \t]*double[ \t]*cabsl[ \t]*\([^\\\)]*\);//";
 
     test_text = "#ifdef __STDC__\n"
                 "extern     double   cabs(struct dbl_hypot);\n"
@@ -1076,8 +1080,25 @@ fix = {
                 "#endif\n"
                 "extern double cabs ( _Complex z );\n"
                 "extern double cabs(); /* This is a comment\n"
-                "                         and it ends here. */";
+                "                         and it ends here. */\n"
+                "extern double	cabs(struct __cabs_s);\n"
+                "extern long double cabsl( struct __cabsl_s );";
 };
+
+/*
+ * Fixup Darwin's broken check for __builtin_nanf.
+ */ 
+    
+fix = {
+    hackname  = broken_nan;
+    files     = "architecture/ppc/math.h";
+    files     = "architecture/i386/math.h";
+    select    = "#if defined(__APPLE_CC__) && (__APPLE_CC__ >= 1345)";
+    bypass    = "powl";
+    c_fix     = format; 
+    c_fix_arg = "#if 1";
+    test_text = "#if defined(__APPLE_CC__) && (__APPLE_CC__ >= 1345)";
+}; 
 
 
 /*
@@ -1183,26 +1204,6 @@ fix = {
   test_text = "#if defined(__GNUC__) && (__GNUC__ >= 3) && "
   	      "(__GNUC_MINOR__ >= 1)\n";
 };
-
-
-/* APPLE LOCAL begin deployment target */
-/*
- *  GCC used to set MAC_OS_X_VERSION_MIN_REQUIRED directly, but that isn't
- *  namespace-clean.
- */
-fix = {
-  hackname  = darwin_macosx_deployment_target;
-  mach      = "*-*-darwin*";
-  files     = AvailabilityMacros.h;
-  bypass    = "__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__";
-  c_fix     = format;
-  c_fix_arg = "#if ! defined (MAC_OS_X_VERSION_MIN_REQUIRED) && defined (__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__)\n  #define MAC_OS_X_VERSION_MIN_REQUIRED __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__\n#elif ! defined (MAC_OS_X_VERSION_MIN_REQUIRED)\n";
-  c_fix_arg = "#ifndef MAC_OS_X_VERSION_MIN_REQUIRED\n";
-  test_text = "__private_extern__ int _dyld_func_lookup(\n"
-	      "const char *dyld_func_name,\n"
-	      "unsigned long *address);\n";
-};
-/* APPLE LOCAL end deployment target */
 
 
 /* APPLE LOCAL begin for-fsf-4_4 5133297 */
@@ -1386,6 +1387,69 @@ fix = {
     c_fix     = format;
     c_fix_arg = '#if __GNUC__ == 2 && __GNUC_MINOR__ >= 7 || __GNUC__ >= 3';
     test_text = '#if __GNUC__ == 2 && __GNUC_MINOR__ >= 7 || __GNUC__ == 3';
+};
+
+
+/*  glibc-2.3.5 defines pthread mutex initializers incorrectly,
+ *  so we replace them with versions that correspond to the
+ *  definition.
+ */
+fix = {
+    hackname = glibc_mutex_init;
+    files    = pthread.h;
+    select   = '\{ *\{ *0, *\} *\}';
+    sed      = "/define[ \t]\\+PTHREAD_MUTEX_INITIALIZER[ \t]*\\\\/,+1"
+               "s/{ { 0, } }/{ { 0, 0, 0, 0, 0, 0 } }/";
+    sed      = "s/{ \\(0, 0, 0, 0, PTHREAD_MUTEX_\\(RECURSIVE\\|ERRORCHECK\\|ADAPTIVE\\)_NP\\) }/{ \\1, 0 }/";
+    sed      = "s/{ \\(0, 0, 0, PTHREAD_MUTEX_\\(RECURSIVE\\|ERRORCHECK\\|ADAPTIVE\\)_NP\\) }/{ \\1, 0, 0 }/";
+    sed      = "/define[ \t]\\+PTHREAD_RWLOCK_INITIALIZER[ \t]*\\\\/"
+               "N;s/^[ \t]*#[ \t]*"
+               "\\(define[ \t]\\+PTHREAD_RWLOCK_INITIALIZER[ \t]*\\\\\\)\\n"
+               "[ \t]*{ { 0, } }/# if __WORDSIZE == 64\\n"
+               "#  \\1\\n"
+               "  { { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } }\\n"
+               "# else\\n"
+               "#  \\1\\n"
+               "  { { 0, 0, 0, 0, 0, 0, 0, 0 } }\\n"
+               "# endif/";
+    sed      = "s/{ \\(0, 0, 0, 0, 0, 0, PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP\\) }/{ \\1, 0 }/";
+    sed      = "/define[ \t]\\+PTHREAD_COND_INITIALIZER/"
+               "s/{ { 0, } }/{ { 0, 0, 0, 0, 0, (void *) 0, 0, 0 } }/";
+
+    test_text = <<- _EOText_
+#define PTHREAD_MUTEX_INITIALIZER \\
+  { { 0, } }
+#ifdef __USE_GNU
+# if __WORDSIZE == 64
+#  define PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP \\
+  { { 0, 0, 0, 0, PTHREAD_MUTEX_RECURSIVE_NP } }
+#  define PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP \\
+  { { 0, 0, 0, 0, PTHREAD_MUTEX_ERRORCHECK_NP } }
+#  define PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP \\
+  { { 0, 0, 0, 0, PTHREAD_MUTEX_ADAPTIVE_NP } }
+# else
+#  define PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP \\
+  { { 0, 0, 0, PTHREAD_MUTEX_RECURSIVE_NP } }
+#  define PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP \\
+  { { 0, 0, 0, PTHREAD_MUTEX_ERRORCHECK_NP } }
+#  define PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP \\
+  { { 0, 0, 0, PTHREAD_MUTEX_ADAPTIVE_NP } }
+# endif
+#endif
+# define PTHREAD_RWLOCK_INITIALIZER \\
+  { { 0, } }
+# ifdef __USE_GNU
+#  if __WORDSIZE == 64
+#   define PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP \\
+  { { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,					      \\
+      PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP } }
+#  else
+#   define PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP \\
+  { { 0, 0, 0, 0, 0, 0, PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP } }
+#  endif
+# endif
+#define PTHREAD_COND_INITIALIZER { { 0, } }
+_EOText_;
 };
 
 
@@ -1802,6 +1866,143 @@ fix = {
 
 
 /*
+ *  Wrap spu_info in ifdef _KERNEL.  GCC cannot handle an array of unknown
+ *  type and mpinfou is only defined when _KERNEL is set.
+ */
+fix = {
+    hackname = hpux_spu_info;
+    mach     = "*-hp-hpux*";
+    files    = ia64/sys/getppdp.h;
+    select   = "^.*extern.*spu_info.*";
+
+    c_fix     = format;
+    c_fix_arg = "#ifdef _KERNEL\n%0\n#endif";
+
+    test_text = "extern union mpinfou spu_info[];";
+};
+
+fix = {
+    hackname  = hpux11_extern_sendfile;
+    mach      = "*-hp-hpux11.[12]*";
+    files     = sys/socket.h;
+    select    = "^[ \t]*extern sbsize_t sendfile.*\n.*, int\\)\\);\n";
+    c_fix     = format;
+    c_fix_arg = "#ifndef _APP32_64BIT_OFF_T\n%0#endif\n";
+    test_text = "   extern sbsize_t sendfile __((int, int, off_t, bsize_t,\n                               const struct iovec *, int));\n";
+};
+
+fix = {
+    hackname  = hpux11_extern_sendpath;
+    mach      = "*-hp-hpux11.[12]*";
+    files     = sys/socket.h;
+    select    = "^[ \t]*extern sbsize_t sendpath.*\n.*, int\\)\\);\n";
+    c_fix     = format;
+    c_fix_arg = "#ifndef _APP32_64BIT_OFF_T\n%0#endif\n";
+    test_text = "   extern sbsize_t sendpath __((int, int, off_t, bsize_t,\n                               const struct iovec *, int));\n";
+};
+
+fix = {
+    hackname  = hpux_extern_errno;
+    mach      = "*-hp-hpux10.*";
+    mach      = "*-hp-hpux11.[0-2]*";
+    files     = errno.h;
+    select    = "^[ \t]*extern int errno;$";
+    c_fix     = format;
+    c_fix_arg = "#ifdef __cplusplus\nextern \"C\" {\n#endif\n%0\n#ifdef __cplusplus\n}\n#endif";
+    test_text = "   extern int errno;\n";
+};
+
+/*
+ *  Add missing braces to pthread initializer defines.
+ */
+fix = {
+    hackname  = hpux_pthread_initializers;
+    mach      = "*-hp-hpux11.[0-3]*";
+    files     = sys/pthread.h;
+    sed       = "s@^[ \t]*1, 1, 1, 1,[ \t]*\\\\"
+		 "@\t{ 1, 1, 1, 1 },\t\t\t\t\t\t\t\\\\@";
+    sed       = "s@^[ \t]*1,[ \t]*\\\\"
+		 "@\t{ 1, 0 }@";
+    sed       = "/^[ \t]*0$/d";
+    sed       = "s@__PTHREAD_MUTEX_VALID, 0"
+		 "@{ __PTHREAD_MUTEX_VALID, 0 }@";
+    sed       = "s@^[ \t]*0, 0, -1, 0,[ \t]*\\\\"
+		 "@\t{ 0, 0, -1, 0 },\t\t\t\t\t\t\\\\@";
+    sed       = "s@0, __LWP_MTX_VALID, 0, 1, 1, 1, 1,[ \t]*\\\\"
+		 "@{ 0, __LWP_MTX_VALID }, { 0, 1, 1, 1, 1 },\t\t\t\\\\@";
+    sed       = "s@^[ \t]*__LWP_MTX_VALID, 0, 1, 1, 1, 1,[ \t]*\\\\"
+		 "@\t{ 0, __LWP_MTX_VALID }, { 0, 1, 1, 1, 1 },\t\t\t\\\\@";
+    sed       = "s@^[ \t]*0, 0[ \t]*\\\\"
+		 "@\t{ 0, 0 }\t\t\t\t\t\t\t\\\\@";
+    sed       = "s@__PTHREAD_COND_VALID, 0"
+		 "@{ __PTHREAD_COND_VALID, 0 }@";
+    sed       = "s@__LWP_COND_VALID, 0,[ \t]*\\\\"
+		 "@{ __LWP_COND_VALID, 0 },\t\t\t\t\t\\\\@";
+    sed       = "s@__PTHREAD_RWLOCK_VALID, 0"
+		 "@{ __PTHREAD_RWLOCK_VALID, 0 }@";
+    sed       = "s@__LWP_RWLOCK_VALID, 0,[ \t]*\\\\"
+		 "@{ __LWP_RWLOCK_VALID, 0 },\t\t\t\t\t\\\\@";
+    sed       = "s@^[ \t]*0, 0, 0, 0, 0, 0, 0[ \t]*\\\\"
+		 "@\t{ 0, 0, 0, 0, 0 }, { 0, 0}\t\t\t\t\t\\\\@";
+    test_text = "#define PTHREAD_MUTEX_INITIALIZER  {\t\t\t\t\t\\\\\n"
+		"\t__PTHREAD_MUTEX_VALID, 0,\t\t\t\t\t\\\\\n"
+		"\t(PTHREAD_MUTEX_DEFAULT | PTHREAD_PROCESS_PRIVATE),\t\t\\\\\n"
+		"\t__SPNLCK_INITIALIZER,\t\t\t\t\t\t\\\\\n"
+		"\t0, 0, -1, 0,\t\t\t\t\t\t\t\\\\\n"
+		"\t0, __LWP_MTX_VALID, 0, 1, 1, 1, 1,\t\t\t\t\\\\\n"
+		"\t0, 0\t\t\t\t\t\t\t\t\\\\\n"
+		"}\n";
+};
+
+/*
+ *  Fix glibc definition of HUGE_VAL in terms of hex floating point constant
+ */
+fix = {
+    hackname  = huge_val_hex;
+    files     = bits/huge_val.h;
+    select    = "^#[ \t]*define[ \t]*HUGE_VAL[ \t].*0x1\\.0p.*";
+    bypass    = "__builtin_huge_val";
+
+    c_fix     = format;
+    c_fix_arg = "#define HUGE_VAL (__builtin_huge_val())\n";
+
+    test_text = "# define HUGE_VAL\t(__extension__ 0x1.0p2047)";
+};
+
+
+/*
+ *  Fix glibc definition of HUGE_VALF in terms of hex floating point constant
+ */
+fix = {
+    hackname  = huge_valf_hex;
+    files     = bits/huge_val.h;
+    select    = "^#[ \t]*define[ \t]*HUGE_VALF[ \t].*0x1\\.0p.*";
+    bypass    = "__builtin_huge_valf";
+
+    c_fix     = format;
+    c_fix_arg = "#define HUGE_VALF (__builtin_huge_valf())\n";
+
+    test_text = "#  define HUGE_VALF (__extension__ 0x1.0p255f)";
+};
+
+
+/*
+ *  Fix glibc definition of HUGE_VALL in terms of hex floating point constant
+ */
+fix = {
+    hackname  = huge_vall_hex;
+    files     = bits/huge_val.h;
+    select    = "^#[ \t]*define[ \t]*HUGE_VALL[ \t].*0x1\\.0p.*";
+    bypass    = "__builtin_huge_vall";
+
+    c_fix     = format;
+    c_fix_arg = "#define HUGE_VALL (__builtin_huge_vall())\n";
+
+    test_text = "#  define HUGE_VALL (__extension__ 0x1.0p32767L)";
+};
+
+
+/*
  *  Fix return type of abort and free
  */
 fix = {
@@ -1995,6 +2196,24 @@ fix = {
 
     test_text = "#define _SOCKLEN_T\ntypedef u_int32_t socklen_t;";
 };
+
+/*
+ *  IRIX 6.5 <stdint.h> only works with ISO C99 and errors out
+ *  otherwise.
+ */
+fix = {
+    hackname  = irix_stdint_c99;
+    files     = stdint.h;
+    select = "(#ifndef __c99\n)(#error This header file is to be used only for c99 mode compilations)";
+
+    mach      = "mips-sgi-irix6.5";
+    c_fix  = format;
+    c_fix_arg = "#if 0\n"
+	        "%2";
+    test_text =
+    "#ifndef __c99\n#error This header file is to be used only for c99 mode compilations\n#else";
+};
+
 
 /*
  *  IRIX 5.x's stdio.h and IRIX 6.5's internal/stdio_core.h declare
@@ -2997,20 +3216,110 @@ fix = {
     hackname = solaris_mutex_init_2;
     select = '@\(#\)pthread.h' "[ \t]+1.[0-9]+[ \t]+[0-9/]+ SMI";
     files = pthread.h;
+    /*
+     * On Solaris 10, this fix is unnecessary because upad64_t is
+     * always defined correctly regardless of the definition of the
+     * __STDC__ macro.  The first "mach" pattern matches up to
+     * solaris9.  The second "mach" pattern will not match any two (or
+     * more) digit solaris version, but it will match e.g. 2.5.1.
+     */
+    mach = '*-*-solaris2.[0-9]', '*-*-solaris2.[0-9][!0-9]*';
     c_fix = format;
     c_fix_arg = "#if __STDC__ - 0 == 0 && !defined(_NO_LONGLONG)\n"
                 "%0\n"
                 "#else\n"
-                "%1, {0}}%3\n"
+                "%1, {0}}%4\n"
                 "#endif";
-    c_fix_arg = "(^#define[ \t]+PTHREAD_(MUTEX|COND)_INITIALIZER[ \t]+\\{.*)"
+    c_fix_arg = "(^#define[ \t]+PTHREAD_(MUTEX|COND)_INITIALIZER[ \t]+"
+                "(|/\*.*\*/[ \t]*\\\\\n[ \t]*)\\{.*)"
                 ",[ \t]*0\\}" "(|[ \t].*)$";
     test_text =
     '#ident "@(#)pthread.h  1.26  98/04/12 SMI"'"\n"
     "#define PTHREAD_MUTEX_INITIALIZER\t{{{0},0}, {{{0}}}, 0}\n"
     "#define PTHREAD_COND_INITIALIZER\t{{{0}, 0}, 0}\t/* DEFAULTCV */\n"
-    "#define PTHREAD_RWLOCK_INITIALIZER\t"
-             "{0, 0, 0, {0, 0, 0}, {0, 0}, {0, 0}}";
+    "#define	PTHREAD_MUTEX_INITIALIZER		/* = DEFAULTMUTEX */	\\\\\n"
+    "	{{0, 0, 0, DEFAULT_TYPE, _MUTEX_MAGIC}, {{{0}}}, 0}\n"
+    "#define	PTHREAD_COND_INITIALIZER		/* = DEFAULTCV */	\\\\\n"
+    "	{{{0, 0, 0, 0}, DEFAULT_TYPE, _COND_MAGIC}, 0}";
+};
+
+
+/*
+ * Sun Solaris defines PTHREAD_RWLOCK_INITIALIZER with a "0" for some
+ *  fields of the pthread_rwlock_t structure, which are of type
+ *  upad64_t, which itself is typedef'd to int64_t, but with __STDC__
+ *  defined (e.g. by -ansi) it is a union. So change the initializer
+ *  to "{0}" instead.
+ */
+fix = {
+    hackname = solaris_rwlock_init_1;
+    select = '@\(#\)pthread.h' "[ \t]+1.[0-9]+[ \t]+[0-9/]+ SMI";
+    files = pthread.h;
+    mach = '*-*-solaris*';
+    c_fix = format;
+    c_fix_arg = "#if __STDC__ - 0 == 0 && !defined(_NO_LONGLONG)\n"
+                "%0\n"
+                "#else\n"
+                "%1{0, 0, 0, {{0}, {0}, {0}}, {{0}, {0}}, {{0}, {0}}}\n"
+                "#endif";
+    c_fix_arg = "(^#define[ \t]+PTHREAD_RWLOCK_INITIALIZER[ \t]+)"
+                "\\{0, 0, 0, \\{0, 0, 0\\}, \\{0, 0\\}, \\{0, 0\\}\\}[ \t]*$";
+
+    test_text =
+    '#ident "@(#)pthread.h  1.26  98/04/12 SMI"'"\n"
+    "#define PTHREAD_RWLOCK_INITIALIZER\t{0, 0, 0, {0, 0, 0}, {0, 0}, {0, 0}}";
+};
+
+
+/*
+ * Sun Solaris defines PTHREAD_ONCE_INIT as an array containing a
+ * structure.  As such, it need two levels of brackets, but only
+ * contains one.  Wrap the macro definition in an extra layer.
+ */
+fix = {
+    hackname = solaris_once_init_1;
+    select = '@\(#\)pthread.h' "[ \t]+1.[0-9]+[ \t]+[0-9/]+ SMI";
+    files = pthread.h;
+    mach = '*-*-solaris*';
+    c_fix = format;
+    c_fix_arg = "%1{%2}%3";
+    c_fix_arg = "(^#define[ \t]+PTHREAD_ONCE_INIT[ \t]+\\{)([^}]+)(\\})[ \t]*$";
+    test_text =
+    '#pragma ident	"@(#)pthread.h	1.37	04/09/28 SMI"'"\n"
+    "#define PTHREAD_ONCE_INIT\t{0, 0, 0, PTHREAD_ONCE_NOTDONE}";
+};
+
+
+/*
+ * Sun Solaris defines PTHREAD_ONCE_INIT with a "0" for some
+ *  fields of the pthread_once_t structure, which are of type
+ *  upad64_t, which itself is typedef'd to int64_t, but with __STDC__
+ *  defined (e.g. by -ansi) it is a union. So change the initializer
+ *  to "{0}" instead.  This test relies on solaris_once_init_1.
+ */
+fix = {
+    hackname = solaris_once_init_2;
+    select = '@\(#\)pthread.h' "[ \t]+1.[0-9]+[ \t]+[0-9/]+ SMI";
+    files = pthread.h;
+    /*
+     * On Solaris 10, this fix is unnecessary because upad64_t is
+     * always defined correctly regardless of the definition of the
+     * __STDC__ macro.  The first "mach" pattern matches up to
+     * solaris9.  The second "mach" pattern will not match any two (or
+     * more) digit solaris version, but it will match e.g. 2.5.1.
+     */
+    mach = '*-*-solaris2.[0-9]', '*-*-solaris2.[0-9][!0-9]*';
+    c_fix = format;
+    c_fix_arg = "#if __STDC__ - 0 == 0 && !defined(_NO_LONGLONG)\n"
+                "%0\n"
+                "#else\n"
+                "%1{0}, {0}, {0}, {%3}%4\n"
+                "#endif";
+    c_fix_arg = "(^#define[ \t]+PTHREAD_ONCE_INIT[ \t]+\\{\\{)"
+                "(0, 0, 0, )(PTHREAD_[A-Z_]+)(\\}\\})[ \t]*$";
+    test_text =
+    '#ident "@(#)pthread.h  1.26  98/04/12 SMI"'"\n"
+    "#define PTHREAD_ONCE_INIT\t{{0, 0, 0, PTHREAD_ONCE_NOTDONE}}\n";
 };
 
 

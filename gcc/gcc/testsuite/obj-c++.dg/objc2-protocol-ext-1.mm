@@ -1,7 +1,7 @@
 /* APPLE LOCAL file 5192466 */
 /* Check for addition of two new fiellds at end of protocol meta-data. */
 /* { dg-options "-mmacosx-version-min=10.5 -m64" } */
-/* { dg-do compile { target *-*-darwin* } } */
+/* { dg-do compile { target powerpc*-*-darwin* i?86*-*-darwin* } } */
 
 @protocol Proto1
 @end

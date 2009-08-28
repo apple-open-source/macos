@@ -61,7 +61,7 @@ public:
 	std::string format();
 	void flush();
 	
-	static bool candidiate(UnixPlusPlus::FileDesc &fd); // could this reasonably be a CFM code?
+	static bool candidate(UnixPlusPlus::FileDesc &fd); // could this reasonably be a CFM code?
 
 public:
 	//

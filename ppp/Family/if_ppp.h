@@ -135,6 +135,12 @@ struct ppp_option_data64 {
 	u_int32_t	length;
 	int		transmit;
 };
+
+struct ppp_option_data32 {
+	u_int32_t		ptr;
+	u_int32_t	length;
+	int		transmit;
+};
 #endif KERNEL_PRIVATE
 
 struct ifpppstatsreq {
@@ -170,7 +176,13 @@ struct ifpppcstatsreq {
 #define PPPIOCXFERUNIT	_IO('t', 78)		/* transfer PPP unit */
 #define PPPIOCSCOMPRESS	_IOW('t', 77, struct ppp_option_data)
 #ifdef KERNEL_PRIVATE
+#ifdef __LP64__
+#define PPPIOCSCOMPRESS32	_IOW('t', 77, struct ppp_option_data32)
+#define PPPIOCSCOMPRESS64	PPPIOCSCOMPRESS
+#else
+#define PPPIOCSCOMPRESS32	PPPIOCSCOMPRESS
 #define PPPIOCSCOMPRESS64	_IOW('t', 77, struct ppp_option_data64)
+#endif /* __LP64__ */
 #endif KERNEL_PRIVATE
 #define PPPIOCGNPMODE	_IOWR('t', 76, struct npioctl) /* get NP mode */
 #define PPPIOCSNPMODE	_IOW('t', 75, struct npioctl)  /* set NP mode */

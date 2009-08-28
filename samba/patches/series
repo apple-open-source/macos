@@ -1,27 +1,19 @@
-fix-trans2-ascii-charset-panic -p0
-CVE-2007-5398-nmbd-buffer-overflow -p0
-CVE-2007-4138-idmap_ad-default-uid-bug -p0
-CVE-2007-4572-GETDC-buffer-overrun-in-nmbd -p0
-CVE-2007-6015-nmbd-send-send-mailslot-vulnerability -p0
 svn-rev23105 -p0
 svn-rev23106 -p0
 manpage-idmap-odsam -p0
 manpage-pdb-odsam -p0
 stop-readdir-test-on-first-error -p0
-smbclient-add-rap_netserverenum3-support -p0
+smbclient-add-rap_netserverenum3-support -p0 # upstream Samba 3.2
 set-vendor-version-field -p0
 apple-headers-configure-check -p0
 # upstream 000-build-issues.diff -p0
 allow-module-type-disambiguation -p0 # upstream in SAMBA_3_0_26
-free-fsp-extension-on-close -p0
-fetch-fsp-extension-talloc-context -p0
+free-fsp-extension-on-close -p0 # upstream Samba 3.2
+fetch-fsp-extension-talloc-context -p0 # upstream Samba 3.2
 libiconv-cross-compile -p0 # upstream in SAMBA_3_0_26
 pam-headers-configure-check -p0 # upstream in SAMBA_3_0_26
 123-pam.diff -p0 # upstream in SAMBA_3_0_26
 siocgifconf-check-structure-length-field -p0
-fix-usershare-directory-permissions-check -p0
-allow-home-share-as-usershare -p0
-allow-arbitrary-params-in-usershares -p0
 open-directory-library-code -p0
 101-loadparam.c.diff -p0
 102-srv_netlog_nt.c.diff -p0
@@ -42,7 +34,7 @@ darwin-utmp-compatibility -p0
 dprintf-off-by-one -p0
 darwin-performance-statistics -p0
 configure-add-darwin-picflags -p0
-vfs-add-statfs-capabilities -p0
+vfs-add-statfs-capabilities -p0 # upstream in Samba 3.2
 support-case-sensitive-filesystems -p0
 add-streams-support-parameter -p0
 pass-ntfs-stream-paths-to-vfs -p0
@@ -69,6 +61,7 @@ support-darwin-quota-interface -p0
 fix-osxcharset-includes-case -p0 # upstream in SAMBA_3_0_26
 configure-darwin-initgroups-syscall -p0
 support-darwin-initgroups-syscall -p0
+pthread-setugid-np-credential-switching -p0
 fix-vfs-prealloc-build -p0
 detect-fdatasync-api -p0
 support-kdebug-tracing -p0
@@ -86,13 +79,35 @@ filter-sharelist-by-access -p0
 remove-name-to-fqdn-api -p0
 winbindd-add-realm-as-local-sam-altname -p0
 add-smb-panic-string-to-crashreporter -p0
-support-findfirst-for-write-only-directories -p0
+support-findfirst-for-write-only-directories -p0 # http://marc.info/?t=120223350200007&r=1&w=2
 smbspool-support-cups-1.3-auth -p0
+smbspool-auth-updates -p0
 dns-update-register-AD-style-name -p0
 deny-trust-accounts-disk-or-print-access -p0
 add-local-kdc-support -p0
 allow-guest-auth-for-local-account -p0
 support-cmdline-workgroup-in-net-setdomainsid -p0
 create-computer-account-in-od -p0
-CVE-2008-1105-receive_smb_raw-overflow -p0
+register-dynamic-ptr-records -p0
+manpage-format-smb-conf -p0
+ignore-tdb-spinlock-flag -p0
+vproc-transaction-support-smbd -p0
 fix-bogus-keytab-iteration -p0
+CVE-2008-1105-receive_smb_raw-overflow -p0
+support-stflags-stat-field-rw -p0
+accessx-check-access-permissions -p0
+move-machine-sid-into-directory-services -p0
+enable-pie-on-darwin -p0
+add-ds-groups-to-token -p0
+LDFLAGS-override-workaround -p0
+1ee1e8306f3578c19fe015145eb8da1013f7b820 -p0
+convert-secrets_fetch_domain_sid-to-OD -p0
+decompose-filesystem-strings -p0
+stop-catching-fatal-signals -p0
+fix-share-path-canonicalisation -p0
+make-system-sid-a-user-sid -p0
+return-full-sid-from-lookup-name -p0
+no-abort-on-domain-sid-failure -p0
+stop-impersonation-before-forking -p0
+vfs-module-kqueue-notify -p0
+use-passdb-with-kerberos-auth -p0

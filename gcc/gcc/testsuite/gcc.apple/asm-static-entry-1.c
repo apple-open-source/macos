@@ -1,19 +1,19 @@
-/* APPLE LOCAL begin radar 4211430 */
+/* APPLE LOCAL file radar 4211430 - radar 5274332 */
 /* { dg-do run { target powerpc*-*-darwin* } } */
 /* { dg-options "-fasm-blocks" } */
 #include <stdio.h>
+#include <stdint.h>
 extern void abort();
 
-typedef unsigned int UInt32;
 
-#define FUNCPTR_TO_UINT(f) ((UInt32)(&(f)))
+#define FUNCPTR_TO_UINT(f) ((intptr_t)(&(f)))
 
 /*
  *
  *  C versions
  *  
  */
-static UInt32  DoAsmCodeTest_C();
+static intptr_t  DoAsmCodeTest_C();
 static void  flush_cache_line_c(unsigned long inCacheLine);
 static void  flush_cache_line_c_end(); /* { dg-warning "used but never defined" } */
 
@@ -29,10 +29,10 @@ asm void flush_cache_line_c(
 entry static flush_cache_line_c_end;
 }
 
-UInt32
+intptr_t
 DoAsmCodeTest_C()
 {
- UInt32 mw_size = 0;
+ intptr_t mw_size = 0;
 
  mw_size = FUNCPTR_TO_UINT(flush_cache_line_c);
  mw_size = FUNCPTR_TO_UINT(flush_cache_line_c_end) - mw_size;
@@ -45,4 +45,3 @@ int main()
 	  abort();
 	return 0;
 }
-/* APPLE LOCAL end radar 4211430 */

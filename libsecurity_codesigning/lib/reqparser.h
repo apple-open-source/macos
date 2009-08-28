@@ -56,7 +56,7 @@ inline const Requirements *parseRequirements(const Input &source)
 { return RequirementParser<Requirements>()(source); }
 
 template <class Input>
-inline const Requirements *parseGeneric(const Input &source)
+inline const BlobCore *parseGeneric(const Input &source)
 { return RequirementParser<BlobCore>()(source); }
 
 

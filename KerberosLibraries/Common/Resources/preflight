@@ -1,0 +1,67 @@
+#!/bin/sh
+
+#
+# Remove components of the previous KfM (if present):
+#
+
+# The client framework, which can have a different layout
+CLIENTFRAMEWORK=${3}/System/Library/PrivateFrameworks/KAdminClient.framework
+if [ -d "${CLIENTFRAMEWORK}" ]
+    then "${3}/bin/rm" -rf "${CLIENTFRAMEWORK}"
+fi
+
+# The server framework, which can have a different layout
+SERVERFRAMEWORK=${3}/System/Library/PrivateFrameworks/KAdminServer.framework
+if [ -d "${SERVERFRAMEWORK}" ]
+    then "${3}/bin/rm" -rf "${SERVERFRAMEWORK}"
+fi
+
+# The GSSRPC framework, which can have a different layout
+GSSRPCFRAMEWORK=${3}/System/Library/PrivateFrameworks/GSSRPC.framework
+if [ -d "${GSSRPCFRAMEWORK}" ]
+    then "${3}/bin/rm" -rf "${GSSRPCFRAMEWORK}"
+fi
+
+# The KDB5 framework, which can have a different layout
+KDB5FRAMEWORK=${3}/System/Library/PrivateFrameworks/KDB5.framework
+if [ -d "${KDB5FRAMEWORK}" ]
+    then "${3}/bin/rm" -rf "${KDB5FRAMEWORK}"
+fi
+
+# The framework, which can have a different layout
+FRAMEWORK=${3}/System/Library/Frameworks/Kerberos.framework
+if [ -d "${FRAMEWORK}" ]
+    then "${3}/bin/rm" -rf "${FRAMEWORK}"
+fi
+
+# The db plugin, which can have a different layout
+DBPLUGIN=${3}/System/Library/KerberosPlugins/KerberosDatabasePlugins/db2.bundle
+if [ -d "${DBPLUGIN}" ]
+    then "${3}/bin/rm" -rf "${DBPLUGIN}"
+fi
+
+# The db plugin, which can have a different layout
+LDAPPLUGIN=${3}/System/Library/KerberosPlugins/KerberosDatabasePlugins/kldap.bundle
+if [ -d "${LDAPPLUGIN}" ]
+    then "${3}/bin/rm" -rf "${LDAPPLUGIN}"
+fi
+
+# The KerberosAgent, which can have a different layout
+KERBEROSAGENT=${3}/System/Library/CoreServices/KerberosAgent.app
+if [ -d "${KERBEROSAGENT}" ]
+    then "${3}/bin/rm" -rf "${KERBEROSAGENT}"
+fi
+
+# The OldKerberosAgent, which can have a different layout
+OLDKERBEROSAGENT=${3}/System/Library/CoreServices/OldKerberosAgent.app
+if [ -d "${OLDKERBEROSAGENT}" ]
+    then "${3}/bin/rm" -rf "${OLDKERBEROSAGENT}"
+fi
+
+# The CCacheServer, which can have a different layout
+CCACHESERVER=${3}/System/Library/CoreServices/CCacheServer.app
+if [ -d "${CCACHESERVER}" ]
+    then "${3}/bin/rm" -rf "${CCACHESERVER}"
+fi
+
+exit 0

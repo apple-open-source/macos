@@ -266,9 +266,9 @@ dump_objfile (struct objfile *objfile)
 	  printf_filtered ("%s at ", psymtab->filename);
 	  gdb_print_host_address (psymtab, gdb_stdout);
  	  printf_filtered (" from ");
- 	  gdb_print_host_address (psymtab->textlow, gdb_stdout);
+          printf_filtered ("0x%s", paddr_nz (psymtab->textlow));
  	  printf_filtered (" to ");
- 	  gdb_print_host_address (psymtab->texthigh, gdb_stdout);
+          printf_filtered ("0x%s", paddr_nz (psymtab->texthigh));
  	  if (psymtab->objfile != objfile)
   	    {
 	      printf_filtered (" (NOT ON CHAIN)");
@@ -445,7 +445,7 @@ dump_symtab_1 (struct objfile *objfile, struct symtab *symtab,
 {
   int i;
   struct dict_iterator iter;
-  int len, blen;
+  int len;
   struct linetable *l;
   struct blockvector *bv;
   struct symbol *sym;
@@ -682,7 +682,7 @@ print_symbol (void *args)
       switch (SYMBOL_CLASS (symbol))
 	{
 	case LOC_CONST:
-	  fprintf_filtered (outfile, "const %ld (0x%lx)",
+	  fprintf_filtered (outfile, "const %d (0x%x)",
 			    SYMBOL_VALUE (symbol),
 			    SYMBOL_VALUE (symbol));
 	  break;
@@ -716,43 +716,43 @@ print_symbol (void *args)
 	  break;
 
 	case LOC_REGISTER:
-	  fprintf_filtered (outfile, "register %ld", SYMBOL_VALUE (symbol));
+	  fprintf_filtered (outfile, "register %d", SYMBOL_VALUE (symbol));
 	  break;
 
 	case LOC_ARG:
-	  fprintf_filtered (outfile, "arg at offset 0x%lx",
+	  fprintf_filtered (outfile, "arg at offset 0x%x",
 			    SYMBOL_VALUE (symbol));
 	  break;
 
 	case LOC_LOCAL_ARG:
-	  fprintf_filtered (outfile, "arg at offset 0x%lx from fp",
+	  fprintf_filtered (outfile, "arg at offset 0x%x from fp",
 			    SYMBOL_VALUE (symbol));
 	  break;
 
 	case LOC_REF_ARG:
-	  fprintf_filtered (outfile, "reference arg at 0x%lx", SYMBOL_VALUE (symbol));
+	  fprintf_filtered (outfile, "reference arg at 0x%x", SYMBOL_VALUE (symbol));
 	  break;
 
 	case LOC_REGPARM:
-	  fprintf_filtered (outfile, "parameter register %ld", SYMBOL_VALUE (symbol));
+	  fprintf_filtered (outfile, "parameter register %d", SYMBOL_VALUE (symbol));
 	  break;
 
 	case LOC_REGPARM_ADDR:
-	  fprintf_filtered (outfile, "address parameter register %ld", SYMBOL_VALUE (symbol));
+	  fprintf_filtered (outfile, "address parameter register %d", SYMBOL_VALUE (symbol));
 	  break;
 
 	case LOC_LOCAL:
-	  fprintf_filtered (outfile, "local at offset 0x%lx",
+	  fprintf_filtered (outfile, "local at offset 0x%x",
 			    SYMBOL_VALUE (symbol));
 	  break;
 
 	case LOC_BASEREG:
-	  fprintf_filtered (outfile, "local at 0x%lx from register %d",
+	  fprintf_filtered (outfile, "local at 0x%x from register %d",
 			    SYMBOL_VALUE (symbol), SYMBOL_BASEREG (symbol));
 	  break;
 
 	case LOC_BASEREG_ARG:
-	  fprintf_filtered (outfile, "arg at 0x%lx from register %d",
+	  fprintf_filtered (outfile, "arg at 0x%x from register %d",
 			    SYMBOL_VALUE (symbol), SYMBOL_BASEREG (symbol));
 	  break;
 

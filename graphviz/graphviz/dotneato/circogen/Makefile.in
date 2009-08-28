@@ -213,7 +213,7 @@ AM_CPPFLAGS = \
 
 LIBS = 
 
-pkginclude_HEADERS = block.h blockpath.h blocktree.h circo.h \
+pkginclude_HEADERS = graphviz_block.h blockpath.h blocktree.h circo.h \
 	circpos.h circular.h deglist.h edgelist.h nodelist.h \
 	nodeset.h stack.h
 

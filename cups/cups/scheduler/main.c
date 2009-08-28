@@ -1,5 +1,5 @@
 /*
- * "$Id: main.c 7725 2008-07-14 06:16:34Z mike $"
+ * "$Id: main.c 7925 2008-09-10 17:47:26Z mike $"
  *
  *   Scheduler main loop for the Common UNIX Printing System (CUPS).
  *
@@ -26,12 +26,12 @@
  *   launchd_checkout()        - Check-out with launchd.
  *   parent_handler()          - Catch USR1/CHLD signals...
  *   process_children()        - Process all dead children...
+ *   select_timeout()          - Calculate the select timeout value.
  *   sigchld_handler()         - Handle 'child' signals from old processes.
  *   sighup_handler()          - Handle 'hangup' signals to reconfigure the
  *                               scheduler.
  *   sigterm_handler()         - Handle 'terminate' signals that stop the
  *                               scheduler.
- *   select_timeout()          - Calculate the select timeout value.
  *   usage()                   - Show scheduler usage.
  */
 
@@ -144,9 +144,11 @@ main(int  argc,				/* I - Number of command-line args */
   cups_file_t		*fp;		/* Fake lpsched lock file */
   struct stat		statbuf;	/* Needed for checking lpsched FIFO */
 #endif /* __sgi */
-#ifdef __APPLE__
   int			run_as_child = 0;
-					/* Needed for Mac OS X fork/exec */
+					/* Needed for background fork/exec */
+#ifdef __APPLE__
+  int			use_sysman = !getuid();
+					/* Use system management functions? */
 #else
   time_t		netif_time = 0;	/* Time since last network update */
 #endif /* __APPLE__ */
@@ -187,11 +189,9 @@ main(int  argc,				/* I - Number of command-line args */
       for (opt = argv[i] + 1; *opt != '\0'; opt ++)
         switch (*opt)
 	{
-#ifdef __APPLE__
 	  case 'C' : /* Run as child with config file */
               run_as_child = 1;
 	      fg           = -1;
-#endif /* __APPLE__ */
 
 	  case 'c' : /* Configuration file */
 	      i ++;
@@ -270,8 +270,25 @@ main(int  argc,				/* I - Number of command-line args */
 	      break;
 
           case 'p' : /* Stop immediately for profiling */
-              puts("Warning: -p option is for internal testing use only!");
+              puts("Warning: -p (startup profiling) is for internal testing use only!");
 	      stop_scheduler = 1;
+	      fg             = 1;
+	      break;
+
+          case 'P' : /* Disable security profiles */
+              puts("Warning: -P (disable security profiles) is for internal testing use only!");
+	      UseProfiles = 0;
+	      break;
+
+#ifdef __APPLE__
+          case 'S' : /* Disable system management functions */
+              puts("Warning: -S (disable system management) for internal testing use only!");
+	      use_sysman = 0;
+	      break;
+#endif /* __APPLE__ */
+
+          case 't' : /* Test the cupsd.conf file... */
+	      TestConfigFile = 1;
 	      fg             = 1;
 	      break;
 
@@ -356,17 +373,27 @@ main(int  argc,				/* I - Number of command-line args */
       }
     }
 
-#ifdef __APPLE__
+#ifdef __OpenBSD__
    /*
-    * Since CoreFoundation has an overly-agressive check for whether a
-    * process has forked but not exec'd (whether CF has been called or
-    * not...), we now have to exec ourselves with the "-f" option to
-    * eliminate their bogus warning messages.
+    * Call _thread_sys_closefrom() so the child process doesn't reset the
+    * parent's file descriptors to be blocking.  This is a workaround for a
+    * limitation of userland libpthread on OpenBSD.
+    */
+   
+    _thread_sys_closefrom(0);
+#endif /* __OpenBSD__ */
+
+   /*
+    * Since CoreFoundation and DBUS both create fork-unsafe data on execution of
+    * a program, and since this kind of really unfriendly behavior seems to be
+    * more common these days in system libraries, we need to re-execute the
+    * background cupsd with the "-C" option to avoid problems.  Unfortunately,
+    * we also have to assume that argv[0] contains the name of the cupsd
+    * executable - there is no portable way to get the real pathname...
     */
 
     execlp(argv[0], argv[0], "-C", ConfigurationFile, (char *)0);
     exit(errno);
-#endif /* __APPLE__ */
   }
 
   if (fg < 1)
@@ -400,6 +427,28 @@ main(int  argc,				/* I - Number of command-line args */
 
     for (i = 0; i < limit.rlim_cur && i < 1024; i ++)
       close(i);
+
+   /*
+    * Redirect stdin/out/err to /dev/null...
+    */
+
+    if ((i = open("/dev/null", O_RDONLY)) != 0)
+    {
+      dup2(i, 0);
+      close(i);
+    }
+
+    if ((i = open("/dev/null", O_WRONLY)) != 1)
+    {
+      dup2(i, 1);
+      close(i);
+    }
+
+    if ((i = open("/dev/null", O_WRONLY)) != 2)
+    {
+      dup2(i, 2);
+      close(i);
+    }
 #endif /* DEBUG */
   }
 
@@ -443,9 +492,17 @@ main(int  argc,				/* I - Number of command-line args */
 
   if (!cupsdReadConfiguration())
   {
-    syslog(LOG_LPR, "Unable to read configuration file \'%s\' - exiting!",
-           ConfigurationFile);
+    if (TestConfigFile)
+      printf("%s contains errors\n", ConfigurationFile);
+    else
+      syslog(LOG_LPR, "Unable to read configuration file \'%s\' - exiting!",
+	     ConfigurationFile);
     return (1);
+  }
+  else if (TestConfigFile)
+  {
+    printf("%s is OK\n", ConfigurationFile);
+    return (0);
   }
 
   if (!strncmp(TempDir, RequestRoot, strlen(RequestRoot)))
@@ -468,7 +525,7 @@ main(int  argc,				/* I - Number of command-line args */
       {
         snprintf(tempfile, sizeof(tempfile), "%s/%s", TempDir, dent->filename);
 
-	if (cupsdRemoveFile(tempfile))
+	if (unlink(tempfile))
 	  cupsdLogMessage(CUPSD_LOG_ERROR,
 	                  "Unable to remove temporary file \"%s\" - %s",
 	                  tempfile, strerror(errno));
@@ -493,6 +550,7 @@ main(int  argc,				/* I - Number of command-line args */
     */
 
     launchd_checkin();
+    launchd_checkout();
   }
 #endif /* HAVE_LAUNCHD */
 
@@ -506,28 +564,6 @@ main(int  argc,				/* I - Number of command-line args */
   if (PSQLibRef)
     PSQUpdateQuotaProc = dlsym(PSQLibRef, PSQLibFuncName);
 #endif /* __APPLE__ && HAVE_DLFCN_H */
-
-#ifdef HAVE_GSSAPI
-#  ifdef __APPLE__
- /*
-  * If the weak-linked GSSAPI/Kerberos library is not present, don't try
-  * to use it...
-  */
-
-  if (krb5_init_context != NULL)
-#  endif /* __APPLE__ */
-
- /*
-  * Setup a Kerberos context for the scheduler to use...
-  */
-
-  if (krb5_init_context(&KerberosContext))
-  {
-    KerberosContext = NULL;
-
-    cupsdLogMessage(CUPSD_LOG_ERROR, "Unable to initialize Kerberos context");
-  }
-#endif /* HAVE_GSSAPI */
 
  /*
   * Startup the server...
@@ -607,11 +643,7 @@ main(int  argc,				/* I - Number of command-line args */
   * we are up and running...
   */
 
-#ifdef __APPLE__
   if (!fg || run_as_child)
-#else
-  if (!fg)
-#endif /* __APPLE__ */
   {
    /*
     * Send a signal to the parent process, but only if the parent is
@@ -630,7 +662,8 @@ main(int  argc,				/* I - Number of command-line args */
   * Start power management framework...
   */
 
-  cupsdStartSystemMonitor();
+  if (use_sysman)
+    cupsdStartSystemMonitor();
 #endif /* __APPLE__ */
 
  /*
@@ -670,12 +703,6 @@ main(int  argc,				/* I - Number of command-line args */
 
   while (!stop_scheduler)
   {
-#ifdef DEBUG
-    cupsdLogMessage(CUPSD_LOG_DEBUG2,
-                    "main: Top of loop, dead_children=%d, NeedReload=%d",
-                    dead_children, NeedReload);
-#endif /* DEBUG */
-
    /*
     * Check if there are dead children to handle...
     */
@@ -707,22 +734,12 @@ main(int  argc,				/* I - Number of command-line args */
       }
 
      /*
-      * Check for any active jobs...
-      */
-
-      for (job = (cupsd_job_t *)cupsArrayFirst(ActiveJobs);
-	   job;
-	   job = (cupsd_job_t *)cupsArrayNext(ActiveJobs))
-        if (job->state_value == IPP_JOB_PROCESSING)
-	  break;
-
-     /*
       * Restart if all clients are closed and all jobs finished, or
       * if the reload timeout has elapsed...
       */
 
       if ((cupsArrayCount(Clients) == 0 &&
-           (!job || NeedReload != RELOAD_ALL)) ||
+           (cupsArrayCount(PrintingJobs) == 0 || NeedReload != RELOAD_ALL)) ||
           (time(NULL) - ReloadTime) >= ReloadTimeout)
       {
        /*
@@ -750,6 +767,7 @@ main(int  argc,				/* I - Number of command-line args */
 	  */
 
 	  launchd_checkin();
+	  launchd_checkout();
 	}
 #endif /* HAVE_LAUNCHD */
 
@@ -856,14 +874,35 @@ main(int  argc,				/* I - Number of command-line args */
       for (p = (cupsd_printer_t *)cupsArrayFirst(Printers);
 	   p;
 	   p = (cupsd_printer_t *)cupsArrayNext(Printers))
-        cupsdLogMessage(CUPSD_LOG_EMERG, "printer[%s] %d", p->name,
-	                p->dnssd_ipp_fd);
+        cupsdLogMessage(CUPSD_LOG_EMERG, "printer[%s] reg_name=\"%s\"", p->name,
+	                p->reg_name ? p->reg_name : "(null)");
 #endif /* HAVE_DNSSD */
 
       break;
     }
 
     current_time = time(NULL);
+
+   /*
+    * Write dirty config/state files...
+    */
+
+    if (DirtyCleanTime && current_time >= DirtyCleanTime)
+      cupsdCleanDirty();
+
+#ifdef __APPLE__
+   /*
+    * If we are going to sleep and still have pending jobs, stop them after
+    * a period of time...
+    */
+
+    if (SleepJobs > 0 && current_time >= SleepJobs &&
+        cupsArrayCount(PrintingJobs) > 0)
+    {
+      SleepJobs = 0;
+      cupsdStopAllJobs(CUPSD_JOB_DEFAULT, 10);
+    }
+#endif /* __APPLE__ */
 
 #ifndef __APPLE__
    /*
@@ -1133,7 +1172,8 @@ main(int  argc,				/* I - Number of command-line args */
   * Stop monitoring system event monitoring...
   */
 
-  cupsdStopSystemMonitor();
+  if (use_sysman)
+    cupsdStopSystemMonitor();
 #endif /* __APPLE__ */
 
 #ifdef HAVE_GSSAPI
@@ -1181,6 +1221,21 @@ main(int  argc,				/* I - Number of command-line args */
   cupsdStopSelect();
 
   return (!stop_scheduler);
+}
+
+
+/*
+ * 'cupsdCheckProcess()' - Tell the main loop to check for dead children.
+ */
+
+void
+cupsdCheckProcess(void)
+{
+ /*
+  * Flag that we have dead children...
+  */
+
+  dead_children = 1;
 }
 
 
@@ -1389,9 +1444,9 @@ cupsdSetStringf(char       **s,		/* O - New string */
 static void
 launchd_checkin(void)
 {
-  int			i,		/* Looping var */
-			count,		/* Numebr of listeners */
-			portnum;	/* Port number */
+  size_t		i,		/* Looping var */
+			count;		/* Numebr of listeners */
+  int			portnum;	/* Port number */
   launch_data_t		ld_msg,		/* Launch data message */
 			ld_resp,	/* Launch data response */
 			ld_array,	/* Launch data array */
@@ -1417,6 +1472,7 @@ launchd_checkin(void)
 		    "launchd_checkin: launch_msg(\"" LAUNCH_KEY_CHECKIN
 		    "\") IPC failure");
     exit(EXIT_FAILURE);
+    return; /* anti-compiler-warning */
   }
 
   if (launch_data_get_type(ld_resp) == LAUNCH_DATA_ERRNO)
@@ -1425,28 +1481,32 @@ launchd_checkin(void)
     cupsdLogMessage(CUPSD_LOG_ERROR, "launchd_checkin: Check-in failed: %s",
                     strerror(errno));
     exit(EXIT_FAILURE);
+    return; /* anti-compiler-warning */
   }
 
  /*
   * Get the sockets dictionary...
   */
 
-  if (!(ld_sockets = launch_data_dict_lookup(ld_resp, LAUNCH_JOBKEY_SOCKETS)))
+  if ((ld_sockets = launch_data_dict_lookup(ld_resp, LAUNCH_JOBKEY_SOCKETS))
+          == NULL)
   {
     cupsdLogMessage(CUPSD_LOG_ERROR,
                     "launchd_checkin: No sockets found to answer requests on!");
     exit(EXIT_FAILURE);
+    return; /* anti-compiler-warning */
   }
 
  /*
   * Get the array of listener sockets...
   */
 
-  if (!(ld_array = launch_data_dict_lookup(ld_sockets, "Listeners")))
+  if ((ld_array = launch_data_dict_lookup(ld_sockets, "Listeners")) == NULL)
   {
     cupsdLogMessage(CUPSD_LOG_ERROR,
                     "launchd_checkin: No sockets found to answer requests on!");
     exit(EXIT_FAILURE);
+    return; /* anti-compiler-warning */
   }
 
  /*
@@ -1463,73 +1523,75 @@ launchd_checkin(void)
       * Get the launchd file descriptor and address...
       */
 
-      tmp     = launch_data_array_get_index(ld_array, i);
-      fd      = launch_data_get_fd(tmp);
-      addrlen = sizeof(addr);
-
-      if (getsockname(fd, (struct sockaddr *)&addr, &addrlen))
+      if ((tmp = launch_data_array_get_index(ld_array, i)) != NULL)
       {
-	cupsdLogMessage(CUPSD_LOG_ERROR,
-	                "launchd_checkin: Unable to get local address - %s",
-			strerror(errno));
-	continue;
-      }
+	fd      = launch_data_get_fd(tmp);
+	addrlen = sizeof(addr);
 
-     /*
-      * Try to match the launchd socket address to one of the listeners...
-      */
-
-      for (lis = (cupsd_listener_t *)cupsArrayFirst(Listeners);
-	   lis;
-	   lis = (cupsd_listener_t *)cupsArrayNext(Listeners))
-	if (httpAddrEqual(&lis->address, &addr))
-	  break;
-
-     /*
-      * Add a new listener If there's no match...
-      */
-
-      if (lis)
-      {
-	cupsdLogMessage(CUPSD_LOG_DEBUG, 
-		"launchd_checkin: Matched existing listener %s with fd %d...",
-		httpAddrString(&(lis->address), s, sizeof(s)), fd);
-      }
-      else
-      {
-	cupsdLogMessage(CUPSD_LOG_DEBUG, 
-		"launchd_checkin: Adding new listener %s with fd %d...",
-		httpAddrString(&addr, s, sizeof(s)), fd);
-
-        if ((lis = calloc(1, sizeof(cupsd_listener_t))) == NULL)
-        {
+	if (getsockname(fd, (struct sockaddr *)&addr, &addrlen))
+	{
 	  cupsdLogMessage(CUPSD_LOG_ERROR,
-               	          "launchd_checkin: Unable to allocate listener - %s.",
-                	  strerror(errno));
-	  exit(EXIT_FAILURE);
-        }
+			  "launchd_checkin: Unable to get local address - %s",
+			  strerror(errno));
+	  continue;
+	}
 
-        cupsArrayAdd(Listeners, lis);
+       /*
+	* Try to match the launchd socket address to one of the listeners...
+	*/
 
-	memcpy(&lis->address, &addr, sizeof(lis->address));
-      }
+	for (lis = (cupsd_listener_t *)cupsArrayFirst(Listeners);
+	     lis;
+	     lis = (cupsd_listener_t *)cupsArrayNext(Listeners))
+	  if (httpAddrEqual(&lis->address, &addr))
+	    break;
 
-      lis->fd = fd;
+       /*
+	* Add a new listener If there's no match...
+	*/
+
+	if (lis)
+	{
+	  cupsdLogMessage(CUPSD_LOG_DEBUG, 
+		  "launchd_checkin: Matched existing listener %s with fd %d...",
+		  httpAddrString(&(lis->address), s, sizeof(s)), fd);
+	}
+	else
+	{
+	  cupsdLogMessage(CUPSD_LOG_DEBUG, 
+		  "launchd_checkin: Adding new listener %s with fd %d...",
+		  httpAddrString(&addr, s, sizeof(s)), fd);
+
+	  if ((lis = calloc(1, sizeof(cupsd_listener_t))) == NULL)
+	  {
+	    cupsdLogMessage(CUPSD_LOG_ERROR,
+			    "launchd_checkin: Unable to allocate listener - %s.",
+			    strerror(errno));
+	    exit(EXIT_FAILURE);
+	  }
+
+	  cupsArrayAdd(Listeners, lis);
+
+	  memcpy(&lis->address, &addr, sizeof(lis->address));
+	}
+
+	lis->fd = fd;
 
 #  ifdef HAVE_SSL
-      portnum = 0;
+	portnum = 0;
 
 #    ifdef AF_INET6
-      if (lis->address.addr.sa_family == AF_INET6)
-	portnum = ntohs(lis->address.ipv6.sin6_port);
-      else
+	if (lis->address.addr.sa_family == AF_INET6)
+	  portnum = ntohs(lis->address.ipv6.sin6_port);
+	else
 #    endif /* AF_INET6 */
-      if (lis->address.addr.sa_family == AF_INET)
-	portnum = ntohs(lis->address.ipv4.sin_port);
+	if (lis->address.addr.sa_family == AF_INET)
+	  portnum = ntohs(lis->address.ipv4.sin_port);
 
-      if (portnum == 443)
-	lis->encryption = HTTP_ENCRYPT_ALWAYS;
+	if (portnum == 443)
+	  lis->encryption = HTTP_ENCRYPT_ALWAYS;
 #  endif /* HAVE_SSL */
+      }
     }
   }
 
@@ -1599,7 +1661,8 @@ static void
 process_children(void)
 {
   int		status;			/* Exit status of child */
-  int		pid;			/* Process ID of child */
+  int		pid,			/* Process ID of child */
+		job_id;			/* Job ID of child */
   cupsd_job_t	*job;			/* Current job */
   int		i;			/* Looping var */
   char		name[1024];		/* Process name */
@@ -1626,10 +1689,10 @@ process_children(void)
 #endif /* HAVE_WAITPID */
   {
    /*
-    * Ignore SIGTERM errors - that comes when a job is canceled...
+    * Collect the name of the process that finished...
     */
 
-    cupsdFinishProcess(pid, name, sizeof(name));
+    cupsdFinishProcess(pid, name, sizeof(name), &job_id);
 
    /*
     * Delete certificates for CGI processes...
@@ -1639,91 +1702,115 @@ process_children(void)
       cupsdDeleteCert(pid);
 
    /*
-    * Lookup the PID in the jobs list...
+    * Handle completed job filters...
     */
 
-    for (job = (cupsd_job_t *)cupsArrayFirst(ActiveJobs);
-	 job;
-	 job = (cupsd_job_t *)cupsArrayNext(ActiveJobs))
-      if (job->state_value == IPP_JOB_PROCESSING)
-      {
-	for (i = 0; job->filters[i]; i ++)
-          if (job->filters[i] == pid)
-	    break;
+    if (job_id > 0 && (job = cupsdFindJob(job_id)) != NULL)
+    {
+      for (i = 0; job->filters[i]; i ++)
+	if (job->filters[i] == pid)
+	  break;
 
-	if (job->filters[i] || job->backend == pid)
+      if (job->filters[i] || job->backend == pid)
+      {
+       /*
+	* OK, this process has gone away; what's left?
+	*/
+
+	if (job->filters[i])
+	  job->filters[i] = -pid;
+	else
+	  job->backend = -pid;
+
+	if (status && status != SIGTERM && status != SIGKILL &&
+	    job->status >= 0)
 	{
 	 /*
-          * OK, this process has gone away; what's left?
+	  * An error occurred; save the exit status so we know to stop
+	  * the printer or cancel the job when all of the filters finish...
+	  *
+	  * A negative status indicates that the backend failed and the
+	  * printer needs to be stopped.
 	  */
 
-          if (job->filters[i])
-	    job->filters[i] = -pid;
+	  if (job->filters[i])
+	    job->status = status;	/* Filter failed */
 	  else
-	    job->backend = -pid;
+	    job->status = -status;	/* Backend failed */
 
-          if (job->state_value == IPP_JOB_CANCELED)
-	    status = 0;			/* Ignore errors when canceling jobs */
+	  if (job->state_value == IPP_JOB_PROCESSING &&
+	      job->status_level > CUPSD_LOG_ERROR)
+	  {
+	    char	message[1024];	/* New printer-state-message */
 
-          if (status && job->status >= 0)
+
+	    job->status_level = CUPSD_LOG_ERROR;
+
+	    snprintf(message, sizeof(message), "%s failed", name);
+
+            if (job->printer)
+	    {
+	      strlcpy(job->printer->state_message, message,
+		       sizeof(job->printer->state_message));
+	      cupsdAddPrinterHistory(job->printer);
+	    }
+
+	    if (!job->attrs)
+	      cupsdLoadJob(job);
+
+	    if (!job->printer_message && job->attrs)
+	    {
+	      if ((job->printer_message =
+	               ippFindAttribute(job->attrs, "job-printer-state-message",
+					IPP_TAG_TEXT)) == NULL)
+		job->printer_message = ippAddString(job->attrs, IPP_TAG_JOB,
+		                                    IPP_TAG_TEXT,
+						    "job-printer-state-message",
+						    NULL, "");
+	    }
+
+	    if (job->printer_message)
+	      cupsdSetString(&(job->printer_message->values[0].string.text),
+			     message);
+	  }
+	}
+
+       /*
+	* If this is not the last file in a job, see if all of the
+	* filters are done, and if so move to the next file.
+	*/
+
+	if (job->current_file < job->num_files)
+	{
+	  for (i = 0; job->filters[i] < 0; i ++);
+
+	  if (!job->filters[i])
 	  {
 	   /*
-	    * An error occurred; save the exit status so we know to stop
-	    * the printer or cancel the job when all of the filters finish...
-	    *
-	    * A negative status indicates that the backend failed and the
-	    * printer needs to be stopped.
+	    * Process the next file...
 	    */
 
-            if (job->filters[i])
- 	      job->status = status;	/* Filter failed */
-	    else
- 	      job->status = -status;	/* Backend failed */
-
-            if (job->printer && !(job->printer->type & CUPS_PRINTER_FAX) &&
-	        job->status_level > CUPSD_LOG_ERROR)
-	    {
-	      job->status_level = CUPSD_LOG_ERROR;
-
-              snprintf(job->printer->state_message,
-	               sizeof(job->printer->state_message), "%s failed", name);
-              cupsdAddPrinterHistory(job->printer);
-	    }
+	    cupsdContinueJob(job);
 	  }
-
-	 /*
-	  * If this is not the last file in a job, see if all of the
-	  * filters are done, and if so move to the next file.
-	  */
-
-          if (job->current_file < job->num_files)
-	  {
-	    for (i = 0; job->filters[i] < 0; i ++);
-
-	    if (!job->filters[i])
-	    {
-	     /*
-	      * Process the next file...
-	      */
-
-	      cupsdFinishJob(job);
-	    }
-	  }
-	  break;
 	}
       }
+    }
 
    /*
-    * Show the exit status as needed...
+    * Show the exit status as needed, ignoring SIGTERM and SIGKILL errors
+    * since they come when we kill/end a process...
     */
 
-    if (status == SIGTERM)
-      status = 0;
-
-    if (status)
+    if (status == SIGTERM || status == SIGKILL)
+    {
+      cupsdLogMessage(CUPSD_LOG_DEBUG,
+                      "PID %d (%s) was terminated normally with signal %d.",
+                      pid, name, status);
+    }
+    else if (status)
     {
       if (WIFEXITED(status))
-	cupsdLogMessage(CUPSD_LOG_ERROR, "PID %d (%s) stopped with status %d!",
+	cupsdLogMessage(CUPSD_LOG_DEBUG, "PID %d (%s) stopped with status %d!",
 	                pid, name, WEXITSTATUS(status));
       else
 	cupsdLogMessage(CUPSD_LOG_ERROR, "PID %d (%s) crashed on signal %d!",
@@ -1745,66 +1832,6 @@ process_children(void)
 
   if (pid < 0 && errno == EINTR)
     dead_children = 1;
-}
-
-
-/*
- * 'sigchld_handler()' - Handle 'child' signals from old processes.
- */
-
-static void
-sigchld_handler(int sig)	/* I - Signal number */
-{
-  (void)sig;
-
- /*
-  * Flag that we have dead children...
-  */
-
-  dead_children = 1;
-
- /*
-  * Reset the signal handler as needed...
-  */
-
-#if !defined(HAVE_SIGSET) && !defined(HAVE_SIGACTION)
-  signal(SIGCLD, sigchld_handler);
-#endif /* !HAVE_SIGSET && !HAVE_SIGACTION */
-}
-
-
-/*
- * 'sighup_handler()' - Handle 'hangup' signals to reconfigure the scheduler.
- */
-
-static void
-sighup_handler(int sig)	/* I - Signal number */
-{
-  (void)sig;
-
-  NeedReload = RELOAD_ALL;
-  ReloadTime = time(NULL);
-
-#if !defined(HAVE_SIGSET) && !defined(HAVE_SIGACTION)
-  signal(SIGHUP, sighup_handler);
-#endif /* !HAVE_SIGSET && !HAVE_SIGACTION */
-}
-
-
-/*
- * 'sigterm_handler()' - Handle 'terminate' signals that stop the scheduler.
- */
-
-static void
-sigterm_handler(int sig)		/* I - Signal */
-{
-  (void)sig;	/* remove compiler warnings... */
-
- /*
-  * Flag that we should stop and return...
-  */
-
-  stop_scheduler = 1;
 }
 
 
@@ -1852,6 +1879,18 @@ select_timeout(int fds)			/* I - Number of descriptors returned */
   now     = time(NULL);
   timeout = now + 86400;		/* 86400 == 1 day */
   why     = "do nothing";
+
+#ifdef __APPLE__
+ /*
+  * When going to sleep, wake up to cancel jobs that don't complete in time.
+  */
+
+  if (SleepJobs > 0 && SleepJobs < timeout)
+  {
+    timeout = SleepJobs;
+    why     = "cancel jobs before sleeping";
+  }
+#endif /* __APPLE__ */
 
  /*
   * Check whether we are accepting new connections...
@@ -1930,20 +1969,40 @@ select_timeout(int fds)			/* I - Number of descriptors returned */
   }
 
  /*
+  * Write out changes to configuration and state files...
+  */
+
+  if (DirtyCleanTime && timeout > DirtyCleanTime)
+  {
+    timeout = DirtyCleanTime;
+    why     = "write dirty config/state files";
+  }
+
+ /*
   * Check for any active jobs...
   */
 
-  if (timeout > (now + 10) && ActiveJobs)
+  for (job = (cupsd_job_t *)cupsArrayFirst(ActiveJobs);
+       job;
+       job = (cupsd_job_t *)cupsArrayNext(ActiveJobs))
   {
-    for (job = (cupsd_job_t *)cupsArrayFirst(ActiveJobs);
-	 job;
-	 job = (cupsd_job_t *)cupsArrayNext(ActiveJobs))
-      if (job->state_value <= IPP_JOB_PROCESSING)
-      {
-	timeout = now + 10;
-	why     = "process active jobs";
-	break;
-      }
+    if (job->kill_time && job->kill_time < timeout)
+    {
+      timeout = job->kill_time;
+      why     = "kill unresponsive jobs";
+    }
+
+    if (job->state_value == IPP_JOB_HELD && job->hold_until < timeout)
+    {
+      timeout = job->hold_until;
+      why     = "release held jobs";
+    }
+    else if (job->state_value == IPP_JOB_PENDING && timeout > (now + 10))
+    {
+      timeout = now + 10;
+      why     = "start pending jobs";
+      break;
+    }
   }
 
 #ifdef HAVE_MALLINFO
@@ -1999,6 +2058,66 @@ select_timeout(int fds)			/* I - Number of descriptors returned */
 
 
 /*
+ * 'sigchld_handler()' - Handle 'child' signals from old processes.
+ */
+
+static void
+sigchld_handler(int sig)		/* I - Signal number */
+{
+  (void)sig;
+
+ /*
+  * Flag that we have dead children...
+  */
+
+  dead_children = 1;
+
+ /*
+  * Reset the signal handler as needed...
+  */
+
+#if !defined(HAVE_SIGSET) && !defined(HAVE_SIGACTION)
+  signal(SIGCLD, sigchld_handler);
+#endif /* !HAVE_SIGSET && !HAVE_SIGACTION */
+}
+
+
+/*
+ * 'sighup_handler()' - Handle 'hangup' signals to reconfigure the scheduler.
+ */
+
+static void
+sighup_handler(int sig)			/* I - Signal number */
+{
+  (void)sig;
+
+  NeedReload = RELOAD_ALL;
+  ReloadTime = time(NULL);
+
+#if !defined(HAVE_SIGSET) && !defined(HAVE_SIGACTION)
+  signal(SIGHUP, sighup_handler);
+#endif /* !HAVE_SIGSET && !HAVE_SIGACTION */
+}
+
+
+/*
+ * 'sigterm_handler()' - Handle 'terminate' signals that stop the scheduler.
+ */
+
+static void
+sigterm_handler(int sig)		/* I - Signal number */
+{
+  (void)sig;	/* remove compiler warnings... */
+
+ /*
+  * Flag that we should stop and return...
+  */
+
+  stop_scheduler = 1;
+}
+
+
+/*
  * 'usage()' - Show scheduler usage.
  */
 
@@ -2018,5 +2137,5 @@ usage(int status)			/* O - Exit status */
 
 
 /*
- * End of "$Id: main.c 7725 2008-07-14 06:16:34Z mike $".
+ * End of "$Id: main.c 7925 2008-09-10 17:47:26Z mike $".
  */

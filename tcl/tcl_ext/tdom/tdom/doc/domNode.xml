@@ -1,0 +1,613 @@
+<manpage id="domNode" cat="cmd" title="domNode">
+  <namesection>
+    <name>domNode</name>
+    <desc>Manipulates an instance of a DOM node object</desc>
+  </namesection>
+
+<!--
+
+  Copyright (c) 1999 Jochen Loewer (loewerj@hotmail.com)
+  Copyright (c) 2002-2005 Rolf Ade (rolf@pointsman.de)
+
+ See the file "LICENSE" for information on usage and redistribution
+ of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+
+-->
+
+  <synopsis>
+    <syntax> $nodeObject <m>method</m>  <m>arg arg ...</m></syntax>
+  </synopsis>
+  <section>
+    <title> DESCRIPTION </title>
+
+    <p>This command manipulates one particular instance of a DOM node object.
+<m>method</m> indicates a specific method of the node class. These methods
+should closely conform to the W3C recommendation &quot;Document Object Model
+(Core) Level 1&quot; (<ref
+href="http://www.w3.org/TR/REC-DOM-Level-1/level-one-core.html">http://www.w3.org/TR/REC-DOM-Level-1/level-one-core.html</ref>)
+as well to parts of the W3C draft &quot;XML Pointer Language (XPointer)&quot;
+(<ref
+href="http://www.w3.org/TR/1998/WD-xptr-19980303">http://www.w3.org/TR/1998/WD-xptr-19980303</ref>).
+Please note, that the XPointer methods are deprecated. Use DOM methods
+or XPath expressions instead of them.</p>
+
+    <p>The selectNodes method implements the &quot;XML Path
+Language (XPath) Version 1.0&quot; W3C recommendation 16 November 1999 (<ref
+href="http://www.w3.org/TR/1999/REC-xpath-19991116">http://www.w3.org/TR/1999/REC-xpath-19991116</ref>). Look
+at these documents for a deeper understanding of the functionality.</p>
+
+    <p>The valid methods are:</p>
+
+    <commandlist>
+      <commanddef>
+        <command><method>nodeType</method></command>
+        <desc>Returns the node type of that node object. This can be:
+ELEMENT_NODE, TEXT_NODE, CDATA_SECTION_NODE, COMMENT_NODE or
+PROCESSING_INSTRUCTION_NODE.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>nodeName</method></command>
+        <desc>Returns the node name of that node object. This is the element
+(tag) name for element nodes (type ELEMENT_NODE), the processing-instruction
+target for processing-instructions, &quot;#text&quot; for text node,
+&quot;#comment&quot; for comment nodes or &quot;#cdata&quot; for cdata section
+nodes.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>nodeValue</method> <m>?newValue?</m></command>
+        <desc>Returns the value of that node object. This is the the text or
+the data for element nodes of type TEXT_NODE, COMMENT_NODE,
+PROCESSING_INSTRUCTION_NODE or CDATA_SECTION_NODE). Otherwise it is empty. If
+the node is a TEXT_NODE, COMMENT_NODE or PROCESSING_INSTRUCTION_NODE and the
+optional argument <m>newValue</m> is given, the node is set to that
+value.</desc>
+
+      </commanddef>
+
+      <commanddef>
+        <command><method>hasChildNodes</method></command>
+        <desc>Returns 1 if the has children. Otherwise 0 is returned.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>parentNode</method> <variable>?objVar?</variable></command>
+        <desc>Returns the parent node.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>childNodes</method></command>
+        <desc>Returns a list of direct children node objects.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>childNodesLive</method></command>
+        <desc>Returns a &quot;live&quot; nodeList object of the child nodes of
+the node in the sense of the DOM recommendation. This nodeList object is
+&quot;live&quot; in the sense that, for instance, changes to the children of
+the node object that it was created from are immediately reflected in the nodes
+returned by the NodeList accessors; it is not a static snapshot of the content
+of the node. The both accessors know by the nodeList object are &quot;item
+&lt;index&gt;&quot;, which returns the indexth item in the collection, and
+&quot;length&quot;, which returns the number of nodes in the list.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>firstChild</method> <variable>?objVar?</variable></command>
+        <desc>Returns the first child as a node object.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>lastChild</method> <variable>?objVar?</variable></command>
+        <desc>Returns the last child as a node object.</desc>
+      </commanddef>
+      
+      <commanddef>
+        <command><method>nextSibling</method>  <variable>?objVar?</variable></command>
+        <desc>Returns the next sibling relativ to the current node as a node
+object.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>previousSibling</method> <variable>?objVar?</variable></command>
+        <desc>Returns the next sibling relativ to the current node as a node
+object.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>getElementsByTagName</method> <m>name</m></command>
+        <desc>Returns a list of all elements in the subtree matching (glob
+style) <m>name</m>.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>getElementsByTagNameNS</method> <m>uri</m> <m>localname</m></command>
+        <desc>Returns a list of all elements in the subtree
+matching (glob style) <m>localname</m> and having the given namespace
+<m>uri</m>.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>getElementById</method> <m>id</m></command>
+        <desc>Returns the node having a id attribute with value
+<m>id</m> or the emtpy string, if no node has an id attribute with that value.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>hasAttribute</method> <m>attributeName</m></command>
+        <desc>Returns 1 if the object node contains an attribute with name
+<m>attributeName</m> . Otherwise 0 is returned.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>getAttribute</method> <m>attributeName  ?defaultValue?</m></command>
+        <desc>Returns the value of the attribute <m>attributeName</m>. If
+attribute is not available <m>defaultValue</m> is returned.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>setAttribute</method> <m>attributeName newValue 
+?attributeName newValue ...?</m></command>
+        <desc>Sets the value for one or more attributes. Every
+<m>attributeName</m> is set to the corresponding <m>newValue</m>. If there
+isn't an attribute for one or more of the <m>attributeName</m> this will
+create that attribute.</desc>
+
+      </commanddef>
+
+      <commanddef>
+        <command><method>removeAttribute</method> <m>attributeName</m></command>
+        <desc>Removes the attribute <m>attributeName</m>.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>hasAttributeNS</method> <m>uri</m> <m>localName</m></command>
+        <desc>Returns 1 if the object node contains an attribute with the
+local name <m>localName</m> within the namespace <m>uri</m>.  Otherwise 0 is
+returned.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>getAttributeNS</method> <m>uri</m> <m>localName
+?defaultValue?</m></command>
+        <desc>Returns the value of the attribute with the local name
+<m>localName</m> within the namespace URI <m>uri</m>. If the node dosn't have
+that attribute the <m>defaultValue</m> is returned.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>setAttributeNS</method> <m>uri qualifiedName newValue
+?uri qualifiedName newValue ...?</m> </command>
+        <desc><p>Sets the value for one or more full qualified
+attributes. Every attribute <m>qualifiedName</m> with the namespace URI
+<m>uri</m> will be set to <m>newValue</m>. This will create a new attribute, if
+it wasn't avialble before. If you want to set an attribute within a namespace
+you must specify the attribute name with prefix, even if you want to set an
+already existing attribute to a new value. While searching, if the attribute
+already exists, only the given <m>uri</m> and the localname of the
+<m>qualifiedName</m> is used.</p>
+
+        <example>$node setAttributeNS "http://some.uri.com/wow" prefix:attr1 attrValue</example>
+
+<p>If the uri is the empty string and the attribute name hasn't a prefix, this
+method has the same effect as the method <b>setAttribute</b>.</p>
+
+        <example>$node setAttributeNS "" attri "some Value"</example>
+
+<p>XML namespace nodes are not in any namespace. Set them this way:</p>
+
+        <example>$node setAttributeNS "" xmlns:myprefix "myNamespaceURI"
+$node setAttributeNS "" xmlns "newDefaultNamespace"</example>
+
+<p>If your <m>qualifiedName</m> has the prefix "xml" and you give the empty
+string as <m>uri</m>, the namespace of the attribute defaults to
+"http://www.w3.org/XML/1998/namespace", as the DOM 2 recommendation
+requests. With the exceptions of the special prefixes "xmlns" and "xml" you
+always must provide a non emtpy <m>uri</m>, if your <m>qualifiedName</m> has a
+prefix.</p>
+        </desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>removeAttributeNS</method> <m>uri</m> <m>localName</m></command>
+        <desc>Removes the attribute with the local name <m>localName</m> within
+ the namespace <m>uri</m>.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>attributes</method> <option>?attributeNamePattern?</option></command>
+        <desc>Returns all attributes matching the <m>attributeNamePattern</m>.
+If <m>attributeNamePattern</m> isn't given all attributes are returned as a Tcl
+list.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>appendChild</method> <m>newChild</m></command>
+        <desc>Append <m>newChild</m> to the end of the child list of the
+node.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>insertBefore</method> <m>newChild</m>  <m>refChild</m></command>
+        <desc>Insert <m>newChild</m> before the <m>refChild</m> into the list of
+children of node. If <m>refChild</m> is the empty string, insert
+<m>newChild</m> at the end of the child nodes list of that node.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>replaceChild</method> <m>newChild</m>  <m>oldChild</m></command>
+        <desc>Replace <m>oldChild</m> with <m>newChild</m> in the list of
+children of that node. The <m>oldChild</m> node will be part of the
+document fragment list after this operation.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>removeChild</method> <m>child</m></command>
+        <desc>Removes <m>child</m> from the list of children of that node
+<m>child</m> will be part of the document fragment list after this
+operation. It is not physically deleted.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>delete</method></command>
+        <desc>Deletes the given node and its complete child tree
+and frees the complete internal memory. The affected nodes are not accessible
+through the document fragment list.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>cloneNode</method> <option>?-deep?</option></command>
+        <desc>Clones this node and adds the new create node into the document
+fragment list. If the <m>-deep</m> option is specified, all descendant nodes
+are also cloned.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>ownerDocument</method> <variable>?domObjVar?</variable></command>
+        <desc>Returns the document object of the document this node belongs
+to.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>find</method> <m>attrName</m> <m>attrVal</m>
+<option>?objVar?</option></command>
+        <desc>Finds the node with the attribute name <m>attrName</m>, and
+attribute value <m>attrVal</m> in the subtree starting the current node.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>child</method> <m>number|all</m> <option>type</option>
+<option>attrName attrValue</option></command>
+        <desc>(XPointer) child</desc>
+      </commanddef>
+      
+      <commanddef>
+        <command><method>descendant</method> <m>number|all</m> <option>type</option>
+<option>attrName attrValue</option></command>
+        <desc>(XPointer) descendant</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>ancestor</method> <m>number|all</m> <option>type</option>
+<option>attrName attrValue</option></command>
+        <desc>(XPointer) ancestor</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>fsibling</method> <m>number|all</m> <option>type</option>
+<option>attrName attrValue</option></command>
+        <desc>(XPointer) fsibling</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>psibling</method> <m>number|all</m> <option>type</option>
+<option>attrName attrValue</option></command>
+        <desc>(XPointer) psibling</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>root</method>  <option>objVar</option></command>
+        <desc>(XPointer) root</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>text</method></command>
+        <desc>Returns all text node children of that current node combined,
+i.e. appended into one string.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>target</method></command>
+        <desc>For a processing instruction node the target part is returned.
+Otherwise an error is generated.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>data</method></command>
+        <desc>For a processing instruction node the data part is returned. For
+a text node, comment node or cdata section node the value is returned.
+Otherwise an error is generated.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>prefix</method></command>
+        <desc>Returns the namespace prefix.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>namespaceURI</method></command>
+        <desc>Returns the namespace URI.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>localName</method></command>
+        <desc>Returns the localName from the tag name of the given node.</desc>
+      </commanddef>
+
+      <commanddef>
+          <command><method>selectNodes</method> <option>?-namespaces prefixUriList?</option> <option>?-cache &lt;boolean&gt;?</option> <m>xpathQuery</m> <option>?typeVar?</option></command>
+          <desc><p>Returns the result of applying the XPath query
+<m>xpathQuery</m> to the subtree. This can be a
+string/value, a list of strings, a list of nodes or a list
+of attribute name / value pairs. If <m>typeVar</m> is given
+the result type name is stored into that variable (empty,
+bool, number, string, nodes, attrnodes or mixed).</p>
+
+<p>The argument <m>xpathQuery</m> has to be a valid XPath
+expression. However, there is one exception to that rule. Tcl variable
+names can appear in the XPath statement at any position where it is
+legal according to the rules of the XPath syntax to put an XPath
+variable. The value of the variable is substituted for the variable
+name. Ignoring the syntax rules of XPath the Tcl variable name may be
+any legal Tcl var name: local variables, global variables, array
+entries and so on.</p>
+
+<p>The option <m>-namespaces</m> expects a tcl list with prefix /
+namespace pairs as argument. If this option is not given, then any
+namespace prefix within the xpath expression will be first resolved
+against the list of prefix / namespace pairs set with the
+selectNodesNamespaces method for the document, the node belongs to. If
+this fails, then the namespace definitions in scope of the context
+node will be used to resolve the prefix. If this option is given, any
+namespace prefix within the xpath expression will be first resolved
+against that given list (and ignoring the document global prefix /
+namespace list). If the list bind the same prefix to different
+namespaces, then the first binding will win.  If this fails, then the
+namespace definitions in scope of the context node will be used to
+resolve the prefix, as usual.</p>
+
+<p>If the <m>-cache</m> option is used with a true value, then the
+<m>xpathQuery</m> will be looked up in a document specific cache. If the query
+is found, then the stored pre-compiled query will be used. If the
+query isn't found, it will be pre-compiled and stored in the cache,
+for use in further calls. Please notice, that the <m>xpathQuery</m> as given as
+string is used as key for the cache. This means, that equal XPath
+expressions, which differ only in white space are treated as
+different cache entries. Special care is needed, if the XPath
+expression includes namespace prefixes. During pre-compilation, the
+prefixes will be resolved first to the prefix / namespace pairs of
+the <m>-namespaces</m> option, if given, and to the namespaces
+in scope of the context node at pre-compilation time. If the XPath
+is found in the cache, neither the <m>-namespaces</m> option nor
+the namespaces in scope of the context node will be taken in
+account but the already resolved (stored) namespaces will be used
+for the query.</p>
+
+<p>Examples:</p>
+          <example>set paragraphNodes [$node selectNodes {chapter[3]//para[@type='warning' or @type='error'} ]
+foreach paragraph $paragraphNodes {
+    lappend  values [$paragraph selectNodes attribute::type]
+}
+
+set doc [dom parse {&lt;doc xmlns="http://www.defaultnamespace.org"&gt;&lt;child/&gt;&lt;/doc&gt;}]
+set root [$doc documentElement]
+set childNodes [$root selectNodes -namespaces {default http://www.defaultnamespace.org} default:child]</example>
+
+          </desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>getLine</method></command>
+        <desc>Returns the line number of that node in the orignal parsed
+XML.</desc>
+      </commanddef>
+      
+      <commanddef>
+        <command><method>getColumn</method></command>
+        <desc>Returns the column number of that node in the orignal parsed
+XML.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>asList</method></command>
+        <desc>Returns the DOM substree starting form the current node as a
+nested Tcl list.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>asXML</method> <option>?-indent none/1..8?</option>
+<option>?-channel channelId?</option> <option>?-escapeNonASCII?</option><option>?-escapeAllQuot?</option></command>
+
+        <desc>Returns the DOM substree starting from the current node
+as the root node of the result as an (optional indented) XML string or
+sends the output directly to the given channelId. If the option
+<m>-escapeNonASCII</m> is given, every non 7 bit ASCII character in
+attribute values or element PCDATA content will be escaped as
+character reference in decimal representation. If the option
+<m>-escapeAllQuot</m> is given, quotation marks will be escaped with
+&amp;quot; even in text content of elements.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>asHTML</method> <option>?-channel channelId?</option>
+<option>?-escapeNonASCII?</option>  <option>?-htmlEntities?</option></command>
+        <desc>Returns the DOM substree starting from the current node as the
+root node of the result serialized acording to HTML rules (HTML elements are
+recognized regardless of case, without end tags for emtpy HTML elements etc.),
+as string or sends the output directly to the given channelId. If the option
+<m>-escapeNonASCII</m> is given, every non 7 bit ASCII character in attribute
+values or element PCDATA content will be escaped as character reference in
+decimal representation. If the option <m>-htmlEntities</m> is given, a
+character is outputed using a HTML 4.01 character entity reference, if one is
+defined for it.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>asText</method></command>
+          <desc>For ELEMENT_NODEs, the asText method outputs 
+the string-value of every text node descendant of node in document
+order without any escaping. For every other node type, this method outputs the
+the XPath string value of that node.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>appendFromList</method> <m>list</m></command>
+        <desc>Parses <m>list</m> , creates an according DOM subtree and
+appends this subtree to the current node.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>appendFromScript</method> <m>tclScript</m></command>
+        <desc>Appends the nodes created in the <m>tclScript</m> by
+Tcl functions, which have been built using <m>dom createNodeCmd</m>, to the
+given node.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>insertBeforeFromScript</method> <m>tclScript</m> <m>refChild</m></command>
+        <desc>Inserts the nodes created in the <m>tclScript</m> by
+Tcl functions, which have been built using <m>dom createNodeCmd</m>, before the
+<m>refChild</m> into to the list of children of node. If <m>refChild</m> is
+the empty string, the new nodes will be appended.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>appendXML</method> <m>XMLstring</m></command>
+        <desc>Parses <m>XMLstring</m>, creates an according DOM subtree and
+appends this subtree to the current node.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>simpleTranslate</method> <m>outputVar</m>
+<m>specifications</m></command>
+        <desc>Translate the subtree starting at the object node according to
+the specifications in <m>specifications</m> and outputs the result in the
+variable <m>outputVar</m> . The translation is very similar to Cost Simple
+mode.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>toXPath</method></command>
+        <desc>Returns an XPath, which exactly addresses the given
+node in its document. This XPath is only valid as there are no changes to DOM
+tree made later one.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>getBaseURI</method></command>
+        <desc>Returns the baseURI of the node. This method is deprecated in
+          favor of the <m>baseURI</m> method.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>baseURI <m>?URI?</m></method></command>
+        <desc>Returns the present baseURI of the node. If the optional 
+argument URI is given, sets the base URI of the node and of all of its child
+nodes out of the same enitity as node to the given URI.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>disableOutputEscaping</method> <m>?boolean?</m></command>
+        <desc>This method works only for text nodes; for every other nodes it
+returns error. Without the optional argument it returns, if disabling output
+escaping is on. The return value 0 means, the characters of the text node will
+be escaped, to generate valid XML, if serialized. This is the default for
+every parsed or created text node (with the exception of that text nodes in a
+result tree of an XSLT transformation, for which disabling output escaping was
+requested explicitely in the stylesheet). The return value 1 means, that output
+escaping is disabled for this text node. If such a text node is serialized
+(with asXML or asHTML), it is literarily written, without escaping of the
+special XML characters. If the optional boolean value <m>boolean</m> is given,
+the flag is set accordingly. You should not set this flag to 1, until you
+really know, what you do.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>precedes</method> <m>refnode</m></command>
+        <desc>Compares the relative order of the node and <m>refnode</m>. Both
+nodes must be part of the same documents and not out of the fragment list of
+the document. Returns true, if node is in document order (in the sense of the
+XPath 1.0 recommendation) before <m>refnode</m> and false otherwise.</desc>
+      </commanddef>
+
+
+      <commanddef>
+        <command><method>normalize</method> <m>?-forXPath?</m></command>
+        <desc>Puts all Text nodes in the full depth of the sub-tree underneath
+this Node into a "normal" form where only structure (e.g., elements,
+comments, processing instructions and CDATA
+sections) separates Text nodes, i.e., there
+are neither adjacent Text nodes nor empty Text nodes. If the option
+<m>-forXPath</m> is given, all CDATA sections in the nodes are
+converted to text nodes, as a first step before the
+normalization. </desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>xslt</method> <option>?-parameters
+parameterList?</option> <option>?-ignoreUndeclaredParameters?</option>
+<option>?-xsltmessagecmd script?</option> <m>stylesheet</m> <m>?outputVar?</m></command>
+        <desc>Applies an XSLT transformation on the document using the XSLT
+<m>stylesheet</m> (given as domDoc). Returns a document object containing the
+result document of that transformation and stores it in the optional
+<m>outputVar</m>. 
+
+<p>The optional <m>-parameters</m> option sets top level
+&lt;xsl:param&gt; to string values. The <m>parameterList</m> has to be a tcl
+list consisting of parameter name and value pairs.</p>
+
+<p>If the option <m>-ignoreUndeclaredParameters</m> is given, then parameter
+names in the <m>parameterList</m> given to the <m>-parameters</m> options that
+are not declared as top-level parameters in the stylesheet are silently
+ignored. Without this option, an error is raised, if the user tries to set a
+top-level parameter, which is not declared in the stylesheet.</p>
+
+<p>The <m>-xsltmessagecmd</m> option sets a callback for xslt:message elements
+in the stylesheet. The actual command consists of the script, given as argument
+to the option, appended with the XML Fragment from instantiating the
+xsl:message element content as string (as if the XPath string() function would
+have been applied to the XML Fragment) and a flag, which indicates, if the
+xsl:message has an attribute "terminate" with the value "yes".</p>
+</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><m>@attrName</m></command>
+        <desc>Returns the value of the attribute <m>attrName</m>.  Short cut
+for <m>getAttribute</m>.</desc>
+      </commanddef>
+    </commandlist>
+
+    <p>Otherwise, if an unknown method name is given, the command with the same
+name as the given method within the namespace <l>::dom::domNode</l> is tried to
+be executed. This allows quick method additions on Tcl level.</p>
+
+  </section>
+
+
+  <seealso>
+    <ref>dom</ref>
+    <ref>domDoc</ref>
+  </seealso>
+  
+  <keywords>
+    <keyword>XML</keyword>
+    <keyword>DOM</keyword>
+    <keyword>document</keyword>
+    <keyword>node</keyword>
+    <keyword>parsing</keyword>
+  </keywords>
+  
+</manpage>
+

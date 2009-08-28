@@ -1,27 +1,25 @@
-Vostè, o algú fent-se passar per vostè, ha demanat un recordatori
-de la seva clau de pas de la seva compta a la llista de correu %(fqdn_lname)s.
+Heu solÂ·licitat (o bÃ© algÃº que s'ha fet passar per vÃ³s) un recordatori
+de la contrasenya de subscripciÃ³ a la llista %(fqdn_lname)s.  Us caldrÃ 
+aquesta contrasenya per a canviar les vostres opcions de subscripciÃ³
+(p.ex., si voleu rebre els missatges normals o bÃ© agrupats), aixÃ­ com
+per a cancelÂ·lar la vostra subscripciÃ³ a aquesta llista.
 
-Necessiatarà aquesta clau per tal de canviar les opcions del seu compte
-(per exemple, si vol rebre el correu de forma normal o de forma compilada en 
-un sol correu diari), i tenir aquesta clau fa més fàcil el donar-se de baixa de
-la llista de correu.
+La vostra adreÃ§a de subscripciÃ³ Ã©s: %(user)s
 
-Vostè està subscrit amb l'adreça: %(user)s
+La vostra contrasenya de %(listname)s Ã©s: %(password)s
 
-La clau de pas de %(listname)s és: %(password)s
-
-Per canviar les opcions del seu compte, registri's i visiti la seva pàgina web d'opcions:
+Si voleu canviar les vostres opcions de subscripciÃ³, aneu a la vostra
+pÃ gina personal d'opcions a:
 
     %(options_url)s
 
-També pot fer aquests canvis via email, enviant un missatge a:
+TambÃ© podeu fer aquests canvis a travÃ©s del correu electrÃ²nic si envieu
+un missatge a:
 
     %(requestaddr)s
 
-amb la paraula'ajuda' en el títol o bé el cos del missatge. Rebrà aleshores
-una resposta automàtica amb instruccions més detallades.
+amb el text Â«helpÂ» a l'assumpte o al cos.  La resposta automÃ tica us
+proporcionarÃ  instruccions amb mÃ©s detall.
 
-Preguntes, comentaris?, si us plau, envii-ho tot a l'administrador de la 
-llista de correu  %(listname)s a la següent adreça:
-
- %(owneraddr)s.
+En cas que tingueu preguntes o comentaris, envieu-les a l'administrador
+de la llista de correu %(listname)s a %(owneraddr)s.

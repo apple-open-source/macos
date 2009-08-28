@@ -16,3 +16,17 @@
 	kMilk,
 	kWater
   };
+
+/*!
+   Anonymous enum
+ */
+enum {
+	kFoo
+};
+
+/*!
+	Non-anonymous enum
+ */
+enum {
+	kBar
+} bar;

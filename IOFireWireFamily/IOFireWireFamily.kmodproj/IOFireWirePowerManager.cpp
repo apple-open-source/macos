@@ -50,7 +50,7 @@ OSMetaClassDefineReservedUnused(IOFireWirePowerManager, 9);
 
 IOFireWirePowerManager * IOFireWirePowerManager::createWithController( IOFireWireController * controller )
 {
-    IOFireWirePowerManager * me = new IOFireWirePowerManager;
+    IOFireWirePowerManager * me = OSTypeAlloc( IOFireWirePowerManager );
 	if( me != NULL )
 	{
 		if( !me->initWithController(controller) ) 
@@ -143,7 +143,7 @@ void IOFireWirePowerManager::deallocateDeciwatts( UInt32 deciwatts )
 	}
 	else
 	{
-		IOLog( "IOFireWirePowerManager::deallocateDeciwatts - freed deciwatts %ld > allocated deciwatts %ld!\n", deciwatts, fAllocatedDeciwatts );
+		IOLog( "IOFireWirePowerManager::deallocateDeciwatts - freed deciwatts %d > allocated deciwatts %d!\n", (uint32_t)deciwatts, (uint32_t)fAllocatedDeciwatts );
 		fAllocatedDeciwatts = 0;
 	}
 	

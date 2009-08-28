@@ -41,8 +41,6 @@ __strncat_chk (char *restrict dest, const char *restrict src,
       s1++;
     }
 
-  dstlen++;
-
   /* Append the string. */
   while (len > 0)
     {
@@ -53,6 +51,7 @@ __strncat_chk (char *restrict dest, const char *restrict src,
       s1++;
       len--;
     }
+    *s1 = 0;
 
   return dest;
 

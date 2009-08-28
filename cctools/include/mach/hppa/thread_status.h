@@ -71,13 +71,13 @@
  * some restrictions on psw).
  */
 struct hp_pa_frame_thread_state {
-	unsigned long	ts_pcsq_front;	/* instruction address space front */
-	unsigned long	ts_pcsq_back;	/* instruction address space back */
-	unsigned long	ts_pcoq_front;	/* instruction offset space front */
-	unsigned long	ts_pcoq_back;	/* instruction offset space back */
-	unsigned long	ts_psw;		/* process status word */
-	unsigned long	ts_unaligned_faults;	/* number of unaligned data references READ-ONLY */
-	unsigned long	ts_fault_address;	/* address of failing page fault READ-ONLY */
+	uint32_t	ts_pcsq_front;	/* instruction address space front */
+	uint32_t	ts_pcsq_back;	/* instruction address space back */
+	uint32_t	ts_pcoq_front;	/* instruction offset space front */
+	uint32_t	ts_pcoq_back;	/* instruction offset space back */
+	uint32_t	ts_psw;		/* process status word */
+	uint32_t	ts_unaligned_faults;	/* number of unaligned data references READ-ONLY */
+	uint32_t	ts_fault_address;	/* address of failing page fault READ-ONLY */
 /*
  * A step range is a range of address that
  * will be executed with out generating a single
@@ -93,8 +93,8 @@ struct hp_pa_frame_thread_state {
  * same non-zero value will execute only one instruction due to action
  * of the pc queue. (Yes, nullified instructions count)
  */
-	unsigned long	ts_step_range_start;
-	unsigned long	ts_step_range_stop;
+	uint32_t	ts_step_range_start;
+	uint32_t	ts_step_range_stop;
 
 	/* Generate an exception when OS assists with an alignment fault */
 	boolean_t	ts_alignment_trap_reflect;
@@ -108,54 +108,54 @@ struct hp_pa_frame_thread_state {
  * have been recompiled. XXX
  */
 struct hp_pa_old_frame_thread_state {
-	unsigned long	ts_pcsq_front;	/* instruction address space front */
-	unsigned long	ts_pcsq_back;	/* instruction address space back */
-	unsigned long	ts_pcoq_front;	/* instruction offset space front */
-	unsigned long	ts_pcoq_back;	/* instruction offset space back */
-	unsigned long	ts_psw;		/* process status word */
+	uint32_t	ts_pcsq_front;	/* instruction address space front */
+	uint32_t	ts_pcsq_back;	/* instruction address space back */
+	uint32_t	ts_pcoq_front;	/* instruction offset space front */
+	uint32_t	ts_pcoq_back;	/* instruction offset space back */
+	uint32_t	ts_psw;		/* process status word */
 };
 
 /*
- * The unsigned longeger state that may be changed by any
+ * The hp_pa_integer_thread_state that may be changed by any
  * process in user space.
  */
 typedef struct hp_pa_integer_thread_state {
-	unsigned long	ts_gr1;		/* the user's general registers */
-	unsigned long	ts_gr2;
-	unsigned long	ts_gr3;
-	unsigned long	ts_gr4;
-	unsigned long	ts_gr5;
-	unsigned long	ts_gr6;
-	unsigned long	ts_gr7;
-	unsigned long	ts_gr8;
-	unsigned long	ts_gr9;
-	unsigned long	ts_gr10;
-	unsigned long	ts_gr11;
-	unsigned long	ts_gr12;
-	unsigned long	ts_gr13;
-	unsigned long	ts_gr14;
-	unsigned long	ts_gr15;
-	unsigned long	ts_gr16;
-	unsigned long	ts_gr17;
-	unsigned long	ts_gr18;
-	unsigned long	ts_gr19;
-	unsigned long	ts_gr20;
-	unsigned long	ts_gr21;
-	unsigned long	ts_gr22;
-	unsigned long	ts_gr23;
-	unsigned long	ts_gr24;
-	unsigned long	ts_gr25;
-	unsigned long	ts_gr26;
-	unsigned long	ts_gr27;
-	unsigned long	ts_gr28;
-	unsigned long	ts_gr29;
-	unsigned long	ts_gr30;
-	unsigned long	ts_gr31;
-	unsigned long	ts_sr0;		/* the user's space registgers */
-	unsigned long	ts_sr1;
-	unsigned long	ts_sr2;
-	unsigned long	ts_sr3;
-	unsigned long	ts_sar;		/* the user's shift amount register */
+	uint32_t	ts_gr1;		/* the user's general registers */
+	uint32_t	ts_gr2;
+	uint32_t	ts_gr3;
+	uint32_t	ts_gr4;
+	uint32_t	ts_gr5;
+	uint32_t	ts_gr6;
+	uint32_t	ts_gr7;
+	uint32_t	ts_gr8;
+	uint32_t	ts_gr9;
+	uint32_t	ts_gr10;
+	uint32_t	ts_gr11;
+	uint32_t	ts_gr12;
+	uint32_t	ts_gr13;
+	uint32_t	ts_gr14;
+	uint32_t	ts_gr15;
+	uint32_t	ts_gr16;
+	uint32_t	ts_gr17;
+	uint32_t	ts_gr18;
+	uint32_t	ts_gr19;
+	uint32_t	ts_gr20;
+	uint32_t	ts_gr21;
+	uint32_t	ts_gr22;
+	uint32_t	ts_gr23;
+	uint32_t	ts_gr24;
+	uint32_t	ts_gr25;
+	uint32_t	ts_gr26;
+	uint32_t	ts_gr27;
+	uint32_t	ts_gr28;
+	uint32_t	ts_gr29;
+	uint32_t	ts_gr30;
+	uint32_t	ts_gr31;
+	uint32_t	ts_sr0;		/* the user's space registgers */
+	uint32_t	ts_sr1;
+	uint32_t	ts_sr2;
+	uint32_t	ts_sr3;
+	uint32_t	ts_sar;		/* the user's shift amount register */
 } hp_pa_integer_thread_state_t;
 
 /*
@@ -197,11 +197,11 @@ typedef struct hp_pa_fp_thread_state {
 	double	ts_fp31;
 } hp_pa_fp_thread_state_t;
 
-#define	HPPA_INTEGER_THREAD_STATE_COUNT (sizeof(struct hp_pa_integer_thread_state) / sizeof(unsigned long))
-#define	HPPA_FRAME_THREAD_STATE_COUNT (sizeof(struct hp_pa_frame_thread_state) / sizeof(unsigned long))
-#define	HPPA_FP_THREAD_STATE_COUNT (sizeof(struct hp_pa_fp_thread_state) / sizeof(unsigned long))
+#define	HPPA_INTEGER_THREAD_STATE_COUNT (sizeof(struct hp_pa_integer_thread_state) / sizeof(uint32_t))
+#define	HPPA_FRAME_THREAD_STATE_COUNT (sizeof(struct hp_pa_frame_thread_state) / sizeof(uint32_t))
+#define	HPPA_FP_THREAD_STATE_COUNT (sizeof(struct hp_pa_fp_thread_state) / sizeof(uint32_t))
 
 /* Get rid of as soon as all users of thread_frame_state have been recompiled XXX */
-#define	HPPA_OLD_FRAME_THREAD_STATE_COUNT (sizeof(struct hp_pa_old_frame_thread_state) / sizeof(unsigned long))
+#define	HPPA_OLD_FRAME_THREAD_STATE_COUNT (sizeof(struct hp_pa_old_frame_thread_state) / sizeof(uint32_t))
 
 #endif	/* _HPPA_THREAD_STATE_ */

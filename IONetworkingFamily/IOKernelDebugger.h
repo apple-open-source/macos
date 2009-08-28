@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -18,14 +18,6 @@
  * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
- */
-/*
- * Copyright (c) 1999 Apple Computer, Inc.  All rights reserved. 
- *
- * IOKernelDebugger.cpp
- *
- * HISTORY
- *
  */
 
 #ifndef _IOKERNELDEBUGGER_H
@@ -94,27 +86,21 @@ class IOKernelDebugger : public IOService
     OSDeclareDefaultStructors( IOKernelDebugger )
 
 protected:
-    IOService *            _target;      // target (provider)
-    IODebuggerTxHandler    _txHandler;   // target's transmit handler.
-    IODebuggerRxHandler    _rxHandler;   // target's receive handler.
-    IOService *            _client;      // client that has opened us.
-    bool                   _pmDisabled;  // true if disabled by PM.
+    IOService *             _target;      // target (provider)
+    IODebuggerTxHandler     _txHandler;   // target's transmit handler.
+    IODebuggerRxHandler     _rxHandler;   // target's receive handler.
+    IOService *             _client;      // client that has opened us.
+    bool                    _pmDisabled;  // true if disabled by PM.
 
     struct ExpansionData {
-        thread_call_t  enableDebuggerThreadCall;
-        thread_call_t  disableDebuggerThreadCall;
         thread_call_t  activationChangeThreadCall;
         UInt32         stateVars[2];
-		IONotifier  *interfaceNotifier;
+		IONotifier  *  interfaceNotifier;
     };
 
     /*! @var reserved
         Reserved for future use.  (Internal use only)  */
-    ExpansionData *	    _reserved;
-
-
-    static void pmEnableDebugger(  IOKernelDebugger * debugger );
-    static void pmDisableDebugger( IOKernelDebugger * debugger );
+    ExpansionData *         _reserved;
 
 /*! @function kdpReceiveDispatcher
     @abstract The KDP receive dispatch function.
@@ -207,7 +193,7 @@ protected:
 */
 
     virtual IOReturn powerStateWillChangeTo( IOPMPowerFlags  flags,
-                                             UInt32          stateNumber,
+                                             unsigned long   stateNumber,
                                              IOService *     policyMaker );
 
 /*! @function powerStateDidChangeTo
@@ -227,7 +213,7 @@ protected:
 */
 
     virtual IOReturn powerStateDidChangeTo( IOPMPowerFlags  flags,
-                                            UInt32          stateNumber,
+                                            unsigned long   stateNumber,
                                             IOService *     policyMaker );
 
 /*! @function handleOpen

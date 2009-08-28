@@ -72,11 +72,12 @@ appdefaultdir = @appdefaultdir@
 
 
 APPDEFAULTFILES = \
-        XSm
+        app-defaults/XSm
 
 SUFFIXES = .ad
 
 .ad:
+	[ -d app-defaults ] || mkdir app-defaults
 	cp $< $@
 
 appdefault_DATA = $(APPDEFAULTFILES)

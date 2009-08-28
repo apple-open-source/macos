@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Rob Braun
+ * Copyright (c) 2005-2007 Rob Braun
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,7 +28,7 @@
  */
 /*
  * 03-Apr-2005
- * DRI: Rob Braun <bbraun@opendarwin.org>
+ * DRI: Rob Braun <bbraun@synack.net>
  */
 /*
  * Portions Copyright 2006, Apple Computer, Inc.
@@ -51,6 +51,7 @@ struct errctx {
 	int         saved_errno;
 	xar_file_t  file;
 	void       *usrctx;
+	xar_t       x;
 };
 
 struct __xar_t {
@@ -60,29 +61,29 @@ struct __xar_t {
 	const char *ns;
 	const char *filler1;
 	const char *filler2;
-	xar_file_t files;			/* file forest */
-	const char *filename;		/* name of the archive we are operating on */
-	char *dirname;				/* directory of the archive, used in creation */
-	int fd;						/* open file descriptor for the archive */
-	int heap_fd;				/* fd for tmp heap archive, used in creation */
-	off_t heap_offset;			/* current offset within the heap */
-	off_t heap_len;				/* current length of the heap */
-	xar_header_t header;		/* header of the xar archive */
-	void *readbuf;				/* buffer for reading/writing compressed toc */
-	size_t readbuf_len;			/* length of readbuf */
-	size_t offset;				/* offset into readbuf for keeping track
-								* between callbacks. */
-	size_t toc_count;			/* current bytes read of the toc */
-	z_stream zs;				/* gz state for compressing/decompressing toc */
-	char *path_prefix;			/* used for distinguishing absolute paths */
-	err_handler ercallback;		/* callback for errors/warnings */
-	struct errctx errctx;		/* error callback context */
-	xar_subdoc_t subdocs;		/* linked list of subdocs */
-	xar_signature_t signatures;	/* linked list of signatures */
-	uint64_t last_fileid;		/* unique fileid's in the archive */
-	xmlHashTablePtr ino_hash;	/* Hash for looking up hardlinked files (add)*/
-	xmlHashTablePtr link_hash;	/* Hash for looking up hardlinked files (extract)*/
-	xmlHashTablePtr csum_hash;	/* Hash for looking up checksums of files */
+	xar_file_t files;       /* file forest */
+	const char *filename;   /* name of the archive we are operating on */
+	char *dirname;          /* directory of the archive, used in creation */
+	int fd;                 /* open file descriptor for the archive */
+	int heap_fd;            /* fd for tmp heap archive, used in creation */
+	off_t heap_offset;      /* current offset within the heap */
+	off_t heap_len;         /* current length of the heap */
+	xar_header_t header;    /* header of the xar archive */
+	void *readbuf;          /* buffer for reading/writing compressed toc */
+	size_t readbuf_len;     /* length of readbuf */
+	size_t offset;          /* offset into readbuf for keeping track
+	                         * between callbacks. */
+	size_t toc_count;       /* current bytes read of the toc */
+	z_stream zs;            /* gz state for compressing/decompressing toc */
+	char *path_prefix;      /* used for distinguishing absolute paths */
+	err_handler ercallback; /* callback for errors/warnings */
+	struct errctx errctx;   /* error callback context */
+	xar_subdoc_t subdocs;   /* linked list of subdocs */
+	xar_signature_t signatures; /* linked list of signatures */
+	uint64_t last_fileid;       /* unique fileid's in the archive */
+	xmlHashTablePtr ino_hash;   /* Hash for looking up hardlinked files (add)*/
+	xmlHashTablePtr link_hash;  /* Hash for looking up hardlinked files (extract)*/
+	xmlHashTablePtr csum_hash;  /* Hash for looking up checksums of files */
 	EVP_MD_CTX toc_ctx;
 	int docksum;
 	int skipwarn;

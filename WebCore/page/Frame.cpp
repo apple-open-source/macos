@@ -185,9 +185,6 @@ Frame::~Frame()
     frameCounter.decrement();
 #endif
 
-    if (m_script.haveWindowShell())
-        m_script.windowShell()->disconnectFrame();
-
     disconnectOwnerElement();
     
     if (m_domWindow)
@@ -224,7 +221,7 @@ FrameView* Frame::view() const
     return m_view.get();
 }
 
-void Frame::setView(FrameView* view)
+void Frame::setView(PassRefPtr<FrameView> view)
 {
     // Detach the document now, so any onUnload handlers get run - if
     // we wait until the view is destroyed, then things won't be
@@ -571,7 +568,7 @@ static bool isFrameElement(const Node *n)
 
 void Frame::setFocusedNodeIfNeeded()
 {
-    if (selection()->isNone() || !selection()->isFocusedAndActive())
+    if (selection()->isNone() || !selection()->isFocused())
         return;
 
     bool caretBrowsing = settings() && settings()->caretBrowsingEnabled();
@@ -625,7 +622,7 @@ void Frame::selectionLayoutChanged()
     // Start blinking with a black caret. Be sure not to restart if we're
     // already blinking in the right location.
     if (shouldBlink && !m_caretBlinkTimer.isActive()) {
-        if (double blinkInterval = theme()->caretBlinkInterval())
+        if (double blinkInterval = page()->theme()->caretBlinkInterval())
             m_caretBlinkTimer.startRepeating(blinkInterval);
 
         if (!m_caretPaint) {
@@ -1580,11 +1577,6 @@ void Frame::pageDestroyed()
         page()->focusController()->setFocusedFrame(0);
 
     script()->clearWindowShell();
-
-    // This will stop any JS timers
-    if (script()->haveWindowShell())
-        script()->windowShell()->disconnectFrame();
-
     script()->clearScriptObjects();
     script()->updatePlatformScriptObjects();
 
@@ -1759,20 +1751,18 @@ void Frame::createView(const IntSize& viewportSize,
 
     setView(0);
 
-    FrameView* frameView;
+    RefPtr<FrameView> frameView;
     if (isMainFrame) {
-        frameView = new FrameView(this, viewportSize);
+        frameView = FrameView::create(this, viewportSize);
         frameView->setFixedLayoutSize(fixedLayoutSize);
         frameView->setUseFixedLayout(useFixedLayout);
     } else
-        frameView = new FrameView(this);
+        frameView = FrameView::create(this);
 
     frameView->setScrollbarModes(horizontalScrollbarMode, verticalScrollbarMode);
     frameView->updateDefaultScrollbarState();
 
     setView(frameView);
-    // FrameViews are created with a ref count of 1. Release this ref since we've assigned it to frame.
-    frameView->deref();
 
     if (backgroundColor.isValid())
         frameView->updateBackgroundRecursively(backgroundColor, transparent);

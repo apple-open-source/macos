@@ -71,6 +71,7 @@ main(int argc, char *argv[])
 	addarg("cc");
 	addarg("-std=iso9899:1999");
 	addarg("-pedantic");
+	addarg("-m32");
 	addarg("-Wextra-tokens"); /* Radar 4205857 */
 #if defined (__ppc__) || defined (__ppc64__)
 	/* on ppc long double doesn't work */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,24 +41,14 @@
 
 #include <notify.h>
 
-
 static SCDynamicStoreRef	store		= NULL;
 static CFRunLoopSourceRef	rls		= NULL;
 
 static Boolean			dnsActive	= FALSE;
 static CFMachPortRef		dnsPort		= NULL;
-static CFRunLoopSourceRef	dnsRLS		= NULL;
 static struct timeval		dnsQueryStart;
 
 static Boolean			_verbose	= FALSE;
-
-
-/* SPI (from SCNetworkReachability.c) */
-Boolean
-_SC_checkResolverReachabilityByAddress(SCDynamicStoreRef	*storeP,
-				       SCNetworkConnectionFlags	*flags,
-				       Boolean			*haveDNS,
-				       struct sockaddr		*sa);
 
 
 #define	HOSTNAME_NOTIFY_KEY	"com.apple.system.hostname"
@@ -421,29 +411,6 @@ reverseDNSComplete(int32_t status, char *host, char *serv, void *context)
 }
 
 
-static void
-getnameinfo_async_handleCFReply(CFMachPortRef port, void *msg, CFIndex size, void *info)
-{
-	int32_t	status;
-
-	status = getnameinfo_async_handle_reply(msg);
-	if ((status == 0) && dnsActive) {
-		// if request has been re-queued
-		return;
-	}
-
-	if (port == dnsPort) {
-		CFRunLoopSourceInvalidate(dnsRLS);
-		CFRelease(dnsRLS);
-		dnsRLS = NULL;
-		CFRelease(dnsPort);
-		dnsPort = NULL;
-	}
-
-	return;
-}
-
-
 static CFStringRef
 replyMPCopyDescription(const void *info)
 {
@@ -457,10 +424,57 @@ replyMPCopyDescription(const void *info)
 
 
 static void
+getnameinfo_async_handleCFReply(CFMachPortRef port, void *msg, CFIndex size, void *info)
+{
+	mach_port_t	mp	= MACH_PORT_NULL;
+	int32_t		status;
+
+	if (port != dnsPort) {
+		// we've received a callback on the async DNS port but since the
+		// associated CFMachPort doesn't match than the request must have
+		// already been cancelled.
+		SCLog(TRUE, LOG_ERR, CFSTR("getnameinfo_async_handleCFReply(): port != dnsPort"));
+		return;
+	}
+
+	mp = CFMachPortGetPort(port);
+	CFMachPortInvalidate(dnsPort);
+	CFRelease(dnsPort);
+	dnsPort = NULL;
+	__MACH_PORT_DEBUG(mp != NULL, "*** set-hostname (after unscheduling)", mp);
+
+	status = getnameinfo_async_handle_reply(msg);
+	__MACH_PORT_DEBUG(mp != NULL, "*** set-hostname (after getnameinfo_async_handle_reply)", mp);
+	if ((status == 0) && dnsActive && (mp != MACH_PORT_NULL)) {
+		CFMachPortContext	context	= { 0
+						  , (void *)store
+						  , CFRetain
+						  , CFRelease
+						  , replyMPCopyDescription
+		};
+		CFRunLoopSourceRef	rls;
+
+		// if request has been re-queued
+		dnsPort = CFMachPortCreateWithPort(NULL,
+						   mp,
+						   getnameinfo_async_handleCFReply,
+						   &context,
+						   NULL);
+		rls = CFMachPortCreateRunLoopSource(NULL, dnsPort, 0);
+		CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
+		CFRelease(rls);
+		__MACH_PORT_DEBUG(mp != NULL, "*** set-hostname (after rescheduling)", mp);
+	}
+
+	return;
+}
+
+
+static void
 start_dns_query(SCDynamicStoreRef store, CFStringRef address)
 {
 	char				addr[64];
-	SCNetworkConnectionFlags	flags;
+	SCNetworkReachabilityFlags	flags;
 	Boolean				haveDNS;
 	Boolean				ok;
 	struct sockaddr			*sa;
@@ -504,8 +518,8 @@ start_dns_query(SCDynamicStoreRef store, CFStringRef address)
 
 	ok = _SC_checkResolverReachabilityByAddress(&store, &flags, &haveDNS, sa);
 	if (ok) {
-		if (!(flags & kSCNetworkFlagsReachable) ||
-			(flags & kSCNetworkFlagsConnectionRequired)) {
+		if (!(flags & kSCNetworkReachabilityFlagsReachable) ||
+		    (flags & kSCNetworkReachabilityFlagsConnectionRequired)) {
 			// if not reachable *OR* connection required
 			ok = FALSE;
 		}
@@ -518,12 +532,13 @@ start_dns_query(SCDynamicStoreRef store, CFStringRef address)
 						  , CFRelease
 						  , replyMPCopyDescription
 						  };
-		mach_port_t		port;
 		int32_t			error;
+		mach_port_t		mp;
+		CFRunLoopSourceRef	rls;
 
 		(void) gettimeofday(&dnsQueryStart, NULL);
 
-		error = getnameinfo_async_start(&port,
+		error = getnameinfo_async_start(&mp,
 						sa,
 						sa->sa_len,
 						NI_NAMEREQD,	// flags
@@ -532,15 +547,18 @@ start_dns_query(SCDynamicStoreRef store, CFStringRef address)
 		if (error != 0) {
 			goto done;
 		}
+		__MACH_PORT_DEBUG(TRUE, "*** set-hostname (after getnameinfo_async_start)", mp);
 
 		dnsActive = TRUE;
 		dnsPort = CFMachPortCreateWithPort(NULL,
-						   port,
+						   mp,
 						   getnameinfo_async_handleCFReply,
 						   &context,
 						   NULL);
-		dnsRLS = CFMachPortCreateRunLoopSource(NULL, dnsPort, 0);
-		CFRunLoopAddSource(CFRunLoopGetCurrent(), dnsRLS, kCFRunLoopDefaultMode);
+		rls = CFMachPortCreateRunLoopSource(NULL, dnsPort, 0);
+		CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
+		CFRelease(rls);
+		__MACH_PORT_DEBUG(TRUE, "*** set-hostname (after scheduling)", mp);
 	}
 
     done :
@@ -559,13 +577,14 @@ update_hostname(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 	// if active, cancel any in-progress attempt to resolve the primary IP address
 
 	if (dnsPort != NULL) {
+		mach_port_t	mp	= CFMachPortGetPort(dnsPort);
+
 		/* cancel the outstanding DNS query */
-		getnameinfo_async_cancel(CFMachPortGetPort(dnsPort));
-		CFRunLoopSourceInvalidate(dnsRLS);
-		CFRelease(dnsRLS);
-		dnsRLS = NULL;
+		CFMachPortInvalidate(dnsPort);
 		CFRelease(dnsPort);
 		dnsPort = NULL;
+
+		getnameinfo_async_cancel(mp);
 	}
 
 	// get static hostname, if available

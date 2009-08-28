@@ -40,6 +40,8 @@ static const struct {
 	{-1,NULL}
 };
 
+static const char *star_smbserver_name = "*SMBSERVER";
+
 /**
  * Set the user session key for a connection
  * @param cli The cli structure to add it too
@@ -584,6 +586,7 @@ static BOOL cli_session_setup_blob(struct cli_state *cli, DATA_BLOB blob, DATA_B
 					NT_STATUS_MORE_PROCESSING_REQUIRED)) {
 			DEBUG(0, ("cli_session_setup_blob: recieve failed (%s)\n",
 				nt_errstr(cli_get_nt_error(cli)) ));
+			cli->vuid = 0;
 			return False;
 		}
 	}
@@ -627,7 +630,7 @@ static ADS_STATUS cli_session_setup_kerberos(struct cli_state *cli, const char *
 	if (!cli_session_setup_blob(cli, negTokenTarg, session_key_krb5)) {
 		data_blob_free(&negTokenTarg);
 		data_blob_free(&session_key_krb5);
-		ADS_ERROR_NT(cli_nt_error(cli));
+		return ADS_ERROR_NT(cli_nt_error(cli));
 	}
 
 	cli_set_session_key(cli, session_key_krb5);
@@ -770,6 +773,9 @@ static NTSTATUS cli_session_setup_ntlmssp(struct cli_state *cli, const char *use
 
 	ntlmssp_end(&ntlmssp_state);
 
+	if (!NT_STATUS_IS_OK(nt_status)) {
+		cli->vuid = 0;
+	}
 	return nt_status;
 }
 
@@ -783,7 +789,6 @@ ADS_STATUS cli_session_setup_spnego(struct cli_state *cli, const char *user,
 	char *principal;
 	char *OIDs[ASN1_MAX_OIDS];
 	int i;
-	BOOL got_kerberos_mechanism = False;
 	DATA_BLOB blob;
 
 	DEBUG(3,("Doing spnego session setup (blob length=%lu)\n", (unsigned long)cli->secblob.length));
@@ -814,14 +819,14 @@ ADS_STATUS cli_session_setup_spnego(struct cli_state *cli, const char *user,
 		DEBUG(3,("got OID=%s\n", OIDs[i]));
 		if (strcmp(OIDs[i], OID_KERBEROS5_OLD) == 0 ||
 		    strcmp(OIDs[i], OID_KERBEROS5) == 0) {
-			got_kerberos_mechanism = True;
+			cli->got_kerberos_mechanism = True;
 		}
 		free(OIDs[i]);
 	}
 
 	DEBUG(3,("got principal=%s\n", principal ? principal : "<null>"));
 
-	if (got_kerberos_mechanism && (principal == NULL)) {
+	if (cli->got_kerberos_mechanism && (principal == NULL)) {
 		/*
 		 * It is WRONG to depend on the principal sent in the negprot
 		 * reply, but right now we do it. So for safety (don't
@@ -839,7 +844,7 @@ ADS_STATUS cli_session_setup_spnego(struct cli_state *cli, const char *user,
 	/* If password is set we reauthenticate to kerberos server
 	 * and do not store results */
 
-	if (got_kerberos_mechanism && cli->use_kerberos) {
+	if (cli->got_kerberos_mechanism && cli->use_kerberos) {
 		ADS_STATUS rc;
 
 		if (pass && *pass) {
@@ -857,10 +862,55 @@ ADS_STATUS cli_session_setup_spnego(struct cli_state *cli, const char *user,
 			}
 		}
 		
-		rc = cli_session_setup_kerberos(cli, principal, domain);
-		if (ADS_ERR_OK(rc) || !cli->fallback_after_kerberos) {
+		/* If we get a bad principal, try to guess it if
+		   we have a valid host NetBIOS name.
+		 */
+		if (strequal(principal, ADS_IGNORE_PRINCIPAL)) {
 			SAFE_FREE(principal);
-			return rc;
+		}
+		if (principal == NULL &&
+			!is_ipaddress(cli->desthost) &&
+			!strequal(star_smbserver_name,
+				cli->desthost)) {
+			char *realm = NULL;
+			char *machine = NULL;
+			char *host = NULL;
+			DEBUG(3,("cli_session_setup_spnego: got a "
+				"bad server principal, trying to guess ...\n"));
+
+			host = strchr_m(cli->desthost, '.');
+			if (host) {
+				machine = SMB_STRNDUP(cli->desthost,
+					host - cli->desthost);
+			} else {
+				machine = SMB_STRDUP(cli->desthost);
+			}
+			if (machine == NULL) {
+				return ADS_ERROR_NT(NT_STATUS_NO_MEMORY);
+			}
+
+			realm = kerberos_get_default_realm_from_ccache();
+			if (realm && *realm) {
+				if (asprintf(&principal, "%s$@%s",
+						machine, realm) < 0) {
+					SAFE_FREE(machine);
+					SAFE_FREE(realm);
+					return ADS_ERROR_NT(NT_STATUS_NO_MEMORY);
+				}
+				DEBUG(3,("cli_session_setup_spnego: guessed "
+					"server principal=%s\n",
+					principal ? principal : "<null>"));
+			}
+			SAFE_FREE(machine);
+			SAFE_FREE(realm);
+		}
+
+		if (principal) {
+			rc = cli_session_setup_kerberos(cli, principal, domain);
+			if (ADS_ERR_OK(rc) || !cli->fallback_after_kerberos) {
+				SAFE_FREE(principal);
+				return rc;
+			}
 		}
 	}
 #endif
@@ -1272,9 +1322,9 @@ BOOL cli_negprot(struct cli_state *cli)
 		if (cli->capabilities & (CAP_LARGE_READX|CAP_LARGE_WRITEX)) {
 			SAFE_FREE(cli->outbuf);
 			SAFE_FREE(cli->inbuf);
-			cli->outbuf = (char *)SMB_MALLOC(CLI_SAMBA_MAX_LARGE_READX_SIZE+SAFETY_MARGIN);
-			cli->inbuf = (char *)SMB_MALLOC(CLI_SAMBA_MAX_LARGE_READX_SIZE+SAFETY_MARGIN);
-			cli->bufsize = CLI_SAMBA_MAX_LARGE_READX_SIZE;
+			cli->outbuf = (char *)SMB_MALLOC(CLI_SAMBA_MAX_LARGE_READX_SIZE+LARGE_WRITEX_HDR_SIZE+SAFETY_MARGIN);
+			cli->inbuf = (char *)SMB_MALLOC(CLI_SAMBA_MAX_LARGE_READX_SIZE+LARGE_WRITEX_HDR_SIZE+SAFETY_MARGIN);
+			cli->bufsize = CLI_SAMBA_MAX_LARGE_READX_SIZE + LARGE_WRITEX_HDR_SIZE;
 		}
 
 	} else if (cli->protocol >= PROTOCOL_LANMAN1) {
@@ -1402,13 +1452,13 @@ BOOL cli_session_request(struct cli_state *cli,
  Open the client sockets.
 ****************************************************************************/
 
-BOOL cli_connect(struct cli_state *cli, const char *host, struct in_addr *ip)
+NTSTATUS cli_connect(struct cli_state *cli, const char *host, struct in_addr *ip)
 {
 	int name_type = 0x20;
 	char *p;
 
 	/* reasonable default hostname */
-	if (!host) host = "*SMBSERVER";
+	if (!host) host = star_smbserver_name;
 
 	fstrcpy(cli->desthost, host);
 
@@ -1420,7 +1470,7 @@ BOOL cli_connect(struct cli_state *cli, const char *host, struct in_addr *ip)
 	
 	if (!ip || is_zero_ip(*ip)) {
                 if (!resolve_name(cli->desthost, &cli->dest_ip, name_type)) {
-                        return False;
+			return NT_STATUS_BAD_NETWORK_NAME;
                 }
 		if (ip) *ip = cli->dest_ip;
 	} else {
@@ -1445,12 +1495,12 @@ BOOL cli_connect(struct cli_state *cli, const char *host, struct in_addr *ip)
 	if (cli->fd == -1) {
 		DEBUG(1,("Error connecting to %s (%s)\n",
 			 ip?inet_ntoa(*ip):host,strerror(errno)));
-		return False;
+		return map_nt_error_from_unix(errno);
 	}
 
 	set_socket_options(cli->fd,user_socket_options);
 
-	return True;
+	return NT_STATUS_OK;
 }
 
 /**
@@ -1504,15 +1554,12 @@ again:
 
 	DEBUG(3,("Connecting to host=%s\n", dest_host));
 	
-	if (!cli_connect(cli, dest_host, &ip)) {
-		DEBUG(1,("cli_start_connection: failed to connect to %s (%s)\n",
-			 nmb_namestr(&called), inet_ntoa(ip)));
+	nt_status = cli_connect(cli, dest_host, &ip);
+	if (!NT_STATUS_IS_OK(nt_status)) {
+		DEBUG(1,("cli_start_connection: failed to connect to %s (%s). Error %s\n",
+			 nmb_namestr(&called), inet_ntoa(ip), nt_errstr(nt_status) ));
 		cli_shutdown(cli);
-		if (is_zero_ip(ip)) {
-			return NT_STATUS_BAD_NETWORK_NAME;
-		} else {
-			return NT_STATUS_CONNECTION_REFUSED;
-		}
+		return nt_status;
 	}
 
 	if (retry)
@@ -1526,8 +1573,8 @@ again:
 			*p = 0;
 			goto again;
 		}
-		if (strcmp(called.name, "*SMBSERVER")) {
-			make_nmb_name(&called , "*SMBSERVER", 0x20);
+		if (strcmp(called.name, star_smbserver_name)) {
+			make_nmb_name(&called , star_smbserver_name, 0x20);
 			goto again;
 		}
 		return NT_STATUS_BAD_NETWORK_NAME;
@@ -1651,15 +1698,16 @@ BOOL attempt_netbios_session_request(struct cli_state **ppcli, const char *srcho
 	 */
 
 	if(is_ipaddress(desthost)) {
-		make_nmb_name(&called, "*SMBSERVER", 0x20);
+		make_nmb_name(&called, star_smbserver_name, 0x20);
 	} else {
 		make_nmb_name(&called, desthost, 0x20);
 	}
 
 	if (!cli_session_request(*ppcli, &calling, &called)) {
+		NTSTATUS status;
 		struct nmb_name smbservername;
 
-		make_nmb_name(&smbservername , "*SMBSERVER", 0x20);
+		make_nmb_name(&smbservername, star_smbserver_name, 0x20);
 
 		/*
 		 * If the name wasn't *SMBSERVER then
@@ -1686,7 +1734,8 @@ with error %s.\n", desthost, cli_errstr(*ppcli) ));
 			return False;
 		}
 
-		if (!cli_connect(*ppcli, desthost, pdest_ip) ||
+		status = cli_connect(*ppcli, desthost, pdest_ip);
+		if (!NT_STATUS_IS_OK(status) ||
 				!cli_session_request(*ppcli, &calling, &smbservername)) {
 			DEBUG(0,("attempt_netbios_session_request: %s rejected the session for \
 name *SMBSERVER with error %s\n", desthost, cli_errstr(*ppcli) ));

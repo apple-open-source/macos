@@ -22,9 +22,5 @@
 	<array>
 		<string>SVN Group</string>
 	</array>
-	<key>smb_sid</key>
-	<array>
-		<string>S-1-5-21-173</string>
-	</array>
 </dict>
 </plist>

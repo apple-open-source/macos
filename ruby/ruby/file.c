@@ -3,7 +3,7 @@
   file.c -
 
   $Author: shyouhei $
-  $Date: 2008-07-10 18:45:21 +0900 (Thu, 10 Jul 2008) $
+  $Date: 2008-07-10 18:47:31 +0900 (Thu, 10 Jul 2008) $
   created at: Mon Nov 15 12:24:34 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -16,10 +16,8 @@
 #include "missing/file.h"
 #endif
 #ifdef __CYGWIN__
-#define OpenFile WINAPI_OpenFile
 #include <windows.h>
 #include <sys/cygwin.h>
-#undef OpenFile
 #endif
 
 #include "ruby.h"
@@ -27,7 +25,6 @@
 #include "rubysig.h"
 #include "util.h"
 #include "dln.h"
-#include <ctype.h>
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
@@ -145,7 +142,7 @@ static VALUE
 rb_file_path(obj)
     VALUE obj;
 {
-    OpenFile *fptr;
+    rb_io_t *fptr;
 
     fptr = RFILE(rb_io_taint_check(obj))->fptr;
     rb_io_check_initialized(fptr);
@@ -659,7 +656,7 @@ rb_stat(file, st)
 
     tmp = rb_check_convert_type(file, T_FILE, "IO", "to_io");
     if (!NIL_P(tmp)) {
-	OpenFile *fptr;
+	rb_io_t *fptr;
 
 	rb_secure(2);
 	GetOpenFile(tmp, fptr);
@@ -680,7 +677,7 @@ w32_io_info(file, st)
 
     tmp = rb_check_convert_type(*file, T_FILE, "IO", "to_io");
     if (!NIL_P(tmp)) {
-	OpenFile *fptr;
+	rb_io_t *fptr;
 
 	GetOpenFile(tmp, fptr);
 	f = (HANDLE)rb_w32_get_osfhandle(fileno(fptr->f));
@@ -746,7 +743,7 @@ static VALUE
 rb_io_stat(obj)
     VALUE obj;
 {
-    OpenFile *fptr;
+    rb_io_t *fptr;
     struct stat st;
 
     GetOpenFile(obj, fptr);
@@ -807,7 +804,7 @@ rb_file_lstat(obj)
     VALUE obj;
 {
 #ifdef HAVE_LSTAT
-    OpenFile *fptr;
+    rb_io_t *fptr;
     struct stat st;
 
     rb_secure(2);
@@ -898,8 +895,8 @@ eaccess(path, mode)
 
     return -1;
 #else
-# if _MSC_VER >= 1400
-    mode &= 6;
+# if defined(_MSC_VER) || defined(__MINGW32__)
+    mode &= ~1;
 # endif
     return access(path, mode);
 #endif
@@ -1498,7 +1495,7 @@ static VALUE
 rb_file_ftype(st)
     struct stat *st;
 {
-    char *t;
+    const char *t;
 
     if (S_ISREG(st->st_mode)) {
 	t = "file";
@@ -1601,7 +1598,7 @@ static VALUE
 rb_file_atime(obj)
     VALUE obj;
 {
-    OpenFile *fptr;
+    rb_io_t *fptr;
     struct stat st;
 
     GetOpenFile(obj, fptr);
@@ -1646,7 +1643,7 @@ static VALUE
 rb_file_mtime(obj)
     VALUE obj;
 {
-    OpenFile *fptr;
+    rb_io_t *fptr;
     struct stat st;
 
     GetOpenFile(obj, fptr);
@@ -1694,7 +1691,7 @@ static VALUE
 rb_file_ctime(obj)
     VALUE obj;
 {
-    OpenFile *fptr;
+    rb_io_t *fptr;
     struct stat st;
 
     GetOpenFile(obj, fptr);
@@ -1762,7 +1759,7 @@ static VALUE
 rb_file_chmod(obj, vmode)
     VALUE obj, vmode;
 {
-    OpenFile *fptr;
+    rb_io_t *fptr;
     int mode;
 
     rb_secure(2);
@@ -1788,7 +1785,7 @@ lchmod_internal(path, mode)
     const char *path;
     void *mode;
 {
-    if (lchmod(path, (int)mode) < 0)
+    if (lchmod(path, (int)(VALUE)mode) < 0)
 	rb_sys_fail(path);
 }
 
@@ -1906,7 +1903,7 @@ static VALUE
 rb_file_chown(obj, owner, group)
     VALUE obj, owner, group;
 {
-    OpenFile *fptr;
+    rb_io_t *fptr;
     int o, g;
 
     rb_secure(2);
@@ -2020,6 +2017,7 @@ rb_file_s_utime(argc, argv)
     struct timeval tvs[2], *tvp = NULL;
     long n;
 
+    rb_secure(2);
     rb_scan_args(argc, argv, "2*", &atime, &mtime, &rest);
 
     if (!NIL_P(atime) || !NIL_P(mtime)) {
@@ -2322,6 +2320,10 @@ rb_file_s_umask(argc, argv)
 #define USE_NTFS 0
 #endif
 
+#ifdef DOSISH_DRIVE_LETTER
+#include <ctype.h>
+#endif
+
 #if USE_NTFS
 #define istrailinggabage(x) ((x) == '.' || (x) == ' ')
 #else
@@ -2502,7 +2504,7 @@ ntfs_tail(const char *path)
     if (cond) {\
 	do {buflen *= 2;} while (cond);\
 	rb_str_resize(result, buflen);\
-	buf = RSTRING(result)->ptr;\
+	buf = RSTRING_PTR(result);\
 	p = buf + bdiff;\
 	pend = buf + buflen;\
     }\
@@ -2534,7 +2536,7 @@ file_expand_path(fname, dname, result)
 
     if (s[0] == '~') {
 	if (isdirsep(s[1]) || s[1] == '\0') {
-	    char *dir = getenv("HOME");
+	    const char *dir = getenv("HOME");
 
 	    if (!dir) {
 		rb_raise(rb_eArgError, "couldn't find HOME environment -- expanding `%s'", s);
@@ -2796,8 +2798,7 @@ file_expand_path(fname, dname, result)
 #endif
 
     if (tainted) OBJ_TAINT(result);
-    RSTRING(result)->len = p - buf;
-    RSTRING(result)->ptr[p - buf] = '\0';
+    rb_str_set_len(result, p - buf);
     return result;
 }
 
@@ -2891,9 +2892,9 @@ rb_file_s_basename(argc, argv)
     VALUE *argv;
 {
     VALUE fname, fext, basename;
-    char *name, *p;
+    const char *name, *p;
 #if defined DOSISH_DRIVE_LETTER || defined DOSISH_UNC
-    char *root;
+    const char *root;
 #endif
     int f, n;
 
@@ -3103,7 +3104,7 @@ rb_file_join(ary, sep)
     long len, i;
     int taint = 0;
     VALUE result, tmp;
-    char *name, *tail;
+    const char *name, *tail;
 
     if (RARRAY(ary)->len == 0) return rb_str_new(0, 0);
     if (OBJ_TAINTED(ary)) taint = 1;
@@ -3251,7 +3252,7 @@ static VALUE
 rb_file_truncate(obj, len)
     VALUE obj, len;
 {
-    OpenFile *fptr;
+    rb_io_t *fptr;
     FILE *f;
     off_t pos;
 
@@ -3312,7 +3313,7 @@ cygwin_flock(int fd, int op)
 static int
 rb_thread_flock(fd, op, fptr)
     int fd, op;
-    OpenFile *fptr;
+    rb_io_t *fptr;
 {
     if (rb_thread_alone() || (op & LOCK_NB)) {
 	int ret;
@@ -3378,7 +3379,7 @@ rb_file_flock(obj, operation)
     VALUE operation;
 {
 #ifndef __CHECKER__
-    OpenFile *fptr;
+    rb_io_t *fptr;
     int op;
 
     rb_secure(2);
@@ -4288,7 +4289,7 @@ path_check_0(fpath, execpath)
      int execpath;
 {
     struct stat st;
-    char *p0 = StringValueCStr(fpath);
+    const char *p0 = StringValueCStr(fpath);
     char *p = 0, *s;
 
     if (!is_absolute_path(p0)) {
@@ -4327,7 +4328,7 @@ path_check_0(fpath, execpath)
 
 static int
 fpath_check(path)
-    char *path;
+    const char *path;
 {
 #if ENABLE_PATH_CHECK
     return path_check_0(rb_str_new2(path), Qfalse);
@@ -4338,10 +4339,10 @@ fpath_check(path)
 
 int
 rb_path_check(path)
-    char *path;
+    const char *path;
 {
 #if ENABLE_PATH_CHECK
-    char *p0, *p, *pend;
+    const char *p0, *p, *pend;
     const char sep = PATH_SEP_CHAR;
 
     if (!path) return 1;
@@ -4376,7 +4377,7 @@ is_macos_native_path(path)
 
 static int
 file_load_ok(file)
-    char *file;
+    const char *file;
 {
     FILE *f;
 
@@ -4394,8 +4395,8 @@ rb_find_file_ext(filep, ext)
     VALUE *filep;
     const char * const *ext;
 {
-    char *path, *found;
-    char *f = RSTRING(*filep)->ptr;
+    const char *path, *found;
+    const char *f = RSTRING(*filep)->ptr;
     VALUE fname;
     long i, j;
 
@@ -4450,8 +4451,8 @@ rb_find_file(path)
     VALUE path;
 {
     VALUE tmp;
-    char *f = StringValueCStr(path);
-    char *lpath;
+    const char *f = StringValueCStr(path);
+    const char *lpath;
 
     if (f[0] == '~') {
 	path = rb_file_expand_path(path, Qnil);

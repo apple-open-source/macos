@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -266,9 +266,11 @@ create_service(int argc, char **argv)
 
 		interface = net_interface;
 	} else {
-		interface = _find_interface(argv[0]);
-		argv++;
-		argc--;
+		int	nArgs;
+
+		interface = _find_interface(argc, argv, &nArgs);
+		argv += nArgs;
+		argc -= nArgs;
 	}
 
 	if (interface == NULL) {
@@ -291,8 +293,8 @@ create_service(int argc, char **argv)
 		Boolean         ok;
 
 		serviceName = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
-		argv++;
-		argc--;
+//		argv++;
+//		argc--;
 
 		ok = SCNetworkServiceSetName(service, serviceName);
 		CFRelease(serviceName);
@@ -301,6 +303,13 @@ create_service(int argc, char **argv)
 			(void)SCNetworkServiceRemove(service);
 			goto done;
 		}
+	}
+
+	ok = SCNetworkServiceEstablishDefaultConfiguration(service);
+	if (!ok) {
+		SCPrint(TRUE, stdout, CFSTR("%s\n"), SCErrorString(SCError()));
+		(void)SCNetworkServiceRemove(service);
+		goto done;
 	}
 
 	ok = SCNetworkSetAddService(net_set, service);
@@ -336,7 +345,8 @@ create_service(int argc, char **argv)
 	}
 
 	if (net_interface != NULL) CFRelease(net_interface);
-	net_interface = CFRetain(interface);
+	net_interface = SCNetworkServiceGetInterface(net_service);
+	CFRetain(net_interface);
 
 	interfaceName = SCNetworkInterfaceGetLocalizedDisplayName(interface);
 	if (interfaceName == NULL) {
@@ -690,6 +700,54 @@ set_service(int argc, char **argv)
 				SCPrint(TRUE, stdout, CFSTR("set what?\n"));
 				return;
 			}
+		} else if (strcmp(command, "rank") == 0) {
+			SCNetworkServicePrimaryRank	rank	= kSCNetworkServicePrimaryRankDefault;
+			SCNetworkServiceRef		service	= (argc < 2) ? net_service : NULL;
+
+			if (argc < 1) {
+				SCPrint(TRUE, stdout, CFSTR("rank not specified\n"));
+				return;
+			}
+
+			if (strlen(argv[0]) > 0) {
+				if (strcasecmp(argv[0], "Never") == 0) {
+					rank = kSCNetworkServicePrimaryRankNever;
+				} else if ((service != net_service) && (strcasecmp(argv[0], "First") == 0)) {
+					rank = kSCNetworkServicePrimaryRankFirst;
+				} else if ((service != net_service) && (strcasecmp(argv[0], "Last") == 0)) {
+					rank = kSCNetworkServicePrimaryRankLast;
+				} else {
+					SCPrint(TRUE, stdout, CFSTR("rank not valid\n"));
+					return;
+				}
+			}
+			argv++;
+			argc--;
+
+			if (service == NULL) {
+				CFStringRef		serviceID;
+				SCDynamicStoreRef	store;
+
+				store = SCDynamicStoreCreate(NULL,
+							     CFSTR("scutil (set primary rank)"),
+							     NULL,
+							     NULL);
+				serviceID = SCNetworkServiceGetServiceID(net_service);
+				service = _SCNetworkServiceCopyActive(store, serviceID);
+				CFRelease(store);
+
+				argv++;
+				argc--;
+			}
+
+			ok = SCNetworkServiceSetPrimaryRank(service, rank);
+			if (service != net_service) CFRelease(service);
+			if (ok) {
+				if (service == net_service) _prefs_changed = TRUE;
+			} else {
+				SCPrint(TRUE, stdout, CFSTR("%s\n"), SCErrorString(SCError()));
+				return;
+			}
 		} else {
 			SCPrint(TRUE, stdout, CFSTR("set what?\n"));
 		}
@@ -772,10 +830,11 @@ __private_extern__
 void
 show_service(int argc, char **argv)
 {
-	SCNetworkInterfaceRef	interface;
-	CFArrayRef		protocols;
-	SCNetworkServiceRef	service;
-	CFStringRef		serviceName;
+	SCNetworkInterfaceRef		interface;
+	CFArrayRef			protocols;
+	SCNetworkServiceRef		service;
+	CFStringRef			serviceName;
+	SCNetworkServicePrimaryRank	serviceRank;
 
 	if (argc == 1) {
 		service = _find_service(argv[0]);
@@ -797,6 +856,25 @@ show_service(int argc, char **argv)
 	serviceName = SCNetworkServiceGetName(service);
 	SCPrint(TRUE, stdout, CFSTR("name                 = %@\n"),
 		(serviceName != NULL) ? serviceName : CFSTR(""));
+
+	serviceRank = SCNetworkServiceGetPrimaryRank(service);
+	switch (serviceRank) {
+		case kSCNetworkServicePrimaryRankDefault :
+			// nothing to report
+			break;
+		case kSCNetworkServicePrimaryRankFirst :
+			SCPrint(TRUE, stdout, CFSTR("primary rank         = FIRST\n"));
+			break;
+		case kSCNetworkServicePrimaryRankLast :
+			SCPrint(TRUE, stdout, CFSTR("primary rank         = LAST\n"));
+			break;
+		case kSCNetworkServicePrimaryRankNever :
+			SCPrint(TRUE, stdout, CFSTR("primary rank         = NEVER\n"));
+			break;
+		default :
+			SCPrint(TRUE, stdout, CFSTR("primary rank         = %d\n"), serviceRank);
+			break;
+	}
 
 	interface = SCNetworkServiceGetInterface(service);
 	if (interface != NULL) {

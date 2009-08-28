@@ -108,7 +108,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOACPIFamily;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = i386;
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
 			};

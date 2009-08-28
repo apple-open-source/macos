@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1998-2003,2004 Free Software Foundation, Inc.              *
+ * Copyright (c) 1998-2007,2008 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -32,7 +32,7 @@
 
 #include "form.priv.h"
 
-MODULE_ID("$Id: frm_def.c,v 1.17 2004/12/25 22:26:01 tom Exp $")
+MODULE_ID("$Id: frm_def.c,v 1.23 2008/08/04 00:07:55 tom Exp $")
 
 /* this can't be readonly */
 static FORM default_form =
@@ -182,12 +182,13 @@ Connect_Fields(FORM *form, FIELD **fields)
 	page_nr++;
       fields[field_cnt]->form = form;
     }
-  if (field_cnt == 0)
+  if (field_cnt == 0 || (short)field_cnt < 0)
     RETURN(E_BAD_ARGUMENT);
 
   /* allocate page structures */
-  if ((pg = (_PAGE *) malloc(page_nr * sizeof(_PAGE))) != (_PAGE *) 0)
+  if ((pg = typeMalloc(_PAGE, page_nr)) != (_PAGE *) 0)
     {
+      T((T_CREATE("_PAGE %p"), pg));
       form->page = pg;
     }
   else
@@ -233,8 +234,16 @@ Connect_Fields(FORM *form, FIELD **fields)
 	  fields[j]->page = page_nr;
 	  fld = Insert_Field_By_Position(fields[j], fld);
 	}
-      form->page[page_nr].smin = fld->index;
-      form->page[page_nr].smax = fld->sprev->index;
+      if (fld)
+	{
+	  form->page[page_nr].smin = fld->index;
+	  form->page[page_nr].smax = fld->sprev->index;
+	}
+      else
+	{
+	  form->page[page_nr].smin = 0;
+	  form->page[page_nr].smax = 0;
+	}
     }
   RETURN(E_OK);
 }
@@ -247,9 +256,11 @@ Connect_Fields(FORM *form, FIELD **fields)
 |                    If there are fields, position to first active field.
 |
 |   Return Values :  E_OK            - success
-|                    any other       - error occurred
+|                    E_BAD_ARGUMENT  - Invalid form pointer or field array
+|                    E_CONNECTED     - a field is already connected
+|                    E_SYSTEM_ERROR  - not enough memory
 +--------------------------------------------------------------------------*/
-INLINE static int
+NCURSES_INLINE static int
 Associate_Fields(FORM *form, FIELD **fields)
 {
   int res = Connect_Fields(form, fields);
@@ -277,17 +288,23 @@ Associate_Fields(FORM *form, FIELD **fields)
 |   Description   :  Create new form with given array of fields.
 |
 |   Return Values :  Pointer to form. NULL if error occurred.
+!                    Set errno:
+|                    E_OK            - success
+|                    E_BAD_ARGUMENT  - Invalid form pointer or field array
+|                    E_CONNECTED     - a field is already connected
+|                    E_SYSTEM_ERROR  - not enough memory
 +--------------------------------------------------------------------------*/
 NCURSES_EXPORT(FORM *)
 new_form(FIELD **fields)
 {
   int err = E_SYSTEM_ERROR;
 
-  FORM *form = (FORM *)malloc(sizeof(FORM));
+  FORM *form = typeMalloc(FORM, 1);
 
   T((T_CALLED("new_form(%p)"), fields));
   if (form)
     {
+      T((T_CREATE("form %p"), form));
       *form = *_nc_Default_Form;
       if ((err = Associate_Fields(form, fields)) != E_OK)
 	{
@@ -337,9 +354,11 @@ free_form(FORM *form)
 |   
 |   Description   :  Set a new association of an array of fields to a form
 |
-|   Return Values :  E_OK              - no error
-|                    E_BAD_ARGUMENT    - invalid form pointer
-|                    E_POSTED          - form is posted
+|   Return Values :  E_OK            - no error
+|                    E_BAD_ARGUMENT  - Invalid form pointer or field array
+|                    E_CONNECTED     - a field is already connected
+|                    E_POSTED        - form is posted
+|                    E_SYSTEM_ERROR  - not enough memory
 +--------------------------------------------------------------------------*/
 NCURSES_EXPORT(int)
 set_form_fields(FORM *form, FIELD **fields)

@@ -1,9 +1,9 @@
 /*
- * "$Id: rasterbench.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: rasterbench.c 7376 2008-03-19 21:07:45Z mike $"
  *
  *   Raster benchmark program for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -26,7 +26,7 @@
  * Include necessary headers...
  */
 
-#include "raster.h"
+#include <cups/raster.h>
 #include <stdlib.h>
 #include <sys/time.h>
 #include <signal.h>
@@ -52,7 +52,7 @@ static double	compute_median(double *secs);
 static double	get_time(void);
 static void	read_test(int fd);
 static int	run_read_test(void);
-static void	write_test(int fd);
+static void	write_test(int fd, cups_mode_t mode);
 
 
 /*
@@ -60,7 +60,8 @@ static void	write_test(int fd);
  */
 
 int					/* O - Exit status */
-main(void)
+main(int  argc,				/* I - Number of command-line args */
+     char *argv[])			/* I - Command-line arguments */
 {
   int		i;			/* Looping var */
   int		ras_fd,			/* File descriptor for read process */
@@ -69,7 +70,20 @@ main(void)
 		write_secs,		/* Write time */
 		read_secs,		/* Read time */
 		pass_secs[TEST_PASSES];	/* Total test times */
+  cups_mode_t	mode;			/* Write mode */
 
+
+ /*
+  * See if we have anything on the command-line...
+  */
+
+  if (argc > 2 || (argc == 2 && strcmp(argv[1], "-z")))
+  {
+    puts("Usage: rasterbench [-z]");
+    return (1);
+  }
+
+  mode = argc > 1 ? CUPS_RASTER_WRITE_COMPRESSED : CUPS_RASTER_WRITE;
 
  /*
   * Ignore SIGPIPE...
@@ -91,7 +105,7 @@ main(void)
     ras_fd     = run_read_test();
     start_secs = get_time();
 
-    write_test(ras_fd);
+    write_test(ras_fd, mode);
 
     write_secs = get_time();
     printf(" %.3f write,", write_secs - start_secs);
@@ -168,7 +182,7 @@ read_test(int fd)			/* I - File descriptor to read from */
 {
   int			y;		/* Looping var */
   cups_raster_t		*r;		/* Raster stream */
-  cups_page_header_t	header;		/* Page header */
+  cups_page_header2_t	header;		/* Page header */
   unsigned char		buffer[8 * TEST_WIDTH];
 					/* Read buffer */
 
@@ -183,7 +197,7 @@ read_test(int fd)			/* I - File descriptor to read from */
     return;
   }
 
-  while (cupsRasterReadHeader(r, &header))
+  while (cupsRasterReadHeader2(r, &header))
   {
     for (y = 0; y < header.cupsHeight; y ++)
       cupsRasterReadPixels(r, buffer, header.cupsBytesPerLine);
@@ -245,12 +259,13 @@ run_read_test(void)
  */
 
 static void
-write_test(int fd)			/* I - File descriptor to write to */
+write_test(int         fd,		/* I - File descriptor to write to */
+           cups_mode_t mode)		/* I - Write mode */
 {
   int			page, x, y;	/* Looping vars */
   int			count;		/* Number of bytes to set */
   cups_raster_t		*r;		/* Raster stream */
-  cups_page_header_t	header;		/* Page header */
+  cups_page_header2_t	header;		/* Page header */
   unsigned char		data[32][8 * TEST_WIDTH];
 					/* Raster data to write */
 
@@ -287,7 +302,7 @@ write_test(int fd)			/* I - File descriptor to write to */
   * Test write speed...
   */
 
-  if ((r = cupsRasterOpen(fd, CUPS_RASTER_WRITE)) == NULL)
+  if ((r = cupsRasterOpen(fd, mode)) == NULL)
   {
     perror("Unable to create raster output stream");
     return;
@@ -324,7 +339,7 @@ write_test(int fd)			/* I - File descriptor to write to */
       header.cupsBitsPerPixel = (page & 1) ? 32 : 8;
     }
 
-    cupsRasterWriteHeader(r, &header);
+    cupsRasterWriteHeader2(r, &header);
 
     for (y = 0; y < TEST_HEIGHT; y ++)
       cupsRasterWritePixels(r, data[y & 31], header.cupsBytesPerLine);
@@ -335,5 +350,5 @@ write_test(int fd)			/* I - File descriptor to write to */
 
 
 /*
- * End of "$Id: rasterbench.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: rasterbench.c 7376 2008-03-19 21:07:45Z mike $".
  */

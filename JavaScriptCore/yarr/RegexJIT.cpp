@@ -43,6 +43,17 @@ namespace JSC { namespace Yarr {
 class RegexGenerator : private MacroAssembler {
     friend void jitCompileRegex(JSGlobalData* globalData, RegexCodeBlock& jitObject, const UString& pattern, unsigned& numSubpatterns, const char*& error, bool ignoreCase, bool multiline);
 
+#if PLATFORM_ARM_ARCH(7)
+    static const RegisterID input = ARM::r0;
+    static const RegisterID index = ARM::r1;
+    static const RegisterID length = ARM::r2;
+
+    static const RegisterID output = ARM::r4;
+    static const RegisterID regT0 = ARM::r5;
+    static const RegisterID regT1 = ARM::r6;
+
+    static const RegisterID returnRegister = ARM::r0;
+#endif
 #if PLATFORM(X86)
     static const RegisterID input = X86::eax;
     static const RegisterID index = X86::edx;
@@ -252,7 +263,7 @@ class RegexGenerator : private MacroAssembler {
 
     DataLabelPtr storeToFrameWithPatch(unsigned frameLocation)
     {
-        return storePtrWithPatch(Address(stackPointerRegister, frameLocation * sizeof(void*)));
+        return storePtrWithPatch(ImmPtr(0), Address(stackPointerRegister, frameLocation * sizeof(void*)));
     }
 
     void loadFromFrame(unsigned frameLocation, RegisterID reg)
@@ -1278,34 +1289,49 @@ class RegexGenerator : private MacroAssembler {
 
     void generateEnter()
     {
-        // On x86 edi & esi are callee preserved registers.
+#if PLATFORM(X86_64)
         push(X86::ebp);
         move(stackPointerRegister, X86::ebp);
-#if PLATFORM(X86)
+        push(X86::ebx);
+#elif PLATFORM(X86)
+        push(X86::ebp);
+        move(stackPointerRegister, X86::ebp);
         // TODO: do we need spill registers to fill the output pointer if there are no sub captures?
         push(X86::ebx);
         push(X86::edi);
         push(X86::esi);
         // load output into edi (2 = saved ebp + return address).
-#if COMPILER(MSVC)
+    #if COMPILER(MSVC)
         loadPtr(Address(X86::ebp, 2 * sizeof(void*)), input);
         loadPtr(Address(X86::ebp, 3 * sizeof(void*)), index);
         loadPtr(Address(X86::ebp, 4 * sizeof(void*)), length);
         loadPtr(Address(X86::ebp, 5 * sizeof(void*)), output);
-#else
+    #else
         loadPtr(Address(X86::ebp, 2 * sizeof(void*)), output);
-#endif
+    #endif
+#elif PLATFORM_ARM_ARCH(7)
+        push(ARM::r4);
+        push(ARM::r5);
+        push(ARM::r6);
+        move(ARM::r3, output);
 #endif
     }
 
     void generateReturn()
     {
-#if PLATFORM(X86)
+#if PLATFORM(X86_64)
+        pop(X86::ebx);
+        pop(X86::ebp);
+#elif PLATFORM(X86)
         pop(X86::esi);
         pop(X86::edi);
         pop(X86::ebx);
-#endif
         pop(X86::ebp);
+#elif PLATFORM_ARM_ARCH(7)
+        pop(ARM::r6);
+        pop(ARM::r5);
+        pop(ARM::r4);
+#endif
         ret();
     }
 
@@ -1334,14 +1360,12 @@ public:
     {
         generate();
 
-        jitObject.m_executablePool = globalData->executableAllocator.poolForSize(size());
-        void* code = copyCode(jitObject.m_executablePool.get());
+        LinkBuffer patchBuffer(this, globalData->executableAllocator.poolForSize(size()));
 
-        PatchBuffer patchBuffer(code);
         for (unsigned i = 0; i < m_backtrackRecords.size(); ++i)
-            patchBuffer.patch(m_backtrackRecords[i].dataLabel, patchBuffer.trampolineAt(m_backtrackRecords[i].backtrackLocation));
+            patchBuffer.patch(m_backtrackRecords[i].dataLabel, patchBuffer.locationOf(m_backtrackRecords[i].backtrackLocation));
 
-        jitObject.m_jitCode = code;
+        jitObject.set(patchBuffer.finalizeCode());
     }
 
     bool generationFailed()
@@ -1370,23 +1394,16 @@ void jitCompileRegex(JSGlobalData* globalData, RegexCodeBlock& jitObject, const 
     if (generator.generationFailed()) {
         JSRegExpIgnoreCaseOption ignoreCaseOption = ignoreCase ? JSRegExpIgnoreCase : JSRegExpDoNotIgnoreCase;
         JSRegExpMultilineOption multilineOption = multiline ? JSRegExpMultiline : JSRegExpSingleLine;
-        jitObject.m_pcreFallback = jsRegExpCompile(reinterpret_cast<const UChar*>(patternString.data()), patternString.size(), ignoreCaseOption, multilineOption, &numSubpatterns, &error);
+        jitObject.setFallback(jsRegExpCompile(reinterpret_cast<const UChar*>(patternString.data()), patternString.size(), ignoreCaseOption, multilineOption, &numSubpatterns, &error));
     }
 }
 
 int executeRegex(RegexCodeBlock& jitObject, const UChar* input, unsigned start, unsigned length, int* output, int outputArraySize)
 {
-    if (jitObject.m_pcreFallback) {
-        int result = jsRegExpExecute(jitObject.m_pcreFallback, input, length, start, output, outputArraySize);
-        return (result < 0) ? -1 : output[0];
-    } else {
-#if PLATFORM(X86) && !COMPILER(MSVC)
-        typedef int (*RegexJITCode)(const UChar* input, unsigned start, unsigned length, int* output) __attribute__ ((regparm (3)));
-#else
-        typedef int (*RegexJITCode)(const UChar* input, unsigned start, unsigned length, int* output);
-#endif
-        return reinterpret_cast<RegexJITCode>(jitObject.m_jitCode)(input, start, length, output);
-    }
+    if (JSRegExp* fallback = jitObject.getFallback())
+        return (jsRegExpExecute(fallback, input, length, start, output, outputArraySize) < 0) ? -1 : output[0];
+
+    return jitObject.execute(input, start, length, output);
 }
 
 }}

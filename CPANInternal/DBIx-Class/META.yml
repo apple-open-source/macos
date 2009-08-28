@@ -1,119 +1,155 @@
----
-name: DBIx-Class
-version: 0.07005
-author:
-  - 'mst: Matt S. Trout <mst@shadowcatsystems.co.uk>'
+--- 
 abstract: Extensible and flexible object <-> relational mapper.
+author: 
+  - "mst: Matt S. Trout <mst@shadowcatsystems.co.uk>"
+build_requires: 
+  Class::Trigger: 0
+  DBD::SQLite: 1.13
+  DBIx::ContextualFetch: 0
+  Test::Builder: 0.33
+distribution_type: module
+generated_by: Module::Install version 0.68
 license: perl
-resources:
-  license: http://dev.perl.org/licenses/
-requires:
+meta-spec: 
+  url: http://module-build.sourceforge.net/META-spec-v1.3.html
+  version: 1.3
+name: DBIx-Class
+no_index: 
+  directory: 
+    - inc
+    - t
+provides: 
+  DBIC::SQL::Abstract: 
+    file: lib/DBIx/Class/Storage/DBI.pm
+  DBIC::SQL::Abstract::Oracle: 
+    file: lib/DBIx/Class/Storage/DBI/Oracle/WhereJoins.pm
+  DBIx::Class: 
+    file: lib/DBIx/Class.pm
+    version: 0.08010
+  DBIx::Class::AccessorGroup: 
+    file: lib/DBIx/Class/AccessorGroup.pm
+  DBIx::Class::CDBICompat: 
+    file: lib/DBIx/Class/CDBICompat.pm
+  DBIx::Class::CDBICompat::ColumnGroups::GrouperShim: 
+    file: lib/DBIx/Class/CDBICompat/ColumnGroups.pm
+  DBIx::Class::Core: 
+    file: lib/DBIx/Class/Core.pm
+  DBIx::Class::Cursor: 
+    file: lib/DBIx/Class/Cursor.pm
+  DBIx::Class::DB: 
+    file: lib/DBIx/Class/DB.pm
+  DBIx::Class::Exception: 
+    file: lib/DBIx/Class/Exception.pm
+  DBIx::Class::InflateColumn: 
+    file: lib/DBIx/Class/InflateColumn.pm
+  DBIx::Class::InflateColumn::DateTime: 
+    file: lib/DBIx/Class/InflateColumn/DateTime.pm
+  DBIx::Class::InflateColumn::File: 
+    file: lib/DBIx/Class/InflateColumn/File.pm
+  DBIx::Class::Ordered: 
+    file: lib/DBIx/Class/Ordered.pm
+  DBIx::Class::PK: 
+    file: lib/DBIx/Class/PK.pm
+  DBIx::Class::PK::Auto: 
+    file: lib/DBIx/Class/PK/Auto.pm
+  DBIx::Class::Relationship: 
+    file: lib/DBIx/Class/Relationship.pm
+  DBIx::Class::Relationship::Base: 
+    file: lib/DBIx/Class/Relationship/Base.pm
+  DBIx::Class::ResultClass::HashRefInflator: 
+    file: lib/DBIx/Class/ResultClass/HashRefInflator.pm
+  DBIx::Class::ResultSet: 
+    file: lib/DBIx/Class/ResultSet.pm
+  DBIx::Class::ResultSetColumn: 
+    file: lib/DBIx/Class/ResultSetColumn.pm
+  DBIx::Class::ResultSetManager: 
+    file: lib/DBIx/Class/ResultSetManager.pm
+  DBIx::Class::ResultSource: 
+    file: lib/DBIx/Class/ResultSource.pm
+  DBIx::Class::ResultSource::Table: 
+    file: lib/DBIx/Class/ResultSource/Table.pm
+  DBIx::Class::ResultSourceHandle: 
+    file: lib/DBIx/Class/ResultSourceHandle.pm
+  DBIx::Class::ResultSourceProxy::Table: 
+    file: lib/DBIx/Class/ResultSourceProxy/Table.pm
+  DBIx::Class::Row: 
+    file: lib/DBIx/Class/Row.pm
+  DBIx::Class::Schema: 
+    file: lib/DBIx/Class/Schema.pm
+  DBIx::Class::Schema::Versioned: 
+    file: lib/DBIx/Class/Schema/Versioned.pm
+  DBIx::Class::Serialize::Storable: 
+    file: lib/DBIx/Class/Serialize/Storable.pm
+  DBIx::Class::StartupCheck: 
+    file: lib/DBIx/Class/StartupCheck.pm
+  DBIx::Class::Storage: 
+    file: lib/DBIx/Class/Storage.pm
+  DBIx::Class::Storage::DBI: 
+    file: lib/DBIx/Class/Storage/DBI.pm
+  DBIx::Class::Storage::DBI::Cursor: 
+    file: lib/DBIx/Class/Storage/DBI/Cursor.pm
+  DBIx::Class::Storage::DBI::DB2: 
+    file: lib/DBIx/Class/Storage/DBI/DB2.pm
+  DBIx::Class::Storage::DBI::MSSQL: 
+    file: lib/DBIx/Class/Storage/DBI/MSSQL.pm
+  DBIx::Class::Storage::DBI::MultiDistinctEmulation: 
+    file: lib/DBIx/Class/Storage/DBI/MultiDistinctEmulation.pm
+  DBIx::Class::Storage::DBI::NoBindVars: 
+    file: lib/DBIx/Class/Storage/DBI/NoBindVars.pm
+  DBIx::Class::Storage::DBI::ODBC: 
+    file: lib/DBIx/Class/Storage/DBI/ODBC.pm
+  DBIx::Class::Storage::DBI::ODBC::DB2_400_SQL: 
+    file: lib/DBIx/Class/Storage/DBI/ODBC/DB2_400_SQL.pm
+  DBIx::Class::Storage::DBI::ODBC::Microsoft_SQL_Server: 
+    file: lib/DBIx/Class/Storage/DBI/ODBC/Microsoft_SQL_Server.pm
+  DBIx::Class::Storage::DBI::Oracle: 
+    file: lib/DBIx/Class/Storage/DBI/Oracle.pm
+  DBIx::Class::Storage::DBI::Oracle::Generic: 
+    file: lib/DBIx/Class/Storage/DBI/Oracle/Generic.pm
+  DBIx::Class::Storage::DBI::Oracle::WhereJoins: 
+    file: lib/DBIx/Class/Storage/DBI/Oracle/WhereJoins.pm
+  DBIx::Class::Storage::DBI::Pg: 
+    file: lib/DBIx/Class/Storage/DBI/Pg.pm
+  DBIx::Class::Storage::DBI::Replication: 
+    file: lib/DBIx/Class/Storage/DBI/Replication.pm
+  DBIx::Class::Storage::DBI::SQLite: 
+    file: lib/DBIx/Class/Storage/DBI/SQLite.pm
+  DBIx::Class::Storage::DBI::Sybase: 
+    file: lib/DBIx/Class/Storage/DBI/Sybase.pm
+  DBIx::Class::Storage::DBI::Sybase::MSSQL: 
+    file: lib/DBIx/Class/Storage/DBI/Sybase/MSSQL.pm
+  DBIx::Class::Storage::DBI::mysql: 
+    file: lib/DBIx/Class/Storage/DBI/mysql.pm
+  DBIx::Class::Storage::Statistics: 
+    file: lib/DBIx/Class/Storage/Statistics.pm
+  DBIx::Class::Test::SQLite: 
+    file: lib/DBIx/Class/Test/SQLite.pm
+  DBIx::Class::UTF8Columns: 
+    file: lib/DBIx/Class/UTF8Columns.pm
+  DBIx::Class::Version: 
+    file: lib/DBIx/Class/Schema/Versioned.pm
+  DBIx::Class::Version::Table: 
+    file: lib/DBIx/Class/Schema/Versioned.pm
+  SQL::Translator::Producer::DBIx::Class::File: 
+    file: lib/SQL/Translator/Producer/DBIx/Class/File.pm
+    version: 0.1
+  TestRHBug: 
+    file: lib/DBIx/Class/StartupCheck.pm
+requires: 
   Carp::Clan: 0
+  Class::Accessor::Grouped: 0.05002
   Class::C3: 0.13
-  Class::Data::Accessor: 0.01
+  Class::C3::Componentised: 0
   Class::Inspector: 0
-  Cwd: 3.19
   DBI: 1.4
   Data::Page: 2
+  JSON::Any: 1
   Module::Find: 0
   SQL::Abstract: 1.2
   SQL::Abstract::Limit: 0.101
   Scalar::Util: 0
+  Scope::Guard: 0.03
   Storable: 0
-build_requires:
-  DBD::SQLite: 1.11
-provides:
-  DBIC::SQL::Abstract:
-    file: lib/DBIx/Class/Storage/DBI.pm
-  DBIx::Class:
-    file: lib/DBIx/Class.pm
-    version: 0.07005
-  DBIx::Class::AccessorGroup:
-    file: lib/DBIx/Class/AccessorGroup.pm
-  DBIx::Class::CDBICompat:
-    file: lib/DBIx/Class/CDBICompat.pm
-  DBIx::Class::CDBICompat::ColumnGroups::GrouperShim:
-    file: lib/DBIx/Class/CDBICompat/ColumnGroups.pm
-  DBIx::Class::Core:
-    file: lib/DBIx/Class/Core.pm
-  DBIx::Class::Cursor:
-    file: lib/DBIx/Class/Cursor.pm
-  DBIx::Class::DB:
-    file: lib/DBIx/Class/DB.pm
-  DBIx::Class::InflateColumn:
-    file: lib/DBIx/Class/InflateColumn.pm
-  DBIx::Class::InflateColumn::DateTime:
-    file: lib/DBIx/Class/InflateColumn/DateTime.pm
-  DBIx::Class::Ordered:
-    file: lib/DBIx/Class/Ordered.pm
-  DBIx::Class::PK:
-    file: lib/DBIx/Class/PK.pm
-  DBIx::Class::PK::Auto:
-    file: lib/DBIx/Class/PK/Auto.pm
-  DBIx::Class::Relationship:
-    file: lib/DBIx/Class/Relationship.pm
-  DBIx::Class::Relationship::Base:
-    file: lib/DBIx/Class/Relationship/Base.pm
-  DBIx::Class::ResultSet:
-    file: lib/DBIx/Class/ResultSet.pm
-  DBIx::Class::ResultSetColumn:
-    file: lib/DBIx/Class/ResultSetColumn.pm
-  DBIx::Class::ResultSetManager:
-    file: lib/DBIx/Class/ResultSetManager.pm
-  DBIx::Class::ResultSource:
-    file: lib/DBIx/Class/ResultSource.pm
-  DBIx::Class::ResultSource::Table:
-    file: lib/DBIx/Class/ResultSource/Table.pm
-  DBIx::Class::ResultSourceProxy::Table:
-    file: lib/DBIx/Class/ResultSourceProxy/Table.pm
-  DBIx::Class::Row:
-    file: lib/DBIx/Class/Row.pm
-  DBIx::Class::Schema:
-    file: lib/DBIx/Class/Schema.pm
-  DBIx::Class::Serialize::Storable:
-    file: lib/DBIx/Class/Serialize/Storable.pm
-  DBIx::Class::Storage::DBI:
-    file: lib/DBIx/Class/Storage/DBI.pm
-  DBIx::Class::Storage::DBI::Cursor:
-    file: lib/DBIx/Class/Storage/DBI/Cursor.pm
-  DBIx::Class::Storage::DBI::DB2:
-    file: lib/DBIx/Class/Storage/DBI/DB2.pm
-  DBIx::Class::Storage::DBI::MSSQL:
-    file: lib/DBIx/Class/Storage/DBI/MSSQL.pm
-  DBIx::Class::Storage::DBI::MultiDistinctEmulation:
-    file: lib/DBIx/Class/Storage/DBI/MultiDistinctEmulation.pm
-  DBIx::Class::Storage::DBI::NoBindVars:
-    file: lib/DBIx/Class/Storage/DBI/NoBindVars.pm
-  DBIx::Class::Storage::DBI::ODBC:
-    file: lib/DBIx/Class/Storage/DBI/ODBC.pm
-  DBIx::Class::Storage::DBI::ODBC::DB2_400_SQL:
-    file: lib/DBIx/Class/Storage/DBI/ODBC/DB2_400_SQL.pm
-  DBIx::Class::Storage::DBI::Oracle:
-    file: lib/DBIx/Class/Storage/DBI/Oracle.pm
-  DBIx::Class::Storage::DBI::Pg:
-    file: lib/DBIx/Class/Storage/DBI/Pg.pm
-  DBIx::Class::Storage::DBI::SQLite:
-    file: lib/DBIx/Class/Storage/DBI/SQLite.pm
-  DBIx::Class::Storage::DBI::Sybase:
-    file: lib/DBIx/Class/Storage/DBI/Sybase.pm
-  DBIx::Class::Storage::DBI::Sybase::MSSQL:
-    file: lib/DBIx/Class/Storage/DBI/Sybase/MSSQL.pm
-  DBIx::Class::Storage::DBI::mysql:
-    file: lib/DBIx/Class/Storage/DBI/mysql.pm
-  DBIx::Class::Storage::NESTED_ROLLBACK_EXCEPTION:
-    file: lib/DBIx/Class/Storage.pm
-  DBIx::Class::Storage::Statistics:
-    file: lib/DBIx/Class/Storage/Statistics.pm
-  DBIx::Class::Test::SQLite:
-    file: lib/DBIx/Class/Test/SQLite.pm
-  DBIx::Class::UTF8Columns:
-    file: lib/DBIx/Class/UTF8Columns.pm
-  DBIx::ContextualFetch::st:
-    file: lib/DBIx/Class/CDBICompat/ImaDBI.pm
-  SQL::Translator::Producer::DBIx::Class::File:
-    file: lib/SQL/Translator/Producer/DBIx/Class/File.pm
-    version: 0.1
-generated_by: Module::Build version 0.28
-meta-spec:
-  url: http://module-build.sourceforge.net/META-spec-v1.2.html
-  version: 1.2
+  perl: 5.6.1
+tests: t/*.t t/*/*.t
+version: 0.08010

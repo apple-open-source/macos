@@ -97,6 +97,15 @@ Configure_Flags = --prefix="$(Install_Prefix)"	\
 		  --disable-dependency-tracking \
 		  $(Extra_Configure_Flags)
 
+ifndef Configure_Products
+Configure_Products = config.h config.log
+endif
+
+# for backwards compatibility; many projects will probably want to override this
+Extra_Make_Flags ?= $(Environment)
+
+Make_Flags = $(Extra_Make_Flags)
+
 Install_Flags = prefix="$(RC_Install_Prefix)"	\
 		mandir="$(RC_Install_Man)"	\
 	       infodir="$(RC_Install_Info)"	\
@@ -114,7 +123,7 @@ Install_Target = install-strip
 install:: build
 ifneq ($(GnuNoInstall),YES)
 	@echo "Installing $(Project)..."
-	$(_v) umask $(Install_Mask) ; $(MAKE) -C $(BuildDirectory) $(Environment) $(Install_Flags) $(Install_Target)
+	$(_v) umask $(Install_Mask) ; $(MAKE) -C $(BuildDirectory) $(Make_Flags) $(Install_Flags) $(Install_Target)
 	$(_v) $(FIND) $(DSTROOT) $(Find_Cruft) -depth -exec $(RMDIR) "{}" \;
 	$(_v) $(FIND) $(SYMROOT) $(Find_Cruft) -depth -exec $(RMDIR) "{}" \;
 ifneq ($(GnuNoChown),YES)
@@ -129,7 +138,7 @@ endif
 build:: configure
 ifneq ($(GnuNoBuild),YES)
 	@echo "Building $(Project)..."
-	$(_v) $(MAKE) -C $(BuildDirectory) $(Environment)
+	$(_v) $(MAKE) -C $(BuildDirectory) $(Make_Flags)
 endif
 
 configure:: lazy_install_source $(ConfigStamp)
@@ -143,7 +152,10 @@ ifneq ($(GnuNoConfigure),YES)
 	@echo "Configuring $(Project)..."
 	$(_v) $(MKDIR) $(BuildDirectory)
 # Disable LD_TRACE_FILE during configure
-	$(_v) cd $(BuildDirectory) && $(Environment) LD_TRACE_FILE=/dev/null $(Configure) $(Configure_Flags)
+	$(_v) cd $(BuildDirectory) && $(Environment) $(Extra_Configure_Environment) LD_TRACE_FILE=/dev/null $(Configure) $(Configure_Flags)
+ifneq ($(Configure_Products),)
+	$(_v) - $(CP) $(foreach PRODUCT,$(Configure_Products),$(BuildDirectory)/$(PRODUCT)) $(SYMROOT)
+endif
 endif
 	$(_v) touch $@
 

@@ -1,0 +1,91 @@
+  <manpage id="tdomcmd" cat="cmd" title="tdom">
+    <namesection>
+      <name>tdom</name>
+
+      <desc>tdom is an expat parser object extension to create an in-memory
+DOM tree from the input while parsing.</desc>
+    </namesection>
+
+
+  <synopsis>
+    <syntax>package require tdom
+
+set parser [expat]
+
+tdom $parser enable</syntax>
+  </synopsis>
+
+  <section>
+    <title>DESCRIPTION</title>
+
+    <p><m>tdom</m> adds the C handler set &quot;tdom&quot; to an tcl expat
+parser obj. This handler set builds an in-memory DOM tree out of the input,
+parsed by the parser. A DOM tree created this way behave exactly like a DOM
+tree created by the &quot;dom&quot; command (see there). In fact, tdom is only
+another interface to the same functionality; it uses the code behind the
+<samp>dom</samp> code for building the DOM tree.</p>
+
+    <commandlist>
+      <commanddef>
+        <command><cmd>tdom</cmd> <m>parserObj</m> <method>enable</method></command>
+
+        <desc><p>Adds the tdom C handler set to a Tcl expat parser object. Next
+time, the parser parses input, the tdom C handler functions create an in-memory
+DOM tree.</p></desc>
+      </commanddef>
+
+      <commanddef>
+        <command><cmd>tdom</cmd> <m>parserObj</m> <method>getdoc</method></command>
+
+        <desc><p>Returns the DOM tree as domDoc (see there) object.</p></desc>
+      </commanddef>
+
+      <commanddef>
+        <command><cmd>tdom</cmd> <m>parserObj</m> <method>setResultEncoding</method></command>
+
+        <desc><p>See the method <samp>setResultEncoding</samp> of the
+<cmd>dom</cmd> command.</p></desc>
+      </commanddef>
+
+      <commanddef>
+        <command><cmd>tdom</cmd> <m>parserObj</m> <method>setStoreLineColumn</method> ?<m>boolean</m>?</command>
+
+        <desc><p>See the method <samp>setStoreLineColumn</samp> of the
+<cmd>dom</cmd> command.</p></desc>
+      </commanddef>
+
+      <commanddef>
+        <command><cmd>tdom</cmd> <m>parserObj</m> <method>remove</method></command>
+
+        <desc><p>Removes the tdom C handler set from the parser
+object.</p></desc>
+      </commanddef>
+
+      <commanddef>
+        <command><cmd>tdom</cmd> <m>parserObj</m> <method>keepEmpties</method></command>
+
+        <desc><p>See the option <samp>-keepEmpties</samp> of the <cmd>dom</cmd> command.</p></desc>
+      </commanddef>
+
+      <commanddef>
+        <command><cmd>tdom</cmd> <m>parserObj</m> <method>setExternalEntityResolver</method> <m>script</m></command>
+        <desc></desc>
+      </commanddef>
+
+    </commandlist>
+  </section>
+
+  <seealso>
+    <ref>dom</ref>
+    <ref>expat</ref>
+  </seealso>
+
+  <keywords>
+    <keyword>DOM</keyword>
+    <keyword>SAX</keyword>
+    <keyword>C handler set</keyword>
+  </keywords>
+
+</manpage>
+
+

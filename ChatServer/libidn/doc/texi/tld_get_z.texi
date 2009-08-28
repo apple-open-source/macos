@@ -1,3 +1,5 @@
+@subheading tld_get_z
+@anchor{tld_get_z}
 @deftypefun {int} {tld_get_z} (const char * @var{in}, char ** @var{out})
 @var{in}: Zero terminated character array to process.
 

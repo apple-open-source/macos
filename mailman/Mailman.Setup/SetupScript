@@ -41,6 +41,11 @@ chown _mailman:_mailman ${_mm_var_log_dir}
 sed "/^LOG_DIR/ s@VAR_PREFIX, 'logs'@\'/var/log/', 'mailman\'@" < ${_mm_defaults} > ${_mm_defaults}.$$ && mv ${_mm_defaults}.$$ ${_mm_defaults}
 
 #
+# Comment out 
+#
+sed -e 's/HTML_TO_PLAIN_TEXT_COMMAND =/#HTML_TO_PLAIN_TEXT_COMMAND =/' < ${_mm_defaults} > ${_mm_defaults}.$$ && mv ${_mm_defaults}.$$ ${_mm_defaults}
+
+#
 # Once mailman is properly configured, compile all the scripts to
 # improve performance.
 #

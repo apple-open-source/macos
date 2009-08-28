@@ -22,11 +22,6 @@
 #undef POSIXJOBS
 
 /*
- * POSIXSIGS	Use the POSIX signal facilities to emulate BSD signals.
- */
-#define POSIXSIGS
-
-/*
  * VFORK	This machine has a vfork().  
  *		It used to be that for job control to work, this define
  *		was mandatory. This is not the case any more.
@@ -48,16 +43,9 @@
 #undef BSDJOBS
 
 /*
- * BSDSIGS	You have 4.2-style signals, rather than USG style.
- *		Note: POSIX systems should not define this unless they
- *		have sigvec() and friends (ie: 4.3BSD-RENO, HP-UX).
- */
-#undef BSDSIGS
-
-/*
  * BSDTIMES	You have BSD-style process time stuff (like rusage)
  *		This may or may not be true.  For example, Apple Unix
- *		(OREO) has BSDJOBS and BSDSIGS but not BSDTIMES.
+ *		(OREO) has BSDJOBS but not BSDTIMES.
  */
 #undef BSDTIMES
 
@@ -91,23 +79,51 @@
  */
 #undef YPBUGS
 
+
+#define HAVE_DUP2                1
+#define HAVE_STRUCT_UTMP_UT_HOST 1
+#define HAVE_DIRENT_H            1
+#define PROTOTYPES               1
+#define HAVE_GETCWD              1
+#define HAVE_GETHOSTNAME         1
+#define HAVE_MEMMOVE             1
+#define HAVE_MEMSET              1
+#define HAVE_NICE                1
+#define HAVE_SBRK                1
+#define HAVE_STDLIB_H            1
+#define HAVE_STRSTR              1
+#define HAVE_WCHAR_H             1
+#define GETPGRP_VOID             1
+#define HAVE_DECL_GETPGRP	 1
+#define HAVE_STRUCT_DIRENT_D_INO 1
+#define HAVE_STRERROR            1
+
+#define SHORT_STRINGS    
+
+#define SIZEOF_WCHAR_T           2
+
+#define RCSID(id) static char *rcsid = (id);
+
+// fake defines
+#define HAVE_SETPGID             1
 /****************** local defines *********************/
 
 #define _PATH_TCSHELL "/bin/tcsh"
 #define ECHO_STYLE      BOTH_ECHO
-#ifdef BSDSIGS
-# define __USE_BSD_SIGNAL
-#endif
 
-/* that gives too long startup delays for me */
 
 #undef REMOTEHOST
 
 #define CASE_INSENSITIVE
 #define HASHBANG
-#undef AUTOLOGOUT
 #undef NLS_CATALOGS
 
+#define _CRT_SECURE_NO_DEPRECATE 1
+#define _CRT_NONSTDC_NO_DEPRECATE 1
+#include <limits.h>
 #include <ntport.h>
 
+#include "config_f.h"
+#undef REMOTEHOST
+#undef AUTOLOGOUT
 #endif /* _h_config */

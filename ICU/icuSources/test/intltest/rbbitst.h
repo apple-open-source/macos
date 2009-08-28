@@ -1,13 +1,11 @@
-/********************************************************************
- * COPYRIGHT:
- * Copyright (c) 1999-2006, International Business Machines Corporation and
- * others. All Rights Reserved.
- ********************************************************************/
-/************************************************************************
-*   Date        Name        Description
-*   12/15/99    Madhu        Creation.
-*   01/12/2000  Madhu        Updated for changed API and added new tests
-************************************************************************/
+/*************************************************************************
+ * Copyright (c) 1999-2008, International Business Machines
+ * Corporation and others. All Rights Reserved.
+ *************************************************************************
+ *   Date        Name        Description
+ *   12/15/99    Madhu        Creation.
+ *   01/12/2000  Madhu        Updated for changed API and added new tests
+ ************************************************************************/
 
 
 #ifndef RBBITEST_H
@@ -20,11 +18,15 @@
 #include "intltest.h"
 #include "unicode/brkiter.h"
 
-class  Vector;
+
 class  Enumeration;
 class  BITestData;
 struct TestParams;
 class  RBBIMonkeyKind;
+
+U_NAMESPACE_BEGIN
+class  UVector32;
+U_NAMESPACE_END
 
 /**
  * Test the RuleBasedBreakIterator class giving different rules
@@ -42,15 +44,6 @@ public:
      **/
     void TestStatusReturn();
 
-    /**
-     * Run the Unicode Line Break test data.
-     **/
-    void TestLineBreakData();
-
-    /**
-     * Run tests from external test data file.
-     */
-
     void TestEmptyString();
     void TestGetAvailableLocales();
     void TestGetDisplayName();
@@ -63,7 +56,7 @@ public:
     void TestMonkey(char *params);
 
     void TestExtended();
-    UChar *ReadAndConvertFile(const char *fileName, int &ulen, UErrorCode &status);
+    UChar *ReadAndConvertFile(const char *fileName, int &ulen, const char *encoding, UErrorCode &status);
     void executeTest(TestParams *);
 
     void TestWordBreaks();
@@ -73,6 +66,10 @@ public:
     void TestBug3818();
     void TestJapaneseWordBreak();
     void TestTrieDict();
+    void TestUnicodeFiles();
+    void TestBug5775();
+    void TestThaiBreaks();
+
     void TestDebug();
 
 
@@ -119,6 +116,14 @@ private:
     void RunMonkey(BreakIterator *bi, RBBIMonkeyKind &mk, const char *name, uint32_t  seed,
         int32_t loopCount, UBool useUText);
 
+    // Run one of the Unicode Consortium boundary test data files.
+    void runUnicodeTestData(const char *fileName, RuleBasedBreakIterator *bi);
+
+    // Run a single test case from one of the Unicode Consortium test files.
+    void checkUnicodeTestCase(const char *testFileName, int lineNumber,
+                         const UnicodeString &testString,
+                         UVector32 *breakPositions,
+                         RuleBasedBreakIterator *bi);
 };
 
 #endif /* #if !UCONFIG_NO_BREAK_ITERATION */

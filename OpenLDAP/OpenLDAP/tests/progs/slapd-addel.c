@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/tests/progs/slapd-addel.c,v 1.27.2.8 2006/01/03 22:16:28 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/tests/progs/slapd-addel.c,v 1.41.2.6 2008/04/14 21:43:13 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2006 The OpenLDAP Foundation.
+ * Copyright 1999-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -21,18 +21,19 @@
 
 #include <stdio.h>
 
-#include <ac/stdlib.h>
+#include "ac/stdlib.h"
 
-#include <ac/ctype.h>
-#include <ac/param.h>
-#include <ac/socket.h>
-#include <ac/string.h>
-#include <ac/unistd.h>
-#include <ac/wait.h>
+#include "ac/ctype.h"
+#include "ac/param.h"
+#include "ac/socket.h"
+#include "ac/string.h"
+#include "ac/unistd.h"
+#include "ac/wait.h"
 
-#define LDAP_DEPRECATED 1
-#include <ldap.h>
-#include <lutil.h>
+#include "ldap.h"
+#include "lutil.h"
+
+#include "slapd-common.h"
 
 #define LOOPS	100
 #define RETRIES	0
@@ -41,9 +42,9 @@ static char *
 get_add_entry( char *filename, LDAPMod ***mods );
 
 static void
-do_addel( char *uri, char *host, int port, char *manager, char *passwd,
+do_addel( char *uri, char *manager, struct berval *passwd,
 	char *dn, LDAPMod **attrs, int maxloop, int maxretries, int delay,
-	int friendly );
+	int friendly, int chaserefs );
 
 static void
 usage( char *name )
@@ -54,10 +55,13 @@ usage( char *name )
 		"-D <manager> "
 		"-w <passwd> "
 		"-f <addfile> "
+		"[-i <ignore>] "
 		"[-l <loops>] "
+		"[-L <outerloops>] "
 		"[-r <maxretries>] "
 		"[-t <delay>] "
-		"[-F]\n",
+		"[-F] "
+		"[-C]\n",
 			name );
 	exit( EXIT_FAILURE );
 }
@@ -70,17 +74,26 @@ main( int argc, char **argv )
 	char		*uri = NULL;
 	int		port = -1;
 	char		*manager = NULL;
-	char		*passwd = NULL;
+	struct berval	passwd = { 0, NULL };
 	char		*filename = NULL;
 	char		*entry = NULL;
 	int		loops = LOOPS;
+	int		outerloops = 1;
 	int		retries = RETRIES;
 	int		delay = 0;
 	int		friendly = 0;
+	int		chaserefs = 0;
 	LDAPMod		**attrs = NULL;
 
-	while ( (i = getopt( argc, argv, "FH:h:p:D:w:f:l:r:t:" )) != EOF ) {
-		switch( i ) {
+	tester_init( "slapd-addel", TESTER_ADDEL );
+
+	while ( ( i = getopt( argc, argv, "CD:Ff:H:h:i:L:l:p:r:t:w:" ) ) != EOF )
+	{
+		switch ( i ) {
+		case 'C':
+			chaserefs++;
+			break;
+
 		case 'F':
 			friendly++;
 			break;
@@ -91,6 +104,10 @@ main( int argc, char **argv )
 
 		case 'h':		/* the servers host */
 			host = strdup( optarg );
+			break;
+
+		case 'i':
+			/* ignored (!) by now */
 			break;
 
 		case 'p':		/* the servers port */
@@ -104,7 +121,9 @@ main( int argc, char **argv )
 			break;
 
 		case 'w':		/* the server managers password */
-			passwd = strdup( optarg );
+			passwd.bv_val = strdup( optarg );
+			passwd.bv_len = strlen( optarg );
+			memset( optarg, '*', passwd.bv_len );
 			break;
 
 		case 'f':		/* file with entry search request */
@@ -113,6 +132,12 @@ main( int argc, char **argv )
 
 		case 'l':		/* the number of loops */
 			if ( lutil_atoi( &loops, optarg ) != 0 ) {
+				usage( argv[0] );
+			}
+			break;
+
+		case 'L':		/* the number of outerloops */
+			if ( lutil_atoi( &outerloops, optarg ) != 0 ) {
 				usage( argv[0] );
 			}
 			break;
@@ -136,7 +161,7 @@ main( int argc, char **argv )
 	}
 
 	if (( filename == NULL ) || ( port == -1 && uri == NULL ) ||
-				( manager == NULL ) || ( passwd == NULL ))
+				( manager == NULL ) || ( passwd.bv_val == NULL ))
 		usage( argv[0] );
 
 	entry = get_add_entry( filename, &attrs );
@@ -156,8 +181,12 @@ main( int argc, char **argv )
 
 	}
 
-	do_addel( uri, host, port, manager, passwd, entry, attrs,
-			loops, retries, delay, friendly );
+	uri = tester_uri( uri, host, port );
+
+	for ( i = 0; i < outerloops; i++ ) {
+		do_addel( uri, manager, &passwd, entry, attrs,
+				loops, retries, delay, friendly, chaserefs );
+	}
 
 	exit( EXIT_SUCCESS );
 }
@@ -186,19 +215,19 @@ addmodifyop( LDAPMod ***pmodsp, int modop, char *attr, char *value, int vlen )
     if ( pmods == NULL || pmods[ i ] == NULL ) {
 		if (( pmods = (LDAPMod **)realloc( pmods, (i + 2) *
 			sizeof( LDAPMod * ))) == NULL ) {
-	    		perror( "realloc" );
+	    		tester_perror( "realloc", NULL );
 	    		exit( EXIT_FAILURE );
 		}
 		*pmodsp = pmods;
 		pmods[ i + 1 ] = NULL;
 		if (( pmods[ i ] = (LDAPMod *)calloc( 1, sizeof( LDAPMod )))
 			== NULL ) {
-	    		perror( "calloc" );
+	    		tester_perror( "calloc", NULL );
 	    		exit( EXIT_FAILURE );
 		}
 		pmods[ i ]->mod_op = modop;
 		if (( pmods[ i ]->mod_type = strdup( attr )) == NULL ) {
-	    	perror( "strdup" );
+	    	tester_perror( "strdup", NULL );
 	    	exit( EXIT_FAILURE );
 		}
     }
@@ -213,20 +242,20 @@ addmodifyop( LDAPMod ***pmodsp, int modop, char *attr, char *value, int vlen )
 		if (( pmods[ i ]->mod_bvalues =
 			(struct berval **)ber_memrealloc( pmods[ i ]->mod_bvalues,
 			(j + 2) * sizeof( struct berval * ))) == NULL ) {
-	    		perror( "ber_realloc" );
+	    		tester_perror( "ber_memrealloc", NULL );
 	    		exit( EXIT_FAILURE );
 		}
 		pmods[ i ]->mod_bvalues[ j + 1 ] = NULL;
 		if (( bvp = (struct berval *)ber_memalloc( sizeof( struct berval )))
 			== NULL ) {
-	    		perror( "malloc" );
+	    		tester_perror( "ber_memalloc", NULL );
 	    		exit( EXIT_FAILURE );
 		}
 		pmods[ i ]->mod_bvalues[ j ] = bvp;
 
 	    bvp->bv_len = vlen;
 	    if (( bvp->bv_val = (char *)malloc( vlen + 1 )) == NULL ) {
-			perror( "malloc" );
+			tester_perror( "malloc", NULL );
 			exit( EXIT_FAILURE );
 	    }
 	    AC_MEMCPY( bvp->bv_val, value, vlen );
@@ -249,7 +278,10 @@ get_add_entry( char *filename, LDAPMod ***mods )
 
 			if (( nl = strchr( line, '\r' )) || ( nl = strchr( line, '\n' )))
 				*nl = '\0';
-			entry = strdup( line );
+			nl = line;
+			if ( !strncasecmp( nl, "dn: ", 4 ))
+				nl += 4;
+			entry = strdup( nl );
 
 		}
 
@@ -280,48 +312,40 @@ get_add_entry( char *filename, LDAPMod ***mods )
 static void
 do_addel(
 	char *uri,
-	char *host,
-	int port,
 	char *manager,
-	char *passwd,
+	struct berval *passwd,
 	char *entry,
 	LDAPMod **attrs,
 	int maxloop,
 	int maxretries,
 	int delay,
-	int friendly
-)
+	int friendly,
+	int chaserefs )
 {
 	LDAP	*ld = NULL;
 	int  	i = 0, do_retry = maxretries;
-	pid_t	pid = getpid();
 	int	rc = LDAP_SUCCESS;
+	int	version = LDAP_VERSION3;
 
 retry:;
-	if ( uri ) {
-		ldap_initialize( &ld, uri );
-	} else {
-		ld = ldap_init( host, port );
-	}
+	ldap_initialize( &ld, uri );
 	if ( ld == NULL ) {
-		perror( "ldap_init" );
+		tester_perror( "ldap_initialize", NULL );
 		exit( EXIT_FAILURE );
 	}
 
-	{
-		int version = LDAP_VERSION3;
-		(void) ldap_set_option( ld, LDAP_OPT_PROTOCOL_VERSION,
-			&version ); 
-	}
+	(void) ldap_set_option( ld, LDAP_OPT_PROTOCOL_VERSION, &version );
+	(void) ldap_set_option( ld, LDAP_OPT_REFERRALS,
+		chaserefs ? LDAP_OPT_ON : LDAP_OPT_OFF );
 
 	if ( do_retry == maxretries ) {
 		fprintf( stderr, "PID=%ld - Add/Delete(%d): entry=\"%s\".\n",
 			(long) pid, maxloop, entry );
 	}
 
-	rc = ldap_bind_s( ld, manager, passwd, LDAP_AUTH_SIMPLE );
+	rc = ldap_sasl_bind_s( ld, manager, LDAP_SASL_SIMPLE, passwd, NULL, NULL, NULL );
 	if ( rc != LDAP_SUCCESS ) {
-		ldap_perror( ld, "ldap_bind" );
+		tester_ldap_error( ld, "ldap_sasl_bind_s", NULL );
 		switch ( rc ) {
 		case LDAP_BUSY:
 		case LDAP_UNAVAILABLE:
@@ -342,9 +366,9 @@ retry:;
 	for ( ; i < maxloop; i++ ) {
 
 		/* add the entry */
-		rc = ldap_add_s( ld, entry, attrs );
+		rc = ldap_add_ext_s( ld, entry, attrs, NULL, NULL );
 		if ( rc != LDAP_SUCCESS ) {
-			ldap_perror( ld, "ldap_add" );
+			tester_ldap_error( ld, "ldap_add_ext_s", NULL );
 			switch ( rc ) {
 			case LDAP_ALREADY_EXISTS:
 				/* NOTE: this likely means
@@ -375,9 +399,9 @@ retry:;
 #endif
 
 		/* now delete the entry again */
-		rc = ldap_delete_s( ld, entry );
+		rc = ldap_delete_ext_s( ld, entry, NULL, NULL );
 		if ( rc != LDAP_SUCCESS ) {
-			ldap_perror( ld, "ldap_delete" );
+			tester_ldap_error( ld, "ldap_delete_ext_s", NULL );
 			switch ( rc ) {
 			case LDAP_NO_SUCH_OBJECT:
 				/* NOTE: this likely means
@@ -405,7 +429,7 @@ retry:;
 done:;
 	fprintf( stderr, " PID=%ld - Add/Delete done (%d).\n", (long) pid, rc );
 
-	ldap_unbind( ld );
+	ldap_unbind_ext( ld, NULL, NULL );
 }
 
 

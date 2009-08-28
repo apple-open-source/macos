@@ -1,10 +1,10 @@
 /*
- * "$Id: auth.h 7319 2008-02-15 23:26:51Z mike $"
+ * "$Id: auth.h 7317 2008-02-15 22:29:27Z mike $"
  *
  *   Authorization definitions for the Common UNIX Printing System (CUPS)
  *   scheduler.
  *
- *   Copyright 2007-2008 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -135,11 +135,16 @@ extern void		cupsdAllowIP(cupsd_location_t *loc,
 				     const unsigned address[4],
 			             const unsigned netmask[4]);
 extern void		cupsdAuthorize(cupsd_client_t *con);
+extern int		cupsdCheckAccess(unsigned ip[4], char *name,
+			                 int namelen, cupsd_location_t *loc);
 extern int		cupsdCheckAuth(unsigned ip[4], char *name, int namelen,
 				       int num_masks, cupsd_authmask_t *masks);
 extern int		cupsdCheckGroup(const char *username,
 			                struct passwd *user,
 			                const char *groupname);
+#ifdef HAVE_GSSAPI
+extern krb5_ccache	cupsdCopyKrb5Creds(cupsd_client_t *con);
+#endif /* HAVE_GSSAPI */
 extern cupsd_location_t	*cupsdCopyLocation(cupsd_location_t **loc);
 extern void		cupsdDeleteAllLocations(void);
 extern void		cupsdDeleteLocation(cupsd_location_t *loc);
@@ -153,5 +158,5 @@ extern http_status_t	cupsdIsAuthorized(cupsd_client_t *con, const char *owner);
 
 
 /*
- * End of "$Id: auth.h 7319 2008-02-15 23:26:51Z mike $".
+ * End of "$Id: auth.h 7317 2008-02-15 22:29:27Z mike $".
  */

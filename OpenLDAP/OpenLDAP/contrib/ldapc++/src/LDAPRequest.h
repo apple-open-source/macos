@@ -1,3 +1,4 @@
+// $OpenLDAP: pkg/ldap/contrib/ldapc++/src/LDAPRequest.h,v 1.4.10.3 2008/04/14 23:09:26 quanah Exp $
 /*
  * Copyright 2000, OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
@@ -40,6 +41,7 @@ class LDAPRequest{
         
         const LDAPConstraints* getConstraints() const;
         const LDAPAsynConnection* getConnection() const;
+        virtual LDAPMsg *getNextMessage() const;
         int getType()const;
         int getMsgID() const;
         int getHopCount() const;
@@ -63,7 +65,7 @@ class LDAPRequest{
          * functions of the C-API to send the Request to a LDAP-Server
          */
         virtual LDAPMessageQueue* sendRequest()=0;
-        virtual LDAPRequest* followReferral(LDAPMsg* ref)=0;
+        virtual LDAPRequest* followReferral(LDAPMsg* ref);
 
         /**
          * Compare this request with another on. And returns true if they

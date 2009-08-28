@@ -580,7 +580,6 @@ iterator_first_hashed (const struct dictionary *dict,
 static struct symbol *
 iterator_next_hashed (struct dict_iterator *iterator)
 {
-  const struct dictionary *dict = DICT_ITERATOR_DICT (iterator);
   struct symbol *next;
 
   next = DICT_ITERATOR_CURRENT (iterator)->hash_next;
@@ -636,7 +635,11 @@ iter_name_first_hashed (const struct dictionary *dict,
        sym = sym->hash_next)
     {
       /* Warning: the order of arguments to strcmp_iw matters!  */
-      if (strcmp_iw (SYMBOL_SEARCH_NAME (sym), name) == 0)
+      /* APPLE LOCAL begin psym equivalences  */
+      if ((strcmp_iw (SYMBOL_SEARCH_NAME (sym), name) == 0)
+	  || (psym_equivalences
+	      && psym_name_match (SYMBOL_SEARCH_NAME (sym), name)))
+      /* APPLE LOCAL end psym equivalences  */
 	{
 	  break;
 	}
@@ -656,7 +659,11 @@ iter_name_next_hashed (const char *name, struct dict_iterator *iterator)
        next != NULL;
        next = next->hash_next)
     {
-      if (strcmp_iw (SYMBOL_SEARCH_NAME (next), name) == 0)
+      /* APPLE LOCAL begin psym equivalences  */
+      if ((strcmp_iw (SYMBOL_SEARCH_NAME (next), name) == 0)
+	  || (psym_equivalences
+	      && psym_name_match (SYMBOL_SEARCH_NAME (next), name)))
+      /* APPLE LOCAL end psym equivalences  */
 	break;
     }
 
@@ -789,7 +796,11 @@ iter_name_next_linear (const char *name, struct dict_iterator *iterator)
   for (i = DICT_ITERATOR_INDEX (iterator) + 1; i < nsyms; ++i)
     {
       sym = DICT_LINEAR_SYM (dict, i);
-      if (strcmp_iw (SYMBOL_SEARCH_NAME (sym), name) == 0)
+      /* APPLE LOCAL begin psym equivalences  */
+      if ((strcmp_iw (SYMBOL_SEARCH_NAME (sym), name) == 0)
+	  || (psym_equivalences
+	      && psym_name_match (SYMBOL_SEARCH_NAME (sym), name)))
+      /* APPLE LOCAL end psym equivalences  */
 	{
 	  retval = sym;
 	  break;

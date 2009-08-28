@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 2002-2006, International Business Machines Corporation and
+ * Copyright (c) 2002-2008, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -26,6 +26,10 @@
  *
  *   TESTCLASSID_FACTORY(Foo, fooCreateFunction(status) ) 
  *      -- call fooCreateFunction.  'status' will be tested & reset
+ *
+ *   TESTCLASSID_FACTORY_HIDDEN(class, factory)
+ *      -- call factory.  Class is not available from a header.
+ *      'status' will be tested & reset. This only tests uniqueness.
  */
 
 
@@ -34,81 +38,82 @@
 #define TESTCLASSID_CTOR(c, x) { delete testClass(new c x, #c, "new " #c #x, c ::getStaticClassID()); if(U_FAILURE(status)) { errln(UnicodeString(#c " - new " #x " - got err status ") + UnicodeString(u_errorName(status))); status = U_ZERO_ERROR; } }
 #define TESTCLASSID_DEFAULT(c) delete testClass(new c, #c, "new " #c , c::getStaticClassID())
 #define TESTCLASSID_ABSTRACT(c) testClass(NULL, #c, NULL, c::getStaticClassID())
+#define TESTCLASSID_FACTORY_HIDDEN(c, f) {UObject *objVar = f; delete testClass(objVar, #c, #f, objVar!=NULL? objVar->getDynamicClassID(): NULL); if(U_FAILURE(status)) { errln(UnicodeString(#c " - " #f " - got err status ") + UnicodeString(u_errorName(status))); status = U_ZERO_ERROR; } }
 
 #define MAX_CLASS_ID 200
 
-UClassID    ids[MAX_CLASS_ID];
-const char *ids_factory[MAX_CLASS_ID];
-const char *ids_class[MAX_CLASS_ID];
-uint32_t    ids_count = 0;
+static UClassID    ids[MAX_CLASS_ID];
+static const char *ids_factory[MAX_CLASS_ID];
+static const char *ids_class[MAX_CLASS_ID];
+static uint32_t    ids_count = 0;
 
 UObject *UObjectTest::testClass(UObject *obj,
                 const char *className, const char *factory, 
                 UClassID staticID)
 {
-  uint32_t i;
-  UnicodeString what = UnicodeString(className) + " * x= " + UnicodeString(factory?factory:" ABSTRACT ") + "; ";
-  UClassID dynamicID = NULL;
+    uint32_t i;
+    UnicodeString what = UnicodeString(className) + " * x= " + UnicodeString(factory?factory:" ABSTRACT ") + "; ";
+    UClassID dynamicID = NULL;
 
-  if(ids_count >= MAX_CLASS_ID) {
-    char count[100];
-    sprintf(count, " (currently %d) ", MAX_CLASS_ID);
-    errln("FAIL: Fatal: Ran out of IDs! Increase MAX_CLASS_ID." + UnicodeString(count) + what);
+    if(ids_count >= MAX_CLASS_ID) {
+        char count[100];
+        sprintf(count, " (currently %d) ", MAX_CLASS_ID);
+        errln("FAIL: Fatal: Ran out of IDs! Increase MAX_CLASS_ID." + UnicodeString(count) + what);
+        return obj;
+    }
+
+    if(obj) {
+        dynamicID = obj->getDynamicClassID();
+    }
+
+    {
+        char tmp[500];
+        sprintf(tmp, " [static=%p, dynamic=%p] ", staticID, dynamicID);
+        logln(what + tmp);
+    }
+
+    if(staticID == NULL) {
+        errln("FAIL: staticID == NULL!" + what);
+    }
+
+    if(factory != NULL) {  /* NULL factory means: abstract */
+        if(!obj) {
+            errln( "FAIL: ==NULL!" + what);
+            return obj;
+        }
+
+        if(dynamicID == NULL) {
+            errln("FAIL: dynamicID == NULL!" + what);
+        }
+
+        if(dynamicID != staticID) {
+            errln("FAIL: dynamicID != staticID!" + what );
+        }
+    }
+
+    // Bail out if static ID is null. Error message was already printed.
+    if(staticID == NULL) {
+        return obj;
+    }
+
+    for(i=0;i<ids_count;i++) {
+        if(staticID == ids[i]) {
+            if(!strcmp(ids_class[i], className)) {
+                logln("OK: ID found is the same as " + UnicodeString(ids_class[i]) + UnicodeString(" *y= ") + ids_factory[i] + what);
+                return obj; 
+            } else {
+                errln("FAIL: ID is the same as " + UnicodeString(ids_class[i]) + UnicodeString(" *y= ") + ids_factory[i] + what);
+                return obj;
+            }
+        }
+    }
+
+    ids[ids_count] = staticID;
+    ids_factory[ids_count] = factory;
+    ids_class[ids_count] = className;
+    ids_count++;
+
     return obj;
-  }
-
-  if(obj) {
-    dynamicID = obj->getDynamicClassID();
-  }    
-
-  {
-    char tmp[500];
-    sprintf(tmp, " [static=%p, dynamic=%p] ", staticID, dynamicID);
-    logln(what + tmp);
-  }
-
-  if(staticID == NULL) {
-    errln(  "FAIL: staticID == NULL!" + what);
-  }
-
-  if(factory != NULL) {  /* NULL factory means: abstract */
-    if(!obj) {
-      errln( "FAIL: ==NULL!" + what);
-      return obj;
-    }
-
-    if(dynamicID == NULL) {
-      errln("FAIL: dynamicID == NULL!" + what);
-    }
-    
-    if(dynamicID != staticID) {
-      errln("FAIL: dynamicID != staticID!" + what );
-    }
-  }
-
-  // Bail out if static ID is null
-  if(staticID == NULL) {
-    return obj;
-  }
-
-  for(i=0;i<ids_count;i++) {
-    if(staticID == ids[i]) {
-      if(!strcmp(ids_class[i], className)) {
-    logln("OK: ID found is the same as " + UnicodeString(ids_class[i]) + UnicodeString(" *y= ") + ids_factory[i] + what);
-    return obj; 
-      } else {
-    errln("FAIL: ID is the same as " + UnicodeString(ids_class[i]) + UnicodeString(" *y= ") + ids_factory[i] + what);
-    return obj;
-      }
-    }
-  }
-
-  ids[ids_count] = staticID;
-  ids_factory[ids_count] = factory;
-  ids_class[ids_count] = className;
-  ids_count++;
-
-  return obj;
 }
 
 
@@ -152,7 +157,15 @@ UObject *UObjectTest::testClass(UObject *obj,
 #include "islamcal.h"
 #include "japancal.h"
 #include "hebrwcal.h"
+#include "persncal.h"
+#include "taiwncal.h"
+#include "indiancal.h"
+#include "chnsecal.h"
+#include "windtfmt.h"
+#include "winnmfmt.h"
 #include "ustrenum.h"
+#include "olsontz.h"
+#include "reldtfmt.h"
 
 // External Things
 #include "unicode/brkiter.h"
@@ -164,10 +177,10 @@ UObject *UObjectTest::testClass(UObject *obj,
 #include "unicode/coll.h"
 #include "unicode/curramt.h"
 #include "unicode/datefmt.h"
-#include "unicode/dbbi.h"
 #include "unicode/dcfmtsym.h"
 #include "unicode/decimfmt.h"
 #include "unicode/dtfmtsym.h"
+#include "unicode/dtptngen.h"
 #include "unicode/fieldpos.h"
 #include "unicode/fmtable.h"
 #include "unicode/format.h"
@@ -177,6 +190,8 @@ UObject *UObjectTest::testClass(UObject *obj,
 #include "unicode/normlzr.h"
 #include "unicode/numfmt.h"
 #include "unicode/parsepos.h"
+#include "unicode/plurrule.h"
+#include "unicode/plurfmt.h"
 #include "unicode/rbbi.h"
 #include "unicode/rbnf.h"
 #include "unicode/regex.h"
@@ -222,11 +237,6 @@ void UObjectTest::testIDs()
 #endif
    
 
-    
-    //TESTCLASSID_DEFAULT(AbbreviatedUnicodeSetIterator);
-    //TESTCLASSID_DEFAULT(AnonymousStringFactory);
-
-    
 #if !UCONFIG_NO_NORMALIZATION
     TESTCLASSID_FACTORY(CanonicalIterator, new CanonicalIterator(UnicodeString("abc"), status));
 #endif
@@ -234,6 +244,7 @@ void UObjectTest::testIDs()
 #if !UCONFIG_NO_COLLATION
     TESTCLASSID_DEFAULT(CollationKey);
     TESTCLASSID_FACTORY(UStringEnumeration, Collator::getKeywords(status));
+    //TESTCLASSID_FACTORY_HIDDEN(CollationLocaleListEnumeration, Collator::getAvailableLocales());
 #endif
     //TESTCLASSID_FACTORY(CompoundTransliterator, Transliterator::createInstance(UnicodeString("Any-Jex;Hangul-Jamo"), UTRANS_FORWARD, parseError, status));
     
@@ -245,31 +256,44 @@ void UObjectTest::testIDs()
     TESTCLASSID_CTOR(ChoiceFormat, (UNICODE_STRING_SIMPLE("0#are no files|1#is one file|1<are many files"), status));
     TESTCLASSID_CTOR(MessageFormat, (UnicodeString(), status));
     TESTCLASSID_CTOR(DateFormatSymbols, (status));
+    TESTCLASSID_CTOR(PluralFormat, (status));
+    TESTCLASSID_CTOR(PluralRules, (status));
+    TESTCLASSID_FACTORY(DateTimePatternGenerator, DateTimePatternGenerator::createInstance(status));
+    TESTCLASSID_FACTORY(RelativeDateFormat, DateFormat::createDateInstance(DateFormat::kFullRelative, Locale::getUS()));
     TESTCLASSID_CTOR(DecimalFormatSymbols, (status));
     TESTCLASSID_DEFAULT(FieldPosition);
     TESTCLASSID_DEFAULT(Formattable);
     TESTCLASSID_CTOR(CurrencyAmount, (1.0, SMALL_STR, status));
     TESTCLASSID_CTOR(CurrencyUnit, (SMALL_STR, status));
-    TESTCLASSID_CTOR(CurrencyFormat, (Locale::getUS(), status));
-    TESTCLASSID_CTOR(GregorianCalendar, (status));
-    TESTCLASSID_CTOR(BuddhistCalendar, (Locale::getUS(), status));
-    TESTCLASSID_CTOR(IslamicCalendar, (Locale::getUS(), status));
-    TESTCLASSID_CTOR(JapaneseCalendar, (Locale::getUS(), status));
-    TESTCLASSID_CTOR(HebrewCalendar, (Locale::getUS(), status));
+    TESTCLASSID_FACTORY_HIDDEN(CurrencyFormat, MeasureFormat::createCurrencyFormat(Locale::getUS(), status));
+    TESTCLASSID_FACTORY(GregorianCalendar, Calendar::createInstance(Locale("@calendar=gregorian"), status));
+    TESTCLASSID_FACTORY(BuddhistCalendar, Calendar::createInstance(Locale("@calendar=buddhist"), status));
+    TESTCLASSID_FACTORY(IslamicCalendar, Calendar::createInstance(Locale("@calendar=islamic"), status));
+    TESTCLASSID_FACTORY(JapaneseCalendar, Calendar::createInstance(Locale("@calendar=japanese"), status));
+    TESTCLASSID_FACTORY(HebrewCalendar, Calendar::createInstance(Locale("@calendar=hebrew"), status));
+    TESTCLASSID_FACTORY(PersianCalendar, Calendar::createInstance(Locale("@calendar=persian"), status));
+    TESTCLASSID_FACTORY(IndianCalendar, Calendar::createInstance(Locale("@calendar=indian"), status));
+    TESTCLASSID_FACTORY(ChineseCalendar, Calendar::createInstance(Locale("@calendar=chinese"), status));
+    TESTCLASSID_FACTORY(TaiwanCalendar, Calendar::createInstance(Locale("@calendar=roc"), status));
+#ifdef U_WINDOWS
+    TESTCLASSID_FACTORY(Win32DateFormat, DateFormat::createDateInstance(DateFormat::kFull, Locale("@compat=host")));
+    TESTCLASSID_FACTORY(Win32NumberFormat, NumberFormat::createInstance(Locale("@compat=host"), status));
+#endif
 #endif
 
 #if !UCONFIG_NO_BREAK_ITERATION
     /* TESTCLASSID_ABSTRACT(BreakIterator); No staticID!  */
     TESTCLASSID_FACTORY(RuleBasedBreakIterator, BreakIterator::createLineInstance("mt",status));
     //TESTCLASSID_FACTORY(DictionaryBasedBreakIterator, BreakIterator::createLineInstance("th",status));
+
+#if !UCONFIG_NO_SERVICE
+    TESTCLASSID_FACTORY_HIDDEN(ICULocaleService, BreakIterator::getAvailableLocales());
+#endif
 #endif
     
-    //TESTCLASSID_DEFAULT(EscapeTransliterator);
-        
     //TESTCLASSID_DEFAULT(GregorianCalendar);
     
 #if !UCONFIG_NO_TRANSLITERATION
-
     TESTCLASSID_TRANSLIT(AnyTransliterator, "Any-Latin");
     TESTCLASSID_TRANSLIT(CompoundTransliterator, "Latin-Greek");
     TESTCLASSID_TRANSLIT(EscapeTransliterator, "Any-Hex");
@@ -278,19 +302,25 @@ void UObjectTest::testIDs()
     TESTCLASSID_TRANSLIT(NormalizationTransliterator, "NFD");
     TESTCLASSID_TRANSLIT(NullTransliterator, "Null");
     TESTCLASSID_TRANSLIT(RemoveTransliterator, "Remove");
-    TESTCLASSID_CTOR(RuleBasedTransliterator, (UnicodeString("abcd"), UnicodeString("a>b;"), status));
+    TESTCLASSID_FACTORY(RuleBasedTransliterator, Transliterator::createFromRules(UnicodeString("abcd"),UnicodeString("a>b;"),UTRANS_FORWARD,parseError,status));
     TESTCLASSID_TRANSLIT(TitlecaseTransliterator, "Title");
     TESTCLASSID_TRANSLIT(UnescapeTransliterator, "Hex-Any");
     TESTCLASSID_TRANSLIT(UnicodeNameTransliterator, "Any-Name");
     TESTCLASSID_TRANSLIT(UppercaseTransliterator, "Upper");
-    TESTCLASSID_CTOR(CaseMapTransliterator, (UnicodeString(), NULL));
-    TESTCLASSID_CTOR(Quantifier, (NULL, 0, 0));
+    TESTCLASSID_ABSTRACT(CaseMapTransliterator);
+    TESTCLASSID_ABSTRACT(Transliterator);
+    TESTCLASSID_FACTORY_HIDDEN(TransliteratorRegistry::Enumeration, Transliterator::getAvailableIDs(status));
+
 #if UOBJTEST_TEST_INTERNALS
-    TESTCLASSID_CTOR(FunctionReplacer, (NULL,NULL) ); /* don't care */
+    TESTCLASSID_CTOR(Quantifier, (NULL, 0, 0));
+    TESTCLASSID_CTOR(FunctionReplacer, (NULL,NULL));
+    TESTCLASSID_CTOR(StringMatcher, (UnicodeString("x"), 0,0,0,TransliterationRuleData(status)));
+    TESTCLASSID_CTOR(StringReplacer,(UnicodeString(),new TransliterationRuleData(status)));
 #endif
 #endif
         
     TESTCLASSID_FACTORY(Locale, new Locale("123"));
+    TESTCLASSID_FACTORY_HIDDEN(KeywordEnumeration, Locale("@a=b").createKeywords(status));
     
     //TESTCLASSID_DEFAULT(Normalizer);
 
@@ -298,7 +328,6 @@ void UObjectTest::testIDs()
     
 #if !UCONFIG_NO_TRANSLITERATION
     TESTCLASSID_DEFAULT(ParsePosition);
-    //TESTCLASSID_DEFAULT(Quantifier);
 #endif
     
 
@@ -315,22 +344,13 @@ void UObjectTest::testIDs()
     //TESTCLASSID_DEFAULT(StringReplacer);
     //TESTCLASSID_DEFAULT(StringSearch);
     
-    //TESTCLASSID_DEFAULT(TempSearch);
     //TESTCLASSID_DEFAULT(TestMultipleKeyStringFactory);
     //TESTCLASSID_DEFAULT(TestReplaceable);
 
 #if !UCONFIG_NO_FORMATTING
     TESTCLASSID_ABSTRACT(TimeZone);
-#endif
-
-#if !UCONFIG_NO_TRANSLITERATION
-    TESTCLASSID_FACTORY(TitlecaseTransliterator,  Transliterator::createInstance(UnicodeString("Any-Title"), UTRANS_FORWARD, parseError, status));
-    TESTCLASSID_ABSTRACT(Transliterator);
-
-#if UOBJTEST_TEST_INTERNALS
-    TESTCLASSID_CTOR(StringMatcher, (UnicodeString("x"), 0,0,0,TransliterationRuleData(status)));
-    TESTCLASSID_CTOR(StringReplacer,(UnicodeString(),new TransliterationRuleData(status)));
-#endif
+    TESTCLASSID_FACTORY(OlsonTimeZone, TimeZone::createTimeZone(UnicodeString("America/Los_Angeles")));
+    TESTCLASSID_FACTORY_HIDDEN(KeywordEnumeration, TimeZone::createEnumeration());
 #endif
     
     TESTCLASSID_DEFAULT(UnicodeString);

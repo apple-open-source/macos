@@ -1,7 +1,7 @@
 /* Specialized bits of code needed to support construction and
    destruction of file-scope objects in C++ code.
    Copyright (C) 1991, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@monkeys.com).
 
 This file is part of GCC.
@@ -27,8 +27,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This file is a bit like libgcc2.c in that it is compiled
    multiple times and yields multiple .o files.
@@ -51,15 +51,19 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
    This file must be compiled with gcc.  */
 
-/* It is incorrect to include config.h here, because this file is being
-   compiled for the target, and hence definitions concerning only the host
-   do not apply.  */
-
+/* Target machine header files require this define. */
 #define IN_LIBGCC2
 
-/* We include auto-host.h here to get HAVE_GAS_HIDDEN.  This is
-   supposedly valid even though this is a "target" file.  */
+/* FIXME: Including auto-host is incorrect, but until we have
+   identified the set of defines that need to go into auto-target.h,
+   this will have to do.  */
 #include "auto-host.h"
+#undef gid_t
+#undef pid_t
+#undef rlim_t
+#undef ssize_t
+#undef uid_t
+#undef vfork
 #include "tconfig.h"
 #include "tsystem.h"
 #include "coretypes.h"
@@ -211,7 +215,7 @@ STATIC void *__JCR_LIST__[]
   = { };
 #endif /* JCR_SECTION_NAME */
 
-#ifdef INIT_SECTION_ASM_OP
+#if defined(INIT_SECTION_ASM_OP) || defined(INIT_ARRAY_SECTION_ASM_OP)
 
 #ifdef OBJECT_FORMAT_ELF
 
@@ -221,6 +225,9 @@ STATIC void *__JCR_LIST__[]
    in one DSO or the main program is not used in another object.  The
    dynamic linker takes care of this.  */
 
+#ifdef TARGET_LIBGCC_SDATA_SECTION
+extern void *__dso_handle __attribute__ ((__section__ (TARGET_LIBGCC_SDATA_SECTION)));
+#endif
 #ifdef HAVE_GAS_HIDDEN
 extern void *__dso_handle __attribute__ ((__visibility__ ("hidden")));
 #endif
@@ -256,9 +263,11 @@ extern void __cxa_finalize (void *) TARGET_ATTRIBUTE_WEAK;
 static void __attribute__((used))
 __do_global_dtors_aux (void)
 {
+#ifndef FINI_ARRAY_SECTION_ASM_OP
   static func_ptr *p = __DTOR_LIST__ + 1;
-  static _Bool completed;
   func_ptr f;
+#endif /* !defined(FINI_ARRAY_SECTION_ASM_OP)  */
+  static _Bool completed;
 
   if (__builtin_expect (completed, 0))
     return;
@@ -268,11 +277,16 @@ __do_global_dtors_aux (void)
     __cxa_finalize (__dso_handle);
 #endif
 
+#ifdef FINI_ARRAY_SECTION_ASM_OP
+  /* If we are using .fini_array then destructors will be run via that
+     mechanism.  */
+#else /* !defined (FINI_ARRAY_SECTION_ASM_OP) */
   while ((f = *p))
     {
       p++;
       f ();
     }
+#endif /* !defined(FINI_ARRAY_SECTION_ASM_OP) */
 
 #ifdef USE_EH_FRAME_REGISTRY
 #ifdef CRT_GET_RFIB_DATA
@@ -290,7 +304,13 @@ __do_global_dtors_aux (void)
 }
 
 /* Stick a call to __do_global_dtors_aux into the .fini section.  */
+#ifdef FINI_SECTION_ASM_OP
 CRT_CALL_STATIC_FUNCTION (FINI_SECTION_ASM_OP, __do_global_dtors_aux)
+#else /* !defined(FINI_SECTION_ASM_OP) */
+static func_ptr __do_global_dtors_aux_fini_array_entry[]
+  __attribute__ ((__unused__, section(".fini_array")))
+  = { __do_global_dtors_aux };
+#endif /* !defined(FINI_SECTION_ASM_OP) */
 
 #if defined(USE_EH_FRAME_REGISTRY) || defined(JCR_SECTION_NAME)
 /* Stick a call to __register_frame_info into the .init section.  For some
@@ -324,7 +344,13 @@ frame_dummy (void)
 #endif /* JCR_SECTION_NAME */
 }
 
+#ifdef INIT_SECTION_ASM_OP
 CRT_CALL_STATIC_FUNCTION (INIT_SECTION_ASM_OP, frame_dummy)
+#else /* defined(INIT_SECTION_ASM_OP) */
+static func_ptr __frame_dummy_init_array_entry[]
+  __attribute__ ((__unused__, section(".init_array")))
+  = { frame_dummy };
+#endif /* !defined(INIT_SECTION_ASM_OP) */
 #endif /* USE_EH_FRAME_REGISTRY || JCR_SECTION_NAME */
 
 #else  /* OBJECT_FORMAT_ELF */
@@ -480,7 +506,11 @@ STATIC void *__JCR_END__[1]
    = { 0 };
 #endif /* JCR_SECTION_NAME */
 
-#ifdef INIT_SECTION_ASM_OP
+#ifdef INIT_ARRAY_SECTION_ASM_OP
+
+/* If we are using .init_array, there is nothing to do.  */
+
+#elif defined(INIT_SECTION_ASM_OP)
 
 #ifdef OBJECT_FORMAT_ELF
 static void __attribute__((used))

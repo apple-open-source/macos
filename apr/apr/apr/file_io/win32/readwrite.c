@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "win32/apr_arch_file_io.h"
+#include "apr_arch_file_io.h"
 #include "apr_file_io.h"
 #include "apr_general.h"
 #include "apr_strings.h"
@@ -31,6 +31,7 @@
 static apr_status_t read_with_timeout(apr_file_t *file, void *buf, apr_size_t len_in, apr_size_t *nbytes)
 {
     apr_status_t rv;
+    DWORD res;
     DWORD len = (DWORD)len_in;
     DWORD bytesread = 0;
 
@@ -72,62 +73,70 @@ static apr_status_t read_with_timeout(apr_file_t *file, void *buf, apr_size_t le
         file->pOverlapped->OffsetHigh = (DWORD)(file->filePtr >> 32);
     }
 
-    rv = ReadFile(file->filehand, buf, len, 
-                  &bytesread, file->pOverlapped);
-    *nbytes = bytesread;
-
-    if (!rv) {
+    if (ReadFile(file->filehand, buf, len, 
+                 &bytesread, file->pOverlapped)) {
+        rv = APR_SUCCESS;
+    }
+    else {
         rv = apr_get_os_error();
         if (rv == APR_FROM_OS_ERROR(ERROR_IO_PENDING)) {
-            /* Wait for the pending i/o */
-            if (file->timeout > 0) {
-                /* timeout in milliseconds... */
-                rv = WaitForSingleObject(file->pOverlapped->hEvent, 
-                                         (DWORD)(file->timeout/1000)); 
-            }
-            else if (file->timeout == -1) {
-                rv = WaitForSingleObject(file->pOverlapped->hEvent, INFINITE);
-            }
-            switch (rv) {
-                case WAIT_OBJECT_0:
-                    GetOverlappedResult(file->filehand, file->pOverlapped, 
-                                        &bytesread, TRUE);
-                    *nbytes = bytesread;
-                    rv = APR_SUCCESS;
-                    break;
+            /* Wait for the pending i/o, timeout converted from us to ms
+             * Note that we loop if someone gives up the event, since
+             * folks suggest that WAIT_ABANDONED isn't actually a result
+             * but an alert that ownership of the event has passed from
+             * one owner to a new proc/thread.
+             */
+            do {
+                res = WaitForSingleObject(file->pOverlapped->hEvent, 
+                                          (file->timeout > 0)
+                                            ? (DWORD)(file->timeout/1000)
+                                            : ((file->timeout == -1) 
+                                                 ? INFINITE : 0));
+            } while (res == WAIT_ABANDONED);
 
-                case WAIT_TIMEOUT:
+            /* There is one case that represents entirely
+             * successful operations, otherwise we will cancel
+             * the operation in progress.
+             */
+            if (res != WAIT_OBJECT_0) {
+                CancelIo(file->filehand);
+            }
+
+            /* Ignore any failures above.  Attempt to complete
+             * the overlapped operation and use only _its_ result.
+             * For example, CancelIo or WaitForSingleObject can
+             * fail if the handle is closed, yet the read may have
+             * completed before we attempted to CancelIo...
+             */
+            if (GetOverlappedResult(file->filehand, file->pOverlapped, 
+                                    &bytesread, TRUE)) {
+                rv = APR_SUCCESS;
+            }
+            else {
+                rv = apr_get_os_error();
+                if (((rv == APR_FROM_OS_ERROR(ERROR_IO_INCOMPLETE))
+                        || (rv == APR_FROM_OS_ERROR(ERROR_OPERATION_ABORTED)))
+                    && (res == WAIT_TIMEOUT))
                     rv = APR_TIMEUP;
-                    break;
-
-                case WAIT_FAILED:
-                    rv = apr_get_os_error();
-                    break;
-
-                default:
-                    break;
-            }
-
-            if (rv != APR_SUCCESS) {
-                if (apr_os_level >= APR_WIN_98) {
-                    CancelIo(file->filehand);
-                }
             }
         }
-        else if (rv == APR_FROM_OS_ERROR(ERROR_BROKEN_PIPE)) {
+        if (rv == APR_FROM_OS_ERROR(ERROR_BROKEN_PIPE)) {
             /* Assume ERROR_BROKEN_PIPE signals an EOF reading from a pipe */
             rv = APR_EOF;
-        }
-    } else {
-        /* OK and 0 bytes read ==> end of file */
-        if (*nbytes == 0)
+        } else if (rv == APR_FROM_OS_ERROR(ERROR_HANDLE_EOF)) {
+            /* Did we hit EOF reading from the handle? */
             rv = APR_EOF;
-        else
-            rv = APR_SUCCESS;
+        }
     }
+    
+    /* OK and 0 bytes read ==> end of file */
+    if (rv == APR_SUCCESS && bytesread == 0)
+        rv = APR_EOF;
+    
     if (rv == APR_SUCCESS && file->pOverlapped && !file->pipe) {
-        file->filePtr += *nbytes;
+        file->filePtr += bytesread;
     }
+    *nbytes = bytesread;
     return rv;
 }
 
@@ -190,7 +199,7 @@ APR_DECLARE(apr_status_t) apr_file_read(apr_file_t *thefile, void *buf, apr_size
             if (thefile->bufpos >= thefile->dataRead) {
                 apr_size_t read;
                 rv = read_with_timeout(thefile, thefile->buffer, 
-                                       APR_FILE_BUFSIZE, &read);
+                                       thefile->bufsize, &read);
                 if (read == 0) {
                     if (rv == APR_EOF)
                         thefile->eof_hit = TRUE;
@@ -266,10 +275,11 @@ APR_DECLARE(apr_status_t) apr_file_write(apr_file_t *thefile, const void *buf, a
 
         rv = 0;
         while (rv == 0 && size > 0) {
-            if (thefile->bufpos == APR_FILE_BUFSIZE)   // write buffer is full
+            if (thefile->bufpos == thefile->bufsize)   // write buffer is full
                 rv = apr_file_flush(thefile);
 
-            blocksize = size > APR_FILE_BUFSIZE - thefile->bufpos ? APR_FILE_BUFSIZE - thefile->bufpos : size;
+            blocksize = size > thefile->bufsize - thefile->bufpos ? 
+                                     thefile->bufsize - thefile->bufpos : size;
             memcpy(thefile->buffer + thefile->bufpos, pos, blocksize);
             thefile->bufpos += blocksize;
             pos += blocksize;
@@ -322,6 +332,8 @@ APR_DECLARE(apr_status_t) apr_file_write(apr_file_t *thefile, const void *buf, a
         else {
             (*nbytes) = 0;
             rv = apr_get_os_error();
+
+            /* XXX: This must be corrected, per the apr_file_read logic!!! */
             if (rv == APR_FROM_OS_ERROR(ERROR_IO_PENDING)) {
  
                 DWORD timeout_ms;
@@ -345,7 +357,7 @@ APR_DECLARE(apr_status_t) apr_file_write(apr_file_t *thefile, const void *buf, a
                         rv = APR_SUCCESS;
                         break;
                     case WAIT_TIMEOUT:
-                        rv = APR_TIMEUP;
+                        rv = (timeout_ms == 0) ? APR_EAGAIN : APR_TIMEUP;
                         break;
                     case WAIT_FAILED:
                         rv = apr_get_os_error();

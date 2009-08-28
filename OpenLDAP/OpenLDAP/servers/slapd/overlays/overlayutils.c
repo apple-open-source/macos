@@ -71,7 +71,7 @@ typedef struct req_bind_s {
 	struct berval rb_cred;
 	struct berval rb_edn;
 	slap_ssf_t rb_ssf;
-	struct berval rb_tmp_mech;	/* FIXME: temporary */
+	struct berval rb_mech;	/* FIXME: temporary */
 } req_bind_s;
 #endif
 
@@ -81,8 +81,8 @@ typedef struct req_bind_s {
 		dump_berval( &req->rb_cred );
 		Debug( LDAP_DEBUG_BER, "#####RB_EDN#####\n", 0, 0, 0);
 		dump_berval( &req->rb_edn );
-		Debug( LDAP_DEBUG_BER, "#####RB_TMP_MECH#####\n", 0, 0, 0);
-		dump_berval( &req->rb_tmp_mech );
+		Debug( LDAP_DEBUG_BER, "#####RB_MECH#####\n", 0, 0, 0);
+		dump_berval( &req->rb_mech );
 	}
 }
 

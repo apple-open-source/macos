@@ -4,7 +4,7 @@
 /* begin of portable.h.pre */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation
+ * Copyright 1998-2008 The OpenLDAP Foundation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -126,17 +126,11 @@
 /* define if you have Cyrus SASL */
 #undef HAVE_CYRUS_SASL
 
-/* Define to 1 if you have the <db_185.h> header file. */
-#undef HAVE_DB_185_H
-
 /* Define to 1 if you have the <db.h> header file. */
 #undef HAVE_DB_H
 
-/* define if you have Kerberos des_debug */
-#undef HAVE_DES_DEBUG
-
-/* Define to 1 if you have the <des.h> header file. */
-#undef HAVE_DES_H
+/* define if your system supports /dev/poll */
+#undef HAVE_DEVPOLL
 
 /* Define to 1 if you have the <direct.h> header file. */
 #undef HAVE_DIRECT_H
@@ -187,12 +181,6 @@
 /* Define to 1 if you have the `gai_strerror' function. */
 #undef HAVE_GAI_STRERROR
 
-/* define if GNU DBM is available */
-#undef HAVE_GDBM
-
-/* Define to 1 if you have the <gdbm.h> header file. */
-#undef HAVE_GDBM_H
-
 /* Define to 1 if you have the `getaddrinfo' function. */
 #undef HAVE_GETADDRINFO
 
@@ -229,6 +217,9 @@
 /* Define to 1 if you have the `getpeereid' function. */
 #undef HAVE_GETPEEREID
 
+/* Define to 1 if you have the `getpeerucred' function. */
+#undef HAVE_GETPEERUCRED
+
 /* Define to 1 if you have the `getpwnam' function. */
 #undef HAVE_GETPWNAM
 
@@ -244,20 +235,23 @@
 /* Define to 1 if you have the <gmp.h> header file. */
 #undef HAVE_GMP_H
 
+/* define if you have GNUtls */
+#undef HAVE_GNUTLS
+
+/* Define to 1 if you have the <gnutls/gnutls.h> header file. */
+#undef HAVE_GNUTLS_GNUTLS_H
+
 /* if you have GNU Pth */
 #undef HAVE_GNU_PTH
 
 /* Define to 1 if you have the <grp.h> header file. */
 #undef HAVE_GRP_H
 
-/* define if you have HEIMDAL Kerberos */
-#undef HAVE_HEIMDAL_KERBEROS
-
-/* Define to 1 if you have the <heim_err.h> header file. */
-#undef HAVE_HEIM_ERR_H
-
 /* Define to 1 if you have the `hstrerror' function. */
 #undef HAVE_HSTRERROR
+
+/* define if you actually have ICU */
+#undef HAVE_ICU
 
 /* define to you inet_aton(3) is available */
 #undef HAVE_INET_ATON
@@ -274,38 +268,14 @@
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
+/* Define to 1 if you have the `ioctl' function. */
+#undef HAVE_IOCTL
+
 /* Define to 1 if you have the <io.h> header file. */
 #undef HAVE_IO_H
 
-/* define if you have Kerberos */
-#undef HAVE_KERBEROS
-
-/* Define to 1 if you have the <kerberosIV/des.h> header file. */
-#undef HAVE_KERBEROSIV_DES_H
-
-/* Define to 1 if you have the <kerberosIV/krb.h> header file. */
-#undef HAVE_KERBEROSIV_KRB_H
-
-/* define if you have Kerberos IV */
-#undef HAVE_KRB4
-
-/* define if you have Kerberos V with IV support */
-#undef HAVE_KRB425
-
-/* define if you have Kerberos V */
-#undef HAVE_KRB5
-
-/* Define to 1 if you have the <krb5.h> header file. */
-#undef HAVE_KRB5_H
-
-/* Define to 1 if you have the <krb-archaeology.h> header file. */
-#undef HAVE_KRB_ARCHAEOLOGY_H
-
-/* Define to 1 if you have the <krb.h> header file. */
-#undef HAVE_KRB_H
-
-/* define if you have Kth Kerberos */
-#undef HAVE_KTH_KERBEROS
+/* define if your system supports kqueue */
+#undef HAVE_KQUEUE
 
 /* Define to 1 if you have the `gen' library (-lgen). */
 #undef HAVE_LIBGEN
@@ -370,12 +340,6 @@
 /* Define to 1 if you have the <malloc.h> header file. */
 #undef HAVE_MALLOC_H
 
-/* define if MDBM is available */
-#undef HAVE_MDBM
-
-/* Define to 1 if you have the <mdbm.h> header file. */
-#undef HAVE_MDBM_H
-
 /* Define to 1 if you have the `memcpy' function. */
 #undef HAVE_MEMCPY
 
@@ -396,12 +360,6 @@
 
 /* define this if you have mkversion */
 #undef HAVE_MKVERSION
-
-/* define if NDBM is available */
-#undef HAVE_NDBM
-
-/* Define to 1 if you have the <ndbm.h> header file. */
-#undef HAVE_NDBM_H
 
 /* Define to 1 if you have the <ndir.h> header file, and it defines `DIR'. */
 #undef HAVE_NDIR_H
@@ -469,7 +427,7 @@
 /* Define to 1 if you have the `pthread_kill_other_threads_np' function. */
 #undef HAVE_PTHREAD_KILL_OTHER_THREADS_NP
 
-/* Define to 1 if you have the `pthread_rwlock_destroy' function. */
+/* define if you have pthread_rwlock_destroy function */
 #undef HAVE_PTHREAD_RWLOCK_DESTROY
 
 /* Define to 1 if you have the `pthread_setconcurrency' function. */
@@ -658,6 +616,18 @@
 /* Define to 1 if `st_blksize' is member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_BLKSIZE
 
+/* Define to 1 if `st_fstype' is member of `struct stat'. */
+#undef HAVE_STRUCT_STAT_ST_FSTYPE
+
+/* define to 1 if st_fstype is char * */
+#undef HAVE_STRUCT_STAT_ST_FSTYPE_CHAR
+
+/* define to 1 if st_fstype is int */
+#undef HAVE_STRUCT_STAT_ST_FSTYPE_INT
+
+/* Define to 1 if `st_vfstype' is member of `struct stat'. */
+#undef HAVE_STRUCT_STAT_ST_VFSTYPE
+
 /* Define to 1 if you have the <synch.h> header file. */
 #undef HAVE_SYNCH_H
 
@@ -669,6 +639,9 @@
 
 /* Define to 1 if you have the <syslog.h> header file. */
 #undef HAVE_SYSLOG_H
+
+/* Define to 1 if you have the <sys/devpoll.h> header file. */
+#undef HAVE_SYS_DEVPOLL_H
 
 /* Define to 1 if you have the <sys/dir.h> header file, and it defines `DIR'.
    */
@@ -683,11 +656,17 @@
 /* Define to 1 if you have the <sys/errno.h> header file. */
 #undef HAVE_SYS_ERRNO_H
 
+/* Define to 1 if you have the <sys/event.h> header file. */
+#undef HAVE_SYS_EVENT_H
+
 /* Define to 1 if you have the <sys/file.h> header file. */
 #undef HAVE_SYS_FILE_H
 
 /* Define to 1 if you have the <sys/filio.h> header file. */
 #undef HAVE_SYS_FILIO_H
+
+/* Define to 1 if you have the <sys/fstyp.h> header file. */
+#undef HAVE_SYS_FSTYP_H
 
 /* Define to 1 if you have the <sys/ioctl.h> header file. */
 #undef HAVE_SYS_IOCTL_H
@@ -698,6 +677,12 @@
 
 /* Define to 1 if you have the <sys/param.h> header file. */
 #undef HAVE_SYS_PARAM_H
+
+/* Define to 1 if you have the <sys/poll.h> header file. */
+#undef HAVE_SYS_POLL_H
+
+/* Define to 1 if you have the <sys/privgrp.h> header file. */
+#undef HAVE_SYS_PRIVGRP_H
 
 /* Define to 1 if you have the <sys/resource.h> header file. */
 #undef HAVE_SYS_RESOURCE_H
@@ -732,6 +717,9 @@
 /* Define to 1 if you have the <sys/uuid.h> header file. */
 #undef HAVE_SYS_UUID_H
 
+/* Define to 1 if you have the <sys/vmount.h> header file. */
+#undef HAVE_SYS_VMOUNT_H
+
 /* Define to 1 if you have <sys/wait.h> that is POSIX.1 compatible. */
 #undef HAVE_SYS_WAIT_H
 
@@ -762,14 +750,23 @@
 /* define if you have TLS */
 #undef HAVE_TLS
 
+/* Define to 1 if you have the <unicode/utypes.h> header file. */
+#undef HAVE_UNICODE_UTYPES_H
+
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
 
 /* Define to 1 if you have the <utime.h> header file. */
 #undef HAVE_UTIME_H
 
+/* define if you have uuid_generate() */
+#undef HAVE_UUID_GENERATE
+
 /* define if you have uuid_to_str() */
 #undef HAVE_UUID_TO_STR
+
+/* Define to 1 if you have the <uuid/uuid.h> header file. */
+#undef HAVE_UUID_UUID_H
 
 /* Define to 1 if you have the `vprintf' function. */
 #undef HAVE_VPRINTF
@@ -817,9 +814,6 @@
 #undef LDAP_API_FEATURE_X_OPENLDAP_THREAD_SAFE
 
 /* define to LDAP VENDOR VERSION */
-#undef LDAP_API_FEATURE_X_OPENLDAP_V2_KBIND
-
-/* define to LDAP VENDOR VERSION */
 #undef LDAP_API_FEATURE_X_OPENLDAP_V2_REFERRALS
 
 /* define this to add debugging code */
@@ -855,17 +849,14 @@
 /* Patch */
 #undef LDAP_VENDOR_VERSION_PATCH
 
-/* define this to use DBBTREE w/ LDBM backend */
-#undef LDBM_USE_DBBTREE
-
-/* define this to use DBHASH w/ LDBM backend */
-#undef LDBM_USE_DBHASH
-
 /* define if memcmp is not 8-bit clean or is otherwise broken */
 #undef NEED_MEMCMP_REPLACEMENT
 
 /* define if you have (or want) no threads */
 #undef NO_THREADS
+
+/* define to use the original debug style */
+#undef OLD_DEBUG
 
 /* Package */
 #undef OPENLDAP_PACKAGE
@@ -936,9 +927,6 @@
 /* define to support LDAP backend */
 #undef SLAPD_LDAP
 
-/* define to support LDBM backend */
-#undef SLAPD_LDBM
-
 /* define to support LAN Manager passwords */
 #undef SLAPD_LMHASH
 
@@ -957,9 +945,6 @@
 /* define to support cn=Monitor backend */
 #undef SLAPD_MONITOR
 
-/* define to support multimaster replication */
-#undef SLAPD_MULTIMASTER
-
 /* define to support NULL backend */
 #undef SLAPD_NULL
 
@@ -969,8 +954,11 @@
 /* define for Audit Logging overlay */
 #undef SLAPD_OVER_AUDITLOG
 
-/* define for Deny Operation overlay */
-#undef SLAPD_OVER_DENYOP
+/* define for Attribute Constraint overlay */
+#undef SLAPD_OVER_CONSTRAINT
+
+/* define for Dynamic Directory Services overlay */
+#undef SLAPD_OVER_DDS
 
 /* define for Dynamic Group overlay */
 #undef SLAPD_OVER_DYNGROUP
@@ -981,8 +969,8 @@
 /* define for Dynamic List overlay */
 #undef SLAPD_OVER_DYNLIST
 
-/* define for Last Modification overlay */
-#undef SLAPD_OVER_LASTMOD
+/* define for Reverse Group Membership overlay */
+#undef SLAPD_OVER_MEMBEROF
 
 /* define for Nested Group overlay */
 #undef SLAPD_OVER_NESTEDGROUP
@@ -998,6 +986,9 @@
 
 /* define for Referential Integrity overlay */
 #undef SLAPD_OVER_RETCODE
+
+/* define for Sequential Modify overlay */
+#undef SLAPD_OVER_SEQMOD
 
 /* define for Syncrepl Provider overlay */
 #undef SLAPD_OVER_SYNCPROV
@@ -1026,11 +1017,17 @@
 /* define to support SHELL backend */
 #undef SLAPD_SHELL
 
+/* define to support SOCK backend */
+#undef SLAPD_SOCK
+
 /* define to support SASL passwords */
 #undef SLAPD_SPASSWD
 
 /* define to support SQL backend */
 #undef SLAPD_SQL
+
+/* define to support run-time loadable ACL */
+#undef SLAP_DYNACL
 
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
@@ -1055,6 +1052,9 @@
 
 /* define to use 'long long' for MP */
 #undef USE_MP_LONG_LONG
+
+/* Define to the type of arg 3 for `accept'. */
+#undef ber_socklen_t
 
 /* Define to `char *' if <sys/types.h> does not define. */
 #undef caddr_t
@@ -1083,7 +1083,7 @@
 /* define to snprintf routine */
 #undef snprintf
 
-/* Define to `int' if <sys/socket.h> does not define. */
+/* Define like ber_socklen_t if <sys/socket.h> does not define. */
 #undef socklen_t
 
 /* Define to `signed int' if <sys/types.h> does not define. */

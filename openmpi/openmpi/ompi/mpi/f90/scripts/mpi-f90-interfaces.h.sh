@@ -5,7 +5,7 @@
 #                         Corporation.  All rights reserved.
 # Copyright (c) 2004-2006 The Regents of the University of California.
 #                         All rights reserved.
-# Copyright (c) 2006-2007 Cisco Systems, Inc.  All rights reserved.
+# Copyright (c) 2006-2008 Cisco Systems, Inc.  All rights reserved.
 # $COPYRIGHT$
 # 
 # Additional copyrights may follow
@@ -1092,8 +1092,8 @@ subroutine ${procedure}(old_comm, ndims, dims, periods, reorder, &
   integer, intent(in) :: old_comm
   integer, intent(in) :: ndims
   integer, dimension(*), intent(in) :: dims
-  integer, dimension(*), intent(in) :: periods
-  integer, intent(in) :: reorder
+  logical, dimension(*), intent(in) :: periods
+  logical, intent(in) :: reorder
   integer, intent(out) :: comm_cart
   integer, intent(out) :: ierr
 end subroutine ${procedure}
@@ -1120,7 +1120,7 @@ subroutine ${procedure}(comm, maxdims, dims, periods, coords&
   integer, intent(in) :: comm
   integer, intent(in) :: maxdims
   integer, dimension(*), intent(out) :: dims
-  integer, dimension(*), intent(out) :: periods
+  logical, dimension(*), intent(out) :: periods
   integer, dimension(*), intent(out) :: coords
   integer, intent(out) :: ierr
 end subroutine ${procedure}

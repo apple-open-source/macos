@@ -57,7 +57,7 @@
  */
 
 /*
- * $FreeBSD: src/lib/libmd/ripemd.h,v 1.2 2001/03/17 10:00:50 phk Exp $
+ * $FreeBSD: src/lib/libmd/ripemd.h,v 1.3 2006/01/17 15:35:56 phk Exp $
  */
 
 #ifndef HEADER_RIPEMD_H
@@ -66,10 +66,6 @@
 #include <sys/cdefs.h>
 #include <sys/types.h>		/* XXX switch to machine/ansi.h and __ types */
 
-#ifdef __APPLE__
-#undef HEADER_RIPEMD_H
-#include <openssl/ripemd.h>
-#else /* !__APPLE__ */
 #define RIPEMD160_CBLOCK	64
 #define RIPEMD160_LBLOCK	16
 #define RIPEMD160_BLOCK		16
@@ -83,19 +79,16 @@ typedef struct RIPEMD160state_st {
 	u_int32_t data[RIPEMD160_LBLOCK];
 	int num;
 } RIPEMD160_CTX;
-#endif /* __APPLE__ */
 
 __BEGIN_DECLS
-#ifndef __APPLE__
 void	RIPEMD160_Init(RIPEMD160_CTX *c);
-void	RIPEMD160_Update(RIPEMD160_CTX *c, const unsigned char *data,
+void	RIPEMD160_Update(RIPEMD160_CTX *c, const void *data,
 			 size_t len);
 void	RIPEMD160_Final(unsigned char *md, RIPEMD160_CTX *c);
-#endif /* !__APPLE__ */
 char   *RIPEMD160_End(RIPEMD160_CTX *, char *);
 char   *RIPEMD160_File(const char *, char *);
 char   *RIPEMD160_FileChunk(const char *, char *, off_t, off_t);
-char   *RIPEMD160_Data(const unsigned char *, unsigned int, char *);
+char   *RIPEMD160_Data(const void *, unsigned int, char *);
 __END_DECLS
 
 #endif

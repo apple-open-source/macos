@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -18,14 +18,6 @@
  * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
- */
-/*
- * Copyright (c) 1999 Apple Computer, Inc.  All rights reserved. 
- *
- * IOEthernetInterface.h
- *
- * HISTORY
- * 8-Jan-1999       Joe Liu (jliu) created.
  */
 
 #ifndef _IOETHERNETINTERFACE_H
@@ -97,7 +89,7 @@ class IOEthernetInterface : public IONetworkInterface
     OSDeclareDefaultStructors( IOEthernetInterface )
 
 private:
-    void *		__available__;               // deprecated space can be reused.
+    thread_call_t    _inputEventThreadCall; // inputEvent() thread call
     UInt32           _mcAddrCount;          // # of multicast addresses
     bool             _ctrEnabled;           // Is controller enabled?
     OSDictionary *   _supportedFilters;     // Controller's supported filters
@@ -106,8 +98,10 @@ private:
     bool             _controllerLostPower;  // true if controller is unusable
 
     struct ExpansionData { 
-		UInt32 altMTU;					//track the physical mtu of controller
-		UInt32 publishedFeatureID;   // id for published wake packet
+		UInt32      altMTU;                 // track the physical mtu of controller
+		UInt32      publishedFeatureID;     // id for published wake packet
+        uint32_t    supportedWakeFilters;   // bitmask of supported wake filters
+        OSNumber *  disabledWakeFilters;    // OSNumber of disabled wake filters
 	};
     /*! @var reserved
         Reserved for future use.  (Internal use only)  */
@@ -142,9 +136,12 @@ private:
     int syncSIOCGIFDEVMTU(IONetworkController * ctr, struct ifreq * ifr);
     int syncSIOCSIFLLADDR(IONetworkController * ctr, const char * lladdr, int len);
 	void _fixupVlanPacket(mbuf_t, u_int16_t, int);
-	
+    void reportInterfaceWakeFlags(void);
+
+    static void handleEthernetInputEvent(thread_call_param_t param0, thread_call_param_t param1);
     static int performGatedCommand(void *, void *, void *, void *, void *);
-	static IOReturn enableFilter_Wrapper(IOEthernetInterface *, IONetworkController *, const OSSymbol *, UInt32 , IOOptionBits);
+	static IOReturn enableFilter_Wrapper(
+        IOEthernetInterface *, IONetworkController *, const OSSymbol *, UInt32 , IOOptionBits);
 
 public:
 
@@ -212,7 +209,7 @@ protected:
 */
 
     virtual SInt32 performCommand(IONetworkController * controller,
-                                  UInt32                cmd,
+                                  unsigned long         cmd,
                                   void *                arg0,
                                   void *                arg1);
 
@@ -296,6 +293,10 @@ public:
 
     virtual IOReturn attachToDataLinkLayer( IOOptionBits options,
                                             void *       parameter );
+
+    /* Override IONetworkInterface::inputEvent() */
+
+    virtual bool inputEvent( UInt32 type, void * data );
 
 protected:
 	virtual void feedPacketInputTap(mbuf_t);

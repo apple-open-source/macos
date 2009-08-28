@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2006, International Business Machines Corporation and
+ * Copyright (c) 1997-2009, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -54,6 +54,7 @@ DateFormatRegressionTest::runIndexedTest( int32_t index, UBool exec, const char*
         CASE(23,Test4210209)
         CASE(24,Test714)
         CASE(25,Test1684)
+        CASE(26,Test5554)
         default: name = ""; break;
     }
 }
@@ -358,6 +359,9 @@ void DateFormatRegressionTest::Test4060212(void)
         errln((UnicodeString) "Fail: Got " + cal->get(UCAL_DAY_OF_YEAR, status) +
                             " Want 40");
 
+#if 0
+    // this is an odd usage of "ddd" and it doesn't
+    // work now that date values are range checked.
     logln("Using yyyy-ddd.hh:mm:ss");
     delete formatter;
     formatter = NULL;
@@ -372,6 +376,7 @@ void DateFormatRegressionTest::Test4060212(void)
     if ((cal->get(UCAL_DAY_OF_YEAR, status) != 40) || failure(status, "cal->get"))
         errln((UnicodeString) "Fail: Got " + cal->get(UCAL_DAY_OF_YEAR, status) +
                             " Want 40");
+#endif
 
     delete formatter;
     delete fmt;
@@ -393,7 +398,7 @@ void DateFormatRegressionTest::Test4061287(void)
     }
     failure(status, "new SimpleDateFormat");
     //try {
-    logln(UnicodeString("") + df->parse("35/01/1971", status));  
+    logln(UnicodeString("") + df->parse("30/02/1971", status));  
     failure(status, "df->parse");
     //logln(df.parse("35/01/1971").toString());
     //}
@@ -404,7 +409,7 @@ void DateFormatRegressionTest::Test4061287(void)
     df->setLenient(FALSE);
     UBool ok = FALSE;
     //try {
-    logln(UnicodeString("") + df->parse("35/01/1971", status));
+    logln(UnicodeString("") + df->parse("30/02/1971", status));
     if(U_FAILURE(status))
         ok = TRUE;
     //logln(df.parse("35/01/1971").toString());
@@ -550,7 +555,7 @@ void DateFormatRegressionTest::Test4071441(void)
   US locale a string formatted according to mm/dd/yy and parses it
   correctly.
 
-  When given a string mm/dd/yyyy it only parses up to the first
+  When given a string mm/dd/yyyy [sic] it only parses up to the first
   two y's, typically resulting in a date in the year 1919.
   
   Please extend the parsing method(s) to handle strings with
@@ -563,7 +568,7 @@ void DateFormatRegressionTest::Test4073003(void)
 {
     //try {
     UErrorCode ec = U_ZERO_ERROR;
-    SimpleDateFormat fmt("dd/MM/yy", Locale::getUK(), ec);
+    SimpleDateFormat fmt("MM/dd/yy", Locale::getUK(), ec);
     if (U_FAILURE(ec)) {
         errln("FAIL: SimpleDateFormat constructor");
         return;
@@ -1422,6 +1427,36 @@ void DateFormatRegressionTest::Test1684(void)
     delete tests[i];
   }
   delete cal;
+  delete sdf;
+}
+
+void DateFormatRegressionTest::Test5554(void)
+{
+  UErrorCode status = U_ZERO_ERROR;
+  UnicodeString pattern("Z","");
+  UnicodeString newfoundland("Canada/Newfoundland", "");
+  TimeZone *zone = TimeZone::createTimeZone(newfoundland);
+  Calendar *cal = new GregorianCalendar(zone, status);
+  SimpleDateFormat *sdf = new SimpleDateFormat(pattern,status);
+  if (U_FAILURE(status)) {
+    dataerrln("Error constructing SimpleDateFormat");
+    delete cal;
+    delete sdf;
+    return;
+  }
+  cal->set(2007, 1, 14);
+  UDate date = cal->getTime(status);
+  if (U_FAILURE(status)) {
+    errln("Error getting time to format");
+    return;
+  };
+  sdf->adoptCalendar(cal);
+  UnicodeString result;
+  UnicodeString correct("-0330", "");
+  sdf->format(date, result);
+  if (result != correct) {
+    errln("\nError: Newfoundland Z of Jan 14, 2007 gave '" + result + "', expected '" + correct + "'");
+  }
   delete sdf;
 }
 

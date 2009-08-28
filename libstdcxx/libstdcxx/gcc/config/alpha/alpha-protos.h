@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 extern int alpha_next_sequence_number;
 
@@ -51,10 +51,12 @@ extern rtx alpha_legitimize_reload_address (rtx, enum machine_mode,
 extern rtx split_small_symbolic_operand (rtx);
 
 extern void get_aligned_mem (rtx, rtx *, rtx *);
-extern rtx get_unaligned_address (rtx, int);
+extern rtx get_unaligned_address (rtx);
+extern rtx get_unaligned_offset (rtx, HOST_WIDE_INT);
 extern enum reg_class alpha_preferred_reload_class (rtx, enum reg_class);
-extern enum reg_class secondary_reload_class (enum reg_class,
-					      enum machine_mode, rtx, int);
+extern enum reg_class alpha_secondary_reload_class (enum reg_class,
+						    enum machine_mode, rtx,
+						    int);
 
 extern void alpha_set_memflags (rtx, rtx);
 extern bool alpha_split_const_mov (enum machine_mode, rtx *);
@@ -63,7 +65,7 @@ extern bool alpha_expand_mov_nobwx (enum machine_mode, rtx *);
 extern void alpha_expand_movmisalign (enum machine_mode, rtx *);
 extern void alpha_emit_floatuns (rtx[]);
 extern rtx alpha_emit_conditional_move (rtx, enum machine_mode);
-extern void alpha_split_tfmode_pair (rtx[]);
+extern void alpha_split_tmode_pair (rtx[], enum machine_mode, bool);
 extern void alpha_split_tfmode_frobsign (rtx[], rtx (*)(rtx, rtx, rtx));
 extern void alpha_expand_unaligned_load (rtx, rtx, HOST_WIDE_INT,
 					 HOST_WIDE_INT, int);
@@ -101,6 +103,15 @@ extern rtx alpha_emit_setcc (enum rtx_code);
 extern int alpha_split_conditional_move (enum rtx_code, rtx, rtx, rtx, rtx);
 extern void alpha_emit_xfloating_arith (enum rtx_code, rtx[]);
 extern void alpha_emit_xfloating_cvt (enum rtx_code, rtx[]);
+extern void alpha_split_atomic_op (enum rtx_code, rtx, rtx, rtx, rtx, rtx);
+extern void alpha_split_compare_and_swap (rtx, rtx, rtx, rtx, rtx);
+extern void alpha_expand_compare_and_swap_12 (rtx, rtx, rtx, rtx);
+extern void alpha_split_compare_and_swap_12 (enum machine_mode, rtx, rtx,
+					     rtx, rtx, rtx, rtx, rtx);
+extern void alpha_split_lock_test_and_set (rtx, rtx, rtx, rtx);
+extern void alpha_expand_lock_test_and_set_12 (rtx, rtx, rtx);
+extern void alpha_split_lock_test_and_set_12 (enum machine_mode, rtx, rtx,
+					      rtx, rtx, rtx);
 #endif
 
 extern rtx alpha_need_linkage (const char *, int);
@@ -117,8 +128,6 @@ extern rtx unicosmk_add_call_info_word (rtx);
 extern void unicosmk_defer_case_vector (rtx, rtx);
 extern void unicosmk_add_extern (const char *);
 extern void unicosmk_output_align (FILE *, int);
-extern char * unicosmk_text_section (void);
-extern char * unicosmk_data_section (void);
 extern void unicosmk_output_common (FILE *, const char *, int, int);
 extern int unicosmk_initial_elimination_offset (int, int);
 #endif

@@ -1,8 +1,8 @@
-/* 
+/*
  * path_driver.c -- drive an editor across a set of paths
- * 
+ *
  * ====================================================================
- * Copyright (c) 2000-2004 CollabNet.  All rights reserved.
+ * Copyright (c) 2000-2007 CollabNet.  All rights reserved.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution.  The terms
@@ -17,7 +17,6 @@
  */
 
 
-#include <assert.h>
 #include <apr_pools.h>
 #include <apr_strings.h>
 
@@ -40,7 +39,7 @@ typedef struct dir_stack_t
 
 /* Call EDITOR's open_directory() function with the PATH and REVISION
  * arguments, and then add the resulting dir baton to the dir baton
- * stack. 
+ * stack.
  */
 static svn_error_t *
 open_dir(apr_array_header_t *db_stack,
@@ -54,7 +53,7 @@ open_dir(apr_array_header_t *db_stack,
   apr_pool_t *subpool;
 
   /* Assert that we are in a stable state. */
-  assert(db_stack && db_stack->nelts);
+  SVN_ERR_ASSERT(db_stack && db_stack->nelts);
 
   /* Get the parent dir baton. */
   item = APR_ARRAY_IDX(db_stack, db_stack->nelts - 1, void *);
@@ -87,7 +86,7 @@ pop_stack(apr_array_header_t *db_stack,
   dir_stack_t *item;
 
   /* Assert that we are in a stable state. */
-  assert(db_stack && db_stack->nelts);
+  SVN_ERR_ASSERT(db_stack && db_stack->nelts);
 
   /* Close the most recent directory pushed to the stack. */
   item = APR_ARRAY_IDX(db_stack, db_stack->nelts - 1, dir_stack_t *);
@@ -138,13 +137,16 @@ svn_delta_path_driver(const svn_delta_editor_t *editor,
   int i = 0;
   void *parent_db = NULL, *db = NULL;
   const char *path;
-  apr_pool_t *subpool = svn_pool_create(pool);
-  apr_pool_t *iterpool = svn_pool_create(pool);
-  dir_stack_t *item = apr_pcalloc(subpool, sizeof(*item));
+  apr_pool_t *subpool, *iterpool;
+  dir_stack_t *item;
 
   /* Do nothing if there are no paths. */
   if (! paths->nelts)
     return SVN_NO_ERROR;
+
+  subpool = svn_pool_create(pool);
+  iterpool = svn_pool_create(pool);
+  item = apr_pcalloc(subpool, sizeof(*item));
 
   /* Sort the paths in a depth-first directory-ish order. */
   qsort(paths->elts, paths->nelts, paths->elt_size, svn_sort_compare_paths);
@@ -225,12 +227,12 @@ svn_delta_path_driver(const svn_delta_editor_t *editor,
 
               /* Open the subdirectory. */
               SVN_ERR(open_dir(db_stack, editor, rel, revision, pool));
-              
+
               /* If we found a '/', advance our PIECE pointer to
                  character just after that '/'.  Otherwise, we're
                  done.  */
               if (piece)
-                piece++;    
+                piece++;
               else
                 break;
             }

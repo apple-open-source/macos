@@ -1,0 +1,336 @@
+commit bef919a0673867c0066ea06bd981d161e058f927
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Jun 25 12:25:46 2008 -0700
+
+    Version 1.0.2
+
+commit 557c30855ab8ddb7b5180bcfbf40777219e580a2
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Jun 24 19:09:24 2008 -0700
+
+    Update README
+
+commit f1adf122f872db56972f18dccd830b82c68a33ee
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Jun 24 18:36:28 2008 -0700
+
+    Display xrx version in about:plugins
+
+commit cae4f6c5c23c0b52a219db679f90271a601ddd75
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Jun 24 18:01:08 2008 -0700
+
+    Copy in instructions from R6.3 Release Notes to README
+
+commit 36423d4e1dec367d36d1a084fce3a3034d6c777f
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Jun 24 12:56:54 2008 -0700
+
+    Update man page for the modern browser world
+
+commit 551ac918a534d4754321cd917ae6086bf30cc2f5
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Jun 20 20:28:39 2008 -0700
+
+    Clear compiler warning and convert sprintf -> snprintf
+
+commit c1fbd8fb41328ded8eab0b7af9dbb3cf934ee966
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Jun 20 20:26:32 2008 -0700
+
+    Fix browser plugin build
+    
+    Add source files to Makefile that were missed in modularization
+    
+    Use headers specified by mozilla-plugin.pc or firefox-plugin.pc
+    if they exist, instead of the ancient Netscape ones we carry around
+
+commit bb29523ff1a17608d58d61ad106166c264263c1e
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Jun 19 21:02:05 2008 -0700
+
+    Include system headers needed for various function prototypes
+
+commit f28d40af61abef60f57c9dfa18342d998e2c00a1
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Jun 19 18:25:55 2008 -0700
+
+    Define TRANS_CLIENT in GetUrl.c to enable Xtrans client function prototypes
+
+commit 2c7f1b0e1ed222ff985c65df03afa58ab2ab68ab
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Fri Dec 7 20:55:27 2007 -0500
+
+    Fix commit de44240d10fe7a34062d0ec81260125073ba6c53
+
+commit de44240d10fe7a34062d0ec81260125073ba6c53
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Dec 6 16:37:29 2007 -0500
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit 87cf851a0dc07f2de272f376c2dc105d451cd4a4
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Mon Sep 3 05:51:44 2007 -0400
+
+    Add *~ to .gitignore to skip patch/emacs droppings
+
+commit 21738ec1ebaee68fd97c473e1ea7f2894f3470d6
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Aug 23 19:25:08 2007 -0400
+
+    Rename .cvsignore to .gitignore
+
+commit e98ff0a3931cae4d191f35e35d92911a9ba65658
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 21 02:29:54 2005 +0000
+
+    Update package version for X11R7 release.
+
+commit fdcf5b356d8c2ea57154426c06764edcdb5a62dc
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon Dec 19 16:22:47 2005 +0000
+
+    Stub COPYING files
+
+commit 7e820449831497731b4c9f2509f8251faece192b
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:11 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit b85396e762a1a9b2be3a2a66eba3a863204bc38f
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Dec 6 22:48:25 2005 +0000
+
+    Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+commit 922bc64ffb77974fbf83eedbd73d49c60b7fcd22
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:27 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit 10d0ef25d470935a9a0e0ddca34a61e594bb1250
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Nov 28 22:01:47 2005 +0000
+
+    Change *mandir targets to use new *_MAN_DIR variables set by xorg-macros.m4
+        update to fix bug #5167 (Linux prefers *.1x man pages in man1 subdir)
+
+commit f999154e48e07788270e25b02d370f140c96d097
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Mon Nov 21 10:35:08 2005 +0000
+
+    Another pass at .cvsignores for apps.
+
+commit ca6c26862ed0ecc6fec631d8fd10ea20567536c6
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Sun Nov 20 22:08:55 2005 +0000
+
+    Add/improve .cvsignore files for apps.
+
+commit dc024d336c1a438147dce549cc5b1c52ddfcae45
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Nov 19 07:15:38 2005 +0000
+
+    Update pkgconfig files to separate library build-time dependencies from
+        application build-time dependencies, and update package deps to work
+        with separate build roots.
+
+commit 9e2a0c2e90f379c8ec07299adc7a1862f30f5740
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Nov 9 21:09:22 2005 +0000
+
+    Update package version number for X11R7 RC2 release.
+
+commit f0defb0cd4e3cdbb27b5803b110f052e8cca4f92
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Nov 1 15:05:19 2005 +0000
+
+    Update pkgcheck depedencies to work with separate build roots.
+
+commit fa83b324833cc8400a0d020c5608054ae281a07a
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Wed Oct 26 19:33:10 2005 +0000
+
+    Set Xaw/Xp flags correctly for xrx plugin modules
+
+commit ba7d66c39c5896f6b326f19f4eebf1332933dee5
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:47:57 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit ca9547448805ca3f947a13d5d19f6f3719491f39
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Tue Oct 18 02:51:25 2005 +0000
+
+    Use sed to substitute variables in xrx & libxrx man pages
+
+commit 19f44d1a8c09cfb153c011518ad6c7d9383c1578
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Oct 14 00:52:20 2005 +0000
+
+    Add XORG_MANPAGE_SECTIONS & XORG_RELEASE_VERSION
+
+commit 111f15bc4c3e0ffec283aa6fc9ab0e0e37e19cdf
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Oct 11 17:29:55 2005 +0000
+
+    Add XRX_CFLAGS to fix build
+
+commit 055a1bfcd4dfb82421c0670092dc6d55260dcf28
+Author: Jim Gettys <jg@freedesktop.org>
+Date:   Sun Oct 9 20:25:18 2005 +0000
+
+    Set explicit CFLAGS for plugin directory.
+
+commit cdb62bc587e3e63ad7cbb44f1b7a7bc50989e89b
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 5 00:20:58 2005 +0000
+
+    Install man pages
+
+commit fbc8a8f3f21934b4b8abf61a174261ff4e2bc7e4
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Oct 4 21:57:33 2005 +0000
+
+    Remove non-existant file
+
+commit 61333fc49b02cb86d3d973b07ba5d847432a7a6d
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Fri Sep 23 20:08:56 2005 +0000
+
+    Add build system for xrx
+
+commit 0456702b1708f0e15013b734db812886269edf38
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Thu Jul 7 19:07:28 2005 +0000
+
+    More compiler warning fixes for missing prototypes:
+    Add prototype for XkbSetExtension()
+    Add #include <ctype.h> for isspace() & isdigit()
+    Add #include <grp.h> (for initgroups()) and remove extra *
+    Add prototype for xorgGetVersion()
+
+commit 9e1623853e8a39ec7c25049c8e159f273e1c2db3
+Author: Alexander Gottwald <alexander.gottwald@s1999.tu-chemnitz.de>
+Date:   Thu Jun 9 15:52:02 2005 +0000
+
+    Replace <X11/Xtrans.h> with <X11/Xtrans/Xtrans.h>
+    Copy Xtrans.h to exports/include/X11/Xtrans only
+
+commit 55c0793996d3eac35f541a354ea82de46c61b736
+Author: Roland Mainz <roland.mainz@nrubsig.org>
+Date:   Fri Jan 28 00:48:56 2005 +0000
+
+    //bugs.freedesktop.org/show_bug.cgi?id=2398) attachment #1765
+        (https://bugs.freedesktop.org/attachment.cgi?id=1765): Fix build
+        bustage on AIX. Patch by Dan McNichol <mcnichol@austin.ibm.com>.
+
+commit 61664a612651ff0f07dbd1e006de2d8829c70c93
+Author: Egbert Eich <eich@suse.de>
+Date:   Mon Oct 18 14:21:47 2004 +0000
+
+    Made handling of DevelDrivers for x86-64 more conformant to other
+        platforms.
+    Compress all font encodings (Stefan Dirsch).
+    Fixed warnings.
+    Turn on forwarding XNSpotLocation event to XIM server in OffTheSpot and
+        Root mode (bugzilla #1580, James Su).
+    Added another compose key combination for the Euro symbol (Stefan Dirsch).
+    Added support for UTF-8 in ja_JP, ko_KR and zh_TW locales (Mike Fabian).
+    Changed default encoding for ru from KOI8-R to ISO8859-5 (Mike Fabian).
+        This is the encoding that is also used by glibc. We may break other
+        libcs - lets see who complains.
+    Added explanation for DESTDIR to install to a different directory than /.
+    Added some early bailouts to atiprobe if PCI structure pointer is NULL to
+        prevent sig11.
+    XV support doesn't depend on 2D acceleration any more. This patch removes
+        this limitation from the NSC driver. This is a patch that I have
+        committed to XFree86 a while ago but never ported over to X.Org.
+        Matthieu Herrb contributed some build fixes.
+    Fixing SetDPMSTimers() so that DPMS*Time == 0 disables the appropriate
+        timer. This takes advantage of the fact that TimerSet() with a timeout
+        argument 0 behaves like TimerCanel().
+    Use /dev/xconsole (named pipe) or devpts for system logger (Werner Fink).
+    Create missing links for backward compatibility to XFree86 (Stefan Dirsch).
+    Changed comment to mention xorg.
+    Changed cursor for the 'kill' action from XC_draped_box to XC_Pirate. If
+        you don't like it we can change it back (original author unkown).
+    Added 'pic' to the man page rendering command pipeline (Werner Fink).
+    Added missing return value (Stefan Dirsch, Roland Mainz)
+
+commit 201fb0357bb8c27bbcd621a4e0923406a977f9f8
+Author: Matthieu Herrb <matthieu.herrb@laas.fr>
+Date:   Sat Sep 18 15:04:29 2004 +0000
+
+    define dependencies for libXevie for *BSD systems.
+    fix spelling of my first name and remove duplicate.
+    build fix.
+
+commit 02050676964380bfd5edc5ffbfb87ad0dbbdc876
+Author: Roland Mainz <roland.mainz@nrubsig.org>
+Date:   Sat Sep 18 00:30:51 2004 +0000
+
+    Fix for http://freedesktop.org/bugzilla/show_bug.cgi?id=1372 - Initial part
+        of repairing XRX/Broadway support. This patch fixes both the libxrx.so
+        plugin and the Xnest-based libxrxnest.so plugin and making them
+        compatible to newer versions of Mozilla and removing the backwards
+        compatibility hacks for old Netscape3.x versions with statically linked
+        Motif.
+
+commit e2a6df6025e2fbecd24be7bd47b65f2f46736691
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 19:55:04 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit 745a01a809725264ee3fcc80d6194241c8c7bfeb
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:35:44 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit a1f512cdcf400571d3af6f25959db9db9df0eea0
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:13:17 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit 31ddd14f11eb95e320a46d3853501bd95a7201f6
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:36:26 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit 35bc26bea9b679ce158c87af613704ff136fbd1f
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:24:17 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit 3d7e47793a1b5c2f2c1a51d2956645d1d7821ba4
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Jan 29 08:09:17 2004 +0000
+
+    Importing vendor version xf86-012804-2330 on Thu Jan 29 00:06:33 PST 2004
+
+commit 602b63c5d9961b7776e0e830dc4ed026380f6dc9
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:29:16 2003 +0000
+
+    XFree86 4.3.99.16 Bring the tree up to date for the Cygwin folks
+
+commit 634bfc0b47a1a0c613c5d1890fa465fc96818d26
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:49:23 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit d017e93a6a22f6d4c2c7e76deec1cdeca632135e
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 15:54:55 2003 +0000
+
+    R6.6 is the Xorg base-line

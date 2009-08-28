@@ -1,0 +1,2112 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$882|@interface PSEnclosure_occ_prop_4 : NSObject {
+    @private
+    id _internal;
+}
+/*!
+    @var        entry
+    @abstract   The entry with which the enclosure is linked. (read-only)
+    @discussion The inverse of the <code>enclosures</code> property of the <code>PSEntry</code> class.
+                An enclosure follows a one-to-one relationship and can only be linked to a single entry.
+
+                This method attempts to communicate with the PubSubAgent process and causes the agent
+                to launch if it is not already running.  If PubSubAgent cannot be contacted, an exception
+                will be thrown with the name <code>PSException</code>.  To avoid problems, you should
+                always be prepared to catch an exception thrown by this method.
+    @result     The entry associated with the enclosure.
+*/
+@property (readonly) PSEntry* entry;
+
+@end
+$27|/*!
+    This is a test.
+*/
+$0|$15051|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/ObjC_property_4.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/ObjC_property_4.test
+$parserState->{ISFORWARDDECLARATION} => 0
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} =>  
+$parserState->{classIsObjC} => 1
+$parserState->{classtype} => @interface
+$parserState->{forceClassDone} => 1
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 1
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 8
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => end
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occSuper} => NSObject
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 1
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{preclasssodtype} => interface
+$parserState->{prekeywordsodname} => 
+$parserState->{prekeywordsodtype} => 
+$parserState->{returntype} => @interface PSEnclosure_occ_prop_4 : NSObject
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => class
+$parserState->{sodname} => end
+$parserState->{sodtype} =>  PSEnclosure_occ_prop_4 NSObject
+$parserState->{sodtypeclasstoken} => interface
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 2
+$parserState->{storeDec} => 
+$parserState->{typestring} => PSEnclosure_occ_prop_4
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 8
+typelist: @interface
+namelist: PSEnclosure_occ_prop_4
+posstypes: NSObject
+value: 
+returntype: PSEnclosure_occ_prop_4 NSObject
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 11
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---@
++---interface
+|   +--- 
+|   +---PSEnclosure_occ_prop_4
+|   +--- 
+|   +---:
+|   +--- 
+|   +---NSObject
+|   +--- 
+|   +---{
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---@
+|   |   +---@private
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +--- 
+|   |   +---_internal
+|   |   +---;
+|   |   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   |   +---[ NEWLINE ]
+|   |   +---}
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@var        entry
+|   |   +---
+@abstract   The entry with which the enclosure is linked. (read-only)
+|   |   +---
+@discussion The inverse of the <code>enclosures</code> property of the <code>PSEntry</code> class.
+|   |   +---
+An enclosure follows a one-to-one relationship and can only be linked to a single entry.
+|   |   +---[ NEWLINE ]
+|   |   +---
+This method attempts to communicate with the PubSubAgent process and causes the agent
+|   |   +---
+to launch if it is not already running.  If PubSubAgent cannot be contacted, an exception
+|   |   +---
+will be thrown with the name <code>PSException</code>.  To avoid problems, you should
+|   |   +---
+always be prepared to catch an exception thrown by this method.
+|   |   +---
+@result     The entry associated with the enclosure.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-@property (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---readonly
+|   |   +---)
+|   +--- 
+|   +---PSEntry
+|   +---*
+|   +--- 
+|   +---entry
+|   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---@
+|   +---@end
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: ObjC property 4
+APIUID: //test_ref/doc/header/ObjC_property_4.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::ObjCClass
+    NAME: PSEnclosure_occ_prop_4
+    APIUID: 
+    ABSTRACT: ""
+    DISCUSSION: "<p>This is a test.
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::ObjCClass"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "1"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Superclass:</b> <!-- a logicalPath="//test_ref/occ/cl/NSObject" -->NSObject<!-- /a --><br>
+<b>Declared In:</b> <a href="../../index.html" target="_top">ObjC property 4</a><br>
+</p>
+    LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 1
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: entry
+        APIUID: //test_ref/occ/instp/PSEnclosure_occ_prop_4/entry
+        ABSTRACT: "<p>The entry with which the enclosure is linked. (read-only)
+"
+        DISCUSSION: "<p>The inverse of the <code>enclosures</code> property of the <code>PSEntry</code> class.
+An enclosure follows a one-to-one relationship and can only be linked to a single entry.
+</p>
+<p>This method attempts to communicate with the PubSubAgent process and causes the agent
+to launch if it is not already running.  If PubSubAgent cannot be contacted, an exception
+will be thrown with the name <code>PSException</code>.  To avoid problems, you should
+always be prepared to catch an exception thrown by this method.
+"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "private"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "PSEntry *"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: readonly
+            TYPE: 
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: <p></p>
+            LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: PSEnclosure_occ_prop_4 (HeaderDoc::ObjCClass)
++---@
++---interface
+|   +--- 
+|   +---PSEnclosure_occ_prop_4
+|   +--- 
+|   +---:
+|   +--- 
+|   +---NSObject
+|   +--- 
+|   +---{
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---@
+|   |   +---@private
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +--- 
+|   |   +---_internal
+|   |   +---;
+|   |   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   |   +---[ NEWLINE ]
+|   |   +---}
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@var        entry
+|   |   +---
+@abstract   The entry with which the enclosure is linked. (read-only)
+|   |   +---
+@discussion The inverse of the <code>enclosures</code> property of the <code>PSEntry</code> class.
+|   |   +---
+An enclosure follows a one-to-one relationship and can only be linked to a single entry.
+|   |   +---[ NEWLINE ]
+|   |   +---
+This method attempts to communicate with the PubSubAgent process and causes the agent
+|   |   +---
+to launch if it is not already running.  If PubSubAgent cannot be contacted, an exception
+|   |   +---
+will be thrown with the name <code>PSException</code>.  To avoid problems, you should
+|   |   +---
+always be prepared to catch an exception thrown by this method.
+|   |   +---
+@result     The entry associated with the enclosure.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-@property (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---readonly
+|   |   +---)
+|   +--- 
+|   +---PSEntry
+|   +---*
+|   +--- 
+|   +---entry
+|   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---@
+|   +---@end
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: entry (HeaderDoc::Var)
++-*-@property (HAS STATE)
++--- 
++---(
+|   +---readonly
+|   +---)
++--- 
++---PSEntry
++---*
++--- 
++---entry
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---@
++---@end
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: PSEnclosure_occ_prop_4 (HeaderDoc::ObjCClass)
+	@<!-- a logicalPath="//test_ref/occ/cl/interface //test_ref/occ/tdef/interface //test_ref/occ/tag/interface //test_ref/occ/econst/interface //test_ref/occ/struct/interface //test_ref/occ/clconst/interface //test_ref/occ/intf/interface" --><span class="type">interface</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/cl/PSEnclosure_occ_prop_4 //test_ref/occ/tdef/PSEnclosure_occ_prop_4 //test_ref/occ/tag/PSEnclosure_occ_prop_4 //test_ref/occ/econst/PSEnclosure_occ_prop_4 //test_ref/occ/struct/PSEnclosure_occ_prop_4 //test_ref/occ/clconst/PSEnclosure_occ_prop_4 //test_ref/occ/intf/PSEnclosure_occ_prop_4" --><span class="type">PSEnclosure_occ_prop_4</span><!-- /a --> : <!-- a logicalPath="//test_ref/occ/cl/NSObject //test_ref/occ/tdef/NSObject //test_ref/occ/tag/NSObject //test_ref/occ/econst/NSObject //test_ref/occ/struct/NSObject //test_ref/occ/clconst/NSObject //test_ref/occ/intf/NSObject" --><span class="type">NSObject</span><!-- /a --> { 
+	        @@private <!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/econst/id //test_ref/occ/struct/id //test_ref/occ/clconst/id //test_ref/occ/intf/id" --><span class="type">id</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_internal //test_ref/occ/data/_internal" --><span class="var">_internal</span><!-- /a -->; 
+	        } <span class="comment">/*!
+	@var        entry
+	@abstract   The entry with which the enclosure is linked. (read-only)
+	@discussion The inverse of the &lt;code&gt;enclosures&lt;/code&gt; property of the &lt;code&gt;PSEntry&lt;/code&gt; class.
+	An enclosure follows a one-to-one relationship and can only be linked to a single entry.
+	
+	This method attempts to communicate with the PubSubAgent process and causes the agent
+	to launch if it is not already running.  If PubSubAgent cannot be contacted, an exception
+	will be thrown with the name &lt;code&gt;PSException&lt;/code&gt;.  To avoid problems, you should
+	always be prepared to catch an exception thrown by this method.
+	@result     The entry associated with the enclosure.</span>
+	        <span class="comment">*/</span>
+	    @property (
+	        <span class="param">readonly</span>) <!-- a logicalPath="//test_ref/occ/cl/PSEntry //test_ref/occ/tdef/PSEntry //test_ref/occ/tag/PSEntry //test_ref/occ/econst/PSEntry //test_ref/occ/struct/PSEntry //test_ref/occ/clconst/PSEntry //test_ref/occ/intf/PSEntry" --><span class="type">PSEntry</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/occ/econst/entry //test_ref/occ/data/entry" --><span class="var">entry</span><!-- /a -->;   @@end 
+END OF OBJECT
+
+
+OBJECT: entry (HeaderDoc::Var)
+	@property (
+	    <span class="param">readonly</span>) <!-- a logicalPath="//test_ref/occ/cl/PSEntry //test_ref/occ/tdef/PSEntry //test_ref/occ/tag/PSEntry //test_ref/occ/econst/PSEntry //test_ref/occ/struct/PSEntry //test_ref/occ/clconst/PSEntry //test_ref/occ/intf/PSEntry" --><span class="type">PSEntry</span><!-- /a --><span class="type">*</span> <!-- a logicalPath="//test_ref/occ/econst/entry //test_ref/occ/data/entry" --><span class="var">entry</span><!-- /a -->; 
+END OF OBJECT
+
+
+
+$16705|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/ObjC_property_4.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/ObjC_property_4.test
+$parserState->{ISFORWARDDECLARATION} => 0
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} =>  
+$parserState->{classIsObjC} => 1
+$parserState->{classtype} => @interface
+$parserState->{forceClassDone} => 1
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 1
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 8
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => end
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occSuper} => NSObject
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 1
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{preclasssodtype} => interface
+$parserState->{prekeywordsodname} => 
+$parserState->{prekeywordsodtype} => 
+$parserState->{returntype} => @interface PSEnclosure_occ_prop_4 : NSObject
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => class
+$parserState->{sodname} => end
+$parserState->{sodtype} =>  PSEnclosure_occ_prop_4 NSObject
+$parserState->{sodtypeclasstoken} => interface
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 2
+$parserState->{storeDec} => 
+$parserState->{typestring} => PSEnclosure_occ_prop_4
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 8
+typelist: @interface
+namelist: PSEnclosure_occ_prop_4
+posstypes: NSObject
+value: 
+returntype: PSEnclosure_occ_prop_4 NSObject
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 11
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---@
++---interface
+|   +--- 
+|   +---PSEnclosure_occ_prop_4
+|   +--- 
+|   +---:
+|   +--- 
+|   +---NSObject
+|   +--- 
+|   +---{
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---@
+|   |   +---@private
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +--- 
+|   |   +---_internal
+|   |   +---;
+|   |   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   |   +---[ NEWLINE ]
+|   |   +---}
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@var        entry
+|   |   +---
+@abstract   The entry with which the enclosure is linked. (read-only)
+|   |   +---
+@discussion The inverse of the <code>enclosures</code> property of the <code>PSEntry</code> class.
+|   |   +---
+An enclosure follows a one-to-one relationship and can only be linked to a single entry.
+|   |   +---[ NEWLINE ]
+|   |   +---
+This method attempts to communicate with the PubSubAgent process and causes the agent
+|   |   +---
+to launch if it is not already running.  If PubSubAgent cannot be contacted, an exception
+|   |   +---
+will be thrown with the name <code>PSException</code>.  To avoid problems, you should
+|   |   +---
+always be prepared to catch an exception thrown by this method.
+|   |   +---
+@result     The entry associated with the enclosure.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-@property (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---readonly
+|   |   +---)
+|   +--- 
+|   +---PSEntry
+|   +---*
+|   +--- 
+|   +---entry
+|   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---@
+|   +---@end
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: ObjC property 4
+APIUID: //test_ref/doc/header/ObjC_property_4.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::ObjCClass
+    NAME: PSEnclosure_occ_prop_4
+    APIUID: 
+    ABSTRACT: ""
+    DISCUSSION: "<p>This is a test.
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::ObjCClass"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "1"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Superclass:</b> <!-- a logicalPath="//test_ref/occ/cl/NSObject" -->NSObject<!-- /a --><br>
+<b>Declared In:</b> <a href="../../index.html" target="_top">ObjC property 4</a><br>
+</p>
+    LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: _internal
+        APIUID: //test_ref/occ/data/PSEnclosure_occ_prop_4/_internal
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "private"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "id"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "1"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 1
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: entry
+        APIUID: //test_ref/occ/instp/PSEnclosure_occ_prop_4/entry
+        ABSTRACT: "<p>The entry with which the enclosure is linked. (read-only)
+"
+        DISCUSSION: "<p>The inverse of the <code>enclosures</code> property of the <code>PSEntry</code> class.
+An enclosure follows a one-to-one relationship and can only be linked to a single entry.
+</p>
+<p>This method attempts to communicate with the PubSubAgent process and causes the agent
+to launch if it is not already running.  If PubSubAgent cannot be contacted, an exception
+will be thrown with the name <code>PSException</code>.  To avoid problems, you should
+always be prepared to catch an exception thrown by this method.
+"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "private"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "PSEntry *"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: readonly
+            TYPE: 
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: <p></p>
+            LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: PSEnclosure_occ_prop_4 (HeaderDoc::ObjCClass)
++---@
++---interface
+|   +--- 
+|   +---PSEnclosure_occ_prop_4
+|   +--- 
+|   +---:
+|   +--- 
+|   +---NSObject
+|   +--- 
+|   +---{
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---@
+|   |   +---@private
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +--- 
+|   |   +---_internal
+|   |   +---;
+|   |   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   |   +---[ NEWLINE ]
+|   |   +---}
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@var        entry
+|   |   +---
+@abstract   The entry with which the enclosure is linked. (read-only)
+|   |   +---
+@discussion The inverse of the <code>enclosures</code> property of the <code>PSEntry</code> class.
+|   |   +---
+An enclosure follows a one-to-one relationship and can only be linked to a single entry.
+|   |   +---[ NEWLINE ]
+|   |   +---
+This method attempts to communicate with the PubSubAgent process and causes the agent
+|   |   +---
+to launch if it is not already running.  If PubSubAgent cannot be contacted, an exception
+|   |   +---
+will be thrown with the name <code>PSException</code>.  To avoid problems, you should
+|   |   +---
+always be prepared to catch an exception thrown by this method.
+|   |   +---
+@result     The entry associated with the enclosure.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-@property (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---readonly
+|   |   +---)
+|   +--- 
+|   +---PSEntry
+|   +---*
+|   +--- 
+|   +---entry
+|   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---@
+|   +---@end
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: _internal (HeaderDoc::Var)
++-*-id (HAS STATE)
++--- 
++---_internal
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: entry (HeaderDoc::Var)
++-*-@property (HAS STATE)
++--- 
++---(
+|   +---readonly
+|   +---)
++--- 
++---PSEntry
++---*
++--- 
++---entry
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---@
++---@end
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: PSEnclosure_occ_prop_4 (HeaderDoc::ObjCClass)
+	@<!-- a logicalPath="//test_ref/occ/cl/interface //test_ref/occ/tdef/interface //test_ref/occ/tag/interface //test_ref/occ/econst/interface //test_ref/occ/struct/interface //test_ref/occ/clconst/interface //test_ref/occ/intf/interface" --><span class="type">interface</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/cl/PSEnclosure_occ_prop_4 //test_ref/occ/tdef/PSEnclosure_occ_prop_4 //test_ref/occ/tag/PSEnclosure_occ_prop_4 //test_ref/occ/econst/PSEnclosure_occ_prop_4 //test_ref/occ/struct/PSEnclosure_occ_prop_4 //test_ref/occ/clconst/PSEnclosure_occ_prop_4 //test_ref/occ/intf/PSEnclosure_occ_prop_4" --><span class="type">PSEnclosure_occ_prop_4</span><!-- /a --> : <!-- a logicalPath="//test_ref/occ/cl/NSObject //test_ref/occ/tdef/NSObject //test_ref/occ/tag/NSObject //test_ref/occ/econst/NSObject //test_ref/occ/struct/NSObject //test_ref/occ/clconst/NSObject //test_ref/occ/intf/NSObject" --><span class="type">NSObject</span><!-- /a --> { 
+	        @@private <!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/econst/id //test_ref/occ/struct/id //test_ref/occ/clconst/id //test_ref/occ/intf/id" --><span class="type">id</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_internal //test_ref/occ/data/_internal" --><span class="var">_internal</span><!-- /a -->; 
+	        } <span class="comment">/*!
+	@var        entry
+	@abstract   The entry with which the enclosure is linked. (read-only)
+	@discussion The inverse of the &lt;code&gt;enclosures&lt;/code&gt; property of the &lt;code&gt;PSEntry&lt;/code&gt; class.
+	An enclosure follows a one-to-one relationship and can only be linked to a single entry.
+	
+	This method attempts to communicate with the PubSubAgent process and causes the agent
+	to launch if it is not already running.  If PubSubAgent cannot be contacted, an exception
+	will be thrown with the name &lt;code&gt;PSException&lt;/code&gt;.  To avoid problems, you should
+	always be prepared to catch an exception thrown by this method.
+	@result     The entry associated with the enclosure.</span>
+	        <span class="comment">*/</span>
+	    @property (
+	        <span class="param">readonly</span>) <!-- a logicalPath="//test_ref/occ/cl/PSEntry //test_ref/occ/tdef/PSEntry //test_ref/occ/tag/PSEntry //test_ref/occ/econst/PSEntry //test_ref/occ/struct/PSEntry //test_ref/occ/clconst/PSEntry //test_ref/occ/intf/PSEntry" --><span class="type">PSEntry</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/occ/econst/entry //test_ref/occ/data/entry" --><span class="var">entry</span><!-- /a -->;   @@end 
+END OF OBJECT
+
+
+OBJECT: _internal (HeaderDoc::Var)
+	<!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/econst/id //test_ref/occ/struct/id //test_ref/occ/clconst/id //test_ref/occ/intf/id" --><span class="type">id</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_internal //test_ref/occ/data/_internal" --><span class="var">_internal</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: entry (HeaderDoc::Var)
+	@property (
+	    <span class="param">readonly</span>) <!-- a logicalPath="//test_ref/occ/cl/PSEntry //test_ref/occ/tdef/PSEntry //test_ref/occ/tag/PSEntry //test_ref/occ/econst/PSEntry //test_ref/occ/struct/PSEntry //test_ref/occ/clconst/PSEntry //test_ref/occ/intf/PSEntry" --><span class="type">PSEntry</span><!-- /a --><span class="type">*</span> <!-- a logicalPath="//test_ref/occ/econst/entry //test_ref/occ/data/entry" --><span class="var">entry</span><!-- /a -->; 
+END OF OBJECT
+
+
+
+$194|If this fails (in the absence of other failures), it means that the
+type conversion mechanism is broken.  This mechanism is intended to allow
+properties to be mismarked as methods or variables.
+$43|testsuite/parser_tests/ObjC_property_4.test$1|C$15|ObjC property 4$15051|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/ObjC_property_4.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/ObjC_property_4.test
+$parserState->{ISFORWARDDECLARATION} => 0
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} =>  
+$parserState->{classIsObjC} => 1
+$parserState->{classtype} => @interface
+$parserState->{forceClassDone} => 1
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 1
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 8
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => end
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occSuper} => NSObject
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 1
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{preclasssodtype} => interface
+$parserState->{prekeywordsodname} => 
+$parserState->{prekeywordsodtype} => 
+$parserState->{returntype} => @interface PSEnclosure_occ_prop_4 : NSObject
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => class
+$parserState->{sodname} => end
+$parserState->{sodtype} =>  PSEnclosure_occ_prop_4 NSObject
+$parserState->{sodtypeclasstoken} => interface
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 2
+$parserState->{storeDec} => 
+$parserState->{typestring} => PSEnclosure_occ_prop_4
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 8
+typelist: @interface
+namelist: PSEnclosure_occ_prop_4
+posstypes: NSObject
+value: 
+returntype: PSEnclosure_occ_prop_4 NSObject
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 11
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---@
++---interface
+|   +--- 
+|   +---PSEnclosure_occ_prop_4
+|   +--- 
+|   +---:
+|   +--- 
+|   +---NSObject
+|   +--- 
+|   +---{
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---@
+|   |   +---@private
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +--- 
+|   |   +---_internal
+|   |   +---;
+|   |   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   |   +---[ NEWLINE ]
+|   |   +---}
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@var        entry
+|   |   +---
+@abstract   The entry with which the enclosure is linked. (read-only)
+|   |   +---
+@discussion The inverse of the <code>enclosures</code> property of the <code>PSEntry</code> class.
+|   |   +---
+An enclosure follows a one-to-one relationship and can only be linked to a single entry.
+|   |   +---[ NEWLINE ]
+|   |   +---
+This method attempts to communicate with the PubSubAgent process and causes the agent
+|   |   +---
+to launch if it is not already running.  If PubSubAgent cannot be contacted, an exception
+|   |   +---
+will be thrown with the name <code>PSException</code>.  To avoid problems, you should
+|   |   +---
+always be prepared to catch an exception thrown by this method.
+|   |   +---
+@result     The entry associated with the enclosure.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-@property (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---readonly
+|   |   +---)
+|   +--- 
+|   +---PSEntry
+|   +---*
+|   +--- 
+|   +---entry
+|   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---@
+|   +---@end
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: ObjC property 4
+APIUID: //test_ref/doc/header/ObjC_property_4.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::ObjCClass
+    NAME: PSEnclosure_occ_prop_4
+    APIUID: 
+    ABSTRACT: ""
+    DISCUSSION: "<p>This is a test.
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::ObjCClass"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "1"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Superclass:</b> <!-- a logicalPath="//test_ref/occ/cl/NSObject" -->NSObject<!-- /a --><br>
+<b>Declared In:</b> <a href="../../index.html" target="_top">ObjC property 4</a><br>
+</p>
+    LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 1
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: entry
+        APIUID: //test_ref/occ/instp/PSEnclosure_occ_prop_4/entry
+        ABSTRACT: "<p>The entry with which the enclosure is linked. (read-only)
+"
+        DISCUSSION: "<p>The inverse of the <code>enclosures</code> property of the <code>PSEntry</code> class.
+An enclosure follows a one-to-one relationship and can only be linked to a single entry.
+</p>
+<p>This method attempts to communicate with the PubSubAgent process and causes the agent
+to launch if it is not already running.  If PubSubAgent cannot be contacted, an exception
+will be thrown with the name <code>PSException</code>.  To avoid problems, you should
+always be prepared to catch an exception thrown by this method.
+"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "private"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "PSEntry *"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: readonly
+            TYPE: 
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: <p></p>
+            LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: PSEnclosure_occ_prop_4 (HeaderDoc::ObjCClass)
++---@
++---interface
+|   +--- 
+|   +---PSEnclosure_occ_prop_4
+|   +--- 
+|   +---:
+|   +--- 
+|   +---NSObject
+|   +--- 
+|   +---{
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---@
+|   |   +---@private
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +--- 
+|   |   +---_internal
+|   |   +---;
+|   |   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   |   +---[ NEWLINE ]
+|   |   +---}
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@var        entry
+|   |   +---
+@abstract   The entry with which the enclosure is linked. (read-only)
+|   |   +---
+@discussion The inverse of the <code>enclosures</code> property of the <code>PSEntry</code> class.
+|   |   +---
+An enclosure follows a one-to-one relationship and can only be linked to a single entry.
+|   |   +---[ NEWLINE ]
+|   |   +---
+This method attempts to communicate with the PubSubAgent process and causes the agent
+|   |   +---
+to launch if it is not already running.  If PubSubAgent cannot be contacted, an exception
+|   |   +---
+will be thrown with the name <code>PSException</code>.  To avoid problems, you should
+|   |   +---
+always be prepared to catch an exception thrown by this method.
+|   |   +---
+@result     The entry associated with the enclosure.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-@property (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---readonly
+|   |   +---)
+|   +--- 
+|   +---PSEntry
+|   +---*
+|   +--- 
+|   +---entry
+|   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---@
+|   +---@end
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: entry (HeaderDoc::Var)
++-*-@property (HAS STATE)
++--- 
++---(
+|   +---readonly
+|   +---)
++--- 
++---PSEntry
++---*
++--- 
++---entry
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---@
++---@end
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: PSEnclosure_occ_prop_4 (HeaderDoc::ObjCClass)
+	@<!-- a logicalPath="//test_ref/occ/cl/interface //test_ref/occ/tdef/interface //test_ref/occ/tag/interface //test_ref/occ/econst/interface //test_ref/occ/struct/interface //test_ref/occ/clconst/interface //test_ref/occ/intf/interface" --><span class="type">interface</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/cl/PSEnclosure_occ_prop_4 //test_ref/occ/tdef/PSEnclosure_occ_prop_4 //test_ref/occ/tag/PSEnclosure_occ_prop_4 //test_ref/occ/econst/PSEnclosure_occ_prop_4 //test_ref/occ/struct/PSEnclosure_occ_prop_4 //test_ref/occ/clconst/PSEnclosure_occ_prop_4 //test_ref/occ/intf/PSEnclosure_occ_prop_4" --><span class="type">PSEnclosure_occ_prop_4</span><!-- /a --> : <!-- a logicalPath="//test_ref/occ/cl/NSObject //test_ref/occ/tdef/NSObject //test_ref/occ/tag/NSObject //test_ref/occ/econst/NSObject //test_ref/occ/struct/NSObject //test_ref/occ/clconst/NSObject //test_ref/occ/intf/NSObject" --><span class="type">NSObject</span><!-- /a --> { 
+	        @@private <!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/econst/id //test_ref/occ/struct/id //test_ref/occ/clconst/id //test_ref/occ/intf/id" --><span class="type">id</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_internal //test_ref/occ/data/_internal" --><span class="var">_internal</span><!-- /a -->; 
+	        } <span class="comment">/*!
+	@var        entry
+	@abstract   The entry with which the enclosure is linked. (read-only)
+	@discussion The inverse of the &lt;code&gt;enclosures&lt;/code&gt; property of the &lt;code&gt;PSEntry&lt;/code&gt; class.
+	An enclosure follows a one-to-one relationship and can only be linked to a single entry.
+	
+	This method attempts to communicate with the PubSubAgent process and causes the agent
+	to launch if it is not already running.  If PubSubAgent cannot be contacted, an exception
+	will be thrown with the name &lt;code&gt;PSException&lt;/code&gt;.  To avoid problems, you should
+	always be prepared to catch an exception thrown by this method.
+	@result     The entry associated with the enclosure.</span>
+	        <span class="comment">*/</span>
+	    @property (
+	        <span class="param">readonly</span>) <!-- a logicalPath="//test_ref/occ/cl/PSEntry //test_ref/occ/tdef/PSEntry //test_ref/occ/tag/PSEntry //test_ref/occ/econst/PSEntry //test_ref/occ/struct/PSEntry //test_ref/occ/clconst/PSEntry //test_ref/occ/intf/PSEntry" --><span class="type">PSEntry</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/occ/econst/entry //test_ref/occ/data/entry" --><span class="var">entry</span><!-- /a -->;   @@end 
+END OF OBJECT
+
+
+OBJECT: entry (HeaderDoc::Var)
+	@property (
+	    <span class="param">readonly</span>) <!-- a logicalPath="//test_ref/occ/cl/PSEntry //test_ref/occ/tdef/PSEntry //test_ref/occ/tag/PSEntry //test_ref/occ/econst/PSEntry //test_ref/occ/struct/PSEntry //test_ref/occ/clconst/PSEntry //test_ref/occ/intf/PSEntry" --><span class="type">PSEntry</span><!-- /a --><span class="type">*</span> <!-- a logicalPath="//test_ref/occ/econst/entry //test_ref/occ/data/entry" --><span class="var">entry</span><!-- /a -->; 
+END OF OBJECT
+
+
+
+$16705|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/ObjC_property_4.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/ObjC_property_4.test
+$parserState->{ISFORWARDDECLARATION} => 0
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} =>  
+$parserState->{classIsObjC} => 1
+$parserState->{classtype} => @interface
+$parserState->{forceClassDone} => 1
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 1
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 8
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => end
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occSuper} => NSObject
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 1
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{preclasssodtype} => interface
+$parserState->{prekeywordsodname} => 
+$parserState->{prekeywordsodtype} => 
+$parserState->{returntype} => @interface PSEnclosure_occ_prop_4 : NSObject
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => class
+$parserState->{sodname} => end
+$parserState->{sodtype} =>  PSEnclosure_occ_prop_4 NSObject
+$parserState->{sodtypeclasstoken} => interface
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 2
+$parserState->{storeDec} => 
+$parserState->{typestring} => PSEnclosure_occ_prop_4
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 8
+typelist: @interface
+namelist: PSEnclosure_occ_prop_4
+posstypes: NSObject
+value: 
+returntype: PSEnclosure_occ_prop_4 NSObject
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 11
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---@
++---interface
+|   +--- 
+|   +---PSEnclosure_occ_prop_4
+|   +--- 
+|   +---:
+|   +--- 
+|   +---NSObject
+|   +--- 
+|   +---{
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---@
+|   |   +---@private
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +--- 
+|   |   +---_internal
+|   |   +---;
+|   |   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   |   +---[ NEWLINE ]
+|   |   +---}
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@var        entry
+|   |   +---
+@abstract   The entry with which the enclosure is linked. (read-only)
+|   |   +---
+@discussion The inverse of the <code>enclosures</code> property of the <code>PSEntry</code> class.
+|   |   +---
+An enclosure follows a one-to-one relationship and can only be linked to a single entry.
+|   |   +---[ NEWLINE ]
+|   |   +---
+This method attempts to communicate with the PubSubAgent process and causes the agent
+|   |   +---
+to launch if it is not already running.  If PubSubAgent cannot be contacted, an exception
+|   |   +---
+will be thrown with the name <code>PSException</code>.  To avoid problems, you should
+|   |   +---
+always be prepared to catch an exception thrown by this method.
+|   |   +---
+@result     The entry associated with the enclosure.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-@property (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---readonly
+|   |   +---)
+|   +--- 
+|   +---PSEntry
+|   +---*
+|   +--- 
+|   +---entry
+|   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---@
+|   +---@end
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: ObjC property 4
+APIUID: //test_ref/doc/header/ObjC_property_4.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::ObjCClass
+    NAME: PSEnclosure_occ_prop_4
+    APIUID: 
+    ABSTRACT: ""
+    DISCUSSION: "<p>This is a test.
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::ObjCClass"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "1"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Superclass:</b> <!-- a logicalPath="//test_ref/occ/cl/NSObject" -->NSObject<!-- /a --><br>
+<b>Declared In:</b> <a href="../../index.html" target="_top">ObjC property 4</a><br>
+</p>
+    LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: _internal
+        APIUID: //test_ref/occ/data/PSEnclosure_occ_prop_4/_internal
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "private"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "id"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "1"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 1
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: entry
+        APIUID: //test_ref/occ/instp/PSEnclosure_occ_prop_4/entry
+        ABSTRACT: "<p>The entry with which the enclosure is linked. (read-only)
+"
+        DISCUSSION: "<p>The inverse of the <code>enclosures</code> property of the <code>PSEntry</code> class.
+An enclosure follows a one-to-one relationship and can only be linked to a single entry.
+</p>
+<p>This method attempts to communicate with the PubSubAgent process and causes the agent
+to launch if it is not already running.  If PubSubAgent cannot be contacted, an exception
+will be thrown with the name <code>PSException</code>.  To avoid problems, you should
+always be prepared to catch an exception thrown by this method.
+"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "private"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "PSEntry *"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: readonly
+            TYPE: 
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: <p></p>
+            LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: PSEnclosure_occ_prop_4 (HeaderDoc::ObjCClass)
++---@
++---interface
+|   +--- 
+|   +---PSEnclosure_occ_prop_4
+|   +--- 
+|   +---:
+|   +--- 
+|   +---NSObject
+|   +--- 
+|   +---{
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---@
+|   |   +---@private
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +--- 
+|   |   +---_internal
+|   |   +---;
+|   |   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   |   +---[ NEWLINE ]
+|   |   +---}
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@var        entry
+|   |   +---
+@abstract   The entry with which the enclosure is linked. (read-only)
+|   |   +---
+@discussion The inverse of the <code>enclosures</code> property of the <code>PSEntry</code> class.
+|   |   +---
+An enclosure follows a one-to-one relationship and can only be linked to a single entry.
+|   |   +---[ NEWLINE ]
+|   |   +---
+This method attempts to communicate with the PubSubAgent process and causes the agent
+|   |   +---
+to launch if it is not already running.  If PubSubAgent cannot be contacted, an exception
+|   |   +---
+will be thrown with the name <code>PSException</code>.  To avoid problems, you should
+|   |   +---
+always be prepared to catch an exception thrown by this method.
+|   |   +---
+@result     The entry associated with the enclosure.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-@property (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---readonly
+|   |   +---)
+|   +--- 
+|   +---PSEntry
+|   +---*
+|   +--- 
+|   +---entry
+|   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---@
+|   +---@end
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: _internal (HeaderDoc::Var)
++-*-id (HAS STATE)
++--- 
++---_internal
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: entry (HeaderDoc::Var)
++-*-@property (HAS STATE)
++--- 
++---(
+|   +---readonly
+|   +---)
++--- 
++---PSEntry
++---*
++--- 
++---entry
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---@
++---@end
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: PSEnclosure_occ_prop_4 (HeaderDoc::ObjCClass)
+	@<!-- a logicalPath="//test_ref/occ/cl/interface //test_ref/occ/tdef/interface //test_ref/occ/tag/interface //test_ref/occ/econst/interface //test_ref/occ/struct/interface //test_ref/occ/clconst/interface //test_ref/occ/intf/interface" --><span class="type">interface</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/cl/PSEnclosure_occ_prop_4 //test_ref/occ/tdef/PSEnclosure_occ_prop_4 //test_ref/occ/tag/PSEnclosure_occ_prop_4 //test_ref/occ/econst/PSEnclosure_occ_prop_4 //test_ref/occ/struct/PSEnclosure_occ_prop_4 //test_ref/occ/clconst/PSEnclosure_occ_prop_4 //test_ref/occ/intf/PSEnclosure_occ_prop_4" --><span class="type">PSEnclosure_occ_prop_4</span><!-- /a --> : <!-- a logicalPath="//test_ref/occ/cl/NSObject //test_ref/occ/tdef/NSObject //test_ref/occ/tag/NSObject //test_ref/occ/econst/NSObject //test_ref/occ/struct/NSObject //test_ref/occ/clconst/NSObject //test_ref/occ/intf/NSObject" --><span class="type">NSObject</span><!-- /a --> { 
+	        @@private <!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/econst/id //test_ref/occ/struct/id //test_ref/occ/clconst/id //test_ref/occ/intf/id" --><span class="type">id</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_internal //test_ref/occ/data/_internal" --><span class="var">_internal</span><!-- /a -->; 
+	        } <span class="comment">/*!
+	@var        entry
+	@abstract   The entry with which the enclosure is linked. (read-only)
+	@discussion The inverse of the &lt;code&gt;enclosures&lt;/code&gt; property of the &lt;code&gt;PSEntry&lt;/code&gt; class.
+	An enclosure follows a one-to-one relationship and can only be linked to a single entry.
+	
+	This method attempts to communicate with the PubSubAgent process and causes the agent
+	to launch if it is not already running.  If PubSubAgent cannot be contacted, an exception
+	will be thrown with the name &lt;code&gt;PSException&lt;/code&gt;.  To avoid problems, you should
+	always be prepared to catch an exception thrown by this method.
+	@result     The entry associated with the enclosure.</span>
+	        <span class="comment">*/</span>
+	    @property (
+	        <span class="param">readonly</span>) <!-- a logicalPath="//test_ref/occ/cl/PSEntry //test_ref/occ/tdef/PSEntry //test_ref/occ/tag/PSEntry //test_ref/occ/econst/PSEntry //test_ref/occ/struct/PSEntry //test_ref/occ/clconst/PSEntry //test_ref/occ/intf/PSEntry" --><span class="type">PSEntry</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/occ/econst/entry //test_ref/occ/data/entry" --><span class="var">entry</span><!-- /a -->;   @@end 
+END OF OBJECT
+
+
+OBJECT: _internal (HeaderDoc::Var)
+	<!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/econst/id //test_ref/occ/struct/id //test_ref/occ/clconst/id //test_ref/occ/intf/id" --><span class="type">id</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_internal //test_ref/occ/data/_internal" --><span class="var">_internal</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: entry (HeaderDoc::Var)
+	@property (
+	    <span class="param">readonly</span>) <!-- a logicalPath="//test_ref/occ/cl/PSEntry //test_ref/occ/tdef/PSEntry //test_ref/occ/tag/PSEntry //test_ref/occ/econst/PSEntry //test_ref/occ/struct/PSEntry //test_ref/occ/clconst/PSEntry //test_ref/occ/intf/PSEntry" --><span class="type">PSEntry</span><!-- /a --><span class="type">*</span> <!-- a logicalPath="//test_ref/occ/econst/entry //test_ref/occ/data/entry" --><span class="var">entry</span><!-- /a -->; 
+END OF OBJECT
+
+
+
+$1|C$6|parser

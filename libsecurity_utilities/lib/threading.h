@@ -114,11 +114,9 @@ private:
 //
 class LockingPrimitive {
 protected:
-	void init(bool logMe);
-
-	bool debugLog;						// log *this* mutex
-	static bool debugHasInitialized;	// global: debug state set up
-	static bool loggingMutexi;			// global: we are debug-logging mutexi	
+	LockingPrimitive() { }
+	
+    void check(int err)	{ if (err) UnixError::throwMe(err); }
 };
 
 
@@ -128,8 +126,6 @@ protected:
 class Mutex : public LockingPrimitive {
     NOCOPY(Mutex)
     friend class Condition;
-    
-    void check(int err)	{ if (err) UnixError::throwMe(err); }
 
 public:
 	enum Type {
@@ -137,28 +133,30 @@ public:
 		recursive
 	};
 	
-    Mutex(bool log = true);				// normal with optional debug logging
-	Mutex(Type type, bool log = true);	// recursive with optional debug logging
+    Mutex();							// normal
+	Mutex(Type type);					// recursive
 	~Mutex();							// destroy (must be unlocked)
     void lock();						// lock and wait
-	bool tryLock();						// lock or return false
+	bool tryLock();						// instantaneous lock (return false if busy)
     void unlock();						// unlock (must be locked)
 
 private:
     pthread_mutex_t me;
-	
-	unsigned long mUseCount;			// number of locks succeeded
-	unsigned long mContentionCount;		// number of contentions (valid only if debugLog)
 };
 
+
+class RecursiveMutex : public Mutex
+{
+public:
+	RecursiveMutex() : Mutex(recursive) {}
+	~RecursiveMutex() {}
+};
 
 //
 // Condition variables
 //
 class Condition : public LockingPrimitive {
     NOCOPY(Condition)
-    
-    void check(int err)	{ if (err) UnixError::throwMe(err); }
 
 public:	
     Condition(Mutex &mutex);			// create with specific Mutex

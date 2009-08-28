@@ -45,7 +45,7 @@
 .Op Fl H | Fl L | Fl P
 .Oc
 .Op Fl fi | n
-.Op Fl pvX
+.Op Fl apvX
 .Ar source_file target_file
 .Nm cp
 .Oo
@@ -53,7 +53,7 @@
 .Op Fl H | Fl L | Fl P
 .Oc
 .Op Fl fi | n
-.Op Fl pvX
+.Op Fl apvX
 .Ar source_file ... target_directory
 .Sh DESCRIPTION
 In the first synopsis form, the
@@ -74,8 +74,14 @@ detects an attempt to copy a file to itself, the copy will fail.
 .Pp
 The following options are available:
 .Bl -tag -width flag
+.It Fl a
+Same as 
+.Fl pPR
+options. Preserves structure and attributes of files
+but not directory structure.
 .It Fl f
-For each existing destination pathname, remove it and
+.\"For each existing destination pathname, remove it and
+If the destination file cannot be opened, remove it and
 create a new file, without prompting for confirmation
 regardless of its permissions.
 (The
@@ -130,7 +136,8 @@ Cause
 to preserve the following attributes of each source
 file in the copy: modification time, access time,
 file flags, file mode, user ID, and group ID, as allowed by permissions.
-Access Control Lists (ACLs) will also be preserved.
+Access Control Lists (ACLs) and Extended Attributes (EAs),
+including resource forks, will also be preserved.
 .Pp
 If the user ID and group ID cannot be preserved, no error message
 is displayed and the exit value is not altered.
@@ -279,6 +286,9 @@ Thus, new access rights will always be set.
 In
 .Fl R
 mode, copying will terminate if an error is encountered.
+.Pp
+For more information about legacy mode, see
+.Xr compat 5 .
 .Sh SEE ALSO
 .Xr mv 1 ,
 .Xr rcp 1 ,

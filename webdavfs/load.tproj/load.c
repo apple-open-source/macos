@@ -21,26 +21,37 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <mach/mach.h>
+#include <mach/mach_error.h>
+#include <servers/bootstrap.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/errno.h>
+#include <sys/mount.h>
 #include <unistd.h>
+#include <stdlib.h>
+#include <asl.h>
 #include <stdio.h>
+#include "load_webdavfs.h"
+
+#include "webdavfs_load_kext.h"
+#include "webdavfs_load_kextServer.h"
 
 /*****************************************************************************/
 
 /* Local Definitions */
 
-#define LOAD_COMMAND "/sbin/kextload"
-#define WEBDAV_MODULE_PATH "/System/Library/Extensions/webdav_fs.kext"
 #define CFENVFORMATSTRING "__CF_USER_TEXT_ENCODING=0x%X:0:0"
 
+union MaxMsgSize {
+	union __RequestUnion__webdavfs_load_kext_subsystem req;
+	union __ReplyUnion__webdavfs_load_kext_subsystem rep;
+};
 
 /*****************************************************************************/
 
-int main(int argc, const char *argv[])
+static int LoadKext(const char *inKextPath)
 {
-	#pragma unused(argc, argv)
 	int pid;
 	int result = -1;
 	union wait status;
@@ -59,9 +70,9 @@ int main(int argc, const char *argv[])
 		 */ 
 		snprintf(CFUserTextEncodingEnvSetting, sizeof(CFUserTextEncodingEnvSetting), CFENVFORMATSTRING, getuid());
 
-		result = execle(LOAD_COMMAND, LOAD_COMMAND, WEBDAV_MODULE_PATH, NULL, env);
+		result = execle(KEXT_LOAD_PATH, KEXT_LOAD_PATH, inKextPath, NULL, env);
 		/* We can only get here if the exec failed */
-		goto Return;
+		_exit (errno);
 	}
 	
 	if (pid == -1)
@@ -71,18 +82,73 @@ int main(int argc, const char *argv[])
 	}
 	
 	/* Success! */
-	if ((wait4(pid, (int *) & status, 0, NULL) == pid) && (WIFEXITED(status)))
+	if ((wait4(pid, (int *) &status, 0, NULL) == pid) && (WIFEXITED(status)))
 	{
 		result = status.w_retcode;
 	}
 	else
 	{
-		result = -1;
+		result = EIO;
 	}
 	
 Return:
 
-	_exit(result);
+	return (result);
+}
+
+/*****************************************************************************/
+
+kern_return_t do_load_kext(mach_port_t test_port __attribute__((unused)), string_t kextname)
+{
+	int error = KERN_SUCCESS;
+	struct vfsconf vfc;
+	
+    if(geteuid() != 0)
+    {
+		asl_log(NULL, NULL, ASL_LEVEL_ERR, "Need to be root to load kext euid = %d!\n", geteuid());		
+        return EACCES;
+    }
+	
+	if (strcmp(kextname, WEBDAVFS_VFSNAME) == 0)  {
+		if (getvfsbyname(WEBDAVFS_VFSNAME, &vfc) != 0)
+			error = LoadKext(WEBDAV_KEXT_PATH);
+	} else
+	    error = ENOENT;
+	
+	return error;
+	
+}
+
+/*****************************************************************************/
+
+static mach_port_t checkin_or_register(const char *bname)
+{
+	kern_return_t kr;
+	mach_port_t mp;
+	
+	/* If we're started by launchd or the old mach_init */
+	kr = bootstrap_check_in(bootstrap_port, (const char *)bname, &mp);
+	if (kr == KERN_SUCCESS)
+		return mp;
+	/* If not then get out */
+	exit(EXIT_FAILURE);
+}
+
+/*****************************************************************************/
+
+int main(void)
+{
+	mach_msg_size_t mxmsgsz = (mach_msg_size_t)(sizeof(union MaxMsgSize) + MAX_TRAILER_SIZE);
+	mach_port_t mp = checkin_or_register(WEBDAVFS_LOAD_KEXT_BOOTSTRAP_NAME);
+	kern_return_t kr;
+	
+	kr = mach_msg_server_once(webdavfs_load_kext_server, mxmsgsz, mp, 0);
+	if (kr != KERN_SUCCESS) {
+		asl_log(NULL, NULL, ASL_LEVEL_DEBUG, "mach_msg_server(mp): %s\n", mach_error_string(kr));
+		exit(EXIT_FAILURE);
+	}
+	
+	exit(EXIT_SUCCESS);
 }
 
 /*****************************************************************************/

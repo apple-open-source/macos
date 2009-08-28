@@ -33,7 +33,6 @@ SecKeychainSearchGetTypeID(void)
 {
 	BEGIN_SECAPI
 
-	secdebug("kcsearch", "SecKeychainSearchGetTypeID()");
 	return gTypes().KCCursorImpl.typeID;
 
 	END_SECAPI1(_kCFRuntimeNotATypeID)
@@ -45,8 +44,6 @@ SecKeychainSearchCreateFromAttributes(CFTypeRef keychainOrArray, SecItemClass it
 {
     BEGIN_SECAPI
 
-	secdebug("kcsearch", "SecKeychainSearchCreateFromAttributes(%p, %lu, %p, %p)",
-		keychainOrArray, itemClass, attrList, searchRef);
 	Required(searchRef);
 
 	StorageManager::KeychainList keychains;
@@ -54,7 +51,7 @@ SecKeychainSearchCreateFromAttributes(CFTypeRef keychainOrArray, SecItemClass it
 	KCCursor cursor(keychains, itemClass, attrList);
 	*searchRef = cursor->handle();
 
-	END_SECAPI2("SecKeychainSearchCreateFromAttributes")
+	END_SECAPI
 }
 
 
@@ -63,8 +60,6 @@ SecKeychainSearchCreateFromAttributesExtended(CFTypeRef keychainOrArray, SecItem
 {
     BEGIN_SECAPI
 	
-	secdebug("kcsearch", "SecKeychainSearchCreateFromAttributes(%p, %lu, %p, %p)",
-			 keychainOrArray, itemClass, attrList, searchRef);
 	Required(searchRef); // Make sure that searchRef is an invalid SearchRef
 	
 	StorageManager::KeychainList keychains;
@@ -73,7 +68,7 @@ SecKeychainSearchCreateFromAttributesExtended(CFTypeRef keychainOrArray, SecItem
 	
 	*searchRef = cursor->handle();
 	
-	END_SECAPI2("SecKeychainSearchCreateFromAttributesExtended")
+	END_SECAPI
 }
 
 
@@ -83,7 +78,6 @@ SecKeychainSearchCopyNext(SecKeychainSearchRef searchRef, SecKeychainItemRef *it
 {
     BEGIN_SECAPI
 
-	secdebug("kcsearch", "SecKeychainSearchCopyNext(%p, %p)", searchRef, itemRef);
 	RequiredParam(itemRef);
 	Item item;
 	if (!KCCursorImpl::required(searchRef)->next(item))
@@ -91,5 +85,5 @@ SecKeychainSearchCopyNext(SecKeychainSearchRef searchRef, SecKeychainItemRef *it
 
 	*itemRef=item->handle();
 
-	END_SECAPI2("SecKeychainSearchCopyNext")
+	END_SECAPI
 }

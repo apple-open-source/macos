@@ -13,7 +13,10 @@ Extra_Configure_Flags = --enable-ipv6 --with-threads --enable-framework=/System/
 # Workaround for 3281234 (test_coercion failure due to non IEEE-754 in
 # optimizer): add -mno-fused-madd flag
 ##---------------------------------------------------------------------
-Extra_CC_Flags += -fno-common -Wno-long-double -mno-fused-madd
+Extra_CC_Flags += -fno-common -mno-fused-madd
+ifneq "$(GCC_42)" "YES"
+Extra_CC_Flags += -Wno-long-double
+endif
 Extra_LD_Flags += -Wl,-F.
 Extra_Install_Flags   = DESTDIR=${DSTROOT}
 GnuAfterInstall       = fixup-after-install

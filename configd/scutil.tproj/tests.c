@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2007-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,6 +39,8 @@
 #include "scutil.h"
 #include "tests.h"
 
+#include <netdb.h>
+#include <netdb_async.h>
 #include <sys/time.h>
 #include <net/if.h>
 #include <netinet/in.h>
@@ -46,111 +48,233 @@
 
 #include <dnsinfo.h>
 
-__private_extern__
-void
-do_checkReachability(int argc, char **argv)
+static SCNetworkReachabilityRef
+_setupReachability(int argc, char **argv, SCNetworkReachabilityContext *context)
 {
-	SCNetworkConnectionFlags	flags	= 0;
+	struct sockaddr_in		sin;
+	struct sockaddr_in6		sin6;
 	SCNetworkReachabilityRef	target	= NULL;
 
-	if (argc == 1) {
-		struct sockaddr_in	sin;
-		struct sockaddr_in6	sin6;
+	bzero(&sin, sizeof(sin));
+	sin.sin_len    = sizeof(sin);
+	sin.sin_family = AF_INET;
 
-		bzero(&sin, sizeof(sin));
-		sin.sin_len         = sizeof(sin);
-		sin.sin_family      = AF_INET;
+	bzero(&sin6, sizeof(sin6));
+	sin6.sin6_len    = sizeof(sin6);
+	sin6.sin6_family = AF_INET6;
 
-		bzero(&sin6, sizeof(sin6));
-		sin6.sin6_len = sizeof(sin6);
-		sin6.sin6_family = AF_INET6;
-
-		if (inet_aton(argv[0], &sin.sin_addr) == 1) {
+	if (inet_aton(argv[0], &sin.sin_addr) == 1) {
+		if (argc == 1) {
 			target = SCNetworkReachabilityCreateWithAddress(NULL, (struct sockaddr *)&sin);
-		} else if (inet_pton(AF_INET6, argv[0], &sin6.sin6_addr) == 1) {
-			char	*p;
+			if (context != NULL) {
+				context->info = "by address";
+			}
+		} else {
+			struct sockaddr_in	r_sin;
 
-			p = strchr(argv[0], '%');
-			if (p != NULL) {
-				sin6.sin6_scope_id = if_nametoindex(p + 1);
+			bzero(&r_sin, sizeof(r_sin));
+			r_sin.sin_len    = sizeof(r_sin);
+			r_sin.sin_family = AF_INET;
+			if (inet_aton(argv[1], &r_sin.sin_addr) == 0) {
+				SCPrint(TRUE, stderr, CFSTR("Could not interpret address \"%s\"\n"), argv[1]);
+				exit(1);
 			}
 
+			target = SCNetworkReachabilityCreateWithAddressPair(NULL,
+									    (struct sockaddr *)&sin,
+									    (struct sockaddr *)&r_sin);
+			if (context != NULL) {
+				context->info = "by address pair";
+			}
+		}
+	} else if (inet_pton(AF_INET6, argv[0], &sin6.sin6_addr) == 1) {
+		char	*p;
+
+		p = strchr(argv[0], '%');
+		if (p != NULL) {
+			sin6.sin6_scope_id = if_nametoindex(p + 1);
+		}
+
+		if (argc == 1) {
 			target = SCNetworkReachabilityCreateWithAddress(NULL, (struct sockaddr *)&sin6);
+			if (context != NULL) {
+				context->info = "by (v6) address";
+			}
 		} else {
+			struct sockaddr_in6	r_sin6;
+
+			bzero(&r_sin6, sizeof(r_sin6));
+			r_sin6.sin6_len         = sizeof(r_sin6);
+			r_sin6.sin6_family      = AF_INET6;
+			if (inet_pton(AF_INET6, argv[1], &r_sin6.sin6_addr) == 0) {
+				SCPrint(TRUE, stderr, CFSTR("Could not interpret address \"%s\"\n"), argv[1]);
+				exit(1);
+			}
+
+			p = strchr(argv[1], '%');
+			if (p != NULL) {
+				r_sin6.sin6_scope_id = if_nametoindex(p + 1);
+			}
+
+			target = SCNetworkReachabilityCreateWithAddressPair(NULL,
+									    (struct sockaddr *)&sin6,
+									    (struct sockaddr *)&r_sin6);
+			if (context != NULL) {
+				context->info = "by (v6) address pair";
+			}
+		}
+	} else {
+		if (argc == 1) {
 			target = SCNetworkReachabilityCreateWithName(NULL, argv[0]);
-		}
-	} else /* if (argc == 2) */ {
-		struct sockaddr_in	l_sin;
-		struct sockaddr_in	r_sin;
+			if (context != NULL) {
+				context->info = "by name";
+			}
+		} else {
+			CFStringRef		str;
+			CFMutableDictionaryRef	options;
 
-		bzero(&l_sin, sizeof(l_sin));
-		l_sin.sin_len         = sizeof(l_sin);
-		l_sin.sin_family      = AF_INET;
-		if (inet_aton(argv[0], &l_sin.sin_addr) == 0) {
-			SCPrint(TRUE, stderr, CFSTR("Could not interpret address \"%s\"\n"), argv[0]);
-			exit(1);
-		}
+			options = CFDictionaryCreateMutable(NULL,
+							    0,
+							    &kCFTypeDictionaryKeyCallBacks,
+							    &kCFTypeDictionaryValueCallBacks);
+			if (strlen(argv[0]) > 0) {
+				str  = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+				CFDictionarySetValue(options, kSCNetworkReachabilityOptionNodeName, str);
+				CFRelease(str);
+			}
+			if (strlen(argv[1]) > 0) {
+				str  = CFStringCreateWithCString(NULL, argv[1], kCFStringEncodingUTF8);
+				CFDictionarySetValue(options, kSCNetworkReachabilityOptionServName, str);
+				CFRelease(str);
+			}
+			if (argc > 2) {
+				CFDataRef		data;
+				struct addrinfo		hints	= { 0 };
+				int			i;
 
-		bzero(&r_sin, sizeof(r_sin));
-		r_sin.sin_len         = sizeof(r_sin);
-		r_sin.sin_family      = AF_INET;
-		if (inet_aton(argv[1], &r_sin.sin_addr) == 0) {
-			SCPrint(TRUE, stderr, CFSTR("Could not interpret address \"%s\"\n"), argv[1]);
-			exit(1);
-		}
+				for (i = 2; i < argc; i++) {
+					if (strcasecmp(argv[i], "AI_ADDRCONFIG") == 0) {
+						hints.ai_flags |= AI_ADDRCONFIG;
+					} else if (strcasecmp(argv[i], "AI_ALL") == 0) {
+						hints.ai_flags |= AI_ALL;
+					} else if (strcasecmp(argv[i], "AI_V4MAPPED") == 0) {
+						hints.ai_flags |= AI_V4MAPPED;
+					} else if (strcasecmp(argv[i], "AI_V4MAPPED_CFG") == 0) {
+						hints.ai_flags |= AI_V4MAPPED_CFG;
+					} else if (strcasecmp(argv[i], "AI_ADDRCONFIG") == 0) {
+						hints.ai_flags |= AI_ADDRCONFIG;
+					} else if (strcasecmp(argv[i], "AI_V4MAPPED") == 0) {
+						hints.ai_flags |= AI_V4MAPPED;
+					} else if (strcasecmp(argv[i], "AI_DEFAULT") == 0) {
+						hints.ai_flags |= AI_DEFAULT;
+#ifdef	AI_PARALLEL
+					} else if (strcasecmp(argv[i], "AI_PARALLEL") == 0) {
+						hints.ai_flags |= AI_PARALLEL;
+#endif	// AI_PARALLEL
+					} else if (strcasecmp(argv[i], "PF_INET") == 0) {
+						hints.ai_family = PF_INET;
+					} else if (strcasecmp(argv[i], "PF_INET6") == 0) {
+						hints.ai_family = PF_INET6;
+					} else if (strcasecmp(argv[i], "SOCK_STREAM") == 0) {
+						hints.ai_socktype = SOCK_STREAM;
+					} else if (strcasecmp(argv[i], "SOCK_DGRAM") == 0) {
+						hints.ai_socktype = SOCK_DGRAM;
+					} else if (strcasecmp(argv[i], "SOCK_RAW") == 0) {
+						hints.ai_socktype = SOCK_RAW;
+					} else if (strcasecmp(argv[i], "IPPROTO_TCP") == 0) {
+						hints.ai_protocol = IPPROTO_TCP;
+					} else if (strcasecmp(argv[i], "IPPROTO_UDP") == 0) {
+						hints.ai_protocol = IPPROTO_UDP;
+					} else {
+						SCPrint(TRUE, stderr, CFSTR("Unrecognized hint: %s\n"), argv[i]);
+						exit(1);
+					}
+				}
 
-		target = SCNetworkReachabilityCreateWithAddressPair(NULL,
-								    (struct sockaddr *)&l_sin,
-								    (struct sockaddr *)&r_sin);
+				data = CFDataCreate(NULL, (const UInt8 *)&hints, sizeof(hints));
+				CFDictionarySetValue(options, kSCNetworkReachabilityOptionHints, data);
+				CFRelease(data);
+			}
+			if (CFDictionaryGetCount(options) > 0) {
+				target = SCNetworkReachabilityCreateWithOptions(NULL, options);
+				if (context != NULL) {
+					context->info = "by (node and/or serv) name";
+				}
+			} else {
+				SCPrint(TRUE, stderr, CFSTR("Must specify nodename or servname\n"));
+				exit(1);
+			}
+			CFRelease(options);
+		}
 	}
 
-	if (!target) {
-		SCPrint(TRUE, stderr, CFSTR("  Could not determine status: %s\n"), SCErrorString(SCError()));
-		exit(1);
+	return target;
+}
+
+static void
+_printReachability(SCNetworkReachabilityRef target)
+{
+	SCNetworkReachabilityFlags	flags;
+	Boolean				ok;
+
+	ok = SCNetworkReachabilityGetFlags(target, &flags);
+	if (!ok) {
+		printf("    could not determine reachability, %s\n", SCErrorString(SCError()));
+		return;
 	}
 
-	if (!SCNetworkReachabilityGetFlags(target, &flags)) {
-		SCPrint(TRUE, stderr, CFSTR("  Could not determine status: %s\n"), SCErrorString(SCError()));
-		exit(1);
-	}
-
-	SCPrint(_sc_debug, stdout, CFSTR("flags = 0x%x"), flags);
+	SCPrint(_sc_debug, stdout, CFSTR("flags = 0x%08x"), flags);
 	if (flags != 0) {
 		SCPrint(_sc_debug, stdout, CFSTR(" ("));
-		if (flags & kSCNetworkFlagsReachable) {
+		if (flags & kSCNetworkReachabilityFlagsReachable) {
 			SCPrint(TRUE, stdout, CFSTR("Reachable"));
-			flags &= ~kSCNetworkFlagsReachable;
+			flags &= ~kSCNetworkReachabilityFlagsReachable;
 			SCPrint(flags != 0, stdout, CFSTR(","));
 		}
-		if (flags & kSCNetworkFlagsTransientConnection) {
+		if (flags & kSCNetworkReachabilityFlagsTransientConnection) {
 			SCPrint(TRUE, stdout, CFSTR("Transient Connection"));
-			flags &= ~kSCNetworkFlagsTransientConnection;
+			flags &= ~kSCNetworkReachabilityFlagsTransientConnection;
 			SCPrint(flags != 0, stdout, CFSTR(","));
 		}
-		if (flags & kSCNetworkFlagsConnectionRequired) {
+		if (flags & kSCNetworkReachabilityFlagsConnectionRequired) {
 			SCPrint(TRUE, stdout, CFSTR("Connection Required"));
-			flags &= ~kSCNetworkFlagsConnectionRequired;
+			flags &= ~kSCNetworkReachabilityFlagsConnectionRequired;
 			SCPrint(flags != 0, stdout, CFSTR(","));
 		}
-		if (flags & kSCNetworkFlagsConnectionAutomatic) {
-			SCPrint(TRUE, stdout, CFSTR("Connection Automatic"));
-			flags &= ~kSCNetworkFlagsConnectionAutomatic;
+		if (flags & kSCNetworkReachabilityFlagsConnectionOnTraffic) {
+			SCPrint(TRUE, stdout, CFSTR("Automatic Connection On Traffic"));
+			flags &= ~kSCNetworkReachabilityFlagsConnectionOnTraffic;
 			SCPrint(flags != 0, stdout, CFSTR(","));
 		}
-		if (flags & kSCNetworkFlagsInterventionRequired) {
+		if (flags & kSCNetworkReachabilityFlagsConnectionOnDemand) {
+			SCPrint(TRUE, stdout, CFSTR("Automatic Connection On Demand"));
+			flags &= ~kSCNetworkReachabilityFlagsConnectionOnDemand;
+			SCPrint(flags != 0, stdout, CFSTR(","));
+		}
+		if (flags & kSCNetworkReachabilityFlagsInterventionRequired) {
 			SCPrint(TRUE, stdout, CFSTR("Intervention Required"));
-			flags &= ~kSCNetworkFlagsInterventionRequired;
+			flags &= ~kSCNetworkReachabilityFlagsInterventionRequired;
 			SCPrint(flags != 0, stdout, CFSTR(","));
 		}
-		if (flags & kSCNetworkFlagsIsLocalAddress) {
+		if (flags & kSCNetworkReachabilityFlagsIsLocalAddress) {
 			SCPrint(TRUE, stdout, CFSTR("Local Address"));
-			flags &= ~kSCNetworkFlagsIsLocalAddress;
+			flags &= ~kSCNetworkReachabilityFlagsIsLocalAddress;
 			SCPrint(flags != 0, stdout, CFSTR(","));
 		}
-		if (flags & kSCNetworkFlagsIsDirect) {
+		if (flags & kSCNetworkReachabilityFlagsIsDirect) {
 			SCPrint(TRUE, stdout, CFSTR("Directly Reachable Address"));
-			flags &= ~kSCNetworkFlagsIsDirect;
+			flags &= ~kSCNetworkReachabilityFlagsIsDirect;
 			SCPrint(flags != 0, stdout, CFSTR(","));
+		}
+#if	TARGET_OS_IPHONE
+		if (flags & kSCNetworkReachabilityFlagsIsWWAN) {
+			SCPrint(TRUE, stdout, CFSTR("WWAN"));
+			flags &= ~kSCNetworkReachabilityFlagsIsWWAN;
+			SCPrint(flags != 0, stdout, CFSTR(","));
+		}
+#endif	// TARGET_OS_IPHONE
+		if (flags != 0) {
+			SCPrint(TRUE, stdout, CFSTR("0x%08x"), flags);
 		}
 		SCPrint(_sc_debug, stdout, CFSTR(")"));
 	} else {
@@ -159,6 +283,114 @@ do_checkReachability(int argc, char **argv)
 		SCPrint(_sc_debug, stdout, CFSTR(")"));
 	}
 	SCPrint(TRUE, stdout, CFSTR("\n"));
+
+	return;
+}
+
+
+__private_extern__
+void
+do_checkReachability(int argc, char **argv)
+{
+	SCNetworkReachabilityRef	target;
+
+	target = _setupReachability(argc, argv, NULL);
+	if (target == NULL) {
+		SCPrint(TRUE, stderr, CFSTR("  Could not determine status: %s\n"), SCErrorString(SCError()));
+		exit(1);
+	}
+
+	_printReachability(target);
+	CFRelease(target);
+	exit(0);
+}
+
+
+static void
+callout(SCNetworkReachabilityRef target, SCNetworkReachabilityFlags flags, void *info)
+{
+	static int	n = 3;
+	struct tm	tm_now;
+	struct timeval	tv_now;
+
+	(void)gettimeofday(&tv_now, NULL);
+	(void)localtime_r(&tv_now.tv_sec, &tm_now);
+
+	SCPrint(TRUE, stdout, CFSTR("\n*** %2d:%02d:%02d.%03d\n\n"),
+		tm_now.tm_hour,
+		tm_now.tm_min,
+		tm_now.tm_sec,
+		tv_now.tv_usec / 1000);
+	SCPrint(TRUE, stdout, CFSTR("%2d: callback w/flags=0x%08x (info=\"%s\")\n"), n++, flags, (char *)info);
+	SCPrint(TRUE, stdout, CFSTR("    %@\n"), target);
+	_printReachability(target);
+	SCPrint(TRUE, stdout, CFSTR("\n"));
+	return;
+}
+
+
+__private_extern__
+void
+do_watchReachability(int argc, char **argv)
+{
+	SCNetworkReachabilityContext	context	= { 0, NULL, NULL, NULL, NULL };
+	SCNetworkReachabilityRef	target;
+	SCNetworkReachabilityRef	target_async;
+
+	target = _setupReachability(argc, argv, NULL);
+	if (target == NULL) {
+		SCPrint(TRUE, stderr, CFSTR("  Could not determine status: %s\n"), SCErrorString(SCError()));
+		exit(1);
+	}
+
+	target_async = _setupReachability(argc, argv, &context);
+	if (target_async == NULL) {
+		SCPrint(TRUE, stderr, CFSTR("  Could not determine status: %s\n"), SCErrorString(SCError()));
+		exit(1);
+	}
+
+	// Normally, we don't want to make any calls to SCNetworkReachabilityGetFlags()
+	// until after the "target" has been scheduled on a run loop.  Otherwise, we'll
+	// end up making a synchronous DNS request and that's not what we want.
+	//
+	// But, to test the case were an application call SCNetworkReachabilityGetFlags()
+	// we provide the "CHECK_REACHABILITY_BEFORE_SCHEDULING" environment variable.
+	if (getenv("CHECK_REACHABILITY_BEFORE_SCHEDULING") != NULL) {
+		CFRelease(target_async);
+		target_async = CFRetain(target);
+	}
+
+	// Direct check of reachability
+	SCPrint(TRUE, stdout, CFSTR(" 0: direct\n"));
+	SCPrint(TRUE, stdout, CFSTR("   %@\n"), target);
+	_printReachability(target);
+	CFRelease(target);
+	SCPrint(TRUE, stdout, CFSTR("\n"));
+
+	// schedule the target
+	SCPrint(TRUE, stdout, CFSTR(" 1: start\n"));
+	SCPrint(TRUE, stdout, CFSTR("   %@\n"), target_async);
+	//_printReachability(target_async);
+	SCPrint(TRUE, stdout, CFSTR("\n"));
+
+	if (!SCNetworkReachabilitySetCallback(target_async, callout, &context)) {
+		printf("SCNetworkReachabilitySetCallback() failed: %s\n", SCErrorString(SCError()));
+		exit(1);
+	}
+
+	if (!SCNetworkReachabilityScheduleWithRunLoop(target_async, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode)) {
+		printf("SCNetworkReachabilityScheduleWithRunLoop() failed: %s\n", SCErrorString(SCError()));
+		exit(1);
+	}
+
+	// Note: now that we are scheduled on a run loop we can call SCNetworkReachabilityGetFlags()
+	//       to get the current status.  For "names", a DNS lookup has already been initiated.
+	SCPrint(TRUE, stdout, CFSTR(" 2: on runloop\n"));
+	SCPrint(TRUE, stdout, CFSTR("   %@\n"), target_async);
+	_printReachability(target_async);
+	SCPrint(TRUE, stdout, CFSTR("\n"));
+
+	CFRunLoopRun();
 	exit(0);
 }
 
@@ -197,10 +429,12 @@ do_showDNSConfiguration(int argc, char **argv)
 			}
 
 			for (i = 0; i < resolver->n_sortaddr; i++) {
-				SCPrint(TRUE, stdout, CFSTR("  sortaddr[%d] : %s/%s\n"),
-					i,
-					inet_ntoa(resolver->sortaddr[i]->address),
-					inet_ntoa(resolver->sortaddr[i]->mask));
+				char	abuf[32];
+				char	mbuf[32];
+
+				(void)inet_ntop(AF_INET, &resolver->sortaddr[i]->address, abuf, sizeof(abuf));
+				(void)inet_ntop(AF_INET, &resolver->sortaddr[i]->mask,    mbuf, sizeof(mbuf));
+				SCPrint(TRUE, stdout, CFSTR("  sortaddr[%d] : %s/%s\n"), i, abuf, mbuf);
 			}
 
 			if (resolver->options != NULL) {
@@ -238,6 +472,7 @@ do_showProxyConfiguration(int argc, char **argv)
 	proxies = SCDynamicStoreCopyProxies(NULL);
 	if (proxies != NULL) {
 		SCPrint(TRUE, stdout, CFSTR("%@\n"), proxies);
+		CFRelease(proxies);
 	} else {
 		SCPrint(TRUE, stdout, CFSTR("No proxy configuration available\n"));
 	}
@@ -278,6 +513,7 @@ do_wait(char *waitKey, int timeout)
 	struct itimerval	itv;
 	CFStringRef		key;
 	CFMutableArrayRef	keys;
+	Boolean			ok;
 
 	store = SCDynamicStoreCreate(NULL, CFSTR("scutil (wait)"), waitKeyFound, NULL);
 	if (store == NULL) {
@@ -286,11 +522,13 @@ do_wait(char *waitKey, int timeout)
 		exit(1);
 	}
 
-	keys = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	key  = CFStringCreateWithCString(NULL, waitKey, kCFStringEncodingUTF8);
-	CFArrayAppendValue(keys, key);
 
-	if (!SCDynamicStoreSetNotificationKeys(store, keys, NULL)) {
+	keys = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	CFArrayAppendValue(keys, key);
+	ok = SCDynamicStoreSetNotificationKeys(store, keys, NULL);
+	CFRelease(keys);
+	if (!ok) {
 		SCPrint(TRUE, stderr,
 			CFSTR("SCDynamicStoreSetNotificationKeys() failed: %s\n"), SCErrorString(SCError()));
 		exit(1);
@@ -331,7 +569,7 @@ do_wait(char *waitKey, int timeout)
 CFRunLoopSourceRef	notifyRls	= NULL;
 SCDynamicStoreRef	store		= NULL;
 CFPropertyListRef	value		= NULL;
-	
+
 int
 main(int argc, char **argv)
 {

@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1999-2006, International Business Machines Corporation and
+ * Copyright (c) 1999-2008, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -8,6 +8,11 @@
 # ifndef _INCLUDE_POSIX_SOURCE
 #  define _INCLUDE_POSIX_SOURCE
 # endif
+#endif
+
+/* Needed by z/OS to get usleep */
+#if !defined(_XOPEN_SOURCE_EXTENDED)
+#define _XOPEN_SOURCE_EXTENDED 1
 #endif
 
 #include "unicode/utypes.h"
@@ -914,7 +919,7 @@ public:
         return;
 #endif
 
-#if 1
+#if 0
         // debugging code, 
         int m;
         for (m=0; m<4000; m++) {
@@ -961,13 +966,13 @@ public:
         // Keep this data here to avoid static initialization.
         FormatThreadTestData kPercentFormatTestData[] = 
         {
-            FormatThreadTestData((double)5.0, UnicodeString("500%", "")),
-                FormatThreadTestData( 1.0, UnicodeString("100%", "")),
-                FormatThreadTestData( 0.26, UnicodeString("26%", "")),
+            FormatThreadTestData((double)5.0, CharsToUnicodeString("500\\u00a0%")),
+                FormatThreadTestData( 1.0, CharsToUnicodeString("100\\u00a0%")),
+                FormatThreadTestData( 0.26, CharsToUnicodeString("26\\u00a0%")),
                 FormatThreadTestData( 
-                   16384.99, CharsToUnicodeString("1\\u00a0638\\u00a0499%") ), // U+00a0 = NBSP
+                   16384.99, CharsToUnicodeString("1\\u00a0638\\u00a0499\\u00a0%")), // U+00a0 = NBSP
                 FormatThreadTestData( 
-                    81890.23, CharsToUnicodeString("8\\u00a0189\\u00a0023%" )),
+                    81890.23, CharsToUnicodeString("8\\u00a0189\\u00a0023\\u00a0%")),
         };
         int32_t kPercentFormatTestDataLength = 
                 (int32_t)(sizeof(kPercentFormatTestData) / sizeof(kPercentFormatTestData[0]));
@@ -1044,7 +1049,8 @@ public:
                 messageLocale=                      Locale("de","DE@currency=DEM");
                 countryToCheck=                     Locale("","BF");
                 currencyToCheck=                    2.32;
-                expected=                           "1:A customer in Burkina Faso is receiving a #8 error - U_INDEX_OUTOFBOUNDS_ERROR. Their telephone call is costing 2,32 DM.";
+                expected=                           CharsToUnicodeString(
+                                                    "1:A customer in Burkina Faso is receiving a #8 error - U_INDEX_OUTOFBOUNDS_ERROR. Their telephone call is costing 2,32\\u00A0DM.");
                 break;
             case 2:
                 statusToCheck=                      U_MEMORY_ALLOCATION_ERROR;
@@ -1057,7 +1063,7 @@ public:
                 expected=       CharsToUnicodeString(
                             "2:user in Vereinigte Staaten is receiving a #7 error"
                             " - U_MEMORY_ALLOCATION_ERROR. They insist they just spent"
-                            " \\u00f6S 40.193,12 on memory.");
+                            " \\u00f6S\\u00A040.193,12 on memory.");
                 break;
             }
             
@@ -1298,14 +1304,14 @@ void MultithreadTest::TestCollators()
 
             if (testFile == 0) {
                 *(buffer+bufLen) = 0;
-                errln("ERROR: could not open any of the conformance test files, tried opening base %s", buffer);
+                dataerrln("[DATA] could not open any of the conformance test files, tried opening base %s", buffer);
                 return;        
             } else {
                 infoln(
                     "INFO: Working with the stub file.\n"
                     "If you need the full conformance test, please\n"
                     "download the appropriate data files from:\n"
-                    "http://dev.icu-project.org/cgi-bin/viewcvs.cgi/unicodetools/com/ibm/text/data/");
+                    "http://source.icu-project.org/repos/icu/tools/trunk/unicodetools/com/ibm/text/data/");
             }
         }
     }
@@ -1334,7 +1340,7 @@ void MultithreadTest::TestCollators()
     }
     fclose(testFile);
     if(U_FAILURE(status)) {
-      errln("Couldn't read the test file!");
+      dataerrln("[DATA] Couldn't read the test file!");
       return;
     }
 

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for Motorola M*CORE Processor.
-   Copyright (C) 1993, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1993, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -17,8 +17,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the
-   Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 #ifndef GCC_MCORE_H
 #define GCC_MCORE_H
@@ -66,105 +66,26 @@
 #undef  LINK_SPEC
 #define LINK_SPEC "%{mbig-endian:-EB} %{m210:-EB} -X"
 
-/* Can only count on 16 bits of availability; change to long would affect
-   many architecture specific files (other architectures...).  */
-extern int target_flags;
-
-#define HARDLIT_BIT	   (1 << 0) /* Build in-line literals using 2 insns.  */
-#define ALIGN8_BIT	   (1 << 1) /* Max alignment goes to 8 instead of 4.  */
-#define DIV_BIT		   (1 << 2) /* Generate divide instructions.  */
-#define RELAX_IMM_BIT	   (1 << 3) /* Arbitrary immediates in and, or, tst.  */
-#define W_FIELD_BIT	   (1 << 4) /* Generate bit insv/extv using SImode.  */
-#define	OVERALIGN_FUNC_BIT (1 << 5) /* Align functions to 4 byte boundary.  */
-#define CGDATA_BIT	   (1 << 6) /* Generate callgraph data.  */
-#define SLOW_BYTES_BIT     (1 << 7) /* Slow byte access.  */
-#define LITTLE_END_BIT     (1 << 8) /* Generate little endian code.  */
-#define M340_BIT           (1 << 9) /* Generate code for the m340.  */
-
-#define TARGET_DEFAULT     \
- (HARDLIT_BIT | ALIGN8_BIT | DIV_BIT | RELAX_IMM_BIT | M340_BIT | LITTLE_END_BIT)
+#define TARGET_DEFAULT	\
+  (MASK_HARDLIT		\
+   | MASK_8ALIGN	\
+   | MASK_DIV		\
+   | MASK_RELAX_IMM	\
+   | MASK_M340		\
+   | MASK_LITTLE_END)
 
 #ifndef MULTILIB_DEFAULTS
 #define MULTILIB_DEFAULTS { "mlittle-endian", "m340" }
 #endif
 
-#define TARGET_HARDLIT		(target_flags & HARDLIT_BIT)
 /* The ability to have 4 byte alignment is being suppressed for now.
-   If this ability is reenabled, you must enable the definition below
+   If this ability is reenabled, you must disable the definition below
    *and* edit t-mcore to enable multilibs for 4 byte alignment code.  */
-#if 0 
-#define TARGET_8ALIGN		(target_flags & ALIGN8_BIT)
-#else
-#define TARGET_8ALIGN		1
-#endif
-#define TARGET_DIV		(target_flags & DIV_BIT)
-#define TARGET_RELAX_IMM        (target_flags & RELAX_IMM_BIT)
-#define TARGET_W_FIELD          (target_flags & W_FIELD_BIT)
-#define TARGET_OVERALIGN_FUNC   (target_flags & OVERALIGN_FUNC_BIT)
-#define TARGET_CG_DATA 		(target_flags & CGDATA_BIT)
-#define TARGET_CG_DATA 		(target_flags & CGDATA_BIT)
-#define TARGET_SLOW_BYTES 	(target_flags & SLOW_BYTES_BIT)
-#define TARGET_LITTLE_END	(target_flags & LITTLE_END_BIT)
-#define TARGET_M340 		(target_flags & M340_BIT)
-
-
-#define TARGET_SWITCHES							\
-{ {"hardlit", 	            HARDLIT_BIT,				\
-     N_("Inline constants if it can be done in 2 insns or less") },	\
-  {"no-hardlit",          - HARDLIT_BIT,				\
-     N_("Inline constants if it only takes 1 instruction") },		\
-  {"4align",              - ALIGN8_BIT,					\
-     N_("Set maximum alignment to 4") },				\
-  {"8align",	            ALIGN8_BIT,					\
-     N_("Set maximum alignment to 8") },				\
-  {"div",                   DIV_BIT,					\
-     "" },								\
-  {"no-div",	          - DIV_BIT,					\
-     N_("Do not use the divide instruction") },				\
-  {"relax-immediates",      RELAX_IMM_BIT,				\
-     "" },								\
-  {"no-relax-immediates", - RELAX_IMM_BIT,				\
-     N_("Do not arbitrary sized immediates in bit operations") },	\
-  {"wide-bitfields",        W_FIELD_BIT,				\
-     N_("Always treat bit-field as int-sized") },			\
-  {"no-wide-bitfields",   - W_FIELD_BIT,				\
-     "" },								\
-  {"4byte-functions",       OVERALIGN_FUNC_BIT,				\
-     N_("Force functions to be aligned to a 4 byte boundary") },	\
-  {"no-4byte-functions",  - OVERALIGN_FUNC_BIT,				\
-     N_("Force functions to be aligned to a 2 byte boundary") },	\
-  {"callgraph-data",        CGDATA_BIT,					\
-     N_("Emit call graph information") },				\
-  {"no-callgraph-data",   - CGDATA_BIT,					\
-     "" },								\
-  {"slow-bytes",            SLOW_BYTES_BIT,				\
-     N_("Prefer word accesses over byte accesses") },			\
-  {"no-slow-bytes",       - SLOW_BYTES_BIT,				\
-     "" },								\
-  { "no-lsim",              0, "" },			 		\
-  {"little-endian",         LITTLE_END_BIT,				\
-     N_("Generate little endian code") },				\
-  {"big-endian",          - LITTLE_END_BIT,				\
-     "" },								\
-  {"210",                 - M340_BIT,					\
-     "" },								\
-  {"340",                   M340_BIT,					\
-     N_("Generate code for the M*Core M340") },				\
-  {"",   	            TARGET_DEFAULT,				\
-     "" }								\
-}
+#undef TARGET_8ALIGN
+#define TARGET_8ALIGN 1
 
 extern char * mcore_current_function_name;
  
-/* Target specific options (as opposed to the switches above).  */
-extern const char * mcore_stack_increment_string;
-
-#define	TARGET_OPTIONS							\
-{									\
-  {"stack-increment=", & mcore_stack_increment_string,			\
-     N_("Maximum amount for a single stack increment operation"), 0}	\
-}
-
 /* The MCore ABI says that bitfields are unsigned by default.  */
 #define CC1_SPEC "-funsigned-bitfields"
 
@@ -189,7 +110,7 @@ extern const char * mcore_stack_increment_string;
     }						\
   if (SIZE)					\
     {						\
-      target_flags &= ~ HARDLIT_BIT;		\
+      target_flags &= ~MASK_HARDLIT;		\
     }						\
 }
 
@@ -899,12 +820,10 @@ extern const enum reg_class reg_class_from_letter[];
 /* Nonzero if access to memory by bytes is slow and undesirable.  */
 #define SLOW_BYTE_ACCESS TARGET_SLOW_BYTES
 
-/* Immediate shift counts are truncated by the output routines (or was it
-   the assembler?).  Shift counts in a register are truncated by ARM.  Note
-   that the native compiler puts too large (> 32) immediate shift counts
-   into a register and shifts by the register, letting the ARM decide what
-   to do instead of doing that itself.  */
-#define SHIFT_COUNT_TRUNCATED 1
+/* Shift counts are truncated to 6-bits (0 to 63) instead of the expected
+   5-bits, so we can not define SHIFT_COUNT_TRUNCATED to true for this
+   target.  */
+#define SHIFT_COUNT_TRUNCATED 0
 
 /* All integers have the same format so truncation is easy.  */
 #define TRULY_NOOP_TRUNCATION(OUTPREC,INPREC)  1
@@ -937,36 +856,6 @@ extern const enum reg_class reg_class_from_letter[];
 /* Switch to the text or data segment.  */
 #define TEXT_SECTION_ASM_OP  "\t.text"
 #define DATA_SECTION_ASM_OP  "\t.data"
-
-#undef  EXTRA_SECTIONS
-#define EXTRA_SECTIONS SUBTARGET_EXTRA_SECTIONS
-
-#undef  EXTRA_SECTION_FUNCTIONS
-#define EXTRA_SECTION_FUNCTIONS			\
-  SUBTARGET_EXTRA_SECTION_FUNCTIONS		\
-  SWITCH_SECTION_FUNCTION
-
-/* Switch to SECTION (an `enum in_section').
-
-   ??? This facility should be provided by GCC proper.
-   The problem is that we want to temporarily switch sections in
-   ASM_DECLARE_OBJECT_NAME and then switch back to the original section
-   afterwards.  */
-#define SWITCH_SECTION_FUNCTION					\
-static void switch_to_section (enum in_section, tree);		\
-static void							\
-switch_to_section (enum in_section section, tree decl)		\
-{								\
-  switch (section)						\
-    {								\
-      case in_text: text_section (); break;			\
-      case in_unlikely_executed_text: unlikely_text_section (); break;   \
-      case in_data: data_section (); break;			\
-      case in_named: named_section (decl, NULL, 0); break;	\
-      SUBTARGET_SWITCH_SECTIONS      				\
-      default: abort (); break;					\
-    }								\
-}
 
 /* Switch into a generic section.  */
 #undef TARGET_ASM_NAMED_SECTION
@@ -1125,25 +1014,5 @@ extern long mcore_current_compilation_timestamp;
 
 #define PRINT_OPERAND_PUNCT_VALID_P(CHAR) \
   ((CHAR)=='.' || (CHAR) == '#' || (CHAR) == '*' || (CHAR) == '^' || (CHAR) == '!')
-
-#define PREDICATE_CODES							\
-  { "mcore_arith_reg_operand",		{ REG, SUBREG }},		\
-  { "mcore_general_movsrc_operand",	{ MEM, CONST_INT, REG, SUBREG }},\
-  { "mcore_general_movdst_operand",	{ MEM, CONST_INT, REG, SUBREG }},\
-  { "mcore_reload_operand",	        { MEM, REG, SUBREG }},		\
-  { "mcore_arith_J_operand",		{ CONST_INT, REG, SUBREG }},	\
-  { "mcore_arith_K_operand",		{ CONST_INT, REG, SUBREG }},	\
-  { "mcore_arith_K_operand_not_0",	{ CONST_INT, REG, SUBREG }},	\
-  { "mcore_arith_M_operand",		{ CONST_INT, REG, SUBREG }},	\
-  { "mcore_arith_K_S_operand",		{ CONST_INT, REG, SUBREG }},	\
-  { "mcore_arith_O_operand",		{ CONST_INT, REG, SUBREG }},	\
-  { "mcore_arith_imm_operand",		{ CONST_INT, REG, SUBREG }},	\
-  { "mcore_arith_any_imm_operand",	{ CONST_INT, REG, SUBREG }},	\
-  { "mcore_literal_K_operand",		{ CONST_INT }},			\
-  { "mcore_addsub_operand",		{ CONST_INT, REG, SUBREG }},	\
-  { "mcore_compare_operand",		{ CONST_INT, REG, SUBREG }},	\
-  { "mcore_load_multiple_operation",	{ PARALLEL }},			\
-  { "mcore_store_multiple_operation",	{ PARALLEL }},			\
-  { "mcore_call_address_operand",	{ REG, SUBREG, CONST_INT }},	\
 
 #endif /* ! GCC_MCORE_H */

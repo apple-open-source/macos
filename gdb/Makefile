@@ -1,5 +1,5 @@
 GDB_VERSION = 6.3.50-20050815
-GDB_RC_VERSION = 768
+GDB_RC_VERSION = 1344
 
 BINUTILS_VERSION = 2.13-20021117
 BINUTILS_RC_VERSION = 46
@@ -10,7 +10,7 @@ BINUTILS_RC_VERSION = 46
 	install-frameworks-macosx \
 	install-binutils-macosx \
 	install-gdb-fat \
-	install-chmod-macosx \
+	install-chmod-macosx install-chmod-macosx-noprocmod \
 	install-clean install-source check
 
 
@@ -46,9 +46,14 @@ INSTALL=$(SRCROOT)/src/install-sh
 CANONICAL_ARCHS := $(foreach arch,$(RC_ARCHS),$(foreach os,$(RC_OS),$(foreach release,$(RC_RELEASE),$(os):$(arch):$(release))))
 
 CANONICAL_ARCHS := $(subst macos:i386:$(RC_RELEASE),i386-apple-darwin,$(CANONICAL_ARCHS))
+CANONICAL_ARCHS := $(subst macos:x86_64:$(RC_RELEASE),x86_64-apple-darwin,$(CANONICAL_ARCHS))
 CANONICAL_ARCHS := $(subst macos:ppc:$(RC_RELEASE),powerpc-apple-darwin,$(CANONICAL_ARCHS))
+CANONICAL_ARCHS := $(subst macos:arm:$(RC_RELEASE),arm-apple-darwin,$(CANONICAL_ARCHS))
+CANONICAL_ARCHS := $(subst macos:armv6:$(RC_RELEASE),arm-apple-darwin,$(CANONICAL_ARCHS))
 
 CANONICAL_ARCHS := $(subst powerpc-apple-darwin i386-apple-darwin,i386-apple-darwin powerpc-apple-darwin,$(CANONICAL_ARCHS))
+
+CANONICAL_ARCHS := $(sort $(CANONICAL_ARCHS))
 
 SRCTOP = $(shell cd $(SRCROOT) && pwd)
 OBJTOP = $(shell (test -d $(OBJROOT) || $(INSTALL) -c -d $(OBJROOT)) && cd $(OBJROOT) && pwd)
@@ -62,7 +67,11 @@ else
 ifeq (ppc,$(ARCH_SAYS))
 BUILD_ARCH := powerpc-apple-darwin
 else
+ifeq (arm,$(ARCH_SAYS))
+BUILD_ARCH := arm-apple-darwin
+else
 BUILD_ARCH := $(ARCH_SAYS)
+endif
 endif
 endif
 
@@ -79,16 +88,11 @@ BINUTILS_MANPAGES =
 FRAMEWORKS = $(GDB_FRAMEWORKS) $(BINUTILS_FRAMEWORKS)
 
 ifndef BINUTILS_BUILD_ROOT
-BINUTILS_BUILD_ROOT = $(NEXT_ROOT)
+BINUTILS_BUILD_ROOT = $(SDKROOT)
 endif
 
-ifneq ($(findstring macosx,$(CANONICAL_ARCHS))$(findstring darwin,$(CANONICAL_ARCHS)),)
 BINUTILS_FRAMEWORK_PATH = $(BINUTILS_BUILD_ROOT)/System/Library/PrivateFrameworks
 BINUTILS_LIB_PATH = $(BINUTILS_BUILD_ROOT)/usr/lib
-else
-BINUTILS_FRAMEWORK_PATH = $(BINUTILS_BUILD_ROOT)/Library/PrivateFrameworks
-BINUTILS_LIB_PATH = $(BINUTILS_BUILD_ROOT)/usr/lib
-endif
 
 BFD_FRAMEWORK = $(BINUTILS_FRAMEWORK_PATH)/bfd.framework
 BFD_HEADERS = $(BFD_FRAMEWORK)/Headers
@@ -115,11 +119,12 @@ RANLIB = ranlib
 NM = nm
 CC_FOR_BUILD = gcc
 
-CDEBUGFLAGS = -gdwarf-2
+ifndef CDEBUGFLAGS
+CDEBUGFLAGS = -g -Os -funwind-tables -fasynchronous-unwind-tables -D_DARWIN_UNLIMITED_STREAMS
+endif
+
 CFLAGS = $(CDEBUGFLAGS) $(RC_CFLAGS)
 HOST_ARCHITECTURE = UNKNOWN
-
-RC_CFLAGS_NOARCH = $(strip $(shell echo $(RC_CFLAGS) | sed -e 's/-arch [a-z0-9]*//g'))
 
 SYSTEM_FRAMEWORK = -L../intl -L./intl -L../intl/.libs -L./intl/.libs -lintl -framework System
 FRAMEWORK_PREFIX =
@@ -136,14 +141,14 @@ LIBEXEC_LIB_DIR=UNKNOWN
 MAN_DIR=UNKNOWN
 PRIVATE_FRAMEWORKS_DIR=UNKNOWN
 
-NATIVE_TARGET = unknown--unknown
-
 NATIVE_TARGETS = $(foreach arch1,$(CANONICAL_ARCHS),$(arch1)--$(arch1))
 
-CROSS_TARGETS = $(foreach arch1,$(CANONICAL_ARCHS),$(foreach arch2,$(filter-out $(arch1),$(CANONICAL_ARCHS)),$(arch1)--$(arch2)))
-
-PPC_TARGET=UNKNOWN
-I386_TARGET=UNKNOWN
+CROSS_TARGETS = $(strip $(foreach hostarch, $(CANONICAL_ARCHS), $(foreach targarch, $(filter-out $(hostarch), $(CANONICAL_ARCHS)), $(hostarch)--$(targarch))))
+CROSS_TARGETS := $(filter-out x86_64-apple-darwin--i386-apple-darwin, $(CROSS_TARGETS))
+CROSS_TARGETS := $(filter-out i386-apple-darwin--x86_64-apple-darwin, $(CROSS_TARGETS))
+CROSS_TARGETS := $(filter-out powerpc-apple-darwin--x86_64-apple-darwin, $(CROSS_TARGETS))
+CROSS_TARGETS := $(filter-out arm-apple-darwin--x86_64-apple-darwin, $(CROSS_TARGETS))
+CROSS_TARGETS := $(sort $(CROSS_TARGETS))
 
 CONFIG_VERBOSE=-v
 CONFIG_ENABLE_GDBTK=--enable-gdbtk=no
@@ -157,16 +162,51 @@ CONFIG_WITH_MMAP=--with-mmap
 CONFIG_ENABLE_SHARED=--disable-shared
 CONFIG_MAINTAINER_MODE=
 CONFIG_BUILD=--build=$(BUILD_ARCH)
-CONFIG_OTHER_OPTIONS=--disable-serial-configure
+CONFIG_OTHER_OPTIONS?=--disable-serial-configure
 
+# The code below looks like it is intended for building the ARM native debugger.
+# When this is done in B&I we get passed in these settings,
+#    RC_CFLAGS:                      -arch armv6 -pipe
+#    RC_ARCHS:                       armv6
+#    RC_OS:                          macos
+#    RC_RELEASE                       "BigBear"
+#    RC_PRODUCT                       "P2"
+#    RC_PURPLE                        "YES"
+#    RC_armv6                         "YES"
+#    RC_arm                           ""
+#    TRAIN                            "BigBear"
+#    HOST_ARCHITECTURE=armv6
+#    SDKROOT='/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS2.0.Internal.sdk'
+#
 ifneq ($(findstring macosx,$(CANONICAL_ARCHS))$(findstring darwin,$(CANONICAL_ARCHS)),)
 CC = gcc -arch $(HOST_ARCHITECTURE)
-CC_FOR_BUILD = NEXT_ROOT= gcc
-CDEBUGFLAGS = -gdwarf-2 -Os
+CC_FOR_BUILD = gcc
 
-CFLAGS = $(strip $(RC_CFLAGS_NOARCH) $(CDEBUGFLAGS) -Wall -Wimplicit -Wno-long-double)
+# Unset this when building Canadian Cross.  (e.g. an arm native gdb built on an
+# i386 system)  This will have a setting like "10.5" which is not valid on the
+# iPhone OS platform and our compiler will get linker errors when running
+# autoconf tests.
+MACOSX_DEPLOYMENT_TARGET=
+CDEBUGFLAGS = -g -Os
+
+# The -Wno-error=deprecated-declarations flag is not recognized by some 
+# compilers; disable it on a per-release basis.
+
+ifeq (Leopard,$(RC_RELEASE))
+OS_DEP_CFLAGS = 
+else
+ifeq (SnowLeopard,$(RC_RELEASE))
+OS_DEP_CFLAGS = -Wno-error=deprecated-declarations
+else
+OS_DEP_CFLAGS = 
+endif
+endif
+
+CFLAGS = $(strip $(RC_NONARCH_CFLAGS) $(CDEBUGFLAGS) -Wall -Wimplicit $(OS_DEP_CFLAGS) -Werror-implicit-function-declaration -funwind-tables -fasynchronous-unwind-tables)
 HOST_ARCHITECTURE = $(shell echo $* | sed -e 's/--.*//' -e 's/powerpc/ppc/' -e 's/-apple-macosx.*//' -e 's/-apple-macos.*//' -e 's/-apple-darwin.*//')
 endif
+
+
 
 MACOSX_FLAGS = \
 	CONFIG_DIR=private/etc \
@@ -208,7 +248,7 @@ EFLAGS = \
 	NM='$(NM)' \
 	CC_FOR_BUILD='$(CC_FOR_BUILD)' \
 	HOST_ARCHITECTURE='$(HOST_ARCHITECTURE)' \
-	NEXT_ROOT='$(NEXT_ROOT)' \
+	SDKROOT='$(SDKROOT)' \
 	BINUTILS_FRAMEWORK_PATH='$(BINUTILS_FRAMEWORK_PATH)' \
 	SRCROOT='$(SRCROOT)' \
 	$(MAKE_OPTIONS)
@@ -233,6 +273,98 @@ MAKE_ENV = $(EFLAGS)
 SUBMAKE = $(MAKE_ENV) $(MAKE)
 
 _all: all
+
+
+crossarm: LIBEXEC_GDB_DIR=usr/libexec/gdb
+crossarm: CDEBUGFLAGS ?= -gdwarf-2 -D__DARWIN_UNIX03=0
+
+
+crossarm:;
+        
+	echo BUILDING CROSSARM; \
+	$(RM)  $(SYMROOT)/$(LIBEXEC_GDB_DIR)/gdb-arm-apple-darwin
+	for i in $(RC_ARCHS); do \
+		$(RM) -r $(OBJROOT)/$${i}-apple-darwin--arm-apple-darwin; \
+		$(INSTALL) -c -d $(OBJROOT)/$${i}-apple-darwin--arm-apple-darwin; \
+		(cd $(OBJROOT)/$${i}-apple-darwin--arm-apple-darwin/ && \
+			$(CONFIGURE_ENV) CC="cc -arch $${i}" $(MACOSX_FLAGS) $(SRCTOP)/src/configure \
+				--host=$${i}-apple-darwin \
+				--target=arm-apple-darwin \
+                                --build=$(BUILD_ARCH) \
+				CFLAGS=" -isystem $(SDKROOT)/usr/include $(CDEBUGFLAGS)" \
+				$(CONFIGURE_OPTIONS) \
+			); \
+		mkdir -p $(SYMROOT)/$(LIBEXEC_GDB_DIR); \
+		mkdir -p $(DSTROOT)/$(LIBEXEC_GDB_DIR); \
+		$(SUBMAKE) $(MACOSX_FLAGS) -C $(OBJROOT)/$${i}-apple-darwin--arm-apple-darwin configure-gdb; \
+		$(SUBMAKE) $(MACOSX_FLAGS) -C $(OBJROOT)/$${i}-apple-darwin--arm-apple-darwin \
+				-W version.in VERSION='$(GDB_VERSION_STRING)' GDB_RC_VERSION='$(GDB_RC_VERSION)' all-gdb; \
+		if [ -e $(SYMROOT)/$(LIBEXEC_GDB_DIR)/gdb-arm-apple-darwin ] ; then \
+			lipo -create $(SYMROOT)/$(LIBEXEC_GDB_DIR)/gdb-arm-apple-darwin $(OBJROOT)/$${i}-apple-darwin--arm-apple-darwin/gdb/gdb -output $(SYMROOT)/$(LIBEXEC_GDB_DIR)/gdb-arm-apple-darwin; \
+		else \
+			lipo -create $(OBJROOT)/$${i}-apple-darwin--arm-apple-darwin/gdb/gdb -output $(SYMROOT)/$(LIBEXEC_GDB_DIR)/gdb-arm-apple-darwin; \
+		fi;\
+	done;
+	(cd $(SYMROOT)/$(LIBEXEC_GDB_DIR)/ ; dsymutil gdb-arm-apple-darwin)
+	strip -S -o $(DSTROOT)/$(LIBEXEC_GDB_DIR)/gdb-arm-apple-darwin \
+		$(SYMROOT)/$(LIBEXEC_GDB_DIR)/gdb-arm-apple-darwin
+	chown root:wheel $(DSTROOT)/$(LIBEXEC_GDB_DIR)/gdb-arm-apple-darwin
+	chmod 755 $(DSTROOT)/$(LIBEXEC_GDB_DIR)/gdb-arm-apple-darwin
+	mkdir -p ${DSTROOT}/usr/bin
+	sed -e 's/version=.*/version=$(GDB_VERSION)-$(GDB_RC_VERSION)/' \
+                < $(SRCROOT)/gdb.sh > ${DSTROOT}/usr/bin/gdb
+	chmod 755 ${DSTROOT}/usr/bin/gdb
+
+#
+# cross
+# 
+# Build only a cross targets for host architectures. RC_ARCHS specifies
+# all of the host architectures to build for, and RC_CROSS_ARCHS specifies
+# all of the cross architectures to build for. This can save time when
+# building a cross target as you don't have to build all permutations of
+# RC_ARCHS. 
+#
+# The command below will build a cross i386 gdb to be hosted on ppc:
+# sudo ~rc/bin/buildit -noinstallhdrs -arch ppc -target cross /path/to/gdb RC_CROSS_ARCHS=i386
+#
+
+
+cross: 	LIBEXEC_GDB_DIR=usr/libexec/gdb
+cross:;
+	echo BUILDING CROSS $(RC_CROSS_ARCHS) for HOST $(RC_ARCHS); \
+        for cross_arch in $(RC_CROSS_ARCHS); do \
+		$(RM)  $(SYMROOT)/$(LIBEXEC_GDB_DIR)/gdb-$${cross_arch}-apple-darwin; \
+		for host_arch in $(RC_ARCHS); do \
+			echo BUILDING CROSS $${cross_arch} for HOST $${host_arch}; \
+			$(RM) -r $(OBJROOT)/$${host_arch}-apple-darwin--$${cross_arch}-apple-darwin; \
+			$(INSTALL) -c -d $(OBJROOT)/$${host_arch}-apple-darwin--$${cross_arch}-apple-darwin; \
+			(cd $(OBJROOT)/$${host_arch}-apple-darwin--$${cross_arch}-apple-darwin/ && \
+				$(CONFIGURE_ENV) CC="cc -arch $${host_arch}" $(MACOSX_FLAGS) $(SRCTOP)/src/configure \
+					--host=$${host_arch}-apple-darwin \
+					--target=$${cross_arch}-apple-darwin \
+					--build=$(BUILD_ARCH) \
+					CFLAGS=" -isystem $(SDKROOT)/usr/include $(CDEBUGFLAGS)" \
+					$(CONFIGURE_OPTIONS) \
+				); \
+			mkdir -p $(SYMROOT)/$(LIBEXEC_GDB_DIR); \
+			mkdir -p $(DSTROOT)/$(LIBEXEC_GDB_DIR); \
+			$(SUBMAKE) $(MACOSX_FLAGS) -C $(OBJROOT)/$${host_arch}-apple-darwin--$${cross_arch}-apple-darwin configure-gdb; \
+			$(SUBMAKE) $(MACOSX_FLAGS) -C $(OBJROOT)/$${host_arch}-apple-darwin--$${cross_arch}-apple-darwin \
+				-W version.in VERSION='$(GDB_VERSION_STRING)' GDB_RC_VERSION='$(GDB_RC_VERSION)' all-gdb; \
+			if [ -e $(SYMROOT)/$(LIBEXEC_GDB_DIR)/gdb-$${cross_arch}-apple-darwin ] ; then \
+				lipo -create $(SYMROOT)/$(LIBEXEC_GDB_DIR)/gdb-$${cross_arch}-apple-darwin $(OBJROOT)/$${host_arch}-apple-darwin--$${cross_arch}-apple-darwin/gdb/gdb -output $(SYMROOT)/$(LIBEXEC_GDB_DIR)/gdb-$${cross_arch}-apple-darwin; \
+			else \
+				lipo -create $(OBJROOT)/$${host_arch}-apple-darwin--$${cross_arch}-apple-darwin/gdb/gdb -output $(SYMROOT)/$(LIBEXEC_GDB_DIR)/gdb-$${cross_arch}-apple-darwin; \
+			fi; \
+		done; \
+                (cd $(SYMROOT)/$(LIBEXEC_GDB_DIR)/ ; dsymutil gdb-$${cross_arch}-apple-darwin); \
+		strip -S -o $(DSTROOT)/$(LIBEXEC_GDB_DIR)/gdb-$${cross_arch}-apple-darwin \
+			$(SYMROOT)/$(LIBEXEC_GDB_DIR)/gdb-$${cross_arch}-apple-darwin; \
+	done; \
+	mkdir -p ${DSTROOT}/usr/bin; \
+	sed -e 's/version=.*/version=$(GDB_VERSION)-$(GDB_RC_VERSION)/' \
+                < $(SRCROOT)/gdb.sh > ${DSTROOT}/usr/bin/gdb; \
+	chmod 755 ${DSTROOT}/usr/bin/gdb; \
 
 $(OBJROOT)/%/stamp-rc-configure:
 	$(RM) -r $(OBJROOT)/$*
@@ -298,9 +430,7 @@ $(OBJROOT)/%/stamp-build-gdb-docs:
 TEMPLATE_HEADERS = config.h tm.h xm.h nm.h
 
 install-frameworks-headers:
-
 	$(INSTALL) -c -d $(CURRENT_ROOT)/$(PRIVATE_FRAMEWORKS_DIR)
-
 	set -e;	for i in $(FRAMEWORKS); do \
 		framedir=$(CURRENT_ROOT)/$(PRIVATE_FRAMEWORKS_DIR)/$${i}.framework; \
 		$(INSTALL) -c -d $${framedir}/Versions/A/PrivateHeaders; \
@@ -309,7 +439,6 @@ install-frameworks-headers:
 		ln -sf Versions/Current/PrivateHeaders $${framedir}/PrivateHeaders; \
 		ln -sf Versions/Current/Headers $${framedir}/Headers; \
 	done
-
 	set -e; for i in $(FRAMEWORKS); do \
 		l=`echo $${i} | sed -e 's/liberty/libiberty/;' -e 's/binutils/\./;' -e 's/gdb/\./;'`; \
 		(cd $(OBJROOT)/$(firstword $(NATIVE_TARGETS))/$${l}/$${i}.framework/Versions/A \
@@ -318,7 +447,6 @@ install-frameworks-headers:
 		(cd $(CURRENT_ROOT)/$(PRIVATE_FRAMEWORKS_DIR)/$${i}.framework/Versions/A \
 		 && $(TAR) -xf -); \
 	done
-
 	set -e; for i in gdb; do \
 		l=`echo $${i} | sed -e 's/liberty/libiberty/;' -e 's/binutils/\./;' -e 's/gdb/\./;'`; \
 		rm -rf $(CURRENT_ROOT)/$(PRIVATE_FRAMEWORKS_DIR)/$${i}.framework/Versions/A/Headers/machine; \
@@ -429,7 +557,7 @@ install-gdb-macosx-common: install-gdb-common
 
 install-gdb-macosx: install-gdb-macosx-common
 
-	set -e; for target in $(CANONICAL_ARCHS); do \
+	set -e; for target in $(filter-out x86_64-apple-darwin, $(CANONICAL_ARCHS)); do \
 		lipo -create $(OBJROOT)/$${target}--$${target}/gdb/gdb \
 			-output $(SYMROOT)/$(LIBEXEC_GDB_DIR)/gdb-$${target}; \
 		dsymutil -o $(SYMROOT)/$(LIBEXEC_GDB_DIR)/gdb-$${target}.dSYM \
@@ -439,26 +567,26 @@ install-gdb-macosx: install-gdb-macosx-common
 		cp $(DSTROOT)/$(LIBEXEC_GDB_DIR)/gdb-$${target} $(SYMROOT)/$(LIBEXEC_GDB_DIR)/gdb-$${target}; \
 	done
 
+# When this target is invoked, NATIVE is the binary that we'll be outputting and
+# HOSTCOMBOS are the binaries that will be combined into that.  For instance,
+#
+# HOSTCOMBOS == i386-apple-darwin--i386-apple-darwin x86_64-apple-darwin--x86_64-apple-darwin powerpc-apple-darwin--i386-apple-darwin
+# NATIVE == i386-apple-darwin
+
+# NATIVE i386 is a special case where we add the x86_64-apple-darwin variant manually.
+
 install-gdb-fat: install-gdb-macosx-common
+	lipo -create $(patsubst %,$(OBJROOT)/%/gdb/gdb,$(HOSTCOMBOS)) \
+	     -output $(SYMROOT)/$(LIBEXEC_GDB_DIR)/gdb-$(NATIVE)
 
-	lipo -create $(patsubst %,$(OBJROOT)/%/gdb/gdb,$(PPC_TARGET)--$(PPC_TARGET) $(I386_TARGET)--$(PPC_TARGET)) \
-		-output $(SYMROOT)/$(LIBEXEC_GDB_DIR)/gdb-$(PPC_TARGET)
-	lipo -create $(patsubst %,$(OBJROOT)/%/gdb/gdb,$(PPC_TARGET)--$(I386_TARGET) $(I386_TARGET)--$(I386_TARGET)) \
-		-output $(SYMROOT)/$(LIBEXEC_GDB_DIR)/gdb-$(I386_TARGET)
-
-	set -e; for target in $(CANONICAL_ARCHS); do \
+dsym-and-strip-fat-gdbs:
+	set -e; for target in $(filter-out x86_64-apple-darwin, $(CANONICAL_ARCHS)); do \
 		dsymutil -o $(SYMROOT)/$(LIBEXEC_GDB_DIR)/gdb-$${target}.dSYM \
                          $(SYMROOT)/$(LIBEXEC_GDB_DIR)/gdb-$${target}; \
 	 	strip -S -o $(DSTROOT)/$(LIBEXEC_GDB_DIR)/gdb-$${target} \
 			$(SYMROOT)/$(LIBEXEC_GDB_DIR)/gdb-$${target}; \
 		cp $(DSTROOT)/$(LIBEXEC_GDB_DIR)/gdb-$${target} \
                    $(SYMROOT)/$(LIBEXEC_GDB_DIR)/gdb-$${target}; \
-		if echo $${target} | egrep '^[^-]*-apple-darwin' > /dev/null; then \
-			echo "stripping __objcInit"; \
-			echo "__objcInit" > /tmp/macosx-syms-to-remove; \
-			strip -R /tmp/macosx-syms-to-remove -X $(DSTROOT)/$(LIBEXEC_GDB_DIR)/gdb-$${target} || true; \
-			rm -f /tmp/macosx-syms-to-remove; \
-		fi; \
 	done
 
 install-binutils-macosx:
@@ -469,10 +597,6 @@ install-binutils-macosx:
 			-output $(SYMROOT)/$(LIBEXEC_BINUTILS_DIR)/$${instname}; \
 		strip -S -o $(DSTROOT)/$(LIBEXEC_BINUTILS_DIR)/$${instname} $(SYMROOT)/$(LIBEXEC_BINUTILS_DIR)/$${instname}; \
 	done
-
-# "procmod" is a new group (2005-09-27) which will not be present on all
-# the systems, so we use a '-' prefix on that loop for now so the errors
-# don't halt the build. 
 
 install-chmod-macosx:
 	set -e; for dstroot in $(SYMROOT) $(DSTROOT); do \
@@ -486,6 +610,15 @@ install-chmod-macosx:
 			chgrp procmod $${dstroot}/$(LIBEXEC_GDB_DIR)/plugins/MacsBug/MacsBug_plugin && chmod g+s $${dstroot}/$(LIBEXEC_GDB_DIR)/plugins/MacsBug/MacsBug_plugin; \
 		done
 
+install-chmod-macosx-noprocmod:
+	set -e; for dstroot in $(SYMROOT) $(DSTROOT); do \
+			chown -R root:wheel $${dstroot}; \
+			chmod -R  u=rwX,g=rX,o=rX $${dstroot}; \
+			chmod a+x $${dstroot}/$(LIBEXEC_GDB_DIR)/*; \
+			chmod a+x $${dstroot}/$(DEVEXEC_DIR)/*; \
+			chmod 755 $${dstroot}/$(LIBEXEC_GDB_DIR)/gdb-*-apple-darwin; \
+		done
+
 install-source:
 	$(INSTALL) -c -d $(DSTROOT)/$(SOURCE_DIR)
 	$(TAR) --exclude=CVS -C $(SRCROOT) -cf - . | $(TAR) -C $(DSTROOT)/$(SOURCE_DIR) -xf -
@@ -496,38 +629,28 @@ clean:
 	$(RM) -r $(OBJROOT)
 
 check-args:
-ifeq "$(CANONICAL_ARCHS)" "i386-apple-darwin"
-else
-ifeq "$(CANONICAL_ARCHS)" "powerpc-apple-darwin"
-else
-ifeq "$(CANONICAL_ARCHS)" "i386-apple-darwin powerpc-apple-darwin"
-else
-ifeq "$(CANONICAL_ARCHS)" "powerpc-apple-darwin i386-apple-darwin"
-else
+ifneq (,$(filter-out i386-apple-darwin, $(filter-out powerpc-apple-darwin, $(filter-out x86_64-apple-darwin, $(filter-out arm-apple-darwin, $(CANONICAL_ARCHS))))))
 	echo "Unknown architecture string: \"$(CANONICAL_ARCHS)\""
 	exit 1
 endif
-endif
-endif
+
+configure-headers:
+ifneq ($(NATIVE_TARGETS),)
+	$(SUBMAKE) $(patsubst %,$(OBJROOT)/%/stamp-rc-configure, $(NATIVE_TARGETS))
 endif
 
 configure: 
-ifneq ($(findstring darwin,$(CANONICAL_ARCHS)),)
 ifneq ($(NATIVE_TARGETS),)
 	$(SUBMAKE) $(patsubst %,$(OBJROOT)/%/stamp-rc-configure, $(NATIVE_TARGETS))
 endif
 ifneq ($(CROSS_TARGETS),)
 	$(SUBMAKE) $(patsubst %,$(OBJROOT)/%/stamp-rc-configure-cross, $(CROSS_TARGETS))
 endif
-endif
 
 build-headers:
-	$(SUBMAKE) configure
+	$(SUBMAKE) configure-headers
 ifneq ($(NATIVE_TARGETS),)
-	$(SUBMAKE) $(patsubst %,$(OBJROOT)/%/stamp-build-headers, $(NATIVE_TARGETS)) 
-endif
-ifneq ($(CROSS_TARGETS),)
-	$(SUBMAKE) $(patsubst %,$(OBJROOT)/%/stamp-build-headers, $(CROSS_TARGETS))
+	$(SUBMAKE) $(patsubst %,$(OBJROOT)/%/stamp-build-headers, $(NATIVE_TARGETS))
 endif
 
 build-core:
@@ -547,12 +670,12 @@ endif
 
 build-gdb:
 	$(SUBMAKE) configure
+ifneq ($(CROSS_TARGETS),)
+	$(SUBMAKE) $(patsubst %,$(OBJROOT)/%/stamp-build-gdb, $(CROSS_TARGETS))
+endif
 ifneq ($(NATIVE_TARGETS),)
 	$(SUBMAKE) $(patsubst %,$(OBJROOT)/%/stamp-build-gdb, $(NATIVE_TARGETS))
 	$(SUBMAKE) $(patsubst %,$(OBJROOT)/%/stamp-build-gdb-framework, $(NATIVE_TARGETS))
-endif
-ifneq ($(CROSS_TARGETS),)
-	$(SUBMAKE) $(patsubst %,$(OBJROOT)/%/stamp-build-gdb, $(CROSS_TARGETS))
 endif
 
 build-gdb-docs:
@@ -576,37 +699,43 @@ install-clean:
 
 install-macosx:
 	$(SUBMAKE) install-clean
-ifeq "$(CANONICAL_ARCHS)" "i386-apple-darwin powerpc-apple-darwin"
-	$(SUBMAKE) install-frameworks-macosx NATIVE_TARGET=unknown--unknown
-	$(SUBMAKE) install-binutils-macosx NATIVE_TARGET=unknown--unknown
-	$(SUBMAKE) install-gdb-fat NATIVE_TARGET=unknown--unknown PPC_TARGET=powerpc-apple-darwin I386_TARGET=i386-apple-darwin
-	$(SUBMAKE) install-macsbug
+	$(SUBMAKE) install-frameworks-macosx 
+	$(SUBMAKE) install-binutils-macosx 
+ifneq (,$(findstring i386-apple-darwin, $(CANONICAL_ARCHS)))
+	$(SUBMAKE) install-gdb-fat HOSTCOMBOS="$(sort $(filter i386-apple-darwin--i386-apple-darwin, $(NATIVE_TARGETS)) $(filter %--i386-apple-darwin, $(CROSS_TARGETS)) $(filter x86_64-apple-darwin--x86_64-apple-darwin, $(NATIVE_TARGETS)) $(filter %--x86_64-apple-darwin, $(CROSS_TARGETS)))" NATIVE=i386-apple-darwin
+endif
+ifneq (,$(findstring powerpc-apple-darwin, $(CANONICAL_ARCHS)))
+	$(SUBMAKE) install-gdb-fat HOSTCOMBOS="$(sort $(filter powerpc-apple-darwin--powerpc-apple-darwin, $(NATIVE_TARGETS)) $(filter %--powerpc-apple-darwin, $(CROSS_TARGETS)))" NATIVE=powerpc-apple-darwin
+endif
+ifneq (,$(findstring arm-apple-darwin, $(CANONICAL_ARCHS)))
+	$(SUBMAKE) install-gdb-fat HOSTCOMBOS="$(sort $(filter arm-apple-darwin--arm-apple-darwin, $(NATIVE_TARGETS)) $(filter %--arm-apple-darwin, $(CROSS_TARGETS)))" NATIVE=arm-apple-darwin
+endif
+	$(SUBMAKE) dsym-and-strip-fat-gdbs
+ifneq (,$(findstring powerpc-apple-darwin, $(CANONICAL_ARCHS)))
+	$(SUBMAKE) install-macsbug RC_ARCHS=ppc RC_CFLAGS="-arch ppc -pipe"
+endif
+ifeq "$(CANONICAL_ARCHS)" "arm-apple-darwin"
+	$(SUBMAKE) install-chmod-macosx-noprocmod
 else
-	$(SUBMAKE) install-frameworks-macosx
-	$(SUBMAKE) install-binutils-macosx
-	$(SUBMAKE) install-gdb-macosx
-ifeq "$(CANONICAL_ARCHS)" "powerpc-apple-darwin"
-	$(SUBMAKE) install-macsbug
+	$(SUBMAKE) install-chmod-macosx-noprocmod
 endif
-endif
-	$(SUBMAKE) install-libcheckpoint
-	$(SUBMAKE) install-chmod-macosx
 
 install-macsbug:
 	$(SUBMAKE) -C $(SRCROOT)/macsbug GDB_BUILD_ROOT=$(DSTROOT) BINUTILS_BUILD_ROOT=$(DSTROOT) SRCROOT=$(SRCROOT)/macsbug OBJROOT=$(OBJROOT)/powerpc-apple-darwin--powerpc-apple-darwin/macsbug SYMROOT=$(SYMROOT) DSTROOT=$(DSTROOT) install
- 
-install-libcheckpoint:
-	$(SUBMAKE) -C $(SRCROOT)/libcheckpoint GDB_BUILD_ROOT=$(DSTROOT) BINUTILS_BUILD_ROOT=$(DSTROOT) SRCROOT=$(SRCROOT)/libcheckpoint OBJROOT=$(OBJROOT)/libcheckpoint SYMROOT=$(SYMROOT) DSTROOT=$(DSTROOT) install
  
 install:
 	$(SUBMAKE) check-args
 	$(SUBMAKE) build
 	$(SUBMAKE) $(MACOSX_FLAGS) install-macosx
-	$(SUBMAKE) $(MACOSX_FLAGS) install-chmod-macosx
+ifeq "$(CANONICAL_ARCHS)" "arm-apple-darwin"
+	$(SUBMAKE) $(MACOSX_FLAGS) install-chmod-macosx-noprocmod
+else
+	$(SUBMAKE) $(MACOSX_FLAGS) install-chmod-macosx-noprocmod
+endif
 
 installhdrs:
 	$(SUBMAKE) check-args
-	$(SUBMAKE) configure 
+	$(SUBMAKE) configure-headers
 	$(SUBMAKE) build-headers
 	$(SUBMAKE) install-clean
 	$(SUBMAKE) $(MACOSX_FLAGS) CURRENT_ROOT=$(SYMROOT) install-frameworks-headers

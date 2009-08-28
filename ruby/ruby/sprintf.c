@@ -727,7 +727,7 @@ rb_str_format(argc, argv, fmt)
 		fval = RFLOAT(rb_Float(val))->value;
 #if defined(_WIN32) && !defined(__BORLANDC__)
 		if (isnan(fval) || isinf(fval)) {
-		    char *expr;
+		    const char *expr;
 
 		    if  (isnan(fval)) {
 			expr = "NaN";

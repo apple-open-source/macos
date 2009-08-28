@@ -1,23 +1,23 @@
 /* Generic routines for manipulating SSA_NAME expressions
    Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
-                                                                                
+                                                                               
 This file is part of GCC.
-                                                                                
+                                                                               
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
-                                                                                
+                                                                               
 GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
-                                                                                
+                                                                               
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
-                                                                                
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
+
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
@@ -59,10 +59,7 @@ Boston, MA 02111-1307, USA.  */
    this is the place to try it.  */
    
 /* Array of all SSA_NAMEs used in the function.  */
-varray_type ssa_names;
-
-/* Bitmap of ssa names marked for rewriting.  */
-static bitmap ssa_names_to_rewrite;
+VEC(tree,gc) *ssa_names;
 
 /* Free list of SSA_NAMEs.  This list is wiped at the end of each function
    after we leave SSA form.  */
@@ -77,68 +74,22 @@ unsigned int ssa_name_nodes_reused;
 unsigned int ssa_name_nodes_created;
 #endif
 
-/* Returns true if ssa name VAR is marked for rewrite.  */
-
-bool
-marked_for_rewrite_p (tree var)
-{
-  return bitmap_bit_p (ssa_names_to_rewrite, SSA_NAME_VERSION (var));
-}
-
-/* Returns true if any ssa name is marked for rewrite.  */
-
-bool
-any_marked_for_rewrite_p (void)
-{
-  if (!ssa_names_to_rewrite)
-    return false;
-
-  return !bitmap_empty_p (ssa_names_to_rewrite);
-}
-
-/* Mark ssa name VAR for rewriting.  */
-
-void
-mark_for_rewrite (tree var)
-{
-  bitmap_set_bit (ssa_names_to_rewrite, SSA_NAME_VERSION (var));
-}
-
-/* Unmark all ssa names marked for rewrite.  */
-
-void
-unmark_all_for_rewrite (void)
-{
-  bitmap_clear (ssa_names_to_rewrite);
-}
-
-/* Return the bitmap of ssa names to rewrite.  Copy the bitmap,
-   so that the optimizers cannot access internals directly  */
-
-bitmap
-marked_ssa_names (void)
-{
-  bitmap ret = BITMAP_ALLOC (NULL);
-
-  bitmap_copy (ret, ssa_names_to_rewrite);
-
-  return ret;
-}
-
 /* Initialize management of SSA_NAMEs.  */
 
 void
 init_ssanames (void)
 {
-  VARRAY_TREE_INIT (ssa_names, 50, "ssa_names table");
+  ssa_names = VEC_alloc (tree, gc, 50);
 
   /* Version 0 is special, so reserve the first slot in the table.  Though
      currently unused, we may use version 0 in alias analysis as part of
      the heuristics used to group aliases when the alias sets are too
-     large.  */
-  VARRAY_PUSH_TREE (ssa_names, NULL_TREE);
+     large.
+
+     We use VEC_quick_push here because we know that SSA_NAMES has at
+     least 50 elements reserved in it.  */
+  VEC_quick_push (tree, ssa_names, NULL_TREE);
   free_ssanames = NULL;
-  ssa_names_to_rewrite = BITMAP_ALLOC (NULL);
 }
 
 /* Finalize management of SSA_NAMEs.  */
@@ -146,9 +97,7 @@ init_ssanames (void)
 void
 fini_ssanames (void)
 {
-  BITMAP_FREE (ssa_names_to_rewrite);
-  ggc_free (ssa_names);
-  ssa_names = NULL;
+  VEC_free (tree, gc, ssa_names);
   free_ssanames = NULL;
 }
 
@@ -172,6 +121,7 @@ tree
 make_ssa_name (tree var, tree stmt)
 {
   tree t;
+  use_operand_p imm;
 
   gcc_assert (DECL_P (var)
 	      || TREE_CODE (var) == INDIRECT_REF);
@@ -190,13 +140,13 @@ make_ssa_name (tree var, tree stmt)
       /* The node was cleared out when we put it on the free list, so
 	 there is no need to do so again here.  */
       gcc_assert (ssa_name (SSA_NAME_VERSION (t)) == NULL);
-      VARRAY_TREE (ssa_names, SSA_NAME_VERSION (t)) = t;
+      VEC_replace (tree, ssa_names, SSA_NAME_VERSION (t), t);
     }
   else
     {
       t = make_node (SSA_NAME);
       SSA_NAME_VERSION (t) = num_ssa_names;
-      VARRAY_PUSH_TREE (ssa_names, t);
+      VEC_safe_push (tree, gc, ssa_names, t);
 #ifdef GATHER_STATISTICS
       ssa_name_nodes_created++;
 #endif
@@ -207,6 +157,11 @@ make_ssa_name (tree var, tree stmt)
   SSA_NAME_DEF_STMT (t) = stmt;
   SSA_NAME_PTR_INFO (t) = NULL;
   SSA_NAME_IN_FREE_LIST (t) = 0;
+  imm = &(SSA_NAME_IMM_USE_NODE (t));
+  imm->use = NULL;
+  imm->prev = imm;
+  imm->next = imm;
+  imm->stmt = t;
 
   return t;
 }
@@ -228,14 +183,16 @@ release_ssa_name (tree var)
 
   /* Never release the default definition for a symbol.  It's a
      special SSA name that should always exist once it's created.  */
-  if (var == var_ann (SSA_NAME_VAR (var))->default_def)
+  if (var == default_def (SSA_NAME_VAR (var)))
     return;
 
-  /* If the ssa name is marked for rewriting, it may have multiple definitions,
-     but we may happen to remove just one of them.  So do not remove the
-     ssa name now.  */
-  if (marked_for_rewrite_p (var))
-    return;
+  /* If VAR has been registered for SSA updating, don't remove it.
+     After update_ssa has run, the name will be released.  */
+  if (name_registered_for_update_p (var))
+    {
+      release_ssa_name_after_update_ssa (var);
+      return;
+    }
 
   /* release_ssa_name can be called multiple times on a single SSA_NAME.
      However, it should only end up on our free list one time.   We
@@ -248,10 +205,20 @@ release_ssa_name (tree var)
     {
       tree saved_ssa_name_var = SSA_NAME_VAR (var);
       int saved_ssa_name_version = SSA_NAME_VERSION (var);
+      use_operand_p imm = &(SSA_NAME_IMM_USE_NODE (var));
 
-      VARRAY_TREE (ssa_names, SSA_NAME_VERSION (var)) = NULL;
+#ifdef ENABLE_CHECKING
+      verify_imm_links (stderr, var);
+#endif
+      while (imm->next != imm)
+	delink_imm_use (imm->next);
+
+      VEC_replace (tree, ssa_names, SSA_NAME_VERSION (var), NULL_TREE);
       memset (var, 0, tree_size (var));
 
+      imm->prev = imm;
+      imm->next = imm;
+      imm->stmt = var;
       /* First put back the right tree node so that the tree checking
 	 macros do not complain.  */
       TREE_SET_CODE (var, SSA_NAME);
@@ -279,22 +246,38 @@ duplicate_ssa_name (tree name, tree stmt)
 {
   tree new_name = make_ssa_name (SSA_NAME_VAR (name), stmt);
   struct ptr_info_def *old_ptr_info = SSA_NAME_PTR_INFO (name);
+
+  if (old_ptr_info)
+    duplicate_ssa_name_ptr_info (new_name, old_ptr_info);
+
+  return new_name;
+}
+
+
+/* Creates a duplicate of the ptr_info_def at PTR_INFO for use by
+   the SSA name NAME.  */
+
+void
+duplicate_ssa_name_ptr_info (tree name, struct ptr_info_def *ptr_info)
+{
   struct ptr_info_def *new_ptr_info;
 
-  if (!old_ptr_info)
-    return new_name;
+  gcc_assert (POINTER_TYPE_P (TREE_TYPE (name)));
+  gcc_assert (!SSA_NAME_PTR_INFO (name));
+
+  if (!ptr_info)
+    return;
 
   new_ptr_info = ggc_alloc (sizeof (struct ptr_info_def));
-  *new_ptr_info = *old_ptr_info;
+  *new_ptr_info = *ptr_info;
 
-  if (old_ptr_info->pt_vars)
+  if (ptr_info->pt_vars)
     {
       new_ptr_info->pt_vars = BITMAP_GGC_ALLOC ();
-      bitmap_copy (new_ptr_info->pt_vars, old_ptr_info->pt_vars);
+      bitmap_copy (new_ptr_info->pt_vars, ptr_info->pt_vars);
     }
 
-  SSA_NAME_PTR_INFO (new_name) = new_ptr_info;
-  return new_name;
+  SSA_NAME_PTR_INFO (name) = new_ptr_info;
 }
 
 
@@ -305,6 +288,10 @@ release_defs (tree stmt)
 {
   tree def;
   ssa_op_iter iter;
+
+  /* Make sure that we are in SSA.  Otherwise, operand cache may point
+     to garbage.  */
+  gcc_assert (in_ssa_p);
 
   FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_ALL_DEFS)
     if (TREE_CODE (def) == SSA_NAME)

@@ -93,7 +93,7 @@ AppleEHCIedMemoryBlock::NewMemoryBlock(void)
 		}
 		else
 		{
-			USBError(1, "AppleEHCIedMemoryBlock::NewMemoryBlock, could not allocate buffer!");
+			USBError(1, "AppleEHCIedMemoryBlock::NewMemoryBlock, could not allocate buffer! (size: %d, mask: %qd)", kEHCIPageSize, kEHCIStructureAllocationPhysicalMask);
 			me->release();
 			me = NULL;
 		}

@@ -12,5 +12,9 @@
                 </array>
                 <key>OnDemand</key>
                 <false/>
+		<key>HopefullyExitsLast</key>
+		<true/>
+		<key>EnableTransactions</key>
+		<true/>
 </dict>
 </plist>

@@ -1,9 +1,9 @@
 .TH SLAPO-ACCESSLOG 5 "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" Copyright 2005-2006 The OpenLDAP Foundation All Rights Reserved.
+.\" Copyright 2005-2008 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
-.\" $OpenLDAP: pkg/ldap/doc/man/man5/slapo-accesslog.5,v 1.1.2.8 2006/07/28 13:01:35 kurt Exp $
+.\" $OpenLDAP: pkg/ldap/doc/man/man5/slapo-accesslog.5,v 1.9.2.5 2008/02/11 23:26:40 kurt Exp $
 .SH NAME
-slapo-accesslog \- Access Logging overlay
+slapo-accesslog \- Access Logging overlay to slapd
 .SH SYNOPSIS
 ETCDIR/slapd.conf
 .SH DESCRIPTION
@@ -25,9 +25,9 @@ directive.
 .TP
 .B logdb <suffix>
 Specify the suffix of a database to be used for storing the log records.
-The specified database must have already been configured in a prior section
-of the config file, and it must have a rootDN configured. The access controls
-on the log database should prevent general write access. The suffix entry
+The specified database must be defined elsewhere in the configuration.
+The access controls
+on the log database should prevent general access. The suffix entry
 of the log database will be created automatically by this overlay. The log
 entries will be generated as the immediate children of the suffix entry.
 .TP
@@ -54,6 +54,12 @@ all operations
 Specify a filter for matching against Deleted and Modified entries. If
 the entry matches the filter, the old contents of the entry will be
 logged along with the current request.
+.TP
+.B logoldattr <attr> ...
+Specify a list of attributes whose old contents are always logged in
+Modify and ModRDN requests. Usually only the contents of attributes that were
+actually modified will be logged; by default no old attributes are logged
+for ModRDN requests.
 .TP
 .B logpurge <age> <interval>
 Specify the maximum age for log entries to be retained in the database,
@@ -90,17 +96,19 @@ succeed or not. The default is FALSE.
 .LP
 .nf
 	database bdb
-	suffix cn=log
-	\...
-	index reqStart eq
-
-	database bdb
 	suffix dc=example,dc=com
 	\...
 	overlay accesslog
 	logdb cn=log
 	logops writes reads
 	logold (objectclass=person)
+
+	database bdb
+	suffix cn=log
+	\...
+	index reqStart eq
+	access to *
+	  by dn.base="cn=admin,dc=example,dc=com" read
 .fi
 
 .SH SCHEMA
@@ -110,7 +118,7 @@ overlay utilizes the "audit" schema described herein.
 This schema is specifically designed for
 .B accesslog
 auditing and is not intended to be used otherwise.  It is also
-noted that the schema describe here is
+noted that the schema described here is
 .I a work in
 .IR progress ,
 and hence subject to change without notice.
@@ -355,7 +363,7 @@ filter.
     DESC 'ModRDN operation'
     SUP auditWriteObject STRUCTURAL
     MUST ( reqNewRDN $ reqDeleteOldRDN )
-    MAY reqNewSuperior )
+    MAY ( reqNewSuperior $ reqOld ) )
 .RE
 .P
 The
@@ -374,6 +382,14 @@ The
 .B reqNewSuperior
 attribute carries the DN of the new parent entry if the request specified
 the new parent.
+The
+.B reqOld
+attribute is only populated if the entry being modified matches the
+configured
+.B logold
+filter and contains attributes in the
+.B logoldattr
+list.
 
 .LP
 .RS 4

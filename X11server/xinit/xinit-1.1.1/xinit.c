@@ -62,7 +62,7 @@ in this Software without prior written authorization from The Open Group.
 
 #ifdef __APPLE__
 #include <AvailabilityMacros.h>
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1060
+#if MAC_OS_X_VERSION_MIN_REQUIRED >= 1060
 #include <vproc.h>
 #endif
 #endif
@@ -258,7 +258,7 @@ main(int argc, char *argv[], char *envp[])
 	int start_of_client_args, start_of_server_args;
 	struct sigaction sa;
 #ifdef __APPLE__
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1060
+#if MAC_OS_X_VERSION_MIN_REQUIRED >= 1060
 	vproc_transaction_t vt;
 #endif
 #endif
@@ -440,7 +440,7 @@ main(int argc, char *argv[], char *envp[])
 	signal(SIGUSR1, sigUsr1);
 
 #ifdef __APPLE__
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1060
+#if MAC_OS_X_VERSION_MIN_REQUIRED >= 1060
 	vt = vproc_transaction_begin(NULL);
 #endif
 #endif
@@ -455,7 +455,7 @@ main(int argc, char *argv[], char *envp[])
 	}
 
 #ifdef __APPLE__
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1060
+#if MAC_OS_X_VERSION_MIN_REQUIRED >= 1060
 	vproc_transaction_end(NULL, vt);
 #endif
 #endif

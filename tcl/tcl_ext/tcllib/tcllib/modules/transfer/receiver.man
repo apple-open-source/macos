@@ -1,0 +1,94 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin transfer::receiver n 0.1]
+[copyright {2006 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
+[moddesc   {Data transfer facilities}]
+[titledesc {Data source}]
+[require Tcl                         8.4]
+[require snit                        [opt 1.0]]
+[require transfer::data::destination [opt 0.1]]
+[require transfer::connect           [opt 0.1]]
+[require transfer::receiver          [opt 0.1]]
+[description]
+[keywords transfer copy channel {data destination} receiver]
+[para]
+
+This package pulls data destinations and connection setup together
+into a combined object for the reception of information coming in over
+a socket. These objects understand all the options from objects
+created by the packages [package transfer::data::destination] and
+[package transfer::connect].
+
+
+[section API]
+
+[list_begin definitions]
+
+[call [cmd transfer::receiver] \
+	[arg object] \
+	[opt [arg options]...]]
+
+This command creates and configures a new receiver
+[arg object]. The fully qualified name of the object command is
+returned as the result of the command.
+
+[para]
+
+See the packages [package transfer::data::destination]
+and [package transfer::connect] for the main options recognized. Here
+we describe only the options which go beyond the referenced set.
+
+[list_begin options]
+[opt_def -command   [arg cmdprefix]]
+
+This option specifies the command to invoke when the transmission of
+the information in the data source has been completed. The arguments
+given to this command are the same as given to the completion callback
+of method [cmd receive], see package
+[package transfer::data::destination].
+
+[list_end]
+
+
+[call [arg object] [method destroy]]
+
+This method destroys the object. Doing so while a reception is on
+progress will cause errors later on, when the reception completes
+and tries to access the now missing data structures of the destroyed
+object.
+
+
+[call [arg object] [method start]]
+
+This method initiates the data reception, setting up the connection
+first and then copying the received information into the
+destination. The method will throw an error if a reception is
+already/still in progress. I.e. it is not possible to run two
+receptions in parallel, only in sequence. Errors will also be thrown
+if the configuration of the data destination is invalid, or if no
+completion callback was specified.
+
+The result returned by the method the same as the result of method
+[method connect], see package [package transfer::connect].
+
+
+[call [arg object] [method busy]]
+
+This method returns a boolean value telling us whether a reception
+is in progress ([const True]), or not ([const False]).
+
+[list_end]
+
+
+[section {BUGS, IDEAS, FEEDBACK}]
+
+This document, and the package it describes, will undoubtedly contain
+bugs and other problems.
+
+Please report such in the category [emph transfer] of the
+[uri {http://sourceforge.net/tracker/?group_id=12883} {Tcllib SF Trackers}].
+
+Please also report any ideas for enhancements you may have for either
+package and/or documentation.
+
+
+[manpage_end]

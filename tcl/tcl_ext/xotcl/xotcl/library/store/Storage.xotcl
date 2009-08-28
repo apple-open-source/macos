@@ -1,0 +1,175 @@
+# $Id: Storage.xotcl,v 1.3 2005/09/09 21:09:01 neumann Exp $
+
+package provide xotcl::store 0.84
+package require XOTcl
+
+namespace eval ::xotcl::store {
+    namespace import ::xotcl::*
+
+    @ @File {
+	description {
+	    Simple generic storage interface for hashtable-like (persistent)
+	    storages. There are several different existing stores, including
+	    a memory storage, a GDBM storage, a SDBM storage, and a 
+	    TextFile storage.  
+	}
+	date { $Date: 2005/09/09 21:09:01 $ }
+    }
+
+    #
+    # abstract interface for storage access
+    #
+    @ Class Storage {
+	description {
+	    Abstract storage interface class (superclass of all storages).
+	}
+    }
+    Class Storage -parameter {{dirName .} fileName}
+
+    ###
+    @ Storage instproc open {
+	filename "database filename (or filename base, if more 
+            than one file has to be created)"
+    } {
+	Description {
+	    Each storage object represents exactly one database table. The db
+	    has to be opened, before it can it used. If it is not opened all
+	    other methods return errors.
+	}
+	return "empty string"
+    }
+    Storage abstract instproc open filename
+
+    ###
+    @ Storage instproc close {} {
+	Description {
+	    Close associated database.
+	}
+	return "empty string"
+    }
+    Storage abstract instproc close {}
+
+    ###
+    @ Storage instproc exists {
+	key {Key to be searched for.}
+    } {
+	Description {
+	    Search for a key whether it exists or not.
+	}
+	return {1, if key exists in the database, otherwise 0}
+    }
+    Storage abstract instproc exists key
+
+    ###
+    @ Storage instproc set {
+	key {Key to be set.}
+	?value? {Optional value that might be set}
+    } {
+	Description {
+	    Set or query a database key in the same way as Tcl's set functions.
+	}
+	return {Key value.}
+    }
+    Storage abstract instproc set {key ?value?}
+
+    ###
+    @ Storage instproc unset {
+	key {Key to be unset.}
+    } {
+	Description {
+	    Unset a database key in the same way as Tcl's unset functions.
+	}
+	return {empty string}
+    }
+    Storage abstract instproc unset key
+
+    ###
+    @ Storage instproc names {} {
+	Description {
+	    Return a list of keys in the database (functions in the same 
+						   way as Tcl's array names)
+	}
+	return {List of keys in the db.}
+    }
+    Storage abstract instproc names {}
+
+    ###
+    @ Storage instproc firstkey {} {
+	Description {
+	    Start a traversal of the database, starting with any key.
+	}
+	return {Name of first key.}
+    }
+    Storage abstract instproc firstkey {}
+
+    ###
+    @ Storage instproc nextkey {} {
+	Description {
+	    Proceed with the db traversal. Requires a firstkey before
+	    first usage, otherwise it returns an error.
+	}
+	return {Name of next key, if one exists. Otherwise an empty string is returned.}
+    }
+    Storage abstract instproc nextkey {}
+
+    Storage instproc traceFilter args {
+	set context "[self callingclass]->[self callingproc]"
+	set method [self calledproc]
+	set dargs $args 
+	puts "CALL $context>  [self]->$method $dargs"
+	set result [next]
+	puts "EXIT $context>  [self]->$method ($result)"
+	return $result
+    }
+
+    ###
+    @ Storage proc someNewChildStore {} {
+	Description {
+	    Create a childStore according to a preference list depending on
+	    which storages are available. Currently the preference list has
+	    the following order: Gdbm, Sdbm and TextFile.
+	}
+	return {name of the created storage object.}
+    }
+    Storage proc someNewChildStore {} {
+	foreach store {Gdbm Sdbm TextFile} {
+	    if {![catch {package require xotcl::store::[string tolower $store]}]} {
+		set s [Storage=$store new -childof [self]]
+		break
+	    }
+	}
+	return $s
+    }
+
+    Storage instproc checkDir {} {
+	my instvar dirName
+	if {[info exists dirName]} {
+	    if {![file exists $dirName]} {
+		file mkdir $dirName
+	    } elseif {![file isdirectory $dirName]} {
+		error "specified directory $dirName is no directory!"
+	    }
+	}
+    }
+    Storage instproc mkFileName {} {
+	my instvar dirName fileName
+	if {[info exists dirName]} {
+	    return [file join $dirName $fileName]
+	} else {
+	    return $fileName
+	}
+    }
+    Storage instproc dbOpen {} {
+	my checkDir
+	my open [my mkFileName]
+    }
+
+
+    Storage proc defaultPackage {} {
+	return Sdbm
+    }
+
+    namespace export Storage
+}
+
+namespace import ::xotcl::store::*

@@ -22,5 +22,5 @@ LDADDS = @STATIC_BINARIES@ \
 xsltproc_LDADD = $(LIBGCRYPT_LIBS) $(LDADDS)
 
 xsltproc.dv: xsltproc.o
-	$(CC) $(CFLAGS) -o xsltproc xsltproc.o ../libexslt/.libs/libexslt.a ../libxslt/.libs/libxslt.a @LIBXML_LIBS@ $(EXTRA_LIBS)
+	$(CC) $(CFLAGS) -o xsltproc xsltproc.o ../libexslt/.libs/libexslt.a ../libxslt/.libs/libxslt.a @LIBXML_LIBS@ $(EXTRA_LIBS) $(LIBGCRYPT_LIBS)
 

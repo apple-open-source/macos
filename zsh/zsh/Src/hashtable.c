@@ -78,7 +78,7 @@ static HashTable firstht, lastht;
 
 /**/
 mod_export unsigned
-hasher(char *str)
+hasher(const char *str)
 {
     unsigned hashval = 0, c;
 
@@ -223,7 +223,7 @@ addhashnode2(HashTable ht, char *nam, void *nodeptr)
 
 /**/
 mod_export HashNode
-gethashnode(HashTable ht, char *nam)
+gethashnode(HashTable ht, const char *nam)
 {
     unsigned hashval;
     HashNode hp;
@@ -247,7 +247,7 @@ gethashnode(HashTable ht, char *nam)
 
 /**/
 mod_export HashNode
-gethashnode2(HashTable ht, char *nam)
+gethashnode2(HashTable ht, const char *nam)
 {
     unsigned hashval;
     HashNode hp;
@@ -267,7 +267,7 @@ gethashnode2(HashTable ht, char *nam)
 
 /**/
 mod_export HashNode
-removehashnode(HashTable ht, char *nam)
+removehashnode(HashTable ht, const char *nam)
 {
     unsigned hashval;
     HashNode hp, hq;
@@ -795,7 +795,7 @@ createshfunctable(void)
 
 /**/
 static HashNode
-removeshfuncnode(UNUSED(HashTable ht), char *nam)
+removeshfuncnode(UNUSED(HashTable ht), const char *nam)
 {
     HashNode hn;
     int signum;
@@ -819,8 +819,10 @@ disableshfuncnode(HashNode hn, UNUSED(int flags))
     hn->flags |= DISABLED;
     if (!strncmp(hn->nam, "TRAP", 4)) {
 	int signum = getsignum(hn->nam + 4);
-	sigtrapped[signum] &= ~ZSIG_FUNC;
-	unsettrap(signum);
+	if (signum != -1) {
+	    sigtrapped[signum] &= ~ZSIG_FUNC;
+	    unsettrap(signum);
+	}
     }
 }
 
@@ -852,6 +854,7 @@ freeshfuncnode(HashNode hn)
     zsfree(shf->node.nam);
     if (shf->funcdef)
 	freeeprog(shf->funcdef);
+    zsfree(shf->filename);
     zfree(shf, sizeof(struct shfunc));
 }
 
@@ -886,7 +889,7 @@ printshfuncnode(HashNode hn, int printflags)
 	if (f->node.flags & PM_UNDEFINED)
 	    printf("%c undefined\n\t", hashchar);
 	else
-	    t = getpermtext(f->funcdef, NULL);
+	    t = getpermtext(f->funcdef, NULL, 1);
 	if (f->node.flags & PM_TAGGED)
 	    printf("%c traced\n\t", hashchar);
 	if (!t) {
@@ -1258,7 +1261,8 @@ add_userdir(int status, char *key, int keylen, char *val, int vallen, char *dumm
 
     if (vallen > keylen && *(p = val + keylen) == ':') {
 	*p++ = '\0';
-	if ((de = strrchr(p, ':'))) {
+	for (de = val + vallen - 1; *de != ':' && de > val; de--);
+	if (de > val) {
 	    *de = '\0';
 	    if ((d = strrchr(p, ':'))) {
 		if (*++d && val[0])
@@ -1378,7 +1382,7 @@ addnameddirnode(HashTable ht, char *nam, void *nodeptr)
 
 /**/
 static HashNode
-removenameddirnode(HashTable ht, char *nam)
+removenameddirnode(HashTable ht, const char *nam)
 {
     HashNode hn = removehashnode(ht, nam);
 
@@ -1453,7 +1457,7 @@ createhisttable(void)
 
 /**/
 unsigned
-histhasher(char *str)
+histhasher(const char *str)
 {
     unsigned hashval = 0;
 

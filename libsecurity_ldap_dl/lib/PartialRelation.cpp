@@ -26,99 +26,38 @@
 #include "CommonCode.h"
 
 
-
-PartialRelation::PartialRelation (CSSM_DB_RECORDTYPE recordType, int numberOfColumns)  :
-	Relation (recordType), mNumberOfColumns (numberOfColumns), mColumnNames (NULL),
-	mColumnFormat (NULL)
+PartialRelation::PartialRelation (CSSM_DB_RECORDTYPE recordType, int numberOfColumns, columnInfoLoader *theColumnInfo)  :
+	Relation (recordType), mNumberOfColumns (numberOfColumns)
 {
+	if (mNumberOfColumns == 0) {
+		mColumnInfo = NULL;
+		return;
+	}
+	
+	mColumnInfo = new columnInfo[mNumberOfColumns];
+	for (int i = 0; i < mNumberOfColumns; ++i) {
+		mColumnInfo[i].mColumnName = new StringValue (theColumnInfo[i].mColumnName);
+		mColumnInfo[i].mColumnID = theColumnInfo[i].mColumnID;
+		mColumnInfo[i].mColumnFormat = theColumnInfo[i].mColumnFormat;
+	}
 }
 
 
 
 PartialRelation::~PartialRelation ()
 {
-	if (mColumnNames != NULL)
-	{
-		int i;
-		for (i = 0; i < mNumberOfColumns; ++i)
-		{
-			delete mColumnNames[i];
-		}
-		
-		delete mColumnNames;
-		delete mColumnFormat;
+	if (mColumnInfo != NULL) {
+		for (int i = 0; i < mNumberOfColumns; ++i)
+			delete mColumnInfo[i].mColumnName;		
+		delete mColumnInfo;
 	}
 }
 
 
-
-void PartialRelation::SetColumnNames (char* column0, ...)
+StringValue *PartialRelation::GetColumnName (int i)
 {
-	// make an array of char* big enough to hold our data
-	mColumnNames = new Value*[mNumberOfColumns];
-	mColumnNames[0] = new StringValue (column0);
-	
-	va_list argList;
-	va_start (argList, column0);
-
-	int i;
-	for (i = 1; i < mNumberOfColumns; ++i)
-	{
-		char* next = va_arg (argList, char*);
-		mColumnNames[i] = new StringValue (next);
-	}
-	
-	va_end (argList);
+	return mColumnInfo[i].mColumnName;
 }
-
-
-
-void PartialRelation::SetColumnFormats (CSSM_DB_ATTRIBUTE_FORMAT column0, ...)
-{
-	mColumnFormat = new CSSM_DB_ATTRIBUTE_FORMAT[mNumberOfColumns];
-	mColumnFormat[0] = column0;
-	
-	va_list argList;
-	va_start (argList, column0);
-
-	int i;
-	for (i = 1; i < mNumberOfColumns; ++i)
-	{
-		CSSM_DB_ATTRIBUTE_FORMAT next = va_arg (argList, CSSM_DB_ATTRIBUTE_FORMAT);
-		mColumnFormat[i] = next;
-	}
-	
-	va_end (argList);
-}
-
-
-
-void PartialRelation::SetColumnIDs (uint32 column0, ...)
-{
-	mColumnIDs = new uint32 [mNumberOfColumns];
-	mColumnIDs[0] = column0;
-	
-	va_list argList;
-	va_start (argList, column0);
-
-	int i;
-	for (i = 1; i < mNumberOfColumns; ++i)
-	{
-		uint32 next = va_arg (argList, uint32);
-		mColumnIDs[i] = next;
-	}
-	
-	va_end (argList);
-}
-
-
-
-Tuple* PartialRelation::GetColumnNames ()
-{
-	TableTuple *t = new TableTuple (mColumnNames, mNumberOfColumns);
-	return t;
-}
-
 
 
 int PartialRelation::GetNumberOfColumns ()
@@ -128,9 +67,9 @@ int PartialRelation::GetNumberOfColumns ()
 
 
 
-uint32* PartialRelation::GetColumnIDs ()
+uint32 PartialRelation::GetColumnIDs (int i)
 {
-	return mColumnIDs;
+	return mColumnInfo[i].mColumnID;
 }
 
 
@@ -138,33 +77,23 @@ uint32* PartialRelation::GetColumnIDs ()
 int PartialRelation::GetColumnNumber (const char* columnName)
 {
 	// look for a column name that matches this columnName.  If not, throw an exception
-	int i;
-	for (i = 0; i < mNumberOfColumns; ++i)
-	{
-		StringValue* s = (StringValue*) mColumnNames[i];
-		if (s->GetRawValueAsStdString () == columnName)
-		{
-			return i;
-		}
-	}
-	
-	CSSMError::ThrowCSSMError (CSSMERR_DL_INVALID_FIELD_NAME);
+ 	for (int i = 0; i < mNumberOfColumns; ++i) {
+		const char *s = mColumnInfo[i].mColumnName->GetRawValue();
+		if (strncmp(s, columnName, strlen(s)) == 0)
+ 			return i;
+ 	}
+	return -1;
 }
 
 
 
 int PartialRelation::GetColumnNumber (uint32 columnID)
 {
-	int i;
-	for (i = 0; i < mNumberOfColumns; ++i)
-	{
-		if (mColumnIDs[i] == columnID)
-		{
+	for (int i = 0; i < mNumberOfColumns; ++i) {
+		if (mColumnInfo[i].mColumnID == columnID)
 			return i;
-		}
 	}
-
-	CSSMError::ThrowCSSMError (CSSMERR_DL_INVALID_FIELD_NAME);
+	return -1;
 }
 
 

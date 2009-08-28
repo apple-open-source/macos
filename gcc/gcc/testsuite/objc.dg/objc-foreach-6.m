@@ -1,7 +1,7 @@
 /* APPLE LOCAL file radar 4529200 */
 /* Test that when the object to be iterated is the return value of a method,
    it compiles without error. */
-/* { dg-options "-mmacosx-version-min=10.5" } */
+/* { dg-options "-mmacosx-version-min=10.5" { target powerpc*-*-darwin* i?86*-*-darwin* } } */
 /* { dg-do compile } */
 #include <Foundation/Foundation.h>
 

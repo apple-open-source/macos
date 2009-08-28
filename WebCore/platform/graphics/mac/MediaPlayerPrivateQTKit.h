@@ -37,12 +37,14 @@
 #import <QTKit/QTTime.h>
 @class QTMovie;
 @class QTMovieView;
+@class QTMovieLayer;
 @class QTVideoRendererWebKitOnly;
 @class WebCoreMovieObserver;
 #else
 class QTMovie;
 class QTMovieView;
 class QTTime;
+class QTMovieLayer;
 class QTVideoRendererWebKitOnly;
 class WebCoreMovieObserver;
 #endif
@@ -93,6 +95,7 @@ private:
     
     void setRate(float);
     void setVolume(float);
+    void setPreservesPitch(bool);
 
     void setEndTime(float time);
 
@@ -111,14 +114,37 @@ private:
     void setSize(const IntSize&);
     
     void paint(GraphicsContext*, const IntRect&);
+    void paintCurrentFrameInContext(GraphicsContext*, const IntRect&);
+
+#if USE(ACCELERATED_COMPOSITING)
+    bool supportsAcceleratedRendering() const;
+    void acceleratedRenderingStateChanged();
+#endif
+
+    bool hasSingleSecurityOrigin() const;
+    MediaPlayer::MovieLoadType movieLoadType() const;
 
     void createQTMovie(const String& url);
+    void createQTMovie(NSURL *, NSDictionary *movieAttributes);
+
+    enum MediaRenderingMode { MediaRenderingNone, MediaRenderingMovieView, MediaRenderingSoftwareRenderer, MediaRenderingMovieLayer };
+    MediaRenderingMode currentRenderingMode() const;
+    MediaRenderingMode preferredRenderingMode() const;
+    
     void setUpVideoRendering();
     void tearDownVideoRendering();
+    bool hasSetUpVideoRendering() const;
+    
     void createQTMovieView();
     void detachQTMovieView();
-    void createQTVideoRenderer();
+    
+    enum QTVideoRendererMode { QTVideoRendererModeDefault, QTVideoRendererModeListensForNewImages };
+    void createQTVideoRenderer(QTVideoRendererMode rendererMode);
     void destroyQTVideoRenderer();
+    
+    void createQTMovieLayer();
+    void destroyQTMovieLayer();
+
     QTTime createQTTime(float time) const;
     
     void updateStates();
@@ -149,7 +175,10 @@ private:
     unsigned m_enabledTrackCount;
     unsigned m_totalTrackCount;
     bool m_hasUnsupportedTracks;
-    float m_duration;
+    float m_reportedDuration;
+    float m_cachedDuration;
+    float m_timeToRestore;
+    RetainPtr<QTMovieLayer> m_qtVideoLayer;
 #if DRAW_FRAME_RATE
     int  m_frameCountWhilePlaying;
     double m_timeStartedPlaying;

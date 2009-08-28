@@ -32,6 +32,7 @@
 #include <IOKit/IOFilterInterruptEventSource.h>
 #include <IOKit/pci/IOPCIBridge.h>
 #include <IOKit/pci/IOPCIDevice.h>
+#include <IOKit/acpi/IOACPIPlatformDevice.h>
 
 #include <IOKit/usb/IOUSBControllerV3.h>
 #include <IOKit/usb/USB.h>
@@ -40,10 +41,6 @@
 #include "USBOHCI.h"
 #include "USBOHCIRootHub.h"
 #include "AppleUSBEHCI.h"
-
-#define USB_CONSTANT16(x)	(OSSwapHostToLittleConstInt16(x))
-#define MICROSECOND		(1)
-#define MILLISECOND		(1000)
 
 /* Convert USBLog to use kprintf debugging */
 #ifndef OHCI_USE_KPRINTF
@@ -117,7 +114,7 @@ struct AppleOHCIIsochTransferDescriptorStruct
 {
     UInt16									pType;						// Note this must appear at the same offset in GTD & ITD structs
     UInt16									uimFlags;					// Note this must appear at the same offset in GTD & ITD structs
-    UInt32									pPhysical;					// Note this must appear at the same offset in GTD & ITD structs
+    IOPhysicalAddress						pPhysical;					// Note this must appear at the same offset in GTD & ITD structs
     AppleOHCIIsochTransferDescriptorPtr		pLogicalNext;				// Note this must appear at the same offset in GTD & ITD structs
     OHCIIsochTransferDescriptorSharedPtr	pShared;					// pointer to the ITD shared with the controller
     IOUSBIsocCompletion						completion;					// callback for Isoch transactions
@@ -161,7 +158,8 @@ protected:
     UInt16											_revisionID;
     UInt32											_errataBits;			// various bits for chip erratas
     OHCIRegistersPtr								_pOHCIRegisters;		// Pointer to base address of OHCI registers.
-    Ptr												_pHCCA;					// Pointer to HCCA.
+	Ptr												_pHCCA;					// Pointer to HCCA.
+	IOBufferMemoryDescriptor *						_hccaBuffer;			// Buffer memory descriptor for the HCCA registers
     AppleOHCIIntHead								_pInterruptHead[63];	// ptr to private list of all interrupts heads 			
     volatile AppleOHCIEndpointDescriptorPtr			_pIsochHead;			// ptr to Isochronous list head
     volatile AppleOHCIEndpointDescriptorPtr			_pIsochTail;			// ptr to Isochronous list tail
@@ -218,13 +216,22 @@ protected:
     UInt64									_timeElapsed;
 	
     // variables to get the anchor frame
-	AbsoluteTime				_tempAnchorTime;
-	AbsoluteTime				_anchorTime;
-	UInt64						_tempAnchorFrame;
-	UInt64						_anchorFrame;
+	AbsoluteTime							_tempAnchorTime;
+	AbsoluteTime							_anchorTime;
+	UInt64									_tempAnchorFrame;
+	UInt64									_anchorFrame;
 	
+	UInt32									_ExpressCardPort;					// Port number of ExpressCard (0 if no ExpressCard on this controller)
+	bool									_badExpressCardAttached;			// True if a driver has identified a bad ExpressCard
+	bool									_needToReEnableRHSCInterrupt;		// True when we have disabled the RHSC and we need to enable it once we clear the root hub change
+	bool									_rootHubStatuschangedInterruptReceived;	// True when we receive a RHSC interrupt so that we can tell whether a controller waking from Doze is from a device or from software
+
+	UInt32									ExpressCardPort( IOService * provider );
+	IOACPIPlatformDevice *					CopyACPIDevice( IORegistryEntry * device );
+	bool									HasExpressCardUSB( IORegistryEntry * acpiDevice, UInt32 * portnum );
+
 	// saved root hub port registers
-	UInt32						_savedHcRhPortStatus[15];
+	UInt32									_savedHcRhPortStatus[15];
 
     static void 				InterruptHandler(OSObject *owner,  IOInterruptEventSource * source, int count);
     static bool 				PrimaryInterruptFilter(OSObject *owner, IOFilterInterruptEventSource *source);
@@ -236,7 +243,7 @@ protected:
     IOReturn 					BulkInitialize (void);
     IOReturn 					IsochronousInitialize(void);
     IOReturn 					InterruptInitialize (void);
-	IOReturn					InitializeOperationalRegisters(bool fromReset);
+	IOReturn					InitializeOperationalRegisters(void);
 
     // callPlatformFunction symbols
     //

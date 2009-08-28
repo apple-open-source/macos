@@ -27,13 +27,13 @@
  * ofile_get_word() gets a 32 bit word for the address in the object file.
  */
 __private_extern__
-long
+int32_t
 ofile_get_word(
 uint64_t addr,
 uint32_t *word,
 void *get_word_data /* struct mach_object_file *ofile */ )
 {
-    unsigned long i, j;
+    uint32_t i, j;
     struct load_command *lc;
     struct segment_command *sg;
     struct section *s;

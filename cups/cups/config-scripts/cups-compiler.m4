@@ -1,9 +1,9 @@
 dnl
-dnl "$Id: cups-compiler.m4 7648 2008-06-16 17:41:11Z mike $"
+dnl "$Id: cups-compiler.m4 7871 2008-08-27 21:12:43Z mike $"
 dnl
 dnl   Compiler stuff for the Common UNIX Printing System (CUPS).
 dnl
-dnl   Copyright 2007-2008 by Apple Inc.
+dnl   Copyright 2007-2009 by Apple Inc.
 dnl   Copyright 1997-2007 by Easy Software Products, all rights reserved.
 dnl
 dnl   These coded instructions, statements, and computer programs are the
@@ -15,55 +15,83 @@ dnl
 
 dnl Clear the debugging and non-shared library options unless the user asks
 dnl for them...
+INSTALL_STRIP=""
 OPTIM=""
+AC_SUBST(INSTALL_STRIP)
 AC_SUBST(OPTIM)
 
-AC_ARG_WITH(optim, [  --with-optim="flags"    set optimization flags ])
-AC_ARG_ENABLE(debug, [  --enable-debug          turn on debugging, default=no],
-	[if test x$enable_debug = xyes; then
-		OPTIM="-g"
-	fi])
+AC_ARG_WITH(optim, [  --with-optim            set optimization flags ])
+AC_ARG_ENABLE(debug, [  --enable-debug          build with debugging symbols])
+AC_ARG_ENABLE(debug_guards, [  --enable-debug-guards   build with memory allocation guards])
+AC_ARG_ENABLE(debug_printfs, [  --enable-debug-printfs  build with CUPS_DEBUG_LOG support])
+AC_ARG_ENABLE(unit_tests, [  --enable-unit-tests     build and run unit tests])
+
+dnl For debugging, keep symbols, otherwise strip them...
+if test x$enable_debug = xyes; then
+	OPTIM="-g"
+else
+	INSTALL_STRIP="-s"
+fi
+
+dnl Debug printfs can slow things down, so provide a separate option for that
+if test x$enable_debug_printfs = xyes; then
+	CFLAGS="$CFLAGS -DDEBUG"
+	CXXFLAGS="$CXXFLAGS -DDEBUG"
+fi
+
+dnl Debug guards use an extra 4 bytes for some structures like strings in the
+dnl string pool, so provide a separate option for that
+if test x$enable_debug_guards = xyes; then
+	CFLAGS="$CFLAGS -DDEBUG_GUARDS"
+	CXXFLAGS="$CXXFLAGS -DDEBUG_GUARDS"
+fi
+
+dnl Unit tests take up time during a compile...
+if test x$enable_unit_tests = xyes; then
+	UNITTESTS="unittests"
+else
+	UNITTESTS=""
+fi
+AC_SUBST(UNITTESTS)
 
 dnl Setup general architecture flags...
-AC_ARG_WITH(archflags, [  --with-archflags="flags"
-                          set default architecture flags ])
+AC_ARG_WITH(archflags, [  --with-archflags        set default architecture flags ])
+AC_ARG_WITH(ldarchflags, [  --with-ldarchflags      set program architecture flags ])
 
 if test -z "$with_archflags"; then
 	ARCHFLAGS=""
-	LDARCHFLAGS=""
 else
 	ARCHFLAGS="$with_archflags"
+fi
+
+if test -z "$with_ldarchflags"; then
 	if test "$uname" = Darwin; then
-		# Only link 32-bit programs - 64-bit is for the shared
-		# libraries...
+		# Only create 32-bit programs by default
 		LDARCHFLAGS="`echo $ARCHFLAGS | sed -e '1,$s/-arch x86_64//' -e '1,$s/-arch ppc64//'`"
 	else
 		LDARCHFLAGS="$ARCHFLAGS"
 	fi
+else
+	LDARCHFLAGS="$with_ldarchflags"
 fi
 
 AC_SUBST(ARCHFLAGS)
 AC_SUBST(LDARCHFLAGS)
 
 dnl Setup support for separate 32/64-bit library generation...
-AC_ARG_WITH(arch32flags, [  --with-arch32flags="flags"
-                          specifies 32-bit architecture flags])
+AC_ARG_WITH(arch32flags, [  --with-arch32flags      set 32-bit architecture flags])
 ARCH32FLAGS=""
 AC_SUBST(ARCH32FLAGS)
 
-AC_ARG_WITH(arch64flags, [  --with-arch64flags="flags"
-                          specifies 64-bit architecture flags])
+AC_ARG_WITH(arch64flags, [  --with-arch64flags      set 64-bit architecture flags])
 ARCH64FLAGS=""
 AC_SUBST(ARCH64FLAGS)
 
-dnl Position-Independent Executable support on Linux...
-AC_ARG_ENABLE(pie, [  --enable-pie            use GCC -fPIE option, default=no])
-
 dnl Read-only data/program support on Linux...
-AC_ARG_ENABLE(relro, [  --enable-relro          use GCC relro option, default=no])
+AC_ARG_ENABLE(relro, [  --enable-relro          build with the GCC relro option])
 
 dnl Update compiler options...
-CXXLIBS=""
+CXXLIBS="${CXXLIBS:=}"
 AC_SUBST(CXXLIBS)
 
 PIEFLAGS=""
@@ -73,7 +101,7 @@ RELROFLAGS=""
 AC_SUBST(RELROFLAGS)
 
 LIBCUPSORDER="libcups.order"
-AC_ARG_WITH(libcupsorder, [  --with-libcupsorder     libcups secorder file, default=libcups.order],
+AC_ARG_WITH(libcupsorder, [  --with-libcupsorder     set libcups secorder file, default=libcups.order],
 	if test -f "$withval"; then
 		LIBCUPSORDER="$withval"
 	fi)
@@ -81,11 +109,14 @@ AC_SUBST(LIBCUPSORDER)
 
 LIBCUPSIMAGEORDER="libcupsimage.order"
 AC_ARG_WITH(libcupsimageorder, [  --with-libcupsimagesorder
-                          libcupsimage secorder file, default=libcupsimage.order],
+                          set libcupsimage secorder file, default=libcupsimage.order],
 	if test -f "$withval"; then
 		LIBCUPSIMAGEORDER="$withval"
 	fi)
 AC_SUBST(LIBCUPSIMAGEORDER)
+
+PHPOPTIONS=""
+AC_SUBST(PHPOPTIONS)
 
 if test -n "$GCC"; then
 	# Add GCC-specific compiler options...
@@ -109,7 +140,7 @@ if test -n "$GCC"; then
 	AC_MSG_CHECKING(if GCC supports -fstack-protector)
 	OLDCFLAGS="$CFLAGS"
 	CFLAGS="$CFLAGS -fstack-protector"
-	AC_TRY_COMPILE(,,
+	AC_TRY_LINK(,,
 		OPTIM="$OPTIM -fstack-protector"
 		AC_MSG_RESULT(yes),
 		AC_MSG_RESULT(no))
@@ -118,16 +149,14 @@ if test -n "$GCC"; then
 	# The -pie option is available with some versions of GCC and adds
 	# randomization of addresses, which avoids another class of exploits
 	# that depend on a fixed address for common functions.
-	if test x$enable_pie = xyes; then
-		AC_MSG_CHECKING(if GCC supports -pie)
-		OLDCFLAGS="$CFLAGS"
-		CFLAGS="$CFLAGS -pie -fPIE"
-		AC_TRY_COMPILE(,,
-			PIEFLAGS="-pie -fPIE"
-			AC_MSG_RESULT(yes),
-			AC_MSG_RESULT(no, ignoring --enable-pie))
-		CFLAGS="$OLDCFLAGS"
-	fi
+	AC_MSG_CHECKING(if GCC supports -pie)
+	OLDCFLAGS="$CFLAGS"
+	CFLAGS="$CFLAGS -pie -fPIE"
+	AC_TRY_COMPILE(,,
+		PIEFLAGS="-pie -fPIE"
+		AC_MSG_RESULT(yes),
+		AC_MSG_RESULT(no))
+	CFLAGS="$OLDCFLAGS"
 
 	if test "x$with_optim" = x; then
 		# Add useful warning options for tracking down problems...
@@ -135,6 +164,8 @@ if test -n "$GCC"; then
 		# Additional warning options for development testing...
 		if test -d .svn; then
 			OPTIM="-Wshadow -Wunused $OPTIM"
+			CFLAGS="-Werror-implicit-function-declaration $CFLAGS"
+			PHPOPTIONS="-Wno-shadow"
 		fi
 	fi
 
@@ -325,9 +356,6 @@ else
 			fi
 
 			CFLAGS="-Ae $CFLAGS"
-			# Warning 336 is "empty translation unit"
-			# Warning 829 is passing constant string as char *
-			CXXFLAGS="+W336,829 $CXXFLAGS"
 
 			if test $PICFLAG = 1; then
 				OPTIM="+z $OPTIM"
@@ -499,8 +527,8 @@ else
 			# cups-support@cups.org...
 			echo "Building CUPS with default compiler optimizations; contact"
 			echo "cups-bugs@cups.org with uname and compiler options needed"
-			echo "for your platform, or set the CFLAGS, CXXFLAGS, and LDFLAGS"
-			echo "environment variables before running configure."
+			echo "for your platform, or set the CFLAGS and LDFLAGS environment"
+			echo "variables before running configure."
 			;;
 	esac
 fi
@@ -535,5 +563,5 @@ case $uname in
 esac
 
 dnl
-dnl End of "$Id: cups-compiler.m4 7648 2008-06-16 17:41:11Z mike $".
+dnl End of "$Id: cups-compiler.m4 7871 2008-08-27 21:12:43Z mike $".
 dnl

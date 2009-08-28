@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2005, 2007, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,6 +32,7 @@
 #ifndef _EV_IPV4_H
 #define _EV_IPV4_H
 
+#include <TargetConditionals.h>
 #include <netinet/in_var.h>
 
 __BEGIN_DECLS
@@ -40,7 +41,10 @@ void	interface_update_ipv4	(struct ifaddrs *ifap, const char *if_name);
 void	interface_collision_ipv4(const char *if_name,
 				 struct in_addr ip_addr,
 				 int hw_len, const void * hw_addr);
+#if	!TARGET_OS_IPHONE
 void	port_in_use_ipv4(uint16_t port, pid_t req_pid);
+#endif	/* !TARGET_OS_IPHONE */
+
 __END_DECLS
 
 #endif /* _EV_IPV4_H */

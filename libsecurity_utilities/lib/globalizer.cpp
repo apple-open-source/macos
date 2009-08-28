@@ -87,7 +87,7 @@ void *ModuleNexusCommon::create(void *(*make)())
     if (!initialPointer || (uintptr_t(initialPointer) & 0x1)) {
         Mutex *mutex;
         if (initialPointer == 0) {
-            mutex = new Mutex(false);	// don't bother debugging this one
+            mutex = new Mutex;
             mutex->lock();
 			if (!Atomic<void *>::casb(0, (void *)(uintptr_t(mutex) | 0x1), pointer)) {
                 // somebody beat us to the lead - back off

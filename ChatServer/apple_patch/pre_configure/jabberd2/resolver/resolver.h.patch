@@ -1,0 +1,10 @@
+--- /tmp/jabberd-2.1.24.1/resolver/resolver.h	2008-04-27 02:57:39.000000000 -0700
++++ ./jabberd2/resolver/resolver.h	2009-05-26 13:04:39.000000000 -0700
+@@ -44,6 +44,7 @@ typedef struct resolver_st {
+     char                *router_user;
+     char                *router_pass;
+     char                *router_pemfile;
++    char                *router_private_key_password;
+ 
+     /** mio context */
+     mio_t               mio;

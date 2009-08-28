@@ -1,7 +1,7 @@
 /*
  * eap_tls.h
  *
- * Version:     $Id: eap_tls.h,v 1.1.2.2 2006/04/28 18:16:55 aland Exp $
+ * Version:     $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,13 +15,17 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
  * Copyright 2001  hereUare Communications, Inc. <raghud@hereuare.com>
  * Copyright 2003  Alan DeKok <aland@freeradius.org>
+ * Copyright 2006  The FreeRADIUS server project
  */
 #ifndef _EAP_TLS_H
 #define _EAP_TLS_H
+
+#include <freeradius-devel/ident.h>
+RCSIDH(eap_tls_h, "$Id$")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -135,6 +139,7 @@ typedef struct _tls_info_t {
  * 					if set to no then only the first fragment contains length
  */
 typedef struct _tls_session_t {
+	SSL_CTX		*ctx;
 	SSL 		*ssl;
 	tls_info_t	info;
 
@@ -151,7 +156,7 @@ typedef struct _tls_session_t {
 				       unsigned int size);
 	unsigned int 	(*record_minus)(record_t *buf, void *ptr,
 					unsigned int size);
-	
+
 
 	/*
 	 * Framed-MTU attribute in RADIUS,
@@ -169,6 +174,9 @@ typedef struct _tls_session_t {
 	 */
 	void 		*opaque;
 	void 		(*free_opaque)(void *opaque);
+
+	const char	*prf_label;
+	int		allow_session_resumption;
 } tls_session_t;
 
 
@@ -177,15 +185,15 @@ typedef struct _tls_session_t {
  */
 eaptls_status_t eaptls_process(EAP_HANDLER *handler);
 
-int 		eaptls_success(EAP_DS *eap_ds, int peap_flag);
-int 		eaptls_fail(EAP_DS *eap_ds, int peap_flag);
+int 		eaptls_success(EAP_HANDLER *handler, int peap_flag);
+int 		eaptls_fail(EAP_HANDLER *handler, int peap_flag);
 int 		eaptls_request(EAP_DS *eap_ds, tls_session_t *ssn);
 
 
 /* MPPE key generation */
 void            eaptls_gen_mppe_keys(VALUE_PAIR **reply_vps, SSL *s,
 				     const char *prf_label);
-void		eapttls_gen_challenge(SSL *s, char *buffer, int size);
+void		eapttls_gen_challenge(SSL *s, uint8_t *buffer, size_t size);
 
 #define BUFFER_SIZE 1024
 
@@ -223,7 +231,6 @@ void		eapttls_gen_challenge(SSL *s, char *buffer, int size);
 #define SET_START(x) 		((x) | (0x20))
 #define SET_MORE_FRAGMENTS(x) 	((x) | (0x40))
 #define SET_LENGTH_INCLUDED(x) 	((x) | (0x80))
-
 
 /*
  *	Following enums from rfc2246
@@ -349,7 +356,6 @@ int 		cbtls_password(char *buf, int num, int rwflag, void *userdata);
 void 		cbtls_info(const SSL *s, int where, int ret);
 void 		cbtls_msg(int write_p, int msg_version, int content_type,
 	       		const void *buf, size_t len, SSL *ssl, void *arg);
-RSA		*cbtls_rsa(SSL *s, int is_export, int keylength);
 
 /* TLS */
 tls_session_t 	*eaptls_new_session(SSL_CTX *ssl_ctx, int client_cert);
@@ -361,5 +367,10 @@ void 		tls_session_information(tls_session_t *tls_session);
 void 		session_free(void *ssn);
 void 		session_close(tls_session_t *ssn);
 void 		session_init(tls_session_t *ssn);
+
+/* SSL Indicies for ex data */
+extern int	eaptls_handle_idx;
+extern int	eaptls_conf_idx;
+extern int	eaptls_session_idx;
 
 #endif /*_EAP_TLS_H*/

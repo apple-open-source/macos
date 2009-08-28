@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,8 +20,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1999 Apple Computer, Inc.  All rights reserved. 
- *
  * IOEthernetInterface.cpp
  *
  * HISTORY
@@ -92,8 +90,13 @@ enum {
 
 //---------------------------------------------------------------------------
 // Macros
-#define _altMTU _reserved->altMTU
-#define _publishedFeatureID _reserved->publishedFeatureID
+
+#define _altMTU                 _reserved->altMTU
+#define _publishedFeatureID     _reserved->publishedFeatureID
+#define _supportedWakeFilters   _reserved->supportedWakeFilters
+#define _disabledWakeFilters    _reserved->disabledWakeFilters
+
+#define kWOMPFeatureKey         "WakeOnMagicPacket"
 
 #ifdef  DEBUG
 #define DLOG(fmt, args...)  IOLog(fmt, ## args)
@@ -101,8 +104,10 @@ enum {
 #define DLOG(fmt, args...)
 #endif
 
-UInt32 IOEthernetInterface::getFilters(const OSDictionary * dict,
-                                       const OSSymbol *     group)
+UInt32
+IOEthernetInterface::getFilters(
+    const OSDictionary * dict,
+    const OSSymbol *     group )
 {
     OSNumber * num;
     UInt32     filters = 0;
@@ -116,9 +121,11 @@ UInt32 IOEthernetInterface::getFilters(const OSDictionary * dict,
     return filters;
 }
 
-bool IOEthernetInterface::setFilters(OSDictionary *   dict,
-                                     const OSSymbol * group,
-                                     UInt32           filters)
+bool
+IOEthernetInterface::setFilters(
+    OSDictionary *   dict,
+    const OSSymbol * group,
+    UInt32           filters )
 {
     OSNumber * num;
     bool       ret = false;
@@ -155,6 +162,8 @@ bool IOEthernetInterface::setFilters(OSDictionary *   dict,
 
 bool IOEthernetInterface::init(IONetworkController * controller)
 {
+    OSObject *  obj;
+
     _reserved = IONew( ExpansionData, 1 );
 	if( _reserved == 0 )
 		return false;
@@ -184,18 +193,39 @@ bool IOEthernetInterface::init(IONetworkController * controller)
         data->release();
     }
 
+    _inputEventThreadCall = thread_call_allocate(
+                            handleEthernetInputEvent, this );
+    if (!_inputEventThreadCall)
+        return false;
+
     // Create and initialize the filter dictionaries.
 
-    _requiredFilters = OSDictionary::withCapacity(4);
-    _activeFilters   = OSDictionary::withCapacity(4);
+    _requiredFilters = OSDictionary::withCapacity(2);
+    _activeFilters   = OSDictionary::withCapacity(2);
 
     if ( (_requiredFilters == 0) || (_activeFilters == 0) )
         return false;
 
-    _supportedFilters = OSDynamicCast(OSDictionary,
-                        controller->getProperty(kIOPacketFilters));
-    if ( _supportedFilters == 0 ) return false;
-    _supportedFilters->retain();
+    obj = controller->copyProperty(kIOPacketFilters);
+    if (obj && ((_supportedFilters = OSDynamicCast(OSDictionary, obj)) == 0))
+        obj->release();
+    if (!_supportedFilters)
+        return false;
+
+    // Cache the bit mask of wake filters supported by the driver.
+    // This value will not change.
+
+    _supportedWakeFilters = GET_SUPPORTED_FILTERS(
+                            gIOEthernetWakeOnLANFilterGroup );
+
+    // Retain the Disabled WOL filters OSNumber.
+    // Its value will be updated live for link and WOL changed events.
+
+    obj = _supportedFilters->getObject(
+            gIOEthernetDisabledWakeOnLANFilterGroup );
+    _disabledWakeFilters = OSDynamicCast(OSNumber, obj);
+    if (_disabledWakeFilters)
+        _disabledWakeFilters->retain();
 
     // Controller's Unicast (directed) and Broadcast filters should always
     // be enabled. Those bits should never be cleared.
@@ -255,7 +285,6 @@ bool IOEthernetInterface::initIfnetParams(struct ifnet_init_params *params)
 
 void IOEthernetInterface::free()
 {
-
     if ( _requiredFilters )
     {
         _requiredFilters->release();
@@ -273,9 +302,20 @@ void IOEthernetInterface::free()
         _supportedFilters->release();
         _supportedFilters = 0; 
     }
-	
+
+    if ( _inputEventThreadCall )
+    {
+        thread_call_free( _inputEventThreadCall );
+        _inputEventThreadCall = 0;
+    }
+
 	if ( _reserved )
 	{
+        if (_disabledWakeFilters)
+        {
+            _disabledWakeFilters->release();
+            _disabledWakeFilters = 0;
+        }
 		IODelete( _reserved, ExpansionData, 1 );
         _reserved = 0;
     }
@@ -331,11 +371,10 @@ bool IOEthernetInterface::controllerDidOpen(IONetworkController * ctr)
 
         // Advertise Wake on Magic Packet feature if supported.
         
-        if ( GET_SUPPORTED_FILTERS( gIOEthernetWakeOnLANFilterGroup ) &
-             kIOEthernetWakeOnMagicPacket )
+        if ( _supportedWakeFilters & kIOEthernetWakeOnMagicPacket )
         {
             IOPMrootDomain * root = getPMRootDomain();
-            if ( root ) root->publishFeature( "WakeOnMagicPacket",
+            if ( root ) root->publishFeature( kWOMPFeatureKey,
                              kIOPMSupportedOnAC | kIOPMSupportedOnUPS, 
                              (uint32_t *)&_publishedFeatureID);
         }
@@ -382,8 +421,7 @@ bool IOEthernetInterface::controllerDidOpen(IONetworkController * ctr)
 
 void IOEthernetInterface::controllerWillClose(IONetworkController * ctr)
 {
-    if ( GET_SUPPORTED_FILTERS( gIOEthernetWakeOnLANFilterGroup ) &
-         kIOEthernetWakeOnMagicPacket )
+    if ( _supportedWakeFilters & kIOEthernetWakeOnMagicPacket )
     {
         IOPMrootDomain * root = getPMRootDomain();
         if ( root ) root->removePublishedFeature( _publishedFeatureID );
@@ -412,7 +450,7 @@ void IOEthernetInterface::controllerWillClose(IONetworkController * ctr)
 // Returns an error code defined in errno.h (BSD).
 
 SInt32 IOEthernetInterface::performCommand( IONetworkController * ctr,
-                                            UInt32                cmd,
+                                            unsigned long         cmd,
                                             void *                arg0,
                                             void *                arg1 )
 {
@@ -473,7 +511,7 @@ int IOEthernetInterface::performGatedCommand(void * target,
         ( self->getInterfaceState() & kIONetworkInterfaceDisabledState ) )
          return EPWROFF;
 
-    switch ( (UInt32) arg2_cmd )
+    switch ( (uintptr_t) arg2_cmd )
     {
         case SIOCSIFADDR:
             ret = self->syncSIOCSIFADDR(ctr);
@@ -565,6 +603,10 @@ IOReturn IOEthernetInterface::enableController(IONetworkController * ctr)
         }
 
         _ctrEnabled = true;
+        
+        // Publish WOL support flags after interface is marked enabled.
+
+        reportInterfaceWakeFlags();
 
     } while (false);
 
@@ -843,7 +885,12 @@ int IOEthernetInterface::syncSIOCSIFLLADDR( IONetworkController * ctr,
 // when we try to cast a ptr to member function to a ptr to a 'C' function.
 
 IOReturn 
-IOEthernetInterface::enableFilter_Wrapper(IOEthernetInterface *self, IONetworkController *ctr, const OSSymbol *group, UInt32 filters, IOOptionBits options)
+IOEthernetInterface::enableFilter_Wrapper(
+    IOEthernetInterface *   self,
+    IONetworkController *   ctr,
+    const OSSymbol *        group,
+    UInt32                  filters,
+    IOOptionBits            options)
 {
 	return self->enableFilter(ctr, group, filters, options);
 }
@@ -930,7 +977,7 @@ IOEthernetInterface::disableFilter(IONetworkController * ctr,
 {
     IOReturn ret = kIOReturnSuccess;
 
-#if 0
+#if NOT_NEEDED  // disableFilter is always called from gated context
     if ( options & kFilterOptionNotInsideGate )
     {
         options &= ~kFilterOptionNotInsideGate;
@@ -1083,49 +1130,53 @@ IOEthernetInterface::controllerWillChangePowerState(
     {
         _controllerLostPower = true;
 
-		if (_ctrEnabled)
-		{
-            UInt32 filters;
-
-            // Get the "aggressiveness" factor from the policy maker.
-
-            ctr->getAggressiveness( kPMEthernetWakeOnLANSettings, &filters );
-
-            filters &= GET_SUPPORTED_FILTERS( gIOEthernetWakeOnLANFilterGroup );
-
-            // Is the link up? If it is, leave the WOL filters intact,
-            // otherwise mask out the WOL filters that would not function
-            // without a proper link. This will reduce power consumption
-            // for cases when a machine is put to sleep and there is no
-            // network connection.
-
-            OSNumber * linkStatusNumber = (OSNumber *) 
-                                          ctr->getProperty( kIOLinkStatus );
-
-            if ( ( linkStatusNumber == 0 ) ||
-                 ( ( linkStatusNumber->unsigned32BitValue() &
-                     (kIONetworkLinkValid | kIONetworkLinkActive) ) ==
-                      kIONetworkLinkValid ) )
+        if (_ctrEnabled)
+        {
+            if (policyMaker)
             {
-                filters &= ~( kIOEthernetWakeOnMagicPacket |
-                              kIOEthernetWakeOnPacketAddressMatch );
+                unsigned long filters;
+
+                // Called from PM instead of shutdown/restart context.
+                // Get the "aggressiveness" factor from the policy maker.
+
+                ctr->getAggressiveness( kPMEthernetWakeOnLANSettings, &filters );
+
+                filters &= _supportedWakeFilters;
+
+                // Is the link up? If it is, leave the WOL filters intact,
+                // otherwise mask out the WOL filters that would not function
+                // without a proper link. This will reduce power consumption
+                // for cases when a machine is put to sleep and there is no
+                // network connection.
+
+                OSNumber * linkStatusNumber = (OSNumber *) 
+                                              ctr->getProperty( kIOLinkStatus );
+
+                if ( ( linkStatusNumber == 0 ) ||
+                     ( ( linkStatusNumber->unsigned32BitValue() &
+                         (kIONetworkLinkValid | kIONetworkLinkActive) ) ==
+                          kIONetworkLinkValid ) )
+                {
+                    filters &= ~( kIOEthernetWakeOnMagicPacket |
+                                  kIOEthernetWakeOnPacketAddressMatch );
+                }
+
+                // Before controller is disabled, program its wake up filters.
+                // The WOL setting is formed by a bitwise OR between the WOL filter
+                // settings, and the aggresiveness factor from the policy maker.
+
+                enableFilter( ctr,
+                              gIOEthernetWakeOnLANFilterGroup,
+                              filters,
+                              kFilterOptionNoStateChange |
+                              kFilterOptionSyncPendingIO );
             }
-
-            // Before controller is disabled, program its wake up filters.
-            // The WOL setting is formed by a bitwise OR between the WOL filter
-            // settings, and the aggresiveness factor from the policy maker.
-
-            enableFilter( ctr,
-                          gIOEthernetWakeOnLANFilterGroup,
-                          filters,
-                          kFilterOptionNoStateChange |
-                          kFilterOptionSyncPendingIO );
 
             // Call SIOCSIFFLAGS handler to disable the controller,
             // and mark the interface as Not Running.
 
             syncSIOCSIFFLAGS(ctr);
-		}
+        }
     }
     
     return super::controllerWillChangePowerState( ctr, flags,
@@ -1158,8 +1209,6 @@ IOEthernetInterface::controllerDidChangePowerState(
     return ret;
 }
 
-#define kIONetworkInterfaceProperties   "IONetworkInterfaceProperties"
-
 //---------------------------------------------------------------------------
 // Handle a request to set properties from kernel or non-kernel clients.
 // For non-kernel clients, the preferred mechanism is through an user
@@ -1167,6 +1216,9 @@ IOEthernetInterface::controllerDidChangePowerState(
 
 IOReturn IOEthernetInterface::setProperties( OSObject * properties )
 {
+#ifndef __LP64__
+#define kIONetworkInterfaceProperties   "IONetworkInterfaceProperties"
+
     IOReturn       ret;
     OSDictionary * dict = (OSDictionary *) properties;
     OSNumber *     num;
@@ -1202,6 +1254,9 @@ IOReturn IOEthernetInterface::setProperties( OSObject * properties )
     }
 
     return ret;
+#else /* __LP64__ */
+    return super::setProperties(properties);
+#endif
 }
 
 //---------------------------------------------------------------------------
@@ -1340,3 +1395,130 @@ void IOEthernetInterface::feedPacketOutputTap(mbuf_t mt)
 		super::feedPacketOutputTap(mt);
 }
 
+//---------------------------------------------------------------------------
+
+bool IOEthernetInterface::inputEvent( UInt32 type, void * data )
+{
+    if ((type == kIONetworkEventTypeLinkUp)   ||
+        (type == kIONetworkEventTypeLinkDown) ||
+        (type == kIONetworkEventWakeOnLANSupportChanged))
+    {
+        // reportInterfaceWakeFlags() callout
+        retain();
+        if (thread_call_enter( _inputEventThreadCall ) == TRUE)
+            release();
+    }
+
+    return super::inputEvent(type, data);
+}
+
+void IOEthernetInterface::handleEthernetInputEvent(
+    thread_call_param_t param0,
+    thread_call_param_t /*param1 not used*/ )
+{
+    IOEthernetInterface * me = (IOEthernetInterface *) param0;
+    IONetworkController * ctr;
+    
+    if (me)
+    {
+        ctr = me->getController();
+        if (ctr) ctr->executeCommand(
+            me,     /* client */
+                    /* action */
+            OSMemberFunctionCast(
+                IONetworkController::Action, me,
+                &IOEthernetInterface::reportInterfaceWakeFlags),
+            me );   /* target */
+
+        me->release();
+    }
+}
+
+//---------------------------------------------------------------------------
+
+void IOEthernetInterface::reportInterfaceWakeFlags( void )
+{
+    ifnet_t                 ifnet;
+    IONetworkController *   ctr;
+    OSNumber *              number;
+    unsigned long           wakeSetting = 0;
+    uint32_t                disabled    = 0;
+    uint32_t                filters     = 0;
+    uint32_t                linkStatus  = 0;
+
+    ctr   = getController();
+    ifnet = getIfnet();
+
+    if (!ifnet || !ctr)
+        return;
+
+    // Across system sleep/wake, link down is expected, this should
+    // not trigger a wake flags changed.
+
+    if (_controllerLostPower)
+    {
+        DLOG("en%u: controllerLostPower\n", getUnitNumber());
+        return;
+    }
+
+    do {
+        // Report negative if controller is disabled or does not support WOL.
+
+        if (!_ctrEnabled ||
+            ((_supportedWakeFilters & kIOEthernetWakeOnMagicPacket) == 0))
+        {
+            DLOG("en%u: ctrEnabled = %x, WakeFilters = %x\n",
+                getUnitNumber(), _ctrEnabled, _supportedWakeFilters);
+            break;
+        }
+
+        // Poll for disabled WOL filters, which is allowed to change
+        // after every link and WOL changed event.
+
+        if (_disabledWakeFilters)
+        {
+            if ( ctr->getPacketFilters(
+                    gIOEthernetDisabledWakeOnLANFilterGroup,
+                    (UInt32 *) &disabled ) != kIOReturnSuccess )
+            {
+                disabled = 0;
+            }
+            _disabledWakeFilters->setValue( disabled );
+        }
+
+        // Check if network wake option is enabled,
+        // that also implies system is on AC power.
+
+        getAggressiveness(kPMEthernetWakeOnLANSettings, &wakeSetting);
+        filters = wakeSetting & _supportedWakeFilters & ~disabled;
+        DLOG("en%u: WakeSetting = %lx, WakeFilters = %x, disabled = %x\n",
+            getUnitNumber(), wakeSetting, _supportedWakeFilters, disabled);
+        
+        if ((kIOEthernetWakeOnMagicPacket & filters) == 0)
+            break;
+
+        // Check driver is reporting valid link.
+
+        number = OSDynamicCast(OSNumber, ctr->getProperty(kIOLinkStatus));
+        if (!number)
+        {
+            filters = 0;
+            break;
+        }
+
+        linkStatus = number->unsigned32BitValue();
+        if ((linkStatus & (kIONetworkLinkValid | kIONetworkLinkActive)) ==
+            kIONetworkLinkValid)
+        {
+            filters = 0;
+        }
+    }
+    while (false);
+
+    filters &= IFNET_WAKE_ON_MAGIC_PACKET;
+    if (filters != (ifnet_get_wake_flags(ifnet) & IFNET_WAKE_ON_MAGIC_PACKET))
+    {
+        ifnet_set_wake_flags(ifnet, filters, IFNET_WAKE_ON_MAGIC_PACKET);
+        DLOG("en%u: ifnet_set_wake_flags = %x\n", getUnitNumber(), filters);
+    }
+}

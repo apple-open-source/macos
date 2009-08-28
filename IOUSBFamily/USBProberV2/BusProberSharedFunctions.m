@@ -565,7 +565,7 @@ NSString * VendorNameFromVendorID(NSString * intValueAsString) {
 
 NSString * GetUSBProductNameFromRegistry(io_registry_entry_t entry) {
 
-	return (NSString *) IORegistryEntryCreateCFProperty(	entry, CFSTR("USB Product Name"), kCFAllocatorDefault, 0);
+	return (NSString *) IORegistryEntryCreateCFProperty(	entry, CFSTR(kUSBProductString), kCFAllocatorDefault, 0);
 	
 }
 

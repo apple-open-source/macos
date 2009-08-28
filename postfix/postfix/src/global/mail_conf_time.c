@@ -21,7 +21,7 @@
 /*	int     value;
 /*
 /*	void	get_mail_conf_time_table(table)
-/*	CONFIG_TIME_TABLE *table;
+/*	const CONFIG_TIME_TABLE *table;
 /* AUXILIARY FUNCTIONS
 /*	int	get_mail_conf_time2(name1, name2, defval, def_unit, min, max);
 /*	const char *name1;
@@ -179,13 +179,13 @@ void    set_mail_conf_time_int(const char *name, int value)
 {
     char    buf[BUFSIZ];		/* yeah! crappy code! */
 
-    sprintf(buf, "%ds", value);		        /* yeah! more crappy code! */
+    snprintf(buf, sizeof buf, "%ds", value);		        /* yeah! more crappy code! */
     mail_conf_update(name, buf);
 }
 
 /* get_mail_conf_time_table - look up table of integers */
 
-void    get_mail_conf_time_table(CONFIG_TIME_TABLE *table)
+void    get_mail_conf_time_table(const CONFIG_TIME_TABLE *table)
 {
     while (table->name) {
 	table->target[0] = get_mail_conf_time(table->name, table->defval,
@@ -208,7 +208,7 @@ int     main(int unused_argc, char **unused_argv)
     static int hours;
     static int days;
     static int weeks;
-    static CONFIG_TIME_TABLE time_table[] = {
+    static const CONFIG_TIME_TABLE time_table[] = {
 	"seconds", "10s", &seconds, 0, 0,
 	"minutes", "10m", &minutes, 0, 0,
 	"hours", "10h", &hours, 0, 0,

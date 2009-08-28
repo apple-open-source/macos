@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,21 +20,26 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+// BSD includes
+#include <sys/sysctl.h>
 
+// IOKit includes
 #include <libkern/OSAtomic.h>
 #include <IOKit/IOMemoryDescriptor.h>
 #include <IOKit/IOCommandGate.h>
 #include <IOKit/IOWorkLoop.h>
+#include <IOKit/IOKitKeys.h>
 #include <IOKit/ata/IOATATypes.h>
 #include <IOKit/ata/IOATADevConfig.h>
 #include <IOKit/ata/IOATABusInfo.h>
 #include <IOKit/ata/IOATACommand.h>
-#include <IOKit/IOSyncer.h>
 #include <IOKit/scsi/SCSICommandOperationCodes.h>
 #include <IOKit/scsi/SCSITask.h>
 #include <IOKit/scsi/SCSITaskDefinition.h>			// Remove me when API is available for IsAutosenseRequested()
 
 #include "IOATAPIProtocolTransport.h"
+#include "IOATAPIProtocolTransportTimeStamps.h"
+#include "IOATAPIProtocolTransportDebugging.h"
 
 #include <IOKit/storage/ata/IOATAFamilyPriv.h>
 
@@ -58,6 +63,8 @@
 #else
 #define STATUS_LOG(x)
 #endif
+
+#define DEBUG_UNUSED( X )		( void )( X )
 
 
 // Timeout values used by the ATAPI Driver
@@ -102,7 +109,7 @@ struct ATAPIConfigData
 {
 	IOATAPIProtocolTransport *	self;
 	UInt32						state;
-	IOSyncer *					syncer;
+	bool						done;
 };
 typedef struct ATAPIConfigData ATAPIConfigData;
 
@@ -126,23 +133,157 @@ enum
 	kODDMediaNotifyValue1	= 1
 };
 
+#define	kATAPI5SecondsInNanoseconds		( 5LL * 1000LL * 1000LL * 1000LL )
+
 #define fSemaphore			reserved->fSemaphore
 #define fMediaNotifyValue	reserved->fMediaNotifyValue
 
 #define super IOSCSIProtocolServices
 OSDefineMetaClassAndStructors ( IOATAPIProtocolTransport, IOSCSIProtocolServices );
 
-#pragma mark ¥ Public Methods
+
+//-----------------------------------------------------------------------------
+//      Class
+//-----------------------------------------------------------------------------
+
+class ATAPITransportGlobals
+{
+
+public:
+
+	// Constructor
+	ATAPITransportGlobals ( void );
+
+	// Destructor
+	virtual ~ATAPITransportGlobals ( void );
+
+};
+
+
+//-----------------------------------------------------------------------------
+//      Prototypes
+//-----------------------------------------------------------------------------
+
+static inline void
+RecordATAPITimeStamp (
+	unsigned int code,
+	unsigned int a = 0, unsigned int b = 0,
+	unsigned int c = 0, unsigned int d = 0 );
+
+static int
+ATAPITransportSysctl (
+	struct sysctl_oid * oidp,
+	void *				arg1,
+	int 				arg2,
+	struct sysctl_req * req );
+
+
+//-----------------------------------------------------------------------------
+//  Globals
+//-----------------------------------------------------------------------------
+static ATAPITransportGlobals	gATAPIGlobals;
+UInt32							gATAPIDebugFlags = 0;
+
+SYSCTL_PROC ( _debug, OID_AUTO, ATAPITransport, CTLFLAG_RW, 0, 0, ATAPITransportSysctl, "ATAPITransport", "ATAPI Transport debug interface" );
+
+
+#pragma mark Public Methods
+
+
+//-----------------------------------------------------------------------------
+//  ATAPITransportSysctl - Sysctl handler.                      [PRIVATE]
+//-----------------------------------------------------------------------------
+
+static int
+ATAPITransportSysctl ( struct sysctl_oid * oidp, void * arg1, int arg2, struct sysctl_req * req )
+{
+
+    int             	error = 0;
+    ATAPISysctlArgs    	sysctlArgs;
+
+    DEBUG_UNUSED ( oidp );
+    DEBUG_UNUSED ( arg1 );
+    DEBUG_UNUSED ( arg2 );
+
+    ERROR_LOG  ( ( "+ATAPITransportSysctl: gATAPIDebugFlags = 0x%08X\n", ( unsigned int ) gATAPIDebugFlags ) );
+
+    error = SYSCTL_IN ( req, &sysctlArgs, sizeof ( sysctlArgs ) );
+    if ( ( error == 0 ) && ( sysctlArgs.type == kATAPITypeDebug ) )
+    {
+
+        if ( sysctlArgs.operation == kATAPIOperationGetFlags )
+        {
+
+            sysctlArgs.debugFlags = gATAPIDebugFlags;
+            error = SYSCTL_OUT ( req, &sysctlArgs, sizeof ( sysctlArgs ) );
+
+        }
+
+        else if ( sysctlArgs.operation == kATAPIOperationSetFlags )
+        {
+            gATAPIDebugFlags = sysctlArgs.debugFlags;
+        }
+
+    }
+
+    STATUS_LOG ( ( "-ATAPITransportSysctl: gATAPIDebugFlags = 0x%08X\n", ( unsigned int ) gATAPIDebugFlags ) );
+
+    return error;
+
+}
+
+
+//-----------------------------------------------------------------------------
+//  Default Constructor
+//-----------------------------------------------------------------------------
+
+ATAPITransportGlobals::ATAPITransportGlobals ( void )
+{
+
+    int     debugFlags;
+   
+    STATUS_LOG ( ( "+ATAPITransportGlobals::ATAPITransportGlobals\n" ) );
+   
+    if ( PE_parse_boot_argn ( "ATAPIdisk", &debugFlags, sizeof ( debugFlags ) ) )
+    {
+
+        gATAPIDebugFlags = debugFlags;
+
+    }
+
+    // Register our sysctl interface
+    sysctl_register_oid ( &sysctl__debug_ATAPITransport );
+
+    STATUS_LOG ( ( "-ATAPITransportGlobals::ATAPITransportGlobals\n" ) );
+
+}
+
+
+//-----------------------------------------------------------------------------
+//  Destructor
+//-----------------------------------------------------------------------------
+
+ATAPITransportGlobals::~ATAPITransportGlobals ( void )
+{
+
+    STATUS_LOG ( ( "+~ATAPITransportGlobals::ATAPITransportGlobals\n" ) );
+
+    // Unregister our sysctl interface
+    sysctl_unregister_oid ( &sysctl__debug_ATAPITransport );
+
+    STATUS_LOG ( ( "-~ATAPITransportGlobals::ATAPITransportGlobals\n" ) );
+
+}
 
 
 //--------------------------------------------------------------------------------------
-//	¥ init	-	Initialization
+//	init - Initialization
 //--------------------------------------------------------------------------------------
 
 bool
 IOATAPIProtocolTransport::init ( OSDictionary * propTable )
 {
-
+	
 	STATUS_LOG ( ( "IOATAPIProtocolTransport::init entering\n" ) );
 		
 	// Run this by our superclass
@@ -162,14 +303,13 @@ IOATAPIProtocolTransport::init ( OSDictionary * propTable )
 
 
 //--------------------------------------------------------------------------------------
-//	¥ start	-	Start our services
+//	start -	Start our services
 //--------------------------------------------------------------------------------------
 
 bool
 IOATAPIProtocolTransport::start ( IOService * provider )
 {
 	
-	IOReturn		theErr				= kIOReturnSuccess;
 	IOWorkLoop *	workLoop			= NULL;
 	OSDictionary *	dict				= NULL;
 	IOService *		powerProvider		= NULL;
@@ -177,12 +317,9 @@ IOATAPIProtocolTransport::start ( IOService * provider )
 	
 	STATUS_LOG ( ( "IOATAPIProtocolTransport::start called\n" ) );
 	
-	fATADevice 				= NULL;
 	fATAUnitID				= kATAInvalidDeviceID;
 	fATADeviceType			= kUnknownATADeviceType;
 	fPhysicallyConnected 	= true;
-	fPollingThread			= NULL;
-	fResetInProgress		= false;
 	
 	reserved = IONew ( ExpansionData, 1 );
 	if ( reserved == NULL )
@@ -240,6 +377,7 @@ IOATAPIProtocolTransport::start ( IOService * provider )
 	{
 		fMediaNotifyValue = mediaNotifyValue->unsigned32BitValue ( );
 	}
+	
 	else
 	{
 		fMediaNotifyValue = kODDMediaNotifyValue0;
@@ -284,6 +422,12 @@ IOATAPIProtocolTransport::start ( IOService * provider )
 	
 	STATUS_LOG ( ( "unit ID is %d\n", ( UInt8 ) fATAUnitID ) );
 	STATUS_LOG ( ( "deviceType is %d\n", ( UInt8 ) fATADeviceType ) );
+
+	RecordATAPITimeStamp (
+		ATAPI_TRACE ( kATADeviceInfo ),
+		( unsigned int ) ( uintptr_t ) this,
+		( unsigned int ) fATAUnitID,
+		( unsigned int ) fATADeviceType );
 	
 	bzero ( fDeviceIdentifyData, kATAPIIdentifyPacketDeviceDataSize );
 	
@@ -299,41 +443,15 @@ IOATAPIProtocolTransport::start ( IOService * provider )
 		
 	}
 	
-	// Create an IOCommandGate (for power management support) and attach
-	// this event source to the provider's workloop
-	fCommandGate = IOCommandGate::commandGate ( this );
-	if ( fCommandGate == NULL )
-	{
-		
-		ERROR_LOG ( ( "fCommandGate == NULL.\n" ) );
-		goto RELEASE_IDENTIFY_DEVICE_BUFFER_ERROR;
-		
-	}
-	
+	fCommandGate = GetCommandGate ( );
 	workLoop = getWorkLoop ( );
-	if ( workLoop == NULL )
-	{
-		
-		ERROR_LOG ( ( "workLoop == NULL.\n" ) );
-		goto RELEASE_COMMAND_GATE_ERROR;
-		
-	}
 	
-	theErr = workLoop->addEventSource ( fCommandGate );
-	if ( theErr != kIOReturnSuccess )
-	{
-		
-		ERROR_LOG ( ( "Error = %d adding event source.\n", theErr ) );
-		goto RELEASE_COMMAND_GATE_ERROR;
-		
-	}
-	
-	fCommandPool = IOCommandPool::commandPool ( this, workLoop, kIOATAPICommandPoolSize );
+	fCommandPool = IOCommandPool::withWorkLoop ( workLoop );
 	if ( fCommandPool == NULL )
 	{
 		
 		ERROR_LOG ( ( "fCommandPool == NULL.\n" ) );
-		goto REMOVE_EVENT_SOURCE_ERROR;
+		goto RELEASE_IDENTIFY_DEVICE_BUFFER_ERROR;
 		
 	}
 	
@@ -406,10 +524,9 @@ IOATAPIProtocolTransport::start ( IOService * provider )
 						
 						IOService *			possibleProvider 	= NULL;
 						IOReturn			status 				= kIOReturnSuccess;
-						mach_timespec_t		timeout				= { 5, 0 };
 						
 						// Wait upto 5 seconds for matching to finish on master device.
-						status = obj->waitQuiet ( &timeout );
+						status = obj->waitQuiet ( kATAPI5SecondsInNanoseconds );
 						if ( status == kIOReturnTimeout )
 						{
 							break;
@@ -459,34 +576,26 @@ IOATAPIProtocolTransport::start ( IOService * provider )
 		
 	}
 	
-	
 	registerService ( );
-	
 	return true;
-
+	
+	
 DEALLOCATE_COMMANDS_ERROR:
 	
 	DeallocateATACommandObjects ( );
+	
 	
 RELEASE_COMMAND_POOL_ERROR:
 	
 	if ( fCommandPool != NULL )
 		fCommandPool->release ( );
 	
-REMOVE_EVENT_SOURCE_ERROR:
-	
-	if ( workLoop != NULL )
-		workLoop->removeEventSource ( fCommandGate );
-	
-RELEASE_COMMAND_GATE_ERROR:
-	
-	if ( fCommandGate != NULL )
-		fCommandGate->release ( );
 	
 RELEASE_IDENTIFY_DEVICE_BUFFER_ERROR:
 	
 	if ( fDeviceIdentifyBuffer != NULL )
 		fDeviceIdentifyBuffer->release ( );
+	
 	
 CLOSE_DEVICE_ERROR:
 	
@@ -497,7 +606,7 @@ CLOSE_DEVICE_ERROR:
 
 
 //--------------------------------------------------------------------------------------
-//	¥ stop	-	Stop our services
+//	stop - Stop our services
 //--------------------------------------------------------------------------------------
 
 void
@@ -513,7 +622,7 @@ IOATAPIProtocolTransport::stop ( IOService * provider )
 
 
 //--------------------------------------------------------------------------------------
-//	¥ free	-	Called to free any resources we allocated.
+//	free -	Called to free any resources we allocated.
 //--------------------------------------------------------------------------------------
 
 void
@@ -548,11 +657,11 @@ IOATAPIProtocolTransport::free ( void )
 }
 
 
-#pragma mark ¥ Protected Methods
+#pragma mark Protected Methods
 
 
 //--------------------------------------------------------------------------------------
-//	¥ ReportATAPIDeviceType - Report the type of the device (ATA vs. ATAPI).
+//	ReportATAPIDeviceType - Report the type of the device (ATA vs. ATAPI).
 //--------------------------------------------------------------------------------------
 
 ataDeviceType
@@ -565,7 +674,7 @@ IOATAPIProtocolTransport::ReportATAPIDeviceType ( void ) const
 
 
 //--------------------------------------------------------------------------------------
-//	¥ SendSCSICommand	-	Sends a SCSI Command to the provider bus
+//	SendSCSICommand	- Sends a SCSI Command to the provider bus
 //--------------------------------------------------------------------------------------
 
 bool
@@ -589,6 +698,13 @@ IOATAPIProtocolTransport::SendSCSICommand ( SCSITaskIdentifier request,
 	if ( OSBitOrAtomic ( kATAPICommandBusyMask, &fSemaphore ) & kATAPICommandBusyMask )
 	{
 		STATUS_LOG ( ( "Command in use, returning false\n" ) );
+
+		RecordATAPITimeStamp (
+			ATAPI_TRACE ( kATASendSCSICommandFailed ),
+			( unsigned int ) ( uintptr_t ) this,
+			( unsigned int ) fATAUnitID, 
+			( unsigned int ) ( uintptr_t ) request );
+
 		return false;
 	}
 	
@@ -602,6 +718,13 @@ IOATAPIProtocolTransport::SendSCSICommand ( SCSITaskIdentifier request,
 			
 			STATUS_LOG ( ( "Not an autosense command, returning false.\n" ) );
 			OSBitAndAtomic ( ~kATAPICommandBusyMask, &fSemaphore );
+
+			RecordATAPITimeStamp (
+				ATAPI_TRACE ( kATASendSCSICommandFailed ),
+				( unsigned int ) ( uintptr_t ) this,
+				( unsigned int ) fATAUnitID,
+				( unsigned int ) ( uintptr_t ) request );
+
 			return false;
 			
 		}
@@ -617,6 +740,13 @@ IOATAPIProtocolTransport::SendSCSICommand ( SCSITaskIdentifier request,
 	clientData 			= ( ATAPIClientData * ) cmd->refCon;	
 	*serviceResponse 	= kSCSIServiceResponse_Request_In_Process;
 	*taskStatus			= kSCSITaskStatus_No_Status;
+
+	RecordATAPITimeStamp (
+		ATAPI_TRACE ( kATASendSCSICommand ),
+		( unsigned int ) ( uintptr_t ) this,
+		( unsigned int ) fATAUnitID,
+		( unsigned int ) ( uintptr_t ) cmd,
+		( unsigned int ) ( uintptr_t ) request );
 	
 	if ( fPhysicallyConnected == false )
 	{
@@ -625,6 +755,13 @@ IOATAPIProtocolTransport::SendSCSICommand ( SCSITaskIdentifier request,
 		*serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
 		ReturnATACommandObject ( cmd );
 		OSBitAndAtomic ( ~kATAPICommandBusyMask, &fSemaphore );
+
+		RecordATAPITimeStamp (
+			ATAPI_TRACE ( kATASendSCSICommandFailed ),
+			( unsigned int ) ( uintptr_t ) this,
+			( unsigned int ) fATAUnitID,
+			( unsigned int ) ( uintptr_t ) request );
+
 		return false;
 		
 	}
@@ -791,7 +928,7 @@ IOATAPIProtocolTransport::SendSCSICommand ( SCSITaskIdentifier request,
 
 
 //--------------------------------------------------------------------------------------
-//	¥ SCSITaskCallbackFunction	-	virtual callback routine which calls CompleteSCSITask
+//	SCSITaskCallbackFunction - virtual callback routine which calls CompleteSCSITask
 //--------------------------------------------------------------------------------------
 
 void
@@ -898,7 +1035,7 @@ IOATAPIProtocolTransport::SCSITaskCallbackFunction ( IOATACommand * cmd,
 
 
 //--------------------------------------------------------------------------------------
-//	¥ CompleteSCSITask	-	Called to complete a SCSI Command
+//	CompleteSCSITask -	Called to complete a SCSI Command
 //--------------------------------------------------------------------------------------
 
 void
@@ -908,6 +1045,13 @@ IOATAPIProtocolTransport::CompleteSCSITask ( 	SCSITaskIdentifier	request,
 {
 	
 	STATUS_LOG ( ( "IOATAPIProtocolTransport::CompleteSCSITask called\n" ) );
+
+	RecordATAPITimeStamp (
+		ATAPI_TRACE ( kATACompleteSCSICommand ),
+		( unsigned int ) ( uintptr_t ) this,
+		( unsigned int ) fATAUnitID,
+		( unsigned int ) ( uintptr_t ) request,
+		( serviceResponse << 8 ) | taskStatus );
 	
 	OSBitAndAtomic ( ~kATAPICommandBusyMask, &fSemaphore );
 	CommandCompleted ( request, serviceResponse, taskStatus );
@@ -916,18 +1060,25 @@ IOATAPIProtocolTransport::CompleteSCSITask ( 	SCSITaskIdentifier	request,
 
 
 //--------------------------------------------------------------------------------------
-//	¥ AbortSCSICommand	-	Aborts a SCSI Command
+//	AbortSCSICommand - Aborts a SCSI Command
 //--------------------------------------------------------------------------------------
 
 SCSIServiceResponse
 IOATAPIProtocolTransport::AbortSCSICommand ( SCSITaskIdentifier request )
 {
+
+	RecordATAPITimeStamp (
+		ATAPI_TRACE ( kATAAbort ),
+		( unsigned int ) ( uintptr_t ) this,
+		( unsigned int ) fATAUnitID,
+		( unsigned int ) ( uintptr_t ) request );
+
 	return kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
 }
 
 
 //--------------------------------------------------------------------------------------
-//	¥ IsProtocolServiceSupported	-	Returns true if feature is supported
+//	IsProtocolServiceSupported - Returns true if feature is supported
 //--------------------------------------------------------------------------------------
 
 bool
@@ -976,7 +1127,7 @@ IOATAPIProtocolTransport::IsProtocolServiceSupported ( SCSIProtocolFeature featu
 
 
 //--------------------------------------------------------------------------------------
-//	¥ HandleProtocolServiceFeature	-	Returns true if feature is handled successfully
+//	HandleProtocolServiceFeature - Returns true if feature is handled successfully
 //--------------------------------------------------------------------------------------
 
 bool
@@ -992,7 +1143,7 @@ IOATAPIProtocolTransport::HandleProtocolServiceFeature ( SCSIProtocolFeature fea
 	{
 		
 		case kSCSIProtocolFeature_ProtocolSpecificPolling:
-			// WeÕre being told to do protocol specific polling
+			// Weâ€™re being told to do protocol specific polling
 			if ( serviceValue != NULL )
 			{
 				
@@ -1006,7 +1157,7 @@ IOATAPIProtocolTransport::HandleProtocolServiceFeature ( SCSIProtocolFeature fea
 					bool	resetOccurred = false;
 					
 					STATUS_LOG ( ( "Enabling polling of ATA Status register\n" ) );					
-					
+										
 					fCommandGate->runAction ( ( IOCommandGate::Action )
 											  &IOATAPIProtocolTransport::sSetWakeupResetOccurred,
 											  ( void * ) resetOccurred );
@@ -1021,7 +1172,7 @@ IOATAPIProtocolTransport::HandleProtocolServiceFeature ( SCSIProtocolFeature fea
 				
 					// stop low power polling
 					
-					STATUS_LOG ( ( "Disabling polling of ATA Status register\n" ) );					
+					STATUS_LOG ( ( "Disabling polling of ATA Status register\n" ) );		
 									
 					DisablePollingOfStatusRegister ( );
 					isSupported = true;
@@ -1034,7 +1185,7 @@ IOATAPIProtocolTransport::HandleProtocolServiceFeature ( SCSIProtocolFeature fea
 		
 		case kSCSIProtocolFeature_ProtocolSpecificSleepCommand:
 			
-			// WeÕre being told to do protocol specific sleep
+			// Weâ€™re being told to do protocol specific sleep
 			
 			if ( serviceValue != NULL )
 			{
@@ -1044,7 +1195,7 @@ IOATAPIProtocolTransport::HandleProtocolServiceFeature ( SCSIProtocolFeature fea
 				if ( value != 0 )
 				{
 					
-					STATUS_LOG ( ( "Sending ATA sleep command\n" ) );
+					STATUS_LOG ( ( "Sending ATA sleep command\n" ) );				
 					
 					( void ) SendATASleepCommand ( );
 					isSupported = true;
@@ -1057,7 +1208,12 @@ IOATAPIProtocolTransport::HandleProtocolServiceFeature ( SCSIProtocolFeature fea
 			
 		case kSCSIProtocolFeature_ProtocolSpecificPowerOff:
 			
-			// WeÕre being told to cut power to the drive OFF
+			// Weâ€™re being told to cut power to the drive OFF
+			
+			RecordATAPITimeStamp ( ATAPI_TRACE ( kATAPowerOnReset ),
+									( unsigned int ) ( uintptr_t ) this,
+									( unsigned int ) fATAUnitID,
+									( unsigned int ) fATADeviceType );			
 			
 			( void ) TurnDrivePowerOff ( );
 			
@@ -1075,7 +1231,7 @@ IOATAPIProtocolTransport::HandleProtocolServiceFeature ( SCSIProtocolFeature fea
 
 
 //--------------------------------------------------------------------------------------
-//	¥ HandlePowerOn	- Power management routine to handle power state transition
+//	HandlePowerOn -	Power management routine to handle power state transition
 //--------------------------------------------------------------------------------------
 
 
@@ -1099,6 +1255,12 @@ IOATAPIProtocolTransport::HandlePowerOn ( void )
 		
 		STATUS_LOG ( ( "%s fWakeUpResetOccurred is false, resetting device %s\n",
 							"\033[36m", getName ( ), __FUNCTION__, "\033[0m" ) );	
+
+		RecordATAPITimeStamp (
+			ATAPI_TRACE ( kATAPowerOnReset ),
+			( unsigned int ) ( uintptr_t ) this,
+			( unsigned int ) fATAUnitID,
+			( unsigned int ) fATADeviceType );
 		
 		// We aren't on a shared bus, so we need to reset the device
 		status = ResetATAPIDevice ( );
@@ -1110,6 +1272,12 @@ IOATAPIProtocolTransport::HandlePowerOn ( void )
 		
 		STATUS_LOG ( ( "%s fWakeUpResetOccurred is true, NO reset needed %s\n",
 				"\033[36m", getName ( ), __FUNCTION__, "\033[0m" ) );	
+
+		RecordATAPITimeStamp (
+			ATAPI_TRACE ( kATAPowerOnNoReset ),
+			( unsigned int ) ( uintptr_t ) this,
+			( unsigned int ) fATAUnitID,
+			( unsigned int ) fATADeviceType );
 		
 	}
 	
@@ -1119,7 +1287,7 @@ IOATAPIProtocolTransport::HandlePowerOn ( void )
 
 
 //--------------------------------------------------------------------------------------
-//	¥ HandlePowerOff - Power managment routine to handle power state transition
+//	HandlePowerOff - Power managment routine to handle power state transition
 //--------------------------------------------------------------------------------------
 
 
@@ -1129,6 +1297,12 @@ IOATAPIProtocolTransport::HandlePowerOff ( void )
 	
 	IOReturn		status = kIOReturnSuccess;
 	bool			resetOccurred = false;
+
+	RecordATAPITimeStamp (
+		ATAPI_TRACE ( kATAHandlePowerOff ),
+		( unsigned int ) ( uintptr_t ) this,
+		( unsigned int ) fATAUnitID,
+		( unsigned int ) fATADeviceType );
 	
 	fCommandGate->runAction ( ( IOCommandGate::Action )
 							  &IOATAPIProtocolTransport::sSetWakeupResetOccurred,
@@ -1140,8 +1314,8 @@ IOATAPIProtocolTransport::HandlePowerOff ( void )
 
 
 //--------------------------------------------------------------------------------------
-//	¥ sSCSITaskCallbackProc	-	static callback routine which calls through to the virtual
-//								routine
+//	sSCSITaskCallbackProc - static callback routine which calls through to the virtual
+//							routine
 //--------------------------------------------------------------------------------------
 
 void
@@ -1170,7 +1344,7 @@ IOATAPIProtocolTransport::sSCSITaskCallbackProc ( IOATACommand * cmd )
 
 
 //---------------------------------------------------------------------------
-// ¥ InspectDevice - Fetch information about the ATAPI device nub.
+// InspectDevice - Fetch information about the ATAPI device nub.
 //---------------------------------------------------------------------------
 
 bool
@@ -1219,16 +1393,19 @@ IOATAPIProtocolTransport::InspectDevice ( IOATADevice * ataDevice )
 
 
 //--------------------------------------------------------------------------------------
-//	¥ sATACallbackSync	-	static synchronous callback routine
+//	sATACallbackSync - static synchronous callback routine
 //--------------------------------------------------------------------------------------
 
 void
 IOATAPIProtocolTransport::sATACallbackSync ( IOATACommand * cmd )
 {
 	
-	IOSyncer *		syncer	= NULL;
+	ATAPIConfigData *				configData;
+	IOATAPIProtocolTransport *		self;
 	
 	STATUS_LOG ( ( "IOATAPIProtocolTransport::sATACallbackSync entering\n" ) );	
+	
+	configData = ( ATAPIConfigData * ) cmd->refCon;
 	
 	if ( cmd->getResult ( ) != kATANoErr )
 	{
@@ -1237,18 +1414,19 @@ IOATAPIProtocolTransport::sATACallbackSync ( IOATACommand * cmd )
 		
 	}
 	
-	syncer = ( IOSyncer * ) cmd->refCon;
-	assert ( syncer );
+	STATUS_LOG ( ( "signalling command completion\n" ) );	
 	
-	STATUS_LOG ( ( "IOATAPIProtocolTransport::sATACallbackSync signalling syncer\n" ) );	
+	configData->done = true;
 	
-	syncer->signal ( );
+	self = configData->self;
+	
+	self->fCommandGate->commandWakeup ( configData, false );
 	
 }
 
 
 //--------------------------------------------------------------------------------------
-//	¥ sATAPIConfigStateMachine	-	state machine for configuration commands
+//	sATAPIConfigStateMachine - state machine for configuration commands
 //--------------------------------------------------------------------------------------
 
 void
@@ -1283,7 +1461,8 @@ IOATAPIProtocolTransport::sATAPIConfigStateMachine ( IOATACommand * cmd )
 
 		// Intentional fall through	in case device doesn't support DMA
 		case kDMATransferModeDone:
-			configData->syncer->signal ( kIOReturnSuccess, false );
+			configData->done = true;
+			driver->fCommandGate->commandWakeup ( configData, false );
 			break;
 			
 		default:
@@ -1296,7 +1475,7 @@ IOATAPIProtocolTransport::sATAPIConfigStateMachine ( IOATACommand * cmd )
 
 
 //--------------------------------------------------------------------------------------
-//	¥ sATAPIResetCallback	-	static asynchronous callback routine for resets
+//	sATAPIResetCallback - static asynchronous callback routine for resets
 //--------------------------------------------------------------------------------------
 
 void
@@ -1310,12 +1489,16 @@ IOATAPIProtocolTransport::sATAPIResetCallback ( IOATACommand * cmd )
 	xptDriver = ( IOATAPIProtocolTransport * ) cmd->refCon;
 	xptDriver->fWakeUpResetOccurred = true;
 	xptDriver->fResetInProgress 	= false;
+
+	RecordATAPITimeStamp (
+		ATAPI_TRACE ( kATAResetComplete ),
+		( unsigned int ) xptDriver->fATAUnitID );
 	
 }
 
 
 //--------------------------------------------------------------------------------------
-//	¥ sATAPIVoidCallback	-	callback that does nothing
+//	sATAPIVoidCallback - callback that does nothing
 //--------------------------------------------------------------------------------------
 
 void
@@ -1326,7 +1509,7 @@ IOATAPIProtocolTransport::sATAPIVoidCallback ( IOATACommand * cmd )
 
 
 //--------------------------------------------------------------------------------------
-//	¥ sPollStatusRegister	-	Callout method for thread_call_enter_delayed.
+//	sPollStatusRegister - Callout method for thread_call_enter_delayed.
 //--------------------------------------------------------------------------------------
 
 void
@@ -1342,7 +1525,7 @@ IOATAPIProtocolTransport::sPollStatusRegister ( void * driver, void * refCon )
 
 
 //--------------------------------------------------------------------------------------
-//	¥ sPollStatusRegisterCallback	-	Callback method for PollStatusRegister().
+//	sPollStatusRegisterCallback	- Callback method for PollStatusRegister().
 //--------------------------------------------------------------------------------------
 
 void
@@ -1361,7 +1544,7 @@ IOATAPIProtocolTransport::sPollStatusRegisterCallback ( IOATACommand * cmd )
 
 
 //--------------------------------------------------------------------------------------
-//	¥ AllocateATACommandObjects	-	allocates ATA command objects
+//	AllocateATACommandObjects - allocates ATA command objects
 //--------------------------------------------------------------------------------------
 
 void
@@ -1383,14 +1566,12 @@ IOATAPIProtocolTransport::AllocateATACommandObjects ( void )
 	configData = ( ATAPIConfigData * ) IOMalloc ( sizeof ( ATAPIConfigData ) );
 	assert ( configData != NULL );
 	bzero ( configData, sizeof ( ATAPIConfigData ) );
-	configData->syncer = IOSyncer::create ( );
-	assert ( configData->syncer != NULL );
 	fConfigCommand->refCon = ( void * ) configData;
 		
 	fIdentifyCommand = fATADevice->allocCommand ( );
 	assert ( fIdentifyCommand != NULL );
-	
 	clientData = ( ATAPIClientData * ) IOMalloc ( sizeof ( ATAPIClientData ) );
+	assert ( clientData != NULL );
 	bzero ( clientData, sizeof ( ATAPIClientData ) );
 	fIdentifyCommand->refCon = ( void * ) clientData;
 	
@@ -1423,7 +1604,7 @@ IOATAPIProtocolTransport::AllocateATACommandObjects ( void )
 
 
 //--------------------------------------------------------------------------------------
-//	¥ DeallocateATACommandObjects	-	deallocates ATA command objects
+//	DeallocateATACommandObjects - deallocates ATA command objects
 //--------------------------------------------------------------------------------------
 
 void
@@ -1439,7 +1620,7 @@ IOATAPIProtocolTransport::DeallocateATACommandObjects ( void )
 	cmd = ( IOATACommand * ) fCommandPool->getCommand ( false );
 	assert ( cmd != NULL );
 	
-	//¥¥¥ Walk the in-use queue and abort the commands (potential memory leak right now)
+	//XXX Walk the in-use queue and abort the commands (potential memory leak right now)
 	
 	
 	// This handles walking the free command queue
@@ -1461,7 +1642,6 @@ IOATAPIProtocolTransport::DeallocateATACommandObjects ( void )
 	
 	configData = ( ATAPIConfigData * ) fConfigCommand->refCon;
 	assert ( configData != NULL );
-	configData->syncer->release ( );
 	IOFree ( configData, sizeof ( ATAPIConfigData ) );
 	configData = NULL;
 	
@@ -1485,7 +1665,7 @@ IOATAPIProtocolTransport::DeallocateATACommandObjects ( void )
 
 
 //--------------------------------------------------------------------------------------
-//	¥ GetATACommandObject	-	Gets an ata command object from the pool.
+//	GetATACommandObject	- Gets an ata command object from the pool.
 //--------------------------------------------------------------------------------------
 
 IOATACommand *
@@ -1504,7 +1684,7 @@ IOATAPIProtocolTransport::GetATACommandObject ( bool blockForCommand )
 
 
 //--------------------------------------------------------------------------------------
-//	¥ ReturnATACommandObject	-	Returns the command to the command pool
+//	ReturnATACommandObject - Returns the command to the command pool
 //--------------------------------------------------------------------------------------
 
 void
@@ -1520,8 +1700,8 @@ IOATAPIProtocolTransport::ReturnATACommandObject ( IOATACommand * cmd )
 
 
 //--------------------------------------------------------------------------------------
-//	¥ IdentifyAndConfigureATAPIDevice	-	Sends a device identify request to the device
-//											and uses it to configure the drive speeds
+//	IdentifyAndConfigureATAPIDevice	- 	Sends a device identify request to the device
+//										and uses it to configure the drive speeds
 //--------------------------------------------------------------------------------------
 
 IOReturn
@@ -1677,25 +1857,18 @@ ReleaseBusInfoAndBail:
 
 
 //--------------------------------------------------------------------------------------
-//	¥ IdentifyATAPIDevice	-	Sends a device identify request to the device
-//								and uses it to configure the drive speeds
+//	IdentifyATAPIDevice	- 	Sends a device identify request to the device
+//							and uses it to configure the drive speeds
 //--------------------------------------------------------------------------------------
 
 IOReturn
 IOATAPIProtocolTransport::IdentifyATAPIDevice ( void )
 {
 
-	IOReturn		theErr 			= kIOReturnSuccess;
-	IOSyncer *		syncer			= NULL;
-	void *			previousRefCon	= NULL;
-	
-	previousRefCon = fIdentifyCommand->refCon;
-	
-	syncer = IOSyncer::create ( );
-	assert ( syncer != NULL );
+	IOReturn	theErr = kIOReturnSuccess;
 	
 	STATUS_LOG ( ( "IOATAPIProtocolTransport::IdentifyATAPIDevice entering.\n" ) );
-		
+	
 	// Zero the command object
 	fIdentifyCommand->zeroCommand ( );
 	
@@ -1709,19 +1882,15 @@ IOATAPIProtocolTransport::IdentifyATAPIDevice ( void )
 	fIdentifyCommand->setCommand ( kID_DRIVE );
 	fIdentifyCommand->setTimeoutMS ( k10SecondTimeout );
 	fIdentifyCommand->setFlags ( mATAFlagIORead );
-
 	fIdentifyCommand->setOpcode ( kATAFnExecIO );
 	// set the device head to the correct unit
 	fIdentifyCommand->setDevice_Head ( fATAUnitID << 4 );
 	fIdentifyCommand->setRegMask ( ( ataRegMask ) ( mATAErrFeaturesValid | mATAStatusCmdValid ) );
-	fIdentifyCommand->refCon = ( void * ) syncer;
 	fIdentifyCommand->setCallbackPtr ( &sATACallbackSync );
 	
 	STATUS_LOG ( ( "IOATAPIProtocolTransport::IdentifyATAPIDevice executing identify command.\n" ) );
 	
-	theErr = fATADevice->executeCommand ( fIdentifyCommand );
-	
-	syncer->wait ( );
+	theErr = SendCommand ( fIdentifyCommand );
 	
 	#if defined(__BIG_ENDIAN__)
 		// The identify device info needs to be byte-swapped on big-endian (ppc) 
@@ -1734,21 +1903,20 @@ IOATAPIProtocolTransport::IdentifyATAPIDevice ( void )
 	
 	STATUS_LOG ( ( "IOATAPIProtocolTransport::IdentifyATAPIDevice exiting with theErr = %ld.\n", theErr ) );
 	
-	fIdentifyCommand->refCon = previousRefCon;
-	
 	return theErr;
 	
 }
 
 
 //--------------------------------------------------------------------------------------
-//	¥ ConfigureATAPIDevice	-	Configures the ATAPI Device
+//	ConfigureATAPIDevice - Configures the ATAPI Device
 //--------------------------------------------------------------------------------------
 
 IOReturn
 IOATAPIProtocolTransport::ConfigureATAPIDevice ( void )
 {
 	
+	IOReturn				status	= kIOReturnSuccess;
 	ATAPIConfigData *		configData;
 	
 	STATUS_LOG ( ( "IOATAPIProtocolTransport::ConfigureATAPIDevice entering.\n" ) );
@@ -1757,9 +1925,21 @@ IOATAPIProtocolTransport::ConfigureATAPIDevice ( void )
 	
 	configData->self 	= this;
 	configData->state 	= kPIOTransferModeSetup;
+	configData->done 	= false;
+	
 	sATAPIConfigStateMachine ( fConfigCommand );	
 	
-	configData->syncer->wait ( );
+	status = fCommandGate->runAction (
+		OSMemberFunctionCast (
+			IOCommandGate::Action,
+			this,
+			&IOATAPIProtocolTransport::GatedWaitForRequest ),
+		configData );
+	
+	if ( status == kIOReturnSuccess )
+	{
+		status = fConfigCommand->getResult ( );
+	}
 	
 	return kIOReturnSuccess;
 		
@@ -1767,7 +1947,7 @@ IOATAPIProtocolTransport::ConfigureATAPIDevice ( void )
 
 
 //--------------------------------------------------------------------------------------
-//	¥ ReconfigureATAPIDevice	-	Reconfigures the ATAPI Device
+//	ReconfigureATAPIDevice - Reconfigures the ATAPI Device
 //--------------------------------------------------------------------------------------
 
 IOReturn
@@ -1792,7 +1972,7 @@ IOATAPIProtocolTransport::ReconfigureATAPIDevice ( void )
 
 
 //--------------------------------------------------------------------------------------
-//	¥ SetPIOTransferMode	-	Configures the ATAPI Device's PIO Transfer mode
+//	SetPIOTransferMode - Configures the ATAPI Device's PIO Transfer mode
 //--------------------------------------------------------------------------------------
 
 IOReturn
@@ -1854,14 +2034,14 @@ IOATAPIProtocolTransport::SetPIOTransferMode ( IOATACommand * cmd, bool forceSyn
 
 
 //--------------------------------------------------------------------------------------
-//	¥ SetDMATransferMode	-	Configures the ATAPI Device's DMA Transfer mode
+//	SetDMATransferMode - Configures the ATAPI Device's DMA Transfer mode
 //--------------------------------------------------------------------------------------
 
 IOReturn
 IOATAPIProtocolTransport::SetDMATransferMode ( IOATACommand * cmd, bool forceSync )
 {
 	
-	IOReturn		theErr 			= kIOReturnSuccess;
+	IOReturn		theErr	= kIOReturnSuccess;
 	UInt8			mode	= 0;
 
 	STATUS_LOG ( ( "IOATAPIProtocolTransport::SetDMATransferMode entering.\n" ) );
@@ -1931,7 +2111,7 @@ IOATAPIProtocolTransport::SetDMATransferMode ( IOATACommand * cmd, bool forceSyn
 
 
 //--------------------------------------------------------------------------------------
-//	¥ ResetATAPIDevice	-	Sends a device reset command to the device
+//	ResetATAPIDevice - Sends a device reset command to the device
 //--------------------------------------------------------------------------------------
 
 IOReturn
@@ -1958,6 +2138,11 @@ IOATAPIProtocolTransport::ResetATAPIDevice ( void )
 	fResetCommand->setOpcode ( kATAFnBusReset );
 	fResetCommand->setCallbackPtr ( &sATAPIResetCallback );
 	fResetCommand->refCon = ( void * ) this;
+
+	RecordATAPITimeStamp (
+		ATAPI_TRACE ( kATAReset ),
+		( unsigned int ) ( uintptr_t ) this,
+		( unsigned int ) fATAUnitID );
 	
 	theErr = fATADevice->executeCommand ( fResetCommand );
 	
@@ -1967,7 +2152,7 @@ IOATAPIProtocolTransport::ResetATAPIDevice ( void )
 
 
 //--------------------------------------------------------------------------------------
-//	¥ EnablePollingOfStatusRegister	-	Called to schedule a poll of the status register.
+//	EnablePollingOfStatusRegister - Called to schedule a poll of the status register.
 //--------------------------------------------------------------------------------------
 
 void
@@ -1977,6 +2162,11 @@ IOATAPIProtocolTransport::EnablePollingOfStatusRegister ( void )
 	AbsoluteTime	time;
 	
 	STATUS_LOG ( ( "EnablePollingOfStatusRegister called\n" ) );
+	
+	RecordATAPITimeStamp ( ATAPI_TRACE ( kATAStartStatusPolling ),
+							( unsigned int ) ( uintptr_t ) this,
+							( unsigned int ) fATAUnitID,
+							( unsigned int ) fATADeviceType );	
 	
 	// No reason to start a thread if we've been termintated	
 	if ( ( isInactive ( ) == false ) &&
@@ -1998,7 +2188,7 @@ IOATAPIProtocolTransport::EnablePollingOfStatusRegister ( void )
 
 
 //--------------------------------------------------------------------------------------
-//	¥ DisablePollingOfStatusRegister	-	Called to cancel a poll of the status register.
+//	DisablePollingOfStatusRegister - Called to cancel a poll of the status register.
 //--------------------------------------------------------------------------------------
 
 void
@@ -2006,6 +2196,11 @@ IOATAPIProtocolTransport::DisablePollingOfStatusRegister ( void )
 {
 	
 	fWakeUpResetOccurred = true;
+	
+	RecordATAPITimeStamp ( ATAPI_TRACE ( kATAStopStatusPolling ),
+							( unsigned int ) ( uintptr_t ) this,
+							( unsigned int ) fATAUnitID,
+							( unsigned int ) fATADeviceType );		
 	
 	// Cancel the thread if it is scheduled.
 	if ( thread_call_cancel ( fPollingThread ) )
@@ -2021,8 +2216,8 @@ IOATAPIProtocolTransport::DisablePollingOfStatusRegister ( void )
 
 
 //--------------------------------------------------------------------------------------
-//	¥ PollStatusRegister	-	Called to poll the status register to see if the drive
-//								bay door has been opened.
+//	PollStatusRegister - 	Called to poll the status register to see if the drive
+//							bay door has been opened.
 //--------------------------------------------------------------------------------------
 
 void
@@ -2033,6 +2228,11 @@ IOATAPIProtocolTransport::PollStatusRegister ( void * refCon )
 	ATAPIClientData *	clientData;
 	
 	STATUS_LOG ( ( "PollStatusRegister called\n" ) );
+	
+	RecordATAPITimeStamp ( ATAPI_TRACE ( kATAStatusPoll ),
+							( unsigned int ) ( uintptr_t ) this,
+							( unsigned int ) fATAUnitID,
+							( unsigned int ) fATADeviceType );	
 	
 	if ( fWakeUpResetOccurred == true )
 		return;
@@ -2061,7 +2261,7 @@ IOATAPIProtocolTransport::PollStatusRegister ( void * refCon )
 
 
 //--------------------------------------------------------------------------------------
-//	¥ PollStatusRegisterCallback	-	Callback handler for status register polling
+//	PollStatusRegisterCallback - Callback handler for status register polling
 //--------------------------------------------------------------------------------------
 
 void
@@ -2120,7 +2320,7 @@ IOATAPIProtocolTransport::PollStatusRegisterCallback ( IOATACommand * cmd )
 
 
 //--------------------------------------------------------------------------------------
-//	¥ SendATASleepCommand	-	Sends an ATA SLEEP command to the drive
+//	SendATASleepCommand - Sends an ATA SLEEP command to the drive
 //--------------------------------------------------------------------------------------
 
 IOReturn
@@ -2128,14 +2328,14 @@ IOATAPIProtocolTransport::SendATASleepCommand ( void )
 {
 	
 	IOReturn		status;
-	IOSyncer *		syncer;
 	IOATACommand *	cmd;
-	void *			previousRefCon;
 	
 	STATUS_LOG ( ( "%s%s::%s called%s\n", "\033[36m", getName ( ), __FUNCTION__, "\033[0m" ) );	
-			
-	syncer = IOSyncer::create ( );	
-	assert ( syncer != NULL );
+	
+	RecordATAPITimeStamp ( ATAPI_TRACE ( kATASendATASleepCmd ),
+							( unsigned int ) ( uintptr_t ) this,
+							( unsigned int ) fATAUnitID,
+							( unsigned int ) fATADeviceType );		
 	
 	cmd = GetATACommandObject ( );
 	
@@ -2148,16 +2348,8 @@ IOATAPIProtocolTransport::SendATASleepCommand ( void )
 	cmd->setOpcode ( kATAFnExecIO );
 	cmd->setCommand ( kATAcmdSleep );
 	
-	previousRefCon = cmd->refCon;
-	cmd->refCon = ( void * ) syncer;
+	status = SendCommand ( cmd );
 	
-	status = fATADevice->executeCommand ( cmd );
-	
-	status = syncer->wait ( false );
-	syncer->release ( );
-
-	cmd->refCon = previousRefCon;
-		
 	ReturnATACommandObject ( cmd );
 	
 	return status;	
@@ -2166,7 +2358,7 @@ IOATAPIProtocolTransport::SendATASleepCommand ( void )
 
 
 //--------------------------------------------------------------------------------------
-//	¥ TurnDrivePowerOff	-	Called to turn power to the drive OFF.
+//	TurnDrivePowerOff - Called to turn power to the drive OFF.
 //--------------------------------------------------------------------------------------
 
 IOReturn
@@ -2174,14 +2366,13 @@ IOATAPIProtocolTransport::TurnDrivePowerOff ( void )
 {
 	
 	IOReturn		status;
-	IOSyncer *		syncer;
 	IOATACommand *	cmd;
-	void *			previousRefCon;
 	
 	STATUS_LOG ( ( "IOATAPIProtocolTransport::TurnDrivePowerOff called\n" ) );
-			
-	syncer = IOSyncer::create ( );	
-	assert ( syncer != NULL );
+	
+	RecordATAPITimeStamp ( ATAPI_TRACE ( kATADriverPowerOff ),
+							( unsigned int ) ( uintptr_t ) this,
+							( unsigned int ) fATAUnitID );	
 	
 	cmd = GetATACommandObject ( );
 	
@@ -2196,16 +2387,8 @@ IOATAPIProtocolTransport::TurnDrivePowerOff ( void )
 	cmd->setTimeoutMS ( kATATimeout10Seconds );
 	cmd->setCallbackPtr ( &IOATAPIProtocolTransport::sATACallbackSync );
 	
-	previousRefCon = cmd->refCon;
-	cmd->refCon = ( void * ) syncer;
+	status = SendCommand ( cmd );
 	
-	status = fATADevice->executeCommand ( cmd );
-	
-	status = syncer->wait ( false );
-	syncer->release ( );
-
-	cmd->refCon = previousRefCon;
-		
 	ReturnATACommandObject ( cmd );
 	
 	return status;	
@@ -2214,7 +2397,7 @@ IOATAPIProtocolTransport::TurnDrivePowerOff ( void )
 
 
 //--------------------------------------------------------------------------------------
-//	¥ SetWakeupResetOccurred	-	Called on safe side of command gate to set state
+//	SetWakeupResetOccurred - Called on safe side of command gate to set state
 //--------------------------------------------------------------------------------------
 
 void
@@ -2227,7 +2410,7 @@ IOATAPIProtocolTransport::SetWakeupResetOccurred ( bool resetOccurred )
 
 
 //--------------------------------------------------------------------------------------
-//	¥ sSetWakeupResetOccurred	-	Called on safe side of command gate
+//	sSetWakeupResetOccurred - Called on safe side of command gate
 //--------------------------------------------------------------------------------------
 
 void
@@ -2241,8 +2424,8 @@ IOATAPIProtocolTransport::sSetWakeupResetOccurred ( IOATAPIProtocolTransport * d
 
 
 //--------------------------------------------------------------------------------------
-//	¥ CheckWakeupResetOccurred	-	Called on safe side of command gate to find out if
-//									the driver has already received a reset message
+//	CheckWakeupResetOccurred -	Called on safe side of command gate to find out if
+//								the driver has already received a reset message
 //--------------------------------------------------------------------------------------
 
 bool
@@ -2255,7 +2438,7 @@ IOATAPIProtocolTransport::CheckWakeupResetOccurred ( void )
 
 
 //--------------------------------------------------------------------------------------
-//	¥ sCheckWakeupResetOccurred	-	Called on safe side of command gate
+//	sCheckWakeupResetOccurred - Called on safe side of command gate
 //--------------------------------------------------------------------------------------
 
 void
@@ -2270,7 +2453,7 @@ IOATAPIProtocolTransport::sCheckWakeupResetOccurred ( IOATAPIProtocolTransport *
 
 
 //--------------------------------------------------------------------------------------
-//	¥ sSwapBytes16	-	swaps the buffer for device identify data
+//	sSwapBytes16 - Swaps the buffer for device identify data
 //--------------------------------------------------------------------------------------
 
 void
@@ -2295,7 +2478,7 @@ IOATAPIProtocolTransport::sSwapBytes16 ( UInt8 * buffer, IOByteCount numBytesToS
 
 
 //--------------------------------------------------------------------------------------
-//	¥ sConvertHighestBitToNumber	-	Finds the higest bit in a number and returns
+//	sConvertHighestBitToNumber - Finds the higest bit in a number and returns
 //--------------------------------------------------------------------------------------
 
 UInt8
@@ -2342,8 +2525,8 @@ IOATAPIProtocolTransport::message ( UInt32 type, IOService * provider, void * ar
 			// Tell the layer above us that new media has been added so it can lock media
 			// and verify that the device is in a good state.
 			SendNotification_VerifyDeviceState ( );
- 			break;
-		
+			break;
+			
 		case kATANullEvent:						// Just kidding -- nothing happened
 			break;
 		
@@ -2382,7 +2565,118 @@ IOATAPIProtocolTransport::message ( UInt32 type, IOService * provider, void * ar
 }
 
 
-// binary compatibility reserved method space
+//------------------------------------------------------------------------------
+//	RecordATAPITimeStamp												[STATIC]
+//------------------------------------------------------------------------------
+
+static inline void
+RecordATAPITimeStamp (
+        unsigned int code,
+        unsigned int a, unsigned int b,
+        unsigned int c, unsigned int d )
+{
+	
+	if ( gATAPIDebugFlags != 0 )
+	{
+		IOTimeStampConstant ( code, a, b, c, d );
+	}
+	
+}
+
+
+//---------------------------------------------------------------------------
+//	SendCommand	-	Executes comand and waits for its completion.
+//---------------------------------------------------------------------------
+
+IOReturn
+IOATAPIProtocolTransport::SendCommand ( IOATACommand * cmd )
+{
+	
+	IOReturn			status;
+	void *				previousRefCon;
+	ATAPIConfigData		configData;
+	
+	STATUS_LOG ( ( "IOATAPIProtocolTransport::SendCommand\n" ) );
+	
+	previousRefCon = cmd->refCon;
+	
+	cmd->refCon = ( void * ) &configData;
+	configData.self	= this;
+	configData.done	= false;
+	
+	status = fATADevice->executeCommand ( cmd );
+	
+	STATUS_LOG ( ( "executeCommand returned 0x%0lX\n", status ) );
+	
+	if ( status == kIOReturnSuccess )
+	{
+		
+		status = fCommandGate->runAction (
+			OSMemberFunctionCast (
+				IOCommandGate::Action,
+				this,
+				&IOATAPIProtocolTransport::GatedWaitForRequest ),
+			&configData );
+		
+		STATUS_LOG ( ( "runAction returned 0x%0lX\n", status ) );
+		
+		if ( status == kIOReturnSuccess )
+		{
+			
+			status = cmd->getResult ( );
+			
+			STATUS_LOG ( ( "getResult returned 0x%0lX\n", status ) );
+			
+		}
+		
+	}
+	
+	cmd->refCon = previousRefCon;
+	
+	return status;
+	
+}
+
+
+//---------------------------------------------------------------------------
+//	GatedWaitForRequest	-	Wait for command completion.
+//---------------------------------------------------------------------------
+
+IOReturn
+IOATAPIProtocolTransport::GatedWaitForRequest ( void * data )
+{
+	
+	IOReturn			status		= kIOReturnSuccess;
+	ATAPIConfigData *	configData	= NULL;
+	
+	STATUS_LOG ( ( "IOATAPIProtocolTransport::GatedWaitForRequest\n" ) );
+	
+	configData = ( ATAPIConfigData * ) data;
+	
+	// Check if the request has completed already
+	while ( configData->done == false )
+	{
+		
+		STATUS_LOG ( ( "will wait for command completion\n" ) );
+		
+		// Wait for the completion...
+		status = fCommandGate->commandSleep ( configData, THREAD_UNINT );
+		
+		if ( status != THREAD_AWAKENED )
+		{
+			panic ( "IOATAPIProtocolTransport: detected spurious wakeup - status = 0x%08x\n", status );
+		}
+		
+	}
+	
+	STATUS_LOG ( ( "command completed\n" ) );
+	
+	return status;
+	
+}
+
+
+// Binary compatibility reserved method space
 OSMetaClassDefineReservedUnused ( IOATAPIProtocolTransport, 1 );
 OSMetaClassDefineReservedUnused ( IOATAPIProtocolTransport, 2 );
 OSMetaClassDefineReservedUnused ( IOATAPIProtocolTransport, 3 );

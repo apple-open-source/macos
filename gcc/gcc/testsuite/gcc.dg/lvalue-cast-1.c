@@ -1,6 +1,7 @@
 /* APPLE LOCAL file non lvalue assign */
 /* { dg-do compile { target powerpc*-*-darwin* } } */
 /* { dg-options "-fnon-lvalue-assign -faltivec" } */
+/* { dg-require-effective-target ilp32 } */
 
 int foo(void) {
 
@@ -12,8 +13,8 @@ int foo(void) {
 
   (long *)p = &l; /* { dg-warning "target of assignment not really an lvalue" } */
   ((long *)p)++;  /* { dg-warning "target of assignment not really an lvalue" } */
-  (short)l = 2;   /* { dg-error "invalid lvalue" } */
-  (long)s = 3;    /* { dg-error "invalid lvalue" } */
+  (short)l = 2;   /* { dg-error "lvalue required as left operand of assignment" } */
+  (long)s = 3;    /* { dg-error "lvalue required as left operand of assignment" } */
   (int)pvi = 4;   /* { dg-warning "target of assignment not really an lvalue" } */
   (int)pvi &= 5;  /* { dg-warning "target of assignment not really an lvalue" } */
 

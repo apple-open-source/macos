@@ -29,9 +29,12 @@
 
 // private
 #import "IOFWQEventSource.h"
+#include <IOKit/firewire/IOFWUtils.h>
 
 // system
 #import <IOKit/IOTimerEventSource.h>
+
+#import "FWTracepoints.h"
 
 // createTimeoutQ
 //
@@ -98,7 +101,7 @@ void IOFireWireController::timeoutQ::headChanged(IOFWCommand *oldHead)
 	{
         fTimer->wakeAtTime(fHead->getDeadline());
         //AbsoluteTime now;
-        //clock_get_uptime(&now);
+        //IOFWGetAbsoluteTime(&now);
         //IOLog("timeoutQ waketime %lx:%lx (now %lx:%lx)\n",
         //        fHead->getDeadline().hi, fHead->getDeadline().lo, now.hi, now.lo);
     }
@@ -138,6 +141,7 @@ void IOFireWireController::timeoutQ::busReset()
         next = cmd->getNext();
         if(cmd->cancelOnReset()) 
 		{
+			FWTrace( kFWTController, kTPControllerTimeoutQBusReset, (uintptr_t)(cmd->getFWIMRefCon()), (uintptr_t)cmd, 0, 0 );
             cmd->cancel(kIOFireWireBusReset);
         }
         cmd = next;
@@ -168,7 +172,7 @@ void IOFireWireController::processTimeout(IOTimerEventSource *src)
     while (fTimeoutQ.fHead) 
 	{
         AbsoluteTime now, dead;
-        clock_get_uptime(&now);
+        IOFWGetAbsoluteTime(&now);
 
 #if 0
         IOLog("processTimeout, time is %llx\n", AbsoluteTime_to_scalar(&now));
@@ -199,6 +203,8 @@ void IOFireWireController::processTimeout(IOTimerEventSource *src)
 
         //IOLog("Cmd 0x%x timing out\r", fTimeoutQ.fHead);
 
+		FWTrace( kFWTController, kTPControllerTimeoutQProcessTimeout, (uintptr_t)fFWIM, (uintptr_t)(fTimeoutQ.fHead), 0, 0 );
+		
         fTimeoutQ.fHead->cancel(kIOReturnTimeout);
     };
     
@@ -206,7 +212,7 @@ void IOFireWireController::processTimeout(IOTimerEventSource *src)
 	{
         src->wakeAtTime(fTimeoutQ.fHead->getDeadline());
         //AbsoluteTime now;
-        //clock_get_uptime(&now);
+        //IOFWGetAbsoluteTime(&now);
         //IOLog("processTimeout, timeoutQ waketime %lx:%lx (now %llx)\n",
         //        fTimeoutQ.fHead->getDeadline().hi, fTimeoutQ.fHead->getDeadline().lo, AbsoluteTime_to_scalar(&now));
     }

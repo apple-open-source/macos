@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-* Copyright (c) 2002-2006, International Business Machines
+* Copyright (c) 2002-2008, International Business Machines
 * Corporation and others.  All Rights Reserved.
 **********************************************************************
 */
@@ -19,9 +19,10 @@
 #include "cmemory.h"
 #include "cstring.h"
 #include "uassert.h"
-#include "mutex.h"
+#include "umutex.h"
 #include "ucln_in.h"
 #include "uenumimp.h"
+#include "uresimp.h"
 
 //------------------------------------------------------------
 // Constants
@@ -44,7 +45,7 @@ static const int32_t MAX_POW10 = (sizeof(POW10)/sizeof(POW10[0])) - 1;
 // Resource tags
 //
 
-static const char CURRENCY_DATA[] = "CurrencyData";
+static const char CURRENCY_DATA[] = "supplementalData";
 // Tag for meta-data, in root.
 static const char CURRENCY_META[] = "CurrencyMeta";
 
@@ -61,10 +62,11 @@ static const char VAR_PRE_EURO[] = "PREEURO";
 static const char VAR_EURO[] = "EURO";
 
 // Variant delimiter
-static const char VAR_DELIM[] = "_";
+static const char VAR_DELIM = '_';
+static const char VAR_DELIM_STR[] = "_";
 
 // Variant for legacy euro mapping in CurrencyMap
-static const char VAR_DELIM_EURO[] = "_EURO";
+//static const char VAR_DELIM_EURO[] = "_EURO";
 
 #define VARIANT_IS_EMPTY    0
 #define VARIANT_IS_EURO     0x1
@@ -78,6 +80,8 @@ static const char CURRENCIES[] = "Currencies";
 // patterns.  Strings that start with 2 marks are static strings, and
 // the first mark is deleted.
 static const UChar CHOICE_FORMAT_MARK = 0x003D; // Equals sign
+
+static const UChar EUR_STR[] = {0x0045,0x0055,0x0052,0};
 
 //------------------------------------------------------------
 // Code
@@ -174,7 +178,7 @@ idForLocale(const char* locale, char* countryAndVariant, int capacity, UErrorCod
                    | ((0 == uprv_strcmp(variant, VAR_PRE_EURO)) << 1);
         if (variantType)
         {
-            uprv_strcat(countryAndVariant, VAR_DELIM);
+            uprv_strcat(countryAndVariant, VAR_DELIM_STR);
             uprv_strcat(countryAndVariant, variant);
         }
     }
@@ -199,7 +203,7 @@ struct CReg;
 static UMTX gCRegLock = 0;
 static CReg* gCRegHead = 0;
 
-struct CReg : public UMemory {
+struct CReg : public U_NAMESPACE_QUALIFIER UMemory {
     CReg *next;
     UChar iso[ISO_COUNTRY_CODE_LENGTH+1];
     char  id[ULOC_FULLNAME_CAPACITY];
@@ -223,13 +227,14 @@ struct CReg : public UMemory {
             CReg* n = new CReg(_iso, _id);
             if (n) {
                 umtx_init(&gCRegLock);
-                Mutex mutex(&gCRegLock);
+                umtx_lock(&gCRegLock);
                 if (!gCRegHead) {
                     /* register for the first time */
                     ucln_i18n_registerCleanup(UCLN_I18N_CURRENCY, currency_cleanup);
                 }
                 n->next = gCRegHead;
                 gCRegHead = n;
+                umtx_unlock(&gCRegLock);
                 return n;
             }
             *status = U_MEMORY_ALLOCATION_ERROR;
@@ -238,41 +243,42 @@ struct CReg : public UMemory {
     }
 
     static UBool unreg(UCurrRegistryKey key) {
+        UBool found = FALSE;
         umtx_init(&gCRegLock);
-        Mutex mutex(&gCRegLock);
-        if (gCRegHead == key) {
-            gCRegHead = gCRegHead->next;
-            delete (CReg*)key;
-            return TRUE;
-        }
+        umtx_lock(&gCRegLock);
 
-        CReg* p = gCRegHead;
-        while (p) {
-            if (p->next == key) {
-                p->next = ((CReg*)key)->next;
+        CReg** p = &gCRegHead;
+        while (*p) {
+            if (*p == key) {
+                *p = ((CReg*)key)->next;
                 delete (CReg*)key;
-                return TRUE;
+                found = TRUE;
+                break;
             }
-            p = p->next;
+            p = &((*p)->next);
         }
 
-        return FALSE;
+        umtx_unlock(&gCRegLock);
+        return found;
     }
 
     static const UChar* get(const char* id) {
+        const UChar* result = NULL;
         umtx_init(&gCRegLock);
-        Mutex mutex(&gCRegLock);
+        umtx_lock(&gCRegLock);
         CReg* p = gCRegHead;
 
         /* register cleanup of the mutex */
         ucln_i18n_registerCleanup(UCLN_I18N_CURRENCY, currency_cleanup);
         while (p) {
             if (uprv_strcmp(id, p->id) == 0) {
-                return p->iso;
+                result = p->iso;
+                break;
             }
             p = p->next;
         }
-        return NULL;
+        umtx_unlock(&gCRegLock);
+        return result;
     }
 
     /* This doesn't need to be thread safe. It's for u_cleanup only. */
@@ -359,25 +365,44 @@ ucurr_forLocale(const char* locale,
                     return u_strlen(result);
                 }
 #endif
+                // Remove variants, which is only needed for registration.
+                char *idDelim = strchr(id, VAR_DELIM);
+                if (idDelim) {
+                    idDelim[0] = 0;
+                }
 
                 // Look up the CurrencyMap element in the root bundle.
                 UResourceBundle *rb = ures_openDirect(NULL, CURRENCY_DATA, &localStatus);
                 UResourceBundle *cm = ures_getByKey(rb, CURRENCY_MAP, rb, &localStatus);
-                s = ures_getStringByKey(cm, id, &resLen, &localStatus);
+                UResourceBundle *countryArray = ures_getByKey(rb, id, cm, &localStatus);
+                UResourceBundle *currencyReq = ures_getByIndex(countryArray, 0, NULL, &localStatus);
+                s = ures_getStringByKey(currencyReq, "id", &resLen, &localStatus);
 
-                if ((s == NULL || U_FAILURE(localStatus)) && variantType != VARIANT_IS_EMPTY
-                    && (id[0] != 0))
+                /*
+                Get the second item when PREEURO is requested, and this is a known Euro country.
+                If the requested variant is PREEURO, and this isn't a Euro country, assume
+                that the country changed over to the Euro in the future. This is probably
+                an old version of ICU that hasn't been updated yet. The latest currency is
+                probably correct.
+                */
+                if (U_SUCCESS(localStatus)) {
+                    if ((variantType & VARIANT_IS_PREEURO) && u_strcmp(s, EUR_STR) == 0) {
+                        currencyReq = ures_getByIndex(countryArray, 1, currencyReq, &localStatus);
+                        s = ures_getStringByKey(currencyReq, "id", &resLen, &localStatus);
+                    }
+                    else if ((variantType & VARIANT_IS_EURO)) {
+                        s = EUR_STR;
+                    }
+                }
+                ures_close(countryArray);
+                ures_close(currencyReq);
+
+                if ((U_FAILURE(localStatus)) && strchr(id, '_') != 0)
                 {
                     // We don't know about it.  Check to see if we support the variant.
-                    if (variantType & VARIANT_IS_EURO) {
-                        s = ures_getStringByKey(cm, VAR_DELIM_EURO, &resLen, ec);
-                    }
-                    else {
-                        uloc_getParent(locale, id, sizeof(id), ec);
-                        *ec = U_USING_FALLBACK_WARNING;
-                        ures_close(cm);
-                        return ucurr_forLocale(id, buff, buffCapacity, ec);
-                    }
+                    uloc_getParent(locale, id, sizeof(id), ec);
+                    *ec = U_USING_FALLBACK_WARNING;
+                    return ucurr_forLocale(id, buff, buffCapacity, ec);
                 }
                 else if (*ec == U_ZERO_ERROR || localStatus != U_ZERO_ERROR) {
                     // There is nothing to fallback to. Report the failure/warning if possible.
@@ -388,7 +413,6 @@ ucurr_forLocale(const char* locale,
                         u_strcpy(buff, s);
                     }
                 }
-                ures_close(cm);
             }
             return u_terminateUChars(buff, buffCapacity, resLen, ec);
         } else {
@@ -477,28 +501,23 @@ ucurr_getName(const UChar* currency,
     myUCharsToChars(buf, currency);
 
     const UChar* s = NULL;
+    ec2 = U_ZERO_ERROR;
+    UResourceBundle* rb = ures_open(NULL, loc, &ec2);
 
-    // Multi-level resource inheritance fallback loop
-    for (;;) {
-        ec2 = U_ZERO_ERROR;
-        UResourceBundle* rb = ures_open(NULL, loc, &ec2);
-        rb = ures_getByKey(rb, CURRENCIES, rb, &ec2);
-        rb = ures_getByKey(rb, buf, rb, &ec2);
-        s = ures_getStringByIndex(rb, choice, len, &ec2);
-        ures_close(rb);
+    rb = ures_getByKey(rb, CURRENCIES, rb, &ec2);
 
-        // If we've succeeded we're done.  Otherwise, try to fallback.
-        // If that fails (because we are already at root) then exit.
-        if (U_SUCCESS(ec2) || !fallback(loc)) {
-            if (ec2 == U_USING_DEFAULT_WARNING
-                || (ec2 == U_USING_FALLBACK_WARNING && *ec != U_USING_DEFAULT_WARNING)) {
-                *ec = ec2;
-            }
-            break;
-        } else if (strlen(loc) == 0) {
-            *ec = U_USING_DEFAULT_WARNING;
-        } else if (*ec != U_USING_DEFAULT_WARNING) {
-            *ec = U_USING_FALLBACK_WARNING;
+    // Fetch resource with multi-level resource inheritance fallback
+    rb = ures_getByKeyWithFallback(rb, buf, rb, &ec2);
+
+    s = ures_getStringByIndex(rb, choice, len, &ec2);
+    ures_close(rb);
+
+    // If we've succeeded we're done.  Otherwise, try to fallback.
+    // If that fails (because we are already at root) then exit.
+    if (U_SUCCESS(ec2)) {
+        if (ec2 == U_USING_DEFAULT_WARNING
+            || (ec2 == U_USING_FALLBACK_WARNING && *ec != U_USING_DEFAULT_WARNING)) {
+            *ec = ec2;
         }
     }
 
@@ -525,14 +544,14 @@ ucurr_getName(const UChar* currency,
     return currency;
 }
 
-U_NAMESPACE_BEGIN
-
-void
+U_CFUNC void
 uprv_parseCurrency(const char* locale,
-                   const UnicodeString& text,
-                   ParsePosition& pos,
+                   const U_NAMESPACE_QUALIFIER UnicodeString& text,
+                   U_NAMESPACE_QUALIFIER ParsePosition& pos,
                    UChar* result,
-                   UErrorCode& ec) {
+                   UErrorCode& ec)
+{
+    U_NAMESPACE_USE
 
     // TODO: There is a slight problem with the pseudo-multi-level
     // fallback implemented here.  More-specific locales don't
@@ -655,8 +674,6 @@ uprv_parseCurrency(const char* locale,
     pos.setIndex(start + max);
 }
 
-U_NAMESPACE_END
-
 /**
  * Internal method.  Given a currency ISO code and a locale, return
  * the "static" currency name.  This is usually the same as the
@@ -667,10 +684,12 @@ U_NAMESPACE_END
  * This is used for backward compatibility with old currency logic in
  * DecimalFormat and DecimalFormatSymbols.
  */
-U_CAPI void
+U_CFUNC void
 uprv_getStaticCurrencyName(const UChar* iso, const char* loc,
-                           UnicodeString& result, UErrorCode& ec)
+                           U_NAMESPACE_QUALIFIER UnicodeString& result, UErrorCode& ec)
 {
+    U_NAMESPACE_USE
+
     UBool isChoiceFormat;
     int32_t len;
     const UChar* currname = ucurr_getName(iso, loc, UCURR_SYMBOL_NAME,
@@ -741,6 +760,7 @@ static const struct CurrencyList {
     {"AED", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"AFA", UCURR_COMMON|UCURR_DEPRECATED},
     {"AFN", UCURR_COMMON|UCURR_NON_DEPRECATED},
+    {"ALK", UCURR_COMMON|UCURR_DEPRECATED},
     {"ALL", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"AMD", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"ANG", UCURR_COMMON|UCURR_NON_DEPRECATED},
@@ -764,6 +784,7 @@ static const struct CurrencyList {
     {"BEF", UCURR_COMMON|UCURR_DEPRECATED},
     {"BEL", UCURR_UNCOMMON|UCURR_DEPRECATED},
     {"BGL", UCURR_COMMON|UCURR_DEPRECATED},
+    {"BGM", UCURR_COMMON|UCURR_DEPRECATED},
     {"BGN", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"BHD", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"BIF", UCURR_COMMON|UCURR_NON_DEPRECATED},
@@ -797,11 +818,11 @@ static const struct CurrencyList {
     {"COP", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"COU", UCURR_UNCOMMON|UCURR_NON_DEPRECATED},
     {"CRC", UCURR_COMMON|UCURR_NON_DEPRECATED},
-    {"CSD", UCURR_COMMON|UCURR_NON_DEPRECATED},
+    {"CSD", UCURR_COMMON|UCURR_DEPRECATED},
     {"CSK", UCURR_COMMON|UCURR_DEPRECATED},
     {"CUP", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"CVE", UCURR_COMMON|UCURR_NON_DEPRECATED},
-    {"CYP", UCURR_COMMON|UCURR_NON_DEPRECATED},
+    {"CYP", UCURR_COMMON|UCURR_DEPRECATED},
     {"CZK", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"DDM", UCURR_COMMON|UCURR_DEPRECATED},
     {"DEM", UCURR_COMMON|UCURR_DEPRECATED},
@@ -827,7 +848,8 @@ static const struct CurrencyList {
     {"GBP", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"GEK", UCURR_COMMON|UCURR_DEPRECATED},
     {"GEL", UCURR_COMMON|UCURR_NON_DEPRECATED},
-    {"GHC", UCURR_COMMON|UCURR_NON_DEPRECATED},
+    {"GHC", UCURR_COMMON|UCURR_DEPRECATED},
+    {"GHS", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"GIP", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"GMD", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"GNF", UCURR_COMMON|UCURR_NON_DEPRECATED},
@@ -890,7 +912,7 @@ static const struct CurrencyList {
     {"MNT", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"MOP", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"MRO", UCURR_COMMON|UCURR_NON_DEPRECATED},
-    {"MTL", UCURR_COMMON|UCURR_NON_DEPRECATED},
+    {"MTL", UCURR_COMMON|UCURR_DEPRECATED},
     {"MTP", UCURR_COMMON|UCURR_DEPRECATED},
     {"MUR", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"MVR", UCURR_COMMON|UCURR_NON_DEPRECATED},
@@ -926,13 +948,15 @@ static const struct CurrencyList {
     {"RHD", UCURR_COMMON|UCURR_DEPRECATED},
     {"ROL", UCURR_COMMON|UCURR_DEPRECATED},
     {"RON", UCURR_COMMON|UCURR_NON_DEPRECATED},
+    {"RSD", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"RUB", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"RUR", UCURR_COMMON|UCURR_DEPRECATED},
     {"RWF", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"SAR", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"SBD", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"SCR", UCURR_COMMON|UCURR_NON_DEPRECATED},
-    {"SDD", UCURR_COMMON|UCURR_NON_DEPRECATED},
+    {"SDD", UCURR_COMMON|UCURR_DEPRECATED},
+    {"SDG", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"SDP", UCURR_COMMON|UCURR_DEPRECATED},
     {"SEK", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"SGD", UCURR_COMMON|UCURR_NON_DEPRECATED},
@@ -968,9 +992,11 @@ static const struct CurrencyList {
     {"USN", UCURR_UNCOMMON|UCURR_NON_DEPRECATED},
     {"USS", UCURR_UNCOMMON|UCURR_NON_DEPRECATED},
     {"UYP", UCURR_COMMON|UCURR_DEPRECATED},
+    {"UYI", UCURR_UNCOMMON|UCURR_NON_DEPRECATED},
     {"UYU", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"UZS", UCURR_COMMON|UCURR_NON_DEPRECATED},
-    {"VEB", UCURR_COMMON|UCURR_NON_DEPRECATED},
+    {"VEB", UCURR_COMMON|UCURR_DEPRECATED},
+    {"VEF", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"VND", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"VUV", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"WST", UCURR_COMMON|UCURR_NON_DEPRECATED},
@@ -1093,6 +1119,271 @@ ucurr_openISOCurrencies(uint32_t currType, UErrorCode *pErrorCode) {
     myContext->listIdx = 0;
     myEnum->context = myContext;
     return myEnum;
+}
+
+U_CAPI int32_t U_EXPORT2
+ucurr_countCurrencies(const char* locale, 
+                 UDate date, 
+                 UErrorCode* ec)
+{
+	int32_t currCount = 0;
+    int32_t resLen = 0;
+    const UChar* s = NULL;
+
+    if (ec != NULL && U_SUCCESS(*ec)) 
+	{
+		// local variables
+        UErrorCode localStatus = U_ZERO_ERROR;
+        char id[ULOC_FULLNAME_CAPACITY];
+        resLen = uloc_getKeywordValue(locale, "currency", id, ULOC_FULLNAME_CAPACITY, &localStatus);
+
+		// get country or country_variant in `id'
+		uint32_t variantType = idForLocale(locale, id, sizeof(id), ec);
+		if (U_FAILURE(*ec)) 
+		{
+			return 0;
+		}
+
+		// Remove variants, which is only needed for registration.
+		char *idDelim = strchr(id, VAR_DELIM);
+		if (idDelim) 
+		{
+			idDelim[0] = 0;
+		}
+	                
+		// Look up the CurrencyMap element in the root bundle.
+		UResourceBundle *rb = ures_openDirect(NULL, CURRENCY_DATA, &localStatus);
+		UResourceBundle *cm = ures_getByKey(rb, CURRENCY_MAP, rb, &localStatus);
+
+		// Using the id derived from the local, get the currency data
+		UResourceBundle *countryArray = ures_getByKey(rb, id, cm, &localStatus);
+
+		// process each currency to see which one is valid for the given date
+		if (U_SUCCESS(localStatus))
+		{
+			for (int32_t i=0; i<ures_getSize(countryArray); i++)
+			{
+				// get the currency resource
+				UResourceBundle *currencyRes = ures_getByIndex(countryArray, i, NULL, &localStatus);
+				s = ures_getStringByKey(currencyRes, "id", &resLen, &localStatus);
+
+				// get the from date
+				int32_t fromLength = 0;
+				UResourceBundle *fromRes = ures_getByKey(currencyRes, "from", NULL, &localStatus);
+				const int32_t *fromArray = ures_getIntVector(fromRes, &fromLength, &localStatus);
+
+				int64_t currDate64 = (int64_t)fromArray[0] << 32;			
+				currDate64 |= ((int64_t)fromArray[1] & (int64_t)INT64_C(0x00000000FFFFFFFF));
+				UDate fromDate = (UDate)currDate64;
+					
+				if (ures_getSize(currencyRes) > 2)
+				{
+					int32_t toLength = 0;
+					UResourceBundle *toRes = ures_getByKey(currencyRes, "to", NULL, &localStatus);
+					const int32_t *toArray = ures_getIntVector(toRes, &toLength, &localStatus);
+							
+					currDate64 = (int64_t)toArray[0] << 32;			
+					currDate64 |= ((int64_t)toArray[1] & (int64_t)INT64_C(0x00000000FFFFFFFF));
+					UDate toDate = (UDate)currDate64;			
+
+					if ((fromDate <= date) && (date < toDate))
+					{
+						currCount++;
+					}
+
+					ures_close(toRes);
+				}
+				else
+				{
+					if (fromDate <= date)
+					{
+						currCount++;
+					}
+				}
+
+				// close open resources
+				ures_close(currencyRes);
+				ures_close(fromRes);
+
+			} // end For loop
+		} // end if (U_SUCCESS(localStatus))
+
+		ures_close(countryArray);
+
+		// Check for errors
+        if (*ec == U_ZERO_ERROR || localStatus != U_ZERO_ERROR) 
+		{
+			// There is nothing to fallback to. 
+			// Report the failure/warning if possible.
+			*ec = localStatus;
+		}
+
+		if (U_SUCCESS(*ec)) 
+		{
+			// no errors
+			return currCount;
+		}
+
+    }
+
+	// If we got here, either error code is invalid or
+	// some argument passed is no good.
+    return 0;
+}
+
+U_CAPI int32_t U_EXPORT2 
+ucurr_forLocaleAndDate(const char* locale, 
+                UDate date, 
+                int32_t index,
+                UChar* buff, 
+                int32_t buffCapacity, 
+                UErrorCode* ec)
+{
+    int32_t resLen = 0;
+	int32_t currIndex = 0;
+    const UChar* s = NULL;
+
+    if (ec != NULL && U_SUCCESS(*ec)) 
+	{
+		// check the arguments passed
+        if ((buff && buffCapacity) || !buffCapacity ) 
+		{
+			// local variables
+            UErrorCode localStatus = U_ZERO_ERROR;
+            char id[ULOC_FULLNAME_CAPACITY];
+            resLen = uloc_getKeywordValue(locale, "currency", id, ULOC_FULLNAME_CAPACITY, &localStatus);
+
+			// get country or country_variant in `id'
+			uint32_t variantType = idForLocale(locale, id, sizeof(id), ec);
+			if (U_FAILURE(*ec)) 
+			{
+				return 0;
+			}
+
+			// Remove variants, which is only needed for registration.
+			char *idDelim = strchr(id, VAR_DELIM);
+			if (idDelim) 
+			{
+				idDelim[0] = 0;
+			}
+	                
+			// Look up the CurrencyMap element in the root bundle.
+			UResourceBundle *rb = ures_openDirect(NULL, CURRENCY_DATA, &localStatus);
+			UResourceBundle *cm = ures_getByKey(rb, CURRENCY_MAP, rb, &localStatus);
+
+			// Using the id derived from the local, get the currency data
+			UResourceBundle *countryArray = ures_getByKey(rb, id, cm, &localStatus);
+
+			// process each currency to see which one is valid for the given date
+			bool matchFound = false;
+			if (U_SUCCESS(localStatus))
+			{
+                if ((index <= 0) || (index > ures_getSize(countryArray)))
+				{
+                    // requested index is out of bounds
+                    ures_close(countryArray);
+					return 0;
+				}
+
+				for (int32_t i=0; i<ures_getSize(countryArray); i++)
+				{
+					// get the currency resource
+					UResourceBundle *currencyRes = ures_getByIndex(countryArray, i, NULL, &localStatus);
+					s = ures_getStringByKey(currencyRes, "id", &resLen, &localStatus);
+
+					// get the from date
+					int32_t fromLength = 0;
+					UResourceBundle *fromRes = ures_getByKey(currencyRes, "from", NULL, &localStatus);
+					const int32_t *fromArray = ures_getIntVector(fromRes, &fromLength, &localStatus);
+
+					int64_t currDate64 = (int64_t)fromArray[0] << 32;			
+					currDate64 |= ((int64_t)fromArray[1] & (int64_t)INT64_C(0x00000000FFFFFFFF));
+					UDate fromDate = (UDate)currDate64;
+					
+					if (ures_getSize(currencyRes) > 2)
+					{
+						int32_t toLength = 0;
+						UResourceBundle *toRes = ures_getByKey(currencyRes, "to", NULL, &localStatus);
+						const int32_t *toArray = ures_getIntVector(toRes, &toLength, &localStatus);
+							
+						currDate64 = (int64_t)toArray[0] << 32;			
+						currDate64 |= ((int64_t)toArray[1] & (int64_t)INT64_C(0x00000000FFFFFFFF));
+						UDate toDate = (UDate)currDate64;			
+
+						if ((fromDate <= date) && (date < toDate))
+						{
+							currIndex++;
+							if (currIndex == index)
+							{
+							    matchFound = true;
+							}
+						}
+
+						ures_close(toRes);
+					}
+					else
+					{
+						if (fromDate <= date)
+						{
+							currIndex++;
+							if (currIndex == index)
+							{
+							    matchFound = true;
+							}
+						}
+					}
+
+					// close open resources
+					ures_close(currencyRes);
+					ures_close(fromRes);
+				        
+					// check for loop exit
+					if (matchFound)
+					{
+						break;
+					}
+
+				} // end For loop
+			}
+
+			ures_close(countryArray);
+
+			// Check for errors
+            if (*ec == U_ZERO_ERROR || localStatus != U_ZERO_ERROR) 
+			{
+				// There is nothing to fallback to. 
+				// Report the failure/warning if possible.
+				*ec = localStatus;
+			}
+
+			if (U_SUCCESS(*ec)) 
+			{
+				// no errors
+				if((buffCapacity > resLen) && matchFound)
+				{
+					// write out the currency value
+					u_strcpy(buff, s);
+				}
+				else
+				{
+					return 0;
+				}
+			}
+
+			// return null terminated currency string
+            return u_terminateUChars(buff, buffCapacity, resLen, ec);
+		}
+        else 
+		{
+			// illegal argument encountered
+            *ec = U_ILLEGAL_ARGUMENT_ERROR;
+        }
+
+    }
+
+	// If we got here, either error code is invalid or
+	// some argument passed is no good.
+    return resLen;
 }
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

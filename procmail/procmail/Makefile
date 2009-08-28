@@ -1,4 +1,4 @@
-#$Id: Makefile,v 1.1.1.3 2003/10/14 23:13:22 rbraun Exp $
+#$Id: Makefile,v 1.76 2001/07/12 01:27:19 guenther Exp $
 
 # BASENAME should point to where the whole lot will be installed
 # change BASENAME to your home directory if need be

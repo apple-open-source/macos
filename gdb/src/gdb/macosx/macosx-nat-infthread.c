@@ -29,17 +29,26 @@
 #include "objfiles.h"
 #include "gdbcmd.h"
 #include "gdbthread.h"
+#include "gdbcore.h"
 
 #include <stdio.h>
 #include <sys/param.h>
 #include <sys/dir.h>
+#include <inttypes.h>
+
+#include <libproc.h>
+#include <sys/proc_info.h>
 
 #include "macosx-nat-inferior.h"
 #include "macosx-nat-inferior-util.h"
 #include "macosx-nat-inferior-debug.h"
 #include "macosx-nat-mutils.h"
+#include "macosx-nat-infthread.h"
 
 extern macosx_inferior_status *macosx_status;
+
+static char *get_dispatch_queue_name (CORE_ADDR dispatch_qaddr);
+static int get_dispatch_queue_flags (CORE_ADDR dispatch_qaddr, uint32_t *flags);
 
 #define set_trace_bit(thread) modify_trace_bit (thread, 1)
 #define clear_trace_bit(thread) modify_trace_bit (thread, 0)
@@ -151,8 +160,15 @@ modify_trace_bit (thread_t thread, int value)
 
 }
 
+#elif defined (TARGET_ARM) /* ARM HACK: kernel doesn't support hardware single step on ARM.  */
+kern_return_t
+modify_trace_bit (thread_t thread, int value)
+{
+  /* abort (); */
+  return KERN_SUCCESS;
+}
 #else
-#error unknown architecture
+#error "unknown architecture"
 #endif
 
 void
@@ -197,34 +213,34 @@ prepare_threads_after_stop (struct macosx_inferior_status *inferior)
                          (thread_info_t) & info, &info_count);
           MACH_CHECK_ERROR (kret);
 
-          if (tp->gdb_suspend_count > 0)
+          if (tp->private->gdb_suspend_count > 0)
             inferior_debug (3, "**  Resuming thread 0x%x, gdb suspend count: "
                             "%d, real suspend count: %d\n",
-                            thread_list[i], tp->gdb_suspend_count,
+                            thread_list[i], tp->private->gdb_suspend_count,
                             info.suspend_count);
-	  else if (tp->gdb_suspend_count < 0)
+	  else if (tp->private->gdb_suspend_count < 0)
 	    inferior_debug (3, "**  Re-suspending thread 0x%x, original suspend count: "
                             "%d\n",
-                            thread_list[i], tp->gdb_suspend_count);
+                            thread_list[i], tp->private->gdb_suspend_count);
           else
             inferior_debug (3, "**  Thread 0x%x was not suspended from gdb, "
                             "real suspend count: %d\n",
                             thread_list[i], info.suspend_count);
         }
-      if (tp->gdb_suspend_count > 0)
+      if (tp->private->gdb_suspend_count > 0)
 	{
-	  while (tp->gdb_suspend_count > 0)
+	  while (tp->private->gdb_suspend_count > 0)
 	    {
 	      thread_resume (thread_list[i]);
-	      tp->gdb_suspend_count--;
+	      tp->private->gdb_suspend_count--;
 	    }
 	}
-      else if (tp->gdb_suspend_count < 0)
+      else if (tp->private->gdb_suspend_count < 0)
 	{
-	  while (tp->gdb_suspend_count < 0)
+	  while (tp->private->gdb_suspend_count < 0)
 	    {
 	      thread_suspend (thread_list[i]);
-	      tp->gdb_suspend_count++;
+	      tp->private->gdb_suspend_count++;
 	    }
 	}
 
@@ -276,7 +292,7 @@ void prepare_threads_before_run
 			      current);
 	      while (info.suspend_count > 0)
 		{
-		  tp->gdb_suspend_count--;
+		  tp->private->gdb_suspend_count--;
 		  info.suspend_count--;
 		  thread_resume (current);
 		}
@@ -311,12 +327,27 @@ void prepare_threads_before_run
 
           ptid = ptid_build (inferior->pid, 0, thread_list[i]);
           tp = find_thread_pid (ptid);
-          CHECK_FATAL (tp != NULL);
+          if (tp == NULL)
+	    {
+	      tp = add_thread (ptid);
+	      if (create_private_thread_info (tp))
+		tp->private->app_thread_port =
+		  get_application_thread_port (thread_list[i]);
+	      inferior_debug (3, "*** New thread 0x%x appeared while task was stopped.\n",
+			      thread_list[i]);
+	    }
+
+	  if (tp->private->gdb_dont_suspend_stepping)
+	    {
+	      inferior_debug (3, "*** Allowing thread 0x%x to run - it's marked don't suspend.\n",
+			      thread_list[i]);
+	      continue;
+	    }
           kret = thread_suspend (thread_list[i]);
           MACH_CHECK_ERROR (kret);
-          tp->gdb_suspend_count++;
+          tp->private->gdb_suspend_count++;
           inferior_debug (3, "*** Suspending thread 0x%x, suspend count %d\n",
-                          thread_list[i], tp->gdb_suspend_count);
+                          thread_list[i], tp->private->gdb_suspend_count);
         }
       else if (stop_others)
         inferior_debug (3, "*** Allowing thread 0x%x to run from gdb\n",
@@ -417,33 +448,273 @@ get_application_thread_port (thread_t our_name)
 
   vm_deallocate (mach_task_self (), (vm_address_t) names,
                  names_count * sizeof (mach_port_t));
+  vm_deallocate (mach_task_self (), (vm_address_t) types,
+                 types_count * sizeof (mach_port_t));
 
   return (thread_t) match;
 }
 
-void
-print_thread_info (thread_t tid)
+struct dispatch_offsets_info {
+  ULONGEST version;              /* dqo_version */
+  ULONGEST label_offset;         /* dqo_label */
+  ULONGEST label_size;           /* dqo_label_size */
+  ULONGEST flags_offset;         /* dqo_flags */
+  ULONGEST flags_size;           /* dqo_flags_size */
+};
+
+
+/* libdispatch has a structure (symbol name dispatch_queue_offsets) which
+   tells us where to find the name and flags for a work queue in the inferior.
+   v. libdispatch's (non-public) src/queue_private.h for the definition of this 
+   structure.  */
+
+static struct dispatch_offsets_info *
+read_dispatch_offsets ()
+{
+  struct minimal_symbol *dispatch_queue_offsets;
+  static struct dispatch_offsets_info *dispatch_offsets = NULL;
+  if (dispatch_offsets != NULL)
+    return dispatch_offsets;
+
+  dispatch_queue_offsets = lookup_minimal_symbol 
+                           ("dispatch_queue_offsets", NULL, NULL);
+  if (dispatch_queue_offsets == NULL
+      || SYMBOL_VALUE_ADDRESS (dispatch_queue_offsets) == 0
+      || SYMBOL_VALUE_ADDRESS (dispatch_queue_offsets) == -1)
+    return NULL;
+
+  dispatch_offsets = (struct dispatch_offsets_info *)
+                      xmalloc (sizeof (struct dispatch_offsets_info));
+
+  if (safe_read_memory_unsigned_integer 
+       (SYMBOL_VALUE_ADDRESS (dispatch_queue_offsets), 2, 
+        &dispatch_offsets->version) == 0)
+    {
+      xfree (dispatch_offsets);
+      dispatch_offsets = NULL;
+      return NULL;
+    }
+
+  if (safe_read_memory_unsigned_integer 
+       (SYMBOL_VALUE_ADDRESS (dispatch_queue_offsets) + 2, 2, 
+        &dispatch_offsets->label_offset) == 0)
+    {
+      xfree (dispatch_offsets);
+      dispatch_offsets = NULL;
+      return NULL;
+    }
+
+  if (safe_read_memory_unsigned_integer 
+       (SYMBOL_VALUE_ADDRESS (dispatch_queue_offsets) + 4, 2, 
+        &dispatch_offsets->label_size) == 0)
+    {
+      xfree (dispatch_offsets);
+      dispatch_offsets = NULL;
+      return NULL;
+    }
+
+  if (safe_read_memory_unsigned_integer 
+       (SYMBOL_VALUE_ADDRESS (dispatch_queue_offsets) + 6, 2, 
+        &dispatch_offsets->flags_offset) == 0)
+    {
+      xfree (dispatch_offsets);
+      dispatch_offsets = NULL;
+      return NULL;
+    }
+
+  if (safe_read_memory_unsigned_integer 
+       (SYMBOL_VALUE_ADDRESS (dispatch_queue_offsets) + 8, 2, 
+        &dispatch_offsets->flags_size) == 0)
+    {
+      xfree (dispatch_offsets);
+      dispatch_offsets = NULL;
+      return NULL;
+    }
+  
+  return dispatch_offsets;
+}
+
+/* Retrieve the libdispatch work queue name given the dispatch_qaddr
+   from thread_info (..., THREAD_IDENTIFIER_INFO, ...).  
+   Returns NULL if a name could not be found.
+   Returns a pointer to a static character buffer if it was found.  */
+
+static char *
+get_dispatch_queue_name (CORE_ADDR dispatch_qaddr)
+{
+  static char namebuf[96];
+  struct dispatch_offsets_info *dispatch_offsets = read_dispatch_offsets ();
+  int wordsize = TARGET_PTR_BIT / 8;
+  ULONGEST queue;
+
+  namebuf[0] = '\0';
+
+  if (dispatch_qaddr != 0 
+      && dispatch_offsets != NULL
+      && safe_read_memory_unsigned_integer (dispatch_qaddr, wordsize,
+                                            &queue) != 0
+      && queue != 0)
+    {
+      char *queue_buf = NULL;
+      errno = 0;
+      if (target_read_string (queue + dispatch_offsets->label_offset, 
+                              &queue_buf, sizeof (namebuf) - 1, &errno) > 1
+          && errno == 0)
+        {
+          if (queue_buf && queue_buf[0] != '\0')
+            strlcpy (namebuf, queue_buf, sizeof (namebuf));
+        }
+      if (queue_buf)
+        xfree (queue_buf);
+    }
+  return namebuf;
+}
+
+/* Retrieve the libdispatch work queue flags given the dispatch_qaddr
+   from thread_info (..., THREAD_IDENTIFIER_INFO, ...).  
+   Returns 1 if it was able to retrieve the flags field.  */
+
+static int
+get_dispatch_queue_flags (CORE_ADDR dispatch_qaddr, uint32_t *flags)
+{
+  int wordsize = TARGET_PTR_BIT / 8;
+  struct dispatch_offsets_info *dispatch_offsets = read_dispatch_offsets ();
+  ULONGEST queue;
+  ULONGEST buf;
+
+  if (flags == NULL)
+    return 0;
+
+  if (dispatch_qaddr != 0
+      && dispatch_offsets != NULL
+      && safe_read_memory_unsigned_integer (dispatch_qaddr, wordsize,
+                                            &queue) != 0
+      && queue != 0
+      && safe_read_memory_unsigned_integer 
+                            (queue + dispatch_offsets->flags_offset, 
+                             dispatch_offsets->flags_size, &buf) != 0)
+    {
+      *flags = buf;
+      return 1;
+    }
+
+  return 0;
+}
+
+static void
+print_thread_info (thread_t tid, int *gdb_thread_id)
 {
   struct thread_basic_info info;
   unsigned int info_count = THREAD_BASIC_INFO_COUNT;
   kern_return_t kret;
   thread_t app_thread_name;
+  ptid_t ptid = ptid_build (macosx_status->pid, 0, tid);
+  struct thread_info *tp = find_thread_pid (ptid);
+  ptid_t current_ptid;
+  current_ptid = inferior_ptid;
 
   kret =
-    thread_info (tid, THREAD_BASIC_INFO, (thread_info_t) & info, &info_count);
+    thread_info (tid, THREAD_BASIC_INFO, (thread_info_t) &info, &info_count);
   MACH_CHECK_ERROR (kret);
 
-  /* FIXME: We store the application port name in the private structure
-     in the thread_info.  Can we use that here rather than having to
-     call get_application_thread_port? */
+  if (tp == NULL)
+    app_thread_name = get_application_thread_port (tid);
+  else
+    app_thread_name = tp->private->app_thread_port;
 
-  app_thread_name = get_application_thread_port (tid);
+  if (gdb_thread_id)
+    {
+      printf_filtered ("Thread %d has current state \"%s\"\n", 
+                       *gdb_thread_id, unparse_run_state (info.run_state));
+      printf_filtered ("\tMach port #0x%s (gdb port #0x%s)\n",
+                       paddr_nz (app_thread_name), paddr_nz (tid));
+    }
+  else
+    {
+      printf_filtered ("Port # 0x%lx (gdb port # 0x%lx) has current state \"%s\"\n",
+                       (unsigned long) app_thread_name,
+                       (unsigned long) tid, unparse_run_state (info.run_state));
+    }
 
-  printf_filtered ("Thread 0x%lx (local 0x%lx) has current state \"%s\"\n",
-                   (unsigned long) app_thread_name,
-                   (unsigned long) tid, unparse_run_state (info.run_state));
-  printf_filtered ("Thread 0x%lx has a suspend count of %d",
-                   (unsigned long) app_thread_name, info.suspend_count);
+    printf_filtered ("\tframe 0: ");
+    switch_to_thread (tp->ptid);
+    print_stack_frame (get_selected_frame (NULL), 0, LOCATION);
+    switch_to_thread (current_ptid);
+
+#ifdef HAVE_THREAD_IDENTIFIER_INFO_DATA_T
+  thread_identifier_info_data_t tident;
+  info_count = THREAD_IDENTIFIER_INFO_COUNT;
+  kret = thread_info (tid, THREAD_IDENTIFIER_INFO, (thread_info_t) &tident, 
+                      &info_count);
+  MACH_CHECK_ERROR (kret);
+
+  printf_filtered ("\tpthread ID: 0x%s\n",
+                   paddr_nz (tident.thread_handle));
+  printf_filtered ("\tsystem-wide unique thread id: 0x%s\n", 
+                   paddr_nz (tident.thread_id));
+
+  /* If the pthread_self() value for this thread is 0x0, we have a thread
+     that is very early in the setup process (e.g. it is in 
+     _pthread_struct_init () or something like that) -- it most likely 
+     has a bogus dispatch_qaddr value.  Save ourself a couple of 
+     memory_error()s and just skip this processing.  */
+  if (tident.thread_handle != 0)
+    {
+      char *queue_name = get_dispatch_queue_name (tident.dispatch_qaddr);
+      if (queue_name && queue_name[0] != '\0')
+        printf_filtered ("\tdispatch queue name: \"%s\"\n", queue_name);
+
+      uint32_t queue_flags;
+      if (get_dispatch_queue_flags (tident.dispatch_qaddr, &queue_flags))
+        {
+                printf_filtered ("\tdispatch queue flags: 0x%x", queue_flags);
+                /* Constants defined in libdispatch's src/private.h,
+                   dispatch_queue_flags_t */
+                if (queue_flags & 0x1)
+                  printf_filtered (" (concurrent)");
+                if (queue_flags & 0x4)
+                  printf_filtered (" (always locked)");
+                printf_filtered ("\n");
+        }
+    }
+
+  struct proc_threadinfo pth;
+  int retval;
+  retval = proc_pidinfo (PIDGET (ptid), PROC_PIDTHREADINFO, 
+                         tident.thread_handle, &pth, sizeof (pth));
+  if (retval != 0)
+    {
+      if (pth.pth_name[0] != '\0')
+        printf_filtered ("\tthread name: \"%s\"\n", pth.pth_name);
+
+      printf_filtered ("\ttotal user time: 0x%" PRIx64 "\n", pth.pth_user_time);
+      printf_filtered ("\ttotal system time: 0x%" PRIx64 "\n", pth.pth_system_time);
+      printf_filtered ("\tscaled cpu usage percentage: %d\n", pth.pth_cpu_usage);
+      printf_filtered ("\tscheduling policy in effect: 0x%x\n", pth.pth_policy);
+      printf_filtered ("\trun state: 0x%x", pth.pth_run_state);
+      switch (pth.pth_run_state) {
+          case TH_STATE_RUNNING: printf_filtered (" (RUNNING)\n"); break;
+          case TH_STATE_STOPPED: printf_filtered (" (STOPPED)\n"); break;
+          case TH_STATE_WAITING: printf_filtered (" (WAITING)\n"); break;
+          case TH_STATE_UNINTERRUPTIBLE: printf_filtered (" (UNINTERRUPTIBLE)\n"); break;
+          case TH_STATE_HALTED: printf_filtered (" (HALTED)\n"); break;
+          default: printf_filtered ("\n");
+      }
+      printf_filtered ("\tflags: 0x%x", pth.pth_flags);
+      switch (pth.pth_flags) {
+          case TH_FLAGS_SWAPPED: printf_filtered (" (SWAPPED)\n"); break;
+          case TH_FLAGS_IDLE: printf_filtered (" (IDLE)\n"); break;
+          default: printf_filtered ("\n");
+      }
+      printf_filtered ("\tnumber of seconds that thread has slept: %d\n", 
+                                                   pth.pth_sleep_time);
+      printf_filtered ("\tcurrent priority: %d\n", pth.pth_priority);
+      printf_filtered ("\tmax priority: %d\n", pth.pth_maxpriority);
+    }
+#endif /* HAVE_THREAD_IDENTIFIER_INFO_DATA_T */
+
+  printf_filtered ("\tsuspend count: %d", info.suspend_count);
+
   if (info.sleep_time == 0)
     {
       printf_filtered (".\n");
@@ -453,6 +724,10 @@ print_thread_info (thread_t tid)
       printf_filtered (", and has been sleeping for %d seconds.\n",
                        info.sleep_time);
     }
+  if (tp == NULL)
+    printf_filtered ("\tCould not find the thread in gdb's internal thread list.\n");
+  else if (tp->private->gdb_dont_suspend_stepping)
+    printf_filtered ("\tSet to run while stepping.\n");
 }
 
 void
@@ -481,7 +756,7 @@ info_task_command (char *args, int from_tty)
   printf_filtered ("The task has %lu threads:\n", (unsigned long) nthreads);
   for (i = 0; i < nthreads; i++)
     {
-      print_thread_info (thread_list[i]);
+      print_thread_info (thread_list[i], NULL);
     }
 
   kret =
@@ -491,7 +766,7 @@ info_task_command (char *args, int from_tty)
 }
 
 static thread_t
-parse_thread (char *tidstr)
+parse_thread (char *tidstr, int *gdb_thread_id)
 {
   ptid_t ptid;
 
@@ -523,14 +798,18 @@ parse_thread (char *tidstr)
       error ("Thread ID %s does not exist.\n", target_pid_to_str (ptid));
     }
 
+  if (gdb_thread_id)
+    *gdb_thread_id = pid_to_thread_id (ptid);
+
   return ptid_get_tid (ptid);
 }
 
 void
 info_thread_command (char *tidstr, int from_tty)
 {
-  thread_t thread = parse_thread (tidstr);
-  print_thread_info (thread);
+  int gdb_thread_id;
+  thread_t thread = parse_thread (tidstr, &gdb_thread_id);
+  print_thread_info (thread, &gdb_thread_id);
 }
 
 static void
@@ -539,10 +818,87 @@ thread_suspend_command (char *tidstr, int from_tty)
   kern_return_t kret;
   thread_t thread;
 
-  thread = parse_thread (tidstr);
+  thread = parse_thread (tidstr, NULL);
   kret = thread_suspend (thread);
 
   MACH_CHECK_ERROR (kret);
+}
+
+static int 
+thread_match_callback (struct thread_info *t, void *thread_ptr)
+{
+  LONGEST desired_thread = *(LONGEST *) thread_ptr;
+
+  struct private_thread_info *pt = (struct private_thread_info *) t->private;
+  if (pt->app_thread_port == desired_thread)
+    return 1;
+  else
+    return 0;
+}
+
+static void
+thread_dont_suspend_while_stepping_command (char *arg, int from_tty)
+{
+  struct thread_info *tp;
+  int on_or_off = 0;
+#define TDS_ERRSTR "Usage: on|off <THREAD ID>|-port <EXPR>"
+
+  while (*arg == ' ' || *arg == '\t')
+    arg++;
+
+  if (*arg == '\0')
+    error (TDS_ERRSTR);
+
+  if (strstr (arg, "on") == arg)
+    {
+      on_or_off = 1;
+      arg += 2;
+    }
+  else if (strstr (arg, "off") == arg)
+    {
+      on_or_off = 0;
+      arg += 3;
+    }
+  else
+    error (TDS_ERRSTR);
+    
+  while (*arg == ' ' || *arg == '\t')
+    arg++;
+
+  if (strstr (arg, "-port") == arg)
+    {
+      LONGEST thread_no;
+      arg += 5;
+      while (*arg == ' ' || *arg == '\t')
+	arg++;
+
+      if (*arg == '\0')
+	error ("No expression of -port flag.");
+
+      thread_no = parse_and_eval_long (arg);
+      
+      tp = iterate_over_threads (thread_match_callback, &thread_no);
+    }
+  else
+    {
+      int threadno;
+      char *endptr;
+
+      threadno = strtol (arg, &endptr, 0);
+      if (*endptr != '\0')
+	error ("Junk at end of thread id: \"%s\".", endptr);
+      tp = find_thread_id (threadno);
+    }
+
+  if (tp == NULL)
+    error ("Couldn't find thread matching: \"%s\".", arg);
+  else
+    {
+      printf_unfiltered ("Setting thread %d to %s while stepping other threads.\n",
+			 tp->num,
+			 on_or_off ? "run" : "stop");
+      tp->private->gdb_dont_suspend_stepping = on_or_off;
+    }
 }
 
 static void
@@ -553,7 +909,7 @@ thread_resume_command (char *tidstr, int from_tty)
   struct thread_basic_info info;
   unsigned int info_count = THREAD_BASIC_INFO_COUNT;
 
-  tid = parse_thread (tidstr);
+  tid = parse_thread (tidstr, NULL);
 
   kret =
     thread_info (tid, THREAD_BASIC_INFO, (thread_info_t) & info, &info_count);
@@ -628,6 +984,61 @@ macosx_prune_threads (thread_array_t thread_list, unsigned int nthreads)
   prune_threads ();
 }
 
+/* Print the details about a thread, intended for an MI-like interface.  */
+
+void 
+macosx_print_thread_details (struct ui_out *uiout, ptid_t ptid)
+{
+  thread_t tid = ptid_get_tid (ptid);
+  struct thread_basic_info info;
+  unsigned int info_count = THREAD_BASIC_INFO_COUNT;
+  kern_return_t kret;
+  thread_t app_thread_name;
+  struct thread_info *tp = find_thread_pid (ptid);
+
+  kret =
+    thread_info (tid, THREAD_BASIC_INFO, (thread_info_t) &info, &info_count);
+  MACH_CHECK_ERROR (kret);
+
+  if (tp == NULL)
+    app_thread_name = get_application_thread_port (tid);
+  else
+    app_thread_name = tp->private->app_thread_port;
+
+  ui_out_field_string (uiout, "state", unparse_run_state (info.run_state));
+  ui_out_field_fmt (uiout, "mach-port-number", "0x%s", 
+                    paddr_nz (app_thread_name));
+
+#ifdef HAVE_THREAD_IDENTIFIER_INFO_DATA_T
+  thread_identifier_info_data_t tident;
+  info_count = THREAD_IDENTIFIER_INFO_COUNT;
+  kret = thread_info (tid, THREAD_IDENTIFIER_INFO, (thread_info_t) &tident, 
+                      &info_count);
+  MACH_CHECK_ERROR (kret);
+
+  ui_out_field_fmt (uiout, "pthread-id", "0x%s", 
+                    paddr_nz (tident.thread_handle));
+  ui_out_field_fmt (uiout, "unique-id", "0x%s", 
+                    paddr_nz (tident.thread_id));
+
+
+  struct proc_threadinfo pth;
+  int retval;
+  retval = proc_pidinfo (PIDGET (ptid), PROC_PIDTHREADINFO, 
+                         tident.thread_handle, &pth, sizeof (pth));
+  if (retval != 0 && pth.pth_name[0] != '\0')
+    ui_out_field_string (uiout, "name", pth.pth_name);
+
+  if (tident.thread_handle != 0)
+    {
+      char *queue_name = get_dispatch_queue_name (tident.dispatch_qaddr);
+      if (queue_name && queue_name[0] != '\0')
+        ui_out_field_string (uiout, "workqueue", queue_name);
+    }
+#endif /* HAVE_THREAD_IDENTIFIER_INFO_DATA_T */
+}
+
+
 void
 _initialize_threads ()
 {
@@ -636,6 +1047,13 @@ _initialize_threads ()
 
   add_cmd ("resume", class_run, thread_resume_command,
            "Decrement the suspend count of a thread.", &thread_cmd_list);
+
+  add_cmd ("dont-suspend-while-stepping", class_run, thread_dont_suspend_while_stepping_command,
+	   "Usage: on|off <THREAD ID>|-port <EXPR>\
+Toggle whether to not suspend this thread while single stepping the target on or off.\
+With the -port option, EXPR is evaluated as an expression in the target, which should \
+resolve to the Mach port number of the thread port for a thread in the target program.", 
+	   &thread_cmd_list);
 
   add_info ("thread", info_thread_command, "Get information on thread.");
 

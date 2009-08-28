@@ -120,7 +120,7 @@ OSStatus HIDCloseReportDescriptor(HIDPreparsedDataRef preparsedDataRef)
 */
 OSStatus
 HIDOpenReportDescriptor	   (void *					hidReportDescriptor,
-							UInt32					descriptorLength,
+							ByteCount				descriptorLength,
 							HIDPreparsedDataRef *	preparsedDataRef,
 							UInt32					flags)
 {

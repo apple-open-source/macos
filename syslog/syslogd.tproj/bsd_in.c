@@ -70,40 +70,40 @@ bsd_in_init(void)
 
 	if (global.launch_dict == NULL)
 	{
-		asldebug("%s: laucnchd dict is NULL\n", MY_ID);
+		asldebug("%s: launchd dict is NULL\n", MY_ID);
 		return -1;
 	}
 
 	sockets_dict = launch_data_dict_lookup(global.launch_dict, LAUNCH_JOBKEY_SOCKETS);
 	if (sockets_dict == NULL)
 	{
-		asldebug("%s: laucnchd lookup of LAUNCH_JOBKEY_SOCKETS failed\n", MY_ID);
+		asldebug("%s: launchd lookup of LAUNCH_JOBKEY_SOCKETS failed\n", MY_ID);
 		return -1;
 	}
 
 	fd_array = launch_data_dict_lookup(sockets_dict, BSD_SOCKET_NAME);
 	if (fd_array == NULL)
 	{
-		asldebug("%s: laucnchd lookup of BSD_SOCKET_NAME failed\n", MY_ID);
+		asldebug("%s: launchd lookup of BSD_SOCKET_NAME failed\n", MY_ID);
 		return -1;
 	}
 
 	len = launch_data_array_get_count(fd_array);
 	if (len <= 0)
 	{
-		asldebug("%s: laucnchd fd array is empty\n", MY_ID);
+		asldebug("%s: launchd fd array is empty\n", MY_ID);
 		return -1;
 	}
 
 	if (len > 1)
 	{
-		asldebug("%s: warning! laucnchd fd array has %d sockets\n", MY_ID, len);
+		asldebug("%s: warning! launchd fd array has %d sockets\n", MY_ID, len);
 	}
 
 	fd_dict = launch_data_array_get_index(fd_array, 0);
 	if (fd_dict == NULL)
 	{
-		asldebug("%s: laucnchd file discriptor array element 0 is NULL\n", MY_ID);
+		asldebug("%s: launchd file discriptor array element 0 is NULL\n", MY_ID);
 		return -1;
 	}
 
@@ -128,7 +128,7 @@ bsd_in_init(void)
 		return -1;
 	}
 
-	return aslevent_addfd(sock, ADDFD_FLAGS_LOCAL, bsd_in_acceptmsg, NULL, NULL);
+	return aslevent_addfd(SOURCE_BSD_SOCKET, sock, ADDFD_FLAGS_LOCAL, bsd_in_acceptmsg, NULL, NULL);
 }
 
 int

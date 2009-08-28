@@ -37,7 +37,7 @@
 # if	!defined(lint)
 static char copyright[] =
 "@(#) Copyright 1998 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: ckkv.c,v 1.2 1998/07/17 08:48:24 abe Exp $";
+static char *rcsid = "$Id: ckkv.c,v 1.3 2008/10/21 16:12:36 abe Exp $";
 # endif	/* !defined(lint) */
 
 #include "../lsof.h"
@@ -89,5 +89,5 @@ ckkv(d, er, ev, ea)
 
 }
 #else	/* !defined(USE_LIB_CKKV) */
-static char d1[] = "d"; static char *d2 = d1;
+char ckkv_d1[] = "d"; char *ckkv_d2 = ckkv_d1;
 #endif	/* defined(USE_LIB_CKKV) */

@@ -1,0 +1,36 @@
+=head1 NAME
+
+TASKS - Want to help? These things need doing...
+
+=head2 Increase test coverage
+
+More tests need to be added to test the codes that not urrently being tested.
+
+It's pretty poor right now:
+
+   http://pjcj.sytes.net/cover/latest/DBI-1.52/coverage.html
+
+Start with improving the subroutine coverage
+
+   http://pjcj.sytes.net/cover/latest/DBI-1.52/blib-lib-DBI-pm--subroutine.html
+
+=head2 Test the proxy
+
+The current t/80proxy.t is isolated from the rest of the test suite so actually
+tests very little, and what it does test is duplicating other tests.
+
+Ideally the proxy should be tested in the same way as DBI::PurePerl.  In other
+words, by creating wrappers test files for each test file that set
+$ENV{DBI_AUTOPROXY} and run the original test. They'll also need to start and
+stop a proxy server.
+
+=head2 Fixing bugs
+
+The official bug list is here:
+
+   http://rt.cpan.org/NoAuth/Bugs.html?Dist=DBI
+
+Naturally I'll offer direction and guidance on any you want to tackle.
+I've also got a few that could be entered into rt.cpan.org.
+
+=cut

@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2006 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2008 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -87,23 +87,30 @@ PATTERNS = [
     (_c('Unable to deliver message to the following address\(es\)\.'),
      _c('--- Original message follows\.'),
      _c('<(?P<addr>[^>]*)>:')),
-    # kundenserver.de
-    (_c('A message that you sent could not be delivered'),
+    # googlemail.com
+    (_c('Delivery to the following recipient(s)? failed'),
+     _c('----- Original message -----'),
+     _c('^\s*(?P<addr>[^\s@]+@[^\s@]+)\s*$')),
+    # kundenserver.de, mxlogic.net
+    (_c('A message that you( have)? sent could not be delivered'),
      _c('^---'),
      _c('<(?P<addr>[^>]*)>')),
     # another kundenserver.de
-    (_c('A message that you sent could not be delivered'),
+    (_c('A message that you( have)? sent could not be delivered'),
      _c('^---'),
      _c('^(?P<addr>[^\s@]+@[^\s@:]+):')),
-    # thehartford.com
-    (_c('Delivery to the following recipients failed'),
-     _c("Bogus - there actually isn't anything"),
-     _c('^\s*(?P<addr>[^\s@]+@[^\s@]+)\s*$')),
+    # thehartford.com and amenworld.com
+    (_c('Del(i|e)very to the following recipient(s)? (failed|was aborted)'),
+     # this one may or may not have the original message, but there's nothing
+     # unique to stop on, so stop on the first line of at least 3 characters
+     # that doesn't start with 'D' (to not stop immediately) and has no '@'.
+     _c('^[^D][^@]{2,}$'),
+     _c('^\s*(. )?(?P<addr>[^\s@]+@[^\s@]+)\s*$')),
     # and another thehartfod.com/hartfordlife.com
     (_c('^Your message\s*$'),
      _c('^because:'),
      _c('^\s*(?P<addr>[^\s@]+@[^\s@]+)\s*$')),
-    # kviv.be (NTMail)
+    # kviv.be (InterScan NT)
     (_c('^Unable to deliver message to'),
      _c(r'\*+\s+End of message\s+\*+'),
      _c('<(?P<addr>[^>]*)>')),
@@ -119,14 +126,46 @@ PATTERNS = [
     (_c('^Invalid final delivery userid:'),
      _c('^Original message follows.'),
      _c('\s*(?P<addr>[^\s@]+@[^\s@]+)\s*$')),
-    # E500_SMTP_Mail_Service@lerctr.org
-    (_c('------ Failed Recipients ------'),
-     _c('-------- Returned Mail --------'),
+    # E500_SMTP_Mail_Service@lerctr.org and similar
+    (_c('---- Failed Recipients ----'),
+     _c(' Mail ----'),
      _c('<(?P<addr>[^>]*)>')),
     # cynergycom.net
     (_c('A message that you sent could not be delivered'),
      _c('^---'),
      _c('(?P<addr>[^\s@]+@[^\s@)]+)')),
+    # LSMTP for Windows
+    (_c('^--> Error description:\s*$'),
+     _c('^Error-End:'),
+     _c('^Error-for:\s+(?P<addr>[^\s@]+@[^\s@]+)')),
+    # Qmail with a tri-language intro beginning in spanish
+    (_c('Your message could not be delivered'),
+     _c('^-'),
+     _c('<(?P<addr>[^>]*)>:')),
+    # socgen.com
+    (_c('Your message could not be delivered to'),
+     _c('^\s*$'),
+     _c('(?P<addr>[^\s@]+@[^\s@]+)')),
+    # dadoservice.it
+    (_c('Your message has encountered delivery problems'),
+     _c('Your message reads'),
+     _c('addressed to\s*(?P<addr>[^\s@]+@[^\s@)]+)')),
+    # gomaps.com
+    (_c('Did not reach the following recipient'),
+     _c('^\s*$'),
+     _c('\s(?P<addr>[^\s@]+@[^\s@]+)')),
+    # EYOU MTA SYSTEM
+    (_c('This is the deliver program at'),
+     _c('^-'),
+     _c('^(?P<addr>[^\s@]+@[^\s@<>]+)')),
+    # A non-standard qmail at ieo.it
+    (_c('this is the email server at'),
+     _c('^-'),
+     _c('\s(?P<addr>[^\s@]+@[^\s@]+)[\s,]')),
+    # pla.net.py (MDaemon.PRO ?)
+    (_c('- no such user here'),
+     _c('There is no user'),
+     _c('^(?P<addr>[^\s@]+@[^\s@]+)\s')),
     # Next one goes here...
     ]
 
@@ -157,7 +196,7 @@ def process(msg, patterns=None):
                 if mo:
                     addr = mo.group('addr')
                     if addr:
-                        addrs[mo.group('addr')] = 1
+                        addrs[addr.strip('<>')] = 1
                 elif ecre.search(line):
                     break
         if addrs:

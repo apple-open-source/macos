@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -102,19 +102,37 @@ static void more_int64_fmts(abts_case *tc, void *data)
     apr_int64_t i = APR_INT64_C(-42);
     apr_int64_t ibig = APR_INT64_C(-314159265358979323);
     apr_uint64_t ui = APR_UINT64_C(42);
-    apr_uint64_t big = APR_UINT64_C(3141592653589793238);
+    apr_uint64_t big = APR_UINT64_C(10267677267010969076);
 
     apr_snprintf(buf, sizeof buf, "%" APR_INT64_T_FMT, i);
-    ABTS_STR_EQUAL(tc, buf, "-42");
+    ABTS_STR_EQUAL(tc, "-42", buf);
 
     apr_snprintf(buf, sizeof buf, "%" APR_UINT64_T_FMT, ui);
-    ABTS_STR_EQUAL(tc, buf, "42");
+    ABTS_STR_EQUAL(tc, "42", buf);
 
     apr_snprintf(buf, sizeof buf, "%" APR_UINT64_T_FMT, big);
-    ABTS_STR_EQUAL(tc, buf, "3141592653589793238");
+    ABTS_STR_EQUAL(tc, "10267677267010969076", buf);
 
     apr_snprintf(buf, sizeof buf, "%" APR_INT64_T_FMT, ibig);
-    ABTS_STR_EQUAL(tc, buf, "-314159265358979323");
+    ABTS_STR_EQUAL(tc, "-314159265358979323", buf);
+}
+
+static void error_fmt(abts_case *tc, void *data)
+{
+    char ebuf[150], sbuf[150], *s;
+    apr_status_t rv;
+
+    rv = APR_SUCCESS;
+    apr_strerror(rv, ebuf, sizeof ebuf);
+    apr_snprintf(sbuf, sizeof sbuf, "%pm", &rv);
+    ABTS_STR_EQUAL(tc, sbuf, ebuf);
+
+    rv = APR_ENOTIMPL;
+    s = apr_pstrcat(p, "foo-",
+                    apr_strerror(rv, ebuf, sizeof ebuf),
+                    "-bar", NULL);
+    apr_snprintf(sbuf, sizeof sbuf, "foo-%pm-bar", &rv);
+    ABTS_STR_EQUAL(tc, sbuf, s);
 }
 
 abts_suite *testfmt(abts_suite *suite)
@@ -129,6 +147,7 @@ abts_suite *testfmt(abts_suite *suite)
     abts_run_test(suite, uint64_t_fmt, NULL);
     abts_run_test(suite, uint64_t_hex_fmt, NULL);
     abts_run_test(suite, more_int64_fmts, NULL);
+    abts_run_test(suite, error_fmt, NULL);
 
     return suite;
 }

@@ -21,7 +21,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <libc.h>
-
 #include <IOKit/kext/KXKextManager.h>
 
 extern KXKextManagerLogLevel   g_verbose_level;
@@ -29,13 +28,12 @@ extern const char *progname;
 
 CFStringRef createCFString(char * string);
 
-Boolean check_file(const char * filename);
 Boolean check_dir(const char * dirname, int writeable, int print_err);
 void qerror(const char * format, ...);
+
+void basic_log(const char * format, ...);
 void verbose_log(const char * format, ...);
 void error_log(const char * format, ...);
-int user_approve(int default_answer, const char * format, ...);
-const char * user_input(const char * format, ...);
 
 int addKextsToManager(
     KXKextManagerRef aManager,

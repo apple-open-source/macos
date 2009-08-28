@@ -135,7 +135,7 @@ IOReturn IOConfigDirectory::createIterator(UInt32 testVal, UInt32 testMask, OSIt
 	
 	if( status == kIOReturnSuccess )
 	{
-		iter = new IOConfigDirectoryIterator;
+		iter = OSTypeAlloc( IOConfigDirectoryIterator );
 		if( iter == NULL )
 			status = kIOReturnNoMemory;
 	}
@@ -557,7 +557,7 @@ IOReturn IOConfigDirectory::getIndexValue(int index, OSString *&value)
 	
 		if( ((entry & kConfigEntryKeyValue) >> kConfigEntryKeyValuePhase) != kConfigTextualDescriptorKey )
 		{
-			DebugLog("IOConfigDirectory<%p>::getIndexValue -- key is not a textual descriptor key entry=0x%lx\n", this, entry ) ;
+			DebugLog("IOConfigDirectory<%p>::getIndexValue -- key is not a textual descriptor key entry=0x%x\n", this, (uint32_t)entry ) ;
 			status = kIOReturnBadArgument;
 		}
 	}

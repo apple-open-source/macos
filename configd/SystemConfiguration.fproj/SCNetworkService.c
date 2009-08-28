@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -45,7 +45,7 @@ static Boolean		__SCNetworkServiceEqual			(CFTypeRef cf1, CFTypeRef cf2);
 static CFHashCode	__SCNetworkServiceHash			(CFTypeRef cf);
 
 
-static CFTypeID __kSCNetworkServiceTypeID	= _kCFRuntimeNotATypeID;
+static CFTypeID __kSCNetworkServiceTypeID		= _kCFRuntimeNotATypeID;
 
 
 static const CFRuntimeClass __SCNetworkServiceClass = {
@@ -61,7 +61,7 @@ static const CFRuntimeClass __SCNetworkServiceClass = {
 };
 
 
-static pthread_once_t		initialized	= PTHREAD_ONCE_INIT;
+static pthread_once_t		initialized		= PTHREAD_ONCE_INIT;
 
 
 static CFStringRef
@@ -74,7 +74,11 @@ __SCNetworkServiceCopyDescription(CFTypeRef cf)
 	result = CFStringCreateMutable(allocator, 0);
 	CFStringAppendFormat(result, NULL, CFSTR("<SCNetworkService %p [%p]> {"), cf, allocator);
 	CFStringAppendFormat(result, NULL, CFSTR("id = %@"), servicePrivate->serviceID);
-	CFStringAppendFormat(result, NULL, CFSTR(", prefs = %p"), servicePrivate->prefs);
+	if (servicePrivate->prefs != NULL) {
+		CFStringAppendFormat(result, NULL, CFSTR(", prefs = %p"), servicePrivate->prefs);
+	} else if (servicePrivate->store != NULL) {
+		CFStringAppendFormat(result, NULL, CFSTR(", store = %p"), servicePrivate->store);
+	}
 	if (servicePrivate->name != NULL) {
 		CFStringAppendFormat(result, NULL, CFSTR(", name = %@"), servicePrivate->name);
 	}
@@ -93,7 +97,8 @@ __SCNetworkServiceDeallocate(CFTypeRef cf)
 
 	CFRelease(servicePrivate->serviceID);
 	if (servicePrivate->interface != NULL) CFRelease(servicePrivate->interface);
-	CFRelease(servicePrivate->prefs);
+	if (servicePrivate->prefs != NULL) CFRelease(servicePrivate->prefs);
+	if (servicePrivate->store != NULL) CFRelease(servicePrivate->store);
 	if (servicePrivate->name != NULL) CFRelease(servicePrivate->name);
 
 	return;
@@ -158,7 +163,7 @@ __SCNetworkServiceCreatePrivate(CFAllocatorRef		allocator,
 		return NULL;
 	}
 
-	servicePrivate->prefs		= CFRetain(prefs);
+	servicePrivate->prefs		= (prefs != NULL) ? CFRetain(prefs): NULL;
 	servicePrivate->serviceID	= CFStringCreateCopy(NULL, serviceID);
 	servicePrivate->interface       = (interface != NULL) ? CFRetain(interface) : NULL;
 	servicePrivate->name		= NULL;
@@ -217,7 +222,7 @@ SCNetworkServiceAddProtocolType(SCNetworkServiceRef service, CFStringRef protoco
 	SCNetworkProtocolRef		protocol;
 	SCNetworkServicePrivateRef      servicePrivate  = (SCNetworkServicePrivateRef)service;
 
-	if (!isA_SCNetworkService(service)) {
+	if (!isA_SCNetworkService(service) || (servicePrivate->prefs == NULL)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return FALSE;
 	}
@@ -408,6 +413,24 @@ SCNetworkServiceCopy(SCPreferencesRef prefs, CFStringRef serviceID)
 }
 
 
+SCNetworkServiceRef
+_SCNetworkServiceCopyActive(SCDynamicStoreRef store, CFStringRef serviceID)
+{
+	SCNetworkServicePrivateRef      servicePrivate;
+
+	if (!isA_CFString(serviceID)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return NULL;
+	}
+
+	servicePrivate = __SCNetworkServiceCreatePrivate(NULL, NULL, serviceID, NULL);
+	if (store != NULL) {
+		servicePrivate->store = CFRetain(store);
+	}
+	return (SCNetworkServiceRef)servicePrivate;
+}
+
+
 SCNetworkProtocolRef
 SCNetworkServiceCopyProtocol(SCNetworkServiceRef service, CFStringRef protocolType)
 {
@@ -417,7 +440,7 @@ SCNetworkServiceCopyProtocol(SCNetworkServiceRef service, CFStringRef protocolTy
 	SCNetworkProtocolPrivateRef	protocolPrivate = NULL;
 	SCNetworkServicePrivateRef	servicePrivate  = (SCNetworkServicePrivateRef)service;
 
-	if (!isA_SCNetworkService(service)) {
+	if (!isA_SCNetworkService(service) || (servicePrivate->prefs == NULL)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return NULL;
 	}
@@ -433,7 +456,7 @@ SCNetworkServiceCopyProtocol(SCNetworkServiceRef service, CFStringRef protocolTy
 	protocols = SCPreferencesPathGetValue(servicePrivate->prefs, path);
 	CFRelease(path);
 
-	if ((protocols != NULL) && !isA_CFDictionary(protocols)) {
+	if (!isA_CFDictionary(protocols)) {
 		// if corrupt prefs
 		_SCErrorSet(kSCStatusFailed);
 		return NULL;
@@ -472,7 +495,7 @@ SCNetworkServiceCopyProtocols(SCNetworkServiceRef service)
 	CFDictionaryRef			protocols;
 	SCNetworkServicePrivateRef	servicePrivate  = (SCNetworkServicePrivateRef)service;
 
-	if (!isA_SCNetworkService(service)) {
+	if (!isA_SCNetworkService(service) || (servicePrivate->prefs == NULL)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return NULL;
 	}
@@ -484,6 +507,8 @@ SCNetworkServiceCopyProtocols(SCNetworkServiceRef service)
 	CFRelease(path);
 
 	if (!isA_CFDictionary(protocols)) {
+		// if corrupt prefs
+		_SCErrorSet(kSCStatusFailed);
 		return NULL;
 	}
 
@@ -642,7 +667,6 @@ SCNetworkServiceCreate(SCPreferencesRef prefs, SCNetworkInterfaceRef interface)
 			    CFEqual(interfaceType, kSCNetworkInterfaceTypeSerial   ) ||
 			    CFEqual(interfaceType, kSCNetworkInterfaceTypeWWAN     )) {
 				CFDictionaryRef	overrides;
-				CFStringRef	script;
 
 				overrides = __SCNetworkInterfaceGetTemplateOverrides(interface, kSCNetworkInterfaceTypeModem);
 
@@ -657,26 +681,6 @@ SCNetworkServiceCreate(SCPreferencesRef prefs, SCNetworkInterfaceRef interface)
 					CFDictionaryRemoveValue(newConfig, kSCPropNetModemConnectionScript);
 					CFDictionaryRemoveValue(newConfig, kSCPropNetModemDeviceVendor);
 					CFDictionaryRemoveValue(newConfig, kSCPropNetModemDeviceModel);
-					CFRelease(config);
-					config = newConfig;
-				}
-
-				// update template for v.92 modems
-				if ((overrides == NULL) &&
-				    CFDictionaryGetValueIfPresent(config,
-								  kSCPropNetModemConnectionScript,
-								  (const void **)&script) &&
-				    CFEqual(script, CFSTR("v.34 Personality")) &&
-				    _SCNetworkInterfaceIsModemV92(interface)) {
-					CFMutableDictionaryRef	newConfig;
-
-					newConfig = CFDictionaryCreateMutableCopy(NULL, 0, config);
-					CFDictionarySetValue(newConfig,
-							     kSCPropNetModemConnectionPersonality,
-							     CFSTR("v.92 Personality"));
-					CFDictionarySetValue(newConfig,
-							     kSCPropNetModemDeviceModel,
-							     CFSTR("Apple Modem (v.92)"));
 					CFRelease(config);
 					config = newConfig;
 				}
@@ -717,8 +721,8 @@ SCNetworkServiceCreate(SCPreferencesRef prefs, SCNetworkInterfaceRef interface)
 						    servicePrivate->interface);
 
 	// push the [deep] interface configuration into the service.
-	interface_config = __SCNetworkInterfaceCopyDeepConfiguration(servicePrivate->interface);
-	__SCNetworkInterfaceSetDeepConfiguration(servicePrivate->interface, interface_config);
+	interface_config = __SCNetworkInterfaceCopyDeepConfiguration(NULL, servicePrivate->interface);
+	__SCNetworkInterfaceSetDeepConfiguration(NULL, servicePrivate->interface, interface_config);
 	if (interface_config != NULL) CFRelease(interface_config);
 
 	// set the service name to match that of the associated interface
@@ -745,10 +749,16 @@ SCNetworkServiceCreate(SCPreferencesRef prefs, SCNetworkInterfaceRef interface)
 Boolean
 SCNetworkServiceEstablishDefaultConfiguration(SCNetworkServiceRef service)
 {
-	CFIndex			i;
-	SCNetworkInterfaceRef	interface;
-	CFIndex			n;
-	CFArrayRef		protocolTypes;
+	CFIndex				i;
+	SCNetworkInterfaceRef		interface;
+	CFIndex				n;
+	CFArrayRef			protocolTypes;
+	SCNetworkServicePrivateRef	servicePrivate  = (SCNetworkServicePrivateRef)service;
+
+	if (!isA_SCNetworkService(service) || (servicePrivate->prefs == NULL)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
 
 	interface = SCNetworkServiceGetInterface(service);
 	if (interface == NULL) {
@@ -808,7 +818,7 @@ SCNetworkServiceGetEnabled(SCNetworkServiceRef service)
 	CFStringRef			path;
 	SCNetworkServicePrivateRef      servicePrivate  = (SCNetworkServicePrivateRef)service;
 
-	if (!isA_SCNetworkService(service)) {
+	if (!isA_SCNetworkService(service) || (servicePrivate->prefs == NULL)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return FALSE;
 	}
@@ -828,7 +838,7 @@ SCNetworkServiceGetInterface(SCNetworkServiceRef service)
 {
 	SCNetworkServicePrivateRef      servicePrivate  = (SCNetworkServicePrivateRef)service;
 
-	if (!isA_SCNetworkService(service)) {
+	if (!isA_SCNetworkService(service) || (servicePrivate->prefs == NULL)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return NULL;
 	}
@@ -857,11 +867,11 @@ SCNetworkServiceGetName(SCNetworkServiceRef service)
 {
 	CFDictionaryRef			entity;
 	SCNetworkInterfaceRef		interface;
-	SCNetworkServicePrivateRef	servicePrivate	= (SCNetworkServicePrivateRef)service;
 	CFStringRef			name		= NULL;
 	CFStringRef			path;
+	SCNetworkServicePrivateRef	servicePrivate	= (SCNetworkServicePrivateRef)service;
 
-	if (!isA_SCNetworkService(service)) {
+	if (!isA_SCNetworkService(service) || (servicePrivate->prefs == NULL)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return NULL;
 	}
@@ -888,7 +898,7 @@ SCNetworkServiceGetName(SCNetworkServiceRef service)
 		SCNetworkInterfaceRef   childInterface;
 
 		childInterface = SCNetworkInterfaceGetInterface(interface);
-		if (childInterface == NULL) {
+		if ((childInterface == NULL) || CFEqual(childInterface, kSCNetworkInterfaceIPv4)) {
 			break;
 		}
 
@@ -896,17 +906,52 @@ SCNetworkServiceGetName(SCNetworkServiceRef service)
 	}
 
 	if (interface != NULL) {
-		CFStringRef	interface_name;
+		int		i;
+		CFStringRef	interface_name	= NULL;
 		CFStringRef	suffix		= NULL;
 
-		if (servicePrivate->name != NULL) {
-			interface_name = __SCNetworkInterfaceGetNonLocalizedDisplayName(interface);
+		//
+		// check if the [stored] service name matches the non-localized interface
+		// name.  If so, return the localized name.
+		//
+		// Also, the older "Built-in XXX" interface names are too long for the
+		// current UI. If we find that the [stored] service name matches the older
+		// name, return the newer (and shorter) localized name.
+		//
+		// Note: the user/admin will no longer be able to set the service name
+		//       to "Built-in Ethernet".
+		//
+		for (i = 0; i < 3; i++) {
+			if (servicePrivate->name == NULL) {
+				// if no [stored] service name to compare
+				break;
+			}
+
+			switch (i) {
+				case 0 :
+					// compare the non-localized interface name
+					interface_name = __SCNetworkInterfaceGetNonLocalizedDisplayName(interface);
+					if (interface_name != NULL) {
+						CFRetain(interface_name);
+					}
+					break;
+				case 1 :
+					// compare the older "Built-in XXX" localized name
+					interface_name = __SCNetworkInterfaceCopyXLocalizedDisplayName(interface);
+					break;
+				case 2 :
+					// compare the older "Built-in XXX" non-localized name
+					interface_name = __SCNetworkInterfaceCopyXNonLocalizedDisplayName(interface);
+					break;
+			}
+
 			if (interface_name != NULL) {
+				Boolean	match	= FALSE;
+				
 				if (CFEqual(name, interface_name)) {
-					// if service name matches the [non-]localized
+					// if service name matches the OLD localized
 					// interface name
-					CFRelease(servicePrivate->name);
-					servicePrivate->name = NULL;
+					match = TRUE;
 				} else if (CFStringHasPrefix(name, interface_name)) {
 					CFIndex	prefixLen	= CFStringGetLength(interface_name);
 					CFIndex	suffixLen	= CFStringGetLength(name);
@@ -914,12 +959,21 @@ SCNetworkServiceGetName(SCNetworkServiceRef service)
 					suffix = CFStringCreateWithSubstring(NULL,
 									     name,
 									     CFRangeMake(prefixLen, suffixLen - prefixLen));
+					match = TRUE;
+				}
+				CFRelease(interface_name);
+
+				if (match) {
 					CFRelease(servicePrivate->name);
 					servicePrivate->name = NULL;
+					break;
 				}
 			}
 		}
 
+		//
+		// if the service name has not been set, use the localized interface name
+		//
 		if (servicePrivate->name == NULL) {
 			interface_name = SCNetworkInterfaceGetLocalizedDisplayName(interface);
 			if (interface_name != NULL) {
@@ -967,11 +1021,11 @@ Boolean
 SCNetworkServiceRemove(SCNetworkServiceRef service)
 {
 	Boolean				ok		= FALSE;
+	CFStringRef			path;
 	SCNetworkServicePrivateRef	servicePrivate	= (SCNetworkServicePrivateRef)service;
 	CFArrayRef			sets;
-	CFStringRef			path;
 
-	if (!isA_SCNetworkService(service)) {
+	if (!isA_SCNetworkService(service) || (servicePrivate->prefs == NULL)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return FALSE;
 	}
@@ -1017,7 +1071,7 @@ SCNetworkServiceRemoveProtocolType(SCNetworkServiceRef service, CFStringRef prot
 	CFStringRef			path;
 	SCNetworkServicePrivateRef      servicePrivate  = (SCNetworkServicePrivateRef)service;
 
-	if (!isA_SCNetworkService(service)) {
+	if (!isA_SCNetworkService(service) || (servicePrivate->prefs == NULL)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return FALSE;
 	}
@@ -1054,7 +1108,7 @@ SCNetworkServiceSetEnabled(SCNetworkServiceRef service, Boolean enabled)
 	CFStringRef			path;
 	SCNetworkServicePrivateRef      servicePrivate  = (SCNetworkServicePrivateRef)service;
 
-	if (!isA_SCNetworkService(service)) {
+	if (!isA_SCNetworkService(service) || (servicePrivate->prefs == NULL)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return FALSE;
 	}
@@ -1078,7 +1132,7 @@ SCNetworkServiceSetName(SCNetworkServiceRef service, CFStringRef name)
 	CFStringRef			saveName	= NULL;
 	SCNetworkServicePrivateRef	servicePrivate	= (SCNetworkServicePrivateRef)service;
 
-	if (!isA_SCNetworkService(service)) {
+	if (!isA_SCNetworkService(service) || (servicePrivate->prefs == NULL)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return FALSE;
 	}
@@ -1213,18 +1267,18 @@ SCNetworkServiceSetName(SCNetworkServiceRef service, CFStringRef name)
 							      servicePrivate->serviceID,	// service
 							      NULL);				// entity
 	entity = SCPreferencesPathGetValue(servicePrivate->prefs, path);
-	if ((entity == NULL) && (name != NULL)) {
-		entity = CFDictionaryCreate(NULL,
-					    NULL,
-					    NULL,
-					    0,
-					    &kCFTypeDictionaryKeyCallBacks,
-					    &kCFTypeDictionaryValueCallBacks);
-	}
-	if (isA_CFDictionary(entity)) {
+	if (isA_CFDictionary(entity) ||
+	    ((entity == NULL) && (name != NULL))) {
 		CFMutableDictionaryRef	newEntity;
 
-		newEntity = CFDictionaryCreateMutableCopy(NULL, 0, entity);
+		if (entity != NULL) {
+			newEntity = CFDictionaryCreateMutableCopy(NULL, 0, entity);
+		} else {
+			newEntity = CFDictionaryCreateMutable(NULL,
+							      0,
+							      &kCFTypeDictionaryKeyCallBacks,
+							      &kCFTypeDictionaryValueCallBacks);
+		}
 		if (saveName != NULL) {
 			CFDictionarySetValue(newEntity, kSCPropUserDefinedName, saveName);
 		} else {
@@ -1240,5 +1294,217 @@ SCNetworkServiceSetName(SCNetworkServiceRef service, CFStringRef name)
 	if (name != NULL) CFRetain(name);
 	servicePrivate->name = name;
 
+	return ok;
+}
+
+
+#pragma mark -
+#pragma mark SCNetworkService SPIs
+
+
+static Boolean
+str_to_rank(CFStringRef rankStr, SCNetworkServicePrimaryRank *rank)
+{
+	if (isA_CFString(rankStr)) {
+		if (CFEqual(rankStr, kSCValNetServicePrimaryRankFirst)) {
+			*rank = kSCNetworkServicePrimaryRankFirst;
+		} else if (CFEqual(rankStr, kSCValNetServicePrimaryRankLast)) {
+			*rank = kSCNetworkServicePrimaryRankLast;
+		} else if (CFEqual(rankStr, kSCValNetServicePrimaryRankNever)) {
+			*rank = kSCNetworkServicePrimaryRankNever;
+		} else {
+			return FALSE;
+		}
+	} else if (rankStr == NULL) {
+		*rank = kSCNetworkServicePrimaryRankDefault;
+	} else {
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+
+SCNetworkServicePrimaryRank
+SCNetworkServiceGetPrimaryRank(SCNetworkServiceRef service)
+{
+	CFDictionaryRef			entity;
+	Boolean				ok		= TRUE;
+	CFStringRef			path;
+	SCNetworkServicePrimaryRank	rank		= kSCNetworkServicePrimaryRankDefault;
+	CFStringRef			rankStr		= NULL;
+	SCNetworkServicePrivateRef      servicePrivate	= (SCNetworkServicePrivateRef)service;
+
+	if (!isA_SCNetworkService(service)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return rank;
+	}
+
+	if (servicePrivate->prefs != NULL) {
+		path = SCPreferencesPathKeyCreateNetworkServiceEntity(NULL,
+								      servicePrivate->serviceID,
+								      NULL);
+		entity = SCPreferencesPathGetValue(servicePrivate->prefs, path);
+		CFRelease(path);
+		if (isA_CFDictionary(entity)) {
+			rankStr = CFDictionaryGetValue(entity, kSCPropNetServicePrimaryRank);
+			ok = str_to_rank(rankStr, &rank);
+		}
+	} else if (servicePrivate->store != NULL) {
+		path = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
+								   kSCDynamicStoreDomainState,
+								   servicePrivate->serviceID,
+								   NULL);
+		entity = SCDynamicStoreCopyValue(servicePrivate->store, path);
+		CFRelease(path);
+		if (entity != NULL) {
+			if (isA_CFDictionary(entity)) {
+				rankStr = CFDictionaryGetValue(entity, kSCPropNetServicePrimaryRank);
+				ok = str_to_rank(rankStr, &rank);
+			}
+			CFRelease(entity);
+		}
+	} else {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return rank;
+	}
+
+	if (!ok) {
+		rank = kSCNetworkServicePrimaryRankDefault;
+		_SCErrorSet(kSCStatusInvalidArgument);
+	} else if (rank == kSCNetworkServicePrimaryRankDefault) {
+		_SCErrorSet(kSCStatusOK);
+	}
+
+	return rank;
+}
+
+
+static Boolean
+rank_to_str(SCNetworkServicePrimaryRank rank, CFStringRef *rankStr)
+{
+	switch (rank) {
+		case kSCNetworkServicePrimaryRankDefault :
+			*rankStr = NULL;
+			break;
+		case kSCNetworkServicePrimaryRankFirst :
+			*rankStr = kSCValNetServicePrimaryRankFirst;
+			break;
+		case kSCNetworkServicePrimaryRankLast :
+			*rankStr = kSCValNetServicePrimaryRankLast;
+			break;
+		case kSCNetworkServicePrimaryRankNever :
+			*rankStr = kSCValNetServicePrimaryRankNever;
+			break;
+		default :
+			return FALSE;
+	}
+
+	return TRUE;
+}
+
+
+Boolean
+SCNetworkServiceSetPrimaryRank(SCNetworkServiceRef		service,
+			       SCNetworkServicePrimaryRank	newRank)
+{
+	Boolean				ok;
+	CFDictionaryRef			entity;
+	CFMutableDictionaryRef		newEntity;
+	CFStringRef			path		= NULL;
+	CFStringRef			rankStr		= NULL;
+	SCNetworkServicePrivateRef      servicePrivate	= (SCNetworkServicePrivateRef)service;
+
+	if (!isA_SCNetworkService(service)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
+	ok = rank_to_str(newRank, &rankStr);
+	if (!ok) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
+	if (servicePrivate->prefs != NULL) {
+		if ((newRank == kSCNetworkServicePrimaryRankDefault) || (newRank == kSCNetworkServicePrimaryRankNever)) {
+			path = SCPreferencesPathKeyCreateNetworkServiceEntity(NULL,
+									      servicePrivate->serviceID,
+									      NULL);
+			entity = SCPreferencesPathGetValue(servicePrivate->prefs, path);
+			if (entity != NULL) {
+				if (!isA_CFDictionary(entity)) {
+					// if corrupt prefs
+					_SCErrorSet(kSCStatusFailed);
+					goto done;
+				}
+				newEntity = CFDictionaryCreateMutableCopy(NULL, 0, entity);
+			} else {
+				newEntity = CFDictionaryCreateMutable(NULL,
+								      0,
+								      &kCFTypeDictionaryKeyCallBacks,
+								      &kCFTypeDictionaryValueCallBacks);
+			}
+			if (rankStr != NULL) {
+				CFDictionarySetValue(newEntity, kSCPropNetServicePrimaryRank, rankStr);
+			} else {
+				CFDictionaryRemoveValue(newEntity, kSCPropNetServicePrimaryRank);
+			}
+			if (CFDictionaryGetCount(newEntity) > 0) {
+				ok = SCPreferencesPathSetValue(servicePrivate->prefs, path, newEntity);
+			} else {
+				ok = SCPreferencesPathRemoveValue(servicePrivate->prefs, path);
+			}
+			CFRelease(newEntity);
+			if (!ok) {
+				goto done;
+			}
+		} else {
+			_SCErrorSet(kSCStatusInvalidArgument);
+			return FALSE;
+		}
+	} else if (servicePrivate->store != NULL) {
+		path = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
+								   kSCDynamicStoreDomainState,
+								   servicePrivate->serviceID,
+								   NULL);
+		entity = SCDynamicStoreCopyValue(servicePrivate->store, path);
+		if (entity != NULL) {
+			if (!isA_CFDictionary(entity)) {
+				// if corrupt prefs
+				CFRelease(entity);
+				_SCErrorSet(kSCStatusFailed);
+				goto done;
+			}
+			newEntity = CFDictionaryCreateMutableCopy(NULL, 0, entity);
+			CFRelease(entity);
+		} else {
+			newEntity = CFDictionaryCreateMutable(NULL,
+							      0,
+							      &kCFTypeDictionaryKeyCallBacks,
+							      &kCFTypeDictionaryValueCallBacks);
+		}
+		if (rankStr != NULL) {
+			CFDictionarySetValue(newEntity, kSCPropNetServicePrimaryRank, rankStr);
+		} else {
+			CFDictionaryRemoveValue(newEntity, kSCPropNetServicePrimaryRank);
+		}
+		if (CFDictionaryGetCount(newEntity) > 0) {
+			ok = SCDynamicStoreSetValue(servicePrivate->store, path, newEntity);
+		} else {
+			ok = SCDynamicStoreRemoveValue(servicePrivate->store, path);
+		}
+		CFRelease(newEntity);
+		if (!ok) {
+			goto done;
+		}
+	} else {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
+    done :
+
+	if (path != NULL)	CFRelease(path);
 	return ok;
 }

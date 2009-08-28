@@ -78,7 +78,7 @@ extern char * __private_getcwd(char *, size_t, int);
  * in which case the path which caused trouble is left in (resolved).
  */
 char *
-realpath(const char *path, char resolved[PATH_MAX])
+realpath(const char *path, char inresolved[PATH_MAX])
 {
 	struct attrs attrs;
 	struct stat sb;
@@ -92,6 +92,7 @@ realpath(const char *path, char resolved[PATH_MAX])
 	static dev_t rootdev;
 	static int rootdev_inited = 0;
 	ino_t inode;
+	char *resolved;
 
 	if (path == NULL) {
 		errno = EINVAL;
@@ -103,6 +104,15 @@ realpath(const char *path, char resolved[PATH_MAX])
 		return (NULL);
 	}
 #endif /* __DARWIN_UNIX03 */
+	/*
+	 * Extension to the standard; if inresolved == NULL, allocate memory
+	 * (first on the stack, then use strdup())
+	 */
+	if (!inresolved) {
+	    if ((resolved = alloca(PATH_MAX)) == NULL) return (NULL);
+	} else {
+	    resolved = inresolved;
+	}
 	if (!rootdev_inited) {
 		rootdev_inited = 1;
 		if (stat("/", &sb) < 0) {
@@ -251,7 +261,7 @@ realpath(const char *path, char resolved[PATH_MAX])
 				 * that each component of the mountpoint
 				 * is a directory (and not a symlink)
 				 */
-				char temp[MNAMELEN];
+				char temp[sizeof(sfs.f_mntonname)];
 				char *cp;
 				int ok = 1;
 
@@ -351,5 +361,6 @@ realpath(const char *path, char resolved[PATH_MAX])
 	 */
 	if (resolved_len > 1 && resolved[resolved_len - 1] == '/')
 		resolved[resolved_len - 1] = '\0';
+	if (!inresolved) resolved = strdup(resolved);
 	return (resolved);
 }

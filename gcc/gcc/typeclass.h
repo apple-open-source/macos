@@ -1,5 +1,5 @@
 /* Type class enum
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -15,8 +15,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* As a special exception, if you link this library with other files,
    some of which are compiled with GCC, to produce an executable,
@@ -39,7 +39,7 @@ enum type_class
   real_type_class, complex_type_class,
   function_type_class, method_type_class,
   record_type_class, union_type_class,
-  array_type_class, string_type_class, file_type_class,
+  array_type_class, string_type_class,
   lang_type_class
 };
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,11 +25,16 @@
 #ifndef _DY_FRAMEWORK_H
 #define _DY_FRAMEWORK_H
 
+#include <Availability.h>
+#include <TargetConditionals.h>
 #include <sys/cdefs.h>
 #include <mach/mach.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/IOKitLib.h>
+
+#if	!TARGET_OS_IPHONE
 #include <Security/Security.h>
+#endif	// !TARGET_OS_IPHONE
 
 __BEGIN_DECLS
 
@@ -153,6 +158,8 @@ _IOServiceMatching			(
 
 #pragma mark -
 #pragma mark Security.framework APIs
+
+#if	!TARGET_OS_IPHONE
 
 OSStatus
 _AuthorizationMakeExternalForm		(
@@ -286,7 +293,9 @@ _SecTrustedApplicationCreateFromPath	(
 					);
 #define SecTrustedApplicationCreateFromPath _SecTrustedApplicationCreateFromPath
 
+#endif	// !TARGET_OS_IPHONE
+
 __END_DECLS
 
-#endif	/* _DY_FRAMEWORK_H */
+#endif	// _DY_FRAMEWORK_H
 

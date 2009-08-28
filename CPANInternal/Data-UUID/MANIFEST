@@ -1,0 +1,15 @@
+Changes
+Makefile.PL
+MANIFEST
+README
+t/basic.t
+t/pod.t
+t/pod-coverage.t
+UUID.h
+UUID.pm
+UUID.xs
+md5.c
+md5.h
+typemap
+LICENSE
+META.yml                                 Module meta-data (added by MakeMaker)

@@ -1,0 +1,95 @@
+.\"     Title: XListDeviceProperties
+.\"    Author: Peter Hutterer
+.\" Generator: DocBook XSL Stylesheets v1.73.2 <http://docbook.sf.net/>
+.\"      Date: <pubdate>July 9, 2008</pubdate>
+.\"    Manual: XINPUT FUNCTIONS
+.\"    Source: __xorgversion__
+.\"
+.TH "XLISTDEVICEPROPERTIE" "__libmansuffix__" "<pubdate>July 9, 2008</pubdate>" "__xorgversion__" "XINPUT FUNCTIONS"
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.SH "NAME"
+XListDeviceProperties - List a device's properties.
+.SH "SYNTAX"
+.sp
+.ft B
+.nf
+#include <X11/extensions/XInput\.h>
+.fi
+.ft
+.HP 28
+.BI "Atom* XListDeviceProperties(Display\ *" "display" ", XDevice\ *" "device" ", int\ *" "nprops_return" ");"
+.SH "ARGUMENTS"
+.PP
+.PP
+\fIdisplay\fR
+.RS 4
+Specifies the connection to the X server\.
+.RE
+.PP
+\fIdevice\fR
+.RS 4
+The device to grab\.
+.RE
+.PP
+\fInprops_return\fR
+.RS 4
+Specifies the number of Atoms returned\.
+.RE
+.PP
+\fInum_values\fR
+.RS 4
+Specifies the number of elements in the values list\.
+.RE
+.PP
+\fIproperty\fR
+.RS 4
+Specifies the property to modify or query\.
+.RE
+.SH "DESCRIPTION"
+.PP
+The
+\fBXListDeviceProperties\fR
+function returns a list of the properties associated with the input device specified in
+\fIdevice\fR\. Each device may have an arbitrary number of properties attached, some of which were created by the driver and/or server, others created by clients at runtime\.
+.PP
+The client is expected to free the list of properties using
+\fBXFree\fR\.
+.PP
+
+\fBXListDeviceProperties\fR
+can generate a
+BadDevice
+error\.
+.SH "DIAGNOSIS"
+.PP
+.PP
+BadAtom
+.RS 4
+A value does not describe a valid named identifier\.
+.RE
+.PP
+BadWindow
+.RS 4
+A value for a Window argument does not name a defined window\.
+.RE
+.PP
+BadDevice
+.RS 4
+An invalid device was specified\. The device does not exist\.
+.RE
+.SH "SEE ALSO"
+.PP
+
+\fBXChangeDeviceProperty\fR,
+\fBXGetDeviceProperty\fR,
+\fBXDeleteDeviceProperty\fR\.
+.SH "AUTHOR"
+.PP
+\fBPeter Hutterer\fR
+.sp -1n
+.IP "" 4
+Specification and implementation\.
+

@@ -37,7 +37,7 @@
 # if	!defined(lint)
 static char copyright[] =
 "@(#) Copyright 1997 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: rdev.c,v 1.11 2005/08/08 19:41:18 abe Exp $";
+static char *rcsid = "$Id: rdev.c,v 1.12 2008/10/21 16:13:23 abe Exp $";
 # endif	/* !defined(lint) */
 
 #include "../lsof.h"
@@ -520,5 +520,5 @@ vfy_dev(dp)
 }
 # endif	/* defined(HASDCACHE) */
 #else	/* !defined(USE_LIB_READDEV) */
-static char d1[] = "d"; static char *d2 = d1;
+char rdev_d1[] = "d"; char *rdev_d2 = rdev_d1;
 #endif	/* defined(USE_LIB_READDEV) */

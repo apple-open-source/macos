@@ -38,7 +38,7 @@ IOFWUserVectorCommand::withUserClient( IOFireWireUserClient * inUserClient )
 {
 	IOFWUserVectorCommand*	result	= NULL ;
 	
-	result = new IOFWUserVectorCommand;
+	result = OSTypeAlloc( IOFWUserVectorCommand );
 	if( result && !result->initWithUserClient( inUserClient ) )
 	{
 		result->release() ;

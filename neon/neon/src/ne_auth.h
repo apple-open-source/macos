@@ -1,6 +1,6 @@
 /* 
    HTTP authentication routines
-   Copyright (C) 1999-2006, Joe Orton <joe@manyfish.co.uk>
+   Copyright (C) 1999-2007, Joe Orton <joe@manyfish.co.uk>
 
    This library is free software; you can redistribute it and/or
    modify it under the terms of the GNU Library General Public
@@ -75,8 +75,11 @@ void ne_set_proxy_auth(ne_session *sess, ne_auth_creds creds, void *userdata);
  * user; an active attacker can modify any of the request/response at
  * will, so this must not be used over an unsecured channel. */
 #define NE_AUTH_NEGOTIATE (0x0004)
-/* All supported protocols. */
-#define NE_AUTH_ALL (NE_AUTH_BASIC | NE_AUTH_DIGEST | NE_AUTH_NEGOTIATE)
+/* The default set of supported protocols, as deemed appropriate for
+ * the given session scheme. */
+#define NE_AUTH_DEFAULT (0x1000)
+/* All protocols supported by the library. */
+#define NE_AUTH_ALL (0x2000)
 
 /* Add a callback to provide credentials for server and proxy
  * authentication using a particular auth protocol or set of

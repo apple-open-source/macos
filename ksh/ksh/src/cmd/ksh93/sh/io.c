@@ -1,10 +1,10 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*          Copyright (c) 1982-2007 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
-*                      by AT&T Knowledge Ventures                      *
+*                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
 *            http://www.opensource.org/licenses/cpl1.0.txt             *
@@ -380,7 +380,7 @@ void sh_ioinit(void)
 {
 	register int n;
 	filemapsize = 8;
-	filemap = (struct fdsave*)malloc(8*sizeof(struct fdsave));
+	filemap = (struct fdsave*)malloc(filemapsize*sizeof(struct fdsave));
 #if SHOPT_FASTPIPE
 	n = sh.lim.open_max+2;
 #else
@@ -881,13 +881,14 @@ int	sh_redirect(struct ionod *iop, int flag)
 				fname=sh_mactrim(fname,(!sh_isoption(SH_NOGLOB)&&sh_isoption(SH_INTERACTIVE))?2:0);
 		}
 		errno=0;
+		np = 0;
 		if(iop->iovname)
 		{
 			np = nv_open(iop->iovname,sh.var_tree,NV_NOASSIGN|NV_VARNAME);
 			if(nv_isattr(np,NV_RDONLY))
 				errormsg(SH_DICT,ERROR_exit(1),e_readonly, nv_name(np));
 			io_op[0] = '}';
-			if((iof&IOMOV) && *fname=='-')
+			if((iof&IOLSEEK) || ((iof&IOMOV) && *fname=='-'))
 				fn = nv_getnum(np);
 		}
 		if(iof&IOLSEEK)
@@ -1276,10 +1277,25 @@ void sh_iosave(register int origfd, int oldtop)
 	/* make sure table is large enough */
 	if(sh.topfd >= filemapsize)
 	{
+		char 	*cp, *oldptr = (char*)filemap;
+		char 	*oldend = (char*)&filemap[filemapsize];
+		long	moved;
 		filemapsize += 8;
 		if(!(filemap = (struct fdsave*)realloc(filemap,filemapsize*sizeof(struct fdsave))))
 			errormsg(SH_DICT,ERROR_exit(4),e_nospace);
-			
+		if(moved = (char*)filemap - oldptr)
+		{
+#if SHOPT_FASTPIPE
+			for(savefd=sh.lim.open_max+2; --savefd>=0; )
+#else
+			for(savefd=sh.lim.open_max; --savefd>=0; )
+#endif /* SHOPT_FASTPIPE */
+			{
+				cp = (char*)sh.fdptrs[savefd];
+				if(cp >= oldptr && cp < oldend)
+					sh.fdptrs[savefd] = (int*)(oldptr+moved);
+			}
+		}
 	}
 #if SHOPT_DEVFD
 	if(origfd <0)

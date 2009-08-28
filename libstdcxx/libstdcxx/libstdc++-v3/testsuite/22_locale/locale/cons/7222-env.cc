@@ -1,6 +1,8 @@
+// { dg-require-namedlocale "" }
+
 // 2000-09-13 Benjamin Kosnik <bkoz@redhat.com>
 
-// Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation
+// Copyright (C) 2000, 2001, 2002, 2003, 2005 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -15,7 +17,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // 22.1.1.2 locale constructors and destructors [lib.locale.cons]
@@ -30,8 +32,8 @@ void test02()
 {
   bool test __attribute__((unused)) = true;
 
-  std::locale loc_1 = __gnu_test::try_named_locale("");
-  std::locale loc_2 = __gnu_test::try_named_locale("");
+  std::locale loc_1 = std::locale("");
+  std::locale loc_2 = std::locale("");
   VERIFY( loc_1 == loc_2 );
 }
  

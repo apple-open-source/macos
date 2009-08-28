@@ -1,5 +1,5 @@
 ;; DFA scheduling description for SH-5 SHmedia instructions.
-;; Copyright (C) 2004 Free Software Foundation, Inc.
+;; Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 
 ;; This file is part of GCC.
 
@@ -15,8 +15,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;; This is just a conversion of the old model using define_function_unit.
 
@@ -25,9 +25,11 @@
 ;; the integer and multimedia unit (imu), the load/store unit (lsu), and
 ;; the floating point unit (fpu).
 
-(define_automaton "shmedia")
+(define_automaton "sh5inst_pipe, sh5fpu_pipe")
 
-(define_cpu_unit "sh5issue,sh5fds" "shmedia")
+(define_cpu_unit "sh5issue" "sh5inst_pipe")
+
+(define_cpu_unit "sh5fds" "sh5fpu_pipe")
 
 ;; Every instruction on SH-5 occupies the issue resource for at least one
 ;; cycle.
@@ -86,8 +88,8 @@
 ;; can continue to issue.
 (define_insn_reservation "shmedia_fdiv" 19
   (and (eq_attr "pipe_model" "sh5media") (eq_attr "type" "fdiv_media"))
-  "sh5fds*19")
+  "sh5issue+sh5fds,sh5fds*18")
 
 (define_insn_reservation "shmedia_dfdiv" 35
   (and (eq_attr "pipe_model" "sh5media") (eq_attr "type" "dfdiv_media"))
-  "sh5fds*35")
+  "sh5issue+sh5fds,sh5fds*34")

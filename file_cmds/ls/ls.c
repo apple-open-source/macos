@@ -96,6 +96,7 @@ int termwidth = 80;		/* default terminal width */
 
 /* flags */
        int f_accesstime;	/* use time of last access */
+       int f_birthtime;		/* use time of file birth */
        int f_flags;		/* show flags associated with a file */
        int f_humanval;		/* show human-readable file sizes */
        int f_inode;		/* print inode */
@@ -177,7 +178,7 @@ main(int argc, char *argv[])
 		f_listdot = 1;
 
 	fts_options = FTS_PHYSICAL;
- 	while ((ch = getopt(argc, argv, "1@ABCFGHLOPRSTWabcdefghiklmnopqrstuvwx")) 
+ 	while ((ch = getopt(argc, argv, "1@ABCFGHLOPRSTUWabcdefghiklmnopqrstuvwx")) 
 	    != -1) {
 		switch (ch) {
 		/*
@@ -210,11 +211,15 @@ main(int argc, char *argv[])
 		/* The -c and -u options override each other. */
 		case 'c':
 			f_statustime = 1;
-			f_accesstime = 0;
+			f_accesstime = f_birthtime = 0;
 			break;
 		case 'u':
 			f_accesstime = 1;
-			f_statustime = 0;
+			f_statustime = f_birthtime = 0;
+			break;
+		case 'U':
+			f_birthtime = 1;
+			f_statustime = f_accesstime = 0;
 			break;
 		case 'F':
 			f_type = 1;
@@ -446,6 +451,8 @@ main(int argc, char *argv[])
 			sortfcn = revacccmp;
 		else if (f_statustime)
 			sortfcn = revstatcmp;
+		else if (f_birthtime)
+			sortfcn = revbirthcmp;
 		else		/* Use modification time. */
 			sortfcn = revmodcmp;
 	} else {
@@ -457,6 +464,8 @@ main(int argc, char *argv[])
 			sortfcn = acccmp;
 		else if (f_statustime)
 			sortfcn = statcmp;
+		else if (f_birthtime)
+			sortfcn = birthcmp;
 		else		/* Use modification time. */
 			sortfcn = modcmp;
 	}
@@ -539,6 +548,13 @@ traverse(int argc, char *argv[], int options)
 				output = 1;
 			}
 			chp = fts_children(ftsp, ch_options);
+			if (COMPAT_MODE("bin/ls", "Unix2003") && ((options & FTS_LOGICAL)!=0)) {
+				FTSENT *curr;
+				for (curr = chp; curr; curr = curr->fts_link) {
+					if (curr->fts_info == FTS_SLNONE)
+						curr->fts_number = NO_PRINT;
+				}
+			}
 			display(p, chp);
 
 			if (!f_recursive && chp != NULL)
@@ -547,10 +563,8 @@ traverse(int argc, char *argv[], int options)
 		case FTS_SLNONE:	/* Same as default unless Unix conformance */
 			if (COMPAT_MODE("bin/ls", "Unix2003")) {
 				if ((options & FTS_LOGICAL)!=0) {	/* -L was specified */
-					if (p->fts_errno) {
-						warnx("%s: %s", p->fts_name, strerror(p->fts_errno));
-						rval = 1;
-					}
+					warnx("%s: %s", p->fts_name, strerror(p->fts_errno ?: ENOENT));
+					rval = 1;
 				}
 			}
 			break;

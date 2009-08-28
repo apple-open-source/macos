@@ -25,7 +25,9 @@ enum mem_access_mode
 {
   MEM_RW,			/* read/write */
   MEM_RO,			/* read only */
-  MEM_WO			/* write only */
+  MEM_WO,			/* write only */
+  /* APPLE LOCAL: Don't touch memory regions.  */
+  MEM_NONE                      /* Don't touch these addresses... */
 };
 
 enum mem_access_width
@@ -58,6 +60,9 @@ struct mem_attrib
   int hwbreak;
   
   /* enables host-side caching of memory region data */
+  /* APPLE LOCAL: +1 means the cache is on.  0 means it is off,
+     -1 means it is temporarily suspended (using mem_disable_caching)
+     and mem_enable_caching will turn it back on.  */
   int cache;
   
   /* enables memory verification.  after a write, memory is re-read
@@ -88,4 +93,8 @@ struct mem_region
 
 extern struct mem_region *lookup_mem_region(CORE_ADDR);
 
+/* APPLE LOCAL: Temporarily suspend caching. */
+void mem_disable_caching (void);
+void mem_enable_caching (void *);
+/* END APPLE LOCAL */
 #endif	/* MEMATTR_H */

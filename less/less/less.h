@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2005  Mark Nudelman
+ * Copyright (C) 1984-2007  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -8,6 +8,7 @@
  * contact the author, see the README file.
  */
 
+#define NEWBOT 1
 
 /*
  * Standard include file for "less".
@@ -70,6 +71,9 @@
 #if HAVE_CTYPE_H
 #include <ctype.h>
 #endif
+#if HAVE_WCTYPE_H
+#include <wctype.h>
+#endif
 #if HAVE_LIMITS_H
 #include <limits.h>
 #endif
@@ -124,16 +128,23 @@ void free();
 #undef IS_SPACE
 #undef IS_DIGIT
 
-#if !HAVE_UPPER_LOWER
-#define	IS_UPPER(c)	ASCII_IS_UPPER(c)
-#define	IS_LOWER(c)	ASCII_IS_LOWER(c)
-#define	TO_UPPER(c)	ASCII_TO_UPPER(c)
-#define	TO_LOWER(c)	ASCII_TO_LOWER(c)
+#if HAVE_WCTYPE
+#define	IS_UPPER(c)	iswupper(c)
+#define	IS_LOWER(c)	iswlower(c)
+#define	TO_UPPER(c)	towupper(c)
+#define	TO_LOWER(c)	towlower(c)
 #else
+#if HAVE_UPPER_LOWER
 #define	IS_UPPER(c)	isupper((unsigned char) (c))
 #define	IS_LOWER(c)	islower((unsigned char) (c))
 #define	TO_UPPER(c)	toupper((unsigned char) (c))
 #define	TO_LOWER(c)	tolower((unsigned char) (c))
+#else
+#define	IS_UPPER(c)	ASCII_IS_UPPER(c)
+#define	IS_LOWER(c)	ASCII_IS_LOWER(c)
+#define	TO_UPPER(c)	ASCII_TO_UPPER(c)
+#define	TO_LOWER(c)	ASCII_TO_LOWER(c)
+#endif
 #endif
 
 #ifdef isspace
@@ -147,6 +158,8 @@ void free();
 #else
 #define IS_DIGIT(c)	((c) >= '0' && (c) <= '9')
 #endif
+
+#define IS_CSI_START(c)	((c) == ESC || (!utf_mode && ((unsigned char)(c)) == CSI))
 
 #ifndef NULL
 #define	NULL	0
@@ -183,6 +196,13 @@ void free();
 #endif
 
 #define	BAD_LSEEK	((off_t)-1)
+
+#ifndef SEEK_SET
+#define SEEK_SET 0
+#endif
+#ifndef SEEK_END
+#define SEEK_END 2
+#endif
 
 #ifndef CHAR_BIT
 #define CHAR_BIT 8
@@ -294,6 +314,10 @@ struct textlist
 #define	EOI		(-1)
 
 #define	READ_INTR	(-2)
+
+/* A fraction is represented by an int n; the fraction is n/NUM_FRAC_DENOM */
+#define NUM_FRAC_DENOM			1000000
+#define NUM_LOG_FRAC_DENOM		6
 
 /* How quiet should we be? */
 #define	NOT_QUIET	0	/* Ring bell at eof and for errors */
@@ -419,6 +443,7 @@ struct textlist
 #endif /* IS_EBCDIC_HOST */
 
 #define	ESC		CONTROL('[')
+#define	CSI		((unsigned char)'\233')
 
 #if _OSK_MWC32
 #define	LSIGNAL(sig,func)	os9_signal(sig,func)
@@ -448,6 +473,9 @@ struct textlist
 #define	QUIT_OK		0
 #define	QUIT_ERROR	1
 #define	QUIT_SAVED_STATUS (-1)
+
+#define FOLLOW_DESC     0
+#define FOLLOW_NAME     1
 
 /* filestate flags */
 #define	CH_CANSEEK	001

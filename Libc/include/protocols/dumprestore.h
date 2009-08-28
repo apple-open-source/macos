@@ -101,7 +101,7 @@ union u_spcl {
 		long	c_volume;	    /* dump volume number */
 #endif /* __LP64__ */
 		daddr_t	c_tapea;	    /* logical block of this record */
-		unsigned int c_inumber;     /* number of inode */
+		unsigned int c_inumber;	    /* number of inode; truncation can occur for 64-bit ino_t */
 #ifdef __LP64__
 		int	c_magic;	    /* magic number (see above) */
 		int	c_checksum;	    /* record checksum */

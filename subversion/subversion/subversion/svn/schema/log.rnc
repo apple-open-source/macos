@@ -8,7 +8,7 @@ start = log
 log = element log { logentry* }
 
 logentry =
-  element logentry { attlist.logentry, author?, date?, paths?, msg? }
+  element logentry { attlist.logentry, author?, date?, paths?, msg?, revprops?, logentry* }
 attlist.logentry &=
   attribute revision { revnum.type }
 
@@ -20,6 +20,8 @@ path = element path { attlist.path, text }
 attlist.path &=
   ## "action code": A)dd, D)elete, R)eplace or M)odify
   attribute action { "A" | "D" | "R" | "M" },
+  ## kind is "" when repository was < 1.6 when committing
+  attribute kind { "file" | "dir" | "" },
   (
    ## The copyfrom path within repository.
    attribute copyfrom-path { text },
@@ -28,3 +30,6 @@ attlist.path &=
 
 ## Log message.
 msg = element msg { text }
+
+## Revision properties.
+revprops = element revprops { property+ }

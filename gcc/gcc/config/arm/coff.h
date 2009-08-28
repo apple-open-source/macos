@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.
    For ARM with COFF object format.
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2002, 2003, 2004
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Doug Evans (devans@cygnus.com).
    
@@ -18,8 +18,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 /* Note - it is important that this definition matches the one in tcoff.h.  */
 #undef  USER_LABEL_PREFIX
@@ -34,7 +34,7 @@
 #define TARGET_DEFAULT_FLOAT_ABI ARM_FLOAT_ABI_SOFT
 
 #undef  TARGET_DEFAULT
-#define TARGET_DEFAULT (ARM_FLAG_APCS_FRAME)
+#define TARGET_DEFAULT (MASK_APCS_FRAME)
 
 #ifndef MULTILIB_DEFAULTS
 #define MULTILIB_DEFAULTS \

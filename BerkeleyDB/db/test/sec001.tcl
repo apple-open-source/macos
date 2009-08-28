@@ -1,9 +1,8 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1999-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 1999,2007 Oracle.  All rights reserved.
 #
-# $Id: sec001.tcl,v 1.2 2004/03/30 01:24:08 jtownsen Exp $
+# $Id: sec001.tcl,v 12.5 2007/05/17 15:15:56 bostic Exp $
 #
 # TEST	sec001
 # TEST	Test of security interface
@@ -11,6 +10,7 @@ proc sec001 { } {
 	global errorInfo
 	global errorCode
 	global has_crypto
+	global is_hp_test
 
 	source ./include.tcl
 	# Skip test if release does not support encryption.
@@ -123,12 +123,16 @@ proc sec001 { } {
 	set env [berkdb_env -create -home $testdir]
 	error_check_good env [is_valid_env $env] TRUE
 
-	puts "\tSec001.f.4: Open again with encryption."
-	set stat [catch {berkdb_env_noerr -home $testdir \
-	    -encryptaes $passwd1} ret]
-	error_check_good env:unencrypted $stat 1
-	error_check_good env:fail [is_substr $ret \
-	    "Joining non-encrypted environment"] 1
+	# Skip this piece of the test on HP-UX, where we can't
+	# join the env.
+	if { $is_hp_test != 1 } {
+		puts "\tSec001.f.4: Open again with encryption."
+		set stat [catch {berkdb_env_noerr -home $testdir \
+		    -encryptaes $passwd1} ret]
+		error_check_good env:unencrypted $stat 1
+		error_check_good env:fail [is_substr $ret \
+		    "Joining non-encrypted environment"] 1
+	}
 
 	error_check_good envclose [$env close] 0
 
@@ -143,6 +147,13 @@ proc sec001 { } {
 	puts "\tSec001.g.1: Open with encryption."
 	set env [berkdb_env_noerr -create -home $testdir -encryptaes $passwd1]
 	error_check_good env [is_valid_env $env] TRUE
+
+	# We can't open an env twice in HP-UX, so skip the rest.
+	if { $is_hp_test == 1 } {
+		puts "Skipping remainder of test for HP-UX."
+		error_check_good env_close [$env close] 0
+		return
+	}
 
 	puts "\tSec001.g.2: Open again with encryption - same passwd."
 	set env1 [berkdb_env -home $testdir -encryptaes $passwd1]

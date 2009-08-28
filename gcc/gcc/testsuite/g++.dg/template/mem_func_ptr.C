@@ -1,44 +1,33 @@
 // { dg-do compile }
 template<typename T> struct takes_member_ptr;
-// APPLE LOCAL mainline 2006-10-13 3904173
 template<typename T, typename Klasse> struct takes_member_ptr<T Klasse::*> {};
 
-// APPLE LOCAL begin mainline 2006-10-13 3904173
 template<typename T, typename Klasse>
 void fun_takes_member_ptr(T Klasse::*) {}
-// APPLE LOCAL end mainline 2006-10-13 3904173
 
 
 template<typename T> struct order_member_ptrs;
-// APPLE LOCAL begin mainline 2006-10-13 3904173
 template<typename T, typename Klasse> struct order_member_ptrs<T Klasse::*> {};
 template<typename R, typename T1, typename Klasse> 
   struct order_member_ptrs<R (Klasse::*)(T1)>
-// APPLE LOCAL end mainline 2006-10-13 3904173
   {
     typedef int type;
   };
 
-// APPLE LOCAL begin mainline 2006-10-13 3904173
 template<typename R, typename T1, typename Klasse>
   struct order_member_ptrs<R (Klasse::*)(T1) const>
-// APPLE LOCAL end mainline 2006-10-13 3904173
   {
     typedef int c_type;
   };
 
-// APPLE LOCAL begin mainline 2006-10-13 3904173
 template<typename R, typename T1, typename Klasse>
   struct order_member_ptrs<R (Klasse::*)(T1) volatile>
-// APPLE LOCAL end mainline 2006-10-13 3904173
   {
     typedef int v_type;
   };
 
-// APPLE LOCAL begin mainline 2006-10-13 3904173
 template<typename R, typename T1, typename Klasse>
   struct order_member_ptrs<R (Klasse::*)(T1) const volatile>
-// APPLE LOCAL end mainline 2006-10-13 3904173
   {
     typedef int cv_type;
   };

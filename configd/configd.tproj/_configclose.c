@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003, 2004, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003, 2004, 2006-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -125,6 +125,7 @@ __SCDynamicStoreClose(SCDynamicStoreRef *store, Boolean internal)
 	removeAllKeys(*store, TRUE);	// patterns
 
 	/* Remove/cancel any outstanding notification requests. */
+	__MACH_PORT_DEBUG(storePrivate->notifyPort != MACH_PORT_NULL, "*** __SCDynamicStoreClose", storePrivate->notifyPort);
 	(void) __SCDynamicStoreNotifyCancel(*store);
 
 	/* Remove any session keys */
@@ -182,9 +183,13 @@ __SCDynamicStoreClose(SCDynamicStoreRef *store, Boolean internal)
 	if (mySession->serverRunLoopSource) {
 		CFRunLoopSourceInvalidate(mySession->serverRunLoopSource);
 		CFRelease(mySession->serverRunLoopSource);
+		mySession->serverRunLoopSource = NULL;
 	}
-	CFMachPortInvalidate(mySession->serverPort);
-	CFRelease(mySession->serverPort);
+	if (mySession->serverPort != NULL) {
+		CFMachPortInvalidate(mySession->serverPort);
+		CFRelease(mySession->serverPort);
+		mySession->serverPort = NULL;
+	}
 
 	storePrivate->server = MACH_PORT_NULL;
 	CFRelease(*store);
@@ -208,16 +213,24 @@ _configclose(mach_port_t server, int *sc_status)
 	/*
 	 * Close the session.
 	 */
+	__MACH_PORT_DEBUG(TRUE, "*** _configclose", server);
 	*sc_status = __SCDynamicStoreClose(&mySession->store, FALSE);
 	if (*sc_status != kSCStatusOK) {
+		SCLog(TRUE, LOG_ERR,
+		      CFSTR("_configclose __SCDynamicStoreClose() failed, status = %s"),
+		      SCErrorString(*sc_status));
 		return KERN_SUCCESS;
 	}
+	__MACH_PORT_DEBUG(TRUE, "*** _configclose (after __SCDynamicStoreClose)", server);
 
 	/*
-	 * Remove send and receive right
+	 * Remove our receive right.
+	 *
+	 * Note: there is no need to cancel the notification request because the
+	 *       kernel will have no way to deliver the notification once the
+	 *       receive right has been removed.
 	 */
-	mach_port_mod_refs(mach_task_self(), mySession->key, MACH_PORT_RIGHT_SEND   , -1);
-	mach_port_mod_refs(mach_task_self(), mySession->key, MACH_PORT_RIGHT_RECEIVE, -1);
+	(void) mach_port_mod_refs(mach_task_self(), server, MACH_PORT_RIGHT_RECEIVE, -1);
 
 	/*
 	 * Remove the session entry.

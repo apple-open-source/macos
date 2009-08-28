@@ -1,5 +1,5 @@
 AC_INIT(rlm_opendirectory.c)
-AC_REVISION($Revision: 1.1 $)
+AC_REVISION($Revision$)
 AC_DEFUN(modname,[rlm_opendirectory])
 
 if test x$with_[]modname != xno; then
@@ -7,52 +7,12 @@ if test x$with_[]modname != xno; then
 	AC_PROG_CC
 	AC_PROG_CPP
 
-	AC_MSG_CHECKING(for system password file)
-	if test -f /etc/passwd; then
-		AC_MSG_RESULT(/etc/passwd)
-	else
-		AC_MSG_RESULT(no /etc/passwd file.)
-		[ fail=$fail" /etc/passwd" ],
-	fi
-
-	dnl useless?
-	AC_MSG_CHECKING(for system shadow password file)
-	if test -f /etc/shadow; then
-		AC_MSG_RESULT(/etc/shadow)
-	else
-		AC_MSG_RESULT(no /etc/shadow file.)
-	fi
-
-	AC_CHECK_FUNC(crypt, 
-		[ cryptlocation=libc ],
-		[
-			#crypt not in libc
-			AC_CHECK_LIB(crypt, crypt, 
-				[ 
-					cryptlocation=libcrypt 
-					od_ldflags="${od_ldflags} -lcrypt"
-				]
-			)
-		]
-	)
-	if test x$cryptlocation = x; then
-		[ fail=$fail" crypt()" ],
-	fi
-
 	od_ldflags="${od_ldflags} -framework DirectoryService" 
 	
-	AC_CHECK_HEADERS(crypt.h shadow.h)
-	AC_CHECK_FUNCS(getspnam getusershell)
-
-	AC_CHECK_LIB(shadow, getspnam, 
-		[ 
-			od_ldflags="${od_ldflags} -lshadow"
-			AC_DEFINE(HAVE_GETSPNAM) 
-		]
-	)
-
-	AC_CHECK_FUNCS(fgetpwent fgetspent fgetgrent)
-
+	FR_SMART_CHECK_INCLUDE(membership.h)
+	if test "$ac_cv_header_membership_h" != "yes"; then
+	  fail="$fail membership.h"
+	fi
 	targetname=modname
 else
 	targetname=
@@ -72,5 +32,4 @@ fi
 AC_SUBST(od_ldflags)
 AC_SUBST(od_cflags)
 AC_SUBST(targetname)
-AC_CONFIG_HEADER(config.h)
 AC_OUTPUT(Makefile)

@@ -1,19 +1,8 @@
-This is an umbrella package for easily install all of PyObjC, it doesn't 
-contain any useful features by itself.
+This is a "pseudo-package". It's only goal in live is to make it 
+easier to install the rest of PyObjC.
 
-Please check the documentation and examples and the various pyobjc subpackages
-for more information.
+That is, "python setup.py install" of "easy_install pyobjc" will install
+this package and as a side effect will also install the rest of PyObjC
+(pyobjc-core and the various framework wrappers).
 
-To create a binary installer and install that:
-
-$ python setup.py bdist_mpkg --open
-
-This will install PyObjC as well as a recent copy of py2app, but does require
-that you use a checkout of all these packages.
-
-To build just the meta-egg:
-
-$ python setup.py bdist_egg
-
-In either case you have to remove the directory pyobjc.egg-info before running
-the command.
+This package does contain code of itself.

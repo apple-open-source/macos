@@ -1,0 +1,118 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin math::constants n 1.0.1]
+[copyright {2004 Arjen Markus <arjenmarkus@users.sourceforge.net>}]
+[moddesc   {Tcl Math Library}]
+[titledesc {Mathematical and numerical constants}]
+
+[require Tcl [opt 8.3]]
+[require math::constants [opt 1.0.1]]
+
+[description]
+[para]
+This package defines some common mathematical and numerical constants.
+By using the package you get consistent values for numbers like pi and
+ln(10).
+
+[para]
+It defines two commands:
+
+[list_begin itemized]
+[item]
+One for importing the constants
+
+[item]
+One for reporting which constants are defined and what values they
+actually have.
+
+[list_end]
+
+[para]
+The motivation for this package is that quite often, with
+(mathematical) computations, you need a good approximation to, say,
+the ratio of degrees to radians. You can, of course, define this
+like:
+[example {
+    variable radtodeg [expr {180.0/(4.0*atan(1.0))}]
+}]
+and use the variable radtodeg whenever you need the conversion.
+
+[para]
+This has two drawbacks:
+
+[list_begin itemized]
+[item]
+You need to remember the proper formula or value and that is
+error-prone.
+
+[item]
+Especially with the use of mathematical functions like [emph atan]
+you assume that they have been accurately implemented. This is seldom or
+never the case and for each platform you can get subtle differences.
+
+[list_end]
+
+Here is the way you can do it with the [emph math::constants] package:
+[example {
+    package require math::constants
+    ::math::constants::constants radtodeg degtorad
+}]
+which creates two variables, radtodeg and (its reciprocal) degtorad
+in the calling namespace.
+
+[para]
+Constants that have been defined (their values are mostly taken
+from mathematical tables with more precision than usually can be
+handled) include:
+
+[list_begin itemized]
+[item]
+basic constants like pi, e, gamma (Euler's constant)
+
+[item]
+derived values like ln(10) and sqrt(2)
+
+[item]
+purely numerical values such as 1/3 that are included for convenience
+and for the fact that certain seemingly trivial computations like:
+[example {
+    set value [expr {3.0*$onethird}]
+}]
+give [emph exactly] the value you expect (if IEEE arithmetic is
+available).
+
+[list_end]
+
+[section "PROCEDURES"]
+
+The package defines the following public procedures:
+
+[list_begin definitions]
+
+[call [cmd ::math::constants::constants] [arg args]]
+
+Import the constants whose names are given as arguments
+
+[para]
+
+[call [cmd ::math::constants::print-constants] [arg args]]
+
+Print the constants whose names are given as arguments on the screen
+(name, value and description) or, if no arguments are given, print all
+defined constants. This is mainly a convenience procedure.
+
+[list_end]
+
+[section {BUGS, IDEAS, FEEDBACK}]
+
+This document, and the package it describes, will undoubtedly contain
+bugs and other problems.
+
+Please report such in the category [emph {math :: constants}] of the
+[uri {http://sourceforge.net/tracker/?group_id=12883} {Tcllib SF Trackers}].
+
+Please also report any ideas for enhancements you may have for either
+package and/or documentation.
+
+
+[keywords math constants pi e radians degrees]
+[manpage_end]

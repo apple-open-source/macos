@@ -11,4 +11,4 @@ extern int gen_to_words(
     int exponent_bits);
 
 extern void int_to_gen(
-    long x);
+    int x);

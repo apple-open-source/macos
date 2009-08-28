@@ -15,7 +15,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // TR1 2.2.2 Template class shared_ptr [tr.util.smartptr.shared]
@@ -49,3 +49,4 @@ main()
 }
 // { dg-error "In member function" "" { target *-*-* } 0 }
 // { dg-error "cannot convert" "" { target *-*-* } 0 }
+// { dg-error "instantiated from" "" { target *-*-* } 0 }

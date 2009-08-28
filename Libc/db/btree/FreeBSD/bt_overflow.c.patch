@@ -1,0 +1,20 @@
+--- bt_overflow.c.orig	2008-09-07 11:37:54.000000000 -0700
++++ bt_overflow.c	2008-09-07 12:00:45.000000000 -0700
+@@ -97,7 +97,7 @@ __ovfl_get(t, p, ssz, buf, bufsz)
+ 
+ #ifdef DEBUG
+ 	if (pg == P_INVALID || sz == 0)
+-		abort();
++		LIBC_ABORT("%s", pg == P_INVALID ? "pg == P_INVALID" : "sz == 0");
+ #endif
+ 	/* Make the buffer bigger as necessary. */
+ 	if (*bufsz < sz) {
+@@ -206,7 +206,7 @@ __ovfl_delete(t, p)
+ 
+ #ifdef DEBUG
+ 	if (pg == P_INVALID || sz == 0)
+-		abort();
++		LIBC_ABORT("%s", pg == P_INVALID ? "pg == P_INVALID" : "sz == 0");
+ #endif
+ 	if ((h = mpool_get(t->bt_mp, pg, 0)) == NULL)
+ 		return (RET_ERROR);

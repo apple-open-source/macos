@@ -1,0 +1,85 @@
+Revision history for Perl extension Net::IP.
+
+1.25 Wed May 24 12:00:00 2006
+	- Math::BigInt is now mandatory
+	- Several bugfixes done
+
+1.24 Tue Oct 18 12:00:00 2005
+	- Thanks to Frederic Schutz <schutz AT mathgen.ch>
+	- Bugfix in overlaps function
+	- Updated Makefile
+	- ran perltidy on the code
+
+1.23 Mon Jun 06 12:00:00 2005
+	- Thanks to Achim Adam <achim.adam AT univie.ac.at>
+	- Thanks to Malte S. Stretz <mss AT msquadrat.de>
+	- Thanks to Ville Skytta <ville.skytta AT iki.fi>
+	- Bugfixes in ip_reverse
+	- Bugfix in ip_range_to_prefix for /31 subnets
+
+
+1.22  Mon May 26 11:54:00 2005
+	- Big Thanks to Achim Adam <achim.adam AT univie.ac.at>
+	- Removed 5.008 dependency
+	- Added fix for trailing zeros on reverse IPv4 addresses 
+	- Updated 'special' ranges for Ipv4 and IPv6
+		
+
+1.19  Fri Feb 14 11:00:00 2003
+	- Documentation fix
+	- Testsuite fix
+
+1.18  Thu Feb 13  17:00:00 2003
+	- Big thanks to Kazuyuki Maejima <maejima@mex.ad.jp>
+	- Changed definition of overlap constants
+	- overlap constants always exported
+	- set returns an IP object (instead of 1)
+	- added function last_int()
+	- added ++ operator overloading
+	- added IP::Authority check (Nigel Wetters <nigel.wetters@rivalsdm.com>)
+	- Makefile.PL bugfix
+
+
+1.16  Wed Dec 18 17:00:00 2002
+	- Small Bugfixes
+	- Documentation Modifications (by fliptop AT peacecomputers.com)
+
+
+1.15  Wed Oct 23 15:00:00 2002
+	- Bugfix release
+
+1.14  Fri Oct 18 15:00:00 2002
+	- Bugfix release
+
+1.13  Tue Oct 15 12:00:00 2002
+	- Bugfix in t/ipv4.t
+
+1.12  Tue Oct 15 10:00:00 2002
+	- This revision is authored by Peter Hatch
+	- Changed "IP -" to "Net::IP -" in NAME section of IP.pm so MakeMaker could grab
+	the abstract
+	- Updated Makefile.PL to include AUTHOR, ABSTRACT_FROM, PL_FILES tags
+	- Added Linux RPM spec file (generated from Net-IP.spec.PL).  If package
+	is built by RPM, the script files are put into %{_prefix}/bin instead of
+	into /usr/local/ncc/bin...
+	- Changed the first line in the ipcount and iptab scripts so that MM_Unix::fixin
+	can insert correct sharpbangs
+        - Added function ip_compress_v4_prefix ()
+
+1.11  Tue May 28 15:00:00 2002
+	- added iptab script
+	- added new constructor (IP + size)
+	- added new options to ipcount
+
+1.01  Thu Feb 01 10:46:09 2001
+	- added option to create multi-prefix ranges (/16,/17)
+	- added a check on validity of prefixes
+	- overlaps function rewritten - bugfix
+	- added print() function
+	
+1.00  Thu Jan 18 15:00:00 2001
+	- First Release 
+
+0.01  Mon Nov  6 16:24:05 2000
+	- original version; created by h2xs 1.18
+

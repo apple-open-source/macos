@@ -1,11 +1,11 @@
 /*
- * "$Id: usb-unix.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: usb-unix.c 7810 2008-07-29 01:11:15Z mike $"
  *
  *   USB port backend for the Common UNIX Printing System (CUPS).
  *
  *   This file is included from "usb.c" when compiled on UNIX/Linux.
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -28,7 +28,6 @@
  * Include necessary headers.
  */
 
-#include "ieee1284.c"
 #include <sys/select.h>
 
 
@@ -37,7 +36,8 @@
  */
 
 static int	open_device(const char *uri, int *use_bc);
-static void	side_cb(int print_fd, int device_fd, int use_bc);
+static void	side_cb(int print_fd, int device_fd, int snmp_fd,
+		        http_addr_t *addr, int use_bc);
 
 
 /*
@@ -187,10 +187,10 @@ print_device(const char *uri,		/* I - Device URI */
     * select() or poll(), so we can't support the sidechannel either...
     */
 
-    tbytes = backendRunLoop(print_fd, device_fd, use_bc, NULL);
+    tbytes = backendRunLoop(print_fd, device_fd, -1, NULL, use_bc, NULL);
 
 #else
-    tbytes = backendRunLoop(print_fd, device_fd, use_bc, side_cb);
+    tbytes = backendRunLoop(print_fd, device_fd, -1, NULL, use_bc, side_cb);
 #endif /* __sun */
 
     if (print_fd != 0 && tbytes >= 0)
@@ -228,6 +228,7 @@ list_devices(void)
 	device_uri[1024],		/* Device URI string */
 	make_model[1024];		/* Make and model */
 
+
  /*
   * Try to open each USB device...
   */
@@ -263,8 +264,8 @@ list_devices(void)
     if (!backendGetDeviceID(fd, device_id, sizeof(device_id),
                             make_model, sizeof(make_model),
 			    "usb", device_uri, sizeof(device_uri)))
-      printf("direct %s \"%s\" \"%s USB #%d\" \"%s\"\n", device_uri,
-	     make_model, make_model, i + 1, device_id);
+      cupsBackendReport("direct", device_uri, make_model, make_model,
+                        device_id, NULL);
 
     close(fd);
   }
@@ -291,15 +292,15 @@ list_devices(void)
       if (!backendGetDeviceID(fd, device_id, sizeof(device_id),
                               make_model, sizeof(make_model),
 			      "usb", device_uri, sizeof(device_uri)))
-	printf("direct %s \"%s\" \"%s USB #%d\" \"%s\"\n", device_uri,
-	       make_model, make_model, i + 1, device_id);
+	cupsBackendReport("direct", device_uri, make_model, make_model,
+			  device_id, NULL);
 
       close(fd);
     }
   }
 #elif defined(__hpux)
 #elif defined(__osf)
-#elif defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
+#elif defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__) || defined(__DragonFly__) || defined(__FreeBSD_kernel__)
   int   i;                      /* Looping var */
   char  device[255];            /* Device filename */
 
@@ -560,15 +561,20 @@ open_device(const char *uri,		/* I - Device URI */
  */
 
 static void
-side_cb(int print_fd,			/* I - Print file */
-        int device_fd,			/* I - Device file */
-	int use_bc)			/* I - Using back-channel? */
+side_cb(int         print_fd,		/* I - Print file */
+        int         device_fd,		/* I - Device file */
+        int         snmp_fd,		/* I - SNMP socket (unused) */
+	http_addr_t *addr,		/* I - Device address (unused) */
+	int         use_bc)		/* I - Using back-channel? */
 {
   cups_sc_command_t	command;	/* Request command */
   cups_sc_status_t	status;		/* Request/response status */
   char			data[2048];	/* Request/response data */
   int			datalen;	/* Request/response data size */
 
+
+  (void)snmp_fd;
+  (void)addr;
 
   datalen = sizeof(data);
 
@@ -624,5 +630,5 @@ side_cb(int print_fd,			/* I - Print file */
 
 
 /*
- * End of "$Id: usb-unix.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: usb-unix.c 7810 2008-07-29 01:11:15Z mike $".
  */

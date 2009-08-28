@@ -75,7 +75,7 @@ XSLTPUBFUN int XSLTCALL
 		xsltRegisterExtModule	(const xmlChar *URI,
 					 xsltExtInitFunction initFunc,
 					 xsltExtShutdownFunction shutdownFunc);
-XSLTPUBFUN int XSLTCALL		
+XSLTPUBFUN int XSLTCALL
 		xsltRegisterExtModuleFull
 					(const xmlChar * URI,
 					 xsltExtInitFunction initFunc,
@@ -83,8 +83,8 @@ XSLTPUBFUN int XSLTCALL
 					 xsltStyleExtInitFunction styleInitFunc,
 					 xsltStyleExtShutdownFunction styleShutdownFunc);
 
-XSLTPUBFUN int XSLTCALL		
-    		xsltUnregisterExtModule	(const xmlChar * URI);
+XSLTPUBFUN int XSLTCALL
+		xsltUnregisterExtModule	(const xmlChar * URI);
 
 XSLTPUBFUN void * XSLTCALL		
 		xsltGetExtData		(xsltTransformContextPtr ctxt,
@@ -93,7 +93,12 @@ XSLTPUBFUN void * XSLTCALL
 XSLTPUBFUN void * XSLTCALL		
 		xsltStyleGetExtData	(xsltStylesheetPtr style,
 					 const xmlChar *URI);
-
+#ifdef XSLT_REFACTORED
+XSLTPUBFUN void * XSLTCALL
+		xsltStyleStylesheetLevelGetExtData(
+					 xsltStylesheetPtr style,
+					 const xmlChar * URI);
+#endif
 XSLTPUBFUN void XSLTCALL		
     		xsltShutdownCtxtExts	(xsltTransformContextPtr ctxt);
 
@@ -210,7 +215,10 @@ XSLTPUBFUN int XSLTCALL
 					 const xmlChar *URI);
 XSLTPUBFUN int XSLTCALL		
 		xsltCheckExtPrefix	(xsltStylesheetPtr style,
-					 const xmlChar *prefix);
+					 const xmlChar *URI);
+XSLTPUBFUN int XSLTCALL
+		xsltCheckExtURI		(xsltStylesheetPtr style,
+					 const xmlChar *URI);
 XSLTPUBFUN int XSLTCALL		
 		xsltInitCtxtExts	(xsltTransformContextPtr ctxt);
 XSLTPUBFUN void XSLTCALL		

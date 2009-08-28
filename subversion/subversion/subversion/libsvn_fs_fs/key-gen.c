@@ -19,7 +19,16 @@
 #include <string.h>
 #include <stdlib.h>
 #include <apr.h>
+#include <apr_network_io.h>
+#include "private/svn_fs_private.h"
 #include "key-gen.h"
+
+/* The Berkeley DB backend uses a key as a transaction name and the
+   maximum key size must be less than the maximum transaction name
+   length. */
+#if MAX_KEY_SIZE > SVN_FS__TXN_MAX_LEN
+#error The MAX_KEY_SIZE used for BDB txn names is greater than SVN_FS__TXN_MAX_LEN.
+#endif
 
 
 /*** Keys for reps and strings. ***/
@@ -45,7 +54,7 @@ svn_fs_fs__add_keys(const char *key1, const char *key2, char *result)
 
       carry = val / 36;
       val = val % 36;
-      
+
       buf[i3++] = (val <= 9) ? (val + '0') : (val - 10 + 'a');
 
       if (i1>=0)
@@ -71,14 +80,14 @@ svn_fs_fs__next_key(const char *this, apr_size_t *len, char *next)
   svn_boolean_t carry = TRUE; /* boolean: do we have a carry or not?
                                  We start with a carry, because we're
                                  incrementing the number, after all. */
-  
+
   /* Leading zeros are not allowed, except for the string "0". */
   if ((*len > 1) && (this[0] == '0'))
     {
       *len = 0;
       return;
     }
-  
+
   for (i = (olen - 1); i >= 0; i--)
     {
       c = this[i];
@@ -97,7 +106,7 @@ svn_fs_fs__next_key(const char *this, apr_size_t *len, char *next)
           else
             {
               carry = FALSE;
-              
+
               if (c == '9')
                 next[i] = 'a';
               else

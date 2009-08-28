@@ -1,0 +1,254 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A1AB1B6005DD866800526345 /* KerberosDebug.h in Headers */ = {isa = PBXBuildFile; fileRef = F5C9C326021AED5101650119 /* KerberosDebug.h */; };
+		A1AB1B6205DD866800526345 /* KerberosDebug.c in Sources */ = {isa = PBXBuildFile; fileRef = F551B574022402DE01650119 /* KerberosDebug.c */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A108E62E0A41E46C008545E5 /* Release.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = ../../../Common/Resources/Release.xcconfig; sourceTree = SOURCE_ROOT; };
+		A108E62F0A41E46C008545E5 /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = ../../../Common/Resources/Debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		A1AB1B6605DD866800526345 /* libKerberosDebug.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libKerberosDebug.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1B28FD20E54C02200691941 /* DebugLite.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = DebugLite.xcconfig; path = ../../../Common/Resources/DebugLite.xcconfig; sourceTree = SOURCE_ROOT; };
+		A1B28FD30E54C02200691941 /* ReleaseLite.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = ReleaseLite.xcconfig; path = ../../../Common/Resources/ReleaseLite.xcconfig; sourceTree = SOURCE_ROOT; };
+		A1CD79FC0768FAD900266915 /* KerberosDebug.pbexp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = KerberosDebug.pbexp; sourceTree = "<group>"; };
+		F551B574022402DE01650119 /* KerberosDebug.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = KerberosDebug.c; sourceTree = "<group>"; };
+		F5C9C326021AED5101650119 /* KerberosDebug.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = KerberosDebug.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		F551B573022402DE01650119 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				F551B574022402DE01650119 /* KerberosDebug.c */,
+			);
+			name = Sources;
+			path = ../Sources;
+			sourceTree = SOURCE_ROOT;
+		};
+		F5C9C31F021AECF201650119 = {
+			isa = PBXGroup;
+			children = (
+				A108E62E0A41E46C008545E5 /* Release.xcconfig */,
+				A1B28FD30E54C02200691941 /* ReleaseLite.xcconfig */,
+				A108E62F0A41E46C008545E5 /* Debug.xcconfig */,
+				A1B28FD20E54C02200691941 /* DebugLite.xcconfig */,
+				A1CD79FC0768FAD900266915 /* KerberosDebug.pbexp */,
+				F5C9C322021AED5101650119 /* Products */,
+				F5C9C324021AED5101650119 /* Headers */,
+				F551B573022402DE01650119 /* Sources */,
+			);
+			sourceTree = "<group>";
+		};
+		F5C9C322021AED5101650119 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A1AB1B6605DD866800526345 /* libKerberosDebug.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		F5C9C324021AED5101650119 /* Headers */ = {
+			isa = PBXGroup;
+			children = (
+				F5C9C325021AED5101650119 /* Kerberos */,
+			);
+			name = Headers;
+			path = ../Headers;
+			sourceTree = SOURCE_ROOT;
+		};
+		F5C9C325021AED5101650119 /* Kerberos */ = {
+			isa = PBXGroup;
+			children = (
+				F5C9C326021AED5101650119 /* KerberosDebug.h */,
+			);
+			path = Kerberos;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		A1AB1B5F05DD866800526345 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1AB1B6005DD866800526345 /* KerberosDebug.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		A1AB1B5E05DD866800526345 /* KerberosDebug */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1518EDC086C85D10042CBBC /* Build configuration list for PBXNativeTarget "KerberosDebug" */;
+			buildPhases = (
+				A1AB1B5F05DD866800526345 /* Headers */,
+				A1AB1B6105DD866800526345 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = KerberosDebug;
+			productName = KerberosDebug;
+			productReference = A1AB1B6605DD866800526345 /* libKerberosDebug.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		F5C9C31E021AECF201650119 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = A1518EE0086C85D10042CBBC /* Build configuration list for PBXProject "KerberosDebug" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 1;
+			mainGroup = F5C9C31F021AECF201650119;
+			productRefGroup = F5C9C322021AED5101650119 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A1AB1B5E05DD866800526345 /* KerberosDebug */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A1AB1B6105DD866800526345 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1AB1B6205DD866800526345 /* KerberosDebug.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A1518EDD086C85D10042CBBC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E62F0A41E46C008545E5 /* Debug.xcconfig */;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DEPLOYMENT_POSTPROCESSING = NO;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/../Headers";
+				OTHER_CFLAGS = "-D_FORTIFY_SOURCE=2";
+				PRODUCT_NAME = KerberosDebug;
+				STRIP_INSTALLED_PRODUCT = NO;
+			};
+			name = Debug;
+		};
+		A1518EDE086C85D10042CBBC /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E62E0A41E46C008545E5 /* Release.xcconfig */;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DEPLOYMENT_POSTPROCESSING = NO;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/../Headers";
+				OTHER_CFLAGS = "-D_FORTIFY_SOURCE=2";
+				PRODUCT_NAME = KerberosDebug;
+				STRIP_INSTALLED_PRODUCT = NO;
+			};
+			name = Release;
+		};
+		A1518EE1086C85D10042CBBC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E62F0A41E46C008545E5 /* Debug.xcconfig */;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DEPLOYMENT_POSTPROCESSING = NO;
+				STRIP_INSTALLED_PRODUCT = NO;
+			};
+			name = Debug;
+		};
+		A1518EE2086C85D10042CBBC /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E62E0A41E46C008545E5 /* Release.xcconfig */;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DEPLOYMENT_POSTPROCESSING = NO;
+				STRIP_INSTALLED_PRODUCT = NO;
+			};
+			name = Release;
+		};
+		A1B28FD80E54C04000691941 /* DebugLite */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A1B28FD20E54C02200691941 /* DebugLite.xcconfig */;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DEPLOYMENT_POSTPROCESSING = NO;
+				STRIP_INSTALLED_PRODUCT = NO;
+			};
+			name = DebugLite;
+		};
+		A1B28FD90E54C04000691941 /* DebugLite */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A1B28FD20E54C02200691941 /* DebugLite.xcconfig */;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DEPLOYMENT_POSTPROCESSING = NO;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/../Headers";
+				OTHER_CFLAGS = "-D_FORTIFY_SOURCE=2";
+				PRODUCT_NAME = KerberosDebug;
+				STRIP_INSTALLED_PRODUCT = NO;
+			};
+			name = DebugLite;
+		};
+		A1B28FDA0E54C04600691941 /* ReleaseLite */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A1B28FD30E54C02200691941 /* ReleaseLite.xcconfig */;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DEPLOYMENT_POSTPROCESSING = NO;
+				STRIP_INSTALLED_PRODUCT = NO;
+			};
+			name = ReleaseLite;
+		};
+		A1B28FDB0E54C04600691941 /* ReleaseLite */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A1B28FD30E54C02200691941 /* ReleaseLite.xcconfig */;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DEPLOYMENT_POSTPROCESSING = NO;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/../Headers";
+				OTHER_CFLAGS = "-D_FORTIFY_SOURCE=2";
+				PRODUCT_NAME = KerberosDebug;
+				STRIP_INSTALLED_PRODUCT = NO;
+			};
+			name = ReleaseLite;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A1518EDC086C85D10042CBBC /* Build configuration list for PBXNativeTarget "KerberosDebug" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1518EDD086C85D10042CBBC /* Debug */,
+				A1B28FD90E54C04000691941 /* DebugLite */,
+				A1518EDE086C85D10042CBBC /* Release */,
+				A1B28FDB0E54C04600691941 /* ReleaseLite */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		A1518EE0086C85D10042CBBC /* Build configuration list for PBXProject "KerberosDebug" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1518EE1086C85D10042CBBC /* Debug */,
+				A1B28FD80E54C04000691941 /* DebugLite */,
+				A1518EE2086C85D10042CBBC /* Release */,
+				A1B28FDA0E54C04600691941 /* ReleaseLite */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = F5C9C31E021AECF201650119 /* Project object */;
+}

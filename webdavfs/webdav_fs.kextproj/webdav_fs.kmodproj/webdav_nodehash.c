@@ -100,7 +100,7 @@ void webdav_hashdestroy(void)
  * 
  */
  __private_extern__
-struct webdavnode *webdav_hashget(struct mount *mp, ino_t fileid, struct webdavnode *pt_new, uint32_t *inserted)
+struct webdavnode *webdav_hashget(struct mount *mp, webdav_ino_t fileid, struct webdavnode *pt_new, uint32_t *inserted)
 {
 	struct webdavnode *pt, *pt_found;
 	struct webdav_hashhead *nhp;

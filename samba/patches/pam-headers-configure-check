@@ -2,7 +2,7 @@ Index: samba/source/configure.in
 ===================================================================
 --- samba/source/configure.in.orig
 +++ samba/source/configure.in
-@@ -4210,7 +4210,11 @@ AC_ARG_WITH(cifsmount,
+@@ -4268,7 +4268,11 @@ AC_ARG_WITH(cifsmount,
  
  
  #################################################
@@ -15,7 +15,7 @@ Index: samba/source/configure.in
  with_pam_for_crypt=no
  try_pam=no
  AC_MSG_CHECKING(whether to try PAM support)
-@@ -4230,8 +4234,9 @@ if test x"${try_pam}" != x"no";then
+@@ -4288,8 +4292,9 @@ if test x"${try_pam}" != x"no";then
  	use_pam=yes
  	create_pam_modules=yes
  
@@ -27,7 +27,7 @@ Index: samba/source/configure.in
  		if test x"${try_pam}" = x"yes";then
  			AC_MSG_ERROR([--with-pam=yes but security/pam_appl.h not found])
  		fi
-@@ -4248,12 +4253,16 @@ if test x"${try_pam}" != x"no";then
+@@ -4306,12 +4311,16 @@ if test x"${try_pam}" != x"no";then
  		create_pam_modules=no
  	fi
  
@@ -46,7 +46,7 @@ Index: samba/source/configure.in
  		if test x"${try_pam}" = x"yes";then
  			AC_MSG_ERROR([--with-pam=yes but security/pam_modules.h not found])
         fi
-@@ -4271,6 +4280,7 @@ if test x"${try_pam}" != x"no";then
+@@ -4329,6 +4338,7 @@ if test x"${try_pam}" != x"no";then
  			# this checks are optional,
  			# we don't care about the results here
  			AC_CHECK_HEADERS(security/pam_ext.h security/_pam_macros.h)

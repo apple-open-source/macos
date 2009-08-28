@@ -11,8 +11,7 @@ CFILES += optical.c
 endif
 
 Extra_CC_Flags = -Wall -mdynamic-no-pic \
-	-Wno-four-char-constants \
-	-D_DARWIN_USE_64_BIT_INODE=1
+	-Wno-four-char-constants
 Extra_LD_Flags = -dead_strip -lutil
 Extra_Frameworks = -framework IOKit -framework CoreFoundation
 

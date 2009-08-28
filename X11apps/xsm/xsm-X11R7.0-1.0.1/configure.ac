@@ -31,7 +31,6 @@ AM_CONFIG_HEADER(config.h)
 AC_PROG_CC
 AC_PROG_INSTALL
 
-RSH=
 if [[ -z $RSH ]] ; then
    AC_PATH_PROG(RSH,rsh)
 fi
@@ -63,7 +62,10 @@ AC_CHECK_FUNC([putenv], [],
    AC_DEFINE(NOPUTENV,1,[Define to 1 if you DO NOT have the `putenv' function.]))
 
 # Checks for pkg-config packages
-XAW_CHECK_XPRINT_SUPPORT(XSM)
+PKG_CHECK_MODULES(XSM, x11 xt ice sm)
+PKG_CHECK_MODULES(XSM_XAW, xaw7)
+XSM_CFLAGS="$XSM_XAW_CFLAGS $XSM_CFLAGS"
+XSM_LIBS="$XSM_XAW_LIBS $XSM_LIBS"
 
 AC_SUBST(XSM_CFLAGS)
 AC_SUBST(XSM_LIBS)

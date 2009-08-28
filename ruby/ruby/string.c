@@ -3,7 +3,7 @@
   string.c -
 
   $Author: shyouhei $
-  $Date: 2008-07-17 21:32:16 +0900 (Thu, 17 Jul 2008) $
+  $Date: 2008-07-17 21:33:59 +0900 (Thu, 17 Jul 2008) $
   created at: Mon Aug  9 17:12:58 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -248,6 +248,13 @@ rb_str_buf_new2(ptr)
     rb_str_buf_cat(str, ptr, len);
 
     return str;
+}
+
+VALUE
+rb_str_tmp_new(len)
+    long len;
+{
+    return str_new(0, 0, len);
 }
 
 VALUE
@@ -531,7 +538,8 @@ rb_str_associated(str)
     return Qfalse;
 }
 
-static char *null_str = "";
+static const char null_str[] = "";
+#define null_str ((char *)null_str)
 
 VALUE
 rb_string_value(ptr)
@@ -662,6 +670,13 @@ rb_str_unlocktmp(str)
     }
     FL_UNSET(str, STR_TMPLOCK);
     return str;
+}
+
+void
+rb_str_set_len(VALUE str, long len)
+{
+    RSTRING(str)->len = len;
+    RSTRING(str)->ptr[len] = '\0';
 }
 
 VALUE
@@ -1124,27 +1139,26 @@ rb_str_index_m(argc, argv, str)
 	pos = rb_reg_search(sub, str, pos, 0);
 	break;
 
-      case T_FIXNUM:
-      {
-	  int c = FIX2INT(sub);
-	  long len = RSTRING(str)->len;
-	  unsigned char *p = (unsigned char*)RSTRING(str)->ptr;
+      case T_FIXNUM: {
+	int c = FIX2INT(sub);
+	long len = RSTRING(str)->len;
+	unsigned char *p = (unsigned char*)RSTRING(str)->ptr;
 
-	  for (;pos<len;pos++) {
-	      if (p[pos] == c) return LONG2NUM(pos);
-	  }
-	  return Qnil;
+	for (;pos<len;pos++) {
+	    if (p[pos] == c) return LONG2NUM(pos);
+	}
+	return Qnil;
       }
 
       default: {
-	  VALUE tmp;
+	VALUE tmp;
 
-	  tmp = rb_check_string_type(sub);
-	  if (NIL_P(tmp)) {
-	      rb_raise(rb_eTypeError, "type mismatch: %s given",
-		       rb_obj_classname(sub));
-	  }
-	  sub = tmp;
+	tmp = rb_check_string_type(sub);
+	if (NIL_P(tmp)) {
+	    rb_raise(rb_eTypeError, "type mismatch: %s given",
+		     rb_obj_classname(sub));
+	}
+	sub = tmp;
       }
 	/* fall through */
       case T_STRING:
@@ -1242,31 +1256,37 @@ rb_str_rindex_m(argc, argv, str)
 	if (pos >= 0) return LONG2NUM(pos);
 	break;
 
+      default: {
+	VALUE tmp;
+
+	tmp = rb_check_string_type(sub);
+	if (NIL_P(tmp)) {
+	    rb_raise(rb_eTypeError, "type mismatch: %s given",
+		     rb_obj_classname(sub));
+	}
+	sub = tmp;
+      }
+	/* fall through */
       case T_STRING:
 	pos = rb_str_rindex(str, sub, pos);
 	if (pos >= 0) return LONG2NUM(pos);
 	break;
 
-      case T_FIXNUM:
-      {
-	  int c = FIX2INT(sub);
-	  unsigned char *p = (unsigned char*)RSTRING(str)->ptr + pos;
-	  unsigned char *pbeg = (unsigned char*)RSTRING(str)->ptr;
+      case T_FIXNUM: {
+	int c = FIX2INT(sub);
+	unsigned char *p = (unsigned char*)RSTRING(str)->ptr + pos;
+	unsigned char *pbeg = (unsigned char*)RSTRING(str)->ptr;
 
-	  if (pos == RSTRING(str)->len) {
-	      if (pos == 0) return Qnil;
-	      --p;
-	  }
-	  while (pbeg <= p) {
-	      if (*p == c) return LONG2NUM((char*)p - RSTRING(str)->ptr);
-	      p--;
-	  }
-	  return Qnil;
+	if (pos == RSTRING(str)->len) {
+	    if (pos == 0) return Qnil;
+	    --p;
+	}
+	while (pbeg <= p) {
+	    if (*p == c) return LONG2NUM((char*)p - RSTRING(str)->ptr);
+	    p--;
+	}
+	return Qnil;
       }
-
-      default:
-	rb_raise(rb_eTypeError, "type mismatch: %s given",
-		 rb_obj_classname(sub));
     }
     return Qnil;
 }
@@ -1468,12 +1488,13 @@ rb_str_upto(beg, end, excl)
 
 /*
  *  call-seq:
- *     str.upto(other_str) {|s| block }   => str
+ *     str.upto(other_str, exclusive=false) {|s| block }   => str
  *  
  *  Iterates through successive values, starting at <i>str</i> and
  *  ending at <i>other_str</i> inclusive, passing each value in turn to
  *  the block. The <code>String#succ</code> method is used to generate
- *  each value.
+ *  each value.  If optional second argument exclusive is omitted or is <code>false</code>,
+ *  the last value will be included; otherwise it will be excluded.
  *     
  *     "a8".upto("b6") {|s| print s, ' ' }
  *     for s in "a8".."b6"
@@ -1487,10 +1508,16 @@ rb_str_upto(beg, end, excl)
  */
 
 static VALUE
-rb_str_upto_m(beg, end)
-    VALUE beg, end;
+rb_str_upto_m(argc, argv, beg)
+    int argc;
+    VALUE *argv;
+    VALUE beg;
 {
-    return rb_str_upto(beg, end, Qfalse);
+    VALUE end, exclusive;
+
+    rb_scan_args(argc, argv, "11", &end, &exclusive);
+
+    return rb_str_upto(beg, end, RTEST(exclusive));
 }
 
 static VALUE
@@ -1924,6 +1951,30 @@ get_pat(pat, quote)
     return rb_reg_regcomp(pat);
 }
 
+static VALUE
+get_pat_quoted(pat)
+     VALUE pat;
+{
+    return get_pat(pat, 1);
+}
+
+static VALUE
+regcomp_failed(str)
+    VALUE str;
+{
+    rb_raise(rb_eArgError, "invalid byte sequence");
+    /*NOTREACHED*/
+    return Qundef;
+}
+
+static VALUE
+get_arg_pat(pat, quote)
+     VALUE pat;
+{
+    return rb_rescue2(get_pat_quoted, pat,
+                      regcomp_failed, pat,
+                      rb_eRegexpError, (VALUE)0);
+}
 
 /*
  *  call-seq:
@@ -2055,7 +2106,8 @@ str_gsub(argc, argv, str, bang)
     char *buf, *bp, *sp, *cp;
     int tainted = 0;
 
-    if (argc == 1 && rb_block_given_p()) {
+    if (argc == 1) {
+        RETURN_ENUMERATOR(str, argc, argv);
 	iter = 1;
     }
     else if (argc == 2) {
@@ -2465,7 +2517,7 @@ rb_str_include(str, arg)
  *     str.to_i(base=10)   => integer
  *  
  *  Returns the result of interpreting leading characters in <i>str</i> as an
- *  integer base <i>base</i> (2, 8, 10, or 16). Extraneous characters past the
+ *  integer base <i>base</i> (between 2 and 36). Extraneous characters past the
  *  end of a valid number are ignored. If there is not a valid number at the
  *  start of <i>str</i>, <code>0</code> is returned. This method never raises an
  *  exception.
@@ -3630,15 +3682,27 @@ rb_f_split(argc, argv)
 }
 
 /*
+ *  Document-method: lines
+ *  call-seq:
+ *     str.lines(separator=$/)   => anEnumerator
+ *     str.lines(separator=$/) {|substr| block }        => str
+ *  
+ *  Returns an enumerator that gives each line in the string.  If a block is
+ *  given, it iterates over each line in the string.
+ *     
+ *     "foo\nbar\n".lines.to_a   #=> ["foo\n", "bar\n"]
+ *     "foo\nb ar".lines.sort    #=> ["b ar", "foo\n"]
+ */
+
+/*
  *  call-seq:
  *     str.each(separator=$/) {|substr| block }        => str
  *     str.each_line(separator=$/) {|substr| block }   => str
  *  
  *  Splits <i>str</i> using the supplied parameter as the record separator
  *  (<code>$/</code> by default), passing each substring in turn to the supplied
- *  block. If a zero-length record separator is supplied, the string is split on
- *  <code>\n</code> characters, except that multiple successive newlines are
- *  appended together.
+ *  block. If a zero-length record separator is supplied, the string is split
+ *  into paragraphs delimited by multiple successive newlines.
  *     
  *     print "Example one\n"
  *     "hello\nworld".each {|s| p s}
@@ -3678,7 +3742,7 @@ rb_str_each_line(argc, argv, str)
     if (rb_scan_args(argc, argv, "01", &rs) == 0) {
 	rs = rb_rs;
     }
-
+    RETURN_ENUMERATOR(str, argc, argv);
     if (NIL_P(rs)) {
 	rb_yield(str);
 	return str;
@@ -3720,6 +3784,18 @@ rb_str_each_line(argc, argv, str)
 
 
 /*
+ *  Document-method: bytes
+ *  call-seq:
+ *     str.bytes   => anEnumerator
+ *     str.bytes {|fixnum| block }    => str
+ *  
+ *  Returns an enumerator that gives each byte in the string.  If a block is
+ *  given, it iterates over each byte in the string.
+ *     
+ *     "hello".bytes.to_a        #=> [104, 101, 108, 108, 111]
+ */
+
+/*
  *  call-seq:
  *     str.each_byte {|fixnum| block }    => str
  *  
@@ -3738,8 +3814,53 @@ rb_str_each_byte(str)
 {
     long i;
 
+    RETURN_ENUMERATOR(str, 0, 0);
     for (i=0; i<RSTRING(str)->len; i++) {
 	rb_yield(INT2FIX(RSTRING(str)->ptr[i] & 0xff));
+    }
+    return str;
+}
+
+
+/*
+ *  Document-method: chars
+ *  call-seq:
+ *     str.chars                   => anEnumerator
+ *     str.chars {|substr| block } => str
+ *  
+ *  Returns an enumerator that gives each character in the string.
+ *  If a block is given, it iterates over each character in the string.
+ *     
+ *     "foo".chars.to_a   #=> ["f","o","o"]
+ */
+
+/*
+ *  Document-method: each_char
+ *  call-seq:
+ *     str.each_char {|cstr| block }    => str
+ *  
+ *  Passes each character in <i>str</i> to the given block.
+ *     
+ *     "hello".each_char {|c| print c, ' ' }
+ *     
+ *  <em>produces:</em>
+ *     
+ *     h e l l o 
+ */
+
+static VALUE
+rb_str_each_char(VALUE str)
+{
+    int i, len, n;
+    const char *ptr;
+
+    RETURN_ENUMERATOR(str, 0, 0);
+    str = rb_str_new4(str);
+    ptr = RSTRING(str)->ptr;
+    len = RSTRING(str)->len;
+    for (i = 0; i < len; i += n) {
+        n = mbclen(ptr[i]);
+        rb_yield(rb_str_substr(str, i, n));
     }
     return str;
 }
@@ -4353,9 +4474,9 @@ static VALUE
 rb_str_crypt(str, salt)
     VALUE str, salt;
 {
-    extern char *crypt();
+    extern char *crypt _((const char *, const char*));
     VALUE result;
-    char *s;
+    const char *s;
 
     StringValue(salt);
     if (RSTRING(salt)->len < 2)
@@ -4482,7 +4603,8 @@ rb_str_justify(argc, argv, str, jflag)
     VALUE w;
     long width, flen = 0;
     VALUE res;
-    char *p, *pend, *f = " ";
+    char *p, *pend;
+    const char *f = " ";
     long n;
     VALUE pad;
 
@@ -4508,7 +4630,7 @@ rb_str_justify(argc, argv, str, jflag)
 	    }
 	}
 	else {
-	    char *q = f;
+	    const char *q = f;
 	    while (p + flen <= pend) {
 		memcpy(p,f,flen);
 		p += flen;
@@ -4610,6 +4732,150 @@ rb_str_center(argc, argv, str)
     return rb_str_justify(argc, argv, str, 'c');
 }
 
+/*
+ *  call-seq:
+ *     str.partition(sep)              => [head, sep, tail]
+ *  
+ *  Searches the string for <i>sep</i> and returns the part before it,
+ *  the <i>sep</i>, and the part after it.  If <i>sep</i> is not
+ *  found, returns <i>str</i> and two empty strings.  If no argument
+ *  is given, Enumerable#partition is called.
+ *     
+ *     "hello".partition("l")         #=> ["he", "l", "lo"]
+ *     "hello".partition("x")         #=> ["hello", "", ""]
+ */
+
+static VALUE
+rb_str_partition(argc, argv, str)
+    int argc;
+    VALUE *argv;
+    VALUE str;
+{
+    VALUE sep;
+    long pos;
+
+    if (argc == 0) return rb_call_super(argc, argv);
+    rb_scan_args(argc, argv, "1", &sep);
+    if (TYPE(sep) != T_REGEXP) {
+	VALUE tmp;
+
+	tmp = rb_check_string_type(sep);
+	if (NIL_P(tmp)) {
+	    rb_raise(rb_eTypeError, "type mismatch: %s given",
+		     rb_obj_classname(sep));
+	}
+        sep = get_arg_pat(tmp);
+    }
+    pos = rb_reg_search(sep, str, 0, 0);
+    if (pos < 0) {
+      failed:
+	return rb_ary_new3(3, str, rb_str_new(0,0),rb_str_new(0,0));
+    }
+    sep = rb_str_subpat(str, sep, 0);
+    if (pos == 0 && RSTRING(sep)->len == 0) goto failed;
+    return rb_ary_new3(3, rb_str_substr(str, 0, pos),
+		          sep,
+		          rb_str_substr(str, pos+RSTRING(sep)->len,
+					     RSTRING(str)->len-pos-RSTRING(sep)->len));
+}
+
+/*
+ *  call-seq:
+ *     str.rpartition(sep)            => [head, sep, tail]
+ *  
+ *  Searches <i>sep</i> in the string from the end of the string, and
+ *  returns the part before it, the <i>sep</i>, and the part after it.
+ *  If <i>sep</i> is not found, returns two empty strings and
+ *  <i>str</i>.
+ *     
+ *     "hello".rpartition("l")         #=> ["hel", "l", "o"]
+ *     "hello".rpartition("x")         #=> ["", "", "hello"]
+ */
+
+static VALUE
+rb_str_rpartition(str, sep)
+    VALUE str;
+    VALUE sep;
+{
+    long pos = RSTRING(str)->len;
+
+    if (TYPE(sep) != T_REGEXP) {
+	VALUE tmp;
+
+	tmp = rb_check_string_type(sep);
+	if (NIL_P(tmp)) {
+	    rb_raise(rb_eTypeError, "type mismatch: %s given",
+		     rb_obj_classname(sep));
+	}
+        sep = get_arg_pat(tmp);
+    }
+    pos = rb_reg_search(sep, str, pos, 1);
+    if (pos < 0) {
+	return rb_ary_new3(3, rb_str_new(0,0),rb_str_new(0,0), str);
+    }
+    sep = rb_reg_nth_match(0, rb_backref_get());
+    return rb_ary_new3(3, rb_str_substr(str, 0, pos),
+		          sep,
+		          rb_str_substr(str, pos+RSTRING(sep)->len,
+					     RSTRING(str)->len-pos-RSTRING(sep)->len));
+}
+
+/*
+ *  call-seq:
+ *     str.start_with?([prefix]+)   => true or false
+ *  
+ *  Returns true if <i>str</i> starts with the prefix given.
+ */
+
+static VALUE
+rb_str_start_with(argc, argv, str)
+    int argc;
+    VALUE *argv;
+    VALUE str;
+{
+    int i;
+    VALUE pat;
+
+    for (i=0; i<argc; i++) {
+	VALUE prefix = rb_check_string_type(argv[i]);
+	if (NIL_P(prefix)) continue;
+	if (RSTRING(str)->len < RSTRING(prefix)->len) continue;
+        pat = get_arg_pat(prefix);
+        if (rb_reg_search(pat, str, 0, 1) >= 0)
+	    return Qtrue;
+    }
+    return Qfalse;
+}
+
+/*
+ *  call-seq:
+ *     str.end_with?([suffix]+)   => true or false
+ *  
+ *  Returns true if <i>str</i> ends with the suffix given.
+ */
+
+static VALUE
+rb_str_end_with(argc, argv, str)
+    int argc;
+    VALUE *argv;
+    VALUE str;
+{
+    int i;
+    long pos;
+    VALUE pat;
+
+    for (i=0; i<argc; i++) {
+	VALUE suffix = rb_check_string_type(argv[i]);
+	if (NIL_P(suffix)) continue;
+	if (RSTRING(str)->len < RSTRING(suffix)->len) continue;
+        pat = get_arg_pat(suffix);
+        pos = rb_reg_adjust_startpos(pat, str, RSTRING(str)->len - RSTRING(suffix)->len, 0);
+        if (rb_reg_search(pat, str, pos, 0) >= 0)
+            return Qtrue;
+    }
+    return Qfalse;
+}
+
 void
 rb_str_setter(val, id, var)
     VALUE val;
@@ -4658,6 +4924,7 @@ Init_String()
     rb_define_method(rb_cString, "insert", rb_str_insert, 2);
     rb_define_method(rb_cString, "length", rb_str_length, 0);
     rb_define_method(rb_cString, "size", rb_str_length, 0);
+    rb_define_method(rb_cString, "bytesize", rb_str_length, 0);
     rb_define_method(rb_cString, "empty?", rb_str_empty, 0);
     rb_define_method(rb_cString, "=~", rb_str_match, 1);
     rb_define_method(rb_cString, "match", rb_str_match_m, 1);
@@ -4665,7 +4932,7 @@ Init_String()
     rb_define_method(rb_cString, "succ!", rb_str_succ_bang, 0);
     rb_define_method(rb_cString, "next", rb_str_succ, 0);
     rb_define_method(rb_cString, "next!", rb_str_succ_bang, 0);
-    rb_define_method(rb_cString, "upto", rb_str_upto_m, 1);
+    rb_define_method(rb_cString, "upto", rb_str_upto_m, -1);
     rb_define_method(rb_cString, "index", rb_str_index_m, -1);
     rb_define_method(rb_cString, "rindex", rb_str_rindex_m, -1);
     rb_define_method(rb_cString, "replace", rb_str_replace, 1);
@@ -4699,6 +4966,8 @@ Init_String()
     rb_define_method(rb_cString, "to_sym", rb_str_intern, 0);
 
     rb_define_method(rb_cString, "include?", rb_str_include, 1);
+    rb_define_method(rb_cString, "start_with?", rb_str_start_with, -1);
+    rb_define_method(rb_cString, "end_with?", rb_str_end_with, -1);
 
     rb_define_method(rb_cString, "scan", rb_str_scan, 1);
 
@@ -4734,8 +5003,13 @@ Init_String()
     rb_define_method(rb_cString, "squeeze!", rb_str_squeeze_bang, -1);
 
     rb_define_method(rb_cString, "each_line", rb_str_each_line, -1);
-    rb_define_method(rb_cString, "each", rb_str_each_line, -1);
+    rb_define_method(rb_cString, "each",      rb_str_each_line, -1);
     rb_define_method(rb_cString, "each_byte", rb_str_each_byte, 0);
+    rb_define_method(rb_cString, "each_char", rb_str_each_char, 0);
+
+    rb_define_method(rb_cString, "lines", rb_str_each_line, -1);
+    rb_define_method(rb_cString, "bytes", rb_str_each_byte, 0);
+    rb_define_method(rb_cString, "chars", rb_str_each_char, 0);
 
     rb_define_method(rb_cString, "sum", rb_str_sum, -1);
 
@@ -4756,6 +5030,9 @@ Init_String()
 
     rb_define_method(rb_cString, "slice", rb_str_aref_m, -1);
     rb_define_method(rb_cString, "slice!", rb_str_slice_bang, -1);
+
+    rb_define_method(rb_cString, "partition", rb_str_partition, -1);
+    rb_define_method(rb_cString, "rpartition", rb_str_rpartition, 1);
 
     id_to_s = rb_intern("to_s");
 

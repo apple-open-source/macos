@@ -4,7 +4,7 @@
 <meta http-equiv="Content-Type" content="text/html; charset=<?php echo $config[general_charset]?>">
 <link rel="stylesheet" href="style.css">
 </head>
-<body bgcolor="#80a040" background="images/greenlines1.gif" link="black" alink="black">
+<body>
 <?php
 
 function check_day($day){
@@ -30,7 +30,7 @@ function check_day($day){
 
 $mapping = array(
 	'Mo' => 'Monday',
-	'Tu' => 'Tusday',
+	'Tu' => 'Tuesday',
 	'We' => 'Wednesday',
 	'Th' => 'Thursday',
 	'Fr' => 'Friday',
@@ -144,7 +144,7 @@ foreach ($rules as $rule){
 		$rulestr = "$rule";
 	else
 		$rulestr .= ",$rule";
-} 
+}
 if ($update == 1 && $val != '')
 	echo <<<EOM
 <script language="JavaScript1.1" type="text/javascript">
@@ -247,7 +247,7 @@ if (!empty($rules)){
 	echo "</select>\n";
 }
 else
-	echo "<i>No rules available</i><br>\n";	
+	echo "<i>No rules available</i><br>\n";
 ?>
 </td></tr>
 <tr><td colspan=5 align=center><?php echo $err_msg ?></td></tr>

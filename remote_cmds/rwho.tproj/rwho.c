@@ -1,27 +1,4 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/*
  * Copyright (c) 1983, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -54,76 +31,101 @@
  * SUCH DAMAGE.
  */
 
-
-#include <sys/cdefs.h>
 #ifndef lint
-__unused static char copyright[] =
+static const char copyright[] =
 "@(#) Copyright (c) 1983, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
+#ifndef lint
+#if 0
+static char sccsid[] = "@(#)rwho.c	8.1 (Berkeley) 6/6/93";
+#endif
+#endif /* not lint */
+
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/rwho/rwho.c,v 1.18 2002/07/01 16:40:33 markm Exp $");
+
 #include <sys/param.h>
-#include <sys/dir.h>
 #include <sys/file.h>
+
 #include <protocols/rwhod.h>
+
+#include <dirent.h>
+#include <err.h>
+#include <langinfo.h>
+#include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <timeconv.h>
 #include <unistd.h>
+#ifdef __APPLE__
+#define UT_NAMESIZE 8
+#else
+#include <utmp.h>
+#endif
 
 DIR	*dirp;
 
 struct	whod wd;
-int	utmpcmp();
 #define	NUSERS	1000
 struct	myutmp {
-	char	myhost[MAXHOSTNAMELEN];
+	char    myhost[sizeof(wd.wd_hostname)];
 	int	myidle;
 	struct	outmp myutmp;
 } myutmp[NUSERS];
 int	nusers;
 
-#define	WHDRSIZE	(sizeof (wd) - sizeof (wd.wd_we))
-/* 
+#define	WHDRSIZE	(ssize_t)(sizeof (wd) - sizeof (wd.wd_we))
+/*
  * this macro should be shared with ruptime.
  */
 #define	down(w,now)	((now) - (w)->wd_recvtime > 11 * 60)
 
-char	*ctime(), *strcpy();
 time_t	now;
 int	aflg;
 
+static void usage(void);
+int utmpcmp(const void *, const void *);
+
 int
-main(argc, argv)
-	int argc;
-	char **argv;
+main(int argc, char *argv[])
 {
 	int ch;
-	struct direct *dp;
-	int cc, width;
+	struct dirent *dp;
+	int width;
+	ssize_t cc;
 	register struct whod *w = &wd;
 	register struct whoent *we;
 	register struct myutmp *mp;
 	int f, n, i;
-	time_t time();
+	int d_first;
 
-	while ((ch = getopt(argc, argv, "a")) != EOF)
+	(void) setlocale(LC_TIME, "");
+	d_first = (*nl_langinfo(D_MD_ORDER) == 'd');
+
+	while ((ch = getopt(argc, argv, "a")) != -1)
 		switch((char)ch) {
 		case 'a':
 			aflg = 1;
 			break;
 		case '?':
 		default:
-			fprintf(stderr, "usage: rwho [-a]\n");
-			exit(1);
+			usage();
 		}
-	if (chdir(_PATH_RWHODIR) || (dirp = opendir(".")) == NULL) {
-		perror(_PATH_RWHODIR);
-		exit(1);
-	}
+	argc -= optind;
+	argv += optind;
+
+	if (argc != 0)
+		usage();
+
+	if (chdir(_PATH_RWHODIR) || (dirp = opendir(".")) == NULL)
+		err(1, "%s", _PATH_RWHODIR);
 	mp = myutmp;
 	(void)time(&now);
-	while (dp = readdir(dirp)) {
+	while ((dp = readdir(dirp))) {
 		if (dp->d_ino == 0 || strncmp(dp->d_name, "whod.", 5))
 			continue;
 		f = open(dp->d_name, O_RDONLY);
@@ -145,10 +147,8 @@ main(argc, argv)
 				we++;
 				continue;
 			}
-			if (nusers >= NUSERS) {
-				printf("too many users\n");
-				exit(1);
-			}
+			if (nusers >= NUSERS)
+				errx(1, "too many users");
 			mp->myutmp = we->we_utmp; mp->myidle = we->we_idle;
 			(void) strcpy(mp->myhost, w->wd_hostname);
 			nusers++; we++; mp++;
@@ -159,20 +159,28 @@ main(argc, argv)
 	mp = myutmp;
 	width = 0;
 	for (i = 0; i < nusers; i++) {
-		int j = strlen(mp->myhost) + 1 + strlen(mp->myutmp.out_line);
+		/* append one for the blank and use 8 for the out_line */
+		int j = strlen(mp->myhost) + 1 + sizeof(mp->myutmp.out_line);
 		if (j > width)
 			width = j;
 		mp++;
 	}
 	mp = myutmp;
 	for (i = 0; i < nusers; i++) {
-		char buf[BUFSIZ];
-		(void)sprintf(buf, "%s:%s", mp->myhost, mp->myutmp.out_line);
-		printf("%-8.8s %-*s %.12s",
+		char buf[BUFSIZ], cbuf[80];
+		time_t t = _int_to_time(mp->myutmp.out_time);
+
+		strftime(cbuf, sizeof(cbuf),
+			 d_first ? "%e %b %R" : "%b %e %R",
+			 localtime(&t));
+		(void)sprintf(buf, "%s:%-.*s", mp->myhost,
+		   (int)sizeof(mp->myutmp.out_line), mp->myutmp.out_line);
+		printf("%-*.*s %-*s %s",
+		   UT_NAMESIZE, (int)sizeof(mp->myutmp.out_name),
 		   mp->myutmp.out_name,
 		   width,
 		   buf,
-		   ctime((time_t *)&mp->myutmp.out_time)+4);
+		   cbuf);
 		mp->myidle /= 60;
 		if (mp->myidle) {
 			if (aflg) {
@@ -192,17 +200,28 @@ main(argc, argv)
 	exit(0);
 }
 
+
+static void
+usage(void)
+{
+	fprintf(stderr, "usage: rwho [-a]\n");
+	exit(1);
+}
+
+#define MYUTMP(a) ((const struct myutmp *)(a))
+
 int
-utmpcmp(u1, u2)
-	struct myutmp *u1, *u2;
+utmpcmp(const void *u1, const void *u2)
 {
 	int rc;
 
-	rc = strncmp(u1->myutmp.out_name, u2->myutmp.out_name, 8);
+	rc = strncmp(MYUTMP(u1)->myutmp.out_name, MYUTMP(u2)->myutmp.out_name,
+		sizeof(MYUTMP(u2)->myutmp.out_name));
 	if (rc)
 		return (rc);
-	rc = strncmp(u1->myhost, u2->myhost, 8);
+	rc = strcmp(MYUTMP(u1)->myhost, MYUTMP(u2)->myhost);
 	if (rc)
 		return (rc);
-	return (strncmp(u1->myutmp.out_line, u2->myutmp.out_line, 8));
+	return (strncmp(MYUTMP(u1)->myutmp.out_line, MYUTMP(u2)->myutmp.out_line,
+		sizeof(MYUTMP(u2)->myutmp.out_line)));
 }

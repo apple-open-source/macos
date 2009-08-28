@@ -22,7 +22,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
 # As a special exception to the GNU General Public License, if you
 # distribute this file as part of a program that contains a
@@ -128,6 +128,7 @@ case $host_os in
     hardcode_direct=yes
     hardcode_libdir_separator=':'
     link_all_deplibs=yes
+    file_list_spec='${wl}-f,'
     # When large executables or shared objects are built, AIX ld can
     # have problems creating the table of contents.  If linking a library
     # or program results in "error TOC overflow" add -mminimal-toc to
@@ -246,7 +247,7 @@ case $host_os in
     esac
     # Disable shared library build on OS-X older than 10.3.
     case $host_os in
-	darwin[1-5]*)
+	darwin[3-5]*)
 	    can_build_shared=no
 	    ;;
 	darwin[67]*)

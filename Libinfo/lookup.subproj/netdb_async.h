@@ -36,6 +36,7 @@
 
 /* SPI for parallel / fast getaddrinfo */
 #define	AI_PARALLEL	0x00000008
+#define AI_SRV		0x01000000
 
 __BEGIN_DECLS
 

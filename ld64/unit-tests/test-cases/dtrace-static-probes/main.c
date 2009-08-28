@@ -10,7 +10,9 @@ typedef int weirdType2;
 
 int deadwood()
 {
-	BAR_COUNT1(2);
+	if ( BAR_COUNT1_ENABLED() )
+		BAR_COUNT1(2);
+	return 0;
 }
 
 
@@ -18,9 +20,11 @@ int main() {
 	int a = 1;
 
 	while(a) {
-		FOO_COUNT1(1);
+		if ( FOO_COUNT1_ENABLED() )
+			FOO_COUNT1(1);
 		printf("test\n");
-		BAR_COUNT1(2);
+		if ( BAR_COUNT1_ENABLED() )
+			BAR_COUNT1(2);
 		sleep(1);
 	}
 

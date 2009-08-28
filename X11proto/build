@@ -3,8 +3,6 @@
 $target=shift @ARGV;
 sys_print("mkdir $ENV{SRCROOT}") unless -e $ENV{SRCROOT};
 
-$ENV{PYTHONPATH}="/usr/X11/lib/python2.5:/usr/X11/lib/python2.5/site-packages";
-
 sub sys_print {
     $command=shift;
     print "$command\n";
@@ -63,8 +61,9 @@ $ENV{DESTDIR}=$ENV{DSTROOT};
     system "mkdir -p $ACLOCAL_LOCALDIR";
     
 # The following is required to make aclocal find our .m4 macros
+# Don't include $prefix/share/aclocal since X11proto is the first X11 package to build
     $ENV{ACLOCAL}="aclocal -I $ACLOCAL_LOCALDIR";
-    $ENV{LIBTOOLIZE}="$ENV{DSTROOT}$prefix/bin/libtoolize";
+    $ENV{LIBTOOLIZE}="/usr/bin/glibtoolize";
     
 # The following is required to make pkg-config find our .pc metadata files
     $ENV{PKG_CONFIG_PATH}="$ENV{DSTROOT}$prefix/lib/pkgconfig:$ENV{PKG_CONFIG_PATH}";
@@ -78,36 +77,45 @@ $ENV{DESTDIR}=$ENV{DSTROOT};
     $ENV{FONTPATH}="$prefix/lib/X11/fonts/misc/,$prefix/lib/X11/fonts/Type1/,$prefix/lib/X11/fonts/75dpi/,$prefix/lib/X11/fonts/100dpi/,$prefix/lib/X11/fonts/cyrillic/,$prefix/lib/X11/fonts/TTF/";
     
     foreach $arch (split(/ /,$ENV{RC_ARCHS})) {
-	$arch_flags_all .= "-arch $arch ";
-	$arch_flags_32 .= " -arch $arch " unless $arch =~ /64/;
+        $arch_flags_lib .= "-arch $arch ";
+        if($ENV{MACOSFORGE_RELEASE} eq "YES") {
+            $arch_flags_exec .= " -arch $arch " unless $arch =~ /64/;
+        } else {
+            $arch_flags_exec .= " -arch $arch " unless $arch =~ /ppc/;
+        }
     }
-    
+
     $ENV{MACOSX_DEPLOYMENT_TARGET}=$osx_version;
     
-    set_arch_32();
+    set_arch_exec();
+
     build('util-macros');
     build('pkg-config');
-    set_arch_all();
+
+    set_arch_lib();
+
     build('freetype');
     fix_la();
     build('fontconfig');
     fix_la_reverse();
-    if($ENV{RC_x86_64} eq 'YES') {
-	foreach (qw/fc-cache fc-cat fc-list fc-match/) {
-	    sys_print("lipo -remove x86_64 -output $ENV{DSTROOT}$prefix/bin/$_ $ENV{DSTROOT}$prefix/bin/$_");
-	}
-    }
 
-    if($ENV{RC_ppc64} eq 'YES') {
-	foreach (qw/fc-cache fc-cat fc-list fc-match/) {
-	    sys_print("lipo -remove ppc64 -output $ENV{DSTROOT}$prefix/bin/$_ $ENV{DSTROOT}$prefix/bin/$_");
-	}
-    }
+    lipoexec("$ENV{DSTROOT}$prefix/bin/fc-cache");
+    lipoexec("$ENV{DSTROOT}$prefix/bin/fc-cat");
+    lipoexec("$ENV{DSTROOT}$prefix/bin/fc-list");
+    lipoexec("$ENV{DSTROOT}$prefix/bin/fc-match");
 
-    set_arch_32();
+    set_arch_exec();
+
     build_proto();
-    sys_print("sed -i.bak 's_$ENV{DSTROOT}__g' $ENV{DSTROOT}$prefix/lib/*.la");
-    sys_print("rm $ENV{DSTROOT}$prefix/lib/*.bak");
+
+    if($ENV{MACOSFORGE_RELEASE} eq "YES") {
+        sys_print("sed -i.bak 's_$ENV{DSTROOT}__g' $ENV{DSTROOT}$prefix/lib/*.la");
+        sys_print("rm $ENV{DSTROOT}$prefix/lib/*.bak");
+    } else {
+        nuke_la();
+        sys_print("echo X11 > $ENV{DSTROOT}".`python -c "import sys, os;print os.path.join(sys.prefix, 'Extras/X11.pth')"`);
+    }
+
     make_dsyms();
 }
 
@@ -134,14 +142,10 @@ sub build {
     sys_print("find . -depth 1 -type f -print | xargs -I foo cp -pv foo $ENV{OBJROOT}/$module");
 
     chdir("$ENV{OBJROOT}/$full_path");
-#    if($module eq 'freetype') {
-#	chdir('builds/unix');
-#	sys_print("autoreconf -fvi");
-#	sys_print("/usr/bin/glibtoolize --force --copy");
-#	chdir('../..');
-#    }
+    sys_print("autoreconf -fvi") unless ($module eq 'freetype');
+
     print "Configuring...\n";
-    $conf_flags=" --prefix=$prefix --disable-static --disable-dependency-tracking --disable-nls --mandir=/usr/X11/man ";
+    $conf_flags=" --prefix=$prefix --disable-static --disable-dependency-tracking --disable-nls ";
 
     $conf_flags_path=$ENV{OBJROOT}."/$module/conf_flags";
 
@@ -150,7 +154,11 @@ sub build {
 	chomp $conf_flags;
     }
 
-    sys_print("sed -i.bak 's/sysconfig.get_python_lib(\\([^,]\\),0/sysconfig.get_python_lib(\\1,1/g' configure");
+    if($ENV{MACOSFORGE_RELEASE} eq "YES") {
+        sys_print("sed -i.bak 's/sysconfig.get_python_lib(\\([^,]\\),0/sysconfig.get_python_lib(\\1,1/g' configure");
+    } else {
+        sys_print(q{sed -i.bak 's|from distutils import sysconfig; print sysconfig.get_python_lib(.*,.*,prefix=.*)|import sys, os;print os.path.join(sys.prefix, \\\\"Extras/X11\\\\")|' configure});
+    }
 
     sys_print("./configure $conf_flags");
     sys_print("make -j".`sysctl -n hw.activecpu`);
@@ -187,6 +195,7 @@ sub build_proto {
     build("xf86dgaproto");
     build("xf86driproto");
     build("xf86miscproto");
+    build("xf86rushproto");
     build("xf86vidmodeproto");
     build("xineramaproto");
     build("xproto");
@@ -209,24 +218,40 @@ sub make_dsyms {
     close FIND;
 }
 
-sub set_arch_32 {
-    $ENV{CFLAGS}="-D__DEBUG__ -g3 -pipe $arch_flags_32";
-    $ENV{LDFLAGS}="-pipe $arch_flags_32";
+sub set_arch_exec {
+    $ENV{CFLAGS}="-D__DEBUG__ -ggdb3 -Os -pipe $arch_flags_exec -D_FORTIFY_SOURCE=2 -Wall -Wformat-security";
+    $ENV{LDFLAGS}="-pipe $arch_flags_exec";
 }
 
-sub set_arch_all {
-    $ENV{CFLAGS}="-D__DEBUG__ -g3 -pipe $arch_flags_all";
-    $ENV{LDFLAGS}="-pipe $arch_flags_all";
+sub set_arch_lib {
+    $ENV{CFLAGS}="-D__DEBUG__ -ggdb3 -Os -pipe $arch_flags_lib -D_FORTIFY_SOURCE=2 -Wall -Wformat-security";
+    $ENV{LDFLAGS}="-pipe $arch_flags_lib";
 }
 
 sub fix_la {
-    sys_print("sed -i.bak 's_libdir=.*_libdir=$ENV{DSTROOT}$prefix/lib_' $ENV{DSTROOT}$prefix/lib/*.la");
-    sys_print("sed -i.bak 's_ ".$prefix."_ ".$ENV{DSTROOT}.$prefix."_' $ENV{DSTROOT}$prefix/lib/*.la");
-    sys_print("rm $ENV{DSTROOT}$prefix/lib/*.bak");
+    sys_print_nodie("sed -i.bak 's_libdir=.*_libdir=$ENV{DSTROOT}$prefix/lib_' $ENV{DSTROOT}$prefix/lib/*.la");
+    sys_print_nodie("sed -i.bak 's_ ".$prefix."_ ".$ENV{DSTROOT}.$prefix."_' $ENV{DSTROOT}$prefix/lib/*.la");
+    sys_print_nodie("sed -i.bak \"s/\\(library_names='[^ ]* [^ ]*\\) [^ ]*'/\\1'/\" $ENV{DSTROOT}$prefix/lib/*.la");
+    sys_print_nodie("rm $ENV{DSTROOT}$prefix/lib/*.bak");
 }
 
 sub fix_la_reverse {
-    sys_print("sed -i.bak 's_libdir=.*_libdir=$prefix/lib_' $ENV{DSTROOT}$prefix/lib/*.la");
-    sys_print("sed -i.bak 's_$ENV{DSTROOT}__g' $ENV{DSTROOT}$prefix/lib/*.la");
-    sys_print("rm $ENV{DSTROOT}$prefix/lib/*.bak");
+    sys_print_nodie("sed -i.bak 's_libdir=.*_libdir=$prefix/lib_' $ENV{DSTROOT}$prefix/lib/*.la");
+    sys_print_nodie("sed -i.bak 's_$ENV{DSTROOT}__g' $ENV{DSTROOT}$prefix/lib/*.la");
+    sys_print_nodie("rm $ENV{DSTROOT}$prefix/lib/*.bak");
 }
+
+sub nuke_la {
+    sys_print("rm $ENV{DSTROOT}$prefix/lib/*.la");
+}
+
+sub lipoexec {
+    $fname=shift;
+    if($ENV{MACOSFORGE_RELEASE} eq "YES") {
+        sys_print_nodie("lipo $fname -verify_arch x86_64 && lipo -remove x86_64 -output $fname $fname");
+        sys_print_nodie("lipo $fname -verify_arch ppc64 && lipo -remove ppc64 -output $fname $fname");
+    } else {
+        sys_print_nodie("lipo $fname -verify_arch ppc && lipo -remove ppc -output $fname $fname");
+    }
+}
+

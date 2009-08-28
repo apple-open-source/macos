@@ -1,11 +1,11 @@
 #!/bin/sh
 #
-# "$Id: run-stp-tests.sh 8146 2008-11-19 19:50:56Z mike $"
+# "$Id: run-stp-tests.sh 8217 2009-01-09 19:10:34Z mike $"
 #
 #   Perform the complete set of IPP compliance tests specified in the
 #   CUPS Software Test Plan.
 #
-#   Copyright 2007-2008 by Apple Inc.
+#   Copyright 2007-2009 by Apple Inc.
 #   Copyright 1997-2007 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -74,30 +74,35 @@ case "$testtype" in
 		nprinters1=0
 		nprinters2=0
 		pjobs=0
+		pprinters=0
 		;;
 	2)
 		echo "Running the medium tests (2)"
 		nprinters1=10
 		nprinters2=20
 		pjobs=20
+		pprinters=10
 		;;
 	3)
 		echo "Running the extreme tests (3)"
 		nprinters1=500
 		nprinters2=1000
 		pjobs=100
+		pprinters=50
 		;;
 	4)
 		echo "Running the torture tests (4)"
 		nprinters1=10000
 		nprinters2=20000
 		pjobs=200
+		pprinters=100
 		;;
 	*)
 		echo "Running the timid tests (1)"
 		nprinters1=0
 		nprinters2=0
 		pjobs=10
+		pprinters=0
 		;;
 esac
 
@@ -188,7 +193,7 @@ echo ""
 
 case "$usevalgrind" in
 	Y* | y*)
-		valgrind="valgrind --tool=memcheck --log-file=/tmp/cups-$user/log/valgrind --error-limit=no --leak-check=yes --trace-children=yes"
+		valgrind="valgrind --tool=memcheck --log-file=/tmp/cups-$user/log/valgrind.%p --error-limit=no --leak-check=yes --trace-children=yes --read-var-info=yes"
 		echo "Using Valgrind; log files can be found in /tmp/cups-$user/log..."
 		;;
 
@@ -212,7 +217,17 @@ mkdir /tmp/cups-$user/bin/filter
 mkdir /tmp/cups-$user/certs
 mkdir /tmp/cups-$user/share
 mkdir /tmp/cups-$user/share/banners
+mkdir /tmp/cups-$user/share/drv
+mkdir /tmp/cups-$user/share/locale
+for file in ../locale/cups_*.po; do
+	loc=`basename $file .po | cut -c 6-`
+	mkdir /tmp/cups-$user/share/locale/$loc
+	ln -s $root/locale/cups_$loc.po /tmp/cups-$user/share/locale/$loc
+	ln -s $root/locale/ppdc_$loc.po /tmp/cups-$user/share/locale/$loc
+done
+mkdir /tmp/cups-$user/share/mime
 mkdir /tmp/cups-$user/share/model
+mkdir /tmp/cups-$user/share/ppdc
 mkdir /tmp/cups-$user/interfaces
 mkdir /tmp/cups-$user/log
 mkdir /tmp/cups-$user/ppd
@@ -220,9 +235,11 @@ mkdir /tmp/cups-$user/spool
 mkdir /tmp/cups-$user/spool/temp
 mkdir /tmp/cups-$user/ssl
 
+ln -s $root/backend/dnssd /tmp/cups-$user/bin/backend
 ln -s $root/backend/http /tmp/cups-$user/bin/backend
 ln -s $root/backend/ipp /tmp/cups-$user/bin/backend
 ln -s $root/backend/lpd /tmp/cups-$user/bin/backend
+ln -s $root/backend/mdns /tmp/cups-$user/bin/backend
 ln -s $root/backend/parallel /tmp/cups-$user/bin/backend
 ln -s $root/backend/serial /tmp/cups-$user/bin/backend
 ln -s $root/backend/snmp /tmp/cups-$user/bin/backend
@@ -232,6 +249,8 @@ ln -s $root/cgi-bin /tmp/cups-$user/bin
 ln -s $root/monitor /tmp/cups-$user/bin
 ln -s $root/notifier /tmp/cups-$user/bin
 ln -s $root/scheduler /tmp/cups-$user/bin/daemon
+ln -s $root/filter/bannertops /tmp/cups-$user/bin/filter
+ln -s $root/filter/commandtops /tmp/cups-$user/bin/filter
 ln -s $root/filter/hpgltops /tmp/cups-$user/bin/filter
 ln -s $root/filter/pstops /tmp/cups-$user/bin/filter
 ln -s $root/filter/rastertoepson /tmp/cups-$user/bin/filter
@@ -248,7 +267,11 @@ ln -s $root/data /tmp/cups-$user/share/charmaps
 ln -s $root/data /tmp/cups-$user/share/charsets
 ln -s $root/data /tmp/cups-$user/share
 ln -s $root/fonts /tmp/cups-$user/share
-ln -s $root/ppd/*.ppd /tmp/cups-$user/share/model
+ln -s $root/ppdc/sample.drv /tmp/cups-$user/share/drv
+ln -s $root/conf/mime.types /tmp/cups-$user/share/mime
+ln -s $root/conf/mime.convs /tmp/cups-$user/share/mime
+ln -s $root/data/*.h /tmp/cups-$user/share/ppdc
+ln -s $root/data/*.defs /tmp/cups-$user/share/ppdc
 ln -s $root/templates /tmp/cups-$user/share
 
 if test $ssltype != 0; then
@@ -262,6 +285,9 @@ fi
 
 if test `uname` = Darwin; then
 	ln -s /usr/libexec/cups/filter/cgpdfto* /tmp/cups-$user/bin/filter
+	ln -s /usr/libexec/cups/filter/cgbannertopdf /tmp/cups-$user/bin/filter
+	ln -s /usr/libexec/cups/filter/cgimagetopdf /tmp/cups-$user/bin/filter
+	ln -s /usr/libexec/cups/filter/cgtexttopdf /tmp/cups-$user/bin/filter
 	ln -s /usr/libexec/cups/filter/nsimagetopdf /tmp/cups-$user/bin/filter
 	ln -s /usr/libexec/cups/filter/nstexttopdf /tmp/cups-$user/bin/filter
 	ln -s /usr/libexec/cups/filter/pictwpstops /tmp/cups-$user/bin/filter
@@ -269,15 +295,15 @@ if test `uname` = Darwin; then
 	ln -s /usr/libexec/cups/filter/pstocupsraster /tmp/cups-$user/bin/filter
 	ln -s /usr/libexec/cups/filter/pstopdffilter /tmp/cups-$user/bin/filter
 
-	if test -f /usr/share/cups/mime/apple.types; then
-		ln -s /usr/share/cups/mime/apple.* /tmp/cups-$user
-	else
-		ln -s /private/etc/cups/apple.* /tmp/cups-$user
+	if test -f /private/etc/cups/apple.types; then
+		ln -s /private/etc/cups/apple.* /tmp/cups-$user/share/mime
+	elif test -f /usr/share/cups/mime/apple.types; then
+		ln -s /usr/share/cups/mime/apple.* /tmp/cups-$user/share/mime
 	fi
 else
 	ln -s $root/filter/imagetops /tmp/cups-$user/bin/filter
 	ln -s $root/filter/imagetoraster /tmp/cups-$user/bin/filter
-	ln -s $root/pdftops/pdftops /tmp/cups-$user/bin/filter
+	ln -s $root/filter/pdftops /tmp/cups-$user/bin/filter
 fi
 
 #
@@ -304,6 +330,7 @@ ServerBin /tmp/cups-$user/bin
 CacheDir /tmp/cups-$user/share
 DataDir /tmp/cups-$user/share
 FontPath /tmp/cups-$user/share/fonts
+PassEnv LOCALEDIR
 DocumentRoot $root/doc
 RequestRoot /tmp/cups-$user/spool
 TempDir /tmp/cups-$user/spool/temp
@@ -312,7 +339,9 @@ MaxLogSize 0
 AccessLog /tmp/cups-$user/log/access_log
 ErrorLog /tmp/cups-$user/log/error_log
 PageLog /tmp/cups-$user/log/page_log
-LogLevel debug
+AccessLogLevel actions
+LogLevel debug2
+LogTimeFormat usecs
 PreserveJobHistory Yes
 <Policy default>
 <Limit All>
@@ -324,11 +353,8 @@ $encryption
 </Policy>
 EOF
 
-touch /tmp/cups-$user/classes.conf
-touch /tmp/cups-$user/printers.conf
-
 #
-# Setup lots of test queues - 500 with PPD files, 500 without...
+# Setup lots of test queues - half with PPD files, half without...
 #
 
 echo "Creating printers.conf for test..."
@@ -368,10 +394,11 @@ EOF
 	i=`expr $i + 1`
 done
 
-cp /tmp/cups-$user/printers.conf /tmp/cups-$user/printers.conf.orig
-
-cp $root/conf/mime.types /tmp/cups-$user/mime.types
-cp $root/conf/mime.convs /tmp/cups-$user/mime.convs
+if test -f /tmp/cups-$user/printers.conf; then
+	cp /tmp/cups-$user/printers.conf /tmp/cups-$user/printers.conf.orig
+else
+	touch /tmp/cups-$user/printers.conf.orig
+fi
 
 #
 # Setup the paths...
@@ -380,36 +407,40 @@ cp $root/conf/mime.convs /tmp/cups-$user/mime.convs
 echo "Setting up environment variables for test..."
 
 if test "x$LD_LIBRARY_PATH" = x; then
-	LD_LIBRARY_PATH="$root/cups:$root/filter"
+	LD_LIBRARY_PATH="$root/cups:$root/filter:$root/cgi-bin:$root/scheduler:$root/driver:$root/ppdc"
 else
-	LD_LIBRARY_PATH="$root/cups:$root/filter:$LD_LIBRARY_PATH"
+	LD_LIBRARY_PATH="$root/cups:$root/filter:$root/cgi-bin:$root/scheduler:$root/driver:$root/ppdc:$LD_LIBRARY_PATH"
 fi
 
 export LD_LIBRARY_PATH
 
-LD_PRELOAD="$root/cups/libcups.so.2:$root/filter/libcupsimage.so.2"
+LD_PRELOAD="$root/cups/libcups.so.2:$root/filter/libcupsimage.so.2:$root/cgi-bin/libcupscgi.so.1:$root/scheduler/libcupsmime.so.1:$root/driver/libcupsdriver.so.1:$root/ppdc/libcupsppdc.so.1"
+if test `uname` = SunOS -a -r /usr/lib/libCrun.so.1; then
+	LD_PRELOAD="/usr/lib/libCrun.so.1:$LD_PRELOAD"
+fi
 export LD_PRELOAD
 
 if test "x$DYLD_LIBRARY_PATH" = x; then
-	DYLD_LIBRARY_PATH="$root/cups:$root/filter"
+	DYLD_LIBRARY_PATH="$root/cups:$root/filter:$root/cgi-bin:$root/scheduler:$root/driver:$root/ppdc"
 else
-	DYLD_LIBRARY_PATH="$root/cups:$root/filter:$DYLD_LIBRARY_PATH"
+	DYLD_LIBRARY_PATH="$root/cups:$root/filter:$root/cgi-bin:$root/scheduler:$root/driver:$root/ppdc:$DYLD_LIBRARY_PATH"
 fi
 
 export DYLD_LIBRARY_PATH
 
 if test "x$SHLIB_PATH" = x; then
-	SHLIB_PATH="$root/cups:$root/filter"
+	SHLIB_PATH="$root/cups:$root/filter:$root/cgi-bin:$root/scheduler:$root/driver:$root/ppdc"
 else
-	SHLIB_PATH="$root/cups:$root/filter:$SHLIB_PATH"
+	SHLIB_PATH="$root/cups:$root/filter:$root/cgi-bin:$root/scheduler:$root/driver:$root/ppdc:$SHLIB_PATH"
 fi
 
 export SHLIB_PATH
 
-CUPS_SERVER=localhost; export CUPS_SERVER
+CUPS_SERVER=localhost:8631; export CUPS_SERVER
 CUPS_SERVERROOT=/tmp/cups-$user; export CUPS_SERVERROOT
 CUPS_STATEDIR=/tmp/cups-$user; export CUPS_STATEDIR
 CUPS_DATADIR=/tmp/cups-$user/share; export CUPS_DATADIR
+LOCALEDIR=/tmp/cups-$user/share/locale; export LOCALEDIR
 
 #
 # Set a new home directory to avoid getting user options mixed in...
@@ -433,14 +464,44 @@ echo "Starting scheduler:"
 echo "    $valgrind ../scheduler/cupsd -c /tmp/cups-$user/cupsd.conf -f >/tmp/cups-$user/log/debug_log 2>&1 &"
 echo ""
 
-$valgrind ../scheduler/cupsd -c /tmp/cups-$user/cupsd.conf -f >/tmp/cups-$user/log/debug_log 2>&1 &
+if test `uname` = Darwin -a "x$valgrind" = x; then
+	DYLD_INSERT_LIBRARIES=/usr/lib/libgmalloc.dylib \
+	$valgrind ../scheduler/cupsd -c /tmp/cups-$user/cupsd.conf -f >/tmp/cups-$user/log/debug_log 2>&1 &
+else
+	$valgrind ../scheduler/cupsd -c /tmp/cups-$user/cupsd.conf -f >/tmp/cups-$user/log/debug_log 2>&1 &
+fi
+
 cupsd=$!
 
 if test "x$testtype" = x0; then
+	# Not running tests...
 	echo "Scheduler is PID $cupsd and is listening on port 8631."
 	echo ""
-	echo "Set the IPP_PORT environment variable to 8631 to test the software"
-	echo "interactively from the command-line."
+
+	# Create a helper script to run programs with...
+	runcups="/tmp/cups-$user/runcups"
+
+	echo "#!/bin/sh" >$runcups
+	echo "# Helper script for running CUPS test instance." >>$runcups
+	echo "" >>$runcups
+	echo "# Set required environment variables..." >>$runcups
+	echo "CUPS_DATADIR=\"$CUPS_DATADIR\"; export CUPS_DATADIR" >>$runcups
+	echo "CUPS_SERVER=\"$CUPS_SERVER\"; export CUPS_SERVER" >>$runcups
+	echo "CUPS_SERVERROOT=\"$CUPS_SERVERROOT\"; export CUPS_SERVERROOT" >>$runcups
+	echo "CUPS_STATEDIR=\"$CUPS_STATEDIR\"; export CUPS_STATEDIR" >>$runcups
+	echo "DYLD_LIBRARY_PATH=\"$DYLD_LIBRARY_PATH\"; export DYLD_LIBRARY_PATH" >>$runcups
+	echo "LD_LIBRARY_PATH=\"$LD_LIBRARY_PATH\"; export LD_LIBRARY_PATH" >>$runcups
+	echo "LD_PRELOAD=\"$LD_PRELOAD\"; export LD_PRELOAD" >>$runcups
+	echo "LOCALEDIR=\"$LOCALEDIR\"; export LOCALEDIR" >>$runcups
+	echo "SHLIB_PATH=\"$SHLIB_PATH\"; export SHLIB_PATH" >>$runcups
+	echo "" >>$runcups
+	echo "# Run command..." >>$runcups
+	echo "exec \"\$@\"" >>$runcups
+
+	chmod +x $runcups
+
+	echo "The $runcups helper script can be used to test programs"
+	echo "with the server."
 	exit 0
 fi
 
@@ -471,7 +532,7 @@ done
 #
 
 date=`date "+%Y-%m-%d"`
-strfile=/tmp/cups-$user/cups-str-1.3-$date-$user.html
+strfile=/tmp/cups-$user/cups-str-1.4-$date-$user.html
 
 rm -f $strfile
 cat str-header.html >$strfile
@@ -523,7 +584,7 @@ for file in 5*.sh; do
 	echo "" >>$strfile
 	echo "\"$file\":" >>$strfile
 
-	sh $file $pjobs | tee -a $strfile
+	sh $file $pjobs $pprinters | tee -a $strfile
 	status=$?
 
 	if test $status != 0; then
@@ -554,7 +615,7 @@ echo "Test Summary"
 echo ""
 echo "<H2>Summary</H2>" >>$strfile
 
-# Pages printed on Test1
+# Pages printed on Test1 (within 1 page for timing-dependent cancel issues)
 count=`grep '^Test1 ' /tmp/cups-$user/log/page_log | awk 'BEGIN{count=0}{count=count+$7}END{print count}'`
 expected=`expr $pjobs \* 2 + 34`
 expected2=`expr $expected + 2`
@@ -579,10 +640,30 @@ else
 	echo "<P>PASS: Printer 'Test2' correctly produced $count page(s).</P>" >>$strfile
 fi
 
-# Requested processed
+# Requests logged
 count=`wc -l /tmp/cups-$user/log/access_log | awk '{print $1}'`
-echo "PASS: $count requests processed."
-echo "<P>PASS: $count requests processed.</P>" >>$strfile
+expected=`expr 39 + 18 + $pjobs \* 8 + $pprinters \* $pjobs \* 4`
+if test $count != $expected; then
+	echo "FAIL: $count requests logged, expected $expected."
+	echo "<P>FAIL: $count requests logged, expected $expected.</P>" >>$strfile
+	fail=`expr $fail + 1`
+else
+	echo "PASS: $count requests logged."
+	echo "<P>PASS: $count requests logged.</P>" >>$strfile
+fi
+
+# Did CUPS-Get-Default get logged?
+if grep -q CUPS-Get-Default /tmp/cups-$user/log/access_log; then
+	echo "FAIL: CUPS-Get-Default logged with 'AccessLogLevel actions'"
+	echo "<P>FAIL: CUPS-Get-Default logged with 'AccessLogLevel actions'</P>" >>$strfile
+	echo "<PRE>" >>$strfile
+	grep CUPS-Get-Default /tmp/cups-$user/log/access_log | sed -e '1,$s/&/&amp;/g' -e '1,$s/</&lt;/g' >>$strfile
+	echo "</PRE>" >>$strfile
+	fail=`expr $fail + 1`
+else
+	echo "PASS: CUPS-Get-Default not logged."
+	echo "<P>PASS: CUPS-Get-Default not logged.</P>" >>$strfile
+fi
 
 # Emergency log messages
 count=`grep '^X ' /tmp/cups-$user/log/error_log | wc -l | awk '{print $1}'`
@@ -631,10 +712,10 @@ fi
 
 # Error log messages
 count=`grep '^E ' /tmp/cups-$user/log/error_log | wc -l | awk '{print $1}'`
-if test $count != 9; then
-	echo "FAIL: $count error messages, expected 9."
+if test $count != 18; then
+	echo "FAIL: $count error messages, expected 18."
 	grep '^E ' /tmp/cups-$user/log/error_log
-	echo "<P>FAIL: $count error messages, expected 9.</P>" >>$strfile
+	echo "<P>FAIL: $count error messages, expected 18.</P>" >>$strfile
 	echo "<PRE>" >>$strfile
 	grep '^E ' /tmp/cups-$user/log/error_log | sed -e '1,$s/&/&amp;/g' -e '1,$s/</&lt;/g' >>$strfile
 	echo "</PRE>" >>$strfile
@@ -698,13 +779,23 @@ fi
 
 # Debug2 log messages
 count=`grep '^d ' /tmp/cups-$user/log/error_log | wc -l | awk '{print $1}'`
-if test $count != 0; then
-	echo "FAIL: $count debug2 messages, expected 0."
-	echo "<P>FAIL: $count debug2 messages, expected 0.</P>" >>$strfile
+if test $count = 0; then
+	echo "FAIL: $count debug2 messages, expected more than 0."
+	echo "<P>FAIL: $count debug2 messages, expected more than 0.</P>" >>$strfile
 	fail=`expr $fail + 1`
 else
 	echo "PASS: $count debug2 messages."
 	echo "<P>PASS: $count debug2 messages.</P>" >>$strfile
+fi
+
+# Page log file...
+if grep -iq 'testfile.pdf na_letter_8.5x11in' /tmp/cups-$user/log/page_log; then
+	echo "PASS: page_log formatted correctly."
+	echo "<P>PASS: page_log formatted correctly.</P>" >>$strfile
+else
+	echo "FAIL: page_log formatted incorrectly."
+	echo "<P>FAIL: page_log formatted incorrectly.</P>" >>$strfile
+	fail=`expr $fail + 1`
 fi
 
 # Log files...
@@ -715,7 +806,7 @@ echo "</PRE>" >>$strfile
 
 echo "<H2>error_log</H2>" >>$strfile
 echo "<PRE>" >>$strfile
-sed -e '1,$s/&/&amp;/g' -e '1,$s/</&lt;/g' /tmp/cups-$user/log/error_log >>$strfile
+grep -v '^[dD]' /tmp/cups-$user/log/error_log | sed -e '1,$s/&/&amp;/g' -e '1,$s/</&lt;/g' >>$strfile
 echo "</PRE>" >>$strfile
 
 echo "<H2>page_log</H2>" >>$strfile
@@ -752,5 +843,5 @@ if test $fail != 0; then
 fi
 
 #
-# End of "$Id: run-stp-tests.sh 8146 2008-11-19 19:50:56Z mike $"
+# End of "$Id: run-stp-tests.sh 8217 2009-01-09 19:10:34Z mike $"
 #

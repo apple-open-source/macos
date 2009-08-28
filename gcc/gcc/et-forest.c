@@ -1,6 +1,6 @@
 /* ET-trees data structure implementation.
    Contributed by Pavel Nejedly
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of the libiberty library.
 Libiberty is free software; you can redistribute it and/or
@@ -15,8 +15,8 @@ Library General Public License for more details.
 
 You should have received a copy of the GNU Library General Public
 License along with libiberty; see the file COPYING.LIB.  If
-not, write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.
+not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.
 
   The ET-forest structure is described in:
     D. D. Sleator and R. E. Tarjan. A data structure for dynamic trees.
@@ -497,6 +497,26 @@ et_free_tree (struct et_node *t)
 
   pool_free (et_occurrences, t->rightmost_occ);
   pool_free (et_nodes, t);
+}
+
+/* Releases et tree T without maintaining other nodes.  */
+
+void
+et_free_tree_force (struct et_node *t)
+{
+  pool_free (et_occurrences, t->rightmost_occ);
+  if (t->parent_occ)
+    pool_free (et_occurrences, t->parent_occ);
+  pool_free (et_nodes, t);
+}
+
+/* Release the alloc pools, if they are empty.  */
+
+void
+et_free_pools (void)
+{
+  free_alloc_pool_if_empty (&et_occurrences);
+  free_alloc_pool_if_empty (&et_nodes);
 }
 
 /* Sets father of et tree T to FATHER.  */

@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2004-2005, International Business Machines
+*   Copyright (C) 2004-2007, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -36,6 +36,9 @@ USetAddString(USet *set, const UChar *str, int32_t length);
 typedef void U_CALLCONV
 USetRemove(USet *set, UChar32 c);
 
+typedef void U_CALLCONV
+USetRemoveRange(USet *set, UChar32 start, UChar32 end);
+
 /**
  * Interface for adding items to a USet, to keep low-level code from
  * statically depending on the USet implementation.
@@ -47,21 +50,11 @@ struct USetAdder {
     USetAddRange *addRange;
     USetAddString *addString;
     USetRemove *remove;
+    USetRemoveRange *removeRange;
 };
 typedef struct USetAdder USetAdder;
 
 U_CDECL_END
-
-/**
- * Get the set of "white space" characters in the sense of ICU rule
- * parsers.  Caller must close/delete result.
- * Equivalent to the set of characters with the Pattern_White_Space Unicode property.
- * Stable set of characters, won't change.
- * See UAX #31 Identifier and Pattern Syntax: http://www.unicode.org/reports/tr31/
- * @internal
- */
-U_CAPI USet* U_EXPORT2
-uprv_openRuleWhiteSpaceSet(UErrorCode* ec);
 
 #endif
 

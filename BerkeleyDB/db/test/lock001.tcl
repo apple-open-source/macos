@@ -1,15 +1,14 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1996-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 1996,2007 Oracle.  All rights reserved.
 #
-# $Id: lock001.tcl,v 1.2 2004/03/30 01:24:07 jtownsen Exp $
+# $Id: lock001.tcl,v 12.6 2007/05/17 15:15:55 bostic Exp $
 #
 
 # TEST	lock001
 # TEST	Make sure that the basic lock tests work.  Do some simple gets
 # TEST	and puts for a single locker.
-proc lock001 { {iterations 1000} {maxlocks 1000} } {
+proc lock001 { {iterations 1000} } {
 	source ./include.tcl
 	global lock_curid
 	global lock_maxid
@@ -30,7 +29,7 @@ proc lock001 { {iterations 1000} {maxlocks 1000} } {
 
 	# Open the region we'll use for testing.
 	set eflags "-create -lock -home $testdir -mode 0644 \
-	    -lock_max $maxlocks -lock_conflict {$nmodes {$conflicts}}"
+	    -lock_conflict {$nmodes {$conflicts}}"
 	set env [eval {berkdb_env} $eflags]
 	error_check_good env [is_valid_env $env] TRUE
 	error_check_good lock_id_set \

@@ -32,10 +32,11 @@ SKIP: {
 
   my $dbh_1 = DBI->connect('dbi:mysql:test', undef, undef, { RaiseError => 0, PrintError => 0 });
 
-  isa_ok($dbh_1, 'Apache::DBI::db');
-
  SKIP: {
-    skip "Could not connect to test database: $DBI::errstr", 5 unless $dbh_1;
+    skip "Could not connect to test database: $DBI::errstr", 6 unless $dbh_1;
+
+    isa_ok($dbh_1, 'Apache::DBI::db');
+	
     ok(my $thread_1 = $dbh_1->{'mysql_thread_id'}, "Connected 1");
 
     my $dbh_2 = DBI->connect('dbi:mysql:test', undef, undef, { RaiseError => 0, PrintError => 0 });

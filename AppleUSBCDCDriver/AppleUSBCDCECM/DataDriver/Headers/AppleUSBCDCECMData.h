@@ -59,6 +59,7 @@ typedef struct
 	mbuf_t			m;
     bool			avail;
     IOUSBCompletion		writeCompletionInfo;
+	UInt32			indx;
 } pipeOutBuffers;
 
 typedef struct 
@@ -67,6 +68,7 @@ typedef struct
     UInt8			*pipeInBuffer;
     bool			dead;
     IOUSBCompletion		readCompletionInfo;
+	UInt32			indx;
 } pipeInBuffers;
 
 class AppleUSBCDC;
@@ -82,7 +84,7 @@ private:
     UInt16			fProductID;
         
     IOEthernetInterface		*fNetworkInterface;
-    IOBasicOutputQueue		*fTransmitQueue;
+    IOGatedOutputQueue		*fTransmitQueue;
 
     IOTimerEventSource		*fTimerSource;
     
@@ -103,6 +105,8 @@ private:
     UInt8			fCommInterfaceNumber;
     UInt32			fCount;
     UInt32			fOutPacketSize;
+	
+	bool			fDeferredClear;
 
     static void			dataReadComplete(void *obj, void *param, IOReturn ior, UInt32 remaining);
     static void			dataWriteComplete(void *obj, void *param, IOReturn ior, UInt32 remaining);
@@ -131,7 +135,6 @@ public:
 	AppleUSBCDCECMControl		*fControlDriver;			// Our Control driver
     IOUSBInterface		*fDataInterface;
     IOWorkLoop			*fWorkLoop;
-    IOLock			*fBufferPoolLock;
     UInt8			fDataInterfaceNumber;
     
     UInt16			fInBufPool;
@@ -142,8 +145,6 @@ public:
 	
 	bool			fReady;
 	UInt8			fResetState;
-	
-	bool			fDeferredClear;
     
     IONetworkStats		*fpNetStats;
     IOEthernetStats		*fpEtherStats;

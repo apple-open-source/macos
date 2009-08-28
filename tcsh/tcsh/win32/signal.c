@@ -1,4 +1,4 @@
-/*$Header: /src/pub/tcsh/win32/signal.c,v 1.6 2004/10/18 02:32:17 amold Exp $*/
+/*$Header: /p/tcsh/cvsroot/tcsh/win32/signal.c,v 1.11 2006/08/25 17:49:57 christos Exp $*/
 /*-
  * Copyright (c) 1980, 1991 The Regents of the University of California.
  * All rights reserved.
@@ -41,6 +41,7 @@
 #include "forkdata.h"
 #include "signal.h"
 
+#pragma warning(disable:4055)
 
 #define SIGBAD(signo)        ( (signo) <=0 || (signo) >=NSIG) 
 #define fast_sigmember(a,b)  ( (*(a) & (1 << (b-1)) ) )
@@ -71,7 +72,7 @@ static HANDLE hsigsusp;
 static int __is_suspended = 0;
 static HANDLE __halarm=0;
 
-extern HANDLE __h_con_alarm,__h_con_int;
+extern HANDLE __h_con_alarm,__h_con_int, __h_con_hup;
 
 // must be done before fork;
 void nt_init_signals(void) {
@@ -89,12 +90,12 @@ void nt_init_signals(void) {
 					0,
 					FALSE,
 					DUPLICATE_SAME_ACCESS)){
-		int err = GetLastError();
-		ExitProcess(0);
+		ExitProcess(GetLastError());
 	}
 	hsigsusp = CreateEvent(NULL,FALSE,FALSE,NULL);
 	__h_con_alarm=CreateEvent(NULL,FALSE,FALSE,NULL);
 	__h_con_int=CreateEvent(NULL,FALSE,FALSE,NULL);
+	__h_con_hup=CreateEvent(NULL,FALSE,FALSE,NULL);
 	if (!hsigsusp)
 		abort();
 
@@ -107,6 +108,7 @@ void nt_cleanup_signals(void) {
 	CloseHandle(hsigsusp);
 	CloseHandle(__h_con_alarm);
 	CloseHandle(__h_con_int);
+	CloseHandle(__h_con_hup);
 	CloseHandle(__halarm);
 }
 int sigaddset(sigset_t *set, int signo) {
@@ -204,6 +206,7 @@ int sigsuspend(const sigset_t *mask) {
 	return -1;
 
 }
+
 int sigaction(int signo, const struct sigaction *act, struct sigaction *oact) {
 
 	if (SIGBAD(signo)) {
@@ -216,7 +219,8 @@ int sigaction(int signo, const struct sigaction *act, struct sigaction *oact) {
 			oact->sa_mask = 0;
 			oact->sa_flags =0;
 	}
-	if (signo == SIGHUP &&  (act && act->sa_handler == SIG_IGN) && __forked)
+	if ((signo == SIGHUP) && (act && (act->sa_handler == SIG_IGN)) 
+						&& __forked)
 		__nt_child_nohupped = 1;
 	if (act)
 		handlers[signo]=act->sa_handler;
@@ -228,6 +232,10 @@ int ctrl_handler(DWORD event) {
 
 	if (event == CTRL_C_EVENT || event == CTRL_BREAK_EVENT) {
 		SetEvent(__h_con_int);
+		return TRUE;
+	}
+	if (event == CTRL_CLOSE_EVENT) {
+		SetEvent(__h_con_hup);
 		return TRUE;
 	}
 
@@ -365,6 +373,7 @@ int waitpid(pid_t pid, int *statloc, int options) {
 	ChildListNode *temp;
 	int retcode;
 
+	UNREFERENCED_PARAMETER(options);
 	errno = EINVAL;
 	if (pid != -1)
 		return -1;
@@ -414,10 +423,15 @@ unsigned int alarm(unsigned int seconds) {
 	static unsigned int prev_val=0;
 	HANDLE ht;
 	DWORD tid;
+	SECURITY_ATTRIBUTES secd;
+
+	secd.nLength=sizeof(secd);
+	secd.lpSecurityDescriptor=NULL;
+	secd.bInheritHandle=TRUE;
 
 
 	if (!__halarm) {
-		__halarm=CreateEvent(NULL,FALSE,FALSE,NULL);
+		__halarm=CreateEvent(&secd,FALSE,FALSE,NULL);
 	}
 	if(__alarm_set )
 		SetEvent(__halarm);
@@ -429,7 +443,9 @@ unsigned int alarm(unsigned int seconds) {
 	__alarm_set = 1;
 
 	ht = CreateThread(NULL,gdwStackSize,
-				(LPTHREAD_START_ROUTINE)alarm_callback, (void*)seconds,0,&tid);
+				(LPTHREAD_START_ROUTINE)alarm_callback, 
+				(void*)UIntToPtr(seconds),
+				0,&tid);
 	if (ht)
 		CloseHandle(ht);
 	
@@ -462,6 +478,8 @@ end:
 }
 void sig_child_callback(DWORD pid,DWORD exitcode) {
 	
+	DWORD ecode = 0;
+
 	EnterCriticalSection(&sigcritter);
 	add_to_child_list(pid,exitcode);
 	suspend_main_thread();
@@ -471,7 +489,7 @@ void sig_child_callback(DWORD pid,DWORD exitcode) {
 	__try {
 		generic_handler(SIGCHLD);
 	}
-	__except(1) {
+	__except(ecode = GetExceptionCode()) {
 		;
 	}
 	resume_main_thread();
@@ -634,8 +652,8 @@ Niceness    Base    Priority class/thread priority
 ****************************************************************************/
 int nice(int niceness) {
 
-    DWORD pclass;
-    int priority;
+    DWORD pclass = IDLE_PRIORITY_CLASS;
+    int priority = THREAD_PRIORITY_NORMAL;
 
     if (niceness < -6 || niceness > 7) {
         errno = EPERM;
@@ -699,12 +717,10 @@ int nice(int niceness) {
     }
 
     if (!SetPriorityClass(GetCurrentProcess(),pclass)){
-        int err = GetLastError() ;
         errno = EPERM;
         return -1;
     }
     if (!SetThreadPriority(GetCurrentThread(),priority)){
-        int err = GetLastError() ;
         errno = EPERM;
         return -1;
     }

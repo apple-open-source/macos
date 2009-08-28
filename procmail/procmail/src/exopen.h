@@ -1,4 +1,4 @@
-/*$Id: exopen.h,v 1.1.1.2 2001/07/20 19:38:15 bbraun Exp $*/
+/*$Id: exopen.h,v 1.20 2001/06/23 08:18:42 guenther Exp $*/
 
 int
  unique Q((const char*const full,char*p,const size_t len,const mode_t mode,

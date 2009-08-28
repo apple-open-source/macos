@@ -61,10 +61,172 @@
  * Compile it exactly once, here.
  */
 #define SHA_1   	1
+
+#include <TargetConditionals.h>
+#include <CommonCrypto/CommonDigest.h>
+
+#if TARGET_OS_EMBEDDED && __arm__
+#define CC_SHA1_USE_HARDWARE			1
+#endif
+
+#if CC_SHA1_USE_HARDWARE
+#define CC_SHA1_USE_HARDWARE_THRESHOLD	4096
+extern int _CC_SHA1_Update(CC_SHA1_CTX *c, const void *data, CC_LONG len);
+#endif
+
 #include "sha_locl.h"
 
 #ifdef	_APPLE_COMMON_CRYPTO_
 
-CC_DIGEST_ONE_SHOT(CC_SHA1, CC_SHA1_CTX, CC_SHA1_Init, CC_SHA1_Update, CC_SHA1_Final)
+#if CC_SHA1_USE_HARDWARE
+//Need the IOKitLib.h only to keep IOSHA1Types.h happy.
+#include <IOKit/IOKitLib.h>
+#include <Kernel/IOKit/crypto/IOSHA1Types.h>
+#include <libkern/OSByteOrder.h>
+#include <sys/ioctl.h>
+#include <fcntl.h>
+#include <pthread.h>
 
+static int cc_sha1_device = -1;
+static pthread_once_t cc_sha1_connect_once = PTHREAD_ONCE_INIT;
+static CC_LONG cc_sha1_hardware_quantum = (256*4096); //.25 M default value.
+
+static void cc_sha1_connect(void) {
+    struct IOSHA1AcceleratorInfo shaInfo;
+	
+	cc_sha1_device = open("/dev/sha1_0", O_RDWR, 0);
+	if(cc_sha1_device < 0)
+		return;
+
+	if(ioctl(cc_sha1_device, IOSHA1_GET_INFO, &shaInfo) != -1) {
+        cc_sha1_hardware_quantum = shaInfo.maxBytesPerCall;
+	}
+}
+
+static CC_LONG sha1_hash_in_hardware(CC_SHA1_CTX *c, const UInt8 *data_buff, CC_LONG length, bool do_final)
+{
+	// Handle the hardware SHA1. 
+	struct IOSHA1AcceleratorRequest shaRequest;
+	CC_LONG quantum = cc_sha1_hardware_quantum;
+	const UInt8 *data = data_buff;
+	CC_LONG bytes_left = length;
+	CC_LONG bytes_hashed = 0;
+	
+	//Load the saved context 
+	shaRequest.hashBuffer.hashWords[0] = c->h0;
+	shaRequest.hashBuffer.hashWords[1] = c->h1;
+	shaRequest.hashBuffer.hashWords[2] = c->h2;
+	shaRequest.hashBuffer.hashWords[3] = c->h3;
+	shaRequest.hashBuffer.hashWords[4] = c->h4;
+    shaRequest.options = 0;
+
+	do {
+		if (bytes_left < cc_sha1_hardware_quantum) {
+            quantum = bytes_left;
+            if (do_final) {
+                shaRequest.options = kIOSHA1AcceleratorFinal;
+				shaRequest.totalLength = (UInt64)(length) << 3; //Totallength is in bits.
+            }
+        } else {
+            quantum = cc_sha1_hardware_quantum;
+        }
+
+		//Split the request in quantums if it is too large.
+		shaRequest.sourceText = (UInt8 *)data;
+		shaRequest.textLength = quantum;
+
+		if(ioctl(cc_sha1_device, IOSHA1_PERFORM_HASH, &shaRequest) == -1) {
+			break; //Failed to complete the whole request but fall back to the software only for the remaining bytes.
+		}
+		bytes_left -= quantum; 
+		data += quantum;
+	}while (bytes_left);
+
+	bytes_hashed = (length - bytes_left); 
+	if(bytes_hashed) {
+		//Save the result in the CC_SHA1_CTX.
+		c->h0 = shaRequest.hashBuffer.hashWords[0];
+		c->h1 = shaRequest.hashBuffer.hashWords[1];
+		c->h2 = shaRequest.hashBuffer.hashWords[2];
+		c->h3 = shaRequest.hashBuffer.hashWords[3];
+		c->h4 = shaRequest.hashBuffer.hashWords[4];
+
+		//Update Nl and Nh in the context. Required to finish the hash.
+		//Copied from the software SHA1 code. 
+		CC_LONG l=(c->Nl+(bytes_hashed<<3))&0xffffffffL;
+		if (l < c->Nl) /* overflow */
+				c->Nh++;
+		c->Nh+=(bytes_hashed>>29);
+		c->Nl=l;
+	}
+	return bytes_hashed;
+}
+
+int CC_SHA1_Update(CC_SHA1_CTX *c, const void *data, CC_LONG len)
+{
+	const UInt8 *data_buff = (const UInt8 *) data;
+	if (len > CC_SHA1_USE_HARDWARE_THRESHOLD &&
+        !(((intptr_t)data_buff + CC_SHA1_BLOCK_BYTES - c->num) & 3) &&
+        !pthread_once(&cc_sha1_connect_once, cc_sha1_connect) && cc_sha1_device >= 0) 
+    {
+		//USE SHA1 hardware.
+		if(c->num) {
+			//Do the first block or less in software
+			CC_LONG partial = CC_SHA1_BLOCK_BYTES - c->num;
+			_CC_SHA1_Update(c, data_buff, partial);
+			len -= partial;
+			data_buff += partial;
+		}
+		
+		CC_LONG bytes_4_hardware = len & ~(CC_SHA1_BLOCK_BYTES - 1); //Send only mulitple of 64 bytes to the hardware.
+		CC_LONG bytes_hashed = 0; 
+		bytes_hashed = sha1_hash_in_hardware(c, data_buff, bytes_4_hardware, false);
+        len -= bytes_hashed;
+        data_buff += bytes_hashed;
+	}
+
+    //USE SHA1 software. If len is zero then this immediately returns;
+    return _CC_SHA1_Update(c, data_buff, len);
+}
+
+UInt8* CC_SHA1(const void *data, CC_LONG len, UInt8 *md)
+{	
+	CC_LONG bytes_hashed = 0;
+	const UInt8 *data_buff = (const UInt8 *)data;
+	
+	if(md == NULL)
+		return NULL;									
+		
+	CC_SHA1_CTX ctx;
+	CC_SHA1_Init(&ctx);
+	
+	if (len > CC_SHA1_USE_HARDWARE_THRESHOLD &&
+        !((intptr_t)data_buff & 3) &&
+        !pthread_once(&cc_sha1_connect_once, cc_sha1_connect) && cc_sha1_device >= 0) 
+    {
+		bytes_hashed = sha1_hash_in_hardware(&ctx, data_buff, len, true);
+		if (bytes_hashed == len) {
+            OSWriteBigInt32(md, 0, ctx.h0);
+            OSWriteBigInt32(md, 4, ctx.h1);
+            OSWriteBigInt32(md, 8, ctx.h2);
+            OSWriteBigInt32(md, 12, ctx.h3);
+            OSWriteBigInt32(md, 16, ctx.h4); 
+			return md;
+        }
+
+		//Either we have failed partially or completely.
+		//Fall through to the software.
+		data_buff += bytes_hashed;
+		len -= bytes_hashed;
+	}
+	//Fall back to Software SHA1.
+	CC_SHA1_Update(&ctx, data_buff, len);
+	CC_SHA1_Final(md, &ctx);					
+	return md;												
+}
+#else //#if CC_SHA1_USE_HARDWARE
+CC_DIGEST_ONE_SHOT(CC_SHA1, CC_SHA1_CTX, CC_SHA1_Init, CC_SHA1_Update, CC_SHA1_Final)
 #endif
+
+#endif //#ifdef	_APPLE_COMMON_CRYPTO_
+

@@ -1,10 +1,10 @@
 ########################################################################
 #                                                                      #
 #               This software is part of the ast package               #
-#           Copyright (c) 1982-2007 AT&T Knowledge Ventures            #
+#          Copyright (c) 1982-2007 AT&T Intellectual Property          #
 #                      and is licensed under the                       #
 #                  Common Public License, Version 1.0                  #
-#                      by AT&T Knowledge Ventures                      #
+#                    by AT&T Intellectual Property                     #
 #                                                                      #
 #                A copy of the License is available at                 #
 #            http://www.opensource.org/licenses/cpl1.0.txt             #
@@ -770,4 +770,36 @@ x=$(
 	false
 )
 [[ $x == failed ]] && err_exit 'ERR trap executed multiple times'
+export environment
+typeset global
+function f
+{
+	typeset i t local
+
+	for i
+	do	case $i in
+		[-+]*)	set "$@"
+			continue
+			;;
+		local)	local=f
+			t=$(typeset +f $local)
+			;;
+		global)	global=f
+			t=$(typeset +f $global)
+			;;
+		environment)
+			environment=f
+			t=$(typeset +f $environment)
+			;;
+		literal)t=$(typeset +f f)
+			;;
+		positional)
+			set -- f
+			t=$(typeset +f $1)
+			;;
+		esac
+		[[ $t ]] || err_exit "typeset +f \$$i failed"
+	done
+}
+f local global environment literal positional
 exit $((Errors))

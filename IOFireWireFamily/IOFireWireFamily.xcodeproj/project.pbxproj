@@ -22,6 +22,9 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		07C786800EB7DE5F00A71A8D /* FWTracepoints.h in Headers */ = {isa = PBXBuildFile; fileRef = 07C7867F0EB7DE5F00A71A8D /* FWTracepoints.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		07C786810EB7DE5F00A71A8D /* FWTracepoints.h in Headers */ = {isa = PBXBuildFile; fileRef = 07C7867F0EB7DE5F00A71A8D /* FWTracepoints.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		142545110EE48263000D7715 /* FWTracepoints.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 07C7867F0EB7DE5F00A71A8D /* FWTracepoints.h */; };
 		30439B320BA22C7900A7FCB3 /* IOFWUserVectorCommand.h in Headers */ = {isa = PBXBuildFile; fileRef = 30439B300BA22C7900A7FCB3 /* IOFWUserVectorCommand.h */; };
 		30439BF80BA2533D00A7FCB3 /* IOFWUserVectorCommand.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 30439B310BA22C7900A7FCB3 /* IOFWUserVectorCommand.cpp */; };
 		304FC2E50BCC596B00BA08A6 /* IOFireWireLibPHYPacketListener.h in Headers */ = {isa = PBXBuildFile; fileRef = 304FC2E30BCC596B00BA08A6 /* IOFireWireLibPHYPacketListener.h */; };
@@ -37,6 +40,8 @@
 		3076DFDD0B02A1090032F02E /* IOFWUserAsyncStreamListener.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3076DFDC0B02A1090032F02E /* IOFWUserAsyncStreamListener.cpp */; };
 		3088F83C0BC6FAC200D3AD8A /* IOFWPHYPacketListener.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3088F83A0BC6FAC200D3AD8A /* IOFWPHYPacketListener.cpp */; };
 		3088F83D0BC6FAC200D3AD8A /* IOFWPHYPacketListener.h in Headers */ = {isa = PBXBuildFile; fileRef = 3088F83B0BC6FAC200D3AD8A /* IOFWPHYPacketListener.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		308FA9D50DD916C900F7F717 /* IOFireWireMultiIsochReceive.h in Headers */ = {isa = PBXBuildFile; fileRef = 308FA9D40DD916C900F7F717 /* IOFireWireMultiIsochReceive.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		308FA9D90DD916DF00F7F717 /* IOFireWireMultiIsochReceive.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 308FA9D80DD916DF00F7F717 /* IOFireWireMultiIsochReceive.cpp */; };
 		30A1B3B10BAF743E007C1488 /* IOFWAsyncPHYCommand.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 30A1B3AF0BAF743E007C1488 /* IOFWAsyncPHYCommand.cpp */; };
 		30A850940B95401C00315CA1 /* IOFireWireLibVectorCommand.h in Headers */ = {isa = PBXBuildFile; fileRef = 30A850920B95401C00315CA1 /* IOFireWireLibVectorCommand.h */; };
 		30A850950B95401C00315CA1 /* IOFireWireLibVectorCommand.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 30A850930B95401C00315CA1 /* IOFireWireLibVectorCommand.cpp */; };
@@ -94,7 +99,7 @@
 		4D4C30F505F6702000D8DB71 /* IOFWDCL.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D2B247504CBBD3F00E10E69 /* IOFWDCL.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		4D4C30F605F6702000D8DB71 /* IOFWBufferFillIsochPort.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D2B247604CBBD3F00E10E69 /* IOFWBufferFillIsochPort.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		4D4C30F705F6702000D8DB71 /* IOFWUserObjectExporter.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D2B247704CBBD3F00E10E69 /* IOFWUserObjectExporter.h */; };
-		4D4C30F805F6702000D8DB71 /* IOFWUserObjectExporter.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D3DE40304CD4B6300D50D34 /* IOFWUserObjectExporter.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		4D4C30F805F6702000D8DB71 /* IOFWUserObjectExporter.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D3DE40304CD4B6300D50D34 /* IOFWUserObjectExporter.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		4D4C30F905F6702000D8DB71 /* prefix.h in Headers */ = {isa = PBXBuildFile; fileRef = F5B1E32104CF6DBB01CE2286 /* prefix.h */; };
 		4D4C30FD05F6702000D8DB71 /* KernelPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 0297A295FFE6F1A311CE206C /* KernelPlist.strings */; };
 		4D4C30FF05F6702000D8DB71 /* IOConfigDirectory.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0212CDA1FFE5A54911CE206C /* IOConfigDirectory.cpp */; settings = {ATTRIBUTES = (); }; };
@@ -210,6 +215,19 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		1425450E0EE4822F000D7715 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/firewire";
+			dstSubfolderSpec = 0;
+			files = (
+				142545110EE48263000D7715 /* FWTracepoints.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		01190FFF00CC4E527F000001 /* IOFWUserClientIsoch.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOFWUserClientIsoch.h; path = IOFireWireFamily.kmodproj/IOFWUserClientIsoch.h; sourceTree = "<group>"; };
 		0119100000CC4E527F000001 /* IOFWUserClientIsoch.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = IOFWUserClientIsoch.cpp; path = IOFireWireFamily.kmodproj/IOFWUserClientIsoch.cpp; sourceTree = "<group>"; };
@@ -283,8 +301,10 @@
 		02B2D15DFFFD61CE11CE2050 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = IOFireWireLib.CFPlugInProj/English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		03610213000A548E11CE2050 /* IOFWUserPseudoAddressSpace.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOFWUserPseudoAddressSpace.h; path = IOFireWireFamily.kmodproj/IOFWUserPseudoAddressSpace.h; sourceTree = "<group>"; };
 		03610215000A549811CE2050 /* IOFWUserPseudoAddressSpace.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = IOFWUserPseudoAddressSpace.cpp; path = IOFireWireFamily.kmodproj/IOFWUserPseudoAddressSpace.cpp; sourceTree = "<group>"; };
+		07C7867F0EB7DE5F00A71A8D /* FWTracepoints.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = FWTracepoints.h; path = IOFireWireFamily.kmodproj/FWTracepoints.h; sourceTree = "<group>"; };
 		080C09530017B84F7F000001 /* IOFWUserPhysicalAddressSpace.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOFWUserPhysicalAddressSpace.h; path = IOFireWireFamily.kmodproj/IOFWUserPhysicalAddressSpace.h; sourceTree = "<group>"; };
 		080C09540017B84F7F000001 /* IOFWUserPhysicalAddressSpace.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = IOFWUserPhysicalAddressSpace.cpp; path = IOFireWireFamily.kmodproj/IOFWUserPhysicalAddressSpace.cpp; sourceTree = "<group>"; };
+		141300880F619D3F00138D6D /* Info-IOFireWireFamily-FireLog.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "Info-IOFireWireFamily-FireLog.plist"; sourceTree = "<group>"; };
 		30439B300BA22C7900A7FCB3 /* IOFWUserVectorCommand.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOFWUserVectorCommand.h; path = IOFireWireFamily.kmodproj/IOFWUserVectorCommand.h; sourceTree = "<group>"; };
 		30439B310BA22C7900A7FCB3 /* IOFWUserVectorCommand.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = IOFWUserVectorCommand.cpp; path = IOFireWireFamily.kmodproj/IOFWUserVectorCommand.cpp; sourceTree = "<group>"; };
 		304FC2E30BCC596B00BA08A6 /* IOFireWireLibPHYPacketListener.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOFireWireLibPHYPacketListener.h; path = IOFireWireLib.CFPlugInProj/IOFireWireLibPHYPacketListener.h; sourceTree = "<group>"; };
@@ -300,6 +320,8 @@
 		3076DFDC0B02A1090032F02E /* IOFWUserAsyncStreamListener.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = IOFWUserAsyncStreamListener.cpp; path = IOFireWireFamily.kmodproj/IOFWUserAsyncStreamListener.cpp; sourceTree = "<group>"; };
 		3088F83A0BC6FAC200D3AD8A /* IOFWPHYPacketListener.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = IOFWPHYPacketListener.cpp; path = IOFireWireFamily.kmodproj/IOFWPHYPacketListener.cpp; sourceTree = "<group>"; };
 		3088F83B0BC6FAC200D3AD8A /* IOFWPHYPacketListener.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOFWPHYPacketListener.h; path = IOFireWireFamily.kmodproj/IOFWPHYPacketListener.h; sourceTree = "<group>"; };
+		308FA9D40DD916C900F7F717 /* IOFireWireMultiIsochReceive.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOFireWireMultiIsochReceive.h; path = IOFireWireFamily.kmodproj/IOFireWireMultiIsochReceive.h; sourceTree = "<group>"; };
+		308FA9D80DD916DF00F7F717 /* IOFireWireMultiIsochReceive.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = IOFireWireMultiIsochReceive.cpp; path = IOFireWireFamily.kmodproj/IOFireWireMultiIsochReceive.cpp; sourceTree = "<group>"; };
 		30A1B3AF0BAF743E007C1488 /* IOFWAsyncPHYCommand.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = IOFWAsyncPHYCommand.cpp; path = IOFireWireFamily.kmodproj/IOFWAsyncPHYCommand.cpp; sourceTree = "<group>"; };
 		30A850920B95401C00315CA1 /* IOFireWireLibVectorCommand.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOFireWireLibVectorCommand.h; path = IOFireWireLib.CFPlugInProj/IOFireWireLibVectorCommand.h; sourceTree = "<group>"; };
 		30A850930B95401C00315CA1 /* IOFireWireLibVectorCommand.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = IOFireWireLibVectorCommand.cpp; path = IOFireWireLib.CFPlugInProj/IOFireWireLibVectorCommand.cpp; sourceTree = "<group>"; };
@@ -413,6 +435,7 @@
 				A1C146090B7D11970072F6EA /* IOFireWireLibIRMAllocation.cpp */,
 				A1C1460A0B7D11970072F6EA /* IOFireWireLibIRMAllocation.h */,
 				4D2B24A804CBBFEF00E10E69 /* prefix.h */,
+				3088F83A0BC6FAC200D3AD8A /* IOFWPHYPacketListener.cpp */,
 				02B2D13DFFFD5ED311CE2050 /* public */,
 				02B2D118FFFD5D3011CE2050 /* private */,
 				02B2D14CFFFD600211CE2050 /* sources */,
@@ -426,6 +449,7 @@
 			children = (
 				0212CDA9FFE5A54911CE206C /* IOFireWireFamilyCommon.h */,
 				0212CDBAFFE5A54911CE206C /* IOFWIsoch.h */,
+				07C7867F0EB7DE5F00A71A8D /* FWTracepoints.h */,
 			);
 			name = common;
 			sourceTree = "<group>";
@@ -523,6 +547,7 @@
 				02B2D150FFFD600211CE2050 /* Kernel.framework */,
 				F5410DC301B8073901CE2124 /* Security.framework */,
 				4D4C313805F6702000D8DB71 /* Info-IOFireWireFamily.plist */,
+				141300880F619D3F00138D6D /* Info-IOFireWireFamily-FireLog.plist */,
 				4D4C316805F6702100D8DB71 /* Info-IOFireWireLib.plist */,
 				02B2D14FFFFD600211CE2050 /* IOKit.framework */,
 			);
@@ -559,12 +584,12 @@
 				0160F3000010FFF211CE237E /* IOFireWireLink.cpp */,
 				0212CDA3FFE5A54911CE206C /* IOFireWireBus.cpp */,
 				0212CDA5FFE5A54911CE206C /* IOFireWireController.cpp */,
+				308FA9D80DD916DF00F7F717 /* IOFireWireMultiIsochReceive.cpp */,
 				0212CDAAFFE5A54911CE206C /* IOFireWireNub.cpp */,
 				F51AB19A03380D9301CE230E /* IOFireWireLocalNode.cpp */,
 				0212CDACFFE5A54911CE206C /* IOFireWireUnit.cpp */,
 				0212CDA7FFE5A54911CE206C /* IOFireWireDevice.cpp */,
 				30DE63EF0B79A6860069B25D /* IOFWSyncer.cpp */,
-				3088F83A0BC6FAC200D3AD8A /* IOFWPHYPacketListener.cpp */,
 				F5C0DE2A03EA767801A0D805 /* Config Directory */,
 				F5C0DE2903EA752401A0D805 /* Address Spaces */,
 				F5C0DE1403EA6B9201A0D805 /* Commands */,
@@ -608,7 +633,6 @@
 				013163AC00CC49117F000001 /* IOFWUserIsochChannel.h */,
 				013163AD00CC49117F000001 /* IOFWUserIsochPort.h */,
 				01190FFF00CC4E527F000001 /* IOFWUserClientIsoch.h */,
-				4D2B247704CBBD3F00E10E69 /* IOFWUserObjectExporter.h */,
 				F537AEC502B6E1B601CE230E /* FWDebugging.h */,
 				F53D5F0B02B6D57E01CE230E /* IOFireWireROMCache.h */,
 				F5DEB73903720B5F0190C386 /* IOFireWireIRM.h */,
@@ -636,6 +660,7 @@
 		4DE4B7A5033A779900CE20D6 /* public */ = {
 			isa = PBXGroup;
 			children = (
+				4D2B247704CBBD3F00E10E69 /* IOFWUserObjectExporter.h */,
 				30CD5D9F0A92AA9700D7B5F3 /* IOFWSimplePhysicalAddressSpace.h */,
 				30DE63EE0B79A6860069B25D /* IOFWSyncer.h */,
 				305ED1810ACC4A9000D13AD8 /* IOFWAsyncStreamListener.h */,
@@ -664,6 +689,7 @@
 				0212CDC0FFE5A54911CE206C /* IOFWRegs.h */,
 				4DF89E75033ABAB200CE20D6 /* IOFWUtils.h */,
 				0212CDA6FFE5A54911CE206C /* IOFireWireController.h */,
+				308FA9D40DD916C900F7F717 /* IOFireWireMultiIsochReceive.h */,
 			);
 			name = public;
 			sourceTree = "<group>";
@@ -746,6 +772,9 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				07C786800EB7DE5F00A71A8D /* FWTracepoints.h in Headers */,
+				308FA9D50DD916C900F7F717 /* IOFireWireMultiIsochReceive.h in Headers */,
+				4D4C30F705F6702000D8DB71 /* IOFWUserObjectExporter.h in Headers */,
 				3088F83D0BC6FAC200D3AD8A /* IOFWPHYPacketListener.h in Headers */,
 				30DE63F00B79A6860069B25D /* IOFWSyncer.h in Headers */,
 				4D32A05508513F2D007DE47F /* IOFWDCLPool.h in Headers */,
@@ -791,7 +820,6 @@
 				4D4C30F205F6702000D8DB71 /* IOConfigEntry.h in Headers */,
 				4D4C30F305F6702000D8DB71 /* IOConfigDirectoryIterator.h in Headers */,
 				4D4C30F605F6702000D8DB71 /* IOFWBufferFillIsochPort.h in Headers */,
-				4D4C30F705F6702000D8DB71 /* IOFWUserObjectExporter.h in Headers */,
 				4D4C30F805F6702000D8DB71 /* IOFWUserObjectExporter.h in Headers */,
 				4D4C30F905F6702000D8DB71 /* prefix.h in Headers */,
 				30CD5DA10A92AA9700D7B5F3 /* IOFWSimpleContiguousPhysicalAddressSpace.h in Headers */,
@@ -835,6 +863,7 @@
 				30A850940B95401C00315CA1 /* IOFireWireLibVectorCommand.h in Headers */,
 				30439B320BA22C7900A7FCB3 /* IOFWUserVectorCommand.h in Headers */,
 				304FC2E50BCC596B00BA08A6 /* IOFireWireLibPHYPacketListener.h in Headers */,
+				07C786810EB7DE5F00A71A8D /* FWTracepoints.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -846,6 +875,7 @@
 			buildConfigurationList = 4D39F6DB0992E12B006C2040 /* Build configuration list for PBXNativeTarget "IOFireWireFamily.kext" */;
 			buildPhases = (
 				4D4C30A605F6702000D8DB71 /* ShellScript */,
+				1425450E0EE4822F000D7715 /* CopyFiles */,
 				4D4C30CA05F6702000D8DB71 /* Headers */,
 				4D4C30FC05F6702000D8DB71 /* Resources */,
 				4D4C30FE05F6702000D8DB71 /* Sources */,
@@ -1029,6 +1059,7 @@
 				30A1B3B10BAF743E007C1488 /* IOFWAsyncPHYCommand.cpp in Sources */,
 				3088F83C0BC6FAC200D3AD8A /* IOFWPHYPacketListener.cpp in Sources */,
 				30D316160BDDA77E00A61BFC /* IOFWUserPHYPacketListener.cpp in Sources */,
+				308FA9D90DD916DF00F7F717 /* IOFireWireMultiIsochReceive.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1100,7 +1131,6 @@
 				ARCHS = (
 					i386,
 					ppc,
-					ppc64,
 					x86_64,
 				);
 				BUILD_SETTING = "";
@@ -1150,7 +1180,6 @@
 				ARCHS = (
 					i386,
 					ppc,
-					ppc64,
 					x86_64,
 				);
 				BUILD_SETTING = "";
@@ -1197,7 +1226,6 @@
 				ARCHS = (
 					i386,
 					ppc,
-					ppc64,
 					x86_64,
 				);
 				BUILD_SETTING = "";
@@ -1244,7 +1272,6 @@
 				ARCHS = (
 					i386,
 					ppc,
-					ppc64,
 					x86_64,
 				);
 				BUILD_SETTING = "";
@@ -1283,7 +1310,9 @@
 				ARCHS = (
 					i386,
 					ppc,
+					x86_64,
 				);
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				EXPORTED_SYMBOLS_FILE = "";
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -1303,7 +1332,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireFamily;
-				MODULE_VERSION = 3.4.9;
+				MODULE_VERSION = 4.1.7;
 				OTHER_CFLAGS = (
 					"-DIOFIREWIREDEBUG=1",
 					"-DIOFIREWIREUSERCLIENTDEBUG=1",
@@ -1318,7 +1347,7 @@
 				PRODUCT_NAME = IOFireWireFamily;
 				PUBLIC_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/Headers/IOKit/$(KEXT_FAMILY_NAME)";
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc7400 ppc970 i386 ppc";
+				VALID_ARCHS = "ppc7400 ppc970 i386 ppc x86_64";
 				WARNING_CFLAGS = (
 					"-W",
 					"-Wall",
@@ -1338,7 +1367,9 @@
 				ARCHS = (
 					i386,
 					ppc,
+					x86_64,
 				);
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				EXPORTED_SYMBOLS_FILE = "";
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_CPP_EXCEPTIONS = NO;
@@ -1355,7 +1386,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireFamily;
-				MODULE_VERSION = 3.4.9;
+				MODULE_VERSION = 4.1.7;
 				OTHER_CFLAGS = (
 					"-DIOFIREWIREDEBUG=0",
 					"-DIOFIREWIREUSERCLIENTDEBUG=0",
@@ -1370,7 +1401,7 @@
 				PRODUCT_NAME = IOFireWireFamily;
 				PUBLIC_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/Headers/IOKit/$(KEXT_FAMILY_NAME)";
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc7400 ppc970 i386 ppc";
+				VALID_ARCHS = "ppc7400 ppc970 i386 ppc x86_64";
 				WARNING_CFLAGS = (
 					"-W",
 					"-Wall",
@@ -1390,7 +1421,9 @@
 				ARCHS = (
 					i386,
 					ppc,
+					x86_64,
 				);
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				EXPORTED_SYMBOLS_FILE = "";
 				FIRELOG = 1;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -1400,7 +1433,7 @@
 				GCC_PREPROCESSOR_DEFINITIONS = FIREWIREPRIVATE;
 				GCC_USE_GCC3_PFE_SUPPORT = YES;
 				HEADER_SEARCH_PATHS = "";
-				INFOPLIST_FILE = "Info-IOFireWireFamily.plist";
+				INFOPLIST_FILE = "Info-IOFireWireFamily-FireLog.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/";
 				KERNEL_MODULE = YES;
@@ -1408,7 +1441,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireFamily;
-				MODULE_VERSION = 3.4.9;
+				MODULE_VERSION = 4.1.7;
 				OTHER_CFLAGS = (
 					"-DIOFIREWIREDEBUG=1",
 					"-DIOFIREWIREUSERCLIENTDEBUG=1",
@@ -1423,7 +1456,7 @@
 				PRODUCT_NAME = IOFireWireFamily;
 				PUBLIC_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/Headers/IOKit/$(KEXT_FAMILY_NAME)";
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc7400 ppc970 i386 ppc";
+				VALID_ARCHS = "ppc7400 ppc970 i386 ppc x86_64";
 				WARNING_CFLAGS = (
 					"-W",
 					"-Wall",
@@ -1442,7 +1475,9 @@
 				ARCHS = (
 					i386,
 					ppc,
+					x86_64,
 				);
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				EXPORTED_SYMBOLS_FILE = "";
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_CPP_EXCEPTIONS = NO;
@@ -1458,7 +1493,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireFamily;
-				MODULE_VERSION = 3.4.9;
+				MODULE_VERSION = 4.1.7;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1467,7 +1502,7 @@
 				PRODUCT_NAME = IOFireWireFamily;
 				PUBLIC_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/Headers/IOKit/$(KEXT_FAMILY_NAME)";
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc7400 ppc970 i386 ppc";
+				VALID_ARCHS = "ppc7400 ppc970 i386 ppc x86_64";
 				WARNING_CFLAGS = (
 					"-W",
 					"-Wall",
@@ -1578,28 +1613,24 @@
 		4D39F6E60992E12B006C2040 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 			};
 			name = Development;
 		};
 		4D39F6E70992E12B006C2040 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 			};
 			name = Deployment;
 		};
 		4D39F6E80992E12B006C2040 /* FireLog */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 			};
 			name = FireLog;
 		};
 		4D39F6E90992E12B006C2040 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 			};
 			name = Default;
 		};

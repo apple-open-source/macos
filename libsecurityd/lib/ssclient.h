@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2007 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,6 +41,7 @@
 #include <security_utilities/osxcode.h>
 #include <security_utilities/unix++.h>
 #include <security_utilities/globalizer.h>
+#include <security_cdsa_utilities/cssmerrors.h>
 #include "ssnotify.h"
 
 
@@ -56,6 +57,12 @@ namespace SecurityServer {
 typedef struct KeyUID {
     uint8 signature[20];
 } KeyUID;
+
+
+//
+// Maximum length of hash (digest) arguments (bytes)
+//
+#define maxUcspHashLength 64
 
 
 //
@@ -119,6 +126,14 @@ public:
 	void contactName(const char *name);
 	const char *contactName() const;
 
+    static GenericHandle toIPCHandle(CSSM_HANDLE h) {
+        // implementation subject to change
+        if (h & (CSSM_HANDLE(~0) ^ GenericHandle(~0)))
+            CssmError::throwMe(CSSM_ERRCODE_INVALID_CONTEXT_HANDLE);
+        return h & GenericHandle(~0);
+    }
+
+
 public:
 	//
 	// common database interface
@@ -166,7 +181,9 @@ public:
         const AccessCredentials *cred, const AclEntryInput *owner,
         const DBParameters &params);
 	DbHandle cloneDbForSync(const CssmData &secretsBlob, DbHandle srcDb, 
-		const CssmData &agentData);
+							const CssmData &agentData);
+	DbHandle recodeDbForSync(DbHandle dbToClone, DbHandle srcDb);
+	DbHandle authenticateDbsForSync(const CssmData &dbHandleArray, const CssmData &agentData);
     void commitDbForSync(DbHandle srcDb, DbHandle cloneDb, CssmData &blob, Allocator &alloc);
 	DbHandle decodeDb(const DLDbIdentifier &dbId,
         const AccessCredentials *cred, const CssmData &blob);
@@ -372,7 +389,7 @@ public:
 	mach_port_t hostingPort(pid_t pid);
 	
 	SecGuestRef createGuest(SecGuestRef host,
-		uint32_t status, const char *path, const CssmData &attributes, SecCSFlags flags);
+		uint32_t status, const char *path, const CssmData &cdhash, const CssmData &attributes, SecCSFlags flags);
 	void setGuestStatus(SecGuestRef guest, uint32 status, const CssmData &attributes);
 	void removeGuest(SecGuestRef host, SecGuestRef guest);
 	

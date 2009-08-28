@@ -1,4 +1,4 @@
-.\" Copyright (c) 2005-2008 Apple Inc.
+.\" Copyright (c) 2005-2007 Apple Inc.
 .\" All rights reserved.
 .\"
 .\" Redistribution and use in source and binary forms, with or without
@@ -884,6 +884,18 @@ Note that root (administrator) access is required
 to set or change the master filter mask,
 and that only root may change a per-client remote-control filter mask
 for a root (UID 0) process.
+.Pp
+The per-process remote control filter value is kept as a state value
+associated with a key managed by
+.Nm notifyd .
+The key is protected by an access control mechanism that only permits the
+filter value to be accessed and modified by the same effective UID as the
+ASL client at the time that the first ASL connection was created.
+Remote filter control using 
+.Nm syslog Fl c 
+will fail for processes that change effective UID after starting an ASL connection.
+Those processes should close all ASL client handles and then re-open ASL connections
+if remote filter control support is desired.
 .Sh HISTORY
 These functions first appeared in
 Mac OS X 10.4.

@@ -84,6 +84,7 @@ main(int argc, char *argv[])
 	addarg("cc");
 	addarg("-std=iso9899:1990");
 	addarg("-pedantic");
+	addarg("-m32");
 	for (i = 1; i < optind; i++) {
 	  /* "--" indicates end of options. Radar 3761967.  */
 	  if (strcmp (argv[i], "--") == 0)
@@ -129,8 +130,8 @@ main(int argc, char *argv[])
 			}
 		}
 		else if (strcmp (argv[i], "-L") == 0 && i+1 < argc) {
-		    combine_and_addarg(argv[i], argv[++i]);
-		    i++;
+		    combine_and_addarg(argv[i], argv[i+1]);
+		    i+=2;
 		}
 		else if (strcmp (argv[i], "--") == 0) {
 		  dash_dash_seen = 1;

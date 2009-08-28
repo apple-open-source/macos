@@ -179,7 +179,6 @@ static int find_dot_all (const char *);
 		}
 
 <IN_STRING>{GRAPHIC}*"[\"\"\"]" {
-		   int n;
 		   resize_tempbuf (yyleng-4+tempbuf_len+1);
 		   strncpy (tempbuf+tempbuf_len, yytext, yyleng-6);
 		   tempbuf[yyleng-5+tempbuf_len] = '"';
@@ -745,7 +744,6 @@ name_lookup (char *name0, char *err_name, int *token_type, int depth)
 	    {
 	      /* First check to see if we have a regular definition of this
 		 type that just didn't happen to have been read yet.  */
-	      int ntypes;
 	      struct symbol *sym;
 	      char *expanded_name = 
 		(char *) alloca (strlen (name) + sizeof ("standard__"));

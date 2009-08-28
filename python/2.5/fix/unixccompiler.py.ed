@@ -1,0 +1,17 @@
+/if stripArch:/s//if stripArch or 'ARCHFLAGS' in os.environ:/
+/if stripSysroot:/i
+    if 'ARCHFLAGS' in os.environ and not stripArch:
+        # User specified different -arch flags in the environ,
+        # see also distutils.sysconfig
+        compiler_so = compiler_so + os.environ['ARCHFLAGS'].split()
+
+.
+/if target_lang == "c++"/+1c
+                    i = 0
+                    if os.path.basename(linker[0]) == "env":
+                        i = 1
+                        while '=' in linker[i]:
+                            i = i + 1
+                    linker[i] = self.compiler_cxx[0]
+.
+w

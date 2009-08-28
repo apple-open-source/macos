@@ -62,6 +62,7 @@ static const struct arch_flag arch_flags[] = {
     { "m88k",   CPU_TYPE_MC88000, CPU_SUBTYPE_MC88000_ALL },
     { "i860",   CPU_TYPE_I860,    CPU_SUBTYPE_I860_ALL },
     { "veo",    CPU_TYPE_VEO,     CPU_SUBTYPE_VEO_ALL },
+    { "arm",    CPU_TYPE_ARM,     CPU_SUBTYPE_ARM_ALL },
     /* specific architecture implementations */
     { "ppc601", CPU_TYPE_POWERPC, CPU_SUBTYPE_POWERPC_601 },
     { "ppc603", CPU_TYPE_POWERPC, CPU_SUBTYPE_POWERPC_603 },
@@ -89,6 +90,10 @@ static const struct arch_flag arch_flags[] = {
     { "veo2",   CPU_TYPE_VEO,     CPU_SUBTYPE_VEO_2 },
     { "veo3",   CPU_TYPE_VEO,     CPU_SUBTYPE_VEO_3 },
     { "veo4",   CPU_TYPE_VEO,     CPU_SUBTYPE_VEO_4 },
+    { "armv4t", CPU_TYPE_ARM,     CPU_SUBTYPE_ARM_V4T},
+    { "armv5",  CPU_TYPE_ARM,     CPU_SUBTYPE_ARM_V5TEJ},
+    { "xscale", CPU_TYPE_ARM,     CPU_SUBTYPE_ARM_XSCALE},
+    { "armv6",  CPU_TYPE_ARM,     CPU_SUBTYPE_ARM_V6 },
     { NULL,	0,		  0 }
 };
 
@@ -105,7 +110,7 @@ get_arch_from_flag(
 char *name,
 struct arch_flag *arch_flag)
 {
-    unsigned long i;
+    uint32_t i;
 
 	for(i = 0; arch_flags[i].name != NULL; i++){
 	    if(strcmp(arch_flags[i].name, name) == 0){
@@ -144,7 +149,7 @@ get_arch_name_from_types(
 cpu_type_t cputype,
 cpu_subtype_t cpusubtype)
 {
-    unsigned long i;
+    uint32_t i;
     char *p;
 
 	for(i = 0; arch_flags[i].name != NULL; i++){
@@ -174,7 +179,7 @@ const struct arch_flag *
 get_arch_family_from_cputype(
 cpu_type_t cputype)
 {
-    unsigned long i;
+    uint32_t i;
 
 	for(i = 0; arch_flags[i].name != NULL; i++){
 	    if(arch_flags[i].cputype == cputype)
@@ -204,7 +209,8 @@ const struct arch_flag *flag)
       flag->cputype == CPU_TYPE_I860 ||
       flag->cputype == CPU_TYPE_VEO)
         return BIG_ENDIAN_BYTE_SEX;
-    else if(flag->cputype == CPU_TYPE_I386)
+    else if(flag->cputype == CPU_TYPE_I386 ||
+	    flag->cputype == CPU_TYPE_ARM)
         return LITTLE_ENDIAN_BYTE_SEX;
     else
         return UNKNOWN_BYTE_SEX;
@@ -217,7 +223,7 @@ const struct arch_flag *flag)
  * specified cputype and cpusubtype if known.  If unknown it returns 0.
  */
 __private_extern__
-long
+int
 get_stack_direction_from_flag(
 const struct arch_flag *flag)
 {
@@ -227,7 +233,8 @@ const struct arch_flag *flag)
       flag->cputype == CPU_TYPE_I386 ||
       flag->cputype == CPU_TYPE_SPARC ||
       flag->cputype == CPU_TYPE_I860 ||
-      flag->cputype == CPU_TYPE_VEO)
+      flag->cputype == CPU_TYPE_VEO ||
+      flag->cputype == CPU_TYPE_ARM)
         return(-1);
     else if(flag->cputype == CPU_TYPE_HPPA)
         return(+1);
@@ -254,9 +261,10 @@ const struct arch_flag *flag)
 	return(0xffffe000);
     case CPU_TYPE_POWERPC:
     case CPU_TYPE_VEO:
-	return(0xc0000000);
     case CPU_TYPE_I386:
 	return(0xc0000000);
+    case CPU_TYPE_ARM:
+	return(0x30000000);
     case CPU_TYPE_SPARC:
 	return(0xf0000000);
     case CPU_TYPE_I860:
@@ -280,7 +288,7 @@ const struct arch_flag *flag)
  * address space the common value of 64meg was chosen.
  */
 __private_extern__
-unsigned long
+uint32_t
 get_stack_size_from_flag(
 const struct arch_flag *flag)
 {
@@ -297,7 +305,7 @@ const struct arch_flag *flag)
  * get_segalign_from_flag() returns the default segment alignment (page size).
  */
 __private_extern__
-unsigned long
+uint32_t
 get_segalign_from_flag(
 const struct arch_flag *flag)
 {
@@ -305,7 +313,8 @@ const struct arch_flag *flag)
 	   flag->cputype == CPU_TYPE_POWERPC64 ||
 	   flag->cputype == CPU_TYPE_VEO ||
 	   flag->cputype == CPU_TYPE_I386 ||
-	   flag->cputype == CPU_TYPE_X86_64)
+	   flag->cputype == CPU_TYPE_X86_64 ||
+	   flag->cputype == CPU_TYPE_ARM)
 	    return(0x1000); /* 4K */
 	else
 	    return(0x2000); /* 8K */
@@ -323,6 +332,21 @@ const struct arch_flag *flag)
 	    return(VM_PROT_READ | VM_PROT_WRITE);
 	else
 	    return(VM_PROT_READ | VM_PROT_WRITE | VM_PROT_EXECUTE);
+}
+
+/*
+ * get_shared_region_size_from_flag() returns the default shared
+ * region size.
+ */
+__private_extern__
+uint32_t
+get_shared_region_size_from_flag(
+const struct arch_flag *flag)
+{
+	if(flag->cputype == CPU_TYPE_ARM)
+	   return (0x08000000);
+	else
+	   return (0x10000000);
 }
 
 /*

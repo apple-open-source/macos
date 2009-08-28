@@ -2,14 +2,14 @@
 
   digest.c -
 
-  $Author: shyouhei $
+  $Author: nobu $
   created at: Fri May 25 08:57:27 JST 2001
 
   Copyright (C) 1995-2001 Yukihiro Matsumoto
   Copyright (C) 2001-2006 Akinori MUSHA
 
   $RoughId: digest.c,v 1.16 2001/07/13 15:38:27 knu Exp $
-  $Id: digest.c 13176 2007-08-22 01:16:17Z shyouhei $
+  $Id: digest.c 12800 2007-07-15 13:24:51Z nobu $
 
 ************************************************/
 

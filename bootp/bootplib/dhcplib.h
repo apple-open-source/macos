@@ -2,7 +2,7 @@
 #ifndef _S_DHCPLIB_H
 #define _S_DHCPLIB_H
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000 - 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,15 +33,6 @@
 void	dhcp_print_packet(struct dhcp *dp, int pkt_len);
 void	dhcp_fprint_packet(FILE * f, struct dhcp *dp, int pkt_len);
 
-static __inline__ struct timeval
-timeval_from_secs(dhcp_time_secs_t secs)
-{
-    struct timeval tv;
-    tv.tv_sec = secs;
-    tv.tv_usec = 0;
-    return (tv);
-}
-
 /*
  * Function: is_dhcp_packet
  *
@@ -68,7 +59,7 @@ is_dhcp_packet(dhcpol_t * options, dhcp_msgtype_t * msgtype)
 }
 
 boolean_t
-dhcp_packet_match(struct bootp * packet, unsigned long xid, 
+dhcp_packet_match(struct bootp * packet, u_int32_t xid, 
 		  u_char hwtype, void * hwaddr, int hwlen);
 
 #endif _S_DHCPLIB_H

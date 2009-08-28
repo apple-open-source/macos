@@ -109,7 +109,7 @@ void pptp_ip_input(mbuf_t m, int len)
     u_int8_t 		*d, i;
     d = mtod(m, u_int8_t *);
     for (i = 0; i < 64; i+=16) {
-    log(LOGVAL, "pptp_ip_input: data 0x %x %x %x %x %x %x %x %x - %x %x %x %x %x %x %x %x\n",
+    IOLog("pptp_ip_input: data 0x %x %x %x %x %x %x %x %x - %x %x %x %x %x %x %x %x\n",
         d[i+0],d[i+1],d[i+2],d[i+3],d[i+4],d[i+5], d[i+6], d[i+7],
         d[i+8], d[i+9], d[i+10], d[i+11], d[i+12], d[i+13], d[i+14], d[i+15]);
     }
@@ -117,7 +117,7 @@ void pptp_ip_input(mbuf_t m, int len)
 
 	if (mbuf_len(m) < sizeof(struct ip) && 
 		mbuf_pullup(&m, sizeof(struct ip))) {
-			log(LOGVAL, "pptp_ip_input: cannot pullup ip header\n");
+			IOLog("pptp_ip_input: cannot pullup ip header\n");
 			return;
 	}
 
@@ -156,7 +156,7 @@ int pptp_ip_output(mbuf_t m, u_int32_t from, u_int32_t to)
 
     d = mtod(m, u_int8_t *);
     for (i = 0; i < 64; i+=16) {
-    log(LOGVAL, "pptp_ip_output: data 0x %x %x %x %x %x %x %x %x - %x %x %x %x %x %x %x %x\n",
+    IOLog("pptp_ip_output: data 0x %x %x %x %x %x %x %x %x - %x %x %x %x %x %x %x %x\n",
         d[i+0],d[i+1],d[i+2],d[i+3],d[i+4],d[i+5], d[i+6], d[i+7],
         d[i+8], d[i+9], d[i+10], d[i+11], d[i+12], d[i+13], d[i+14], d[i+15]);
     }

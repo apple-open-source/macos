@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2003-2006, International Business Machines
+*   Copyright (C) 2003-2007, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -76,16 +76,18 @@ CnvExtOpen(UCMFile *ucm) {
     CnvExtData *extData;
     
     extData=(CnvExtData *)uprv_malloc(sizeof(CnvExtData));
-    if(extData!=NULL) {
-        uprv_memset(extData, 0, sizeof(CnvExtData));
-
-        extData->ucm=ucm; /* aliased, not owned */
-
-        extData->newConverter.close=CnvExtClose;
-        extData->newConverter.isValid=CnvExtIsValid;
-        extData->newConverter.addTable=CnvExtAddTable;
-        extData->newConverter.write=CnvExtWrite;
+    if(extData==NULL) {
+        printf("out of memory\n");
+        exit(U_MEMORY_ALLOCATION_ERROR);
     }
+    uprv_memset(extData, 0, sizeof(CnvExtData));
+
+    extData->ucm=ucm; /* aliased, not owned */
+
+    extData->newConverter.close=CnvExtClose;
+    extData->newConverter.isValid=CnvExtIsValid;
+    extData->newConverter.addTable=CnvExtAddTable;
+    extData->newConverter.write=CnvExtWrite;
     return &extData->newConverter;
 }
 
@@ -128,7 +130,7 @@ CnvExtWrite(NewConverter *cnvData, const UConverterStaticData *staticData,
             extData->ucm->baseName[length++]=0;
         }
 
-        headerSize=sizeof(header)+length;
+        headerSize=MBCS_HEADER_V4_LENGTH*4+length;
 
         /* fill the header */
         header.version[0]=4;
@@ -136,7 +138,7 @@ CnvExtWrite(NewConverter *cnvData, const UConverterStaticData *staticData,
         header.flags=(uint32_t)((headerSize<<8)|MBCS_OUTPUT_EXT_ONLY);
 
         /* write the header and the base table name */
-        udata_writeBlock(pData, &header, sizeof(header));
+        udata_writeBlock(pData, &header, MBCS_HEADER_V4_LENGTH*4);
         udata_writeBlock(pData, extData->ucm->baseName, length);
     }
 
@@ -287,8 +289,10 @@ CnvExtWrite(NewConverter *cnvData, const UConverterStaticData *staticData,
 /*
  * Remove fromUnicode fallbacks and SUB mappings which are irrelevant for
  * the toUnicode table.
+ * This includes mappings with MBCS_FROM_U_EXT_FLAG which were suitable
+ * for the base toUnicode table but not for the base fromUnicode table.
  * The table must be sorted.
- * Destroys previous data in the reverseMap.
+ * Modifies previous data in the reverseMap.
  */
 static int32_t
 reduceToUMappings(UCMTable *table) {
@@ -439,15 +443,22 @@ generateToUTable(CnvExtData *extData, UCMTable *table,
 
     /* step 2: allocate the section; set count, section */
     count=(high-low)+1;
-    if(unitIndex==0 || uniqueCount>=(3*count)/4) {
+    if(count<0x100 && (unitIndex==0 || uniqueCount>=(3*count)/4)) {
         /*
          * for the root table and for fairly full tables:
          * allocate for direct, linear array access
          * by keeping count, to write an entry for each unit value
          * from low to high
+         * exception: use a compact table if count==0x100 because
+         * that cannot be encoded in the length byte
          */
     } else {
         count=uniqueCount;
+    }
+
+    if(count>=0x100) {
+        fprintf(stderr, "error: toUnicode extension table section overflow: %ld section entries\n", (long)count);
+        return FALSE;
     }
 
     /* allocate the section: 1 entry for the header + count for the items */
@@ -563,6 +574,7 @@ makeToUTable(CnvExtData *extData, UCMTable *table) {
 /*
  * Remove toUnicode fallbacks and non-<subchar1> SUB mappings
  * which are irrelevant for the fromUnicode extension table.
+ * Remove MBCS_FROM_U_EXT_FLAG bits.
  * Overwrite the reverseMap with an index array to the relevant mappings.
  * Modify the code point sequences to a generator-friendly format where
  * the first code points remains unchanged but the following are recoded
@@ -589,6 +601,10 @@ prepareFromUMappings(UCMTable *table) {
 
     for(i=j=0; i<count; ++m, ++i) {
         flag=m->f;
+        if(flag>=0) {
+            flag&=MBCS_FROM_U_EXT_MASK;
+            m->f=flag;
+        }
         if(flag==0 || flag==1 || (flag==2 && m->bLen==1)) {
             map[j++]=i;
 
@@ -1058,4 +1074,3 @@ CnvExtAddTable(NewConverter *cnvData, UCMTable *table, UConverterStaticData *sta
         makeToUTable(extData, table) &&
         makeFromUTable(extData, table);
 }
-

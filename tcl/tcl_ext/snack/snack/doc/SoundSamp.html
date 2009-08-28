@@ -1,0 +1,44 @@
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+   <meta name="GENERATOR" content="Mozilla/4.72 [en] (X11; U; Linux 2.2.14-5.0 i686) [Netscape]">
+   <meta name="Author" content="Kåre Sjölander">
+   <title>SoundSamp</title>
+</head>
+<body>
+
+<h3>
+NAME</h3>
+Snack_GetSample, Snack_SetSample - macros to set/get sample values of Snack
+sound objects
+<h3>
+SYNOPSIS</h3>
+#include &lt;snack.h>
+<br><b>Snack_GetSample</b>(sound, channel, index)
+<br><b>Snack_SetSample</b>(sound, channel, index, value)
+<h3>
+ARGUMENTS</h3>
+Sound *sound (in)
+<br>&nbsp;&nbsp;&nbsp; A pointer to a sound object to query or modify
+<br>int channel (in)
+<br>&nbsp;&nbsp;&nbsp; A positive index selecting a channel. 0 = left,
+1 = right.
+<br>int index (in)
+<br>&nbsp;&nbsp;&nbsp; A positive index pointing to a sound sample
+<br>float value (in)
+<br>&nbsp;&nbsp;&nbsp; The sample value as a float.
+<h3>
+DESCRIPTION</h3>
+The following functions are implemented as macros for performance reasons.
+<b>Snack_GetSample</b>
+returns the sample value at <i>index</i> of <i>channel</i>.
+<b>Snack_SetSample</b>
+sets the sample at <i>index</i> of <i>channel</i> to <i>value</i>. No check
+is made that
+<i>index, channel</i> or <i>value</i> are valid values. These
+functions work only with memory resident sounds (SOUND_IN_MEMORY ). Block
+transfers can be accomplished more efficiently using the functions Snack_PutSoundData
+and Snack_GetSoundData.
+</body>
+</html>

@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2007, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2008, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -20,18 +20,16 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: setup.h,v 1.50 2007-02-28 14:45:49 yangtse Exp $
+ * $Id: setup.h,v 1.58 2008-09-05 01:27:24 yangtse Exp $
  ***************************************************************************/
 
 #define CURL_NO_OLDIES
 
-#if !defined(WIN32) && defined(__WIN32__)
-/* Borland fix */
-#define WIN32
-#endif
+/*
+ * Define WIN32 when build target is Win32 API
+ */
 
-#if !defined(WIN32) && defined(_WIN32)
-/* VS2005 on x64 fix */
+#if (defined(_WIN32) || defined(__WIN32__)) && !defined(WIN32) && !defined(__SYMBIAN32__)
 #define WIN32
 #endif
 
@@ -48,8 +46,8 @@
 #include "config-win32.h"
 #endif
 
-#ifdef macintosh
-#include "config-mac.h"
+#if defined(macintosh) && defined(__MRC__)
+#  include "config-mac.h"
 #endif
 
 #ifdef __riscos__
@@ -58,6 +56,10 @@
 
 #ifdef __AMIGA__
 #include "config-amigaos.h"
+#endif
+
+#ifdef __SYMBIAN32__
+#include "config-symbian.h"
 #endif
 
 #ifdef TPF
@@ -70,11 +72,16 @@
 
 #endif /* HAVE_CONFIG_H */
 
-#if defined(CURLDEBUG) && defined(CURLTOOLDEBUG)
-/* This is an ugly hack for CURLDEBUG conditions only. We need to include
-   the file here, since it might set the _FILE_OFFSET_BITS define, which must
-   be set BEFORE all normal system headers. */
-#include "../lib/setup.h"
+/*
+ * Tru64 needs _REENTRANT set for a few function prototypes and
+ * things to appear in the system header files. Unixware needs it
+ * to build proper reentrant code. Others may also need it.
+ */
+
+#ifdef NEED_REENTRANT
+#  ifndef _REENTRANT
+#    define _REENTRANT
+#  endif
 #endif
 
 /* 
@@ -176,8 +183,8 @@ int fileno( FILE *stream);
 #define typedef_bool
 #endif
 
-#ifndef SIZEOF_CURL_OFF_T
-#define SIZEOF_CURL_OFF_T sizeof(curl_off_t)
+#if (defined(NETWARE) && !defined(__NOVELL_LIBC__))
+#include <sys/timeval.h>
 #endif
 
 #ifndef UNPRINTABLE_CHAR

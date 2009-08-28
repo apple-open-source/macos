@@ -1,4 +1,4 @@
-# $Id: 02parse.t,v 1.1.1.1 2004/05/20 17:55:25 jpetri Exp $
+# $Id: 02parse.t,v 1.1.1.2 2007/10/10 23:04:15 ahuda Exp $
 
 ##
 # this test checks the parsing capabilities of XML::LibXML
@@ -9,10 +9,10 @@ use IO::File;
 
 BEGIN { use XML::LibXML;
     if ( XML::LibXML::LIBXML_VERSION >= 20600 ) {
-        plan tests => 472; 
+        plan tests => 478; 
     }
     else {
-        plan tests => 464;
+        plan tests => 470;
         print "# skip NS cleaning tests\n";
     }
 };
@@ -29,7 +29,7 @@ my @goodWFStrings = (
 '<foobar/>',
 '<foobar></foobar>',
 XML_DECL . "<foobar></foobar>",
-'<?xml version="1.0" encoding="UTF8"?>'."\n<foobar></foobar>",
+'<?xml version="1.0" encoding="UTF-8"?>'."\n<foobar></foobar>",
 '<?xml version="1.0" encoding="ISO-8859-1"?>'."\n<foobar></foobar>",
 XML_DECL. "<foobar> </foobar>\n",
 XML_DECL. '<foobar><foo/></foobar> ',
@@ -91,8 +91,8 @@ single2 => ['<foobar>','</foobar>'],
 single3 => [ XML_DECL, "<foobar>", "</foobar>" ],
 single4 => ["<foo", "bar/>"],
 single5 => ["<", "foo","bar", "/>"],
-single6 => ['<?xml version="1.0" encoding="UTF8"?>',"\n<foobar/>"],
-single7 => ['<?xml',' version="1.0" ','encoding="UTF8"?>',"\n<foobar/>"],
+single6 => ['<?xml version="1.0" encoding="UTF-8"?>',"\n<foobar/>"],
+single7 => ['<?xml',' version="1.0" ','encoding="UTF-8"?>',"\n<foobar/>"],
 single8 => ['<foobar', ' foo=', '"bar"', '/>'],
 single9 => ['<?xml',' versio','n="1.0" ','encodi','ng="U','TF8"?>',"\n<foobar/>"],
 multiple1 => [ '<foobar>','<foo/>','</foobar> ', ],
@@ -827,6 +827,74 @@ if ( XML::LibXML::LIBXML_VERSION >= 20600 )
     ok( $doc->documentElement->toString() , 
         $xsDoc2 );
 }
+
+
+##
+# test if external subsets are loaded correctly
+
+{
+        my $xmldoc = <<EOXML;
+<!DOCTYPE X SYSTEM "example/ext_ent.dtd">
+<X>&foo;</X>
+EOXML
+        my $parser = XML::LibXML->new();
+        
+        $parser->load_ext_dtd(1);
+
+        # first time it should work
+        my $doc    = $parser->parse_string( $xmldoc );
+        ok( $doc->documentElement()->string_value(), " test " );
+
+        # second time it must not fail.        
+        my $doc2   = $parser->parse_string( $xmldoc );
+        ok( $doc2->documentElement()->string_value(), " test " );
+}
+
+##
+# Test ticket #7668 xinclude breaks entity expansion 
+# [CG] removed again, since #7668 claims the spec is incorrect
+
+##
+# Test ticket #7913
+{
+        my $xmldoc = <<EOXML;
+<!DOCTYPE X SYSTEM "example/ext_ent.dtd">
+<X>&foo;</X>
+EOXML
+        my $parser = XML::LibXML->new();
+        
+        $parser->load_ext_dtd(1);
+
+        # first time it should work
+        my $doc    = $parser->parse_string( $xmldoc );
+        ok( $doc->documentElement()->string_value(), " test " );
+
+        # lets see if load_ext_dtd(0) works
+        $parser->load_ext_dtd(0);
+        my $doc2;
+        eval {
+           $doc2    = $parser->parse_string( $xmldoc );
+        };
+        ok($@);
+
+        $parser->validation(1);
+
+        $parser->load_ext_dtd(0);
+        my $doc3;
+        eval {
+           $doc3 = $parser->parse_file( "example/article_external_bad.xml" );
+        };
+        
+        ok( $doc3 );
+
+        $parser->load_ext_dtd(1);
+        eval {
+           $doc3 = $parser->parse_file( "example/article_external_bad.xml" );
+        };
+        
+        ok( $@);
+}
+
 
 sub tsub {
     my $doc = shift;

@@ -18,7 +18,6 @@
 #import "IOFireWireLibIsochPort.h"
 #import "IOFireWireLibDCLCommandPool.h"
 #import "IOFireWireLibNuDCLPool.h"
-#import "IOFireWireLibBufferFillIsochPort.h"
 #import "IOFireWireLibAsyncStreamListener.h"
 #import "IOFireWireLibIRMAllocation.h"
 #import "IOFireWireLibVectorCommand.h"
@@ -1309,7 +1308,7 @@ namespace IOFireWireLib {
 		if (text && (kIOReturnSuccess == result))
 			*text = CFStringCreateWithCString(kCFAllocatorDefault, textBuffer, kCFStringEncodingASCII) ;
 		
-		delete textBuffer ;
+		delete[] textBuffer ;
 	
 		return result ;
 	}
@@ -1341,7 +1340,7 @@ namespace IOFireWireLib {
 		if (!data)
 			result = kIOReturnNoMemory ;
 			
-		delete buffer ;
+		delete[] buffer ;
 		
 		return result ;
 	}
@@ -2530,23 +2529,6 @@ namespace IOFireWireLib {
 		return result ;
 	}
 	
-	IOFireWireLibBufferFillIsochPortRef
-	DeviceCOM::S_CreateBufferFillIsochPort( IOFireWireLibDeviceRef self, UInt32 interruptMicroseconds, 
-			UInt32 numRanges, IOVirtualRange* ranges, REFIID iid )
-	{
-		IOFireWireLibBufferFillIsochPortRef	result = 0 ;
-		
-		IUnknownVTbl** iUnknown = BufferFillIsochPortCOM::Alloc( *IOFireWireIUnknown::InterfaceMap<DeviceCOM>::GetThis(self),
-				interruptMicroseconds, numRanges, ranges ) ;
-		if (iUnknown)
-		{
-			(*iUnknown)->QueryInterface(iUnknown, iid, (void**) & result) ;
-			(*iUnknown)->Release(iUnknown) ;
-		}
-	
-		return result ;
-	}
-
 	IOFireWireSessionRef
 	DeviceCOM::S_GetSessionRef( IOFireWireLibDeviceRef self )
 	{

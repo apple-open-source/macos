@@ -1,5 +1,5 @@
 %define name	nano
-%define version	2.0.1
+%define version	2.0.6
 %define release	1
 
 Summary	: Pico editor clone with enhancements

@@ -1,5 +1,5 @@
 #
-#  $Id: tc_subclass.rb 2093 2007-10-25 14:43:46Z lrz $
+#  $Id: tc_subclass.rb 2205 2008-05-29 13:39:38Z kimuraw $
 #
 #  Copyright (c) 2005-2006 kimura wataru
 #  Copyright (c) 2001-2002 FUJIMOTO Hisakuni

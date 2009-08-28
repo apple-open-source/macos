@@ -264,7 +264,7 @@ public:
 
     void positionOverflowControls(int tx, int ty);
     bool isPointInResizeControl(const IntPoint& absolutePoint) const;
-    bool hitTestOverflowControls(HitTestResult&);
+    bool hitTestOverflowControls(HitTestResult&, const IntPoint& localPoint);
     IntSize offsetFromResizeCorner(const IntPoint& absolutePoint) const;
 
     void paintOverflowControls(GraphicsContext*, int tx, int ty, const IntRect& damageRect);
@@ -289,9 +289,19 @@ public:
     // Allows updates of layer content without repainting.
     void rendererContentChanged();
 #endif
+
+    // Returns true if the accelerated compositing is enabled
+    bool hasAcceleratedCompositing() const;
     
     void updateLayerPosition();
-    void updateLayerPositions(bool doFullRepaint = false, bool checkForRepaint = true);
+    
+    enum UpdateLayerPositionsFlag {
+        DoFullRepaint = 1,
+        CheckForRepaint = 1 << 1,
+        UpdateCompositingLayers = 1 << 2,
+    };
+    typedef unsigned UpdateLayerPositionsFlags;
+    void updateLayerPositions(UpdateLayerPositionsFlags = DoFullRepaint | UpdateCompositingLayers);
 
     void updateTransform();
 
@@ -372,6 +382,7 @@ public:
 
     // Return a cached repaint rect, computed relative to the layer renderer's containerForRepaint.
     IntRect repaintRect() const { return m_repaintRect; }
+    void computeRepaintRects();
     void setNeedsFullRepaint(bool f = true) { m_needsFullRepaint = f; }
     
     int staticX() const { return m_staticX; }
@@ -438,11 +449,20 @@ private:
     void collectLayers(Vector<RenderLayer*>*&, Vector<RenderLayer*>*&);
 
     void updateLayerListsIfNeeded();
+    void updateCompositingAndLayerListsIfNeeded();
     
+    enum PaintLayerFlag {
+        PaintLayerHaveTransparency = 1,
+        PaintLayerAppliedTransform = 1 << 1,
+        PaintLayerTemporaryClipRects = 1 << 2,
+        PaintLayerPaintingReflection = 1 << 3
+    };
+    
+    typedef unsigned PaintLayerFlags;
+
     void paintLayer(RenderLayer* rootLayer, GraphicsContext*, const IntRect& paintDirtyRect,
-                    bool haveTransparency, PaintRestriction, RenderObject* paintingRoot,
-                    RenderObject::OverlapTestRequestMap* = 0,
-                    bool appliedTransform = false, bool temporaryClipRects = false);
+                    PaintRestriction, RenderObject* paintingRoot, RenderObject::OverlapTestRequestMap* = 0,
+                    PaintLayerFlags paintFlags = 0);
 
     RenderLayer* hitTestLayer(RenderLayer* rootLayer, RenderLayer* containerLayer, const HitTestRequest& request, HitTestResult& result,
                             const IntRect& hitTestRect, const IntPoint& hitTestPoint, bool appliedTransform,
@@ -458,11 +478,18 @@ private:
 
     bool shouldBeNormalFlowOnly() const; 
 
+    // ScrollBarClient interface
     virtual void valueChanged(Scrollbar*);
     virtual void invalidateScrollbarRect(Scrollbar*, const IntRect&);
     virtual bool isActive() const;
     virtual bool scrollbarCornerPresent() const;
-
+    virtual IntRect convertFromScrollbarToContainingView(const Scrollbar*, const IntRect&) const;
+    virtual IntRect convertFromContainingViewToScrollbar(const Scrollbar*, const IntRect&) const;
+    virtual IntPoint convertFromScrollbarToContainingView(const Scrollbar*, const IntPoint&) const;
+    virtual IntPoint convertFromContainingViewToScrollbar(const Scrollbar*, const IntPoint&) const;
+    
+    IntSize scrollbarOffset(const Scrollbar*) const;
+    
     void updateOverflowStatus(bool horizontalOverflow, bool verticalOverflow);
 
     void childVisibilityChanged(bool newVisibility);
@@ -482,6 +509,7 @@ private:
     void createReflection();
     void updateReflectionStyle();
     bool paintingInsideReflection() const { return m_paintingInsideReflection; }
+    void setPaintingInsideReflection(bool b) { m_paintingInsideReflection = b; }
     
     void parentClipRects(const RenderLayer* rootLayer, ClipRects&, bool temporaryClipRects = false) const;
 
@@ -497,8 +525,8 @@ private:
     bool hasCompositingDescendant() const { return m_hasCompositingDescendant; }
     void setHasCompositingDescendant(bool b)  { m_hasCompositingDescendant = b; }
     
-    bool mustOverlayCompositedLayers() const { return m_mustOverlayCompositedLayers; }
-    void setMustOverlayCompositedLayers(bool b) { m_mustOverlayCompositedLayers = b; }
+    bool mustOverlapCompositedLayers() const { return m_mustOverlapCompositedLayers; }
+    void setMustOverlapCompositedLayers(bool b) { m_mustOverlapCompositedLayers = b; }
 #endif
 
 private:
@@ -591,7 +619,7 @@ protected:
                                             // in a preserves3D hierarchy. Hint to do 3D-aware hit testing.
 #if USE(ACCELERATED_COMPOSITING)
     bool m_hasCompositingDescendant : 1;
-    bool m_mustOverlayCompositedLayers : 1;
+    bool m_mustOverlapCompositedLayers : 1;
 #endif
 
     RenderMarquee* m_marquee; // Used by layers with overflow:marquee

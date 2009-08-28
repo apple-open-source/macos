@@ -427,7 +427,7 @@ int  firewire_del_if(IOFWInterface	*fwIf)
 //
 ////////////////////////////////////////////////////////////////////////////////
 __private_extern__ int
-firewire_ifmod_ioctl(ifnet_t ifp, u_long cmd, void  *data)
+firewire_ifmod_ioctl(ifnet_t ifp, unsigned long cmd, void  *data)
 {
 	int err = EOPNOTSUPP;
 	return err;

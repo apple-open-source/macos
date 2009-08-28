@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2005-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2005-2007, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,6 +35,17 @@
 #define _S_SESSION_H
 
 #include <sys/cdefs.h>
+#include <Availability.h>
+#include <TargetConditionals.h>
+
+
+#if	TARGET_OS_IPHONE
+#define	kSCWriteEntitlementName	CFSTR("com.apple.SystemConfiguration.SCDynamicStore-write-access")
+#endif	// TARGET_OS_IPHONE
+
+
+typedef	enum { UNKNOWN, NO, YES } lazyBoolean;
+
 
 /* Per client server state */
 typedef struct {
@@ -52,6 +63,15 @@ typedef struct {
 	/* credentials associated with this "open" session */
 	uid_t			callerEUID;
 
+	/* Mach security audit trailer for evaluating credentials */
+	audit_token_t		auditToken;
+
+	/* root access credential associated with this "open" session */
+	lazyBoolean		callerRootAccess;
+
+	/* write access entitlement associated with this "open" session */
+	lazyBoolean		callerWriteAccess;
+
 } serverSession, *serverSessionRef;
 
 __BEGIN_DECLS
@@ -65,7 +85,11 @@ void			removeSession	(mach_port_t	server);
 
 void			cleanupSession	(mach_port_t	server);
 
-void			listSessions	(void);
+void			listSessions	(FILE		*f);
+
+Boolean			hasRootAccess	(serverSessionRef	session);
+
+Boolean			hasWriteAccess	(serverSessionRef	session);
 
 __END_DECLS
 

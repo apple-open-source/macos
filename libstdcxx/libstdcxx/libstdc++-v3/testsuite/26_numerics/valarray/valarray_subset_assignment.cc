@@ -15,7 +15,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -35,14 +35,13 @@
 
 bool check_array(std::valarray<double>& a, double b[])
 {
-  for (int i=0; i < a.size(); i++)
+  for (unsigned int i=0; i < a.size(); i++)
     if (a[i] != b[i]) return false;
   return true;
 }
 
 int main()
 {
-  double dvar = 1.0;
   std::valarray<double> val_d(10);  //  0 1 2 3 4 5 6 7 8 9 
   std::valarray<double> val_d1(10); // 10 9 8 7 6 5 4 3 2 1
 

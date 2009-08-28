@@ -1,0 +1,51 @@
+Dear XOTcl Community,
+
+XOTcl 1.5.6 is available. This version is mostly a fix release for
+some problems that were apparently quite long in the code and could
+cause crashes for threaded applications.
+
+best regards
+-gustaf neumann
+
+Announcing XOTcl 1.5.6
+*************************
+
+We are pleased to announce the availability of XOTcl 1.5.6.
+
+Major changes relative to 1.5.4 are:
+
+   * Fixes for treating global volatile objects (many thanks to Zoran
+     for his concise reports). The problem was that XOTcl uses
+     C-level var traces containing object pointers to objects.
+     If for some reason, these objects are destroyed earlier, this
+     results in dangling references. This problem caused especially
+     problems in the automatic cleanup of variables at the end 
+     of a thread.
+
+   * Fix for Tcl 8.4.* for situations, where Tcl variables
+     contained references to deleted XOTcl objects. The problem
+     was introduced by the VarReform changes between 1.5.3 and
+     1.5.4 by a bad side effect of a Tcl_Obj based command 
+     to look up Tcl command structurs. The problem did not 
+     exist for xotcl compiled against Tcl 8.5 and is as well
+     fixed on the Tcl side in CVS (might become available,
+     when one more Tcl 8.4 release is eventually released)
+
+   * Serializer:
+      - Added dependency rule in serializer to ensure slots of
+        super-classes are listed before subclasses. (Thanks to Stefan
+        Sobernig for reporting the problem)
+
+     - Moved deactivation of traces into "Serializer all"
+        to get simpler results on "o serialize".
+
+   * Extended regression tests
+
+
+ For more details about the changes, please consult the ChangeLog and
+ documentation.
+
+MORE INFO
+  General and more detailed information about XOTcl and its components
+  can be found at http://www.xotcl.org
+

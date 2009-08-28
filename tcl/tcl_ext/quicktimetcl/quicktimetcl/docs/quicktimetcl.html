@@ -1,0 +1,210 @@
+<HTML>
+
+<HEAD>
+
+<TITLE>QuickTimeTcl Commands - quicktimetcl variables manual page</TITLE>
+
+</HEAD>
+
+<BODY>
+
+<DL>
+    <DD><A HREF="quicktimetcl.html#M1">NAME</A>    
+    <DL>
+	<DD>quicktimetcl - namespace and variables
+    </DL>    
+    <DD><A HREF="quicktimetcl.html#M2">SYNOPSIS</A>    
+    <DL>
+	<DD><B>package require QuickTimeTcl</B> ?<I>version</I>?
+    </DL>    
+    <DD><A HREF="quicktimetcl.html#M3">DESCRIPTION</A>    
+    <DD><A HREF="quicktimetcl.html#M21">COMMANDS</A>    
+    <DL>
+	<DD><A HREF="quicktimetcl.html#M20"><B>quicktimetcl::canopen</B></A>
+	<DD><A HREF="quicktimetcl.html#M30"><B>quicktimetcl::debuglevel</B></A>
+	<DD><A HREF="quicktimetcl.html#M50"><B>quicktimetcl::systemui</B></A>
+    </DL>
+    <DD><A HREF="quicktimetcl.html#M4">VARIABLES</A>
+    
+    <DL>
+	<DD><A HREF="quicktimetcl.html#M60"><B>quicktimetcl::debuglog</B></A>
+	<DD><A HREF="quicktimetcl.html#M7"><B>quicktimetcl::effectfinished</B></A>
+	<DD><A HREF="quicktimetcl.html#M6"><B>quicktimetcl::patchlevel</B></A>
+	<DD><A HREF="quicktimetcl.html#M5"><B>quicktimetcl::version</B></A>
+    </DL>
+    
+</DL>
+
+<DD><A HREF="quicktimetcl.html#M10">SEE ALSO</A> <DD><A 
+HREF="quicktimetcl.html#M11">KEYWORDS</A>
+</DL>
+
+<HR>
+
+<H3><A NAME="M1">NAME</A></H3>
+quicktimetcl - namespace that contains commands and variables specific for 
+the QuickTimeTcl package.
+
+<H3><A NAME="M2">SYNOPSIS</A></H3>
+<B>package require QuickTimeTcl</B> ?<I>version</I>?<BR>
+
+<H3><A NAME="M3">DESCRIPTION</A></H3>
+
+The QuickTimeTcl package creates the ::quicktimetcl:: namespace with 
+commands and variables. See specific documentation for the commands.
+
+<H3><A NAME="M21">COMMANDS</A></H3>
+
+<P>
+<DL>
+    
+    <P>
+    <DT><A NAME="M20"><B>quicktimetcl::canopen</B> <I>fileName</I> 
+    ?<B>-allowall 0|1 -allownewfile 0|1 -type graphics|movie</B>?</A> 
+    <DD>Returns a boolean telling if QuickTime is capable of open this file 
+    as anything useful. Note that this call can be slow since QuickTime 
+    needs to loop through all its import components to see if anyone fits.
+    <P>
+    <DL>
+	<DT> <B>-allowall</B> <I>boolean</I> </A> 
+	<DD>(Default 0) If 1 it also includes files that are not normally considered to be 
+	QuickTime files, such as text files.
+	    
+	<P>
+	<DT> <B>-allownewfile</B> <I>boolean</I> </A> 
+	<DD>(Default 0) If 1 it also includes importers that may create a new file.
+	Else only importers that import "in place" are considered.
+	    
+	<P>
+	<DT> <B>-type graphics|movie</B> </A> 
+	<DD>Restricts the search to only graphics importers or movie importers 
+	respecively. This usually speeds up the search.
+    </DL>
+    
+    <P>
+    <DT><A NAME="M30"><B>quicktimetcl::debuglevel</B> ?<I>debugLevel</I>?</A> 
+    <DD>Gets or sets the level of debug printouts. With the optional 
+    argument it returns the current debug level (defaults to 0). Hardcoded 
+    printouts start with debug level 2. Debug level 1 is reserved for your 
+    personal debugging session. 
+    
+    <P>
+    <DT><A NAME="M50"><B>quicktimetcl::systemui</B>
+    ?( <B>normal</B> | <B>contentsuppressed</B> | <B>contenthidden</B> | <B>allhidden</B> )?
+    ?<I>switches</I>?
+    </A> 
+    <DD>
+    Mac OS X only. Sets or gets the systems UI mode. Without any arguments it returns the current state.
+    Note that the system UI mode is a per-process state. Switching
+    from a process that is suppressing system UI to another process
+    that is not will cause system UI elements to become visible
+    automatically. Switching back to the first process will suppress
+    system UI elements again. The modes are:
+    
+    <P>
+    <DL>
+
+	<DT> <B>normal</B> </A> 
+	<DD>In this mode, all standard system UI elements are visible.
+	<P>
+	<DT> <B>contentsuppressed</B> </A> 
+	<DD>In this mode, system UI elements which cover the "content area" of
+	the screen (the area other than the menubar) are hidden. However,
+	these elements may automatically show themselves in response to
+	mouse movements or other user activity; specifically, the Dock
+	will still show itself automatically when the mouse moves into the
+	Dock's auto-show region.
+	<P>
+	<DT> <B>contenthidden</B> </A> 
+	<DD>In this mode, system UI elements which cover the "content area" of
+	the screen (the area other than the menubar) are hidden. Unlike
+	<B>contentsuppressed</B>, most UI elements will not automatically
+	show themselves in this mode.
+	<P>
+	<DT> <B>allhidden</B> </A> 
+	<DD>In this mode, all system UI elements, including the menubar, are
+	hidden. Most system UI elements will not automatically show
+	themselves in this mode.
+	
+    </DL>
+    
+    The switches. Note that you only supply the switches, and no values.
+    <P>
+    <DL>
+
+	<DT> <B>-autoshowmenubar</B> </A> 
+	<DD>Requests that the menubar automatically show itself when the user
+	moves the mouse into the screen area that would ordinarily be
+	occupied by the menubar. Only valid with <B>allhidden</B> mode.
+	    
+	<P>
+	<DT> <B>-disableapplemenu</B> </A> 
+	<DD>Disables all items in the Apple menu. Valid for all modes.
+	    
+	<P>
+	<DT> <B>-disableprocessswitch</B> </A> 
+	<DD>The active application may not be changed while this process is
+	active. Currently disables the Command-Tab and Command-Shift-Tab
+	key sequences to switch the active process, and the global window
+	rotation key sequence selected by the user in the Keyboard
+	preference pane.  Only valid with modes other than
+	<B>normal</B>.
+	    
+	<P>
+	<DT> <B>-disableforcequit</B> </A> 
+	<DD>The Force Quit window may not be displayed while this process is
+	active. Currently disables the Command-Option-Escape key sequence
+	to open the Force Quit window and the Force Quit menu item in the
+	Apple menu. Only valid with modes other than <B>normal</B>.
+	    
+	<P>
+	<DT> <B>-disablesessionterminate</B> </A> 
+	<DD>The current login session may not be terminated while this process
+	is active. Currently disables the Power key and the Restart, Shut
+	Down, and Log Out menu items in the Apple menu. Only valid with
+	modes other than <B>normal</B>.
+    </DL>
+</DL>
+
+<H3><A NAME="M4">VARIABLES</A></H3>
+
+<P>
+<DL>	        
+    <P>
+    <DT><A NAME="M60"><B>quicktimetcl::debuglog</B></A> <DD>Boolean
+    variable used to control if any debug output should also be written
+    to a logfile. If true debug data is written to <KBD>_QTTclDebug.txt</KBD>
+    in the current directory.
+
+    <P>
+    <DT><A NAME="M7"><B>quicktimetcl::effectfinished</B></A> <DD>Variable 
+    used in the effect dialog. It is set -1 when the <B>effect</B> command 
+    returns, and is 0 if user cancelled, 1 if user pressed the OK.
+
+    <P>
+    <DT><A NAME="M6"><B>quicktimetcl::patchlevel</B></A> <DD>Variable 
+    containing the QuickTimeTcl patchlevel. This may be a combination of the 
+    version number, and a sequence of digits and letters.
+
+    <P>
+    <DT><A NAME="M5"><B>quicktimetcl::version</B></A> <DD>Variable containing 
+    the QuickTimeTcl version number in the form <I>major</I>.<I>minor</I>.
+</DL>
+
+<H3><A NAME="M10">SEE ALSO</A></H3>
+
+<B><A HREF="movie.html">movie</A></B>, <B><A 
+HREF="seqgrabber.html">seqgrabber</A></B>, and<B> <A 
+HREF="getOpenFilePreview.html">tk_getOpenFilePreview</A></B>
+
+<H3><A NAME="M11">KEYWORDS</A></H3>
+<U><A HREF="movie.html">movie</A></U>, and <U>QuickTime</U>
+<HR>
+
+<PRE>
+Copyright &#169; 1998-1999 Bruce O'Neel 
+Copyright &#169; 2000-2004 Mats Bengtsson</PRE>
+
+</BODY>
+
+</HTML>

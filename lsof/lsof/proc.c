@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: proc.c,v 1.42 2007/04/24 16:16:59 abe Exp $";
+static char *rcsid = "$Id: proc.c,v 1.44 2008/10/21 16:22:03 abe Exp abe $";
 #endif
 
 
@@ -567,6 +567,15 @@ is_cmd_excl(cmd, pss, sf)
 	int i;
 	struct str_lst *sp;
 /*
+ * See if the command is excluded by a "-c^<command>" option.
+ */
+	if (Cmdl && Cmdnx) {
+	    for (sp = Cmdl; sp; sp = sp->next) {
+		if (sp->x && !strncmp(sp->str, cmd, sp->len))
+		    return(1);
+	    }
+	}
+/*
  * The command is not excluded if no command selection was requested,
  * or if its name matches any -c <command> specification.
  * 
@@ -574,7 +583,7 @@ is_cmd_excl(cmd, pss, sf)
 	if ((Selflags & SELCMD) == 0)
 	    return(0);
 	for (sp = Cmdl; sp; sp = sp->next) {
-	    if (strncmp(sp->str, cmd, sp->len) == 0) {
+	    if (!sp->x && !strncmp(sp->str, cmd, sp->len)) {
 		sp->f = 1;
 		*pss |= PS_PRI;
 		*sf |= SELCMD;
@@ -615,6 +624,8 @@ is_file_sel(lp, lf)
 	struct lfile *lf;		/* lfile structure pointer */
 {
 	if (!lf || !lf->sf)
+	    return(0);
+	if (Lf->sf & SELEXCLF)
 	    return(0);
 
 #if	defined(HASSECURITY) && defined(HASNOSOCKSECURITY)
@@ -828,6 +839,8 @@ is_proc_excl(pid, pgid, uid, pss, sf)
 void
 link_lfile()
 {
+	if (Lf->sf & SELEXCLF)
+	    return;
 	Lp->pss |= PS_SEC;
 	if (Plf)
 	    Plf->next = Lf;
@@ -968,7 +981,7 @@ print_proc()
 #endif	/* defined(HASZONES) */
  
 #if	defined(HASSELINUX)
-	    if (FieldSel[LSOF_FIX_CNTX].st && Fcntx && Lp->cntx)
+	    if (FieldSel[LSOF_FIX_CNTX].st && Fcntx && Lp->cntx && CntxStatus)
 		(void) printf("%c%s%c", LSOF_FID_CNTX, Lp->cntx, Terminator);
 #endif	/* defined(HASSELINUX) */
 

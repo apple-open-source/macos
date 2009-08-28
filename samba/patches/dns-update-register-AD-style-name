@@ -39,7 +39,7 @@ Index: samba/source/utils/net_ads.c
 +	return NT_STATUS_OK;
 +}
 +
-+static const char *dns_errstr(DNS_ERROR err)
++ const char *dns_errstr(DNS_ERROR err)
 +{
 +	if (ERR_DNS_EQUAL(err, ERROR_DNS_SUCCESS)) {
 +		return "success";

@@ -1,9 +1,8 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 2000-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 2000,2007 Oracle.  All rights reserved.
 #
-# $Id: recd013.tcl,v 1.2 2004/03/30 01:24:08 jtownsen Exp $
+# $Id: recd013.tcl,v 12.6 2007/05/17 15:15:55 bostic Exp $
 #
 # TEST	recd013
 # TEST	Test of cursor adjustment on child transaction aborts. [#2373]
@@ -73,7 +72,7 @@ proc recd013 { method { nitems 100 } args } {
 		error_check_good fake_put($i) [$db put -txn $ctxn $key $data] 0
 		error_check_good ctxn_abort($i) [$ctxn abort] 0
 		for { set j 1 } { $j < $i } { incr j 2 } {
-			error_check_good dbc_get($j) [$dbc($j) get -current] \
+			error_check_good dbc_get($j):1 [$dbc($j) get -current] \
 			    [list [list $keybase$j \
 			    [pad_data $method $j$alphabet]]]
 		}
@@ -90,7 +89,7 @@ proc recd013 { method { nitems 100 } args } {
 		# And verify all the cursors, including the one we just
 		# created.
 		for { set j 1 } { $j <= $i } { incr j 2 } {
-			error_check_good dbc_get($j) [$dbc($j) get -current] \
+			error_check_good dbc_get($j):2 [$dbc($j) get -current] \
 			    [list [list $keybase$j \
 			    [pad_data $method $j$alphabet]]]
 		}
@@ -98,7 +97,7 @@ proc recd013 { method { nitems 100 } args } {
 
 	puts "\t\tRecd$tnum.a.1: Verify cursor stability after init."
 	for { set i 1 } { $i <= 2 * $nitems } { incr i 2 } {
-		error_check_good dbc_get($i) [$dbc($i) get -current] \
+		error_check_good dbc_get($i):3 [$dbc($i) get -current] \
 		    [list [list $keybase$i [pad_data $method $i$alphabet]]]
 	}
 
@@ -130,7 +129,7 @@ proc recd013 { method { nitems 100 } args } {
 	error_check_good ctxn_abort [$ctxn abort] 0
 
 	for { set i 1 } { $i <= 2 * $nitems } { incr i 2 } {
-		error_check_good dbc_get($i) [$dbc($i) get -current] \
+		error_check_good dbc_get($i):4 [$dbc($i) get -current] \
 		    [list [list $keybase$i [pad_data $method $i$alphabet]]]
 	}
 
@@ -198,7 +197,7 @@ proc recd013 { method { nitems 100 } args } {
 
 	# Verify that no items are deleted.
 	for { set i 1 } { $i <= 2 * $nitems } { incr i } {
-		error_check_good dbc_get($i) [$dbc($i) get -current] \
+		error_check_good dbc_get($i):5 [$dbc($i) get -current] \
 		    [list [list $keybase$i [pad_data $method $i$alphabet]]]
 	}
 
@@ -216,12 +215,11 @@ proc recd013 { method { nitems 100 } args } {
 		} else {
 			set j [expr ($i - 1) / 2 + 1]
 		}
-		error_check_good dbc_get($i) [$dbc($i) get -current] \
+		error_check_good dbc_get($i):6 [$dbc($i) get -current] \
 		    [list [list $keybase$j [pad_data $method $i$alphabet]]]
 	}
 	for { set i 2 } { $i <= 2 * $nitems } { incr i 2 } {
-		error_check_good dbc_get($i) [$dbc($i) get -current] \
-		    [list [list "" ""]]
+		error_check_good dbc_get($i):7 [$dbc($i) get -current] ""
 	}
 
 	puts "\t\tRecd$tnum.c.3: Delete odd items in child txn."
@@ -256,12 +254,11 @@ proc recd013 { method { nitems 100 } args } {
 		} else {
 			set j [expr ($i - 1) / 2 + 1]
 		}
-		error_check_good dbc_get($i) [$dbc($i) get -current] \
+		error_check_good dbc_get($i):8 [$dbc($i) get -current] \
 		    [list [list $keybase$j [pad_data $method $i$alphabet]]]
 	}
 	for { set i 2 } { $i <= 2 * $nitems } { incr i 2 } {
-		error_check_good dbc_get($i) [$dbc($i) get -current] \
-		    [list [list "" ""]]
+		error_check_good dbc_get($i):9 [$dbc($i) get -current] ""
 	}
 
 	# Clean up cursors.
@@ -277,6 +274,7 @@ proc recd013 { method { nitems 100 } args } {
 	puts "\tRecd$tnum.d: Clean up."
 	error_check_good txn_commit [$txn commit] 0
 	error_check_good db_close [$db close] 0
+	error_check_good log_flush [$env log_flush] 0
 	error_check_good env_close [$env close] 0
 	error_check_good verify_dir \
 	    [verify_dir $testdir "\t\tRecd$tnum.d.1: "] 0

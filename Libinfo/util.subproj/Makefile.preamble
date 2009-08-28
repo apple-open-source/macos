@@ -1,8 +1,0 @@
-AFTER_POSTINSTALL += install-man-page
-OTHER_CFLAGS = \
-	-D__DARWIN_NON_CANCELABLE=1 \
-	-DINET6=1 
-
-# for building 64-bit
-# <rdar://problem/3819761> Libinfo need to build with gcc-3.5 and 3-way fat
-NEXTSTEP_OBJCPLUS_COMPILER = $(CCOMPILER)

@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-tailr-details" } */
+/* { dg-options "-O1 -foptimize-sibling-calls -fdump-tree-tailr-details" } */
 int
 t(char *a)
 {
@@ -10,3 +10,4 @@ t(char *a)
 		return 0;
 }
 /* { dg-final { scan-tree-dump-times "Eliminated tail recursion" 1 "tailr"} } */
+/* { dg-final { cleanup-tree-dump "tailr" } } */

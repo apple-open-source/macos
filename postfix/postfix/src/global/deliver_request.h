@@ -42,6 +42,7 @@ typedef struct DELIVER_REQUEST {
     DSN    *hop_status;			/* DSN status */
     char   *client_name;		/* client hostname */
     char   *client_addr;		/* client address */
+    char   *client_port;		/* client port */
     char   *client_proto;		/* client protocol */
     char   *client_helo;		/* helo parameter */
     char   *sasl_method;		/* SASL method */
@@ -68,7 +69,15 @@ typedef struct DELIVER_REQUEST {
 #define DEL_REQ_FLAG_MTA_VRFY	(1<<8)	/* MTA-requested address probe */
 #define DEL_REQ_FLAG_USR_VRFY	(1<<9)	/* user-requested address probe */
 #define DEL_REQ_FLAG_RECORD	(1<<10)	/* record and deliver */
-#define DEL_REQ_FLAG_SCACHE	(1<<11)	/* opportunistic caching */
+#define DEL_REQ_FLAG_CONN_LOAD	(1<<11)	/* Consult opportunistic cache */
+#define DEL_REQ_FLAG_CONN_STORE	(1<<12)	/* Update opportunistic cache */
+
+ /*
+  * Cache Load and Store as value or mask. Use explicit _MASK for multi-bit
+  * values.
+  */
+#define DEL_REQ_FLAG_CONN_MASK \
+	(DEL_REQ_FLAG_CONN_LOAD | DEL_REQ_FLAG_CONN_STORE)
 
  /*
   * For compatibility, the old confusing names.

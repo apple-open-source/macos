@@ -1,43 +1,16 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2000-2003
- *      Sleepycat Software.  All rights reserved.
+ * Copyright (c) 2000,2007 Oracle.  All rights reserved.
+ *
+ * $Id: db_server_cxxutil.cpp,v 12.8 2007/05/17 15:15:52 bostic Exp $
  */
 
 #include "db_config.h"
 
-#ifndef lint
-static const char revid[] = "$Id: db_server_cxxutil.cpp,v 1.2 2004/03/30 01:23:59 jtownsen Exp $";
-#endif /* not lint */
-
-#ifndef NO_SYSTEM_INCLUDES
-#include <sys/types.h>
-
-#if TIME_WITH_SYS_TIME
-#include <sys/time.h>
-#include <time.h>
-#else
-#if HAVE_SYS_TIME_H
-#include <sys/time.h>
-#else
-#include <time.h>
-#endif
-#endif
-
-#include <rpc/rpc.h>
-
-#include <limits.h>
-#include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#endif
-#include "dbinc_auto/db_server.h"
-
 #include "db_int.h"
 #include "db_cxx.h"
+#include "db_server.h"
 #include "dbinc_auto/clib_ext.h"
 
 extern "C" {
@@ -159,7 +132,7 @@ main(
 	 */
 	if (__dbsrv_defto > __dbsrv_idleto)
 		fprintf(stderr,
-		    "%s: WARNING: Idle timeout %ld is less than resource timeout %ld\n",
+	    "%s: WARNING: Idle timeout %ld is less than resource timeout %ld\n",
 		    prog, __dbsrv_idleto, __dbsrv_defto);
 
 	LIST_INIT(&__dbsrv_head);
@@ -319,7 +292,7 @@ __dbsrv_timeout(int force)
 		if (to < t || force) {
 			if (__dbsrv_verbose)
 				printf("Timing out env id %ld\n", ctp->ct_id);
-			(void)__dbenv_close_int(ctp->ct_id, 0, 1);
+			(void)__env_close_int(ctp->ct_id, 0, 1);
 			/*
 			 * If we timed out an env, we may have closed
 			 * all sorts of ctp's (maybe even all of them.
@@ -421,7 +394,8 @@ get_tableent(long id)
 }
 
 extern "C" ct_entry *
-__dbsrv_sharedb(ct_entry *db_ctp, const char *name, const char *subdb, DBTYPE type, u_int32_t flags)
+__dbsrv_sharedb(ct_entry *db_ctp,
+    const char *name, const char *subdb, DBTYPE type, u_int32_t flags)
 {
 	ct_entry *ctp;
 
@@ -544,7 +518,7 @@ __db_close_int(long id, u_int32_t flags)
 	ctp = get_tableent(id);
 	if (ctp == NULL)
 		return (DB_NOSERVER_ID);
-	DB_ASSERT(ctp->ct_type == CT_DB);
+	DB_ASSERT(NULL, ctp->ct_type == CT_DB);
 	if (__dbsrv_verbose && ctp->ct_refcount != 1)
 		printf("Deref'ing dbp id %ld, refcount %d\n",
 		    id, ctp->ct_refcount);
@@ -593,17 +567,17 @@ __dbc_close_int(ct_entry *dbc_ctp)
 }
 
 extern "C" int
-__dbenv_close_int(long id, u_int32_t flags, int force)
+__env_close_int(long id, u_int32_t flags, int force)
 {
 	DbEnv *dbenv;
 	int ret;
-	ct_entry *ctp;
+	ct_entry *ctp, *dbctp, *nextctp;
 
 	ret = 0;
 	ctp = get_tableent(id);
 	if (ctp == NULL)
 		return (DB_NOSERVER_ID);
-	DB_ASSERT(ctp->ct_type == CT_ENV);
+	DB_ASSERT(NULL, ctp->ct_type == CT_ENV);
 	if (__dbsrv_verbose && ctp->ct_refcount != 1)
 		printf("Deref'ing env id %ld, refcount %d\n",
 		    id, ctp->ct_refcount);
@@ -616,6 +590,32 @@ __dbenv_close_int(long id, u_int32_t flags, int force)
 	dbenv = ctp->ct_envp;
 	if (__dbsrv_verbose)
 		printf("Closing env id %ld\n", id);
+
+	/*
+	 * If we're timing out an env, we want to close all of its
+	 * database handles as well.  All of the txns and cursors
+	 * must have been timed out prior to timing out the env.
+	 */
+	if (force)
+		for (dbctp = LIST_FIRST(&__dbsrv_head);
+		    dbctp != NULL; dbctp = nextctp) {
+			nextctp = LIST_NEXT(dbctp, entries);
+			if (dbctp->ct_type != CT_DB)
+				continue;
+			if (dbctp->ct_envparent != ctp)
+				continue;
+			/*
+			 * We found a DB handle that is part of this
+			 * environment.  Close it.
+			 */
+			__db_close_int(dbctp->ct_id, 0);
+			/*
+			 * If we timed out a dbp, we may have removed
+			 * multiple ctp entries.  Start over with a
+			 * guaranteed good ctp.
+			 */
+			nextctp = LIST_FIRST(&__dbsrv_head);
+		}
 
 	ret = dbenv->close(flags);
 	__dbdel_ctp(ctp);
@@ -715,10 +715,8 @@ env_recover(char *progname)
 	    hp = LIST_NEXT(hp, entries)) {
 		exitval = 0;
 		dbenv = new DbEnv(DB_CXX_NO_EXCEPTIONS);
-		if (__dbsrv_verbose == 1) {
+		if (__dbsrv_verbose == 1)
 			(void)dbenv->set_verbose(DB_VERB_RECOVERY, 1);
-			(void)dbenv->set_verbose(DB_VERB_CHKPOINT, 1);
-		}
 		dbenv->set_errfile(stderr);
 		dbenv->set_errpfx(progname);
 		if (hp->passwd != NULL)

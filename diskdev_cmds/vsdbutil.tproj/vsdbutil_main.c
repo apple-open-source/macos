@@ -2,21 +2,22 @@
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -60,11 +61,11 @@
  */
 #define COMMON_DIGEST_FOR_OPENSSL
 #include <CommonCrypto/CommonDigest.h>
-#include <architecture/byte_order.h>
+#include <libkern/OSByteOrder.h>
 
 struct FinderAttrBuf {
-	unsigned long info_length;
-	unsigned long finderinfo[8];
+	u_int32_t info_length;
+	u_int32_t finderinfo[8];
 };
 
 static char usage[] = "Usage: %s [-a path] | [-c path ] [-d path] [-i]\n";
@@ -79,10 +80,10 @@ static char gHFSTypeName[] = "hfs";
 
 #define VOLUMEUUIDVALUESIZE 2
 typedef union VolumeUUID {
-	unsigned long value[VOLUMEUUIDVALUESIZE];
+	u_int32_t value[VOLUMEUUIDVALUESIZE];
 	struct {
-		unsigned long high;
-		unsigned long low;
+		u_int32_t high;
+		u_int32_t low;
 	} v;
 } VolumeUUID;
 
@@ -100,8 +101,8 @@ void ConvertVolumeUUIDStringToUUID(const char *UUIDString, VolumeUUID *volumeID)
 void ConvertVolumeUUIDToString(VolumeUUID *volumeID, char *UUIDString);
 
 int OpenVolumeStatusDB(VolumeStatusDBHandle *DBHandlePtr);
-int GetVolumeStatusDBEntry(VolumeStatusDBHandle DBHandle, VolumeUUID *volumeID, unsigned long *VolumeStatus);
-int SetVolumeStatusDBEntry(VolumeStatusDBHandle DBHandle, VolumeUUID *volumeID, unsigned long VolumeStatus);
+int GetVolumeStatusDBEntry(VolumeStatusDBHandle DBHandle, VolumeUUID *volumeID, u_int32_t *VolumeStatus);
+int SetVolumeStatusDBEntry(VolumeStatusDBHandle DBHandle, VolumeUUID *volumeID, u_int32_t VolumeStatus);
 int DeleteVolumeStatusDBEntry(VolumeStatusDBHandle DBHandle, VolumeUUID *volumeID);
 int CloseVolumeStatusDB(VolumeStatusDBHandle DBHandle);
 
@@ -119,7 +120,7 @@ static int AdoptVolume(const char *path);
 static int DisownVolume(const char *path);
 static int ClearVolumeUUID(const char *path);
 static int DisplayVolumeStatus(const char *path);
-static int UpdateMountStatus(const char *path, unsigned long volstatus);
+static int UpdateMountStatus(const char *path, u_int32_t volstatus);
 
 
 int main (int argc, const char *argv[])
@@ -233,7 +234,7 @@ static void check_uid(void) {
  --	Returns: error code (0 if successful).
  */
 static int
-UpdateMountStatus(const char *path, unsigned long volstatus) {
+UpdateMountStatus(const char *path, u_int32_t volstatus) {
 	struct statfs mntstat;
 	int result;
 	union wait status;
@@ -255,7 +256,7 @@ UpdateMountStatus(const char *path, unsigned long volstatus) {
 	noexec = mntstat.f_flags & MNT_NOEXEC;
 	readonly = mntstat.f_flags & MNT_RDONLY;
 
-	sprintf(mountline, "%s%s%s%s%s", (volstatus & VOLUME_USEPERMISSIONS) ? "perm" : "noperm",(nosuid)?",nosuid":"",(nodev)?",nodev":"",(noexec)?",noexec":"",(readonly)?",rdonly":"");
+	snprintf(mountline, sizeof(mountline), "%s%s%s%s%s", (volstatus & VOLUME_USEPERMISSIONS) ? "perm" : "noperm",(nosuid)?",nosuid":"",(nodev)?",nodev":"",(noexec)?",noexec":"",(readonly)?",rdonly":"");
 
 	pid = fork();
 	if (pid == 0) {
@@ -329,7 +330,7 @@ static int
 AdoptVolume(const char *path) {
 	VolumeUUID targetuuid;
 	VolumeStatusDBHandle vsdb;
-	unsigned long volstatus;
+	u_int32_t volstatus;
 	int result = 0;
 
 	/* Look up the target volume UUID, generating one if no valid one has been assigned yet: */
@@ -387,7 +388,7 @@ static int
 DisownVolume(const char *path) {
 	VolumeUUID targetuuid;
 	VolumeStatusDBHandle vsdb;
-	unsigned long volstatus;
+	u_int32_t volstatus;
 	int result = 0;
 
 	/* Look up the target volume UUID, generating one if no valid one has been assigned yet: */
@@ -443,7 +444,7 @@ static int
 ClearVolumeUUID(const char *path) {
 	VolumeUUID targetuuid;
 	VolumeStatusDBHandle vsdb;
-	unsigned long volstatus;
+	u_int32_t volstatus;
 	int result = 0;
 
 	/* Check to see whether the target volume has an assigned UUID: */
@@ -499,7 +500,7 @@ static int
 DisplayVolumeStatus(const char *path) {
 	VolumeUUID targetuuid;
 	VolumeStatusDBHandle vsdb;
-	unsigned long volstatus;
+	u_int32_t volstatus;
 	int result = 0;
 
 	/* Look up the target volume UUID, exactly as stored on disk: */
@@ -571,8 +572,8 @@ GetVolumeUUID(const char *path, VolumeUUID *volumeUUIDPtr, boolean_t generate) {
 	finderInfoUUIDPtr = (VolumeUUID *)(&volFinderInfo.finderinfo[6]);
 	if (generate && ((finderInfoUUIDPtr->v.high == 0) || (finderInfoUUIDPtr->v.low == 0))) {
 		GenerateVolumeUUID(volumeUUIDPtr);
-		finderInfoUUIDPtr->v.high = NXSwapHostLongToBig(volumeUUIDPtr->v.high);
-		finderInfoUUIDPtr->v.low = NXSwapHostLongToBig(volumeUUIDPtr->v.low);
+		finderInfoUUIDPtr->v.high = OSSwapHostToBigInt32(volumeUUIDPtr->v.high);
+		finderInfoUUIDPtr->v.low = OSSwapHostToBigInt32(volumeUUIDPtr->v.low);
 		result = setattrlist(path, &alist, &volFinderInfo.finderinfo, sizeof(volFinderInfo.finderinfo), 0);
 		if (result) {
 			warn("Couldn't update volume information for '%s'", path);
@@ -581,8 +582,8 @@ GetVolumeUUID(const char *path, VolumeUUID *volumeUUIDPtr, boolean_t generate) {
 		};
 	};
 
-	volumeUUIDPtr->v.high = NXSwapBigLongToHost(finderInfoUUIDPtr->v.high);
-	volumeUUIDPtr->v.low = NXSwapBigLongToHost(finderInfoUUIDPtr->v.low);
+	volumeUUIDPtr->v.high = OSSwapBigToHostInt32(finderInfoUUIDPtr->v.high);
+	volumeUUIDPtr->v.low = OSSwapBigToHostInt32(finderInfoUUIDPtr->v.low);
 	result = 0;
 
 Err_Exit:
@@ -621,8 +622,8 @@ SetVolumeUUID(const char *path, VolumeUUID *volumeUUIDPtr) {
 	}
 
 	finderInfoUUIDPtr = (VolumeUUID *)(&volFinderInfo.finderinfo[6]);
-	finderInfoUUIDPtr->v.high = NXSwapHostLongToBig(volumeUUIDPtr->v.high);
-	finderInfoUUIDPtr->v.low = NXSwapHostLongToBig(volumeUUIDPtr->v.low);
+	finderInfoUUIDPtr->v.high = OSSwapHostToBigInt32(volumeUUIDPtr->v.high);
+	finderInfoUUIDPtr->v.low = OSSwapHostToBigInt32(volumeUUIDPtr->v.low);
 	
 	result = setattrlist(path, &alist, &volFinderInfo.finderinfo, sizeof(volFinderInfo.finderinfo), 0);
 	if (result != 0) {
@@ -679,7 +680,7 @@ struct VSDBEntry {
 /* In-memory data structures: */
 
 struct VSDBState {
-	unsigned long signature;
+	u_int32_t signature;
 	int dbfile;
 	int dbmode;
 	off_t recordPosition;
@@ -693,18 +694,18 @@ typedef struct VSDBState *VSDBStatePtr;
 static int LockDB(VSDBStatePtr dbstateptr, int lockmode);
 static int UnlockDB(VSDBStatePtr dbstateptr);
 
-static int FindVolumeRecordByUUID(VSDBStatePtr dbstateptr, VolumeUUID *volumeID, struct VSDBEntry *dbentry, unsigned long options);
+static int FindVolumeRecordByUUID(VSDBStatePtr dbstateptr, VolumeUUID *volumeID, struct VSDBEntry *dbentry, u_int32_t options);
 static int AddVolumeRecord(VSDBStatePtr dbstateptr, struct VSDBEntry *dbentry);
 static int UpdateVolumeRecord(VSDBStatePtr dbstateptr, struct VSDBEntry *dbentry);
 static int GetVSDBEntry(VSDBStatePtr dbstateptr, struct VSDBEntry *dbentry);
 static int CompareVSDBKeys(struct VSDBKey *key1, struct VSDBKey *key2);
 
-static void FormatULong(unsigned long u, char *s);
+static void FormatULong(u_int32_t u, char *s);
 static void FormatUUID(VolumeUUID *volumeID, char *UUIDField);
 static void FormatDBKey(VolumeUUID *volumeID, struct VSDBKey *dbkey);
-static void FormatDBRecord(unsigned long volumeStatusFlags, struct VSDBRecord *dbrecord);
-static void FormatDBEntry(VolumeUUID *volumeID, unsigned long volumeStatusFlags, struct VSDBEntry *dbentry);
-static unsigned long ConvertHexStringToULong(const char *hs, long maxdigits);
+static void FormatDBRecord(u_int32_t volumeStatusFlags, struct VSDBRecord *dbrecord);
+static void FormatDBEntry(VolumeUUID *volumeID, u_int32_t volumeStatusFlags, struct VSDBEntry *dbentry);
+static u_int32_t ConvertHexStringToULong(const char *hs, long maxdigits);
 
 
 
@@ -801,10 +802,10 @@ void GenerateVolumeUUID(VolumeUUID *newVolumeID) {
 void ConvertVolumeUUIDStringToUUID(const char *UUIDString, VolumeUUID *volumeID) {
 	int i;
 	char c;
-	unsigned long nextdigit;
-	unsigned long high = 0;
-	unsigned long low = 0;
-	unsigned long carry;
+	u_int32_t nextdigit;
+	u_int32_t high = 0;
+	u_int32_t low = 0;
+	u_int32_t carry;
 	
 	for (i = 0; (i < VOLUMEUUIDLENGTH) && ((c = UUIDString[i]) != (char)0) ; ++i) {
 		if ((c >= '0') && (c <= '9')) {
@@ -865,7 +866,7 @@ int OpenVolumeStatusDB(VolumeStatusDBHandle *DBHandlePtr) {
 
 
 
-int GetVolumeStatusDBEntry(VolumeStatusDBHandle DBHandle, VolumeUUID *volumeID, unsigned long *VolumeStatus) {
+int GetVolumeStatusDBEntry(VolumeStatusDBHandle DBHandle, VolumeUUID *volumeID, u_int32_t *VolumeStatus) {
 	VSDBStatePtr dbstateptr = (VSDBStatePtr)DBHandle;
 	struct VSDBEntry dbentry;
 	int result;
@@ -888,7 +889,7 @@ ErrExit:
 
 
 
-int SetVolumeStatusDBEntry(VolumeStatusDBHandle DBHandle, VolumeUUID *volumeID, unsigned long VolumeStatus) {
+int SetVolumeStatusDBEntry(VolumeStatusDBHandle DBHandle, VolumeUUID *volumeID, u_int32_t VolumeStatus) {
 	VSDBStatePtr dbstateptr = (VSDBStatePtr)DBHandle;
 	struct VSDBEntry dbentry;
 	int result;
@@ -928,11 +929,11 @@ int DeleteVolumeStatusDBEntry(VolumeStatusDBHandle DBHandle, VolumeUUID *volumeI
 	VSDBStatePtr dbstateptr = (VSDBStatePtr)DBHandle;
 	struct stat dbinfo;
 	int result;
-	unsigned long iobuffersize;
+	u_int32_t iobuffersize;
 	void *iobuffer = NULL;
 	off_t dataoffset;
-	unsigned long iotransfersize;
-	unsigned long bytestransferred;
+	u_int32_t iotransfersize;
+	u_int32_t bytestransferred;
 
 	if (dbstateptr->signature != DBHANDLESIGNATURE) return EINVAL;
 
@@ -956,7 +957,7 @@ int DeleteVolumeStatusDBEntry(VolumeStatusDBHandle DBHandle, VolumeUUID *volumeI
 		};
 #if DEBUG_TRACE
 		fprintf(stderr, "DeleteLocalVolumeUUID: DB size = 0x%08lx; recordPosition = 0x%08lx;\n", 
-							(unsigned long)dbinfo.st_size, (unsigned long)dbstateptr->recordPosition);
+							(u_int32_t)dbinfo.st_size, (u_int32_t)dbstateptr->recordPosition);
 		fprintf(stderr, "DeleteLocalVolumeUUID: I/O buffer size = 0x%lx\n", iobuffersize);
 #endif
 		if (iobuffersize > 0) {
@@ -973,7 +974,7 @@ int DeleteVolumeStatusDBEntry(VolumeStatusDBHandle DBHandle, VolumeUUID *volumeI
 					if (iotransfersize > iobuffersize) iotransfersize = iobuffersize;
 	
 #if DEBUG_TRACE
-					fprintf(stderr, "DeleteLocalVolumeUUID: reading 0x%08lx bytes starting at 0x%08lx ...\n", iotransfersize, (unsigned long)dataoffset);
+					fprintf(stderr, "DeleteLocalVolumeUUID: reading 0x%08lx bytes starting at 0x%08lx ...\n", iotransfersize, (u_int32_t)dataoffset);
 #endif
 					lseek(dbstateptr->dbfile, dataoffset, SEEK_SET);
 					bytestransferred = read(dbstateptr->dbfile, iobuffer, iotransfersize);
@@ -983,7 +984,7 @@ int DeleteVolumeStatusDBEntry(VolumeStatusDBHandle DBHandle, VolumeUUID *volumeI
 					};
 	
 #if DEBUG_TRACE
-					fprintf(stderr, "DeleteLocalVolumeUUID: writing 0x%08lx bytes starting at 0x%08lx ...\n", iotransfersize, (unsigned long)(dataoffset - (off_t)sizeof(struct VSDBEntry)));
+					fprintf(stderr, "DeleteLocalVolumeUUID: writing 0x%08lx bytes starting at 0x%08lx ...\n", iotransfersize, (u_int32_t)(dataoffset - (off_t)sizeof(struct VSDBEntry)));
 #endif
 					lseek(dbstateptr->dbfile, dataoffset - (off_t)sizeof(struct VSDBEntry), SEEK_SET);
 					bytestransferred = write(dbstateptr->dbfile, iobuffer, iotransfersize);
@@ -997,7 +998,7 @@ int DeleteVolumeStatusDBEntry(VolumeStatusDBHandle DBHandle, VolumeUUID *volumeI
 			} while (iotransfersize > 0);
 		};
 #if DEBUG_TRACE
-		fprintf(stderr, "DeleteLocalVolumeUUID: truncating database file to 0x%08lx bytes.\n", (unsigned long)(dbinfo.st_size - (off_t)(sizeof(struct VSDBEntry))));
+		fprintf(stderr, "DeleteLocalVolumeUUID: truncating database file to 0x%08lx bytes.\n", (u_int32_t)(dbinfo.st_size - (off_t)(sizeof(struct VSDBEntry))));
 #endif
 		if ((result = ftruncate(dbstateptr->dbfile, dbinfo.st_size - (off_t)(sizeof(struct VSDBEntry)))) != 0) {
 			goto ErrExit;
@@ -1059,7 +1060,7 @@ static int UnlockDB(VSDBStatePtr dbstateptr) {
 
 
 
-static int FindVolumeRecordByUUID(VSDBStatePtr dbstateptr, VolumeUUID *volumeID, struct VSDBEntry *targetEntry, unsigned long options) {
+static int FindVolumeRecordByUUID(VSDBStatePtr dbstateptr, VolumeUUID *volumeID, struct VSDBEntry *targetEntry, u_int32_t options) {
 	struct VSDBKey searchkey;
 	struct VSDBEntry dbentry;
 	int result;
@@ -1110,7 +1111,7 @@ static int UpdateVolumeRecord(VSDBStatePtr dbstateptr, struct VSDBEntry *dbentry
 #if DEBUG_TRACE
 	strncpy(id, dbentry->key.uuid, sizeof(dbentry->key.uuid));
 	id[sizeof(dbentry->key.uuid)] = (char)0;
-	fprintf(stderr, "UpdateVolumeRecord: Updating record for UUID #%s at offset 0x%08lx in database...\n", id, (unsigned long)dbstateptr->recordPosition);
+	fprintf(stderr, "UpdateVolumeRecord: Updating record for UUID #%s at offset 0x%08lx in database...\n", id, (u_int32_t)dbstateptr->recordPosition);
 #endif
 	lseek(dbstateptr->dbfile, dbstateptr->recordPosition, SEEK_SET);
 #if DEBUG_TRACE
@@ -1130,7 +1131,7 @@ static int GetVSDBEntry(VSDBStatePtr dbstateptr, struct VSDBEntry *dbentry) {
 	
 	dbstateptr->recordPosition = lseek(dbstateptr->dbfile, 0, SEEK_CUR);
 #if 0 // DEBUG_TRACE
-	fprintf(stderr, "GetVSDBEntry: starting reading record at offset 0x%08lx...\n", (unsigned long)dbstateptr->recordPosition);
+	fprintf(stderr, "GetVSDBEntry: starting reading record at offset 0x%08lx...\n", (u_int32_t)dbstateptr->recordPosition);
 #endif
 	result = read(dbstateptr->dbfile, &entry, sizeof(entry));
 	if ((result != sizeof(entry)) ||
@@ -1174,8 +1175,8 @@ static int CompareVSDBKeys(struct VSDBKey *key1, struct VSDBKey *key2) {
  *
  *****************************************************************************/
 
-static void FormatULong(unsigned long u, char *s) {
-	unsigned long d;
+static void FormatULong(u_int32_t u, char *s) {
+	u_int32_t d;
 	int i;
 	char *digitptr = s;
 
@@ -1206,13 +1207,13 @@ static void FormatDBKey(VolumeUUID *volumeID, struct VSDBKey *dbkey) {
 
 
 
-static void FormatDBRecord(unsigned long volumeStatusFlags, struct VSDBRecord *dbrecord) {
+static void FormatDBRecord(u_int32_t volumeStatusFlags, struct VSDBRecord *dbrecord) {
 	FormatULong(volumeStatusFlags, dbrecord->statusFlags);
 }
 
 
 
-static void FormatDBEntry(VolumeUUID *volumeID, unsigned long volumeStatusFlags, struct VSDBEntry *dbentry) {
+static void FormatDBEntry(VolumeUUID *volumeID, u_int32_t volumeStatusFlags, struct VSDBEntry *dbentry) {
 	FormatDBKey(volumeID, &dbentry->key);
 	dbentry->keySeparator = DBKEYSEPARATOR;
 	dbentry->space = DBBLANKSPACE;
@@ -1226,11 +1227,11 @@ static void FormatDBEntry(VolumeUUID *volumeID, unsigned long volumeStatusFlags,
 
 
 
-static unsigned long ConvertHexStringToULong(const char *hs, long maxdigits) {
+static u_int32_t ConvertHexStringToULong(const char *hs, long maxdigits) {
 	int i;
 	char c;
-	unsigned long nextdigit;
-	unsigned long n;
+	u_int32_t nextdigit;
+	u_int32_t n;
 	
 	n = 0;
 	for (i = 0; (i < 8) && ((c = hs[i]) != (char)0) ; ++i) {

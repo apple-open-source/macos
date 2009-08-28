@@ -1,7 +1,7 @@
 /*
  ********************************************************************************
  *
- *   Copyright (C) 1998-2006, International Business Machines
+ *   Copyright (C) 1998-2008, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  *
  ********************************************************************************
@@ -34,8 +34,9 @@
 #include "makeconv.h"
 #include "genmbcs.h"
 
-#define DEBUG 0
+#define LENGTHOF(array) (int32_t)(sizeof(array)/sizeof((array)[0]))
 
+#define DEBUG 0
 
 typedef struct ConvData {
     UCMFile *ucm;
@@ -77,6 +78,7 @@ extern const UConverterStaticData * ucnv_converterStaticData[UCNV_NUMBER_OF_SUPP
  * Global - verbosity
  */
 UBool VERBOSE = FALSE;
+UBool SMALL = FALSE;
 
 static void
 createConverter(ConvData *data, const char* converterName, UErrorCode *pErrorCode);
@@ -137,7 +139,7 @@ writeConverterData(ConvData *data, const char *cnvName, const char *cnvDir, UErr
 
     if(VERBOSE)
       {
-        fprintf(stderr, "- Opened udata %s.%s\n", cnvName, "cnv");
+        printf("- Opened udata %s.%s\n", cnvName, "cnv");
       }
 
 
@@ -160,17 +162,29 @@ writeConverterData(ConvData *data, const char *cnvName, const char *cnvDir, UErr
     }
     if(VERBOSE)
     {
-      fprintf(stderr, "- Wrote %u bytes to the udata.\n", (int)sz2);
+      printf("- Wrote %u bytes to the udata.\n", (int)sz2);
     }
 }
 
+enum {
+    OPT_HELP_H,
+    OPT_HELP_QUESTION_MARK,
+    OPT_COPYRIGHT,
+    OPT_VERSION,
+    OPT_DESTDIR,
+    OPT_VERBOSE,
+    OPT_SMALL,
+    OPT_COUNT
+};
+
 static UOption options[]={
-    UOPTION_HELP_H,              /* 0  Numbers for those who*/
-    UOPTION_HELP_QUESTION_MARK,  /* 1   can't count. */
-    UOPTION_COPYRIGHT,           /* 2 */
-    UOPTION_VERSION,             /* 3 */
-    UOPTION_DESTDIR,             /* 4 */
-    UOPTION_VERBOSE,             /* 5 */
+    UOPTION_HELP_H,
+    UOPTION_HELP_QUESTION_MARK,
+    UOPTION_COPYRIGHT,
+    UOPTION_VERSION,
+    UOPTION_DESTDIR,
+    UOPTION_VERBOSE,
+    { "small", NULL, NULL, NULL, '\1', UOPT_NO_ARG, 0 }
 };
 
 int main(int argc, char* argv[])
@@ -195,8 +209,8 @@ int main(int argc, char* argv[])
     uprv_memcpy(&dataInfo.dataVersion, &icuVersion, sizeof(UVersionInfo));
 
     /* preset then read command line options */
-    options[4].value=u_getDataDirectory();
-    argc=u_parseArgs(argc, argv, sizeof(options)/sizeof(options[0]), options);
+    options[OPT_DESTDIR].value=u_getDataDirectory();
+    argc=u_parseArgs(argc, argv, LENGTHOF(options), options);
 
     /* error handling, printing usage message */
     if(argc<0) {
@@ -206,8 +220,9 @@ int main(int argc, char* argv[])
     } else if(argc<2) {
         argc=-1;
     }
-    if(argc<0 || options[0].doesOccur || options[1].doesOccur) {
-        fprintf(stderr,
+    if(argc<0 || options[OPT_HELP_H].doesOccur || options[OPT_HELP_QUESTION_MARK].doesOccur) {
+        FILE *stdfile=argc<0 ? stderr : stdout;
+        fprintf(stdfile,
             "usage: %s [-options] files...\n"
             "\tread .ucm codepage mapping files and write .cnv files\n"
             "options:\n"
@@ -217,20 +232,26 @@ int main(int argc, char* argv[])
             "\t-d or --destdir     destination directory, followed by the path\n"
             "\t-v or --verbose     Turn on verbose output\n",
             argv[0]);
+        fprintf(stdfile,
+            "\t      --small       Generate smaller .cnv files. They will be\n"
+            "\t                    significantly smaller but may not be compatible with\n"
+            "\t                    older versions of ICU and will require heap memory\n"
+            "\t                    allocation when loaded.\n");
         return argc<0 ? U_ILLEGAL_ARGUMENT_ERROR : U_ZERO_ERROR;
     }
 
-    if(options[3].doesOccur) {
-        fprintf(stderr,"makeconv version %hu.%hu, ICU tool to read .ucm codepage mapping files and write .cnv files\n",
-            dataInfo.formatVersion[0], dataInfo.formatVersion[1]);
-        fprintf(stderr, U_COPYRIGHT_STRING "\n");
+    if(options[OPT_VERSION].doesOccur) {
+        printf("makeconv version %hu.%hu, ICU tool to read .ucm codepage mapping files and write .cnv files\n",
+               dataInfo.formatVersion[0], dataInfo.formatVersion[1]);
+        printf("%s\n", U_COPYRIGHT_STRING);
         exit(0);
     }
 
     /* get the options values */
-    haveCopyright = options[2].doesOccur;
-    destdir = options[4].value;
-    VERBOSE = options[5].doesOccur;
+    haveCopyright = options[OPT_COPYRIGHT].doesOccur;
+    destdir = options[OPT_DESTDIR].value;
+    VERBOSE = options[OPT_VERBOSE].doesOccur;
+    SMALL = options[OPT_SMALL].doesOccur;
 
     if (destdir != NULL && *destdir != 0) {
         uprv_strcpy(outFileName, destdir);
@@ -262,6 +283,13 @@ int main(int argc, char* argv[])
     for (++argv; --argc; ++argv)
     {
         arg = getLongPathname(*argv);
+
+        /* Check for potential buffer overflow */
+        if(strlen(arg) > UCNV_MAX_FULL_FILE_NAME_LENGTH)
+        {
+            fprintf(stderr, "%s\n", u_errorName(U_BUFFER_OVERFLOW_ERROR));
+            return U_BUFFER_OVERFLOW_ERROR;
+        }
 
         /*produces the right destination path for display*/
         if (destdirlen != 0)
@@ -309,12 +337,28 @@ int main(int argc, char* argv[])
         }
         else
         {
-            /* Make the static data name equal to the file name */
-            if( /*VERBOSE &&  */ uprv_stricmp(cnvName,data.staticData.name))
+            /* Insure the static data name matches the  file name */
+            /* Changed to ignore directory and only compare base name
+             LDH 1/2/08*/
+            char *p;
+            p = strrchr(cnvName, U_FILE_SEP_CHAR); /* Find last file separator */
+
+            if(p == NULL)            /* OK, try alternate */
+            {
+                p = strrchr(cnvName, U_FILE_ALT_SEP_CHAR);
+                if(p == NULL)
+                {
+                    p=cnvName; /* If no separators, no problem */
+                }
+            }
+            else
+            {
+                p++;   /* If found separtor, don't include it in compare */
+            }
+            if(uprv_stricmp(p,data.staticData.name))
             {
                 fprintf(stderr, "Warning: %s%s claims to be '%s'\n",
-                    cnvName,
-                    CONVERTER_FILE_EXTENSION,
+                    cnvName,  CONVERTER_FILE_EXTENSION,
                     data.staticData.name);
             }
 
@@ -346,7 +390,7 @@ int main(int argc, char* argv[])
             }
             else if (printFilename)
             {
-                puts(outFileName);
+                puts(outBasename);
             }
         }
         fflush(stdout);
@@ -602,6 +646,10 @@ createConverter(ConvData *data, const char *converterName, UErrorCode *pErrorCod
     states=&data->ucm->states;
 
     if(dataIsBase) {
+        /*
+         * Build a normal .cnv file with a base table
+         * and an optional extension table.
+         */
         data->cnvData=MBCSOpen(data->ucm);
         if(data->cnvData==NULL) {
             *pErrorCode=U_MEMORY_ALLOCATION_ERROR;
@@ -618,27 +666,50 @@ createConverter(ConvData *data, const char *converterName, UErrorCode *pErrorCod
             fprintf(stderr, "       the subchar1 byte is illegal in this codepage structure!\n");
             *pErrorCode=U_INVALID_TABLE_FORMAT;
 
-        } else if(data->ucm->ext->mappingsLength>0) {
-            /* prepare the extension table, if there is one */
-            data->extData=CnvExtOpen(data->ucm);
-            if(data->extData==NULL) {
-                *pErrorCode=U_MEMORY_ALLOCATION_ERROR;
-
-            } else if(
-                !ucm_checkBaseExt(states, data->ucm->base, data->ucm->ext, data->ucm->ext, FALSE) ||
-                !data->extData->addTable(data->extData, data->ucm->ext, &data->staticData)
-            ) {
-                *pErrorCode=U_INVALID_TABLE_FORMAT;
-            }
-        }
-
-        /* add the base table after ucm_checkBaseExt()! */
-        if( U_SUCCESS(*pErrorCode) &&
-            !data->cnvData->addTable(data->cnvData, data->ucm->base, &data->staticData)
+        } else if(
+            data->ucm->ext->mappingsLength>0 &&
+            !ucm_checkBaseExt(states, data->ucm->base, data->ucm->ext, data->ucm->ext, FALSE)
         ) {
             *pErrorCode=U_INVALID_TABLE_FORMAT;
+        } else if(data->ucm->base->flagsType&UCM_FLAGS_EXPLICIT) {
+            /* sort the table so that it can be turned into UTF-8-friendly data */
+            ucm_sortTable(data->ucm->base);
+        }
+
+        if(U_SUCCESS(*pErrorCode)) {
+            if(
+                /* add the base table after ucm_checkBaseExt()! */
+                !data->cnvData->addTable(data->cnvData, data->ucm->base, &data->staticData)
+            ) {
+                *pErrorCode=U_INVALID_TABLE_FORMAT;
+            } else {
+                /*
+                 * addTable() may have requested moving more mappings to the extension table
+                 * if they fit into the base toUnicode table but not into the
+                 * base fromUnicode table.
+                 * (Especially for UTF-8-friendly fromUnicode tables.)
+                 * Such mappings will have the MBCS_FROM_U_EXT_FLAG set, which causes them
+                 * to be excluded from the extension toUnicode data.
+                 * See MBCSOkForBaseFromUnicode() for which mappings do not fit into
+                 * the base fromUnicode table.
+                 */
+                ucm_moveMappings(data->ucm->base, data->ucm->ext);
+                ucm_sortTable(data->ucm->ext);
+                if(data->ucm->ext->mappingsLength>0) {
+                    /* prepare the extension table, if there is one */
+                    data->extData=CnvExtOpen(data->ucm);
+                    if(data->extData==NULL) {
+                        *pErrorCode=U_MEMORY_ALLOCATION_ERROR;
+                    } else if(
+                        !data->extData->addTable(data->extData, data->ucm->ext, &data->staticData)
+                    ) {
+                        *pErrorCode=U_INVALID_TABLE_FORMAT;
+                    }
+                }
+            }
         }
     } else {
+        /* Build an extension-only .cnv file. */
         char baseFilename[500];
         char *basename;
 
@@ -662,7 +733,6 @@ createConverter(ConvData *data, const char *converterName, UErrorCode *pErrorCod
             data->extData=CnvExtOpen(data->ucm);
             if(data->extData==NULL) {
                 *pErrorCode=U_MEMORY_ALLOCATION_ERROR;
-
             } else {
                 /* fill in gaps in extension file header fields */
                 UCMapping *m, *mLimit;
@@ -700,16 +770,6 @@ createConverter(ConvData *data, const char *converterName, UErrorCode *pErrorCod
                         fallbackFlags|=2;
                     }
                 }
-                for(m=data->ucm->base->mappings, mLimit=m+data->ucm->base->mappingsLength;
-                    m<mLimit && fallbackFlags!=3;
-                    ++m
-                ) {
-                    if(m->f==1) {
-                        fallbackFlags|=1;
-                    } else if(m->f==3) {
-                        fallbackFlags|=2;
-                    }
-                }
 
                 if(fallbackFlags&1) {
                     staticData->hasFromUnicodeFallback=TRUE;
@@ -728,10 +788,50 @@ createConverter(ConvData *data, const char *converterName, UErrorCode *pErrorCod
 
                 } else if(
                     !ucm_checkValidity(data->ucm->ext, baseStates) ||
-                    !ucm_checkBaseExt(baseStates, baseData.ucm->base, data->ucm->ext, data->ucm->ext, FALSE) ||
-                    !data->extData->addTable(data->extData, data->ucm->ext, &data->staticData)
+                    !ucm_checkBaseExt(baseStates, baseData.ucm->base, data->ucm->ext, data->ucm->ext, FALSE)
                 ) {
                     *pErrorCode=U_INVALID_TABLE_FORMAT;
+                } else {
+                    if(states->maxCharLength>1) {
+                        /*
+                         * When building a normal .cnv file with a base table
+                         * for an MBCS (not SBCS) table with explicit precision flags,
+                         * the MBCSAddTable() function marks some mappings for moving
+                         * to the extension table.
+                         * They fit into the base toUnicode table but not into the
+                         * base fromUnicode table.
+                         * (Note: We do have explicit precision flags because they are
+                         * required for extension table generation, and
+                         * ucm_checkBaseExt() verified it.)
+                         *
+                         * We do not call MBCSAddTable() here (we probably could)
+                         * so we need to do the analysis before building the extension table.
+                         * We assume that MBCSAddTable() will build a UTF-8-friendly table.
+                         * Redundant mappings in the extension table are ok except they cost some size.
+                         *
+                         * Do this after ucm_checkBaseExt().
+                         */
+                        const MBCSData *mbcsData=MBCSGetDummy();
+                        int32_t needsMove=0;
+                        for(m=baseData.ucm->base->mappings, mLimit=m+baseData.ucm->base->mappingsLength;
+                            m<mLimit;
+                            ++m
+                        ) {
+                            if(!MBCSOkForBaseFromUnicode(mbcsData, m->b.bytes, m->bLen, m->u, m->f)) {
+                                m->f|=MBCS_FROM_U_EXT_FLAG;
+                                m->moveFlag=UCM_MOVE_TO_EXT;
+                                ++needsMove;
+                            }
+                        }
+
+                        if(needsMove!=0) {
+                            ucm_moveMappings(baseData.ucm->base, data->ucm->ext);
+                            ucm_sortTable(data->ucm->ext);
+                        }
+                    }
+                    if(!data->extData->addTable(data->extData, data->ucm->ext, &data->staticData)) {
+                        *pErrorCode=U_INVALID_TABLE_FORMAT;
+                    }
                 }
             }
         }

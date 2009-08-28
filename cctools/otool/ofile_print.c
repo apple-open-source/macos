@@ -209,6 +209,7 @@
 #include <mach-o/ppc/reloc.h>
 #include <mach-o/hppa/reloc.h>
 #include <mach-o/sparc/reloc.h>
+#include <mach-o/arm/reloc.h>
 #include "stuff/symbol.h"
 #include "stuff/ofile.h"
 #include "stuff/allocate.h"
@@ -252,37 +253,37 @@ static void print_relocs(
     unsigned reloff,
     unsigned nreloc,
     struct reloc_section_info *sect_rel,
-    unsigned long nsects,
+    uint32_t nsects,
     enum bool swapped,
     cpu_type_t cputype,
     char *object_addr,
-    unsigned long object_size,
+    uint32_t object_size,
     struct nlist *symbols,
     struct nlist_64 *symbols64,
-    unsigned long nsymbols,
+    uint32_t nsymbols,
     char *strings,
-    unsigned long strings_size,
+    uint32_t strings_size,
     enum bool verbose);
 static void print_r_type(
     cpu_type_t cputype,
-    unsigned long r_type,
+    uint32_t r_type,
     enum bool predicted);
 static void print_cstring_char(
     char c);
 static void print_literal4(
-    unsigned long l,
+    uint32_t l,
     float f);
 static void print_literal8(
-    unsigned long l0,
-    unsigned long l1,
+    uint32_t l0,
+    uint32_t l1,
     double d);
 static void print_literal16(
-    unsigned long l0,
-    unsigned long l1,
-    unsigned long l2,
-    unsigned long l3);
+    uint32_t l0,
+    uint32_t l1,
+    uint32_t l2,
+    uint32_t l3);
 static int rel_bsearch(
-    unsigned long *address,
+    uint32_t *address,
     struct relocation_info *rel);
 
 /*
@@ -294,10 +295,10 @@ void
 print_fat_headers(
 struct fat_header *fat_header,
 struct fat_arch *fat_archs,
-unsigned long size,
+uint32_t size,
 enum bool verbose)
 {
-    unsigned long i, j;
+    uint32_t i, j;
     uint64_t big_size;
 
 	if(verbose){
@@ -341,7 +342,7 @@ enum bool verbose)
 			      fat_archs[i].cpusubtype & ~CPU_SUBTYPE_MASK);
 	    }
 	    else{
-		printf("%ld\n", i);
+		printf("%u\n", i);
 		printf("    cputype %d\n", fat_archs[i].cputype);
 		printf("    cpusubtype %d\n", fat_archs[i].cpusubtype &
 					      ~CPU_SUBTYPE_MASK);
@@ -362,7 +363,9 @@ enum bool verbose)
 		printf("\n");
 
 	    printf("    size %u", fat_archs[i].size);
-	    if(fat_archs[i].offset + fat_archs[i].size > size)
+	    big_size = fat_archs[i].offset;
+	    big_size += fat_archs[i].size;
+	    if(big_size > size)
 		printf(" (past end of file)\n");
 	    else
 		printf("\n");
@@ -555,6 +558,31 @@ struct fat_arch *fat_arch)
 	    break;
 	    default:
 		goto print_arch_unknown;
+	    }
+	    break;
+	case CPU_TYPE_ARM:
+	    switch(fat_arch->cpusubtype & ~CPU_SUBTYPE_MASK){
+	    case CPU_SUBTYPE_ARM_ALL:
+		printf("arm\n");
+		break;
+	    case CPU_SUBTYPE_ARM_V4T:
+		printf("armv4t\n");
+		break;
+	    case CPU_SUBTYPE_ARM_V5TEJ:
+		printf("armv5\n");
+		break;
+	    case CPU_SUBTYPE_ARM_XSCALE:
+		printf("xscale\n");
+		break;
+	    case CPU_SUBTYPE_ARM_V6:
+		printf("armv6\n");
+		break;
+	    case CPU_SUBTYPE_ARM_V7:
+		printf("armv7\n");
+		break;
+	    default:
+		goto print_arch_unknown;
+		break;
 	    }
 	    break;
 	case CPU_TYPE_ANY:
@@ -800,6 +828,36 @@ cpu_subtype_t cpusubtype)
 		goto print_arch_unknown;
 	    }
 	    break;
+	case CPU_TYPE_ARM:
+	    switch(cpusubtype & ~CPU_SUBTYPE_MASK){
+	    case CPU_SUBTYPE_ARM_ALL:
+		printf("    cputype CPU_TYPE_ARM\n"
+		       "    cpusubtype CPU_SUBTYPE_ARM_ALL\n");
+		break;
+	    case CPU_SUBTYPE_ARM_V4T:
+		printf("    cputype CPU_TYPE_ARM\n"
+		       "    cpusubtype CPU_SUBTYPE_ARM_V4T\n");
+		break;
+	    case CPU_SUBTYPE_ARM_V5TEJ:
+		printf("    cputype CPU_TYPE_ARM\n"
+		       "    cpusubtype CPU_SUBTYPE_ARM_V5TEJ\n");
+		break;
+	    case CPU_SUBTYPE_ARM_XSCALE:
+		printf("    cputype CPU_TYPE_ARM\n"
+		       "    cpusubtype CPU_SUBTYPE_ARM_XSCALE\n");
+		break;
+	    case CPU_SUBTYPE_ARM_V6:
+		printf("    cputype CPU_TYPE_ARM\n"
+		       "    cpusubtype CPU_SUBTYPE_ARM_V6\n");
+		break;
+	    case CPU_SUBTYPE_ARM_V7:
+		printf("    cputype CPU_TYPE_ARM\n"
+		       "    cpusubtype CPU_SUBTYPE_ARM_V7\n");
+		break;
+	    default:
+		goto print_arch_unknown;
+	    }
+	    break;
 	case CPU_TYPE_ANY:
 	    switch(cpusubtype & ~CPU_SUBTYPE_MASK){
 	    case CPU_SUBTYPE_MULTIPLE:
@@ -836,11 +894,12 @@ void
 print_ar_hdr(
 struct ar_hdr *ar_hdr,
 char *member_name,
-unsigned long member_name_size,
+uint32_t member_name_size,
 enum bool verbose)
 {
-    long i;
-    unsigned long j, mode, date;
+    int32_t i;
+    uint32_t j, mode;
+    time_t date;
     char *p, *endp;
 
     char date_buf[sizeof(ar_hdr->ar_date) + 1];
@@ -966,7 +1025,7 @@ enum bool verbose)
 	    date = strtoul(date_buf, &endp, 10);
 	    if(*endp != '\0')
 		printf("(date: \"%s\" contains non-decimal chars) ", date_buf);
-	    p = ctime((const long *)&date);
+	    p = ctime(&date);
 	    p[24] = '\0';
 	    printf("%s ", p);
 	}
@@ -996,47 +1055,59 @@ enum bool verbose)
  * object files could be of differing byte sex in an erroneous library).  There
  * is no problem of a library containing no objects with respect to the byte
  * sex of the table of contents since the table of contents would be made up
- * of two binary unsigned long zeros which are the same in either byte sex.
+ * of two binary uint32_t zeros which are the same in either byte sex.
  */
 void
 print_library_toc(
 struct ar_hdr *toc_ar_hdr,
 char *toc_name,
-unsigned long toc_name_size,
+uint32_t toc_name_size,
 char *toc_addr,
-unsigned long toc_size,
+uint32_t toc_size,
 enum byte_sex toc_byte_sex,
 char *library_name,
 char *library_addr,
-unsigned long library_size,
+uint32_t library_size,
 char *arch_name,
 enum bool verbose)
 {
     enum byte_sex host_byte_sex;
-    unsigned long ran_size, nranlibs, str_size, i, toc_offset, member_name_size;
+    uint32_t ran_size, nranlibs, str_size, i, toc_offset, member_name_size;
     struct ranlib *ranlibs;
     char *strings, *member_name;
     struct ar_hdr *ar_hdr;
     int n;
     char buf[20];
+    uint64_t big_size;
 
 	host_byte_sex = get_host_byte_sex();
 	toc_offset = 0;
 	strings = NULL;
 
-	if(toc_offset + sizeof(unsigned long) > toc_size){
+	if(toc_offset + sizeof(uint32_t) > toc_size){
 	    error_with_arch(arch_name, "truncated table of contents in: "
 		"%s(%.*s) (size of ranlib structs extends past the end of the "
 		"table of contents member)", library_name, (int)toc_name_size,
 		toc_name);
 	    return;
 	}
-	memcpy((char *)&ran_size, toc_addr + toc_offset, sizeof(unsigned long));
+	memcpy((char *)&ran_size, toc_addr + toc_offset, sizeof(uint32_t));
+	/*
+	 * With the advent of things like LTO object files we may end up getting
+	 * handed UNKNOWN_BYTE_SEX for the table of contents byte sex.  So at
+	 * this point we are guessing.  A better guess is to go with the host
+	 * bytesex as that is more likely.  Otherwise we will always think it is
+	 * swapped.
+	 */
+	if(toc_byte_sex == UNKNOWN_BYTE_SEX)
+	    toc_byte_sex = host_byte_sex;
 	if(toc_byte_sex != host_byte_sex)
-	    ran_size = SWAP_LONG(ran_size);
-	toc_offset += sizeof(unsigned long);
+	    ran_size = SWAP_INT(ran_size);
+	toc_offset += sizeof(uint32_t);
 
-	if(toc_offset + ran_size > toc_size){
+	big_size = toc_offset;
+	big_size += ran_size;
+	if(big_size > toc_size){
 	    error_with_arch(arch_name, "truncated table of contents in: "
 		"%s(%.*s) (ranlib structures extends past the end of the "
 		"table of contents member)", library_name, (int)toc_name_size,
@@ -1051,7 +1122,7 @@ enum bool verbose)
 	toc_offset += ran_size;
 
 	if(verbose){
-	    if(toc_offset + sizeof(unsigned long) > toc_size){
+	    if(toc_offset + sizeof(uint32_t) > toc_size){
 		error_with_arch(arch_name, "truncated table of contents in: "
 		    "%s(%.*s) (size of ranlib strings extends past the end of "
 		    "the table of contents member)", library_name,
@@ -1060,12 +1131,14 @@ enum bool verbose)
 		return;
 	    }
 	    memcpy((char *)&str_size, toc_addr + toc_offset,
-		   sizeof(unsigned long));
+		   sizeof(uint32_t));
 	    if(toc_byte_sex != host_byte_sex)
-		str_size = SWAP_LONG(str_size);
-	    toc_offset += sizeof(unsigned long);
+		str_size = SWAP_INT(str_size);
+	    toc_offset += sizeof(uint32_t);
 
-	    if(toc_offset + str_size > toc_size){
+	    big_size = toc_offset;
+	    big_size += str_size;
+	    if(big_size > toc_size){
 		error_with_arch(arch_name, "truncated table of contents in: "
 		    "%s(%.*s) (ranlib strings extends past the end of the "
 		    "table of contents member)", library_name,
@@ -1082,12 +1155,12 @@ enum bool verbose)
 	    printf(" (for architecture %s)\n", arch_name);
 	else
 	    printf("\n");
-	printf("size of ranlib structures: %lu (number %lu)\n", ran_size,
+	printf("size of ranlib structures: %u (number %u)\n", ran_size,
 	       nranlibs);
 	if(verbose){
-	    printf("size of strings: %lu", str_size);
-	    if(str_size % sizeof(long) != 0)
-		printf(" (not multiple of sizeof(long))\n");
+	    printf("size of strings: %u", str_size);
+	    if(str_size % sizeof(int32_t) != 0)
+		printf(" (not multiple of sizeof(int32_t))\n");
 	    else
 		printf("\n");
 	}
@@ -1119,17 +1192,17 @@ enum bool verbose)
 		    }
 		}
 		else{
-		    n = sprintf(buf, "?(%ld) ", (long int)ranlibs[i].ran_off);
+		    n = sprintf(buf, "?(%u) ", (uint32_t)ranlibs[i].ran_off);
 		    printf("%s%.*s", buf, 17 - n, "              ");
 		}
 		if(ranlibs[i].ran_un.ran_strx < str_size)
 		    printf("%s\n", strings + ranlibs[i].ran_un.ran_strx);
 		else
-		    printf("?(%ld)\n", (long int)ranlibs[i].ran_un.ran_strx);
+		    printf("?(%u)\n", (uint32_t)ranlibs[i].ran_un.ran_strx);
 	    }
 	    else{
-		printf("%-14ld %ld\n", (long int)ranlibs[i].ran_off,
-			(long int)ranlibs[i].ran_un.ran_strx);
+		printf("%-14u %u\n", (uint32_t)ranlibs[i].ran_off,
+			(uint32_t)ranlibs[i].ran_un.ran_strx);
 	    }
 	}
 
@@ -1153,7 +1226,7 @@ uint32_t sizeofcmds,
 uint32_t flags,
 enum bool verbose)
 {
-    unsigned long f;
+    uint32_t f;
 
 	printf("Mach header\n");
 	printf("      magic cputype cpusubtype  caps    filetype ncmds "
@@ -1450,6 +1523,32 @@ NS32:
 		    break;
 		}
 		break;
+	    case CPU_TYPE_ARM:
+		printf("     ARM");
+		switch(cpusubtype){
+		case CPU_SUBTYPE_ARM_ALL:
+		    printf("        ALL");
+		    break;
+		case CPU_SUBTYPE_ARM_V4T:
+		    printf("        V4T");
+		    break;
+		case CPU_SUBTYPE_ARM_V5TEJ:
+		    printf("      V5TEJ");
+		    break;
+		case CPU_SUBTYPE_ARM_XSCALE:
+		    printf("     XSCALE");
+		    break;
+		case CPU_SUBTYPE_ARM_V6:
+		    printf("         V6");
+		    break;
+		case CPU_SUBTYPE_ARM_V7:
+		    printf("         V7");
+		    break;
+		default:
+		    printf(" %10d", cpusubtype & ~CPU_SUBTYPE_MASK);
+		    break;
+		}
+		break;
 	    default:
 		printf(" %7d %10d", cputype, cpusubtype & ~CPU_SUBTYPE_MASK);
 		break;
@@ -1491,6 +1590,10 @@ NS32:
 		break;
 	    case MH_DSYM:
 		printf("       DSYM");
+		break;
+	    case MH_KEXT_BUNDLE:
+		printf(" KEXTBUNDLE");
+		break;
 	    default:
 		printf(" %10u", filetype);
 		break;
@@ -1569,6 +1672,10 @@ NS32:
 		printf(" ALLOW_STACK_EXECUTION");
 		f &= ~MH_ALLOW_STACK_EXECUTION;
 	    }
+	    if(f & MH_DEAD_STRIPPABLE_DYLIB){
+		printf(" DEAD_STRIPPABLE_DYLIB");
+		f &= ~MH_DEAD_STRIPPABLE_DYLIB;
+	    }
 	    if(f & MH_PIE){
 		printf(" PIE");
 		f &= ~MH_PIE;
@@ -1603,13 +1710,13 @@ uint32_t sizeofcmds,
 cpu_type_t cputype,
 uint32_t filetype,
 enum byte_sex load_commands_byte_sex,
-unsigned long object_size,
+uint32_t object_size,
 enum bool verbose,
 enum bool very_verbose)
 {
     enum byte_sex host_byte_sex;
     enum bool swapped;
-    unsigned long i, j, k, left, size, *unknown, nsyms;
+    uint32_t i, j, k, left, size, *unknown, nsyms;
     char *p, *begin, *end;
     struct load_command *lc, l;
     struct segment_command sg;
@@ -1635,23 +1742,28 @@ enum bool very_verbose)
     struct uuid_command uuid;
     struct linkedit_data_command ld;
     struct rpath_command rpath;
+    struct encryption_info_command encrypt;
+     struct dyld_info_command dyld_info;
+   uint64_t big_load_end;
 
 	host_byte_sex = get_host_byte_sex();
 	swapped = host_byte_sex != load_commands_byte_sex;
 
-	nsyms = ULONG_MAX;
+	nsyms = UINT_MAX;
 	lc = load_commands;
+	big_load_end = 0;
 	for(i = 0 ; i < ncmds; i++){
-	    printf("Load command %lu\n", i);
+	    printf("Load command %u\n", i);
 
 	    memcpy((char *)&l, (char *)lc, sizeof(struct load_command));
 	    if(swapped)
 		swap_load_command(&l, host_byte_sex);
-	    if(l.cmdsize % sizeof(long) != 0)
-		printf("load command %lu size not a multiple of sizeof(long)\n",
-		       i);
-	    if((char *)lc + l.cmdsize > (char *)load_commands + sizeofcmds)
-		printf("load command %lu extends past end of load commands\n",
+	    if(l.cmdsize % sizeof(int32_t) != 0)
+		printf("load command %u size not a multiple of "
+		       "sizeof(int32_t)\n", i);
+	    big_load_end += l.cmdsize;
+	    if(big_load_end > sizeofcmds)
+		printf("load command %u extends past end of load commands\n",
 		       i);
 	    left = sizeofcmds - ((char *)lc - (char *)load_commands);
 
@@ -1775,6 +1887,7 @@ enum bool very_verbose)
 	    case LC_LOAD_DYLIB:
 	    case LC_LOAD_WEAK_DYLIB:
 	    case LC_REEXPORT_DYLIB:
+	    case LC_LAZY_LOAD_DYLIB:
 		memset((char *)&dl, '\0', sizeof(struct dylib_command));
 		size = left < sizeof(struct dylib_command) ?
 		       left : sizeof(struct dylib_command);
@@ -1974,6 +2087,29 @@ enum bool very_verbose)
 		print_rpath_command(&rpath, lc);
 		break;
 
+	    case LC_ENCRYPTION_INFO:
+		memset((char *)&encrypt, '\0',
+		       sizeof(struct encryption_info_command));
+		size = left < sizeof(struct encryption_info_command) ?
+		       left : sizeof(struct encryption_info_command);
+		memcpy((char *)&encrypt, (char *)lc, size);
+		if(swapped)
+		    swap_encryption_command(&encrypt, host_byte_sex);
+		print_encryption_info_command(&encrypt, object_size);
+		break;
+
+	    case LC_DYLD_INFO:
+	    case LC_DYLD_INFO_ONLY:
+		memset((char *)&dyld_info, '\0',
+		       sizeof(struct dyld_info_command));
+		size = left < sizeof(struct dyld_info_command) ?
+		       left : sizeof(struct dyld_info_command);
+		memcpy((char *)&dyld_info, (char *)lc, size);
+		if(swapped)
+		    swap_dyld_info_command(&dyld_info, host_byte_sex);
+		print_dyld_info_info_command(&dyld_info, object_size);
+		break;
+
 	    default:
 		printf("      cmd ?(0x%08x) Unknown load command\n",
 		       (unsigned int)l.cmd);
@@ -1987,11 +2123,11 @@ enum bool very_verbose)
 		memcpy((char *)unknown,
 		       ((char *)lc) + sizeof(struct load_command), size);
 		if(swapped)
-		    for(j = 0; j < size / sizeof(unsigned long); j++)
-			unknown[j] = SWAP_LONG(unknown[j]);
-		for(j = 0; j < size / sizeof(unsigned long); j += k){
+		    for(j = 0; j < size / sizeof(uint32_t); j++)
+			unknown[j] = SWAP_INT(unknown[j]);
+		for(j = 0; j < size / sizeof(uint32_t); j += k){
 		    for(k = 0;
-			k < 8 && j + k < size / sizeof(unsigned long);
+			k < 8 && j + k < size / sizeof(uint32_t);
 			k++)
 			printf("%08x ", (unsigned int)unknown[j + k]);
 		    printf("\n");
@@ -1999,7 +2135,7 @@ enum bool very_verbose)
 		break;
 	    }
 	    if(l.cmdsize == 0){
-		printf("load command %lu size zero (can't advance to other "
+		printf("load command %u size zero (can't advance to other "
 		       "load commands)\n", i);
 		return;
 	    }
@@ -2022,11 +2158,12 @@ enum bool verbose)
 {
     enum byte_sex host_byte_sex;
     enum bool swapped;
-    unsigned long i, left, size;
+    uint32_t i, left, size;
     struct load_command *lc, l;
     struct fvmlib_command fl;
     struct dylib_command dl;
     char *p;
+    time_t timestamp;
 
 	host_byte_sex = get_host_byte_sex();
 	swapped = host_byte_sex != load_commands_byte_sex;
@@ -2036,11 +2173,11 @@ enum bool verbose)
 	    memcpy((char *)&l, (char *)lc, sizeof(struct load_command));
 	    if(swapped)
 		swap_load_command(&l, host_byte_sex);
-	    if(l.cmdsize % sizeof(long) != 0)
-		printf("load command %lu size not a multiple of sizeof(long)\n",
-		       i);
+	    if(l.cmdsize % sizeof(int32_t) != 0)
+		printf("load command %u size not a multiple of "
+		       "sizeof(int32_t)\n", i);
 	    if((char *)lc + l.cmdsize > (char *)load_commands + sizeofcmds)
-		printf("load command %lu extends past end of load commands\n",
+		printf("load command %u extends past end of load commands\n",
 		       i);
 	    left = sizeofcmds - ((char *)lc - (char *)load_commands);
 
@@ -2061,7 +2198,7 @@ enum bool verbose)
 			   fl.fvmlib.minor_version);
 		}
 		else{
-		    printf("\tBad offset (%u) for name of %s command %lu\n",
+		    printf("\tBad offset (%u) for name of %s command %u\n",
 			   fl.fvmlib.name.offset, l.cmd == LC_IDFVMLIB ?
 			   "LC_IDFVMLIB" : "LC_LOADFVMLIB" , i);
 		}
@@ -2070,6 +2207,7 @@ enum bool verbose)
 	    case LC_LOAD_DYLIB:
 	    case LC_LOAD_WEAK_DYLIB:
 	    case LC_REEXPORT_DYLIB:
+	    case LC_LAZY_LOAD_DYLIB:
 		if(just_id == TRUE)
 		    break;
 	    case LC_ID_DYLIB:
@@ -2094,7 +2232,8 @@ enum bool verbose)
 			   dl.dylib.current_version & 0xff);
 		    if(verbose){
 			printf("\ttime stamp %u ", dl.dylib.timestamp);
-			printf("%s",ctime((const long *)&(dl.dylib.timestamp)));
+			timestamp = (time_t)dl.dylib.timestamp;
+			printf("%s", ctime(&timestamp));
 		    }
 		}
 		else{
@@ -2105,17 +2244,19 @@ enum bool verbose)
 		    else if(l.cmd == LC_LOAD_DYLIB)
 			printf("LC_LOAD_DYLIB ");
 		    else if(l.cmd == LC_LOAD_WEAK_DYLIB)
-			printf("LC_LOAD_WEAK_DYLIB ");
+			printf("LC_REEXPORT_DYLIB ");
+		    else if(l.cmd == LC_LAZY_LOAD_DYLIB)
+			printf("LC_LAZY_LOAD_DYLIB ");
 		    else if(l.cmd == LC_REEXPORT_DYLIB)
 			printf("LC_LOAD_WEAK_DYLIB ");
 		    else
 			printf("LC_??? ");
-		    printf("command %lu\n", i);
+		    printf("command %u\n", i);
 		}
 		break;
 	    }
 	    if(l.cmdsize == 0){
-		printf("load command %lu size zero (can't advance to other "
+		printf("load command %u size zero (can't advance to other "
 		       "load commands)\n", i);
 		return;
 	    }
@@ -2144,20 +2285,22 @@ vm_prot_t maxprot,
 vm_prot_t initprot,
 uint32_t nsects,
 uint32_t flags,
-unsigned long object_size,
+uint32_t object_size,
 enum bool verbose)
 {
-    uint32_t expected_cmdsize;
+    uint64_t expected_cmdsize;
 
 	if(cmd == LC_SEGMENT){
 	    printf("      cmd LC_SEGMENT\n");
-	    expected_cmdsize = sizeof(struct segment_command) +
-			       nsects * sizeof(struct section);
+	    expected_cmdsize = nsects;
+	    expected_cmdsize *= sizeof(struct section);
+	    expected_cmdsize += sizeof(struct segment_command);
 	}
 	else{
 	    printf("      cmd LC_SEGMENT_64\n");
-	    expected_cmdsize = sizeof(struct segment_command_64) +
-			       nsects * sizeof(struct section_64);
+	    expected_cmdsize = nsects;
+	    expected_cmdsize *= sizeof(struct section_64);
+	    expected_cmdsize += sizeof(struct segment_command_64);
 	}
 	printf("  cmdsize %u", cmdsize);
 	if(cmdsize != expected_cmdsize)
@@ -2275,10 +2418,10 @@ uint32_t reserved2,
 uint32_t cmd,
 char *sg_segname,
 uint32_t filetype,
-unsigned long object_size,
+uint32_t object_size,
 enum bool verbose)
 {
-    unsigned long section_type, section_attributes;
+    uint32_t section_type, section_attributes;
 
 	printf("Section\n");
 	printf("  sectname %.16s\n", sectname);
@@ -2329,6 +2472,8 @@ enum bool verbose)
 		printf(" S_4BYTE_LITERALS\n");
 	    else if(section_type == S_8BYTE_LITERALS)
 		printf(" S_8BYTE_LITERALS\n");
+	    else if(section_type == S_16BYTE_LITERALS)
+		printf(" S_16BYTE_LITERALS\n");
 	    else if(section_type == S_LITERAL_POINTERS)
 		printf(" S_LITERAL_POINTERS\n");
 	    else if(section_type == S_NON_LAZY_SYMBOL_POINTERS)
@@ -2345,6 +2490,10 @@ enum bool verbose)
 		printf(" S_COALESCED\n");
 	    else if(section_type == S_INTERPOSING)
 		printf(" S_INTERPOSING\n");
+	    else if(section_type == S_DTRACE_DOF)
+		printf(" S_DTRACE_DOF\n");
+	    else if(section_type == S_LAZY_DYLIB_SYMBOL_POINTERS)
+		printf(" S_LAZY_DYLIB_SYMBOL_POINTERS\n");
 	    else
 		printf(" 0x%08x\n", (unsigned int)section_type);
 
@@ -2379,6 +2528,7 @@ enum bool verbose)
 	printf(" reserved1 %u", reserved1);
 	if(section_type == S_SYMBOL_STUBS ||
 	   section_type == S_LAZY_SYMBOL_POINTERS ||
+	   section_type == S_LAZY_DYLIB_SYMBOL_POINTERS ||
 	   section_type == S_NON_LAZY_SYMBOL_POINTERS)
 	    printf(" (index into indirect symbol table)\n");
 	else
@@ -2398,8 +2548,10 @@ void
 print_symtab_command(
 struct symtab_command *st,
 cpu_type_t cputype,
-unsigned long object_size)
+uint32_t object_size)
 {
+    uint64_t big_size;
+
 	printf("     cmd LC_SYMTAB\n");
 	printf(" cmdsize %u", st->cmdsize);
 	if(st->cmdsize != sizeof(struct symtab_command))
@@ -2413,13 +2565,19 @@ unsigned long object_size)
 	    printf("\n");
 	printf("   nsyms %u", st->nsyms);
 	if(cputype & CPU_ARCH_ABI64){
-	    if(st->symoff + st->nsyms * sizeof(struct nlist_64) > object_size)
+	    big_size = st->nsyms;
+	    big_size *= sizeof(struct nlist_64);
+	    big_size += st->symoff;
+	    if(big_size > object_size)
 		printf(" (past end of file)\n");
 	    else
 		printf("\n");
 	}
 	else{
-	    if(st->symoff + st->nsyms * sizeof(struct nlist) > object_size)
+	    big_size = st->nsyms;
+	    big_size *= sizeof(struct nlist);
+	    big_size += st->symoff;
+	    if(big_size > object_size)
 		printf(" (past end of file)\n");
 	    else
 		printf("\n");
@@ -2443,11 +2601,11 @@ unsigned long object_size)
 void
 print_dysymtab_command(
 struct dysymtab_command *dyst,
-unsigned long nsyms,
-unsigned long object_size,
+uint32_t nsyms,
+uint32_t object_size,
 cpu_type_t cputype)
 {
-    uint32_t modtabend;
+    uint64_t modtabend, big_size;
 
 	printf("            cmd LC_DYSYMTAB\n");
 	printf("        cmdsize %u", dyst->cmdsize);
@@ -2462,7 +2620,9 @@ cpu_type_t cputype)
 	else
 	    printf("\n");
 	printf("      nlocalsym %u", dyst->nlocalsym);
-	if(dyst->ilocalsym + dyst->nlocalsym > nsyms)
+	big_size = dyst->ilocalsym;
+	big_size += dyst->nlocalsym;
+	if(big_size > nsyms)
 	    printf(" (past the end of the symbol table)\n");
 	else
 	    printf("\n");
@@ -2482,7 +2642,9 @@ cpu_type_t cputype)
 	else
 	    printf("\n");
 	printf("      nundefsym %u", dyst->nundefsym);
-	if(dyst->iundefsym + dyst->nundefsym > nsyms)
+	big_size = dyst->iundefsym;
+	big_size += dyst->nundefsym;
+	if(big_size > nsyms)
 	    printf(" (past the end of the symbol table)\n");
 	else
 	    printf("\n");
@@ -2492,8 +2654,10 @@ cpu_type_t cputype)
 	else
 	    printf("\n");
 	printf("           ntoc %u", dyst->ntoc);
-	if(dyst->tocoff + dyst->ntoc * sizeof(struct dylib_table_of_contents) >
-	   object_size)
+	big_size = dyst->ntoc;
+	big_size *= sizeof(struct dylib_table_of_contents);
+	big_size += dyst->tocoff;
+	if(big_size > object_size)
 	    printf(" (past end of file)\n");
 	else
 	    printf("\n");
@@ -2503,12 +2667,16 @@ cpu_type_t cputype)
 	else
 	    printf("\n");
 	printf("        nmodtab %u", dyst->nmodtab);
-	if(cputype & CPU_ARCH_ABI64)
-	    modtabend = dyst->modtaboff +
-			dyst->nmodtab * sizeof(struct dylib_module_64);
-	else
-	    modtabend = dyst->modtaboff +
-			dyst->nmodtab * sizeof(struct dylib_module);
+	if(cputype & CPU_ARCH_ABI64){
+	    modtabend = dyst->nmodtab;
+	    modtabend *= sizeof(struct dylib_module_64);
+	    modtabend += dyst->modtaboff;
+	}
+	else{
+	    modtabend = dyst->nmodtab;
+	    modtabend *= sizeof(struct dylib_module);
+	    modtabend += dyst->modtaboff;
+	}
 	if(modtabend > object_size)
 	    printf(" (past end of file)\n");
 	else
@@ -2519,8 +2687,10 @@ cpu_type_t cputype)
 	else
 	    printf("\n");
 	printf("    nextrefsyms %u", dyst->nextrefsyms);
-	if(dyst->extrefsymoff +
-	   dyst->nextrefsyms * sizeof(struct dylib_reference) > object_size)
+	big_size = dyst->nextrefsyms;
+	big_size *= sizeof(struct dylib_reference);
+	big_size += dyst->extrefsymoff;
+	if(big_size > object_size)
 	    printf(" (past end of file)\n");
 	else
 	    printf("\n");
@@ -2530,8 +2700,10 @@ cpu_type_t cputype)
 	else
 	    printf("\n");
 	printf("  nindirectsyms %u", dyst->nindirectsyms);
-	if(dyst->indirectsymoff + dyst->nindirectsyms * sizeof(unsigned long) >
-	   object_size)
+	big_size = dyst->nindirectsyms;
+	big_size *= sizeof(uint32_t);
+	big_size += dyst->indirectsymoff;
+	if(big_size > object_size)
 	    printf(" (past end of file)\n");
 	else
 	    printf("\n");
@@ -2552,8 +2724,10 @@ cpu_type_t cputype)
 	else
 	    printf("\n");
 	printf("        nlocrel %u", dyst->nlocrel);
-	if(dyst->locreloff + dyst->nlocrel * sizeof(struct relocation_info) >
-	   object_size)
+	big_size = dyst->nlocrel;
+	big_size *= sizeof(struct relocation_info);
+	big_size += dyst->locreloff;
+	if(big_size > object_size)
 	    printf(" (past end of file)\n");
 	else
 	    printf("\n");
@@ -2566,8 +2740,10 @@ cpu_type_t cputype)
 void
 print_symseg_command(
 struct symseg_command *ss,
-unsigned long object_size)
+uint32_t object_size)
 {
+    uint64_t big_size;
+
 	printf("     cmd LC_SYMSEG (obsolete)\n");
 	printf(" cmdsize %u", ss->cmdsize);
 	if(ss->cmdsize != sizeof(struct symseg_command))
@@ -2580,7 +2756,9 @@ unsigned long object_size)
 	else
 	    printf("\n");
 	printf("    size %u", ss->size);
-	if(ss->offset + ss->size > object_size)
+	big_size = ss->offset;
+	big_size += ss->size;
+	if(big_size > object_size)
 	    printf(" (past end of file)\n");
 	else
 	    printf("\n");
@@ -2620,9 +2798,9 @@ struct load_command *lc)
 }
 
 /*
- * print an LC_ID_DYLIB, LC_LOAD_DYLIB, LC_LOAD_WEAK_DYLIB or LC_REEXPORT_DYLIB
- * command.  The dylib_command structure specified must be aligned correctly and
- * in the host byte sex.
+ * print an LC_ID_DYLIB, LC_LOAD_DYLIB, LC_LOAD_WEAK_DYLIB, LC_REEXPORT_DYLIB or
+ * LC_LAZY_LOAD_DYLIB command.  The dylib_command structure specified must be
+ * aligned correctly and in the host byte sex.
  */
 void
 print_dylib_command(
@@ -2630,6 +2808,7 @@ struct dylib_command *dl,
 struct load_command *lc)
 {
     char *p;
+    time_t t;
 
 	if(dl->cmd == LC_ID_DYLIB)
 	    printf("          cmd LC_ID_DYLIB\n");
@@ -2639,6 +2818,8 @@ struct load_command *lc)
 	    printf("          cmd LC_LOAD_WEAK_DYLIB\n");
 	else if(dl->cmd == LC_REEXPORT_DYLIB)
 	    printf("          cmd LC_REEXPORT_DYLIB\n");
+	else if(dl->cmd == LC_LAZY_LOAD_DYLIB)
+	    printf("          cmd LC_LAZY_LOAD_DYLIB\n");
 	else
 	    printf("          cmd %u (unknown)\n", dl->cmd);
 	printf("      cmdsize %u", dl->cmdsize);
@@ -2656,7 +2837,8 @@ struct load_command *lc)
 		   dl->dylib.name.offset);
 	}
 	printf("   time stamp %u ", dl->dylib.timestamp);
-	printf("%s", ctime((const long *)&(dl->dylib.timestamp)));
+	t = dl->dylib.timestamp;
+	printf("%s", ctime(&t));
 	printf("      current version %u.%u.%u\n",
 	       dl->dylib.current_version >> 16,
 	       (dl->dylib.current_version >> 8) & 0xff,
@@ -2790,7 +2972,7 @@ struct load_command *lc,
 enum bool verbose)
 {
     char *p;
-    unsigned long i;
+    uint32_t i;
 
 	printf("            cmd LC_PREBOUND_DYLIB\n");
 	printf("        cmdsize %u", pbdylib->cmdsize);
@@ -2816,7 +2998,7 @@ enum bool verbose)
 			pbdylib->linked_modules.offset);
 		for(i = 0; i < pbdylib->nmodules; i++){
 		    if(((p[i/8] >> (i%8)) & 1) == 1)
-			printf("%lu\n", i);
+			printf("%u\n", i);
 		}
 	    }
 	    else{
@@ -2949,8 +3131,10 @@ struct routines_command_64 *rc64)
 void
 print_twolevel_hints_command(
 struct twolevel_hints_command *hints,
-unsigned long object_size)
+uint32_t object_size)
 {
+    uint64_t big_size;
+
 	printf("     cmd LC_TWOLEVEL_HINTS\n");
 	printf(" cmdsize %u", hints->cmdsize);
 	if(hints->cmdsize != sizeof(struct twolevel_hints_command))
@@ -2963,8 +3147,10 @@ unsigned long object_size)
 	else
 	    printf("\n");
 	printf("  nhints %u", hints->nhints);
-	if(hints->offset + hints->nhints * sizeof(struct twolevel_hint) >
-	   object_size)
+	big_size = hints->nhints;
+	big_size *= sizeof(struct twolevel_hint);
+	big_size += hints->offset;
+	if(big_size > object_size)
 	    printf(" (past end of file)\n");
 	else
 	    printf("\n");
@@ -3020,8 +3206,10 @@ struct uuid_command *uuid)
 void
 print_linkedit_data_command(
 struct linkedit_data_command *ld,
-unsigned long object_size)
+uint32_t object_size)
 {
+    uint64_t big_size;
+
 	if(ld->cmd == LC_CODE_SIGNATURE)
 	    printf("      cmd LC_CODE_SIGNATURE\n");
 	else if(ld->cmd == LC_SEGMENT_SPLIT_INFO)
@@ -3039,7 +3227,9 @@ unsigned long object_size)
 	else
 	    printf("\n");
 	printf(" datasize %u", ld->datasize);
-	if(ld->dataoff + ld->datasize > object_size)
+	big_size = ld->dataoff;
+	big_size += ld->datasize;
+	if(big_size > object_size)
 	    printf(" (past end of file)\n");
 	else
 	    printf("\n");
@@ -3072,6 +3262,125 @@ struct load_command *lc)
 }
 
 /*
+ * print an LC_ENCRYPTION_INFO command.  The encryption_info_command structure
+ * specified must be aligned correctly and in the host byte sex.
+ */
+void
+print_encryption_info_command(
+struct encryption_info_command *ec,
+uint32_t object_size)
+{
+    uint64_t big_size;
+
+	printf("          cmd LC_ENCRYPTION_INFO\n");
+	printf("      cmdsize %u", ec->cmdsize);
+	if(ec->cmdsize < sizeof(struct encryption_info_command))
+	    printf(" Incorrect size\n");
+	else
+	    printf("\n");
+	printf(" cryptoff  %u", ec->cryptoff);
+	if(ec->cryptoff > object_size)
+	    printf(" (past end of file)\n");
+	else
+	    printf("\n");
+	printf(" cryptsize %u", ec->cryptsize);
+	big_size = ec->cryptsize;
+	big_size += ec->cryptoff;
+	if(big_size > object_size)
+	    printf(" (past end of file)\n");
+	else
+	    printf("\n");
+	printf(" cryptid   %u\n", ec->cryptid);
+}
+
+/*
+ * print an LC_DYLD_INFO command.  The dyld_info_command structure
+ * specified must be aligned correctly and in the host byte sex.
+ */
+void
+print_dyld_info_info_command(
+struct dyld_info_command *dc,
+uint32_t object_size)
+{
+    uint64_t big_size;
+
+	if(dc->cmd == LC_DYLD_INFO)
+	    printf("            cmd LC_DYLD_INFO\n");
+	else
+	    printf("            cmd LC_DYLD_INFO_ONLY\n");
+	printf("        cmdsize %u", dc->cmdsize);
+	if(dc->cmdsize < sizeof(struct dyld_info_command))
+	    printf(" Incorrect size\n");
+	else
+	    printf("\n");
+
+	printf("     rebase_off %u", dc->rebase_off);
+	if(dc->rebase_off > object_size)
+	    printf(" (past end of file)\n");
+	else
+	    printf("\n");
+	printf("    rebase_size %u", dc->rebase_size);
+	big_size = dc->rebase_off;
+	big_size += dc->rebase_size;
+	if(big_size > object_size)
+	    printf(" (past end of file)\n");
+	else
+	    printf("\n");
+
+	printf("       bind_off %u", dc->bind_off);
+	if(dc->bind_off > object_size)
+	    printf(" (past end of file)\n");
+	else
+	    printf("\n");
+	printf("      bind_size %u", dc->bind_size);
+	big_size = dc->bind_off;
+	big_size += dc->bind_size;
+	if(big_size > object_size)
+	    printf(" (past end of file)\n");
+	else
+	    printf("\n");
+	    
+	printf("  weak_bind_off %u", dc->weak_bind_off);
+	if(dc->weak_bind_off > object_size)
+	    printf(" (past end of file)\n");
+	else
+	    printf("\n");
+	printf(" weak_bind_size %u", dc->weak_bind_size);
+	big_size = dc->weak_bind_off;
+	big_size += dc->weak_bind_size;
+	if(big_size > object_size)
+	    printf(" (past end of file)\n");
+	else
+	    printf("\n");
+
+	printf("  lazy_bind_off %u", dc->lazy_bind_off);
+	if(dc->lazy_bind_off > object_size)
+	    printf(" (past end of file)\n");
+	else
+	    printf("\n");
+	printf(" lazy_bind_size %u", dc->lazy_bind_size);
+	big_size = dc->lazy_bind_off;
+	big_size += dc->lazy_bind_size;
+	if(big_size > object_size)
+	    printf(" (past end of file)\n");
+	else
+	    printf("\n");
+	    
+	printf("     export_off %u", dc->export_off);
+	if(dc->export_off > object_size)
+	    printf(" (past end of file)\n");
+	else
+	    printf("\n");
+	printf("    export_size %u", dc->export_size);
+	big_size = dc->export_off;
+	big_size += dc->export_size;
+	if(big_size > object_size)
+	    printf(" (past end of file)\n");
+	else
+	    printf("\n");
+}
+
+/*
  * print the thread states from an LC_THREAD or LC_UNIXTHREAD command.  The
  * thread state triples (flavor, count, state) are in memory between begin and
  * and end values specified, and in the specified byte sex.  The mach_header
@@ -3084,7 +3393,7 @@ char *end,
 cpu_type_t cputype,
 enum byte_sex thread_states_byte_sex)
 {
-    unsigned long i, j, k, flavor, count, left;
+    uint32_t i, j, k, flavor, count, left;
     enum byte_sex host_byte_sex;
     enum bool swapped;
 
@@ -3098,26 +3407,26 @@ enum byte_sex thread_states_byte_sex)
 	    struct m68k_thread_state_user_reg user_reg;
 
 	    while(begin < end){
-		if(end - begin > (ptrdiff_t)sizeof(unsigned long)){
-		    memcpy((char *)&flavor, begin, sizeof(unsigned long));
-		    begin += sizeof(unsigned long);
+		if(end - begin > (ptrdiff_t)sizeof(uint32_t)){
+		    memcpy((char *)&flavor, begin, sizeof(uint32_t));
+		    begin += sizeof(uint32_t);
 		}
 		else{
 		    flavor = 0;
 		    begin = end;
 		}
 		if(swapped)
-		    flavor = SWAP_LONG(flavor);
-		if(end - begin > (ptrdiff_t)sizeof(unsigned long)){
-		    memcpy((char *)&count, begin, sizeof(unsigned long));
-		    begin += sizeof(unsigned long);
+		    flavor = SWAP_INT(flavor);
+		if(end - begin > (ptrdiff_t)sizeof(uint32_t)){
+		    memcpy((char *)&count, begin, sizeof(uint32_t));
+		    begin += sizeof(uint32_t);
 		}
 		else{
 		    count = 0;
 		    begin = end;
 		}
 		if(swapped)
-		    count = SWAP_LONG(count);
+		    count = SWAP_INT(count);
 
 		switch(flavor){
 		case M68K_THREAD_STATE_REGS:
@@ -3126,7 +3435,7 @@ enum byte_sex thread_states_byte_sex)
 			printf("      count M68K_THREAD_STATE_"
 			       "REGS_COUNT\n");
 		    else
-			printf("      count %lu (not M68K_THREAD_STATE_"
+			printf("      count %u (not M68K_THREAD_STATE_"
 			       "REGS_COUNT)\n", count);
 		    left = end - begin;
 		    if(left >= sizeof(struct m68k_thread_state_regs)){
@@ -3162,7 +3471,7 @@ enum byte_sex thread_states_byte_sex)
 			printf("      count M68K_THREAD_STATE_"
 			       "68882_COUNT\n");
 		    else
-			printf("      count %lu (not M68K_THREAD_STATE_"
+			printf("      count %u (not M68K_THREAD_STATE_"
 			       "68882_COUNT\n", count);
 		    left = end - begin;
 		    if(left >= sizeof(struct m68k_thread_state_68882)){
@@ -3179,7 +3488,7 @@ enum byte_sex thread_states_byte_sex)
 		    if(swapped)
 			swap_m68k_thread_state_68882(&fpu, host_byte_sex);
 		    for(j = 0 ; j < 8 ; j++)
-			printf(" fp reg %lu %08x %08x %08x\n", j,
+			printf(" fp reg %u %08x %08x %08x\n", j,
 			       (unsigned int)fpu.regs[j].fp[0],
 			       (unsigned int)fpu.regs[j].fp[1],
 			       (unsigned int)fpu.regs[j].fp[2]);
@@ -3194,7 +3503,7 @@ enum byte_sex thread_states_byte_sex)
 			printf("      count M68K_THREAD_STATE_"
 			       "USER_REG_COUNT\n");
 		    else
-			printf("      count %lu (not M68K_THREAD_STATE_"
+			printf("      count %u (not M68K_THREAD_STATE_"
 			       "USER_REG_COUNT", count);
 		    left = end - begin;
 		    if(left >= sizeof(struct m68k_thread_state_user_reg)){
@@ -3216,37 +3525,37 @@ enum byte_sex thread_states_byte_sex)
 		    break;
 
 		default:
-		    printf("     flavor %lu (unknown)\n", flavor);
-		    printf("      count %lu\n", count);
+		    printf("     flavor %u (unknown)\n", flavor);
+		    printf("      count %u\n", count);
 		    printf("      state:\n");
 		    print_unknown_state(begin, end, count, swapped);
-		    begin += count * sizeof(unsigned long);
+		    begin += count * sizeof(uint32_t);
 		    break;
 		}
 	    }
 	}
 	else if(cputype == CPU_TYPE_HPPA){
 	    while(begin < end){
-		if(end - begin > (ptrdiff_t)sizeof(unsigned long)){
-		    memcpy((char *)&flavor, begin, sizeof(unsigned long));
-		    begin += sizeof(unsigned long);
+		if(end - begin > (ptrdiff_t)sizeof(uint32_t)){
+		    memcpy((char *)&flavor, begin, sizeof(uint32_t));
+		    begin += sizeof(uint32_t);
 		}
 		else{
 		    flavor = 0;
 		    begin = end;
 		}
 		if(swapped)
-		    flavor = SWAP_LONG(flavor);
-		if(end - begin > (ptrdiff_t)sizeof(unsigned long)){
-		    memcpy((char *)&count, begin, sizeof(unsigned long));
-		    begin += sizeof(unsigned long);
+		    flavor = SWAP_INT(flavor);
+		if(end - begin > (ptrdiff_t)sizeof(uint32_t)){
+		    memcpy((char *)&count, begin, sizeof(uint32_t));
+		    begin += sizeof(uint32_t);
 		}
 		else{
 		    count = 0;
 		    begin = end;
 		}
 		if(swapped)
-		    count = SWAP_LONG(count);
+		    count = SWAP_INT(count);
 
 		switch(flavor){
 		case HPPA_INTEGER_THREAD_STATE:
@@ -3256,7 +3565,7 @@ enum byte_sex thread_states_byte_sex)
 		    if(count == HPPA_INTEGER_THREAD_STATE_COUNT)
 			printf("      count HPPA_INTEGER_THREAD_STATE_COUNT\n");
 		    else
-			printf("      count %lu (not HPPA_INTEGER_THREAD_STATE_"
+			printf("      count %u (not HPPA_INTEGER_THREAD_STATE_"
 			       "COUNT)\n", count);
 		    left = end - begin;
 		    if(left >= sizeof(struct hp_pa_integer_thread_state)){
@@ -3273,15 +3582,15 @@ enum byte_sex thread_states_byte_sex)
 		    if(swapped)
 			swap_hppa_integer_thread_state(&frame, host_byte_sex);
 			printf(
-		         "r1  0x%08lx  r2  0x%08lx  r3  0x%08lx  r4  0x%08lx\n"
-		         "r5  0x%08lx  r6  0x%08lx  r7  0x%08lx  r8  0x%08lx\n"
-		         "r9  0x%08lx  r10 0x%08lx  r11 0x%08lx  r12 0x%08lx\n"
-		         "r13 0x%08lx  r14 0x%08lx  r15 0x%08lx  r16 0x%08lx\n"
-		         "r17 0x%08lx  r18 0x%08lx  r19 0x%08lx  r20 0x%08lx\n"
-		         "r21 0x%08lx  r22 0x%08lx  r23 0x%08lx  r24 0x%08lx\n"
-		         "r25 0x%08lx  r26 0x%08lx  r27 0x%08lx  r28 0x%08lx\n"
-		         "r29 0x%08lx  r30 0x%08lx  r31 0x%08lx\n"
-			 "sr0 0x%08lx  sr1 0x%08lx  sr2 0x%08lx  sar 0x%08lx\n",
+		         "r1  0x%08x  r2  0x%08x  r3  0x%08x  r4  0x%08x\n"
+		         "r5  0x%08x  r6  0x%08x  r7  0x%08x  r8  0x%08x\n"
+		         "r9  0x%08x  r10 0x%08x  r11 0x%08x  r12 0x%08x\n"
+		         "r13 0x%08x  r14 0x%08x  r15 0x%08x  r16 0x%08x\n"
+		         "r17 0x%08x  r18 0x%08x  r19 0x%08x  r20 0x%08x\n"
+		         "r21 0x%08x  r22 0x%08x  r23 0x%08x  r24 0x%08x\n"
+		         "r25 0x%08x  r26 0x%08x  r27 0x%08x  r28 0x%08x\n"
+		         "r29 0x%08x  r30 0x%08x  r31 0x%08x\n"
+			 "sr0 0x%08x  sr1 0x%08x  sr2 0x%08x  sar 0x%08x\n",
 		   frame.ts_gr1,  frame.ts_gr2,  frame.ts_gr3,  frame.ts_gr4,
 		   frame.ts_gr5,  frame.ts_gr6,  frame.ts_gr7,  frame.ts_gr8,
 		   frame.ts_gr9,  frame.ts_gr10, frame.ts_gr11, frame.ts_gr12,
@@ -3299,7 +3608,7 @@ enum byte_sex thread_states_byte_sex)
 		    if(count == HPPA_FRAME_THREAD_STATE_COUNT)
 			printf("      count HPPA_FRAME_THREAD_STATE_COUNT\n");
 		    else
-			printf("      count %lu (not HPPA_FRAME_THREAD_STATE_"
+			printf("      count %u (not HPPA_FRAME_THREAD_STATE_"
 			       "COUNT)\n", count);
 		    left = end - begin;
 		    if(left >= sizeof(struct hp_pa_frame_thread_state)){
@@ -3315,9 +3624,9 @@ enum byte_sex thread_states_byte_sex)
 		    }
 		    if(swapped)
 			swap_hppa_frame_thread_state(&frame, host_byte_sex);
-		    printf("pcsq_front  0x%08lx pcsq_back  0x%08lx\n"
-		           "pcoq_front  0x%08lx pcoq_back  0x%08lx\n"
-			   "       psw  0x%08lx\n",
+		    printf("pcsq_front  0x%08x pcsq_back  0x%08x\n"
+		           "pcoq_front  0x%08x pcoq_back  0x%08x\n"
+			   "       psw  0x%08x\n",
 			   frame.ts_pcsq_front, frame.ts_pcsq_back,
 			   frame.ts_pcoq_front, frame.ts_pcoq_back,
 			   frame.ts_psw);
@@ -3329,7 +3638,7 @@ enum byte_sex thread_states_byte_sex)
 		    if(count == HPPA_FP_THREAD_STATE_COUNT)
 			printf("      count HPPA_FP_THREAD_STATE_COUNT\n");
 		    else
-			printf("      count %lu (not HPPA_FP_THREAD_STATE_"
+			printf("      count %u (not HPPA_FP_THREAD_STATE_"
 			       "COUNT)\n", count);
 		    left = end - begin;
 		    if(left >= sizeof(struct hp_pa_fp_thread_state)){
@@ -3364,37 +3673,37 @@ enum byte_sex thread_states_byte_sex)
 		    break;
 		}
 		default:
-		    printf("     flavor %lu (unknown)\n", flavor);
-		    printf("      count %lu\n", count);
+		    printf("     flavor %u (unknown)\n", flavor);
+		    printf("      count %u\n", count);
 		    printf("      state:\n");
 		    print_unknown_state(begin, end, count, swapped);
-		    begin += count * sizeof(unsigned long);
+		    begin += count * sizeof(uint32_t);
 		    break;
 		}
 	    }
 	}
 	else if(cputype == CPU_TYPE_SPARC){
 	    while(begin < end){
-		if(end - begin > (ptrdiff_t)sizeof(unsigned long)){
-		    memcpy((char *)&flavor, begin, sizeof(unsigned long));
-		    begin += sizeof(unsigned long);
+		if(end - begin > (ptrdiff_t)sizeof(uint32_t)){
+		    memcpy((char *)&flavor, begin, sizeof(uint32_t));
+		    begin += sizeof(uint32_t);
 		}
 		else{
 		    flavor = 0;
 		    begin = end;
 		}
 		if(swapped)
-		    flavor = SWAP_LONG(flavor);
-		if(end - begin > (ptrdiff_t)sizeof(unsigned long)){
-		    memcpy((char *)&count, begin, sizeof(unsigned long));
-		    begin += sizeof(unsigned long);
+		    flavor = SWAP_INT(flavor);
+		if(end - begin > (ptrdiff_t)sizeof(uint32_t)){
+		    memcpy((char *)&count, begin, sizeof(uint32_t));
+		    begin += sizeof(uint32_t);
 		}
 		else{
 		    count = 0;
 		    begin = end;
 		}
 		if(swapped)
-		    count = SWAP_LONG(count);
+		    count = SWAP_INT(count);
 
 		switch(flavor){
 		case SPARC_THREAD_STATE_REGS:
@@ -3403,7 +3712,7 @@ enum byte_sex thread_states_byte_sex)
 		    if (count == SPARC_THREAD_STATE_REGS_COUNT)
 		      printf("      count SPARC_THREAD_STATE_REGS_COUNT\n");
 		    else
-		      printf("      count %lu (not SPARC_THREAD_STATE_REGS_COUNT)\n",
+		      printf("      count %u (not SPARC_THREAD_STATE_REGS_COUNT)\n",
 			     count);
 		    left = begin - end;
 		    if (left >= sizeof(struct sparc_thread_state_regs)) {
@@ -3441,7 +3750,7 @@ enum byte_sex thread_states_byte_sex)
 		    if (count == SPARC_THREAD_STATE_FPU_COUNT)
 		      printf("      count SPARC_THREAD_STATE_FPU_COUNT\n");
 		    else
-		      printf("      count %lu (not SPARC_THREAD_STATE_FPU_COUNT)\n",
+		      printf("      count %u (not SPARC_THREAD_STATE_FPU_COUNT)\n",
 			     count);
 		    left = begin - end;
 		    if (left >= sizeof(struct sparc_thread_state_fpu)) {
@@ -3485,11 +3794,11 @@ enum byte_sex thread_states_byte_sex)
 		    break;
 		  }
 		default:
-		    printf("     flavor %lu (unknown)\n", flavor);
-		    printf("      count %lu\n", count);
+		    printf("     flavor %u (unknown)\n", flavor);
+		    printf("      count %u\n", count);
 		    printf("      state:\n");
 		    print_unknown_state(begin, end, count, swapped);
-		    begin += count * sizeof(unsigned long);
+		    begin += count * sizeof(uint32_t);
 		    break;
 		}
 	    }
@@ -3503,26 +3812,26 @@ enum byte_sex thread_states_byte_sex)
 	    ppc_exception_state_t except;
 
 	    while(begin < end){
-		if(end - begin > (ptrdiff_t)sizeof(unsigned long)){
-		    memcpy((char *)&flavor, begin, sizeof(unsigned long));
-		    begin += sizeof(unsigned long);
+		if(end - begin > (ptrdiff_t)sizeof(uint32_t)){
+		    memcpy((char *)&flavor, begin, sizeof(uint32_t));
+		    begin += sizeof(uint32_t);
 		}
 		else{
 		    flavor = 0;
 		    begin = end;
 		}
 		if(swapped)
-		    flavor = SWAP_LONG(flavor);
-		if(end - begin > (ptrdiff_t)sizeof(unsigned long)){
-		    memcpy((char *)&count, begin, sizeof(unsigned long));
-		    begin += sizeof(unsigned long);
+		    flavor = SWAP_INT(flavor);
+		if(end - begin > (ptrdiff_t)sizeof(uint32_t)){
+		    memcpy((char *)&count, begin, sizeof(uint32_t));
+		    begin += sizeof(uint32_t);
 		}
 		else{
 		    count = 0;
 		    begin = end;
 		}
 		if(swapped)
-		    count = SWAP_LONG(count);
+		    count = SWAP_INT(count);
 
 		switch(flavor){
 		case PPC_THREAD_STATE:
@@ -3530,7 +3839,7 @@ enum byte_sex thread_states_byte_sex)
 		    if(count == PPC_THREAD_STATE_COUNT)
 			printf("      count PPC_THREAD_STATE_COUNT\n");
 		    else
-			printf("      count %lu (not PPC_THREAD_STATE_"
+			printf("      count %u (not PPC_THREAD_STATE_"
 			       "COUNT)\n", count);
 		    left = end - begin;
 		    if(left >= sizeof(ppc_thread_state_t)){
@@ -3575,7 +3884,7 @@ enum byte_sex thread_states_byte_sex)
 		    if(count == PPC_FLOAT_STATE_COUNT)
 			printf("      count PPC_FLOAT_STATE_COUNT\n");
 		    else
-			printf("      count %lu (not PPC_FLOAT_STATE_"
+			printf("      count %u (not PPC_FLOAT_STATE_"
 			       "COUNT)\n", count);
 		    left = end - begin;
 		    if(left >= sizeof(ppc_float_state_t)){
@@ -3618,7 +3927,7 @@ enum byte_sex thread_states_byte_sex)
 		    if(count == PPC_EXCEPTION_STATE_COUNT)
 			printf("      count PPC_EXCEPTION_STATE_COUNT\n");
 		    else
-			printf("      count %lu (not PPC_EXCEPTION_STATE_COUNT"
+			printf("      count %u (not PPC_EXCEPTION_STATE_COUNT"
 			       ")\n", count);
 		    left = end - begin;
 		    if(left >= sizeof(ppc_exception_state_t)){
@@ -3650,7 +3959,7 @@ enum byte_sex thread_states_byte_sex)
 		    if(count == PPC_THREAD_STATE64_COUNT)
 			printf("      count PPC_THREAD_STATE64_COUNT\n");
 		    else
-			printf("      count %lu (not PPC_THREAD_STATE64_"
+			printf("      count %u (not PPC_THREAD_STATE64_"
 			       "COUNT)\n", count);
 		    left = end - begin;
 		    if(left >= sizeof(ppc_thread_state64_t)){
@@ -3690,11 +3999,11 @@ enum byte_sex thread_states_byte_sex)
 			   cpu64.ctr, cpu64.vrsave, cpu64.srr0, cpu64.srr1);
 		    break;
 		default:
-		    printf("     flavor %lu (unknown)\n", flavor);
-		    printf("      count %lu\n", count);
+		    printf("     flavor %u (unknown)\n", flavor);
+		    printf("      count %u\n", count);
 		    printf("      state:\n");
 		    print_unknown_state(begin, end, count, swapped);
-		    begin += count * sizeof(unsigned long);
+		    begin += count * sizeof(uint32_t);
 		    break;
 		}
 	    }
@@ -3706,26 +4015,26 @@ enum byte_sex thread_states_byte_sex)
 	    m88110_thread_state_impl_t spu;
 
 	    while(begin < end){
-		if(end - begin > (ptrdiff_t)sizeof(unsigned long)){
-		    memcpy((char *)&flavor, begin, sizeof(unsigned long));
-		    begin += sizeof(unsigned long);
+		if(end - begin > (ptrdiff_t)sizeof(uint32_t)){
+		    memcpy((char *)&flavor, begin, sizeof(uint32_t));
+		    begin += sizeof(uint32_t);
 		}
 		else{
 		    flavor = 0;
 		    begin = end;
 		}
 		if(swapped)
-		    flavor = SWAP_LONG(flavor);
-		if(end - begin > (ptrdiff_t)sizeof(unsigned long)){
-		    memcpy((char *)&count, begin, sizeof(unsigned long));
-		    begin += sizeof(unsigned long);
+		    flavor = SWAP_INT(flavor);
+		if(end - begin > (ptrdiff_t)sizeof(uint32_t)){
+		    memcpy((char *)&count, begin, sizeof(uint32_t));
+		    begin += sizeof(uint32_t);
 		}
 		else{
 		    count = 0;
 		    begin = end;
 		}
 		if(swapped)
-		    count = SWAP_LONG(count);
+		    count = SWAP_INT(count);
 
 		switch(flavor){
 		case M88K_THREAD_STATE_GRF:
@@ -3733,7 +4042,7 @@ enum byte_sex thread_states_byte_sex)
 		    if(count == M88K_THREAD_STATE_GRF_COUNT)
 			printf("      count M88K_THREAD_STATE_GRF_COUNT\n");
 		    else
-			printf("      count %lu (not M88K_THREAD_STATE_GRF_"
+			printf("      count %u (not M88K_THREAD_STATE_GRF_"
 			       "COUNT)\n", count);
 		    left = end - begin;
 		    if(left >= sizeof(m88k_thread_state_grf_t)){
@@ -3776,7 +4085,7 @@ enum byte_sex thread_states_byte_sex)
 		    if(count == M88K_THREAD_STATE_XRF_COUNT)
 			printf("      count M88K_THREAD_STATE_XRF_COUNT\n");
 		    else
-			printf("      count %lu (not M88K_THREAD_STATE_XRF_"
+			printf("      count %u (not M88K_THREAD_STATE_XRF_"
 			       "COUNT)\n", count);
 		    left = end - begin;
 		    if(left >= sizeof(m88k_thread_state_xrf_t)){
@@ -3882,7 +4191,7 @@ enum byte_sex thread_states_byte_sex)
 		    if(count == M88K_THREAD_STATE_USER_COUNT)
 			printf("      count M88K_THREAD_STATE_USER_COUNT\n");
 		    else
-			printf("      count %lu (not M88K_THREAD_STATE_USER_"
+			printf("      count %u (not M88K_THREAD_STATE_USER_"
 			       "COUNT)\n", count);
 		    left = end - begin;
 		    if(left >= sizeof(m88k_thread_state_user_t)){
@@ -3906,7 +4215,7 @@ enum byte_sex thread_states_byte_sex)
 		    if(count == M88110_THREAD_STATE_IMPL_COUNT)
 			printf("      count M88110_THREAD_STATE_IMPL_COUNT\n");
 		    else
-			printf("      count %lu (not M88110_THREAD_STATE_IMPL_"
+			printf("      count %u (not M88110_THREAD_STATE_IMPL_"
 			       "COUNT)\n", count);
 		    left = end - begin;
 		    if(left >= sizeof(m88110_thread_state_impl_t)){
@@ -3923,7 +4232,7 @@ enum byte_sex thread_states_byte_sex)
 		    if(swapped)
 			swap_m88110_thread_state_impl_t(&spu, host_byte_sex);
 		    for(j = 0; j < M88110_N_DATA_BP; j++){
-			printf("      data_bp[%lu] addr 0x%08x\n",
+			printf("      data_bp[%u] addr 0x%08x\n",
 			       j, (unsigned int)spu.data_bp[i].addr);
 			printf("                  cntl rw %d rwm %d "
 			       "addr_match ", spu.data_bp[j].ctrl.rw,
@@ -3981,11 +4290,11 @@ enum byte_sex thread_states_byte_sex)
 		    break;
 
 		default:
-		    printf("     flavor %lu (unknown)\n", flavor);
-		    printf("      count %lu\n", count);
+		    printf("     flavor %u (unknown)\n", flavor);
+		    printf("      count %u\n", count);
 		    printf("      state:\n");
 		    print_unknown_state(begin, end, count, swapped);
-		    begin += count * sizeof(unsigned long);
+		    begin += count * sizeof(uint32_t);
 		    break;
 		}
 	    }
@@ -3994,26 +4303,26 @@ enum byte_sex thread_states_byte_sex)
 	    struct i860_thread_state_regs cpu;
 
 	    while(begin < end){
-		if(end - begin > (ptrdiff_t)sizeof(unsigned long)){
-		    memcpy((char *)&flavor, begin, sizeof(unsigned long));
-		    begin += sizeof(unsigned long);
+		if(end - begin > (ptrdiff_t)sizeof(uint32_t)){
+		    memcpy((char *)&flavor, begin, sizeof(uint32_t));
+		    begin += sizeof(uint32_t);
 		}
 		else{
 		    flavor = 0;
 		    begin = end;
 		}
 		if(swapped)
-		    flavor = SWAP_LONG(flavor);
-		if(end - begin > (ptrdiff_t)sizeof(unsigned long)){
-		    memcpy((char *)&count, begin, sizeof(unsigned long));
-		    begin += sizeof(unsigned long);
+		    flavor = SWAP_INT(flavor);
+		if(end - begin > (ptrdiff_t)sizeof(uint32_t)){
+		    memcpy((char *)&count, begin, sizeof(uint32_t));
+		    begin += sizeof(uint32_t);
 		}
 		else{
 		    count = 0;
 		    begin = end;
 		}
 		if(swapped)
-		    count = SWAP_LONG(count);
+		    count = SWAP_INT(count);
 
 		switch(flavor){
 		case I860_THREAD_STATE_REGS:
@@ -4021,7 +4330,7 @@ enum byte_sex thread_states_byte_sex)
 		    if(count == I860_THREAD_STATE_REGS_COUNT)
 			printf("      count I860_THREAD_STATE_REGS_COUNT\n");
 		    else
-			printf("      count %lu (not I860_THREAD_STATE_REGS_"
+			printf("      count %u (not I860_THREAD_STATE_REGS_"
 			       "COUNT)\n", count);
 		    left = end - begin;
 		    if(left >= sizeof(struct i860_thread_state_regs)){
@@ -4040,14 +4349,14 @@ enum byte_sex thread_states_byte_sex)
 		    printf(" iregs\n");
 		    for(j = 0 ; j < 31 ; j += k){
 			for(k = 0 ; k < 5 && j + k < 31 ; k++)
-			    printf(" i%-2lu 0x%08x", j + k,
+			    printf(" i%-2u 0x%08x", j + k,
 				   (unsigned int)cpu.ireg[j + k]);
 			printf("\n");
 		    }
 		    printf(" fregs\n");
 		    for(j = 0 ; j < 30 ; j += k){
 			for(k = 0 ; k < 5 && j + k < 30 ; k++)
-			    printf(" f%-2lu 0x%08x", j + k,
+			    printf(" f%-2u 0x%08x", j + k,
 				   (unsigned int)cpu.freg[j + k]);
 			printf("\n");
 		    }
@@ -4070,11 +4379,11 @@ enum byte_sex thread_states_byte_sex)
 		    break;
 
 		default:
-		    printf("     flavor %lu (unknown)\n", flavor);
-		    printf("      count %lu\n", count);
+		    printf("     flavor %u (unknown)\n", flavor);
+		    printf("      count %u\n", count);
 		    printf("      state:\n");
 		    print_unknown_state(begin, end, count, swapped);
-		    begin += count * sizeof(unsigned long);
+		    begin += count * sizeof(uint32_t);
 		    break;
 		}
 	    }
@@ -4086,12 +4395,12 @@ enum byte_sex thread_states_byte_sex)
 #if i386_THREAD_STATE == 1
 #ifndef i386_EXCEPTION_STATE_COUNT
 	    char *fpu;
-	    unsigned long fpu_size;
+	    uint32_t fpu_size;
 #else /* defined(i386_EXCEPTION_STATE_COUNT) */
 	    i386_float_state_t fpu;
 #endif /* defined(i386_EXCEPTION_STATE_COUNT) */
 	    i386_exception_state_t exc;
-	    unsigned long f, g;
+	    uint32_t f, g;
 
 #ifdef x86_THREAD_STATE64
 	    x86_thread_state64_t cpu64;
@@ -4116,26 +4425,26 @@ enum byte_sex thread_states_byte_sex)
 #endif /* i386_THREAD_STATE == -1 */
 
 	    while(begin < end){
-		if(end - begin > (ptrdiff_t)sizeof(unsigned long)){
-		    memcpy((char *)&flavor, begin, sizeof(unsigned long));
-		    begin += sizeof(unsigned long);
+		if(end - begin > (ptrdiff_t)sizeof(uint32_t)){
+		    memcpy((char *)&flavor, begin, sizeof(uint32_t));
+		    begin += sizeof(uint32_t);
 		}
 		else{
 		    flavor = 0;
 		    begin = end;
 		}
 		if(swapped)
-		    flavor = SWAP_LONG(flavor);
-		if(end - begin > (ptrdiff_t)sizeof(unsigned long)){
-		    memcpy((char *)&count, begin, sizeof(unsigned long));
-		    begin += sizeof(unsigned long);
+		    flavor = SWAP_INT(flavor);
+		if(end - begin > (ptrdiff_t)sizeof(uint32_t)){
+		    memcpy((char *)&count, begin, sizeof(uint32_t));
+		    begin += sizeof(uint32_t);
 		}
 		else{
 		    count = 0;
 		    begin = end;
 		}
 		if(swapped)
-		    count = SWAP_LONG(count);
+		    count = SWAP_INT(count);
 
 		switch(flavor){
 		case i386_THREAD_STATE:
@@ -4143,7 +4452,7 @@ enum byte_sex thread_states_byte_sex)
 		    if(count == i386_THREAD_STATE_COUNT)
 			printf("      count i386_THREAD_STATE_COUNT\n");
 		    else
-			printf("      count %lu (not i386_THREAD_STATE_"
+			printf("      count %u (not i386_THREAD_STATE_"
 			       "COUNT)\n", count);
 		    left = end - begin;
 		    if(left >= sizeof(i386_thread_state_t)){
@@ -4179,7 +4488,7 @@ print_x86_thread_state32:
 		    if(count == i386_FLOAT_STATE_COUNT)
 			printf("      count i386_FLOAT_STATE_COUNT\n");
 		    else
-			printf("      count %lu (not i386_FLOAT_STATE_COUNT)\n",
+			printf("      count %u (not i386_FLOAT_STATE_COUNT)\n",
 			       count);
 		    left = end - begin;
 #ifndef i386_EXCEPTION_STATE_COUNT
@@ -4345,7 +4654,7 @@ print_x86_float_state32:
 		    if(count == I386_EXCEPTION_STATE_COUNT)
 			printf("      count I386_EXCEPTION_STATE_COUNT\n");
 		    else
-			printf("      count %lu (not I386_EXCEPTION_STATE_COUNT"
+			printf("      count %u (not I386_EXCEPTION_STATE_COUNT"
 			       ")\n", count);
 		    left = end - begin;
 		    if(left >= sizeof(i386_exception_state_t)){
@@ -4374,7 +4683,7 @@ print_x86_exception_state32:
 		    if(count == x86_DEBUG_STATE32_COUNT)
 			printf("      count x86_DEBUG_STATE32_COUNT\n");
 		    else
-			printf("      count %lu (not x86_DEBUG_STATE32_COUNT"
+			printf("      count %u (not x86_DEBUG_STATE32_COUNT"
 			       ")\n", count);
 		    left = end - begin;
 		    if(left >= sizeof(x86_debug_state32_t)){
@@ -4404,7 +4713,7 @@ print_x86_debug_state32:
 		    if(count == x86_THREAD_STATE64_COUNT)
 			printf("      count x86_THREAD_STATE64_COUNT\n");
 		    else
-			printf("      count %lu (not x86_THREAD_STATE64_"
+			printf("      count %u (not x86_THREAD_STATE64_"
 			       "COUNT)\n", count);
 		    left = end - begin;
 		    if(left >= sizeof(x86_thread_state64_t)){
@@ -4442,7 +4751,7 @@ print_x86_thread_state64:
 		    if(count == x86_FLOAT_STATE64_COUNT)
 			printf("      count x86_FLOAT_STATE64_COUNT\n");
 		    else
-			printf("      count %lu (not x86_FLOAT_STATE64_"
+			printf("      count %u (not x86_FLOAT_STATE64_"
 			       "COUNT)\n", count);
 		    left = end - begin;
 		    if(left >= sizeof(x86_float_state64_t)){
@@ -4601,7 +4910,7 @@ print_x86_float_state64:
 		    if(count == x86_EXCEPTION_STATE64_COUNT)
 			printf("      count x86_EXCEPTION_STATE64_COUNT\n");
 		    else
-			printf("      count %lu (not x86_EXCEPTION_STATE64_"
+			printf("      count %u (not x86_EXCEPTION_STATE64_"
 			       "COUNT)\n", count);
 		    left = end - begin;
 		    if(left >= sizeof(x86_exception_state64_t)){
@@ -4628,7 +4937,7 @@ print_x86_exception_state64:
 		    if(count == x86_DEBUG_STATE64_COUNT)
 			printf("      count x86_DEBUG_STATE64_COUNT\n");
 		    else
-			printf("      count %lu (not x86_DEBUG_STATE64_COUNT"
+			printf("      count %u (not x86_DEBUG_STATE64_COUNT"
 			       ")\n", count);
 		    left = end - begin;
 		    if(left >= sizeof(x86_debug_state64_t)){
@@ -4658,7 +4967,7 @@ print_x86_debug_state64:
 		    if(count == x86_THREAD_STATE_COUNT)
 			printf("      count x86_THREAD_STATE_COUNT\n");
 		    else
-			printf("      count %lu (not x86_THREAD_STATE_COUNT)\n",
+			printf("      count %u (not x86_THREAD_STATE_COUNT)\n",
 			       count);
 		    left = end - begin;
 		    if(left >= sizeof(x86_thread_state_t)){
@@ -4705,7 +5014,7 @@ print_x86_debug_state64:
 		    if(count == x86_FLOAT_STATE_COUNT)
 			printf("      count x86_FLOAT_STATE_COUNT\n");
 		    else
-			printf("      count %lu (not x86_FLOAT_STATE_COUNT)\n",
+			printf("      count %u (not x86_FLOAT_STATE_COUNT)\n",
 			       count);
 		    left = end - begin;
 		    if(left >= sizeof(x86_float_state_t)){
@@ -4752,7 +5061,7 @@ print_x86_debug_state64:
 		    if(count == x86_EXCEPTION_STATE_COUNT)
 			printf("      count x86_EXCEPTION_STATE_COUNT\n");
 		    else
-			printf("      count %lu (not x86_EXCEPTION_STATE_"
+			printf("      count %u (not x86_EXCEPTION_STATE_"
 			       "COUNT)\n", count);
 		    left = end - begin;
 		    if(left >= sizeof(x86_exception_state_t)){
@@ -4801,7 +5110,7 @@ print_x86_debug_state64:
 		    if(count == x86_DEBUG_STATE_COUNT)
 			printf("      count x86_DEBUG_STATE_COUNT\n");
 		    else
-			printf("      count %lu (not x86_DEBUG_STATE_COUNT"
+			printf("      count %u (not x86_DEBUG_STATE_COUNT"
 			       "\n", count);
 		    left = end - begin;
 		    if(left >= sizeof(x86_debug_state_t)){
@@ -4852,7 +5161,7 @@ print_x86_debug_state64:
 		    if(count == i386_THREAD_FPSTATE_COUNT)
 			printf("      count i386_THREAD_FPSTATE_COUNT\n");
 		    else
-			printf("      count %lu (not i386_THREAD_FPSTATE_"
+			printf("      count %u (not i386_THREAD_FPSTATE_"
 			       "COUNT)\n", count);
 		    left = end - begin;
 		    if(left >= sizeof(i386_thread_fpstate_t)){
@@ -4982,7 +5291,7 @@ print_x86_debug_state64:
 		    printf("index %d\n", fpu.environ.ds.index);
 		    printf("\t    stack:\n");
 		    for(i = 0; i < 8; i++){
-			printf("\t\tST[%lu] mant 0x%04x 0x%04x 0x%04x 0x%04x "
+			printf("\t\tST[%u] mant 0x%04x 0x%04x 0x%04x 0x%04x "
 			       "exp 0x%04x sign %d\n", i,
 			       (unsigned int)fpu.stack.ST[i].mant,
 			       (unsigned int)fpu.stack.ST[i].mant1,
@@ -4997,7 +5306,7 @@ print_x86_debug_state64:
 		    if(count == i386_THREAD_EXCEPTSTATE_COUNT)
 			printf("      count i386_THREAD_EXCEPTSTATE_COUNT\n");
 		    else
-			printf("      count %lu (not i386_THREAD_EXCEPTSTATE_"
+			printf("      count %u (not i386_THREAD_EXCEPTSTATE_"
 			       "COUNT)\n", count);
 		    left = end - begin;
 		    if(left >= sizeof(i386_thread_exceptstate_t)){
@@ -5045,7 +5354,7 @@ print_x86_debug_state64:
 		    if(count == i386_THREAD_CTHREADSTATE_COUNT)
 			printf("      count i386_THREAD_CTHREADSTATE_COUNT\n");
 		    else
-			printf("      count %lu (not i386_THREAD_CTHREADSTATE_"
+			printf("      count %u (not i386_THREAD_CTHREADSTATE_"
 			       "COUNT)\n", count);
 		    left = end - begin;
 		    if(left >= sizeof(i386_thread_cthreadstate_t)){
@@ -5065,42 +5374,108 @@ print_x86_debug_state64:
 		    break;
 #endif /* i386_THREAD_STATE == -1 */
 		default:
-		    printf("     flavor %lu (unknown)\n", flavor);
-		    printf("      count %lu\n", count);
+		    printf("     flavor %u (unknown)\n", flavor);
+		    printf("      count %u\n", count);
 		    printf("      state:\n");
 		    print_unknown_state(begin, end, count, swapped);
-		    begin += count * sizeof(unsigned long);
+		    begin += count * sizeof(uint32_t);
 		    break;
 		}
 	    }
 	}
-	else{
+	else if(cputype == CPU_TYPE_ARM){
+	    struct arm_thread_state cpu;
 	    while(begin < end){
-		if(end - begin > (ptrdiff_t)sizeof(unsigned long)){
-		    memcpy((char *)&flavor, begin, sizeof(unsigned long));
-		    begin += sizeof(unsigned long);
+		if(end - begin > (ptrdiff_t)sizeof(uint32_t)){
+		    memcpy((char *)&flavor, begin, sizeof(uint32_t));
+		    begin += sizeof(uint32_t);
 		}
 		else{
 		    flavor = 0;
 		    begin = end;
 		}
 		if(swapped)
-		    flavor = SWAP_LONG(flavor);
-		if(end - begin > (ptrdiff_t)sizeof(unsigned long)){
-		    memcpy((char *)&count, begin, sizeof(unsigned long));
-		    begin += sizeof(unsigned long);
+		    flavor = SWAP_INT(flavor);
+		if(end - begin > (ptrdiff_t)sizeof(uint32_t)){
+		    memcpy((char *)&count, begin, sizeof(uint32_t));
+		    begin += sizeof(uint32_t);
 		}
 		else{
 		    count = 0;
 		    begin = end;
 		}
 		if(swapped)
-		    count = SWAP_LONG(count);
-		printf("     flavor %lu\n", flavor);
-		printf("      count %lu\n", count);
+		    count = SWAP_INT(count);
+
+		switch(flavor){
+		case ARM_THREAD_STATE:
+		    printf("     flavor ARM_THREAD_STATE\n");
+		    if(count == ARM_THREAD_STATE_COUNT)
+			printf("      count ARM_THREAD_STATE_COUNT\n");
+		    else
+			printf("      count %u (not ARM_THREAD_STATE_"
+			       "COUNT)\n", count);
+		    left = end - begin;
+		    if(left >= sizeof(struct arm_thread_state)){
+		        memcpy((char *)&cpu, begin,
+			       sizeof(struct arm_thread_state));
+		        begin += sizeof(struct arm_thread_state);
+		    }
+		    else{
+		        memset((char *)&cpu, '\0',
+			       sizeof(struct arm_thread_state));
+		        memcpy((char *)&cpu, begin, left);
+		        begin += left;
+		    }
+		    if(swapped)
+			swap_arm_thread_state_t(&cpu, host_byte_sex);
+		    printf(
+		       "\t    r0  0x%08x r1     0x%08x r2  0x%08x r3  0x%08x\n"
+		       "\t    r4  0x%08x r5     0x%08x r6  0x%08x r7  0x%08x\n"
+		       "\t    r8  0x%08x r9     0x%08x r10 0x%08x r11 0x%08x\n"
+		       "\t    r12 0x%08x r13    0x%08x r14 0x%08x r15 0x%08x\n"
+		       "\t    r16 0x%08x\n",
+			cpu.r0, cpu.r1, cpu.r2, cpu.r3, cpu.r4, cpu.r5, cpu.r6,
+			cpu.r7, cpu.r8, cpu.r9, cpu.r10, cpu.r11, cpu.r12,
+			cpu.r13, cpu.r14, cpu.r15, cpu.r16);
+		    break;
+		default:
+		    printf("     flavor %u (unknown)\n", flavor);
+		    printf("      count %u\n", count);
+		    printf("      state:\n");
+		    print_unknown_state(begin, end, count, swapped);
+		    begin += count * sizeof(uint32_t);
+		    break;
+		}
+	    }
+	}
+	else{
+	    while(begin < end){
+		if(end - begin > (ptrdiff_t)sizeof(uint32_t)){
+		    memcpy((char *)&flavor, begin, sizeof(uint32_t));
+		    begin += sizeof(uint32_t);
+		}
+		else{
+		    flavor = 0;
+		    begin = end;
+		}
+		if(swapped)
+		    flavor = SWAP_INT(flavor);
+		if(end - begin > (ptrdiff_t)sizeof(uint32_t)){
+		    memcpy((char *)&count, begin, sizeof(uint32_t));
+		    begin += sizeof(uint32_t);
+		}
+		else{
+		    count = 0;
+		    begin = end;
+		}
+		if(swapped)
+		    count = SWAP_INT(count);
+		printf("     flavor %u\n", flavor);
+		printf("      count %u\n", count);
 		printf("      state (Unknown cputype/cpusubtype):\n");
 		print_unknown_state(begin, end, count, swapped);
-		begin += count * sizeof(unsigned long);
+		begin += count * sizeof(uint32_t);
 	    }
 	}
 }
@@ -5114,7 +5489,7 @@ void
 print_mmst_reg(
 struct mmst_reg *r)
 {
-    unsigned long f;
+    uint32_t f;
 
 	printf("\t      mmst_reg  ");
 	for(f = 0; f < 10; f++){
@@ -5135,7 +5510,7 @@ void
 print_xmm_reg(
 struct xmm_reg *r)
 {
-    unsigned long f;
+    uint32_t f;
 
 	printf("\t      xmm_reg ");
 	for(f = 0; f < 16; f++){
@@ -5155,24 +5530,24 @@ char *end,
 unsigned int count,
 enum bool swapped)
 {
-    unsigned long left, *state, i, j;
+    uint32_t left, *state, i, j;
 
 	left = end - begin;
-	if(left * sizeof(unsigned long) >= count){
-	    state = allocate(count * sizeof(unsigned long));
-	    memcpy((char *)state, begin, count * sizeof(unsigned long));
-	    begin += count * sizeof(unsigned long);
+	if(left * sizeof(uint32_t) >= count){
+	    state = allocate(count * sizeof(uint32_t));
+	    memcpy((char *)state, begin, count * sizeof(uint32_t));
+	    begin += count * sizeof(uint32_t);
 	}
 	else{
 	    state = allocate(left);
 	    memset((char *)state, '\0', left);
 	    memcpy((char *)state, begin, left);
-	    count = left / sizeof(unsigned long);
+	    count = left / sizeof(uint32_t);
 	    begin += left;
 	}
 	if(swapped)
 	    for(i = 0 ; i < count; i++)
-		state[i] = SWAP_LONG(state[i]);
+		state[i] = SWAP_INT(state[i]);
 	for(i = 0 ; i < count; i += j){
 	    for(j = 0 ; j < 8 && i + j < count; j++)
 		printf("%08x ", (unsigned int)state[i + j]);
@@ -5192,17 +5567,17 @@ uint32_t sizeofcmds,
 cpu_type_t cputype,
 enum byte_sex load_commands_byte_sex,
 char *object_addr,
-unsigned long object_size,
+uint32_t object_size,
 struct nlist *symbols,
 struct nlist_64 *symbols64,
-long nsymbols,
+uint32_t nsymbols,
 char *strings,
-long strings_size,
+uint32_t strings_size,
 enum bool verbose)
 {
     enum byte_sex host_byte_sex;
     enum bool swapped;
-    unsigned long i, j, k, left, size, nsects;
+    uint32_t i, j, k, left, size, nsects;
     char *p;
     struct load_command *lc, l;
     struct segment_command sg;
@@ -5211,6 +5586,7 @@ enum bool verbose)
     struct section_64 s64;
     struct reloc_section_info *sect_rel;
     struct dysymtab_command dyst;
+    uint64_t big_size;
 
 	host_byte_sex = get_host_byte_sex();
 	swapped = host_byte_sex != load_commands_byte_sex;
@@ -5228,12 +5604,12 @@ enum bool verbose)
 	    memcpy((char *)&l, (char *)lc, sizeof(struct load_command));
 	    if(swapped)
 		swap_load_command(&l, host_byte_sex);
-	    if(l.cmdsize % sizeof(long) != 0)
-		printf("load command %lu size not a multiple of "
-		       "sizeof(long)\n", i);
+	    if(l.cmdsize % sizeof(int32_t) != 0)
+		printf("load command %u size not a multiple of "
+		       "sizeof(int32_t)\n", i);
 	    if((char *)lc + l.cmdsize >
 	       (char *)load_commands + sizeofcmds)
-		printf("load command %lu extends past end of load "
+		printf("load command %u extends past end of load "
 		       "commands\n", i);
 	    left = sizeofcmds - ((char *)lc - (char *)load_commands);
 
@@ -5246,6 +5622,14 @@ enum bool verbose)
 		if(swapped)
 		    swap_segment_command(&sg, host_byte_sex);
 
+		big_size = sg.nsects;
+		big_size *= sizeof(struct segment_command);
+		if(big_size > sg.cmdsize){
+		    printf("number of sections in load command %u extends past "
+			   "end of load command\n", i);
+		    sg.nsects = (sg.cmdsize - sizeof(struct segment_command)) /
+				sizeof(struct section);
+		}
 		nsects += sg.nsects;
 		sect_rel = reallocate(sect_rel,
 			      nsects * sizeof(struct reloc_section_info));
@@ -5279,6 +5663,15 @@ enum bool verbose)
 		if(swapped)
 		    swap_segment_command_64(&sg64, host_byte_sex);
 
+		big_size = sg64.nsects;
+		big_size *= sizeof(struct segment_command_64);
+		if(big_size > sg64.cmdsize){
+		    printf("number of sections in load command %u extends past "
+			   "end of load command\n", i);
+		    sg64.nsects = (sg64.cmdsize -
+				   sizeof(struct segment_command_64)) /
+				  sizeof(struct section_64);
+		}
 		nsects += sg64.nsects;
 		sect_rel = reallocate(sect_rel,
 			      nsects * sizeof(struct reloc_section_info));
@@ -5314,7 +5707,7 @@ enum bool verbose)
 		break;
 	    }
 	    if(l.cmdsize == 0){
-		printf("load command %lu size zero (can't advance to other "
+		printf("load command %u size zero (can't advance to other "
 		       "load commands)\n", i);
 		break;
 	    }
@@ -5388,24 +5781,24 @@ print_relocs(
 unsigned reloff,
 unsigned nreloc,
 struct reloc_section_info *sect_rel,
-unsigned long nsects,
+uint32_t nsects,
 enum bool swapped,
 cpu_type_t cputype,
 char *object_addr,
-unsigned long object_size,
+uint32_t object_size,
 struct nlist *symbols,
 struct nlist_64 *symbols64,
-unsigned long nsymbols,
+uint32_t nsymbols,
 char *strings,
-unsigned long strings_size,
+uint32_t strings_size,
 enum bool verbose)
 {
     enum byte_sex host_byte_sex;
-    unsigned long j;
+    uint32_t j;
     struct relocation_info *r, reloc;
     struct scattered_relocation_info *sr;
     enum bool previous_sectdiff, previous_ppc_jbsr, predicted;
-    unsigned long sectdiff_r_type;
+    uint32_t sectdiff_r_type;
     uint32_t n_strx;
 
 	host_byte_sex = get_host_byte_sex();
@@ -5443,6 +5836,8 @@ enum bool verbose)
 			sr->r_type == HPPA_RELOC_PAIR) ||
 		       (cputype == CPU_TYPE_SPARC &&
 			sr->r_type == SPARC_RELOC_PAIR) ||
+		       (cputype == CPU_TYPE_ARM &&
+			sr->r_type == ARM_RELOC_PAIR) ||
 		       (cputype == CPU_TYPE_I860 &&
 			sr->r_type == I860_RELOC_PAIR))
 			    printf("         ");
@@ -5495,6 +5890,8 @@ enum bool verbose)
 			    sr->r_type == M88K_RELOC_PAIR) ||
 			   (cputype == CPU_TYPE_SPARC &&
 			    sr->r_type == SPARC_RELOC_PAIR) ||
+			   (cputype == CPU_TYPE_ARM &&
+			    sr->r_type == ARM_RELOC_PAIR) ||
 			   (cputype == CPU_TYPE_I860 &&
 			    sr->r_type == I860_RELOC_PAIR))
 			    printf(" half = 0x%04x ",
@@ -5560,6 +5957,8 @@ enum bool verbose)
 			(sr->r_type == HPPA_RELOC_SECTDIFF ||
 			 sr->r_type == HPPA_RELOC_HI21_SECTDIFF ||
 			 sr->r_type == HPPA_RELOC_LO14_SECTDIFF)) ||
+		       (cputype == CPU_TYPE_ARM &&
+			 sr->r_type == ARM_RELOC_SECTDIFF) ||
 		       (cputype == CPU_TYPE_SPARC &&
 			(sr->r_type == SPARC_RELOC_SECTDIFF ||
 			 sr->r_type == SPARC_RELOC_HI22_SECTDIFF ||
@@ -5597,6 +5996,8 @@ enum bool verbose)
 			reloc.r_type == HPPA_RELOC_PAIR) ||
 		       (cputype == CPU_TYPE_SPARC &&
 			reloc.r_type == SPARC_RELOC_PAIR) ||
+		       (cputype == CPU_TYPE_ARM &&
+			reloc.r_type == ARM_RELOC_PAIR) ||
 		       (cputype == CPU_TYPE_I860 &&
 			reloc.r_type == I860_RELOC_PAIR))
 			    printf("         ");
@@ -5674,6 +6075,8 @@ enum bool verbose)
 			}
 			else if((cputype == CPU_TYPE_HPPA &&
 				 reloc.r_type == HPPA_RELOC_PAIR) ||
+				(cputype == CPU_TYPE_ARM &&
+				 reloc.r_type == ARM_RELOC_PAIR) ||
 				(cputype == CPU_TYPE_SPARC &&
 				 reloc.r_type == SPARC_RELOC_PAIR)){
 			    printf(" other_part = 0x%06x\n",
@@ -5760,15 +6163,21 @@ static char *sparc_r_types[] = {
 	" 10 (?) ", " 11 (?) ", " 12 (?) ", " 13 (?) ", " 14 (?) ", " 15 (?) "
 };
 
+static char *arm_r_types[] = {
+	"VANILLA ", "PAIR    ", "SECTDIFF", "LOCSDIF ", "PBLAPTR ",
+	"BR24    ", "T_BR22  ", "T_BR32  ", " 8 (?)  ", " 9 (?)  ", 
+	" 10 (?) ", " 11 (?) ", " 12 (?) ", " 13 (?) ", " 14 (?) ", " 15 (?) "
+};
+
 static
 void
 print_r_type(
 cpu_type_t cputype,
-unsigned long r_type,
+uint32_t r_type,
 enum bool predicted)
 {
 	if(r_type > 0xf){
-	    printf("%-7lu ", r_type);
+	    printf("%-7u ", r_type);
 	    return;
 	}
 	switch(cputype){
@@ -5802,8 +6211,11 @@ enum bool predicted)
 	case CPU_TYPE_SPARC:
 	    printf("%s", sparc_r_types[r_type]);
 	    break;
+	case CPU_TYPE_ARM:
+	    printf("%s", arm_r_types[r_type]);
+	    break;
 	default:
-	    printf("%-7lu ", r_type);
+	    printf("%-7u ", r_type);
 	}
 }
 
@@ -5817,24 +6229,24 @@ uint32_t ncmds,
 uint32_t sizeofcmds,
 enum byte_sex load_commands_byte_sex,
 char *object_addr,
-unsigned long object_size,
+uint32_t object_size,
 struct dylib_table_of_contents *tocs,
-unsigned long ntocs,
+uint32_t ntocs,
 struct dylib_module *mods,
 struct dylib_module_64 *mods64,
-unsigned long nmods,
+uint32_t nmods,
 struct nlist *symbols,
 struct nlist_64 *symbols64,
-unsigned long nsymbols,
+uint32_t nsymbols,
 char *strings,
-unsigned long strings_size,
+uint32_t strings_size,
 enum bool verbose)
 {
-   unsigned long i;
+   uint32_t i;
    uint32_t n_strx;
    uint8_t n_type;
 
-	printf("Table of contents (%lu entries)\n", ntocs);
+	printf("Table of contents (%u entries)\n", ntocs);
 	if(verbose)
 	    printf("module name      symbol name\n");
 	else
@@ -5899,16 +6311,16 @@ enum bool verbose)
 void
 print_module_table(
 struct dylib_module *mods,
-unsigned long nmods,
+uint32_t nmods,
 char *strings,
-unsigned long strings_size,
+uint32_t strings_size,
 enum bool verbose)
 {
-   unsigned long i;
+   uint32_t i;
 
-	printf("Module table (%lu entries)\n", nmods);
+	printf("Module table (%u entries)\n", nmods);
 	for(i = 0; i < nmods; i++){
-	    printf("module %lu\n", i);
+	    printf("module %u\n", i);
 	    if(verbose){
 		if(mods[i].module_name > strings_size)
 		    printf("    module_name = %u (past end of string table)\n",
@@ -5950,16 +6362,16 @@ enum bool verbose)
 void
 print_module_table_64(
 struct dylib_module_64 *mods64,
-unsigned long nmods,
+uint32_t nmods,
 char *strings,
-unsigned long strings_size,
+uint32_t strings_size,
 enum bool verbose)
 {
-   unsigned long i;
+   uint32_t i;
 
-	printf("Module table (%lu entries)\n", nmods);
+	printf("Module table (%u entries)\n", nmods);
 	for(i = 0; i < nmods; i++){
-	    printf("module %lu\n", i);
+	    printf("module %u\n", i);
 	    if(verbose){
 		if(mods64[i].module_name > strings_size)
 		    printf("    module_name = %u (past end of string table)\n",
@@ -6001,21 +6413,22 @@ enum bool verbose)
 void
 print_refs(
 struct dylib_reference *refs,
-unsigned long nrefs,
+uint32_t nrefs,
 struct dylib_module *mods,
 struct dylib_module_64 *mods64,
-unsigned long nmods,
+uint32_t nmods,
 struct nlist *symbols,
 struct nlist_64 *symbols64,
-unsigned long nsymbols,
+uint32_t nsymbols,
 char *strings,
-unsigned long strings_size,
+uint32_t strings_size,
 enum bool verbose)
 {
-   unsigned long i, j;
+   uint32_t i, j;
    uint32_t module_name, irefsym, nrefsym, n_strx;
+    uint64_t big_size;
 
-	printf("Reference table (%lu entries)\n", nrefs);
+	printf("Reference table (%u entries)\n", nrefs);
 	for(i = 0; i < nmods; i++){
 	    if(mods != NULL){
 		module_name = mods[i].module_name;
@@ -6042,7 +6455,9 @@ enum bool verbose)
 		       "table)\n", nrefsym, irefsym);
 		continue;
 	    }
-	    if(irefsym + nrefsym > nrefs)
+	    big_size = irefsym;
+	    big_size += nrefsym;
+	    if(big_size > nrefs)
 		printf(" %u entries (extends past the end of the reference "
 		       "table), at index %u\n", nrefsym, irefsym);
 	    else
@@ -6115,17 +6530,18 @@ uint32_t sizeofcmds,
 cpu_type_t cputype,
 enum byte_sex load_commands_byte_sex,
 uint32_t *indirect_symbols,
-unsigned long nindirect_symbols,
+uint32_t nindirect_symbols,
 struct nlist *symbols,
 struct nlist_64 *symbols64,
-unsigned long nsymbols,
+uint32_t nsymbols,
 char *strings,
-unsigned long strings_size,
+uint32_t strings_size,
 enum bool verbose)
 {
     enum byte_sex host_byte_sex;
     enum bool swapped;
-    unsigned long i, j, k, left, size, nsects, n, count, stride, section_type;
+    uint32_t i, j, k, left, size, nsects, n, count, stride, section_type;
+    uint64_t bigsize, big_load_end;
     char *p;
     struct load_command *lc, l;
     struct segment_command sg;
@@ -6154,16 +6570,17 @@ enum bool verbose)
 	k = 0;
 	nsects = 0;
 	lc = load_commands;
+	big_load_end = 0;
 	for(i = 0 ; i < ncmds; i++){
 	    memcpy((char *)&l, (char *)lc, sizeof(struct load_command));
 	    if(swapped)
 		swap_load_command(&l, host_byte_sex);
-	    if(l.cmdsize % sizeof(long) != 0)
-		printf("load command %lu size not a multiple of "
-		       "sizeof(long)\n", i);
-	    if((char *)lc + l.cmdsize >
-	       (char *)load_commands + sizeofcmds)
-		printf("load command %lu extends past end of load "
+	    if(l.cmdsize % sizeof(int32_t) != 0)
+		printf("load command %u size not a multiple of "
+		       "sizeof(int32_t)\n", i);
+	    big_load_end += l.cmdsize;
+	    if(big_load_end > sizeofcmds)
+		printf("load command %u extends past end of load "
 		       "commands\n", i);
 	    left = sizeofcmds - ((char *)lc - (char *)load_commands);
 
@@ -6172,10 +6589,18 @@ enum bool verbose)
 		memset((char *)&sg, '\0', sizeof(struct segment_command));
 		size = left < sizeof(struct segment_command) ?
 		       left : sizeof(struct segment_command);
+		left -= size;
 		memcpy((char *)&sg, (char *)lc, size);
 		if(swapped)
 		    swap_segment_command(&sg, host_byte_sex);
-
+		bigsize = sg.nsects;
+		bigsize *= sizeof(struct section);
+		bigsize += size;
+		if(bigsize > sg.cmdsize){
+		    printf("number of sections in load command %u extends "
+			   "past end of load commands\n", i);
+		    sg.nsects = (sg.cmdsize-size) / sizeof(struct section);
+		}
 		nsects += sg.nsects;
 		sect_ind = reallocate(sect_ind,
 			      nsects * sizeof(struct section_indirect_info));
@@ -6211,7 +6636,15 @@ enum bool verbose)
 		memcpy((char *)&sg64, (char *)lc, size);
 		if(swapped)
 		    swap_segment_command_64(&sg64, host_byte_sex);
-
+		bigsize = sg64.nsects;
+		bigsize *= sizeof(struct section_64);
+		bigsize += size;
+		if(bigsize > sg64.cmdsize){
+		    printf("number of sections in load command %u extends "
+			   "past end of load commands\n", i);
+		    sg64.nsects = (sg64.cmdsize-size) /
+				  sizeof(struct section_64);
+		}
 		nsects += sg64.nsects;
 		sect_ind = reallocate(sect_ind,
 			      nsects * sizeof(struct section_indirect_info));
@@ -6242,7 +6675,7 @@ enum bool verbose)
 		break;
 	    }
 	    if(l.cmdsize == 0){
-		printf("load command %lu size zero (can't advance to other "
+		printf("load command %u size zero (can't advance to other "
 		       "load commands)\n", i);
 		break;
 	    }
@@ -6265,7 +6698,8 @@ enum bool verbose)
 		}
 	    }
 	    else if(section_type == S_LAZY_SYMBOL_POINTERS ||
-	            section_type == S_NON_LAZY_SYMBOL_POINTERS){
+	            section_type == S_NON_LAZY_SYMBOL_POINTERS ||
+	            section_type == S_LAZY_DYLIB_SYMBOL_POINTERS){
 		if(cputype & CPU_ARCH_ABI64)
 		    stride = 8;
 		else
@@ -6275,7 +6709,7 @@ enum bool verbose)
 		continue;
 	
 	    count = sect_ind[i].size / stride;
-	    printf("Indirect symbols for (%.16s,%.16s) %lu entries",
+	    printf("Indirect symbols for (%.16s,%.16s) %u entries",
 		   sect_ind[i].segname, sect_ind[i].sectname,
 		   count);
 
@@ -6310,6 +6744,15 @@ enum bool verbose)
 		    printf("LOCAL ABSOLUTE\n");
 		    continue;
 		}
+		if(indirect_symbols[j + n] == INDIRECT_SYMBOL_ABS){
+		    /* 
+		     * Used for unused slots in the i386 __jump_table 
+		     * and for image-loader-cache slot for new lazy
+		     * symbol binding in Mac OS X 10.6 and later
+		     */ 
+		    printf("ABSOLUTE\n");
+		    continue;
+		}
 		printf("%5u ", indirect_symbols[j + n]);
 		if(verbose){
 		    if(indirect_symbols[j + n] >= nsymbols ||
@@ -6342,23 +6785,24 @@ uint32_t ncmds,
 uint32_t sizeofcmds,
 enum byte_sex load_commands_byte_sex,
 struct twolevel_hint *hints,
-unsigned long nhints,
+uint32_t nhints,
 struct nlist *symbols,
 struct nlist_64 *symbols64,
-unsigned long nsymbols,
+uint32_t nsymbols,
 char *strings,
-unsigned long strings_size,
+uint32_t strings_size,
 enum bool verbose)
 {
     enum byte_sex host_byte_sex;
     enum bool swapped, is_framework;
-    unsigned long i, left, size, nlibs, dyst_cmd, lib_ord;
+    uint32_t i, left, size, nlibs, dyst_cmd, lib_ord;
     char *p, **libs, *short_name, *has_suffix;
     struct load_command *lc, l;
     struct dysymtab_command dyst;
     struct dylib_command dl;
     uint32_t n_strx;
     uint16_t n_desc;
+    uint64_t big_load_end;
 
 	host_byte_sex = get_host_byte_sex();
 	swapped = host_byte_sex != load_commands_byte_sex;
@@ -6369,29 +6813,30 @@ enum bool verbose)
 	 */
 	nlibs = 0;
 	libs = NULL;
-	dyst_cmd = ULONG_MAX;
+	dyst_cmd = UINT_MAX;
 	lc = load_commands;
+	big_load_end = 0;
+	memset((char *)&dyst, '\0', sizeof(struct dysymtab_command));
 	for(i = 0 ; verbose == TRUE && i < ncmds; i++){
 	    memcpy((char *)&l, (char *)lc, sizeof(struct load_command));
 	    if(swapped)
 		swap_load_command(&l, host_byte_sex);
-	    if(l.cmdsize % sizeof(long) != 0)
-		printf("load command %lu size not a multiple of "
-		       "sizeof(long)\n", i);
-	    if((char *)lc + l.cmdsize >
-	       (char *)load_commands + sizeofcmds)
-		printf("load command %lu extends past end of load "
+	    if(l.cmdsize % sizeof(int32_t) != 0)
+		printf("load command %u size not a multiple of "
+		       "sizeof(int32_t)\n", i);
+	    big_load_end += l.cmdsize;
+	    if(big_load_end > sizeofcmds)
+		printf("load command %u extends past end of load "
 		       "commands\n", i);
 	    left = sizeofcmds - ((char *)lc - (char *)load_commands);
 
 	    switch(l.cmd){
 	    case LC_DYSYMTAB:
-		if(dyst_cmd != ULONG_MAX){
+		if(dyst_cmd != UINT_MAX){
 		    printf("more than one LC_DYSYMTAB command (using command "
-			   "%lu)\n", dyst_cmd);
+			   "%u)\n", dyst_cmd);
 		    break;
 		}
-		memset((char *)&dyst, '\0', sizeof(struct dysymtab_command));
 		size = left < sizeof(struct dysymtab_command) ?
 		       left : sizeof(struct dysymtab_command);
 		memcpy((char *)&dyst, (char *)lc, size);
@@ -6403,6 +6848,7 @@ enum bool verbose)
 	    case LC_LOAD_DYLIB:
 	    case LC_LOAD_WEAK_DYLIB:
 	    case LC_REEXPORT_DYLIB:
+	    case LC_LAZY_LOAD_DYLIB:
 		memset((char *)&dl, '\0', sizeof(struct dylib_command));
 		size = left < sizeof(struct dylib_command) ?
 		       left : sizeof(struct dylib_command);
@@ -6425,7 +6871,7 @@ enum bool verbose)
 		break;
 	    }
 	    if(l.cmdsize == 0){
-		printf("load command %lu size zero (can't advance to other "
+		printf("load command %u size zero (can't advance to other "
 		       "load commands)\n", i);
 		break;
 	    }
@@ -6437,12 +6883,12 @@ enum bool verbose)
 	   (char *)load_commands + sizeofcmds != (char *)lc)
 	    printf("Inconsistent sizeofcmds\n");
 
-	printf("Two-level namespace hints table (%lu hints)\n", nhints);
+	printf("Two-level namespace hints table (%u hints)\n", nhints);
 	printf("index  isub  itoc\n");
 	for(i = 0; i < nhints; i++){
-	    printf("%5lu %5d %5u", i, (int)hints[i].isub_image, hints[i].itoc);
+	    printf("%5u %5d %5u", i, (int)hints[i].isub_image, hints[i].itoc);
 	    if(verbose){
-		if(dyst_cmd != ULONG_MAX &&
+		if(dyst_cmd != UINT_MAX &&
 		   dyst.iundefsym + i < nsymbols){
 		    if(symbols != NULL){
 			n_strx = symbols[dyst.iundefsym + i].n_un.n_strx;
@@ -6453,7 +6899,7 @@ enum bool verbose)
 			n_desc = symbols64[dyst.iundefsym + i].n_desc;
 		    }
 		    if(n_strx > strings_size)
-			printf(" (bad string index in symbol %lu)\n",
+			printf(" (bad string index in symbol %u)\n",
 			       dyst.iundefsym + i);
 		    else{
 			printf(" %s", strings + n_strx);
@@ -6476,11 +6922,11 @@ enum bool verbose)
 void
 print_cstring_section(
 char *sect,
-unsigned long sect_size,
-unsigned long sect_addr,
+uint32_t sect_size,
+uint32_t sect_addr,
 enum bool print_addresses)
 {
-    unsigned long i;
+    uint32_t i;
 
 	for(i = 0; i < sect_size ; i++){
 	    if(print_addresses == TRUE)
@@ -6536,14 +6982,14 @@ char c)
 void
 print_literal4_section(
 char *sect,
-unsigned long sect_size,
-unsigned long sect_addr,
+uint32_t sect_size,
+uint32_t sect_addr,
 enum byte_sex literal_byte_sex,
 enum bool print_addresses)
 {
     enum byte_sex host_byte_sex;
     enum bool swapped;
-    unsigned long i, l;
+    uint32_t i, l;
     float f;
 
 	host_byte_sex = get_host_byte_sex();
@@ -6553,10 +6999,10 @@ enum bool print_addresses)
 	    if(print_addresses == TRUE)
 		printf("%08x  ", (unsigned int)(sect_addr + i));
 	    memcpy((char *)&f, sect + i, sizeof(float));
-	    memcpy((char *)&l, sect + i, sizeof(unsigned long));
+	    memcpy((char *)&l, sect + i, sizeof(uint32_t));
 	    if(swapped){
 		f = SWAP_FLOAT(f);
-		l = SWAP_LONG(l);
+		l = SWAP_INT(l);
 	    }
 	    print_literal4(l, f);
 	}
@@ -6565,7 +7011,7 @@ enum bool print_addresses)
 static
 void
 print_literal4(
-unsigned long l,
+uint32_t l,
 float f)
 {
 	printf("0x%08x", (unsigned int)l);
@@ -6587,14 +7033,14 @@ float f)
 void
 print_literal8_section(
 char *sect,
-unsigned long sect_size,
-unsigned long sect_addr,
+uint32_t sect_size,
+uint32_t sect_addr,
 enum byte_sex literal_byte_sex,
 enum bool print_addresses)
 {
     enum byte_sex host_byte_sex;
     enum bool swapped;
-    unsigned long i, l0, l1;
+    uint32_t i, l0, l1;
     double d;
 
 	host_byte_sex = get_host_byte_sex();
@@ -6604,13 +7050,13 @@ enum bool print_addresses)
 	    if(print_addresses == TRUE)
 		printf("%08x  ", (unsigned int)(sect_addr + i));
 	    memcpy((char *)&d, sect + i, sizeof(double));
-	    memcpy((char *)&l0, sect + i, sizeof(unsigned long));
-	    memcpy((char *)&l1, sect + i + sizeof(unsigned long),
-		   sizeof(unsigned long));
+	    memcpy((char *)&l0, sect + i, sizeof(uint32_t));
+	    memcpy((char *)&l1, sect + i + sizeof(uint32_t),
+		   sizeof(uint32_t));
 	    if(swapped){
 		d = SWAP_DOUBLE(d);
-		l0 = SWAP_LONG(l0);
-		l1 = SWAP_LONG(l1);
+		l0 = SWAP_INT(l0);
+		l1 = SWAP_INT(l1);
 	    }
 	    print_literal8(l0, l1, d);
 	}
@@ -6619,8 +7065,8 @@ enum bool print_addresses)
 static
 void
 print_literal8(
-unsigned long l0,
-unsigned long l1,
+uint32_t l0,
+uint32_t l1,
 double d)
 {
 	printf("0x%08x 0x%08x", (unsigned int)l0, (unsigned int)l1);
@@ -6642,33 +7088,33 @@ double d)
 void
 print_literal16_section(
 char *sect,
-unsigned long sect_size,
-unsigned long sect_addr,
+uint32_t sect_size,
+uint32_t sect_addr,
 enum byte_sex literal_byte_sex,
 enum bool print_addresses)
 {
     enum byte_sex host_byte_sex;
     enum bool swapped;
-    unsigned long i, l0, l1, l2, l3;
+    uint32_t i, l0, l1, l2, l3;
 
 	host_byte_sex = get_host_byte_sex();
 	swapped = host_byte_sex != literal_byte_sex;
 
-	for(i = 0; i < sect_size ; i += 4 * sizeof(unsigned long)){
+	for(i = 0; i < sect_size ; i += 4 * sizeof(uint32_t)){
 	    if(print_addresses == TRUE)
 		printf("%08x  ", (unsigned int)(sect_addr + i));
-	    memcpy((char *)&l0, sect + i, sizeof(unsigned long));
-	    memcpy((char *)&l1, sect + i + sizeof(unsigned long),
-		   sizeof(unsigned long));
-	    memcpy((char *)&l2, sect + i + 2 * sizeof(unsigned long),
-		   sizeof(unsigned long));
-	    memcpy((char *)&l3, sect + i + 3 * sizeof(unsigned long),
-		   sizeof(unsigned long));
+	    memcpy((char *)&l0, sect + i, sizeof(uint32_t));
+	    memcpy((char *)&l1, sect + i + sizeof(uint32_t),
+		   sizeof(uint32_t));
+	    memcpy((char *)&l2, sect + i + 2 * sizeof(uint32_t),
+		   sizeof(uint32_t));
+	    memcpy((char *)&l3, sect + i + 3 * sizeof(uint32_t),
+		   sizeof(uint32_t));
 	    if(swapped){
-		l0 = SWAP_LONG(l0);
-		l1 = SWAP_LONG(l1);
-		l2 = SWAP_LONG(l2);
-		l3 = SWAP_LONG(l3);
+		l0 = SWAP_INT(l0);
+		l1 = SWAP_INT(l1);
+		l2 = SWAP_INT(l2);
+		l3 = SWAP_INT(l3);
 	    }
 	    print_literal16(l0, l1, l2, l3);
 	}
@@ -6677,10 +7123,10 @@ enum bool print_addresses)
 static
 void
 print_literal16(
-unsigned long l0,
-unsigned long l1,
-unsigned long l2,
-unsigned long l3)
+uint32_t l0,
+uint32_t l1,
+uint32_t l2,
+uint32_t l3)
 {
 	printf("0x%08x 0x%08x 0x%08x 0x%08x\n", (unsigned int)l0,\
 	       (unsigned int)l1, (unsigned int)l2, (unsigned int)l3);
@@ -6693,22 +7139,22 @@ uint32_t ncmds,
 uint32_t sizeofcmds,
 enum byte_sex object_byte_sex,
 char *object_addr,
-unsigned long object_size,
+uint32_t object_size,
 char *sect,
-unsigned long sect_size,
-unsigned long sect_addr,
+uint32_t sect_size,
+uint32_t sect_addr,
 struct nlist *symbols,
 struct nlist_64 *symbols64,
-unsigned long nsymbols,
+uint32_t nsymbols,
 char *strings,
-unsigned long strings_size,
+uint32_t strings_size,
 struct relocation_info *relocs,
-unsigned long nrelocs,
+uint32_t nrelocs,
 enum bool print_addresses)
 {
     enum byte_sex host_byte_sex;
     enum bool swapped, found;
-    unsigned long i, j, k, l, l0, l1, left, size;
+    uint32_t i, j, k, l, l0, l1, l2, l3, left, size;
     struct load_command lcmd, *lc;
     struct segment_command sg;
     struct section s;
@@ -6720,14 +7166,15 @@ enum bool print_addresses)
         uint64_t addr;
         uint32_t flags;
 	char *contents;
-	unsigned long size;
+	uint32_t size;
     } *literal_sections;
     char *p;
-    unsigned long nliteral_sections;
+    uint32_t nliteral_sections;
     float f;
     double d;
     struct relocation_info *reloc;
     uint32_t n_strx;
+    uint64_t big_load_end, big_size;
 
 	host_byte_sex = get_host_byte_sex();
 	swapped = host_byte_sex != object_byte_sex;
@@ -6736,16 +7183,17 @@ enum bool print_addresses)
 	nliteral_sections = 0;
 
 	lc = load_commands;
+	big_load_end = 0;
 	for(i = 0 ; i < ncmds; i++){
 	    memcpy((char *)&lcmd, (char *)lc, sizeof(struct load_command));
 	    if(swapped)
 		swap_load_command(&lcmd, host_byte_sex);
-	    if(lcmd.cmdsize % sizeof(long) != 0)
-		printf("load command %lu size not a multiple of "
-		       "sizeof(long)\n", i);
-	    if((char *)lc + lcmd.cmdsize >
-	       (char *)load_commands + sizeofcmds)
-		printf("load command %lu extends past end of load "
+	    if(lcmd.cmdsize % sizeof(int32_t) != 0)
+		printf("load command %u size not a multiple of "
+		       "sizeof(int32_t)\n", i);
+	    big_load_end += lcmd.cmdsize;
+	    if(big_load_end > sizeofcmds)
+		printf("load command %u extends past end of load "
 		       "commands\n", i);
 	    left = sizeofcmds - ((char *)lc - (char *)load_commands);
 
@@ -6775,7 +7223,8 @@ enum bool print_addresses)
 
 		    if(s.flags == S_CSTRING_LITERALS ||
 		       s.flags == S_4BYTE_LITERALS ||
-		       s.flags == S_8BYTE_LITERALS){
+		       s.flags == S_8BYTE_LITERALS ||
+		       s.flags == S_16BYTE_LITERALS){
 			literal_sections = reallocate(literal_sections,
 						sizeof(struct literal_section) *
 						(nliteral_sections + 1));
@@ -6787,12 +7236,14 @@ enum bool print_addresses)
 			literal_sections[nliteral_sections].flags = s.flags;
 			literal_sections[nliteral_sections].contents = 
 							object_addr + s.offset;
+			big_size = s.offset;
+			big_size += s.size;
 			if(s.offset > object_size){
 			    printf("section contents of: (%.16s,%.16s) is past "
 				   "end of file\n", s.segname, s.sectname);
 			    literal_sections[nliteral_sections].size =  0;
 			}
-			else if(s.offset + s.size > object_size){
+			else if(big_size > object_size){
 			    printf("part of section contents of: (%.16s,%.16s) "
 				   "is past end of file\n",
 				   s.segname, s.sectname);
@@ -6835,7 +7286,8 @@ enum bool print_addresses)
 
 		    if(s64.flags == S_CSTRING_LITERALS ||
 		       s64.flags == S_4BYTE_LITERALS ||
-		       s64.flags == S_8BYTE_LITERALS){
+		       s64.flags == S_8BYTE_LITERALS ||
+		       s64.flags == S_16BYTE_LITERALS){
 			literal_sections = reallocate(literal_sections,
 						sizeof(struct literal_section) *
 						(nliteral_sections + 1));
@@ -6847,12 +7299,14 @@ enum bool print_addresses)
 			literal_sections[nliteral_sections].flags = s64.flags;
 			literal_sections[nliteral_sections].contents = 
 						    object_addr + s64.offset;
+			big_size = s64.offset;
+			big_size += s64.size;
 			if(s64.offset > object_size){
 			    printf("section contents of: (%.16s,%.16s) is past "
 				   "end of file\n", s64.segname, s64.sectname);
 			    literal_sections[nliteral_sections].size =  0;
 			}
-			else if(s64.offset + s64.size > object_size){
+			else if(big_size > object_size){
 			    printf("part of section contents of: (%.16s,%.16s) "
 				   "is past end of file\n",
 				   s64.segname, s64.sectname);
@@ -6872,7 +7326,7 @@ enum bool print_addresses)
 		break;
 	    }
 	    if(lcmd.cmdsize == 0){
-		printf("load command %lu size zero (can't advance to other "
+		printf("load command %u size zero (can't advance to other "
 		       "load commands)\n", i);
 		break;
 	    }
@@ -6882,13 +7336,13 @@ enum bool print_addresses)
 	}
 
 	/* loop through the literal pointer section and print the pointers */
-	for(i = 0; i < sect_size ; i += sizeof(long)){
+	for(i = 0; i < sect_size ; i += sizeof(int32_t)){
 	    if(print_addresses == TRUE)
 		printf("%08x  ", (unsigned int)(sect_addr + i));
-	    l = (long)*((long *)(sect + i));
-	    memcpy((char *)&l, sect + i, sizeof(unsigned long));
+	    l = (int32_t)*((int32_t *)(sect + i));
+	    memcpy((char *)&l, sect + i, sizeof(uint32_t));
 	    if(swapped)
-		l = SWAP_LONG(l);
+		l = SWAP_INT(l);
 	    /*
 	     * If there is an external relocation entry for this pointer then
 	     * print the symbol and any offset.
@@ -6944,10 +7398,10 @@ enum bool print_addresses)
 			memcpy((char *)&l0,
 			       (char *)(literal_sections[j].contents +
 					l - literal_sections[j].addr),
-				sizeof(unsigned long));
+				sizeof(uint32_t));
 			if(swapped){
 			    d = SWAP_DOUBLE(d);
-			    l0 = SWAP_LONG(l0);
+			    l0 = SWAP_INT(l0);
 			}
 			print_literal4(l0, f);
 			break;
@@ -6959,18 +7413,46 @@ enum bool print_addresses)
 			memcpy((char *)&l0,
 			       (char *)(literal_sections[j].contents +
 					l - literal_sections[j].addr),
-				sizeof(unsigned long));
+				sizeof(uint32_t));
 			memcpy((char *)&l1,
 			       (char *)(literal_sections[j].contents +
 					l - literal_sections[j].addr +
-					sizeof(unsigned long)),
-			       sizeof(unsigned long));
+					sizeof(uint32_t)),
+			       sizeof(uint32_t));
 			if(swapped){
 			    d = SWAP_DOUBLE(d);
-			    l0 = SWAP_LONG(l0);
-			    l1 = SWAP_LONG(l1);
+			    l0 = SWAP_INT(l0);
+			    l1 = SWAP_INT(l1);
 			}
 			print_literal8(l0, l1, d);
+			break;
+		    case S_16BYTE_LITERALS:
+			memcpy((char *)&l0,
+			       (char *)(literal_sections[j].contents +
+					l - literal_sections[j].addr),
+				sizeof(uint32_t));
+			memcpy((char *)&l1,
+			       (char *)(literal_sections[j].contents +
+					l - literal_sections[j].addr +
+					sizeof(uint32_t)),
+			       sizeof(uint32_t));
+			memcpy((char *)&l2,
+			       (char *)(literal_sections[j].contents +
+					l - literal_sections[j].addr +
+					2 * sizeof(uint32_t)),
+			       sizeof(uint32_t));
+			memcpy((char *)&l3,
+			       (char *)(literal_sections[j].contents +
+					l - literal_sections[j].addr +
+					3 * sizeof(uint32_t)),
+			       sizeof(uint32_t));
+			if(swapped){
+			    l0 = SWAP_INT(l0);
+			    l1 = SWAP_INT(l1);
+			    l2 = SWAP_INT(l2);
+			    l3 = SWAP_INT(l3);
+			}
+			print_literal16(l0, l1, l2, l3);
 			break;
 		    }
 		    found = TRUE;
@@ -7027,7 +7509,7 @@ enum bool verbose)
 		if(cputype & CPU_ARCH_ABI64)
 		     q = SWAP_LONG_LONG(q);
 		else
-		     p = SWAP_LONG(p);
+		     p = SWAP_INT(p);
 	    }
 	    if(cputype & CPU_ARCH_ABI64)
 		printf("0x%016llx", q);
@@ -7058,11 +7540,11 @@ enum bool verbose)
 static
 int
 rel_bsearch(
-unsigned long *address,
+uint32_t *address,
 struct relocation_info *rel)
 {
     struct scattered_relocation_info *srel;
-    unsigned long r_address;
+    uint32_t r_address;
 
 	if((rel->r_address & R_SCATTERED) != 0){
 	    srel = (struct scattered_relocation_info *)rel;
@@ -7086,25 +7568,25 @@ void
 print_shlib_init(
 enum byte_sex object_byte_sex,
 char *sect,
-unsigned long sect_size,
-unsigned long sect_addr,
+uint32_t sect_size,
+uint32_t sect_addr,
 struct symbol *sorted_symbols,
-unsigned long nsorted_symbols,
+uint32_t nsorted_symbols,
 struct nlist *symbols,
 struct nlist_64 *symbols64,
-unsigned long nsymbols,
+uint32_t nsymbols,
 char *strings,
-unsigned long strings_size,
+uint32_t strings_size,
 struct relocation_info *relocs,
-unsigned long nrelocs,
+uint32_t nrelocs,
 enum bool verbose)
 {
     enum byte_sex host_byte_sex;
     enum bool swapped;
-    unsigned long i;
+    uint32_t i;
     struct shlib_init {
-	long value;		/* the value to be stored at the address */
-	long address;	/* the address to store the value */
+	int32_t value;		/* the value to be stored at the address */
+	int32_t address;	/* the address to store the value */
     } shlib_init;
 
 	host_byte_sex = get_host_byte_sex();
@@ -7113,8 +7595,8 @@ enum bool verbose)
 	for(i = 0; i < sect_size; i += sizeof(struct shlib_init)){
 	    memcpy((char *)&shlib_init, sect + i, sizeof(struct shlib_init));
 	    if(swapped){
-		shlib_init.value = SWAP_LONG(shlib_init.value);
-		shlib_init.address = SWAP_LONG(shlib_init.address);
+		shlib_init.value = SWAP_INT(shlib_init.value);
+		shlib_init.address = SWAP_INT(shlib_init.address);
 	    }
 	    printf("\tvalue   0x%08x ", (unsigned int)shlib_init.value);
 	    (void)print_symbol(shlib_init.value, sect_addr + i, 0, relocs,
@@ -7123,7 +7605,7 @@ enum bool verbose)
 			       strings_size, verbose);
 	    printf("\n");
 	    printf("\taddress 0x%08x ", (unsigned int)shlib_init.address);
-	    (void)print_symbol(shlib_init.address, sect_addr+i+sizeof(long), 0,
+	    (void)print_symbol(shlib_init.address, sect_addr+i+sizeof(int32_t), 0,
 			       relocs, nrelocs, symbols, symbols64, nsymbols,
 			       sorted_symbols, nsorted_symbols, strings,
 			       strings_size, verbose);
@@ -7138,24 +7620,24 @@ enum bool verbose)
  */
 enum bool
 print_symbol(
-unsigned long value,
-unsigned long r_address,
-unsigned long dot_value,
+uint64_t value,
+uint32_t r_address,
+uint32_t dot_value,
 struct relocation_info *relocs,
-unsigned long nrelocs,
+uint32_t nrelocs,
 struct nlist *symbols,
 struct nlist_64 *symbols64,
-unsigned long nsymbols,
+uint32_t nsymbols,
 struct symbol *sorted_symbols,
-unsigned long nsorted_symbols,
+uint32_t nsorted_symbols,
 char *strings,
-unsigned long strings_size,
+uint32_t strings_size,
 enum bool verbose)
 {
-    unsigned long i, offset;
+    uint32_t i, offset;
     struct scattered_relocation_info *sreloc, *pair;
     unsigned int r_symbolnum;
-    unsigned long n_strx;
+    uint32_t n_strx;
     const char *name, *add, *sub;
 
 	if(verbose == FALSE)
@@ -7166,7 +7648,7 @@ enum bool verbose)
 		sreloc = (struct scattered_relocation_info *)(relocs + i);
 		if(sreloc->r_type == GENERIC_RELOC_PAIR){
 		    fprintf(stderr, "Stray GENERIC_RELOC_PAIR relocation entry "
-			    "%lu\n", i);
+			    "%u\n", i);
 		    continue;
 		}
 		if(sreloc->r_type == GENERIC_RELOC_VANILLA){
@@ -7184,7 +7666,7 @@ enum bool verbose)
 		if(sreloc->r_type != GENERIC_RELOC_SECTDIFF &&
 		   sreloc->r_type != GENERIC_RELOC_LOCAL_SECTDIFF){
 		    fprintf(stderr, "Unknown relocation r_type for entry "
-			    "%lu\n", i);
+			    "%u\n", i);
 		    continue;
 		}
 		if(i + 1 < nrelocs){
@@ -7192,13 +7674,13 @@ enum bool verbose)
 		    if(pair->r_scattered == 0 ||
 		       pair->r_type != GENERIC_RELOC_PAIR){
 			fprintf(stderr, "No GENERIC_RELOC_PAIR relocation "
-				"entry after entry %lu\n", i);
+				"entry after entry %u\n", i);
 			continue;
 		    }
 		}
 		else{
 		    fprintf(stderr, "No GENERIC_RELOC_PAIR relocation entry "
-			    "after entry %lu\n", i);
+			    "after entry %u\n", i);
 		    continue;
 		}
 		i++; /* skip the pair reloc */
@@ -7216,7 +7698,7 @@ enum bool verbose)
 		    if(sub != NULL)
 			printf("-%s", sub);
 		    else{
-			if((unsigned long)pair->r_value == dot_value)
+			if((uint32_t)pair->r_value == dot_value)
 			    printf("-.");
 			else
 			    printf("-0x%x", (unsigned int)pair->r_value);
@@ -7227,7 +7709,7 @@ enum bool verbose)
 		}
 	    }
 	    else{
-		if((unsigned long)relocs[i].r_address == r_address){
+		if((uint32_t)relocs[i].r_address == r_address){
 		    r_symbolnum = relocs[i].r_symbolnum;
 		    if(relocs[i].r_extern){
 		        if(r_symbolnum >= nsymbols)
@@ -7267,10 +7749,10 @@ const char *
 guess_symbol(
 const uint64_t value,	/* the value of this symbol (in) */
 const struct symbol *sorted_symbols,
-const unsigned long nsorted_symbols,
+const uint32_t nsorted_symbols,
 const enum bool verbose)
 {
-    long high, low, mid;
+    int32_t high, low, mid;
 
 	if(verbose == FALSE)
 	    return(NULL);
@@ -7300,22 +7782,22 @@ const enum bool verbose)
  */
 const char *
 guess_indirect_symbol(
-const unsigned long value,	/* the value of this symbol (in) */
+const uint64_t value,	/* the value of this symbol (in) */
 const uint32_t ncmds,
 const uint32_t sizeofcmds,
 const struct load_command *load_commands,
 const enum byte_sex load_commands_byte_sex,
 const uint32_t *indirect_symbols,
-const unsigned long nindirect_symbols,
+const uint32_t nindirect_symbols,
 const struct nlist *symbols,
 const struct nlist_64 *symbols64,
-const unsigned long nsymbols,
+const uint32_t nsymbols,
 const char *strings,
-const unsigned long strings_size)
+const uint32_t strings_size)
 {
     enum byte_sex host_byte_sex;
     enum bool swapped;
-    unsigned long i, j, section_type, index, stride;
+    uint32_t i, j, section_type, index, stride;
     const struct load_command *lc;
     struct load_command l;
     struct segment_command sg;
@@ -7323,18 +7805,21 @@ const unsigned long strings_size)
     struct segment_command_64 sg64;
     struct section_64 s64;
     char *p;
+    uint64_t big_load_end;
 
 	host_byte_sex = get_host_byte_sex();
 	swapped = host_byte_sex != load_commands_byte_sex;
 
 	lc = load_commands;
+	big_load_end = 0;
 	for(i = 0 ; i < ncmds; i++){
 	    memcpy((char *)&l, (char *)lc, sizeof(struct load_command));
 	    if(swapped)
 		swap_load_command(&l, host_byte_sex);
-	    if(l.cmdsize % sizeof(long) != 0)
+	    if(l.cmdsize % sizeof(int32_t) != 0)
 		return(NULL);
-	    if((char *)lc + l.cmdsize > (char *)load_commands + sizeofcmds)
+	    big_load_end += l.cmdsize;
+	    if(big_load_end > sizeofcmds)
 		return(NULL);
 	    switch(l.cmd){
 	    case LC_SEGMENT:
@@ -7350,6 +7835,7 @@ const unsigned long strings_size)
 		    section_type = s.flags & SECTION_TYPE;
 		    if((section_type == S_NON_LAZY_SYMBOL_POINTERS ||
 		        section_type == S_LAZY_SYMBOL_POINTERS ||
+		        section_type == S_LAZY_DYLIB_SYMBOL_POINTERS ||
 		        section_type == S_SYMBOL_STUBS) &&
 		        value >= s.addr && value < s.addr + s.size){
 			if(section_type == S_SYMBOL_STUBS)
@@ -7360,7 +7846,7 @@ const unsigned long strings_size)
 			if(index < nindirect_symbols &&
 		    	   symbols != NULL && strings != NULL &&
 		           indirect_symbols[index] < nsymbols &&
-		           (unsigned long)symbols[indirect_symbols[index]].
+		           (uint32_t)symbols[indirect_symbols[index]].
 				n_un.n_strx < strings_size)
 			    return(strings +
 				symbols[indirect_symbols[index]].n_un.n_strx);
@@ -7383,6 +7869,7 @@ const unsigned long strings_size)
 		    section_type = s64.flags & SECTION_TYPE;
 		    if((section_type == S_NON_LAZY_SYMBOL_POINTERS ||
 		        section_type == S_LAZY_SYMBOL_POINTERS ||
+		        section_type == S_LAZY_DYLIB_SYMBOL_POINTERS ||
 		        section_type == S_SYMBOL_STUBS) &&
 		        value >= s64.addr && value < s64.addr + s64.size){
 			if(section_type == S_SYMBOL_STUBS)
@@ -7393,7 +7880,7 @@ const unsigned long strings_size)
 			if(index < nindirect_symbols &&
 		    	   symbols64 != NULL && strings != NULL &&
 		           indirect_symbols[index] < nsymbols &&
-		           (unsigned long)symbols64[indirect_symbols[index]].
+		           (uint32_t)symbols64[indirect_symbols[index]].
 				n_un.n_strx < strings_size)
 			    return(strings +
 				symbols64[indirect_symbols[index]].n_un.n_strx);
@@ -7424,7 +7911,7 @@ uint64_t addr)
     enum byte_sex host_byte_sex;
     enum bool swapped;
     uint64_t i, j;
-    unsigned long long_word;
+    uint32_t long_word;
     unsigned short short_word;
     unsigned char byte_word;
 
@@ -7468,11 +7955,11 @@ uint64_t addr)
 		else
 		    printf("%08x\t", (uint32_t)addr);
 		for(j = 0;
-		    j < 4 * sizeof(long) && i + j < size;
-		    j += sizeof(long)){
-		    memcpy(&long_word, sect + i + j, sizeof(long));
+		    j < 4 * sizeof(int32_t) && i + j < size;
+		    j += sizeof(int32_t)){
+		    memcpy(&long_word, sect + i + j, sizeof(int32_t));
 		    if(swapped)
-			long_word = SWAP_LONG(long_word);
+			long_word = SWAP_INT(long_word);
 		    printf("%08x ", (unsigned int)long_word);
 		}
 		printf("\n");
@@ -7490,12 +7977,12 @@ uint64_t addr)
  */
 void
 print_label(
-unsigned long addr,
+uint64_t addr,
 enum bool colon_and_newline,
 struct symbol *sorted_symbols,
-unsigned long nsorted_symbols)
+uint32_t nsorted_symbols)
 {
-    long high, low, mid;
+    int32_t high, low, mid;
 
 	low = 0;
 	high = nsorted_symbols - 1;

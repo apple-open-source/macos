@@ -1,4 +1,4 @@
-# Copyright (C) 2002 by the Free Software Foundation, Inc.
+# Copyright (C) 2002-2007 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,7 +12,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 """Maildir pre-queue runner.
 
@@ -66,11 +67,22 @@ from Mailman.Logging.Syslog import syslog
 # listname-request@
 lre = re.compile(r"""
  ^                        # start of string
- (?P<listname>[^-@]+)     # listname@ or listname-subq@
+ (?P<listname>[^+@]+?)    # listname@ or listname-subq@ (non-greedy)
  (?:                      # non-grouping
    -                      # dash separator
-   (?P<subq>[^-+@]+)      # everything up to + or - or @
+   (?P<subq>              # any known suffix
+     admin|
+     bounces|
+     confirm|
+     join|
+     leave|
+     owner|
+     request|
+     subscribe|
+     unsubscribe
+   )
  )?                       # if it exists
+ [+@]                     # followed by + or @
  """, re.VERBOSE | re.IGNORECASE)
 
 

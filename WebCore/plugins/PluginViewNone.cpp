@@ -84,6 +84,14 @@ const char* PluginView::userAgent()
     return 0;
 }
 
+#if ENABLE(NETSCAPE_PLUGIN_API)
+const char* PluginView::userAgentStatic()
+{
+    notImplemented();
+    return 0;
+}
+#endif
+
 NPError PluginView::handlePostReadFile(Vector<char>&, uint32, const char*)
 {
     notImplemented();
@@ -96,6 +104,14 @@ NPError PluginView::getValue(NPNVariable, void*)
     notImplemented();
     return 0;
 }
+
+#if ENABLE(NETSCAPE_PLUGIN_API)
+NPError PluginView::getValueStatic(NPNVariable variable, void* value)
+{
+    notImplemented();
+    return 0;
+}
+#endif
 
 void PluginView::invalidateRect(NPRect*)
 {

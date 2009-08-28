@@ -1,31 +1,23 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1996,2007 Oracle.  All rights reserved.
+ *
+ * $Id: db_err.c,v 12.62 2007/05/29 15:23:05 sue Exp $
  */
 
 #include "db_config.h"
 
-#ifndef lint
-static const char revid[] = "$Id: db_err.c,v 1.2 2004/03/30 01:21:22 jtownsen Exp $";
-#endif /* not lint */
-
-#ifndef NO_SYSTEM_INCLUDES
-#include <sys/types.h>
-
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>				/* Declare STDERR_FILENO. */
-#endif
-
 #include "db_int.h"
 #include "dbinc/db_page.h"
 #include "dbinc/db_am.h"
-#include "dbinc/db_shash.h"
 #include "dbinc/lock.h"
 #include "dbinc/log.h"
+#include "dbinc/mp.h"
 #include "dbinc/txn.h"
+
+static void __db_msgcall __P((const DB_ENV *, const char *, va_list));
+static void __db_msgfile __P((const DB_ENV *, const char *, va_list));
 
 /*
  * __db_fchk --
@@ -71,7 +63,7 @@ __db_ferr(dbenv, name, iscombo)
 	const char *name;
 	int iscombo;
 {
-	__db_err(dbenv, "illegal flag %sspecified to %s",
+	__db_errx(dbenv, "illegal flag %sspecified to %s",
 	    iscombo ? "combination " : "", name);
 	return (EINVAL);
 }
@@ -87,8 +79,9 @@ __db_fnl(dbenv, name)
 	const DB_ENV *dbenv;
 	const char *name;
 {
-	__db_err(dbenv,
-	    "%s: the DB_DIRTY_READ and DB_RMW flags require locking", name);
+	__db_errx(dbenv,
+    "%s: DB_READ_COMMITTED, DB_READ_UNCOMMITTED and DB_RMW require locking",
+	    name);
 	return (EINVAL);
 }
 
@@ -109,7 +102,7 @@ __db_pgerr(dbp, pgno, errval)
 	 * Death, taxes, and lost data.
 	 * Guess which has occurred.
 	 */
-	__db_err(dbp->dbenv,
+	__db_errx(dbp->dbenv,
 	    "unable to create/retrieve page %lu", (u_long)pgno);
 	return (__db_panic(dbp->dbenv, errval));
 }
@@ -125,7 +118,7 @@ __db_pgfmt(dbenv, pgno)
 	DB_ENV *dbenv;
 	db_pgno_t pgno;
 {
-	__db_err(dbenv, "page %lu: illegal page type or format", (u_long)pgno);
+	__db_errx(dbenv, "page %lu: illegal page type or format", (u_long)pgno);
 	return (__db_panic(dbenv, EINVAL));
 }
 
@@ -135,22 +128,18 @@ __db_pgfmt(dbenv, pgno)
  *	Error when an assertion fails.  Only checked if #DIAGNOSTIC defined.
  *
  * PUBLIC: #ifdef DIAGNOSTIC
- * PUBLIC: void __db_assert __P((const char *, const char *, int));
+ * PUBLIC: void __db_assert __P((DB_ENV *, const char *, const char *, int));
  * PUBLIC: #endif
  */
 void
-__db_assert(failedexpr, file, line)
-	const char *failedexpr, *file;
+__db_assert(dbenv, e, file, line)
+	DB_ENV *dbenv;
+	const char *e, *file;
 	int line;
 {
-	(void)fprintf(stderr,
-	    "__db_assert: \"%s\" failed: file \"%s\", line %d\n",
-	    failedexpr, file, line);
-	(void)fflush(stderr);
+	__db_errx(dbenv, "assert failure: %s/%d: \"%s\"", file, line, e);
 
-	/* We want a stack trace of how this could possibly happen. */
-	abort();
-
+	__os_abort();
 	/* NOTREACHED */
 }
 #endif
@@ -165,12 +154,17 @@ int
 __db_panic_msg(dbenv)
 	DB_ENV *dbenv;
 {
-	__db_err(dbenv, "PANIC: fatal region error detected; run recovery");
+	int ret;
 
-	if (dbenv->db_paniccall != NULL)
-		dbenv->db_paniccall(dbenv, DB_RUNRECOVERY);
+	ret = DB_RUNRECOVERY;
 
-	return (DB_RUNRECOVERY);
+	__db_errx(dbenv, "PANIC: fatal region error detected; run recovery");
+
+	if (dbenv->db_paniccall != NULL)		/* Deprecated */
+		dbenv->db_paniccall(dbenv, ret);
+	DB_EVENT(dbenv, DB_EVENT_PANIC, &ret);
+
+	return (ret);
 }
 
 /*
@@ -185,12 +179,13 @@ __db_panic(dbenv, errval)
 	int errval;
 {
 	if (dbenv != NULL) {
-		PANIC_SET(dbenv, 1);
+		__env_panic_set(dbenv, 1);
 
-		__db_err(dbenv, "PANIC: %s", db_strerror(errval));
+		__db_err(dbenv, errval, "PANIC");
 
-		if (dbenv->db_paniccall != NULL)
+		if (dbenv->db_paniccall != NULL)	/* Deprecated */
 			dbenv->db_paniccall(dbenv, errval);
+		DB_EVENT(dbenv, DB_EVENT_PANIC, &errval);
 	}
 
 #if defined(DIAGNOSTIC) && !defined(CONFIG_TEST)
@@ -201,7 +196,8 @@ __db_panic(dbenv, errval)
 	 * test suite to check to make sure that DB_RUNRECOVERY is returned
 	 * under certain conditions.
 	 */
-	abort();
+	__os_abort();
+	/* NOTREACHED */
 #endif
 
 	/*
@@ -229,7 +225,7 @@ db_strerror(error)
 	if (error > 0) {
 		if ((p = strerror(error)) != NULL)
 			return (p);
-		goto unknown_err;
+		return (__db_unknown_error(error));
 	}
 
 	/*
@@ -240,10 +236,11 @@ db_strerror(error)
 	 * altered.
 	 */
 	switch (error) {
+	case DB_BUFFER_SMALL:
+		return
+		    ("DB_BUFFER_SMALL: User memory too small for return value");
 	case DB_DONOTINDEX:
 		return ("DB_DONOTINDEX: Secondary index callback returns null");
-	case DB_FILEOPEN:
-		return ("DB_FILEOPEN: Rename or remove while file is open.");
 	case DB_KEYEMPTY:
 		return ("DB_KEYEMPTY: Non-existent key/data pair");
 	case DB_KEYEXIST:
@@ -253,6 +250,8 @@ db_strerror(error)
 		    ("DB_LOCK_DEADLOCK: Locker killed to resolve a deadlock");
 	case DB_LOCK_NOTGRANTED:
 		return ("DB_LOCK_NOTGRANTED: Lock not granted");
+	case DB_LOG_BUFFER_FULL:
+		return ("DB_LOG_BUFFER_FULL: In-memory log buffer is full");
 	case DB_NOSERVER:
 		return ("DB_NOSERVER: Fatal error, no RPC server");
 	case DB_NOSERVER_HOME:
@@ -268,20 +267,26 @@ db_strerror(error)
 	case DB_REP_DUPMASTER:
 		return ("DB_REP_DUPMASTER: A second master site appeared");
 	case DB_REP_HANDLE_DEAD:
-		return ("DB_REP_HANDLE_DEAD: Handle is no longer valid.");
+		return ("DB_REP_HANDLE_DEAD: Handle is no longer valid");
 	case DB_REP_HOLDELECTION:
 		return ("DB_REP_HOLDELECTION: Need to hold an election");
+	case DB_REP_IGNORE:
+		return ("DB_REP_IGNORE: Replication record ignored");
 	case DB_REP_ISPERM:
 		return ("DB_REP_ISPERM: Permanent record written");
-	case DB_REP_NEWMASTER:
-		return ("DB_REP_NEWMASTER: A new master has declared itself");
+	case DB_REP_JOIN_FAILURE:
+		return
+	    ("DB_REP_JOIN_FAILURE: Unable to join replication group");
+	case DB_REP_LEASE_EXPIRED:
+		return
+	    ("DB_REP_LEASE_EXPIRED: Replication leases have expired");
+	case DB_REP_LOCKOUT:
+		return
+	    ("DB_REP_LOCKOUT: Waiting for replication recovery to complete");
 	case DB_REP_NEWSITE:
 		return ("DB_REP_NEWSITE: A new site has entered the system");
 	case DB_REP_NOTPERM:
-		return ("DB_REP_NOTPERM: Permanent log record not written.");
-	case DB_REP_OUTDATED:
-		return
-		    ("DB_REP_OUTDATED: Insufficient logs on master to recover");
+		return ("DB_REP_NOTPERM: Permanent log record not written");
 	case DB_REP_UNAVAIL:
 		return ("DB_REP_UNAVAIL: Unable to elect a master");
 	case DB_RUNRECOVERY:
@@ -291,94 +296,146 @@ db_strerror(error)
 	    ("DB_SECONDARY_BAD: Secondary index inconsistent with primary");
 	case DB_VERIFY_BAD:
 		return ("DB_VERIFY_BAD: Database verification failed");
+	case DB_VERSION_MISMATCH:
+		return
+	    ("DB_VERSION_MISMATCH: Database environment version mismatch");
 	default:
 		break;
 	}
 
-unknown_err: {
-		/*
-		 * !!!
-		 * Room for a 64-bit number + slop.  This buffer is only used
-		 * if we're given an unknown error, which should never happen.
-		 * Note, however, we're no longer thread-safe if it does.
-		 */
-		static char ebuf[40];
+	return (__db_unknown_error(error));
+}
 
-		(void)snprintf(ebuf, sizeof(ebuf), "Unknown error: %d", error);
-		return (ebuf);
-	}
+/*
+ * __db_unknown_error --
+ *	Format an unknown error value into a static buffer.
+ *
+ * PUBLIC: char *__db_unknown_error __P((int));
+ */
+char *
+__db_unknown_error(error)
+	int error;
+{
+	/*
+	 * !!!
+	 * Room for a 64-bit number + slop.  This buffer is only used
+	 * if we're given an unknown error number, which should never
+	 * happen.
+	 *
+	 * We're no longer thread-safe if it does happen, but the worst
+	 * result is a corrupted error string because there will always
+	 * be a trailing nul byte since the error buffer is nul filled
+	 * and longer than any error message.
+	 */
+	(void)snprintf(DB_GLOBAL(error_buf),
+	    sizeof(DB_GLOBAL(error_buf)), "Unknown error: %d", error);
+	return (DB_GLOBAL(error_buf));
+}
+
+/*
+ * __db_syserr --
+ *	Standard error routine.
+ *
+ * PUBLIC: void __db_syserr __P((const DB_ENV *, int, const char *, ...))
+ * PUBLIC:    __attribute__ ((__format__ (__printf__, 3, 4)));
+ */
+void
+#ifdef STDC_HEADERS
+__db_syserr(const DB_ENV *dbenv, int error, const char *fmt, ...)
+#else
+__db_syserr(dbenv, error, fmt, va_alist)
+	const DB_ENV *dbenv;
+	int error;
+	const char *fmt;
+	va_dcl
+#endif
+{
+	/*
+	 * The same as DB->err, except we don't default to writing to stderr
+	 * after any output channel has been configured, and we use a system-
+	 * specific function to translate errors to strings.
+	 */
+	DB_REAL_ERR(dbenv, error, DB_ERROR_SYSTEM, 0, fmt);
 }
 
 /*
  * __db_err --
- *	Standard DB error routine.  The same as errx, except we don't write
- *	to stderr if no output mechanism was specified.
+ *	Standard error routine.
  *
- * PUBLIC: void __db_err __P((const DB_ENV *, const char *, ...))
+ * PUBLIC: void __db_err __P((const DB_ENV *, int, const char *, ...))
+ * PUBLIC:    __attribute__ ((__format__ (__printf__, 3, 4)));
+ */
+void
+#ifdef STDC_HEADERS
+__db_err(const DB_ENV *dbenv, int error, const char *fmt, ...)
+#else
+__db_err(dbenv, error, fmt, va_alist)
+	const DB_ENV *dbenv;
+	int error;
+	const char *fmt;
+	va_dcl
+#endif
+{
+	/*
+	 * The same as DB->err, except we don't default to writing to stderr
+	 * once an output channel has been configured.
+	 */
+	DB_REAL_ERR(dbenv, error, DB_ERROR_SET, 0, fmt);
+}
+
+/*
+ * __db_errx --
+ *	Standard error routine.
+ *
+ * PUBLIC: void __db_errx __P((const DB_ENV *, const char *, ...))
  * PUBLIC:    __attribute__ ((__format__ (__printf__, 2, 3)));
  */
 void
 #ifdef STDC_HEADERS
-__db_err(const DB_ENV *dbenv, const char *fmt, ...)
+__db_errx(const DB_ENV *dbenv, const char *fmt, ...)
 #else
-__db_err(dbenv, fmt, va_alist)
+__db_errx(dbenv, fmt, va_alist)
 	const DB_ENV *dbenv;
 	const char *fmt;
 	va_dcl
 #endif
 {
-	DB_REAL_ERR(dbenv, 0, 0, 0, fmt);
+	/*
+	 * The same as DB->errx, except we don't default to writing to stderr
+	 * once an output channel has been configured.
+	 */
+	DB_REAL_ERR(dbenv, 0, DB_ERROR_NOT_SET, 0, fmt);
 }
-
-#define	OVERFLOW_ERROR	"internal buffer overflow, process aborted\n"
-#ifndef	STDERR_FILENO
-#define	STDERR_FILENO	2
-#endif
 
 /*
  * __db_errcall --
  *	Do the error message work for callback functions.
  *
  * PUBLIC: void __db_errcall
- * PUBLIC:          __P((const DB_ENV *, int, int, const char *, va_list));
+ * PUBLIC:    __P((const DB_ENV *, int, db_error_set_t, const char *, va_list));
  */
 void
 __db_errcall(dbenv, error, error_set, fmt, ap)
 	const DB_ENV *dbenv;
-	int error, error_set;
+	int error;
+	db_error_set_t error_set;
 	const char *fmt;
 	va_list ap;
 {
 	char *p;
-	char errbuf[2048];	/* !!!: END OF THE STACK DON'T TRUST SPRINTF. */
+	char buf[2048];		/* !!!: END OF THE STACK DON'T TRUST SPRINTF. */
+	char sysbuf[1024];	/* !!!: END OF THE STACK DON'T TRUST SPRINTF. */
 
-	p = errbuf;
+	p = buf;
 	if (fmt != NULL)
-		p += vsnprintf(errbuf, sizeof(errbuf), fmt, ap);
-	if (error_set)
+		p += vsnprintf(buf, sizeof(buf), fmt, ap);
+	if (error_set != DB_ERROR_NOT_SET)
 		p += snprintf(p,
-		    sizeof(errbuf) - (size_t)(p - errbuf), ": %s",
-		    db_strerror(error));
-#ifndef HAVE_VSNPRINTF
-	/*
-	 * !!!
-	 * We're potentially manipulating strings handed us by the application,
-	 * and on systems without a real snprintf() the sprintf() calls could
-	 * have overflowed the buffer.  We can't do anything about it now, but
-	 * we don't want to return control to the application, we might have
-	 * overwritten the stack with a Trojan horse.  We're not trying to do
-	 * anything recoverable here because systems without snprintf support
-	 * are pretty rare anymore.
-	 */
-	if ((size_t)(p - errbuf) > sizeof(errbuf)) {
-		write(
-		    STDERR_FILENO, OVERFLOW_ERROR, sizeof(OVERFLOW_ERROR) - 1);
-		abort();
-		/* NOTREACHED */
-	}
-#endif
+		    sizeof(buf) - (size_t)(p - buf), ": %s",
+		    error_set == DB_ERROR_SET ? db_strerror(error) :
+		    __os_strerror(error, sysbuf, sizeof(sysbuf)));
 
-	dbenv->db_errcall(dbenv->db_errpfx, errbuf);
+	dbenv->db_errcall(dbenv, dbenv->db_errpfx, buf);
 }
 
 /*
@@ -386,16 +443,18 @@ __db_errcall(dbenv, error, error_set, fmt, ap)
  *	Do the error message work for FILE *s.
  *
  * PUBLIC: void __db_errfile
- * PUBLIC:          __P((const DB_ENV *, int, int, const char *, va_list));
+ * PUBLIC:    __P((const DB_ENV *, int, db_error_set_t, const char *, va_list));
  */
 void
 __db_errfile(dbenv, error, error_set, fmt, ap)
 	const DB_ENV *dbenv;
-	int error, error_set;
+	int error;
+	db_error_set_t error_set;
 	const char *fmt;
 	va_list ap;
 {
 	FILE *fp;
+	char sysbuf[1024];	/* !!!: END OF THE STACK DON'T TRUST SPRINTF. */
 
 	fp = dbenv == NULL ||
 	    dbenv->db_errfile == NULL ? stderr : dbenv->db_errfile;
@@ -404,85 +463,137 @@ __db_errfile(dbenv, error, error_set, fmt, ap)
 		(void)fprintf(fp, "%s: ", dbenv->db_errpfx);
 	if (fmt != NULL) {
 		(void)vfprintf(fp, fmt, ap);
-		if (error_set)
+		if (error_set != DB_ERROR_NOT_SET)
 			(void)fprintf(fp, ": ");
 	}
-	if (error_set)
-		(void)fprintf(fp, "%s", db_strerror(error));
+	if (error_set != DB_ERROR_NOT_SET)
+		(void)fprintf(fp, "%s",
+		    error_set == DB_ERROR_SET ? db_strerror(error) :
+		    __os_strerror(error, sysbuf, sizeof(sysbuf)));
 	(void)fprintf(fp, "\n");
 	(void)fflush(fp);
 }
 
 /*
- * __db_logmsg --
- *	Write information into the DB log.
+ * __db_msgadd --
+ *	Aggregate a set of strings into a buffer for the callback API.
  *
- * PUBLIC: void __db_logmsg __P((const DB_ENV *,
- * PUBLIC:     DB_TXN *, const char *, u_int32_t, const char *, ...))
- * PUBLIC:    __attribute__ ((__format__ (__printf__, 5, 6)));
+ * PUBLIC: void __db_msgadd __P((DB_ENV *, DB_MSGBUF *, const char *, ...))
+ * PUBLIC:    __attribute__ ((__format__ (__printf__, 3, 4)));
  */
 void
 #ifdef STDC_HEADERS
-__db_logmsg(const DB_ENV *dbenv,
-    DB_TXN *txnid, const char *opname, u_int32_t flags, const char *fmt, ...)
+__db_msgadd(DB_ENV *dbenv, DB_MSGBUF *mbp, const char *fmt, ...)
 #else
-__db_logmsg(dbenv, txnid, opname, flags, fmt, va_alist)
-	const DB_ENV *dbenv;
-	DB_TXN *txnid;
-	const char *opname, *fmt;
-	u_int32_t flags;
+__db_msgadd(dbenv, mbp, fmt, va_alist)
+	DB_ENV *dbenv;
+	DB_MSGBUF *mbp;
+	const char *fmt;
 	va_dcl
 #endif
 {
-	DBT opdbt, msgdbt;
-	DB_LSN lsn;
 	va_list ap;
-	char __logbuf[2048];	/* !!!: END OF THE STACK DON'T TRUST SPRINTF. */
-
-	if (!LOGGING_ON(dbenv))
-		return;
 
 #ifdef STDC_HEADERS
 	va_start(ap, fmt);
 #else
 	va_start(ap);
 #endif
-	memset(&opdbt, 0, sizeof(opdbt));
-	opdbt.data = (void *)opname;
-	opdbt.size = (u_int32_t)(strlen(opname) + 1);
-
-	memset(&msgdbt, 0, sizeof(msgdbt));
-	msgdbt.data = __logbuf;
-	msgdbt.size = (u_int32_t)vsnprintf(__logbuf, sizeof(__logbuf), fmt, ap);
-
-#ifndef HAVE_VSNPRINTF
-	/*
-	 * !!!
-	 * We're potentially manipulating strings handed us by the application,
-	 * and on systems without a real snprintf() the sprintf() calls could
-	 * have overflowed the buffer.  We can't do anything about it now, but
-	 * we don't want to return control to the application, we might have
-	 * overwritten the stack with a Trojan horse.  We're not trying to do
-	 * anything recoverable here because systems without snprintf support
-	 * are pretty rare anymore.
-	 */
-	if (msgdbt.size > sizeof(__logbuf)) {
-		write(
-		    STDERR_FILENO, OVERFLOW_ERROR, sizeof(OVERFLOW_ERROR) - 1);
-		abort();
-		/* NOTREACHED */
-	}
-#endif
-
-	/*
-	 * XXX
-	 * Explicitly discard the const.  Otherwise, we have to const DB_ENV
-	 * references throughout the logging subsystem.
-	 */
-	(void)__db_debug_log(
-	    (DB_ENV *)dbenv, txnid, &lsn, flags, &opdbt, -1, &msgdbt, NULL, 0);
-
+	__db_msgadd_ap(dbenv, mbp, fmt, ap);
 	va_end(ap);
+}
+
+/*
+ * __db_msgadd_ap --
+ *	Aggregate a set of strings into a buffer for the callback API.
+ *
+ * PUBLIC: void __db_msgadd_ap
+ * PUBLIC:     __P((DB_ENV *, DB_MSGBUF *, const char *, va_list));
+ */
+void
+__db_msgadd_ap(dbenv, mbp, fmt, ap)
+	DB_ENV *dbenv;
+	DB_MSGBUF *mbp;
+	const char *fmt;
+	va_list ap;
+{
+	size_t len, olen;
+	char buf[2048];		/* !!!: END OF THE STACK DON'T TRUST SPRINTF. */
+
+	len = (size_t)vsnprintf(buf, sizeof(buf), fmt, ap);
+
+	/*
+	 * There's a heap buffer in the DB_ENV handle we use to aggregate the
+	 * message chunks.  We maintain a pointer to the buffer, the next slot
+	 * to be filled in in the buffer, and a total buffer length.
+	 */
+	olen = (size_t)(mbp->cur - mbp->buf);
+	if (olen + len >= mbp->len) {
+		if (__os_realloc(dbenv, mbp->len + len + 256, &mbp->buf))
+			return;
+		mbp->len += (len + 256);
+		mbp->cur = mbp->buf + olen;
+	}
+
+	memcpy(mbp->cur, buf, len + 1);
+	mbp->cur += len;
+}
+
+/*
+ * __db_msg --
+ *	Standard DB stat message routine.
+ *
+ * PUBLIC: void __db_msg __P((const DB_ENV *, const char *, ...))
+ * PUBLIC:    __attribute__ ((__format__ (__printf__, 2, 3)));
+ */
+void
+#ifdef STDC_HEADERS
+__db_msg(const DB_ENV *dbenv, const char *fmt, ...)
+#else
+__db_msg(dbenv, fmt, va_alist)
+	const DB_ENV *dbenv;
+	const char *fmt;
+	va_dcl
+#endif
+{
+	DB_REAL_MSG(dbenv, fmt);
+}
+
+/*
+ * __db_msgcall --
+ *	Do the message work for callback functions.
+ */
+static void
+__db_msgcall(dbenv, fmt, ap)
+	const DB_ENV *dbenv;
+	const char *fmt;
+	va_list ap;
+{
+	char buf[2048];		/* !!!: END OF THE STACK DON'T TRUST SPRINTF. */
+
+	(void)vsnprintf(buf, sizeof(buf), fmt, ap);
+
+	dbenv->db_msgcall(dbenv, buf);
+}
+
+/*
+ * __db_msgfile --
+ *	Do the message work for FILE *s.
+ */
+static void
+__db_msgfile(dbenv, fmt, ap)
+	const DB_ENV *dbenv;
+	const char *fmt;
+	va_list ap;
+{
+	FILE *fp;
+
+	fp = dbenv == NULL ||
+	    dbenv->db_msgfile == NULL ? stdout : dbenv->db_msgfile;
+	(void)vfprintf(fp, fmt, ap);
+
+	(void)fprintf(fp, "\n");
+	(void)fflush(fp);
 }
 
 /*
@@ -496,13 +607,17 @@ __db_unknown_flag(dbenv, routine, flag)
 	char *routine;
 	u_int32_t flag;
 {
-	__db_err(dbenv, "%s: Unknown flag: 0x%x", routine, (u_int)flag);
-	DB_ASSERT(0);
+	__db_errx(dbenv, "%s: Unknown flag: %#x", routine, (u_int)flag);
+
+#ifdef DIAGNOSTIC
+	__os_abort();
+	/* NOTREACHED */
+#endif
 	return (EINVAL);
 }
 
 /*
- * __db_unknown_type -- report internal error
+ * __db_unknown_type -- report internal database type error
  *
  * PUBLIC: int __db_unknown_type __P((DB_ENV *, char *, DBTYPE));
  */
@@ -512,8 +627,33 @@ __db_unknown_type(dbenv, routine, type)
 	char *routine;
 	DBTYPE type;
 {
-	__db_err(dbenv, "%s: Unknown db type: 0x%x", routine, (u_int)type);
-	DB_ASSERT(0);
+	__db_errx(dbenv,
+	    "%s: Unexpected database type: %s",
+	    routine, __db_dbtype_to_string(type));
+
+#ifdef DIAGNOSTIC
+	__os_abort();
+	/* NOTREACHED */
+#endif
+	return (EINVAL);
+}
+
+/*
+ * __db_unknown_path -- report unexpected database code path error.
+ *
+ * PUBLIC: int __db_unknown_path __P((DB_ENV *, char *));
+ */
+int
+__db_unknown_path(dbenv, routine)
+	DB_ENV *dbenv;
+	char *routine;
+{
+	__db_errx(dbenv, "%s: Unexpected code path error", routine);
+
+#ifdef DIAGNOSTIC
+	__os_abort();
+	/* NOTREACHED */
+#endif
 	return (EINVAL);
 }
 
@@ -521,16 +661,17 @@ __db_unknown_type(dbenv, routine, type)
  * __db_check_txn --
  *	Check for common transaction errors.
  *
- * PUBLIC: int __db_check_txn __P((DB *, DB_TXN *, u_int32_t, int));
+ * PUBLIC: int __db_check_txn __P((DB *, DB_TXN *, DB_LOCKER *, int));
  */
 int
-__db_check_txn(dbp, txn, assoc_lid, read_op)
+__db_check_txn(dbp, txn, assoc_locker, read_op)
 	DB *dbp;
 	DB_TXN *txn;
-	u_int32_t assoc_lid;
+	DB_LOCKER *assoc_locker;
 	int read_op;
 {
 	DB_ENV *dbenv;
+	int isp, ret;
 
 	dbenv = dbp->dbenv;
 
@@ -547,39 +688,56 @@ __db_check_txn(dbp, txn, assoc_lid, read_op)
 
 	/*
 	 * Check for common transaction errors:
-	 *	Failure to pass a transaction handle to a DB operation
-	 *	Failure to configure the DB handle in a proper environment
-	 *	Operation on a handle whose open commit hasn't completed.
-	 *
-	 * Read operations don't require a txn even if we've used one before
-	 * with this handle, although if they do have a txn, we'd better be
-	 * prepared for it.
+	 *	an operation on a handle whose open commit hasn't completed.
+	 *	a transaction handle in a non-transactional environment
+	 *	a transaction handle for a non-transactional database
 	 */
-	if (txn == NULL) {
+	if (txn == NULL || F_ISSET(txn, TXN_PRIVATE)) {
+		if (dbp->cur_locker != NULL &&
+		    dbp->cur_locker->id >= TXN_MINIMUM)
+			goto open_err;
+
 		if (!read_op && F_ISSET(dbp, DB_AM_TXN)) {
-			__db_err(dbenv,
-    "DB handle previously used in transaction, missing transaction handle");
+			__db_errx(dbenv,
+		    "Transaction not specified for a transactional database");
 			return (EINVAL);
 		}
-
-		if (dbp->cur_lid >= TXN_MINIMUM)
-			goto open_err;
+	} else if (F_ISSET(txn, TXN_CDSGROUP)) {
+		if (!CDB_LOCKING(dbenv)) {
+			__db_errx(dbenv,
+			    "CDS groups can only be used in a CDS environment");
+			return (EINVAL);
+		}
+		/*
+		 * CDS group handles can be passed to any method, since they
+		 * only determine locker IDs.
+		 */
+		return (0);
 	} else {
-		if (dbp->cur_lid >= TXN_MINIMUM && dbp->cur_lid != txn->txnid)
-			goto open_err;
-
 		if (!TXN_ON(dbenv))
 			 return (__db_not_txn_env(dbenv));
 
 		if (!F_ISSET(dbp, DB_AM_TXN)) {
-			__db_err(dbenv,
-    "Transaction specified for a DB handle opened outside a transaction");
+			__db_errx(dbenv,
+		    "Transaction specified for a non-transactional database");
 			return (EINVAL);
+		}
+
+		if (F_ISSET(txn, TXN_DEADLOCK))
+			return (__db_txn_deadlock_err(dbenv, txn));
+		if (dbp->cur_locker != NULL &&
+		    dbp->cur_locker->id >= TXN_MINIMUM &&
+		     dbp->cur_locker->id != txn->txnid) {
+			if ((ret = __lock_locker_is_parent(dbenv,
+			     dbp->cur_locker, txn->locker, &isp)) != 0)
+				return (ret);
+			if (!isp)
+				goto open_err;
 		}
 	}
 
 	/*
-	 * If dbp->associate_lid is not DB_LOCK_INVALIDID, that means we're in
+	 * If dbp->associate_locker is not NULL, that means we're in
 	 * the middle of a DB->associate with DB_CREATE (i.e., a secondary index
 	 * creation).
 	 *
@@ -593,17 +751,49 @@ __db_check_txn(dbp, txn, assoc_lid, read_op)
 	 * the secondary in another transaction (presumably by updating the
 	 * primary).
 	 */
-	if (!read_op && dbp->associate_lid != DB_LOCK_INVALIDID &&
-	    txn != NULL && dbp->associate_lid != assoc_lid) {
-		__db_err(dbenv,
+	if (!read_op && dbp->associate_locker != NULL &&
+	    txn != NULL && dbp->associate_locker != assoc_locker) {
+		__db_errx(dbenv,
 	    "Operation forbidden while secondary index is being created");
+		return (EINVAL);
+	}
+
+	/*
+	 * Check the txn and dbp are from the same env.
+	 */
+	if (txn != NULL && dbenv != txn->mgrp->dbenv) {
+		__db_errx(dbenv,
+	    "Transaction and database from different environments");
 		return (EINVAL);
 	}
 
 	return (0);
 open_err:
-	__db_err(dbenv,
+	__db_errx(dbenv,
 	    "Transaction that opened the DB handle is still active");
+	return (EINVAL);
+}
+
+/*
+ * __db_txn_deadlock_err --
+ *	Transaction has allready been deadlocked.
+ *
+ * PUBLIC: int __db_txn_deadlock_err __P((DB_ENV *, DB_TXN *));
+ */
+int
+__db_txn_deadlock_err(dbenv, txn)
+	DB_ENV *dbenv;
+	DB_TXN *txn;
+{
+	const char *name;
+
+	name = NULL;
+	(void)__txn_get_name(txn, &name);
+
+	__db_errx(dbenv,
+	    "%s%sprevious transaction deadlock return not resolved",
+	    name == NULL ? "" : name, name == NULL ? "" : ": ");
+
 	return (EINVAL);
 }
 
@@ -617,7 +807,7 @@ int
 __db_not_txn_env(dbenv)
 	DB_ENV *dbenv;
 {
-	__db_err(dbenv, "DB environment not configured for transactions");
+	__db_errx(dbenv, "DB environment not configured for transactions");
 	return (EINVAL);
 }
 
@@ -632,8 +822,9 @@ __db_rec_toobig(dbenv, data_len, fixed_rec_len)
 	DB_ENV *dbenv;
 	u_int32_t data_len, fixed_rec_len;
 {
-	__db_err(dbenv, "%s: length of %lu larger than database's value of %lu",
-	    "Record length error", (u_long)data_len, (u_long)fixed_rec_len);
+	__db_errx(dbenv,
+	    "%lu larger than database's maximum record length %lu",
+	    (u_long)data_len, (u_long)fixed_rec_len);
 	return (EINVAL);
 }
 
@@ -648,8 +839,148 @@ __db_rec_repl(dbenv, data_size, data_dlen)
 	DB_ENV *dbenv;
 	u_int32_t data_size, data_dlen;
 {
-	__db_err(dbenv,
+	__db_errx(dbenv,
 	    "%s: replacement length %lu differs from replaced length %lu",
 	    "Record length error", (u_long)data_size, (u_long)data_dlen);
 	return (EINVAL);
+}
+
+#if defined(DIAGNOSTIC) || defined(DEBUG_ROP)  || defined(DEBUG_WOP)
+/*
+ * __dbc_logging --
+ *	In DIAGNOSTIC mode, check for bad replication combinations.
+ *
+ * PUBLIC: int __dbc_logging __P((DBC *));
+ */
+int
+__dbc_logging(dbc)
+	DBC *dbc;
+{
+	DB_ENV *dbenv;
+	DB_REP *db_rep;
+	int ret;
+
+	dbenv = dbc->dbp->dbenv;
+	db_rep = dbenv->rep_handle;
+
+	ret = LOGGING_ON(dbenv) &&
+	    !F_ISSET(dbc, DBC_RECOVER) && !IS_REP_CLIENT(dbenv);
+
+	/*
+	 * If we're not using replication or running recovery, return.
+	 */
+	if (db_rep == NULL || F_ISSET(dbc, DBC_RECOVER))
+		return (ret);
+
+#ifndef	DEBUG_ROP
+	/*
+	 *  Only check when DEBUG_ROP is not configured.  People often do
+	 * non-transactional reads, and debug_rop is going to write
+	 * a log record.
+	 */
+	{
+	REP *rep;
+
+	rep = db_rep->region;
+
+	/*
+	 * If we're a client and not running recovery or non durably, error.
+	 */
+	if (IS_REP_CLIENT(dbenv) && !F_ISSET(dbc->dbp, DB_AM_NOT_DURABLE)) {
+		__db_errx(dbenv, "dbc_logging: Client update");
+		goto err;
+	}
+
+#ifndef DEBUG_WOP
+	/*
+	 * If DEBUG_WOP is enabled, then we'll generate debugging log records
+	 * that are non-transactional.  This is OK.
+	 */
+	if (IS_REP_MASTER(dbenv) &&
+	    dbc->txn == NULL && !F_ISSET(dbc->dbp, DB_AM_NOT_DURABLE)) {
+		__db_errx(dbenv, "Dbc_logging: Master non-txn update");
+		goto err;
+	}
+#endif
+
+	if (0) {
+err:		__db_errx(dbenv, "Rep: flags 0x%lx msg_th %lu",
+		    (u_long)rep->flags, (u_long)rep->msg_th);
+		__db_errx(dbenv, "Rep: handle %lu, opcnt %lu",
+		    (u_long)rep->handle_cnt, (u_long)rep->op_cnt);
+		__os_abort();
+		/* NOTREACHED */
+	}
+	}
+#endif
+	return (ret);
+}
+#endif
+
+/*
+ * __db_check_lsn --
+ *	Display the log sequence error message.
+ *
+ * PUBLIC: int __db_check_lsn __P((DB_ENV *, DB_LSN *, DB_LSN *));
+ */
+int
+__db_check_lsn(dbenv, lsn, prev)
+	DB_ENV *dbenv;
+	DB_LSN *lsn, *prev;
+{
+	__db_errx(dbenv,
+	    "Log sequence error: page LSN %lu %lu; previous LSN %lu %lu",
+	    (u_long)(lsn)->file, (u_long)(lsn)->offset,
+	    (u_long)(prev)->file, (u_long)(prev)->offset);
+	return (EINVAL);
+}
+
+/*
+ * __db_rdonly --
+ *	Common readonly message.
+ * PUBLIC: int __db_rdonly __P((const DB_ENV *, const char *));
+ */
+int
+__db_rdonly(dbenv, name)
+	const DB_ENV *dbenv;
+	const char *name;
+{
+	__db_errx(dbenv, "%s: attempt to modify a read-only database", name);
+	return (EACCES);
+}
+
+/*
+ * __db_space_err --
+ *	Common out of space message.
+ * PUBLIC: int __db_space_err __P((const DB *));
+ */
+int
+__db_space_err(dbp)
+	const DB *dbp;
+{
+	__db_errx(dbp->dbenv,
+	    "%s: file limited to %lu pages",
+	    dbp->fname, (u_long)dbp->mpf->mfp->maxpgno);
+	return (ENOSPC);
+}
+
+/*
+ * __db_failed --
+ *	Common failed thread  message.
+ *
+ * PUBLIC: int __db_failed __P((const DB_ENV *,
+ * PUBLIC:      const char *, pid_t, db_threadid_t));
+ */
+int
+__db_failed(dbenv, msg, pid, tid)
+	const DB_ENV *dbenv;
+	const char *msg;
+	pid_t pid;
+	db_threadid_t tid;
+{
+	char buf[DB_THREADID_STRLEN];
+
+	__db_errx(dbenv, "Thread/process %s failed: %s",
+	    dbenv->thread_id_string((DB_ENV*)dbenv, pid, tid, buf),  msg);
+	return (DB_RUNRECOVERY);
 }

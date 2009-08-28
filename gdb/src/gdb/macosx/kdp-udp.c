@@ -39,6 +39,7 @@
 #include "kdp-udp.h"
 
 #include "defs.h"
+#include "event-loop.h"
 
 #define assert CHECK_FATAL
 
@@ -490,6 +491,11 @@ kdp_destroy (kdp_connection *c)
   xfree (c->request);
   xfree (c->response);
   xfree (c->saved_exception);
+
+  if (c->reqfd > 0)
+    delete_file_handler (c->reqfd);
+  if (c->excfd > 0)
+    delete_file_handler (c->excfd);
 
   CHECK_FATAL (close (c->reqfd) == 0);
   CHECK_FATAL (close (c->excfd) == 0);

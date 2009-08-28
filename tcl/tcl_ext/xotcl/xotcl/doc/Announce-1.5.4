@@ -1,0 +1,46 @@
+Announcing XOTcl 1.5.4
+*************************
+
+Hi everybody. We are pleased to announce the availability of XOTcl 1.5.4.
+Originally, this release was planned as a small bug fix release. However,
+the total size of the (unified) diff between 1.5.3 and 1.5.4 is more
+than 5000 lines, mostly due to the varRefom changes (see first
+item below).
+
+Major changes relative to 1.5.4 are:
+
+    * Improved code quality: 
+
+      + provided compatibility with Tcl 8.5 
+          (currently, this requires the verison of Tcl 8.5 
+         from CVS head, including the changes for VarReform
+         (For details, see http://groups.google.at/group/comp.lang.tcl/browse_frm/thread/bff391a7f1bd8f6c/3f214d088a28ed13?hl=de#3f214d088a28ed13)
+
+      + improved serializer
+         (handling var traces for instances variables)
+
+      + several small bug-fixes
+          (e.g. fixing empty variable names, error message 
+          propagation for configure, fixing potential crashes,
+          when namespaces are added to objects during 
+          <object> eval, etc.)
+
+      + improved portablility for more platforms 
+          (more portable shell tests for e.g. FreeBSD)
+
+      + extended regression test
+
+ For more details about the changes, please consult the ChangeLog and
+ documentation.
+
+MORE INFO
+  General and more detailed information about XOTcl and its components
+  can be found at http://www.xotcl.org
+
+
+Best regards,
+
+Gustaf Neumann
+Uwe Zdun
+
+

@@ -1,0 +1,812 @@
+<!DOCTYPE doctype PUBLIC "-//w3c//dtd html 4.0 transitional//en">
+<html>
+<head>
+    
+  <meta http-equiv="Content-Type"
+ content="text/html; charset=iso-8859-1">
+    
+  <meta name="GENERATOR"
+ content="Mozilla/4.72 [en] (X11; U; Linux 2.2.14-5.0 i686) [Netscape]">
+  <title>tkSnack manual v2.2</title>
+</head>
+  <body>
+  
+<h1> Snack manual, version 2.2</h1>
+  
+<h2> Installing Snack</h2>
+ First you need to install Snack according to its installation instruction. 
+In order to use Snack you need to put the file tkSnack.py somewhere in your
+Python path. 
+<h2> Using Snack: an overview</h2>
+  
+<h3> Initializing</h3>
+ You need to use Tkinter in order to use Snack. Even if you don't use any 
+GUI elements that Tkinter offers, you will still need an active Tk object 
+in your program. In order for Snack to identify the Tk object it should use,
+you will need to run the <tt>initializeSnack</tt> procedure. 
+<p>The beginning of a program that uses Snack might look like: </p>
+<blockquote> 
+  <pre>from Tkinter import *<br>root = Tk()<br><br>import tkSnack<br>tkSnack.initializeSnack(root)<br><br># Now you can use tkSnack commands and objects<br># ...</pre>
+ </blockquote>
+  
+<h3> Using Sound objects</h3>
+ You create sound objects the same way you create any Python objects. 
+<blockquote> 
+  <pre>mysound = tkSnack.Sound()</pre>
+ </blockquote>
+ Since we gave no additional arguments, the sound object created by this will
+contain no sound data. We can give it some data in a number of ways -- by
+recording from the current input channel, by reading from a file, and so
+on. 
+<p>Let's try reading from a file. If you're using Windows, you have at least
+a few WAV files sitting conveniently on your hard drive. (If you're using
+another operating system, you'll have to locate your own sound files to read
+from :-).) </p>
+<blockquote> 
+  <pre>mysound.read('c:/windows/media/chord.wav')</pre>
+ </blockquote>
+ Now for the moment of truth. Try playing your sound with: 
+<blockquote> 
+  <pre>mysound.play()</pre>
+ </blockquote>
+ You can create a new sound object and load a file in the same step using 
+the "load" option: 
+<blockquote> 
+  <pre>tada = tkSnack.Sound(load='c:/windows/media/tada.wav')<br>tada.play()</pre>
+ </blockquote>
+ (Note: Another possibility is to use <tt>tkSnack.Sound(file='filename')</tt>
+. Using <tt>file</tt> instead of <tt>load</tt> will "link" the disk file to
+the sound object instead of immediately loading it into memory. This will
+limit what you can do to the object, since a number of Snack's usual sound
+methods are only available to "in-memory" sounds.) 
+<p>You can perform a number of manipulations on the sounds objects. For example,
+let's tack a couple of copies of the Windows chord sound onto the end of
+the ta-da sound. Then we'll delete a few thousand samples from the middle
+of the sound (those between sample 10,000 and 40,000), and finally reverse
+the sound. </p>
+<blockquote> 
+  <pre>tada.concatenate(mysound)<br>tada.concatenate(mysound)<br>tada.play()<br>tada.cut(start=10000, end=40000)<br>tada.play()<br>tada.reverse()<br>tada.play()</pre>
+ </blockquote>
+ We can write the sound back to a disk file, and even magically switch the 
+format. 
+<blockquote> 
+  <pre>tada.write('mangled-tada.au')</pre>
+ </blockquote>
+  
+<h3> Audio and mixer controls</h3>
+ Snack has two objects that control aspects of your computer's sound system. 
+The <tt>audio</tt> object gets and sets properties of the sound devices. To
+find out what the available input devices on your computer are and what sample
+rates the current input device can record at, try: 
+<blockquote> 
+  <pre>tkSnack.audio.inputDevices()<br>tkSnack.audio.rates()</pre>
+ </blockquote>
+ To turn the output volume up or down to 30%, try: 
+<blockquote> 
+  <pre>tkSnack.audio.play_gain(30)</pre>
+ </blockquote>
+ The <tt>mixer</tt> object controls various aspects of your computer's sound 
+mixers, such as which input jack is currently being used and whether it's 
+recording in stereo or mono. 
+<h3> New canvas objects</h3>
+ Snack provides three new kinds of items that can be drawn on Tkinter Canvases: 
+<ul>
+ <li> <b>waveform</b>: a raw graph of the sound data, i.e., time on the x-axis 
+and sample amplitude on the y-axis.</li>
+  <li> <b>section</b>: a power spectrum of the sound (at a given time), as
+calculated by Fast Fourier Transform, i.e., frequency on the x-axis and amplitude 
+on the y-axis.</li>
+  <li> <b>spectrogram</b>: a spectrogram of the sound, i.e., time on the
+x-axis, frequency on the y-axis, and amplitude represented by the darkness
+of the pixel.</li>
+ 
+</ul>
+ These items have the same options as regular Tkinter Canvas items like lines,
+arcs, etc., and some of their own. Try: 
+<blockquote> 
+  <pre>c = tkSnack.SnackCanvas(root, height=400)<br>c.pack()<br>c.create_waveform(0, 0, sound=mysound, height=100, zerolevel=1)<br>c.create_spectrogram(0, 150, sound=mysound, height=200)</pre>
+ </blockquote>
+  
+<h2> The Sound class</h2>
+  
+<h3> <a name="soundoptions"></a>Options</h3>
+ The following attributes may be specified using optional arguments in the 
+intialization of the sound object. They may be read or set after initialization 
+by using the methods <b>cget</b> and <b>config</b>/<b>configure</b>. They 
+may also be read or set by treating the sound object as a dictionary, e.g., 
+<blockquote> 
+  <pre>mysound["encoding"] = "Lin32"</pre>
+ </blockquote>
+ The options: 
+<dl>
+  <dt> <b>name</b> =<i>identifier</i></dt>
+  <dd> what name Tcl knows your sound under. Not terribly useful inside Python.</dd>
+  <dt> <b>load</b> =<i>filename</i></dt>
+  <dd> specifies that the file named by <i>filename</i> should be read into
+memory after creating the sound. (Using this option allows you to use the
+in-memory manipulation methods of the Sound object.)</dd>
+  <dt> <b>file</b> =<i>filename</i></dt>
+  <dd> specifies the filename of an on-disk file that should be linked to
+the sound. (Using this option means that many of the in-memory manipulation 
+methods of a Sound object will not be useable.)</dd>
+  <dt> <b>channel</b> =<i>channel-name</i></dt>
+  <dd> specifies that audio data resides on a channel which should be linked
+to the sound. In these cases the audio data is not loaded into memory, which 
+is useful when playing large files or when using streaming audio. However, 
+the Snack canvas types, e.g., waveforms, cannot be linked to sounds of these
+types.</dd>
+  <dt> <b>frequency</b> =<i>integer</i></dt>
+  <dd> The sampling rate of the sound in samples per second.</dd>
+  <dt> <b>channels</b> =<i>x</i></dt>
+  <dd> how many channels the sound uses. Values should be an integer greater
+than or equal to 1, or <tt>"Mono"</tt> or <tt>"Stereo"</tt>.</dd>
+  <dt> <b>encoding</b> =<i>encoding-name</i></dt>
+  <dd> Possible values for the encoding format of the sound are:</dd>
+  <ul type="">
+ <li> "Lin16"</li>
+  <li> "Lin8"</li>
+  <li> "Lin8offset"</li>
+  <li> "Lin24"</li>
+  <li> "Lin32"</li>
+  <li> "Float"</li>
+  <li> "Alaw"</li>
+  <li> "Mulaw"</li>
+ 
+  </ul>
+  <dt> <b>fileformat</b> =<i>format-name</i></dt>
+  <dd> Current supported file formats are the following. (These formats can
+be read -- not all of them can be&nbsp;<emph>written</emph>.)</dd>
+  <ul type="">
+ <li> "WAV"</li>
+  <li> "MP3"</li>
+  <li> "AU"</li>
+  <li> "SND"</li>
+  <li> "AIFF"</li>
+  <li> "SD"</li>
+  <li> "SMP"</li>
+  <li> "CSL" (will usually have the extension .nsp)</li>
+  <li> "RAW" binary</li>
+ 
+  </ul>
+  <dt> <b>skiphead</b> =<i>n</i></dt>
+  <dd> is used to skip an unknown file header of length <i>n</i> bytes.</dd>
+  <dt> <b>byteorder</b> =<i>string</i></dt>
+  <dd> <tt>"littleEndian"</tt> or <tt>"bigEndian"</tt></dd>
+  <dt> <b>guessproperties</b> =<i>boolean</i></dt>
+  <dd> specifies that Snack should try to infer properties such as byte order, 
+sample encoding format, and sample rate for raw files by analyzing the contents
+of the files. Byte order is almost always detected correctly.</dd>
+  <dt> <b>buffersize</b> =<i>integer</i></dt>
+  <dd> specifies the size of the internal buffer in samples, for channel-based 
+sounds.</dd>
+  <dt> <b>precision</b></dt>
+  <dd> specifies whether sound data should be handled using single or double
+precision internally.</dd>
+</dl>
+  
+<h3> Methods</h3>
+  
+<h4> append (<i>binary-string</i>)</h4>
+Appends binary string data to the end of this sound. The same
+options apply as for the <i>read()</i> command.
+<h4> cget (<i>option</i>)</h4>
+ Retrieves the value of an option for the sound. The possible options are 
+listed <a href="#soundoptions">above</a>. It is also possible to access the
+options by treating the sound object as a dictionary, i.e., the following 
+two expressions are equivalent: 
+<blockquote> 
+  <pre>mysound["encoding"]<br>mysound.cget("encoding")</pre>
+ </blockquote>
+  
+<h4> concatenate (<i>othersound</i>)</h4>
+ Concatenates the sample data from <i>othersound</i> to the end of this sound.
+The sounds must be of the same type, i.e., have the same sample rate, sample
+encoding format, and number of channels. This command applies to in-memory
+sounds only. 
+<h4> configure (<i>option=value</i> ...)</h4>
+ Sets the options for the sound. The possible options are listed <a
+ href="#soundoptions">above</a>. It is also possible to access the options
+by treating the sound object as a dictionary, i.e., the following two expressions
+are equivalent: 
+<blockquote> 
+  <pre>mysound["byteorder"] = "littleEndian"<br>mysound.configure(byteorder="littleEndian")</pre>
+ </blockquote>
+ <b>configure</b> may be abbreviated as <b>config</b>. 
+<h4> convert (<i>option=value</i>)</h4>
+ Converts a sound to a different sample encoding, sample rate, or number
+of channels. Options can be any of the following: -rate, -channels, or
+-encoding.
+<h4> copy (<i>othersound</i>)</h4>
+ Copies sample data from <i>othersound</i>. Optionally a range of samples 
+to copy can be specified using the <b>start</b> and <b>end</b> options. Any
+active play operation is stopped before the command is executed if the format
+of the new sound differs from the current. This command applies to in-memory
+sounds only. 
+<h4> crop (<i>start=n, end=n</i>)</h4>
+ Crops the sound to the given range [start..end], i.e., all samples before 
+and after these limits will be removed. This command applies to in-memory 
+sounds only. 
+<h4> data (<i>variable</i>)</h4>
+ Loads sound data from a binary string. The same options apply as for the <i>read()</i> command.
+<h4> destroy( )</h4>
+ Removes the Tcl command associated with this sound and frees its storage. 
+<h4> dBPowerSpectrum ( )</h4>
+ Computes the log FFT power spectrum of the sound (at the sample number given
+in the <b>start</b> option) and returns a list of dB values. See the section
+item for a description of the rest of the options. Optionally an ending point
+can be given, using the <b>end</b> option. In this case the result is the
+average of consecutive FFTs in the specified range. Their default spacing
+is taken from the <b>fftlength</b> but this can be changed using the <b>skip</b>
+ option, which tells how many points to move the FFT window each step. Options: 
+<center>
+<table border="1">
+ <tbody>
+    <tr>
+ <td><b>start</b></td>
+  <td><br>
+      </td>
+ </tr>
+  <tr>
+ <td><b>end</b></td>
+  <td><br>
+      </td>
+ </tr>
+  <tr>
+ <td><b>fftlength</b></td>
+  <td><br>
+      </td>
+ </tr>
+  <tr>
+ <td><b>windowlength</b></td>
+  <td><br>
+      </td>
+ </tr>
+  <tr>
+ <td><b>windowtype</b></td>
+  <td><br>
+      </td>
+ </tr>
+  <tr>
+ <td><b>skip</b></td>
+  <td><br>
+      </td>
+ </tr>
+  <tr>
+ <td><b>channel</b></td>
+  <td><br>
+      </td>
+ </tr>
+  <tr>
+ <td><b>preemphasisfactor</b></td>
+  <td><br>
+      </td>
+ </tr>
+ 
+  </tbody>
+</table>
+</center>
+  
+<h4> filter (<i>filter=filterobject</i>)</h4>
+ Applies the filter to the sound. This command applies to in-memory sounds 
+only. 
+<h4> flush ( )</h4>
+ Removes all audio data from the sound. This command applies to in-memory 
+sounds only. 
+<h4> info ( )</h4>
+ Returns a string with information about the sound. The elements of the string
+are [<i>length, rate, max, min, encoding, channels, fileFormat, headerSize</i>
+]. 
+<h4> insert (<i>sound=othersound, position=sample</i> ...)</h4>
+ Inserts <i>othersound</i> at position <i>sample</i>. Optionally a range of
+samples to copy can be specified, using the <b>start</b> and <b>end</b> options.
+This command applies to in-memory sounds only. 
+<h4> length ( )</h4>
+ Gets the length of the sound. With an additional numeric argument, it will 
+set the length of the sound. The <b>unit</b> option specifies whether the
+sound should be measured in "SAMPLES" (the default) or "SECONDS". If the
+new length is larger than the current length, the sound is padded with additional
+silence. 
+<h4> max ( )</h4>
+ Returns the largest positive sample value of the sound. A range of samples 
+to be examined can be specified with the <b>start</b> and <b>end</b> options. 
+The channel to be examined can be specified with the <b>channel</b> option. 
+The default is to check all channels and return the maximum value. 
+<h4> min ( )</h4>
+ Returns the largest negative sample value of the sound. A range of samples 
+to be examined can be specified with the <b>start</b> and <b>end</b> options. 
+The channel to be examined can be specified with the <b>channel</b> option. 
+The default is to check all channels and return the minimum value. 
+<h4> mix (<i>othersound</i>)</h4>
+ Mixes sample data from <i>othersound</i>. Optionally a range of samples, 
+ where the mix operation will be applied, can be specified using the <b>start</b> and <b>end</b> options. The <b>mixscaling</b> option controls how much to scale <i>othersound</i> before mixing. The option <b>prescaling</b> controls how much to scale the original sound before mixing. This command applies to in-memory sounds only. 
+<h4> pause ( )</h4>
+ Pauses the current play/record operation. The next <i>pause()</i> invocation 
+resumes play/record. If there is a number of instances playing of a sound 
+object, all of them are paused. 
+<h4> pitch ( )</h4>
+ Returns a list of pitch values computed using the AMDF method. The values 
+are spaced 10 ms. A range of samples can be given using the <b>start</b> and
+<b>end</b> options. If a frequency range of valid pitch values is known, this
+can be specified using the <b>maxpitch</b> and <b>minpitch</b> options. 
+<h4> play ( )</h4>
+ Plays the sound. All options are ignored if <i>play()</i> is used to resume 
+a paused play options. If a <i>play()</i> command is issued while another 
+one is in progress, the latter one is queued up and starts to play as soon 
+as possible. The lag before this new sound is audible can be controlled using
+the <i>audio.latency()</i> command. 
+<p>For in-memory sounds, a number of options are available. </p>
+<center>
+<table border="1">
+ <tbody>
+    <tr>
+ <td><b>start</b></td>
+  <td>specifies a start position in samples</td>
+ </tr>
+    <tr>
+ <td><b>end</b></td>
+  <td>specifies an end position in samples (-1 can be used to specify the end of the sound)</td>
+ </tr>
+  <tr>
+ <td><b>output</b></td>
+  <td>can specify any of the possible output ports returned by the <i>audio.outputs()</i>
+ command&nbsp;</td>
+ </tr>
+  <tr>
+ <td><b>blocking</b></td>
+  <td>specifies whether playback should be asynchronous or not, i.e., if it
+is to be played in the background or it the <i>play()</i> command should return
+only after the sound has been played.&nbsp;</td>
+ </tr>
+  <tr>
+ <td><b>command</b></td>
+  <td>specifies a command to be executed when the end of the sound is reached&nbsp;</td>
+ </tr>
+  <tr>
+ <td><b>device</b></td>
+  <td>selects which audio device to use</td>
+ </tr>
+  <tr>
+ <td><b>filter</b></td>
+  <td>specifies a filter which is to be applied during output&nbsp;</td>
+ </tr>
+  <tr>
+ <td><b>starttime</b></td>
+  <td>schedules the start of playback (in ms) relative to a previous play 
+operation</td>
+ </tr>
+ 
+  </tbody>
+</table>
+</center>
+  
+<h4> read (<i>filename</i>)</h4>
+ Reads new sound data from a file. Current supported file formats are WAV, 
+MP3, AU, SND, AIFF, SD, SMP, CSL, and RAW binary. The command returns the 
+file format detected. It is possible to force a file to be read as RAW using
+by setting the option <b>fileformat=RAW</b>. In this case, properties of
+the sound data can be specified by hand, using the <b>rate, channels, encoding,
+skiphead, byteorder</b>, and <b>guessproperties</b> options, as described
+<a href="#soundoptions">above</a>. 
+<h4> record ( )</h4>
+ Starts recording data from the audio device into the sound object. You may
+use the <b>input</b> option to specify one of the available input ports (as
+returned by the <i>audio.inputs()</i> command) and the <b>device</b> option
+to select which audio input device to use. 
+<p>For in-memory sounds, the <b>append=1</b> option specifies that the new
+audio data should be appended to the end of the existing sound instead of
+replacing it. </p>
+<p>For channel-based sounds, the <b>fileformat</b> option can be used to specify
+the file format to be used when writing data, since there is no filename
+to infer the format from. </p>
+<h4> reverse ( )</h4>
+ Reverses the sound. A range of samples can be specified with the <b>start</b>
+ and <b>end</b> options. This command applies to in-memory sounds only. 
+<h4> sample (<i>sample</i>)</h4>
+ Gets the value of the specified sample number. Sets the value with an additional 
+numeric argument. When setting samples, one value should be specified for 
+each channel you want to change. Some examples of setting: 
+<blockquote> 
+  <pre># Sets the 1000th sample to 0 (of a mono sound)<br>mysound.sample(1000, 0)<br><br># Sets both channels of a stero sound<br>mysound.sample(1000, 0, 0)<br><br># Sets only the left channel, leaves right channel unchanged<br>mysound.sample(1000, left=0)<br><br># Sets only the right channel, leaves left channel unchaged<br>mysound.sample(1000, right=0)</pre>
+ </blockquote>
+  
+<h4> stop ( )</h4>
+ Stops the current play or record operation. If there is a queue of sounds 
+to play, each of them can stop playback using <i>stop()</i>. If a callback 
+was registered using the <i>command</i> option to <i>play()</i>, it is not
+executed. 
+<h4> write (<i>filename</i>)</h4>
+ Writes sound data to a file. A range of samples to save can be specified 
+using the <b>start</b> and <b>end</b> options. The file format is guessed 
+from the filename extension, but the guess can be overridden with the <b>
+fileformat</b> option. If you specify RAW file format, the sound will be
+saved to file without a header and using the natural byte order of the machine
+(overrideable with the <b>byteorder</b> option). 
+<h2> The audio object</h2>
+ The <tt>audio</tt> object gives access to various properties of the available 
+audio devices. It is created automatically by <i>initializeSnack</i>. 
+<h3> Methods</h3>
+  
+<h4> elapsedTime ( )</h4>
+ Returns the time elapsed since the start of the last playback operation. 
+<h4> encodings ( )</h4>
+ Returns a list of supported sample encoding formats for the currently selected device. 
+<h4> rates ( )</h4>
+ Returns a list of supported sample rates for the currently selected device. 
+<h4> inputDevices ( )</h4>
+ Returns a list of available audio input devices. 
+<h4> playLatency ( )</h4>
+ Sets/queries (in ms) how much sound will be queued up at any time to the 
+audio device for playback. A low value makes new sound reach the loudspeakers 
+quickly at the risk of gaps in the output stream. An appropriate value should
+be chosen with regard to processor speed and load. 
+<h4> pause ( )</h4>
+ Toggles between pause/play for all playback on the audio device. 
+<h4> play ( )</h4>
+ Resumes paused playback on the audio device. 
+<h4> play_gain ( )</h4>
+ Returns the current play gain value if invoked without a parameter. If an
+integer value is given, play gain is set to the given value. Valid values 
+are in the range 0 to 100. 
+<h4> outputDevices ( )</h4>
+ Returns a list of available audio output devices. 
+<h4> record_gain ( )</h4>
+ Returns the current record gain value if invoked without a parameter. If 
+an integer value is given, record gain is set to the given value. Valid values
+are in the range 0 to 100. 
+<h4> selectOutput (<i>device</i>)</h4>
+ Selects an audio output device to be used as default. 
+<h4> selectInput (<i>device</i>)</h4>
+ Selects an audio input device to be used as default. 
+<h4> stop ( )</h4>
+ Stops all playback on the audio device. 
+<h2> The mixer object</h2>
+ The <tt>mixer</tt> object gives access to various properties of mixer devices, 
+such as input/output jack, supported ports, mixer lines, and gain. It is created
+automatically by <i>initializeSnack</i>. 
+<h3> Methods</h3>
+  
+<h4> channels (<i>line</i>)</h4>
+ Returns a list with the names of the channels for the specified <i>line</i>
+. 
+<h4> devices ( )</h4>
+ Returns a list of available mixer devices. 
+<h4> input ( )</h4>
+ Gets/sets the current input jack. You can optionally give a boolean Tcl variable
+as an argument. 
+<h4> inputs ( )</h4>
+ Returns a list of available input ports. 
+<h4> lines ( )</h4>
+ Returns a list with the names of the lines of the mixer device. 
+<h4> output ( )</h4>
+ Gets/sets the current output jack. You can optionally give a boolean Tcl 
+variable as an argument. 
+<h4> outputs ( )</h4>
+ Returns a list of available output ports. 
+<h4> update ( )</h4>
+ Updates all linked variables to reflect the status of the mixer device. 
+<h4> volume (<i>line</i>)</h4>
+ Return the current volume setting for <i>mixer</i>. You can optionally link
+a Tcl variable to the value by including it as an argument. If you link two
+Tcl variables, they are used for the left and right channels respectively. 
+<h4> select (<i>device</i>)</h4>
+ Selects a mixer device to be used as the default. 
+<h2> The Filter class</h2>
+ Filter objects can interact with sound objects either during playback or 
+by using the <i>filter()</i> command of the sound object. 
+<p>Filters in Snack are still in an early stage of development. Consult the
+Snack documentation for further details. </p>
+<h2> The SnackCanvas class</h2>
+ SnackCanvas is a subclass of Tkinter.Canvas that has three additional kinds 
+of canvas items: waveforms, spectrograms, and sections (power spectra). 
+<h3> Waveforms</h3>
+ Draw waveform items on the canvas using the <b>create_waveform</b> method. 
+Obligatory arguments are the <b>x</b> and <b>y</b> coordinates of the waveform's 
+top-right corner. Options are: 
+<table border="1">
+ <tbody>
+    <tr>
+ <td><b>anchor</b></td>
+  <td>works as for ordinary Tk canvas items</td>
+ </tr>
+  <tr>
+ <td><b>channel</b></td>
+  <td>selects which channel to show for multi-channel sounds. Use "left", 
+"right", "both", "all", -1 (all), or a channel number counting from 0 (left).</td>
+ </tr>
+  <tr>
+ <td><b>end</b></td>
+  <td>select the end-point of the time-range to draw</td>
+ </tr>
+  <tr>
+ <td><b>fill</b></td>
+  <td>works as for ordinary Tk canvas items</td>
+ </tr>
+  <tr>
+ <td><b>frame</b></td>
+  <td>boolean value controlling whether a frame will be drawn</td>
+ </tr>
+  <tr>
+ <td><b>height</b></td>
+  <td>the height of the waveform</td>
+ </tr>
+  <tr>
+ <td><b>limit</b></td>
+  <td>specifies the maximum shown value for the sound amplitude</td>
+ </tr>
+  <tr>
+ <td><b>pixelspersecond</b></td>
+  <td>determines the scaling factor in the x direction, which also gives the
+width. If both <b>width</b> and <b>pixelspersecond</b> are specified, the
+waveform will be cut at one end depending on if a <b>start</b> or <b>end</b>
+ option was also given.</td>
+ </tr>
+  <tr>
+ <td><b>shapefile</b></td>
+  <td>specifies a file for storing/retrieving precomputed waveform shape information</td>
+ </tr>
+  <tr>
+ <td><b>sound</b></td>
+  <td>specifies which sound object to link to</td>
+ </tr>
+  <tr>
+ <td><b>start</b></td>
+  <td>selects the starting point of the time-range to draw</td>
+ </tr>
+  <tr>
+ <td><b>stipple</b></td>
+  <td>works as for ordinary Tk canvas items</td>
+ </tr>
+  <tr>
+ <td><b>subsample</b></td>
+  <td>useful for large sounds to specify how precisely they should be analyzed 
+for the shape calculation. The default value 1 uses every sample in the sound
+to draw the waveform envelope, which can be slow for large sounds. A value
+of 10 uses every tenth. Care should be used when specifying values. Using
+large values may lead to incorrect envelope shapes.</td>
+ </tr>
+  <tr>
+ <td><b>tags</b></td>
+  <td>works as for ordinary Tk canvas items</td>
+ </tr>
+  <tr>
+ <td><b>width</b></td>
+  <td>width of the waveform. See the entry for <b>pixelspersecond</b> for 
+what happens if you specify both options.</td>
+ </tr>
+  <tr>
+ <td><b>zerolevel</b></td>
+  <td>specifies whether a line will be drawn for the zero amplitude level.</td>
+ </tr>
+ 
+  </tbody>
+</table>
+  
+<h3> Spectrograms</h3>
+ Draw a spectrogram of a sound on the canvas with the <b>create_spectrogram</b>
+ method. Obligatory arguments are the <b>x</b> and <b>y</b> positions of the
+top-right corner of the spectrogram. Options are: 
+<table border="1">
+ <tbody>
+    <tr>
+ <td><b>anchor</b></td>
+  <td>works as for ordinary Tk canvas items</td>
+ </tr>
+  <tr>
+ <td><b>brightness</b></td>
+  <td>takes a value between -100.0 and 100.0</td>
+ </tr>
+  <tr>
+ <td><b>channel</b></td>
+  <td>selects which channel to show for multi-channel sounds. Use "left", 
+"right", "both", "all", -1 (all), or a channel number counting from 0 (left).</td>
+ </tr>
+  <tr>
+ <td><b>colormap</b></td>
+  <td>takes a list of colours as parameter. At least two must be specified. 
+The first colour is used for the lowest intensity in the spectrogram. An empty
+list ives the default 32-level grey scale.</td>
+ </tr>
+  <tr>
+ <td><b>contrast</b></td>
+  <td>takes a value between -100.0 and 100.0</td>
+ </tr>
+  <tr>
+ <td><b>end</b></td>
+  <td>gives the end-point of the time-range to be drawn.</td>
+ </tr>
+  <tr>
+ <td><b>fftlength</b></td>
+  <td>specifies the number of FFT points (8, 16, 32, 64, 128, 256, 512, 1024, 
+2048, 4096).</td>
+ </tr>
+  <tr>
+ <td><b>gridcolor</b></td>
+  <td>specifies the colour of the grid.</td>
+ </tr>
+  <tr>
+ <td><b>gridfspacing</b></td>
+  <td>the spacing between frequency markers on the y-axis in Hertz. The default 
+value of 0 means no grid.</td>
+ </tr>
+  <tr>
+ <td><b>gridtspacing</b></td>
+  <td>the spacing between the time markers on the x-axis in seconds. The default
+value of 0 means no grid.</td>
+ </tr>
+  <tr>
+ <td><b>height</b></td>
+  <td>height of the spectrogram.</td>
+ </tr>
+  <tr>
+ <td><b>pixelspersecond</b></td>
+  <td>determines the scaling factor in the x direction, which also gives the
+width. If both <b>width</b> and <b>pixelspersecond</b> are specified, the
+spectrogram will be cut at one end depending on if a <b>start</b> or <b>end</b>
+ option was also given.</td>
+ </tr>
+  <tr>
+ <td><b>preemphasisfactor</b></td>
+  <td>specifies the amount of preemphasis to be applied to the signal prior 
+to the FFT analysis.</td>
+ </tr>
+  <tr>
+ <td><b>sound</b></td>
+  <td>specifies which sound to link to.</td>
+ </tr>
+  <tr>
+ <td><b>start</b></td>
+  <td>the starting-point of the time-range to be drawn.</td>
+ </tr>
+  <tr>
+ <td><b>tags</b></td>
+  <td>works as for ordinary Tk canvas items.</td>
+ </tr>
+  <tr>
+ <td><b>topfrequency</b></td>
+  <td>the frequency value at the top of the spectrogram.</td>
+ </tr>
+  <tr>
+ <td><b>width</b></td>
+  <td>width of the spectrogram. See the entry for <b>pixelspersecond</b> for
+what happens if you specify both options.</td>
+ </tr>
+  <tr>
+ <td><b>windowtype</b></td>
+  <td>"hanning", "hamming", "bartlett", "blackman", or "rectangle"</td>
+ </tr>
+  <tr>
+ <td><b>winlength</b></td>
+  <td>specifies the size of the hamming window, which should be equal to or
+less than the number of FFT points.</td>
+ </tr>
+ 
+  </tbody>
+</table>
+  
+<p>Currently spectrograms have a limit of 32767 pixels. </p>
+<h3> Sections (power spectra)</h3>
+ Draw an FFT log power spectrum section of a sound on a canvas with the <b>
+create_section</b> method. Obligatory arguments are the <b>x</b> and <b>y</b>
+ coordinates of the top-right corner of the section. Options are: 
+<table border="1">
+ <tbody>
+    <tr>
+ <td><b>anchor</b></td>
+  <td>works as for ordinary Tk canvas items</td>
+ </tr>
+  <tr>
+ <td><b>channel</b></td>
+  <td>selects which channel to show for multi-channel sounds. Use "left", 
+"right", "both", "all", -1 (all), or a channel number counting from 0 (left).</td>
+ </tr>
+  <tr>
+ <td><b>end</b></td>
+  <td>gives the end-point of the time-range to be drawn.</td>
+ </tr>
+  <tr>
+ <td><b>fftlength</b></td>
+  <td>specifies the number of FFT points (8, 16, 32, 64, 128, 256, 512, 1024, 
+2048, 4096).</td>
+ </tr>
+  <tr>
+ <td><b>fill</b></td>
+  <td>works as for ordinary Tk canvas items</td>
+ </tr>
+  <tr>
+ <td><b>frame</b></td>
+  <td>specifies whether a frame will be drawn</td>
+ </tr>
+  <tr>
+ <td><b>height</b></td>
+  <td>height of the spectrogram.</td>
+ </tr>
+  <tr>
+ <td><b>maxvalue</b></td>
+  <td>specifies the top of the range (in dB) which will be shown. The default 
+range is 0.0 to -80.0 dB.</td>
+ </tr>
+  <tr>
+ <td><b>minvalue</b></td>
+  <td>specifies the bottom of the range (in dB) which will be shown. The default
+range is 0.0 to -80.0 dB.</td>
+ </tr>
+  <tr>
+ <td><b>preemphasisfactor</b></td>
+  <td>specifies the amount of preemphasis to be applied to the signal prior 
+to the FFT analysis.</td>
+ </tr>
+  <tr>
+ <td><b>skip</b></td>
+  <td><br>
+      </td>
+ </tr>
+  <tr>
+ <td><b>sound</b></td>
+  <td>specifies which sound to link to.</td>
+ </tr>
+  <tr>
+ <td><b>start</b></td>
+  <td>the starting-point of the time-range to be drawn.</td>
+ </tr>
+  <tr>
+ <td><b>stipple</b></td>
+  <td>works as for ordinary Tk canvas items</td>
+ </tr>
+  <tr>
+ <td><b>tags</b></td>
+  <td>works as for ordinary Tk canvas items.</td>
+ </tr>
+  <tr>
+ <td><b>topfrequency</b></td>
+  <td>the highest frequency value shown for the section.</td>
+ </tr>
+  <tr>
+ <td><b>width</b></td>
+  <td>width of the spectrogram. See the entry for <b>pixelspersecond</b> for
+what happens if you specify both options.</td>
+ </tr>
+  <tr>
+ <td><b>windowtype</b></td>
+  <td>"Hamming", "Hanning", "Bartlett", "Blackman", or "Rectangle"</td>
+ </tr>
+  <tr>
+ <td><b>winlength</b></td>
+  <td>specifies the size of the hamming window, which should be equal to or
+less than the number of FFT points.</td>
+ </tr>
+ 
+  </tbody>
+</table>
+  
+<h3> Putting SnackCanvas items on regular Canvases</h3>
+ It's possible to draw these new canvas items onto any canvas in your program, 
+not just those that are instances of SnackCanvas. You might need to do this
+if you're using elaborations or subclasses of Canvas that have been written
+by other people, for example, if you want to draw a waveform on a ScrolledCanvas
+from the Python Megawidget collection. 
+<p>To accomplish this, tkSnack provides module-level versions of <tt>create_waveform</tt>
+, <tt>create_section</tt>, and <tt>create_spectrogram</tt>. Simply use the 
+non-Snack canvas as the first argument. Instead of: </p>
+<blockquote> 
+  <pre>NonSnackCanvas.create_waveform(sound=tada)</pre>
+ </blockquote>
+ use: 
+<blockquote> 
+  <pre><font color="#cc0000">tkSnack.createWaveform(NonSnackCanvas, sound=tada)<br><br></font></pre>
+</blockquote>
+<font color="#cc0000">If you're using Pmw Scrolled Canvas, remember that
+you're drawing onto the ScrolledCanvas's Canvas object. In that case, you'll
+need to do:<br>
+</font>
+<blockquote>
+  <pre><font color="#cc0000">tkSnack.createWaveform(myScrolledCanvas._canvas, sound=tada)</font><br></pre>
+</blockquote>
+   
+<p> </p>
+<hr> <br>
+ 
+<pre><font face="Arial, Helvetica"><font color="#ff6600"><font size="-1">Last updated </font></font></font><!--#config timefmt="%B %d, %Y" --><!--#flastmod file="python-man.html"-->
+</pre>
+ 
+</body>
+</html>

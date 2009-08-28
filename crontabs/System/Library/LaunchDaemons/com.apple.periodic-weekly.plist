@@ -22,5 +22,7 @@
 		<key>Weekday</key>
 		<integer>6</integer>
 	</dict>
+	<key>AbandonProcessGroup</key>
+	<true/>
 </dict>
 </plist>

@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/liblutil/utils.c,v 1.24.2.8 2006/05/09 17:48:32 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/liblutil/utils.c,v 1.33.2.17 2008/02/11 23:26:42 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -17,19 +17,26 @@
 
 #include <stdio.h>
 #include <ac/stdlib.h>
+#include <ac/stdarg.h>
 #include <ac/string.h>
 #include <ac/ctype.h>
 #include <ac/unistd.h>
 #include <ac/time.h>
+#include <ac/errno.h>
 #ifdef HAVE_IO_H
 #include <io.h>
 #endif
 #ifdef HAVE_FCNTL_H
 #include <fcntl.h>
 #endif
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
-#include <lutil.h>
-#include <ldap_defaults.h>
+#include "lutil.h"
+#include "ldap_defaults.h"
+#include "ldap_pvt.h"
+#include "lber_pvt.h"
 
 #ifdef HAVE_EBCDIC
 int _trans_argv = 1;
@@ -268,6 +275,117 @@ int lutil_parsetime( char *atm, struct lutil_tm *tm )
 	return -1;
 }
 
+/* return a broken out time, with microseconds
+ * Must be mutex-protected.
+ */
+#ifdef _WIN32
+/* Windows SYSTEMTIME only has 10 millisecond resolution, so we
+ * also need to use a high resolution timer to get microseconds.
+ * This is pretty clunky.
+ */
+void
+lutil_gettime( struct lutil_tm *tm )
+{
+	static LARGE_INTEGER cFreq;
+	static LARGE_INTEGER prevCount;
+	static int subs;
+	static int offset;
+	LARGE_INTEGER count;
+	SYSTEMTIME st;
+
+	GetSystemTime( &st );
+	QueryPerformanceCounter( &count );
+
+	/* We assume Windows has at least a vague idea of
+	 * when a second begins. So we align our microsecond count
+	 * with the Windows millisecond count using this offset.
+	 * We retain the submillisecond portion of our own count.
+	 */
+	if ( !cFreq.QuadPart ) {
+		long long t;
+		int usec;
+		QueryPerformanceFrequency( &cFreq );
+
+		t = count.QuadPart * 1000000;
+		t /= cFreq.QuadPart;
+		usec = t % 10000000;
+		usec /= 1000;
+		offset = ( usec - st.wMilliseconds ) * 1000;
+	}
+
+	/* It shouldn't ever go backwards, but multiple CPUs might
+	 * be able to hit in the same tick.
+	 */
+	if ( count.QuadPart <= prevCount.QuadPart ) {
+		subs++;
+	} else {
+		subs = 0;
+		prevCount = count;
+	}
+
+	tm->tm_usub = subs;
+
+	/* convert to microseconds */
+	count.QuadPart *= 1000000;
+	count.QuadPart /= cFreq.QuadPart;
+	count.QuadPart -= offset;
+
+	tm->tm_usec = count.QuadPart % 1000000;
+
+	/* any difference larger than microseconds is
+	 * already reflected in st
+	 */
+
+	tm->tm_sec = st.wSecond;
+	tm->tm_min = st.wMinute;
+	tm->tm_hour = st.wHour;
+	tm->tm_mday = st.wDay;
+	tm->tm_mon = st.wMonth - 1;
+	tm->tm_year = st.wYear - 1900;
+}
+#else
+void
+lutil_gettime( struct lutil_tm *ltm )
+{
+	struct timeval tv;
+	static struct timeval prevTv;
+	static int subs;
+
+#ifdef HAVE_GMTIME_R
+	struct tm tm_buf;
+#endif
+	struct tm *tm;
+	time_t t;
+
+	gettimeofday( &tv, NULL );
+	t = tv.tv_sec;
+
+	if ( tv.tv_sec < prevTv.tv_sec
+		|| ( tv.tv_sec == prevTv.tv_sec && tv.tv_usec == prevTv.tv_usec )) {
+		subs++;
+	} else {
+		subs = 0;
+		prevTv = tv;
+	}
+
+	ltm->tm_usub = subs;
+
+#ifdef HAVE_GMTIME_R
+	tm = gmtime_r( &t, &tm_buf );
+#else
+	tm = gmtime( &t );
+#endif
+
+	ltm->tm_sec = tm->tm_sec;
+	ltm->tm_min = tm->tm_min;
+	ltm->tm_hour = tm->tm_hour;
+	ltm->tm_mday = tm->tm_mday;
+	ltm->tm_mon = tm->tm_mon;
+	ltm->tm_year = tm->tm_year;
+	ltm->tm_usec = tv.tv_usec;
+}
+#endif
+
 /* strcopy is like strcpy except it returns a pointer to the trailing NUL of
  * the result string. This allows fast construction of catenated strings
  * without the overhead of strlen/strcat.
@@ -311,6 +429,66 @@ int mkstemp( char * template )
 #else
 	return -1;
 #endif
+}
+#endif
+
+#ifdef _MSC_VER
+struct dirent {
+	char *d_name;
+};
+typedef struct DIR {
+	HANDLE dir;
+	struct dirent data;
+	int first;
+	char buf[MAX_PATH+1];
+} DIR;
+DIR *opendir( char *path )
+{
+	char tmp[32768];
+	int len = strlen(path);
+	DIR *d;
+	HANDLE h;
+	WIN32_FIND_DATA data;
+	
+	if (len+3 >= sizeof(tmp))
+		return NULL;
+
+	strcpy(tmp, path);
+	tmp[len++] = '\\';
+	tmp[len++] = '*';
+	tmp[len] = '\0';
+
+	h = FindFirstFile( tmp, &data );
+	
+	if ( h == INVALID_HANDLE_VALUE )
+		return NULL;
+
+	d = ber_memalloc( sizeof(DIR) );
+	if ( !d )
+		return NULL;
+	d->dir = h;
+	d->data.d_name = d->buf;
+	d->first = 1;
+	strcpy(d->data.d_name, data.cFileName);
+	return d;
+}
+struct dirent *readdir(DIR *dir)
+{
+	WIN32_FIND_DATA data;
+
+	if (dir->first) {
+		dir->first = 0;
+	} else {
+		if (!FindNextFile(dir->dir, &data))
+			return NULL;
+		strcpy(dir->data.d_name, data.cFileName);
+	}
+	return &dir->data;
+}
+void closedir(DIR *dir)
+{
+	FindClose(dir->dir);
+	ber_memfree(dir);
 }
 #endif
 
@@ -427,8 +605,206 @@ lutil_atoulx( unsigned long *v, const char *s, int x )
 	return 0;
 }
 
+/* Multiply an integer by 100000000 and add new */
+typedef struct lutil_int_decnum {
+	unsigned char *buf;
+	int bufsiz;
+	int beg;
+	int len;
+} lutil_int_decnum;
+
+#define	FACTOR1	(100000000&0xffff)
+#define FACTOR2 (100000000>>16)
+
+static void
+scale( int new, lutil_int_decnum *prev, unsigned char *tmp )
+{
+	int i, j;
+	unsigned char *in = prev->buf+prev->beg;
+	unsigned int part;
+	unsigned char *out = tmp + prev->bufsiz - prev->len;
+
+	memset( tmp, 0, prev->bufsiz );
+	if ( prev->len ) {
+		for ( i = prev->len-1; i>=0; i-- ) {
+			part = in[i] * FACTOR1;
+			for ( j = i; part; j-- ) {
+				part += out[j];
+				out[j] = part & 0xff;
+				part >>= 8;
+			}
+			part = in[i] * FACTOR2;
+			for ( j = i-2; part; j-- ) {
+				part += out[j];
+				out[j] = part & 0xff;
+				part >>= 8;
+			}
+		}
+		j++;
+		prev->beg += j;
+		prev->len -= j;
+	}
+
+	out = tmp + prev->bufsiz;
+	i = 0;
+	do {
+		i--;
+		new += out[i];
+		out[i] = new & 0xff;
+		new >>= 8;
+	} while ( new );
+	i = -i;
+	if ( prev->len < i ) {
+		prev->beg = prev->bufsiz - i;
+		prev->len = i;
+	}
+	AC_MEMCPY( prev->buf+prev->beg, tmp+prev->beg, prev->len );
+}
+
+/* Convert unlimited length decimal or hex string to binary.
+ * Output buffer must be provided, bv_len must indicate buffer size
+ * Hex input can be "0x1234" or "'1234'H"
+ *
+ * Temporarily modifies the input string.
+ *
+ * Note: High bit of binary form is always the sign bit. If the number
+ * is supposed to be positive but has the high bit set, a zero byte
+ * is prepended. It is assumed that this has already been handled on
+ * any hex input.
+ */
+int
+lutil_str2bin( struct berval *in, struct berval *out, void *ctx )
+{
+	char *pin, *pout, ctmp;
+	char *end;
+	long l;
+	int i, chunk, len, rc = 0, hex = 0;
+	if ( !out || !out->bv_val || out->bv_len < in->bv_len )
+		return -1;
+
+	pout = out->bv_val;
+	/* Leading "0x" for hex input */
+	if ( in->bv_len > 2 && in->bv_val[0] == '0' &&
+		( in->bv_val[1] == 'x' || in->bv_val[1] == 'X' ) )
+	{
+		len = in->bv_len - 2;
+		pin = in->bv_val + 2;
+		hex = 1;
+	} else if ( in->bv_len > 3 && in->bv_val[0] == '\'' &&
+		in->bv_val[in->bv_len-2] == '\'' &&
+		in->bv_val[in->bv_len-1] == 'H' )
+	{
+		len = in->bv_len - 3;
+		pin = in->bv_val + 1;
+		hex = 1;
+	}
+	if ( hex ) {
+#define HEXMAX	(2 * sizeof(long))
+		/* Convert a longword at a time, but handle leading
+		 * odd bytes first
+		 */
+		chunk = len & (HEXMAX-1);
+		if ( !chunk )
+			chunk = HEXMAX;
+
+		while ( len ) {
+			ctmp = pin[chunk];
+			pin[chunk] = '\0';
+			errno = 0;
+			l = strtol( pin, &end, 16 );
+			pin[chunk] = ctmp;
+			if ( errno )
+				return -1;
+			chunk++;
+			chunk >>= 1;
+			for ( i = chunk; i>=0; i-- ) {
+				pout[i] = l & 0xff;
+				l >>= 8;
+			}
+			pin += chunk;
+			pout += sizeof(long);
+			len -= chunk;
+			chunk = HEXMAX;
+		}
+		out->bv_len = pout + len - out->bv_val;
+	} else {
+	/* Decimal */
+		char tmpbuf[64], *tmp;
+		lutil_int_decnum num;
+		int neg = 0;
+
+		len = in->bv_len;
+		pin = in->bv_val;
+		num.buf = (unsigned char *)out->bv_val;
+		num.bufsiz = out->bv_len;
+		num.beg = num.bufsiz-1;
+		num.len = 0;
+		if ( pin[0] == '-' ) {
+			neg = 0xff;
+			len--;
+			pin++;
+		}
+
+#define	DECMAX	8	/* 8 digits at a time */
+
+		/* tmp must be at least as large as outbuf */
+		if ( out->bv_len > sizeof(tmpbuf)) {
+			tmp = ber_memalloc_x( out->bv_len, ctx );
+		} else {
+			tmp = tmpbuf;
+		}
+		chunk = len & (DECMAX-1);
+		if ( !chunk )
+			chunk = DECMAX;
+
+		while ( len ) {
+			ctmp = pin[chunk];
+			pin[chunk] = '\0';
+			errno = 0;
+			l = strtol( pin, &end, 10 );
+			pin[chunk] = ctmp;
+			if ( errno ) {
+				rc = -1;
+				goto decfail;
+			}
+			scale( l, &num, (unsigned char *)tmp );
+			pin += chunk;
+			len -= chunk;
+			chunk = DECMAX;
+		}
+		/* Negate the result */
+		if ( neg ) {
+			unsigned char *ptr;
+
+			ptr = num.buf+num.beg;
+
+			/* flip all bits */
+			for ( i=0; i<num.len; i++ )
+				ptr[i] ^= 0xff;
+
+			/* add 1, with carry - overflow handled below */
+			while ( i-- && ! (ptr[i] = (ptr[i] + 1) & 0xff )) ;
+		}
+		/* Prepend sign byte if wrong sign bit */
+		if (( num.buf[num.beg] ^ neg ) & 0x80 ) {
+			num.beg--;
+			num.len++;
+			num.buf[num.beg] = neg;
+		}
+		if ( num.beg )
+			AC_MEMCPY( num.buf, num.buf+num.beg, num.len );
+		out->bv_len = num.len;
+decfail:
+		if ( tmp != tmpbuf ) {
+			ber_memfree_x( tmp, ctx );
+		}
+	}
+	return rc;
+}
+
 static	char		time_unit[] = "dhms";
 
+/* Used to parse and unparse time intervals, not timestamps */
 int
 lutil_parse_time(
 	const char	*in,
@@ -489,6 +865,7 @@ lutil_unparse_time(
 {
 	int		len, i;
 	unsigned long	v[ 4 ];
+	char		*ptr = buf;
 
 	v[ 0 ] = t/86400;
 	v[ 1 ] = (t%86400)/3600;
@@ -496,14 +873,64 @@ lutil_unparse_time(
 	v[ 3 ] = t%60;
 
 	for ( i = 0; i < 4; i++ ) {
-		if ( v[i] > 0 || i == 3 ) {
-			len = snprintf( buf, buflen, "%lu%c", v[ i ], time_unit[ i ] );
+		if ( v[i] > 0 || ( i == 3 && ptr == buf ) ) {
+			len = snprintf( ptr, buflen, "%lu%c", v[ i ], time_unit[ i ] );
 			if ( len < 0 || (unsigned)len >= buflen ) {
 				return -1;
 			}
 			buflen -= len;
-			buf += len;
+			ptr += len;
 		}
+	}
+
+	return 0;
+}
+
+/*
+ * formatted print to string
+ *
+ * - if return code < 0, the error code returned by vsnprintf(3) is returned
+ *
+ * - if return code > 0, the buffer was not long enough;
+ *	- if next is not NULL, *next will be set to buf + bufsize - 1
+ *	- if len is not NULL, *len will contain the required buffer length
+ *
+ * - if return code == 0, the buffer was long enough;
+ *	- if next is not NULL, *next will point to the end of the string printed so far
+ *	- if len is not NULL, *len will contain the length of the string printed so far 
+ */
+int
+lutil_snprintf( char *buf, ber_len_t bufsize, char **next, ber_len_t *len, LDAP_CONST char *fmt, ... )
+{
+	va_list		ap;
+	int		ret;
+
+	assert( buf != NULL );
+	assert( bufsize > 0 );
+	assert( fmt != NULL );
+
+	va_start( ap, fmt );
+	ret = vsnprintf( buf, bufsize, fmt, ap );
+	va_end( ap );
+
+	if ( ret < 0 ) {
+		return ret;
+	}
+
+	if ( len ) {
+		*len = ret;
+	}
+
+	if ( ret >= bufsize ) {
+		if ( next ) {
+			*next = &buf[ bufsize - 1 ];
+		}
+
+		return 1;
+	}
+
+	if ( next ) {
+		*next = &buf[ ret ];
 	}
 
 	return 0;

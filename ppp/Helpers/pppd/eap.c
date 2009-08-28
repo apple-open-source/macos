@@ -696,7 +696,7 @@ EapReceiveResponse(cstate, inpacket, packet_len,  inp, id, len)
 {
     u_char type, auth_type;
     int  err;
-    eap_ext	*eap, *last_eap;
+    eap_ext	*eap = NULL, *last_eap;
 
     if (cstate->serverstate == EAPSS_CLOSED ||
 	cstate->serverstate == EAPSS_PENDING) {
@@ -978,7 +978,7 @@ void EAPInput_fd(void)
  */
 void *EAPClientUIThread(void *arg)
 {
-    int 	unit = (int)arg;
+    int 	unit = (uintptr_t)arg;
     eap_state 	*cstate = &eap[unit];
     char	result = -1;
     int 	err;
@@ -1009,7 +1009,7 @@ EAPClientInvokeUI(cstate)
         return -1;
     }
 
-    if (pthread_create(&cstate->client_ui_thread, NULL, EAPClientUIThread, (void*)cstate->unit)) {
+    if (pthread_create(&cstate->client_ui_thread, NULL, EAPClientUIThread, (void*)(uintptr_t)cstate->unit)) {
         error("EAP failed to create thread for client User Interface...\n");
         close(cstate->client_ext_ui_fds[0]);
         close(cstate->client_ext_ui_fds[1]);

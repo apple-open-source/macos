@@ -58,7 +58,7 @@ bool IOFireWireIPDiagnostics::serialize( OSSerialize * s ) const
 	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fRxFragmentPkts, "RxF");
 	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fTxFragmentPkts, "TxF");
 
-	if( fIPObj->transmitQueue )
+	if ( fIPObj->transmitQueue )
 	{
 		updateNumberEntry( dictionary, fIPObj->transmitQueue->getState(), "tqState");
 		updateNumberEntry( dictionary, fIPObj->transmitQueue->getStallCount(), "tqStall");

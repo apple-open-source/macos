@@ -1,49 +1,48 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1997-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1997,2007 Oracle.  All rights reserved.
+ *
+ * $Id: os_rename.c,v 12.10 2007/05/17 15:15:46 bostic Exp $
  */
 
 #include "db_config.h"
-
-#ifndef lint
-static const char revid[] = "$Id: os_rename.c,v 1.2 2004/03/30 01:23:46 jtownsen Exp $";
-#endif /* not lint */
-
-#ifndef NO_SYSTEM_INCLUDES
-#include <sys/types.h>
-
-#include <string.h>
-#endif
 
 #include "db_int.h"
 
 /*
  * __os_rename --
- *	Rename a file.  If flags is non-zero, then errors are OK and we
- * should not output an error message.
+ *	Rename a file.
  *
  * PUBLIC: int __os_rename __P((DB_ENV *,
  * PUBLIC:    const char *, const char *, u_int32_t));
  */
 int
-__os_rename(dbenv, old, new, flags)
+__os_rename(dbenv, oldname, newname, silent)
 	DB_ENV *dbenv;
-	const char *old, *new;
-	u_int32_t flags;
+	const char *oldname, *newname;
+	u_int32_t silent;
 {
-	int ret, retries;
+	int ret;
 
-	retries = 0;
-	do {
-		ret = DB_GLOBAL(j_rename) != NULL ?
-		    DB_GLOBAL(j_rename)(old, new) : rename(old, new);
-	} while (ret != 0 &&
-	    ((ret = __os_get_errno()) == EINTR || ret == EBUSY) &&
-	    ++retries < DB_RETRY);
+	if (dbenv != NULL &&
+	    FLD_ISSET(dbenv->verbose, DB_VERB_FILEOPS | DB_VERB_FILEOPS_ALL))
+		__db_msg(dbenv, "fileops: rename %s to %s", oldname, newname);
 
-	if (ret != 0 && flags == 0)
-		__db_err(dbenv, "rename %s %s: %s", old, new, strerror(ret));
+	if (DB_GLOBAL(j_rename) != NULL)
+		ret = DB_GLOBAL(j_rename)(oldname, newname);
+	else
+		RETRY_CHK((rename(oldname, newname)), ret);
+
+	/*
+	 * If "silent" is not set, then errors are OK and we should not output
+	 * an error message.
+	 */
+	if (ret != 0) {
+		if (!silent)
+			__db_syserr(
+			    dbenv, ret, "rename %s %s", oldname, newname);
+		ret = __os_posix_err(ret);
+	}
 	return (ret);
 }

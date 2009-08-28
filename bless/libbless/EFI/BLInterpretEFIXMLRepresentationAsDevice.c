@@ -92,6 +92,8 @@ int BLInterpretEFIXMLRepresentationAsDevice(BLContextPtr context,
 		}        
     }
 	
+    CFRelease(efiArray);
+    
 	if(!foundDevice) {
 		contextprintf(context, kBLLogLevelVerbose, "Could not find disk device for string\n");
 		return 4;
@@ -147,6 +149,7 @@ static int checkForMatch(BLContextPtr context, CFDictionaryRef dict,
 		CFDictionaryRef iomatch = CFDictionaryGetValue(dict, CFSTR("IOMatch"));
 		if(iomatch && CFGetTypeID(iomatch) == CFDictionaryGetTypeID()) {
 			
+			CFRetain(iomatch); // IOServiceGetMatchingService releases 1 ref
 			service = IOServiceGetMatchingService(kIOMasterPortDefault,iomatch);
 			if(service != IO_OBJECT_NULL) {
 				

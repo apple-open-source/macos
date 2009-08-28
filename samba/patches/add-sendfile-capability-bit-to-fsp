@@ -2,7 +2,7 @@ Index: samba/source/include/smb.h
 ===================================================================
 --- samba/source/include/smb.h.orig
 +++ samba/source/include/smb.h
-@@ -520,6 +520,7 @@ typedef struct files_struct {
+@@ -536,6 +536,7 @@ typedef struct files_struct {
  	BOOL modified;
  	BOOL is_directory;
  	BOOL is_stat;
@@ -30,7 +30,7 @@ Index: samba/source/smbd/reply.c
 ===================================================================
 --- samba/source/smbd/reply.c.orig
 +++ samba/source/smbd/reply.c
-@@ -2217,7 +2217,7 @@ void send_file_readbraw(connection_struc
+@@ -2218,7 +2218,7 @@ void send_file_readbraw(connection_struc
  	 */
  
  	if ( (chain_size == 0) && (nread > 0) &&
@@ -39,7 +39,7 @@ Index: samba/source/smbd/reply.c
  		DATA_BLOB header;
  
  		_smb_setlen(outbuf,nread);
-@@ -2560,7 +2560,7 @@ int send_file_readX(connection_struct *c
+@@ -2561,7 +2561,7 @@ int send_file_readX(connection_struct *c
  	 */
  
  	if ((chain_size == 0) && (CVAL(inbuf,smb_vwv0) == 0xFF) &&

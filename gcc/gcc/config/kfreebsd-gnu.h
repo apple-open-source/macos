@@ -1,5 +1,5 @@
 /* Definitions for kFreeBSD-based GNU systems with ELF format
-   Copyright (C) 2004
+   Copyright (C) 2004, 2006
    Free Software Foundation, Inc.
    Contributed by Robert Millan.
 
@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #undef LINUX_TARGET_OS_CPP_BUILTINS    
 #define LINUX_TARGET_OS_CPP_BUILTINS()		\
@@ -32,5 +32,7 @@ Boston, MA 02111-1307, USA.  */
     }						\
   while (0)
 
-#undef DYNAMIC_LINKER
-#define DYNAMIC_LINKER "/lib/ld.so.1"
+#ifdef GLIBC_DYNAMIC_LINKER
+#undef GLIBC_DYNAMIC_LINKER
+#define GLIBC_DYNAMIC_LINKER "/lib/ld.so.1"
+#endif

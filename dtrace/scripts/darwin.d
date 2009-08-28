@@ -172,20 +172,20 @@ inline int P_LP64 = 0x00000004;  /* Process is LP64 */
 #pragma D binding "1.0" P_LP64
 
 #pragma D binding "1.0" translator
-translator psinfo_t < struct proc * T > {
-	pr_nlwp = 	((struct task *)(T->task))->thread_count;
-	pr_pid = 	T->p_pid;
-	pr_ppid = 	T->p_ppid;
-	pr_pgid = 	T->p_pgrp->pg_id;
-	pr_sid = 	T->p_pgrp->pg_session->s_sid;
-	pr_uid = 	T->p_ucred->cr_ruid;
-	pr_euid = 	T->p_ucred->cr_uid;
-	pr_gid = 	T->p_ucred->cr_rgid;
-	pr_egid = 	T->p_ucred->cr_groups[0];
-	pr_addr = 	(uintptr_t)T;
+translator psinfo_t < struct proc * P > {
+	pr_nlwp = 	((struct task *)(P->task))->thread_count;
+	pr_pid = 	P->p_pid;
+	pr_ppid = 	P->p_ppid;
+	pr_pgid = 	P->p_pgrp->pg_id;
+	pr_sid = 	P->p_pgrp->pg_session->s_sid;
+	pr_uid = 	P->p_ucred->cr_ruid;
+	pr_euid = 	P->p_ucred->cr_uid;
+	pr_gid = 	P->p_ucred->cr_rgid;
+	pr_egid = 	P->p_ucred->cr_groups[0];
+	pr_addr = 	(uintptr_t)P;
 
-	pr_ttydev = (T->p_pgrp->pg_session->s_ttyvp == NULL) ? (dev_t)-1 :
-		T->p_pgrp->pg_session->s_ttyp->t_dev;
+	pr_ttydev = (P->p_pgrp->pg_session->s_ttyvp == NULL) ? (dev_t)-1 :
+		P->p_pgrp->pg_session->s_ttyp->t_dev;
 
 	/*
 	 * timestruct_t (SECONDS, NANOSECONDS) is not available directly nor can a further translation
@@ -193,13 +193,13 @@ translator psinfo_t < struct proc * T > {
 	 */
 	pr_start = *((timestruc_t *)`dtrace_zero); /* ` */
 
-	pr_fname = 	T->p_comm;
-	pr_psargs = T->p_comm; /* XXX omits command line arguments XXX */
-	pr_argc = T->p_argc;
-	pr_argv = T->p_dtrace_argv;
-	pr_envp = T->p_dtrace_envp;
+	pr_fname = 	P->p_comm;
+	pr_psargs = P->p_comm; /* XXX omits command line arguments XXX */
+	pr_argc = P->p_argc;
+	pr_argv = P->p_dtrace_argv;
+	pr_envp = P->p_dtrace_envp;
 
-	pr_dmodel = (T->p_flag & P_LP64) ? PR_MODEL_LP64 : PR_MODEL_ILP32;
+	pr_dmodel = (P->p_flag & P_LP64) ? PR_MODEL_LP64 : PR_MODEL_ILP32;
 
 	pr_taskid = 0;
 	pr_projid = 0;
@@ -209,7 +209,7 @@ translator psinfo_t < struct proc * T > {
 	/*
 	 * pstats->pstart is a struct timeval: (SECONDS, MICROSECONDS).
 	 */
-	pr_start_tv = T->p_stats->p_start;
+	pr_start_tv = P->p_stats->p_start;
 };
 
 /*
@@ -222,30 +222,30 @@ translator psinfo_t < struct proc * T > {
  */
 #pragma D binding "1.0" translator
 translator psinfo_t < thread_t T > {
-	pr_nlwp = xlate <psinfo_t> ((struct proc *)((uthread_t)(T->uthread))->uu_proc).pr_nlwp;
-	pr_pid = xlate <psinfo_t> ((struct proc *)((uthread_t)(T->uthread))->uu_proc).pr_pid;
-	pr_ppid = xlate <psinfo_t> ((struct proc *)((uthread_t)(T->uthread))->uu_proc).pr_ppid;
-	pr_pgid = xlate <psinfo_t> ((struct proc *)((uthread_t)(T->uthread))->uu_proc).pr_pgid;
-	pr_sid = xlate <psinfo_t> ((struct proc *)((uthread_t)(T->uthread))->uu_proc).pr_sid;
-	pr_uid = xlate <psinfo_t> ((struct proc *)((uthread_t)(T->uthread))->uu_proc).pr_uid;
-	pr_euid = xlate <psinfo_t> ((struct proc *)((uthread_t)(T->uthread))->uu_proc).pr_euid;
-	pr_gid = xlate <psinfo_t> ((struct proc *)((uthread_t)(T->uthread))->uu_proc).pr_gid;
-	pr_egid = xlate <psinfo_t> ((struct proc *)((uthread_t)(T->uthread))->uu_proc).pr_egid;
-	pr_addr = xlate <psinfo_t> ((struct proc *)((uthread_t)(T->uthread))->uu_proc).pr_addr;
-	pr_ttydev = xlate <psinfo_t> ((struct proc *)((uthread_t)(T->uthread))->uu_proc).pr_ttydev;
-	pr_start = xlate <psinfo_t> ((struct proc *)((uthread_t)(T->uthread))->uu_proc).pr_start; 
-	pr_fname = xlate <psinfo_t> ((struct proc *)((uthread_t)(T->uthread))->uu_proc).pr_fname;
-	pr_psargs = xlate <psinfo_t> ((struct proc *)((uthread_t)(T->uthread))->uu_proc).pr_psargs; /* XXX omits command line arguments XXX */
-	pr_argc = xlate <psinfo_t> ((struct proc *)((uthread_t)(T->uthread))->uu_proc).pr_argc;
-	pr_argv = xlate <psinfo_t> ((struct proc *)((uthread_t)(T->uthread))->uu_proc).pr_argv;
-	pr_envp = xlate <psinfo_t> ((struct proc *)((uthread_t)(T->uthread))->uu_proc).pr_envp;
-	pr_dmodel = xlate <psinfo_t> ((struct proc *)((uthread_t)(T->uthread))->uu_proc).pr_dmodel;
-	pr_taskid = xlate <psinfo_t> ((struct proc *)((uthread_t)(T->uthread))->uu_proc).pr_taskid;
-	pr_projid = xlate <psinfo_t> ((struct proc *)((uthread_t)(T->uthread))->uu_proc).pr_projid;
-	pr_poolid = xlate <psinfo_t> ((struct proc *)((uthread_t)(T->uthread))->uu_proc).pr_poolid;
-	pr_zoneid = xlate <psinfo_t> ((struct proc *)((uthread_t)(T->uthread))->uu_proc).pr_zoneid;
+	pr_nlwp = xlate <psinfo_t> ((struct proc *)(T->task->bsd_info)).pr_nlwp;
+	pr_pid = xlate <psinfo_t> ((struct proc *)(T->task->bsd_info)).pr_pid;
+	pr_ppid = xlate <psinfo_t> ((struct proc *)(T->task->bsd_info)).pr_ppid;
+	pr_pgid = xlate <psinfo_t> ((struct proc *)(T->task->bsd_info)).pr_pgid;
+	pr_sid = xlate <psinfo_t> ((struct proc *)(T->task->bsd_info)).pr_sid;
+	pr_uid = xlate <psinfo_t> ((struct proc *)(T->task->bsd_info)).pr_uid;
+	pr_euid = xlate <psinfo_t> ((struct proc *)(T->task->bsd_info)).pr_euid;
+	pr_gid = xlate <psinfo_t> ((struct proc *)(T->task->bsd_info)).pr_gid;
+	pr_egid = xlate <psinfo_t> ((struct proc *)(T->task->bsd_info)).pr_egid;
+	pr_addr = xlate <psinfo_t> ((struct proc *)(T->task->bsd_info)).pr_addr;
+	pr_ttydev = xlate <psinfo_t> ((struct proc *)(T->task->bsd_info)).pr_ttydev;
+	pr_start = xlate <psinfo_t> ((struct proc *)(T->task->bsd_info)).pr_start; 
+	pr_fname = xlate <psinfo_t> ((struct proc *)(T->task->bsd_info)).pr_fname;
+	pr_psargs = xlate <psinfo_t> ((struct proc *)(T->task->bsd_info)).pr_psargs; /* XXX omits command line arguments XXX */
+	pr_argc = xlate <psinfo_t> ((struct proc *)(T->task->bsd_info)).pr_argc;
+	pr_argv = xlate <psinfo_t> ((struct proc *)(T->task->bsd_info)).pr_argv;
+	pr_envp = xlate <psinfo_t> ((struct proc *)(T->task->bsd_info)).pr_envp;
+	pr_dmodel = xlate <psinfo_t> ((struct proc *)(T->task->bsd_info)).pr_dmodel;
+	pr_taskid = xlate <psinfo_t> ((struct proc *)(T->task->bsd_info)).pr_taskid;
+	pr_projid = xlate <psinfo_t> ((struct proc *)(T->task->bsd_info)).pr_projid;
+	pr_poolid = xlate <psinfo_t> ((struct proc *)(T->task->bsd_info)).pr_poolid;
+	pr_zoneid = xlate <psinfo_t> ((struct proc *)(T->task->bsd_info)).pr_zoneid;
 
-	pr_start_tv = xlate <psinfo_t> ((struct proc *)((uthread_t)(T->uthread))->uu_proc).pr_start_tv; 
+	pr_start_tv = xlate <psinfo_t> ((struct proc *)(T->task->bsd_info)).pr_start_tv; 
 };
 
 /*
@@ -258,7 +258,7 @@ translator psinfo_t < thread_t T > {
 inline processor_t PROCESSOR_NULL = ((processor_t) 0);
 #pragma D binding "1.0" PROCESSOR_NULL
 
-typedef processor_set_t psetid_t;
+typedef int psetid_t;
 
 typedef struct lwpsinfo {
 	int	pr_flag;	/* lwp flags (DEPRECATED; do not use) */
@@ -279,7 +279,7 @@ typedef struct lwpsinfo {
 #pragma D binding "1.0" translator
 translator lwpsinfo_t < thread_t T > {
 	pr_flag = 0; /* lwp flags (DEPRECATED; do not use) */
-	pr_lwpid = (id_t)T;
+	pr_lwpid = (id_t)T->thread_id;
 	pr_addr = (uintptr_t)T;
 	pr_wchan = (uintptr_t)(((uthread_t)(T->uthread))->uu_wchan);
 
@@ -297,9 +297,9 @@ translator lwpsinfo_t < thread_t T > {
 	pr_clname = (T->sched_mode & 0x0001) ? "RT" :
 			(T->sched_mode & 0x0002) ? "TS" : "SYS";
 
-	pr_onpro = T->last_processor->cpu_num;
-	pr_bindpro = (T->bound_processor == PROCESSOR_NULL) ? -1 : T->bound_processor->cpu_num;
-	pr_bindpset = T->last_processor->processor_set;
+	pr_onpro = (T->last_processor == PROCESSOR_NULL) ? -1 : T->last_processor->cpu_id;
+	pr_bindpro = -1; /* Darwin does not bind threads to processors. */
+	pr_bindpset = -1; /* Darwin does not partition processors. */
 };
 
 inline psinfo_t *curpsinfo = xlate <psinfo_t *> (curproc);

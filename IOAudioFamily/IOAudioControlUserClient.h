@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2009 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -25,7 +25,11 @@
 
 #include <IOKit/IOUserClient.h>
 
+#ifndef IOAUDIOFAMILY_SELF_BUILD
 #include <IOKit/audio/IOAudioTypes.h>
+#else
+#include "IOAudioTypes.h"
+#endif
 
 class IOAudioControl;
 

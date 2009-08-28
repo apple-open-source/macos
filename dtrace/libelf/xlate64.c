@@ -2,9 +2,8 @@
  * CDDL HEADER START
  *
  * The contents of this file are subject to the terms of the
- * Common Development and Distribution License, Version 1.0 only
- * (the "License").  You may not use this file except in compliance
- * with the License.
+ * Common Development and Distribution License (the "License").
+ * You may not use this file except in compliance with the License.
  *
  * You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
  * or http://www.opensolaris.org/os/licensing.
@@ -19,15 +18,15 @@
  *
  * CDDL HEADER END
  */
+
 /*
- * Copyright 2004 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)xlate64.m4	1.17	05/06/08 SMI"
+#pragma ident	"@(#)xlate64.m4	1.20	08/05/31 SMI"
 
 #if !defined(__APPLE__)
-#include "syn.h"
 #include <memory.h>
 #include <libelf.h>
 #include <link.h>
@@ -37,7 +36,6 @@
 #include <msg.h>
 #include <sgs.h>
 #else /* is Apple Mac OS X */
-#include "syn.h"
 #include <memory.h>
 #include <libelf.h>
 #include <link.h>
@@ -48,6 +46,7 @@
 /* NOTHING */ /* In lieu of Solaris <sys/sgs.h> */
 #include <string.h>
 #endif /* __APPLE__ */
+
 
 /*
  * fmsize:  Array used to determine what size the the structures
@@ -808,18 +807,6 @@ static const Elf_Type	mtype[EV_CURRENT][SHT_NUM] =
 
 
 size_t
-_elf64_entsz(Elf64_Word shtype, unsigned ver)
-{
-	Elf_Type	ttype;
-
-	if (shtype >= sizeof (mtype[0]) / sizeof (mtype[0][0]) ||
-	    (ttype = mtype[ver - 1][shtype]) == ELF_T_BYTE)
-		return (0);
-	return (fmsize[ver - 1][ttype].s_filesz);
-}
-
-
-size_t
 elf64_fsize(Elf_Type type, size_t count, unsigned ver)
 {
 	if (--ver >= EV_CURRENT) {
@@ -851,6 +838,11 @@ _elf64_mtype(Elf * elf, Elf64_Word shtype, unsigned ver)
 		return (mtype[ver - 1][shtype]);
 
 	switch (shtype) {
+	case SHT_SUNW_symsort:
+	case SHT_SUNW_tlssort:
+		return (ELF_T_WORD);
+	case SHT_SUNW_LDYNSYM:
+		return (ELF_T_SYM);
 	case SHT_SUNW_dof:
 		return (ELF_T_BYTE);
 	case SHT_SUNW_cap:
@@ -906,6 +898,16 @@ _elf64_mtype(Elf * elf, Elf64_Word shtype, unsigned ver)
 	 * above.  This is for unknown sections to libelf.
 	 */
 	return (ELF_T_BYTE);
+}
+
+
+size_t
+_elf64_entsz(Elf *elf, Elf64_Word shtype, unsigned ver)
+{
+	Elf_Type	ttype;
+
+	ttype = _elf64_mtype(elf, shtype, ver);
+	return ((ttype == ELF_T_BYTE) ? 0 : fmsize[ver - 1][ttype].s_filesz); 
 }
 
 
@@ -989,12 +991,12 @@ elf64_xlatetom(Elf_Data *dst, const Elf_Data *src, unsigned encode)
 
 
 /*
- * xlate to file 
+ * xlate to file format
  *
  *	..._tof(name, data) -- macros
  *
- *	Recall that the file  must be no larger than the
- *	memory  (equal versions).  Use "forward" copy.
+ *	Recall that the file format must be no larger than the
+ *	memory format (equal versions).  Use "forward" copy.
  *	All these routines require non-null, non-zero arguments.
  */
 
@@ -2864,12 +2866,12 @@ xword_2M_tof(Byte *dst, Elf64_Xword *src, size_t cnt)
 
 
 /*
- * xlate to memory 
+ * xlate to memory format
  *
  *	..._tom(name, data) -- macros
  *
- *	Recall that the memory  may be larger than the
- *	file  (equal versions).  Use "backward" copy.
+ *	Recall that the memory format may be larger than the
+ *	file format (equal versions).  Use "backward" copy.
  *	All these routines require non-null, non-zero arguments.
  */
 
@@ -3267,15 +3269,18 @@ note_2L11_tom(Elf64_Nhdr *dst, unsigned char *src, size_t cnt)
 		+(src)[N1_type_L1])<<8)
 		+(src)[N1_type_L0]);
 		nhdr = dst;
+		/* LINTED */
 		dst = (Elf64_Nhdr *)((char *)dst + sizeof (Elf64_Nhdr));
 		namestr = src + N1_sizeof;
 		field_sz = S_ROUND(nhdr->n_namesz, sizeof (Elf64_Word));
 		(void)memcpy((void *)dst, namestr, field_sz);
 		desc = namestr + field_sz;
+		/* LINTED */
 		dst = (Elf64_Nhdr *)((char *)dst + field_sz);
 		field_sz = nhdr->n_descsz;
 		(void)memcpy(dst, desc, field_sz);
 		field_sz = S_ROUND(field_sz, sizeof (Elf64_Word));
+		/* LINTED */
 		dst = (Elf64_Nhdr *)((char *)dst + field_sz);
 		src = (unsigned char *)desc + field_sz;
 	}
@@ -3307,15 +3312,18 @@ note_2M11_tom(Elf64_Nhdr *dst, unsigned char *src, size_t cnt)
 		+(src)[N1_type_M1])<<8)
 		+(src)[N1_type_M0]);
 		nhdr = dst;
+		/* LINTED */
 		dst = (Elf64_Nhdr *)((char *)dst + sizeof (Elf64_Nhdr));
 		namestr = src + N1_sizeof;
 		field_sz = S_ROUND(nhdr->n_namesz, sizeof (Elf64_Word));
 		(void)memcpy((void *)dst, namestr, field_sz);
 		desc = namestr + field_sz;
+		/* LINTED */
 		dst = (Elf64_Nhdr *)((char *)dst + field_sz);
 		field_sz = nhdr->n_descsz;
 		(void)memcpy(dst, desc, field_sz);
 		field_sz = S_ROUND(field_sz, sizeof (Elf64_Word));
+		/* LINTED */
 		dst = (Elf64_Nhdr *)((char *)dst + field_sz);
 		src = (unsigned char *)desc + field_sz;
 	}

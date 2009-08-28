@@ -1,4 +1,6 @@
-/* $Id: plainrsa-gen.c,v 1.4.8.2 2005/04/21 09:07:20 monas Exp $ */
+/*	$NetBSD: plainrsa-gen.c,v 1.4 2006/09/09 16:22:10 manu Exp $	*/
+
+/* Id: plainrsa-gen.c,v 1.6 2005/04/21 09:08:40 monas Exp */
 /*
  * Copyright (C) 2004 SuSE Linux AG, Nuernberg, Germany.
  * Contributed by: Michal Ludvig <mludvig@suse.cz>, SUSE Labs
@@ -64,8 +66,7 @@ int print_pid = 0;
 void
 usage (char *argv0)
 {
-	//%%% fprintf(stderr, "Plain RSA key generator, part of %s\n", TOP_PACKAGE_STRING);
-	fprintf(stderr, "Plain RSA key generator\n");
+//	fprintf(stderr, "Plain RSA key generator, part of %s\n", TOP_PACKAGE_STRING);
 	fprintf(stderr, "By Michal Ludvig (http://www.logix.cz/michal)\n");
 	fprintf(stderr, "\n");
 	fprintf(stderr, "Usage: %s [options]\n", argv0);

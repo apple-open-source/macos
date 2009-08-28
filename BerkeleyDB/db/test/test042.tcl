@@ -1,9 +1,8 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1996-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 1996,2007 Oracle.  All rights reserved.
 #
-# $Id: test042.tcl,v 1.2 2004/03/30 01:24:08 jtownsen Exp $
+# $Id: test042.tcl,v 12.5 2007/05/17 15:15:56 bostic Exp $
 #
 # TEST	test042
 # TEST	Concurrent Data Store test (CDB)
@@ -123,7 +122,7 @@ proc test042_body { method nentries alldb args } {
 	puts "Test042: $procs independent processes now running"
 	watch_procs $pidlist
 
-	# Make sure we haven't added or lost any entries. 
+	# Make sure we haven't added or lost any entries.
 	set dblist [glob $testdir/$basename.*.db]
 	foreach file $dblist {
 		set tf [file tail $file]

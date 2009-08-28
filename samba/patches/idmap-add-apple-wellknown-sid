@@ -64,7 +64,7 @@ Index: samba/source/nsswitch/winbindd_util.c
 ===================================================================
 --- samba/source/nsswitch/winbindd_util.c.orig
 +++ samba/source/nsswitch/winbindd_util.c
-@@ -603,12 +603,18 @@ struct winbindd_domain *find_domain_from
+@@ -589,12 +589,18 @@ struct winbindd_domain *find_domain_from
  struct winbindd_domain *find_domain_from_sid_noinit(const DOM_SID *sid)
  {
  	struct winbindd_domain *domain;

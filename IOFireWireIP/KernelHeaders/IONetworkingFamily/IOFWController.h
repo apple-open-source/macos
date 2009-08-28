@@ -108,7 +108,7 @@ extern const OSSymbol * gIOEthernetWakeOnLANFilterGroup;
 
 class IOFWController : public IONetworkController
 {
-    OSDeclareAbstractStructors( IOFWController )
+    OSDeclareDefaultStructors( IOFWController )
 
 protected:
     struct ExpansionData { };
@@ -277,7 +277,7 @@ public:
     should be returned.
     @result kIOReturnSuccess on success, or an error return code otherwise. */
 
-    virtual IOReturn getHardwareAddress(IOFWAddress * addrP) = 0;
+    virtual IOReturn getHardwareAddress(IOFWAddress * addrP);
 
 /*! @function setHardwareAddress
     @abstract Set or change the station address used by the FireWire

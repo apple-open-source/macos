@@ -1,25 +1,24 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003 - 2008 Apple, Inc. All rights reserved.
  *
- * @APPLE_LICENSE_headER_START@
+ * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 2003 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
- * @APPLE_LICENSE_headER_END@
+ * @APPLE_LICENSE_HEADER_END@
  */
 
 #include <stdlib.h>
@@ -33,114 +32,136 @@
 #include <arpa/inet.h>
 #include <dns.h>
 #include <dns_util.h>
+#include <stdarg.h>
+#include <si_module.h>
+
+extern void *LI_ils_create(char *fmt, ...);
+
+/*
+ typedef void (*dns_async_callback)(int32_t status, char *buf, uint32_t len, struct sockaddr *from, int fromlen, void *context);
+*/
 
 typedef struct
 {
-	uint32_t datalen;
-	char *databuf;
-	uint32_t _size;
-	uint32_t _dict;
-	uint32_t _key;
-	uint32_t _vlist;
-	uint32_t _val;
-} kvbuf_t;
+	void *orig_callback;
+	void *orig_context;
+	si_mod_t *dns;
+} _dns_context_t;
 
-typedef struct
+static void
+_dns_callback(si_item_t *item, uint32_t status, void *ctx)
 {
-	uint32_t kcount;
-	const char **key;
-	uint32_t *vcount;
-	const char ***val;
-} kvdict_t;
+	_dns_context_t *my_ctx;
+	si_dnspacket_t *res;
+	char *packet;
+	struct sockaddr *from;
+	uint32_t pl;
+	int fl;
 
-typedef struct
-{
-	uint32_t count;
-	uint32_t curr;
-	kvdict_t *dict;
-	kvbuf_t *kv;
-} kvarray_t;
-
-extern kvbuf_t *kvbuf_new(void);
-extern void kvbuf_add_dict(kvbuf_t *kv);
-extern void kvbuf_add_key(kvbuf_t *kv, const char *key);
-extern void kvbuf_add_val(kvbuf_t *kv, const char *val);
-extern void kvbuf_free(kvbuf_t *kv);
-extern void kvarray_free(kvarray_t *kva);
-extern uint32_t kvbuf_get_val_len(const char *val);
-extern kern_return_t LI_DSLookupGetProcedureNumber(const char *name, int *procno);
-extern kern_return_t LI_async_start(mach_port_t *p, uint32_t proc, kvbuf_t *query, void *callback, void *context);
-extern kern_return_t LI_async_handle_reply(void *msg, kvarray_t **reply, void **callback, void **context);
-extern kern_return_t LI_async_receive(mach_port_t p, kvarray_t **reply);
-extern void LI_async_call_cancel(mach_port_t p, void **context);
-extern uint32_t kvbuf_get_len(const char *p);
-
-static kvbuf_t *
-dns_make_query(const char *name, uint16_t dnsclass, uint16_t dnstype, uint32_t do_search)
-{
-	kvbuf_t *request;
-	char str[128];
-
-	if (name == NULL) return NULL;
-
-	request = kvbuf_new();
-	if (request == NULL) return NULL;
+	if (ctx == NULL) return;
 	
-	kvbuf_add_dict(request);
-	
-	/* Encode name */
-	kvbuf_add_key(request, "domain");
-	kvbuf_add_val(request, name);
+	my_ctx = (_dns_context_t *)ctx;
+	if (my_ctx->orig_callback == NULL)
+	{
+		si_item_release(item);
+		si_module_release(my_ctx->dns);
+		free(my_ctx);
+		return;
+	}
 
-	/* Encode class */
-	snprintf(str, 128, "%hu", dnsclass);
-	kvbuf_add_key(request, "class");
-	kvbuf_add_val(request, str);
+	if (status >= SI_STATUS_INTERNAL) status = NO_RECOVERY;
 
-	/* Encode type */
-	snprintf(str, 128, "%hu", dnstype);
-	kvbuf_add_key(request, "type");
-	kvbuf_add_val(request, str);
+	packet = NULL;
+	pl = 0;
+	from = NULL;
+	fl = 0;
 
-	/* Encode do_search */
-	snprintf(str, 128, "%hu", do_search);
-	kvbuf_add_key(request, "search");
-	kvbuf_add_val(request, str);
+	res = NULL;
+	if (item != NULL) res = (si_dnspacket_t *)((char *)item + sizeof(si_item_t));
 
-	return request;
+	if ((res != NULL) && (res->dns_packet_len > 0))
+	{
+		packet = malloc(res->dns_packet_len);
+		if (packet == NULL) status = NO_RECOVERY;
+		else
+		{
+			pl = res->dns_packet_len;
+			memcpy(packet, res->dns_packet, res->dns_packet_len);
+
+			if (res->dns_server_len > 0)
+			{
+				from = malloc(res->dns_server_len);
+				if (from == NULL)
+				{
+					status = NO_RECOVERY;
+					free(packet);
+					packet = NULL;
+					pl = 0;
+				}
+				else
+				{
+					fl = res->dns_server_len;
+					memcpy(from, res->dns_server, res->dns_server_len);
+				}
+			}
+		}
+	}
+
+	si_item_release(item);
+
+	((dns_async_callback)(my_ctx->orig_callback))(status, packet, pl, from, fl, my_ctx->orig_context);
+
+	si_module_release(my_ctx->dns);
+	free(my_ctx);
 }
 
 int32_t
 dns_async_start(mach_port_t *p, const char *name, uint16_t dnsclass, uint16_t dnstype, uint32_t do_search, dns_async_callback callback, void *context)
 {
-	int32_t status;
-	kvbuf_t *request;
-	static int proc = -1;
+	si_mod_t *dns;
+	int call;
+	uint32_t c, t;
+	_dns_context_t *my_ctx;
 
 	*p = MACH_PORT_NULL;
 
 	if (name == NULL) return NO_RECOVERY;
 
-	if (proc < 0)
+	dns = si_module_with_name("mdns");
+	if (dns == NULL) return NO_RECOVERY;
+
+	my_ctx = (_dns_context_t *)calloc(1, sizeof(_dns_context_t));
+	if (my_ctx == NULL)
 	{
-		status = LI_DSLookupGetProcedureNumber("dns_proxy", &proc);
-		if (status != KERN_SUCCESS) return NO_RECOVERY;
+		si_module_release(dns);
+		return NO_RECOVERY;
 	}
 
-	request = dns_make_query(name, dnsclass, dnstype, do_search);
-	if (request == NULL) return NO_RECOVERY;
+	my_ctx->orig_callback = callback;
+	my_ctx->orig_context = context;
+	my_ctx->dns = dns;
 
-	status = LI_async_start(p, proc, request, (void *)callback, context);
-	
-	kvbuf_free(request);
-	if (status != 0) return NO_RECOVERY;
+	call = SI_CALL_DNS_QUERY;
+	if (do_search != 0) call = SI_CALL_DNS_SEARCH;
+
+	c = dnsclass;
+	t = dnstype;
+
+	*p = si_async_call(dns, call, name, NULL, c, t, 0, 0, (void *)_dns_callback, (void *)my_ctx);
+	if (*p == MACH_PORT_NULL)
+	{
+		free(my_ctx);
+		si_module_release(dns);
+		return NO_RECOVERY;
+	}
+
 	return 0;
 }
 
 void
 dns_async_cancel(mach_port_t p)
 {
-	LI_async_call_cancel(p, NULL);
+	si_async_cancel(p);
 }
 
 int32_t
@@ -149,156 +170,16 @@ dns_async_send(mach_port_t *p, const char *name, uint16_t dnsclass, uint16_t dns
 	return dns_async_start(p, name, dnsclass, dnstype, do_search, NULL, NULL);
 }
 
-static int
-dns_extract_data(kvarray_t *in, char **buf, uint32_t *len, struct sockaddr **from, uint32_t *fromlen)
-{
-	int32_t status;
-	struct in_addr addr4;
-	struct sockaddr_in sin4;
-	struct in6_addr addr6;
-	struct sockaddr_in6 sin6;
-	uint32_t d, k, kcount;
-	
-	if (in == NULL) return -1;
-	if (buf == NULL) return -1;
-	if (len == NULL) return -1;
-	if (from == NULL) return -1;
-	if (fromlen == NULL) return -1;
-	
-	*buf = NULL;
-	*len = 0;
-	*from = NULL;
-	*fromlen = 0;
-	
-	d = in->curr;
-	in->curr++;
-	
-	if (d >= in->count) return -1;
-	
-	kcount = in->dict[d].kcount;
-	
-	for (k = 0; k < kcount; k++)
-	{
-		if (!strcmp(in->dict[d].key[k], "data"))
-		{
-			if (in->dict[d].vcount[k] == 0) continue;
-			if (*buf != NULL) continue;
-
-			/*
-			 * dns_proxy contains binary data, possibly with embedded nuls,
-			 * so we extract the string length from the kvbuf_t reply that
-			 * Libinfo got from directory services, rather than calling strlen().
-			 */
-			*len = kvbuf_get_len(in->dict[d].val[k][0]);
-			if (*len == 0) continue;
-
-			*buf = malloc(*len);
-			if (*buf == NULL) return -1;
-
-			memcpy(*buf, in->dict[d].val[k][0], *len);
-		}
-		else if (!strcmp(in->dict[d].key[k], "server"))
-		{
-			if (in->dict[d].vcount[k] == 0) continue;
-			if (*from != NULL) continue;
-
-			memset(&addr4, 0, sizeof(struct in_addr));
-			memset(&sin4, 0, sizeof(struct sockaddr_in));
-			
-			memset(&addr6, 0, sizeof(struct in6_addr));
-			memset(&sin6, 0, sizeof(struct sockaddr_in6));
-			
-			status = inet_pton(AF_INET6, in->dict[d].val[k][0], &addr6);
-			if (status == 1)
-			{
-				sin6.sin6_addr = addr6;
-				sin6.sin6_family = AF_INET6;
-				sin6.sin6_len = sizeof(struct sockaddr_in6);
-				*from = (struct sockaddr *)calloc(1, sin6.sin6_len);
-				memcpy(*from, &sin6, sin6.sin6_len);
-				*fromlen = sin6.sin6_len;
-			}
-
-			status = inet_pton(AF_INET, in->dict[d].val[k][0], &addr4);
-			if (status == 1)
-			{
-				sin4.sin_addr = addr4;
-				sin4.sin_family = AF_INET;
-				sin4.sin_len = sizeof(struct sockaddr_in);
-				*from = (struct sockaddr *)calloc(1, sin4.sin_len);
-				memcpy(*from, &sin4, sin4.sin_len);
-				*fromlen = sin4.sin_len;
-			}
-		}
-	}
-			
-	return 0;
-}
-
+/* unsupported */
 int32_t
 dns_async_receive(mach_port_t p, char **buf, uint32_t *len, struct sockaddr **from, uint32_t *fromlen)
 {
-	kern_return_t status;
-	kvarray_t *reply;
-
-	reply = NULL;
-	
-	status = LI_async_receive(p, &reply);
-	if (status != 0) return NO_RECOVERY;
-	if (reply == NULL) return HOST_NOT_FOUND;
-
-	status = dns_extract_data(reply, buf, len, from, fromlen);
-	kvarray_free(reply);
-	if (status != 0) return NO_RECOVERY;
-
-	if (*buf == NULL) return NO_DATA;
-
 	return 0;
 }
 
 int32_t
 dns_async_handle_reply(void *msg)
 {
-	dns_async_callback callback;
-	void *context;
-	char *buf;
-	kvarray_t *reply;
-	kern_return_t status;
-	struct sockaddr *from;
-	uint32_t len, fromlen;
-
-	callback = (dns_async_callback)NULL;
-	context = NULL;
-	reply = NULL;
-	buf = NULL;
-	len = 0;
-	from = NULL;
-	fromlen = 0;
-
-	status = LI_async_handle_reply(msg, &reply, (void **)&callback, &context);
-	if (status != KERN_SUCCESS)
-	{
-		if (status == MIG_REPLY_MISMATCH) return 0;
-		callback(NO_RECOVERY, NULL, 0, NULL, 0, context);
-		return NO_RECOVERY;
-	}
-
-	status = dns_extract_data(reply, &buf, &len, &from, &fromlen);
-	kvarray_free(reply);
-	if (status != 0)
-	{
-		callback(NO_RECOVERY, NULL, 0, NULL, 0, context);
-		return 0;
-	}
-
-	if (buf == NULL)
-	{
-		callback(NO_DATA, NULL, 0, NULL, 0, context);
-		return NO_DATA;
-	}
-
-	callback(0, buf, len, from, fromlen, context);
-
+	si_async_handle_reply(msg);
 	return 0;
 }
-

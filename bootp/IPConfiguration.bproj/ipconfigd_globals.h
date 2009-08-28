@@ -2,7 +2,7 @@
 #ifndef _S_IPCONFIGD_GLOBALS_H
 #define _S_IPCONFIGD_GLOBALS_H
 /*
- * Copyright (c) 2000 - 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 

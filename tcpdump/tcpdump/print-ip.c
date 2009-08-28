@@ -21,7 +21,7 @@
 
 #ifndef lint
 static const char rcsid[] _U_ =
-    "@(#) $Header: /tcpdump/master/tcpdump/print-ip.c,v 1.149.2.8 2007/01/29 20:57:47 guy Exp $ (LBL)";
+    "@(#) $Header: /tcpdump/master/tcpdump/print-ip.c,v 1.159 2007-09-14 01:29:28 guy Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -50,6 +50,7 @@ struct tok ip_option_values[] = {
     { IPOPT_SSRR, "SSRR" },
     { IPOPT_LSRR, "LSRR" },
     { IPOPT_RA, "RA" },
+    { IPOPT_RFC1393, "traceroute" },
     { 0, NULL }
 };
 
@@ -656,7 +657,7 @@ ip_print(netdissect_options *ndo,
                 printf(")");
             }
 
-	    if ((u_char *)ipds->ip + hlen <= snapend) {
+	    if (!Kflag && (u_char *)ipds->ip + hlen <= snapend) {
 	        sum = in_cksum((const u_short *)ipds->ip, hlen, 0);
 		if (sum != 0) {
 		    ip_sum = EXTRACT_16BITS(&ipds->ip->ip_sum);
@@ -665,7 +666,10 @@ ip_print(netdissect_options *ndo,
 		}
 	    }
 
-            printf(") ");
+            if (!gflag)
+                printf(")\n    ");
+            else
+                printf(") ");
 	}
 
 	/*

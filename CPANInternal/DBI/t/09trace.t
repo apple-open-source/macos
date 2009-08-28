@@ -3,8 +3,7 @@
 
 use strict;
 
-# 66 tests originally
-use Test::More tests => 66;
+use Test::More tests => 67;
 
 ## ----------------------------------------------------------------------------
 ## 09trace.t
@@ -13,20 +12,39 @@ use Test::More tests => 66;
 ## ----------------------------------------------------------------------------
 
 BEGIN { 
+    $ENV{DBI_TRACE} = 0; # for PurePerl - ensure DBI_TRACE is in the env
     use_ok( 'DBI' ); 
 }
 
 $|=1;
 
-## ----------------------------------------------------------------------------
-# Connect to the example driver.
 
-my $dbh = DBI->connect('dbi:ExampleP:dummy', '', '',
-                           { PrintError => 0,
-                             RaiseError => 1,
-                             PrintWarn => 1,
-                           });
-isa_ok( $dbh, 'DBI::db' );
+my $trace_file = "dbitrace.log";
+
+if (-e $trace_file) {
+    1 while unlink $trace_file;
+    die "Can't unlink existing $trace_file: $!" if -e $trace_file;
+}
+
+my $orig_trace_level = DBI->trace;
+DBI->trace(3, $trace_file);             # enable trace before first driver load
+
+my $dbh = DBI->connect('dbi:ExampleP(AutoCommit=>1):', undef, undef);
+die "Unable to connect to ExampleP driver: $DBI::errstr" unless $dbh;
+
+isa_ok($dbh, 'DBI::db');
+
+$dbh->dump_handle("dump_handle test, write to log file", 2);
+
+DBI->trace(0, undef);   # turn off and restore to STDERR
+
+SKIP: {
+        skip "cygwin has buffer flushing bug", 1 if ($^O =~ /cygwin/i);
+        ok( -s $trace_file, "trace file size = " . -s $trace_file);
+}
+
+DBI->trace($orig_trace_level);  # no way to restore previous outfile XXX
+
 
 # Clean up when we're done.
 END { $dbh->disconnect if $dbh };
@@ -35,8 +53,6 @@ END { $dbh->disconnect if $dbh };
 # Check the database handle attributes.
 
 cmp_ok($dbh->{TraceLevel}, '==', $DBI::dbi_debug & 0xF, '... checking TraceLevel attribute');
-
-my $trace_file = "dbitrace.log";
 
 1 while unlink $trace_file;
 
@@ -94,10 +110,10 @@ $dbh->{TraceLevel} = 'ALL';
 ok $dbh->{TraceLevel};
 
 {
-    print "unknown parse_trace_flag\n";
+    print "test unknown parse_trace_flag\n";
     my $warn = 0;
     local $SIG{__WARN__} = sub {
-        if ($_[0] =~ /unknown/i) { ++$warn; print "warn: ",@_ }else{ warn @_ }
+        if ($_[0] =~ /unknown/i) { ++$warn; print "caught warn: ",@_ }else{ warn @_ }
         };
     is $dbh->parse_trace_flag("nonesuch"), undef;
     is $warn, 0;
@@ -106,6 +122,8 @@ ok $dbh->{TraceLevel};
     is $dbh->parse_trace_flags("nonesuch|SQL|nonesuch2"), $dbh->parse_trace_flag("SQL");
     is $warn, 2;
 }
+
+$dbh->dump_handle("dump_handle test, write to log file", 2);
 
 $dbh->trace(0);
 ok !$dbh->{TraceLevel};

@@ -1,6 +1,6 @@
 /* Output VMS debug format symbol table information from GCC.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Douglas B. Rupp (rupp@gnat.com).
    Updated by Bernard W. Giroud (bgiroud@users.sourceforge.net).
 
@@ -18,8 +18,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -210,6 +210,7 @@ const struct gcc_debug_hooks vmsdbg_debug_hooks
    debug_nothing_rtx,		  /* label */
    debug_nothing_int,		  /* handle_pch */
    debug_nothing_rtx,		  /* var_location */
+   debug_nothing_void,            /* switch_text_section */
    0                              /* start_end_main_source_file */
 };
 
@@ -428,15 +429,13 @@ addr_const_to_string (char *str, rtx x)
   char buf1[256];
   char buf2[256];
 
-restart:
+ restart:
   str[0] = '\0';
   switch (GET_CODE (x))
     {
     case PC:
-      if (flag_pic)
-	strcat (str, ",");
-      else
-	abort ();
+      gcc_assert (flag_pic);
+      strcat (str, ",");
       break;
 
     case SYMBOL_REF:
@@ -1698,13 +1697,13 @@ vmsdbgout_finish (const char *main_input_filename ATTRIBUTE_UNUSED)
     return;
 
   /* Output a terminator label for the .text section.  */
-  text_section ();
+  switch_to_section (text_section);
   targetm.asm_out.internal_label (asm_out_file, TEXT_END_LABEL, 0);
 
   /* Output debugging information.
      Warning! Do not change the name of the .vmsdebug section without
      changing it in the assembler also.  */
-  named_section (NULL_TREE, ".vmsdebug", 0);
+  switch_to_section (get_named_section (NULL, ".vmsdebug", 0));
   ASM_OUTPUT_ALIGN (asm_out_file, 0);
 
   totsize = write_modbeg (1);

@@ -1,9 +1,9 @@
 /*
- * "$Id: parallel.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: parallel.c 7810 2008-07-29 01:11:15Z mike $"
  *
  *   Parallel port backend for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -59,7 +59,8 @@
  */
 
 static void	list_devices(void);
-static void	side_cb(int print_fd, int device_fd, int use_bc);
+static void	side_cb(int print_fd, int device_fd, int snmp_fd,
+		        http_addr_t *addr, int use_bc);
 
 
 /*
@@ -146,7 +147,9 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
 
     if ((print_fd = open(argv[6], O_RDONLY)) < 0)
     {
-      perror("ERROR: unable to open print file");
+      _cupsLangPrintf(stderr,
+                      _("ERROR: Unable to open print file \"%s\": %s\n"),
+		      argv[6], strerror(errno));
       return (CUPS_BACKEND_FAILED);
     }
 
@@ -281,7 +284,7 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
       lseek(print_fd, 0, SEEK_SET);
     }
 
-    tbytes = backendRunLoop(print_fd, device_fd, use_bc, side_cb);
+    tbytes = backendRunLoop(print_fd, device_fd, -1, NULL, use_bc, side_cb);
 
     if (print_fd != 0 && tbytes >= 0)
       _cupsLangPrintf(stderr,
@@ -325,6 +328,7 @@ list_devices(void)
 	basedevice[255],	/* Base device filename for ports */
 	device_id[1024],	/* Device ID string */
 	make_model[1024],	/* Make and model */
+	info[1024],		/* Info string */
 	uri[1024];		/* Device URI */
 
 
@@ -356,10 +360,15 @@ list_devices(void)
       if (!backendGetDeviceID(fd, device_id, sizeof(device_id),
                               make_model, sizeof(make_model),
 			      NULL, uri, sizeof(uri)))
-	printf("direct %s \"%s\" \"%s LPT #%d\" \"%s\"\n", uri,
-	       make_model, make_model, i + 1, device_id);
+      {
+        snprintf(info, sizeof(info), "%s LPT #%d", make_model, i + 1);
+	cupsBackendReport("direct", uri, make_model, info, device_id, NULL);
+      }
       else
-	printf("direct %s \"Unknown\" \"LPT #%d\"\n", uri, i + 1);
+      {
+        snprintf(info, sizeof(info), "LPT #%d", i + 1);
+	cupsBackendReport("direct", uri, NULL, info, NULL, NULL);
+      }
 
       close(fd);
     }
@@ -561,7 +570,7 @@ list_devices(void)
       printf("direct parallel:%s \"Unknown\" \"Parallel Port #%d\"\n", device, i + 1);
     }
   }
-#elif defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__DragonFly__)
+#elif defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__DragonFly__) || defined(__FreeBSD_kernel__)
   int	i;			/* Looping var */
   int	fd;			/* File descriptor */
   char	device[255];		/* Device filename */
@@ -607,15 +616,20 @@ list_devices(void)
  */
 
 static void
-side_cb(int print_fd,			/* I - Print file */
-        int device_fd,			/* I - Device file */
-	int use_bc)			/* I - Using back-channel? */
+side_cb(int         print_fd,		/* I - Print file */
+        int         device_fd,		/* I - Device file */
+        int         snmp_fd,		/* I - SNMP socket (unused) */
+	http_addr_t *addr,		/* I - Device address (unused) */
+	int         use_bc)		/* I - Using back-channel? */
 {
   cups_sc_command_t	command;	/* Request command */
   cups_sc_status_t	status;		/* Request/response status */
   char			data[2048];	/* Request/response data */
   int			datalen;	/* Request/response data size */
 
+
+  (void)snmp_fd;
+  (void)addr;
 
   datalen = sizeof(data);
 
@@ -671,5 +685,5 @@ side_cb(int print_fd,			/* I - Print file */
 
 
 /*
- * End of "$Id: parallel.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: parallel.c 7810 2008-07-29 01:11:15Z mike $".
  */

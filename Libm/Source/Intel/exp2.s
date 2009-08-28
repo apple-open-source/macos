@@ -232,7 +232,7 @@ ENTRY( exp2 )
 	add			$64,				%edx
 	cmp			$0x011ff000,		%eax
 #endif
-	ja			3f
+	jae			3f
 
 1:											// Numbers between 1022 and 1024 are
 											// reflected back to here
@@ -334,7 +334,7 @@ ENTRY( exp2 )
 #if defined(__x86_64__)
 	cmp		REL_ADDR(huge_cut),		%rax	// if (|x| >= 1075 or isnan(x))
 #else
-	cmp			$0x120cc000,		%eax
+	cmp			$0x0120cc00,		%eax
 #endif
 	jae			7f							//   goto 7
 	

@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -225,10 +225,11 @@ APR_DECLARE(apr_status_t) apr_filepath_merge(char **newpath,
                     return APR_EABOVEROOT;
                 }
 
-                /* Otherwise append another backpath.
+                /* Otherwise append another backpath, including
+                 * trailing slash if present.
                  */
-                memcpy(path + pathlen, "../", 3);
-                pathlen += 3;
+                memcpy(path + pathlen, "../", *next ? 3 : 2);
+                pathlen += *next ? 3 : 2;
             }
             else {
                 /* otherwise crop the prior segment
@@ -304,7 +305,7 @@ APR_DECLARE(apr_status_t) apr_filepath_list_merge(char **liststr,
 
 APR_DECLARE(apr_status_t) apr_filepath_encoding(int *style, apr_pool_t *p)
 {
-#if APR_HAS_UNICODE_FS
+#if defined(DARWIN)
     *style = APR_FILEPATH_ENCODING_UTF8;
 #else
     *style = APR_FILEPATH_ENCODING_LOCALE;

@@ -1,26 +1,13 @@
-/* ruby.swg */
-/* Implementation : RUBY */
-#define SWIGRUBY 1
+#include <ruby.h>
 
-#include "ruby.h"
+/* Remove global macros defined in Ruby's win32.h */
+#ifdef write
+# undef write
+#endif
+#ifdef read
+# undef read
+#endif
 
-/* Flags for pointer conversion */
-#define SWIG_POINTER_EXCEPTION     0x1
-#define SWIG_POINTER_DISOWN        0x2
-
-#define NUM2USHRT(n) (\
-    (0 <= NUM2UINT(n) && NUM2UINT(n) <= USHRT_MAX)\
-    ? (unsigned short) NUM2UINT(n) \
-    : (rb_raise(rb_eArgError, "integer %d out of range of `unsigned short'",\
-               NUM2UINT(n)), (short)0)\
-)
-
-#define NUM2SHRT(n) (\
-    (SHRT_MIN <= NUM2INT(n) && NUM2INT(n) <= SHRT_MAX)\
-    ? (short)NUM2INT(n)\
-    : (rb_raise(rb_eArgError, "integer %d out of range of `short'",\
-               NUM2INT(n)), (short)0)\
-)
 
 /* Ruby 1.7 defines NUM2LL(), LL2NUM() and ULL2NUM() macros */
 #ifndef NUM2LL
@@ -41,6 +28,53 @@
 #define NUM2ULL(x) NUM2ULONG(x)
 #endif
 #endif
+
+/* RSTRING_LEN, etc are new in Ruby 1.9, but ->ptr and ->len no longer work */
+/* Define these for older versions so we can just write code the new way */
+#ifndef RSTRING_LEN
+# define RSTRING_LEN(x) RSTRING(x)->len
+#endif
+#ifndef RSTRING_PTR
+# define RSTRING_PTR(x) RSTRING(x)->ptr
+#endif
+#ifndef RSTRING_END
+# define RSTRING_END(x) (RSTRING_PTR(x) + RSTRING_LEN(x))
+#endif
+#ifndef RARRAY_LEN
+# define RARRAY_LEN(x) RARRAY(x)->len
+#endif
+#ifndef RARRAY_PTR
+# define RARRAY_PTR(x) RARRAY(x)->ptr
+#endif
+#ifndef RFLOAT_VALUE
+# define RFLOAT_VALUE(x) RFLOAT(x)->value
+#endif
+#ifndef DOUBLE2NUM
+# define DOUBLE2NUM(x) rb_float_new(x)
+#endif
+#ifndef RHASH_TBL
+# define RHASH_TBL(x) (RHASH(x)->tbl)
+#endif
+#ifndef RHASH_ITER_LEV
+# define RHASH_ITER_LEV(x) (RHASH(x)->iter_lev)
+#endif
+#ifndef RHASH_IFNONE
+# define RHASH_IFNONE(x) (RHASH(x)->ifnone)
+#endif
+#ifndef RHASH_SIZE
+# define RHASH_SIZE(x) (RHASH(x)->tbl->num_entries)
+#endif
+#ifndef RHASH_EMPTY_P
+# define RHASH_EMPTY_P(x) (RHASH_SIZE(x) == 0)
+#endif
+#ifndef RSTRUCT_LEN
+# define RSTRUCT_LEN(x) RSTRUCT(x)->len
+#endif
+#ifndef RSTRUCT_PTR
+# define RSTRUCT_PTR(x) RSTRUCT(x)->ptr
+#endif
+
+
 
 /*
  * Need to be very careful about how these macros are defined, especially
@@ -77,13 +111,6 @@
 #  define VOIDFUNC(f) (f)
 #endif
 
-typedef struct {
-  VALUE klass;
-  VALUE mImpl;
-  void  (*mark)(void *);
-  void  (*destroy)(void *);
-} swig_class;
-
 /* Don't use for expressions have side effect */
 #ifndef RB_STRING_VALUE
 #define RB_STRING_VALUE(s) (TYPE(s) == T_STRING ? (s) : (*(volatile VALUE *)&(s) = rb_str_to_str(s)))
@@ -92,10 +119,10 @@ typedef struct {
 #define StringValue(s) RB_STRING_VALUE(s)
 #endif
 #ifndef StringValuePtr
-#define StringValuePtr(s) RSTRING(RB_STRING_VALUE(s))->ptr
+#define StringValuePtr(s) RSTRING_PTR(RB_STRING_VALUE(s))
 #endif
 #ifndef StringValueLen
-#define StringValueLen(s) RSTRING(RB_STRING_VALUE(s))->len
+#define StringValueLen(s) RSTRING_LEN(RB_STRING_VALUE(s))
 #endif
 #ifndef SafeStringValue
 #define SafeStringValue(v) do {\
@@ -109,8 +136,4 @@ typedef struct {
 #define rb_undef_alloc_func(klass) rb_undef_method(CLASS_OF((klass)), "new")
 #endif
 
-/* Contract support */
-
-#define SWIG_contract_assert(expr, msg) if (!(expr)) { rb_raise(rb_eRuntimeError, (char *) msg ); } else
-
-
+static VALUE _mSWIG = Qnil;

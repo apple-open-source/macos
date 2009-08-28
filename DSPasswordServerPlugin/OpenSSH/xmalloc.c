@@ -61,7 +61,7 @@ xfree(void *ptr)
 char *
 xstrdup(const char *str)
 {
-	int len = strlen(str) + 1;
+	size_t len = strlen(str) + 1;
 
 	char *cp = xmalloc(len);
 	strlcpy(cp, str, len);

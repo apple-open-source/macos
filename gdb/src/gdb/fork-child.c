@@ -51,46 +51,7 @@ char *exec_pathname = NULL;
 
 extern char **environ;
 
-/* Break up SCRATCH into an argument vector suitable for passing to
-   execvp and store it in ARGV.  E.g., on "run a b c d" this routine
-   would get as input the string "a b c d", and as output it would
-   fill in ARGV with the four arguments "a", "b", "c", "d".  */
-
-static void
-breakup_args (char *scratch, char **argv)
-{
-  char *cp = scratch;
-
-  for (;;)
-    {
-      /* Scan past leading separators */
-      while (*cp == ' ' || *cp == '\t' || *cp == '\n')
-	cp++;
-
-      /* Break if at end of string.  */
-      if (*cp == '\0')
-	break;
-
-      /* Take an arg.  */
-      *argv++ = cp;
-
-      /* Scan for next arg separator */
-      while (!(*cp == '\0' || *cp == ' ' || *cp == '\t' || *cp == '\n'))
-	{
-	  cp++;
-	}
-
-      /* No separators => end of string => break */
-      if (*cp == '\0')
-	break;
-
-      /* Replace the separator with a terminator.  */
-      *cp++ = '\0';
-    }
-
-  /* Null-terminate the vector.  */
-  *argv = NULL;
-}
+/* APPLE LOCAL: I moved breakup_args from here to utils.c.  */
 
 /* When executing a command under the given shell, return non-zero if
    the '!' character should be escaped when embedded in a quoted
@@ -135,7 +96,7 @@ fork_inferior (char *exec_file_arg, char *allargs, char **env,
   static char default_shell_file[] = SHELL_FILE;
   int len;
   /* Set debug_fork then attach to the child while it sleeps, to debug. */
-  static int debug_fork = 1;
+  static int debug_fork = 0;
   /* This is set to the result of setpgrp, which if vforked, will be visible
      to you in the parent process.  It's only used by humans for debugging.  */
   static int debug_setpgrp = 657473;
@@ -169,10 +130,10 @@ fork_inferior (char *exec_file_arg, char *allargs, char **env,
   /* Multiplying the length of exec_file by 4 is to account for the
      fact that it may expand when quoted; it is a worst-case number
      based on every character being '.  */
-  /* APPLE LOCAL 5 = "exec ", but we have "exec arch -arch x86_64 " at most.
-     so 5->24.  */
+  /* APPLE LOCAL 5 = "exec ", but we have "exec /usr/bin/arch -arch x86_64 " 
+     at most.  so 5->33.  */
 #ifdef USE_ARCH_FOR_EXEC
-  len = 24;
+  len = 33;
 #else
   len = 5;
 #endif
@@ -206,19 +167,9 @@ fork_inferior (char *exec_file_arg, char *allargs, char **env,
 	argv[0] = exec_argv0;
       memcpy (&argv[1], argt, (i + 1) * sizeof (*argt));
       /* freeargv (argt); */
-
-#if 0
-      /* We're going to call execvp. Create argv */
-      /* Largest case: every other character is a separate arg */
-      argv = (char **) xmalloc (((strlen (allargs) + 1) / (unsigned) 2 + 2) * sizeof (*argv));
-      argv[0] = exec_file;
-      breakup_args (allargs, &argv[1]);
-#endif
     }
   else
     {
-      /* We're going to call a shell.  */
-
       /* We're going to call a shell */
 
       /* Now add exec_file, quoting as necessary.  */
@@ -227,6 +178,9 @@ fork_inferior (char *exec_file_arg, char *allargs, char **env,
       int need_to_quote;
       const int escape_bang = escape_bang_in_quoted_argument (shell_file);
 
+      /* APPLE LOCAL: Since the app we are exec'ing might be Universal, we need
+	 a way to specify the architecture we want to launch.  We use the
+	 "arch" command-line utility for that.  */
 #ifdef USE_ARCH_FOR_EXEC
       {
 	char *arch_string = NULL;
@@ -241,9 +195,14 @@ fork_inferior (char *exec_file_arg, char *allargs, char **env,
 	  arch_string = "i386";
 	else if (strcmp (osabi_name, "Darwin64") == 0)
 	  arch_string = "x86_64";
+#elif defined (TARGET_ARM)
+	if (strcmp (osabi_name, "Darwin") == 0)
+	  arch_string = "arm";
+	else if (strcmp (osabi_name, "DarwinV6") == 0)
+	  arch_string = "armv6";
 #endif
 	if (arch_string != NULL)
-	  sprintf (shell_command, "%s exec arch -arch %s ", shell_command, arch_string);
+	  sprintf (shell_command, "%s exec /usr/bin/arch -arch %s ", shell_command, arch_string);
 	else
 	  strcat (shell_command, "exec ");
       }
@@ -304,6 +263,16 @@ fork_inferior (char *exec_file_arg, char *allargs, char **env,
 
       strcat (shell_command, " ");
       strcat (shell_command, allargs);
+
+      /* APPLE LOCAL: There's no reason to use execlp for the shell
+	 case, and execve for the non-shell case.  Lets just build up
+	 an appropriate argv array and use it for both.  */
+      
+      argv = (char **) xmalloc (4 * sizeof (char *));
+      argv[0] = shell_file;
+      argv[1] = "-c";
+      argv[2] = shell_command;
+      argv[3] = NULL;
     }
 
   /* On some systems an exec will fail if the executable is open.  */
@@ -341,10 +310,18 @@ fork_inferior (char *exec_file_arg, char *allargs, char **env,
      state, this doesn't work.  Also note that the vfork(2) call might
      actually be a call to fork(2) due to the fact that autoconf will
      ``#define vfork fork'' on certain platforms.  */
+
+  /* APPLE LOCAL: I have to do some synchronization between the forked side
+     and the parent side, which doesn't work with vfork.  So I #if 0'ed out
+     all the vfork stuff.  */
+
+  pid = fork ();
+#if 0
   if (pre_trace_fun || debug_fork)
     pid = fork ();
   else
     pid = vfork ();
+#endif
 
   if (pid < 0)
     perror_with_name (("vfork"));
@@ -400,38 +377,38 @@ fork_inferior (char *exec_file_arg, char *allargs, char **env,
         <args>".  "-f" means "fast startup" to the c-shell, which
         means don't do .cshrc file. Doing .cshrc may cause fork/exec
         events which will confuse debugger start-up code.  */
-      if (shell)
-	{
-	  execlp (shell_file, shell_file, "-c", shell_command, (char *) 0);
 
-	  /* If we get here, it's an error.  */
-	  fprintf_unfiltered (gdb_stderr, "Cannot exec %s: %s.\n", shell_file,
-			      safe_strerror (errno));
-	  gdb_flush (gdb_stderr);
-	  _exit (0177);
-	}
-      else
+      /* APPLE LOCAL: I took out the code that was calling execlp,
+	 since there's no reason not to just use execvp.  That makes
+	 the code simpler since the shell ALSO might be universal, so
+	 we need to go through posix_spawn or we're going to have to
+	 deal with switching the architecture mid-startup.  */
 	{
 	  /* Otherwise, we directly exec the target program with
 	     execvp.  */
 	  int i;
 	  char *errstring;
+	  char *fileptr;
+
+	  if (shell)
+	    fileptr = shell_file;
+	  else
+	    {
+	      if (exec_pathname[0] != '\0')
+		fileptr = exec_pathname;
+	      else
+		fileptr = exec_file;
+	    }
 
 #ifdef USE_POSIX_SPAWN
 	  {
 	    posix_spawnattr_t attr;
 	    int retval;
 	    size_t copied;
-	    cpu_type_t cpu;
+	    cpu_type_t cpu = 0;
 	    int count = 0;
 	    pid_t pid;
 	    const char *osabi_name = gdbarch_osabi_name (gdbarch_osabi (current_gdbarch));
-	    char *fileptr;
-
-	    if (exec_pathname[0] != '\0')
-	      fileptr = exec_pathname;
-	    else
-	      fileptr = exec_file;
 
 #if defined (TARGET_POWERPC)
 	    if (strcmp (osabi_name, "Darwin") == 0)
@@ -453,6 +430,17 @@ fork_inferior (char *exec_file_arg, char *allargs, char **env,
 	    else if (strcmp (osabi_name, "Darwin64") == 0)
 	      {
 		cpu = CPU_TYPE_X86_64;
+		count = 1;
+	      }
+#elif define (TARGET_ARM)
+	    if (strcmp (osabi_name, "Darwin") == 0)
+	      {
+		cpu = CPU_TYPE_ARM;
+		count = 1;
+	      }
+	    else if (strcmp (osabi_name, "DarwinV6") == 0)
+	      {
+		cpu = CPU_TYPE_ARM;
 		count = 1;
 	      }
 #endif
@@ -488,14 +476,11 @@ fork_inferior (char *exec_file_arg, char *allargs, char **env,
 	  }
 #endif
 	try_execvp:
-	  if (exec_pathname[0] != '\0')
-	    execvp (exec_pathname, argv);
-	  else
-	    execvp (exec_file, argv);
+	  execvp (fileptr, argv);
 
 	  /* If we get here, it's an error.  */
 	  errstring = safe_strerror (errno);
-	  fprintf_unfiltered (gdb_stderr, "Cannot exec %s ", exec_file);
+	  fprintf_unfiltered (gdb_stderr, "Cannot exec %s ", fileptr);
 
 	  i = 1;
 	  while (argv[i] != NULL)
@@ -620,6 +605,13 @@ startup_inferior (int ntraps)
 
 	  if (--pending_execs == 0)
 	    break;
+
+	  /* APPLE LOCAL begin radar 5188345  */
+	  /* If inferior has exited, break out of loop  instead of
+	     attempting to resume it.  */
+	  if (PIDGET (inferior_ptid) == 0)
+	    break;
+	  /* APPLE LOCAL end radar 5188345  */
 
 	  resume (0, TARGET_SIGNAL_0);	/* Just make it go on.  */
 	}

@@ -1,9 +1,8 @@
 # See the file LICENSE for redistribution information
 #
-# Copyright (c) 2000-2003
-#       Sleepycat Software.  All rights reserved.
+# Copyright (c) 2000,2007 Oracle.  All rights reserved.
 #
-# $Id: logtrack.tcl,v 1.2 2004/03/30 01:24:07 jtownsen Exp $
+# $Id: logtrack.tcl,v 12.6 2007/05/17 15:15:55 bostic Exp $
 #
 # logtrack.tcl:  A collection of routines, formerly implemented in Perl
 # as log.pl, to track which log record types the test suite hits.
@@ -66,6 +65,7 @@ proc logtrack_read { dirname } {
 # seen and the log record types that were not seen but should have been seen.
 proc logtrack_summary { } {
 	global ltsname ltlist testdir
+	global one_test
 
 	set seendb [berkdb_open $ltsname]
 	error_check_good seendb_open [is_valid_db $seendb] TRUE
@@ -109,7 +109,11 @@ proc logtrack_summary { } {
 	    [is_valid_cursor [set ec [$existdb cursor]] $existdb] TRUE
 	while { [llength [set dbt [$ec get -next]]] != 0 } {
 		set rec [lindex [lindex $dbt 0] 0]
-		if { [$seendb count $rec] == 0 } {
+		if { [$seendb count $rec] == 0 && $one_test == "ALL" } {
+			if { $rec == "__db_pg_prepare" } {
+				puts "WARNING: log record type $rec can be\
+				    seen only on systems without FTRUNCATE."
+			}
 			puts "WARNING: log record type $rec: not tested"
 		}
 	}

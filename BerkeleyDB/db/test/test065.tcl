@@ -1,12 +1,12 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1999-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 1999,2007 Oracle.  All rights reserved.
 #
-# $Id: test065.tcl,v 1.2 2004/03/30 01:24:08 jtownsen Exp $
+# $Id: test065.tcl,v 12.5 2007/05/17 15:15:56 bostic Exp $
 #
 # TEST	test065
-# TEST	Test of DB->stat(DB_FASTSTAT)
+# TEST	Test of DB->stat, both -DB_FAST_STAT and row
+# TEST	counts with DB->stat -txn.
 proc test065 { method args } {
 	source ./include.tcl
 	global errorCode
@@ -91,6 +91,9 @@ proc test065 { method args } {
 		}
 		set ret [eval {$db put} $txn {$keypfx$ndx $data}]
 		error_check_good db_put $ret 0
+		set statret [eval {$db stat} $txn]
+		set rowcount [getstats $statret "Number of records"]
+		error_check_good rowcount $rowcount $ndx
 		if { $txnenv == 1 } {
 			error_check_good txn [$t commit] 0
 		}
@@ -113,8 +116,13 @@ proc test065 { method args } {
 			# have deleted 5000 and we'll croak!  So delete key
 			# 1, repeatedly.
 			set ret [eval {$db del} $txn {[concat $keypfx 1]}]
+			set statret [eval {$db stat} $txn]
+			set rowcount [getstats $statret "Number of records"]
+			error_check_good rowcount $rowcount [expr $nentries - $ndx]
 		} else {
 			set ret [eval {$db del} $txn {$keypfx$ndx}]
+			set rowcount [getstats $statret "Number of records"]
+			error_check_good rowcount $rowcount $nentries
 		}
 		error_check_good db_del $ret 0
 		if { $txnenv == 1 } {

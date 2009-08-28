@@ -42,14 +42,14 @@ AppleLVMStorageRequest * AppleLVMStorageRequest::withAppleRAIDSet(AppleRAIDSet *
 
 
 void AppleLVMStorageRequest::read(IOService *client, UInt64 byteStart, IOMemoryDescriptor *buffer,
-				  IOStorageCompletion completion)
+				  IOStorageAttributes *attributes, IOStorageCompletion *completion)
 {
     AppleRAIDMember		*member;
     IOStorageCompletion		storageCompletion;
     AppleRAIDMemoryDescriptor	*memoryDescriptor;
     
     srClient			= client;
-    srCompletion 		= completion;
+    srClientsCompletion 	= *completion;
     srCompletedCount		= 0;
     srMemoryDescriptor 		= buffer;
     srMemoryDescriptorDirection	= buffer->getDirection();
@@ -83,7 +83,7 @@ void AppleLVMStorageRequest::read(IOService *client, UInt64 byteStart, IOMemoryD
     UInt32 requestCountMax = srRAIDSet->getMaxRequestCount();
     srRequestCount = 0;
 
-    IOLogRW(" lvm read (%lu)  requestStart %llu requestSize %llu\n", srRequestCount, requestStart, requestSize);
+    IOLogRW(" lvm read (%u)  requestStart %llu requestSize %llu\n", (uint32_t)srRequestCount, requestStart, requestSize);
 
     while (requestSize && srRequestCount < requestCountMax) {
 
@@ -103,7 +103,7 @@ void AppleLVMStorageRequest::read(IOService *client, UInt64 byteStart, IOMemoryD
 	requestSize -= memoryDescriptor->getLength();
 	srRequestCount++;
 	
-	IOLogRW(" lvm read (%lu)  requestStart %llu requestSize %llu\n", srRequestCount, requestStart, requestSize);
+	IOLogRW(" lvm read (%u)  requestStart %llu requestSize %llu\n", (uint32_t)srRequestCount, requestStart, requestSize);
     }
 
     if (requestSize) {
@@ -112,8 +112,8 @@ void AppleLVMStorageRequest::read(IOService *client, UInt64 byteStart, IOMemoryD
 
 	    // XXX something went very wrong
 
-	    IOLog(" lvm read failed #1, srByteStart %llu srByteCount %llu srRequestCount %lu requestStart %llu requestSize %llu\n",
-		  srByteStart, srByteCount, srRequestCount, requestStart, requestSize);
+	    IOLog(" lvm read failed #1, srByteStart %llu srByteCount %llu srRequestCount %u requestStart %llu requestSize %llu\n",
+		  srByteStart, srByteCount, (uint32_t)srRequestCount, requestStart, requestSize);
 
 	    IOStorage::complete(completion, kIOReturnInternalError, 0);
 	    return;
@@ -122,8 +122,8 @@ void AppleLVMStorageRequest::read(IOService *client, UInt64 byteStart, IOMemoryD
 	// XXX set storageCompletion to reschedule more i/o;
 	// srBytesScheduled  ??
 
-	IOLog(" lvm read failed #2, srByteStart %llu srByteCount %llu srRequestCount %lu requestStart %llu requestSize %llu\n",
-	      srByteStart, srByteCount, srRequestCount, requestStart, requestSize);
+	IOLog(" lvm read failed #2, srByteStart %llu srByteCount %llu srRequestCount %u requestStart %llu requestSize %llu\n",
+	      srByteStart, srByteCount, (uint32_t)srRequestCount, requestStart, requestSize);
 
         IOStorage::complete(completion, kIOReturnInternalError, 0);
 	return;
@@ -143,7 +143,7 @@ void AppleLVMStorageRequest::read(IOService *client, UInt64 byteStart, IOMemoryD
 
 	if (member) {
 	    storageCompletion.parameter = memoryDescriptor;
-	    member->read(srRAIDSet, memoryDescriptor->mdMemberByteStart, memoryDescriptor, storageCompletion);
+	    member->read(srRAIDSet, memoryDescriptor->mdMemberByteStart, memoryDescriptor, attributes, &storageCompletion);
 	} else {
 	    srEventSource->completeRequest(memoryDescriptor, kIOReturnSuccess, 0);   // no bytes & no error in completion
 	}
@@ -154,15 +154,15 @@ void AppleLVMStorageRequest::read(IOService *client, UInt64 byteStart, IOMemoryD
 // XXX the read and write code is almost the same, could merge them together?
 
 
-void AppleLVMStorageRequest::write(IOService * client, UInt64 byteStart, IOMemoryDescriptor * buffer,
-				   IOStorageCompletion completion)
+void AppleLVMStorageRequest::write(IOService * client, UInt64 byteStart, IOMemoryDescriptor *buffer,
+				   IOStorageAttributes *attributes, IOStorageCompletion *completion)
 {
     AppleRAIDMember		*member;
     IOStorageCompletion		storageCompletion;
     AppleRAIDMemoryDescriptor	*memoryDescriptor;
     
     srClient			= client;
-    srCompletion 		= completion;
+    srClientsCompletion 	= *completion;
     srCompletedCount		= 0;
     srMemoryDescriptor 		= buffer;
     srMemoryDescriptorDirection	= buffer->getDirection();
@@ -196,7 +196,7 @@ void AppleLVMStorageRequest::write(IOService * client, UInt64 byteStart, IOMemor
     UInt32 requestCountMax = srRAIDSet->getMaxRequestCount();
     srRequestCount = 0;
 
-    IOLogRW(" lvm write (%lu) requestStart %llu requestSize %llu\n", srRequestCount, requestStart, requestSize);
+    IOLogRW(" lvm write (%u) requestStart %llu requestSize %llu\n", (uint32_t)srRequestCount, requestStart, requestSize);
     
     while (requestSize && srRequestCount < requestCountMax) {
 
@@ -216,7 +216,7 @@ void AppleLVMStorageRequest::write(IOService * client, UInt64 byteStart, IOMemor
 	requestSize -= memoryDescriptor->getLength();
 	srRequestCount++;
 
-	IOLogRW(" lvm write (%lu) requestStart %llu requestSize %llu\n", srRequestCount, requestStart, requestSize);
+	IOLogRW(" lvm write (%u) requestStart %llu requestSize %llu\n", (uint32_t)srRequestCount, requestStart, requestSize);
     }
 
     if (requestSize) {
@@ -225,8 +225,8 @@ void AppleLVMStorageRequest::write(IOService * client, UInt64 byteStart, IOMemor
 
 	    // XXX something went very wrong
 
-	    IOLog(" lvm write failed #1, srByteStart %llu srByteCount %llu srRequestCount %lu requestStart %llu requestSize %llu\n",
-		  srByteStart, srByteCount, srRequestCount, requestStart, requestSize);
+	    IOLog(" lvm write failed #1, srByteStart %llu srByteCount %llu srRequestCount %u requestStart %llu requestSize %llu\n",
+		  srByteStart, srByteCount, (uint32_t)srRequestCount, requestStart, requestSize);
 
 	    IOStorage::complete(completion, kIOReturnInternalError, 0);
 	    return;
@@ -235,8 +235,8 @@ void AppleLVMStorageRequest::write(IOService * client, UInt64 byteStart, IOMemor
 	// XXX set storageCompletion to reschedule more i/o;
 	// srBytesScheduled  ??
 
-	IOLog(" lvm write failed #2, srByteStart %llu srByteCount %llu srRequestCount %lu requestStart %llu requestSize %llu\n",
-	      srByteStart, srByteCount, srRequestCount, requestStart, requestSize);
+	IOLog(" lvm write failed #2, srByteStart %llu srByteCount %llu srRequestCount %u requestStart %llu requestSize %llu\n",
+	      srByteStart, srByteCount, (uint32_t)srRequestCount, requestStart, requestSize);
 
         IOStorage::complete(completion, kIOReturnInternalError, 0);
 	return;
@@ -258,7 +258,7 @@ void AppleLVMStorageRequest::write(IOService * client, UInt64 byteStart, IOMemor
 
 	if (member) {
 	    storageCompletion.parameter = memoryDescriptor;
-	    member->write(srRAIDSet, memoryDescriptor->mdMemberByteStart, memoryDescriptor, storageCompletion);
+	    member->write(srRAIDSet, memoryDescriptor->mdMemberByteStart, memoryDescriptor, attributes, &storageCompletion);
 	} else {
 	    srEventSource->completeRequest(memoryDescriptor, kIOReturnSuccess, 0);   // no bytes & no error in completion
 	}

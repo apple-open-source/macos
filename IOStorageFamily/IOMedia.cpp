@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,11 +28,9 @@
 #define super IOStorage
 OSDefineMetaClassAndStructors(IOMedia, IOStorage)
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
+#ifndef __LP64__
 extern IOStorageAttributes gIOStorageAttributesUnsupported;
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#endif /* !__LP64__ */
 
 enum
 {
@@ -40,8 +38,6 @@ enum
     kIOStorageAccessInvalid      = 0x0000000D,
     kIOStorageAccessReservedMask = 0xFFFFFFF0
 };
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 static UInt8 gIOMediaAccessTable[8][8] =
 {            /* Rea, Wri, R|S, W|S, R|E, W|E, Inv, Non */
@@ -54,8 +50,6 @@ static UInt8 gIOMediaAccessTable[8][8] =
     /* Inv */ { 006, 006, 006, 006, 006, 006, 006, 006 },
     /* Inv */ { 006, 006, 006, 006, 006, 006, 006, 006 }
 };
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 class IOMediaAccess
 {
@@ -103,8 +97,6 @@ public:
     }
 };
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 IOStorage * IOMedia::getProvider() const
 {
     //
@@ -115,8 +107,6 @@ IOStorage * IOMedia::getProvider() const
 
     return (IOStorage *) IOService::getProvider();
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 bool IOMedia::matchPropertyTable(OSDictionary * table, SInt32 * score)
 {
@@ -145,8 +135,7 @@ bool IOMedia::matchPropertyTable(OSDictionary * table, SInt32 * score)
            compareProperty(table, kIOMediaWritableKey          );
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
+#ifndef __LP64__
 bool IOMedia::init(UInt64         base,
                    UInt64         size,
                    UInt64         preferredBlockSize,
@@ -174,8 +163,7 @@ bool IOMedia::init(UInt64         base,
                  /* contentHint        */ contentHint,
                  /* properties         */ properties );
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#endif /* !__LP64__ */
 
 void IOMedia::free(void)
 {
@@ -187,8 +175,6 @@ void IOMedia::free(void)
 
     super::free();
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 bool IOMedia::attachToChild(IORegistryEntry *       client,
                             const IORegistryPlane * plane)
@@ -228,8 +214,6 @@ bool IOMedia::attachToChild(IORegistryEntry *       client,
 
     return true;
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 void IOMedia::detachFromChild(IORegistryEntry *       client,
                               const IORegistryPlane * plane)
@@ -276,8 +260,6 @@ void IOMedia::detachFromChild(IORegistryEntry *       client,
     super::detachFromChild(client, plane);
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 bool IOMedia::handleOpen(IOService *  client,
                          IOOptionBits options,
                          void *       argument)
@@ -307,6 +289,7 @@ bool IOMedia::handleOpen(IOService *  client,
     OSObject *      object;
     OSIterator *    objects;
     bool            rebuild;
+    bool            success;
     bool            teardown;
 
     //
@@ -320,9 +303,11 @@ bool IOMedia::handleOpen(IOService *  client,
     //
 
     access   = _openClients->getObject( ( OSSymbol * ) client );
-    accessIn = ( IOStorageAccess ) argument;
+    accessIn = ( uintptr_t ) argument;
+    driver   = 0;
 
     rebuild  = false;
+    success  = false;
     teardown = false;
 
     //
@@ -333,10 +318,10 @@ bool IOMedia::handleOpen(IOService *  client,
 
     if ( object == 0 )
     {
-        return false;
+        goto handleOpenErr;
     }
 
-    driver = getClientWithCategory( ( OSSymbol * ) object );
+    driver = copyClientWithCategory( ( OSSymbol * ) object );
 
     object->release( );
 
@@ -348,7 +333,7 @@ bool IOMedia::handleOpen(IOService *  client,
 
     if ( objects == 0 )
     {
-        return false;
+        goto handleOpenErr;
     }
 
     level = kIOStorageAccessNone;
@@ -371,14 +356,14 @@ bool IOMedia::handleOpen(IOService *  client,
 
     if ( level == kIOStorageAccessInvalid )
     {
-        return false;
+        goto handleOpenErr;
     }
 
     if ( ( accessIn & kIOStorageAccessWriter ) )
     {
         if ( _isWritable == false )
         {
-            return false;
+            goto handleOpenErr;
         }
 
         if ( ( accessIn & kIOStorageAccessSharedLock ) == false )
@@ -408,12 +393,12 @@ bool IOMedia::handleOpen(IOService *  client,
     {
         if ( access == kIOStorageAccessNone )
         {
-            return false;
+            goto handleOpenErr;
         }
 
         if ( ( accessIn & kIOStorageAccessWriter ) )
         {
-            return false;
+            goto handleOpenErr;
         }
     }
 
@@ -428,12 +413,12 @@ bool IOMedia::handleOpen(IOService *  client,
     {
         if ( _openClients->getObject( ( OSSymbol * ) driver ) )
         {
-            return false;
+            goto handleOpenErr;
         }
 
         if ( driver->terminate( kIOServiceSynchronous ) == false )
         {
-            return false;
+            goto handleOpenErr;
         }
     }
 
@@ -453,8 +438,6 @@ bool IOMedia::handleOpen(IOService *  client,
 
         if ( provider )
         {
-            bool success;
-
             success = provider->open( this, options, level );
 
             if ( success == false )
@@ -471,12 +454,14 @@ bool IOMedia::handleOpen(IOService *  client,
                     registerService( kIOServiceAsynchronous );
                 }
 
-                return false;
+                goto handleOpenErr;
             }
 
             setProperty( kIOMediaOpenKey, true );
         }
     }
+
+    success = true;
 
     //
     // Process the open.
@@ -516,10 +501,19 @@ bool IOMedia::handleOpen(IOService *  client,
         }
     }
 
-    return true;
-}
+handleOpenErr:
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    //
+    // Release our resources.
+    //
+
+    if ( driver )
+    {
+        driver->release( );
+    }
+
+    return success;
+}
 
 bool IOMedia::handleIsOpen(const IOService * client) const
 {
@@ -542,8 +536,6 @@ bool IOMedia::handleIsOpen(const IOService * client) const
         return _openClients->getCount( ) ? true : false;
     }
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 void IOMedia::handleClose(IOService * client, IOOptionBits options)
 {
@@ -575,6 +567,7 @@ void IOMedia::handleClose(IOService * client, IOOptionBits options)
     //
 
     access = _openClients->getObject( ( OSSymbol * ) client );
+    driver = 0;
 
     //
     // Determine whether one of our clients is a storage driver.
@@ -584,10 +577,10 @@ void IOMedia::handleClose(IOService * client, IOOptionBits options)
 
     if ( object == 0 )
     {
-        return;
+        goto handleCloseErr;
     }
 
-    driver = getClientWithCategory( ( OSSymbol * ) object );
+    driver = copyClientWithCategory( ( OSSymbol * ) object );
 
     object->release( );
 
@@ -599,7 +592,7 @@ void IOMedia::handleClose(IOService * client, IOOptionBits options)
 
     if ( objects == 0 )
     {
-        return;
+        goto handleCloseErr;
     }
 
     level = kIOStorageAccessNone;
@@ -677,9 +670,18 @@ void IOMedia::handleClose(IOService * client, IOOptionBits options)
             }
         }
     }
-}
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+handleCloseErr:
+
+    //
+    // Release our resources.
+    //
+
+    if ( driver )
+    {
+        driver->release( );
+    }
+}
 
 void IOMedia::read(IOService *           client,
                    UInt64                byteStart,
@@ -697,6 +699,7 @@ void IOMedia::read(IOService *           client,
     // This method will work even when the media is in the terminated state.
     //
 
+#ifndef __LP64__
     if (IOStorage::_expansionData)
     {
         if (attributes == &gIOStorageAttributesUnsupported)
@@ -709,6 +712,7 @@ void IOMedia::read(IOService *           client,
             return;
         }
     }
+#endif /* !__LP64__ */
 
     if (isInactive())
     {
@@ -744,8 +748,6 @@ void IOMedia::read(IOService *           client,
     getProvider()->read(this, byteStart, buffer, attributes, completion);
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 void IOMedia::write(IOService *           client,
                     UInt64                byteStart,
                     IOMemoryDescriptor *  buffer,
@@ -762,6 +764,7 @@ void IOMedia::write(IOService *           client,
     // This method will work even when the media is in the terminated state.
     //
 
+#ifndef __LP64__
     if (IOStorage::_expansionData)
     {
         if (attributes == &gIOStorageAttributesUnsupported)
@@ -774,6 +777,7 @@ void IOMedia::write(IOService *           client,
             return;
         }
     }
+#endif /* !__LP64__ */
 
     if (isInactive())
     {
@@ -789,10 +793,10 @@ void IOMedia::write(IOService *           client,
 
     if (_openLevel == kIOStorageAccessReader)  // (instantaneous value, no lock)
     {
-///m:2425148:workaround:commented:start
-//        complete(completion, kIOReturnNotPrivileged);
-//        return;
-///m:2425148:workaround:commented:stop
+#ifdef __LP64__
+        complete(completion, kIOReturnNotPrivileged);
+        return;
+#endif /* __LP64__ */
     }
 
     if (_isWritable == 0)
@@ -823,8 +827,6 @@ void IOMedia::write(IOService *           client,
     getProvider()->write(this, byteStart, buffer, attributes, completion);
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 IOReturn IOMedia::synchronizeCache(IOService * client)
 {
     //
@@ -843,9 +845,9 @@ IOReturn IOMedia::synchronizeCache(IOService * client)
 
     if (_openLevel == kIOStorageAccessReader)  // (instantaneous value, no lock)
     {
-///m:2425148:workaround:commented:start
-//        return kIOReturnNotPrivileged;
-///m:2425148:workaround:commented:stop
+#ifdef __LP64__
+        return kIOReturnNotPrivileged;
+#endif /* __LP64__ */
     }
 
     if (_isWritable == 0)
@@ -860,8 +862,6 @@ IOReturn IOMedia::synchronizeCache(IOService * client)
 
     return getProvider()->synchronizeCache(this);
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IOReturn IOMedia::discard(IOService * client,
                           UInt64      byteStart,
@@ -884,9 +884,9 @@ IOReturn IOMedia::discard(IOService * client,
 
     if (_openLevel == kIOStorageAccessReader)  // (instantaneous value, no lock)
     {
-///m:2425148:workaround:commented:start
-//        return kIOReturnNotPrivileged;
-///m:2425148:workaround:commented:stop
+#ifdef __LP64__
+        return kIOReturnNotPrivileged;
+#endif /* __LP64__ */
     }
 
     if (_isWritable == 0)
@@ -908,8 +908,6 @@ IOReturn IOMedia::discard(IOService * client,
     return getProvider()->discard(this, byteStart, byteCount);
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 UInt64 IOMedia::getPreferredBlockSize() const
 {
     //
@@ -920,8 +918,6 @@ UInt64 IOMedia::getPreferredBlockSize() const
     return _preferredBlockSize;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 UInt64 IOMedia::getSize() const
 {
     //
@@ -930,8 +926,6 @@ UInt64 IOMedia::getSize() const
 
     return _mediaSize;
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 UInt64 IOMedia::getBase() const
 {
@@ -943,8 +937,6 @@ UInt64 IOMedia::getBase() const
     return _mediaBase;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 bool IOMedia::isEjectable() const
 {
     //
@@ -953,8 +945,6 @@ bool IOMedia::isEjectable() const
 
     return (_attributes & kIOMediaAttributeEjectableMask) ? true : false;
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 bool IOMedia::isFormatted() const
 {
@@ -965,8 +955,6 @@ bool IOMedia::isFormatted() const
     return (_mediaSize && _preferredBlockSize);
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 bool IOMedia::isWritable() const
 {
     //
@@ -976,8 +964,6 @@ bool IOMedia::isWritable() const
     return _isWritable;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 bool IOMedia::isWhole() const
 {
     //
@@ -986,8 +972,6 @@ bool IOMedia::isWhole() const
 
     return _isWhole;
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 const char * IOMedia::getContent() const
 {
@@ -1012,8 +996,6 @@ const char * IOMedia::getContent() const
     return string->getCStringNoCopy();
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 const char * IOMedia::getContentHint() const
 {
     //
@@ -1030,8 +1012,6 @@ const char * IOMedia::getContentHint() const
     if (string == 0)  return "";
     return string->getCStringNoCopy();
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 bool IOMedia::init(UInt64               base,
                    UInt64               size,
@@ -1073,7 +1053,9 @@ bool IOMedia::init(UInt64               base,
     _isWritable         = isWritable;
     _preferredBlockSize = preferredBlockSize;
 
-///m:3879984:workaround:added:start
+#ifdef __LP64__
+    _mediaSize          = size;
+#else /* !__LP64__ */
     if (size > _mediaSize)
     {
         *((volatile UInt64 *) &_mediaSize) = (size & (UINT64_MAX ^ UINT32_MAX)) | (_mediaSize & UINT32_MAX);
@@ -1082,8 +1064,8 @@ bool IOMedia::init(UInt64               base,
     {
         *((volatile UInt64 *) &_mediaSize) = (size & UINT32_MAX) | (_mediaSize & (UINT64_MAX ^ UINT32_MAX));
     }
-///m:3879984:workaround:added:stop
     *((volatile UInt64 *) &_mediaSize) = size;
+#endif /* !__LP64__ */
 
     if (_openClients == 0)
     {
@@ -1104,10 +1086,16 @@ bool IOMedia::init(UInt64               base,
         object = (OSObject *) OSSymbol::withCString(kIOStorageCategory);
         if (object == 0)  return false;
 
-        driver = getClientWithCategory((OSSymbol *) object);
+        driver = copyClientWithCategory((OSSymbol *) object);
         object->release();
+        object = 0;
 
-        object = driver ? OSDynamicCast(OSString, driver->getProperty(kIOMediaContentMaskKey)) : 0;
+        if (driver)
+        {
+            object = OSDynamicCast(OSString, driver->getProperty(kIOMediaContentMaskKey));
+            driver->release();
+        }
+
         if (object == 0)  setProperty(kIOMediaContentKey, contentHint ? contentHint : "");
     }
 
@@ -1124,10 +1112,6 @@ bool IOMedia::init(UInt64               base,
     return true;
 }
 
-OSMetaClassDefineReservedUsed(IOMedia, 0);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 IOMediaAttributeMask IOMedia::getAttributes() const
 {
     //
@@ -1137,74 +1121,36 @@ IOMediaAttributeMask IOMedia::getAttributes() const
     return _attributes;
 }
 
-OSMetaClassDefineReservedUsed(IOMedia, 1);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOMedia, 2);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOMedia, 3);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOMedia, 4);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOMedia, 5);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOMedia, 6);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOMedia, 7);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOMedia, 8);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOMedia, 9);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
+#ifdef __LP64__
+OSMetaClassDefineReservedUnused(IOMedia,  0);
+OSMetaClassDefineReservedUnused(IOMedia,  1);
+#else /* !__LP64__ */
+OSMetaClassDefineReservedUsed(IOMedia,  0);
+OSMetaClassDefineReservedUsed(IOMedia,  1);
+#endif /* !__LP64__ */
+OSMetaClassDefineReservedUnused(IOMedia,  2);
+OSMetaClassDefineReservedUnused(IOMedia,  3);
+OSMetaClassDefineReservedUnused(IOMedia,  4);
+OSMetaClassDefineReservedUnused(IOMedia,  5);
+OSMetaClassDefineReservedUnused(IOMedia,  6);
+OSMetaClassDefineReservedUnused(IOMedia,  7);
+OSMetaClassDefineReservedUnused(IOMedia,  8);
+OSMetaClassDefineReservedUnused(IOMedia,  9);
 OSMetaClassDefineReservedUnused(IOMedia, 10);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOMedia, 11);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOMedia, 12);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOMedia, 13);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOMedia, 14);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOMedia, 15);
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
+#ifndef __LP64__
 extern "C" void _ZN7IOMedia4readEP9IOServiceyP18IOMemoryDescriptor19IOStorageCompletion( IOMedia * media, IOService * client, UInt64 byteStart, IOMemoryDescriptor * buffer, IOStorageCompletion completion )
 {
     media->read( client, byteStart, buffer, NULL, &completion );
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 extern "C" void _ZN7IOMedia5writeEP9IOServiceyP18IOMemoryDescriptor19IOStorageCompletion( IOMedia * media, IOService * client, UInt64 byteStart, IOMemoryDescriptor * buffer, IOStorageCompletion completion )
 {
     media->write( client, byteStart, buffer, NULL, &completion );
 }
+#endif /* !__LP64__ */

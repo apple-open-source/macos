@@ -447,9 +447,6 @@ struct yytbl_data *mkecstbl (void)
 		(flex_int32_t *) calloc (tbl->td_lolen, sizeof (flex_int32_t));
 
 	for (i = 1; i < csize; ++i) {
-		if (caseins && isupper (i))
-			ecgroup[i] = ecgroup[tolower (i)];
-
 		ecgroup[i] = ABS (ecgroup[i]);
 		tdata[i] = ecgroup[i];
 	}
@@ -471,9 +468,6 @@ void genecs ()
 	out_str_dec (get_int32_decl (), "yy_ec", csize);
 
 	for (i = 1; i < csize; ++i) {
-		if (caseins && (i >= 'A') && (i <= 'Z'))
-			ecgroup[i] = ecgroup[clower (i)];
-
 		ecgroup[i] = ABS (ecgroup[i]);
 		mkdata (ecgroup[i]);
 	}
@@ -512,7 +506,7 @@ void gen_find_action ()
 	else if (reject) {
 		indent_puts ("yy_current_state = *--YY_G(yy_state_ptr);");
 		indent_puts ("YY_G(yy_lp) = yy_accept[yy_current_state];");
-
+		outn ("goto find_rule; /* Shut up GCC warning -Wall */");
 		outn ("find_rule: /* we branch to this label when backing up */");
 
 		indent_puts
@@ -531,15 +525,15 @@ void gen_find_action ()
 		if (variable_trailing_context_rules) {
 			indent_puts
 				("if ( yy_act & YY_TRAILING_HEAD_MASK ||");
-			indent_puts ("     yy_looking_for_trail_begin )");
+			indent_puts ("     YY_G(yy_looking_for_trail_begin) )");
 			indent_up ();
 			indent_puts ("{");
 
 			indent_puts
-				("if ( yy_act == yy_looking_for_trail_begin )");
+				("if ( yy_act == YY_G(yy_looking_for_trail_begin) )");
 			indent_up ();
 			indent_puts ("{");
-			indent_puts ("yy_looking_for_trail_begin = 0;");
+			indent_puts ("YY_G(yy_looking_for_trail_begin) = 0;");
 			indent_puts ("yy_act &= ~YY_TRAILING_HEAD_MASK;");
 			indent_puts ("break;");
 			indent_puts ("}");
@@ -553,9 +547,9 @@ void gen_find_action ()
 			indent_up ();
 			indent_puts ("{");
 			indent_puts
-				("yy_looking_for_trail_begin = yy_act & ~YY_TRAILING_MASK;");
+				("YY_G(yy_looking_for_trail_begin) = yy_act & ~YY_TRAILING_MASK;");
 			indent_puts
-				("yy_looking_for_trail_begin |= YY_TRAILING_HEAD_MASK;");
+				("YY_G(yy_looking_for_trail_begin) |= YY_TRAILING_HEAD_MASK;");
 
 			if (real_reject) {
 				/* Remember matched text in case we back up
@@ -564,8 +558,8 @@ void gen_find_action ()
 				indent_puts
 					("YY_G(yy_full_match) = yy_cp;");
 				indent_puts
-					("yy_full_state = YY_G(yy_state_ptr);");
-				indent_puts ("yy_full_lp = YY_G(yy_lp);");
+					("YY_G(yy_full_state) = YY_G(yy_state_ptr);");
+				indent_puts ("YY_G(yy_full_lp) = YY_G(yy_lp);");
 			}
 
 			indent_puts ("}");
@@ -576,8 +570,8 @@ void gen_find_action ()
 			indent_puts ("{");
 			indent_puts ("YY_G(yy_full_match) = yy_cp;");
 			indent_puts
-				("yy_full_state = YY_G(yy_state_ptr);");
-			indent_puts ("yy_full_lp = YY_G(yy_lp);");
+				("YY_G(yy_full_state) = YY_G(yy_state_ptr);");
+			indent_puts ("YY_G(yy_full_lp) = YY_G(yy_lp);");
 			indent_puts ("break;");
 			indent_puts ("}");
 			indent_down ();
@@ -869,11 +863,11 @@ void gen_next_state (worry_about_NULs)
 
 	if (worry_about_NULs && !nultrans) {
 		if (useecs)
-			(void) sprintf (char_map,
+			snprintf (char_map, sizeof(char_map),
 					"(*yy_cp ? yy_ec[YY_SC_TO_UI(*yy_cp)] : %d)",
 					NUL_ec);
 		else
-			(void) sprintf (char_map,
+            snprintf (char_map, sizeof(char_map),
 					"(*yy_cp ? YY_SC_TO_UI(*yy_cp) : %d)",
 					NUL_ec);
 	}
@@ -980,7 +974,7 @@ void gen_NUL_trans ()
 	else {
 		char    NUL_ec_str[20];
 
-		(void) sprintf (NUL_ec_str, "%d", NUL_ec);
+		snprintf (NUL_ec_str, sizeof(NUL_ec_str), "%d", NUL_ec);
 		gen_next_compressed_state (NUL_ec_str);
 
 		do_indent ();
@@ -1770,7 +1764,7 @@ void make_tables ()
 		}
 
 		if (variable_trailing_context_rules) {
-			if (!C_plus_plus) {
+			if (!C_plus_plus && !reentrant) {
 				outn ("static int yy_looking_for_trail_begin = 0;");
 				outn ("static int yy_full_lp;");
 				outn ("static int *yy_full_state;");
@@ -1788,8 +1782,8 @@ void make_tables ()
 		outn ("yy_cp = YY_G(yy_full_match); /* restore poss. backed-over text */ \\");
 
 		if (variable_trailing_context_rules) {
-			outn ("YY_G(yy_lp) = yy_full_lp; /* restore orig. accepting pos. */ \\");
-			outn ("YY_G(yy_state_ptr) = yy_full_state; /* restore orig. state */ \\");
+			outn ("YY_G(yy_lp) = YY_G(yy_full_lp); /* restore orig. accepting pos. */ \\");
+			outn ("YY_G(yy_state_ptr) = YY_G(yy_full_state); /* restore orig. state */ \\");
 			outn ("yy_current_state = *YY_G(yy_state_ptr); /* restore curr. state */ \\");
 		}
 
@@ -1896,7 +1890,7 @@ void make_tables ()
 			outn ("\tif ( YY_CURRENT_BUFFER_LVALUE->yy_is_interactive ) \\");
 			outn ("\t\t{ \\");
 			outn ("\t\tint c = '*'; \\");
-			outn ("\t\tsize_t n; \\");
+			outn ("\t\tyy_size_t n; \\");
 			outn ("\t\tfor ( n = 0; n < max_size && \\");
 			outn ("\t\t\t     (c = getc( yyin )) != EOF && c != '\\n'; ++n ) \\");
 			outn ("\t\t\tbuf[n] = (char) c; \\");

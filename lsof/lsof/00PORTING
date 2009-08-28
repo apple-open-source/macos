@@ -917,6 +917,9 @@ possibilities
     HASLFS		indicates the *BSD dialect has log-structured
 			file system support.
 
+    HAS_LOCKF_ENTRY	indicates the FreeBSD version has a lockf_entry
+			structure in its <sys/lockf.h> header file.
+
     HAS_LWP_H		is defined for BSD dialects that have the
 			<sys/lwp.h> header file.
 
@@ -1177,6 +1180,11 @@ possibilities
     HASSTREAMS          enables/disables streams.  CAUTION, requires
 			specific support code in the dialect sources.
 
+    HAS_STRFTIME	indicates the dialect has the gmtime() and
+			strftime() C library functions that support
+			the -r marker format option.  Configure tests
+			for the functions and defines this symbol.
+
     HASSYSDC            enables the use of a system-wide device
 			cache file and defines its path.  See the
 			00DCACHE file of the lsof distribution for
@@ -1207,6 +1215,10 @@ possibilities
 			the receive and send window sizes reported
 			by netstat.
 
+    HASTCPUDPSTATE	is defined when the dialect has support for
+			TCP and UDP state, including the "-s p:s"
+			option and associated speed ehancements.
+
     HASTFS		indicates that the Pyramid dialect has TFS
 			file system support.
 
@@ -1236,6 +1248,10 @@ possibilities
 
     HAS_UW_NSC		indicates the UnixWare 7.1.1 or above dialect
 			has a NonStop Cluster (NSC) kernel.
+
+    HAS_V_LOCKF		indicates the FreeBSD version has a v_lockf
+			member in the vode structure, defined in
+			<sys/vnode.h>.
 
     HASVMLOCKH		indicates the FreeBSD dialect has <vm/lock.h>.
 
@@ -1292,6 +1308,9 @@ possibilities
     HASXOPT_ROOT        when defined, restricts the dialect-specific
 			X option to processes whose real user ID
 			is root.
+
+    HAS_ZFS		indicates the dialect has support for the ZFS file
+			system.
 
     HASXOPT_VALUE	defines the default binary value for the X option
 			in store.c.
@@ -1381,6 +1400,11 @@ possibilities
 			in the f_type member of the file struct, to
 			be processed by the HASPRIVFILETYPE function.
 			See the AIX dialect sources for an example.
+
+    _PSTAT_STREAM_GET_XPORT
+			indicates the HP-UX PSTAT header files require
+			this symbol to be defined for proper handling of
+			stream export data.
 
     TIMEVAL_LSOF        defines the name of the timeval structure.
 			The default is timeval.  /dev/kmem-based
@@ -1757,4 +1781,4 @@ keep in mind the private, one-man nature of current lsof support.
 
 
 Vic Abell <abe@purdue.edu>
-April 24, 2007
+October 23, 2008

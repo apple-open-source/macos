@@ -192,7 +192,7 @@ int retry_writev(int fd, struct iovec *iov, int iovcnt) {
 			return written;
 		}
 
-		n = writev(fd, iov, iovcnt > iov_max ? iov_max : iovcnt);
+		n = (int)writev(fd, iov, iovcnt > iov_max ? iov_max : iovcnt);
 
 		if (n == -1) {
 			if (errno == EINVAL && iov_max > 10) {
@@ -217,7 +217,7 @@ int retry_writev(int fd, struct iovec *iov, int iovcnt) {
 				break;
 			}
 
-			n -= iov[i].iov_len;
+			n -= (int)iov[i].iov_len;
 			iov[i].iov_len = 0;
 		}
 

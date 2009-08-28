@@ -3,7 +3,7 @@
   marshal.c -
 
   $Author: shyouhei $
-  $Date: 2008-06-18 15:21:30 +0900 (Wed, 18 Jun 2008) $
+  $Date: 2008-07-03 20:14:50 +0900 (Thu, 03 Jul 2008) $
   created at: Thu Apr 27 16:30:01 JST 1995
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -130,7 +130,7 @@ static void w_long _((long, struct dump_arg*));
 
 static void
 w_nbyte(s, n, arg)
-    char *s;
+    const char *s;
     int n;
     struct dump_arg *arg;
 {
@@ -153,7 +153,7 @@ w_byte(c, arg)
 
 static void
 w_bytes(s, n, arg)
-    char *s;
+    const char *s;
     int n;
     struct dump_arg *arg;
 {
@@ -338,7 +338,7 @@ w_symbol(id, arg)
     ID id;
     struct dump_arg *arg;
 {
-    char *sym = rb_id2name(id);
+    const char *sym = rb_id2name(id);
     st_data_t num;
 
     if (st_lookup(arg->symbols, id, &num)) {
@@ -354,7 +354,7 @@ w_symbol(id, arg)
 
 static void
 w_unique(s, arg)
-    char *s;
+    const char *s;
     struct dump_arg *arg;
 {
     if (s[0] == '#') {
@@ -381,7 +381,7 @@ w_extended(klass, arg, check)
     struct dump_arg *arg;
     int check;
 {
-    char *path;
+    const char *path;
 
     if (check && FL_TEST(klass, FL_SINGLETON)) {
 	if (RCLASS(klass)->m_tbl->num_entries ||
@@ -703,7 +703,7 @@ static VALUE
 dump_ensure(arg)
     struct dump_arg *arg;
 {
-    if (RBASIC(arg->str)->klass) return; /* ignore reentrant */
+    if (RBASIC(arg->str)->klass) return 0; /* ignore reentrant */
     st_free_table(arg->symbols);
     st_free_table(arg->data);
     if (arg->taint) {
@@ -948,7 +948,7 @@ r_symbol(arg)
     return r_symreal(arg);
 }
 
-static char*
+static const char*
 r_unique(arg)
     struct load_arg *arg;
 {
@@ -991,7 +991,7 @@ r_ivar(obj, arg)
 
 static VALUE
 path2class(path)
-    char *path;
+    const char *path;
 {
     VALUE v = rb_path2class(path);
 
@@ -1003,7 +1003,7 @@ path2class(path)
 
 static VALUE
 path2module(path)
-    char *path;
+    const char *path;
 {
     VALUE v = rb_path2class(path);
 
@@ -1218,9 +1218,6 @@ r_object0(arg, proc, ivp, extmod)
 
 	    klass = path2class(r_unique(arg));
 	    mem = rb_struct_s_members(klass);
-	    if (mem == Qnil) {
-		rb_raise(rb_eTypeError, "uninitialized struct");
-	    }
 	    len = r_long(arg);
 
 	    values = rb_ary_new2(len);
@@ -1391,7 +1388,7 @@ static VALUE
 load_ensure(arg)
     struct load_arg *arg;
 {
-    if (RBASIC(arg->data)->klass) return; /* ignore reentrant */
+    if (RBASIC(arg->data)->klass) return 0; /* ignore reentrant */
     st_free_table(arg->symbols);
     return 0;
 }

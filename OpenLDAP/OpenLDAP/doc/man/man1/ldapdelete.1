@@ -1,6 +1,6 @@
 .TH LDAPDELETE 1 "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man1/ldapdelete.1,v 1.38.2.4 2006/01/03 22:16:04 kurt Exp $
-.\" Copyright 1998-2006 The OpenLDAP Foundation All Rights Reserved.
+.\" $OpenLDAP: pkg/ldap/doc/man/man1/ldapdelete.1,v 1.42.2.5 2008/02/11 23:26:39 kurt Exp $
+.\" Copyright 1998-2008 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 ldapdelete \- LDAP delete entry tool
@@ -53,20 +53,22 @@ ldapdelete \- LDAP delete entry tool
 [\c
 .BI \-Y \ mech\fR]
 [\c
+.BI \-z \ sizelimit\fR]
+[\c
 .BR \-Z[Z] ]
 [\c
 .IR dn ]...
 .SH DESCRIPTION
 .I ldapdelete
 is a shell-accessible interface to the
-.BR ldap_delete (3)
+.BR ldap_delete_ext (3)
 library call.
 .LP
 .B ldapdelete
 opens a connection to an LDAP server, binds, and deletes one or more
 entries.  If one or more \fIDN\fP arguments are provided, entries with
 those Distinguished Names are deleted.  Each \fIDN\fP should be provided
-using the LDAPv3 string representation as defined in RFC 2253.
+using the LDAPv3 string representation as defined in RFC 4514.
 If no \fIdn\fP arguments
 are provided, a list of DNs is read from standard input (or from
 \fIfile\fP if the -f flag is used).
@@ -138,6 +140,11 @@ children, and all their children are deleted down the tree.  No
 verification is done, so if you add this switch, ldapdelete will
 happily delete large portions of your tree.  Use with care.
 .TP
+.BI \-z \ sizelimit
+Use \fIsizelimit\fP when searching for children DN to delete,
+to circumvent any server-side size limit.  Only useful in conjunction
+with \-r.
+.TP
 .BI \-O \ security-properties
 Specify SASL security properties.
 .TP
@@ -194,11 +201,8 @@ status and a diagnostic message being written to standard error.
 .BR ldapmodrdn (1),
 .BR ldapsearch (1),
 .BR ldap (3),
-.BR ldap_delete (3)
+.BR ldap_delete_ext (3)
 .SH AUTHOR
 The OpenLDAP Project <http://www.openldap.org/>
 .SH ACKNOWLEDGEMENTS
-.B OpenLDAP
-is developed and maintained by The OpenLDAP Project (http://www.openldap.org/).
-.B OpenLDAP
-is derived from University of Michigan LDAP 3.3 Release.  
+.so ../Project

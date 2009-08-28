@@ -1,6 +1,6 @@
 /* 
    Stupidly simple test framework
-   Copyright (C) 2001-2002, 2004, 2005, Joe Orton <joe@manyfish.co.uk>
+   Copyright (C) 2001-2002, 2004, 2005, 2007, Joe Orton <joe@manyfish.co.uk>
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -72,6 +72,8 @@ static const char *test_name; /* current test name */
 
 static int use_colour = 0;
 
+static int flag_child;
+
 /* resource for ANSI escape codes:
  * http://www.isthe.com/chongo/tech/comp/ansi_escapes.html */
 #define COL(x) do { if (use_colour) printf("\033[" x "m"); } while (0)
@@ -84,6 +86,9 @@ void t_context(const char *context, ...)
     va_start(ap, context);
     ne_vsnprintf(test_context, BUFSIZ, context, ap);
     va_end(ap);
+    if (flag_child) {
+        NE_DEBUG(NE_DBG_HTTP, "context: %s\n", test_context);
+    }
     have_context = 1;
 }
 
@@ -141,6 +146,7 @@ void in_child(void)
     NE_DEBUG(TEST_DEBUG, "**** Child forked for test %s ****\n", test_name);
     signal(SIGSEGV, child_segv);
     signal(SIGABRT, child_segv);
+    flag_child = 1;
 }
 
 int main(int argc, char *argv[])
@@ -160,9 +166,7 @@ int main(int argc, char *argv[])
     setlocale(LC_MESSAGES, "");
 #endif
 
-#if NE_VERSION_MAJOR > 0 || NE_VERSION_MINOR > 25
     ne_i18n_init(NULL);
-#endif
 
 #if defined(HAVE_ISATTY) && defined(STDOUT_FILENO)
     if (isatty(STDOUT_FILENO)) {

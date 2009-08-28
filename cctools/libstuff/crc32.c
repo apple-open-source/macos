@@ -55,6 +55,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
+#include <stdint.h>
 #include <sys/types.h>
 
 static const u_int32_t crctab[] = {
@@ -115,10 +116,10 @@ static const u_int32_t crctab[] = {
 #define	COMPUTE(var, ch)	(var) = (var) << 8 ^ crctab[(var) >> 24 ^ (ch)]
 
 __private_extern__
-unsigned long
+uint32_t
 crc32(
 const void *buf,
-unsigned int len)
+uint32_t len)
 {
 
     register const u_char *p;

@@ -229,7 +229,7 @@ enum
 //this is in fc2 right now
 //#define kOHCIDefaultInterrupts		(kOHCIHcInterrupt_WDH | kOHCIHcInterrupt_UE | kOHCIHcInterrupt_FNO)
 
-#define kOHCIDefaultInterrupts		(kOHCIHcInterrupt_WDH | kOHCIHcInterrupt_RD | kOHCIHcInterrupt_UE | kOHCIHcInterrupt_FNO | kOHCIHcInterrupt_SO)
+#define kOHCIDefaultInterrupts		(kOHCIHcInterrupt_WDH | kOHCIHcInterrupt_RD | kOHCIHcInterrupt_UE | kOHCIHcInterrupt_FNO | kOHCIHcInterrupt_SO | kOHCIHcInterrupt_RHSC)
 
 
 // hcFmInterval register defs.
@@ -479,29 +479,29 @@ enum {
 
 struct OHCIEndpointDescriptorShared
 {
-    UInt32				flags;			// 0x00 control
-    USBPhysicalAddress32			tdQueueTailPtr;		// 0x04 pointer to last TD (physical address)
-    USBPhysicalAddress32			tdQueueHeadPtr;		// 0x08 pointer to first TD (physical)
-    USBPhysicalAddress32			nextED;			// 0x0c Pointer to next ED (physical)
-};								// 0x10 length of structure
+    volatile uint32_t						flags;				// 0x00 control
+    volatile USBPhysicalAddress32			tdQueueTailPtr;		// 0x04 pointer to last TD (physical address)
+    volatile USBPhysicalAddress32			tdQueueHeadPtr;		// 0x08 pointer to first TD (physical)
+    volatile USBPhysicalAddress32			nextED;				// 0x0c Pointer to next ED (physical)
+};																// 0x10 length of structure
 
 struct OHCIGeneralTransferDescriptorShared
 {
-    volatile UInt32			ohciFlags;		// 0x00 Data controlling transfer.
-    volatile USBPhysicalAddress32		currentBufferPtr;	// 0x04 Current buffer pointer (physical)
-    volatile USBPhysicalAddress32		nextTD;			// 0x08 Pointer to next transfer descriptor
-    USBPhysicalAddress32			bufferEnd;		// 0x0c Pointer to end of buffer (physical)
-};								// 0x10 total length
+    volatile uint32_t						ohciFlags;			// 0x00 Data controlling transfer.
+    volatile USBPhysicalAddress32			currentBufferPtr;	// 0x04 Current buffer pointer (physical)
+    volatile USBPhysicalAddress32			nextTD;				// 0x08 Pointer to next transfer descriptor
+    volatile USBPhysicalAddress32			bufferEnd;			// 0x0c Pointer to end of buffer (physical)
+};																// 0x10 total length
 
 
 struct OHCIIsochTransferDescriptorShared
 {
-    UInt32				flags;		// 0x00 Condition code/FrameCount/DelayInterrrupt/StartingFrame.
-    USBPhysicalAddress32			bufferPage0;	// 0x04 Buffer Page 0 (physical)
-    USBPhysicalAddress32			nextTD;		// 0x08 Pointer to next transfer descriptor (physical)
-    USBPhysicalAddress32			bufferEnd;	// 0x0c Pointer to end of buffer (physical)
-    UInt16				offset[8];	// 0x10
-};							// 0x20 total length
+    volatile uint32_t						flags;			// 0x00 Condition code/FrameCount/DelayInterrrupt/StartingFrame.
+    volatile USBPhysicalAddress32			bufferPage0;	// 0x04 Buffer Page 0 (physical)
+    volatile USBPhysicalAddress32			nextTD;			// 0x08 Pointer to next transfer descriptor (physical)
+    volatile USBPhysicalAddress32			bufferEnd;		// 0x0c Pointer to end of buffer (physical)
+    UInt16									offset[8];		// 0x10
+};															// 0x20 total length
 
 #define kOHCIPageOffsetMask	( kOHCIPageSize - 1 )		// mask off just the offset bits (low 12)
 #define kOHCIPageMask 		(~(kOHCIPageOffsetMask))	// mask off just the page number (high 20)

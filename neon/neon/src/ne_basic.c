@@ -1,6 +1,6 @@
 /* 
    Basic HTTP and WebDAV methods
-   Copyright (C) 1999-2006, Joe Orton <joe@manyfish.co.uk>
+   Copyright (C) 1999-2008, Joe Orton <joe@manyfish.co.uk>
 
    This library is free software; you can redistribute it and/or
    modify it under the terms of the GNU Library General Public
@@ -63,8 +63,12 @@ int ne_getmodtime(ne_session *sess, const char *uri, time_t *modtime)
     if (ret == NE_OK && ne_get_status(req)->klass != 2) {
 	*modtime = -1;
 	ret = NE_ERROR;
-    } else if (value) {
+    } 
+    else if (value) {
         *modtime = ne_httpdate_parse(value);
+    }
+    else {
+        *modtime = -1;
     }
 
     ne_request_destroy(req);
@@ -103,11 +107,7 @@ int ne_put(ne_session *sess, const char *uri, int fd)
     ne_lock_using_parent(req, uri);
 #endif
 
-#ifdef NE_LFS
-    ne_set_request_body_fd64(req, fd, 0, st.st_size);
-#else
     ne_set_request_body_fd(req, fd, 0, st.st_size);
-#endif
 	
     ret = ne_request_dispatch(req);
     
@@ -145,7 +145,7 @@ static int dispatch_to_fd(ne_request *req, int fd, const char *range)
         if (range && st->code == 206 
             && (value == NULL || strncmp(value, "bytes ", 6) != 0
                 || strncmp(range + 6, value + 6, rlen)
-                || value[6 + rlen] != '/')) {
+                || (range[5 + rlen] != '-' && value[6 + rlen] != '/'))) {
             ne_set_error(sess, _("Response did not include requested range"));
             return NE_ERROR;
         }
@@ -185,7 +185,7 @@ static int get_range_common(ne_session *sess, const char *uri,
     }
     else if (ret == NE_OK) {
 	if (status->klass == 2 && status->code != 206) {
-	    ne_set_error(sess, _("Resource does not support ranged GETs."));
+	    ne_set_error(sess, _("Resource does not support ranged GET requests"));
 	    ret = NE_ERROR;
 	}
 	else if (status->klass != 2) {
@@ -204,37 +204,17 @@ int ne_get_range(ne_session *sess, const char *uri,
     char brange[64];
 
     if (range->end == -1) {
-        ne_snprintf(brange, sizeof brange, "bytes=%" NE_FMT_OFF_T "-", 
+        ne_snprintf(brange, sizeof brange, "bytes=%" FMT_NE_OFF_T "-", 
                     range->start);
     }
     else {
 	ne_snprintf(brange, sizeof brange,
-                    "bytes=%" NE_FMT_OFF_T "-%" NE_FMT_OFF_T,
+                    "bytes=%" FMT_NE_OFF_T "-%" FMT_NE_OFF_T,
                     range->start, range->end);
     }
 
     return get_range_common(sess, uri, brange, fd);
 }
-
-#ifdef NE_LFS
-int ne_get_range64(ne_session *sess, const char *uri, 
-                   ne_content_range64 *range, int fd)
-{
-    char brange[64];
-
-    if (range->end == -1) {
-        ne_snprintf(brange, sizeof brange, "bytes=%" NE_FMT_OFF64_T "-", 
-                    range->start);
-    }
-    else {
-	ne_snprintf(brange, sizeof brange,
-                    "bytes=%" NE_FMT_OFF64_T "-%" NE_FMT_OFF64_T,
-                    range->start, range->end);
-    }
-
-    return get_range_common(sess, uri, brange, fd);
-}
-#endif
 
 /* Get to given fd */
 int ne_get(ne_session *sess, const char *uri, int fd)
@@ -327,29 +307,52 @@ int ne_get_content_type(ne_request *req, ne_content_type *ct)
     return 0;
 }
 
-static void parse_dav_header(const char *value, ne_server_capabilities *caps)
+static const struct options_map {
+    const char *name;
+    unsigned int cap;
+} options_map[] = {
+    { "1", NE_CAP_DAV_CLASS1 },
+    { "2", NE_CAP_DAV_CLASS2 },
+    { "3", NE_CAP_DAV_CLASS3 },
+    { "<http://apache.org/dav/propset/fs/1>", NE_CAP_MODDAV_EXEC },
+    { "access-control", NE_CAP_DAV_ACL },
+    { "version-control", NE_CAP_VER_CONTROL },
+    { "checkout-in-place", NE_CAP_CO_IN_PLACE },
+    { "version-history", NE_CAP_VER_HISTORY },
+    { "workspace", NE_CAP_WORKSPACE },
+    { "update", NE_CAP_UPDATE },
+    { "label", NE_CAP_LABEL },
+    { "working-resource", NE_CAP_WORK_RESOURCE },
+    { "merge", NE_CAP_MERGE },
+    { "baseline", NE_CAP_BASELINE },
+    { "version-controlled-collection", NE_CAP_VC_COLLECTION }
+};
+
+static void parse_dav_header(const char *value, unsigned int *caps)
 {
     char *tokens = ne_strdup(value), *pnt = tokens;
     
-    do {
-	char *tok = ne_qtoken(&pnt, ',',  "\"'");
-	if (!tok) break;
-	
-	tok = ne_shave(tok, " \r\t\n");
+    *caps = 0;
 
-	if (strcmp(tok, "1") == 0) {
-	    caps->dav_class1 = 1;
-	} else if (strcmp(tok, "2") == 0) {
-	    caps->dav_class2 = 1;
-	} else if (strcmp(tok, "<http://apache.org/dav/propset/fs/1>") == 0) {
-	    caps->dav_executable = 1;
-	}
+    do {
+        char *tok = ne_qtoken(&pnt, ',',  "\"'");
+        unsigned n;
+
+        if (!tok) break;
+        
+        tok = ne_shave(tok, " \r\t\n");
+
+        for (n = 0; n < sizeof(options_map)/sizeof(options_map[0]); n++) {
+            if (strcmp(tok, options_map[n].name) == 0) {
+                *caps |= options_map[n].cap;
+            }
+        }
     } while (pnt != NULL);
     
     ne_free(tokens);
 }
 
-int ne_options(ne_session *sess, const char *uri, ne_server_capabilities *caps)
+int ne_options2(ne_session *sess, const char *uri, unsigned int *caps)
 {
     ne_request *req = ne_request_create(sess, "OPTIONS", uri);
     int ret = ne_request_dispatch(req);
@@ -363,6 +366,23 @@ int ne_options(ne_session *sess, const char *uri, ne_server_capabilities *caps)
     
     ne_request_destroy(req);
 
+    return ret;
+}
+
+int ne_options(ne_session *sess, const char *path,
+               ne_server_capabilities *caps)
+{
+    int ret;
+    unsigned int capmask = 0;
+    
+    memset(caps, 0, sizeof *caps);
+
+    ret = ne_options2(sess, path, &capmask);
+
+    caps->dav_class1 = capmask & NE_CAP_DAV_CLASS1 ? 1 : 0;
+    caps->dav_class2 = capmask & NE_CAP_DAV_CLASS2 ? 1 : 0;
+    caps->dav_executable = capmask & NE_CAP_MODDAV_EXEC ? 1 : 0;
+    
     return ret;
 }
 
@@ -404,9 +424,14 @@ static int copy_or_move(ne_session *sess, int is_move, int overwrite,
     ne_lock_using_parent(req, dest);
 #endif
 
-    ne_print_request_header(req, "Destination", "%s://%s%s", 
-			      ne_get_scheme(sess), 
-			      ne_get_server_hostport(sess), dest);
+    if (ne_get_session_flag(sess, NE_SESSFLAG_RFC4918)) {
+        ne_add_request_header(req, "Destination", dest);
+    }
+    else {
+        ne_print_request_header(req, "Destination", "%s://%s%s", 
+                                ne_get_scheme(sess), 
+                                ne_get_server_hostport(sess), dest);
+    }
     
     ne_add_request_header(req, "Overwrite", overwrite?"T":"F");
 

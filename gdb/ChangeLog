@@ -1,3 +1,182 @@
+2009-06-16  Caroline Tice <ctice@apple.com>
+
+	* Makefile:  Add -D_DARWIN_UNLIMITED_STREAMS to CDEBUGFLAGS, to
+	allow more than 256 streams to be open at a time.
+	
+2009-04-07  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile: Only add -Wno-error=deprecated-declarations to CFLAGS
+	on specific OS releases; some compilers don't recognize the flag.
+
+2009-02-23  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.sh: Print --help messages to stdout not stderr to match
+	gdb's behavior.
+
+2008-11-17  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.sh: Tighten up pattern matching for core files.
+
+2008-11-06  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile (install-macosx): Call install-chmod-macosx-noprocmod
+	unconditionally - build everything without setgid procmod.
+	(install): Ditto.
+
+2008-09-17  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.sh: Get the executable name of the translate binary via
+	a sysctl instead of hardcoding.  Fall back on the hardcoded
+	value if necessary.
+
+2008-08-29  Greg Clayton  <gclayton@apple.com>
+
+	* gdb.sh: Only specify an arch to gdb when we have a core file.
+
+2008-08-29  Greg Clayton  <gclayton@apple.com>
+
+	* gdb.sh: Only specify an arch to gdb when we need to.
+
+2008-08-20  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.sh: Recognize the file(1) output for an x86_64 core file.
+	Rename "requested_architecture" to "requested_arch" and 
+	"host_architecture" to "host_arch".
+	Add code, commented out currently, to tell if the current system is
+	an x86_64 capable one and set host_arch to that.
+	Handle cases where a host_arch of x86_64 would have caused problems.
+
+2008-08-20  Greg Clayton  <gclayton@apple.com>
+
+	* gdb.sh: Always specify an arch to gdb when the gdb binary can
+	handle 32 and 64 bit variants. And fixed the code that detected
+	that $GDB_ROOT was "/".
+
+2008-08-20  Greg Clayton  <gclayton@apple.com>
+
+	* gdb.sh: Modified the startup script to ignore all options when
+	auto-detecting and launching the correct gdb, and preferring the
+	core file over the executable.
+
+2008-08-15  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.sh: Back out Greg's change for a little more refining.
+
+2008-08-14  Greg Clayton  <gclayton@apple.com>
+
+	* gdb.sh: Added support for auto-detecting an executable's architecture
+	and launching the correct gdb.
+
+2008-08-07  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile: This will be run with RC_ARCHS set to i386 ppc x86_64 --
+	handle all three being specified instead if implicitly building x86_64.
+	* template.h: Update to handle x86_64, arm.
+
+2008-07-28  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile (CFLAGS): Add  -Werror-implicit-function-declaration.
+
+2008-07-25  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile (build-gdb): Build the cross gdb's first (e.g. i386 x ppc) 
+	because those are the ones that fail to build the most often so let's 
+	do them up front.
+
+2008-07-25  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile: Also build an x86_64 x ppc gdb so we've got both binaries
+	3-way fat.
+	Only do the installhdrs for ppc native and i386 native; not for each of
+	the six gdb combos we're building now when -arch ppc -arch i386 is used.
+
+2008-07-25  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile: Change up the Makefile to build x86_64 when we're building
+	i386, various small changes/cleanups.
+
+2008-06-06  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile: A few initial additions to recognize x86_64 architecture.
+	More changes may be needed but this gets the configure going.
+
+2008-05-23  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile (CDEBUGFLAGS): Add -fasynchronous-unwind-tables.
+
+2008-05-22  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile (CFLAGS): Add -Wno-error=deprecated-declarations so
+	we don't get binutils failing to build because of stat64 deprectation
+	warnings and -Werror.
+
+2008-05-20  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.sh: Remove the code to invoke the gdb-for-codewarrior binary.
+	Update --help text.
+
+2008-05-13  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile: No more libcheckpoint.
+	* libcheckpoint/*: Removed.
+
+2008-04-24  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile: Unset MACOSX_DEPLOYMENT_TARGET when building
+	an arm-native gdb on an i386/ppc system.
+
+2008-04-23  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.sh: Issue error message if -arch command line option isn't
+	followed by an architecture.
+
+2008-03-26  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile (CDEBUGFLAGS): Add -Os back by default.
+
+2008-03-25  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile: Don't make the native-arm or cross-arm gdbs
+	setgid procmod.
+
+2008-03-24  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.sh: Set OSABIOPTS when the user specifies armv6; use it when
+	invoking gdb.
+
+2007-11-07  Greg Clayton  <gclayton@apple.com>
+
+        *Makefile: Changed CROSS_ROOT to SDKROOT for cross and crossarm
+        targets.
+
+2007-07-24  Greg Clayton  <gclayton@apple.com>
+
+        *Makefile: CROSS_ROOT is now used to specify the SDK location
+        for cross builds.
+
+2007-06-27  Greg Clayton  <gclayton@apple.com>
+
+        * gdb.sh: Handle arm and armv6 arch variants.
+        * Makefile: Ditto.
+        (CDEBUGFLAGS): Define default value only if not already defined.
+        (crossarm): New target.
+        (cross): New target.
+        (stamp-build-gdb): Configure and build gdbserver when target 
+        is arm darwin.
+        (install-gdbserver): New target.
+        (check-args): Add arm/armv6 darwin support.
+        (install-macosx): Install gdbserver when target is arm darwin.
+        
+2007-12-05  Jim Ingham  <jingham@apple.com>
+
+	* Makefile: Remove -Wno-long-double from Makefile, it is not supported
+	by gcc-4.2.
+	
+2007-10-12  Greg Clayton  (gclayton@apple.com)
+
+	* Makefile (GDB_RC_VERSION): Bump Leopard gdb version up to gdb-900
+	to leave a hole for other gdb builds.
+
 2007-07-10  Jason Molenda  (jmolenda@apple.com)
 
 	* Makefile (GDB_RC_VERSION): Bump Leopard gdb version up to gdb-750

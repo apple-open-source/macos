@@ -1,27 +1,4 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/*
  * Copyright (c) 1983, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -54,19 +31,55 @@
  * SUCH DAMAGE.
  */
 
-#include <errno.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <stdio.h>
+#ifndef lint
+static const char copyright[] =
+"@(#) Copyright (c) 1983, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
+#endif /* not lint */
+
+#if 0
+#ifndef lint
+static char sccsid[] = "@(#)logger.c	8.1 (Berkeley) 6/6/93";
+#endif /* not lint */
+#endif
+
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/logger/logger.c,v 1.17 2008/02/05 17:34:44 obrien Exp $");
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+
 #include <ctype.h>
+#include <err.h>
+#include <netdb.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #define	SYSLOG_NAMES
 #include <syslog.h>
 
-int	decode __P((char *, CODE *));
-int	pencode __P((char *));
-void	usage __P((void));
+int	decode(char *, CODE *);
+int	pencode(char *);
+#ifndef __APPLE__
+static void	logmessage(int, const char *, const char *, const char *);
+#endif
+static void	usage(void);
+
+struct socks {
+    int sock;
+    int addrlen;
+    struct sockaddr_storage addr;
+};
+
+#ifdef INET6
+int	family = PF_UNSPEC;	/* protocol family (IPv4, IPv6 or both) */
+#else
+int	family = PF_INET;	/* protocol family (IPv4 only) */
+#endif
+int	send_to_all = 0;	/* send message to all IPv4/IPv6 addresses */
 
 /*
  * logger -- read and log utility
@@ -75,28 +88,54 @@ void	usage __P((void));
  *	log.
  */
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
 	int ch, logflags, pri;
-	char *tag, buf[1024];
+	char *tag, *host, buf[1024];
+	const char *svcname;
 
 	tag = NULL;
-	pri = LOG_NOTICE;
+	host = NULL;
+	svcname = "syslog";
+	pri = LOG_USER | LOG_NOTICE;
 	logflags = 0;
+	unsetenv("TZ");
+#ifdef __APPLE__
 	while ((ch = getopt(argc, argv, "f:ip:st:")) != -1)
+#else
+	while ((ch = getopt(argc, argv, "46Af:h:iP:p:st:")) != -1)
+#endif
 		switch((char)ch) {
-		case 'f':		/* file to log */
-			if (freopen(optarg, "r", stdin) == NULL) {
-				(void)fprintf(stderr, "logger: %s: %s.\n",
-				    optarg, strerror(errno));
-				exit(1);
-			}
+#ifndef __APPLE__
+		case '4':
+			family = PF_INET;
 			break;
+#ifdef INET6
+		case '6':
+			family = PF_INET6;
+			break;
+#endif
+		case 'A':
+			send_to_all++;
+			break;
+#endif /* __APPLE__ */
+		case 'f':		/* file to log */
+			if (freopen(optarg, "r", stdin) == NULL)
+				err(1, "%s", optarg);
+			break;
+#ifndef __APPLE__
+		case 'h':		/* hostname to deliver to */
+			host = optarg;
+			break;
+#endif /* __APPLE__ */
 		case 'i':		/* log process id also */
 			logflags |= LOG_PID;
 			break;
+#ifndef __APPLE__
+		case 'P':		/* service name or port number */
+			svcname = optarg;
+			break;
+#endif /* __APPLE__ */
 		case 'p':		/* priority */
 			pri = pencode(optarg);
 			break;
@@ -119,17 +158,25 @@ main(argc, argv)
 
 	/* log input line if appropriate */
 	if (argc > 0) {
-		register char *p, *endp;
-		int len;
+		char *p, *endp;
+		size_t len;
 
 		for (p = buf, endp = buf + sizeof(buf) - 2; *argv;) {
 			len = strlen(*argv);
 			if (p + len > endp && p > buf) {
+#ifdef __APPLE__
 				syslog(pri, "%s", buf);
+#else
+				logmessage(pri, host, svcname, buf);
+#endif
 				p = buf;
 			}
 			if (len > sizeof(buf) - 1)
+#ifdef __APPLE__
 				syslog(pri, "%s", *argv++);
+#else
+				logmessage(pri, host, svcname, *argv++);
+#endif
 			else {
 				if (p != buf)
 					*p++ = ' ';
@@ -138,19 +185,97 @@ main(argc, argv)
 			}
 		}
 		if (p != buf)
+#ifdef __APPLE__
 			syslog(pri, "%s", buf);
+#else
+			logmessage(pri, host, svcname, buf);
+#endif
 	} else
 		while (fgets(buf, sizeof(buf), stdin) != NULL)
+#ifdef __APPLE__
 			syslog(pri, "%s", buf);
+#else
+			logmessage(pri, host, svcname, buf);
+#endif
 	exit(0);
 }
+
+#ifndef __APPLE__
+/*
+ *  Send the message to syslog, either on the local host, or on a remote host
+ */
+void
+logmessage(int pri, const char *host, const char *svcname, const char *buf)
+{
+	static struct socks *socks;
+	static int nsock = 0;
+	struct addrinfo hints, *res, *r;
+	char *line;
+	int maxs, len, sock, error, i, lsent;
+
+	if (host == NULL) {
+		syslog(pri, "%s", buf);
+		return;
+	}
+
+	if (nsock <= 0) {	/* set up socket stuff */
+		/* resolve hostname */
+		memset(&hints, 0, sizeof(hints));
+		hints.ai_family = family;
+		hints.ai_socktype = SOCK_DGRAM;
+		error = getaddrinfo(host, svcname, &hints, &res);
+		if (error == EAI_SERVICE) {
+			warnx("%s/udp: unknown service", svcname);
+			error = getaddrinfo(host, "514", &hints, &res);
+		}
+		if (error)
+			errx(1, "%s: %s", gai_strerror(error), host);
+		/* count max number of sockets we may open */
+		for (maxs = 0, r = res; r; r = r->ai_next, maxs++);
+		socks = malloc(maxs * sizeof(struct socks));
+		if (!socks)
+			errx(1, "couldn't allocate memory for sockets");
+		for (r = res; r; r = r->ai_next) {
+			sock = socket(r->ai_family, r->ai_socktype,
+				      r->ai_protocol);
+			if (sock < 0)
+				continue;
+			memcpy(&socks[nsock].addr, r->ai_addr, r->ai_addrlen);
+			socks[nsock].addrlen = r->ai_addrlen;
+			socks[nsock++].sock = sock;
+		}
+		freeaddrinfo(res);
+		if (nsock <= 0)
+			errx(1, "socket");
+	}
+
+	if ((len = asprintf(&line, "<%d>%s", pri, buf)) == -1)
+		errx(1, "asprintf");
+
+	lsent = -1;
+	for (i = 0; i < nsock; ++i) {
+		lsent = sendto(socks[i].sock, line, len, 0,
+			       (struct sockaddr *)&socks[i].addr,
+			       socks[i].addrlen);
+		if (lsent == len && !send_to_all)
+			break;
+	}
+	if (lsent != len) {
+		if (lsent == -1)
+			warn ("sendto");
+		else
+			warnx ("sendto: short send - %d bytes", lsent);
+	}
+
+	free(line);
+}
+#endif /* __APPLE__ */
 
 /*
  *  Decode a symbolic name to a numeric value
  */
 int
-pencode(s)
-	register char *s;
+pencode(char *s)
 {
 	char *save;
 	int fac, lev;
@@ -159,11 +284,8 @@ pencode(s)
 	if (*s) {
 		*s = '\0';
 		fac = decode(save, facilitynames);
-		if (fac < 0) {
-			(void)fprintf(stderr,
-			    "logger: unknown facility name: %s.\n", save);
-			exit(1);
-		}
+		if (fac < 0)
+			errx(1, "unknown facility name: %s", save);
 		*s++ = '.';
 	}
 	else {
@@ -171,20 +293,15 @@ pencode(s)
 		s = save;
 	}
 	lev = decode(s, prioritynames);
-	if (lev < 0) {
-		(void)fprintf(stderr,
-		    "logger: unknown priority name: %s.\n", save);
-		exit(1);
-	}
+	if (lev < 0)
+		errx(1, "unknown priority name: %s", save);
 	return ((lev & LOG_PRIMASK) | (fac & LOG_FACMASK));
 }
 
 int
-decode(name, codetab)
-	char *name;
-	CODE *codetab;
+decode(char *name, CODE *codetab)
 {
-	register CODE *c;
+	CODE *c;
 
 	if (isdigit(*name))
 		return (atoi(name));
@@ -196,10 +313,16 @@ decode(name, codetab)
 	return (-1);
 }
 
-void
-usage()
+static void
+usage(void)
 {
-	(void)fprintf(stderr,
-	    "logger: [-is] [-f file] [-p pri] [-t tag] [ message ... ]\n");
+	(void)fprintf(stderr, "usage: %s\n",
+#ifdef __APPLE__
+	    "logger [-is] [-f file] [-p pri] [-t tag]\n"
+#else
+	    "logger [-46Ais] [-f file] [-h host] [-P port] [-p pri] [-t tag]\n"
+#endif
+	    "              [message ...]"
+	    );
 	exit(1);
 }

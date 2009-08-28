@@ -146,10 +146,55 @@ static int sys_getgrouplist(const char *user, gid_t gid, gid_t *groups, int *grp
 	return retval;
 }
 
+#if HAVE_GETGROUPLIST_2
+extern int32_t getgrouplist_2(const char *name, gid_t basegid, gid_t **groups);
+
+static BOOL getgroups_unix_user_ds(TALLOC_CTX *mem_ctx,
+			    const char *user,
+			    gid_t primary_gid,
+			    gid_t **ret_groups,
+			    size_t *p_ngroups)
+{
+	int32_t max_grp;
+	size_t ngrp = 0;
+	gid_t *groups = NULL;
+	int i;
+	gid_t * temp_groups = NULL;
+
+	max_grp = getgrouplist_2(user, primary_gid, &temp_groups);
+	if (max_grp == -1) {
+	    return False;
+	}
+
+	/* Add in primary group first */
+	if (!add_gid_to_array_unique(mem_ctx, primary_gid, &groups, &ngrp)) {
+		SAFE_FREE(temp_groups);
+		return False;
+	}
+
+	for (i = 0; i < max_grp; i++) {
+		if (!add_gid_to_array_unique(mem_ctx, temp_groups[i],
+					&groups, &ngrp)) {
+			SAFE_FREE(temp_groups);
+			return False;
+		}
+	}
+
+	*p_ngroups = ngrp;
+	*ret_groups = groups;
+	SAFE_FREE(temp_groups);
+	return True;
+}
+#endif /* HAVE_GETGROUPLIST_2 */
+
 BOOL getgroups_unix_user(TALLOC_CTX *mem_ctx, const char *user,
 			 gid_t primary_gid,
 			 gid_t **ret_groups, size_t *p_ngroups)
 {
+#if HAVE_GETGROUPLIST_2
+    return getgroups_unix_user_ds(mem_ctx, user, primary_gid,
+	    ret_groups, p_ngroups);
+#else
 	size_t ngrp;
 	int max_grp;
 	gid_t *temp_groups;
@@ -198,4 +243,5 @@ BOOL getgroups_unix_user(TALLOC_CTX *mem_ctx, const char *user,
 	*ret_groups = groups;
 	SAFE_FREE(temp_groups);
 	return True;
+#endif /* HAVE_GETGROUPLIST_2 */
 }

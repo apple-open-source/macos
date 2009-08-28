@@ -179,21 +179,23 @@ static int deliver_switch(LOCAL_STATE state, USER_ATTR usr_attr)
 	return (deliver_indirect(state));
 
 #ifdef __APPLE_OS_X_SERVER__
-	/*
-	 * Check for forward info in user record
-	 */
+        /*
+         * Check for forward info in user record
+         */
 
-	if ( var_enable_server_options && var_check_for_od_forward )
-	{
-		if ( aodGetUserOptions( state.msg_attr.user, &user_opts ) == eDSNoErr )
-		{
-			if ( user_opts.fAcctState == eAcctForwarded )
-			{
-				status = deliver_token_string( state, usr_attr, user_opts.fAutoFwdAddr, &addr_count );
-				return( status );
-			}
-		}
-	}
+        if (var_enable_server_options && var_check_for_od_forward){
+          int ar = var_use_getpwnam_ext ?
+              ads_get_user_options(state.msg_attr.user, &user_opts) :
+              aod_get_user_options(state.msg_attr.user, &user_opts);
+          if (!ar){
+            if ( user_opts.fAcctState == eAcctForwarded ){
+              status = deliver_token_string( state, usr_attr, user_opts.fAutoFwdAddr, &addr_count );
+              return( status );
+            }
+          }
+        }
+
+
 #endif /* __APPLE_OS_X_SERVER__ */
 
     /*
@@ -257,7 +259,7 @@ int     deliver_recipient(LOCAL_STATE state, USER_ATTR usr_attr)
      * need for VERP specific bouncing code, at the cost of complicating the
      * normal bounce sending procedure, but would simplify the code below.
      */
-    if (delivered_find(state.loop_info, state.msg_attr.rcpt.address)) {
+    if (delivered_hdr_find(state.loop_info, state.msg_attr.rcpt.address)) {
 	VSTRING *canon_owner = 0;
 
 	if (var_ownreq_special) {

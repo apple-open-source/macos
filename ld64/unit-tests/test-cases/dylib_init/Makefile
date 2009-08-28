@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
 #
 # @APPLE_LICENSE_HEADER_START@
 # 
@@ -23,19 +23,14 @@
 TESTROOT = ../..
 include ${TESTROOT}/include/common.makefile
 
-# When creating a dylib with the -init option to specify the init  routine in 64-bit,
-# libtool should not complain "file not found: __init".
+#  Verify -init option creates a LC_ROUTINES load command
 
 run: all
 
 all:
-	${FAIL_IF_ERROR} ${CC} -m64 -c foo.c -o foo_64.o
-	${FAIL_IF_BAD_OBJ} foo_64.o
-	${FAIL_IF_ERROR} libtool -dynamic -o libtest.A.dylib foo_64.o \
-		-init __init \
-		-compatibility_version 1 -current_version 1 -install_name "/build/ld64_problem/libtest.A.dylib" \
-		-lSystem
-	${PASS_IFF_GOOD_MACHO} libtest.A.dylib
+	${CC}  ${CCFLAGS} foo.c -dynamiclib -o libfoo.dylib -init __init
+	otool -lv libfoo.dylib | grep  LC_ROUTINES | ${FAIL_IF_EMPTY}
+	${PASS_IFF_GOOD_MACHO} libfoo.dylib
 
 clean:
-	rm -rf *.dylib *.o 
+	rm -rf libfoo.dylib 

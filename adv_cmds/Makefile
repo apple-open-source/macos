@@ -1,9 +1,13 @@
-THIS=$(shell basename `pwd` .tproj)
+Project = adv_cmds
 
-install:: obj all
+Embedded=$(shell tconf --test TARGET_OS_EMBEDDED)
 
-all obj installhdrs installsrc clean ${THIS} install::
-	env MAKEOBJDIRPREFIX=${OBJROOT} bsdmake COPTS="-Os -mdynamic-no-pic" ARCH_FLAGS="${RC_CFLAGS}" NO_MANCOMPRESS=true DESTDIR=${DSTROOT} -f BSDmakefile $@
+ifeq ($(Embedded),YES)
+SubProjects = ps stty
+else
+SubProjects = ps cap_mkdb colldef finger fingerd \
+	gencat last locale localedef lsvfs md \
+	mklocale stty tabs tty whois
+endif
 
-install::
-	perl mksymroot ${DSTROOT} ${SYMROOT} ${OBJROOT}
+include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make

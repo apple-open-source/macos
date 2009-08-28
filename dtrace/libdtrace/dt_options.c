@@ -2,9 +2,8 @@
  * CDDL HEADER START
  *
  * The contents of this file are subject to the terms of the
- * Common Development and Distribution License, Version 1.0 only
- * (the "License").  You may not use this file except in compliance
- * with the License.
+ * Common Development and Distribution License (the "License").
+ * You may not use this file except in compliance with the License.
  *
  * You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
  * or http://www.opensolaris.org/os/licensing.
@@ -19,15 +18,17 @@
  *
  * CDDL HEADER END
  */
+
 /*
- * Copyright 2005 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)dt_options.c	1.18	05/11/29 SMI"
+#pragma ident	"@(#)dt_options.c	1.19	07/04/01 SMI"
 
-#include <sys/types.h>
 #include <sys/resource.h>
+#include <sys/mman.h>
+#include <sys/types.h>
 
 #include <strings.h>
 #include <signal.h>
@@ -171,7 +172,12 @@ dt_opt_cpp_path(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	if ((cpp = strdup(arg)) == NULL)
 		return (dt_set_errno(dtp, EDT_NOMEM));
 
+#if defined(__APPLE__)
+	// We use the full path to cpp
+	dtp->dt_cpp_argv[0] = cpp;
+#else
 	dtp->dt_cpp_argv[0] = (char *)strbasename(cpp);
+#endif
 	free(dtp->dt_cpp_path);
 	dtp->dt_cpp_path = cpp;
 
@@ -367,14 +373,10 @@ dt_opt_evaltime(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 		dtp->dt_prcmode = DT_PROC_STOP_CREATE;
 	else if (strcmp(arg, "preinit") == 0)
 		dtp->dt_prcmode = DT_PROC_STOP_PREINIT;
-#if !defined(__APPLE__)
 	else if (strcmp(arg, "postinit") == 0)
 		dtp->dt_prcmode = DT_PROC_STOP_POSTINIT;
 	else if (strcmp(arg, "main") == 0)
 		dtp->dt_prcmode = DT_PROC_STOP_MAIN;
-#else
-#warning Limiting evaltimeoption to DT_PROC_STOP_CREATE and DT_PROC_STOP_PREINIT only!
-#endif /* __APPLE__ */
 	else
 		return (dt_set_errno(dtp, EDT_BADOPTVAL));
 
@@ -482,7 +484,6 @@ dt_opt_xlate(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 }
 
 /*ARGSUSED*/
-
 static int
 dt_opt_cflags(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
@@ -591,17 +592,6 @@ out:
 
 #if defined(__APPLE__)
 static int
-dt_opt_scanalyzer(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
-{
-	if (arg != NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
-	
-	_dtrace_scanalyzer = 1;
-	
-	return 0;
-}
-
-static int
 dt_opt_mangled(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
 	if (arg != NULL)
@@ -614,44 +604,53 @@ dt_opt_mangled(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 #endif
 
 static int
+dt_optval_parse(const char *arg, dtrace_optval_t *rval)
+{
+	dtrace_optval_t mul = 1;
+	size_t len;
+	char *end;
+
+	len = strlen(arg);
+	errno = 0;
+
+	switch (arg[len - 1]) {
+	case 't':
+	case 'T':
+		mul *= 1024;
+		/*FALLTHRU*/
+	case 'g':
+	case 'G':
+		mul *= 1024;
+		/*FALLTHRU*/
+	case 'm':
+	case 'M':
+		mul *= 1024;
+		/*FALLTHRU*/
+	case 'k':
+	case 'K':
+		mul *= 1024;
+		/*FALLTHRU*/
+	default:
+		break;
+	}
+
+	errno = 0;
+	*rval = strtoull(arg, &end, 0) * mul;
+
+	if ((mul > 1 && end != &arg[len - 1]) || (mul == 1 && *end != '\0') ||
+	    *rval < 0 || errno != 0)
+		return (-1);
+
+	return (0);
+}
+
+static int
 dt_opt_size(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
-	char *end;
-	int len;
-	dtrace_optval_t mul = 1, val = 0;
+	dtrace_optval_t val = 0;
 
-	if (arg != NULL) {
-		len = strlen(arg);
-		errno = 0;
-
-		switch (arg[len - 1]) {
-		case 't':
-		case 'T':
-			mul *= 1024;
-			/*FALLTHRU*/
-		case 'g':
-		case 'G':
-			mul *= 1024;
-			/*FALLTHRU*/
-		case 'm':
-		case 'M':
-			mul *= 1024;
-			/*FALLTHRU*/
-		case 'k':
-		case 'K':
-			mul *= 1024;
-			/*FALLTHRU*/
-		default:
-			break;
-		}
-
-		val = strtoull(arg, &end, 0) * mul;
-
-		if ((mul > 1 && end != &arg[len - 1]) ||
-		    (mul == 1 && *end != '\0') || val < 0 ||
-		    errno != 0 || val == DTRACEOPT_UNSET)
+	if (arg != NULL && dt_optval_parse(arg, &val) != 0)
 			return (dt_set_errno(dtp, EDT_BADOPTVAL));
-	}
 
 	dtp->dt_options[option] = val;
 	return (0);
@@ -881,6 +880,30 @@ dt_options_load(dtrace_hdl_t *dtp)
 	return (0);
 }
 
+/*ARGSUSED*/
+static int
+dt_opt_preallocate(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
+{
+	dtrace_optval_t size;
+	void *p;
+
+	if (arg == NULL || dt_optval_parse(arg, &size) != 0)
+		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+
+	if (size > SIZE_MAX)
+		size = SIZE_MAX;
+
+	if ((p = dt_zalloc(dtp, size)) == NULL) {
+		do {
+			size /= 2;
+		} while ((p = dt_zalloc(dtp, size)) == NULL);
+	}
+
+	dt_free(dtp, p);
+
+	return (0);
+}
+
 typedef struct dt_option {
 	const char *o_name;
 	int (*o_func)(dtrace_hdl_t *, const char *, uintptr_t);
@@ -925,10 +948,8 @@ static const dt_option_t _dtrace_ctoptions[] = {
 #endif
 	{ "nolibs", dt_opt_cflags, DTRACE_C_NOLIBS },
 	{ "pgmax", dt_opt_pgmax },
+	{ "preallocate", dt_opt_preallocate },
 	{ "pspec", dt_opt_cflags, DTRACE_C_PSPEC },
-#if defined(__APPLE__)
-	{ "scanalyzer", dt_opt_scanalyzer },
-#endif
 	{ "stdc", dt_opt_stdc },
 	{ "strip", dt_opt_dflags, DTRACE_D_STRIP },
 	{ "syslibdir", dt_opt_syslibdir },

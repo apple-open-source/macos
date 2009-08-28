@@ -81,12 +81,19 @@ class AuditToken
 };
 
 // XXX/gh  3926739
+//
+// NB: Qualify all uses of these names with the namespace (CommonCriteria).  
+// Existing source code already follows this convention.  
 enum ExternalErrors
 {
 	errNone = 0,
 	errInvalidCredential = 1111,	// try to make easier to find in log
 	errUserCanceled,
 	errTooManyTries,
+    errAuthDenied,                  // "Auth" --> authorization; named to
+                                    // avoid conflict with the C symbol
+                                    // errAuthorizationDenied already in
+                                    // use
 	errEndOfExternalErrors			// sentry/placeholder
 };
 

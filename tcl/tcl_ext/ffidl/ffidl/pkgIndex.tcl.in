@@ -1,0 +1,5 @@
+#
+# Tcl package index file
+#
+package ifneeded Ffidl @PACKAGE_VERSION@ [list load [file join $dir @PKG_LIB_FILE@] @PACKAGE_NAME@]
+package ifneeded Ffidlrt 0.1 [list source [file join $dir ffidlrt.tcl]]

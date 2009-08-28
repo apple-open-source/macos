@@ -218,8 +218,6 @@ load_kod_library (char *lib)
 void
 _initialize_kod (void)
 {
-  struct cmd_list_element *c;
-
   add_setshow_string_cmd ("os", no_class, &operating_system, _("\
 Set operating system"), _("\
 Show operating system"), NULL,

@@ -1,3 +1,5 @@
+@subheading punycode_encode
+@anchor{punycode_encode}
 @deftypefun {int} {punycode_encode} (size_t @var{input_length}, const punycode_uint [] @var{input}, const unsigned char [] @var{case_flags}, size_t * @var{output_length}, char [] @var{output})
 @var{input_length}: The number of code points in the @code{input} array and
 the number of flags in the @code{case_flags} array.
@@ -39,6 +41,8 @@ values defined above except @code{PUNYCODE_BAD_INPUT}.  If not
 garbage.
 @end deftypefun
 
+@subheading punycode_decode
+@anchor{punycode_decode}
 @deftypefun {int} {punycode_decode} (size_t @var{input_length}, const char [] @var{input}, size_t * @var{output_length}, punycode_uint [] @var{output}, unsigned char [] @var{case_flags})
 @var{input_length}: The number of ASCII code points in the @code{input} array.
 

@@ -1,117 +1,136 @@
-/*-
- * Copyright 2001 Mark R V Murray
- * All rights reserved.
+/* pam_nologin module */
+
+/*
+ * $Id: pam_nologin.c,v 1.5 2002/03/27 19:20:24 bbraun Exp $
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
+ * Written by Michael K. Johnson <johnsonm@redhat.com> 1996/10/24
  *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
+ * Portions Copyright (C) 2002-2009 Apple Inc.  All rights reserved.
  *
- * $FreeBSD: src/lib/libpam/modules/pam_nologin/pam_nologin.c,v 1.3 2001/08/26 18:05:35 markm Exp $
+ * Redistribution and use in source and binary forms of Linux-PAM, with
+ * or without modification, are permitted provided that the following
+ * conditions are met:
+ * 
+ * 1. Redistributions of source code must retain any existing copyright
+ * notice, and this entire permission notice in its entirety,
+ * including the disclaimer of warranties.
+ * 
+ * 2. Redistributions in binary form must reproduce all prior and current
+ * copyright notices, this list of conditions, and the following
+ * disclaimer in the documentation and/or other materials provided
+ * with the distribution.
+ * 
+ * 3. The name of any author may not be used to endorse or promote
+ * products derived from this software without their specific prior
+ * written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE AUTHOR(S) BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
+ * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR
+ * TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
+ * USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE. 
  */
 
-#define PAM_SM_AUTH
-
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <login_cap.h>
-#include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <pwd.h>
+#include <string.h>
 
-#include <security/_pam_macros.h>
+/*
+ * here, we make a definition for the externally accessible function
+ * in this file (this definition is required for static a module
+ * but strongly encouraged generally) it is used to instruct the
+ * modules include file to define the function prototypes.
+ */
+
+#define PAM_SM_ACCOUNT
+
 #include <security/pam_modules.h>
-#include "pam_mod_misc.h"
+#include <security/pam_appl.h>
 
-#define	NOLOGIN	"/var/run/nologin"
 
-PAM_EXTERN int
-pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
+/* --- account management function (only) --- */
+
+PAM_EXTERN
+int pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc,
+                        const char **argv)
 {
-	login_cap_t *lc;
-	struct options options;
-	struct passwd *pwd;
-	struct stat st;
-	int retval, fd;
-	const char *user, *nologin;
-	char *mtmp;
+     int retval = PAM_SUCCESS;
+     int fd;
+     const char *username;
+     char *mtmp=NULL;
+     struct passwd *user_pwd;
+     struct pam_conv *conversation;
+     struct pam_message message;
+     struct pam_message *pmessage = &message;
+     struct pam_response *resp = NULL;
+     struct stat st;
 
-	pam_std_option(&options, NULL, argc, argv);
+     if ((fd = open("/etc/nologin", O_RDONLY, 0)) >= 0) {
+       /* root can still log in; lusers cannot */
+       if ((pam_get_user(pamh, &username, NULL) != PAM_SUCCESS)
+           || !username) {
+         return PAM_SERVICE_ERR;
+       }
+       user_pwd = getpwnam(username);
+       if (user_pwd && user_pwd->pw_uid == 0) {
+         message.msg_style = PAM_TEXT_INFO;
+       } else {
+	   if (!user_pwd) {
+	       retval = PAM_USER_UNKNOWN;
+	   } else {
+	       retval = PAM_AUTH_ERR;
+	   }
+	   message.msg_style = PAM_ERROR_MSG;
+       }
 
-	PAM_LOG("Options processed");
+       /* fill in message buffer with contents of /etc/nologin */
+       if (fstat(fd, &st) < 0) /* give up trying to display message */
+         return retval;
+       message.msg = mtmp = malloc(st.st_size+1);
+       /* if malloc failed... */
+       if (!message.msg) return retval;
+       read(fd, mtmp, st.st_size);
+       mtmp[st.st_size] = '\000';
 
-	retval = pam_get_user(pamh, &user, NULL);
-	if (retval != PAM_SUCCESS)
-		PAM_RETURN(retval);
+       /* Use conversation function to give user contents of /etc/nologin */
+       pam_get_item(pamh, PAM_CONV, (const void **)&conversation);
+       conversation->conv(1, (const struct pam_message **)&pmessage,
+			  &resp, conversation->appdata_ptr);
+       free(mtmp);
+       if (NULL != resp && NULL != resp->resp) {
+         memset(resp->resp, 0, strlen(resp->resp));
+       }
+     }
 
-	PAM_LOG("Got user: %s", user);
-
-	lc = login_getclass(NULL);
-	nologin = login_getcapstr(lc, "nologin", NOLOGIN, NOLOGIN);
-	login_close(lc);
-	lc = NULL;
-
-	fd = open(nologin, O_RDONLY, 0);
-	if (fd < 0)
-		PAM_RETURN(PAM_SUCCESS);
-
-	PAM_LOG("Opened %s file", NOLOGIN);
-
-	pwd = getpwnam(user);
-	if (pwd && pwd->pw_uid == 0)
-		retval = PAM_SUCCESS;
-	else {
-		if (!pwd)
-			retval = PAM_USER_UNKNOWN;
-		else
-			retval = PAM_AUTH_ERR;
-	}
-	
-	if (fstat(fd, &st) < 0)
-		PAM_RETURN(retval);
-
-	mtmp = malloc(st.st_size + 1);
-	if (mtmp != NULL) {
-		read(fd, mtmp, st.st_size);
-		mtmp[st.st_size] = '\0';
-		pam_prompt(pamh, PAM_ERROR_MSG, mtmp, NULL);
-		free(mtmp);
-	}
-	
-	if (retval != PAM_SUCCESS)
-		PAM_VERBOSE_ERROR("Administrator refusing you: %s", NOLOGIN);
-
-	PAM_RETURN(retval);
+     return retval;
 }
 
-PAM_EXTERN int
-pam_sm_setcred(pam_handle_t *pamh, int flags, int argc, const char **argv)
-{
-	struct options options;
 
-	pam_std_option(&options, NULL, argc, argv);
+#ifdef PAM_STATIC
 
-	PAM_LOG("Options processed");
+/* static module data */
 
-	PAM_RETURN(PAM_SUCCESS);
-}
+struct pam_module _pam_nologin_modstruct = {
+     "pam_nologin",
+     pam_sm_authenticate,
+     pam_sm_setcred,
+     NULL,
+     NULL,
+     NULL,
+     NULL,
+};
 
-PAM_MODULE_ENTRY("pam_nologin");
+#endif
+
+/* end of module definition */

@@ -70,6 +70,7 @@ private:
 	vector<CssmData> mRoots;	// array of CssmDatas to certificate datas
 	CssmAutoData mRootBytes;	// certificate data blobs (bunched up)
     CFRef<CFArrayRef> mCFRoots;	// mRoots as CFArray<SecCertificate>
+	Mutex mMutex;
 };
 
 } // end namespace KeychainCore

@@ -165,7 +165,7 @@ This function is called by socket layer when the protocol is added
 ----------------------------------------------------------------------------- */
 void pptp_init()
 {
-    //log(LOGVAL, "pptp_init\n");
+    //IOLog("pptp_init\n");
 }
 
 /* -----------------------------------------------------------------------------
@@ -179,7 +179,7 @@ int pptp_ctloutput(struct socket *so, struct sockopt *sopt)
     
 	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
     
-    //log(LOGVAL, "pptp_ctloutput, so = 0x%x\n", so);
+    //IOLog("pptp_ctloutput, so = %p\n", so);
 
     error = optval = 0;
     if (sopt->sopt_level != PPPPROTO_PPTP) {
@@ -274,7 +274,7 @@ int pptp_attach (struct socket *so, int proto, struct proc *p)
 {
     int			error;
 
-    //log(LOGVAL, "pptp_attach, so = 0x%x, dom_ref = %d\n", so, so->so_proto->pr_domain->dom_refs);
+    //IOLog("pptp_attach, so = %p, dom_ref = %d\n", so, so->so_proto->pr_domain->dom_refs);
     if (so->so_pcb)
         return EINVAL;
 
@@ -304,7 +304,7 @@ int pptp_detach(struct socket *so)
 
 	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 	
-    //log(LOGVAL, "pptp_detach, so = 0x%x, dom_ref = %d\n", so, so->so_proto->pr_domain->dom_refs);
+    //IOLog("pptp_detach, so = %p, dom_ref = %d\n", so, so->so_proto->pr_domain->dom_refs);
 
     if (so->so_tpcb) {
         pptp_wan_detach((struct ppp_link *)so->so_tpcb);
@@ -328,23 +328,23 @@ int pptp_control(struct socket *so, u_long cmd, caddr_t data,
 	
 	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
-    //log(LOGVAL, "pptp_control : so = 0x%x, cmd = %d\n", so, cmd);
+    //IOLog("pptp_control : so = %p, cmd = %d\n", so, cmd);
 
     switch (cmd) {
 	case PPPIOCGCHAN:
-            //log(LOGVAL, "pptp_control : PPPIOCGCHAN\n");
+            //IOLog("pptp_control : PPPIOCGCHAN\n");
             if (!so->so_tpcb)
                 return EINVAL;// not attached
             *(u_int32_t *)data = ((struct ppp_link *)so->so_tpcb)->lk_index;
             break;
 	case PPPIOCATTACH:
-            //log(LOGVAL, "pptp_control : PPPIOCATTACH\n");
+            //IOLog("pptp_control : PPPIOCATTACH\n");
            if (so->so_tpcb)
                 return EINVAL;// already attached
             error = pptp_wan_attach(so->so_pcb, (struct ppp_link **)&so->so_tpcb);
             break;
 	case PPPIOCDETACH:
-            //log(LOGVAL, "pptp_control : PPPIOCDETACH\n");
+            //IOLog("pptp_control : PPPIOCDETACH\n");
             if (!so->so_tpcb)
                 return EINVAL;// already detached
             pptp_wan_detach((struct ppp_link *)so->so_tpcb);
@@ -381,7 +381,7 @@ int pptp_input(void *data, mbuf_t m)
     }
 
     mbuf_freem(m);
-    log(LOGVAL, "pptp_input unexpected, so = 0x%x, len = %d\n", so, mbuf_pkthdr_len(m));
+    IOLog("pptp_input unexpected, so = %p, len = %lu\n", so, mbuf_pkthdr_len(m));
     return 0;
 }
 

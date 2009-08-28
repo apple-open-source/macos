@@ -1,6 +1,6 @@
---- strptime.c.orig	2008-04-24 01:10:36.000000000 -0700
-+++ strptime.c	2008-04-24 02:01:31.000000000 -0700
-@@ -61,10 +61,13 @@ static char sccsid[] __unused = "@(#)str
+--- strptime.c.orig	2009-03-04 16:49:20.000000000 -0800
++++ strptime.c	2009-05-13 16:39:36.000000000 -0700
+@@ -61,41 +61,56 @@ static char sccsid[] __unused = "@(#)str
  #endif /* not lint */
  __FBSDID("$FreeBSD: src/lib/libc/stdtime/strptime.c,v 1.35 2003/11/17 04:19:15 nectar Exp $");
  
@@ -14,7 +14,9 @@
  #include <stdlib.h>
  #include <string.h>
  #include <pthread.h>
-@@ -72,30 +75,41 @@ __FBSDID("$FreeBSD: src/lib/libc/stdtime
++#include <stdint.h>
++#include <limits.h>
+ #include "un-namespace.h"
  #include "libc_private.h"
  #include "timelocal.h"
  
@@ -26,16 +28,15 @@
  
 +enum {CONVERT_NONE, CONVERT_GMT, CONVERT_ZONE};
 +
++#define _strptime(b,f,t,c,l)	_strptime0(b,f,t,c,l,-1,0,-1)
++
  static char *
 -_strptime(const char *buf, const char *fmt, struct tm *tm, int *GMTp)
-+_strptime(const char *buf, const char *fmt, struct tm *tm, int *convp, locale_t loc)
++_strptime0(const char *buf, const char *fmt, struct tm *tm, int *convp, locale_t loc, int year, int yday, int wday)
  {
  	char	c;
  	const char *ptr;
  	int	i,
-+		year = -1,
-+		yday = 0,
-+		wday = -1,
  		len;
  	int Ealternative, Oalternative;
 -	struct lc_time_T *tptr = __get_current_time_locale();
@@ -63,7 +64,7 @@
  					buf++;
  			else if (c != *buf++)
  				return 0;
-@@ -114,18 +128,18 @@ label:
+@@ -114,18 +129,18 @@ label:
  			break;
  
  		case '+':
@@ -85,7 +86,7 @@
  				i *= 10;
  				i += *buf - '0';
  				len--;
-@@ -133,17 +147,21 @@ label:
+@@ -133,17 +148,21 @@ label:
  			if (i < 19)
  				return 0;
  
@@ -109,7 +110,7 @@
  			if (buf == 0)
  				return 0;
  			break;
-@@ -161,47 +179,55 @@ label:
+@@ -161,47 +180,55 @@ label:
  			goto label;
  
  		case 'F':
@@ -173,7 +174,7 @@
  				i *= 10;
  				i += *buf - '0';
  				len--;
-@@ -209,19 +235,19 @@ label:
+@@ -209,19 +236,19 @@ label:
  			if (i < 1 || i > 366)
  				return 0;
  
@@ -197,7 +198,7 @@
  				i *= 10;
  				i += *buf - '0';
  				len--;
-@@ -237,8 +263,8 @@ label:
+@@ -237,8 +264,8 @@ label:
  				tm->tm_sec = i;
  			}
  
@@ -208,7 +209,7 @@
  					ptr++;
  			break;
  
-@@ -254,11 +280,11 @@ label:
+@@ -254,11 +281,11 @@ label:
  			 * XXX The %l specifier may gobble one too many
  			 * digits if used incorrectly.
  			 */
@@ -222,7 +223,7 @@
  				i *= 10;
  				i += *buf - '0';
  				len--;
-@@ -271,8 +297,8 @@ label:
+@@ -271,8 +298,8 @@ label:
  
  			tm->tm_hour = i;
  
@@ -233,7 +234,7 @@
  					ptr++;
  			break;
  
-@@ -282,7 +308,7 @@ label:
+@@ -282,7 +309,7 @@ label:
  			 * specifiers.
  			 */
  			len = strlen(tptr->am);
@@ -242,7 +243,7 @@
  				if (tm->tm_hour > 12)
  					return 0;
  				if (tm->tm_hour == 12)
-@@ -292,7 +318,7 @@ label:
+@@ -292,7 +319,7 @@ label:
  			}
  
  			len = strlen(tptr->pm);
@@ -251,7 +252,7 @@
  				if (tm->tm_hour > 12)
  					return 0;
  				if (tm->tm_hour != 12)
-@@ -307,34 +333,28 @@ label:
+@@ -307,34 +334,28 @@ label:
  		case 'a':
  			for (i = 0; i < asizeof(tptr->weekday); i++) {
  				len = strlen(tptr->weekday[i]);
@@ -295,7 +296,7 @@
  				i *= 10;
  				i += *buf - '0';
  				len--;
-@@ -342,23 +362,46 @@ label:
+@@ -342,23 +363,46 @@ label:
  			if (i > 53)
  				return 0;
  
@@ -352,7 +353,7 @@
  					ptr++;
  			break;
  
-@@ -372,11 +415,18 @@ label:
+@@ -372,11 +416,18 @@ label:
  			 * XXX The %e specifier may gobble one too many
  			 * digits if used incorrectly.
  			 */
@@ -374,7 +375,7 @@
  				i *= 10;
  				i += *buf - '0';
  				len--;
-@@ -386,8 +436,8 @@ label:
+@@ -386,8 +437,8 @@ label:
  
  			tm->tm_mday = i;
  
@@ -385,7 +386,7 @@
  					ptr++;
  			break;
  
-@@ -398,19 +448,19 @@ label:
+@@ -398,19 +449,19 @@ label:
  				if (Oalternative) {
  					if (c == 'B') {
  						len = strlen(tptr->alt_month[i]);
@@ -411,7 +412,7 @@
  						break;
  				}
  			}
-@@ -422,11 +472,11 @@ label:
+@@ -422,11 +473,11 @@ label:
  			break;
  
  		case 'm':
@@ -425,7 +426,7 @@
  				i *= 10;
  				i += *buf - '0';
  				len--;
-@@ -436,8 +486,8 @@ label:
+@@ -436,8 +487,8 @@ label:
  
  			tm->tm_mon = i - 1;
  
@@ -436,7 +437,7 @@
  					ptr++;
  			break;
  
-@@ -450,7 +500,7 @@ label:
+@@ -450,7 +501,7 @@ label:
  
  			sverrno = errno;
  			errno = 0;
@@ -445,7 +446,7 @@
  			if (errno == ERANGE || (long)(t = n) != n) {
  				errno = sverrno;
  				return 0;
-@@ -458,24 +508,37 @@ label:
+@@ -458,24 +509,82 @@ label:
  			errno = sverrno;
  			buf = cp;
  			gmtime_r(&t, tm);
@@ -466,10 +467,55 @@
  
 +#if __DARWIN_UNIX03
 +			if (c == 'Y') {
-+				for (i = 0; *buf != 0 && isdigit_l((unsigned char)*buf, loc); buf++) {
-+					i *= 10;
-+					i += *buf - '0';
++				int savei = 0;
++				const char *savebuf = buf;
++				int64_t i64 = 0;
++				int overflow = 0;
++
++				for (len = 0; *buf != 0 && isdigit_l((unsigned char)*buf, loc); buf++) {
++					i64 *= 10;
++					i64 += *buf - '0';
++					if (++len <= 4) {
++						savei = i64;
++						savebuf = buf + 1;
++					}
++					if (i64 > INT_MAX) {
++						overflow++;
++						break;
++					}
 +				}
++				/*
++				 * Conformance requires %Y to be more then 4
++				 * digits.  However, there are several cases
++				 * where %Y is immediately followed by other
++				 * digits values.  So we do the conformance
++				 * case first (as many digits as possible),
++				 * and if we fail, we backup and try just 4
++				 * digits for %Y.
++				 */
++				if (len > 4 && !overflow) {
++					struct tm savetm = *tm;
++					int saveconv = *convp;
++					const char *saveptr = ptr;
++					char *ret;
++
++					if (i64 < 1900)
++						return 0;
++
++					tm->tm_year = i64 - 1900;
++
++					if (*buf != 0 && isspace_l((unsigned char)*buf, loc))
++						while (*ptr != 0 && !isspace_l((unsigned char)*ptr, loc) && *ptr != '%')
++							ptr++;
++					ret = _strptime0(buf, ptr, tm, convp, loc, tm->tm_year, yday, wday);
++					if (ret) return ret;
++					/* Failed, so try 4-digit year */
++					*tm = savetm;
++					*convp = saveconv;
++					ptr = saveptr;
++				}
++				buf = savebuf;
++				i = savei;
 +			} else {
 +				len = 2;
 +#else /* !__DARWIN_UNIX03 */
@@ -487,7 +533,7 @@
  			if (c == 'Y')
  				i -= 1900;
  			if (c == 'y' && i < 69)
-@@ -483,35 +546,58 @@ label:
+@@ -483,35 +592,58 @@ label:
  			if (i < 0)
  				return 0;
  
@@ -528,7 +574,7 @@
 +				*convp = CONVERT_GMT;
 +				buf += len;
 +				break;
- 			}
++			}
 +			tzset();
 +			tzlen = strlen(tzname[0]);
 +			if (len == tzlen && strncmp(buf, tzname[0], tzlen) == 0) {
@@ -541,7 +587,7 @@
 +				tm->tm_isdst = 1;
 +				buf += len;
 +				break;
-+			}
+ 			}
 +			return 0;
 +			}
 +
@@ -565,7 +611,7 @@
  			}
  			break;
  		}
-@@ -524,14 +610,39 @@ char *
+@@ -524,14 +656,39 @@ char *
  strptime(const char * __restrict buf, const char * __restrict fmt,
      struct tm * __restrict tm)
  {

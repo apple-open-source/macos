@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -43,6 +43,8 @@ __private_extern__ int             ___chattr( const char * path, ___attr_t attr,
 __private_extern__ int             ___initgroups( uid_t uid, gid_t basegid );
 __private_extern__ int             ___isautofs( const char * path );
 __private_extern__ int             ___mkdir( const char * path, mode_t mode );
+__private_extern__ void            ___vproc_transaction_begin( void );
+__private_extern__ void            ___vproc_transaction_end( void );
 __private_extern__ void            ___CFArrayIntersect( CFMutableArrayRef array1, CFArrayRef array2 );
 __private_extern__ CFStringRef     ___CFBundleCopyLocalizedStringInDirectory( CFURLRef bundleURL, CFStringRef key, CFStringRef value, CFStringRef table );
 __private_extern__ CFURLRef        ___CFBundleCopyResourceURLInDirectory( CFURLRef bundleURL, CFStringRef resourcePath );

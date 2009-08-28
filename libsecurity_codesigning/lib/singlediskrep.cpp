@@ -25,7 +25,8 @@
 // singlediskrep - semi-abstract diskrep for a single file of some kind
 //
 #include "singlediskrep.h"
-
+#include "csutilities.h"
+#include <security_utilities/cfutilities.h>
 
 namespace Security {
 namespace CodeSigning {
@@ -36,9 +37,24 @@ using namespace UnixPlusPlus;
 //
 // Construct a SingleDiskRep
 //
-SingleDiskRep::SingleDiskRep(const char *path)
+SingleDiskRep::SingleDiskRep(const std::string &path)
 	: mPath(path)
 {
+}
+
+
+//
+// The default binary identification of a SingleDiskRep is the (SHA-1) hash
+// of the entire file itself.
+//
+CFDataRef SingleDiskRep::identification()
+{
+	SHA1 hash;
+	this->fd().seek(0);
+	hashFileData(this->fd(), hash);
+	SHA1::Digest digest;
+	hash.finish(digest);
+	return makeCFData(digest, sizeof(digest));
 }
 
 

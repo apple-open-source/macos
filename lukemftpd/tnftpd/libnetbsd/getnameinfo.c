@@ -1,6 +1,6 @@
-/* $Id: getnameinfo.c,v 1.1.1.1 2002/10/26 04:25:45 lukem Exp $ */
+/* $NetBSD: getnameinfo.c,v 1.5 2008/09/21 16:35:25 lukem Exp $ */
 /* from	NetBSD: getnameinfo.c,v 1.19 2000/06/12 04:27:58 itojun Exp */
-/*	$KAME: getnameinfo.c,v 1.43 2000/06/12 04:27:03 itojun Exp $	*/
+/* from KAME: getnameinfo.c,v 1.43 2000/06/12 04:27:03 itojun Exp */
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -68,9 +68,9 @@ static struct afd {
 };
 
 struct sockinet {
-	u_char	si_len;
-	u_char	si_family;
-	u_short	si_port;
+	unsigned char	si_len;
+	unsigned char	si_family;
+	unsigned short	si_port;
 };
 
 #ifdef INET6
@@ -94,7 +94,7 @@ getnameinfo(const struct sockaddr *sa, socklen_t salen, char *host,
 	struct afd *afd;
 	struct servent *sp;
 	struct hostent *hp;
-	u_short port;
+	unsigned short port;
 	int family, i;
 	const char *addr;
 	unsigned int v4a;
@@ -104,7 +104,7 @@ getnameinfo(const struct sockaddr *sa, socklen_t salen, char *host,
 	if (sa == NULL)
 		return ENI_NOSOCKET;
 
-#if HAVE_SOCKADDR_SA_LEN
+#if defined(HAVE_STRUCT_SOCKADDR_SA_LEN)
 	if (sa->sa_len != salen)
 		return ENI_SALEN;
 #endif

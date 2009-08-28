@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,7 +25,6 @@
 #define _SCNETWORKCONFIGURATIONINTERNAL_H
 
 
-#include <sys/cdefs.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFRuntime.h>
 #include <SystemConfiguration/SystemConfiguration.h>
@@ -47,6 +46,9 @@ typedef struct {
 	// name
 	CFStringRef		name;
 
+	// misc
+	Boolean			established;
+
 } SCNetworkSetPrivate, *SCNetworkSetPrivateRef;
 
 
@@ -63,6 +65,9 @@ typedef struct {
 
 	// prefs
 	SCPreferencesRef	prefs;
+
+	// store (for live SCNetworkService)
+	SCDynamicStoreRef	store;
 
 	// name
 	CFStringRef		name;
@@ -115,6 +120,7 @@ typedef struct {
 
 	// [SCPreferences] interface entity information
 	CFStringRef		entity_device;		// interface device
+	CFStringRef		entity_device_unique;	// ... UniqueIdentifier
 	CFStringRef		entity_type;		// interface type
 	CFStringRef		entity_subtype;		// interface subtype
 
@@ -126,19 +132,20 @@ typedef struct {
 	CFDataRef		address;
 	CFStringRef		addressString;
 	Boolean			builtin;
+	CFStringRef		configurationAction;
 	CFStringRef		location;
 	CFStringRef		path;
 	CFMutableDictionaryRef	overrides;
 	Boolean			modemIsV92;
-	Boolean			supportsBond;
-	Boolean			supportsVLAN;
 	CFNumberRef		type;
 	CFNumberRef		unit;
 
 	// misc
 	int			sort_order;		// sort order for this interface
 
+#if	!TARGET_OS_IPHONE
 	// for BOND interfaces
+	Boolean			supportsBond;
 	struct {
 		CFArrayRef		interfaces;
 		CFDictionaryRef		options;
@@ -146,11 +153,13 @@ typedef struct {
 	} bond;
 
 	// for VLAN interfaces
+	Boolean			supportsVLAN;
 	struct {
 		SCNetworkInterfaceRef	interface;
 		CFNumberRef		tag;		// e.g. 1 <= tag <= 4094
 		CFDictionaryRef		options;
 	} vlan;
+#endif	// !TARGET_OS_IPHONE
 
 } SCNetworkInterfacePrivate, *SCNetworkInterfacePrivateRef;
 
@@ -178,6 +187,7 @@ __SCNetworkInterfaceCreatePrivate		(CFAllocatorRef		allocator,
 						 CFStringRef		serviceID,
 						 io_string_t		path);
 
+#if	!TARGET_OS_IPHONE
 SCNetworkInterfacePrivateRef
 _SCBondInterfaceCreatePrivate			(CFAllocatorRef		allocator,
 						 CFStringRef		bond_if);
@@ -185,12 +195,20 @@ _SCBondInterfaceCreatePrivate			(CFAllocatorRef		allocator,
 SCNetworkInterfacePrivateRef
 _SCVLANInterfaceCreatePrivate			(CFAllocatorRef		allocator,
 						 CFStringRef		vlan_if);
+#endif	// !TARGET_OS_IPHONE
 
 CFDictionaryRef
 __SCNetworkInterfaceCopyInterfaceEntity		(SCNetworkInterfaceRef	interface);
 
 CFArrayRef
-__SCNetworkInterfaceCopyDeepConfiguration       (SCNetworkInterfaceRef  interface);
+__SCNetworkInterfaceCopyDeepConfiguration       (SCNetworkSetRef	set,
+						 SCNetworkInterfaceRef	interface);
+
+CFStringRef
+__SCNetworkInterfaceCopyXLocalizedDisplayName	(SCNetworkInterfaceRef	interface);
+
+CFStringRef
+__SCNetworkInterfaceCopyXNonLocalizedDisplayName(SCNetworkInterfaceRef	interface);
 
 CFStringRef
 __SCNetworkInterfaceGetDefaultConfigurationType	(SCNetworkInterfaceRef	interface);
@@ -218,15 +236,18 @@ __SCNetworkInterfaceSetConfiguration		(SCNetworkInterfaceRef  interface,
 						 Boolean		okToHold);
 
 void
-__SCNetworkInterfaceSetDeepConfiguration	(SCNetworkInterfaceRef  interface,
+__SCNetworkInterfaceSetDeepConfiguration	(SCNetworkSetRef	set,
+						 SCNetworkInterfaceRef	interface,
 						 CFArrayRef		configs);
 
+#if	!TARGET_OS_IPHONE
 Boolean
 __SCNetworkInterfaceSupportsVLAN		(CFStringRef		bsd_if);
 
 void
 __SCBondInterfaceListCopyMembers		(CFArrayRef 		interfaces,
 						 CFMutableSetRef 	set);
+#endif	// !TARGET_OS_IPHONE
 
 #pragma mark -
 #pragma mark SCNetworkProtocol configuration (internal)
@@ -309,6 +330,15 @@ __extract_password				(SCPreferencesRef	prefs,
 						 CFStringRef		encryptionKeyChainValue,
 						 CFStringRef		unique_id,
 						 CFDataRef		*password);
+
+Boolean
+__remove_password				(SCPreferencesRef	prefs,
+						 CFDictionaryRef	config,
+						 CFStringRef		passwordKey,
+						 CFStringRef		encryptionKey,
+						 CFStringRef		encryptionKeyChainValue,
+						 CFStringRef		unique_id,
+						 CFDictionaryRef	*newConfig);
 
 __END_DECLS
 

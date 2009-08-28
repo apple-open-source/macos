@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2008 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -546,8 +546,8 @@ def _seed():
     except EnvironmentError, e:
         if e.errno <> errno.ENOENT:
             raise
-        import sha
-        d = sha.new(`os.getpid()`+`time.time()`).hexdigest()
+        from Mailman.Utils import sha_new
+        d = sha_new(`os.getpid()`+`time.time()`).hexdigest()
     random.seed(d)
 
 

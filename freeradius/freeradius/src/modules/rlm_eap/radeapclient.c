@@ -1,7 +1,7 @@
 /*
  * radeapclient.c	EAP specific radius packet debug tool.
  *
- * Version:	$Id: radeapclient.c,v 1.7.4.6 2007/03/05 14:09:10 aland Exp $
+ * Version:	$Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,44 +15,27 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2000  The FreeRADIUS server project
+ * Copyright 2000,2006  The FreeRADIUS server project
  * Copyright 2000  Miquel van Smoorenburg <miquels@cistron.nl>
  * Copyright 2000  Alan DeKok <aland@ox.org>
  */
-static const char rcsid[] = "$Id: radeapclient.c,v 1.7.4.6 2007/03/05 14:09:10 aland Exp $";
 
-#include "autoconf.h"
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <freeradius-devel/libradius.h>
 
-#if HAVE_UNISTD_H
-#	include <unistd.h>
-#endif
-
-#include <string.h>
 #include <ctype.h>
-#include <netdb.h>
-#include <sys/socket.h>
-
-#if HAVE_NETINET_IN_H
-#	include <netinet/in.h>
-#endif
-
-#if HAVE_SYS_SELECT_H
-#	include <sys/select.h>
-#endif
 
 #if HAVE_GETOPT_H
 #	include <getopt.h>
 #endif
 
-#include "conf.h"
-#include "radpaths.h"
-#include "missing.h"
-#include "../../include/md5.h"
+#include <freeradius-devel/conf.h>
+#include <freeradius-devel/radpaths.h>
+#include <freeradius-devel/md5.h>
 
 #include "eap_types.h"
 #include "eap_sim.h"
@@ -70,16 +53,25 @@ static int totaldeny = 0;
 static char filesecret[256];
 const char *radius_dir = RADDBDIR;
 const char *progname = "radeapclient";
-/* lrad_randctx randctx; */
+/* fr_randctx randctx; */
 
 
 radlog_dest_t radlog_dest = RADLOG_STDERR;
 const char *radlog_dir = NULL;
 int debug_flag = 0;
-struct main_config_t mainconfig;
 char password[256];
 
 struct eapsim_keys eapsim_mk;
+
+static void map_eap_types(RADIUS_PACKET *req);
+static void unmap_eap_types(RADIUS_PACKET *rep);
+static int map_eapsim_types(RADIUS_PACKET *r);
+static int unmap_eapsim_types(RADIUS_PACKET *r);
+
+void debug_pair_list(UNUSED VALUE_PAIR *vp)
+{
+	return;
+}
 
 static void NEVER_RETURNS usage(void)
 {
@@ -129,6 +121,17 @@ int log_debug(const char *msg, ...)
 	return r;
 }
 
+void radlog_request(UNUSED int lvl, UNUSED int priority,
+		    UNUSED REQUEST *request, const char *msg, ...)
+{
+	va_list ap;
+
+	va_start(ap, msg);
+	vfprintf(stderr, msg, ap);
+	va_end(ap);
+	fputc('\n', stderr);
+}
+
 static int getport(const char *name)
 {
 	struct	servent		*svp;
@@ -163,19 +166,24 @@ static int send_packet(RADIUS_PACKET *req, RADIUS_PACKET **rep)
 			continue;
 		}
 
-		*rep = rad_recv(req->sockfd);
+		*rep = rad_recv(req->sockfd, 0);
 		if (*rep != NULL) {
 			/*
 			 *	If we get a response from a machine
 			 *	which we did NOT send a request to,
 			 *	then complain.
 			 */
-			if (((*rep)->src_ipaddr != req->dst_ipaddr) ||
+			if (((*rep)->src_ipaddr.af != req->dst_ipaddr.af) ||
+			    (memcmp(&(*rep)->src_ipaddr.ipaddr,
+				    &req->dst_ipaddr.ipaddr,
+				    ((req->dst_ipaddr.af == AF_INET ? /* AF_INET6? */
+				      sizeof(req->dst_ipaddr.ipaddr.ip4addr) : /* FIXME: AF_INET6 */
+				      sizeof(req->dst_ipaddr.ipaddr.ip6addr)))) != 0) ||
 			    ((*rep)->src_port != req->dst_port)) {
-				char src[64], dst[64];
+				char src[128], dst[128];
 
-				ip_ntoa(src, (*rep)->src_ipaddr);
-				ip_ntoa(dst, req->dst_ipaddr);
+				ip_ntoh(&(*rep)->src_ipaddr, src, sizeof(src));
+				ip_ntoh(&req->dst_ipaddr, dst, sizeof(dst));
 				fprintf(stderr, "radclient: ERROR: Sent request to host %s port %d, got response from host %s port %d\n!",
 					dst, req->dst_port,
 					src, (*rep)->src_port);
@@ -183,7 +191,7 @@ static int send_packet(RADIUS_PACKET *req, RADIUS_PACKET **rep)
 			}
 			break;
 		} else {	/* NULL: couldn't receive the packet */
-			librad_perror("radclient:");
+			fr_perror("radclient:");
 			exit(1);
 		}
 	}
@@ -199,19 +207,19 @@ static int send_packet(RADIUS_PACKET *req, RADIUS_PACKET **rep)
 	 *
 	 *	Hmm... we should really be using eapol_test, which does
 	 *	a lot more than radeapclient.
-	 */
+       	 */
 	if (rad_verify(*rep, req, secret) != 0) {
-		librad_perror("rad_verify");
+		fr_perror("rad_verify");
 		exit(1);
 	}
 
 	if (rad_decode(*rep, req, secret) != 0) {
-		librad_perror("rad_decode");
+		fr_perror("rad_decode");
 		exit(1);
 	}
 
 	/* libradius debug already prints out the value pairs for us */
-	if (!librad_debug && do_output) {
+	if (!fr_debug_flag && do_output) {
 		printf("Received response ID %d, code %d, length = %d\n",
 				(*rep)->id, (*rep)->code, (*rep)->data_len);
 		vp_printlist(stdout, (*rep)->vps);
@@ -276,7 +284,7 @@ static int process_eap_start(RADIUS_PACKET *req,
 		return 0;
 	}
 
-	versions = (uint16_t *)vp->strvalue;
+	versions = (uint16_t *)vp->vp_strvalue;
 
 	/* verify that the attribute length is big enough for a length field */
 	if(vp->length < 4)
@@ -348,13 +356,13 @@ static int process_eap_start(RADIUS_PACKET *req,
 
 	/* mark the subtype as being EAP-SIM/Response/Start */
 	newvp = paircreate(ATTRIBUTE_EAP_SIM_SUBTYPE, PW_TYPE_INTEGER);
-	newvp->lvalue = eapsim_start;
+	newvp->vp_integer = eapsim_start;
 	pairreplace(&(rep->vps), newvp);
 
 	/* insert selected version into response. */
 	newvp = paircreate(ATTRIBUTE_EAP_SIM_BASE+PW_EAP_SIM_SELECTED_VERSION,
 			   PW_TYPE_OCTETS);
-	versions = (uint16_t *)newvp->strvalue;
+	versions = (uint16_t *)newvp->vp_strvalue;
 	versions[0] = htons(selectedversion);
 	newvp->length = 2;
 	pairreplace(&(rep->vps), newvp);
@@ -371,15 +379,15 @@ static int process_eap_start(RADIUS_PACKET *req,
 		 */
 		newvp = paircreate(ATTRIBUTE_EAP_SIM_BASE+PW_EAP_SIM_NONCE_MT,
 				   PW_TYPE_OCTETS);
-		newvp->strvalue[0]=0;
-		newvp->strvalue[1]=0;
+		newvp->vp_octets[0]=0;
+		newvp->vp_octets[1]=0;
 		newvp->length = 18;  /* 16 bytes of nonce + padding */
 
-		nonce[0]=lrad_rand();
-		nonce[1]=lrad_rand();
-		nonce[2]=lrad_rand();
-		nonce[3]=lrad_rand();
-		memcpy(&newvp->strvalue[2], nonce, 16);
+		nonce[0]=fr_rand();
+		nonce[1]=fr_rand();
+		nonce[2]=fr_rand();
+		nonce[3]=fr_rand();
+		memcpy(&newvp->vp_octets[2], nonce, 16);
 		pairreplace(&(rep->vps), newvp);
 
 		/* also keep a copy of the nonce! */
@@ -400,16 +408,16 @@ static int process_eap_start(RADIUS_PACKET *req,
 		}
 		newvp = paircreate(ATTRIBUTE_EAP_SIM_BASE+PW_EAP_SIM_IDENTITY,
 				   PW_TYPE_OCTETS);
-		idlen = strlen(vp->strvalue);
-		pidlen = (uint16_t *)newvp->strvalue;
+		idlen = strlen(vp->vp_strvalue);
+		pidlen = (uint16_t *)newvp->vp_strvalue;
 		*pidlen = htons(idlen);
 		newvp->length = idlen + 2;
 
-		memcpy(&newvp->strvalue[2], vp->strvalue, idlen);
+		memcpy(&newvp->vp_strvalue[2], vp->vp_strvalue, idlen);
 		pairreplace(&(rep->vps), newvp);
 
 		/* record it */
-		memcpy(eapsim_mk.identity, vp->strvalue, idlen);
+		memcpy(eapsim_mk.identity, vp->vp_strvalue, idlen);
 		eapsim_mk.identitylen = idlen;
 	}
 
@@ -449,11 +457,11 @@ static int process_eap_challenge(RADIUS_PACKET *req,
 	 */
 	{
 	  VALUE_PAIR *randcfgvp[3];
-	  unsigned char *randcfg[3];
+	  uint8_t *randcfg[3];
 
-	  randcfg[0] = &randvp->strvalue[2];
-	  randcfg[1] = &randvp->strvalue[2+EAPSIM_RAND_SIZE];
-	  randcfg[2] = &randvp->strvalue[2+EAPSIM_RAND_SIZE*2];
+	  randcfg[0] = &randvp->vp_octets[2];
+	  randcfg[1] = &randvp->vp_octets[2+EAPSIM_RAND_SIZE];
+	  randcfg[2] = &randvp->vp_octets[2+EAPSIM_RAND_SIZE*2];
 
 	  randcfgvp[0] = pairfind(rep->vps, ATTRIBUTE_EAP_SIM_RAND1);
 	  randcfgvp[1] = pairfind(rep->vps, ATTRIBUTE_EAP_SIM_RAND2);
@@ -466,9 +474,9 @@ static int process_eap_challenge(RADIUS_PACKET *req,
 	    return 0;
 	  }
 
-	  if(memcmp(randcfg[0], randcfgvp[0]->strvalue, EAPSIM_RAND_SIZE)!=0 ||
-	     memcmp(randcfg[1], randcfgvp[1]->strvalue, EAPSIM_RAND_SIZE)!=0 ||
-	     memcmp(randcfg[2], randcfgvp[2]->strvalue, EAPSIM_RAND_SIZE)!=0) {
+	  if(memcmp(randcfg[0], randcfgvp[0]->vp_octets, EAPSIM_RAND_SIZE)!=0 ||
+	     memcmp(randcfg[1], randcfgvp[1]->vp_octets, EAPSIM_RAND_SIZE)!=0 ||
+	     memcmp(randcfg[2], randcfgvp[2]->vp_octets, EAPSIM_RAND_SIZE)!=0) {
 	    int rnum,i,j;
 
 	    fprintf(stderr, "radeapclient: one of rand 1,2,3 didn't match\n");
@@ -493,7 +501,7 @@ static int process_eap_challenge(RADIUS_PACKET *req,
 		}
 		j++;
 
-		fprintf(stderr, "%02x", randcfgvp[rnum]->strvalue[i]);
+		fprintf(stderr, "%02x", randcfgvp[rnum]->vp_octets[i]);
 	      }
 	      fprintf(stderr, "\n");
 	    }
@@ -518,9 +526,9 @@ static int process_eap_challenge(RADIUS_PACKET *req,
 		fprintf(stderr, "radeapclient: needs to have sres1, 2 and 3 set.\n");
 		return 0;
 	}
-	memcpy(eapsim_mk.sres[0], sres1->strvalue, sizeof(eapsim_mk.sres[0]));
-	memcpy(eapsim_mk.sres[1], sres2->strvalue, sizeof(eapsim_mk.sres[1]));
-	memcpy(eapsim_mk.sres[2], sres3->strvalue, sizeof(eapsim_mk.sres[2]));
+	memcpy(eapsim_mk.sres[0], sres1->vp_strvalue, sizeof(eapsim_mk.sres[0]));
+	memcpy(eapsim_mk.sres[1], sres2->vp_strvalue, sizeof(eapsim_mk.sres[1]));
+	memcpy(eapsim_mk.sres[2], sres3->vp_strvalue, sizeof(eapsim_mk.sres[2]));
 
 	Kc1 = pairfind(rep->vps, ATTRIBUTE_EAP_SIM_KC1);
 	Kc2 = pairfind(rep->vps, ATTRIBUTE_EAP_SIM_KC2);
@@ -532,9 +540,9 @@ static int process_eap_challenge(RADIUS_PACKET *req,
 		fprintf(stderr, "radeapclient: needs to have Kc1, 2 and 3 set.\n");
 		return 0;
 	}
-	memcpy(eapsim_mk.Kc[0], Kc1->strvalue, sizeof(eapsim_mk.Kc[0]));
-	memcpy(eapsim_mk.Kc[1], Kc2->strvalue, sizeof(eapsim_mk.Kc[1]));
-	memcpy(eapsim_mk.Kc[2], Kc3->strvalue, sizeof(eapsim_mk.Kc[2]));
+	memcpy(eapsim_mk.Kc[0], Kc1->vp_strvalue, sizeof(eapsim_mk.Kc[0]));
+	memcpy(eapsim_mk.Kc[1], Kc2->vp_strvalue, sizeof(eapsim_mk.Kc[1]));
+	memcpy(eapsim_mk.Kc[2], Kc3->vp_strvalue, sizeof(eapsim_mk.Kc[2]));
 
 	/* all set, calculate keys */
 	eapsim_calculate_keys(&eapsim_mk);
@@ -570,7 +578,7 @@ static int process_eap_challenge(RADIUS_PACKET *req,
 
 	/* mark the subtype as being EAP-SIM/Response/Start */
 	newvp = paircreate(ATTRIBUTE_EAP_SIM_SUBTYPE, PW_TYPE_INTEGER);
-	newvp->lvalue = eapsim_challenge;
+	newvp->vp_integer = eapsim_challenge;
 	pairreplace(&(rep->vps), newvp);
 
 	/*
@@ -579,14 +587,14 @@ static int process_eap_challenge(RADIUS_PACKET *req,
 	 */
 	newvp = paircreate(ATTRIBUTE_EAP_SIM_BASE+PW_EAP_SIM_MAC,
 			   PW_TYPE_OCTETS);
-	memcpy(newvp->strvalue+EAPSIM_SRES_SIZE*0, sres1->strvalue, EAPSIM_SRES_SIZE);
-	memcpy(newvp->strvalue+EAPSIM_SRES_SIZE*1, sres2->strvalue, EAPSIM_SRES_SIZE);
-	memcpy(newvp->strvalue+EAPSIM_SRES_SIZE*2, sres3->strvalue, EAPSIM_SRES_SIZE);
+	memcpy(newvp->vp_strvalue+EAPSIM_SRES_SIZE*0, sres1->vp_strvalue, EAPSIM_SRES_SIZE);
+	memcpy(newvp->vp_strvalue+EAPSIM_SRES_SIZE*1, sres2->vp_strvalue, EAPSIM_SRES_SIZE);
+	memcpy(newvp->vp_strvalue+EAPSIM_SRES_SIZE*2, sres3->vp_strvalue, EAPSIM_SRES_SIZE);
 	newvp->length = EAPSIM_SRES_SIZE*3;
 	pairreplace(&(rep->vps), newvp);
 
 	newvp = paircreate(ATTRIBUTE_EAP_SIM_KEY, PW_TYPE_OCTETS);
-	memcpy(newvp->strvalue,    eapsim_mk.K_aut, EAPSIM_AUTH_SIZE);
+	memcpy(newvp->vp_strvalue,    eapsim_mk.K_aut, EAPSIM_AUTH_SIZE);
 	newvp->length = EAPSIM_AUTH_SIZE;
 	pairreplace(&(rep->vps), newvp);
 
@@ -625,10 +633,10 @@ static int respond_eap_sim(RADIUS_PACKET *req,
 	{
 		/* must be initial request */
 		statevp = paircreate(ATTRIBUTE_EAP_SIM_STATE, PW_TYPE_INTEGER);
-		statevp->lvalue = eapsim_client_init;
+		statevp->vp_integer = eapsim_client_init;
 		pairreplace(&(resp->vps), statevp);
 	}
-	state = statevp->lvalue;
+	state = statevp->vp_integer;
 
 	/*
 	 * map the attributes, and authenticate them.
@@ -642,7 +650,7 @@ static int respond_eap_sim(RADIUS_PACKET *req,
 	{
 		return 0;
 	}
-	subtype = vp->lvalue;
+	subtype = vp->vp_integer;
 
 	/*
 	 * look for the appropriate state, and process incoming message
@@ -702,7 +710,7 @@ static int respond_eap_sim(RADIUS_PACKET *req,
 	/* copy the radius state object in */
 	pairreplace(&(resp->vps), radstate);
 
-	statevp->lvalue = newstate;
+	statevp->vp_integer = newstate;
 	return 1;
 }
 
@@ -710,12 +718,12 @@ static int respond_eap_md5(RADIUS_PACKET *req,
 			   RADIUS_PACKET *rep)
 {
 	VALUE_PAIR *vp, *id, *state;
-	int valuesize, namesize;
-	unsigned char identifier;
-	unsigned char *value;
-	unsigned char *name;
-	MD5_CTX	context;
-	char    response[16];
+	size_t valuesize, namesize;
+	uint8_t identifier;
+	uint8_t *value;
+	uint8_t *name;
+	FR_MD5_CTX	context;
+	uint8_t    response[16];
 
 	cleanresp(rep);
 
@@ -730,7 +738,7 @@ static int respond_eap_md5(RADIUS_PACKET *req,
 		fprintf(stderr, "radeapclient: no EAP-ID attribute found\n");
 		return 0;
 	}
-	identifier = id->lvalue;
+	identifier = id->vp_integer;
 
 	if ((vp = pairfind(req->vps, ATTRIBUTE_EAP_BASE+PW_EAP_MD5)) == NULL)
 	{
@@ -739,9 +747,9 @@ static int respond_eap_md5(RADIUS_PACKET *req,
 	}
 
 	/* got the details of the MD5 challenge */
-	valuesize = vp->strvalue[0];
-	value = &vp->strvalue[1];
-	name  = &vp->strvalue[valuesize+1];
+	valuesize = vp->vp_octets[0];
+	value = &vp->vp_octets[1];
+	name  = &vp->vp_octets[valuesize+1];
 	namesize = vp->length - (valuesize + 1);
 
 	/* sanitize items */
@@ -756,15 +764,15 @@ static int respond_eap_md5(RADIUS_PACKET *req,
 	 * buffer. We could also call rad_chap_encode, but it wants
 	 * a CHAP-Challenge, which we don't want to bother with.
 	 */
-	librad_MD5Init(&context);
-	librad_MD5Update(&context, &identifier, 1);
-	librad_MD5Update(&context, password, strlen(password));
-	librad_MD5Update(&context, value, valuesize);
-	librad_MD5Final(response, &context);
+	fr_MD5Init(&context);
+	fr_MD5Update(&context, &identifier, 1);
+	fr_MD5Update(&context, (uint8_t *) password, strlen(password));
+	fr_MD5Update(&context, value, valuesize);
+	fr_MD5Final(response, &context);
 
 	vp = paircreate(ATTRIBUTE_EAP_BASE+PW_EAP_MD5, PW_TYPE_OCTETS);
-	vp->strvalue[0]=16;
-	memcpy(&vp->strvalue[1], response, 16);
+	vp->vp_octets[0]=16;
+	memcpy(&vp->vp_strvalue[1], response, 16);
 	vp->length = 17;
 
 	pairreplace(&(rep->vps), vp);
@@ -788,16 +796,16 @@ static int sendrecv_eap(RADIUS_PACKET *rep)
 	/*
 	 *	Keep a copy of the the User-Password attribute.
 	 */
-	if ((vp = pairfind(rep->vps, ATTRIBUTE_EAP_MD5_PASSWORD)) != NULL) {
-		strNcpy(password, (char *)vp->strvalue, sizeof(vp->strvalue));
+	if ((vp = pairfind(rep->vps, PW_CLEARTEXT_PASSWORD)) != NULL) {
+		strlcpy(password, (char *)vp->vp_strvalue, sizeof(vp->vp_strvalue));
 
-	} else 	if ((vp = pairfind(rep->vps, PW_PASSWORD)) != NULL) {
-		strNcpy(password, (char *)vp->strvalue, sizeof(vp->strvalue));
+	} else 	if ((vp = pairfind(rep->vps, PW_USER_PASSWORD)) != NULL) {
+		strlcpy(password, (char *)vp->vp_strvalue, sizeof(vp->vp_strvalue));
 		/*
 		 *	Otherwise keep a copy of the CHAP-Password attribute.
 		 */
 	} else if ((vp = pairfind(rep->vps, PW_CHAP_PASSWORD)) != NULL) {
-		strNcpy(password, (char *)vp->strvalue, sizeof(vp->strvalue));
+		strlcpy(password, (char *)vp->vp_strvalue, sizeof(vp->vp_strvalue));
 	} else {
 		*password = '\0';
 	}
@@ -833,10 +841,10 @@ static int sendrecv_eap(RADIUS_PACKET *rep)
 		case PW_DIGEST_NONCE_COUNT:
 		case PW_DIGEST_USER_NAME:
 			/* overlapping! */
-			memmove(&vp->strvalue[2], &vp->strvalue[0], vp->length);
-			vp->strvalue[0] = vp->attribute - PW_DIGEST_REALM + 1;
+			memmove(&vp->vp_strvalue[2], &vp->vp_octets[0], vp->length);
+			vp->vp_octets[0] = vp->attribute - PW_DIGEST_REALM + 1;
 			vp->length += 2;
-			vp->strvalue[1] = vp->length;
+			vp->vp_octets[1] = vp->length;
 			vp->attribute = PW_DIGEST_ATTRIBUTES;
 			break;
 		}
@@ -852,19 +860,23 @@ static int sendrecv_eap(RADIUS_PACKET *rep)
 		rep->data = NULL;
 	}
 
-	librad_md5_calc(rep->vector, rep->vector,
+	fr_md5_calc(rep->vector, rep->vector,
 			sizeof(rep->vector));
 
 	if (*password != '\0') {
-		if ((vp = pairfind(rep->vps, PW_PASSWORD)) != NULL) {
-			strNcpy((char *)vp->strvalue, password, strlen(password) + 1);
+		if ((vp = pairfind(rep->vps, PW_CLEARTEXT_PASSWORD)) != NULL) {
+			strlcpy((char *)vp->vp_strvalue, password, sizeof(vp->vp_strvalue));
+			vp->length = strlen(password);
+
+		} else if ((vp = pairfind(rep->vps, PW_USER_PASSWORD)) != NULL) {
+			strlcpy((char *)vp->vp_strvalue, password, sizeof(vp->vp_strvalue));
 			vp->length = strlen(password);
 
 		} else if ((vp = pairfind(rep->vps, PW_CHAP_PASSWORD)) != NULL) {
-			strNcpy((char *)vp->strvalue, password, strlen(password) + 1);
+			strlcpy((char *)vp->vp_strvalue, password, sizeof(vp->vp_strvalue));
 			vp->length = strlen(password);
 
-			rad_chap_encode(rep, (char *) vp->strvalue, rep->id, vp);
+			rad_chap_encode(rep, vp->vp_octets, rep->id, vp);
 			vp->length = 17;
 		}
 	} /* there WAS a password */
@@ -919,7 +931,7 @@ int main(int argc, char **argv)
 	int id;
 
 	id = ((int)getpid() & 0xff);
-	librad_debug = 0;
+	fr_debug_flag = 0;
 
 	radlog_dest = RADLOG_STDERR;
 
@@ -942,7 +954,7 @@ int main(int argc, char **argv)
 			break;
 		case 'x':
 		        debug_flag++;
-			librad_debug++;
+			fr_debug_flag++;
 			break;
 
 		case 'X':
@@ -975,7 +987,7 @@ int main(int argc, char **argv)
 			timeout = atof(optarg);
 			break;
 		case 'v':
-			printf("radclient: $Id: radeapclient.c,v 1.7.4.6 2007/03/05 14:09:10 aland Exp $ built on " __DATE__ " at " __TIME__ "\n");
+			printf("radclient: $Id$ built on " __DATE__ " at " __TIME__ "\n");
 			exit(0);
 			break;
                case 'S':
@@ -1021,12 +1033,12 @@ int main(int argc, char **argv)
 	}
 
 	if (dict_init(radius_dir, RADIUS_DICTIONARY) < 0) {
-		librad_perror("radclient");
+		fr_perror("radclient");
 		return 1;
 	}
 
 	if ((req = rad_alloc(1)) == NULL) {
-		librad_perror("radclient");
+		fr_perror("radclient");
 		exit(1);
 	}
 
@@ -1042,7 +1054,7 @@ int main(int argc, char **argv)
 			fclose(randinit);
 		}
 	}
-	lrad_randinit(&randctx, 1);
+	fr_randinit(&randctx, 1);
 #endif
 
 	req->id = id;
@@ -1087,16 +1099,10 @@ int main(int argc, char **argv)
 	}
 
 	/*
-	 *	Ensure that the configuration is initialized.
-	 */
-	memset(&mainconfig, 0, sizeof(mainconfig));
-
-	/*
 	 *	Resolve hostname.
 	 */
 	req->dst_port = port;
-	req->dst_ipaddr = ip_getaddr(argv[1]);
-	if (req->dst_ipaddr == INADDR_NONE) {
+	if (ip_hton(argv[1], AF_INET, &req->dst_ipaddr) < 0) {
 		fprintf(stderr, "radclient: Failed to find IP address for host %s\n", argv[1]);
 		exit(1);
 	}
@@ -1147,3 +1153,300 @@ int main(int argc, char **argv)
 	}
 	return 0;
 }
+
+/*
+ * given a radius request with some attributes in the EAP range, build
+ * them all into a single EAP-Message body.
+ *
+ * Note that this function will build multiple EAP-Message bodies
+ * if there are multiple eligible EAP-types. This is incorrect, as the
+ * recipient will in fact concatenate them.
+ *
+ * XXX - we could break the loop once we process one type. Maybe this
+ *       just deserves an assert?
+ *
+ */
+static void map_eap_types(RADIUS_PACKET *req)
+{
+	VALUE_PAIR *vp, *vpnext;
+	int id, eapcode;
+	EAP_PACKET ep;
+	int eap_type;
+
+	vp = pairfind(req->vps, ATTRIBUTE_EAP_ID);
+	if(vp == NULL) {
+		id = ((int)getpid() & 0xff);
+	} else {
+		id = vp->vp_integer;
+	}
+
+	vp = pairfind(req->vps, ATTRIBUTE_EAP_CODE);
+	if(vp == NULL) {
+		eapcode = PW_EAP_REQUEST;
+	} else {
+		eapcode = vp->vp_integer;
+	}
+
+
+	for(vp = req->vps; vp != NULL; vp = vpnext) {
+		/* save it in case it changes! */
+		vpnext = vp->next;
+
+		if(vp->attribute >= ATTRIBUTE_EAP_BASE &&
+		   vp->attribute < ATTRIBUTE_EAP_BASE+256) {
+			break;
+		}
+	}
+
+	if(vp == NULL) {
+		return;
+	}
+
+	eap_type = vp->attribute - ATTRIBUTE_EAP_BASE;
+
+	switch(eap_type) {
+	case PW_EAP_IDENTITY:
+	case PW_EAP_NOTIFICATION:
+	case PW_EAP_NAK:
+	case PW_EAP_MD5:
+	case PW_EAP_OTP:
+	case PW_EAP_GTC:
+	case PW_EAP_TLS:
+	case PW_EAP_LEAP:
+	case PW_EAP_TTLS:
+	case PW_EAP_PEAP:
+	default:
+		/*
+		 * no known special handling, it is just encoded as an
+		 * EAP-message with the given type.
+		 */
+
+		/* nuke any existing EAP-Messages */
+		pairdelete(&req->vps, PW_EAP_MESSAGE);
+
+		memset(&ep, 0, sizeof(ep));
+		ep.code = eapcode;
+		ep.id   = id;
+		ep.type.type = eap_type;
+		ep.type.length = vp->length;
+		ep.type.data = malloc(vp->length);
+		memcpy(ep.type.data,vp->vp_octets, vp->length);
+		eap_basic_compose(req, &ep);
+	}
+}
+
+/*
+ * given a radius request with an EAP-Message body, decode it specific
+ * attributes.
+ */
+static void unmap_eap_types(RADIUS_PACKET *rep)
+{
+	VALUE_PAIR *eap1;
+	eap_packet_t *e;
+	int len;
+	int type;
+
+	/* find eap message */
+	e = eap_vp2packet(rep->vps);
+
+	/* nothing to do! */
+	if(e == NULL) return;
+
+	/* create EAP-ID and EAP-CODE attributes to start */
+	eap1 = paircreate(ATTRIBUTE_EAP_ID, PW_TYPE_INTEGER);
+	eap1->vp_integer = e->id;
+	pairadd(&(rep->vps), eap1);
+
+	eap1 = paircreate(ATTRIBUTE_EAP_CODE, PW_TYPE_INTEGER);
+	eap1->vp_integer = e->code;
+	pairadd(&(rep->vps), eap1);
+
+	switch(e->code)
+	{
+	default:
+	case PW_EAP_SUCCESS:
+	case PW_EAP_FAILURE:
+		/* no data */
+		break;
+
+	case PW_EAP_REQUEST:
+	case PW_EAP_RESPONSE:
+		/* there is a type field, which we use to create
+		 * a new attribute */
+
+		/* the length was decode already into the attribute
+		 * length, and was checked already. Network byte
+		 * order, just pull it out using math.
+		 */
+		len = e->length[0]*256 + e->length[1];
+
+		/* verify the length is big enough to hold type */
+		if(len < 5)
+		{
+			return;
+		}
+
+		type = e->data[0];
+
+		type += ATTRIBUTE_EAP_BASE;
+		len -= 5;
+
+		if(len > MAX_STRING_LEN) {
+			len = MAX_STRING_LEN;
+		}
+
+		eap1 = paircreate(type, PW_TYPE_OCTETS);
+		memcpy(eap1->vp_strvalue, &e->data[1], len);
+		eap1->length = len;
+		pairadd(&(rep->vps), eap1);
+		break;
+	}
+
+	return;
+}
+
+static int map_eapsim_types(RADIUS_PACKET *r)
+{
+	EAP_PACKET ep;
+	int ret;
+
+	memset(&ep, 0, sizeof(ep));
+	ret = map_eapsim_basictypes(r, &ep);
+	if(ret != 1) {
+		return ret;
+	}
+	eap_basic_compose(r, &ep);
+
+	return 1;
+}
+
+static int unmap_eapsim_types(RADIUS_PACKET *r)
+{
+	VALUE_PAIR             *esvp;
+
+	esvp = pairfind(r->vps, ATTRIBUTE_EAP_BASE+PW_EAP_SIM);
+	if (esvp == NULL) {
+		radlog(L_ERR, "eap: EAP-Sim attribute not found");
+		return 0;
+	}
+
+	return unmap_eapsim_basictypes(r, esvp->vp_octets, esvp->length);
+}
+
+#ifdef TEST_CASE
+
+#include <assert.h>
+
+const char *radius_dir = RADDBDIR;
+
+int radlog(int lvl, const char *msg, ...)
+{
+	va_list ap;
+	int r;
+
+	va_start(ap, msg);
+	r = vfprintf(stderr, msg, ap);
+	va_end(ap);
+	fputc('\n', stderr);
+
+	return r;
+}
+
+main(int argc, char *argv[])
+{
+	int filedone;
+	RADIUS_PACKET *req,*req2;
+	VALUE_PAIR *vp, *vpkey, *vpextra;
+	extern unsigned int sha1_data_problems;
+
+	req = NULL;
+	req2 = NULL;
+	filedone = 0;
+
+	if(argc>1) {
+	  sha1_data_problems = 1;
+	}
+
+	if (dict_init(radius_dir, RADIUS_DICTIONARY) < 0) {
+		fr_perror("radclient");
+		return 1;
+	}
+
+	if ((req = rad_alloc(1)) == NULL) {
+		fr_perror("radclient");
+		exit(1);
+	}
+
+	if ((req2 = rad_alloc(1)) == NULL) {
+		fr_perror("radclient");
+		exit(1);
+	}
+
+	while(!filedone) {
+		if(req->vps) pairfree(&req->vps);
+		if(req2->vps) pairfree(&req2->vps);
+
+		if ((req->vps = readvp2(stdin, &filedone, "eapsimlib:")) == NULL) {
+			break;
+		}
+
+		printf("\nRead:\n");
+		vp_printlist(stdout, req->vps);
+
+		map_eapsim_types(req);
+		map_eap_types(req);
+		printf("Mapped to:\n");
+		vp_printlist(stdout, req->vps);
+
+		/* find the EAP-Message, copy it to req2 */
+		vp = paircopy2(req->vps, PW_EAP_MESSAGE);
+
+		if(vp == NULL) continue;
+
+		pairadd(&req2->vps, vp);
+
+		/* only call unmap for sim types here */
+		unmap_eap_types(req2);
+		unmap_eapsim_types(req2);
+
+		printf("Unmapped to:\n");
+		vp_printlist(stdout, req2->vps);
+
+		vp = pairfind(req2->vps,
+			      ATTRIBUTE_EAP_SIM_BASE+PW_EAP_SIM_MAC);
+		vpkey   = pairfind(req->vps, ATTRIBUTE_EAP_SIM_KEY);
+		vpextra = pairfind(req->vps, ATTRIBUTE_EAP_SIM_EXTRA);
+
+		if(vp != NULL && vpkey != NULL && vpextra!=NULL) {
+			uint8_t calcmac[16];
+
+			/* find the EAP-Message, copy it to req2 */
+
+			memset(calcmac, 0, sizeof(calcmac));
+			printf("Confirming MAC...");
+			if(eapsim_checkmac(req2->vps, vpkey->vp_strvalue,
+					   vpextra->vp_strvalue, vpextra->length,
+					   calcmac)) {
+				printf("succeed\n");
+			} else {
+				int i, j;
+
+				printf("calculated MAC (");
+				for (i = 0; i < 20; i++) {
+					if(j==4) {
+						printf("_");
+						j=0;
+					}
+					j++;
+
+					printf("%02x", calcmac[i]);
+				}
+				printf(" did not match\n");
+			}
+		}
+
+		fflush(stdout);
+	}
+}
+#endif
+

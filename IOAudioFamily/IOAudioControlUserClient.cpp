@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2009 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -20,11 +20,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <IOKit/audio/IOAudioDebug.h>
-#include <IOKit/audio/IOAudioControlUserClient.h>
-#include <IOKit/audio/IOAudioControl.h>
-#include <IOKit/audio/IOAudioTypes.h>
-#include <IOKit/audio/IOAudioDefines.h>
+#include "IOAudioDebug.h"
+#include "IOAudioControlUserClient.h"
+#include "IOAudioControl.h"
+#include "IOAudioTypes.h"
+#include "IOAudioDefines.h"
 
 #include <IOKit/IOLib.h>
 #include <IOKit/IOCommandGate.h>

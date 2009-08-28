@@ -77,6 +77,7 @@ __FBSDID("$FreeBSD: src/usr.bin/make/main.c,v 1.159 2005/12/05 14:22:12 ru Exp $
 #ifdef __APPLE__
 #include <dirent.h>
 #include <libgen.h>
+#include <mach-o/dyld.h>
 #endif /* __APPLE__ */
 
 #include "arch.h"
@@ -957,17 +958,55 @@ main(int argc, char **argv)
 	 */
 	if (TAILQ_EMPTY(&sysIncPath)) {
 		char syspath[] = PATH_DEFSYSPATH;
+#ifdef __APPLE__
+	    char *prefixes[2] = { NULL, NULL };
+	    char *devdir = getenv("DEVELOPER_DIR");
+	    char **pf;
+	    char execpath[MAXPATHLEN];
+	    uint32_t execpathsize = sizeof(execpath);
+	    char *rel;
 
+	    if (devdir && *devdir != '/')
+		devdir = NULL;
+	    prefixes[0] = devdir;
+	    if (_NSGetExecutablePath(execpath, &execpathsize) != 0)
+		strcpy(execpath, "/usr/bin/bsdmake");
+	    /* chop off name to get path */
+	    if ((cp = strrchr(execpath, '/')) != NULL)
+		*cp = 0;
+	    /* chop off 'bin' */
+	    if ((cp = strrchr(execpath, '/')) != NULL)
+		*cp = 0;
+	    /* chop off 'usr' */
+	    if ((cp = strrchr(execpath, '/')) != NULL)
+		*cp = 0;
+	    rel = (cp > execpath) ? execpath : NULL;
+	    pf = prefixes;
+	    do {
+#endif /* __APPLE__ */
 		for (start = syspath; *start != '\0'; start = cp) {
 			for (cp = start; *cp != '\0' && *cp != ':'; cp++)
 				continue;
 			if (*cp == '\0') {
+#ifdef __APPLE__
+				Path_AddDirPrefix(&sysIncPath, *pf ? *pf : rel, start);
+#else /* !__APPLE__ */
 				Path_AddDir(&sysIncPath, start);
+#endif /* __APPLE__ */
 			} else {
+#ifdef __APPLE__
+				*cp = '\0';
+				Path_AddDirPrefix(&sysIncPath, *pf ? *pf : rel, start);
+				*cp++ = ':';
+#else /* !__APPLE__ */
 				*cp++ = '\0';
 				Path_AddDir(&sysIncPath, start);
+#endif /* __APPLE__ */
 			}
 		}
+#ifdef __APPLE__
+	    } while(*pf++);
+#endif /* __APPLE__ */
 	}
 
 	/*

@@ -30,10 +30,13 @@
 #include <cstdio>
 #include <string>
 #include <getopt.h>
+#include <Security/Security.h>
 #include <Security/CodeSigning.h>
+#include <Security/SecRequirementPriv.h>
 #include <security_utilities/unix++.h>
 #include <security_utilities/errors.h>
-#include <security_codesigning/requirement.h>
+#include <security_utilities/hashing.h>
+#include <security_utilities/cfutilities.h>
 
 
 //
@@ -89,18 +92,23 @@ private:
 std::string keychainPath(CFTypeRef whatever);
 SecIdentityRef findIdentity(SecKeychainRef keychain, const char *name);
 
-template <class ReqType> const ReqType *readRequirement(const std::string &source);
+CFTypeRef readRequirement(const std::string &source, SecCSFlags flags);
+inline SecRequirementRef readRequirement(const std::string &source)
+{ return SecRequirementRef(readRequirement(source, kSecCSParseRequirement)); }
+inline CFDataRef readRequirements(const std::string &source)
+{ return CFDataRef(readRequirement(source, kSecCSParseRequirementSet)); }
 
 uint32_t parseCdFlags(const char *string);
 CFDateRef parseDate(const char *string);
 
-std::string hashString(SHA1::Digest hash);
+std::string hashString(const SHA1::Byte *hash);
 std::string hashString(SHA1 &hash);
 
 void writeFileList(CFArrayRef list, const char *destination, const char *mode);
+void writeDictionary(CFDictionaryRef dict, const char *destination, const char *mode);
 void writeData(CFDataRef data, const char *destination, const char *mode);
 
-CFRef<SecCodeRef> codePath(const char *target);
+SecCodeRef codePath(const char *target);
 
 
 

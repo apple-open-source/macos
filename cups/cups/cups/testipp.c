@@ -1,9 +1,9 @@
 /*
- * "$Id: testipp.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: testipp.c 6649 2007-07-11 21:46:42Z mike $"
  *
  *   IPP test program for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -488,7 +488,7 @@ print_attributes(ipp_t *ipp,		/* I - IPP request */
 
   for (group = IPP_TAG_ZERO, attr = ipp->attrs; attr; attr = attr->next)
   {
-    if ((attr->group_tag == IPP_TAG_ZERO && indent <= 8) || !attr->name)
+    if (!attr->name && indent == 4)
     {
       group = IPP_TAG_ZERO;
       putchar('\n');
@@ -499,17 +499,10 @@ print_attributes(ipp_t *ipp,		/* I - IPP request */
     {
       group = attr->group_tag;
 
-      putchar('\n');
-      for (i = 4; i < indent; i ++)
-        putchar(' ');
-
-      printf("%s:\n\n", tags[group]);
+      printf("\n%*s%s:\n\n", indent - 4, "", tags[group]);
     }
 
-    for (i = 0; i < indent; i ++)
-      putchar(' ');
-
-    printf("%s (", attr->name);
+    printf("%*s%s (", indent, "", attr->name ? attr->name : "(null)");
     if (attr->num_values > 1)
       printf("1setOf ");
     printf("%s):", tags[attr->value_tag]);
@@ -649,5 +642,5 @@ write_cb(void        *data,		/* I - Data */
 
 
 /*
- * End of "$Id: testipp.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: testipp.c 6649 2007-07-11 21:46:42Z mike $".
  */

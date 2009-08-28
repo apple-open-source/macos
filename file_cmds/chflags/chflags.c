@@ -64,7 +64,7 @@ main(int argc, char *argv[])
 	long val;
 	int Hflag, Lflag, Rflag, hflag, ch, fts_options, oct, rval;
 	char *flags, *ep;
-	int (*change_flags)(const char *, unsigned long);
+	int (*change_flags)(const char *, u_int);
 
 	Hflag = Lflag = Rflag = hflag = 0;
 #ifdef __APPLE__
@@ -119,7 +119,7 @@ main(int argc, char *argv[])
 	/* XXX: Why don't chflags and lchflags have compatible prototypes? */
 #ifndef __APPLE__
 	if (hflag)
-		change_flags = (int (*)(const char *, unsigned long))lchflags;
+		change_flags = (int (*)(const char *, u_int))lchflags;
 	else
 #endif /* !__APPLE__ */
 		change_flags = chflags;

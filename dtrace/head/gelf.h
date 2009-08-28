@@ -50,6 +50,13 @@ typedef int64_t		off64_t;
 
 #include <libelf.h>
 #include "link.h" /* In lieu of Solaris <sys/link.h> */
+
+#ifdef _INT64_T
+#ifndef _INT64_TYPE
+#define _INT64_TYPE /* Solaris vs. Darwin */
+#endif
+#endif
+
 #endif /* __APPLE__ */
 
 #ifdef	__cplusplus

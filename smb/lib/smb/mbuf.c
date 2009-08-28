@@ -2,7 +2,7 @@
  * Copyright (c) 2000, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2004 - 2007 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2004 - 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -82,7 +82,7 @@ static size_t
 m_totlen(struct smb_lib_mbuf *m0)
 {
 	struct smb_lib_mbuf *m = m0;
-	int len = 0;
+	size_t len = 0;
 
 	while (m) {
 		len += m->m_len;
@@ -188,7 +188,7 @@ mb_fit(struct mbdata *mbp, size_t size, char **pp)
 	int error;
 
 	m = mbp->mb_cur;
-	if (SMB_LIB_M_TRAILINGSPACE(m) < (int)size) {
+	if ((size_t)SMB_LIB_M_TRAILINGSPACE(m) < size) {
 		if ((error = mbuf_get(size, &mn)) != 0)
 			return error;
 		mbp->mb_pos = SMB_LIB_MTODATA(mn, char *);
@@ -242,13 +242,14 @@ mb_put_uint32le(struct mbdata *mbp, u_int32_t x)
 	return 0;
 }
 
-int
-mb_put_uint64be(struct mbdata *mbp, u_int64_t x)
+#ifdef SMB_CURRENTLY_NOTE_USED
+int mb_put_uint64be(struct mbdata *mbp, u_int64_t x)
 {
 	MB_PUT(u_int64_t);
 	*p = htobeq(x);
 	return 0;
 }
+#endif // SMB_CURRENTLY_NOTE_USED
 
 int
 mb_put_uint64le(struct mbdata *mbp, u_int64_t x)
@@ -309,19 +310,6 @@ mb_put_mbuf(struct mbdata *mbp, struct smb_lib_mbuf *m)
 	return 0;
 }
 
-int 
-mb_put_pstring(struct mbdata *mbp, const char *s)
-{
-	int error, len = strlen(s);
-
-	if (len > 255) {
-		len = 255;
-	}
-	if ((error = mb_put_uint8(mbp, len)) != 0)
-		return error;
-	return mb_put_mem(mbp, s, len);
-}
-
 /*
  * Routines for fetching data from an mbuf chain
  */
@@ -360,8 +348,7 @@ mb_get_uint16be(struct mbdata *mbp, u_int16_t *x) {
 	return error;
 }
 
-int
-mb_get_uint32(struct mbdata *mbp, u_int32_t *x)
+static int mb_get_uint32(struct mbdata *mbp, u_int32_t *x)
 {
 	return mb_get_mem(mbp, (char *)x, 4);
 }
@@ -390,23 +377,24 @@ mb_get_uint32le(struct mbdata *mbp, u_int32_t *x)
 	return error;
 }
 
-int
+static int
 mb_get_uint64(struct mbdata *mbp, u_int64_t *x)
 {
 	return mb_get_mem(mbp, (char *)x, 8);
 }
 
-int
-mb_get_uint64be(struct mbdata *mbp, u_int64_t *x)
+#ifdef SMB_CURRENTLY_NOTE_USED
+int mb_get_uint64be(struct mbdata *mbp, u_int64_t *x)
 {
 	u_int64_t v;
 	int error;
-
+	
 	error = mb_get_uint64(mbp, &v);
 	if (x != NULL)
 		*x = betohq(v);
 	return error;
 }
+#endif // SMB_CURRENTLY_NOTE_USED
 
 int
 mb_get_uint64le(struct mbdata *mbp, u_int64_t *x)
@@ -421,17 +409,17 @@ mb_get_uint64le(struct mbdata *mbp, u_int64_t *x)
 }
 
 int
-mb_get_mem(struct mbdata *mbp, char * target, size_t size)
+mb_get_mem(struct mbdata *mbp, char * target, u_int32_t size)
 {
 	struct smb_lib_mbuf *m = mbp->mb_cur;
-	u_int count;
+	u_int32_t count;
 	
 	while (size > 0) {
 		if (m == NULL) {
 			MBERROR("incomplete copy\n");
 			return EBADRPC;
 		}
-		count = mb_left(m, mbp->mb_pos);
+		count = (int32_t)mb_left(m, mbp->mb_pos);
 		if (count == 0) {
 			mbp->mb_cur = m = m->m_next;
 			if (m)

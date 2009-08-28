@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -55,7 +55,7 @@
 
 
 #if ( SCSI_PARALLEL_TASK_DEBUGGING_LEVEL >= 1 )
-#define PANIC_NOW(x)		IOPanic x
+#define PANIC_NOW(x)		panic x
 #else
 #define PANIC_NOW(x)
 #endif
@@ -79,7 +79,7 @@ OSDefineMetaClassAndStructors ( SCSIParallelTask, IODMACommand );
 
 #if 0
 #pragma mark -
-#pragma mark   Public Methods
+#pragma mark Public Methods
 #pragma mark -
 #endif
 
@@ -132,6 +132,15 @@ SCSIParallelTask::InitWithSize (
 	
 	IOBufferMemoryDescriptor *	buffer			= NULL;
 	IOReturn					status			= kIOReturnSuccess;
+	
+	fCommandChain.next = NULL;
+	fCommandChain.prev = NULL;
+	
+	fResendTaskChain.next = NULL;
+	fResendTaskChain.prev = NULL;
+	
+	fTimeoutChain.next 	= NULL;
+	fTimeoutChain.prev	= NULL;
 	
 	fHBADataSize = sizeOfHBAData;
 	
@@ -701,118 +710,6 @@ SCSIParallelTask::GetHBADataDescriptor ( void )
 
 
 //-----------------------------------------------------------------------------
-//	GetPreviousTaskInList -  Gets previous task in task list.		   [PUBLIC]
-//-----------------------------------------------------------------------------
-
-SCSIParallelTask *
-SCSIParallelTask::GetPreviousTaskInList ( void )
-{
-	return fPreviousParallelTask;
-}
-
-
-//-----------------------------------------------------------------------------
-//	SetPreviousTaskInList -  Sets previous task in task list.		   [PUBLIC]
-//-----------------------------------------------------------------------------
-
-void
-SCSIParallelTask::SetPreviousTaskInList ( SCSIParallelTask * newPrev )
-{
-	fPreviousParallelTask = newPrev;
-}
-
-
-//-----------------------------------------------------------------------------
-//	GetNextTaskInList -  Gets next task in task list.				   [PUBLIC]
-//-----------------------------------------------------------------------------
-
-SCSIParallelTask *
-SCSIParallelTask::GetNextTaskInList ( void )
-{
-	return fNextParallelTask;
-}
-
-
-//-----------------------------------------------------------------------------
-//	SetNextTaskInList -  Sets next task in task list.				   [PUBLIC]
-//-----------------------------------------------------------------------------
-
-void
-SCSIParallelTask::SetNextTaskInList ( SCSIParallelTask * newNext )
-{
-	fNextParallelTask = newNext;
-}
-
-
-//-----------------------------------------------------------------------------
-//	GetPreviousResendTaskInList -  Gets previous task in resend task list.
-//																	   [PUBLIC]
-//-----------------------------------------------------------------------------
-
-SCSIParallelTask *
-SCSIParallelTask::GetPreviousResendTaskInList ( void )
-{
-	return fPreviousResendTask;
-}
-
-
-//-----------------------------------------------------------------------------
-//	SetPreviousResendTaskInList -  Sets previous task in resend task list.
-//																	   [PUBLIC]
-//-----------------------------------------------------------------------------
-
-void
-SCSIParallelTask::SetPreviousResendTaskInList ( SCSIParallelTask * newPrev )
-{
-	fPreviousResendTask = newPrev;
-}
-
-
-//-----------------------------------------------------------------------------
-//	GetNextResendTaskInList -  Gets next task in resend task list.	   [PUBLIC]
-//-----------------------------------------------------------------------------
-
-SCSIParallelTask *
-SCSIParallelTask::GetNextResendTaskInList ( void )
-{
-	return fNextResendTask;
-}
-
-
-//-----------------------------------------------------------------------------
-//	SetNextResendTaskInList -  Sets next task in resend task list.	   [PUBLIC]
-//-----------------------------------------------------------------------------
-
-void
-SCSIParallelTask::SetNextResendTaskInList ( SCSIParallelTask * newNext )
-{
-	fNextResendTask = newNext;
-}
-
-
-//-----------------------------------------------------------------------------
-//	GetNextResendTaskInList -  Gets next task in resend task list.	   [PUBLIC]
-//-----------------------------------------------------------------------------
-
-SCSIParallelTask *
-SCSIParallelTask::GetNextTimeoutTaskInList ( void )
-{
-	return fNextTimeoutTask;
-}
-
-
-//-----------------------------------------------------------------------------
-//	SetNextResendTaskInList -  Sets next task in resend task list.	   [PUBLIC]
-//-----------------------------------------------------------------------------
-
-void
-SCSIParallelTask::SetNextTimeoutTaskInList ( SCSIParallelTask * newNext )
-{
-	fNextTimeoutTask = newNext;
-}
-
-
-//-----------------------------------------------------------------------------
 //	GetTimeoutDeadline -  Gets the timeout deadline in AbsoluteTime.   [PUBLIC]
 //-----------------------------------------------------------------------------
 
@@ -836,7 +733,7 @@ SCSIParallelTask::SetTimeoutDeadline ( AbsoluteTime time )
 
 #if 0
 #pragma mark -
-#pragma mark   Static Debugging Assertion Method
+#pragma mark Static Debugging Assertion Method
 #pragma mark -
 #endif
 

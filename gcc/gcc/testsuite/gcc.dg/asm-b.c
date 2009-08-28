@@ -1,8 +1,8 @@
-/* { dg-do run  { target powerpc-*-* i?386-*-* x86_64-*-* } } */
+/* { dg-do run  { target powerpc*-*-* i?86-*-* x86_64-*-* } } */
 /* { dg-options "-O1" } */
-/* Test to make sure that inline-asm causes the tree optimizators get the
-   V_MAY_DEFs and clober memory.  */
-/* Test from Jakub Jelinek, modified by Andrew Pinski to work on all powerpc targets. */
+/* Test to make sure that inline-asm causes the tree optimizers to get the
+   V_MAY_DEFs and clobber memory.  */
+/* Test from Jakub Jelinek, modified by Andrew Pinski to work on all powerpc targets.  */
 extern void abort (void);
 
 unsigned short v = 0x0300;
@@ -21,9 +21,7 @@ bar (void)
   foo (&x);
   const unsigned int y = x;
   z = &x;
-/* APPLE LOCAL begin radar 4085217 */
 #if defined (__powerpc__) || defined (__PPC__) || defined (__ppc__) || defined (_POWER) || defined (__ppc64__)
-/* APPLE LOCAL end radar 4085217 */
   __asm __volatile ("sthbrx %1,0,%2" : "=m" (*z) : "r" (y), "r" (z));
 #elif defined __i386__ || defined __x86_64__
   __asm __volatile ("movb %b1,1(%2); movb %h1,(%2)" : "=m" (*z) : "r" (y), "r"

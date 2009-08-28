@@ -1,0 +1,7 @@
+Konferencia %(real_name)s@%(host_name)s má %(count)d požiadaviek,
+ktoré čakajú na Vaše rozhodnutie na:
+
+	%(adminDB)s
+	
+Prosím, rozhodnite o čakajúcich požiadavkách čo najskôr. Táto správa
+je zasielaná raz denne, ak na vybavenie čaká aspoň jedna záležitosť.

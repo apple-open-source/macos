@@ -1,8 +1,8 @@
 /* compare.c - monitor backend compare routine */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/compare.c,v 1.20.2.3 2006/01/03 22:16:21 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/compare.c,v 1.24.2.5 2008/02/11 23:26:47 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2001-2006 The OpenLDAP Foundation.
+ * Copyright 2001-2008 The OpenLDAP Foundation.
  * Portions Copyright 2001-2003 Pierangelo Masarati.
  * All rights reserved.
  *
@@ -27,7 +27,7 @@
 #include "back-monitor.h"
 
 int
-monitor_back_compare( struct slap_op *op, struct slap_rep *rs)
+monitor_back_compare( Operation *op, SlapReply *rs )
 {
 	monitor_info_t	*mi = ( monitor_info_t * ) op->o_bd->be_private;
 	Entry           *e, *matched = NULL;
@@ -39,15 +39,12 @@ monitor_back_compare( struct slap_op *op, struct slap_rep *rs)
 	if ( e == NULL ) {
 		rs->sr_err = LDAP_NO_SUCH_OBJECT;
 		if ( matched ) {
-#ifdef SLAP_ACL_HONOR_DISCLOSE
 			if ( !access_allowed_mask( op, matched,
 					slap_schema.si_ad_entry,
 					NULL, ACL_DISCLOSE, NULL, NULL ) )
 			{
 				/* do nothing */ ;
-			} else 
-#endif /* SLAP_ACL_HONOR_DISCLOSE */
-			{
+			} else {
 				rs->sr_matched = matched->e_dn;
 			}
 		}
@@ -74,10 +71,10 @@ monitor_back_compare( struct slap_op *op, struct slap_rep *rs)
 			a = attrs_find( a->a_next, op->oq_compare.rs_ava->aa_desc )) {
 		rs->sr_err = LDAP_COMPARE_FALSE;
 
-		if ( value_find_ex( op->oq_compare.rs_ava->aa_desc,
+		if ( attr_valfind( a,
 			SLAP_MR_ATTRIBUTE_VALUE_NORMALIZED_MATCH |
 				SLAP_MR_ASSERTED_VALUE_NORMALIZED_MATCH,
-			a->a_nvals, &op->oq_compare.rs_ava->aa_value,
+			&op->oq_compare.rs_ava->aa_value, NULL,
 			op->o_tmpmemctx ) == 0 )
 		{
 			rs->sr_err = LDAP_COMPARE_TRUE;
@@ -97,13 +94,11 @@ return_results:;
 		break;
 
 	default:
-#ifdef SLAP_ACL_HONOR_DISCLOSE
 		if ( !access_allowed_mask( op, e, slap_schema.si_ad_entry,
 				NULL, ACL_DISCLOSE, NULL, NULL ) )
 		{
 			rs->sr_err = LDAP_NO_SUCH_OBJECT;
 		}
-#endif /* SLAP_ACL_HONOR_DISCLOSE */
 		break;
 	}
 		

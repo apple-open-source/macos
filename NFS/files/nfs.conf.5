@@ -1,5 +1,5 @@
 .\"
-.\" Copyright (c) 2006-2007 Apple Inc.  All rights reserved.
+.\" Copyright (c) 2006-2008 Apple Inc.  All rights reserved.
 .\"
 .\" @APPLE_LICENSE_HEADER_START@
 .\" 
@@ -20,7 +20,7 @@
 .\" 
 .\" @APPLE_LICENSE_HEADER_END@
 .\"
-.Dd January 9, 2007
+.Dd July 12, 2008
 .Dt NFS.CONF 5 
 .Os
 .Sh NAME
@@ -148,6 +148,13 @@ before it actually is.  The data may be lost if the NFS server crashes.
 .It Cm nfs.server.bonjour
 This option controls whether the NFS service is advertised via Bonjour.
 The default value is 1 (on).
+.It Cm nfs.server.bonjour.local_domain_only
+This option controls whether the NFS service's Bonjour advertisement is
+restricted to the local domain only.
+The default value is 0 (off).
+.It Cm nfs.server.export_hash_size
+This option specifies the size of the NFS server export hash table.  The
+default value is 64.
 .It Cm nfs.server.fsevents
 This option controls whether the NFS server will generate fsevents for
 operations performed on an exported file system.  The default value
@@ -224,12 +231,11 @@ doing write gathering to increase performance.
 This option can be used to specify a port that the STATUS service
 (statd) should be available on.  The default value is unspecified,
 which means that any available port will be used.
+.It Cm nfs.statd.simu_crash_allowed
+This option controls whether statd allows SM_SIMU_CRASH requests.  The
+default value is 0 (not allowed).
 .It Cm nfs.statd.verbose
-This option controls how much logging statd performs.  It currently
-maps directly to the
-.Xr rpc.statd 8
-.Fl -d
-option.  The default value is 0.
+This option controls how much logging statd performs.  The default value is 0.
 .El
 .Sh FILES
 .Bl -tag -width "/etc/nfs.conf" -compact

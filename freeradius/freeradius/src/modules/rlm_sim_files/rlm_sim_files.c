@@ -2,7 +2,7 @@
  * rlm_sim_files.c	authorization: Find a SIM user in the "simtriplets"
  *                                     file.
  *
- * Version:	$Id: rlm_sim_files.c,v 1.3 2004/02/26 19:04:34 aland Exp $
+ * Version:	$Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -16,9 +16,10 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
  * Copyright 2004  Michael Richardson <mcr@sandelman.ottawa.on.ca>
+ * Copyright 2006  The FreeRADIUS server project
  *
  * (Adapted from rlm_files/rlm_files.c )
  */
@@ -53,22 +54,18 @@
  */
 
 
-static const char rcsid[] = "$Id: rlm_sim_files.c,v 1.3 2004/02/26 19:04:34 aland Exp $";
+#include	<freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include	"autoconf.h"
-#include	"libradius.h"
+#include	<freeradius-devel/radiusd.h>
+#include	<freeradius-devel/modules.h>
+#include	<freeradius-devel/rad_assert.h>
 
 #include	<sys/stat.h>
-
-#include	<stdlib.h>
-#include	<string.h>
-#include	<netdb.h>
 #include	<ctype.h>
 #include	<fcntl.h>
 #include	<limits.h>
 
-#include	"radiusd.h"
-#include	"modules.h"
 #include        "../rlm_eap/libeap/eap_sim.h"
 
 struct sim_file_instance {
@@ -76,7 +73,7 @@ struct sim_file_instance {
 	char *file;
 };
 
-static CONF_PARSER module_config[] = {
+static const CONF_PARSER module_config[] = {
 	{ "simtriplets",	PW_TYPE_STRING_PTR,
 	  offsetof(struct sim_file_instance, file),
 	  NULL, "${raddbdir}/simtriplets.dat" },
@@ -134,7 +131,7 @@ static int sim_file_authorize(void *instance, REQUEST *request)
 	 *	Grab the canonical user name.
 	 */
 	namepair = request->username;
-	name = namepair ? (char *) namepair->strvalue : "NONE";
+	name = namepair ? (char *) namepair->vp_strvalue : "NONE";
 
 	triplets = fopen(inst->file, "r");
 
@@ -166,8 +163,7 @@ static int sim_file_authorize(void *instance, REQUEST *request)
 		f = strsep(&l, ",");
 		if(f)
 		{
-			imsi[0]='\0';
-			strncat(imsi, f, sizeof(imsi));
+			strlcpy(imsi, f, sizeof(imsi));
 			fieldcount++;
 		}
 
@@ -180,24 +176,21 @@ static int sim_file_authorize(void *instance, REQUEST *request)
 		f = strsep(&l, ",");
 		if(f)
 		{
-			chal[2]='\0';
-			strncat(chal+2, f, sizeof(chal)-2);
+			strlcpy(chal + 2, f, sizeof(chal) - 2);
 			fieldcount++;
 		}
 
 		f = strsep(&l, ",");
 		if(f)
 		{
-			sres[2]='\0';
-			strncat(sres+2, f, sizeof(sres)-2);
+			strlcpy(sres + 2, f, sizeof(sres) - 2);
 			fieldcount++;
 		}
 
 		f = strsep(&l, ",\n");
 		if(f)
 		{
-			kc[2]='\0';
-			strncat(kc+2, f, sizeof(kc)-2);
+			strlcpy(kc + 2, f, sizeof(kc) - 2);
 			fieldcount++;
 		}
 
@@ -251,10 +244,10 @@ static int sim_file_authorize(void *instance, REQUEST *request)
 
 #if 0
 	DEBUG("rlm_sim_files: saw config");
-	vp_printlist(stdout, *config_pairs);
+	debug_pair_list(*config_pairs);
 
 	DEBUG("rlm_sim_files: saw reply");
-	vp_printlist(stdout, *reply_pairs);
+	debug_pair_list(*reply_pairs);
 #endif
 
 	return RLM_MODULE_OK;
@@ -275,10 +268,11 @@ static int sim_file_detach(void *instance)
 
 /* globally exported name */
 module_t rlm_sim_files = {
+	RLM_MODULE_INIT,
 	"sim_files",
 	0,				/* type: reserved */
-	NULL,				/* initialization */
 	sim_file_instantiate,		/* instantiation */
+	sim_file_detach,		/* detach */
 	{
 		NULL,			/* authentication */
 		sim_file_authorize, 	/* authorization */
@@ -289,7 +283,5 @@ module_t rlm_sim_files = {
 		NULL,			/* post-proxy */
 		NULL			/* post-auth */
 	},
-	sim_file_detach,		/* detach */
-	NULL				/* destroy */
 };
 

@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -88,14 +88,14 @@ struct apr_table_entry_t {
 APR_DECLARE(const apr_array_header_t *) apr_table_elts(const apr_table_t *t);
 
 /**
- * Determine if the table is empty
+ * Determine if the table is empty (either NULL or having no elements)
  * @param t The table to check
  * @return True if empty, False otherwise
  */
 APR_DECLARE(int) apr_is_empty_table(const apr_table_t *t);
 
 /**
- * Determine if the array is empty
+ * Determine if the array is empty (either NULL or having no elements)
  * @param a The array to check
  * @return True if empty, False otherwise
  */
@@ -120,6 +120,25 @@ APR_DECLARE(apr_array_header_t *) apr_array_make(apr_pool_t *p,
  */
 APR_DECLARE(void *) apr_array_push(apr_array_header_t *arr);
 
+/** A helper macro for accessing a member of an APR array.
+ *
+ * @param ary the array
+ * @param i the index into the array to return
+ * @param type the type of the objects stored in the array
+ *
+ * @return the item at index i
+ */
+#define APR_ARRAY_IDX(ary,i,type) (((type *)(ary)->elts)[i])
+
+/** A helper macro for pushing elements into an APR array.
+ *
+ * @param ary the array
+ * @param type the type of the objects stored in the array
+ *
+ * @return the location where the new object should be placed
+ */
+#define APR_ARRAY_PUSH(ary,type) (*((type *)apr_array_push(ary)))
+
 /**
  * Remove an element from an array (as a first-in, last-out stack)
  * @param arr The array to remove an element from.
@@ -127,6 +146,14 @@ APR_DECLARE(void *) apr_array_push(apr_array_header_t *arr);
  * @remark If there are no elements in the array, NULL is returned.
  */
 APR_DECLARE(void *) apr_array_pop(apr_array_header_t *arr);
+
+/**
+ * Remove all elements from an array.
+ * @param arr The array to remove all elements from.
+ * @remark As the underlying storage is allocated from a pool, no
+ * memory is freed by this operation, but is available for reuse.
+ */
+APR_DECLARE(void) apr_array_clear(apr_array_header_t *arr);
 
 /**
  * Concatenate two arrays together
@@ -199,9 +226,21 @@ APR_DECLARE(apr_table_t *) apr_table_make(apr_pool_t *p, int nelts);
  * @param p The pool to allocate the new table out of
  * @param t The table to copy
  * @return A copy of the table passed in
+ * @warning The table keys and respective values are not copied
  */
 APR_DECLARE(apr_table_t *) apr_table_copy(apr_pool_t *p,
                                           const apr_table_t *t);
+
+/**
+ * Create a new table whose contents are deep copied from the given
+ * table. A deep copy operation copies all fields, and makes copies
+ * of dynamically allocated memory pointed to by the fields.
+ * @param p The pool to allocate the new table out of
+ * @param t The table to clone
+ * @return A deep copy of the table passed in
+ */
+APR_DECLARE(apr_table_t *) apr_table_clone(apr_pool_t *p,
+                                           const apr_table_t *t);
 
 /**
  * Delete all of the elements from a table
@@ -323,16 +362,19 @@ typedef int (apr_table_do_callback_fn_t)(void *rec, const char *key,
 
 /** 
  * Iterate over a table running the provided function once for every
- * element in the table.  If there is data passed in as a vararg, then the 
- * function is only run on those elements whose key matches something in 
- * the vararg.  If the vararg is NULL, then every element is run through the
- * function.  Iteration continues while the function returns non-zero.
+ * element in the table.  The varargs array must be a list of zero or
+ * more (char *) keys followed by a NULL pointer.  If zero keys are
+ * given, the @param comp function will be invoked for every element
+ * in the table.  Otherwise, the function is invoked only for those
+ * elements matching the keys specified.
+ *
+ * If an invocation of the @param comp function returns zero,
+ * iteration will continue using the next specified key, if any.
+ *
  * @param comp The function to run
  * @param rec The data to pass as the first argument to the function
  * @param t The table to iterate over
- * @param ... The vararg.  If this is NULL, then all elements in the table are
- *            run through the function, otherwise only those whose key matches
- *            are run.
+ * @param ... A varargs array of zero or more (char *) keys followed by NULL
  * @return FALSE if one of the comp() iterations returned zero; TRUE if all
  *            iterations returned non-zero
  * @see apr_table_do_callback_fn_t
@@ -342,16 +384,19 @@ APR_DECLARE_NONSTD(int) apr_table_do(apr_table_do_callback_fn_t *comp,
 
 /** 
  * Iterate over a table running the provided function once for every
- * element in the table.  If there is data passed in as a vararg, then the 
- * function is only run on those element's whose key matches something in 
- * the vararg.  If the vararg is NULL, then every element is run through the
- * function.  Iteration continues while the function returns non-zero.
+ * element in the table.  The @param vp varargs paramater must be a
+ * list of zero or more (char *) keys followed by a NULL pointer.  If
+ * zero keys are given, the @param comp function will be invoked for
+ * every element in the table.  Otherwise, the function is invoked
+ * only for those elements matching the keys specified.
+ *
+ * If an invocation of the @param comp function returns zero,
+ * iteration will continue using the next specified key, if any.
+ *
  * @param comp The function to run
  * @param rec The data to pass as the first argument to the function
  * @param t The table to iterate over
- * @param vp The vararg table.  If this is NULL, then all elements in the 
- *                table are run through the function, otherwise only those 
- *                whose key matches are run.
+ * @param vp List of zero or more (char *) keys followed by NULL
  * @return FALSE if one of the comp() iterations returned zero; TRUE if all
  *            iterations returned non-zero
  * @see apr_table_do_callback_fn_t
@@ -375,9 +420,9 @@ APR_DECLARE(int) apr_table_vdo(apr_table_do_callback_fn_t *comp,
  *          than a function that just loops through table b calling other functions.
  */
 /**
- *<PRE>
  * Conceptually, apr_table_overlap does this:
  *
+ * <pre>
  *  apr_array_header_t *barr = apr_table_elts(b);
  *  apr_table_entry_t *belt = (apr_table_entry_t *)barr->elts;
  *  int i;
@@ -390,6 +435,7 @@ APR_DECLARE(int) apr_table_vdo(apr_table_do_callback_fn_t *comp,
  *          apr_table_setn(a, belt[i].key, belt[i].val);
  *      }
  *  }
+ * </pre>
  *
  *  Except that it is more efficient (less space and cpu-time) especially
  *  when b has many elements.
@@ -397,7 +443,6 @@ APR_DECLARE(int) apr_table_vdo(apr_table_do_callback_fn_t *comp,
  *  Notice the assumptions on the keys and values in b -- they must be
  *  in an ancestor of a's pool.  In practice b and a are usually from
  *  the same pool.
- * </PRE>
  */
 
 APR_DECLARE(void) apr_table_overlap(apr_table_t *a, const apr_table_t *b,

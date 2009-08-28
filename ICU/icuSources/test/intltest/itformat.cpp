@@ -1,7 +1,7 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2006, International Business Machines Corporation and
- * others. All Rights Reserved.
+ * Copyright (c) 1997-2008, International Business Machines
+ * Corporation and others. All Rights Reserved.
  ********************************************************************/
 
 /**
@@ -42,6 +42,15 @@
 #include "astrotst.h"       // AstroTest
 #include "incaltst.h"       // IntlCalendarTest
 #include "calcasts.h"       // CalendarCaseTest
+#include "tzrulets.h"       // TimeZoneRuleTest
+#include "dadrcal.h"        // DataDrivenCalendarTest
+#include "dadrfmt.h"        // DataDrivenFormatTest
+#include "dtptngts.h"       // IntlTestDateTimePatternGeneratorAPI
+#include "tzoffloc.h"       // TimeZoneOffsetLocalTest
+#include "tzfmttst.h"       // TimeZoneFormatTest
+#include "plurults.h"       // PluralRulesTest
+#include "plurfmts.h"       // PluralFormatTest
+#include "dtifmtts.h"       // DateIntervalFormatTest
 
 #define TESTCLASS(id, TestClass)          \
     case id:                              \
@@ -101,6 +110,15 @@ void IntlTestFormat::runIndexedTest( int32_t index, UBool exec, const char* &nam
         TESTCLASS(26,IntlCalendarTest);
         TESTCLASS(27,AstroTest);
         TESTCLASS(28,CalendarCaseTest);
+        TESTCLASS(29,TimeZoneRuleTest);
+        TESTCLASS(30,DataDrivenCalendarTest);
+        TESTCLASS(31,DataDrivenFormatTest);
+        TESTCLASS(32,IntlTestDateTimePatternGeneratorAPI);
+        TESTCLASS(33,TimeZoneOffsetLocalTest);
+        TESTCLASS(34,TimeZoneFormatTest);
+        TESTCLASS(35,PluralRulesTest);
+        TESTCLASS(36,PluralFormatTest);
+        TESTCLASS(37,DateIntervalFormatTest);
 
         default: name = ""; break; //needed to end loop
     }

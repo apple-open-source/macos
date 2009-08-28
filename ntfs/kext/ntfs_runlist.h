@@ -1,8 +1,8 @@
 /*
  * ntfs_runlist.h - Defines for runlist handling in the NTFS kernel driver.
  *
- * Copyright (c) 2006, 2007 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006, 2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2008 Anton Altaparmakov.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2008 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -37,6 +37,8 @@
 
 #ifndef _OSX_NTFS_RUNLIST_H
 #define _OSX_NTFS_RUNLIST_H
+
+#include <sys/errno.h>
 
 #include <kern/locks.h>
 
@@ -100,8 +102,8 @@ typedef struct { /* In memory vcn to lcn mapping structure element. */
  */
 typedef struct {
 	ntfs_rl_element *rl;
-	u32 elements;
-	u32 alloc;
+	unsigned elements;
+	unsigned alloc;
 	lck_rw_t lock;
 } ntfs_runlist;
 
@@ -109,14 +111,10 @@ typedef struct {
 #include "ntfs_layout.h"
 #include "ntfs_volume.h"
 
-/* Runlist allocations happen in multiples of this value in bytes. */
-#define NTFS_RL_ALLOC_BLOCK 1024
-
 static inline void ntfs_rl_init(ntfs_runlist *rl)
 {
 	rl->rl = NULL;
-	rl->elements = 0;
-	rl->alloc = 0;
+	rl->alloc = rl->elements = 0;
 	lck_rw_init(&rl->lock, ntfs_lock_grp, ntfs_lock_attr);
 }
 
@@ -156,7 +154,33 @@ __private_extern__ errno_t ntfs_mapping_pairs_decompress(ntfs_volume *vol,
 __private_extern__ LCN ntfs_rl_vcn_to_lcn(const ntfs_rl_element *rl,
 		const VCN vcn, s64 *clusters);
 
+__private_extern__ ntfs_rl_element *ntfs_rl_find_vcn_nolock(
+		ntfs_rl_element *rl, const VCN vcn);
+
+__private_extern__ errno_t ntfs_get_size_for_mapping_pairs(
+		const ntfs_volume *vol, const ntfs_rl_element *rl,
+		const VCN first_vcn, const VCN last_vcn, unsigned *mp_size);
+
+__private_extern__ errno_t ntfs_mapping_pairs_build(const ntfs_volume *vol,
+		s8 *dst, const unsigned dst_len, const ntfs_rl_element *rl,
+		const VCN first_vcn, const VCN last_vcn, VCN *const stop_vcn);
+
+__private_extern__ errno_t ntfs_rl_truncate_nolock(const ntfs_volume *vol,
+		ntfs_runlist *const runlist, const s64 new_length);
+
+__private_extern__ errno_t ntfs_rl_punch_nolock(const ntfs_volume *vol,
+		ntfs_runlist *runlist, const VCN start_vcn, const s64 len);
+
 __private_extern__ errno_t ntfs_rl_read(ntfs_volume *vol, ntfs_runlist *rl,
 		u8 *dst, const s64 size, const s64 initialized_size);
+
+__private_extern__ errno_t ntfs_rl_write(ntfs_volume *vol, u8 *src,
+		const s64 size, ntfs_runlist *runlist, s64 ofs, const s64 cnt);
+
+__private_extern__ errno_t ntfs_rl_set(ntfs_volume *vol,
+		const ntfs_rl_element *rl, const u8 val);
+
+__private_extern__ s64 ntfs_rl_get_nr_real_clusters(ntfs_runlist *runlist,
+		const VCN start_vcn, s64 cnt);
 
 #endif /* !_OSX_NTFS_RUNLIST_H */

@@ -76,8 +76,8 @@ are case insensitive.
 .Pp
 The
 .Em facility
-describes the part of the system generating the message, and is one of
-the following keywords: auth, authpriv, cron, daemon, kern, lpr, mail,
+describes the part of the system generating the message.
+Legacy facility names are: auth, authpriv, cron, daemon, kern, lpr, mail,
 mark, news, syslog, user, uucp and local0 through local7.
 These keywords (with the exception of mark) correspond to the
 similar
@@ -87,6 +87,16 @@ values specified to the
 and
 .Xr syslog 3
 library routines.
+.Pp
+Apple System Log messages, sent using the
+.Xr asl 3
+library routines permit the facility name to be an arbitrary string,
+although users of the system are encouraged to use a 
+.Dq reverse ICANN
+naming convention, for example
+.Dq com.apple.system.syslog .
+Since these facility names may contain dot characters, the names may be enclosed in
+either singe quote or double quote characters.
 .Pp
 The
 .Em level
@@ -221,6 +231,7 @@ The effects of multiple selectors are sometimes not intuitive.
 For example ``mail.crit,*.err'' will select ``mail'' facility messages at
 the level of ``err'' or higher, not at the level of ``crit'' or higher.
 .Sh SEE ALSO
+.Xr asl 3 ,
 .Xr syslog 3 ,
 .Xr syslogd 8
 .Sh HISTORY

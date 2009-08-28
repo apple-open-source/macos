@@ -2,7 +2,7 @@ static const char	elsieid[] = "@(#)zdump.c	7.31";
 
 #ifndef lint
 static const char rcsid[] =
-  "$FreeBSD: src/usr.sbin/zic/zdump.c,v 1.9 2004/06/20 21:41:11 stefanf Exp $";
+  "$FreeBSD: src/usr.sbin/zic/zdump.c,v 1.10 2008/02/19 07:09:19 ru Exp $";
 #endif /* not lint */
 
 /*
@@ -18,6 +18,7 @@ static const char rcsid[] =
 #include <sys/types.h>	/* for time_t */
 #include <time.h>	/* for struct tm */
 #include <unistd.h>
+#include <limits.h>
 
 #ifndef MAX_STRING_LENGTH
 #define MAX_STRING_LENGTH	1024
@@ -148,7 +149,16 @@ char *	argv[];
 	time_t			now;
 	time_t			t;
 	time_t			newt;
+#ifndef __APPLE__
+// <rdar://problem/6013740>
+// The approach of walking through every day from the minimum
+// possible time_t value to the maximum possible time_t value
+// falls apart with 64-bit time_t (takes too long to iterate,
+// and causes gmtime(3) and localtime(3) to return EOVERFLOW
+// which this code does not anticipate).  Limiting the time_t
+// range to [INT_MIN:INT_MAX] even on LP64.
 	time_t			hibit;
+#endif
 	struct tm		tm;
 	struct tm		newtm;
 
@@ -170,7 +180,7 @@ char *	argv[];
 		if (c == 'v')
 			vflag = 1;
 		else	cutoff = optarg;
-	if ((c != EOF && c != -1) ||
+	if ((c != -1) ||
 		(optind == argc - 1 && strcmp(argv[optind], "=") == 0)) {
 			usage();
 	}
@@ -188,8 +198,10 @@ char *	argv[];
 	for (i = optind; i < argc; ++i)
 		if (strlen(argv[i]) > longest)
 			longest = strlen(argv[i]);
+#ifndef __APPLE__
 	for (hibit = 1; (hibit << 1) != 0; hibit <<= 1)
 		continue;
+#endif
 	{
 		register int	from;
 		register int	to;
@@ -222,9 +234,13 @@ char *	argv[];
 		/*
 		** Get lowest value of t.
 		*/
+#ifdef __APPLE__
+		t = INT_MIN;
+#else
 		t = hibit;
 		if (t > 0)		/* time_t is unsigned */
 			t = 0;
+#endif
 		show(argv[i], t, TRUE);
 		t += SECSPERHOUR * HOURSPERDAY;
 		show(argv[i], t, TRUE);
@@ -236,8 +252,13 @@ char *	argv[];
 			newt = t + SECSPERHOUR * 12;
 			if (cutoff != NULL && newt >= cuttime)
 				break;
+#ifdef __APPLE__
+			if (newt > INT_MAX)
+				break;
+#else
 			if (newt <= t)
 				break;
+#endif
 			newtm = *localtime(&newt);
 			if (delta(&newtm, &tm) != (newt - t) ||
 				newtm.tm_isdst != tm.tm_isdst ||
@@ -253,9 +274,13 @@ char *	argv[];
 		/*
 		** Get highest value of t.
 		*/
+#ifdef __APPLE__
+		t = INT_MAX;
+#else
 		t = ~((time_t) 0);
 		if (t < 0)		/* time_t is signed */
 			t &= ~hibit;
+#endif
 		t -= SECSPERHOUR * HOURSPERDAY;
 		show(argv[i], t, TRUE);
 		t += SECSPERHOUR * HOURSPERDAY;

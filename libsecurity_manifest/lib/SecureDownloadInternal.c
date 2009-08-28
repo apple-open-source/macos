@@ -430,20 +430,6 @@ static CFNumberRef copyChildWithNameAsInteger(CFXMLTreeRef tree, CFDictionaryRef
 	return result;
 }
 
-// returns the URL value of the specified child node
-static CFURLRef copyChildWithNameAsURL(CFXMLTreeRef tree, CFDictionaryRef inNamespaces, CFStringRef namespace, CFStringRef name) {
-	CFURLRef result = NULL;
-	CFXMLTreeRef child = getChildWithName(tree, inNamespaces, namespace, name);
-	if (child) {
-		CFStringRef str = copyTreeString(child);
-		if (str) {
-			result = CFURLCreateWithString(NULL, str, NULL);
-			CFRelease(str);
-		}
-	}
-	return result;
-}
-
 // returns an array of URLs aggregated from the child
 // nodes matching the given name and namespace URI.
 static CFArrayRef copyChildrenWithNameAsURLs(CFXMLTreeRef tree, CFDictionaryRef inNamespaces, CFStringRef namespace, CFStringRef name) {

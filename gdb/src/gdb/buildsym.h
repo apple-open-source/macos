@@ -71,6 +71,7 @@ struct subfile
     struct linetable *line_vector;
     int line_vector_length;
     enum language language;
+    char *producer;
     char *debugformat;
   };
 
@@ -293,6 +294,8 @@ extern void record_pending_block (struct objfile *objfile,
 				  struct pending_block *opblock);
 
 extern void record_debugformat (char *format);
+
+extern void record_producer (const char *producer);
 
 extern void merge_symbol_lists (struct pending **srclist,
 				struct pending **targetlist);

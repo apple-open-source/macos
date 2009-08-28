@@ -2,7 +2,7 @@
 #
 #	Non Protocol Attributes used by FreeRADIUS
 #
-#	$Id: dictionary.freeradius.internal,v 1.6.2.6 2006/12/09 00:17:37 aland Exp $
+#	$Id$
 #
 
 #	The attributes number ranges are allocates as follows:
@@ -56,13 +56,14 @@ ATTRIBUTE	EAP-Type				1018	integer
 ATTRIBUTE	EAP-TLS-Require-Client-Cert		1019	integer
 ATTRIBUTE	EAP-Id					1020	integer
 ATTRIBUTE	EAP-Code				1021	integer
-ATTRIBUTE	EAP-MD5-Password			1022	string
+# Attribute 1022 unused, was EAP-MD5-Password, which was
+# used only be radeapclient.  It's been replaced by Cleartext-Password
 ATTRIBUTE	PEAP-Version				1023	integer
-
-#
-#	Range:	1023-1028
-#		unused
-#
+ATTRIBUTE	Client-Shortname			1024	string
+ATTRIBUTE	Load-Balance-Key			1025	string
+ATTRIBUTE	Raw-Attribute				1026	octets
+ATTRIBUTE	TNC-VLAN-Access				1027	string
+ATTRIBUTE	TNC-VLAN-Isolate			1028	string
 ATTRIBUTE	User-Category				1029	string
 ATTRIBUTE	Group-Name				1030	string
 ATTRIBUTE	Huntgroup-Name				1031	string
@@ -121,13 +122,82 @@ ATTRIBUTE	Cache-No-Caching			1091	string
 ATTRIBUTE	Cache-Delete-Cache			1092	string
 ATTRIBUTE	SHA-Password				1093	octets
 ATTRIBUTE	SSHA-Password				1094	octets
+ATTRIBUTE	SHA1-Password				1093	octets
+ATTRIBUTE	SSHA1-Password				1094	octets
 ATTRIBUTE	MD5-Password				1095	octets
 ATTRIBUTE	SMD5-Password				1096	octets
 ATTRIBUTE	Packet-Src-IPv6-Address			1097	ipv6addr
 ATTRIBUTE	Packet-Dst-IPv6-Address			1098	ipv6addr
-ATTRIBUTE	Server-Identity				1099	string
+ATTRIBUTE	Virtual-Server				1099	string
 ATTRIBUTE	Cleartext-Password			1100	string
 ATTRIBUTE	Password-With-Header			1101	string
+ATTRIBUTE	Inner-Tunnel-User-Name			1102	string
+
+#
+#	EAP-IKEv2 is experimental.
+#
+ATTRIBUTE	EAP-IKEv2-IDType			1103	integer
+
+VALUE	EAP-IKEv2-IDType		IPV4_ADDR		1
+VALUE	EAP-IKEv2-IDType		FQDN			2
+VALUE	EAP-IKEv2-IDType		RFC822_ADDR		3
+VALUE	EAP-IKEv2-IDType		IPV6_ADDR		5
+VALUE	EAP-IKEv2-IDType		DER_ASN1_DN		9
+VALUE	EAP-IKEv2-IDType		DER_ASN1_GN		10
+VALUE	EAP-IKEv2-IDType		KEY_ID			11
+
+ATTRIBUTE	EAP-IKEv2-ID				1104	string
+ATTRIBUTE	EAP-IKEv2-Secret			1105	string
+ATTRIBUTE	EAP-IKEv2-AuthType			1106	integer
+
+VALUE	EAP-IKEv2-AuthType		none			0
+VALUE	EAP-IKEv2-AuthType		secret			1
+VALUE	EAP-IKEv2-AuthType		cert			2
+VALUE	EAP-IKEv2-AuthType		both			3
+
+ATTRIBUTE	Module-Return-Code			1108	integer
+
+VALUE	Module-Return-Code		reject			0
+VALUE	Module-Return-Code		fail			1
+VALUE	Module-Return-Code		ok			2
+VALUE	Module-Return-Code		handled			3
+VALUE	Module-Return-Code		invalid			4
+VALUE	Module-Return-Code		userlock		5
+VALUE	Module-Return-Code		notfound		6
+VALUE	Module-Return-Code		noop			7
+VALUE	Module-Return-Code		updated			8
+
+ATTRIBUTE	Packet-Original-Timestamp		1109	date
+ATTRIBUTE	SQL-Table-Name				1110	string
+
+ATTRIBUTE	FreeRADIUS-Client-IP-Address		1120	ipaddr
+ATTRIBUTE	FreeRADIUS-Client-IPv6-Address		1121	ipv6addr
+ATTRIBUTE	FreeRADIUS-Client-Require-MA		1122	integer
+
+VALUE	FreeRADIUS-Client-Require-MA	no			0
+VALUE	FreeRADIUS-Client-Require-MA	yes			1
+
+ATTRIBUTE	FreeRADIUS-Client-Secret		1123	string
+ATTRIBUTE	FreeRADIUS-Client-Shortname		1124	string
+ATTRIBUTE	FreeRADIUS-Client-NAS-Type		1125	string
+ATTRIBUTE	FreeRADIUS-Client-Virtual-Server	1126	string
+
+# For session resumption
+ATTRIBUTE	Allow-Session-Resumption		1127	integer
+
+VALUE	Allow-Session-Resumption	no			0
+VALUE	Allow-Session-Resumption	yes			1
+
+ATTRIBUTE	EAP-Session-Resumed			1128	integer
+
+VALUE	EAP-Session-Resumed		no			0
+VALUE	EAP-Session-Resumed		yes			1
+
+#
+#	Expose EAP keys in the reply.
+#
+ATTRIBUTE	EAP-MSK					1129	octets
+ATTRIBUTE	EAP-EMSK				1130	octets
 
 #
 #	Range:	1200-1279
@@ -283,6 +353,7 @@ VALUE	Auth-Type			CHAP			1025
 # ldap module.
 VALUE	Auth-Type			PAM			1027
 VALUE	Auth-Type			MS-CHAP			1028
+VALUE	Auth-Type			MSCHAP			1028
 VALUE	Auth-Type			Kerberos		1029
 VALUE	Auth-Type			CRAM			1030
 VALUE	Auth-Type			NS-MTA-MD5		1031
@@ -314,8 +385,8 @@ VALUE	Post-Auth-Type			Local			0
 VALUE	Fall-Through			No			0
 VALUE	Fall-Through			Yes			1
 
-#VALUE		Strip-User-Name		No			0
-#VALUE		Strip-User-Name		Yes			1
+VALUE	Strip-User-Name			No			0
+VALUE	Strip-User-Name			Yes			1
 
 VALUE	Packet-Type			Access-Request		1
 VALUE	Packet-Type			Access-Accept		2
@@ -350,18 +421,16 @@ VALUE	Packet-Type			Terminate-Session	31
 VALUE	Packet-Type			Password-Expired	32
 VALUE	Packet-Type			Event-Request		33
 VALUE	Packet-Type			Event-Response		34
+
+#	RFC 3576 allocates packet types 40-45
+
 VALUE	Packet-Type			Disconnect-Request	40
 VALUE	Packet-Type			Disconnect-ACK		41
 VALUE	Packet-Type			Disconnect-NAK		42
-
-# Old names, if no one uses them, they should be deleted.
-VALUE	Packet-Type			CoF-Request		43
-VALUE	Packet-Type			CoF-ACK			44
-VALUE	Packet-Type			CoF-NAK			45
-
 VALUE	Packet-Type			CoA-Request		43
 VALUE	Packet-Type			CoA-ACK			44
 VALUE	Packet-Type			CoA-NAK			45
+
 VALUE	Packet-Type			IP-Address-Allocate	50
 VALUE	Packet-Type			IP-Address-Release	51
 
@@ -378,6 +447,11 @@ VALUE	Response-Packet-Type		Accounting-Message	10
 VALUE	Response-Packet-Type		Access-Challenge	11
 VALUE	Response-Packet-Type		Status-Server		12
 VALUE	Response-Packet-Type		Status-Client		13
+
+#
+#  Special value
+#
+VALUE	Response-Packet-Type		Do-Not-Respond		256
 
 #
 #	EAP Sub-types, inside of Request and Response packets

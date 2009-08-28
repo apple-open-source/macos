@@ -89,7 +89,7 @@ struct cmd_flags {
 
 /* flags set by processing a specific object file */
 struct process_flags {
-    unsigned long nlibs;	/* For printing the twolevel namespace */
+    uint32_t nlibs;		/* For printing the twolevel namespace */
     char **lib_names;		/*  references types, the number of libraries */
 				/*  an array of pointers to library names */
 };
@@ -103,9 +103,9 @@ struct symbol {
 
 static void set_symbol_names(
     struct symbol *symbols,
-    unsigned long nsymbols,
+    uint32_t nsymbols,
     char *strings,
-    unsigned long strsize);
+    uint32_t strsize);
 static enum bool select_symbol(
     struct symbol *symbol,
     struct cmd_flags *cmd_flags,
@@ -124,7 +124,7 @@ static struct symbol *select_symbols(
     struct dysymtab_command *dyst,
     struct cmd_flags *cmd_flags,
     struct process_flags *process_flags,
-    unsigned long *nsymbols,
+    uint32_t *nsymbols,
     struct nlist *all_symbols,
     struct nlist_64 *all_symbols64);
 
@@ -211,7 +211,7 @@ void
 SymInfoFree(
 SymInfoList nmList)
 {
-    unsigned long i;
+    uint32_t i;
     
 	if(nmList == NULL)
 	    return;
@@ -245,7 +245,7 @@ void
 SymInfoFreeDependencies(
 SymInfoDependencies deps)
 {
-    unsigned long i;
+    uint32_t i;
     
 	if(deps == NULL)
 	    return;
@@ -432,17 +432,17 @@ void *cookie)
 {
     struct cmd_flags *cmd_flags;
     struct process_flags process_flags;
-    unsigned long i, j;
+    uint32_t i, j;
     struct load_command *lc;
     struct symtab_command *st;
     struct dysymtab_command *dyst;
     struct dylib_command *dl;
-    unsigned long library_ordinal;
-    unsigned long strsize = 0;
+    uint32_t library_ordinal;
+    uint32_t strsize = 0;
     char *strings = NULL; 
     struct symbol *symbols = NULL;
-    unsigned long nsymbols;
-    unsigned long nlibnames = 0;
+    uint32_t nsymbols;
+    uint32_t nlibnames = 0;
     char *short_name, *has_suffix;
     enum bool is_framework;
     int symbolIndex;
@@ -698,11 +698,8 @@ void *cookie)
 	    for(j = 0; j < ncmds; j++){
 		char *p;
 		if(lc->cmd == LC_SUB_UMBRELLA || lc->cmd == LC_SUB_LIBRARY){
-		    struct sub_umbrella_command usub;
-		    memset((char *)&usub, '\0',
-			    sizeof(struct sub_umbrella_command));
-		    memcpy((char *)&usub, (char *)lc, lc->cmdsize);
-		    p = (char *)lc + usub.sub_umbrella.offset;
+		    struct sub_umbrella_command *usub = (struct sub_umbrella_command *)lc;
+		    p = (char *)lc + usub->sub_umbrella.offset;
 		    self->dependencies->subUmbrellas =
 			reallocate(self->dependencies->subUmbrellas,
 		    (self->dependencies->nSubUmbrellas+1)*
@@ -713,11 +710,8 @@ void *cookie)
 		    self->dependencies->nSubUmbrellas++;
 		}
 		else if(lc->cmd == LC_SUB_FRAMEWORK){ 
-		    struct sub_framework_command subFramework;
-		    memset((char *)&subFramework,'\0',
-		    sizeof(struct sub_framework_command));
-		    memcpy((char *)&subFramework,(char *)lc,lc->cmdsize);
-		    p = (char *)lc + subFramework.umbrella.offset;
+		    struct sub_framework_command *subFramework = (struct sub_framework_command *)lc;
+		    p = (char *)lc + subFramework->umbrella.offset;
 		    self->dependencies-> subFrameworks =
 			    reallocate(self->dependencies->subFrameworks,
 		    		       (self->dependencies->nSubFrameworks+1) *
@@ -744,7 +738,7 @@ void *cookie)
 	}
 	
 	/* Free the memory that was malloced in this function */
-	for(i = 0; i < nlibnames; i++)
+	for(i = 0; i < process_flags.nlibs; i++)
 	    free(process_flags.lib_names[i]);
 	if(process_flags.lib_names)
 	    free(process_flags.lib_names);
@@ -762,17 +756,17 @@ static
 void
 set_symbol_names(
 struct symbol *symbols,
-unsigned long nsymbols,
+uint32_t nsymbols,
 char *strings,
-unsigned long strsize)
+uint32_t strsize)
 {
-    unsigned long i;
+    uint32_t i;
 
 	for(i = 0; i < nsymbols; i++){
 	    if(symbols[i].nl.n_un.n_strx == 0)
 		symbols[i].name = "";
 	    else if(symbols[i].nl.n_un.n_strx < 0 ||
-		    (unsigned long)symbols[i].nl.n_un.n_strx > strsize){
+		    (uint32_t)symbols[i].nl.n_un.n_strx > strsize){
 		symbols[i].name = "bad string index";
 		printf ("Setting bad string index in exports\n");
 	    }
@@ -797,7 +791,7 @@ get_full_path(
 char *short_name,
 struct ofile *ofile) 
 {
-    unsigned long j;
+    uint32_t j;
     struct dylib_command *dl;
     struct load_command *lc;
     char *has_suffix;
@@ -848,11 +842,11 @@ struct symtab_command *st,
 struct dysymtab_command *dyst,
 struct cmd_flags *cmd_flags,
 struct process_flags *process_flags,
-unsigned long *nsymbols,
+uint32_t *nsymbols,
 struct nlist *all_symbols,
 struct nlist_64 *all_symbols64)
 {
-    unsigned long i, flags;
+    uint32_t i, flags;
     struct symbol *selected_symbols, symbol;
     struct dylib_module m;
     struct dylib_module_64 m64;

@@ -111,11 +111,7 @@ sysinfo(int command, char *buf, long count)
 		return sysctl(mib, 2, (void *)buf, &len, NULL, 0);
 
 	case SI_ISALIST:
-#if defined (__ppc__)
-		strlcpy( buf, "ppc", count );
-#elif defined (__ppc64__)
-		strlcpy( buf, "ppc64", count );
-#elif defined(__i386__)
+#if defined(__i386__)
 		strlcpy( buf, "x86", count );
 #elif defined(__x86_64__)
 		strlcpy( buf, "x86_64", count );
@@ -144,7 +140,7 @@ int _mutex_held(struct _lwp_mutex *m){ return 1; }
 int 
 p_online(processorid_t processorid, int flag)
 {
-	static long ncpu = -1;
+	static int ncpu = -1;
 	
 	if (ncpu == -1) {
 		size_t len = sizeof(ncpu);

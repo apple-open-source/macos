@@ -53,10 +53,12 @@ to the user.
 .It automounted
 Set flags on the mountpoint to indicate that the volume has been mounted 
 by the automounter.
-.It streams
-Use NTFS Streams if supported by the server.
+.It nostreams
+Don't use NTFS Streams even if they are supported by the server.
 .It soft
 Make the mount soft.  Fail file system calls after a number of seconds.
+.It nonotification
+Turn off using notifications for this volume.
 .El
 .It Fl f Ar mode , Fl d Ar mode
 Specify permissions that should be assigned to files and directories.

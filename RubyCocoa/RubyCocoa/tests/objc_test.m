@@ -1,4 +1,4 @@
-// $Id: objc_test.m 2126 2007-11-12 21:42:05Z psychs $
+// $Id: objc_test.m 2183 2008-02-07 16:24:08Z kimuraw $
 //
 //   some tests require objc codes
 #import <Foundation/Foundation.h>
@@ -176,6 +176,15 @@
     return NO;
 }
 
+- (BOOL)passByRefObjectWithTypeQualifiers:(inout id *)obj
+{
+    if (obj != NULL) {
+        *obj = self;
+        return YES;
+    }
+    return NO;
+}
+
 - (BOOL)passByRefInteger:(int *)integer
 {
     if (integer != NULL) {
@@ -204,6 +213,15 @@
         *floating = 666.0;
 }
 
+- (void)passByRefVariousTypeQualifiers:(in id *)object integer:(oneway int *)integer floating:(out float *)floating
+{
+    if (object != NULL)
+        *object = self;
+    if (integer != NULL)
+        *integer = 333;
+    if (floating != NULL)
+        *floating = 333.0;
+}
 @end
 
 // tc_subclass.rb 
@@ -392,6 +410,37 @@
 }
 
 @end
+
+
+// This needs to be separate from DirectOverride since the test might damage
+// this class.
+@interface DirectOverrideParent : NSObject
+@end
+
+@implementation DirectOverrideParent
+
+- (id)overrideMe
+{
+  return @"foo";
+}
+
+- (void)checkOverride:(NSString *)want
+{
+  id obj = [self overrideMe];
+
+  if (![obj isEqualToString:want])
+    [NSException raise:@"DirectOverrideInheritance"
+      format:@"assertion overrideMe failed, got %@", obj];
+}
+
+@end
+
+@interface DirectOverrideChild : DirectOverrideParent
+@end
+
+@implementation DirectOverrideChild
+@end
+
 
 #import <AddressBook/ABPeoplePickerC.h>
 
@@ -655,6 +704,22 @@ static BOOL TestThreadedCallbackDone = NO;
   return (void*)str;
 }
 
+@end
+
+struct ttype1 {float a; float b;};
+struct ttype2 {float a[2];};
+
+@implementation NSObject (FooTests)
+- (struct ttype1)test1 {
+	struct ttype1 r = {1., 2.};
+	return r;
+}
+- (struct ttype2)test2 {
+	struct ttype2 r;
+	r.a[0] = 1.;
+	r.a[1] = 2.;
+	return r;
+}
 @end
 
 void Init_objc_test(){

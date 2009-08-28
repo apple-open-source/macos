@@ -1,17 +1,18 @@
 /*
-**********************************************************************
-*   Copyright (C) 1997-2006, International Business Machines
-*   Corporation and others.  All Rights Reserved.
-**********************************************************************
-*
-* File USCRIPT.H
-*
-* Modification History:
-*
-*   Date        Name        Description
-*   07/06/2001    Ram         Creation.
-******************************************************************************
-*/
+ **********************************************************************
+ *   Copyright (C) 1997-2008, International Business Machines
+ *   Corporation and others.  All Rights Reserved.
+ **********************************************************************
+ *
+ * File USCRIPT.H
+ *
+ * Modification History:
+ *
+ *   Date        Name        Description
+ *   07/06/2001    Ram         Creation.
+ ******************************************************************************
+ */
+
 #ifndef USCRIPT_H
 #define USCRIPT_H
 #include "unicode/utypes.h"
@@ -107,8 +108,7 @@ typedef enum UScriptCode {
       /** New script code in Unicode 4.0.1 @stable ICU 3.0 */
       USCRIPT_KATAKANA_OR_HIRAGANA = 54,/*Hrkt */
       
-#ifndef U_HIDE_DRAFT_API
-      /* New scripts in Unicode 4.1 @draft ICU 3.4 */
+      /* New scripts in Unicode 4.1 @stable ICU 3.4 */
       USCRIPT_BUGINESE      = 55, /* Bugi */
       USCRIPT_GLAGOLITIC    = 56, /* Glag */
       USCRIPT_KHAROSHTHI    = 57, /* Khar */
@@ -117,7 +117,7 @@ typedef enum UScriptCode {
       USCRIPT_TIFINAGH      = 60, /* Tfng */
       USCRIPT_OLD_PERSIAN   = 61, /* Xpeo */
 
-      /* New script codes from ISO 15924 @draft ICU 3.6 */
+      /* New script codes from ISO 15924 @stable ICU 3.6 */
       USCRIPT_BALINESE                      = 62, /* Bali */
       USCRIPT_BATAK                         = 63, /* Batk */
       USCRIPT_BLISSYMBOLS                   = 64, /* Blis */
@@ -160,9 +160,39 @@ typedef enum UScriptCode {
       USCRIPT_CUNEIFORM                     = 101,/* Xsux */
       USCRIPT_UNWRITTEN_LANGUAGES           = 102,/* Zxxx */
       USCRIPT_UNKNOWN                       = 103,/* Zzzz */ /* Unknown="Code for uncoded script", for unassigned code points */
+
+      /* New script codes from ISO 15924 @stable ICU 4.0 */
+      USCRIPT_CARIAN                        = 104,/* Cari */
+      USCRIPT_JAPANESE                      = 105,/* Jpan */
+      USCRIPT_LANNA                         = 106,/* Lana */
+      USCRIPT_LYCIAN                        = 107,/* Lyci */
+      USCRIPT_LYDIAN                        = 108,/* Lydi */
+      USCRIPT_OL_CHIKI                      = 109,/* Olck */
+      USCRIPT_REJANG                        = 110,/* Rjng */
+      USCRIPT_SAURASHTRA                    = 111,/* Saur */
+      USCRIPT_SIGN_WRITING                  = 112,/* Sgnw */
+      USCRIPT_SUNDANESE                     = 113,/* Sund */
+      USCRIPT_MOON                          = 114,/* Moon */
+      USCRIPT_MEITEI_MAYEK                  = 115,/* Mtei */
+
+      /* New script codes from ISO 15924 @draft ICU 4.0 */
+      USCRIPT_IMPERIAL_ARAMAIC              = 116,/* Armi */
+      USCRIPT_AVESTAN                       = 117,/* Avst */
+      USCRIPT_CHAKMA                        = 118,/* Cakm */
+      USCRIPT_KOREAN                        = 119,/* Kore */
+      USCRIPT_KAITHI                        = 120,/* Kthi */
+      USCRIPT_MANICHAEAN                    = 121,/* Mani */
+      USCRIPT_INSCRIPTIONAL_PAHLAVI         = 122,/* Phli */
+      USCRIPT_PSALTER_PAHLAVI               = 123,/* Phlp */
+      USCRIPT_BOOK_PAHLAVI                  = 124,/* Phlv */
+      USCRIPT_INSCRIPTIONAL_PARTHIAN        = 125,/* Prti */
+      USCRIPT_SAMARITAN                     = 126,/* Samr */
+      USCRIPT_TAI_VIET                      = 127,/* Tavt */
+      USCRIPT_MATHEMATICAL_NOTATION         = 128,/* Zmth */
+      USCRIPT_SYMBOLS                       = 129,/* Zsym */
+
       /* Private use codes from Qaaa - Qabx are not supported*/
-#endif /* U_HIDE_DRAFT_API */
-      USCRIPT_CODE_LIMIT    = 104
+      USCRIPT_CODE_LIMIT    = 130
 } UScriptCode;
 
 /**

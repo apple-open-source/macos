@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -21,7 +21,7 @@
 #include "apr_errno.h"
 #include "apr_strings.h"
 #include "apr_file_io.h"
-#include "apr_thread_proc.h"
+#include "apr_thread_pool.h"
 #include "apr_md5.h"
 #include "apr_sha1.h"
 
@@ -83,23 +83,24 @@ static void * APR_THREAD_FUNC testing_thread(apr_thread_t *thd,
     return APR_SUCCESS;
 }
 
+#define NUM_THR 20
+
 /* test for threadsafe crypt() */
 static void test_threadsafe(abts_case *tc, void *data)
 {
-#define NUM_THR 20
-    apr_thread_t *my_threads[NUM_THR];
     int i;
     apr_status_t rv;
-    
-    for (i = 0; i < NUM_THR; i++) {
-        apr_assert_success(tc, "create test thread",
-                           apr_thread_create(&my_threads[i], NULL, 
-                                             testing_thread, tc, p));
-    }
+    apr_thread_pool_t *thrp;
+
+    rv = apr_thread_pool_create(&thrp, NUM_THR/2, NUM_THR, p);
+    ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
 
     for (i = 0; i < NUM_THR; i++) {
-        apr_thread_join(&rv, my_threads[i]);
+        rv = apr_thread_pool_push(thrp, testing_thread, tc, 0, NULL);
+        ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
     }
+
+    apr_thread_pool_destroy(thrp);
 }
 #endif
 

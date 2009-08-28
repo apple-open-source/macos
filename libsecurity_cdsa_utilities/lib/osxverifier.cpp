@@ -25,10 +25,7 @@
 #include <security_utilities/memutils.h>
 #include <security_utilities/debugging.h>
 #include <security_codesigning/requirement.h>
-
-#if !defined(NDEBUG)
-#include <security_codesigning/reqdumper.h>
-#endif //NDEBUG
+#include <security_codesigning/reqdumper.h>		// debug only
 
 
 using namespace CodeSigning;
@@ -49,9 +46,7 @@ OSXVerifier::OSXVerifier(OSXCode *code)
 	secdebug("codesign", "building verifier for %s", mPath.c_str());
 
 	// build new-style verifier
-	CFRef<SecStaticCodeRef> staticCode;
-	MacOSError::check(SecStaticCodeCreateWithPath(CFTempURL(code->canonicalPath()),
-		kSecCSDefaultFlags, &staticCode.aref()));
+	CFRef<SecStaticCodeRef> staticCode = code->codeRef();
 	switch (OSStatus rc = SecCodeCopyDesignatedRequirement(staticCode,
 			kSecCSDefaultFlags, &mRequirement.aref())) {
 	case noErr:
@@ -98,8 +93,12 @@ OSXVerifier::~OSXVerifier()
 void OSXVerifier::add(const BlobCore *blob)
 {
 	if (blob->is<Requirement>()) {
-		secdebug("codesign", "%p verifier adds requirement %s",
-			this, Dumper::dump(Requirement::specific(blob), true).c_str());
+#if defined(NDEBUG)
+		secdebug("codesign", "%p verifier adds requirement", this);
+#else
+		secdebug("codesign", "%p verifier adds requirement %s", this,
+			Dumper::dump(Requirement::specific(blob), true).c_str());
+#endif //NDEBUG
 		MacOSError::check(SecRequirementCreateWithData(CFTempData(*blob),
 			kSecCSDefaultFlags, &mRequirement.aref()));
 	} else {

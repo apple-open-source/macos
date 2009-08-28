@@ -81,7 +81,7 @@ bool IOFireWireAVCAsynchronousCommand::isPending(void)
 		case kAVCAsyncCommandStateTimeOutBeforeResponse:	// Timeout before first response
 		case kAVCAsyncCommandStateBusReset:					// Bus reset before first response
 		case kAVCAsyncCommandStateOutOfMemory:				// Ran out of memory
-		case kAVCAsyncCommandStateCancled:					// Command cancled
+		case kAVCAsyncCommandStateCanceled:					// Command cancled
 		default:
 			res = false;
 			break;
@@ -96,24 +96,62 @@ bool IOFireWireAVCAsynchronousCommand::isPending(void)
 void IOFireWireAVCAsynchronousCommand::free()
 {
     FIRELOG_MSG(("IOFireWireAVCAsynchronousCommand::free (this=0x%08X)\n",this));
-	
-	if (fWriteCmd)
+
+	// Only allow a free if we're not pending.
+	if ( isPending() )
+	{
+		cancel();
+	}
+
+	fWriteNodeID = kIOFWAVCAsyncCmdFreed;	// Special flag to indicate this command was cancled in this unit's free routine.
+	// The command is now canceled
+	cmdState	 = kAVCAsyncCommandStateCanceled;
+
+	if ( fWriteCmd->Busy() )
+	{
+		fWriteCmd->cancel(kIOReturnOffline);
+	}
+
+	if ( fWriteCmd )
+	{
 		fWriteCmd->release();
+		fWriteCmd = NULL;
+	}
+	
+	if( fDelayCmd->Busy() )
+	{
+		fDelayCmd->cancel(kIOReturnOffline);
+	}
 
 	if (fDelayCmd)
+	{
 		fDelayCmd->release();
+		fDelayCmd = NULL;
+	}
 
 	if (fMem)
+	{
 		fMem->release();
+		fMem = NULL;
+	}
 
 	if (pCommandBuf)
-		delete pCommandBuf;
+	{
+		delete[] pCommandBuf;
+		pCommandBuf = NULL;
+	}
 	
 	if (pInterimResponseBuf)
-		delete pInterimResponseBuf;
+	{
+		delete[] pInterimResponseBuf;
+		pInterimResponseBuf = NULL;
+	}
 	
 	if (pFinalResponseBuf)
-		delete pFinalResponseBuf;
+	{
+		delete[] pFinalResponseBuf;
+		pFinalResponseBuf = NULL;
+	}
 
 	OSObject::free();
 }
@@ -167,6 +205,16 @@ IOReturn IOFireWireAVCAsynchronousCommand::submit(IOFireWireAVCNub *pAVCNub)
 	
     FIRELOG_MSG(("IOFireWireAVCAsynchronousCommand::submit (this=0x%08X, opCode=0x%02X)\n",this,pCommandBuf[kAVCOpcode]));
 
+	retain();
+	
+	// If fWriteNodeID is kIOFWAVCAsyncCmdFreed, this command was cancled in the AVCUnit's free routine,
+	// so, we will not let this command be reinited or submitted again!
+	if (fWriteNodeID == kIOFWAVCAsyncCmdFreed)
+	{
+		release();
+		return kIOReturnNotPermitted;
+	}
+	
 	// Figure out if the nub is a unit or subunit
 	if (OSDynamicCast(IOFireWireAVCUnit, pAVCNub) != NULL)
 	{
@@ -178,7 +226,10 @@ IOReturn IOFireWireAVCAsynchronousCommand::submit(IOFireWireAVCNub *pAVCNub)
 		pAVCUnit = pAVCSubunit->fAVCUnit;
 	}
 	else
+	{
+		release();
 		return kIOReturnBadArgument; 
+	}
 	
     // setup AVC Request address
     addr.addressHi   = kCSRRegisterSpaceBaseAddressHi;
@@ -186,38 +237,59 @@ IOReturn IOFireWireAVCAsynchronousCommand::submit(IOFireWireAVCNub *pAVCNub)
 
 	// Only submit the write command, if we are pending request
 	if (cmdState != kAVCAsyncCommandStatePendingRequest)
+	{
+		release();
 		return kIOReturnNotPermitted;
+	}
 	
 	// Save a pointer to the unit
 	fAVCUnit = pAVCUnit;
+	
+	if ( not fAVCUnit->available() )
+	{
+		release();
+		return kIOReturnNotPermitted;
+	}
 	
 	// Create a memory descriptor for the request bytes
 	fMem = IOMemoryDescriptor::withAddress((void *)pCommandBuf,
 										   cmdLen,
 										   kIODirectionOutIn);
 	if(!fMem)
+	{
+		release();
 		return kIOReturnNoMemory;
+	}
 	
 	// Prepare the memory descriptor
 	IOReturn err = fMem->prepare();
 	if( err != kIOReturnSuccess )
+	{
+		release();
 		return kIOReturnNoMemory;
-	
+	}
+		
 	// Create a write command
 	fWriteCmd = fAVCUnit->fDevice->createWriteCommand(addr,
 											fMem,
 											IOFireWireAVCUnit::AVCAsynchRequestWriteDone,
 											this);
 	if(!fWriteCmd)
+	{
+		release();
 		return kIOReturnNoMemory;
-
+	}
+	
 	// Create a delay command for providing a timeout when waiting for AVC response
 	fDelayCmd = fAVCUnit->fIOFireWireAVCUnitExpansion->fControl->createDelayedCmd(250000, 
 																					IOFireWireAVCUnit::AVCAsynchDelayDone, 
 																					this);
 	if (!fDelayCmd)
+	{
+		release();
 		return kIOReturnNoMemory;
-
+	}
+	
 	// Get the async command lock
 	fAVCUnit->lockAVCAsynchronousCommandLock();
 
@@ -244,7 +316,9 @@ IOReturn IOFireWireAVCAsynchronousCommand::submit(IOFireWireAVCNub *pAVCNub)
 	
 	// Free the async command lock
 	fAVCUnit->unlockAVCAsynchronousCommandLock();
-	
+
+	release();
+
 	return res;
 }
 
@@ -254,6 +328,11 @@ IOReturn IOFireWireAVCAsynchronousCommand::submit(IOFireWireAVCNub *pAVCNub)
 IOReturn IOFireWireAVCAsynchronousCommand::reinit(const UInt8 * command, UInt32 len)
 {
     FIRELOG_MSG(("IOFireWireAVCAsynchronousCommand::reinit (this=0x%08X)\n",this));
+
+	// If fWriteNodeID is kIOFWAVCAsyncCmdFreed, this command was cancled in the AVCUnit's free routine,
+	// so, we will not let this command be reinited or submitted again!
+	if (fWriteNodeID == kIOFWAVCAsyncCmdFreed)
+		return kIOReturnNotPermitted;
 
 	// Only allow a reinit if we're not pending.
 	if (isPending())
@@ -327,7 +406,7 @@ IOReturn IOFireWireAVCAsynchronousCommand::cancel(void)
 			fDelayCmd->cancel(kIOReturnAborted);
 				
 	// The command is now canceled
-	cmdState = kAVCAsyncCommandStateCancled;
+	cmdState = kAVCAsyncCommandStateCanceled;
 
 	// Remove this object from the unit's array
 	cmdIndex = fAVCUnit->indexOfAVCAsynchronousCommandObject(this);
@@ -783,6 +862,9 @@ bool IOFireWireAVCUnit::start(IOService *provider)
     if(!fDevice)
         return false;
 	
+	// Retain our provider, the IOFireWireUnit object
+	fDevice->retain();
+
 	// create/clear expansion data
 	fIOFireWireAVCUnitExpansion = (ExpansionData*) IOMalloc( sizeof(ExpansionData) );
 	if( fIOFireWireAVCUnitExpansion == NULL )
@@ -793,7 +875,7 @@ bool IOFireWireAVCUnit::start(IOService *provider)
 	// Get the controller
 	fIOFireWireAVCUnitExpansion->fControl = fDevice->getController();
     if(!fIOFireWireAVCUnitExpansion->fControl)
-        return false;
+		return false;
 	
 	// Enable robust AV/C Command/Response Matching
 	fIOFireWireAVCUnitExpansion->enableRobustAVCCommandResponseMatching = true;
@@ -804,35 +886,37 @@ bool IOFireWireAVCUnit::start(IOService *provider)
     if(!gIOFireWireAVCUnitType)
         gIOFireWireAVCUnitType = OSSymbol::withCString("Unit_Type");
     if(!gIOFireWireAVCUnitType)
-        return false;
+		return false;
+
     if(!gIOFireWireAVCSubUnitType)
         gIOFireWireAVCSubUnitType = OSSymbol::withCString("SubUnit_Type");
     if(!gIOFireWireAVCSubUnitType)
-        return false;
+		return false;
 
     for(int i=0; i<kAVCNumSubUnitTypes; i++) {
         char buff[16];
         if(!gIOFireWireAVCSubUnitCount[i]) {
-            sprintf(buff, "AVCSubUnit_%x", i);
+            snprintf(buff, sizeof(buff), "AVCSubUnit_%x", i);
             gIOFireWireAVCSubUnitCount[i] = OSSymbol::withCString(buff);
             if(!gIOFireWireAVCSubUnitCount[i])
-                return false;
+				return false;
         }
     }
     
     if( !IOService::start(provider))
-        return (false);
+		return false;
 
     fFCPResponseSpace = fDevice->getBus()->createInitialAddressSpace(kFCPResponseAddress, 512,
                                                                         NULL, AVCResponse, this);
     if(!fFCPResponseSpace)
-        return false;
+		return false;
+
     fFCPResponseSpace->activate();
     
     avcLock = IOLockAlloc();
     if (avcLock == NULL) {
         IOLog("IOAVCUnit::start avcLock failed\n");
-        return false;
+		return false;
     }
     
     cmdLock = IOLockAlloc();
@@ -897,7 +981,7 @@ bool IOFireWireAVCUnit::start(IOService *provider)
 		if ((guidVal & 0xFFFFFF0000000000LL) == 0x0080450000000000LL) // panasonic
 		{
 			series = (UInt8) ((guidVal & 0x0000000000FF0000LL) >> 16);
-
+			
 			prop = provider->getProperty(gFireWireProduct_Name);
 			if(prop)
 			{
@@ -906,7 +990,11 @@ bool IOFireWireAVCUnit::start(IOService *provider)
 				{
 					fDevice->setNodeFlags(kIOFWMustNotBeRoot);
 					fDevice->setNodeFlags(kIOFWMustHaveGap63);
-					
+					IOLog("Panasonic guid=%lld series=%x model=%s\n", guidVal, series, string->getCStringNoCopy()); // node flags happens here
+				}
+				else if (string->isEqualTo("PV-GS120 "))
+				{
+					fDevice->setNodeFlags(kIOFWMustBeRoot);
 					IOLog("Panasonic guid=%lld series=%x model=%s\n", guidVal, series, string->getCStringNoCopy()); // node flags happens here
 				}
 				else
@@ -929,13 +1017,15 @@ bool IOFireWireAVCUnit::start(IOService *provider)
 	
     updateSubUnits(true);
     
-	// Retain our provider, the IOFireWireUnit object
-	fDevice->retain();
-	
     // Finally enable matching on this object.
     registerService();
 
     return true;
+}
+
+bool IOFireWireAVCUnit::available()
+{
+	return fStarted;
 }
 
 //////////////////////////////////////////////////////
@@ -948,30 +1038,44 @@ void IOFireWireAVCUnit::free(void)
 	
 	FIRELOG_MSG(("IOFireWireAVCUnit::free (this=0x%08X)\n",this));
 
+	if ((fIOFireWireAVCUnitExpansion) && (fIOFireWireAVCUnitExpansion->fControl))
+	{
+		lockAVCAsynchronousCommandLock();
+		
+		fStarted = false;
+		
+		unlockAVCAsynchronousCommandLock();
+	}
+
     if (fFCPResponseSpace) {
         fFCPResponseSpace->deactivate();
         fFCPResponseSpace->release();
+		fFCPResponseSpace = NULL;
     }
     if (avcLock) {
         IOLockFree(avcLock);
+		avcLock = NULL;
     }
 
-	// Get the unit's async command lock
-	lockAVCAsynchronousCommandLock();
-	
-	// Cancel any remaining pending AVC async commands in the AVC command array
-	while (fIOFireWireAVCUnitExpansion->fAVCAsyncCommands->getCount())
+	if ((fIOFireWireAVCUnitExpansion) && (fIOFireWireAVCUnitExpansion->fControl) && (fIOFireWireAVCUnitExpansion->fAVCAsyncCommands))
 	{
-		pCmd = (IOFireWireAVCAsynchronousCommand*) fIOFireWireAVCUnitExpansion->fAVCAsyncCommands->getObject(0);
-		pCmd->cancel();
-	}
-	
-	// Free the async command lock
-	unlockAVCAsynchronousCommandLock();
-	
-	// Release the async AVC command array
-	if (fIOFireWireAVCUnitExpansion->fAVCAsyncCommands)
+		// Get the unit's async command lock
+		lockAVCAsynchronousCommandLock();
+		
+		// Cancel any remaining pending AVC async commands in the AVC command array
+		while (fIOFireWireAVCUnitExpansion->fAVCAsyncCommands->getCount())
+		{
+			pCmd = (IOFireWireAVCAsynchronousCommand*) fIOFireWireAVCUnitExpansion->fAVCAsyncCommands->getObject(0);
+			pCmd->fWriteNodeID = kIOFWAVCAsyncCmdFreed;	// Special flag to indicate this command was cancled in this unit's free routine.
+			pCmd->cancel();
+		}
+		
+		// Free the async command lock
+		unlockAVCAsynchronousCommandLock();
+		
+		// Release the async AVC command array
 		fIOFireWireAVCUnitExpansion->fAVCAsyncCommands->release();
+	}
 	
     if (cmdLock)
 	{
@@ -980,11 +1084,18 @@ void IOFireWireAVCUnit::free(void)
     }
 	
 	// Release our provider, the IOFireWireUnit object
-	fDevice->release();
+	if( fDevice )
+	{
+		fDevice->release();
+		fDevice = NULL;
+	}
 
 	// free expansion data
-	IOFree ( fIOFireWireAVCUnitExpansion, sizeof(ExpansionData) );
-	fIOFireWireAVCUnitExpansion = NULL;
+	if (fIOFireWireAVCUnitExpansion)
+	{
+		IOFree ( fIOFireWireAVCUnitExpansion, sizeof(ExpansionData) );
+		fIOFireWireAVCUnitExpansion = NULL;
+	}
 	
     IOService::free();
 }
@@ -1042,17 +1153,22 @@ IOReturn IOFireWireAVCUnit::AVCCommand(const UInt8 * in, UInt32 len, UInt8 * out
     IOReturn res;
     IOFireWireAVCCommand *cmd;
     if(len == 0 || len > 512) {
-        IOLog("Loopy AVCCmd, len %ld, respLen %ld\n", len, *size);
+        IOLog("Loopy AVCCmd, len %d, respLen %d\n", (uint32_t)len, (uint32_t)*size);
         return kIOReturnBadArgument;
     }
 
-    cmd = IOFireWireAVCCommand::withNub(fDevice, in, len, out, size);
-    if(!cmd)
-		return kIOReturnNoMemory;
-
 	// Retain the AVCUnit object while processing the command
 	this->retain();
-
+	
+    cmd = IOFireWireAVCCommand::withNub(fDevice, in, len, out, size);
+    if(!cmd)
+	{
+		// Remove the extra retain we made above.
+		this->release();
+		
+		return kIOReturnNoMemory;
+	}
+	
     // lock avc space
     IOTakeLock(avcLock);
 
@@ -1085,7 +1201,7 @@ IOReturn IOFireWireAVCUnit::AVCCommandInGeneration(UInt32 generation, const UInt
     IOReturn res;
     IOFireWireAVCCommand *cmd;
     if(len == 0 || len > 512) {
-        IOLog("Loopy AVCCmd, len %ld, respLen %ld\n", len, *size);
+        IOLog("Loopy AVCCmd, len %d, respLen %d\n", (uint32_t)len, (uint32_t)*size);
         return kIOReturnBadArgument;
     }
 
@@ -1116,8 +1232,16 @@ IOReturn IOFireWireAVCUnit::AVCCommandInGeneration(UInt32 generation, const UInt
 //////////////////////////////////////////////////////
 void IOFireWireAVCUnit::AVCAsynchRequestWriteDone(void *refcon, IOReturn status, IOFireWireNub *device, IOFWCommand *fwCmd)
 {
-	IOFireWireAVCAsynchronousCommand *pCmdObject = (IOFireWireAVCAsynchronousCommand*) refcon;
-	IOFireWireAVCUnit *pAVCUnit = pCmdObject->fAVCUnit;
+	IOFireWireAVCAsynchronousCommand *pCmdObject = OSDynamicCast(IOFireWireAVCAsynchronousCommand, (IOFireWireAVCAsynchronousCommand*)refcon);
+
+	if(!pCmdObject)
+		return;
+		
+	IOFireWireAVCUnit *pAVCUnit = OSDynamicCast(IOFireWireAVCUnit, pCmdObject->fAVCUnit);
+
+	if(!pAVCUnit)
+		return;
+
 	UInt32 cmdIndex;
 	bool doCallback = false;
 
@@ -1183,8 +1307,16 @@ void IOFireWireAVCUnit::AVCAsynchRequestWriteDone(void *refcon, IOReturn status,
 //////////////////////////////////////////////////////
 void IOFireWireAVCUnit::AVCAsynchDelayDone(void *refcon, IOReturn status, IOFireWireBus *bus, IOFWBusCommand *fwCmd)
 {
-	IOFireWireAVCAsynchronousCommand *pCmdObject = (IOFireWireAVCAsynchronousCommand*) refcon;
-	IOFireWireAVCUnit *pAVCUnit = pCmdObject->fAVCUnit;
+	IOFireWireAVCAsynchronousCommand *pCmdObject = OSDynamicCast( IOFireWireAVCAsynchronousCommand, (IOFireWireAVCAsynchronousCommand*)refcon );
+
+	if(!pCmdObject)
+		return;
+		
+	IOFireWireAVCUnit *pAVCUnit = OSDynamicCast(IOFireWireAVCUnit, (IOFireWireAVCUnit*)pCmdObject->fAVCUnit);
+
+	if(!pAVCUnit)
+		return;
+	
 	UInt32 cmdIndex;
 
 	FIRELOG_MSG(("IOFireWireAVCUnit::AVCAsynchDelayDone, cmd=0x%08X, status = 0x%08X\n",pCmdObject,status));
@@ -1378,7 +1510,11 @@ IOReturn IOFireWireAVCUnit::message(UInt32 type, IOService *provider, void *argu
 	if( fStarted == true && type == kIOMessageServiceIsResumed )
 	{
 		this->retain(); // Retain this object before starting the rescan thread!
-        IOCreateThread(rescanSubUnits, this);
+		thread_t		thread;
+		if( kernel_thread_start((thread_continue_t)rescanSubUnits, this, &thread ) == KERN_SUCCESS )
+		{
+			thread_deallocate(thread);
+		}
     }
     messageClients(type);
     

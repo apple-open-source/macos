@@ -55,7 +55,6 @@ BC_read_playlist(const char *pfname, struct BC_playlist_entry **ppc, int *pnentr
 		return(ENOENT);
 	
 	if ((fd = open(pfname, O_RDONLY)) == -1) {
-		warn("could not open %s", pfname);
 		error = errno;
 		goto out;
 	}
@@ -312,8 +311,8 @@ BC_fetch_statistics(struct BC_statistics **pss)
 
 	bc.bc_magic = BC_MAGIC;
 	bc.bc_opcode = BC_OP_STATS;
-	bc.bc_data = &ss;
-	bc.bc_length = sizeof(ss);
+	bc.bc_data = (uintptr_t) &ss;
+	bc.bc_length = (unsigned int) sizeof(ss);
 	error = sysctlbyname(BC_SYSCTL, NULL, NULL, &bc, sizeof(bc));
 	if (error != 0) {
 		/* ENOENT means the kext is unloaded, that's OK */
@@ -391,8 +390,8 @@ BC_start(struct BC_playlist_entry *pc, int nentries)
 	bc.bc_magic = BC_MAGIC;
 	bc.bc_opcode = BC_OP_START;
 	bc.bc_param = BC_blocksize;
-	bc.bc_data = pc;
-	bc.bc_length = nentries * sizeof(*pc);
+	bc.bc_data = (uintptr_t) pc;
+	bc.bc_length = (unsigned int) (nentries * sizeof(*pc));
 	return(sysctlbyname(BC_SYSCTL, NULL, NULL, &bc, sizeof(bc)) ? errno : 0);
 }
 
@@ -428,24 +427,24 @@ BC_stop(struct BC_history_entry **phe, int *pnentries)
 	bc.bc_opcode = BC_OP_HISTORY;
 	he = NULL;
 	if (bc.bc_length == 0) {
-		bc.bc_data = NULL;
+		bc.bc_data = 0;
 	} else {
 		if ((he = malloc(bc.bc_length)) == NULL) {
 			warnx("could not allocate history buffer memory");
 			return(ENOMEM);
 		}
-		bc.bc_data = he;
+		bc.bc_data = (uintptr_t) he;
 	}
 	error = sysctlbyname(BC_SYSCTL, NULL, NULL, &bc, sizeof(bc));
 	if (error != 0) {
-		warn("could not fetch %zu bytes of history", bc.bc_length);
+		warn("could not fetch %llu bytes of history", bc.bc_length);
 		if (he != NULL)
 			free(he);
 		return(errno);
 	}
 	
-	*phe = bc.bc_data;
-	*pnentries = bc.bc_length / sizeof(struct BC_history_entry);
+	*phe = (struct BC_history_entry *) ((uintptr_t) bc.bc_data);
+	*pnentries = (unsigned int) bc.bc_length / (unsigned int) sizeof(struct BC_history_entry);
 	return(0);
 }
 
@@ -453,8 +452,7 @@ int
 BC_print_statistics(char *fname, struct BC_statistics *ss)
 {
 	FILE *fp;
-	struct timeval tv;
-	int msec, b;
+	int msec = 0, b;
 
 	if (ss == NULL)
 		return(0);
@@ -473,14 +471,13 @@ BC_print_statistics(char *fname, struct BC_statistics *ss)
 	fprintf(fp, "blocks read               %u\n", ss->ss_read_blocks);
 	fprintf(fp, "read errors               %u\n", ss->ss_read_errors);
 	fprintf(fp, "blocks discarded by error %u\n", ss->ss_error_discards);
-	for(b = 0; b < STAT_BATCHMAX - 1; b++) {
-		if ((ss->ss_batch_time[b + 1].tv_sec > 0) || (ss->ss_batch_time[b + 1].tv_usec > 0)) {
-			timersub(&ss->ss_batch_time[b + 1], &ss->ss_batch_time[b], &tv);
-			msec = (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
-			if (msec > 0) {
-				fprintf(fp, "batch %d time              %d.%03ds\n",
-						b, msec / 1000, msec % 1000);
-			}
+	for(b = 0; b < STAT_BATCHMAX; b++) {
+		if (ss->ss_batch_time[b] > 0) {
+			fprintf(fp, "batch %d time              %d.%03ds\n",
+					b, 
+					ss->ss_batch_time[b] / 1000, 
+					ss->ss_batch_time[b] % 1000);
+			msec += ss->ss_batch_time[b];
 		}
 	}
 
@@ -488,8 +485,6 @@ BC_print_statistics(char *fname, struct BC_statistics *ss)
 		fprintf(fp, "blocks read in batch %d:   %u\n", b, ss->ss_batch_size[b]);
 	}
 
-	timersub(&ss->ss_batch_time[STAT_BATCHMAX], &ss->ss_batch_time[0], &tv);
-	msec = (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
 	if (msec > 0) {
 		fprintf(fp, "reader thread rate        %ukB/s, %utps\n",
 				(u_int)(((unsigned long long)ss->ss_read_blocks * ss->ss_blocksize * 1000) / (msec * 1024)),
@@ -499,32 +494,23 @@ BC_print_statistics(char *fname, struct BC_statistics *ss)
 	/* inbound strategy */
 	fprintf(fp, "total strategy calls      %u\n", ss->ss_strategy_calls);
 	fprintf(fp, "non-read strategy calls   %u\n", ss->ss_strategy_nonread);
+	fprintf(fp, "throttled strategy calls  %u\n", ss->ss_strategy_throttled);
 	fprintf(fp, "bypassed strategy calls   %u\n", ss->ss_strategy_bypassed);
 	fprintf(fp, "bypasses while active     %u\n", ss->ss_strategy_bypass_active);
 	fprintf(fp, "filled strategy calls     %u\n", ss->ss_strategy_calls - ss->ss_strategy_bypassed);
 	fprintf(fp, "filled during active I/O  %u\n", ss->ss_strategy_duringio);
-	if ((ss->ss_cache_stop.tv_sec > 0) || (ss->ss_cache_stop.tv_usec > 0)) {
-		timersub(&ss->ss_cache_stop, &ss->ss_batch_time[0], &tv);
-		msec = (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
-		if (msec > 0) {
-			fprintf(fp, "active time               %d.%03ds\n",
-			    msec / 1000, msec % 1000);
-			fprintf(fp, "read/write strategy rate  %u/%utps\n",
-			    ((ss->ss_strategy_calls - ss->ss_strategy_nonread) * 1000) / msec,
-			    (ss->ss_strategy_nonread * 1000) / msec);
-		}
-	}
+	fprintf(fp, "preload time              %d.%03ds\n",
+			ss->ss_preload_time / 1000, ss->ss_preload_time % 1000);
+	fprintf(fp, "active time               %d.%03ds\n",
+			ss->ss_active_time / 1000, ss->ss_active_time % 1000);
+	if (ss->ss_active_time != 0)
+		fprintf(fp, "read/write strategy rate  %u/%utps\n",
+				((ss->ss_strategy_calls - ss->ss_strategy_nonread) * 1000) / ss->ss_active_time,
+				(ss->ss_strategy_nonread * 1000) / ss->ss_active_time);
 	if (ss->ss_strategy_blocked > 0)
 		fprintf(fp, "callers blocked           %u\n", ss->ss_strategy_blocked);
 	if (ss->ss_strategy_stolen > 0)
 		fprintf(fp, "stolen page bypasses      %u\n", ss->ss_strategy_stolen);
-	if ((ss->ss_wait_time.tv_sec > 0) || (ss->ss_wait_time.tv_usec > 0)) {
-		msec = (ss->ss_wait_time.tv_sec * 1000) + (ss->ss_wait_time.tv_usec / 1000);
-		if (msec > 0) {
-			fprintf(fp, "time blocked on extents   %d.%03ds\n",
-			    msec / 1000, msec % 1000);
-		}
-	}
 	
 	/* extents */
 	fprintf(fp, "extents in cache          %u\n", ss->ss_total_extents);
@@ -536,14 +522,14 @@ BC_print_statistics(char *fname, struct BC_statistics *ss)
 	fprintf(fp, "hits not fulfilled        %u\n", ss->ss_hit_blkmissing);
 
 	/* block/page activity */
-	fprintf(fp, "blocks requested          %u\n", ss->ss_requested_blocks);
-	fprintf(fp, "blocks hit                %u\n", ss->ss_hit_blocks - ss->ss_write_discards);
 	fprintf(fp, "blocks discarded by write %u\n", ss->ss_write_discards);
+	fprintf(fp, "blocks requested          %u\n", ss->ss_requested_blocks);
+	fprintf(fp, "blocks hit                %u\n", ss->ss_hit_blocks);
+	fprintf(fp, "blocks lost from cache    %u\n", ss->ss_lost_blocks);
 	if (ss->ss_requested_blocks > 0)
 		fprintf(fp, "block hit ratio           %.2f%%\n",
 		    ((float)(ss->ss_hit_blocks * 100) / ss->ss_requested_blocks));
 	fprintf(fp, "leftover blocks           %u\n", ss->ss_spurious_blocks);
-	fprintf(fp, "leftover pages            %u\n", ss->ss_spurious_pages);
 	if (ss->ss_read_blocks > 0)
 		fprintf(fp, "block wastage             %.2f%%\n",
 		    ((float)ss->ss_spurious_blocks * 100) / ss->ss_read_blocks);
@@ -598,7 +584,7 @@ BC_tag_history(void)
 
 	bc.bc_magic = BC_MAGIC;
 	bc.bc_opcode = BC_OP_TAG;
-	bc.bc_data = NULL;
+	bc.bc_data = 0;
 	bc.bc_length = 0;
 	error = sysctlbyname(BC_SYSCTL, NULL, NULL, &bc, sizeof(bc));
 	if (error != 0) {

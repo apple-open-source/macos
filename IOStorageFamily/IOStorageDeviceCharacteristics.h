@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -482,7 +482,7 @@ Example:
 @/textblock
 </pre>
 */
-#define kIOPropertyPhysicalBlockSizeKey	"Physical Block Size"
+#define kIOPropertyPhysicalBlockSizeKey		"Physical Block Size"
 
 
 /*!
@@ -513,7 +513,147 @@ Example:
 @/textblock
 </pre>
 */
-#define kIOPropertyLogicalBlockSizeKey	"Logical Block Size"
+#define kIOPropertyLogicalBlockSizeKey		"Logical Block Size"
+
+
+/*!
+@defined kIOPropertyTargetDiskModeKey
+@discussion This key is used to indicate the device is another computer in Target Disk Mode.
+
+Requirement: Optional.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Device Characteristics</key>
+	<dict>
+		<key>Vendor Name</key>
+		<string>AAPL</string>
+		<key>Product Name</key>
+		<string>FireWire Target</string>
+		<key>Product Revision Level</key>
+		<string>0000</string>
+		<key>Target Disk Mode</key>
+		<true/>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyTargetDiskModeKey		"Target Disk Mode"
+
+
+/*!
+@defined kIOPropertyMediumTypeKey
+@discussion This key is used to indicate the medium type of the device.
+
+Requirement: Optional.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Device Characteristics</key>
+	<dict>
+		<key>Vendor Name</key>
+		<string>AAPL</string>
+		<key>Product Name</key>
+		<string>FireWire Target</string>
+		<key>Product Revision Level</key>
+		<string>0000</string>
+		<key>Medium Type</key>
+		<string>Rotational</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyMediumTypeKey		"Medium Type"
+
+
+/*!
+@defined kIOPropertyMediumTypeRotationalKey
+@discussion This key is used to indicate the medium type of the device is rotational.
+
+Requirement: Optional.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Device Characteristics</key>
+	<dict>
+		<key>Vendor Name</key>
+		<string>AAPL</string>
+		<key>Product Name</key>
+		<string>FireWire Target</string>
+		<key>Product Revision Level</key>
+		<string>0000</string>
+		<key>Medium Type</key>
+		<string>Rotational</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyMediumTypeRotationalKey		"Rotational"
+
+
+/*!
+@defined kIOPropertyMediumTypeSolidStateKey
+@discussion This key is used to indicate the medium type of the device is solid state.
+
+Requirement: Optional.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Device Characteristics</key>
+	<dict>
+		<key>Vendor Name</key>
+		<string>AAPL</string>
+		<key>Product Name</key>
+		<string>FireWire Target</string>
+		<key>Product Revision Level</key>
+		<string>0000</string>
+		<key>Medium Type</key>
+		<string>Solid State</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyMediumTypeSolidStateKey		"Solid State"
+
+
+/*!
+@defined kIOPropertyMediumRotationRateKey
+@discussion This key is used to indicate the medium rotation rate in RPM of the device.
+
+Requirement: Optional.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Device Characteristics</key>
+	<dict>
+		<key>Vendor Name</key>
+		<string>AAPL</string>
+		<key>Product Name</key>
+		<string>FireWire Target</string>
+		<key>Product Revision Level</key>
+		<string>0000</string>
+		<key>Rotation Rate</key>
+		<integer>7200</integer>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyMediumRotationRateKey		"Rotation Rate"
 
 
 #endif	/* _IOKIT_IO_STORAGE_DEVICE_CHARACTERISTICS_H_ */

@@ -865,11 +865,6 @@ xsltFormatNumberPreSuffix(xsltDecimalFormatPtr self, xmlChar **format, xsltForma
 	if (**format == SYMBOL_QUOTE) {
 	    if (*++(*format) == 0)
 		return -1;
-	    if ((len=xsltUTF8Size(*format))<=0)
-	        return -1;
-	    *format += len;
-	    if (**format != SYMBOL_QUOTE)
-		return -1;
 	}
 	else if (IS_SPECIAL(self, *format))
 	    return count;
@@ -877,7 +872,7 @@ xsltFormatNumberPreSuffix(xsltDecimalFormatPtr self, xmlChar **format, xsltForma
 	 * else treat percent/per-mille as special cases,
 	 * depending on whether +ve or -ve 
 	 */
-	else if (!info->is_negative_pattern) {
+	else {
 	    /*
 	     * for +ve prefix/suffix, allow only a 
 	     * single occurence of either 
@@ -891,24 +886,6 @@ xsltFormatNumberPreSuffix(xsltDecimalFormatPtr self, xmlChar **format, xsltForma
 		if (info->is_multiplier_set)
 		    return -1;
 		info->multiplier = 1000;
-		info->is_multiplier_set = TRUE;
-	    }
-	} else {
-	    /*
-	     * for -ve prefix/suffix, allow only single occurence 
-	     * & insist it's previously defined 
-	     */
-	    if (xsltUTF8Charcmp(*format, self->percent) == 0) {
-		if (info->is_multiplier_set)
-		    return -1;
-		if (info->multiplier != 100)
-		    return -1;
-		info->is_multiplier_set = TRUE;
-	    } else if (xsltUTF8Charcmp(*format, self->permille) == 0) {
-		if (info->is_multiplier_set)
-		    return -1;
-		if (info->multiplier != 1000)
-		    return -1;
 		info->is_multiplier_set = TRUE;
 	    }
 	}
@@ -988,6 +965,11 @@ xsltFormatNumberConversion(xsltDecimalFormatPtr self,
     /* flag to show error found, should use default format */
     char	found_error = 0;
 
+    if (xmlStrlen(format) <= 0) {
+	xsltTransformError(NULL, NULL, NULL,
+                "xsltFormatNumberConversion : "
+		"Invalid format (0-length)\n");
+    }
     *result = NULL;
     switch (xmlXPathIsInf(number)) {
 	case -1:
@@ -1187,7 +1169,7 @@ xsltFormatNumberConversion(xsltDecimalFormatPtr self,
 	}
 	else {
 	    /* Skip over pattern separator (accounting for UTF8) */
-	    the_format = xmlUTF8Strpos(format, j + 1);
+	    the_format = (xmlChar *)xmlUTF8Strpos(format, j + 1);
 	    /* 
 	     * Flag changes interpretation of percent/permille 
 	     * in -ve pattern 
@@ -1204,8 +1186,6 @@ xsltFormatNumberConversion(xsltDecimalFormatPtr self,
 		goto OUTPUT_NUMBER;
 	    }
 
-	    /* Next skip over the -ve number info */
-	    the_format += prefix_length;
 	    while (*the_format != 0) {
 		if ( (xsltUTF8Charcmp(the_format, (self)->percent) == 0) ||
 		     (xsltUTF8Charcmp(the_format, (self)->permille)== 0) ) {
@@ -1261,9 +1241,10 @@ xsltFormatNumberConversion(xsltDecimalFormatPtr self,
 		prefix_length = nprefix_length;
 		suffix = nsuffix;
 		suffix_length = nsuffix_length;
-	    } else {
+	    } /* else {
 		default_sign = 1;
 	    }
+	    */
 	}
     }
 
@@ -1271,7 +1252,7 @@ OUTPUT_NUMBER:
     if (found_error != 0) {
 	xsltTransformError(NULL, NULL, NULL,
                 "xsltFormatNumberConversion : "
-		"error in format string, using default\n");
+		"error in format string '%s', using default\n", format);
 	default_sign = (number < 0.0) ? 1 : 0;
 	prefix_length = suffix_length = 0;
 	format_info.integer_hash = 0;
@@ -1292,8 +1273,8 @@ OUTPUT_NUMBER:
 	if ((pchar = *prefix++) == SYMBOL_QUOTE) {
 	    len = xsltUTF8Size(prefix);
 	    xmlBufferAdd(buffer, prefix, len);
-	    prefix += len + 1;	/* skip the ending quote */
-	    j += len - 1;	/* 'for' will increment by 1 */
+	    prefix += len;
+	    j += len - 1;	/* length of symbol less length of quote */
 	} else
 	    xmlBufferAdd(buffer, &pchar, 1);
     }
@@ -1357,8 +1338,8 @@ OUTPUT_NUMBER:
 	if ((pchar = *suffix++) == SYMBOL_QUOTE) {
             len = xsltUTF8Size(suffix);
 	    xmlBufferAdd(buffer, suffix, len);
-	    suffix += len + 1;  /* skip the ending quote */
-	    j += len - 1;       /* 'for' will increment by 1 */
+	    suffix += len;
+	    j += len - 1;	/* length of symbol less length of escape */
 	} else
 	    xmlBufferAdd(buffer, &pchar, 1);
     }

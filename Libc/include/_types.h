@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2008, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,6 +26,16 @@
 
 #include <sys/_types.h>
 
+#if __GNUC__ > 2 || __GNUC__ == 2 && __GNUC_MINOR__ >= 7
+#define __strfmonlike(fmtarg, firstvararg) \
+		__attribute__((__format__ (__strfmon__, fmtarg, firstvararg)))
+#define __strftimelike(fmtarg) \
+		__attribute__((__format__ (__strftime__, fmtarg, 0)))
+#else
+#define __strfmonlike(fmtarg, firstvararg)
+#define __strftimelike(fmtarg)
+#endif
+
 typedef	int		__darwin_nl_item;
 typedef	int		__darwin_wctrans_t;
 #ifdef __LP64__
@@ -46,5 +56,13 @@ typedef	unsigned long	__darwin_wctype_t;
 #define __DARWIN_WCHAR_MIN	0
 #endif
 #define	__DARWIN_WEOF 	((__darwin_wint_t)-1)
+
+#ifndef _FORTIFY_SOURCE
+#  if defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__) && ((__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__-0) < 1050)
+#    define _FORTIFY_SOURCE 0
+#  else
+#    define _FORTIFY_SOURCE 2	/* on by default */
+#  endif
+#endif
 
 #endif /* __TYPES_H_ */

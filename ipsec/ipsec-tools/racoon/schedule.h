@@ -1,4 +1,6 @@
-/* $Id: schedule.h,v 1.4 2004/11/18 15:14:44 ludvigm Exp $ */
+/*	$NetBSD: schedule.h,v 1.4.6.1 2007/03/21 14:29:48 vanhu Exp $	*/
+
+/* Id: schedule.h,v 1.5 2006/05/03 21:53:42 vanhu Exp */
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -33,7 +35,7 @@
 #define _SCHEDULE_H
 
 #include <sys/queue.h>
-#include <gnuc.h>
+#include "gnuc.h"
 
 /* scheduling table */
 /* the head is the nearest event. */
@@ -57,8 +59,10 @@ struct sched {
 /* cancel schedule */
 #define SCHED_KILL(s)                                                          \
 do {                                                                           \
-	sched_kill(s);                                                         \
-	s = NULL;                                                              \
+	if(s != NULL){	   														\
+		sched_kill(s);                                                         \
+		s = NULL;                                                              \
+	}\
 } while(0)
 
 /* must be called after it's called from scheduler. */

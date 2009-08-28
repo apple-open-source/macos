@@ -1,6 +1,6 @@
 --- configure.orig	2006-11-29 16:13:55.000000000 -0800
 +++ configure	2006-11-29 16:14:44.000000000 -0800
-@@ -9102,13 +9102,13 @@
+@@ -9117,13 +9117,13 @@
  
  
      if test x$enable_utf8 != xno; then
@@ -18,7 +18,7 @@
  cat >conftest.$ac_ext <<_ACEOF
  /* confdefs.h.  */
  _ACEOF
-@@ -9165,22 +9165,22 @@
+@@ -9180,22 +9180,22 @@
    ac_status=$?
    echo "$as_me:$LINENO: \$? = $ac_status" >&5
    (exit $ac_status); }; }; then

@@ -31,7 +31,7 @@
 
 #include "stuff/errors.h"
 
-__private_extern__ unsigned long errors = 0;	/* number of calls to error() */
+__private_extern__ uint32_t errors = 0;	/* number of calls to error() */
 
 /*
  * Just print the message in the standard format without setting an error.

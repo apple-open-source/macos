@@ -1,9 +1,3 @@
-# Copyright (c) 2000-2004 Dave Rolsky
-# All rights reserved.
-# This program is free software; you can redistribute it and/or
-# modify it under the same terms as Perl itself.  See the LICENSE
-# file that comes with this distribution for more details.
-
 package Params::Validate;
 
 use strict;
@@ -16,7 +10,7 @@ BEGIN
 
     @ISA = 'Exporter';
 
-    $VERSION = '0.80';
+    $VERSION = '0.91';
 
     my %tags =
         ( types =>
@@ -39,8 +33,6 @@ BEGIN
 
     if ( $@ || $ENV{PV_TEST_PERL} )
     {
-        # suppress subroutine redefined warnings
-        local $^W = 0;
         require Params::ValidatePP;
     }
 }
@@ -161,8 +153,8 @@ validation specification is given to the relevant subroutine.  The
 other difference is in the error messages produced when validation
 checks fail.
 
-When handling named parameters, the module is capable of handling
-either a hash or a hash reference transparently.
+When handling named parameters, the module will accept either a hash
+or a hash reference.
 
 Subroutines expecting named parameters should call the C<validate()>
 subroutine like this:
@@ -350,6 +342,10 @@ example:
 The value of the "regex" key may be either a string or a pre-compiled
 regex created via C<qr>.
 
+If the value being checked against a regex is undefined, the regex is
+explicitly checked against the empty string ('') instead, in order to
+avoid "Use of uninitialized value" warnings.
+
 The C<Regexp::Common> module on CPAN is an excellent source of regular
 expressions suitable for validating input.
 
@@ -498,9 +494,9 @@ something like this:
 
 =head1 "GLOBAL" OPTIONS
 
-Because the calling syntax for the C<validate()> and C<validate_pos()>
-functions does not make it possible to specify any options other than
-the the validation spec, it is possible to set some options as
+Because the API for the C<validate()> and C<validate_pos()> functions
+does not make it possible to specify any options other than the the
+validation spec, it is possible to set some options as
 pseudo-'globals'.  These allow you to specify such things as whether
 or not the validation of named parameters should be case sensitive,
 for one example.
@@ -510,8 +506,8 @@ B<only applied to calls originating from the package that set the
 options>.
 
 In other words, if I am in package C<Foo> and I call
-C<Params::Validate::validation_options()>, those options are only in
-effect when I call C<validate()> from package C<Foo>.
+C<validation_options()>, those options are only in effect when I call
+C<validate()> from package C<Foo>.
 
 While this is quite different from how most other modules operate, I
 feel that this is necessary in able to make it possible for one
@@ -521,8 +517,9 @@ options set.
 
 The downside to this is that if you are writing an app with a standard
 calling style for all functions, and your app has ten modules, B<each
-module must include a call to
-C<Params::Validate::validation_options()>>.
+module must include a call to C<validation_options()>>. You could of
+course write a module that all your modules use which uses various
+trickery to do this when imported.
 
 =head2 Options
 
@@ -698,19 +695,13 @@ figures out how to do this, please let me know.
 
 =head1 SUPPORT
 
-For now, support questions should be sent to Dave at autarch@urth.org.
+Please submit bugs and patches to the CPAN RT system at
+http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Params%3A%3AValidate or
+via email at bug-params-validate@rt.cpan.org.
+
+Support questions can be sent to Dave at autarch@urth.org.
 
 The code repository is at https://svn.urth.org/svn/Params-Validate/
-
-=head1 SEE ALSO
-
-Getargs::Long - similar capabilities with a different interface.  If
-you like what Params::Validate does but not its 'feel' try this one
-instead.
-
-Carp::Assert and Class::Contract - other modules in the general spirit
-of validating that certain things are true before/while/after
-executing actual program code.
 
 =head1 AUTHORS
 
@@ -718,8 +709,8 @@ Dave Rolsky, <autarch@urth.org> and Ilya Martynov <ilya@martynov.org>
 
 =head1 COPYRIGHT
 
-Copyright (c) 2004 David Rolsky.  All rights reserved.  This program
-is free software; you can redistribute it and/or modify it under the
-same terms as Perl itself.
+Copyright (c) 2004-2007 David Rolsky.  All rights reserved.  This
+program is free software; you can redistribute it and/or modify it
+under the same terms as Perl itself.
 
 =cut

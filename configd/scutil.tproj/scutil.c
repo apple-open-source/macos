@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -66,8 +66,6 @@
 #include "prefs.h"
 #include "session.h"
 #include "tests.h"
-
-#include "SCDynamicStoreInternal.h"
 
 
 #define LINE_LENGTH 256
@@ -252,10 +250,10 @@ usage(const char *command)
 	SCPrint(TRUE, stderr, CFSTR("   or: %s --prefs\n"), command);
 	SCPrint(TRUE, stderr, CFSTR("\tinteractive access to the [raw] stored preferences.\n"));
 	SCPrint(TRUE, stderr, CFSTR("\n"));
-	SCPrint(TRUE, stderr, CFSTR("   or: %s -r nodename\n"), command);
-	SCPrint(TRUE, stderr, CFSTR("   or: %s -r address\n"), command);
-	SCPrint(TRUE, stderr, CFSTR("   or: %s -r local-address remote-address\n"), command);
-	SCPrint(TRUE, stderr, CFSTR("\tcheck reachability of node, address, or address pair.\n"));
+	SCPrint(TRUE, stderr, CFSTR("   or: %s [-W] -r nodename\n"), command);
+	SCPrint(TRUE, stderr, CFSTR("   or: %s [-W] -r address\n"), command);
+	SCPrint(TRUE, stderr, CFSTR("   or: %s [-W] -r local-address remote-address\n"), command);
+	SCPrint(TRUE, stderr, CFSTR("\tcheck reachability of node, address, or address pair (-W to \"watch\").\n"));
 	SCPrint(TRUE, stderr, CFSTR("\n"));
 	SCPrint(TRUE, stderr, CFSTR("   or: %s -w dynamic-store-key [ -t timeout ]\n"), command);
 	SCPrint(TRUE, stderr, CFSTR("\t-w\twait for presense of dynamic store key\n"));
@@ -309,11 +307,12 @@ main(int argc, char * const argv[])
 	InputRef		src;
 	int			timeout	= 15;	/* default timeout (in seconds) */
 	char			*wait	= NULL;
+	Boolean			watch	= FALSE;
 	int			xStore	= 0;	/* non dynamic store command line options */
 
 	/* process any arguments */
 
-	while ((opt = getopt_long(argc, argv, "dvprt:w:", longopts, &opti)) != -1)
+	while ((opt = getopt_long(argc, argv, "dvprt:w:W", longopts, &opti)) != -1)
 		switch(opt) {
 		case 'd':
 			_sc_debug = TRUE;
@@ -336,6 +335,9 @@ main(int argc, char * const argv[])
 		case 'w':
 			wait = optarg;
 			xStore++;
+			break;
+		case 'W':
+			watch = TRUE;
 			break;
 		case 0:
 			if        (strcmp(longopts[opti].name, "dns") == 0) {
@@ -370,12 +372,16 @@ main(int argc, char * const argv[])
 		usage(prog);
 	}
 
-	/* are we checking the reachability of a host/address */
+	/* are we checking (or watching) the reachability of a host/address */
 	if (doReach) {
-		if ((argc < 1) || (argc > 2)) {
+		if (argc < 1) {
 			usage(prog);
 		}
-		do_checkReachability(argc, (char **)argv);
+		if (watch) {
+			do_watchReachability(argc, (char **)argv);
+		} else {
+			do_checkReachability(argc, (char **)argv);
+		}
 		/* NOT REACHED */
 	}
 
@@ -484,9 +490,13 @@ main(int argc, char * const argv[])
 		}
 	}
 
-	while (process_line(src) == TRUE) {
-	       /* debug information, diagnostics */
-		__showMachPortStatus();
+	while (TRUE) {
+		Boolean	ok;
+
+		ok = process_line(src);
+		if (!ok) {
+			break;
+		}
 	}
 
 	/* close the socket, free resources */

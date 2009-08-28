@@ -1,9 +1,11 @@
 Project = nologin
 Install_Dir = /sbin
 
-MANPAGES = nologin.8
+CFILES = nologin.c
+MANPAGES = nologin.5 nologin.8
+
+Extra_CC_Flags = -Wall -Werror -mdynamic-no-pic
+Extra_CC_Flags += -D__FBSDID=__RCSID
+Extra_LD_Flags = -dead_strip
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make
-
-after_install:
-	$(INSTALL_SCRIPT) nologin.sh $(DSTROOT)/$(Install_Dir)/nologin

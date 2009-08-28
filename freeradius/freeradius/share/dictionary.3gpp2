@@ -6,7 +6,7 @@
 #	X.S0011-005-C v1.0
 #	http://www.3gpp2.org/Public_html/specs/X.S0011-005-C_v2.0_050708.pdf
 #
-#	$Id: dictionary.3gpp2,v 1.2.4.1 2005/11/30 22:17:18 aland Exp $
+#	$Id$
 #
 VENDOR		3GPP2				5535
 
@@ -123,5 +123,10 @@ ATTRIBUTE	3GPP2-Disconnect-Reason			96	integer
 # The next set of attributes contain sub-types
 ATTRIBUTE	3GPP2-Remote-IPv6-Octet-Count		97	octets
 ATTRIBUTE	3GPP2-PrePaid-Tariff-Switching		98	octets
+
+ATTRIBUTE       3GPP2-HA-Request                        168     integer
+ATTRIBUTE       3GPP2-HA-Authorised                     169     integer
+ATTRIBUTE       3GPP2-IP-Ver-Authorised                 172     integer
+ATTRIBUTE       3GPP2-MIPv4-Mesg-Id                     173     string
 
 END-VENDOR 3GPP2

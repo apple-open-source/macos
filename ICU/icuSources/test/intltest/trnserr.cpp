@@ -1,17 +1,15 @@
 /********************************************************************
- * COPYRIGHT: 
- * Copyright (c) 2001-2005, International Business Machines Corporation and
- * others. All Rights Reserved.
+ * Copyright (c) 2001-2007, International Business Machines
+ * Corporation and others. All Rights Reserved.
+ *********************************************************************
+ *   This test program is intended for testing error conditions of the 
+ *   transliterator APIs to make sure the exceptions are raised where
+ *   necessary.
+ *
+ *   Date        Name        Description
+ *   11/14/2001  hshih       Creation.
+ * 
  ********************************************************************/
-/************************************************************************
-*   This test program is intended for testing error conditions of the 
-*   transliterator APIs to make sure the exceptions are raised where
-*   necessary.
-*
-*   Date        Name        Description
-*   11/14/2001  hshih       Creation.
-* 
-************************************************************************/
 
 #include "unicode/utypes.h"
 
@@ -22,10 +20,8 @@
 #include "unicode/utypes.h"
 #include "unicode/translit.h"
 #include "unicode/uniset.h"
-#include "rbt.h"
 #include "unicode/unifilt.h"
 #include "cpdtrans.h"
-#include "nultrans.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -141,11 +137,9 @@ void TransliteratorErrorTest::TestTransliteratorErrors() {
     if(t1!=0 || U_SUCCESS(status)){
         delete t1;
         errln("FAIL: construction of bogus ID \"LATINGREEK-GREEKLATIN\"");
-    } else {
-        delete t1;
     }
     status = U_ZERO_ERROR;
-    Transliterator* t2 = new RuleBasedTransliterator(newID, newIDRules, UTRANS_FORWARD, status);
+    Transliterator* t2 = Transliterator::createFromRules(newID, newIDRules, UTRANS_FORWARD, parseError, status);
     if (U_SUCCESS(status)) {
         Transliterator* t3 = t2->createInverse(status);
         if (U_SUCCESS(status)) {
@@ -219,18 +213,18 @@ void TransliteratorErrorTest::TestRBTErrors() {
 
     UnicodeString rules="ab>y";
     UnicodeString id="MyRandom-YReverse";
-    UnicodeString goodPattern="[[:L:]&[\\u0000-\\uFFFF]]"; /* all BMP letters */
+    //UnicodeString goodPattern="[[:L:]&[\\u0000-\\uFFFF]]"; /* all BMP letters */
     UErrorCode status = U_ZERO_ERROR;
     UParseError parseErr;
-    UnicodeSet *set = new UnicodeSet(goodPattern, status);
+    /*UnicodeSet *set = new UnicodeSet(goodPattern, status);
     if (U_FAILURE(status)) {
         errln("FAIL: Was not able to create a good UnicodeSet based on valid patterns.");
         return;
-    }
-    RuleBasedTransliterator *t = new RuleBasedTransliterator(id, rules, UTRANS_REVERSE, set, parseErr, status);
+    }*/
+    Transliterator *t = Transliterator::createFromRules(id, rules, UTRANS_REVERSE, parseErr, status);
     if (U_FAILURE(status)) {
         errln("FAIL: Was not able to create a good RBT to test registration.");
-        delete set;
+        //delete set;
         return;
     }
     Transliterator::registerInstance(t);

@@ -1,8 +1,16 @@
 .include "Platforms/${RC_TARGET_CONFIG}/Makefile.inc"
 
+# Have to use || to avoid warning message if && is used
+.ifdef CCARCH
+_BLOCKS != ${MYCC} -arch ${CCARCH} -E -dD -x c /dev/null | fgrep -q __BLOCKS__ || echo NO
+.if ${_BLOCKS} != NO
+FEATURE_BLOCKS = YES
+.endif # _BLOCKS
+.endif # CCARCH
+
 ${SYMROOTINC}/${MACHINE_ARCH}/libc-features.h:
-	mkdir -p ${.TARGET:H}
-	echo creating ${.TARGET}
+	${MKDIR} ${.TARGET:H}
+	${ECHO} creating ${.TARGET}
 	@echo '#ifndef _LIBC_FEATURES_H_' > ${.TARGET}
 	@echo '#define _LIBC_FEATURES_H_' >> ${.TARGET}
 	@echo >> ${.TARGET}
@@ -90,6 +98,11 @@ ${SYMROOTINC}/${MACHINE_ARCH}/libc-features.h:
 	@echo >> ${.TARGET}
 	@echo '#endif /* _LIBC_FEATURES_H_ */' >> ${.TARGET}
 
+.ifdef FEATURE_BLOCKS
+UNIFDEFARGS += -DUNIFDEF_BLOCKS
+.else
+UNIFDEFARGS += -UUNIFDEF_BLOCKS
+.endif
 .ifdef FEATURE_LEGACY_64_APIS
 UNIFDEFARGS += -DUNIFDEF_LEGACY_64_APIS
 .else

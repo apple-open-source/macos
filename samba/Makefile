@@ -42,6 +42,11 @@ build::
 		SRCROOT=$(SRCROOT)/tools/prefsync \
 		OBJROOT=$(OBJROOT)/tools/prefsync \
 		SYMROOT=$(SYMROOT) build )
+	$(_v) $(MKDIR) $(OBJROOT)/tools/domain-auth
+	( cd tools/domain-auth && $(MAKE) \
+		SRCROOT=$(SRCROOT)/tools/domain-auth \
+		OBJROOT=$(OBJROOT)/tools/domain-auth \
+		SYMROOT=$(SYMROOT) build )
 
 # This is a little subtle. We want to use parallel make to speed up the build,
 # so we update MAKEFLAGS for the build target. Unfortunately, not all of the
@@ -53,6 +58,7 @@ build:: configure
 ifneq ($(GnuNoBuild),YES)
 	$(_v) for arch in $(RC_ARCHS) ; do \
 		echo "Building $(Project) headers for $$arch..." ;\
+		$(MKDIR) $(BuildDirectory)/$$arch/bin && \
 		cd $(BuildDirectory)/$$arch && \
 			$(MAKE) $(Environment) proto && \
 			$(MAKE) $(Environment) pch && \
@@ -72,9 +78,7 @@ quick:
 include GNUSource.make
 include make.common
 
-ifneq "$(RC_RELEASE)" "Darwin"
-LDFLAGS += -framework ByteRangeLocking
-endif
+Extra_CC_Flags += $(Extra_Samba_Flags)
 
 Install_Target := install
 
@@ -84,7 +88,7 @@ install_source:: rsync_source patch autogen
 rsync_source:
 	@echo Installing source for $(Project) using rsync ...
 	$(_v) $(MKDIR) $(SRCROOT)
-	$(_v) rsync --archive  --cvs-exclude . $(SRCROOT)
+	$(_v) rsync --archive  --cvs-exclude . --exclude=.git $(SRCROOT)
 
 ifeq ($(GnuNoPatch), YES)
 patch:
@@ -111,9 +115,10 @@ install-directories:
 	$(INSTALL) -d -m 755 $(OPENSOURCE_VERSIONS)
 	$(INSTALL) -d -m 755 $(SYSTEM_CONFIGURATION)
 	$(INSTALL) -d -m 755 $(DSTROOT)$(SMB_CONFDIR)
+	$(INSTALL) -d -m 755 $(DSTROOT)$(ETCDIR)/pam.d
 	$(INSTALL) -d -m 755 $(DSTROOT)$(SMB_LOGDIR)
 	$(INSTALL) -d -m 755 $(DSTROOT)$(SMB_LIBEXEC)
-	$(INSTALL) -d -m 755 $(DSTROOT)$(SMB_LOCKDIR)/shares
+	$(INSTALL) -d -m 755 $(DSTROOT)$(CUPS_BACKEND)
 	$(INSTALL) -d -m 755 -o root -g admin \
 		$(DIRECTORY_PREFERENCES)
 	$(INSTALL) -d -m 700 -o root -g wheel \
@@ -141,6 +146,9 @@ install-startup-items:
 	$(INSTALL) -c -m 444 -o root -g wheel \
 		$(SRCROOT)/tools/com.apple.smb.server.preferences.plist \
 		$(LAUNCH_DAEMONS)
+	$(INSTALL) -c -m 444 -o root -g wheel \
+		$(SRCROOT)/tools/com.apple.smb.sharepoints.plist \
+		$(LAUNCH_DAEMONS)
 
 CORE_SERVICES := $(DSTROOT)$(NSLIBRARYDIR)/CoreServices
 
@@ -164,6 +172,9 @@ install-config:
 	$(INSTALL) -b -c -m 644 -o root -g wheel \
 		$(SRCROOT)/config/smb.conf.template \
 		$(DSTROOT)$(SMB_CONFDIR)/smb.conf
+	$(INSTALL) -b -c -m 644 -o root -g wheel \
+		$(SRCROOT)/config/samba.pam \
+		$(DSTROOT)/$(ETCDIR)/pam.d/samba
 	$(INSTALL) -c -m 644 -o root -g wheel \
 		$(SRCROOT)/samba.plist $(OPENSOURCE_VERSIONS)
 
@@ -175,14 +186,30 @@ install-tools:
 		SYMROOT=$(SYMROOT) \
 		DSTROOT=$(DSTROOT) \
 		install )
-	$(INSTALL) -c -m 755 -o root -g wheel \
-		$(SRCROOT)/tools/synchronize-shares \
-		$(DSTROOT)$(SMB_LIBEXEC)
+	( cd tools/domain-auth && $(MAKE) \
+	  	NoSymRootCopy=YES \
+		SRCROOT=$(SRCROOT)/tools/domain-auth \
+		OBJROOT=$(OBJROOT)/tools/domain-auth \
+		SYMROOT=$(SYMROOT) \
+		DSTROOT=$(DSTROOT) \
+		install )
+	$(INSTALL) -c -m 600 -o root -g wheel \
+		$(SRCROOT)/tools/mutex \
+		$(DSTROOT)$(SMB_LOCKDIR)/shares.mutex
+	$(INSTALL) -c -m 600 -o root -g wheel \
+		$(SRCROOT)/tools/mutex \
+		$(DSTROOT)$(SMB_LOCKDIR)/config.mutex
 	$(INSTALL) -c -m 755 -o root -g wheel \
 		$(SRCROOT)/tools/migrate-preferences \
 		$(DSTROOT)$(SMB_LIBEXEC)
 	$(INSTALL) -c -m 755 -o root -g wheel \
 		$(SRCROOT)/tools/smb-conf-upgrade \
+		$(DSTROOT)$(SMB_LIBEXEC)
+	$(INSTALL) -c -m 500 -o root -g wheel \
+		$(DSTROOT)/usr/bin/smbspool \
+		$(DSTROOT)/$(CUPS_BACKEND)/smb
+	$(INSTALL) -c -m 755 -o root -g wheel \
+		$(SRCROOT)/tools/smb-sharepoints \
 		$(DSTROOT)$(SMB_LIBEXEC)
 
 NOSHIP_MANPAGES := \

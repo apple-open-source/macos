@@ -2,6 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -68,7 +69,8 @@ String HTMLElement::nodeName() const
 {
     // FIXME: Would be nice to have an atomicstring lookup based off uppercase chars that does not have to copy
     // the string on a hit in the hash.
-    if (document()->isHTMLDocument())
+    // FIXME: We should have a way to detect XHTML elements and replace the hasPrefix() check with it.
+    if (document()->isHTMLDocument() && !tagQName().hasPrefix())
         return tagQName().localName().string().upper();
     return Element::nodeName();
 }
@@ -77,7 +79,7 @@ HTMLTagStatus HTMLElement::endTagRequirement() const
 {
     if (hasLocalName(wbrTag))
         return TagStatusForbidden;
-    if (hasLocalName(dtTag) || hasLocalName(ddTag))
+    if (hasLocalName(dtTag) || hasLocalName(ddTag) || hasLocalName(rpTag) || hasLocalName(rtTag))
         return TagStatusOptional;
 
     // Same values as <span>.  This way custom tag name elements will behave like inline spans.
@@ -88,9 +90,9 @@ int HTMLElement::tagPriority() const
 {
     if (hasLocalName(wbrTag))
         return 0;
-    if (hasLocalName(addressTag) || hasLocalName(ddTag) || hasLocalName(dtTag) || hasLocalName(noscriptTag))
+    if (hasLocalName(addressTag) || hasLocalName(ddTag) || hasLocalName(dtTag) || hasLocalName(noscriptTag) || hasLocalName(rpTag) || hasLocalName(rtTag))
         return 3;
-    if (hasLocalName(centerTag) || hasLocalName(nobrTag))
+    if (hasLocalName(centerTag) || hasLocalName(nobrTag) || hasLocalName(rubyTag))
         return 5;
     if (hasLocalName(noembedTag) || hasLocalName(noframesTag))
         return 10;
@@ -213,6 +215,8 @@ void HTMLElement::parseMappedAttribute(MappedAttribute *attr)
         setAttributeEventListener(eventNames().webkitAnimationEndEvent, createAttributeEventListener(this, attr));
     } else if (attr->name() == onwebkittransitionendAttr) {
         setAttributeEventListener(eventNames().webkitTransitionEndEvent, createAttributeEventListener(this, attr));
+    } else if (attr->name() == oninputAttr) {
+        setAttributeEventListener(eventNames().inputEvent, createAttributeEventListener(this, attr));
     }
 }
 
@@ -859,6 +863,7 @@ static HashSet<AtomicStringImpl*>* inlineTagList()
         tagList.add(inputTag.localName().impl());
         tagList.add(keygenTag.localName().impl());
         tagList.add(selectTag.localName().impl());
+        tagList.add(datagridTag.localName().impl());
         tagList.add(textareaTag.localName().impl());
         tagList.add(labelTag.localName().impl());
         tagList.add(buttonTag.localName().impl());
@@ -870,6 +875,9 @@ static HashSet<AtomicStringImpl*>* inlineTagList()
         tagList.add(audioTag.localName().impl());
         tagList.add(videoTag.localName().impl());
 #endif
+        tagList.add(rpTag.localName().impl());
+        tagList.add(rtTag.localName().impl());
+        tagList.add(rubyTag.localName().impl());
     }
     return &tagList;
 }
@@ -980,11 +988,13 @@ bool HTMLElement::checkDTD(const Node* newChild)
     
 bool HTMLElement::rendererIsNeeded(RenderStyle *style)
 {
+#if !ENABLE(XHTMLMP)
     if (hasLocalName(noscriptTag)) {
         Settings* settings = document()->settings();
         if (settings && settings->isJavaScriptEnabled())
             return false;
     }
+#endif
     return StyledElement::rendererIsNeeded(style);
 }
     

@@ -25,6 +25,12 @@
  */
 /*
 	$Log: IOFireWireLocalNode.h,v $
+	Revision 1.8  2009/03/26 22:45:17  calderon
+	<rdar://6728033> User client fails to terminate with unexpected consuequences
+	
+	Revision 1.7  2008/11/14 00:17:12  arulchan
+	fix for rdar://5939334
+	
 	Revision 1.6  2005/02/18 22:56:53  gecko1
 	3958781 Q45C EVT: FireWire ASP reporter says port speed is 800 Mb/sec
 	
@@ -88,6 +94,9 @@ private:
 
 #pragma mark -
 
+/*! @class IOFireWireLocalNode
+*/
+
 class IOFireWireLocalNode : public IOFireWireNub
 {
     OSDeclareDefaultStructors(IOFireWireLocalNode)
@@ -127,7 +136,8 @@ protected:
 
 public:
 	virtual IOReturn message( UInt32 type, IOService * provider, void * argument );
+	virtual void free();
 
 protected:
-		UInt32	fOpenCount ;
+	OSSet * fOpenClients;
 };

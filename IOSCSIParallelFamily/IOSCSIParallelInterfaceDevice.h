@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,9 +32,11 @@
 */
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Includes
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+
+#include <kern/queue.h>
 
 // SCSI Architecture Model Family includes
 #include <IOKit/scsi/IOSCSIProtocolServices.h>
@@ -44,9 +46,9 @@
 #include "SCSIParallelTask.h"
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Class Declarations
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 class IOSCSIParallelInterfaceDevice: public IOSCSIProtocolServices
 {
@@ -231,6 +233,19 @@ public:
 protected:
 	
 	/*!
+		@function InitTarget
+		@asbtract Method called to initialize a device.
+		@discussion Method called to initialize a device.
+		@param targetID A valid SCSITargetIdentifier.
+		@param sizeOfHBAData The size of the HBA specific data to allocate.
+		@param entry A registry entry.
+		@result returns a boolean value indicating successful initialization.
+	*/
+	bool	InitTarget ( SCSITargetIdentifier 		targetID, 
+						 UInt32 					sizeOfHBAData,
+						 IORegistryEntry *			entry );
+	
+	/*!
 		@function ExecuteParallelTask
 		@abstract Method called to execute a client request.
 		@discussion	Method called to execute a client request.
@@ -265,16 +280,6 @@ protected:
 		@param returnTask A valid SCSIParallelTaskIdentifier.
 	*/
 	void	FreeSCSIParallelTask ( SCSIParallelTaskIdentifier returnTask );
-	
-	/*!
-		@function ReportHBAHighestLogicalUnitNumber
-		@abstract Method to retrieve the highest logical unit number supported
-		by the HBA.
-		@discussion	Method to retrieve the highest logical unit number supported
-		by the HBA.
-		@result returns A number between 0 and 255 inclusive.
-	*/
-	SCSILogicalUnitNumber	ReportHBAHighestLogicalUnitNumber ( void );
 	
 	/*!
 		@function DoesHBASupportSCSIParallelFeature
@@ -685,13 +690,10 @@ private:
 	UInt32						fHBADataSize;
 	void *						fHBAData;
 	
-	// Lock for controlling access to the outstanding task queue.
+	// Lock for controlling access to the queues.
 	IOSimpleLock *				fQueueLock;
-	SCSIParallelTask *			fOutstandingTaskList;
-	
-	// Lock for controlling access to the resend task queue.
-	IOSimpleLock *				fResendQueueLock;
-	SCSIParallelTask *			fResendTaskList;
+	queue_head_t				fOutstandingTaskList;
+	queue_head_t				fResendTaskList;
 	bool						fAllowResends;
 	
 	IOSCSIParallelInterfaceController *	fController;

@@ -34,39 +34,6 @@ CFStringRef createCFString(char * string)
 
 
 /*******************************************************************************
-* check_file()
-*
-* This function makes sure that a given file exists, is a regular file, and
-* is readable.
-*******************************************************************************/
-Boolean check_file(const char * filename)
-{
-    Boolean result = true;  // assume success
-    struct stat stat_buf;
-
-    if (stat(filename, &stat_buf) != 0) {
-        perror(filename);
-        result = false;
-        goto finish;
-    }
-
-    if ( !(stat_buf.st_mode & S_IFREG) ) {
-        qerror("%s is not a regular file\n", filename);
-        result = false;
-        goto finish;
-    }
-
-    if (access(filename, R_OK) != 0) {
-        qerror("%s is not readable\n", filename);
-        result = false;
-        goto finish;
-    }
-
-finish:
-    return result;
-}
-
-/*******************************************************************************
 * check_dir()
 *
 * This function makes sure that a given directory exists, and is writeable.
@@ -127,6 +94,27 @@ void qerror(const char * format, ...)
 }
 
 /*******************************************************************************
+* basic_log()
+*
+* Print a log message prefixed with the name of the program.
+*******************************************************************************/
+void basic_log(const char * format, ...)
+{
+    va_list ap;
+
+    fprintf(stdout, "%s: ", progname);
+
+    va_start(ap, format);
+    vfprintf(stdout, format, ap);
+    va_end(ap);
+    fprintf(stdout, "\n");
+
+    fflush(stdout);
+
+    return;
+}
+
+/*******************************************************************************
 * verbose_log()
 *
 * Print a log message prefixed with the name of the program.
@@ -173,146 +161,6 @@ void error_log(const char * format, ...)
 }
 
 /*******************************************************************************
-* user_approve()
-*
-* Ask the user a question and wait for a yes/no answer.
-*******************************************************************************/
-int user_approve(int default_answer, const char * format, ...)
-{
-    int result = 1;
-    va_list ap;
-    char fake_buffer[2];
-    int output_length;
-    char * output_string;
-    char * prompt_string = NULL;
-    int c, x;
-
-    va_start(ap, format);
-    output_length = vsnprintf(fake_buffer, 1, format, ap);
-    va_end(ap);
-
-    output_string = (char *)malloc(output_length + 1);
-    if (!output_string) {
-        qerror("memory allocation failure\n");
-        result = -1;
-        goto finish;
-    }
-
-    va_start(ap, format);
-    vsprintf(output_string, format, ap);
-    va_end(ap);
-
-    prompt_string = default_answer ? " [Y/n]" : " [y/N]";
-    
-    while ( 1 ) {
-        fprintf(stdout, "%s%s%s", output_string, prompt_string, "? ");
-        fflush(stdout);
-
-        c = fgetc(stdin);
-
-        if (c == EOF) {
-            result = -1;
-            goto finish;
-        }
-
-       /* Make sure we get a newline.
-        */
-        if ( c != '\n' ) {
-            do {
-                x = fgetc(stdin);
-            } while (x != '\n' && x != EOF);
-
-            if (x == EOF) {
-                result = -1;
-                goto finish;
-            }
-        }
-
-        if (c == '\n') {
-            result = default_answer ? 1 : 0;
-            goto finish;
-        } else if (tolower(c) == 'y') {
-            result = 1;
-            goto finish;
-        } else if (tolower(c) == 'n') {
-            result = 0;
-            goto finish;
-        }
-    }
-
-finish:
-    if (output_string) free(output_string);
-
-    return result;
-}
-
-/*******************************************************************************
-* user_input()
-*
-* Ask the user for input.
-*******************************************************************************/
-const char * user_input(const char * format, ...)
-{
-    char * result = NULL;  // return value
-    va_list ap;
-    char fake_buffer[2];
-    int output_length;
-    char * output_string = NULL;
-    unsigned index;
-    size_t size = 80;  // more than enough to input a hex address
-    int c;
-
-    result = (char *)malloc(size);
-    if (!result) {
-        goto finish;
-    }
-    index = 0;
-
-    va_start(ap, format);
-    output_length = vsnprintf(fake_buffer, 1, format, ap);
-    va_end(ap);
-
-    output_string = (char *)malloc(output_length + 1);
-    if (!output_string) {
-        qerror("memory allocation failure\n");
-        result = NULL;
-        goto finish;
-    }
-
-    va_start(ap, format);
-    vsprintf(output_string, format, ap);
-    va_end(ap);
-
-    fprintf(stdout, "%s ", output_string);
-    fflush(stdout);
-
-    c = fgetc(stdin);
-    while (c != '\n' && c != EOF) {
-        if (index >= (size - 1)) {
-            qerror("input line too long\n");
-            if (result) free(result);
-            result = NULL;
-            goto finish;
-        }
-        result[index++] = (char)c;
-        c = fgetc(stdin);
-    }
-
-    result[index] = '\0';
-
-    if (c == EOF) {
-        if (result) free(result);
-        result = NULL;
-        goto finish;
-    }
-
-finish:
-    if (output_string) free(output_string);
-
-    return result;
-}
-
-/*******************************************************************************
 * addKextsToManager()
 *
 * Add the kexts named in the kextNames array to the given kext manager, and
@@ -332,7 +180,7 @@ int addKextsToManager(
     int result = 1;     // assume success
     KXKextManagerError kxresult = kKXKextManagerErrorNone;
     CFIndex i, count;
-    KXKextRef theKext = NULL;  // don't release
+    OSKextRef theKext = NULL;  // don't release
     CFURLRef kextURL = NULL;   // must release
 
    /*****
@@ -340,7 +188,7 @@ int addKextsToManager(
     */
     count = CFArrayGetCount(kextNames);
     for (i = 0; i < count; i++) {
-        char name_buffer[MAXPATHLEN];
+        char name_buffer[PATH_MAX];
 
         CFStringRef kextName = (CFStringRef)CFArrayGetValueAtIndex(
             kextNames, i);

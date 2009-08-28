@@ -85,6 +85,8 @@ private:
 	typedef map<uint32, CSSM_DB_ATTRIBUTE_FORMAT> RelationInfoMap;
 	typedef map<CSSM_DB_RECORDTYPE, RelationInfoMap> DatabaseInfoMap;
 	DatabaseInfoMap mDatabaseInfoMap;
+	Mutex mMutex;
+
 private:
 	const RelationInfoMap &relationInfoMapFor(CSSM_DB_RECORDTYPE recordType) const;
 };
@@ -107,6 +109,8 @@ private:
 };
 
 
+class ItemImpl;
+
 class KeychainImpl : public SecCFObject, private CssmClient::Db::DefaultCredentialsMaker
 {
     NOCOPY(KeychainImpl)
@@ -124,6 +128,8 @@ protected:
 		PrimaryKey &newPK);
 	void completeAdd(Item &item, PrimaryKey &key);
 	
+	void markBlobForDotMacSyncUpdate(CssmData &data);
+
 public:
     virtual ~KeychainImpl();
 
@@ -187,7 +193,7 @@ public:
 	void resetSchema();
 	void didDeleteItem(ItemImpl *inItemImpl);
 	
-	void recode(const CssmData &dbBlob, const CssmData &data);
+	void recode(const CssmData &data, const CssmData &extraData);
 	void copyBlob(CssmData &dbBlob);
 	
 	void setBatchMode(Boolean mode, Boolean rollBack);
@@ -201,15 +207,15 @@ public:
 	
 	void postEvent(SecKeychainEvent kcEvent, ItemImpl* item);
 	
-private:
 	void addItem(const PrimaryKey &primaryKey, ItemImpl *dbItemImpl);
+
+	void cleanup();
+
+private:
 	void removeItem(const PrimaryKey &primaryKey, ItemImpl *inItemImpl);
 	ItemImpl *_lookupItem(const PrimaryKey &primaryKey);
 
 	const AccessCredentials *makeCredentials();
-
-	// mDbItemMap, mBufferEnabled and mInCache are protected by
-	// globals().apiLock
 
     typedef map<PrimaryKey, ItemImpl *> DbItemMap;
 	// Weak reference map of all items we know about that have a primaryKey
@@ -225,6 +231,7 @@ private:
 	DefaultCredentials mCustomUnlockCreds;
 	bool mIsInBatchMode;
 	EventBuffer *mEventBuffer;
+	Mutex mMutex;
 };
 
 

@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -50,7 +50,7 @@ static void test_create_proc(abts_case *tc, void *data)
     args[0] = "proc_child" EXTENSION;
     args[1] = NULL;
     
-    rv = apr_proc_create(&newproc, "../proc_child" EXTENSION, args, NULL, 
+    rv = apr_proc_create(&newproc, "../" TESTBINPATH "proc_child" EXTENSION, args, NULL, 
                          attr, p);
     ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
 
@@ -59,7 +59,7 @@ static void test_create_proc(abts_case *tc, void *data)
     length = strlen(TESTSTR);
     rv = apr_file_write(testfile, TESTSTR, &length);
     ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
-    ABTS_INT_EQUAL(tc, strlen(TESTSTR), length);
+    ABTS_SIZE_EQUAL(tc, strlen(TESTSTR), length);
 
     testfile = newproc.out;
     length = 256;
@@ -126,7 +126,7 @@ static void test_file_redir(abts_case *tc, void *data)
     args[0] = "proc_child";
     args[1] = NULL;
 
-    rv = apr_proc_create(&newproc, "../proc_child" EXTENSION, args, NULL, 
+    rv = apr_proc_create(&newproc, "../" TESTBINPATH "proc_child" EXTENSION, args, NULL, 
                          attr, p);
     ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
 

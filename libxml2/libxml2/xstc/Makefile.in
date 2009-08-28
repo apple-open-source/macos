@@ -52,6 +52,7 @@ AUTOCONF = @AUTOCONF@
 AUTOHEADER = @AUTOHEADER@
 AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
+BASE_THREAD_LIBS = @BASE_THREAD_LIBS@
 C14N_OBJ = @C14N_OBJ@
 CATALOG_OBJ = @CATALOG_OBJ@
 CC = @CC@
@@ -59,10 +60,6 @@ CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
-CXX = @CXX@
-CXXCPP = @CXXCPP@
-CXXDEPMODE = @CXXDEPMODE@
-CXXFLAGS = @CXXFLAGS@
 CYGPATH_W = @CYGPATH_W@
 CYGWIN_EXTRA_LDFLAGS = @CYGWIN_EXTRA_LDFLAGS@
 CYGWIN_EXTRA_PYTHON_LIBADD = @CYGWIN_EXTRA_PYTHON_LIBADD@
@@ -71,14 +68,14 @@ DEFS = @DEFS@
 DEPDIR = @DEPDIR@
 DLLTOOL = @DLLTOOL@
 DOCB_OBJ = @DOCB_OBJ@
-ECHO = @ECHO@
+DSYMUTIL = @DSYMUTIL@
+DUMPBIN = @DUMPBIN@
 ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 EXEEXT = @EXEEXT@
-F77 = @F77@
-FFLAGS = @FFLAGS@
+FGREP = @FGREP@
 FTP_OBJ = @FTP_OBJ@
 GREP = @GREP@
 HAVE_ISINF = @HAVE_ISINF@
@@ -93,6 +90,7 @@ INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
+LD = @LD@
 LDFLAGS = @LDFLAGS@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
@@ -104,14 +102,21 @@ LIBXML_VERSION = @LIBXML_VERSION@
 LIBXML_VERSION_EXTRA = @LIBXML_VERSION_EXTRA@
 LIBXML_VERSION_INFO = @LIBXML_VERSION_INFO@
 LIBXML_VERSION_NUMBER = @LIBXML_VERSION_NUMBER@
+LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
 MAKEINFO = @MAKEINFO@
 MKDIR_P = @MKDIR_P@
+MODULE_EXTENSION = @MODULE_EXTENSION@
+MODULE_PLATFORM_LIBS = @MODULE_PLATFORM_LIBS@
 MV = @MV@
 M_LIBS = @M_LIBS@
+NM = @NM@
+NMEDIT = @NMEDIT@
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
+OTOOL = @OTOOL@
+OTOOL64 = @OTOOL64@
 PACKAGE = @PACKAGE@
 PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
 PACKAGE_NAME = @PACKAGE_NAME@
@@ -119,7 +124,6 @@ PACKAGE_STRING = @PACKAGE_STRING@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
-PATTERN_TEST = @PATTERN_TEST@
 PERL = @PERL@
 PYTHON = @PYTHON@
 PYTHON_INCLUDES = @PYTHON_INCLUDES@
@@ -132,6 +136,7 @@ RDL_LIBS = @RDL_LIBS@
 READER_TEST = @READER_TEST@
 RELDATE = @RELDATE@
 RM = @RM@
+SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STATIC_BINARIES = @STATIC_BINARIES@
@@ -141,11 +146,14 @@ TEST_C14N = @TEST_C14N@
 TEST_CATALOG = @TEST_CATALOG@
 TEST_DEBUG = @TEST_DEBUG@
 TEST_HTML = @TEST_HTML@
+TEST_MODULES = @TEST_MODULES@
+TEST_PATTERN = @TEST_PATTERN@
 TEST_PHTML = @TEST_PHTML@
 TEST_PUSH = @TEST_PUSH@
 TEST_REGEXPS = @TEST_REGEXPS@
 TEST_SAX = @TEST_SAX@
 TEST_SCHEMAS = @TEST_SCHEMAS@
+TEST_SCHEMATRON = @TEST_SCHEMATRON@
 TEST_THREADS = @TEST_THREADS@
 TEST_VALID = @TEST_VALID@
 TEST_VTIME = @TEST_VTIME@
@@ -157,6 +165,7 @@ THREAD_CFLAGS = @THREAD_CFLAGS@
 THREAD_LIBS = @THREAD_LIBS@
 U = @U@
 VERSION = @VERSION@
+WGET = @WGET@
 WIN32_EXTRA_LDFLAGS = @WIN32_EXTRA_LDFLAGS@
 WIN32_EXTRA_LIBADD = @WIN32_EXTRA_LIBADD@
 WITH_C14N = @WITH_C14N@
@@ -171,6 +180,7 @@ WITH_ICU = @WITH_ICU@
 WITH_ISO8859X = @WITH_ISO8859X@
 WITH_LEGACY = @WITH_LEGACY@
 WITH_MEM_DEBUG = @WITH_MEM_DEBUG@
+WITH_MODULES = @WITH_MODULES@
 WITH_OUTPUT = @WITH_OUTPUT@
 WITH_PATTERN = @WITH_PATTERN@
 WITH_PUSH = @WITH_PUSH@
@@ -179,6 +189,7 @@ WITH_REGEXPS = @WITH_REGEXPS@
 WITH_RUN_DEBUG = @WITH_RUN_DEBUG@
 WITH_SAX1 = @WITH_SAX1@
 WITH_SCHEMAS = @WITH_SCHEMAS@
+WITH_SCHEMATRON = @WITH_SCHEMATRON@
 WITH_THREADS = @WITH_THREADS@
 WITH_TREE = @WITH_TREE@
 WITH_TRIO = @WITH_TRIO@
@@ -187,6 +198,7 @@ WITH_WRITER = @WITH_WRITER@
 WITH_XINCLUDE = @WITH_XINCLUDE@
 WITH_XPATH = @WITH_XPATH@
 WITH_XPTR = @WITH_XPTR@
+WITH_ZLIB = @WITH_ZLIB@
 XINCLUDE_OBJ = @XINCLUDE_OBJ@
 XMLLINT = @XMLLINT@
 XML_CFLAGS = @XML_CFLAGS@
@@ -204,8 +216,7 @@ abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
 abs_top_srcdir = @abs_top_srcdir@
 ac_ct_CC = @ac_ct_CC@
-ac_ct_CXX = @ac_ct_CXX@
-ac_ct_F77 = @ac_ct_F77@
+ac_ct_DUMPBIN = @ac_ct_DUMPBIN@
 am__include = @am__include@
 am__leading_dot = @am__leading_dot@
 am__quote = @am__quote@
@@ -236,6 +247,7 @@ libdir = @libdir@
 libexecdir = @libexecdir@
 localedir = @localedir@
 localstatedir = @localstatedir@
+lt_ECHO = @lt_ECHO@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
 oldincludedir = @oldincludedir@
@@ -256,16 +268,24 @@ top_srcdir = @top_srcdir@
 # Definition for the tests from W3C
 #
 PYSCRIPTS = nist-test.py ms-test.py sun-test.py
-TESTDIRS = msxsdtest nisttest suntest
-TARBALL = XSTC-20020116.tar.gz
-TARBALLURL = http://www.w3.org/2001/05/xmlschema-test-collection/$(TARBALL)
+TESTDIR = Tests
+TESTDIRS = $(TESTDIR)/msxsdtest $(TESTDIR)/suntest $(TESTDIR)/Datatypes
+TARBALL = xsts-2002-01-16.tar.gz
+TARBALL_2 = xsts-2004-01-14.tar.gz
+TSNAME = xmlschema2002-01-16
+TSNAME_2 = xmlschema2004-01-14
+TARBALLURL = http://www.w3.org/XML/2004/xml-schema-test-suite/$(TSNAME)/$(TARBALL)
+TARBALLURL_2 = http://www.w3.org/XML/2004/xml-schema-test-suite/$(TSNAME_2)/$(TARBALL_2)
+MSTESTDEF = MSXMLSchema1-0-20020116.testSet
+SUNTESTDEF = SunXMLSchema1-0-20020116.testSet
+NISTTESTDEF = NISTXMLSchema1-0-20020116.testSet
+NISTTESTDEF_2 = NISTXMLSchemaDatatypes.testSet
 
 #
 # The local data and scripts
 #
-EXTRA_DIST = xstc.py sun-test-def.xml ms-test-def.xml nist-test-def.xml	\
-	   xstc-to-python.xsl
-
+EXTRA_DIST = xstc.py xstc-to-python.xsl
+CLEANFILES = $(PYSCRIPTS) test.log
 all: all-am
 
 .SUFFIXES:
@@ -358,6 +378,7 @@ install-strip:
 mostlyclean-generic:
 
 clean-generic:
+	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
 
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
@@ -365,8 +386,12 @@ distclean-generic:
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
+clean: clean-am
+
 clean-am: clean-generic clean-libtool mostlyclean-am
 
+distclean: distclean-am
+	-rm -f Makefile
 distclean-am: clean-am distclean-generic
 
 dvi: dvi-am
@@ -428,7 +453,6 @@ uninstall-am:
 	maintainer-clean-generic mostlyclean mostlyclean-generic \
 	mostlyclean-libtool pdf pdf-am ps ps-am uninstall uninstall-am
 
-
 #
 # Nothing is done by make, only make tests and
 # only if Python and Schemas are enabled.
@@ -436,63 +460,94 @@ uninstall-am:
 all:
 
 #
-# The python tests are generated via XSLT
-#
-nist-test.py: nist-test-def.xml xstc-to-python.xsl
-	-@(if [ -x $(XSLTPROC) ] ; then				\
-	  echo "Rebuilding script" $@ ;					\
-	  $(XSLTPROC) --nonet $(srcdir)/xstc-to-python.xsl	\
-	                     $(srcdir)/nist-test-def.xml > $@ ;		\
-	  chmod +x $@ ; fi )
-
-ms-test.py: ms-test-def.xml xstc-to-python.xsl
-	-@(if [ -x $(XSLTPROC) ] ; then				\
-	  echo "Rebuilding script" $@ ;					\
-	  $(XSLTPROC) --nonet $(srcdir)/xstc-to-python.xsl	\
-	                     $(srcdir)/ms-test-def.xml > $@ ;		\
-	  chmod +x $@ ; fi )
-
-sun-test.py: sun-test-def.xml xstc-to-python.xsl
-	-@(if [ -x $(XSLTPROC) ] ; then				\
-	  echo "Rebuilding script" $@ ;					\
-	  $(XSLTPROC) --nonet $(srcdir)/xstc-to-python.xsl	\
-	                     $(srcdir)/sun-test-def.xml > $@ ;		\
-	  chmod +x $@ ; fi )
-
-#
 # Rule to load the test description and extract the informations
 #
-$(TESTDIRS):
-	-@(if [ ! -f $(TARBALL) ] ; then 				\
-	   echo "Missing the test suite description, trying to fetch it" ;\
-	   if [ -x /usr/bin/wget ] ; then 				\
-	   wget $(TARBALLURL) ; 					\
-	   else echo "Dont' know how to fetch $(TARBALLURL)" ; fi ; fi)
-	-@(if [ -f $(TARBALL) ] ; then 					\
-	   echo -n "extracting tests directories..." ;			\
-	   $(TAR) -xzf $(TARBALL) $(TESTDIRS) ;				\
-	   echo "done" ;						\
-	   fi);
+$(TESTDIRS) Tests/Metadata/$(NISTTESTDEF_2) Tests/Metadata/$(MSTTESTDEF) Tests/Metadata/$(SUNTESTDEF):
+	-@(if [ ! -d Tests ] ; then \
+	   mkdir Tests ; \
+	   fi)
+	-@(if [ ! -f $(TARBALL_2) ] ; then \
+	   if [ -f $(srcdir)/$(TARBALL_2) ] ; then \
+	   $(LN_S) $(srcdir)/$(TARBALL_2) $(TARBALL_2) ; else \
+	   echo "Missing the test suite description (2004-01-14), trying to fetch it" ;\
+	   if [ -x "$(WGET)" ] ; then \
+	   $(WGET) $(TARBALLURL_2) ; \
+	   else echo "Dont' know how to fetch $(TARBALLURL_2)" ; fi ; fi ; fi)
+	-@(if [ -f $(TARBALL_2) ] ; then \
+	   echo -n "extracting test data (NIST)..." ; \
+	   $(TAR) -xzf $(TARBALL_2) --wildcards '*/Datatypes' '*/Metadata/$(NISTTESTDEF_2)' ; \
+	   echo "done" ; \
+	   fi)
+	-@(if [ ! -f $(TARBALL) ] ; then \
+	   if [ -f $(srcdir)/$(TARBALL) ] ; then \
+	   $(LN_S) $(srcdir)/$(TARBALL) $(TARBALL) ; else \
+	   echo "Missing the test suite description (2002-01-16), trying to fetch it" ;\
+	   if [ -x "$(WGET)" ] ; then \
+	   $(WGET) $(TARBALLURL) ; \
+	   else echo "Dont' know how to fetch $(TARBALLURL)" ; fi ; fi ; fi)
+	-@(if [ -f $(TARBALL) ] ; then \
+	   echo -n "extracting test data (Sun, Microsoft)..." ; \
+	   $(TAR) -C Tests -xzf $(TARBALL) --wildcards '*/suntest' '*/msxsdtest' '*/$(MSTESTDEF)' '*/$(SUNTESTDEF)' ; \
+	   if [ -d Tests/suntest ] ; then rm -r Tests/suntest ; fi ; \
+	   if [ -d Tests/msxsdtest ] ; then rm -r Tests/msxsdtest ; fi ; \
+	   mv Tests/xmlschema2002-01-16/* Tests ; \
+	   mv Tests/*.testSet Tests/Metadata ; \
+	   rm -r Tests/xmlschema2002-01-16 ; \
+	   echo "done" ; \
+	   fi)
+
+#
+# The python tests are generated via XSLT
+#
+nist-test.py: Tests/Metadata/$(NISTTESTDEF_2) xstc-to-python.xsl
+	-@(if [ -x $(XSLTPROC) ] ; then \
+	  echo "Rebuilding script (NIST)" $@ ; \
+	  $(XSLTPROC) --nonet --stringparam vendor NIST-2 \
+	                     $(srcdir)/xstc-to-python.xsl \
+	                     $(srcdir)/Tests/Metadata/$(NISTTESTDEF_2) > $@ ; \
+	  chmod +x $@ ; fi )
+
+ms-test.py: Tests/Metadata/$(MSTTESTDEF) xstc-to-python.xsl
+	-@(if [ -x $(XSLTPROC) ] ; then \
+	  echo "Rebuilding script (Microsoft)" $@ ; \
+	  $(XSLTPROC) --nonet --stringparam vendor MS \
+	                     $(srcdir)/xstc-to-python.xsl \
+	                     $(srcdir)/Tests/Metadata/$(MSTESTDEF) > $@ ; \
+	  chmod +x $@ ; fi )
+
+sun-test.py: Tests/Metadata/$(SUNTESTDEF) xstc-to-python.xsl
+	-@(if [ -x $(XSLTPROC) ] ; then \
+	  echo "Rebuilding script (Sun)" $@ ; \
+	  $(XSLTPROC) --nonet --stringparam vendor SUN \
+	                     $(srcdir)/xstc-to-python.xsl \
+	                     $(srcdir)/Tests/Metadata/$(SUNTESTDEF) > $@ ; \
+	  chmod +x $@ ; fi )
 
 #
 # The actual test run if present. PYTHONPATH is updated to make sure
 # we run the version from the loacl build and not preinstalled bindings
 #
 pytests: $(PYSCRIPTS) $(TESTDIRS)
-	-@(if [ -x nist-test.py -a -d nisttest ] ; then 		\
-	   echo "## Running NIST Schemas tests";			\
-	   PYTHONPATH="$$PYTHONPATH:../python:../python/.libs:..:../libs" ;\
+	-@(if [ -x nist-test.py -a -d $(TESTDIR)/Datatypes ] ; then 		\
+	   echo "## Running XML Schema tests (NIST)";			\
+	   PYTHONPATH="../python:../python/.libs:..:../.libs:$$PYTHONPATH" ;\
 	   export PYTHONPATH;						\
+	   LD_LIBRARY_PATH="$(top_builddir)/.libs:$$LD_LIBRARY_PATH" ;	\
+	   export LD_LIBRARY_PATH;					\
 	   $(CHECKER) $(PYTHON) nist-test.py -s -b $(srcdir) ; fi)
-	-@(if [ -x sun-test.py -a -d suntest ] ; then 			\
-	   echo "## Running Sun Schemas tests";				\
-	   PYTHONPATH="$$PYTHONPATH:../python:../python/.libs:..:../libs" ;\
+	-@(if [ -x sun-test.py -a -d $(TESTDIR)/suntest ] ; then 			\
+	   echo "## Running Schema tests (Sun)";				\
+	   PYTHONPATH="../python:../python/.libs:..:../.libs:$$PYTHONPATH" ;\
 	   export PYTHONPATH;						\
+	   LD_LIBRARY_PATH="$(top_builddir)/.libs:$$LD_LIBRARY_PATH" ;	\
+	   export LD_LIBRARY_PATH;					\
 	   $(CHECKER) $(PYTHON) sun-test.py -s -b $(srcdir) ; fi)
-	-@(if [ -x ms-test.py -a -d msxsdtest ] ; then 			\
-	   echo "## Running Microsoft Schemas tests";			\
-	   PYTHONPATH="$$PYTHONPATH:../python:../python/.libs:..:../libs" ;\
+	-@(if [ -x ms-test.py -a -d $(TESTDIR)/msxsdtest ] ; then 			\
+	   echo "## Running Schema tests (Microsoft)";			\
+	   PYTHONPATH="../python:../python/.libs:..:../.libs:$$PYTHONPATH" ;\
 	   export PYTHONPATH;						\
+	   LD_LIBRARY_PATH="$(top_builddir)/.libs:$$LD_LIBRARY_PATH" ;	\
+	   export LD_LIBRARY_PATH;					\
 	   $(CHECKER) $(PYTHON) ms-test.py -s -b $(srcdir) ; fi)
 
 tests:
@@ -506,12 +561,6 @@ valgrind:
 	-@(if [ -x $(PYTHON) ] ; then 					\
 	   echo '## Running the regression tests under Valgrind' ;	\
 	   $(MAKE) CHECKER='valgrind -q' MAKEFLAGS+=--silent pytests ; fi);
-
-clean:
-	rm -f $(PYSCRIPTS) test.log
-
-distclean:
-	rm -rf $(PYSCRIPTS) $(TESTDIRS) test.log
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

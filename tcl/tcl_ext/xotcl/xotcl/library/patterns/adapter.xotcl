@@ -1,0 +1,44 @@
+# $Id: adapter.xotcl,v 1.4 2005/09/09 21:09:01 neumann Exp $
+
+package provide xotcl::pattern::adapter 0.9
+
+package require XOTcl
+
+namespace eval ::xotcl::pattern::adapter {
+    namespace import ::xotcl::*
+
+    Class Adapter -superclass Class  
+
+    @ @File {
+	description {
+	    Simple adapter pattern meta-class taken from the paper 
+	    'Filters as a Language Support for Design Patterns in
+	    Object-Oriented Scripting Languages'. 
+	}
+    }
+
+    Adapter instproc adapterFilter args { 
+	set r [self calledproc]
+	my instvar specificRequest adaptee \
+	    [list specificRequest($r) sr]
+	if {[info exists sr]} {
+	    return [eval $adaptee $sr $args]
+	}
+	next
+    }
+
+    Adapter instproc init args {
+	my instfilter add adapterFilter
+	next
+	my instproc setRequest {r sr} {
+	    my set specificRequest($r) $sr
+	}
+	my instproc setAdaptee {a} {
+	    my set adaptee $a
+	}
+    }
+
+    namespace export Adapter
+}
+
+namespace import ::xotcl::pattern::adapter::*

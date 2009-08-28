@@ -12,9 +12,9 @@ SITEDIR = $(DSTROOT)/Library/Ruby/Site
 Project                = ruby
 Extra_CC_Flags         = -fno-common -DENABLE_DTRACE
 GnuNoBuild             = YES
-GnuAfterInstall        = post-install install-manpage install-plist install-sample install-irbrc install-xcode-template install-dtrace-sample install-xray-template
+GnuAfterInstall        = post-install install-manpage install-plist install-sample install-irbrc install-dtrace-sample install-xray-template
 Extra_Configure_Flags  = --enable-pthread --enable-shared --prefix=/System/Library/Frameworks/Ruby.framework/Versions/$(VERSION)/usr --with-sitedir=/Library/Ruby/Site
-
+ 
 # [gs]etcontext() functions are broken
 Extra_Configure_Flags += ac_cv_func_getcontext=no ac_cv_func_setcontext=no
 
@@ -60,20 +60,19 @@ $(ConfigStamp2): $(ConfigStamp)
 post-install:
 	mv $(FW_VERSION_DIR)/usr/share/ri/$(VERSION)/system/REXML/Parsers/XPathParser/Predicate-i.yaml $(FW_VERSION_DIR)/usr/share/ri/$(VERSION)/system/REXML/Parsers/XPathParser/predicate-i.yaml
 	mv $(FW_VERSION_DIR)/usr/share/ri/$(VERSION)/system/Exception2MessageMapper/Fail-i.yaml $(FW_VERSION_DIR)/usr/share/ri/$(VERSION)/system/Exception2MessageMapper/fail-i.yaml
+	chmod -x $(FW_VERSION_DIR)/usr/lib/ruby/$(VERSION)/$(SYSSTRING)/digest.h
+	chmod -x $(FW_VERSION_DIR)/usr/lib/ruby/$(VERSION)/$(SYSSTRING)/dl.h
+	chmod -x $(FW_VERSION_DIR)/usr/lib/ruby/$(VERSION)/$(SYSSTRING)/dlconfig.h
 	ditto $(DSTROOT) $(SYMROOT)
 	find $(SYMROOT) -type f -and -not \( -name "*.dylib" -or -name "*.bundle" -or -path "*/usr/bin/ruby" \) -delete	
 	find $(SYMROOT) -type d -empty -delete
 	$(STRIP) -x $(FW_VERSION_DIR)/usr/bin/ruby
 	$(MKDIR) $(ULB)
-	$(CP) $(FW_VERSION_DIR)/usr/bin/ruby $(ULB)/ruby64
-	lipo -remove ppc64 -output $(FW_VERSION_DIR)/usr/bin/ruby $(FW_VERSION_DIR)/usr/bin/ruby
-	lipo -remove x86_64 -output $(FW_VERSION_DIR)/usr/bin/ruby $(FW_VERSION_DIR)/usr/bin/ruby
 	$(STRIP) -x $(FW_VERSION_DIR)/usr/lib/ruby/$(VERSION)/$(SYSSTRING)/*.bundle
 	$(STRIP) -x $(FW_VERSION_DIR)/usr/lib/ruby/$(VERSION)/$(SYSSTRING)/*/*.bundle
 	$(RM) $(FW_VERSION_DIR)/usr/lib/libruby-static.a
 	$(STRIP) -x $(FW_VERSION_DIR)/usr/lib/libruby.$(MAJOR).dylib
-	ed - $(FW_VERSION_DIR)/usr/lib/ruby/$(VERSION)/$(SYSSTRING)/rbconfig.rb < $(SRCROOT)/patches/fix_rbconfig.ed
-	(cd $(FW_VERSION_DIR)/usr/lib/ruby/$(VERSION)/$(SYSSTRING) && sed -E -i '' "s/-arch (ppc|ppc64|i386|x86_64)//g" rbconfig.rb && patch -p0 < $(SRCROOT)/patches/rbconfig.diff)
+	(cd $(FW_VERSION_DIR)/usr/lib/ruby/$(VERSION)/$(SYSSTRING) && sed -E -i '' 's/(-arch +(ppc|ppc64|i386|x86_64) *)+/#{ARCHFLAGS} /g' rbconfig.rb && sed -E -i '' 's/-static"/"/' rbconfig.rb && patch -p0 < $(SRCROOT)/patches/rbconfig.diff && rm -f rbconfig.rb.orig)
 	$(LN) -fsh usr/lib/libruby.dylib $(FW_VERSION_DIR)/Ruby
 	(cd $(FW_VERSION_DIR) && for i in `find usr/lib/ruby/1.8/ -name "*.h"`; do $(LN) -fs ../$$i Headers/`basename $$i`; done)
 	$(MKDIR) $(DSTROOT)/usr/bin
@@ -121,11 +120,6 @@ install-irbrc:
 
 TEMPL_DIR = $(DSTROOT)/Developer/Library/Xcode/Project\ Templates
 
-install-xcode-template:
-	$(MKDIR) $(TEMPL_DIR)
-	ditto $(EXTRAS_DIR)/xcode_template $(TEMPL_DIR)
-	find $(TEMPL_DIR) -name ".svn" -print0 | xargs -0 rm -rf
-
 DTRACE_SAMPLE = $(DSTROOT)/Developer/Examples/Ruby/DTrace
 
 install-dtrace-sample:
@@ -140,19 +134,16 @@ install-xray-template:
 
 # Automatic Extract & Patch
 AEP_Project    = $(Project)
-AEP_Version    = 1.8.6-p287
+AEP_Version    = 1.8.7-p72
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
 AEP_Patches    = patch-configure \
                  patch-lib__mkmf.rb \
-                 PR3917782.diff \
                  PR4224980.diff \
-                 PR3855181.diff \
                  ruby.c.diff \
                  PR4346845.diff \
                  ruby.1.diff \
-                 process.c.diff \
                  ext_extmk.rb.diff \
                  ext_digest_md5_extconf.rb.diff \
                  ext_digest_md5_md5.h.diff \
@@ -160,8 +151,6 @@ AEP_Patches    = patch-configure \
                  ext_digest_sha1_sha1.h.diff \
                  ext_tk_extconf.rb.diff \
                  lib_rdoc_usage.rb.diff \
-                 lib_rdoc_ri_ri_options.rb.diff \
-                 lib_rdoc_ri_ri_paths.rb.diff \
                  lib_irb_init.rb.diff \
                  dtrace.diff \
                  ruby_thread_hooks.diff \
@@ -180,3 +169,4 @@ install_source::
 	done
 	$(TOUCH) $(SRCROOT)/$(Project)/ext/win32ole/.document
 	dtrace -h -s $(EXTRAS_DIR)/dtrace.d -o $(SRCROOT)/$(Project)/dtrace.h
+	$(RMDIR) $(SRCROOT)/$(Project)/ext/tk

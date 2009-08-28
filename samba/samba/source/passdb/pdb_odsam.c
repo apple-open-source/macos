@@ -2,7 +2,7 @@
    Unix SMB/CIFS implementation.
    passdb opendirectory backend
 
-   Copyright (c) 2003-2008 Apple Inc. All rights reserved.
+   Copyright (c) 2003-2007 Apple Inc. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -80,7 +80,7 @@ static struct odssam_privates *get_ods_state(struct pdb_methods *methods)
 }
 
 static uint32_t add_data_buffer_item(tDataBufferPtr dataBuffer,
-			uint32_t len, const void *buffer)
+			size_t len, const void *buffer)
 {
 	uint32_t result = 0;
 
@@ -88,7 +88,9 @@ static uint32_t add_data_buffer_item(tDataBufferPtr dataBuffer,
 	dataBuffer->fBufferLength += 4;
 	if (len != 0) {
 		memcpy(&(dataBuffer->fBufferData[ dataBuffer->fBufferLength ]), buffer, len);
-		dataBuffer->fBufferLength += len;
+		if ((dataBuffer->fBufferLength+len) > INT32_MAX)
+		    smb_panic("PANIC: Looks like fBufferLength overflowed\n");
+		dataBuffer->fBufferLength += (uint32_t)len;
 	}
 
 	return result;
@@ -137,7 +139,7 @@ static tDirStatus get_password_policy(struct odssam_privates *ods_state,
 		const char *type)
 {
 	tDirStatus 		status			= eDSNoErr;
-	unsigned long		len			= 0;
+	UInt32			len			= 0;
 	tDataBufferPtr		authBuff  		= NULL;
 	tDataBufferPtr		stepBuff  		= NULL;
 	tDataNodePtr		authType		= NULL;
@@ -474,8 +476,8 @@ static tDirStatus get_records(struct odssam_privates *ods_state,
 {
 	tDirStatus		status		=	eDSNoErr;
 	tDataBufferPtr		dataBuffer	=	NULL;
-	unsigned long		recordCount	=	0;
-	tContextData		*currentContextData = NULL;
+	UInt32			recordCount	=	0;
+	tContextData		*currentContextData = (tContextData)NULL;
 
 	currentContextData = &ods_state->contextData;
 	dataBuffer = DS_DEFAULT_BUFFER(ods_state->session.ref);
@@ -490,7 +492,7 @@ static tDirStatus get_records(struct odssam_privates *ods_state,
 		goto cleanup;
 	}
 
-	DEBUG(module_debug,("get_records recordCount (%lu)\n",recordCount));
+	DEBUG(module_debug,("get_records recordCount (%u)\n", recordCount));
 	opendirectory_insert_search_results(nodeRef, recordsArray,
 			    recordCount, dataBuffer);
 
@@ -1497,7 +1499,7 @@ static NTSTATUS odssam_getsampwent(struct pdb_methods *methods, struct samu *use
 		DEBUG(module_debug,("odssam_getsampwent: entriesAvailable(%d) contextData(%p)\n", entriesAvailable, ods_state->contextData));
 		CFArrayRemoveAllValues(ods_state->usersArray);
 
-		if (entriesAvailable && ods_state->usersIndex >= entriesAvailable && ods_state->contextData == NULL) {
+		if (entriesAvailable && ods_state->usersIndex >= entriesAvailable && ods_state->contextData == (tContextData)NULL) {
 			odssam_endsampwent(methods);
 			return NT_STATUS_UNSUCCESSFUL;
 		}
@@ -1549,13 +1551,16 @@ static NTSTATUS odssam_getsampwnam(struct pdb_methods *methods,
 	}
 
 	recordType = get_record_type(sname);
+	if (!recordType) {
+		return NT_STATUS_INTERNAL_ERROR;
+	}
 
 	/* Map the user account "guest" to whatever the configured guest
 	 * account is. This makes "guest" an alias for the guest account,
 	 * which is generally OK since smbfs uses "guest" as the guest
 	 * account name.
 	 */
-	if (recordType == kDSStdRecordTypeUsers &&
+	if (strcmp(recordType, kDSStdRecordTypeUsers) == 0 &&
 	    lp_parm_bool(GLOBAL_SECTION_SNUM, MODULE_NAME,
 				"map guest to guest", True) &&
 	    strequal(sname, "guest")) {
@@ -1889,7 +1894,7 @@ static NTSTATUS odssam_getgrpwent(struct pdb_methods *methods, GROUP_MAP *map)
 		DEBUG(module_debug,("odssam_getgrpwent: entriesAvailable(%d) contextData(%p)\n", entriesAvailable, ods_state->contextData));
 		CFArrayRemoveAllValues(ods_state->groupsArray);
 
-		if (entriesAvailable && ods_state->groupsIndex >= entriesAvailable && ods_state->contextData == NULL) {
+		if (entriesAvailable && ods_state->groupsIndex >= entriesAvailable && ods_state->contextData == (tContextData)NULL) {
 			odssam_endsampwent(methods);
 			return NT_STATUS_UNSUCCESSFUL;
 		}
@@ -1936,7 +1941,7 @@ static NTSTATUS odssam_getgrsid(struct pdb_methods *methods,
 	entry = opendirectory_find_record_from_groupsid(&ods_state->session,
 							&group_sid);
 	if (!entry) {
-		ret = NT_STATUS_NO_SUCH_USER;
+		ret = NT_STATUS_NO_SUCH_GROUP;
 		goto cleanup;
 	}
 
@@ -2358,7 +2363,7 @@ NTSTATUS pdb_odsam_init(void)
 		guest_uid = pwd->pw_uid;
 	} else {
 		DEBUG(0, ("%s: guest account '%s' is not available, using 99\n",
-		    MODULE_NAME, lp_guestaccount));
+		    MODULE_NAME, lp_guestaccount()));
 		guest_uid = 99;
 	}
 

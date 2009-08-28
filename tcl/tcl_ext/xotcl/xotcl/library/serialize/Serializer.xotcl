@@ -1,0 +1,553 @@
+# $Id: Serializer.xotcl,v 1.19 2007/10/05 09:06:00 neumann Exp $
+package require XOTcl 1.5
+package provide xotcl::serializer 1.0
+
+namespace eval ::xotcl::serializer {
+
+  namespace import -force ::xotcl::*
+
+  @ @File {
+    description {
+      This package provides the class Serializer, which can be used to
+      generate a snapshot of the current state of the workspace
+      in the form of XOTcl source code.
+    }
+    authors {
+      Gustaf Neumann, Gustaf.Neumann@wu-wien.ac.at
+    }
+    date { $Date: 2007/10/05 09:06:00 $ }
+  }
+  
+  @ Serializer proc all {
+		 ?-ignoreVarsRE&nbsp;RE? 
+		 "provide regular expression; matching vars are ignored"
+		 ?-ignore&nbsp;obj1&nbsp;obj2&nbsp;...? 
+		 "provide a list of objects to be omitted"} {
+    Description {
+      Serialize all objects and classes that are currently 
+      defined (except the specified omissions and the current
+	       Serializer object). 
+      <p>Examples:<@br>
+      <@pre class='code'>Serializer all -ignoreVarsRE {::b$}</@pre>
+      Do not serialize any instance variable named b (of any object).<p>
+      <@pre class='code'>Serializer all -ignoreVarsRE {^::o1::.*text.*$|^::o2::x$}</@pre>
+      Do not serialize any variable of c1 whose name contains 
+      the string "text" and do not serialze the variable x of o2.<p>
+      <@pre class='code'>Serializer all -ignore obj1 obj2 ... </@pre>
+      do not serizalze the specified objects
+    }
+    return "script"
+  }
+  
+  @ Serializer proc deepSerialize {
+		   objs "Objects to be serialized"
+		   ?-ignoreVarsRE&nbsp;RE? 
+		   "provide regular expression; matching vars are ignored"
+		   ?-ignore&nbsp;obj1&nbsp;obj2&nbsp;...? 
+		   "provide a list of objects to be omitted"
+		   ?-map&nbsp;list? "translate object names in serialized code"
+				 } {
+    Description {
+      Serialize object with all child objects (deep operation) 
+      except the specified omissions. For the description of 
+      <@tt>ignore</@tt> and <@tt>igonoreVarsRE</@tt> see 
+      <@tt>Serizalizer all</@tt>. <@tt>map</@tt> can be used
+      in addition to provide pairs of old-string and new-string
+      (like in the tcl command <@tt>string map</@tt>). This option
+      can be used to regenerate the serialized object under a different
+      object or under an different name, or to translate relative
+      object names in the serialized code.<p>
+      
+      Examples:  
+      <@pre class='code'>Serializer deepSerialize ::a::b::c -map {::a::b ::x::y}</@pre>
+      Serialize the object <@tt>c</@tt> which is a child of <@tt>a::b</@tt>; 
+      the object will be reinitialized as object <@tt>::x::y::c</@tt>,
+      all references <@tt>::a::b</@tt> will be replaced by <@tt>::x::y</@tt>.<p>
+      
+      <@pre class='code'>Serializer deepSerialize ::a::b::c -map {::a::b [self]}</@pre>
+      The serizalized object can be reinstantiated under some current object,
+      under which the script is evaluated.<p>
+      
+      <@pre class='code'>Serializer deepSerialize ::a::b::c -map {::a::b::c ${var}}</@pre>
+      The serizalized object will be reinstantiated under a name specified
+      by the variable <@tt>var<@tt> in the recreation context.
+    }
+    return "script"
+  }
+  
+  @ Serializer proc methodSerialize {
+		     object "object or class"
+		     method "name of method"
+		     prefix "either empty or 'inst' (latter for instprocs)"
+				   } {
+    Description {
+      Serialize the specified method. In order to serialize 
+      an instproc, <@tt>prefix</@tt> should be 'inst'; to serialze
+      procs, it should be empty.<p> 
+      
+      Examples:
+      <@pre class='code'>Serializer methodSerialize Serializer deepSerialize ""</@pre>
+      This command serializes the proc <@tt>deepSerialize</@tt> 
+      of the Class <@tt>Serializer</@tt>.<p>
+      
+      <@pre class='code'>Serializer methodSerialize Serializer serialize inst</@pre>
+      This command serializes the instproc <@tt>serialize</@tt> 
+      of the Class <@tt>Serializer</@tt>.<p>
+    }
+    return {Script, which can be used to recreate the specified method}
+  }
+  @ Serializer proc exportMethods {
+	list "list of methods of the form 'object proc|instproc methodname'" 
+      } {
+    Description {
+      This method can be used to specify methods that should be
+      exported in every <@tt>Serializer all<@/tt>. The rationale
+      behind this is that the serializer does not serialize objects
+      from the ::xotcl:: namespace, which is used for XOTcl internals
+      and volatile objects. It is however often useful to define
+      methods on ::xotcl::Class or ::xotcl::Objects, which should
+      be exported. One can export procs, instprocs, forward and instforward<p>
+      Example:
+      <@pre class='code'>      Serializer exportMethods {
+	::xotcl::Object instproc __split_arguments
+	::xotcl::Object instproc __make_doc
+	::xotcl::Object instproc ad_proc
+	::xotcl::Class  instproc ad_instproc
+	::xotcl::Object forward  expr
+      }<@/pre>
+    }
+  }
+  
+  
+  @ Serializer instproc serialize {entity "Object or Class"} {
+    Description {
+      Serialize the specified object or class.
+    }
+    return {Object or Class with all currently defined methods, 
+      variables, invariants, filters and mixins}
+  }
+  
+  ##################################################################################
+  # real clode starts here.....
+  # ################################################################################
+  Class Serializer -parameter {ignoreVarsRE map}
+  namespace export Serializer
+
+  Serializer proc ignore args {
+    my set skip $args
+  }
+  Serializer instproc ignore args {
+    foreach i $args { 
+      my set skip($i) 1
+      # skip children of ignored objects as well
+      foreach j [$i info children] {
+	my ignore $j
+      }
+    }
+  }
+  Serializer instproc init {} {
+    my ignore [self] 
+    if {[[self class] exists skip]} {
+      eval my ignore [[self class] set skip]
+    }
+  }
+  Serializer instproc method-serialize {o m prefix} {
+    my pcmd [my unescaped-method-serialize $o $m $prefix]
+  }
+  Serializer instproc unescaped-method-serialize {o m prefix} {
+    set arglist [list]
+    foreach v [$o info ${prefix}args $m] {
+      if {[$o info ${prefix}default $m $v x]} {
+	lappend arglist [list $v $x] } {lappend arglist $v}
+    }
+    lappend r ${prefix}proc $m \
+	[concat [$o info ${prefix}nonposargs $m] $arglist] \
+	[$o info ${prefix}body $m]
+    foreach p {pre post} {
+      if {[$o info ${prefix}$p $m]!=""} {lappend r [$o info ${prefix}$p $m]}
+    }
+    return $r
+  }
+  Serializer instproc pcmd list {
+    foreach a $list {
+      if {[regexp -- {^-[[:alpha:]]} $a]} {
+	set mustEscape 1
+	break
+      }
+    }
+    if {[info exists mustEscape]} {
+      return "\[list -$list\]"
+    } else {
+      return -$list
+    }
+  }
+  Serializer instproc collect-var-traces o {
+    my instvar traces
+    foreach v [$o info vars] {
+      set t [$o __trace__ info variable $v]
+      if {$t ne ""} {
+	foreach ops $t { 
+	  foreach {op cmd} $ops break
+	  # save traces in post_cmds
+	  my append post_cmds [list $o trace add variable $v $op $cmd] "\n"
+	  # remove trace from object
+	  $o trace remove variable $v $op $cmd
+	}
+      }
+    }
+  }
+  Serializer instproc Object-serialize o {
+    my collect-var-traces $o
+    append cmd [list [$o info class] create [$o self]]
+    # slots needs to be initialized when optimized, since
+    # parametercmds are not serialized
+    #if {![$o istype ::xotcl::Slot]} {append cmd " -noinit"}
+    append cmd " -noinit"
+    append cmd " \\\n"
+    foreach i [$o info procs] {
+      append cmd " " [my method-serialize $o $i ""] " \\\n"
+    }
+    foreach i [$o info forward] {
+      set fwd [concat [list forward $i] [$o info forward -definition $i]]
+      append cmd \t [my pcmd $fwd] " \\\n"
+    }
+    foreach i [$o info parametercmd] {
+      append cmd \t [my pcmd [list parametercmd $i]] " \\\n"
+    }
+    set vset {}
+    set nrVars 0
+    foreach v [$o info vars] {
+      set setcmd [list]
+      if {![my exists ignoreVarsRE] || 
+	  ![regexp [my set ignoreVarsRE] ${o}::$v]} {
+	if {[$o array exists $v]} {
+	  lappend setcmd array set $v [$o array get $v]
+	} else {
+	  lappend setcmd set $v [$o set $v]
+	}
+	incr nrVars
+	append cmd \t [my pcmd $setcmd] " \\\n"
+      }
+    }
+    foreach x {mixin invar} {
+      set v [$o info $x]
+      if {$v ne ""} {my append post_cmds [list $o $x set $v] "\n"}
+    }
+    set v [$o info filter -guards]
+    if {$v ne ""} {append cmd [my pcmd [list filter $v]] " \\\n"}
+    return $cmd
+  }
+  Serializer instproc Class-serialize o {
+    set cmd [my Object-serialize $o]
+    #set p [$o info parameter]
+    #if {$p ne ""} {
+    #  append cmd " " [my pcmd [list parameter $p]] " \\\n"
+    #}
+    foreach i [$o info instprocs] {
+      append cmd " " [my method-serialize $o $i inst] " \\\n"
+    }
+    foreach i [$o info instforward] {
+      set fwd [concat [list instforward $i] [$o info instforward -definition $i]]
+      append cmd \t [my pcmd $fwd] " \\\n"
+    }
+    foreach i [$o info instparametercmd] {
+      append cmd \t [my pcmd [list instparametercmd $i]] " \\\n"
+    }
+    foreach x {superclass instinvar} {
+      set v [$o info $x]
+      if {$v ne "" && "::xotcl::Object" ne $v } {
+	append cmd " " [my pcmd [list $x $v]] " \\\n"
+      }
+    }
+    foreach x {instmixin} {
+      set v [$o info $x]
+      if {$v ne "" && "::xotcl::Object" ne $v } {
+        my append post_cmds [list $o $x set $v] "\n"
+	#append cmd " " [my pcmd [list $x $v]] " \\\n"
+      }
+    }
+    set v [$o info instfilter -guards]
+    if {$v ne ""} {append cmd [my pcmd [list instfilter $v]] " \\\n"}
+    return $cmd\n
+  }
+  
+  Serializer instproc args {o prefix m} {
+    foreach v [$o info ${prefix}args $m] {
+      if {[$o info ${prefix}default $m $v x]} {
+	lappend arglist [list $v $x] } {
+	  lappend arglist $v }
+    }
+    return $arglist
+  }
+  Serializer instproc category c {
+    if {[$c istype ::xotcl::Class]} {return Class} {return Object}
+  }
+  Serializer instproc allChildren o {
+    set set $o
+    foreach c [$o info children] {
+      eval lappend set [my allChildren $c]
+    }
+    return $set
+  }
+  Serializer instproc allInstances C {
+    set set [$C info instances]
+    foreach sc [$C info subclass] {
+      eval lappend set [my allInstances $sc]
+    }
+    return $set
+  }
+  Serializer instproc exportedObject o {
+    # check, whether o is exported. for exported objects.
+    # we export the object tree.
+    set oo $o
+    while {1} {
+      if {[[self class] exists exportObjects($o)]} {
+        #puts stderr "exported: $o -> exported $oo"
+        return 1
+      }
+      # we do this for object trees without object-less name spaces
+      if {![my isobject $o]} {return 0}
+      set o [$o info parent]
+    }
+  }
+  
+  Serializer instproc topoSort {set all} {
+    if {[my array exists s]} {my array unset s}
+    if {[my array exists level]} {my array unset level}
+    foreach c $set {
+      if {!$all &&
+	  [string match "::xotcl::*" $c] && 
+	  ![my exportedObject $c]} continue
+      if {[my exists skip($c)]} continue
+      my set s($c) 1
+    }
+    set stratum 0
+    while {1} {
+      set set [my array names s]
+      if {[llength $set] == 0} break
+      incr stratum
+      #my warn "$stratum set=$set"
+      my set level($stratum) {}
+      foreach c $set {
+	if {[my [my category $c]-needsNothing $c]} {
+	  my lappend level($stratum) $c
+	}
+      }
+      if {[my set level($stratum)] eq ""} {
+	my set level($stratum) $set
+	my warn "Cyclic dependency in $set"
+      }
+      foreach i [my set level($stratum)] {my unset s($i)}
+    }
+  }
+  Serializer instproc warn msg {
+    if {[info command ns_log] ne ""} {
+      ns_log Notice $msg
+    } else {
+      puts stderr "!!! $msg"
+    }
+  }
+  
+  Serializer instproc Class-needsNothing x {
+    if {![my Object-needsNothing $x]}         {return 0}
+    set scs [$x info superclass]
+    if {[my needsOneOf $scs]} {return 0}
+    foreach sc $scs {if {[my needsOneOf [$sc info slots]]} {return 0}}
+    #if {[my needsOneOf [$x info instmixin ]]} {return 0}
+    return 1
+  }
+  Serializer instproc Object-needsNothing x {
+    set p [$x info parent]
+    if {$p ne "::"  && [my needsOneOf $p]} {return 0}
+    if {[my needsOneOf [$x info class]]}  {return 0}
+    if {[my needsOneOf [[$x info class] info slots]]}  {return 0}
+    #if {[my needsOneOf [$x info mixin ]]} {return 0}
+    return 1
+  }
+  Serializer instproc needsOneOf list {
+    foreach e $list {if {[my exists s($e)]} {
+      #upvar x x; puts stderr "$x needs $e"
+      return 1
+    }}
+    return 0
+  }
+  Serializer instproc serialize {objectOrClass} {
+    string trimright [my [my category $objectOrClass]-serialize $objectOrClass] "\\\n"
+  }
+  Serializer instproc serialize-objects {list all} {
+    my instvar post_cmds
+    set post_cmds ""
+    # register for introspection purposes "trace" under a different name
+    ::xotcl::alias ::xotcl::Object __trace__ -objscope ::trace
+    my topoSort $list $all
+    #foreach i [lsort [my array names level]] {my warn "$i: [my set level($i)]"}
+    set result ""
+    foreach l [lsort -integer [my array names level]] {
+      foreach i [my set level($l)] {
+	#my warn "serialize $i"
+        #append result "# Stratum $l\n"
+	append result [my serialize $i] \n
+      }
+    }
+    foreach e $list {
+      set namespace($e) 1
+      set namespace([namespace qualifiers $e]) 1
+    }
+    ::xotcl::Object proc __trace__ {} {}
+
+    # Handling of variable traces: traces might require a 
+    # different topological sort, which is hard to handle.
+    # Similar as with filters, we deactivate the variable
+    # traces during initialization. This happens by
+    # (1) replacing the XOTcl's trace method by a no-op
+    # (2) collecting variable traces through collect-var-traces
+    # (3) re-activating the traces after variable initialization
+
+    set exports ""
+    set pre_cmds ""
+
+    # delete ::xotcl from the namespace list, if it exists...
+    catch {unset namespace(::xotcl)}
+    foreach ns [array name namespace] {
+      if {![namespace exists $ns]} continue
+      if {![my isobject $ns]} {
+	append pre_cmds "namespace eval $ns {}\n"
+      } elseif {$ns ne [namespace origin $ns] } {
+	append pre_cmds "namespace eval $ns {}\n"
+      }
+      set exp [namespace eval $ns {namespace export}]
+      if {$exp ne ""} {
+	append exports "namespace eval $ns {namespace export $exp}" \n
+      }
+    }
+
+    #append post_cmds "::xotcl::alias ::xotcl::Object trace -objscope ::trace\n"
+    return $pre_cmds$result$post_cmds$exports
+  }
+  Serializer instproc deepSerialize o {
+    # assumes $o to be fully qualified
+    my serialize-objects [my allChildren $o] 1
+  }
+  Serializer instproc serializeMethod {object kind name} {
+    set code ""
+    switch $kind {
+      proc {
+	if {[$object info procs $name] ne ""} {
+	  set code [my method-serialize $object $name ""]
+	}
+      }
+      instproc {
+	if {[$object info instprocs $name] ne ""} {
+	  set code [my method-serialize $object $name inst]
+	}
+      }
+      forward - instforward {
+	if {[$object info $kind $name] ne ""} {
+	  set fwd [concat [list $kind $name] [$object info $kind -definition $name]]
+	  set code [my pcmd $fwd]
+	}
+      }
+    }
+    return $code
+  } 
+
+ 
+  Serializer proc exportMethods list {
+    foreach {o p m} $list {my set exportMethods($o,$p,$m) 1}
+  }
+  Serializer proc exportObjects list {
+    foreach o $list {my set exportObjects($o) 1}
+  }
+
+  Serializer proc serializeExportedMethods {s} {
+    set r ""
+    foreach k [my array names exportMethods] {
+      foreach {o p m} [split $k ,] break
+      #if {$o ne "::xotcl::Object" && $o ne "::xotcl::Class"} {
+	#error "method export only for ::xotcl::Object and\
+	#	::xotcl::Class implemented, not for $o"
+      #}
+      if {![string match "::xotcl::*" $o]} {
+        error "method export is only for ::xotcl::* \
+          object an classes implemented, not for $o"
+      }
+      append methods($o) [$s serializeMethod $o $p $m] " \\\n "      
+    }
+    set objects [array names methods]
+    foreach o [list ::xotcl::Object ::xotcl::Class] {
+      set p [lsearch $o $objects]
+      if {$p == -1} continue
+      set objects [lreplace $objects $p $p]
+    }
+    foreach o [concat ::xotcl::Object ::xotcl::Class $objects] {
+      if {![info exists methods($o)]} continue
+      append r \n "$o configure \\\n " \
+	  [string trimright $methods($o) "\\\n "] 
+    }
+    #puts stderr "... exportedMethods <$r\n>"
+    return "$r\n"
+  }
+
+  Serializer proc all {args} {
+    # don't filter anything during serialization
+    set filterstate [::xotcl::configure filter off]
+    set s [eval my new -childof [self] -volatile $args]
+    # always export __exitHandler
+    my exportMethods [list ::xotcl::Object proc __exitHandler]
+    set r {
+      set ::xotcl::__filterstate [::xotcl::configure filter off]
+      ::xotcl::Object instproc trace args {}
+      ::xotcl::Slot instmixin add ::xotcl::Slot::Nocheck
+    } 
+    append r "::xotcl::configure softrecreate [::xotcl::configure softrecreate]"
+    append r \n [my serializeExportedMethods $s]
+    # export the objects and classes
+    #$s warn "export objects = [my array names exportObjects]"
+    #$s warn "export objects = [my array names exportMethods]"
+    append r [$s serialize-objects [$s allInstances ::xotcl::Object] 0]    
+    foreach o [list ::xotcl::Object ::xotcl::Class] {
+      foreach x {mixin instmixin invar instinvar} {
+	set v [$o info $x]
+	if {$v ne ""  && $v ne "::xotcl::Object"} {
+	  append r "$o configure " [$s pcmd [list $x $v]] "\n"
+	}
+      }
+    }
+    append r {
+      ::xotcl::alias ::xotcl::Object trace -objscope ::trace
+      ::xotcl::Slot instmixin delete ::xotcl::Slot::Nocheck
+      ::xotcl::configure filter $::xotcl::__filterstate
+      unset ::xotcl::__filterstate
+    }
+    ::xotcl::configure filter $filterstate
+    return $r
+  }
+  Serializer proc methodSerialize {object method prefix} {
+    set s [my new -childof [self] -volatile]
+    concat $object [$s unescaped-method-serialize $object $method $prefix]
+  }
+  Serializer proc deepSerialize args {
+    set s [my new -childof [self] -volatile]
+    set nr [eval $s configure $args]
+    foreach o [lrange $args 0 [incr nr -1]] {
+      append r [$s deepSerialize [$o]]
+  }
+    if {[$s exists map]} {return [string map [$s map] $r]}
+    return $r
+  }
+
+  # register serialize a global method
+  ::xotcl::Object instproc serialize {} {
+    ::Serializer deepSerialize [self]
+  }
+
+  # include this method in the serialized code
+  Serializer exportMethods {
+    ::xotcl::Object instproc contains
+  }
+
+  # include Serializer in the serialized code
+  Serializer exportObjects [namespace current]::Serializer
+
+  namespace eval :: "namespace import -force [namespace current]::*"
+}

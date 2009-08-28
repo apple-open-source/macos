@@ -1,25 +1,32 @@
 #!/usr/bin/perl
 
 #################################   Constants  #################################
-$PBUDDY = "/usr/libexec/sbs_backup/PBuddy";
+$PBUDDY = "/usr/libexec/PlistBuddy";
 $SQLITE = "/usr/bin/sqlite3";
 $SERVER_ADMIN="/usr/sbin/serveradmin";
-$TAR = "/usr/bin/tar";
-$SBS_CONF = "/private/etc/sbs_backup";
+$TAR = "/usr/bin/gnutar";
+$SBS_CONF = "/private/etc/server_backup";
 $MKTEMP_PATH = "/usr/bin/mktemp";
+$JABBER_USER = "_jabber";
 $ServiceConf = "75-iChatServer.plist";
+$servermgrJabberConfigPath = "/Library/Preferences/com.apple.ichatserver.plist";
 $ServiceName = "iChatServer";
 $tmpPath = "/private/var/jabberd/tmp";
 %$BigList="";
 @arrayServerAdminPrefs="";
 %dbinfo = {};
 
+# Enum for deciding what to do with output
+($OUTPUT_NONE, $OUTPUT_DEBUG, $OUTPUT_VERBOSE, 
+	$OUTPUT_FUNCLOG, $OUTPUT_PRINT) = (0..4);
+
+$LOG_PATH = &_get_log_path(@ARGV);   # global, for service-specific log path
+
 if($ENV{VERBOSE} eq 1) {$VERBOSE = '1';}
 if($ENV{DEBUG} eq 1) {$DEBUG = '1';}
 if($ENV{FUNCLOG} eq 1) {$FUNCLOG = '1';}
 
-if ($VERBOSE) 
-	{ print("iChatServer_restore was called.\n"); }
+&_log($OUTPUT_VERBOSE, 	"iChatServer_restore was called.\n");
 
 ParseOptions();
 if ($DEBUG) 
@@ -48,17 +55,14 @@ sub validateOptionsAndDispatch()
 ################################################################################
 sub Actions() 
 {
-	if ($FUNCLOG) 
-		{ print("Start Actions-------------------------------------------------------+\n"); }
+	&_log($OUTPUT_FUNCLOG, "Start Actions-------------------------------------------------------+\n");
 
-	if($VERBOSE) {
-		print (qq(${PBUDDY} -c \"Print :BackupActions\" $SBS_CONF/$ServiceConf) . "\n");
-	}
-	$Version = qx(${PBUDDY} -c \"Print :BackupActions\" $SBS_CONF/$ServiceConf);
-	print($Version);
+	&_log($OUTPUT_VERBOSE, 	(qq(${PBUDDY} -c \"Print :RestoreActions\" $SBS_CONF/$ServiceConf) . "\n"));
 
-	if ($FUNCLOG) 
-		{ print("End   Actions-------------------------------------------------------+\n"); }
+	$Version = qx(${PBUDDY} -c \"Print :RestoreActions\" $SBS_CONF/$ServiceConf);
+	&_log($OUTPUT_PRINT, $Version);
+
+	&_log($OUTPUT_FUNCLOG, "End   Actions-------------------------------------------------------+\n");
 }
 
 ################################################################################
@@ -66,11 +70,10 @@ sub Browse()
 {
 	my $SBS_PATH = $BigList{"-path"};
 
-	if ($FUNCLOG) 
-		{ print("Start Browse-------------------------------------------------------+\n"); }
+	&_log($OUTPUT_FUNCLOG, "Start Browse-------------------------------------------------------+\n");
 	
 	if ($SBS_PATH eq "") {
-		print("Legal options were not supplied!\n");
+        &_log($OUTPUT_PRINT, "Legal options were not supplied!\n");
 		Usage();
 	}
 
@@ -96,8 +99,7 @@ sub Browse()
 		}
 	}
 
-	if ($FUNCLOG) 
-		{ print("End   Browse-------------------------------------------------------+\n"); }
+	&_log($OUTPUT_FUNCLOG, "End Browse-------------------------------------------------------+\n");
 }
 
 ################################################################################
@@ -106,7 +108,8 @@ sub Restore()
 	my $jabberdDataPath = "/var/jabberd";
 	my $jabberdDBPath = "";
 	$jabberdDBPath = "$jabberdDataPath/sqlite";
-	my $jabberdSqliteDataFile = "$jabberdDBPath/jabberd2.db";
+	my $sqliteDefaultDbPath = "$jabberdDBPath/jabberd2.db";
+	my $jabberdSqliteDataFile = "";
 	my $jabberDataTmpDir = "";
 	my $C2SPID = "/var/run/jabberd/c2s.pid";
 	my $SBS_PATH = $BigList{"-path"};
@@ -115,30 +118,37 @@ sub Restore()
 	my $cmd;
 	my $origCWD;
 
+    # find sqlite database path
+    my $pbuddyDbPath = qx(${PBUDDY} -c \"Print :jabberdDatabasePath:\" $servermgrJabberConfigPath);
+    chomp($pbuddyDbPath);
+    if (-e $pbuddyDbPath) {
+        $jabberdSqliteDataFile = $pbuddyDbPath;
+    } else {
+        $jabberdSqliteDataFile = $sqliteDefaultDbPath;
+    }
+
 	umask(077);
         
-	if ($FUNCLOG)  
-		{ print("Start Restore-------------------------------------------------------+\n"); }
+	&_log($OUTPUT_FUNCLOG, "Start Restore-------------------------------------------------------+\n");
 
     if ($OPT ne "configuration" && $OPT ne "data" && $OPT ne "all") {
-        print "No valid -opt selected for restore operation.\n";
+		&_log($OUTPUT_PRINT, "No valid -opt selected for restore operation.\n");
         return 1;
     }
     if (! -e $SBS_PATH) {
-		print "Supplied -path does not exist.\n";
+		&_log($OUTPUT_PRINT, "Supplied -path does not exist.\n");
 		return 1;
 	}
 	
 	# Shutdown jabber if its enabled
-	my $res = `ps auxww|grep c2s|grep -v grep`;
+	my $res = `ps -xu \"$JABBER_USER\" |grep c2s|grep -v grep`;
 	if ($res ne "") {
-		if ($VERBOSE) {
-			print "Stopping jabber service\n";
-		}
+		&_log($OUTPUT_VERBOSE, "Stopping jabber service\n");
+
 		qx($SERVER_ADMIN stop jabber);
 		$initialJabberdState = 1;
 		for (my $x = 0; $x < 5; $x++) {
-			$res = `ps auxww|grep c2s|grep -v grep`;
+			$res = `ps -xu \"$JABBER_USER\" |grep c2s|grep -v grep`;
 			if ($res eq "") {
 				last;
 			}
@@ -146,11 +156,10 @@ sub Restore()
 		}
 	}
 	if ($res ne "") {
-		print "Error: Cannot stop jabber service\n";
+		&_log($OUTPUT_PRINT, "Error: Cannot stop jabber service\n");
 		return 1;
 	}
-	print "DEBUG: res = $res\n";
-	
+
 	if ($OPT eq "all" || $OPT eq "configuration") {
 		# Backup old config
         my @configurationFiles;
@@ -172,15 +181,11 @@ sub Restore()
 		foreach my $configFile (@configurationFiles) {
 			# Allow for wildcards in the plist strings.  Expand them and push them onto the array for later processing.
 			if ($configFile =~ /\*/) {
-				if ($VERBOSE || $DEBUG) {
-					print "Found a wildcard in the plist ($configFile), expanding for later processing...\n";
-				} 
+				&_log($OUTPUT_DEBUG, "Found a wildcard in the plist ($configFile), expanding for later processing...\n");
 				my @expFiles = `ls -1 $configFile`;
 				chomp(@expFiles);
 				foreach my $expFile (@expFiles) {
-					if ($VERBOSE || $DEBUG) {
-						print "Adding wildcard expansion to configurationFiles array: $expFile\n";
-					}
+					&_log($OUTPUT_DEBUG, "Adding wildcard expansion to configurationFiles array: $expFile\n");
 					push(@configurationFiles, $expFile);
 				}
 				next;
@@ -188,9 +193,7 @@ sub Restore()
 
 			$cmd .= " \"$configFile\"";
 		}
-		if ($VERBOSE) {
-			print "Executing command: $cmd\n";
-		}
+		&_log($OUTPUT_DEBUG, "Executing command: $cmd\n");
 		system($cmd);
 
 		# Restore config
@@ -219,10 +222,10 @@ sub Restore()
 		# Backup old data so it can be manually restored
 		if ($VERBOSE) {
 			$cmd = "$TAR -cvzf \"$jabberdDataPath/jabber_data_before_restore.tar.gz\" \"$jabberdDBPath\"";
-			print "Executing command: $cmd\n";
 		} else {
 			$cmd = "$TAR -czf \"$jabberdDataPath/jabber_data_before_restore.tar.gz\" \"$jabberdDBPath\"";
 		}
+		&_log($OUTPUT_VERBOSE, "Executing command: $cmd\n");
 		system($cmd);
 
 		# Restore data
@@ -261,9 +264,7 @@ sub Restore()
 				foreach my $sqlFile (@sqlFiles) {
 					if ($sqlFile =~ /\.sql$/) {
 						$cmd = "rm -f \"$jabberdSqliteDataFile\"; $SQLITE \"$jabberdSqliteDataFile\" < \"$jabberDataTmpDir/$sqlFile\"";
-						if ($VERBOSE) {
-							print "Executing command: $cmd\n";
-						}
+						&_log($OUTPUT_VERBOSE, "Executing command: $cmd\n");
 						system($cmd);
 						system("chmod 640 \"$jabberdSqliteDataFile\"");
 						system("chown jabber:jabber \"$jabberdSqliteDataFile\"");
@@ -278,30 +279,22 @@ sub Restore()
 	
 	# Restart jabberd if necessary
 	if ($initialJabberdState) {
-		if ($VERBOSE) {
-			print "Restarting iChatServer service\n";
-		}
+		&_log($OUTPUT_VERBOSE, "Restarting iChatServer service\n");
 		qx($SERVER_ADMIN start jabber);
 	}
-	
-	if ($FUNCLOG) 
-		{ print("End   Restore-------------------------------------------------------+\n"); }
+
+	&_log($OUTPUT_FUNCLOG, "End   Restore-------------------------------------------------------+\n");
 }
 
 ################################################################################
 sub Version() 
 {
-	if ($FUNCLOG) 
-		{ print("Start Version-------------------------------------------------------+\n");	}
+	&_log($OUTPUT_FUNCLOG, "Start Version-------------------------------------------------------+\n");
 
-	if($VERBOSE) {
-		print (qq(${PBUDDY} -c \"Print :Version\" $SBS_CONF/$ServiceConf) . "\n");
-	}
 	$Version = qx(${PBUDDY} -c \"Print :Version\" $SBS_CONF/$ServiceConf);
-	print($Version);
+	&_log($OUTPUT_PRINT, $Version);
 
-	if ($FUNCLOG) 
-		{ print("End   Version-------------------------------------------------------+\n"); }
+	&_log($OUTPUT_FUNCLOG, "End Version-------------------------------------------------------+\n");
 }
 
 ################################################################################
@@ -368,4 +361,54 @@ sub Usage()
 	print " -cmd help :                   Displays this usage.\n";
 	print " -cmd version :                Prints out the version value from the property list := $SBS_CONF$ServiceConf\n";
 	exit(0);
+}
+
+################################################################################
+sub timestamp()
+{
+	my ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst ) =
+	localtime(time);
+	$year += 1900;
+	$mon  += 1;
+	if ( $hour =~ /^\d$/ ) { $hour = "0" . $hour; }
+	if ( $min  =~ /^\d$/ ) { $min  = "0" . $min; }
+	if ( $sec  =~ /^\d$/ ) { $sec  = "0" . $sec; }
+
+	my $ret = $year."-".$mon."-".$mday."-$hour:$min:$sec";
+	#my $ret = $year."-".$mon."-".$mday;
+	return $ret;
+}
+
+################################################################################
+# Handle the various output modes, log to our file
+sub _log {
+	my $type = shift;
+	my $msg = shift;
+	
+	# log the message to our service-specific log file
+	if ($LOG_PATH ne "") {
+		open(OUT, ">>$LOG_PATH") || die "ERROR: Cannot open log file at path: $LOG_PATH : $!";
+		print OUT &timestamp."\t".$msg;
+		close(OUT);
+	}
+
+	# print to STDOUT if appropriate
+	if (($type == $OUTPUT_PRINT)  ||
+			($FUNCLOG && ($type == $OUTPUT_FUNCLOG)) ||
+			($DEBUG && ($type == $OUTPUT_DEBUG)) ||
+			($VERBOSE && ($type == $OUTPUT_VERBOSE))) {
+		print $msg;
+	}
+}
+
+# Pull the -log arg from argv
+sub _get_log_path {
+	my ($theKey, $theVal);
+	my %theArgList = @ARGV;
+	while(($theKey, $theVal) = each (%theArgList)) {
+		if ($theKey eq "-log") {
+			return $theVal;
+		}
+	}
+	return "";
 }

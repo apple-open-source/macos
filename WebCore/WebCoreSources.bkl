@@ -32,6 +32,24 @@ This file contains the list of files needed to build WebCore.
 -->
 
 <makefile>
+    <set append="1" var="WEBCORE_SOURCES_ACCESSIBILITY">
+        accessibility/AccessibilityARIAGrid.cpp
+        accessibility/AccessibilityARIAGridCell.cpp
+        accessibility/AccessibilityARIAGridRow.cpp
+        accessibility/AccessibilityImageMapLink.cpp
+        accessibility/AccessibilityObject.cpp
+        accessibility/AccessibilityList.cpp
+        accessibility/AccessibilityListBox.cpp
+        accessibility/AccessibilityListBoxOption.cpp
+        accessibility/AccessibilityRenderObject.cpp
+        accessibility/AccessibilityTable.cpp
+        accessibility/AccessibilityTableCell.cpp
+        accessibility/AccessibilityTableColumn.cpp
+        accessibility/AccessibilityTableHeaderContainer.cpp
+        accessibility/AccessibilityTableRow.cpp
+        accessibility/AXObjectCache.cpp
+    </set>
+    
     <set append="1" var="WEBCORE_SOURCES_JS">
         bindings/js/GCController.cpp
         bindings/js/JSAttrCustom.cpp
@@ -53,9 +71,12 @@ This file contains the list of files needed to build WebCore.
         bindings/js/JSCustomVoidCallback.cpp
         bindings/js/JSCustomXPathNSResolver.cpp
         bindings/js/JSDatabaseCustom.cpp
+        bindings/js/JSDataGridColumn.cpp
+        bindings/js/JSDataGridColumnList.cpp
+        bindings/js/JSDataGridColumnListCustom.cpp
+        bindings/js/JSDataGridDataSource.cpp
         bindings/js/JSDOMApplicationCacheCustom.cpp
         bindings/js/JSDOMGlobalObject.cpp
-        bindings/js/JSDOMStringListCustom.cpp
         bindings/js/JSDOMWindowBase.cpp
         bindings/js/JSDOMWindowCustom.cpp
         bindings/js/JSDOMWindowShell.cpp
@@ -69,6 +90,7 @@ This file contains the list of files needed to build WebCore.
         bindings/js/JSHistoryCustom.cpp
         bindings/js/JSHTMLAppletElementCustom.cpp
         bindings/js/JSHTMLCollectionCustom.cpp
+        bindings/js/JSHTMLDataGridElementCustom.cpp
         bindings/js/JSHTMLDocumentCustom.cpp
         bindings/js/JSHTMLElementCustom.cpp
         bindings/js/JSHTMLEmbedElementCustom.cpp
@@ -254,7 +276,6 @@ This file contains the list of files needed to build WebCore.
         DerivedSources/WebCore/JSDOMImplementation.cpp
         DerivedSources/WebCore/JSDOMParser.cpp
         DerivedSources/WebCore/JSDOMSelection.cpp
-        DerivedSources/WebCore/JSDOMStringList.cpp
         DerivedSources/WebCore/JSDOMWindow.cpp
         DerivedSources/WebCore/JSElement.cpp
         DerivedSources/WebCore/JSEntity.cpp
@@ -276,6 +297,10 @@ This file contains the list of files needed to build WebCore.
         DerivedSources/WebCore/JSHTMLButtonElement.cpp
         DerivedSources/WebCore/JSHTMLCanvasElement.cpp
         DerivedSources/WebCore/JSHTMLCollection.cpp
+        DerivedSources/WebCore/JSHTMLDataGridElement.cpp
+        DerivedSources/WebCore/JSHTMLDataGridCellElement.cpp
+        DerivedSources/WebCore/JSHTMLDataGridColElement.cpp
+        DerivedSources/WebCore/JSHTMLDataGridRowElement.cpp
         DerivedSources/WebCore/JSHTMLDListElement.cpp
         DerivedSources/WebCore/JSHTMLDirectoryElement.cpp
         DerivedSources/WebCore/JSHTMLDivElement.cpp
@@ -415,7 +440,6 @@ This file contains the list of files needed to build WebCore.
         dom/Comment.cpp
         dom/ContainerNode.cpp
         dom/DOMImplementation.cpp
-        dom/DOMStringList.cpp
         dom/Document.cpp
         dom/DocumentFragment.cpp
         dom/DocumentType.cpp
@@ -458,9 +482,9 @@ This file contains the list of files needed to build WebCore.
         dom/RegisteredEventListener.cpp
         dom/ScriptElement.cpp
         dom/ScriptExecutionContext.cpp
+        dom/SelectElement.cpp 
         dom/SelectorNodeList.cpp
         dom/StaticNodeList.cpp
-        dom/StaticStringList.cpp
         dom/StyleElement.cpp
         dom/StyledElement.cpp
         dom/TagNodeList.cpp
@@ -508,6 +532,7 @@ This file contains the list of files needed to build WebCore.
         editing/RemoveFormatCommand.cpp
         editing/RemoveNodeCommand.cpp
         editing/RemoveNodePreservingChildrenCommand.cpp
+        editing/ReplaceNodeWithSpanCommand.cpp
         editing/ReplaceSelectionCommand.cpp
         editing/SelectionController.cpp
         editing/SmartReplace.cpp
@@ -542,6 +567,7 @@ This file contains the list of files needed to build WebCore.
         html/CanvasRenderingContext2D.cpp
         html/CanvasStyle.cpp
         html/CollectionCache.cpp
+        html/DOMDataGridDataSource.cpp
         html/File.cpp
         html/FileList.cpp
         html/FormDataList.cpp
@@ -556,6 +582,10 @@ This file contains the list of files needed to build WebCore.
         html/HTMLButtonElement.cpp
         html/HTMLCanvasElement.cpp
         html/HTMLCollection.cpp
+        html/HTMLDataGridElement.cpp
+        html/HTMLDataGridCellElement.cpp
+        html/HTMLDataGridColElement.cpp
+        html/HTMLDataGridRowElement.cpp
         html/HTMLDListElement.cpp
         html/HTMLDirectoryElement.cpp
         html/HTMLDivElement.cpp
@@ -605,6 +635,7 @@ This file contains the list of files needed to build WebCore.
         html/HTMLPreElement.cpp
         html/HTMLQuoteElement.cpp
         html/HTMLScriptElement.cpp
+        html/HTMLNoScriptElement.cpp
         html/HTMLSelectElement.cpp
         html/HTMLStyleElement.cpp
         html/HTMLTableCaptionElement.cpp
@@ -629,11 +660,13 @@ This file contains the list of files needed to build WebCore.
         inspector/InspectorDatabaseResource.cpp
         inspector/InspectorDOMStorageResource.cpp
         inspector/InspectorController.cpp
+        inspector/InspectorFrontend.cpp
         inspector/InspectorResource.cpp
         inspector/JavaScriptCallFrame.cpp
         inspector/JavaScriptDebugServer.cpp
         inspector/JavaScriptProfile.cpp
         inspector/JavaScriptProfileNode.cpp
+        inspector/InspectorJSONObject.cpp
     </set>
 
     <set append="1" var="WEBCORE_SOURCES_LOADER">
@@ -689,26 +722,11 @@ This file contains the list of files needed to build WebCore.
     </set>
 
     <set append="1" var="WEBCORE_SOURCES_PAGE">
-        page/AccessibilityAriaGrid.cpp
-        page/AccessibilityAriaGridCell.cpp
-        page/AccessibilityAriaGridRow.cpp
-        page/AccessibilityImageMapLink.cpp
-        page/AccessibilityObject.cpp
-        page/AccessibilityList.cpp
-        page/AccessibilityListBox.cpp
-        page/AccessibilityListBoxOption.cpp
-        page/AccessibilityRenderObject.cpp
-        page/AccessibilityTable.cpp
-        page/AccessibilityTableCell.cpp
-        page/AccessibilityTableColumn.cpp
-        page/AccessibilityTableHeaderContainer.cpp
-        page/AccessibilityTableRow.cpp
         page/animation/AnimationBase.cpp
         page/animation/AnimationController.cpp
         page/animation/CompositeAnimation.cpp
         page/animation/ImplicitAnimation.cpp
         page/animation/KeyframeAnimation.cpp
-        page/AXObjectCache.cpp
         page/BarInfo.cpp
         page/Chrome.cpp
         page/Console.cpp
@@ -737,6 +755,7 @@ This file contains the list of files needed to build WebCore.
         page/SecurityOrigin.cpp
         page/Settings.cpp
         page/WindowFeatures.cpp
+        page/XSSAuditor.cpp
     </set>
 
     <set append="1" var="WEBCORE_SOURCES_PLATFORM">
@@ -883,7 +902,8 @@ This file contains the list of files needed to build WebCore.
     </set>
 
     <set append="1" var="WEBCORE_SOURCES_BMP">
-        platform/image-decoders/bmp/BMPImageDecoder.cpp
+      platform/image-decoders/bmp/BMPImageDecoder.cpp
+      platform/image-decoders/bmp/BMPImageReader.cpp
     </set>
 
     <set append="1" var="WEBCORE_SOURCES_ICO">
@@ -915,6 +935,7 @@ This file contains the list of files needed to build WebCore.
         rendering/RenderBoxModelObject.cpp
         rendering/RenderButton.cpp
         rendering/RenderCounter.cpp
+        rendering/RenderDataGrid.cpp
         rendering/RenderFieldset.cpp
         rendering/RenderFileUploadControl.cpp
         rendering/RenderFlexibleBox.cpp
@@ -990,8 +1011,6 @@ This file contains the list of files needed to build WebCore.
         storage/DatabaseTask.cpp
         storage/DatabaseThread.cpp
         storage/DatabaseTracker.cpp
-        storage/LocalStorage.cpp
-        storage/LocalStorageArea.cpp
         storage/LocalStorageTask.cpp
         storage/LocalStorageThread.cpp
         storage/OriginQuotaManager.cpp
@@ -1002,10 +1021,13 @@ This file contains the list of files needed to build WebCore.
         storage/SQLTransaction.cpp
         storage/Storage.cpp
         storage/StorageArea.cpp
+        storage/StorageAreaImpl.cpp
+        storage/StorageAreaSync.cpp
         storage/StorageEvent.cpp
+        storage/StorageNamespace.cpp
+        storage/StorageNamespaceImpl.cpp
         storage/StorageMap.cpp
-        storage/SessionStorage.cpp
-        storage/SessionStorageArea.cpp
+        storage/StorageSyncManager.cpp
     </set>
 
     <set append="1" var="WEBCORE_SOURCES_XML">

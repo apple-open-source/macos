@@ -20,7 +20,7 @@
 .\" 
 .\" @APPLE_LICENSE_HEADER_END@
 .\"
-.Dd January 7, 2006
+.Dd March 12, 2008
 .Dt tconf 1
 .Os "Mac OS X"
 .Sh NAME
@@ -31,12 +31,11 @@
 .Fl -product
 .Nm tconf
 .Fl -archs
-.Nm tconf
-.Op Fl q
-.Fl -test
-.Ar variable
+.Pp
 .Nm tconf
 .Fl -cflags
+.Nm tconf
+.Fl -cppflags
 .Nm tconf
 .Fl -cxxflags
 .Nm tconf
@@ -49,6 +48,15 @@
 .Fl -cxx
 .Nm tconf
 .Fl -ld
+.Pp
+.Nm tconf
+.Op Fl q
+.Op Fl -altfeaturesdir Ar directory
+.Fl -test
+.Ar variable
+.Pp
+.Nm tconf
+.Fl -export-header Ns Op = Ns Ar pathname Ns .h
 .Sh DESCRIPTION
 The
 .Nm tconf
@@ -68,10 +76,24 @@ is not set, then
 will attempt to read a property list on the build host as specified by the
 .Ar RC_TARGET_CONFIG
 environment variable in the directory
-.Pa /usr/local/share/TargetConfigs .
+.Pa /usr/share/TargetConfigs .
 If the
 .Ar RC_TARGET_CONFIG
 environment variable is not set, the value "Default" is used.
+.Pp
+The main options to
+.Nm tconf
+are usually used one at a time per call.
+However, more than one option in the first three groups may be used on
+the same call to
+.Nm tconf
+(except as note below for the third group's
+.Fl q
+option).
+Each line of output will be prefixed with the option name and an equal sign,
+to distinquish that output from others.
+Multiple occurrences of any of the options in the first two groups are
+suppressed; only one output line is printed per option.
 .Pp
 The
 .Fl -product
@@ -83,24 +105,23 @@ flag prints the target architectures to standard output.  When the
 .Ar RC_ARCHS
 environment variable is set, its value is used.  Otherwise, the set of architectures defined in the TargetConfig property list is printed.
 .Pp
-The
-.Fl -test
-flag prints the value of the specified configuration
-.Ar variable .
-If the value is defined to true in the property list, "YES" is printed to
-standard output, otherwise "NO" is printed.  Variables defined in the
-"TargetConditionals" section of the property list are used unconditionally.
-Variables defined in the "TargetArchitectures" section of the property list are
-used only when the
-.Ar RC_ARCHS
-environment variable includes that architecture.
-Because multiple architectures may be specified at build time, and may have
-conflicting configuration options, these values are considered true if
-.Em any
-of the architectures defines the value to true.
+In the second group of
+.Nm tconf
+calls, the corresponding compiler settings defined in the "TargetConfig"
+section of the property list is printed.
 .Pp
-The TargetConditionals section may contain:
-.Bl -tag -width "" -compact
+In the third group, the
+.Fl -test
+option is used to inquire about two types of data.
+The first type of data is the target variables in the property list.
+Setting the
+.Ar variable
+argument to the name of a target conditional variable (from the
+"TargetConditional" section of the property list) will
+print "YES" to standard output if the value of the variable is true,
+otherwise "NO" is printed.
+Target conditional variables include:
+.Bl -tag -offset indent -compact
 .It TARGET_OS_MAC
 .It TARGET_OS_WIN32
 .It TARGET_OS_UNIX
@@ -109,14 +130,165 @@ The TargetConditionals section may contain:
 .It TARGET_RT_MAC_MACHO
 .El
 .Pp
+The values of the target variables defined in the "TargetArchitectures"
+section of the property list can also be displayed by setting
+.Ar variable
+to
+.Ar arch:name ,
+where
+.Ar arch
+is a particular architecture, and
+.Ar name
+is the name of the target architecture variable (which all begin with the
+TARGET_ prefix).
+If
+.Ar variable
+is only set to a target architecture variable name, those architecture(s)
+specified in the
+.Ar RC_ARCHS
+environment variable are used, with a true value being returned if any of the
+possibly multiple architectures has that variable set to true.
+.Pp
+The other type of data that
+.Fl -test
+can display is the availability of software features, including frameworks,
+libraries and header files.
+The
+.Ar variable
+argument is set to
+.Ar type:name ,
+where
+.Ar type
+is the type of feature, and
+.Ar name
+is the name of a particular one of that type.
+For example,
+.Ar framework:Carbon
+would return "YES" if the Carbon framework is available, while
+.Ar library:pam
+would return "YES" if the pam library (libpam) is available.
+.Pp
+If the property list contains a "Features" section, that section is used
+exclusively to determine feature availability.
+If a
+.Ar type:name
+pair is not found in the "Features" section, "NO" is returned, independent
+of whether that feature is really available.
+.Pp
+However, if no "Features" section exists in the property list, one of several
+feature scripts are called to dynamically determine if the
+.Ar type:name
+feature is available.
+These scripts takes into account the
+.Ev RC_CFLAGS ,
+.Ev RC_TARGET_CONFIG
+and
+.Ev SDKROOT
+environment variables, matching up architectures that are specified in the
+property list with files in the SDKROOT, or defaulting architectures not in
+the property list to the standard system root.
+.Bl -hang -offset indent
+.It Sy Note:
+When running in the XBS environment (either via
+.Nm buildit
+or running on an XBS builder), if there is no "Features" section in the
+property list, all feature queries are automatically recorded into a
+property list in the
+.Ev SYMROOT ,
+named
+.Pa .TargetConfigTestRecord.plist .
+This property list will eventually be collected and used to build the
+"Features" section of the corresponding property list.
+.Pp
+This is also an (empty) lock file named
+.Pa .TargetConfigTestRecord.lock .
+Using an algorithm based on link count, this lock file works even on buggy
+NFS file servers.
+However, if
+.Nm tconf
+should crash while the file is locked, an additional (linked) file named
+.Pa .TargetConfigTestRecord.lock.XXXX.XXXXXXXX.XXXX
+(where the
+.Pa X 's
+are a series of numbers and letters unique to each process)
+will remain, causing subsequent
+.Nm tconf
+to time out waiting for the lock.
+.El
+.Pp
+The
+.Fl -altfeaturesdir
+specifies a user-defined set of alternate scripts to run, falling back
+to the system-supplied ones.
+This should only be used temporarily, until the
+.Pa /usr/share/TargetConfigs/feature_scripts
+directory is updated to include all scripts.
+This directory is never used if the "Features" section exists in the
+property list.
+.Pp
+The
+.Fl q
+option suppresses the standard output, and instead, sets the exit status of
+.Nm tconf ,
+zero for "YES" and non-zero for "NO".
+Because of the single output, only one option per call is allowed with this
+flag.
+Also note that there is no way to distinquish "NO" from an error occurring in
+.Nm tconf ,
+which both return a non-zero exit status.
+.Pp
+The last group of
+.Nm tconf
+calls is used to produce header file output, and is generally used one
+per call (though this is not enforced).
+The
+.Fl -export-header
+option writes a C header file containing the values from the
+"TargetConditions", "TargetArchitectures" and "Features" section of the
+property list.
+By default, the header file is written to the standard output, but the output
+can be written to a specified file by suffixing the option with an equal sign
+and the path to the file (no spaces).
+.Pp
+When there is no "Features" section in the property list and the
+.Nm tconf
+is being run in the XBS environment (as mentioned above), the previously
+recorded
+.Fl -test
+feature queries (also mentioned above, in the
+.Sy Note
+section), will be used.
+In this case, it is suggested that all
+.Fl -test
+feature queries be evaluated first (and the results saved) before
+.Fl -export-header
+is called.
 .Sh EXAMPLE USAGE IN MAKEFILES
-    Embedded = $(shell tconf --test TARGET_OS_EMBEDDED)
-    CFILES = main.c
-    ifeq ($(Embedded),YES)
-    CFILES += embedded.c
-    endif
+.Bd -literal
+Embedded = $(shell tconf --test TARGET_OS_EMBEDDED)
+CFILES = main.c
+ifeq ($(Embedded),YES)
+CFILES += embedded.c
+endif
+
+CARBONAVAILABLE = $(shell tconf --test feature:Carbon)
+Extra_Configure_Flags = ...
+ifeq ($(CARBONAVAILABLE),YES)
+Extra_Configure_Flags += --enable-toolbox-glue
+else
+Extra_Configure_Flags += --disable-toolbox-glue
+endif
+
+main.o: features.h
+
+features.h:
+        tconf --export-header=$@
+.Ed
 .Sh FILES
-.Bl -tag -width "/usr/local/share/TargetConfigs/Default.plist" -compact
-.It Pa /usr/local/share/TargetConfigs/Default.plist
-.It Pa /usr/local/include/TargetConfig.h
+.Bl -tag -width "/usr/share/TargetConfigs/feature_scripts" -compact
+.It Pa /usr/share/TargetConfigs/Default.plist
+.It Pa /usr/share/TargetConfigs/feature_scripts
+.It Pa /usr/include/TargetConfig.h
+.It Pa ${SYMROOT}/.TargetConfigTestRecord.lock
+.It Pa ${SYMROOT}/.TargetConfigTestRecord.plist
 .El

@@ -570,7 +570,7 @@ bin_ztcp(char *nam, char **args, Options ops, UNUSED(int func))
 		    if (ztpeer)
 			remotename = ztpeer->h_name;
 		    else
-			remotename = ztrdup(inet_ntoa(sess->peer.in.sin_addr));
+			remotename = inet_ntoa(sess->peer.in.sin_addr);
 		    if (OPT_ISSET(ops,'L')) {
 			int schar;
 			if (sess->flags & ZTCP_ZFTP)
@@ -675,6 +675,14 @@ static struct builtin bintab[] = {
     BUILTIN("ztcp", 0, bin_ztcp, 0, 3, 0, "acd:flLtv", NULL),
 };
 
+static struct features module_features = {
+    bintab, sizeof(bintab)/sizeof(*bintab),
+    NULL, 0,
+    NULL, 0,
+    NULL, 0,
+    0
+};
+
 /* The load/unload routines required by the zsh library interface */
 
 /**/
@@ -686,10 +694,25 @@ setup_(UNUSED(Module m))
 
 /**/
 int
+features_(Module m, char ***features)
+{
+    *features = featuresarray(m, &module_features);
+    return 0;
+}
+
+/**/
+int
+enables_(Module m, int **enables)
+{
+    return handlefeatures(m, &module_features, enables);
+}
+
+/**/
+int
 boot_(Module m)
 {
     ztcp_sessions = znewlinklist();
-    return !addbuiltins(m->nam, bintab, sizeof(bintab)/sizeof(*bintab));
+    return 0;
 }
 
 
@@ -698,9 +721,8 @@ int
 cleanup_(Module m)
 {
     tcp_cleanup();
-    deletebuiltins(m->nam, bintab, sizeof(bintab)/sizeof(*bintab));
     freelinklist(ztcp_sessions, (FreeFunc) ztcp_free_session);
-    return 0;
+    return setfeatureenables(m, &module_features, NULL);
 }
 
 /**/

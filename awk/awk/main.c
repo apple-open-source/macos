@@ -22,7 +22,7 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 ****************************************************************/
 
-const char	*version = "version 20040207";
+const char	*version = "version 20070501";
 
 #define DEBUG
 #include <stdio.h>
@@ -51,7 +51,9 @@ extern	int errorflag;	/* non-zero if any syntax errors; set by yyerror */
 int	compile_time = 2;	/* for error printing: */
 				/* 2 = cmdline, 1 = compile, 0 = running */
 
-char	*pfile[20];	/* program filenames from -f's */
+#define	MAX_PFILE	20	/* max number of -f's */
+
+char	*pfile[MAX_PFILE];	/* program filenames from -f's */
 int	npfile = 0;	/* number of filenames */
 int	curpfile = 0;	/* current filename */
 
@@ -66,15 +68,22 @@ int main(int argc, char *argv[])
 	setlocale(LC_NUMERIC, "C"); /* for parsing cmdline & prog */
 	cmdname = argv[0];
 	if (argc == 1) {
-		fprintf(stderr, "Usage: %s [-f programfile | 'program'] [-Ffieldsep] [-v var=value] [files]\n", cmdname);
+		fprintf(stderr, 
+		  "usage: %s [-F fs] [-v var=value] [-f progfile | 'prog'] [file ...]\n", 
+		  cmdname);
 		exit(1);
 	}
 	Unix2003_compat = COMPAT_MODE("bin/awk", "unix2003");
 	signal(SIGFPE, fpecatch);
 	yyin = NULL;
-	symtab = makesymtab(NSYMTAB);
+	symtab = makesymtab(NSYMTAB/NSYMTAB);
 	while (argc > 1 && argv[1][0] == '-' && argv[1][1] != '\0') {
-		if (strcmp(argv[1], "--") == 0) {	/* explicit end of args */
+		if (strcmp(argv[1],"-version") == 0 || strcmp(argv[1],"--version") == 0) {
+			printf("awk %s\n", version);
+			exit(0);
+			break;
+		}
+		if (strncmp(argv[1], "--", 2) == 0) {	/* explicit end of args */
 			argc--;
 			argv++;
 			break;
@@ -89,6 +98,8 @@ int main(int argc, char *argv[])
 			argv++;
 			if (argc <= 1)
 				FATAL("no program filename");
+			if (npfile >= MAX_PFILE - 1)
+				FATAL("too many -f options"); 
 			pfile[npfile++] = argv[1];
 			break;
 		case 'F':	/* set field separator */
@@ -113,19 +124,11 @@ int main(int argc, char *argv[])
 			else
 				FATAL("invalid -v option");
 			break;
-		case 'm':	/* more memory: -mr=record, -mf=fields */
-				/* no longer supported */
-			WARNING("obsolete option %s ignored", argv[1]);
-			break;
 		case 'd':
 			dbg = atoi(&argv[1][2]);
 			if (dbg == 0)
 				dbg = 1;
 			printf("awk %s\n", version);
-			break;
-		case 'V':	/* added for exptools "standard" */
-			printf("awk %s\n", version);
-			exit(0);
 			break;
 		default:
 			WARNING("unknown option %s ignored", argv[1]);

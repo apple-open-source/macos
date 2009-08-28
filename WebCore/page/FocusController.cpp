@@ -35,6 +35,7 @@
 #include "Element.h"
 #include "Event.h"
 #include "EventHandler.h"
+#include "EventNames.h"
 #include "Frame.h"
 #include "FrameView.h"
 #include "FrameTree.h"
@@ -57,6 +58,7 @@ using namespace HTMLNames;
 FocusController::FocusController(Page* page)
     : m_page(page)
     , m_isActive(false)
+    , m_isFocused(false)
 {
 }
 
@@ -65,13 +67,21 @@ void FocusController::setFocusedFrame(PassRefPtr<Frame> frame)
     if (m_focusedFrame == frame)
         return;
 
-    if (m_focusedFrame && m_focusedFrame->view())
-        m_focusedFrame->selection()->setFocused(false);
+    RefPtr<Frame> oldFrame = m_focusedFrame;
+    RefPtr<Frame> newFrame = frame;
 
-    m_focusedFrame = frame;
+    m_focusedFrame = newFrame;
 
-    if (m_focusedFrame && m_focusedFrame->view())
-        m_focusedFrame->selection()->setFocused(true);
+    // Now that the frame is updated, fire events and update the selection focused states of both frames.
+    if (oldFrame && oldFrame->view()) {
+        oldFrame->selection()->setFocused(false);
+        oldFrame->document()->dispatchWindowEvent(eventNames().blurEvent, false, false);
+    }
+
+    if (newFrame && newFrame->view() && isFocused()) {
+        newFrame->selection()->setFocused(true);
+        newFrame->document()->dispatchWindowEvent(eventNames().focusEvent, false, false);
+    }
 }
 
 Frame* FocusController::focusedOrMainFrame()
@@ -79,6 +89,19 @@ Frame* FocusController::focusedOrMainFrame()
     if (Frame* frame = focusedFrame())
         return frame;
     return m_page->mainFrame();
+}
+
+void FocusController::setFocused(bool focused)
+{
+    if (isFocused() == focused)
+        return;
+    
+    m_isFocused = focused;
+    
+    if (m_focusedFrame && m_focusedFrame->view()) {
+        m_focusedFrame->selection()->setFocused(focused);
+        m_focusedFrame->document()->dispatchWindowEvent(focused ? eventNames().focusEvent : eventNames().blurEvent, false, false);
+    }
 }
 
 static Node* deepFocusableNode(FocusDirection direction, Node* node, KeyboardEvent* event)
@@ -316,6 +339,9 @@ void FocusController::setActive(bool active)
     }
 
     focusedOrMainFrame()->selection()->pageActivationChanged();
+    
+    if (m_focusedFrame && isFocused())
+        m_focusedFrame->document()->dispatchWindowEvent(active ? eventNames().focusEvent : eventNames().blurEvent, false, false);
 }
 
 } // namespace WebCore

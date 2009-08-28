@@ -29,37 +29,15 @@
 
 #if defined(__DYNAMIC__)
 #include "mach-o/dyld.h" /* defines _dyld_lookup_and_bind() */
-#define STRINGIFY(a) # a
 #define DECLARE_VAR(var, type)					\
         static type * var ## _pointer = 0
 #define DECLARE_PROGNAME(var, type)				\
         static type * var ## _pointer = 0;			\
         static type _priv_ ## var = 0
-#define SETUP_VAR(var)						\
-    if ( var ## _pointer == 0) {				\
-        _dyld_lookup_and_bind( STRINGIFY(_ ## var),		\
-                (unsigned long *) & var ## _pointer, 0);	\
-    }
-#define SETUP_PROGNAME(var)					\
-    if ( var ## _pointer == 0) {				\
-	if(NSIsSymbolNameDefined( STRINGIFY(_ ## var) ))	\
-	    _dyld_lookup_and_bind( STRINGIFY(_ ## var),		\
-                (unsigned long *) & var ## _pointer, 0);	\
-	else {							\
-	    char *progname = _dyld_get_image_name(0);		\
-	    if(_priv_ ## var = strrchr(progname, '/'))		\
-		_priv_ ## var ++;				\
-	    else						\
-		_priv_ ## var = progname;			\
-	    var ## _pointer = & _priv_ ## var;			\
-	}							\
-    }
 #define USE_VAR(var) (var ## _pointer)
 #else
 #define DECLARE_VAR(var, type) extern type var
 #define DECLARE_PROGNAME(var, type) DECLARE_VAR(var, type)
-#define SETUP_VAR(var)
-#define SETUP_PROGNAME(var) SETUP_VAR(var)
 #define USE_VAR(var) (& var)
 #endif
 
@@ -70,27 +48,22 @@ DECLARE_VAR(_mh_execute_header, struct mach_header);
 DECLARE_PROGNAME(__progname, char *);
 
 char ***_NSGetArgv(void) {
-    SETUP_VAR(NXArgv);
     return(USE_VAR(NXArgv));
 }
 
 int *_NSGetArgc(void) {
-    SETUP_VAR(NXArgc);
     return(USE_VAR(NXArgc));
 }
 
 char ***_NSGetEnviron(void) {
-    SETUP_VAR(environ);
     return(USE_VAR(environ));
 }
 
 char **_NSGetProgname(void) {
-    SETUP_PROGNAME(__progname);
     return(USE_VAR(__progname));
 }
 
 struct mach_header *_NSGetMachExecuteHeader(void) {
-    SETUP_VAR(_mh_execute_header);
     return(USE_VAR(_mh_execute_header));
 }
 
@@ -104,6 +77,10 @@ struct ProgramVars
     char**	__prognamePtr;
 };
 
+
+#define SUPPORT_PRE_GM_10_5_EXECUTABLES (__ppc__ || __i386__)
+
+
 /*
  * dyld calls libSystem_initializer() and passes it a ProgramVars struct containing pointers to the
  * main executable's NXArg* global variables. libSystem_initializer() calls __libc_init() which calls
@@ -111,10 +88,12 @@ struct ProgramVars
  */
 void __attribute__((visibility("hidden")))
 _program_vars_init(const struct ProgramVars* vars) {
+#if SUPPORT_PRE_GM_10_5_EXECUTABLES
     // to support transitional 10.5 main executables that don't have extended __dyld section and instead call _NSSetProgramVars,  
     // don't overwrite values set by _NSSetProgramVars() 
     if ( NXArgv_pointer != NULL )
 	return;
+#endif
     NXArgv_pointer		= vars->NXArgvPtr;
     NXArgc_pointer		= vars->NXArgcPtr;
     environ_pointer		= vars->environPtr;
@@ -122,6 +101,7 @@ _program_vars_init(const struct ProgramVars* vars) {
     _mh_execute_header_pointer	= vars->mh;
 }
 
+#if SUPPORT_PRE_GM_10_5_EXECUTABLES
 /*
  * This is only called by main executables built with pre 10-5 GM crt1.10.5.o.  In those programs, 
  * there is no extended __dyld section, dyld cannot tell _program_vars_init() where the real program
@@ -134,8 +114,10 @@ void _NSSetProgramVars(int* crt_argc, char*** crt_argv, char*** crt_environ, str
     __progname_pointer		= crt_progname;
     _mh_execute_header_pointer	= crt_mh;
 }
-#endif
+#endif 
+#endif /* __DYNAMIC__ */
 
+#if __ppc__
 /*
  * Fix for Radar bug 2200596 --
  * EH symbol definitions for gcc 2.7.2.x implementation of
@@ -165,3 +147,5 @@ void *__eh_value_gcc_272 = (void *)0;
 
 /* This is what egcs uses for its global data pointer */
 void *__eh_global_dataptr = (void *)0;
+#endif /* __ppc__ */
+

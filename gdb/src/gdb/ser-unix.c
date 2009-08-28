@@ -453,12 +453,14 @@ wait_for (struct serial *scb, int timeout)
 	numfds = select (scb->fd + 1, &readfds, 0, 0, 0);
 
       if (numfds <= 0)
-	if (numfds == 0)
-	  return SERIAL_TIMEOUT;
-	else if (errno == EINTR)
-	  continue;
-	else
-	  return SERIAL_ERROR;	/* Got an error from select or poll */
+        {
+	  if (numfds == 0)
+	    return SERIAL_TIMEOUT;
+	  else if (errno == EINTR)
+	    continue;
+	  else
+	    return SERIAL_ERROR;	/* Got an error from select or poll */
+        }
 
       return 0;
     }

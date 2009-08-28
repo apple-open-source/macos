@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,15 +31,17 @@ NSString *const ODSessionProxyAddress       = @"ProxyAddress";
 NSString *const ODSessionProxyPort          = @"ProxyPort";
 NSString *const ODSessionProxyUsername      = @"ProxyUsername";
 NSString *const ODSessionProxyPassword      = @"ProxyPassword";
-NSString *const ODFrameworkErrorDomain      = @"OpenDirectoryFramework";
+NSString *const ODFrameworkErrorDomain      = @"com.apple.OpenDirectory";
 
 extern void *_ODQueryGetDelegate( ODQueryRef inQueryRef );
 extern void *_ODQueryGetPredicate( ODQueryRef inQueryRef );
+extern void *_ODQueryGetOperationQueue( ODQueryRef inQueryRef );
 extern void _ODQuerySetDelegate( ODQueryRef inQueryRef, void *inDelegate );
 extern void _ODQuerySetPredicate( ODQueryRef inQueryRef, void *inPredicate );
-extern Boolean _ODSessionInit( ODSessionRef inSession, CFDictionaryRef inOptions, CFErrorRef *outError );
-extern Boolean _ODNodeInitWithType( ODNodeRef inNodeRef, ODSessionRef inSessionRef, ODNodeType inType, CFErrorRef *outError );
-extern Boolean _ODNodeInitWithName( CFAllocatorRef inAllocator, ODNodeRef inNodeRef, ODSessionRef inDirRef, CFStringRef inNodeName, CFErrorRef *outError );
+extern void _ODQuerySetOperationQueue( ODQueryRef inQueryRef, void *inQueue );
+extern bool _ODSessionInit( ODSessionRef inSession, CFDictionaryRef inOptions, CFErrorRef *outError );
+extern bool _ODNodeInitWithType( ODNodeRef inNodeRef, ODSessionRef inSessionRef, ODNodeType inType, CFErrorRef *outError );
+extern bool _ODNodeInitWithName( CFAllocatorRef inAllocator, ODNodeRef inNodeRef, ODSessionRef inDirRef, CFStringRef inNodeName, CFErrorRef *outError );
 extern ODSessionRef _ODSessionGetShared( void );
 extern CFDictionaryRef _ODRecordGetDictionary( ODRecordRef inRecordRef );
 
@@ -61,7 +63,8 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
         
         if( nil != delegate )
         {
-            if( [delegate respondsToSelector:@selector(results:forQuery:error:)] == YES )
+            // need to continue supporting old delegate API (results:forQuery:error:)
+            if( [delegate conformsToProtocol:@protocol(ODQueryDelegate)] || [delegate respondsToSelector:@selector(results:forQuery:error:)] )
             {
                 NSArray     *results = (inResults != NULL ? (NSArray *) CFArrayCreateCopy(kCFAllocatorDefault, inResults) : nil);
                 NSError     *error   = (NSError *) inError;
@@ -76,7 +79,10 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
                     // need to use predicate against results before we pass to delegate
                 }
                 
-                [delegate results: [NSMakeCollectable(results) autorelease] forQuery: odQuery error: NSMakeCollectable(newErr)];
+                if ( [delegate conformsToProtocol:@protocol(ODQueryDelegate)] )
+                    [delegate query: odQuery foundResults: [NSMakeCollectable(results) autorelease] error: NSMakeCollectable(newErr)];
+                else
+                    [delegate results: [NSMakeCollectable(results) autorelease] forQuery: odQuery error: NSMakeCollectable(newErr)];
             }
         }
     }
@@ -84,6 +90,25 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
     {
     }
     
+    [pool release];
+}
+
+static void operationCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef inError, void *inUserInfo )
+{
+    NSAutoreleasePool *pool = [NSAutoreleasePool new];
+    NSOperationQueue *queue = (NSOperationQueue *) _ODQueryGetOperationQueue( inUserInfo );
+
+    // retain/release these. inQuery/inUserInfo should be safe, since if the query goes away we have bigger problems
+    if (inResults) CFRetain(inResults);
+    if (inError) CFRetain(inError);
+
+    [queue addOperationWithBlock:^{
+        queryCallback(inQuery, inResults, inError, inUserInfo );
+
+        if (inResults) CFRelease(inResults);
+        if (inError) CFRelease(inError);
+    }];
+
     [pool release];
 }
 
@@ -116,7 +141,7 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
 {
     static int __done = 0;
     
-    if (!__done)
+    if ( OSAtomicCompareAndSwapIntBarrier(0, 1, &__done) != 0 )
     {
         __done = 1;
         ODSessionGetTypeID();
@@ -187,7 +212,7 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
     return NSMakeCollectable(self);
 }
 
-- (NSArray *)nodeNames:(NSError **)outError
+- (NSArray *)nodeNamesAndReturnError:(NSError **)outError;
 {
     NSArray *result = nil;
     
@@ -222,9 +247,9 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
     return (BOOL)CFEqual( (CFTypeRef)self, (CFTypeRef)object );
 }
 
-- (unsigned)hash
+- (NSUInteger)hash
 { 
-    return (unsigned)CFHash((CFTypeRef)self);
+    return (NSUInteger)CFHash((CFTypeRef)self);
 }
 
 - (id)retain
@@ -238,9 +263,9 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
     CFRelease((CFTypeRef)self);
 }
 
-- (unsigned)retainCount
+- (NSUInteger)retainCount
 {
-    return (unsigned)CFGetRetainCount((CFTypeRef)self);
+    return (NSUInteger)CFGetRetainCount((CFTypeRef)self);
 }
 
 - (void)finalize
@@ -339,9 +364,9 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
 - (id)init
 {
     if( [self class] == [NSODNode class] )
-        _ODNodeInitWithType( (ODNodeRef) self, NULL, kODTypeAuthenticationSearchNode, NULL );
+        _ODNodeInitWithType( (ODNodeRef) self, NULL, kODNodeTypeAuthentication, NULL );
     else
-        _internal = (void *) ODNodeCreateWithNodeType( NULL, NULL, kODTypeAuthenticationSearchNode, NULL );
+        _internal = (void *) ODNodeCreateWithNodeType( NULL, NULL, kODNodeTypeAuthentication, NULL );
     
     return NSMakeCollectable(self);
 }
@@ -476,10 +501,10 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
     return [NSMakeCollectable(info) autorelease];
 }
 
-- (NSArray *)subnodeNames:(NSError **)outError
+- (NSArray *)subnodeNamesAndReturnError:(NSError **)outError;
 {
     NSArray *results =  nil;
-
+	
     if( [self class] == [NSODNode class] ) 
         results = (NSArray *) ODNodeCopySubnodeNames( (ODNodeRef) self, (CFErrorRef *) outError );
     else
@@ -487,11 +512,16 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
     
     if( NULL != outError && NULL != (*outError) )
         [NSMakeCollectable(*outError) autorelease];
-
+	
     return [NSMakeCollectable(results) autorelease];
 }
 
-- (NSArray *)unreachableSubnodeNames:(NSError **)outError
+- (NSArray *)subnodeNames:(NSError **)outError
+{
+	return [self subnodeNamesAndReturnError: outError];
+}
+
+- (NSArray *)unreachableSubnodeNamesAndReturnError:(NSError **)outError
 {
     NSArray *results;
     
@@ -506,7 +536,12 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
     return [NSMakeCollectable(results) autorelease];
 }
 
-- (NSArray *)supportedRecordTypes:(NSError **)outError
+- (NSArray *)unreachableSubnodeNames:(NSError **)outError
+{
+	return [self unreachableSubnodeNamesAndReturnError: outError];
+}
+
+- (NSArray *)supportedRecordTypesAndReturnError:(NSError **)outError
 {
     NSArray  *types;
 
@@ -521,14 +556,19 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
     return [NSMakeCollectable(types) autorelease];
 }
 
-- (NSArray *)supportedAttributesForRecordType:(NSString *)inRecordType error:(NSError **)outError
+- (NSArray *)supportedRecordTypes:(NSError **)outError
+{
+	return [self supportedRecordTypesAndReturnError: outError];
+}
+
+- (NSArray *)supportedAttributesForRecordType:(ODRecordType)inRecordType error:(NSError **)outError
 {
     NSArray  *attribs;
 
     if( [self class] == [NSODNode class] )
-        attribs = (NSArray *) ODNodeCopySupportedAttributes( (ODNodeRef) self, (CFStringRef) inRecordType, (CFErrorRef *) outError );
+        attribs = (NSArray *) ODNodeCopySupportedAttributes( (ODNodeRef) self, inRecordType, (CFErrorRef *) outError );
     else
-        attribs = (NSArray *) ODNodeCopySupportedAttributes( (ODNodeRef) _internal, (CFStringRef) inRecordType, (CFErrorRef *) outError );
+        attribs = (NSArray *) ODNodeCopySupportedAttributes( (ODNodeRef) _internal, inRecordType, (CFErrorRef *) outError );
 
     if( NULL != outError && NULL != (*outError) )
         [NSMakeCollectable(*outError) autorelease];
@@ -536,16 +576,16 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
     return [NSMakeCollectable(attribs) autorelease];
 }
 
-- (BOOL)setCredentialsWithRecordType:(NSString *)inRecordType recordName:(NSString *)inRecordName password:(NSString *)inPassword
+- (BOOL)setCredentialsWithRecordType:(ODRecordType)inRecordType recordName:(NSString *)inRecordName password:(NSString *)inPassword
                                error:(NSError **)outError
 {
     BOOL    bResult;
     
     if( [self class] == [NSODNode class] )
-        bResult = ODNodeSetCredentials( (ODNodeRef) self, (CFStringRef) inRecordType, (CFStringRef) inRecordName, (CFStringRef) inPassword, 
+        bResult = ODNodeSetCredentials( (ODNodeRef) self, inRecordType, (CFStringRef) inRecordName, (CFStringRef) inPassword, 
                                         (CFErrorRef *) outError );
     else
-        bResult = ODNodeSetCredentials( (ODNodeRef) _internal, (CFStringRef) inRecordType, (CFStringRef) inRecordName, (CFStringRef) inPassword, 
+        bResult = ODNodeSetCredentials( (ODNodeRef) _internal, inRecordType, (CFStringRef) inRecordName, (CFStringRef) inPassword, 
                                         (CFErrorRef *) outError );
 
     if( NULL != outError && NULL != (*outError) )
@@ -554,17 +594,17 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
     return bResult;
 }
 
-- (BOOL)setCredentialsWithRecordType:(NSString *)inRecordType authenticationType:(NSString *)inType 
+- (BOOL)setCredentialsWithRecordType:(ODRecordType)inRecordType authenticationType:(ODAuthenticationType)inType 
                  authenticationItems:(NSArray *)inItems continueItems:(NSArray **)outItems
                              context:(id *)outContext error:(NSError **)outError
 {
     BOOL bResult;
     
     if( [self class] == [NSODNode class] )
-        bResult = ODNodeSetCredentialsExtended( (ODNodeRef) self, (CFStringRef) inRecordType, (CFStringRef) inType,
+        bResult = ODNodeSetCredentialsExtended( (ODNodeRef) self, inRecordType, inType,
                                                 (CFArrayRef) inItems, (CFArrayRef *) outItems, (ODContextRef *) outContext, (CFErrorRef *) outError );
     else
-        bResult = ODNodeSetCredentialsExtended( (ODNodeRef) _internal, (CFStringRef) inRecordType, (CFStringRef) inType,
+        bResult = ODNodeSetCredentialsExtended( (ODNodeRef) _internal, inRecordType, inType,
                                                 (CFArrayRef) inItems, (CFArrayRef *) outItems, (ODContextRef *) outContext, (CFErrorRef *) outError );
 
     if( NULL != outError && NULL != (*outError) )
@@ -588,16 +628,16 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
     return bResult;
 }
 
-- (ODRecord *)createRecordWithRecordType:(NSString *)inRecordType name:(NSString *)inRecordName attributes:(NSDictionary *)inAttributes
+- (ODRecord *)createRecordWithRecordType:(ODRecordType)inRecordType name:(NSString *)inRecordName attributes:(NSDictionary *)inAttributes
                                    error:(NSError **)outError
 {
     ODRecord *record;
 
     if( [self class] == [NSODNode class] )
-        record = (ODRecord *) ODNodeCreateRecord( (ODNodeRef) self, (CFStringRef) inRecordType, (CFStringRef) inRecordName, 
+        record = (ODRecord *) ODNodeCreateRecord( (ODNodeRef) self, inRecordType, (CFStringRef) inRecordName, 
                                                   (CFDictionaryRef) inAttributes, (CFErrorRef *) outError );
     else
-        record = (ODRecord *) ODNodeCreateRecord( (ODNodeRef) _internal, (CFStringRef) inRecordType, (CFStringRef) inRecordName, 
+        record = (ODRecord *) ODNodeCreateRecord( (ODNodeRef) _internal, inRecordType, (CFStringRef) inRecordName, 
                                                   (CFDictionaryRef) inAttributes, (CFErrorRef *) outError );
 
     if( NULL != outError && NULL != (*outError) )
@@ -606,16 +646,16 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
     return [NSMakeCollectable(record) autorelease];
 }
 
-- (ODRecord *)recordWithRecordType:(NSString *)inRecordType name:(NSString *)inRecordName attributes:(NSArray *)inAttributes
+- (ODRecord *)recordWithRecordType:(ODRecordType)inRecordType name:(NSString *)inRecordName attributes:(NSArray *)inAttributes
                              error:(NSError **)outError
 {
     ODRecord *record    = nil;
     
     if( [self class] == [NSODNode class] )
-        record = (ODRecord *) ODNodeCopyRecord( (ODNodeRef) self, (CFStringRef) inRecordType, (CFStringRef) inRecordName, 
+        record = (ODRecord *) ODNodeCopyRecord( (ODNodeRef) self, inRecordType, (CFStringRef) inRecordName, 
                                                 (CFArrayRef) inAttributes, (CFErrorRef *) outError );
     else
-        record = (ODRecord *) ODNodeCopyRecord( (ODNodeRef) _internal, (CFStringRef) inRecordType, (CFStringRef) inRecordName, 
+        record = (ODRecord *) ODNodeCopyRecord( (ODNodeRef) _internal, inRecordType, (CFStringRef) inRecordName, 
                                                 (CFArrayRef) inAttributes, (CFErrorRef *) outError );
     
     if( NULL != outError && NULL != (*outError) )
@@ -661,9 +701,9 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
     return (BOOL)CFEqual((CFTypeRef)self, (CFTypeRef)object);
 }
 
-- (unsigned)hash
+- (NSUInteger)hash
 { 
-    return (unsigned)CFHash((CFTypeRef)self);
+    return (NSUInteger)CFHash((CFTypeRef)self);
 }
 
 - (id)retain
@@ -677,9 +717,9 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
     CFRelease( (CFTypeRef)self );
 }
 
-- (unsigned)retainCount
+- (NSUInteger)retainCount
 {
-    return (unsigned)CFGetRetainCount( (CFTypeRef)self );
+    return (NSUInteger)CFGetRetainCount( (CFTypeRef)self );
 }
 
 - (void)finalize
@@ -737,15 +777,14 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
     return bResult;
 }
 
-- (BOOL)setNodeCredentialsWithRecordType:(NSString *)inRecordType authenticationType:(NSString *)inType 
+- (BOOL)setNodeCredentialsWithRecordType:(ODRecordType)inRecordType authenticationType:(ODAuthenticationType)inType 
                      authenticationItems:(NSArray *)inItems continueItems:(NSArray **)outItems
                                  context:(id *)outContext error:(NSError **)outError
 {
     BOOL    bResult = NO;
     
     if( [self class] == [NSODRecord class] )
-        bResult = ODRecordSetNodeCredentialsExtended( (ODRecordRef) self, (CFStringRef) inRecordType, 
-                                                      (CFStringRef) inType, (CFArrayRef) inItems,
+        bResult = ODRecordSetNodeCredentialsExtended( (ODRecordRef) self, inRecordType, inType, (CFArrayRef) inItems,
                                                       (CFArrayRef *) outItems, (ODContextRef *) outContext, (CFErrorRef *) outError );
     else
         NSRequestConcreteImplementation( self, _cmd, [ODRecord class] );
@@ -771,7 +810,7 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
     return bResult;
 }
 
-- (NSDictionary *)passwordPolicy:(NSError **)outError
+- (NSDictionary *)passwordPolicyAndReturnError:(NSError **)outError
 {
     NSDictionary *policy = nil;
     
@@ -784,6 +823,11 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
         [NSMakeCollectable(*outError) autorelease];
 
     return [NSMakeCollectable(policy) autorelease];
+}
+
+- (NSDictionary *)passwordPolicy:(NSError **)outError
+{
+	return [self passwordPolicyAndReturnError: outError];
 }
 
 - (BOOL)verifyPassword:(NSString *)inPassword error:(NSError **)outError
@@ -801,13 +845,13 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
     return bResult;
 }
 
-- (BOOL)verifyExtendedWithAuthenticationType:(NSString *)inType authenticationItems:(NSArray *)inItems 
+- (BOOL)verifyExtendedWithAuthenticationType:(ODAuthenticationType)inType authenticationItems:(NSArray *)inItems 
                                continueItems:(NSArray **)outItems context:(id *)outContext error:(NSError **)outError
 {
     BOOL    bResult = NO;
     
     if( [self class] == [NSODRecord class] )
-        bResult = ODRecordVerifyPasswordExtended( (ODRecordRef) self, (CFStringRef) inType, (CFArrayRef) inItems,
+        bResult = ODRecordVerifyPasswordExtended( (ODRecordRef) self, inType, (CFArrayRef) inItems,
                                                   (CFArrayRef *) outItems, (ODContextRef *) outContext, (CFErrorRef *) outError );
     else
         NSRequestConcreteImplementation( self, _cmd, [ODRecord class] );
@@ -833,7 +877,7 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
     return bResult;
 }
 
-- (BOOL)synchronize:(NSError **)outError
+- (BOOL)synchronizeAndReturnError:(NSError **)outError
 {
     BOOL    bResult = NO;
     
@@ -863,12 +907,12 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
     return [NSMakeCollectable(attribs) autorelease];
 }
 
-- (NSArray *)valuesForAttribute:(NSString *)inAttribute error:(NSError **)outError
+- (NSArray *)valuesForAttribute:(ODAttributeType)inAttribute error:(NSError **)outError
 {
     NSArray *attribute = nil;
 
     if( [self class] == [NSODRecord class] )
-        attribute = (NSArray *)ODRecordCopyValues( (ODRecordRef) self, (CFStringRef) inAttribute, (CFErrorRef *) outError );
+        attribute = (NSArray *)ODRecordCopyValues( (ODRecordRef) self, inAttribute, (CFErrorRef *) outError );
     else
         NSRequestConcreteImplementation( self, _cmd, [ODRecord class] );
     
@@ -898,7 +942,7 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
     return nil;
 }
 
-- (BOOL)deleteRecord:(NSError **)outError
+- (BOOL)deleteRecordAndReturnError:(NSError **)outError
 {
     BOOL    bResult = NO;
     
@@ -913,14 +957,24 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
     return bResult;
 }
 
-- (BOOL)setValues:(NSArray *)inValues forAttribute:(NSString *)inAttributeName error:(NSError **)outError
+- (BOOL)deleteRecord:(NSError **)outError
+{
+	return [self deleteRecordAndReturnError: outError];
+}
+
+- (BOOL)setValues:(NSArray *)inValues forAttribute:(ODAttributeType)inAttributeName error:(NSError **)outError
+{
+	return [self setValue: inValues forAttribute: inAttributeName error: outError];
+}
+
+- (BOOL)setValue:(id)inValues forAttribute:(ODAttributeType)inAttributeName error:(NSError **)outError
 {
     BOOL    bResult = NO;
     
     if( nil != inValues )
     {
         if( [self class] == [NSODRecord class] )
-            bResult = ODRecordSetValues( (ODRecordRef) self, (CFStringRef) inAttributeName, (CFTypeRef) inValues, (CFErrorRef *) outError );
+            bResult = ODRecordSetValue( (ODRecordRef) self, inAttributeName, (CFTypeRef) inValues, (CFErrorRef *) outError );
         else
             NSRequestConcreteImplementation( self, _cmd, [ODRecord class] );
     }
@@ -931,13 +985,13 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
     return bResult;
 }
 
-- (BOOL)removeValuesForAttribute:(NSString *)inAttribute error:(NSError **)outError
+- (BOOL)removeValuesForAttribute:(ODAttributeType)inAttribute error:(NSError **)outError
 {
     NSArray *tempArray  = [[NSArray alloc] init];
     BOOL    bResult     = NO;
     
     if( [self class] == [NSODRecord class] )
-        bResult = ODRecordSetValues( (ODRecordRef) self, (CFStringRef) inAttribute, (CFArrayRef) tempArray, (CFErrorRef *) outError );
+        bResult = ODRecordSetValue( (ODRecordRef) self, inAttribute, (CFArrayRef) tempArray, (CFErrorRef *) outError );
     else
         NSRequestConcreteImplementation( self, _cmd, [ODRecord class] );
 
@@ -948,12 +1002,12 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
     return bResult;
 }
 
-- (BOOL)addValue:(id)inValue toAttribute:(NSString *)inAttribute error:(NSError **)outError
+- (BOOL)addValue:(id)inValue toAttribute:(ODAttributeType)inAttribute error:(NSError **)outError
 {
     BOOL    bResult = NO;
     
     if( [self class] == [NSODRecord class] )
-        bResult = ODRecordAddValue( (ODRecordRef) self, (CFStringRef) inAttribute, (CFTypeRef) inValue, (CFErrorRef *) outError );
+        bResult = ODRecordAddValue( (ODRecordRef) self, inAttribute, (CFTypeRef) inValue, (CFErrorRef *) outError );
     else
         NSRequestConcreteImplementation( self, _cmd, [ODRecord class] );
 
@@ -963,12 +1017,12 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
     return bResult;
 }
 
-- (BOOL)removeValue:(id)inValue fromAttribute:(NSString *)inAttribute error:(NSError **)outError
+- (BOOL)removeValue:(id)inValue fromAttribute:(ODAttributeType)inAttribute error:(NSError **)outError
 {
     BOOL    bResult = NO;
     
     if( [self class] == [NSODRecord class] )
-        bResult = ODRecordRemoveValue( (ODRecordRef) self, (CFStringRef) inAttribute, (CFTypeRef) inValue, (CFErrorRef *) outError );
+        bResult = ODRecordRemoveValue( (ODRecordRef) self, inAttribute, (CFTypeRef) inValue, (CFErrorRef *) outError );
     else
         NSRequestConcreteImplementation( self, _cmd, [ODRecord class] );
 
@@ -1029,6 +1083,26 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
 
 @end
 
+@implementation ODRecord (PrivateExtensions)
+
+- (BOOL)isMemberRecordRefresh:(ODRecord *)inRecord error:(NSError **)outError
+{
+    BOOL    bResult = NO;
+    
+    if( [self class] == [NSODRecord class] )
+        return ODRecordContainsMemberRefresh( (ODRecordRef) self, (ODRecordRef) inRecord, (CFErrorRef *) outError );
+    else
+        NSRequestConcreteImplementation( self, _cmd, [ODRecord class] );
+	
+    if( NULL != outError && NULL != (*outError) )
+        [NSMakeCollectable(*outError) autorelease];
+	
+    return bResult;
+}
+
+@end
+
+
 @implementation ODRecord (KeyValueCoding)
 
 - (id)valueForUndefinedKey:(NSString *)key
@@ -1059,9 +1133,9 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
     return (BOOL)CFEqual( (CFTypeRef)self, (CFTypeRef)object );
 }
 
-- (unsigned)hash
+- (NSUInteger)hash
 { 
-    return (unsigned)CFHash( (CFTypeRef)self );
+    return (NSUInteger)CFHash( (CFTypeRef)self );
 }
 
 - (id)copy
@@ -1080,9 +1154,9 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
     CFRelease((CFTypeRef)self);
 }
 
-- (unsigned)retainCount
+- (NSUInteger)retainCount
 {
-    return (unsigned)CFGetRetainCount((CFTypeRef)self);
+    return (NSUInteger)CFGetRetainCount((CFTypeRef)self);
 }
 
 - (void)finalize
@@ -1128,9 +1202,9 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
     return (BOOL)CFEqual( (CFTypeRef)self, (CFTypeRef)object );
 }
 
-- (unsigned)hash
+- (NSUInteger)hash
 { 
-    return (unsigned)CFHash( (CFTypeRef)self );
+    return (NSUInteger)CFHash( (CFTypeRef)self );
 }
 
 - (id)copy
@@ -1149,9 +1223,9 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
     CFRelease((CFTypeRef)self);
 }
 
-- (unsigned)retainCount
+- (NSUInteger)retainCount
 {
-    return (unsigned)CFGetRetainCount((CFTypeRef)self);
+    return (NSUInteger)CFGetRetainCount((CFTypeRef)self);
 }
 
 - (void)finalize
@@ -1219,13 +1293,13 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
     [super dealloc];
 }
 
-+ (ODQuery *)queryWithNode:(ODNode *)inNode forRecordTypes:(id)inRecordTypeOrList attribute:(NSString *)inAttribute
++ (ODQuery *)queryWithNode:(ODNode *)inNode forRecordTypes:(id)inRecordTypeOrList attribute:(ODAttributeType)inAttribute
                  matchType:(ODMatchType)inMatchType queryValues:(id)inQueryValueOrList 
           returnAttributes:(id)inReturnAttributeOrList maximumResults:(NSInteger)inMaximumResults
                      error:(NSError **)outError
 {
     ODQuery *query = (ODQuery *) ODQueryCreateWithNode( NULL, (ODNodeRef) inNode, (CFTypeRef) inRecordTypeOrList,
-                                                        (CFStringRef) inAttribute, inMatchType, (CFTypeRef) inQueryValueOrList,
+                                                        inAttribute, inMatchType, (CFTypeRef) inQueryValueOrList,
                                                         (CFTypeRef) inReturnAttributeOrList, (CFIndex) inMaximumResults, 
                                                         (CFErrorRef *) &outError );
     
@@ -1239,6 +1313,7 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
           returnAttributes:(id)inReturnAttributeOrList maximumResults:(NSInteger)inMaximumResults
                      error:(NSError **)outError
 {
+#if 0
     ODQuery *query = [[ODQuery alloc] initWithNode: inNode usingPredicate: inPredicate returnAttributes: inReturnAttributeOrList
                                     maximumResults: inMaximumResults error: outError];
 
@@ -1246,9 +1321,12 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
         [NSMakeCollectable(*outError) autorelease];
     
     return [NSMakeCollectable(query) autorelease];
+#else
+	return nil;
+#endif
 }
 
-- (id)initWithNode:(ODNode *)inNode forRecordTypes:(id)inRecordTypeOrList attribute:(NSString *)inAttribute
+- (id)initWithNode:(ODNode *)inNode forRecordTypes:(id)inRecordTypeOrList attribute:(ODAttributeType)inAttribute
          matchType:(ODMatchType)inMatchType queryValues:(id)inQueryValueOrList 
   returnAttributes:(id)inReturnAttributeOrList maximumResults:(NSInteger)inMaximumResults error:(NSError **)outError
 {
@@ -1256,12 +1334,12 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
         (*outError) = NULL;
 
     if( [self class] == [NSODQuery class] )
-        _ODQueryInitWithNode( (ODQueryRef) self, (ODNodeRef) inNode, (CFTypeRef) inRecordTypeOrList, (CFStringRef) inAttribute,
+        _ODQueryInitWithNode( (ODQueryRef) self, (ODNodeRef) inNode, (CFTypeRef) inRecordTypeOrList, inAttribute,
                               inMatchType, (CFTypeRef) inQueryValueOrList, (CFTypeRef) inReturnAttributeOrList,
                               (CFIndex) inMaximumResults, (CFErrorRef *) outError );
     else
         _internal = ODQueryCreateWithNode( NULL, (ODNodeRef) inNode, (CFTypeRef) inRecordTypeOrList,
-                                           (CFStringRef) inAttribute, inMatchType, (CFTypeRef) inQueryValueOrList,
+                                           inAttribute, inMatchType, (CFTypeRef) inQueryValueOrList,
                                            (CFTypeRef) inReturnAttributeOrList, (CFIndex) inMaximumResults, (CFErrorRef *) outError );
 
     if( NULL != outError && NULL != (*outError) )
@@ -1308,9 +1386,9 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
     NSArray  *results;
 
     if( [self class] == [NSODQuery class] )
-        results = (NSArray *) ODQueryCopyResults( (ODQueryRef) self, (Boolean) inPartialResults, (CFErrorRef *) outError );
+        results = (NSArray *) ODQueryCopyResults( (ODQueryRef) self, (bool) inPartialResults, (CFErrorRef *) outError );
     else
-        results = (NSArray *) ODQueryCopyResults( (ODQueryRef) _internal, (Boolean) inPartialResults, (CFErrorRef *) outError );
+        results = (NSArray *) ODQueryCopyResults( (ODQueryRef) _internal, (bool) inPartialResults, (CFErrorRef *) outError );
 
     if( NULL != outError && NULL != (*outError) )
         [NSMakeCollectable(*outError) autorelease];
@@ -1364,6 +1442,35 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
         ODQuerySynchronize( (ODQueryRef) _internal );
 }
 
+- (NSOperationQueue *)operationQueue
+{
+    if( [self class] == [NSODQuery class] )
+        return _ODQueryGetOperationQueue( (ODQueryRef)self );
+    else
+        return _ODQueryGetOperationQueue( (ODQueryRef)_internal );
+}
+
+- (void)setOperationQueue:(NSOperationQueue *)inQueue
+{
+    dispatch_queue_t dq = dispatch_queue_create(NULL, NULL);
+
+    if( [self class] == [NSODQuery class] )
+    {
+        _ODQuerySetOperationQueue( (ODQueryRef) self, inQueue );
+        ODQuerySetCallback( (ODQueryRef) self, operationCallback, self );
+        ODQuerySetDispatchQueue( (ODQueryRef) self, dq );
+    }
+    else
+    {
+        _ODQuerySetOperationQueue( (ODQueryRef) _internal, inQueue );
+        ODQuerySetCallback( (ODQueryRef) _internal, operationCallback, self );
+        ODQuerySetDispatchQueue( (ODQueryRef) _internal, dq );
+    }
+
+    // retained by underying ODQuery object
+    dispatch_release(dq);
+}
+
 @end
 
 @implementation NSODQuery
@@ -1380,9 +1487,9 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
     return (BOOL)CFEqual( (CFTypeRef)self, (CFTypeRef)object );
 }
 
-- (unsigned)hash
+- (NSUInteger)hash
 { 
-    return (unsigned)CFHash( (CFTypeRef)self );
+    return (NSUInteger)CFHash( (CFTypeRef)self );
 }
 
 - (id)copy
@@ -1401,9 +1508,9 @@ static void queryCallback( ODQueryRef inQuery, CFArrayRef inResults, CFErrorRef 
     CFRelease((CFTypeRef)self);
 }
 
-- (unsigned)retainCount
+- (NSUInteger)retainCount
 {
-    return (unsigned)CFGetRetainCount((CFTypeRef)self);
+    return (NSUInteger)CFGetRetainCount((CFTypeRef)self);
 }
 
 - (void)finalize

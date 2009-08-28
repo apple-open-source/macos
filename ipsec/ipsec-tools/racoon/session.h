@@ -32,6 +32,8 @@
 #ifndef _SESSION_H
 #define _SESSION_H
 
+#include "handler.h"
+
 extern int session __P((void));
 extern RETSIGTYPE signal_handler __P((int));
 extern void check_auto_exit __P((void));

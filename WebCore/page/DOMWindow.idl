@@ -188,33 +188,81 @@ module window {
 
         // Events
         attribute EventListener onabort;
+        attribute EventListener onbeforeunload;
         attribute EventListener onblur;
+        attribute EventListener oncanplay;
+        attribute EventListener oncanplaythrough;
         attribute EventListener onchange;
         attribute EventListener onclick;
+        attribute EventListener oncontextmenu;
         attribute EventListener ondblclick;
+        attribute EventListener ondrag;
+        attribute EventListener ondragend;
+        attribute EventListener ondragenter;
+        attribute EventListener ondragleave;
+        attribute EventListener ondragover;
+        attribute EventListener ondragstart;
+        attribute EventListener ondrop;
+        attribute EventListener ondurationchange;
+        attribute EventListener onemptied;
+        attribute EventListener onended;
         attribute EventListener onerror;
         attribute EventListener onfocus;
+        attribute EventListener oninput;
         attribute EventListener onkeydown;
         attribute EventListener onkeypress;
         attribute EventListener onkeyup;
         attribute EventListener onload;
+        attribute EventListener onloadeddata;
+        attribute EventListener onloadedmetadata;
+        attribute EventListener onloadstart;
+        attribute EventListener onmessage;
         attribute EventListener onmousedown;
         attribute EventListener onmousemove;
         attribute EventListener onmouseout;
         attribute EventListener onmouseover;
         attribute EventListener onmouseup;
         attribute EventListener onmousewheel;
-        attribute EventListener onreset;
+        attribute EventListener onoffline;
+        attribute EventListener ononline;
+        attribute EventListener onpause;
+        attribute EventListener onplay;
+        attribute EventListener onplaying;
+        attribute EventListener onprogress;
+        attribute EventListener onratechange;
         attribute EventListener onresize;
         attribute EventListener onscroll;
-        attribute EventListener onsearch;
+        attribute EventListener onseeked;
+        attribute EventListener onseeking;
         attribute EventListener onselect;
+        attribute EventListener onstalled;
+        attribute EventListener onstorage;
         attribute EventListener onsubmit;
+        attribute EventListener onsuspend;
+        attribute EventListener ontimeupdate;
         attribute EventListener onunload;
-        attribute EventListener onbeforeunload;
-        attribute EventListener onwebkitanimationstart;
-        attribute EventListener onwebkitanimationiteration;
+        attribute EventListener onvolumechange;
+        attribute EventListener onwaiting;
+
+        // Not implemented yet.
+        // attribute EventListener onafterprint;
+        // attribute EventListener onbeforeprint;
+        // attribute EventListener onformchange;
+        // attribute EventListener onforminput;
+        // attribute EventListener onhashchange;
+        // attribute EventListener oninvalid;
+        // attribute EventListener onpopstate;
+        // attribute EventListener onreadystatechange;
+        // attribute EventListener onredo;
+        // attribute EventListener onshow;
+        // attribute EventListener onundo;
+
+        // Webkit extensions
+        attribute EventListener onreset;
+        attribute EventListener onsearch;
         attribute EventListener onwebkitanimationend;
+        attribute EventListener onwebkitanimationiteration;
+        attribute EventListener onwebkitanimationstart;
         attribute EventListener onwebkittransitionend;
 
         // EventTarget interface
@@ -260,7 +308,7 @@ module window {
 
         // FIXME: Implement the commented-out global constructors for interfaces listed in DOM Level 3 Core specification.
         attribute DOMCoreExceptionConstructor DOMException;
-        attribute DOMStringListConstructor DOMStringList;
+//        attribute DOMStringListConstructor DOMStringList;
 //        attribute NameListConstructor NameList;
 //        attribute DOMImplementationListConstructor DOMImplementationList;
 //        attribute DOMImplementationSourceConstructor DOMImplementationSource;
@@ -301,6 +349,9 @@ module window {
         attribute HTMLBodyElementConstructor HTMLBodyElement;
         attribute HTMLButtonElementConstructor HTMLButtonElement;
         attribute HTMLCanvasElementConstructor HTMLCanvasElement;
+        attribute [Conditional=DATAGRID] HTMLDataGridElementConstructor HTMLDataGridElement;
+        attribute [Conditional=DATAGRID] HTMLDataGridCellElementConstructor HTMLDataGridCellElement;
+        attribute [Conditional=DATAGRID] HTMLDataGridColElementConstructor HTMLDataGridColElement;
         attribute HTMLDListElementConstructor HTMLDListElement;
         attribute HTMLDirectoryElementConstructor HTMLDirectoryElement;
         attribute HTMLDivElementConstructor HTMLDivElement;
@@ -424,13 +475,11 @@ module window {
         attribute StorageEventConstructor StorageEvent;
 #endif
 
-#if defined(ENABLE_VIDEO) && ENABLE_VIDEO
-        attribute [CustomGetter] HTMLAudioElementConstructor Audio; // Usable with the new operator
-        attribute HTMLAudioElementConstructor HTMLAudioElement;
-        attribute HTMLMediaElementConstructor HTMLMediaElement;
-        attribute HTMLVideoElementConstructor HTMLVideoElement;
-        attribute MediaErrorConstructor MediaError;
-#endif
+        attribute [CustomGetter,Conditional=VIDEO] HTMLAudioElementConstructor Audio; // Usable with the new operator
+        attribute [Conditional=VIDEO] HTMLAudioElementConstructor HTMLAudioElement;
+        attribute [Conditional=VIDEO] HTMLMediaElementConstructor HTMLMediaElement;
+        attribute [Conditional=VIDEO] HTMLVideoElementConstructor HTMLVideoElement;
+        attribute [Conditional=VIDEO] MediaErrorConstructor MediaError;
 
 #if defined(ENABLE_XPATH) && ENABLE_XPATH
         attribute XPathEvaluatorConstructor XPathEvaluator;
@@ -455,9 +504,8 @@ module window {
         attribute SVGTransformConstructor SVGTransform;
         attribute SVGUnitTypesConstructor SVGUnitTypes;
 //      attribute SVGZoomAndPanConstructor SVGZoomAndPan;
-#endif
 
-#if defined(ENABLE_SVG_FILTERS) && ENABLE_SVG_FILTERS
+#if defined(ENABLE_FILTERS) && ENABLE_FILTERS
         attribute SVGComponentTransferFunctionElementConstructor SVGComponentTransferFunctionElement;
         attribute SVGFEBlendElementConstructor SVGFEBlendElement;
         attribute SVGFEColorMatrixElementConstructor SVGFEColorMatrixElement;
@@ -466,6 +514,7 @@ module window {
         attribute SVGFEDisplacementMapElementConstructor SVGFEDisplacementMapElement;
 //      attribute SVGFEMorphologyElementConstructor SVGFEMorphologyElement;
         attribute SVGFETurbulenceElementConstructor SVGFETurbulenceElement;
+#endif
 #endif
 
 #endif // defined(LANGUAGE_JAVASCRIPT)

@@ -108,9 +108,7 @@ enum {
 
 typedef enum NewUserParamListType {
 	kNewUserParamsNone,
-	kNewUserParamsPolicy,
-	kNewUserParamsPrincipalName,
-	kNewUserParamsPrincipalNameAndPolicy
+	kNewUserParamsPolicy
 };
 
 typedef struct MethodMapEntry {
@@ -314,6 +312,16 @@ protected:
 														const char *inArg2Str,
 														char *inOutBuf,
 														unsigned long inBufLen );
+	SInt32				Reconnect					(	sPSContextData *inContext,
+														const char *userName);
+	PWServerError		SendFlushReadWithMutexWithRetry( sPSContextData *inContext,
+														const char *userName,
+														const char *inCommandStr,
+														const char *inArg1Str,
+														const char *inArg2Str,
+														char *inOutBuf,
+														unsigned long inBufLen );
+
 	
 	SInt32				GetServerListFromDSDiscovery(	CFMutableArrayRef inOutServerList );
 	

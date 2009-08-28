@@ -102,7 +102,7 @@
         <fo:block>
       This is a pre-release!
     </fo:block>
-        <fo:block>Copyright &#xA9; 2000 Red Hat, Inc., Daniel Mueth, and Alexander Kirillov</fo:block>
+        <fo:block>Copyright © 2000 Red Hat, Inc., Daniel Mueth, and Alexander Kirillov</fo:block>
         <fo:block>
           <fo:block>
             <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
@@ -218,7 +218,7 @@
          interested in joining the GDP team, you should join the
          <fo:basic-link external-destination="http://mail.gnome.org/mailman/listinfo/gnome-doc-list/">
          <fo:inline font-style="italic">gnome-doc-list mailing list</fo:inline> </fo:basic-link><fo:inline hyphenate="false"> [http://mail.gnome.org/mailman/listinfo/gnome-doc-list/]</fo:inline>.
-         Read <fo:basic-link internal-destination="gettingstarted">the section called &#x201C;Getting Started Writing GNOME Documentation&#x201D;</fo:basic-link>, for help selecting a
+         Read <fo:basic-link internal-destination="gettingstarted">the section called “Getting Started Writing GNOME Documentation”</fo:basic-link>, for help selecting a
          project to work on.  Feel free to introduce yourself on the
          gnome-doc-list mailing list and indicate which project you
          intend to work on, or else ask for suggestions of important
@@ -382,7 +382,7 @@
           people to make announcements and suggestions and to discuss
           issues in the comments section.
         </fo:block>
-            <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2786766">
+            <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2979832">
               <fo:block font-size="14pt" font-weight="bold" keep-with-next="always">Note</fo:block>
               <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
           Note that the information in the
@@ -409,7 +409,7 @@
         source nature of SGML. To contribute to the GDP you should
         learn to use DocBook.
       </fo:block>
-          <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2786849">
+          <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2979895">
             <fo:block font-size="14pt" font-weight="bold" keep-with-next="always">NOTE</fo:block>
             <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
           To get started writing for the GDP you do not need to rush
@@ -490,10 +490,10 @@
           DTD's.  To install the GDP custom DTD with PNG image support
           by hand:
         </fo:block>
-            <fo:list-block id="id2787254" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" provisional-distance-between-starts="1.5em" provisional-label-separation="0.2em">
-              <fo:list-item id="id2787263" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+            <fo:list-block id="id2980206" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" provisional-distance-between-starts="1.5em" provisional-label-separation="0.2em">
+              <fo:list-item id="id2980213" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
                 <fo:list-item-label end-indent="label-end()">
-                  <fo:block>&#x2022;</fo:block>
+                  <fo:block>•</fo:block>
                 </fo:list-item-label>
                 <fo:list-item-body start-indent="body-start()">
                   <fo:block>
@@ -506,9 +506,9 @@
             </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2787326" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item id="id2980259" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
                 <fo:list-item-label end-indent="label-end()">
-                  <fo:block>&#x2022;</fo:block>
+                  <fo:block>•</fo:block>
                 </fo:list-item-label>
                 <fo:list-item-body start-indent="body-start()">
                   <fo:block>
@@ -577,7 +577,7 @@ V1.1//EN"[]&gt;
           and effort in adding and closing tags. You will find the
           psgml package in DocBook Tools, which is the standard set of
           tools for the GDP. You may find out more about DocBook Tools
-          in <fo:basic-link internal-destination="installingdocbook">the section called &#x201C;Installing DocBook&#x201D;</fo:basic-link>.
+          in <fo:basic-link internal-destination="installingdocbook">the section called “Installing DocBook”</fo:basic-link>.
         </fo:block>
           </fo:block>
           <fo:block id="make-output">
@@ -620,7 +620,7 @@ V1.1//EN"[]&gt;
           mydocument.sgml</fo:inline>, after which you can print out or
           view the resulting .ps file.  
         </fo:block>
-            <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2787803">
+            <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2980630">
               <fo:block font-size="14pt" font-weight="bold" keep-with-next="always">NOTE</fo:block>
               <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
             The html files you get will not look quite the same as the
@@ -628,7 +628,7 @@ V1.1//EN"[]&gt;
             custom stylesheets installed on your machine. DocBook
             Tools' default stylesheets will produce a different look
             to your docs. You can read more about the GDP stylesheets
-            in <fo:basic-link internal-destination="gdpstylesheets">the section called &#x201C;GDP Stylesheets&#x201D;</fo:basic-link>.
+            in <fo:basic-link internal-destination="gdpstylesheets">the section called “GDP Stylesheets”</fo:basic-link>.
           </fo:block>
             </fo:block>
           </fo:block>
@@ -700,10 +700,10 @@ V1.1//EN"[]&gt;
           The following resources on the web are useful for learning
           DocBook:
         </fo:block>
-            <fo:list-block id="id2909700" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" provisional-distance-between-starts="1.5em" provisional-label-separation="0.2em">
-              <fo:list-item id="id2909709" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+            <fo:list-block id="id2980841" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" provisional-distance-between-starts="1.5em" provisional-label-separation="0.2em">
+              <fo:list-item id="id2980848" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
                 <fo:list-item-label end-indent="label-end()">
-                  <fo:block>&#x2022;</fo:block>
+                  <fo:block>•</fo:block>
                 </fo:list-item-label>
                 <fo:list-item-body start-indent="body-start()">
                   <fo:block>
@@ -715,9 +715,9 @@ V1.1//EN"[]&gt;
             </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2909755" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item id="id2980882" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
                 <fo:list-item-label end-indent="label-end()">
-                  <fo:block>&#x2022;</fo:block>
+                  <fo:block>•</fo:block>
                 </fo:list-item-label>
                 <fo:list-item-body start-indent="body-start()">
                   <fo:block>
@@ -728,9 +728,9 @@ V1.1//EN"[]&gt;
             </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2909797" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item id="id2980911" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
                 <fo:list-item-label end-indent="label-end()">
-                  <fo:block>&#x2022;</fo:block>
+                  <fo:block>•</fo:block>
                 </fo:list-item-label>
                 <fo:list-item-body start-indent="body-start()">
                   <fo:block>
@@ -742,9 +742,9 @@ V1.1//EN"[]&gt;
             </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2909836" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item id="id2980940" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
                 <fo:list-item-label end-indent="label-end()">
-                  <fo:block>&#x2022;</fo:block>
+                  <fo:block>•</fo:block>
                 </fo:list-item-label>
                 <fo:list-item-body start-indent="body-start()">
                   <fo:block>
@@ -766,14 +766,14 @@ V1.1//EN"[]&gt;
           The following sections of this document are designed to help
           documentation authors write correct and consistent DocBook:
         </fo:block>
-            <fo:list-block id="id2909902" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" provisional-distance-between-starts="1.5em" provisional-label-separation="0.2em">
-              <fo:list-item id="id2909910" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+            <fo:list-block id="id2980987" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" provisional-distance-between-starts="1.5em" provisional-label-separation="0.2em">
+              <fo:list-item id="id2980994" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
                 <fo:list-item-label end-indent="label-end()">
-                  <fo:block>&#x2022;</fo:block>
+                  <fo:block>•</fo:block>
                 </fo:list-item-label>
                 <fo:list-item-body start-indent="body-start()">
                   <fo:block>
-              <fo:basic-link internal-destination="docbookbasics">the section called &#x201C;DocBook Basics &#x201D;</fo:basic-link> - Descriptions of
+              <fo:basic-link internal-destination="docbookbasics">the section called “DocBook Basics ”</fo:basic-link> - Descriptions of
               commonly used DocBook tags.
             </fo:block>
                 </fo:list-item-body>
@@ -815,11 +815,11 @@ V1.1//EN"[]&gt;
           <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
         Most GNOME documents will have screenshots of the particular
         applet, application, GNOME component, or widget being
-        discussed.  As discussed above in <fo:basic-link internal-destination="gdpdtd">the section called &#x201C;GDP DTD (PNG Image Support)&#x201D;</fo:basic-link> you
+        discussed.  As discussed above in <fo:basic-link internal-destination="gdpdtd">the section called “GDP DTD (PNG Image Support)”</fo:basic-link> you
         will need to install the special GDP DocBook DTD which
         supports PNG images, the format used for all images in GNOME
         documentation. For the basic DocBook structure used to insert
-        images in a document, see <fo:basic-link internal-destination="jadeimages">the section called &#x201C;Images in DocBook Tools&#x201D;</fo:basic-link> above.
+        images in a document, see <fo:basic-link internal-destination="jadeimages">the section called “Images in DocBook Tools”</fo:basic-link> above.
       </fo:block>
           <fo:block id="screenshotappearance">
             <fo:block>
@@ -896,7 +896,7 @@ V1.1//EN"[]&gt;
           directory with your SGML file for applets, or should be
           kept in a directory called "figs" for application and other
           documentation.  After you use <fo:inline font-weight="bold">db2html</fo:inline> to
-          convert your SGML file to HTML (see <fo:basic-link internal-destination="make-output">the section called &#x201C;Creating Something Useful with your Docs&#x201D;</fo:basic-link>), you will need to copy your
+          convert your SGML file to HTML (see <fo:basic-link internal-destination="make-output">the section called “Creating Something Useful with your Docs”</fo:basic-link>), you will need to copy your
           screenshots (either the individual PNG files for applet
           documentation, or the whole "figs" directory for other
           documentation) into the newly created HTML directory.  Note
@@ -904,7 +904,7 @@ V1.1//EN"[]&gt;
           directory is erased and rewritten, so do not store your only
           copy of the screenshots in that directory.  If you wish to
           create PostScript or PDF output, you will need to manually
-          convert the PNG images to EPS as described in <fo:basic-link internal-destination="jadeimages">the section called &#x201C;Images in DocBook Tools&#x201D;</fo:basic-link>, but will not need to copy these
+          convert the PNG images to EPS as described in <fo:basic-link internal-destination="jadeimages">the section called “Images in DocBook Tools”</fo:basic-link>, but will not need to copy these
           images from their default location, as they are included
           directly into the output(PostScript of PDF) file.
         </fo:block>
@@ -1149,7 +1149,7 @@ V1.1//EN"[]&gt;
           particular application which explains the various windows
           and features of the application.  Application Manuals
           typically use screenshots (PNG format) for clarity.  Writing
-          application manuals is discussed in more detail in <fo:basic-link internal-destination="writingapplicationmanuals">the section called &#x201C;Writing Application and Applet Manuals&#x201D;</fo:basic-link> below.
+          application manuals is discussed in more detail in <fo:basic-link internal-destination="writingapplicationmanuals">the section called “Writing Application and Applet Manuals”</fo:basic-link> below.
         </fo:block>
           </fo:block>
           <fo:block id="applicationhelpintro">
@@ -1170,7 +1170,7 @@ V1.1//EN"[]&gt;
           GNOME Help Browser.  The help
           browser should show either the first page of the application
           manual, or else the relevant page thereof. Application help
-          is described in more detail in <fo:basic-link internal-destination="applicationhelpbuttons">the section called &#x201C;Application Help Buttons&#x201D;</fo:basic-link> below.
+          is described in more detail in <fo:basic-link internal-destination="applicationhelpbuttons">the section called “Application Help Buttons”</fo:basic-link> below.
         </fo:block>
           </fo:block>
           <fo:block id="contextsensitivehelpintro">
@@ -1189,7 +1189,7 @@ V1.1//EN"[]&gt;
           clicking on an icon or by right clicking on the application
           part and selecting "What's This" or whatever is decided on
           at the time.  Context sensitive help is described in more
-          detail in <fo:basic-link internal-destination="writingcontextsensitivehelp">the section called &#x201C;Writing Context Sensitive Help (coming in GNOME-2.0)&#x201D;</fo:basic-link>
+          detail in <fo:basic-link internal-destination="writingcontextsensitivehelp">the section called “Writing Context Sensitive Help (coming in GNOME-2.0)”</fo:basic-link>
           below.
         </fo:block>
           </fo:block>
@@ -1305,7 +1305,7 @@ V1.1//EN"[]&gt;
 	readable format, you need special tools. The GDP uses <fo:inline font-style="italic">DocBook
         Tools</fo:inline>, a free package of utilities for working with DocBook
         which includes <fo:inline font-style="italic">Jade</fo:inline>, which does the SGML/DSSL
-        parsing. You can read more about DocBook Tools in <fo:basic-link internal-destination="installingdocbook">the section called &#x201C;Installing DocBook&#x201D;</fo:basic-link>. 
+        parsing. You can read more about DocBook Tools in <fo:basic-link internal-destination="installingdocbook">the section called “Installing DocBook”</fo:basic-link>. 
       </fo:block>
           <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
         The final appearance of the output (e.g. PostScript or HTML)
@@ -1318,7 +1318,7 @@ V1.1//EN"[]&gt;
         numbering style, and much more. DocBook tools come with a
         collection of stylesheets (Norman Walsh's modular
         stylesheets); GNOME Document Project uses some customized
-        version of this stylesheets -- see <fo:basic-link internal-destination="gdpstylesheets">the section called &#x201C;GDP Stylesheets&#x201D;</fo:basic-link>.   
+        version of this stylesheets -- see <fo:basic-link internal-destination="gdpstylesheets">the section called “GDP Stylesheets”</fo:basic-link>.   
       </fo:block>
           <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
         The advantage of specifying the <fo:inline font-style="italic">structure</fo:inline>
@@ -1349,9 +1349,9 @@ V1.1//EN"[]&gt;
       </fo:block>
           <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
         As stated before, the GDP uses the DocBook DTD.  For a list of
-        introductory and reference resources on DocBook, see <fo:basic-link internal-destination="resources">the section called &#x201C;Resources&#x201D;</fo:basic-link>.  The following sections also provide
+        introductory and reference resources on DocBook, see <fo:basic-link internal-destination="resources">the section called “Resources”</fo:basic-link>.  The following sections also provide
         convenient instructions on which markup tags to use in various
-        circumstances.  Be sure to read <fo:basic-link internal-destination="conventions">the section called &#x201C;GDP Documentation Conventions &#x201D;</fo:basic-link>
+        circumstances.  Be sure to read <fo:basic-link internal-destination="conventions">the section called “GDP Documentation Conventions ”</fo:basic-link>
         for GDP documentation-specific guidelines.
       </fo:block>
         </fo:block>
@@ -1373,8 +1373,8 @@ V1.1//EN"[]&gt;
       advised</fo:inline> that the documentation writers conform to XML
       syntax rules. Here are most important differences:
       </fo:block>
-          <fo:list-block id="id2912217" provisional-distance-between-starts="1in" provisional-label-separation="0.25in" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
-            <fo:list-item id="id2912223" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+          <fo:list-block id="id2982897" provisional-distance-between-starts="1in" provisional-label-separation="0.25in" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+            <fo:list-item id="id2982900" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
               <fo:list-item-label end-indent="label-end()">
                 <fo:block>
                   <fo:inline> <fo:inline font-style="italic">Minimization</fo:inline></fo:inline>
@@ -1395,7 +1395,7 @@ V1.1//EN"[]&gt;
          </fo:block>
               </fo:list-item-body>
             </fo:list-item>
-            <fo:list-item id="id2912357" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+            <fo:list-item id="id2983001" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
               <fo:list-item-label end-indent="label-end()">
                 <fo:block>
                   <fo:inline> <fo:inline font-style="italic">Self-closing tags</fo:inline></fo:inline>
@@ -1415,7 +1415,7 @@ V1.1//EN"[]&gt;
           </fo:block>
               </fo:list-item-body>
             </fo:list-item>
-            <fo:list-item id="id2912442" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+            <fo:list-item id="id2983063" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
               <fo:list-item-label end-indent="label-end()">
                 <fo:block>
                   <fo:inline> <fo:inline font-style="italic">Case sensitive tags</fo:inline></fo:inline>
@@ -1537,12 +1537,12 @@ V1.1//EN"[]&gt;
           
           <fo:block id="shot1" space-before.minimum="1em" space-before.optimum="1.5em" space-before.maximum="2em" space-after.minimum="1em" space-after.optimum="1.5em" space-after.maximum="2em" keep-with-previous.within-column="always"><fo:block font-weight="bold" font-size="12pt" hyphenate="false" keep-with-next.within-column="always" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">Screenshot</fo:block><fo:block><fo:block><fo:external-graphic src="url(file:figures/example_screenshot)" content-width="auto" content-height="auto" width="auto" height="auto"/></fo:block></fo:block></fo:block>
         </fo:block>
-            <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2912982">
+            <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2983467">
               <fo:block font-size="14pt" font-weight="bold" keep-with-next="always">NOTE</fo:block>
               <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
             Notice in this example that the screenshot file name does
             not include the file type extension -- to find out
-            why, please read <fo:basic-link internal-destination="jadeimages">the section called &#x201C;Images in DocBook Tools&#x201D;</fo:basic-link>.
+            why, please read <fo:basic-link internal-destination="jadeimages">the section called “Images in DocBook Tools”</fo:basic-link>.
           </fo:block>
             </fo:block>
           </fo:block>
@@ -1599,7 +1599,7 @@ make: *** No rule to make target `love'.  Stop.
           Note the use of tags <fo:inline font-family="Courier">&lt;prompt&gt;</fo:inline> and
           <fo:inline font-family="Courier">&lt;userinput&gt;</fo:inline> for marking system prompt
           and commands entered by user.
-          <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2913198"><fo:block font-size="14pt" font-weight="bold" keep-with-next="always">NOTE</fo:block><fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+          <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2983637"><fo:block font-size="14pt" font-weight="bold" keep-with-next="always">NOTE</fo:block><fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
               Note that both <fo:inline font-family="Courier">&lt;programlisting&gt;</fo:inline>
               and <fo:inline font-family="Courier">&lt;screen&gt;</fo:inline> preserve linebreaks,
               but interpret SGML tags (unlike LaTeX
@@ -1623,8 +1623,8 @@ make: *** No rule to make target `love'.  Stop.
 	  <fo:inline font-family="Courier">&lt;orderedlist&gt;</fo:inline>, and 
 	  <fo:inline font-family="Courier">&lt;variablelist&gt;</fo:inline>.
 	</fo:block>
-            <fo:list-block id="id2913311" provisional-distance-between-starts="1in" provisional-label-separation="0.25in" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
-              <fo:list-item id="id2913317" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+            <fo:list-block id="id2983722" provisional-distance-between-starts="1in" provisional-label-separation="0.25in" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item id="id2983725" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
                 <fo:list-item-label end-indent="label-end()">
                   <fo:block>
                     <fo:inline> <fo:inline font-family="Courier">&lt;itemizedlist&gt;</fo:inline></fo:inline>
@@ -1663,10 +1663,10 @@ make: *** No rule to make target `love'.  Stop.
 		</fo:block>
 		and output:
                 </fo:block>
-                  <fo:list-block id="id2913370" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" provisional-distance-between-starts="1.5em" provisional-label-separation="0.2em">
-                    <fo:list-item id="id2913375" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+                  <fo:list-block id="id2983762" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" provisional-distance-between-starts="1.5em" provisional-label-separation="0.2em">
+                    <fo:list-item id="id2983766" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
                       <fo:list-item-label end-indent="label-end()">
-                        <fo:block>&#x2022;</fo:block>
+                        <fo:block>•</fo:block>
                       </fo:list-item-label>
                       <fo:list-item-body start-indent="body-start()">
                         <fo:block>
@@ -1676,9 +1676,9 @@ make: *** No rule to make target `love'.  Stop.
 		    </fo:block>
                       </fo:list-item-body>
                     </fo:list-item>
-                    <fo:list-item id="id2913435" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+                    <fo:list-item id="id2983811" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
                       <fo:list-item-label end-indent="label-end()">
-                        <fo:block>&#x2022;</fo:block>
+                        <fo:block>•</fo:block>
                       </fo:list-item-label>
                       <fo:list-item-body start-indent="body-start()">
                         <fo:block>
@@ -1689,9 +1689,9 @@ make: *** No rule to make target `love'.  Stop.
 		    </fo:block>
                       </fo:list-item-body>
                     </fo:list-item>
-                    <fo:list-item id="id2913467" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+                    <fo:list-item id="id2983834" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
                       <fo:list-item-label end-indent="label-end()">
-                        <fo:block>&#x2022;</fo:block>
+                        <fo:block>•</fo:block>
                       </fo:list-item-label>
                       <fo:list-item-body start-indent="body-start()">
                         <fo:block>
@@ -1704,7 +1704,7 @@ make: *** No rule to make target `love'.  Stop.
                     </fo:list-item>
                   </fo:list-block>
                   <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em"> Note the use of <fo:inline font-family="Courier">&amp;mdash;</fo:inline>
-              for long dash (see <fo:basic-link internal-destination="specsymb">the section called &#x201C; Special symbols &#x201D;</fo:basic-link>). Also,
+              for long dash (see <fo:basic-link internal-destination="specsymb">the section called “ Special symbols ”</fo:basic-link>). Also,
               please note that the result looks much nicer because the
               terms being explained (Show backup
               files, etc.) are set in a different font. In
@@ -1718,7 +1718,7 @@ make: *** No rule to make target `love'.  Stop.
 	      </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2913638" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item id="id2983961" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
                 <fo:list-item-label end-indent="label-end()">
                   <fo:block>
                     <fo:inline> <fo:inline font-family="Courier">&lt;orderedlist&gt;</fo:inline></fo:inline>
@@ -1741,7 +1741,7 @@ make: *** No rule to make target `love'.  Stop.
 	      </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2913738" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item id="id2984039" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
                 <fo:list-item-label end-indent="label-end()">
                   <fo:block>
                     <fo:inline> <fo:inline font-family="Courier">&lt;variablelist&gt;</fo:inline></fo:inline>
@@ -1812,10 +1812,10 @@ make: *** No rule to make target `love'.  Stop.
                 </fo:block>
               </fo:block>
             </fo:block>
-            <fo:list-block id="id2913920" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" provisional-distance-between-starts="1.5em" provisional-label-separation="0.2em">
-              <fo:list-item id="id2913926" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+            <fo:list-block id="id2984177" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" provisional-distance-between-starts="1.5em" provisional-label-separation="0.2em">
+              <fo:list-item id="id2984180" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
                 <fo:list-item-label end-indent="label-end()">
-                  <fo:block>&#x2022;</fo:block>
+                  <fo:block>•</fo:block>
                 </fo:list-item-label>
                 <fo:list-item-body start-indent="body-start()">
                   <fo:block>
@@ -1824,9 +1824,9 @@ make: *** No rule to make target `love'.  Stop.
             </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2913953" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item id="id2984198" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
                 <fo:list-item-label end-indent="label-end()">
-                  <fo:block>&#x2022;</fo:block>
+                  <fo:block>•</fo:block>
                 </fo:list-item-label>
                 <fo:list-item-body start-indent="body-start()">
                   <fo:block>
@@ -1839,9 +1839,9 @@ make: *** No rule to make target `love'.  Stop.
             </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2914003" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item id="id2984234" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
                 <fo:list-item-label end-indent="label-end()">
-                  <fo:block>&#x2022;</fo:block>
+                  <fo:block>•</fo:block>
                 </fo:list-item-label>
                 <fo:list-item-body start-indent="body-start()">
                   <fo:block>
@@ -1850,9 +1850,9 @@ make: *** No rule to make target `love'.  Stop.
             </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2914027" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item id="id2984251" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
                 <fo:list-item-label end-indent="label-end()">
-                  <fo:block>&#x2022;</fo:block>
+                  <fo:block>•</fo:block>
                 </fo:list-item-label>
                 <fo:list-item-body start-indent="body-start()">
                   <fo:block>
@@ -1860,9 +1860,9 @@ make: *** No rule to make target `love'.  Stop.
             </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2914052" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item id="id2984267" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
                 <fo:list-item-label end-indent="label-end()">
-                  <fo:block>&#x2022;</fo:block>
+                  <fo:block>•</fo:block>
                 </fo:list-item-label>
                 <fo:list-item-body start-indent="body-start()">
                   <fo:block>
@@ -1871,9 +1871,9 @@ make: *** No rule to make target `love'.  Stop.
             </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2914077" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item id="id2984285" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
                 <fo:list-item-label end-indent="label-end()">
-                  <fo:block>&#x2022;</fo:block>
+                  <fo:block>•</fo:block>
                 </fo:list-item-label>
                 <fo:list-item-body start-indent="body-start()">
                   <fo:block>
@@ -1915,11 +1915,11 @@ make: *** No rule to make target `love'.  Stop.
 An example of a &lt;link linkend="extip"&gt;tip&lt;/link&gt; was given in
 &lt;xref linkend="notes" /&gt;.  
           </fo:block>
-          which produces: An example of a <fo:basic-link internal-destination="extip">tip</fo:basic-link> was given in  <fo:basic-link internal-destination="notes">the section called &#x201C;Notes, Warnings, And Tips&#x201D;</fo:basic-link>.
+          which produces: An example of a <fo:basic-link internal-destination="extip">tip</fo:basic-link> was given in  <fo:basic-link internal-destination="notes">the section called “Notes, Warnings, And Tips”</fo:basic-link>.
         </fo:block>
             <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
           Here <fo:inline font-family="Courier">notes</fo:inline> and <fo:inline font-family="Courier">extip</fo:inline>
-          are the id attributes of <fo:basic-link internal-destination="notes">the section called &#x201C;Notes, Warnings, And Tips&#x201D;</fo:basic-link> and of the
+          are the id attributes of <fo:basic-link internal-destination="notes">the section called “Notes, Warnings, And Tips”</fo:basic-link> and of the
           example of a tip in it.
         </fo:block>
             <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">  To produce a link  to an external source, such as a
@@ -1951,10 +1951,10 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
           Here are some tags used to describe operating system-related
           things:  
         </fo:block>
-            <fo:list-block id="id2914461" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" provisional-distance-between-starts="1.5em" provisional-label-separation="0.2em">
-              <fo:list-item id="id2914465" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+            <fo:list-block id="id2984574" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" provisional-distance-between-starts="1.5em" provisional-label-separation="0.2em">
+              <fo:list-item id="id2984578" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
                 <fo:list-item-label end-indent="label-end()">
-                  <fo:block>&#x2022;</fo:block>
+                  <fo:block>•</fo:block>
                 </fo:list-item-label>
                 <fo:list-item-body start-indent="body-start()">
                   <fo:block>  <fo:inline font-family="Courier">&lt;filename&gt;</fo:inline> -- used
@@ -1966,9 +1966,9 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
             </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2914523" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item id="id2984618" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
                 <fo:list-item-label end-indent="label-end()">
-                  <fo:block>&#x2022;</fo:block>
+                  <fo:block>•</fo:block>
                 </fo:list-item-label>
                 <fo:list-item-body start-indent="body-start()">
                   <fo:block>  <fo:inline font-family="Courier">&lt;filename
@@ -1980,9 +1980,9 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
             </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2914586" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item id="id2984666" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
                 <fo:list-item-label end-indent="label-end()">
-                  <fo:block>&#x2022;</fo:block>
+                  <fo:block>•</fo:block>
                 </fo:list-item-label>
                 <fo:list-item-body start-indent="body-start()">
                   <fo:block>
@@ -1994,9 +1994,9 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
             </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2914641" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item id="id2984707" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
                 <fo:list-item-label end-indent="label-end()">
-                  <fo:block>&#x2022;</fo:block>
+                  <fo:block>•</fo:block>
                 </fo:list-item-label>
                 <fo:list-item-body start-indent="body-start()">
                   <fo:block>
@@ -2006,9 +2006,9 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
             </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2914683" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item id="id2984739" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
                 <fo:list-item-label end-indent="label-end()">
-                  <fo:block>&#x2022;</fo:block>
+                  <fo:block>•</fo:block>
                 </fo:list-item-label>
                 <fo:list-item-body start-indent="body-start()">
                   <fo:block>
@@ -2020,9 +2020,9 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
             </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2914739" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item id="id2984780" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
                 <fo:list-item-label end-indent="label-end()">
-                  <fo:block>&#x2022;</fo:block>
+                  <fo:block>•</fo:block>
                 </fo:list-item-label>
                 <fo:list-item-body start-indent="body-start()">
                   <fo:block>
@@ -2056,9 +2056,9 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
           other tags for keys, too: <fo:inline font-family="Courier">&lt;keysym&gt;</fo:inline>
           and <fo:inline font-family="Courier">&lt;keycode&gt;</fo:inline>. However you are
           unlikely to need these for most documentation. For reference,
-          <fo:inline font-family="Courier">&lt;keysym&gt;</fo:inline> is for the &#x201C;symbolic
-          name&#x201D; of a key. <fo:inline font-family="Courier">&lt;keycode&gt;</fo:inline> is
-          for the &#x201C;scan code&#x201D; of a key. These are not
+          <fo:inline font-family="Courier">&lt;keysym&gt;</fo:inline> is for the “symbolic
+          name” of a key. <fo:inline font-family="Courier">&lt;keycode&gt;</fo:inline> is
+          for the “scan code” of a key. These are not
           terms commonly required in GNOME documentation,
           although <fo:inline font-family="Courier">&lt;keysym&gt;</fo:inline> is useful for marking
           up control codes.
@@ -2131,10 +2131,10 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
             <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
 	  here is partial list of most commonly used enitites:
 	</fo:block>
-            <fo:list-block id="id2915195" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" provisional-distance-between-starts="1.5em" provisional-label-separation="0.2em">
-              <fo:list-item id="id2915200" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+            <fo:list-block id="id2985133" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" provisional-distance-between-starts="1.5em" provisional-label-separation="0.2em">
+              <fo:list-item id="id2985136" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
                 <fo:list-item-label end-indent="label-end()">
-                  <fo:block>&#x2022;</fo:block>
+                  <fo:block>•</fo:block>
                 </fo:list-item-label>
                 <fo:list-item-body start-indent="body-start()">
                   <fo:block>
@@ -2142,9 +2142,9 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
 	  </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2915221" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item id="id2985150" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
                 <fo:list-item-label end-indent="label-end()">
-                  <fo:block>&#x2022;</fo:block>
+                  <fo:block>•</fo:block>
                 </fo:list-item-label>
                 <fo:list-item-body start-indent="body-start()">
                   <fo:block>
@@ -2152,19 +2152,19 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
 	  </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2915240" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item id="id2985164" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
                 <fo:list-item-label end-indent="label-end()">
-                  <fo:block>&#x2022;</fo:block>
+                  <fo:block>•</fo:block>
                 </fo:list-item-label>
                 <fo:list-item-body start-indent="body-start()">
                   <fo:block>
-             <fo:inline font-family="Courier">&amp;copy;</fo:inline> -- copyright sign (&#xA9;)
+             <fo:inline font-family="Courier">&amp;copy;</fo:inline> -- copyright sign (©)
 	  </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2915258" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item id="id2985179" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
                 <fo:list-item-label end-indent="label-end()">
-                  <fo:block>&#x2022;</fo:block>
+                  <fo:block>•</fo:block>
                 </fo:list-item-label>
                 <fo:list-item-body start-indent="body-start()">
                   <fo:block>
@@ -2172,9 +2172,9 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
 	  </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2915283" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item id="id2985192" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
                 <fo:list-item-label end-indent="label-end()">
-                  <fo:block>&#x2022;</fo:block>
+                  <fo:block>•</fo:block>
                 </fo:list-item-label>
                 <fo:list-item-body start-indent="body-start()">
                   <fo:block>
@@ -2221,7 +2221,7 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
             <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
 	  All GNOME documentation  should conform to XML syntax
 	  requirements, which are stricter than SGML ones -- see
-	  <fo:basic-link internal-destination="xml">the section called &#x201C;XML and SGML&#x201D;</fo:basic-link> for more informaion.
+	  <fo:basic-link internal-destination="xml">the section called “XML and SGML”</fo:basic-link> for more informaion.
 	</fo:block>
           </fo:block>
           <fo:block id="authorsnames">
@@ -2336,7 +2336,7 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
       PNG format only) when appropriate.  They should also describe
       each feature and preference option available.
     </fo:block>
-        <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2915726">
+        <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2985521">
           <fo:block font-size="14pt" font-weight="bold" keep-with-next="always">Documentation Availability</fo:block>
           <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
         Applications and applets should not rely on documentation
@@ -2347,12 +2347,12 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
       </fo:block>
         </fo:block>
         <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em"> Application manuals should be based on the template in
-    <fo:basic-link internal-destination="template1">the section called &#x201C;Template 1: Application Manual&#x201D;</fo:basic-link>.  Applet manuals should be based on
-    the templates in <fo:basic-link internal-destination="template2-1x">the section called &#x201C;Template 2: Applet Manual For GNOME 1.x&#x201D;</fo:basic-link> for GNOME
-    versions 1.x and the templates in <fo:basic-link internal-destination="template2-2x">the section called &#x201C;Template 2: Applet Manual For GNOME 2.x&#x201D;</fo:basic-link>
+    <fo:basic-link internal-destination="template1">the section called “Template 1: Application Manual”</fo:basic-link>.  Applet manuals should be based on
+    the templates in <fo:basic-link internal-destination="template2-1x">the section called “Template 2: Applet Manual For GNOME 1.x”</fo:basic-link> for GNOME
+    versions 1.x and the templates in <fo:basic-link internal-destination="template2-2x">the section called “Template 2: Applet Manual For GNOME 2.x”</fo:basic-link>
     for GNOME versions 2.x.
     </fo:block>
-        <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2915821">
+        <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2985590">
           <fo:block font-size="14pt" font-weight="bold" keep-with-next="always">Manuals For Large Applications</fo:block>
           <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
         Manuals for very large applications, such as GNOME Workshop
@@ -2363,7 +2363,7 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
         <fo:inline font-family="Courier">&lt;sect1&gt;</fo:inline>).
       </fo:block>
         </fo:block>
-        <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2915878">
+        <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2985636">
           <fo:block font-size="14pt" font-weight="bold" keep-with-next="always">Applet Manuals in GNOME 2.0</fo:block>
           <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
         Note that applet manuals in GNOME 2.0 are treated in a special
@@ -2380,7 +2380,7 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
       Application manuals should be made available by having a
       "Manual" entry in the Help pull-down menu
       at the top of the 
-      application, as described in <fo:basic-link internal-destination="listingdocsinhelpmenu">the section called &#x201C;Listing Documents in the Help Menu&#x201D;</fo:basic-link>.
+      application, as described in <fo:basic-link internal-destination="listingdocsinhelpmenu">the section called “Listing Documents in the Help Menu”</fo:basic-link>.
       Applets should make their manuals available by
       right-clicking on the applet. 
     </fo:block>
@@ -2393,7 +2393,7 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
             </fo:block>
           </fo:block>
         </fo:block>
-        <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2916001">
+        <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2985728">
           <fo:block font-size="14pt" font-weight="bold" keep-with-next="always">Developer Information</fo:block>
           <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
         This section is for developers.  Documentation authors
@@ -2430,7 +2430,7 @@ function-reference.html Gnumeric function reference
       from SGML into HTML with <fo:inline font-weight="bold">db2html</fo:inline>) should be
       placed in this directory too.
     </fo:block>
-        <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2916189">
+        <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2985873">
           <fo:block font-size="14pt" font-weight="bold" keep-with-next="always">Note</fo:block>
           <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
        If the help files are not present in the correct directory, the
@@ -2470,7 +2470,7 @@ GnomeUIInfo helpmenu[] = {
             </fo:block>
           </fo:block>
         </fo:block>
-        <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2916354">
+        <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2986001">
           <fo:block font-size="14pt" font-weight="bold" keep-with-next="always">Developer Information</fo:block>
           <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
         This section is for developers.  Documentation authors
@@ -2502,7 +2502,7 @@ if (tmp) {
   g_free(tmp);
 }
     </fo:block>
-        <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2916491">
+        <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2986105">
           <fo:block font-size="14pt" font-weight="bold" keep-with-next="always">NOTE</fo:block>
           <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
         The example above is in the C language, please refer to other
@@ -2572,7 +2572,7 @@ if (tmp) {
               </fo:block>
             </fo:block>
           </fo:block>
-          <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2916739">
+          <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2986296">
             <fo:block font-size="14pt" font-weight="bold" keep-with-next="always">Developer Information</fo:block>
             <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
           This section is for developers.  Documentation authors
@@ -2602,7 +2602,7 @@ _("Manual"), &amp;open_manual, NULL);
         You will need to write a simple callback function to open the
         help browser to the appropriate document.  This is done using
         the <fo:inline font-family="Courier">gnome_help_file_find_file</fo:inline> function,
-        as described in <fo:basic-link internal-destination="applicationhelpbuttons">the section called &#x201C;Application Help Buttons&#x201D;</fo:basic-link>.
+        as described in <fo:basic-link internal-destination="applicationhelpbuttons">the section called “Application Help Buttons”</fo:basic-link>.
       </fo:block>
           <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
         You will also want to add an About menu
@@ -2740,7 +2740,7 @@ applet_widget_register_stock_callback (APPLET_WIDGET(applet), "about",
           <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em"> 
          Just as you need to juggle expert and novice readers,
          you'll have to juggle a number of other extremes as you write:
-         <fo:list-block id="id2917292" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" provisional-distance-between-starts="1.5em" provisional-label-separation="0.2em"><fo:list-item id="id2917298" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em"><fo:list-item-label end-indent="label-end()"><fo:block>&#x2022;</fo:block></fo:list-item-label><fo:list-item-body start-indent="body-start()"><fo:block>
+         <fo:list-block id="id2986718" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" provisional-distance-between-starts="1.5em" provisional-label-separation="0.2em"><fo:list-item id="id2986722" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em"><fo:list-item-label end-indent="label-end()"><fo:block>•</fo:block></fo:list-item-label><fo:list-item-body start-indent="body-start()"><fo:block>
               Documents should be complete, yet concise.  You should
               describe every feature, but you'll have decide how much
               detail is really necessary.  It's not, for example,
@@ -2750,7 +2750,7 @@ applet_widget_register_stock_callback (APPLET_WIDGET(applet), "about",
               you spend fewer words on the obvious, you can spend more
               time clarifying the ambiguous labels and explaining
               items that are more complex.
-            </fo:block></fo:list-item-body></fo:list-item><fo:list-item id="id2917325" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em"><fo:list-item-label end-indent="label-end()"><fo:block>&#x2022;</fo:block></fo:list-item-label><fo:list-item-body start-indent="body-start()"><fo:block>
+            </fo:block></fo:list-item-body></fo:list-item><fo:list-item id="id2986742" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em"><fo:list-item-label end-indent="label-end()"><fo:block>•</fo:block></fo:list-item-label><fo:list-item-body start-indent="body-start()"><fo:block>
               Be engaging and friendly, yet professional. Games
               documents may be less formal than productivity
               application documents (people don't
@@ -2759,14 +2759,14 @@ applet_widget_register_stock_callback (APPLET_WIDGET(applet), "about",
               maintain a standard of style which holds the reader's
               interest without resorting to jokes and untranslatable
               allusions or puns.
-           </fo:block></fo:list-item-body></fo:list-item><fo:list-item id="id2917363" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em"><fo:list-item-label end-indent="label-end()"><fo:block>&#x2022;</fo:block></fo:list-item-label><fo:list-item-body start-indent="body-start()"><fo:block>
+           </fo:block></fo:list-item-body></fo:list-item><fo:list-item id="id2986772" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em"><fo:list-item-label end-indent="label-end()"><fo:block>•</fo:block></fo:list-item-label><fo:list-item-body start-indent="body-start()"><fo:block>
               Examples, tips, notes, and screenshots are useful to
               break up long stretches of text, but too many can get in
               the way, and make your documents too choppy to read.
               It's good to provide a screenshot of any dialog windows
               a user might run into, but if a dialog box has several
               tabs, it's not usually necessary to have one for each.
-           </fo:block></fo:list-item-body></fo:list-item><fo:list-item id="id2917387" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em"><fo:list-item-label end-indent="label-end()"><fo:block>&#x2022;</fo:block></fo:list-item-label><fo:list-item-body start-indent="body-start()"><fo:block>
+           </fo:block></fo:list-item-body></fo:list-item><fo:list-item id="id2986790" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em"><fo:list-item-label end-indent="label-end()"><fo:block>•</fo:block></fo:list-item-label><fo:list-item-body start-indent="body-start()"><fo:block>
               The GDP strives to have all of its documentation conform
               to certain standards of style and content, but every
               document (and every writer) is different.  You will need

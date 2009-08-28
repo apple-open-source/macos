@@ -79,7 +79,7 @@ IOFWAddressSpaceAux * IOFWPhysicalAddressSpace::createAuxiliary( void )
 {
 	IOFWPhysicalAddressSpaceAux * auxiliary;
     
-	auxiliary = new IOFWPhysicalAddressSpaceAux;
+	auxiliary = OSTypeAlloc( IOFWPhysicalAddressSpaceAux );
 
     if( auxiliary != NULL && !auxiliary->init(this) ) 
 	{

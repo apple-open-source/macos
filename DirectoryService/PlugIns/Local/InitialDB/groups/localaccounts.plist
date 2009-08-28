@@ -5,6 +5,7 @@
 	<key>comment</key>
 	<array>
 		<string>Group membership calculated by system</string>
+		<string>Accounts from the local directory database or /etc files</string>
 	</array>
 	<key>generateduid</key>
 	<array>
@@ -17,6 +18,10 @@
 	<key>name</key>
 	<array>
 		<string>localaccounts</string>
+	</array>
+	<key>passwd</key>
+	<array>
+		<string>*</string>
 	</array>
 	<key>realname</key>
 	<array>

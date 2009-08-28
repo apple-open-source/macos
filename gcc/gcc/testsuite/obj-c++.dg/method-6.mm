@@ -1,6 +1,7 @@
-/* APPLE LOCAL file mainline */
-/* The following should NOT generate "may not respond to" warnings, since a forward-declared
-   @class (instance) should be treated like a 'Class') ('id').  */
+/* The following should NOT generate "may not respond to" warnings,
+   since a forward-declared @class (instance) should be treated like a
+   'Class') ('id').  */
+
 /* { dg-do compile } */
 
 /* APPLE LOCAL radar 4894756 */
@@ -9,6 +10,7 @@
 @class NotKnown;
 
 void foo(NotKnown *n) {
+  /* APPLE LOCAL radar 4547918 */
   [NotKnown new];	  /* { dg-warning "receiver 'NotKnown' is a forward class" } */
   [n nonexistent_method]; /* { dg-warning "no .\\-nonexistent_method. method found" } */
 }

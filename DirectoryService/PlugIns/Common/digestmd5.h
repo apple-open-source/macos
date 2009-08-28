@@ -214,7 +214,7 @@ typedef struct context {
         
     /* For general use */
     char *out_buf;
-    unsigned long out_buf_len;
+    uint32_t out_buf_len;
     
     /* for encoding/decoding */
     buffer_info_t *enc_in_buf;

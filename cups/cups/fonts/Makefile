@@ -1,9 +1,9 @@
 #
-# "$Id: Makefile 6649 2007-07-11 21:46:42Z mike $"
+# "$Id: Makefile 7871 2008-08-27 21:12:43Z mike $"
 #
 #   Fonts makefile for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 2007 by Apple Inc.
+#   Copyright 2007-2008 by Apple Inc.
 #   Copyright 1993-2006 by Easy Software Products.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -19,8 +19,11 @@ include ../Makedefs
 # Font files...
 #
 
-FONTS	=	Courier Courier-Bold Courier-BoldOblique Courier-Oblique \
-		Symbol
+FONTS	=	\
+		Monospace \
+		Monospace-Bold \
+		Monospace-BoldOblique \
+		Monospace-Oblique
 
 
 #
@@ -28,6 +31,20 @@ FONTS	=	Courier Courier-Bold Courier-BoldOblique Courier-Oblique \
 #
 
 all:
+
+
+#
+# Make library targets...
+#
+
+libs:
+
+
+#
+# Make unit tests...
+#
+
+unittests:
 
 
 #
@@ -45,14 +62,44 @@ depend:
 
 
 #
-# Install files...
+# Install all targets...
 #
 
-install:	all
+install:	all install-data install-headers install-libs install-exec
+
+
+#
+# Install data files...
+#
+
+install-data:
 	$(INSTALL_DIR) -m 755 $(DATADIR)/fonts
-	for file in $(FONTS); do \
-		$(INSTALL_DATA) $$file $(DATADIR)/fonts; \
-	done
+	if test "x$(BANNERTOPS)" != x -o "x$(TEXTTOPS)" != x; then \
+		for file in $(FONTS); do \
+			$(INSTALL_DATA) $$file $(DATADIR)/fonts; \
+		done \
+	fi
+
+
+#
+# Install programs...
+#
+
+install-exec:
+
+
+#
+# Install headers...
+#
+
+install-headers:
+
+
+#
+# Install libraries...
+#
+
+install-libs:
 
 
 #
@@ -67,5 +114,5 @@ uninstall:
 
 
 #
-# End of "$Id: Makefile 6649 2007-07-11 21:46:42Z mike $".
+# End of "$Id: Makefile 7871 2008-08-27 21:12:43Z mike $".
 #

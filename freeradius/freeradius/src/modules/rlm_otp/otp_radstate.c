@@ -1,5 +1,5 @@
 /*
- * $Id: otp_radstate.c,v 1.4.2.4 2006/10/24 05:15:48 fcusack Exp $
+ * $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -19,12 +19,12 @@
  * Copyright 2005,2006 TRI-D Systems, Inc.
  */
 
-#include "ident.h"
-RCSID("$Id: otp_radstate.c,v 1.4.2.4 2006/10/24 05:15:48 fcusack Exp $")
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
 /* avoid inclusion of these FR headers which conflict w/ OpenSSL */
-#define _LRAD_MD4_H
-#define _LRAD_SHA1_H
+#define _FR_MD4_H
+#define _FR_SHA1_H
 
 #include "extern.h"
 

@@ -32,7 +32,7 @@
 .\"     from: @(#)ieee.3	6.4 (Berkeley) 5/6/91
 .\"	$Id: scalbn.3,v 1.4 2004/12/20 21:35:46 scp Exp $
 .\"
-.Dd July 23, 2003
+.Dd July 02, 2008
 .Dt SCALBN 3
 .Os
 .Sh NAME
@@ -71,12 +71,18 @@ returns ±infinity.
 .Pp
 .Fn scalbln
 has the same special values.
+.Sh NOTE
+The
+.Fn scalb
+function is deprecated.
+.Fn scalbn
+should be used instead.
 .Sh SEE ALSO
 .Xr math 3 ,
 .Xr ldexp 3
 .Sh STANDARDS
 The
 .Fn scalbn
-, and
+and
 .Fn scalbln
 functions conform to ISO/IEC 9899:1999(E).

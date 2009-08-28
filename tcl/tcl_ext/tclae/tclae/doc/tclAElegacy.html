@@ -1,0 +1,181 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+
+<HTML>
+
+<HEAD>
+
+<META http-equiv="content-type"  CONTENT="text/html; charset=macintosh">
+<TITLE>Working with AppleEvent Descriptors</TITLE>
+<LINK HREF="tclae.css" REL="stylesheet" TYPE="text/css">
+
+
+</HEAD>
+
+<body>
+
+<div class="index">
+<!-- #docindex type="ul" depth="2" -->
+
+<ul>
+    <li><a href="#Archaic">Archaic Commands</a>
+
+    <ul>
+	<li><a href="#tclAE::build">tclAE::build</a>
+	<li><a href="#tclAE::disposeDe">tclAE::disposeDesc</a>
+	<li><a href="#tclAE::print">tclAE::print</a>
+    </ul>
+</ul>
+
+<!-- /#docindex -->
+</div>
+
+<P>
+This page describes TclÆ calls that are no longer necessary but are retained 
+to support legacy code. There is no reason to use these calls in new code. 
+For information on the associated ToolBox calls and data structures, see <A 
+HREF="http://developer.apple.com/techpubs/mac/IAC/IAC-2.html">INSIDE 
+MACINTOSH: Interapplication Communication</A>.
+</P>
+
+<HR>
+
+<H1><A NAME="Archaic">Archaic Commands</A></H1>
+
+<div class="definition">
+<H2><A NAME="tclAE::build"><CODE>tclAE::build</CODE></A></H2>
+
+<p>
+Tcl wrapper for AEGizmos’ <CODE>AEBuild</CODE> call. This call is largely 
+still present for legacy reasons, since an <A 
+HREF="tclAEglossary.html#AEDesc">AEDesc</A> and an <A 
+HREF="tclAEglossary.html#AEGizmo">AEGizmo</A> are interchangeable from the 
+perspective of the Tcl programmer. One use of this call is for debugging; 
+you can use <code>tclAE::build</code> to confirm that an <A 
+HREF="tclAEglossary.html#AEGizmo">AEGizmo</A> will build before you use in 
+production code. Otherwise, you don't really need it.
+</p>
+
+<H3><A NAME="tclAE::build::Synopsis">Synopsis</A></H3>
+
+<p>
+<CODE>
+tclAE::build
+<VAR><A HREF="tclAEglossary.html#AEGizmo">AEGizmo</A></VAR> 
+</CODE>
+</p>
+
+<H3><A NAME="tclAE::build::Result">Result</A></H3>
+
+<P>
+New <CODE><A HREF="tclAEglossary.html#AEDesc">AEDesc</A></CODE>.
+</P>
+
+<H3><A NAME="tclAE::build::Description">Description</A></H3>
+
+<P>
+Build an <CODE><A HREF="tclAEglossary.html#AEDesc">AEDesc</A></CODE> from an 
+<CODE><A HREF="tclAEglossary.html#AEGizmo">AEGizmo</A></CODE> string.
+</P>
+
+<div class="note">
+<A HREF="http://alphatcl.sourceforge.net/">Alpha</A> users: This is 
+not to be confused with Alpha's old (and still existing) 
+<CODE>AEBuild</CODE> call. Pete combined the functions of 
+<CODE>AEBuild</CODE> and <CODE><A 
+HREF="http://developer.apple.com/techpubs/mac/IAC/IAC-226.html#HEADING226-0">AESend</A></CODE>, 
+but it now makes sense to distinguish them.
+</div>
+
+</div>
+
+<div class="definition">
+<H2><A NAME="tclAE::disposeDe"><CODE>tclAE::disposeDesc</CODE></A></H2>
+
+<P>
+Tcl wrapper for ToolBox <CODE>AEDisposeDesc</CODE> call. There is no 
+particular need to call this any longer. Tcl garbage will dispose of 
+<A HREF="tclAEglossary.html#AEDesc">AEDescs</A> for you, but there is no 
+harm in disposing of it earlier if you are done with it.
+</P>
+
+<H3><A NAME="Synopsis">Synopsis</A></H3>
+
+<p>
+<CODE>
+tclAE::disposeDesc 
+<VAR><A HREF="tclAEglossary.html#AEDesc">theAEDesc</A></VAR>
+</CODE>
+</p>
+
+<H3><A NAME="Result">Result</A></H3>
+
+<P>
+None.
+</P>
+
+<H3><A NAME="Description">Description</A></H3>
+
+<P>
+The specified <CODE><A HREF="tclAEglossary.html#AEDesc">AEDesc</A></CODE> is 
+disposed of and its hash key is deleted.
+</P>
+</div>
+
+<div class="definition">
+<H2><A NAME="tclAE::print"><CODE>tclAE::print</CODE></A></H2>
+
+<P>
+Tcl wrapper for AEGizmos <CODE>AEPrint</CODE> call. This call is only 
+still present for legacy reasons, since an <A 
+HREF="tclAEglossary.html#AEDesc">AEDesc</A> and an <A 
+HREF="tclAEglossary.html#AEGizmo">AEGizmo</A> are interchangeable from the 
+perspective of the Tcl programmer.
+</P>
+
+<H3><A NAME="Synopsis">Synopsis</A></H3>
+
+<CODE>
+tclAE::print 
+<VAR><A HREF="tclAEglossary.html#AEDesc">anAEDesc</A></VAR>
+</CODE>
+
+<H3><A NAME="Result">Result</A></H3>
+
+<P>
+<CODE><A HREF="tclAEglossary.html#AEGizmo">AEGizmo</A></CODE> string 
+representation of <CODE><VAR><A 
+HREF="tclAEglossary.html#AEDesc">anAEDesc</A></VAR></CODE>.
+</P>
+
+<H3><A NAME="Description">Description</A></H3>
+
+<P>
+<CODE><VAR><A HREF="tclAEglossary.html#AEDesc">anAEDesc</A></VAR></CODE> 
+is passed through AEGizmos’ <CODE>AEPrint</CODE>. 
+</P>
+</div>
+
+<HR>
+
+<P>
+Copyright © 1999–2003 Jonathan E. Guyer. All rights reserved.
+</P>
+
+<p>
+<!-- #LASTMODIFIED TEXT="Last modified" FORM="LONG,WEEKDAY,TIME,SECONDS"-->
+Last modified Monday, March 3, 2003 11:52:02 PM
+<!-- /#LASTMODIFIED -->
+</p>
+
+<p>
+<a href="http://jigsaw.w3.org/css-validator/"><img 
+style="border:0;width:88px;height:31px" 
+src="http://jigsaw.w3.org/css-validator/images/vcss" alt="Valid CSS!"></a> 
+<a href="http://validator.w3.org/check/referer"><img border="0" 
+src="http://www.w3.org/Icons/valid-html40" alt="Valid HTML 4.0!" 
+height="31" width="88"></a>
+</p>
+
+</BODY>
+
+</HTML>

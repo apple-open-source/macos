@@ -1,4 +1,4 @@
-# $Id: count.awk,v 1.2 2004/03/30 01:21:27 jtownsen Exp $
+# $Id: count.awk,v 12.0 2004/11/17 03:43:24 bostic Exp $
 #
 # Print out the number of log records for transactions that we
 # encountered.

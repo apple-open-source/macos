@@ -182,7 +182,7 @@
 		4D3DCC1608E0B48600C78A0B /* msdosfsmount.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = msdosfsmount.h; sourceTree = "<group>"; tabWidth = 4; };
 		4D3DCC2808E0B4EC00C78A0B /* mount_msdos.8 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = mount_msdos.8; sourceTree = "<group>"; };
 		4D3DCC2908E0B4EC00C78A0B /* mount_msdos.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = mount_msdos.c; sourceTree = "<group>"; tabWidth = 4; };
-		4D3DCC3108E0B53A00C78A0B /* dosutil.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = dosutil.c; sourceTree = "<group>"; tabWidth = 4; };
+		4D3DCC3108E0B53A00C78A0B /* dosutil.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = dosutil.c; sourceTree = "<group>"; tabWidth = 4; usesTabs = 1; };
 		4D3DCC3408E0B53A00C78A0B /* msdos.util.8 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = msdos.util.8; sourceTree = "<group>"; };
 		4D3DCC5008E0B73400C78A0B /* newfs_msdos */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = newfs_msdos; sourceTree = BUILT_PRODUCTS_DIR; };
 		4D3DCC5A08E0B79E00C78A0B /* newfs_msdos.8 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = newfs_msdos.8; sourceTree = "<group>"; };
@@ -791,6 +791,11 @@
 		4D3DCB4208E084D300C78A0B /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+					x86_64,
+				);
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
 				INFOPLIST_FILE = "Info-msdosfs_kext.plist";
@@ -800,8 +805,12 @@
 				MODULE_NAME = com.apple.filesystems.msdosfs;
 				MODULE_START = msdosfs_module_start;
 				MODULE_STOP = msdosfs_module_stop;
-				MODULE_VERSION = 1.5.5;
+				MODULE_VERSION = 1.6;
+				PER_ARCH_CFLAGS_x86_64 = "-mkernel";
 				PRODUCT_NAME = msdosfs;
+				PRODUCT_TYPE_COMPILER_CFLAGS_x86_64 = "-mkernel";
+				PRODUCT_TYPE_COMPILER_CPLUSPLUSFLAGS_x86_64 = "-fapple-kext -mkernel";
+				VALID_ARCHS = "ppc i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Wno-format-y2k",
@@ -827,6 +836,11 @@
 		4D3DCB4308E084D300C78A0B /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+					x86_64,
+				);
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
 				INFOPLIST_FILE = "Info-msdosfs_kext.plist";
@@ -836,8 +850,9 @@
 				MODULE_NAME = com.apple.filesystems.msdosfs;
 				MODULE_START = msdosfs_module_start;
 				MODULE_STOP = msdosfs_module_stop;
-				MODULE_VERSION = 1.5.5;
+				MODULE_VERSION = 1.6;
 				PRODUCT_NAME = msdosfs;
+				VALID_ARCHS = "ppc i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Wno-format-y2k",
@@ -956,6 +971,7 @@
 				ARCHS = (
 					ppc,
 					i386,
+					x86_64,
 				);
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -977,6 +993,7 @@
 				ARCHS = (
 					ppc,
 					i386,
+					x86_64,
 				);
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -991,6 +1008,143 @@
 			};
 			name = Deployment;
 		};
+		4DD699530D6A5A24007E8D14 /* CodeCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+					x86_64,
+				);
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = "";
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS = "DEBUG=1";
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				PREBINDING = NO;
+				WARNING_CFLAGS = "-Wall";
+			};
+			name = CodeCoverage;
+		};
+		4DD699540D6A5A24007E8D14 /* CodeCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = msdosfs;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = CodeCoverage;
+		};
+		4DD699550D6A5A24007E8D14 /* CodeCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+					x86_64,
+				);
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				INFOPLIST_FILE = "Info-msdosfs_kext.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				MODULE_NAME = com.apple.filesystems.msdosfs;
+				MODULE_START = msdosfs_module_start;
+				MODULE_STOP = msdosfs_module_stop;
+				MODULE_VERSION = 1.6;
+				PER_ARCH_CFLAGS_x86_64 = "-mkernel";
+				PRODUCT_NAME = msdosfs;
+				PRODUCT_TYPE_COMPILER_CFLAGS_x86_64 = "-mkernel";
+				PRODUCT_TYPE_COMPILER_CPLUSPLUSFLAGS_x86_64 = "-fapple-kext -mkernel";
+				VALID_ARCHS = "ppc i386 x86_64";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-format-y2k",
+					"-W",
+					"-Wstrict-prototypes",
+					"-Wmissing-prototypes",
+					"-Wpointer-arith",
+					"-Wreturn-type",
+					"-Wcast-qual",
+					"-Wwrite-strings",
+					"-Wswitch",
+					"-Wshadow",
+					"-Wcast-align",
+					"-Wchar-subscripts",
+					"-Winline",
+					"-Wnested-externs",
+					"-Wredundant-decls",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = CodeCoverage;
+		};
+		4DD699560D6A5A24007E8D14 /* CodeCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = msdos.util;
+			};
+			name = CodeCoverage;
+		};
+		4DD699570D6A5A24007E8D14 /* CodeCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INFOPLIST_FILE = "Info-msdos_fs.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Filesystems";
+				PRODUCT_NAME = msdos;
+				WRAPPER_EXTENSION = fs;
+			};
+			name = CodeCoverage;
+		};
+		4DD699580D6A5A24007E8D14 /* CodeCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				HEADER_SEARCH_PATHS = /usr/local/include;
+				INSTALL_PATH = /sbin;
+				OTHER_LDFLAGS = "-lutil";
+				PRODUCT_NAME = mount_msdos;
+			};
+			name = CodeCoverage;
+		};
+		4DD699590D6A5A24007E8D14 /* CodeCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				HEADER_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				INSTALL_PATH = /sbin;
+				OTHER_LDFLAGS = "-ldisk";
+				PRODUCT_NAME = newfs_msdos;
+			};
+			name = CodeCoverage;
+		};
+		4DD6995A0D6A5A24007E8D14 /* CodeCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_GENERATE_TEST_COVERAGE_FILES = YES;
+				GCC_INSTRUMENT_PROGRAM_FLOW_ARCS = YES;
+				INSTALL_PATH = /sbin;
+				OTHER_LDFLAGS = "-lgcov";
+				PRODUCT_NAME = fsck_msdos;
+			};
+			name = CodeCoverage;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -998,6 +1152,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				4D3DCB2808E084D300C78A0B /* Development */,
+				4DD699540D6A5A24007E8D14 /* CodeCoverage */,
 				4D3DCB2908E084D300C78A0B /* Deployment */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -1007,6 +1162,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				4D3DCB4208E084D300C78A0B /* Development */,
+				4DD699550D6A5A24007E8D14 /* CodeCoverage */,
 				4D3DCB4308E084D300C78A0B /* Deployment */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -1016,6 +1172,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				4D3DCB5108E084D400C78A0B /* Development */,
+				4DD699580D6A5A24007E8D14 /* CodeCoverage */,
 				4D3DCB5208E084D400C78A0B /* Deployment */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -1025,6 +1182,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				4D3DCB6208E084D400C78A0B /* Development */,
+				4DD699570D6A5A24007E8D14 /* CodeCoverage */,
 				4D3DCB6308E084D400C78A0B /* Deployment */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -1034,6 +1192,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				4D3DCB7108E084D400C78A0B /* Development */,
+				4DD699560D6A5A24007E8D14 /* CodeCoverage */,
 				4D3DCB7208E084D400C78A0B /* Deployment */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -1043,6 +1202,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				4D3DCC4D08E0B73400C78A0B /* Development */,
+				4DD699590D6A5A24007E8D14 /* CodeCoverage */,
 				4D3DCC4E08E0B73400C78A0B /* Deployment */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -1052,6 +1212,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				4D3DCEFF08E0BB1B00C78A0B /* Development */,
+				4DD6995A0D6A5A24007E8D14 /* CodeCoverage */,
 				4D3DCF0008E0BB1B00C78A0B /* Deployment */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -1061,6 +1222,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				4DAA598F08D79EF4007BE920 /* Development */,
+				4DD699530D6A5A24007E8D14 /* CodeCoverage */,
 				4DAA599008D79EF4007BE920 /* Deployment */,
 			);
 			defaultConfigurationIsVisible = 0;

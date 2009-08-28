@@ -1,0 +1,83 @@
+#!/bin/bash -norc
+dnl	This file is an input file used by the GNU "autoconf" program to
+dnl	generate the file "configure", which is run during Tcl installation
+dnl	to configure the system for the local environment.
+#
+# RCS: @(#) $Id: configure.in,v 1.18 2008/12/03 02:30:42 hobbs Exp $
+
+#--------------------------------------------------------------------
+# This configure.in is based on the Tcl Extension Architecture (TEA)
+# v3 spec.  See the sampleextension module for a fully commented
+# version of the configure.in and makefiles to build your own extension.
+#    http://tcl.sourceforge.net/  'sampleextension' cvs module
+#    http://www.tcl.tk/           Tcl Developer Exchange
+#--------------------------------------------------------------------
+
+AC_INIT([vfs], [1.4])
+
+#--------------------------------------------------------------------
+# Call TEA_INIT as the first TEA_ macro to set up initial vars.
+# This will define a ${TEA_PLATFORM} variable == "unix" or "windows"
+# as well as PKG_LIB_FILE and PKG_STUB_LIB_FILE.
+#--------------------------------------------------------------------
+
+TEA_INIT([3.7])
+
+AC_CONFIG_AUX_DIR(tclconfig)
+
+TEA_PATH_TCLCONFIG
+TEA_LOAD_TCLCONFIG
+
+TEA_PREFIX
+
+TEA_SETUP_COMPILER
+
+TEA_ADD_SOURCES([vfs.c])
+TEA_ADD_HEADERS([])
+TEA_ADD_INCLUDES([-I\"$(${CYGPATH} ${TCL_SRC_DIR}/generic)\"])
+TEA_ADD_LIBS([])
+TEA_ADD_CFLAGS([])
+TEA_ADD_STUB_SOURCES([])
+TEA_ADD_TCL_SOURCES([])
+
+#TEA_PUBLIC_TCL_HEADERS
+TEA_PRIVATE_TCL_HEADERS
+
+#--------------------------------------------------------------------
+# A few miscellaneous platform-specific items:
+#
+# Define a special symbol for Windows (BUILD_VFS in this case) so
+# that we create the export library with the dll.  See sha1.h on how
+# to use this.
+#
+# Windows creates a few extra files that need to be cleaned up.
+# You can add more files to clean if your extension creates any extra
+# files.
+#
+# Define any extra compiler flags in the PACKAGE_CFLAGS variable.
+# These will be appended to the current set of compiler flags for
+# your system.
+#--------------------------------------------------------------------
+
+if test "${TEA_PLATFORM}" = "windows" ; then
+    AC_DEFINE(BUILD_vfs)
+    CLEANFILES="pkgIndex.tcl *.lib *.dll *.exp *.ilk *.pdb vc*.pch"
+else
+    CLEANFILES="pkgIndex.tcl"
+fi
+AC_SUBST(CLEANFILES)
+
+TEA_ENABLE_THREADS
+TEA_ENABLE_SHARED
+TEA_CONFIG_CFLAGS
+TEA_ENABLE_SYMBOLS
+
+if test "${SHARED_BUILD}" = "1"; then
+AC_DEFINE(USE_TCL_STUBS)
+fi
+
+TEA_MAKE_LIB
+
+TEA_PROG_TCLSH
+
+AC_OUTPUT([Makefile pkgIndex.tcl])

@@ -26,14 +26,12 @@
 #include "CLDAPPlugInPrefs.h"
 #include <sys/stat.h>
 #include <PasswordServer/CPSUtilities.h>
+#include "DSUtils.h"
 #include "CLog.h"
 #include "GetMACAddress.h"
 #include "DSUtils.h"
 
-#define kServiceTypeList		"afpserver,cifs,ftp,imap,host,HTTP,http,ipp,ldap,nfs,pop,smtp,smb,vnc,xgrid,XMPP,xmpp,vpn"
-
 DSMutexSemaphore *gLDAPPrefsMutex = nil;
-
 
 CLDAPPlugInPrefs::CLDAPPlugInPrefs()
 {
@@ -42,7 +40,9 @@ CLDAPPlugInPrefs::CLDAPPlugInPrefs()
 	
 	mPrefs.version = CFSTR(kDSLDAPPrefs_CurrentVersion);
 	mPrefs.configs = NULL;
-	strlcpy( mPrefs.services, kServiceTypeList, sizeof(mPrefs.services) );
+	mPrefs.defaultServiceArray = dsCopyKerberosServiceList();
+	mPrefs.serviceArray = NULL;
+	mPrefs.services[0] = '\0';
 	
 	if ( this->Load() != 0 ) {
 		this->Save();
@@ -54,6 +54,8 @@ CLDAPPlugInPrefs::~CLDAPPlugInPrefs()
 {
 	DSCFRelease( mPrefs.version );
 	DSCFRelease( mPrefs.configs );
+	DSCFRelease( mPrefs.defaultServiceArray );
+	DSCFRelease( mPrefs.serviceArray );
 }
 
 void
@@ -77,7 +79,6 @@ CLDAPPlugInPrefs::SetPrefs( DSPrefs *inPrefs )
 	strlcpy( mPrefs.services, inPrefs->services, sizeof(mPrefs.services) );
 }
 
-
 CFDataRef
 CLDAPPlugInPrefs::GetPrefsXML( void )
 {
@@ -93,17 +94,14 @@ CLDAPPlugInPrefs::GetPrefsXML( void )
 	return xmlData;
 }
 
-
 // private
 int
 CLDAPPlugInPrefs::Load( void )
 {
 	int err = 0;
-	CFStringRef serviceListString = NULL;
 	CFDictionaryRef prefsDict = this->LoadXML();
 	CFStringRef versionString = NULL;
 	CFArrayRef configsArray = NULL;
-	char serviceStr[256];
 	
 	if ( prefsDict != NULL )
 	{
@@ -122,23 +120,50 @@ CLDAPPlugInPrefs::Load( void )
 			mPrefs.configs = configsArray;
 		}
 		
-		serviceListString = (CFStringRef) CFDictionaryGetValue( prefsDict, CFSTR(kDSLDAPPrefs_ServicePrincipalTypes) );
-		if ( serviceListString != NULL &&
-			 CFStringGetCString(serviceListString, serviceStr, sizeof(serviceStr), kCFStringEncodingUTF8) )
+		if ( versionString != NULL && CFStringCompare(versionString, CFSTR(kDSLDAPPrefs_CurrentVersion), 0) == kCFCompareEqualTo )
 		{
-			strlcpy( mPrefs.services, serviceStr, sizeof(mPrefs.services) );
+			DSCFRelease( mPrefs.serviceArray );
 			
-			// for install of interim Leopard builds, add vnc (everyone should have ldap by now)
-			if ( strstr(serviceStr, "vnc") == NULL ) {
-				strlcpy( mPrefs.services, kServiceTypeList, sizeof(mPrefs.services) );
-				err = -1;
+			// start with defaults if we have them
+			CFMutableArrayRef newArray = (mPrefs.defaultServiceArray != NULL ? 
+										  CFArrayCreateMutableCopy(kCFAllocatorDefault, 0, mPrefs.defaultServiceArray) : 
+										  CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks) );
+			assert( newArray != NULL );
+			mPrefs.serviceArray = newArray;
+			
+			// deal with the case the client never had the principal list
+			// the "newArray" already uses the default principal list
+			CFStringRef serviceList = (CFStringRef) CFDictionaryGetValue( prefsDict, CFSTR(kDSLDAPPrefs_ServicePrincipalTypes) );
+			if ( serviceList != NULL ) {
+				CFArrayRef tempArray = CFStringCreateArrayBySeparatingStrings( kCFAllocatorDefault, serviceList, CFSTR(",") );
+				if ( tempArray != NULL ) 
+				{
+					CFIndex newCount = CFArrayGetCount( newArray );
+					CFIndex count = CFArrayGetCount( tempArray );
+					
+					for ( CFIndex ii = 0; ii < count; ii++ ) {
+						CFStringRef tempValue = (CFStringRef) CFArrayGetValueAtIndex( tempArray, ii );
+						if ( CFArrayContainsValue(newArray, CFRangeMake(0, newCount), tempValue) == false ) {
+							CFArrayAppendValue( newArray, tempValue );
+							newCount++;
+						}
+					}
+					
+					DSCFRelease( tempArray );
+				}
 			}
+			
+			CFStringRef newList = CFStringCreateByCombiningStrings( kCFAllocatorDefault, newArray, CFSTR(",") );
+			CFStringGetCString( newList, mPrefs.services, sizeof(mPrefs.services), kCFStringEncodingUTF8 );
+			DSCFRelease( newList );
+			newArray = NULL; // done but don't release
+		}
+		else
+		{
+			err = -1;
 		}
 		
-		if ( mPrefs.version == NULL || serviceListString == NULL )
-			err = -1;
-		
-		CFRelease( prefsDict );
+		DSCFRelease( prefsDict );
 	}
 	
 	return err;
@@ -202,9 +227,11 @@ CLDAPPlugInPrefs::Save( void )
 	if ( mPrefs.configs )
 		CFDictionaryAddValue( prefsDict, CFSTR(kDSLDAPPrefs_LDAPServerConfigs), mPrefs.configs );
 	
-	CFStringRef serviceListString = CFStringCreateWithCString( kCFAllocatorDefault, mPrefs.services, kCFStringEncodingUTF8 );
-	CFDictionaryAddValue( prefsDict, CFSTR(kDSLDAPPrefs_ServicePrincipalTypes), serviceListString );
-	CFRelease( serviceListString );
+	if ( mPrefs.serviceArray != NULL ) {
+		CFStringRef newList = CFStringCreateByCombiningStrings( kCFAllocatorDefault, mPrefs.serviceArray, CFSTR(",") );
+		CFDictionaryAddValue( prefsDict, CFSTR(kDSLDAPPrefs_ServicePrincipalTypes), newList );
+		DSCFRelease( newList );
+	}
 	
 	char *tempPrefsFileStr = GetTempFileName();
 	if ( tempPrefsFileStr == NULL ) {

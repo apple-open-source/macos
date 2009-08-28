@@ -4,15 +4,15 @@
 	<key>OpenSourceProject</key>
 	<string>expat</string>
 	<key>OpenSourceVersion</key>
-	<string>2.0.0</string>
+	<string>2.0.1</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://expat.sourceforge.net/</string>
 	<key>OpenSourceURL</key>
-	<string>http://dl.sourceforge.net/sourceforge/expat/expat-2.0.0.tar.gz</string>
+	<string>http://dl.sourceforge.net/sourceforge/expat/expat-2.0.1.tar.gz</string>
 	<key>OpenSourceSHA1</key>
-	<string>9ff011a75a1f5b60145c4afdec520442cb398d93</string>
+	<string>663548c37b996082db1f2f2c32af060d7aa15c2d</string>
 	<key>OpenSourceImportDate</key>
-	<string>2006-06-08</string>
+	<string>2008-07-01</string>
 	<key>OpenSourceLicense</key>
 	<string>MIT</string>
 	<key>OpenSourceLicenseFile</key>

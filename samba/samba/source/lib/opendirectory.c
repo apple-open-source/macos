@@ -1,7 +1,7 @@
 /*
  * opendirectory.c
  *
- * Copyright (C) 2003-2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2003-2009 Apple Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,20 +20,13 @@
 
 #include "includes.h"
 #include "opendirectory.h"
+#include <spawn.h>
+
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
 /* ======================================================================= */
 /* Miscellaneous APIs and utilities					   */
 /* ======================================================================= */
-
-static CFDictionaryRef sam_searchattr_first(
-				struct opendirectory_session *session,
-				const char *type,
-				const char *attr,
-				const char *value);
-static CFDictionaryRef sam_searchname_first(
-				struct opendirectory_session *session,
-				const char *type,
-				const char *name);
 
 /* Data free API. Most (all?) of the ds* API will safely ignore a NULL or zero
  * argument. The only reason we need this is that tDataListPtr needs
@@ -124,8 +117,24 @@ static CFDictionaryRef sam_searchname_first(
 
  void opendirectory_disconnect(struct opendirectory_session *session)
 {
+	const char ** path;
+
 	DS_CLOSE_NODE(session->search);
 	dsCloseDirService(session->ref);
+
+	if (session->domain_sid_cache) {
+		CFRelease(session->domain_sid_cache);
+	}
+
+        for (path = session->local_path_cache; path && *path; ++path) {
+		char * tmp = (char *)(*path);
+		SAFE_FREE(tmp); /* SAFE_FREE NULLs its argument, but we need
+				 * path for our iteration.
+				 */
+	}
+
+	SAFE_FREE(session->local_path_cache);
+
 	ZERO_STRUCTP(session);
 }
 
@@ -136,7 +145,6 @@ static CFDictionaryRef sam_searchname_first(
 #undef DBGC_CLASS
 #define DBGC_CLASS DBGC_AUTH
 
-#define credentialfile "/var/db/samba/opendirectorysam"
 #define opendirectory_secret_sig 'odsa'
 
 typedef struct opendirectory_secret_header {
@@ -145,78 +153,6 @@ typedef struct opendirectory_secret_header {
     u_int32_t secret_len;
     u_int32_t authenticatorid_len;
 } opendirectory_secret_header;
-
-#ifdef USES_KEYCHAIN
-/* Stop the Security framework defining fixed-sized types that we already
- * define. Our definitions are incompatible since they are #defined rather
- * that typedef'd.
- */
-#define _UINT64
-#define _UINT32
-#define _UINT16
-#define _UINT8
-#include <CoreFoundation/CoreFoundation.h>
-#include <Security/Security.h>
-#include <SystemConfiguration/SystemConfiguration.h>
-//#include <CoreServices/CoreServices.h>
-
-#define KEYCHAIN_SERVICE "com.apple.samba"
-#define SAMBA_APP_ID CFSTR("com.apple.samba")
-
-static char * get_admin_account(void)
-{
-	CFPropertyListRef	pref = NULL;
-	char *			account = NULL;
-	int			accountLength = 1024;
-
-	pref = CFPreferencesCopyAppValue (CFSTR("DomainAdmin"), SAMBA_APP_ID);
-	if (pref != 0) {
-		if (CFGetTypeID(pref) == CFStringGetTypeID()) {
-			account = calloc(1, accountLength);
-			if (!CFStringGetCString((CFStringRef)pref, account,
-				    accountLength, kCFStringEncodingUTF8)) {
-				free(account);
-				account = NULL;
-			}
-		}
-		CFRelease(pref);
-	}
-
-	return account;
-}
-
-static void *get_password_from_keychain(char *account, int accountLength)
-{
-	OSStatus status ;
-	SecKeychainItemRef item;
-	void *passwordData = NULL;
-	UInt32 passwordLength = 0;
-	void *password = NULL;
-
-	// Set the domain to System (daemon)
-	status = SecKeychainSetPreferenceDomain(kSecPreferencesDomainSystem);
-	status = SecKeychainGetUserInteractionAllowed (False);
-
-	 status = SecKeychainFindGenericPassword (
-					 NULL,           // default keychain
-					 strlen(KEYCHAIN_SERVICE),             // length of service name
-					 KEYCHAIN_SERVICE,   // service name
-					 accountLength,             // length of account name
-					 account,   // account name
-					 &passwordLength,  // length of password
-					 &passwordData,   // pointer to password data
-					 &item         // the item reference
-					);
-
-	if ((status == noErr) && (item != NULL) && passwordLength)
-	{
-		password = calloc(1, passwordLength + 1);
-		memcpy(password, (const void *)passwordData, passwordLength);
-	}
-	return password;
-}
-
-#endif /* USES_KEYCHAIN */
 
 static opendirectory_secret_header *
 get_opendirectory_secret_header(void *authenticator)
@@ -231,90 +167,6 @@ get_opendirectory_secret_header(void *authenticator)
 	}
 	return NULL;
 }
-
-static void * get_opendirectory_authenticator(void)
-{
-	void *authenticator = NULL;
-	int authentriessize = 0;
-
-#ifdef USES_KEYCHAIN
-	opendirectory_secret_header *odhdr = NULL;
-	char *password = NULL;
-	char *account = NULL;
-
-	account = get_admin_account();
-	if (!account) {
-		return NULL;
-	}
-
-	password = get_password_from_keychain(account, strlen(account));
-	if (!password) {
-		free(account);
-		return NULL;
-	}
-
-	authentriessize = strlen(account) + strlen(password);
-	authenticator = calloc(1, sizeof(opendirectory_secret_header) +
-					authentriessize);
-	memcpy((uint8_t *)authenticator + sizeof(opendirectory_secret_header),
-		account, strlen(account));
-	memcpy((uint8_t *)authenticator + sizeof(opendirectory_secret_header)
-					+ strlen(account),
-		password, strlen(password));
-	odhdr = (opendirectory_secret_header*)authenticator;
-	odhdr->authenticator_len = strlen(account);
-	odhdr->secret_len = strlen(password);
-	odhdr->signature = opendirectory_secret_sig;
-
-	free(password);
-	return authenticator;
-
-#else /* USES_KEYCHAIN */
-
-	int fd = -1;
-	ssize_t len;
-	opendirectory_secret_header hdr;
-
-	fd = open(credentialfile, O_RDONLY,0);
-	if (fd == -1) {
-		DEBUG(0, ("unable to open %s (%s)\n",
-			    credentialfile, strerror(errno)));
-		return NULL;
-	}
-
-	len = read(fd, &hdr, sizeof(opendirectory_secret_header));
-	if (len != sizeof(opendirectory_secret_header)) {
-		goto cleanup;
-	}
-
-	if (hdr.signature != opendirectory_secret_sig) {
-		goto cleanup;
-	}
-
-	authentriessize = hdr.authenticator_len + hdr.secret_len;
-	authenticator = malloc(sizeof(opendirectory_secret_header) + authentriessize);
-	memset(authenticator, 0, sizeof(opendirectory_secret_header) + authentriessize);
-	memcpy(authenticator, &hdr, sizeof(opendirectory_secret_header));
-
-	len = read(fd, (uint8_t *)authenticator +
-			sizeof(opendirectory_secret_header), authentriessize);
-	if (len != authentriessize) {
-		goto cleanup;
-	}
-
-	return authenticator;
-
-cleanup:
-	if (authenticator) {
-		free(authenticator);
-	}
-
-	close(fd);
-	return NULL;
-
-#endif /* USES_KEYCHAIN */
-}
-
 
 static u_int32_t
 authenticator_accountlen(void *authenticator)
@@ -375,13 +227,55 @@ delete_opendirectory_authenticator(void*authenticator)
 	}
 }
 
+static void * get_opendirectory_authenticator(void)
+{
+	void *authenticator = NULL;
+
+	const char * helper;
+	int err;
+	int fd = -1;
+	size_t size;
+
+	helper = lp_parm_const_string(GLOBAL_SECTION_SNUM,
+			"com.apple", "odauth helper",
+			"/usr/libexec/samba/smb-odauth-helper --keychain");
+
+	err = smbrun(helper, &fd);
+	if (err || fd == -1) {
+		DEBUG(0, ("failed to read DomainAdmin credentials, "
+			    "err=%d fd=%d errno=%d\n",
+			    err, fd, errno));
+		return NULL;
+	}
+
+	authenticator = fd_load(fd, &size, getpagesize());
+
+	close(fd);
+	if (authenticator) {
+	    size_t expected;
+
+	    expected = sizeof(opendirectory_secret_header)
+		 + authenticator_accountlen(authenticator)
+		 + authenticator_secretlen(authenticator);
+	    if (size != expected) {
+		DEBUG(0, ("error reading DomainAdmin credentials, "
+			    "expected=%u received=%u\n",
+			    (unsigned)expected, (unsigned)size));
+		SAFE_FREE(authenticator);
+		return NULL;
+	    }
+	}
+
+	return authenticator;
+}
+
 static tDirStatus get_node_ref_and_name(
 			struct opendirectory_session *session,
 			const char *name, const char *recordType,
 			tDirNodeReference *nodeRef, char *outRecordName)
 {
 	tDirStatus		status			= eDSNoErr;
-	unsigned long		returnCount		= 0;
+	UInt32			returnCount		= 0;
 	tDataBufferPtr		nodeBuffer		= NULL;
 	tDataListPtr		NodePath		= NULL;
 	char			NodePathStr[256]	= {0};
@@ -395,7 +289,7 @@ static tDirStatus get_node_ref_and_name(
 	tAttributeEntryPtr	attributeInfo		= NULL;
 	tAttributeValueListRef	attributeValueListRef	= 0;
 	tAttributeValueEntryPtr	attrValue		= NULL;
-	long			i			= 0;
+	UInt32			i			= 0;
 
 	*nodeRef = 0;
 	*outRecordName = '\0';
@@ -514,12 +408,12 @@ opendirectory_add_data_buffer_item(tDataBufferPtr dataBuffer,
  tDirStatus opendirectory_cred_session_key(const DOM_CHAL *client_challenge,
 			    const DOM_CHAL *server_challenge,
 			    const char *machine_acct,
-			    char *session_key)
+			    char *session_key, u_int32_t option)
 {
 	struct opendirectory_session session;
 	tDirStatus 		status			= eDSNoErr;
-	unsigned long		curr			= 0;
-	unsigned long		len			= 0;
+	size_t			curr			= 0;
+	UInt32			len			= 0;
 	tDataBufferPtr		authBuff  		= NULL;
 	tDataBufferPtr		stepBuff  		= NULL;
 	tDataNodePtr		authType		= NULL;
@@ -566,28 +460,35 @@ opendirectory_add_data_buffer_item(tDataBufferPtr dataBuffer,
 	}
 
 	// Target account
-	len = strlen(targetaccount);
-	memcpy(&(authBuff->fBufferData[ curr ]), &len, 4);
-	curr += sizeof(long);
+	len = (UInt32)strlen(targetaccount);
+	memcpy(&(authBuff->fBufferData[ curr ]), &len, sizeof(len));
+	curr += sizeof(len);
 	memcpy(&(authBuff->fBufferData[ curr ]), targetaccount, len);
 	curr += len;
 	// Client Challenge and Server Challenge
 	len = 16;
-	memcpy(&(authBuff->fBufferData[ curr ]), &len, 4);
-	curr += sizeof(long);
+	memcpy(&(authBuff->fBufferData[ curr ]), &len, sizeof(len));
+	curr += sizeof(len);
 	memcpy(&(authBuff->fBufferData[ curr ]), server_challenge->data, 8);
 	curr += 8;
 	memcpy(&(authBuff->fBufferData[ curr ]), client_challenge->data, 8);
 	curr += 8;
+	len = sizeof(option);
+	memcpy(&(authBuff->fBufferData[ curr ]), &len, sizeof(len));
+	curr += sizeof(len);
+	memcpy(&(authBuff->fBufferData[ curr ]), &option, sizeof(option));
+	curr += sizeof(option);
 
+	if (curr > INT32_MAX)
+	    smb_panic("PANIC: Looks like fBufferLength overflowed\n");
 	authBuff->fBufferLength = curr;
 	status = dsDoDirNodeAuthOnRecordType(nodeRef, authType, 1, authBuff,
 			    stepBuff, NULL,  recordType);
 
 	if (status == eDSNoErr) {
 		memcpy(&len, stepBuff->fBufferData, 4);
-		stepBuff->fBufferData[len+4] = '\0';
-		memcpy(session_key,stepBuff->fBufferData+4, 8);
+		DEBUG(4, ("opendirectory_cred_session_key len(%d)\n", len));
+		memcpy(session_key,stepBuff->fBufferData+4, len);
 	}
 
 cleanup:
@@ -613,7 +514,7 @@ cleanup:
 			u_int32_t *key_length)
 {
 	tDirStatus 		status			= eDSNoErr;
-	u_int32_t		len			= 0;
+	UInt32			len			= 0;
 	tDataBufferPtr		authBuff  		= NULL;
 	tDataBufferPtr		stepBuff  		= NULL;
 	tDataNodePtr		authType		= NULL;
@@ -704,7 +605,7 @@ cleanup:
 			u_int8_t *session_key)
 {
 	tDirStatus 		status		= eDSNoErr;
-	unsigned long		len		= 0;
+	UInt32			len		= 0;
 	tDataBufferPtr		authBuff  	= NULL;
 	tDataBufferPtr		stepBuff  	= NULL;
 	tDataNodePtr		authType	= NULL;
@@ -768,7 +669,7 @@ cleanup:
 {
 	struct opendirectory_session session;
 	tDirStatus 		status			= eDSNoErr;
-	unsigned long		len			= 0;
+	UInt32			len			= 0;
 	tDataBufferPtr		authBuff  		= NULL;
 	tDataBufferPtr		stepBuff  		= NULL;
 	tDataNodePtr		authType		= NULL;
@@ -1181,8 +1082,8 @@ static CFMutableDictionaryRef create_sam_record(tDirNodeReference node,
 	tAttributeValueListRef 	valueList = 0;
 	tAttributeEntryPtr 	attributeEntry = NULL;
 
-	unsigned long		attributeIndex;
-	unsigned long		valueIndex;
+	UInt32			attributeIndex;
+	UInt32			valueIndex;
 	tDirStatus		status;
 
 	dsrecord = CFDictionaryCreateMutable(NULL, 0,
@@ -1298,12 +1199,12 @@ next_attribute:
 
  tDirStatus opendirectory_insert_search_results(tDirNodeReference node,
 				    CFMutableArrayRef recordsArray,
-				    const unsigned long recordCount,
+				    const UInt32 recordCount,
 				    tDataBufferPtr dataBuffer)
 {
 	tAttributeListRef	attributeList;
 	tRecordEntryPtr		recordEntry;
-	unsigned long		recordIndex;
+	UInt32			recordIndex;
 	CFMutableDictionaryRef	dsrecord;
 	tDirStatus status;
 
@@ -1351,7 +1252,7 @@ static tDirStatus opendirectory_search_attributes(
 	tDirStatus		status;
 	tDataBufferPtr		dataBuffer;
 
-	tContextData		currentContextData = NULL;
+	tContextData		currentContextData = (tContextData)NULL;
 
 	dataBuffer = DS_DEFAULT_BUFFER(session->ref);
 	if (dataBuffer == NULL) {
@@ -1360,7 +1261,7 @@ static tDirStatus opendirectory_search_attributes(
 	}
 
 	do {
-		unsigned long recordCount;
+		UInt32 recordCount = 0;
 
 		status = dsDoAttributeValueSearchWithData(
 				session->search, dataBuffer,
@@ -1377,7 +1278,7 @@ static tDirStatus opendirectory_search_attributes(
 
 		opendirectory_insert_search_results(session->search,
 				    recordsArray, recordCount, dataBuffer);
-	} while (status == eDSNoErr && currentContextData != NULL);
+	} while (status == eDSNoErr && currentContextData != (tContextData)NULL);
 
 cleanup:
 	opendirectory_free_buffer(session, dataBuffer);
@@ -1403,7 +1304,7 @@ static tDirStatus opendirectory_search_names(
 	tDirStatus		status;
 	tDataBufferPtr		dataBuffer;
 
-	tContextData		currentContextData = NULL;
+	tContextData		currentContextData = (tContextData)NULL;
 
 	dataBuffer = DS_DEFAULT_BUFFER(session->ref);
 	if (dataBuffer == NULL) {
@@ -1412,7 +1313,7 @@ static tDirStatus opendirectory_search_names(
 	}
 
 	do {
-		unsigned long recordCount;
+		UInt32 recordCount;
 
 		status = dsGetRecordList(node, dataBuffer,
 				searchName, eDSiExact, recordType,
@@ -1428,7 +1329,7 @@ static tDirStatus opendirectory_search_names(
 		opendirectory_insert_search_results(node, recordsArray,
 					    recordCount, dataBuffer);
 
-	} while (status == eDSNoErr && currentContextData != NULL);
+	} while (status == eDSNoErr && currentContextData != (tContextData)NULL);
 
 cleanup:
 	opendirectory_free_buffer(session, dataBuffer);
@@ -1458,13 +1359,14 @@ cleanup:
 
 	status = opendirectory_searchnode(session);
 	if (status != eDSNoErr) {
-		return status;
+		goto cleanup;
 	}
 
 	SMB_ASSERT(session->ref != 0);
 	SMB_ASSERT(session->search != 0);
 	if (session->ref == 0 || session->search == 0) {
-		return eDSInvalidRefType;
+		status = eDSInvalidRefType;
+		goto cleanup;
 	}
 
 	samAttributes = opendirectory_sam_attrlist(session);
@@ -1486,8 +1388,10 @@ cleanup:
 		status = eDSAllocationFailed;
 	}
 
+cleanup:
+
 	/* We guarantee a result with a successful return. */
-	if (CFArrayGetCount(*records) == 0) {
+	if (*records != NULL && CFArrayGetCount(*records) == 0) {
 		CFRelease(*records);
 		*records = NULL;
 
@@ -1495,8 +1399,6 @@ cleanup:
 			status = eDSRecordNotFound;
 		}
 	}
-
-cleanup:
 
 	/* Make sure caller doesn't have to clean up on failure. */
 	if (status != eDSNoErr && *records != NULL) {
@@ -1530,10 +1432,18 @@ cleanup:
 
 	status = opendirectory_searchnode(session);
 	if (status != eDSNoErr) {
-		return status;
+		goto cleanup;
 	}
 
-	samAttributes = opendirectory_sam_attrlist(session);
+	if (strequal(type, kDSStdRecordTypeConfig) &&
+			strequal(name, "CIFSServer")) {
+		/* Special query for /Config/CIFSServer. */
+		samAttributes = opendirectory_config_attrlist(session);
+	} else {
+		/* Standard SAM-style attributes */
+		samAttributes = opendirectory_sam_attrlist(session);
+	}
+
 	if (samAttributes == NULL) {
 		status = eDSAllocationFailed;
 		goto cleanup;
@@ -1553,11 +1463,7 @@ cleanup:
 
 	/* We guarantee a result with a successful return. */
 	if (CFArrayGetCount(*records) == 0) {
-		CFRelease(*records);
-		*records = NULL;
-		if (status == eDSNoErr) {
-			status = eDSRecordNotFound;
-		}
+		status = eDSRecordNotFound;
 	}
 
 cleanup:
@@ -1566,7 +1472,6 @@ cleanup:
 	if (status != eDSNoErr && *records != NULL) {
 		CFRelease(*records);
 		*records = NULL;
-		status = eDSRecordNotFound;
 	}
 
         opendirectory_free_list(session, recordType);
@@ -1640,7 +1545,7 @@ cleanup:
 		    strcmp(attribute, kDSNAttrRecordName) != 0) {
 			DEBUG(0, ("WARNING: returning first of %d values "
 				"for %s attribute\n",
-				CFArrayGetCount(valueList), attribute));
+				(int)CFArrayGetCount(valueList), attribute));
 		}
 
                 cfstrRef = (CFStringRef)CFArrayGetValueAtIndex(valueList, 0);
@@ -1703,7 +1608,7 @@ cleanup:
 
 		for (i = 0; i < CFArrayGetCount(valueList); ++i) {
 			cfstrRef =
-			    (CFStringRef)CFArrayGetValueAtIndex(valueList, 0);
+			    (CFStringRef)CFArrayGetValueAtIndex(valueList, i);
 
 			if (cfstrRef == NULL) {
 				continue;
@@ -1758,8 +1663,20 @@ cleanup:
 	return eNotYetImplemented;
 }
 
- tDataListPtr opendirectory_sam_attrlist(struct opendirectory_session *session)
+/* /Config/CIFSServer attributes. */
+ tDataListPtr opendirectory_config_attrlist(struct opendirectory_session *session)
 {
+	return dsBuildListFromStrings(session->ref,
+			    kDSNAttrRecordName,
+			    kDSNAttrRecordType,
+			    kDSNAttrMetaNodeLocation,
+			    kDS1AttrXMLPlist,
+
+			    NULL);
+}
+
+/* Standard SAM record attributes. */
+ tDataListPtr opendirectory_sam_attrlist(struct opendirectory_session *session) {
 	return dsBuildListFromStrings(session->ref,
 			    kDSNAttrRecordName,
 			    kDSNAttrRecordType,
@@ -1797,7 +1714,7 @@ cleanup:
  tDirStatus opendirectory_searchnode(struct opendirectory_session *session)
 {
         tDirStatus              status = eDSNoErr;
-        unsigned long           returnCount     = 0;
+        UInt32	                returnCount     = 0;
         tDataBufferPtr          nodeBuffer      = NULL;
         tDataListPtr            searchNodeName  = NULL;
 
@@ -1848,7 +1765,7 @@ cleanup:
 	tDirStatus	status;
 	tDataBufferPtr	nodeBuffer;
 	tDataListPtr	localNodeName;
-	unsigned long	returnCount;
+	UInt32		returnCount;
 
 	int current, i;
 	const char ** path_list = NULL;
@@ -1921,7 +1838,7 @@ static CFMutableDictionaryRef convert_xml_to_dict(const char *xml)
  * characters. This is needed for cases when we pull the SID from the
  * CIFSServer config record and it contains trailing junk.
  */
-static BOOL chop_sid_string(char * sid_string)
+ BOOL chop_sid_string(char * sid_string)
 {
 	char * c;
 
@@ -2037,73 +1954,10 @@ cleanup:
 	return ret;
 }
 
-typedef  CFDictionaryRef (*domain_sid_search_func) (
-				struct opendirectory_session *session,
-				const DOM_SID *domain_sid,
-				const DOM_SID *match_sid);
-
-struct search_context {
-	domain_sid_search_func		match;
-	struct opendirectory_session *	session;
-	const DOM_SID *			match_sid;
-	CFDictionaryRef			result;
-};
-
-static void search_domain_sid_cache_cb(const CFStringRef nodeLocation,
-					const CFDictionaryRef domainRecord,
-					struct search_context ctx)
-{
-	DOM_SID domain_sid;
-	char *	domain_sid_string;
-
-	if (ctx.result != NULL) {
-	    return;
-	}
-
-	domain_sid_string = opendirectory_get_record_attribute(NULL,
-						    domainRecord, "SID");
-	if (domain_sid_string &&
-	    chop_sid_string(domain_sid_string) &&
-	    string_to_sid(&domain_sid, domain_sid_string)) {
-		ctx.result = ctx.match(ctx.session, &domain_sid,
-					ctx.match_sid);
-	}
-
-	TALLOC_FREE(domain_sid_string);
-
-}
-
-/* Apply the given function to each entry on the domain SID cache. We use this
- * to try any figure out the RID when all we have is an unadorned SID.
- */
-static CFDictionaryRef search_domain_sid_cache(
-			    struct opendirectory_session *session,
-			    const DOM_SID *match_sid,
-			    domain_sid_search_func match)
-{
-	struct search_context ctx =
-	{
-	    .match = match,
-	    .session = session,
-	    .match_sid = match_sid,
-	    .result = NULL
-	};
-
-	if (session->domain_sid_cache == NULL) {
-		return NULL;
-	}
-
-	CFDictionaryApplyFunction(session->domain_sid_cache,
-		(CFDictionaryApplierFunction)search_domain_sid_cache_cb,
-		&ctx);
-
-	return ctx.result;
-}
-
 /* Fill the domain SID cache with the /Congif/CIFSServer records of all
  * the domains that the directory knows about.
  */
-static void fill_domain_sid_cache(void *mem_ctx,
+ void opendirectory_fill_domain_sid_cache(void *mem_ctx,
 			    struct opendirectory_session *session)
 {
 	tDirStatus status;
@@ -2141,8 +1995,11 @@ static void fill_domain_sid_cache(void *mem_ctx,
 	CFRelease(records);
 }
 
-static BOOL get_domain_sid_from_path(void *mem_ctx,
-				struct opendirectory_session *session,
+/* Given a directory node path, return the corresponding domain SID from
+ * the Config/CIFSServer record.
+ */
+ BOOL opendirectory_domain_sid_from_path(void * mem_ctx,
+				struct opendirectory_session * session,
 				const char * node_path,
 				DOM_SID *samsid)
 {
@@ -2166,7 +2023,7 @@ static BOOL get_domain_sid_from_path(void *mem_ctx,
 	}
 
 	if (session->domain_sid_cache == NULL) {
-		fill_domain_sid_cache(mem_ctx, session);
+		opendirectory_fill_domain_sid_cache(mem_ctx, session);
 	}
 
 	/* Check whether we have cached this domain SID already. */
@@ -2199,8 +2056,7 @@ static BOOL get_domain_sid_from_path(void *mem_ctx,
 				    kDSStdRecordTypeConfig, NULL);
 	recordName = dsBuildListFromStrings(session->ref,
 				    "CIFSServer", NULL);
-	attributes = dsBuildListFromStrings(session->ref,
-				    kDS1AttrXMLPlist , NULL);
+	attributes = opendirectory_config_attrlist(session);
 
 	if (!recordName || !recordType || !attributes || !recordsArray) {
 		goto cleanup;
@@ -2242,12 +2098,13 @@ cleanup:
 /* Match the given node path against our cached set of local paths to
  * figure out whether it it local or not.
  */
-static BOOL node_path_is_local(const char ** local_paths,
+ BOOL opendirectory_node_path_is_local(
+				const struct opendirectory_session *session,
 				const char * node_path)
 {
         const char ** path;
 
-        for (path = local_paths; path && *path; ++path) {
+        for (path = session->local_path_cache; path && *path; ++path) {
                 /* XXX: should this reallly be case-sensitive? -- jpeach */
                 if (strcmp(node_path, *path) == 0) {
                         return True;
@@ -2257,641 +2114,454 @@ static BOOL node_path_is_local(const char ** local_paths,
         return False;
 }
 
-static BOOL get_sid_for_samrecord(void *mem_ctx,
-				struct opendirectory_session *session,
-				CFDictionaryRef sam_record,
-				DOM_SID *record_sid)
+struct domain_sid_search_context {
+	domain_sid_search_func		match;
+	struct opendirectory_session *	session;
+	const void *			match_data;
+	CFDictionaryRef			result;
+};
+
+static void search_domain_sid_cache_cb(const CFStringRef nodeLocation,
+					const CFDictionaryRef domainRecord,
+					struct domain_sid_search_context *ctx)
 {
-	fstring sidstr;
-	char * record_name;
-	char * record_path;
+	DOM_SID	    domain_sid;
+	DOM_SID *   domain_sid_ptr = NULL;
+	char *	domain_sid_string;
+	char *	domain_name;
 
-	record_path = opendirectory_get_record_attribute(mem_ctx,
-				    sam_record, kDSNAttrMetaNodeLocation);
-	record_name = opendirectory_get_record_attribute(mem_ctx,
-				    sam_record, kDSNAttrRecordName);
-
-	if (!record_path || !record_name) {
-		goto done;
+	if (ctx->result != NULL) {
+	    return;
 	}
 
-	DEBUG (5, ("resolving SID for record=%s within %s\n",
-		    record_name, record_path));
+	domain_name = opendirectory_get_record_attribute(NULL,
+						    domainRecord, "domain");
 
-	/* By default, we will make this RID relative to the server SID. If
-	 * the user record came from a directory path where we can resolve a
-	 * domain SID, we will use that instead.
-	 */
-	sid_copy(record_sid, get_global_sam_sid());
-
-	/* Local Node - All Users are relative to the server sid */
-	if (node_path_is_local(session->local_path_cache, record_path)) {
-		DEBUG(4, ("record=%s is local\n", record_name));
-		goto done;
- 	}
-
-	if (get_domain_sid_from_path(mem_ctx, session,
-					record_path, record_sid)) {
-		DEBUG(4, ("record=%s is relative to domain SID=%s\n",
-			    record_name, sid_to_string(sidstr, record_sid)));
-	} else {
-		DEBUG(4, ("no domain SID for %s, assuming local SID=%s\n",
-			record_path, sid_to_string(sidstr, record_sid)));
+	domain_sid_string = opendirectory_get_record_attribute(NULL,
+						    domainRecord, "SID");
+	if (domain_sid_string &&
+	    chop_sid_string(domain_sid_string) &&
+	    string_to_sid(&domain_sid, domain_sid_string)) {
+		domain_sid_ptr = &domain_sid;
 	}
 
-done:
-	return True;
+	ctx->result = ctx->match(ctx->session, domain_name,
+				domain_sid_ptr, ctx->match_data);
+
+	TALLOC_FREE(domain_sid_string);
+	TALLOC_FREE(domain_name);
 }
 
- BOOL opendirectory_find_usersid_from_record(
-				struct opendirectory_session *session,
-				CFDictionaryRef sam_record,
-				DOM_SID *sid)
+/* Apply the given function to each entry on the domain SID cache. We use this
+ * to try any figure out the RID when all we have is an unadorned SID.
+ */
+ CFDictionaryRef opendirectory_search_domain_sid_cache(
+			    struct opendirectory_session *session,
+			    const void *match_data,
+			    domain_sid_search_func match)
 {
-	void * mem_ctx = talloc_init("opendirectory_find_usersid_from_record");
-	DOM_SID samsid;
-	char * strval;
-	BOOL ret = False;
+	struct domain_sid_search_context ctx =
+	{
+	    .match = match,
+	    .session = session,
+	    .match_data = match_data,
+	    .result = NULL
+	};
 
-	char * record_type;
-
-	/* Make sure we are dealing with a user record. */
-	record_type = opendirectory_get_record_attribute(mem_ctx,
-				    sam_record, kDSNAttrRecordType);
-	if (!record_type) {
-		goto done;
+	if (session->domain_sid_cache == NULL) {
+		return NULL;
 	}
 
-	DEBUG(6, ("determining user SID for %s record\n", record_type));
-	if (strcmp(record_type, kDSStdRecordTypeUsers) != 0 &&
-	    strcmp(record_type, kDSStdRecordTypeComputers) != 0) {
-		goto done;
+	CFDictionaryApplyFunction(session->domain_sid_cache,
+		(CFDictionaryApplierFunction)search_domain_sid_cache_cb,
+		&ctx);
+
+	return ctx.result;
+}
+
+extern int gethostuuid(unsigned char *uuid, const struct timespec *timeout);
+
+static void uuid_to_sid(const uuid_t hostuuid, DOM_SID * hostsid)
+{
+	ZERO_STRUCTP(hostsid);
+
+	hostsid->sid_rev_num = 1;
+	hostsid->num_auths = 4;
+	hostsid->id_auth[5] = 5;
+	hostsid->sub_auths[0] = 21;
+
+#if 0
+	/* Vista can't join a PDC with 5 subuthorites ... sigh */
+	hostsid->sub_auths[1] =
+	    ((uint32_t)hostuuid[0] << 24) |
+	    ((uint32_t)hostuuid[1] << 16) |
+	    ((uint32_t)hostuuid[2] << 8) |
+	    (uint32_t)hostuuid[3];
+#endif
+
+	hostsid->sub_auths[1] =
+	    ((uint32_t)hostuuid[4] << 24) |
+	    ((uint32_t)hostuuid[5] << 16) |
+	    ((uint32_t)hostuuid[6] << 8) |
+	    (uint32_t)hostuuid[7];
+
+	hostsid->sub_auths[2] =
+	    ((uint32_t)hostuuid[8] << 24) |
+	    ((uint32_t)hostuuid[9] << 16) |
+	    ((uint32_t)hostuuid[10] << 8)  |
+	    (uint32_t)hostuuid[11];
+
+	hostsid->sub_auths[3] =
+	    ((uint32_t)hostuuid[12] << 24) |
+	    ((uint32_t)hostuuid[13] << 16) |
+	    ((uint32_t)hostuuid[14] << 8) |
+	    (uint32_t)hostuuid[15];
+}
+
+static tDirStatus machine_sid_from_uuid(DOM_SID * machine_sid)
+{
+	uuid_t hostuuid;
+	struct timespec timeout = {0}; /* How long the kernel can block while
+					* getting the UUID. Apparantly zero
+					* means an infinite timeout, not a zero
+					* timeout
+					*/
+	int err;
+
+	err = gethostuuid(hostuuid, &timeout);
+	if (err) {
+		DEBUG(0, ("gethostuuid failed: %s\n", strerror(errno)));
+		return eUnknownServerError;
+	}
+
+	uuid_to_sid(hostuuid, machine_sid);
+	return eDSNoErr;
+}
+
+/* Search any local nodes for a Computer record with a SMBSID attribute. */
+static tDirStatus search_machine_sid(void *mem_ctx,
+				struct opendirectory_session *session,
+				DOM_SID *machine_sid)
+{
+	int i;
+	tDirStatus status;
+	CFMutableArrayRef records = NULL;
+
+	status = opendirectory_sam_searchname(session, &records,
+			kDSStdRecordTypeComputers, "localhost");
+	if (!records) {
+		return status == eDSNoErr ? eDSRecordNotFound : status;
 	}
 
 	if (!session->local_path_cache) {
 		session->local_path_cache = opendirectory_local_paths(session);
 	}
 
-	strval = opendirectory_get_record_attribute(mem_ctx,
-					sam_record, kDS1AttrSMBSID);
-	if (strval) {
-		string_to_sid(sid, strval);
-		ret = True;
-		goto done;
-	}
+	for (i = 0; i < CFArrayGetCount(records); ++i) {
+		CFDictionaryRef rec;
+		char * record_path;
+		char * sidstr;
 
-	/* Since there is no SID attribute available, we will need to
-	 * construct something by using an attribute as a RID. We can't do
-	 * this unless we have a base SID for this record.
-	 */
-	if (!get_sid_for_samrecord(mem_ctx, session, sam_record, &samsid)) {
-		goto done;
-	}
-
-	sid_copy(sid, &samsid);
-
-	strval = opendirectory_get_record_attribute(mem_ctx,
-					sam_record, kDS1AttrSMBRID);
-	if (strval) {
-		uint32_t rid = (uint32_t)strtoul(strval, NULL, 10 /* base */);
-		sid_append_rid(sid, rid);
-		ret = True;
-		goto done;
-	}
-
-	strval = opendirectory_get_record_attribute(mem_ctx,
-					sam_record, kDS1AttrUniqueID);
-	if (strval) {
-		int32_t uid = (int32_t)strtol(strval, NULL, 10 /* base */);
-		uint32_t rid;
-
-		if (opendirectory_match_record_attribute(sam_record,
-				    kDSNAttrRecordName, lp_guestaccount())) {
-			rid = DOMAIN_USER_RID_GUEST;
-		} else {
-			rid = algorithmic_pdb_uid_to_user_rid(uid);
+                rec = (CFDictionaryRef)CFArrayGetValueAtIndex(records, i);
+		if (CFGetTypeID(rec) != CFDictionaryGetTypeID()) {
+			continue;
 		}
 
-		sid_append_rid(sid, rid);
-		ret = True;
-		goto done;
+		/* The localhost record should only be available on a local
+		 * directory node, but we'd better check and make sure.
+		 */
+		record_path = opendirectory_get_record_attribute(mem_ctx,
+				    rec, kDSNAttrMetaNodeLocation);
+
+		if (!opendirectory_node_path_is_local(session, record_path)) {
+			continue;
+		}
+
+		sidstr = opendirectory_get_record_attribute(mem_ctx,
+				    rec, kDS1AttrSMBSID);
+
+		if (sidstr && string_to_sid(machine_sid, sidstr)) {
+			status = eDSNoErr;
+			goto done;
+		}
 	}
 
-	/* Nothing in the directory that we can map this record with. */
+	/* Didn't find a localhost record */
+	status = eDSAttributeNotFound;
 
 done:
-	TALLOC_FREE(mem_ctx);
-	return ret;
+	if (records) {
+		CFRelease(records);
+	}
+
+	return status;
 }
 
-static BOOL find_groupsid_from_user(void *mem_ctx,
+tDirStatus opendirectory_query_machine_sid(
 				struct opendirectory_session *session,
-				CFDictionaryRef sam_record,
-				DOM_SID *group_sid)
+				DOM_SID *machine_sid)
 {
-	CFDictionaryRef group_record;
-	char * strval;
+	struct opendirectory_session local_session = {0};
+	BOOL local_disconnect = False;
+	tDirStatus status = 0;
 
-	/* Both user and group records can have a kDS1AttrSMBPrimaryGroupSID
-	 * attribute.
+	void * mem_ctx = talloc_init(__func__);
+
+	if (session == NULL) {
+		status = opendirectory_connect(&local_session);
+		if (status != eDSNoErr) {
+			TALLOC_FREE(mem_ctx);
+			return status;
+		}
+
+		session = &local_session;
+		local_disconnect = True;
+	}
+
+	status = search_machine_sid(mem_ctx, session, machine_sid);
+
+	/* If we didn't find the record or the record didn't have a SMBSID
+	 * attribute, then generate a SID from the machine UUID.
 	 */
-	strval = opendirectory_get_record_attribute(mem_ctx,
-				sam_record, kDS1AttrSMBPrimaryGroupSID);
-	if (strval) {
-		string_to_sid(group_sid, strval);
+	if (status == eDSAttributeNotFound || status == eDSRecordNotFound) {
+		status = machine_sid_from_uuid(machine_sid);
+	}
+
+	if (local_disconnect) {
+		opendirectory_disconnect(&local_session);
+	}
+
+	TALLOC_FREE(mem_ctx);
+	return status;
+}
+
+static CFDictionaryRef match_domain_by_name(
+				struct opendirectory_session *session,
+				const char *domain_name,
+				const DOM_SID *domain_sid,
+				const void *match_data)
+{
+	const char * match_name = (const char *)match_data;
+
+	if (match_name && domain_name && strequal(match_name, domain_name)) {
+		/* Returning the DOM_SID in the CFDictionaryRef is a bit hacky,
+		 * but the alternative is to return void * and sprinkle more
+		 * hacky casts around the place. Oh well.
+		 */
+		return (CFDictionaryRef)TALLOC_MEMDUP(NULL,
+			    domain_sid, sizeof(*domain_sid));
+	}
+
+	return NULL;
+}
+
+tDirStatus opendirectory_query_domain_sid(
+				struct opendirectory_session *session,
+				const char *domain,
+				DOM_SID *domain_sid)
+{
+	struct opendirectory_session local_session = {0};
+	BOOL local_disconnect = False;
+	tDirStatus status = eDSRecordNotFound;
+
+	DOM_SID * sid_result;
+
+	if (strequal(domain, global_myname())) {
+		return opendirectory_query_machine_sid(NULL, domain_sid);
+	}
+
+	void * mem_ctx = talloc_init(__func__);
+
+	if (session == NULL) {
+		status = opendirectory_connect(&local_session);
+		if (status != eDSNoErr) {
+			TALLOC_FREE(mem_ctx);
+			return status;
+		}
+
+		session = &local_session;
+		local_disconnect = True;
+	}
+
+	ZERO_STRUCTP(domain_sid);
+
+	if (session->domain_sid_cache == NULL) {
+		opendirectory_fill_domain_sid_cache(mem_ctx, session);
+	}
+
+	sid_result = (DOM_SID *)opendirectory_search_domain_sid_cache(
+				    session, domain, match_domain_by_name);
+
+	if (sid_result) {
+		sid_copy(domain_sid, sid_result);
+		TALLOC_FREE(sid_result);
+		status = eDSNoErr;
+	} else {
+		status = eDSRecordNotFound;
+	}
+
+	if (local_disconnect) {
+		opendirectory_disconnect(&local_session);
+	}
+
+	TALLOC_FREE(mem_ctx);
+	return status;
+}
+
+tDirStatus opendirectory_store_machine_sid(
+				struct opendirectory_session *session,
+				const DOM_SID *machine_sid)
+{
+	posix_spawn_file_actions_t action;
+	int status;
+	int err;
+	pid_t child;
+	fstring sidstr;
+
+	const char * argv[] =
+	{
+	    "/usr/bin/dscl", ".", "-create",
+		"/Computers/localhost", kDS1AttrSMBSID, sidstr, NULL
+	};
+
+	sid_to_string(sidstr, machine_sid);
+
+	err = posix_spawn_file_actions_init(&action);
+	if (err != 0) {
+	    DEBUG(0, ("%s: posix_spawn init failed: %s\n",
+			__func__, strerror(err)));
+	    return eDSAllocationFailed;
+	}
+
+	/* Redirect /dev/null to stdin. */
+	err = posix_spawn_file_actions_addopen(&action, STDIN_FILENO,
+		    "/dev/null", O_RDONLY, 0 /* mode */);
+	if (err != 0) {
+	    DEBUG(0, ("%s: stdin redirection failed: %s\n",
+			__func__, strerror(err)));
+	}
+
+	err = posix_spawn(&child, *argv, &action, NULL /* posix_spawnattr_t */,
+			    (char * const *)argv, NULL /* environ */);
+	if (err != 0) {
+	    DEBUG(0, ("failed to spawn %s: %s\n", *argv, strerror(err)));
+	    posix_spawn_file_actions_destroy(&action);
+	    return eUnknownServerError;
+	}
+
+	posix_spawn_file_actions_destroy(&action);
+
+	while (waitpid(child, &status, 0) != child) {
+	}
+
+	if (WIFEXITED(status) && WEXITSTATUS(status) == EXIT_SUCCESS) {
+	    /* yay, the helper ran and succeeded. */
+	    return eDSNoErr;
+	}
+
+	return eUnknownServerError;
+}
+
+/* DOM_SID and nt_sid_t are not the same binary layout, so we have to
+ * manually convert.
+ */
+ BOOL convert_DOMSID_to_ntsid(nt_sid_t * ntsid, const DOM_SID * domsid)
+{
+	ZERO_STRUCTP(ntsid);
+
+	if ((domsid->num_auths * sizeof(uint32_t)) >
+		sizeof(ntsid->sid_authorities)) {
+		DEBUG(0, ("DOM_SID has too many subauthorities (%d)\n",
+			    domsid->num_auths));
+		return False;
+	}
+
+	ntsid->sid_kind = domsid->sid_rev_num;
+	ntsid->sid_authcount = domsid->num_auths;
+	memcpy(ntsid->sid_authority, domsid->id_auth,
+		sizeof(ntsid->sid_authority));
+	memcpy(ntsid->sid_authorities, domsid->sub_auths,
+		sizeof(uint32) * domsid->num_auths);
+
+	return True;
+}
+
+ BOOL convert_ntsid_to_DOMSID(DOM_SID * domsid, const nt_sid_t * ntsid)
+{
+	ZERO_STRUCTP(domsid);
+
+	domsid->sid_rev_num = ntsid->sid_kind;
+	domsid->num_auths = ntsid->sid_authcount;
+	memcpy(domsid->id_auth, ntsid->sid_authority,
+		sizeof(ntsid->sid_authority));
+	memcpy(domsid->sub_auths, ntsid->sid_authorities,
+		sizeof(uint32) * domsid->num_auths);
+	return True;
+}
+
+ BOOL is_compatibility_guid(const uuid_t guid, int * id_type, id_t * ugid)
+{
+	const uint32_t * temp = (const uint32_t *)guid;
+
+	if ((temp[0] == htonl(0xFFFFEEEE)) &&
+		    (temp[1] == htonl(0xDDDDCCCC)) &&
+		    (temp[2] == htonl(0xBBBBAAAA))) {
+		*ugid = ntohl(temp[3]);
+		*id_type = MBR_ID_TYPE_UID;
+		return True;
+	} else if ((temp[0] == htonl(0xAAAABBBB)) &&
+		    (temp[1] == htonl(0xCCCCDDDD)) &&
+		    (temp[2] == htonl(0xEEEEFFFF))) {
+		*ugid = ntohl(temp[3]);
+		*id_type = MBR_ID_TYPE_GID;
 		return True;
 	}
 
-	/* The group SID wasn't explicitly overridden, so we have to look up
-	 * the group record and work from there.
-	 */
-	strval = opendirectory_get_record_attribute(mem_ctx,
-					sam_record, kDS1AttrPrimaryGroupID);
-	if (!strval) {
+	return False;
+}
+
+ BOOL memberd_sid_to_uuid(
+		const DOM_SID * sid, uuid_t uuid)
+{
+	nt_sid_t ntsid;
+	int err;
+
+	if (!convert_DOMSID_to_ntsid(&ntsid, sid)) {
 		return False;
 	}
 
-	group_record = sam_searchattr_first(session, kDSStdRecordTypeGroups,
-			    kDS1AttrPrimaryGroupID, strval);
-	if (group_record) {
-		BOOL ret;
-
-		ret = opendirectory_find_groupsid_from_record(session,
-			    group_record, group_sid);
-		CFRelease(group_record);
-		return ret;
+	err = mbr_sid_to_uuid(&ntsid, uuid);
+	if (err) {
+		DEBUG(6, ("unable to map %s to a UUID: %s\n",
+			sid_string_static(sid),
+			strerror(err)));
+		return False;
 	}
-
-	/* Nothing in the directory that we can map this record with, but
-	 * it's a user record so we can put them in Domain Users.
-	 */
-	sid_copy(group_sid, get_global_sam_sid());
-	sid_append_rid(group_sid, DOMAIN_GROUP_RID_USERS);
 
 	return True;
 }
 
- BOOL opendirectory_find_groupsid_from_record(
-				struct opendirectory_session *session,
-				CFDictionaryRef sam_record,
-				DOM_SID *sid)
+ BOOL memberd_uuid_to_sid(
+	    const uuid_t uuid, DOM_SID * sid)
 {
-	void * mem_ctx = talloc_init("opendirectory_find_groupsid_from_record");
-	DOM_SID samsid;
-	char * strval;
-	BOOL ret = False;
+	nt_sid_t ntsid;
+	int err;
 
-	char * record_type;
+	err = mbr_uuid_to_sid(uuid, &ntsid);
+	if (err != 0) {
+		if (DEBUGLVL(6)) {
+			uuid_string_t str;
+			uuid_unparse(uuid, str);
 
-	record_type = opendirectory_get_record_attribute(mem_ctx,
-				    sam_record, kDSNAttrRecordType);
-	if (!record_type) {
-		goto done;
-	}
-
-	DEBUG(6, ("determining group SID for %s record\n", record_type));
-
-	/* Make sure we are dealing with a user, group or computer record. */
-	if (strcmp(record_type, kDSStdRecordTypeGroups) != 0 &&
-	    strcmp(record_type, kDSStdRecordTypeUsers) != 0 &&
-	    strcmp(record_type, kDSStdRecordTypeComputers) != 0) {
-		goto done;
-	}
-
-	if (!session->local_path_cache) {
-		session->local_path_cache = opendirectory_local_paths(session);
-	}
-
-	/* If we are finding the primary group sid with only a user record,
-	 * punt it becasue we might need to look up the group record.
-	 */
-	if (strcmp(record_type, kDSStdRecordTypeUsers) == 0) {
-		ret = find_groupsid_from_user(mem_ctx, session,
-						sam_record, sid);
-		goto done;
-	}
-
-	strval = opendirectory_get_record_attribute(mem_ctx,
-				sam_record, kDS1AttrSMBPrimaryGroupSID);
-	if (strval) {
-		string_to_sid(sid, strval);
-		ret = True;
-		goto done;
-	}
-
-	strval = opendirectory_get_record_attribute(mem_ctx,
-					sam_record, kDS1AttrSMBSID);
-	if (strval) {
-		string_to_sid(sid, strval);
-		ret = True;
-		goto done;
-	}
-
-	/* Since there is no SID attribute available, we will need to
-	 * construct something by using an attribute as a RID. We can't do
-	 * this unless we have a base SID for this record.
-	 */
-	if (!get_sid_for_samrecord(mem_ctx, session, sam_record, &samsid)) {
-		goto done;
-	}
-
-	sid_copy(sid, &samsid);
-
-	strval = opendirectory_get_record_attribute(mem_ctx,
-					sam_record, kDS1AttrSMBGroupRID);
-	if (strval) {
-		uint32_t rid = (uint32_t)strtoul(strval, NULL, 10 /* base */);
-		sid_append_rid(sid, rid);
-		ret = True;
-		goto done;
-	}
-
-	strval = opendirectory_get_record_attribute(mem_ctx,
-					sam_record, kDS1AttrSMBRID);
-	if (strval) {
-		uint32_t rid = (uint32_t)strtoul(strval, NULL, 10 /* base */);
-		sid_append_rid(sid, rid);
-		ret = True;
-		goto done;
-	}
-
-	strval = opendirectory_get_record_attribute(mem_ctx,
-					sam_record, kDS1AttrPrimaryGroupID);
-	if (strval) {
-		int32_t gid = (int32_t)strtol(strval, NULL, 10 /* base */);
-		uint32_t rid;
-
-		/* Note that this implies that we have matching user and group
-		 * names for lp_guestaccount(). This is true for common choices
-		 * like "unknown" and "nobody".
-		 */
-		if (opendirectory_match_record_attribute(sam_record,
-				    kDSNAttrRecordName, lp_guestaccount())) {
-			rid = DOMAIN_GROUP_RID_GUESTS;
-		} else {
-			rid = algorithmic_pdb_gid_to_group_rid(gid);
+			DEBUGADD(6,
+				("unable to map UUID %s to a SID: %s\n",
+				str, strerror(err)));
 		}
 
-		sid_append_rid(sid, rid);
-		ret = True;
-		goto done;
-	}
-
-	if (strcmp(record_type, kDSStdRecordTypeComputers) == 0) {
-		sid_append_rid(sid, DOMAIN_GROUP_RID_COMPUTERS);
-		ret = True;
-	}
-
-done:
-	TALLOC_FREE(mem_ctx);
-	return ret;
-}
-
-static CFDictionaryRef sam_searchname_first(
-				struct opendirectory_session *session,
-				const char *type,
-				const char *name)
-{
-	CFMutableArrayRef records = NULL;
-	tDirStatus status;
-
-	status = opendirectory_sam_searchname(session,
-			    &records, type, name);
-
-	if (records) {
-		CFDictionaryRef first =
-		    (CFDictionaryRef)CFArrayGetValueAtIndex(records, 0);
-
-		CFRetain(first);
-		CFRelease(records);
-		return first;
-	}
-
-	return NULL;
-}
-
-static CFDictionaryRef sam_searchattr_first(
-				struct opendirectory_session *session,
-				const char *type,
-				const char *attr,
-				const char *value)
-{
-	CFMutableArrayRef records = NULL;
-	tDirStatus status;
-
-	status = opendirectory_sam_searchattr(session,
-			    &records, type, attr, value);
-
-	if (records) {
-		CFDictionaryRef first =
-		    (CFDictionaryRef)CFArrayGetValueAtIndex(records, 0);
-
-		CFRetain(first);
-		CFRelease(records);
-		return first;
-	}
-
-	return NULL;
-}
-
-static CFDictionaryRef find_record_from_usersid_and_domsid(
-				struct opendirectory_session *session,
-				const DOM_SID *domain_sid,
-				const DOM_SID *sid)
-{
-	CFDictionaryRef sam_record;
-	fstring rid_string;
-	fstring uid_string;
-	uint32_t rid;
-
-	if (!sid_peek_check_rid(domain_sid, sid, &rid)) {
-		return NULL;
-	}
-
-	if (rid == DOMAIN_USER_RID_GUEST) {
-		return sam_searchname_first(session, kDSStdRecordTypeUsers,
-					 lp_guestaccount());
-	}
-
-	snprintf(rid_string, sizeof(rid_string) - 1, "%u", rid);
-	snprintf(uid_string, sizeof(uid_string) - 1, "%u",
-			    algorithmic_pdb_user_rid_to_uid(rid));
-
-	sam_record = sam_searchattr_first(session, kDSStdRecordTypeUsers,
-					 kDS1AttrSMBRID, rid_string);
-	if (sam_record) {
-		return sam_record;
-	}
-
-	sam_record = sam_searchattr_first(session, kDSStdRecordTypeComputers,
-					 kDS1AttrSMBRID, rid_string);
-	if (sam_record) {
-		return sam_record;
-	}
-
-	/* If it's not a generated user RID, searching won't help. */
-	if (!algorithmic_pdb_rid_is_user(rid)) {
-		return NULL;
-	}
-
-	sam_record = sam_searchattr_first(session, kDSStdRecordTypeUsers,
-					 kDS1AttrUniqueID, uid_string);
-	if (sam_record) {
-		return sam_record;
-	}
-
-	sam_record = sam_searchattr_first(session, kDSStdRecordTypeComputers,
-					 kDS1AttrUniqueID, uid_string);
-	if (sam_record) {
-		return sam_record;
-	}
-
-	return NULL;
-}
-
-/* Map SIDS that are relative to the SAM SID to the "well-known" Apple builtin
- * SID of the form S-1-5-21-RID. Arguably we should also do this for the domain
- * SID if we are a domain controller.
- */
-static BOOL apple_wellknown_sid(const DOM_SID *sid, DOM_SID *apple_sid)
-{
-	uint32_t rid;
-	DOM_SID apple_wellknown =
-	    { 1, 1, {0,0,0,0,0,5}, {21,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
-
-	if (!sid_peek_check_rid(get_global_sam_sid(), sid, &rid)) {
 		return False;
 	}
 
-	return sid_compose(apple_sid, &apple_wellknown, rid);
-}
-
- CFDictionaryRef opendirectory_find_record_from_usersid(
-				struct opendirectory_session *session,
-				const DOM_SID *sid)
-{
-	CFDictionaryRef sam_record;
-	fstring sid_string;
-
-	DOM_SID domain_sid = {0};
-	DOM_SID apple_user_sid = {0};
-	DOM_SID sam_sid = {0};
-
-	secrets_fetch_domain_sid(lp_workgroup(), &domain_sid);
-	sam_sid = *get_global_sam_sid();
-
-	sid_to_string(sid_string, sid);
-
-	sam_record = sam_searchattr_first(session, kDSStdRecordTypeUsers,
-					 kDS1AttrSMBSID, sid_string);
-	if (sam_record) {
-		return sam_record;
-	}
-
-	/* Check whether this SID is an Apple "well-known" SID. Since there are
-	 * no well-known Computers, we don't need to repeat this check.
-	 */
-	if (apple_wellknown_sid(sid, &apple_user_sid)) {
-		sid_to_string(sid_string, &apple_user_sid);
-		sam_record = sam_searchattr_first(session,
-					kDSStdRecordTypeUsers,
-					kDS1AttrSMBSID, sid_string);
-		if (sam_record) {
-			return sam_record;
-		}
-	}
-
-	sam_record = sam_searchattr_first(session, kDSStdRecordTypeComputers,
-					 kDS1AttrSMBSID, sid_string);
-	if (sam_record) {
-		return sam_record;
-	}
-
-	/* The SID might be in a domain we know about, so we can try poking
-	 * around for something to match the RID.
-	 */
-
-	sam_record = find_record_from_usersid_and_domsid(session,
-						    &sam_sid, sid);
-	if (sam_record) {
-		return sam_record;
-	}
-
-	/* Also try the domain SID if it is not the same as our SAM SID. */
-	if (sid_compare_domain(&domain_sid, &sam_sid) != 0) {
-		sam_record = find_record_from_usersid_and_domsid(session,
-							&domain_sid, sid);
-		if (sam_record) {
-			return sam_record;
-		}
-	}
-
-	/* As a last resort, iterate over all the domains that are available in
-	 * the directory and see whether we can match the SID in any of those.
-	 */
-	if (session->domain_sid_cache == NULL) {
-		void * mem_ctx = talloc_init(__FUNCTION__);
-		fill_domain_sid_cache(mem_ctx, session);
-		TALLOC_FREE(mem_ctx);
-	}
-
-	return search_domain_sid_cache(session, sid,
-		    find_record_from_usersid_and_domsid);
-}
-
-static CFDictionaryRef find_record_from_groupsid_and_domsid(
-				struct opendirectory_session *session,
-				const DOM_SID *domain_sid,
-				const DOM_SID *group_sid)
-{
-	CFDictionaryRef sam_record;
-	fstring rid_string;
-	fstring gid_string;
-	uint32_t rid;
-
-	if (!sid_peek_check_rid(domain_sid, group_sid, &rid)) {
-		return NULL;
-	}
-
-	DEBUG(8, ("searching domain %s for group record with SID %s\n",
-		sid_to_string(gid_string, domain_sid),
-		sid_to_string(rid_string, group_sid)));
-
-	snprintf(rid_string, sizeof(rid_string) - 1, "%u", rid);
-
-	/* First, search for a record with a matching group RID. If that fails,
-	 * we can check to see whether it's a well-known RID for which we have
-	 * a builtin default.
-	 */
-	sam_record = sam_searchattr_first(session, kDSStdRecordTypeGroups,
-					 kDS1AttrSMBRID, rid_string);
-	if (sam_record) {
-		return sam_record;
-	}
-
-	sam_record = sam_searchattr_first(session, kDSStdRecordTypeComputers,
-					 kDS1AttrSMBGroupRID, rid_string);
-	if (sam_record) {
-		return sam_record;
-	}
-
-	switch (rid) {
-	case DOMAIN_GROUP_RID_USERS:
-	case BUILTIN_ALIAS_RID_USERS:
-		/* The local group "staff" has a SID of S-1-5-32-545, which is
-		 * the well-known SID for "Users". Additionally, the "staff"
-		 * group has a RealName attribute of "Users", so this seems
-		 * like a good match.
-		 */
-		return sam_searchname_first(session, kDSStdRecordTypeGroups,
-					 "staff");
-	case DOMAIN_GROUP_RID_GUESTS:
-	case BUILTIN_ALIAS_RID_GUESTS:
-	case DOMAIN_GROUP_RID_COMPUTERS:
-		/* The default config has "guest account = nobody", so we can
-		 * use this for both the guest user and the guest group. We
-		 * can't guarantee that the guest account is also a group
-		 * however.
-		 *
-		 * Computer accounts get mapped to nobody as well because they
-		 * are untrusted as far as filesystem access goes.
-		 */
-		sam_record = sam_searchname_first(session,
-			    kDSStdRecordTypeGroups, lp_guestaccount());
-
-		if (!sam_record) {
-			sam_record = sam_searchname_first(session,
-					kDSStdRecordTypeGroups, "nobody");
-		}
-
-		return sam_record;
-
-	case DOMAIN_GROUP_RID_ADMINS:
-	case DOMAIN_GROUP_RID_CONTROLLERS:
-	case DOMAIN_GROUP_RID_CERT_ADMINS:
-	case DOMAIN_GROUP_RID_SCHEMA_ADMINS:
-	case DOMAIN_GROUP_RID_ENTERPRISE_ADMINS:
-	case BUILTIN_ALIAS_RID_ADMINS:
-	case BUILTIN_ALIAS_RID_POWER_USERS:
-		return sam_searchname_first(session, kDSStdRecordTypeGroups,
-					 "admin");
-	}
-
-	if (rid >= BASE_RID) {
-		snprintf(gid_string, sizeof(gid_string) - 1, "%u",
-				    pdb_group_rid_to_gid(rid));
-
-		/* If it a generated user RID, searching won't help because
-		 * we are looking for a group.
-		 */
-		if (algorithmic_pdb_rid_is_user(rid)) {
-			return NULL;
-		}
-
-		sam_record = sam_searchattr_first(session,
-					kDSStdRecordTypeGroups,
-					kDS1AttrPrimaryGroupID, gid_string);
-		if (sam_record) {
-			return sam_record;
-		}
-	}
-
-	return NULL;
-}
-
- CFDictionaryRef opendirectory_find_record_from_groupsid(
-				struct opendirectory_session *session,
-				const DOM_SID *group_sid)
-{
-	CFDictionaryRef sam_record;
-	fstring sid_string;
-
-	DOM_SID domain_sid = {0};
-	DOM_SID sam_sid = {0};
-	DOM_SID apple_group_sid = {0};
-
-	secrets_fetch_domain_sid(lp_workgroup(), &domain_sid);
-	sam_sid = *get_global_sam_sid();
-
-	sid_to_string(sid_string, group_sid);
-
-	sam_record = sam_searchattr_first(session, kDSStdRecordTypeGroups,
-					 kDS1AttrSMBSID, sid_string);
-	if (sam_record) {
-		return sam_record;
-	}
-
-	if (apple_wellknown_sid(group_sid, &apple_group_sid)) {
-		sid_to_string(sid_string, &apple_group_sid);
-		sam_record = sam_searchattr_first(session,
-					kDSStdRecordTypeGroups,
-					kDS1AttrSMBSID, sid_string);
-		if (sam_record) {
-			return sam_record;
-		}
-	}
-
-	sam_record = find_record_from_groupsid_and_domsid(session,
-				&sam_sid, group_sid);
-	if (sam_record) {
-		return sam_record;
-	}
-
-	if (sid_compare(&domain_sid, &sam_sid) != 0) {
-		sam_record = find_record_from_groupsid_and_domsid(session,
-					    &domain_sid, group_sid);
-		if (sam_record) {
-			return sam_record;
-		}
-	}
-
-	if (session->domain_sid_cache == NULL) {
-		void * mem_ctx = talloc_init(__FUNCTION__);
-		fill_domain_sid_cache(mem_ctx, session);
-		TALLOC_FREE(mem_ctx);
-	}
-
-	return search_domain_sid_cache(session, group_sid,
-		    find_record_from_groupsid_and_domsid);
+	convert_ntsid_to_DOMSID(sid, &ntsid);
+	return True;
 }
 

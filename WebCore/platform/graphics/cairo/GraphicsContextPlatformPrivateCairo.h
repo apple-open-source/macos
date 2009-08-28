@@ -65,6 +65,7 @@ public:
     // On Windows, we need to update the HDC for form controls to draw in the right place.
     void save();
     void restore();
+    void flush();
     void clip(const FloatRect&);
     void clip(const Path&);
     void scale(const FloatSize&);
@@ -73,10 +74,12 @@ public:
     void concatCTM(const TransformationMatrix&);
     void beginTransparencyLayer() { m_transparencyCount++; }
     void endTransparencyLayer() { m_transparencyCount--; }
+    void syncContext(PlatformGraphicsContext* cr);
 #else
     // On everything else, we do nothing.
     void save() {}
     void restore() {}
+    void flush() {}
     void clip(const FloatRect&) {}
     void clip(const Path&) {}
     void scale(const FloatSize&) {}
@@ -85,6 +88,7 @@ public:
     void concatCTM(const TransformationMatrix&) {}
     void beginTransparencyLayer() {}
     void endTransparencyLayer() {}
+    void syncContext(PlatformGraphicsContext* cr) {}
 #endif
 
     cairo_t* cr;

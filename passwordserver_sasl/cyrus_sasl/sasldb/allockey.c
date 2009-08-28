@@ -108,9 +108,9 @@ int _sasldb_parse_key(const char *key, const size_t key_len,
 
     if(numnulls != 2) return SASL_BADPARAM;
 
-    alen = strlen(key);
-    rlen = strlen(key + alen + 1);
-    pnlen = key_len - alen - rlen - 2;
+    alen = (unsigned int)strlen(key);
+    rlen = (unsigned int)strlen(key + alen + 1);
+    pnlen = (unsigned int)key_len - alen - rlen - 2;
     
 
     if(authid) {

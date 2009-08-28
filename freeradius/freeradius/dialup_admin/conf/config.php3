@@ -9,12 +9,17 @@ if( $curVer >= $testVer )
 # If using sessions set use_session to 1 to also cache the config file
 #
 $use_session = 0;
+unset($config);
+unset($nas_list);
 if ($use_session){
 	// Start session
 	@session_start();
+	if (isset($_SESSION['config']))
+		$config = $_SESSION['config'];
+	if (isset($_SESSION['nas_list']))
+		$nas_list = $_SESSION['nas_list'];
 }
 if (!isset($config)){
-	unset($nas_list);
 	$ARR=file("../conf/admin.conf");
 	$EXTRA_ARR = array();
 	foreach($ARR as $val) {
@@ -61,10 +66,12 @@ if (!isset($config)){
 if ($use_session == 0 && $config[general_use_session] == 'yes'){
 	// Start session
 	@session_start();
+	if (isset($nas_list))
+		session_register('nas_list');
 }
 //Make sure we are only passed allowed strings in username
 if ($login != '')
-	$login = preg_replace("/[^\w\s\.\/\@\:]\-i\=/",'',$login);
+	$login = preg_replace("/[^\w\.\/\@\:\-]/",'',$login);
 
 if ($login != '' && $config[general_strip_realms] == 'yes'){
 	$realm_del = ($config[general_realm_delimiter] != '') ? $config[general_realm_delimiter] : '@';
@@ -73,17 +80,35 @@ if ($login != '' && $config[general_strip_realms] == 'yes'){
 	if (count($new) == 2)
 		$login = ($realm_for == 'suffix') ? $new[0] : $new[1];
 }
+unset($mappings);
+if (isset($_SESSION['mappings']))
+	$mappings = $_SESSION['mappings'];
 if (!isset($mappings) && $config[general_username_mappings_file] != ''){
 	$ARR = file($config[general_username_mappings_file]);
 	foreach($ARR as $val){
 		$val=chop($val);
 		if (ereg('^[[:space:]]*#',$val) || ereg('^[[:space:]]*$',$val))
 			continue;
-		list($key,$realm,$v)=split(":[[:space:]]*",$val,2);
-		if ($realm == 'accounting' || $realm == 'userdb')
+		list($key,$realm,$v)=split(":[[:space:]]*",$val,3);
+		if ($realm == 'accounting' || $realm == 'userdb' || $realm == 'nasdb' || $realm == 'nasadmin')
 			$mappings["$key"][$realm] = $v;
+		if ($realm == 'nasdb'){
+			$NAS_ARR = array();
+			$NAS_ARR = split(',',$v);
+			foreach ($nas_list as $key => $nas){
+				foreach ($NAS_ARR as $nas_check){
+					if ($nas_check == $nas[name])
+						unset($nas_list[$key]);
+				}
+			}
+		}
 	}
 	if ($config[general_use_session] == 'yes')
 		session_register('mappings');
 }
+
+//Include missing.php3 if needed
+if (!function_exists('array_change_key_case'))
+	include_once('../lib/missing.php3');
+@header('Content-type: text/html; charset='.$config[general_charset].';');
 ?>

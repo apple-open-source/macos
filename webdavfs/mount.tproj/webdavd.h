@@ -62,6 +62,10 @@
 #define WEBDAV_RLIMIT_NOFILE 1024
 #define WEBDAV_MAX_OPEN_FILES 512
 
+// The default maximum size of a download to allow the file system to cache
+#define WEBDAV_DEFAULT_CACHE_MAX_SIZE 0x02000000  /* 32M */
+#define WEBDAV_ONE_GIGABYTE			  0x40000000  /* 1G */
+
 /* the number of threads available to handle requests from the kernel file system and downloads */
 #define WEBDAV_REQUEST_THREADS 5
 
@@ -94,6 +98,9 @@
 #define WEBDAV_WRITESEQ_RSPBUF_LEN 4096
 #define WEBDAV_WRITESEQ_REQUEST_TIMEOUT 30  /* in seconds  */
 #define WEBDAV_MANAGER_STARTUP_TIMEOUT 5 /* in seconds */
+
+/* Macro to simplify common CFRelease usage */
+#define CFReleaseNull(obj) do { if(obj != NULL) { CFRelease(obj); obj = NULL; } } while (0)
 
 struct seqwrite_mgr_req;
 
@@ -170,6 +177,8 @@ struct seqwrite_mgr_req
 	// chunk state
 	CFIndex chunkLen, chunkWritten;
 	
+	uint32_t refCount;
+	
 	// Where we store data read from the cache before we throw it on the wire.
 	unsigned char *data;
 };
@@ -177,7 +186,7 @@ struct seqwrite_mgr_req
 /* Global functions */
 extern void webdav_debug_assert(const char *componentNameString, const char *assertionString, 
 	const char *exceptionLabelString, const char *errorString, 
-	const char *fileName, long lineNumber, int errorCode);
+	const char *fileName, long lineNumber, uint64_t errorCode);
 extern void webdav_kill(int message);
 
 /* Global variables */
@@ -191,6 +200,7 @@ extern int gSecureServerAuth;			/* if TRUE, the authentication for server challe
 extern char gWebdavCachePath[MAXPATHLEN + 1]; /* the current path to the cache directory */
 extern int gSecureConnection;			/* if TRUE, the connection is secure */
 extern CFURLRef gBaseURL;				/* the base URL for this mount */
+extern uint32_t	gServerIdent;			/* identifies some (not all) types of servers we are connected to (i.e. WEBDAV_IDISK_SERVER) */
 
 /*
  * filesystem functions
@@ -240,7 +250,5 @@ extern int filesystem_mount(int *a_mount_args);
 extern int filesystem_lock(struct node_entry *node);
 
 extern int filesystem_init(int typenum);
-
-extern int filesystem_write_sequential(struct webdav_request_writeseq *request_seq_write);
 
 #endif /*ifndef _WEBDAVD_H_INCLUDE */

@@ -1,0 +1,91 @@
+// !$*UTF8*$!
+{
+	08FB7793FE84155DC02AAC07 /* Project object */ = {
+		activeArchitecture = ppc;
+		activeBuildConfigurationName = Release;
+		activeExecutable = E8DAD7D90D931DEE00B8524F /* ArrayApplyBlock */;
+		activeTarget = 8DD76F960486AA7600D96B5E /* ArrayApplyBlock */;
+		codeSenseManager = E8DAD80F0D93259600B8524F /* Code sense */;
+		executables = (
+			E8DAD7D90D931DEE00B8524F /* ArrayApplyBlock */,
+		);
+		perUserDictionary = {
+			PBXConfiguration.PBXFileTableDataSource3.PBXFileTableDataSource = {
+				PBXFileTableDataSourceColumnSortingDirectionKey = "-1";
+				PBXFileTableDataSourceColumnSortingKey = PBXFileDataSource_Filename_ColumnID;
+				PBXFileTableDataSourceColumnWidthsKey = (
+					20,
+					243,
+					20,
+					48.16259765625,
+					43,
+					43,
+					20,
+				);
+				PBXFileTableDataSourceColumnsKey = (
+					PBXFileDataSource_FiletypeID,
+					PBXFileDataSource_Filename_ColumnID,
+					PBXFileDataSource_Built_ColumnID,
+					PBXFileDataSource_ObjectSize_ColumnID,
+					PBXFileDataSource_Errors_ColumnID,
+					PBXFileDataSource_Warnings_ColumnID,
+					PBXFileDataSource_Target_ColumnID,
+				);
+			};
+			PBXPerProjectTemplateStateSaveDate = 227751012;
+			PBXWorkspaceStateSaveDate = 227751012;
+		};
+		sourceControlManager = E8DAD80E0D93259600B8524F /* Source Control */;
+		userBuildSettings = {
+		};
+	};
+	08FB7796FE84155DC02AAC07 /* ArrayApplyBlock.m */ = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {942, 840}}";
+			sepNavSelRange = "{65, 173}";
+			sepNavVisRange = "{0, 864}";
+			sepNavWindowFrame = "{{774, 4}, {1001, 632}}";
+		};
+	};
+	8DD76F960486AA7600D96B5E /* ArrayApplyBlock */ = {
+		activeExec = 0;
+		executables = (
+			E8DAD7D90D931DEE00B8524F /* ArrayApplyBlock */,
+		);
+	};
+	E8DAD7D90D931DEE00B8524F /* ArrayApplyBlock */ = {
+		isa = PBXExecutable;
+		activeArgIndices = (
+		);
+		argumentStrings = (
+		);
+		autoAttachOnCrash = 1;
+		breakpointsEnabled = 0;
+		configStateDict = {
+		};
+		customDataFormattersEnabled = 1;
+		debuggerPlugin = GDBDebugging;
+		disassemblyDisplayState = 0;
+		dylibVariantSuffix = "";
+		enableDebugStr = 1;
+		environmentEntries = (
+		);
+		executableSystemSymbolLevel = 0;
+		executableUserSymbolLevel = 0;
+		libgmallocEnabled = 0;
+		name = ArrayApplyBlock;
+		sourceDirectories = (
+		);
+	};
+	E8DAD80E0D93259600B8524F /* Source Control */ = {
+		isa = PBXSourceControlManager;
+		fallbackIsa = XCSourceControlManager;
+		isSCMEnabled = 0;
+		scmConfiguration = {
+		};
+	};
+	E8DAD80F0D93259600B8524F /* Code sense */ = {
+		isa = PBXCodeSenseManager;
+		indexTemplatePath = "";
+	};
+}

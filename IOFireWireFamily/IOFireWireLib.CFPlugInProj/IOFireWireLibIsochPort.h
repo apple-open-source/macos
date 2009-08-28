@@ -217,7 +217,7 @@ namespace IOFireWireLib {
 			UInt32							mDeferredReleaseCount ;
 			FinalizeCallback				mFinalizeCallback ;
 			IOVirtualRange *				mBufferRanges ;
-			IOAddressRange *				mBufferAddressRanges;
+			FWVirtualAddressRange *			mBufferAddressRanges;
 			unsigned						mBufferRangeCount ;
 			
 			pthread_mutex_t					mMutex ;

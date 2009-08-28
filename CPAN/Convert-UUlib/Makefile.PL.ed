@@ -1,2 +1,0 @@
-/$(CCCDLFLAGS)/s//& $(PASTHRU_INC)/
-w

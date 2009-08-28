@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1997-2007, International Business Machines
+*   Copyright (C) 1997-2008, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -33,22 +33,26 @@
 *   11/15/99    helena      Integrated S/390 IEEE support.
 *   04/26/01    Barry N.    OS/400 support for uprv_getDefaultLocaleID
 *   08/15/01    Steven H.   OS/400 support for uprv_getDefaultCodepage
+*   01/03/08    Steven L.   Fake Time Support
 ******************************************************************************
 */
 
 /* Define _XOPEN_SOURCE for Solaris and friends. */
 /* NetBSD needs it to be >= 4 */
-#ifndef _XOPEN_SOURCE
+#if !defined(_XOPEN_SOURCE)
 #if __STDC_VERSION__ >= 199901L
-/* It is invalid to compile an XPG3, XPG4, XPG4v2 or XPG5 application using c99 */
+/* It is invalid to compile an XPG3, XPG4, XPG4v2 or XPG5 application using c99 on Solaris */
 #define _XOPEN_SOURCE 600
 #else
 #define _XOPEN_SOURCE 4
 #endif
 #endif
 
-/* Make sure things like readlink and such functions work. */
-#ifndef _XOPEN_SOURCE_EXTENDED
+/* Make sure things like readlink and such functions work. 
+Poorly upgraded Solaris machines can't have this defined.
+Cleanly installed Solaris can use this #define.
+*/
+#if !defined(_XOPEN_SOURCE_EXTENDED) && (!defined(__STDC_VERSION__) || __STDC_VERSION__ >= 199901L)
 #define _XOPEN_SOURCE_EXTENDED 1
 #endif
 
@@ -91,6 +95,7 @@
 #   include <qusec.h>       /* error code structure */
 #   include <qusrjobi.h>
 #   include <qliept.h>      /* EPT_CALL macro  - this include must be after all other "QSYSINCs" */
+#   include <mih/testptr.h> /* For uprv_maximumPtr */
 #elif defined(XP_MAC)
 #   include <Files.h>
 #   include <IntlResources.h>
@@ -106,6 +111,10 @@
 #include <unistd.h>
 #elif defined(U_QNX)
 #include <sys/neutrino.h>
+#endif
+
+#if defined(U_DARWIN)
+#include <TargetConditionals.h>
 #endif
 
 #ifndef U_WINDOWS
@@ -181,6 +190,41 @@ u_bottomNBytesOfDouble(double* d, int n)
 #endif
 }
 
+#if defined (U_DEBUG_FAKETIME)
+/* Override the clock to test things without having to move the system clock. 
+ * Assumes POSIX gettimeofday() will function
+ */
+UDate fakeClock_t0 = 0; /** Time to start the clock from **/
+UDate fakeClock_dt = 0; /** Offset (fake time - real time) **/
+UBool fakeClock_set = FALSE; /** True if fake clock has spun up **/
+static UMTX fakeClockMutex = NULL;
+
+static UDate getUTCtime_real() {
+    struct timeval posixTime;
+    gettimeofday(&posixTime, NULL);
+    return (UDate)(((int64_t)posixTime.tv_sec * U_MILLIS_PER_SECOND) + (posixTime.tv_usec/1000));
+}
+
+static UDate getUTCtime_fake() {
+    umtx_lock(&fakeClockMutex);
+    if(!fakeClock_set) {
+        UDate real = getUTCtime_real();
+        const char *fake_start = getenv("U_FAKETIME_START");
+        if(fake_start!=NULL) {
+            sscanf(fake_start,"%lf",&fakeClock_t0);
+        }
+        fakeClock_dt = fakeClock_t0 - real;
+        fprintf(stderr,"U_DEBUG_FAKETIME was set at compile time, so the ICU clock will start at a preset value\n"
+                       "U_FAKETIME_START=%.0f (%s) for an offset of %.0f ms from the current time %.0f\n",
+                            fakeClock_t0, fake_start, fakeClock_dt, real);
+        fakeClock_set = TRUE;
+    }
+    umtx_unlock(&fakeClockMutex);
+    
+    return getUTCtime_real() + fakeClock_dt;
+}
+#endif
+
 #if defined(U_WINDOWS)
 typedef union {
     int64_t int64;
@@ -204,7 +248,9 @@ typedef union {
 U_CAPI UDate U_EXPORT2
 uprv_getUTCtime()
 {
-#ifdef XP_MAC
+#if defined(U_DEBUG_FAKETIME)
+    return getUTCtime_fake(); /* Hook for overriding the clock */
+#elif defined(XP_MAC)
     time_t t, t1, t2;
     struct tm tmrec;
 
@@ -483,51 +529,38 @@ uprv_log(double d)
     return log(d);
 }
 
-#if 0
-/* This isn't used. If it's readded, readd putiltst.c tests */
-U_CAPI int32_t U_EXPORT2
-uprv_digitsAfterDecimal(double x)
+U_CAPI void * U_EXPORT2
+uprv_maximumPtr(void * base)
 {
-    char buffer[20];
-    int32_t numDigits, bytesWritten;
-    char *p = buffer;
-    int32_t ptPos, exponent;
-
-    /* cheat and use the string-format routine to get a string representation*/
-    /* (it handles mathematical inaccuracy better than we can), then find out */
-    /* many characters are to the right of the decimal point */
-    bytesWritten = sprintf(buffer, "%+.9g", x);
-    while (isdigit(*(++p))) {
+#if defined(OS400)
+    /*
+     * With the provided function we should never be out of range of a given segment 
+     * (a traditional/typical segment that is).  Our segments have 5 bytes for the
+     * id and 3 bytes for the offset.  The key is that the casting takes care of
+     * only retrieving the offset portion minus x1000.  Hence, the smallest offset
+     * seen in a program is x001000 and when casted to an int would be 0.
+     * That's why we can only add 0xffefff.  Otherwise, we would exceed the segment.
+     *
+     * Currently, 16MB is the current addressing limitation on i5/OS if the activation is 
+     * non-TERASPACE.  If it is TERASPACE it is 2GB - 4k(header information).
+     * This function determines the activation based on the pointer that is passed in and 
+     * calculates the appropriate maximum available size for 
+     * each pointer type (TERASPACE and non-TERASPACE)
+     *
+     * Unlike other operating systems, the pointer model isn't determined at
+     * compile time on i5/OS.
+     */
+    if ((base != NULL) && (_TESTPTR(base, _C_TERASPACE_CHECK))) {
+        /* if it is a TERASPACE pointer the max is 2GB - 4k */
+        return ((void *)(((char *)base)-((uint32_t)(base))+((uint32_t)0x7fffefff)));
     }
+    /* otherwise 16MB since NULL ptr is not checkable or the ptr is not TERASPACE */
+    return ((void *)(((char *)base)-((uint32_t)(base))+((uint32_t)0xffefff)));
 
-    ptPos = (int32_t)(p - buffer);
-    numDigits = (int32_t)(bytesWritten - ptPos - 1);
-
-    /* if the number's string representation is in scientific notation, find */
-    /* the exponent and take it into account*/
-    exponent = 0;
-    p = uprv_strchr(buffer, 'e');
-    if (p != 0) {
-        int16_t expPos = (int16_t)(p - buffer);
-        numDigits -= bytesWritten - expPos;
-        exponent = (int32_t)(atol(p + 1));
-    }
-
-    /* the string representation may still have spurious decimal digits in it, */
-    /* so we cut off at the ninth digit to the right of the decimal, and have */
-    /* to search backward from there to the first non-zero digit*/
-    if (numDigits > 9) {
-        numDigits = 9;
-        while (numDigits > 0 && buffer[ptPos + numDigits] == '0')
-            --numDigits;
-    }
-    numDigits -= exponent;
-    if (numDigits < 0) {
-        return 0;
-    }
-    return numDigits;
-}
+#else
+    return U_MAX_PTR(base); 
 #endif
+}
 
 /*---------------------------------------------------------------------------
   Platform-specific Implementations
@@ -585,8 +618,13 @@ extern U_IMPORT char *U_TZNAME[];
 #if !UCONFIG_NO_FILE_IO && (defined(U_DARWIN) || defined(U_LINUX) || defined(U_BSD))
 /* These platforms are likely to use Olson timezone IDs. */
 #define CHECK_LOCALTIME_LINK 1
+#if defined(U_DARWIN)
 #include <tzfile.h>
 #define TZZONEINFO      (TZDIR "/")
+#else
+#define TZDEFAULT       "/etc/localtime"
+#define TZZONEINFO      "/usr/share/zoneinfo/"
+#endif
 static char gTimeZoneBuffer[PATH_MAX];
 static char *gTimeZoneBufferPtr = NULL;
 #endif
@@ -614,40 +652,147 @@ static UBool isValidOlsonID(const char *id) {
 }
 #endif
 
+#if defined(U_TZNAME) && !defined(U_WINDOWS)
+
+#define CONVERT_HOURS_TO_SECONDS(offset) (int32_t)(offset*3600)
+typedef struct OffsetZoneMapping {
+    int32_t offsetSeconds;
+    int32_t daylightType; /* 1=daylight in June, 2=daylight in December*/
+    const char *stdID;
+    const char *dstID;
+    const char *olsonID;
+} OffsetZoneMapping;
+
+/*
+This list tries to disambiguate a set of abbreviated timezone IDs and offsets
+and maps it to an Olson ID.
+Before adding anything to this list, take a look at
+icu/source/tools/tzcode/tz.alias
+Sometimes no daylight savings (0) is important to define due to aliases.
+This list can be tested with icu/source/test/compat/tzone.pl
+More values could be added to daylightType to increase precision.
+*/
+static const struct OffsetZoneMapping OFFSET_ZONE_MAPPINGS[] = {
+    {-45900, 2, "CHAST", "CHADT", "Pacific/Chatham"},
+    {-43200, 1, "PETT", "PETST", "Asia/Kamchatka"},
+    {-43200, 2, "NZST", "NZDT", "Pacific/Auckland"},
+    {-43200, 1, "ANAT", "ANAST", "Asia/Anadyr"},
+    {-39600, 1, "MAGT", "MAGST", "Asia/Magadan"},
+    {-37800, 2, "LHST", "LHST", "Australia/Lord_Howe"},
+    {-36000, 2, "EST", "EST", "Australia/Sydney"},
+    {-36000, 1, "SAKT", "SAKST", "Asia/Sakhalin"},
+    {-36000, 1, "VLAT", "VLAST", "Asia/Vladivostok"},
+    {-34200, 2, "CST", "CST", "Australia/South"},
+    {-32400, 1, "YAKT", "YAKST", "Asia/Yakutsk"},
+    {-32400, 1, "CHOT", "CHOST", "Asia/Choibalsan"},
+    {-31500, 2, "CWST", "CWST", "Australia/Eucla"},
+    {-28800, 1, "IRKT", "IRKST", "Asia/Irkutsk"},
+    {-28800, 1, "ULAT", "ULAST", "Asia/Ulaanbaatar"},
+    {-28800, 2, "WST", "WST", "Australia/West"},
+    {-25200, 1, "HOVT", "HOVST", "Asia/Hovd"},
+    {-25200, 1, "KRAT", "KRAST", "Asia/Krasnoyarsk"},
+    {-21600, 1, "NOVT", "NOVST", "Asia/Novosibirsk"},
+    {-21600, 1, "OMST", "OMSST", "Asia/Omsk"},
+    {-18000, 1, "YEKT", "YEKST", "Asia/Yekaterinburg"},
+    {-14400, 1, "SAMT", "SAMST", "Europe/Samara"},
+    {-14400, 1, "AMT", "AMST", "Asia/Yerevan"},
+    {-14400, 1, "AZT", "AZST", "Asia/Baku"},
+    {-10800, 1, "AST", "ADT", "Asia/Baghdad"},
+    {-10800, 1, "MSK", "MSD", "Europe/Moscow"},
+    {-10800, 1, "VOLT", "VOLST", "Europe/Volgograd"},
+    {-7200, 0, "EET", "CEST", "Africa/Tripoli"},
+    {-7200, 1, "EET", "EEST", "Europe/Athens"}, /* Conflicts with Africa/Cairo */
+    {-7200, 1, "IST", "IDT", "Asia/Jerusalem"},
+    {-3600, 0, "CET", "WEST", "Africa/Algiers"},
+    {-3600, 2, "WAT", "WAST", "Africa/Windhoek"},
+    {0, 1, "GMT", "IST", "Europe/Dublin"},
+    {0, 1, "GMT", "BST", "Europe/London"},
+    {0, 0, "WET", "WEST", "Africa/Casablanca"},
+    {0, 0, "WET", "WET", "Africa/El_Aaiun"},
+    {3600, 1, "AZOT", "AZOST", "Atlantic/Azores"},
+    {3600, 1, "EGT", "EGST", "America/Scoresbysund"},
+    {10800, 1, "PMST", "PMDT", "America/Miquelon"},
+    {10800, 2, "UYT", "UYST", "America/Montevideo"},
+    {10800, 1, "WGT", "WGST", "America/Godthab"},
+    {10800, 2, "BRT", "BRST", "Brazil/East"},
+    {12600, 1, "NST", "NDT", "America/St_Johns"},
+    {14400, 1, "AST", "ADT", "Canada/Atlantic"},
+    {14400, 2, "AMT", "AMST", "America/Cuiaba"},
+    {14400, 2, "CLT", "CLST", "Chile/Continental"},
+    {14400, 2, "FKT", "FKST", "Atlantic/Stanley"},
+    {14400, 2, "PYT", "PYST", "America/Asuncion"},
+    {18000, 1, "CST", "CDT", "America/Havana"},
+    {18000, 1, "EST", "EDT", "US/Eastern"}, /* Conflicts with America/Grand_Turk */
+    {21600, 2, "EAST", "EASST", "Chile/EasterIsland"},
+    {21600, 0, "CST", "MDT", "Canada/Saskatchewan"},
+    {21600, 0, "CST", "CDT", "America/Guatemala"},
+    {21600, 1, "CST", "CDT", "US/Central"}, /* Conflicts with Mexico/General */
+    {25200, 1, "MST", "MDT", "US/Mountain"}, /* Conflicts with Mexico/BajaSur */
+    {28800, 0, "PST", "PST", "Pacific/Pitcairn"},
+    {28800, 1, "PST", "PDT", "US/Pacific"}, /* Conflicts with Mexico/BajaNorte */
+    {32400, 1, "AKST", "AKDT", "US/Alaska"},
+    {36000, 1, "HAST", "HADT", "US/Aleutian"}
+};
+
+/*#define DEBUG_TZNAME*/
+
+static const char* remapShortTimeZone(const char *stdID, const char *dstID, int32_t daylightType, int32_t offset)
+{
+    int32_t idx;
+#ifdef DEBUG_TZNAME
+    fprintf(stderr, "TZ=%s std=%s dst=%s daylight=%d offset=%d\n", getenv("TZ"), stdID, dstID, daylightType, offset);
+#endif
+    for (idx = 0; idx < (int32_t)sizeof(OFFSET_ZONE_MAPPINGS)/sizeof(OFFSET_ZONE_MAPPINGS[0]); idx++)
+    {
+        if (offset == OFFSET_ZONE_MAPPINGS[idx].offsetSeconds
+            && daylightType == OFFSET_ZONE_MAPPINGS[idx].daylightType
+            && strcmp(OFFSET_ZONE_MAPPINGS[idx].stdID, stdID) == 0
+            && strcmp(OFFSET_ZONE_MAPPINGS[idx].dstID, dstID) == 0)
+        {
+            return OFFSET_ZONE_MAPPINGS[idx].olsonID;
+        }
+    }
+    return NULL;
+}
+#endif
+
 U_CAPI const char* U_EXPORT2
 uprv_tzname(int n)
 {
+    const char *tzid = NULL;
 #ifdef U_WINDOWS
-    const char *id = uprv_detectWindowsTimeZone();
+    tzid = uprv_detectWindowsTimeZone();
 
-    if (id != NULL) {
-        return id;
+    if (tzid != NULL) {
+        return tzid;
     }
 #else
-    const char *tzenv = NULL;
 
 /*#if defined(U_DARWIN)
     int ret;
 
-    tzenv = getenv("TZFILE");
-    if (tzenv != NULL) {
-        return tzenv;
+    tzid = getenv("TZFILE");
+    if (tzid != NULL) {
+        return tzid;
     }
 #endif*/
 
-    tzenv = getenv("TZ");
-    if (tzenv != NULL && isValidOlsonID(tzenv))
+/* This code can be temporarily disabled to test tzname resolution later on. */
+#ifndef DEBUG_TZNAME
+    tzid = getenv("TZ");
+    if (tzid != NULL && isValidOlsonID(tzid))
     {
         /* This might be a good Olson ID. */
-        if (uprv_strncmp(tzenv, "posix/", 6) == 0
-            || uprv_strncmp(tzenv, "right/", 6) == 0)
+        if (uprv_strncmp(tzid, "posix/", 6) == 0
+            || uprv_strncmp(tzid, "right/", 6) == 0)
         {
             /* Remove the posix/ or right/ prefix. */
-            tzenv += 6;
+            tzid += 6;
         }
-        return tzenv;
+        return tzid;
     }
     /* else U_TZNAME will give a better result. */
+#endif
 
 #if defined(CHECK_LOCALTIME_LINK)
     /* Caller must handle threading issues */
@@ -675,10 +820,31 @@ uprv_tzname(int n)
 #endif
 
 #ifdef U_TZNAME
+#if !defined(U_WINDOWS)
     /*
-    U_TZNAME is usually a non-unique abbreviation,
-    which isn't normally usable.
+    U_TZNAME is usually a non-unique abbreviation, which isn't normally usable.
+    So we remap the abbreviation to an olson ID.
+
+    Since Windows exposes a little more timezone information,
+    we normally don't use this code on Windows because
+    uprv_detectWindowsTimeZone should have already given the correct answer.
     */
+    {
+        struct tm juneSol, decemberSol;
+        int daylightType;
+        static const time_t juneSolstice=1182478260; /*2007-06-21 18:11 UT*/
+        static const time_t decemberSolstice=1198332540; /*2007-12-22 06:09 UT*/
+
+        /* This probing will tell us when daylight savings occurs.  */
+        localtime_r(&juneSolstice, &juneSol);
+        localtime_r(&decemberSolstice, &decemberSol);
+        daylightType = ((decemberSol.tm_isdst > 0) << 1) | (juneSol.tm_isdst > 0);
+        tzid = remapShortTimeZone(U_TZNAME[0], U_TZNAME[1], daylightType, uprv_timezone());
+        if (tzid != NULL) {
+            return tzid;
+        }
+    }
+#endif
     return U_TZNAME[n];
 #else
     return "";
@@ -727,6 +893,10 @@ u_setDataDirectory(const char *directory) {
     else {
         length=(int32_t)uprv_strlen(directory);
         newDataDir = (char *)uprv_malloc(length + 2);
+        /* Exit out if newDataDir could not be created. */
+        if (newDataDir == NULL) {
+            return;
+        }
         uprv_strcpy(newDataDir, directory);
 
 #if (U_FILE_SEP_CHAR != U_FILE_ALT_SEP_CHAR)
@@ -779,11 +949,13 @@ uprv_pathIsAbsolute(const char *path)
 U_CAPI const char * U_EXPORT2
 u_getDataDirectory(void) {
     const char *path = NULL;
+#if defined(U_DARWIN) && defined(TARGET_IPHONE_SIMULATOR) && TARGET_IPHONE_SIMULATOR
+    const char *simulator_root = NULL;
+    char datadir_path_buffer[PATH_MAX];
+#endif
 
     /* if we have the directory, then return it immediately */
-    umtx_lock(NULL);
-    path = gDataDirectory;
-    umtx_unlock(NULL);
+    UMTX_CHECK(NULL, gDataDirectory, path);
 
     if(path) {
         return path;
@@ -811,6 +983,14 @@ u_getDataDirectory(void) {
 #   ifdef ICU_DATA_DIR
     if(path==NULL || *path==0) {
         path=ICU_DATA_DIR;
+#if defined(U_DARWIN) && defined(TARGET_IPHONE_SIMULATOR) && TARGET_IPHONE_SIMULATOR
+        simulator_root=getenv("IPHONE_SIMULATOR_ROOT");
+        if (simulator_root != NULL) {
+            (void) strlcpy(datadir_path_buffer, simulator_root, PATH_MAX);
+            (void) strlcat(datadir_path_buffer, path, PATH_MAX);
+            path=datadir_path_buffer;
+        }
+#endif
     }
 #   endif
 
@@ -1030,6 +1210,10 @@ The leftmost codepage (.xxx) wins.
     if ((p = uprv_strchr(posixID, '.')) != NULL) {
         /* assume new locale can't be larger than old one? */
         correctedPOSIXLocale = uprv_malloc(uprv_strlen(posixID)+1);
+        /* Exit on memory allocation error. */
+        if (correctedPOSIXLocale == NULL) {
+            return NULL;
+        }
         uprv_strncpy(correctedPOSIXLocale, posixID, p-posixID);
         correctedPOSIXLocale[p-posixID] = 0;
 
@@ -1043,6 +1227,10 @@ The leftmost codepage (.xxx) wins.
     if ((p = uprv_strrchr(posixID, '@')) != NULL) {
         if (correctedPOSIXLocale == NULL) {
             correctedPOSIXLocale = uprv_malloc(uprv_strlen(posixID)+1);
+            /* Exit on memory allocation error. */
+            if (correctedPOSIXLocale == NULL) {
+                return NULL;
+            }
             uprv_strncpy(correctedPOSIXLocale, posixID, p-posixID);
             correctedPOSIXLocale[p-posixID] = 0;
         }
@@ -1086,6 +1274,10 @@ The leftmost codepage (.xxx) wins.
     else {
         /* copy it, just in case the original pointer goes away.  See j2395 */
         correctedPOSIXLocale = (char *)uprv_malloc(uprv_strlen(posixID) + 1);
+        /* Exit on memory allocation error. */
+        if (correctedPOSIXLocale == NULL) {
+            return NULL;
+        }
         posixID = uprv_strcpy(correctedPOSIXLocale, posixID);
     }
 
@@ -1245,7 +1437,9 @@ The leftmost codepage (.xxx) wins.
 /*
 Due to various platform differences, one platform may specify a charset,
 when they really mean a different charset. Remap the names so that they are
-compatible with ICU.
+compatible with ICU. Only conflicting/ambiguous aliases should be resolved
+here. Before adding anything to this function, please consider adding unique
+names to the ICU alias table in the data directory.
 */
 static const char*
 remapPlatformDependentCodepage(const char *locale, const char *name) {
@@ -1278,6 +1472,20 @@ remapPlatformDependentCodepage(const char *locale, const char *name) {
             name = "EUC-KR";
         }
     }
+    else if (uprv_strcmp(name, "eucJP") == 0) {
+        /*
+        ibm-954 is the best match.
+        ibm-33722 is the default for eucJP (similar to Windows).
+        */
+        name = "eucjis";
+    }
+    else if (uprv_strcmp(name, "646") == 0) {
+        /*
+         * The default codepage given by Solaris is 646 but the C library routines treat it as if it was 
+         * ISO-8859-1 instead of US-ASCII(646).
+         */
+        name = "ISO-8859-1";
+    }
 #elif defined(U_DARWIN)
     if (locale == NULL && *name == 0) {
         /*
@@ -1286,6 +1494,39 @@ remapPlatformDependentCodepage(const char *locale, const char *name) {
         Mac OS X uses UTF-8 by default (especially the locale data and console).
         */
         name = "UTF-8";
+    }
+#elif defined(U_HPUX)
+    if (locale != NULL && uprv_strcmp(locale, "zh_HK") == 0 && uprv_strcmp(name, "big5") == 0) {
+        /* HP decided to extend big5 as hkbig5 even though it's not compatible :-( */
+        /* zh_TW.big5 is not the same charset as zh_HK.big5! */
+        name = "hkbig5";
+    }
+    else if (uprv_strcmp(name, "eucJP") == 0) {
+        /*
+        ibm-1350 is the best match, but unavailable.
+        ibm-954 is mostly a superset of ibm-1350.
+        ibm-33722 is the default for eucJP (similar to Windows).
+        */
+        name = "eucjis";
+    }
+#elif defined(U_LINUX)
+    if (locale != NULL && uprv_strcmp(name, "euc") == 0) {
+        /* Linux underspecifies the "EUC" name. */
+        if (uprv_strcmp(locale, "korean") == 0) {
+            name = "EUC-KR";
+        }
+        else if (uprv_strcmp(locale, "japanese") == 0) {
+            /* See comment below about eucJP */
+            name = "eucjis";
+        }
+    }
+    else if (uprv_strcmp(name, "eucjp") == 0) {
+        /*
+        ibm-1350 is the best match, but unavailable.
+        ibm-954 is mostly a superset of ibm-1350.
+        ibm-33722 is the default for eucJP (similar to Windows).
+        */
+        name = "eucjis";
     }
 #endif
     /* return NULL when "" is passed in */
@@ -1343,7 +1584,8 @@ int_getDefaultCodepage()
 
 #elif defined(OS390)
     static char codepage[64];
-    sprintf(codepage,"%s" UCNV_SWAP_LFNL_OPTION_STRING, nl_langinfo(CODESET));
+    sprintf(codepage,"%63s" UCNV_SWAP_LFNL_OPTION_STRING, nl_langinfo(CODESET));
+    codepage[63] = 0; /* NULL terminate */
     return codepage;
 
 #elif defined(XP_MAC)
@@ -1393,7 +1635,7 @@ int_getDefaultCodepage()
     if (*codesetName == 0)
     {
         /* Everything failed. Return US ASCII (ISO 646). */
-        uprv_strcpy(codesetName, "US-ASCII");
+        (void)uprv_strcpy(codesetName, "US-ASCII");
     }
     return codesetName;
 #else

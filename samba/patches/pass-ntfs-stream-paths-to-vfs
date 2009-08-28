@@ -186,7 +186,7 @@ Index: samba/source/smbd/nttrans.c
  /****************************************************************************
   Save case statics.
  ****************************************************************************/
-@@ -611,9 +671,20 @@ int reply_ntcreate_and_X(connection_stru
+@@ -613,9 +673,20 @@ int reply_ntcreate_and_X(connection_stru
  		 * Check to see if this is a mac fork of some kind.
  		 */
  
@@ -210,7 +210,7 @@ Index: samba/source/smbd/nttrans.c
  				/*
  				 * Here we go! support for changing the disk quotas --metze
  				 *
-@@ -627,7 +698,10 @@ int reply_ntcreate_and_X(connection_stru
+@@ -629,7 +700,10 @@ int reply_ntcreate_and_X(connection_stru
  								fake_file_type, fname);
  				END_PROFILE(SMBntcreateX);
  				return result;
@@ -307,7 +307,7 @@ Index: samba/source/smbd/trans2.c
 ===================================================================
 --- samba/source/smbd/trans2.c.orig
 +++ samba/source/smbd/trans2.c
-@@ -2553,10 +2553,8 @@ cBytesSector=%u, cUnitTotal=%u, cUnitAva
+@@ -2605,10 +2605,8 @@ cBytesSector=%u, cUnitTotal=%u, cUnitAva
  				SBIG_UINT(pdata,40,svfs.FreeFileNodes);
  				SBIG_UINT(pdata,48,svfs.FsIdentifier);
  				DEBUG(5,("call_trans2qfsinfo : SMB_QUERY_POSIX_FS_INFO succsessful\n"));

@@ -86,7 +86,7 @@ public:
 	template <class T>
 	Endian<T> &insert(const Label &label, size_t length = sizeof(T))
 	{ return *reinterpret_cast<Endian<T>*>(insert(label, length)); }
-	
+
 	//
 	// Help with making operator chains (foo AND bar AND baz...).
 	// Note that the empty case (no elements at all) must be resolved by the caller.

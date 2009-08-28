@@ -1,8 +1,8 @@
 /* Generic socket.h */
-/* $OpenLDAP: pkg/ldap/include/ac/socket.h,v 1.65.2.2 2006/01/03 22:16:06 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/include/ac/socket.h,v 1.67.2.4 2008/02/11 23:26:40 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -23,6 +23,8 @@
 
 #ifdef HAVE_POLL_H
 #include <poll.h>
+#elif defined(HAVE_SYS_POLL_H)
+#include <sys/poll.h>
 #endif
 
 #ifdef HAVE_SYS_SOCKET_H
@@ -80,6 +82,7 @@
 #undef	sock_errstr
 #define sock_errno()	errno
 #define sock_errstr(e)	STRERROR(e)
+#define sock_errset(e)	errno = (e)
 
 #ifdef HAVE_WINSOCK
 #	define tcp_read( s, buf, len )	recv( s, buf, len, 0 )
@@ -100,8 +103,10 @@
 
 #undef	sock_errno
 #undef	sock_errstr
+#undef	sock_errset
 #define	sock_errno()	WSAGetLastError()
 #define	sock_errstr(e)	ber_pvt_wsa_err2string(e)
+#define	sock_errset(e)	WSASetLastError(e)
 
 LBER_F( char * ) ber_pvt_wsa_err2string LDAP_P((int));
 
@@ -122,7 +127,7 @@ LBER_F( char * ) ber_pvt_wsa_err2string LDAP_P((int));
 #		define tcp_write( s, buf, len )	netwrite( s, buf, len )
 #	endif /* NCSA */
 
-#elif HAVE_CLOSESOCKET
+#elif defined(HAVE_CLOSESOCKET)
 #	define tcp_close( s )		closesocket( s )
 
 #	ifdef __BEOS__
@@ -208,8 +213,24 @@ LDAP_F (int) ldap_pvt_inet_aton LDAP_P(( const char *, struct in_addr * ));
 #	endif
 #endif
 
-#ifndef HAVE_GETPEEREID
-LDAP_LUTIL_F( int ) getpeereid( int s, uid_t *, gid_t * );
+#if defined(LDAP_PF_LOCAL) && \
+	!defined(HAVE_GETPEEREID) && \
+	!defined(HAVE_GETPEERUCRED) && \
+	!defined(SO_PEERCRED) && !defined(LOCAL_PEERCRED) && \
+	defined(HAVE_SENDMSG) && (defined(HAVE_STRUCT_MSGHDR_MSG_ACCRIGHTSLEN) || \
+	defined(HAVE_STRUCT_MSGHDR_MSG_CONTROL))
+#	define LDAP_PF_LOCAL_SENDMSG 1
+#endif
+
+#ifdef HAVE_GETPEEREID
+#define	LUTIL_GETPEEREID( s, uid, gid, bv )	getpeereid( s, uid, gid )
+#elif defined(LDAP_PF_LOCAL_SENDMSG)
+struct berval;
+LDAP_LUTIL_F( int ) lutil_getpeereid( int s, uid_t *, gid_t *, struct berval *bv );
+#define	LUTIL_GETPEEREID( s, uid, gid, bv )	lutil_getpeereid( s, uid, gid, bv )
+#else
+LDAP_LUTIL_F( int ) lutil_getpeereid( int s, uid_t *, gid_t * );
+#define	LUTIL_GETPEEREID( s, uid, gid, bv )	lutil_getpeereid( s, uid, gid )
 #endif
 
 /* DNS RFC defines max host name as 255. New systems seem to use 1024 */
@@ -217,7 +238,7 @@ LDAP_LUTIL_F( int ) getpeereid( int s, uid_t *, gid_t * );
 #define	NI_MAXHOST	256
 #endif
 
-#ifdef HAVE_POLL_H
+#ifdef HAVE_POLL
 # ifndef INFTIM
 #  define INFTIM (-1)
 # endif

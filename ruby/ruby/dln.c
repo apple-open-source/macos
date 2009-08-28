@@ -2,8 +2,8 @@
 
   dln.c -
 
-  $Author: shyouhei $
-  $Date: 2008-06-15 22:25:08 +0900 (Sun, 15 Jun 2008) $
+  $Author: knu $
+  $Date: 2008-06-06 19:39:57 +0900 (Fri, 06 Jun 2008) $
   created at: Tue Jan 18 17:05:06 JST 1994
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -81,19 +81,28 @@ char *getenv();
 # include "macruby_private.h"
 #endif
 
+#if defined(__APPLE__) && defined(__MACH__)   /* Mac OS X */
+# if defined(HAVE_DLOPEN)
+   /* Mac OS X with dlopen (10.3 or later) */
+#  define MACOSX_DLOPEN
+# else
+#  define MACOSX_DYLD
+# endif
+#endif
+
 #ifdef __BEOS__
 # include <image.h>
 #endif
 
 #ifndef NO_DLN_LOAD
 
-#if defined(HAVE_DLOPEN) && !defined(USE_DLN_A_OUT) && !defined(_AIX) && !defined(_UNICOSMP)
+#if defined(HAVE_DLOPEN) && !defined(USE_DLN_A_OUT) && !defined(_AIX) && !defined(MACOSX_DYLD) && !defined(_UNICOSMP)
 /* dynamic load with dlopen() */
 # define USE_DLN_DLOPEN
 #endif
 
 #ifndef FUNCNAME_PATTERN
-# if defined(__hp9000s300) ||  (defined(__NetBSD__) && !defined(__ELF__)) || defined(__BORLANDC__) || (defined(__FreeBSD__) && !defined(__ELF__)) || (defined(__OpenBSD__) && !defined(__ELF__)) || defined(NeXT) || defined(__WATCOMC__)
+# if defined(__hp9000s300) ||  (defined(__NetBSD__) && !defined(__ELF__)) || defined(__BORLANDC__) || (defined(__FreeBSD__) && !defined(__ELF__)) || (defined(__OpenBSD__) && !defined(__ELF__)) || defined(NeXT) || defined(__WATCOMC__) || defined(MACOSX_DYLD)
 #  define FUNCNAME_PATTERN "_Init_%s"
 # else
 #  define FUNCNAME_PATTERN "Init_%s"
@@ -636,7 +645,7 @@ load_1(fd, disp, need_init)
     long disp;
     const char *need_init;
 {
-    static char *libc = LIBC_NAME;
+    static const char *libc = LIBC_NAME;
     struct exec hdr;
     struct relocation_info *reloc = NULL;
     long block = 0;
@@ -1140,6 +1149,10 @@ dln_sym(name)
 #define NSLINKMODULE_OPTION_BINDNOW 1
 #endif
 #endif
+#else
+#ifdef MACOSX_DYLD
+#include <mach-o/dyld.h>
+#endif
 #endif
 
 #if defined _WIN32 && !defined __CYGWIN__
@@ -1399,7 +1412,7 @@ dln_load(file)
     }
 #endif /* _AIX */
 
-#if defined(NeXT)
+#if defined(NeXT) || defined(MACOSX_DYLD)
 #define DLN_DEFINED
 /*----------------------------------------------------
    By SHIROYAMA Takayuki Psi@fortune.nest.or.jp
@@ -1523,7 +1536,7 @@ dln_load(file)
     }
 #endif /* __BEOS__*/
 
-#ifdef __MACOS__
+#ifdef __MACOS__   /* Mac OS 9 or before */
 # define DLN_DEFINED
     {
       OSErr err;
@@ -1676,31 +1689,31 @@ static char fbuf[MAXPATHLEN];
 
 static char *
 dln_find_1(fname, path, exe_flag)
-    char *fname;
-    char *path;
+    const char *fname;
+    const char *path;
     int exe_flag;		/* non 0 if looking for executable. */
 {
-    register char *dp;
-    register char *ep;
+    register const char *dp;
+    register const char *ep;
     register char *bp;
     struct stat st;
 #ifdef __MACOS__
     const char* mac_fullpath;
 #endif
 
-    if (!fname) return fname;
-    if (fname[0] == '/') return fname;
+    if (!fname) return (char *)fname;
+    if (fname[0] == '/') return (char *)fname;
     if (strncmp("./", fname, 2) == 0 || strncmp("../", fname, 3) == 0)
-      return fname;
-    if (exe_flag && strchr(fname, '/')) return fname;
+      return (char *)fname;
+    if (exe_flag && strchr(fname, '/')) return (char *)fname;
 #ifdef DOSISH
-    if (fname[0] == '\\') return fname;
+    if (fname[0] == '\\') return (char *)fname;
 # ifdef DOSISH_DRIVE_LETTER
-    if (strlen(fname) > 2 && fname[1] == ':') return fname;
+    if (strlen(fname) > 2 && fname[1] == ':') return (char *)fname;
 # endif
     if (strncmp(".\\", fname, 2) == 0 || strncmp("..\\", fname, 3) == 0)
-      return fname;
-    if (exe_flag && strchr(fname, '\\')) return fname;
+      return (char *)fname;
+    if (exe_flag && strchr(fname, '\\')) return (char *)fname;
 #endif
 
     for (dp = path;; dp = ++ep) {

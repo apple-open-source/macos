@@ -85,6 +85,15 @@ int xar_ext2attr_archive(xar_t x, xar_file_t f, const char* file, const char *bu
 #if defined(HAVE_EXT2FS_EXT2_FS_H) || defined(HAVE_LINUX_EXT2_FS_H)
 	int fd, flags=0, version;
 	char *vstr;
+	const char *opt;
+
+        xar_prop_get(f, "type", &opt);
+        if(!opt) return 0;
+        if( strcmp(opt, "file") != 0 ) {
+                if( strcmp(opt, "hardlink") != 0 )
+                	if( strcmp(opt, "directory") != 0 )
+				return 0;
+	}
 
 	fd = open(file, O_RDONLY);
 	if( fd < 0 ) {

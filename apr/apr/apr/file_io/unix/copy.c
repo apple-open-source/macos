@@ -1,9 +1,9 @@
-/* Copyright 2002-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -52,9 +52,15 @@ static apr_status_t apr_file_transfer_contents(const char *from_path,
         return status;
     }
 
+#if BUFSIZ > APR_FILE_DEFAULT_BUFSIZE
+#define COPY_BUFSIZ BUFSIZ
+#else
+#define COPY_BUFSIZ APR_FILE_DEFAULT_BUFSIZE
+#endif
+
     /* Copy bytes till the cows come home. */
     while (1) {
-        char buf[BUFSIZ];
+        char buf[COPY_BUFSIZ];
         apr_size_t bytes_this_time = sizeof(buf);
         apr_status_t read_err;
         apr_status_t write_err;

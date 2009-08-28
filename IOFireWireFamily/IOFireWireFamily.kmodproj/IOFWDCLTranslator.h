@@ -36,6 +36,10 @@
 #include <libkern/c++/OSObject.h>
 #include <IOKit/firewire/IOFWDCLProgram.h>
 
+
+/*! @class IODCLTranslator
+*/
+
 class IODCLTranslator : public IODCLProgram
 {
     OSDeclareAbstractStructors(IODCLTranslator)
@@ -77,6 +81,9 @@ public:
     void setHWProgram(IODCLProgram *program);
 };
 
+/*! @class IODCLTranslateTalk
+*/
+
 class IODCLTranslateTalk : public IODCLTranslator
 {
     OSDeclareDefaultStructors(IODCLTranslateTalk)
@@ -88,6 +95,10 @@ public:
     virtual IOReturn start();
 
 };
+
+/*! @class IODCLTranslateListen
+*/
+
 class IODCLTranslateListen : public IODCLTranslator
 {
     OSDeclareDefaultStructors(IODCLTranslateListen)

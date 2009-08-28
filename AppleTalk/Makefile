@@ -22,15 +22,8 @@ CFILES = adsp_socket.c asp_if.c atalk_status.c at_abort.c at_get_req.c\
          pap_ustat.c pap_write.c version.c zip_lolist.c zip_myzone.c\
          zip_zlist.c
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble atp.3\
-            atp_close.3 atp_getreq.3 atp_getresp.3 atp_sendreq.3\
-            atp_sendrsp.3 ddp.3 ddp_close.3 ddp_open.3 nbp.3\
-            nbp_confirm.3 nbp_lookup.3 nbp_make_entity.3\
-            nbp_parse_entity.3 nbp_register.3 nbp_remove.3 pap.3\
-            pap_close.3 pap_open.3 pap_read.3 pap_read_ignore.3\
-            pap_status.3 pap_write.3 zip.3 zip_getlocalzones.3\
-            zip_getmyzone.3 zip_getzonelist.3 atp_abort.3 atp_look.3\
-            atp_open.3 CustomInfo.plist
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble \
+            CustomInfo.plist
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

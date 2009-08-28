@@ -1,17 +1,26 @@
-/* APPLE LOCAL file radar 4498373 */
-/* Test for a Synthesized Property */
-/* { dg-do compile { target *-*-darwin* } } */
+/* APPLE LOCAL file radar 4695101 - radar 6064186 */
+/* Test that @implementation <protoname> syntax generates metadata for properties 
+   declared in @protocol, as well as those declared in the @interface. */
+/* { dg-do compile { target powerpc*-*-darwin* i?86*-*-darwin* } } */
 /* APPLE LOCAL radar 4899595 */
-/* { dg-options "-fno-objc-new-property -mmacosx-version-min=10.5 -fobjc-abi-version=2" } */
-/* { dg-skip-if "" { *-*-darwin* } { "-m64" } { "" } } */
+/* { dg-options "-mmacosx-version-min=10.6 -m64" } */
 
-#include <objc/Object.h>
-
-@interface Number : Object
-@property (ivar) double value;
+@protocol GCObject
+@property(readonly) unsigned long int instanceSize;
+@property(readonly) long referenceCount;
+@property(readonly) const char *description;
 @end
 
-@implementation Number
-@property double value;
+@interface GCObject <GCObject> {
+    Class       isa;
+}
 @end
-/* { dg-final { scan-assembler ".long\t8\n\t.long\t1\n\t.long\t.*\n\t.long\t.*" } } */
+
+@implementation GCObject 
+@dynamic instanceSize;
+@dynamic description;
+@dynamic referenceCount;
+@end
+
+/* { dg-final { scan-assembler "l_OBJC_\\\$_PROP_LIST_GCObject:" } } */
+/* { dg-final { scan-assembler "l_OBJC_\\\$_PROP_PROTO_LIST_GCObject:" } } */

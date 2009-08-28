@@ -12,7 +12,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  
 
 # GCC testsuite that uses the `dg.exp' driver.
 
@@ -30,7 +30,7 @@ dg-init
 
 # Main loop.
 gfortran-dg-runtest [lsort \
-       [glob -nocomplain $srcdir/$subdir/*.\[fF\]{,90,95} ] ] $DEFAULT_FFLAGS
+       [glob -nocomplain $srcdir/$subdir/*.\[fF\]{,90,95,03} ] ] $DEFAULT_FFLAGS
 
 gfortran-dg-runtest [lsort \
        [glob -nocomplain $srcdir/$subdir/g77/*.\[fF\] ] ] $DEFAULT_FFLAGS

@@ -81,6 +81,8 @@ char   *dest;
     char   *cp;
     char   *result = unknown;
     FILE   *fp;
+    unsigned saved_timeout;
+    struct sigaction nact, oact;
 
     /*
      * Use one unbuffered stdio stream for writing to and for reading from
@@ -100,7 +102,12 @@ char   *dest;
 	 */
 
 	if (setjmp(timebuf) == 0) {
-	    signal(SIGALRM, timeout);
+	    /* Save SIGALRM timer and handler. Sudheer Abdul-Salam, SUN. */
+	    saved_timeout = alarm(0);
+	    nact.sa_handler = timeout;
+	    nact.sa_flags = 0;
+	    (void) sigemptyset(&nact.sa_mask);
+	    (void) sigaction(SIGALRM, &nact, &oact);
 	    alarm(rfc931_timeout);
 
 	    /*
@@ -159,6 +166,10 @@ char   *dest;
 	    }
 	    alarm(0);
 	}
+	/* Restore SIGALRM timer and handler. Sudheer Abdul-Salam, SUN. */
+	(void) sigaction(SIGALRM, &oact, NULL);
+	if (saved_timeout > 0)
+	    alarm(saved_timeout);
 	fclose(fp);
     }
     STRN_CPY(dest, result, STRING_LENGTH);

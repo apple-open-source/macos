@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2007 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2000-2009 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,10 +28,10 @@
 #ifndef _H_CONNECTION
 #define _H_CONNECTION
 
-#include <security_agent_client/agentclient.h>
 #include "process.h"
 #include "session.h"
 #include "notifications.h"
+#include <bsm/libbsm.h>     // audit_token_t
 #include <string>
 
 using MachPlusPlus::Port;
@@ -39,6 +39,14 @@ using MachPlusPlus::TaskPort;
 
 class Session;
 
+// define the minimum interface Connection requires for classes wanting to 
+// participate in SecurityAgent/authorizationhost IPCs (defined here rather
+// than agentquery.h to avoid circularity in headers)
+class SecurityAgentConnectionInterface
+{
+public:
+    virtual void disconnect() = 0;
+};
 
 //
 // A Connection object represents an established connection between a client
@@ -62,14 +70,16 @@ public:
 	// Code Signing guest management - tracks current guest id in client
 	SecGuestRef guestRef() const { return mGuestRef; }
 	void guestRef(SecGuestRef newGuest, SecCSFlags flags = 0);
+    
+    audit_token_t *auditToken() const { return mAuditToken; }
 
 	// work framing - called as work threads pick up connection work
-	void beginWork();		// I've got it
+	void beginWork(audit_token_t &auditToken);		// I've got it
 	void checkWork();		// everything still okay?
 	void endWork(CSSM_RETURN &rcode); // Done with this
 	
 	// notify that a SecurityAgent call may hang the active worker thread for a while
-	void useAgent(SecurityAgent::Client *client)
+	void useAgent(SecurityAgentConnectionInterface *client)
 	{ StLock<Mutex> _(*this); agentWait = client; }
 	
 	// set an overriding CSSM_RETURN to return instead of success
@@ -82,6 +92,7 @@ private:
 	// peer state: established during connection startup; fixed thereafter
 	Port mClientPort;			// client's Mach reply port
 	SecGuestRef mGuestRef;		// last known Code Signing guest reference for this client thread
+    audit_token_t *mAuditToken;  // in case auditing is required
 	CSSM_RETURN mOverrideReturn; // override successful return code (only)
 	
 	// transient state (altered as we go)
@@ -90,7 +101,7 @@ private:
 		busy,					// a thread is busy servicing us
 		dying					// busy and scheduled to die as soon as possible
 	} state;
-	SecurityAgent::Client *agentWait;	// SA client session we may be waiting on
+	SecurityAgentConnectionInterface *agentWait;	// SA connection we may be waiting on
 };
 
 

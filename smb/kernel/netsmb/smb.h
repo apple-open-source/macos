@@ -2,6 +2,8 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
+ * Portions Copyright (C) 2001 - 2009 Apple Inc. All rights reserved.
+ * 
  * Now many of these defines are from samba4 code, by Andrew Tridgell.
  * (Permission given to Conrad Minshall at CIFS plugfest Aug 13 2003.)
  * (Note the main decision was whether to use defines found in MS includes
@@ -44,34 +46,9 @@
 #ifndef _NETSMB_SMB_H_
 #define _NETSMB_SMB_H_
 
-#ifndef PRIVSYM
-#define PRIVSYM __private_extern__
-#endif
-
 #define	NBNS_UDP_PORT_137	137
 #define	NBSS_TCP_PORT_139	139
 #define	SMB_TCP_PORT_445	445
-
-/*
- * SMB dialects that we have to deal with.
- *
- * The following are known servers that do not support NT LM 0.12 dialect:
- * Windows for Workgroups and OS/2
- *
- * The following are known servers that do support NT LM 0.12 dialect:
- * Windows 95, Windows 98, Windows NT (include 3.51), Windows 2000, Windows XP, 
- * Windows 2003, NetApp, EMC, Snap,  and SAMBA.
-
- */
-enum smb_dialects { 
-	SMB_DIALECT_NONE,
-	SMB_DIALECT_CORE,		/* PC NETWORK PROGRAM 1.0, PCLAN1.0 */
-	SMB_DIALECT_COREPLUS,		/* MICROSOFT NETWORKS 1.03 */
-	SMB_DIALECT_LANMAN1_0,		/* MICROSOFT NETWORKS 3.0, LANMAN1.0 */
-	SMB_DIALECT_LANMAN2_0,		/* LM1.2X002, DOS LM1.2X002, Samba */
-	SMB_DIALECT_LANMAN2_1,		/* DOS LANMAN2.1, LANMAN2.1 */
-	SMB_DIALECT_NTLM0_12		/* NT LM 0.12 */
-};
 
 /*
  * Formats of data/string buffers
@@ -94,6 +71,8 @@ enum smb_dialects {
 #define	SMB_READANDX_HDRLEN		30
 #define SMB_WRITE_COM_HDRLEN	16
 #define SMB_READ_COM_HDRLEN		16
+#define SMB_MAX_SETUPCOUNT_LEN	255
+#define SMB_COM_NT_TRANS_LEN	48 
 
 /*
  * bits in the smb_flags field
@@ -324,7 +303,7 @@ enum smb_dialects {
 #define	SMB_COM_TRANSACTION2_SECONDARY  0x33
 #define	SMB_COM_FIND_CLOSE2             0x34
 #define	SMB_COM_FIND_NOTIFY_CLOSE       0x35
-#define	SMB_COM_TREE_CONNECT		0x70
+#define	SMB_COM_TREE_CONNECT			0x70
 #define	SMB_COM_TREE_DISCONNECT         0x71
 #define	SMB_COM_NEGOTIATE               0x72
 #define	SMB_COM_SESSION_SETUP_ANDX      0x73
@@ -400,6 +379,33 @@ enum smb_dialects {
 #define SMB_QFS_FULL_SIZE_INFORMATION   1007
 #define SMB_QFS_OBJECTID_INFORMATION    1008
 
+/*
+ * NT Notify Change Compeletion Filter
+*/
+#define FILE_NOTIFY_CHANGE_FILE_NAME	0x00000001
+#define FILE_NOTIFY_CHANGE_DIR_NAME		0x00000002
+#define FILE_NOTIFY_CHANGE_ATTRIBUTES	0x00000004
+#define FILE_NOTIFY_CHANGE_SIZE			0x00000008
+#define FILE_NOTIFY_CHANGE_LAST_WRITE	0x00000010
+#define FILE_NOTIFY_CHANGE_LAST_ACCESS	0x00000020
+#define FILE_NOTIFY_CHANGE_CREATION		0x00000040
+#define FILE_NOTIFY_CHANGE_EA			0x00000080
+#define FILE_NOTIFY_CHANGE_SECURITY		0x00000100
+#define FILE_NOTIFY_CHANGE_STREAM_NAME	0x00000200
+#define FILE_NOTIFY_CHANGE_STREAM_SIZE	0x00000400
+#define FILE_NOTIFY_CHANGE_STREAM_WRITE	0x00000800
+
+/*
+ * NT Notify Actions
+ */
+#define FILE_ACTION_ADDED				0x00000001
+#define FILE_ACTION_REMOVED				0x00000002
+#define FILE_ACTION_MODIFIED			0x00000003
+#define FILE_ACTION_RENAMED_OLD_NAME	0x00000004
+#define FILE_ACTION_RENAMED_NEW_NAME	0x00000005
+#define FILE_ACTION_ADDED_STREAM		0x00000006
+#define FILE_ACTION_REMOVED_STREAM		0x00000007
+#define FILE_ACTION_MODIFIED_STREAM		0x00000008
 
 /*
  * SMB_QFS_ATTRIBUTE_INFO bits.
@@ -506,6 +512,20 @@ enum smb_dialects {
 #define SMB_FIND_FILE_UNIX_INFO2       0x20B /* UNIX File Info2 */
 
 /*
+ * These are used by smbfs_smb_findopen to determine the number of max search
+ * elements the client should be requesting. These values are the number of 
+ * bytes each structure takes up in the packet if the associated name was empty.
+ * So we divided transaction buffer size by this number and that gives us the 
+ * max search count to request. In each case we counted up the number of u_int32_t 
+ * that each structure contained, so a u_int64_t counts as two u_int32_t. In both
+ * cases we add 2 bytes to represent the empty UTF8 name. So SMB_FIND_BOTH_DIRECTORY_INFO
+ * has 16 u_int32_t fields plus 30 bytes of other data and the SMB_FIND_FILE_UNIX_INFO2 
+ * has 32 u_int32_t fields.
+ */
+#define SMB_FIND_BOTH_DIRECTORY_INFO_MIN_LEN ((4 * 16) + 30 + 2)
+#define SMB_FIND_FILE_UNIX_INFO2_MIN_LEN ((4 * 32) + 2)
+
+/*
  * SMB_QUERY_FILE_UNIX_INFO2 is SMB_QUERY_FILE_UNIX_BASIC with create
  * time and file flags appended. The corresponding info level for
  * findfirst/findnext is SMB_FIND_FILE_UNIX_UNIX2.
@@ -530,10 +550,10 @@ enum smb_dialects {
  */
 
 #define SMB_DEFAULT_NO_CHANGE	-1
-#define SMB_MODE_NO_CHANGE	-1
+#define SMB_MODE_NO_CHANGE	(u_int64_t)-1
 #define SMB_UID_NO_CHANGE	-1
 #define SMB_GID_NO_CHANGE	-1
-#define SMB_SIZE_NO_CHANGE	-1
+#define SMB_SIZE_NO_CHANGE	(u_int64_t)-1
 #define SMB_FLAGS_NO_CHANGE	0
 
 /* 
@@ -604,25 +624,13 @@ struct ntsecdesc {
 	u_int32_t	sd_dacloff;	/* offset to discretionary ACL */
 } __attribute__((__packed__));
 
-#define wset_sdrevision(s) ((s)->sd_revision = 0x01)
-#define sdflags(s) (letohs((s)->sd_flags))
-#define wset_sdflags(s, f) ((s)->sd_flags = letohs(f))
-#define sdowner(s) ((struct ntsid *)((s)->sd_owneroff ? \
-				     (char *)(s) + letohl((s)->sd_owneroff) : \
-				     NULL))
-#define wset_sdowneroff(s, o) ((s)->sd_owneroff = htolel(o))
-#define sdgroup(s) ((struct ntsid *)((s)->sd_groupoff ? \
-				     (char *)(s) + letohl((s)->sd_groupoff) : \
-				     NULL))
-#define wset_sdgroupoff(s, o) ((s)->sd_groupoff = htolel(o))
-#define sdsacl(s) ((struct ntacl *)((s)->sd_sacloff ? \
-				    (char *)(s) + letohl((s)->sd_sacloff) : \
-				     NULL))
-#define wset_sdsacloff(s, o) ((s)->sd_sacloff = htolel(o))
-#define sddacl(s) ((struct ntacl *)((s)->sd_dacloff ? \
-				    (char *)(s) + letohl((s)->sd_dacloff) : \
-				     NULL))
-#define wset_sddacloff(s, o) ((s)->sd_dacloff = htolel(o))
+
+void * smb_sdoffset(struct ntsecdesc *w_secp, size_t w_seclen, int sd_type);
+
+#define sdowner(s, s_len) (struct ntsid *)smb_sdoffset(s, s_len, OWNER_SECURITY_INFORMATION)
+#define sdgroup(s, s_len) (struct ntsid *)smb_sdoffset(s, s_len, GROUP_SECURITY_INFORMATION)
+#define sdsacl(s, s_len) (struct ntacl *)smb_sdoffset(s, s_len, SACL_SECURITY_INFORMATION)
+#define sddacl(s, s_len) (struct ntacl *)smb_sdoffset(s, s_len, DACL_SECURITY_INFORMATION)
 
 /*
  * sd_flags bits
@@ -657,10 +665,8 @@ struct ntacl {
 	u_int16_t	acl_pad2;
 } __attribute__((__packed__));
 
-#define wset_aclrevision(a) ((a)->acl_revision = 0x02)
 #define acllen(a) (letohs((a)->acl_len))
 #define wset_acllen(a, l) ((a)->acl_len = htoles(l))
-#define aclacecount(a) (letohs((a)->acl_acecount))
 #define wset_aclacecount(a, c) ((a)->acl_acecount = htoles(c))
 #define aclace(a) ((struct ntace *)((char *)(a) + sizeof(struct ntacl)))
 
@@ -767,10 +773,8 @@ struct ntsid {
 	u_int8_t	sid_authority[SIDAUTHSIZE]; /* ie not little endian */
 } __attribute__((__packed__));
 
-#define sidsubauthcount(s) (s->sid_subauthcount)
-#define sidlen(s) (sizeof(struct ntsid) + 4 * (s)->sid_subauthcount)
-#define MAXSIDLEN (sizeof(struct ntsid) + 4 * KAUTH_NTSID_MAX_AUTHORITIES)
-#define sidsub(s) ((u_int32_t *)((char *)(s) + sizeof(struct ntsid)))
+#define sidlen(s) (sizeof(struct ntsid) + (sizeof(u_int32_t) * (s)->sid_subauthcount))
+#define MAXSIDLEN (sizeof(struct ntsid) + (sizeof(u_int32_t) * KAUTH_NTSID_MAX_AUTHORITIES))
 
 /*
  * MS' defined values for ace_type
@@ -913,13 +917,21 @@ struct ntsid {
  * but we need reasonable limits.
  */
 #define SMB_MAXNetBIOSNAMELEN	15	/* NetBIOS limit */
-#define SMB_MAX_DNS_SRVNAMELEN	60	/* 
-					 * Chosen as "reasonable" 
-					 * limit for ioc_srvname
-					 */
+#define SMB_MAX_DNS_SRVNAMELEN	255
 #define SMB_MAXUSERNAMELEN	128
 #define SMB_MAXPASSWORDLEN	128
-#define	SMB_MAXSHARENAMELEN	128
+/* Max Kerberos principal name length we support */
+#define SMB_MAX_KERB_PN		1024
+#define SMB_MAX_NATIVE_OS_STRING		256
+#define SMB_MAX_NATIVE_LANMAN_STRING	256
+
+/*
+ * XP will only allow 80 characters in a share name, the SMB2
+ * Spec confirms this in the tree connect section. Since UTF8 
+ * can have 3 * 80(characters) bytes then lets make SMB_MAXSHARENAMELEN 
+ * 240 bytes.
+ */
+#define	SMB_MAXSHARENAMELEN	240
 #define	SMB_MAXPKTLEN		0x1FFFF
 #define	SMB_MAXCHALLENGELEN	8
 #define	SMB_MAXFNAMELEN		255	/* Keep in sync with MAXNAMLEN */
@@ -1678,6 +1690,10 @@ struct ntsid {
 #define SMB_GUIDLEN	16
 
 typedef u_int16_t	smbfh;
+
+#define SMB_NTLM_LEN	21
+#define SMB_NTLMV2_LEN	16
+#define SMB_LMV2_LEN	24
 
 /*
  * NTLMv2 blob header structure.

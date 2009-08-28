@@ -1,8 +1,8 @@
 #! /bin/sh
-# $OpenLDAP: pkg/ldap/tests/scripts/defines.sh,v 1.107.2.18 2006/01/03 22:16:28 kurt Exp $
+# $OpenLDAP: pkg/ldap/tests/scripts/defines.sh,v 1.141.2.12 2008/04/14 21:51:34 quanah Exp $
 ## This work is part of OpenLDAP Software <http://www.openldap.org/>.
 ##
-## Copyright 1998-2006 The OpenLDAP Foundation.
+## Copyright 1998-2008 The OpenLDAP Foundation.
 ## All rights reserved.
 ##
 ## Redistribution and use in source and binary forms, with or without
@@ -13,15 +13,24 @@
 ## top-level directory of the distribution or, alternatively, at
 ## <http://www.OpenLDAP.org/license.html>.
 
+umask 077
+
+TESTWD=`pwd`
+
+# backends
 MONITORDB=${AC_monitor-no}
 BACKLDAP=${AC_ldap-ldapno}
 BACKMETA=${AC_meta-metano}
 BACKRELAY=${AC_relay-relayno}
 BACKSQL=${AC_sql-sqlno}
-RDBMS=${SLAPD_USE_SQL-rdbmsno}
-RDBMSWRITE=${SLAPD_USE_SQLWRITE-no}
+	RDBMS=${SLAPD_USE_SQL-rdbmsno}
+	RDBMSWRITE=${SLAPD_USE_SQLWRITE-no}
+
+# overlays
 ACCESSLOG=${AC_accesslog-accesslogno}
+DDS=${AC_dds-ddsno}
 DYNLIST=${AC_dynlist-dynlistno}
+MEMBEROF=${AC_memberof-memberofno}
 PROXYCACHE=${AC_pcache-pcacheno}
 PPOLICY=${AC_ppolicy-ppolicyno}
 REFINT=${AC_refint-refintno}
@@ -31,16 +40,22 @@ SYNCPROV=${AC_syncprov-syncprovno}
 TRANSLUCENT=${AC_translucent-translucentno}
 UNIQUE=${AC_unique-uniqueno}
 VALSORT=${AC_valsort-valsortno}
+
+# misc
 WITH_SASL=${AC_WITH_SASL-no}
 USE_SASL=${SLAPD_USE_SASL-no}
-WITHTLS=${AC_WITHTLS-yes}
 ACI=${AC_ACI_ENABLED-acino}
 THREADS=${AC_THREADS-threadsno}
 
+# dirs
 PROGDIR=./progs
 DATADIR=${USER_DATADIR-./testdata}
-TESTDIR=${USER_TESTDIR-./testrun}
+TESTDIR=${USER_TESTDIR-$TESTWD/testrun}
 SCHEMADIR=${USER_SCHEMADIR-./schema}
+case "$SCHEMADIR" in
+.*)	ABS_SCHEMADIR="$TESTWD/$SCHEMADIR" ;;
+*)  ABS_SCHEMADIR="$SCHEMADIR" ;;
+esac
 
 DBDIR1A=$TESTDIR/db.1.a
 DBDIR1B=$TESTDIR/db.1.b
@@ -56,19 +71,22 @@ DBDIR5=$TESTDIR/db.5.a
 DBDIR6=$TESTDIR/db.6.a
 SQLCONCURRENCYDIR=$DATADIR/sql-concurrency
 
+CLIENTDIR=../clients/tools
+#CLIENTDIR=/usr/local/bin
+
+# conf
 CONF=$DATADIR/slapd.conf
 CONFTWO=$DATADIR/slapd2.conf
+CONF2DB=$DATADIR/slapd-2db.conf
 MCONF=$DATADIR/slapd-master.conf
 COMPCONF=$DATADIR/slapd-component.conf
 PWCONF=$DATADIR/slapd-pw.conf
 WHOAMICONF=$DATADIR/slapd-whoami.conf
 ACLCONF=$DATADIR/slapd-acl.conf
 RCONF=$DATADIR/slapd-referrals.conf
-MASTERCONF=$DATADIR/slapd-repl-master.conf
 SRMASTERCONF=$DATADIR/slapd-syncrepl-master.conf
 DSRMASTERCONF=$DATADIR/slapd-deltasync-master.conf
 DSRSLAVECONF=$DATADIR/slapd-deltasync-slave.conf
-SLAVECONF=$DATADIR/slapd-repl-slave.conf
 PPOLICYCONF=$DATADIR/slapd-ppolicy.conf
 PROXYCACHECONF=$DATADIR/slapd-proxycache.conf
 CACHEMASTERCONF=$DATADIR/slapd-cache-master.conf
@@ -100,14 +118,23 @@ SQLSRMASTERCONF=$DATADIR/slapd-sql-syncrepl-master.conf
 TRANSLUCENTLOCALCONF=$DATADIR/slapd-translucent-local.conf
 TRANSLUCENTREMOTECONF=$DATADIR/slapd-translucent-remote.conf
 METACONF=$DATADIR/slapd-meta.conf
-METACONF2=$DATADIR/slapd-meta2.conf
+METACONF1=$DATADIR/slapd-meta-target1.conf
+METACONF2=$DATADIR/slapd-meta-target2.conf
 GLUELDAPCONF=$DATADIR/slapd-glue-ldap.conf
 ACICONF=$DATADIR/slapd-aci.conf
 VALSORTCONF=$DATADIR/slapd-valsort.conf
 DYNLISTCONF=$DATADIR/slapd-dynlist.conf
 RSLAVECONF=$DATADIR/slapd-repl-slave-remote.conf
 PLSRSLAVECONF=$DATADIR/slapd-syncrepl-slave-persist-ldap.conf
+PLSRMASTERCONF=$DATADIR/slapd-syncrepl-multiproxy.conf
+DDSCONF=$DATADIR/slapd-dds.conf
+PASSWDCONF=$DATADIR/slapd-passwd.conf
+UNDOCONF=$DATADIR/slapd-config-undo.conf
+NAKEDCONF=$DATADIR/slapd-config-naked.conf
 
+DYNAMICCONF=$DATADIR/slapd-dynamic.ldif
+
+# generated files
 CONF1=$TESTDIR/slapd.1.conf
 CONF2=$TESTDIR/slapd.2.conf
 CONF3=$TESTDIR/slapd.3.conf
@@ -115,21 +142,31 @@ CONF4=$TESTDIR/slapd.4.conf
 CONF5=$TESTDIR/slapd.5.conf
 CONF6=$TESTDIR/slapd.6.conf
 ADDCONF=$TESTDIR/slapadd.conf
+CONFLDIF=$TESTDIR/slapd-dynamic.ldif
 
+LOG1=$TESTDIR/slapd.1.log
+LOG2=$TESTDIR/slapd.2.log
+LOG3=$TESTDIR/slapd.3.log
+LOG4=$TESTDIR/slapd.4.log
+LOG5=$TESTDIR/slapd.5.log
+LOG6=$TESTDIR/slapd.6.log
+SLAPADDLOG1=$TESTDIR/slapadd.1.log
+SLURPLOG=$TESTDIR/slurp.log
+
+CONFIGPWF=$TESTDIR/configpw
+
+# args
 TOOLARGS="-x $LDAP_TOOLARGS"
 TOOLPROTO="-P 3"
 
-PASSWDCONF=$DATADIR/slapd-passwd.conf
-
-CLIENTDIR=../clients/tools
-#CLIENTDIR=/usr/local/bin
-
+# cmds
 LDIFFILTER=$SRCDIR/scripts/acfilter.sh
 CONFFILTER=$SRCDIR/scripts/conf.sh
 
-SLAPADD="../servers/slapd/slapd -Ta -d 0 $LDAP_VERBOSE"
-SLAPCAT="../servers/slapd/slapd -Tc -d 0 $LDAP_VERBOSE"
-SLAPINDEX="../servers/slapd/slapd -Ti -d 0 $LDAP_VERBOSE"
+SLAPADD="$TESTWD/../servers/slapd/slapd -Ta -d 0 $LDAP_VERBOSE"
+SLAPCAT="$TESTWD/../servers/slapd/slapd -Tc -d 0 $LDAP_VERBOSE"
+SLAPINDEX="$TESTWD/../servers/slapd/slapd -Ti -d 0 $LDAP_VERBOSE"
+SLAPPASSWD="$TESTWD/../servers/slapd/slapd -Tpasswd"
 
 unset DIFF_OPTIONS
 # NOTE: -u/-c is not that portable...
@@ -137,8 +174,7 @@ DIFF="diff -i"
 CMP="diff -i"
 BCMP="diff -iB"
 CMPOUT=/dev/null
-SLAPD="../servers/slapd/slapd -s0"
-SLURPD=../servers/slurpd/slurpd
+SLAPD="$TESTWD/../servers/slapd/slapd -s0"
 LDAPPASSWD="$CLIENTDIR/ldappasswd $TOOLARGS"
 LDAPSASLSEARCH="$CLIENTDIR/ldapsearch $TOOLPROTO $LDAP_TOOLARGS -LLL"
 LDAPSEARCH="$CLIENTDIR/ldapsearch $TOOLPROTO $TOOLARGS -LLL"
@@ -149,6 +185,7 @@ LDAPADD="$CLIENTDIR/ldapmodify -a $TOOLPROTO $TOOLARGS"
 LDAPMODRDN="$CLIENTDIR/ldapmodrdn $TOOLPROTO $TOOLARGS"
 LDAPWHOAMI="$CLIENTDIR/ldapwhoami $TOOLARGS"
 LDAPCOMPARE="$CLIENTDIR/ldapcompare $TOOLARGS"
+LDAPEXOP="$CLIENTDIR/ldapexop $TOOLARGS"
 SLAPDTESTER=$PROGDIR/slapd-tester
 LVL=${SLAPD_DEBUG-261}
 LOCALHOST=localhost
@@ -165,7 +202,10 @@ URI3="ldap://${LOCALHOST}:$PORT3/"
 URI4="ldap://${LOCALHOST}:$PORT4/"
 URI5="ldap://${LOCALHOST}:$PORT5/"
 URI6="ldap://${LOCALHOST}:$PORT6/"
+
+# LDIF
 LDIF=$DATADIR/test.ldif
+LDIFADD1=$DATADIR/do_add.1
 LDIFGLUED=$DATADIR/test-glued.ldif
 LDIFORDERED=$DATADIR/test-ordered.ldif
 LDIFORDEREDCP=$DATADIR/test-ordered-cp.ldif
@@ -199,17 +239,19 @@ LDIFTRANSLUCENTMERGED=$DATADIR/test-translucent-merged.ldif
 LDIFMETA=$DATADIR/test-meta.ldif
 LDIFVALSORT=$DATADIR/test-valsort.ldif
 SQLADD=$DATADIR/sql-add.ldif
+
+# strings
 MONITOR=""
 REFDN="c=US"
 BASEDN="dc=example,dc=com"
-MANAGERDN="cn=Manager,dc=example,dc=com"
-UPDATEDN="cn=Replica,dc=example,dc=com"
+MANAGERDN="cn=Manager,$BASEDN"
+UPDATEDN="cn=Replica,$BASEDN"
 PASSWD=secret
-BABSDN="cn=Barbara Jensen,ou=Information Technology DivisioN,OU=People,dc=example,dc=com"
-BJORNSDN="cn=Bjorn Jensen,ou=Information Technology DivisioN,OU=People,dc=example,dc=com"
-JAJDN="cn=James A Jones 1,ou=Alumni Association,ou=People,dc=example,dc=com"
-JOHNDDN="cn=John Doe,ou=Information Technology Division,ou=People,dc=example,dc=com"
-MELLIOTDN="cn=Mark Elliot,ou=Alumni Association,ou=People,dc=example,dc=com"
+BABSDN="cn=Barbara Jensen,ou=Information Technology DivisioN,ou=People,$BASEDN"
+BJORNSDN="cn=Bjorn Jensen,ou=Information Technology DivisioN,ou=People,$BASEDN"
+JAJDN="cn=James A Jones 1,ou=Alumni Association,ou=People,$BASEDN"
+JOHNDDN="cn=John Doe,ou=Information Technology Division,ou=People,$BASEDN"
+MELLIOTDN="cn=Mark Elliot,ou=Alumni Association,ou=People,$BASEDN"
 REFINTDN="cn=Manager,o=refint"
 RETCODEDN="ou=RetCodes,$BASEDN"
 UNIQUEDN="cn=Manager,o=unique"
@@ -218,20 +260,12 @@ TRANSLUCENTROOT="o=translucent"
 TRANSLUCENTUSER="ou=users,o=translucent"
 TRANSLUCENTDN="uid=binder,o=translucent"
 TRANSLUCENTPASSWD="bindtest"
-METABASEDN="ou=Meta,dc=example,dc=com"
+METABASEDN="ou=Meta,$BASEDN"
 METAMANAGERDN="cn=Manager,$METABASEDN"
 VALSORTDN="cn=Manager,o=valsort"
 VALSORTBASEDN="o=valsort"
 
-LOG1=$TESTDIR/slapd.1.log
-LOG2=$TESTDIR/slapd.2.log
-LOG3=$TESTDIR/slapd.3.log
-LOG4=$TESTDIR/slapd.4.log
-LOG5=$TESTDIR/slapd.5.log
-LOG6=$TESTDIR/slapd.6.log
-SLAPADDLOG1=$TESTDIR/slapadd.1.log
-SLURPLOG=$TESTDIR/slurp.log
-
+# generated outputs
 SEARCHOUT=$TESTDIR/ldapsearch.out
 SEARCHOUT2=$TESTDIR/ldapsearch2.out
 SEARCHFLT=$TESTDIR/ldapsearch.flt
@@ -259,8 +293,11 @@ SERVER6FLT=$TESTDIR/server6.flt
 MASTEROUT=$SERVER1OUT
 MASTERFLT=$SERVER1FLT
 SLAVEOUT=$SERVER2OUT
+SLAVE2OUT=$SERVER3OUT
 SLAVEFLT=$SERVER2FLT
+SLAVE2FLT=$SERVER3FLT
 
+# original outputs for cmp
 PROXYCACHEOUT=$DATADIR/proxycache.out
 REFERRALOUT=$DATADIR/referrals.out
 SEARCHOUTMASTER=$DATADIR/search.out.master
@@ -297,6 +334,9 @@ MANAGEOUT=$DATADIR/manage.out
 SUBTREERENAMEOUT=$DATADIR/subtree-rename.out
 ACIOUT=$DATADIR/aci.out
 DYNLISTOUT=$DATADIR/dynlist.out
+DDSOUT=$DATADIR/dds.out
+MEMBEROFOUT=$DATADIR/memberof.out
+SHTOOL="$SRCDIR/../build/shtool"
 
 # Just in case we linked the binaries dynamically
-LD_LIBRARY_PATH=`pwd`/../libraries:${LD_LIBRARY_PATH} export LD_LIBRARY_PATH
+LD_LIBRARY_PATH=$TESTWD/../libraries:${LD_LIBRARY_PATH} export LD_LIBRARY_PATH

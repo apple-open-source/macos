@@ -55,9 +55,9 @@
 #include "umount_by_fsid.h"
 
 static void free_action_list(action_list *);
-static int unmount_mntpnt(int32_t, int32_t, struct mnttab *, autofs_component);
+static int unmount_mntpnt(int32_t, int32_t, struct mnttab *);
 static int fork_exec(char *, char **, uid_t, mach_port_t);
-static void remove_browse_options(char *);
+static void remove_browse_options(char *, bool_t);
 static int inherit_options(char *, char **);
 
 #define ROUND_UP(a, b)	((((a) + (b) - 1)/(b)) * (b))
@@ -70,10 +70,10 @@ countstring(char *string)
 	uint32_t stringlen;
 
 	if (string != NULL)
-		stringlen = strlen(string);
+		stringlen = (uint32_t)strlen(string);
 	else
 		stringlen = 0;
-	return (sizeof (uint32_t) + stringlen);
+	return ((uint32_t)sizeof (uint32_t) + stringlen);
 }
 
 static uint8_t *
@@ -82,7 +82,7 @@ putstring(uint8_t *outbuf, char *string)
 	uint32_t stringlen;
 
 	if (string != NULL) {
-		stringlen = strlen(string);
+		stringlen = (uint32_t)strlen(string);
 		memcpy(outbuf, &stringlen, sizeof (uint32_t));
 		outbuf += sizeof (uint32_t);
 		memcpy(outbuf, string, stringlen);
@@ -101,6 +101,7 @@ do_mount1(autofs_pathname mapname, char *key, autofs_pathname subdir,
     uid_t sendereuid, mach_port_t gssd_port,
     byte_buffer *actions, mach_msg_type_number_t *actionsCnt)
 {
+	bool_t from_fstab = FALSE;
 	struct mapent *me, *mapents;
 	char mntpnt[MAXPATHLEN];
 	char spec_mntpnt[MAXPATHLEN];
@@ -117,6 +118,14 @@ do_mount1(autofs_pathname mapname, char *key, autofs_pathname subdir,
 	size_t bufsize;
 	vm_address_t buffer_vm_address;
 	uint8_t *outbuf;
+
+	/*
+	 * We treat "browse" and "nobrowse" from fstab specially, as
+	 * we can assume it probably means Mac OS X-style "browse"/"nobrowse",
+	 * not Solaris autofs-style "browse"/"nobrowse".
+	 */
+	if (strcmp(mapname, "-fstab") == 0 || strcmp(mapname, "-static") == 0)
+		from_fstab = TRUE;
 
 retry:
 	iswildcard = FALSE;
@@ -193,7 +202,7 @@ retry:
 		}
 
 		if (strcmp(me->map_fstype, MNTTYPE_NFS) == 0) {
-			remove_browse_options(me->map_mntopts);
+			remove_browse_options(me->map_mntopts, from_fstab);
 			err =
 			    mount_nfs(me, spec_mntpnt, private, isdirect,
 			        gssd_port);
@@ -277,14 +286,14 @@ retry:
 				}
 			} else
 				free(alp);
-#if 0
+#ifdef HAVE_LOFS
 		} else if (strcmp(me->map_fstype, MNTTYPE_LOFS) == 0) {
-			remove_browse_options(me->map_mntopts);
+			remove_browse_options(me->map_mntopts, from_fstab);
 			err = loopbackmount(me->map_fs->mfs_dir, spec_mntpnt,
 					    me->map_mntopts);
 #endif
 		} else {
-			remove_browse_options(me->map_mntopts);
+			remove_browse_options(me->map_mntopts, from_fstab);
 			err = mount_generic(me->map_fs->mfs_dir,
 					    me->map_fstype, me->map_mntopts,
 					    spec_mntpnt, isdirect, sendereuid,
@@ -310,7 +319,7 @@ retry:
 			bufsize += countstring(tmp->mounta.key);
 		}
 		if (bufsize != 0) {
-			ret = vm_allocate(mach_task_self(), &buffer_vm_address,
+			ret = vm_allocate(current_task(), &buffer_vm_address,
 			    bufsize, VM_FLAGS_ANYWHERE);
 			if (ret != KERN_SUCCESS) {
 				syslog(LOG_ERR, "memory allocation error: %s",
@@ -333,7 +342,7 @@ retry:
 			}
 			free_action_list(alphead);
 		}
-		*actionsCnt = bufsize;
+		*actionsCnt = (mach_msg_type_number_t)bufsize;
 	}
 	return (err);
 }
@@ -405,7 +414,7 @@ do_check_trigger(autofs_pathname mapname, char *key, autofs_pathname subdir,
 	return (0);
 }
 
-#define	ARGV_MAX	20
+#define	ARGV_MAX	21
 #define	VFS_PATH	"/sbin"
 #define MOUNT_PATH	"/sbin/mount"
 #define MOUNT_URL_PATH	"/usr/libexec/mount_url"
@@ -446,6 +455,14 @@ mount_generic(char *special, char *fstype, char *opts, char *mntpnt,
 	newargv[i++] = "-q";
 #endif
 
+	/*
+	 * Flag it as not to show up as a "mounted volume" in the
+	 * Finder/File Manager sense; we put this first so that
+	 * it can be overridden if somebody wants it to show up.
+	 */
+	newargv[i++] = "-o";
+	newargv[i++] = "nobrowse";
+
 	if (strcmp(fstype, "nfs") == 0) {
 		/*
 		 * Add a "-t nfs" option, as we'll be running "mount"
@@ -481,11 +498,12 @@ mount_generic(char *special, char *fstype, char *opts, char *mntpnt,
 	}
 
 	/*
-	 * Make sure we flag it as automounted and as not to show up
-	 * as a "mounted volume" in the Finder/File Manager sense.
+	 * Make sure we flag it as automounted; we put this last so
+	 * that it can't be overridden (the automounter is mounting
+	 * it, so it is by definition automounted).
 	 */
 	newargv[i++] = "-o";
-	newargv[i++] = "automounted,nobrowse";
+	newargv[i++] = "automounted";
 
 	/*
 	 * XXX - not all our mount commands support "--" as an
@@ -502,17 +520,7 @@ mount_generic(char *special, char *fstype, char *opts, char *mntpnt,
 	newargv[i++] = mntpnt;
 	newargv[i] = NULL;
 
-	/*
-	 * We'll be doing the mount as user "sendereuid"; give them the mount
-	 * point, so they can do the mount.  If that fails, log a
-	 * message but drive on, just in case the mount would
-	 * succeed anyway.
-	 */
-	if (chown(mntpnt, sendereuid, -1) == -1)
-		syslog(LOG_ERR, "Can't change ownership of %s", mntpnt);
-
 	res = fork_exec(fstype, newargv, sendereuid, gssd_port);
-
 	if (res == 0 && trace > 1) {
 		if (stat(mntpnt, &stbuf) == 0) {
 			trace_prt(1, "  mount of %s dev=%x rdev=%x OK\n",
@@ -524,15 +532,40 @@ mount_generic(char *special, char *fstype, char *opts, char *mntpnt,
 	return (res);
 }
 
+/*
+ * Put the specified port back as the GSSD task special port, release
+ * the GSSD port mutex (as we're done mucking with our GSSD special
+ * port), and log a message if that fails or release the port if it
+ * succeeds.
+ */
+static void
+put_back_gssd_port(mach_port_t saved_gssd_port)
+{
+	kern_return_t ret;
+
+	ret = task_set_gssd_port(current_task(), saved_gssd_port);
+	pthread_mutex_unlock(&gssd_port_lock);
+	if (ret != KERN_SUCCESS) {
+		syslog(LOG_ERR, "Cannot restore gssd port: %s",
+		    mach_error_string(ret));
+	} else {
+		/*
+		 * We no longer need the send right for the GSSD port, so
+		 * release it.
+		 */
+		mach_port_deallocate(current_task(), saved_gssd_port);
+	}
+}
+
 static int
 fork_exec(char *fstype, char **newargv, uid_t sendereuid, mach_port_t gssd_port)
 {
 	char *path;
-	int path_is_allocated;
+	volatile int path_is_allocated;
 	struct stat stbuf;
 	int i;
 	kern_return_t ret;
-	mach_port_t save_gssd_port;
+	mach_port_t saved_gssd_port;
 	int child_pid;
 	int stat_loc;
 	int fd = 0;
@@ -554,13 +587,17 @@ fork_exec(char *fstype, char **newargv, uid_t sendereuid, mach_port_t gssd_port)
 	} else {
 		if (strcmp(fstype, "smb") == 0)
 			fstype = "smbfs";	/* mount_smbfs, not mount_smb */
-		if (asprintf(&path, "%s/mount_%s", VFS_PATH, fstype) == -1)
-			return (errno);
+		if (asprintf(&path, "%s/mount_%s", VFS_PATH, fstype) == -1) {
+			res = errno;
+			syslog(LOG_ERR, "Can't construct pathname of mount program: %m");
+			return (res);
+		}
 		path_is_allocated = 1;
 	}
 
 	if (stat(path, &stbuf) != 0) {
 		res = errno;
+		syslog(LOG_ERR, "Can't stat mount program %s: %m", path);
 		goto done;
 	}
 
@@ -589,18 +626,23 @@ fork_exec(char *fstype, char **newargv, uid_t sendereuid, mach_port_t gssd_port)
 	 * at a time.
 	 */
 	pthread_mutex_lock(&gssd_port_lock);
-	ret = task_get_gssd_port(current_task(), &save_gssd_port);
+	ret = task_get_gssd_port(current_task(), &saved_gssd_port);
 	if (ret != KERN_SUCCESS) {
 		pthread_mutex_unlock(&gssd_port_lock);
-		syslog(LOG_ERR, "Cannot get gssd port: %s\n",
+		syslog(LOG_ERR, "Cannot get gssd port: %s",
 		    mach_error_string(ret));
 		res = EIO;
 		goto done;
 	}
 	ret = task_set_gssd_port(current_task(), gssd_port);
 	if (ret != KERN_SUCCESS) {
+		/*
+		 * Release send right on saved_gssd_port, as we
+		 * won't be using it.
+		 */
+		mach_port_deallocate(current_task(), saved_gssd_port);
 		pthread_mutex_unlock(&gssd_port_lock);
-		syslog(LOG_ERR, "Cannot set gssd port: %s\n",
+		syslog(LOG_ERR, "Cannot set gssd port: %s",
 		    mach_error_string(ret));
 		res = EIO;
 		goto done;
@@ -608,17 +650,10 @@ fork_exec(char *fstype, char **newargv, uid_t sendereuid, mach_port_t gssd_port)
 	switch ((child_pid = fork1())) {
 	case -1:
 		/*
-		 * Fork failure.
-		 *
-		 * Put the GSSD port back, and release the mutex.
+		 * Fork failure.  Clean up the GSSD port, log
+		 * an error, and quit.
 		 */
-		ret = task_set_gssd_port(current_task(), save_gssd_port);
-		if (ret != KERN_SUCCESS) {
-			pthread_mutex_unlock(&gssd_port_lock);
-			syslog(LOG_ERR, "Cannot restore gssd port: %s\n",
-			    mach_error_string(ret));
-		}
-		pthread_mutex_unlock(&gssd_port_lock);
+		put_back_gssd_port(saved_gssd_port);
 		res = errno;
 		syslog(LOG_ERR, "Cannot fork: %m");
 		goto done;
@@ -650,9 +685,9 @@ fork_exec(char *fstype, char **newargv, uid_t sendereuid, mach_port_t gssd_port)
 		 * mount has a single session and user identity associated
 		 * with it, the right user identity get associated with it.
 		 */
-		res = setuid(sendereuid);
-		if (res) {
-			syslog(LOG_ERR, "Can't set URL subprocess UID: %s\n",
+		if (setuid(sendereuid) == -1) {
+			res = errno;
+			syslog(LOG_ERR, "Can't set mount subprocess UID: %s",
 			    strerror(res));
 			_exit(res);
 		}
@@ -665,15 +700,9 @@ fork_exec(char *fstype, char **newargv, uid_t sendereuid, mach_port_t gssd_port)
 		/*
 		 * Parent.
 		 *
-		 * Put the GSSD port back, and release the mutex.
+		 * Clean up the GSSD port.
 		 */
-		ret = task_set_gssd_port(current_task(), save_gssd_port);
-		if (ret != KERN_SUCCESS) {
-			pthread_mutex_unlock(&gssd_port_lock);
-			syslog(LOG_ERR, "Cannot restore gssd port: %s\n",
-			    mach_error_string(ret));
-		}
-		pthread_mutex_unlock(&gssd_port_lock);
+		put_back_gssd_port(saved_gssd_port);
 
 		/*
 		 * Now wait for the child to finish.
@@ -689,17 +718,21 @@ fork_exec(char *fstype, char **newargv, uid_t sendereuid, mach_port_t gssd_port)
 
 			res = WEXITSTATUS(stat_loc);
 		} else if (WIFSIGNALED(stat_loc)) {
-			syslog(LOG_ERR, "Mount subprocess terminated with %s\n",
+			syslog(LOG_ERR, "Mount subprocess terminated with %s",
 			    strsignal(WTERMSIG(stat_loc)));
 			if (trace > 1) {
 				trace_prt(1,
 				    "  fork_exec: returns signal status %d\n",
 				    WTERMSIG(stat_loc));
 			}
+			res = EIO;
 		} else if (WIFSTOPPED(stat_loc)) {
-			syslog(LOG_ERR, "Mount subprocess stopped with %s\n",
+			syslog(LOG_ERR, "Mount subprocess stopped with %s",
 			    strsignal(WSTOPSIG(stat_loc)));
+			res = EIO;
 		} else {
+			syslog(LOG_ERR, "Mount subprocess got unknown status 0x%08x",
+			    stat_loc);
 			if (trace > 1)
 				trace_prt(1,
 				    "  fork_exec: returns unknown status\n");
@@ -792,26 +825,21 @@ do_unmount1(int32_t fsid_val0, int32_t fsid_val1,
 		free_replica(list, n);
 	}
 
-	res = unmount_mntpnt(fsid_val0, fsid_val1, &m, fstype);
+	res = unmount_mntpnt(fsid_val0, fsid_val1, &m);
 
 done:	return (res);
 }
 
 static int
-unmount_mntpnt(int32_t fsid_val0, int32_t fsid_val1, struct mnttab *mnt,
-    autofs_component fstype)
+unmount_mntpnt(int32_t fsid_val0, int32_t fsid_val1, struct mnttab *mnt)
 {
 	fsid_t fsid;
-	int res;
+	int res = 0;
 
 	fsid.val[0] = fsid_val0;
 	fsid.val[1] = fsid_val1;
-	if (strcmp(fstype, MNTTYPE_NFS) == 0) {
-		res = nfsunmount(&fsid, mnt);
-	} else {
-		if ((res = umount_by_fsid(&fsid, 0)) < 0)
-			res = errno;
-	}
+	if (umount_by_fsid(&fsid, 0) < 0)
+		res = errno;
 
 	if (trace > 1)
 		trace_prt(1, "  unmount %s %s\n",
@@ -821,12 +849,16 @@ unmount_mntpnt(int32_t fsid_val0, int32_t fsid_val1, struct mnttab *mnt,
 
 /*
  * Remove the autofs specific options 'browse', 'nobrowse' and
- * 'restrict' from 'opts'.
- * This means a map can't force our "nobrowse" option to be set
- * on a file system, but that's life.
+ * 'restrict' from 'opts'; if the map comes from fstab, however,
+ * assume that 'browse' and 'nobrowse' are intended to have
+ * the Mac OS X meaning, not the autofs meaning, and leave it in.
+ *
+ * This means maps other than -fstab and -static can't force our
+ * "nobrowse" option to be cleared on a file system (it's set by
+ * default), but that's life.
  */
 static void
-remove_browse_options(char *opts)
+remove_browse_options(char *opts, bool_t from_fstab)
 {
 	char *p, *pb;
 	char buf[MAXOPTSLEN], new[MAXOPTSLEN];
@@ -843,13 +875,16 @@ remove_browse_options(char *opts)
 	 */
 	while ((p = (char *)strtok_r(pb, ",", &placeholder)) != NULL) {
 		pb = NULL;
-		if (strcmp(p, "nobrowse") != 0 &&
-		    strcmp(p, "browse") != 0 &&
-		    strcmp(p, MNTOPT_RESTRICT) != 0) {
-			if (new[0] != '\0')
-				(void) strcat(new, ",");
-			(void) strcat(new, p);
+		if (strcmp(p, MNTOPT_RESTRICT) == 0)
+			continue;	/* "restrict" is never copied */
+		if (!from_fstab) {
+			if (strcmp(p, "nobrowse") == 0 ||
+			    strcmp(p, "browse") == 0)
+				continue;
 		}
+		if (new[0] != '\0')
+			(void) strcat(new, ",");
+		(void) strcat(new, p);
 	}
 
 	/*

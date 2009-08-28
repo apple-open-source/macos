@@ -24,10 +24,9 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/ioccom.h>
-#include <netat/sysglue.h> /* needed for ioccmd_t */
+#include <errno.h>
 
-extern int ATsocket(int protocol);
-	/* Used to create an old-style (pre-BSD) AppleTalk socket */
+#define	SET_ERRNO(e) errno = e
 
 int at_send_to_dev(fd, cmd, dp, length)
 int	fd;
@@ -35,25 +34,13 @@ int	cmd;
 char	*dp;
 int	*length;
 {
-	int rval;
-	ioccmd_t ioc;
-
-	ioc.ic_cmd = cmd;
-	ioc.ic_timout = -1;
-	ioc.ic_len = length ? *length : 0;
-	ioc.ic_dp = dp;
-
-	if ((rval = ioctl(fd, (IOC_VOID | 0xff99), &ioc)) == -1) 
-	    return -1;
-
-	if (length)
-	    *length = ioc.ic_len;
-
-	return rval;
+	SET_ERRNO(ENXIO);
+	return (-1);
 }
 
 int at_open_dev(proto)
 	int proto;
 {
-	return ATsocket(proto);
+	SET_ERRNO(ENXIO);
+	return (-1);
 }

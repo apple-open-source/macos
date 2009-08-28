@@ -1,3 +1,5 @@
+@subheading idna_to_ascii_4z
+@anchor{idna_to_ascii_4z}
 @deftypefun {int} {idna_to_ascii_4z} (const uint32_t * @var{input}, char ** @var{output}, int @var{flags})
 @var{input}: zero terminated input Unicode string.
 

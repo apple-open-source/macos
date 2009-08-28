@@ -105,7 +105,7 @@ mi_get_bp_stopped "3" "\[01\]" "" "main" "$srcfile" ".*" "run to main"
 # later when we make it a MyChild.
 
 mi_gdb_test "80-var-create objectVar * object" \
-    {80\^done,name="objectVar",numchild="1",type="(id|struct objc_object \*)",typecode="PTR",dynamic_type="",in_scope="true",block_start_addr=".*",block_end_addr=".*"} \
+    {80\^done,name="objectVar",numchild="1",type="(id|struct objc_object \*)",typecode="PTR",dynamic_type="",resolved_type="(id|struct objc_object \*)",in_scope="true",block_start_addr=".*",block_end_addr=".*"} \
     "created varobj for uninitialized object - no dynamic type - no error"
 
 # Run to randomFunc twice, once as MyClass, once as MyChild, and make sure the dynamic
@@ -115,47 +115,47 @@ mi_gdb_test "80-var-create objectVar * object" \
 mi_continue_to 1 {-\[MyClass randomFunc\]} ".*" $srcfile $randomFunc_line_number "continue to randomFunc"
 
 mi_gdb_test "101-var-create firstSelf * self" \
-    {101\^done,name="firstSelf",numchild="3",type="class MyClass \*",typecode="PTR",dynamic_type="class MyClass \*",in_scope="true",block_start_addr=".*",block_end_addr=".*"} "randomFunc called for MyClass object"
+    {101\^done,name="firstSelf",numchild="3",type="MyClass \*",typecode="PTR",dynamic_type="MyClass \*",resolved_type="MyClass \*",in_scope="true",block_start_addr=".*",block_end_addr=".*"} "randomFunc called for MyClass object"
 mi_gdb_test "102-var-delete firstSelf" \
     {102\^done,ndeleted="1"} "Delete firstSelf"
 
 mi_finish_to main ".*" "$srcfile" ".*" ".*" {\(struct objc_object \*\) 0x.*} "finished from randomFunc first time"
 
 mi_gdb_test "103-var-update objectVar" \
-    {103\^done,changelist=\[varobj={name="objectVar",in_scope="true",type_changed="true",new_type="(id|struct objc_object \*)",new_dynamic_type="class MyClass \*",new_typecode="PTR",new_num_children="3"}\]} \
+    {103\^done,changelist=\[varobj={name="objectVar",in_scope="true",type_changed="true",new_type="(id|struct objc_object \*)",new_dynamic_type="MyClass \*",new_resolved_type="(id|struct objc_object \*)",new_typecode="PTR",new_num_children="3"}\]} \
     "Update objectVar as MyClass"
 
 mi_gdb_test "104-var-list-children objectVar" \
-    {104\^done,numchild="3",children=\[child={name="objectVar.isa",exp="isa",numchild="0",type="(Class|struct objc_class \*)",typecode="PTR",dynamic_type=""},child={name="objectVar.object",exp="object",numchild="3",type="(id|struct objc_object \*)",typecode="PTR",dynamic_type="class NSConstantString \*"},child={name="objectVar._object2",exp="_object2",numchild="3",type="(id|struct objc_object \*)",typecode="PTR",dynamic_type="class NSConstantString \*"}\]} "List objectVar's children as MyClass"
+    {104\^done,numchild="3",children=\[child={name="objectVar.(isa|NSObject)",exp="(isa|NSObject)",numchild="(0|1)",type="(Class|NSObject|struct objc_class \*)",typecode="(PTR|STRUCT)",dynamic_type="",resolved_type="(Class|NSObject|struct objc_class \*)"},child={name="objectVar.object",exp="object",numchild="(1|3)",type="(id|NSObject|struct objc_object \*)",typecode="PTR",dynamic_type="(class NSConstantString|NSCFString) \*",resolved_type="(id|NSObject|struct objc_object \*)"},child={name="objectVar._object2",exp="_object2",numchild="(3|1)",type="(id|struct objc_object \*)",typecode="PTR",dynamic_type="(class NSConstantString|NSCFString) \*",resolved_type="(id|struct objc_object \*)"}\]} "List objectVar's children as MyClass"
 
 mi_continue_to 1 {-\[MyClass randomFunc\]} ".*" $srcfile $randomFunc_line_number "continue to randomFunc"
 
 mi_gdb_test "105-var-create secondSelf * self" \
-    {105\^done,name="secondSelf",numchild="4",type="class MyClass \*",typecode="PTR",dynamic_type="class MyChild \*",in_scope="true",block_start_addr=".*",block_end_addr=".*"} "randomFunc called for MyChild object"
+    {105\^done,name="secondSelf",numchild="2",type="MyClass \*",typecode="PTR",dynamic_type="MyChild \*",resolved_type="MyClass \*",in_scope="true",block_start_addr=".*",block_end_addr=".*"} "randomFunc called for MyChild object"
 
 mi_gdb_test "106-var-list-children secondSelf" \
-    {106\^done,numchild="4",children=\[child={name="secondSelf.isa",exp="isa",numchild="0",type="(Class|struct objc_class \*)",typecode="PTR",dynamic_type=""},child={name="secondSelf.object",exp="object",numchild="3",type="(id|struct objc_object \*)",typecode="PTR",dynamic_type="class NSConstantString \*"},child={name="secondSelf._object2",exp="_object2",numchild="3",type="(id|struct objc_object \*)",typecode="PTR",dynamic_type="class NSConstantString \*"},child={name="secondSelf.some_val",exp="some_val",numchild="0",type="int",typecode="INT",dynamic_type=""}\]} "List secondSelf's children"
+    {106\^done,numchild="2",children=\[child={name="secondSelf.MyClass",exp="MyClass",numchild="3",type="MyClass",typecode="STRUCT",dynamic_type="",resolved_type="MyClass"},child={name="secondSelf.some_val",exp="some_val",numchild="0",type="int",typecode="INT",dynamic_type="",resolved_type="int"}\]} "List secondSelf's children"
 
 mi_gdb_test "107-var-evaluate-expression secondSelf.some_val" \
     {107\^done,value="5"} "secondSelf.some_value is 5"
 
 mi_gdb_test "108-var-delete secondSelf" \
-    {108\^done,ndeleted="5"} "Delete secondSelf"
+    {108\^done,ndeleted="3"} "Delete secondSelf"
 
 mi_finish_to main ".*" "$srcfile" ".*" ".*" {\(struct objc_object \*\) 0x.*} "finished from randomFunc second time"
 
 mi_gdb_test "109-var-update objectVar" \
-    {109\^done,changelist=\[varobj={name="objectVar",in_scope="true",type_changed="true",new_type="(id|struct objc_object \*)",new_dynamic_type="class MyChild \*",new_typecode="PTR",new_num_children="4"}\]} \
+    {109\^done,changelist=\[varobj={name="objectVar",in_scope="true",type_changed="true",new_type="(id|struct objc_object \*)",new_dynamic_type="MyChild \*",new_resolved_type="(id|struct objc_object \*)",new_typecode="PTR",new_num_children="2"}\]} \
     "Update objectVar as MyChild"
 
 mi_gdb_test "110-var-list-children objectVar" \
-    {110\^done,numchild="4",children=\[child={name="objectVar.isa",exp="isa",numchild="0",type="(Class|struct objc_class \*)",typecode="PTR",dynamic_type=""},child={name="objectVar.object",exp="object",numchild="3",type="(id|struct objc_object \*)",typecode="PTR",dynamic_type="class NSConstantString \*"},child={name="objectVar._object2",exp="_object2",numchild="3",type="(id|struct objc_object \*)",typecode="PTR",dynamic_type="class NSConstantString \*"},child={name="objectVar.some_val",exp="some_val",numchild="0",type="int",typecode="INT",dynamic_type=""}\]} "List objectVar's children"
+    {110\^done,numchild="2",children=\[child={name="objectVar.MyClass",exp="MyClass",numchild="3",type="MyClass",typecode="STRUCT",dynamic_type="",resolved_type="MyClass"},child={name="objectVar.some_val",exp="some_val",numchild="0",type="int",typecode="INT",dynamic_type="",resolved_type="int"}\]} "List objectVar's children"
 
 mi_gdb_test "111-var-evaluate-expression objectVar.some_val" \
     {111\^done,value="5"} "objectVar.some_value is 5"
 
 mi_gdb_test "112-var-delete objectVar" \
-    {112\^done,ndeleted="5"} "Delete objectVar"
+    {112\^done,ndeleted="3"} "Delete objectVar"
 
 mi_continue_to "2" "blocky" ".*" "$srcfile" $blocky_line_number "continue to blocky"
 
@@ -177,7 +177,7 @@ mi_gdb_test "123-stack-list-locals 0" "123\\^done,locals=\\\[\{name=\"inner1\"\}
 # case varobjs are created for all loals.
 
 mi_gdb_test "124-stack-list-locals 2" \
-    "124\\^done,locals=\\\[varobj=\{exp=\"inner1\",value=\"97 'a'\",name=\"var1\",numchild=\"0\",type=\"char\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\".*\",block_end_addr=\".*\"\},varobj=\{exp=\"inner2\",value=\".*\",name=\"var2\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\".*\",block_end_addr=\".*\"\},varobj=\{exp=\"outer\",value=\"5\",name=\"var3\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\".*\",block_end_addr=\".*\"\\}\\\]" \
+    "124\\^done,locals=\\\[varobj=\{exp=\"inner1\",value=\"97 'a'\",name=\"var1\",numchild=\"0\",type=\"char\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"char\",in_scope=\"true\",block_start_addr=\".*\",block_end_addr=\".*\"\},varobj=\{exp=\"inner2\",value=\".*\",name=\"var2\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\",in_scope=\"true\",block_start_addr=\".*\",block_end_addr=\".*\"\},varobj=\{exp=\"outer\",value=\"5\",name=\"var3\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\",in_scope=\"true\",block_start_addr=\".*\",block_end_addr=\".*\"\\}\\\]" \
    "create varobjs for all locals in current scope"
 
 
@@ -186,7 +186,7 @@ mi_gdb_test "124-stack-list-locals 2" \
 # functionality we have in the whole testsuite.
 
 mi_gdb_test "125-stack-list-locals 2 1" \
-  "125\\^done,locals=\\\[varobj=\{exp=\"outer\",value=\"5\",name=\"var4\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\".*\",block_end_addr=\".*\"\\},varobj=\{exp=\"inner1\",value=\"97 'a'\",name=\"var5\",numchild=\"0\",type=\"char\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"true\"\,block_start_addr=\".*\",block_end_addr=\".*\"\},varobj=\{exp=\"inner2\",value=\".*\",name=\"var6\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"true\"\,block_start_addr=\".*\",block_end_addr=\".*\"\},varobj=\{exp=\"outer\",value=\".*\",name=\"var7\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"false\",block_start_addr=\".*\",block_end_addr=\".*\"\\},varobj=\{exp=\"flooooo\",value=\".*\",name=\"var8\",numchild=\"0\",type=\"float\",typecode=\"FLT\",dynamic_type=\"\",in_scope=\"false\"\,block_start_addr=\".*\",block_end_addr=\".*\"\},varobj=\{exp=\"chhhhh\",value=\".*\",name=\"var9\",numchild=\"0\",type=\"char\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"false\",block_start_addr=\".*\",block_end_addr=\".*\"\\}\\\]" \
+  "125\\^done,locals=\\\[varobj=\{exp=\"outer\",value=\"5\",name=\"var4\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\",in_scope=\"true\",block_start_addr=\".*\",block_end_addr=\".*\"\\},varobj=\{exp=\"inner1\",value=\"97 'a'\",name=\"var5\",numchild=\"0\",type=\"char\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"char\",in_scope=\"true\"\,block_start_addr=\".*\",block_end_addr=\".*\"\},varobj=\{exp=\"inner2\",value=\".*\",name=\"var6\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\",in_scope=\"true\"\,block_start_addr=\".*\",block_end_addr=\".*\"\},varobj=\{exp=\"outer\",value=\".*\",name=\"var7\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\",in_scope=\"false\",block_start_addr=\".*\",block_end_addr=\".*\"\\},varobj=\{exp=\"flooooo\",value=\".*\",name=\"var8\",numchild=\"0\",type=\"float\",typecode=\"FLT\",dynamic_type=\"\",resolved_type=\"float\",in_scope=\"false\"\,block_start_addr=\".*\",block_end_addr=\".*\"\},varobj=\{exp=\"chhhhh\",value=\".*\",name=\"var9\",numchild=\"0\",type=\"char\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"char\",in_scope=\"false\",block_start_addr=\".*\",block_end_addr=\".*\"\\}\\\]" \
  "create varobjs for all blocks visible"
 
 # The breakpoint on blocky() is on the first line of code in the func;
@@ -210,7 +210,7 @@ mi_gdb_test "131-var-update *" "131\\^done,changelist=\\\[varobj=\{name=\"var5\"
 set outer_line_number	1
 
 mi_gdb_test "140-var-create outer_at_line_$outer_line_number +$srcfile:$outer_line_number outer" \
-		    "140\\^done,name=\"outer_at_line_$outer_line_number\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\".*\",block_end_addr=\".*\"" \
+		    "140\\^done,name=\"outer_at_line_$outer_line_number\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\",in_scope=\"true\",block_start_addr=\".*\",block_end_addr=\".*\"" \
 		    "140 var-create for outer where file:line is $srcfile:$outer_line_number"
 
 mi_gdb_test "141-var-evaluate-expression outer_at_line_$outer_line_number" \
@@ -220,7 +220,7 @@ mi_gdb_test "141-var-evaluate-expression outer_at_line_$outer_line_number" \
 set outer_line_number	$blocky_line_number
 
 mi_gdb_test "142-var-create outer_at_line_$outer_line_number +$srcfile:$outer_line_number outer" \
-		    "142\\^done,name=\"outer_at_line_$outer_line_number\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\".*\",block_end_addr=\".*\"" \
+		    "142\\^done,name=\"outer_at_line_$outer_line_number\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\",in_scope=\"true\",block_start_addr=\".*\",block_end_addr=\".*\"" \
 		    "142 var-create for outer where file:line is $srcfile:$outer_line_number"
 
 mi_gdb_test "143-var-evaluate-expression outer_at_line_$outer_line_number" \
@@ -230,7 +230,7 @@ mi_gdb_test "143-var-evaluate-expression outer_at_line_$outer_line_number" \
 # test invalid line number of zero which should default to the global value
 
 mi_gdb_test "144-var-create outer0 +$srcfile:0 outer" \
-		    "144\\^done,name=\"outer0\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\"no block\",block_end_addr=\"no block\"" \
+		    "144\\^done,name=\"outer0\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\",in_scope=\"true\",block_start_addr=\"no block\",block_end_addr=\"no block\"" \
 		    "144 var-create for outer where file:line is $srcfile:0 (invalid line number of zero)"
 
 mi_gdb_test "145-var-evaluate-expression outer0" \
@@ -240,7 +240,7 @@ mi_gdb_test "145-var-evaluate-expression outer0" \
 # test invalid line number that is too large for the file which should default to the global value
 
 mi_gdb_test "146-var-create outer999999 +$srcfile:999999 outer" \
-			"146\\^done,name=\"outer999999\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\"no block\",block_end_addr=\"no block\"" \
+			"146\\^done,name=\"outer999999\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\",in_scope=\"true\",block_start_addr=\"no block\",block_end_addr=\"no block\"" \
 		    "146 var-create for outer where file:line is $srcfile:999999 (invalid line number of 999999)"
 
 mi_gdb_test "147-var-evaluate-expression outer999999" \
@@ -258,7 +258,7 @@ mi_gdb_test "148-var-create invalid_file_var +invalid_file.c:33 outer" \
 # test using the valid address for the block function which should pick up the first local value of 5
 
 mi_gdb_test "149-var-create outer_addr$blocky_address +$blocky_address outer" \
-			"149\\^done,name=\"outer_addr$blocky_address\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\".*\",block_end_addr=\".*\"" \
+			"149\\^done,name=\"outer_addr$blocky_address\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\",in_scope=\"true\",block_start_addr=\".*\",block_end_addr=\".*\"" \
 		    "149 var-create for outer where address is $blocky_address (address of blocky function)"
 
 mi_gdb_test "150-var-evaluate-expression outer_addr$blocky_address" \
@@ -276,7 +276,7 @@ mi_finish_to "main" ".*" "$srcfile" ".*" ".*" ".*" "back to main"
 
 # Now make sure all the varobj's went away -
 
-mi_gdb_test "132-var-update *" "132\\^done,changelist=\\\[varobj=\{name=\"var6\",in_scope=\"false\"\},varobj=\{name=\"var5\",in_scope=\"false\"\},varobj=\{name=\"var4\",in_scope=\"false\"\},varobj=\{name=\"var3\",in_scope=\"false\"\},varobj=\{name=\"var2\",in_scope=\"false\"\},varobj=\{name=\"var1\",in_scope=\"false\"\}\\\]" "all varobjs go out of scope"
+mi_gdb_test "132-var-update *" "132\\^done,changelist=\\\[varobj=\{name=\"outer_addr$blocky_address\",in_scope=\"false\"\},varobj=\{name=\"outer_at_line_122\",in_scope=\"false\"\},varobj=\{name=\"var6\",in_scope=\"false\"\},varobj=\{name=\"var5\",in_scope=\"false\"\},varobj=\{name=\"var4\",in_scope=\"false\"\},varobj=\{name=\"var3\",in_scope=\"false\"\},varobj=\{name=\"var2\",in_scope=\"false\"\},varobj=\{name=\"var1\",in_scope=\"false\"\}\\\]" "all varobjs go out of scope"
 
 mi_gdb_exit
 return 0

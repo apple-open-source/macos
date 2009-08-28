@@ -1,0 +1,549 @@
+# -*- tcl -*-
+# statistics.test --
+#    Test cases for the ::math::statistics package
+#
+# Note:
+#    The tests assume tcltest 2.1, in order to compare
+#    floating-point results
+
+# -------------------------------------------------------------------------
+
+source [file join \
+	[file dirname [file dirname [file join [pwd] [info script]]]] \
+	devtools testutilities.tcl]
+
+testsNeedTcl     8.4;# statistics,linalg!
+testsNeedTcltest 2.1
+
+support {
+    useLocal math.tcl math
+    useLocal linalg.tcl math::linearalgebra
+}
+testing {
+    useLocal statistics.tcl math::statistics
+}
+
+# -------------------------------------------------------------------------
+
+set ::data_uniform  [list 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0]
+set ::data_missing  [list 1.0 1.0 1.0 {} 1.0 {} {} 1.0 1.0 1.0 1.0 1.0 1.0]
+set ::data_linear   [list 1.0 2.0 3.0 4.0 5.0 6.0 7.0 8.0 9.0 10.0]
+set ::data_empty    [list {} {} {}]
+set ::data_missing2 [list 1.0 2.0 3.0 {} 4.0 5.0 6.0 7.0 8.0 9.0 10.0]
+
+#
+# Create and register (in that order!) custom matching procedures
+#
+proc matchTolerant { expected actual } {
+   set match 1
+   foreach a $actual e $expected {
+      if { abs($e-$a)>0.0001*abs($e) &&
+           abs($e-$a)>0.0001*abs($a)     } {
+         set match 0
+         break
+      }
+   }
+   return $match
+}
+proc matchTolerant2 { expected actual } {
+   set match 1
+   foreach a $actual e $expected {
+      if { abs($e-$a)>0.025*abs($e) &&
+           abs($e-$a)>0.025*abs($a)     } {
+         set match 0
+         break
+      }
+   }
+   return $match
+}
+proc matchAlmostZero { expected actual } {
+   set match 1
+   foreach a $actual {
+      if { abs($a)>1.0e-6 } {
+         set match 0
+         break
+      }
+   }
+   return $match
+}
+customMatch tolerant   matchTolerant
+customMatch tolerant2  matchTolerant2
+customMatch almostzero matchAlmostZero
+
+#
+# Test cases
+#
+test "BasicStats-1.0" "Basic statistics - uniform data" -match tolerant -body {
+  set all_data [::math::statistics::BasicStats all $::data_uniform]
+} -result [list 1.0 1.0 1.0 [llength $::data_uniform] 0.0 0.0 0.0 0.0]
+
+test "BasicStats-1.1" "Basic statistics - empty data" -match glob -body {
+  catch {
+     set all_data [::math::statistics::BasicStats all $::data_empty]
+  } msg
+  set msg
+} -result "Too*"
+
+#
+# Result must be the same as for 1.0! Hence ::data_empty and ::data_uniform
+#
+test "BasicStats-1.2" "Basic statistics - missing data" -match tolerant -body {
+  set all_data [::math::statistics::BasicStats all $::data_missing]
+} -result [list 1.0 1.0 1.0 [llength $::data_uniform] 0.0 0.0 0.0 0.0]
+
+test "BasicStats-1.3" "Basic statistics - linear data - mean" -match tolerant -body {
+  set value [::math::statistics::mean $::data_linear]
+} -result 5.5
+
+test "BasicStats-1.4" "Basic statistics - linear data - min" -match tolerant  -body {
+  set value [::math::statistics::min $::data_linear]
+} -result 1.0
+
+test "BasicStats-1.5" "Basic statistics - linear data - max" -match tolerant  -body {
+  set value [::math::statistics::max $::data_linear]
+} -result 10.0
+
+test "BasicStats-1.6" "Basic statistics - linear data - number" -match tolerant  -body {
+  set value [::math::statistics::number $::data_linear]
+} -result 10
+
+test "BasicStats-1.7" "Basic statistics - missing data - number" -match tolerant  -body {
+  set value [::math::statistics::number $::data_missing2]
+} -result 10
+
+test "BasicStats-1.8" "Basic statistics - missing data - stdev" -match almostzero -body {
+  set value1 [::math::statistics::stdev  $::data_linear]
+  set value2 [::math::statistics::stdev  $::data_missing2]
+  expr {abs($value1-$value2)}
+} -result 0.001 ;# Zero is impossible
+
+test "BasicStats-1.9" "Basic statistics - missing data - var" -match almostzero -body {
+  set value1 [::math::statistics::stdev  $::data_linear]
+  set value2 [::math::statistics::var    $::data_missing2]
+  expr {$value1*$value1-$value2}
+} -result 0.001 ;# Zero is impossible
+
+test "BasicStats-1.10" "Basic statistics - missing data - pstdev" -match almostzero -body {
+  set value1 [::math::statistics::pstdev  $::data_linear]
+  set value2 [::math::statistics::pstdev  $::data_missing2]
+  expr {abs($value1-$value2)}
+} -result 0.001 ;# Zero is impossible
+
+test "BasicStats-1.11" "Basic statistics - missing data - pvar" -match almostzero -body {
+  set value1 [::math::statistics::pstdev  $::data_linear]
+  set value2 [::math::statistics::pvar    $::data_missing2]
+  expr {$value1*$value1-$value2}
+} -result 0.001 ;# Zero is impossible
+
+#
+# This test was added because the calculation of the standard deviation
+# could fail with uniform data (the difference of two almost equal
+# values became a small negative number)
+#
+test "BasicStats-2.1" "Basic statistics - uniform data caused sqrt domain error" -body {
+  set values [list]
+  set count 0
+  for { set i 0 } { $i < 20 } { incr i } {
+     lappend values 0.6
+     set value2 [::math::statistics::mean $values]
+     incr count
+  }
+  set count
+} -result 20 ;# We can finish the loop
+
+#
+# Histograms
+#
+test "Histogram-1.0" "Histogram - uniform data" -match glob -body {
+  set values [::math::statistics::histogram {0 2} $::data_uniform]
+} -result [list 0 [llength $::data_uniform] 0]
+
+test "Histogram-1.1" "Histogram - missing data" -match glob -body {
+  set values [::math::statistics::histogram {0 2} $::data_missing]
+} -result [list 0 [::math::statistics::number $::data_missing] 0]
+
+test "Histogram-1.2" "Histogram - linear data" -match glob -body {
+  set values [::math::statistics::histogram {1.5 4.5 9.5} $::data_linear]
+} -result {1 3 5 1}
+
+test "Histogram-1.3" "Histogram - linear data 2" -match glob -body {
+  set values [::math::statistics::histogram {1.5 2.5 10.5} $::data_linear]
+} -result {1 1 8 0}
+
+#
+# Quantiles
+# Bug #1272910: related to rounding 0.5 - use different levels instead
+#               because another bug was fixed, return to the original
+#               levels again
+#
+test "Quantiles-1.0" "Quantiles - raw data" -match tolerant -body {
+  set values [::math::statistics::quantiles $::data_linear {0.25 0.55 0.95}]
+} -result {3.0 6.0 10.0}
+
+test "Quantiles-1.1" "Quantiles - histogram" -match tolerant -body {
+  set limits    {1.0 2.0 3.0 4.0}
+  set data_hist {0 10 20 10 0}
+  set values [::math::statistics::quantiles $limits $data_hist {0.25 0.5 0.9}]
+} -result {2.0 2.5 3.6}
+
+#
+# Generate histogram limits
+#
+
+test "Limits-1.0" "Limits - based on mean/stdev" -match tolerant -body {
+  set values [::math::statistics::mean-histogram-limits 1.0 1.0 4]
+} -result {0.0 0.75 1.25 2.0}
+
+test "Limits-1.1" "Limits - based on mean/stdev" -match tolerant -body {
+  set values [::math::statistics::mean-histogram-limits 1.0 1.0 9]
+} -result {-2.0 -1.0 0.0 0.75 1.0 1.25 2.0 3.0 4.0}
+
+test "Limits-1.2" "Limits - based on mean/stdev" -match tolerant -body {
+  set values [::math::statistics::mean-histogram-limits 0.0 1.0 11]
+} -result {-3.0 -2.4 -1.8 -1.2 -0.6 0.0 0.6 1.2 1.8 2.4 3.0}
+
+test "Limits-2.0" "Limits - based on min/max" -match tolerant -body {
+  set values [::math::statistics::minmax-histogram-limits -2.0 2.0 9]
+} -result {-2.0 -1.5 -1.0 -0.5 0.0 0.5 1.0 1.5 2.0}
+
+test "Limits-2.1" "Limits - based on min/max" -match tolerant -body {
+  set values [::math::statistics::minmax-histogram-limits -2.0 2.0 2]
+} -result {-2.0 2.0}
+
+#
+# To do: design test cases for the following functions:
+# - t-test-mean
+# - estimate-mean-stdev
+# - autocorr
+# - crosscorr
+# - linear-model
+# - linear-residuals
+# - pdf-*
+# - cdf-*
+# - random-*
+# - histogram-*
+#
+# Crude test cases for Student's t test
+#
+test "Students-t-test-1.0" "Student's t - same sample" -match glob -body {
+  set sample [::math::statistics::random-normal 0.0 1.0 40]
+  set mean   0.0
+  set stdev  1.0
+  set confidence 0.95
+
+  set result [::math::statistics::t-test-mean $sample $mean $stdev $confidence]
+} -result 1
+
+test "Students-t-test-1.1" "Student's t - different sample" -match glob -body {
+  set sample [::math::statistics::random-normal 0.0 1.0 40]
+  set mean   10.0
+  set stdev   1.0
+  set confidence 0.95
+
+  set result [::math::statistics::t-test-mean $sample $mean $stdev $confidence]
+} -result 0
+
+test "Students-t-test-1.2" "Student's t - small sample" -match glob -body {
+  set sample [::math::statistics::random-normal 0.0 1.0 2]
+  set mean    2.0
+  set stdev   1.0
+  set confidence 0.90
+
+  set result [::math::statistics::t-test-mean $sample $mean $stdev $confidence]
+} -result 1
+
+#
+# Test private procedures
+#
+test "Cdf-toms322-1.0" "TOMS322 - erf(x)" -match tolerant2 -body {
+  set result {}
+  foreach z {4.417 3.891 3.291 2.576 2.241 1.960 1.645 1.150 0.674
+             0.319 0.126 0.063 0.0125} {
+     set prob [::math::statistics::Cdf-toms322 1 5000 [expr {$z*$z}]]
+     lappend result [expr {1.0-$prob}]
+  }
+  set result
+} -result {1.e-5 1.e-4 1.e-3 1.e-2 0.025 0.050 0.100 0.250 0.500
+           0.750 0.900 0.950 0.990 }
+
+test "Cdf-toms322-2.0" "TOMS322 - inverse erf(x)" -match tolerant2 -body {
+  set result {}
+  foreach p {0.5120 0.5948 0.7019 0.7996  0.8997  0.9505  0.9901  0.9980 } {
+     set z [::math::statistics::Inverse-cdf-normal 0.0 1.0 $p]
+     lappend result $z
+  }
+  set result
+} -result    {0.03  0.24   0.53   0.84    1.28    1.65    2.33    2.88 }
+
+#
+# Correlation coefficients
+#
+test "Correlation-1.0" "Correlation - linear data" -match tolerant -body {
+  set corr [::math::statistics::corr $::data_linear $::data_linear]
+} -result 1.0
+test "Correlation-1.1" "Correlation - linear/uniform" -match almostzero -body {
+  set corr [::math::statistics::corr $::data_linear $::data_uniform]
+} -result 0.0
+
+#
+# Test list procedures
+#
+proc matchListElements { expected actual } {
+   if { [llength $expected] != [llength $actual] } {
+      return 0
+   } else {
+      set match 1
+      foreach a $actual e $expected {
+         if { $a != $e } {
+            set match 0
+            break
+         }
+      }
+   }
+   return $match
+}
+customMatch matchList  matchListElements
+
+set ::data_list {1 2 3 4 5 6 7 8 9 10}
+set ::data_pairs {{1 2} {3 4} {5 6} {7 8} {9 10}}
+
+test "Filter-1.0" "True filter" -match matchList -body {
+   set data [::math::statistics::filter x $::data_list 1]
+} -result $::data_list
+
+test "Filter-1.1" "False filter" -match matchList -body {
+   set data [::math::statistics::filter x $::data_list 0]
+} -result {}
+
+test "Filter-1.2" "Even filter" -match matchList -body {
+   set data [::math::statistics::filter x $::data_list {$x%2==0}]
+} -result {2 4 6 8 10}
+
+test "Filter-2.1" "filter with parameter" -match matchList -body {
+   set param 3.0
+   set data [::math::statistics::filter x $::data_list {$x > $param}]
+} -result {4 5 6 7 8 9 10}
+
+test "Map-1.0" "Identity map" -match matchList -body {
+   set data [::math::statistics::map x $::data_list {$x}]
+} -result $::data_list
+
+test "Map-1.1" "Is-even map" -match matchList -body {
+   set data [::math::statistics::map x $::data_list {$x%2==0}]
+} -result {0 1 0 1 0 1 0 1 0 1}
+
+test "Map-1.2" "Double map" -match matchList -body {
+   set data [::math::statistics::map x $::data_list {$x*2}]
+} -result {2 4 6 8 10 12 14 16 18 20}
+
+test "Map-2.1" "map with parameter" -match matchList -body {
+   set param 3.0
+   set data [::math::statistics::map x $::data_list {$x + $param}]
+} -result {4.0 5.0 6.0 7.0 8.0 9.0 10.0 11.0 12.0 13.0}
+
+test "Samplescount-1.0" "Single sublist" -match matchList -body {
+   set data [::math::statistics::samplescount x [list $::data_list]]
+} -result {10}
+
+test "Samplescount-1.1" "List of singleton sublist" -match matchList -body {
+   set data [::math::statistics::samplescount x $::data_list]
+} -result {1 1 1 1 1 1 1 1 1 1}
+
+test "Samplescount-1.2" "Pairs sublist" -match matchList -body {
+   set data [::math::statistics::samplescount x $::data_pairs]
+} -result {2 2 2 2 2}
+
+test "Samplescount-1.3" "Select uneven sublist" -match matchList -body {
+   set data [::math::statistics::samplescount x $::data_pairs {$x%2}]
+} -result {1 1 1 1 1}
+
+test "Samplescount-2.1" "Count with parameter" -match matchList -body {
+   set param 3.0
+   set data [::math::statistics::samplescount x $::data_pairs {$x>$param}]
+} -result {0 1 2 2 2}
+
+test "Median-1.1" "Median - odd number of data" -body {
+   set data {1.0 3.0 2.0}
+   set median [::math::statistics::median $data]
+} -result 2.0
+
+test "Median-1.2" "Median - even number of data" -body {
+   set data {1.0 3.0 2.0 1.0}
+   set median [::math::statistics::median $data]
+} -result 1.5
+
+test "Median-1.3" "Median - missing data" -body {
+   set data {1.0 {} 3.0 2.0 1.0 {}}
+   set median [::math::statistics::median $data]
+} -result 1.5
+
+test "test-2x2-1.0" "Test 2x2" -match tolerant -body {
+   set data [::math::statistics::test-2x2 170 94 30 6]
+} -result 5.1136364
+
+test "test-xbar-1.0" "Test xbar procedure" -match exact -body {
+    set data {}
+    for { set i 0 } { $i < 500 } { incr i } {
+        lappend data [expr {rand()}]
+    }
+    set limits  [::math::statistics::control-xbar $data]
+    set newdata {1.0 1.0 1.0 1.0 0.5 0.5 0.5 0.5 10.0 10.0 10.0 10.0}
+    set result  [::math::statistics::test-xbar $limits $newdata]
+} -result {0 2}
+
+test "test-Rchart-1.0" "Test Rchart procedure" -match exact -body {
+    set data {}
+    for { set i 0 } { $i < 500 } { incr i } {
+        lappend data [expr {rand()}]
+    }
+    set limits  [::math::statistics::control-Rchart $data]
+    set newdata {0.0 1.0 2.0 1.0 0.4 0.5 0.6 0.5 10.0  0.0 10.0 10.0}
+    set result  [::math::statistics::test-Rchart $limits $newdata]
+} -result {0 2}
+
+#
+# Testing for normal distribution
+#
+test "Testnormal-1.0" "Determine normality statistic for birth weight data" -match tolerant -body {
+    ::math::statistics::lillieforsFit {72 112 111 107 119  92 126  80 81 84 115
+                                       118 128 128 123 116 125 126 122 126 127 86
+                                       142 132  87 123 133 106 103 118 114 94}
+} -result 0.82827415657
+
+test "Testnormal-1.0" "Test birthweight data for normality - 80%" -match tolerant -body {
+    ::math::statistics::test-normal {72 112 111 107 119  92 126  80 81 84 115
+                                     118 128 128 123 116 125 126 122 126 127 86
+                                     142 132  87 123 133 106 103 118 114 94} 0.80
+} -result 1
+
+test "Testnormal-1.0" "Test birthweight data for normality - 95%" -match tolerant -body {
+    ::math::statistics::test-normal {72 112 111 107 119  92 126  80 81 84 115
+                                     118 128 128 123 116 125 126 122 126 127 86
+                                     142 132  87 123 133 106 103 118 114 94} 0.95
+} -result 0
+
+#
+# Testing multivariate linear regression
+#
+# Provide some data
+test "Testmultivar-1.0" "Ordinary multivariate regression - three independent variables" \
+        -match tolerant -body {
+    set data {
+        {  -.67  14.18  60.03  -7.5}
+        { 36.97  15.52  34.24  14.61}
+        {-29.57  21.85  83.36  -7.}
+        {-16.9   11.79  51.67  -6.56}
+        { 14.09  16.24  36.97  -12.84}
+        { 31.52  20.93  45.99  -25.4}
+        { 24.05  20.69  50.27  17.27}
+        { 22.23  16.91  45.07  -4.3}
+        { 40.79  20.49  38.92  -.73}
+        {-10.35  17.24  58.77 18.78}}
+
+    # Call the ols routine
+    set results [::math::statistics::mv-ols $data]
+
+    # Flatten the result (so that we can use the tolerant comparison method)
+    eval concat [eval concat $results]
+} -result {0.887239767929 0.830859651893
+3.33854942057 -1.58346976987 0.0362328113288 32.571621244
+1.03305463908 0.237943867401 0.234143883673 19.4700016828
+0.810755783819 5.86634305732
+-2.16569743834 -1.00124210139 -0.536696631937 0.609162254594
+-15.0697565684 80.2129990564}
+
+#
+# pdf/cdf tests - transformed from the contributions by Eric K. Benedict
+#                 Cf. the examples.
+#
+
+test "gamma-distribution-1.0" "Test pdf-gamma" -match tolerant -body {
+    set x [list \
+        [::math::statistics::pdf-gamma 1.5 2.7 3.0] \
+        [::math::statistics::pdf-gamma 7.5 0.2 30.0] \
+        [::math::statistics::pdf-gamma 15.0 1.2 2.0]]
+} -result {0.00263194027271168 0.0302770403110644 2.62677891379834e-07}
+
+test "gamma-distribution-1.1" "Test cdf-gamma" -match tolerant -body {
+    set x [list \
+        [::math::statistics::cdf-gamma 1.9 0.45 2.5] \
+        [::math::statistics::cdf-gamma 45.0 2.2 32.7]]
+} -result {0.340299345090375 0.999731419881902}
+
+test "poisson-distribution-1.0" "Test pdf-poisson" -match tolerant -body {
+    set x [list \
+        [::math::statistics::pdf-poisson 100 130] \
+        [::math::statistics::pdf-poisson 27.2 37] \
+        [::math::statistics::pdf-poisson 7.3 11.2]]
+} -result {0.000575252683815462 0.0134122817590761 0.0530940708960824}
+
+test "poisson-distribution-1.1" "Test cdf-poisson" -match tolerant -body {
+    set x [list \
+        [::math::statistics::cdf-poisson 4 7] \
+        [::math::statistics::cdf-poisson 80 70] \
+        [::math::statistics::cdf-poisson 4.9 6.2]]
+} -result {0.948866384207153 0.14338996716003 0.77665467292263}
+
+test "chisquare-distribution-1.0" "Test pdf-chisquare" -match tolerant -body {
+    set x [list \
+        [::math::statistics::pdf-chisquare 3 1.75]  \
+        [::math::statistics::pdf-chisquare 10 2.9]  \
+        [::math::statistics::pdf-chisquare 4 17.45] \
+        [::math::statistics::pdf-chisquare 2.5 1.8]]
+} -result {0.219999360547348 0.0216024880121444 0.000708787557977144 0.218446210041615}
+
+test "chisquare-distribution-1.1" "Test cdf-chisquare" -match tolerant -body {
+    set x [list \
+        [::math::statistics::cdf-chisquare 2 3.5]   \
+        [::math::statistics::cdf-chisquare 5 2.2]   \
+        [::math::statistics::cdf-chisquare 5 100]   \
+        [::math::statistics::cdf-chisquare 3.9 4.2] \
+        [::math::statistics::cdf-chisquare 1  2.0]  \
+        [::math::statistics::cdf-chisquare 3 -2.0]]
+} -result {0.826226056549555 0.179164030785504 1.0 0.634682741547709 0.842700792949715 0.0}
+
+test "students-t-distribution-1.0" "Test pdf-students-t" -match tolerant -body {
+    set x [list \
+        [::math::statistics::pdf-students-t 1 0.1]  \
+        [::math::statistics::pdf-students-t 0.5 0.1]  \
+        [::math::statistics::pdf-students-t 4 3.2]  \
+        [::math::statistics::pdf-students-t 3 2.0]  \
+        [::math::statistics::pdf-students-t 3 7.5]]
+} -result {0.315158303152268 0.265700672177405 0.0156821741652879 0.0675096606638929 0.000942291548015668}
+
+test "beta-distribution-1.0" "Test pdf-beta" -match tolerant -body {
+    set x [list \
+        [::math::statistics::pdf-beta 1.3 2.4 0.2] \
+        [::math::statistics::pdf-beta 1 1 0.5] \
+        [::math::statistics::pdf-beta 3.7 0.9 0.0] \
+        [::math::statistics::pdf-beta 1.8 4.2 1.0] \
+        [::math::statistics::pdf-beta 320 400 0.4] \
+        [::math::statistics::pdf-beta 500   1 0.2] \
+        [::math::statistics::pdf-beta 1000 1000 0.50]]
+} -result {1.68903180472449 1.0 0.0 0.0 1.18192376783860 0.0 35.6780222917086}
+
+test "beta-distribution-1.1" "Test cdf-beta" -match tolerant -body {
+    set x [list \
+        [::math::statistics::cdf-beta 2.1 3.0 0.2] \
+        [::math::statistics::cdf-beta 4.2 17.3 0.5] \
+        [::math::statistics::cdf-beta 500 375 0.7] \
+        [::math::statistics::cdf-beta 250 760 0.2] \
+        [::math::statistics::cdf-beta 43.2 19.7 0.6] \
+        [::math::statistics::cdf-beta 500 640 0.3] \
+        [::math::statistics::cdf-beta 400 640 0.3] \
+        [::math::statistics::cdf-beta 0.1 30 0.1] \
+        [::math::statistics::cdf-beta 0.01 0.03 0.9] \
+        [::math::statistics::cdf-beta 2 3 0.9999] \
+        [::math::statistics::cdf-beta 249.9999 759.99999 0.2] \
+        [::math::statistics::cdf-beta 1000 1000 0.4] \
+        [::math::statistics::cdf-beta 1000 1000 0.499] \
+        [::math::statistics::cdf-beta 1000 1000 0.5] \
+        [::math::statistics::cdf-beta 1000 1000 0.7] \
+        [::math::statistics::cdf-beta 2 3 0.6]]
+} -result {0.16220409275804 0.998630771123192 1.0 0.000125234318666948 0.0728881294218269
+           2.99872547567313e-23 3.07056696205524e-09 0.998641008671625 0.765865005703006
+           0.999999999996 0.000125237075575121 8.23161135486914e-20 0.464369443974288
+           0.5 1.0 0.8208}
+
+# End of test cases
+testsuiteCleanup

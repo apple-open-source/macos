@@ -1,5 +1,5 @@
 /*
- * "$Id: scsi.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: scsi.c 7193 2008-01-07 23:01:40Z mike $"
  *
  *   SCSI printer backend for the Common UNIX Printing System (CUPS).
  *
@@ -177,7 +177,9 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
 
     if ((fp = open(argv[6], O_RDONLY)) < 0)
     {
-      perror("ERROR: unable to open print file");
+      _cupsLangPrintf(stderr,
+                      _("ERROR: Unable to open print file \"%s\": %s\n"),
+		      argv[6], strerror(errno));
       return (CUPS_BACKEND_FAILED);
     }
 
@@ -225,5 +227,5 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
 
 
 /*
- * End of "$Id: scsi.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: scsi.c 7193 2008-01-07 23:01:40Z mike $".
  */

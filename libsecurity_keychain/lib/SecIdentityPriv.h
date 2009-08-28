@@ -30,6 +30,18 @@
 extern "C" {
 #endif
 
+/*!	@function SecIdentityCreate
+	@abstract create a new identity object from the provided certificate and its associated private key.
+    @param allocator CFAllocator to allocate the identity object. Pass NULL to use the default allocator.
+    @param certificate A certificate reference.
+	@param privateKey A private key reference.
+    @result An identity reference.
+*/
+SecIdentityRef SecIdentityCreate(
+	CFAllocatorRef allocator,
+	SecCertificateRef certificate,
+	SecKeyRef privateKey);
+
 /*!
 	@function SecIdentityCompare
     @abstract Compares two SecIdentityRef instances for equality.

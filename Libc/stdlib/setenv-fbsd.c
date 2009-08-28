@@ -57,6 +57,25 @@ __private_extern__ void __unsetenv(const char *, char **, malloc_zone_t *);
 
 #ifndef BUILDING_VARIANT
 /*
+ * Create the environment malloc zone and give it a recognizable name.
+ */
+__private_extern__ int
+init__zone0(int should_set_errno)
+{
+	if (__zone0) return (0);
+
+	__zone0 = malloc_create_zone(0, 0);
+	if (!__zone0) {
+		if (should_set_errno) {
+			errno = ENOMEM;
+		}
+		return (-1);
+	}
+	malloc_set_zone_name(__zone0, "environ");
+	return (0);
+}
+
+/*
  * The copy flag may have 3 values:
  *  1 - make a copy of the name/value pair
  *  0 - take the name as a user-supplied name=value string
@@ -170,7 +189,12 @@ __unsetenv(const char *name, char **environ, malloc_zone_t *envz)
 void *
 _allocenvstate(void)
 {
-	return (void *)malloc_create_zone(1000 /* unused */, 0 /* unused */);
+	malloc_zone_t *zone;
+	zone = malloc_create_zone(1000 /* unused */, 0 /* unused */);
+	if (zone) {
+		malloc_set_zone_name(zone, "environ");
+	}
+	return (void *)zone;
 }
 
 /*
@@ -226,14 +250,7 @@ _deallocenvstate(void *state)
 int
 _setenvp(const char *name, const char *value, int rewrite, char ***envp, void *state)
 {
-	/* insure __zone0 is set up */
-	if (!__zone0) {
-	    __zone0 = malloc_create_zone(0, 0);
-	    if (!__zone0) {
-		    errno = ENOMEM;
-		    return (-1);
-	    }
-	}
+	if (init__zone0(1)) return (-1);
 	return (__setenv(name, value, rewrite, 1, envp, (state ? (malloc_zone_t *)state : __zone0)));
 }
 
@@ -246,14 +263,7 @@ _setenvp(const char *name, const char *value, int rewrite, char ***envp, void *s
 int
 _unsetenvp(const char *name, char ***envp, void *state)
 {
-	/* insure __zone0 is set up */
-	if (!__zone0) {
-	    __zone0 = malloc_create_zone(0, 0);
-	    if (!__zone0) {
-		    errno = ENOMEM;
-		    return (-1);
-	    }
-	}
+	if (init__zone0(1)) return (-1);
 	__unsetenv(name, *envp, (state ? (malloc_zone_t *)state : __zone0));
 	return 0;
 }
@@ -288,13 +298,7 @@ setenv(name, value, rewrite)
 	if (*value == '=')			/* no `=' in value */
 		++value;
 	/* insure __zone0 is set up before calling __malloc_check_env_name */
-	if (!__zone0) {
-	    __zone0 = malloc_create_zone(0, 0);
-	    if (!__zone0) {
-		    errno = ENOMEM;
-		    return (-1);
-	    }
-	}
+	if (init__zone0(1)) return (-1);
 	__malloc_check_env_name(name); /* see if we are changing a malloc environment variable */
 	return (__setenv(name, value, rewrite, 1, _NSGetEnviron(), __zone0));
 }
@@ -324,23 +328,13 @@ unsetenv(name)
 		return (-1);
 	}
 	/* insure __zone0 is set up before calling __malloc_check_env_name */
-	if (!__zone0) {
-	    __zone0 = malloc_create_zone(0, 0);
-	    if (!__zone0) {
-		    errno = ENOMEM;
-		    return (-1);
-	    }
-	}
+	if (init__zone0(1)) return (-1);
 #else /* !__DARWIN_UNIX03 */
 	/* no null ptr or empty str */
 	if(name == NULL || *name == 0)
 		return;
 	/* insure __zone0 is set up before calling __malloc_check_env_name */
-	if (!__zone0) {
-	    __zone0 = malloc_create_zone(0, 0);
-	    if (!__zone0)
-		    return;
-	}
+	if (init__zone0(0)) return;
 #endif /* __DARWIN_UNIX03 */
 	__malloc_check_env_name(name); /* see if we are changing a malloc environment variable */
 	__unsetenv(name, *_NSGetEnviron(), __zone0);

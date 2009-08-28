@@ -9,11 +9,11 @@ Crypt::Rijndael - Crypt::CBC compliant Rijndael encryption module
  # keysize() is 32, but 24 and 16 are also possible
  # blocksize() is 16
 
- $cipher = new Crypt::Rijndael "a" x 32, Crypt::Rijndael::MODE_CBC;
+ $cipher = Crypt::Rijndael->new( "a" x 32, Crypt::Rijndael::MODE_CBC() );
 
  $cipher->set_iv($iv);
  $crypted = $cipher->encrypt($plaintext);
- # - OR -
+ 	# - OR -
  $plaintext = $cipher->decrypt($crypted);
 
 =head1 DESCRIPTION
@@ -26,10 +26,15 @@ as the Advanced Encryption Standard.
 =cut
 
 package Crypt::Rijndael;
+use strict;
+use vars qw( $VERSION @ISA );
+
+use warnings;
+no warnings;
 
 require DynaLoader;
 
-$VERSION = 0.04;
+$VERSION = '1.07';
 @ISA = qw/DynaLoader/;
 
 bootstrap Crypt::Rijndael $VERSION;
@@ -47,7 +52,7 @@ algorithm actually supports any blocksize that is any multiple of
 our bytes.  128 bits, is however, the AES-specified block size,
 so this is all we support.
 
-=item $cipher = new $key [, $mode]
+=item $cipher = Crypt::Rijndael->new( $key [, $mode] )
 
 Create a new C<Crypt::Rijndael> cipher object with the given key
 (which must be 128, 192 or 256 bits long). The additional C<$mode>
@@ -76,9 +81,29 @@ Decrypts C<$data>.
 
 =back
 
+=head2 Encryption modes
+
+Use these constants to select the cipher type:
+
+=over 4
+
+=item MODE_CBC - Cipher Block Chaining
+
+=item MODE_CFB - Cipher feedback
+
+=item MODE_CTR - Counter mode
+
+=item MODE_ECB - Electronic cookbook mode
+
+=item MODE_OFB - Output feedback
+
+=item MODE_PCBC - ignore this one for now :)
+
+=back
+
 =head1 SEE ALSO
 
-  L<Crypt::CBC>, http://www.csrc.nist.gov/encryption/aes/
+L<Crypt::CBC>, http://www.csrc.nist.gov/encryption/aes/
 
 =head1 BUGS
 
@@ -86,10 +111,17 @@ Should EXPORT or EXPORT_OK the MODE constants.
 
 =head1 AUTHOR
 
- Rafael R. Sevilla <sevillar@team.ph.inter.net>
+Currently maintained by brian d foy, C<< <bdfoy@cpan.org> >>.
 
- The Rijndael Algorithm was developed by Vincent Rijmen and Joan Daemen,
- and has been selected as the US Government's Advanced Encryption Standard.
+Original code by  Rafael R. Sevilla.
+
+The Rijndael Algorithm was developed by Vincent Rijmen and Joan Daemen,
+and has been selected as the US Government's Advanced Encryption Standard.
+
+=head1 LICENSE
+
+This software is licensed under the GNU Public License. See the included
+COPYING file for details.
 
 =cut
 

@@ -23,21 +23,33 @@
 TESTROOT = ../..
 include ${TESTROOT}/include/common.makefile
 
+SHELL = bash # use bash shell so we can redirect just stderr
+
 #
-# The point of this test is a sanity check that ld
-# -bundle_loader works, and _bar is found in the executable
-# and not in libbar.dylib
+# Ccheck that ld -bundle_loader works with bundles and executable, 
+# and _bar is found in the loader and not in libbar.dylib
+#
 
 run: all
 
 all:
 	${CC} ${CCFLAGS} bar.c -dynamiclib -o libbar.dylib
 	${FAIL_IF_BAD_MACHO} libbar.dylib
+	# test with loader as main executable
 	${CC} ${CCFLAGS} main.c bar.c -o main
 	${FAIL_IF_BAD_MACHO} main
 	${CC} ${CCFLAGS} bundle.c -bundle -bundle_loader main libbar.dylib -o bundle.bundle
 	${FAIL_IF_BAD_MACHO} bundle.bundle
 	nm -m bundle.bundle | grep _bar | grep "from executable" | ${PASS_IFF_STDIN}
+	# test with loader as another bundle
+	${CC} ${CCFLAGS} -bundle main.c bar.c -o mainbundle
+	${FAIL_IF_BAD_MACHO} main
+	${CC} ${CCFLAGS} bundle.c -bundle -bundle_loader mainbundle libbar.dylib -o bundle.bundle
+	${FAIL_IF_BAD_MACHO} bundle.bundle
+	nm -m bundle.bundle | grep _bar | grep "from executable" | ${PASS_IFF_STDIN}
+	# verify error message when linking with raw bundle
+	${FAIL_IF_SUCCESS} ${CC} ${CCFLAGS} main.c bar.c -o main bundle.bundle 2> error.log
+	grep "link with bundle" error.log | ${PASS_IFF_STDIN}
 
 clean:
-	rm *.dylib main bundle.bundle
+	rm *.dylib main bundle.bundle mainbundle error.log

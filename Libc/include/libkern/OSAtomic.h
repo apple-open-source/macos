@@ -68,40 +68,40 @@ __BEGIN_DECLS
 int32_t	OSAtomicAdd32( int32_t __theAmount, volatile int32_t *__theValue );
 int32_t	OSAtomicAdd32Barrier( int32_t __theAmount, volatile int32_t *__theValue );
 
-inline static
+__inline static
 int32_t	OSAtomicIncrement32( volatile int32_t *__theValue )
             { return OSAtomicAdd32(  1, __theValue); }
-inline static
+__inline static
 int32_t	OSAtomicIncrement32Barrier( volatile int32_t *__theValue )
             { return OSAtomicAdd32Barrier(  1, __theValue); }
 
-inline static
+__inline static
 int32_t	OSAtomicDecrement32( volatile int32_t *__theValue )
             { return OSAtomicAdd32( -1, __theValue); }
-inline static
+__inline static
 int32_t	OSAtomicDecrement32Barrier( volatile int32_t *__theValue )
             { return OSAtomicAdd32Barrier( -1, __theValue); }
 
-#if defined(__ppc64__) || defined(__i386__) || defined(__x86_64__)
+#if defined(__ppc64__) || defined(__i386__) || defined(__x86_64__) || defined(__arm__)
 
 int64_t	OSAtomicAdd64( int64_t __theAmount, volatile int64_t *__theValue );
 int64_t	OSAtomicAdd64Barrier( int64_t __theAmount, volatile int64_t *__theValue );
 
-inline static
+__inline static
 int64_t	OSAtomicIncrement64( volatile int64_t *__theValue )
             { return OSAtomicAdd64(  1, __theValue); }
-inline static
+__inline static
 int64_t	OSAtomicIncrement64Barrier( volatile int64_t *__theValue )
             { return OSAtomicAdd64Barrier(  1, __theValue); }
 
-inline static
+__inline static
 int64_t	OSAtomicDecrement64( volatile int64_t *__theValue )
             { return OSAtomicAdd64( -1, __theValue); }
-inline static
+__inline static
 int64_t	OSAtomicDecrement64Barrier( volatile int64_t *__theValue )
             { return OSAtomicAdd64Barrier( -1, __theValue); }
 
-#endif  /* defined(__ppc64__) || defined(__i386__) || defined(__x86_64__) */
+#endif  /* defined(__ppc64__) || defined(__i386__) || defined(__x86_64__) || defined(__arm__) */
 
 
 /* Boolean functions (and, or, xor.)  These come in four versions for each operation:
@@ -138,12 +138,12 @@ bool	OSAtomicCompareAndSwapIntBarrier( int __oldValue, int __newValue, volatile 
 bool	OSAtomicCompareAndSwapLong( long __oldValue, long __newValue, volatile long *__theValue );
 bool	OSAtomicCompareAndSwapLongBarrier( long __oldValue, long __newValue, volatile long *__theValue );
 
-#if defined(__ppc64__) || defined(__i386__) || defined(__x86_64__)
+#if defined(__ppc64__) || defined(__i386__) || defined(__x86_64__) || defined(__arm__)
 
 bool    OSAtomicCompareAndSwap64( int64_t __oldValue, int64_t __newValue, volatile int64_t *__theValue );
 bool    OSAtomicCompareAndSwap64Barrier( int64_t __oldValue, int64_t __newValue, volatile int64_t *__theValue );
 
-#endif  /* defined(__ppc64__) || defined(__i386__) || defined(__x86_64__) */
+#endif  /* defined(__ppc64__) || defined(__i386__) || defined(__x86_64__) || defined(__arm__) */
 
 
 /* Test and set.  They return the original value of the bit, and operate on bit (0x80>>(n&7))

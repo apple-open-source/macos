@@ -1,0 +1,55 @@
+Received: from localhost.localdomain (localhost.localdomain [127.0.0.1])
+	by strategicnetwork.org (Postfix) with ESMTP id 635A27347E5
+	for <thilakayi_bing@landshire.com>; Tue, 13 May 2008 12:51:46 -0600 (MDT)
+From: "Mail Delivery System" <MAILER-DAEMON@p02c11m063.mxlogic.net>
+To: <network-news-bounces@strategicnetwork.org>
+Subject: Mail delivery failed
+Date: Wed, 14 May 2008 02:51:47 +0800
+Message-ID: <mxl~a534.498e.875b@p02c11m063.mxlogic.net>
+MIME-Version: 1.0
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+X-Mailer: Microsoft Office Outlook 12.0
+Thread-Index: Aci1Kmbra/4UZFszTWaO4wdczWcBCQ==
+
+This message was created automatically by mail delivery software.
+
+A message that you have sent could not be delivered to one or more
+recipients.  This is a permanent error.  The following address failed:
+
+  <thilakayi_bing@landshire.com>: 550 unknown user
+<thilakayi_bing@landshire.com>
+
+
+
+Included is a copy of the message header:
+-----------------------------------------
+Received: from unknown [66.35.39.241] (EHLO strategicnetwork.org)
+	by p02c11m063.mxlogic.net (mxl_mta-5.5.0-3)
+	with ESMTP id
+243e9284.3570539440.159512.00-095.p02c11m063.mxlogic.net (envelope-from
+<network-news-bounces@strategicnetwork.org>);
+	Tue, 13 May 2008 12:51:46 -0600 (MDT)
+Received: from localhost.localdomain (localhost.localdomain [127.0.0.1])
+	by strategicnetwork.org (Postfix) with ESMTP id 635A27347E5
+	for <thilakayi_bing@landshire.com>; Tue, 13 May 2008 12:51:46 -0600
+(MDT)
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+From: network-news-request@strategicnetwork.org
+To: thilakayi_bing@landshire.com
+Subject: confirm 729791e8feb106a11648f358c538d4073e9eb7b1
+Reply-To: network-news-request@strategicnetwork.org
+Message-ID: <mailman.2838.1210704705.3367.network-news@strategicnetwork.org>
+Date: Tue, 13 May 2008 12:51:45 -0600
+Precedence: bulk
+X-BeenThere: network-news@strategicnetwork.org
+X-Mailman-Version: 2.1.5
+List-Id: network-news.strategicnetwork.org
+X-List-Administrivia: yes
+Sender: network-news-bounces@strategicnetwork.org
+Errors-To: network-news-bounces@strategicnetwork.org
+
+

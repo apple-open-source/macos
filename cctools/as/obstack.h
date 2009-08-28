@@ -127,7 +127,7 @@ struct _obstack_chunk		/* Lives at front of each chunk. */
 
 struct obstack		/* control current object in current chunk */
 {
-  long	chunk_size;		/* preferred size to allocate chunks in */
+  size_t chunk_size;		/* preferred size to allocate chunks in */
   struct _obstack_chunk* chunk;	/* address of current struct obstack_chunk */
   char	*object_base;		/* address of object we are building */
   char	*next_free;		/* where to add next char to current object */
@@ -177,7 +177,7 @@ int obstack_alignment_mask (struct obstack *obstack);
 int obstack_chunk_size (struct obstack *obstack);
 
 void _obstack_begin (struct obstack *h, int size, int alignment,
-		     void * (*chunkfun)(long n), void (*freefun)());
+		     void * (*chunkfun)(size_t n), void (*freefun)());
 void _obstack_newchunk (struct obstack *h, int length);
 #endif /* __STDC__ */
 

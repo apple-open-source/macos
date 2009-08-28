@@ -23,6 +23,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "obstack.h"
 #include "frags.h"
 #include "messages.h"
+#include "input-scrub.h"
 
 struct obstack frags = { 0 };	/* All, and only, frags live here. */
 
@@ -30,6 +31,7 @@ fragS *frag_now = NULL;	/* -> current frag we are building. */
 
 fragS zero_address_frag = {
 	0,			/* fr_address */
+	0,			/* last_fr_address */
 	NULL,			/* fr_next */
 	0,			/* fr_fix */
 	0,			/* fr_var */
@@ -38,7 +40,11 @@ fragS zero_address_frag = {
 	NULL,			/* fr_opcode */
 	rs_fill,		/* fr_type */
 	0,			/* fr_subtype */
+#ifdef ARM
+	0			/* fr_literal [0] */
+#else
 	{0}			/* fr_literal [0] */
+#endif
 };
 
 
@@ -61,13 +67,14 @@ unsigned int nchars)
     }
     if ((int)(obstack_room(&frags)) < nchars) {
 	unsigned int n,oldn;
-	long oldc;
+	int32_t oldc;
 
 	frag_wane (frag_now);
 	frag_new (0);
 	oldn=(unsigned)-1;
 	oldc=frags.chunk_size;
-	frags.chunk_size=2*nchars;
+	if(2*nchars > oldc)
+	    frags.chunk_size=2*nchars;
 	while((int)(n=obstack_room(&frags)) < nchars && n < oldn) {
 		frag_wane(frag_now);
 		frag_new(0);
@@ -104,7 +111,7 @@ int old_frags_var_max_size)	/* Number of chars (already allocated on obstack
     register    fragS * former_last_fragP;
 /*    char   *throw_away_pointer; JF unused */
     register    frchainS * frchP;
-    long	tmp;		/* JF */
+    int32_t	tmp;		/* JF */
 
     if(frags.chunk_size == 0){
        know(flagseen['n']);
@@ -190,11 +197,14 @@ int max_chars,
 int var,
 relax_substateT subtype,
 symbolS *symbol,
-long offset,
+int32_t offset,
 char *opcode)
 {
     register char  *retval;
 
+#ifdef ARM
+    as_file_and_line (&frag_now->fr_file, &frag_now->fr_line);
+#endif /* ARM */
     frag_grow (max_chars);
     retval = obstack_next_free (&frags);
     obstack_blank_fast (&frags, max_chars);
@@ -205,6 +215,9 @@ char *opcode)
     frag_now->fr_offset = offset;
     frag_now->fr_opcode = opcode;
     frag_new (max_chars);
+#ifdef ARM
+    as_file_and_line (&frag_now->fr_file, &frag_now->fr_line);
+#endif /* ARM */
     return (retval);
 }				/* frag_var() */
 
@@ -272,7 +285,7 @@ int max_bytes_to_fill)
 		     fill_size,				/* var */
 		     (relax_substateT)max_bytes_to_fill,/* subtype */
 		     (symbolS *)0,			/* symbol */
-		     (long)power_of_2_alignment,	/* offset */
+		     (int32_t)power_of_2_alignment,	/* offset */
 		     (char *)0);			/* opcode */
     if(fill_size == 1 || fill_size == 2 || fill_size == 4)
 	memcpy(fr_literal, fill, fill_size);

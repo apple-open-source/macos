@@ -352,8 +352,9 @@ public:
 	
 	void defaultCredentials(DefaultCredentialsMaker *maker);	// NULL to turn off
 
-protected:
 	void activate();
+
+protected:
 	void deactivate();
 
 private:

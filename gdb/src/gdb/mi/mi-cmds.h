@@ -143,6 +143,8 @@ extern mi_cmd_argv_ftype mi_cmd_var_set_format;
 extern mi_cmd_argv_ftype mi_cmd_var_show_attributes;
 extern mi_cmd_argv_ftype mi_cmd_var_show_format;
 extern mi_cmd_argv_ftype mi_cmd_var_update;
+extern mi_cmd_argv_ftype mi_cmd_target_load_solib;
+extern mi_cmd_argv_ftype mi_cmd_target_unload_solib;
 
 /* Description of a single command. */
 

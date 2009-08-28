@@ -2,7 +2,15 @@ Index: samba/source/Makefile.in
 ===================================================================
 --- samba/source/Makefile.in.orig
 +++ samba/source/Makefile.in
-@@ -473,7 +473,8 @@ SMBD_OBJ_SRV = smbd/files.o smbd/chgpass
+@@ -44,6 +44,7 @@ KRB5LIBS=@KRB5_LIBS@
+ LDAP_LIBS=@LDAP_LIBS@
+ NSCD_LIBS=@NSCD_LIBS@
+ UUID_LIBS=@UUID_LIBS@
++MACOSX_LIBS=@MACOSX_LIBS@
+ 
+ INSTALLCMD=@INSTALL@
+ INSTALLLIBCMD_SH=@INSTALLLIBCMD_SH@
+@@ -473,7 +474,8 @@ SMBD_OBJ_SRV = smbd/files.o smbd/chgpass
  	       smbd/change_trust_pw.o smbd/fake_file.o \
  	       smbd/quotas.o smbd/ntquotas.o $(AFS_OBJ) smbd/msdfs.o \
  	       $(AFS_SETTOKEN_OBJ) smbd/aio.o smbd/statvfs.o \
@@ -16,18 +24,22 @@ Index: samba/source/configure.in
 ===================================================================
 --- samba/source/configure.in.orig
 +++ samba/source/configure.in
-@@ -811,6 +811,10 @@ main() {
+@@ -822,6 +822,14 @@ main() {
      *darwin*)
  	AC_DEFINE(BROKEN_UNICODE_COMPOSE_CHARACTERS, 1, [Does this system use unicode compose characters])
  
++	MACOSX_LIBS="-framework DirectoryService"
++	MACOSX_LIBS="$MACOSX_LIBS -framework CoreFoundation"
++	AC_SUBST(MACOSX_LIBS)
++
 +	# Link smbd against Directory Services. This is a layering violation
 +	# that needs to be removed. -- jpeach
-+	SMBD_LIBS="$SMBD_LIBS -framework DirectoryService"
++	SMBD_LIBS="$SMBD_LIBS $(MACOSX_LIBS)"
 +
  # Add a system specific charset module.
  	default_shared_modules="$default_shared_modules charset_macosxfs"
  
-@@ -6286,7 +6290,7 @@ AC_SUBST(builddir)
+@@ -6344,7 +6352,7 @@ AC_SUBST(builddir)
  
  # Stuff the smbd-only libraries at the end of the smbd link
  # path (if we have them).

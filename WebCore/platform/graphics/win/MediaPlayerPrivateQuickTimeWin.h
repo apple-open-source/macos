@@ -69,6 +69,7 @@ public:
     
     void setRate(float);
     void setVolume(float);
+    void setPreservesPitch(bool);
     
     int dataRate() const;
     
@@ -89,6 +90,7 @@ public:
     
     void paint(GraphicsContext*, const IntRect&);
     
+    bool hasSingleSecurityOrigin() const;
 
 private:
     MediaPlayerPrivate(MediaPlayer*);

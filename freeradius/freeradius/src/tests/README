@@ -1,9 +1,10 @@
-  This is a preliminary test repository, to ensure that we have
-a collection of tests which work, and which may be used to debug/verify
-the functionality of the server.
+  This is a preliminary test harness for the server.
 
-  There is no test harness yet, but the tests should be of the format:
+$ make tests
 
-#U  -- entry to go in 'users' file'
-attributes...
-#R  -- data received in the 'reply'
+	makes all of the tests
+
+config/*
+
+	virtual server configuration that is used for the tests
+

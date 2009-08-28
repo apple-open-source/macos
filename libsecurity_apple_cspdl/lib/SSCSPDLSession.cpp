@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2001,2008 Apple Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -112,7 +112,7 @@ SSCSPDLSession::lookupKey(const CssmKey &inKey)
 	return theKey;
 }
 
-// Notification we receive when the acl on a key has changed.  We should write it back to disk if it's persistant.
+// Notification we receive when the acl on a key has changed.  We should write it back to disk if it's persistent.
 void
 SSCSPDLSession::didChangeKeyAcl(SecurityServer::ClientSession &clientSession,
 	KeyHandle keyHandle, CSSM_ACL_AUTHORIZATION_TAG tag)
@@ -173,7 +173,7 @@ void
 ClientSessionKey::getAcl(AutoAclEntryInfoList &aclInfos,
 	const char *selectionTag) const
 {
-	secdebug("keyacl", "ClientSessionKey::getAcl() keyHandle: %lu", mKeyHandle);
+	secdebug("keyacl", "ClientSessionKey::getAcl() keyHandle: %u", mKeyHandle);
 	aclInfos.allocator(mClientSession.returnAllocator);
 	mClientSession.getKeyAcl(mKeyHandle, selectionTag,
 		*static_cast<uint32 *>(aclInfos),
@@ -184,14 +184,14 @@ void
 ClientSessionKey::changeAcl(const CSSM_ACL_EDIT &aclEdit,
 	const CSSM_ACCESS_CREDENTIALS *cred)
 {
-	secdebug("keyacl", "ClientSessionKey::changeAcl() keyHandle: %lu", mKeyHandle);
+	secdebug("keyacl", "ClientSessionKey::changeAcl() keyHandle: %u", mKeyHandle);
 	mClientSession.changeKeyAcl(mKeyHandle, AccessCredentials::overlay(*cred), AclEdit::overlay(aclEdit));
 }
 
 void
 ClientSessionKey::getOwner(AutoAclOwnerPrototype &owner) const
 {
-	secdebug("keyacl", "ClientSessionKey::getOwner() keyHandle: %lu", mKeyHandle);
+	secdebug("keyacl", "ClientSessionKey::getOwner() keyHandle: %u", mKeyHandle);
 	owner.allocator(mClientSession.returnAllocator);
 	mClientSession.getKeyOwner(mKeyHandle,
 		*reinterpret_cast<AclOwnerPrototype *>(static_cast<CSSM_ACL_OWNER_PROTOTYPE *>(owner)));
@@ -201,7 +201,7 @@ void
 ClientSessionKey::changeOwner(const CSSM_ACL_OWNER_PROTOTYPE &newOwner,
 	const CSSM_ACCESS_CREDENTIALS *cred)
 {
-	secdebug("keyacl", "ClientSessionKey::changeOwner() keyHandle: %lu", mKeyHandle);
+	secdebug("keyacl", "ClientSessionKey::changeOwner() keyHandle: %u", mKeyHandle);
 	mClientSession.changeKeyOwner(mKeyHandle, AccessCredentials::overlay(*cred), AclOwnerPrototype::overlay(newOwner));
 }
 

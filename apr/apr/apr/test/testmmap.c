@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -39,8 +39,8 @@ static void not_implemented(abts_case *tc, void *data)
 static apr_mmap_t *themmap = NULL;
 static apr_file_t *thefile = NULL;
 static char *file1;
-static apr_finfo_t finfo;
-static int fsize;
+static apr_finfo_t thisfinfo;
+static apr_size_t thisfsize;
 
 static void create_filename(abts_case *tc, void *data)
 {
@@ -66,7 +66,7 @@ static void test_file_close(abts_case *tc, void *data)
     apr_status_t rv;
 
     rv = apr_file_close(thefile);
-    ABTS_INT_EQUAL(tc, rv, APR_SUCCESS);
+    ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
 }
    
 static void test_file_open(abts_case *tc, void *data)
@@ -74,7 +74,7 @@ static void test_file_open(abts_case *tc, void *data)
     apr_status_t rv;
 
     rv = apr_file_open(&thefile, file1, APR_READ, APR_UREAD | APR_GREAD, p);
-    ABTS_INT_EQUAL(tc, rv, APR_SUCCESS);
+    ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
     ABTS_PTR_NOTNULL(tc, thefile);
 }
    
@@ -82,19 +82,19 @@ static void test_get_filesize(abts_case *tc, void *data)
 {
     apr_status_t rv;
 
-    rv = apr_file_info_get(&finfo, APR_FINFO_NORM, thefile);
-    ABTS_INT_EQUAL(tc, rv, APR_SUCCESS);
-    ABTS_ASSERT(tc, "File size mismatch", fsize == finfo.size);
+    rv = apr_file_info_get(&thisfinfo, APR_FINFO_NORM, thefile);
+    ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
+    ABTS_ASSERT(tc, "File size mismatch", thisfsize == thisfinfo.size);
 }
 
 static void test_mmap_create(abts_case *tc, void *data)
 {
     apr_status_t rv;
 
-    rv = apr_mmap_create(&themmap, thefile, 0, (apr_size_t) finfo.size, 
-                                APR_MMAP_READ, p);
+    rv = apr_mmap_create(&themmap, thefile, 0, (apr_size_t) thisfinfo.size, 
+		                 APR_MMAP_READ, p);
     ABTS_PTR_NOTNULL(tc, themmap);
-    ABTS_INT_EQUAL(tc, rv, APR_SUCCESS);
+    ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
 }
 
 static void test_mmap_contents(abts_case *tc, void *data)
@@ -102,10 +102,10 @@ static void test_mmap_contents(abts_case *tc, void *data)
     
     ABTS_PTR_NOTNULL(tc, themmap);
     ABTS_PTR_NOTNULL(tc, themmap->mm);
-    ABTS_INT_EQUAL(tc, fsize, themmap->size);
+    ABTS_SIZE_EQUAL(tc, thisfsize, themmap->size);
 
     /* Must use nEquals since the string is not guaranteed to be NULL terminated */
-    ABTS_STR_NEQUAL(tc, themmap->mm, TEST_STRING, fsize);
+    ABTS_STR_NEQUAL(tc, themmap->mm, TEST_STRING, thisfsize);
 }
 
 static void test_mmap_delete(abts_case *tc, void *data)
@@ -114,7 +114,7 @@ static void test_mmap_delete(abts_case *tc, void *data)
 
     ABTS_PTR_NOTNULL(tc, themmap);
     rv = apr_mmap_delete(themmap);
-    ABTS_INT_EQUAL(tc, rv, APR_SUCCESS);
+    ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
 }
 
 static void test_mmap_offset(abts_case *tc, void *data)
@@ -126,7 +126,7 @@ static void test_mmap_offset(abts_case *tc, void *data)
     rv = apr_mmap_offset(&addr, themmap, 5);
 
     /* Must use nEquals since the string is not guaranteed to be NULL terminated */
-    ABTS_STR_NEQUAL(tc, addr, TEST_STRING + 5, fsize-5);
+    ABTS_STR_NEQUAL(tc, addr, TEST_STRING + 5, thisfsize-5);
 }
 #endif
 
@@ -135,7 +135,7 @@ abts_suite *testmmap(abts_suite *suite)
     suite = ADD_SUITE(suite)
 
 #if APR_HAS_MMAP    
-    fsize = strlen(TEST_STRING);
+    thisfsize = strlen(TEST_STRING);
 
     abts_run_test(suite, create_filename, NULL);
     abts_run_test(suite, test_file_open, NULL);

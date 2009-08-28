@@ -29,7 +29,11 @@
 
 #include <IOKit/IOService.h>
 
+#ifndef IOAUDIOFAMILY_SELF_BUILD
 #include <IOKit/audio/IOAudioTypes.h>
+#else
+#include "IOAudioTypes.h"
+#endif
 #include <IOKit/IOBufferMemoryDescriptor.h>
 
 class OSDictionary;

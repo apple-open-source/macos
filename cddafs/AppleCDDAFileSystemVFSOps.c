@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,6 +35,7 @@
 #include <sys/malloc.h>
 #include <sys/ubc.h>
 #include <mach/kmod.h>
+#include <libkern/OSKextLib.h>
 
 // Project Includes
 #ifndef __APPLE_CDDA_FS_VFS_OPS_H__
@@ -62,9 +63,9 @@
 #endif
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Globals
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 
 // Global variables defined in other modules
@@ -102,25 +103,27 @@ static void
 FindVolumeName ( const char * mn, const char ** np, ssize_t * nl );
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	CDDA_Mount -	This routine is responsible for mounting the filesystem
 //					in the desired path
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 int
-CDDA_Mount ( mount_t				mountPtr,
-			 vnode_t				blockDeviceVNodePtr,
-			 user_addr_t			data,
-			 vfs_context_t			context )
+CDDA_Mount ( mount_t					mountPtr,
+			 vnode_t					blockDeviceVNodePtr,
+			 user_addr_t				data,
+			 __unused vfs_context_t		context )
 {
 	
 	AppleCDDAMountPtr		cddaMountPtr	= NULL;
 	AppleCDDANodePtr		cddaNodePtr		= NULL;
 	void *					xmlData			= NULL;
 	int						error			= 0;
-	UserAppleCDDAArguments	cddaArgs;
+	AppleCDDAArguments		cddaArgs;
 	struct timeval			now;
 	struct timespec			timespec;
+	
+	OSKextRetainKextWithLoadTag ( OSKextGetCurrentLoadTag ( ) );
 	
 	bzero ( &cddaArgs, sizeof ( cddaArgs ) );
 	bzero ( &now, sizeof ( now ) );
@@ -131,38 +134,11 @@ CDDA_Mount ( mount_t				mountPtr,
 	DebugAssert ( ( mountPtr != NULL ) );
 	DebugAssert ( ( context != NULL ) );
 	
-	if ( vfs_context_is64bit ( context ) ) 
-	{
-		error = copyin ( data, ( caddr_t ) &cddaArgs, sizeof ( cddaArgs ) );
-	}
-	
-	else
-	{
-		
-		AppleCDDAArguments	temp;
-		
-		bzero ( &temp, sizeof ( temp ) );
-		
-		error = copyin ( data, ( caddr_t ) &temp, sizeof ( temp ) );
-		if ( error == 0 )
-		{
-			
-			cddaArgs.numTracks		= temp.numTracks;
-			cddaArgs.nameDataSize	= temp.nameDataSize;
-			cddaArgs.nameData		= CAST_USER_ADDR_T ( temp.nameData );
-			cddaArgs.xmlFileSize	= temp.xmlFileSize;
-			cddaArgs.xmlData		= CAST_USER_ADDR_T ( temp.xmlData );
-			cddaArgs.fileType		= temp.fileType;
-			cddaArgs.fileCreator	= temp.fileCreator;
-			
-		}
-		
-	}
-	
+	error = copyin ( data, ( caddr_t ) &cddaArgs, sizeof ( cddaArgs ) );
 	if ( error != 0 )
 	{
-
-		DebugLog ( ( "copyin error = %d\n", error ) );
+		
+		DebugLog ( ( "CDDA_Mount: copyin error = %d\n", error ) );
 		goto ERROR;
 		
 	}
@@ -186,6 +162,33 @@ CDDA_Mount ( mount_t				mountPtr,
 		
 	}
 	
+	if ( ( cddaArgs.nameData == USER_ADDR_NULL ) || ( cddaArgs.xmlData == USER_ADDR_NULL ) )
+	{
+		
+		DebugLog ( ( "cddaArgs.nameData = 0x%qX, cddaArgs.xmlData = 0x%qX, Returning EINVAL...\n", cddaArgs.nameData, cddaArgs.xmlData ) );
+		error = EINVAL;
+		goto ERROR;
+		
+	}
+	
+	if ( ( cddaArgs.nameDataSize == 0 ) || ( cddaArgs.nameDataSize > kMaxNameDataSize ) )
+	{
+		
+		DebugLog ( ( "cddaArgs.nameDataSize = %u, invalid, Returning EINVAL...\n", cddaArgs.nameDataSize ) );
+		error = EINVAL;
+		goto ERROR;
+		
+	}
+	
+	if ( ( cddaArgs.xmlFileSize == 0 ) || ( cddaArgs.xmlFileSize > kMaxXMLDataSize ) )
+	{
+		
+		DebugLog ( ( "cddaArgs.xmlFileSize = %u, invalid, Returning EINVAL...\n", cddaArgs.xmlFileSize ) );
+		error = EINVAL;
+		goto ERROR;
+		
+	}
+	
 	// Allocate memory for private mount data
 	MALLOC ( cddaMountPtr, AppleCDDAMountPtr, sizeof ( AppleCDDAMount ), M_TEMP, M_WAITOK );
 	
@@ -205,8 +208,6 @@ CDDA_Mount ( mount_t				mountPtr,
 	cddaMountPtr->fileType		= cddaArgs.fileType;
 	cddaMountPtr->fileCreator	= cddaArgs.fileCreator;
 	
-	DebugLog ( ( "fileType = 0x%08x, fileCreator = 0x%08x\n", cddaMountPtr->fileType, cddaMountPtr->fileCreator ) );
-	
 	// Allocate memory for NodeInfo array
 	MALLOC ( cddaMountPtr->nodeInfoArrayPtr, AppleCDDANodeInfoPtr,
 			 sizeof ( AppleCDDANodeInfo ) * cddaMountPtr->numTracks, M_TEMP, M_WAITOK );
@@ -222,6 +223,8 @@ CDDA_Mount ( mount_t				mountPtr,
 	// Allocate memory for CD Track Names data
 	MALLOC ( cddaMountPtr->nameData, UInt8 *, cddaArgs.nameDataSize, M_TEMP, M_WAITOK );
 	cddaMountPtr->nameDataSize = cddaArgs.nameDataSize;
+	
+	DebugLog ( ( "cddaMountPtr->nameData = %p, cddaMountPtr->nameDataSize = %d\n", cddaMountPtr->nameData, cddaMountPtr->nameDataSize ) );
 	
 	error = copyin ( cddaArgs.nameData, ( caddr_t ) cddaMountPtr->nameData, cddaMountPtr->nameDataSize );
 	if ( error != 0 )
@@ -239,7 +242,7 @@ CDDA_Mount ( mount_t				mountPtr,
 	if ( error != 0 )
 	{
 		
-		//Ê¥¥¥ fix error to return a valid error number here
+		//Â XXX fix error to return a valid error number here
 		DebugLog ( ( "Returning error = %d after CreateNewCDDADirectory.\n", error ) );
 		goto FREE_TRACK_NAMES;
 		
@@ -343,15 +346,17 @@ FREE_NODE_INFO_ERROR:
 ERROR:
 	
 	
+	OSKextReleaseKextWithLoadTag ( OSKextGetCurrentLoadTag ( ) );
+	
 	return error;
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	CDDA_Unmount -	This routine is called to unmount the disc at the
 //					specified mount point
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 int
 CDDA_Unmount ( mount_t					mountPtr,
@@ -458,15 +463,17 @@ CDDA_Unmount ( mount_t					mountPtr,
 	
 	DebugLog ( ( "CDDA_Unmount: Exiting, returning error = %d.\n", error ) );
 	
+	OSKextReleaseKextWithLoadTag ( OSKextGetCurrentLoadTag ( ) );
+	
 	return 0;
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	CDDA_Root - This routine is called to get a vnode pointer to the root
 //				vnode of the filesystem
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 int
 CDDA_Root ( mount_t			mountPtr,
@@ -492,9 +499,9 @@ CDDA_Root ( mount_t			mountPtr,
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	CDDA_VFSGetAttributes -	This routine is called to get filesystem attributes.
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 int
 CDDA_VFSGetAttributes ( mount_t					mountPtr,
@@ -648,9 +655,9 @@ CDDA_VFSGetAttributes ( mount_t					mountPtr,
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	CDDA_VGet - This routine is responsible for getting the desired vnode.
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 int
 CDDA_VGet ( mount_t					mountPtr,
@@ -670,10 +677,10 @@ CDDA_VGet ( mount_t					mountPtr,
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	CDDA_VGetInternal - This routine is responsible for getting the
 //						desired vnode.
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 int
 CDDA_VGetInternal ( mount_t					mountPtr,
@@ -948,9 +955,9 @@ Exit:
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	FindVolumeName - Cribbed from vfs_attrlist.c. Gets volume name.
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 static void
 FindVolumeName ( const char * mn, const char ** np, ssize_t * nl )
@@ -1004,12 +1011,12 @@ FindVolumeName ( const char * mn, const char ** np, ssize_t * nl )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Apple_CDDA_FS_Module_Start -	This routine is responsible for
 //									all the initialization that would
 //									ordinarily be done as part of the
 //									system startup
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 int
 Apple_CDDA_FS_Module_Start ( unused kmod_info_t * moduleInfo,
@@ -1024,7 +1031,7 @@ Apple_CDDA_FS_Module_Start ( unused kmod_info_t * moduleInfo,
 	vfsEntry.vfe_vfsops		= &gCDDA_VFSOps;
 	vfsEntry.vfe_vopcnt		= 1;	// Just one vnode operation table
 	vfsEntry.vfe_opvdescs	= gCDDA_VNodeOperationsDescList;
-	vfsEntry.vfe_flags		= VFS_TBLNOTYPENUM | VFS_TBLLOCALVOL | VFS_TBL64BITREADY;
+	vfsEntry.vfe_flags		= VFS_TBLNOTYPENUM | VFS_TBLLOCALVOL | VFS_TBL64BITREADY | VFS_TBLTHREADSAFE | VFS_TBLFSNODELOCK;
 	
 	strlcpy ( vfsEntry.vfe_fsname, gAppleCDDAName, sizeof ( gAppleCDDAName ) ); 
 	
@@ -1035,10 +1042,10 @@ Apple_CDDA_FS_Module_Start ( unused kmod_info_t * moduleInfo,
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Apple_CDDA_FS_Module_Stop - This routine is responsible for stopping
 //								filesystem services
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 int
 Apple_CDDA_FS_Module_Stop ( unused kmod_info_t * moduleInfo,
@@ -1054,6 +1061,6 @@ Apple_CDDA_FS_Module_Stop ( unused kmod_info_t * moduleInfo,
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //				End				Of			File
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------

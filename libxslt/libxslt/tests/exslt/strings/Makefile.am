@@ -7,7 +7,8 @@ EXTRA_DIST = 						\
 	tokenize.1.xml tokenize.1.xsl tokenize.1.out	\
 	tokenize.2.xml tokenize.2.xsl tokenize.2.out	\
 	tokenize.3.xml tokenize.3.xsl tokenize.3.out	\
-	split.1.xml split.1.xsl split.1.out
+	split.1.xml split.1.xsl split.1.out \
+	replace.1.xml replace.1.xsl replace.1.out 
 
 all:
 

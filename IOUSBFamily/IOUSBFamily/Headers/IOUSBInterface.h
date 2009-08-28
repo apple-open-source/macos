@@ -68,9 +68,9 @@ protected:
     ExpansionData * _expansionData;
 
     // private methods
-    virtual void 	ClosePipes(void);	// close all pipes (except pipe zero)
-    virtual IOReturn	CreatePipes(void);	// open all pipes in the current interface/alt interface
-    virtual void	SetProperties(void);	// update my property table with the correct properties		
+    virtual void		ClosePipes(void);				// close all pipes (except pipe zero)
+    virtual IOReturn	CreatePipes(void);				// open all pipes in the current interface/alt interface
+    virtual void		SetProperties(void);			// update my property table with the correct properties		
 	
 public:
 	// static methods
@@ -208,12 +208,20 @@ public:
 	@function DeviceRequest
         @abstract Sends a control request to the default control pipe in the device (pipe zero)
         @param request The parameter block to send to the device
-	@param completion Function to call when request completes. If omitted then
-        DeviceRequest() executes synchronously, blocking until the request is complete.
+		@param completion Function to call when request completes. If omitted then
+        DeviceRequest() executes synchronously, blocking until the request is complete.  If the request is asynchronous, the client must make sure that
+		the IOUSBDevRequest is not released until the callback has occurred.
     */
     virtual IOReturn DeviceRequest(IOUSBDevRequest *request, IOUSBCompletion *completion = 0); 
 
-    // Same but with a memory descriptor
+    /*!
+	 @function DeviceRequest
+	 @abstract Sends a control request to the default control pipe in the device (pipe zero)
+	 @param request The parameter block to send to the device (with the pData as an IOMemoryDesriptor)
+	 @param completion Function to call when request completes. If omitted then
+	 DeviceRequest() executes synchronously, blocking until the request is complete.  If the request is asynchronous, the client must make sure that
+	 the IOUSBDevRequest is not released until the callback has occurred.
+	 */
     virtual IOReturn DeviceRequest(IOUSBDevRequestDesc *request, IOUSBCompletion *completion = 0);
 
     virtual bool matchPropertyTable(OSDictionary * table, SInt32 *score);

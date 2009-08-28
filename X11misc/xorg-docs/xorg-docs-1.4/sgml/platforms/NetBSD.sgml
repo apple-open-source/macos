@@ -1,0 +1,817 @@
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook V4.2//EN" [
+<!ENTITY % defs SYSTEM "X11/defs.ent"> %defs;
+]>
+
+<Article>
+
+<articleinfo>
+
+<Title>README for X11R&relvers; on NetBSD</Title>
+<author><firstname>Rich</firstname><surname>Murphey</surname></author>
+<author><firstname>David</firstname><surname>Dawes</surname></author>
+<author><firstname>Marc</firstname><surname>Wandschneider</surname></author>
+<author><firstname>Mark</firstname><surname>Weaver</surname></author>
+<author><firstname>Matthieu</firstname><surname>Herrb</surname></author>
+</articleinfo>
+
+<Sect1>
+<Title>What and Where is X11R&relvers;?</Title>
+
+<Para>
+X11R&relvers; is an Open Source version of the X Window System that supports
+several UNIX(R) and UNIX-like operating systems (such as Linux, the BSDs
+and Solaris x86) on Intel and other platforms.  This version is compatible
+with X11R6.6, and is based on the XFree86 4.4.0RC2 code base, which,
+in turn was based on the X consortium sample implementation.
+</Para>
+
+<Para>
+See the <ULink URL="COPYRIGHT.html">Copyright Notice</ULink>.
+</Para>
+
+<![ %notsnapshot [
+<Para>
+The sources for X11R&relvers; are available from:
+</Para>
+
+<Para>
+<ULink URL="http://wiki.x.org">http://wiki.x.org</ULink>
+</Para>]]>
+
+<Para>
+X11R&relvers; also builds on other NetBSD architectures. See section
+<XRef LinkEnd="otherarchs"> for details.
+</Para>
+
+</Sect1>
+
+<Sect1>
+<Title>New OS dependent features</Title>
+
+<![ %haverelnotes [
+<Para>
+See the <ULink URL="RELNOTES.html">Release Notes</ULink> for
+non-OS dependent new features in X11R&relvers;.
+</Para>
+]]>
+
+<Sect2>
+<Title>New OS dependent features in 4.2.0</Title>
+
+<Para>
+
+<ItemizedList>
+<ListItem>
+
+<Para>
+Support of client side on NetBSD/sparc64
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+Support for in-kernel MTRR and AGP support in NetBSD 1.5Y
+</Para>
+</ListItem>
+
+</ItemizedList>
+
+</Para>
+
+</Sect2>
+
+<Sect2>
+<Title>New OS dependent features in 4.1.0</Title>
+
+<Para>
+
+<ItemizedList>
+<ListItem>
+
+<Para>
+Enable wide characters support in NetBSD 1.5P and later. 
+</Para>
+</ListItem>
+
+</ItemizedList>
+
+</Para>
+
+</Sect2>
+
+<Sect2>
+<Title>New OS dependent features in 4.0.2</Title>
+
+<Para>
+
+<ItemizedList>
+<ListItem>
+
+<Para>
+A fix for libXmu OS detection which was broken since <Literal remap="tt">unix</Literal>
+isn't defined anymore by the C preprocessor.
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+(limited) native wscons support. This is not activated by
+default.
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+Updates to the aperture driver
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+Support for multithread libraries with GNU pth
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+Add <Literal remap="tt">/usr/pkg/bin</Literal> to the default user path.
+</Para>
+</ListItem>
+
+</ItemizedList>
+
+</Para>
+
+</Sect2>
+
+<Sect2>
+<Title>New OS dependent features in 4.0.1</Title>
+
+<Para>
+
+<ItemizedList>
+<ListItem>
+
+<Para>
+Support for NetBSD 1.5&lowbar;ALPHA
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+The Xsun server can be built on NetBSD/sparc
+</Para>
+</ListItem>
+
+</ItemizedList>
+
+</Para>
+
+</Sect2>
+
+<Sect2>
+<Title>New OS dependent features in 4.0</Title>
+
+<Para>
+
+<ItemizedList>
+<ListItem>
+
+<Para>
+Preliminary APM support.
+</Para>
+</ListItem>
+
+</ItemizedList>
+
+</Para>
+
+</Sect2>
+
+<Sect2>
+<Title>New OS dependent features in 3.9.18</Title>
+
+<Para>
+
+<ItemizedList>
+<ListItem>
+
+<Para>
+Soft-booting secondary cards through the int10 BIOS interface is 
+now possible using the x86emu real mode emulator. 
+</Para>
+</ListItem>
+
+</ItemizedList>
+
+</Para>
+
+</Sect2>
+
+<Sect2>
+<Title>New OS dependent features in 3.9.17</Title>
+
+<Para>
+
+<ItemizedList>
+<ListItem>
+
+<Para>
+Support for <Emphasis>silken mouse</Emphasis> with the wsmouse protocol has
+been added.
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+A new version of the Aperture driver which provides MTRR 
+support is included.
+</Para>
+</ListItem>
+
+</ItemizedList>
+
+</Para>
+
+</Sect2>
+
+</Sect1>
+
+<Sect1>
+<Title>Installing the Binaries</Title>
+
+<Para>
+Refer to the <ULink URL="Install.html">Installation Document</ULink>
+for detailed installation instructions.
+</Para>
+
+</Sect1>
+
+<Sect1>
+<Title>Configuring X for Your Hardware</Title>
+
+<Para>
+The <Literal remap="tt">/etc/X11/xorg.conf</Literal> file tells the X server what kind of
+monitor, 
+video card and mouse you have.  You <Emphasis>must</Emphasis> create it to tell the
+server what specific hardware you have.
+</Para>
+
+<Para>
+You'll need info on your hardware:
+
+<ItemizedList>
+<ListItem>
+
+<Para>
+Your mouse type, baud rate and its /dev entry.
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+The video card's chipset (e.g. ET4000, S3, etc).
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+Your monitor's sync frequencies.
+</Para>
+</ListItem>
+
+</ItemizedList>
+
+</Para>
+
+<Para>
+For details about the <Literal remap="tt">xorg.conf</Literal> file format, refer to the
+<Emphasis><ULink URL="xorg.conf.5.html">xorg.conf(5)</ULink></Emphasis> manual page.
+</Para>
+
+<Para>
+Once you've set up a xorg.conf file, you can fine tune the video
+modes with the <Literal remap="tt">xvidtune</Literal> utility. 
+</Para>
+
+<Sect2>
+<Title>About mouse configuration</Title>
+
+<Para>
+X11R&relvers; has support for the mouse driver included in
+the <Emphasis remap="bf">wscons</Emphasis> console driver introduced by NetBSD 1.4. Specify
+``<Literal remap="tt">wsmouse</Literal>'' as the protocol and ``<Literal remap="tt">/dev/wsmouse0</Literal>'' as the 
+device in <Literal remap="tt">/etc/X11/xorg.conf</Literal> if you're using NetBSD 1.4 or later
+with a PS/2 mouse.
+</Para>
+
+<Para>
+For older releases, the NetBSD <Emphasis remap="bf">pms</Emphasis> mouse driver handles PS/2 style
+mice as Busmouse. Specify the protocol as ``<Literal remap="tt">busmouse</Literal>'' in the
+mouse section of your <Literal remap="tt">xorg.conf</Literal> file if you're using a PS/2
+mouse with NetBSD 1.3 or former releases.
+</Para>
+
+<Para>
+Only standard PS/2 mice are supported by this driver. Newest PS/2
+mice that send more than three bytes at a time (especially
+Intellimouse, or MouseMan+ with a wheel) are not supported by NetBSD
+1.3 and former releases. 
+</Para>
+
+<Para>
+See <ULink URL="mouse.html">README.mouse</ULink>  for general
+instruction on mouse configuration.
+</Para>
+
+</Sect2>
+
+</Sect1>
+
+<Sect1>
+<Title>Running X</Title>
+
+<Para>
+The easiest way for new users to start X windows is to type: 
+
+<Screen>
+startx &#62;&#38; startx.log
+</Screen>
+ 
+Error messages are lost unless you redirect them
+because the server takes over the screen.
+</Para>
+
+<Para>
+To get out of X windows, type: ``<Literal remap="tt">exit</Literal>'' in the console xterm.
+You can customize your X by creating <Literal remap="tt">.xinitrc</Literal>, <Literal remap="tt">.xserverrc</Literal>,
+and <Literal remap="tt">.twmrc</Literal> files in your home directory as described in the xinit
+and startx man pages.
+</Para>
+
+<Sect2>
+<Title>Starting Xdm, the display manager</Title>
+
+<Para>
+To start the display manager, log in as root on the console and type:
+``<Literal remap="tt">xdm -nodaemon</Literal>''.
+</Para>
+
+<Para>
+You can start xdm automatically on bootup by changing the line 
+
+<Screen>
+xdm=NO			xdm_flags=""            # x11 display manager
+</Screen>
+
+to:
+
+<Screen>
+xdm=YES			xdm_flags=""            # x11 display manager
+</Screen>
+
+in <Literal remap="tt">/etc/rc.conf</Literal>. 
+</Para>
+
+<Para>
+Under NetBSD 1.4 and later with the wscons console driver, you must
+enable a virtual console for the X server first. To do this follow
+these steps:
+
+<ItemizedList>
+<ListItem>
+
+<Para>
+Make sure the device file exists. If not, ``<Literal remap="tt">cd /dev ;
+./MAKEDEV wscons</Literal>''. 
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+Next, make sure your kernel wants to do wscons. (see <XRef LinkEnd="wscons">).
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+Next, make sure ``<Literal remap="tt">wscons=YES</Literal>'' in
+<Literal remap="tt">/etc/rc.conf</Literal>.
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+Next, make sure <Literal remap="tt">/etc/wscons.conf</Literal> exists. The relevant
+bits:
+
+<Screen>
+#screen	0	-	vt100
+screen	1	-	vt100
+screen	2	-	vt100
+screen	3	-	vt100
+screen	4	-	-
+screen	5	-	vt100
+</Screen>
+
+</Para>
+</ListItem>
+
+</ItemizedList>
+
+(Thanks to Mason Loring Bliss
+<Literal remap="tt">&lt;mason@acheron.middleboro.ma.us&gt;</Literal> for this explanation)
+</Para>
+
+</Sect2>
+
+</Sect1>
+
+<Sect1>
+<Title>Kernel Support for X</Title>
+
+<Para>
+To make sure X support is enabled under NetBSD, the following
+line must be in your config file in <Literal remap="tt">/sys/arch/i386/conf</Literal>:
+</Para>
+
+<Para>
+
+<Screen>
+options XSERVER, UCONSOLE
+</Screen>
+
+</Para>
+
+<Sect2>
+<Title>Console drivers</Title>
+
+<Para>
+The server supports the standard NetBSD/i386
+console drivers: pccons, pcvt and wscons (in pcvt compatibility
+mode). They are detected at runtime and no 
+configuration of the server itself is required.
+</Para>
+
+<Para>
+The pccons driver is the most widely tested and is the console driver
+contained in the NetBSD binary distribution's kernels.
+</Para>
+
+<Para>
+The pcvt console driver was bundled with NetBSD until 1.4. The pcvt X
+mode is compatible with the pccons driver X mode. It offers several
+virtual consoles and international keyboard support. In order to use
+this driver, change the line:
+</Para>
+
+<Para>
+
+<Screen>
+device          pc0     at isa? port "IO&lowbar;KBD" irq 1
+</Screen>
+
+</Para>
+
+<Para>
+to
+</Para>
+
+<Para>
+
+<Screen>
+device         vt0     at isa? port "IO&lowbar;KBD" irq 1
+</Screen>
+
+</Para>
+
+<Para>
+in your kernel config file, and rebuild and install your kernel.
+</Para>
+
+<Para id="wscons" xreflabel="below">
+Wscons is the current console driver, included in NetBSD 1.4 and
+later. For now, X supports wscons using the pcvt compatibility
+mode, so be sure to have the lines:
+
+<Screen>
+options         WSDISPLAY_COMPAT_PCVT           # emulate some ioctls
+options         WSDISPLAY_COMPAT_SYSCONS        # emulate some ioctls
+options         WSDISPLAY_COMPAT_USL		# VT handling
+options         WSDISPLAY_COMPAT_RAWKBD         # can get raw scancodes
+</Screen>
+
+in your kernel configuration file if you're using wscons. Refer to the 
+<Emphasis>wscons(4)</Emphasis> and <Emphasis>wsmouse(4)</Emphasis> manual pages for
+informations on how to configure wscons into the kernel.
+</Para>
+
+</Sect2>
+
+<Sect2>
+<Title>Aperture Driver</Title>
+
+<Para>
+By default NetBSD include the BSD 4.4 kernel security
+feature that disable access to the <Literal remap="tt">/dev/mem</Literal> device when in
+multi-users mode. But X.Org Foundation X servers can take advantage 
+(or require)
+linear access to the display memory.
+</Para>
+
+<Para>
+Most X11R&relvers; card drivers require linear memory access.
+There are two ways to allow X to access linear memory:
+</Para>
+
+<Para>
+The first way is to disable the kernel security feature by adding
+``<Literal remap="tt">option INSECURE</Literal>'' in the kernel configuration file and build a new
+kernel.
+</Para>
+
+<Para>
+The second way is to install the aperture driver, included in source form in
+<Literal remap="tt">xc/programs/Xserver/hw/xfree86/etc/apNetBSD.shar</Literal> in the
+X11R&relvers; source distribution. Unpack it in a new directory of your 
+choice by running:
+
+<Screen>
+  sh apNetBSD.shar
+</Screen>
+
+By default the aperture driver will be installed in
+<Literal remap="tt">/usr/local/aperture</Literal>. You can change this default directory by 
+editing <Literal remap="tt">Makefile.inc</Literal> before building it. 
+</Para>
+
+<Para>
+Then run ``<Literal remap="tt">make build</Literal>'' as root to install it. To enable it, 
+add the following line to  <Literal remap="tt">/etc/lkm.conf</Literal>:
+
+<Screen>
+/usr/local/aperture/lkm/xf86.o  -  - /usr/local/aperture/lkm/xf86_mod_install - -
+</Screen>
+ 
+and set ``<Literal remap="tt">lkm=YES</Literal>'' in <Literal remap="tt">/etc/rc.conf</Literal>
+</Para>
+
+<Para>
+Reboot your system. X will auto-detect the aperture
+driver if available.
+</Para>
+
+<Para>
+<Emphasis remap="bf">Warning 1:</Emphasis> if you boot another kernel than <Literal remap="tt">/netbsd</Literal>,
+loadable kernel modules can crash your system. Always boot in
+single user mode when you want to run another kernel.
+</Para>
+
+<Para>
+<Emphasis remap="bf">Warning 2:</Emphasis> the  aperture driver only allows one access at a time
+(so that the system is in the same security state once X is
+launched). This means that if you run multiple servers on multiples
+VT, only the first one will have linear memory access.
+Use ``option INSECURE'' if you need more that one X server at a time.
+</Para>
+
+<Para>
+Starting with XFree86 3.9.17, the XFree86 aperture driver
+also supports MTRR write combining on Pentiums II
+and AMD K6 class processors. 
+</Para>
+
+</Sect2>
+
+<Sect2>
+<Title>MIT-SHM</Title>
+
+<Para>
+NetBSD 1.0 and later supports System V shared memory. If X
+detects this support in your kernel, it will support the MIT-SHM
+extension.
+</Para>
+
+<Para>
+To add support for system V shared memory to your kernel add the
+lines:
+</Para>
+
+<Para>
+
+<Screen>
+ # System V-like IPC
+ options         SYSVMSG
+ options         SYSVSEM
+ options         SYSVSHM
+</Screen>
+
+</Para>
+
+<Para>
+to your kernel config file.
+</Para>
+
+</Sect2>
+
+</Sect1>
+
+<Sect1>
+<Title>Rebuilding the X Distribution</Title>
+
+<Para>
+You should configure the distribution by editing
+<Literal remap="tt">xc/config/cf/host.def</Literal>  before compiling.  To compile the
+sources, invoke ``<Literal remap="tt">make World</Literal>'' in the xc directory.
+</Para>
+
+<Sect2>
+<Title>Perl support</Title>
+
+<Para>
+Starting with XFree86 4.0.2, perl is needed to build the fonts in
+XFree86. Since perl is not included with standard NetBSD installation,
+fonts that need perl are not built by default. 
+</Para>
+
+<Para>
+If you have installed perl (from the NetBSD packages, for instance),
+add the line  
+
+<Screen>
+#define HasPerl YES
+</Screen>
+
+in <Literal remap="tt">xc/config/cf/host.def</Literal> before rebuilding X. 
+</Para>
+
+</Sect2>
+
+<Sect2>
+<Title>Aperture driver</Title>
+
+<Para>
+To build the X server with the Aperture driver enabled, you
+should unpack <Literal remap="tt">apNetBSD.shar</Literal> and install it first. 
+</Para>
+
+<Para>
+Then edit <Literal remap="tt">xc/config/cf/host.def</Literal> and add the line
+
+<Screen>
+#define HasNetBSDApertureDriver    YES
+</Screen>
+
+to it before rebuilding X.
+</Para>
+
+</Sect2>
+
+<Sect2 id="console-drivers">
+<Title>Console drivers</Title>
+
+<Para>
+X has a configuration option to select the console
+drivers to use in <Literal remap="tt">host.def</Literal>:
+
+<ItemizedList>
+<ListItem>
+
+<Para>
+ if you're using pccons put:
+
+<Screen>
+ #define XFree86ConsoleDefines -DPCCONS_SUPPORT
+</Screen>
+
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+if you're using pcvt put:
+
+<Screen>
+ #define XFree86ConsoleDefines -DPCVT_SUPPORT
+</Screen>
+
+</Para>
+</ListItem>
+
+</ItemizedList>
+
+If you don't define <Emphasis remap="bf">XFree86ConsoleDefines</Emphasis> in <Literal remap="tt">host.def</Literal> the
+pccons and pcvt drivers will be supported by default.
+</Para>
+
+<Para>
+Experimental native support for the wscons console driver can be built
+by adding:
+
+<Screen>
+ #define XFree86ConsoleDefines -DWSCONS_SUPPORT
+</Screen>
+
+to <Literal remap="tt">xc/config/host.def</Literal> before rebuilding the server. 
+This has not been thoroughly tested, except on the macppc. 
+</Para>
+
+<Para>
+For the i386, you should include both pcvt and wscons support in order
+to use the pcvt compatibility mode of wscons:
+
+<Screen>
+ #define XFree86ConsoleDefines -DPCVT_SUPPORT -DWSCONS_SUPPORT
+</Screen>
+
+</Para>
+
+</Sect2>
+
+<Sect2 id="otherarchs">
+<Title>Building on other architectures</Title>
+
+<Para>
+ 
+Note that the NetBSD project has now its own source tree, based on the
+X source tree, with some local modifications. You may want to
+start with this tree to rebuild from sources. 
+The NetBSD xsrc source tree is available at: 
+<ULink
+URL="ftp://ftp.netbsd.org/pub/NetBSD/NetBSD-current/xsrc/"
+>ftp://ftp.netbsd.org/pub/NetBSD/NetBSD-current/xsrc/</ULink>
+</Para>
+
+</Sect2>
+
+</Sect1>
+
+<Sect1>
+<Title>Building New X Clients</Title>
+
+<Para>
+The easiest way to build a new client (X application) is to use
+<Literal remap="tt">xmkmf</Literal> if an <Literal remap="tt">Imakefile</Literal> is included in the sources.  Type
+``<Literal remap="tt">xmkmf -a</Literal>'' to create the Makefiles, check the configuration if
+necessary and type ``<Literal remap="tt">make</Literal>''.  Whenever you install additional man
+pages you should update <Literal remap="tt">whatis.db</Literal> by running ``<Literal remap="tt">makewhatis
+/usr/X11R6/man</Literal>''.
+</Para>
+
+<Para>
+When porting clients to *BSD
+systems, make use of the symbol <Emphasis remap="bf">BSD</Emphasis> for code which is truly
+BSD-specific.  The value of the symbol can be used to distinguish
+different BSD releases.  For example, code specific to the Net-2 and
+later releases can use:
+</Para>
+
+<Para>
+
+<Screen>
+                   
+&num;if (BSD &#62;= 199103)
+</Screen>
+
+</Para>
+
+<Para>
+To ensure that this symbol is correctly defined, include
+<Literal remap="tt">&lt;sys/param.h&gt;</Literal> in the source that requires it.  Note that
+the symbol <Emphasis remap="bf">CSRG&lowbar;BASED</Emphasis> is defined for *BSD systems in XFree86 3.1.1
+and later.  This should be used to protect the inclusion of
+<Literal remap="tt">&lt;sys/param.h&gt;</Literal>.
+</Para>
+
+<Para>
+For code that really is specific to a particular i386 BSD port, use
+<Emphasis remap="bf">&lowbar;&lowbar;FreeBSD&lowbar;&lowbar;</Emphasis> for FreeBSD, <Emphasis remap="bf">&lowbar;&lowbar;NetBSD&lowbar;&lowbar;</Emphasis> for NetBSD,
+<Emphasis remap="bf">&lowbar;&lowbar;OpenBSD&lowbar;&lowbar;</Emphasis> for OpenBSD,
+and <Emphasis remap="bf">&lowbar;&lowbar;bsdi&lowbar;&lowbar;</Emphasis> for BSD/386.
+</Para>
+
+</Sect1>
+
+<Sect1>
+<Title>Thanks</Title>
+
+<Para>
+Many thanks to all people who contributed to make XFree86 work on
+*BSD, in particular:
+<Emphasis remap="bf">David Dawes</Emphasis>,
+<Emphasis remap="bf">Todd Fries</Emphasis>,
+<Emphasis remap="bf">Rod Grimes</Emphasis>,
+<Emphasis remap="bf">Charles Hannum</Emphasis>,
+<Emphasis remap="bf">Amancio Hasty</Emphasis>, 
+<Emphasis remap="bf">Christoph Robitschko</Emphasis>,
+<Emphasis remap="bf">Matthias Scheler</Emphasis>,
+<Emphasis remap="bf">Michael Smith</Emphasis>,
+<Emphasis remap="bf">Ignatios Souvatzis</Emphasis>,
+<Emphasis remap="bf">Jack Velte</Emphasis>,
+<Emphasis remap="bf">Nate Williams</Emphasis> and
+<Emphasis remap="bf">Pace Willison</Emphasis>.
+</Para>
+
+</Sect1>
+
+</Article>

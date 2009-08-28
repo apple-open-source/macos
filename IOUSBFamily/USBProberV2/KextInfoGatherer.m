@@ -28,100 +28,187 @@
 
 @implementation KextInfoGatherer
 
-static int kmod_compare(const void * a, const void * b)
+#define kStringInvalidLong   "????"
+
+#define SAFE_FREE(ptr)  do {          \
+if (ptr) free(ptr);               \
+} while (0)
+#define SAFE_FREE_NULL(ptr)  do {     \
+if (ptr) free(ptr);               \
+(ptr) = NULL;                     \
+} while (0)
+#define SAFE_RELEASE(ptr)  do {       \
+if (ptr) CFRelease(ptr);          \
+} while (0)
+#define SAFE_RELEASE_NULL(ptr)  do {  \
+if (ptr) CFRelease(ptr);          \
+(ptr) = NULL;                     \
+} while (0)
+
+Boolean createCFMutableArray(CFMutableArrayRef * array,
+							 const CFArrayCallBacks * callbacks)
 {
-    kmod_info_t * k1 = (kmod_info_t *)a;
-    kmod_info_t * k2 = (kmod_info_t *)b;
-    // these are load indices, not CFBundleIdentifiers
-//    return strcasecmp(k1->name, k2->name);
-    return (k1->id - k2->id);
+    Boolean result = true;
+	
+    *array = CFArrayCreateMutable(kCFAllocatorDefault, 0,
+								  callbacks);
+    if (!*array) {
+        result = false;
+    }
+    return result;
+}
+
+char * createUTF8CStringForCFString(CFStringRef aString)
+{
+    char     * result = NULL;
+    CFIndex    bufferLength = 0;
+	
+    if (!aString) {
+        goto finish;
+    }
+	
+    bufferLength = sizeof('\0') +
+	CFStringGetMaximumSizeForEncoding(CFStringGetLength(aString),
+									  kCFStringEncodingUTF8);
+	
+    result = (char *)malloc(bufferLength * sizeof(char));
+    if (!result) {
+        goto finish;
+    }
+    if (!CFStringGetCString(aString, result, bufferLength,
+							kCFStringEncodingUTF8)) {
+		
+        SAFE_FREE_NULL(result);
+        goto finish;
+    }
+	
+finish:
+    return result;
+}
+
+Boolean getNumValue(CFNumberRef aNumber, CFNumberType type, void * valueOut)
+{
+    if (aNumber) {
+        return CFNumberGetValue(aNumber, type, valueOut);
+    }
+    return false;
 }
 
 + (NSMutableArray *)loadedExtensions {
-    NSMutableArray *returnArray = [[NSMutableArray alloc] init];
-    
-    kern_return_t mach_result = KERN_SUCCESS;
-    mach_port_t host_port = MACH_PORT_NULL;
-    kmod_info_t * kmod_list;
-    mach_msg_type_number_t kmod_bytecount;  // not really used
-    int kmod_count;
-    kmod_info_t * this_kmod;
-    int i;
-    
-    /* Get the list of loaded kmods from the kernel.
-        */
-    host_port = mach_host_self();
-    mach_result = kmod_get_info(host_port, (void *)&kmod_list,
-                                &kmod_bytecount);
-    if (mach_result != KERN_SUCCESS) {
+	CFMutableArrayRef	bundleIDs = NULL;          // must release
+    CFArrayRef			loadedKextInfo = NULL;     // must release
+    const NXArchInfo *	runningKernelArch;  // do not free
+	NSMutableArray *	returnArray = [[NSMutableArray alloc] init];
+    CFIndex				count, i;
+	
+	if (!createCFMutableArray(&bundleIDs, &kCFTypeArrayCallBacks)) {
+        goto finish;
+	}
+	
+	runningKernelArch = OSKextGetRunningKernelArchitecture();
+    if (!runningKernelArch) {
+		NSLog(@"USB Prober: couldn't get running kernel architecture.\n");
+        goto finish;
+    }
+	
+    loadedKextInfo = OSKextCreateLoadedKextInfo(bundleIDs);
+	
+    if (!loadedKextInfo) {
+  		NSLog(@"USB Prober: couldn't get list of loaded kexts from kernel.\n");
+        goto finish;
+    }
+	
+    count = CFArrayGetCount(loadedKextInfo);
+    for (i = 0; i < count; i++) {
+        CFDictionaryRef kextInfo = (CFDictionaryRef)CFArrayGetValueAtIndex(loadedKextInfo, i);
+		
+      //  printKextInfo(kextInfo, &toolArgs);
 
-        // ERROR
-        
-        goto finish;
-    }
-    
-    /* kmod_get_info() doesn't return a proper count so we have
-        * to scan the array checking for a NULL next pointer.
-        */
-    this_kmod = kmod_list;
-    kmod_count = 0;
-    while (this_kmod) {
-        kmod_count++;
-        this_kmod = (this_kmod->next) ? (this_kmod + 1) : 0;
-    }
-    
-    
-    if (!kmod_count) {
-        goto finish;
-    }
-    
-    qsort(kmod_list, kmod_count, sizeof(kmod_info_t), kmod_compare);
-    
-    /* Now print out what was found. */
-    this_kmod = kmod_list;
-    for (i=0; i < kmod_count; i++, this_kmod++) {
-        NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-        [dict setObject:[NSString stringWithFormat:@"%s",this_kmod->name] forKey:@"Name"];
-        [dict setObject:[NSString stringWithFormat:@"%s",this_kmod->version] forKey:@"Version"];
-        if (this_kmod->size != 0) {
-            if (this_kmod->size > 1024) {
-                [dict setObject:[NSString stringWithFormat:@"%U KB",this_kmod->size/1024] forKey:@"Size"];
+		CFNumberRef       loadAddress            = NULL;  // do not release
+		CFNumberRef       loadSize               = NULL;  // do not release
+		CFNumberRef       wiredSize              = NULL;  // do not release
+		CFStringRef       bundleID               = NULL;  // do not release
+		CFStringRef       bundleVersion          = NULL;  // do not release
+		
+		uint64_t          loadAddressValue       = (uint64_t)-1;
+		uint32_t          loadSizeValue          = (uint32_t)-1;
+		uint32_t          wiredSizeValue         = (uint32_t)-1;
+		char            * bundleIDCString        = NULL;  // must free
+		char            * bundleVersionCString   = NULL;  // must free
+		
+		
+		loadAddress = (CFNumberRef)CFDictionaryGetValue(kextInfo,
+														CFSTR(kOSBundleLoadAddressKey));
+		loadSize = (CFNumberRef)CFDictionaryGetValue(kextInfo,
+													 CFSTR(kOSBundleLoadSizeKey));
+		wiredSize = (CFNumberRef)CFDictionaryGetValue(kextInfo,
+													  CFSTR(kOSBundleWiredSizeKey));
+		bundleID = (CFStringRef)CFDictionaryGetValue(kextInfo,
+													 kCFBundleIdentifierKey);
+		bundleVersion = (CFStringRef)CFDictionaryGetValue(kextInfo,
+														  kCFBundleVersionKey);
+		if (!getNumValue(loadAddress, kCFNumberSInt64Type, &loadAddressValue)) {
+			loadAddressValue = (uint64_t)-1;
+		}
+		if (!getNumValue(loadSize, kCFNumberSInt32Type, &loadSizeValue)) {
+			loadSizeValue = (uint32_t)-1;
+		}
+		if (!getNumValue(wiredSize, kCFNumberSInt32Type, &wiredSizeValue)) {
+			wiredSizeValue = (uint32_t)-1;
+		}
+		
+		bundleIDCString = createUTF8CStringForCFString(bundleID);
+		bundleVersionCString = createUTF8CStringForCFString(bundleVersion);
+		
+		
+		NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
+        [dict setObject:[NSString stringWithFormat:@"%s", bundleIDCString] forKey:@"Name"];
+        [dict setObject:[NSString stringWithFormat:@"%s", bundleVersionCString] forKey:@"Version"];
+        if (loadSizeValue != 0) {
+            if (loadSizeValue > 1024) {
+                [dict setObject:[NSString stringWithFormat:@"%U KB",loadSizeValue/1024] forKey:@"Size"];
             } else {
-                [dict setObject:[NSString stringWithFormat:@"%U Bytes",this_kmod->size] forKey:@"Size"];
+                [dict setObject:[NSString stringWithFormat:@"%U Bytes",loadSizeValue] forKey:@"Size"];
             }
-                
         } else {
             [dict setObject:@"n/a" forKey:@"Size"];
         }
-        if (this_kmod->size - this_kmod->hdr_size) {
-            if ((this_kmod->size - this_kmod->hdr_size) > 1024) {
-                [dict setObject:[NSString stringWithFormat:@"%U KB",(this_kmod->size - this_kmod->hdr_size)/1024] forKey:@"Wired"];
+        if (wiredSizeValue != 0) {
+            if ((wiredSizeValue) > 1024) {
+                [dict setObject:[NSString stringWithFormat:@"%U KB", (wiredSizeValue)/1024] forKey:@"Wired"];
             } else {
-                [dict setObject:[NSString stringWithFormat:@"%U bytes",this_kmod->size - this_kmod->hdr_size] forKey:@"Wired"];
+                [dict setObject:[NSString stringWithFormat:@"%U bytes", wiredSizeValue] forKey:@"Wired"];
             }
         } else {
             [dict setObject:@"n/a" forKey:@"Wired"];
         }
-        [dict setObject:[NSString stringWithFormat:@"%-10p",this_kmod->address] forKey:@"Address"];
+        [dict setObject:[NSString stringWithFormat:@"%-18p",loadAddressValue] forKey:@"Address"];
         
-        [returnArray addObject:dict];
+		if (runningKernelArch->cputype & CPU_ARCH_ABI64) {
+			if (loadAddressValue == (uint64_t)-1) {
+				[dict setObject:[NSString stringWithFormat:@"%%-18s", kStringInvalidLong] forKey:@"Address"];
+			} else {
+				[dict setObject:[NSString stringWithFormat:@"%#-18llx",(uint64_t)loadAddressValue] forKey:@"Address"];
+			}
+		} else {
+			if (loadAddressValue == (uint64_t)-1) {
+				[dict setObject:[NSString stringWithFormat:@"%%-10s",kStringInvalidLong] forKey:@"Address"];
+				fprintf(stdout, " %-10s", kStringInvalidLong);
+			} else {
+				[dict setObject:[NSString stringWithFormat:@"%#-10x",(uint32_t)loadAddressValue] forKey:@"Address"];
+			}
+		}
+		
+		[returnArray addObject:dict];
         [dict release];
+		SAFE_FREE(bundleIDCString);
+		SAFE_FREE(bundleVersionCString);
     }
-    
+	
 finish:
-        
-        /* Dispose of the host port to prevent security breaches and port
-        * leaks. We don't care about the kern_return_t value of this
-        * call for now as there's nothing we can do if it fails.
-        */
-        if (MACH_PORT_NULL != host_port) {
-            mach_port_deallocate(mach_task_self(), host_port);
-        }
-    
-    if (kmod_list) {
-        vm_deallocate(mach_task_self(), (vm_address_t)kmod_list, kmod_bytecount);
-    }
-    
+	SAFE_RELEASE(bundleIDs);
+	SAFE_RELEASE(loadedKextInfo);
+	
     return [returnArray autorelease];
 }
 

@@ -3,17 +3,18 @@
 	<key>OpenSourceProject</key>
 	<string>zsh</string>
 	<key>OpenSourceVersion</key>
-	<string>4.3.4</string>
+	<string>4.3.9</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://zsh.org/</string>
 	<key>OpenSourceURL</key>
-	<string>http://www.zsh.org/pub/zsh-4.3.4.tar.bz2</string>
+	<string>http://www.zsh.org/pub/zsh-4.3.9.tar.bz2</string>
 	<key>OpenSourceSHA1</key>
-	<string>6bd905c4bf61bf3df5e5bb78f64be68366ad7517</string>
+	<string>7c80e1ad6b311ee5877172a1a7e0161a9a60da70</string>
 	<key>OpenSourceImportDate</key>
-	<string>2007-05-14</string>
+	<string>2008-11-14</string>
 	<key>OpenSourceModifications</key>
 	<array>
+		<string>Limit spname processing if too many '/' are input</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>

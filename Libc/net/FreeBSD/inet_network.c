@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -32,17 +28,21 @@
  */
 
 #if defined(LIBC_SCCS) && !defined(lint)
-static char sccsid[] = "@(#)inet_network.c	8.1 (Berkeley) 6/4/93";
+static const char sccsid[] = "@(#)inet_network.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/net/inet_network.c,v 1.9 2002/03/22 21:52:29 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/inet/inet_network.c,v 1.5 2008/01/14 22:55:20 cperciva Exp $");
+
+#include "port_before.h"
 
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <ctype.h>
 
-/*
+#include "port_after.h"
+
+/*%
  * Internet network address interpretation routine.
  * The library routines call this routine to interpret
  * network numbers.
@@ -54,37 +54,46 @@ inet_network(cp)
 	in_addr_t val, base, n;
 	char c;
 	in_addr_t parts[4], *pp = parts;
-	int i;
+	int i, digit;
 
 again:
-	val = 0; base = 10;
+	val = 0; base = 10; digit = 0;
 	if (*cp == '0')
-		base = 8, cp++;
+		digit = 1, base = 8, cp++;
 	if (*cp == 'x' || *cp == 'X')
 		base = 16, cp++;
 	while ((c = *cp) != 0) {
 		if (isdigit((unsigned char)c)) {
+			if (base == 8U && (c == '8' || c == '9'))
+				return (INADDR_NONE);
 			val = (val * base) + (c - '0');
 			cp++;
+			digit = 1;
 			continue;
 		}
-		if (base == 16 && isxdigit((unsigned char)c)) {
-			val = (val << 4) + (c + 10 - (islower((unsigned char)c) ? 'a' : 'A'));
+		if (base == 16U && isxdigit((unsigned char)c)) {
+			val = (val << 4) +
+			      (c + 10 - (islower((unsigned char)c) ? 'a' : 'A'));
 			cp++;
+			digit = 1;
 			continue;
 		}
 		break;
 	}
+	if (!digit)
+		return (INADDR_NONE);
+	if (pp >= parts + 4 || val > 0xffU)
+		return (INADDR_NONE);
 	if (*cp == '.') {
-		if (pp >= parts + 3)
-			return (INADDR_NONE);
 		*pp++ = val, cp++;
 		goto again;
 	}
-	if (*cp && !isspace((unsigned char)*cp))
+	if (*cp && !isspace(*cp&0xff))
 		return (INADDR_NONE);
 	*pp++ = val;
 	n = pp - parts;
+	if (n > 4U)
+		return (INADDR_NONE);
 	for (val = 0, i = 0; i < n; i++) {
 		val <<= 8;
 		val |= parts[i] & 0xff;
@@ -98,3 +107,5 @@ again:
  */
 #undef inet_network
 __weak_reference(__inet_network, inet_network);
+
+/*! \file */

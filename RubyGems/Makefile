@@ -12,19 +12,21 @@ OSL = $(DSTROOT)/usr/local/OpenSourceLicenses
 RUBYUSR = $(DSTROOT)/System/Library/Frameworks/Ruby.framework/Versions/1.8/usr
 
 build::
-	(cd $(SRCROOT)/$(Project) && /usr/bin/ruby setup.rb all --prefix=$(DSTROOT))
-	/usr/bin/ruby -e "File.open(ARGV[0], 'w') { |io| io.write(Marshal.dump({})) }" $(RUBYUSR)/lib/ruby/gems/1.8/source_cache
+	(cd $(SRCROOT)/$(Project) && /usr/bin/ruby setup.rb --prefix=$(DSTROOT)/prefix --no-rdoc --no-ri)
+	ditto $(DSTROOT)/prefix/bin $(RUBYUSR)/bin
+	ditto $(DSTROOT)/prefix/lib $(RUBYUSR)/lib/ruby/1.8
+	rm -rf $(DSTROOT)/prefix
+	#/usr/bin/ruby -e "File.open(ARGV[0], 'w') { |io| io.write(Marshal.dump({})) }" $(RUBYUSR)/lib/ruby/gems/1.8/source_cache
 	$(MKDIR) $(DSTROOT)/usr/bin
-	for i in gem update_rubygems; do \
-		$(LN) -fs ../../System/Library/Frameworks/Ruby.framework/Versions/1.8/usr/bin/$$i $(DSTROOT)/usr/bin; \
-	done
+	$(LN) -fs ../../System/Library/Frameworks/Ruby.framework/Versions/1.8/usr/bin/gem $(DSTROOT)/usr/bin; \
+	$(MKDIR) $(RUBYUSR)/lib/ruby/gems/1.8
+	(cd $(RUBYUSR)/lib/ruby/gems/1.8 && $(MKDIR) cache doc gems specifications)
 	$(MKDIR) $(DSTROOT)/Library/Ruby/Gems/1.8
-	(cd $(DSTROOT)/Library/Ruby/Gems/1.8 && $(MKDIR) cache doc gems specifications && $(CP) $(RUBYUSR)/lib/ruby/gems/1.8/source_cache .)
+	(cd $(DSTROOT)/Library/Ruby/Gems/1.8 && $(MKDIR) cache doc gems specifications)
 	$(MKDIR) $(RUBYUSR)/lib/ruby
 	$(LN) -fsh ../../../../../../../../../../Library/Ruby/Gems $(RUBYUSR)/lib/ruby/user-gems
 	$(MKDIR) $(DSTROOT)/$(MANDIR)/man1
 	$(INSTALL_FILE) $(SRCROOT)/gem.1 $(DSTROOT)$(MANDIR)/man1
-	$(LN) $(DSTROOT)$(MANDIR)/man1/gem.1 $(DSTROOT)$(MANDIR)/man1/update_rubygems.1
 	$(MKDIR) $(OSV)
 	$(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist
 	$(MKDIR) $(OSL)
@@ -32,11 +34,11 @@ build::
 
 # Automatic Extract & Patch
 AEP_Project    = $(Project)
-AEP_Version    = 1.0.1
+AEP_Version    = 1.3.1
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tgz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = setup.rb.diff
+AEP_Patches    = 
 
 # Extract the source.
 install_source::

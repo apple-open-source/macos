@@ -163,7 +163,7 @@ static __attribute__ ((noinline))  int dynid_addownerguid(Operation *op, SlapRep
 		goto cleanup;
 	};
 	
-	target_bd = select_backend( &op->o_req_ndn, 0, 0 );
+	target_bd = select_backend( &op->o_req_ndn, 0);
 	target_ndn = &op_ndn; 
 	
 	if (target_bd) {
@@ -231,7 +231,7 @@ static __attribute__ ((noinline))  int dynid_addownerguidextended(Operation *op,
 		goto cleanup;
 	};
 	
-	target_bd = select_backend( &op->o_req_ndn, 0, 0 );
+	target_bd = select_backend( &op->o_req_ndn, 0);
 	target_ndn = &op->o_ndn; 
 	
 	if (target_bd) {
@@ -374,7 +374,7 @@ dynid_is_member (
 	dynid_ismember_t ismember =  {0};
 	int rc = 0;
 	
-	target_bd = select_backend(&op->o_req_ndn, 0 , 0);
+	target_bd = select_backend(&op->o_req_ndn, 0);
 	
 	if (!target_bd || !target_bd->be_compare)
 		return LDAP_NOT_SUPPORTED;
@@ -429,7 +429,7 @@ static int  __attribute__ ((noinline)) dynid_is_match(Operation *op)
 		if (!BER_BVISNULL(&ddmap->override_dn) && !op->o_conn->c_authz.c_sai_krb5_auth_data_provisioned) {
 			rc = LDAP_COMPARE_FALSE;
 			
-			target_bd = select_backend( &op->o_req_ndn, 0, 0 );
+			target_bd = select_backend( &op->o_req_ndn, 0);
 			target_ndn = &op_ndn;
 			
 			if (target_bd && !BER_BVISNULL(&op_ndn)) {
@@ -626,9 +626,9 @@ di_cfgen( ConfigArgs *c )
 		case DI_RANGE:
 			if ( dd && dd->map && !BER_BVISNULL(&dd->map->target_dn) && dd->map->idAttr) {
 				struct berval bv;
-				bv.bv_len = sprintf( c->msg, "%s %s %d %d",
+				bv.bv_len = sprintf( c->cr_msg, "%s %s %d %d",
 					dd->map->target_dn.bv_val, dd->map->idAttr->ad_cname.bv_val,  dd->map->min, dd->map->max );
-				bv.bv_val = c->msg;
+				bv.bv_val = c->cr_msg;
 				value_add_one( &c->rvalue_vals, &bv );
 				Debug(LDAP_DEBUG_CONFIG, "[SLAP_CONFIG_EMIT] dynid-range dn (%s) AttributeDescription (%s)\n", dd->map->target_dn.bv_val, dd->map->idAttr->ad_cname.bv_val, 0);
 				Debug(LDAP_DEBUG_CONFIG, "[SLAP_CONFIG_EMIT] dynid-range minimum (%d) maximum (%d)\n", dd->map->min, dd->map->max, 0);
@@ -640,9 +640,9 @@ di_cfgen( ConfigArgs *c )
 		case DI_GUID:
 			if ( dd && dd->map && !BER_BVISNULL(&dd->map->target_dn) && dd->map->uuidAttr) {
 				struct berval bv;
-				bv.bv_len = sprintf( c->msg, "%s %s",
+				bv.bv_len = sprintf( c->cr_msg, "%s %s",
 					dd->map->target_dn.bv_val, dd->map->uuidAttr->ad_cname.bv_val);
-				bv.bv_val = c->msg;
+				bv.bv_val = c->cr_msg;
 				value_add_one( &c->rvalue_vals, &bv );
 				Debug(LDAP_DEBUG_CONFIG, "[SLAP_CONFIG_EMIT] dynid-generateuuid dn (%s) AttributeDescription (%s)\n", dd->map->target_dn.bv_val, dd->map->uuidAttr->ad_cname.bv_val, 0);
 			} else {
@@ -653,9 +653,9 @@ di_cfgen( ConfigArgs *c )
 		case DI_OWNERGUID:
 			if ( dd && dd->map && !BER_BVISNULL(&dd->map->target_dn) && dd->map->owneruuidAttr) {
 				struct berval bv;
-				bv.bv_len = sprintf( c->msg, "%s %s",
+				bv.bv_len = sprintf( c->cr_msg, "%s %s",
 					dd->map->target_dn.bv_val, dd->map->owneruuidAttr->ad_cname.bv_val);
-				bv.bv_val = c->msg;
+				bv.bv_val = c->cr_msg;
 				value_add_one( &c->rvalue_vals, &bv );
 				Debug(LDAP_DEBUG_CONFIG, "[SLAP_CONFIG_EMIT] dynid-owneruuid dn (%s) AttributeDescription (%s)\n", dd->map->target_dn.bv_val, dd->map->owneruuidAttr->ad_cname.bv_val, 0);
 			} else {
@@ -666,8 +666,8 @@ di_cfgen( ConfigArgs *c )
 		case DI_OVERRIDE:
 			if ( dd && dd->map && !BER_BVISNULL(&dd->map->target_dn) && !BER_BVISNULL(&dd->map->override_dn)) {
 				struct berval bv;
-				bv.bv_len = sprintf( c->msg, "%s %s", dd->map->target_dn.bv_val, dd->map->override_dn.bv_val);
-				bv.bv_val = c->msg;
+				bv.bv_len = sprintf( c->cr_msg, "%s %s", dd->map->target_dn.bv_val, dd->map->override_dn.bv_val);
+				bv.bv_val = c->cr_msg;
 				value_add_one( &c->rvalue_vals, &bv );
 				Debug(LDAP_DEBUG_CONFIG, "[SLAP_CONFIG_EMIT] dynid-override dn (%s)\n",  dd->map->target_dn.bv_val, dd->map->override_dn.bv_val, 0);
 			} else {
@@ -693,7 +693,7 @@ di_cfgen( ConfigArgs *c )
 			char *next;
 			const char		*text;
 			
-			ber_str2bv( c->argv[ 1 ], 0, 1, &target );
+			ber_str2bv( c->argv[ 1 ], 0, 0, &target );
 			if (BER_BVISNULL(&target)) {
 				Debug(LDAP_DEBUG_CONFIG, "=> dynid-range - target not defined\n", 0, 0, 0);			
 				return ARG_BAD_CONF;
@@ -702,36 +702,36 @@ di_cfgen( ConfigArgs *c )
 
 			rc = slap_str2ad( c->argv[ 2 ], &ad, &text );
 			if ( rc != LDAP_SUCCESS ) {
-				snprintf( c->msg, sizeof( c->msg ),
+				snprintf( c->cr_msg, sizeof( c->cr_msg ),
 					"\"dynid-range [<dn>] [<id attribute>] [minimum] [maximum]\": "
 					"unable to find AttributeDescription \"%s\"",
 					c->argv[ 2 ] );
 				Debug( LDAP_DEBUG_CONFIG, "%s: %s.\n",
-					c->log, c->msg, 0 );
+					c->log, c->cr_msg, 0 );
 				return ARG_BAD_CONF;
 			}
 			Debug(LDAP_DEBUG_CONFIG, "=> dynid-range AttributeDescription (%s)\n", ad->ad_cname.bv_val, 0, 0);
 			
 			minimum = strtol(c->argv[ 3 ], &next, 10);
 			if ( next == NULL || next[0] != '\0' ) {
-				snprintf( c->msg, sizeof( c->msg ),
+				snprintf( c->cr_msg, sizeof( c->cr_msg ),
 					"\"dynid-range [<dn>] [<id attribute>] [minimum] [maximum]\": "
 					"unable to parse minimum id \"%s\"\n",
 					c->argv[ 3 ] );
 				Debug( LDAP_DEBUG_CONFIG, "%s: %s.\n",
-					c->log, c->msg, 0 );
+					c->log, c->cr_msg, 0 );
 				return 1;
 			}
 			Debug(LDAP_DEBUG_CONFIG, "=> dynid-range minimum (%d)\n", minimum, 0, 0);
 	
 			maximum = strtol(c->argv[4], &next, 10);
 			if ( next == NULL || next[0] != '\0' ) {
-				snprintf( c->msg, sizeof( c->msg ),
+				snprintf( c->cr_msg, sizeof( c->cr_msg ),
 					"\"dynid-range [<dn>] [<id attribute>] [minimum] [maximum]\": "
 					"unable to parse maximum id \"%s\"\n",
 					c->argv[ 4 ] );
 				Debug( LDAP_DEBUG_CONFIG, "%s: %s.\n",
-					c->log, c->msg, 0 );
+					c->log, c->cr_msg, 0 );
 				return ARG_BAD_CONF;
 			}
 			Debug(LDAP_DEBUG_CONFIG, "=> dynid-range maximum (%d)\n", maximum, 0, 0);
@@ -739,12 +739,12 @@ di_cfgen( ConfigArgs *c )
 			for ( ddmap = dd->map; ddmap != NULL; ddmap = ddmap->next )
 			{
 				if ( dn_match(&ddmap->target_dn, &target) ) {
-					snprintf( c->msg, sizeof( c->msg ),
+					snprintf( c->cr_msg, sizeof( c->cr_msg ),
 						"\"dynid-range \": "
 							"dn \"%s\" already mapped (reuse).\n",
 						ddmap->target_dn.bv_val );
 					Debug( LDAP_DEBUG_CONFIG, "%s: %s.\n",
-						c->log, c->msg, 0 );
+						c->log, c->cr_msg, 0 );
 						break;
 				}
 			}
@@ -769,7 +769,7 @@ di_cfgen( ConfigArgs *c )
 			AttributeDescription	*uuidAd = NULL;
 			const char		*text;
 	
-			ber_str2bv( c->argv[ 1 ], 0, 1, &target );
+			ber_str2bv( c->argv[ 1 ], 0, 0, &target );
 			if (BER_BVISNULL(&target)) {
 				Debug(LDAP_DEBUG_CONFIG, "=> dynid-generateuuid - target not defined\n", 0, 0, 0);			
 				return ARG_BAD_CONF;
@@ -778,12 +778,12 @@ di_cfgen( ConfigArgs *c )
 	
 			rc = slap_str2ad( c->argv[ 2 ], &uuidAd, &text );
 			if ( rc != LDAP_SUCCESS ) {
-				snprintf( c->msg, sizeof( c->msg ),
+				snprintf( c->cr_msg, sizeof( c->cr_msg ),
 					"\"dynid-generateuuid [<oc>] [<id attribute>]\": "
 					"unable to find AttributeDescription \"%s\"",
 					c->argv[ 2 ] );
 				Debug( LDAP_DEBUG_CONFIG, "%s: %s.\n",
-					c->log, c->msg, 0 );
+					c->log, c->cr_msg, 0 );
 				return ARG_BAD_CONF;
 			}
 			Debug(LDAP_DEBUG_CONFIG, "=> dynid-generateuuid AttributeDescription (%s)\n", uuidAd->ad_cname.bv_val, 0, 0);
@@ -791,12 +791,12 @@ di_cfgen( ConfigArgs *c )
 			for ( ddmap = dd->map; ddmap != NULL; ddmap = ddmap->next )
 			{
 				if ( dn_match(&ddmap->target_dn, &target) ) {
-					snprintf( c->msg, sizeof( c->msg ),
+					snprintf( c->cr_msg, sizeof( c->cr_msg ),
 						"\"dynid-generateuuid \": "
 							"dn \"%s\" already mapped (reuse).\n",
 						ddmap->target_dn.bv_val );
 					Debug( LDAP_DEBUG_CONFIG, "%s: %s.\n",
-						c->log, c->msg, 0 );
+						c->log, c->cr_msg, 0 );
 						break;
 				}
 			}
@@ -819,7 +819,7 @@ di_cfgen( ConfigArgs *c )
 			AttributeDescription	*owneruuidAd = NULL;
 			const char		*text;
 	
-			ber_str2bv( c->argv[ 1 ], 0, 1, &target );
+			ber_str2bv( c->argv[ 1 ], 0, 0, &target );
 			if (BER_BVISNULL(&target)) {
 				Debug(LDAP_DEBUG_CONFIG, "=> dynid-owneruuid - target not defined\n", 0, 0, 0);			
 				return ARG_BAD_CONF;
@@ -828,12 +828,12 @@ di_cfgen( ConfigArgs *c )
 	
 			rc = slap_str2ad( c->argv[ 2 ], &owneruuidAd, &text );
 			if ( rc != LDAP_SUCCESS ) {
-				snprintf( c->msg, sizeof( c->msg ),
+				snprintf( c->cr_msg, sizeof( c->cr_msg ),
 					"\"dynid-owneruuid [<oc>] [<id attribute>]\": "
 					"unable to find AttributeDescription \"%s\"",
 					c->argv[ 2 ] );
 				Debug( LDAP_DEBUG_CONFIG, "%s: %s.\n",
-					c->log, c->msg, 0 );
+					c->log, c->cr_msg, 0 );
 				return ARG_BAD_CONF;
 			}
 			Debug(LDAP_DEBUG_CONFIG, "=> dynid-owneruuid AttributeDescription (%s)\n", owneruuidAd->ad_cname.bv_val, 0, 0);
@@ -841,12 +841,12 @@ di_cfgen( ConfigArgs *c )
 			for ( ddmap = dd->map; ddmap != NULL; ddmap = ddmap->next )
 			{
 				if ( dn_match(&ddmap->target_dn, &target) ) {
-					snprintf( c->msg, sizeof( c->msg ),
+					snprintf( c->cr_msg, sizeof( c->cr_msg ),
 						"\"dynid-owneruuid \": "
 							"dn \"%s\" already mapped (reuse).\n",
 						ddmap->target_dn.bv_val );
 					Debug( LDAP_DEBUG_CONFIG, "%s: %s.\n",
-						c->log, c->msg, 0 );
+						c->log, c->cr_msg, 0 );
 						break;
 				}
 			}
@@ -870,14 +870,14 @@ di_cfgen( ConfigArgs *c )
 			AttributeDescription	*owneruuidAd = NULL;
 			const char		*text;
 
-			ber_str2bv( c->argv[ 1 ], 0, 1, &target );
+			ber_str2bv( c->argv[ 1 ], 0, 0, &target );
 			if (BER_BVISNULL(&target)) {
 				Debug(LDAP_DEBUG_CONFIG, "=> dynid-override - target not defined\n", 0, 0, 0);			
 				return ARG_BAD_CONF;
 			}
 			Debug(LDAP_DEBUG_CONFIG, "=> dynid-override target dn(%s) [%s]\n", c->argv[ 1 ], target.bv_val, 0);			
 
-			ber_str2bv( c->argv[ 2 ], 0, 1, &override );
+			ber_str2bv( c->argv[ 2 ], 0, 0, &override );
 			if (BER_BVISNULL(&override)) {
 				Debug(LDAP_DEBUG_CONFIG, "=> dynid-override - override not defined\n", 0, 0, 0);			
 				return ARG_BAD_CONF;
@@ -887,12 +887,12 @@ di_cfgen( ConfigArgs *c )
 			for ( ddmap = dd->map; ddmap != NULL; ddmap = ddmap->next )
 			{
 				if ( dn_match(&ddmap->target_dn, &target) ) {
-					snprintf( c->msg, sizeof( c->msg ),
+					snprintf( c->cr_msg, sizeof( c->cr_msg ),
 						"\"dynid-override \": "
 							"dn \"%s\" already mapped (reuse).\n",
 						ddmap->target_dn.bv_val );
 					Debug( LDAP_DEBUG_CONFIG, "%s: %s.\n",
-						c->log, c->msg, 0 );
+						c->log, c->cr_msg, 0 );
 						break;
 				}
 			}

@@ -223,6 +223,8 @@ size_t srvstr_get_path_wcard(char *inbuf, char *dest, const char *src, size_t de
 	SMB_ASSERT(dest_len == sizeof(pstring));
 #endif
 
+	flags |= STR_FILESYSTEM;
+
 	if (src_len == 0) {
 		ret = srvstr_pull_buf( inbuf, tmppath_ptr, src, dest_len, flags);
 	} else {
@@ -262,6 +264,8 @@ size_t srvstr_get_path(char *inbuf, char *dest, const char *src, size_t dest_len
 #ifdef DEVELOPER
 	SMB_ASSERT(dest_len == sizeof(pstring));
 #endif
+
+	flags |= STR_FILESYSTEM;
 
 	if (src_len == 0) {
 		ret = srvstr_pull_buf( inbuf, tmppath_ptr, src, dest_len, flags);
@@ -528,7 +532,7 @@ int reply_tcon_and_X(connection_struct *conn, char *inbuf,char *outbuf,int lengt
 	if (Protocol < PROTOCOL_NT1) {
 		set_message(outbuf,2,0,True);
 		p = smb_buf(outbuf);
-		p += srvstr_push(outbuf, p, server_devicetype, -1, 
+		p += srvstr_push(outbuf, p, server_devicetype, BUFFER_SIZE - (p - outbuf),
 				 STR_TERMINATE|STR_ASCII);
 		set_message_end(outbuf,p);
 	} else {
@@ -558,9 +562,9 @@ int reply_tcon_and_X(connection_struct *conn, char *inbuf,char *outbuf,int lengt
 		}
 
 		p = smb_buf(outbuf);
-		p += srvstr_push(outbuf, p, server_devicetype, -1, 
+		p += srvstr_push(outbuf, p, server_devicetype, BUFFER_SIZE - (p - outbuf),
 				 STR_TERMINATE|STR_ASCII);
-		p += srvstr_push(outbuf, p, fstype, -1, 
+		p += srvstr_push(outbuf, p, fstype, BUFFER_SIZE - (p - outbuf),
 				 STR_TERMINATE);
 		
 		set_message_end(outbuf,p);
@@ -1330,7 +1334,7 @@ int reply_open(connection_struct *conn, char *inbuf,char *outbuf, int dum_size, 
 			/* We have re-scheduled this call. */
 			return -1;
 		}
-		return ERROR_NT(status);
+		return ERROR_OPEN(status);
 	}
 
 	size = sbuf.st_size;
@@ -1469,7 +1473,7 @@ int reply_open_and_X(connection_struct *conn, char *inbuf,char *outbuf,int lengt
 			/* We have re-scheduled this call. */
 			return -1;
 		}
-		return ERROR_NT(status);
+		return ERROR_OPEN(status);
 	}
 
 	/* Setting the "size" field in vwv9 and vwv10 causes the file to be set to this size,
@@ -1658,7 +1662,7 @@ int reply_mknew(connection_struct *conn, char *inbuf,char *outbuf, int dum_size,
 			/* We have re-scheduled this call. */
 			return -1;
 		}
-		return ERROR_NT(status);
+		return ERROR_OPEN(status);
 	}
  
 	ts[0] = get_atimespec(&sbuf); /* atime. */
@@ -1760,7 +1764,7 @@ int reply_ctemp(connection_struct *conn, char *inbuf,char *outbuf, int dum_size,
 			/* We have re-scheduled this call. */
 			return -1;
 		}
-		return ERROR_NT(status);
+		return ERROR_OPEN(status);
 	}
 
 	outsize = set_message(outbuf,1,0,True);
@@ -1780,7 +1784,8 @@ int reply_ctemp(connection_struct *conn, char *inbuf,char *outbuf, int dum_size,
 	   thing in the byte section. JRA */
 	SSVALS(p, 0, -1); /* what is this? not in spec */
 #endif
-	namelen = srvstr_push(outbuf, p, s, -1, STR_ASCII|STR_TERMINATE);
+	namelen = srvstr_push(outbuf, p, s, BUFFER_SIZE - (p - outbuf),
+		STR_ASCII|STR_TERMINATE|STR_FILESYSTEM);
 	p += namelen;
 	outsize = set_message_end(outbuf, p);
 
@@ -2140,6 +2145,7 @@ int reply_unlink(connection_struct *conn, char *inbuf,char *outbuf, int dum_size
 	status = unlink_internals(conn, dirtype, name, path_contains_wcard,
 				  True);
 	if (!NT_STATUS_IS_OK(status)) {
+		END_PROFILE(SMBunlink);
 		if (open_was_deferred(SVAL(inbuf,smb_mid))) {
 			/* We have re-scheduled this call. */
 			return -1;
@@ -5219,11 +5225,13 @@ int reply_copy(connection_struct *conn, char *inbuf,char *outbuf, int dum_size, 
 
 			status = check_name(conn, fname);
 			if (!NT_STATUS_IS_OK(status)) {
+				CloseDir(dir_hnd);
 				return ERROR_NT(status);
 			}
 		
 			status = check_name(conn, destname);
 			if (!NT_STATUS_IS_OK(status)) {
+				CloseDir(dir_hnd);
 				return ERROR_NT(status);
 			}
 		

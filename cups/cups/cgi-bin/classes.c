@@ -1,9 +1,9 @@
 /*
- * "$Id: classes.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: classes.c 7940 2008-09-16 00:45:16Z mike $"
  *
  *   Class status CGI for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -15,6 +15,7 @@
  * Contents:
  *
  *   main()             - Main entry for CGI.
+ *   do_class_op()      - Do a class operation.
  *   show_all_classes() - Show all classes...
  *   show_class()       - Show a single class.
  */
@@ -30,8 +31,10 @@
  * Local functions...
  */
 
-void	show_all_classes(http_t *http, const char *username);
-void	show_class(http_t *http, const char *printer);
+static void	do_class_op(http_t *http, const char *printer, ipp_op_t op,
+		            const char *title);
+static void	show_all_classes(http_t *http, const char *username);
+static void	show_class(http_t *http, const char *printer);
 
 
 /*
@@ -80,6 +83,9 @@ main(int  argc,				/* I - Number of command-line arguments */
 
     if (!*pclass)
       pclass = NULL;
+
+    if (pclass)
+      cgiSetVariable("PRINTER_NAME", pclass);
   }
 
  /*
@@ -98,7 +104,7 @@ main(int  argc,				/* I - Number of command-line arguments */
   * Get the default printer...
   */
 
-  if (!op)
+  if (!op || !cgiIsPOST())
   {
    /*
     * Get the default destination...
@@ -138,21 +144,40 @@ main(int  argc,				/* I - Number of command-line arguments */
     else
       show_class(http, pclass);
   }
-  else if (!strcasecmp(op, "print-test-page") && pclass)
-    cgiPrintTestPage(http, pclass);
-  else if (!strcasecmp(op, "move-jobs") && pclass)
-    cgiMoveJobs(http, pclass, 0);
+  else if (pclass)
+  {
+    if (!strcmp(op, "start-class"))
+      do_class_op(http, pclass, IPP_RESUME_PRINTER, cgiText(_("Resume Class")));
+    else if (!strcmp(op, "stop-class"))
+      do_class_op(http, pclass, IPP_PAUSE_PRINTER, cgiText(_("Pause Class")));
+    else if (!strcmp(op, "accept-jobs"))
+      do_class_op(http, pclass, CUPS_ACCEPT_JOBS, cgiText(_("Accept Jobs")));
+    else if (!strcmp(op, "reject-jobs"))
+      do_class_op(http, pclass, CUPS_REJECT_JOBS, cgiText(_("Reject Jobs")));
+    else if (!strcmp(op, "purge-jobs"))
+      do_class_op(http, pclass, IPP_PURGE_JOBS, cgiText(_("Purge Jobs")));
+    else if (!strcasecmp(op, "print-test-page"))
+      cgiPrintTestPage(http, pclass);
+    else if (!strcasecmp(op, "move-jobs"))
+      cgiMoveJobs(http, pclass, 0);
+    else
+    {
+     /*
+      * Unknown/bad operation...
+      */
+
+      cgiStartHTML(pclass);
+      cgiCopyTemplateLang("error-op.tmpl");
+      cgiEndHTML();
+    }
+  }
   else
   {
    /*
     * Unknown/bad operation...
     */
 
-    if (pclass)
-      cgiStartHTML(pclass);
-    else
-      cgiStartHTML(cgiText(_("Classes")));
-
+    cgiStartHTML(cgiText(_("Classes")));
     cgiCopyTemplateLang("error-op.tmpl");
     cgiEndHTML();
   }
@@ -172,10 +197,93 @@ main(int  argc,				/* I - Number of command-line arguments */
 
 
 /*
+ * 'do_class_op()' - Do a class operation.
+ */
+
+static void
+do_class_op(http_t      *http,		/* I - HTTP connection */
+            const char	*printer,	/* I - Printer name */
+	    ipp_op_t    op,		/* I - Operation to perform */
+	    const char  *title)		/* I - Title of page */
+{
+  ipp_t		*request;		/* IPP request */
+  char		uri[HTTP_MAX_URI],	/* Printer URI */
+		resource[HTTP_MAX_URI];	/* Path for request */
+
+
+ /*
+  * Build a printer request, which requires the following
+  * attributes:
+  *
+  *    attributes-charset
+  *    attributes-natural-language
+  *    printer-uri
+  */
+
+  request = ippNewRequest(op);
+
+  httpAssembleURIf(HTTP_URI_CODING_ALL, uri, sizeof(uri), "ipp", NULL,
+                   "localhost", 0, "/classes/%s", printer);
+  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri",
+               NULL, uri);
+
+ /*
+  * Do the request and get back a response...
+  */
+
+  snprintf(resource, sizeof(resource), "/classes/%s", printer);
+  ippDelete(cupsDoRequest(http, request, resource));
+
+  if (cupsLastError() == IPP_NOT_AUTHORIZED)
+  {
+    puts("Status: 401\n");
+    exit(0);
+  }
+  else if (cupsLastError() > IPP_OK_CONFLICT)
+  {
+    cgiStartHTML(title);
+    cgiShowIPPError(_("Unable to do maintenance command:"));
+  }
+  else
+  {
+   /*
+    * Redirect successful updates back to the printer page...
+    */
+
+    char	url[1024],		/* Printer/class URL */
+		refresh[1024];		/* Refresh URL */
+
+
+    cgiRewriteURL(uri, url, sizeof(url), NULL);
+    cgiFormEncode(uri, url, sizeof(uri));
+    snprintf(refresh, sizeof(refresh), "5;URL=%s", uri);
+    cgiSetVariable("refresh_page", refresh);
+
+    cgiStartHTML(title);
+
+    cgiSetVariable("IS_CLASS", "YES");
+
+    if (op == IPP_PAUSE_PRINTER)
+      cgiCopyTemplateLang("printer-stop.tmpl");
+    else if (op == IPP_RESUME_PRINTER)
+      cgiCopyTemplateLang("printer-start.tmpl");
+    else if (op == CUPS_ACCEPT_JOBS)
+      cgiCopyTemplateLang("printer-accept.tmpl");
+    else if (op == CUPS_REJECT_JOBS)
+      cgiCopyTemplateLang("printer-reject.tmpl");
+    else if (op == IPP_PURGE_JOBS)
+      cgiCopyTemplateLang("printer-purge.tmpl");
+  }
+
+  cgiEndHTML();
+}
+
+
+/*
  * 'show_all_classes()' - Show all classes...
  */
 
-void
+static void
 show_all_classes(http_t     *http,	/* I - Connection to server */
                  const char *user)	/* I - Username */
 {
@@ -189,9 +297,7 @@ show_all_classes(http_t     *http,	/* I - Connection to server */
 			count;		/* Number of classes */
   const char		*var;		/* Form variable */
   void			*search;	/* Search data */
-  char			url[1024],	/* URL for prev/next/this */
-			*urlptr,	/* Position in URL */
-			*urlend;	/* End of URL */
+  char			val[1024];	/* Form variable */
 
 
  /*
@@ -227,7 +333,8 @@ show_all_classes(http_t     *http,	/* I - Connection to server */
     * Get a list of matching job objects.
     */
 
-    if ((var = cgiGetVariable("QUERY")) != NULL)
+    if ((var = cgiGetVariable("QUERY")) != NULL &&
+        !cgiGetVariable("CLEAR"))
       search = cgiCompileSearch(var);
     else
       search = NULL;
@@ -255,8 +362,8 @@ show_all_classes(http_t     *http,	/* I - Connection to server */
     if (first < 0)
       first = 0;
 
-    sprintf(url, "%d", count);
-    cgiSetVariable("TOTAL", url);
+    sprintf(val, "%d", count);
+    cgiSetVariable("TOTAL", val);
 
     if ((var = cgiGetVariable("ORDER")) != NULL)
       ascending = !strcasecmp(var, "asc");
@@ -282,40 +389,18 @@ show_all_classes(http_t     *http,	/* I - Connection to server */
     * Save navigation URLs...
     */
 
-    urlend = url + sizeof(url);
-
-    if ((var = cgiGetVariable("QUERY")) != NULL)
-    {
-      strlcpy(url, "/classes/?QUERY=", sizeof(url));
-      urlptr = url + strlen(url);
-
-      cgiFormEncode(urlptr, var, urlend - urlptr);
-      urlptr += strlen(urlptr);
-
-      strlcpy(urlptr, "&", urlend - urlptr);
-      urlptr += strlen(urlptr);
-    }
-    else
-    {
-      strlcpy(url, "/classes/?", sizeof(url));
-      urlptr = url + strlen(url);
-    }
-
-    snprintf(urlptr, urlend - urlptr, "FIRST=%d", first);
-    cgiSetVariable("THISURL", url);
+    cgiSetVariable("THISURL", "/classes/");
 
     if (first > 0)
     {
-      snprintf(urlptr, urlend - urlptr, "FIRST=%d&ORDER=%s",
-	       first - CUPS_PAGE_MAX, ascending ? "asc" : "dec");
-      cgiSetVariable("PREVURL", url);
+      sprintf(val, "%d", first - CUPS_PAGE_MAX);
+      cgiSetVariable("PREV", val);
     }
 
     if ((first + CUPS_PAGE_MAX) < count)
     {
-      snprintf(urlptr, urlend - urlptr, "FIRST=%d&ORDER=%s",
-	       first + CUPS_PAGE_MAX, ascending ? "asc" : "dec");
-      cgiSetVariable("NEXTURL", url);
+      sprintf(val, "%d", first + CUPS_PAGE_MAX);
+      cgiSetVariable("NEXT", val);
     }
 
    /*
@@ -326,12 +411,12 @@ show_all_classes(http_t     *http,	/* I - Connection to server */
 
     cgiCopyTemplateLang("classes-header.tmpl");
 
-    if (count > 0)
+    if (count > CUPS_PAGE_MAX)
       cgiCopyTemplateLang("pager.tmpl");
 
     cgiCopyTemplateLang("classes.tmpl");
 
-    if (count > 0)
+    if (count > CUPS_PAGE_MAX)
       cgiCopyTemplateLang("pager.tmpl");
 
    /*
@@ -358,7 +443,7 @@ show_all_classes(http_t     *http,	/* I - Connection to server */
  * 'show_class()' - Show a single class.
  */
 
-void
+static void
 show_class(http_t     *http,		/* I - Connection to server */
            const char *pclass)		/* I - Name of class */
 {
@@ -385,7 +470,7 @@ show_class(http_t     *http,		/* I - Connection to server */
   ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri", NULL,
                uri);
 
-  cgiGetAttributes(request, "classes.tmpl");
+  cgiGetAttributes(request, "class.tmpl");
 
  /*
   * Do the request and get back a response...
@@ -430,7 +515,7 @@ show_class(http_t     *http,		/* I - Connection to server */
     * Show the class status...
     */
 
-    cgiCopyTemplateLang("classes.tmpl");
+    cgiCopyTemplateLang("class.tmpl");
 
    /*
     * Show jobs for the specified class...
@@ -454,5 +539,5 @@ show_class(http_t     *http,		/* I - Connection to server */
 
 
 /*
- * End of "$Id: classes.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: classes.c 7940 2008-09-16 00:45:16Z mike $".
  */

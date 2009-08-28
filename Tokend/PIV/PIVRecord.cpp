@@ -89,9 +89,9 @@ Tokend::Attribute *PIVDataRecord::getDataAttribute(Tokend::TokenContext *tokenCo
 	PIVToken &pivToken = dynamic_cast<PIVToken &>(*tokenContext);
 	if(mAllowCaching && lastAttribute.get())
 		return lastAttribute.get();
-	
+
 	byte_string data;
-	
+
 	pivToken.getDataCore(mApplication, description(), mIsCertificate, mAllowCaching, data);
 	/* Tokend::Attribute creates a copy of data */
 	lastAttribute.reset(new Tokend::Attribute(&data[0], data.size()));
@@ -103,9 +103,9 @@ Tokend::Attribute *PIVDataRecord::getDataAttribute(Tokend::TokenContext *tokenCo
 //
 PIVKeyRecord::PIVKeyRecord(const unsigned char *application, size_t applicationSize,
 	const char *description, const Tokend::MetaRecord &metaRecord,
-	unsigned char keyRef) :
+	unsigned char keyRef, size_t keySize) :
     PIVRecord(application, applicationSize, description),
-	keyRef(keyRef)
+	keyRef(keyRef), keySize(keySize)
 {
 	/* Allow all keys to decrypt, unwrap, sign */
     attributeAtIndex(metaRecord.metaAttribute(kSecKeyDecrypt).attributeIndex(),
@@ -118,6 +118,10 @@ PIVKeyRecord::PIVKeyRecord(const unsigned char *application, size_t applicationS
 
 PIVKeyRecord::~PIVKeyRecord()
 {
+}
+
+size_t PIVKeyRecord::sizeInBits() const {
+	return keySize;
 }
 
 /*
@@ -136,10 +140,10 @@ void PIVKeyRecord::computeCrypt(PIVToken &pivToken, bool sign,	// MODIFY
 	unsigned char algRef;
 	switch (sizeInBits()) {
 	case 1024:
-		algRef = 0x06;
+		algRef = PIV_KEYALG_RSA_1024;
 		break;
 	case 2048:
-		algRef = 0x07;
+		algRef = PIV_KEYALG_RSA_2048;
 		break;
 	default:
 		/* Cannot use a key ~= 1024 or 2048 bits yet */
@@ -249,19 +253,24 @@ void PIVKeyRecord::getAcl(const char *tag, uint32 &count, AclEntryInfo *&acls)
 		mAclEntries.add(CssmClient::AclFactory::AnySubject(
 			mAclEntries.allocator()),
 			AclAuthorizationSet(CSSM_ACL_AUTHORIZATION_DB_READ, 0));
-
+		
 		CssmData prompt;
-
-		if(isUserConsent()) {
-			mAclEntries.add(CssmClient::AclFactory::PromptPWSubject(
-				mAclEntries.allocator(), prompt),
-				AclAuthorizationSet(CSSM_ACL_AUTHORIZATION_SIGN, CSSM_ACL_AUTHORIZATION_DECRYPT, 0));
+		char tmptag[20];
+		const uint32 slot = 1;	// hardwired for now, but...
+		snprintf(tmptag, sizeof(tmptag), "PIN%d", slot);
+		
+		if(isUserConsent()) {	// PIN1 must be entered every time
+			mAclEntries.add(
+				CssmClient::AclFactory::PromptPWSubject(mAclEntries.allocator(), prompt),
+				AclAuthorizationSet(CSSM_ACL_AUTHORIZATION_SIGN, CSSM_ACL_AUTHORIZATION_DECRYPT, 0),
+				tmptag);
 		} else {
 		// Using this key to sign or decrypt will require PIN1
-		mAclEntries.add(CssmClient::AclFactory::PinSubject(
-			mAclEntries.allocator(), 1),
-				AclAuthorizationSet(CSSM_ACL_AUTHORIZATION_SIGN, CSSM_ACL_AUTHORIZATION_DECRYPT, 0));
-	}
+			mAclEntries.add(CssmClient::AclFactory::PinSubject(
+				mAclEntries.allocator(), 1),
+				AclAuthorizationSet(CSSM_ACL_AUTHORIZATION_SIGN, CSSM_ACL_AUTHORIZATION_DECRYPT, 0),
+				tmptag);
+		}
 	}
 	count = mAclEntries.size();
 	acls = mAclEntries.entries();

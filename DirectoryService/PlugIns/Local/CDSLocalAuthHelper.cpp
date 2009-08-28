@@ -51,11 +51,13 @@
 #include <PasswordServer/CPolicyGlobalXML.h>
 #include <PasswordServer/CPolicyXML.h>
 #include <PasswordServer/KerberosInterface.h>
+#include <DirectoryServiceCore/CContinue.h>
 #include <syslog.h>
 #include <sys/time.h>
 #include <openssl/md5.h>
 #include <openssl/evp.h>
 #include <mach/mach_time.h>	// for dsTimeStamp
+#include <uuid/uuid.h>
 
 #include "chap.h"
 #include "chap_ms.h"
@@ -64,6 +66,7 @@
 #include "CDSLocalPluginNode.h"
 #include "CRefTable.h"
 #include <DirectoryServiceCore/pps.h>
+#include <Mbrd_MembershipResolver.h>
 
 #include <string>		//STL string class
 
@@ -75,7 +78,7 @@ extern void CvtHex(HASH Bin, HASHHEX Hex);
 };
 
 typedef struct AuthAuthorityHandler {
-	char* fTag;
+	const char* fTag;
 	AuthAuthorityHandlerProc fHandler;
 } AuthAuthorityHandler;
 
@@ -99,8 +102,10 @@ static AuthAuthorityHandler sAuthAuthorityHandlerProcs[] =
 
 extern DSMutexSemaphore *gHashAuthFailedLocalMapLock;
 extern dsBool gServerOS;
-extern UInt32					gDaemonPID;
-extern UInt32					gDaemonIPAddress;
+extern pid_t					gDaemonPID;
+extern in_addr_t				gDaemonIPAddress;
+extern CContinue				*gLocalContinueTable;
+extern CRefTable				gRefTable;
 
 HashAuthFailedMap gHashAuthFailedLocalMap;
 static char sZeros[kHashRecoverableLength] = {0};
@@ -113,7 +118,7 @@ static char sZeros[kHashRecoverableLength] = {0};
 //    additional data after. Buffer length must be at least 5 (length + 1 character name)
 // ---------------------------------------------------------------------------
 
-tDirStatus CDSLocalAuthHelper::CopyUserNameFromAuthBuffer( tDataBufferPtr inAuthData, unsigned long inUserNameIndex,
+tDirStatus CDSLocalAuthHelper::CopyUserNameFromAuthBuffer( tDataBufferPtr inAuthData, UInt32 inUserNameIndex,
 	 CFStringRef *outUserName )
 {
 	tDataListPtr dataList = ::dsAuthBufferGetDataListAllocPriv(inAuthData);
@@ -211,7 +216,7 @@ tDirStatus
 CDSLocalAuthHelper::DoKerberosAuth(
 	tDirNodeReference inNodeRef,
 	CDSLocalAuthParams &inParams,
-	CFMutableDictionaryRef* inOutContinueDataDict,
+	tContextData *inOutContinueData,
 	tDataBufferPtr inAuthData,
 	tDataBufferPtr outAuthData,
 	bool inAuthOnly,
@@ -349,37 +354,35 @@ CDSLocalAuthHelper::DoKerberosAuth(
 		
 		case kAuthSetPasswdAsRoot:
 			{
-				bool modifyingSelf = false;
-				if ( ( inAuthedUserName == NULL ) || ( inParams.pUserName == NULL ) )
-					modifyingSelf = true;
-				else
-				{
+				siResult = eDSAuthFailed;
+				if ( inAuthedUserName != NULL ) {
 					CFStringRef userNameCFStr = CFStringCreateWithCString( NULL, inParams.pUserName,
 						kCFStringEncodingUTF8 );
 					if ( CFStringCompare( userNameCFStr, inAuthedUserName, 0 ) == kCFCompareEqualTo )
-						modifyingSelf = true;
-					CFRelease( userNameCFStr );
+						siResult = eDSNoErr;
+					DSCFRelease( userNameCFStr );
 				}
-				bool notAdmin = ( ( inAuthedUserName != NULL ) && !inAuthedUserIsAdmin );
 				
-				// allow root to change anyone's password and
-				// others to change their own password
-				if ( inEffectiveUID != 0 )
-				{
-					if ( ( inAuthedUserName == NULL) ||
-						(notAdmin && (!modifyingSelf)) )
-					{
+				if ( siResult != eDSNoErr ) {
+					bool accessAllowed = inNode->AccessAllowed( inAuthedUserName, inEffectiveUID, inNativeRecType, 
+															    inPlugin->AttrNativeTypeForStandardType(CFSTR(kDS1AttrPassword)), 
+															    eDSAccessModeWriteAttr );
+					if ( accessAllowed == true ) {
+						siResult = eDSNoErr;
+					}
+					else {
 						siResult = eDSPermissionError;
 					}
 				}
 				
-				// siResult == eDSAuthFailed if not just set above
-				if ( siResult != eDSPermissionError )
+				if ( siResult == eDSNoErr )
 				{
 					CDSLocalAuthHelper::GetShadowHashGlobalPolicies( inPlugin, inNode, &inParams.globalAccess,
 						&inParams.globalMoreAccess );
-					siResult = eDSNoErr;
-					if ( modifyingSelf && notAdmin )
+					
+					// admins are allowed to set passwords not governed by policy
+					// TODO: why is admin allowed to bypass password policies when setting a password
+					if ( inAuthedUserIsAdmin == false )
 					{
 						siResult = CDSLocalAuthHelper::PasswordOkForPolicies( inParams.policyStr, &inParams.globalAccess,
 							inParams.pUserName, inParams.pNewPassword );
@@ -496,7 +499,7 @@ tDirStatus
 CDSLocalAuthHelper::DoKerberosCertAuth(
 	tDirNodeReference inNodeRef,
 	CDSLocalAuthParams &inParams,
-	CFMutableDictionaryRef* inOutContinueDataDict,
+    tContextData *inOutContinueData,
 	tDataBufferPtr inAuthData,
 	tDataBufferPtr outAuthData,
 	bool inAuthOnly,
@@ -616,7 +619,7 @@ CDSLocalAuthHelper::DoKerberosCertAuth(
 tDirStatus CDSLocalAuthHelper::DoShadowHashAuth(
 	tDirNodeReference inNodeRef,
 	CDSLocalAuthParams &inParams,
-	CFMutableDictionaryRef* inOutContinueDataDict,
+	tContextData *inOutContinueData,
 	tDataBufferPtr inAuthData,
 	tDataBufferPtr outAuthData,
 	bool inAuthOnly,
@@ -634,7 +637,7 @@ tDirStatus CDSLocalAuthHelper::DoShadowHashAuth(
 	CFStringRef inNativeRecType )
 {
 	// add a true on the end; by default, it's ok to change the auth authorities.
-	return DoShadowHashAuth( inNodeRef, inParams, inOutContinueDataDict, inAuthData, outAuthData, inAuthOnly, isSecondary,
+	return DoShadowHashAuth( inNodeRef, inParams, inOutContinueData, inAuthData, outAuthData, inAuthOnly, isSecondary,
 							 inAuthAuthorityList, inGUIDString, inAuthedUserIsAdmin, inMutableRecordDict, inHashList,
 							 inPlugin, inNode, inAuthedUserName, inUID, inEffectiveUID, inNativeRecType, true );
 }
@@ -643,7 +646,7 @@ tDirStatus CDSLocalAuthHelper::DoShadowHashAuth(
 tDirStatus CDSLocalAuthHelper::DoShadowHashAuth(
 	tDirNodeReference inNodeRef,
 	CDSLocalAuthParams &inParams,
-	CFMutableDictionaryRef *inOutContinueDataDict,
+	tContextData *inOutContinueData,
 	tDataBufferPtr inAuthData,
 	tDataBufferPtr outAuthData,
 	bool inAuthOnly,
@@ -748,11 +751,8 @@ tDirStatus CDSLocalAuthHelper::DoShadowHashAuth(
 	if ( (siResult != eDSNoErr) && !(isSecondary && (inParams.uiAuthMethod == kAuthChangePasswd)) )
 		return( siResult );
 	
-	if ( inParams.pUserName != NULL )
-	{
-		CFStringRef userNameCFStr = CFStringCreateWithCString( kCFAllocatorDefault, inParams.pUserName, kCFStringEncodingUTF8 );
-		bufferUserIsAdmin = inPlugin->UserIsAdmin( userNameCFStr, inNode );
-		CFRelease( userNameCFStr );
+	if ( inParams.pUserName != NULL ) {
+		bufferUserIsAdmin = dsIsUserMemberOfGroup( inParams.pUserName, "admin" );
 	}
 	
 	// complete the operation
@@ -804,6 +804,7 @@ tDirStatus CDSLocalAuthHelper::DoShadowHashAuth(
 				CDSLocalAuthHelper::WriteHashStateFile( inParams.targetUserStateFilePath, &inParams.targetUserState );
 			break;
 		
+		case kAuthGetEffectivePolicy:
 		case kAuthGetPolicy:
 			// get policy attribute
 			siResult = GetUserPolicies( inMutableRecordDict, &inParams.state, inPlugin, &inParams.policyStr );
@@ -820,7 +821,7 @@ tDirStatus CDSLocalAuthHelper::DoShadowHashAuth(
 			{
 				char *mutualDigest = NULL;
 				unsigned int mutualDigestLen;
-				unsigned long passwordLength;
+				UInt32 passwordLength;
 				
 				siResult = CDSLocalAuthHelper::UnobfuscateRecoverablePassword( inParams.hashes + kHashOffsetToRecoverable,
 					(unsigned char **)&inParams.pOldPassword, &passwordLength );
@@ -846,7 +847,7 @@ tDirStatus CDSLocalAuthHelper::DoShadowHashAuth(
 		
 		case kAuthAPOP:
 			{
-				unsigned long passwordLength;
+				UInt32 passwordLength;
 
 				siResult = CDSLocalAuthHelper::UnobfuscateRecoverablePassword( inParams.hashes + kHashOffsetToRecoverable,
 					(unsigned char **)&inParams.pOldPassword, &passwordLength );
@@ -897,23 +898,44 @@ tDirStatus CDSLocalAuthHelper::DoShadowHashAuth(
 			break;
 		
 		case kAuthPPS:
-			if ( *inOutContinueDataDict == NULL )
+			if ( *inOutContinueData == 0 )
 			{
 				// first pass
+				CFMutableDictionaryRef	continueData = CFDictionaryCreateMutable( NULL, 0,
+																				  &kCFTypeDictionaryKeyCallBacks,
+																				  &kCFTypeDictionaryValueCallBacks );
+				if ( continueData == NULL )
+					throw( eMemoryError );
+				
 				ppsServerContext = (ServerAuthDataBlockPtr)calloc( 1, sizeof(ServerAuthDataBlock) );
 				server_step_0_set_hash( inParams.hashes + kHashOffsetToSaltedSHA1, ppsServerContext );
+
+				CFDataRef ppsContext = CFDataCreate( NULL, (UInt8 *)&ppsServerContext, sizeof(ServerAuthDataBlockPtr) );
+				CFDictionarySetValue( continueData, CFSTR("ppsContext"), ppsContext );
+				CFRelease( ppsContext );
+				
+				inPlugin->AddContinueData( inNodeRef, continueData, inOutContinueData );
 			}
 			else
 			{
-				CFDataRef ppsContext = (CFDataRef)CFDictionaryGetValue( *inOutContinueDataDict, CFSTR("ppsContext") );
-				if ( ppsContext != NULL )
+				CFMutableDictionaryRef cfContinueDict = (CFMutableDictionaryRef) gLocalContinueTable->GetPointer( *inOutContinueData );
+				if ( cfContinueDict != NULL && CFGetTypeID(cfContinueDict) == CFDictionaryGetTypeID() )
 				{
-					ServerAuthDataBlockPtr *ctxPtr = (ServerAuthDataBlockPtr *)CFDataGetBytePtr( ppsContext );
-					if ( ctxPtr != NULL )
-						ppsServerContext = *ctxPtr;
+					CFDataRef ppsContext = (CFDataRef)CFDictionaryGetValue( cfContinueDict, CFSTR("ppsContext") );
+					if ( ppsContext != NULL )
+					{
+						ServerAuthDataBlockPtr *ctxPtr = (ServerAuthDataBlockPtr *)CFDataGetBytePtr( ppsContext );
+						if ( ctxPtr != NULL )
+							ppsServerContext = *ctxPtr;
+					}
+					
+					if ( ppsServerContext == NULL )
+						siResult = eDSAuthContinueDataBad;
 				}
-				if ( ppsServerContext == NULL )
+				else
+				{
 					siResult = eDSAuthContinueDataBad;
+				}
 			}
 			
 			if ( siResult == eDSNoErr )
@@ -928,27 +950,11 @@ tDirStatus CDSLocalAuthHelper::DoShadowHashAuth(
 			if ( siResult == eDSNoErr )
 				siResult = dsFillAuthBuffer( outAuthData, 1, serveroutlen, serverout );
 			
-			if ( siResult == eDSNoErr && *inOutContinueDataDict == NULL )
-			{
-				// first pass and successful
-				*inOutContinueDataDict = CFDictionaryCreateMutable(
-										NULL, 0,
-										&kCFTypeDictionaryKeyCallBacks,
-										&kCFTypeDictionaryValueCallBacks );
-				
-				if ( *inOutContinueDataDict == NULL )
-					throw( eMemoryError );
-				
-				CFDataRef ppsContext = CFDataCreate( NULL, (UInt8 *)&ppsServerContext, sizeof(ServerAuthDataBlockPtr) );
-				CFDictionarySetValue( *inOutContinueDataDict, CFSTR("ppsContext"), ppsContext );
-				CFRelease( ppsContext );
-			}
-			
 			if ( siResult != eDSNoErr || saslError == SASL_OK ) {
 				pps_server_mech_dispose( ppsServerContext );
-				if ( *inOutContinueDataDict != NULL ) {
-					CFRelease( *inOutContinueDataDict );
-					*inOutContinueDataDict = NULL;
+				if ( *inOutContinueData != 0 ) {
+					gLocalContinueTable->RemoveContext( *inOutContinueData );
+					*inOutContinueData = 0;
 				}
 			}
 			break;
@@ -974,9 +980,17 @@ tDirStatus CDSLocalAuthHelper::DoShadowHashAuth(
 			break;
 		
 		case kAuthSMBWorkstationCredentialSessionKey:
-			CalculateWorkstationCredentialSessKey( inParams.hashes, (char *)inParams.pNTLMDigest, (char *)inParams.pNTLMDigest + 8,
+			if ( inParams.ntlmHashType == 1 )
+			{
+				CalculateWorkstationCredentialStrongSessKey( inParams.hashes, (char *)inParams.pNTLMDigest, (char *)inParams.pNTLMDigest + 8, inParams.P24 );
+				siResult = dsFillAuthBuffer( outAuthData, 1, 16, inParams.P24 );
+			}
+			else
+			{
+				CalculateWorkstationCredentialSessKey( inParams.hashes, (char *)inParams.pNTLMDigest, (char *)inParams.pNTLMDigest + 8,
 					inParams.P24 );
-			siResult = dsFillAuthBuffer( outAuthData, 1, 8, inParams.P24 );
+				siResult = dsFillAuthBuffer( outAuthData, 1, 8, inParams.P24 );
+			}
 			break;
 			
 		case kAuthSecureHash:
@@ -1106,7 +1120,7 @@ tDirStatus CDSLocalAuthHelper::DoShadowHashAuth(
 					siResult = CDSLocalAuthHelper::WriteShadowHash( inParams.pUserName, inGUIDString, inParams.generatedHashes );
 				}
 				
-				MigrateAddKerberos( inNodeRef, inParams, inOutContinueDataDict, inAuthData, outAuthData, inAuthOnly, isSecondary,
+				MigrateAddKerberos( inNodeRef, inParams, inOutContinueData, inAuthData, outAuthData, inAuthOnly, isSecondary,
 					inAuthAuthorityList, inGUIDString, inAuthedUserIsAdmin, inMutableRecordDict, inHashList, inPlugin, inNode,
 					inAuthedUserName, inUID, inEffectiveUID, inNativeRecType, inOKToChangeAuthAuthorities );
 				
@@ -1252,7 +1266,7 @@ tDirStatus CDSLocalAuthHelper::DoShadowHashAuth(
 					if ( inAuthOnly == false )
 					{
 						siResult = inPlugin->AuthOpen( inNodeRef, inParams.pUserName, inParams.pOldPassword,
-							inPlugin->UserIsAdmin( inMutableRecordDict, inNode ) );
+													   dsIsUserMemberOfGroup(inParams.pUserName, "admin") );
 					}
 				}
 			}
@@ -1265,16 +1279,7 @@ tDirStatus CDSLocalAuthHelper::DoShadowHashAuth(
 		// set password operations
 		case kAuthSetPasswd:
 			{
-				if ( inParams.pAdminUser == NULL && inEffectiveUID != 0 ) {
-					siResult = eDSPermissionError;
-					goto finish;
-				}
-				if ( strcmp(inParams.pUserName, "root") == 0 && strcmp(inParams.pAdminUser, "root") != 0 ) {
-					siResult = eDSPermissionError;
-					goto finish;
-				}				
-				
-				bool authenticatorIsAdmin = false;
+				siResult = eDSAuthFailed;
 				if ( inParams.pAdminUser != NULL )
 				{
 					UInt32 pwdLen = 0;
@@ -1282,6 +1287,14 @@ tDirStatus CDSLocalAuthHelper::DoShadowHashAuth(
 					adminString = CFStringCreateWithCString( kCFAllocatorDefault, inParams.pAdminUser, kCFStringEncodingUTF8 );
 					if ( adminString == NULL ) {
 						siResult = eMemoryError;
+						goto finish;
+					}
+					
+					bool accessAllowed = inNode->AccessAllowed( adminString, inEffectiveUID, inNativeRecType, 
+															    inPlugin->AttrNativeTypeForStandardType(CFSTR(kDS1AttrPassword)), 
+															    eDSAccessModeWriteAttr );
+					if ( accessAllowed == false ) {
+						siResult = eDSPermissionError;
 						goto finish;
 					}
 					
@@ -1355,11 +1368,19 @@ tDirStatus CDSLocalAuthHelper::DoShadowHashAuth(
 						siResult = eDSAuthFailed;
 						goto finish;
 					}
-					
-					authenticatorIsAdmin = inPlugin->UserIsAdmin( adminString, inNode );
+				}
+				else
+				{
+					bool accessAllowed = inNode->AccessAllowed( inAuthedUserName, inEffectiveUID, inNativeRecType, 
+															    inPlugin->AttrNativeTypeForStandardType(CFSTR(kDS1AttrPassword)), 
+															    eDSAccessModeWriteAttr );
+					if ( accessAllowed == false ) {
+						siResult = eDSPermissionError;
+						goto finish;
+					}
 				}
 				
-				if ( !authenticatorIsAdmin )
+				if ( siResult == eDSNoErr )
 				{
 					siResult = GetUserPolicies( inMutableRecordDict, NULL, inPlugin, &inParams.policyStr );
 					if ( siResult != eDSNoErr )
@@ -1422,7 +1443,7 @@ tDirStatus CDSLocalAuthHelper::DoShadowHashAuth(
 						TIMEVAL_TO_TIMESPEC( &inParams.modDateAssist, &inParams.modDateOfPassword );
 					
 						// update Kerberos
-						siResult = CDSLocalAuthHelper::DoKerberosAuth( inNodeRef, inParams, inOutContinueDataDict, inAuthData,
+						siResult = CDSLocalAuthHelper::DoKerberosAuth( inNodeRef, inParams, inOutContinueData, inAuthData,
 										outAuthData, inAuthOnly, isSecondary, inAuthAuthorityList, inGUIDString, inAuthedUserIsAdmin,
 										inMutableRecordDict, inHashList, inPlugin, inNode, inAuthedUserName, inUID, inEffectiveUID,
 										inNativeRecType );
@@ -1433,42 +1454,51 @@ tDirStatus CDSLocalAuthHelper::DoShadowHashAuth(
 		
 		case kAuthSetPasswdAsRoot:
 			{
-				bool modifyingSelf = false;
+				siResult = eDSAuthFailed;
 				if ( inAuthedUserName != NULL && inParams.pUserName != NULL )
 				{
 					CFStringRef userNameCFStr = CFStringCreateWithCString( NULL, inParams.pUserName, kCFStringEncodingUTF8 );
-					modifyingSelf = (CFStringCompare(userNameCFStr, inAuthedUserName, 0) == kCFCompareEqualTo);
+					if ( CFStringCompare(userNameCFStr, inAuthedUserName, 0) == kCFCompareEqualTo ) {
+						siResult = eDSNoErr;
+					}
 					CFRelease( userNameCFStr );
 				}
 				
-				bool notAdmin = ( inAuthedUserName == NULL || !inAuthedUserIsAdmin );
-				// allow root to change anyone's password and
-				// others to change their own password
-				if ( inEffectiveUID != 0 )
-				{
-					if ( (inAuthedUserName == NULL) || (notAdmin && (!modifyingSelf)) ) {
+				if ( siResult != eDSNoErr ) {
+					bool accessAllowed = inNode->AccessAllowed( inAuthedUserName, inEffectiveUID, inNativeRecType, 
+															    inPlugin->AttrNativeTypeForStandardType(CFSTR(kDS1AttrPassword)), 
+															    eDSAccessModeWriteAttr );
+					if ( accessAllowed == true ) {
+						siResult = eDSNoErr;
+					}
+					else {
 						siResult = eDSPermissionError;
-						goto finish;
 					}
 				}
 				
-				CDSLocalAuthHelper::GetShadowHashGlobalPolicies( inPlugin, inNode, &inParams.globalAccess,
-					&inParams.globalMoreAccess );
-				siResult = eDSNoErr;
-				if ( modifyingSelf && notAdmin )
+				if ( siResult == eDSNoErr )
 				{
-					siResult = CDSLocalAuthHelper::PasswordOkForPolicies( inParams.policyStr, &inParams.globalAccess,
-									inParams.pUserName, inParams.pNewPassword );
-					if ( siResult == eDSAuthPasswordTooShort &&
-						 inParams.globalAccess.minChars == 0 &&
-						 inParams.pNewPassword != NULL &&
-						 *inParams.pNewPassword == '\0' &&
-						 ((inParams.policyStr == NULL) || strstr(inParams.policyStr, "minChars=0") != NULL) )
+					CDSLocalAuthHelper::GetShadowHashGlobalPolicies( inPlugin, inNode, &inParams.globalAccess,
+						&inParams.globalMoreAccess );
+					
+					// admins are allowed to set passwords not governed by policy
+					// TODO: why is admin allowed to bypass password policies when setting a password
+					if ( inAuthedUserIsAdmin == false )
 					{
-						// special-case for ShadowHash and blank password.
-						siResult = eDSNoErr;
+						siResult = CDSLocalAuthHelper::PasswordOkForPolicies( inParams.policyStr, &inParams.globalAccess,
+										inParams.pUserName, inParams.pNewPassword );
+						if ( siResult == eDSAuthPasswordTooShort &&
+							 inParams.globalAccess.minChars == 0 &&
+							 inParams.pNewPassword != NULL &&
+							 *inParams.pNewPassword == '\0' &&
+							 ((inParams.policyStr == NULL) || strstr(inParams.policyStr, "minChars=0") != NULL) )
+						{
+							// special-case for ShadowHash and blank password.
+							siResult = eDSNoErr;
+						}
 					}
 				}
+				
 				if ( siResult == eDSNoErr )
 				{
 					AddKerberosAuthAuthority(
@@ -1488,7 +1518,7 @@ tDirStatus CDSLocalAuthHelper::DoShadowHashAuth(
 						TIMEVAL_TO_TIMESPEC( &inParams.modDateAssist, &inParams.modDateOfPassword );
 					
 						// update Kerberos
-						siResult = CDSLocalAuthHelper::DoKerberosAuth( inNodeRef, inParams, inOutContinueDataDict, inAuthData,
+						siResult = CDSLocalAuthHelper::DoKerberosAuth( inNodeRef, inParams, inOutContinueData, inAuthData,
 										outAuthData, inAuthOnly, isSecondary, inAuthAuthorityList, inGUIDString, inAuthedUserIsAdmin,
 										inMutableRecordDict, inHashList, inPlugin, inNode, inAuthedUserName, inUID, inEffectiveUID,
 										inNativeRecType );
@@ -1571,46 +1601,48 @@ tDirStatus CDSLocalAuthHelper::DoShadowHashAuth(
 			break;
 		
 		case kAuthMSLMCHAP2ChangePasswd:
-			bool notAdmin = ( (inParams.pUserName != NULL) && !inAuthedUserIsAdmin );
-			
-			siResult = GetUserPolicies( inMutableRecordDict, NULL, inPlugin, &inParams.policyStr );
-			if ( siResult != eDSNoErr )
-				goto finish;
-			
-			// Note: the character encoding is in <pOldPassword>
-			siResult = MSCHAPv2ChangePass( inParams.pUserName, inParams.hashes + kHashOffsetToLM, inParams.pOldPassword,
-							inParams.pNTLMDigest, inParams.ntlmDigestLen, (uint8_t **)&inParams.pNewPassword, &len );
-			if ( siResult != eDSNoErr )
-				goto finish;
-			
-			if ( notAdmin )
-			{
-				siResult = CDSLocalAuthHelper::PasswordOkForPolicies( inParams.policyStr, &inParams.globalAccess, inParams.pUserName,
-							inParams.pNewPassword );
-				if ( siResult == eDSAuthPasswordTooShort &&
-					 inParams.globalAccess.minChars == 0 &&
-					 inParams.pNewPassword != NULL &&
-					 *inParams.pNewPassword == '\0' &&
-					 ((inParams.policyStr == NULL) || strstr(inParams.policyStr, "minChars=0") != NULL) )
-				{
-					// special-case for ShadowHash and blank password.
-					siResult = eDSNoErr;
-				}
-				if ( siResult != eDSNoErr )
-					goto finish;
-			}
-			
-			CDSLocalAuthHelper::GenerateShadowHashes( gServerOS, inParams.pNewPassword, len, userLevelHashList, NULL,
-														inParams.generatedHashes, &inParams.hashLength );
-			siResult = CDSLocalAuthHelper::WriteShadowHash(inParams.pUserName, inGUIDString, inParams.generatedHashes);
-			if ( siResult != eDSNoErr )
-				goto finish;
-			
-			// password changed
-			time( &now );
-			gmtime_r( &now, &inParams.state.modDateOfPassword );
-			gettimeofday( &inParams.modDateAssist, NULL );
-			TIMEVAL_TO_TIMESPEC( &inParams.modDateAssist, &inParams.modDateOfPassword );
+            {
+                bool notAdmin = ( (inParams.pUserName != NULL) && !inAuthedUserIsAdmin );
+                
+                siResult = GetUserPolicies( inMutableRecordDict, NULL, inPlugin, &inParams.policyStr );
+                if ( siResult != eDSNoErr )
+                    goto finish;
+                
+                // Note: the character encoding is in <pOldPassword>
+                siResult = MSCHAPv2ChangePass( inParams.pUserName, inParams.hashes + kHashOffsetToLM, inParams.pOldPassword,
+                                              inParams.pNTLMDigest, inParams.ntlmDigestLen, (uint8_t **)&inParams.pNewPassword, &len );
+                if ( siResult != eDSNoErr )
+                    goto finish;
+                
+                if ( notAdmin )
+                {
+                    siResult = CDSLocalAuthHelper::PasswordOkForPolicies( inParams.policyStr, &inParams.globalAccess, inParams.pUserName,
+                                                                         inParams.pNewPassword );
+                    if ( siResult == eDSAuthPasswordTooShort &&
+                        inParams.globalAccess.minChars == 0 &&
+                        inParams.pNewPassword != NULL &&
+                        *inParams.pNewPassword == '\0' &&
+                        ((inParams.policyStr == NULL) || strstr(inParams.policyStr, "minChars=0") != NULL) )
+                    {
+                        // special-case for ShadowHash and blank password.
+                        siResult = eDSNoErr;
+                    }
+                    if ( siResult != eDSNoErr )
+                        goto finish;
+                }
+                
+                CDSLocalAuthHelper::GenerateShadowHashes( gServerOS, inParams.pNewPassword, len, userLevelHashList, NULL,
+                                                         inParams.generatedHashes, &inParams.hashLength );
+                siResult = CDSLocalAuthHelper::WriteShadowHash(inParams.pUserName, inGUIDString, inParams.generatedHashes);
+                if ( siResult != eDSNoErr )
+                    goto finish;
+                
+                // password changed
+                time( &now );
+                gmtime_r( &now, &inParams.state.modDateOfPassword );
+                gettimeofday( &inParams.modDateAssist, NULL );
+                TIMEVAL_TO_TIMESPEC( &inParams.modDateAssist, &inParams.modDateOfPassword );
+            }
 			break;
 		
 		case kAuthSetCertificateHashAsRoot:
@@ -1619,7 +1651,7 @@ tDirStatus CDSLocalAuthHelper::DoShadowHashAuth(
 					inPlugin, inNode, inNativeRecType, inOKToChangeAuthAuthorities );
 			
 			siResult = CDSLocalAuthHelper::DoKerberosCertAuth(
-												inNodeRef, inParams, inOutContinueDataDict, inAuthData, outAuthData, inAuthOnly,
+												inNodeRef, inParams, inOutContinueData, inAuthData, outAuthData, inAuthOnly,
 												isSecondary, inAuthAuthorityList, inGUIDString, inAuthedUserIsAdmin,
 												inMutableRecordDict, inHashList, inPlugin, inNode, inAuthedUserName, inUID,
 												inEffectiveUID, inNativeRecType );
@@ -1635,6 +1667,7 @@ tDirStatus CDSLocalAuthHelper::DoShadowHashAuth(
 	{
 		// test policies and update the current user's state
 		if ( siResult == eDSNoErr &&
+			inParams.uiAuthMethod != kAuthGetEffectivePolicy &&
 			inParams.uiAuthMethod != kAuthGetPolicy && inParams.uiAuthMethod != kAuthGetGlobalPolicy &&
 			inParams.uiAuthMethod != kAuthSetPolicy && inParams.uiAuthMethod != kAuthSetGlobalPolicy )
 		{
@@ -1776,7 +1809,7 @@ finish:
 
 
 tDirStatus CDSLocalAuthHelper::DoBasicAuth( tDirNodeReference inNodeRef, CDSLocalAuthParams &inParams,
-	CFMutableDictionaryRef* inOutContinueDataDict, tDataBufferPtr inAuthData,
+	tContextData *inOutContinueData, tDataBufferPtr inAuthData,
 	tDataBufferPtr outAuthData, bool inAuthOnly, bool isSecondary,
 	CAuthAuthority &inAuthAuthorityList, const char* inGUIDString, bool inAuthedUserIsAdmin, 
 	CFMutableDictionaryRef inMutableRecordDict, unsigned int inHashList,
@@ -1803,7 +1836,7 @@ tDirStatus CDSLocalAuthHelper::DoBasicAuth( tDirNodeReference inNodeRef, CDSLoca
 			case kAuthNativeRetainCredential:
 				if ( outAuthData == NULL ) throw( eDSNullAuthStepData );
 				siResult = CDSLocalAuthHelper::DoUnixCryptAuth( inNodeRef, inParams,
-					inOutContinueDataDict, inAuthData, outAuthData, inAuthOnly, isSecondary, NULL,
+					inOutContinueData, inAuthData, outAuthData, inAuthOnly, isSecondary, inAuthAuthorityList,
 					inGUIDString, inAuthedUserIsAdmin, inMutableRecordDict, inHashList, inPlugin, inNode,
 					inAuthedUserName, inUID, inEffectiveUID, inNativeRecType );
 				if ( siResult == eDSNoErr )
@@ -1816,7 +1849,7 @@ tDirStatus CDSLocalAuthHelper::DoBasicAuth( tDirNodeReference inNodeRef, CDSLoca
 				else if ( (siResult != eDSAuthFailed) && (siResult != eDSInvalidBuffFormat) )
 				{
 					siResult = CDSLocalAuthHelper::DoNodeNativeAuth( inNodeRef, inParams,
-						inOutContinueDataDict, inAuthData, outAuthData, inAuthOnly, isSecondary, NULL,
+						inOutContinueData, inAuthData, outAuthData, inAuthOnly, isSecondary, NULL,
 						inGUIDString, inAuthedUserIsAdmin, inMutableRecordDict, inHashList, inPlugin, inNode,
 						inAuthedUserName, inUID, inEffectiveUID, inNativeRecType );
 
@@ -1833,32 +1866,44 @@ tDirStatus CDSLocalAuthHelper::DoBasicAuth( tDirNodeReference inNodeRef, CDSLoca
 			case kAuthClearText:
 			case kAuthCrypt:
 				siResult = CDSLocalAuthHelper::DoUnixCryptAuth( inNodeRef, inParams,
-					inOutContinueDataDict, inAuthData, outAuthData, inAuthOnly, isSecondary, NULL,
+					inOutContinueData, inAuthData, outAuthData, inAuthOnly, isSecondary, inAuthAuthorityList,
 					inGUIDString, inAuthedUserIsAdmin, inMutableRecordDict, inHashList, inPlugin, inNode,
 					inAuthedUserName, inUID, inEffectiveUID, inNativeRecType );
 				break;
 
 			case kAuthSetPasswd:
 				siResult = CDSLocalAuthHelper::DoSetPassword( inNodeRef, inParams,
-					inOutContinueDataDict, inAuthData, outAuthData, inAuthOnly, isSecondary, inAuthAuthorityList, NULL,
+					inOutContinueData, inAuthData, outAuthData, inAuthOnly, isSecondary, inAuthAuthorityList, NULL,
 					inGUIDString, inAuthedUserIsAdmin, inMutableRecordDict, inHashList, inPlugin, inNode,
 					inAuthedUserName, inUID, inEffectiveUID, inNativeRecType );
 				break;
 
 			case kAuthSetPasswdAsRoot:
 				siResult = CDSLocalAuthHelper::DoSetPasswordAsRoot( inNodeRef, inParams,
-					inOutContinueDataDict, inAuthData, outAuthData, inAuthOnly, isSecondary, inAuthAuthorityList, NULL,
+					inOutContinueData, inAuthData, outAuthData, inAuthOnly, isSecondary, inAuthAuthorityList, NULL,
 					inGUIDString, inAuthedUserIsAdmin, inMutableRecordDict, inHashList, inPlugin, inNode,
 					inAuthedUserName, inUID, inEffectiveUID, inNativeRecType );
 				break;
 
 			case kAuthChangePasswd:
 				siResult = CDSLocalAuthHelper::DoChangePassword( inNodeRef, inParams,
-					inOutContinueDataDict, inAuthData, outAuthData, inAuthOnly, isSecondary, NULL,
+					inOutContinueData, inAuthData, outAuthData, inAuthOnly, isSecondary, NULL,
 					inGUIDString, inAuthedUserIsAdmin, inMutableRecordDict, inHashList, inPlugin, inNode,
 					inAuthedUserName, inUID, inEffectiveUID, inNativeRecType );
 				break;
-
+			
+			case kAuthSetCertificateHashAsRoot:
+				AddKerberosAuthAuthority(
+						inNodeRef, inParams.pUserName, kDSTagAuthAuthorityKerberosv5Cert, inAuthAuthorityList, inMutableRecordDict,
+						inPlugin, inNode, inNativeRecType, true );
+				
+				siResult = CDSLocalAuthHelper::DoKerberosCertAuth(
+													inNodeRef, inParams, inOutContinueData, inAuthData, outAuthData, inAuthOnly,
+													isSecondary, inAuthAuthorityList, inGUIDString, inAuthedUserIsAdmin,
+													inMutableRecordDict, inHashList, inPlugin, inNode, inAuthedUserName, inUID,
+													inEffectiveUID, inNativeRecType );
+				break;
+			
 			default:
 				siResult = eDSAuthMethodNotSupported;
 		}
@@ -1874,7 +1919,7 @@ tDirStatus CDSLocalAuthHelper::DoBasicAuth( tDirNodeReference inNodeRef, CDSLoca
 }
 
 tDirStatus CDSLocalAuthHelper::DoPasswordServerAuth( tDirNodeReference inNodeRef, CDSLocalAuthParams &inParams,
-	CFMutableDictionaryRef* inOutContinueDataDict, tDataBufferPtr inAuthData,
+	tContextData *inOutContinueData, tDataBufferPtr inAuthData,
 	tDataBufferPtr outAuthData, bool inAuthOnly, bool isSecondary,
 	CAuthAuthority &inAuthAuthorityList, const char* inGUIDString, bool inAuthedUserIsAdmin, 
 	CFMutableDictionaryRef inMutableRecordDict, unsigned int inHashList,
@@ -1928,18 +1973,15 @@ tDirStatus CDSLocalAuthHelper::DoPasswordServerAuth( tDirNodeReference inNodeRef
             switch( authMethod )
             {
                 case kAuth2WayRandom:
-                    if ( inOutContinueDataDict == NULL )
-                        throw( eDSNullParameter );
-                    
-                    if ( *inOutContinueDataDict == NULL )
+                    if ( *inOutContinueData == 0 )
                     {
 						continueDataDict = CFDictionaryCreateMutable( NULL, 0, &kCFTypeDictionaryKeyCallBacks,
 							&kCFTypeDictionaryValueCallBacks );
                         if ( continueDataDict == NULL )
                             throw( eMemoryError );
-						inPlugin->AddContinueData( inNodeRef, continueDataDict, (void **)inOutContinueDataDict );
-						CFRelease( continueDataDict );
-                        
+						
+						inPlugin->AddContinueData( inNodeRef, continueDataDict, inOutContinueData );
+
                         // make a buffer for the user ID
                         authDataBuff = ::dsDataBufferAllocatePriv( uidStrLen + 1 );
                         if ( authDataBuff == NULL ) throw ( eMemoryError );
@@ -1950,7 +1992,9 @@ tDirStatus CDSLocalAuthHelper::DoPasswordServerAuth( tDirNodeReference inNodeRef
                     }
                     else
                     {
-                        continueDataDict = *inOutContinueDataDict;
+                        continueDataDict = (CFMutableDictionaryRef) gLocalContinueTable->GetPointer( *inOutContinueData );
+						if ( continueDataDict == NULL )
+							throw eDSInvalidContinueData;
                             
                         authDataBuff = inAuthData;
                     }
@@ -2069,9 +2113,12 @@ tDirStatus CDSLocalAuthHelper::DoPasswordServerAuth( tDirNodeReference inNodeRef
 			if ( result != eDSNoErr )
 				throw( result );
 			
-            if ( continueDataDict != NULL )
-                passPluginContinueData = (CFMutableDictionaryRef)CFDictionaryGetValue( continueDataDict,
-					CFSTR( kAuthCOntinueDataPassPluginContData ) );
+            if ( continueDataDict != NULL ) {
+				CFNumberRef cfContinue = (CFNumberRef) CFDictionaryGetValue( continueDataDict,
+																			 CFSTR(kAuthCOntinueDataPassPluginContData) );
+				if ( cfContinue != NULL )
+					CFNumberGetValue( cfContinue, kCFNumberIntType, &passPluginContinueData );
+			}
             
 			tDataNodePtr authMethodNodePtr = dsDataNodeAllocateString( 0, inParams.mAuthMethodStr );
             result = dsDoDirNodeAuth( pwsNodeRef, authMethodNodePtr, inAuthOnly, authDataBuff, outAuthData,
@@ -2091,16 +2138,17 @@ tDirStatus CDSLocalAuthHelper::DoPasswordServerAuth( tDirNodeReference inNodeRef
 			
             if ( continueDataDict != NULL )
             {
-				if ( passPluginContinueData == NULL )
+				if ( passPluginContinueData == 0 )
 					CFDictionaryRemoveValue( continueDataDict, CFSTR( kAuthCOntinueDataPassPluginContData ) );
 				else
 				{
-					CFDictionaryAddValue( continueDataDict, CFSTR( kAuthCOntinueDataPassPluginContData ),
-						passPluginContinueData );
+					CFNumberRef	cfRefNum = CFNumberCreate( kCFAllocatorDefault, kCFNumberIntType, &passPluginContinueData );
+					CFDictionaryAddValue( continueDataDict, CFSTR( kAuthCOntinueDataPassPluginContData ), cfRefNum );
+					CFRelease( cfRefNum );
 
-                    if ( inOutContinueDataDict == NULL )
+                    if ( inOutContinueData == NULL )
                         throw( eDSNullParameter );
-                    *inOutContinueDataDict = NULL;
+                    *inOutContinueData = NULL;
                 }
             }
             
@@ -2133,7 +2181,7 @@ tDirStatus CDSLocalAuthHelper::DoPasswordServerAuth( tDirNodeReference inNodeRef
 
 tDirStatus CDSLocalAuthHelper::DoDisabledAuth(	tDirNodeReference inNodeRef,
 												CDSLocalAuthParams &inParams,
-												CFMutableDictionaryRef* inOutContinueDataDict,
+												tContextData* inOutContinueData,
 												tDataBufferPtr inAuthData,
 												tDataBufferPtr outAuthData,
 												bool inAuthOnly,
@@ -2185,7 +2233,7 @@ tDirStatus CDSLocalAuthHelper::DoDisabledAuth(	tDirNodeReference inNodeRef,
 			// search policy. It's not a guarantee that the ldap server will respond.
 			siResult = CDSLocalAuthHelper::LocalCachedUserReachable(
 												inNodeRef,
-												inOutContinueDataDict,
+												inOutContinueData,
 												inAuthData,
 												outAuthData,
 												inAuthOnly,
@@ -2218,7 +2266,7 @@ tDirStatus CDSLocalAuthHelper::DoDisabledAuth(	tDirNodeReference inNodeRef,
 				siResult = CDSLocalAuthHelper::DoLocalCachedUserAuthPhase2(
 												inNodeRef,
 												inParams,
-												inOutContinueDataDict,
+												inOutContinueData,
 												inAuthData,
 												outAuthData,
 												inAuthOnly,
@@ -2295,7 +2343,7 @@ tDirStatus CDSLocalAuthHelper::DoDisabledAuth(	tDirNodeReference inNodeRef,
 				siResult = CDSLocalAuthHelper::DoShadowHashAuth(
 													inNodeRef,
 													inParams,
-													inOutContinueDataDict,
+													inOutContinueData,
 													inAuthData,
 													outAuthData,
 													inAuthOnly,
@@ -2345,7 +2393,7 @@ tDirStatus CDSLocalAuthHelper::DoDisabledAuth(	tDirNodeReference inNodeRef,
 
 tDirStatus CDSLocalAuthHelper::DoLocalCachedUserAuth(	tDirNodeReference inNodeRef,
 														CDSLocalAuthParams &inParams,
-														CFMutableDictionaryRef* inOutContinueDataDict,
+														tContextData *inOutContinueData,
 														tDataBufferPtr inAuthData,
 														tDataBufferPtr outAuthData,
 														bool inAuthOnly,
@@ -2388,63 +2436,22 @@ tDirStatus CDSLocalAuthHelper::DoLocalCachedUserAuth(	tDirNodeReference inNodeRe
       		throw( eDSAuthParameterError );
 		}
 		
-		if ( inParams.uiAuthMethod == kAuthNativeClearTextOK || inParams.uiAuthMethod == kAuthNativeNoClearText )
-			MigrateAddKerberos( inNodeRef, inParams, inOutContinueDataDict, inAuthData, outAuthData, inAuthOnly, isSecondary,
-						inAuthAuthorityList, inGUIDString, inAuthedUserIsAdmin, inMutableRecordDict, inHashList, inPlugin, inNode,
-						inAuthedUserName, inUID, inEffectiveUID, inNativeRecType, true );
-		
-		// are we online or offline?
-		siResult = CDSLocalAuthHelper::LocalCachedUserReachable(
-											inNodeRef,
-											inOutContinueDataDict,
-											inAuthData,
-											outAuthData,
-											inAuthOnly,
-											isSecondary,
-											inGUIDString,
-											inAuthedUserIsAdmin,
-											inParams,
-											inMutableRecordDict,
-											inHashList,
-											inPlugin,
-											inNode,
-											inAuthedUserName,
-											inUID,
-											inEffectiveUID,
-											inNativeRecType,
-											&bNetworkNodeReachable,
-											&aDSRef,
-											&aNetworkNode,
-											&localCachedUser);
-		
+		siResult = LocalCachedUserReachable( inNodeRef, inOutContinueData, inAuthData, outAuthData,
+											 inAuthOnly, isSecondary, inGUIDString, inAuthedUserIsAdmin,
+											 inParams, inMutableRecordDict, inHashList, inPlugin, inNode,
+											 inAuthedUserName, inUID, inEffectiveUID, inNativeRecType,
+											 &bNetworkNodeReachable, &aDSRef, &aNetworkNode, &localCachedUser);				
 		DbgLog( kLogPlugin, "CDSLocalAuthHelper::DoLocalCachedUserAuth:LocalCachedUserReachable result = %d, valid-node-on-search-path = %d",
-				siResult, bNetworkNodeReachable );
+			    siResult, bNetworkNodeReachable );
 		
 		if ( siResult == eDSNoErr )
 		{
-			siResult = CDSLocalAuthHelper::DoLocalCachedUserAuthPhase2(
-											inNodeRef,
-											inParams,
-											inOutContinueDataDict,
-											inAuthData,
-											outAuthData,
-											inAuthOnly,
-											isSecondary,
-											inAuthAuthorityList,
-											inGUIDString,
-											inAuthedUserIsAdmin, 
-											inMutableRecordDict,
-											inHashList,
-											inPlugin,
-											inNode,
-											inAuthedUserName,
-											inUID,
-											inEffectiveUID,
-											inNativeRecType,
-											&bNetworkNodeReachable,
-											&aDSRef,
-											&aNetworkNode,
-											localCachedUser );
+			siResult = DoLocalCachedUserAuthPhase2( inNodeRef, inParams, inOutContinueData, inAuthData,
+												    outAuthData, inAuthOnly, isSecondary, inAuthAuthorityList,
+												    inGUIDString, inAuthedUserIsAdmin,  inMutableRecordDict,
+												    inHashList, inPlugin, inNode, inAuthedUserName, inUID,
+												    inEffectiveUID, inNativeRecType, &bNetworkNodeReachable,
+													&aDSRef, &aNetworkNode, localCachedUser );
 		}
 	}
 	catch( tDirStatus status )
@@ -2470,7 +2477,7 @@ tDirStatus CDSLocalAuthHelper::DoLocalCachedUserAuth(	tDirNodeReference inNodeRe
 
 //this is REALLY 2-way random with tim authserver ie. name is very mis-leading
 tDirStatus CDSLocalAuthHelper::DoNodeNativeAuth( tDirNodeReference inNodeRef, CDSLocalAuthParams &inParams,
-	CFMutableDictionaryRef* inOutContinueDataDict, tDataBufferPtr inAuthData,
+	tContextData *inOutContinueData, tDataBufferPtr inAuthData,
 	tDataBufferPtr outAuthData, bool inAuthOnly, bool isSecondary,
 	const char* inAuthAuthorityData, const char* inGUIDString, bool inAuthedUserIsAdmin, 
 	CFMutableDictionaryRef inMutableRecordDict, unsigned int inHashList,
@@ -2482,9 +2489,9 @@ tDirStatus CDSLocalAuthHelper::DoNodeNativeAuth( tDirNodeReference inNodeRef, CD
 }
 
 tDirStatus CDSLocalAuthHelper::DoUnixCryptAuth( tDirNodeReference inNodeRef, CDSLocalAuthParams &inParams,
-	CFMutableDictionaryRef* inOutContinueDataDict, tDataBufferPtr inAuthData,
+	tContextData *inOutContinueData, tDataBufferPtr inAuthData,
 	tDataBufferPtr outAuthData, bool inAuthOnly, bool isSecondary,
-	const char* inAuthAuthorityData, const char* inGUIDString, bool inAuthedUserIsAdmin, 
+	CAuthAuthority &inAuthAuthorityList, const char* inGUIDString, bool inAuthedUserIsAdmin, 
 	CFMutableDictionaryRef inMutableRecordDict, unsigned int inHashList,
 	CDSLocalPlugin* inPlugin, CDSLocalPluginNode* inNode, CFStringRef inAuthedUserName,
 	uid_t inUID, uid_t inEffectiveUID, CFStringRef inNativeRecType )
@@ -2565,10 +2572,99 @@ tDirStatus CDSLocalAuthHelper::DoUnixCryptAuth( tDirNodeReference inNodeRef, CDS
 		
 		if (siResult == eDSNoErr)
 		{
-			if ( inNode->IsLocalNode() && (pwdLen < 8) ) //local node and true crypt password since length is 7 or less
+			if ( inNode->IsLocalNode() )
 			{
-				CDSLocalAuthHelper::MigrateToShadowHash( inNodeRef, inPlugin, inNode, inMutableRecordDict, name, pwd,
-					&bResetCache, inHashList, inNativeRecType );
+				if (pwdLen < 8)
+				{
+					// local node and true crypt password since length is 7 or less
+					CDSLocalAuthHelper::MigrateToShadowHash( inNodeRef, inPlugin, inNode, inMutableRecordDict, name, pwd,
+						&bResetCache, inHashList, inNativeRecType );
+				}
+				else
+				{
+					tRecordReference		recordRef					= 0;
+					CFMutableDictionaryRef	nodeDict					= NULL;
+					CFStringRef				preRootAuthString			= NULL;
+					CFStringRef				cfString					= NULL;
+					
+					// ensure authentication_authority attribute
+					CFStringRef nativeAAType = inPlugin->AttrNativeTypeForStandardType( CFSTR(kDSNAttrAuthenticationAuthority) );
+					values = (CFArrayRef)CFDictionaryGetValue( inMutableRecordDict, nativeAAType );
+					if ( values == NULL )
+					{
+						try
+						{
+							cfString = CFStringCreateWithCString( NULL, name, kCFStringEncodingUTF8 );
+							siResult = inPlugin->OpenRecord( inNativeRecType, cfString, &recordRef );
+							DSCFRelease( cfString );
+							if ( siResult != eDSNoErr )
+								throw( siResult );
+							
+							// get root powers
+							// retrieve the same nodeDict the plugin object is going to use 
+							
+							CFDictionaryRef openRecordDict = inPlugin->RecordDictForRecordRef( recordRef );
+							if ( openRecordDict == NULL )
+								throw( eDSInvalidRecordRef );
+							
+							nodeDict = (CFMutableDictionaryRef)CFDictionaryGetValue( openRecordDict, CFSTR(kOpenRecordDictNodeDict) );
+							if ( nodeDict == NULL )
+								throw( eDSInvalidNodeRef );
+							
+							preRootAuthString = (CFStringRef) CFDictionaryGetValue( nodeDict, CFSTR(kNodeAuthenticatedUserName) );
+							if ( preRootAuthString != NULL )
+								CFRetain( preRootAuthString );
+
+							// does this need to be protected since nodeDicts are per-client?
+							CFDictionarySetValue( nodeDict, CFSTR(kNodeAuthenticatedUserName), CFSTR("root") );
+							
+							// replace the auth authority and password attributes in the record
+							siResult = ::SetUserAuthAuthorityAsRoot(
+											inMutableRecordDict,
+											inPlugin,
+											inNode,
+											inPlugin->RecordStandardTypeForNativeType(inNativeRecType),
+											name,
+											kDSValueAuthAuthorityBasic,
+											inNodeRef,
+											false );
+							
+							if ( siResult != eDSNoErr )
+								throw( siResult );
+							
+							// and modify the copy of the user record that we're passing around			
+							CFMutableArrayRef mutableArray = CFArrayCreateMutable( NULL, 0, &kCFTypeArrayCallBacks );
+							CFArrayAppendValue( mutableArray, CFSTR( kDSValueAuthAuthorityBasic ) );
+							CFDictionarySetValue( inMutableRecordDict, nativeAAType, mutableArray );
+							DSCFRelease( mutableArray );
+						}
+						catch( tDirStatus catchStatus )
+						{
+							siResult = catchStatus;
+						}
+						
+						if ( recordRef != 0 ) {
+							DbgLog( kLogDebug, "CDSLocalAuthHelper::DoUnixCryptAuth - closing internal record reference" );
+							gRefTable.RemoveReference( recordRef, eRefTypeRecord, 0, 0 ); // remove closes the record automatically
+							recordRef = 0;
+						}
+						
+						DSFreeString( cStr );
+						
+						if ( nodeDict != NULL )
+						{
+							if ( preRootAuthString != NULL )
+								CFDictionarySetValue( nodeDict, CFSTR(kNodeAuthenticatedUserName), preRootAuthString );
+							else
+								CFDictionaryRemoveValue( nodeDict, CFSTR(kNodeAuthenticatedUserName) );
+						}
+						DSCFRelease( preRootAuthString );
+					}
+				}
+				
+				MigrateAddKerberos( inNodeRef, inParams, inOutContinueData, inAuthData, outAuthData, inAuthOnly, isSecondary,
+					inAuthAuthorityList, inGUIDString, inAuthedUserIsAdmin, inMutableRecordDict, inHashList, inPlugin, inNode,
+					inAuthedUserName, inUID, inEffectiveUID, inNativeRecType, true );
 			}
 			
 			if (inAuthOnly == false)
@@ -2590,7 +2686,7 @@ tDirStatus CDSLocalAuthHelper::DoUnixCryptAuth( tDirNodeReference inNodeRef, CDS
 }
 
 tDirStatus CDSLocalAuthHelper::DoSetPassword( tDirNodeReference inNodeRef, CDSLocalAuthParams &inParams,
-	CFMutableDictionaryRef* inOutContinueDataDict, tDataBufferPtr inAuthData,
+	tContextData *inOutContinueData, tDataBufferPtr inAuthData,
 	tDataBufferPtr outAuthData, bool inAuthOnly, bool isSecondary, CAuthAuthority &inAuthAuthorityList,
 	const char* inAuthAuthorityData, const char* inGUIDString, bool inAuthedUserIsAdmin, 
 	CFMutableDictionaryRef inMutableRecordDict, unsigned int inHashList,
@@ -2669,7 +2765,7 @@ tDirStatus CDSLocalAuthHelper::DoSetPassword( tDirNodeReference inNodeRef, CDSLo
 
 		siResult = eDSAuthFailed;
 
-		if ( !inPlugin->UserIsAdmin( rootDict, inNode ) )
+		if ( dsIsUserMemberOfGroup(rootName, "admin") == false )
 			throw( eDSPermissionError );
 
 		CFArrayRef passwordsArray = (CFArrayRef)CFDictionaryGetValue( rootDict,
@@ -2720,7 +2816,7 @@ tDirStatus CDSLocalAuthHelper::DoSetPassword( tDirNodeReference inNodeRef, CDSLo
 						inPlugin, inNode, inNativeRecType, true );
 					
 					// update Kerberos
-					siResult = CDSLocalAuthHelper::DoKerberosAuth( inNodeRef, inParams, inOutContinueDataDict, inAuthData,
+					siResult = CDSLocalAuthHelper::DoKerberosAuth( inNodeRef, inParams, inOutContinueData, inAuthData,
 									outAuthData, inAuthOnly, isSecondary, inAuthAuthorityList, inGUIDString, inAuthedUserIsAdmin,
 									inMutableRecordDict, inHashList, inPlugin, inNode, inAuthedUserName, inUID, inEffectiveUID,
 									inNativeRecType );
@@ -2737,9 +2833,8 @@ tDirStatus CDSLocalAuthHelper::DoSetPassword( tDirNodeReference inNodeRef, CDSLo
 				if ( strlen(userPwd) > 0 )
 				{
 					// only need crypt if password is not empty
-					::srandom(getpid() + time(0));
-					salt[0] = saltchars[random() % 64];
-					salt[1] = saltchars[random() % 64];
+					salt[0] = saltchars[arc4random() % 64];
+					salt[1] = saltchars[arc4random() % 64];
 					salt[2] = '\0';
 
 					::strcpy( hashPwd, ::crypt( userPwd, salt ) );
@@ -2758,7 +2853,7 @@ tDirStatus CDSLocalAuthHelper::DoSetPassword( tDirNodeReference inNodeRef, CDSLo
 #endif
 
 				// change the password attribute in the record
-				siResult = inPlugin->OpenRecord( inNodeRef, inPlugin->RecordStandardTypeForNativeType( inNativeRecType ),
+				siResult = inPlugin->OpenRecord( inPlugin->RecordStandardTypeForNativeType( inNativeRecType ),
 					userNameCFStr, &recordRef );
 				if ( siResult != eDSNoErr )
 					throw( siResult );
@@ -2769,9 +2864,6 @@ tDirStatus CDSLocalAuthHelper::DoSetPassword( tDirNodeReference inNodeRef, CDSLo
 				siResult = inPlugin->AddAttribute( recordRef, CFSTR( kDS1AttrPassword ), hashPwdCFStr );
 				if ( siResult != eDSNoErr )
 					throw( siResult );
-				inPlugin->CloseRecord( recordRef );
-				CRefTable::RemoveRecordRef( recordRef, gDaemonPID, gDaemonIPAddress ); // need to manually close this ref otherwise our refs get out of hand
-				recordRef = 0;
 				
 				// now change the dciotnary that's being passed around
 				CFDictionaryRemoveValue( inMutableRecordDict,
@@ -2806,10 +2898,10 @@ tDirStatus CDSLocalAuthHelper::DoSetPassword( tDirNodeReference inNodeRef, CDSLo
 	
 	DSCFRelease( userNameCFStr );
 	DSCFRelease( hashPwdCFStr );
-	if ( recordRef != 0 )
-	{
-		inPlugin->CloseRecord( recordRef );
-		CRefTable::RemoveRecordRef( recordRef, gDaemonPID, gDaemonIPAddress ); // need to manually close this ref otherwise our refs get out of hand
+	if ( recordRef != 0 ) {
+		DbgLog( kLogDebug, "CDSLocalAuthHelper::DoSetPassword - closing internal record reference" );
+		gRefTable.RemoveReference( recordRef, eRefTypeRecord, 0, 0 ); // remove closes the record automatically
+		recordRef = 0;
 	}
 	DSFreeString( userName );
 	DSFreePassword( userPwd );
@@ -2824,7 +2916,7 @@ tDirStatus CDSLocalAuthHelper::DoSetPassword( tDirNodeReference inNodeRef, CDSLo
 //------------------------------------------------------------------------------------
 
 tDirStatus CDSLocalAuthHelper::DoSetPasswordAsRoot( tDirNodeReference inNodeRef, CDSLocalAuthParams &inParams,
-	CFMutableDictionaryRef* inOutContinueDataDict, tDataBufferPtr inAuthData,
+	tContextData *inOutContinueData, tDataBufferPtr inAuthData,
 	tDataBufferPtr outAuthData, bool inAuthOnly, bool isSecondary, CAuthAuthority &inAuthAuthorityList,
 	const char* inAuthAuthorityData, const char* inGUIDString, bool inAuthedUserIsAdmin, 
 	CFMutableDictionaryRef inMutableRecordDict, unsigned int inHashList,
@@ -2856,16 +2948,24 @@ tDirStatus CDSLocalAuthHelper::DoSetPasswordAsRoot( tDirNodeReference inNodeRef,
 		
 		// allow root to change anyone's password and
 		// others to change their own password
-		if ( inEffectiveUID != 0 )
+		if ( inAuthedUserName != NULL && inParams.pUserName != NULL )
 		{
-			if ( (inAuthedUserName == NULL) ||
-				 ((CFStringCompare( inAuthedUserName, CFSTR( "root" ), 0 ) != kCFCompareEqualTo )
-					&& (CFStringCompare( inAuthedUserName, userNameCFStr, 0 ) != kCFCompareEqualTo )))
-			{
-				throw( eDSPermissionError );
+			CFStringRef tempUserName = CFStringCreateWithCString( NULL, inParams.pUserName, kCFStringEncodingUTF8 );
+			if ( CFStringCompare(tempUserName, inAuthedUserName, 0) == kCFCompareEqualTo ) {
+				siResult = eDSNoErr;
 			}
+			CFRelease( tempUserName );
 		}
 		
+		if ( siResult != eDSNoErr ) {
+			bool accessAllowed = inNode->AccessAllowed( inAuthedUserName, inEffectiveUID, inNativeRecType, 
+													   inPlugin->AttrNativeTypeForStandardType(CFSTR(kDS1AttrPassword)), 
+													   eDSAccessModeWriteAttr );
+			if ( accessAllowed == false ) {
+				throw eDSPermissionError;
+			}
+		}
+				
 		//need some code here to directly set the NI Crypt password
 		//also first check to see if the password already exists
 		char			salt[3];
@@ -2896,16 +2996,23 @@ tDirStatus CDSLocalAuthHelper::DoSetPasswordAsRoot( tDirNodeReference inNodeRef,
 					
 				if ( siResult == eDSNoErr )
 				{
-					inAuthAuthorityList.SetValueForTag( kDSTagAuthAuthorityShadowHash, kDSValueAuthAuthorityShadowHash );
+					// reload the edited AuthenticationAuthority list
+					siResult = inPlugin->OpenRecord( inPlugin->RecordStandardTypeForNativeType(inNativeRecType),
+													userNameCFStr, &recordRef );
+					if ( siResult != eDSNoErr )
+						throw( siResult );
+					
+					CAuthAuthority aaTank;
+					LoadAuthAuthorities( inPlugin, recordRef, aaTank );
 					
 					// Add principal to local KDC
 					AddKerberosAuthAuthority(
-						inNodeRef, inParams.pUserName, kDSTagAuthAuthorityKerberosv5, inAuthAuthorityList, inMutableRecordDict,
+						inNodeRef, inParams.pUserName, kDSTagAuthAuthorityKerberosv5, aaTank, inMutableRecordDict,
 						inPlugin, inNode, inNativeRecType, true );
 					
 					// update Kerberos
-					siResult = CDSLocalAuthHelper::DoKerberosAuth( inNodeRef, inParams, inOutContinueDataDict, inAuthData,
-									outAuthData, inAuthOnly, isSecondary, inAuthAuthorityList, inGUIDString, inAuthedUserIsAdmin,
+					siResult = CDSLocalAuthHelper::DoKerberosAuth( inNodeRef, inParams, inOutContinueData, inAuthData,
+									outAuthData, inAuthOnly, isSecondary, aaTank, inGUIDString, inAuthedUserIsAdmin,
 									inMutableRecordDict, inHashList, inPlugin, inNode, inAuthedUserName, inUID, inEffectiveUID,
 									inNativeRecType );
 				}
@@ -2921,18 +3028,20 @@ tDirStatus CDSLocalAuthHelper::DoSetPasswordAsRoot( tDirNodeReference inNodeRef,
 				if ( strlen(newPasswd) > 0 )
 				{
 					// only need crypt if password is not empty
-					::srandom(getpid() + time(0));
-					salt[0] = saltchars[random() % 64];
-					salt[1] = saltchars[random() % 64];
+					salt[0] = saltchars[arc4random() % 64];
+					salt[1] = saltchars[arc4random() % 64];
 					salt[2] = '\0';
 
 					::strcpy( hashPwd, ::crypt( newPasswd, salt ) );
 				}
 				// change the password attribute in the record
-				siResult = inPlugin->OpenRecord( inNodeRef, inPlugin->RecordStandardTypeForNativeType( inNativeRecType ),
-					userNameCFStr, &recordRef );
-				if ( siResult != eDSNoErr )
-					throw( siResult );
+				if ( recordRef == 0 )
+				{
+					siResult = inPlugin->OpenRecord( inPlugin->RecordStandardTypeForNativeType( inNativeRecType ),
+													userNameCFStr, &recordRef );
+					if ( siResult != eDSNoErr )
+						throw( siResult );
+				}
 
 				inPlugin->RemoveAttribute( recordRef, CFSTR( kDS1AttrPassword ) );
 				
@@ -2940,9 +3049,6 @@ tDirStatus CDSLocalAuthHelper::DoSetPasswordAsRoot( tDirNodeReference inNodeRef,
 				siResult = inPlugin->AddAttribute( recordRef, CFSTR( kDS1AttrPassword ), hashPwdCFStr );
 				if ( siResult != eDSNoErr )
 					throw( siResult );
-				inPlugin->CloseRecord( recordRef );
-				CRefTable::RemoveRecordRef( recordRef, gDaemonPID, gDaemonIPAddress ); // need to manually close this ref otherwise our refs get out of hand
-				recordRef = 0;
 				
 				// now change the dciotnary that's being passed around
 				CFDictionaryRemoveValue( inMutableRecordDict,
@@ -2974,10 +3080,10 @@ tDirStatus CDSLocalAuthHelper::DoSetPasswordAsRoot( tDirNodeReference inNodeRef,
 		CFRelease( userNameCFStr );
 	if ( hashPwdCFStr != NULL )
 		CFRelease( hashPwdCFStr );
-	if ( recordRef != 0 )
-	{
-		inPlugin->CloseRecord( recordRef );
-		CRefTable::RemoveRecordRef( recordRef, gDaemonPID, gDaemonIPAddress ); // need to manually close this ref otherwise our refs get out of hand
+	if ( recordRef != 0 ) {
+		DbgLog( kLogDebug, "CDSLocalAuthHelper::DoSetPasswordAsRoot - closing internal record reference" );
+		gRefTable.RemoveReference( recordRef, eRefTypeRecord, 0, 0 ); // remove closes the record automatically
+		recordRef = 0;
 	}
 	
 	DSFreeString( userName );
@@ -2988,7 +3094,7 @@ tDirStatus CDSLocalAuthHelper::DoSetPasswordAsRoot( tDirNodeReference inNodeRef,
 
 
 tDirStatus CDSLocalAuthHelper::DoChangePassword( tDirNodeReference inNodeRef, CDSLocalAuthParams &inParams,
-	CFMutableDictionaryRef* inOutContinueDataDict, tDataBufferPtr inAuthData,
+	tContextData *inOutContinueData, tDataBufferPtr inAuthData,
 	tDataBufferPtr outAuthData, bool inAuthOnly, bool isSecondary,
 	const char* inAuthAuthorityData, const char* inGUIDString, bool inAuthedUserIsAdmin, 
 	CFMutableDictionaryRef inMutableRecordDict, unsigned int inHashList,
@@ -3101,15 +3207,14 @@ tDirStatus CDSLocalAuthHelper::DoChangePassword( tDirNodeReference inNodeRef, CD
 				if ( strlen(newPwd) > 0 )
 				{
 					// only need crypt if password is not empty
-					::srandom(getpid() + time(0));
-					salt[0] = saltchars[random() % 64];
-					salt[1] = saltchars[random() % 64];
+					salt[0] = saltchars[arc4random() % 64];
+					salt[1] = saltchars[arc4random() % 64];
 					salt[2] = '\0';
 
 					::strcpy( hashPwd, ::crypt( newPwd, salt ) );
 				}
 				// change the password attribute in the record
-				siResult = inPlugin->OpenRecord( inNodeRef, inPlugin->RecordStandardTypeForNativeType( inNativeRecType ),
+				siResult = inPlugin->OpenRecord( inPlugin->RecordStandardTypeForNativeType( inNativeRecType ),
 					userNameCFStr, &recordRef );
 				if ( siResult != eDSNoErr )
 					throw( siResult );
@@ -3120,9 +3225,6 @@ tDirStatus CDSLocalAuthHelper::DoChangePassword( tDirNodeReference inNodeRef, CD
 				siResult = inPlugin->AddAttribute( recordRef, CFSTR( kDS1AttrPassword ), hashPwdCFStr );
 				if ( siResult != eDSNoErr )
 					throw( siResult );
-				inPlugin->CloseRecord( recordRef );
-				CRefTable::RemoveRecordRef( recordRef, gDaemonPID, gDaemonIPAddress ); // need to manually close this ref otherwise our refs get out of hand
-				recordRef = 0;
 				
 				// now change the dciotnary that's being passed around
 				CFDictionaryRemoveValue( inMutableRecordDict,
@@ -3156,10 +3258,10 @@ tDirStatus CDSLocalAuthHelper::DoChangePassword( tDirNodeReference inNodeRef, CD
 
 	if ( hashPwdCFStr != NULL )
 		CFRelease( hashPwdCFStr );
-	if ( recordRef != 0 )
-	{
-		inPlugin->CloseRecord( recordRef );
-		CRefTable::RemoveRecordRef( recordRef, gDaemonPID, gDaemonIPAddress ); // need to manually close this ref otherwise our refs get out of hand
+	if ( recordRef != 0 ) {
+		DbgLog( kLogDebug, "CDSLocalAuthHelper::DoChangePassword - closing internal record reference" );
+		gRefTable.RemoveReference( recordRef, eRefTypeRecord, 0, 0 ); // remove closes the record automatically
+		recordRef = 0;
 	}
 
 	if ( cStr != NULL )
@@ -3198,9 +3300,9 @@ tDataList* CDSLocalAuthHelper::FindNodeForSearchPolicyAuthUser ( const char *use
 {
 	tDirStatus				siResult		= eDSNoErr;
 	tDirStatus				returnVal		= (tDirStatus)-3;
-	unsigned long			nodeCount		= 0;
-	unsigned long			recCount		= 0;
-	tContextData			context			= NULL;
+	UInt32					nodeCount		= 0;
+	UInt32					recCount		= 0;
+	tContextData			context			= 0;
 	tDataListPtr			nodeName		= NULL;
 	tDataListPtr			recName			= NULL;
 	tDataListPtr			recType			= NULL;
@@ -3254,7 +3356,7 @@ tDataList* CDSLocalAuthHelper::FindNodeForSearchPolicyAuthUser ( const char *use
 				dataBuff = NULL;
 				dataBuff = ::dsDataBufferAllocate( aDSRef, bufSize * 2 );
 			}
-		} while ( (siResult == eDSBufferTooSmall) || ( (siResult == eDSNoErr) && (recCount == 0) && (context != NULL) ) );
+		} while ( (siResult == eDSBufferTooSmall) || ( (siResult == eDSNoErr) && (recCount == 0) && (context != 0) ) );
 		//worry about multiple calls (ie. continue data) since we continue until first match or no more searching
 		
 		if ( (siResult == eDSNoErr) && (recCount > 0) )
@@ -3428,13 +3530,9 @@ tDirStatus CDSLocalAuthHelper::SetUserPolicies( CFMutableDictionaryRef inMutable
 		CFStringRef stdRecType = inPlugin->RecordStandardTypeForNativeType( inNativeRecType );
 		recordName = CFStringCreateWithCString( NULL, inUsername, kCFStringEncodingUTF8 );
 
-		if ( (inEffectiveUID != 0) || ((inAuthedUserName != NULL) && CFStringCompare(inAuthedUserName, CFSTR("root"), 0) != kCFCompareEqualTo) )
-		{
-			bool accessAllowed = inNode->WriteAccessAllowed( inAuthedUserName, inEffectiveUID, stdRecType, recordName,
-				inPlugin->AttrNativeTypeForStandardType( CFSTR( kDS1AttrPasswordPolicyOptions ) ) );
-			if ( !accessAllowed )
-				throw( eDSPermissionError );
-		}
+		bool accessAllowed = inNode->AccessAllowed( inAuthedUserName, inEffectiveUID, inNativeRecType, inPlugin->AttrNativeTypeForStandardType(CFSTR(kDS1AttrPasswordPolicyOptions)), eDSAccessModeWriteAttr );
+		if ( !accessAllowed )
+			throw( eDSPermissionError );
 		
 		{
 			char policyStr[2048];
@@ -3447,7 +3545,7 @@ tDirStatus CDSLocalAuthHelper::SetUserPolicies( CFMutableDictionaryRef inMutable
 			::pwsf_PreserveUnrepresentedPolicies( inPolicyStr, sizeof(policyStr), policyStr );
 			if ( ::ConvertSpaceDelimitedPolicyToXML( policyStr, &xmlDataStr ) == 0 )
 			{
-				siResult = inPlugin->OpenRecord( inNodeRef, stdRecType, recordName, &recordRef );
+				siResult = inPlugin->OpenRecord( stdRecType, recordName, &recordRef );
 				if ( siResult != eDSNoErr )
 					throw( siResult );
 				siResult = inPlugin->RemoveAttribute( recordRef, CFSTR( kDS1AttrPasswordPolicyOptions ) );
@@ -3468,7 +3566,7 @@ tDirStatus CDSLocalAuthHelper::SetUserPolicies( CFMutableDictionaryRef inMutable
 					if ( realmStr != NULL )
 					{
 						char *buff = NULL;
-						int buffLen = 0;
+						size_t buffLen = 0;
 						pwsf_ModifyPrincipalInLocalRealm( princStr, realmStr, &access, access.maxMinutesUntilChangePassword,
 							&buff, &buffLen );
 					}
@@ -3476,10 +3574,6 @@ tDirStatus CDSLocalAuthHelper::SetUserPolicies( CFMutableDictionaryRef inMutable
 					free( princStr );
 				}
 				
-				inPlugin->CloseRecord( recordRef );
-				CRefTable::RemoveRecordRef( recordRef, gDaemonPID, gDaemonIPAddress ); // need to manually close this ref otherwise our refs get out of hand
-				recordRef = 0;
-
 				// now massage the cached copy of the record dict to match the one we just wrote to the directory
 				CFStringRef nativeAttrType =
 					inPlugin->AttrNativeTypeForStandardType( CFSTR( kDS1AttrPasswordPolicyOptions ) );
@@ -3500,10 +3594,10 @@ tDirStatus CDSLocalAuthHelper::SetUserPolicies( CFMutableDictionaryRef inMutable
 	}
 
 	DSFreeString( xmlDataStr );
-	if ( recordRef != 0 )
-	{
-		inPlugin->CloseRecord( recordRef );
-		CRefTable::RemoveRecordRef( recordRef, gDaemonPID, gDaemonIPAddress ); // need to manually close this ref otherwise our refs get out of hand
+	if ( recordRef != 0 ) {
+		DbgLog( kLogDebug, "CDSLocalAuthHelper::SetUserPolicies - closing internal record reference" );
+		gRefTable.RemoveReference( recordRef, eRefTypeRecord, 0, 0 ); // remove closes the record automatically
+		recordRef = 0;
 	}
 	if ( recordName != NULL )
 		CFRelease( recordName );
@@ -3544,7 +3638,7 @@ tDirStatus CDSLocalAuthHelper::SetUserAAtoDisabled( CFMutableDictionaryRef inMut
 			authAuthority = CFSTR( kDSValueAuthAuthorityDisabledUser kDSValueAuthAuthorityShadowHash );
 		
 		recordName = CFStringCreateWithCString( NULL, inUsername, kCFStringEncodingUTF8 );
-		siResult = inPlugin->OpenRecord( inNodeRef, inStdRecType, recordName, &recordRef );
+		siResult = inPlugin->OpenRecord( inStdRecType, recordName, &recordRef );
 		if ( siResult != eDSNoErr )
 			throw( siResult );
 		
@@ -3565,12 +3659,6 @@ tDirStatus CDSLocalAuthHelper::SetUserAAtoDisabled( CFMutableDictionaryRef inMut
 		}
 		
 		siResult = SaveAuthAuthoritiesWithRecordRef( inPlugin, inNodeRef, recordRef, aaTank );
-		if ( siResult != eDSNoErr )
-			throw( siResult );
-		
-		inPlugin->CloseRecord( recordRef );
-		CRefTable::RemoveRecordRef( recordRef, gDaemonPID, gDaemonIPAddress ); // need to manually close this ref otherwise our refs get out of hand
-		recordRef = 0;
 	}
 	
 	catch( tDirStatus err )
@@ -3580,10 +3668,10 @@ tDirStatus CDSLocalAuthHelper::SetUserAAtoDisabled( CFMutableDictionaryRef inMut
 		siResult = err;
 	}
 
-	if ( recordRef != 0 )
-	{
-		inPlugin->CloseRecord( recordRef );
-		CRefTable::RemoveRecordRef( recordRef, gDaemonPID, gDaemonIPAddress ); // need to manually close this ref otherwise our refs get out of hand
+	if ( recordRef != 0 ) {
+		DbgLog( kLogDebug, "CDSLocalAuthHelper::SetUserAAtoDisabled - closing internal record reference" );
+		gRefTable.RemoveReference( recordRef, eRefTypeRecord, 0, 0 ); // remove closes the record automatically
+		recordRef = 0;
 	}
 	if ( authAuthority != NULL )
 		CFRelease( authAuthority );
@@ -3618,7 +3706,7 @@ tDirStatus CDSLocalAuthHelper::SetUserAuthAuthorityAsRoot(	CFMutableDictionaryRe
 	try
 	{
 		CFStringRef recordName = CFStringCreateWithCString( kCFAllocatorDefault, inUsername, kCFStringEncodingUTF8 );
-		siResult = inPlugin->OpenRecord( inNodeRef, inStdRecType, recordName, &recordRef );
+		siResult = inPlugin->OpenRecord( inStdRecType, recordName, &recordRef );
 		CFRelease( recordName );
 		if ( siResult != eDSNoErr )
 			throw( siResult );
@@ -3668,8 +3756,9 @@ tDirStatus CDSLocalAuthHelper::SetUserAuthAuthorityAsRoot(	CFMutableDictionaryRe
 		// force flush and close our ref
 		sFlushRecord params = { kFlushRecord, 0, recordRef };
 		inPlugin->FlushRecord( &params );
-		inPlugin->CloseRecord( recordRef );
-		CRefTable::RemoveRecordRef( recordRef, gDaemonPID, gDaemonIPAddress ); // need to manually close this ref otherwise our refs get out of hand
+		DbgLog( kLogDebug, "CDSLocalAuthHelper::SetUserAuthAuthorityAsRoot - closing internal record reference" );
+		gRefTable.RemoveReference( recordRef, eRefTypeRecord, 0, 0 ); // remove closes the record automatically
+		recordRef = 0;
 	}
 	
 	if ( authAuthorityCFStr != NULL )
@@ -3777,7 +3866,7 @@ tDirStatus CDSLocalAuthHelper::WriteShadowHash ( const char *inUserName, const c
 {
 	tDirStatus	result			= eDSAuthFailed;
 	char	   *path			= NULL;
-	char		hexHashes[kHashTotalHexLength]	= { 0 };
+	char		hexHashes[kHashTotalHexLength + 1]	= { 0 };
 	tDirStatus	siResult		= eDSNoErr;
 	struct stat	statResult;
 	CFile	  *hashFile			= NULL;
@@ -3828,10 +3917,10 @@ tDirStatus CDSLocalAuthHelper::WriteShadowHash ( const char *inUserName, const c
 			hashFile = new CFile(path, true);
 			if (hashFile->is_open())
 			{
+				chmod( path, 0600 ); //set root as rw only before writing data
 				BinaryToHexConversion( inHashes, kHashTotalLength, hexHashes );
 				hashFile->seekp( 0 ); // start at beginning
 				hashFile->write( hexHashes, kHashTotalHexLength );
-				chmod( path, 0600 ); //set root as rw only
 				delete(hashFile);
 				hashFile = NULL;
 				result = eDSNoErr;
@@ -4163,7 +4252,7 @@ tDirStatus CDSLocalAuthHelper::ReadShadowHashAndStateFiles( const char *inUserNa
 	unsigned char outHashes[kHashTotalLength], struct timespec *outModTime, char **outUserHashPath, char **outStateFilePath,
 	sHashState *inOutHashState, SInt32 *outHashDataLen )
 {
-	if ( outStateFilePath == NULL || outUserHashPath == NULL )
+	if ( inUserName == NULL || outStateFilePath == NULL || outUserHashPath == NULL )
 		return eParameterError;
 	
 	*outStateFilePath = NULL;
@@ -4275,39 +4364,20 @@ tDirStatus CDSLocalAuthHelper::SetShadowHashGlobalPolicies( CDSLocalPlugin* inPl
 		
 		if ( inAuthedUserName == NULL )
 			throw( eDSPermissionError );
-
-		{	// check to see if the currently authed user  is an admin
-			recordsArray = CFArrayCreateMutable( NULL, 0, &kCFTypeArrayCallBacks );
 		
-			recNames = CFArrayCreate( NULL, (const void**)&inAuthedUserName, 1, &kCFTypeArrayCallBacks );
-			siResult = inNode->GetRecords( inPlugin->RecordNativeTypeForStandardType( CFSTR( kDSStdRecordTypeUsers ) ),
-				recNames, CFSTR( kDSNAttrRecordName ), eDSExact, false, 1, recordsArray );
-			CFRelease( recNames );
-			recNames = NULL;
-			if ( siResult != eDSNoErr )
-				throw( siResult );
-
-			if ( CFArrayGetCount( recordsArray ) == 0 )
-				throw( eDSPermissionError );
-
-			CFDictionaryRef authenticatedUserRec = (CFDictionaryRef)CFArrayGetValueAtIndex( recordsArray, 0 );
-			if ( authenticatedUserRec == NULL )
-				throw( eDSPermissionError );
-
-			if ( !inPlugin->UserIsAdmin( authenticatedUserRec, inNode ) )
-				throw( eDSPermissionError );
-			
-			CFRelease( recordsArray );
-			recordsArray = NULL;
+		char username[256];
+		if ( CFStringGetCString(inAuthedUserName, username, sizeof(username), kCFStringEncodingUTF8) == true )
+		{
+			if ( dsIsUserMemberOfGroup(username, "admin") == false ) 
+				throw eDSPermissionError;
 		}
-		
-		if ( recordsArray != NULL )
-			CFRelease( recordsArray );
+
 		recordsArray = CFArrayCreateMutable( NULL, 0, &kCFTypeArrayCallBacks );
 	
 		recName = CFSTR( kShadowHashRecordName );
 		recNames = CFArrayCreate( NULL, (const void**)&recName, 1, &kCFTypeArrayCallBacks );
-		siResult = inNode->GetRecords( inPlugin->RecordNativeTypeForStandardType( CFSTR( kDSStdRecordTypeConfig ) ),
+		CFStringRef recordType = inPlugin->RecordNativeTypeForStandardType( CFSTR(kDSStdRecordTypeConfig) );
+		siResult = inNode->GetRecords( recordType,
 			recNames, CFSTR( kDSNAttrRecordName ), eDSExact, false, 1, recordsArray );
 		CFRelease( recNames );
 		if ( siResult != eDSNoErr )
@@ -4315,27 +4385,21 @@ tDirStatus CDSLocalAuthHelper::SetShadowHashGlobalPolicies( CDSLocalPlugin* inPl
 
 		if ( CFArrayGetCount( recordsArray ) == 0 )
 		{
-			siResult = inPlugin->CreateRecord( inNodeRef, CFSTR( kDSStdRecordTypeConfig ), CFSTR( kShadowHashRecordName ),
+			siResult = inPlugin->CreateRecord( CFSTR( kDSStdRecordTypeConfig ), CFSTR( kShadowHashRecordName ),
 				true, &shadowHashRecRef );
 			if ( siResult != eDSNoErr )
 				throw( siResult );
 		}
 		else
 		{
-			siResult = inPlugin->OpenRecord( inNodeRef, CFSTR( kDSStdRecordTypeConfig ), CFSTR( kShadowHashRecordName ),
+			siResult = inPlugin->OpenRecord( CFSTR( kDSStdRecordTypeConfig ), CFSTR( kShadowHashRecordName ),
 				&shadowHashRecRef );
 			if ( siResult != eDSNoErr )
 				throw( siResult );
 		}
 		
-		if ( ( inEffectiveUID != 0 ) || ( (inAuthedUserName != NULL) && CFStringCompare( inAuthedUserName, CFSTR( "root" ), 0 ) != kCFCompareEqualTo ) )
-		{
-			if ( !inNode->WriteAccessAllowed( inAuthedUserName, inEffectiveUID,
-					inPlugin->RecordNativeTypeForStandardType( CFSTR( kDSStdRecordTypeConfig ) ),
-					CFSTR( kShadowHashRecordName ),
-					inPlugin->AttrNativeTypeForStandardType( CFSTR( kDS1AttrPasswordPolicyOptions ) ) ) )
-				throw( eDSPermissionError );
-		}
+		if ( !inNode->AccessAllowed(inAuthedUserName, inEffectiveUID, recordType, inPlugin->AttrNativeTypeForStandardType(CFSTR(kDS1AttrPasswordPolicyOptions)), eDSAccessModeWriteAttr) )
+			throw( eDSPermissionError );
 		
 		{
 			char *xmlDataStr;
@@ -4363,10 +4427,10 @@ tDirStatus CDSLocalAuthHelper::SetShadowHashGlobalPolicies( CDSLocalPlugin* inPl
 		siResult = err;
 	}
 
-	if ( shadowHashRecRef != 0 )
-	{
-		inPlugin->CloseRecord( shadowHashRecRef );
-		CRefTable::RemoveRecordRef( shadowHashRecRef, gDaemonPID, gDaemonIPAddress ); // need to manually close this ref otherwise our refs get out of hand
+	if ( shadowHashRecRef != 0 ) {
+		DbgLog( kLogDebug, "CDSLocalAuthHelper::SetShadowHashGlobalPolicies - closing internal record reference" );
+		gRefTable.RemoveReference( shadowHashRecRef, eRefTypeRecord, 0, 0 ); // remove closes the record automatically
+		shadowHashRecRef = 0;
 	}
 
 	if ( recordsArray != NULL )
@@ -4381,7 +4445,8 @@ tDirStatus CDSLocalAuthHelper::SetShadowHashGlobalPolicies( CDSLocalPlugin* inPl
 //--------------------------------------------------------------------------------------------------
 
 void CDSLocalAuthHelper::GenerateShadowHashes( bool inServerOS, const char *inPassword, long inPasswordLen,
-	int inAdditionalHashList, const unsigned char *inSHA1Salt, unsigned char *outHashes, unsigned long *outHashTotalLength )
+											   UInt32 inAdditionalHashList, const unsigned char *inSHA1Salt, unsigned char *outHashes,
+											   UInt32 *outHashTotalLength )
 {
 	CC_SHA1_CTX		sha_context						= {};
 	unsigned char	digestData[kHashSecureLength]	= {0};
@@ -4421,7 +4486,7 @@ void CDSLocalAuthHelper::GenerateShadowHashes( bool inServerOS, const char *inPa
 	/* 4-byte Salted SHA1 */
 	if ( (inAdditionalHashList & ePluginHashSaltedSHA1) )
 	{
-		unsigned long salt;
+		UInt32 salt;
 		
 		if ( inSHA1Salt != NULL )
 		{
@@ -4430,8 +4495,7 @@ void CDSLocalAuthHelper::GenerateShadowHashes( bool inServerOS, const char *inPa
 		}
 		else
 		{
-			::srandom(getpid() + time(0));
-			salt = (unsigned long) random();
+			salt = (UInt32) arc4random();
 			memcpy( outHashes + pos, &salt, 4 );
 		}
 		
@@ -4483,7 +4547,7 @@ void CDSLocalAuthHelper::GenerateShadowHashes( bool inServerOS, const char *inPa
 //--------------------------------------------------------------------------------------------------
 
 tDirStatus CDSLocalAuthHelper::UnobfuscateRecoverablePassword( unsigned char *inData, unsigned char **outPassword,
-	unsigned long *outPasswordLength )
+	UInt32 *outPasswordLength )
 {
 	// un-obfuscate
 	CCCryptorStatus status = kCCSuccess;
@@ -4601,7 +4665,7 @@ void CDSLocalAuthHelper::hmac_md5_final(unsigned char digest[HMAC_MD5_SIZE], HMA
 //--------------------------------------------------------------------------------------------------
 
 tDirStatus CDSLocalAuthHelper::Verify_APOP( const char *userstr, const unsigned char *inPassword,
-	unsigned long inPasswordLen, const char *challenge, const char *response )
+	UInt32 inPasswordLen, const char *challenge, const char *response )
 {
     tDirStatus siResult = eDSAuthFailed;
     unsigned char digest[16];
@@ -4775,18 +4839,22 @@ tDirStatus CDSLocalAuthHelper::MigrateToShadowHash( tDirNodeReference inNodeRef,
 {
 	tDirStatus				siResult							= eDSAuthFailed;
 	unsigned char			generatedHashes[kHashTotalLength]   = {0};
-	unsigned long			hashTotalLength						= 0;
+	UInt32					hashTotalLength						= 0;
 	char*					cStr								= NULL;
 	size_t					cStrSize							= 0;
 	CFStringRef				cfString							= NULL;
 	tRecordReference		recordRef							= 0;
 	CFMutableDictionaryRef	nodeDict							= NULL;
 	CFStringRef				preRootAuthString					= NULL;
+	CFStringRef				nativeTypeGUIDString				= NULL;
+	
+	nativeTypeGUIDString = inPlugin->AttrNativeTypeForStandardType( CFSTR(kDS1AttrGeneratedUID) );
+	if ( nativeTypeGUIDString == NULL )
+		return eDSNullAttributeType;
 	
 	try
 	{
-		CFArrayRef values = (CFArrayRef)CFDictionaryGetValue( inMutableRecordDict,
-			inPlugin->AttrNativeTypeForStandardType( CFSTR( kDS1AttrGeneratedUID ) ) );
+		CFArrayRef values = (CFArrayRef)CFDictionaryGetValue( inMutableRecordDict, nativeTypeGUIDString );
 		if ( ( values != NULL ) && ( CFArrayGetCount( values ) > 0 ) )
 			cfString = (CFStringRef)CFArrayGetValueAtIndex( values, 0 );
 
@@ -4803,48 +4871,46 @@ tDirStatus CDSLocalAuthHelper::MigrateToShadowHash( tDirNodeReference inNodeRef,
 		else
 			throw( eDSRecordNotFound );
 
-		siResult = inPlugin->OpenRecord( inNodeRef, inNativeRecType, cfString, &recordRef );
+		siResult = inPlugin->OpenRecord( inNativeRecType, cfString, &recordRef );
 		if ( siResult != eDSNoErr )
 			throw( siResult );
 
-		if (guidCStr == NULL)
-		{
-			//no pre-existing GUID so we make one here
-			CFUUIDRef       myUUID;
-			CFStringRef     myUUIDString;
-			char            genUIDValue[100];
+		uuid_t uuid;
+		uuid_string_t uuid_str;
 
-			bzero( genUIDValue, sizeof(genUIDValue) );
-			myUUID = CFUUIDCreate(kCFAllocatorDefault);
-			myUUIDString = CFUUIDCreateString(kCFAllocatorDefault, myUUID);
-			CFStringGetCString(myUUIDString, genUIDValue, sizeof(genUIDValue), kCFStringEncodingASCII);
-			CFRelease(myUUID);
-			CFRelease(myUUIDString);
-			cStr = strdup(genUIDValue);
-			cStrSize = strlen( cStr ) + 1;
-			guidCStr = cStr;
+		if ( guidCStr != NULL )
+		{
+			if ( uuid_parse(guidCStr, uuid) == 0 ) {
+				uuid_unparse_upper( uuid, uuid_str );
+				guidCStr = (const char *) uuid_str;
+			}
+			else {
+				DbgLog( kLogError, "Record has malformed UUID - '%s' - expected format 'ADC9246E-8E90-4165-95E1-BED50931021B'", guidCStr );
+				throw eDSSchemaError;
+			}
+		}
+		else if ( guidCStr == NULL )
+		{
+			uuid_generate_random( uuid );
+			uuid_unparse_upper( uuid, uuid_str );
 			
 			//write the GUID value to the user record
-			cfString = CFStringCreateWithCString( NULL, guidCStr, kCFStringEncodingUTF8 );
+			cfString = CFStringCreateWithCString( NULL, uuid_str, kCFStringEncodingUTF8 );
 			siResult = inPlugin->AddAttribute( recordRef, CFSTR( kDS1AttrGeneratedUID ), cfString );
 			if ( siResult != eDSNoErr )
 				throw( siResult );
 			
 			//and modify the copy of the user record that we're passing around
-			CFDictionaryRemoveValue( inMutableRecordDict,
-				inPlugin->AttrNativeTypeForStandardType( CFSTR( kDS1AttrGeneratedUID ) ) );
+			CFDictionaryRemoveValue( inMutableRecordDict, nativeTypeGUIDString );
 			CFMutableArrayRef mutableArray = CFArrayCreateMutable( NULL, 0, &kCFTypeArrayCallBacks );
 			CFArrayAppendValue( mutableArray, cfString );
-			CFDictionaryAddValue( inMutableRecordDict,
-				inPlugin->AttrNativeTypeForStandardType( CFSTR( kDS1AttrGeneratedUID ) ), mutableArray );
-			CFRelease( mutableArray );
-			mutableArray = NULL;
-
-			CFRelease( cfString );
-			cfString = NULL;
+			CFDictionaryAddValue( inMutableRecordDict, nativeTypeGUIDString, mutableArray );
+			
+			DSCFRelease( mutableArray );
+			DSCFRelease( cfString );
 			*outResetCache = true;
 		}
-
+		
 		CDSLocalAuthHelper::GenerateShadowHashes( gServerOS, inPassword, strlen(inPassword), inHashList, NULL,
 			generatedHashes, &hashTotalLength );
 		
@@ -4885,13 +4951,9 @@ tDirStatus CDSLocalAuthHelper::MigrateToShadowHash( tDirNodeReference inNodeRef,
 				throw( siResult );
 			
 			inPlugin->RemoveAttribute( recordRef, CFSTR( kDS1AttrPassword ) );
-			siResult = inPlugin->AddAttribute( recordRef, CFSTR( kDS1AttrPassword ),
-				CFSTR( kDSValueNonCryptPasswordMarker ) );
+			siResult = inPlugin->AddAttribute( recordRef, CFSTR(kDS1AttrPassword), CFSTR(kDSValueNonCryptPasswordMarker) );
 			if ( siResult != eDSNoErr )
 				throw( siResult );
-			inPlugin->CloseRecord( recordRef );
-			CRefTable::RemoveRecordRef( recordRef, gDaemonPID, gDaemonIPAddress ); // need to manually close this ref otherwise our refs get out of hand
-			recordRef = 0;
 
 			// and modify the copy of the user record that we're passing around			
 			CFMutableArrayRef mutableArray = CFArrayCreateMutable( NULL, 0, &kCFTypeArrayCallBacks );
@@ -4913,24 +4975,24 @@ tDirStatus CDSLocalAuthHelper::MigrateToShadowHash( tDirNodeReference inNodeRef,
 		siResult = err;
 	}
 	
-	if ( recordRef != 0 )
-	{
-		inPlugin->CloseRecord( recordRef );
-		CRefTable::RemoveRecordRef( recordRef, gDaemonPID, gDaemonIPAddress ); // need to manually close this ref otherwise our refs get out of hand
+	if ( recordRef != 0 ) {
+		DbgLog( kLogDebug, "CDSLocalAuthHelper::MigrateToShadowHash - closing internal record reference" );
+		gRefTable.RemoveReference( recordRef, eRefTypeRecord, 0, 0 ); // remove closes the record automatically
+		recordRef = 0;
 	}
 
-	if ( cStr != NULL )
-		free( cStr );
+	DSFreeString( cStr );
 	
-	if ( preRootAuthString != NULL ) {
-		CFDictionarySetValue( nodeDict, CFSTR(kNodeAuthenticatedUserName), preRootAuthString );
-		CFRelease( preRootAuthString );
+	if ( nodeDict != NULL )
+	{
+		if ( preRootAuthString != NULL )
+			CFDictionarySetValue( nodeDict, CFSTR(kNodeAuthenticatedUserName), preRootAuthString );
+		else
+			CFDictionaryRemoveValue( nodeDict, CFSTR(kNodeAuthenticatedUserName) );
 	}
-	else {
-		CFDictionaryRemoveValue( nodeDict, CFSTR(kNodeAuthenticatedUserName) );
-	}
-
-	return(siResult);
+	DSCFRelease( preRootAuthString );
+	
+	return siResult;
 }
 
 
@@ -4942,7 +5004,7 @@ tDirStatus CDSLocalAuthHelper::MigrateToShadowHash( tDirNodeReference inNodeRef,
 
 tDirStatus CDSLocalAuthHelper::MigrateAddKerberos(
 	tDirNodeReference inNodeRef, CDSLocalAuthParams &inParams,
-	CFMutableDictionaryRef *inOutContinueDataDict, tDataBufferPtr inAuthData,
+	tContextData *inOutContinueData, tDataBufferPtr inAuthData,
 	tDataBufferPtr outAuthData, bool inAuthOnly, bool isSecondary,
 	CAuthAuthority &inAuthAuthorityList, const char* inGUIDString, bool inAuthedUserIsAdmin, 
 	CFMutableDictionaryRef inMutableRecordDict, unsigned int inHashList,
@@ -4961,7 +5023,8 @@ tDirStatus CDSLocalAuthHelper::MigrateAddKerberos(
 		// if AuthenticationAuthority has only ;ShadowHash;
 		if ( inAuthAuthorityList.GetValueCount() == 1 &&
 			 (inAuthAuthorityList.GetValueForTagAsCFDict(kDSTagAuthAuthorityShadowHash) != NULL ||
-			  inAuthAuthorityList.GetValueForTagAsCFDict(kDSTagAuthAuthorityLocalCachedUser) != NULL) )
+			  inAuthAuthorityList.GetValueForTagAsCFDict(kDSTagAuthAuthorityLocalCachedUser) != NULL ||
+			  inAuthAuthorityList.GetValueForTagAsCFDict(kDSTagAuthAuthorityBasic) != NULL) )
 		{
 			AddKerberosAuthAuthority(
 				inNodeRef, inParams.pUserName, kDSTagAuthAuthorityKerberosv5, inAuthAuthorityList, inMutableRecordDict,
@@ -4978,7 +5041,7 @@ tDirStatus CDSLocalAuthHelper::MigrateAddKerberos(
 			else
 			{
 				// Update Kerberos: works for the set/change password methods, enforces password policy
-				siResult = CDSLocalAuthHelper::DoKerberosAuth( inNodeRef, inParams, inOutContinueDataDict, inAuthData,
+				siResult = CDSLocalAuthHelper::DoKerberosAuth( inNodeRef, inParams, inOutContinueData, inAuthData,
 								outAuthData, inAuthOnly, isSecondary, inAuthAuthorityList, inGUIDString, inAuthedUserIsAdmin,
 								inMutableRecordDict, inHashList, inPlugin, inNode, inAuthedUserName, inUID, inEffectiveUID,
 								inNativeRecType );
@@ -5115,7 +5178,7 @@ tDirStatus CDSLocalAuthHelper::PWSetReplicaData( CDSLocalPlugin* inPlugin, CDSLo
 tDirStatus
 CDSLocalAuthHelper::LocalCachedUserReachable(
 	tDirNodeReference inNodeRef,
-	CFMutableDictionaryRef* inOutContinueDataDict,
+	tContextData *inOutContinueData,
 	tDataBufferPtr inAuthData,
 	tDataBufferPtr outAuthData,
 	bool inAuthOnly,
@@ -5165,7 +5228,7 @@ CDSLocalAuthHelper::LocalCachedUserReachable(
 	{
 		siResult = ParseLocalCacheUserAuthData( inPB.aaDataLocalCacheUser, &networkNodename, localCachedUserName, &userGUID );
 		
-		result = inPlugin->GetDirServiceRef( &(*outDSRef) );
+		result = inPlugin->GetDirServiceRef( outDSRef );
 		if ( result == eDSNoErr )
 		{
 			*outDSNetworkNode = dsBuildFromPathPriv( networkNodename, "/" );
@@ -5290,7 +5353,7 @@ CDSLocalAuthHelper::LocalCachedUserReachable(
 
 tDirStatus CDSLocalAuthHelper::DoLocalCachedUserAuthPhase2(	tDirNodeReference inNodeRef,
 															CDSLocalAuthParams &inParams,
-															CFMutableDictionaryRef* inOutContinueDataDict,
+															tContextData *inOutContinueData,
 															tDataBufferPtr inAuthData,
 															tDataBufferPtr outAuthData,
 															bool inAuthOnly,
@@ -5328,8 +5391,21 @@ tDirStatus CDSLocalAuthHelper::DoLocalCachedUserAuthPhase2(	tDirNodeReference in
 	if ( localCachedUserName == NULL )
 		return( eDSUserUnknown );
 	
+	switch ( inParams.uiAuthMethod )
+	{
+		case kAuthSetPolicyAsRoot:
+		case kAuthSetCertificateHashAsRoot:
+			if ( inEffectiveUID == 0 || inAuthedUserIsAdmin == true ) {
+				nodeIsOnSearchPolicy = false; // just set node as not on the search policy to skip network check
+			}
+			else {
+				return eDSAuthFailed;
+			}
+			break;	
+	}
+
 	// If the node is reachable, it's authoritative
-	if ( nodeIsOnSearchPolicy && (*inOutDSNetworkNode != NULL) )
+	if ( nodeIsOnSearchPolicy && (*inOutDSNetworkNode) != NULL )
 	{
 		nodeDict = inPlugin->CopyNodeDictForNodeRef( inNodeRef );
 		if ( nodeDict == NULL )
@@ -5410,7 +5486,6 @@ tDirStatus CDSLocalAuthHelper::DoLocalCachedUserAuthPhase2(	tDirNodeReference in
 			case kAuthSetPolicy:
 			case kAuthSetUserName:
 			case kAuthSetUserData:
-			case kAuthSetPolicyAsRoot:
 			case kAuthSetShadowHashWindows:
 			case kAuthSetShadowHashSecure:
 				goto cleanup;
@@ -5428,7 +5503,7 @@ tDirStatus CDSLocalAuthHelper::DoLocalCachedUserAuthPhase2(	tDirNodeReference in
 	siResult2 = CDSLocalAuthHelper::DoShadowHashAuth(
 									inNodeRef,
 									inParams,
-									inOutContinueDataDict,
+									inOutContinueData,
 									inAuthData,
 									outAuthData,
 									inAuthOnly,
@@ -5454,7 +5529,7 @@ tDirStatus CDSLocalAuthHelper::DoLocalCachedUserAuthPhase2(	tDirNodeReference in
 		{
 			char *name = NULL;
 			char *pwd = NULL;
-			unsigned long hashTotalLength = 0;
+			UInt32 hashTotalLength = 0;
 			unsigned char generatedHashes[kHashTotalLength];
 			
 			siResult2 = (tDirStatus) Get2FromBuffer( inAuthData, NULL, &name, &pwd, NULL );
@@ -5489,6 +5564,11 @@ cleanup:
 	
 	if ( authDataBuff != NULL )
         dsDataBufferDeallocatePriv( authDataBuff );
+	
+	if (aNodeRef != 0) {
+		dsCloseDirNode(aNodeRef);
+		aNodeRef = 0;
+	}
 
 	return( siResult );
 }

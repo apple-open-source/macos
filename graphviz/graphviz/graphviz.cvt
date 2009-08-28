@@ -413,7 +413,7 @@ circo :LIBRARY: circularinit.c nodelist.c block.c edgelist.c \
 	circpos.c nodeset.c \
 	-lneato -ldotneato
 
-$(INCLUDEDIR) :INSTALLDIR: circo.h circular.h block.h nodelist.h stack.h
+$(INCLUDEDIR) :INSTALLDIR: circo.h circular.h graphviz_block.h nodelist.h stack.h
 !
 
 :EDIT:	libcirco	edgelist.c nodelist.c block.c stack.c circularinit.c circular.c <<!

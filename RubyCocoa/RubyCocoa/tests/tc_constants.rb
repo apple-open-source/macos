@@ -55,6 +55,13 @@ class TC_Constants < Test::Unit::TestCase
      assert_raises NameError do NonexistentConstant end
    end
 
+   # not affects behaviors of Ruby classes
+   def test_nonexistent_method
+     assert_raises NoMethodError do OSX.foo end
+     def OSX.foo; bar; end
+     assert_raises NameError do OSX.foo end
+   end
+
    # Ensure that const_missing still works within a different module
    def test_module_const_missing
      assert_equal :module_success, TestConstModule::Foo

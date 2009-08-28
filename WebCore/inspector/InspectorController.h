@@ -31,7 +31,6 @@
 
 #include "Console.h"
 #include "PlatformString.h"
-#include "ScriptObject.h"
 #include "ScriptState.h"
 #include "StringHash.h"
 #include "Timer.h"
@@ -58,14 +57,17 @@ class DocumentLoader;
 class GraphicsContext;
 class HitTestResult;
 class InspectorClient;
+class InspectorFrontend;
 class JavaScriptCallFrame;
 class StorageArea;
+class KURL;
 class Node;
 class Page;
 struct ResourceRequest;
 class ResourceResponse;
 class ResourceError;
 class ScriptCallStack;
+class ScriptObject;
 class ScriptString;
 class SharedBuffer;
 
@@ -103,6 +105,12 @@ public:
         Setting()
             : m_type(NoType)
         {
+        }
+
+        explicit Setting(bool value)
+            : m_type(BooleanType)
+        {
+            m_simpleContent.m_boolean = value;
         }
 
         Type type() const { return m_type; }
@@ -163,6 +171,7 @@ public:
     bool windowVisible();
     void setWindowVisible(bool visible = true, bool attached = false);
 
+    void addResourceSourceToFrame(long identifier, Node* frame);
     bool addSourceToFrame(const String& mimeType, const String& source, Node*);
     void addMessageToConsole(MessageSource, MessageLevel, ScriptCallStack*);
     void addMessageToConsole(MessageSource, MessageLevel, const String& message, unsigned lineNumber, const String& sourceID);
@@ -183,6 +192,7 @@ public:
     void windowScriptObjectAvailable();
 
     void scriptObjectReady();
+    void setFrontendProxyObject(ScriptState* state, ScriptObject object);
 
     void populateScriptObjects();
     void resetScriptObjects();
@@ -200,6 +210,11 @@ public:
     void didFailLoading(DocumentLoader*, unsigned long identifier, const ResourceError&);
     void resourceRetrievedByXMLHttpRequest(unsigned long identifier, const ScriptString& sourceString);
     void scriptImported(unsigned long identifier, const String& sourceString);
+
+    void enableResourceTracking(bool always = false);
+    void disableResourceTracking(bool always = false);
+    bool resourceTrackingEnabled() const { return m_resourceTrackingEnabled; }
+    void ensureResourceTrackingSettingsLoaded();
 
 #if ENABLE(DATABASE)
     void didOpenDatabase(Database*, const String& domain, const String& name, const String& version);
@@ -227,29 +242,32 @@ public:
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     void addProfile(PassRefPtr<JSC::Profile>, unsigned lineNumber, const JSC::UString& sourceURL);
-    void addProfileMessageToConsole(PassRefPtr<JSC::Profile> prpProfile, unsigned lineNumber, const JSC::UString& sourceURL);
-    void addScriptProfile(JSC::Profile* profile);
+    void addProfileFinishedMessageToConsole(PassRefPtr<JSC::Profile>, unsigned lineNumber, const JSC::UString& sourceURL);
+    void addStartProfilingMessageToConsole(const JSC::UString& title, unsigned lineNumber, const JSC::UString& sourceURL);
+    void addScriptProfile(JSC::Profile*);
     const ProfilesArray& profiles() const { return m_profiles; }
 
     bool isRecordingUserInitiatedProfile() const { return m_recordingUserInitiatedProfile; }
 
+    JSC::UString getCurrentUserInitiatedProfileName(bool incrementProfileNumber);
     void startUserInitiatedProfilingSoon();
     void startUserInitiatedProfiling(Timer<InspectorController>* = 0);
     void stopUserInitiatedProfiling();
     void toggleRecordButton(bool);
 
-    void enableProfiler(bool skipRecompile = false);
-    void disableProfiler();
+    void enableProfiler(bool always = false, bool skipRecompile = false);
+    void disableProfiler(bool always = false);
     bool profilerEnabled() const { return enabled() && m_profilerEnabled; }
 
+    void enableDebuggerFromFrontend(bool always);
     void enableDebugger();
-    void disableDebugger();
+    void disableDebugger(bool always = false);
     bool debuggerEnabled() const { return m_debuggerEnabled; }
 
     JavaScriptCallFrame* currentCallFrame() const;
 
-    void addBreakpoint(intptr_t sourceID, unsigned lineNumber);
-    void removeBreakpoint(intptr_t sourceID, unsigned lineNumber);
+    void addBreakpoint(const String& sourceID, unsigned lineNumber);
+    void removeBreakpoint(const String& sourceID, unsigned lineNumber);
 
     bool pauseOnExceptions();
     void setPauseOnExceptions(bool pause);
@@ -269,22 +287,25 @@ public:
 
 private:
     InspectorController(Page*, InspectorClient*);
-    bool hasWebInspector() const { return m_scriptState && !m_webInspector.hasNoValue(); }
+
     void focusNode();
 
     void addConsoleMessage(ScriptState*, ConsoleMessage*);
 
     void addResource(InspectorResource*);
     void removeResource(InspectorResource*);
+    InspectorResource* getTrackedResource(long long identifier);
 
     void pruneResources(ResourcesMap*, DocumentLoader* loaderToKeep = 0);
     void removeAllResources(ResourcesMap* map) { pruneResources(map); }
 
     void showWindow();
 
+    bool isMainResourceLoader(DocumentLoader* loader, const KURL& requestUrl);
 
     Page* m_inspectedPage;
     InspectorClient* m_client;
+    OwnPtr<InspectorFrontend> m_frontend;
     Page* m_page;
     RefPtr<Node> m_nodeToFocus;
     RefPtr<InspectorResource> m_mainResource;
@@ -300,7 +321,6 @@ private:
 #if ENABLE(DOM_STORAGE)
     DOMStorageResourcesSet m_domStorageResources;
 #endif
-    ScriptObject m_webInspector;
     ScriptState* m_scriptState;
     bool m_windowVisible;
     SpecialPanels m_showAfterVisible;
@@ -309,6 +329,8 @@ private:
     unsigned m_groupLevel;
     bool m_searchingForNode;
     ConsoleMessage* m_previousMessage;
+    bool m_resourceTrackingEnabled;
+    bool m_resourceTrackingSettingsLoaded;
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     bool m_debuggerEnabled;
     bool m_attachDebuggerWhenShown;

@@ -1,6 +1,6 @@
 /* fix-header.c - Make C header file suitable for C++.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2006 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -14,7 +14,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 /* This program massages a system include file (such as stdio.h),
    into a form that is compatible with GNU C and GNU C++.
@@ -82,17 +82,19 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "errors.h"
 
 #ifdef TARGET_EXTRA_INCLUDES
-void TARGET_EXTRA_INCLUDES (const char *sysroot ATTRIBUTE_UNUSED,
-			    const char *iprefix ATTRIBUTE_UNUSED,
-			    int stdinc ATTRIBUTE_UNUSED)
+void
+TARGET_EXTRA_INCLUDES (const char *sysroot ATTRIBUTE_UNUSED,
+		       const char *iprefix ATTRIBUTE_UNUSED,
+		       int stdinc ATTRIBUTE_UNUSED)
 {
 }
 #endif
 
 #ifdef TARGET_EXTRA_PRE_INCLUDES 
-void TARGET_EXTRA_PRE_INCLUDES (const char *sysroot ATTRIBUTE_UNUSED,
-			    const char *iprefix ATTRIBUTE_UNUSED,
-			    int stdinc ATTRIBUTE_UNUSED)
+void
+TARGET_EXTRA_PRE_INCLUDES (const char *sysroot ATTRIBUTE_UNUSED,
+			   const char *iprefix ATTRIBUTE_UNUSED,
+			   int stdinc ATTRIBUTE_UNUSED)
 {
 }
 #endif
@@ -666,8 +668,8 @@ read_scan_file (char *in_fname, int argc, char **argv)
     exit (FATAL_EXIT_CODE);
 
   register_include_chains (scan_in, NULL /* sysroot */, NULL /* iprefix */,
-			   true /* stdinc */, false /* cxx_stdinc */,
-			   false /* verbose */);
+			   NULL /* imultilib */, true /* stdinc */,
+			   false /* cxx_stdinc */, false /* verbose */);
 
   /* We are scanning a system header, so mark it as such.  */
   cpp_make_system_header (scan_in, 1, 0);
@@ -1187,7 +1189,7 @@ main (int argc, char **argv)
       exit (FATAL_EXIT_CODE);
     }
   inf_size = sbuf.st_size;
-  inf_buffer = xmalloc (inf_size + 2);
+  inf_buffer = XNEWVEC (char, inf_size + 2);
   inf_ptr = inf_buffer;
 
   to_read = inf_size;

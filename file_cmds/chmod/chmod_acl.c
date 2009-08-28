@@ -502,10 +502,12 @@ find_matching_entry (acl_t acl, acl_entry_t modifier, acl_entry_t *rentryp,
 
 /* Remove all perms specified in modifier from rentry*/
 int
-subtract_from_entry(acl_entry_t rentry, acl_entry_t  modifier)
+subtract_from_entry(acl_entry_t rentry, acl_entry_t  modifier, int* valid_perms)
 {
 	acl_permset_t rperms, mperms;
 	acl_flagset_t rflags, mflags;
+	if (valid_perms)
+		*valid_perms = 0;
 	int i;
 
 	if ((acl_get_permset(rentry, &rperms) != 0) ||
@@ -517,6 +519,8 @@ subtract_from_entry(acl_entry_t rentry, acl_entry_t  modifier)
 	for (i = 0; acl_perms[i].name != NULL; i++) {
 		if (acl_get_perm_np(mperms, acl_perms[i].perm))
 			acl_delete_perm(rperms, acl_perms[i].perm);
+		else if (valid_perms && acl_get_perm_np(rperms, acl_perms[i].perm)) 
+			(*valid_perms)++;
 	}
 	for (i = 0; acl_flags[i].name != NULL; i++) {
 		if (acl_get_flag_np(mflags, acl_flags[i].flag))
@@ -556,7 +560,7 @@ merge_entry_perms(acl_entry_t rentry, acl_entry_t  modifier)
 int
 modify_acl(acl_t *oaclp, acl_entry_t modifier, unsigned int optflags,
 	   int position, int inheritance_level, 
-	   unsigned flag_new_acl) {
+	   unsigned flag_new_acl, const char* path) {
 
 	unsigned cpos = 0;
 	acl_entry_t newent = NULL;
@@ -579,8 +583,7 @@ modify_acl(acl_t *oaclp, acl_entry_t modifier, unsigned int optflags,
 			if (0 != acl_create_entry_np(&oacl, &newent, position))
 				err(1, "acl_create_entry() failed");
 			acl_copy_entry(newent, modifier);
-		}
-		else {
+		} else {
 /* If an entry exists, add the new permissions to it, else add an
  * entry in the canonical position.
  */
@@ -604,64 +607,65 @@ modify_acl(acl_t *oaclp, acl_entry_t modifier, unsigned int optflags,
 				err(1, "acl_create_entry() failed");
 			acl_copy_entry(newent, modifier);
 		}
-	}
-	else
-		if (optflags & ACL_DELETE_FLAG) {
-
-			if (flag_new_acl) {
-				errx(1, "No ACL present");
-			}
-			if (position != -1 ) {
-				if (0 != acl_get_entry(oacl, position, &rentry))
-					err(1, "Invalid entry number");
+	} else if (optflags & ACL_DELETE_FLAG) {
+		if (flag_new_acl) {
+			warnx("No ACL present '%s'", path);
+			retval = 1;
+		} else if (position != -1 ) {
+			if (0 != acl_get_entry(oacl, position, &rentry)) {
+				warnx("Invalid entry number '%s'", path);
+				retval = 1;
+			} else {
 				acl_delete_entry(oacl, rentry);
 			}
-			else {
-				unsigned match_found = 0, aindex;
-				for (aindex = 0; 
-				     acl_get_entry(oacl, rentry == NULL ? 
-						   ACL_FIRST_ENTRY : 
-						   ACL_NEXT_ENTRY, &rentry) 
-					     == 0; aindex++)	{
-					unsigned cmp;
-					cmp = compare_acl_entries(rentry, 
-								  modifier);
-					if ((cmp == MATCH_EXACT) || 
-					    (cmp == MATCH_PARTIAL)) {
-						match_found++;
-						if (cmp == MATCH_EXACT)
-							acl_delete_entry(oacl, rentry);
-						else
+		} else {
+			unsigned match_found = 0, aindex;
+			for (aindex = 0; 
+			     acl_get_entry(oacl, rentry == NULL ? 
+					   ACL_FIRST_ENTRY : 
+					   ACL_NEXT_ENTRY, &rentry) == 0;
+			     aindex++)	{
+				unsigned cmp;
+				cmp = compare_acl_entries(rentry, modifier);
+				if ((cmp == MATCH_EXACT) || 
+				    (cmp == MATCH_PARTIAL)) {
+					match_found++;
+					if (cmp == MATCH_EXACT)
+						acl_delete_entry(oacl, rentry);
+					else {
+						int valid_perms;
 /* In the event of a partial match, remove the specified perms from the 
  * entry */
-							subtract_from_entry(rentry, modifier);
+						subtract_from_entry(rentry, modifier, &valid_perms);
+						/* if no perms survived then delete the entry */
+						if (valid_perms == 0)
+							acl_delete_entry(oacl, rentry);
 					}
 				}
-				if (0 == match_found) {
-					warnx("Entry not found when attempting delete");
-					retval = 1;
-				}
+			}
+			if (0 == match_found) {
+				warnx("Entry not found when attempting delete '%s'",path);
+				retval = 1;
 			}
 		}
-		else
-			if (optflags & ACL_REWRITE_FLAG) {
-				acl_entry_t rentry;
-				
-				if (-1 == position) {
-					usage();
-				}
-				if (0 == flag_new_acl) {
-					if (0 != acl_get_entry(oacl, position,
-							       &rentry))
-						err(1, "Invalid entry number");
-					
-					if (0 != acl_delete_entry(oacl, rentry))
-						err(1, "Unable to delete entry");
-				}
-				if (0!= acl_create_entry_np(&oacl, &newent, position))
-					err(1, "acl_create_entry() failed");
-				acl_copy_entry(newent, modifier);
-			}
+	} else if (optflags & ACL_REWRITE_FLAG) {
+		acl_entry_t rentry;
+		
+		if (-1 == position) {
+			usage();
+		}
+		if (0 == flag_new_acl) {
+			if (0 != acl_get_entry(oacl, position,
+					       &rentry))
+				err(1, "Invalid entry number '%s'", path);
+			
+			if (0 != acl_delete_entry(oacl, rentry))
+				err(1, "Unable to delete entry '%s'", path);
+		}
+		if (0!= acl_create_entry_np(&oacl, &newent, position))
+			err(1, "acl_create_entry() failed");
+		acl_copy_entry(newent, modifier);
+	}
 ma_exit:
 	*oaclp = oacl;
 	return retval;
@@ -774,7 +778,7 @@ modify_file_acl(unsigned int optflags, const char *path, acl_t modifier, int pos
 		} else if (((optflags & ACL_DELETE_FLAG) && (position != -1))
 		    || (optflags & ACL_CHECK_CANONICITY)) {
 			retval = modify_acl(&oacl, NULL, optflags, position, 
-				   inheritance_level, flag_new_acl);
+					    inheritance_level, flag_new_acl, path);
 		} else if ((optflags & (ACL_REMOVE_INHERIT_FLAG|ACL_REMOVE_INHERITED_ENTRIES)) && flag_new_acl) {
 			warnx("No ACL currently associated with file '%s'", path);
 			retval = 1;
@@ -790,7 +794,7 @@ modify_file_acl(unsigned int optflags, const char *path, acl_t modifier, int pos
 
 				retval += modify_acl(&oacl, entry, optflags, 
 						     position, inheritance_level, 
-						     flag_new_acl);
+						     flag_new_acl, path);
 			}
 		}
 	}

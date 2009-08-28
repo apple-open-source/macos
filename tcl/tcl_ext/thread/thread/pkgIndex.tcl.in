@@ -1,0 +1,25 @@
+#
+# Tcl package index file, version 1.1
+#
+if {[package vsatisfies [package provide Tcl] 8.4]} {
+    package ifneeded Thread @PACKAGE_VERSION@ [list @PACKAGE_NAME@_load $dir]
+    package ifneeded Ttrace @PACKAGE_VERSION@ [list @PACKAGE_NAME@_source $dir]
+    proc @PACKAGE_NAME@_load {dir} {
+        load [file join $dir @PKG_LIB_FILE@]
+        rename @PACKAGE_NAME@_load {}
+    }
+    proc @PACKAGE_NAME@_source {dir} {
+        if {[info exists ::env(TCL_THREAD_LIBRARY)] &&
+            [file readable $::env(TCL_THREAD_LIBRARY)/ttrace.tcl]} {
+            source $::env(TCL_THREAD_LIBRARY)/ttrace.tcl
+        } elseif {[file readable [file join $dir .. lib ttrace.tcl]]} {
+            source [file join $dir .. lib ttrace.tcl]
+        } elseif {[file readable [file join $dir ttrace.tcl]]} {
+            source [file join $dir ttrace.tcl]
+        }
+        if {[info commands ttrace::update] ne ""} {
+            ttrace::update
+        }
+        rename @PACKAGE_NAME@_source {}
+    }
+}

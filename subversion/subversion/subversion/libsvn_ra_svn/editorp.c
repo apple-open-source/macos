@@ -1,8 +1,8 @@
 /*
- * editorp.c :  Pipelined variation of the ra_svn editor
+ * editorp.c :  Driving and consuming an editor across an svn connection
  *
  * ====================================================================
- * Copyright (c) 2000-2006 CollabNet.  All rights reserved.
+ * Copyright (c) 2000-2006, 2008 CollabNet.  All rights reserved.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution.  The terms
@@ -22,9 +22,6 @@
 #include <apr_want.h>
 #include <apr_general.h>
 #include <apr_strings.h>
-#include <apr_md5.h>
-
-#include <assert.h>
 
 #include "svn_types.h"
 #include "svn_string.h"
@@ -118,7 +115,7 @@ static ra_svn_baton_t *ra_svn_make_baton(svn_ra_svn_conn_t *conn,
  * get one, abort the edit and return the error. */
 static svn_error_t *check_for_error(ra_svn_edit_baton_t *eb, apr_pool_t *pool)
 {
-  assert(!eb->got_status);
+  SVN_ERR_ASSERT(!eb->got_status);
   if (svn_ra_svn__input_waiting(eb->conn, pool))
     {
       eb->got_status = TRUE;
@@ -173,8 +170,8 @@ static svn_error_t *ra_svn_add_dir(const char *path, void *parent_baton,
   ra_svn_baton_t *b = parent_baton;
   const char *token = make_token('d', b->eb, pool);
 
-  assert((copy_path && SVN_IS_VALID_REVNUM(copy_rev))
-         || (!copy_path && !SVN_IS_VALID_REVNUM(copy_rev)));
+  SVN_ERR_ASSERT((copy_path && SVN_IS_VALID_REVNUM(copy_rev))
+                 || (!copy_path && !SVN_IS_VALID_REVNUM(copy_rev)));
   SVN_ERR(check_for_error(b->eb, pool));
   SVN_ERR(svn_ra_svn_write_cmd(b->conn, pool, "add-dir", "ccc(?cr)", path,
                                b->token, token, copy_path, copy_rev));
@@ -243,8 +240,8 @@ static svn_error_t *ra_svn_add_file(const char *path,
   ra_svn_baton_t *b = parent_baton;
   const char *token = make_token('c', b->eb, pool);
 
-  assert((copy_path && SVN_IS_VALID_REVNUM(copy_rev))
-         || (!copy_path && !SVN_IS_VALID_REVNUM(copy_rev)));
+  SVN_ERR_ASSERT((copy_path && SVN_IS_VALID_REVNUM(copy_rev))
+                 || (!copy_path && !SVN_IS_VALID_REVNUM(copy_rev)));
   SVN_ERR(check_for_error(b->eb, pool));
   SVN_ERR(svn_ra_svn_write_cmd(b->conn, pool, "add-file", "ccc(?cr)", path,
                                b->token, token, copy_path, copy_rev));
@@ -317,7 +314,7 @@ static svn_error_t *ra_svn_apply_textdelta(void *file_baton,
     svn_txdelta_to_svndiff2(wh, wh_baton, diff_stream, 0, pool);
   return SVN_NO_ERROR;
 }
-  
+
 static svn_error_t *ra_svn_change_file_prop(void *file_baton,
                                             const char *name,
                                             const svn_string_t *value,
@@ -364,7 +361,7 @@ static svn_error_t *ra_svn_close_edit(void *edit_baton, apr_pool_t *pool)
   ra_svn_edit_baton_t *eb = edit_baton;
   svn_error_t *err;
 
-  assert(!eb->got_status);
+  SVN_ERR_ASSERT(!eb->got_status);
   eb->got_status = TRUE;
   SVN_ERR(svn_ra_svn_write_cmd(eb->conn, pool, "close-edit", ""));
   err = svn_ra_svn_read_cmd_response(eb->conn, pool, "");
@@ -389,11 +386,11 @@ static svn_error_t *ra_svn_abort_edit(void *edit_baton, apr_pool_t *pool)
   return SVN_NO_ERROR;
 }
 
-void svn_ra_svn__get_editorp(const svn_delta_editor_t **editor,
-                             void **edit_baton, svn_ra_svn_conn_t *conn,
-                             apr_pool_t *pool,
-                             svn_ra_svn_edit_callback callback,
-                             void *callback_baton)
+void svn_ra_svn_get_editor(const svn_delta_editor_t **editor,
+                           void **edit_baton, svn_ra_svn_conn_t *conn,
+                           apr_pool_t *pool,
+                           svn_ra_svn_edit_callback callback,
+                           void *callback_baton)
 {
   svn_delta_editor_t *ra_svn_editor = svn_delta_default_editor(pool);
   ra_svn_edit_baton_t *eb;
@@ -581,7 +578,7 @@ static svn_error_t *ra_svn_handle_close_dir(svn_ra_svn_conn_t *conn,
   /* Close the directory and destroy the baton. */
   SVN_CMD_ERR(ds->editor->close_directory(entry->baton, pool));
   apr_hash_set(ds->tokens, token, APR_HASH_KEY_STRING, NULL);
-  apr_pool_destroy(entry->pool);
+  svn_pool_destroy(entry->pool);
   return SVN_NO_ERROR;
 }
 
@@ -705,7 +702,7 @@ static svn_error_t *ra_svn_handle_textdelta_end(svn_ra_svn_conn_t *conn,
                             _("Apply-textdelta not active"));
   SVN_CMD_ERR(svn_stream_close(entry->dstream));
   entry->dstream = NULL;
-  apr_pool_destroy(entry->pool);
+  svn_pool_destroy(entry->pool);
   return SVN_NO_ERROR;
 }
 
@@ -743,7 +740,7 @@ static svn_error_t *ra_svn_handle_close_file(svn_ra_svn_conn_t *conn,
   SVN_CMD_ERR(ds->editor->close_file(entry->baton, text_checksum, pool));
   apr_hash_set(ds->tokens, token, APR_HASH_KEY_STRING, NULL);
   if (--ds->file_refs == 0)
-    apr_pool_clear(ds->file_pool);
+    svn_pool_clear(ds->file_pool);
   return SVN_NO_ERROR;
 }
 
@@ -850,12 +847,12 @@ static svn_error_t *blocked_write(svn_ra_svn_conn_t *conn, apr_pool_t *pool,
   return SVN_NO_ERROR;
 }
 
-svn_error_t *svn_ra_svn__drive_editorp(svn_ra_svn_conn_t *conn,
-                                       apr_pool_t *pool,
-                                       const svn_delta_editor_t *editor,
-                                       void *edit_baton,
-                                       svn_boolean_t *aborted,
-                                       svn_boolean_t for_replay)
+svn_error_t *svn_ra_svn_drive_editor2(svn_ra_svn_conn_t *conn,
+                                      apr_pool_t *pool,
+                                      const svn_delta_editor_t *editor,
+                                      void *edit_baton,
+                                      svn_boolean_t *aborted,
+                                      svn_boolean_t for_replay)
 {
   ra_svn_driver_state_t state;
   apr_pool_t *subpool = svn_pool_create(pool);
@@ -876,7 +873,7 @@ svn_error_t *svn_ra_svn__drive_editorp(svn_ra_svn_conn_t *conn,
 
   while (!state.done)
     {
-      apr_pool_clear(subpool);
+      svn_pool_clear(subpool);
       SVN_ERR(svn_ra_svn_read_tuple(conn, subpool, "wl", &cmd, &params));
       for (i = 0; ra_svn_edit_cmds[i].cmd; i++)
         {
@@ -913,14 +910,51 @@ svn_error_t *svn_ra_svn__drive_editorp(svn_ra_svn_conn_t *conn,
       SVN_ERR(err);
     }
 
-  /* Read and discard editing commands until the edit is complete. */
+  /* Read and discard editing commands until the edit is complete.
+     Hopefully, the other side will call another editor command, run
+     check_for_error, notice the error, write "abort-edit" at us, and
+     throw the error up a few levels on its side (possibly even
+     tossing it right back at us, which is why we can return
+     SVN_NO_ERROR below).
+
+     However, if the other side is way ahead of us, it might
+     completely finish the edit (or sequence of edit/revprops, for
+     "replay-range") before we send over our "failure".  So we should
+     also stop if we see "success".  (Then the other side will try to
+     interpret our "failure" as a command, which will itself fail...
+     The net effect is that whatever error we wrote to the other side
+     will be replaced with SVN_ERR_RA_SVN_UNKNOWN_CMD.)
+   */
   while (!state.done)
     {
-      apr_pool_clear(subpool);
-      SVN_ERR(svn_ra_svn_read_tuple(conn, subpool, "wl", &cmd, &params));
-      state.done = (strcmp(cmd, "abort-edit") == 0);
+      svn_pool_clear(subpool);
+      err = svn_ra_svn_read_tuple(conn, subpool, "wl", &cmd, &params);
+      if (err && err->apr_err == SVN_ERR_RA_SVN_CONNECTION_CLOSED)
+        {
+          /* Other side disconnected; that's no error. */
+          svn_error_clear(err);
+          svn_pool_destroy(subpool);
+          return SVN_NO_ERROR;
+        }
+      svn_error_clear(err);
+      if (strcmp(cmd, "abort-edit") == 0
+          || strcmp(cmd, "success") == 0)
+        state.done = TRUE;
     }
 
-  apr_pool_destroy(subpool);
+  svn_pool_destroy(subpool);
   return SVN_NO_ERROR;
+}
+
+svn_error_t *svn_ra_svn_drive_editor(svn_ra_svn_conn_t *conn, apr_pool_t *pool,
+                                     const svn_delta_editor_t *editor,
+                                     void *edit_baton,
+                                     svn_boolean_t *aborted)
+{
+  return svn_ra_svn_drive_editor2(conn,
+                                  pool,
+                                  editor,
+                                  edit_baton,
+                                  aborted,
+                                  FALSE);
 }

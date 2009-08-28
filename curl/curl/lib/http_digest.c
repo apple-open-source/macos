@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2007, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: http_digest.c,v 1.29 2007-02-26 22:03:01 bagder Exp $
+ * $Id: http_digest.c,v 1.48 2009-02-28 01:11:57 yangtse Exp $
  ***************************************************************************/
 #include "setup.h"
 
@@ -32,9 +32,9 @@
 
 #include "urldata.h"
 #include "sendf.h"
-#include "strequal.h"
-#include "base64.h"
-#include "md5.h"
+#include "rawstr.h"
+#include "curl_base64.h"
+#include "curl_md5.h"
 #include "http_digest.h"
 #include "strtok.h"
 #include "url.h" /* for Curl_safefree() */
@@ -47,6 +47,77 @@
 /* The last #include file should be: */
 #include "memdebug.h"
 
+#define MAX_VALUE_LENGTH 256
+#define MAX_CONTENT_LENGTH 1024
+
+/*
+ * Return 0 on success and then the buffers are filled in fine.
+ *
+ * Non-zero means failure to parse.
+ */
+static int get_pair(const char *str, char *value, char *content,
+                    const char **endptr)
+{
+  int c;
+  bool starts_with_quote = FALSE;
+  bool escape = FALSE;
+
+  for(c=MAX_VALUE_LENGTH-1; (*str && (*str != '=') && c--); )
+    *value++ = *str++;
+  *value=0;
+
+  if('=' != *str++)
+    /* eek, no match */
+    return 1;
+
+  if('\"' == *str) {
+    /* this starts with a quote so it must end with one as well! */
+    str++;
+    starts_with_quote = TRUE;
+  }
+
+  for(c=MAX_CONTENT_LENGTH-1; *str && c--; str++) {
+    switch(*str) {
+    case '\\':
+      if(!escape) {
+        /* possibly the start of an escaped quote */
+        escape = TRUE;
+        *content++ = '\\'; /* even though this is an escape character, we still
+                              store it as-is in the target buffer */
+        continue;
+      }
+      break;
+    case ',':
+      if(!starts_with_quote) {
+        /* this signals the end of the content if we didn't get a starting quote
+           and then we do "sloppy" parsing */
+        c=0; /* the end */
+        continue;
+      }
+      break;
+    case '\r':
+    case '\n':
+      /* end of string */
+      c=0;
+      continue;
+    case '\"':
+      if(!escape && starts_with_quote) {
+        /* end of string */
+        c=0;
+        continue;
+      }
+      break;
+    }
+    escape = FALSE;
+    *content++ = *str;
+  }
+  *content=0;
+
+  *endptr = str;
+
+  return 0; /* all is fine! */
+}
+
 /* Test example headers:
 
 WWW-Authenticate: Digest realm="testrealm", nonce="1053604598"
@@ -56,8 +127,8 @@ Proxy-Authenticate: Digest realm="testrealm", nonce="1053604598"
 
 CURLdigest Curl_input_digest(struct connectdata *conn,
                              bool proxy,
-                             char *header) /* rest of the *-authenticate:
-                                              header */
+                             const char *header) /* rest of the *-authenticate:
+                                                    header */
 {
   bool more = TRUE;
   char *token = NULL;
@@ -90,42 +161,38 @@ CURLdigest Curl_input_digest(struct connectdata *conn,
     Curl_digest_cleanup_one(d);
 
     while(more) {
-      char value[32];
-      char content[128];
+      char value[MAX_VALUE_LENGTH];
+      char content[MAX_CONTENT_LENGTH];
       size_t totlen=0;
 
       while(*header && ISSPACE(*header))
         header++;
 
-      /* how big can these strings be? */
-      if((2 == sscanf(header, "%31[^=]=\"%127[^\"]\"",
-                      value, content)) ||
-         /* try the same scan but without quotes around the content but don't
-            include the possibly trailing comma, newline or carriage return */
-         (2 ==  sscanf(header, "%31[^=]=%127[^\r\n,]",
-                       value, content)) ) {
-        if(strequal(value, "nonce")) {
+      /* extract a value=content pair */
+      if(!get_pair(header, value, content, &header)) {
+
+        if(Curl_raw_equal(value, "nonce")) {
           d->nonce = strdup(content);
           if(!d->nonce)
             return CURLDIGEST_NOMEM;
         }
-        else if(strequal(value, "stale")) {
-          if(strequal(content, "true")) {
+        else if(Curl_raw_equal(value, "stale")) {
+          if(Curl_raw_equal(content, "true")) {
             d->stale = TRUE;
             d->nc = 1; /* we make a new nonce now */
           }
         }
-        else if(strequal(value, "realm")) {
+        else if(Curl_raw_equal(value, "realm")) {
           d->realm = strdup(content);
           if(!d->realm)
             return CURLDIGEST_NOMEM;
         }
-        else if(strequal(value, "opaque")) {
+        else if(Curl_raw_equal(value, "opaque")) {
           d->opaque = strdup(content);
           if(!d->opaque)
             return CURLDIGEST_NOMEM;
         }
-        else if(strequal(value, "qop")) {
+        else if(Curl_raw_equal(value, "qop")) {
           char *tok_buf;
           /* tokenize the list and choose auth if possible, use a temporary
              clone of the buffer since strtok_r() ruins it */
@@ -133,35 +200,35 @@ CURLdigest Curl_input_digest(struct connectdata *conn,
           if(!tmp)
             return CURLDIGEST_NOMEM;
           token = strtok_r(tmp, ",", &tok_buf);
-          while (token != NULL) {
-            if (strequal(token, "auth")) {
+          while(token != NULL) {
+            if(Curl_raw_equal(token, "auth")) {
               foundAuth = TRUE;
             }
-            else if (strequal(token, "auth-int")) {
+            else if(Curl_raw_equal(token, "auth-int")) {
               foundAuthInt = TRUE;
             }
             token = strtok_r(NULL, ",", &tok_buf);
           }
           free(tmp);
           /*select only auth o auth-int. Otherwise, ignore*/
-          if (foundAuth) {
+          if(foundAuth) {
             d->qop = strdup("auth");
             if(!d->qop)
               return CURLDIGEST_NOMEM;
           }
-          else if (foundAuthInt) {
+          else if(foundAuthInt) {
             d->qop = strdup("auth-int");
             if(!d->qop)
               return CURLDIGEST_NOMEM;
           }
         }
-        else if(strequal(value, "algorithm")) {
+        else if(Curl_raw_equal(value, "algorithm")) {
           d->algorithm = strdup(content);
           if(!d->algorithm)
             return CURLDIGEST_NOMEM;
-          if(strequal(content, "MD5-sess"))
+          if(Curl_raw_equal(content, "MD5-sess"))
             d->algo = CURLDIGESTALGO_MD5SESS;
-          else if(strequal(content, "MD5"))
+          else if(Curl_raw_equal(content, "MD5"))
             d->algo = CURLDIGESTALGO_MD5;
           else
             return CURLDIGEST_BADALGO;
@@ -179,7 +246,9 @@ CURLdigest Curl_input_digest(struct connectdata *conn,
       else
         break; /* we're done here */
 
-      header += totlen;
+      /* pass all additional spaces here */
+      while(*header && ISSPACE(*header))
+        header++;
       if(',' == *header)
         /* allow the list to be comma-separated */
         header++;
@@ -212,8 +281,8 @@ static void md5_to_ascii(unsigned char *source, /* 16 bytes */
 
 CURLcode Curl_output_digest(struct connectdata *conn,
                             bool proxy,
-                            unsigned char *request,
-                            unsigned char *uripath)
+                            const unsigned char *request,
+                            const unsigned char *uripath)
 {
   /* We have a Digest setup for this, use it!  Now, to get all the details for
      this sorted out, I must urge you dear friend to read up on the RFC2617
@@ -229,8 +298,8 @@ CURLcode Curl_output_digest(struct connectdata *conn,
   struct timeval now;
 
   char **allocuserpwd;
-  char *userp;
-  char *passwdp;
+  const char *userp;
+  const char *passwdp;
   struct auth *authp;
 
   struct SessionHandle *data = conn->data;
@@ -238,12 +307,12 @@ CURLcode Curl_output_digest(struct connectdata *conn,
 #ifdef CURL_DOES_CONVERSIONS
   CURLcode rc;
 /* The CURL_OUTPUT_DIGEST_CONV macro below is for non-ASCII machines.
-   It converts digest text to ASCII so the MD5 will be correct for 
+   It converts digest text to ASCII so the MD5 will be correct for
    what ultimately goes over the network.
 */
 #define CURL_OUTPUT_DIGEST_CONV(a, b) \
   rc = Curl_convert_to_network(a, (char *)b, strlen((const char*)b)); \
-  if (rc != CURLE_OK) { \
+  if(rc != CURLE_OK) { \
     free(b); \
     return rc; \
   }
@@ -266,12 +335,17 @@ CURLcode Curl_output_digest(struct connectdata *conn,
     authp = &data->state.authhost;
   }
 
+  if(*allocuserpwd) {
+    Curl_safefree(*allocuserpwd);
+    *allocuserpwd = NULL;
+  }
+
   /* not set means empty */
   if(!userp)
-    userp=(char *)"";
+    userp="";
 
   if(!passwdp)
-    passwdp=(char *)"";
+    passwdp="";
 
   if(!d->nonce) {
     authp->done = FALSE;
@@ -285,7 +359,7 @@ CURLcode Curl_output_digest(struct connectdata *conn,
   if(!d->cnonce) {
     /* Generate a cnonce */
     now = Curl_tvnow();
-    snprintf(cnoncebuf, sizeof(cnoncebuf), "%06ld", now.tv_sec);
+    snprintf(cnoncebuf, sizeof(cnoncebuf), "%06ld", (long)now.tv_sec);
     if(Curl_base64_encode(data, cnoncebuf, strlen(cnoncebuf), &cnonce))
       d->cnonce = cnonce;
     else
@@ -312,7 +386,7 @@ CURLcode Curl_output_digest(struct connectdata *conn,
   Curl_md5it(md5buf, md5this);
   free(md5this); /* free this again */
 
-  ha1 = (unsigned char *)malloc(33); /* 32 digits and 1 zero byte */
+  ha1 = malloc(33); /* 32 digits and 1 zero byte */
   if(!ha1)
     return CURLE_OUT_OF_MEMORY;
 
@@ -342,13 +416,31 @@ CURLcode Curl_output_digest(struct connectdata *conn,
     5.1.1 of RFC 2616)
   */
 
-  md5this = (unsigned char *)aprintf("%s:%s", request, uripath);
+  /* So IE browsers < v7 cut off the URI part at the query part when they
+     evaluate the MD5 and some (IIS?) servers work with them so we may need to
+     do the Digest IE-style. Note that the different ways cause different MD5
+     sums to get sent.
+
+     Apache servers can be set to do the Digest IE-style automatically using
+     the BrowserMatch feature:
+     http://httpd.apache.org/docs/2.2/mod/mod_auth_digest.html#msie
+
+     Further details on Digest implementation differences:
+     http://www.fngtps.com/2006/09/http-authentication
+  */
+  if(authp->iestyle && ((tmp = strchr((char *)uripath, '?')) != NULL)) {
+    md5this = (unsigned char *)aprintf("%s:%.*s", request,
+                                       (int)(tmp - (char *)uripath), uripath);
+  }
+  else
+    md5this = (unsigned char *)aprintf("%s:%s", request, uripath);
+
   if(!md5this) {
     free(ha1);
     return CURLE_OUT_OF_MEMORY;
   }
 
-  if (d->qop && strequal(d->qop, "auth-int")) {
+  if(d->qop && Curl_raw_equal(d->qop, "auth-int")) {
     /* We don't support auth-int at the moment. I can't see a easy way to get
        entity-body here */
     /* TODO: Append H(entity-body)*/
@@ -358,7 +450,7 @@ CURLcode Curl_output_digest(struct connectdata *conn,
   free(md5this); /* free this again */
   md5_to_ascii(md5buf, ha2);
 
-  if (d->qop) {
+  if(d->qop) {
     md5this = (unsigned char *)aprintf("%s:%s:%08x:%s:%s:%s",
                                        ha1,
                                        d->nonce,
@@ -388,9 +480,7 @@ CURLcode Curl_output_digest(struct connectdata *conn,
     nonce="1053604145", uri="/64", response="c55f7f30d83d774a3d2dcacf725abaca"
   */
 
-  Curl_safefree(*allocuserpwd);
-
-  if (d->qop) {
+  if(d->qop) {
     *allocuserpwd =
       aprintf( "%sAuthorization: Digest "
                "username=\"%s\", "
@@ -411,7 +501,7 @@ CURLcode Curl_output_digest(struct connectdata *conn,
                d->qop,
                request_digest);
 
-    if(strequal(d->qop, "auth"))
+    if(Curl_raw_equal(d->qop, "auth"))
       d->nc++; /* The nc (from RFC) has to be a 8 hex digit number 0 padded
                   which tells to the server how many times you are using the
                   same nonce in the qop=auth mode. */
@@ -454,7 +544,7 @@ CURLcode Curl_output_digest(struct connectdata *conn,
   }
 
   /* append CRLF to the userpwd header */
-  tmp = (char*) realloc(*allocuserpwd, strlen(*allocuserpwd) + 3 + 1);
+  tmp = realloc(*allocuserpwd, strlen(*allocuserpwd) + 3 + 1);
   if(!tmp)
     return CURLE_OUT_OF_MEMORY;
   strcat(tmp, "\r\n");

@@ -1011,7 +1011,7 @@ tDirStatus CDSRefTable::SetBufTag ( UInt32 inRefNum, UInt32 inType, UInt32 inBuf
 					UInt32 aRefCount = GetRefCount();
 					if ( ((aRefCount % 25) == 0) && (aRefCount > 100) )
 					{
-						syslog(LOG_CRIT, "DS:CDSRefTable::ClientSideRefCountExceedingReasonableValue Ref Count = %d", aRefCount);
+						syslog(LOG_CRIT, "DS:CDSRefTable::Client Side Ref Count Exceeding Reasonable Value - Ref Count = %d", aRefCount);
 					}
 				}
 			}

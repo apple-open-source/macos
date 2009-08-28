@@ -52,8 +52,8 @@ public:
 	~TrustKeychains()	{}
 	CSSM_DL_DB_HANDLE	rootStoreHandle()	{ return mRootStore->database()->handle(); }
 	CSSM_DL_DB_HANDLE	systemKcHandle()	{ return mSystem->database()->handle(); }
-	Keychain			&rootStore()		{ return mRootStore; }
-	Keychain			&systemKc()			{ return mSystem; }
+	Keychain			rootStore()			{ return mRootStore; }
+	Keychain			systemKc()			{ return mSystem; }
 private:
 	Keychain	mRootStore;
 	Keychain	mSystem;
@@ -92,7 +92,8 @@ convert(const SecPointer<Certificate> &certificate)
 Trust::Trust(CFTypeRef certificates, CFTypeRef policies)
     : mTP(gGuidAppleX509TP), mAction(CSSM_TP_ACTION_DEFAULT),
       mCerts(cfArrayize(certificates)), mPolicies(cfArrayize(policies)),
-      mResult(kSecTrustResultInvalid), mUsingTrustSettings(false)
+      mResult(kSecTrustResultInvalid), mUsingTrustSettings(false),
+	  mMutex(Mutex::recursive)
 {
 	// set default search list from user's default
 	globals().storageManager.getSearchList(mSearchLibs);
@@ -150,6 +151,7 @@ CSSM_DL_DB_HANDLE cfKeychain(SecKeychainRef ref)
 //
 void Trust::evaluate()
 {
+	StLock<Mutex>_(mMutex);
 	// if we have evaluated before, release prior result
 	clearResults();
 	
@@ -177,7 +179,7 @@ void Trust::evaluate()
 		CFRelease(allowedAnchors);
 	if (filteredCerts)
 		CFRelease(filteredCerts);
-
+	
     // build the target cert group
     CFToVector<CssmData, SecCertificateRef, cfCertificateData> subjects(mFilteredCerts);
     CertGroup subjectCertGroup(CSSM_CERT_X_509v3,
@@ -327,6 +329,7 @@ void Trust::evaluate()
 		mExtendedResult = evResult; // assignment to CFRef type is an implicit retain
 		if (evResult)
 			CFRelease(evResult);
+		CFRelease(fullChain);
 		secdebug("evTrust", "Trust::evaluate() post-processing complete");
 	}
 	
@@ -381,6 +384,7 @@ static const CSSM_RETURN recoverableErrors[] =
 //
 SecTrustResultType Trust::diagnoseOutcome()
 {
+	StLock<Mutex>_(mMutex);
     switch (mTpReturn) {
     case noErr:									// peachy
 		if (mUsingTrustSettings)
@@ -436,6 +440,7 @@ SecTrustResultType Trust::diagnoseOutcome()
 void Trust::evaluateUserTrust(const CertGroup &chain,
     const CSSM_TP_APPLE_EVIDENCE_INFO *infoList, CFCopyRef<CFArrayRef> anchors)
 {
+	StLock<Mutex>_(mMutex);
     // extract cert chain as Certificate objects
     mCertChain.resize(chain.count());
     for (uint32 n = 0; n < mCertChain.size(); n++) {
@@ -446,7 +451,14 @@ void Trust::evaluateUserTrust(const CertGroup &chain,
 			secdebug("trusteval", "evidence #%lu from keychain \"%s\"", (unsigned long)n, keychain->name());
 			*static_cast<CSSM_DB_UNIQUE_RECORD_PTR *>(uniqueId) = info.UniqueRecord;
 			uniqueId->activate(); // transfers ownership
-			mCertChain[n] = safe_cast<Certificate *>(keychain->item(CSSM_DL_DB_RECORD_X509_CERTIFICATE, uniqueId).get());
+			Item ii = keychain->item(CSSM_DL_DB_RECORD_X509_CERTIFICATE, uniqueId);
+			Certificate* cert = dynamic_cast<Certificate*>(ii.get());
+			if (cert == NULL)
+			{
+				CssmError::throwMe(CSSMERR_CSSM_INVALID_POINTER);
+			}
+			
+			mCertChain[n] = cert;
         } else if (info.status(CSSM_CERT_STATUS_IS_IN_INPUT_CERTS)) {
             secdebug("trusteval", "evidence %lu from input cert %lu", (unsigned long)n, (unsigned long)info.index());
             assert(info.index() < uint32(CFArrayGetCount(mCerts)));
@@ -536,6 +548,7 @@ void Trust::releaseTPEvidence(TPVerifyResult &result, Allocator &allocator)
 //
 void Trust::clearResults()
 {
+	StLock<Mutex>_(mMutex);
 	if (mResult != kSecTrustResultInvalid) {
 		releaseTPEvidence(mTpResult, mTP.allocator());
 		mResult = kSecTrustResultInvalid;
@@ -548,6 +561,7 @@ void Trust::clearResults()
 //
 void Trust::buildEvidence(CFArrayRef &certChain, TPEvidenceInfo * &statusChain)
 {
+	StLock<Mutex>_(mMutex);
 	if (mResult == kSecTrustResultInvalid)
 		MacOSError::throwMe(errSecTrustNotAvailable);
     certChain = mEvidenceReturned =
@@ -577,8 +591,9 @@ void Trust::extendedResult(CFDictionaryRef &result)
 //
 // Given a DL_DB_HANDLE, locate the Keychain object (from the search list)
 //
-Keychain Trust::keychainByDLDb(const CSSM_DL_DB_HANDLE &handle) const
+Keychain Trust::keychainByDLDb(const CSSM_DL_DB_HANDLE &handle)
 {
+	StLock<Mutex>_(mMutex);
 	for (StorageManager::KeychainList::const_iterator it = mSearchLibs.begin();
 			it != mSearchLibs.end(); it++)
 	{
@@ -606,6 +621,7 @@ Keychain Trust::keychainByDLDb(const CSSM_DL_DB_HANDLE &handle) const
 	}
 
 	// could not find in search list - internal error
-	assert(false);
-	return Keychain();
+	
+	// we now throw an error here rather than assert and silently fail.  That way our application won't crash...
+	MacOSError::throwMe(errSecInternal);
 }

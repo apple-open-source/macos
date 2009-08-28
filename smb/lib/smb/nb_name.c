@@ -2,7 +2,7 @@
  * Copyright (c) 2000, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -54,7 +54,7 @@ nb_snballoc(int namelen, struct sockaddr_nb **dst)
 	struct sockaddr_nb *snb;
 	int slen;
 
-	slen = namelen + sizeof(*snb) - sizeof(snb->snb_name);
+	slen = namelen + (int)sizeof(*snb) - (int)sizeof(snb->snb_name);
 	snb = malloc(slen);
 	if (snb == NULL)
 		return ENOMEM;

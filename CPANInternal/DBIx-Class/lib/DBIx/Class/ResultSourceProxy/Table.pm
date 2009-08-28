@@ -4,10 +4,10 @@ use strict;
 use warnings;
 
 use base qw/DBIx::Class::ResultSourceProxy/;
-__PACKAGE__->load_components(qw/AccessorGroup/);
 
-__PACKAGE__->mk_group_accessors('component_class' => 'table_class');
-__PACKAGE__->table_class('DBIx::Class::ResultSource::Table');
+use DBIx::Class::ResultSource::Table;
+
+__PACKAGE__->mk_classdata(table_class => 'DBIx::Class::ResultSource::Table');
 
 __PACKAGE__->mk_classdata('table_alias'); # FIXME: Doesn't actually do
                                           # anything yet!
@@ -53,11 +53,17 @@ sub table {
         source_name => undef,
     });
   }
-  $class->mk_classdata('result_source_instance' => $table);
+
+  $class->mk_classdata('result_source_instance')
+    unless $class->can('result_source_instance');
+
+  $class->result_source_instance($table);
+
   if ($class->can('schema_instance')) {
     $class =~ m/([^:]+)$/;
     $class->schema_instance->register_class($class, $class);
   }
+  return $class->result_source_instance->name;
 }
 
 =head2 has_column

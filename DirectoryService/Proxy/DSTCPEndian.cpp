@@ -26,7 +26,7 @@
  * Provides routines to byte swap DSProxy buffers.
  */
  
-#ifndef __BIG_ENDIAN__
+#if __LITTLE_ENDIAN__
 
 #include "DSTCPEndian.h"
 #include <string.h>
@@ -37,6 +37,8 @@
 #include <ctype.h>
 #include <syslog.h>
 #include <Security/Authorization.h>
+#include <DirectoryService/DirServicesConst.h>
+#include "SharedConsts.h"	// for sComProxyData
 
 #ifdef DSSERVERTCP
 
@@ -44,17 +46,20 @@
 #include "CLog.h"
 #include "CRefTable.h"
 
+extern CRefTable gRefTable;
+
 #else
 
-#include "CDSRefMap.h"
 #include "DirServicesPriv.h"
 
 #endif
 
 #include "CSharedData.h"
 
-#define DUMP_BUFFER 0
-#if DUMP_BUFFER
+//#define DUMP_BUFFER
+#ifdef DUMP_BUFFER
+
+#include <libkern/OSAtomic.h>
 
 char* objectTypes[] =
 {
@@ -144,46 +149,46 @@ void DumpBuf(char* buf, UInt32 len)
 #endif
 
 
-DSTCPEndian::DSTCPEndian(sComProxyData* message, int direction) : fMessage(message)
-{
-    toBig = (direction == kDSSwapToBig);
-	fIPAddress = 0;
-	fPort = 0;
-}
-
-void DSTCPEndian::SwapMessage()
+void SwapProxyMessage( sComProxyData* inMessage, eSwapDirection inDirection )
 {
     short i;
     sObject* object;
     bool isTwoWay = false;
-	UInt32 ourMsgID = 0;
     
-    if (fMessage == nil) return;
+    if (inMessage == NULL) return;
     
-#if DUMP_BUFFER
+#ifdef DUMP_BUFFER
     UInt32 bufSize = 0;
-    if (gDumpFile == NULL)
-        gDumpFile = fopen("/Library/Logs/DirectoryService/PacketDump", "w");
-        
-    if (toBig)
+    if ( gDumpFile == NULL )
+	{
+		FILE *tempFile = fopen( "/Library/Logs/DirectoryService/PacketDump", "w" );
+		if ( OSAtomicCompareAndSwapPtrBarrier(NULL, tempFile, (void **)&gDumpFile) == false )
+		{
+			// close the file.
+			fclose( tempFile );
+		}
+	}
+	
+    if (inDirection == kDSSwapHostToNetworkOrder)
         fprintf(gDumpFile, "\n\n\nBuffer in host order (preSwap)\n");
     else
         fprintf(gDumpFile, "\n\n\nBuffer in network order (preSwap)\n");
+	
     for (i=0; i< 10; i++)
     {
-        object = &fMessage->obj[i];
-        UInt32 objType = DSGetLong(&object->type, toBig);
-        UInt32 offset = DSGetLong(&object->offset, toBig);
-        UInt32 length = DSGetLong(&object->length, toBig);
+        object = &inMessage->obj[i];
+        UInt32 objType = DSGetLong(&object->type, inDirection);
+        UInt32 offset = DSGetLong(&object->offset, inDirection);
+        UInt32 length = DSGetLong(&object->length, inDirection);
         char* type = "unknown";
         if (objType >= kResult && objType <= kAttrValueList)
             type = objectTypes[objType - kResult];
         if (objType != 0)
         {
             if (length > 0)
-                    fprintf(gDumpFile, "Object %d, type %s, offset %ld, size %ld\n", i, type, DSGetLong(&object->offset, toBig), DSGetLong(&object->length, toBig));
+                    fprintf(gDumpFile, "Object %d, type %s, offset %ld, size %ld\n", i, type, DSGetLong(&object->offset, inDirection), DSGetLong(&object->length, inDirection));
             else
-                    fprintf(gDumpFile, "Object %d, type %s, value %ld\n", i, type, DSGetLong(&object->count, toBig));
+                    fprintf(gDumpFile, "Object %d, type %s, value %ld\n", i, type, DSGetLong(&object->count, inDirection));
         }
         if (length > 0)
         {
@@ -191,153 +196,106 @@ void DSTCPEndian::SwapMessage()
             if (size > bufSize) bufSize = size;
         }
     }
-    DumpBuf(fMessage->data, bufSize);
+    DumpBuf(inMessage->data, bufSize);
 #endif
     
-	ourMsgID = fMessage->fMsgID; //want this to be consistent below as host order
-
-    DSSwapLong(&fMessage->fDataSize, toBig);
-    DSSwapLong(&fMessage->fDataLength, toBig);
-    DSSwapLong(&fMessage->fMsgID, toBig);
-    DSSwapLong(&fMessage->fPID, toBig); //FW side uses PID BUT the server receiving side uses the TCP port instead
-    //DSSwapLong(&fMessage->fIPAddress, toBig); //obtained directly from the endpoint and not present yet in this value
+    DSSwapLong(&inMessage->fDataSize, inDirection);
+    DSSwapLong(&inMessage->fDataLength, inDirection);
+    DSSwapLong(&inMessage->fMsgID, inDirection);
+    DSSwapLong(&inMessage->fPID, inDirection);
     
 	UInt32 aNodeRef = 0;
-#ifndef DSSERVERTCP
-	UInt32 aNodeRefMap = 0; //used with ktNodeRefMap only for FW
-#endif
+	UInt32 aNodeRefMap = 0;
 	//handle CustomCall endian issues - need to determine which plugin is being used
 	bool bCustomCall = false;
 	UInt32 aCustomRequestNum = 0;
 	bool bIsAPICallResponse = false;
-	const char* aPluginName = nil;
+	const char* aPluginName = NULL;
+	
     // if this is the auth case, we need to do some checks
     for (i=0; i< 10; i++)
     {
-        object = &fMessage->obj[i];
-        UInt32 objType = DSGetLong(&object->type, toBig);
-
-        // check for two-way random special case before we start swapping stuff
-        if (objType == kAuthMethod)
-        {
-            char* method = (char *)fMessage + DSGetLong(&object->offset, toBig);
-            if ( ::strcmp( method, kDSStdAuth2WayRandom ) == 0 )
-                isTwoWay = true;
-        }
-
-		//check for Custom Call special casing
-		if (objType == kCustomRequestCode)
-		{
-			bCustomCall = true;
-			aCustomRequestNum = (UInt32)DSGetLong(&object->count, toBig);
-#ifdef DSSERVERTCP
-DbgLog(kLogTCPEndpoint, "DSSERVERTCP>DSTCPEndian::SwapMessage(): kCustomRequestCode with code %u", aCustomRequestNum );
-#else
-LOG1(kStdErr, "FW-DSTCPEndian::SwapMessage(): kCustomRequestCode with code %u", aCustomRequestNum );
-#endif
-		}
+        object = &inMessage->obj[i];
+        UInt32 objType = DSGetLong(&object->type, inDirection);
+		char* method;
 		
-		if (objType == ktNodeRef)
+		switch ( objType )
 		{
-			//need to determine the nodename for discrimination of duplicate custom call codes - server and FW sends
-			aNodeRef = (UInt32)DSGetLong(&object->count, toBig);
-		}
-#ifndef DSSERVERTCP
-		if (objType == ktNodeRefMap)
-		{
-			//need to determine the nodename for discrimination of duplicate custom call codes - FW only
-			aNodeRefMap = (UInt32)DSGetLong(&object->count, toBig);
-			//need to keep this since it should come back as well from the server
-		}
-#endif
-
-		if (objType == kResult)
-		{
-			bIsAPICallResponse = true;
+			case kAuthMethod:
+				// check for two-way random special case before we start swapping stuff
+				method = (char *)inMessage + DSGetLong( &object->offset, inDirection );
+				if ( strcmp(method, kDSStdAuth2WayRandom) == 0 )
+					isTwoWay = true;
+				break;
+			case kCustomRequestCode:
+				//check for Custom Call special casing
+				bCustomCall = true;
+				aCustomRequestNum = DSGetLong( &object->count, inDirection );
+				break;
+			case ktNodeRef:
+				// need to determine the nodename for discrimination of duplicate custom call codes - server
+				aNodeRef = (UInt32)DSGetLong( &object->count, inDirection );
+				break;
+			case ktNodeRefMap:
+				// need to determine the nodename for discrimination of duplicate custom call codes - FW
+				aNodeRefMap = (UInt32)DSGetLong( &object->count, inDirection );
+				break;
+			case kResult:
+				bIsAPICallResponse = true;
+				break;
 		}
     } // for (i=0; i< 10; i++)
 	
-#ifndef DSSERVERTCP
-	if (bIsAPICallResponse)
-	{
-		DSSwapLong(&ourMsgID, toBig);
-		if (aCustomRequestNum == 0)
-		{
-			aCustomRequestNum = CDSRefMap::GetCustomCodeFromMsgIDMap( ourMsgID );
-			if (aCustomRequestNum != 0)
-			{
-				CDSRefMap::RemoveMsgIDToCustomCodeMap( ourMsgID );
-				bCustomCall = true;
-			}
-		}
-	}
-#endif
-
-	if ( bCustomCall && (aCustomRequestNum != 0) )
+	if ( bCustomCall && aCustomRequestNum != 0 )
 	{
 #ifdef DSSERVERTCP
-		if (aNodeRef != 0)
+		if ( aNodeRef != 0 )
 		{
-			CServerPlugin *aPluginPtr = nil;
-			SInt32 myResult = CRefTable::VerifyNodeRef( aNodeRef, &aPluginPtr, fPort, fIPAddress );
-			if (myResult == eDSNoErr)
+			CServerPlugin *aPluginPtr = NULL;
+
+			if ( gRefTable.VerifyReference(aNodeRef, eRefTypeDirNode, &aPluginPtr, -1, inMessage->fPID) == eDSNoErr )
 			{
 				aPluginName = aPluginPtr->GetPluginName();
+				DbgLog( kLogDebug, "SwapProxyMessage - Custom code %d - module %s", aCustomRequestNum, aPluginName );
+			}
+			else
+			{
+				DbgLog( kLogError, "SwapProxyMessage - Custom code %d - Cannot find plugin - Ref: %d, PID: %d, Address: %A", 
+						aCustomRequestNum, aNodeRef, inMessage->fPID, inMessage->fIPAddress );
 			}
 		}
 #else
-		if (aNodeRefMap != 0)
-		{
-			CDSRefMap::MapMsgIDToServerRef( ourMsgID, aNodeRef );
-			CDSRefMap::MapMsgIDToCustomCode( ourMsgID, aCustomRequestNum );
-			aPluginName = dsGetPluginNamePriv( aNodeRefMap, getpid() ); //FW side this PID should work but on server side we use the IP Port instead
-		}
-		else
-		{
-			if (bIsAPICallResponse)
-			{
-				UInt32 ourServerRef = 0;
-				ourServerRef = CDSRefMap::GetServerRefFromMsgIDMap( ourMsgID );
-				CDSRefMap::RemoveMsgIDToServerRefMap( ourMsgID );
-				aNodeRefMap = CDSRefMap::GetLocalRefFromServerMap( ourServerRef );
-				aPluginName = dsGetPluginNamePriv( aNodeRefMap, getpid() ); //FW side this PID should work but on server side we use the IP Port instead
-			}
-		}
+		if ( aNodeRefMap != 0 )
+			aPluginName = dsGetPluginNamePriv( aNodeRefMap, getpid() );
 #endif
 	}
 
     // swap objects
     for (i=0; i< 10; i++)
     {
-        object = &fMessage->obj[i];
+        object = &inMessage->obj[i];
 
         if (object->type == 0)
             continue;
             
-        UInt32 objType = DSGetAndSwapLong(&object->type, toBig);
-        DSSwapLong(&object->count, toBig);
-        UInt32 objOffset = DSGetAndSwapLong(&object->offset, toBig);
-        DSSwapLong(&object->used, toBig);
-        UInt32 objLength = DSGetAndSwapLong(&object->length, toBig);
+        UInt32 objType = DSGetAndSwapLong(&object->type, inDirection);
+        DSSwapLong(&object->count, inDirection);
+        UInt32 objOffset = DSGetAndSwapLong(&object->offset, inDirection);
+        DSSwapLong(&object->used, inDirection);
+        UInt32 objLength = DSGetAndSwapLong(&object->length, inDirection);
             
-        DSSwapObjectData(objType, (char *)fMessage + objOffset, objLength, (!isTwoWay), bCustomCall, aCustomRequestNum, (const char*)aPluginName, bIsAPICallResponse, toBig);
+        DSSwapObjectData(objType, (char *)inMessage + objOffset, objLength, (!isTwoWay), bCustomCall, aCustomRequestNum, 
+						 (const char*)aPluginName, bIsAPICallResponse, inDirection);
     }
     
-#if DUMP_BUFFER
-    if (toBig)
+#ifdef DUMP_BUFFER
+    if ( inDirection == kDSSwapHostToNetworkOrder )
         fprintf(gDumpFile, "\n\nBuffer in network order (post Swap)\n");
     else
         fprintf(gDumpFile, "\n\nBuffer in host order (post Swap)\n");
-    DumpBuf(fMessage->data, bufSize);
+    DumpBuf(inMessage->data, bufSize);
     fflush(stdout);
 #endif
 }
-
-void DSTCPEndian::AddIPAndPort( UInt32 inIPAddress, UInt32 inPort)
-{
-	fIPAddress = inIPAddress;
-	fPort = inPort;
-}
-
 
 #endif

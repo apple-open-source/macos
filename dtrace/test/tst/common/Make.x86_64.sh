@@ -17,4 +17,6 @@ gcc -arch x86_64 ./stop/tst.stop2.c -o a.out; mv a.out ./stop/tst.stop2.exe
 # gcc -arch x86_64 ./usdt/tst.argmap.c -o a.out; mv a.out ./usdt/tst.argmap.exe
 # gcc -arch x86_64 ./usdt/tst.args.c -o a.out; mv a.out ./usdt/tst.args.exe
 gcc -arch x86_64 ./ustack/tst.spin.c -o a.out; mv a.out ./ustack/tst.spin.exe
+gcc -arch x86_64 ../i386/pid/tst.nop.c ../i386/pid/tst.nop.s -o a.out; mv a.out ../i386/pid/tst.nop.exe
+gcc -arch x86_64 ./pid/tst.dlopen.c -o ./pid/tst.dlopen.exe
 

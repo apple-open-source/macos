@@ -1,5 +1,3 @@
-/*	$NetBSD: tftpsubs.h,v 1.4 2003/08/07 11:16:14 agc Exp $	*/
-
 /*
  * Copyright (c) 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -12,7 +10,11 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. Neither the name of the University nor the names of its contributors
+ * 3. All advertising materials mentioning features or use of this software
+ *    must display the following acknowledgement:
+ *	This product includes software developed by the University of
+ *	California, Berkeley and its contributors.
+ * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -29,20 +31,24 @@
  * SUCH DAMAGE.
  *
  *	@(#)tftpsubs.h	8.1 (Berkeley) 6/6/93
+ * $FreeBSD: src/usr.bin/tftp/tftpsubs.h,v 1.2 2002/03/22 01:42:34 imp Exp $
  */
 
 /*
  * Prototypes for read-ahead/write-behind subroutines for tftp user and
  * server.
  */
+struct tftphdr *r_init(void);
+#ifdef __APPLE__
+void	read_ahead(FILE *, int, int);
+int	readit(FILE *, struct tftphdr **, int, int);
+#else
+void	read_ahead(FILE *, int);
+int	readit(FILE *, struct tftphdr **, int);
+#endif
 
+int	synchnet(int);
 
-struct tftphdr *r_init __P((void));
-void	read_ahead __P((FILE *, int, int));
-int	readit __P((FILE *, struct tftphdr **, int, int));
-
-int	synchnet __P((int, int));
-
-struct tftphdr *w_init __P((void));
-int	write_behind __P((FILE *, int));
-int	writeit __P((FILE *, struct tftphdr **, int, int));
+struct tftphdr *w_init(void);
+int	write_behind(FILE *, int);
+int	writeit(FILE *, struct tftphdr **, int, int);

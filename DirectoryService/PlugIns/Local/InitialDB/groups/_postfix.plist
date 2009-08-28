@@ -21,11 +21,7 @@
 	</array>
 	<key>realname</key>
 	<array>
-		<string>SMTP Mail Access</string>
-	</array>
-	<key>smb_sid</key>
-	<array>
-		<string>S-1-5-21-127</string>
+		<string>Postfix Mail Server</string>
 	</array>
 </dict>
 </plist>

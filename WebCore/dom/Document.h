@@ -4,7 +4,7 @@
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
  *           (C) 2006 Alexey Proskuryakov (ap@webkit.org)
  * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
- * Copyright (C) 2008 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
+ * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -317,6 +317,11 @@ public:
 #if ENABLE(WML)
     virtual bool isWMLDocument() const { return false; }
 #endif
+#if ENABLE(XHTMLMP)
+    bool isXHTMLMPDocument() const; 
+    bool shouldProcessNoscriptElement() const { return m_shouldProcessNoScriptElement; }
+    void setShouldProcessNoscriptElement(bool shouldDo) { m_shouldProcessNoScriptElement = shouldDo; }
+#endif
     virtual bool isFrameSet() const { return false; }
     
     CSSStyleSelector* styleSelector() const { return m_styleSelector; }
@@ -561,6 +566,8 @@ public:
 
     // Helper functions for forwarding DOMWindow event related tasks to the DOMWindow if it exists.
     void setWindowAttributeEventListener(const AtomicString& eventType, PassRefPtr<EventListener>);
+    EventListener* getWindowAttributeEventListener(const AtomicString& eventType);
+    void dispatchWindowEvent(PassRefPtr<Event>);
     void dispatchWindowEvent(const AtomicString& eventType, bool canBubbleArg, bool cancelableArg);
     void dispatchLoadEvent();
 
@@ -649,8 +656,8 @@ public:
 
     const KURL& cookieURL() const { return m_cookieURL; }
 
-    const KURL& policyBaseURL() const { return m_policyBaseURL; }
-    void setPolicyBaseURL(const KURL& url) { m_policyBaseURL = url; }
+    const KURL& firstPartyForCookies() const { return m_firstPartyForCookies; }
+    void setFirstPartyForCookies(const KURL& url) { m_firstPartyForCookies = url; }
     
     // The following implements the rule from HTML 4 for what valid names are.
     // To get this right for all the XML cases, we probably have to improve this or move it
@@ -812,7 +819,7 @@ private:
     KURL m_baseURL;  // Node.baseURI: The URL to use when resolving relative URLs.
     KURL m_baseElementURL;  // The URL set by the <base> element.
     KURL m_cookieURL;  // The URL to use for cookie access.
-    KURL m_policyBaseURL;  // The policy URL for third-party cookie blocking.
+    KURL m_firstPartyForCookies; // The policy URL for third-party cookie blocking.
 
     // Document.documentURI:
     // Although URL-like, Document.documentURI can actually be set to any
@@ -946,6 +953,10 @@ private:
 
     String m_contentLanguage;
 
+#if ENABLE(XHTMLMP)
+    bool m_shouldProcessNoScriptElement;
+#endif
+
 public:
     bool inPageCache() const { return m_inPageCache; }
     void setInPageCache(bool flag);
@@ -1019,6 +1030,7 @@ public:
 
 #if ENABLE(WML)
     void resetWMLPageState();
+    void initializeWMLPageState();
 #endif
 
 protected:

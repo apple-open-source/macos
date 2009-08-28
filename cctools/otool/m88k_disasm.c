@@ -67,252 +67,252 @@ static char *b5[] = { "??", "??", "eq", "ne", "gt", "le", "lt", "ge", "hi",
 		      "ls", "lo", "hs", "be", "nb", "he", "nh" };
 
 static void print_b5(
-    unsigned long value);
+    uint32_t value);
 static void print_m5(
-    unsigned long value);
+    uint32_t value);
 static void print_immediate(
-    unsigned long value, 
-    unsigned long sect_offset,
+    uint32_t value, 
+    uint32_t sect_offset,
     struct relocation_info *sorted_relocs,
-    unsigned long nsorted_relocs,
+    uint32_t nsorted_relocs,
     struct nlist *symbols,
-    unsigned long nsymbols,
+    uint32_t nsymbols,
     struct symbol *sorted_symbols,
-    unsigned long nsorted_symbols,
+    uint32_t nsorted_symbols,
     char *strings,
-    unsigned long strings_size,
+    uint32_t strings_size,
     enum bool verbose);
 
-unsigned long
+uint32_t
 m88k_disassemble(
 char *sect,
-unsigned long left,
-unsigned long addr,
-unsigned long sect_addr,
+uint32_t left,
+uint32_t addr,
+uint32_t sect_addr,
 enum byte_sex object_byte_sex,
 struct relocation_info *relocs,
-unsigned long nrelocs,
+uint32_t nrelocs,
 struct nlist *symbols,
-unsigned long nsymbols,
+uint32_t nsymbols,
 struct symbol *sorted_symbols,
-unsigned long nsorted_symbols,
+uint32_t nsorted_symbols,
 char *strings,
-unsigned long strings_size,
+uint32_t strings_size,
 enum bool verbose)
 {
     enum byte_sex host_byte_sex;
     enum bool swapped;
-    unsigned long opcode;
-    unsigned long sect_offset;
+    uint32_t opcode;
+    uint32_t sect_offset;
 
 	host_byte_sex = get_host_byte_sex();
 	swapped = host_byte_sex != object_byte_sex;
 	sect_offset = addr - sect_addr;
 
-	if(left < sizeof(unsigned long)){
+	if(left < sizeof(uint32_t)){
 	   if(left != 0){
 		memcpy(&opcode, sect, left);
 		if(swapped)
-		    opcode = SWAP_LONG(opcode);
+		    opcode = SWAP_INT(opcode);
 		printf(".long\t0x%08x\n", (unsigned int)opcode);
 	   }
 	   printf("(end of section)\n");
 	   return(left);
 	}
 
-	memcpy(&opcode, sect, sizeof(unsigned long));
+	memcpy(&opcode, sect, sizeof(uint32_t));
 	if(swapped)
-	    opcode = SWAP_LONG(opcode);
+	    opcode = SWAP_INT(opcode);
 
 	switch(opcode & 0xfc000000){
 	case 0x00000000:
-	    printf("ld.d\tx%lu,r%lu,",D(opcode), S1(opcode));
+	    printf("ld.d\tx%u,r%u,",D(opcode), S1(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
 			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
 			    strings, strings_size, verbose);
 	    break;
 	case 0x04000000:
-	    printf("ld\tx%lu,r%lu,",D(opcode), S1(opcode));
+	    printf("ld\tx%u,r%u,",D(opcode), S1(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
 			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
 			    strings, strings_size, verbose);
 	    break;
 	case 0x08000000:
-	    printf("ld.hu\tr%lu,r%lu,",D(opcode), S1(opcode));
+	    printf("ld.hu\tr%u,r%u,",D(opcode), S1(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
 			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
 			    strings, strings_size, verbose);
 	    break;
 	case 0x0c000000:
-	    printf("ld.bu\tr%lu,r%lu,",D(opcode), S1(opcode));
+	    printf("ld.bu\tr%u,r%u,",D(opcode), S1(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
 			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
 			    strings, strings_size, verbose);
 	    break;
 	case 0x10000000:
-	    printf("ld.d\tr%lu,r%lu,",D(opcode), S1(opcode));
+	    printf("ld.d\tr%u,r%u,",D(opcode), S1(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
 			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
 			    strings, strings_size, verbose);
 	    break;
 	case 0x14000000:
-	    printf("ld\tr%lu,r%lu,",D(opcode), S1(opcode));
+	    printf("ld\tr%u,r%u,",D(opcode), S1(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
 			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
 			    strings, strings_size, verbose);
 	    break;
 	case 0x18000000:
-	    printf("ld.h\tr%lu,r%lu,",D(opcode), S1(opcode));
+	    printf("ld.h\tr%u,r%u,",D(opcode), S1(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
 			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
 			    strings, strings_size, verbose);
 	    break;
 	case 0x1c000000:
-	    printf("ld.b\tr%lu,r%lu,",D(opcode), S1(opcode));
+	    printf("ld.b\tr%u,r%u,",D(opcode), S1(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
 			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
 			    strings, strings_size, verbose);
 	    break;
 	case 0x20000000:
-	    printf("st.d\tr%lu,r%lu,",D(opcode), S1(opcode));
+	    printf("st.d\tr%u,r%u,",D(opcode), S1(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
 			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
 			    strings, strings_size, verbose);
 	    break;
 	case 0x24000000:
-	    printf("st\tr%lu,r%lu,",D(opcode), S1(opcode));
+	    printf("st\tr%u,r%u,",D(opcode), S1(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
 			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
 			    strings, strings_size, verbose);
 	    break;
 	case 0x28000000:
-	    printf("st.h\tr%lu,r%lu,",D(opcode), S1(opcode));
+	    printf("st.h\tr%u,r%u,",D(opcode), S1(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
 			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
 			    strings, strings_size, verbose);
 	    break;
 	case 0x2c000000:
-	    printf("st.b\tr%lu,r%lu,",D(opcode), S1(opcode));
+	    printf("st.b\tr%u,r%u,",D(opcode), S1(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
 			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
 			    strings, strings_size, verbose);
 	    break;
 	case 0x30000000:
-	    printf("st.d\tx%lu,r%lu,",D(opcode), S1(opcode));
+	    printf("st.d\tx%u,r%u,",D(opcode), S1(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
 			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
 			    strings, strings_size, verbose);
 	    break;
 	case 0x34000000:
-	    printf("st\tx%lu,r%lu,",D(opcode), S1(opcode));
+	    printf("st\tx%u,r%u,",D(opcode), S1(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
 			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
 			    strings, strings_size, verbose);
 	    break;
 	case 0x38000000:
-	    printf("st.x\tx%lu,r%lu,",D(opcode), S1(opcode));
+	    printf("st.x\tx%u,r%u,",D(opcode), S1(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
 			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
 			    strings, strings_size, verbose);
 	    break;
 	case 0x3c000000:
-	    printf("ld.x\tx%lu,r%lu,",D(opcode), S1(opcode));
+	    printf("ld.x\tx%u,r%u,",D(opcode), S1(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
 			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
 			    strings, strings_size, verbose);
 	    break;
 	case 0x40000000:
-	    printf("and\tr%lu,r%lu,",D(opcode), S1(opcode));
+	    printf("and\tr%u,r%u,",D(opcode), S1(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
 			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
 			    strings, strings_size, verbose);
 	    break;
 	case 0x44000000:
-	    printf("and.u\tr%lu,r%lu,",D(opcode), S1(opcode));
+	    printf("and.u\tr%u,r%u,",D(opcode), S1(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
 			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
 			    strings, strings_size, verbose);
 	    break;
 	case 0x48000000:
-	    printf("mask\tr%lu,r%lu,",D(opcode), S1(opcode));
+	    printf("mask\tr%u,r%u,",D(opcode), S1(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
 			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
 			    strings, strings_size, verbose);
 	    break;
 	case 0x4c000000:
-	    printf("mask.u\tr%lu,r%lu,",D(opcode), S1(opcode));
+	    printf("mask.u\tr%u,r%u,",D(opcode), S1(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
 			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
 			    strings, strings_size, verbose);
 	    break;
 	case 0x50000000:
-	    printf("xor\tr%lu,r%lu,",D(opcode), S1(opcode));
+	    printf("xor\tr%u,r%u,",D(opcode), S1(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
 			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
 			    strings, strings_size, verbose);
 	    break;
 	case 0x54000000:
-	    printf("xor.u\tr%lu,r%lu,",D(opcode), S1(opcode));
+	    printf("xor.u\tr%u,r%u,",D(opcode), S1(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
 			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
 			    strings, strings_size, verbose);
 	    break;
 	case 0x58000000:
-	    printf("or\tr%lu,r%lu,",D(opcode), S1(opcode));
+	    printf("or\tr%u,r%u,",D(opcode), S1(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
 			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
 			    strings, strings_size, verbose);
 	    break;
 	case 0x5c000000:
-	    printf("or.u\tr%lu,r%lu,",D(opcode), S1(opcode));
+	    printf("or.u\tr%u,r%u,",D(opcode), S1(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
 			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
 			    strings, strings_size, verbose);
 	    break;
 	case 0x60000000:
-	    printf("addu\tr%lu,r%lu,",D(opcode), S1(opcode));
+	    printf("addu\tr%u,r%u,",D(opcode), S1(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
 			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
 			    strings, strings_size, verbose);
 	    break;
 	case 0x64000000:
-	    printf("subu\tr%lu,r%lu,",D(opcode), S1(opcode));
+	    printf("subu\tr%u,r%u,",D(opcode), S1(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
 			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
 			    strings, strings_size, verbose);
 	    break;
 	case 0x68000000:
-	    printf("divu\tr%lu,r%lu,",D(opcode), S1(opcode));
+	    printf("divu\tr%u,r%u,",D(opcode), S1(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
 			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
 			    strings, strings_size, verbose);
 	    break;
 	case 0x6c000000:
-	    printf("mulu\tr%lu,r%lu,",D(opcode), S1(opcode));
+	    printf("mulu\tr%u,r%u,",D(opcode), S1(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
 			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
 			    strings, strings_size, verbose);
 	    break;
 	case 0x70000000:
-	    printf("add\tr%lu,r%lu,",D(opcode), S1(opcode));
+	    printf("add\tr%u,r%u,",D(opcode), S1(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
 			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
 			    strings, strings_size, verbose);
 	    break;
 	case 0x74000000:
-	    printf("sub\tr%lu,r%lu,",D(opcode), S1(opcode));
+	    printf("sub\tr%u,r%u,",D(opcode), S1(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
 			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
 			    strings, strings_size, verbose);
 	    break;
 	case 0x78000000:
-	    printf("divs\tr%lu,r%lu,",D(opcode), S1(opcode));
+	    printf("divs\tr%u,r%u,",D(opcode), S1(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
 			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
 			    strings, strings_size, verbose);
 	    break;
 	case 0x7C000000:
-	    printf("cmp\tr%lu,r%lu,",D(opcode), S1(opcode));
+	    printf("cmp\tr%u,r%u,",D(opcode), S1(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
 			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
 			    strings, strings_size, verbose);
@@ -321,50 +321,50 @@ enum bool verbose)
 	    switch(opcode & 0x0000f800){
 	    case 0x00004000:
 		if((opcode & 0x001f001f) == 0)
-		    printf("ldcr\tr%lu,cr%lu\n", D(opcode), CR(opcode));
+		    printf("ldcr\tr%u,cr%u\n", D(opcode), CR(opcode));
 		else
 		    printf("0x%08x\n", (unsigned int)opcode);
 		break;
 	    case 0x00008000:
 		if((opcode & 0x03e00000) == 0)
 		    if(S1(opcode) == S2(opcode))
-			printf("stcr\tr%lu,cr%lu\n", S1(opcode), CR(opcode));
+			printf("stcr\tr%u,cr%u\n", S1(opcode), CR(opcode));
 		    else
-			printf("stcr\tr%lu,cr%lu\t| error: fields S1 != S2\n",
+			printf("stcr\tr%u,cr%u\t| error: fields S1 != S2\n",
 				S1(opcode), CR(opcode));
 		else
 		    printf("0x%08x\n", (unsigned int)opcode);
 		break;
 	    case 0x0000c000:
 		if(S1(opcode) == S2(opcode))
-		    printf("xcr\tr%lu,r%lu,cr%lu\n", D(opcode), S1(opcode),
+		    printf("xcr\tr%u,r%u,cr%u\n", D(opcode), S1(opcode),
 			    CR(opcode));
 		else
-		    printf("xcr\tr%lu,r%lu,cr%lu\t| error: fields S1 != S2\n",
+		    printf("xcr\tr%u,r%u,cr%u\t| error: fields S1 != S2\n",
 			    D(opcode), S1(opcode), CR(opcode));
 		break;
 	    case 0x00004800:
 		if((opcode & 0x001f001f) == 0)
-		    printf("fldcr\tr%lu,fcr%lu\n", D(opcode), CR(opcode));
+		    printf("fldcr\tr%u,fcr%u\n", D(opcode), CR(opcode));
 		else
 		    printf("0x%08x\n", (unsigned int)opcode);
 		break;
 	    case 0x00008800:
 		if((opcode & 0x03e00000) == 0)
 		    if(S1(opcode) == S2(opcode))
-			printf("fstcr\tr%lu,fcr%lu\n", S1(opcode), CR(opcode));
+			printf("fstcr\tr%u,fcr%u\n", S1(opcode), CR(opcode));
 		    else
-			printf("fstcr\tr%lu,fcr%lu\t| error: fields S1 != S2\n",
+			printf("fstcr\tr%u,fcr%u\t| error: fields S1 != S2\n",
 				S1(opcode), CR(opcode));
 		else
 		    printf("0x%08x\n", (unsigned int)opcode);
 		break;
 	    case 0x0000c800:
 		if(S1(opcode) == S2(opcode))
-		    printf("fxcr\tr%lu,r%lu,fcr%lu\n", D(opcode), S1(opcode),
+		    printf("fxcr\tr%u,r%u,fcr%u\n", D(opcode), S1(opcode),
 			    CR(opcode));
 		else
-		    printf("fxcr\tr%lu,r%lu,fcr%lu\t| error: fields S1 != S2\n",
+		    printf("fxcr\tr%u,r%u,fcr%u\t| error: fields S1 != S2\n",
 			    D(opcode), S1(opcode), CR(opcode));
 		break;
 	    default:
@@ -378,68 +378,68 @@ enum bool verbose)
 	    switch(opcode & 0x00007800){
 	    case 0x00000000:
 		if(opcode & 0x00008000)
-		    printf("fmul.%c%c%c\tx%lu,x%lu,x%lu\n", ty[TD(opcode)],
+		    printf("fmul.%c%c%c\tx%u,x%u,x%u\n", ty[TD(opcode)],
 			    ty[T1(opcode)], ty[T2(opcode)], D(opcode),
 			    S1(opcode), S2(opcode));
 		else
-		    printf("fmul.%c%c%c\tr%lu,r%lu,r%lu\n", ty[TD(opcode)],
+		    printf("fmul.%c%c%c\tr%u,r%u,r%u\n", ty[TD(opcode)],
 			    ty[T1(opcode)], ty[T2(opcode)], D(opcode),
 			    S1(opcode), S2(opcode));
 		break;
 	    case 0x00000800:
 		if(opcode & 0x00008000)
-		    printf("fcvt.%c%c\tx%lu,x%lu\n", ty[TD(opcode)],
+		    printf("fcvt.%c%c\tx%u,x%u\n", ty[TD(opcode)],
 			    ty[T2(opcode)], D(opcode), S2(opcode));
 		else
-		    printf("fcvt.%c%c\tr%lu,r%lu\n", ty[TD(opcode)],
+		    printf("fcvt.%c%c\tr%u,r%u\n", ty[TD(opcode)],
 			    ty[T2(opcode)], D(opcode), S2(opcode));
 		break;
 	    case 0x00002000:
 		if(opcode & 0x00000200)
-		    printf("flt.%cs\tx%lu,r%lu\n", ty[TD(opcode)], D(opcode),
+		    printf("flt.%cs\tx%u,r%u\n", ty[TD(opcode)], D(opcode),
 			   S2(opcode));
 		else
-		    printf("flt.%cs\tr%lu,r%lu\n", ty[TD(opcode)], D(opcode),
+		    printf("flt.%cs\tr%u,r%u\n", ty[TD(opcode)], D(opcode),
 			   S2(opcode));
 		break;
 	    case 0x00002800:
 		if(opcode & 0x00008000)
-		    printf("fadd.%c%c%c\tx%lu,x%lu,x%lu\n", ty[TD(opcode)],
+		    printf("fadd.%c%c%c\tx%u,x%u,x%u\n", ty[TD(opcode)],
 			    ty[T1(opcode)], ty[T2(opcode)], D(opcode),
 			    S1(opcode), S2(opcode));
 		else
-		    printf("fadd.%c%c%c\tr%lu,r%lu,r%lu\n", ty[TD(opcode)],
+		    printf("fadd.%c%c%c\tr%u,r%u,r%u\n", ty[TD(opcode)],
 			    ty[T1(opcode)], ty[T2(opcode)], D(opcode),
 			    S1(opcode), S2(opcode));
 		break;
 	    case 0x00003000:
 		if(opcode & 0x00008000)
-		    printf("fsub.%c%c%c\tx%lu,x%lu,x%lu\n", ty[TD(opcode)],
+		    printf("fsub.%c%c%c\tx%u,x%u,x%u\n", ty[TD(opcode)],
 			    ty[T1(opcode)], ty[T2(opcode)], D(opcode),
 			    S1(opcode), S2(opcode));
 		else
-		    printf("fsub.%c%c%c\tr%lu,r%lu,r%lu\n", ty[TD(opcode)],
+		    printf("fsub.%c%c%c\tr%u,r%u,r%u\n", ty[TD(opcode)],
 			    ty[T1(opcode)], ty[T2(opcode)], D(opcode),
 			    S1(opcode), S2(opcode));
 		break;
 	    case 0x00003800:
 		if((opcode & 0x00000060) == 0x00000000){
 		    if(opcode & 0x00008000)
-			printf("fcmp.s%c%c\tr%lu,x%lu,x%lu\n", ty[T1(opcode)],
+			printf("fcmp.s%c%c\tr%u,x%u,x%u\n", ty[T1(opcode)],
 				ty[T2(opcode)], D(opcode), S1(opcode),
 				S2(opcode));
 		    else
-			printf("fcmp.s%c%c\tr%lu,r%lu,r%lu\n", ty[T1(opcode)],
+			printf("fcmp.s%c%c\tr%u,r%u,r%u\n", ty[T1(opcode)],
 				ty[T2(opcode)], D(opcode), S1(opcode),
 				S2(opcode));
 		}
 		else if((opcode & 0x00000060) == 0x00000020){
 		    if(opcode & 0x00008000)
-			printf("fcmpu.s%c%c\tr%lu,x%lu,x%lu\n", ty[T1(opcode)],
+			printf("fcmpu.s%c%c\tr%u,x%u,x%u\n", ty[T1(opcode)],
 				ty[T2(opcode)], D(opcode), S1(opcode),
 				S2(opcode));
 		    else
-			printf("fcmpu.s%c%c\tr%lu,r%lu,r%lu\n", ty[T1(opcode)],
+			printf("fcmpu.s%c%c\tr%u,r%u,r%u\n", ty[T1(opcode)],
 				ty[T2(opcode)], D(opcode), S1(opcode),
 				S2(opcode));
 		}
@@ -449,28 +449,28 @@ enum bool verbose)
 	    case 0x00004000:
 		if((opcode & 0x001f8660) == 0x00008000){
 		    /* mov to g (from x) */
-		    printf("mov%s\tr%lu,x%lu\n", ty_star[T2(opcode)],
+		    printf("mov%s\tr%u,x%u\n", ty_star[T2(opcode)],
 			    D(opcode), S2(opcode));
 		}
 		else if((opcode & 0x001f8660) == 0x00000200){
 		    /* mov to x (from g) */
-		    printf("mov%s\tx%lu,r%lu\n", ty_star[T2(opcode)],
+		    printf("mov%s\tx%u,r%u\n", ty_star[T2(opcode)],
 			    D(opcode), S2(opcode));
 		}
 		else if((opcode & 0x001f87e0) == 0x00008300){
 		    /* mov to x (from x) */
-		    printf("mov\tx%lu,x%lu\n", D(opcode), S2(opcode));
+		    printf("mov\tx%u,x%u\n", D(opcode), S2(opcode));
 		}
 		else
 		    printf("0x%08x\n", (unsigned int)opcode);
 		break;
 	    case 0x00004800:
 		if((opcode & 0x001f8660) == 0x00008000){
-		    printf("int.s%c\tr%lu,x%lu\n", ty[T2(opcode)], D(opcode),
+		    printf("int.s%c\tr%u,x%u\n", ty[T2(opcode)], D(opcode),
 			   S2(opcode));
 		}
 		else if((opcode & 0x001f8660) == 0x00000000){
-		    printf("int.s%c\tr%lu,r%lu\n", ty[T2(opcode)], D(opcode),
+		    printf("int.s%c\tr%u,r%u\n", ty[T2(opcode)], D(opcode),
 			   S2(opcode));
 		}
 		else
@@ -478,11 +478,11 @@ enum bool verbose)
 		break;
 	    case 0x00005000:
 		if((opcode & 0x001f8660) == 0x00008000){
-		    printf("nint.s%c\tr%lu,x%lu\n", ty[T2(opcode)], D(opcode),
+		    printf("nint.s%c\tr%u,x%u\n", ty[T2(opcode)], D(opcode),
 			   S2(opcode));
 		}
 		else if((opcode & 0x001f8660) == 0x00000000){
-		    printf("nint.s%c\tr%lu,r%lu\n", ty[T2(opcode)], D(opcode),
+		    printf("nint.s%c\tr%u,r%u\n", ty[T2(opcode)], D(opcode),
 			   S2(opcode));
 		}
 		else
@@ -490,11 +490,11 @@ enum bool verbose)
 		break;
 	    case 0x00005800:
 		if((opcode & 0x001f8660) == 0x00008000){
-		    printf("trnc.s%c\tr%lu,x%lu\n", ty[T2(opcode)], D(opcode),
+		    printf("trnc.s%c\tr%u,x%u\n", ty[T2(opcode)], D(opcode),
 			   S2(opcode));
 		}
 		else if((opcode & 0x001f8660) == 0x00000000){
-		    printf("trnc.s%c\tr%lu,r%lu\n", ty[T2(opcode)], D(opcode),
+		    printf("trnc.s%c\tr%u,r%u\n", ty[T2(opcode)], D(opcode),
 			   S2(opcode));
 		}
 		else
@@ -502,20 +502,20 @@ enum bool verbose)
 		break;
 	    case 0x00007000:
 		if(opcode & 0x00008000)
-		    printf("fdiv.%c%c%c\tx%lu,x%lu,x%lu\n", ty[TD(opcode)],
+		    printf("fdiv.%c%c%c\tx%u,x%u,x%u\n", ty[TD(opcode)],
 			    ty[T1(opcode)], ty[T2(opcode)], D(opcode),
 			    S1(opcode), S2(opcode));
 		else
-		    printf("fdiv.%c%c%c\tr%lu,r%lu,r%lu\n", ty[TD(opcode)],
+		    printf("fdiv.%c%c%c\tr%u,r%u,r%u\n", ty[TD(opcode)],
 			    ty[T1(opcode)], ty[T2(opcode)], D(opcode),
 			    S1(opcode), S2(opcode));
 		break;
 	    case 0x00007800:
 		if(opcode & 0x00008000)
-		    printf("fsqrt.%c%c\tx%lu,x%lu\n", ty[TD(opcode)],
+		    printf("fsqrt.%c%c\tx%u,x%u\n", ty[TD(opcode)],
 			    ty[T2(opcode)], D(opcode), S2(opcode));
 		else
-		    printf("fsqrt.%c%c\tr%lu,r%lu\n", ty[TD(opcode)],
+		    printf("fsqrt.%c%c\tr%u,r%u\n", ty[TD(opcode)],
 			    ty[T2(opcode)], D(opcode), S2(opcode));
 		break;
 	    default:
@@ -528,33 +528,33 @@ enum bool verbose)
 	case 0x88000000:
 	    switch(opcode & 0x0000f800){
 	    case 0x00000000:
-		printf("pmul\tr%lu,r%lu,r%lu\n", D(opcode), S1(opcode),
+		printf("pmul\tr%u,r%u,r%u\n", D(opcode), S1(opcode),
 		       S2(opcode) );
 		break;
 	    case 0x00002000:
-		printf("padd%s%s\tr%lu,r%lu,r%lu\n", sat[SAT(opcode)],
+		printf("padd%s%s\tr%u,r%u,r%u\n", sat[SAT(opcode)],
 		       pt[PT(opcode)], D(opcode), S1(opcode), S2(opcode) );
 		break;
 	    case 0x00003000:
-		printf("psub%s%s\tr%lu,r%lu,r%lu\n", sat[SAT(opcode)],
+		printf("psub%s%s\tr%u,r%u,r%u\n", sat[SAT(opcode)],
 		       pt[PT(opcode)], D(opcode), S1(opcode), S2(opcode) );
 		break;
 	    case 0x00003800:
-		printf("pcmp\tr%lu,r%lu,r%lu\n", D(opcode), S1(opcode),
+		printf("pcmp\tr%u,r%u,r%u\n", D(opcode), S1(opcode),
 		       S2(opcode) );
 		break;
 	    case 0x00006000:
 		switch(opcode & 0x00000780){
 		case 0x00000100:
-		    printf("ppack.8%s\tr%lu,r%lu,r%lu\n", pt[PT(opcode)],
+		    printf("ppack.8%s\tr%u,r%u,r%u\n", pt[PT(opcode)],
 			   D(opcode), S1(opcode), S2(opcode) );
 		    break;
 		case 0x00000200:
-		    printf("ppack.16%s\tr%lu,r%lu,r%lu\n", pt[PT(opcode)],
+		    printf("ppack.16%s\tr%u,r%u,r%u\n", pt[PT(opcode)],
 			   D(opcode), S1(opcode), S2(opcode) );
 		    break;
 		case 0x00000400:
-		    printf("ppack.32%s\tr%lu,r%lu,r%lu\n", pt[PT(opcode)],
+		    printf("ppack.32%s\tr%u,r%u,r%u\n", pt[PT(opcode)],
 			   D(opcode), S1(opcode), S2(opcode) );
 		    break;
 		default:
@@ -563,15 +563,15 @@ enum bool verbose)
 		}
 		break;
 	    case 0x00006800:
-		printf("punpk%s\tr%lu,r%lu\n", pt[PT(opcode)], D(opcode),
+		printf("punpk%s\tr%u,r%u\n", pt[PT(opcode)], D(opcode),
 		       S1(opcode) );
 		break;
 	    case 0x00007000:
-		printf("prot\tr%lu,r%lu,<%lu>\n", D(opcode), S1(opcode),
+		printf("prot\tr%u,r%u,<%u>\n", D(opcode), S1(opcode),
 		       ((opcode >> 7) & 0xf) << 2 );
 		break;
 	    case 0x00007800:
-		printf("prot\tr%lu,r%lu,r%lu\n", D(opcode), S1(opcode),
+		printf("prot\tr%u,r%u,r%u\n", D(opcode), S1(opcode),
 		       S2(opcode) );
 		break;
 	    default:
@@ -619,7 +619,7 @@ enum bool verbose)
 	    else
 		printf("bb0.n\t");
 	    print_b5(B5(opcode));
-	    printf(",r%lu,", S1(opcode) );
+	    printf(",r%u,", S1(opcode) );
 	    if((opcode & 0x00008000) == 0)
 		print_immediate(addr + ((opcode & 0x0000ffff) << 2),sect_offset,
 		    relocs, nrelocs, symbols, nsymbols, sorted_symbols,
@@ -637,7 +637,7 @@ enum bool verbose)
 	    else
 		printf("bb1.n\t");
 	    print_b5(B5(opcode));
-	    printf(",r%lu,", S1(opcode) );
+	    printf(",r%u,", S1(opcode) );
 	    if((opcode & 0x00008000) == 0)
 		print_immediate(addr + ((opcode & 0x0000ffff) << 2),sect_offset,
 		    relocs, nrelocs, symbols, nsymbols, sorted_symbols,
@@ -655,7 +655,7 @@ enum bool verbose)
 	    else
 		printf("bcnd.n\t");
 	    print_m5(M5(opcode));
-	    printf(",r%lu,", S1(opcode) );
+	    printf(",r%u,", S1(opcode) );
 	    if((opcode & 0x00008000) == 0)
 		print_immediate(addr + ((opcode & 0x0000ffff) << 2),sect_offset,
 		    relocs, nrelocs, symbols, nsymbols, sorted_symbols,
@@ -678,22 +678,22 @@ enum bool verbose)
 		case 0x00001000:
 		    /* ld R = 0, XRF dest */
 		    if((opcode & 0x00000200) == 0)
-			printf("ld%s%s\tx%lu,r%lu,r%lu\n", tyr0[TY(opcode)],
+			printf("ld%s%s\tx%u,r%u,r%u\n", tyr0[TY(opcode)],
 			       usr[USR(opcode)], D(opcode), S1(opcode),
 			       S2(opcode) );
 		    else
-			printf("ld%s%s\tx%lu,r%lu[r%lu]\n", tyr0[TY(opcode)],
+			printf("ld%s%s\tx%u,r%u[r%u]\n", tyr0[TY(opcode)],
 			       usr[USR(opcode)], D(opcode), S1(opcode),
 			       S2(opcode) );
 		    break;
 		case 0x00002000:
 		    /* st R = 0, XRF dest */
 		    if((opcode & 0x00000200) == 0)
-			printf("st%s%s%s\tx%lu,r%lu,r%lu\n", tyr0[TY(opcode)],
+			printf("st%s%s%s\tx%u,r%u,r%u\n", tyr0[TY(opcode)],
 			       usr[USR(opcode)], thru[THRU(opcode)], D(opcode),
 			       S1(opcode), S2(opcode) );
 		    else
-			printf("st%s%s%s\tx%lu,r%lu[r%lu]\n", tyr0[TY(opcode)],
+			printf("st%s%s%s\tx%u,r%u[r%u]\n", tyr0[TY(opcode)],
 			       usr[USR(opcode)], thru[THRU(opcode)], D(opcode),
 			       S1(opcode), S2(opcode) );
 		    break;
@@ -709,27 +709,27 @@ enum bool verbose)
 	    case 0x00008000:
 		switch(opcode & 0x0000fc00){
 		case 0x00008000:
-		    printf("clr\tr%lu,r%lu,%lu<%lu>\n", D(opcode), S1(opcode),
+		    printf("clr\tr%u,r%u,%u<%u>\n", D(opcode), S1(opcode),
 			   W5(opcode), OP5(opcode) );
 		    break;
 		case 0x00008800:
-		    printf("set\tr%lu,r%lu,%lu<%lu>\n", D(opcode), S1(opcode),
+		    printf("set\tr%u,r%u,%u<%u>\n", D(opcode), S1(opcode),
 			   W5(opcode), OP5(opcode) );
 		    break;
 		case 0x00009000:
-		    printf("ext\tr%lu,r%lu,%lu<%lu>\n", D(opcode), S1(opcode),
+		    printf("ext\tr%u,r%u,%u<%u>\n", D(opcode), S1(opcode),
 			   W5(opcode), OP5(opcode) );
 		    break;
 		case 0x00009800:
-		    printf("extu\tr%lu,r%lu,%lu<%lu>\n", D(opcode), S1(opcode),
+		    printf("extu\tr%u,r%u,%u<%u>\n", D(opcode), S1(opcode),
 			   W5(opcode), OP5(opcode) );
 		    break;
 		case 0x0000a000:
-		    printf("mak\tr%lu,r%lu,%lu<%lu>\n", D(opcode), S1(opcode),
+		    printf("mak\tr%u,r%u,%u<%u>\n", D(opcode), S1(opcode),
 			   W5(opcode), OP5(opcode) );
 		    break;
 		case 0x0000a800:
-		    printf("rot\tr%lu,r%lu,<%lu>\n", D(opcode), S1(opcode),
+		    printf("rot\tr%u,r%u,<%u>\n", D(opcode), S1(opcode),
 			   OP5(opcode) );
 		    break;
 		default:
@@ -743,17 +743,17 @@ enum bool verbose)
 		case 0x0000d000:
 		    printf("tb0\t");
 		    print_b5(B5(opcode));
-	    	    printf(",r%lu,%lu\n", S1(opcode), VEC9(opcode) );
+	    	    printf(",r%u,%u\n", S1(opcode), VEC9(opcode) );
 		    break;
 		case 0x0000d800:
 		    printf("tb1\t");
 		    print_b5(B5(opcode));
-	    	    printf(",r%lu,%lu\n", S1(opcode), VEC9(opcode) );
+	    	    printf(",r%u,%u\n", S1(opcode), VEC9(opcode) );
 		    break;
 		case 0x0000e800:
 		    printf("tcnd\t");
 		    print_m5(M5(opcode));
-	    	    printf(",r%lu,%lu\n", S1(opcode), VEC9(opcode) );
+	    	    printf(",r%u,%u\n", S1(opcode), VEC9(opcode) );
 		    break;
 		default:
 		    printf("0x%08x\n", (unsigned int)opcode);
@@ -771,31 +771,31 @@ enum bool verbose)
 		    if((opcode & 0x00000800) == 0)
 			/* xmem */
 			if((opcode & 0x00000200) == 0)
-			    printf("xmem%s%s\tr%lu,r%lu,r%lu\n", w[W(opcode)],
+			    printf("xmem%s%s\tr%u,r%u,r%u\n", w[W(opcode)],
 				   usr[USR(opcode)], D(opcode), S1(opcode),
 				   S2(opcode) );
 			else
-			    printf("xmem%s%s\tr%lu,r%lu[r%lu]\n", w[W(opcode)],
+			    printf("xmem%s%s\tr%u,r%u[r%u]\n", w[W(opcode)],
 				   usr[USR(opcode)], D(opcode), S1(opcode),
 				   S2(opcode) );
 		    else
 			/* ld.u */
 			if((opcode & 0x00000200) == 0)
-			    printf("ld%s%s\tr%lu,r%lu,r%lu\n", b[B(opcode)],
+			    printf("ld%s%s\tr%u,r%u,r%u\n", b[B(opcode)],
 				   usr[USR(opcode)], D(opcode), S1(opcode),
 				   S2(opcode) );
 			else
-			    printf("ld%s%s\tr%lu,r%lu[r%lu]\n", b[B(opcode)],
+			    printf("ld%s%s\tr%u,r%u[r%u]\n", b[B(opcode)],
 				   usr[USR(opcode)], D(opcode), S1(opcode),
 				   S2(opcode) );
 		else
 		    /* ld R = 1, GRF dest */
 		    if((opcode & 0x00000200) == 0)
-			printf("ld%s%s\tr%lu,r%lu,r%lu\n", tyr1[TY(opcode)],
+			printf("ld%s%s\tr%u,r%u,r%u\n", tyr1[TY(opcode)],
 			       usr[USR(opcode)], D(opcode), S1(opcode),
 			       S2(opcode) );
 		    else
-			printf("ld%s%s\tr%lu,r%lu[r%lu]\n", tyr1[TY(opcode)],
+			printf("ld%s%s\tr%u,r%u[r%u]\n", tyr1[TY(opcode)],
 			       usr[USR(opcode)], D(opcode), S1(opcode),
 			       S2(opcode) );
 		break;
@@ -804,16 +804,16 @@ enum bool verbose)
 		if((opcode & 0x00001000) == 0)
 		    /* st R = 0, GRF dest */
 		    if((opcode & 0x00000200) == 0)
-			printf("st%s%s%s\tr%lu,r%lu,r%lu\n", tyr1[TY(opcode)],
+			printf("st%s%s%s\tr%u,r%u,r%u\n", tyr1[TY(opcode)],
 			       usr[USR(opcode)], thru[THRU(opcode)], D(opcode),
 			       S1(opcode), S2(opcode) );
 		    else
-			printf("st%s%s%s\tr%lu,r%lu[r%lu]\n", tyr1[TY(opcode)],
+			printf("st%s%s%s\tr%u,r%u[r%u]\n", tyr1[TY(opcode)],
 			       usr[USR(opcode)], thru[THRU(opcode)], D(opcode),
 			       S1(opcode), S2(opcode) );
 		else
 		    /* lda[] F = 1, 8x, 4x, 2x, 16x scale factors */
-		    printf("lda%s\tr%lu,r%lu[r%lu]\n", tyf1[TY(opcode)],
+		    printf("lda%s\tr%u,r%u[r%u]\n", tyf1[TY(opcode)],
 			   D(opcode), S1(opcode), S2(opcode) );
 		break;
 	    /* and, or, xor */
@@ -821,10 +821,10 @@ enum bool verbose)
 		switch(opcode & 0x00001800){
 		case 0x00000000:
 		    if((opcode & 0x00000400) == 0)
-			printf("and\tr%lu,r%lu,r%lu\n", D(opcode), S1(opcode),
+			printf("and\tr%u,r%u,r%u\n", D(opcode), S1(opcode),
 			       S2(opcode) );
 		    else
-			printf("and.c\tr%lu,r%lu,r%lu\n", D(opcode), S1(opcode),
+			printf("and.c\tr%u,r%u,r%u\n", D(opcode), S1(opcode),
 			       S2(opcode) );
 		    break;
 		case 0x00000800:
@@ -832,18 +832,18 @@ enum bool verbose)
 		    break;
 		case 0x00001000:
 		    if((opcode & 0x00000400) == 0)
-			printf("xor\tr%lu,r%lu,r%lu\n", D(opcode), S1(opcode),
+			printf("xor\tr%u,r%u,r%u\n", D(opcode), S1(opcode),
 			       S2(opcode) );
 		    else
-			printf("xor.c\tr%lu,r%lu,r%lu\n", D(opcode), S1(opcode),
+			printf("xor.c\tr%u,r%u,r%u\n", D(opcode), S1(opcode),
 			       S2(opcode) );
 		    break;
 		case 0x00001800:
 		    if((opcode & 0x00000400) == 0)
-			printf("or\tr%lu,r%lu,r%lu\n", D(opcode), S1(opcode),
+			printf("or\tr%u,r%u,r%u\n", D(opcode), S1(opcode),
 			       S2(opcode) );
 		    else
-			printf("or.c\tr%lu,r%lu,r%lu\n", D(opcode), S1(opcode),
+			printf("or.c\tr%u,r%u,r%u\n", D(opcode), S1(opcode),
 			       S2(opcode) );
 		    break;
 		}
@@ -852,47 +852,47 @@ enum bool verbose)
 	    case 0x00006000:
 		switch(opcode & 0x00001c00){
 		case 0x00000000:
-		    printf("addu%s\tr%lu,r%lu,r%lu\n", io[IO(opcode)], D(opcode),
+		    printf("addu%s\tr%u,r%u,r%u\n", io[IO(opcode)], D(opcode),
 			   S1(opcode), S2(opcode) );
 		    break;
 		case 0x00000400:
-		    printf("subu%s\tr%lu,r%lu,r%lu\n", io[IO(opcode)], D(opcode),
+		    printf("subu%s\tr%u,r%u,r%u\n", io[IO(opcode)], D(opcode),
 			   S1(opcode), S2(opcode) );
 		    break;
 		case 0x00000800:
 		    if((opcode & 0x00000100) == 0)
-			printf("divu\tr%lu,r%lu,r%lu\n", D(opcode), S1(opcode),
+			printf("divu\tr%u,r%u,r%u\n", D(opcode), S1(opcode),
 			       S2(opcode) );
 		    else
-			printf("divu.d\tr%lu,r%lu,r%lu\n", D(opcode), S1(opcode),
+			printf("divu.d\tr%u,r%u,r%u\n", D(opcode), S1(opcode),
 			       S2(opcode) );
 		    break;
 		case 0x00000c00:
 		    if((opcode & 0x00000200) == 0)
 			if((opcode & 0x00000100) == 0)
-			    printf("mulu\tr%lu,r%lu,r%lu\n", D(opcode),
+			    printf("mulu\tr%u,r%u,r%u\n", D(opcode),
 				   S1(opcode), S2(opcode) );
 			else
-			    printf("mulu.d\tr%lu,r%lu,r%lu\n", D(opcode),
+			    printf("mulu.d\tr%u,r%u,r%u\n", D(opcode),
 				   S1(opcode), S2(opcode) );
 		    else
-			printf("muls\tr%lu,r%lu,r%lu\n", D(opcode), S1(opcode),
+			printf("muls\tr%u,r%u,r%u\n", D(opcode), S1(opcode),
 			       S2(opcode) );
 		    break;
 		case 0x00001000:
-		    printf("add%s\tr%lu,r%lu,r%lu\n", io[IO(opcode)], D(opcode),
+		    printf("add%s\tr%u,r%u,r%u\n", io[IO(opcode)], D(opcode),
 			   S1(opcode), S2(opcode) );
 		    break;
 		case 0x00001400:
-		    printf("sub%s\tr%lu,r%lu,r%lu\n", io[IO(opcode)], D(opcode),
+		    printf("sub%s\tr%u,r%u,r%u\n", io[IO(opcode)], D(opcode),
 			   S1(opcode), S2(opcode) );
 		    break;
 		case 0x00001800:
-		    printf("divs\tr%lu,r%lu,r%lu\n", D(opcode), S1(opcode),
+		    printf("divs\tr%u,r%u,r%u\n", D(opcode), S1(opcode),
 			   S2(opcode) );
 		    break;
 		case 0x00001c00:
-		    printf("cmp\tr%lu,r%lu,r%lu\n", D(opcode), S1(opcode),
+		    printf("cmp\tr%u,r%u,r%u\n", D(opcode), S1(opcode),
 			   S2(opcode) );
 		    break;
 		}
@@ -902,27 +902,27 @@ enum bool verbose)
 	    case 0x0000a000:
 		switch(opcode & 0x0000ffe0){
 		case 0x00008000:
-		    printf("clr\tr%lu,r%lu,r%lu\n", D(opcode), S1(opcode),
+		    printf("clr\tr%u,r%u,r%u\n", D(opcode), S1(opcode),
 			   S2(opcode) );
 		    break;
 		case 0x00008800:
-		    printf("set\tr%lu,r%lu,r%lu\n", D(opcode), S1(opcode),
+		    printf("set\tr%u,r%u,r%u\n", D(opcode), S1(opcode),
 			   S2(opcode) );
 		    break;
 		case 0x00009000:
-		    printf("ext\tr%lu,r%lu,r%lu\n", D(opcode), S1(opcode),
+		    printf("ext\tr%u,r%u,r%u\n", D(opcode), S1(opcode),
 			   S2(opcode) );
 		    break;
 		case 0x00009800:
-		    printf("extu\tr%lu,r%lu,r%lu\n", D(opcode), S1(opcode),
+		    printf("extu\tr%u,r%u,r%u\n", D(opcode), S1(opcode),
 			   S2(opcode) );
 		    break;
 		case 0x0000a000:
-		    printf("mak\tr%lu,r%lu,r%lu\n", D(opcode), S1(opcode),
+		    printf("mak\tr%u,r%u,r%u\n", D(opcode), S1(opcode),
 			   S2(opcode) );
 		    break;
 		case 0x0000a800:
-		    printf("rot\tr%lu,r%lu,r%lu\n", D(opcode), S1(opcode),
+		    printf("rot\tr%u,r%u,r%u\n", D(opcode), S1(opcode),
 			   S2(opcode) );
 		    break;
 		default:
@@ -934,16 +934,16 @@ enum bool verbose)
 	    case 0x0000c000:
 		switch(opcode & 0x03ffffe0){
 		case 0x0000c000:
-		    printf("jmp\tr%lu\n", S2(opcode) );
+		    printf("jmp\tr%u\n", S2(opcode) );
 		    break;
 		case 0x0000c400:
-		    printf("jmp.n\tr%lu\n", S2(opcode) );
+		    printf("jmp.n\tr%u\n", S2(opcode) );
 		    break;
 		case 0x0000c800:
-		    printf("jsr\tr%lu\n", S2(opcode) );
+		    printf("jsr\tr%u\n", S2(opcode) );
 		    break;
 		case 0x0000cc00:
-		    printf("jsr.n\tr%lu\n", S2(opcode) );
+		    printf("jsr.n\tr%u\n", S2(opcode) );
 		    break;
 		default:
 		    printf("0x%08x\n", (unsigned int)opcode);
@@ -954,19 +954,19 @@ enum bool verbose)
 	    case 0x0000e000:
 		switch(opcode & 0x0000ffe0){
 		case 0x0000e800:
-		    printf("ff1\tr%lu,r%lu\n", D(opcode), S2(opcode) );
+		    printf("ff1\tr%u,r%u\n", D(opcode), S2(opcode) );
 		    break;
 		case 0x0000ec00:
-		    printf("ff0\tr%lu,r%lu\n", D(opcode), S2(opcode) );
+		    printf("ff0\tr%u,r%u\n", D(opcode), S2(opcode) );
 		    break;
 		case 0x0000f800:
-		    printf("tbnd\tr%lu,r%lu\n", S1(opcode), S2(opcode) );
+		    printf("tbnd\tr%u,r%u\n", S1(opcode), S2(opcode) );
 		    break;
 		case 0x0000fc00:
 		    if((opcode & 0x3) == 0)
 			printf("rte\n");
 		    else
-			printf("illop%lu\n", opcode & 0x3);
+			printf("illop%u\n", opcode & 0x3);
 		    break;
 		default:
 		    printf("0x%08x\n", (unsigned int)opcode);
@@ -977,7 +977,7 @@ enum bool verbose)
 	    break;
 
 	case 0xf8000000:
-	    printf("tbnd\tr%lu,%lu\n", S1(opcode), 0xffff & opcode);
+	    printf("tbnd\tr%u,%u\n", S1(opcode), 0xffff & opcode);
 	    break;
 
 	default:
@@ -990,10 +990,10 @@ enum bool verbose)
 static
 void
 print_b5(
-unsigned long value)
+uint32_t value)
 {
 	if(value < 2 || value > 15)
-	     printf("%lu", value);
+	     printf("%u", value);
 	else
 	     printf("%s", b5[value]);
 }
@@ -1001,7 +1001,7 @@ unsigned long value)
 static
 void
 print_m5(
-unsigned long value)
+uint32_t value)
 {
 	switch(value){
 	case 0x01:
@@ -1023,28 +1023,28 @@ unsigned long value)
 	    printf("le0");
 	    break;
 	default:
-	    printf("%lu", value);
+	    printf("%u", value);
 	}
 }
 
 static
 void
 print_immediate(
-unsigned long value, 
-unsigned long sect_offset,
+uint32_t value, 
+uint32_t sect_offset,
 struct relocation_info *relocs,
-unsigned long nrelocs,
+uint32_t nrelocs,
 struct nlist *symbols,
-unsigned long nsymbols,
+uint32_t nsymbols,
 struct symbol *sorted_symbols,
-unsigned long nsorted_symbols,
+uint32_t nsorted_symbols,
 char *strings,
-unsigned long strings_size,
+uint32_t strings_size,
 enum bool verbose)
 {
-    long low, high, mid, reloc_found, offset;
-    unsigned long i, r_address, r_symbolnum, r_type, r_extern,
-		  r_value, r_scattered, pair_r_type;
+    int32_t low, high, mid, reloc_found, offset;
+    uint32_t i, r_address, r_symbolnum, r_type, r_extern,
+	     r_value, r_scattered, pair_r_type;
     unsigned short other_half;
     char *name;
     struct relocation_info *rp, *pairp;
@@ -1082,7 +1082,7 @@ enum bool verbose)
 		}
 		if(r_type == M88K_RELOC_PAIR){
 		    fprintf(stderr, "Stray M88K_RELOC_PAIR relocation entry "
-			    "%lu\n", i);
+			    "%u\n", i);
 		    continue;
 		}
 		if(r_address == sect_offset){
@@ -1101,7 +1101,7 @@ enum bool verbose)
 			    }
 			    if(pair_r_type != M88K_RELOC_PAIR){
 				fprintf(stderr, "No M88K_RELOC_PAIR relocation "
-					"entry after entry %lu\n", i);
+					"entry after entry %u\n", i);
 				continue;
 			    }
 			}
@@ -1123,7 +1123,7 @@ enum bool verbose)
 			    i++;
 			else
 			    fprintf(stderr, "No M88K_RELOC_PAIR relocation "
-				    "entry after entry %lu\n", i);
+				    "entry after entry %u\n", i);
 		    }
 		}
 	    }
@@ -1131,7 +1131,7 @@ enum bool verbose)
 
 	if(reloc_found && r_extern == 1){
 	    if(symbols[r_symbolnum].n_un.n_strx < 0 ||
-	       (unsigned long)symbols[r_symbolnum].n_un.n_strx >= strings_size)
+	       (uint32_t)symbols[r_symbolnum].n_un.n_strx >= strings_size)
 		name = "bad string offset";
 	    else
 		name = strings + symbols[r_symbolnum].n_un.n_strx;

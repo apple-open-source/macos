@@ -6,7 +6,6 @@ sect(Shell Builtin Commands)
 cindex(builtin commands)
 cindex(commands, builtin)
 def(prefix)(1)(\
-findex(ARG1)
 item(tt(ARG1) var(simple command))(
 See noderef(Precommand Modifiers).
 )\
@@ -99,6 +98,10 @@ If the tt(-L) flag is present, then print each
 alias in a manner suitable for putting in a startup script.  The exit
 status is nonzero if a var(name) (with no var(value)) is given for
 which no alias has been defined.
+
+For more on aliases, include common problems,
+ifzman(see the section ALIASING in zmanref(zshmisc))\
+ifnzman(noderef(Aliasing)).
 )
 findex(autoload)
 cindex(functions, autoloading)
@@ -153,16 +156,16 @@ alias(bye)(exit)
 module(cap)(zsh/cap)
 findex(cd)
 cindex(directories, changing)
-xitem(tt(cd) [ tt(-sLP) ] [ var(arg) ])
-xitem(tt(cd) [ tt(-sLP) ] var(old) var(new))
-item(tt(cd) [ tt(-sLP) ] {tt(PLUS())|tt(-)}var(n))(
+xitem(tt(cd) [ tt(-qsLP) ] [ var(arg) ])
+xitem(tt(cd) [ tt(-qsLP) ] var(old) var(new))
+item(tt(cd) [ tt(-qsLP) ] {tt(PLUS())|tt(-)}var(n))(
 Change the current directory.  In the first form, change the
 current directory to var(arg), or to the value of tt($HOME) if
 var(arg) is not specified.  If var(arg) is `tt(-)', change to the
 value of tt($OLDPWD), the previous directory.
 
 Otherwise, if var(arg) begins with a slash, attempt to change to the
-director given by var(arg).
+directory given by var(arg).
 
 If var(arg) does not begin with a slash, the behaviour depends on whether
 the current directory `tt(.)' occurs in the list of directories contained
@@ -190,11 +193,17 @@ An argument of the form `tt(-)var(n)' counts from the right.
 If the tt(PUSHD_MINUS) option is set, the meanings of `tt(PLUS())'
 and `tt(-)' in this context are swapped.
 
+If the tt(-q) (quiet) option is specified, the hook function tt(chpwd)
+and the functions in the array tt(chpwd_functions) are not called.
+This is useful for calls to tt(cd) that do not change the environment
+seen by an interactive user.
+
 If the tt(-s) option is specified, tt(cd) refuses to change the current
 directory if the given pathname contains symlinks.  If the tt(-P) option
 is given or the tt(CHASE_LINKS) option is set, symbolic links are resolved
 to their true values.  If the tt(-L) option is given symbolic links are
-followed regardless of the state of the tt(CHASE_LINKS) option.
+retained in the directory (and not resolved) regardless of the state of
+the tt(CHASE_LINKS) option.
 )
 alias(chdir)(cd)
 module(clone)(zsh/clone)
@@ -373,9 +382,18 @@ findex(eval)
 cindex(evaluating arguments as commands)
 item(tt(eval) [ var(arg) ... ])(
 Read the arguments as input to the shell and execute the resulting
-command in the current shell process.
+command+LPAR()s+RPAR() in the current shell process.  The return status is
+the same as if the commands had been executed directly by the shell;
+if there are no var(args) or they contain no commands (i.e. are
+an empty string or whitespace) the return status is zero.
 )
-prefix(exec)
+item(tt(exec) [ tt(-cl) ] [ tt(-a) var(argv0) ] var(simple command))(
+Replace the current shell with an external command rather than forking.
+With tt(-c) clear the environment; with tt(-l) prepend tt(-) to the
+tt(argv[0]) string of the command executed (to simulate a login shell);
+with tt(-a) var(argv0) set the tt(argv[0]) string of the command
+executed.  See noderef(Precommand Modifiers).
+)
 findex(exit)
 item(tt(exit) [ var(n) ])(
 Exit the shell with the exit status specified by var(n); if none
@@ -703,7 +721,8 @@ See
 ifzman(the section `Arithmetic Evaluation' in zmanref(zshmisc))\
 ifnzman(noderef(Arithmetic Evaluation))
 for a description of arithmetic expressions.  The exit status is 0 if the
-value of the last expression is nonzero, and 1 otherwise.
+value of the last expression is nonzero, 1 if it is zero, and 2 if
+an error occurred.
 )
 findex(limit)
 cindex(resource limits)
@@ -789,7 +808,7 @@ Same as tt(exit), except that it only works in a login shell.
 )
 prefix(noglob)
 findex(popd)
-item(tt(popd) [ {tt(PLUS())|tt(-)}var(n) ])(
+item(tt(popd) [ [-q] {tt(PLUS())|tt(-)}var(n) ])(
 Remove an entry from the directory stack, and perform a tt(cd) to
 the new top directory.  With no argument, the current top entry is
 removed.  An argument of the form `tt(PLUS())var(n)' identifies a stack
@@ -798,6 +817,11 @@ starting with zero.  An argument of the form tt(-n) counts from the right.
 pindex(PUSHD_MINUS, use of)
 If the tt(PUSHD_MINUS) option is set, the meanings of `tt(PLUS())' and
 `tt(-)' in this context are swapped.
+
+If the tt(-q) (quiet) option is specified, the hook function tt(chpwd)
+and the functions in the array tt($chpwd_functions) are not called,
+and the new directory stack is not printed.  This is useful for calls to
+tt(popd) that do not change the environment seen by an interactive user.
 )
 findex(print)
 xitem(tt(print) [ tt(-abcDilmnNoOpPrsz) ] [ tt(-u) var(n) ] [ tt(-f) var(format) ] [ tt(-C) var(cols) ])
@@ -929,9 +953,9 @@ pindex(PUSHD_TO_HOME, use of)
 pindex(PUSHD_MINUS, use of)
 pindex(CDABLE_VARS, use of)
 pindex(PUSHD_SILENT, use of)
-xitem(tt(pushd) [ tt(-sLP) ] [ var(arg) ])
-xitem(tt(pushd) [ tt(-sLP) ] var(old) var(new))
-item(tt(pushd) [ tt(-sLP) ] {tt(PLUS())|tt(-)}var(n))(
+xitem(tt(pushd) [ tt(-qsLP) ] [ var(arg) ])
+xitem(tt(pushd) [ tt(-qsLP) ] var(old) var(new))
+item(tt(pushd) [ tt(-qsLP) ] {tt(PLUS())|tt(-)}var(n))(
 Change the current directory, and push the old current directory
 onto the directory stack.  In the first form, change the
 current directory to var(arg).
@@ -950,8 +974,14 @@ command, starting with zero.  An argument of the form `tt(-)var(n)' counts
 from the right.  If the tt(PUSHD_MINUS) option is set, the meanings
 of `tt(PLUS())' and `tt(-)' in this context are swapped.
 
-If the option tt(PUSHD_SILENT) is not set, the directory
-stack will be printed after a tt(pushd) is performed.
+If the tt(-q) (quiet) option is specified, the hook function tt(chpwd)
+and the functions in the array tt($chpwd_functions) are not called,
+and the new directory stack is not printed.  This is useful for calls to
+tt(pushd) that do not change the environment seen by an interactive user.
+
+If the option tt(-q) is not specified and the shell option tt(PUSHD_SILENT)
+is not set, the directory stack will be printed after a tt(pushd) is
+performed.
 
 The options tt(-s), tt(-L) and tt(-P) have the same meanings as for the
 tt(cd) builtin.
@@ -1131,7 +1161,8 @@ sort arguments in descending order.  For the meaning of the other flags, see
 ifzman(zmanref(zshoptions))\
 ifnzman(noderef(Options))\
 .  Flags may be specified by name using the tt(-o) option. If no option
-name is supplied with tt(-o), the current option states are printed.
+name is supplied with tt(-o), the current option states are printed:  see
+the description of tt(setopt) below for more information on the format.
 With tt(PLUS()o) they are printed in a form that can be used as input
 to the shell.
 
@@ -1174,8 +1205,23 @@ cindex(options, setting)
 item(tt(setopt) [ {tt(PLUS())|tt(-)}var(options) | \
 {tt(PLUS())|tt(-)}tt(o) var(option_name) ] [ var(name) ... ])(
 Set the options for the shell.  All options specified either
-with flags or by name are set.  If no arguments are supplied,
-the names of all options currently set are printed.
+with flags or by name are set.
+
+If no arguments are supplied, the names of all options currently set are
+printed.  The form is chosen so as to minimize the differences from the
+default options for the current emulation (the default emulation being
+native tt(zsh), shown as tt(<Z>) in
+ifzman(zmanref(zshoptions))\
+ifnzman(noderef(Description of Options))).
+Options that are on by default for the emulation are
+shown with the prefix tt(no) only if they are off, while other options are
+shown without the prefix tt(no) and only if they are on.  In addition to
+options changed from the default state by the user, any options activated
+automatically by the shell (for example, tt(SHIN_STDIN) or tt(INTERACTIVE))
+will be shown in the list.  The format is further modified by the option
+tt(KSH_OPTION_PRINT), however the rationale for choosing options with
+or without the tt(no) prefix remains the same in this case.
+
 If the tt(-m) flag is given the arguments are taken as patterns
 (which should be quoted to protect them from filename expansion), and all
 options with names matching these patterns are set.
@@ -1213,7 +1259,15 @@ tt(test) and tt([) builtins are:  these commands are not handled
 syntactically, so for example an empty variable expansion may cause an
 argument to be omitted; syntax errors cause status 2 to be returned instead
 of a shell error; and arithmetic operators expect integer arguments rather
-than arithemetic expressions.
+than arithmetic expressions.
+
+The command attempts to implement POSIX and its extensions where these
+are specified.  Unfortunately there are intrinsic ambiguities in
+the syntax; in particular there is no distinction between test operators
+and strings that resemble them.  The standard attempts to resolve these
+for small numbers of arguments (up to four); for five or more arguments
+compatibility cannot be relied on.  Users are urged wherever possible to
+use the `tt([[)' test syntax which does not have these ambiguities.
 )
 findex(times)
 cindex(shell, timing)
@@ -1250,8 +1304,23 @@ If var(sig) is tt(ZERR) then var(arg) will be executed
 after each command with a nonzero exit status.  tt(ERR) is an alias
 for tt(ZERR) on systems that have no tt(SIGERR) signal (this is the
 usual case).
+
 If var(sig) is tt(DEBUG) then var(arg) will be executed
-after each command.
+before each command if the option tt(DEBUG_BEFORE_CMD) is set
+(as it is by default), else after each command.  Here, a `command' is
+what is described as a `sublist' in the shell grammar, see
+ifnzman(noderef(Simple Commands & Pipelines))\
+ifzman(the section SIMPLE COMMANDS & PIPELINES in zmanref(zshmisc)).
+If tt(DEBUG_BEFORE_CMD) is set various additional features are available.
+First, it is possible to skip the next command by setting the option
+tt(ERR_EXIT); see the description of the tt(ERR_EXIT) option in
+ifzman(zmanref(zshoptions))\
+ifnzman(noderef(Description of Options)).  Also, the shell parameter
+tt(ZSH_DEBUG_CMD) is set to the string corresponding to the command
+to be executed following the trap.  Note that this string is reconstructed
+from the internal format and may not be formatted the same way as the
+original text.  The parameter is unset after the trap is executed.
+
 If var(sig) is tt(0) or tt(EXIT)
 and the tt(trap) statement is executed inside the body of a function,
 then the command var(arg) is executed after the function completes.
@@ -1261,7 +1330,9 @@ If var(sig) is tt(0) or tt(EXIT)
 and the tt(trap) statement is not executed inside the body of a function,
 then the command var(arg) is executed when the shell terminates.
 
-tt(ZERR), tt(DEBUG), and tt(EXIT) traps are not executed inside other traps.
+tt(ZERR), tt(DEBUG), and tt(EXIT) traps are not executed inside other
+traps.  tt(ZERR) and tt(DEBUG) traps are kept within subshells, while
+other traps are reset.
 
 Note that traps defined with the tt(trap) builtin are slightly different
 from those defined as `tt(TRAP)var(NAL) () { ... }', as the latter have
@@ -1325,7 +1396,14 @@ retain their special attributes when made local.
 
 For each var(name)tt(=)var(value) assignment, the parameter
 var(name) is set to var(value).  Note that arrays currently cannot be
-assigned in tt(typeset) expressions, only scalars and integers.
+assigned in tt(typeset) expressions, only scalars and integers.  Unless
+the option tt(KSH_TYPESET) is set, normal expansion rules apply to
+assignment arguments, so var(value) may be split into separate words; if
+the option is set, assignments which can be recognised when expansion is
+performed are treated as single words.  For example the command
+tt(typeset vbl=$(echo one two)) is treated as having one argument if
+tt(KSH_TYPESET) is set, but otherwise is treated as having the two arguments
+tt(vbl=one) and tt(two).
 
 If the shell option tt(TYPESET_SILENT) is not set, for each remaining
 var(name) that refers to a parameter that is set, the name and value of the
@@ -1335,7 +1413,7 @@ given along with the var(name).  Using `tt(PLUS())' instead of minus to
 introduce an attribute turns it off.
 
 If the tt(-p) option is given, parameters and values are printed in the
-form of a typeset comand and an assignment (which will be printed
+form of a typeset command and an assignment (which will be printed
 separately for arrays and associative arrays), regardless of other flags
 and options.  Note that the tt(-h) flag on parameters is respected; no
 value will be shown for these parameters.
@@ -1391,6 +1469,11 @@ list of the attributes of that parameter (tt(array), tt(association),
 tt(exported), tt(integer), tt(readonly)).  If tt(+m) is used with attribute
 flags, and all those flags are introduced with tt(PLUS()), the matching
 parameter names are printed but their values are not.
+
+Attribute flags that transform the final value (tt(-L), tt(-R), tt(-Z),
+tt(-l), tt(u)) are only applied to the expanded value at the point
+of a parameter expansion expression using `tt($)'.  They are not applied
+when a parameter is retrieved internally by the shell for any purpose. 
 
 The following attribute flags may be specified:
 
@@ -1492,7 +1575,7 @@ for non-special parameters.
 item(tt(-i))(
 Use an internal integer representation.  If var(n) is nonzero it
 defines the output arithmetic base, otherwise it is determined by the
-first assignment.
+first assignment.  Bases from 2 to 36 inclusive are allowed.
 )
 item(tt(-E))(
 Use an internal double-precision floating point representation.  On output
@@ -1550,7 +1633,7 @@ unit is printed before each value.
 
 When looping over multiple resources, the shell will abort immediately if
 it detects a badly formed argument.  However, if it fails to set a limit
-for some other reson it will continue trying to set the remaining limits.
+for some other reason it will continue trying to set the remaining limits.
 
 startsitem()
 sitem(tt(-a))(Lists all of the current resource limits.)
@@ -1599,7 +1682,9 @@ findex(unhash)
 item(tt(unhash) [ tt(-adfms) ] var(name) ...)(
 Remove the element named var(name) from an internal hash table.  The
 default is remove elements from the command hash table.  The tt(-a)
-option causes tt(unhash) to remove regular or global aliases.
+option causes tt(unhash) to remove regular or global aliases; note
+when removing a global aliases that the argument must be quoted to prevent
+it from being expanded before being passed to the command.
 The tt(-s) option causes tt(unhash) to remove suffix aliases.
 The tt(-f) option causes
 tt(unhash) to remove shell functions.  The tt(-d) options causes
@@ -1840,6 +1925,7 @@ findex(zmodload)
 cindex(modules, loading)
 cindex(loading modules)
 xitem(tt(zmodload) [ tt(-dL) ] [ ... ])
+xitem(tt(zmodload -F) [ tt(-lLme) tt(-P) tt(param) ] var(module) [tt(PLUS()-)]var(feature...))
 xitem(tt(zmodload -e) [ tt(-A) ] [ ... ])
 xitem(tt(zmodload) [ tt(-a) [ tt(-bcpf) [ tt(-I) ] ] ] [ tt(-iL) ] ...)
 xitem(tt(zmodload) tt(-u) [ tt(-abcdpf) [ tt(-I) ] ] [ tt(-iL) ] ...)
@@ -1862,20 +1948,23 @@ item(tt(zmodload) tt(-u) [ tt(-i) ] var(name) ...)(
 In the simplest case, tt(zmodload) loads a binary module.  The module must
 be in a file with a name consisting of the specified var(name) followed by
 a standard suffix, usually `tt(.so)' (`tt(.sl)' on HPUX).
-If the module to be loaded is
-already loaded and the tt(-i) option is given, the duplicate module is
-ignored.  Otherwise tt(zmodload) prints an error message and returns
-a non-zero status.  If tt(zmodload) detects an inconsistency, such as an
+If the module to be loaded is already loaded the duplicate module is
+ignored.  If tt(zmodload) detects an inconsistency, such as an
 invalid module name or circular dependency list, the current code block is 
-aborted.  Hence `tt(zmodload -i) var(module) tt(2>/dev/null)' is sufficient
+aborted.   Hence `tt(zmodload) var(module) tt(2>/dev/null)' is sufficient
 to test whether a module is available.
 If it is available, the module is loaded if necessary, while if it
-is not available, non-zero status is silently returned.
+is not available, non-zero status is silently returned.  The option
+tt(-i) is accepted for compatibility but has no effect.
 
 The var(name)d module is searched for in the same way a command is, using
 tt($module_path) instead of tt($path).  However, the path search is
 performed even when the module name contains a `tt(/)', which it usually does.
 There is no way to prevent the path search.
+
+If the module supports features (see below), tt(zmodload) tries to
+enable all features when loading a module.  If the module was successfully
+loaded but not all features could be enabled, tt(zmodload) returns status 2.
 
 With tt(-u), tt(zmodload) unloads modules.  The same var(name)
 must be given that was given when the module was loaded, but it is not
@@ -1886,6 +1975,93 @@ unloaded (or was never loaded).
 Each module has a boot and a cleanup function.  The module
 will not be loaded if its boot function fails.  Similarly a module
 can only be unloaded if its cleanup function runs successfully.
+)
+item(tt(zmodload -F) [ tt(-almLe) tt(-P) tt(param) ] var(module) [tt(PLUS()-)]var(feature...))(
+tt(zmodload -F) allows more selective control over the features provided
+by modules.  With no options apart from tt(-F), the module named
+var(module) is loaded, if it was not already loaded, and the list of
+var(feature)s is set to the required state.  If no 
+var(feature)s are specified, the module is loaded, if it was not already
+loaded, but the state of features is unchanged.  Each feature
+may be preceded by a tt(PLUS()) to turn the feature on, or tt(-) to turn it
+off; the tt(PLUS()) is assumed if neither character is present.
+Any feature not explicitly mentioned is left in its current state;
+if the module was not previously loaded this means any such features will
+remain disabled.  The return status is zero if all features were
+set, 1 if the module failed to load, and 2 if some features could
+not be set (for example, a parameter couldn't be added because there
+was a different parameter of the same name) but the module was loaded.
+
+The standard features are builtins, conditions, parameters and math
+functions; these are indicated by the prefix `tt(b:)', `tt(c:)'
+(`tt(C:)' for an infix condition), `tt(p:)' and `tt(f:)', respectively,
+followed by the name that the corresponding feature would have in the
+shell.  For example, `tt(b:strftime)' indicates a builtin named
+tt(strftime) and tt(p:EPOCHSECONDS) indicates a parameter named
+tt(EPOCHSECONDS).  The module may provide other (`abstract') features of
+its own as indicated by its documentation; these have no prefix.
+
+With tt(-l) or tt(-L), features provided by the module are listed.  With
+tt(-l) alone, a list of features together with their states is shown, one
+feature per line.  With tt(-L) alone, a tt(zmodload -F) command that would
+cause enabled features of the module to be turned on is shown.  With
+tt(-lL), a tt(zmodload -F) command that would cause all the features to be
+set to their current state is shown.  If one of these combinations is given
+the option tt(-P) var(param) then the parameter tt(param) is set to an
+array of features, either features together with their state or (if
+tt(-L) alone is given) enabled features.
+
+With the option tt(-L) the module name may be omitted; then a list
+of all enabled features for all modules providing features is printed
+in the form of tt(zmodload -F) commands.  If tt(-l) is also given,
+the state of both enabled and disabled features is output in that form.
+
+A set of features may be provided together with tt(-l) or tt(-L) and a
+module name; in that case only the state of those features is
+considered.  Each feature may be preceded by tt(PLUS()) or tt(-) but the
+character has no effect.  If no set of features is provided, all
+features are considered.
+
+With tt(-e), the command first tests that the module is loaded;
+if it is not, status 1 is returned.  If the module is loaded,
+the list of features given as an argument is examined.  Any feature
+given with no prefix is simply tested to see if the module provides it;
+any feature given with a prefix tt(PLUS()) or tt(-) is tested to
+see if is provided and in the given state.  If the tests on all features
+in the list succeed, status 0 is returned, else status 1.
+
+With tt(-m), each entry in the given list of features is taken
+as a pattern to be matched against the list of features provided
+by the module.  An initial tt(PLUS()) or tt(-) must be given explicitly.
+This may not be combined with the tt(-a) option as autoloads must
+be specified explicitly.
+
+With tt(-a), the given list of features is marked for autoload from
+the specified module, which may not yet be loaded.  An optional tt(PLUS())
+may appear before the feature name.  If the feature is prefixed with
+tt(-), any existing autoload is removed.  The options tt(-l) and tt(-L)
+may be used to list autoloads.  Autoloading is specific to individual
+features; when the module is loaded only the requested feature is
+enabled.  Autoload requests are preserved if the module is
+subsequently unloaded until an explicit `tt(zmodload -Fa) var(module)
+tt(-)var(feature)' is issued.  It is not an error to request an autoload
+for a feature of a module that is already loaded.
+
+When the module is loaded each autoload is checked against the features
+actually provided by the module; if the feature is not provided the
+autoload request is deleted.  A warning message is output; if the
+module is being loaded to provide a different feature, and that autoload
+is successful, there is no effect on the status of the current command.
+If the module is already loaded at the time when tt(zmodload -Fa) is
+run, an error message is printed and status 1 returned.
+
+tt(zmodload -Fa) can be used with the tt(-l), tt(-L), tt(-e) and
+tt(-P) options for listing and testing the existence of autoloadable
+features.  In this case tt(-l) is ignored if tt(-L) is specified.
+tt(zmodload -FaL) with no module name lists autoloads for all modules.
+
+Note that only standard features as described above can be autoloaded;
+other features require the module to be loaded before enabling.
 )
 xitem(tt(zmodload) tt(-d) [ tt(-L) ] [ var(name) ])
 xitem(tt(zmodload) tt(-d) var(name) var(dep) ...)
@@ -1907,10 +2083,12 @@ xitem(tt(zmodload) tt(-ab) [ tt(-i) ] var(name) [ var(builtin) ... ])
 item(tt(zmodload) tt(-ub) [ tt(-i) ] var(builtin) ...)(
 The tt(-ab) option defines autoloaded builtins.  It defines the specified
 var(builtin)s.  When any of those builtins is called, the module specified
-in the first argument is loaded.  If only the var(name) is given, one
-builtin is defined, with the same name as the module.  tt(-i) suppresses
-the error if the builtin is already defined or autoloaded, regardless of
-which module it came from.
+in the first argument is loaded and all its features are enabled (for
+selective control of features use `tt(zmodload -F -a)' as described
+above).  If only the var(name) is given, one builtin is defined, with
+the same name as the module.  tt(-i) suppresses the error if the builtin
+is already defined or autoloaded, but not if another builtin of the
+same name is already defined.
 
 With tt(-ab) and no arguments, all autoloaded builtins are listed, with the
 module name (if different) shown in parentheses after the builtin name.
@@ -1921,6 +2099,9 @@ If tt(-b) is used together with the tt(-u) option, it removes builtins
 previously defined with tt(-ab).  This is only possible if the builtin is
 not yet loaded.  tt(-i) suppresses the error if the builtin is already
 removed (or never existed).
+
+Autoload requests are retained if the module is subsequently unloaded
+until an explicit `tt(zmodload -ub) var(builtin)' is issued.
 )
 xitem(tt(zmodload) tt(-ac) [ tt(-IL) ])
 xitem(tt(zmodload) tt(-ac) [ tt(-iI) ] var(name) [ var(cond) ... ])
@@ -1955,12 +2136,12 @@ Equivalent to tt(-ab) and tt(-ub).
 item(tt(zmodload -e) [ tt(-A) ] [ var(string) ... ])(
 The tt(-e) option without arguments lists all loaded modules; if the tt(-A)
 option is also given, module aliases corresponding to loaded modules are
-also shown.  With arguments only the return status is set to zero
-if all var(string)s given as arguments are names of loaded modules
-and to one if at least on var(string) is not the name of a
-loaded module.  This can be used to test for the availability 
-of things implemented by modules.  In this case, any aliases are
-automatically resolved and the tt(-A) flag is not used.
+also shown.  If arguments are provided, nothing is printed;
+the return status is set to zero if all var(string)s given as arguments
+are names of loaded modules and to one if at least on var(string) is not
+the name of a loaded module.  This can be used to test for the
+availability of things implemented by modules.  In this case, any
+aliases are automatically resolved and the tt(-A) flag is not used.
 )
 item(tt(zmodload) tt(-A) [ tt(-L) ] [ var(modalias)[tt(=)var(module)] ... ])(
 For each argument, if both var(modalias) and var(module) are given,

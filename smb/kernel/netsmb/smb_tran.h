@@ -67,10 +67,6 @@ struct smb_tran_desc {
 	int	(*tr_getparam)(struct smb_vc *vcp, int param, void *data);	/* smb_nbst_getparam */
 	int	(*tr_setparam)(struct smb_vc *vcp, int param, void *data);	/* smb_nbst_setparam */
 	int	(*tr_fatal)(struct smb_vc *vcp, int error);					/* smb_nbst_fatal */
-#ifdef notyet
-	int	(*tr_poll)(struct smb_vc *vcp, struct proc *p);
-	int	(*tr_cmpaddr)(void *addr1, void *addr2);
-#endif
 	LIST_ENTRY(smb_tran_desc)	tr_link;
 };
 

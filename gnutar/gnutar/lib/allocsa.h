@@ -1,5 +1,5 @@
 /* Safe automatic memory allocation.
-   Copyright (C) 2003-2004 Free Software Foundation, Inc.
+   Copyright (C) 2003-2007 Free Software Foundation, Inc.
    Written by Bruno Haible <bruno@clisp.org>, 2003.
 
    This program is free software; you can redistribute it and/or modify
@@ -14,7 +14,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software Foundation,
-   Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 #ifndef _ALLOCSA_H
 #define _ALLOCSA_H
@@ -22,6 +22,12 @@
 #include <alloca.h>
 #include <stddef.h>
 #include <stdlib.h>
+
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 /* safe_alloca(N) is equivalent to alloca(N) when it is safe to call
    alloca(N); otherwise it returns NULL.  It either returns N bytes of
@@ -40,7 +46,7 @@
    This must be a macro, not an inline function.  */
 # define safe_alloca(N) ((N) < 4032 ? alloca (N) : NULL)
 #else
-# define safe_alloca(N) ((N), NULL)
+# define safe_alloca(N) ((void) (N), NULL)
 #endif
 
 /* allocsa(N) is a safe variant of alloca(N).  It allocates N bytes of
@@ -69,6 +75,11 @@ extern void freesa (void *p);
    If this would be useful in your application. please speak up.  */
 
 
+#ifdef __cplusplus
+}
+#endif
+
+
 /* ------------------- Auxiliary, non-public definitions ------------------- */
 
 /* Determine the alignment of a type at compile time.  */
@@ -81,6 +92,10 @@ extern void freesa (void *p);
   /* Work around a HP-UX 10.20 cc bug with enums constants defined as offsetof
      values.  */
 # define sa_alignof(type) (sizeof (type) <= 4 ? 4 : 8)
+#elif defined _AIX
+  /* Work around an AIX 3.2.5 xlc bug with enums constants defined as offsetof
+     values.  */
+# define sa_alignof(type) (sizeof (type) <= 4 ? 4 : 8)
 #else
 # define sa_alignof(type) offsetof (struct { char __slot1; type __slot2; }, __slot2)
 #endif
@@ -91,19 +106,15 @@ enum
    among all elementary types.  */
   sa_alignment_long = sa_alignof (long),
   sa_alignment_double = sa_alignof (double),
-#ifdef HAVE_LONG_LONG
+#if HAVE_LONG_LONG_INT
   sa_alignment_longlong = sa_alignof (long long),
 #endif
-#ifdef HAVE_LONG_DOUBLE
   sa_alignment_longdouble = sa_alignof (long double),
-#endif
   sa_alignment_max = ((sa_alignment_long - 1) | (sa_alignment_double - 1)
-#ifdef HAVE_LONG_LONG
+#if HAVE_LONG_LONG_INT
 		      | (sa_alignment_longlong - 1)
 #endif
-#ifdef HAVE_LONG_DOUBLE
 		      | (sa_alignment_longdouble - 1)
-#endif
 		     ) + 1,
 /* The increment that guarantees room for a magic word must be >= sizeof (int)
    and a multiple of sa_alignment_max.  */

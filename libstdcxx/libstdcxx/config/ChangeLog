@@ -1,10 +1,167 @@
-2005-04-20  Release Manager
+2007-07-19  Release Manager
 
-	* GCC 4.0.0 released.
+	* GCC 4.2.1 released.
 
-2005-04-16  Paolo Bonzini  <bonzini@gnu.org>
+2007-06-20  Mike Stump  <mrs@apple.com>
 
-	* acx.m4 (ACX_PROG_GNAT): Remove spurious break.
+	* acx.m4 (NCN_STRICT_CHECK_TARGET_TOOLS): Fix incremental builds.
+	(ACX_HAVE_GCC_FOR_TARGET): Likewise.
+
+2007-05-13  Release Manager
+
+	* GCC 4.2.0 released.
+
+2007-02-07  Daniel Franke  <franke.daniel@gmail.com>
+
+	Backport from mainline:
+	2007-01-31  Daniel Franke <franke.daniel@gmail.com>
+
+	PR libgomp/30546
+	* acx.m4 (ACX_PROG_CHECK_VER): Locate a program and check that its
+	version is acceptable.
+
+2006-12-04  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* tls.m4 (GCC_CHECK_TLS): Do not test TLS with static linking
+	if static linking doesn't even work.
+
+2006-10-14  Geoffrey Keating  <geoffk@apple.com>
+
+	* multi.m4: New file, from automake version 2 branch.
+
+2006-09-18  Tom Tromey  <tromey@redhat.com>
+
+	* tls.m4 (GCC_CHECK_TLS): Pass empty argument as "help arg" to
+	GCC_ENABLE.
+
+2006-07-25  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR build/26188
+	* stdint.m4: Test for uintptr_t even on systems with uint64_t or uint32_t.
+
+2006-07-21  Steve Ellcey  <sje@cup.hp.com>
+
+	PR target/26792
+	* unwind_ipinfo.m4: New.
+
+2006-07-21  David Daney  <ddaney@avtrex.com>
+
+	PR libgcj/28426
+	* gxx-include-dir.m4: Use target_alias in path for cross build.
+
+2006-07-18  Paolo Bonzini  <bonzini@gnu.org>
+
+	* acx.m4: Support --with-build-libsubdir and AC_SUBST
+	build_libsubdir.
+
+2006-06-13  Richard Earnshaw  <rearnsha@arm.com>
+	    Alexandre Oliva <aoliva@redhat.com>
+
+	* gettext-sister.m4 (ZW_GNU_GETTEXT_SISTER_DIR): Add optional
+	argument for where to search for NLS config file.
+
+2006-05-31  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* gettext-sister.m4 (ZW_GNU_GETTEXT_SISTER_DIR): Provide some
+	defines otherwise gotten from AM_GNU_GETTEXT.  Remove the
+	po/ prefix from CATALOGS.
+
+2006-02-14  Paolo Bonzini  <bonzini@gnu.org>
+	    Andreas Schwab  <schwab@suse.de>
+
+	* acx.m4 (NCN_STRICT_CHECK_TARGET_TOOLS): Use correct program name.
+	(ACX_CHECK_INSTALLED_TARGET_TOOL): Likewise, and always set $1.
+
+2006-01-26  Paolo Bonzini  <bonzini@gnu.org>
+
+	* acx.m4 (NCN_STRICT_CHECK_TARGET_TOOLS): Test $with_build_time_tools.
+	(ACX_PATH_SEP): New.
+	(ACX_TOOL_DIRS): Move here from the gcc directory.
+	(ACX_CHECK_INSTALLED_TARGET_TOOL): New.
+	(GCC_TARGET_TOOL): Do not use a host tool if we found a target tool
+	with a complete path in either $with_build_time_tools or $exec_prefix.
+
+2006-01-02  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR target/25259
+	* stdint.m4: New.
+
+2005-12-20  Paolo Bonzini  <bonzini@gnu.org>
+
+	Revert Ada-related part of the previous change.
+
+	* mt-ppc-aix: Delete.
+
+2005-12-19  Paolo Bonzini  <bonzini@gnu.org>
+
+	* mt-ppc-aix, mh-ppc-aix: New.
+
+2005-12-05  Paolo Bonzini  <bonzini@gnu.org>
+
+	* acx.m4 (GCC_TARGET_TOOL): New.
+
+2005-09-23  Tom Tromey  <tromey@redhat.com>
+
+	* enable.m4: New file.
+	* tls.m4: New file.
+
+2005-08-12  Paolo Bonzini  <bonzini@gnu.org>
+
+	* config/acx.m4 (NCN_CHECK_TARGET_TOOL, NCN_STRICT_CHECK_TOOL,
+	NCN_STRICT_CHECK_TARGET_TOOL): Remove.
+	(NCN_STRICT_CHECK_TOOLS, NCN_STRICT_CHECK_TARGET_TOOLS): New,
+	based on the deleted macros.
+
+2005-07-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* mt-gnu (CXXFLAGS): Include SYSROOT_CFLAGS_FOR_TARGET.
+
+2005-07-16  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* all files: Update FSF address.
+
+2005-06-14  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/19877:
+	* no-executables.m4: Call real AC_FUNC_MMAP when cache variable
+	is set but not 'no'.
+
+2005-06-13  Zack Weinberg  <zack@codesourcery.com>
+
+	* depstand.m4, lead-dot.m4: New files.
+
+2005-05-19  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* accross.m4: Delete file.
+
+2005-05-12  Ryota Kunisawa  <kunisawa@access.co.jp>
+
+	PR bootstrap/21230
+	* warnings.m4 (ACX_PROG_CC_WARNING_ALMOST_PEDANTIC): Add
+	double quotes around GCC variable.
+
+2005-04-29  Paolo Bonzini  <bonzini@gnu.org>
+
+	* acx.m4 (ACX_PROG_GNAT): Remove stray break.
+
+2005-03-31  Paolo Bonzini  <bonzini@gnu.org>
+
+	* gcc-lib-path.m4: Remove.
+
+2005-03-21  Zack Weinberg  <zack@codesourcery.com>
+
+	* gxx-include-dir.m4: In all substitutions, leave $(gcc_version)
+	to be expanded by the Makefile.
+
+2005-03-15  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc-version.m4: Delete.
+
+2005-02-28  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR bootstrap/17383
+	* acx.m4 (GCC_TOPLEV_SUBDIRS): Set HOST_SUBDIR if an in-src
+	gcc build is going.
 
 2005-01-23  Joseph S. Myers  <joseph@codesourcery.com>
 

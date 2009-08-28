@@ -1,0 +1,207 @@
+Index: samba/source/passdb/lookup_sid.c
+===================================================================
+--- samba/source/passdb/lookup_sid.c.orig
++++ samba/source/passdb/lookup_sid.c
+@@ -140,7 +140,11 @@ BOOL lookup_name(TALLOC_CTX *mem_ctx,
+ 	if ((flags & LOOKUP_NAME_WKN) &&
+ 	    lookup_wellknown_name(tmp_ctx, name, &sid, &domain))
+ 	{
+-		type = SID_NAME_WKN_GRP;
++		if (sid_equal(&sid, &global_sid_System)) {
++			type = SID_NAME_USER;
++		} else {
++			type = SID_NAME_WKN_GRP;
++		}
+ 		goto ok;
+ 	}
+ 
+@@ -534,7 +538,11 @@ static BOOL lookup_rids(TALLOC_CTX *mem_
+ 				if ((*names)[i] == NULL) {
+ 					return False;
+ 				}
+-				(*types)[i] = SID_NAME_WKN_GRP;
++				if (sid_equal(&sid, &global_sid_System)) {
++				    (*types)[i] = SID_NAME_USER;
++				} else {
++				    (*types)[i] = SID_NAME_WKN_GRP;
++				}
+ 			} else {
+ 				(*types)[i] = SID_NAME_UNKNOWN;
+ 			}
+@@ -1159,19 +1167,15 @@ void store_gid_sid_cache(const DOM_SID *
+ 
+ static void legacy_uid_to_sid(DOM_SID *psid, uid_t uid)
+ {
+-	uint32 rid;
+ 	BOOL ret;
+ 
+ 	ZERO_STRUCTP(psid);
+ 
+ 	become_root();
+-	ret = pdb_uid_to_rid(uid, &rid);
++	ret = pdb_uid_to_sid(uid, psid);
+ 	unbecome_root();
+ 
+ 	if (ret) {
+-		/* This is a mapped user */
+-		sid_copy(psid, get_global_sam_sid());
+-		sid_append_rid(psid, rid);
+ 		goto done;
+ 	}
+ 
+Index: samba/source/passdb/pdb_interface.c
+===================================================================
+--- samba/source/passdb/pdb_interface.c.orig
++++ samba/source/passdb/pdb_interface.c
+@@ -272,10 +272,12 @@ BOOL pdb_getsampwsid(struct samu *sam_ac
+ 	struct pdb_methods *pdb = pdb_get_methods();
+ 	uint32 rid;
+ 
+-	/* hard code the Guest RID of 501 */
++	if (!lp_opendirectory()) {
++	    if ( !sid_peek_check_rid( get_global_sam_sid(), sid, &rid ) )
++		    return False;
++	}
+ 
+-	if ( !sid_peek_check_rid( get_global_sam_sid(), sid, &rid ) )
+-		return False;
++	/* hard code the Guest RID of 501 */
+ 
+ 	if ( rid == DOMAIN_USER_RID_GUEST ) {
+ 		DEBUG(6,("pdb_getsampwsid: Building guest account\n"));
+@@ -1306,9 +1308,14 @@ static BOOL pdb_default_sid_to_id(struct
+ 	const char *name;
+ 	uint32 rid;
+ 
+-	DOM_SID apple_wellknown =
++	const DOM_SID apple_wellknown =
+ 	    { 1, 1, {0,0,0,0,0,5}, {21,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
+ 
++
++	const DOM_SID apple_compat =
++	    { 1, 4, {0,0,0,0,0,5},
++		{21,987654321,987654321,987654321,0,0,0,0,0,0,0,0,0,0,0}};
++
+ 	mem_ctx = talloc_new(NULL);
+ 
+ 	if (mem_ctx == NULL) {
+@@ -1322,7 +1329,8 @@ static BOOL pdb_default_sid_to_id(struct
+ 		goto done;
+ 	}
+ 
+-	if (sid_peek_check_rid(&apple_wellknown, sid, &rid)) {
++	if (sid_peek_check_rid(&apple_wellknown, sid, &rid) ||
++	    sid_peek_check_rid(&apple_compat, sid, &rid)) {
+ 		/* Here we might have users as well as groups and aliases */
+ 		ret = lookup_global_sam_rid(mem_ctx, rid, &name, type, id);
+ 		goto done;
+@@ -1350,25 +1358,49 @@ static BOOL pdb_default_sid_to_id(struct
+ 	/* BUILTIN */
+ 	if (sid_check_is_in_builtin(sid) ||
+ 	    sid_check_is_in_wellknown_domain(sid)) {
+-		/* Here we only have aliases */
+-		GROUP_MAP map;
+-		if (!NT_STATUS_IS_OK(methods->getgrsid(methods, &map, *sid))) {
+-			DEBUG(10, ("Could not find map for sid %s\n",
+-				   sid_string_static(sid)));
+-			goto done;
+-		}
+-		if ((map.sid_name_use != SID_NAME_ALIAS) &&
+-		    (map.sid_name_use != SID_NAME_WKN_GRP)) {
+-			DEBUG(10, ("Map for sid %s is a %s, expected an "
+-				   "alias\n", sid_string_static(sid),
+-				   sid_type_lookup(map.sid_name_use)));
++		if (sid_equal(sid, &global_sid_System)) {
++			struct samu * sam_account;
++
++			if ( !(sam_account = samu_new(NULL)) ) {
++				goto done;
++			}
++
++			if (pdb_getsampwsid(sam_account, sid)) {
++				struct passwd * pw;
++
++				pw = Get_Pwnam(pdb_get_username(sam_account));
++				if (!pw) {
++					TALLOC_FREE(sam_account);
++					goto done;
++				}
++
++				*type = SID_NAME_USER;
++				id->uid = pw->pw_uid;
++				ret = True;
++			}
++
++			TALLOC_FREE(sam_account);
++		} else {
++			/* Here we only have aliases */
++			GROUP_MAP map;
++			if (!NT_STATUS_IS_OK(methods->getgrsid(methods, &map, *sid))) {
++				DEBUG(10, ("Could not find map for sid %s\n",
++					   sid_string_static(sid)));
++				goto done;
++			}
++			if ((map.sid_name_use != SID_NAME_ALIAS) &&
++			    (map.sid_name_use != SID_NAME_WKN_GRP)) {
++				DEBUG(10, ("Map for sid %s is a %s, expected an "
++					   "alias\n", sid_string_static(sid),
++					   sid_type_lookup(map.sid_name_use)));
++				goto done;
++			}
++
++			id->gid = map.gid;
++			*type = SID_NAME_ALIAS;
++			ret = True;
+ 			goto done;
+ 		}
+-
+-		id->gid = map.gid;
+-		*type = SID_NAME_ALIAS;
+-		ret = True;
+-		goto done;
+ 	}
+ 
+ 	DEBUG(5, ("Sid %s is neither ours, a Unix SID, nor builtin\n",
+Index: samba/source/passdb/machine_sid.c
+===================================================================
+--- samba/source/passdb/machine_sid.c.orig
++++ samba/source/passdb/machine_sid.c
+@@ -246,10 +246,16 @@ void reset_global_sam_sid(void) 
+ 
+ BOOL sid_check_is_domain(const DOM_SID *sid)
+ {
+-	DOM_SID apple_wellknown =
++	const DOM_SID apple_wellknown =
+ 	    { 1, 1, {0,0,0,0,0,5}, {21,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
+ 
++
++	const DOM_SID apple_compat =
++	    { 1, 4, {0,0,0,0,0,5},
++		{21,987654321,987654321,987654321,0,0,0,0,0,0,0,0,0,0,0}};
++
+ 	return sid_equal(sid, get_global_sam_sid()) ||
++		sid_equal(sid, &apple_compat) ||
+ 		sid_equal(sid, &apple_wellknown);
+ }
+ 
+Index: samba/source/passdb/util_wellknown.c
+===================================================================
+--- samba/source/passdb/util_wellknown.c.orig
++++ samba/source/passdb/util_wellknown.c
+@@ -71,11 +71,16 @@ static const struct rid_name_map null_au
+ 	{ 0, "Nobody" },
+ 	{ 0, NULL}};
+ 
++static const DOM_SID global_sid_COMPAT_Authority =
++{ 1, 4, {0,0,0,0,0,5},
++    {21,987654321,987654321,987654321,0,0,0,0,0,0,0,0,0,0,0}};
++
+ static struct sid_name_map_info special_domains[] = {
+ 	{ &global_sid_World_Domain, "", everyone_users },
+ 	{ &global_sid_Creator_Owner_Domain, "", creator_owner_users },
+ 	{ &global_sid_NT_Authority, "NT Authority", nt_authority_users },
+ 	{ &global_sid_NULL_Authority, "NULL Authority", null_authority_users },
++	{ &global_sid_COMPAT_Authority, "Compatibility Authority", NULL },
+ 	{ NULL, NULL, NULL }};
+ 
+ BOOL sid_check_is_wellknown_domain(const DOM_SID *sid, const char **name)

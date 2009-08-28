@@ -15,6 +15,12 @@
 	Change History (most recent first):
 
 		$Log: MBCBoardView.h,v $
+		Revision 1.30  2008/10/24 22:07:28  neerache
+		<rdar://problem/5459104> Chess: Rotating the playing board while computer is moving results with the mouse as the chess piece
+		
+		Revision 1.29  2008/10/24 20:06:17  neerache
+		<rdar://problem/3710028> ER: Chessboard anti-aliasing
+		
 		Revision 1.28  2007/03/02 23:06:00  neerache
 		<rdar://problem/4038207> Allow the user to type in a move in Chess
 		
@@ -152,7 +158,6 @@ const float kMaxElevation		= 80.0f;
 	MBCSquare				fSelectedSquare;
 	MBCSquare				fSelectedDest;
 	MBCPosition				fSelectedPos;
-	MBCPosition				fSelectedStartPos;
 	MBCPosition				fLastSelectedPos;
 	float					fRawAzimuth;
 	NSPoint					fOrigMouse;
@@ -191,6 +196,8 @@ const float kMaxElevation		= 80.0f;
 	NSCursor *				fArrowCursor;
 	MBCPiece				fLastPieceDrawn;
 	char					fKeyBuffer;
+	float					fAnisotropy;
+	GLint					fNumSamples;
 }
 
 //

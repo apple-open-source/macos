@@ -8,8 +8,7 @@ This prints the last few system calls for processes matching
 the given name, when they exit. This makes use of a ring buffer
 so that the impact on the system is minimised.
 
-Since this uses DTrace, only the root user or users with the
-dtrace_kernel privilege can run this command.
+Since this uses DTrace, only users with root privileges can run this command.
 .SH EXAMPLES
 .TP
 Catch last few syscalls for dying netscape processes,

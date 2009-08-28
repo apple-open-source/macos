@@ -29,7 +29,7 @@ AEP_Version    = 070207
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = libiberty-demangle-5046344.patch libiberty-printf.patch
+AEP_Patches    = libiberty-demangle-5046344.patch libiberty-printf.patch stat64.patch demangle.patch
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j

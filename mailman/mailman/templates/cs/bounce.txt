@@ -12,5 +12,3 @@ neplatných elektronických adres systému Mailman.
 Zpráva, kterou se nedaøí doruèit je pøilo¾ena ní¾e.
 
 Dotazy?  Kontaktuje správce Mailmana na %(owneraddr)s.
-
-

@@ -45,6 +45,7 @@ extern int do_progress;
 extern int inplace;
 extern int batch_fd;
 extern int write_batch;
+extern int no_cache;
 extern struct stats stats;
 extern struct file_list *the_file_list;
 extern char *stdout_format;
@@ -370,7 +371,10 @@ void send_files(struct file_list *flist, int f_out, int f_in)
 			free_sums(s);
 			continue;
 		}
-
+#ifdef F_NOCACHE
+		if (no_cache)
+			fcntl(fd, F_NOCACHE, 1);
+#endif		/* F_NOCACHE */
 		/* map the local file */
 		if (do_fstat(fd, &st) != 0) {
 			io_error |= IOERR_GENERAL;

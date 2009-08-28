@@ -28,6 +28,7 @@
 #include "CSSMutableStyleDeclaration.h"
 #include "CSSPrimitiveValue.h"
 #include "CSSPrimitiveValueMappings.h"
+#include "CSSProperty.h"
 #include "CSSPropertyNames.h"
 #include "CSSReflectValue.h"
 #include "CSSTimingFunctionValue.h"
@@ -571,7 +572,7 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
 static int identifierForFamily(const AtomicString& family)
 {
     DEFINE_STATIC_LOCAL(AtomicString, cursiveFamily, ("-webkit-cursive")); 
-    DEFINE_STATIC_LOCAL(AtomicString, fantasyFamily, ("-webkit-serif")); 
+    DEFINE_STATIC_LOCAL(AtomicString, fantasyFamily, ("-webkit-fantasy")); 
     DEFINE_STATIC_LOCAL(AtomicString, monospaceFamily, ("-webkit-monospace")); 
     DEFINE_STATIC_LOCAL(AtomicString, sansSerifFamily, ("-webkit-sans-serif")); 
     DEFINE_STATIC_LOCAL(AtomicString, serifFamily, ("-webkit-serif")); 
@@ -1473,6 +1474,22 @@ static const unsigned numInheritableProperties = sizeof(inheritableProperties) /
 void CSSComputedStyleDeclaration::removeComputedInheritablePropertiesFrom(CSSMutableStyleDeclaration* declaration)
 {
     declaration->removePropertiesInSet(inheritableProperties, numInheritableProperties);
+}
+
+bool CSSComputedStyleDeclaration::cssPropertyMatches(const CSSProperty* property) const
+{
+    if (property->id() == CSSPropertyFontSize && property->value()->isPrimitiveValue() && m_node) {
+        m_node->document()->updateLayoutIgnorePendingStylesheets();
+        RenderStyle* style = m_node->computedStyle();
+        if (style && style->fontDescription().keywordSize()) {
+            int sizeValue = cssIdentifierForFontSizeKeyword(style->fontDescription().keywordSize());
+            CSSPrimitiveValue* primitiveValue = static_cast<CSSPrimitiveValue*>(property->value());
+            if (primitiveValue->primitiveType() == CSSPrimitiveValue::CSS_IDENT && primitiveValue->getIdent() == sizeValue)
+                return true;
+        }
+    }
+
+    return CSSStyleDeclaration::cssPropertyMatches(property);
 }
 
 PassRefPtr<CSSMutableStyleDeclaration> CSSComputedStyleDeclaration::copyInheritableProperties() const

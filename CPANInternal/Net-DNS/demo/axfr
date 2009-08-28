@@ -1,0 +1,183 @@
+#!/usr/local/bin/perl -w
+# $Id: axfr 264 2005-04-06 09:16:15Z olaf $
+
+use strict;
+use vars qw($opt_f $opt_q $opt_s $opt_D);
+use File::Basename;
+use Getopt::Std;
+use Net::DNS;
+use Storable;
+
+#------------------------------------------------------------------------------
+# Read any command-line options and check syntax.
+#------------------------------------------------------------------------------
+
+getopts("fqsD:");
+
+die "Usage: ", basename($0), " [ -fqs ] [ -D directory ] [ \@nameserver ] zone\n"
+	unless (@ARGV >= 1) && (@ARGV <= 2);
+
+#------------------------------------------------------------------------------
+# Get the nameserver (if specified) and set up the zone transfer directory
+# hierarchy.
+#------------------------------------------------------------------------------
+
+my $nameserver = ($ARGV[0] =~ /^@/) ? shift @ARGV : "";
+$nameserver =~ s/^@//;
+
+my $zone = shift @ARGV;
+my $basedir = defined $opt_D ? $opt_D : $ENV{"HOME"} . "/.dns-zones";
+my $zonedir = join("/", reverse(split(/\./, $zone)));
+my $zonefile = $basedir . "/" . $zonedir . "/axfr";
+
+# Don't worry about the 0777 permissions here - the current umask setting
+# will be applied.
+unless (-d $basedir) {
+	mkdir($basedir, 0777) or die "can't mkdir $basedir: $!\n";
+}
+
+my $dir = $basedir;
+my $subdir;
+foreach $subdir (split(m#/#, $zonedir)) {
+	$dir .= "/" . $subdir;
+	unless (-d $dir) {
+		mkdir($dir, 0777) or die "can't mkdir $dir: $!\n";
+	}
+}
+
+#------------------------------------------------------------------------------
+# Get the zone.
+#------------------------------------------------------------------------------
+
+my $res = Net::DNS::Resolver->new;
+$res->nameservers($nameserver) if $nameserver;
+
+my (@zone, $zoneref);
+
+if (-e $zonefile && !defined $opt_f) {
+	$zoneref = retrieve($zonefile) || die "couldn't retrieve zone from $zonefile: $!\n";
+
+	#----------------------------------------------------------------------
+	# Check the SOA serial number if desired.
+	#----------------------------------------------------------------------
+
+	if (defined $opt_s) {
+		my($serial_file, $serial_zone);
+
+		my $rr;
+		foreach $rr (@$zoneref) {
+			if ($rr->type eq "SOA") {
+				$serial_file = $rr->serial;
+				last;
+			}
+		}
+		die "no SOA in $zonefile\n" unless defined $serial_file;
+
+		my $soa = $res->query($zone, "SOA");
+		die "couldn't get SOA for $zone: ", $res->errorstring, "\n"
+			unless defined $soa;
+
+		foreach $rr ($soa->answer) {
+			if ($rr->type eq "SOA") {
+				$serial_zone = $rr->serial;
+				last;
+			}
+		}
+
+		if ($serial_zone != $serial_file) {
+			$opt_f = 1;
+		}
+	}
+} else {
+	$opt_f = 1;
+}
+
+if (defined $opt_f) {
+	@zone = $res->axfr($zone);
+	die "couldn't transfer zone: ", $res->errorstring, "\n" unless @zone;
+	store \@zone, $zonefile or die "couldn't store zone to $zonefile: $!\n";
+	$zoneref = \@zone;
+}
+
+#------------------------------------------------------------------------------
+# Print the records in the zone.
+#------------------------------------------------------------------------------
+
+unless ($opt_q) {
+	$_->print for @$zoneref
+}
+
+__END__
+
+=head1 NAME
+
+axfr - Perform a DNS zone transfer
+
+=head1 SYNOPSIS
+
+B<axfr> S<[ B<-fqs> ]> S<[ B<-D> I<directory> ]> S<[ B<@>I<nameserver> ]>
+I<zone>
+
+=head1 DESCRIPTION
+
+B<axfr> performs a DNS zone transfer, prints each record to the standard
+output, and stores the zone to a file.  If the zone has already been
+stored in a file, B<axfr> will read the file instead of performing a
+zone transfer.
+
+Zones will be stored in a directory hierarchy.  For example, the
+zone transfer for foo.bar.com will be stored in the file
+$HOME/.dns-zones/com/bar/foo/axfr.  The directory can be changed
+with the B<-D> option.
+
+This programs requires that the Storable module be installed.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-f>
+
+Force a zone transfer, even if the zone has already been stored
+in a file.
+
+=item B<-q>
+
+Be quiet -- don't print the records from the zone.
+
+=item B<-s>
+
+Perform a zone transfer if the SOA serial number on the nameserver
+is different than the serial number in the zone file.
+
+=item B<-D> I<directory>
+
+Store zone files under I<directory> instead of the default directory
+(see L<"FILES">).
+
+=item B<@>I<nameserver>
+
+Query I<nameserver> instead of the default nameserver.
+
+=back
+
+=head1 FILES
+
+=over 4
+
+=item B<$HOME/.dns-zones>
+
+Default directory for storing zone files.
+
+=back
+
+=head1 AUTHOR
+
+Michael Fuhr <mike@fuhr.org>
+
+=head1 SEE ALSO
+
+L<perl(1)>, L<check_soa>, L<check_zone>, L<mresolv>, L<mx>, L<perldig>,
+L<Net::DNS>, L<Storable>
+
+=cut

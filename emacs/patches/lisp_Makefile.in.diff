@@ -1,0 +1,12 @@
+diff -up /SourceCache/emacs/emacs-76/emacs/lisp/Makefile.in lisp/Makefile.in
+--- /SourceCache/emacs/emacs-76/emacs/lisp/Makefile.in	2007-05-15 14:57:33.000000000 -0700
++++ lisp/Makefile.in	2008-10-24 17:29:09.000000000 -0700
+@@ -85,6 +85,8 @@ setwins_almost=subdirs=`(cd $$wd; find .
+ 
+ doit:
+ 
++.NOTPARALLEL: # Avoid lisp autoload races
++
+ $(lisp)/cus-load.el:
+ 	touch $@
+ custom-deps: $(lisp)/subdirs.el $(lisp)/loaddefs.el $(lisp)/cus-load.el doit

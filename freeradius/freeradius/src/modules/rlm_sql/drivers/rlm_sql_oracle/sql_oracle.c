@@ -13,19 +13,18 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2000  The FreeRADIUS server project
+ * Copyright 2000,2006  The FreeRADIUS server project
  * Copyright 2000  David Kerry <davidk@snti.com>
  */
 
-#include <stdio.h>
-#include <sys/stat.h>
-#include <sys/time.h>
-#include <stdlib.h>
-#include <string.h>
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include 	"radiusd.h"
+#include <freeradius-devel/radiusd.h>
+
+#include <sys/stat.h>
 
 #include <oci.h>
 #include "rlm_sql.h"
@@ -53,7 +52,7 @@ typedef struct rlm_sql_oracle_sock {
  *               connection
  *
  *************************************************************************/
-static char *sql_error(SQLSOCK *sqlsocket, SQL_CONFIG *config) {
+static const char *sql_error(SQLSOCK *sqlsocket, SQL_CONFIG *config) {
 
 	static char	msgbuf[512];
 	sb4		errcode = 0;
@@ -73,6 +72,25 @@ static char *sql_error(SQLSOCK *sqlsocket, SQL_CONFIG *config) {
 	}
 }
 
+/*************************************************************************
+ *
+ *	Function: sql_check_error
+ *
+ *	Purpose: check the error to see if the server is down
+ *
+ *************************************************************************/
+static int sql_check_error(SQLSOCK *sqlsocket, SQL_CONFIG *config) {
+
+	if (strstr(sql_error(sqlsocket, config), "ORA-03113") ||
+			strstr(sql_error(sqlsocket, config), "ORA-03114")) {
+		radlog(L_ERR,"rlm_sql_oracle: OCI_SERVER_NOT_CONNECTED");
+		return SQL_DOWN;
+	}
+	else {
+		radlog(L_ERR,"rlm_sql_oracle: OCI_SERVER_NORMAL");
+		return -1;
+	}
+}
 
 /*************************************************************************
  *
@@ -244,22 +262,20 @@ static int sql_query(SQLSOCK *sqlsocket, SQL_CONFIG *config, char *querystr) {
 				(ub4) 0,
 				(OCISnapshot *) NULL,
 				(OCISnapshot *) NULL,
-				(ub4) OCI_DEFAULT);
+				(ub4) OCI_COMMIT_ON_SUCCESS);
 
-	if ((x != OCI_NO_DATA) && (x != OCI_SUCCESS)) {
+	if (x == OCI_SUCCESS) {
+		return 0;
+	}
+
+	if (x == OCI_ERROR) {
 		radlog(L_ERR,"rlm_sql_oracle: execute query failed in sql_query: %s",
 				sql_error(sqlsocket, config));
-		return SQL_DOWN;
+		return sql_check_error(sqlsocket, config);
 	}
-
-	x = OCITransCommit(oracle_sock->conn, oracle_sock->errHandle, (ub4) 0);
-	if (x != OCI_SUCCESS) {
-		radlog(L_ERR,"rlm_sql_oracle: commit failed in sql_query: %s",
-				sql_error(sqlsocket, config));
-		return SQL_DOWN;
+	else {
+		return -1;
 	}
-
-	return 0;
 }
 
 
@@ -311,9 +327,11 @@ static int sql_select_query(SQLSOCK *sqlsocket, SQL_CONFIG *config, char *querys
 		/* Nothing to fetch */
 		return 0;
 	}
-	else if (x != OCI_SUCCESS) {
-		radlog(L_ERR,"rlm_sql_oracle: query failed in sql_select_query: %s",sql_error(sqlsocket, config));
-		return SQL_DOWN;
+
+	if (x != OCI_SUCCESS) {
+		radlog(L_ERR,"rlm_sql_oracle: query failed in sql_select_query: %s",
+				sql_error(sqlsocket, config));
+		return sql_check_error(sqlsocket, config);
 	}
 
 	/*
@@ -382,6 +400,7 @@ static int sql_select_query(SQLSOCK *sqlsocket, SQL_CONFIG *config, char *querys
 				return -1;
 			}
 			rowdata[y-1]=rad_malloc(dsize+1);
+			memset(rowdata[y-1], 0, dsize+1);
 			break;
 		case SQLT_DAT:
 		case SQLT_INT:
@@ -391,6 +410,7 @@ static int sql_select_query(SQLSOCK *sqlsocket, SQL_CONFIG *config, char *querys
 		case SQLT_BIN:
 		case SQLT_NUM:
 			rowdata[y-1]=rad_malloc(dsize+1);
+			memset(rowdata[y-1], 0, dsize+1);
 			break;
 		default:
 			dsize=0;
@@ -492,18 +512,20 @@ static int sql_fetch_row(SQLSOCK *sqlsocket, SQL_CONFIG *config) {
 			1,
 			OCI_FETCH_NEXT,
 			OCI_DEFAULT);
-	if (x == OCI_NO_DATA) {
-		return -1;
-	}
-	else if (x != OCI_SUCCESS) {
-		/* XXX Check if x suggests we should return SQL_DOWN */
-		radlog(L_ERR,"rlm_sql_oracle: fetch failed in sql_fetch_row: %s",
-				sql_error(sqlsocket, config));
-		return SQL_DOWN;
+
+	if (x == OCI_SUCCESS) {
+		sqlsocket->row = oracle_sock->results;
+		return 0;
 	}
 
-	sqlsocket->row = oracle_sock->results;
-	return 0;
+	if (x == OCI_ERROR) {
+		radlog(L_ERR,"rlm_sql_oracle: fetch failed in sql_fetch_row: %s",
+				sql_error(sqlsocket, config));
+		return sql_check_error(sqlsocket, config);
+	}
+	else {
+		return -1;
+	}
 }
 
 

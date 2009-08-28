@@ -1,0 +1,147 @@
+; File written on Tue Jul 29 12:44:06 2008
+; dnssec_signzone version 9.5.1b1
+example.de.		7200	IN SOA	ns1.example.de. hostmaster.example.de. (
+					258        ; serial
+					43200      ; refresh (12 hours)
+					1800       ; retry (30 minutes)
+					1209600    ; expire (2 weeks)
+					7200       ; minimum (2 hours)
+					)
+			7200	RRSIG	SOA 5 2 7200 20080808092956 (
+					20080729094406 35672 example.de.
+					UufM9vATUwvqXJjvgt9WGAytmMhd7Pz/3DK0
+					6a9uReXHcU4NcO0BhTP9chwXAQC5pI2ucRxs
+					/4p/Vc/L91wUMA== )
+			7200	NS	ns1.example.de.
+			7200	NS	ns2.example.de.
+			7200	RRSIG	NS 5 2 7200 20080808091515 (
+					20080729094406 35672 example.de.
+					hpHATL81t7GASSKPPBuheQqBqXU688itETkN
+					QYfy/OwcE/7g+LvS1oHEBRds6neRkXxUpDa1
+					hsdbbCDo6UuHSg== )
+			7200	NSEC	localhost.example.de. NS SOA RRSIG NSEC DNSKEY
+			7200	RRSIG	NSEC 5 2 7200 20080808092007 (
+					20080729094406 35672 example.de.
+					aN9cYobVe+qJ5Gw0GPMQI3V7vPQaF7cBuX6T
+					+yWZ/TAHhKcJYqbwOQH2XQar2s+JwckEMSdI
+					HFPySUOtQaNNxA== )
+			3600	DNSKEY	256 3 5 (
+					BQEAAAABnRJdmY7dzRKi93pVkLToV5FK4Ffm
+					8YnY0c6IHKcAmb5t8FLvpNijniIclCPXTpfi
+					o+HNa59a4UA8jTdJb+kT0w==
+					) ; key id = 35672
+			3600	DNSKEY	256 3 5 (
+					BQEAAAAByN2rMrazHwh+sNOv8cBef3HUotAQ
+					TS9QW4Y5NjNuyYNraJBAOqV8KSaGQqIhkh0Z
+					D0oIm2h0JowdyERZVj6ZZQ==
+					) ; key id = 11867
+			3600	DNSKEY	257 3 5 (
+					BQEAAAABDfaBERX9p+FUi1OXYVig7zLCQFZo
+					RYpwDDuLzBcC7k+G1+wWdftyA1vBm5HMpyq0
+					OifT0Hsez4+H+0CIWHZP8oPCYfKrq+wM2EgM
+					zDDOYv+O1TQU4i3G+iONxB1RAwH/J2lA+U0z
+					Cbrdf0KLq/enNquchhPw4gCX0RB9HC+TkpoP
+					f2u7aKFcjlpw4C4uhDl1s6FpfdXe6NQWW6c+
+					ONUcLAEt+w==
+					) ; key id = 59244
+			3600	DNSKEY	257 3 5 (
+					BQEAAAABDrm5aXRPuZOmwT4nINnY2qXyXWLt
+					utggFAJgBW5Ua7uzAR+7r/DcOE7IfjnT5FQh
+					bYXIuKy61uOEqPu1TYvDsGb1pseKSB4J0jmX
+					DU9Ntu9TDp6X6ZXE11+cFdATa4TPnsAUMSxV
+					kLZanrbyACmcNr1gjT3dz6qIVBVPb5OnUldn
+					dbgtlOX3wcE0aR/MIsIjz1UQl/QoxbVclZVO
+					UNdJQGb9zQ==
+					) ; key id = 41145
+			3600	DNSKEY	385 3 5 (
+					BQEAAAABCyg92L7v21N3lc/gR07/2iLmvt6d
+					Un1KKauLvmkRuT040XT+Rd3Iq20iq6BqVPsP
+					S+hCOTRA3xikTIn5YzmPLPutIRtjIodHhsrM
+					L4D9Pp1dzgEDKWLam96v+E7KC0GGH/BI6/We
+					lqeqjS5BjI4Gjv4roaTyDCi63oXwcMFDVwrS
+					jws4A/5AGANka41Aky+UCGse6+64YmNP/QkS
+					XDAeBZqwrw==
+					) ; key id = 17567
+			3600	RRSIG	DNSKEY 5 2 3600 20080808092214 (
+					20080729094406 41145 example.de.
+					BMVp5vW7MgvrhoGfqQhdwGg1mBHNw4xnI+YX
+					XMYqOAMMRmFg7G6Vn+UcFmUoL1AdUKIdXPp7
+					t30UREHQspELWmnLVdJ36HRmzk1eNgwLFuUM
+					l+Lr+KeoufJ2QlF4TWeItozv0pgmkxaOr0Im
+					fzRmWKs84rwautwY+R/b5wrCMfZt96/JPGA0
+					4JWDls1wJ7iR0LtiJxe7mvtNRZ5krPFKXBRz
+					nA== )
+			3600	RRSIG	DNSKEY 5 2 3600 20080808092411 (
+					20080729094406 17567 example.de.
+					BmHQcJsmGmt7HZHqWPAHQuelDrWXASUy7tgc
+					W4RVIed4voZiHyvxfTPR3cldIWpdP2RqxMm8
+					Dj5hlYRqnVt3phSSnwpczcPkfQD4meTqK0DJ
+					kpX/mBCMHedfvATKf82A9wri13/Zi97N6sTK
+					4VZZIWaUH/YDYyMwxgK70+jU0m2N8Iebm3s6
+					RshTMxAZjiSH29mgow/HSHtf+cnaTUGAr83P
+					ug== )
+			3600	RRSIG	DNSKEY 5 2 3600 20080808093317 (
+					20080729094406 35672 example.de.
+					Q5UnfDMbzApCl/wOy9IDna25UVvjKhuV/dos
+					hFKPUArM4wDx9kJU5tc1Eatwh4MAXPM81kNW
+					6DbiKMXJpO7biQ== )
+localhost.example.de.	7200	IN A	127.0.0.1
+			7200	RRSIG	A 5 3 7200 20080808092724 (
+					20080729094406 35672 example.de.
+					JW8ScAtavvTR0fHI/ZDZTgARHSXM/QcLT+w6
+					dl6kaeR/9JqxTKpKnH6mtYYdfqom4siJnZCI
+					D66sltGHW/er+Q== )
+			7200	NSEC	ns1.example.de. A RRSIG NSEC
+			7200	RRSIG	NSEC 5 3 7200 20080808094047 (
+					20080729094406 35672 example.de.
+					XsTqHahVRcPPyrdffkdyBj0BFlTx2vkmfrvY
+					IIQcaNiUxrgZfyDBQ1GZbL4tDGK/ujValdz9
+					s2s+6ISxxobC3A== )
+ns1.example.de.		7200	IN A	1.0.0.5
+			7200	RRSIG	A 5 3 7200 20080808091743 (
+					20080729094406 35672 example.de.
+					ljYOmOC9r3RlsohXrHt40sIQuF98JSkRSFHb
+					xKlcToqEVSgxAKkMlwPKBQPaHtRdQhIVkxly
+					OpCYxAQSguB/MA== )
+			7200	AAAA	2001:db8::53
+			7200	RRSIG	AAAA 5 3 7200 20080808094144 (
+					20080729094406 35672 example.de.
+					nNchBWvoPtgRNxaz9bmFwvv/KtgloYq1SGti
+					59yQFFm6ixY0p0l0d+U5nnwgI1iS5h0JGYqI
+					0mOu0mNbxtt9gQ== )
+			7200	NSEC	ns2.example.de. A AAAA RRSIG NSEC
+			7200	RRSIG	NSEC 5 3 7200 20080808092537 (
+					20080729094406 35672 example.de.
+					MgnxPyKHMqQXnmfjh5ffr0FRvgRyl7D56phx
+					xKzTquSXDECP5ORpDxvybixbvHvM8R59LjYH
+					1OZ3fi+/kWVAJg== )
+ns2.example.de.		7200	IN A	1.2.0.6
+			7200	RRSIG	A 5 3 7200 20080808091624 (
+					20080729094406 35672 example.de.
+					MkrwvOLYJQvoNFNeqtLOOmDnVFY0n7qdTOUL
+					Ia2stlfOn7r/7f4lKQTE5UMM+SBN2iizV4qc
+					SFFUxREAI5UGkQ== )
+			7200	NSEC	sub.example.de. A RRSIG NSEC
+			7200	RRSIG	NSEC 5 3 7200 20080808094337 (
+					20080729094406 35672 example.de.
+					QE8DYRraVloZVQi2RTpYwxEY1P0u3ovHgC58
+					AR1NiLtbQ0YCsPJZeIhVSXbdd8qLZzb5gsJ2
+					9AU6m1TfAa5WSw== )
+sub.example.de.		7200	IN NS	ns1.example.de.
+			7200	DS	40998 5 1 (
+					1414E9C46F367D787EEF2EC91E1FC66DD087
+					AEAE )
+			7200	DS	40998 5 2 (
+					6FE53984AB75C31A06778E9944F8CDB47905
+					27D36BBD08CC1E90DA7AE32EEE5F )
+			7200	RRSIG	DS 5 3 7200 20080808092142 (
+					20080729094406 35672 example.de.
+					cdyXeVNOD5TBuab8JFkwcf4GiS2n9F4tgct/
+					ZedULbikEqO0CyJddPW3wSsNAZeP2tgXJNI8
+					H6SutDh0IiR5MA== )
+			7200	NSEC	example.de. NS DS RRSIG NSEC
+			7200	RRSIG	NSEC 5 3 7200 20080808091754 (
+					20080729094406 35672 example.de.
+					jkvn4NznbaH8S5PeWkPf/cHaq19kNav8Y78E
+					3GVQHD3ApcDAMs8gImjRrJMT1lqSB7yCu/5f
+					k3CPfTs/+p/8Og== )

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -271,7 +271,7 @@ _removeWatcher(CFNumberRef sessionNum, CFStringRef watchedKey)
 
 __private_extern__
 void
-pushNotifications()
+pushNotifications(FILE *_configd_trace)
 {
 	const void			**sessionsToNotify;
 	CFIndex				notifyCnt;
@@ -300,13 +300,15 @@ pushNotifications()
 			/*
 			 * Post notification as mach message
 			 */
-#ifdef	DEBUG
-			if (_configd_verbose) {
-				SCLog(TRUE, LOG_DEBUG, CFSTR("sending mach message notification."));
-				SCLog(TRUE, LOG_DEBUG, CFSTR("  port  = %d"), storePrivate->notifyPort);
-				SCLog(TRUE, LOG_DEBUG, CFSTR("  msgid = %d"), storePrivate->notifyPortIdentifier);
+			if (_configd_trace != NULL) {
+				SCTrace(TRUE, _configd_trace,
+					CFSTR("%s : %5d : port = %d, msgid = %d\n"),
+					"-->port",
+					storePrivate->server,
+					storePrivate->notifyPort,
+					storePrivate->notifyPortIdentifier);
 			}
-#endif	/* DEBUG */
+
 			_SC_sendMachMessage(storePrivate->notifyPort, storePrivate->notifyPortIdentifier);
 		}
 
@@ -314,13 +316,14 @@ pushNotifications()
 		    (storePrivate->notifyFile >= 0)) {
 			ssize_t		written;
 
-#ifdef	DEBUG
-			if (_configd_verbose) {
-				SCLog(TRUE, LOG_DEBUG, CFSTR("sending (UNIX domain) socket notification"));
-				SCLog(TRUE, LOG_DEBUG, CFSTR("  fd    = %d"), storePrivate->notifyFile);
-				SCLog(TRUE, LOG_DEBUG, CFSTR("  msgid = %d"), storePrivate->notifyFileIdentifier);
+			if (_configd_trace != NULL) {
+				SCTrace(TRUE, _configd_trace,
+					CFSTR("%s : %5d : fd = %d, msgid = %d\n"),
+					"-->fd  ",
+					storePrivate->server,
+					storePrivate->notifyFile,
+					storePrivate->notifyFileIdentifier);
 			}
-#endif	/* DEBUG */
 
 			written = write(storePrivate->notifyFile,
 					&storePrivate->notifyFileIdentifier,
@@ -357,33 +360,39 @@ pushNotifications()
 			 */
 			status = pid_for_task(storePrivate->notifySignalTask, &pid);
 			if (status == KERN_SUCCESS) {
-#ifdef	DEBUG
-				if (_configd_verbose) {
-					SCLog(TRUE, LOG_DEBUG, CFSTR("sending signal notification"));
-					SCLog(TRUE, LOG_DEBUG, CFSTR("  pid    = %d"), pid);
-					SCLog(TRUE, LOG_DEBUG, CFSTR("  signal = %d"), storePrivate->notifySignal);
+				if (_configd_trace != NULL) {
+					SCTrace(TRUE, _configd_trace,
+						CFSTR("%s : %5d : pid = %d, signal = sig%s (%d)\n"),
+						"-->sig ",
+						storePrivate->server,
+						pid,
+						sys_signame[storePrivate->notifySignal],
+						storePrivate->notifySignal);
 				}
-#endif	/* DEBUG */
+
 				if (kill(pid, storePrivate->notifySignal) != 0) {
-#ifdef	DEBUG
-					SCLog(_configd_verbose, LOG_DEBUG, CFSTR("could not send signal: %s"), strerror(errno));
-#endif	/* DEBUG */
-					status = KERN_FAILURE;
+					if (errno != ESRCH) {
+						SCLog(TRUE, LOG_ERR,
+						      CFSTR("could not send sig%s to PID %d: %s"),
+						      sys_signame[storePrivate->notifySignal],
+						      pid,
+						      strerror(errno));
+					}
 				}
 			} else {
 				mach_port_type_t	pt;
 
-				if ((mach_port_type(mach_task_self(), storePrivate->notifySignalTask, &pt) == KERN_SUCCESS) &&
-				    (pt & MACH_PORT_TYPE_DEAD_NAME)) {
-					SCLog(_configd_verbose, LOG_DEBUG, CFSTR("could not send signal, process died"));
+				__MACH_PORT_DEBUG(TRUE, "*** pushNotifications pid_for_task failed: releasing task", storePrivate->notifySignalTask);
+				if (mach_port_type(mach_task_self(), storePrivate->notifySignalTask, &pt) == KERN_SUCCESS) {
+					if ((pt & MACH_PORT_TYPE_DEAD_NAME) != 0) {
+						SCLog(TRUE, LOG_ERR, CFSTR("pushNotifications pid_for_task() failed: %s"), mach_error_string(status));
+					}
 				} else {
-					SCLog(_configd_verbose, LOG_DEBUG, CFSTR("could not send signal: %s"), mach_error_string(status));
+					SCLog(TRUE, LOG_ERR, CFSTR("pushNotifications mach_port_type() failed: %s"), mach_error_string(status));
 				}
-			}
 
-			if (status != KERN_SUCCESS) {
 				/* don't bother with any more attempts */
-				(void) mach_port_destroy(mach_task_self(), storePrivate->notifySignalTask);
+				(void) mach_port_deallocate(mach_task_self(), storePrivate->notifySignalTask);
 				storePrivate->notifySignal     = 0;
 				storePrivate->notifySignalTask = TASK_NULL;
 			}

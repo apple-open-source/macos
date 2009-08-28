@@ -1,5 +1,5 @@
-.\"	from: @(#)getrpcport.3r	2.2 88/08/02 4.0 RPCSRC; from 1.12 88/02/26 SMI
-.\"	$Id: getrpcport.3,v 1.1 1999/04/13 23:15:37 wsanchez Exp $
+.\" @(#)getrpcport.3r	2.2 88/08/02 4.0 RPCSRC; from 1.12 88/02/26 SMI
+.\" $FreeBSD: src/lib/libc/rpc/getrpcport.3,v 1.9 2004/07/02 23:52:12 ru Exp $
 .\"
 .Dd October 6, 1987
 .Dt GETRPCPORT 3
@@ -7,12 +7,16 @@
 .Sh NAME
 .Nm getrpcport
 .Nd get RPC port number
+.Sh LIBRARY
+.Lb libc
 .Sh SYNOPSIS
-.Fd #include <rpc/rpc.h>
+.In rpc/rpc.h
 .Ft int
 .Fn getrpcport "char *host" "int prognum" "int versnum" "int proto"
 .Sh DESCRIPTION
+The
 .Fn getrpcport
+function
 returns the port number for version
 .Fa versnum
 of the RPC program
@@ -23,7 +27,8 @@ and using protocol
 .Fa proto .
 It returns 0 if it cannot contact the portmapper, or if
 .Fa prognum
-is not registered.  If
+is not registered.
+If
 .Fa prognum
 is registered but not with version
 .Fa versnum ,

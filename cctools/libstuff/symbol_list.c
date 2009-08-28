@@ -49,10 +49,10 @@ void
 setup_symbol_list(
 char *file,
 struct symbol_list **list,
-unsigned long *size)
+uint32_t *size)
 {
     int fd;
-    unsigned long i, j, len, strings_size;
+    uint32_t i, j, len, strings_size;
     struct stat stat_buf;
     char *strings, *p, *line;
 

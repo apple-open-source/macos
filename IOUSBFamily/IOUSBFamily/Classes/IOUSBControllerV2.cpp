@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright © 1997-2009 Apple Inc.  All rights reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -35,6 +35,7 @@
 #include <IOKit/usb/IOUSBControllerV2.h>
 #include <IOKit/usb/IOUSBLog.h>
 
+#include "USBTracepoints.h"
 
 #define CONTROLLERV2_USE_KPRINTF 0
 
@@ -43,7 +44,7 @@
 #undef USBError
 void kprintf(const char *format, ...)
 __attribute__((format(printf, 1, 2)));
-#define USBLog( LEVEL, FORMAT, ARGS... )  if ((LEVEL) <= 3) { kprintf( FORMAT "\n", ## ARGS ) ; }
+#define USBLog( LEVEL, FORMAT, ARGS... )  if ((LEVEL) <= CONTROLLERV2_USE_KPRINTF) { kprintf( FORMAT "\n", ## ARGS ) ; }
 #define USBError( LEVEL, FORMAT, ARGS... )  { kprintf( FORMAT "\n", ## ARGS ) ; }
 #endif
 
@@ -144,14 +145,17 @@ IOUSBControllerV2::free()
 void
 IOUSBControllerV2::clearTTHandler(OSObject *target, void *parameter, IOReturn status, UInt32	bufferSizeRemaining)
 {
+#pragma unused (bufferSizeRemaining)
     IOUSBController *		me = (IOUSBController *)target;
     IOUSBCommand *			command = (IOUSBCommand *)parameter;
 	IOMemoryDescriptor *	memDesc = NULL;
 	IODMACommand *			dmaCommand = NULL;
     UInt8					sent, back, todo;
     UInt8					hubAddr = command->GetAddress();
-    
+
+	USBTrace_Start( kUSBTController, kTPControllerClearTTHandler, (uintptr_t)me, (uintptr_t)command, status,  bufferSizeRemaining );
     USBLog(5,"clearTTHandler: status (0x%x)", status);
+
 	if (!me || !command)
 	{
 		USBError(1,"clearTTHandler: missing controller or command");
@@ -178,6 +182,7 @@ IOUSBControllerV2::clearTTHandler(OSObject *target, void *parameter, IOReturn st
 				if (dmaCommand->getMemoryDescriptor() != memDesc)
 				{
 					USBLog(1, "clearTTHandler: DMA Command Memory Descriptor (%p) does not match Request MemoryDescriptor (%p)", dmaCommand->getMemoryDescriptor(), memDesc);
+					USBTrace( kUSBTController, kTPControllerClearTTHandler, (uintptr_t)me, (uintptr_t)dmaCommand->getMemoryDescriptor(), (uintptr_t)memDesc, 1 );
 				}
 				USBLog(7, "clearTTHandler: clearing memory descriptor (%p) from dmaCommand (%p)", dmaCommand->getMemoryDescriptor(), dmaCommand);
 				dmaCommand->clearMemoryDescriptor();
@@ -185,17 +190,20 @@ IOUSBControllerV2::clearTTHandler(OSObject *target, void *parameter, IOReturn st
 			else
 			{
 				USBLog(1, "clearTTHandler - dmaCommand (%p) already cleared", dmaCommand);
+				USBTrace( kUSBTController, kTPControllerClearTTHandler, (uintptr_t)me, (uintptr_t)dmaCommand, 0, 2 );
 			}
 		}
 		if (memDesc)
 		{
 			USBLog(1, "clearTTHandler - completing and freeing memory descriptor (%p)", memDesc);
+			USBTrace( kUSBTController, kTPControllerClearTTHandler, (uintptr_t)me, (uintptr_t)memDesc, 0, 3 );
 			memDesc->complete();
 			memDesc->release();
 		}
 		else
 		{
 			USBLog(1, "clearTTHandler - missing memory descriptor");
+			USBTrace( kUSBTController, kTPControllerClearTTHandler, (uintptr_t)me, 0, 0, 4 );
 		}
 		USBLog(5,"clearTTHandler: We've already seen the setup, deallocate command (%p)", command);
 		me->_freeUSBCommandPool->returnCommand(command);   
@@ -203,8 +211,12 @@ IOUSBControllerV2::clearTTHandler(OSObject *target, void *parameter, IOReturn st
     if ((status != kIOReturnSuccess) && (status != kIOUSBTransactionReturned))
     {
 		USBLog(1, "%s[%p]::clearTTHandler - error response from hub, clearing hub endpoint stall", me->getName(), me);
+		USBTrace( kUSBTController, kTPControllerClearTTHandler, (uintptr_t)me, status, 0, 5 );
+		
 		me->UIMClearEndpointStall(hubAddr, 0, kUSBAnyDirn);
     }
+
+	USBTrace_End( kUSBTController, kTPControllerClearTTHandler, (uintptr_t)me, 0, 0, 0 );
 }
 
 
@@ -223,10 +235,13 @@ IOUSBControllerV2::ClearTT(USBDeviceAddress fnAddress, UInt8 endpt, Boolean IN)
 	IODMACommand				*dmaCommand = NULL;
 	
     USBLog(5,"+%s[%p]::ClearTT", getName(), this);
+	USBTrace_Start( kUSBTController, kTPControllerClearTT, (uintptr_t)this, fnAddress, endpt, IN );
+	
     hubAddress = _highSpeedHub[fnAddress];	// Address of its controlling hub.
     if(hubAddress == 0)	// Its not a high speed device, it doesn't need a clearTT
     {
 		USBLog(1,"-%s[%p]::ClearTT high speed device, returning", getName(), this);
+		USBTrace( kUSBTController, kTPControllerClearTT, (uintptr_t)this, 0, 0, 1 );
 		return;
     }
 	
@@ -234,6 +249,7 @@ IOUSBControllerV2::ClearTT(USBDeviceAddress fnAddress, UInt8 endpt, Boolean IN)
 	if (!memDesc)
 	{
 		USBLog(1,"%s[%p]::ClearTT Could not get a memory descriptor",getName(),this);
+		USBTrace( kUSBTController, kTPControllerClearTT, (uintptr_t)this, 0, 0, 2 );
 		return;
 	}
 
@@ -246,6 +262,7 @@ IOUSBControllerV2::ClearTT(USBDeviceAddress fnAddress, UInt8 endpt, Boolean IN)
 		if ( clearCommand == NULL )
 		{
 			USBLog(1,"%s[%p]::ClearTT Could not get a IOUSBCommand",getName(),this);
+			USBTrace( kUSBTController, kTPControllerClearTT, (uintptr_t)this, 0, 0, 3 );
 			memDesc->release();
 			return;
 		}
@@ -256,6 +273,7 @@ IOUSBControllerV2::ClearTT(USBDeviceAddress fnAddress, UInt8 endpt, Boolean IN)
 	if (!dmaCommand)
 	{
 		USBError(1,"%s[%p]::ClearTT - No dmaCommand in the usb command", getName(), this);
+		USBTrace( kUSBTController, kTPControllerClearTT, (uintptr_t)this, 0, 0, 4 );
 		return;
 	}
 	
@@ -272,6 +290,7 @@ IOUSBControllerV2::ClearTT(USBDeviceAddress fnAddress, UInt8 endpt, Boolean IN)
     if (!clearRequest)
     {
 		USBLog(1,"%s[%p]::ClearTT Could not get a IOUSBDevRequest", getName(), this);
+		USBTrace( kUSBTController, kTPControllerClearTT, (uintptr_t)this, 0, 0, 5 );
 		_freeUSBCommandPool->returnCommand(clearCommand);
 		return;
     }
@@ -359,7 +378,10 @@ IOUSBControllerV2::ClearTT(USBDeviceAddress fnAddress, UInt8 endpt, Boolean IN)
     if (err)
     {
 		USBLog(1, "%s[%p]::ClearTT - error 0x%x returned from ControlTransaction", getName(), this, err);
+		USBTrace( kUSBTController, kTPControllerClearTT, (uintptr_t)this, err, 0, 6 );
     }
+	
+	USBTrace_End( kUSBTController, kTPControllerClearTT, (uintptr_t)this, 0, 0, 0);
 }
 
 
@@ -378,6 +400,7 @@ IOUSBControllerV2::DoCreateEP(OSObject *owner,
 							  void *arg0, void *arg1,
 							  void *arg2, void *arg3)
 {
+#pragma unused (arg3)
     IOUSBControllerV2 *me = (IOUSBControllerV2 *)owner;
     UInt8 address = (UInt8)(uintptr_t)arg0;
     UInt8 speed = (UInt8)(uintptr_t)arg1;
@@ -385,8 +408,10 @@ IOUSBControllerV2::DoCreateEP(OSObject *owner,
     IOReturn err;
 	
     USBLog(5,"%s[%p]::DoCreateEP, high speed ancestor hub:%d, port:%d", me->getName(), me, me->_highSpeedHub[address], me->_highSpeedPort[address]);
+
+	USBTrace_Start( kUSBTController, kTPControllerDoCreateEP, (uintptr_t)me, me->_highSpeedHub[address], me->_highSpeedPort[address], endpoint->transferType );
 	
-    switch (endpoint->transferType)
+	switch (endpoint->transferType)
     {
         case kUSBInterrupt:
             err = me->UIMCreateInterruptEndpoint(address,
@@ -431,6 +456,7 @@ IOUSBControllerV2::DoCreateEP(OSObject *owner,
 						   "(see Table 9-13), but the illegal interval %d [0x%x] was requested, returning kIOReturnBadArgument", 
 						   me->getName(), me, endpoint->interval, endpoint->interval);
 					err = kIOReturnBadArgument;
+					USBTrace( kUSBTController, kTPControllerDoCreateEP, (uintptr_t)me, err, endpoint->interval, 0);
 					break;
 				}
 
@@ -467,6 +493,9 @@ IOUSBControllerV2::DoCreateEP(OSObject *owner,
             err = kIOReturnBadArgument;
             break;
     }
+
+	USBTrace_End( kUSBTController, kTPControllerDoCreateEP, (uintptr_t)me, err, 0, 0 );	
+	
     return (err);
 }
 
@@ -544,7 +573,8 @@ IOUSBControllerV2::ConfigureDeviceZero(UInt8 maxPacketSize, UInt8 speed, USBDevi
 IOReturn
 IOUSBControllerV2::DOHSHubMaintenance(OSObject *owner, void *arg0, void *arg1, void *arg2, void *arg3)
 {
-    IOUSBControllerV2 *me = (IOUSBControllerV2 *)owner;
+#pragma unused (arg3)
+   IOUSBControllerV2 *me = (IOUSBControllerV2 *)owner;
     USBDeviceAddress highSpeedHub = (USBDeviceAddress)(uintptr_t)arg0;
     UInt32 command = (uintptr_t)arg1;
     UInt32 flags = (uintptr_t)arg2;
@@ -564,6 +594,7 @@ IOUSBControllerV2::DOHSHubMaintenance(OSObject *owner, void *arg0, void *arg1, v
 IOReturn
 IOUSBControllerV2::DOSetTestMode(OSObject *owner, void *arg0, void *arg1, void *arg2, void *arg3)
 {
+#pragma unused (arg2, arg3)
     IOUSBControllerV2 *me = (IOUSBControllerV2 *)owner;
     UInt32 mode = (uintptr_t)arg0;
     UInt32 port = (uintptr_t)arg1;
@@ -589,6 +620,7 @@ OSMetaClassDefineReservedUsed(IOUSBControllerV2,  1);
 IOReturn 		
 IOUSBControllerV2::UIMHubMaintenance(USBDeviceAddress highSpeedHub, UInt32 highSpeedPort, UInt32 command, UInt32 flags)
 {
+#pragma unused (highSpeedHub, highSpeedPort, command, flags)
     return kIOReturnUnsupported;			// not implemented
 }
 
@@ -615,6 +647,7 @@ OSMetaClassDefineReservedUsed(IOUSBControllerV2,  4);
 IOReturn 		
 IOUSBControllerV2::UIMSetTestMode(UInt32 mode, UInt32 port)
 {
+#pragma unused (mode, port)
     return kIOReturnUnsupported;			// not implemented
 }
 
@@ -633,11 +666,12 @@ IOUSBControllerV2::ReadV2(IOMemoryDescriptor *buffer, USBDeviceAddress address, 
     IOUSBCommand			*command;
     IOUSBCompletion			nullCompletion;
     IOUSBCompletion			theCompletion;
-    IOUSBCompletionAction 	theAction;
 	IODMACommand			*dmaCommand = NULL;
     int						i;
 	
     USBLog(7, "%s[%p]::ReadV2 - reqCount = %d", getName(), this, (uint32_t)reqCount);
+	
+	// USBTrace_Start( kUSBTController, kTPControllerReadV2, (uintptr_t)this, address, endpoint->direction, reqCount );
 	
     // Validate its a inny pipe and that there is a buffer
     if ((endpoint->direction != kUSBIn) || !buffer || (buffer->getLength() < reqCount))
@@ -769,6 +803,7 @@ IOUSBControllerV2::ReadV2(IOMemoryDescriptor *buffer, USBDeviceAddress address, 
 			if (nullCompletion.action)
 			{
 				USBLog(1, "%s[%p]::ReadV2 - SYNC xfer or immediate error with Disjoint Completion", getName(), this);
+				USBTrace( kUSBTController, kTPControllerReadV2, (uintptr_t)this, err, 0, 1 );
 			}
 			if (memDesc)
 			{
@@ -793,6 +828,8 @@ IOUSBControllerV2::ReadV2(IOMemoryDescriptor *buffer, USBDeviceAddress address, 
 		_freeUSBCommandPool->returnCommand(command);
 	}
 	
+	// USBTrace_End( kUSBTController, kTPControllerReadV2, (uintptr_t)this, err);
+	
     return err;
 }
 
@@ -803,6 +840,7 @@ OSMetaClassDefineReservedUsed(IOUSBControllerV2,  8);
 IOReturn
 IOUSBControllerV2::UIMCreateIsochEndpoint(short functionAddress, short endpointNumber, UInt32 maxPacketSize, UInt8 direction, USBDeviceAddress	highSpeedHub, int highSpeedPort, UInt8 interval)
 {
+#pragma unused (interval)
 	// this is the "default implementation of UIMCreateIsochEndpoint for UIMs which don't implement it.
 	// In those cases the interval parameter is ignored
 	return UIMCreateIsochEndpoint(functionAddress, endpointNumber, maxPacketSize, direction, highSpeedHub, highSpeedPort);
@@ -866,7 +904,6 @@ IOUSBControllerV2::CreateIsochronousEndpoint(short					functionAddress,
 											 short 					direction)
 {
     IOUSBControllerIsochEndpoint*			pEP;
-	int										i;
     
     USBLog(4, "+%s[%p]::CreateIsochronousEndpoint (%d:%d:%d)", getName(), this, functionAddress, endpointNumber, direction);
 	pEP = _freeIsochEPList;
@@ -1083,8 +1120,11 @@ IOUSBControllerV2::ReturnIsochDoneQueue(IOUSBControllerIsochEndpoint* pEP)
     IOUSBControllerIsochListElement		*pTD = GetTDfromDoneQueue(pEP);
     IOUSBIsocFrame						*pFrames = NULL;
 	IOUSBIsocCompletionAction			pHandler;
+	uint32_t							busFunctEP;
 	
     USBLog(7, "IOUSBControllerV2[%p]::ReturnIsocDoneQueue (%p)", this, pEP);
+	USBTrace_Start( kUSBTController, kTPControllerReturnIsochDoneQueue, (uintptr_t)this, (uintptr_t)pEP, (uintptr_t)pTD, 0 );
+	
     if (pTD)
     {
 		pFrames = pTD->_pFrames;
@@ -1098,32 +1138,37 @@ IOUSBControllerV2::ReturnIsochDoneQueue(IOUSBControllerIsochEndpoint* pEP)
 		USBLog(7, "IOUSBControllerV2[%p]::ReturnIsocDoneQueue: TD %p", this, pTD); 
 		if( pTD->_completion.action != NULL)
 		{
-			
+			busFunctEP = ((_busNumber << 16 ) | ( pEP->functionAddress << 8) | (pEP->endpointNumber) );
 			pHandler = pTD->_completion.action;
 			pTD->_completion.action = NULL;
 				
 			if (pEP->accumulatedStatus == kIOUSBBufferUnderrunErr)
 			{
 				USBLog(1, "IOUSBControllerV2[%p]::ReturnIsocDoneQueue - kIOReturnBufferUnderrunErr (PCI issue perhaps)  Bus: %x, Address: %d, Endpoint: %d", this, (uint32_t)_busNumber, pEP->functionAddress,  pEP->endpointNumber);
+				USBTrace( kUSBTController, kTPControllerReturnIsochDoneQueue, (uint32_t)_busNumber, pEP->functionAddress,  pEP->endpointNumber, 1);
 			}
 			if (pEP->accumulatedStatus == kIOUSBBufferOverrunErr)
 			{
 				USBLog(1, "IOUSBControllerV2[%p]::ReturnIsocDoneQueue - kIOReturnBufferOverrunErr (PCI issue perhaps)  Bus: %x, Address: %d, Endpoint: %d", this, (uint32_t)_busNumber, pEP->functionAddress,  pEP->endpointNumber);
+				USBTrace( kUSBTController, kTPControllerReturnIsochDoneQueue, (uint32_t)_busNumber, pEP->functionAddress,  pEP->endpointNumber, 2);
 			}
 			if ((pEP->accumulatedStatus == kIOReturnOverrun) && (pEP->direction == kUSBIn))
 			{
 				USBLog(1, "IOUSBControllerV2[%p]::ReturnIsocDoneQueue - kIOReturnOverrun on IN - device babbling?  Bus: %x, Address: %d, Endpoint: %d", this, (uint32_t)_busNumber, pEP->functionAddress,  pEP->endpointNumber);
+				USBTrace( kUSBTController, kTPControllerReturnIsochDoneQueue, (uint32_t)_busNumber, pEP->functionAddress,  pEP->endpointNumber, 3);
 			}
 
 			USBLog(7, "IOUSBControllerV2[%p]::ReturnIsocDoneQueue- TD (%p) calling handler[%p](target: %p, comp.param: %p, status: %p (%s), pFrames: %p)  Bus: %x, Address: %d, Endpoint: %d", this, pTD,
 																pHandler, pTD->_completion.target, pTD->_completion.parameter, (void*)pEP->accumulatedStatus, USBStringFromReturn(pEP->accumulatedStatus), pFrames, (uint32_t)_busNumber, pEP->functionAddress,  pEP->endpointNumber);
 			
+			USBTrace( kUSBTController, kTPControllerReturnIsochDoneQueue, (uint32_t)busFunctEP, (uintptr_t)pHandler, (uint32_t)pEP->accumulatedStatus, 5);
 			(*pHandler) (pTD->_completion.target,  pTD->_completion.parameter, pEP->accumulatedStatus, pFrames);
 			
 			_activeIsochTransfers--;
 			if ( _activeIsochTransfers < 0 )
 			{
 				USBLog(1, "IOUSBControllerV2[%p]::ReturnIsocDoneQueue - _activeIsochTransfers went negative (%d).  We lost one somewhere  Bus: %x, Address: %d, Endpoint: %d", this, (uint32_t)_activeIsochTransfers, (uint32_t)_busNumber, pEP->functionAddress,  pEP->endpointNumber);
+				USBTrace( kUSBTController, kTPControllerReturnIsochDoneQueue, (uint32_t)_busNumber, pEP->functionAddress,  pEP->endpointNumber,  4);
 			}
 			else if (!_activeIsochTransfers && (_expansionData->_isochMaxBusStall != 0))
 				requireMaxBusStall(0);										// remove maximum stall restraint on the PCI bus
@@ -1150,7 +1195,8 @@ IOUSBControllerV2::ReturnIsochDoneQueue(IOUSBControllerIsochEndpoint* pEP)
 			pTD = GetTDfromDoneQueue(pEP);
 		}
     }
-    
+	
+	USBTrace_End( kUSBTController, kTPControllerReturnIsochDoneQueue, (uintptr_t)this, 0, 0, 0);
 }
 
 
@@ -1181,6 +1227,7 @@ OSMetaClassDefineReservedUsed(IOUSBControllerV2,  22);
 IOReturn
 IOUSBControllerV2::GetFrameNumberWithTime(UInt64* frameNumber, AbsoluteTime *theTime)
 {
+#pragma unused (frameNumber, theTime)
 	return kIOReturnUnsupported;
 }
 

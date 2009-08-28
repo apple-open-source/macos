@@ -1,32 +1,36 @@
-Ajuda per a la llista de correus %(listname)s :
+Ajuda de la llista de correu %(listname)s:
 
-Això és 'email command help' per la versió %(version)s del gestionador de llista "Mailman".
-El següent descriu ordres que pot enviar per rebre'n informació i controlar la seva subscripció
-a les llistes Mailman en aquest lloc. Una ordre pot estar en el títol o en el cos del missatge.
+AixÃ² Ã©s l'ajuda de les ordres de correu per a la versiÃ³ %(version)s del
+gestor de llistes Â«MailmanÂ».  A continuaciÃ³ es descriuen les ordres que
+podeu enviar per a obtenir informaciÃ³ sobre la vostra subscripciÃ³ i
+controlar les subscripcions a les llistes de correu del Mailman d'aquest
+lloc.  Les ordres poden aparÃ¨ixer a la lÃ­nia de l'assumpte o bÃ© en el
+cos del missatge.
 
-
-
-Fixi's que gran part d'això es pot fer via 'worl wide web' a:
-
+La majoria del que es descriu a continuaciÃ³ tambÃ© es pot dur a terme a
+travÃ©s d'Internet a:
 
     %(listinfo_url)s
 
-En concret, pot usar la web per enviar la seva clau de pas a la seva adreça.
+En concret, podeu utilitzar el lloc web per a rebre la vostra
+contrasenya a la vostra adreÃ§a de destinaciÃ³.
 
-Les ordres específiques de la llista (subscriure's, qui, etc) hauran de ser enviades a
+Les ordres especÃ­fiques de la llista (subscribe, who, etc) s'haurien
+d'enviar a l'adreÃ§a *-request de la llista corresponent. Per exemple, a
+la llista Â«mailmanÂ» haurÃ­eu d'utilitzar l'adreÃ§a Â«mailman-request@...Â».
 
-*-adreça de petició per a la llista en particular, per exemple, per a la llista Mailman,
-usi 'mailman-request@...'.
+En quant a les descripcions, les paraules entre els signes <> fan
+referÃ¨ncia a elements OBLIGATORIS, mentre que les paraules entre els
+claudÃ tors [] es refereixen a elements OPCIONALS.  No inclogueu els
+sÃ­mbols <> o [] en utilitzar les ordres.
 
-Sobre les descripcions - les paraules escrites entre "<>"s signifiquen ítems SOLICITATS i les 
-paraules escrites entre "[]"s denoten ítems OPCIONALS. No inclogui els signes "<>"s o "[]"s quan usi les ordres.
-
-Les següents ordres són vàlides:
+Les ordres segÃ¼ents sÃ³n vÃ lides:
 
     %(commands)s
 
-Les ordres haurien de ser enviades a %(requestaddr)s
+Les ordres s'han d'enviar a %(requestaddr)s
 
-Les Preguntes y preocupacions per l'atenció d'una persona hauran de ser enviades a
+Les preguntes i tot allÃ² que requereixi l'atenciÃ³ d'una persona s'han
+d'enviar a
 
     %(adminaddr)s

@@ -1,0 +1,23 @@
+Isto é un lembranza que se envía mensualmente sobre as
+subscricións ás roldas de distribución que ten en
+%(hostname)s. Inclúe información que se pode empregar para 
+cambiar as súas opcións de subscrición así como para darse de
+baixa dunha rolda.
+
+Pode visitar os URL para mudar a configuración das
+subscricións, darse de baixa ou desactivar a recepción das
+mensaxes (por exemplo durante as vacacións).
+
+Ademáis dos URL, tamén pode empregar o correo electrónico para
+realizar as ditas mudanzas. Se precisar máis información, envíe unha
+mensaxe ao enderezo de solicitudes ('-request') da rolda
+(por exemplo, %(exreq)s) coa palabra
+'help' no asunto ou no corpo da mensaxe e 
+recibirá unha mensaxe con instrucións.
+
+Se tiver algunha pregunta, problema, comentario
+etc. envíeo ao enderezo %(owner)s.
+
+Grazas
+
+Chaves que se corresponden ao enderezo %(useraddr)s:

@@ -1,9 +1,9 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2006, International Business Machines Corporation and
+ * Copyright (c) 1997-2008, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
-/********************************************************************************
+/*******************************************************************************
 *
 * File CRESTST.C
 *
@@ -11,7 +11,7 @@
 *        Name              Date               Description
 *   Madhu Katragadda    05/09/2000   Ported Tests for New ResourceBundle API
 *   Madhu Katragadda    05/24/2000   Added new tests to test RES_BINARY for collationElements
-*********************************************************************************
+********************************************************************************
 */
 
 
@@ -341,9 +341,9 @@ static void TestAliasConflict(void) {
         log_err("Failed to get resource with %s\n", myErrorName(status));
     }
     ures_close(iw);
-    result = ures_getStringByKey(he, "localPatternChars", &resultLen, &status);
+    result = ures_getStringByKey(he, "ExemplarCharacters", &resultLen, &status);
     if(U_FAILURE(status) || result == NULL) { 
-        log_err("Failed to get resource localPatternChars with %s\n", myErrorName(status));
+        log_err("Failed to get resource ExemplarCharacters with %s\n", myErrorName(status));
     }
     ures_close(he);
 
@@ -424,7 +424,7 @@ static void TestDecodedBundle(){
 #if UCONFIG_NO_LEGACY_CONVERSION
         log_info("Couldn't load iscii.bin from test data bundle, (because UCONFIG_NO_LEGACY_CONVERSION  is turned on)\n");
 #else
-        log_err("Could not find iscii.bin from test data bundle. Error: %s\n", u_errorName(error));
+        log_data_err("Could not find iscii.bin from test data bundle. Error: %s\n", u_errorName(error));
 #endif
         ures_close(resB);
         return;
@@ -465,7 +465,7 @@ static void TestNewTypes() {
 
     if(U_FAILURE(status))
     {
-        log_err("Could not load testdata.dat %s \n",myErrorName(status));
+        log_data_err("Could not load testdata.dat %s \n",myErrorName(status));
         return;
     }
 
@@ -634,7 +634,7 @@ static void TestNewTypes() {
         expect ="test message ....";
         u_charsToUChars(expect,uExpect,(int32_t)strlen(expect)+1);
         CONFIRM_ErrorCode(status, U_ZERO_ERROR);
-        if(u_strcmp(uExpect,str)){
+        if(str == NULL || u_strcmp(uExpect,str)){
             log_err("Did not get the expected string for test_underscores.\n");
         }
     }
@@ -763,7 +763,7 @@ static void TestEmptyTypes() {
     testdatapath=loadTestData(&status);
     if(U_FAILURE(status))
     {
-        log_err("Could not load testdata.dat %s \n",myErrorName(status));
+        log_data_err("Could not load testdata.dat %s \n",myErrorName(status));
         return;
     }
     
@@ -897,7 +897,7 @@ static void TestEmptyBundle(){
     testdatapath=loadTestData(&status);
     if(U_FAILURE(status))
     {
-        log_err("Could not load testdata.dat %s \n",myErrorName(status));
+        log_data_err("Could not load testdata.dat %s \n",myErrorName(status));
         return;
     }
     resb = ures_open(testdatapath, "testempty", &status);
@@ -932,7 +932,7 @@ static void TestBinaryCollationData(){
     testdatapath=loadTestData(&status);
     if(U_FAILURE(status))
     {
-        log_err("Could not load testdata.dat %s \n",myErrorName(status));
+        log_data_err("Could not load testdata.dat %s \n",myErrorName(status));
         return;
     }
 
@@ -990,7 +990,7 @@ static void TestAPI() {
     testdatapath=loadTestData(&status);
     if(U_FAILURE(status))
     {
-        log_err("Could not load testdata.dat %s \n",myErrorName(status));
+        log_data_err("Could not load testdata.dat %s \n",myErrorName(status));
         return;
     }
     len =(int32_t)strlen(testdatapath);
@@ -1152,7 +1152,7 @@ static void TestErrorConditions(){
     testdatapath = loadTestData(&status);
     if(U_FAILURE(status))
     {
-        log_err("Could not load testdata.dat %s \n",myErrorName(status));
+        log_data_err("Could not load testdata.dat %s \n",myErrorName(status));
         return;
     }
     len = (int32_t)strlen(testdatapath);
@@ -1362,7 +1362,7 @@ static void TestErrorConditions(){
 
 static void TestGetVersion(){
     UVersionInfo minVersionArray = {0x01, 0x00, 0x00, 0x00};
-    UVersionInfo maxVersionArray = {0x50, 0x80, 0xcf, 0xcf};
+    UVersionInfo maxVersionArray = {0x50, 0xff, 0xcf, 0xcf};
     UVersionInfo versionArray;
     UErrorCode status= U_ZERO_ERROR;
     UResourceBundle* resB = NULL; 
@@ -1456,6 +1456,12 @@ static void TestGetVersionColl(){
 
 static void TestResourceBundles()
 {
+    UErrorCode status = U_ZERO_ERROR;
+    loadTestData(&status);
+    if(U_FAILURE(status)) {
+        log_data_err("Could not load testdata.dat, status = %s\n", u_errorName(status));
+        return;
+    }
 
     testTag("only_in_Root", TRUE, FALSE, FALSE);
     testTag("in_Root_te", TRUE, TRUE, FALSE);
@@ -1495,7 +1501,7 @@ static void TestConstruction1()
     testdatapath=loadTestData(&status);
     if(U_FAILURE(status))
     {
-        log_err("Could not load testdata.dat %s \n",myErrorName(status));
+        log_data_err("Could not load testdata.dat %s \n",myErrorName(status));
         return;
     }
     
@@ -1594,7 +1600,7 @@ static UBool testTag(const char* frag,
     testdatapath = loadTestData(&status);
     if(U_FAILURE(status))
     {
-        log_err("Could not load testdata.dat %s \n",myErrorName(status));
+        log_data_err("Could not load testdata.dat %s \n",myErrorName(status));
         return FALSE;
     }
 
@@ -2049,7 +2055,7 @@ static void TestFallback()
         UResourceBundle* resLocID = ures_getByKey(myResB, "Version", NULL, &err);
         UResourceBundle* tResB;
         const UChar* version = NULL;
-        static const UChar versionStr[] = { 0x0031, 0x002E, 0x0033, 0x0037, 0x0000};
+        static const UChar versionStr[] = { 0x0031, 0x002E, 0x0034, 0x0035, 0x0000};
 
         if(err != U_ZERO_ERROR){
             log_data_err("Expected U_ZERO_ERROR when trying to test no_NO_NY aliased to nn_NO for Version err=%s\n",u_errorName(err));
@@ -2057,7 +2063,12 @@ static void TestFallback()
         }
         version = tres_getString(resLocID, -1, NULL, &resultLen, &err);
         if(u_strcmp(version, versionStr) != 0){
-            log_data_err("ures_getString(resLocID, &resultLen, &err) returned an unexpected version value\n");
+            char x[100];
+            char g[100];
+            u_austrcpy(x, versionStr);
+            u_austrcpy(g, version);
+            log_data_err("ures_getString(resLocID, &resultLen, &err) returned an unexpected version value. Expected '%s', but got '%s'\n",
+                    x, g);
         }
         tResB = ures_getByKey(myResB, "zoneStrings", NULL, &err);
         if(err != U_USING_FALLBACK_WARNING){
@@ -2092,7 +2103,7 @@ static void TestResourceLevelAliasing(void) {
     testdatapath=loadTestData(&status);
     if(U_FAILURE(status))
     {
-        log_err("Could not load testdata.dat %s \n",myErrorName(status));
+        log_data_err("Could not load testdata.dat %s \n",myErrorName(status));
         return;
     }
     
@@ -2100,7 +2111,7 @@ static void TestResourceLevelAliasing(void) {
 
     if(U_FAILURE(status))
     {
-        log_err("Could not load testaliases.res %s \n",myErrorName(status));
+        log_data_err("Could not load testaliases.res %s \n",myErrorName(status));
         return;
     }
     /* this should fail - circular alias */
@@ -2174,7 +2185,7 @@ static void TestResourceLevelAliasing(void) {
             got = tres_getString(tb, -1, "word", &gotLen, &status);
                 
             if(U_FAILURE(status)) {
-                log_err("%s trying to read str boundaries\n");
+                log_err("%s trying to read str boundaries\n", u_errorName(status));
             } else if(gotLen != expLen || u_strncmp(exp, got, gotLen) != 0) {
                 log_err("Referencing alias didn't get the right data\n");
             }
@@ -2295,6 +2306,7 @@ static void TestResourceLevelAliasing(void) {
     tb = ures_getByKey(aliasB, "testAliasToTree", tb, &status);
     if(U_FAILURE(status)){
         log_err("Fetching the resource with key \"testAliasToTree\" failed. Error: %s\n", u_errorName(status));
+        goto cleanup;
     }
     if (strcmp(ures_getKey(tb), "collations") != 0) {
         log_err("ures_getKey(aliasB) unexpectedly returned %s instead of \"collations\"\n", ures_getKey(tb));
@@ -2322,7 +2334,7 @@ static void TestDirectAccess(void) {
     
     t = ures_findResource("/testdata/te/zoneStrings/3/2", t, &status);
     if(U_FAILURE(status)) {
-        log_err("Couldn't access indexed resource, error %s\n", u_errorName(status));
+        log_data_err("Couldn't access indexed resource, error %s\n", u_errorName(status));
         status = U_ZERO_ERROR;
     } else {
         key = ures_getKey(t);
@@ -2332,7 +2344,7 @@ static void TestDirectAccess(void) {
     }
     t = ures_findResource("en/calendar/gregorian/DateTimePatterns/3", t, &status);
     if(U_FAILURE(status)) {
-        log_err("Couldn't access indexed resource, error %s\n", u_errorName(status));
+        log_data_err("Couldn't access indexed resource, error %s\n", u_errorName(status));
         status = U_ZERO_ERROR;
     } else {
         key = ures_getKey(t);
@@ -2343,7 +2355,7 @@ static void TestDirectAccess(void) {
     
     t = ures_findResource("ja/LocaleScript", t, &status);
     if(U_FAILURE(status)) {
-        log_err("Couldn't access keyed resource, error %s\n", u_errorName(status));
+        log_data_err("Couldn't access keyed resource, error %s\n", u_errorName(status));
         status = U_ZERO_ERROR;
     } else {
         key = ures_getKey(t);
@@ -2376,14 +2388,14 @@ static void TestDirectAccess(void) {
 
     t = ures_findResource("root/calendar/islamic-civil/DateTime", t, &status);
     if(U_SUCCESS(status)) {
-        log_err("This resource does not exist. How did it get here?\n");
+        log_data_err("This resource does not exist. How did it get here?\n");
     }
     status = U_ZERO_ERROR;
 
     /* this one will freeze */
     t = ures_findResource("root/calendar/islamic-civil/eras/abbreviated/0/mikimaus/pera", t, &status);
     if(U_SUCCESS(status)) {
-        log_err("Second resource does not exist. How did it get here?\n");
+        log_data_err("Second resource does not exist. How did it get here?\n");
     }
     status = U_ZERO_ERROR;
 
@@ -2442,162 +2454,172 @@ static void TestJB3763(void) {
 }
 
 static void TestGetKeywordValues(void) {
-  UEnumeration *kwVals;
-  UBool foundStandard = FALSE;
-  UErrorCode status = U_ZERO_ERROR;
-  const char *kw;
+    UEnumeration *kwVals;
+    UBool foundStandard = FALSE;
+    UErrorCode status = U_ZERO_ERROR;
+    const char *kw;
 #if !UCONFIG_NO_COLLATION
-  kwVals = ures_getKeywordValues( U_ICUDATA_COLL, "collations", &status);
+    kwVals = ures_getKeywordValues( U_ICUDATA_COLL, "collations", &status);
 
-  log_verbose("Testing getting collation keyword values:\n");
-  
-  while((kw=uenum_next(kwVals, NULL, &status))) {
-    log_verbose("  %s\n", kw);
-    if(!strcmp(kw,"standard")) {
-      if(foundStandard == FALSE) {
-        foundStandard = TRUE;
-      } else {
-        log_err("'standard' was found twice in the keyword list.\n");
-      }
+    log_verbose("Testing getting collation keyword values:\n");
+
+    while((kw=uenum_next(kwVals, NULL, &status))) {
+        log_verbose("  %s\n", kw);
+        if(!strcmp(kw,"standard")) {
+            if(foundStandard == FALSE) {
+                foundStandard = TRUE;
+            } else {
+                log_err("'standard' was found twice in the keyword list.\n");
+            }
+        }
     }
-  }
-  if(foundStandard == FALSE) {
-    log_err("'standard' was not found in the keyword list.\n");
-  }
-  uenum_close(kwVals);
-  if(U_FAILURE(status)) {
-    log_err("err %s getting collation values\n", u_errorName(status));
-  }
-  status = U_ZERO_ERROR;
+    if(foundStandard == FALSE) {
+        log_err("'standard' was not found in the keyword list.\n");
+    }
+    uenum_close(kwVals);
+    if(U_FAILURE(status)) {
+        log_err("err %s getting collation values\n", u_errorName(status));
+    }
+    status = U_ZERO_ERROR;
 #endif
-  foundStandard = FALSE;
-  kwVals = ures_getKeywordValues( "ICUDATA", "calendar", &status);
+    foundStandard = FALSE;
+    kwVals = ures_getKeywordValues( "ICUDATA", "calendar", &status);
 
-  log_verbose("Testing getting calendar keyword values:\n");
-  
-  while((kw=uenum_next(kwVals, NULL, &status))) {
-    log_verbose("  %s\n", kw);
-    if(!strcmp(kw,"japanese")) {
-      if(foundStandard == FALSE) {
-        foundStandard = TRUE;
-      } else {
-        log_err("'japanese' was found twice in the calendar keyword list.\n");
-      }
+    log_verbose("Testing getting calendar keyword values:\n");
+
+    while((kw=uenum_next(kwVals, NULL, &status))) {
+        log_verbose("  %s\n", kw);
+        if(!strcmp(kw,"japanese")) {
+            if(foundStandard == FALSE) {
+                foundStandard = TRUE;
+            } else {
+                log_err("'japanese' was found twice in the calendar keyword list.\n");
+            }
+        }
     }
-  }
-  if(foundStandard == FALSE) {
-    log_err("'japanese' was not found in the calendar keyword list.\n");
-  }
-  uenum_close(kwVals);
-  if(U_FAILURE(status)) {
-    log_err("err %s getting calendar values\n", u_errorName(status));
-  }
+    if(foundStandard == FALSE) {
+        log_err("'japanese' was not found in the calendar keyword list.\n");
+    }
+    uenum_close(kwVals);
+    if(U_FAILURE(status)) {
+        log_err("err %s getting calendar values\n", u_errorName(status));
+    }
 }
 
-static void TestGetFunctionalEquivalentOf(const char *path, const char *resName, const char *keyword, UBool truncate, const char *testCases[]) {
-  int32_t i;
-  for(i=0;testCases[i];i+=3) {
-    UBool expectAvail = (testCases[i][0]=='t')?TRUE:FALSE;
-    UBool gotAvail = FALSE;
-    const char *inLocale = testCases[i+1];
-    const char *expectLocale = testCases[i+2];
-    char equivLocale[256];
-    int32_t len;
-    UErrorCode status = U_ZERO_ERROR;
-    log_verbose("%d:   %c      %s\texpect %s\n",i/3,  expectAvail?'t':'f', inLocale, expectLocale);
-    len = ures_getFunctionalEquivalent(equivLocale, 255, path,
-                                       resName, keyword, inLocale,
-                                       &gotAvail, truncate, &status);
-    if(U_FAILURE(status) || (len <= 0)) {
-      log_err("FAIL: got len %d, err %s  on #%d: %c\t%s\t%s\n",  
-            len, u_errorName(status),
-            i/3,expectAvail?'t':'f', inLocale, expectLocale);
-    } else {
-      log_verbose("got:  %c   %s\n", expectAvail?'t':'f',equivLocale);
-      
-      if((gotAvail != expectAvail) || strcmp(equivLocale, expectLocale)) {
-        log_err("FAIL: got avail=%c, loc=%s but  expected #%d: %c\t%s\t-> loc=%s\n",  
-                gotAvail?'t':'f', equivLocale,
-                i/3,
-                expectAvail?'t':'f', inLocale, expectLocale);
+static void TestGetFunctionalEquivalentOf(const char *path, const char *resName, const char *keyword, UBool truncate, const char * const testCases[]) {
+    int32_t i;
+    for(i=0;testCases[i];i+=3) {
+        UBool expectAvail = (testCases[i][0]=='t')?TRUE:FALSE;
+        UBool gotAvail = FALSE;
+        const char *inLocale = testCases[i+1];
+        const char *expectLocale = testCases[i+2];
+        char equivLocale[256];
+        int32_t len;
+        UErrorCode status = U_ZERO_ERROR;
+        log_verbose("%d:   %c      %s\texpect %s\n",i/3,  expectAvail?'t':'f', inLocale, expectLocale);
+        len = ures_getFunctionalEquivalent(equivLocale, 255, path,
+            resName, keyword, inLocale,
+            &gotAvail, truncate, &status);
+        if(U_FAILURE(status) || (len <= 0)) {
+            log_err("FAIL: got len %d, err %s  on #%d: %c\t%s\t%s\n",  
+                len, u_errorName(status),
+                i/3,expectAvail?'t':'f', inLocale, expectLocale);
+        } else {
+            log_verbose("got:  %c   %s\n", expectAvail?'t':'f',equivLocale);
 
-      }
+            if((gotAvail != expectAvail) || strcmp(equivLocale, expectLocale)) {
+                log_err("FAIL: got avail=%c, loc=%s but  expected #%d: %c\t%s\t-> loc=%s\n",  
+                    gotAvail?'t':'f', equivLocale,
+                    i/3,
+                    expectAvail?'t':'f', inLocale, expectLocale);
+
+            }
+        }
     }
-  }
 }
 
 static void TestGetFunctionalEquivalent(void) {
-  static const char *collCases[] = {
-   /*   avail   locale          equiv   */
-        "f",    "de_US_CALIFORNIA",            "de",
-        "t",    "zh_TW@collation=stroke",      "zh@collation=stroke",
-        "f",    "de_CN@collation=pinyin",      "de",
-        "t",    "zh@collation=pinyin",      "zh",
-        "t",    "zh_CN@collation=pinyin",      "zh", /* should be 'T' when validSubLocales works */
-        "t",    "zh_HK@collation=pinyin",      "zh",
-        "t",    "zh_HK@collation=stroke",      "zh@collation=stroke",
-        "t",    "zh_HK",  "zh@collation=stroke",
-        "t",    "zh_MO",  "zh@collation=stroke",
-        "t",    "zh_TW_STROKE",  "zh@collation=stroke",
-        "t",    "zh_TW_STROKE@collation=big5han",  "zh@collation=big5han",
-        "f",    "de_CN@calendar=japanese",     "de",
-        "t",    "de@calendar=japanese",        "de",
-        "t",    "zh_TW@collation=big5han",    "zh@collation=big5han",
-        "t",    "zh_TW@collation=gb2312han", "zh@collation=gb2312han",
-        "t",    "zh_CN@collation=big5han",    "zh@collation=big5han",
-        "t",    "zh_CN@collation=gb2312han", "zh@collation=gb2312han",
-        "t",    "zh@collation=big5han",       "zh@collation=big5han",
-        "t",    "zh@collation=gb2312han",    "zh@collation=gb2312han",
-        "t",    "hi_IN@collation=direct",      "hi@collation=direct",
-        "t",    "hi@collation=standard",      "hi",
-        "t",    "hi@collation=direct",      "hi@collation=direct",
-        "f",    "hi_AU@collation=direct;currency=CHF;calendar=buddhist",   "hi@collation=direct",
-        "f",    "hi_AU@collation=standard;currency=CHF;calendar=buddhist",   "hi",
-        "t",    "de_DE@collation=pinyin",      "de", /* bug 4582 tests */
-        "f",    "de_DE_BONN@collation=pinyin", "de",
-        "t",    "nl",                          "root",
-        "t",    "nl_NL",                       "root",
-        "f",    "nl_NL_EEXT",                  "root",
-        "t",    "nl@collation=stroke",         "root",
-        "t",    "nl_NL@collation=stroke",      "root",
-        "f",    "nl_NL_EEXT@collation=stroke", "root",
-       NULL
-  };
+    static const char * const collCases[] = {
+        /*   avail   locale          equiv   */
+        "f",    "de_US_CALIFORNIA",               "de",
+        "f",    "zh_TW@collation=stroke",         "zh@collation=stroke", /* alias of zh_Hant_TW */
+        "t",    "zh_Hant_TW@collation=stroke",    "zh@collation=stroke",
+        "f",    "de_CN@collation=pinyin",         "de",
+        "t",    "zh@collation=pinyin",            "zh",
+        "f",    "zh_CN@collation=pinyin",         "zh", /* alias of zh_Hans_CN */
+        "t",    "zh_Hans_CN@collation=pinyin",    "zh",
+        "f",    "zh_HK@collation=pinyin",         "zh", /* alias of zh_Hant_HK */
+        "t",    "zh_Hant_HK@collation=pinyin",    "zh",
+        "f",    "zh_HK@collation=stroke",         "zh@collation=stroke", /* alias of zh_Hant_HK */
+        "t",    "zh_Hant_HK@collation=stroke",    "zh@collation=stroke",
+        "f",    "zh_HK",                          "zh@collation=stroke", /* alias of zh_Hant_HK */
+        "t",    "zh_Hant_HK",                     "zh@collation=stroke",
+        "f",    "zh_MO",                          "zh@collation=stroke", /* alias of zh_Hant_MO */
+        "t",    "zh_Hant_MO",                     "zh@collation=stroke",
+        "f",    "zh_TW_STROKE",                   "zh@collation=stroke",
+        "f",    "zh_TW_STROKE@collation=big5han", "zh@collation=big5han",
+        "f",    "de_CN@calendar=japanese",        "de",
+        "t",    "de@calendar=japanese",           "de",
+        "f",    "zh_TW@collation=big5han",        "zh@collation=big5han", /* alias of zh_Hant_TW */
+        "t",    "zh_Hant_TW@collation=big5han",   "zh@collation=big5han",
+        "f",    "zh_TW@collation=gb2312han",      "zh@collation=gb2312han", /* alias of zh_Hant_TW */
+        "t",    "zh_Hant_TW@collation=gb2312han", "zh@collation=gb2312han",
+        "f",    "zh_CN@collation=big5han",        "zh@collation=big5han", /* alias of zh_Hans_CN */
+        "t",    "zh_Hans_CN@collation=big5han",   "zh@collation=big5han",
+        "f",    "zh_CN@collation=gb2312han",      "zh@collation=gb2312han", /* alias of zh_Hans_CN */
+        "t",    "zh_Hans_CN@collation=gb2312han", "zh@collation=gb2312han",
+        "t",    "zh@collation=big5han",           "zh@collation=big5han",
+        "t",    "zh@collation=gb2312han",         "zh@collation=gb2312han",
+        "t",    "hi_IN@collation=direct",         "hi@collation=direct",
+        "t",    "hi@collation=standard",          "hi",
+        "t",    "hi@collation=direct",            "hi@collation=direct",
+        "f",    "hi_AU@collation=direct;currency=CHF;calendar=buddhist",      "hi@collation=direct",
+        "f",    "hi_AU@collation=standard;currency=CHF;calendar=buddhist",    "hi",
+        "t",    "de_DE@collation=pinyin",         "de", /* bug 4582 tests */
+        "f",    "de_DE_BONN@collation=pinyin",    "de",
+        "t",    "nl",                             "root",
+        "t",    "nl_NL",                          "root",
+        "f",    "nl_NL_EEXT",                     "root",
+        "t",    "nl@collation=stroke",            "root",
+        "t",    "nl_NL@collation=stroke",         "root",
+        "f",    "nl_NL_EEXT@collation=stroke",    "root",
+        NULL
+    };
 
-  static const char *calCases[] = {
-   /*   avail   locale                       equiv   */
-    "t",    "en_US_POSIX",                   "en_US@calendar=gregorian",
-    "f",    "ja_JP_TOKYO",                   "ja_JP@calendar=gregorian",
-    "f",    "ja_JP_TOKYO@calendar=japanese", "ja@calendar=japanese",
-    "t",    "sr@calendar=gregorian", "sr@calendar=gregorian",
-    "t",    "en", "en@calendar=gregorian",
-    NULL
-  };
-  
+    static const char *calCases[] = {
+        /*   avail   locale                       equiv   */
+        "t",    "en_US_POSIX",                   "en_US@calendar=gregorian",
+        "f",    "ja_JP_TOKYO",                   "ja_JP@calendar=gregorian",
+        "f",    "ja_JP_TOKYO@calendar=japanese", "ja@calendar=japanese",
+        "t",    "sr@calendar=gregorian", "sr@calendar=gregorian",
+        "t",    "en", "en@calendar=gregorian",
+        NULL
+    };
+
 #if !UCONFIG_NO_COLLATION
-  TestGetFunctionalEquivalentOf(U_ICUDATA_COLL, "collations", "collation", TRUE, collCases);
+    TestGetFunctionalEquivalentOf(U_ICUDATA_COLL, "collations", "collation", TRUE, collCases);
 #endif
-  TestGetFunctionalEquivalentOf("ICUDATA", "calendar", "calendar", FALSE, calCases);
+    TestGetFunctionalEquivalentOf("ICUDATA", "calendar", "calendar", FALSE, calCases);
 
 #if !UCONFIG_NO_COLLATION
-  log_verbose("Testing error conditions:\n");
-  {
-    char equivLocale[256] = "???";
-    int32_t len;
-    UErrorCode status = U_ZERO_ERROR;
-    UBool gotAvail = FALSE;
+    log_verbose("Testing error conditions:\n");
+    {
+        char equivLocale[256] = "???";
+        int32_t len;
+        UErrorCode status = U_ZERO_ERROR;
+        UBool gotAvail = FALSE;
 
-    len = ures_getFunctionalEquivalent(equivLocale, 255, U_ICUDATA_COLL,
-                                       "calendar", "calendar", "ar_EG@calendar=islamic", 
-                                       &gotAvail, FALSE, &status);
+        len = ures_getFunctionalEquivalent(equivLocale, 255, U_ICUDATA_COLL,
+            "calendar", "calendar", "ar_EG@calendar=islamic", 
+            &gotAvail, FALSE, &status);
 
-    if(status == U_MISSING_RESOURCE_ERROR) {
-      log_verbose("PASS: Got expected U_MISSING_RESOURCE_ERROR\n");
-    } else {
-      log_err("ures_getFunctionalEquivalent  returned locale %s, avail %c, err %s, but expected U_MISSING_RESOURCE_ERROR \n",
-              equivLocale, gotAvail?'t':'f', u_errorName(status));
+        if(status == U_MISSING_RESOURCE_ERROR) {
+            log_verbose("PASS: Got expected U_MISSING_RESOURCE_ERROR\n");
+        } else {
+            log_err("ures_getFunctionalEquivalent  returned locale %s, avail %c, err %s, but expected U_MISSING_RESOURCE_ERROR \n",
+                equivLocale, gotAvail?'t':'f', u_errorName(status));
+        }
     }
-  }
 #endif
 }
 
@@ -2612,7 +2634,7 @@ static void TestXPath(void) {
     const char *testdatapath=loadTestData(&status);
     if(U_FAILURE(status))
     {
-        log_err("Could not load testdata.dat %s \n",myErrorName(status));
+        log_data_err("Could not load testdata.dat %s \n",myErrorName(status));
         return;
     }
     
@@ -2672,7 +2694,7 @@ static void TestCLDRStyleAliases(void) {
     const char *expects[7] = { "", "a41", "a12", "a03", "ar4" };
     const char *testdatapath=loadTestData(&status);
     if(U_FAILURE(status)) {
-        log_err("Could not load testdata.dat %s \n",myErrorName(status));
+        log_data_err("Could not load testdata.dat %s \n",myErrorName(status));
         return;
     }
     log_verbose("Testing CLDR style aliases......\n");
@@ -2721,21 +2743,21 @@ static void TestFallbackCodes(void) {
   fall = ures_getByKeyWithFallback(r, "tag2", fall, &status);
 
   if(status != U_ZERO_ERROR) {
-    log_err("Expected error code to be U_ZERO_ERROR, got %s\n", u_errorName(status));
+    log_data_err("Expected error code to be U_ZERO_ERROR, got %s\n", u_errorName(status));
     status = U_ZERO_ERROR;
   }
 
   fall = ures_getByKeyWithFallback(r, "tag7", fall, &status);
 
   if(status != U_USING_FALLBACK_WARNING) {
-    log_err("Expected error code to be U_USING_FALLBACK_WARNING, got %s\n", u_errorName(status));
+    log_data_err("Expected error code to be U_USING_FALLBACK_WARNING, got %s\n", u_errorName(status));
   }
   status = U_ZERO_ERROR;
 
   fall = ures_getByKeyWithFallback(r, "tag1", fall, &status);
 
   if(status != U_USING_DEFAULT_WARNING) {
-    log_err("Expected error code to be U_USING_DEFAULT_WARNING, got %s\n", u_errorName(status));
+    log_data_err("Expected error code to be U_USING_DEFAULT_WARNING, got %s\n", u_errorName(status));
   }
   status = U_ZERO_ERROR;
 
@@ -2751,7 +2773,7 @@ static void TestStackReuse(void) {
     UResourceBundle *rb = ures_open(NULL, "en_US", &errorCode);
 
     if(U_FAILURE(errorCode)) {
-        log_err("Could not load en_US locale. status=%s\n",myErrorName(errorCode));
+        log_data_err("Could not load en_US locale. status=%s\n",myErrorName(errorCode));
         return;
     }
     ures_initStackObject(&table);
@@ -2891,7 +2913,7 @@ TestGetUTF8String() {
     status = U_ZERO_ERROR;
     testdatapath = loadTestData(&status);
     if(U_FAILURE(status)) {
-        log_err("Could not load testdata.dat - %s\n", u_errorName(status));
+        log_data_err("Could not load testdata.dat - %s\n", u_errorName(status));
         return;
     }
 

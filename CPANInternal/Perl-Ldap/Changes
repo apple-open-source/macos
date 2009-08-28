@@ -1,0 +1,277 @@
+perl-ldap 0.35 -- Sun Mar 30 13:35:04 CDT 2008
+==============================================
+
+Bug Fixes
+ * Fix wrapping in Net::LDAP::LDIF
+ * Patch from Gergely Santa to allow entries with no attributes in LDIF
+ * Fix modr?dn to fetch values in sclar context
+ * send packets in sizes that IO::Socket::SSL can chew
+ * Avoid attept to use undef as hash reference in ->sync
+ * Ensure Bind.pm presents final server response to SASL object
+
+Enhancements
+ * Added vendorName/vendorVersion (RFC 3045) to root_dse()
+ * add option to support IPv6
+ * Allow Entry->deleted to be called with a single value is well as array ref
+ * Added Net::LDAP::Control::PasswordPolicy to support draft RFC
+
+perl-ldap 0.34 -- Sat Feb 10 17:39:49 CST 2007
+==============================================
+
+Bug Fixes
+  * Improve dealing with mixed case attributes in Net::LDAP::Entry
+  * Documentation fixes & updates
+  * Don't let Net::LDAP->bind() die on SASL errors
+  * Fix case-folding in Net::LDAP::Util::ldap_explode_dn()
+  * Saner default for ldapi socket
+  * Update test suite to work with recent OpenLDAP versions
+  * The usual bunch of typo fixes
+  * Fix escaping on non-ascii characters in Net::LDAP::Filter
+
+Enhancements
+  * Flexible handling of line ends in Net::LDAP::LDIF when reading
+  * Improve writing speed in Net::LDAP::LDIF
+  * Net::LDAP accessor methods for scheme, host, port, URI connected to
+  * New checkcrl option to Net::LDAP->new() to do CRL checking
+  * New package Net::LDAP::Filtermatch for client side filtering
+  * More ASN1 messages handled in Net::LDAP:ASN: IntermediateResponse
+  * Option 'raw' to return Perl UTF-8 strings from queries (requires Perl 5.8)
+  * Support  Active Directory's extendedAttributeInfo schema information
+  * Method to find matchingrule for an attribute in Net::LDAP:Schema
+  * Updated build dependecies: GSSAPI support, ..
+
+
+perl-ldap 0.33 -- Mon Apr 25 08:02:26 CDT 2005
+==============================================
+
+Bug Fixes
+  * Removed superfluous "print" in Net::LDAP::LDIF before _write_attr on writing
+  * Base64 encode any value starting with < in Net::LDAP::LDIF
+  * Documentation updates
+  * Fix case insensitivity issues in contrib/ldifdiff.pl
+
+Enhancements
+  * Added Net::LDAP::Extension::WhoAmI
+  * Added write_version() and handle() methods to Net::LDAP::LDIF
+  * Updated Net::LDAP::Control::ProxyAuth to support new OID from latest rfc-draft
+  * Added contrib/recursive-ldap-delete.pl
+  * Added ability to do case in comparisons to contrib/ldifsort.pl
+  
+
+perl-ldap 0.3202 -- Mon Jul 19 11:44:08 BST 2004
+================================================
+
+Bug Fixes
+  * Fixed case typo in Makefile.PL
+
+perl-ldap 0.3201 -- Wed Jul 14 21:52:59 BST 2004
+
+Bug Fixes
+  * Fixed dependancies in Makefile.PL
+
+perl-ldap 0.32 --
+
+Bug Fixes
+  * Documentation updates
+  * Fixed LDIF output from ldapsearch command
+  * Return an error if no filter is passed to Net::LDAP::filter->parse
+  * Fixed bug handling comments in LDIF parser
+  * Fix to ldapsearch for passing scope with -s
+  * Do not send a fake userid in SASL binds
+  * Net::LDAP::Schema->parse() now returns undef on errors
+
+Enhancements
+  * Added supportedFeatures to the default list of attributes
+    fetched by ->root_dse
+  * Added option to sort attributes in LDIF output, with objectclass
+    being first floowed by all other attributes in alphabetical order
+  * Add escape/unescape filters/DN utility functions
+  * Added support for reading LDIF URL attributes using file://
+  * The socket created by new can now be bound to a local address & port
+  * Any controls returned by the server with each entry as a result from a search
+    are now available in the callback function
+  * Added classes for EntryChange, PersistentSearch and ManageDsaIT controls
+  * Allow options passed to Net::LDAP::Entry-.update to be passed to the
+    Net::LDAP method that is finally called
+
+perl-ldap 0.31  1 Jan 2004
+==========================
+
+* Fixed bug that could cause methods to return an integer instead of an object
+* Fixed bug causing Schema.pm to ignore superior classes that had no attributes
+* Documentation updates
+* Updates to LDIF module
+
+perl-ldap 0.30 17 Oct 2003
+==========================
+
+* Documentation updates
+* Fixed bug checking return value of client_step in bind()
+* Fixed bug in Entry.pm causing method calls on unblessed references
+
+perl-ldap 0.29 24 Jun 2003
+==========================
+
+* Workaround bug in IO::Socket::SSL when startTLS fails
+* Fix reference loop memory leak problem
+* Add a SIGNATURE to the distribution
+* Re-added support for :all in the import list to get all constants
+* New methods error_name, error_text, error_desc added to Message.pm
+
+perl-ldap 0.28 19 May 2003
+==========================
+
+* Net::LDAP::Entry object can now be cloned
+* New class Net::LDAP::RootDSE
+* Net::LDAP->new can now accept URLs for the host
+* Added support for ldapi:
+* Now supports Notice of disconnection
+* Net::LDAP::Constant now implements its own import function, it no
+  longer inherits from Exporter. So :all and /^LDAP_CONTROL/ etc
+  are no longer valid arguments for import. The result is that
+  Net::LDAP::Constant only defined the subs that are needed.
+
+perl-ldap 0.27 27 Jan 2003
+==========================
+
+* Default protocol version is now version 3
+* Fixed support for multiple hosts to be passed to new
+
+perl-ldap 0.26 18 Jul 2002
+==========================
+
+* canonical_dn and ldap_explode_dn have a new implementation.
+* Net::LDAP::DSML reimplemented using XML::SAX
+* Net::LDAP::Schema reimplemented. API needed to change to fix
+  many bugs in previous implementation
+* Added support for version number in Net::LDAP::LDIF
+  (support for fill version still todo)
+
+perl-ldap 0.251 15 May 2002
+===========================
+
+* Added support for Adamson's SASL authentication
+* Both Cyrus SASL and Perl SASL modules are sought
+
+perl-ldap 0.25 29 Oct 2001
+==========================
+
+* Added support for EXTERNAL SASL authentication
+* Caller can now specify attributes to return from root_dse
+* More scripts added to contrib
+* Various bug fixes
+* Caller can now specify sslversion for LDAPS and start_tls
+
+perl-ldap 0.24 17 July 2001
+===========================
+
+* Added support for startTLS
+* Better error checking in Net::LDAP methods
+* VLV control now works
+* Can now use oid or name for the matchingRule in filter extensible matches
+* Major overhaul of LDIF.pm
+* $schema->name2oid is now context sensetive
+* test suite now works with openldap2
+
+perl-ldap 0.23 April 20 2001
+============================
+
+* Fixed bug in Net::LDAP::Filter when the filter contained an escaped *
+* Fixed SASL bind to call challenge with serverSaslCreds
+* Fixed some uninit errors in Net::LDAP::Entry
+* Various documention updates
+* Added Net::LDAP::Util::canonical_dn
+* Net::LDAP::LDIF will now call canonical_dn for any DN which
+  contains non-printable characters
+* Added support for matchingruleuse, ditstructurerules, ditcontentrules
+  and nameForms into Net::LDAP::Schema
+* The ->schema method in Net::LDAP has changed how it finds the
+  schema to return. The new method is more correct, but there may
+  be a possibility that this change has created an incompatability.
+* New control module Net::LDAP::Control::ProxyAuth from
+  Olivier Dubois added
+* Added support for moddn in Net::LDAP::LDIF.
+* Minor fixes to the DSML output (fixing illegal XML.)
+
+
+
+perl-ldap 0.22 September 14 2000
+================================
+
+* Quick release to fix memory problem with 5.6.0
+
+perl-ldap 0.21 September 12 2000
+================================
+
+* Change ->get back to return what 0.19 returned
+* Deprecate ->get in favor of ->get_value
+* Net::LDAP::Schema now supports matchingRules
+* Added experimental onerror option to ->new
+* New FAQ by Clif Harden
+
+perl-ldap 0.20 August 3 2000
+============================
+
+* Added INSTALL and CREDITS files
+* Net::LDAP::Entry ->get and ->attributes methods now support options
+* Added Net::LDAP::DSML from Mark Wilcox
+* Added Net::LDAPS from Chris Ridd
+* Many documentation updates
+* Several fixes to ::Control::* classes, they should now work as intended.
+* Net::LDAP::Entry->get now always returns a scalar result as documented.
+* bin/ldapsearch now requires URI-1.08
+
+perl-ldap 0.19 June 8 2000
+============================
+
+* Fixed bug which caused 2nd and subsequent binds to be anonymous.
+* Fixed bug in moddn.
+* Fix bug which caused a call to ->pop_entry or ->shift_entry
+  to hang forever.
+
+perl-ldap 0.18 May 22 2000
+============================
+
+* Now passes -wc with 5.004, 5.005_03 and 5.6.0
+* Bundle now correctly references Convert::ASN1 instead of
+  the non-existant Convert::ASN
+* Net::LDAP::Filter will now catch the case of unmatched
+  ()'s and return an error
+* as_struct, which was broken in the changeover to Convert::ASN1,
+  now works again.
+
+ KNOWN PROBLEMS
+ --------------
+
+ Test t/02filter.t fails with perl 5.6.0 compiled with threads enabled
+ This is due to a bug in 5.6.0 when compiled with threads, see
+ http://bugs.perl.org/perlbug.cgi?req=tidmids&tidmids=20000409.003&range=32323&format=h
+
+perl-ldap 0.17 May 12 2000
+============================
+
+* Change to use asn_read instead of asn_resc. This seems to have
+  fixed the known problem with 0.16
+* Various bug fixes, see ChangeLog
+
+perl-ldap 0.16 April 27 2000
+============================
+
+* This is the first release which uses Convert::ASN1 instead of
+  Convert::BER. This should show an increase in performance.
+* Added support for LDAPv3 controls. Controls supported are
+  - VirtualListView
+  - Sort
+  - Paged
+* HTML version of the documentation is now included in the
+  distribution
+* Added Bundle::Net::LDAP
+* Net::LDAP->schema can now be told where to search for the schema.
+
+ KNOWN PROBLEMS
+ --------------
+
+  In a pre-release of 0.16 it has been seen that a search result may
+  not contain all entries and $mesg->code will be LDAP_DECODING_ERROR.
+  This has been seen when the client is running on NT or Linux and the
+  server is an Exchange server.

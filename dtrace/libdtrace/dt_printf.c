@@ -1475,11 +1475,19 @@ dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
 		if (func == pfprint_stack && (pfd->pfd_flags & DT_PFCONV_LEFT))
 			width = 0;
 
+#if !defined(__APPLE__)
 		if (width != 0)
 			f += snprintf(f, sizeof (format), "%d", ABS(width));
-
+		
 		if (prec > 0)
 			f += snprintf(f, sizeof (format), ".%d", prec);
+#else
+		if (width != 0)
+			f += snprintf(f, sizeof (format) - (f - format), "%d", ABS(width));
+		
+		if (prec > 0)
+			f += snprintf(f, sizeof (format) - (f - format), ".%d", prec);
+#endif /* __APPLE__ */
 
 		(void) strcpy(f, pfd->pfd_fmt);
 		pfd->pfd_rec = rec;

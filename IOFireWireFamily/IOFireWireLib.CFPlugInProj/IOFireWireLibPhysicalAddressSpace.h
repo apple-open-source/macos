@@ -38,12 +38,6 @@ namespace IOFireWireLib {
 	{
 		typedef ::IOFireWirePhysicalAddressSpaceInterface	Interface ;
 	
-		struct PhysicalSegment
-		{
-			  IOPhysicalAddress location;
-			  IOPhysicalLength  length;
-		} ;
-		
 		public:
 			//
 			// === COM =====================================
@@ -119,7 +113,7 @@ namespace IOFireWireLib {
 			void*							mBackingStore ;
 			FWAddress						mFWAddress ;
 			
-			PhysicalSegment *				mSegments ;
+			FWPhysicalSegment32 *				mSegments ;
 			UInt32							mSegmentCount ;
 	} ;
 }

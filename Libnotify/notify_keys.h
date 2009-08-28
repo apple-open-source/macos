@@ -73,3 +73,9 @@
  * Sent by notifyd when the system's timezone changes.
  */
 #define kNotifyTimeZoneChange "com.apple.system.timezone"
+
+/*
+ * System clock change notification
+ * Sent when a process modifies the system clock using the settimeofday system call.
+ */
+#define kNotifyClockSet "com.apple.system.clock_set"

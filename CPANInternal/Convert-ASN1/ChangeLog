@@ -1,0 +1,413 @@
+Convert::ASN1 0.21 -- Fri Feb  2 20:24:59 CST 2007
+
+Bug Fixes
+ * Fixed problem with indefinite encoding inside an indefinite encoding
+
+Enhancements
+ * Added support for type-local ANY DEFINED BY (patch from Leif Johansson)
+
+Convert::ASN1 0.20 -- Tue Feb 21 18:47:43 CST 2006
+
+Bug Fixes
+ * Fixed issues with decoding when calling script contains use encoding 'utf8'
+ * Allow zero-length timestamps to be extracted
+ * Fix incorrect length encoding for bitstrings
+
+Enhancements
+ * Support encoding bigint's as BCD
+
+
+Convert::ASN1 0.19 -- Mon Apr 18 19:40:32 CDT 2005
+
+Bug Fixes
+  * Fixed reading of packets with indefinite-length encodings
+
+Enhancements
+  * Add support for BCDString
+
+
+
+
+2003-10-08 15:29  Graham Barr
+
+	* lib/Convert/ASN1.pm:
+
+	Release 0.18
+	
+2003-10-08 15:28  Graham Barr
+
+	* MANIFEST, Makefile.PL, t/0-signature.t:
+
+	Use Module::Build to build Makefile and add SIGNATURE
+	
+2003-10-08 13:28  Graham Barr
+
+	* lib/Convert/: ASN1.pm, ASN1/_encode.pm:
+
+	Fix bug in encoding BIT STRINGS where chr() was causing an upgrade to UTF8
+	
+2003-05-12 18:45  Graham Barr
+
+	* lib/Convert/ASN1.pm:
+
+	Release 0.17
+	
+2003-05-12 18:45  Graham Barr
+
+	* MANIFEST:
+
+	Add new tests into MANIFEST
+	
+2003-05-12 18:06  Graham Barr
+
+	* t/funcs.pl:
+
+	Skip rtest if Data::Dumper is not available
+	
+2003-05-07 16:13  Graham Barr
+
+	* parser.y, lib/Convert/ASN1/parser.pm, t/04opt.t, t/funcs.pl:
+
+	Support OPTIONAL on SET OF and SEQUENCE OF
+	
+2003-05-07 10:26  Graham Barr
+
+	* lib/Convert/ASN1/_decode.pm, t/00prim.t:
+
+	Fix OID decoding
+	
+2003-05-06 22:47  Graham Barr
+
+	* t/14any.t:
+
+	Remove duplicate my
+	
+2003-05-06 22:29  Graham Barr
+
+	* parser.y, lib/Convert/ASN1.pm, lib/Convert/ASN1/_decode.pm,
+	lib/Convert/ASN1/_encode.pm, lib/Convert/ASN1/parser.pm, t/14any.t:
+
+	Add support for ANY DEFINED BY
+	Patch from Simon Wilkinson
+	
+2003-05-06 15:17  Graham Barr
+
+	* lib/Convert/ASN1/Debug.pm:
+
+	Fix debug output for OIDs
+	
+2003-05-06 13:40  Graham Barr
+
+	* parser.y, lib/Convert/ASN1.pm, lib/Convert/ASN1.pod,
+	lib/Convert/ASN1/parser.pm, t/08set.t, t/12der.t, t/13utf8.t:
+
+	CER and DER SET encoding
+	
+2003-05-06 12:07  Graham Barr
+
+	* t/13utf8.t, lib/Convert/ASN1.pm, lib/Convert/ASN1/_decode.pm,
+	lib/Convert/ASN1/_encode.pm:
+
+	utf8 support for perl >= 5.8
+	
+2002-08-20 01:00  Graham Barr
+
+	* lib/Convert/ASN1.pm:
+
+	Release 0.16
+	
+2002-08-20 00:59  Graham Barr
+
+	* README, lib/Convert/ASN1.pod:
+
+	Update search.cpan.org link and add CPAN RT email address
+	
+2002-08-20 00:53  Graham Barr
+
+	* t/10choice.t:
+
+	Fix test count
+	
+2002-08-20 00:51  Graham Barr
+
+	* parser.y, lib/Convert/ASN1/_encode.pm,
+	lib/Convert/ASN1/parser.pm, t/10choice.t:
+
+	Fix for nested CHOICEs and tagged CHOICEs in SEQUENCES
+	
+2002-03-25 14:59  Graham Barr
+
+	* t/: 00prim.t, 01tag.t, 02seq.t, 03seqof.t, 04opt.t, 05time.t,
+	06bigint.t, 08set.t, 09contr.t, 11indef.t:
+
+	Add more detail when tests fail
+	
+2002-03-25 09:06  Graham Barr
+
+	* lib/Convert/ASN1/_decode.pm, t/10choice.t, t/11indef.t, MANIFEST:
+
+	Patch from Wolfgang Laun
+	Fix bug in decode when there are nested CHOICEs
+	Add tests t/10choice.t t/11indef.t
+	
+2002-03-25 07:46  Graham Barr
+
+	* lib/Convert/: ASN1.pm, ASN1.pod, ASN1/_decode.pm:
+
+	Patch from Wolfgang Laun
+	Addition of prepare_file and the change prepare to accept a filehandle.
+	POD updates.
+	Fix decode of nested indefinate lengths
+	
+2002-03-25 07:39  Graham Barr
+
+	* mkparse, parser.y, lib/Convert/ASN1/parser.pm:
+
+	Allow '-'s in names and fix an uninit warning in the generated parser
+	
+2002-02-15 06:51  Graham Barr
+
+	* lib/Convert/ASN1/_encode.pm:
+
+	Use ::isa to determine if stash argument is a HASH
+	
+2002-02-10 16:41  Graham Barr
+
+	* MANIFEST, examples/x509decode:
+
+	Added x509decode from Norbert Klasen
+	
+2002-02-10 16:12  Graham Barr
+
+	* lib/Convert/ASN1.pm, lib/Convert/ASN1/_decode.pm,
+	lib/Convert/ASN1/_encode.pm, t/00prim.t, t/03seqof.t:
+
+	Add support for units with one sinlge, unamed entry
+	eg  test ::= INTEGER or list ::= SEQUENCE OF OCTET STRING
+	
+2002-01-22 11:24  Graham Barr
+
+	* README, parser.y, lib/Convert/ASN1.pm, lib/Convert/ASN1.pod,
+	lib/Convert/ASN1/Debug.pm, lib/Convert/ASN1/IO.pm,
+	lib/Convert/ASN1/_decode.pm, lib/Convert/ASN1/_encode.pm,
+	lib/Convert/ASN1/parser.pm:
+
+	Release 0.15
+	
+2002-01-21 20:00  Graham Barr
+
+	* t/06bigint.t:
+
+	Be safer in creating BigInt objects
+	
+2002-01-02 16:56  Graham Barr
+
+	* lib/Convert/ASN1/_encode.pm:
+
+	Change the encode errors to include the hierarchical name of the
+	element in the ASN.1 which is causing the problem
+	
+2002-01-02 16:31  Graham Barr
+
+	* lib/Convert/ASN1.pm:
+
+	Remove unwanted warn statement
+	
+2001-09-25 00:05  Graham Barr
+
+	* lib/Convert/ASN1.pm:
+
+	Better error reporting for encoding
+	
+2001-09-22 01:16  Graham Barr
+
+	* parser.y, lib/Convert/ASN1.pm, lib/Convert/ASN1/Debug.pm,
+	lib/Convert/ASN1/_decode.pm, lib/Convert/ASN1/_encode.pm,
+	lib/Convert/ASN1/parser.pm, t/00prim.t:
+
+	Add support for RELATIVE-OID
+	
+2001-09-22 01:14  Graham Barr
+
+	* t/: 00prim.t, 06bigint.t:
+
+	Move some integer tests that really use bigint from 00prim.t into 06bigint.t
+	
+2001-09-21 23:24  Graham Barr
+
+	* lib/Convert/ASN1.pm, lib/Convert/ASN1/_decode.pm, t/03seqof.t:
+
+	Support for nested SEQUENCE/SET OF's
+	
+2001-09-10 19:03  Graham Barr
+
+	* README, lib/Convert/ASN1.pm:
+
+	Release 0.14
+	
+2001-09-10 15:35  Graham Barr
+
+	* MANIFEST, t/08set.t, t/09contr.t:
+
+	Add tests for contructed elements and SETs
+	
+2001-09-10 15:34  Graham Barr
+
+	* lib/Convert/ASN1/_decode.pm:
+
+	Add support for decoding contructed elements
+	
+2001-09-07 20:04  Graham Barr
+
+	* lib/Convert/: ASN1.pod, ASN1/_decode.pm:
+
+	Implement the decode of SETs
+	
+2001-09-06 18:54  Graham Barr
+
+	* lib/Convert/: ASN1.pm, ASN1/Debug.pm:
+
+	Change asn_dump to putput the correct tag number for long tags
+	and also warn when a length is incorrect
+	
+2001-09-06 18:41  Graham Barr
+
+	* lib/Convert/ASN1/_decode.pm:
+
+	Fix for indefinite decoding
+	
+2001-08-26 08:12  Graham Barr
+
+	* lib/Convert/ASN1.pm:
+
+	Release 0.13
+	
+2001-08-24 15:13  Graham Barr
+
+	* parser.y, lib/Convert/ASN1/parser.pm:
+
+	Remove an unwanted warn statement
+	
+2001-08-01 19:02  Graham Barr
+
+	* lib/Convert/ASN1/_encode.pm, t/00prim.t:
+
+	Fix boundary condition where we switch over to using Math::BigInt to
+	encode integers
+	
+2001-07-31 18:05  Graham Barr
+
+	* MANIFEST, lib/Convert/ASN1.pm:
+
+	Release 0.12
+	
+2001-07-31 18:04  Graham Barr
+
+	* lib/Convert/ASN1/_encode.pm:
+
+	Make sure value passed to enc_integer is treated as a number and not a string
+	
+2001-07-31 18:03  Graham Barr
+
+	* parser.y, lib/Convert/ASN1/parser.pm:
+
+	Report which type cannot be found on error
+	
+2001-06-11 14:13  Graham Barr
+
+	* lib/Convert/ASN1.pm:
+
+	Release 0.11
+	
+2001-06-11 14:04  Graham Barr
+
+	* lib/Convert/ASN1/_decode.pm, t/02seq.t:
+
+	Fix decode of REAL when it is not the last element of a sequence
+	
+2001-04-26 07:52  Graham Barr
+
+	* lib/Convert/ASN1.pm, t/05time.t, t/06bigint.t, t/funcs.pl:
+
+	Fix syntax to be compatible with perl5.004_04
+	Skip bigint tests on 5.004 as they trigger lots of warnings in Math::BigInt
+	
+2001-04-20 07:26  Graham Barr
+
+	* lib/Convert/ASN1.pm, lib/Convert/ASN1/_encode.pm, t/06bigint.t:
+
+	Fix some bigint encoding problems and add some tests
+	
+2001-04-20 00:00  Graham Barr
+
+	* Makefile.PL, lib/Convert/ASN1.pm:
+
+	Release 0.09
+	
+2001-04-19 23:52  Graham Barr
+
+	* MANIFEST, lib/Convert/ASN1.pm, lib/Convert/ASN1.pod,
+	lib/Convert/ASN1/_decode.pm, lib/Convert/ASN1/_encode.pm,
+	t/funcs.pl:
+
+	Added support to use Math::BigInt, Thanks to Benjamin Trott
+	
+2001-04-19 23:50  Graham Barr
+
+	* t/05time.t:
+
+	Tests for UTCTime and GeneralizedTime (The previous was really for bigint tests)
+	
+2001-04-19 23:32  Graham Barr
+
+	* t/06bigint.t:
+
+	Tests for UTCTime and GeneralizedTime
+	
+2001-04-19 20:51  Graham Barr
+
+	* lib/Convert/ASN1/IO.pm:
+
+	Fix error message
+	
+2001-04-19 20:51  Graham Barr
+
+	* lib/Convert/ASN1/_decode.pm:
+
+	Get timezone right when decoding
+	
+2001-04-19 20:51  Graham Barr
+
+	* t/funcs.pl:
+
+	Useful debug enhancements
+	
+2001-02-05 22:36  Graham Barr
+
+	* MANIFEST:
+
+	Removed Convert-ASN1.ppd
+	
+2001-02-05 22:31  Graham Barr
+
+	* lib/Convert/ASN1/parser.pm:
+
+	Added CharacterString UniversalString BMPString
+	
+2001-01-29 22:35  Graham Barr
+
+	* MANIFEST, OldChanges:
+
+	Move perforce changelog aside and now generate with cvs2cl
+	
+2000-05-03 13:24  Graham Barr
+
+	* MANIFEST, Makefile.PL, README, mkparse, parser.y, examples/ldap,
+	examples/ldap-search, lib/Convert/ASN1.pm, lib/Convert/ASN1.pod,
+	lib/Convert/ASN1/Debug.pm, lib/Convert/ASN1/IO.pm,
+	lib/Convert/ASN1/_decode.pm, lib/Convert/ASN1/_encode.pm,
+	lib/Convert/ASN1/parser.pm, t/00prim.t, t/01tag.t, t/02seq.t,
+	t/03seqof.t, t/04opt.t, t/07io.t, t/funcs.pl:
+
+	Initial revision
+	

@@ -1,6 +1,5 @@
-/* APPLE LOCAL file lno */
 /* Array prefetching.
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2005 Free Software Foundation, Inc.
    
 This file is part of GCC.
    
@@ -43,6 +42,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hashtab.h"
 #include "tree-chrec.h"
 #include "tree-scalar-evolution.h"
+#include "toplev.h"
+#include "params.h"
+#include "langhooks.h"
 
 /* This pass inserts prefetch instructions to optimize cache usage during
    accesses to arrays in loops.  It processes loops sequentially and:
@@ -95,7 +97,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    5) We unroll and peel loops so that we are able to satisfy PREFETCH_MOD
       and PREFETCH_BEFORE requirements (within some bounds), and to avoid
       prefetching nonaccessed memory.
-      TODO -- actually implement this.
+      TODO -- actually implement peeling.
       
    6) We actually emit the prefetch instructions.  ??? Perhaps emit the
       prefetch instructions with guards in cases where 5) was not sufficient
@@ -107,17 +109,17 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
       -- make it behave sanely together with the prefetches given by user
 	 (now we just ignore them; at the very least we should avoid
 	 optimizing loops in that user put his own prefetches)
-      -- we assume cache line size allignment of arrays; this could be
+      -- we assume cache line size alignment of arrays; this could be
 	 improved.  */
 
 /* Magic constants follow.  These should be replaced by machine specific
    numbers.  */
 
-/* A number that should rouhgly correspond to the number of instructions
+/* A number that should roughly correspond to the number of instructions
    executed before the prefetch is completed.  */
 
 #ifndef PREFETCH_LATENCY
-#define PREFETCH_LATENCY 50
+#define PREFETCH_LATENCY 200
 #endif
 
 /* Number of prefetches that can run at the same time.  */
@@ -175,9 +177,6 @@ struct mem_ref_group
 {
   tree base;			/* Base of the reference.  */
   HOST_WIDE_INT step;		/* Step of the reference.  */
-  tree group_iv;		/* Induction variable for the group.  */
-  bool issue_prefetch_p;	/* Is there any prefetch issued in the
-				   group?  */
   struct mem_ref *refs;		/* References in the group.  */
   struct mem_ref_group *next;	/* Next group of references.  */
 };
@@ -190,6 +189,8 @@ struct mem_ref_group
 
 struct mem_ref
 {
+  tree stmt;			/* Statement in that the reference appears.  */
+  tree mem;			/* The reference.  */
   HOST_WIDE_INT delta;		/* Constant offset of the reference.  */
   bool write_p;			/* Is it a write?  */
   struct mem_ref_group *group;	/* The group of references it belongs to.  */
@@ -203,7 +204,7 @@ struct mem_ref
   struct mem_ref *next;		/* The next reference in the group.  */
 };
 
-/* Dumps information obout reference REF to FILE.  */
+/* Dumps information about reference REF to FILE.  */
 
 static void
 dump_mem_ref (FILE *file, struct mem_ref *ref)
@@ -232,32 +233,39 @@ static struct mem_ref_group *
 find_or_create_group (struct mem_ref_group **groups, tree base,
 		      HOST_WIDE_INT step)
 {
+  struct mem_ref_group *group;
+
   for (; *groups; groups = &(*groups)->next)
     {
       if ((*groups)->step == step
 	  && operand_equal_p ((*groups)->base, base, 0))
 	return *groups;
+
+      /* Keep the list of groups sorted by decreasing step.  */
+      if ((*groups)->step < step)
+	break;
     }
 
-  (*groups) = xcalloc (1, sizeof (struct mem_ref_group));
-  (*groups)->base = base;
-  (*groups)->step = step;
-  (*groups)->group_iv = NULL_TREE;
-  (*groups)->refs = NULL;
-  (*groups)->next = NULL;
+  group = xcalloc (1, sizeof (struct mem_ref_group));
+  group->base = base;
+  group->step = step;
+  group->refs = NULL;
+  group->next = *groups;
+  *groups = group;
 
-  return *groups;
+  return group;
 }
 
-/* Records a memory reference in GROUP with offset DELTA and write status
-   WRITE_P.  */
+/* Records a memory reference MEM in GROUP with offset DELTA and write status
+   WRITE_P.  The reference occurs in statement STMT.  */
 
 static void
-record_ref (struct mem_ref_group *group, HOST_WIDE_INT delta,
-	    bool write_p)
+record_ref (struct mem_ref_group *group, tree stmt, tree mem,
+	    HOST_WIDE_INT delta, bool write_p)
 {
   struct mem_ref **aref;
 
+  /* Do not record the same address twice.  */
   for (aref = &group->refs; *aref; aref = &(*aref)->next)
     {
       /* It does not have to be possible for write reference to reuse the read
@@ -276,6 +284,8 @@ record_ref (struct mem_ref_group *group, HOST_WIDE_INT delta,
     }
 
   (*aref) = xcalloc (1, sizeof (struct mem_ref));
+  (*aref)->stmt = stmt;
+  (*aref)->mem = mem;
   (*aref)->delta = delta;
   (*aref)->write_p = write_p;
   (*aref)->prefetch_before = PREFETCH_ALL;
@@ -327,9 +337,16 @@ idx_analyze_ref (tree base, tree *index, void *data)
   struct ar_data *ar_data = data;
   tree ibase, step, stepsize;
   HOST_WIDE_INT istep, idelta = 0, imult = 1;
+  affine_iv iv;
 
-  if (!simple_iv (ar_data->loop, ar_data->stmt, *index, &ibase, &step))
+  if (TREE_CODE (base) == MISALIGNED_INDIRECT_REF
+      || TREE_CODE (base) == ALIGN_INDIRECT_REF)
     return false;
+
+  if (!simple_iv (ar_data->loop, ar_data->stmt, *index, &iv, false))
+    return false;
+  ibase = iv.base;
+  step = iv.step;
 
   if (zero_p (step))
     istep = 0;
@@ -349,12 +366,12 @@ idx_analyze_ref (tree base, tree *index, void *data)
   if (cst_and_fits_in_hwi (ibase))
     {
       idelta += int_cst_value (ibase);
-      ibase = fold_convert (TREE_TYPE (ibase), integer_zero_node);
+      ibase = build_int_cst (TREE_TYPE (ibase), 0);
     }
 
-  if (base)
+  if (TREE_CODE (base) == ARRAY_REF)
     {
-      stepsize = TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (base)));
+      stepsize = array_ref_element_size (base);
       if (!cst_and_fits_in_hwi (stepsize))
 	return false;
       imult = int_cst_value (stepsize);
@@ -370,18 +387,20 @@ idx_analyze_ref (tree base, tree *index, void *data)
   return true;
 }
 
-/* Tries to express REF in shape &BASE + STEP * iter + DELTA, where DELTA and
+/* Tries to express REF_P in shape &BASE + STEP * iter + DELTA, where DELTA and
    STEP are integer constants and iter is number of iterations of LOOP.  The
-   reference occurs in statement STMT.  */
+   reference occurs in statement STMT.  Strips nonaddressable component
+   references from REF_P.  */
 
 static bool
-analyze_ref (struct loop *loop, tree ref, tree *base,
+analyze_ref (struct loop *loop, tree *ref_p, tree *base,
 	     HOST_WIDE_INT *step, HOST_WIDE_INT *delta,
 	     tree stmt)
 {
   struct ar_data ar_data;
   tree off;
   HOST_WIDE_INT bit_offset;
+  tree ref = *ref_p;
 
   *step = 0;
   *delta = 0;
@@ -391,13 +410,13 @@ analyze_ref (struct loop *loop, tree ref, tree *base,
       && DECL_NONADDRESSABLE_P (TREE_OPERAND (ref, 1)))
     ref = TREE_OPERAND (ref, 0);
 
+  *ref_p = ref;
+
   for (; TREE_CODE (ref) == COMPONENT_REF; ref = TREE_OPERAND (ref, 0))
     {
       off = DECL_FIELD_BIT_OFFSET (TREE_OPERAND (ref, 1));
       bit_offset = TREE_INT_CST_LOW (off);
-
-      if (bit_offset % BITS_PER_UNIT)
-	abort ();
+      gcc_assert (bit_offset % BITS_PER_UNIT == 0);
       
       *delta += bit_offset / BITS_PER_UNIT;
     }
@@ -421,13 +440,13 @@ gather_memory_references_ref (struct loop *loop, struct mem_ref_group **refs,
   HOST_WIDE_INT step, delta;
   struct mem_ref_group *agrp;
 
-  if (!analyze_ref (loop, ref, &base, &step, &delta, stmt))
+  if (!analyze_ref (loop, &ref, &base, &step, &delta, stmt))
     return;
 
   /* Now we know that REF = &BASE + STEP * iter + DELTA, where DELTA and STEP
      are integer constants.  */
   agrp = find_or_create_group (refs, base, step);
-  record_ref (agrp, delta, write_p);
+  record_ref (agrp, stmt, ref, delta, write_p);
 }
 
 /* Record the suitable memory references in LOOP.  */
@@ -459,9 +478,9 @@ gather_memory_references (struct loop *loop)
 	  lhs = TREE_OPERAND (stmt, 0);
 	  rhs = TREE_OPERAND (stmt, 1);
 
-	  if (TREE_CODE_CLASS (TREE_CODE (rhs)) == 'r')
+	  if (REFERENCE_CLASS_P (rhs))
 	    gather_memory_references_ref (loop, &refs, rhs, false, stmt);
-	  if (TREE_CODE_CLASS (TREE_CODE (lhs)) == 'r')
+	  if (REFERENCE_CLASS_P (lhs))
 	    gather_memory_references_ref (loop, &refs, lhs, true, stmt);
 	}
     }
@@ -506,8 +525,7 @@ prune_ref_by_self_reuse (struct mem_ref *ref)
 static HOST_WIDE_INT
 ddown (HOST_WIDE_INT x, unsigned HOST_WIDE_INT by)
 {
-  if (by <= 0)
-    abort ();
+  gcc_assert (by > 0);
 
   if (x >= 0)
     return x / by;
@@ -714,126 +732,233 @@ prune_by_reuse (struct mem_ref_group *groups)
     prune_group_by_reuse (groups);
 }
 
+/* Returns true if we should issue prefetch for REF.  */
+
+static bool
+should_issue_prefetch_p (struct mem_ref *ref)
+{
+  /* For now do not issue prefetches for only first few of the
+     iterations.  */
+  if (ref->prefetch_before != PREFETCH_ALL)
+    return false;
+
+  return true;
+}
+
 /* Decide which of the prefetch candidates in GROUPS to prefetch.
    AHEAD is the number of iterations to prefetch ahead (which corresponds
    to the number of simultaneous instances of one prefetch running at a
-   time).  */
+   time).  UNROLL_FACTOR is the factor by that the loop is going to be
+   unrolled.  Returns true if there is anything to prefetch.  */
 
-static void
-schedule_prefetches (struct mem_ref_group *groups, unsigned ahead)
+static bool
+schedule_prefetches (struct mem_ref_group *groups, unsigned unroll_factor,
+		     unsigned ahead)
 {
-  unsigned max_prefetches = SIMULTANEOUS_PREFETCHES / ahead;
+  unsigned max_prefetches, n_prefetches;
   struct mem_ref *ref;
+  bool any = false;
+
+  max_prefetches = (SIMULTANEOUS_PREFETCHES * unroll_factor) / ahead;
+  if (max_prefetches > (unsigned) SIMULTANEOUS_PREFETCHES)
+    max_prefetches = SIMULTANEOUS_PREFETCHES;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Max prefetches to issue: %d.\n", max_prefetches);
 
-  /* For now we just take memory references one by one and issue
-     prefetches for as many as possible.  TODO -- select the most
-     profitable prefetches.  */
-
   if (!max_prefetches)
-    return;
+    return false;
+
+  /* For now we just take memory references one by one and issue
+     prefetches for as many as possible.  The groups are sorted
+     starting with the largest step, since the references with
+     large step are more likely to cause many cache misses.  */
 
   for (; groups; groups = groups->next)
     for (ref = groups->refs; ref; ref = ref->next)
       {
-	/* For now do not issue prefetches for only first few of the
-	   iterations.  */
-	if (ref->prefetch_before != PREFETCH_ALL)
+	if (!should_issue_prefetch_p (ref))
 	  continue;
 
 	ref->issue_prefetch_p = true;
-	groups->issue_prefetch_p = true;
-	max_prefetches--;
 
-	if (!max_prefetches)
-	  return;
+	/* If prefetch_mod is less then unroll_factor, we need to insert
+	   several prefetches for the reference.  */
+	n_prefetches = ((unroll_factor + ref->prefetch_mod - 1)
+			/ ref->prefetch_mod);
+	if (max_prefetches <= n_prefetches)
+	  return true;
+
+	max_prefetches -= n_prefetches;
+	any = true;
       }
+
+  return any;
 }
 
-/* Issue prefetches for the referenc REF into LOOP as decided before.
-   HEAD is the number of iterations to prefetch ahead.  */
+/* Determine whether there is any reference suitable for prefetching
+   in GROUPS.  */
+
+static bool
+anything_to_prefetch_p (struct mem_ref_group *groups)
+{
+  struct mem_ref *ref;
+
+  for (; groups; groups = groups->next)
+    for (ref = groups->refs; ref; ref = ref->next)
+      if (should_issue_prefetch_p (ref))
+	return true;
+
+  return false;
+}
+
+/* Issue prefetches for the reference REF into loop as decided before.
+   HEAD is the number of iterations to prefetch ahead.  UNROLL_FACTOR
+   is the factor by which LOOP was unrolled.  */
 
 static void
-issue_prefetch_ref (struct loop *loop, struct mem_ref *ref, unsigned ahead)
+issue_prefetch_ref (struct mem_ref *ref, unsigned unroll_factor, unsigned ahead)
 {
   HOST_WIDE_INT delta;
-  tree addr, stmts, prefetch, params, write_p;
+  tree addr, addr_base, prefetch, params, write_p;
   block_stmt_iterator bsi;
+  unsigned n_prefetches, ap;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Issued prefetch for %p.\n", (void *) ref);
 
-  /* Determine the address to prefetch.  */
-  delta = ahead * ref->group->step + ref->delta;
-  addr = ref->group->group_iv;
-  if (delta)
-    addr = build (PLUS_EXPR, ptr_type_node,
-		  addr, build_int_cst (ptr_type_node, delta));
+  bsi = bsi_for_stmt (ref->stmt);
 
-  addr = force_gimple_operand (addr, &stmts, false,
-			       SSA_NAME_VAR (ref->group->group_iv));
+  n_prefetches = ((unroll_factor + ref->prefetch_mod - 1)
+		  / ref->prefetch_mod);
+  addr_base = build_fold_addr_expr_with_type (ref->mem, ptr_type_node);
+  addr_base = force_gimple_operand_bsi (&bsi, unshare_expr (addr_base), true, NULL);
 
-  /* Create the prefetch instruction.  */
-  write_p = ref->write_p ? integer_one_node : integer_zero_node;
-  params = tree_cons (NULL_TREE, addr,
-		      tree_cons (NULL_TREE, write_p, NULL_TREE));
-				 
-  prefetch = build_function_call_expr (built_in_decls[BUILT_IN_PREFETCH],
-				       params);
-
-  /* And emit all the stuff.  We put the prefetch to the loop header, so
-     that it runs early.  */
-  bsi = bsi_after_labels (loop->header);
-  if (stmts)
-    bsi_insert_after (&bsi, stmts, BSI_CONTINUE_LINKING);
-  bsi_insert_after (&bsi, prefetch, BSI_NEW_STMT);
-}
-
-/* Issue prefetches for the references in GROUPS into LOOP as decided before.
-   HEAD is the number of iterations to prefetch ahead.  */
-
-static void
-issue_prefetches (struct loop *loop, struct mem_ref_group *groups,
-		  unsigned ahead)
-{
-  struct mem_ref *ref;
-  tree iv_var, base, step;
-  block_stmt_iterator bsi;
-  bool after;
-
-  for (; groups; groups = groups->next)
+  for (ap = 0; ap < n_prefetches; ap++)
     {
-      if (!groups->issue_prefetch_p)
-	continue;
+      /* Determine the address to prefetch.  */
+      delta = (ahead + ap * ref->prefetch_mod) * ref->group->step;
+      addr = fold_build2 (PLUS_EXPR, ptr_type_node,
+			  addr_base, build_int_cst (ptr_type_node, delta));
+      addr = force_gimple_operand_bsi (&bsi, unshare_expr (addr), true, NULL);
 
-      /* Create the induction variable for the group.  */
-      iv_var = create_tmp_var (ptr_type_node, "prefetchtmp");
-      add_referenced_tmp_var (iv_var);
-      if (TREE_CODE (groups->base) == INDIRECT_REF)
-	base = fold_convert (ptr_type_node, TREE_OPERAND (groups->base, 0));
-      else
-	base = build (ADDR_EXPR, ptr_type_node, groups->base);
-      step = build_int_cst (ptr_type_node, groups->step);
-
-      standard_iv_increment_position (loop, &bsi, &after);
-      create_iv (base, step, iv_var, loop, &bsi, after, &groups->group_iv,
-		 NULL);
-
-      for (ref = groups->refs; ref; ref = ref->next)
-	if (ref->issue_prefetch_p)
-	  issue_prefetch_ref (loop, ref, ahead);
+      /* Create the prefetch instruction.  */
+      write_p = ref->write_p ? integer_one_node : integer_zero_node;
+      params = tree_cons (NULL_TREE, addr,
+			  tree_cons (NULL_TREE, write_p, NULL_TREE));
+				 
+      prefetch = build_function_call_expr (built_in_decls[BUILT_IN_PREFETCH],
+					   params);
+      bsi_insert_before (&bsi, prefetch, BSI_SAME_STMT);
     }
 }
 
-/* Issue prefetch instructions for array references in LOOP.  */
+/* Issue prefetches for the references in GROUPS into loop as decided before.
+   HEAD is the number of iterations to prefetch ahead.  UNROLL_FACTOR is the
+   factor by that LOOP was unrolled.  */
 
 static void
-loop_prefetch_arrays (struct loop *loop)
+issue_prefetches (struct mem_ref_group *groups,
+		  unsigned unroll_factor, unsigned ahead)
+{
+  struct mem_ref *ref;
+
+  for (; groups; groups = groups->next)
+    for (ref = groups->refs; ref; ref = ref->next)
+      if (ref->issue_prefetch_p)
+	issue_prefetch_ref (ref, unroll_factor, ahead);
+}
+
+/* Determines whether we can profitably unroll LOOP FACTOR times, and if
+   this is the case, fill in DESC by the description of number of
+   iterations.  */
+
+static bool
+should_unroll_loop_p (struct loop *loop, struct tree_niter_desc *desc,
+		      unsigned factor)
+{
+  if (!can_unroll_loop_p (loop, factor, desc))
+    return false;
+
+  /* We only consider loops without control flow for unrolling.  This is not
+     a hard restriction -- tree_unroll_loop works with arbitrary loops
+     as well; but the unrolling/prefetching is usually more profitable for
+     loops consisting of a single basic block, and we want to limit the
+     code growth.  */
+  if (loop->num_nodes > 2)
+    return false;
+
+  return true;
+}
+
+/* Determine the coefficient by that unroll LOOP, from the information
+   contained in the list of memory references REFS.  Description of
+   umber of iterations of LOOP is stored to DESC.  AHEAD is the number
+   of iterations ahead that we need to prefetch.  NINSNS is number of
+   insns of the LOOP.  */
+
+static unsigned
+determine_unroll_factor (struct loop *loop, struct mem_ref_group *refs,
+			 unsigned ahead, unsigned ninsns,
+			 struct tree_niter_desc *desc)
+{
+  unsigned upper_bound, size_factor, constraint_factor;
+  unsigned factor, max_mod_constraint, ahead_factor;
+  struct mem_ref_group *agp;
+  struct mem_ref *ref;
+
+  upper_bound = PARAM_VALUE (PARAM_MAX_UNROLL_TIMES);
+
+  /* First check whether the loop is not too large to unroll.  */
+  size_factor = PARAM_VALUE (PARAM_MAX_UNROLLED_INSNS) / ninsns;
+  if (size_factor <= 1)
+    return 1;
+
+  if (size_factor < upper_bound)
+    upper_bound = size_factor;
+
+  max_mod_constraint = 1;
+  for (agp = refs; agp; agp = agp->next)
+    for (ref = agp->refs; ref; ref = ref->next)
+      if (should_issue_prefetch_p (ref)
+	  && ref->prefetch_mod > max_mod_constraint)
+	max_mod_constraint = ref->prefetch_mod;
+
+  /* Set constraint_factor as large as needed to be able to satisfy the
+     largest modulo constraint.  */
+  constraint_factor = max_mod_constraint;
+
+  /* If ahead is too large in comparison with the number of available
+     prefetches, unroll the loop as much as needed to be able to prefetch
+     at least partially some of the references in the loop.  */
+  ahead_factor = ((ahead + SIMULTANEOUS_PREFETCHES - 1)
+		  / SIMULTANEOUS_PREFETCHES);
+
+  /* Unroll as much as useful, but bound the code size growth.  */
+  if (constraint_factor < ahead_factor)
+    factor = ahead_factor;
+  else
+    factor = constraint_factor;
+  if (factor > upper_bound)
+    factor = upper_bound;
+
+  if (!should_unroll_loop_p (loop, desc, factor))
+    return 1;
+
+  return factor;
+}
+
+/* Issue prefetch instructions for array references in LOOP.  Returns
+   true if the LOOP was unrolled.  LOOPS is the array containing all
+   loops.  */
+
+static bool
+loop_prefetch_arrays (struct loops *loops, struct loop *loop)
 {
   struct mem_ref_group *refs;
-  unsigned ahead, ninsns;
+  unsigned ahead, ninsns, unroll_factor;
+  struct tree_niter_desc desc;
+  bool unrolled = false;
 
   /* Step 1: gather the memory references.  */
   refs = gather_memory_references (loop);
@@ -841,41 +966,86 @@ loop_prefetch_arrays (struct loop *loop)
   /* Step 2: estimate the reuse effects.  */
   prune_by_reuse (refs);
 
-  /* Step 3: determine the ahead.  */
+  if (!anything_to_prefetch_p (refs))
+    goto fail;
+
+  /* Step 3: determine the ahead and unroll factor.  */
 
   /* FIXME: We should use not size of the loop, but the average number of
      instructions executed per iteration of the loop.  */
   ninsns = tree_num_loop_insns (loop);
   ahead = (PREFETCH_LATENCY + ninsns - 1) / ninsns;
+  unroll_factor = determine_unroll_factor (loop, refs, ahead, ninsns,
+					   &desc);
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "Ahead %d, unroll factor %d\n", ahead, unroll_factor);
+
+  /* If the loop rolls less than the required unroll factor, prefetching
+     is useless.  */
+  if (unroll_factor > 1
+      && cst_and_fits_in_hwi (desc.niter)
+      && (unsigned HOST_WIDE_INT) int_cst_value (desc.niter) < unroll_factor)
+    goto fail;
 
   /* Step 4: what to prefetch?  */
-  schedule_prefetches (refs, ahead);
+  if (!schedule_prefetches (refs, unroll_factor, ahead))
+    goto fail;
 
-  /* Step 5: unroll and peel the loops.  TODO.  */
+  /* Step 5: unroll the loop.  TODO -- peeling of first and last few
+     iterations so that we do not issue superfluous prefetches.  */
+  if (unroll_factor != 1)
+    {
+      tree_unroll_loop (loops, loop, unroll_factor,
+			single_dom_exit (loop), &desc);
+      unrolled = true;
+    }
 
   /* Step 6: issue the prefetches.  */
-  issue_prefetches (loop, refs, ahead);
-  
+  issue_prefetches (refs, unroll_factor, ahead);
+
+fail:
   release_mem_refs (refs);
+  return unrolled;
 }
 
 /* Issue prefetch instructions for array references in LOOPS.  */
 
-void
+unsigned int
 tree_ssa_prefetch_arrays (struct loops *loops)
 {
   unsigned i;
   struct loop *loop;
+  bool unrolled = false;
+  int todo_flags = 0;
 
-  if (!HAVE_prefetch)
-    return;
+  if (!HAVE_prefetch
+      /* It is possible to ask compiler for say -mtune=i486 -march=pentium4.
+	 -mtune=i486 causes us having PREFETCH_BLOCK 0, since this is part
+	 of processor costs and i486 does not have prefetch, but
+	 -march=pentium4 causes HAVE_prefetch to be true.  Ugh.  */
+      || PREFETCH_BLOCK == 0)
+    return 0;
+
+  initialize_original_copy_tables ();
+
+  if (!built_in_decls[BUILT_IN_PREFETCH])
+    {
+      tree type = build_function_type (void_type_node,
+				       tree_cons (NULL_TREE,
+						  const_ptr_type_node,
+						  NULL_TREE));
+      tree decl = lang_hooks.builtin_function ("__builtin_prefetch", type,
+			BUILT_IN_PREFETCH, BUILT_IN_NORMAL,
+			NULL, NULL_TREE);
+      DECL_IS_NOVOPS (decl) = true;
+      built_in_decls[BUILT_IN_PREFETCH] = decl;
+    }
 
   /* We assume that size of cache line is a power of two, so verify this
      here.  */
-  if (PREFETCH_BLOCK & (PREFETCH_BLOCK - 1))
-    abort ();
+  gcc_assert ((PREFETCH_BLOCK & (PREFETCH_BLOCK - 1)) == 0);
 
-  for (i = 1; i < loops->num; i++)
+  for (i = loops->num - 1; i > 0; i--)
     {
       loop = loops->parray[i];
 
@@ -883,9 +1053,18 @@ tree_ssa_prefetch_arrays (struct loops *loops)
 	fprintf (dump_file, "Processing loop %d:\n", loop->num);
 
       if (loop)
-	loop_prefetch_arrays (loop);
+	unrolled |= loop_prefetch_arrays (loops, loop);
 
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "\n\n");
     }
+
+  if (unrolled)
+    {
+      scev_reset ();
+      todo_flags |= TODO_cleanup_cfg;
+    }
+
+  free_original_copy_tables ();
+  return todo_flags;
 }

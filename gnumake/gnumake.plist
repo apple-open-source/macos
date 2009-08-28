@@ -19,6 +19,7 @@
 		<string>Objective-C support (.m .ym .lm).</string>
 		<string>Conformance changes.</string>
 		<string>Use old method of handling line continuations. (4339040, 4408688)</string>
+		<string>Add support for posix_spawn()</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>GPL</string>

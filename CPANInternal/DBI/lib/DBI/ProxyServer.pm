@@ -68,7 +68,9 @@ my %DEFAULT_SERVER_OPTIONS;
     $o->{'localport'}  = undef;         # Must set port number on the
 					# command line.
     $o->{'logfile'}    = undef;         # Use syslog or EventLog.
-    $o->{'methods'}    = {
+
+    # XXX don't restrict methods that can be called (trust users once connected)
+    $o->{'XXX_methods'}    = {
 	'DBI::ProxyServer' => {
 	    'Version' => 1,
 	    'NewHandle' => 1,
@@ -213,7 +215,7 @@ sub CallMethod {
     # $dbh. However, we'd have a reference loop in that case and
     # I would be concerned about garbage collection. :-(
     $dbh->{'private_server'} = $server;
-    $server->Debug("CallMethod: => " . join(",", @_));
+    $server->Debug("CallMethod: => " . do { local $^W; join(",", @_)});
     my @result = eval { $server->SUPER::CallMethod(@_) };
     my $msg = $@;
     undef $dbh->{'private_server'};
@@ -221,7 +223,7 @@ sub CallMethod {
 	$server->Debug("CallMethod died with: $@");
 	die $msg;
     } else {
-	$server->Debug("CallMethod: <= " . join(",", @result));
+	$server->Debug("CallMethod: <= " . do { local $^W; join(",", @result) });
     }
     @result;
 }
@@ -380,7 +382,7 @@ DBI::ProxyServer - a server for the DBD::Proxy driver
 DBI::Proxy Server is a module for implementing a proxy for the DBI proxy
 driver, DBD::Proxy. It allows access to databases over the network if the
 DBMS does not offer networked operations. But the proxy server might be
-usefull for you, even if you have a DBMS with integrated network
+useful for you, even if you have a DBMS with integrated network
 functionality: It can be used as a DBI proxy in a firewalled environment.
 
 DBI::ProxyServer runs as a daemon on the machine with the DBMS or on the
@@ -412,7 +414,7 @@ L<RPC::PlServer>. See L<Net::Daemon>. Available options include
 =item I<chroot> (B<--chroot=dir>)
 
 (UNIX only)  After doing a bind(), change root directory to the given
-directory by doing a chroot(). This is usefull for security, but it
+directory by doing a chroot(). This is useful for security, but it
 restricts the environment a lot. For example, you need to load DBI
 drivers in the config file or you have to create hard links to Unix
 sockets, if your drivers are using them. For example, with MySQL, a
@@ -463,7 +465,7 @@ B<daemon>.
 =item I<group> (B<--group=gid>)
 
 After doing a bind(), change the real and effective GID to the given.
-This is usefull, if you want your server to bind to a privileged port
+This is useful, if you want your server to bind to a privileged port
 (<1024), but don't want the server to execute as root. See also
 the --user option.
 
@@ -504,7 +506,7 @@ you use the "--mode=fork" option.
 Finally there's a single-connection mode: If the server has accepted a
 connection, he will enter the Run() method. No other connections are
 accepted until the Run() method returns (if the client disconnects).
-This operation mode is usefull if you have neither threads nor fork(),
+This operation mode is useful if you have neither threads nor fork(),
 for example on the Macintosh. For debugging purposes you can force this
 mode with "--mode=single".
 
@@ -516,7 +518,7 @@ given location. Default is to not create a pidfile.
 =item I<user> (B<--user=uid>)
 
 After doing a bind(), change the real and effective UID to the given.
-This is usefull, if you want your server to bind to a privileged port
+This is useful, if you want your server to bind to a privileged port
 (<1024), but don't want the server to execute as root. See also
 the --group and the --chroot options.
 
@@ -536,7 +538,7 @@ The configuration file is just that of I<RPC::PlServer> or I<Net::Daemon>
 with some additional attributes in the client list.
 
 The config file is a Perl script. At the top of the file you may include
-arbitraty Perl source, for example load drivers at the start (usefull
+arbitraty Perl source, for example load drivers at the start (useful
 to enhance performance), prepare a chroot environment and so on.
 
 The important thing is that you finally return a hash ref of option

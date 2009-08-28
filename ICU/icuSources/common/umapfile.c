@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1999-2006, International Business Machines
+*   Copyright (C) 1999-2009, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************/
@@ -15,6 +15,12 @@
  *         wrapper functions.
  *
  *----------------------------------------------------------------------------*/
+
+/* Needed by OSF and z/OS to get the correct mmap version */
+#if !defined(_XOPEN_SOURCE_EXTENDED)
+#define _XOPEN_SOURCE_EXTENDED 1
+#endif
+
 #include "unicode/putil.h"
 
 
@@ -48,16 +54,10 @@
 
 #   define MAP_IMPLEMENTATION MAP_WIN32
 
-/* ### Todo: properly auto detect mmap(). Until then, just add your platform here. */
-#elif U_HAVE_MMAP || defined(U_AIX) || defined(U_HPUX) || defined(OS390)
+#elif U_HAVE_MMAP || defined(OS390)
     typedef size_t MemoryMap;
 
 #   define IS_MAP(map) ((map)!=0)
-
-    /* Needed by OSF to get the correct mmap version */
-#   ifndef _XOPEN_SOURCE_EXTENDED
-#       define _XOPEN_SOURCE_EXTENDED
-#   endif
 
 #   include <unistd.h>
 #   include <sys/mman.h>
@@ -82,6 +82,9 @@
 #       define U_ICUDATA_ENTRY_NAME "icudt" U_ICU_VERSION_SHORT U_LIB_SUFFIX_C_NAME_STRING "_dat"
 #   else
 #       define MAP_IMPLEMENTATION MAP_POSIX
+#       if defined(U_DARWIN)
+#           include <TargetConditionals.h>
+#       endif
 #   endif
 
 #else /* unknown platform, no memory map implementation: use stdio.h and uprv_malloc() instead */
@@ -133,7 +136,7 @@
         UDataMemory_init(pData); /* Clear the output struct.        */
 
         /* open the input file */
-        file=CreateFile(path, GENERIC_READ, FILE_SHARE_READ, NULL,
+        file=CreateFileA(path, GENERIC_READ, FILE_SHARE_READ, NULL,
             OPEN_EXISTING,
             FILE_ATTRIBUTE_NORMAL|FILE_FLAG_RANDOM_ACCESS, NULL);
         if(file==INVALID_HANDLE_VALUE) {
@@ -222,6 +225,9 @@
         pData->map = (char *)data + length;
         pData->pHeader=(const DataHeader *)data;
         pData->mapAddr = data;
+#if defined(U_DARWIN) && defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE
+        madvise(data, length, MADV_RANDOM);
+#endif
         return TRUE;
     }
 

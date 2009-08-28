@@ -200,6 +200,50 @@ nss_cmsrecipientinfo_create(SecCmsMessageRef cmsg, SecCmsRecipientIDSelector typ
 				    (void *)rek);
 
 	break;
+	
+    case SEC_OID_EC_PUBLIC_KEY:	    
+	/* ephemeral-static ECDH - issuerAndSN, OriginatorPublicKey only */
+        PORT_Assert(type != SecCmsRecipientIDSubjectKeyID);
+	if (type == SecCmsRecipientIDSubjectKeyID) {
+	    rv = SECFailure;
+	    break;
+	}
+	/* a key agreement op */
+	ri->recipientInfoType = SecCmsRecipientInfoIDKeyAgree;
+	ri->ri.keyTransRecipientInfo.recipientIdentifier.id.issuerAndSN = CERT_GetCertIssuerAndSN(poolp, cert);
+	if (ri->ri.keyTransRecipientInfo.recipientIdentifier.id.issuerAndSN == NULL) {
+	    rv = SECFailure;
+	    break;
+	}
+	/* we do not support the case where multiple recipients 
+	 * share the same KeyAgreeRecipientInfo and have multiple RecipientEncryptedKeys
+	 * in this case, we would need to walk all the recipientInfos, take the
+	 * ones that do KeyAgreement algorithms and join them, algorithm by algorithm
+	 * Then, we'd generate ONE ukm and OriginatorIdentifierOrKey */
+
+	/* force single recipientEncryptedKey for now */
+	if ((rek = SecCmsRecipientEncryptedKeyCreate(poolp)) == NULL) {
+	    rv = SECFailure;
+	    break;
+	}
+
+	/* hardcoded IssuerSN choice for now */
+	rek->recipientIdentifier.identifierType = SecCmsKeyAgreeRecipientIDIssuerSN;
+	if ((rek->recipientIdentifier.id.issuerAndSN = CERT_GetCertIssuerAndSN(poolp, cert)) == NULL) {
+	    rv = SECFailure;
+	    break;
+	}
+
+	oiok = &(ri->ri.keyAgreeRecipientInfo.originatorIdentifierOrKey);
+
+	/* see RFC 3278 3.1.1 */
+	oiok->identifierType = SecCmsOriginatorIDOrKeyOriginatorPublicKey;
+
+	rv = SecCmsArrayAdd(poolp, (void ***)&ri->ri.keyAgreeRecipientInfo.recipientEncryptedKeys,
+				    (void *)rek);
+
+	break;
+
     default:
 	/* other algorithms not supported yet */
 	/* NOTE that we do not support any KEK algorithm */
@@ -407,14 +451,17 @@ SecCmsRecipientInfoWrapBulkKey(SecCmsRecipientInfoRef ri, SecSymmetricKeyRef bul
     OSStatus rv = SECSuccess;
 #if 0
     CSSM_DATA_PTR params = NULL;
+#endif /* 0 */
     SecCmsRecipientEncryptedKey *rek;
     SecCmsOriginatorIdentifierOrKey *oiok;
-#endif /* 0 */
     const SECAlgorithmID *algid;
     PLArenaPool *poolp;
     SecCmsKeyTransRecipientInfoEx *extra = NULL;
     Boolean usesSubjKeyID;
-
+    uint8 nullData[2] = {SEC_ASN1_NULL, 0};
+    SECItem nullItem;
+    SecCmsKeyAgreeRecipientInfo *kari;
+    
     poolp = ri->cmsg->poolp;
     cert = ri->cert;
     usesSubjKeyID = nss_cmsrecipientinfo_usessubjectkeyid(ri);
@@ -505,6 +552,44 @@ SecCmsRecipientInfoWrapBulkKey(SecCmsRecipientInfoRef ri, SecSymmetricKeyRef bul
 
 	break;
 #endif /* 0 */
+
+    case SEC_OID_EC_PUBLIC_KEY:
+	/* These were set up in nss_cmsrecipientinfo_create() */
+	kari = &ri->ri.keyAgreeRecipientInfo;
+	rek = kari->recipientEncryptedKeys[0];
+	if (rek == NULL) {
+	    rv = SECFailure;
+	    break;
+	}
+
+	oiok = &(kari->originatorIdentifierOrKey);
+	PORT_Assert(oiok->identifierType == SecCmsOriginatorIDOrKeyOriginatorPublicKey);
+
+	/* 
+	 * RFC 3278 3.1.1 says this AlgId must contain NULL params which is contrary to 
+	 * any other use of the SEC_OID_EC_PUBLIC_KEY OID. So we provide one
+	 * explicitly instead of mucking up the login in SECOID_SetAlgorithmID().
+	 */
+	nullItem.Data = nullData;
+	nullItem.Length = 2;
+	if (SECOID_SetAlgorithmID(poolp, &oiok->id.originatorPublicKey.algorithmIdentifier,
+				    SEC_OID_EC_PUBLIC_KEY, &nullItem) != SECSuccess) {
+	    rv = SECFailure;
+	    break;
+	}
+
+	/* this will generate a key pair, compute the shared secret, */
+	/* derive a key and ukm for the keyEncAlg out of it, encrypt the bulk key with */
+	/* the keyEncAlg, set encKey, keyEncAlg, publicKey etc. */
+	rv = SecCmsUtilEncryptSymKeyECDH(poolp, cert, bulkkey,
+					&rek->encKey,
+					&kari->ukm,
+					&kari->keyEncAlg,
+					&oiok->id.originatorPublicKey.publicKey);
+	/* this is a BIT STRING */
+	oiok->id.originatorPublicKey.publicKey.Length <<= 3;
+	break;
+
     default:
 	/* other algorithms not supported yet */
 	/* NOTE that we do not support any KEK algorithm */
@@ -519,6 +604,12 @@ SecCmsRecipientInfoWrapBulkKey(SecCmsRecipientInfoRef ri, SecSymmetricKeyRef bul
 
     return rv;
 }
+
+#ifdef	NDEBUG
+#define dprintf(args...)
+#else
+#define dprintf(args...)    printf(args)
+#endif
 
 SecSymmetricKeyRef
 SecCmsRecipientInfoUnwrapBulkKey(SecCmsRecipientInfoRef ri, int subIndex, 
@@ -572,6 +663,24 @@ SecCmsRecipientInfoUnwrapBulkKey(SecCmsRecipientInfoRef ri, int subIndex,
 	    /* the derive operation has to generate the key using the algorithm in RFC2631 */
 	    error = SEC_ERROR_UNSUPPORTED_KEYALG;
 	    break;
+	case SEC_OID_DH_SINGLE_STD_SHA1KDF:
+	{  
+	    /* ephemeral-static ECDH */
+	    SecCmsKeyAgreeRecipientInfo *kari = &ri->ri.keyAgreeRecipientInfo;
+	    SecCmsOriginatorIdentifierOrKey *oiok = &kari->originatorIdentifierOrKey;
+	    if(oiok->identifierType != SecCmsOriginatorIDOrKeyOriginatorPublicKey) {
+		dprintf("SEC_OID_EC_PUBLIC_KEY unwrap key: bad oiok.id\n");
+		goto loser;
+	    }
+	    SecCmsOriginatorPublicKey *opk = &oiok->id.originatorPublicKey;
+	    /* FIXME - verify opk->algorithmIdentifier here? */
+	    CSSM_DATA senderPubKey = opk->publicKey;
+	    /* Bit string, convert here */
+	    senderPubKey.Length = (senderPubKey.Length + 7) >> 3;
+	    CSSM_DATA_PTR ukm = &kari->ukm;
+	    bulkkey = SecCmsUtilDecryptSymKeyECDH(privkey, enckey, ukm, encalg, bulkalgtag, &senderPubKey);
+	    break;
+	}
 	default:
 	    error = SEC_ERROR_UNSUPPORTED_KEYALG;
 	    goto loser;

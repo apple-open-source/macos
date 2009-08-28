@@ -1,5 +1,5 @@
 /* Lambda matrix and vector interface.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>
 
 This file is part of GCC.
@@ -16,21 +16,22 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef LAMBDA_H
 #define LAMBDA_H
 
 #include "vec.h"
-/* APPLE LOCAL lno */
-#include "ggc.h"
 
 /* An integer vector.  A vector formally consists of an element of a vector
    space. A vector space is a set that is closed under vector addition
    and scalar multiplication.  In this vector space, an element is a list of
    integers.  */
 typedef int *lambda_vector;
+
+DEF_VEC_P(lambda_vector);
+DEF_VEC_ALLOC_P(lambda_vector,heap);
 
 /* An integer matrix.  A matrix consists of m vectors of length n (IE
    all vectors are the same length).  */
@@ -142,7 +143,6 @@ lambda_loopnest lambda_loopnest_transform (lambda_loopnest, lambda_trans_matrix)
 struct loop;
 struct loops;
 bool perfect_nest_p (struct loop *);
-bool lambda_transform_legal_p (lambda_trans_matrix, int, varray_type);
 void print_lambda_loopnest (FILE *, lambda_loopnest, char);
 
 #define lambda_loop_new() (lambda_loop) ggc_alloc_cleared (sizeof (struct lambda_loop_s))
@@ -198,13 +198,11 @@ lambda_body_vector lambda_body_vector_compute_new (lambda_trans_matrix,
 void print_lambda_body_vector (FILE *, lambda_body_vector);
 lambda_loopnest gcc_loopnest_to_lambda_loopnest (struct loops *,
 						 struct loop *,
-						 VEC(tree) **,
-						 VEC(tree) **,
-						 bool);
-void lambda_loopnest_to_gcc_loopnest (struct loop *, VEC(tree) *,
-				      VEC(tree) *,
-				      lambda_loopnest, 
-				      lambda_trans_matrix);
+						 VEC(tree,heap) **,
+						 VEC(tree,heap) **);
+void lambda_loopnest_to_gcc_loopnest (struct loop *,
+				      VEC(tree,heap) *, VEC(tree,heap) *,
+				      lambda_loopnest, lambda_trans_matrix);
 
 
 static inline void lambda_vector_negate (lambda_vector, lambda_vector, int);
@@ -226,7 +224,7 @@ static inline void print_lambda_vector (FILE *, lambda_vector, int);
 static inline lambda_vector
 lambda_vector_new (int size)
 {
-  return ggc_alloc_cleared (size * sizeof(int));
+  return GGC_CNEWVEC (int, size);
 }
 
 
@@ -328,19 +326,15 @@ lambda_vector_min_nz (lambda_vector vec1, int n, int start)
 {
   int j;
   int min = -1;
-#ifdef ENABLE_CHECKING 
-  if (start > n)
-    abort ();
-#endif
+
+  gcc_assert (start <= n);
   for (j = start; j < n; j++)
     {
       if (vec1[j])
 	if (min < 0 || vec1[j] < vec1[min])
 	  min = j;
     }
-
-  if (min < 0)
-    abort ();
+  gcc_assert (min >= 0);
 
   return min;
 }
@@ -383,5 +377,64 @@ print_lambda_vector (FILE * outfile, lambda_vector vector, int n)
     fprintf (outfile, "%3d ", vector[i]);
   fprintf (outfile, "\n");
 }
+
+/* Compute the greatest common divisor of two numbers using
+   Euclid's algorithm.  */
+
+static inline int 
+gcd (int a, int b)
+{
+  int x, y, z;
+
+  x = abs (a);
+  y = abs (b);
+
+  while (x > 0)
+    {
+      z = y % x;
+      y = x;
+      x = z;
+    }
+
+  return y;
+}
+
+/* Compute the greatest common divisor of a VECTOR of SIZE numbers.  */
+
+static inline int
+lambda_vector_gcd (lambda_vector vector, int size)
+{
+  int i;
+  int gcd1 = 0;
+
+  if (size > 0)
+    {
+      gcd1 = vector[0];
+      for (i = 1; i < size; i++)
+	gcd1 = gcd (gcd1, vector[i]);
+    }
+  return gcd1;
+}
+
+/* Returns true when the vector V is lexicographically positive, in
+   other words, when the first nonzero element is positive.  */
+
+static inline bool
+lambda_vector_lexico_pos (lambda_vector v, 
+			  unsigned n)
+{
+  unsigned i;
+  for (i = 0; i < n; i++)
+    {
+      if (v[i] == 0)
+	continue;
+      if (v[i] < 0)
+	return false;
+      if (v[i] > 0)
+	return true;
+    }
+  return true;
+}
+
 #endif /* LAMBDA_H  */
 

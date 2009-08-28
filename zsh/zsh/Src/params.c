@@ -85,7 +85,8 @@ zlong lastval,		/* $?           */
      lastpid,		/* $!           */
      columns,		/* $COLUMNS     */
      lines,		/* $LINES       */
-     ppid;		/* $PPID        */
+     ppid,		/* $PPID        */
+     zsh_subshell;	/* $ZSH_SUBSHELL */
 /**/
 zlong lineno,		/* $LINENO      */
      zoptind,		/* $OPTIND      */
@@ -291,6 +292,7 @@ IPDEF4("?", &lastval),
 IPDEF4("HISTCMD", &curhist),
 IPDEF4("LINENO", &lineno),
 IPDEF4("PPID", &ppid),
+IPDEF4("ZSH_SUBSHELL", &zsh_subshell),
 
 #define IPDEF5(A,B,F) {{NULL,A,PM_INTEGER|PM_SPECIAL},BR((void *)B),GSU(varinteger_gsu),10,0,NULL,NULL,NULL,0}
 IPDEF5("COLUMNS", &columns, zlevar_gsu),
@@ -411,7 +413,7 @@ newparamtable(int size, char const *name)
 
 /**/
 static HashNode
-getparamnode(HashTable ht, char *nam)
+getparamnode(HashTable ht, const char *nam)
 {
     HashNode hn = gethashnode2(ht, nam);
     Param pm = (Param) hn;
@@ -419,12 +421,16 @@ getparamnode(HashTable ht, char *nam)
     if (pm && pm->u.str && (pm->node.flags & PM_AUTOLOAD)) {
 	char *mn = dupstring(pm->u.str);
 
-	if (!load_module(mn))
-	    return NULL;
+	(void)ensurefeature(mn, "p:", (pm->node.flags & PM_AUTOALL) ? NULL :
+			    nam);
 	hn = gethashnode2(ht, nam);
-	if (((Param) hn) == pm && (pm->node.flags & PM_AUTOLOAD)) {
-	    pm->node.flags &= ~PM_AUTOLOAD;
-	    zwarnnam(nam, "autoload failed");
+	if (!hn) {
+	    /*
+	     * This used to be a warning, but surely if we allow
+	     * stuff to go ahead with the autoload stub with
+	     * no error status we're in for all sorts of mayhem?
+	     */
+	    zerr("unknown parameter: %s", nam);
 	}
     }
     return hn;
@@ -520,7 +526,7 @@ scanparamvals(HashNode hn, int flags)
 	    return;
     }
     v.isarr = (PM_TYPE(v.pm->node.flags) & (PM_ARRAY|PM_HASHED));
-    v.inv = 0;
+    v.flags = 0;
     v.start = 0;
     v.end = -1;
     paramvals[numparamvals] = getstrvalue(&v);
@@ -538,6 +544,8 @@ scanparamvals(HashNode hn, int flags)
 char **
 paramvalarr(HashTable ht, int flags)
 {
+    DPUTS((flags & (SCANPM_MATCHKEY|SCANPM_MATCHVAL)) && !scanprog,
+	  "BUG: scanning hash without scanprog set");
     numparamvals = 0;
     if (ht)
 	scanhashtable(ht, 0, 0, PM_UNSET, scancountparams, flags);
@@ -606,7 +614,7 @@ void
 createparamtable(void)
 {
     Param ip, pm;
-#ifndef HAVE_PUTENV
+#if !defined(HAVE_PUTENV) && !defined(USE_SET_UNSET_ENV)
     char **new_environ;
     int  envsize;
 #endif
@@ -661,7 +669,7 @@ createparamtable(void)
 
     setsparam("LOGNAME", ztrdup((str = getlogin()) && *str ? str : cached_username));
 
-#ifndef HAVE_PUTENV
+#if !defined(HAVE_PUTENV) && !defined(USE_SET_UNSET_ENV)
     /* Copy the environment variables we are inheriting to dynamic *
      * memory, so we can do mallocs and frees on it.               */
     envsize = sizeof(char *)*(1 + arrlen(environ));
@@ -688,13 +696,17 @@ createparamtable(void)
 					    getsparam(pm->node.nam), pm->node.flags);
 		    else
 			pm->env = ztrdup(*envp2);
+#ifndef USE_SET_UNSET_ENV
 		    *envp++ = pm->env;
+#endif
 		}
 	    }
 	}
     }
     popheap();
+#ifndef USE_SET_UNSET_ENV
     *envp = '\0';
+#endif
     opts[ALLEXPORT] = oae;
 
     if (emulation == EMULATE_ZSH)
@@ -840,6 +852,47 @@ createparam(char *name, int flags)
     return pm;
 }
 
+/* Empty dummy function for special hash parameters. */
+
+/**/
+static void
+shempty(void)
+{
+}
+
+/* Create a simple special hash parameter. */
+
+/**/
+mod_export Param
+createspecialhash(char *name, GetNodeFunc get, ScanTabFunc scan, int flags)
+{
+    Param pm;
+    HashTable ht;
+
+    if (!(pm = createparam(name, PM_SPECIAL|PM_HASHED|flags)))
+	return NULL;
+
+    pm->level = pm->old ? locallevel : 0;
+    pm->gsu.h = (flags & PM_READONLY) ? &stdhash_gsu :
+	&nullsethash_gsu;
+    pm->u.hash = ht = newhashtable(0, name, NULL);
+
+    ht->hash        = hasher;
+    ht->emptytable  = (TableFunc) shempty;
+    ht->filltable   = NULL;
+    ht->addnode     = (AddNodeFunc) shempty;
+    ht->getnode     = ht->getnode2 = get;
+    ht->removenode  = (RemoveNodeFunc) shempty;
+    ht->disablenode = NULL;
+    ht->enablenode  = NULL;
+    ht->freenode    = (FreeNodeFunc) shempty;
+    ht->printnode   = printparamnode;
+    ht->scantab     = scan;
+
+    return pm;
+}
+
+
 /* Copy a parameter */
 
 /**/
@@ -956,7 +1009,7 @@ getarg(char **str, int *inv, Value v, int a2, zlong *w,
     int hasbeg = 0, word = 0, rev = 0, ind = 0, down = 0, l, i, ishash;
     int keymatch = 0, needtok = 0, arglen, len;
     char *s = *str, *sep = NULL, *t, sav, *d, **ta, **p, *tt, c;
-    zlong num = 1, beg = 0, r = 0;
+    zlong num = 1, beg = 0, r = 0, quote_arg = 0;
     Patprog pprog = NULL;
 
     ishash = (v->pm && PM_TYPE(v->pm->node.flags) == PM_HASHED);
@@ -1007,8 +1060,7 @@ getarg(char **str, int *inv, Value v, int a2, zlong *w,
 		sep = "\n";
 		break;
 	    case 'e':
-		/* Compatibility flag with no effect except to prevent *
-		 * special interpretation by getindex() of `*' or `@'. */
+		quote_arg = 1;
 		break;
 	    case 'n':
 		t = get_strarg(++s, &arglen);
@@ -1077,7 +1129,11 @@ getarg(char **str, int *inv, Value v, int a2, zlong *w,
 		v->isarr &= ~SCANPM_WANTVALS;
 	    } else if (rev)
 		v->isarr |= SCANPM_WANTVALS;
-	    if (!down && !keymatch && ishash)
+	    /*
+	     * This catches the case where we are using "k" (rather
+	     * than "K") on a hash.
+	     */
+	    if (!down && keymatch && ishash)
 		v->isarr &= ~SCANPM_MATCHMANY;
 	}
 	*inv = ind;
@@ -1235,7 +1291,10 @@ getarg(char **str, int *inv, Value v, int a2, zlong *w,
 	    }
 	}
 	if (!keymatch) {
-	    tokenize(s);
+	    if (quote_arg)
+		untokenize(s);
+	    else
+		tokenize(s);
 	    remnulargs(s);
 	    pprog = patcompile(s, 0, NULL);
 	} else
@@ -1247,24 +1306,30 @@ getarg(char **str, int *inv, Value v, int a2, zlong *w,
 		scanstr = s;
 		if (keymatch)
 		    v->isarr |= SCANPM_KEYMATCH;
-		else if (ind)
-		    v->isarr |= SCANPM_MATCHKEY;
-		else
-		    v->isarr |= SCANPM_MATCHVAL;
+		else {
+		    if (!pprog)
+			return 1;
+		    if (ind)
+			v->isarr |= SCANPM_MATCHKEY;
+		    else
+			v->isarr |= SCANPM_MATCHVAL;
+		}
 		if (down)
 		    v->isarr |= SCANPM_MATCHMANY;
 		if ((ta = getvaluearr(v)) &&
 		    (*ta || ((v->isarr & SCANPM_MATCHMANY) &&
 			     (v->isarr & (SCANPM_MATCHKEY | SCANPM_MATCHVAL |
 					  SCANPM_KEYMATCH))))) {
-		    *inv = v->inv;
+		    *inv = (v->flags & VALFLAG_INV) ? 1 : 0;
 		    *w = v->end;
+		    scanprog = NULL;
 		    return 1;
 		}
+		scanprog = NULL;
 	    } else
 		ta = getarrvalue(v);
 	    if (!ta || !*ta)
-		return 0;
+		return !down;
 	    len = arrlen(ta);
 	    if (beg < 0)
 		beg += len;
@@ -1503,13 +1568,14 @@ getarg(char **str, int *inv, Value v, int a2, zlong *w,
 
 /**/
 int
-getindex(char **pptr, Value v, int dq)
+getindex(char **pptr, Value v, int flags)
 {
     int start, end, inv = 0;
     char *s = *pptr, *tbrack;
 
     *s++ = '[';
-    s = parse_subscript(s, dq);	/* Error handled after untokenizing */
+    /* Error handled after untokenizing */
+    s = parse_subscript(s, flags & SCANPM_DQUOTED);
     /* Now we untokenize everything except inull() markers so we can check *
      * for the '*' and '@' special subscripts.  The inull()s are removed  *
      * in getarg() after we know whether we're doing reverse indexing.    */
@@ -1594,7 +1660,7 @@ getindex(char **pptr, Value v, int dq)
 	    if (start > 0 && (isset(KSHARRAYS) || (v->pm->node.flags & PM_HASHED)))
 		start--;
 	    if (v->isarr != SCANPM_WANTINDEX) {
-		v->inv = 1;
+		v->flags |= VALFLAG_INV;
 		v->isarr = 0;
 		v->start = start;
 		v->end = start + 1;
@@ -1626,7 +1692,32 @@ getindex(char **pptr, Value v, int dq)
 	    if (start > 0)
 		start -= startprevlen;
 	    else if (start == 0 && end == 0)
-		end = startnextlen;
+	    {
+		/*
+		 * Strictly, this range is entirely off the
+		 * start of the available index range.
+		 * This can't happen with KSH_ARRAYS; we already
+		 * altered the start index in getarg().
+		 * Are we being strict?
+		 */
+		if (isset(KSHZEROSUBSCRIPT)) {
+		    /*
+		     * We're not.
+		     * Treat this as accessing the first element of the
+		     * array.
+		     */
+		    end = startnextlen;
+		} else {
+		    /*
+		     * We are.  Flag that this range is invalid
+		     * for setting elements.  Set the indexes
+		     * to a range that returns empty for other accesses.
+		     */
+		    v->flags |= VALFLAG_EMPTY;
+		    start = -1;
+		    com = 1;
+		}
+	    }
 	    if (s == tbrack) {
 		s++;
 		if (v->isarr && !com &&
@@ -1695,7 +1786,7 @@ fetchvalue(Value v, char **pptr, int bracks, int flags)
 	else
 	    v = (Value) hcalloc(sizeof *v);
 	v->pm = argvparam;
-	v->inv = 0;
+	v->flags = 0;
 	v->start = ppar - 1;
 	v->end = ppar;
 	if (sav)
@@ -1719,18 +1810,17 @@ fetchvalue(Value v, char **pptr, int bracks, int flags)
 	    /* Overload v->isarr as the flag bits for hashed arrays. */
 	    v->isarr = flags | (isvarat ? SCANPM_ISVAR_AT : 0);
 	    /* If no flags were passed, we need something to represent *
-	     * `true' yet differ from an explicit WANTVALS.  This is a *
-	     * bit of a hack, but makes some sense:  When no subscript *
-	     * is provided, all values are substituted.                */
+	     * `true' yet differ from an explicit WANTVALS.  Use a     *
+	     * special flag for this case.                             */
 	    if (!v->isarr)
-		v->isarr = SCANPM_MATCHMANY;
+		v->isarr = SCANPM_ARRONLY;
 	}
 	v->pm = pm;
-	v->inv = 0;
+	v->flags = 0;
 	v->start = 0;
 	v->end = -1;
 	if (bracks > 0 && (*s == '[' || *s == Inbrack)) {
-	    if (getindex(&s, v, (flags & SCANPM_DQUOTED))) {
+	    if (getindex(&s, v, flags)) {
 		*pptr = s;
 		return v;
 	    }
@@ -1770,7 +1860,7 @@ getstrvalue(Value v)
     if (!v)
 	return hcalloc(1);
 
-    if (v->inv && !(v->pm->node.flags & PM_HASHED)) {
+    if ((v->flags & VALFLAG_INV) && !(v->pm->node.flags & PM_HASHED)) {
 	sprintf(buf, "%d", v->start);
 	s = dupstring(buf);
 	return s;
@@ -1809,11 +1899,136 @@ getstrvalue(Value v)
 	s = v->pm->gsu.s->getfn(v->pm);
 	break;
     default:
-	s = NULL;
+	s = "";
 	DPUTS(1, "BUG: param node without valid type");
 	break;
     }
 
+    if (v->flags & VALFLAG_SUBST) {
+	if (v->pm->node.flags & (PM_LEFT|PM_RIGHT_B|PM_RIGHT_Z)) {
+	    unsigned int fwidth = v->pm->width ? v->pm->width : MB_METASTRLEN(s);
+	    switch (v->pm->node.flags & (PM_LEFT | PM_RIGHT_B | PM_RIGHT_Z)) {
+		char *t, *tend;
+		unsigned int t0;
+
+	    case PM_LEFT:
+	    case PM_LEFT | PM_RIGHT_Z:
+		t = s;
+		if (v->pm->node.flags & PM_RIGHT_Z)
+		    while (*t == '0')
+			t++;
+		else
+		    while (iblank(*t))
+			t++;
+		MB_METACHARINIT();
+		for (tend = t, t0 = 0; t0 < fwidth && *tend; t0++)
+		    tend += MB_METACHARLEN(tend);
+		/*
+		 * t0 is the number of characters from t used,
+		 * hence (fwidth - t0) is the number of padding
+		 * characters.  fwidth is a misnomer: we use
+		 * character counts, not character widths.
+		 *
+		 * (tend - t) is the number of bytes we need
+		 * to get fwidth characters or the entire string;
+		 * the characters may be multiple bytes.
+		 */
+		fwidth -= t0; /* padding chars remaining */
+		t0 = tend - t; /* bytes to copy from string */
+		s = (char *) hcalloc(t0 + fwidth + 1);
+		memcpy(s, t, t0);
+		if (fwidth)
+		    memset(s + t0, ' ', fwidth);
+		s[t0 + fwidth] = '\0';
+		break;
+	    case PM_RIGHT_B:
+	    case PM_RIGHT_Z:
+	    case PM_RIGHT_Z | PM_RIGHT_B:
+		{
+		    int zero = 1;
+		    /* Calculate length in possibly multibyte chars */
+		    unsigned int charlen = MB_METASTRLEN(s);
+
+		    if (charlen < fwidth) {
+			char *valprefend = s;
+			int preflen;
+			if (v->pm->node.flags & PM_RIGHT_Z) {
+			    /*
+			     * This is a documented feature: when deciding
+			     * whether to pad with zeroes, ignore
+			     * leading blanks already in the value;
+			     * only look for numbers after that.
+			     * Not sure how useful this really is.
+			     * It's certainly confusing to code around.
+			     */
+			    for (t = s; iblank(*t); t++)
+				;
+			    /*
+			     * Allow padding after initial minus
+			     * for numeric variables.
+			     */
+			    if ((v->pm->node.flags &
+				 (PM_INTEGER|PM_EFLOAT|PM_FFLOAT)) &&
+				*t == '-')
+				t++;
+			    /*
+			     * Allow padding after initial 0x or
+			     * base# for integer variables.
+			     */
+			    if (v->pm->node.flags & PM_INTEGER) {
+				if (isset(CBASES) &&
+				    t[0] == '0' && t[1] == 'x')
+				    t += 2;
+				else if ((valprefend = strchr(t, '#')))
+				    t = valprefend + 1;
+			    }
+			    valprefend = t;
+			    if (!*t)
+				zero = 0;
+			    else if (v->pm->node.flags &
+				     (PM_INTEGER|PM_EFLOAT|PM_FFLOAT)) {
+				/* zero always OK */
+			    } else if (!idigit(*t))
+				zero = 0;
+			}
+			/* number of characters needed for padding */
+			fwidth -= charlen;
+			/* bytes from original string */
+			t0 = strlen(s);
+			t = (char *) hcalloc(fwidth + t0 + 1);
+			/* prefix guaranteed to be single byte chars */
+			preflen = valprefend - s;
+			memset(t + preflen, 
+			       (((v->pm->node.flags & PM_RIGHT_B)
+				 || !zero) ?       ' ' : '0'), fwidth);
+			/*
+			 * Copy - or 0x or base# before any padding
+			 * zeroes.
+			 */
+			if (preflen)
+			    memcpy(t, s, preflen);
+			memcpy(t + preflen + fwidth,
+			       valprefend, t0 - preflen);
+			t[fwidth + t0] = '\0';
+			s = t;
+		    } else {
+			/* Need to skip (charlen - fwidth) chars */
+			for (t0 = charlen - fwidth; t0; t0--)
+			    s += MB_METACHARLEN(s);
+		    }
+		}
+		break;
+	    }
+	}
+	switch (v->pm->node.flags & (PM_LOWER | PM_UPPER)) {
+	case PM_LOWER:
+	    s = casemodify(s, CASMOD_LOWER);
+	    break;
+	case PM_UPPER:
+	    s = casemodify(s, CASMOD_UPPER);
+	    break;
+	}
+    }
     if (v->start == 0 && v->end == -1)
 	return s;
 
@@ -1851,7 +2066,7 @@ getarrvalue(Value v)
 	return arrdup(nular);
     else if (IS_UNSET_VALUE(v))
 	return arrdup(&nular[1]);
-    if (v->inv) {
+    if (v->flags & VALFLAG_INV) {
 	char buf[DIGBUFSIZE];
 
 	s = arrdup(nular);
@@ -1881,10 +2096,18 @@ getarrvalue(Value v)
 mod_export zlong
 getintvalue(Value v)
 {
-    if (!v || v->isarr)
+    if (!v)
 	return 0;
-    if (v->inv)
+    if (v->flags & VALFLAG_INV)
 	return v->start;
+    if (v->isarr) {
+	char **arr = getarrvalue(v);
+	if (arr) {
+	    char *scal = sepjoin(arr, NULL, 1);
+	    return mathevali(scal);
+	} else
+	    return 0;
+    }
     if (PM_TYPE(v->pm->node.flags) == PM_INTEGER)
 	return v->pm->gsu.i->getfn(v->pm);
     if (v->pm->node.flags & (PM_EFLOAT|PM_FFLOAT))
@@ -1899,10 +2122,18 @@ getnumvalue(Value v)
     mnumber mn;
     mn.type = MN_INTEGER;
 
-    if (!v || v->isarr) {
+
+    if (!v) {
 	mn.u.l = 0;
-    } else if (v->inv) {
+    } else if (v->flags & VALFLAG_INV) {
 	mn.u.l = v->start;
+    } else if (v->isarr) {
+	char **arr = getarrvalue(v);
+	if (arr) {
+	    char *scal = sepjoin(arr, NULL, 1);
+	    return matheval(scal);
+	} else
+	    mn.u.l = 0;
     } else if (PM_TYPE(v->pm->node.flags) == PM_INTEGER) {
 	mn.u.l = v->pm->gsu.i->getfn(v->pm);
     } else if (v->pm->node.flags & (PM_EFLOAT|PM_FFLOAT)) {
@@ -1924,7 +2155,7 @@ export_param(Param pm)
 	if (emulation == EMULATE_KSH /* isset(KSHARRAYS) */) {
 	    struct value v;
 	    v.isarr = 1;
-	    v.inv = 0;
+	    v.flags = 0;
 	    v.start = 0;
 	    v.end = -1;
 	    val = getstrvalue(&v);
@@ -1956,8 +2187,14 @@ setstrvalue(Value v, char *val)
 	zsfree(val);
 	return;
     }
-    if ((v->pm->node.flags & PM_HASHED) && (v->isarr & SCANPM_MATCHMANY)) {
+    if ((v->pm->node.flags & PM_HASHED) &&
+	(v->isarr & (SCANPM_MATCHMANY|SCANPM_ARRONLY))) {
 	zerr("%s: attempt to set slice of associative array", v->pm->node.nam);
+	zsfree(val);
+	return;
+    }
+    if (v->flags & VALFLAG_EMPTY) {
+	zerr("%s: assignment to invalid subscript range", v->pm->node.nam);
 	zsfree(val);
 	return;
     }
@@ -1975,7 +2212,7 @@ setstrvalue(Value v, char *val)
 
 	    z = dupstring(v->pm->gsu.s->getfn(v->pm));
 	    zlen = strlen(z);
-	    if (v->inv && unset(KSHARRAYS))
+	    if ((v->flags & VALFLAG_INV) && unset(KSHARRAYS))
 		v->start--, v->end--;
 	    if (v->start < 0) {
 		v->start += zlen;
@@ -1984,8 +2221,11 @@ setstrvalue(Value v, char *val)
 	    }
 	    if (v->start > zlen)
 		v->start = zlen;
-	    if (v->end < 0)
+	    if (v->end < 0) {
 		v->end += zlen + 1;
+		if (v->end < 0)
+		    v->end = 0;
+	    }
 	    else if (v->end > zlen)
 		v->end = zlen;
 	    x = (char *) zalloc(v->start + strlen(val) + zlen - v->end + 1);
@@ -1999,10 +2239,10 @@ setstrvalue(Value v, char *val)
     case PM_INTEGER:
 	if (val) {
 	    v->pm->gsu.i->setfn(v->pm, mathevali(val));
-	    zsfree(val);
 	    if ((v->pm->node.flags & (PM_LEFT | PM_RIGHT_B | PM_RIGHT_Z)) &&
 		!v->pm->width)
 		v->pm->width = strlen(val);
+	    zsfree(val);
 	}
 	if (!v->pm->base && lastbase != -1)
 	    v->pm->base = lastbase;
@@ -2013,10 +2253,10 @@ setstrvalue(Value v, char *val)
 	    mnumber mn = matheval(val);
 	    v->pm->gsu.f->setfn(v->pm, (mn.type & MN_FLOAT) ? mn.u.d :
 			       (double)mn.u.l);
-	    zsfree(val);
 	    if ((v->pm->node.flags & (PM_LEFT | PM_RIGHT_B | PM_RIGHT_Z)) &&
 		!v->pm->width)
 		v->pm->width = strlen(val);
+	    zsfree(val);
 	}
 	break;
     case PM_ARRAY:
@@ -2100,6 +2340,11 @@ setarrvalue(Value v, char **val)
 	     v->pm->node.nam);
 	return;
     }
+    if (v->flags & VALFLAG_EMPTY) {
+	zerr("%s: assignment to invalid subscript range", v->pm->node.nam);
+	freearray(val);
+	return;
+    }
     if (v->start == 0 && v->end == -1) {
 	if (PM_TYPE(v->pm->node.flags) == PM_HASHED)
 	    arrhashsetfn(v->pm, val, 0);
@@ -2118,7 +2363,7 @@ setarrvalue(Value v, char **val)
 		 v->pm->node.nam);
 	    return;
 	}
-	if (v->inv && unset(KSHARRAYS)) {
+	if ((v->flags & VALFLAG_INV) && unset(KSHARRAYS)) {
 	    if (v->start > 0)
 		v->start--;
 	    v->end--;
@@ -3414,10 +3659,21 @@ setlang(char *x)
 {
     struct localename *ln;
 
+    /*
+     * Set the global locale to the value passed, but override
+     * this with any non-empty definitions for specific
+     * categories.
+     *
+     * We only use non-empty definitions because empty values aren't
+     * valid as locales; when passed to setlocale() they mean "use the
+     * environment variable", but if that's what we're setting the value
+     * from this is meaningless.  So just all $LANG to show through in
+     * that case.
+     */
     setlocale(LC_ALL, x ? x : "");
     queue_signals();
     for (ln = lc_names; ln->name; ln++)
-	if ((x = getsparam(ln->name)))
+	if ((x = getsparam(ln->name)) && *x)
 	    setlocale(ln->category, x);
     unqueue_signals();
 }
@@ -3427,10 +3683,18 @@ void
 lc_allsetfn(Param pm, char *x)
 {
     strsetfn(pm, x);
-    if (!x) {
-	queue_signals();
-	setlang(getsparam("LANG"));
-	unqueue_signals();
+    /*
+     * Treat an empty LC_ALL the same as an unset one,
+     * namely by using LANG as the default locale but overriding
+     * that with any LC_* that are set.
+     */
+    if (!x || !*x) {
+	x = getsparam("LANG");
+	if (x && *x) {
+	    queue_signals();
+	    setlang(x);
+	    unqueue_signals();
+	}
     }
     else
 	setlocale(LC_ALL, x);
@@ -3448,18 +3712,27 @@ langsetfn(Param pm, char *x)
 void
 lcsetfn(Param pm, char *x)
 {
+    char *x2;
     struct localename *ln;
 
     strsetfn(pm, x);
-    if (getsparam("LC_ALL"))
+    if ((x2 = getsparam("LC_ALL")) && *x2)
 	return;
     queue_signals();
-    if (!x)
+    /* Treat empty LC_* the same as unset. */
+    if (!x || !*x)
 	x = getsparam("LANG");
 
-    for (ln = lc_names; ln->name; ln++)
-	if (!strcmp(ln->name, pm->node.nam))
-	    setlocale(ln->category, x ? x : "");
+    /*
+     * If we've got no non-empty string at this
+     * point (after checking $LANG, too),
+     * we shouldn't bother setting anything.
+     */
+    if (x && *x) {
+	for (ln = lc_names; ln->name; ln++)
+	    if (!strcmp(ln->name, pm->node.nam))
+		setlocale(ln->category, x);
+    }
     unqueue_signals();
 }
 #endif /* USE_LOCALE */
@@ -3727,6 +4000,30 @@ arrfixenv(char *s, char **t)
 int
 zputenv(char *str)
 {
+#ifdef USE_SET_UNSET_ENV
+    /*
+     * If we are using unsetenv() to remove values from the
+     * environment, which is the safe thing to do, we
+     * need to use setenv() to put them there in the first place.
+     * Unfortunately this is a slightly different interface
+     * from what zputenv() assumes.
+     */
+    char *ptr;
+    int ret;
+
+    for (ptr = str; *ptr && *ptr != '='; ptr++)
+	;
+    if (*ptr) {
+	*ptr = '\0';
+	ret = setenv(str, ptr+1, 1);
+	*ptr = '=';
+    } else {
+	/* safety first */
+	DPUTS(1, "bad environment string");
+	ret = setenv(str, ptr, 1);
+    }
+    return ret;
+#else
 #ifdef HAVE_PUTENV
     return putenv(str);
 #else
@@ -3750,8 +4047,11 @@ zputenv(char *str)
     }
     return 0;
 #endif
+#endif
 }
 
+/**/
+#ifndef USE_SET_UNSET_ENV
 /**/
 static int
 findenv(char *name, int *pos)
@@ -3771,6 +4071,8 @@ findenv(char *name, int *pos)
     
     return 0;
 }
+/**/
+#endif
 
 /* Given *name = "foo", it searches the environment for string *
  * "foo=bar", and returns a pointer to the beginning of "bar"  */
@@ -3811,14 +4113,18 @@ copyenvstr(char *s, char *value, int flags)
 void
 addenv(Param pm, char *value)
 {
-    char *oldenv = 0, *newenv = 0, *env = 0;
+    char *newenv = 0;
+#ifndef USE_SET_UNSET_ENV
+    char *oldenv = 0, *env = 0;
     int pos;
 
-    /* First check if there is already an environment *
-     * variable matching string `name'. If not, and   *
-     * we are not requested to add new, return        */
+    /*
+     * First check if there is already an environment
+     * variable matching string `name'.
+     */
     if (findenv(pm->node.nam, &pos))
 	oldenv = environ[pos];
+#endif
 
      newenv = mkenvstr(pm->node.nam, value, pm->node.flags);
      if (zputenv(newenv)) {
@@ -3826,6 +4132,21 @@ addenv(Param pm, char *value)
 	pm->env = NULL;
 	return;
     }
+#ifdef USE_SET_UNSET_ENV
+     /*
+      * If we are using setenv/unsetenv to manage the environment,
+      * we simply store the string we created in pm->env since
+      * memory management of the environment is handled entirely
+      * by the system.
+      *
+      * TODO: is this good enough to fix problem cases from
+      * the other branch?  If so, we don't actually need to
+      * store pm->env at all, just a flag that the value was set.
+      */
+     if (pm->env)
+         zsfree(pm->env);
+     pm->env = newenv;
+#else
     /*
      * Under Cygwin we must use putenv() to maintain consistency.
      * Unfortunately, current version (1.1.2) copies argument and may
@@ -3845,6 +4166,7 @@ addenv(Param pm, char *value)
 
     DPUTS(1, "addenv should never reach the end");
     pm->env = NULL;
+#endif
 }
 
 
@@ -3875,6 +4197,7 @@ mkenvstr(char *name, char *value, int flags)
  * string.                                         */
 
 
+#ifndef USE_SET_UNSET_ENV
 /**/
 void
 delenvvalue(char *x)
@@ -3890,6 +4213,8 @@ delenvvalue(char *x)
     }
     zsfree(x);
 }
+#endif
+
 
 /* Delete a pointer from the list of pointers to environment *
  * variables by shifting all the other pointers up one slot. */
@@ -3898,7 +4223,12 @@ delenvvalue(char *x)
 void
 delenv(Param pm)
 {
+#ifdef USE_SET_UNSET_ENV
+    unsetenv(pm->node.nam);
+    zsfree(pm->env);
+#else
     delenvvalue(pm->env);
+#endif
     pm->env = NULL;
     /*
      * Note we don't remove PM_EXPORT from the flags.  This
@@ -4070,7 +4400,7 @@ scanendscope(HashNode hn, UNUSED(int flags))
 	    if (pm->env)
 		delenv(pm);
 
-	    if (!(tpm->node.flags & PM_NORESTORE))
+	    if (!(tpm->node.flags & (PM_NORESTORE|PM_READONLY)))
 		switch (PM_TYPE(pm->node.flags)) {
 		case PM_SCALAR:
 		    pm->gsu.s->setfn(pm, tpm->u.str);

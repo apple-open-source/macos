@@ -1,5 +1,9 @@
 /* The type used for a target address */
-typedef unsigned long relax_addressT;
+#ifdef ARCH64
+typedef uint32_t relax_addressT;
+#else
+typedef uint64_t relax_addressT;
+#endif
 
 /*
  * relax_stateT is a fragment's type and stored in a struct frag's fr_type
@@ -15,6 +19,8 @@ typedef enum {
     rs_org,	/* Org: Fr_offset, fr_symbol: address. */
 		/* 1 variable char: fill character. */
     rs_machine_dependent,
+    rs_dwarf2dbg,
+    rs_leb128	/* leb128 value, subtype is 0 for 1 for signed. */
 } relax_stateT;
 
 /*
@@ -25,7 +31,7 @@ typedef enum {
  * The substate is a machine dependent indication of what type of branch
  * instruction this fragment is.
  */
-typedef unsigned long relax_substateT;
+typedef uint32_t relax_substateT;
 
 /*
  * relax_typeS is the structure that is the entry in the md_relax_table array.
@@ -36,8 +42,8 @@ typedef unsigned long relax_substateT;
  * reach it's target.
  */
 typedef struct relax_type {
-    long	    rlx_forward;  /* Forward  reach. Signed number. > 0. */
-    long	    rlx_backward; /* Backward reach. Signed number. < 0. */
+    int32_t	    rlx_forward;  /* Forward  reach. Signed number. > 0. */
+    int32_t	    rlx_backward; /* Backward reach. Signed number. < 0. */
     unsigned char   rlx_length;	  /* Bytes length of this address. */
     relax_substateT rlx_more;	  /* Next longer relax-state. */
 				  /* 0 means there is no 'next' relax-state. */

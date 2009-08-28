@@ -1,7 +1,7 @@
 #include "hppa-opcode.h"
 #include <stdio.h>
 
-extern long random();
+extern uint32_t random();
 
 #define RANGE(number)	(random() % (number))
 #define COIN			(RANGE(2))

@@ -10,7 +10,7 @@
 #  add a "fake" attribute to the end of dictionary1, so that you know
 #  which attributes belong to which dictionary...
 #
-#  $Id: attrnew.pl,v 1.1.2.1 2005/11/30 22:17:18 aland Exp $
+#  $Id$
 #
 
 $line = 0;

@@ -31,6 +31,7 @@ dtrace \- generic front-end to the DTrace facility
 [\fB\-i\fR \fIprobe\-id\fR [[\fIpredicate\fR] \fIaction\fR]]
 .SH OVERVIEW
 The \fIdtrace\fP command is a generic front-end to the DTrace facility.  The command implements a simple interface to invoke the D language compiler, the ability to retrieve buffered trace data from the DTrace kernel facility, and a set of basic routines to format and print traced data.
+Due to the kernel facility it uses to operate, the \fIdtrace\fP command requires root privileges.
 .br
 .P
 Users new to DTrace are encouraged to read:
@@ -247,6 +248,11 @@ The if test will only succeed when the increment probe is active.
 .IP 4. 3
 Compile and link your program normally. No additional compiler or linker flags are required.
 .IP
+.SH OS X BUILTIN VARIABLE CHANGES
+A small number of DTrace builtin variables have OS X specific changes:
+.TP
+.B tid
+A uint64_t thread ID of the currently executing thread. The thread ID is guaranteed to be unique and non repeating. The tid value is not equivalent to pthread_self.
 .SH EXIT STATUS
 The following exit values are returned by the \fIdtrace\fP utility:
 .TP

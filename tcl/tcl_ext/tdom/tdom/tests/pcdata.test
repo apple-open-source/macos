@@ -1,0 +1,104 @@
+# Features covered:  PCDATA
+#
+# This file tests the parser's performance on PCDATA.
+# Sourcing this file into Tcl runs the tests and generates output
+# for errors.  No output means no errors were found.
+#
+# Copyright (c) 1998-2000 Zveno Pty Ltd.
+#
+# $Id: pcdata.test,v 1.5 2003/12/11 13:36:10 rolf Exp $
+
+source [file join [file dir [info script]] loadtdom.tcl]
+
+catch {unset result}
+proc pcdata data {
+    append ::result $data
+    incr ::pcdataCounter
+}
+proc Estart {tagName attrList} {
+    switch -- $tagName {
+	Test {
+	}
+	default {
+	    incr ::element
+	}
+    }
+}
+
+proc EStop tagname {
+}
+
+test pcdata-1.1 {Simple PCDATA} {
+    set ::result {}
+    set ::element 0
+    set ::pcdataCounter 0
+
+    catch {rename xml::pcdata-1.1 {}}
+    set parser [xml::parser xml::pcdata-1.1 \
+	-elementstartcommand Estart \
+	-elementendcommand EStop \
+	-characterdatacommand pcdata]
+    $parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test>This is PCDATA</Test>
+}
+    list $::result $::element
+} {{This is PCDATA} 0}
+
+test pcdata-1.2 {PCDATA section with Tcl specials} {
+    set ::result {}
+    set ::element 0
+    set ::pcdataCounter 0
+
+    catch {rename xml::pcdata-1.2 {}}
+    set parser [xml::parser xml::pcdata-1.2 \
+	-elementstartcommand Estart \
+	-elementendcommand EStop \
+	-characterdatacommand pcdata]
+    $parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test>Dollar $ backslash \ square brackets [ ] braces { }</Test>
+}
+    list $::result $::element
+} {{Dollar $ backslash \ square brackets [ ] braces { }} 0}
+
+# Requested by Marshall Rose, 20/3/1999
+test pcdata-1.3 {PCDATA with no entity expansion} {
+    set ::result {}
+    set ::element 0
+    set ::pcdataCounter 0
+
+    catch {rename xml::pcdata-1.3 {}}
+    set parser [xml::parser xml::pcdata-1.3 \
+	-elementstartcommand Estart \
+	-elementendcommand EStop \
+	-characterdatacommand pcdata]
+    $parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test>This is &lt;PCDATA&gt;</Test>
+}
+    list $::result $::pcdataCounter
+} {{This is <PCDATA>} 1}
+
+test pcdata-1.3 {keep all PCDATA for not white space only PCDATA content} {
+    set ::result {}
+
+    catch {rename xml::pcdata-1.4 {}}
+    set parser [xml::parser xml::pcdata-1.4 \
+                    -characterdatacommand pcdata \
+                    -ignorewhitecdata 1]
+    $parser parse {<root>
+    some content
+    </root>}
+    set ::result
+} {
+    some content
+    }
+
+foreach parser [info commands pcdata-*] {
+    $parser free
+}
+
+# cleanup
+::tcltest::cleanupTests
+return

@@ -9,6 +9,20 @@ MODE=
 DCMD=
 VCMD=
 
+DEVICE_URI=`defaults read /Library/Preferences/com.apple.print.FaxPrefs device-uri`
+
+# verify it's a "fax://dev/" formated uri...
+if (echo "$DEVICE_URI" | grep -q "^fax://dev/"); then
+	# Remove scheme and path components...
+	DEV=`echo $DEVICE_URI | cut -c 11-`
+	DEVANSWER=`echo $DEV|sed -e "s/cu\.\(.*\)/tty.\1/g"`
+else
+	# Use default modem device...
+	DEV=cu.usbmodem
+	DEVANSWER=tty.usbmodem
+	echo "$0: using default device \"$DEV\"" >&2
+fi
+
 FROM=`defaults read /Library/Preferences/com.apple.print.FaxPrefs FaxNumber`
 if [ $? -ne 0 ]; then
 	echo "$0: can't read FaxPrefs FaxNumber" >&2

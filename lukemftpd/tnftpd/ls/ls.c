@@ -1,4 +1,4 @@
-/*	$NetBSD: ls.c,v 1.3 2003/12/15 12:18:43 lukem Exp $	*/
+/*	$NetBSD: ls.c,v 1.4 2007/07/22 11:05:35 lukem Exp $	*/
 
 /*
  * Copyright (c) 1989, 1993, 1994
@@ -32,9 +32,9 @@
  * SUCH DAMAGE.
  */
 
-#if	HAVE_TNFTPD_H
+#if defined(HAVE_TNFTPD_H)
 #include "tnftpd.h"
-#else	/* ! HAVE_TNFTPD_H */
+#else /* !defined(HAVE_TNFTPD_H) */
 
 #include <sys/cdefs.h>
 #ifndef lint
@@ -46,7 +46,7 @@ __COPYRIGHT("@(#) Copyright (c) 1989, 1993, 1994\n\
 #if 0
 static char sccsid[] = "@(#)ls.c	8.7 (Berkeley) 8/5/94";
 #else
-__RCSID("$NetBSD: ls.c,v 1.3 2003/12/15 12:18:43 lukem Exp $");
+__RCSID("$NetBSD: ls.c,v 1.4 2007/07/22 11:05:35 lukem Exp $");
 #endif
 #endif /* not lint */
 
@@ -67,7 +67,7 @@ __RCSID("$NetBSD: ls.c,v 1.3 2003/12/15 12:18:43 lukem Exp $");
 #include <pwd.h>
 #include <grp.h>
 
-#endif	/* ! HAVE_TNFTPD_H */
+#endif /* !defined(HAVE_TNFTPD_H) */
 
 #include "ls.h"
 #include "extern.h"
@@ -271,13 +271,13 @@ ls_main(int argc, char *argv[])
 
 	/* If -l or -s, figure out block size. */
 	if (f_inode || f_longform || f_size) {
-#if	HAVE_TNFTPD_H
+#if defined(HAVE_TNFTPD_H)
 		blocksize = 1024;
-#else	/* ! HAVE_TNFTPD_H */
+#else /* !defined(HAVE_TNFTPD_H) */
 		if (!kflag)
 			(void)getbsize(&notused, &blocksize);
 		blocksize /= 512;
-#endif	/* ! HAVE_TNFTPD_H */
+#endif /* !defined(HAVE_TNFTPD_H) */
 	}
 
 	/* Select a sort function. */
@@ -521,14 +521,14 @@ display(FTSENT *p, FTSENT *list)
 					maxuser = ulen;
 				if ((glen = strlen(group)) > maxgroup)
 					maxgroup = glen;
-#if ! HAVE_TNFTPD_H
+#if !defined(HAVE_TNFTPD_H)
 				if (f_flags) {
 					flags =
 					    flags_to_string(sp->st_flags, "-");
 					if ((flen = strlen(flags)) > maxflags)
 						maxflags = flen;
 				} else
-#endif	/* ! HAVE_TNFTPD_H */
+#endif /* !defined(HAVE_TNFTPD_H) */
 					flen = 0;
 
 				if ((np = malloc(sizeof(NAMES) +

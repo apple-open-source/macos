@@ -30,36 +30,47 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)ruptime.1	8.2 (Berkeley) 4/5/94
+.\" $FreeBSD: src/usr.bin/ruptime/ruptime.1,v 1.17 2005/02/13 22:25:24 ru Exp $
 .\"
-.Dd April 5, 1994
+.Dd March 1, 2003
 .Dt RUPTIME 1
-.Os BSD 4.2
+.Os
 .Sh NAME
 .Nm ruptime
 .Nd show host status of local machines
 .Sh SYNOPSIS
-.Nm ruptime
+.Nm
 .Op Fl alrtu
+.Op Ar host ...
 .Sh DESCRIPTION
-.Nm Ruptime
-gives a status line like
-.Ar uptime
+The
+.Nm
+utility gives a status line like
+.Xr uptime 1
 for each machine on the local network; these are formed from packets
-broadcast by each host on the network once a minute.
+broadcast by each host on the network once every three minutes.
+.Pp
+If no operands are given,
+.Nm
+displays uptime status for all machines;
+otherwise only those hosts specified on the command line are displayed.
+If hosts are specified on the command line, the sort order is equivalent
+to the order hosts were specified on the command line.
 .Pp
 Machines for which no status report has been received for 11
-minutes are shown as being down.
+minutes are shown as being down, and machines for which no status
+report has been received for 4 days are not shown in the list at all.
 .Pp
 The options are as follows:
 .Bl -tag -width Ds
 .It Fl a
-Users idle an hour or more are not counted unless the
-.Fl a
-flag is given.
+Include all users.
+By default, if a user has not typed to the system for
+an hour or more, then the user will be omitted from the output.
 .It Fl l
 Sort by load average.
 .It Fl r
-Reverses the sort order.
+Reverse the sort order.
 .It Fl t
 Sort by uptime.
 .It Fl u
@@ -73,9 +84,11 @@ The default listing is sorted by host name.
 data files
 .El
 .Sh SEE ALSO
-.Xr rwho 1
-.Xr uptime 1
+.Xr rwho 1 ,
+.Xr uptime 1 ,
+.Xr rwhod 8
 .Sh HISTORY
-.Nm Ruptime
-appeared in
+A
+.Nm
+utility appeared in
 .Bx 4.2 .

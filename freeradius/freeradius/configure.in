@@ -3,7 +3,7 @@ dnl #
 dnl #  For information about autoconf, see:
 dnl #
 dnl #  http://www.gnu.org/software/autoconf/
-dnl #  
+dnl #
 dnl #  The recommended order is:
 dnl #
 dnl #  AC_INIT(file)
@@ -20,15 +20,17 @@ dnl #  AC_OUTPUT([file...])
 dnl #
 dnl #############################################################
 
+AC_PREREQ([2.59])
+export CFLAGS LIBS LDFLAGS CPPFLAGS
 AC_INIT(src/main/radiusd.c)
 AC_CONFIG_HEADER(src/include/autoconf.h)
-AC_REVISION($Revision: 1.198.2.15.2.18 $)dnl
-AC_PREREQ([2.50])
+AC_REVISION($Revision$)dnl
 
 dnl # The version of the software
-RADIUSD_MAJOR_VERSION=1
-RADIUSD_MINOR_VERSION=1.7
-RADIUSD_VERSION="${RADIUSD_MAJOR_VERSION}.${RADIUSD_MINOR_VERSION}"
+RADIUSD_VERSION=`cat VERSION`
+RADIUSD_MAJOR_VERSION=`cat VERSION | sed 's/\..*//'`
+RADIUSD_MINOR_VERSION=`cat VERSION | sed 's/^2\.//'`
+PACKAGE=freeradius
 
 dnl #############################################################
 dnl #
@@ -38,6 +40,7 @@ dnl #############################################################
 
 dnl Check for GNU cc
 AC_PROG_CC
+AC_PROG_CXX
 
 dnl #
 dnl # check for AIX, to allow us to use some BSD functions
@@ -49,13 +52,8 @@ AC_PROG_GCC_TRADITIONAL
 AC_PROG_CC_SUNPRO
 AC_PROG_RANLIB
 
-abs_top_builddir=`pwd`
-AC_SUBST(abs_top_builddir)
-
-dnl # autoconf 2.50 and later
-dnl # AC_SYS_LARGEFILE
-
-PACKAGE=freeradius
+dnl Compile in large (2G+) file support.
+AC_SYS_LARGEFILE
 
 dnl # check for system bytesex
 dnl # AC_DEFINES WORDS_BIGENDIAN
@@ -84,7 +82,7 @@ fi
 AC_SUBST(LTDL_SUBDIRS)
 
 dnl use system-wide libtool, if it exists
-AC_ARG_WITH(system-libtool, 
+AC_ARG_WITH(system-libtool,
 [  --with-system-libtool              try to use libtool installed in your system [default=use our own]],
 [ AC_PATH_PROG(LIBTOOL, libtool,,$PATH:/usr/local/bin) ],
 [
@@ -211,7 +209,7 @@ AC_ARG_WITH(ascend-binary,
   esac ]
 )
 if test "X$ASCEND_BINARY" = "Xyes"; then
-  AC_DEFINE(ASCEND_BINARY)
+  AC_DEFINE(ASCEND_BINARY, [], [Include support for Ascend binary filter attributes])
 fi
 
 dnl extra argument: --with-threads
@@ -226,36 +224,27 @@ AC_ARG_WITH(threads,
   esac ]
 )
 
-dnl extra argument: --with-snmp
-WITH_SNMP=yes
-AC_ARG_WITH(snmp,
-[  --with-snmp             Compile in SNMP support. (default=yes)],
+dnl extra argument: --with-vmps
+WITH_VMPS=yes
+AC_ARG_WITH(vmps,
+[  --with-vmps             Compile in VMPS support. (default=yes)],
 [ case "$withval" in
     yes)
         ;;
     *)
-	WITH_SNMP=no
+	WITH_VMPS=no
   esac ]
 )
+if test "x$WITH_VMPS" = "xyes"; then
+	AC_DEFINE(WITH_VMPS, [1], [define if you want VMPS support])
+fi
 
-dnl #
-dnl # extra argument: --with-snmp-include-dir
-dnl #
-AC_ARG_WITH(snmp-include-dir,
-[  --with-snmp-include-dir=DIR  Directory to look for include files used by SNMP],
-[ case "$withval" in
-    *)
-	;;
-  esac ]
-)
-
-dnl extra argument: --with-large-files
-rad_enable_largefiles=no
-AC_ARG_WITH(large-files,
-[  --with-large-files      Compile in large (2G+) file support. (default=no)],
+dnl extra argument: --with-dhcp
+AC_ARG_WITH(dhcp,
+[  --with-dhcp             Compile in DHCP support. (default=no)],
 [ case "$withval" in
     yes)
-        rad_enable_largefiles=yes
+        AC_DEFINE(WITH_DHCP, [1], [Include experimental support for DHCP])
 	;;
     *)
 	;;
@@ -299,6 +288,11 @@ AC_ARG_ENABLE(developer,
 
 if test "x$developer" != "xno" -a -d $srcdir/CVS; then
   dnl turn on the developer flag when taken from a CVS checkout (not a release)
+  developer="yes"
+fi
+
+if test "x$developer" != "xno" -a -d $srcdir/.git; then
+  dnl turn on the developer flag when taken from a git checkout (not a release)
   developer="yes"
 fi
 
@@ -412,13 +406,8 @@ AC_ARG_WITH(udpfromto,
 )
 
 if test "x$WITH_UDPFROMTO" = "xyes"; then
-	AC_DEFINE(WITH_UDPFROMTO)
+	AC_DEFINE(WITH_UDPFROMTO, [], [define if you want udpfromto])
 fi
-
-dnl extra argument: --with-edir
-dnl If using Novell eDirectory, enable UP and Novell specific code
-AC_ARG_WITH(edir,
-[  --with-edir             Enable Novell eDirectory integration.  (default=no) ] , [] )
 
 dnl #############################################################
 dnl #
@@ -461,20 +450,20 @@ dnl #############################################################
 
 dnl If using pthreads, check for -lpthread (posix) or -lc_r (*BSD)
 old_CFLAGS=$CFLAGS
-if test "x$WITH_THREADS" = "xyes"; then 
+if test "x$WITH_THREADS" = "xyes"; then
   if test $ac_cv_prog_suncc = "yes"; then
     CFLAGS="$CFLAGS -mt"
   fi
 
   AC_CHECK_HEADERS(pthread.h, [], [ WITH_THREADS="no" ])
 
-dnl # 
+dnl #
 dnl # pthread stuff is usually in -lpthread
 dnl # or in -lc_r, on *BSD
-dnl # 
+dnl #
 dnl # On Some systems, we need extra pre-processor flags, to get them to
 dnl # to do the threading properly.
-dnl # 
+dnl #
   AC_CHECK_LIB(pthread, pthread_create,
 		[ CFLAGS="$CFLAGS -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS"
                   LIBS="$LIBS -lpthread" ],
@@ -485,9 +474,9 @@ dnl #
 		)
 fi
 
-dnl # 
+dnl #
 dnl # If we have NO pthread libraries, remove any knowledge of threads.
-dnl # 
+dnl #
 if test "x$WITH_THREADS" != "xyes"; then
   CFLAGS=$old_CFLAGS
   ac_cv_header_pthread_h="no"
@@ -500,8 +489,9 @@ else
   dnl # HP/UX requires linking with librt, too, to get the sem_* symbols.
   dnl # Some systems have them in -lsem
   dnl # Solaris has them in -lposix4
+  dnl # NetBSD has them in -lsemaphore
 
-  AC_SEARCH_LIBS(sem_init, pthread sem posix4 rt,
+  AC_SEARCH_LIBS(sem_init, pthread sem posix4 rt semaphore,
 	[],
 	[AC_MSG_ERROR(-lsem not found.  You may want to download it from ftp://ftp.to.gd-es.com/pub/BSDI/libsem.tar.bz2 or ftp://ftp.freeradius.org/pub/radius/contrib/libsem.tar.gz)]
    )
@@ -527,6 +517,7 @@ if test "x$WITH_OPENSSL" = xyes; then
   fi
   AC_CHECK_LIB(crypto, DH_new,
     [
+	LIBS="-lcrypto $LIBS"
 	AC_DEFINE(HAVE_LIBCRYPTO, 1,
 	    [Define to 1 if you have the `crypto' library (-lcrypto).])
 	AC_CHECK_LIB(ssl, SSL_new,
@@ -542,6 +533,19 @@ if test "x$WITH_OPENSSL" = xyes; then
   LIBS=$old_LIBS
 fi
 
+AC_CHECK_LIB(ws2_32, htonl)
+
+dnl Check the pcap library for the RADIUS sniffer.
+PCAP_LIBS=
+AC_CHECK_LIB(pcap, pcap_open_live,
+	[ PCAP_LIBS="-lpcap"
+	AC_DEFINE(HAVE_LIBPCAP, 1,
+		[Define to 1 if you have the `pcap' library (-lpcap).])
+	],
+	[ AC_MSG_WARN([pcap library not found, silently disabling the RADIUS sniffer.]) ])
+
+AC_LIB_READLINE
+
 dnl #############################################################
 dnl #
 dnl #  3. Checks for header files
@@ -551,14 +555,15 @@ dnl #############################################################
 dnl #
 dnl # Interix requires us to set -D_ALL_SOURCE, otherwise
 dnl # getopt will be #included, but won't link.  <sigh>
-dnl # 
-dnl # 
+dnl #
+dnl #
 case "$host" in
 *-interix*)
 	CFLAGS="$CFLAGS -D_ALL_SOURCE"
 	;;
 *-darwin*)
 	CFLAGS="$CFLAGS -DDARWIN"
+	LIBS="-framework DirectoryService $LIBS"
 	;;
 esac
 
@@ -572,6 +577,7 @@ AC_CHECK_HEADERS( \
 	crypt.h \
 	errno.h \
 	resource.h \
+	sys/resource.h \
 	getopt.h \
 	malloc.h \
 	utmp.h \
@@ -588,20 +594,31 @@ AC_CHECK_HEADERS( \
 	netinet/in.h \
 	sys/types.h \
 	sys/socket.h \
+	winsock.h \
 	sys/time.h \
 	sys/wait.h \
 	sys/security.h \
 	fcntl.h \
 	sys/fcntl.h \
-	sys/stat.h \
 	sys/prctl.h \
+	sys/un.h \
+	glob.h \
 	prot.h \
+	pwd.h \
+	grp.h \
 	sia.h \
 	siad.h
 )
 
+dnl FreeBSD requires sys/socket.h before net/if.h
+AC_CHECK_HEADERS(net/if.h, [], [],
+[#ifdef HAVE_SYS_SOCKET_H
+# include <sys/socket.h>
+# endif
+])
+
 REGEX=no
-AC_CHECK_HEADER(regex.h, AC_DEFINE(HAVE_REGEX_H))
+AC_CHECK_HEADER(regex.h, AC_DEFINE(HAVE_REGEX_H, [], [define this if we have the <regex.h> header file]))
 if test "x$ac_cv_header_regex_h" = "xyes"; then
   REGEX_EXTENDED=no
   REGEX=yes
@@ -610,7 +627,7 @@ if test "x$ac_cv_header_regex_h" = "xyes"; then
      #ifdef REG_EXTENDED
        yes
      #endif
-     ], [AC_DEFINE(HAVE_REG_EXTENDED) REGEX_EXTENDED=yes])
+     ], [AC_DEFINE(HAVE_REG_EXTENDED, [], [define this if we have REG_EXTENDED (from <regex.h>)]) REGEX_EXTENDED=yes])
 fi
 AC_SUBST(REGEX)
 AC_SUBST(REGEX_EXTENDED)
@@ -620,12 +637,12 @@ dnl #  other checks which require headers
 dnl #
 if test "x$ac_cv_header_sys_security_h" = "xyes" && test "x$ac_cv_header_prot_h" = "xyes"
 then
-  AC_DEFINE(OSFC2)
+  AC_DEFINE(OSFC2, [], [define if you have OSFC2 authentication])
 fi
 
 if test "x$ac_cv_header_sia_h" = "xyes" && test "x$ac_cv_header_siad_h" = "xyes"
 then
-  AC_DEFINE(OSFSIA)
+  AC_DEFINE(OSFSIA, [], [define if you have OSFSIA authentication])
 fi
 
 dnl Check for OpenSSL includes.
@@ -644,6 +661,7 @@ if test "x$WITH_OPENSSL" = xyes; then
 	openssl/ssl.h \
 	openssl/crypto.h \
 	openssl/err.h \
+	openssl/evp.h \
 	openssl/engine.h,
 	[],
 	OPENSSL_LIBS=
@@ -675,6 +693,19 @@ AC_SUBST(OPENSSL_INCLUDE)
 AC_SUBST(OPENSSL_LIBS)
 export OPENSSL_LIBS
 
+dnl Check the pcap includes for the RADIUS sniffer.
+if test "x$PCAP_LIBS" = x; then
+    AC_MSG_NOTICE([skipping test for pcap.h.])
+else
+    AC_CHECK_HEADER(pcap.h,
+	AC_DEFINE(HAVE_PCAP_H, 1,
+		[Define to 1 if you have the <pcap.h> header file.]),
+	[ PCAP_LIBS=
+	AC_MSG_WARN([pcap.h not found, silently disabling the RADIUS sniffer.])
+	])
+fi
+AC_SUBST(PCAP_LIBS)
+
 dnl #############################################################
 dnl #
 dnl #  4. Checks for typedefs
@@ -684,50 +715,83 @@ dnl #############################################################
 dnl #
 dnl # Ensure that these are defined
 dnl #
-AC_TYPE_OFF_T 
+AC_TYPE_OFF_T
 AC_TYPE_PID_T
 AC_TYPE_SIZE_T
 AC_TYPE_UID_T
 
 dnl check for socklen_t
-AC_CHECK_TYPE_INCLUDE([
+FR_CHECK_TYPE_INCLUDE([
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif
 #ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
 #endif
-],socklen_t, int)
+],socklen_t, int, [socklen_t is generally 'int' on systems which don't use it])
 
 dnl check for uint8_t
-AC_CHECK_TYPE_INCLUDE([
+FR_CHECK_TYPE_INCLUDE([
 #ifdef HAVE_INTTYPES_H
 #include <inttypes.h>
 #endif
 #ifdef HAVE_STDINT_H
 #include <stdint.h>
 #endif
-],uint8_t, unsigned char)
+],uint8_t, unsigned char, [uint8_t should be the canonical 'octet' for network traffic])
 
 dnl check for uint16_t
-AC_CHECK_TYPE_INCLUDE([
+FR_CHECK_TYPE_INCLUDE([
 #ifdef HAVE_INTTYPES_H
 #include <inttypes.h>
 #endif
 #ifdef HAVE_STDINT_H
 #include <stdint.h>
 #endif
-],uint16_t, unsigned short)
+],uint16_t, unsigned short, [uint16_t should be the canonical '2 octets' for network traffic])
 
 dnl check for uint32_t
-AC_CHECK_TYPE_INCLUDE([
+FR_CHECK_TYPE_INCLUDE([
 #ifdef HAVE_INTTYPES_H
 #include <inttypes.h>
 #endif
 #ifdef HAVE_STDINT_H
 #include <stdint.h>
 #endif
-],uint32_t, unsigned int)
+],uint32_t, unsigned int, [uint32_t should be the canonical 'network integer])
+
+AC_CHECK_TYPE(struct in6_addr, AC_DEFINE(HAVE_STRUCT_IN6_ADDR, 1, [IPv6 address structure]), [], [
+#ifdef HAVE_NETINET_IN_H
+#include <netinet/in.h>
+#endif
+])
+
+AC_CHECK_TYPE(struct sockaddr_storage, AC_DEFINE(HAVE_STRUCT_SOCKADDR_STORAGE, 1, [Generic socket addresses]), [], [
+#ifdef HAVE_NETINET_IN_H
+#include <netinet/in.h>
+#endif
+#ifdef HAVE_SYS_SOCKET_H
+#include <sys/socket.h>
+#endif
+])
+
+AC_CHECK_TYPE(struct sockaddr_in6, AC_DEFINE(HAVE_STRUCT_SOCKADDR_IN6, 1, [IPv6 socket addresses]), [], [
+#ifdef HAVE_NETINET_IN_H
+#include <netinet/in.h>
+#endif
+])
+
+AC_CHECK_TYPE(struct addrinfo, AC_DEFINE(HAVE_STRUCT_ADDRINFO, 1, [Generic DNS lookups]), [], [
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+#ifdef HAVE_SYS_SOCKET_H
+#include <sys/socket.h>
+#endif
+#ifdef HAVE_NETDB_H
+#include <netdb.h>
+#endif
+])
 
 dnl #############################################################
 dnl #
@@ -753,19 +817,25 @@ AC_CHECK_FUNCS( \
 	inet_aton \
 	inet_pton \
 	inet_ntop \
-	gethostname \
 	setlinebuf \
 	setvbuf \
 	getusershell \
 	initgroups \
-	closefrom
+	getaddrinfo \
+	getnameinfo \
+	closefrom \
+	gettimeofday \
+	getpeereid \
+	setresuid \
+	getresuid \
+	strlcat \
+	strlcpy
 )
 RADIUSD_NEED_DECLARATIONS( \
 	crypt \
 	strncasecmp \
 	strcasecmp \
 	inet_aton \
-	gethostname \
 	setlinebuf \
 	getusershell \
 	endusershell
@@ -778,18 +848,25 @@ dnl # if so, check if struct utmpx has entry ut_xtime
 dnl # if not, set it to define ut_xtime == ut_tv.tv_sec
 if test "x$ac_cv_header_utmpx_h" = "xyes"
 then
- AC_CHECK_STRUCT_HAS_MEMBER([#include <utmpx.h>], [struct utmpx], ut_xtime)
+ FR_CHECK_STRUCT_HAS_MEMBER([#include <utmpx.h>], [struct utmpx], ut_xtime)
  if test "x$ac_cv_type_struct_utmpx_has_ut_xtime" = "x"
  then
-   AC_DEFINE(ut_xtime,ut_tv.tv_sec)
+   AC_DEFINE(ut_xtime,ut_tv.tv_sec, [define to something if you don't have ut_xtime in struct utmpx])
  fi
 fi
 
 dnl # struct ip_pktinfo
-AC_CHECK_STRUCT_HAS_MEMBER([#include <netinet/in.h>], [struct in_pktinfo], ipi_addr)
+FR_CHECK_STRUCT_HAS_MEMBER([#include <netinet/in.h>], [struct in_pktinfo], ipi_addr)
 if test "x$ac_cv_type_struct_in_pktinfo_has_ipi_addr" = "xyes"
 then
-	AC_DEFINE(HAVE_IP_PKTINFO)
+	AC_DEFINE(HAVE_IP_PKTINFO, [], [define if you have IP_PKTINFO (Linux)])
+fi
+
+dnl # struct in6_pktinfo
+FR_CHECK_STRUCT_HAS_MEMBER([#include <netinet/in.h>], [struct in6_pktinfo], ipi6_addr)
+if test "x$ac_cv_type_struct_in6_pktinfo_has_ipi6_addr" = "xyes"
+then
+	AC_DEFINE(HAVE_IN6_PKTINFO, [], [define if you have IN6_PKTINFO (Linux)])
 fi
 
 dnl #############################################################
@@ -801,7 +878,7 @@ dnl #############################################################
 dnl #
 dnl # Ensure that these are defined
 dnl #
-AC_C_CONST 
+AC_C_CONST
 
 dnl #
 dnl # See if this is OS/2
@@ -832,9 +909,11 @@ if test "x$developer" = "xyes" -a "x$GCC" = "xyes"; then
 else
   devflags=""
   CFLAGS="$CFLAGS -DNDEBUG"
-  INSTALLSTRIP="-s"
+  INSTALLSTRIP=""
   AC_MSG_RESULT(no.)
 fi
+
+FR_TLS
 
 dnl #############################################################
 dnl #
@@ -848,9 +927,9 @@ AC_CHECK_LIB(crypt, crypt,
   CRYPTLIB="-lcrypt"
 )
 if test "$CRYPTLIB" != ""; then
-  AC_DEFINE(HAVE_CRYPT)
+  AC_DEFINE(HAVE_CRYPT, [], [Do we have the crypt function])
 else
-  AC_CHECK_FUNC(crypt, AC_DEFINE(HAVE_CRYPT))
+  AC_CHECK_FUNC(crypt, AC_DEFINE(HAVE_CRYPT, [], [Do we have the crypt function]))
 fi
 
 dnl Check for libcipher
@@ -859,14 +938,13 @@ AC_CHECK_LIB(cipher, setkey,
 )
 AC_SUBST(CRYPTLIB)
 
-if test "x$WITH_SNMP" = "xyes"; then
-  SNMP_CHECKS
-fi
-
 dnl Check the style of gethostbyaddr, in order of preference
 dnl GNU (_r eight args)
+AC_DEFINE(GNUSTYLE, [1], [GNU-Style get*byaddr_r])
 dnl SYSV (_r six args)
+AC_DEFINE(SYSVSTYLE, [2], [SYSV-Style get*byaddr_r])
 dnl BSD (three args, may not be thread safe)
+AC_DEFINE(BSDSTYLE, [3], [BSD-Style get*byaddr_r])
 dnl Tru64 has BSD version, but it is thread safe
 dnl 	http://h30097.www3.hp.com/docs/base_doc/DOCUMENTATION/V51B_HTML/MAN/MAN3/1739____.HTM
 dnl We need #stdio.h to define NULL on FreeBSD (at least)
@@ -895,7 +973,7 @@ if test "x$gethostbyaddrrstyle" = "x"; then
 #include <stdio.h>
 #include <netdb.h>
 ], [ gethostbyaddr_r(NULL, 0, 0, NULL, NULL, 0, NULL, NULL) ], [
-	AC_DEFINE(GETHOSTBYADDRRSTYLE, GNUSTYLE)
+	AC_DEFINE(GETHOSTBYADDRRSTYLE, GNUSTYLE, [style of gethostbyaddr_r functions ])
 	gethostbyaddrrstyle=GNU
 ])
 fi
@@ -904,7 +982,7 @@ if test "x$gethostbyaddrrstyle" = "x"; then
 #include <stdio.h>
 #include <netdb.h>
 ], [ gethostbyaddr_r(NULL, 0, 0, NULL, NULL, 0, NULL) ] , [
-		AC_DEFINE(GETHOSTBYADDRRSTYLE, SYSVSTYLE)
+		AC_DEFINE(GETHOSTBYADDRRSTYLE, SYSVSTYLE, [style of gethostbyaddr_r functions ])
 		gethostbyaddrrstyle=SYSV
 	])
 fi
@@ -913,7 +991,7 @@ if test "x$gethostbyaddrrstyle" = "x"; then
 #include <stdio.h>
 #include <netdb.h>
 ], [ gethostbyaddr(NULL, 0, 0)  ], [
-		AC_DEFINE(GETHOSTBYADDRRSTYLE, BSDSTYLE)
+		AC_DEFINE(GETHOSTBYADDRRSTYLE, BSDSTYLE, [style of gethostbyaddr_r functions ])
 		gethostbyaddrrstyle=BSD
 	])
 fi
@@ -941,7 +1019,7 @@ AC_TRY_LINK([
 #include <stdio.h>
 #include <netdb.h>
 ], [ gethostbyname_r(NULL, NULL, NULL, 0, NULL, NULL) ], [
-	AC_DEFINE(GETHOSTBYNAMERSTYLE, GNUSTYLE)
+	AC_DEFINE(GETHOSTBYNAMERSTYLE, GNUSTYLE, [style of gethostbyname_r functions ])
 	gethostbynamerstyle=GNU
 ])
 if test "x$gethostbynamerstyle" = "x"; then
@@ -949,7 +1027,7 @@ if test "x$gethostbynamerstyle" = "x"; then
 #include <stdio.h>
 #include <netdb.h>
 ], [ gethostbyname_r(NULL, NULL, NULL, 0, NULL) ] , [
-		AC_DEFINE(GETHOSTBYNAMERSTYLE, SYSVSTYLE)
+		AC_DEFINE(GETHOSTBYNAMERSTYLE, SYSVSTYLE, [style of gethostbyname_r functions ])
 		gethostbynamerstyle=SYSV
 	])
 fi
@@ -958,7 +1036,7 @@ if test "x$gethostbynamerstyle" = "x"; then
 #include <stdio.h>
 #include <netdb.h>
 ], [ gethostbyname(NULL)  ], [
-		AC_DEFINE(GETHOSTBYNAMERSTYLE, BSDSTYLE)
+		AC_DEFINE(GETHOSTBYNAMERSTYLE, BSDSTYLE, [style of gethostbyname_r functions ])
 		gethostbynamerstyle=BSD
 	])
 fi
@@ -974,19 +1052,21 @@ if test "x$gethostbynamerstyle" = "xBSD"; then
 fi
 
 dnl check for non-posix solaris ctime_r (extra buflen int arg)
+AC_DEFINE(POSIXSTYLE, [1], [Posix-Style ctime_r])
+AC_DEFINE(SOLARISSTYLE, [2], [Solaris-Style ctime_r])
 ctimerstyle=""
 AC_MSG_CHECKING([ctime_r() syntax])
 AC_TRY_LINK([
 #include <time.h>
 ], [ ctime_r(NULL, NULL, 0) ], [
-	AC_DEFINE(CTIMERSTYLE, SOLARISSTYLE)
+	AC_DEFINE(CTIMERSTYLE, SOLARISSTYLE, [style of ctime_r function])
 	ctimerstyle="SOLARIS"
 ])
 if test "x$ctimerstyle" = "x"; then
 	AC_TRY_LINK([
 #include <time.h>
 ], [ ctime_r(NULL, NULL) ], [
-		AC_DEFINE(CTIMERSTYLE, POSIXSTYLE)
+		AC_DEFINE(CTIMERSTYLE, POSIXSTYLE, [style of ctime_r function])
 		ctimerstyle="POSIX"
 	])
 fi
@@ -995,64 +1075,6 @@ if test "x$ctimerstyle" = "x"; then
 	AC_MSG_RESULT([none!  It must not exist, here.])
 else
         AC_MSG_RESULT([${ctimerstyle}-style])
-fi
-
-
-dnl If configuring with large file support, determine the right flags to
-dnl use based on the platform.  This is the wrong approach; autoconf 2.50
-dnl comes with a macro that takes the right approach.  But this works well
-dnl enough until we switch to autoconf 2.50 or later.
-if test x"$rad_enable_largefiles" = xyes ; then
-    AC_MSG_CHECKING(for largefile linkage)
-    case "$host" in
-    *-aix4.[01]*)
-        AC_MSG_RESULT(no)
-        AC_MSG_ERROR([AIX before 4.2 does not support large files])
-        ;;
-    *-aix4*)
-        AC_MSG_RESULT(ok)
-        LFS_CFLAGS="-D_LARGE_FILES"
-        LFS_LDFLAGS=""
-        LFS_LIBS=""
-        ;;
-    *-hpux*)
-        AC_MSG_RESULT(ok)
-        LFS_CFLAGS="-D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64"
-        LFS_LDFLAGS=""
-        LFS_LIBS=""
-        ;;
-    *-irix*)
-        AC_MSG_RESULT(no)
-        AC_MSG_ERROR([Large files not supported on this platform])
-        ;;
-    *-linux*)
-        AC_MSG_RESULT(maybe)
-        LFS_CFLAGS="-D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64"
-        LFS_LDFLAGS=""
-        LFS_LIBS=""
-        AC_DEFINE([_GNU_SOURCE], 1,
-                  [Some versions of glibc need this defined for pread/pwrite.])
-        ;;
-    *-solaris*)
-        AC_MSG_RESULT(ok)
-        AC_PATH_PROG(GETCONF, getconf)
-        if test -z "$GETCONF" ; then
-            AC_MSG_ERROR([getconf required to configure large file support])
-        fi
-        LFS_CFLAGS=`$GETCONF LFS_CFLAGS`
-        LFS_LDFLAGS=`$GETCONF LFS_LDFLAGS`
-        LFS_LIBS=`$GETCONF LFS_LIBS`
-        ;;
-    *)
-        AC_MSG_RESULT(maybe)
-        LFS_CFLAGS="-D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64"
-        LFS_LDFLAGS=""
-        LFS_LIBS=""
-        ;;
-    esac
-    AC_SUBST(LFS_CFLAGS)
-    AC_SUBST(LFS_LDFLAGS)
-    AC_SUBST(LFS_LIBS)
 fi
 
 AC_SUBST(HOSTINFO, $host)
@@ -1081,17 +1103,17 @@ dnl #  Configure in any module directories.
 dnl #
 dnl #############################################################
 
-mysubdirs=
+mysubdirs="$LIBLTDLPATH"
 if test "x$EXPERIMENTAL" = "xyes"; then
-  bar=`ls -1 src/modules/rlm_*/configure | sed 's%/configure%%'`
+  bar=`ls -1 "${srcdir}"/src/modules/rlm_*/configure | sed 's%/configure%%'`
   dnl # get rid of LF's.
-  mysubdirs=`echo $bar`
+  mysubdirs=`echo $mysubdirs $bar`
 else
-  dnl # 
+  dnl #
   dnl # Find 'configure' in ONLY the stable modules
-  dnl # 
-  for bar in `cat src/modules/stable`; do
-    if test -f src/modules/$bar/configure; then
+  dnl #
+  for bar in `cat "${srcdir}"/src/modules/stable`; do
+    if test -f "${srcdir}"/src/modules/$bar/configure; then
       mysubdirs="$mysubdirs src/modules/$bar"
     fi
   done
@@ -1101,14 +1123,14 @@ dnl ############################################################
 dnl # make modules by list
 dnl #############################################################
 if test "x$EXPERIMENTAL" = "xyes"; then
-  for foo in `ls -1 src/modules | grep rlm_`; do
+  for foo in `ls -1 "${srcdir}"/src/modules | grep rlm_`; do
     MODULES="$MODULES $foo"
   done
 else
    dnl #
    dnl # make ONLY the stable modules
    dnl #
-   for foo in `cat src/modules/stable`; do
+   for foo in `cat "${srcdir}"/src/modules/stable`; do
     MODULES="$MODULES $foo"
    done
 fi
@@ -1126,6 +1148,11 @@ dnl #  And finally, output the results.
 dnl #
 dnl #############################################################
 
+AC_CONFIG_COMMANDS([stamp-h], [echo timestamp > src/include/stamp-h])
+AC_CONFIG_COMMANDS([build-radpaths-h], [(cd ./src/include && /bin/sh ./build-radpaths-h)])
+AC_CONFIG_COMMANDS([main-chmod], [(cd ./src/main   && chmod +x checkrad.pl radlast radtest)])
+AC_CONFIG_COMMANDS([scripts-chmod], [(cd ./scripts    && chmod +x rc.radiusd radwatch radiusd.cron.daily radiusd.cron.monthly cryptpasswd)])
+
 dnl #
 dnl #  Substitute whatever libraries we found to be necessary
 dnl #
@@ -1140,7 +1167,6 @@ AC_SUBST(STATIC_MODULES)
 AC_SUBST(RADIUSD_MAJOR_VERSION)
 AC_SUBST(RADIUSD_MINOR_VERSION)
 AC_SUBST(RADIUSD_VERSION)
-export CFLAGS LIBS
 
 AC_OUTPUT(\
 	./Make.inc \
@@ -1151,15 +1177,9 @@ AC_OUTPUT(\
 	./src/main/radtest \
 	./scripts/rc.radiusd \
 	./scripts/radwatch \
-	./scripts/check-radiusd-config \
 	./scripts/radiusd.cron.daily \
 	./scripts/radiusd.cron.monthly \
 	./scripts/cryptpasswd \
 	./raddb/dictionary \
 	./raddb/radiusd.conf
 )
-
-AC_OUTPUT_COMMANDS([echo timestamp > src/include/stamp-h])
-AC_OUTPUT_COMMANDS([(cd ./src/include && /bin/sh ./build-radpaths-h)])
-AC_OUTPUT_COMMANDS([(cd ./src/main   && chmod +x checkrad.pl radlast radtest)])
-AC_OUTPUT_COMMANDS([(cd ./scripts    && chmod +x rc.radiusd radwatch check-radiusd-config radiusd.cron.daily radiusd.cron.monthly cryptpasswd)])

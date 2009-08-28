@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2002-2008 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -43,6 +43,8 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <syslog.h>
+
+#include "statd.h"
 
 #ifdef __STDC__
 #define SIG_PF void(*)(int)
@@ -130,7 +132,7 @@ sm_prog_1(struct svc_req *rqstp, SVCXPRT *transp)
 		svcerr_systemerr(transp);
 	}
 	if (!svc_freeargs(transp, xdr_argument, (caddr_t) &argument)) {
-		syslog(LOG_ERR, "unable to free arguments");
+		log(LOG_ERR, "unable to free arguments");
 		exit(1);
 	}
 	return;

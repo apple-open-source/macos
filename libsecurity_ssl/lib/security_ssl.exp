@@ -70,3 +70,10 @@ _SSLGetAllowAnonymousCiphers
 _SSLCopyDistinguishedNames
 _SSLSetCertificateAuthorities
 _SSLCopyCertificateAuthorities
+_SSLGetNegotiatedCurve
+_SSLGetNumberOfECDSACurves
+_SSLGetECDSACurves
+_SSLSetECDSACurves
+_SSLGetNumberOfClientAuthTypes
+_SSLGetClientAuthTypes
+_SSLGetNegotiatedClientAuthType

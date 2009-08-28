@@ -19,6 +19,8 @@
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
+   Copyright 2006 The FreeRADIUS server project
 */
 
 
@@ -43,9 +45,13 @@
    should confirm it for yourself (and maybe let me know if you come
    up with a different answer to the one above)
 */
-#include "libradius.h"
-#include <string.h>
+
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
+
+#include <freeradius-devel/libradius.h>
 #include <ctype.h>
+#include "smbdes.h"
 
 
 #define uchar unsigned char
@@ -310,11 +316,11 @@ static void smbhash(unsigned char *out, const unsigned char *in, unsigned char *
  *	Converts the password to uppercase, and creates the LM
  *	password hash.
  */
-void smbdes_lmpwdhash(const unsigned char *password,unsigned char *lmhash)
+void smbdes_lmpwdhash(const char *password, uint8_t *lmhash)
 {
 	int i;
-	unsigned char p14[14];
-	static unsigned char sp8[8] = {0x4b, 0x47, 0x53, 0x21, 0x40, 0x23, 0x24, 0x25};
+	uint8_t p14[14];
+	static uint8_t sp8[8] = {0x4b, 0x47, 0x53, 0x21, 0x40, 0x23, 0x24, 0x25};
 
 	memset(p14, 0, sizeof(p14));
 	for (i = 0; i < 14 && password[i]; i++) {
@@ -330,10 +336,10 @@ void smbdes_lmpwdhash(const unsigned char *password,unsigned char *lmhash)
  *
  *	The win_password MUST be exactly 16 bytes long.
  */
-void smbdes_mschap(const unsigned char *win_password,
-		 const unsigned char *challenge, unsigned char *response)
+void smbdes_mschap(const char *win_password,
+		 const uint8_t *challenge, uint8_t *response)
 {
-	unsigned char p21[21];
+	uint8_t p21[21];
 
 	memset(p21, 0, sizeof(p21));
 	memcpy(p21, win_password, 16);

@@ -1,4 +1,6 @@
-/* $Id: isakmp_frag.c,v 1.4 2004/11/13 17:31:36 manubsd Exp $ */
+/*	$NetBSD: isakmp_frag.c,v 1.4 2006/09/09 16:22:09 manu Exp $	*/
+
+/* Id: isakmp_frag.c,v 1.4 2004/11/13 17:31:36 manubsd Exp */
 
 /*
  * Copyright (C) 2004 Emmanuel Dreyfus
@@ -147,10 +149,10 @@ isakmp_sendfrags(iph1, buf)
 		memcpy(data, sdata, datalen);
 
 		if (isakmp_send(iph1, frag) < 0) {
-			plog(LLV_ERROR, LOCATION, NULL, "isakmp_send failed\n");
+			plog(LLV_ERROR, LOCATION, iph1->remote, "isakmp_send failed\n");
 			return -1;
 		}
-
+		
 		vfree(frag);
 
 		len -= datalen;

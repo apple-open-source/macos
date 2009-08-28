@@ -44,7 +44,6 @@ namespace JSC {
         macro(op_create_arguments, 1) \
         macro(op_convert_this, 2) \
         \
-        macro(op_unexpected_load, 3) \
         macro(op_new_object, 2) \
         macro(op_new_array, 4) \
         macro(op_new_regexp, 3) \
@@ -147,6 +146,7 @@ namespace JSC {
         macro(op_tear_off_activation, 2) \
         macro(op_tear_off_arguments, 1) \
         macro(op_ret, 2) \
+        macro(op_method_check, 1) \
         \
         macro(op_construct, 7) \
         macro(op_construct_verify, 3) \

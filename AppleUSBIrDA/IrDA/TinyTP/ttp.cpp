@@ -54,7 +54,7 @@ EventTraceCauseDesc gTraceEvents[] = {
     {kDiscardPendingPuts,           "TinyTP: discard pending puts"}
 };
 
-#define XTRACE(x, y, z)  IrDALogAdd( x, y, (int)z & 0xffff, gTraceEvents, true ) 
+#define XTRACE(x, y, z)  IrDALogAdd( x, y, (uintptr_t)z & 0xffff, gTraceEvents, true ) 
 
 #else
     #define XTRACE(x, y, z) ((void)0)
@@ -68,7 +68,7 @@ const UInt8 kIASTinyTPLSAPSelAttrStr[]        = "IrDA:TinyTP:LsapSel";
 void
 TTinyTP::free()
 {
-    XTRACE(kLogFree, (int)this >> 16, this);
+    XTRACE(kLogFree, 0, this);
     
     super::free();  
 }
@@ -83,7 +83,7 @@ TTinyTP::TTPInitialize(             // do real initialization
 {
     int i;
 
-    XTRACE(kLogInit, (int)this >> 16, this);
+    XTRACE(kLogInit, 0, this);
     XTRACE(kLogInit, credit, desiredLSAPId);
     
     
@@ -132,7 +132,7 @@ TTinyTP::TTPInitialize(             // do real initialization
 void
 TTinyTP::DoDiscoverRequest (int slots)
 {
-    XTRACE(kDiscoverRequest, (int)this >> 16, this);
+    XTRACE(kDiscoverRequest, 0, this);
     if (!discoverPending) {
 	discoverPending = true;
 	this->Discover(slots);          // just call LSAP
@@ -144,7 +144,7 @@ TTinyTP::DoLookupRequest (
 	unsigned char   *classname,
 	UInt32          remoteAddr  )       // name and device to query
 {
-    XTRACE(kLookupRequest, (int)this >> 16, this);
+    XTRACE(kLookupRequest, 0, this);
     
     //fPeerAddr = remoteAddr;       // FOO.  CIrLSAP sets peer addr during lookup
     
@@ -155,7 +155,7 @@ void
 TTinyTP::DoListenRequest(
     TTPBuf  *userData)          // read buffer
 {
-    XTRACE(kListenRequest, (int)this >> 16, this);
+    XTRACE(kListenRequest, 0, this);
     Listen(userData);           // just call CIrLSAP to start the listen
 }
 
@@ -189,7 +189,7 @@ TTinyTP::DoConnectRequest (
     int n;
     TTPBuf *pduBuf;                 // the buffer for it
 
-    XTRACE(kConnectRequest, (int)this >> 16, this);
+    XTRACE(kConnectRequest, 0, this);
     fPeerAddr = remoteAddr;             // save peer's address
     fPeerSAP = sap;                     // save peer's sap address (not used yet)
     
@@ -237,7 +237,7 @@ TTinyTP::DoConnectResponse (
     int n;
     TTPBuf *pduBuf;                 // the buf for it
     
-    XTRACE(kConnectResponse, (int)this >> 16, this);
+    XTRACE(kConnectResponse, 0, this);
     XTRACE(kConnectResponse, sap, maxSduSize);
     XTRACE(kConnectResponse, maxSduSize >> 16, maxSduSize);
     
@@ -276,7 +276,7 @@ void
 TTinyTP::DoDisconnectRequest (
 	TTPBuf *userData)           // userdata doesn't make it
 {
-    XTRACE(kDisconnectRequest, (int)this >> 16, this);
+    XTRACE(kDisconnectRequest, 0, this);
     
     if (Connected == false) {       // if already disconnected
 	//TTPDisconnectIndication(0, nil);      // just tell 'em so (again?)
@@ -302,7 +302,7 @@ TTinyTP::DoDataRequest (
     TTPBuf *newbuf;                     // get rid of this soon ....
     //static int dropCount = 0;         // debugging.  count number of drops in a row ...
     
-    XTRACE(kDataRequest, (int)this >> 16, this);
+    XTRACE(kDataRequest, 0, this);
     
     check (userData);                   // error if nil buffer ptr
     if (!userData) return;
@@ -428,7 +428,7 @@ int
 TTinyTP::TTPXmitQueueSize(int maxPacketSize)
 {   int depth;
     int explode_factor;             // maxPacketSize could turn into this many frags
-    int REVIEW_Unlimited_Buffer_Allocation;
+    //int REVIEW_Unlimited_Buffer_Allocation;
     
     // Check against 8 buffers, one for a new write, and 7 for new get's in case
     // we get a 7-window full set of data packets all at once.

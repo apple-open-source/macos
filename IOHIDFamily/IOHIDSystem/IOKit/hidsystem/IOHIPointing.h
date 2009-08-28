@@ -160,6 +160,8 @@ private:
     
     void    setPointingMode(UInt32 accelerateMode);
     UInt32  getPointingMode ();
+    void    setScrollType(UInt32 scrollType);
+    UInt32  getScrollType();
 
     void dispatchScrollWheelEventWithAccelInfo(
                                 SInt32              deltaAxis1,

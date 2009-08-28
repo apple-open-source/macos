@@ -2,7 +2,7 @@
  * swigutil_pl.h :  utility functions and stuff for the SWIG Perl bindings
  *
  * ====================================================================
- * Copyright (c) 2000-2004 CollabNet.  All rights reserved.
+ * Copyright (c) 2000-2006 CollabNet.  All rights reserved.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution.  The terms
@@ -74,6 +74,8 @@ svn_error_t *svn_swig_pl_callback_thunk(perl_func_invoker_t caller_func,
 SV *svn_swig_pl_prophash_to_hash(apr_hash_t *hash);
 SV *svn_swig_pl_convert_hash(apr_hash_t *hash, swig_type_info *tinfo);
 
+SV *svn_swig_pl_convert_hash_of_revnum_t(apr_hash_t *hash);
+
 const apr_array_header_t *svn_swig_pl_strings_to_array(SV *source,
                                                        apr_pool_t *pool);
 
@@ -84,6 +86,8 @@ apr_hash_t *svn_swig_pl_objs_to_hash(SV *source, swig_type_info *tinfo,
 apr_hash_t *svn_swig_pl_objs_to_hash_by_name(SV *source,
                                              const char *typename,
                                              apr_pool_t *pool);
+apr_hash_t *svn_swig_pl_objs_to_hash_of_revnum_t(SV *source,
+                                                 apr_pool_t *pool);
 const apr_array_header_t *svn_swig_pl_objs_to_array(SV *source,
                                                     swig_type_info *tinfo,
                                                     apr_pool_t *pool);
@@ -103,6 +107,13 @@ svn_error_t * svn_swig_pl_thunk_log_receiver(void *py_receiver,
                                              const char *date,
                                              const char *msg,
                                              apr_pool_t *pool);
+
+/* thunked diff summarize callback.  */
+svn_error_t * svn_swig_pl_thunk_client_diff_summarize_func(
+                     const svn_client_diff_summarize_t *diff,
+                     void *baton,
+                     apr_pool_t *pool);
+
 /* thunked commit editor callback. */
 svn_error_t *svn_swig_pl_thunk_commit_callback(svn_revnum_t new_revision,
 					       const char *date,
@@ -187,10 +198,11 @@ void svn_swig_pl_notify_func(void * baton,
 			     svn_revnum_t revision);
 
 
-/* Thunked version of svn_client_get_commit_log_t callback type. */
+/* Thunked version of svn_client_get_commit_log3_t callback type. */
 svn_error_t *svn_swig_pl_get_commit_log_func(const char **log_msg,
                                              const char **tmp_file,
-                                             apr_array_header_t *commit_items,
+                                             const apr_array_header_t *
+                                             commit_items,
                                              void *baton,
                                              apr_pool_t *pool);
 
@@ -225,6 +237,11 @@ void svn_delta_make_editor(svn_delta_editor_t **editor,
                            SV *perl_editor,
                            apr_pool_t *pool);
 
+void svn_delta_wrap_window_handler(svn_txdelta_window_handler_t *handler,
+                                   void **h_baton,
+                                   SV *callback,
+                                   apr_pool_t *pool);
+
 /* svn_stream_t helpers */
 svn_error_t *svn_swig_pl_make_stream(svn_stream_t **stream, SV *obj);
 SV *svn_swig_pl_from_stream(svn_stream_t *stream);
@@ -237,6 +254,12 @@ void svn_swig_pl_hold_ref_in_pool(apr_pool_t *pool, SV *sv);
 /* md5 access class */
 SV *svn_swig_pl_from_md5(unsigned char *digest);
 
+svn_error_t *svn_swig_pl_ra_lock_callback(void *baton,
+                                          const char *path,
+                                          svn_boolean_t do_lock,
+                                          const svn_lock_t *lock,
+                                          svn_error_t *ra_err,
+                                          apr_pool_t *pool);
 
 #ifdef __cplusplus
 }

@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 1996-2006, International Business Machines
+*   Copyright (C) 1996-2008, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *
@@ -190,10 +190,10 @@
  *    Defined as a literal, not a string.
  *    Tricky Preprocessor use - ## operator replaces macro paramters with the literal string
  *                              from the corresponding macro invocation, _before_ other macro substitutions.
- *                              Need a nested #defines to get the actual version numbers rather than
+ *                              Need a nested \#defines to get the actual version numbers rather than
  *                              the literal text U_ICU_VERSION_MAJOR_NUM into the name.
  *                              The net result will be something of the form
- *                                  #define U_ICU_ENTRY_POINT icudt19_dat
+ *                                  \#define U_ICU_ENTRY_POINT icudt19_dat
  * @stable ICU 2.4
  */
 #define U_ICUDATA_ENTRY_POINT  U_DEF2_ICUDATA_ENTRY_POINT(U_ICU_VERSION_MAJOR_NUM, U_ICU_VERSION_MINOR_NUM)
@@ -374,7 +374,7 @@ typedef void* UClassID;
  * \def U_TOOLUTIL_API
  * Set to export library symbols from inside the toolutil library,
  * and to import them from outside.
- * @draft ICU 3.4
+ * @stable ICU 3.4
  */
 
 #if defined(U_COMBINED_IMPLEMENTATION)
@@ -486,9 +486,9 @@ typedef void* UClassID;
  *
  * Note: This is currently only done on Windows because
  * some Linux/Unix compilers have problems with defining global new/delete.
- * On Windows, WIN32 is defined, and it is _MSC_VER>=1200 for MSVC 6.0 and higher.
+ * On Windows, U_WINDOWS is defined, and it is _MSC_VER>=1200 for MSVC 6.0 and higher.
  */
-#if defined(XP_CPLUSPLUS) && defined(U_WINDOWS) && (_MSC_VER>=1200) && U_DEBUG && (defined(U_COMMON_IMPLEMENTATION) || defined(U_I18N_IMPLEMENTATION) || defined(U_LAYOUT_IMPLEMENTATION) || defined(U_USTDIO_IMPLEMENTATION))
+#if defined(XP_CPLUSPLUS) && defined(U_WINDOWS) && U_DEBUG && U_OVERRIDE_CXX_ALLOCATION && (_MSC_VER>=1200) && !defined(U_STATIC_IMPLEMENTATION) && (defined(U_COMMON_IMPLEMENTATION) || defined(U_I18N_IMPLEMENTATION) || defined(U_IO_IMPLEMENTATION) || defined(U_LAYOUT_IMPLEMENTATION) || defined(U_LAYOUTEX_IMPLEMENTATION))
 
 #ifndef U_HIDE_INTERNAL_API
 /**
@@ -503,6 +503,10 @@ operator new(size_t /*size*/) {
     return q;
 }
 
+#ifdef _Ret_bytecap_
+/* This is only needed to suppress a Visual C++ 2008 warning for operator new[]. */
+_Ret_bytecap_(_Size)
+#endif
 /**
  * Global operator new[], defined only inside ICU4C, must not be used.
  * Crashes intentionally.
@@ -678,6 +682,10 @@ typedef enum UErrorCode {
     U_UNMATCHED_BRACES,               /**< Braces do not match in message pattern */
     U_UNSUPPORTED_PROPERTY,           /**< UNUSED as of ICU 2.4 */
     U_UNSUPPORTED_ATTRIBUTE,          /**< UNUSED as of ICU 2.4 */
+    U_ARGUMENT_TYPE_MISMATCH,         /**< Argument name and argument index mismatch in MessageFormat functions */
+    U_DUPLICATE_KEYWORD,              /**< Duplicate keyword in PluralFormat */
+    U_UNDEFINED_KEYWORD,              /**< Undefined Pluarl keyword */
+    U_DEFAULT_KEYWORD_MISSING,        /**< Missing DEFAULT rule in plural rules */
     U_FMT_PARSE_ERROR_LIMIT,          /**< The limit for format library errors */
 
     /*
@@ -718,6 +726,12 @@ typedef enum UErrorCode {
     U_REGEX_INVALID_FLAG,                 /**< Invalid value for match mode flags.                */
     U_REGEX_LOOK_BEHIND_LIMIT,            /**< Look-Behind pattern matches must have a bounded maximum length.    */
     U_REGEX_SET_CONTAINS_STRING,          /**< Regexps cannot have UnicodeSets containing strings.*/
+    U_REGEX_OCTAL_TOO_BIG,                /**< Octal character constants must be <= 0377.         */
+    U_REGEX_MISSING_CLOSE_BRACKET,        /**< Missing closing bracket on a bracket expression.   */
+    U_REGEX_INVALID_RANGE,                /**< In a character range [x-y], x is greater than y.   */
+    U_REGEX_STACK_OVERFLOW,               /**< Regular expression backtrack stack overflow.       */
+    U_REGEX_TIME_OUT,                     /**< Maximum allowed match time exceeded                */
+    U_REGEX_STOPPED_BY_CALLER,            /**< Matching operation aborted by user callback fn.    */
     U_REGEX_ERROR_LIMIT,                  /**< This must always be the last value to indicate the limit for regexp errors */
 
     /*
@@ -732,6 +746,7 @@ typedef enum UErrorCode {
     U_IDNA_VERIFICATION_ERROR,
     U_IDNA_LABEL_TOO_LONG_ERROR,
     U_IDNA_ZERO_LENGTH_LABEL_ERROR,
+    U_IDNA_DOMAIN_NAME_TOO_LONG_ERROR,
     U_IDNA_ERROR_LIMIT,
     /*
      * Aliases for StringPrep

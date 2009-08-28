@@ -175,7 +175,7 @@ typedef struct fsm_callbacks {
 #define DEFMAXCONFREQS	10	/* Maximum Configure-Request transmissions */
 #define DEFMAXNAKLOOPS	5	/* Maximum number of nak loops */
 #ifdef __APPLE__
-#define DEFMAXREQLOOPS	15	/* Maximum number of req loops for convergence */
+#define DEFMAXREQLOOPS	255 /* Maximum number of req loops for convergence */
 #endif
 
 /*

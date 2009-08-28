@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -27,23 +27,17 @@
 #define super IODVDBlockStorageDriver
 OSDefineMetaClassAndStructors(IOBDBlockStorageDriver, IODVDBlockStorageDriver)
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-IOBDBlockStorageDevice * IOBDBlockStorageDriver::getProvider() const
-{
-    //
-    // Obtain this object's provider.   We override the superclass's method to
-    // return a more specific subclass of IOService -- IOBDBlockStorageDevice.
-    // This method serves simply as a convenience to subclass developers.
-    //
-
-    return (IOBDBlockStorageDevice *) IOService::getProvider();
-}
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+OSCompileAssert(sizeof(BDDiscInfo) == sizeof(CDDiscInfo));
+OSCompileAssert(sizeof(BDTrackInfo) == sizeof(CDTrackInfo));
 
 #define reportDiscInfo(x)    reportDiscInfo((CDDiscInfo *)(x))
 #define reportTrackInfo(y,x) reportTrackInfo((y),(CDTrackInfo *)(x))
+
+IOBDBlockStorageDevice *
+IOBDBlockStorageDriver::getProvider() const
+{
+    return (IOBDBlockStorageDevice *) IOService::getProvider();
+}
 
 /* Accept a new piece of media, doing whatever's necessary to make it
  * show up properly to the system.
@@ -95,15 +89,11 @@ IOBDBlockStorageDriver::acceptNewMedia(void)
     return IOBlockStorageDriver::acceptNewMedia();
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 const char *
 IOBDBlockStorageDriver::getDeviceTypeName(void)
 {
     return(kIOBlockStorageDeviceTypeBD);
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IOMedia *
 IOBDBlockStorageDriver::instantiateDesiredMediaObject(void)
@@ -114,8 +104,6 @@ IOBDBlockStorageDriver::instantiateDesiredMediaObject(void)
 
     return(new IOBDMedia);
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IOMedia *
 IOBDBlockStorageDriver::instantiateMediaObject(UInt64 base,UInt64 byteSize,
@@ -131,8 +119,8 @@ IOBDBlockStorageDriver::instantiateMediaObject(UInt64 base,UInt64 byteSize,
                                              base,byteSize,blockSize,mediaName);
 
     if (media) {
-        char *description = NULL;
-        char *picture = NULL;
+        const char *description = NULL;
+        const char *picture = NULL;
 
         switch (getMediaType()) {
             case kBDMediaTypeROM:
@@ -180,8 +168,6 @@ IOBDBlockStorageDriver::instantiateMediaObject(UInt64 base,UInt64 byteSize,
     return media;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 IOReturn
 IOBDBlockStorageDriver::readStructure(IOMemoryDescriptor *buffer,const DVDStructureFormat format,
                                         const UInt32 address,const UInt8 layer,const UInt8 agid)
@@ -193,74 +179,25 @@ IOBDBlockStorageDriver::readStructure(IOMemoryDescriptor *buffer,const DVDStruct
     return(getProvider()->readDiscStructure(buffer,format,address,layer,agid,1));
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 IOReturn
 IOBDBlockStorageDriver::splitTrack(UInt32 address)
 {
     return(getProvider()->splitTrack(address));
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOBDBlockStorageDriver, 0);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOBDBlockStorageDriver, 1);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOBDBlockStorageDriver, 2);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOBDBlockStorageDriver, 3);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOBDBlockStorageDriver, 4);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOBDBlockStorageDriver, 5);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOBDBlockStorageDriver, 6);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOBDBlockStorageDriver, 7);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOBDBlockStorageDriver, 8);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOBDBlockStorageDriver, 9);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
+OSMetaClassDefineReservedUnused(IOBDBlockStorageDriver,  0);
+OSMetaClassDefineReservedUnused(IOBDBlockStorageDriver,  1);
+OSMetaClassDefineReservedUnused(IOBDBlockStorageDriver,  2);
+OSMetaClassDefineReservedUnused(IOBDBlockStorageDriver,  3);
+OSMetaClassDefineReservedUnused(IOBDBlockStorageDriver,  4);
+OSMetaClassDefineReservedUnused(IOBDBlockStorageDriver,  5);
+OSMetaClassDefineReservedUnused(IOBDBlockStorageDriver,  6);
+OSMetaClassDefineReservedUnused(IOBDBlockStorageDriver,  7);
+OSMetaClassDefineReservedUnused(IOBDBlockStorageDriver,  8);
+OSMetaClassDefineReservedUnused(IOBDBlockStorageDriver,  9);
 OSMetaClassDefineReservedUnused(IOBDBlockStorageDriver, 10);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOBDBlockStorageDriver, 11);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOBDBlockStorageDriver, 12);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOBDBlockStorageDriver, 13);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOBDBlockStorageDriver, 14);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOBDBlockStorageDriver, 15);

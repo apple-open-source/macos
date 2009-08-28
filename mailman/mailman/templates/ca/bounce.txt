@@ -1,13 +1,14 @@
-Aquesta Ès una notificaciÛ de rebot de la llista de correu Mailman:
+Aix√≤ √©s una notificaci√≥ d'una mesura de retorn d'una llista de correu 
+del Mailman:
 
-    List:     %(listname)s
-    Member:     %(addr)s
-    Action:      SubscripciÛ %(negative)s%(did)s.
-    Reason:        Excessive or fatal bounces.
+    Llista:      %(listname)s
+    Subscriptor: %(addr)s
+    Acci√≥:       Subscripci√≥ %(negative)s%(did)s.
+    Motiu:       Retorns excessius o fatals.
     %(but)s
 
 %(reenable)s
-La causa d'aquesta notificaciÛ de rebot est‡ adjuntada tot seguit.
+La notificaci√≥ de retorn causant s'adjunta aqu√≠ sota. 
 
-preguntes?  
-Contacteu l'administrador de Mailman a  %(owneraddr)s.
+Si teniu preguntes contacteu l'administrador del Mailman del lloc web a
+%(owneraddr)s.

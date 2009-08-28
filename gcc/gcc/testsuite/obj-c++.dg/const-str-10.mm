@@ -4,8 +4,8 @@
 /* Contributed by Ziemowit Laski <zlaski@apple.com>  */
 
 /* { dg-options "-fnext-runtime -fno-constant-cfstrings" } */
-/* { dg-do compile { target *-*-darwin* } } */
-/* { dg-skip-if "" { *-*-darwin* } { "-m64" } { "" } } */
+/* { dg-do compile { target powerpc*-*-darwin* i?86*-*-darwin* } } */
+/* { dg-require-effective-target ilp32 } */
 
 #include <objc/Object.h>
 

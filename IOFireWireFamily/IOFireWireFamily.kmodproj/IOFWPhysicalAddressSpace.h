@@ -106,6 +106,10 @@ private:
 
 #pragma mark -
 
+/*! 
+	@class IOFWPhysicalAddressSpace
+*/
+
 class IOFWPhysicalAddressSpace : public IOFWAddressSpace
 {
     OSDeclareDefaultStructors(IOFWPhysicalAddressSpace)

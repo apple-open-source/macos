@@ -1,0 +1,520 @@
+--- ./Mailman/Cgi/admin.py
++++ ./Mailman/Cgi/admin.py
+@@ -24,7 +24,6 @@
+ import os
+ import re
+ import cgi
+-import sha
+ import urllib
+ import signal
+ from types import *
+@@ -42,6 +41,7 @@
+ from Mailman.htmlformat import *
+ from Mailman.Cgi import Auth
+ from Mailman.Logging.Syslog import syslog
++from Mailman.Utils import sha_constructor
+ 
+ # Set up i18n
+ _ = i18n._
+@@ -1276,7 +1276,7 @@
+     confirm = cgidata.getvalue('confirmmodpw', '').strip()
+     if new or confirm:
+         if new == confirm:
+-            mlist.mod_password = sha.new(new).hexdigest()
++            mlist.mod_password = sha_constructor(new).hexdigest()
+             # No re-authentication necessary because the moderator's
+             # password doesn't get you into these pages.
+         else:
+@@ -1286,7 +1286,7 @@
+     confirm = cgidata.getvalue('confirmpw', '').strip()
+     if new or confirm:
+         if new == confirm:
+-            mlist.password = sha.new(new).hexdigest()
++            mlist.password = sha_constructor(new).hexdigest()
+             # Set new cookie
+             print mlist.MakeCookie(mm_cfg.AuthListAdmin)
+         else:
+--- ./Mailman/Cgi/create.py
++++ ./Mailman/Cgi/create.py
+@@ -21,7 +21,6 @@
+ import os
+ import signal
+ import cgi
+-import sha
+ from types import ListType
+ 
+ from Mailman import mm_cfg
+@@ -31,6 +30,7 @@
+ from Mailman import i18n
+ from Mailman.htmlformat import *
+ from Mailman.Logging.Syslog import syslog
++from Mailman.Utils import sha_constructor
+ 
+ # Set up i18n
+ _ = i18n._
+@@ -180,7 +180,7 @@
+         # Install the emergency shutdown signal handler
+         signal.signal(signal.SIGTERM, sigterm_handler)
+ 
+-        pw = sha.new(password).hexdigest()
++        pw = sha_constructor(password).hexdigest()
+         # Guarantee that all newly created files have the proper permission.
+         # proper group ownership should be assured by the autoconf script
+         # enforcing that all directories have the group sticky bit set
+--- ./Mailman/Handlers/Scrubber.py
++++ ./Mailman/Handlers/Scrubber.py
+@@ -21,7 +21,6 @@
+ 
+ import os
+ import re
+-import sha
+ import time
+ import errno
+ import binascii
+@@ -41,6 +40,7 @@
+ from Mailman.Errors import DiscardMessage
+ from Mailman.i18n import _
+ from Mailman.Logging.Syslog import syslog
++from Mailman.Utils import sha_constructor
+ 
+ # Path characters for common platforms
+ pre = re.compile(r'[/\\:]')
+@@ -158,7 +158,7 @@
+     if msgid is None:
+         msgid = msg['Message-ID'] = Utils.unique_message_id(mlist)
+     # We assume that the message id actually /is/ unique!
+-    digest = sha.new(msgid).hexdigest()
++    digest = sha_constructor(msgid).hexdigest()
+     return os.path.join('attachments', datedir, digest[:4] + digest[-4:])
+ 
+ 
+--- ./Mailman/LockFile.py
++++ ./Mailman/LockFile.py
+@@ -546,8 +546,8 @@
+     except EnvironmentError, e:
+         if e.errno <> errno.ENOENT:
+             raise
+-        import sha
+-        d = sha.new(`os.getpid()`+`time.time()`).hexdigest()
++        from Mailman.Utils import sha_constructor
++        d = sha_constructor(`os.getpid()`+`time.time()`).hexdigest()
+     random.seed(d)
+ 
+ 
+--- ./Mailman/Pending.py
++++ ./Mailman/Pending.py
+@@ -17,13 +17,13 @@
+ """Track pending actions which require confirmation."""
+ 
+ import os
+-import sha
+ import time
+ import errno
+ import random
+ import cPickle
+ 
+ from Mailman import mm_cfg
++from Mailman.Utils import sha_constructor
+ 
+ # Types of pending records
+ SUBSCRIPTION = 'S'
+@@ -72,7 +72,7 @@
+         while True:
+             now = time.time()
+             x = random.random() + now % 1.0 + time.clock() % 1.0
+-            cookie = sha.new(repr(x)).hexdigest()
++            cookie = sha_constructor(repr(x)).hexdigest()
+             # We'll never get a duplicate, but we'll be anal about checking
+             # anyway.
+             if not db.has_key(cookie):
+--- ./Mailman/Queue/Switchboard.py
++++ ./Mailman/Queue/Switchboard.py
+@@ -35,7 +35,6 @@
+ # needs.
+ 
+ import os
+-import sha
+ import time
+ import email
+ import errno
+@@ -46,6 +45,7 @@
+ from Mailman import Utils
+ from Mailman import Message
+ from Mailman.Logging.Syslog import syslog
++from Mailman.Utils import sha_constructor
+ 
+ # 20 bytes of all bits set, maximum sha.digest() value
+ shamax = 0xffffffffffffffffffffffffffffffffffffffffL
+@@ -118,7 +118,7 @@
+         # this system) and the sha hex digest.
+         #rcvtime = data.setdefault('received_time', now)
+         rcvtime = data.setdefault('received_time', now)
+-        filebase = `rcvtime` + '+' + sha.new(hashfood).hexdigest()
++        filebase = `rcvtime` + '+' + sha_constructor(hashfood).hexdigest()
+         filename = os.path.join(self.__whichq, filebase + '.pck')
+         tmpfile = filename + '.tmp'
+         # Always add the metadata schema version number
+--- ./Mailman/SecurityManager.py
++++ ./Mailman/SecurityManager.py
+@@ -49,7 +49,6 @@
+ 
+ import os
+ import re
+-import sha
+ import time
+ import Cookie
+ import marshal
+@@ -62,12 +61,13 @@
+     import crypt
+ except ImportError:
+     crypt = None
+-import md5
+ 
+ from Mailman import mm_cfg
+ from Mailman import Utils
+ from Mailman import Errors
+ from Mailman.Logging.Syslog import syslog
++from Mailman.Utils import sha_constructor
++from Mailman.Utils import md5_constructor
+ 
+ try:
+     True, False
+@@ -171,11 +171,11 @@
+                 key, secret = self.AuthContextInfo(ac)
+                 if secret is None:
+                     continue
+-                sharesponse = sha.new(response).hexdigest()
++                sharesponse = sha_constructor(response).hexdigest()
+                 upgrade = ok = False
+                 if sharesponse == secret:
+                     ok = True
+-                elif md5.new(response).digest() == secret:
++                elif md5_constructor(response).digest() == secret:
+                     ok = upgrade = True
+                 elif cryptmatchp(response, secret):
+                     ok = upgrade = True
+@@ -196,7 +196,7 @@
+             elif ac == mm_cfg.AuthListModerator:
+                 # The list moderator password must be sha'd
+                 key, secret = self.AuthContextInfo(ac)
+-                if secret and sha.new(response).hexdigest() == secret:
++                if secret and sha_constructor(response).hexdigest() == secret:
+                     return ac
+             elif ac == mm_cfg.AuthUser:
+                 if user is not None:
+@@ -237,7 +237,7 @@
+         # Timestamp
+         issued = int(time.time())
+         # Get a digest of the secret, plus other information.
+-        mac = sha.new(secret + `issued`).hexdigest()
++        mac = sha_constructor(secret + `issued`).hexdigest()
+         # Create the cookie object.
+         c = Cookie.SimpleCookie()
+         c[key] = binascii.hexlify(marshal.dumps((issued, mac)))
+@@ -336,7 +336,7 @@
+             return False
+         # Calculate what the mac ought to be based on the cookie's timestamp
+         # and the shared secret.
+-        mac = sha.new(secret + `issued`).hexdigest()
++        mac = sha_constructor(secret + `issued`).hexdigest()
+         if mac <> received_mac:
+             return False
+         # Authenticated!
+--- ./Mailman/Utils.py
++++ ./Mailman/Utils.py
+@@ -27,9 +27,9 @@
+ from __future__ import nested_scopes
+ 
+ import os
++import sys
+ import re
+ import cgi
+-import sha
+ import time
+ import errno
+ import base64
+@@ -56,6 +56,16 @@
+ from Mailman.Logging.Syslog import syslog
+ 
+ try:
++    import hashlib
++    md5_constructor = hashlib.md5
++    sha_constructor = hashlib.sha1
++except ImportError:
++    import md5
++    md5_constructor = md5.new
++    import sha
++    sha_constructor = sha.new
++
++try:
+     True, False
+ except NameError:
+     True = 1
+@@ -384,7 +394,7 @@
+     omask = os.umask(026)
+     try:
+         fp = open(filename, 'w')
+-        fp.write(sha.new(pw).hexdigest() + '\n')
++        fp.write(sha_constructor(pw).hexdigest() + '\n')
+         fp.close()
+     finally:
+         os.umask(omask)
+@@ -410,7 +420,7 @@
+     challenge = get_global_password(siteadmin)
+     if challenge is None:
+         return None
+-    return challenge == sha.new(response).hexdigest()
++    return challenge == sha_constructor(response).hexdigest()
+ 
+ 
+ 
+@@ -1034,3 +1044,4 @@
+         return True
+     else:
+         return False
++
+--- ./bin/change_pw
++++ ./bin/change_pw
+@@ -66,7 +66,6 @@
+ """
+ 
+ import sys
+-import sha
+ import getopt
+ 
+ import paths
+@@ -76,6 +75,7 @@
+ from Mailman import Errors
+ from Mailman import Message
+ from Mailman import i18n
++from Mailman.Utils import sha_constructor
+ 
+ _ = i18n._
+ 
+@@ -147,7 +147,7 @@
+     if password is not None:
+         if not password:
+             usage(1, _('Empty list passwords are not allowed'))
+-        shapassword = sha.new(password).hexdigest()
++        shapassword = sha_constructor(password).hexdigest()
+ 
+     if domains:
+         for name in Utils.list_names():
+@@ -167,7 +167,7 @@
+             if password is None:
+                 randompw = Utils.MakeRandomPassword(
+                     mm_cfg.ADMIN_PASSWORD_LENGTH)
+-                shapassword = sha.new(randompw).hexdigest()
++                shapassword = sha_constructor(randompw).hexdigest()
+                 notifypassword = randompw
+             else:
+                 notifypassword = password
+--- ./bin/export.py
++++ ./bin/export.py
+@@ -21,7 +21,6 @@
+ 
+ import os
+ import sys
+-import sha
+ import base64
+ import codecs
+ import datetime
+@@ -37,6 +36,7 @@
+ from Mailman import mm_cfg
+ from Mailman.MailList import MailList
+ from Mailman.i18n import _
++from Mailman.Utils import sha_constructor
+ 
+ __i18n_templates__ = True
+ 
+@@ -289,13 +289,13 @@
+ 
+ 
+ def sha_password(password):
+-    h = sha.new(password)
++    h = sha_constructor(password)
+     return '{SHA}' + base64.b64encode(h.digest())
+ 
+ 
+ def ssha_password(password):
+     salt = os.urandom(SALT_LENGTH)
+-    h = sha.new(password)
++    h = sha_constructor(password)
+     h.update(salt)
+     return '{SSHA}' + base64.b64encode(h.digest() + salt)
+ 
+--- ./bin/newlist
++++ ./bin/newlist
+@@ -93,7 +93,6 @@
+ import os
+ import getpass
+ import getopt
+-import sha
+ 
+ import paths
+ from Mailman import mm_cfg
+@@ -102,6 +101,7 @@
+ from Mailman import Errors
+ from Mailman import Message
+ from Mailman import i18n
++from Mailman.Utils import sha_constructor
+ 
+ _ = i18n._
+ 
+@@ -186,7 +186,7 @@
+ 
+     mlist = MailList.MailList()
+     try:
+-        pw = sha.new(listpasswd).hexdigest()
++        pw = sha_constructor(listpasswd).hexdigest()
+         # Guarantee that all newly created files have the proper permission.
+         # proper group ownership should be assured by the autoconf script
+         # enforcing that all directories have the group sticky bit set
+--- ./bin/update
++++ ./bin/update
+@@ -34,7 +34,6 @@
+ """
+ 
+ import os
+-import md5
+ import sys
+ import time
+ import errno
+@@ -56,6 +55,7 @@
+ from Mailman.Queue.Switchboard import Switchboard
+ from Mailman.OldStyleMemberships import OldStyleMemberships
+ from Mailman.MemberAdaptor import BYBOUNCE, ENABLED
++from Mailman.Utils import md5_constructor
+ 
+ FRESH = 0
+ NOTFRESH = -1
+@@ -131,7 +131,7 @@
+             # No global template
+             continue
+ 
+-        gcksum = md5.new(fp.read()).digest()
++        gcksum = md5_constructor(fp.read()).digest()
+         fp.close()
+         # Match against the lists/<list>/* template
+         try:
+@@ -139,7 +139,7 @@
+         except IOError, e:
+             if e.errno <> errno.ENOENT: raise
+         else:
+-            tcksum = md5.new(fp.read()).digest()
++            tcksum = md5_constructor(fp.read()).digest()
+             fp.close()
+             if gcksum == tcksum:
+                 os.unlink(os.path.join(mlist.fullpath(), gtemplate))
+@@ -149,7 +149,7 @@
+         except IOError, e:
+             if e.errno <> errno.ENOENT: raise
+         else:
+-            tcksum = md5.new(fp.read()).digest()
++            tcksum = md5_constructor(fp.read()).digest()
+             fp.close()
+             if gcksum == tcksum:
+                 os.unlink(os.path.join(mlist.fullpath(), gtemplate + '.prev'))
+@@ -159,7 +159,7 @@
+         except IOError, e:
+             if e.errno <> errno.ENOENT: raise
+         else:
+-            tcksum = md5.new(fp.read()).digest()
++            tcksum = md5_constructor(fp.read()).digest()
+             fp.close()
+             if gcksum == tcksum:
+                 os.unlink(os.path.join(mlist.fullpath(), 'en', gtemplate))
+@@ -169,7 +169,7 @@
+         except IOError, e:
+             if e.errno <> errno.ENOENT: raise
+         else:
+-            tcksum = md5.new(fp.read()).digest()
++            tcksum = md5_constructor(fp.read()).digest()
+             fp.close()
+             if gcksum == tcksum:
+                 os.unlink(os.path.join(mm_cfg.TEMPLATE_DIR, gtemplate))
+@@ -179,7 +179,7 @@
+         except IOError, e:
+             if e.errno <> errno.ENOENT: raise
+         else:
+-            tcksum = md5.new(fp.read()).digest()
++            tcksum = md5_constructor(fp.read()).digest()
+             fp.close()
+             if gcksum == tcksum:
+                 os.unlink(os.path.join(mm_cfg.TEMPLATE_DIR,
+--- ./tests/test_handlers.py
++++ ./tests/test_handlers.py
+@@ -18,7 +18,6 @@
+ """
+ 
+ import os
+-import sha
+ import time
+ import email
+ import errno
+@@ -53,13 +52,14 @@
+ from Mailman.Handlers import ToDigest
+ from Mailman.Handlers import ToOutgoing
+ from Mailman.Handlers import ToUsenet
++from Mailman.Utils import sha_constructor
+ 
+ from TestBase import TestBase
+ 
+ 
+ 
+ def password(plaintext):
+-    return sha.new(plaintext).hexdigest()
++    return sha_constructor(plaintext).hexdigest()
+ 
+ 
+ 
+--- ./tests/test_security_mgr.py
++++ ./tests/test_security_mgr.py
+@@ -20,8 +20,6 @@
+ import os
+ import unittest
+ import errno
+-import md5
+-import sha
+ import Cookie
+ try:
+     import crypt
+@@ -33,13 +31,15 @@
+ from Mailman import mm_cfg
+ from Mailman import Utils
+ from Mailman import Errors
++from Mailman.Utils import sha_constructor
++from Mailman.Utils import md5_constructor
+ 
+ from TestBase import TestBase
+ 
+ 
+ 
+ def password(plaintext):
+-    return sha.new(plaintext).hexdigest()
++    return sha_constructor(plaintext).hexdigest()
+ 
+ 
+ 
+@@ -132,7 +132,7 @@
+     def test_list_admin_upgrade(self):
+         eq = self.assertEqual
+         mlist = self._mlist
+-        mlist.password = md5.new('ssSSss').digest()
++        mlist.password = md5_constructor('ssSSss').digest()
+         eq(mlist.Authenticate(
+             [mm_cfg.AuthListAdmin], 'ssSSss'), mm_cfg.AuthListAdmin)
+         eq(mlist.password, password('ssSSss'))
+@@ -146,10 +146,10 @@
+     def test_list_admin_oldstyle_unauth(self):
+         eq = self.assertEqual
+         mlist = self._mlist
+-        mlist.password = md5.new('ssSSss').digest()
++        mlist.password = md5_constructor('ssSSss').digest()
+         eq(mlist.Authenticate(
+             [mm_cfg.AuthListAdmin], 'xxxxxx'), mm_cfg.UnAuthorized)
+-        eq(mlist.password, md5.new('ssSSss').digest())
++        eq(mlist.password, md5_constructor('ssSSss').digest())
+         # Test crypt upgrades if crypt is supported
+         if crypt:
+             mlist.password = crypted = crypt.crypt('rrRRrr', 'zc')

@@ -83,7 +83,7 @@ checkfilesys(fname)
 	if (!preen)
 		printf("** %s", fname);
 
-	dosfs = open(fname, rdonly ? O_RDONLY : O_RDWR, 0);
+	dosfs = open(fname, rdonly ? O_RDONLY : O_RDWR | O_EXLOCK, 0);
 	if (dosfs < 0 && !rdonly) {
 		dosfs = open(fname, O_RDONLY, 0);
 		if (dosfs >= 0)

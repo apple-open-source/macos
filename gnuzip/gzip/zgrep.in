@@ -3,7 +3,7 @@
 # zgrep -- a wrapper around a grep program that decompresses files as needed
 # Adapted from a version sent by Charles Levert <charles@comm.polymtl.ca>
 
-# Copyright (C) 1998, 2001, 2002, 2006 Free Software Foundation
+# Copyright (C) 1998, 2001, 2002, 2006, 2007 Free Software Foundation
 # Copyright (C) 1993 Jean-loup Gailly
 
 # This program is free software; you can redistribute it and/or modify
@@ -20,27 +20,22 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-PATH="BINDIR:$PATH"; export PATH
+PATH=BINDIR:$PATH
+grep='${GREP-grep}'
 
-case "$0" in
-(*egrep)	grep='${EGREP-egrep}'	;;
-(*fgrep)	grep='${FGREP-fgrep}'	;;
-(*)		grep='${GREP-grep}'	;;
-esac
-
-eval 'version="z'"$grep"' (gzip) @VERSION@
-Copyright (C) 2006 Free Software Foundation, Inc.
+version='zgrep (gzip) @VERSION@
+Copyright (C) 2007 Free Software Foundation, Inc.
 This is free software.  You may redistribute copies of it under the terms of
 the GNU General Public License <http://www.gnu.org/licenses/gpl.html>.
 There is NO WARRANTY, to the extent permitted by law.
 
-Written by Jean-loup Gailly."'
+Written by Jean-loup Gailly.'
 
-usage="Usage: z$grep [OPTION]... [-e] PATTERN [FILE]...
+usage="Usage: $0 [OPTION]... [-e] PATTERN [FILE]...
 Look for instances of PATTERN in the input FILEs, using their
 uncompressed contents if they are compressed.
 
-OPTIONs are the same as for '$grep'.
+OPTIONs are the same as for 'grep'.
 
 Report bugs to <bug-gzip@gnu.org>."
 
@@ -70,7 +65,6 @@ while test $# -ne 0; do
   (--binary-*=* | --[lm]a*=* | --reg*=*)
     ;;
   (-[ABCDefm] | --binary-* | --file | --[lm]a* | --reg*)
-    have_optarg=1
     case ${1?"$option option requires an argument"} in
     (*\'*)
       optarg=" '"$(printf '%sX\n' "$1" | sed "$escape");;

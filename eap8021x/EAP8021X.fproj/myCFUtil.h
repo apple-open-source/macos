@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,6 +31,8 @@
  * - created
  */
 
+#include <CoreFoundation/CFString.h>
+
 Boolean
 my_CFEqual(CFTypeRef val1, CFTypeRef val2);
 
@@ -41,23 +43,16 @@ char *
 my_CFStringToCString(CFStringRef cfstr, CFStringEncoding encoding);
 
 CFPropertyListRef 
-my_CFPropertyListCreateFromFile(char * filename);
+my_CFPropertyListCreateFromFile(const char * filename);
 
 int
-my_CFPropertyListWriteFile(CFPropertyListRef plist, char * filename);
+my_CFPropertyListWriteFile(CFPropertyListRef plist, const char * filename);
 
 Boolean
 my_CFDictionaryGetBooleanValue(CFDictionaryRef properties, CFStringRef propname,
 			       Boolean def_value);
-Boolean
-xmlSerialize(CFPropertyListRef		obj,
-	     CFDataRef			*xml,
-	     void			**dataRef,
-	     CFIndex			*dataLen);
 
-Boolean
-xmlUnserialize(CFPropertyListRef	*obj,
-	       void			*dataRef,
-	       CFIndex			dataLen);
+CFPropertyListRef
+my_CFPropertyListCreateWithBytePtrAndLength(const void * data, int data_len);
 
 #endif _S_MYCFUTIL_H

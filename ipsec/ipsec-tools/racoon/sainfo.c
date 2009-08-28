@@ -90,10 +90,32 @@ getsainfo(src, dst, peer, use_nat_addr)
 	if (use_nat_addr && lcconf->ext_nat_id == NULL)
 		return NULL;
 
+	plog(LLV_DEBUG2, LOCATION, NULL, "getsainfo - src id:\n");
+	if (src != NULL)
+		plogdump(LLV_DEBUG2, src->v, src->l);
+	else
+		plog(LLV_DEBUG2, LOCATION, NULL, " anonymous\n");
+	plog(LLV_DEBUG2, LOCATION, NULL, "getsainfo - dst id:\n");
+	if (dst != NULL)
+		plogdump(LLV_DEBUG2, dst->v, dst->l);
+	else
+		plog(LLV_DEBUG2, LOCATION, NULL, " anonymous\n");
 	if (peer == NULL)
 		pass = 2;
     again:
 	LIST_FOREACH(s, &sitree, chain) {
+#ifdef __APPLE__
+		if (s->to_delete || s->to_remove) {
+			continue;
+		}
+#endif /* __APPLE__ */
+		if (s->idsrc != NULL) {
+			plog(LLV_DEBUG2, LOCATION, NULL, "getsainfo - sainfo id - src & dst:\n");
+			plogdump(LLV_DEBUG2, s->idsrc->v, s->idsrc->l);
+			plogdump(LLV_DEBUG2, s->iddst->v, s->iddst->l);
+		} else {
+			plog(LLV_DEBUG2, LOCATION, NULL, "getsainfo - sainfo id = anonymous\n");
+		}
 		if (s->id_i != NULL) {
 			if (pass == 2)
 				continue;
@@ -115,8 +137,12 @@ getsainfo(src, dst, peer, use_nat_addr)
 
 		if (memcmp(src->v, s->idsrc->v, s->idsrc->l) == 0) {
 			if (use_nat_addr) {
-				if (memcmp(lcconf->ext_nat_id->v, s->iddst->v, s->iddst->l) == 0)
+				if (memcmp(lcconf->ext_nat_id->v, s->iddst->v, s->iddst->l) == 0) {
+					plog(LLV_DEBUG, LOCATION, NULL,
+						"matched external nat address.\n");
+					plogdump(LLV_DEBUG2, lcconf->ext_nat_id->v, lcconf->ext_nat_id->l);
 					return s;
+				}
 			} else if (memcmp(dst->v, s->iddst->v, s->iddst->l) == 0)
 				return s;
 		}
@@ -133,6 +159,43 @@ getsainfo(src, dst, peer, use_nat_addr)
 	return anonymous;
 }
 
+#ifdef __APPLE__
+int
+link_sainfo_to_ph2 (struct sainfo *new)
+{
+	if (!new) {
+		return(-1);
+	}
+	if (new->to_delete ||
+		new->to_remove) {
+		return(-1);
+	}
+	new->linked_to_ph2++;
+	return(0);
+}
+
+int
+unlink_sainfo_from_ph2 (struct sainfo *old)
+{
+	if (!old) {
+		return(-1);
+	}
+	if (old->linked_to_ph2 <= 0) {
+		return(-1);
+	}
+	old->linked_to_ph2--;
+	if (old->linked_to_ph2 == 0) {
+		if (old->to_remove) {
+			remsainfo(old);
+		}
+		if (old->to_delete) {
+			delsainfo(old);
+		}
+	}
+	return(0);
+}
+#endif
+
 struct sainfo *
 newsainfo()
 {
@@ -144,6 +207,11 @@ newsainfo()
 
 	new->lifetime = IPSECDOI_ATTR_SA_LD_SEC_DEFAULT;
 	new->lifebyte = IPSECDOI_ATTR_SA_LD_KB_MAX;
+#ifdef __APPLE__
+	new->to_remove = FALSE;
+	new->to_delete = FALSE;
+	new->linked_to_ph2 = 0;
+#endif
 
 	return new;
 }
@@ -154,6 +222,13 @@ delsainfo(si)
 {
 	int i;
 
+#ifdef __APPLE__
+	if (si->linked_to_ph2) {
+		si->to_delete = TRUE;
+		return;
+	}
+#endif
+	
 	for (i = 0; i < MAXALGCLASS; i++)
 		delsainfoalg(si->algs[i]);
 
@@ -161,6 +236,11 @@ delsainfo(si)
 		vfree(si->idsrc);
 	if (si->iddst)
 		vfree(si->iddst);
+
+#ifdef ENABLE_HYBRID
+	if (si->group)
+		vfree(si->group);
+#endif
 
 	racoon_free(si);
 }
@@ -176,6 +256,12 @@ void
 remsainfo(si)
 	struct sainfo *si;
 {
+#ifdef __APPLE__
+	if (si->linked_to_ph2) {
+		si->to_remove = TRUE;
+		return;
+	}
+#endif
 	LIST_REMOVE(si, chain);
 }
 
@@ -186,8 +272,24 @@ flushsainfo()
 
 	for (s = LIST_FIRST(&sitree); s; s = next) {
 		next = LIST_NEXT(s, chain);
-		remsainfo(s);
-		delsainfo(s);
+		if (s->dynamic == 0) {
+			remsainfo(s);
+			delsainfo(s);
+		}
+	}
+}
+
+void
+flushsainfo_dynamic(u_int32_t addr)
+{
+	struct sainfo *s, *next;
+
+	for (s = LIST_FIRST(&sitree); s; s = next) {
+		next = LIST_NEXT(s, chain);
+		if (s->dynamic == addr) {
+			remsainfo(s);
+			delsainfo(s);
+		}
 	}
 }
 
@@ -240,19 +342,35 @@ const char *
 sainfo2str(si)
 	const struct sainfo *si;
 {
+    char *idsrc_str;
+    char *iddst_str;
+    char *idi_str;
 	static char buf[256];
 
 	if (si->idsrc == NULL)
 		snprintf(buf, sizeof(buf), "anonymous");
 	else {
-		snprintf(buf, sizeof(buf), "%s", ipsecdoi_id2str(si->idsrc));
-		snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf),
-			" %s", ipsecdoi_id2str(si->iddst));
+        idsrc_str = ipsecdoi_id2str(si->idsrc);
+        if (idsrc_str) {
+            snprintf(buf, sizeof(buf), "%s", idsrc_str);
+            racoon_free(idsrc_str);
+        }
+        iddst_str = ipsecdoi_id2str(si->iddst);
+        if (iddst_str) {
+            snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf),
+                     " %s", iddst_str);
+            racoon_free(iddst_str);
+        }
 	}
 
-	if (si->id_i != NULL)
-		snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf),
-			" from %s", ipsecdoi_id2str(si->id_i));
+	if (si->id_i != NULL) {
+        idi_str = ipsecdoi_id2str(si->id_i);
+        if (idi_str) {
+            snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf),
+                     " from %s", idi_str);
+            racoon_free(idi_str);
+        }
+    }
 
 	return buf;
 }

@@ -1,3 +1,7 @@
+2008-07-30  Jason Molenda  (jmolenda@apple.com)
+
+	* gdbint.texinfo: Fix a couple of markup errors.
+
 2004-08-09  Jason Molenda  (jmolenda@apple.com)
 
         * stabs.texinfo (Paths and Names of the Source Files):  Document the

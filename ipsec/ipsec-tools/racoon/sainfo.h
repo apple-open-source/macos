@@ -1,4 +1,6 @@
-/* $Id: sainfo.h,v 1.3 2004/06/11 16:00:17 ludvigm Exp $ */
+/*	$NetBSD: sainfo.h,v 1.5 2006/10/03 08:01:56 vanhu Exp $	*/
+
+/* Id: sainfo.h,v 1.5 2006/07/09 17:19:38 manubsd Exp */
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -44,29 +46,43 @@ struct sainfo {
 		 * If idsrc == NULL, that is anonymous entry.
 		 */
 
+#ifdef ENABLE_HYBRID
+	vchar_t *group;
+#endif
+
 	time_t lifetime;
 	int lifebyte;
 	int pfs_group;		/* only use when pfs is required. */
 	vchar_t *id_i;		/* identifier of the authorized initiator */
 	struct sainfoalg *algs[MAXALGCLASS];
-
+	int	dynamic;		/* created through vpn control socket */
+#ifdef __APPLE__
+	int to_remove;
+	int to_delete;
+	int linked_to_ph2;
+#endif
 	LIST_ENTRY(sainfo) chain;
 };
 
 /* algorithm type */
 struct sainfoalg {
 	int alg;
-	int encklen;			/* key length if encryption algorithm */
+	int encklen;			/* key length of encryption algorithm */
 	struct sainfoalg *next;
 };
 
 extern struct sainfo *getsainfo __P((const vchar_t *,
 	const vchar_t *, const vchar_t *, int));
+#ifdef __APPLE__
+extern int            link_sainfo_to_ph2 __P((struct sainfo *));
+extern int            unlink_sainfo_from_ph2 __P((struct sainfo *));
+#endif
 extern struct sainfo *newsainfo __P((void));
 extern void delsainfo __P((struct sainfo *));
 extern void inssainfo __P((struct sainfo *));
 extern void remsainfo __P((struct sainfo *));
 extern void flushsainfo __P((void));
+extern void flushsainfo_dynamic __P((u_int32_t));
 extern void initsainfo __P((void));
 extern struct sainfoalg *newsainfoalg __P((void));
 extern void delsainfoalg __P((struct sainfoalg *));

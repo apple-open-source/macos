@@ -1,6 +1,8 @@
 /* APPLE LOCAL file radar 4985544 */
 /* Test for implementation of (__format__ (__NSString__, m, n)) attribute */
 /* { dg-options "-Wformat -Wformat-security" } */
+/* APPLE LOCAL radar 5107971 */
+/* { dg-options "-Wformat -Wformat-security -mmacosx-version-min=10.5" { target powerpc*-*-darwin* } } */
 /* { dg-do compile { target *-*-darwin* } } */
 
 @class NSString;

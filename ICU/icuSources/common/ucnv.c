@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1998-2006,2008 International Business Machines
+*   Copyright (C) 1998-2008, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -46,10 +46,15 @@ typedef struct UAmbiguousConverter {
 } UAmbiguousConverter;
 
 static const UAmbiguousConverter ambiguousConverters[]={
+    { "ibm-897_P100-1995", 0xa5 },
     { "ibm-942_P120-1999", 0xa5 },
     { "ibm-943_P130-1999", 0xa5 },
-    { "ibm-897_P100-1995", 0xa5 },
+    { "ibm-946_P100-1995", 0xa5 },
     { "ibm-33722_P120-1999", 0xa5 },
+    /*{ "ibm-54191_P100-2006", 0xa5 },*/
+    /*{ "ibm-62383_P100-2007", 0xa5 },*/
+    /*{ "ibm-891_P100-1995", 0x20a9 },*/
+    { "ibm-944_P100-1995", 0x20a9 },
     { "ibm-949_P110-1999", 0x20a9 },
     { "ibm-1363_P110-1997", 0x20a9 },
     { "ISO_2022,locale=ko,version=0", 0x20a9 }
@@ -461,7 +466,7 @@ ucnv_setSubstChars (UConverter * converter,
     return;
 }
 
-U_DRAFT void U_EXPORT2
+U_CAPI void U_EXPORT2
 ucnv_setSubstString(UConverter *cnv,
                     const UChar *s,
                     int32_t length,
@@ -559,34 +564,35 @@ static void _reset(UConverter *converter, UConverterResetChoice choice,
 
     if(callCallback) {
         /* first, notify the callback functions that the converter is reset */
-        UConverterToUnicodeArgs toUArgs = {
-            sizeof(UConverterToUnicodeArgs),
-                TRUE,
-                NULL,
-                NULL,
-                NULL,
-                NULL,
-                NULL,
-                NULL
-        };
-        UConverterFromUnicodeArgs fromUArgs = {
-            sizeof(UConverterFromUnicodeArgs),
-                TRUE,
-                NULL,
-                NULL,
-                NULL,
-                NULL,
-                NULL,
-                NULL
-        };
         UErrorCode errorCode;
 
-        toUArgs.converter = fromUArgs.converter = converter;
-        if(choice<=UCNV_RESET_TO_UNICODE) {
+        if(choice<=UCNV_RESET_TO_UNICODE && converter->fromCharErrorBehaviour != UCNV_TO_U_DEFAULT_CALLBACK) {
+            UConverterToUnicodeArgs toUArgs = {
+                sizeof(UConverterToUnicodeArgs),
+                TRUE,
+                NULL,
+                NULL,
+                NULL,
+                NULL,
+                NULL,
+                NULL
+            };
+            toUArgs.converter = converter;
             errorCode = U_ZERO_ERROR;
             converter->fromCharErrorBehaviour(converter->toUContext, &toUArgs, NULL, 0, UCNV_RESET, &errorCode);
         }
-        if(choice!=UCNV_RESET_TO_UNICODE) {
+        if(choice!=UCNV_RESET_TO_UNICODE && converter->fromUCharErrorBehaviour != UCNV_FROM_U_DEFAULT_CALLBACK) {
+            UConverterFromUnicodeArgs fromUArgs = {
+                sizeof(UConverterFromUnicodeArgs),
+                TRUE,
+                NULL,
+                NULL,
+                NULL,
+                NULL,
+                NULL,
+                NULL
+            };
+            fromUArgs.converter = converter;
             errorCode = U_ZERO_ERROR;
             converter->fromUCharErrorBehaviour(converter->fromUContext, &fromUArgs, NULL, 0, 0, UCNV_RESET, &errorCode);
         }
@@ -889,20 +895,25 @@ _fromUnicodeWithCallback(UConverterFromUnicodeArgs *pArgs, UErrorCode *err) {
      * }
      */
     for(;;) {
-        /* convert */
-        fromUnicode(pArgs, err);
+        if(U_SUCCESS(*err)) {
+            /* convert */
+            fromUnicode(pArgs, err);
 
-        /*
-         * set a flag for whether the converter
-         * successfully processed the end of the input
-         *
-         * need not check cnv->preFromULength==0 because a replay (<0) will cause
-         * s<sourceLimit before converterSawEndOfInput is checked
-         */
-        converterSawEndOfInput=
-            (UBool)(U_SUCCESS(*err) &&
-                    pArgs->flush && pArgs->source==pArgs->sourceLimit &&
-                    cnv->fromUChar32==0);
+            /*
+             * set a flag for whether the converter
+             * successfully processed the end of the input
+             *
+             * need not check cnv->preFromULength==0 because a replay (<0) will cause
+             * s<sourceLimit before converterSawEndOfInput is checked
+             */
+            converterSawEndOfInput=
+                (UBool)(U_SUCCESS(*err) &&
+                        pArgs->flush && pArgs->source==pArgs->sourceLimit &&
+                        cnv->fromUChar32==0);
+        } else {
+            /* handle error from ucnv_convertEx() */
+            converterSawEndOfInput=FALSE;
+        }
 
         /* no callback called yet for this iteration */
         calledCallback=FALSE;
@@ -1093,6 +1104,64 @@ _fromUnicodeWithCallback(UConverterFromUnicodeArgs *pArgs, UErrorCode *err) {
     }
 }
 
+/*
+ * Output the fromUnicode overflow buffer.
+ * Call this function if(cnv->charErrorBufferLength>0).
+ * @return TRUE if overflow
+ */
+static UBool
+ucnv_outputOverflowFromUnicode(UConverter *cnv,
+                               char **target, const char *targetLimit,
+                               int32_t **pOffsets,
+                               UErrorCode *err) {
+    int32_t *offsets;
+    char *overflow, *t;
+    int32_t i, length;
+
+    t=*target;
+    if(pOffsets!=NULL) {
+        offsets=*pOffsets;
+    } else {
+        offsets=NULL;
+    }
+
+    overflow=(char *)cnv->charErrorBuffer;
+    length=cnv->charErrorBufferLength;
+    i=0;
+    while(i<length) {
+        if(t==targetLimit) {
+            /* the overflow buffer contains too much, keep the rest */
+            int32_t j=0;
+
+            do {
+                overflow[j++]=overflow[i++];
+            } while(i<length);
+
+            cnv->charErrorBufferLength=(int8_t)j;
+            *target=t;
+            if(offsets!=NULL) {
+                *pOffsets=offsets;
+            }
+            *err=U_BUFFER_OVERFLOW_ERROR;
+            return TRUE;
+        }
+
+        /* copy the overflow contents to the target */
+        *t++=overflow[i++];
+        if(offsets!=NULL) {
+            *offsets++=-1; /* no source index available for old output */
+        }
+    }
+
+    /* the overflow buffer is completely copied to the target */
+    cnv->charErrorBufferLength=0;
+    *target=t;
+    if(offsets!=NULL) {
+        *pOffsets=offsets;
+    }
+    return FALSE;
+}
+
 U_CAPI void U_EXPORT2
 ucnv_fromUnicode(UConverter *cnv,
                  char **target, const char *targetLimit,
@@ -1116,13 +1185,22 @@ ucnv_fromUnicode(UConverter *cnv,
 
     s=*source;
     t=*target;
-    if(sourceLimit<s || targetLimit<t) {
-        *err=U_ILLEGAL_ARGUMENT_ERROR;
-        return;
+
+    if ((const void *)U_MAX_PTR(sourceLimit) == (const void *)sourceLimit) {
+        /*
+        Prevent code from going into an infinite loop in case we do hit this
+        limit. The limit pointer is expected to be on a UChar * boundary.
+        This also prevents the next argument check from failing.
+        */
+        sourceLimit = (const UChar *)(((const char *)sourceLimit) - 1);
     }
 
     /*
-     * Make sure that the buffer sizes do not exceed the number range for
+     * All these conditions should never happen.
+     *
+     * 1) Make sure that the limits are >= to the address source or target
+     *
+     * 2) Make sure that the buffer sizes do not exceed the number range for
      * int32_t because some functions use the size (in units or bytes)
      * rather than comparing pointers, and because offsets are int32_t values.
      *
@@ -1132,52 +1210,30 @@ ucnv_fromUnicode(UConverter *cnv,
      * not be able to maintain the semantics that either the source must be
      * consumed or the target filled (unless an error occurs).
      * An adjustment would be targetLimit=t+0x7fffffff; for example.
+     *
+     * 3) Make sure that the user didn't incorrectly cast a UChar * pointer
+     * to a char * pointer and provide an incomplete UChar code unit.
      */
-    if(
+    if (sourceLimit<s || targetLimit<t ||
         ((size_t)(sourceLimit-s)>(size_t)0x3fffffff && sourceLimit>s) ||
-        ((size_t)(targetLimit-t)>(size_t)0x7fffffff && targetLimit>t)
-    ) {
+        ((size_t)(targetLimit-t)>(size_t)0x7fffffff && targetLimit>t) ||
+        (((const char *)sourceLimit-(const char *)s) & 1) != 0)
+    {
         *err=U_ILLEGAL_ARGUMENT_ERROR;
         return;
     }
     
-    /* flush the target overflow buffer */
-    if(cnv->charErrorBufferLength>0) {
-        char *overflow;
-        int32_t i, length;
-
-        overflow=(char *)cnv->charErrorBuffer;
-        length=cnv->charErrorBufferLength;
-        i=0;
-        do {
-            if(t==targetLimit) {
-                /* the overflow buffer contains too much, keep the rest */
-                int32_t j=0;
-
-                do {
-                    overflow[j++]=overflow[i++];
-                } while(i<length);
-
-                cnv->charErrorBufferLength=(int8_t)j;
-                *target=t;
-                *err=U_BUFFER_OVERFLOW_ERROR;
-                return;
-            }
-
-            /* copy the overflow contents to the target */
-            *t++=overflow[i++];
-            if(offsets!=NULL) {
-                *offsets++=-1; /* no source index available for old output */
-            }
-        } while(i<length);
-
-        /* the overflow buffer is completely copied to the target */
-        cnv->charErrorBufferLength=0;
+    /* output the target overflow buffer */
+    if( cnv->charErrorBufferLength>0 &&
+        ucnv_outputOverflowFromUnicode(cnv, target, targetLimit, &offsets, err)
+    ) {
+        /* U_BUFFER_OVERFLOW_ERROR */
+        return;
     }
+    /* *target may have moved, therefore stop using t */
 
     if(!flush && s==sourceLimit && cnv->preFromULength>=0) {
         /* the overflow buffer is emptied and there is no new input: we are done */
-        *target=t;
         return;
     }
 
@@ -1195,7 +1251,7 @@ ucnv_fromUnicode(UConverter *cnv,
     args.offsets=offsets;
     args.source=s;
     args.sourceLimit=sourceLimit;
-    args.target=t;
+    args.target=*target;
     args.targetLimit=targetLimit;
     args.size=sizeof(args);
 
@@ -1300,7 +1356,7 @@ _toUnicodeWithCallback(UConverterToUnicodeArgs *pArgs, UErrorCode *err) {
                         pArgs->flush && pArgs->source==pArgs->sourceLimit &&
                         cnv->toULength==0);
         } else {
-            /* handle error from getNextUChar() */
+            /* handle error from getNextUChar() or ucnv_convertEx() */
             converterSawEndOfInput=FALSE;
         }
 
@@ -1429,8 +1485,7 @@ _toUnicodeWithCallback(UConverterToUnicodeArgs *pArgs, UErrorCode *err) {
                      e!=U_ILLEGAL_CHAR_FOUND &&
                      e!=U_TRUNCATED_CHAR_FOUND &&
                      e!=U_ILLEGAL_ESCAPE_SEQUENCE &&
-                     e!=U_UNSUPPORTED_ESCAPE_SEQUENCE &&
-                     e!=U_PARSE_ERROR)	/* temporary err to flag empty segment, will be reset to U_ILLEGAL_ESCAPE_SEQUENCE below */
+                     e!=U_UNSUPPORTED_ESCAPE_SEQUENCE)
                 ) {
                     /*
                      * the callback did not or cannot resolve the error:
@@ -1474,18 +1529,14 @@ _toUnicodeWithCallback(UConverterToUnicodeArgs *pArgs, UErrorCode *err) {
             cnv->toULength=0;
 
             /* call the callback function */
-            {
-                UConverterCallbackReason reason;
-                if (*err == U_PARSE_ERROR) {	/* Here U_PARSE_ERROR indicates empty segment */
-                    *err = U_ILLEGAL_ESCAPE_SEQUENCE;
-                    reason = UCNV_IRREGULAR;
-                } else {
-                	reason = (*err==U_INVALID_CHAR_FOUND || *err==U_UNSUPPORTED_ESCAPE_SEQUENCE) ?
-                                 UCNV_UNASSIGNED : UCNV_ILLEGAL;
-                }
-                cnv->fromCharErrorBehaviour(cnv->toUContext, pArgs,
-                    cnv->invalidCharBuffer, errorInputLength, reason, err);
+            if(cnv->toUCallbackReason==UCNV_ILLEGAL && *err==U_INVALID_CHAR_FOUND) {
+                cnv->toUCallbackReason = UCNV_UNASSIGNED;
             }
+            cnv->fromCharErrorBehaviour(cnv->toUContext, pArgs,
+                cnv->invalidCharBuffer, errorInputLength,
+                cnv->toUCallbackReason,
+                err);
+            cnv->toUCallbackReason = UCNV_ILLEGAL; /* reset to default value */
 
             /*
              * loop back to the offset handling
@@ -1497,6 +1548,64 @@ _toUnicodeWithCallback(UConverterToUnicodeArgs *pArgs, UErrorCode *err) {
             calledCallback=TRUE;
         }
     }
+}
+
+/*
+ * Output the toUnicode overflow buffer.
+ * Call this function if(cnv->UCharErrorBufferLength>0).
+ * @return TRUE if overflow
+ */
+static UBool
+ucnv_outputOverflowToUnicode(UConverter *cnv,
+                             UChar **target, const UChar *targetLimit,
+                             int32_t **pOffsets,
+                             UErrorCode *err) {
+    int32_t *offsets;
+    UChar *overflow, *t;
+    int32_t i, length;
+
+    t=*target;
+    if(pOffsets!=NULL) {
+        offsets=*pOffsets;
+    } else {
+        offsets=NULL;
+    }
+
+    overflow=cnv->UCharErrorBuffer;
+    length=cnv->UCharErrorBufferLength;
+    i=0;
+    while(i<length) {
+        if(t==targetLimit) {
+            /* the overflow buffer contains too much, keep the rest */
+            int32_t j=0;
+
+            do {
+                overflow[j++]=overflow[i++];
+            } while(i<length);
+
+            cnv->UCharErrorBufferLength=(int8_t)j;
+            *target=t;
+            if(offsets!=NULL) {
+                *pOffsets=offsets;
+            }
+            *err=U_BUFFER_OVERFLOW_ERROR;
+            return TRUE;
+        }
+
+        /* copy the overflow contents to the target */
+        *t++=overflow[i++];
+        if(offsets!=NULL) {
+            *offsets++=-1; /* no source index available for old output */
+        }
+    }
+
+    /* the overflow buffer is completely copied to the target */
+    cnv->UCharErrorBufferLength=0;
+    *target=t;
+    if(offsets!=NULL) {
+        *pOffsets=offsets;
+    }
+    return FALSE;
 }
 
 U_CAPI void U_EXPORT2
@@ -1522,13 +1631,22 @@ ucnv_toUnicode(UConverter *cnv,
 
     s=*source;
     t=*target;
-    if(sourceLimit<s || targetLimit<t) {
-        *err=U_ILLEGAL_ARGUMENT_ERROR;
-        return;
+
+    if ((const void *)U_MAX_PTR(targetLimit) == (const void *)targetLimit) {
+        /*
+        Prevent code from going into an infinite loop in case we do hit this
+        limit. The limit pointer is expected to be on a UChar * boundary.
+        This also prevents the next argument check from failing.
+        */
+        targetLimit = (const UChar *)(((const char *)targetLimit) - 1);
     }
 
     /*
-     * Make sure that the buffer sizes do not exceed the number range for
+     * All these conditions should never happen.
+     *
+     * 1) Make sure that the limits are >= to the address source or target
+     *
+     * 2) Make sure that the buffer sizes do not exceed the number range for
      * int32_t because some functions use the size (in units or bytes)
      * rather than comparing pointers, and because offsets are int32_t values.
      *
@@ -1538,52 +1656,30 @@ ucnv_toUnicode(UConverter *cnv,
      * not be able to maintain the semantics that either the source must be
      * consumed or the target filled (unless an error occurs).
      * An adjustment would be sourceLimit=t+0x7fffffff; for example.
+     *
+     * 3) Make sure that the user didn't incorrectly cast a UChar * pointer
+     * to a char * pointer and provide an incomplete UChar code unit.
      */
-    if(
+    if (sourceLimit<s || targetLimit<t ||
         ((size_t)(sourceLimit-s)>(size_t)0x7fffffff && sourceLimit>s) ||
-        ((size_t)(targetLimit-t)>(size_t)0x3fffffff && targetLimit>t)
+        ((size_t)(targetLimit-t)>(size_t)0x3fffffff && targetLimit>t) ||
+        (((const char *)targetLimit-(const char *)t) & 1) != 0
     ) {
         *err=U_ILLEGAL_ARGUMENT_ERROR;
         return;
     }
     
-    /* flush the target overflow buffer */
-    if(cnv->UCharErrorBufferLength>0) {
-        UChar *overflow;
-        int32_t i, length;
-
-        overflow=cnv->UCharErrorBuffer;
-        length=cnv->UCharErrorBufferLength;
-        i=0;
-        do {
-            if(t==targetLimit) {
-                /* the overflow buffer contains too much, keep the rest */
-                int32_t j=0;
-
-                do {
-                    overflow[j++]=overflow[i++];
-                } while(i<length);
-
-                cnv->UCharErrorBufferLength=(int8_t)j;
-                *target=t;
-                *err=U_BUFFER_OVERFLOW_ERROR;
-                return;
-            }
-
-            /* copy the overflow contents to the target */
-            *t++=overflow[i++];
-            if(offsets!=NULL) {
-                *offsets++=-1; /* no source index available for old output */
-            }
-        } while(i<length);
-
-        /* the overflow buffer is completely copied to the target */
-        cnv->UCharErrorBufferLength=0;
+    /* output the target overflow buffer */
+    if( cnv->UCharErrorBufferLength>0 &&
+        ucnv_outputOverflowToUnicode(cnv, target, targetLimit, &offsets, err)
+    ) {
+        /* U_BUFFER_OVERFLOW_ERROR */
+        return;
     }
+    /* *target may have moved, therefore stop using t */
 
     if(!flush && s==sourceLimit && cnv->preToULength>=0) {
         /* the overflow buffer is emptied and there is no new input: we are done */
-        *target=t;
         return;
     }
 
@@ -1601,7 +1697,7 @@ ucnv_toUnicode(UConverter *cnv,
     args.offsets=offsets;
     args.source=s;
     args.sourceLimit=sourceLimit;
-    args.target=t;
+    args.target=*target;
     args.targetLimit=targetLimit;
     args.size=sizeof(args);
 
@@ -1951,7 +2047,14 @@ ucnv_convertEx(UConverter *targetCnv, UConverter *sourceCnv,
                UBool reset, UBool flush,
                UErrorCode *pErrorCode) {
     UChar pivotBuffer[CHUNK_SIZE];
-    UChar *myPivotSource, *myPivotTarget;
+    const UChar *myPivotSource;
+    UChar *myPivotTarget;
+    const char *s;
+    char *t;
+
+    UConverterToUnicodeArgs toUArgs;
+    UConverterFromUnicodeArgs fromUArgs;
+    UConverterConvert convert;
 
     /* error checking */
     if(pErrorCode==NULL || U_FAILURE(*pErrorCode)) {
@@ -1966,6 +2069,25 @@ ucnv_convertEx(UConverter *targetCnv, UConverter *sourceCnv,
         return;
     }
 
+    s=*source;
+    t=*target;
+    if((sourceLimit!=NULL && sourceLimit<s) || targetLimit<t) {
+        *pErrorCode=U_ILLEGAL_ARGUMENT_ERROR;
+        return;
+    }
+
+    /*
+     * Make sure that the buffer sizes do not exceed the number range for
+     * int32_t. See ucnv_toUnicode() for a more detailed comment.
+     */
+    if(
+        (sourceLimit!=NULL && ((size_t)(sourceLimit-s)>(size_t)0x7fffffff && sourceLimit>s)) ||
+        ((size_t)(targetLimit-t)>(size_t)0x7fffffff && targetLimit>t)
+    ) {
+        *pErrorCode=U_ILLEGAL_ARGUMENT_ERROR;
+        return;
+    }
+    
     if(pivotStart==NULL) {
         if(!flush) {
             /* streaming conversion requires an explicit pivot buffer */
@@ -1974,8 +2096,8 @@ ucnv_convertEx(UConverter *targetCnv, UConverter *sourceCnv,
         }
 
         /* use the stack pivot buffer */
-        pivotStart=myPivotSource=myPivotTarget=pivotBuffer;
-        pivotSource=&myPivotSource;
+        myPivotSource=myPivotTarget=pivotStart=pivotBuffer;
+        pivotSource=(UChar **)&myPivotSource;
         pivotTarget=&myPivotTarget;
         pivotLimit=pivotBuffer+CHUNK_SIZE;
     } else if(  pivotStart>=pivotLimit ||
@@ -1995,51 +2117,260 @@ ucnv_convertEx(UConverter *targetCnv, UConverter *sourceCnv,
     if(reset) {
         ucnv_resetToUnicode(sourceCnv);
         ucnv_resetFromUnicode(targetCnv);
-        *pivotTarget=*pivotSource=pivotStart;
+        *pivotSource=*pivotTarget=pivotStart;
+    } else if(targetCnv->charErrorBufferLength>0) {
+        /* output the targetCnv overflow buffer */
+        if(ucnv_outputOverflowFromUnicode(targetCnv, target, targetLimit, NULL, pErrorCode)) {
+            /* U_BUFFER_OVERFLOW_ERROR */
+            return;
+        }
+        /* *target has moved, therefore stop using t */
+
+        if( !flush &&
+            targetCnv->preFromULength>=0 && *pivotSource==*pivotTarget &&
+            sourceCnv->UCharErrorBufferLength==0 && sourceCnv->preToULength>=0 && s==sourceLimit
+        ) {
+            /* the fromUnicode overflow buffer is emptied and there is no new input: we are done */
+            return;
+        }
     }
 
-    /* conversion loop */
+    /* Is direct-UTF-8 conversion available? */
+    if( sourceCnv->sharedData->staticData->conversionType==UCNV_UTF8 &&
+        targetCnv->sharedData->impl->fromUTF8!=NULL
+    ) {
+        convert=targetCnv->sharedData->impl->fromUTF8;
+    } else if( targetCnv->sharedData->staticData->conversionType==UCNV_UTF8 &&
+               sourceCnv->sharedData->impl->toUTF8!=NULL
+    ) {
+        convert=sourceCnv->sharedData->impl->toUTF8;
+    } else {
+        convert=NULL;
+    }
+
+    /*
+     * If direct-UTF-8 conversion is available, then we use a smaller
+     * pivot buffer for error handling and partial matches
+     * so that we quickly return to direct conversion.
+     *
+     * 32 is large enough for UCNV_EXT_MAX_UCHARS and UCNV_ERROR_BUFFER_LENGTH.
+     *
+     * We could reduce the pivot buffer size further, at the cost of
+     * buffer overflows from callbacks.
+     * The pivot buffer should not be smaller than the maximum number of
+     * fromUnicode extension table input UChars
+     * (for m:n conversion, see
+     * targetCnv->sharedData->mbcs.extIndexes[UCNV_EXT_COUNT_UCHARS])
+     * or 2 for surrogate pairs.
+     *
+     * Too small a buffer can cause thrashing between pivoting and direct
+     * conversion, with function call overhead outweighing the benefits
+     * of direct conversion.
+     */
+    if(convert!=NULL && (pivotLimit-pivotStart)>32) {
+        pivotLimit=pivotStart+32;
+    }
+
+    /* prepare the converter arguments */
+    fromUArgs.converter=targetCnv;
+    fromUArgs.flush=FALSE;
+    fromUArgs.offsets=NULL;
+    fromUArgs.target=*target;
+    fromUArgs.targetLimit=targetLimit;
+    fromUArgs.size=sizeof(fromUArgs);
+
+    toUArgs.converter=sourceCnv;
+    toUArgs.flush=flush;
+    toUArgs.offsets=NULL;
+    toUArgs.source=s;
+    toUArgs.sourceLimit=sourceLimit;
+    toUArgs.targetLimit=pivotLimit;
+    toUArgs.size=sizeof(toUArgs);
+
+    /*
+     * TODO: Consider separating this function into two functions,
+     * extracting exactly the conversion loop,
+     * for readability and to reduce the set of visible variables.
+     *
+     * Otherwise stop using s and t from here on.
+     */
+    s=t=NULL;
+
+    /*
+     * conversion loop
+     *
+     * The sequence of steps in the loop may appear backward,
+     * but the principle is simple:
+     * In the chain of
+     *   source - sourceCnv overflow - pivot - targetCnv overflow - target
+     * empty out later buffers before refilling them from earlier ones.
+     *
+     * The targetCnv overflow buffer is flushed out only once before the loop.
+     */
     for(;;) {
-        if(reset) {
-            /*
-             * if we did a reset in this function, we know that there is nothing
-             * to convert to the target yet, so we save a function call
-             */
-            reset=FALSE;
-        } else {
-            /*
-             * convert to the target first in case the pivot is filled at entry
-             * or the targetCnv has some output bytes in its state
-             */
-            ucnv_fromUnicode(targetCnv,
-                             target, targetLimit,
-                             (const UChar **)pivotSource, *pivotTarget,
-                             NULL,
-                             (UBool)(flush && *source==sourceLimit),
-                             pErrorCode);
+        /*
+         * if(pivot not empty or error or replay or flush fromUnicode) {
+         *   fromUnicode(pivot -> target);
+         * }
+         *
+         * For pivoting conversion; and for direct conversion for
+         * error callback handling and flushing the replay buffer.
+         */
+        if( *pivotSource<*pivotTarget ||
+            U_FAILURE(*pErrorCode) ||
+            targetCnv->preFromULength<0 ||
+            fromUArgs.flush
+        ) {
+            fromUArgs.source=*pivotSource;
+            fromUArgs.sourceLimit=*pivotTarget;
+            _fromUnicodeWithCallback(&fromUArgs, pErrorCode);
             if(U_FAILURE(*pErrorCode)) {
+                /* target overflow, or conversion error */
+                *pivotSource=(UChar *)fromUArgs.source;
                 break;
             }
 
-            /* ucnv_fromUnicode() must have consumed the pivot contents since it returned with U_SUCCESS() */
-            *pivotSource=*pivotTarget=pivotStart;
+            /*
+             * _fromUnicodeWithCallback() must have consumed the pivot contents
+             * (*pivotSource==*pivotTarget) since it returned with U_SUCCESS()
+             */
         }
 
-        /* convert from the source to the pivot */
-        ucnv_toUnicode(sourceCnv,
-                       pivotTarget, pivotLimit,
-                       source, sourceLimit,
-                       NULL,
-                       flush,
-                       pErrorCode);
+        /* The pivot buffer is empty; reset it so we start at pivotStart. */
+        *pivotSource=*pivotTarget=pivotStart;
+
+        /*
+         * if(sourceCnv overflow buffer not empty) {
+         *     move(sourceCnv overflow buffer -> pivot);
+         *     continue;
+         * }
+         */
+        /* output the sourceCnv overflow buffer */
+        if(sourceCnv->UCharErrorBufferLength>0) {
+            if(ucnv_outputOverflowToUnicode(sourceCnv, pivotTarget, pivotLimit, NULL, pErrorCode)) {
+                /* U_BUFFER_OVERFLOW_ERROR */
+                *pErrorCode=U_ZERO_ERROR;
+            }
+            continue;
+        }
+
+        /*
+         * check for end of input and break if done
+         *
+         * Checking both flush and fromUArgs.flush ensures that the converters
+         * have been called with the flush flag set if the ucnv_convertEx()
+         * caller set it.
+         */
+        if( toUArgs.source==sourceLimit &&
+            sourceCnv->preToULength>=0 && sourceCnv->toULength==0 &&
+            (!flush || fromUArgs.flush)
+        ) {
+            /* done successfully */
+            break;
+        }
+
+        /*
+         * use direct conversion if available
+         * but not if continuing a partial match
+         * or flushing the toUnicode replay buffer
+         */
+        if(convert!=NULL && targetCnv->preFromUFirstCP<0 && sourceCnv->preToULength==0) {
+            if(*pErrorCode==U_USING_DEFAULT_WARNING) {
+                /* remove a warning that may be set by this function */
+                *pErrorCode=U_ZERO_ERROR;
+            }
+            convert(&fromUArgs, &toUArgs, pErrorCode);
+            if(*pErrorCode==U_BUFFER_OVERFLOW_ERROR) {
+                break;
+            } else if(U_FAILURE(*pErrorCode)) {
+                if(sourceCnv->toULength>0) {
+                    /*
+                     * Fall through to calling _toUnicodeWithCallback()
+                     * for callback handling.
+                     *
+                     * The pivot buffer will be reset with
+                     *   *pivotSource=*pivotTarget=pivotStart;
+                     * which indicates a toUnicode error to the caller
+                     * (*pivotSource==pivotStart shows no pivot UChars consumed).
+                     */
+                } else {
+                    /*
+                     * Indicate a fromUnicode error to the caller
+                     * (*pivotSource>pivotStart shows some pivot UChars consumed).
+                     */
+                    *pivotSource=*pivotTarget=pivotStart+1;
+                    /*
+                     * Loop around to calling _fromUnicodeWithCallbacks()
+                     * for callback handling.
+                     */
+                    continue;
+                }
+            } else if(*pErrorCode==U_USING_DEFAULT_WARNING) {
+                /*
+                 * No error, but the implementation requested to temporarily
+                 * fall back to pivoting.
+                 */
+                *pErrorCode=U_ZERO_ERROR;
+            /*
+             * The following else branches are almost identical to the end-of-input
+             * handling in _toUnicodeWithCallback().
+             * Avoid calling it just for the end of input.
+             */
+            } else if(flush && sourceCnv->toULength>0) { /* flush==toUArgs.flush */
+                /*
+                 * the entire input stream is consumed
+                 * and there is a partial, truncated input sequence left
+                 */
+
+                /* inject an error and continue with callback handling */
+                *pErrorCode=U_TRUNCATED_CHAR_FOUND;
+            } else {
+                /* input consumed */
+                if(flush) {
+                    /* reset the converters without calling the callback functions */
+                    _reset(sourceCnv, UCNV_RESET_TO_UNICODE, FALSE);
+                    _reset(targetCnv, UCNV_RESET_FROM_UNICODE, FALSE);
+                }
+
+                /* done successfully */
+                break;
+            }
+        }
+        
+        /*
+         * toUnicode(source -> pivot);
+         *
+         * For pivoting conversion; and for direct conversion for
+         * error callback handling, continuing partial matches
+         * and flushing the replay buffer.
+         *
+         * The pivot buffer is empty and reset.
+         */
+        toUArgs.target=pivotStart; /* ==*pivotTarget */
+        /* toUArgs.targetLimit=pivotLimit; already set before the loop */
+        _toUnicodeWithCallback(&toUArgs, pErrorCode);
+        *pivotTarget=toUArgs.target;
         if(*pErrorCode==U_BUFFER_OVERFLOW_ERROR) {
             /* pivot overflow: continue with the conversion loop */
             *pErrorCode=U_ZERO_ERROR;
-        } else if(U_FAILURE(*pErrorCode) || *pivotTarget==pivotStart) {
+        } else if(U_FAILURE(*pErrorCode) || (!flush && *pivotTarget==pivotStart)) {
             /* conversion error, or there was nothing left to convert */
             break;
         }
-        /* else ucnv_toUnicode() wrote into the pivot buffer: continue */
+        /*
+         * else:
+         * _toUnicodeWithCallback() wrote into the pivot buffer,
+         * continue with fromUnicode conversion.
+         *
+         * Set the fromUnicode flush flag if we flush and if toUnicode has
+         * processed the end of the input.
+         */
+        if( flush && toUArgs.source==sourceLimit &&
+            sourceCnv->preToULength>=0 &&
+            sourceCnv->UCharErrorBufferLength==0
+        ) {
+            fromUArgs.flush=TRUE;
+        }
     }
 
     /*
@@ -2048,6 +2379,9 @@ ucnv_convertEx(UConverter *targetCnv, UConverter *sourceCnv,
      * - a target buffer overflow occurred
      * - a conversion error occurred
      */
+
+    *source=toUArgs.source;
+    *target=fromUArgs.target;
 
     /* terminate the target buffer if possible */
     if(flush && U_SUCCESS(*pErrorCode)) {
@@ -2502,9 +2836,9 @@ ucnv_detectUnicodeSignature( const char* source,
     return NULL;
 }
 
- U_DRAFT int32_t U_EXPORT2
- ucnv_fromUCountPending(const UConverter* cnv, UErrorCode* status){
-    
+U_CAPI int32_t U_EXPORT2
+ucnv_fromUCountPending(const UConverter* cnv, UErrorCode* status)
+{
     if(status == NULL || U_FAILURE(*status)){
         return -1;
     }
@@ -2524,9 +2858,9 @@ ucnv_detectUnicodeSignature( const char* source,
     }
     return 0; 
 
- }
+}
 
-U_DRAFT int32_t U_EXPORT2
+U_CAPI int32_t U_EXPORT2
 ucnv_toUCountPending(const UConverter* cnv, UErrorCode* status){
 
     if(status == NULL || U_FAILURE(*status)){

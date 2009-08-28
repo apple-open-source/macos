@@ -3,7 +3,7 @@
 #	Dictionary for Extreme Networks VSA's.
 #	http://www.extremenetworks.com/
 #
-#	$Id: dictionary.extreme,v 1.2.4.1 2005/11/30 22:17:24 aland Exp $
+#	$Id$
 #
 VENDOR		Extreme				1916
 

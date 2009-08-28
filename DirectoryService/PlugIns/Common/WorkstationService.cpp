@@ -1,50 +1,25 @@
 /*
-    File:  WorkstationService.c
-    
-    Version:  1.0
-
-    (c) Copyright 2006 Apple Computer, Inc. All rights reserved.
-
-    IMPORTANT:  This Apple software is supplied to you by Apple Computer, Inc.
-    ("Apple") in consideration of your agreement to the following terms, and
-    your use, installation, modification or redistribution of this Apple
-    software constitutes acceptance of these terms.  If you do not agree with
-    these terms, please do not use, install, modify or redistribute this Apple
-    software.
-
-    In consideration of your agreement to abide by the following terms, and
-    subject to these terms, Apple grants you a personal, non-exclusive license,
-    under Apple's copyrights in this original Apple software (the "Apple
-    Software"), to use, reproduce, modify and redistribute the Apple Software,
-    with or without modifications, in source and/or binary forms; provided that
-    if you redistribute the Apple Software in its entirety and without
-    modifications, you must retain this notice and the following text and
-    disclaimers in all such redistributions of the Apple Software. Neither the
-    name, trademarks, service marks or logos of Apple Computer, Inc. may be used
-    to endorse or promote products derived from the Apple Software without
-    specific prior written permission from Apple.  Except as expressly stated in
-    this notice, no other rights or licenses, express or implied, are granted by
-    Apple herein, including but not limited to any patent rights that may be
-    infringed by your derivative works or by other works in which the Apple
-    Software may be incorporated.
-
-    The Apple Software is provided by Apple on an "AS IS" basis.  APPLE MAKES NO
-    WARRANTIES, EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION THE IMPLIED
-    WARRANTIES OF NON-INFRINGEMENT, MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-    PURPOSE, REGARDING THE APPLE SOFTWARE OR ITS USE AND OPERATION ALONE OR IN
-    COMBINATION WITH YOUR PRODUCTS.
-
-    IN NO EVENT SHALL APPLE BE LIABLE FOR ANY SPECIAL, INDIRECT, INCIDENTAL OR
-    CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-    SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-    INTERRUPTION) ARISING IN ANY WAY OUT OF THE USE, REPRODUCTION, MODIFICATION
-    AND/OR DISTRIBUTION OF THE APPLE SOFTWARE, HOWEVER CAUSED AND WHETHER UNDER
-    THEORY OF CONTRACT, TORT (INCLUDING NEGLIGENCE), STRICT LIABILITY OR
-    OTHERWISE, EVEN IF APPLE HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-      
-    Change History (most recent first):
-        1.0     October 20, 2006
-*/
+ * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 
 #include <dns_sd.h>  // DNSServiceDiscovery
 #include <unistd.h>  // usleep
@@ -54,6 +29,9 @@
 #include <IOKit/network/IONetworkInterface.h>
 #include <IOKit/network/IOEthernetController.h>
 #include <SystemConfiguration/SystemConfiguration.h>
+#include <CoreServices/CoreServices.h>
+#include <dispatch/dispatch.h>
+#include <uuid/uuid.h>
 #include "CLog.h"
 #include "WorkstationService.h"
 
@@ -79,10 +57,8 @@ CFRunLoopSourceRef gNameMonitorSource = NULL;
 static MyDNSServiceState *
 MyDNSServiceAlloc(void)
 {
-    MyDNSServiceState *ref = (MyDNSServiceState *) malloc(sizeof(MyDNSServiceState));
+    MyDNSServiceState *ref = (MyDNSServiceState *) calloc( 1, sizeof(MyDNSServiceState) );
     assert(ref);
-    ref->service = NULL;
-    ref->socket  = NULL;
     return ref;
 }
 
@@ -122,7 +98,7 @@ MyDNSServiceSocketCallBack(CFSocketRef s, CFSocketCallBackType type, CFDataRef a
     // Read a reply from the mDNSResponder, which will call the appropriate callback.
     error = DNSServiceProcessResult(ref->service);
     if (kDNSServiceErr_NoError != error) {
-        fprintf(stderr, "DNSServiceProcessResult returned %d\n", error);
+        DbgLog( kLogError, "DNSServiceProcessResult returned %d", error );
         
         // Terminate the discovery operation and release everything.
         MyDNSServiceFree(ref);
@@ -240,7 +216,7 @@ FindEthernetInterfaces(io_iterator_t *matchingServices)
     // matchingDict = IOBSDMatching("en0");
         
     if (NULL == matchingDict) {
-        printf("IOServiceMatching returned a NULL dictionary.\n");
+        DbgLog( kLogError, "IOServiceMatching returned a NULL dictionary." );
     } else {
         // Each IONetworkInterface object has a Boolean property with the key kIOPrimaryInterface. Only the
         // primary (built-in) interface has this property set to TRUE.
@@ -268,7 +244,7 @@ FindEthernetInterfaces(io_iterator_t *matchingServices)
                             &kCFTypeDictionaryValueCallBacks);
     
         if (NULL == propertyMatchDict) {
-            printf("CFDictionaryCreateMutable returned a NULL dictionary.\n");
+            DbgLog( kLogError, "CFDictionaryCreateMutable returned a NULL dictionary." );
         } else {
             // Set the value in the dictionary of the property with the given key, or add the key 
             // to the dictionary if it doesn't exist. This call retains the value object passed in.
@@ -287,7 +263,7 @@ FindEthernetInterfaces(io_iterator_t *matchingServices)
     // the dictionary explicitly.
     kernResult = IOServiceGetMatchingServices(kIOMasterPortDefault, matchingDict, matchingServices);    
     if (KERN_SUCCESS != kernResult) {
-        printf("IOServiceGetMatchingServices returned 0x%08x\n", kernResult);
+        DbgLog( kLogError, "IOServiceGetMatchingServices returned 0x%08x", kernResult );
     }
         
     return kernResult;
@@ -322,7 +298,7 @@ GetMACAddress(io_iterator_t intfIterator, UInt8 *MACAddress, UInt8 bufferSize)
         kernResult = IORegistryEntryGetParentEntry(intfService, kIOServicePlane, &controllerService);
     
         if (KERN_SUCCESS != kernResult) {
-            printf("IORegistryEntryGetParentEntry returned 0x%08x\n", kernResult);
+            DbgLog( kLogError, "IORegistryEntryGetParentEntry returned 0x%08x", kernResult );
         } else {
             // Retrieve the MAC address property from the I/O Registry in the form of a CFData
             MACAddressAsCFData = IORegistryEntryCreateCFProperty(controllerService, CFSTR(kIOMACAddress), kCFAllocatorDefault, 0);
@@ -355,12 +331,12 @@ CopyPrimaryMacAddress(void)
  
     kern_return_t kernResult = FindEthernetInterfaces(&intfIterator);
     if (KERN_SUCCESS != kernResult) {
-        printf("FindEthernetInterfaces returned 0x%08x\n", kernResult);
+        DbgLog( kLogError, "FindEthernetInterfaces returned 0x%08x", kernResult );
     } else {
         kernResult = GetMACAddress(intfIterator, MAC, sizeof(MAC));
         
         if (KERN_SUCCESS != kernResult) {
-            printf("GetMACAddress returned 0x%08x\n", kernResult);
+            DbgLog( kLogError, "GetMACAddress returned 0x%08x", kernResult );
         } else {
 			macAddress = CFStringCreateWithFormat(NULL, NULL, CFSTR("[%02x:%02x:%02x:%02x:%02x:%02x]"), MAC[0], MAC[1], MAC[2], MAC[3], MAC[4], MAC[5]);
 		}
@@ -379,9 +355,10 @@ RegisterWorkstationCallBack(DNSServiceRef service, DNSServiceFlags flags, DNSSer
     #pragma unused(flags, service, context)
        
     if (errorCode == kDNSServiceErr_NoError) {
-        printf("Registered Workstation service %s.%s%s\n", name, type, domain);
-    } else if (errorCode == kDNSServiceErr_NameConflict) {
-        fprintf(stderr, "ERROR: Workstation name conflict occured so something weird is happening\n");
+		DbgLog( kLogInfo, "Registration callback for service %s.%s%s", name, kWorkstationType, domain );
+	}
+    else if (errorCode == kDNSServiceErr_NameConflict) {
+        DbgLog( kLogError, "Workstation name conflict occured so something weird is happening" );
 
 		if (gServiceRegistration) {
 			MyDNSServiceFree(gServiceRegistration);
@@ -398,7 +375,7 @@ RegisterWorkstationCallBack(DNSServiceRef service, DNSServiceFlags flags, DNSSer
 			RegisterWorkstationService(gServiceRegistration, gCurrentWorkstationName);
 		}
     } else {
-        fprintf(stderr, "ERROR: Workstation name registration failed with error (%d)\n", errorCode);
+        DbgLog( kLogError, "Workstation name registration failed with error (%d)", errorCode );
 
 		if (gServiceRegistration) {
 			MyDNSServiceFree(gServiceRegistration);
@@ -416,21 +393,49 @@ RegisterWorkstationService(MyDNSServiceState *ref, CFStringRef serviceName)
 	
 	if (CFStringGetCString(serviceName, name, sizeof(name), kCFStringEncodingUTF8)) {
 
+		uuid_t compUUID;
+		CFDataRef cfTXTRecord = NULL;
+		struct timespec waitTime = { 0 };
+		
+		if ( gethostuuid(compUUID, &waitTime) == 0 )
+		{
+			CFMutableDictionaryRef txtRecordDict = CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks,
+																			  &kCFTypeDictionaryValueCallBacks );
+			uuid_string_t uuidstr;
+			
+			uuid_unparse_upper( compUUID, uuidstr );
+			CFStringRef cfUUID = CFStringCreateWithCString( kCFAllocatorDefault, uuidstr, kCFStringEncodingUTF8 );
+			CFDictionarySetValue( txtRecordDict, CFSTR("uuid"), cfUUID );
+			DbgLog( kLogInfo, "Workstation service - uuid = %s", uuidstr );
+			DSCFRelease( cfUUID );
+			
+			cfTXTRecord = CFNetServiceCreateTXTDataWithDictionary( kCFAllocatorDefault, txtRecordDict );
+			
+			DSCFRelease( txtRecordDict );
+		}
+		else
+		{
+			DbgLog( kLogError, "Failed to get host UUID from gethostuuid()" );
+		}
+		
 		error = DNSServiceRegister(&ref->service,
-					kDNSServiceFlagsNoAutoRename,
-					kDNSServiceInterfaceIndexAny,
-											name,
-								kWorkstationType,
-											NULL,
-											NULL,
-						 htons(kWorkstationPort),
-											   0,
-											NULL,
-                     RegisterWorkstationCallBack,
-									(void *)ref);
+								   kDNSServiceFlagsNoAutoRename,
+								   kDNSServiceInterfaceIndexAny,
+								   name,
+								   kWorkstationType,
+								   NULL,
+								   NULL,
+								   htons(kWorkstationPort),
+								   (cfTXTRecord ? CFDataGetLength(cfTXTRecord) : 0),
+								   (cfTXTRecord ? CFDataGetBytePtr(cfTXTRecord) : NULL),
+								   RegisterWorkstationCallBack,
+								   (void *)ref);
+		
+		DSCFRelease( cfTXTRecord );
 	}
 
     if (kDNSServiceErr_NoError == error) {
+        DbgLog( kLogNotice, "Registered Workstation service - %s.%s", name, kWorkstationType );
         MyDNSServiceAddToRunLoop(ref);
 	}
 	
@@ -504,7 +509,7 @@ CopyNextWorkstationName(SCDynamicStoreRef store, CFStringRef currentName)
 			
 			CFRelease(oldComputerName);
 		} else {
-			fprintf(stderr, "ERROR: Workstation name is shorter than a MAC address which shouldn't be possible\n");
+			DbgLog( kLogError, "Workstation name is shorter than a MAC address which shouldn't be possible" );
 		}
 	
 	} else {
@@ -590,8 +595,8 @@ InstallComputerNameMonitor(void)
 }
 
 
-static void DisposeRegistration(void);
-void DisposeRegistration(void)
+static void
+DisposeRegistration(void *context)
 {
 	if (gNameMonitorSource) {
 		CFRunLoopSourceInvalidate(gNameMonitorSource);
@@ -611,48 +616,50 @@ void DisposeRegistration(void)
 }
 
 
-int32_t
-WorkstationServiceRegister(void)
+void
+WorkstationServiceRegister( void )
 {
-	DNSServiceErrorType error = kDNSServiceErr_NoError;
-	CFStringRef workstationName = NULL;
-	
-	workstationName = CopyNextWorkstationName(NULL, NULL);
-	if ( workstationName == NULL )
-		return kDNSServiceErr_NoSuchName;
-	
-	if ( gCurrentWorkstationName != NULL )
-	{
-		// if this name is registered, there's nothing to do
-		if ( CFStringCompare(workstationName, gCurrentWorkstationName, 0) == kCFCompareEqualTo )
-		{
-			CFRelease( workstationName );
-			return kDNSServiceErr_NoError;
-		}
-		
-		// there is a new name to register; remove the old registration
-		DisposeRegistration();
-	}
-	
-	// register
-	gCurrentWorkstationName = workstationName;
-	gNameMonitorSource = InstallComputerNameMonitor();
-	gServiceRegistration = MyDNSServiceAlloc();
-	error = RegisterWorkstationService(gServiceRegistration, gCurrentWorkstationName);
-	if (error != kDNSServiceErr_NoError)
-	{
-		DbgLog( kLogHandler, "WorkstationServiceRegister(): received error from RegisterWorkstationService: %l", error );
-		DisposeRegistration();
-	}
-	
-    return error;
+	dispatch_async( dispatch_get_main_queue(), 
+				    ^(void) {
+						DNSServiceErrorType error = kDNSServiceErr_NoError;
+						CFStringRef workstationName = NULL;
+						
+						workstationName = CopyNextWorkstationName(NULL, NULL);
+						if ( workstationName == NULL )
+							return;
+						
+						if ( gCurrentWorkstationName != NULL )
+						{
+							// if this name is registered, there's nothing to do
+							if ( CFStringCompare(workstationName, gCurrentWorkstationName, 0) == kCFCompareEqualTo )
+							{
+								CFRelease( workstationName );
+								return;
+							}
+							
+							// there is a new name to register; remove the old registration
+							DisposeRegistration( NULL );
+						}
+						
+						// register
+						gCurrentWorkstationName = workstationName;
+						gNameMonitorSource = InstallComputerNameMonitor();
+						gServiceRegistration = MyDNSServiceAlloc();
+						error = RegisterWorkstationService(gServiceRegistration, gCurrentWorkstationName);
+						if (error != kDNSServiceErr_NoError)
+						{
+							DbgLog( kLogError, "WorkstationServiceRegister(): received error from RegisterWorkstationService: %l", error );
+							DisposeRegistration( NULL );
+						}
+					} );
+
 }
 
-
-int32_t
+void
 WorkstationServiceUnregister(void)
 {
-	DisposeRegistration();
-	return 0;
+	dispatch_async_f( dispatch_get_main_queue(), 
+					  NULL,
+					  DisposeRegistration );
 }
 

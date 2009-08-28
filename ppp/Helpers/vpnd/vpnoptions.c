@@ -32,7 +32,6 @@
 #include <fcntl.h>
 #include <syslog.h>
 #include <netdb.h>
-#include <utmp.h>
 #include <paths.h>
 #include <sys/queue.h>
 		
@@ -171,19 +170,19 @@ int process_prefs(struct vpn_params *params)
     prefs = SCPreferencesCreate(0, CFSTR("vpnd"), kRASServerPrefsFileName);
     if (prefs == NULL) {
         CFStringGetCString(kRASServerPrefsFileName, pathStr, MAXPATHLEN, kCFStringEncodingMacRoman);
-        sprintf(text, "Unable to read vpnd prefs file '%s'\n", pathStr);
+        snprintf(text, sizeof(text), "Unable to read vpnd prefs file '%s'\n", pathStr);
         goto fail;
     }
     // get servers list from the plist
     servers_list = SCPreferencesGetValue(prefs, kRASServers);
     if (servers_list == NULL) {
-        sprintf(text, "Could not get servers dictionary\n");
+        snprintf(text, sizeof(text), "Could not get servers dictionary\n");
         goto fail;
     }
     // retrieve the information for the given Server ID
     params->serverIDRef = CFStringCreateWithCString(0, params->server_id, kCFStringEncodingMacRoman);
     if (params->serverIDRef == NULL) {
-        sprintf(text, "Could not create CFString for server ID\n");
+        snprintf(text, sizeof(text), "Could not create CFString for server ID\n");
         goto fail;
     }
     params->serverRef = CFDictionaryGetValue(servers_list, params->serverIDRef);
@@ -205,13 +204,13 @@ int process_prefs(struct vpn_params *params)
 	switch (params->server_type) {
 		case SERVER_TYPE_PPP:
 			if (ppp_process_prefs(params)) {
-				sprintf(text, "Error while reading PPP preferences\n");
+				snprintf(text, sizeof(text), "Error while reading PPP preferences\n");
 				goto fail;
 			}
 			break;
 		case SERVER_TYPE_IPSEC:
 			if (ipsec_process_prefs(params)) {
-				sprintf(text, "Error while reading IPSec preferences\n");
+				snprintf(text, sizeof(text), "Error while reading IPSec preferences\n");
 				goto fail;
 			}
 			break;
@@ -220,7 +219,7 @@ int process_prefs(struct vpn_params *params)
     return 0;
 
 fail:
-    vpnlog(LOG_ERR, "%s", text[0] ? text : "Error while reading preferences\n");
+    vpnlog(LOG_ERR, text[0] ? text : "Error while reading preferences\n");
     if (params->serverIDRef) {
         CFRelease(params->serverIDRef);
         params->serverIDRef = 0;
@@ -233,6 +232,7 @@ fail:
         CFRelease(prefs);
     return -1;
 }
+
 
 
 //-----------------------------------------------------------------------------
@@ -248,6 +248,7 @@ static int process_server_prefs(struct vpn_params *params)
     get_int_option(params->serverRef, kRASEntServer, kRASPropServerMaximumSessions, &lval, 0);
     if (lval)
         params->max_sessions = lval;
+	len = sizeof(str);
     get_str_option(params->serverRef, kRASEntServer, kRASPropServerLogfile, str, &len, default_log_path);
     if (str[0])
         memcpy(params->log_path, str, len + 1);
@@ -262,6 +263,7 @@ static int process_server_prefs(struct vpn_params *params)
 		params->lb_enable = 1;
 		
 		// will determine the interface from the cluster address
+		//len = sizeof(str);
 		//get_str_option(params->serverRef, kRASEntServer, kRASPropServerLoadBalancingInterface, str, &len, "en1");
 		//strncpy(params->lb_interface, str, sizeof(params->lb_interface));
 
@@ -273,6 +275,7 @@ static int process_server_prefs(struct vpn_params *params)
 		
 		get_int_option(params->serverRef, kRASEntServer, kRASPropServerLoadBalancingPort, &lval, LB_DEFAULT_PORT);
 		params->lb_port = htons(lval);
+		len = sizeof(str);
 		get_str_option(params->serverRef, kRASEntServer, kRASPropServerLoadBalancingAddress, str, &len, "");
 		// ask the system to look up the given name.
 		hostent = getipnodebyname (str, AF_INET, 0, &err);
@@ -561,7 +564,7 @@ void addparam(char **arg, u_int32_t *argi, char *param)
 // ----------------------------------------------------------------------------
 void addintparam(char **arg, u_int32_t *argi, char *param, u_int32_t val)
 {
-    u_char	str[32];
+    char	str[32];
     
     addparam(arg, argi, param);
     sprintf(str, "%d", val);

@@ -34,6 +34,8 @@
  * procedure to do cleanup and print a message.
  */
 
+volatile int interface_interval = 300;     /* update interface every 5 minutes as default */
+	  
 /*
  * Alarm flag.	The mainline code imports this.
  */
@@ -46,7 +48,9 @@ static	u_long adjust_timer;		/* second timer */
 static	u_long keys_timer;		/* minute timer */
 static	u_long stats_timer;		/* stats timer */
 static	u_long huffpuff_timer;		/* huff-n'-puff timer */
-u_long rebind_timer;
+static  u_long interface_timer;	        /* interface update timer */
+u_long dns_timer;		/* update DNS flags on peers */
+u_long awake_timer;		/* Force a time sync after wakeup */
 #ifdef OPENSSL
 static	u_long revoke_timer;		/* keys revoke timer */
 u_char	sys_revoke = KEY_REVOKE;	/* keys revoke timeout (log2 s) */
@@ -139,7 +143,7 @@ void
 init_timer(void)
 {
 # if defined SYS_WINNT & !defined(SYS_CYGWIN32)
-	HANDLE hToken;
+	HANDLE hToken = INVALID_HANDLE_VALUE;
 	TOKEN_PRIVILEGES tkp;
 # endif /* SYS_WINNT */
 
@@ -151,11 +155,12 @@ init_timer(void)
 	adjust_timer = 1;
 	stats_timer = 0;
 	huffpuff_timer = 0;
+	interface_timer = 0;
 	current_time = 0;
 	timer_overflows = 0;
 	timer_xmtcalls = 0;
 	timer_timereset = 0;
-	rebind_timer = 0;
+
 #if !defined(SYS_WINNT)
 	/*
 	 * Set up the alarm interrupt.	The first comes 2**EVENT_TIMEOUT
@@ -249,6 +254,24 @@ get_timer_handle(void)
 }
 #endif
 
+static u_long update_dns_peers(void)
+{
+	u_int n;
+	u_long next_update = ~0UL, curr_update;
+	struct peer *peer;
+
+	for (n = 0; n < NTP_HASH_SIZE; n++) {
+		for (peer = peer_hash[n]; peer != 0; peer = peer->next) {
+			if (peer->dns_update && peer->dns_update <= current_time) {
+				curr_update = get_dns_flags(peer->dns_name, peer);
+				if (curr_update < next_update)
+					next_update = curr_update;
+			}
+		}
+	}
+	return next_update;
+}
+
 /*
  * timer - dispatch anyone who needs to be
  */
@@ -281,6 +304,17 @@ timer(void)
 #endif /* REFCLOCK */
 	}
 
+	if (awake_timer && awake_timer <= current_time) {
+		for (n = 0; n < NTP_HASH_SIZE; n++) {
+			for (peer = peer_hash[n]; peer != 0; peer = peer->next) {
+				peer->burst = NTP_BURST;
+				peer->nextdate = current_time;
+			}
+		}
+		allow_panic = TRUE; /* Allow for large time offsets */
+		init_loopfilter();
+		awake_timer = 0;
+	}
 	/*
 	 * Now dispatch any peers whose event timer has expired. Be careful
 	 * here, since the peer structure might go away as the result of
@@ -337,16 +371,28 @@ timer(void)
 #endif /* OPENSSL */
 
 	/*
+	 * interface update timer
+	 */
+	if (interface_interval && interface_timer <= current_time) {
+		timer_interfacetimeout(current_time + interface_interval);
+#ifdef DEBUG
+	  if (debug)
+	    printf("timer: interface update\n");
+#endif
+	  interface_update(NULL, NULL);
+	}
+
+	if (dns_timer && (dns_timer <= current_time)) {
+		dns_timer = update_dns_peers();
+	}
+	
+	/*
 	 * Finally, periodically write stats.
 	 */
 	if (stats_timer <= current_time) {
 	     if (stats_timer != 0)
 		  write_stats();
 	     stats_timer += stats_write_period;
-	}
-	if (rebind_timer != 0 && rebind_timer <= current_time) {
-		rebind_timer = 0;
-		rebind_interfaces();
 	}
 }
 
@@ -377,6 +423,12 @@ alarming(
 #endif /* VMS */
 }
 #endif /* SYS_WINNT */
+
+void
+timer_interfacetimeout(u_long timeout)
+{
+	interface_timer = timeout;
+}
 
 
 /*

@@ -1,0 +1,156 @@
+# $Id: make.xotcl,v 1.4 2006/09/27 08:12:40 neumann Exp $ 
+### inEachDir changes now to each directory
+### install clears tgarget directory before installing
+### Object file added (for better -n processing)
+lappend auto_path ..
+
+package require XOTcl
+namespace import -force ::xotcl::*
+
+###
+Object make
+#
+# shared lib add files for pkgIndex.tcl
+#
+make proc mkIndex {name} {
+  #puts stderr "+++ mkIndex in [pwd]"
+  set fls {}
+  foreach f [glob -nocomplain *tcl] {
+    if {![file isdirectory $f]} {
+      set F [open $f]; set c [read $F]; close $F
+      if {[string match "*package provide*" $c]} { lappend fls $f }
+    }
+  }
+
+  set so [glob -nocomplain *[info sharedlibextension]]
+  # loading libxotcl into xotclsh crashes on some systems
+  foreach lib [list libxotcl$::xotcl::version[info sharedlibextension] \
+		   xotcl$::xotcl::version.dll] {
+    set p [lsearch -exact $so $lib]
+    if {$p != -1} {
+      set so [lreplace $so $p $p]
+      #puts stderr "new so=<$so>"
+    }
+  }
+  #puts stderr "[pwd]: call so=<$so>"
+  set fls [concat $fls $so]
+  
+  if {$fls ne ""} {
+    if {[file exists pkgIndex.tcl]} {
+      file delete -force pkgIndex.tcl
+    }
+    #puts stderr "callinglevel <[self callinglevel]> $fls"
+    #puts stderr "[pwd]:\n\tcall eval pkg_mkIndex -direct . $fls"
+    if {[catch {eval pkg_mkIndex -direct . $fls} errs]} {
+      puts stderr "!!! $errs"
+    }
+    #puts stderr "[pwd] done"
+  }
+
+  foreach addFile [glob -nocomplain *.add] {
+    if {[file exists $addFile]} {
+      puts stderr "Appending $addFile to pkgIndex.tcl in [pwd]"
+      set OUT [file open pkgIndex.tcl a]
+      set IN [file open $addFile]
+      puts -nonewline $OUT [read $IN]
+      close $IN; close $OUT
+    }
+  }
+  #puts stderr "+++ mkIndex name=$name, pwd=[pwd] DONE"
+}
+make proc inEachDir {path cmd} {
+  #puts stderr "[pwd] inEachDir $path  [file isdirectory $path]"
+  if { [file isdirectory $path] 
+       && ![string match *CVS $path]
+       && ![string match *SCCS $path]
+       && ![string match *Attic $path]
+       && ![string match *dbm* $path]
+    } {
+    set olddir [pwd]
+    cd $path
+    eval make $cmd $path
+    set files [glob -nocomplain *]
+    cd $olddir
+    foreach p $files { my inEachDir $path/$p $cmd }
+    #puts stderr "+++ change back to $olddir"
+  }
+}
+make proc in {path cmd} {
+  if {[file isdirectory $path] && ![string match *CVS $path]} {
+    set olddir [pwd]
+    cd $path
+    eval make $cmd $path
+    cd $olddir
+  }
+}
+### tcl file-command
+rename file tcl_file
+Object file -requireNamespace
+
+rename open file::open
+proc open {f {mode r}} { file open $f $mode }
+#file proc open {f {mode r}} { ::open $f $mode }
+
+
+file array set destructive {
+  atime 0       attributes 0  copy 1       delete 1      dirname 0
+  executable 0  exists 0      extension 0  isdirectory 0 isfile 0
+  join 0        lstat 0       mkdir 1      mtime 0       nativename 0
+  owned 0       pathtype 0    readable 0   readlink 0    rename 1
+  rootname 0    size 0        split 0      stat 0        tail 0
+  type 0        volumes 0     writable 0
+}
+foreach subcmd [file array names destructive] {
+  file proc $subcmd args {
+    #puts stderr " [pwd] call: '::tcl_file [self proc] $args'"
+    eval ::tcl_file [self proc] $args
+  }
+}
+### minus n option
+Class make::-n
+foreach f [file info commands] {
+  if {$f eq "unknown" || $f eq "next" || $f eq "self"} continue
+  if {![file exists destructive($f)] || [file set destructive($f)]} {
+    #puts stderr destruct=$f
+    make::-n instproc $f args {
+	puts "--- [pwd]:\t[self proc] $args"
+    }
+  } else {
+    #puts stderr nondestruct=$f
+    make::-n instproc $f args {
+      set r [next]
+      #puts "??? [self proc] $args -> {$r}"
+      return $r
+    }
+  }
+}
+
+### command line parameters
+if {![info exists argv] || $argv eq ""} {set argv -all}
+if {$argv eq "-n"} {set argv "-n -all"}
+
+Class Script
+Script proc create args {
+  eval lappend args $::argv
+  eval next $args
+}
+Script instproc unknown args {
+  puts stderr "$::argv0: Unknown option ´-$args´ provided"
+}
+
+Script instproc n {} {file mixin make::-n}
+Script instproc all {} {
+  make inEachDir . mkIndex
+}
+Script instproc dir {dirName} {
+  cd $dirName
+}
+Script instproc target {path} {
+  make set target $path
+}
+Script create main
+
+#puts stderr "+++ make.xotcl finished."
+#if {[set ::tcl_platform(platform)] eq "windows"} {
+#  exit
+#}

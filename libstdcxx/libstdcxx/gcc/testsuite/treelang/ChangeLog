@@ -1,28 +1,53 @@
-2005-04-20  Release Manager
+2007-07-19  Release Manager
 
-	* GCC 4.0.0 released.
+	* GCC 4.2.1 released.
 
-2005-03-11  James A. Morrison  <phython@gcc.gnu.org>
+2007-05-13  Release Manager
 
-	Backport recent test cases added to mainline:
-	2005-02-26  James A. Morrison  <phython@gcc.gnu.org>
+	* GCC 4.2.0 released.
+
+2005-08-06  James A. Morrison  <phython@gcc.gnu.org>
+
+	* treetests.exp: Remove.
+	* a01gcco01runpgm: Move to...
+	* output/output-1.out: here.
+	* a01gcci01.c: Move to...
+	* output/output-1.c: here.
+	* a01gcci01.tree: Move to...
+	* output/output-1.tree: here.
+	* output/output.exp: New.
+
+2005-07-23  James A. Morrison  <phython@gcc.gnu.org>
+
+	* compile/var_defs.tree: Remove extra lines.
+
+2005-07-19  James A. Morrison  <phython@gcc.gnu.org>
+
+	* compile/var_defs.tree: Remove duplicate variable.
+	* compile/var_defs-2.tree: Add duplicate variable test.
+
+2005-03-22  James A. Morrison  <phython@gcc.gnu.org>
+
+	* compile/memory.tree: New test.
+
+2005-02-26  James A. Morrison  <phython@gcc.gnu.org>
 
 	* compile/var_defs: Add uninitialized variables.
 
-	2005-02-26  James A. Morrison  <phython@gcc.gnu.org>
+2005-02-26  James A. Morrison  <phython@gcc.gnu.org>
 
 	* compile/extrafunc.tree, compile/extravar.tree: New tests.
 
-	2005-02-26  James A. Morrison  <phython@gcc.gnu.org>
+2005-02-26  James A. Morrison  <phython@gcc.gnu.org>
 
 	* compile/unsigned.tree: New test.
 
 2005-02-24  James A. Morrison  <phython@gcc.gnu.org>
 
 	PR other/19896
-        * execute/execute.exp: New file.
-        * execute/funccall.tree, execute/funccall-2.tree, execute/initial.tree,
-        execute/main.tree, execute/static.tree: New tests.
+	* execute/execute.exp: New file.
+	* execute/funccall.tree, execute/funccall-2.tree, execute/initial.tree,
+	execute/main.tree, execute/static.tree: New tests.
 
 2005-02-24  James A. Morrison  <phython@gcc.gnu.org>
 
@@ -47,9 +72,9 @@
 
 2004-01-18  James A. Morrison  <ja2morri@uwaterloo.ca>
 
-        * compile/compile.exp: New File.
-        * compile/tabs.tree: Test whether the front end
-        compiles code with tabs in it.
+	* compile/compile.exp: New File.
+	* compile/tabs.tree: Test whether the front end
+	compiles code with tabs in it.
 
 2003-02-25  Tim Josling  <tej@melbpc.org.au>
 
@@ -69,7 +94,7 @@
 	Remove duplicate call to layout_decl
 
 2001-12-02  Tim Josling  <tej@melbpc.org.au>
-     
+
       * Make-lang.in
       Ensure directory is built during install (installdirs dependency)
 
@@ -81,11 +106,11 @@
       Work around poisoned malloc (undef IN_GCC)
 
       * tree1.c
-      New front end interface. 
+      New front end interface.
       (top level) New structure lang_hooks.
-      (tree_post_options) Remove. 
+      (tree_post_options) Remove.
       errorcount now a macro so do not define it.
-      current_nesting_level => work_nesting_level due to clash. 
+      current_nesting_level => work_nesting_level due to clash.
 
       * treelang.h
       errorcount now a macro so do not reference it.
@@ -97,11 +122,11 @@
 
 2001-06-11  Tim Josling  <tej@melbpc.org.au>
 
-	* treelang.exp (global) remove COBOL specific code. 
+	* treelang.exp (global) remove COBOL specific code.
 
 2001-05-24  Tim Josling  <tej@melbpc.org.au>
 
-        Created this directory and its tests. All derived from the cobol
+	Created this directory and its tests. All derived from the cobol
 	test swamp which was also all written by me.
-	
+
 

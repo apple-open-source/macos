@@ -1,7 +1,7 @@
 #
 #  libiodbc.spec
 #
-#  $Id: libiodbc.spec.in,v 1.23 2006/01/20 15:58:34 source Exp $
+#  $Id: libiodbc.spec.in,v 1.26 2007/10/08 13:04:32 source Exp $
 #
 #  RPM specification file to build binary distribution set
 #
@@ -93,12 +93,11 @@ release: 1
 Group: Libraries
 Vendor: Ke Jin and OpenLink Software
 Packager: OpenLink Software <iodbc@openlinksw.com>
-Copyright: LGPL or BSD license (see "LICENSE" file included in distribution)
+License: LGPL or BSD license (see "LICENSE" file included in distribution)
 URL: http://www.iodbc.org/
 Source: http://www.iodbc.org/downloads/iODBC/libiodbc-%{PACKAGE_VERSION}.tar.gz
 Prefix: /usr
 BuildRoot:/var/tmp/build-libiodbc-%{PACKAGE_VERSION}
-AutoReqProv: no
 
 %description
 The iODBC Driver Manager is a free implementation of the SAG CLI and
@@ -113,7 +112,6 @@ currently maintained by OpenLink Software under a LGPL or BSD license
 %package devel
 Summary: header files and libraries for iODBC development
 Group: Development/Libraries
-AutoReqProv: no
 Requires: libiodbc
 
 %description devel
@@ -132,7 +130,6 @@ currently maintained by OpenLink Software under a LGPL or BSD license
 %package admin
 Summary: GTK based administrator for iODBC development
 Group: Development/Libraries
-AutoReqProv: no
 Requires: libiodbc 
 
 %description admin
@@ -151,7 +148,7 @@ currently maintained by OpenLink Software under a LGPL or BSD license
 %prep
 %setup
 %build
-./configure --prefix=/usr --mandir=%{_mandir} --enable-odbc3 --with-iodbc-inidir=/etc --enable-pthreads
+./configure --prefix=/usr --mandir=%{_mandir} --enable-odbc3 --with-iodbc-inidir=/etc --enable-pthreads --disable-libodbc
 make
 
 %install

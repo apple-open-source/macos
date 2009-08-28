@@ -2,7 +2,7 @@
 /*
  *******************************************************************************
  *
- *   Copyright (C) 1999-2006, International Business Machines
+ *   Copyright (C) 1999-2008, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  *
  *******************************************************************************
@@ -58,7 +58,6 @@ private:
 
     const DirectoryEntry *findTable(LETag tag) const;
     const void *readTable(LETag tag, le_uint32 *length) const;
-    void deleteTable(const void *table) const;
     void getMetrics();
 
     CMAPMapper *findUnicodeMapper();
@@ -75,7 +74,11 @@ public:
 
     virtual const char *getNameString(le_uint16 nameID, le_uint16 platform, le_uint16 encoding, le_uint16 language) const;
 
+    virtual const LEUnicode16 *getUnicodeNameString(le_uint16 nameID, le_uint16 platform, le_uint16 encoding, le_uint16 language) const;
+
     virtual void deleteNameString(const char *name) const;
+
+    virtual void deleteNameString(const LEUnicode16 *name) const;
 
     virtual le_int32 getUnitsPerEM() const;
 

@@ -84,11 +84,12 @@ char *MDSCopyCstring(
  * properly. (MAYBE we'll convert hex strings too...TBD...)
  * Returns true if conversion was successful.
  */
-bool MDSCfTypeToInt(
+bool MDSCfTypeToUInt32(
 	CFTypeRef cfValue,
 	const MDSNameValuePair *nameValues,	// optional for converting strings to numbers
 	const char *key,					// for debug logging only 
-	uint32 &value);						// RETURNED
+	uint32 &value,						// RETURNED
+    size_t &valueLen);					// RETURNED
 
 /*
  * Insert a record, defined by a CSSM_DB_ATTRIBUTE_DATA array, into specified

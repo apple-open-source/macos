@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/slapi/slapi_pblock.c,v 1.27.2.7 2006/02/13 17:28:43 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/slapi/slapi_pblock.c,v 1.63.2.7 2008/02/11 23:26:49 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2002-2006 The OpenLDAP Foundation.
+ * Copyright 2002-2008 The OpenLDAP Foundation.
  * Portions Copyright 1997,2002-2003 IBM Corporation.
  * All rights reserved.
  *
@@ -64,13 +64,14 @@ pblock_get_param_class( int param )
 	case SLAPI_DB2LDIF_PRINTKEY:
 	case SLAPI_LDIF2DB_REMOVEDUPVALS:
 	case SLAPI_MANAGEDSAIT:
-	case SLAPI_X_MANAGEDIT:
+	case SLAPI_X_RELAX:
 	case SLAPI_X_OPERATION_NO_SCHEMA_CHECK:
 	case SLAPI_IS_REPLICATED_OPERATION:
 	case SLAPI_X_CONN_IS_UDP:
 	case SLAPI_X_CONN_SSF:
 	case SLAPI_RESULT_CODE:
 	case SLAPI_LOG_OPERATION:
+	case SLAPI_IS_INTERNAL_OPERATION:
 		return PBLOCK_CLASS_INTEGER;
 		break;
 
@@ -79,6 +80,7 @@ pblock_get_param_class( int param )
 	case SLAPI_OPINITIATED_TIME:
 	case SLAPI_ABANDON_MSGID:
 	case SLAPI_X_OPERATION_DELETE_GLUE_PARENT:
+	case SLAPI_OPERATION_MSGID:
 		return PBLOCK_CLASS_LONG_INTEGER;
 		break;
 
@@ -166,6 +168,16 @@ pblock_get_param_class( int param )
 	case SLAPI_X_PLUGIN_PRE_GROUP_FN:
 	case SLAPI_X_PLUGIN_POST_GROUP_FN:
 	case SLAPI_PLUGIN_AUDIT_FN:
+	case SLAPI_PLUGIN_INTERNAL_PRE_BIND_FN:
+	case SLAPI_PLUGIN_INTERNAL_PRE_UNBIND_FN:
+	case SLAPI_PLUGIN_INTERNAL_PRE_SEARCH_FN:
+	case SLAPI_PLUGIN_INTERNAL_PRE_COMPARE_FN:
+	case SLAPI_PLUGIN_INTERNAL_PRE_ABANDON_FN:
+	case SLAPI_PLUGIN_INTERNAL_POST_BIND_FN:
+	case SLAPI_PLUGIN_INTERNAL_POST_UNBIND_FN:
+	case SLAPI_PLUGIN_INTERNAL_POST_SEARCH_FN:
+	case SLAPI_PLUGIN_INTERNAL_POST_COMPARE_FN:
+	case SLAPI_PLUGIN_INTERNAL_POST_ABANDON_FN:
 		return PBLOCK_CLASS_FUNCTION_POINTER;
 		break;
 
@@ -435,7 +447,7 @@ pblock_be_call( Slapi_PBlock *pb, int (*bep)(Operation *) )
 	op = pb->pb_op;
 
 	be_orig = op->o_bd;
-	op->o_bd = select_backend( &op->o_req_ndn, 0, 0 );
+	op->o_bd = select_backend( &op->o_req_ndn, 0 );
 	rc = (*bep)( op );
 	op->o_bd = be_orig;
 
@@ -465,9 +477,13 @@ pblock_get( Slapi_PBlock *pb, int param, void **value )
 		PBLOCK_ASSERT_OP( pb, 0 );
 		*((ber_tag_t *)value) = pb->pb_op->o_tag;
 		break;
+	case SLAPI_OPERATION_MSGID:
+		PBLOCK_ASSERT_OP( pb, 0 );
+		*((long *)value) = pb->pb_op->o_msgid;
+		break;
 	case SLAPI_X_OPERATION_DELETE_GLUE_PARENT:
 		PBLOCK_ASSERT_OP( pb, 0 );
-		*((ber_tag_t *)value) = pb->pb_op->o_delete_glue_parent;
+		*((int *)value) = pb->pb_op->o_delete_glue_parent;
 		break;
 	case SLAPI_X_OPERATION_NO_SCHEMA_CHECK:
 		PBLOCK_ASSERT_OP( pb, 0 );
@@ -481,11 +497,16 @@ pblock_get( Slapi_PBlock *pb, int param, void **value )
 
 			rc = mods_structural_class( pb->pb_op->ora_modlist,
 				&tmpval, &pb->pb_rs->sr_text,
-				pb->pb_textbuf, sizeof( pb->pb_textbuf ));
+				pb->pb_textbuf, sizeof( pb->pb_textbuf ),
+				pb->pb_op->o_tmpmemctx );
 			*((char **)value) = tmpval.bv_val;
 		} else {
 			rc = PBLOCK_ERROR;
 		}
+		break;
+	case SLAPI_X_OPERATION_NO_SUBORDINATE_GLUE:
+		PBLOCK_ASSERT_OP( pb, 0 );
+		*((int *)value) = pb->pb_op->o_no_subordinate_glue;
 		break;
 	case SLAPI_REQCONTROLS:
 		PBLOCK_ASSERT_OP( pb, 0 );
@@ -499,13 +520,13 @@ pblock_get( Slapi_PBlock *pb, int param, void **value )
 		PBLOCK_ASSERT_OP( pb, 0 );
 		*((int *)value) = get_manageDSAit( pb->pb_op );
 		break;
-	case SLAPI_X_MANAGEDIT:
+	case SLAPI_X_RELAX:
 		PBLOCK_ASSERT_OP( pb, 0 );
-		*((int *)value) = get_manageDIT( pb->pb_op );
+		*((int *)value) = get_relax( pb->pb_op );
 		break;
 	case SLAPI_BACKEND:
 		PBLOCK_ASSERT_OP( pb, 0 );
-		*((BackendDB **)value) = select_backend( &pb->pb_op->o_req_ndn, 0, 0 );
+		*((BackendDB **)value) = select_backend( &pb->pb_op->o_req_ndn, 0 );
 		break;
 	case SLAPI_BE_TYPE:
 		PBLOCK_ASSERT_OP( pb, 0 );
@@ -549,6 +570,9 @@ pblock_get( Slapi_PBlock *pb, int param, void **value )
 #endif
 							 );
 		break;
+	case SLAPI_IS_INTERNAL_OPERATION:
+		*((int *)value) = pb->pb_intop;
+		break;
 	case SLAPI_X_CONN_IS_UDP:
 		PBLOCK_ASSERT_CONN( pb );
 #ifdef LDAP_CONNECTIONLESS
@@ -563,6 +587,12 @@ pblock_get( Slapi_PBlock *pb, int param, void **value )
 		break;
 	case SLAPI_CONN_DN:
 		PBLOCK_ASSERT_CONN( pb );
+#if 0
+		/* This would be necessary to keep plugin compat after the fix in ITS#4158 */
+		if ( pb->pb_op->o_tag == LDAP_REQ_BIND && pb->pb_rs->sr_err == LDAP_SUCCESS )
+			*((char **)value) = pb->pb_op->orb_edn.bv_val;
+		else
+#endif
 		*((char **)value) = pb->pb_conn->c_dn.bv_val;
 		break;
 	case SLAPI_CONN_CLIENTIP:
@@ -581,14 +611,14 @@ pblock_get( Slapi_PBlock *pb, int param, void **value )
 		break;
 	case SLAPI_CONN_SERVERIP:
 		PBLOCK_ASSERT_CONN( pb );
-		if ( strncmp( pb->pb_conn->c_peer_name.bv_val, "IP=", 3 ) == 0 )
+		if ( strncmp( pb->pb_conn->c_sock_name.bv_val, "IP=", 3 ) == 0 )
 			*((char **)value) = &pb->pb_conn->c_sock_name.bv_val[3];
 		else
 			*value = NULL;
 		break;
 	case SLAPI_X_CONN_SERVERPATH:
 		PBLOCK_ASSERT_CONN( pb );
-		if ( strncmp( pb->pb_conn->c_peer_name.bv_val, "PATH=", 3 ) == 0 )
+		if ( strncmp( pb->pb_conn->c_sock_name.bv_val, "PATH=", 3 ) == 0 )
 			*((char **)value) = &pb->pb_conn->c_sock_name.bv_val[5];
 		else
 			*value = NULL;
@@ -615,15 +645,25 @@ pblock_get( Slapi_PBlock *pb, int param, void **value )
 		break;
 	case SLAPI_MODIFY_MODS: {
 		LDAPMod **mods = NULL;
+		Modifications *ml = NULL;
 
 		pblock_get_default( pb, param, (void **)&mods );
 		if ( mods == NULL && pb->pb_intop == 0 ) {
-			if ( pb->pb_op->o_tag != LDAP_REQ_MODIFY ) {
+			switch ( pb->pb_op->o_tag ) {
+			case LDAP_REQ_MODIFY:
+				ml = pb->pb_op->orm_modlist;
+				break;
+			case LDAP_REQ_MODRDN:
+				ml = pb->pb_op->orr_modlist;
+				break;
+			default:
 				rc = PBLOCK_ERROR;
 				break;
 			}
-			mods = slapi_int_modifications2ldapmods( pb->pb_op->orm_modlist );
-			pblock_set_default( pb, param, (void *)mods );
+			if ( rc != PBLOCK_ERROR ) {
+				mods = slapi_int_modifications2ldapmods( ml );
+				pblock_set_default( pb, param, (void *)mods );
+			}
 		}
 		*((LDAPMod ***)value) = mods;
 		break;
@@ -842,6 +882,10 @@ pblock_set( Slapi_PBlock *pb, int param, void *value )
 		PBLOCK_ASSERT_OP( pb, 0 );
 		pb->pb_op->o_tag = *((ber_tag_t *)value);
 		break;
+	case SLAPI_OPERATION_MSGID:
+		PBLOCK_ASSERT_OP( pb, 0 );
+		pb->pb_op->o_msgid = *((long *)value);
+		break;
 	case SLAPI_X_OPERATION_DELETE_GLUE_PARENT:
 		PBLOCK_ASSERT_OP( pb, 0 );
 		pb->pb_op->o_delete_glue_parent = *((int *)value);
@@ -849,6 +893,10 @@ pblock_set( Slapi_PBlock *pb, int param, void *value )
 	case SLAPI_X_OPERATION_NO_SCHEMA_CHECK:
 		PBLOCK_ASSERT_OP( pb, 0 );
 		pb->pb_op->o_no_schema_check = *((int *)value);
+		break;
+	case SLAPI_X_OPERATION_NO_SUBORDINATE_GLUE:
+		PBLOCK_ASSERT_OP( pb, 0 );
+		pb->pb_op->o_no_subordinate_glue = *((int *)value);
 		break;
 	case SLAPI_REQCONTROLS:
 		PBLOCK_ASSERT_OP( pb, 0 );
@@ -877,9 +925,9 @@ pblock_set( Slapi_PBlock *pb, int param, void *value )
 		PBLOCK_ASSERT_OP( pb, 0 );
 		pb->pb_op->o_managedsait = *((int *)value);
 		break;
-	case SLAPI_X_MANAGEDIT:
+	case SLAPI_X_RELAX:
 		PBLOCK_ASSERT_OP( pb, 0 );
-		pb->pb_op->o_managedit = *((int *)value);
+		pb->pb_op->o_relax = *((int *)value);
 		break;
 	case SLAPI_BACKEND:
 		PBLOCK_ASSERT_OP( pb, 0 );
@@ -951,11 +999,13 @@ pblock_set( Slapi_PBlock *pb, int param, void *value )
 			mlp = &pb->pb_op->orm_modlist;
 		} else if ( pb->pb_op->o_tag == LDAP_REQ_ADD ) {
 			mlp = &pb->pb_op->ora_modlist;
+		} else if ( pb->pb_op->o_tag == LDAP_REQ_MODRDN ) {
+			mlp = &pb->pb_op->orr_modlist;
 		} else {
 			break;
 		}
 
-		newmods = slapi_int_ldapmods2modifications( (LDAPMod **)value );
+		newmods = slapi_int_ldapmods2modifications( pb->pb_op, (LDAPMod **)value );
 		if ( newmods != NULL ) {
 			slap_mods_free( *mlp, 1 );
 			*mlp = newmods;
@@ -1022,9 +1072,7 @@ pblock_set( Slapi_PBlock *pb, int param, void *value )
 			case LDAP_SCOPE_BASE:
 			case LDAP_SCOPE_ONELEVEL:
 			case LDAP_SCOPE_SUBTREE:
-#ifdef LDAP_SCOPE_SUBORDINATE
 			case LDAP_SCOPE_SUBORDINATE:
-#endif
 				pb->pb_op->ors_scope = scope;
 				break;
 			default:
@@ -1075,7 +1123,7 @@ pblock_set( Slapi_PBlock *pb, int param, void *value )
 		break;
 	case SLAPI_SEARCH_ATTRS: {
 		AttributeName *an = NULL;
-		size_t i = 0;
+		size_t i = 0, j = 0;
 		char **attrs = (char **)value;
 
 		PBLOCK_ASSERT_OP( pb, 0 );
@@ -1099,18 +1147,20 @@ pblock_set( Slapi_PBlock *pb, int param, void *value )
 				;
 		}
 		if ( i ) {
-			an = (AttributeName *)pb->pb_op->o_tmpalloc( (i + 1) *
+			an = (AttributeName *)pb->pb_op->o_tmpcalloc( i + 1,
 				sizeof(AttributeName), pb->pb_op->o_tmpmemctx );
 			for ( i = 0; attrs[i] != NULL; i++ ) {
-				an[i].an_desc = NULL;
-				an[i].an_oc = NULL;
-				an[i].an_oc_exclude = 0;
-				an[i].an_name.bv_val = attrs[i];
-				an[i].an_name.bv_len = strlen( attrs[i] );
-				slap_bv2ad( &an[i].an_name, &an[i].an_desc, &pb->pb_rs->sr_text );
+				an[j].an_desc = NULL;
+				an[j].an_oc = NULL;
+				an[j].an_oc_exclude = 0;
+				an[j].an_name.bv_val = attrs[i];
+				an[j].an_name.bv_len = strlen( attrs[i] );
+				if ( slap_bv2ad( &an[j].an_name, &an[j].an_desc, &pb->pb_rs->sr_text ) == LDAP_SUCCESS ) {
+					j++;
+				}
 			}
-			an[i].an_name.bv_val = NULL;
-			an[i].an_name.bv_len = 0;
+			an[j].an_name.bv_val = NULL;
+			an[j].an_name.bv_len = 0;
 		}	
 		pb->pb_op->ors_attrs = an;
 		break;
@@ -1126,7 +1176,14 @@ pblock_set( Slapi_PBlock *pb, int param, void *value )
 		break;
 	case SLAPI_SEARCH_RESULT_ENTRY:
 		PBLOCK_ASSERT_OP( pb, 0 );
+		if ( pb->pb_rs->sr_flags & REP_ENTRY_MUSTBEFREED ) {
+			entry_free( pb->pb_rs->sr_entry );
+		} else if ( pb->pb_rs->sr_flags & REP_ENTRY_MUSTRELEASE ) {
+			be_entry_release_r( pb->pb_op, pb->pb_rs->sr_entry );
+			pb->pb_rs->sr_flags ^= REP_ENTRY_MUSTRELEASE;
+		}
 		pb->pb_rs->sr_entry = (Slapi_Entry *)value;
+		pb->pb_rs->sr_flags |= REP_ENTRY_MUSTBEFREED;
 		break;
 	case SLAPI_BIND_RET_SASLCREDS:
 		PBLOCK_ASSERT_OP( pb, 0 );
@@ -1213,6 +1270,7 @@ pblock_set( Slapi_PBlock *pb, int param, void *value )
 	case SLAPI_IS_REPLICATED_OPERATION:
 	case SLAPI_CONN_AUTHTYPE:
 	case SLAPI_CONN_AUTHMETHOD:
+	case SLAPI_IS_INTERNAL_OPERATION:
 	case SLAPI_X_CONN_IS_UDP:
 	case SLAPI_CONN_CLIENTIP:
 	case SLAPI_X_CONN_CLIENTPATH:

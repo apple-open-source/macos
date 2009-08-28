@@ -1,0 +1,104 @@
+# Commands covered: sound max/min
+#
+
+package require -exact snack 2.2
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+test maxmin-1.1 {max/min commands} {
+  set s [snack::sound snd -load ex1.wav]
+  set res [list [$s max] [$s min]]
+  $s destroy
+  set res
+} {14264 -8288}
+
+test maxmin-1.2 {max/min commands with a specified range} {
+  set s [snack::sound snd -load ex1.wav]
+  set res [list [$s max -start 0 -end 4] [$s min -start 0 -end 4]]
+  $s destroy
+  set res
+} {1201 1169}
+
+test maxmin-1.3 {max command, with missing argument for -end option} {
+  set s [snack::sound snd -load ex1.wav]
+  catch {$s max -start 0 -end} msg
+  $s destroy
+  set msg
+} {No argument given for -end option}
+
+test maxmin-1.4 {min command, with missing argument for -end option} {
+  set s [snack::sound snd -load ex1.wav]
+  catch {$s min -start 0 -end} msg
+  $s destroy
+  set msg
+} {No argument given for -end option}
+
+test maxmin-2.1 {max command, 2 channels} {
+  set s [snack::sound snd -channels 2]
+  $s length 1000
+  $s sample 500 1000 0
+  $s sample 501 0 1000
+  set res [list [$s max -start 0 -end 500 -channel 0] \
+		[$s max -start 0 -end 500 -channel 1] \
+		[$s max -start 501 -end -1 -channel 0] \
+		[$s max -start 501 -end -1 -channel 1]]
+  $s destroy
+  set res
+} {1000 0 0 1000}
+
+test maxmin-2.2 {min command, 2 channels} {
+  set s [snack::sound snd -channels 2]
+  $s length 1000
+  $s sample 500 -1000 0
+  $s sample 501 0 -1000
+  set res [list [$s min -start 0 -end 500 -channel 0] \
+		[$s min -start 0 -end 500 -channel 1] \
+		[$s min -start 501 -end -1 -channel 0] \
+		[$s min -start 501 -end -1 -channel 1]]
+  $s destroy
+  set res
+} {-1000 0 0 -1000}
+
+test maxmin-2.3 {max command, 3 channels} {
+  set s [snack::sound snd -channels 3]
+  $s length 1000
+  $s sample 500 0 0 1000
+  $s sample 501 0 1000 0
+  set res [list [$s max -start 0 -end 500 -channel 0] \
+		[$s max -start 0 -end 500 -channel 1] \
+		[$s max -start 0 -end 500 -channel 2] \
+		[$s max -start 501 -end -1 -channel 0] \
+		[$s max -start 501 -end -1 -channel 1] \
+		[$s max -start 501 -end -1 -channel 2]]
+  $s destroy
+  set res
+} {0 0 1000 0 1000 0}
+
+test maxmin-2.4 {min command, 3 channels} {
+  set s [snack::sound snd -channels 3]
+  $s length 1000
+  $s sample 500 0 0 -1000
+  $s sample 501 0 -1000 0
+  set res [list [$s min -start 0 -end 500 -channel 0] \
+		[$s min -start 0 -end 500 -channel 1] \
+		[$s min -start 0 -end 500 -channel 2] \
+		[$s min -start 501 -end -1 -channel 0] \
+		[$s min -start 501 -end -1 -channel 1] \
+		[$s min -start 501 -end -1 -channel 2]]
+  $s destroy
+  set res
+} {0 0 -1000 0 -1000 0}
+
+test maxmin-3.1 {max/min commands, empty sound} {
+  set s [snack::sound snd]
+  set res [list [$s max] [$s min]]
+  $s destroy
+  set res
+} {0 0}
+
+# cleanup
+::tcltest::cleanupTests
+return

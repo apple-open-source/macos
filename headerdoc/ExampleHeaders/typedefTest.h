@@ -17,11 +17,11 @@ struct _structTag {
 } SimpleStruct;
 
 
-/*!	@typedef Foo
+/*!	@typedef SimpleTypeDef
     @discussion Test of simple typedef.
 */
 
-typedef struct Bar *Foo;
+typedef struct Bar *SimpleTypeDef;
 
 /*!
     @typedef TypedefdSimpleStruct
@@ -31,7 +31,7 @@ typedef struct Bar *Foo;
     @field secondField Description of second field
 */
 
-typedef struct _structTag {
+typedef struct _structTag_TypedefdSimpleStruct {
     short firstField;
     unsigned long secondField
 } TypedefdSimpleStruct;

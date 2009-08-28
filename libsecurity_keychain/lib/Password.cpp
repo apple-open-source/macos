@@ -34,7 +34,7 @@ using namespace KeychainCore;
 using namespace CssmClient;
 
 PasswordImpl::PasswordImpl(SecItemClass itemClass, SecKeychainAttributeList *searchAttrList, SecKeychainAttributeList *itemAttrList) :
-    mItem(itemClass, itemAttrList, 0, NULL), mUseKeychain(false), mFoundInKeychain(false), mRememberInKeychain(false)
+    mItem(itemClass, itemAttrList, 0, NULL), mUseKeychain(false), mFoundInKeychain(false), mRememberInKeychain(false), mMutex(Mutex::recursive)
 {
     if (searchAttrList && itemAttrList)
     {
@@ -52,6 +52,17 @@ PasswordImpl::PasswordImpl(SecItemClass itemClass, SecKeychainAttributeList *sea
             mFoundInKeychain = true;
     }
 }
+
+PasswordImpl::PasswordImpl(PasswordImpl& existing)
+{
+	mKeychain = existing.mKeychain;
+	mItem = existing.mItem;
+    mUseKeychain = existing.mUseKeychain;
+    mFoundInKeychain = existing.mFoundInKeychain;
+    mRememberInKeychain = existing.mRememberInKeychain;
+}
+
+
 
 PasswordImpl::~PasswordImpl() throw()
 {

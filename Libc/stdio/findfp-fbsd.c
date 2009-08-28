@@ -46,6 +46,8 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/findfp.c,v 1.29 2004/05/22 15:19:41 tjr E
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <libkern/OSAtomic.h>
+#include <errno.h>
 
 #include <pthread.h>
 #include <spinlock.h>
@@ -64,12 +66,18 @@ int	__sdidinit;
   /*	 p r w flags file _bf z  cookie      close    read    seek    write */
   /*     _ub _extra */
 #define	__sFXInit	{0, PTHREAD_MUTEX_INITIALIZER}
+  /* set counted */
+#define	__sFXInit3	{0, PTHREAD_MUTEX_INITIALIZER, 0, 0, 0, 1}
 				/* the usual - (stdin + stdout + stderr) */
+
+static int __scounted;		/* streams counted against STREAM_MAX */
+static int __stream_max;
+
 static FILE usual[FOPEN_MAX - 3];
 static struct __sFILEX usual_extra[FOPEN_MAX - 3];
 static struct glue uglue = { NULL, FOPEN_MAX - 3, usual };
 
-static struct __sFILEX __sFX[3] = {__sFXInit, __sFXInit, __sFXInit};
+static struct __sFILEX __sFX[3] = {__sFXInit3, __sFXInit3, __sFXInit3};
 
 /*
  * We can't make this 'static' until 6.0-current due to binary
@@ -141,7 +149,7 @@ moreglue(n)
  * Find a free FILE for fopen et al.
  */
 FILE *
-__sfp()
+__sfp(int count)
 {
 	FILE	*fp;
 	int	n;
@@ -149,6 +157,15 @@ __sfp()
 
 	if (!__sdidinit)
 		__sinit();
+
+	if (count) {
+		if (__scounted >= __stream_max) {
+			THREAD_UNLOCK();
+			errno = EMFILE;
+			return NULL;
+		}
+		OSAtomicIncrement32(&__scounted);
+	}
 	/*
 	 * The list must be locked because a FILE may be updated.
 	 */
@@ -183,8 +200,22 @@ found:
 /*	fp->_lock = NULL; */	/* once set always set (reused) */
 	fp->_extra->fl_mutex = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
 	fp->_extra->orientation = 0;
+	fp->_extra->counted = count ? 1 : 0;
 	memset(&fp->_extra->mbstate, 0, sizeof(mbstate_t));
 	return (fp);
+}
+
+/*
+ * Mark as free and update count as needed
+ */
+__private_extern__ void
+__sfprelease(FILE *fp)
+{
+	if (fp->_extra->counted) {
+		OSAtomicDecrement32(&__scounted);
+		fp->_extra->counted = 0;
+	}
+	fp->_flags = 0;
 }
 
 /*
@@ -247,6 +278,8 @@ __sinit()
 		/* Make sure we clean up on exit. */
 		__cleanup = _cleanup;		/* conservative */
 		__sdidinit = 1;
+		__stream_max = sysconf(_SC_STREAM_MAX);
+		__scounted = 3;			/* std{in,out,err} already exists */
 	}
 	THREAD_UNLOCK();
 }

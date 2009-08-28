@@ -58,7 +58,7 @@ static int i860_ip(
     char *str);
 static void md_insn_to_chars(
     unsigned char *buf,
-    long val,
+    int32_t val,
     int n);
 
 const relax_typeS md_relax_table[] = { {0} };
@@ -67,11 +67,11 @@ const relax_typeS md_relax_table[] = { {0} };
 static struct hash_control *op_hash = NULL;
 
 static void s_dual(
-    int mode);
+    uintptr_t mode);
 static void s_i860_align(
-    int value);
+    uintptr_t value);
 static void s_i860_org(
-    int value);
+    uintptr_t value);
 
 const pseudo_typeS md_pseudo_table[] = {
     { "float",	float_cons,	'f'	},
@@ -130,7 +130,7 @@ static int insn_count;	/* Track insns assembled, as a word count */
 
 struct i860_it {
     char    *error;
-    unsigned long opcode;
+    uint32_t opcode;
     nlist_t *nlistp;
     expressionS exp;
     int pcrel;
@@ -153,7 +153,7 @@ static char *expr_end;
 static
 void
 s_dual(
-int mode)
+uintptr_t mode)
 {
 	dual_insn_mode = mode;
 }
@@ -161,10 +161,10 @@ int mode)
 static
 void
 s_i860_align(
-int value)
+uintptr_t value)
 {
     register unsigned int temp;
-    register long int temp_fill;
+    register int32_t temp_fill;
     unsigned int i = 0;
     unsigned int bytes;
     char *toP, fill;
@@ -231,11 +231,11 @@ int value)
 static
 void
 s_i860_org(
-int value)
+uintptr_t value)
 {
 	register segT segment;
 	expressionS exp;
-	register long int temp_fill;
+	register int32_t temp_fill;
 	register char *p;
 	extern segT get_known_segmented_expression();
 
@@ -290,7 +290,7 @@ md_begin(
 void)
 {
     const char *retval = NULL;
-    unsigned long i;
+    uint32_t i;
     int j = 0;
 
     insn_count = 0;
@@ -393,7 +393,7 @@ char *str)
     struct i860_opcode *insn;
     char *argsStart;
     char *s1;
-    unsigned long   opcode;
+    uint32_t   opcode;
     unsigned int mask;
     int this_insn_is_dual = 0;
     int adjustment;
@@ -941,7 +941,7 @@ int *sizeP)
 	input_line_pointer=t;
     *sizeP=prec * sizeof(LITTLENUM_TYPE);
     for(wordP=words;prec--;) {
-	md_number_to_chars(litP,(long)(*wordP++),sizeof(LITTLENUM_TYPE));
+	md_number_to_chars(litP,(int32_t)(*wordP++),sizeof(LITTLENUM_TYPE));
 	litP+=sizeof(LITTLENUM_TYPE);
     }
     return "";	/* Someone should teach Dean about null pointers */
@@ -983,7 +983,7 @@ static
 void
 md_insn_to_chars(
 unsigned char *buf,
-long val,
+int32_t val,
 int n)
 {
 
@@ -1014,7 +1014,7 @@ static
 void
 md_insn_to_chars(
 unsigned char *buf,
-long val,
+int32_t val,
 int n)
 {
 	md_number_to_chars((char *)buf,val,n);
@@ -1029,7 +1029,7 @@ int n,
 fixS *fixP,
 int nsect)
 {
-    unsigned long opcode;
+    uint32_t opcode;
 
     if ( nsect == (int)text_nsect && (n % 4) != 0 )
     	as_warn("Immediate write of non-aligned data into text segment." );

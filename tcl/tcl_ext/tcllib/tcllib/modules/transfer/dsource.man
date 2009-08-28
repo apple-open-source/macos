@@ -1,0 +1,146 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin transfer::data::source n 0.1]
+[copyright {2006 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
+[moddesc   {Data transfer facilities}]
+[titledesc {Data source}]
+[require Tcl                    8.4]
+[require snit                   [opt 1.0]]
+[require transfer::copy         [opt 0.1]]
+[require transfer::data::source [opt 0.1]]
+[description]
+[keywords transfer copy channel {data source}]
+[para]
+
+This package provides objects mainly describing the origin of some
+data to transfer. They are also able to initiate transfers of the
+described information to a channel using the foundation package
+[package transfer::copy].
+
+
+[section API]
+
+[list_begin definitions]
+
+[call [cmd transfer::data::source] \
+	[arg object] \
+	[opt [arg options]...]]
+
+This command creates and configures a new source [arg object]. The
+fully qualified name of the object command is returned as the result
+of the command.
+
+[para]
+
+The recognized options are listed below. It should be noted that the
+first four options are semi-exclusive, each specifying a different
+type of data source and associated content. If these options are
+specified more than once then the last option specified is used to
+actually configure the object.
+
+
+[list_begin options]
+[opt_def -string   [arg text]]
+
+This option specifies that the source of the data is an immediate
+string, and its associated argument contains the string in question.
+
+[opt_def -channel  [arg handle]]
+
+This option specifies that the source of the data is a channel, and
+its associated argument is the handle of the channel containing the
+data.
+
+[opt_def -file     [arg path]]
+
+This option specifies that the source of the data is a file, and its
+associated argument is the path of the file containing the data.
+
+[opt_def -variable [arg varname]]
+
+This option specifies that the source of the data is a string stored
+in a variable, and its associated argument contains the name of the
+variable in question. The variable is assumed to be global or
+namespaced, anchored at the global namespace.
+
+[opt_def -size     [arg int]]
+
+This option specifies the size of the data transfer. It is optional
+and defaults to -1. This value, and any other value less than zero
+signals to transfer all the data from the source.
+
+[list_end]
+
+
+[call [arg object] [method destroy]]
+
+This method destroys the object. Doing so while a transfer initiated
+by the object is active is safe as all data required for the transfer
+itself was copied, and the completion of the transfer will not try to
+access the initiating object anymore. i.e. the transfer is completely
+separate from the source object itself.
+
+
+[call [arg object] [method type]]
+
+This method returns a string describing the type of the data the
+object is refering to. The possible values and their meanings are:
+
+[list_begin definitions]
+[def [const undefined]]
+No data was specified at all, or it was specified incompletely. The
+object does not know the type.
+
+[def [const string]]
+The data to transfer is contained in a string.
+
+[def [const channel]]
+The data to transfer is contained in a channel.
+
+[list_end]
+
+[call [arg object] [method data]]
+
+This method returns a value depending on the type of the data the
+object refers to, through which the data can be accessed.
+
+The method throws an error if the type is [const undefined]. For type
+[const string] the returned result is the data itself, whereas for
+type [const channel] the returned result is the handle of the channel
+containing the data.
+
+
+[call [arg object] [method size]]
+
+This method returns a value depending on the type of the data the
+object refers to, the size of the data.
+
+The method throws an error if the type is [const undefined]. Return of
+a negative value signals that the object is unable to determine an
+absolute size upfront (like for data in a channel).
+
+
+[call [arg object] [method valid] [arg msgvar]]
+
+This method checks the configuration of the object for validity. It
+returns a boolean flag as result, whose value is [const True] if the
+object is valid, and [const False] otherwise. In the latter case the
+variable whose name is stored in [arg msgvar] is set to an error
+message describing the problem found with the configuration. Otherwise
+this variable is not touched.
+
+[call [arg object] [method transmit] [arg channel] [arg blocksize] [arg done]]
+
+This method initiates a transfer of the referenced data to the
+specified [arg channel].
+
+When the transfer completes the command prefix [arg done] is invoked,
+per the rules for the option [option -command] of command
+[cmd transfer::copy::do] in the package [package transfer::copy].
+
+The [arg blocksize] specifies the size of the chunks to transfer in
+one go. See the option [option -blocksize] of command
+[cmd transfer::copy::do] in the package [package transfer::copy].
+
+[list_end]
+
+[manpage_end]

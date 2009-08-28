@@ -23,7 +23,7 @@ if ($config[general_lib_type] == 'sql' && $config[sql_use_operators] == 'true'){
 <meta http-equiv="Content-Type" content="text/html; charset=<?php echo $config[general_charset]?>">
 <link rel="stylesheet" href="style.css">
 </head>
-<body bgcolor="#80a040" background="images/greenlines1.gif" link="black" alink="black">
+<body>
 
 <?php
 include("password_generator.jsc");
@@ -50,7 +50,7 @@ include("password_generator.jsc");
 <tr bgcolor="black" valign=top><td colspan=2>
 	<table border=0 width=100% cellpadding=12 cellspacing=0 bgcolor="#ffffd0" valign=top>
 	<tr><td>
-   
+
 <?php
 if ($create == 1){
 	if (is_file("../lib/$config[general_lib_type]/user_info.php3"))

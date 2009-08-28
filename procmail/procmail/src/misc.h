@@ -1,4 +1,4 @@
-/*$Id: misc.h,v 1.1.1.2 2001/07/20 19:38:18 bbraun Exp $*/
+/*$Id: misc.h,v 1.56 2001/06/30 01:14:19 guenther Exp $*/
 
 struct dyna_array{int filled,tspace;char*vals;};
 union offori{off_t o;int i;};

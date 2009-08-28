@@ -1,6 +1,6 @@
 /************************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2006, International Business Machines Corporation
+ * Copyright (c) 1997-2008, International Business Machines Corporation
  * and others. All Rights Reserved.
  ************************************************************************/
 
@@ -9,9 +9,11 @@
 #if !UCONFIG_NO_FORMATTING
 
 #include "caltest.h"
+#include "unicode/dtfmtsym.h"
 #include "unicode/gregocal.h"
 #include "unicode/smpdtfmt.h"
 #include "unicode/simpletz.h"
+#include "unicode/dbgutil.h"
 
 // *****************************************************************************
 // class CalendarTest
@@ -194,6 +196,13 @@ void CalendarTest::runIndexedTest( int32_t index, UBool exec, const char* &name,
             TestJD();
           }
           break;
+        case 21:
+          name = "TestDebug";
+          if(exec) {
+            logln("TestDebug---"); logln("");
+            TestDebug();
+          }
+          break;
            
         default: name = ""; break;
     }
@@ -334,8 +343,8 @@ CalendarTest::TestGenericAPI()
 
     for (i=0; i<UCAL_FIELD_COUNT; ++i)
     {
-        if (cal->getMinimum((UCalendarDateFields)i) != cal->getGreatestMinimum((UCalendarDateFields)i))
-            errln("FAIL: getMinimum doesn't match getGreatestMinimum for field " + i);
+        if (cal->getMinimum((UCalendarDateFields)i) > cal->getGreatestMinimum((UCalendarDateFields)i))
+            errln("FAIL: getMinimum larger than getGreatestMinimum for field " + i);
         if (cal->getLeastMaximum((UCalendarDateFields)i) > cal->getMaximum((UCalendarDateFields)i))
             errln("FAIL: getLeastMaximum larger than getMaximum for field " + i);
         if (cal->getMinimum((UCalendarDateFields)i) >= cal->getMaximum((UCalendarDateFields)i))
@@ -587,20 +596,16 @@ CalendarTest::TestDisambiguation765()
     c->set(UCAL_MONTH, UCAL_JUNE);
     c->set(UCAL_DAY_OF_WEEK_IN_MONTH, - 1);
     verify765("1997 last Tuesday in June = ", c, 1997, UCAL_JUNE, 24);
-    // IllegalArgumentException e = null;
+
     status = U_ZERO_ERROR;
-    //try {
-        c->clear();
-        c->set(UCAL_YEAR, 1997);
-        c->set(UCAL_DAY_OF_WEEK, UCAL_TUESDAY);
-        c->set(UCAL_MONTH, UCAL_JUNE);
-        c->set(UCAL_DAY_OF_WEEK_IN_MONTH, 0);
-        c->getTime(status);
-    //}
-    //catch(IllegalArgumentException ex) {
-    //    e = ex;
-    //}
+    c->clear();
+    c->set(UCAL_YEAR, 1997);
+    c->set(UCAL_DAY_OF_WEEK, UCAL_TUESDAY);
+    c->set(UCAL_MONTH, UCAL_JUNE);
+    c->set(UCAL_DAY_OF_WEEK_IN_MONTH, 0);
+    c->getTime(status);
     verify765("1997 zero-th Tuesday in June = ", status);
+
     c->clear();
     c->set(UCAL_YEAR, 1997);
     c->set(UCAL_DAY_OF_WEEK, UCAL_TUESDAY);
@@ -613,19 +618,16 @@ CalendarTest::TestDisambiguation765()
     c->set(UCAL_MONTH, UCAL_JUNE);
     c->set(UCAL_WEEK_OF_MONTH, 5);
     verify765("1997 Tuesday in week 5 of June = ", c, 1997, UCAL_JULY, 1);
+
     status = U_ZERO_ERROR;
-    //try {
-        c->clear();
-        c->set(UCAL_YEAR, 1997);
-        c->set(UCAL_DAY_OF_WEEK, UCAL_TUESDAY);
-        c->set(UCAL_MONTH, UCAL_JUNE);
-        c->set(UCAL_WEEK_OF_MONTH, 0);
-        verify765("1997 Tuesday in week 0 of June = ", c, 1997, UCAL_MAY, 27);
-    //}
-    //catch(IllegalArgumentException ex) {
-    //    errln("FAIL: Exception seen:");
-    //    ex.printStackTrace(log);
-    //}
+    c->clear();
+    c->set(UCAL_YEAR, 1997);
+    c->set(UCAL_DAY_OF_WEEK, UCAL_TUESDAY);
+    c->set(UCAL_MONTH, UCAL_JUNE);
+    c->set(UCAL_WEEK_OF_MONTH, 0);
+    c->getTime(status);
+    verify765("1997 Tuesday in week 0 of June = ", status);
+
     /* Note: The following test used to expect YEAR 1997, WOY 1 to
      * resolve to a date in Dec 1996; that is, to behave as if
      * YEAR_WOY were 1997.  With the addition of a new explicit
@@ -1288,9 +1290,16 @@ CalendarTest::TestDOW_LOCALandYEAR_WOY()
     if (U_FAILURE(status)) { errln("Couldn't create GregorianCalendar"); return; }
     SimpleDateFormat *sdf=new SimpleDateFormat(UnicodeString("YYYY'-W'ww-ee"), Locale::getGermany(), status);
     if (U_FAILURE(status)) { errln("Couldn't create SimpleDateFormat"); return; }
+
+    // ICU no longer use localized date-time pattern characters by default.
+    // So we set pattern chars using 'J' instead of 'Y'.
+    DateFormatSymbols *dfs = new DateFormatSymbols(Locale::getGermany(), status);
+    dfs->setLocalPatternChars(UnicodeString("GyMdkHmsSEDFwWahKzJeugAZvcLQq"));
+    sdf->adoptDateFormatSymbols(dfs);
     sdf->applyLocalizedPattern(UnicodeString("JJJJ'-W'ww-ee"), status);
     if (U_FAILURE(status)) { errln("Couldn't apply localized pattern"); return; }
-    cal->clear();
+
+	cal->clear();
     cal->set(1997, UCAL_DECEMBER, 25);
     doYEAR_WOYLoop(cal, sdf, times, status);
     //loop_addroll(cal, /*sdf,*/ times, UCAL_YEAR_WOY, UCAL_YEAR,  status);
@@ -1872,6 +1881,45 @@ void CalendarTest::TestJD()
 
 }
 
+// make sure the ctestfw utilities are in sync with the Calendar
+void CalendarTest::TestDebug()
+{
+	for(int32_t  t=0;t<=UDBG_ENUM_COUNT;t++) {
+		int32_t count = udbg_enumCount((UDebugEnumType)t);
+		if(count == -1) {
+			logln("enumCount(%d) returned -1", count);
+			continue;
+		}
+	    for(int32_t i=0;i<=count;i++) {
+	  	  if(i<count) {
+	  		  if( i!=udbg_enumArrayValue((UDebugEnumType)t, i)) {
+	  			  errln("FAIL: udbg_enumArrayValue(%d,%d) returned %d, expected %d", t, i, udbg_enumArrayValue((UDebugEnumType)t,i), i);
+	  		  }
+	  	  } else {
+	  		  logln("Testing count+1:");
+	  	  }
+                  const char *name = udbg_enumName((UDebugEnumType)t,i);
+                  if(name==NULL) {
+                          if(i==count) {
+                                logln(" null name - expected.\n");
+                          } else {
+                                errln("FAIL: udbg_enumName(%d,%d) returned NULL", t, i);
+                          }
+                          name = "(null)";
+                  }
+		  logln("udbg_enumArrayValue(%d,%d) = %s, returned %d", t, i, 
+				  	name, udbg_enumArrayValue((UDebugEnumType)t,i));
+	  	  logln("udbg_enumString = " + udbg_enumString((UDebugEnumType)t,i));
+	    }
+	    if(udbg_enumExpectedCount((UDebugEnumType)t) != count) {
+	  	  errln("FAIL: udbg_enumExpectedCount(%d): %d, != UCAL_FIELD_COUNT=%d ", t, udbg_enumExpectedCount((UDebugEnumType)t), count);
+	    } else {
+	  	  logln("udbg_ucal_fieldCount: %d, UCAL_FIELD_COUNT=udbg_enumCount %d ", udbg_enumExpectedCount((UDebugEnumType)t), count);
+	    }
+	}
+}
+
+
 #undef CHECK
 
 // List of interesting locales
@@ -1930,6 +1978,7 @@ UDate CalendarTest::minDateOfCalendar(const Calendar& cal, UBool &isGregorian, U
   if(U_FAILURE(status)) return 0.0;
   return doMinDateOfCalendar(cal.clone(), isGregorian, status);
 }
+
 
 
 

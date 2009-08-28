@@ -1,8 +1,8 @@
 /* id2entry.c - routines to deal with the id2entry database */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/id2entry.c,v 1.62.2.8 2006/04/07 16:12:33 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/id2entry.c,v 1.72.2.6 2008/05/01 21:39:35 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2006 The OpenLDAP Foundation.
+ * Copyright 2000-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 #include <ac/string.h>
+#include <ac/errno.h>
 
 #include "back-bdb.h"
 
@@ -92,7 +93,7 @@ int bdb_id2entry_update(
 int bdb_id2entry(
 	BackendDB *be,
 	DB_TXN *tid,
-	u_int32_t locker,
+	BDB_LOCKER locker,
 	ID id,
 	Entry **e )
 {
@@ -100,8 +101,9 @@ int bdb_id2entry(
 	DB *db = bdb->bi_id2entry->bdi_db;
 	DBT key, data;
 	DBC *cursor;
-	struct berval bv;
-	int rc = 0;
+	EntryHeader eh;
+	char buf[16];
+	int rc = 0, off;
 	ID nid;
 
 	*e = NULL;
@@ -112,29 +114,59 @@ int bdb_id2entry(
 	BDB_ID2DISK( id, &nid );
 
 	DBTzero( &data );
-	data.flags = DB_DBT_MALLOC;
+	data.flags = DB_DBT_USERMEM | DB_DBT_PARTIAL;
 
 	/* fetch it */
 	rc = db->cursor( db, tid, &cursor, bdb->bi_db_opflags );
 	if ( rc ) return rc;
 
 	/* Use our own locker if needed */
-	if ( !tid && locker )
-		cursor->locker = locker;
+	if ( !tid && locker ) {
+		CURSOR_SETLOCKER( cursor, locker );
+	}
 
+	/* Get the nattrs / nvals counts first */
+	data.ulen = data.dlen = sizeof(buf);
+	data.data = buf;
 	rc = cursor->c_get( cursor, &key, &data, DB_SET );
+	if ( rc ) goto finish;
+
+
+	eh.bv.bv_val = buf;
+	eh.bv.bv_len = data.size;
+	rc = entry_header( &eh );
+	if ( rc ) goto finish;
+
+	/* Get the size */
+	data.flags ^= DB_DBT_PARTIAL;
+	data.ulen = 0;
+	rc = cursor->c_get( cursor, &key, &data, DB_CURRENT );
+	if ( rc != DB_BUFFER_SMALL ) goto finish;
+
+	/* Allocate a block and retrieve the data */
+	off = eh.data - eh.bv.bv_val;
+	eh.bv.bv_len = eh.nvals * sizeof( struct berval ) + data.size;
+	eh.bv.bv_val = ch_malloc( eh.bv.bv_len );
+	eh.data = eh.bv.bv_val + eh.nvals * sizeof( struct berval );
+	data.data = eh.data;
+	data.ulen = data.size;
+
+	/* skip past already parsed nattr/nvals */
+	eh.data += off;
+
+	rc = cursor->c_get( cursor, &key, &data, DB_CURRENT );
+
+finish:
 	cursor->c_close( cursor );
 
 	if( rc != 0 ) {
 		return rc;
 	}
 
-	DBT2bv( &data, &bv );
-
 #ifdef SLAP_ZONE_ALLOC
-	rc = entry_decode(&bv, e, bdb->bi_cache.c_zctx);
+	rc = entry_decode(&eh, e, bdb->bi_cache.c_zctx);
 #else
-	rc = entry_decode(&bv, e);
+	rc = entry_decode(&eh, e);
 #endif
 
 	if( rc == 0 ) {
@@ -144,11 +176,11 @@ int bdb_id2entry(
 		 * decoded in place.
 		 */
 #ifndef SLAP_ZONE_ALLOC
-		ch_free(data.data);
+		ch_free(eh.bv.bv_val);
 #endif
 	}
 #ifdef SLAP_ZONE_ALLOC
-	ch_free(data.data);
+	ch_free(eh.bv.bv_val);
 #endif
 
 	return rc;
@@ -176,64 +208,31 @@ int bdb_id2entry_delete(
 	return rc;
 }
 
-#ifdef SLAP_ZONE_ALLOC
-int bdb_entry_return(
-	struct bdb_info *bdb,
-	Entry *e,
-	int zseq
-)
-#else
 int bdb_entry_return(
 	Entry *e
 )
-#endif
 {
-#ifdef SLAP_ZONE_ALLOC
-	if (!slap_zn_validate(bdb->bi_cache.c_zctx, e, zseq)) {
-		return 0;
-	}
-#endif
 	/* Our entries are allocated in two blocks; the data comes from
 	 * the db itself and the Entry structure and associated pointers
 	 * are allocated in entry_decode. The db data pointer is saved
-	 * in e_bv. Since the Entry structure is allocated as a single
-	 * block, e_attrs is always a fixed offset from e. The exception
-	 * is when an entry has been modified, in which case we also need
-	 * to free e_attrs.
+	 * in e_bv.
 	 */
-
-#ifdef LDAP_COMP_MATCH
-	comp_tree_free( e->e_attrs );
-#endif
-	if( !e->e_bv.bv_val ) {	/* Entry added by do_add */
-		entry_free( e );
-		return 0;
-	}
-	if( (void *) e->e_attrs != (void *) (e+1)) {
-		attrs_free( e->e_attrs );
-	}
-
-	/* See if the DNs were changed by modrdn */
-	if( e->e_nname.bv_val < e->e_bv.bv_val || e->e_nname.bv_val >
-		e->e_bv.bv_val + e->e_bv.bv_len ) {
-		ch_free(e->e_name.bv_val);
-		ch_free(e->e_nname.bv_val);
+	if ( e->e_bv.bv_val ) {
+		/* See if the DNs were changed by modrdn */
+		if( e->e_nname.bv_val < e->e_bv.bv_val || e->e_nname.bv_val >
+			e->e_bv.bv_val + e->e_bv.bv_len ) {
+			ch_free(e->e_name.bv_val);
+			ch_free(e->e_nname.bv_val);
+		}
 		e->e_name.bv_val = NULL;
 		e->e_nname.bv_val = NULL;
+		/* In tool mode the e_bv buffer is realloc'd, leave it alone */
+		if( !(slapMode & SLAP_TOOL_MODE) ) {
+			free( e->e_bv.bv_val );
+		}
+		BER_BVZERO( &e->e_bv );
 	}
-#ifndef SLAP_ZONE_ALLOC
-	/* In tool mode the e_bv buffer is realloc'd, leave it alone */
-	if( !(slapMode & SLAP_TOOL_MODE) ) {
-		free( e->e_bv.bv_val );
-	}
-#endif /* !SLAP_ZONE_ALLOC */
-
-#ifdef SLAP_ZONE_ALLOC
-	slap_zn_free( e, bdb->bi_cache.c_zctx );
-#else
-	free( e );
-#endif
-
+	entry_free( e );
 	return 0;
 }
 
@@ -243,7 +242,8 @@ int bdb_entry_release(
 	int rw )
 {
 	struct bdb_info *bdb = (struct bdb_info *) op->o_bd->be_private;
-	struct bdb_op_info *boi = NULL;
+	struct bdb_op_info *boi;
+	OpExtra *oex;
  
 	/* slapMode : SLAP_SERVER_MODE, SLAP_TOOL_MODE,
 			SLAP_TRUNCATE_MODE, SLAP_UNDEFINED_MODE */
@@ -258,26 +258,28 @@ int bdb_entry_release(
 #endif
 		}
 		/* free entry and reader or writer lock */
-		boi = (struct bdb_op_info *)op->o_private;
+		LDAP_SLIST_FOREACH( oex, &op->o_extra, oe_next ) {
+			if ( oex->oe_key == bdb ) break;
+		}
+		boi = (struct bdb_op_info *)oex;
 
 		/* lock is freed with txn */
 		if ( !boi || boi->boi_txn ) {
-			bdb_unlocked_cache_return_entry_rw( &bdb->bi_cache, e, rw );
+			bdb_unlocked_cache_return_entry_rw( bdb, e, rw );
 		} else {
 			struct bdb_lock_info *bli, *prev;
 			for ( prev=(struct bdb_lock_info *)&boi->boi_locks,
 				bli = boi->boi_locks; bli; prev=bli, bli=bli->bli_next ) {
 				if ( bli->bli_id == e->e_id ) {
-					bdb_cache_return_entry_rw( bdb->bi_dbenv, &bdb->bi_cache,
-						e, rw, &bli->bli_lock );
+					bdb_cache_return_entry_rw( bdb, e, rw, &bli->bli_lock );
 					prev->bli_next = bli->bli_next;
 					op->o_tmpfree( bli, op->o_tmpmemctx );
 					break;
 				}
 			}
 			if ( !boi->boi_locks ) {
+				LDAP_SLIST_REMOVE( &op->o_extra, &boi->boi_oe, OpExtra, oe_next );
 				op->o_tmpfree( boi, op->o_tmpmemctx );
-				op->o_private = NULL;
 			}
 		}
 	} else {
@@ -320,7 +322,7 @@ int bdb_entry_get(
 	int	rc;
 	const char *at_name = at ? at->ad_cname.bv_val : "(null)";
 
-	u_int32_t	locker = 0;
+	BDB_LOCKER	locker = 0;
 	DB_LOCK		lock;
 	int		free_lock_id = 0;
 
@@ -330,15 +332,19 @@ int bdb_entry_get(
 		"=> bdb_entry_get: oc: \"%s\", at: \"%s\"\n",
 		oc ? oc->soc_cname.bv_val : "(null)", at_name, 0);
 
-	if( op ) boi = (struct bdb_op_info *) op->o_private;
-	if( boi != NULL && op->o_bd->be_private == boi->boi_bdb->be_private ) {
-		txn = boi->boi_txn;
-		locker = boi->boi_locker;
+	if( op ) {
+		OpExtra *oex;
+		LDAP_SLIST_FOREACH( oex, &op->o_extra, oe_next ) {
+			if ( oex->oe_key == bdb ) break;
+		}
+		boi = (struct bdb_op_info *)oex;
+		if ( boi )
+			txn = boi->boi_txn;
 	}
 
 	if ( txn != NULL ) {
 		locker = TXN_ID ( txn );
-	} else if ( !locker ) {
+	} else {
 		rc = LOCK_ID ( bdb->bi_dbenv, &locker );
 		free_lock_id = 1;
 		switch(rc) {
@@ -387,21 +393,6 @@ dn2entry_retry:
 		"=> bdb_entry_get: found entry: \"%s\"\n",
 		ndn->bv_val, 0, 0 ); 
 
-	/* find attribute values */
-	if( is_entry_alias( e ) ) {
-		Debug( LDAP_DEBUG_ACL,
-			"<= bdb_entry_get: entry is an alias\n", 0, 0, 0 );
-		rc = LDAP_ALIAS_PROBLEM;
-		goto return_results;
-	}
-
-	if( is_entry_referral( e ) ) {
-		Debug( LDAP_DEBUG_ACL,
-			"<= bdb_entry_get: entry is a referral\n", 0, 0, 0 );
-		rc = LDAP_REFERRAL;
-		goto return_results;
-	}
-
 	if ( oc && !is_entry_objectclass( e, oc, 0 )) {
 		Debug( LDAP_DEBUG_ACL,
 			"<= bdb_entry_get: failed to find objectClass %s\n",
@@ -413,7 +404,7 @@ dn2entry_retry:
 return_results:
 	if( rc != LDAP_SUCCESS ) {
 		/* free entry */
-		bdb_cache_return_entry_rw(bdb->bi_dbenv, &bdb->bi_cache, e, rw, &lock);
+		bdb_cache_return_entry_rw(bdb, e, rw, &lock);
 
 	} else {
 		if ( slapMode == SLAP_SERVER_MODE ) {
@@ -425,8 +416,8 @@ return_results:
 			if ( op ) {
 				if ( !boi ) {
 					boi = op->o_tmpcalloc(1,sizeof(struct bdb_op_info),op->o_tmpmemctx);
-					boi->boi_bdb = op->o_bd;
-					op->o_private = boi;
+					boi->boi_oe.oe_key = bdb;
+					LDAP_SLIST_INSERT_HEAD( &op->o_extra, &boi->boi_oe, oe_next );
 				}
 				if ( !boi->boi_txn ) {
 					struct bdb_lock_info *bli;
@@ -440,7 +431,7 @@ return_results:
 			}
 		} else {
 			*ent = entry_dup( e );
-			bdb_cache_return_entry_rw(bdb->bi_dbenv, &bdb->bi_cache, e, rw, &lock);
+			bdb_cache_return_entry_rw(bdb, e, rw, &lock);
 		}
 	}
 

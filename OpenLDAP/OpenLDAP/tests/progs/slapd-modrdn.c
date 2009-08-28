@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/tests/progs/slapd-modrdn.c,v 1.7.2.8 2006/01/03 22:16:28 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/tests/progs/slapd-modrdn.c,v 1.22.2.5 2008/02/11 23:26:50 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2006 The OpenLDAP Foundation.
+ * Copyright 1999-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -21,26 +21,27 @@
 
 #include <stdio.h>
 
-#include <ac/stdlib.h>
+#include "ac/stdlib.h"
 
-#include <ac/ctype.h>
-#include <ac/param.h>
-#include <ac/socket.h>
-#include <ac/string.h>
-#include <ac/unistd.h>
-#include <ac/wait.h>
+#include "ac/ctype.h"
+#include "ac/param.h"
+#include "ac/socket.h"
+#include "ac/string.h"
+#include "ac/unistd.h"
+#include "ac/wait.h"
 
-#define LDAP_DEPRECATED 1
-#include <ldap.h>
-#include <lutil.h>
+#include "ldap.h"
+#include "lutil.h"
+
+#include "slapd-common.h"
 
 #define LOOPS	100
 #define RETRIES	0
 
 static void
-do_modrdn( char *uri, char *host, int port, char *manager, char *passwd,
+do_modrdn( char *uri, char *manager, struct berval *passwd,
 		char *entry, int maxloop, int maxretries, int delay,
-		int friendly );
+		int friendly, int chaserefs );
 
 static void
 usage( char *name )
@@ -51,10 +52,13 @@ usage( char *name )
 		"-D <manager> "
 		"-w <passwd> "
 		"-e <entry> "
+		"[-i <ignore>] "
 		"[-l <loops>] "
+		"[-L <outerloops>] "
 		"[-r <maxretries>] "
 		"[-t <delay>] "
-		"[-F]\n",
+		"[-F] "
+		"[-C]\n",
 			name );
 	exit( EXIT_FAILURE );
 }
@@ -67,15 +71,24 @@ main( int argc, char **argv )
 	char		*host = "localhost";
 	int		port = -1;
 	char		*manager = NULL;
-	char		*passwd = NULL;
+	struct berval	passwd = { 0, NULL };
 	char		*entry = NULL;
 	int		loops = LOOPS;
+	int		outerloops = 1;
 	int		retries = RETRIES;
 	int		delay = 0;
 	int		friendly = 0;
+	int		chaserefs = 0;
 
-	while ( (i = getopt( argc, argv, "FH:h:p:D:w:e:l:r:t:" )) != EOF ) {
-		switch( i ) {
+	tester_init( "slapd-modrdn", TESTER_MODRDN );
+
+	while ( ( i = getopt( argc, argv, "CD:e:FH:h:i:L:l:p:r:t:w:" ) ) != EOF )
+	{
+		switch ( i ) {
+		case 'C':
+			chaserefs++;
+			break;
+
 		case 'F':
 			friendly++;
 			break;
@@ -86,6 +99,10 @@ main( int argc, char **argv )
 
 		case 'h':		/* the servers host */
 			host = strdup( optarg );
+			break;
+
+		case 'i':
+			/* ignored (!) by now */
 			break;
 
 		case 'p':		/* the servers port */
@@ -99,7 +116,9 @@ main( int argc, char **argv )
 			break;
 
 		case 'w':		/* the server managers password */
-			passwd = strdup( optarg );
+			passwd.bv_val = strdup( optarg );
+			passwd.bv_len = strlen( optarg );
+			memset( optarg, '*', passwd.bv_len );
 			break;
 
 		case 'e':		/* entry to rename */
@@ -108,6 +127,12 @@ main( int argc, char **argv )
 
 		case 'l':		/* the number of loops */
 			if ( lutil_atoi( &loops, optarg ) != 0 ) {
+				usage( argv[0] );
+			}
+			break;
+
+		case 'L':		/* the number of outerloops */
+			if ( lutil_atoi( &outerloops, optarg ) != 0 ) {
 				usage( argv[0] );
 			}
 			break;
@@ -141,73 +166,67 @@ main( int argc, char **argv )
 
 	}
 
-	do_modrdn( uri, host, port, manager, passwd, entry,
-			loops, retries, delay, friendly );
+	uri = tester_uri( uri, host, port );
+
+	for ( i = 0; i < outerloops; i++ ) {
+		do_modrdn( uri, manager, &passwd, entry,
+			loops, retries, delay, friendly, chaserefs );
+	}
+
 	exit( EXIT_SUCCESS );
 }
 
 
 static void
-do_modrdn( char *uri, char *host, int port, char *manager,
-	char *passwd, char *entry, int maxloop, int maxretries, int delay,
-	int friendly )
+do_modrdn( char *uri, char *manager,
+	struct berval *passwd, char *entry, int maxloop, int maxretries,
+	int delay, int friendly, int chaserefs )
 {
 	LDAP	*ld = NULL;
 	int  	i = 0, do_retry = maxretries;
-	pid_t	pid;
-	char *DNs[2];
-	char *rdns[2];
-	int         rc = LDAP_SUCCESS;
+	char	*DNs[2];
+	char	*rdns[2];
+	int	rc = LDAP_SUCCESS;
+	char	*p1, *p2;
+	int	version = LDAP_VERSION3;
 
-
-	pid = getpid();
 	DNs[0] = entry;
 	DNs[1] = strdup( entry );
 
 	/* reverse the RDN, make new DN */
-	{
-		char *p1, *p2;
+	p1 = strchr( entry, '=' ) + 1;
+	p2 = strchr( p1, ',' );
 
-		p1 = strchr( entry, '=' ) + 1;
-		p2 = strchr( p1, ',' );
+	*p2 = '\0';
+	rdns[1] = strdup( entry );
+	*p2-- = ',';
 
-		*p2 = '\0';
-		rdns[1] = strdup( entry );
-		*p2-- = ',';
-
-		for (i = p1 - entry;p2 >= p1;)
-			DNs[1][i++] = *p2--;
-		
-		DNs[1][i] = '\0';
-		rdns[0] = strdup( DNs[1] );
-		DNs[1][i] = ',';
-	}
+	for (i = p1 - entry;p2 >= p1;)
+		DNs[1][i++] = *p2--;
+	
+	DNs[1][i] = '\0';
+	rdns[0] = strdup( DNs[1] );
+	DNs[1][i] = ',';
 
 retry:;
-	if ( uri ) {
-		ldap_initialize( &ld, uri );
-	} else {
-		ld = ldap_init( host, port );
-	}
+	ldap_initialize( &ld, uri );
 	if ( ld == NULL ) {
-		perror( "ldap_init" );
+		tester_perror( "ldap_initialize", NULL );
 		exit( EXIT_FAILURE );
 	}
 
-	{
-		int version = LDAP_VERSION3;
-		(void) ldap_set_option( ld, LDAP_OPT_PROTOCOL_VERSION,
-			&version ); 
-	}
+	(void) ldap_set_option( ld, LDAP_OPT_PROTOCOL_VERSION, &version ); 
+	(void) ldap_set_option( ld, LDAP_OPT_REFERRALS,
+		chaserefs ? LDAP_OPT_ON : LDAP_OPT_OFF );
 
 	if ( do_retry == maxretries ) {
 		fprintf( stderr, "PID=%ld - Modrdn(%d): entry=\"%s\".\n",
 			(long) pid, maxloop, entry );
 	}
 
-	rc = ldap_bind_s( ld, manager, passwd, LDAP_AUTH_SIMPLE );
+	rc = ldap_sasl_bind_s( ld, manager, LDAP_SASL_SIMPLE, passwd, NULL, NULL, NULL );
 	if ( rc != LDAP_SUCCESS ) {
-		ldap_perror( ld, "ldap_bind" );
+		tester_ldap_error( ld, "ldap_sasl_bind_s", NULL );
 		switch ( rc ) {
 		case LDAP_BUSY:
 		case LDAP_UNAVAILABLE:
@@ -226,9 +245,9 @@ retry:;
 	}
 
 	for ( ; i < maxloop; i++ ) {
-		rc = ldap_modrdn2_s( ld, DNs[0], rdns[0], 0 );
+		rc = ldap_rename_s( ld, DNs[0], rdns[0], NULL, 0, NULL, NULL );
 		if ( rc != LDAP_SUCCESS ) {
-			ldap_perror( ld, "ldap_modrdn" );
+			tester_ldap_error( ld, "ldap_rename_s", NULL );
 			switch ( rc ) {
 			case LDAP_NO_SUCH_OBJECT:
 				/* NOTE: this likely means
@@ -251,9 +270,9 @@ retry:;
 				goto done;
 			}
 		}
-		rc = ldap_modrdn2_s( ld, DNs[1], rdns[1], 1 );
+		rc = ldap_rename_s( ld, DNs[1], rdns[1], NULL, 1, NULL, NULL );
 		if ( rc != LDAP_SUCCESS ) {
-			ldap_perror( ld, "ldap_modrdn" );
+			tester_ldap_error( ld, "ldap_rename_s", NULL );
 			switch ( rc ) {
 			case LDAP_NO_SUCH_OBJECT:
 				/* NOTE: this likely means
@@ -281,7 +300,7 @@ retry:;
 done:;
 	fprintf( stderr, " PID=%ld - Modrdn done (%d).\n", (long) pid, rc );
 
-	ldap_unbind( ld );
+	ldap_unbind_ext( ld, NULL, NULL );
 }
 
 

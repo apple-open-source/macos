@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2000-2006, International Business Machines
+*   Copyright (C) 2000-2008, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -26,6 +26,13 @@
 #define BIN_ALIGNMENT 16
 
 static UBool gIncludeCopyright = FALSE;
+
+/*
+ * res_none() returns the address of kNoResource,
+ * for use in non-error cases when no resource is to be added to the bundle.
+ * (NULL is used in error cases.)
+ */
+static struct SResource kNoResource = { RES_NONE };
 
 uint32_t res_write(UNewDataMemory *mem, struct SResource *res,
                    uint32_t usedOffset, UErrorCode *status);
@@ -446,20 +453,18 @@ struct SResource* res_open(const struct UString* comment, UErrorCode* status){
     }
     uprv_memset(res, 0, sizeof(struct SResource));
 
-    res->fComment = NULL;
+    ustr_init(&res->fComment);
     if(comment != NULL){
-        res->fComment = (struct UString *) uprv_malloc(sizeof(struct UString));
-        if(res->fComment == NULL){
-            *status = U_MEMORY_ALLOCATION_ERROR;
-            uprv_free(res);
-            return NULL;
-        }
-        ustr_init(res->fComment);
-        ustr_cpy(res->fComment, comment, status);
+        ustr_cpy(&res->fComment, comment, status);
     }
     return res;
 
 }
+
+struct SResource* res_none() {
+    return &kNoResource;
+}
+
 struct SResource* table_open(struct SRBRoot *bundle, char *tag,  const struct UString* comment, UErrorCode *status) {
 
     struct SResource *res = res_open(comment, status);
@@ -467,8 +472,7 @@ struct SResource* table_open(struct SRBRoot *bundle, char *tag,  const struct US
     res->fKey  = bundle_addtag(bundle, tag, status);
 
     if (U_FAILURE(*status)) {
-        uprv_free(res->fComment);
-        uprv_free(res);
+        res_close(res);
         return NULL;
     }
 
@@ -501,7 +505,6 @@ struct SResource* array_open(struct SRBRoot *bundle, const char *tag, const stru
     res->fKey  = bundle_addtag(bundle, tag, status);
 
     if (U_FAILURE(*status)) {
-        uprv_free(res->fComment);
         uprv_free(res);
         return NULL;
     }
@@ -528,7 +531,6 @@ struct SResource *string_open(struct SRBRoot *bundle, char *tag, const UChar *va
     res->fKey  = bundle_addtag(bundle, tag, status);
 
     if (U_FAILURE(*status)) {
-        uprv_free(res->fComment);
         uprv_free(res);
         return NULL;
     }
@@ -562,7 +564,6 @@ struct SResource *alias_open(struct SRBRoot *bundle, char *tag, UChar *value, in
     res->fKey  = bundle_addtag(bundle, tag, status);
 
     if (U_FAILURE(*status)) {
-        uprv_free(res->fComment);
         uprv_free(res);
         return NULL;
     }
@@ -596,7 +597,6 @@ struct SResource* intvector_open(struct SRBRoot *bundle, char *tag, const struct
     res->fKey  = bundle_addtag(bundle, tag, status);
 
     if (U_FAILURE(*status)) {
-        uprv_free(res->fComment);
         uprv_free(res);
         return NULL;
     }
@@ -627,7 +627,6 @@ struct SResource *int_open(struct SRBRoot *bundle, char *tag, int32_t value, con
     res->fKey  = bundle_addtag(bundle, tag, status);
 
     if (U_FAILURE(*status)) {
-        uprv_free(res->fComment);
         uprv_free(res);
         return NULL;
     }
@@ -650,7 +649,6 @@ struct SResource *bin_open(struct SRBRoot *bundle, const char *tag, uint32_t len
     res->fKey  = bundle_addtag(bundle, tag, status);
 
     if (U_FAILURE(*status)) {
-        uprv_free(res->fComment);
         uprv_free(res);
         return NULL;
     }
@@ -735,7 +733,7 @@ struct SRBRoot *bundle_open(const struct UString* comment, UErrorCode *status) {
 }
 
 /* Closing Functions */
-void table_close(struct SResource *table, UErrorCode *status) {
+static void table_close(struct SResource *table) {
     struct SResource *current = NULL;
     struct SResource *prev    = NULL;
 
@@ -745,13 +743,13 @@ void table_close(struct SResource *table, UErrorCode *status) {
         prev    = current;
         current = current->fNext;
 
-        res_close(prev, status);
+        res_close(prev);
     }
 
     table->u.fTable.fFirst = NULL;
 }
 
-void array_close(struct SResource *array, UErrorCode *status) {
+static void array_close(struct SResource *array) {
     struct SResource *current = NULL;
     struct SResource *prev    = NULL;
     
@@ -764,92 +762,81 @@ void array_close(struct SResource *array, UErrorCode *status) {
         prev    = current;
         current = current->fNext;
 
-        res_close(prev, status);
+        res_close(prev);
     }
     array->u.fArray.fFirst = NULL;
 }
 
-void string_close(struct SResource *string, UErrorCode *status) {
+static void string_close(struct SResource *string) {
     if (string->u.fString.fChars != NULL) {
         uprv_free(string->u.fString.fChars);
         string->u.fString.fChars =NULL;
     }
 }
 
-void alias_close(struct SResource *alias, UErrorCode *status) {
+static void alias_close(struct SResource *alias) {
     if (alias->u.fString.fChars != NULL) {
         uprv_free(alias->u.fString.fChars);
         alias->u.fString.fChars =NULL;
     }
 }
 
-void intvector_close(struct SResource *intvector, UErrorCode *status) {
+static void intvector_close(struct SResource *intvector) {
     if (intvector->u.fIntVector.fArray != NULL) {
         uprv_free(intvector->u.fIntVector.fArray);
         intvector->u.fIntVector.fArray =NULL;
     }
 }
 
-void int_close(struct SResource *intres, UErrorCode *status) {
+static void int_close(struct SResource *intres) {
     /* Intentionally left blank */
 }
 
-void bin_close(struct SResource *binres, UErrorCode *status) {
+static void bin_close(struct SResource *binres) {
     if (binres->u.fBinaryValue.fData != NULL) {
         uprv_free(binres->u.fBinaryValue.fData);
         binres->u.fBinaryValue.fData = NULL;
     }
 }
 
-void res_close(struct SResource *res, UErrorCode *status) {
+void res_close(struct SResource *res) {
     if (res != NULL) {
         switch(res->fType) {
         case URES_STRING:
-            string_close(res, status);
+            string_close(res);
             break;
         case URES_ALIAS:
-            alias_close(res, status);
+            alias_close(res);
             break;
         case URES_INT_VECTOR:
-            intvector_close(res, status);
+            intvector_close(res);
             break;
         case URES_BINARY:
-            bin_close(res, status);
+            bin_close(res);
             break;
         case URES_INT:
-            int_close(res, status);
+            int_close(res);
             break;
         case URES_ARRAY:
-            array_close(res, status);
+            array_close(res);
             break;
         case URES_TABLE:
         case URES_TABLE32:
-            table_close(res, status);
+            table_close(res);
             break;
         default:
             /* Shouldn't happen */
             break;
         }
 
+        ustr_deinit(&res->fComment);
         uprv_free(res);
     }
 }
 
 void bundle_close(struct SRBRoot *bundle, UErrorCode *status) {
-    struct SResource *current = NULL;
-    struct SResource *prev    = NULL;
-
     if (bundle->fRoot != NULL) {
-        current = bundle->fRoot->u.fTable.fFirst;
-
-        while (current != NULL) {
-            prev    = current;
-            current = current->fNext;
-
-            res_close(prev, status);
-        }
-
-        uprv_free(bundle->fRoot);
+        res_close(bundle->fRoot);
     }
 
     if (bundle->fLocale != NULL) {
@@ -870,6 +857,9 @@ void table_add(struct SResource *table, struct SResource *res, int linenumber, U
     struct SResTable *list;
 
     if (U_FAILURE(*status)) {
+        return;
+    }
+    if (res == &kNoResource) {
         return;
     }
 

@@ -3,15 +3,16 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 42;
+	objectVersion = 44;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		3E0707EA0DDE2EBC00C75CB2 /* IOUSBUserClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 01E71EE4FFB8799F7F000001 /* IOUSBUserClient.h */; };
-		3E0707EB0DDE2EBC00C75CB2 /* IOUSBDeviceUserClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 029D485DFFC9866C7F000001 /* IOUSBDeviceUserClient.h */; };
-		3E0707EC0DDE2EBC00C75CB2 /* IOUSBInterfaceUserClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A29FAEEFFD204217F000001 /* IOUSBInterfaceUserClient.h */; };
-		3E0707EE0DDE2EBC00C75CB2 /* IOUSBUserClientInit.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 015935ABFFB89EA67F000001 /* IOUSBUserClientInit.cpp */; };
-		3E0707F10DDE2EBC00C75CB2 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = F5395FA2016D5C1801573190 /* InfoPlist.strings */; };
+		301DB0CE0EF89258009BF777 /* USBTracer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 301DB0680EF890A1009BF777 /* USBTracer.cpp */; };
+		301DB0D10EF8927B009BF777 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3ED3F25104F3CD99001BF1E8 /* IOKit.framework */; };
+		30B68F8B0F01ED9F003BD96A /* USBTracepoints.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 30C722520EF0558F003C241F /* USBTracepoints.h */; };
+		30C722530EF0558F003C241F /* USBTracepoints.h in Headers */ = {isa = PBXBuildFile; fileRef = 30C722520EF0558F003C241F /* USBTracepoints.h */; };
+		3E32CCE00DBE5E4D001DF6AF /* AppleUSBiPod.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3E32CCDE0DBE5E4D001DF6AF /* AppleUSBiPod.cpp */; };
+		3E32CCE10DBE5E4D001DF6AF /* AppleUSBiPod.h in Headers */ = {isa = PBXBuildFile; fileRef = 3E32CCDF0DBE5E4D001DF6AF /* AppleUSBiPod.h */; };
 		3E3AC40E0BC21315008EECB7 /* IOUSBInterfaceUserClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3A29FAF0FFD21A737F000001 /* IOUSBInterfaceUserClient.cpp */; };
 		3E3AC40F0BC2131B008EECB7 /* IOUSBDeviceUserClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 029D485FFFC987587F000001 /* IOUSBDeviceUserClient.cpp */; };
 		3E3DBCAB0BC20CC100880659 /* IOUSBUserClientInit.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 015935ABFFB89EA67F000001 /* IOUSBUserClientInit.cpp */; };
@@ -20,8 +21,8 @@
 		3E5916670B5D8CAE00DD3AD3 /* IOUSBLib.bundle in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3EAF8AFB0B5D42870029974F /* IOUSBLib.bundle */; };
 		3E59D45B0BC21125005E86B1 /* IOUSBDeviceUserClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 029D485DFFC9866C7F000001 /* IOUSBDeviceUserClient.h */; };
 		3E59D45C0BC2112B005E86B1 /* IOUSBInterfaceUserClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A29FAEEFFD204217F000001 /* IOUSBInterfaceUserClient.h */; };
-		3E62BDC20DB7BBF000DF9CAB /* AppleUSBiPod.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3E62BDC00DB7BBF000DF9CAB /* AppleUSBiPod.cpp */; };
-		3E62BDC30DB7BBF000DF9CAB /* AppleUSBiPod.h in Headers */ = {isa = PBXBuildFile; fileRef = 3E62BDC10DB7BBF000DF9CAB /* AppleUSBiPod.h */; };
+		3E9EABDE0F544E8600522032 /* usbtracer in CopyFiles */ = {isa = PBXBuildFile; fileRef = 301DB0930EF8920B009BF777 /* usbtracer */; };
+		3E9EABF90F545CE000522032 /* libutil.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 3E9EABF80F545CE000522032 /* libutil.dylib */; };
 		3EAF89BE0B5D42860029974F /* IOUSBRootHubDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 0179BA3DFFBA18947F000001 /* IOUSBRootHubDevice.h */; settings = {ATTRIBUTES = (); }; };
 		3EAF89BF0B5D42860029974F /* IOUSBBus.h in Headers */ = {isa = PBXBuildFile; fileRef = 0179BA4FFFBA190D7F000001 /* IOUSBBus.h */; settings = {ATTRIBUTES = (); }; };
 		3EAF89C00B5D42860029974F /* IOUSBController.h in Headers */ = {isa = PBXBuildFile; fileRef = 0179BA50FFBA190D7F000001 /* IOUSBController.h */; settings = {ATTRIBUTES = (); }; };
@@ -260,88 +261,92 @@
 		3EB2F3AB0B8B5EE500738927 /* IOUSBUserClient.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 01E71EE4FFB8799F7F000001 /* IOUSBUserClient.h */; };
 		3EB2F3B90B8B5F3D00738927 /* IOUSBHubPolicyMaker.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3EFE2F1C0B8B58ED00013454 /* IOUSBHubPolicyMaker.h */; };
 		3EC6B5FD0D9221310096A601 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 3EC6B5FB0D9221310096A601 /* Localizable.strings */; };
+		3EDB31F60DE1E48B0034C47A /* IOUSBUserClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 01E71EE4FFB8799F7F000001 /* IOUSBUserClient.h */; };
+		3EDB31F70DE1E48B0034C47A /* IOUSBDeviceUserClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 029D485DFFC9866C7F000001 /* IOUSBDeviceUserClient.h */; };
+		3EDB31F80DE1E48B0034C47A /* IOUSBInterfaceUserClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A29FAEEFFD204217F000001 /* IOUSBInterfaceUserClient.h */; };
+		3EDB31FA0DE1E48B0034C47A /* IOUSBUserClientInit.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 015935ABFFB89EA67F000001 /* IOUSBUserClientInit.cpp */; };
+		3EDB31FD0DE1E48B0034C47A /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = F5395FA2016D5C1801573190 /* InfoPlist.strings */; };
+		3EDB32450DE1E4A50034C47A /* IOUSBRootHubDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 0179BA3DFFBA18947F000001 /* IOUSBRootHubDevice.h */; settings = {ATTRIBUTES = (); }; };
+		3EDB32460DE1E4A50034C47A /* IOUSBBus.h in Headers */ = {isa = PBXBuildFile; fileRef = 0179BA4FFFBA190D7F000001 /* IOUSBBus.h */; settings = {ATTRIBUTES = (); }; };
+		3EDB32470DE1E4A50034C47A /* IOUSBController.h in Headers */ = {isa = PBXBuildFile; fileRef = 0179BA50FFBA190D7F000001 /* IOUSBController.h */; settings = {ATTRIBUTES = (); }; };
+		3EDB32480DE1E4A50034C47A /* IOUSBDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 0179BA51FFBA190D7F000001 /* IOUSBDevice.h */; settings = {ATTRIBUTES = (); }; };
+		3EDB32490DE1E4A50034C47A /* IOUSBInterface.h in Headers */ = {isa = PBXBuildFile; fileRef = 0179BA54FFBA190D7F000001 /* IOUSBInterface.h */; settings = {ATTRIBUTES = (); }; };
+		3EDB324A0DE1E4A50034C47A /* IOUSBLog.h in Headers */ = {isa = PBXBuildFile; fileRef = 0179BA55FFBA190D7F000001 /* IOUSBLog.h */; settings = {ATTRIBUTES = (); }; };
+		3EDB324B0DE1E4A50034C47A /* IOUSBNub.h in Headers */ = {isa = PBXBuildFile; fileRef = 0179BA56FFBA190D7F000001 /* IOUSBNub.h */; settings = {ATTRIBUTES = (); }; };
+		3EDB324C0DE1E4A50034C47A /* IOUSBPipe.h in Headers */ = {isa = PBXBuildFile; fileRef = 0179BA57FFBA190D7F000001 /* IOUSBPipe.h */; settings = {ATTRIBUTES = (); }; };
+		3EDB324D0DE1E4A50034C47A /* USB.h in Headers */ = {isa = PBXBuildFile; fileRef = 0179BA5AFFBA190D7F000001 /* USB.h */; settings = {ATTRIBUTES = (); }; };
+		3EDB324E0DE1E4A50034C47A /* USBHub.h in Headers */ = {isa = PBXBuildFile; fileRef = 0179BA5BFFBA190D7F000001 /* USBHub.h */; settings = {ATTRIBUTES = (); }; };
+		3EDB324F0DE1E4A50034C47A /* USBSpec.h in Headers */ = {isa = PBXBuildFile; fileRef = 0179BA5CFFBA190D7F000001 /* USBSpec.h */; settings = {ATTRIBUTES = (); }; };
+		3EDB32500DE1E4A50034C47A /* IOUSBHub.h in Headers */ = {isa = PBXBuildFile; fileRef = 0264FBB0009621D87F000001 /* IOUSBHub.h */; };
+		3EDB32510DE1E4A50034C47A /* IOUSBLib.h in Headers */ = {isa = PBXBuildFile; fileRef = 0214493B00B41F967F000001 /* IOUSBLib.h */; };
+		3EDB32520DE1E4A50034C47A /* IOUSBWorkLoop.h in Headers */ = {isa = PBXBuildFile; fileRef = F505B9C9012177F501573190 /* IOUSBWorkLoop.h */; };
+		3EDB32530DE1E4A50034C47A /* IOUSBControllerUserClient.h in Headers */ = {isa = PBXBuildFile; fileRef = F54C71200172214D01A80064 /* IOUSBControllerUserClient.h */; };
+		3EDB32540DE1E4A50034C47A /* IOUSBControllerV2.h in Headers */ = {isa = PBXBuildFile; fileRef = F549761D0275E089010162FA /* IOUSBControllerV2.h */; };
+		3EDB32550DE1E4A50034C47A /* IOUSBControllerListElement.h in Headers */ = {isa = PBXBuildFile; fileRef = DD37A47F090844290074AE5D /* IOUSBControllerListElement.h */; };
+		3EDB32560DE1E4A50034C47A /* IOUSBHubDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = DD18E6300AC323A900FAE168 /* IOUSBHubDevice.h */; };
+		3EDB32570DE1E4A50034C47A /* IOUSBFamilyInfoPlist.pch in Headers */ = {isa = PBXBuildFile; fileRef = 3EF4FF9C0B5D9B9E007E541E /* IOUSBFamilyInfoPlist.pch */; };
+		3EDB32580DE1E4A50034C47A /* IOUSBHubPolicyMaker.h in Headers */ = {isa = PBXBuildFile; fileRef = 3EFE2F1C0B8B58ED00013454 /* IOUSBHubPolicyMaker.h */; };
+		3EDB32590DE1E4A50034C47A /* IOUSBControllerV3.h in Headers */ = {isa = PBXBuildFile; fileRef = DDA42BA50BA0956C002C2F56 /* IOUSBControllerV3.h */; };
+		3EDB325A0DE1E4A50034C47A /* IOUSBUserClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 01E71EE4FFB8799F7F000001 /* IOUSBUserClient.h */; };
+		3EDB325C0DE1E4A50034C47A /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = F5395FA6016D5C9E01573190 /* InfoPlist.strings */; };
+		3EDB325D0DE1E4A50034C47A /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 3E12E9F607945DDE00A3FE67 /* Localizable.strings */; };
+		3EDB325F0DE1E4A50034C47A /* IOUSBBus.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0179BA2FFFBA18947F000001 /* IOUSBBus.cpp */; settings = {ATTRIBUTES = (); }; };
+		3EDB32600DE1E4A50034C47A /* IOUSBController.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0179BA30FFBA18947F000001 /* IOUSBController.cpp */; settings = {ATTRIBUTES = (); }; };
+		3EDB32610DE1E4A50034C47A /* IOUSBController_Errata.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0179BA31FFBA18947F000001 /* IOUSBController_Errata.cpp */; settings = {ATTRIBUTES = (); }; };
+		3EDB32620DE1E4A50034C47A /* IOUSBController_Pipes.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0179BA32FFBA18947F000001 /* IOUSBController_Pipes.cpp */; settings = {ATTRIBUTES = (); }; };
+		3EDB32630DE1E4A50034C47A /* IOUSBInterface.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0179BA36FFBA18947F000001 /* IOUSBInterface.cpp */; settings = {ATTRIBUTES = (); }; };
+		3EDB32640DE1E4A50034C47A /* IOUSBNub.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0179BA38FFBA18947F000001 /* IOUSBNub.cpp */; settings = {ATTRIBUTES = (); }; };
+		3EDB32650DE1E4A50034C47A /* IOUSBPipe.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0179BA39FFBA18947F000001 /* IOUSBPipe.cpp */; settings = {ATTRIBUTES = (); }; };
+		3EDB32660DE1E4A50034C47A /* IOUSBRootHubDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0179BA3AFFBA18947F000001 /* IOUSBRootHubDevice.cpp */; settings = {ATTRIBUTES = (); }; };
+		3EDB32670DE1E4A50034C47A /* IOUSBCommand.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 01A72AF40087AE247F000001 /* IOUSBCommand.cpp */; };
+		3EDB32680DE1E4A50034C47A /* IOUSBDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0179BA33FFBA18947F000001 /* IOUSBDevice.cpp */; };
+		3EDB32690DE1E4A50034C47A /* IOUSBWorkLoop.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F505B9C8012177F501573190 /* IOUSBWorkLoop.cpp */; };
+		3EDB326A0DE1E4A50034C47A /* IOUSBControllerUserClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F54C711F0172214D01A80064 /* IOUSBControllerUserClient.cpp */; };
+		3EDB326B0DE1E4A50034C47A /* IOUSBLog.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0179BA37FFBA18947F000001 /* IOUSBLog.cpp */; };
+		3EDB326C0DE1E4A50034C47A /* IOUSBControllerV2.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F549761B0275E06B010162FA /* IOUSBControllerV2.cpp */; };
+		3EDB326D0DE1E4A50034C47A /* IOUSBControllerListElement.cpp in Sources */ = {isa = PBXBuildFile; fileRef = DD37A4B0090859420074AE5D /* IOUSBControllerListElement.cpp */; };
+		3EDB326E0DE1E4A50034C47A /* IOUSBHubDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = DD18E6360AC3262500FAE168 /* IOUSBHubDevice.cpp */; };
+		3EDB326F0DE1E4A50034C47A /* IOUSBHubPolicyMaker.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3EFE2F1A0B8B58A500013454 /* IOUSBHubPolicyMaker.cpp */; };
+		3EDB32700DE1E4A50034C47A /* IOUSBControllerV3.cpp in Sources */ = {isa = PBXBuildFile; fileRef = DDBF20220BA0A01B007CE86C /* IOUSBControllerV3.cpp */; };
+		3EDB32710DE1E4A50034C47A /* IOUSBInterfaceUserClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3A29FAF0FFD21A737F000001 /* IOUSBInterfaceUserClient.cpp */; };
+		3EDB32720DE1E4A50034C47A /* IOUSBDeviceUserClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 029D485FFFC987587F000001 /* IOUSBDeviceUserClient.cpp */; };
+		3EDB32760DE1E4A50034C47A /* IOUSBLib.bundle in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3EAF8AFB0B5D42870029974F /* IOUSBLib.bundle */; };
+		3EDB32770DE1E4A50034C47A /* AppleUSBMergeNub.kext in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3EAF8AAB0B5D42860029974F /* AppleUSBMergeNub.kext */; };
+		3EDB32780DE1E4A50034C47A /* IOUSBHIDDriverSafeBoot.kext in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3EAF8A9D0B5D42860029974F /* IOUSBHIDDriverSafeBoot.kext */; };
+		3EDB32790DE1E4A50034C47A /* IOUSBHIDDriver.kext in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3EAF8AD60B5D42870029974F /* IOUSBHIDDriver.kext */; };
+		3EDB327A0DE1E4A50034C47A /* AppleUSBEHCI.kext in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3EAF8A630B5D42860029974F /* AppleUSBEHCI.kext */; };
+		3EDB327B0DE1E4A50034C47A /* AppleUSBUHCI.kext in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3EAF8A7F0B5D42860029974F /* AppleUSBUHCI.kext */; };
+		3EDB327C0DE1E4A50034C47A /* IOUSBUserClient.kext in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3EAF8AE70B5D42870029974F /* IOUSBUserClient.kext */; };
+		3EDB327D0DE1E4A50034C47A /* AppleUSBHub.kext in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3EAF8A910B5D42860029974F /* AppleUSBHub.kext */; };
+		3EDB327E0DE1E4A50034C47A /* AppleUSBOHCI.kext in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3EAF8A410B5D42860029974F /* AppleUSBOHCI.kext */; };
+		3EDB327F0DE1E4A50034C47A /* AppleUSBOpticalMouse.kext in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3EAF8ABA0B5D42870029974F /* AppleUSBOpticalMouse.kext */; };
+		3EDB32800DE1E4A50034C47A /* IOUSBCompositeDriver.kext in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3EAF8AC80B5D42870029974F /* IOUSBCompositeDriver.kext */; };
+		3EDB32820DE1E4A50034C47A /* Contents (Kernel).rtf in CopyFiles */ = {isa = PBXBuildFile; fileRef = F5E6DE0001206E6801000001 /* Contents (Kernel).rtf */; };
+		3EDB32830DE1E4A50034C47A /* AnchorUSB Driver in CopyFiles */ = {isa = PBXBuildFile; fileRef = F5E6DE2501206FCF01000001 /* AnchorUSB Driver */; };
+		3EDB32840DE1E4A50034C47A /* ClassicNotSeize Driver in CopyFiles */ = {isa = PBXBuildFile; fileRef = F5E6DE2601206FCF01000001 /* ClassicNotSeize Driver */; };
+		3EDB32850DE1E4A50034C47A /* VendorSpecific Driver in CopyFiles */ = {isa = PBXBuildFile; fileRef = F5E6DE2701206FCF01000001 /* VendorSpecific Driver */; };
+		3EDB32870DE1E4A50034C47A /* Contents (User Space).rtf in CopyFiles */ = {isa = PBXBuildFile; fileRef = F5E6DE0101206E6801000001 /* Contents (User Space).rtf */; };
+		3EDB32880DE1E4A50034C47A /* USBNotification Example in CopyFiles */ = {isa = PBXBuildFile; fileRef = F5E6DE2801206FCF01000001 /* USBNotification Example */; };
+		3EDB32890DE1E4A50034C47A /* USBSimple Example in CopyFiles */ = {isa = PBXBuildFile; fileRef = F5E6DE2901206FCF01000001 /* USBSimple Example */; };
+		3EDB328A0DE1E4A50034C47A /* Another USB Notification Example in CopyFiles */ = {isa = PBXBuildFile; fileRef = F517150D022D3AE7010162FA /* Another USB Notification Example */; };
+		3EDB328B0DE1E4A50034C47A /* Ezloader Example in CopyFiles */ = {isa = PBXBuildFile; fileRef = F5008E1002A6833601000164 /* Ezloader Example */; };
+		3EDB328C0DE1E4A50034C47A /* Deva Example in CopyFiles */ = {isa = PBXBuildFile; fileRef = F5008DF602A6832401000164 /* Deva Example */; };
 		3EF4FF9D0B5D9B9E007E541E /* IOUSBFamilyInfoPlist.pch in Headers */ = {isa = PBXBuildFile; fileRef = 3EF4FF9C0B5D9B9E007E541E /* IOUSBFamilyInfoPlist.pch */; };
 		3EFE2F1B0B8B58A500013454 /* IOUSBHubPolicyMaker.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3EFE2F1A0B8B58A500013454 /* IOUSBHubPolicyMaker.cpp */; };
 		3EFE2F1D0B8B58ED00013454 /* IOUSBHubPolicyMaker.h in Headers */ = {isa = PBXBuildFile; fileRef = 3EFE2F1C0B8B58ED00013454 /* IOUSBHubPolicyMaker.h */; };
 		3EFE2F960B8B5DD300013454 /* IOUSBUserClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 01E71EE4FFB8799F7F000001 /* IOUSBUserClient.h */; };
-		C17DEE640D4670D60038652C /* IOUSBRootHubDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 0179BA3DFFBA18947F000001 /* IOUSBRootHubDevice.h */; settings = {ATTRIBUTES = (); }; };
-		C17DEE650D4670D60038652C /* IOUSBBus.h in Headers */ = {isa = PBXBuildFile; fileRef = 0179BA4FFFBA190D7F000001 /* IOUSBBus.h */; settings = {ATTRIBUTES = (); }; };
-		C17DEE660D4670D60038652C /* IOUSBController.h in Headers */ = {isa = PBXBuildFile; fileRef = 0179BA50FFBA190D7F000001 /* IOUSBController.h */; settings = {ATTRIBUTES = (); }; };
-		C17DEE670D4670D60038652C /* IOUSBDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 0179BA51FFBA190D7F000001 /* IOUSBDevice.h */; settings = {ATTRIBUTES = (); }; };
-		C17DEE680D4670D60038652C /* IOUSBInterface.h in Headers */ = {isa = PBXBuildFile; fileRef = 0179BA54FFBA190D7F000001 /* IOUSBInterface.h */; settings = {ATTRIBUTES = (); }; };
-		C17DEE690D4670D60038652C /* IOUSBLog.h in Headers */ = {isa = PBXBuildFile; fileRef = 0179BA55FFBA190D7F000001 /* IOUSBLog.h */; settings = {ATTRIBUTES = (); }; };
-		C17DEE6A0D4670D60038652C /* IOUSBNub.h in Headers */ = {isa = PBXBuildFile; fileRef = 0179BA56FFBA190D7F000001 /* IOUSBNub.h */; settings = {ATTRIBUTES = (); }; };
-		C17DEE6B0D4670D60038652C /* IOUSBPipe.h in Headers */ = {isa = PBXBuildFile; fileRef = 0179BA57FFBA190D7F000001 /* IOUSBPipe.h */; settings = {ATTRIBUTES = (); }; };
-		C17DEE6C0D4670D60038652C /* USB.h in Headers */ = {isa = PBXBuildFile; fileRef = 0179BA5AFFBA190D7F000001 /* USB.h */; settings = {ATTRIBUTES = (); }; };
-		C17DEE6D0D4670D60038652C /* USBHub.h in Headers */ = {isa = PBXBuildFile; fileRef = 0179BA5BFFBA190D7F000001 /* USBHub.h */; settings = {ATTRIBUTES = (); }; };
-		C17DEE6E0D4670D60038652C /* USBSpec.h in Headers */ = {isa = PBXBuildFile; fileRef = 0179BA5CFFBA190D7F000001 /* USBSpec.h */; settings = {ATTRIBUTES = (); }; };
-		C17DEE6F0D4670D60038652C /* IOUSBHub.h in Headers */ = {isa = PBXBuildFile; fileRef = 0264FBB0009621D87F000001 /* IOUSBHub.h */; };
-		C17DEE700D4670D60038652C /* IOUSBLib.h in Headers */ = {isa = PBXBuildFile; fileRef = 0214493B00B41F967F000001 /* IOUSBLib.h */; };
-		C17DEE710D4670D60038652C /* IOUSBWorkLoop.h in Headers */ = {isa = PBXBuildFile; fileRef = F505B9C9012177F501573190 /* IOUSBWorkLoop.h */; };
-		C17DEE720D4670D60038652C /* IOUSBControllerUserClient.h in Headers */ = {isa = PBXBuildFile; fileRef = F54C71200172214D01A80064 /* IOUSBControllerUserClient.h */; };
-		C17DEE730D4670D60038652C /* IOUSBControllerV2.h in Headers */ = {isa = PBXBuildFile; fileRef = F549761D0275E089010162FA /* IOUSBControllerV2.h */; };
-		C17DEE740D4670D60038652C /* IOUSBControllerListElement.h in Headers */ = {isa = PBXBuildFile; fileRef = DD37A47F090844290074AE5D /* IOUSBControllerListElement.h */; };
-		C17DEE750D4670D60038652C /* IOUSBHubDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = DD18E6300AC323A900FAE168 /* IOUSBHubDevice.h */; };
-		C17DEE760D4670D60038652C /* IOUSBFamilyInfoPlist.pch in Headers */ = {isa = PBXBuildFile; fileRef = 3EF4FF9C0B5D9B9E007E541E /* IOUSBFamilyInfoPlist.pch */; };
-		C17DEE770D4670D60038652C /* IOUSBHubPolicyMaker.h in Headers */ = {isa = PBXBuildFile; fileRef = 3EFE2F1C0B8B58ED00013454 /* IOUSBHubPolicyMaker.h */; };
-		C17DEE780D4670D60038652C /* IOUSBControllerV3.h in Headers */ = {isa = PBXBuildFile; fileRef = DDA42BA50BA0956C002C2F56 /* IOUSBControllerV3.h */; };
-		C17DEE790D4670D60038652C /* IOUSBUserClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 01E71EE4FFB8799F7F000001 /* IOUSBUserClient.h */; };
-		C17DEE7B0D4670D60038652C /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = F5395FA6016D5C9E01573190 /* InfoPlist.strings */; };
-		C17DEE7C0D4670D60038652C /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 3E12E9F607945DDE00A3FE67 /* Localizable.strings */; };
-		C17DEE7E0D4670D60038652C /* IOUSBBus.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0179BA2FFFBA18947F000001 /* IOUSBBus.cpp */; settings = {ATTRIBUTES = (); }; };
-		C17DEE7F0D4670D60038652C /* IOUSBController.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0179BA30FFBA18947F000001 /* IOUSBController.cpp */; settings = {ATTRIBUTES = (); }; };
-		C17DEE800D4670D60038652C /* IOUSBController_Errata.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0179BA31FFBA18947F000001 /* IOUSBController_Errata.cpp */; settings = {ATTRIBUTES = (); }; };
-		C17DEE810D4670D60038652C /* IOUSBController_Pipes.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0179BA32FFBA18947F000001 /* IOUSBController_Pipes.cpp */; settings = {ATTRIBUTES = (); }; };
-		C17DEE820D4670D60038652C /* IOUSBInterface.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0179BA36FFBA18947F000001 /* IOUSBInterface.cpp */; settings = {ATTRIBUTES = (); }; };
-		C17DEE830D4670D60038652C /* IOUSBNub.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0179BA38FFBA18947F000001 /* IOUSBNub.cpp */; settings = {ATTRIBUTES = (); }; };
-		C17DEE840D4670D60038652C /* IOUSBPipe.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0179BA39FFBA18947F000001 /* IOUSBPipe.cpp */; settings = {ATTRIBUTES = (); }; };
-		C17DEE850D4670D60038652C /* IOUSBRootHubDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0179BA3AFFBA18947F000001 /* IOUSBRootHubDevice.cpp */; settings = {ATTRIBUTES = (); }; };
-		C17DEE860D4670D60038652C /* IOUSBCommand.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 01A72AF40087AE247F000001 /* IOUSBCommand.cpp */; };
-		C17DEE870D4670D60038652C /* IOUSBDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0179BA33FFBA18947F000001 /* IOUSBDevice.cpp */; };
-		C17DEE880D4670D60038652C /* IOUSBWorkLoop.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F505B9C8012177F501573190 /* IOUSBWorkLoop.cpp */; };
-		C17DEE890D4670D60038652C /* IOUSBControllerUserClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F54C711F0172214D01A80064 /* IOUSBControllerUserClient.cpp */; };
-		C17DEE8A0D4670D60038652C /* IOUSBLog.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0179BA37FFBA18947F000001 /* IOUSBLog.cpp */; };
-		C17DEE8B0D4670D60038652C /* IOUSBControllerV2.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F549761B0275E06B010162FA /* IOUSBControllerV2.cpp */; };
-		C17DEE8C0D4670D60038652C /* IOUSBControllerListElement.cpp in Sources */ = {isa = PBXBuildFile; fileRef = DD37A4B0090859420074AE5D /* IOUSBControllerListElement.cpp */; };
-		C17DEE8D0D4670D60038652C /* IOUSBHubDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = DD18E6360AC3262500FAE168 /* IOUSBHubDevice.cpp */; };
-		C17DEE8E0D4670D60038652C /* IOUSBHubPolicyMaker.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3EFE2F1A0B8B58A500013454 /* IOUSBHubPolicyMaker.cpp */; };
-		C17DEE8F0D4670D60038652C /* IOUSBControllerV3.cpp in Sources */ = {isa = PBXBuildFile; fileRef = DDBF20220BA0A01B007CE86C /* IOUSBControllerV3.cpp */; };
-		C17DEE900D4670D60038652C /* IOUSBInterfaceUserClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3A29FAF0FFD21A737F000001 /* IOUSBInterfaceUserClient.cpp */; };
-		C17DEE910D4670D60038652C /* IOUSBDeviceUserClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 029D485FFFC987587F000001 /* IOUSBDeviceUserClient.cpp */; };
-		C17DEE950D4670D60038652C /* IOUSBLib.bundle in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3EAF8AFB0B5D42870029974F /* IOUSBLib.bundle */; };
-		C17DEE960D4670D60038652C /* AppleUSBMergeNub.kext in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3EAF8AAB0B5D42860029974F /* AppleUSBMergeNub.kext */; };
-		C17DEE970D4670D60038652C /* IOUSBHIDDriverSafeBoot.kext in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3EAF8A9D0B5D42860029974F /* IOUSBHIDDriverSafeBoot.kext */; };
-		C17DEE980D4670D60038652C /* IOUSBHIDDriver.kext in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3EAF8AD60B5D42870029974F /* IOUSBHIDDriver.kext */; };
-		C17DEE990D4670D60038652C /* AppleUSBEHCI.kext in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3EAF8A630B5D42860029974F /* AppleUSBEHCI.kext */; };
-		C17DEE9A0D4670D60038652C /* AppleUSBUHCI.kext in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3EAF8A7F0B5D42860029974F /* AppleUSBUHCI.kext */; };
-		C17DEE9B0D4670D60038652C /* IOUSBUserClient.kext in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3EAF8AE70B5D42870029974F /* IOUSBUserClient.kext */; };
-		C17DEE9C0D4670D60038652C /* AppleUSBHub.kext in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3EAF8A910B5D42860029974F /* AppleUSBHub.kext */; };
-		C17DEE9D0D4670D60038652C /* AppleUSBOHCI.kext in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3EAF8A410B5D42860029974F /* AppleUSBOHCI.kext */; };
-		C17DEE9E0D4670D60038652C /* AppleUSBOpticalMouse.kext in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3EAF8ABA0B5D42870029974F /* AppleUSBOpticalMouse.kext */; };
-		C17DEE9F0D4670D60038652C /* IOUSBCompositeDriver.kext in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3EAF8AC80B5D42870029974F /* IOUSBCompositeDriver.kext */; };
 		DDA42BA60BA0956C002C2F56 /* IOUSBControllerV3.h in Headers */ = {isa = PBXBuildFile; fileRef = DDA42BA50BA0956C002C2F56 /* IOUSBControllerV3.h */; };
 		DDA42BA70BA0956C002C2F56 /* IOUSBControllerV3.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = DDA42BA50BA0956C002C2F56 /* IOUSBControllerV3.h */; };
 		DDBF20230BA0A01B007CE86C /* IOUSBControllerV3.cpp in Sources */ = {isa = PBXBuildFile; fileRef = DDBF20220BA0A01B007CE86C /* IOUSBControllerV3.cpp */; };
 /* End PBXBuildFile section */
 
-/* Begin PBXBuildRule section */
-		3EAF8BA20B5D42880029974F /* PBXBuildRule */ = {
-			isa = PBXBuildRule;
-			compilerSpec = com.apple.compilers.gcc.4_0;
-			fileType = sourcecode.c;
-			isEditable = 1;
-			outputFiles = (
-			);
-		};
-/* End PBXBuildRule section */
-
 /* Begin PBXContainerItemProxy section */
-		3E07083E0DDE30BE00C75CB2 /* PBXContainerItemProxy */ = {
+		301DB0B80EF8922D009BF777 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 3E0707E80DDE2EBC00C75CB2;
-			remoteInfo = IOUSBUserClient_embedded;
+			remoteGlobalIDString = 301DB0920EF8920B009BF777;
+			remoteInfo = usbtracer;
 		};
 		3EAF8B720B5D42870029974F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -441,86 +446,103 @@
 			remoteGlobalIDString = 3EAF8B070B5D42870029974F;
 			remoteInfo = "KLog (Upgraded)";
 		};
-		C17DEE4A0D4670D60038652C /* PBXContainerItemProxy */ = {
+		3EDB322B0DE1E4A50034C47A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 3EAF8AE80B5D42870029974F;
 			remoteInfo = "IOUSBLib (Copied)";
 		};
-		C17DEE4C0D4670D60038652C /* PBXContainerItemProxy */ = {
+		3EDB322D0DE1E4A50034C47A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 3EAF8A030B5D42860029974F;
 			remoteInfo = "installhdrs (Upgraded)";
 		};
-		C17DEE500D4670D60038652C /* PBXContainerItemProxy */ = {
+		3EDB32310DE1E4A50034C47A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 3EAF8A920B5D42860029974F;
 			remoteInfo = "IOUSBHIDDriverSafeBoot (Upgraded)";
 		};
-		C17DEE520D4670D60038652C /* PBXContainerItemProxy */ = {
+		3EDB32330DE1E4A50034C47A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 3EAF8A9E0B5D42860029974F;
 			remoteInfo = "AppleUSBMergeNub (Upgraded)";
 		};
-		C17DEE540D4670D60038652C /* PBXContainerItemProxy */ = {
+		3EDB32350DE1E4A50034C47A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 3EAF8AC90B5D42870029974F;
 			remoteInfo = "IOUSBHIDDriver (Upgraded)";
 		};
-		C17DEE560D4670D60038652C /* PBXContainerItemProxy */ = {
+		3EDB32370DE1E4A50034C47A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 3EAF8A2A0B5D42860029974F;
 			remoteInfo = "AppleUSBOHCI (Upgraded)";
 		};
-		C17DEE580D4670D60038652C /* PBXContainerItemProxy */ = {
+		3EDB32390DE1E4A50034C47A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 3EAF8A420B5D42860029974F;
 			remoteInfo = "AppleUSBEHCI (Upgraded)";
 		};
-		C17DEE5A0D4670D60038652C /* PBXContainerItemProxy */ = {
+		3EDB323B0DE1E4A50034C47A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 3EAF8A640B5D42860029974F;
 			remoteInfo = "AppleUSBUHCI (Upgraded)";
 		};
-		C17DEE5C0D4670D60038652C /* PBXContainerItemProxy */ = {
+		3EDB323D0DE1E4A50034C47A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 3EAF8AAC0B5D42860029974F;
 			remoteInfo = "AppleUSBOpticalMouse (Upgraded)";
 		};
-		C17DEE5E0D4670D60038652C /* PBXContainerItemProxy */ = {
+		3EDB323F0DE1E4A50034C47A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 3EAF8A800B5D42860029974F;
 			remoteInfo = "AppleUSBHub (Upgraded)";
 		};
-		C17DEE620D4670D60038652C /* PBXContainerItemProxy */ = {
+		3EDB32430DE1E4A50034C47A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 3EAF8ABB0B5D42870029974F;
 			remoteInfo = "IOUSBCompositeDriver (Upgraded)";
 		};
+		3EDB32B50DE1E5800034C47A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3EDB31F40DE1E48B0034C47A;
+			remoteInfo = IOUSBUserClient_embedded;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		3E9EABDF0F544EAE00522032 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_DEVELOPER_APPS_DIR)/Utilities/USB Prober.app/Contents/Resources";
+			dstSubfolderSpec = 0;
+			files = (
+				3E9EABDE0F544E8600522032 /* usbtracer in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		3EAF89E60B5D42860029974F /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 12;
@@ -575,6 +597,7 @@
 			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/usb";
 			dstSubfolderSpec = 0;
 			files = (
+				30B68F8B0F01ED9F003BD96A /* USBTracepoints.h in CopyFiles */,
 				3EAF8A070B5D42860029974F /* USB.h in CopyFiles */,
 				3EAF8A080B5D42860029974F /* USBSpec.h in CopyFiles */,
 				3EAF8A090B5D42860029974F /* IOUSBUserClient.h in CopyFiles */,
@@ -622,25 +645,53 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		C17DEE940D4670D60038652C /* CopyFiles */ = {
+		3EDB32750DE1E4A50034C47A /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 12;
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				C17DEE950D4670D60038652C /* IOUSBLib.bundle in CopyFiles */,
-				C17DEE960D4670D60038652C /* AppleUSBMergeNub.kext in CopyFiles */,
-				C17DEE970D4670D60038652C /* IOUSBHIDDriverSafeBoot.kext in CopyFiles */,
-				C17DEE980D4670D60038652C /* IOUSBHIDDriver.kext in CopyFiles */,
-				C17DEE990D4670D60038652C /* AppleUSBEHCI.kext in CopyFiles */,
-				C17DEE9A0D4670D60038652C /* AppleUSBUHCI.kext in CopyFiles */,
-				C17DEE9B0D4670D60038652C /* IOUSBUserClient.kext in CopyFiles */,
-				C17DEE9C0D4670D60038652C /* AppleUSBHub.kext in CopyFiles */,
-				C17DEE9D0D4670D60038652C /* AppleUSBOHCI.kext in CopyFiles */,
-				C17DEE9E0D4670D60038652C /* AppleUSBOpticalMouse.kext in CopyFiles */,
-				C17DEE9F0D4670D60038652C /* IOUSBCompositeDriver.kext in CopyFiles */,
+				3EDB32760DE1E4A50034C47A /* IOUSBLib.bundle in CopyFiles */,
+				3EDB32770DE1E4A50034C47A /* AppleUSBMergeNub.kext in CopyFiles */,
+				3EDB32780DE1E4A50034C47A /* IOUSBHIDDriverSafeBoot.kext in CopyFiles */,
+				3EDB32790DE1E4A50034C47A /* IOUSBHIDDriver.kext in CopyFiles */,
+				3EDB327A0DE1E4A50034C47A /* AppleUSBEHCI.kext in CopyFiles */,
+				3EDB327B0DE1E4A50034C47A /* AppleUSBUHCI.kext in CopyFiles */,
+				3EDB327C0DE1E4A50034C47A /* IOUSBUserClient.kext in CopyFiles */,
+				3EDB327D0DE1E4A50034C47A /* AppleUSBHub.kext in CopyFiles */,
+				3EDB327E0DE1E4A50034C47A /* AppleUSBOHCI.kext in CopyFiles */,
+				3EDB327F0DE1E4A50034C47A /* AppleUSBOpticalMouse.kext in CopyFiles */,
+				3EDB32800DE1E4A50034C47A /* IOUSBCompositeDriver.kext in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3EDB32810DE1E4A50034C47A /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_DEVELOPER_DIR)/Examples/Kernel/IOKit/usb";
+			dstSubfolderSpec = 0;
+			files = (
+				3EDB32820DE1E4A50034C47A /* Contents (Kernel).rtf in CopyFiles */,
+				3EDB32830DE1E4A50034C47A /* AnchorUSB Driver in CopyFiles */,
+				3EDB32840DE1E4A50034C47A /* ClassicNotSeize Driver in CopyFiles */,
+				3EDB32850DE1E4A50034C47A /* VendorSpecific Driver in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		3EDB32860DE1E4A50034C47A /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_DEVELOPER_DIR)/Examples/IOKit/usb";
+			dstSubfolderSpec = 0;
+			files = (
+				3EDB32870DE1E4A50034C47A /* Contents (User Space).rtf in CopyFiles */,
+				3EDB32880DE1E4A50034C47A /* USBNotification Example in CopyFiles */,
+				3EDB32890DE1E4A50034C47A /* USBSimple Example in CopyFiles */,
+				3EDB328A0DE1E4A50034C47A /* Another USB Notification Example in CopyFiles */,
+				3EDB328B0DE1E4A50034C47A /* Ezloader Example in CopyFiles */,
+				3EDB328C0DE1E4A50034C47A /* Deva Example in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 /* End PBXCopyFilesBuildPhase section */
 
@@ -699,6 +750,10 @@
 		19580DC3FFBCA3ED7F000001 /* IOUSBHIDDriver.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = IOUSBHIDDriver.cpp; path = IOUSBHIDDriver/Classes/IOUSBHIDDriver.cpp; sourceTree = "<group>"; };
 		19580DDEFFBCAF317F000001 /* AppleUSBMergeNub.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AppleUSBMergeNub.h; path = AppleUSBMergeNub/Headers/AppleUSBMergeNub.h; sourceTree = "<group>"; };
 		19580DE0FFBCAF317F000001 /* AppleUSBMergeNub.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleUSBMergeNub.cpp; path = AppleUSBMergeNub/Classes/AppleUSBMergeNub.cpp; sourceTree = "<group>"; };
+		301DB0670EF890A1009BF777 /* USBTracer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = USBTracer.h; path = USBProberV2/USBTracer/USBTracer.h; sourceTree = "<group>"; };
+		301DB0680EF890A1009BF777 /* USBTracer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = USBTracer.cpp; path = USBProberV2/USBTracer/USBTracer.cpp; sourceTree = "<group>"; };
+		301DB0930EF8920B009BF777 /* usbtracer */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = usbtracer; sourceTree = BUILT_PRODUCTS_DIR; };
+		30C722520EF0558F003C241F /* USBTracepoints.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = USBTracepoints.h; path = IOUSBFamily/Headers/USBTracepoints.h; sourceTree = "<group>"; };
 		3A29FAEEFFD204217F000001 /* IOUSBInterfaceUserClient.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOUSBInterfaceUserClient.h; path = IOUSBUserClient/Headers/IOUSBInterfaceUserClient.h; sourceTree = "<group>"; };
 		3A29FAF0FFD21A737F000001 /* IOUSBInterfaceUserClient.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = IOUSBInterfaceUserClient.cpp; path = IOUSBUserClient/Classes/IOUSBInterfaceUserClient.cpp; sourceTree = "<group>"; };
 		3E03401704F5D97A00AA223D /* KLog.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = KLog.cpp; path = USBProberV2/KLog/KLog.cpp; sourceTree = "<group>"; };
@@ -706,23 +761,23 @@
 		3E03401904F5D97A00AA223D /* KLogClient.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = KLogClient.cpp; path = USBProberV2/KLog/KLogClient.cpp; sourceTree = "<group>"; };
 		3E03401A04F5D97A00AA223D /* KLogClient.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = KLogClient.h; path = USBProberV2/KLog/KLogClient.h; sourceTree = "<group>"; };
 		3E03401E04F5D97A00AA223D /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		3E0707F60DDE2EBC00C75CB2 /* IOUSBUserClient.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOUSBUserClient.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		3E09D3FE05F7ECFB0034E661 /* AppleUSBUHCI.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleUSBUHCI.h; sourceTree = "<group>"; };
 		3E09D40105F7ECFB0034E661 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		3E12E9F707945DDE00A3FE67 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = IOUSBFamily/Strings/English.lproj/Localizable.strings; sourceTree = "<group>"; };
 		3E1BE2A7064C0A9B0051240E /* IOUSBCompositeDriver.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOUSBCompositeDriver.cpp; sourceTree = "<group>"; };
 		3E1BE2A9064C0A9B0051240E /* IOUSBCompositeDriver.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOUSBCompositeDriver.h; sourceTree = "<group>"; };
 		3E1BE2AB064C0A9B0051240E /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		3E32CCDE0DBE5E4D001DF6AF /* AppleUSBiPod.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AppleUSBiPod.cpp; sourceTree = "<group>"; };
+		3E32CCDF0DBE5E4D001DF6AF /* AppleUSBiPod.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppleUSBiPod.h; sourceTree = "<group>"; };
 		3E39626E0B5302910099EF39 /* IOUSBLib.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = IOUSBLib.plist; path = IOUSBLib/IOUSBLib.plist; sourceTree = "<group>"; };
 		3E3A39C6065940A500C8D91E /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = AppleUSBOHCI/Strings/English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		3E3A3B4A0659420800C8D91E /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = IOUSBLib/Strings/English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		3E43121104587E1800000164 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = AppleUSBEHCI/Strings/English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		3E62BDC00DB7BBF000DF9CAB /* AppleUSBiPod.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AppleUSBiPod.cpp; sourceTree = "<group>"; };
-		3E62BDC10DB7BBF000DF9CAB /* AppleUSBiPod.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppleUSBiPod.h; sourceTree = "<group>"; };
 		3E652E5504F5261F00C1BD6F /* clean.tiff */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; name = clean.tiff; path = USBProberV2/clean.tiff; sourceTree = "<group>"; };
 		3E652E5604F5261F00C1BD6F /* reload.tiff */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; name = reload.tiff; path = USBProberV2/reload.tiff; sourceTree = "<group>"; };
 		3E652E5704F5261F00C1BD6F /* USBLoggerFilterWindowController.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = USBLoggerFilterWindowController.h; path = USBProberV2/USBLoggerFilterWindowController.h; sourceTree = "<group>"; };
 		3E652E5804F5261F00C1BD6F /* USBLoggerFilterWindowController.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = USBLoggerFilterWindowController.m; path = USBProberV2/USBLoggerFilterWindowController.m; sourceTree = "<group>"; };
+		3E9EABF80F545CE000522032 /* libutil.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libutil.dylib; path = /usr/lib/libutil.dylib; sourceTree = "<absolute>"; };
 		3EAF8A010B5D42860029974F /* IOUSBFamily.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = IOUSBFamily.plist; path = IOUSBFamily/IOUSBFamily.plist; sourceTree = "<group>"; };
 		3EAF8A020B5D42860029974F /* IOUSBFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOUSBFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		3EAF8A280B5D42860029974F /* installhdrs */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = installhdrs; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -825,6 +880,8 @@
 		3ED3F25104F3CD99001BF1E8 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
 		3ED3F25204F3CD99001BF1E8 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = /System/Library/Frameworks/Security.framework; sourceTree = "<absolute>"; };
 		3ED3F25704F3CDB1001BF1E8 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = /System/Library/Frameworks/AppKit.framework; sourceTree = "<absolute>"; };
+		3EDB32020DE1E48B0034C47A /* IOUSBUserClient.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOUSBUserClient.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		3EDB32910DE1E4A50034C47A /* IOUSBFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOUSBFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		3EF4FF9C0B5D9B9E007E541E /* IOUSBFamilyInfoPlist.pch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOUSBFamilyInfoPlist.pch; sourceTree = "<group>"; };
 		3EFE2F1A0B8B58A500013454 /* IOUSBHubPolicyMaker.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = IOUSBHubPolicyMaker.cpp; path = IOUSBFamily/Classes/IOUSBHubPolicyMaker.cpp; sourceTree = "<group>"; };
 		3EFE2F1C0B8B58ED00013454 /* IOUSBHubPolicyMaker.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOUSBHubPolicyMaker.h; path = IOUSBFamily/Headers/IOUSBHubPolicyMaker.h; sourceTree = "<group>"; };
@@ -834,7 +891,6 @@
 		68AB6E5A0636F4B500DF2BA5 /* AppleUSBUHCI_RootHub.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleUSBUHCI_RootHub.cpp; sourceTree = "<group>"; };
 		68AB6E5B0636F4B500DF2BA5 /* AppleUSBUHCI_UIM.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleUSBUHCI_UIM.cpp; sourceTree = "<group>"; };
 		68AB6E5C0636F4B500DF2BA5 /* AppleUSBUHCI.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleUSBUHCI.cpp; sourceTree = "<group>"; };
-		C17DEEB00D4670D60038652C /* IOUSBFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOUSBFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		DD18E6300AC323A900FAE168 /* IOUSBHubDevice.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOUSBHubDevice.h; path = IOUSBFamily/Headers/IOUSBHubDevice.h; sourceTree = "<group>"; };
 		DD18E6360AC3262500FAE168 /* IOUSBHubDevice.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = IOUSBHubDevice.cpp; path = IOUSBFamily/Classes/IOUSBHubDevice.cpp; sourceTree = "<group>"; };
 		DD37A47F090844290074AE5D /* IOUSBControllerListElement.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOUSBControllerListElement.h; path = IOUSBFamily/Headers/IOUSBControllerListElement.h; sourceTree = "<group>"; };
@@ -902,10 +958,12 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		3E0707EF0DDE2EBC00C75CB2 /* Frameworks */ = {
+		301DB0910EF8920B009BF777 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				301DB0D10EF8927B009BF777 /* IOKit.framework in Frameworks */,
+				3E9EABF90F545CE000522032 /* libutil.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1013,6 +1071,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		3EDB31FB0DE1E48B0034C47A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3EDB32730DE1E4A50034C47A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -1086,6 +1158,7 @@
 				0179BA5AFFBA190D7F000001 /* USB.h */,
 				0179BA5BFFBA190D7F000001 /* USBHub.h */,
 				0179BA5CFFBA190D7F000001 /* USBSpec.h */,
+				30C722520EF0558F003C241F /* USBTracepoints.h */,
 			);
 			name = "Public Headers";
 			sourceTree = "<group>";
@@ -1214,7 +1287,7 @@
 				F581406C04575F6D01000109 /* AppleUSBEHCI */,
 				0179BA73FFBA2D8A7F000001 /* AppleUSBOHCI */,
 				3E09D3D705F7EC440034E661 /* AppleUSBUHCI */,
-				3E62BDBF0DB7BBF000DF9CAB /* AppleUSBiPod */,
+				3E32CCDD0DBE5E4D001DF6AF /* AppleUSBiPod */,
 				F5430C660210912501573190 /* AppleUSBOpticalMouse */,
 				01840EB5FFB9FB147F000001 /* IOUSBFamily */,
 				3E1BE2A5064C0A9B0051240E /* IOUSBCompositeDriver */,
@@ -1320,10 +1393,20 @@
 				3EAF8B050B5D42870029974F /* UPSTestTool */,
 				3EAF8B180B5D42870029974F /* KLog.kext */,
 				3EAF8B700B5D42870029974F /* USB Prober.app */,
-				C17DEEB00D4670D60038652C /* IOUSBFamily.kext */,
-				3E0707F60DDE2EBC00C75CB2 /* IOUSBUserClient.kext */,
+				3EDB32020DE1E48B0034C47A /* IOUSBUserClient.kext */,
+				3EDB32910DE1E4A50034C47A /* IOUSBFamily.kext */,
+				301DB0930EF8920B009BF777 /* usbtracer */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		301DAF640EF88F3F009BF777 /* USBTracer */ = {
+			isa = PBXGroup;
+			children = (
+				301DB0670EF890A1009BF777 /* USBTracer.h */,
+				301DB0680EF890A1009BF777 /* USBTracer.cpp */,
+			);
+			name = USBTracer;
 			sourceTree = "<group>";
 		};
 		3E033F6804F5D8C200AA223D /* KLog */ = {
@@ -1430,6 +1513,15 @@
 			path = Strings;
 			sourceTree = "<group>";
 		};
+		3E32CCDD0DBE5E4D001DF6AF /* AppleUSBiPod */ = {
+			isa = PBXGroup;
+			children = (
+				3E32CCDE0DBE5E4D001DF6AF /* AppleUSBiPod.cpp */,
+				3E32CCDF0DBE5E4D001DF6AF /* AppleUSBiPod.h */,
+			);
+			path = AppleUSBiPod;
+			sourceTree = "<group>";
+		};
 		3E61A7DC0B5D97AB0001A217 /* Plists */ = {
 			isa = PBXGroup;
 			children = (
@@ -1452,15 +1544,6 @@
 			name = Plists;
 			sourceTree = "<group>";
 		};
-		3E62BDBF0DB7BBF000DF9CAB /* AppleUSBiPod */ = {
-			isa = PBXGroup;
-			children = (
-				3E62BDC00DB7BBF000DF9CAB /* AppleUSBiPod.cpp */,
-				3E62BDC10DB7BBF000DF9CAB /* AppleUSBiPod.h */,
-			);
-			path = AppleUSBiPod;
-			sourceTree = "<group>";
-		};
 		3E9D8265033AC7C000000164 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -1472,6 +1555,7 @@
 		3EC65AF404F3C9B8003F7360 /* USB Prober */ = {
 			isa = PBXGroup;
 			children = (
+				301DAF640EF88F3F009BF777 /* USBTracer */,
 				3EC65AFE04F3CA49003F7360 /* Classes */,
 				3EC65B0404F3CA87003F7360 /* Other Sources */,
 				3EC65B0604F3CA94003F7360 /* Frameworks */,
@@ -1623,6 +1707,7 @@
 		3EC65B0704F3CA99003F7360 /* Linked Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				3E9EABF80F545CE000522032 /* libutil.dylib */,
 				3ED3F24F04F3CD99001BF1E8 /* Cocoa.framework */,
 				3ED3F25004F3CD99001BF1E8 /* Foundation.framework */,
 				3ED3F25104F3CD99001BF1E8 /* IOKit.framework */,
@@ -1780,16 +1865,6 @@
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
-		3E0707E90DDE2EBC00C75CB2 /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				3E0707EA0DDE2EBC00C75CB2 /* IOUSBUserClient.h in Headers */,
-				3E0707EB0DDE2EBC00C75CB2 /* IOUSBDeviceUserClient.h in Headers */,
-				3E0707EC0DDE2EBC00C75CB2 /* IOUSBInterfaceUserClient.h in Headers */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		3EAF89BD0B5D42860029974F /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
@@ -1816,6 +1891,7 @@
 				3EFE2F1D0B8B58ED00013454 /* IOUSBHubPolicyMaker.h in Headers */,
 				DDA42BA60BA0956C002C2F56 /* IOUSBControllerV3.h in Headers */,
 				3E3DBCAD0BC20CCD00880659 /* IOUSBUserClient.h in Headers */,
+				30C722530EF0558F003C241F /* USBTracepoints.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1889,7 +1965,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				3EAF8AA00B5D42860029974F /* AppleUSBMergeNub.h in Headers */,
-				3E62BDC30DB7BBF000DF9CAB /* AppleUSBiPod.h in Headers */,
+				3E32CCE10DBE5E4D001DF6AF /* AppleUSBiPod.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1989,55 +2065,63 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		C17DEE630D4670D60038652C /* Headers */ = {
+		3EDB31F50DE1E48B0034C47A /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C17DEE640D4670D60038652C /* IOUSBRootHubDevice.h in Headers */,
-				C17DEE650D4670D60038652C /* IOUSBBus.h in Headers */,
-				C17DEE660D4670D60038652C /* IOUSBController.h in Headers */,
-				C17DEE670D4670D60038652C /* IOUSBDevice.h in Headers */,
-				C17DEE680D4670D60038652C /* IOUSBInterface.h in Headers */,
-				C17DEE690D4670D60038652C /* IOUSBLog.h in Headers */,
-				C17DEE6A0D4670D60038652C /* IOUSBNub.h in Headers */,
-				C17DEE6B0D4670D60038652C /* IOUSBPipe.h in Headers */,
-				C17DEE6C0D4670D60038652C /* USB.h in Headers */,
-				C17DEE6D0D4670D60038652C /* USBHub.h in Headers */,
-				C17DEE6E0D4670D60038652C /* USBSpec.h in Headers */,
-				C17DEE6F0D4670D60038652C /* IOUSBHub.h in Headers */,
-				C17DEE700D4670D60038652C /* IOUSBLib.h in Headers */,
-				C17DEE710D4670D60038652C /* IOUSBWorkLoop.h in Headers */,
-				C17DEE720D4670D60038652C /* IOUSBControllerUserClient.h in Headers */,
-				C17DEE730D4670D60038652C /* IOUSBControllerV2.h in Headers */,
-				C17DEE740D4670D60038652C /* IOUSBControllerListElement.h in Headers */,
-				C17DEE750D4670D60038652C /* IOUSBHubDevice.h in Headers */,
-				C17DEE760D4670D60038652C /* IOUSBFamilyInfoPlist.pch in Headers */,
-				C17DEE770D4670D60038652C /* IOUSBHubPolicyMaker.h in Headers */,
-				C17DEE780D4670D60038652C /* IOUSBControllerV3.h in Headers */,
-				C17DEE790D4670D60038652C /* IOUSBUserClient.h in Headers */,
+				3EDB31F60DE1E48B0034C47A /* IOUSBUserClient.h in Headers */,
+				3EDB31F70DE1E48B0034C47A /* IOUSBDeviceUserClient.h in Headers */,
+				3EDB31F80DE1E48B0034C47A /* IOUSBInterfaceUserClient.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3EDB32440DE1E4A50034C47A /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3EDB32450DE1E4A50034C47A /* IOUSBRootHubDevice.h in Headers */,
+				3EDB32460DE1E4A50034C47A /* IOUSBBus.h in Headers */,
+				3EDB32470DE1E4A50034C47A /* IOUSBController.h in Headers */,
+				3EDB32480DE1E4A50034C47A /* IOUSBDevice.h in Headers */,
+				3EDB32490DE1E4A50034C47A /* IOUSBInterface.h in Headers */,
+				3EDB324A0DE1E4A50034C47A /* IOUSBLog.h in Headers */,
+				3EDB324B0DE1E4A50034C47A /* IOUSBNub.h in Headers */,
+				3EDB324C0DE1E4A50034C47A /* IOUSBPipe.h in Headers */,
+				3EDB324D0DE1E4A50034C47A /* USB.h in Headers */,
+				3EDB324E0DE1E4A50034C47A /* USBHub.h in Headers */,
+				3EDB324F0DE1E4A50034C47A /* USBSpec.h in Headers */,
+				3EDB32500DE1E4A50034C47A /* IOUSBHub.h in Headers */,
+				3EDB32510DE1E4A50034C47A /* IOUSBLib.h in Headers */,
+				3EDB32520DE1E4A50034C47A /* IOUSBWorkLoop.h in Headers */,
+				3EDB32530DE1E4A50034C47A /* IOUSBControllerUserClient.h in Headers */,
+				3EDB32540DE1E4A50034C47A /* IOUSBControllerV2.h in Headers */,
+				3EDB32550DE1E4A50034C47A /* IOUSBControllerListElement.h in Headers */,
+				3EDB32560DE1E4A50034C47A /* IOUSBHubDevice.h in Headers */,
+				3EDB32570DE1E4A50034C47A /* IOUSBFamilyInfoPlist.pch in Headers */,
+				3EDB32580DE1E4A50034C47A /* IOUSBHubPolicyMaker.h in Headers */,
+				3EDB32590DE1E4A50034C47A /* IOUSBControllerV3.h in Headers */,
+				3EDB325A0DE1E4A50034C47A /* IOUSBUserClient.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
-		3E0707E80DDE2EBC00C75CB2 /* IOUSBUserClient_embedded */ = {
+		301DB0920EF8920B009BF777 /* usbtracer */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 3E0707F20DDE2EBC00C75CB2 /* Build configuration list for PBXNativeTarget "IOUSBUserClient_embedded" */;
+			buildConfigurationList = 301DB0A30EF8920E009BF777 /* Build configuration list for PBXNativeTarget "usbtracer" */;
 			buildPhases = (
-				3E0707E90DDE2EBC00C75CB2 /* Headers */,
-				3E0707ED0DDE2EBC00C75CB2 /* Sources */,
-				3E0707EF0DDE2EBC00C75CB2 /* Frameworks */,
-				3E0707F00DDE2EBC00C75CB2 /* Resources */,
+				301DB0900EF8920B009BF777 /* Sources */,
+				301DB0910EF8920B009BF777 /* Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
-			name = IOUSBUserClient_embedded;
-			productName = IOUSBUserClient;
-			productReference = 3E0707F60DDE2EBC00C75CB2 /* IOUSBUserClient.kext */;
-			productType = "com.apple.product-type.kernel-extension.iokit";
+			name = usbtracer;
+			productName = usbtracer;
+			productReference = 301DB0930EF8920B009BF777 /* usbtracer */;
+			productType = "com.apple.product-type.tool";
 		};
 		3EAF89A20B5D42860029974F /* IOUSBFamily */ = {
 			isa = PBXNativeTarget;
@@ -2051,23 +2135,25 @@
 				3EAF89E60B5D42860029974F /* CopyFiles */,
 				3EAF89F10B5D42860029974F /* CopyFiles */,
 				3EAF89F60B5D42860029974F /* CopyFiles */,
+				3E9EABDF0F544EAE00522032 /* CopyFiles */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				3EAF8B730B5D42870029974F /* PBXTargetDependency */,
 				3EAF8B750B5D42870029974F /* PBXTargetDependency */,
-				3EAF8B770B5D42870029974F /* PBXTargetDependency */,
-				3EAF8B790B5D42870029974F /* PBXTargetDependency */,
-				3EAF8B7B0B5D42870029974F /* PBXTargetDependency */,
-				3EAF8B7D0B5D42870029974F /* PBXTargetDependency */,
+				3EAF8B870B5D42870029974F /* PBXTargetDependency */,
 				3EAF8B7F0B5D42870029974F /* PBXTargetDependency */,
 				3EAF8B810B5D42870029974F /* PBXTargetDependency */,
 				3EAF8B830B5D42870029974F /* PBXTargetDependency */,
-				3EAF8B850B5D42870029974F /* PBXTargetDependency */,
-				3EAF8B870B5D42870029974F /* PBXTargetDependency */,
-				3EAF8B890B5D42870029974F /* PBXTargetDependency */,
+				3EAF8B7D0B5D42870029974F /* PBXTargetDependency */,
 				3EAF8B8B0B5D42870029974F /* PBXTargetDependency */,
+				3EAF8B770B5D42870029974F /* PBXTargetDependency */,
+				3EAF8B730B5D42870029974F /* PBXTargetDependency */,
+				3EAF8B7B0B5D42870029974F /* PBXTargetDependency */,
+				3EAF8B850B5D42870029974F /* PBXTargetDependency */,
+				3EAF8B790B5D42870029974F /* PBXTargetDependency */,
+				3EAF8B890B5D42870029974F /* PBXTargetDependency */,
+				301DB0B90EF8922D009BF777 /* PBXTargetDependency */,
 			);
 			name = IOUSBFamily;
 			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
@@ -2350,7 +2436,6 @@
 				3EAF8B690B5D42870029974F /* CopyFiles */,
 			);
 			buildRules = (
-				3EAF8BA20B5D42880029974F /* PBXBuildRule */,
 			);
 			dependencies = (
 				3EAF8B8D0B5D42870029974F /* PBXTargetDependency */,
@@ -2361,35 +2446,57 @@
 			productReference = 3EAF8B700B5D42870029974F /* USB Prober.app */;
 			productType = "com.apple.product-type.application";
 		};
-		C17DEE480D4670D60038652C /* IOUSBFamily_embedded */ = {
+		3EDB31F40DE1E48B0034C47A /* IOUSBUserClient_embedded */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = C17DEEAC0D4670D60038652C /* Build configuration list for PBXNativeTarget "IOUSBFamily_embedded" */;
+			buildConfigurationList = 3EDB31FE0DE1E48B0034C47A /* Build configuration list for PBXNativeTarget "IOUSBUserClient_embedded" */;
 			buildPhases = (
-				C17DEE630D4670D60038652C /* Headers */,
-				C17DEE7A0D4670D60038652C /* Resources */,
-				C17DEE7D0D4670D60038652C /* Sources */,
-				C17DEE940D4670D60038652C /* CopyFiles */,
+				3EDB31F50DE1E48B0034C47A /* Headers */,
+				3EDB31F90DE1E48B0034C47A /* Sources */,
+				3EDB31FB0DE1E48B0034C47A /* Frameworks */,
+				3EDB31FC0DE1E48B0034C47A /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				C17DEE490D4670D60038652C /* PBXTargetDependency */,
-				C17DEE4B0D4670D60038652C /* PBXTargetDependency */,
-				3E07083F0DDE30BE00C75CB2 /* PBXTargetDependency */,
-				C17DEE4F0D4670D60038652C /* PBXTargetDependency */,
-				C17DEE510D4670D60038652C /* PBXTargetDependency */,
-				C17DEE530D4670D60038652C /* PBXTargetDependency */,
-				C17DEE550D4670D60038652C /* PBXTargetDependency */,
-				C17DEE570D4670D60038652C /* PBXTargetDependency */,
-				C17DEE590D4670D60038652C /* PBXTargetDependency */,
-				C17DEE5B0D4670D60038652C /* PBXTargetDependency */,
-				C17DEE5D0D4670D60038652C /* PBXTargetDependency */,
-				C17DEE610D4670D60038652C /* PBXTargetDependency */,
+			);
+			name = IOUSBUserClient_embedded;
+			productName = IOUSBUserClient;
+			productReference = 3EDB32020DE1E48B0034C47A /* IOUSBUserClient.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+		3EDB32290DE1E4A50034C47A /* IOUSBFamily_embedded */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3EDB328D0DE1E4A50034C47A /* Build configuration list for PBXNativeTarget "IOUSBFamily_embedded" */;
+			buildPhases = (
+				3EDB32440DE1E4A50034C47A /* Headers */,
+				3EDB325B0DE1E4A50034C47A /* Resources */,
+				3EDB325E0DE1E4A50034C47A /* Sources */,
+				3EDB32730DE1E4A50034C47A /* Frameworks */,
+				3EDB32740DE1E4A50034C47A /* Rez */,
+				3EDB32750DE1E4A50034C47A /* CopyFiles */,
+				3EDB32810DE1E4A50034C47A /* CopyFiles */,
+				3EDB32860DE1E4A50034C47A /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				3EDB322A0DE1E4A50034C47A /* PBXTargetDependency */,
+				3EDB322C0DE1E4A50034C47A /* PBXTargetDependency */,
+				3EDB32B60DE1E5800034C47A /* PBXTargetDependency */,
+				3EDB32300DE1E4A50034C47A /* PBXTargetDependency */,
+				3EDB32320DE1E4A50034C47A /* PBXTargetDependency */,
+				3EDB32340DE1E4A50034C47A /* PBXTargetDependency */,
+				3EDB32360DE1E4A50034C47A /* PBXTargetDependency */,
+				3EDB32380DE1E4A50034C47A /* PBXTargetDependency */,
+				3EDB323A0DE1E4A50034C47A /* PBXTargetDependency */,
+				3EDB323C0DE1E4A50034C47A /* PBXTargetDependency */,
+				3EDB323E0DE1E4A50034C47A /* PBXTargetDependency */,
+				3EDB32420DE1E4A50034C47A /* PBXTargetDependency */,
 			);
 			name = IOUSBFamily_embedded;
 			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 			productName = IOUSBFamily;
-			productReference = C17DEEB00D4670D60038652C /* IOUSBFamily.kext */;
+			productReference = 3EDB32910DE1E4A50034C47A /* IOUSBFamily.kext */;
 			productType = "com.apple.product-type.kernel-extension.iokit";
 		};
 /* End PBXNativeTarget section */
@@ -2398,7 +2505,7 @@
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			buildConfigurationList = DDDEF9CB08886330003A7655 /* Build configuration list for PBXProject "IOUSBFamily" */;
-			compatibilityVersion = "Xcode 2.4";
+			compatibilityVersion = "Xcode 3.0";
 			hasScannedForEncodings = 1;
 			knownRegions = (
 				English,
@@ -2427,21 +2534,14 @@
 				3EAF8AFC0B5D42870029974F /* UPS Test Tool */,
 				3EAF8B070B5D42870029974F /* KLog */,
 				3EAF8B190B5D42870029974F /* USB Prober */,
-				3E0707E80DDE2EBC00C75CB2 /* IOUSBUserClient_embedded */,
-				C17DEE480D4670D60038652C /* IOUSBFamily_embedded */,
+				3EDB31F40DE1E48B0034C47A /* IOUSBUserClient_embedded */,
+				3EDB32290DE1E4A50034C47A /* IOUSBFamily_embedded */,
+				301DB0920EF8920B009BF777 /* usbtracer */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		3E0707F00DDE2EBC00C75CB2 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				3E0707F10DDE2EBC00C75CB2 /* InfoPlist.strings in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		3EAF89D00B5D42860029974F /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -2563,12 +2663,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		C17DEE7A0D4670D60038652C /* Resources */ = {
+		3EDB31FC0DE1E48B0034C47A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C17DEE7B0D4670D60038652C /* InfoPlist.strings in Resources */,
-				C17DEE7C0D4670D60038652C /* Localizable.strings in Resources */,
+				3EDB31FD0DE1E48B0034C47A /* InfoPlist.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3EDB325B0DE1E4A50034C47A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3EDB325C0DE1E4A50034C47A /* InfoPlist.strings in Resources */,
+				3EDB325D0DE1E4A50034C47A /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2604,6 +2712,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		3EAF8B000B5D42870029974F /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3EDB32740DE1E4A50034C47A /* Rez */ = {
 			isa = PBXRezBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -2688,11 +2803,11 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		3E0707ED0DDE2EBC00C75CB2 /* Sources */ = {
+		301DB0900EF8920B009BF777 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				3E0707EE0DDE2EBC00C75CB2 /* IOUSBUserClientInit.cpp in Sources */,
+				301DB0CE0EF89258009BF777 /* USBTracer.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2794,7 +2909,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				3EAF8AA20B5D42860029974F /* AppleUSBMergeNub.cpp in Sources */,
-				3E62BDC20DB7BBF000DF9CAB /* AppleUSBiPod.cpp in Sources */,
+				3E32CCE00DBE5E4D001DF6AF /* AppleUSBiPod.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2893,40 +3008,48 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		C17DEE7D0D4670D60038652C /* Sources */ = {
+		3EDB31F90DE1E48B0034C47A /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C17DEE7E0D4670D60038652C /* IOUSBBus.cpp in Sources */,
-				C17DEE7F0D4670D60038652C /* IOUSBController.cpp in Sources */,
-				C17DEE800D4670D60038652C /* IOUSBController_Errata.cpp in Sources */,
-				C17DEE810D4670D60038652C /* IOUSBController_Pipes.cpp in Sources */,
-				C17DEE820D4670D60038652C /* IOUSBInterface.cpp in Sources */,
-				C17DEE830D4670D60038652C /* IOUSBNub.cpp in Sources */,
-				C17DEE840D4670D60038652C /* IOUSBPipe.cpp in Sources */,
-				C17DEE850D4670D60038652C /* IOUSBRootHubDevice.cpp in Sources */,
-				C17DEE860D4670D60038652C /* IOUSBCommand.cpp in Sources */,
-				C17DEE870D4670D60038652C /* IOUSBDevice.cpp in Sources */,
-				C17DEE880D4670D60038652C /* IOUSBWorkLoop.cpp in Sources */,
-				C17DEE890D4670D60038652C /* IOUSBControllerUserClient.cpp in Sources */,
-				C17DEE8A0D4670D60038652C /* IOUSBLog.cpp in Sources */,
-				C17DEE8B0D4670D60038652C /* IOUSBControllerV2.cpp in Sources */,
-				C17DEE8C0D4670D60038652C /* IOUSBControllerListElement.cpp in Sources */,
-				C17DEE8D0D4670D60038652C /* IOUSBHubDevice.cpp in Sources */,
-				C17DEE8E0D4670D60038652C /* IOUSBHubPolicyMaker.cpp in Sources */,
-				C17DEE8F0D4670D60038652C /* IOUSBControllerV3.cpp in Sources */,
-				C17DEE900D4670D60038652C /* IOUSBInterfaceUserClient.cpp in Sources */,
-				C17DEE910D4670D60038652C /* IOUSBDeviceUserClient.cpp in Sources */,
+				3EDB31FA0DE1E48B0034C47A /* IOUSBUserClientInit.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3EDB325E0DE1E4A50034C47A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3EDB325F0DE1E4A50034C47A /* IOUSBBus.cpp in Sources */,
+				3EDB32600DE1E4A50034C47A /* IOUSBController.cpp in Sources */,
+				3EDB32610DE1E4A50034C47A /* IOUSBController_Errata.cpp in Sources */,
+				3EDB32620DE1E4A50034C47A /* IOUSBController_Pipes.cpp in Sources */,
+				3EDB32630DE1E4A50034C47A /* IOUSBInterface.cpp in Sources */,
+				3EDB32640DE1E4A50034C47A /* IOUSBNub.cpp in Sources */,
+				3EDB32650DE1E4A50034C47A /* IOUSBPipe.cpp in Sources */,
+				3EDB32660DE1E4A50034C47A /* IOUSBRootHubDevice.cpp in Sources */,
+				3EDB32670DE1E4A50034C47A /* IOUSBCommand.cpp in Sources */,
+				3EDB32680DE1E4A50034C47A /* IOUSBDevice.cpp in Sources */,
+				3EDB32690DE1E4A50034C47A /* IOUSBWorkLoop.cpp in Sources */,
+				3EDB326A0DE1E4A50034C47A /* IOUSBControllerUserClient.cpp in Sources */,
+				3EDB326B0DE1E4A50034C47A /* IOUSBLog.cpp in Sources */,
+				3EDB326C0DE1E4A50034C47A /* IOUSBControllerV2.cpp in Sources */,
+				3EDB326D0DE1E4A50034C47A /* IOUSBControllerListElement.cpp in Sources */,
+				3EDB326E0DE1E4A50034C47A /* IOUSBHubDevice.cpp in Sources */,
+				3EDB326F0DE1E4A50034C47A /* IOUSBHubPolicyMaker.cpp in Sources */,
+				3EDB32700DE1E4A50034C47A /* IOUSBControllerV3.cpp in Sources */,
+				3EDB32710DE1E4A50034C47A /* IOUSBInterfaceUserClient.cpp in Sources */,
+				3EDB32720DE1E4A50034C47A /* IOUSBDeviceUserClient.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		3E07083F0DDE30BE00C75CB2 /* PBXTargetDependency */ = {
+		301DB0B90EF8922D009BF777 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 3E0707E80DDE2EBC00C75CB2 /* IOUSBUserClient_embedded */;
-			targetProxy = 3E07083E0DDE30BE00C75CB2 /* PBXContainerItemProxy */;
+			target = 301DB0920EF8920B009BF777 /* usbtracer */;
+			targetProxy = 301DB0B80EF8922D009BF777 /* PBXContainerItemProxy */;
 		};
 		3EAF8B730B5D42870029974F /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -2998,60 +3121,65 @@
 			target = 3EAF8B070B5D42870029974F /* KLog */;
 			targetProxy = 3EAF8B8C0B5D42870029974F /* PBXContainerItemProxy */;
 		};
-		C17DEE490D4670D60038652C /* PBXTargetDependency */ = {
+		3EDB322A0DE1E4A50034C47A /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 3EAF8AE80B5D42870029974F /* IOUSBLib */;
-			targetProxy = C17DEE4A0D4670D60038652C /* PBXContainerItemProxy */;
+			targetProxy = 3EDB322B0DE1E4A50034C47A /* PBXContainerItemProxy */;
 		};
-		C17DEE4B0D4670D60038652C /* PBXTargetDependency */ = {
+		3EDB322C0DE1E4A50034C47A /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 3EAF8A030B5D42860029974F /* installhdrs */;
-			targetProxy = C17DEE4C0D4670D60038652C /* PBXContainerItemProxy */;
+			targetProxy = 3EDB322D0DE1E4A50034C47A /* PBXContainerItemProxy */;
 		};
-		C17DEE4F0D4670D60038652C /* PBXTargetDependency */ = {
+		3EDB32300DE1E4A50034C47A /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 3EAF8A920B5D42860029974F /* IOUSBHIDDriverSafeBoot */;
-			targetProxy = C17DEE500D4670D60038652C /* PBXContainerItemProxy */;
+			targetProxy = 3EDB32310DE1E4A50034C47A /* PBXContainerItemProxy */;
 		};
-		C17DEE510D4670D60038652C /* PBXTargetDependency */ = {
+		3EDB32320DE1E4A50034C47A /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 3EAF8A9E0B5D42860029974F /* AppleUSBMergeNub */;
-			targetProxy = C17DEE520D4670D60038652C /* PBXContainerItemProxy */;
+			targetProxy = 3EDB32330DE1E4A50034C47A /* PBXContainerItemProxy */;
 		};
-		C17DEE530D4670D60038652C /* PBXTargetDependency */ = {
+		3EDB32340DE1E4A50034C47A /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 3EAF8AC90B5D42870029974F /* IOUSBHIDDriver */;
-			targetProxy = C17DEE540D4670D60038652C /* PBXContainerItemProxy */;
+			targetProxy = 3EDB32350DE1E4A50034C47A /* PBXContainerItemProxy */;
 		};
-		C17DEE550D4670D60038652C /* PBXTargetDependency */ = {
+		3EDB32360DE1E4A50034C47A /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 3EAF8A2A0B5D42860029974F /* AppleUSBOHCI */;
-			targetProxy = C17DEE560D4670D60038652C /* PBXContainerItemProxy */;
+			targetProxy = 3EDB32370DE1E4A50034C47A /* PBXContainerItemProxy */;
 		};
-		C17DEE570D4670D60038652C /* PBXTargetDependency */ = {
+		3EDB32380DE1E4A50034C47A /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 3EAF8A420B5D42860029974F /* AppleUSBEHCI */;
-			targetProxy = C17DEE580D4670D60038652C /* PBXContainerItemProxy */;
+			targetProxy = 3EDB32390DE1E4A50034C47A /* PBXContainerItemProxy */;
 		};
-		C17DEE590D4670D60038652C /* PBXTargetDependency */ = {
+		3EDB323A0DE1E4A50034C47A /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 3EAF8A640B5D42860029974F /* AppleUSBUHCI */;
-			targetProxy = C17DEE5A0D4670D60038652C /* PBXContainerItemProxy */;
+			targetProxy = 3EDB323B0DE1E4A50034C47A /* PBXContainerItemProxy */;
 		};
-		C17DEE5B0D4670D60038652C /* PBXTargetDependency */ = {
+		3EDB323C0DE1E4A50034C47A /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 3EAF8AAC0B5D42860029974F /* AppleUSBOpticalMouse */;
-			targetProxy = C17DEE5C0D4670D60038652C /* PBXContainerItemProxy */;
+			targetProxy = 3EDB323D0DE1E4A50034C47A /* PBXContainerItemProxy */;
 		};
-		C17DEE5D0D4670D60038652C /* PBXTargetDependency */ = {
+		3EDB323E0DE1E4A50034C47A /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 3EAF8A800B5D42860029974F /* AppleUSBHub */;
-			targetProxy = C17DEE5E0D4670D60038652C /* PBXContainerItemProxy */;
+			targetProxy = 3EDB323F0DE1E4A50034C47A /* PBXContainerItemProxy */;
 		};
-		C17DEE610D4670D60038652C /* PBXTargetDependency */ = {
+		3EDB32420DE1E4A50034C47A /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 3EAF8ABB0B5D42870029974F /* IOUSBCompositeDriver */;
-			targetProxy = C17DEE620D4670D60038652C /* PBXContainerItemProxy */;
+			targetProxy = 3EDB32430DE1E4A50034C47A /* PBXContainerItemProxy */;
+		};
+		3EDB32B60DE1E5800034C47A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3EDB31F40DE1E48B0034C47A /* IOUSBUserClient_embedded */;
+			targetProxy = 3EDB32B50DE1E5800034C47A /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -3187,149 +3315,85 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
-		3E0707F30DDE2EBC00C75CB2 /* Logging */ = {
+		301DB0950EF8920B009BF777 /* Logging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
+				ALWAYS_SEARCH_USER_PATHS = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
-				INFOPLIST_FILE = IOUSBUserClient/IOUSBUserClient.plist;
-				INFOPLIST_PREFIX_HEADER = IOUSBFamilyInfoPlist.pch;
-				INFOPLIST_PREPROCESS = YES;
-				INFOPLIST_PREPROCESSOR_DEFINITIONS = (
-					"USE_SHALLOW_BUNDLE=1",
-					"DEBUG_LEVEL=6",
-				);
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
-				INSTALL_OWNER = root;
-				KERNEL_EXTENSION = YES;
-				KERNEL_MODULE = YES;
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.iokit.IOUSBUserClient;
-				MODULE_VERSION = 0.0.0;
+				GCC_MODEL_TUNING = G5;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_PATH = /usr/local/bin;
+				ONLY_ACTIVE_ARCH = NO;
 				OTHER_CFLAGS = (
-					"-W",
-					"-Wall",
-					"-Wno-unused",
+					"-DPRIVATE",
+					"-D__APPLE_PRIVATE",
 				);
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
-				PRODUCT_NAME = IOUSBUserClient;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-				ZERO_LINK = YES;
+				PREBINDING = NO;
+				PRODUCT_NAME = usbtracer;
+				VALID_ARCHS = "i386 x86_64";
 			};
 			name = Logging;
 		};
-		3E0707F40DDE2EBC00C75CB2 /* Deployment */ = {
+		301DB0960EF8920B009BF777 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
-				COPY_PHASE_STRIP = NO;
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = s;
-				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
-				INFOPLIST_FILE = IOUSBUserClient/IOUSBUserClient.plist;
-				INFOPLIST_PREFIX_HEADER = IOUSBFamilyInfoPlist.pch;
-				INFOPLIST_PREPROCESS = YES;
-				INFOPLIST_PREPROCESSOR_DEFINITIONS = "USE_SHALLOW_BUNDLE=1";
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
-				INSTALL_OWNER = root;
-				KERNEL_EXTENSION = YES;
-				KERNEL_MODULE = YES;
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.iokit.IOUSBUserClient;
-				MODULE_VERSION = 0.0.0;
+				GCC_MODEL_TUNING = G5;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_PATH = /usr/local/bin;
+				ONLY_ACTIVE_ARCH = NO;
 				OTHER_CFLAGS = (
-					"-W",
-					"-Wall",
-					"-Wno-unused",
+					"-DPRIVATE",
+					"-D__APPLE_PRIVATE",
 				);
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
-				PRODUCT_NAME = IOUSBUserClient;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
+				PREBINDING = NO;
+				PRODUCT_NAME = usbtracer;
+				VALID_ARCHS = "i386 x86_64";
 				ZERO_LINK = NO;
 			};
 			name = Deployment;
 		};
-		3E0707F50DDE2EBC00C75CB2 /* kprintf */ = {
+		301DB0970EF8920B009BF777 /* kprintf */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = s;
-				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
-				INFOPLIST_FILE = IOUSBUserClient/IOUSBUserClient.plist;
-				INFOPLIST_PREFIX_HEADER = IOUSBFamilyInfoPlist.pch;
-				INFOPLIST_PREPROCESS = YES;
-				INFOPLIST_PREPROCESSOR_DEFINITIONS = "USE_SHALLOW_BUNDLE=1";
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
-				INSTALL_OWNER = root;
-				KERNEL_EXTENSION = YES;
-				KERNEL_MODULE = YES;
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.iokit.IOUSBUserClient;
-				MODULE_VERSION = 0.0.0;
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_PATH = /usr/local/bin;
+				ONLY_ACTIVE_ARCH = NO;
 				OTHER_CFLAGS = (
-					"-W",
-					"-Wall",
-					"-Wno-unused",
+					"-DPRIVATE",
+					"-D__APPLE_PRIVATE",
 				);
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
-				PRODUCT_NAME = IOUSBUserClient;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-				ZERO_LINK = NO;
+				PREBINDING = NO;
+				PRODUCT_NAME = usbtracer;
+				VALID_ARCHS = "i386 x86_64";
 			};
 			name = kprintf;
 		};
 		3E61613109B900A600D5A55A /* kprintf */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					ppc,
-					i386,
-				);
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_MODEL_TUNING = G4;
+				VALID_ARCHS = "ppc i386 x86_64";
 			};
 			name = kprintf;
 		};
 		3EAF89FE0B5D42860029974F /* Logging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -3351,7 +3415,6 @@
 				OTHER_CFLAGS = (
 					"-W",
 					"-Wall",
-					"-Wno-unused",
 					"-fno-default-inline",
 				);
 				OTHER_LDFLAGS = "";
@@ -3359,7 +3422,7 @@
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = IOUSBFamily;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "x86_64 i386";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -3373,13 +3436,13 @@
 		3EAF89FF0B5D42860029974F /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
-				COPY_PHASE_STRIP = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
-				GCC_WARN_SIGN_COMPARE = YES;
 				INFOPLIST_FILE = IOUSBFamily/IOUSBFamily.plist;
 				INFOPLIST_PREFIX_HEADER = IOUSBFamilyInfoPlist.pch;
 				INFOPLIST_PREPROCESS = YES;
@@ -3395,7 +3458,6 @@
 				OTHER_CFLAGS = (
 					"-W",
 					"-Wall",
-					"-Wno-unused",
 					"-fno-default-inline",
 				);
 				OTHER_LDFLAGS = "";
@@ -3403,7 +3465,7 @@
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = IOUSBFamily;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "x86_64 i386";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -3417,13 +3479,16 @@
 		3EAF8A000B5D42860029974F /* kprintf */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
 				GCC_PREPROCESSOR_DEFINITIONS = (
+					"CONTROLLER_USE_KPRINTF=6",
 					"IOUSBDEVICE_USE_KPRINTF=6",
-					"CONTROLLERV3_USE_KPRINTF=5",
+					"CONTROLLERV3_USE_KPRINTF=6",
 				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				INFOPLIST_FILE = IOUSBFamily/IOUSBFamily.plist;
@@ -3441,7 +3506,6 @@
 				OTHER_CFLAGS = (
 					"-W",
 					"-Wall",
-					"-Wno-unused",
 					"-fno-default-inline",
 				);
 				OTHER_LDFLAGS = "";
@@ -3449,7 +3513,7 @@
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = IOUSBFamily;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "x86_64 i386";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -3463,7 +3527,8 @@
 		3EAF8A250B5D42860029974F /* Logging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -3477,7 +3542,7 @@
 				PRODUCT_NAME = installhdrs;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "ppc i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -3490,7 +3555,8 @@
 		3EAF8A260B5D42860029974F /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_OPTIMIZATION_LEVEL = 3;
@@ -3502,7 +3568,7 @@
 				PRODUCT_NAME = installhdrs;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "ppc i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -3515,6 +3581,8 @@
 		3EAF8A270B5D42860029974F /* kprintf */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_OPTIMIZATION_LEVEL = 3;
@@ -3526,6 +3594,7 @@
 				PRODUCT_NAME = installhdrs;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "ppc i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -3538,6 +3607,8 @@
 		3EAF8A3D0B5D42860029974F /* Logging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -3565,7 +3636,7 @@
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = AppleUSBOHCI;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "x86_64 i386";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -3579,8 +3650,9 @@
 		3EAF8A3E0B5D42860029974F /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
-				COPY_PHASE_STRIP = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -3606,7 +3678,7 @@
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = AppleUSBOHCI;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "x86_64 i386";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -3620,6 +3692,8 @@
 		3EAF8A3F0B5D42860029974F /* kprintf */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -3651,7 +3725,7 @@
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = AppleUSBOHCI;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "x86_64 i386";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -3665,6 +3739,8 @@
 		3EAF8A5F0B5D42860029974F /* Logging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -3689,7 +3765,7 @@
 				);
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = AppleUSBEHCI;
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -3703,8 +3779,9 @@
 		3EAF8A600B5D42860029974F /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
-				COPY_PHASE_STRIP = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -3727,7 +3804,7 @@
 				);
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = AppleUSBEHCI;
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -3741,12 +3818,14 @@
 		3EAF8A610B5D42860029974F /* kprintf */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
 				GCC_PREPROCESSOR_DEFINITIONS = (
-					"EHCI_USE_KPRINTF=6",
+					"EHCI_USE_KPRINTF=5",
 					"APPLEEHCIROOTHUB_USE_KPRINTF=6",
 					"DEBUG_LEVEL=3",
 				);
@@ -3769,7 +3848,7 @@
 				);
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = AppleUSBEHCI;
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -3783,6 +3862,8 @@
 		3EAF8A7B0B5D42860029974F /* Logging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -3809,7 +3890,7 @@
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = AppleUSBUHCI;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -3823,8 +3904,9 @@
 		3EAF8A7C0B5D42860029974F /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
-				COPY_PHASE_STRIP = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -3849,7 +3931,7 @@
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = AppleUSBUHCI;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -3863,13 +3945,14 @@
 		3EAF8A7D0B5D42860029974F /* kprintf */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
 				GCC_PREPROCESSOR_DEFINITIONS = (
-					"UHCI_USE_KPRINTF=6",
-					"APPLEUHCIROOTHUB_USE_KPRINTF=6",
+					"APPLEUHCIROOTHUB_USE_KPRINTF=5",
 					"DEBUG_LEVEL=3",
 				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
@@ -3893,7 +3976,7 @@
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = AppleUSBUHCI;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -3907,6 +3990,8 @@
 		3EAF8A8D0B5D42860029974F /* Logging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -3934,7 +4019,7 @@
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = AppleUSBHub;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -3948,8 +4033,9 @@
 		3EAF8A8E0B5D42860029974F /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
-				COPY_PHASE_STRIP = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -3975,7 +4061,7 @@
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = AppleUSBHub;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -3989,6 +4075,8 @@
 		3EAF8A8F0B5D42860029974F /* kprintf */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -4019,7 +4107,7 @@
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = AppleUSBHub;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -4033,6 +4121,8 @@
 		3EAF8A990B5D42860029974F /* Logging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -4053,7 +4143,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOUSBHIDDriverSafeBoot;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -4067,8 +4157,9 @@
 		3EAF8A9A0B5D42860029974F /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
-				COPY_PHASE_STRIP = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -4087,7 +4178,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOUSBHIDDriverSafeBoot;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -4101,6 +4192,8 @@
 		3EAF8A9B0B5D42860029974F /* kprintf */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -4120,7 +4213,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOUSBHIDDriverSafeBoot;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -4134,6 +4227,8 @@
 		3EAF8AA70B5D42860029974F /* Logging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -4161,7 +4256,7 @@
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = AppleUSBMergeNub;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -4175,8 +4270,9 @@
 		3EAF8AA80B5D42860029974F /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
-				COPY_PHASE_STRIP = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -4202,7 +4298,7 @@
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = AppleUSBMergeNub;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -4216,6 +4312,8 @@
 		3EAF8AA90B5D42860029974F /* kprintf */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -4242,7 +4340,7 @@
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = AppleUSBMergeNub;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -4256,6 +4354,8 @@
 		3EAF8AB60B5D42860029974F /* Logging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -4283,7 +4383,7 @@
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = AppleUSBOpticalMouse;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -4297,8 +4397,9 @@
 		3EAF8AB70B5D42860029974F /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
-				COPY_PHASE_STRIP = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -4324,7 +4425,7 @@
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = AppleUSBOpticalMouse;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -4338,6 +4439,8 @@
 		3EAF8AB80B5D42860029974F /* kprintf */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -4364,7 +4467,7 @@
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = AppleUSBOpticalMouse;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -4378,6 +4481,8 @@
 		3EAF8AC40B5D42870029974F /* Logging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -4405,7 +4510,7 @@
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = IOUSBCompositeDriver;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -4419,8 +4524,9 @@
 		3EAF8AC50B5D42870029974F /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
-				COPY_PHASE_STRIP = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -4446,7 +4552,7 @@
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = IOUSBCompositeDriver;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -4460,6 +4566,8 @@
 		3EAF8AC60B5D42870029974F /* kprintf */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -4486,7 +4594,7 @@
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = IOUSBCompositeDriver;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -4500,6 +4608,8 @@
 		3EAF8AD20B5D42870029974F /* Logging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -4527,7 +4637,7 @@
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = IOUSBHIDDriver;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -4541,8 +4651,9 @@
 		3EAF8AD30B5D42870029974F /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
-				COPY_PHASE_STRIP = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -4568,7 +4679,7 @@
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = IOUSBHIDDriver;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -4582,6 +4693,8 @@
 		3EAF8AD40B5D42870029974F /* kprintf */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -4609,7 +4722,7 @@
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = IOUSBHIDDriver;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -4623,6 +4736,8 @@
 		3EAF8AE30B5D42870029974F /* Logging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -4650,7 +4765,7 @@
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = IOUSBUserClient;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -4664,8 +4779,9 @@
 		3EAF8AE40B5D42870029974F /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
-				COPY_PHASE_STRIP = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -4691,7 +4807,7 @@
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = IOUSBUserClient;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -4705,6 +4821,8 @@
 		3EAF8AE50B5D42870029974F /* kprintf */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -4731,7 +4849,7 @@
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = IOUSBUserClient;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -4745,7 +4863,8 @@
 		3EAF8AF80B5D42870029974F /* Logging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -4769,7 +4888,7 @@
 				PRODUCT_NAME = IOUSBLib;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
-				VALID_ARCHS = "i386 ppc ppc64 x86_64";
+				VALID_ARCHS = "i386 ppc x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -4783,16 +4902,12 @@
 		3EAF8AF90B5D42870029974F /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					i386,
-					ppc,
-					ppc64,
-					x86_64,
-				);
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_OPTIMIZATION_LEVEL = 3;
+				GCC_OPTIMIZATION_LEVEL = s;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = IOUSBLib/IOUSBLib.plist;
@@ -4810,7 +4925,7 @@
 				PRODUCT_NAME = IOUSBLib;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
-				VALID_ARCHS = "i386 ppc ppc64 x86_64";
+				VALID_ARCHS = "i386 ppc x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -4824,16 +4939,12 @@
 		3EAF8AFA0B5D42870029974F /* kprintf */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					i386,
-					ppc,
-					ppc64,
-					x86_64,
-				);
-				COPY_PHASE_STRIP = YES;
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_OPTIMIZATION_LEVEL = 3;
+				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = IOUSBLib/IOUSBLib.plist;
@@ -4851,7 +4962,7 @@
 				PRODUCT_NAME = IOUSBLib;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
-				VALID_ARCHS = "i386 ppc ppc64 x86_64";
+				VALID_ARCHS = "i386 ppc x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -4865,6 +4976,8 @@
 		3EAF8B020B5D42870029974F /* Logging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -4892,7 +5005,8 @@
 		3EAF8B030B5D42870029974F /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_OPTIMIZATION_LEVEL = 3;
@@ -4904,7 +5018,7 @@
 				PRODUCT_NAME = UPSTestTool;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "ppc i386 x86_64";
 				WARNING_CFLAGS = (
 					"-W",
 					"-Wall",
@@ -4919,6 +5033,8 @@
 		3EAF8B040B5D42870029974F /* kprintf */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_OPTIMIZATION_LEVEL = 3;
@@ -4944,6 +5060,8 @@
 		3EAF8B140B5D42870029974F /* Logging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -4965,7 +5083,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = KLog;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -4979,8 +5097,9 @@
 		3EAF8B150B5D42870029974F /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
-				COPY_PHASE_STRIP = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -5000,7 +5119,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = KLog;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -5014,6 +5133,8 @@
 		3EAF8B160B5D42870029974F /* kprintf */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -5034,7 +5155,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = KLog;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -5048,7 +5169,8 @@
 		3EAF8B6C0B5D42870029974F /* Logging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 2.4.0;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -5066,7 +5188,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = "USB Prober";
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -5080,11 +5202,12 @@
 		3EAF8B6D0B5D42870029974F /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				CURRENT_PROJECT_VERSION = 2.5;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_OPTIMIZATION_LEVEL = 3;
+				GCC_OPTIMIZATION_LEVEL = s;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_USE_GCC3_PFE_SUPPORT = NO;
 				INFOPLIST_FILE = USBProberV2/USB_Prober.plist;
@@ -5096,7 +5219,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = "USB Prober";
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -5110,7 +5233,8 @@
 		3EAF8B6E0B5D42870029974F /* kprintf */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				CURRENT_PROJECT_VERSION = 2.5;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -5126,7 +5250,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = "USB Prober";
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -5137,39 +5261,39 @@
 			};
 			name = kprintf;
 		};
-		C17DEEAD0D4670D60038652C /* Logging */ = {
+		3EDB31FF0DE1E48B0034C47A /* Logging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_BIT_PRE_XCODE_3_1 = "ppc i386";
+				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
-				INFOPLIST_FILE = IOUSBFamily/IOUSBFamily.plist;
+				INFOPLIST_FILE = IOUSBUserClient/IOUSBUserClient.plist;
 				INFOPLIST_PREFIX_HEADER = IOUSBFamilyInfoPlist.pch;
 				INFOPLIST_PREPROCESS = YES;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
 				INSTALL_OWNER = root;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_EXTENSION = YES;
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.iokit.IOUSBFamily;
+				MODULE_NAME = com.apple.iokit.IOUSBUserClient;
 				MODULE_VERSION = 0.0.0;
 				OTHER_CFLAGS = (
 					"-W",
 					"-Wall",
 					"-Wno-unused",
-					"-fno-default-inline",
 				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
-				PRODUCT_NAME = IOUSBFamily;
+				PRODUCT_NAME = IOUSBUserClient;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = i386;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -5180,39 +5304,38 @@
 			};
 			name = Logging;
 		};
-		C17DEEAE0D4670D60038652C /* Deployment */ = {
+		3EDB32000DE1E48B0034C47A /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
+				ARCHS = "$(ARCHS_STANDARD_32_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_BIT_PRE_XCODE_3_1 = "ppc i386";
 				COPY_PHASE_STRIP = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
-				INFOPLIST_FILE = IOUSBFamily/IOUSBFamily.plist;
+				INFOPLIST_FILE = IOUSBUserClient/IOUSBUserClient.plist;
 				INFOPLIST_PREFIX_HEADER = IOUSBFamilyInfoPlist.pch;
 				INFOPLIST_PREPROCESS = YES;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
 				INSTALL_OWNER = root;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_EXTENSION = YES;
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.iokit.IOUSBFamily;
+				MODULE_NAME = com.apple.iokit.IOUSBUserClient;
 				MODULE_VERSION = 0.0.0;
 				OTHER_CFLAGS = (
 					"-W",
 					"-Wall",
 					"-Wno-unused",
-					"-fno-default-inline",
 				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
-				PRODUCT_NAME = IOUSBFamily;
+				PRODUCT_NAME = IOUSBUserClient;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = i386;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -5223,16 +5346,60 @@
 			};
 			name = Deployment;
 		};
-		C17DEEAF0D4670D60038652C /* kprintf */ = {
+		3EDB32010DE1E48B0034C47A /* kprintf */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_BIT_PRE_XCODE_3_1 = "ppc i386";
 				COPY_PHASE_STRIP = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
-				GCC_PREPROCESSOR_DEFINITIONS = "CONTROLLERV3_USE_KPRINTF=5";
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
-				INFOPLIST_FILE = IOUSBFamily/IOUSBFamily.plist;
+				INFOPLIST_FILE = IOUSBUserClient/IOUSBUserClient.plist;
+				INFOPLIST_PREFIX_HEADER = IOUSBFamilyInfoPlist.pch;
+				INFOPLIST_PREPROCESS = YES;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
+				INSTALL_OWNER = root;
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOUSBUserClient;
+				MODULE_VERSION = 0.0.0;
+				OTHER_CFLAGS = (
+					"-W",
+					"-Wall",
+					"-Wno-unused",
+				);
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = IOUSBUserClient;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = i386;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = kprintf;
+		};
+		3EDB328E0DE1E4A50034C47A /* Logging */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_BIT_PRE_XCODE_3_1 = "ppc i386";
+				COPY_PHASE_STRIP = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INFOPLIST_FILE = "/Volumes/Home/Users/nano/Sources/SnowLeopard/IOUSBFamily-SnowLeopard/IOUSBFamily/IOUSBFamily copy.plist";
 				INFOPLIST_PREFIX_HEADER = IOUSBFamilyInfoPlist.pch;
 				INFOPLIST_PREPROCESS = YES;
 				INSTALL_GROUP = wheel;
@@ -5247,7 +5414,6 @@
 				OTHER_CFLAGS = (
 					"-W",
 					"-Wall",
-					"-Wno-unused",
 					"-fno-default-inline",
 				);
 				OTHER_LDFLAGS = "";
@@ -5255,7 +5421,97 @@
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = IOUSBFamily;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = i386;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Logging;
+		};
+		3EDB328F0DE1E4A50034C47A /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_BIT_PRE_XCODE_3_1 = "ppc i386";
+				COPY_PHASE_STRIP = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = s;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INFOPLIST_FILE = "/Volumes/Home/Users/nano/Sources/SnowLeopard/IOUSBFamily-SnowLeopard/IOUSBFamily/IOUSBFamily copy.plist";
+				INFOPLIST_PREFIX_HEADER = IOUSBFamilyInfoPlist.pch;
+				INFOPLIST_PREPROCESS = YES;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOUSBFamily;
+				MODULE_VERSION = 0.0.0;
+				OTHER_CFLAGS = (
+					"-W",
+					"-Wall",
+					"-fno-default-inline",
+				);
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = IOUSBFamily;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = i386;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		3EDB32900DE1E4A50034C47A /* kprintf */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_BIT_PRE_XCODE_3_1 = "ppc i386";
+				COPY_PHASE_STRIP = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = s;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"IOUSBDEVICE_USE_KPRINTF=6",
+					"CONTROLLERV3_USE_KPRINTF=5",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INFOPLIST_FILE = "/Volumes/Home/Users/nano/Sources/SnowLeopard/IOUSBFamily-SnowLeopard/IOUSBFamily/IOUSBFamily copy.plist";
+				INFOPLIST_PREFIX_HEADER = IOUSBFamilyInfoPlist.pch;
+				INFOPLIST_PREPROCESS = YES;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOUSBFamily;
+				MODULE_VERSION = 0.0.0;
+				OTHER_CFLAGS = (
+					"-W",
+					"-Wall",
+					"-fno-default-inline",
+				);
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = IOUSBFamily;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = i386;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -5269,39 +5525,37 @@
 		DDDEF9CC08886330003A7655 /* Logging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					ppc,
-					i386,
-				);
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = "DEBUG_LEVEL=3";
 				INFOPLIST_PREPROCESSOR_DEFINITIONS = "DEBUG_LEVEL=3";
 				OTHER_CFLAGS = "";
+				VALID_ARCHS = "ppc i386 x86_64";
 			};
 			name = Logging;
 		};
 		DDDEF9CD08886330003A7655 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					ppc,
-					i386,
-				);
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_MODEL_TUNING = G4;
+				VALID_ARCHS = "ppc i386 x86_64";
 			};
 			name = Deployment;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		3E0707F20DDE2EBC00C75CB2 /* Build configuration list for PBXNativeTarget "IOUSBUserClient_embedded" */ = {
+		301DB0A30EF8920E009BF777 /* Build configuration list for PBXNativeTarget "usbtracer" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				3E0707F30DDE2EBC00C75CB2 /* Logging */,
-				3E0707F40DDE2EBC00C75CB2 /* Deployment */,
-				3E0707F50DDE2EBC00C75CB2 /* kprintf */,
+				301DB0960EF8920B009BF777 /* Deployment */,
+				301DB0950EF8920B009BF777 /* Logging */,
+				301DB0970EF8920B009BF777 /* kprintf */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -5309,8 +5563,8 @@
 		3EAF89FD0B5D42860029974F /* Build configuration list for PBXNativeTarget "IOUSBFamily" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				3EAF89FE0B5D42860029974F /* Logging */,
 				3EAF89FF0B5D42860029974F /* Deployment */,
+				3EAF89FE0B5D42860029974F /* Logging */,
 				3EAF8A000B5D42860029974F /* kprintf */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -5319,8 +5573,8 @@
 		3EAF8A240B5D42860029974F /* Build configuration list for PBXNativeTarget "installhdrs" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				3EAF8A250B5D42860029974F /* Logging */,
 				3EAF8A260B5D42860029974F /* Deployment */,
+				3EAF8A250B5D42860029974F /* Logging */,
 				3EAF8A270B5D42860029974F /* kprintf */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -5329,8 +5583,8 @@
 		3EAF8A3C0B5D42860029974F /* Build configuration list for PBXNativeTarget "AppleUSBOHCI" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				3EAF8A3D0B5D42860029974F /* Logging */,
 				3EAF8A3E0B5D42860029974F /* Deployment */,
+				3EAF8A3D0B5D42860029974F /* Logging */,
 				3EAF8A3F0B5D42860029974F /* kprintf */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -5339,8 +5593,8 @@
 		3EAF8A5E0B5D42860029974F /* Build configuration list for PBXNativeTarget "AppleUSBEHCI" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				3EAF8A5F0B5D42860029974F /* Logging */,
 				3EAF8A600B5D42860029974F /* Deployment */,
+				3EAF8A5F0B5D42860029974F /* Logging */,
 				3EAF8A610B5D42860029974F /* kprintf */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -5349,8 +5603,8 @@
 		3EAF8A7A0B5D42860029974F /* Build configuration list for PBXNativeTarget "AppleUSBUHCI" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				3EAF8A7B0B5D42860029974F /* Logging */,
 				3EAF8A7C0B5D42860029974F /* Deployment */,
+				3EAF8A7B0B5D42860029974F /* Logging */,
 				3EAF8A7D0B5D42860029974F /* kprintf */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -5359,8 +5613,8 @@
 		3EAF8A8C0B5D42860029974F /* Build configuration list for PBXNativeTarget "AppleUSBHub" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				3EAF8A8D0B5D42860029974F /* Logging */,
 				3EAF8A8E0B5D42860029974F /* Deployment */,
+				3EAF8A8D0B5D42860029974F /* Logging */,
 				3EAF8A8F0B5D42860029974F /* kprintf */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -5369,8 +5623,8 @@
 		3EAF8A980B5D42860029974F /* Build configuration list for PBXNativeTarget "IOUSBHIDDriverSafeBoot" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				3EAF8A990B5D42860029974F /* Logging */,
 				3EAF8A9A0B5D42860029974F /* Deployment */,
+				3EAF8A990B5D42860029974F /* Logging */,
 				3EAF8A9B0B5D42860029974F /* kprintf */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -5379,8 +5633,8 @@
 		3EAF8AA60B5D42860029974F /* Build configuration list for PBXNativeTarget "AppleUSBMergeNub" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				3EAF8AA70B5D42860029974F /* Logging */,
 				3EAF8AA80B5D42860029974F /* Deployment */,
+				3EAF8AA70B5D42860029974F /* Logging */,
 				3EAF8AA90B5D42860029974F /* kprintf */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -5389,8 +5643,8 @@
 		3EAF8AB50B5D42860029974F /* Build configuration list for PBXNativeTarget "AppleUSBOpticalMouse" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				3EAF8AB60B5D42860029974F /* Logging */,
 				3EAF8AB70B5D42860029974F /* Deployment */,
+				3EAF8AB60B5D42860029974F /* Logging */,
 				3EAF8AB80B5D42860029974F /* kprintf */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -5399,8 +5653,8 @@
 		3EAF8AC30B5D42870029974F /* Build configuration list for PBXNativeTarget "IOUSBCompositeDriver" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				3EAF8AC40B5D42870029974F /* Logging */,
 				3EAF8AC50B5D42870029974F /* Deployment */,
+				3EAF8AC40B5D42870029974F /* Logging */,
 				3EAF8AC60B5D42870029974F /* kprintf */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -5409,8 +5663,8 @@
 		3EAF8AD10B5D42870029974F /* Build configuration list for PBXNativeTarget "IOUSBHIDDriver" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				3EAF8AD20B5D42870029974F /* Logging */,
 				3EAF8AD30B5D42870029974F /* Deployment */,
+				3EAF8AD20B5D42870029974F /* Logging */,
 				3EAF8AD40B5D42870029974F /* kprintf */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -5419,8 +5673,8 @@
 		3EAF8AE20B5D42870029974F /* Build configuration list for PBXNativeTarget "IOUSBUserClient" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				3EAF8AE30B5D42870029974F /* Logging */,
 				3EAF8AE40B5D42870029974F /* Deployment */,
+				3EAF8AE30B5D42870029974F /* Logging */,
 				3EAF8AE50B5D42870029974F /* kprintf */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -5429,8 +5683,8 @@
 		3EAF8AF70B5D42870029974F /* Build configuration list for PBXNativeTarget "IOUSBLib" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				3EAF8AF80B5D42870029974F /* Logging */,
 				3EAF8AF90B5D42870029974F /* Deployment */,
+				3EAF8AF80B5D42870029974F /* Logging */,
 				3EAF8AFA0B5D42870029974F /* kprintf */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -5439,8 +5693,8 @@
 		3EAF8B010B5D42870029974F /* Build configuration list for PBXNativeTarget "UPS Test Tool" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				3EAF8B020B5D42870029974F /* Logging */,
 				3EAF8B030B5D42870029974F /* Deployment */,
+				3EAF8B020B5D42870029974F /* Logging */,
 				3EAF8B040B5D42870029974F /* kprintf */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -5449,8 +5703,8 @@
 		3EAF8B130B5D42870029974F /* Build configuration list for PBXNativeTarget "KLog" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				3EAF8B140B5D42870029974F /* Logging */,
 				3EAF8B150B5D42870029974F /* Deployment */,
+				3EAF8B140B5D42870029974F /* Logging */,
 				3EAF8B160B5D42870029974F /* kprintf */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -5459,19 +5713,29 @@
 		3EAF8B6B0B5D42870029974F /* Build configuration list for PBXNativeTarget "USB Prober" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				3EAF8B6C0B5D42870029974F /* Logging */,
 				3EAF8B6D0B5D42870029974F /* Deployment */,
+				3EAF8B6C0B5D42870029974F /* Logging */,
 				3EAF8B6E0B5D42870029974F /* kprintf */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
 		};
-		C17DEEAC0D4670D60038652C /* Build configuration list for PBXNativeTarget "IOUSBFamily_embedded" */ = {
+		3EDB31FE0DE1E48B0034C47A /* Build configuration list for PBXNativeTarget "IOUSBUserClient_embedded" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				C17DEEAD0D4670D60038652C /* Logging */,
-				C17DEEAE0D4670D60038652C /* Deployment */,
-				C17DEEAF0D4670D60038652C /* kprintf */,
+				3EDB32000DE1E48B0034C47A /* Deployment */,
+				3EDB31FF0DE1E48B0034C47A /* Logging */,
+				3EDB32010DE1E48B0034C47A /* kprintf */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		3EDB328D0DE1E4A50034C47A /* Build configuration list for PBXNativeTarget "IOUSBFamily_embedded" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3EDB328F0DE1E4A50034C47A /* Deployment */,
+				3EDB328E0DE1E4A50034C47A /* Logging */,
+				3EDB32900DE1E4A50034C47A /* kprintf */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -5479,8 +5743,8 @@
 		DDDEF9CB08886330003A7655 /* Build configuration list for PBXProject "IOUSBFamily" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				DDDEF9CC08886330003A7655 /* Logging */,
 				DDDEF9CD08886330003A7655 /* Deployment */,
+				DDDEF9CC08886330003A7655 /* Logging */,
 				3E61613109B900A600D5A55A /* kprintf */,
 			);
 			defaultConfigurationIsVisible = 0;

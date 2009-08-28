@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 2001-2006, International Business Machines
+*   Copyright (C) 2001-2007, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -27,7 +27,7 @@ U_NAMESPACE_BEGIN
  * case using <code>u_totitle()</code>.
  * @author Alan Liu
  */
-class U_I18N_API TitlecaseTransliterator : public CaseMapTransliterator {
+class TitlecaseTransliterator : public CaseMapTransliterator {
  public:
 
     /**
@@ -47,11 +47,6 @@ class U_I18N_API TitlecaseTransliterator : public CaseMapTransliterator {
     TitlecaseTransliterator(const TitlecaseTransliterator&);
 
     /**
-     * Assignment operator.
-     */
-    TitlecaseTransliterator& operator=(const TitlecaseTransliterator&);
-
-    /**
      * Transliterator API.
      * @return a copy of the object.
      */
@@ -65,9 +60,9 @@ class U_I18N_API TitlecaseTransliterator : public CaseMapTransliterator {
     /**
      * ICU "poor man's RTTI", returns a UClassID for this class.
      */
-    static UClassID U_EXPORT2 getStaticClassID();
+    U_I18N_API static UClassID U_EXPORT2 getStaticClassID();
 
- protected:
+protected:
 
     /**
      * Implements {@link Transliterator#handleTransliterate}.
@@ -80,6 +75,12 @@ class U_I18N_API TitlecaseTransliterator : public CaseMapTransliterator {
      */
     virtual void handleTransliterate(Replaceable& text, UTransPosition& offset,
                              UBool isIncremental) const;
+
+private:
+    /**
+     * Assignment operator.
+     */
+    TitlecaseTransliterator& operator=(const TitlecaseTransliterator&);
 };
 
 U_NAMESPACE_END

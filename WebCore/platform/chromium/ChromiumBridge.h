@@ -76,15 +76,21 @@ namespace WebCore {
         static void clipboardWriteImage(const NativeImageSkia*, const KURL&, const String&);
 
         // Cookies ------------------------------------------------------------
-        static void setCookies(const KURL& url, const KURL& policyURL, const String& value);
-        static String cookies(const KURL& url, const KURL& policyURL);
+        static void setCookies(const KURL& url, const KURL& firstPartyForCookies, const String& value);
+        static String cookies(const KURL& url, const KURL& firstPartyForCookies);
 
         // DNS ----------------------------------------------------------------
         static void prefetchDNS(const String& hostname);
 
+        // File ---------------------------------------------------------------
+        static bool getFileSize(const String& path, long long& result);
+
         // Font ---------------------------------------------------------------
 #if PLATFORM(WIN_OS)
         static bool ensureFontLoaded(HFONT font);
+#endif
+#if PLATFORM(LINUX)
+        static String getFontFamilyForCharacters(const UChar*, size_t numCharacters);
 #endif
 
         // Forms --------------------------------------------------------------

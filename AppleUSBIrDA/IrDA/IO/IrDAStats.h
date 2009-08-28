@@ -7,16 +7,7 @@
 #ifndef __IrDAStats__
 #define __IrDAStats__
 
-// hmm
-// These are defined in CarbonCore/MacTypes.h JRW
-
-#ifndef __MACTYPES__
-
-typedef unsigned char       UInt8;
-typedef unsigned short int  UInt16;
-typedef unsigned long int   UInt32;
-
-#endif
+#include <libkern/OSTypes.h> 
 
 enum {                              // lap connection state
     kIrDAStatusIdle,                // idle

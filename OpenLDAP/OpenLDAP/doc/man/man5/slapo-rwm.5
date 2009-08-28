@@ -1,14 +1,14 @@
 .TH SLAPO-RWM 5 "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" Copyright 1998-2006 The OpenLDAP Foundation, All Rights Reserved.
+.\" Copyright 1998-2008 The OpenLDAP Foundation, All Rights Reserved.
 .\" Copying restrictions apply.  See the COPYRIGHT file.
 .\" Copyright 2004, Pierangelo Masarati, All rights reserved. <ando@sys-net.it>
-.\" $OpenLDAP: pkg/ldap/doc/man/man5/slapo-rwm.5,v 1.8.2.6 2006/01/03 22:16:05 kurt Exp $
+.\" $OpenLDAP: pkg/ldap/doc/man/man5/slapo-rwm.5,v 1.14.2.5 2008/05/19 23:44:27 quanah Exp $
 .\"
 .\" Portions of this document should probably be moved to slapd-ldap(5)
 .\" and maybe manual pages for librewrite.
 .\"
 .SH NAME
-slapo-rwm \- rewrite/remap overlay
+slapo-rwm \- rewrite/remap overlay to slapd
 .SH SYNOPSIS
 ETCDIR/slapd.conf
 .SH DESCRIPTION
@@ -71,6 +71,24 @@ defined as using the distinguishedName syntax.
 Also, note that there are DN-related syntaxes (i.e. compound types with
 a portion that is DN-valued), like nameAndOptionalUID,
 whose values are currently not rewritten.
+.LP
+If the foreign type of an attribute mapping is not defined on the local 
+server, it might be desirable to have the attribute values normalized after
+the mapping process. Not normalizing the values can lead to wrong results, 
+when the
+.B rwm
+overlay is used together with e.g. the
+.B pcache
+overlay. This normalization can be enabled by means of the 
+.B rwm-normalize-mapped-attrs
+directive.
+.TP
+.B rwm-normalize-mapped-attrs {yes|no}
+Set this to "yes", if the
+.B rwm
+overlay should try to normalize the values of attributes that are mapped from
+an attribute type that is unknown to the local server. The default value of
+this setting is "no".
 .SH SUFFIX MASSAGING
 A basic feature of the
 .B rwm
@@ -78,6 +96,20 @@ overlay is the capability to perform suffix massaging between a virtual
 and a real naming context by means of the 
 .B rwm-suffixmassage
 directive.
+This, in conjunction with proxy backends,
+.BR slapd-ldap (5)
+and
+.BR slapd-meta (5),
+or with the relay backend, 
+.BR slapd-relay (5),
+allows to create virtual views of databases.
+A distinguishing feature of this overlay is that, when instantiated
+before any database, it can modify the DN of requests
+.I before
+database selection.
+For this reason, rules that rewrite the empty DN ("") 
+or the subschemaSubentry DN (usually "cn=subschema"),
+would prevent clients from reading the root DSE or the DSA's schema.
 .TP
 .B rwm-suffixmassage "[<virtual naming context>]" "<real naming context>"
 Shortcut to implement naming context rewriting; the trailing part
@@ -393,6 +425,65 @@ The count applies to the rewriting operation as a whole, not
 to any single rule; an optional per-rule limit can be set.
 This limit is overridden by setting specific per-rule limits
 with the `M{n}' flag.
+
+.SH "MAPS"
+Currently, few maps are builtin but additional map types may be
+registered at runtime.
+
+Supported maps are:
+.TP
+.B LDAP <URI> [bindwhen=<when>] [version=<version>] [binddn=<DN>] [credentials=<cred>]
+The
+.B LDAP
+map expands a value by performing a simple LDAP search.
+Its configuration is based on a mandatory URI, whose
+.B attrs
+portion must contain exactly one attribute
+(use
+.B entryDN
+to fetch the DN of an entry).
+If a multi-valued attribute is used, only the first value is considered.
+
+The parameter
+.B bindwhen
+determines when the connection is established.
+It can take the values
+.BR now ,
+.BR later ,
+and
+.BR everytime ,
+respectively indicating that the connection should be created at startup,
+when required, or any time it is used.
+In the former two cases, the connection is cached, while in the latter
+a fresh new one is used all times.  This is the default.
+
+The parameters
+.B binddn
+and
+.B credentials
+represent the DN and the password that is used to perform an authenticated
+simple bind before performing the search operation; if not given,
+an anonymous connection is used.
+
+The parameter
+.B version
+can be 2 or 3 to indicate the protocol version that must be used.
+The default is 3.
+
+.TP
+.B slapd <URI>
+The
+.B slapd
+map expands a value by performing an internal LDAP search.
+Its configuration is based on a mandatory URI, which must begin with
+.B "ldap:///"
+(i.e., it must be an LDAP URI and it must not specify a host).
+As with the
+LDAP map, the
+.B attrs
+portion must contain exactly one attribute, and if
+a multi-valued attribute is used, only the first value is considered.
+
 .SH "REWRITE CONFIGURATION EXAMPLES"
 .nf
 # set to `off' to disable rewriting

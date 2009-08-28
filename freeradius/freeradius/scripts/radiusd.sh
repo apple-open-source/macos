@@ -7,7 +7,7 @@
 #  You'll have to edit the directories to the correct location
 #  for your local system.
 #
-#	$Id: radiusd.sh,v 1.1 2004/01/07 17:07:41 aland Exp $
+#	$Id$
 #
 
 LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/ssl/lib:/usr/local/radius/lib

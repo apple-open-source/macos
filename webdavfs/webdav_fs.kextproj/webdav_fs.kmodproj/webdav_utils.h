@@ -32,4 +32,9 @@ enum webdavlocktype  {WEBDAV_SHARED_LOCK = 1, WEBDAV_EXCLUSIVE_LOCK = 2};
 int webdav_lock(struct webdavnode *pt, enum webdavlocktype locktype);
 void webdav_unlock(struct webdavnode *pt);
 
+// convert standard timespec to webdav_timespec_64
+void timespec_to_webdav_timespec64(struct timespec ts, struct webdav_timespec64 *wts);
+// convert webdav_timespec64 to standard timespec
+void webdav_timespec64_to_timespec(struct webdav_timespec64 wts, struct timespec *ts);
+
 #endif

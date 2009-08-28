@@ -1,33 +1,21 @@
-#serial 6
-# Check for several getcwd bugs with long paths.
+#serial 13
+# Check for several getcwd bugs with long file names.
 # If so, arrange to compile the wrapper function.
 
 # This is necessary for at least GNU libc on linux-2.4.19 and 2.4.20.
 # I've heard that this is due to a Linux kernel bug, and that it has
 # been fixed between 2.4.21-pre3 and 2.4.21-pre4.  */
 
-# Copyright (C) 2003, 2004 Free Software Foundation, Inc.
-
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2, or (at your option)
-# any later version.
-
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software Foundation,
-# Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+# This file is free software; the Free Software Foundation
+# gives unlimited permission to copy and/or distribute it,
+# with or without modifications, as long as this notice is preserved.
 
 # From Jim Meyering
 
 AC_DEFUN([gl_FUNC_GETCWD_PATH_MAX],
 [
   AC_CHECK_DECLS_ONCE(getcwd)
-  AC_CHECK_HEADERS_ONCE(fcntl.h)
   AC_REQUIRE([gl_USE_SYSTEM_EXTENSIONS])
   AC_CACHE_CHECK([whether getcwd handles long file names properly],
     gl_cv_func_getcwd_path_max,
@@ -43,9 +31,7 @@ AC_DEFUN([gl_FUNC_GETCWD_PATH_MAX],
 #include <limits.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#if HAVE_FCNTL_H
-# include <fcntl.h>
-#endif
+#include <fcntl.h>
 
 #ifndef AT_FDCWD
 # define AT_FDCWD 0
@@ -75,7 +61,7 @@ AC_DEFUN([gl_FUNC_GETCWD_PATH_MAX],
 #define BUF_SLOP 20
 
 int
-main (void)
+main ()
 {
 #ifndef PATH_MAX
   /* The Hurd doesn't define this, so getcwd can't exhibit the bug --
@@ -109,11 +95,15 @@ main (void)
       char *c = NULL;
 
       cwd_len += DIR_NAME_SIZE;
-      /* If mkdir or chdir fails, be pessimistic and consider that
-	 as a failure, too.  */
+      /* If mkdir or chdir fails, it could be that this system cannot create
+	 any file with an absolute name longer than PATH_MAX, such as cygwin.
+	 If so, leave fail as 0, because the current working directory can't
+	 be too long for getcwd if it can't even be created.  For other
+	 errors, be pessimistic and consider that as a failure, too.  */
       if (mkdir (DIR_NAME, S_IRWXU) < 0 || chdir (DIR_NAME) < 0)
 	{
-	  fail = 2;
+	  if (! (errno == ERANGE || is_ENAMETOOLONG (errno)))
+	    fail = 2;
 	  break;
 	}
 
@@ -167,13 +157,14 @@ main (void)
   {
     size_t i;
 
-    /* Unlink first, in case the chdir failed.  */
-    unlink (DIR_NAME);
+    /* Try rmdir first, in case the chdir failed.  */
+    rmdir (DIR_NAME);
     for (i = 0; i <= n_chdirs; i++)
       {
 	if (chdir ("..") < 0)
 	  break;
-	rmdir (DIR_NAME);
+	if (rmdir (DIR_NAME) != 0)
+	  break;
       }
   }
 

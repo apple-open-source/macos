@@ -1,11 +1,11 @@
 ﻿# ***************************************************************************
 # *
-# *  Copyright (C) 2004-2006, International Business Machines
+# *  Copyright (C) 2004-2008, International Business Machines
 # *  Corporation; Unicode, Inc.; and others.  All Rights Reserved.
 # *
 # ***************************************************************************
 # File: InterIndic_Tamil.txt
-# Generated from CLDR: Thu Jul 20 16:27:16 PDT 2006
+# Generated from CLDR 
 #
 \uE001>\u0B82; # FALLBACK SIGN CANDRABINDU
 \uE002>\u0B82; # SIGN ANUSVARA
@@ -107,10 +107,7 @@
 \uE063>\u0BC0; # FALLBACK VOWEL SIGN VOCALIC LL
 \uE064>'.'   ; # FALLBACK FOR DANDA
 \uE065>'.'   ; # FALLBACK FOR DOUBLE DANDA
-\uE066>\u0030; # FALLBACK DIGIT ZERO
-\uE067\uE066\uE066\uE066>௲;
-\uE067\uE066\uE066>௱;
-\uE067\uE066>௰;
+\uE066>\u0BE6; # FALLBACK DIGIT ZERO
 \uE067>௧; # DIGIT ONE
 \uE068>௨; # DIGIT TWO
 \uE069>௩; # DIGIT THREE
@@ -140,6 +137,3 @@
 \uE081>வ; # FALLBACK FOR ORIYA LETTER WA
 \uE082>;       # Devanagari Glottal Stop
 \uE083>த\u0BCD;  # Bengali Khanda-ta
-1000  >௲; # NUMBER ONE THOUSAND
-100   >௱; # NUMBER ONE HUNDRED
-10    >௰; # NUMBER TEN

@@ -2,7 +2,7 @@
  * lock-cmd.c -- LOck a working copy path in the repository.
  *
  * ====================================================================
- * Copyright (c) 2000-2004 CollabNet.  All rights reserved.
+ * Copyright (c) 2004-2007 CollabNet.  All rights reserved.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution.  The terms
@@ -26,6 +26,7 @@
 #include "svn_client.h"
 #include "svn_subst.h"
 #include "svn_path.h"
+#include "svn_error_codes.h"
 #include "svn_error.h"
 #include "svn_cmdline.h"
 #include "cl.h"
@@ -84,8 +85,9 @@ svn_cl__lock(apr_getopt_t *os,
   apr_array_header_t *targets;
   const char *comment;
 
-  SVN_ERR(svn_opt_args_to_target_array2(&targets, os,
-                                        opt_state->targets, pool));
+  SVN_ERR(svn_cl__args_to_target_array_print_reserved(&targets, os,
+                                                      opt_state->targets,
+                                                      ctx, pool));
 
   /* We only support locking files, so '.' is not valid. */
   if (! targets->nelts)
@@ -97,8 +99,5 @@ svn_cl__lock(apr_getopt_t *os,
   svn_cl__get_notifier(&ctx->notify_func2, &ctx->notify_baton2, FALSE,
                        FALSE, FALSE, pool);
 
-  SVN_ERR(svn_client_lock(targets, comment, opt_state->force,
-                          ctx, pool));
-
-  return SVN_NO_ERROR;
+  return svn_client_lock(targets, comment, opt_state->force, ctx, pool);
 }

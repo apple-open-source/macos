@@ -166,7 +166,7 @@ EventTraceCauseDesc gTraceEvents[] = {
 };
 
 
-#define XTRACE(x, y, z) IrDALogAdd ( x, y, ((int)z & 0xffff), gTraceEvents, true)
+#define XTRACE(x, y, z) IrDALogAdd ( x, y, ((uintptr_t)z & 0xffff), gTraceEvents, true)
 #else
 #define XTRACE(x, y, z) ((void)0)
 #endif
@@ -249,7 +249,7 @@ void AllocateEventLog( UInt32 size )
 //  g.evLogFlag  = 'step';      // stop at each ELG
 //  g.evLogFlag  = 0x0333;      // any nonzero - don't wrap - stop logging at buffer end
 
-    IOLog( "AppleUSBIrDA: AllocateEventLog - &USBglobals=%8x buffer=%8x", (unsigned int)&g, (unsigned int)g.evLogBuf );
+    IOLog( "AppleUSBIrDA: AllocateEventLog - &USBglobals=%p buffer=%p", &g, (uintptr_t)g.evLogBuf );
 
     return;
     
@@ -336,15 +336,15 @@ void DEVLogData(UInt8 Dir, UInt32 Count, char *buf)
     
     if ( Dir == kUSBIn )
     {
-	IOLog( "AppleUSBIrDA: USBLogData - Received, size = %8lx\n", Count );
+	IOLog( "AppleUSBIrDA: USBLogData - Received, size = %8lx\n", (long unsigned int)Count );
     } else {
 	if ( Dir == kUSBOut )
 	{
-	    IOLog( "AppleUSBIrDA: USBLogData - Write, size = %8lx\n", Count );
+	    IOLog( "AppleUSBIrDA: USBLogData - Write, size = %8lx\n", (long unsigned int)Count );
 	} else {
 	    if ( Dir == kUSBAnyDirn )
 	    {
-		IOLog( "AppleUSBIrDA: USBLogData - Other, size = %8lx\n", Count );
+		IOLog( "AppleUSBIrDA: USBLogData - Other, size = %8lx\n", (long unsigned int)Count );
 	    }
 	}           
     }
@@ -373,8 +373,7 @@ void DEVLogData(UInt8 Dir, UInt32 Count, char *buf)
 	    }
 	}
 	LocBuf[(wlen + Asciistart) + 1] = 0x00;
-	IOLog( LocBuf );
-	IOLog( "\n" );
+	IOLog( "%s\n", LocBuf );
     } else {
 	IOLog( "AppleUSBIrDA: USBLogData - No data, Count = 0\n" );
     }
@@ -942,7 +941,7 @@ USBIrDAQoS* AppleUSBIrDADriver::GetIrDAQoS( void )
 
 void AppleUSBIrDADriver::GetIrDAStatus( IrDAStatus *status )
 {
-    int review_get_irda_status;     // check w/irda on/off logic
+    //int review_get_irda_status;     // check w/irda on/off logic
     
     ELG( 0, 0, 'GIrS', "GetIrDAStatus" );
     XTRACE(kLogGetIrDAStatus, 0, fIrDAOn);
@@ -1058,7 +1057,7 @@ bool AppleUSBIrDADriver::init( OSDictionary *dict )
     bool    rc;
     
     rc = super::init( dict );
-    IOLogIt( (UInt32)IrDALogGetInfo(), rc, 'init', "init" );
+    IOLogIt( (uintptr_t)IrDALogGetInfo(), rc, 'init', "init" );
     XTRACE(kLogInit, 0, rc);
     return rc;
     
@@ -1082,7 +1081,7 @@ IOService* AppleUSBIrDADriver::probe( IOService *provider, SInt32 *score )
 
     res = super::probe( provider, score );
     IOLogIt( provider, res, 'prob', "probe" );
-    XTRACE(kLogProbe, (int)provider >> 16, provider);
+    XTRACE(kLogProbe, 0, provider);
     return res;
     
 }/* end probe */
@@ -1106,7 +1105,7 @@ bool AppleUSBIrDADriver::start( IOService *provider )
     UInt8   configs;    // number of device configurations
     bool    ok;
 	
-    XTRACE(kLogStart, (int)provider >> 16, provider);
+    XTRACE(kLogStart, 0, provider);
 
     g.evLogBufp = NULL;
 
@@ -1134,6 +1133,10 @@ bool AppleUSBIrDADriver::start( IOService *provider )
     fReadActive = false;
     
     fWriteActive = false;
+    
+    fGate = IOCommandGate::commandGate(this, 0);    // create a new command gate for PM
+    require(fGate, Fail);
+    getWorkLoop()->addEventSource(fGate);           // add it to the usb workloop
 	
 #if USE_ELG
     AllocateEventLog( kEvLogSize );
@@ -1201,6 +1204,9 @@ bool AppleUSBIrDADriver::initForPM(IOService * provider)
 {
     XTRACE(kLogInitForPM, 0, 0);
     
+    fPowerThreadCall = thread_call_allocate(handleSetPowerState, (thread_call_param_t) this );
+    require(fPowerThreadCall != NULL, Fail);
+    
     fPowerState = kIrDAPowerOnState;        // init our power state to be 'on'
     PMinit();                               // init power manager instance variables
     provider->joinPMtree(this);             // add us to the power management tree
@@ -1224,26 +1230,73 @@ unsigned long AppleUSBIrDADriver::initialPowerStateForDomainState ( IOPMPowerFla
 }
 
 //
-// request to turn device on or off
+// request to turn device on or off.  since PM doesn't call us on our workloop, we'll
+// get it going on another thead and wait for it.
 //
 IOReturn AppleUSBIrDADriver::setPowerState(unsigned long powerStateOrdinal, IOService * whatDevice)
 {
-    XTRACE(kLogSetPowerState, 0, powerStateOrdinal);
+    //UInt32 counter = 0;
     
-    require(powerStateOrdinal == kIrDAPowerOffState || powerStateOrdinal == kIrDAPowerOnState, Fail);
-
-    if (powerStateOrdinal == fPowerState)
-	return IOPMAckImplied;
-
-    fPowerState = powerStateOrdinal;
-    CheckIrDAState();
+    if (powerStateOrdinal == fPowerState) return kIOPMAckImplied;
     
-    return IOPMNoErr;
-
-Fail:
-    return IOPMNoSuchState;
+    if (fPowerThreadCall) {
+	bool ok;
+	
+	retain();				// paranoia is your friend, make sure we're not freed
+	
+	fWaitForGatedCmd = true;
+	ok = thread_call_enter1(fPowerThreadCall, (void *)powerStateOrdinal);     // invoke handleSetPowerState
+	
+	while (fWaitForGatedCmd) {		// wait for it now
+	    IOSleep(1);				// cycles to gated thread
+	    //counter++;
+	}
+	
+        if (ok) {                               // if thread was already pending ...
+            release();                          // don't need/want the retain, so undo it
+        }					// normally released below
+    }
+    //IOLog("irda setPowerState %d, waited %d ms\n", (int)powerStateOrdinal, (int)counter);
+    return kIOPMAckImplied;
 }
 
+// handleSetPowerState()
+//
+// param0 - the object
+// param1 - new power state ordinal
+//static
+void AppleUSBIrDADriver::handleSetPowerState(thread_call_param_t param0, thread_call_param_t param1 )
+{
+    AppleUSBIrDADriver *self = OSDynamicCast(AppleUSBIrDADriver, (const OSMetaClassBase *)param0);
+    uintptr_t powerStateOrdinal = (uintptr_t)param1;
+    
+    if (self && self->fGate) {
+	self->fGate->runAction(&(self->setPowerStateGated), (void *)powerStateOrdinal, (void *)0, (void *)0, (void *)0);
+	self->release();		// offset the retain in setPowerState()
+    }
+}
+
+// could cast Action directly to setPowerStateGatedPrivate, but not w/out a compiler warning
+// static
+IOReturn AppleUSBIrDADriver::setPowerStateGated(OSObject *owner, void *arg0, void *arg1, void *arg2, void *arg3)
+{
+    AppleUSBIrDADriver *self = OSDynamicCast(AppleUSBIrDADriver, (const OSMetaClassBase *)owner);
+    uintptr_t powerStateOrdinal = (uintptr_t)arg0;
+    
+    if (self) return self->setPowerStateGatedPrivate(powerStateOrdinal);
+    else return -1;
+}
+
+//
+// setPowerStateGatedPrivate - do the work of setPowerState, now that we are on the workloop
+//
+IOReturn AppleUSBIrDADriver::setPowerStateGatedPrivate(uintptr_t powerStateOrdinal)
+{
+    fPowerState = powerStateOrdinal;
+    CheckIrDAState();
+    fWaitForGatedCmd = false;	    // release caller (power thread)
+    return kIOReturnSuccess;
+}
 
 
 /****************************************************************************************************/
@@ -1486,7 +1539,20 @@ void AppleUSBIrDADriver::free()
 	fIrDA->release();   // we don't do delete's in the kernal I suppose ...
 	fIrDA=NULL;
     }
-	    
+    
+    if (fPowerThreadCall) {
+	thread_call_free(fPowerThreadCall);
+	fPowerThreadCall = NULL;
+    }
+    
+    if (fGate) {
+	IOWorkLoop *work =  getWorkLoop();
+	if (work) work->removeEventSource(fGate);
+	fGate->release();
+	fGate = NULL;
+    }
+    
+    
 #if USE_ELG
     if ( g.evLogBuf )
 	IOFree( g.evLogBuf, kEvLogSize );
@@ -1513,7 +1579,7 @@ void AppleUSBIrDADriver::free()
 
 void AppleUSBIrDADriver::stop( IOService *provider )
 {
-    XTRACE(kLogStop, (int)provider >> 16, provider);
+    XTRACE(kLogStop, 0, provider);
     ELG( 0, 0, 'stop', "stop" );
     
     fUSBStarted = false;        // reset usb start/stop flag for CheckIrDAState
@@ -1875,7 +1941,7 @@ Fail:
 //
 /****************************************************************************************************/
 
-bool AppleUSBIrDADriver::createSuffix( unsigned char *sufKey )
+bool AppleUSBIrDADriver::createSuffix( unsigned char *sufKey, int sufMaxLen )
 {
     
     IOReturn                rc;
@@ -1899,7 +1965,7 @@ bool AppleUSBIrDADriver::createSuffix( unsigned char *sufKey )
 	{
 	    if ( (strlen((char *)&serBuf) < 9) && (strlen((char *)&serBuf) > 0) )
 	    {
-		strcpy( (char *)sufKey, (const char *)&serBuf);
+		strlcpy( (char *)sufKey, (const char *)&serBuf, sufMaxLen);
 		keyOK = true;
 	    }           
 	} else {
@@ -1951,8 +2017,7 @@ bool AppleUSBIrDADriver::createSerialStream()
 {
     UInt8           indx;
     IOReturn            rc;
-    unsigned char       rname[10];
-    const char          *suffix = (const char *)&rname;
+    unsigned char suffix[10];
     
     ELG( 0, fNub, '=Nub', "createSerialStream" );
     XTRACE(kLogCreateSerialStream, 0, 0);
@@ -1984,9 +2049,9 @@ bool AppleUSBIrDADriver::createSerialStream()
     
 	// Create suffix key and set it
     
-	if ( createSuffix( (unsigned char *)suffix ) )
+	if ( createSuffix(suffix, sizeof(suffix) ) )
 	{       
-	    fNub->setProperty( kIOTTYSuffixKey, suffix );
+	    fNub->setProperty( kIOTTYSuffixKey, (const char *)suffix );
 	}
 
 	
@@ -2000,7 +2065,7 @@ bool AppleUSBIrDADriver::createSerialStream()
 	    {
 		if ( strlen((char *)fProductName) == 0 )        // believe it or not this sometimes happens (null string with an index defined???)
 		{
-		    strcpy( (char *)fProductName, defaultName);
+		    strlcpy( (char *)fProductName, defaultName, sizeof(fProductName));
 		}
 		fNub->setProperty( (const char *)propertyTag, (const char *)fProductName );
 	    }
@@ -2128,8 +2193,8 @@ AppleUSBIrDADriver::createNub(void)
     require(ret == true, Failed);
     check(fNub->getRetainCount() == 2);     // testing
     
-    XTRACE(kLogNewNub, (int)fNub >> 16, fNub);
-    XTRACE(kLogNewPort, (int)fPort >> 16, fPort);
+    XTRACE(kLogNewNub, 0, fNub);
+    XTRACE(kLogNewPort, 0, fPort);
     
     // now make the nub to act as a communication point for user-client
     if (fUserClientNub == NULL)
@@ -2194,7 +2259,7 @@ IOReturn AppleUSBIrDADriver::acquirePort( bool sleep, void *refCon )
     XTRACE(kLogAcquirePort, 0, 0);
     
     if ( fTerminate ) {
-	int review_fTerminate;
+	//int review_fTerminate;
 	//return kIOReturnOffline;
     }
     SetStructureDefaults( port, FALSE );    /* Initialize all the structures */
@@ -3402,7 +3467,7 @@ IOReturn AppleUSBIrDADriver::message( UInt32 type, IOService *provider,  void *a
 		if ( !startIrDA() )
 		{
 		    ELG( 0, 0, 'msc-', "message - startIrDA failed" );
-		
+#if 0
 		    KUNCUserNotificationDisplayNotice(
 		    0,      // Timeout in seconds
 		    0,      // Flags (for later usage)
@@ -3412,6 +3477,7 @@ IOReturn AppleUSBIrDADriver::message( UInt32 type, IOService *provider,  void *a
 		    "USB IrDA Problem Notice",      // the header
 		    "The USB IrDA Pod has experienced difficulties. To continue either replug the device (if external) or restart the computer",
 		    "OK");
+#endif
 		
 		    fIrDAOn = false;        // We're basically sol at this point
 		    fTerminate = true;  

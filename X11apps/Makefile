@@ -10,12 +10,9 @@ INSTALL = /usr/bin/install -c
 install::
 	@echo "Building $(Project)..."
 	./build install
-# next two lines contain workaround for 5327952
-	gcc $(RC_CFLAGS) -I/usr/X11/include -L/usr/X11/lib -o $(DSTROOT)/usr/X11/bin/glxinfo glxinfo.c -lX11 -lGL -dylib_file /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib:/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib
-	gcc $(RC_CFLAGS) -I/usr/X11/include -L/usr/X11/lib -o $(DSTROOT)/usr/X11/bin/glxgears glxgears.c -lX11 -lGL -dylib_file /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib:/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib
 	$(MKDIR) $(OSV)
 	$(INSTALL) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist
-	rm $(DSTROOT)/usr/X11/bin/uxterm $(DSTROOT)/usr/X11/bin/xauth_switch_to_sun-des-1
+	/Developer/Makefiles/bin/compress-man-pages.pl -d $(DSTROOT)/usr/X11/share/man/ man1 man2 man3 man4 man5 man6 man7 man8 man9
 
 clean::
 	@echo "Cleaning $(Project)..."
@@ -31,3 +28,4 @@ installsrc:
 
 installhdrs:
 	echo "make: installhdrs"
+

@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 2001-2006, International Business Machines
+*   Copyright (C) 2001-2007, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -23,7 +23,7 @@ U_NAMESPACE_BEGIN
  * It generates the Perl syntax \N{name}.
  * @author Alan Liu
  */
-class U_I18N_API UnicodeNameTransliterator : public Transliterator {
+class UnicodeNameTransliterator : public Transliterator {
 
  public:
 
@@ -44,11 +44,6 @@ class U_I18N_API UnicodeNameTransliterator : public Transliterator {
     UnicodeNameTransliterator(const UnicodeNameTransliterator&);
 
     /**
-     * Assignment operator.
-     */
-    UnicodeNameTransliterator& operator=(const UnicodeNameTransliterator&);
-
-    /**
      * Transliterator API.
      */
     virtual Transliterator* clone(void) const;
@@ -61,7 +56,7 @@ class U_I18N_API UnicodeNameTransliterator : public Transliterator {
     /**
      * ICU "poor man's RTTI", returns a UClassID for this class.
      */
-    static UClassID U_EXPORT2 getStaticClassID();
+    U_I18N_API static UClassID U_EXPORT2 getStaticClassID();
 
  protected:
 
@@ -76,6 +71,12 @@ class U_I18N_API UnicodeNameTransliterator : public Transliterator {
      */
     virtual void handleTransliterate(Replaceable& text, UTransPosition& offset,
                                      UBool isIncremental) const;
+
+private:
+    /**
+     * Assignment operator.
+     */
+    UnicodeNameTransliterator& operator=(const UnicodeNameTransliterator&);
 
 };
 

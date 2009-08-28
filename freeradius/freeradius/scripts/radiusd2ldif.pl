@@ -56,11 +56,11 @@
 #
 #    You should have received a copy of the GNU General Public License
 #    along with this program; if not, write to the Free Software
-#    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
 # -----------------------------------------------------------------------
 
 
-# TODO: 
+# TODO:
 # currently does not encrypt passwords (takes them from outside file)
 
 # Command line options
@@ -72,7 +72,7 @@ use Getopt::Std;
 getopts('dpmf:');
 $debug = $opt_d;
 
-%passwords; 
+%passwords;
 # This might or might not be necessary depending if your LDAP server
 # when importing from ldif introduces crypted passwords in the LDAP db
 # (not necessary for Netscape's Directory Server)
@@ -144,14 +144,14 @@ $addgroup = $addgroup."\ncn: $groupname";
 #        { "radiusLoginLATPort", "Login-LAT-Port" },
 # You can change to the mappings below like this
 # cat radius2ldif.pl | grep ^# | \
-# perl -ne 'if ( /\{ \"(.*?)\", \"(.*?)\" \}/ ) \ 
+# perl -ne 'if ( /\{ \"(.*?)\", \"(.*?)\" \}/ ) \
 # { $attr=lc $2; print "\$mapping{\"$attr\"} = \"$1\";\n" ; } '
 
 
 # Warning: sometimes password must be encrypted before sent to the LDAP
 # Which Perl libraries are available? Only way I find is through
-# Netscape's NDS getpwenc. 
-# However NDS does the cyphering even if sending plain passwords 
+# Netscape's NDS getpwenc.
+# However NDS does the cyphering even if sending plain passwords
 # (do all LDAP's do this?)
 # TODO: test with OpenLDAP
 $mapping{'password'} = "userpassword";
@@ -211,7 +211,7 @@ while ($line=<STDIN>) {
 	}
 	# Start line is hardcoded must be uid followed by password
 	# this could be changed to use any other parameter however
-	if ( $line =~ /^(\w+)\s*\t*(?:User-)?Password=(\w+)/ ) { 
+	if ( $line =~ /^(\w+)\s*\t*(?:User-)?Password=(\w+)/ ) {
 		$uid = $1;
 		$password= $2;
 		$password = $passwords{$password} if $opt_f;
@@ -220,7 +220,7 @@ while ($line=<STDIN>) {
 		$dn=$predn.$uid.$basedn; # Start of LDIF entry
 		$header = "$dn\n";
 		push @userlist, $dn;
-		if ( $opt_m ) { 
+		if ( $opt_m ) {
 			$header= $header."changetype: modify\n";
 		} else {
 			for (my $i=0; $i < $#objectClass+1; $i++) {
@@ -255,7 +255,7 @@ while ($line=<STDIN>) {
 				}
 		} # of if line
 	} # of if startentry
-		
+
 } # of while
 
 

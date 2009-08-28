@@ -22,7 +22,7 @@
  */
 #ifndef lint
 static const char rcsid[] _U_ =
-    "@(#) $Header: /tcpdump/master/libpcap/optimize.c,v 1.85 2005/04/04 08:42:18 guy Exp $ (LBL)";
+    "@(#) $Header: /tcpdump/master/libpcap/optimize.c,v 1.90.2.1 2008/01/02 04:22:16 guy Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -51,6 +51,10 @@ extern int dflag;
 #if defined(MSDOS) && !defined(__DJGPP__)
 extern int _w32_ffs (int mask);
 #define ffs _w32_ffs
+#endif
+
+#if defined(WIN32) && defined (_MSC_VER)
+int ffs(int mask);
 #endif
 
 /*
@@ -624,7 +628,7 @@ fold_op(s, v0, v1)
 	struct stmt *s;
 	int v0, v1;
 {
-	bpf_int32 a, b;
+	bpf_u_int32 a, b;
 
 	a = vmap[v0].const_val;
 	b = vmap[v1].const_val;
@@ -904,6 +908,17 @@ opt_peep(b)
 			JT(b) = JF(b);
 		if (b->s.k == 0xffffffff)
 			JF(b) = JT(b);
+	}
+	/*
+	 * If we're comparing against the index register, and the index
+	 * register is a known constant, we can just compare against that
+	 * constant.
+	 */
+	val = b->val[X_ATOM];
+	if (vmap[val].is_const && BPF_SRC(b->s.code) == BPF_X) {
+		bpf_int32 v = vmap[val].const_val;
+		b->s.code &= ~BPF_X;
+		b->s.k = v;
 	}
 	/*
 	 * If the accumulator is a known constant, we can compute the
@@ -1823,9 +1838,9 @@ intern_blocks(root)
 {
 	struct block *p;
 	int i, j;
-	int done;
+	int done1; /* don't shadow global */
  top:
-	done = 1;
+	done1 = 1;
 	for (i = 0; i < n_blocks; ++i)
 		blocks[i]->link = 0;
 
@@ -1849,15 +1864,15 @@ intern_blocks(root)
 		if (JT(p) == 0)
 			continue;
 		if (JT(p)->link) {
-			done = 0;
+			done1 = 0;
 			JT(p) = JT(p)->link;
 		}
 		if (JF(p)->link) {
-			done = 0;
+			done1 = 0;
 			JF(p) = JF(p)->link;
 		}
 	}
-	if (!done)
+	if (!done1)
 		goto top;
 }
 
@@ -1972,7 +1987,7 @@ opt_init(root)
 	 */
 	unMarkAll();
 	n = count_blocks(root);
-	blocks = (struct block **)malloc(n * sizeof(*blocks));
+	blocks = (struct block **)calloc(n, sizeof(*blocks));
 	if (blocks == NULL)
 		bpf_error("malloc");
 	unMarkAll();
@@ -1980,14 +1995,14 @@ opt_init(root)
 	number_blks_r(root);
 
 	n_edges = 2 * n_blocks;
-	edges = (struct edge **)malloc(n_edges * sizeof(*edges));
+	edges = (struct edge **)calloc(n_edges, sizeof(*edges));
 	if (edges == NULL)
 		bpf_error("malloc");
 
 	/*
 	 * The number of levels is bounded by the number of nodes.
 	 */
-	levels = (struct block **)malloc(n_blocks * sizeof(*levels));
+	levels = (struct block **)calloc(n_blocks, sizeof(*levels));
 	if (levels == NULL)
 		bpf_error("malloc");
 
@@ -2034,8 +2049,8 @@ opt_init(root)
 	 * we'll need.
 	 */
 	maxval = 3 * max_stmts;
-	vmap = (struct vmapinfo *)malloc(maxval * sizeof(*vmap));
-	vnode_base = (struct valnode *)malloc(maxval * sizeof(*vnode_base));
+	vmap = (struct vmapinfo *)calloc(maxval, sizeof(*vmap));
+	vnode_base = (struct valnode *)calloc(maxval, sizeof(*vnode_base));
 	if (vmap == NULL || vnode_base == NULL)
 		bpf_error("malloc");
 }
@@ -2124,7 +2139,7 @@ convert_code_r(p)
 	    {
 		int i;
 		int jt, jf;
-		char *ljerr = "%s for block-local relative jump: off=%d";
+		const char *ljerr = "%s for block-local relative jump: off=%d";
 
 #if 0
 		printf("code=%x off=%d %x %x\n", src->s.code,
@@ -2216,6 +2231,20 @@ filled:
 /*
  * Convert flowgraph intermediate representation to the
  * BPF array representation.  Set *lenp to the number of instructions.
+ *
+ * This routine does *NOT* leak the memory pointed to by fp.  It *must
+ * not* do free(fp) before returning fp; doing so would make no sense,
+ * as the BPF array pointed to by the return value of icode_to_fcode()
+ * must be valid - it's being returned for use in a bpf_program structure.
+ *
+ * If it appears that icode_to_fcode() is leaking, the problem is that
+ * the program using pcap_compile() is failing to free the memory in
+ * the BPF program when it's done - the leak is in the program, not in
+ * the routine that happens to be allocating the memory.  (By analogy, if
+ * a program calls fopen() without ever calling fclose() on the FILE *,
+ * it will leak the FILE structure; the leak is not in fopen(), it's in
+ * the program.)  Change the program to use pcap_freecode() when it's
+ * done with the filter program.  See the pcap man page.
  */
 struct bpf_insn *
 icode_to_fcode(root, lenp)
@@ -2261,6 +2290,15 @@ int
 install_bpf_program(pcap_t *p, struct bpf_program *fp)
 {
 	size_t prog_size;
+
+	/*
+	 * Validate the program.
+	 */
+	if (!bpf_validate(fp->bf_insns, fp->bf_len)) {
+		snprintf(p->errbuf, sizeof(p->errbuf),
+			"BPF program is not valid");
+		return (-1);
+	}
 
 	/*
 	 * Free up any already installed program.

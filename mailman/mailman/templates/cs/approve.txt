@@ -13,5 +13,3 @@ O rozhodnutí správce budete informováni elektronickou po¹tou.
 Jakékoliv dal¹í dotazy smìøujte, prosím, na správce konference:
 
     %(adminaddr)s
-
-

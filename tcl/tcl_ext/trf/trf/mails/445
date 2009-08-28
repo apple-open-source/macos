@@ -1,0 +1,47 @@
+Return-Path: bluepeak.westend.com!popeye
+Return-Path: <popeye@bluepeak.westend.com>
+Received: from popeye.bluepeak.westend.com by bluepeak  with smtp
+	(Smail3.2 #1) id m10X9b4-00027XC; Tue, 13 Apr 1999 22:15:50 +0200 (MEST)
+Received: from genesis for a.kupries
+ with Cubic Circle's cucipop (v1.10 1996/09/06) Tue Apr 13 22:14:31 1999
+X-From_: matt@novadigm.com  Tue Apr 13 20:40:52 1999
+Received: from mail_srv.novadigm.com (novadigm.com [208.244.225.99])
+	by genesis.westend.com (8.8.6/8.8.6) with ESMTP id UAA28420
+	for <a.kupries@westend.com>; Tue, 13 Apr 1999 20:40:50 +0200 (MET DST)
+Received: from LAPCAT ([208.244.230.179]) by mail_srv.novadigm.com with SMTP (Microsoft Exchange Internet Mail Service Version 5.5.2448.0)
+	id 26HTP2WX; Tue, 13 Apr 1999 14:34:54 -0400
+Message-ID: <006e01be85dc$d46a53f0$b3e6f4d0@lapcat.novadigm.com>
+Reply-To: "Matt Newman" <matt@novadigm.com>
+From: "Matt Newman" <matt@novadigm.com>
+To: "Andreas Kupries" <a.kupries@westend.com>
+Subject: Re: Server-side problem with ReplaceChannel 
+Date: Tue, 13 Apr 1999 14:38:27 -0400
+MIME-Version: 1.0
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+X-Priority: 3
+X-MSMail-Priority: Normal
+X-Mailer: Microsoft Outlook Express 4.72.2106.4
+X-MimeOLE: Produced By Microsoft MimeOLE V4.72.2106.4
+
+>
+>No, never. And thinking more, it seems that I never used stacked
+>channels in combination with fileevent and socket acceptors. There is
+>definitely room for improvement.
+
+But it s the only way to really live life to the full.......
+
+>Hm. Hm. I wonder about the effect of not decrementing the
+>refCount. This should prevent the problem and I don't see that this
+>would introduce new ones. Yet.
+
+I hacked tclIO.c to not decr/incr the refCount were you were previously and
+instead decr the refcount prior to called Tcl_Close (in the code that passes
+the Tcl_Close down thu the stack.
+
+This seemed to work fine.
+
+Still struggling with SSL - seems overly complex to me.
+
+Matt

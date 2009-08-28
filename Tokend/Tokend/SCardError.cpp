@@ -202,7 +202,11 @@ SW2	Meaning
 //
 SCardError::SCardError(uint16_t sw) : statusWord(sw)
 {
+#if MAX_OS_X_VERSION_MIN_REQUIRED <= MAX_OS_X_VERSION_10_5
 	IFDEBUG(debugDiagnose(this));
+#else
+	SECURITY_EXCEPTION_THROW_OTHER(this, sw, (char *)"SCard");
+#endif
 }
 
 const char *SCardError::what() const throw ()
@@ -300,11 +304,15 @@ void SCardError::throwMe(uint16_t sw)
 
 #if !defined(NDEBUG)
 
+#if MAX_OS_X_VERSION_MIN_REQUIRED <= MAX_OS_X_VERSION_10_5
+
 void SCardError::debugDiagnose(const void *id) const
 {
     secdebug("exception", "%p Error %s (%04hX)",
              id, errorstr(statusWord), statusWord);
 }
+
+#endif // MAX_OS_X_VERSION_MIN_REQUIRED <= MAX_OS_X_VERSION_10_5
 
 const char *SCardError::errorstr(uint16_t sw)
 {

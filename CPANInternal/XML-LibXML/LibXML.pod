@@ -4,23 +4,21 @@ XML::LibXML - Perl Binding for libxml2
 
 =head1 SYNOPSIS
 
-  $Version_String = XML::LibXML::LIBXML_DOTTED_VERSION;
-  $Version_ID = XML::LibXML::LIBXML_VERSION;
-  $libxmlnode = XML::LibXML->import_GDOME( $node, $deep );
-  $gdomenode = XML::LibXML->export_GDOME( $node, $deep );
-
-
-=head1 DESCRIPTION
-
-
-=head1 SYNOPSIS
-
   use XML::LibXML;
   my $parser = XML::LibXML->new();
   
   my $doc = $parser->parse_string(<<'EOT');
   <some-xml/>
   EOT
+
+  $Version_String = XML::LibXML::LIBXML_DOTTED_VERSION;
+  $Version_ID = XML::LibXML::LIBXML_VERSION;
+  $DLL_Version = XML::LibXML::LIBXML_RUNTIME_VERSION;
+  $libxmlnode = XML::LibXML->import_GDOME( $node, $deep );
+  $gdomenode = XML::LibXML->export_GDOME( $node, $deep );
+
+
+=head1 DESCRIPTION
 
 
 =head1 DESCRIPTION
@@ -47,6 +45,11 @@ XML::LibXML DOM Implementation
 =item B<XML::LibXML::SAX>
 
 XML::LibXML direct SAX parser
+
+
+=item B<XML::LibXML::Reader>
+
+Reading XML with a pull-parser
 
 
 =item B<XML::LibXML::Document>
@@ -109,6 +112,16 @@ XML::LibXML DTD Support
 XML::LibXML frontend for RelaxNG schema validation
 
 
+=item B<XML::LibXML::Schema>
+
+XML::LibXML frontend for W3C Schema schema validation
+
+
+=item B<XML::LibXML::XPathContext>
+
+API for evaluating XPath expressions
+
+
 =item B<XML::LibXMLguts>
 
 Internal of the Perl Layer for libxml2 (not done yet)
@@ -120,12 +133,13 @@ Internal of the Perl Layer for libxml2 (not done yet)
 
 =head1 VERSION INFORMATION
 
-Sometimes it is usefull to figure out, for which version XML::LibXML was
+Sometimes it is useful to figure out, for which version XML::LibXML was
 compiled for. In most cases this is for debugging or to check if a given
-installation meets all functionality for the package. The functiones
+installation meets all functionality for the package. The functions
 XML::LibXML::LIBXML_DOTTED_VERSION and XML::LibXML::LIBXML_VERSION provide this
 version information. Both functions simply pass through the values of the
-similar named macros of libxml2.
+similar named macros of libxml2. Similarly, XML::LibXML::LIBXML_RUNTIME_VERSION
+returns the version of the (usually dynamically) linked libxml2.
 
 =over 4
 
@@ -133,7 +147,7 @@ similar named macros of libxml2.
 
   $Version_String = XML::LibXML::LIBXML_DOTTED_VERSION;
 
-Returns the Versionstring of the libxml2 version XML::LibXML was compiled for.
+Returns the version string of the libxml2 version XML::LibXML was compiled for.
 This will be "2.6.2" for "libxml2 2.6.2".
 
 
@@ -145,6 +159,18 @@ Returns the version id of the libxml2 version XML::LibXML was compiled for.
 This will be "20602" for "libxml2 2.6.2". Don't mix this version id with
 $XML::LibXML::VERSION. The latter contains the version of XML::LibXML itself
 while the first contains the version of libxml2 XML::LibXML was compiled for.
+
+
+=item B<XML::LibXML::LIBXML_RUNTIME_VERSION>
+
+  $DLL_Version = XML::LibXML::LIBXML_RUNTIME_VERSION;
+
+Returns a version string of the libxml2 which is (usually dynamically) linked
+by XML::LibXML. This will be "20602" for libxml2 released as "2.6.2" and
+something like "20602-CVS2032" for a CVS build of libxml2.
+
+XML::LibXML issues a warning if the version of libxml2 dynamically linked to it
+is less than the version of libxml2 which it was compiled against.
 
 
 
@@ -173,11 +199,6 @@ Common functions for XML::LibXML related Classes
 XML::LibXML Implementation of the DOM Traversal Specification
 
 
-=item B<XML::LibXML::XPathContext>
-
-Advanced XPath processing using libxml2 and XML::LibXML
-
-
 
 =back
 
@@ -190,7 +211,7 @@ Although both modules make use of libxml2's XML capabilities, the DOM
 implementation of both modules are not compatible. But still it is possible to
 exchange nodes from one DOM to the other. The concept of this exchange is
 pretty similar to the function cloneNode(): The particular node is copied on
-the lowlevel to the opposite DOM implementation.
+the low-level to the opposite DOM implementation.
 
 Since the DOM implementations cannot coexist within one document, one is forced
 to copy each node that should be used. Because you are always keeping two nodes
@@ -203,9 +224,9 @@ and a flag for recursive import. The flag works as in cloneNode().
 The two functions allow to export and import XML::GDOME nodes explicitly,
 however, XML::LibXML allows also the transparent import of XML::GDOME nodes in
 functions such as appendChild(), insertAfter() and so on. While native nodes
-are automaticly adopted in most functions XML::GDOME nodes are always cloned in
-advance. Thus if the original node is modified after the operation, the node in
-the XML::LibXML document will not have this information.
+are automatically adopted in most functions XML::GDOME nodes are always cloned
+in advance. Thus if the original node is modified after the operation, the node
+in the XML::LibXML document will not have this information.
 
 =over 4
 
@@ -226,16 +247,31 @@ Allows to clone an XML::LibXML node into a XML::GDOME node.
 
 =back
 
+
+=head1 CONTACTS
+
+For bug reports, please use the CPAN request tracker on
+http://rt.cpan.org/NoAuth/Bugs.html?Dist=XML-LibXML
+
+For suggestions etc., and other issues related to XML::LibXML you may use the
+perl XML mailing list (perl-xml@listserv.ActiveState.com), where most
+XML-related Perl modules are discussed. In case of problems you should check
+the archives of that list first. Many problems are already discussed there. You
+can find the list's archives and subscription options at
+http://aspn.activestate.com/ASPN/Mail/Browse/Threaded/perl-xml.
+
 =head1 AUTHORS
 
 Matt Sergeant, 
 Christian Glahn, 
+Petr Pajas, 
+
 =head1 VERSION
 
-1.58
+1.64
 
 =head1 COPYRIGHT
 
-2001-2004, AxKit.com Ltd; 2002-2004 Christian Glahn, All rights reserved.
+2001-2007, AxKit.com Ltd; 2002-2006 Christian Glahn; 2006-2007 Petr Pajas, All rights reserved.
 
 =cut

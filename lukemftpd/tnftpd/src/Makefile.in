@@ -1,5 +1,13 @@
-# $Id: Makefile.in,v 1.3 2003/12/20 00:13:44 grant Exp $
+#	$NetBSD: Makefile.in,v 1.8 2008/09/27 04:56:56 lukem Exp $
 #
+
+PROG	= tnftpd@EXEEXT@
+SRCS	= cmds.c conf.c ftpd.c ftpcmd.c popen.c @LSOBJS@
+# removed: logutmp.o logwtmp.o
+
+MAN	= ftpd.conf.man ftpusers.man tnftpd.man
+CAT	= ${MAN:.man=.cat}
+
 
 srcdir	= @srcdir@
 VPATH	= @srcdir@
@@ -8,25 +16,40 @@ SHELL	= /bin/sh
 prefix	= @prefix@
 exec_prefix = @exec_prefix@
 bindir	= @bindir@
+datadir	= @datadir@
+datarootdir = @datarootdir@
 mandir	= @mandir@
 sbindir	= @sbindir@
 sysconfdir = @sysconfdir@
 
-mandir5 = ${mandir}/man5
-mandir8 = ${mandir}/man8
+man5dir	= ${mandir}/man5
+man8dir	= ${mandir}/man8
+man5ext	= .5
+man8ext	= .8
+cat5dir	= ${mandir}/cat5
+cat8dir	= ${mandir}/cat8
+cat5ext	= .0
+cat8ext	= .0
+
 
 CC	= @CC@
 CFLAGS	= -I${srcdir} -I${srcdir}/.. -I. -I.. @INCLUDES@ -DHAVE_TNFTPD_H=1 @CFLAGS@ -D_DEFAULT_CONFDIR=\"${sysconfdir}\"
-LIBS	= @LIBS@ -lpam
+LIBS	= @LIBS@
 LDFLAGS	= @LDFLAGS@
+YACC	= @YACC@
+MKDIR	= @MKDIR_P@
 
 INSTALL	= @INSTALL@
 
-PROG	= tnftpd
-OBJS	= cmds.o conf.o ftpd.o ftpcmd.o popen.o @LSOBJS@
-# removed: logutmp.o logwtmp.o
+OBJS	= ${SRCS:.c=.o}
 
-all:	${PROG}
+seddotin = sed \
+		-e 's|@datadir[@]|${datadir}|g' \
+		-e 's|@sysconfdir[@]|${sysconfdir}|g'
+
+
+all:	${PROG} ${MAN} ${CAT}
+
 
 cmp.o: ${srcdir}/../ls/cmp.c
 	${CC} ${CFLAGS} -c  -o cmp.o ${srcdir}/../ls/cmp.c
@@ -40,21 +63,45 @@ print.o: ${srcdir}/../ls/print.c
 util.o: ${srcdir}/../ls/util.c
 	${CC} ${CFLAGS} -c  -o util.o ${srcdir}/../ls/util.c
 
-install: all
-	-mkdir -p ${sbindir}
-	${INSTALL} -m 555 ${PROG} ${sbindir}
-	-mkdir -p ${mandir5}
-	${INSTALL} -m 444 ${srcdir}/ftpd.conf.5 ${mandir5}
-	${INSTALL} -m 444 ${srcdir}/ftpusers.5 ${mandir5}
-	-mkdir -p ${mandir8}
-	${INSTALL} -m 444 ${srcdir}/ftpd.8 ${mandir8}/${PROG}.8
-	ln -s ${PROG}.8 ${mandir8}/ftpd.8
-
 ${PROG}: ${OBJS} @LIBDEPENDS@
 	${CC} ${CFLAGS} ${LDFLAGS} -o ${PROG} ${OBJS} ${LIBS}
 
+
+.SUFFIXES: .manin .man .cat
+
+.manin.man:
+	${seddotin} $< > $@
+
+.man.cat:
+	nroff -man $< > $@
+
+
+install: all install-prog install-man
+
+install-prog: ${PROG}
+	-${MKDIR} ${sbindir}
+	${INSTALL} -m 555 ${PROG} ${sbindir}
+
+install-man: ${MAN}
+	-${MKDIR} ${man5dir}
+	${INSTALL} -m 444 ftpd.conf.man ${man5dir}/ftpd.conf${man5ext}
+	${INSTALL} -m 444 ftpusers.man ${man5dir}/ftpusers${man5ext}
+	-${MKDIR} ${man8dir}
+	${INSTALL} -m 444 ${PROG}.man ${man8dir}/${PROG}${man8ext}
+
+install-cat: ${CAT}
+	-${MKDIR} ${cat5dir}
+	${INSTALL} -m 444 ftpd.conf.cat ${cat5dir}/ftpd.conf${cat5ext}
+	${INSTALL} -m 444 ftpusers.cat ${cat5dir}/ftpusers${cat5ext}
+	-${MKDIR} ${cat8dir}
+	${INSTALL} -m 444 ${PROG}.cat ${cat8dir}/${PROG}${cat8ext}
+
+
 clean:
-	rm -f core ${PROG} ${OBJS}
+	rm -f core ${PROG} ${OBJS} ${MAN} ${CAT}
 
 distclean: clean
 	rm -f Makefile
+
+
+.PHONY: all install install-prog install-man install-cat clean distclean

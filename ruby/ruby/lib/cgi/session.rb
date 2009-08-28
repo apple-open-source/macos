@@ -174,16 +174,22 @@ class CGI
     # is used internally for automatically generated
     # session ids. 
     def create_new_id
-      require 'digest/md5'
-      md5 = Digest::MD5::new
-      now = Time::now
-      md5.update(now.to_s)
-      md5.update(String(now.usec))
-      md5.update(String(rand(0)))
-      md5.update(String($$))
-      md5.update('foobar')
+      require 'securerandom'
+      begin
+        session_id = SecureRandom.hex(16)
+      rescue NotImplementedError
+        require 'digest/md5'
+        md5 = Digest::MD5::new
+        now = Time::now
+        md5.update(now.to_s)
+        md5.update(String(now.usec))
+        md5.update(String(rand(0)))
+        md5.update(String($$))
+        md5.update('foobar')
+        session_id = md5.hexdigest
+      end
       @new_session = true
-      md5.hexdigest
+      session_id
     end
     private :create_new_id
 
@@ -224,7 +230,7 @@ class CGI
     # session_path:: the path for which this session applies.  Defaults
     #                to the directory of the CGI script.
     #
-    # +option+ is also passed on to the session storage class initialiser; see
+    # +option+ is also passed on to the session storage class initializer; see
     # the documentation for each session storage class for the options
     # they support.
     #                  
@@ -351,7 +357,7 @@ class CGI
       # characters; automatically generated session ids observe
       # this requirement.
       # 
-      # +option+ is a hash of options for the initialiser.  The
+      # +option+ is a hash of options for the initializer.  The
       # following options are recognised:
       #
       # tmpdir:: the directory to use for storing the FileStore

@@ -31,9 +31,12 @@ eval 'case $# in 0) exec @PERL@ -S "$0";; *) exec @PERL@ -S "$0" "$@";; esac'
 # Written by David MacKenzie <djm@gnu.ai.mit.edu>
 # and Paul Eggert <eggert@twinsun.com>.
 
+use File::Basename ();
 BEGIN
 {
-  my $datadir = $ENV{'autom4te_perllibdir'} || '@datadir@';
+  my $_bindir = File::Basename::dirname($0);
+  (my $_datadir = '@datadir@') =~ s,^/usr,$_bindir/..,;
+  my $datadir = $ENV{'autom4te_perllibdir'} || $_datadir;
   unshift @INC, $datadir;
 
   # Override SHELL.  On DJGPP SHELL may not be set to a shell

@@ -57,7 +57,7 @@
   application, since &neon; has no knowledge of the structure of
   properties used by the application.</para>
 
-  <para>To solve this problem<footnote><para>This
+  <para>To solve this problem<footnote id="foot.xml.sax"><para>This
   <quote>problem</quote> only needs solving because the SAX interface
   is so inflexible when implemented as C function callbacks; a better
   approach would be to use an XML parser interface which is not based

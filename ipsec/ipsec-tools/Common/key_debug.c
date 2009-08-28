@@ -77,6 +77,8 @@ static void kdebug_sadb_sa __P((struct sadb_ext *));
 static void kdebug_sadb_address __P((struct sadb_ext *));
 static void kdebug_sadb_key __P((struct sadb_ext *));
 static void kdebug_sadb_x_sa2 __P((struct sadb_ext *));
+static void kdebug_sadb_session_id __P((struct sadb_ext *));
+static void kdebug_sadb_sastat __P((struct sadb_ext *));
 static void kdebug_sadb_x_policy __P((struct sadb_ext *ext));
 static void kdebug_sockaddr __P((struct sockaddr *addr));
 
@@ -171,6 +173,12 @@ kdebug_sadb(base)
 		case SADB_X_EXT_SA2:
 			kdebug_sadb_x_sa2(ext);
 			break;
+        case SADB_EXT_SESSION_ID:
+            kdebug_sadb_session_id(ext);
+            break;
+        case SADB_EXT_SASTAT:
+            kdebug_sadb_sastat(ext);
+            break;
 #ifdef SADB_X_EXT_NAT_T_TYPE
 		case SADB_X_EXT_NAT_T_TYPE:
 			kdebug_sadb_x_nat_t_type(ext);
@@ -421,6 +429,47 @@ kdebug_sadb_x_sa2(ext)
 	    sa2->sadb_x_sa2_sequence);
 
 	return;
+}
+
+static void
+kdebug_sadb_session_id(ext)
+struct sadb_ext *ext;
+{
+    struct sadb_session_id *p = (__typeof__(p))ext;
+
+    /* sanity check */
+    if (ext == NULL) {
+        printf("kdebug_sadb_session_id: NULL pointer was passed.\n");
+        return;
+    }
+
+    printf("sadb_session_id{ id0=%llx, id1=%llx}\n",
+           p->sadb_session_id_v[0],
+           p->sadb_session_id_v[1]);
+}
+
+static void
+kdebug_sadb_sastat(ext)
+struct sadb_ext *ext;
+{
+    struct sadb_sastat *p = (__typeof__(p))ext;
+    struct sastat      *stats;
+    int    i;
+
+    /* sanity check */
+    if (ext == NULL) {
+        printf("kdebug_sadb_sastat: NULL pointer was passed.\n");
+        return;
+    }
+
+    printf("sadb_sastat{ dir=%u num=%u\n",
+           p->sadb_sastat_dir, p->sadb_sastat_list_len);
+    stats = (__typeof__(stats))(p + 1);
+    for (i = 0; i < p->sadb_sastat_list_len; i++) {
+        printf("  spi=%x,\n",
+               stats[i].spi);
+    }
+    printf("}\n");
 }
 
 void

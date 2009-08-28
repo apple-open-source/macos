@@ -1,7 +1,7 @@
 /*
  * rlm_attr_rewrite.c
  *
- * Version:  $Id: rlm_attr_rewrite.c,v 1.21.2.1.2.1 2006/06/12 15:04:27 nbk Exp $
+ * Version:  $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,32 +15,27 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2002  The FreeRADIUS server project
+ * Copyright 2002,2006  The FreeRADIUS server project
  * Copyright 2002  Kostas Kalevras <kkalev@noc.ntua.gr>
  */
 
-#include "autoconf.h"
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <freeradius-devel/radiusd.h>
+#include <freeradius-devel/modules.h>
+
 #ifdef HAVE_REGEX_H
 #	include <regex.h>
 #endif
-
-#include "radiusd.h"
-#include "modules.h"
-#include "conffile.h"
 
 #define RLM_REGEX_INPACKET 0
 #define RLM_REGEX_INCONFIG 1
 #define RLM_REGEX_INREPLY  2
 #define RLM_REGEX_INPROXY 3
 #define RLM_REGEX_INPROXYREPLY 4
-
-static const char rcsid[] = "$Id: rlm_attr_rewrite.c,v 1.21.2.1.2.1 2006/06/12 15:04:27 nbk Exp $";
 
 typedef struct rlm_attr_rewrite_t {
 	char *attribute;	/* The attribute to search for */
@@ -55,9 +50,8 @@ typedef struct rlm_attr_rewrite_t {
 	int  nocase;		/* Ignore case */
 	int  new_attr;		/* Boolean. Do we create a new attribute or not? */
 	int  num_matches;	/* Maximum number of matches */
-	char *name;		/* The module name */
+	const char *name;	/* The module name */
 } rlm_attr_rewrite_t;
-
 
 static const CONF_PARSER module_config[] = {
   { "attribute", PW_TYPE_STRING_PTR, offsetof(rlm_attr_rewrite_t,attribute), NULL, NULL },
@@ -71,12 +65,10 @@ static const CONF_PARSER module_config[] = {
   { NULL, -1, 0, NULL, NULL }
 };
 
-
 static int attr_rewrite_instantiate(CONF_SECTION *conf, void **instance)
 {
 	rlm_attr_rewrite_t *data;
 	DICT_ATTR *dattr;
-	char *instance_name = NULL;
 
 	/*
 	 *	Set up a storage area for instance data
@@ -138,7 +130,6 @@ static int attr_rewrite_instantiate(CONF_SECTION *conf, void **instance)
 			radlog(L_ERR, "rlm_attr_rewrite: Illegal searchin directive given. Assuming packet.");
 			data->searchin = RLM_REGEX_INPACKET;
 		}
-		free((char *)data->searchin_str);
 	}
 	dattr = dict_attrbyname(data->attribute);
 	if (dattr == NULL) {
@@ -148,11 +139,7 @@ static int attr_rewrite_instantiate(CONF_SECTION *conf, void **instance)
 	}
 	data->attr_num = dattr->attr;
 	/* Add the module instance name */
-	data->name = NULL;
-	instance_name = cf_section_name2(conf);
-	if (instance_name != NULL)
-		data->name = strdup(instance_name);
-
+	data->name = cf_section_name2(conf); /* may be NULL */
 
 	*instance = data;
 
@@ -182,20 +169,20 @@ static int do_attr_rewrite(void *instance, REQUEST *request)
 	int replace_len = 0;
 
 	if ((attr_vp = pairfind(request->config_items, PW_REWRITE_RULE)) != NULL){
-		if (data->name == NULL || strcmp(data->name,(char *)attr_vp->strvalue))
+		if (data->name == NULL || strcmp(data->name,attr_vp->vp_strvalue))
 			return RLM_MODULE_NOOP;
 	}
 
 	if (data->new_attr){
 		/* new_attribute = yes */
 		if (!radius_xlat(replace_STR, sizeof(replace_STR), data->replace, request, NULL)) {
-			DEBUG2("rlm_attr_rewrite: xlat on replace string failed.");
+			DEBUG2("%s: xlat on replace string failed.", data->name);
 			return ret;
 		}
 		replace_len = strlen(replace_STR);
 		attr_vp = pairmake(data->attribute,replace_STR,0);
 		if (attr_vp == NULL){
-			DEBUG2("rlm_attr_rewrite: Could not add new attribute %s with value '%s'",
+			DEBUG2("%s: Could not add new attribute %s with value '%s'", data->name,
 				data->attribute,replace_STR);
 			return ret;
 		}
@@ -224,12 +211,12 @@ static int do_attr_rewrite(void *instance, REQUEST *request)
 				pairadd(&request->proxy_reply->vps, attr_vp);
 				break;
 			default:
-				radlog(L_ERR, "rlm_attr_rewrite: Illegal value for searchin. Changing to packet.");
+				radlog(L_ERR, "%s: Illegal value for searchin. Changing to packet.", data->name);
 				data->searchin = RLM_REGEX_INPACKET;
 				pairadd(&request->packet->vps,attr_vp);
 				break;
 		}
-		DEBUG2("rlm_attr_rewrite: Added attribute %s with value '%s'",data->attribute,replace_STR);
+		DEBUG2("%s: Added attribute %s with value '%s'", data->name,data->attribute,replace_STR);
 		ret = RLM_MODULE_OK;
 	} else {
 		/* new_attribute = no */
@@ -237,7 +224,7 @@ static int do_attr_rewrite(void *instance, REQUEST *request)
 			case RLM_REGEX_INPACKET:
 				if (data->attr_num == PW_USER_NAME)
 					attr_vp = request->username;
-				else if (data->attr_num == PW_PASSWORD)
+				else if (data->attr_num == PW_USER_PASSWORD)
 					attr_vp = request->password;
 				else
 					tmp = request->packet->vps;
@@ -259,7 +246,7 @@ static int do_attr_rewrite(void *instance, REQUEST *request)
 				tmp = request->proxy->vps;
 				break;
 			default:
-				radlog(L_ERR, "rlm_attr_rewrite: Illegal value for searchin. Changing to packet.");
+				radlog(L_ERR, "%s: Illegal value for searchin. Changing to packet.", data->name);
 				data->searchin = RLM_REGEX_INPACKET;
 				attr_vp = pairfind(request->packet->vps, data->attr_num);
 				break;
@@ -268,11 +255,11 @@ do_again:
 		if (tmp != NULL)
 			attr_vp = pairfind(tmp, data->attr_num);
 		if (attr_vp == NULL) {
-			DEBUG2("rlm_attr_rewrite: Could not find value pair for attribute %s",data->attribute);
+			DEBUG2("%s: Could not find value pair for attribute %s", data->name,data->attribute);
 			return ret;
 		}
-		if (attr_vp->strvalue == NULL || attr_vp->length == 0){
-			DEBUG2("rlm_attr_rewrite: Attribute %s string value NULL or of zero length",data->attribute);
+		if (attr_vp->vp_strvalue == NULL || attr_vp->length == 0){
+			DEBUG2("%s: Attribute %s string value NULL or of zero length", data->name,data->attribute);
 			return ret;
 		}
 		cflags |= REG_EXTENDED;
@@ -280,25 +267,33 @@ do_again:
 			cflags |= REG_ICASE;
 
 		if (!radius_xlat(search_STR, sizeof(search_STR), data->search, request, NULL) && data->search_len != 0) {
-			DEBUG2("rlm_attr_rewrite: xlat on search string failed.");
+			DEBUG2("%s: xlat on search string failed.", data->name);
 			return ret;
 		}
 
 		if ((err = regcomp(&preg,search_STR,cflags))) {
 			regerror(err, &preg, err_msg, MAX_STRING_LEN);
-			DEBUG2("rlm_attr_rewrite: regcomp() returned error: %s",err_msg);
+			DEBUG2("%s: regcomp() returned error: %s", data->name,err_msg);
 			return ret;
 		}
+
+		if ((attr_vp->type == PW_TYPE_IPADDR) &&
+		    (attr_vp->vp_strvalue[0] == '\0')) {
+			inet_ntop(AF_INET, &(attr_vp->vp_ipaddr),
+				  attr_vp->vp_strvalue,
+				  sizeof(attr_vp->vp_strvalue));
+		}
+
 		ptr = new_str;
-		ptr2 = (char *)attr_vp->strvalue;
+		ptr2 = attr_vp->vp_strvalue;
 		counter = 0;
 
 		for ( i = 0 ;i < (unsigned)data->num_matches; i++) {
 			err = regexec(&preg, ptr2, REQUEST_MAX_REGEX, pmatch, 0);
 			if (err == REG_NOMATCH) {
 				if (i == 0) {
-					DEBUG2("rlm_attr_rewrite: No match found for attribute %s with value '%s'",
-							data->attribute, attr_vp->strvalue);
+					DEBUG2("%s: Does not match: %s = %s", data->name,
+							data->attribute, attr_vp->vp_strvalue);
 					regfree(&preg);
 					goto to_do_again;
 				} else
@@ -306,8 +301,8 @@ do_again:
 			}
 			if (err != 0) {
 				regfree(&preg);
-				radlog(L_ERR, "rlm_attr_rewrite: match failure for attribute %s with value '%s'",
-						data->attribute, attr_vp->strvalue);
+				radlog(L_ERR, "%s: match failure for attribute %s with value '%s'", data->name,
+						data->attribute, attr_vp->vp_strvalue);
 				return ret;
 			}
 			if (pmatch[0].rm_so == -1)
@@ -319,13 +314,14 @@ do_again:
 			counter += len;
 			if (counter >= MAX_STRING_LEN) {
 				regfree(&preg);
-				DEBUG2("rlm_attr_rewrite: Replacement out of limits for attribute %s with value '%s'",
-						data->attribute, attr_vp->strvalue);
+				DEBUG2("%s: Replacement out of limits for attribute %s with value '%s'", data->name,
+						data->attribute, attr_vp->vp_strvalue);
 				return ret;
 			}
 
-			strncpy(ptr, ptr2,len);
+			memcpy(ptr, ptr2,len);
 			ptr += len;
+			*ptr = '\0';
 			ptr2 += pmatch[0].rm_eo;
 
 			if (i == 0){
@@ -334,10 +330,10 @@ do_again:
 				 */
 				for(j = 0; j <= REQUEST_MAX_REGEX; j++){
 					char *p;
-					char buffer[sizeof(attr_vp->strvalue)];
+					char buffer[sizeof(attr_vp->vp_strvalue)];
 
 					/*
-				   	 * Stolen from src/main/valuepair.c, paircmp()
+				   	 * Stolen from src/main/valuepair.c, paircompare()
 				 	 */
 
 					/*
@@ -353,7 +349,7 @@ do_again:
 						break;
 					}
 					memcpy(buffer,
-					       attr_vp->strvalue + pmatch[j].rm_so,
+					       attr_vp->vp_strvalue + pmatch[j].rm_so,
 					       pmatch[j].rm_eo - pmatch[j].rm_so);
 					buffer[pmatch[j].rm_eo - pmatch[j].rm_so] = '\0';
 					p = strdup(buffer);
@@ -364,7 +360,7 @@ do_again:
 			if (!done_xlat){
 				if (data->replace_len != 0 &&
 				radius_xlat(replace_STR, sizeof(replace_STR), data->replace, request, NULL) == 0) {
-					DEBUG2("rlm_attr_rewrite: xlat on replace string failed.");
+					DEBUG2("%s: xlat on replace string failed.", data->name);
 					return ret;
 				}
 				replace_len = (data->replace_len != 0) ? strlen(replace_STR) : 0;
@@ -374,29 +370,31 @@ do_again:
 			counter += replace_len;
 			if (counter >= MAX_STRING_LEN) {
 				regfree(&preg);
-				DEBUG2("rlm_attr_rewrite: Replacement out of limits for attribute %s with value '%s'",
-						data->attribute, attr_vp->strvalue);
+				DEBUG2("%s: Replacement out of limits for attribute %s with value '%s'", data->name,
+						data->attribute, attr_vp->vp_strvalue);
 				return ret;
 			}
 			if (replace_len){
-				strncpy(ptr, replace_STR, replace_len);
+				memcpy(ptr, replace_STR, replace_len);
 				ptr += replace_len;
+				*ptr = '\0';
 			}
 		}
 		regfree(&preg);
 		len = strlen(ptr2) + 1;		/* We add the ending NULL */
 		counter += len;
 		if (counter >= MAX_STRING_LEN){
-			DEBUG2("rlm_attr_rewrite: Replacement out of limits for attribute %s with value '%s'",
-					data->attribute, attr_vp->strvalue);
+			DEBUG2("%s: Replacement out of limits for attribute %s with value '%s'", data->name,
+					data->attribute, attr_vp->vp_strvalue);
 			return ret;
 		}
-		strncpy(ptr, ptr2, len);
+		memcpy(ptr, ptr2, len);
+		ptr[len] = '\0';
 
-		DEBUG2("rlm_attr_rewrite: Changed value for attribute %s from '%s' to '%s'",
-				data->attribute, attr_vp->strvalue, new_str);
+		DEBUG2("%s: Changed value for attribute %s from '%s' to '%s'", data->name,
+				data->attribute, attr_vp->vp_strvalue, new_str);
 		if (pairparsevalue(attr_vp, new_str) == NULL) {
-			DEBUG2("rlm_attr_rewrite: Could not write value '%s' into attribute %s: %s", new_str, data->attribute, librad_errstr);
+			DEBUG2("%s: Could not write value '%s' into attribute %s: %s", data->name, new_str, data->attribute, fr_strerror());
 			return ret;
 		}
 
@@ -413,7 +411,6 @@ to_do_again:
 	return ret;
 }
 
-
 static int attr_rewrite_accounting(void *instance, REQUEST *request)
 {
 	return do_attr_rewrite(instance, request);
@@ -423,15 +420,18 @@ static int attr_rewrite_authorize(void *instance, REQUEST *request)
 {
 	return do_attr_rewrite(instance, request);
 }
+
 static int attr_rewrite_authenticate(void *instance, REQUEST *request)
 {
 	return do_attr_rewrite(instance, request);
 }
+
 static int attr_rewrite_preacct(void *instance, REQUEST *request)
 {
 	return do_attr_rewrite(instance, request);
 }
-static int attr_rewrite_ismul(void *instance, REQUEST *request)
+
+static int attr_rewrite_checksimul(void *instance, REQUEST *request)
 {
 	return do_attr_rewrite(instance, request);
 }
@@ -453,17 +453,6 @@ static int attr_rewrite_postauth(void *instance, REQUEST *request)
 
 static int attr_rewrite_detach(void *instance)
 {
-	rlm_attr_rewrite_t *data = (rlm_attr_rewrite_t *) instance;
-
-	if (data->attribute)
-		free(data->attribute);
-	if (data->search)
-		free(data->search);
-	if (data->replace)
-		free(data->replace);
-	if (data->name)
-		free(data->name);
-
 	free(instance);
 	return 0;
 }
@@ -478,20 +467,19 @@ static int attr_rewrite_detach(void *instance)
  *	is single-threaded.
  */
 module_t rlm_attr_rewrite = {
+	RLM_MODULE_INIT,
 	"attr_rewrite",
 	RLM_TYPE_THREAD_UNSAFE,		/* type */
-	NULL,				/* initialization */
 	attr_rewrite_instantiate,		/* instantiation */
+	attr_rewrite_detach,			/* detach */
 	{
 		attr_rewrite_authenticate,	/* authentication */
 		attr_rewrite_authorize, 	/* authorization */
 		attr_rewrite_preacct,		/* preaccounting */
 		attr_rewrite_accounting,	/* accounting */
-		attr_rewrite_ismul,		/* checksimul */
+		attr_rewrite_checksimul,	/* checksimul */
 		attr_rewrite_preproxy,		/* pre-proxy */
 		attr_rewrite_postproxy,		/* post-proxy */
 		attr_rewrite_postauth		/* post-auth */
 	},
-	attr_rewrite_detach,			/* detach */
-	NULL,				/* destroy */
 };

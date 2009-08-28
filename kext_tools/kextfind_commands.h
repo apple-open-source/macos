@@ -24,66 +24,63 @@
 #define _KEXTFIND_COMMANDS_H_
 
 #include <CoreFoundation/CoreFoundation.h>
-#include <IOKit/kext/KXKextManager.h>
+#include <IOKit/kext/OSKext.h>
 
-#include "kextfind.h"
+#include "kextfind_main.h"
 
 void printKext(
-    KXKextRef theKext,
+    OSKextRef theKext,
     PathSpec relativePath,
     Boolean extra_info,
     char lineEnd);
 
 void printKextProperty(
-    KXKextRef theKext,
+    OSKextRef theKext,
     CFStringRef propKey,
     char lineEnd);
 void printKextMatchProperty(
-    KXKextRef theKext,
+    OSKextRef theKext,
     CFStringRef propKey,
     char lineEnd);
 void printKextArches(
-    KXKextRef theKext,
+    OSKextRef theKext,
     char lineEnd,
     Boolean printLineEnd);
 
 void printKextDependencies(
-    KXKextRef theKext,
+    OSKextRef theKext,
     PathSpec pathSpec,
     Boolean extra_info,
     char lineEnd);
 void printKextDependents(
-    KXKextRef theKext,
+    OSKextRef theKext,
     PathSpec pathSpec,
     Boolean extra_info,
     char lineEnd);
 void printKextPlugins(
-    KXKextRef theKext,
+    OSKextRef theKext,
     PathSpec pathSpec,
     Boolean extra_info,
     char lineEnd);
 
 void printKextInfoDictionary(
-    KXKextRef theKext,
+    OSKextRef theKext,
     PathSpec pathSpec,
     char lineEnd);
 void printKextExecutable(
-    KXKextRef theKext,
+    OSKextRef theKext,
     PathSpec pathSpec,
     char lineEnd);
 
-const char * nameForIntegrityState(KXKextIntegrityState state);
+CFStringRef copyPathForKext(
+    OSKextRef theKext,
+    PathSpec  pathSpec);
 
-char * getKextPath(
-    KXKextRef theKext,
+CFStringRef copyKextInfoDictionaryPath(
+    OSKextRef theKext,
     PathSpec pathSpec);
-
-char * getKextInfoDictionaryPath(
-    KXKextRef theKext,
-    PathSpec pathSpec);
-
-char * getKextExecutablePath(
-    KXKextRef theKext,
+CFStringRef copyKextExecutablePath(
+    OSKextRef theKext,
     PathSpec pathSpec);
 
 #endif /* _KEXTFIND_COMMANDS_H_ */

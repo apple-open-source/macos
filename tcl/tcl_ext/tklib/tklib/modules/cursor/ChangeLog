@@ -1,0 +1,26 @@
+2006-12-08  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* cursor.tcl: work with widgets that don't support -cursor
+	* pkgIndex.tcl: update to v0.2. [AS Bug #57297]
+
+2005-11-10  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tklib 0.4.1 ========================
+	* 
+
+2005-11-02  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tklib 0.4 ========================
+	* 
+
+2001-11-08  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* cursor.n: added a man page.
+
+2001-11-07  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* cursor.tcl: initial 0.1 implementation with propagate, restore
+	and display procedures
+

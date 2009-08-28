@@ -1,4 +1,3 @@
-/* APPLE LOCAL file mainline */
 /* Allow for an optional semicolon following the ivar block.  */
 /* Contributed by: Ziemowit Laski <zlaski@apple.com>.  */
 

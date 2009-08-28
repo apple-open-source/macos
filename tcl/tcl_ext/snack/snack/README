@@ -1,0 +1,365 @@
+Snack v2.2 - a sound toolkit for scripting languages
+
+Kåre Sjölander
+
+Email address:
+There are several anti-spam methods between me and anybody trying to contact
+me by e-mail. If you don't hear anything try to contact me again. One option
+is also to use this forum
+http://www1.speech.kth.se/prod/wavesurferforum/phpBB2/index.php
+which can be used to discuss Snack issues.
+Also, please start the subject line with the word "snack" in any e-mail
+correspondence in order to clearly indicate that it is an important message.
+<kare@speech.kth.se>
+
+
+Introduction
+-------------------------------------------------------------------
+
+Snack is a sound processing toolkit designed as an extension
+to a scripting language. Snack currently works with the scripting
+languages Tcl/Tk, Python, and Ruby.
+Snack has commands to play, record, process, and visualize sound.
+Snack provides high level sound objects, with flexible storage management,
+and streaming support. It handles most common sound file formats.
+The visualization canvas item types update in real-time and can output
+postscript. The same scripts run on Unix (Linux, Solaris, HP-UX, IRIX,
+FreeBSD, NetBSD), Macintosh, and Windows 95/98/NT/2000/XP.
+Several example scripts can be found in the demos directory.
+
+For more information on Tcl/Tk and Python see
+Tcl/Tk: http://tcl.activestate.com/
+Python: http://www.python.org/
+
+In order to use Snack you must have Tcl and Tk version 8.0 or later. Always 
+use the latest stable release, currently 8.4.8, which can be downloaded from 
+ftp.activestate.com/ActiveTcl/html/.
+
+Tcl/Tk is often included with Python distributions. Snack has been tested
+with Python 1.5.2 - 2.3 on Linux and Windows. See the Python
+section below.
+
+The Snack package has been tested on the following platforms:
+Windows 95/98/NT/2000/XP
+Linux 2.0.35 (OSS 3.5) - 2.4.20-31.9 (OSS 3.8.2/ALSA 0.9.0) (x86 & PowerPC)
+SunOS 5.5.1 (Sparc and x86), Solaris 8 (Sparc)
+HP-UX B.10.20/11.00
+IRIX 6.2, 6.3 & 6.4 (even runs under SoftWindows, although slowly)
+NetBSD-current/i386 using the OSS emulation library
+BSD/OS-4.1
+Mac OS X, MacOS 8.6 and later
+
+Make sure you have the latest Snack version available at
+http://www.speech.kth.se/snack/ before proceeding with the installation.
+
+
+
+Compilation instructions for Snack on Unix (see mac/README for OS X)
+-------------------------------------------------------------------
+
+You must have Tcl/Tk installed on your system. Both Tcl and Tk must have
+been configured with the "--enable-shared" flag at build time (this is 
+default for the 8.4 versions). Build them before Snack.
+
+Unpack Snack and change directory to the snack2.2.10/unix directory.
+
+Type "./configure".
+
+If you get this error message "Can't find Tcl configuration definitions",
+you have to specify their locations using the options "--with-tcl" and
+"--with-tk" when running configure. For example, use 
+"--with-tcl=/usr/lib --with-tk=/usr/lib" if Tcl/Tk was
+installed in "/usr/lib", or "--with-tcl=../tcl8.4.8/unix" if you use that
+version.
+
+Linux users who have the ALSA sound driver installed should specify the configure flag --enable-alsa in order to enable native ALSA support.
+
+Type "make".
+
+If the make fails you will have to edit the Makefile and possibly also the 
+configure script. TCL_INCPATH should be the path to the directory which 
+contains the Tcl header file (tcl.h). The same goes for TK_INCPATH (tk.h). 
+XINCLUDES should be the path to the directory containing the X11 include
+files.
+
+If you use Tcl/Tk 8.0 to 8.0.5 you will have to use the flag
+--disable-stubs, when configuring Snack.
+
+Summary in case you download Tcl, Tk, and Snack and build from scratch:
+You should place the distributions in the same directory and unpack them.
+Build Snack using the following commands:
+cd tcl8.4.8/unix
+./configure --enable-shared
+cd ../../tk8.4.8/unix
+./configure --enable-shared
+cd ../../snack2.2.10/unix
+./configure
+make
+
+
+Testing
+-------------------------------------------------------------------
+
+When you have succesfully compiled Snack it's time to look at the demos.
+In order to run these you will have to set the environment variable 
+TCLLIBPATH to the directory containing the Snack library files (you don't 
+need this step if you install Snack as described below). If you have 
+compiled Snack in /u/kare/snack2.2.10/unix, this would be:
+
+setenv TCLLIBPATH /u/kare/snack2.2.10/unix
+
+Change to the demos/tcl/ directory and type ./widget.tcl:
+
+cd ../demos/tcl/
+./widget.tcl
+
+this runs the Snack widget demonstration.
+
+You should also try the Snack test suite. Type:
+
+make test
+
+in the build directory. You should then see a printout of the test files
+processed. If any errors occur, you'll see a much more substantial printout
+for each error. Please report any problems to the author.
+
+
+
+System wide installation
+-------------------------------------------------------------------
+
+The recommended installation directory is the standard Tcl package directory. 
+You can determine this by typing:
+
+tclsh
+puts $tcl_pkgPath
+
+If you choose this directory you don't have to set the TCLLIBPATH variable.
+Edit the Makefile if necessary. SNACK_INSTALL_PATH should be the path to the 
+directory where you want to install the Snack package (e.g. /usr/local/lib).
+
+Install using:
+
+make install
+
+
+
+Compilation instructions for Snack on Windows
+-------------------------------------------------------------------
+
+The MSVC++ 6.0 workspace and project files necessary to build Snack on Windows
+are located in the win directory of the source distribution.
+
+In order to use Snack you will have to install Tcl/Tk 8.4 first.
+
+Snack's project files are set up for use with Tcl installed in C:\Tcl\, it
+might be easiest to change such paths by editing all *.dsp files in a text
+editor.
+Don't forget to copy the files snack.tcl and pkgIndex.tcl.dll from the
+unix directory to C:\Tcl\lib\snack2.2\ and rename the last file pkgIndex.tcl
+
+
+Compilation instructions for Snack on Windows using Mingw
+-------------------------------------------------------------------
+
+Mingw users (gcc for Windows) can now compile Snack under Windows.
+
+The win subdirectory contains a configure script that can be
+used to compile snack with Mingw compiled versions of Tcl and Tk.
+Users will first need to download Tcl and Tk sources along with
+the msys_mingw package from the following URL:
+
+http://sourceforge.net/project/showfiles.php?group_id=10894
+
+At this point, the DirectX 6 headers and lib files will need
+to be downloaded and installed into /mingw/dx6. If you change
+the location of the DirectX install, the Makefile will need
+to be updated after configure is run.
+
+http://people.montana.com/%7Ebowman/Software/ming.zip
+
+To build, run the configure script and pass the --with-tcl=DIR and
+--with-tk=DIR arguments that correspond to the build directories
+for Tcl and Tk. Tcl/Tk 8.4 or newer is required, OGG and NIST
+format options are not currently supported with the Mingw build.
+
+The typical configure-make cycle looks like:
+./configure --with-tcl=$TCL_DIR --with-tk=$TK_DIR --prefix=$INST_DIR
+make
+make install
+
+The above will create a snack directory in $INST_DIR/lib, which should
+be the same --prefix that you passed to the Tcl and Tk configure scripts.
+
+Using Snack with Python
+-------------------------------------------------------------------
+
+Snack must currently be used in conjunction with Tkinter. You need to have a
+matching installation of Snack and Tcl. For example, Python 1.5.2 uses
+Tcl8.0.5 and Python 1.6-2.3 uses Tcl8.3 on Windows. For Unix you have to
+edit Modules/Setup before building Python to specify which Tcl version to use.
+The default is Tcl8.0. You can check this by typing the following lines
+at the Python prompt:
+
+import Tkinter
+Tkinter.Tk().tk.eval('info tclversion')
+
+Snack is accessed using the tkSnack module located in the python directory.
+You need to put the file tkSnack.py in your Python path. 
+
+Some demos can be found in demos/python/.
+
+Documentation is found in doc/python-man.html
+
+
+
+Using Snack with NIST/Sphere file formats
+-------------------------------------------------------------------
+
+It is possible to configure Snack to create an additional package for
+handling the NIST/Sphere file formats. Use the configure options
+--with-nist-include and --with-nist-lib to specify the locations of
+the corresponding directories of the NIST/Sphere distribution,
+which can be downloaded at
+ftp://jaguar.ncsl.nist.gov/pub/sphere_2.6a.tar.Z. In the Sphere
+distribution you will have to modify the file src/scripts/install.sh and add
+the compilation flag to create position independent code in some cases. Look
+at the Snack Makefile for these.
+
+On HP-UX with HP cc use: -Ae +z
+Linux users should specify platform: 10 (Custom),
+compiler flags: -O -Wall -fPIC, architecture: INTEL,and comment the
+line "extern char *sys_errlist[];" in nist/src/lib/sp/exit.c
+See SphereFile.txt for more info.
+
+Windows users can get a compiled dll at the address
+http://www.speech.kth.se/~kare/libsnacksphere.dll
+Put it in ..Tcl\lib\Snack2.2 (together with libsnack.dll).
+
+Linux users get a compiled library at the address
+http://www.speech.kth.se/~kare/libsnacksphere.so
+Put it in the Snack installation directory (together with libsnack.so).
+
+
+
+Using Snack with the OGG/Vorbis file format
+-------------------------------------------------------------------
+
+It is possible to configure Snack to create an additional package for
+handling the OGG/Vorbis file format. Use the configure options
+--with-ogg-include and --with-ogg-lib to specify the locations of an
+existing OGG/Vorbis installation.
+More information about OGG/Vorbis available at http://www.vorbis.com/
+
+Windows users can get a compiled dll at the address
+http://www.speech.kth.se/~kare/ogg.tar.gz
+Put libsnackogg.dll in ..Tcl\lib\Snack2.2 (together with libsnack.dll).
+
+Linux users can get a compiled library at the address
+http://www.speech.kth.se/~kare/ogg.tar.gz
+Put libsnackogg.so in the Snack installation directory (together 
+with libsnack.so).
+
+When building Ogg/Vorbis from source on Unix note that some modifications
+to the Makefiles might be necessary. Specify
+"AM_CPPFLAGS=-I$prefix/include" "LDFLAGS=-L$exec_prefix/lib"
+to get them to find their own installed headers and libraries.
+On Solaris force libvorbis to use the native compiler and add
+-Dalloca=__builtin_alloca
+to prevent the system from using a non-existing alloca.
+
+
+
+Dynamic linking problems
+-------------------------------------------------------------------
+
+(Sun, Linux, and SGI)
+The loader must be able to find the "libsnack.so" shared object. You may
+have to set the environment variable LD_LIBRARY_PATH to point the directory
+where it is located. This variable is a colon separated list of paths which
+can be modified using setenv. If you, for example, have compiled Snack in
+the directory /u/kare/snack/unix and have the shared objects libtcl8.4.so
+and libtk8.4.so in /usr/local/bin you would use the following command at the 
+terminal prompt or in your .cshrc file:
+
+setenv LD_LIBRARY_PATH /u/kare/snack/unix:/usr/local/bin:$LD_LIBRARY_PATH
+
+(HP)
+The corresponding environment variable on HP-UX systems is SHLIB_PATH and 
+shared objects use ".sl" as file extension.
+
+
+License
+-------------------------------------------------------------------
+
+Snack is currently licensed under GPL, see the file COPYING.
+Contact the author if this kind of license is a problem.
+The only reason for GPL is the MPEG decoding code, see jkFormatMP3.c.
+If you remove that code it is possible to use a license similar to the one 
+Tcl/Tk uses (BSD style) and to include Snack in any software on the same
+terms.
+
+
+
+Acknowledgements
+-------------------------------------------------------------------
+The following people have contributed code, suggestions, and/or other help.
+
+Roger Lindell
+Jonas Beskow
+Claude Barras
+Mel
+Alexandre Ferrieux
+Daryl Vertigan
+David van Leeuwen
+Stefan Karnebäck
+Simon Arnfield
+Magnus Lundeberg
+Zhibiao Wu
+Qiru Zhou
+Philippe Langlais
+Dan Ellis
+Holger Kanwischer
+Egbert Ammicht
+Richard Donselius
+Seymour Shlien
+Leonid Spektor
+Frederic Bonnet
+Andreas Gustafsson
+Jeffrey Hobbs
+Johan Dahl
+Erhard Rank
+Richard Ross-Langley
+Uwe Koloska
+Kevin Russell
+Nicolas Garbe
+Tom Wilkason
+Jonas Ekeroot
+Peter Kabal
+Ted Dunning
+Andreas Kupries
+Erik Allaert
+Christian Wegehaupt
+Alex Barnes
+Steve Davis
+Oriol Pique
+Athanassios Hatzis
+Scott McSpadden
+Albert Visagie
+Helmut Hissen
+Daniel A. Steffen
+Hans Werner Strube
+David McClosky
+Russell Owen
+Benjamin Baudoux
+Steve Renals
+Michel Scheffers
+Reinhard Max
+Brian Theado
+Håkan Melin
+Scott T. Silliman
+Mo DeJong
+Richard Dobson
+Alan Schnarr
+Lorenzo Seno
+Edouard Hinard

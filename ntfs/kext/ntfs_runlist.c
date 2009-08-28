@@ -1,9 +1,9 @@
 /*
  * ntfs_runlist.c - NTFS kernel runlist operations.
  *
- * Copyright (c) 2001-2007 Anton Altaparmakov.  All Rights Reserved.
+ * Copyright (c) 2001-2008 Anton Altaparmakov.  All Rights Reserved.
  * Portions Copyright (c) 2002-2005 Richard Russon.  All Rights Reserved.
- * Portions Copyright (c) 2006, 2007 Apple Inc.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2008 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -64,7 +64,7 @@
  * It is up to the caller to serialize access to the runlists.
  */
 static inline void ntfs_rl_copy(ntfs_rl_element *dst, ntfs_rl_element *src,
-		const u32 size)
+		const unsigned size)
 {
 	if (size > 0)
 		memcpy(dst, src, size * sizeof(ntfs_rl_element));
@@ -84,14 +84,14 @@ static inline void ntfs_rl_copy(ntfs_rl_element *dst, ntfs_rl_element *src,
  * Locking: - The caller must have locked the runlist for writing.
  *	    - The runlist is modified.
  */
-static inline errno_t ntfs_rl_inc(ntfs_runlist *runlist, u32 delta)
+static errno_t ntfs_rl_inc(ntfs_runlist *runlist, unsigned delta)
 {
-	u32 new_elements, alloc, new_alloc;
+	unsigned new_elements, alloc, new_alloc;
 
 	new_elements = runlist->elements + delta;
 	alloc = runlist->alloc;
 	new_alloc = (new_elements * sizeof(ntfs_rl_element) +
-			NTFS_RL_ALLOC_BLOCK - 1) & ~(NTFS_RL_ALLOC_BLOCK - 1);
+			NTFS_ALLOC_BLOCK - 1) & ~(NTFS_ALLOC_BLOCK - 1);
 	if (new_alloc > alloc) {
 		ntfs_rl_element *new_rl;
 
@@ -114,7 +114,7 @@ static inline errno_t ntfs_rl_inc(ntfs_runlist *runlist, u32 delta)
  * It is up to the caller to serialize access to the runlists.
  */
 static inline void ntfs_rl_move(ntfs_rl_element *dst, ntfs_rl_element* src,
-		const u32 size)
+		const unsigned size)
 {
 	if (dst != src && size > 0)
 		memmove(dst, src, size * sizeof(ntfs_rl_element));
@@ -140,19 +140,18 @@ static inline void ntfs_rl_move(ntfs_rl_element *dst, ntfs_rl_element* src,
  * Locking: - The caller must have locked the runlist for writing.
  *	    - The runlist is modified and potentially reallocated.
  */
-static inline errno_t ntfs_rl_ins(ntfs_runlist *runlist, u32 pos, u32 count)
+static errno_t ntfs_rl_ins(ntfs_runlist *runlist, unsigned pos, unsigned count)
 {
 	ntfs_rl_element *new_rl = runlist->rl;
-	u32 new_elements, alloc, new_alloc;
+	unsigned new_elements, alloc, new_alloc;
 
-	ntfs_debug("Entering with pos %u, count %u.", (unsigned)pos,
-			(unsigned)count);
+	ntfs_debug("Entering with pos %u, count %u.", pos, count);
 	if (pos > runlist->elements)
 		panic("%s(): pos > runlist->elements\n", __FUNCTION__);
 	new_elements = runlist->elements + count;
 	alloc = runlist->alloc;
 	new_alloc = (new_elements * sizeof(ntfs_rl_element) +
-			NTFS_RL_ALLOC_BLOCK - 1) & ~(NTFS_RL_ALLOC_BLOCK - 1);
+			NTFS_ALLOC_BLOCK - 1) & ~(NTFS_ALLOC_BLOCK - 1);
 	/* If no memory reallocation needed, it is a simple memmove(). */
 	if (new_alloc <= alloc) {
 		if (count) {
@@ -196,7 +195,7 @@ static inline errno_t ntfs_rl_ins(ntfs_runlist *runlist, u32 pos, u32 count)
  *
  * Return 1 if the runlists can be merged and 0 otherwise.
  */
-static inline u32 ntfs_rl_can_merge(ntfs_rl_element *dst, ntfs_rl_element *src)
+static unsigned ntfs_rl_can_merge(ntfs_rl_element *dst, ntfs_rl_element *src)
 {
 	if (!dst || !src)
 		panic("%s(): !dst || !src\n", __FUNCTION__);
@@ -249,16 +248,16 @@ static inline void __ntfs_rl_merge(ntfs_rl_element *dst, ntfs_rl_element *src)
  * Return 0 on success and ENOMEM if not enough memory to reallocate the
  * runlist, in which case the destination runlist is left unmodified.
  */
-static inline errno_t ntfs_rl_replace(ntfs_runlist *dst_runlist,
-		ntfs_rl_element *src, u32 s_size, u32 loc)
+static errno_t ntfs_rl_replace(ntfs_runlist *dst_runlist, ntfs_rl_element *src,
+		unsigned s_size, unsigned loc)
 {
 	ntfs_rl_element *d_rl;
 	long delta;
-	u32 d_elements;
-	u32 tail;	/* Start of tail of @dst_runlist. */
-	u32 marker;	/* End of the inserted runs. */
-	u32 left;	/* Left end of @src needs merging. */
-	u32 right;	/* Right end of @src needs merging. */
+	unsigned d_elements;
+	unsigned tail;	/* Start of tail of @dst_runlist. */
+	unsigned marker;/* End of the inserted runs. */
+	unsigned left;	/* Left end of @src needs merging. */
+	unsigned right;	/* Right end of @src needs merging. */
 
 	ntfs_debug("Entering.");
 	if (!dst_runlist || !src || !s_size)
@@ -358,15 +357,15 @@ static inline errno_t ntfs_rl_replace(ntfs_runlist *dst_runlist,
  * Return 0 on success and ENOMEM if not enough memory to reallocate the
  * runlist, in which case the destination runlist is left unmodified.
  */
-static inline errno_t ntfs_rl_insert(ntfs_runlist *dst_runlist,
-		ntfs_rl_element *src, u32 s_size, u32 loc)
+static errno_t ntfs_rl_insert(ntfs_runlist *dst_runlist, ntfs_rl_element *src,
+		unsigned s_size, unsigned loc)
 {
 	ntfs_rl_element *d_rl;
 	errno_t err;
-	u32 d_elements;
-	u32 left;	/* Left end of @src needs merging. */
-	u32 disc;	/* Discontinuity between @dst_runlist and @src. */
-	u32 marker;	/* End of the inserted runs. */
+	unsigned d_elements;
+	unsigned left;	/* Left end of @src needs merging. */
+	unsigned disc;	/* Discontinuity between @dst_runlist and @src. */
+	unsigned marker;/* End of the inserted runs. */
 
 	ntfs_debug("Entering.");
 	if (!dst_runlist || !src || !s_size)
@@ -456,14 +455,14 @@ static inline errno_t ntfs_rl_insert(ntfs_runlist *dst_runlist,
  * Return 0 on success and ENOMEM if not enough memory to reallocate the
  * runlist, in which case the destination runlist is left unmodified.
  */
-static inline errno_t ntfs_rl_append(ntfs_runlist *dst_runlist,
-		ntfs_rl_element *src, u32 s_size, u32 loc)
+static errno_t ntfs_rl_append(ntfs_runlist *dst_runlist, ntfs_rl_element *src,
+		unsigned s_size, unsigned loc)
 {
 	ntfs_rl_element *d_rl;
 	errno_t err;
-	u32 d_elements;
-	u32 right;	/* Right end of @src needs merging. */
-	u32 marker;	/* End of the inserted runs. */
+	unsigned d_elements;
+	unsigned right;	/* Right end of @src needs merging. */
+	unsigned marker;/* End of the inserted runs. */
 
 	ntfs_debug("Entering.");
 	if (!dst_runlist || !src || !s_size)
@@ -522,8 +521,8 @@ static inline errno_t ntfs_rl_append(ntfs_runlist *dst_runlist,
  * Return 0 on success and ENOMEM if not enough memory to reallocate the
  * runlist, in which case the destination runlist is left unmodified.
  */
-static inline errno_t ntfs_rl_split(ntfs_runlist *dst_runlist,
-		ntfs_rl_element *src, u32 s_size, u32 loc)
+static errno_t ntfs_rl_split(ntfs_runlist *dst_runlist, ntfs_rl_element *src,
+		unsigned s_size, unsigned loc)
 {
 	ntfs_rl_element *d_rl;
 	errno_t err;
@@ -597,22 +596,21 @@ errno_t ntfs_rl_merge(ntfs_runlist *dst_runlist, ntfs_runlist *src_runlist)
 {
 	VCN marker_vcn;
 	ntfs_rl_element *d_rl, *s_rl;
-	u32 d_elements, s_elements;
-	u32 d_alloc, s_alloc;
-	u32 di, si;	/* Current index into @[ds]_rl. */
-	u32 s_start;	/* First index into @s_rl with lcn >= LCN_HOLE. */
-	u32 d_ins;	/* Index into @d_rl at which to insert @s_rl. */
-	u32 d_final;	/* The last index into @d_rl with lcn >= LCN_HOLE. */
-	u32 s_final;	/* The last index into @s_rl with lcn >= LCN_HOLE. */
-	u32 ss;		/* Number of relevant elements in @s_rl. */
-	u32 marker;
+	unsigned d_elements, s_elements, d_alloc, s_alloc;
+	unsigned di, si;	/* Current index in @[ds]_rl. */
+	unsigned s_start;	/* First index in @s_rl with lcn >= LCN_HOLE. */
+	unsigned d_ins;		/* Index in @d_rl at which to insert @s_rl. */
+	unsigned d_final;	/* Last index in @d_rl with lcn >= LCN_HOLE. */
+	unsigned s_final;	/* Last index in @s_rl with lcn >= LCN_HOLE. */
+	unsigned ss;		/* Number of relevant elements in @s_rl. */
+	unsigned marker;
 	errno_t err;
 	BOOL start, finish;
 
 	ntfs_debug("Destination runlist:");
-	ntfs_debug_rl_dump(dst_runlist);
+	ntfs_debug_runlist_dump(dst_runlist);
 	ntfs_debug("Source runlist:");
-	ntfs_debug_rl_dump(src_runlist);
+	ntfs_debug_runlist_dump(src_runlist);
 	if (!src_runlist || !dst_runlist)
 		panic("%s(): No %s runlist was supplied.\n", __FUNCTION__,
 				!src_runlist ? "source" : "destination");
@@ -730,13 +728,11 @@ errno_t ntfs_rl_merge(ntfs_runlist *dst_runlist, ntfs_runlist *src_runlist)
 			finish = FALSE;
 	}
 #if 1
-	ntfs_debug("d_final %u, d_elements %u", (unsigned)d_final,
-			(unsigned)d_elements);
-	ntfs_debug("s_start = %u, s_final = %u, s_elements = %u",
-			(unsigned)s_start, (unsigned)s_final,
-			(unsigned)s_elements);
-	ntfs_debug("start = %u, finish = %u", start ? 1 : 0, finish ? 1 : 0);
-	ntfs_debug("ss = %u, d_ins = %u", (unsigned)ss, (unsigned)d_ins);
+	ntfs_debug("d_final %d, d_elements %d", d_final, d_elements);
+	ntfs_debug("s_start = %d, s_final = %d, s_elements = %d", s_start,
+			s_final, s_elements);
+	ntfs_debug("start = %d, finish = %d", start ? 1 : 0, finish ? 1 : 0);
+	ntfs_debug("ss = %d, d_ins = %d", ss, d_ins);
 #endif
 	/* See above for meanings of @start and @finish. */
 	if (start) {
@@ -764,7 +760,7 @@ errno_t ntfs_rl_merge(ntfs_runlist *dst_runlist, ntfs_runlist *src_runlist)
 	di = dst_runlist->elements - 1;
 	/* Deal with the end of attribute marker if @s_rl ended after @d_rl. */
 	if (marker && d_rl[di].vcn <= marker_vcn) {
-		u32 slots;
+		unsigned slots;
 
 		ntfs_debug("Triggering marker code.");
 		d_alloc = dst_runlist->alloc;
@@ -802,9 +798,8 @@ fatal_oom:
 					panic("%s(): Fatal out of memory "
 							"condition "
 							"encountered (slots "
-							"%u).\n",
-							__FUNCTION__,
-							(unsigned)slots);
+							"%d).\n",
+							__FUNCTION__, slots);
 				}
 				d_rl = dst_runlist->rl;
 				/* Need to set vcn. */
@@ -834,7 +829,7 @@ fatal_oom:
 done:
 	/* The merge was completed successfully. */
 	ntfs_debug("Merged runlist:");
-	ntfs_debug_rl_dump(dst_runlist);
+	ntfs_debug_runlist_dump(dst_runlist);
 	return 0;
 }
 
@@ -843,8 +838,6 @@ done:
  * @vol:	ntfs volume on which the attribute resides
  * @a:		attribute record whose mapping pairs array to decompress
  * @runlist:	runlist in which to insert @a's runlist
- *
- * It is up to the caller to serialize access to the runlist @runlist.
  *
  * Decompress the attribute @a's mapping pairs array into a runlist.  On
  * success, return the decompressed runlist in @runlist.
@@ -880,10 +873,10 @@ errno_t ntfs_mapping_pairs_decompress(ntfs_volume *vol, const ATTR_RECORD *a,
 	u8 *buf;		/* Current position in mapping pairs array. */
 	u8 *a_end;		/* End of attribute. */
 	unsigned rlsize;	/* Size of runlist buffer. */
+	unsigned rlpos;		/* Current runlist position in units of
+				   ntfs_rl_elements. */
+	unsigned b;		/* Current byte offset in buf. */
 	errno_t err = EIO;
-	u16 rlpos;		/* Current runlist position in units of
-				   runlist_elements. */
-	u8 b;			/* Current byte offset in buf. */
 
 	/* Make sure @a exists and is non-resident. */
 	if (!a || !a->non_resident || sle64_to_cpu(a->lowest_vcn) < (VCN)0) {
@@ -905,8 +898,8 @@ errno_t ntfs_mapping_pairs_decompress(ntfs_volume *vol, const ATTR_RECORD *a,
 		return 0;
 	/* Current position in runlist array. */
 	rlpos = 0;
-	rlsize = NTFS_RL_ALLOC_BLOCK;
-	/* Allocate NTFS_RL_ALLOC_BLOCK bytes for the runlist. */
+	rlsize = NTFS_ALLOC_BLOCK;
+	/* Allocate NTFS_ALLOC_BLOCK bytes for the runlist. */
 	rl = OSMalloc(rlsize, ntfs_malloc_tag);
 	if (!rl)
 		return ENOMEM;
@@ -925,7 +918,7 @@ errno_t ntfs_mapping_pairs_decompress(ntfs_volume *vol, const ATTR_RECORD *a,
 		if (((rlpos + 3) * sizeof(*rl)) > rlsize) {
 			ntfs_rl_element *rl2;
 
-			rl2 = OSMalloc(rlsize + NTFS_RL_ALLOC_BLOCK,
+			rl2 = OSMalloc(rlsize + NTFS_ALLOC_BLOCK,
 					ntfs_malloc_tag);
 			if (!rl2) {
 				err = ENOMEM;
@@ -934,7 +927,7 @@ errno_t ntfs_mapping_pairs_decompress(ntfs_volume *vol, const ATTR_RECORD *a,
 			memcpy(rl2, rl, rlsize);
 			OSFree(rl, rlsize, ntfs_malloc_tag);
 			rl = rl2;
-			rlsize += NTFS_RL_ALLOC_BLOCK;
+			rlsize += NTFS_ALLOC_BLOCK;
 		}
 		/* Enter the current vcn into the current runlist element. */
 		rl[rlpos].vcn = vcn;
@@ -1020,51 +1013,39 @@ errno_t ntfs_mapping_pairs_decompress(ntfs_volume *vol, const ATTR_RECORD *a,
 	if (buf >= a_end)
 		goto io_err;
 	/*
-	 * If there is a highest_vcn specified, it must be equal to the final
-	 * vcn in the runlist - 1, or something has gone badly wrong.
+	 * The highest_vcn must be equal to the final vcn in the runlist - 1,
+	 * or something has gone badly wrong.
 	 */
 	deltaxcn = sle64_to_cpu(a->highest_vcn);
-	if (deltaxcn && vcn - 1 != deltaxcn)
+	if (vcn - 1 != deltaxcn)
 		goto io_err;
 	/* Setup not mapped runlist element if this is the base extent. */
 	if (!a->lowest_vcn) {
 		VCN max_cluster;
 
 		max_cluster = ((sle64_to_cpu(a->allocated_size) +
-				vol->cluster_size - 1) >>
+				vol->cluster_size_mask) >>
 				vol->cluster_size_shift) - 1;
 		/*
-		 * A highest_vcn of zero means this is a single extent
-		 * attribute so simply terminate the runlist with LCN_ENOENT).
+		 * If there is a difference between the highest_vcn and the
+		 * highest cluster, the runlist is either corrupt or, more
+		 * likely, there are more extents following this one.
 		 */
-		if (deltaxcn) {
-			/*
-			 * If there is a difference between the highest_vcn and
-			 * the highest cluster, the runlist is either corrupt
-			 * or, more likely, there are more extents following
-			 * this one.
-			 */
-			if (deltaxcn < max_cluster) {
-				ntfs_debug("More extents to follow; deltaxcn "
-						"= 0x%llx, max_cluster = "
-						"0x%llx",
-						(unsigned long long)deltaxcn,
-						(unsigned long long)
-						max_cluster);
-				rl[rlpos].vcn = vcn;
-				vcn += rl[rlpos].length = max_cluster -
-						deltaxcn;
-				rl[rlpos].lcn = LCN_RL_NOT_MAPPED;
-				rlpos++;
-			} else if (deltaxcn > max_cluster) {
-				ntfs_error(vol->mp, "Corrupt attribute.  "
-						"deltaxcn = 0x%llx, "
-						"max_cluster = 0x%llx",
-						(unsigned long long)deltaxcn,
-						(unsigned long long)
-						max_cluster);
-				goto io_err;
-			}
+		if (deltaxcn < max_cluster) {
+			ntfs_debug("More extents to follow; deltaxcn = "
+					"0x%llx, max_cluster = 0x%llx",
+					(unsigned long long)deltaxcn,
+					(unsigned long long)max_cluster);
+			rl[rlpos].vcn = vcn;
+			vcn += rl[rlpos].length = max_cluster - deltaxcn;
+			rl[rlpos].lcn = LCN_RL_NOT_MAPPED;
+			rlpos++;
+		} else if (deltaxcn > max_cluster) {
+			ntfs_error(vol->mp, "Corrupt attribute.  deltaxcn = "
+					"0x%llx, max_cluster = 0x%llx",
+					(unsigned long long)deltaxcn,
+					(unsigned long long)max_cluster);
+			goto io_err;
 		}
 		rl[rlpos].lcn = LCN_ENOENT;
 	} else /* Not the base extent.  There may be more extents to follow. */
@@ -1080,7 +1061,7 @@ errno_t ntfs_mapping_pairs_decompress(ntfs_volume *vol, const ATTR_RECORD *a,
 		runlist->elements = rlpos + 1;
 		runlist->alloc = rlsize;
 		ntfs_debug("Mapping pairs array successfully decompressed:");
-		ntfs_debug_rl_dump(runlist);
+		ntfs_debug_runlist_dump(runlist);
 		return 0;
 	} else {
 		ntfs_runlist tmp_rl;
@@ -1180,6 +1161,941 @@ LCN ntfs_rl_vcn_to_lcn(const ntfs_rl_element *rl, const VCN vcn, s64 *clusters)
 }
 
 /**
+ * ntfs_rl_find_vcn_nolock - find a vcn in a runlist
+ * @rl:		runlist to search
+ * @vcn:	vcn to find
+ *
+ * Find the virtual cluster number @vcn in the runlist @rl and return the
+ * address of the runlist element containing the @vcn on success.
+ *
+ * Return NULL if @rl is NULL or @vcn is in an unmapped part/out of bounds of
+ * the runlist.
+ *
+ * Locking: The runlist must be locked on entry.
+ */
+ntfs_rl_element *ntfs_rl_find_vcn_nolock(ntfs_rl_element *rl, const VCN vcn)
+{
+	if (vcn < 0)
+		panic("%s(): vcn < 0\n", __FUNCTION__);
+	if (!rl || vcn < rl[0].vcn)
+		return NULL;
+	while (rl->length) {
+		if (vcn < rl[1].vcn) {
+			if (rl->lcn >= LCN_HOLE)
+				return rl;
+			return NULL;
+		}
+		rl++;
+	}
+	if (rl->lcn == LCN_ENOENT)
+		return rl;
+	return NULL;
+}
+
+/**
+ * ntfs_get_nr_significant_bytes - get number of bytes needed to store a number
+ * @n:		number for which to get the number of bytes for
+ *
+ * Return the number of bytes required to store @n unambiguously as
+ * a signed number.
+ *
+ * This is used in the context of the mapping pairs array to determine how
+ * many bytes will be needed in the array to store a given logical cluster
+ * number (lcn) or a specific run length.
+ *
+ * Return the number of bytes written.  This function cannot fail.
+ */
+static inline int ntfs_get_nr_significant_bytes(const s64 n)
+{
+	s64 l = n;
+	int i;
+	s8 j;
+
+	i = 0;
+	do {
+		l >>= 8;
+		i++;
+	} while (l != 0 && l != -1);
+	j = (s8)(n >> (8 * (i - 1))) & 0xff;
+	/* If the sign bit is wrong, we need an extra byte. */
+	if ((n < 0 && j >= 0) || (n > 0 && j < 0))
+		i++;
+	return i;
+}
+
+/**
+ * ntfs_get_size_for_mapping_pairs - get bytes needed for mapping pairs array
+ * @vol:	ntfs volume (needed for the ntfs version)
+ * @rl:		locked runlist to determine the size of the mapping pairs of
+ * @first_vcn:	first vcn which to include in the mapping pairs array
+ * @last_vcn:	last vcn which to include in the mapping pairs array
+ * @mp_size:	destination pointer in which to return the size
+ *
+ * Walk the locked runlist @rl and calculate the size in bytes of the mapping
+ * pairs array corresponding to the runlist @rl, starting at vcn @first_vcn and
+ * finishing with vcn @last_vcn and return the size in *@mp_size.
+ *
+ * A @last_vcn of -1 means end of runlist and in that case the size of the
+ * mapping pairs array corresponding to the runlist starting at vcn @first_vcn
+ * and finishing at the end of the runlist is determined.
+ *
+ * This for example allows us to allocate a buffer of the right size when
+ * building the mapping pairs array.
+ *
+ * If @rl is NULL, just return *@mp_size = 1 (for the single terminator byte).
+ *
+ * Return 0 on success and errno on error.  On error *@mp_size is undefined.
+ * The following error codes are defined:
+ *	EINVAL	- Run list contains unmapped elements.  Make sure to only pass
+ *		  fully mapped runlists to this function.
+ *	EIO	- The runlist is corrupt.
+ *
+ * Locking: @rl must be locked on entry (either for reading or writing), it
+ *	    remains locked throughout, and is left locked upon return.
+ */
+errno_t ntfs_get_size_for_mapping_pairs(const ntfs_volume *vol,
+		const ntfs_rl_element *rl, const VCN first_vcn,
+		const VCN last_vcn, unsigned *mp_size)
+{
+	LCN prev_lcn;
+	int rls;
+	BOOL the_end = FALSE;
+
+	if (first_vcn < 0)
+		panic("%s(): first_vcn < 0\n", __FUNCTION__);
+	if (last_vcn < -1)
+		panic("%s(): last_vcn < -1\n", __FUNCTION__);
+	if (last_vcn >= 0 && first_vcn > last_vcn)
+		panic("%s(): last_vcn >= 0 && first_vcn > last_vcn\n",
+				__FUNCTION__);
+	if (!rl) {
+		if (first_vcn)
+			panic("%s(): first_vcn\n", __FUNCTION__);
+		if (last_vcn > 0)
+			panic("%s(): last_vcn > 0\n", __FUNCTION__);
+		*mp_size = 1;
+		return 0;
+	}
+	/* Skip to runlist element containing @first_vcn. */
+	while (rl->length && first_vcn >= rl[1].vcn)
+		rl++;
+	if ((!rl->length && first_vcn > rl->vcn) || first_vcn < rl->vcn)
+		return EINVAL;
+	prev_lcn = 0;
+	/* Always need the termining zero byte. */
+	rls = 1;
+	/* Do the first partial run if present. */
+	if (first_vcn > rl->vcn) {
+		s64 delta, length = rl->length;
+
+		/* We know rl->length != 0 already. */
+		if (length < 0 || rl->lcn < LCN_HOLE)
+			goto err;
+		/*
+		 * If @last_vcn is given and finishes inside this run, cap the
+		 * run length.
+		 */
+		if (last_vcn >= 0 && rl[1].vcn > last_vcn) {
+			s64 s1 = last_vcn + 1;
+			if (rl[1].vcn > s1)
+				length = s1 - rl->vcn;
+			the_end = TRUE;
+		}
+		delta = first_vcn - rl->vcn;
+		/* Header byte + length. */
+		rls += 1 + ntfs_get_nr_significant_bytes(length - delta);
+		/*
+		 * If the logical cluster number (lcn) denotes a hole and we
+		 * are on NTFS 3.0+, we don't store it at all, i.e. we need
+		 * zero space.  On earlier NTFS versions we just store the lcn.
+		 * Note: this assumes that on NTFS 1.2-, holes are stored with
+		 * an lcn of -1 and not a delta_lcn of -1 (unless both are -1).
+		 */
+		if (rl->lcn >= 0 || vol->major_ver < 3) {
+			prev_lcn = rl->lcn;
+			if (rl->lcn >= 0)
+				prev_lcn += delta;
+			/* Change in lcn. */
+			rls += ntfs_get_nr_significant_bytes(prev_lcn);
+		}
+		/* Go to next runlist element. */
+		rl++;
+	}
+	/* Do the full runs. */
+	for (; rl->length && !the_end; rl++) {
+		s64 length = rl->length;
+
+		if (length < 0 || rl->lcn < LCN_HOLE)
+			goto err;
+		/*
+		 * If @last_vcn is given and finishes inside this run, cap the
+		 * run length.
+		 */
+		if (last_vcn >= 0 && rl[1].vcn > last_vcn) {
+			s64 s1 = last_vcn + 1;
+			if (rl[1].vcn > s1)
+				length = s1 - rl->vcn;
+			the_end = TRUE;
+		}
+		/* Header byte + length. */
+		rls += 1 + ntfs_get_nr_significant_bytes(length);
+		/*
+		 * If the logical cluster number (lcn) denotes a hole and we
+		 * are on NTFS 3.0+, we don't store it at all, i.e. we need
+		 * zero space.  On earlier NTFS versions we just store the lcn.
+		 * Note: this assumes that on NTFS 1.2-, holes are stored with
+		 * an lcn of -1 and not a delta_lcn of -1 (unless both are -1).
+		 */
+		if (rl->lcn >= 0 || vol->major_ver < 3) {
+			/* Change in lcn. */
+			rls += ntfs_get_nr_significant_bytes(rl->lcn -
+					prev_lcn);
+			prev_lcn = rl->lcn;
+		}
+	}
+	*mp_size = rls;
+	return 0;
+err:
+	if (rl->lcn == LCN_RL_NOT_MAPPED)
+		rls = EINVAL;
+	else
+		rls = EIO;
+	return rls;
+}
+
+/**
+ * ntfs_write_significant_bytes - write the significant bytes of a number
+ * @dst:	destination buffer to write to
+ * @dst_max:	pointer to last byte of destination buffer for bounds checking
+ * @n:		number whose significant bytes to write
+ *
+ * Store in @dst, the minimum bytes of the number @n which are required to
+ * identify @n unambiguously as a signed number, taking care not to exceed
+ * @dest_max, the maximum position within @dst to which we are allowed to
+ * write.
+ *
+ * This is used when building the mapping pairs array of a runlist to compress
+ * a given logical cluster number (lcn) or a specific run length to the minumum
+ * size possible.
+ *
+ * Return the number of bytes written on success.  On error, i.e. the
+ * destination buffer @dst is too small, return -ENOSPC.
+ */
+static inline int ntfs_write_significant_bytes(s8 *dst, const s8 *dst_max,
+		const s64 n)
+{
+	s64 l = n;
+	int i;
+	s8 j;
+
+	i = 0;
+	do {
+		if (dst > dst_max)
+			goto err;
+		*dst++ = (s8)l & 0xff;
+		l >>= 8;
+		i++;
+	} while (l != 0 && l != -1);
+	j = (s8)(n >> (8 * (i - 1))) & 0xff;
+	/* If the sign bit is wrong, we need an extra byte. */
+	if (n < 0 && j >= 0) {
+		if (dst > dst_max)
+			goto err;
+		i++;
+		*dst = (s8)-1;
+	} else if (n > 0 && j < 0) {
+		if (dst > dst_max)
+			goto err;
+		i++;
+		*dst = (s8)0;
+	}
+	return i;
+err:
+	return -ENOSPC;
+}
+
+/**
+ * ntfs_mapping_pairs_build - build the mapping pairs array from a runlist
+ * @vol:	ntfs volume (needed for the ntfs version)
+ * @dst:	destination buffer to which to write the mapping pairs array
+ * @dst_len:	size of destination buffer @dst in bytes
+ * @rl:		locked runlist for which to build the mapping pairs array
+ * @first_vcn:	first vcn which to include in the mapping pairs array
+ * @last_vcn:	last vcn which to include in the mapping pairs array
+ * @stop_vcn:	first vcn outside destination buffer on success or ENOSPC
+ *
+ * Create the mapping pairs array from the locked runlist @rl, starting at vcn
+ * @first_vcn and finishing with vcn @last_vcn and save the array in @dst.
+ * @dst_len is the size of @dst in bytes and it should be at least equal to the
+ * value obtained by calling ntfs_get_size_for_mapping_pairs().
+ *
+ * A @last_vcn of -1 means end of runlist and in that case the mapping pairs
+ * array corresponding to the runlist starting at vcn @first_vcn and finishing
+ * at the end of the runlist is created.
+ *
+ * If @rl is NULL, just write a single terminator byte to @dst.
+ *
+ * On success or ENOSPC error, if @stop_vcn is not NULL, *@stop_vcn is set to
+ * the first vcn outside the destination buffer.  Note that on error, @dst has
+ * been filled with all the mapping pairs that will fit, thus it can be treated
+ * as partial success, in that a new attribute extent needs to be created or
+ * the next extent has to be used and the mapping pairs build has to be
+ * continued with @first_vcn set to *@stop_vcn.
+ *
+ * Return 0 on success and errno on error.  The following error codes are
+ * defined:
+ *	EINVAL	- Run list contains unmapped elements.  Make sure to only pass
+ *		  fully mapped runlists to this function.
+ *	EIO	- The runlist is corrupt.
+ *	ENOSPC	- The destination buffer is too small.
+ *
+ * Locking: @rl must be locked on entry (either for reading or writing), it
+ *	    remains locked throughout, and is left locked upon return.
+ */
+errno_t ntfs_mapping_pairs_build(const ntfs_volume *vol, s8 *dst,
+		const unsigned dst_len, const ntfs_rl_element *rl,
+		const VCN first_vcn, const VCN last_vcn, VCN *const stop_vcn)
+{
+	LCN prev_lcn;
+	s8 *dst_max, *dst_next;
+	errno_t err = ENOSPC;
+	BOOL the_end = FALSE;
+	s8 len_len, lcn_len;
+
+	if (first_vcn < 0)
+		panic("%s(): first_vcn < 0\n", __FUNCTION__);
+	if (last_vcn < -1)
+		panic("%s(): last_vcn < -1\n", __FUNCTION__);
+	if (last_vcn >= 0 && first_vcn > last_vcn)
+		panic("%s(): last_vcn >= 0 && first_vcn > last_vcn\n",
+				__FUNCTION__);
+	if (dst_len < 1)
+		panic("%s(): dst_len < 1\n", __FUNCTION__);
+	if (!rl) {
+		if (first_vcn)
+			panic("%s(): first_vcn\n", __FUNCTION__);
+		if (last_vcn > 0)
+			panic("%s(): last_vcn > 0\n", __FUNCTION__);
+		if (stop_vcn)
+			*stop_vcn = 0;
+		/* Terminator byte. */
+		*dst = 0;
+		return 0;
+	}
+	/* Skip to runlist element containing @first_vcn. */
+	while (rl->length && first_vcn >= rl[1].vcn)
+		rl++;
+	if ((!rl->length && first_vcn > rl->vcn) || first_vcn < rl->vcn)
+		return EINVAL;
+	/*
+	 * @dst_max is used for bounds checking in
+	 * ntfs_write_significant_bytes().
+	 */
+	dst_max = dst + dst_len - 1;
+	prev_lcn = 0;
+	/* Do the first partial run if present. */
+	if (first_vcn > rl->vcn) {
+		s64 delta, length = rl->length;
+
+		/* We know rl->length != 0 already. */
+		if (length < 0 || rl->lcn < LCN_HOLE)
+			goto err;
+		/*
+		 * If @last_vcn is given and finishes inside this run, cap the
+		 * run length.
+		 */
+		if (last_vcn >= 0 && rl[1].vcn > last_vcn) {
+			s64 s1 = last_vcn + 1;
+			if (rl[1].vcn > s1)
+				length = s1 - rl->vcn;
+			the_end = TRUE;
+		}
+		delta = first_vcn - rl->vcn;
+		/* Write length. */
+		len_len = ntfs_write_significant_bytes(dst + 1, dst_max,
+				length - delta);
+		if (len_len < 0)
+			goto size_err;
+		/*
+		 * If the logical cluster number (lcn) denotes a hole and we
+		 * are on NTFS 3.0+, we don't store it at all, i.e. we need
+		 * zero space.  On earlier NTFS versions we just write the lcn
+		 * change.  FIXME: Do we need to write the lcn change or just
+		 * the lcn in that case?  Not sure as I have never seen this
+		 * case on NT4. - We assume that we just need to write the lcn
+		 * change until someone tells us otherwise... (AIA)
+		 */
+		if (rl->lcn >= 0 || vol->major_ver < 3) {
+			prev_lcn = rl->lcn;
+			if (rl->lcn >= 0)
+				prev_lcn += delta;
+			/* Write change in lcn. */
+			lcn_len = ntfs_write_significant_bytes(dst + 1 +
+					len_len, dst_max, prev_lcn);
+			if (lcn_len < 0)
+				goto size_err;
+		} else
+			lcn_len = 0;
+		dst_next = dst + len_len + lcn_len + 1;
+		if (dst_next > dst_max)
+			goto size_err;
+		/* Update header byte. */
+		*dst = lcn_len << 4 | len_len;
+		/* Position at next mapping pairs array element. */
+		dst = dst_next;
+		/* Go to next runlist element. */
+		rl++;
+	}
+	/* Do the full runs. */
+	for (; rl->length && !the_end; rl++) {
+		s64 length = rl->length;
+
+		if (length < 0 || rl->lcn < LCN_HOLE)
+			goto err;
+		/*
+		 * If @last_vcn is given and finishes inside this run, cap the
+		 * run length.
+		 */
+		if (last_vcn >= 0 && rl[1].vcn > last_vcn) {
+			s64 s1 = last_vcn + 1;
+			if (rl[1].vcn > s1)
+				length = s1 - rl->vcn;
+			the_end = TRUE;
+		}
+		/* Write length. */
+		len_len = ntfs_write_significant_bytes(dst + 1, dst_max,
+				length);
+		if (len_len < 0)
+			goto size_err;
+		/*
+		 * If the logical cluster number (lcn) denotes a hole and we
+		 * are on NTFS 3.0+, we don't store it at all, i.e. we need
+		 * zero space.  On earlier NTFS versions we just write the lcn
+		 * change.  FIXME: Do we need to write the lcn change or just
+		 * the lcn in that case?  Not sure as I have never seen this
+		 * case on NT4. - We assume that we just need to write the lcn
+		 * change until someone tells us otherwise... (AIA)
+		 */
+		if (rl->lcn >= 0 || vol->major_ver < 3) {
+			/* Write change in lcn. */
+			lcn_len = ntfs_write_significant_bytes(dst + 1 +
+					len_len, dst_max, rl->lcn - prev_lcn);
+			if (lcn_len < 0)
+				goto size_err;
+			prev_lcn = rl->lcn;
+		} else
+			lcn_len = 0;
+		dst_next = dst + len_len + lcn_len + 1;
+		if (dst_next > dst_max)
+			goto size_err;
+		/* Update header byte. */
+		*dst = lcn_len << 4 | len_len;
+		/* Position at next mapping pairs array element. */
+		dst = dst_next;
+	}
+	/* Success. */
+	err = 0;
+size_err:
+	/* Set stop vcn. */
+	if (stop_vcn)
+		*stop_vcn = rl->vcn;
+	/* Add terminator byte. */
+	*dst = 0;
+	return err;
+err:
+	if (rl->lcn == LCN_RL_NOT_MAPPED)
+		err = EINVAL;
+	else
+		err = EIO;
+	return err;
+}
+
+/**
+ * ntfs_rl_shrink - remove runlist elements from the end of an existing runlist
+ * @runlist:		runlist to shrink
+ * @new_elements:	new number of elements for the runlist
+ *
+ * Shrink the number of elements in the array of runlist elements of the
+ * runlist @runlist making the new number of elements to be @new_elements.
+ *
+ * Reallocate the array buffer if that would save memory.  If the reallocation
+ * fails reduce the number of elements anyway as the only side effect is that
+ * we waste a bit of memory for a while.
+ *
+ * This function cannot fail.
+ *
+ * Locking: - The caller must have locked the runlist for writing.
+ *	    - The runlist is modified.
+ */
+static void ntfs_rl_shrink(ntfs_runlist *runlist, unsigned new_elements)
+{
+	unsigned alloc, new_alloc;
+
+	if (new_elements > runlist->elements)
+		panic("%s(): new_elements > runlist->elements\n",
+				__FUNCTION__);
+	alloc = runlist->alloc;
+	if (!alloc || !runlist->rl)
+		panic("%s(): !alloc || !runlist->rl\n", __FUNCTION__);
+	new_alloc = (new_elements * sizeof(ntfs_rl_element) +
+			NTFS_ALLOC_BLOCK - 1) & ~(NTFS_ALLOC_BLOCK - 1);
+	if (new_alloc < alloc) {
+		ntfs_rl_element *new_rl;
+
+		new_rl = OSMalloc(new_alloc, ntfs_malloc_tag);
+		if (new_rl) {
+			ntfs_rl_copy(new_rl, runlist->rl, new_elements);
+			OSFree(runlist->rl, alloc, ntfs_malloc_tag);
+			runlist->rl = new_rl;
+			runlist->alloc = new_alloc;
+		} else
+			ntfs_debug("Failed to shrink runlist buffer.  This "
+					"just wastes a bit of memory "
+					"temporarily so we ignore it.");
+	} else if (new_alloc != alloc)
+		panic("%s(): new_alloc != alloc\n", __FUNCTION__);
+	runlist->elements = new_elements;
+}
+
+/**
+ * ntfs_rl_truncate_nolock - truncate a runlist starting at a specified vcn
+ * @vol:	ntfs volume (needed for error output)
+ * @runlist:	runlist to truncate
+ * @new_length:	the new length of the runlist in VCNs
+ *
+ * Truncate the runlist described by @runlist as well as the memory buffer
+ * holding the runlist elements to a length of @new_length VCNs.
+ *
+ * If @new_length lies within the runlist, the runlist elements with VCNs of
+ * @new_length and above are discarded.  As a special case if @new_length is
+ * zero, the runlist is discarded and set to NULL.
+ *
+ * If @new_length lies beyond the runlist, a sparse runlist element is added to
+ * the end of the runlist @runlist or if the last runlist element is a sparse
+ * one already, this is extended.
+ *
+ * Note, no checking is done for unmapped runlist elements.  It is assumed that
+ * the caller has mapped any elements that need to be mapped already.
+ *
+ * Return 0 on success and errno on error.
+ *
+ * Locking: The caller must hold @runlist->lock for writing.
+ */
+errno_t ntfs_rl_truncate_nolock(const ntfs_volume *vol,
+		ntfs_runlist *const runlist, const s64 new_length)
+{
+	ntfs_rl_element *rl;
+	unsigned last_element, element;
+
+	ntfs_debug("Entering for new_length 0x%llx.",
+			(unsigned long long)new_length);
+	if (!runlist)
+		panic("%s(): !runlist\n", __FUNCTION__);
+	rl = runlist->rl;
+	if (!rl && runlist->alloc)
+		panic("%s(): !rl && runlist->alloc\n", __FUNCTION__);
+	if (rl && !runlist->alloc)
+		panic("%s(): rl && !runlist->alloc\n", __FUNCTION__);
+	if (new_length < 0)
+		panic("%s(): new_length < 0\n", __FUNCTION__);
+	ntfs_debug_runlist_dump(runlist);
+	if (!new_length) {
+		ntfs_debug("Freeing runlist.");
+		if (rl) {
+			OSFree(rl, runlist->alloc, ntfs_malloc_tag);
+			runlist->rl = NULL;
+			runlist->alloc = runlist->elements = 0;
+		}
+		return 0;
+	}
+	if (!runlist->elements) {
+		errno_t err;
+
+		/*
+		 * Create a runlist consisting of a sparse runlist element of
+		 * length @new_length followed by a terminator runlist element.
+		 */
+		err = ntfs_rl_inc(runlist, 2);
+		if (err) {
+			ntfs_error(vol->mp, "Not enough memory to allocate "
+					"runlist element buffer.");
+			return err;
+		}
+		rl = runlist->rl;
+		rl[1].length = rl->vcn = 0;
+		rl->lcn = LCN_HOLE;
+		rl[1].vcn = rl->length = new_length;
+		rl[1].lcn = LCN_ENOENT;
+		goto done;
+	}
+	if (new_length < rl->vcn)
+		panic("%s(): new_length < rl->vcn\n", __FUNCTION__);
+	/* Find @new_length in the runlist. */
+	last_element = runlist->elements - 1;
+	for (element = 0; element < last_element &&
+			new_length >= rl[element + 1].vcn; element++)
+		;
+	/*
+	 * If not at the end of the runlist we need to shrink it.  Otherwise we
+	 * need to expand it.
+	 */
+	if (element < last_element) {
+		ntfs_debug("Shrinking runlist.");
+		/* Truncate the run. */
+		rl[element].length = new_length - rl[element].vcn;
+		/*
+		 * If a run was partially truncated, make the following runlist
+		 * element a terminator.
+		 */
+		if (rl[element].length) {
+			element++;
+			rl[element].vcn = new_length;
+			rl[element].length = 0;
+		}
+		rl[element].lcn = LCN_ENOENT;
+		/* Shrink the number of runlist elements. */
+		ntfs_rl_shrink(runlist, element + 1);
+	} else /* if (element == last_element) */ {
+		if (rl[element].length)
+			panic("%s(): rl[element].length\n", __FUNCTION__);
+		/*
+		 * If the runlist length is already @new_length, there is
+		 * nothing to do except to set the terminator to be LCN_ENOENT.
+		 * Otherwise need to expand the runlist.
+		 */
+		if (new_length > rl[element].vcn) {
+			unsigned prev_element;
+
+			ntfs_debug("Expanding runlist.");
+			/*
+			 * If there is a previous runlist element and it is a
+			 * sparse one, extend it.  Otherwise need to add a new,
+			 * sparse runlist element.
+			 */
+			if (element > 0 && (prev_element = element - 1,
+					rl[prev_element].lcn == LCN_HOLE))
+				rl[prev_element].length = new_length -
+						rl[prev_element].vcn;
+			else {
+				errno_t err;
+
+				/* Add one runlist element to the runlist. */
+				err = ntfs_rl_inc(runlist, 1);
+				if (err) {
+					ntfs_error(vol->mp, "Not enough "
+							"memory to expand "
+							"runlist element "
+							"buffer.");
+					return err;
+				}
+				rl = runlist->rl;
+				/*
+				 * Switch the old terminator runlist element to
+				 * a sparse runlist element and adjust its
+				 * length.
+				 */
+				rl[element].lcn = LCN_HOLE;
+				rl[element].length = new_length -
+						rl[element].vcn;
+				/* Add a new terminator runlist element. */
+				element++;
+				rl[element].length = 0;
+			}
+			rl[element].vcn = new_length;
+		}
+		rl[element].lcn = LCN_ENOENT;
+	}
+done:
+	ntfs_debug_runlist_dump(runlist);
+	ntfs_debug("Done.");
+	return 0;
+}
+
+/**
+ * ntfs_rl_punch_nolock - punch a hole into a runlist
+ * @vol:	ntfs volume (needed for error output)
+ * @runlist:	runlist to punch a hole into
+ * @start_vcn:	vcn in the runlist @runlist at which to start the hole
+ * @len:	size of the hole to be created in units of clusters
+ *
+ * Punch a hole into the runlist @runlist starting at VCN @start_vcn and of
+ * size @len clusters.
+ *
+ * Return 0 on success and errno on error, in which case @runlist has not been
+ * modified.
+ *
+ * If @start_vcn and/or @start_vcn + @len are outside the runlist return error
+ * ENOENT.
+ *
+ * If the runlist contains unmapped or error elements between @start_vcn and
+ * @start_vcn + @len return error EINVAL.
+ *
+ * Locking: The caller must hold @runlist->lock for writing.
+ */
+errno_t ntfs_rl_punch_nolock(const ntfs_volume *vol, ntfs_runlist *runlist,
+		const VCN start_vcn, const s64 len)
+{
+	const VCN end_vcn = start_vcn + len;
+	s64 delta;
+	ntfs_rl_element *rl, *rl_end, *trl;
+	unsigned hole_size;
+	errno_t err;
+	BOOL lcn_fixup = FALSE;
+
+	ntfs_debug("Entering for start_vcn 0x%llx, len 0x%llx.",
+			(unsigned long long)start_vcn, (unsigned long long)len);
+	if (!runlist || start_vcn < 0 || len < 0 || end_vcn < 0)
+		panic("%s(): !runlist || start_vcn < 0 || len < 0 || "
+				"end_vcn < 0\n", __FUNCTION__);
+	if (!runlist->elements) {
+		if (!start_vcn && !len)
+			return 0;
+		return ENOENT;
+	}
+	rl = runlist->rl;
+	if (!runlist->alloc || !rl)
+		panic("%s(): !runlist->alloc || !rl\n", __FUNCTION__);
+	/* Find @start_vcn in the runlist. */
+	while (rl->length && start_vcn >= rl[1].vcn)
+		rl++;
+	rl_end = rl;
+	/* Find @end_vcn in the runlist. */
+	hole_size = 0;
+	while (rl_end->length && end_vcn >= rl_end[1].vcn) {
+		/* Verify there are no unmapped or error elements. */
+		if (rl_end->lcn < LCN_HOLE)
+			return EINVAL;
+		rl_end++;
+		hole_size++;
+	}
+	/* Check the last element. */
+	if (rl_end->length && rl_end->lcn < LCN_HOLE)
+		return EINVAL;
+	/* This covers @start_vcn being out of bounds, too. */
+	if (!rl_end->length && end_vcn > rl_end->vcn)
+		return ENOENT;
+	if (!len)
+		return 0;
+	if (!rl->length)
+		return ENOENT;
+	/* If @start is in a hole simply extend the hole. */
+	if (rl->lcn == LCN_HOLE) {
+		/*
+		 * If both @start_vcn and @end_vcn are in the same sparse run,
+		 * we are done.
+		 */
+		if (end_vcn <= rl[1].vcn) {
+			ntfs_debug("Done (requested hole is already sparse).");
+			return 0;
+		}
+extend_hole:
+		/* Extend the hole. */
+		rl->length = end_vcn - rl->vcn;
+		/* If @end_vcn is in a hole, merge it with the current one. */
+		if (rl_end->lcn == LCN_HOLE) {
+			rl_end++;
+			hole_size++;
+			rl->length = rl_end->vcn - rl->vcn;
+		}
+		/* We have done the hole.  Now deal with the remaining tail. */
+		rl++;
+		hole_size--;
+		/* Cut out all runlist elements up to @end. */
+		if (rl < rl_end)
+			memmove(rl, rl_end, (u8*)&runlist->rl[
+					runlist->elements] - (u8*)rl_end);
+		/* Adjust the beginning of the tail if necessary. */
+		if (end_vcn > rl->vcn) {
+			delta = end_vcn - rl->vcn;
+			rl->vcn = end_vcn;
+			rl->length -= delta;
+			/* Only adjust the lcn if it is real. */
+			if (rl->lcn >= 0)
+				rl->lcn += delta;
+		}
+shrink_allocation:
+		/* Reallocate memory if the allocation changed. */
+		if (rl < rl_end)
+			ntfs_rl_shrink(runlist, runlist->elements - hole_size);
+		ntfs_debug("Done (extend hole).");
+		return 0;
+	}
+	/*
+	 * If @start_vcn is at the beginning of a run things are easier as
+	 * there is no need to split the first run.
+	 */
+	if (start_vcn == rl->vcn) {
+		/*
+		 * @start_vcn is at the beginning of a run.
+		 *
+		 * If the previous run is sparse, extend its hole.
+		 *
+		 * If @end_vcn is not in the same run, switch the run to be
+		 * sparse and extend the newly created hole.
+		 *
+		 * Thus both of these cases reduce the problem to the above
+		 * case of "@start_vcn is in a hole".
+		 */
+		if (rl > runlist->rl && (rl - 1)->lcn == LCN_HOLE) {
+			rl--;
+			hole_size++;
+			goto extend_hole;
+		}
+		if (end_vcn >= rl[1].vcn) {
+			rl->lcn = LCN_HOLE;
+			goto extend_hole;
+		}
+		/*
+		 * The final case is when @end_vcn is in the same run as
+		 * @start_vcn.  For this need to split the run into two.  One
+		 * run for the sparse region between the beginning of the old
+		 * run, i.e. @start_vcn, and @end_vcn and one for the remaining
+		 * non-sparse region, i.e. between @end_vcn and the end of the
+		 * old run.
+		 */
+		trl = runlist->rl;
+		err = ntfs_rl_inc(runlist, 1);
+		if (err)
+			goto err;
+		/*
+		 * If the runlist buffer was reallocated need to update our
+		 * pointers.
+		 */
+		if (runlist->rl != trl)
+			rl = (ntfs_rl_element*)((u8*)runlist->rl +
+					((u8*)rl - (u8*)trl));
+split_end:
+		/* Shift all the runs up by one. */
+		memmove((u8*)rl + sizeof(*rl), rl, (u8*)&runlist->rl[
+				runlist->elements - 1] - (u8*)rl);
+		/* Finally, setup the two split runs. */
+		rl->lcn = LCN_HOLE;
+		rl->length = len;
+		rl++;
+		rl->vcn += len;
+		/* Only adjust the lcn if it is real. */
+		if (rl->lcn >= 0 || lcn_fixup)
+			rl->lcn += len;
+		rl->length -= len;
+		ntfs_debug("Done (split one).");
+		return 0;
+	}
+	/*
+	 * @start_vcn is neither in a hole nor at the beginning of a run.
+	 *
+	 * If @end_vcn is in a hole, things are easier as simply truncating the
+	 * run @start_vcn is in to end at @start_vcn - 1, deleting all runs
+	 * after that up to @end_vcn, and finally extending the beginning of
+	 * the run @end_vcn is in to be @start_vcn is all that is needed.
+	 */
+	if (rl_end->lcn == LCN_HOLE) {
+		/* Truncate the run containing @start. */
+		rl->length = start_vcn - rl->vcn;
+		rl++;
+		hole_size--;
+		/* Cut out all runlist elements up to @end. */
+		if (rl < rl_end)
+			memmove(rl, rl_end, (u8*)&runlist->rl[
+					runlist->elements] - (u8*)rl_end);
+		/* Extend the beginning of the run @end is in to be @start. */
+		rl->vcn = start_vcn;
+		rl->length = rl[1].vcn - start_vcn;
+		goto shrink_allocation;
+	}
+	/* 
+	 * If @end_vcn is not in a hole there are still two cases to
+	 * distinguish.  Either @end_vcn is or is not in the same run as
+	 * @start_vcn.
+	 *
+	 * The second case is easier as it can be reduced to an already solved
+	 * problem by truncating the run @start_vcn is in to end at @start_vcn
+	 * - 1.  Then, if @end_vcn is in the next run need to split the run
+	 * into a sparse run followed by a non-sparse run which we already
+	 * covered above and if @end_vcn is not in the next run switching it to
+	 * be sparse reduces the problem to the case of "@start_vcn is in a
+	 * hole" which we also covered above.
+	 */
+	if (end_vcn >= rl[1].vcn) {
+		/*
+		 * If @end_vcn is not in the next run, reduce the problem to
+		 * the case of "@start_vcn is in a hole".
+		 */
+		if (rl[1].length && end_vcn >= rl[2].vcn) {
+			/* Truncate the run containing @start_vcn. */
+			rl->length = start_vcn - rl->vcn;
+			rl++;
+			hole_size--;
+			rl->vcn = start_vcn;
+			rl->lcn = LCN_HOLE;
+			goto extend_hole;
+		}
+		trl = runlist->rl;
+		err = ntfs_rl_inc(runlist, 1);
+		if (err)
+			goto err;
+		/*
+		 * If the runlist buffer was reallocated need to update our
+		 * pointers.
+		 */
+		if (runlist->rl != trl)
+			rl = (ntfs_rl_element*)((u8*)runlist->rl +
+					((u8*)rl - (u8*)trl));
+		/* Truncate the run containing @start_vcn. */
+		rl->length = start_vcn - rl->vcn;
+		rl++;
+		/*
+		 * @end_vcn is in the next run, reduce the problem to the case
+		 * where "@start_vcn is at the beginning of a run and @end_vcn
+		 * is in the same run as @start_vcn".
+		 */
+		delta = rl->vcn - start_vcn;
+		rl->vcn = start_vcn;
+		if (rl->lcn >= 0) {
+			rl->lcn -= delta;
+			/* Need this in case the lcn just became negative. */
+			lcn_fixup = TRUE;
+		}
+		rl->length += delta;
+		goto split_end;
+	}
+	/*
+	 * The first case from above, i.e. @end_vcn is in the same non-sparse
+	 * run as @start_vcn.  We need to split the run into three.  One run
+	 * for the non-sparse region between the beginning of the old run and
+	 * @start_vcn, one for the sparse region between @start_vcn and
+	 * @end_vcn, and one for the remaining non-sparse region, i.e. between
+	 * @end_vcn and the end of the old run.
+	 */
+	trl = runlist->rl;
+	err = ntfs_rl_inc(runlist, 2);
+	if (err)
+		goto err;
+	/* If the runlist buffer was reallocated need to update our pointers. */
+	if (runlist->rl != trl)
+		rl = (ntfs_rl_element*)((u8*)runlist->rl +
+				((u8*)rl - (u8*)trl));
+	/* Shift all the runs up by two. */
+	memmove((u8*)rl + 2 * sizeof(*rl), rl,
+			(u8*)&runlist->rl[runlist->elements - 2] - (u8*)rl);
+	/* Finally, setup the three split runs. */
+	rl->length = start_vcn - rl->vcn;
+	rl++;
+	rl->vcn = start_vcn;
+	rl->lcn = LCN_HOLE;
+	rl->length = len;
+	rl++;
+	delta = end_vcn - rl->vcn;
+	rl->vcn = end_vcn;
+	rl->lcn += delta;
+	rl->length -= delta;
+	ntfs_debug("Done (split both).");
+	return 0;
+err:
+	ntfs_error(vol->mp, "Failed to extend runlist buffer (error %d).", err);
+	return err;
+}
+
+/**
  * ntfs_rl_read - load data described by an runlist from disk
  * @vol:		ntfs volume from which to read
  * @runlist:		runlist describing vcn to lcn mapping of data
@@ -1198,9 +2114,9 @@ LCN ntfs_rl_vcn_to_lcn(const ntfs_rl_element *rl, const VCN vcn, s64 *clusters)
  * Note: Sparse runlists are not supported as this function is only used to
  * load the attribute list attribute value which may not be sparse.
  *
- * Locking: - The caller must not have locked the runlist for writing.
- *	    - This function takes the lock for reading.
- *	    - The runlist is not modified.
+ * Locking: The caller must have locked the runlist or otherwise ensure that no
+ *	    one is modifying the runlist under whilst ntfs_rl_read() is
+ *	    executing.
  */
 errno_t ntfs_rl_read(ntfs_volume *vol, ntfs_runlist *runlist, u8 *dst,
 		const s64 size, const s64 initialized_size)
@@ -1208,8 +2124,9 @@ errno_t ntfs_rl_read(ntfs_volume *vol, ntfs_runlist *runlist, u8 *dst,
 	u8 *dst_end = dst + initialized_size;
 	ntfs_rl_element *rl;
 	vnode_t dev_vn = vol->dev_vn;
+	buf_t buf;
 	errno_t err;
-	int block_size = vol->sector_size;
+	unsigned block_size = vol->sector_size;
 	const u8 cluster_to_block_shift = vol->cluster_size_shift -
 			vol->sector_size_shift;
 
@@ -1224,13 +2141,11 @@ errno_t ntfs_rl_read(ntfs_volume *vol, ntfs_runlist *runlist, u8 *dst,
 		ntfs_debug("Done (!initialized_size).");
 		return 0;
 	}
-	lck_rw_lock_shared(&runlist->lock);
 	rl = runlist->rl;
 	if (!rl) {
 		ntfs_error(vol->mp, "Cannot read attribute list since runlist "
 				"is missing.");
-		err = EIO;
-		goto err;	
+		return EIO;
 	}
 	/* Read all clusters specified by the runlist one run at a time. */
 	while (rl->length) {
@@ -1244,31 +2159,40 @@ errno_t ntfs_rl_read(ntfs_volume *vol, ntfs_runlist *runlist, u8 *dst,
 		if (rl->lcn < 0) {
 			ntfs_error(vol->mp, "Runlist is invalid, not mapped, "
 					"or sparse.  Cannot read data.");
-			err = EIO;
-			goto err;
+			return EIO;
 		}
 		/* Read the run from device in chunks of block_size bytes. */
 		block = rl->lcn << cluster_to_block_shift;
 		max_block = block + (rl->length << cluster_to_block_shift);
 		ntfs_debug("max_block 0x%llx.", (unsigned long long)max_block);
 		do {
-			buf_t buf;
+			u8 *src;
 
 			ntfs_debug("Reading block 0x%llx.",
 					(unsigned long long)block);
 			err = buf_meta_bread(dev_vn, block, block_size, NOCRED,
 					&buf);
 			if (err) {
-				buf_brelse(buf);
 				ntfs_error(vol->mp, "buf_meta_bread() failed "
-						"(error %d).   Cannot read "
+						"(error %d).  Cannot read "
 						"data.", (int)err);
+				goto err;
+			}
+			err = buf_map(buf, (caddr_t*)&src);
+			if (err) {
+				ntfs_error(vol->mp, "buf_map() failed (error "
+						"%d).  Cannot read data.",
+						(int)err);
 				goto err;
 			}
 			/* Copy the data into the buffer. */
 			if (dst + block_size > dst_end)
 				block_size = dst_end - dst;
-			memcpy(dst, (u8*)buf_dataptr(buf), block_size);
+			memcpy(dst, src, block_size);
+			err = buf_unmap(buf);
+			if (err)
+				ntfs_error(vol->mp, "buf_unmap() failed "
+						"(error %d).", (int)err);
 			buf_brelse(buf);
 			dst += block_size;
 			if (dst >= dst_end)
@@ -1277,7 +2201,6 @@ errno_t ntfs_rl_read(ntfs_volume *vol, ntfs_runlist *runlist, u8 *dst,
 		rl++;
 	}
 done:
-	lck_rw_unlock_shared(&runlist->lock);
 	/* If the runlist was too short, zero out the unread part. */
 	if (dst < dst_end)
 		bzero(dst, dst_end - dst);
@@ -1287,6 +2210,309 @@ done:
 	ntfs_debug("Done.");
 	return 0;
 err:
-	lck_rw_unlock_shared(&runlist->lock);
+	buf_brelse(buf);
 	return err;
+}
+
+/**
+ * ntfs_rl_write - write data to disk as described by an runlist
+ * @vol:	ntfs volume to which to write
+ * @src:	source buffer
+ * @size:	size of source buffer @src in bytes
+ * @runlist:	runlist describing vcn to lcn mapping of data
+ * @ofs:	offset into buffer/runlist at which to start writing
+ * @cnt:	number of bytes to write starting at @ofs or zero
+ *
+ * Walk the runlist @runlist and write the data contained in @src starting at
+ * offset @ofs into @src to the corresponding clusters as specified by the
+ * runlist starting at offset @ofs into the runlist.  If @cnt is not zero it is
+ * the number of bytes to write starting at @ofs.  If @cnt is zero we write
+ * until the end of the source buffer @src is reached.
+ *
+ * Note @ofs will be aligned to a device block boundary and @cnt will be
+ * adjusted accordingly and it will be rounded up to the next device block
+ * boundary and anything outside @size will be written as zeroes.
+ *
+ * Return 0 on success and errno on error.
+ *
+ * Note: Sparse runlists are not supported by this function.
+ *
+ * Locking: The caller must have locked the runlist or otherwise ensure that no
+ *	    one is modifying the runlist under whilst ntfs_rl_write() is
+ *	    executing.
+ */
+errno_t ntfs_rl_write(ntfs_volume *vol, u8 *src, const s64 size,
+		ntfs_runlist *runlist, s64 ofs, const s64 cnt)
+{
+	VCN vcn;
+	u8 *src_end, *src_stop;
+	ntfs_rl_element *rl;
+	vnode_t dev_vn = vol->dev_vn;
+	errno_t err;
+	unsigned block_size, block_shift, cluster_shift, shift, delta, vcn_ofs;
+
+	ntfs_debug("Entering for size 0x%llx, ofs 0x%llx.",
+			(unsigned long long)size, (unsigned long long)ofs);
+	if (!vol || !src || size <= 0 || !runlist || !runlist->elements ||
+			ofs < 0 || cnt < 0 || ofs + cnt > size) {
+		ntfs_error(vol->mp, "Received invalid arguments.");
+		return EINVAL;
+	}
+	src_stop = src_end = src + size;
+	if (cnt) {
+		src_stop = src + ofs + cnt;
+		if (src_stop > src_end)
+			panic("%s(): src_stop > src_end\n", __FUNCTION__);
+	}
+	block_size = vol->sector_size;
+	block_shift = vol->sector_size_shift;
+	cluster_shift = vol->cluster_size_shift;
+	shift = cluster_shift - block_shift;
+	/*
+	 * Align the start offset to contain a whole buffer.  This makes things
+	 * simpler.
+	 */
+	delta = ofs & vol->sector_size_mask;
+	ofs -= delta;
+	src += ofs;
+	rl = runlist->rl;
+	/* Skip to the start offset @ofs in the runlist. */
+	vcn = ofs >> cluster_shift;
+	vcn_ofs = ofs & vol->cluster_size_mask;
+	rl = ntfs_rl_find_vcn_nolock(rl, vcn);
+	if (!rl || !rl->length)
+		panic("%s(): !rl || !rl->length\n", __FUNCTION__);
+	/* Write the clusters specified by the runlist one at a time. */
+	do {
+		LCN lcn;
+		daddr64_t block, end_block;
+
+		lcn = ntfs_rl_vcn_to_lcn(rl, vcn, NULL);
+		if (lcn < 0)
+			panic("%s(): lcn < 0\n", __FUNCTION__);
+		ntfs_debug("Writing vcn 0x%llx, start offset 0x%x, lcn "
+				"0x%llx.", (unsigned long long)vcn, vcn_ofs,
+				(unsigned long long)lcn);
+		/* Write to the device in chunks of sectors. */
+		block = ((lcn << cluster_shift) + vcn_ofs) >> block_shift;
+		end_block = (lcn + 1) << shift;
+		ntfs_debug("end_block 0x%llx.", (unsigned long long)end_block);
+		do {
+			buf_t buf;
+			u8 *dst;
+
+			ntfs_debug("Writing block 0x%llx.",
+					(unsigned long long)block);
+			/* Obtain the buffer, possibly not uptodate. */
+			buf = buf_getblk(dev_vn, block, block_size, 0, 0,
+					BLK_META);
+			if (!buf)
+				panic("%s(): !buf\n", __FUNCTION__);
+			err = buf_map(buf, (caddr_t*)&dst);
+			if (err) {
+				ntfs_error(vol->mp, "buf_map() failed (error "
+						"%d).", err);
+				buf_brelse(buf);
+				goto err;
+			}
+			/*
+			 * Zero the area outside the size of the attribute list
+			 * attribute in the final partial buffer.
+			 */
+			if (src + block_size > src_end) {
+				delta = src_end - src;
+				bzero(dst + delta, block_size - delta);
+				block_size = delta;
+			}
+			/*
+			 * Copy the modified data into the buffer and write it
+			 * synchronously.
+			 */
+			memcpy(dst, src, block_size);
+			err = buf_unmap(buf);
+			if (err)
+				ntfs_error(vol->mp, "buf_unmap() failed "
+						"(error %d).", err);
+			err = buf_bwrite(buf);
+			if (err) {
+				ntfs_error(vol->mp, "buf_bwrite() failed "
+						"(error %d).", err);
+				goto err;
+			}
+			src += block_size;
+			if (src >= src_stop)
+				goto done;
+		} while (++block < end_block);
+		if (++vcn >= rl[1].vcn) {
+			rl++;
+			if (!rl->length)
+				break;
+		}
+		vcn_ofs = 0;
+	} while (1);
+done:
+	ntfs_debug("Done.");
+	return 0;
+err:
+	ntfs_error(vol->mp, "Failed to update attribute list attribute on "
+			"disk due to i/o error on buffer write.  Leaving "
+			"inconsistent metadata.  Run chkdsk.");
+	NVolSetErrors(vol);
+	return EIO;
+}
+
+/**
+ * ntfs_rl_set - fill data on disk as described by an runlist with a value
+ * @vol:	ntfs volume to which to write
+ * @rl:		runlist describing clusters to fill with value
+ * @val:	value to fill each byte in the clusters with
+ *
+ * Walk the runlist elements in at @rl and fill all bytes in all clusters @rl
+ * describes with the value @val.
+ *
+ * Return 0 on success and errno on error.
+ *
+ * Note: This function will simply skip unmapped and sparse runs thus you need
+ * to make sure that all wanted runs are mapped.
+ *
+ * Locking: - The caller must have locked the runlist for writing.
+ *	    - The runlist is not modified.
+ */
+errno_t ntfs_rl_set(ntfs_volume *vol, const ntfs_rl_element *rl, const u8 val)
+{
+	VCN vcn;
+	vnode_t dev_vn = vol->dev_vn;
+	errno_t err;
+	unsigned block_size, shift;
+
+	ntfs_debug("Entering (val 0x%x).", (unsigned)val);
+	if (!vol || !rl || !rl->length) {
+		ntfs_error(vol->mp, "Received invalid arguments.");
+		return EINVAL;
+	}
+	block_size = vol->sector_size;
+	shift = vol->cluster_size_shift - vol->sector_size_shift;
+	/* Write the clusters specified by the runlist one at a time. */
+	do {
+		LCN lcn;
+		daddr64_t block, end_block;
+
+		vcn = rl->vcn;
+		if (vcn < 0)
+			panic("%s(): vcn < 0\n", __FUNCTION__);
+		lcn = rl->lcn;
+		if (lcn < 0) {
+			if (lcn == LCN_HOLE || lcn == LCN_RL_NOT_MAPPED)
+				continue;
+			ntfs_error(vol->mp, "Invalid LCN (%lld) in runlist.",
+					(long long)lcn);
+			return EIO;
+		}
+		/* Write to the device in chunks of sectors. */
+		block = lcn << shift;
+		end_block = (lcn + rl->length) << shift;
+		ntfs_debug("end_block 0x%llx.", (unsigned long long)end_block);
+		do {
+			buf_t buf;
+			u8 *dst;
+
+			ntfs_debug("Setting block 0x%llx.",
+					(unsigned long long)block);
+			/* Obtain the buffer, possibly not uptodate. */
+			buf = buf_getblk(dev_vn, block, block_size, 0, 0,
+					BLK_META);
+			if (!buf)
+				panic("%s(): !buf\n", __FUNCTION__);
+			err = buf_map(buf, (caddr_t*)&dst);
+			if (err) {
+				ntfs_error(vol->mp, "buf_map() failed (error "
+						"%d).", err);
+				buf_brelse(buf);
+				return err;
+			}
+			/*
+			 * Set the bytes in the buffer to @val and write it
+			 * synchronously.
+			 */
+			memset(dst, val, block_size);
+			err = buf_unmap(buf);
+			if (err)
+				ntfs_error(vol->mp, "buf_unmap() failed "
+						"(error %d).", err);
+			err = buf_bwrite(buf);
+			if (err) {
+				ntfs_error(vol->mp, "buf_bwrite() failed "
+						"(error %d).", err);
+				return err;
+			}
+		} while (++block < end_block);
+	} while ((++rl)->length);
+	ntfs_debug("Done.");
+	return 0;
+}
+
+/**
+ * ntfs_rl_get_nr_real_clusters - determine number of real clusters in a runlist
+ * @runlist:	runlist for which to determine the number of real clusters
+ * @start_vcn:	vcn at which to start counting the real clusters
+ * @cnt:	number of clusters to scan starting at @start_vcn
+ *
+ * Find the virtual cluster number @start_vcn in the runlist @runlist and add
+ * up the number of real clusters in the range @start_vcn to @start_vcn + @cnt.
+ *
+ * If @cnt is -1 it is taken to mean the end of the runlist.
+ *
+ * Return the numbero f real clusters in the range.
+ *
+ * Locking: The runlist must be locked on entry.
+ */
+s64 ntfs_rl_get_nr_real_clusters(ntfs_runlist *runlist, const VCN start_vcn,
+		const s64 cnt)
+{
+	VCN end_vcn;
+	s64 nr_real_clusters;
+	ntfs_rl_element *rl;
+
+	if (!runlist || start_vcn < 0 || cnt < 0)
+		panic("%s(): !runlist || start_vcn < 0 || cnt < 0\n",
+				__FUNCTION__);
+	nr_real_clusters = 0;
+	if (!runlist->elements || !cnt)
+		goto done;
+	end_vcn = -1;
+	if (cnt >= 0)
+		end_vcn = start_vcn + cnt;
+	rl = runlist->rl;
+	if (start_vcn > 0)
+		rl = ntfs_rl_find_vcn_nolock(rl, start_vcn);
+	if (!rl || !rl->length)
+		goto done;
+	if (rl->lcn >= 0) {
+		s64 delta;
+		
+		delta = start_vcn - rl->vcn;
+		nr_real_clusters = rl[1].vcn - delta;
+		if (nr_real_clusters > cnt) {
+			nr_real_clusters = cnt;
+			goto done;
+		}
+	}
+	rl++;
+	while (rl->length) {
+		/*
+		 * If this is the last run of interest, deal with it specially
+		 * as it may be partial and then we are done.
+		 */
+		if (end_vcn >= 0 && rl[1].vcn >= end_vcn) {
+			if (rl->lcn >= 0)
+				nr_real_clusters += end_vcn - rl->vcn;
+			break;
+		}
+		if (rl->lcn >= 0)
+			nr_real_clusters += rl->length;
+		rl++;
+	}
+done:
+	ntfs_debug("Done (nr_real_clusters 0x%llx).", nr_real_clusters);
+	return nr_real_clusters;
 }

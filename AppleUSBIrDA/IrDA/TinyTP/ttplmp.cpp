@@ -58,7 +58,7 @@ EventTraceCauseDesc gTraceEvents[] = {
 
 };
 
-#define XTRACE(x, y, z)  IrDALogAdd( x, y, (int)z & 0xffff, gTraceEvents, true )  
+#define XTRACE(x, y, z)  IrDALogAdd( x, y, (uintptr_t)z & 0xffff, gTraceEvents, true )  
 
 #else
 #define XTRACE(x, y, z) ((void)0)
@@ -187,7 +187,7 @@ TTinyTP::ListenComplete (
 		TIrQOS  *peerQOS,               // peer's qos
 		CBufferSegment *data)
 {
-    XTRACE (kListenComplete, (int)this >> 16, this);
+    XTRACE (kListenComplete, 0, this);
     XTRACE (kListenComplete, peerLSAPId, result);
     check(data);                            // should always have data on a listen complete
 

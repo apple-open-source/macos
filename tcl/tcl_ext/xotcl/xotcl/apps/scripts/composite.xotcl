@@ -1,0 +1,53 @@
+#$Id: composite.xotcl,v 1.1 2004/05/23 22:50:39 neumann Exp $
+Class Composite -superclass Class
+Composite metadata add description
+@ @File {
+  description {
+  Simple composite pattern meta-class taken from the paper 
+  'Filters as a Language Support for Design Patterns in
+  Object-Oriented Scripting Languages'. 
+  }
+}
+
+Composite instproc addOperations args {
+  foreach op $args {
+    if {![my exists operations($op)]} {
+      my set operations($op) $op
+    }
+  }
+} 
+
+Composite instproc removeOperations args {
+  foreach op $args {
+    if {![my exists operations($op)]} {
+      my unset operations($op)
+    }
+  }
+}
+
+Composite instproc compositeFilter args {
+  # get the operations class variable from the object's class
+  set registrationclass [lindex [self filterreg] 0]
+  $registrationclass instvar operations
+  # get the request
+  set r [self calledproc]
+  puts ***compositeFilter--${r}--[self]
+
+  # check if the request is a registered operation 
+  if {[info exists operations($r)]} {
+    foreach object [my info children] {
+      # forward request
+      eval $object $r $args
+    }
+  }
+  return [next]    
+}
+
+
+Composite instproc init {args} {
+  my array set operations {}
+  next
+  my instfilterappend compositeFilter 
+}
+
+

@@ -1,3 +1,5 @@
+@subheading punycode_strerror
+@anchor{punycode_strerror}
 @deftypefun {const char *} {punycode_strerror} (Punycode_status @var{rc})
 @var{rc}: an @code{Punycode_status} return code.
 

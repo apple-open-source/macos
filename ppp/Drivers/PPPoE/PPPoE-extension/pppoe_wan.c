@@ -98,7 +98,7 @@ Forward declarations
 ----------------------------------------------------------------------------- */
 
 static int	pppoe_wan_output(struct ppp_link *link, mbuf_t m);
-static int 	pppoe_wan_ioctl(struct ppp_link *link, u_int32_t cmd, void *data);
+static int 	pppoe_wan_ioctl(struct ppp_link *link, u_long cmd, void *data);
 static int 	pppoe_wan_findfreeunit(u_short *freeunit);
 
 /* -----------------------------------------------------------------------------
@@ -174,13 +174,13 @@ int pppoe_wan_attach(void *rfc, struct ppp_link **link)
 
     ret = ppp_link_attach((struct ppp_link *)wan);
     if (ret) {
-        log(LOGVAL, "pppoe_wan_attach, error = %d, (ld = 0x%x)\n", ret, wan);
+        IOLog("pppoe_wan_attach, error = %d, (ld = %p)\n", ret, wan);
         TAILQ_REMOVE(&pppoe_wan_head, wan, next);
         FREE(wan, M_TEMP);
         return ret;
     }
     
-    //log(LOGVAL, "pppoe_wan_attach, link index = %d, (ld = 0x%x)\n", lk->lk_index, lk);
+    //IOLog("pppoe_wan_attach, link index = %d, (ld = %p)\n", lk->lk_index, lk);
 
     *link = lk;
     
@@ -245,14 +245,14 @@ int pppoe_wan_input(struct ppp_link *link, mbuf_t m)
 /* -----------------------------------------------------------------------------
 Process an ioctl request to the ppp interface
 ----------------------------------------------------------------------------- */
-int pppoe_wan_ioctl(struct ppp_link *link, u_int32_t cmd, void *data)
+int pppoe_wan_ioctl(struct ppp_link *link, u_long cmd, void *data)
 {
     //struct pppoe_wan 	*wan = (struct pppoe_wan *)link;;
     int error = 0;
 	
 	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
     
-    //LOGDBG(ifp, (LOGVAL, "pppoe_wan_ioctl, cmd = 0x%x\n", cmd));
+    //LOGDBG(ifp, ("pppoe_wan_ioctl, cmd = 0x%x\n", cmd));
 
     switch (cmd) {
         default:

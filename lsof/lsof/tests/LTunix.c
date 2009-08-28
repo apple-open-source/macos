@@ -128,12 +128,12 @@ main(argc, argv)
 	em = "ERROR!!!  can't get CWD";
 	goto print_errno;
     }
-
     cwd[sizeof(cwd) - 1] = '\0';
-    if ((strlen(cwd) + strlen("/config.LT#U9223372036854775807") + 1) > sizeof(ua.sun_path)) {
-	strlcpy(cwd, "/tmp", sizeof(cwd));
+    if ((strlen(cwd) + strlen("/config.LT#U9223372036854775807") + 1)
+    > sizeof(ua.sun_path))
+    {
+	strncpy(cwd, "/tmp", sizeof(cwd) - 1);
     }
-
     for (ti = 0; ti < 2; ti++) {
 	(void) snprintf(buf, sizeof(buf) - 1, "%s/config.LT%dU%ld", cwd, ti,
 	    (long)MyPid);

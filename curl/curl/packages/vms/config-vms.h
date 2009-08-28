@@ -1,7 +1,6 @@
 /* MSK, 02/05/04, Hand edited for trail build on Alpha V7.3, DEC C 6.5-003 */
 /* MSK, 03/09/04, Seems to work for all platforms I've built on so far.    */
-/*      Added HAVE_SYS_IOCTL_H, IOCTL_3_ARGS and SIZEOF_CURL_OFF_T defines */
-/* MSK, 06/04/04, Added HAVE_INET_NTOP                                     */
+/*      Added HAVE_SYS_IOCTL_H define                                      */
 /* TES, 10/06/04, Added MAX_INITIAL_POST_SIZE, HAVE_BASENAME               */
 /* MSK, 02/02/05, Changed HAVE_TERMIOS_H to an undef since the change in   */
 /*                getpass.c no longer undef'd it during compile.           */
@@ -26,7 +25,7 @@
 /* Define if you can safely include both <sys/time.h> and <time.h>.  */
 #define TIME_WITH_SYS_TIME 1
 
-/* Define this to 'int' if socklen_t is not an available typedefed type */
+/* Type to use in place of socklen_t when system does not provide it.  */
 #define socklen_t size_t
 
 /* The number of bytes in a long double.  */
@@ -34,6 +33,9 @@
 
 /* The number of bytes in a long long.  */
 #define SIZEOF_LONG_LONG 8
+
+/* Define if you have the alarm function.  */
+#define HAVE_ALARM 1
 
 /* Define if you have the geteuid function.  */
 #define HAVE_GETEUID 1
@@ -59,8 +61,14 @@
 /* Define if you have the inet_addr function.  */
 #define HAVE_INET_ADDR 1
 
-/* Define if you have the inet_ntoa function.  */
-#define HAVE_INET_NTOA 1
+/* Define if you have the ioctl function. */
+#define HAVE_IOCTL 1
+
+/* Define if you have a working ioctl FIONBIO function. */
+#define HAVE_IOCTL_FIONBIO 1
+
+/* Define if you have a working ioctl SIOCGIFADDR function. */
+#define HAVE_IOCTL_SIOCGIFADDR 1
 
 /* Define if you have the perror function.  */
 #define HAVE_PERROR 1
@@ -227,9 +235,6 @@
 /* Define if you have the getpass function.  */
 #undef HAVE_GETPASS
 
-/* Define if you have the `dlopen' function. */
-#define HAVE_DLOPEN 1
-
 /* Define if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
@@ -251,8 +256,6 @@
 /* Define if you have the <memory.h> header file. */
 #define HAVE_MEMORY_H   1
 
-#define HAVE_FIONBIO	1
-
 /* Define if you have the `sigsetjmp' function. */
 #define HAVE_SIGSETJMP 1
 
@@ -262,25 +265,11 @@
 /* Define to 1 if you have the <limits.h> header file. */
 #define HAVE_LIMITS_H 1
 
-/* Define to 1 if you have the <dlfcn.h> header file. */
-#define HAVE_DLFCN_H 1
-
 /* Define to 1 if you have the <sys/ioctl.h> header file. */
 #define HAVE_SYS_IOCTL_H 1
 
-/* IOCTL_3_ARGS defined to match the ioctl function in stropts.h */
-#define IOCTL_3_ARGS 1
-
-/* Seems with versions of cURL after 7.11.0 you need to define */
-/* SIZEOF_CURL_OFF_T to something to get it to compile.        */
-#if defined( __VAX) || (__32BITS == 1)
-#define SIZEOF_CURL_OFF_T 4
-#else
-#define SIZEOF_CURL_OFF_T 8
-#endif
-
-/* Somewhere around 7.12.0 HAVE_INET_NTOP was introduced. */
-#define HAVE_INET_NTOP 1
+/* Define to 1 if you have the <stropts.h> header file. */
+#define HAVE_STROPTS_H 1
 
 /* to disable LDAP */
 #define CURL_DISABLE_LDAP 1
@@ -321,6 +310,33 @@
 /* Define to the function return type for recv. */
 #define RECV_TYPE_RETV int
 
+/* Define if you have the recvfrom function. */
+#define HAVE_RECVFROM 1
+
+/* Define to the type of arg 1 for recvfrom. */
+#define RECVFROM_TYPE_ARG1 int
+
+/* Define to the type pointed by arg 2 for recvfrom. */
+#define RECVFROM_TYPE_ARG2 void
+
+/* Define if the type pointed by arg 2 for recvfrom is void. */
+#define RECVFROM_TYPE_ARG2_IS_VOID 1
+
+/* Define to the type of arg 3 for recvfrom. */
+#define RECVFROM_TYPE_ARG3 int
+
+/* Define to the type of arg 4 for recvfrom. */
+#define RECVFROM_TYPE_ARG4 int
+
+/* Define to the type pointed by arg 5 for recvfrom. */
+#define RECVFROM_TYPE_ARG5 struct sockaddr
+
+/* Define to the type pointed by arg 6 for recvfrom. */
+#define RECVFROM_TYPE_ARG6 int
+
+/* Define to the function return type for recvfrom. */
+#define RECVFROM_TYPE_RETV int
+
 /* Define if you have the send function. */
 #define HAVE_SEND 1
 
@@ -341,4 +357,7 @@
 
 /* Define to the function return type for send. */
 #define SEND_TYPE_RETV int
+
+/* Define to hide dollar sign from compilers in strict ansi mode. */
+#define decc_translate_vms(__s) decc$translate_vms(__s)
 

@@ -1,0 +1,20 @@
+Source: perltidy
+Section: interpreters
+Priority: optional
+Maintainer: Steve Hancock <perltidy@users.sourceforge.net>
+Build-Depends: debhelper (>= 3.0.5), perl (>= 5.6.1-7)
+Standards-Version: 3.5.1
+
+Package: perltidy
+Architecture: all
+Depends: ${perl:Depends}
+Description: A Perl script indenter and reformatter
+ Perltidy is a Perl script which indents and reformats Perl
+ scripts to make them easier to read.
+ .
+ The formatting can be controlled with command line parameters.
+ The default parameter settings approximately follow the
+ suggestions in the Perl Style Guide.
+ .
+ If you write Perl scripts, or spend much time reading them,
+ you will probably find it useful.

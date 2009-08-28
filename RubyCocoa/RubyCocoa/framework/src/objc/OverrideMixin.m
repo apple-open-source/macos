@@ -1,5 +1,5 @@
 /* 
- * Copyright (c) 2006-2007, The RubyCocoa Project.
+ * Copyright (c) 2006-2008, The RubyCocoa Project.
  * Copyright (c) 2001-2006, FUJIMOTO Hisakuni.
  * All Rights Reserved.
  *
@@ -37,7 +37,7 @@ static IMP super_imp(id rcv, SEL a_sel, IMP origin_imp)
   IMP ret = NULL;
   Class klass = [rcv class];
 
-  while (klass = [klass superclass]) {
+  while ((klass = [klass superclass]) != NULL) {
     ret = [klass instanceMethodForSelector: a_sel];
     if (ret && ret != origin_imp)
       return ret;
@@ -113,7 +113,7 @@ ovmix_ffi_closure(ffi_cif* cif, void* resp, void** args, void* userdata)
 {
   char *retval_octype;
   char **args_octypes;
-  VALUE rb_args;
+  volatile VALUE rb_args;
   unsigned i;
   VALUE retval;
 
@@ -135,7 +135,7 @@ ovmix_ffi_closure(ffi_cif* cif, void* resp, void** args, void* userdata)
   for (i = 2; i < cif->nargs; i++) {
     VALUE arg;
 
-    if (!ocdata_to_rbobj(Qfalse, args_octypes[i - 2], args[i], &arg, NO))
+    if (!ocdata_to_rbobj(Qnil, args_octypes[i - 2], args[i], &arg, NO))
       rb_raise(rb_eRuntimeError, "Can't convert Objective-C argument #%d of octype '%s' to Ruby value", i - 2, args_octypes[i - 2]);
 
     OVMIX_LOG("converted arg #%d of type '%s' to Ruby value %p", i - 2, args_octypes[i - 2], arg);
@@ -165,7 +165,7 @@ ovmix_ffi_closure(ffi_cif* cif, void* resp, void** args, void* userdata)
     }
   }
 
-  if (*encoding_skip_modifiers(retval_octype) != _C_VOID) {
+  if (*encoding_skip_to_first_type(retval_octype) != _C_VOID) {
     if (!rbobj_to_ocdata(retval, retval_octype, resp, YES))
       rb_raise(rb_eRuntimeError, "Can't convert return Ruby value to Objective-C value of octype '%s'", retval_octype);
   }
@@ -390,8 +390,28 @@ ovmix_register_ruby_method(Class klass, SEL method, BOOL direct_override)
     OVMIX_LOG("Already registered Ruby method by selector '%s' types '%s', skipping...", (char *)method, me_types);
     return;
   }
-
+  
 #if MAC_OS_X_VERSION_MAX_ALLOWED > MAC_OS_X_VERSION_10_4
+  if (direct_override) {
+    // It's only ok to use setImplementation if this method is in our own
+    // class--otherwise it will change the behavior of our ancestors.
+    Method *meth_list, *iter;
+    BOOL ok = NO;
+    unsigned int count = 0;
+    
+    // Search our class' methods
+    iter = meth_list = class_copyMethodList(klass, &count);
+    for (; iter && count; ++iter, --count) {
+      if (sel_isEqual(method_getName(*iter), me_name)) {
+        ok = YES;
+        break;
+      }
+    }
+    if (!ok)
+      direct_override = NO;
+    free(meth_list);
+  }
+
   if (direct_override)
     method_setImplementation(me, imp);
   else

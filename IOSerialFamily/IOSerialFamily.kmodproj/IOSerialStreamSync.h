@@ -31,11 +31,23 @@
 
 #include <IOKit/IOService.h>
 
+#ifdef __LP64__
+
+#define PD_DATA_MASK 0x03U
+#define PD_DATA_VOID 0x00U
+#define PD_DATA_BYTE 0x01U
+#define PD_DATA_WORD 0x02U
+#define PD_DATA_LONG 0x03U
+
+#else
+
 #define PD_DATA_MASK 0x03UL
 #define PD_DATA_VOID 0x00UL
 #define PD_DATA_BYTE 0x01UL
 #define PD_DATA_WORD 0x02UL
 #define PD_DATA_LONG 0x03UL
+
+#endif
 
 #define PD_OP(x)	((x) << 2)
 #define PD_E_MASK	(~PD_DATA_MASK)
@@ -143,16 +155,16 @@ protected:
 
 public:
     /* acquire tests and sets the state of the port object.  If the port was
-    *available, then the state is set to busy, and IO_R_SUCCESS is returned.
+    *available, then the state is set to busy, and kIOReturnSuccess is returned.
     *If the port was already busy and sleep is YES, then the thread will sleep
     *until the port is freed, then re-attempts the acquire.  If the port was
-    *already busy and sleep in NO, then IO_R_EXCLUSIVE_ACCESS is returned.
+    *already busy and sleep in NO, then kIOReturnExclusiveAccess is returned.
     */   
     virtual IOReturn acquirePort(bool sleep);
     
     /* release sets the state of the port object to available and wakes up any
-    *threads sleeping for access to this port.  It will return IO_R_SUCCESS
-    *if the port was in a busy state, and IO_R_NOT_OPEN if it was available.
+    *threads sleeping for access to this port.  It will return kIOReturnSuccess
+    *if the port was in a busy state, and kIOReturnNotOpen if it was available.
     */
     virtual IOReturn releasePort();
     
@@ -193,7 +205,7 @@ public:
      *sleep argument allows the caller to specify the enqueueEvent's
      *behaviour when the TX queue is full.  If sleep is true, then this
      *method will sleep until the event is enqueued.  If sleep is false,
-     *then enqueueEvent will immediatly return IO_R_RESOURCE.
+     *then enqueueEvent will immediatly return kIOReturnNoResources.
      */
     virtual IOReturn enqueueEvent(UInt32 event, UInt32 data, bool sleep);
 
@@ -201,7 +213,7 @@ public:
      *it in event & data.  The sleep argument defines the behaviour if the RX
      *queue is empty.  If sleep is true, then this method will sleep until an
      *event is available.  If sleep is false, then an EOQ event will be
-     *returned.  In either case IO_R_SUCCESS is returned.
+     *returned.  In either case kIOReturnSuccess is returned.
      */
     virtual IOReturn dequeueEvent(UInt32 *event, UInt32 *data, bool sleep);
 

@@ -1,0 +1,105 @@
+/*
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+
+#ifndef _IOKIT_IOETHERNET_CONTROLLER_USER_H
+#define _IOKIT_IOETHERNET_CONTROLLER_USER_H
+
+#include <CoreFoundation/CoreFoundation.h>
+#include <IOKit/IOKitLib.h>
+
+__BEGIN_DECLS
+
+typedef struct __IOEthernetController * IOEthernetControllerRef;
+
+typedef void (*IOEthernetControllerCallback)(IOEthernetControllerRef controller, void * refcon);
+
+extern CFTypeRef kIOEthernetHardwareAddress;
+
+/*!
+	@function   IOEthernetControllerGetTypeID
+	@abstract   Returns the type identifier of all IOUserEthernet instances.
+*/
+CF_EXPORT
+CFTypeID IOEthernetControllerGetTypeID(void);
+
+CF_EXPORT
+IOEthernetControllerRef IOEthernetControllerCreate(
+                                CFAllocatorRef                  allocator, 
+                                CFDictionaryRef                 properties);
+                                
+CF_EXPORT
+io_object_t IOEthernetControllerGetIONetworkInterfaceObject(
+                                IOEthernetControllerRef         controller);
+
+CF_EXPORT
+IOReturn IOEthernetControllerSetLinkStatus(
+                                IOEthernetControllerRef         controller, 
+                                Boolean                         state);
+                                
+CF_EXPORT
+CFIndex IOEthernetControllerReadPacket(
+                                IOEthernetControllerRef         controller, 
+                                uint8_t *                       buffer,
+                                CFIndex                         bufferLength);
+
+CF_EXPORT
+IOReturn IOEthernetControllerWritePacket(
+                                IOEthernetControllerRef         controller, 
+                                const uint8_t *                 buffer,
+                                CFIndex                         bufferLength);
+
+CF_EXPORT
+void IOEthernetControllerScheduleWithRunLoop(
+                                IOEthernetControllerRef         controller, 
+                                CFRunLoopRef                    runLoop,
+                                CFStringRef                     runLoopMode);
+
+CF_EXPORT
+void IOEthernetControllerUnscheduleFromRunLoop(
+                                IOEthernetControllerRef         controller, 
+                                CFRunLoopRef                    runLoop,
+                                CFStringRef                     runLoopMode);
+
+CF_EXPORT
+void IOEthernetControllerRegisterEnableCallback(
+                                IOEthernetControllerRef         controller, 
+                                IOEthernetControllerCallback    callback, 
+                                void *                          refcon);
+
+CF_EXPORT
+void IOEthernetControllerRegisterDisableCallback(
+                                IOEthernetControllerRef         controller, 
+                                IOEthernetControllerCallback    callback, 
+                                void *                          refcon);
+
+CF_EXPORT
+void IOEthernetControllerRegisterPacketAvailableCallback(
+                                IOEthernetControllerRef         controller, 
+                                IOEthernetControllerCallback    callback, 
+                                void *                          refcon);
+                                
+__END_DECLS
+
+#endif /* _IOKIT_IOETHERNET_CONTROLLER_USER_H */
+

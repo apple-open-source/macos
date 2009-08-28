@@ -1,3 +1,0 @@
-IMPLICIT_SOURCE_FILES += misc
-
-include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Preamble.Common

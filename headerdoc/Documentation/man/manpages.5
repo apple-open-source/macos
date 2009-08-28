@@ -1,24 +1,24 @@
 .\" Automatically generated from mdocxml
 .Dd April 26, 2007
 .Dt "MANUAL PAGES" 5
-.Os "Mac OS" "X"
+.Os "Mac \&OS" "\&X"
 .Sh NAME
 .Nm manpages
-.Nd An introduction to manual pages
+.Nd \&An introduction \&to manual pages
 .Sh DESCRIPTION
-Manual pages (often shortened to "man pages") are a means of providing documentation on the command line.  Most manual pages describe low-level programming interfaces, command-line tools, and file formats.
+Manual pages (often shortened \&to "man pages") are \&a means \&of providing documentation \&on the command line.  Most manual pages describe low-level programming interfaces, command-line tools, and file formats.
 .Pp
-This manual page is intended to help you learn about manual pages, their purpose, their style, and their overall layout so that you can better take advantage of the content that they provide.
+This manual page \&is intended \&to help you learn about manual pages, their purpose, their style, and their overall layout \&so that you can better take advantage \&of the content that they provide.
 .Pp
 .Sh MANUAL PAGE STYLE
-Because manual pages are written by software engineers from many different companies and organizations around the world, the format of these manual pages varies somewhat from page to page, as does the style.
+Because manual pages are written \&by software engineers from many different companies and organizations around the world, the format \&of these manual pages varies somewhat from page \&to page, \&as does the style.
 .Pp
-In general, however, manual pages are written to be as concise as possible.  While this makes them a somewhat difficult place to start as a new programmer, this is intentional.  They are not intended to replace conceptual documentation such as books on programming.  They are intended primarily to provide a quick reference for people who are already somewhat familiar with the subject.
+\&In general, however, manual pages are written \&to \&be \&as concise \&as possible.  While this makes them \&a somewhat difficult place \&to start \&as \&a new programmer, this \&is intentional.  They are not intended \&to replace conceptual documentation such \&as books \&on programming.  They are intended primarily \&to provide \&a quick reference for people who are already somewhat familiar with the subject.
 .Pp
-Some manual pages provide links to outside websites.  You can often find more thorough conceptual documentation, sample code, and other useful information at these websites.
+Some manual pages provide links \&to outside websites.  You can often find more thorough conceptual documentation, sample code, and other useful information \&at these websites.
 .Pp
 .Sh MANUAL PAGE SECTIONS
-The manual is divided into sections.  Each section covers a particular subject area.  The major manual page sections are:
+The manual \&is divided into sections.  Each section covers \&a particular subject area.  The major manual page sections are:
 .Pp
 .Bl -tag -width XXXXX
 .It 1
@@ -39,41 +39,42 @@ Miscellaneous Documentation
 System Administration
 .It 9
 Kernel and Programming Style
-.It n
+.It \&n
 Tcl/Tk
 .El
 .Pp
-(*) Excludes library routines that merely wrap system calls. Those routines are covered in section 2.
 .Pp
-The majority of commonly used commands appear in sections 1 and 8 of the manual, while most programming information is found in sections 2 and 3.
+(*) Excludes library routines that merely wrap system calls. Those routines are covered \&in section 2.
 .Pp
-These subject areas may be further subdivided.  For example, manual section 3 was originally intended to hold documentation in the standard C library but has been expanded to include functions in other C language libraries, such as section 3ssl (OpenSSL functions).
+The majority \&of commonly used commands appear \&in sections 1 and 8 \&of the manual, while most programming information \&is found \&in sections 2 and 3.
 .Pp
-Section 3 has even been expanded to include other programming languages.  For example, section 3pm contains documentation for Perl modules).
+These subject areas may \&be further subdivided.  For example, manual section 3 was originally intended \&to hold documentation \&in the standard \&C library but has been expanded \&to include functions \&in other \&C language libraries, such \&as section 3ssl (OpenSSL functions).
 .Pp
-It is common to have multiple manual pages with the same name but different section numbers.  This usually occurs when a command shares a name with a C function or system call that does something very similar.  To avoid any confusion, manual pages are commonly referred to in the form name(number), in which the number is the section number.
+Section 3 has even been expanded \&to include other programming languages.  For example, section 3pm contains documentation for Perl modules).
+.Pp
+\&It \&is common \&to have multiple manual pages with the same name but different section numbers.  This usually occurs when \&a command shares \&a name with \&a \&C function \&or system call that does something very similar.  \&To avoid any confusion, manual pages are commonly referred \&to \&in the form name(number), \&in which the number \&is the section number.
 .Pp
 .Sh MANUAL PAGE TOOLS
-You can read manual pages in a number of ways.  The most common way to read manual pages is with the 
+You can read manual pages \&in \&a number \&of ways.  The most common way \&to read manual pages \&is with the 
 .Xr man 1 
 tool from the command line.  For example, typing "man man" displays the manual page for the man tool.
 .Pp
-If there are multiple manual pages with the same name but different section numbers (for example, open(1) and open(2)), you can specify a section number when requesting the page.  For example, the command "man 2 open" displays the manual page for the "open" system call from section 2 of the manual.
+\&If there are multiple manual pages with the same name but different section numbers (for example, open(1) and open(2)), you can specify \&a section number when requesting the page.  For example, the command "man 2 open" displays the manual page for the "open" system call from section 2 \&of the manual.
 .Pp
-You can also read manual pages from within Xcode by choosing the "Open man page..." option in the Help menu, or within your choice of web browsers by going to 
+You can also read manual pages from within Xcode \&by choosing the "Open man page..." option \&in the Help menu, \&or within your choice \&of web browsers \&by going \&to 
 <http://developer.apple.com/documentation/Darwin/Reference/ManPages/>.
 .Pp
-In addition to searching for manual pages on the web, the manual page architecture also provides two useful command-line tools for searching the manual pages: whatis and apropos.
+\&In addition \&to searching for manual pages \&on the web, the manual page architecture also provides two useful command-line tools for searching the manual pages: whatis and apropos.
 .Pp
 The 
 .Xr whatis 1 
-command searches the manual page headings (command and function names) for a word.  If that word appears in its entirety, it shows the matching name and abstract. For example, typing "whatis man" returns results for man and man.conf. This is mostly of interest if you want to read an abstract for a particular command.
+command searches the manual page headings (command and function names) for \&a word.  \&If that word appears \&in its entirety, \&it shows the matching name and abstract. For example, typing "whatis man" returns results for man and man.conf. This \&is mostly \&of interest \&if you want \&to read \&an abstract for \&a particular command.
 .Pp
 The 
 .Xr apropos 1 
-command is a much more user-friendly version of whatis.  It searches the same database, but searches the manual page abstracts as well as the titles.  Unlike the whatis command, apropos returns results for partial word matches.
+command \&is \&a much more user-friendly version \&of whatis.  \&It searches the same database, but searches the manual page abstracts \&as well \&as the titles.  Unlike the whatis command, apropos returns results for partial word matches.
 .Pp
-NOTE: Both apropos and whatis depend on a database to provide information.  This database is updated periodically.  On fresh installations, however, it may not be present.  If apropos and whatis are not working correctly, you should run the following command as an admin user:
+NOTE: Both apropos and whatis depend \&on \&a database \&to provide information.  This database \&is updated periodically.  \&On fresh installations, however, \&it may not \&be present.  \&If apropos and whatis are not working correctly, you should run the following command \&as \&an admin user:
 .Pp
 .Bd -ragged -offset indent
 sudo /usr/libexec/makewhatis
@@ -84,28 +85,28 @@ sudo /usr/libexec/makewhatis
 This will rebuild the database.  Enter your admin password when prompted.
 .Pp
 .Sh MANUAL PAGE STRUCTURE
-Manual pages do not have a fixed structure.  However, most manual pages do follow certain conventions.
+Manual pages \&do not have \&a fixed structure.  However, most manual pages \&do follow certain conventions.
 .Pp
-Manual pages typically begin with a 
+Manual pages typically begin with \&a 
 .Sy NAME
-section, which contains the name of a command or function and a short abstract.
+section, which contains the name \&of \&a command \&or function and \&a short abstract.
 .Pp
-Next, manual pages typically include a 
+Next, manual pages typically include \&a 
 .Sy SYNOPSIS
-section, which describes how to use the command or function.  For functions, the syntax generally contains the necessary include directives, followed by the function declarations themselves.  For commands, the syntax is explained in 
+section, which describes how \&to use the command \&or function.  For functions, the syntax generally contains the necessary include directives, followed \&by the function declarations themselves.  For commands, the syntax \&is explained \&in 
 .Sy MANUAL PAGE SYNTAX.
 .Pp
 After the 
 .Sy SYNOPSIS
-section, you will generally find a 
+section, you will generally find \&a 
 .Sy DESCRIPTION
-section, followed by an 
+section, followed \&by \&an 
 .Sy OPTIONS
 section (which explains the flags from the 
 .Sy SYNOPSIS
 section.
 .Pp
-You may find sections such as 
+You may find sections such \&as 
 .Sy ENVIRONMENT
 .Sy HISTORY,
 .Sy BUGS,
@@ -114,40 +115,39 @@ You may find sections such as
 and 
 .Sy COPYRIGHT.
 .Pp
-Finally, most manual pages end with a section called 
+Finally, most manual pages end with \&a section called 
 .Sy SEE ALSO,
-which includes the names and section numbers of related manual pages.
+which includes the names and section numbers \&of related manual pages.
 .Pp
 .Sh MANUAL PAGE SYNTAX
-In manual page syntax, anything in a normal text font is required text.  Anything in a 
+\&In manual page syntax, anything \&in \&a normal text font \&is required text.  Anything \&in \&a 
 .Sy boldface
-font is a flag or a subcommand.  Anything 
+font \&is \&a flag \&or \&a subcommand.  Anything 
 .Em underlined
-is a user-specified argument such as a filename.
+\&is \&a user-specified argument such \&as \&a filename.
 .Pp
-Any argument surrounded by brackets is considered to be optional.  For example, [
+Any argument surrounded \&by brackets \&is considered \&to \&be optional.  For example, \&[
 .Em filename
-] would indicate an optional filename argument.
+\&] would indicate \&an optional filename argument.
 .Pp
-Flags, arguments, or subcommands separated by a vertical separator (|) are mutually exclusive.  For example, if -a turns on an option and -b turns off the option, the syntax for this command might be 
-.Sy -a
-| 
+Flags, arguments, \&or subcommands separated \&by \&a vertical separator (|) are mutually exclusive.  For example, \&if \&-a turns \&on \&an option and \&-b turns off the option, the syntax for this command might \&be 
+.Sy \&-a
+\&| 
 .Sy -b.
 .Pp
-In some cases, you may even see entire groups of arguments wrapped with brackets and separated by a vertical separator. This is one way of showing that a command has more than one valid syntax.  In other manual pages, this is expressed by having multiple lines in the synopsis, each of which begins with the command name.  The separated format is more common (and more readable), but is not always possible for commands with particularly complex syntax.
+\&In some cases, you may even see entire groups \&of arguments wrapped with brackets and separated \&by \&a vertical separator. This \&is one way \&of showing that \&a command has more than one valid syntax.  \&In other manual pages, this \&is expressed \&by having multiple lines \&in the synopsis, each \&of which begins with the command name.  The separated format \&is more common (and more readable), but \&is not always possible for commands with particularly complex syntax.
 .Pp
-Finally, the most important notational convention is the use of the ellipsis (...).  This indicates that additional arguments may be added at this point.  Depending on the author, you may see this written in one of two ways:
+Finally, the most important notational convention \&is the use \&of the ellipsis (...).  This indicates that additional arguments may \&be added \&at this point.  Depending \&on the author, you may see this written \&in one \&of two ways:
 .Pp
 .Em argument
-[
+\&[
 .Em argument...
-]
-.Bd -ragged -offset indent
-.Ed
+\&]
+.br
 .Em argument...
 .Pp
 .Sh SEE ALSO
-For more information on manual pages, see 
+For more information \&on manual pages, see 
 .Xr man 1 , 
 .Xr intro 1 , 
 .Xr intro 2 , 
@@ -156,6 +156,6 @@ For more information on manual pages, see
 .Xr intro 7 , 
 .Xr intro 8 , 
 .Xr intro 9 , 
-and the developer documentation website at 
+and the developer documentation website \&at 
 <http://developer.apple.com/documentation/Darwin/Reference/ManPages/>. 
 .Pp

@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: print.c,v 1.48 2006/09/17 17:49:34 abe Exp $";
+static char *rcsid = "$Id: print.c,v 1.50 2008/10/21 16:21:41 abe Exp $";
 #endif
 
 
@@ -906,7 +906,7 @@ print_file()
 #if	defined(HASPRINTDEV)
 	    cp = HASPRINTDEV(Lf, &dev);
 #else	/* !defined(HASPRINTDEV) */
-	    (void) snpf(buf, sizeof(buf), "%d,%d", GET_MAJ_DEV(dev),
+	    (void) snpf(buf, sizeof(buf), "%u,%u", GET_MAJ_DEV(dev),
 		GET_MIN_DEV(dev));
 	    cp = buf;
 #endif	/* defined(HASPRINTDEV) */
@@ -1156,7 +1156,7 @@ addr_too_long:
 #endif	/* defined(HASIPv6) */
 
 			if (Lf->li[0].af == AF_INET) {
-			    if (Lf->li[i].ia.a4.s_addr == INADDR_LOOPBACK
+			    if (Lf->li[i].ia.a4.s_addr == htonl(INADDR_LOOPBACK)
 			    ||  Lf->li[0].ia.a4.s_addr == Lf->li[1].ia.a4.s_addr
 			    )
 				src = 0;

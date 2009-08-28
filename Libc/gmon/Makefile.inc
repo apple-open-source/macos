@@ -16,13 +16,16 @@ GFLAGS = -O -pipe -Wmost -g -fno-common
 .if $(MACHINE_ARCH) != arm
 GFLAGS += -force_cpusubtype_ALL
 .endif
+.if ${GCC_42} != YES
+GFLAGS += -no-cpp-precomp
+.endif
 .ifdef SDKROOT
 GFLAGS += -isysroot '${SDKROOT}'
 .endif # SDKROOT
 
 # mcount cannot be compiled with profiling
 gmon.po: 
-	${CC} -arch ${CCARCH} ${GFLAGS} \
+	${MYCC} -arch ${CCARCH} ${GFLAGS} \
 		-I${.CURDIR}/include \
 		-I${SYMROOT}/include \
 		-I${INCLUDEDIR} \

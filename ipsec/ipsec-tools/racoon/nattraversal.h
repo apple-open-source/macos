@@ -51,6 +51,19 @@
 #define	NON_ESP_MARKER_LEN	sizeof(u_int32_t)
 #define	NON_ESP_MARKER_USE(iph1)	((iph1)->natt_flags & NAT_ADD_NON_ESP_MARKER)
 
+#ifdef ENABLE_NATT
+#ifdef ENABLE_FRAG
+#define PH1_NON_ESP_EXTRA_LEN(iph1) ((iph1->frag && iph1->sendbuf->l > ISAKMP_FRAG_MAXLEN) ? 0: (NON_ESP_MARKER_USE(iph1) ? NON_ESP_MARKER_LEN : 0))
+#define PH2_NON_ESP_EXTRA_LEN(iph2) ((iph2->ph1->frag && iph2->sendbuf->l > ISAKMP_FRAG_MAXLEN) ? 0: (NON_ESP_MARKER_USE(iph2->ph1) ? NON_ESP_MARKER_LEN : 0))
+#else
+#define PH1_NON_ESP_EXTRA_LEN(iph1) (NON_ESP_MARKER_USE(iph1) ? NON_ESP_MARKER_LEN : 0)
+#define PH2_NON_ESP_EXTRA_LEN(iph2) (NON_ESP_MARKER_USE(iph2->ph1) ? NON_ESP_MARKER_LEN : 0)
+#endif
+#else
+#define PH1_NON_ESP_EXTRA_LEN(iph1) 0
+#define PH2_NON_ESP_EXTRA_LEN(iph2) 0
+#endif
+
 /* These are the values from parsing "remote {}" 
    block of the config file. */
 #define NATT_OFF	FALSE	/* = 0 */
@@ -83,9 +96,8 @@ int natt_udp_encap (int encmode);
 int natt_fill_options (struct ph1natt_options *opts, int version);
 void natt_float_ports (struct ph1handle *iph1);
 void natt_handle_vendorid (struct ph1handle *iph1, int vid_numeric);
-#ifdef NOT_NOW
 int create_natoa_payloads(struct ph2handle *iph2, vchar_t **, vchar_t **);
-#endif
+struct sockaddr * process_natoa_payload(vchar_t *buf);
 
 struct payload_list *
 isakmp_plist_append_natt_vids (struct payload_list *plist, vchar_t *vid_natt[MAX_NATT_VID_COUNT]);

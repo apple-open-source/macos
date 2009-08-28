@@ -1,5 +1,5 @@
 /* Prototypes for v850.c functions used in the md file & elsewhere.
-   Copyright (C) 1999, 2000, 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2002, 2004, 2005 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -15,8 +15,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 /* Function prototypes that cannot exist in v850.h due to dependency
    complications.  */
@@ -27,15 +27,7 @@
 
 extern void   expand_prologue               (void);
 extern void   expand_epilogue               (void);
-extern void   sdata_section                 (void);
-extern void   rosdata_section               (void);
-extern void   sbss_section                  (void);
-extern void   tdata_section                 (void);
-extern void   zdata_section                 (void);
-extern void   rozdata_section               (void);
-extern void   zbss_section                  (void);
 extern int    v850_handle_pragma            (int (*)(void), void (*)(int), char *);
-extern void   override_options              (void);
 extern int    compute_register_save_size    (long *);
 extern int    compute_frame_size            (int, long *);
 extern void   v850_init_expanders           (void);
@@ -51,23 +43,9 @@ extern void   notice_update_cc              (rtx, rtx);
 extern char * construct_save_jarl           (rtx);
 extern char * construct_restore_jr          (rtx);
 #ifdef HAVE_MACHINE_MODES
-extern int    reg_or_int9_operand           (rtx, Mmode);
-extern int    reg_or_const_operand          (rtx, Mmode);
 extern char * construct_dispose_instruction (rtx);
 extern char * construct_prepare_instruction (rtx);
-extern int    pattern_is_ok_for_prepare     (rtx, Mmode);
-extern int    pattern_is_ok_for_dispose     (rtx, Mmode);
 extern int    ep_memory_operand             (rtx, Mmode, int);
-extern int    reg_or_0_operand              (rtx, Mmode);
-extern int    reg_or_int5_operand           (rtx, Mmode);
-extern int    call_address_operand          (rtx, Mmode);
-extern int    movsi_source_operand          (rtx, Mmode);
-extern int    power_of_two_operand          (rtx, Mmode);
-extern int    not_power_of_two_operand      (rtx, Mmode);
-extern int    special_symbolref_operand     (rtx, Mmode);
-extern int    pattern_is_ok_for_prologue    (rtx, Mmode);
-extern int    pattern_is_ok_for_epilogue    (rtx, Mmode);
-extern int    register_is_ok_for_epilogue   (rtx, Mmode);
 #ifdef TREE_CODE
 extern rtx    function_arg                  (CUMULATIVE_ARGS *, Mmode, tree, int);
 #endif
@@ -76,7 +54,7 @@ extern rtx    function_arg                  (CUMULATIVE_ARGS *, Mmode, tree, int
 
 #ifdef TREE_CODE
 extern int    v850_interrupt_function_p     (tree);
-extern void   v850_output_aligned_bss       (FILE *, tree, const char *, int, int);
+extern void   v850_output_aligned_bss       (FILE *, tree, const char *, unsigned HOST_WIDE_INT, int);
 extern void   v850_output_common            (FILE *, tree, const char *, int, int);
 extern void   v850_output_local             (FILE *, tree, const char *, int, int);
 extern v850_data_area v850_get_data_area    (tree);

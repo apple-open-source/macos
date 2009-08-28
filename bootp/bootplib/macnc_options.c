@@ -122,26 +122,28 @@ macNCtag_info(int tag)
 boolean_t
 macNCopt_str_to_type(const char * str, 
 		     int type, void * buf, int * len_p,
-		     char * err)
+		     dhcpo_err_str_t * err)
 {
     const dhcptype_info_t * 	type_info = macNCtype_info(type);
 
     if (err)
-	err[0] = '\0';
+	err->str[0] = '\0';
 
     switch (type) {
       case macNCtype_afp_password_e: {
 	  int len = strlen(str);
 	  if (*len_p < AFP_PASSWORD_LEN) {
 	      if (err)
-		  sprintf(err, "%s: buffer too small (%d < %d)",
-			  type_info->name, *len_p, AFP_PASSWORD_LEN);
+		  snprintf(err->str, sizeof(err->str),
+			   "%s: buffer too small (%d < %d)",
+			   type_info->name, *len_p, AFP_PASSWORD_LEN);
 	      return (FALSE);
 	  }
 	  if (len > AFP_PASSWORD_LEN) {
 	      if (err)
-		  sprintf(err, "%s: string too large (%d > %d)",
-			  type_info->name, len, AFP_PASSWORD_LEN);
+		  snprintf(err->str, sizeof(err->str),
+			   "%s: string too large (%d > %d)",
+			   type_info->name, len, AFP_PASSWORD_LEN);
 	      return (FALSE);
 	  }
 	  *len_p = AFP_PASSWORD_LEN;
@@ -153,8 +155,9 @@ macNCopt_str_to_type(const char * str,
 	  int len = strlen(str);
 	  if (*len_p < (len + 1)) {
 	      if (err)
-		  sprintf(err, "%s: buffer too small (%d < %d)",
-			  type_info->name, *len_p, len + 1);
+		  snprintf(err->str, sizeof(err->str),
+			   "%s: buffer too small (%d < %d)",
+			   type_info->name, *len_p, len + 1);
 	      return (FALSE);
 	  }
 	  ((u_char *)buf)[0] = len;			/* string length */
@@ -164,7 +167,8 @@ macNCopt_str_to_type(const char * str,
 	break;
       case macNCtype_afp_path_e:
 	if (err)
-	    sprintf(err, "%s: not supported", type_info->name);
+	    snprintf(err->str, sizeof(err->str),
+		     "%s: not supported", type_info->name);
 	return (FALSE);
 	break;
       default:
@@ -191,7 +195,7 @@ macNCopt_encodeAFPPath(struct in_addr iaddr, uint16_t port,
 		       const char * volname, uint32_t dirID,
 		       uint8_t pathtype, const char * pathname,
 		       char separator, void * buf,
-		       int * len_p, char * err)
+		       int * len_p, dhcpo_err_str_t * err)
 {
     void * 	buf_p = buf;
     int 	l;
@@ -199,14 +203,16 @@ macNCopt_encodeAFPPath(struct in_addr iaddr, uint16_t port,
     l = strlen(volname) + strlen(pathname);
     if (l > AFP_PATH_LIMIT) {
 	if (err)
-	    sprintf(err, "volume/path name length %d > %d-byte limit", l, 
-		    AFP_PATH_LIMIT);
+	    snprintf(err->str, sizeof(err->str),
+		     "volume/path name length %d > %d-byte limit", l, 
+		     AFP_PATH_LIMIT);
 	return (FALSE);
     }
 
     if ((l + AFP_PATH_OVERHEAD) > *len_p) {
 	if (err)
-	    sprintf(err, "buffer too small: %d > %d", l + AFP_PATH_OVERHEAD, 
+	    snprintf(err->str, sizeof(err->str),
+		     "buffer too small: %d > %d", l + AFP_PATH_OVERHEAD, 
 		    *len_p);
 	return (FALSE);
     }
@@ -269,7 +275,7 @@ macNC_print_type(dhcptype_t type, void * opt, int option_len)
 	    char buf[9];
 	    strncpy(buf, (char *)opt, AFP_PASSWORD_LEN);
 	    buf[8] = '\0';
-	    printf(buf);
+	    printf("%s", buf);
 	}
 	break;
       case macNCtype_afp_path_e:
@@ -353,7 +359,7 @@ macNCopt_print(dhcpol_t * list)
     }
 }
 
-#ifdef TESTING
+#ifdef TEST_MACNC_OPTIONS
 
 /**
  **
@@ -421,15 +427,15 @@ u_char test[] = {
 };
 #endif
 
+int
 main()
 {
-    u_char 	err[256];
-    dhcpol_t 	list;
+    dhcpo_err_str_t 	err;
+    dhcpol_t 		list;
 
     dhcpol_init(&list);
-    if (dhcpopt_parse_buffer(&list, test, sizeof(test), err)
-	!= dhcpopt_ret_success_e) {
-	printf("parse test failed, %s\n", err);
+    if (dhcpol_parse_buffer(&list, test, sizeof(test), &err) == FALSE) {
+	printf("parse test failed, %s\n", err.str);
 	exit(1);
     }
     macNCopt_print(&list);
@@ -561,5 +567,5 @@ main()
     
     exit(0);
 }
-#endif TESTING
+#endif /* TEST_MACNC_OPTIONS */
 

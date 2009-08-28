@@ -1,6 +1,6 @@
 /*
  **********************************************************************
- *   Copyright (C) 2003-2005, International Business Machines
+ *   Copyright (C) 2003-2008, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  **********************************************************************
  */
@@ -96,7 +96,7 @@ public:
      *
      * Note: Subclass arrays will also be reset and not deleted.
      *
-     * @draft ICU 3.6
+     * @stable ICU 3.6
      */
     inline void reset();
 
@@ -502,6 +502,11 @@ protected:
     virtual void init(le_int32 capacity);
     virtual void grow(le_int32 capacity);
 
+    /**
+     * @internal
+     */
+    const Locale **fLocales;
+
 private:
 
     inline LocaleRuns();
@@ -513,8 +518,6 @@ private:
      * for ICU "poor man's RTTI".
      */
     static const char fgClassID;
-
-    const Locale **fLocales;
 };
 
 inline LocaleRuns::LocaleRuns()

@@ -29,7 +29,7 @@ The Ruby distribution files can be found in the following FTP site:
 The latest source code of this version series can be checked out
 through SVN with the following command:
 
-  $ svn co http://svn.ruby-lang.org/repos/ruby/branches/ruby_1_8_6/
+  $ svn co http://svn.ruby-lang.org/repos/ruby/branches/ruby_1_8/
 
 The trunk of the Ruby source tree can be checked out with the
 following command:
@@ -69,6 +69,10 @@ This is what you need to do to compile and install Ruby:
      run autoconf to (re)generate configure.
 
   2. Run ./configure, which will generate config.h and Makefile.
+
+     Some C compiler flags may be added by default depending on your
+     environment.  Specify optflags=.. and warnflags=.. as necessary
+     to override them.
 
   3. Edit defines.h if you need.  Usually this step will not be needed.
 

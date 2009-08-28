@@ -53,7 +53,7 @@ INSTALL_DATA = @INSTALL_DATA@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL = @INSTALL@
 
-INSTALL_HELPERS = $(HELPERS) server.key $(srcdir)/makekeys.sh \
+INSTALL_HELPERS = $(HELPERS) server.key makekeys \
 	$(srcdir)/openssl.conf $(srcdir)/notvalid.pem \
 	$(srcdir)/expired.pem
 
@@ -66,7 +66,7 @@ all: $(TESTS)
 clean:
 	rm -f $(TESTS) $(HELPERS) *.*o common/*.*o libtest.*a *.log
 	rm -f *.gc* *.da *.bb* common/*.bb* common/*.gc* common/*.da
-	rm -rf ca .libs
+	rm -rf ca .libs nssdb*
 	rm -f ca-stamp client.key *.csr ssigned.pem wrongcn.pem \
 	   server.cert client.cert *.p12 *.cert sparse.bin
 
@@ -128,14 +128,17 @@ random.txt: $(NEWS)
 # Dummy target to create the CA keys etc.  makekeys stderr is redirected
 # since it changes for every invocation; not helpful for regression
 # testing.
-ca-stamp: $(srcdir)/makekeys.sh $(srcdir)/openssl.conf
+ca-stamp: makekeys $(srcdir)/openssl.conf
 	rm -rf ca
 	OPENSSL=$(OPENSSL) \
-	 $(SHELL) $(srcdir)/makekeys.sh $(srcdir) 2>makekeys.out
+	 $(SHELL) makekeys $(srcdir) 2>makekeys.out
 	@echo timestamp > ca-stamp
 
 Makefile: $(srcdir)/Makefile.in
 	cd .. && ./config.status test/Makefile
+
+makekeys: $(srcdir)/makekeys.sh
+	cd .. && ./config.status test/makekeys
 
 LIBOBJS = common/tests.lo common/child.lo utils.lo
 

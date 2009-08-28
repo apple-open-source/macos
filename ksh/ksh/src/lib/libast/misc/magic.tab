@@ -1,5 +1,5 @@
 #
-# @(#)magic (AT&T Research) 2005-05-27
+# @(#)magic (AT&T Research) 2007-10-09
 #
 # magic number database for file(1) and magic(3)
 #
@@ -461,6 +461,7 @@ o{
 +18	short		18		sparc32+
 +18	short		20		powerpc
 +18	short		22		s390
++18	short		23		cell-BE
 +18	short		36		nec-v800
 +18	short		37		fujitsu-fr20
 +18	short		38		trw-rh32

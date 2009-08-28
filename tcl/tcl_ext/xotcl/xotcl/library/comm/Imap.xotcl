@@ -1,0 +1,175 @@
+# $Id: Imap.xotcl,v 1.4 2006/02/18 22:17:33 neumann Exp $
+
+package provide xotcl::comm::imap 0.9
+
+package require XOTcl
+
+namespace eval ::xotcl::comm::imap {
+  package require xotcl::comm::httpAccess
+  namespace import ::xotcl::*
+
+  Class Imap -superclass NetAccess -parameter {user}
+  Imap instproc initialize args {
+    my instvar port caching tokenCounter resp token
+    set port 143
+    set caching 1
+    set resp(connect)       {"[*] OK" login}
+    set resp(login)         {"A[0-9]+ OK" loginFinished  "A[0-9]+ NO" login}
+    set resp(loginFinished) {"[*] [0-9]+" inboxSize "[*] OK" inboxSelected}
+    set resp(mailSelected)  {"[*] [0-9]+ FETCH" fetchBody 
+      "A[0-9]+ OK " ignoreLine
+      "[*] " ignoreLine}
+    set resp(heads)         {"[*] [0-9]+ FETCH" fetchHeaders 
+      "A[0-9]+ OK " ignoreLine
+      "[*] " ignoreLine}
+    set tokenCounter 0
+    next
+    set token NONE
+  }
+  Imap instproc err {state reply} {
+    my abort "Error in $state: $reply"
+  }
+  Imap instproc token {} {
+    my instvar tokenCounter
+    return [format {A%.4d} [incr tokenCounter]]
+  }
+  Imap instproc imapString {input} {
+    regsub -all {(["\])} $input {\\\1} output ;#"
+		   return \"$output\"
+		 }
+		  Imap instproc queryServer {query state} {
+		    #my showCall
+		    my instvar S token
+		    set token [my token]
+		    puts $S "$token $query"
+		    #puts stderr "$token $query"
+		    flush $S
+		    fileevent $S readable [list [self] response $state]
+		  }
+		  Imap instproc response {state} {
+		    my instvar S resp msg token
+		    set msg [gets $S]
+		    #my showVars msg token
+		    foreach {c newState} $resp($state) {
+		      if {![regexp {^[*]} $msg] && ![regexp ^$token $msg]} {
+			my showMsg "$state: token=$token IGNORING $msg"
+			return
+		      }
+		      if {[regexp ^$c $msg]} {
+			#my showMsg "$state NEWSTATE $newState"
+			return [my $newState] 
+		      }
+		    }
+		    my err $state "expected=$resp($state), got $msg"
+		  }
+		  Imap instproc GET {} {
+		    my instvar state S path host port user inbox mailNr
+		    # number at end of path is the message number in the mailbox
+		    if {[regexp {^([^/]+)/([^/]+)/([0-9]+)$} $path _ user inbox mailNr]} {
+		    } elseif {[regexp {^([^/]+)/([^/]+)/?$} $path _ user inbox]} {
+		    } else {
+		      my abort "invalid imap path $path"
+		    }
+		    regexp {^(.*):([0-9]+)$} $host _ host port
+		    # proxy ?
+		    if {[catch {set S [socket -async $host $port]} err]} {
+		      my abort "Could not open connection to host '$host:$port'\n    $err"
+		    } else {
+		      fconfigure $S -blocking false 
+		      fileevent $S readable [list [self] response connect]
+		    }
+		  }
+		  Imap instproc login {} {
+		    my instvar user host password
+		    if {[pwdManager requirePasswd "Imap $user\@$host" $user password]} {
+		      my queryServer "login $user [my imapString $password]" login
+		    } else {
+		      what now?
+		    }
+		  }
+		  Imap instproc loginFinished {} {
+		    my instvar user host password inbox
+		    pwdManager storePasswd "Imap $user\@$host" $user $password
+		    my queryServer "select $inbox" loginFinished
+		  }
+		  Imap instproc inboxSize {} {
+		    my instvar msg nrMails
+		    regexp {^[*] ([0-9]+) EXISTS} $msg _ nrMails
+		  }
+		  Imap instproc inboxSelected {} {
+		    my instvar msg contentType nrMails mailNr
+		    if {[info exists mailNr]} {
+		      set contentType text/plain
+		      my body-state
+		      my queryServer "fetch $mailNr rfc822" mailSelected
+		    } else {
+		      my instvar header inbox block host user block
+		      set contentType text/html
+		      my body-state
+		      set what "Mailbox $inbox of $user@$host"
+		      set block "<HTML><HEAD><TITLE>$what</TITLE></HEAD>\n"
+		      append block "<BODY><H1>$what</H1>\n" \
+			  "The following <i>$nrMails</i> messages are in this mailbox:" \
+			  "<p>\n<UL>\n"
+		      my pushBlock
+		      catch {unset header}
+		      set mailNr $nrMails
+		      my queryServer "fetch $nrMails body\[header\]" heads
+		    }
+		  }
+		  Imap instproc ignoreLine {} {;}
+		  Imap instproc fetchBody {} {
+		    my instvar S
+		    fileevent $S readable [list [self] bodyContent]
+		  }
+		  Imap instproc bodyContent {} {
+		    my instvar S block msg
+		    set msg [gets $S]
+		    if {$msg == ")"} {
+		      my set state 4
+		      my finish
+		    } else {
+		      set block $msg\n
+		      my pushBlock
+		    }
+		  }
+		  Imap instproc fetchHeaders {} {
+		    my instvar S
+		    fileevent $S readable [list [self] headContent]
+		  }
+		  Imap instproc headContent {} {
+		    my instvar S token header nrMails mailNr block host user inbox
+		    set msg [gets $S]
+		    if {[regexp -nocase {^([^:]+): *(.+)$} $msg _ key value]} {
+		      set key [string tolower $key]
+		      set header($mailNr,$key) $value
+		    } elseif {$msg == ")"} {
+		      # mail header finished
+		      set block "<LI> Message $mailNr from $header($mailNr,date)<br>\ 
+	<A HREF=\"imap://$host/$user/$inbox/$mailNr\">"
+		      if {[catch {set from $header($mailNr,from)}]} {
+			if {[catch {set from $header($mailNr,sender)}]} {	set from UNKNOWN }
+		      }
+		      if {[regexp {[(](.*)[)]} $from _ x]} { 
+		      } elseif {[regexp {[<](.*)[>]} $from _ x]} { 
+		      } else  { set x $from }
+		      append block $x ": "
+		      if {[info exists header($mailNr,subject)]} { append block $header($mailNr,subject) }
+		      append block </A><P>
+		      my pushBlock
+		      if {$mailNr > 1} {
+			incr mailNr -1
+			my queryServer "fetch $mailNr body\[header\]" heads
+		      } else {
+			set block "</UL></BODY></HTML>\n"
+			my pushBlock
+			my set state 4
+			my finish
+		      }
+		    }
+		  }
+
+		  namespace export Imap
+		}
+
+      namespace import ::xotcl::comm::imap::*

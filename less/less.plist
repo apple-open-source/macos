@@ -3,18 +3,19 @@
 	<key>OpenSourceProject</key>
 	<string>less</string>
 	<key>OpenSourceVersion</key>
-	<string>394</string>
+	<string>418</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.greenwoodsoftware.com/less/</string>
 	<key>OpenSourceURL</key>
-	<string>http://www.greenwoodsoftware.com/less/less-394.tar.gz</string>
+	<string>http://www.greenwoodsoftware.com/less/less-418.tar.gz</string>
 	<key>OpenSourceSHA1</key>
-	<string>fa0d9aa30ec461866786c4080bb594fc3337bb02</string>
+	<string>ec4fb48680878a7ac3499c46564c47c448b0aa22</string>
 	<key>OpenSourceImportDate</key>
-	<string>2006-01-24</string>
+	<string>2008-02-21</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>Patched to remain compatible with more(1).</string>
+		<string>call get_term() after determining that less_is_more</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>Less License</string>

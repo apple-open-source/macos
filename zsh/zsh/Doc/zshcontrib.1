@@ -1,4 +1,4 @@
-.TH "ZSHCONTRIB" "1" "April 19, 2006" "zsh 4\&.3\&.4"
+.TH "ZSHCONTRIB" "1" "October 30, 2008" "zsh 4\&.3\&.9"
 .SH "NAME"
 zshcontrib \- user contributions to zsh
 .\" Yodl file: Zsh/contrib.yo
@@ -44,7 +44,7 @@ distribution in your home directory, you would use the commands:
 \fBmkdir ~/zsh_help
 cd ~/zsh_help
 man zshall | colcrt \- | \e 
-perl ~/zsh\-4\&.3\&.4/Util/helpfiles\fP
+perl ~/zsh\-4\&.3\&.9/Util/helpfiles\fP
 .fi
 .RE
 .PP
@@ -179,7 +179,7 @@ Run \fBzkbd\fP either as an autoloaded function, or as a shell script:
 .PP
 .RS
 .nf
-\fBzsh \-f ~/zsh\-4\&.3\&.4/Functions/Misc/zkbd\fP
+\fBzsh \-f ~/zsh\-4\&.3\&.9/Functions/Misc/zkbd\fP
 .fi
 .RE
 .PP
@@ -196,8 +196,8 @@ of the file is composed from the \fBTERM\fP, \fBVENDOR\fP and \fBOSTYPE\fP
 parameters, joined by hyphens\&.
 .PP
 You may read this file into your \fB\&.zshrc\fP or another startup file with
-the "source" or "\&." commands, then reference the \fBkey\fP parameter in
-bindkey commands, like this:
+the `\fBsource\fP\&' or `\fB\&.\fP' commands, then reference the \fBkey\fP parameter
+in bindkey commands, like this:
 .PP
 .RS
 .nf
@@ -235,7 +235,7 @@ command and redirect the output into a file:
 .PP
 .RS
 .nf
-\fB\&. ~/zsh\-4\&.3\&.4/Util/reporter > zsh\&.report\fP
+\fB\&. ~/zsh\-4\&.3\&.9/Util/reporter > zsh\&.report\fP
 .fi
 .RE
 .PP
@@ -310,6 +310,483 @@ With the exception of `\fBall\fP\&', every \fIstate\fP can be abbreviated by
 any prefix, even a single letter; thus \fBa\fP is the same as \fBaliases\fP,
 \fBz\fP is the same as \fBzstyles\fP, etc\&.
 .RE
+.PP
+.SS "Manipulating Hook Functions"
+.PP
+.PD 0
+.TP
+.PD
+\fBadd\-zsh\-hook\fP [\-dD] \fIhook\fP \fIfunction\fP
+Several functions are special to the shell, as described in the section
+SPECIAL FUNCTIONS, see \fIzshmisc\fP(1),
+in that they are automatic called at a specific point during shell execution\&.
+Each has an associated array consisting of names of functions to be
+called at the same point; these are so\-called `hook functions\&'\&.
+The shell function \fBadd\-zsh\-hook\fP provides a simple way of adding or
+removing functions from the array\&.
+.RS
+.PP
+\fIhook\fP is one of \fBchpwd\fP, \fBperiodic\fP, \fBprecmd\fP or \fBpreexec\fP,
+the special functions in question\&.
+.PP
+\fIfunctions\fP is name of an ordinary shell function\&.  If no options
+are given this will be added to the array of functions to be executed\&.
+in the given context\&.
+.PP
+If the option \fB\-d\fP is given, the \fIfunction\fP is removed from
+the array of functions to be executed\&.
+.PP
+If the option \fB\-D\fP is given, the \fIfunction\fP is treated as a pattern
+and any matching names of functions are removed from the array of
+functions to be executed\&.
+.RE
+.RE
+.PP
+.SH "GATHERING INFORMATION FROM VERSION CONTROL SYSTEMS"
+.PP
+In a lot of cases, it is nice to automatically retrieve information from
+version control systems (VCSs), such as subversion, CVS or git, to be able
+to provide it to the user; possibly in the user\&'s prompt\&. So that you can
+instantly tell on which branch you are currently on,  for example\&.
+.PP
+In order to do that, you may use the \fBvcs_info\fP function\&.
+.PP
+The following VCSs are supported, showing the abbreviated name by which
+they are referred to within the system:
+.PD 0
+.TP
+Bazaar (\fBbzr\fP)
+http://bazaar\-vcs\&.org/
+.TP
+Codeville (\fBcdv\fP)
+http://codeville\&.org/
+.TP
+Concurrent Versioning System (\fBcvs\fP)
+http://www\&.nongnu\&.org/cvs/
+.TP
+\fBdarcs\fP
+http://darcs\&.net/
+.TP
+\fBgit\fP
+http://git\&.or\&.cz/
+.TP
+GNU arch (\fBtla\fP)
+http://www\&.gnu\&.org/software/gnu\-arch/
+.TP
+Mercurial (\fBhg\fP)
+http://selenic\&.com/mercurial/
+.TP
+Monotone (\fBmtn\fP)
+http://monotone\&.ca/
+.TP
+Perforce (\fBp4\fP)
+http://www\&.perforce\&.com/
+.TP
+Subversion (\fBsvn\fP)
+http://subversion\&.tigris\&.org/
+.TP
+SVK (\fBsvk\fP)
+http://svk\&.bestpractical\&.com/
+.PD
+.PP
+To load \fIvcs_info\fP:
+.PP
+.RS
+.nf
+\fBautoload \-Uz vcs_info\fP
+.fi
+.RE
+.PP
+It can be used in any existing prompt, because it does not require any
+\fB$psvar\fP entries to be left available\&.
+.PP
+.SS "Quickstart"
+.PP
+To get this feature working quickly (including colors), you can do the
+following (assuming, you loaded \fIvcs_info\fP properly \- see above):
+.PP
+.RS
+.nf
+\fBzstyle \&':vcs_info:*' actionformats \e 
+    \&'%F{5}(%f%s%F{5})%F{3}\-%F{5}[%F{2}%b%F{3}|%F{1}%a%F{5}]%f '
+zstyle \&':vcs_info:*' formats       \e 
+    \&'%F{5}(%f%s%F{5})%F{3}\-%F{5}[%F{2}%b%F{5}]%f '
+zstyle \&':vcs_info:(sv[nk]|bzr):*' branchformat '%b%F{1}:%F{3}%r'
+precmd () { vcs_info }
+PS1=\&'%F{5}[%F{2}%n%F{5}] %F{3}%3~ ${vcs_info_msg_0_}'"%f%# '\fP
+.fi
+.RE
+.PP
+Obviously, the last two lines are there for demonstration: You need to
+call \fIvcs_info\fP from your \fIprecmd\fP function\&. Once that is done you need
+a \fBsingle quoted\fP \fI\&'${vcs_info_msg_0_}'\fP in your prompt\&.
+.PP
+Now call the \fBvcs_info_printsys\fP utility from the command line:
+.PP
+.RS
+.nf
+\fB% vcs_info_printsys
+## list of supported version control backends:
+## disabled systems are prefixed by a hash sign (#)
+bzr
+cdv
+cvs
+darcs
+git
+hg
+mtn
+p4
+svk
+svn
+tla
+## flavours (cannot be used in the enable or disable styles; they
+## are enabled and disabled with their master [git\-svn \-> git])
+## they *can* be used contexts: \&':vcs_info:git\-svn:*'\&.
+git\-p4
+git\-svn\fP
+.fi
+.RE
+.PP
+You may not want all of these because there is no point in running the
+code to detect systems you do not use\&.  So there is a way to disable
+some backends altogether:
+.PP
+.RS
+.nf
+\fBzstyle \&':vcs_info:*' disable bzr cdv darcs mtn svk tla\fP
+.fi
+.RE
+.PP
+You may also pick a few from that list and enable only those:
+.PP
+.RS
+.nf
+\fBzstyle \&':vcs_info:*' enable git cvs svn\fP
+.fi
+.RE
+.PP
+If you rerun \fBvcs_info_printsys\fP after one of these commands, you will
+see the backends listed in the \fIdisable\fP style (or backends not in the
+\fIenable\fP style \- if you used that) marked as disabled by a hash sign\&.
+That means the detection of these systems is skipped \fBcompletely\fP\&. No
+wasted time there\&.
+.PP
+.SS "Configuration"
+.PP
+The \fIvcs_info\fP feature can be configured via \fIzstyle\fP\&.
+.PP
+First, the context in which we are working:
+.RS
+.nf
+\fB:vcs_info:<vcs\-string>:<user\-context>:<repo\-root\-name>\fP
+.fi
+.RE
+.PP
+.PD 0
+.TP
+.PD
+\fB<vcs\-string>\fP
+is one of: git, git\-svn, git\-p4, hg, darcs, bzr,
+cdv, mtn, svn, cvs, svk, tla or p4\&.
+.TP
+\fB<user\-context>\fP
+is a freely configurable string, assignable by
+the user as the first argument to \fIvcs_info\fP (see its description
+below)\&.
+.TP
+\fB<repo\-root\-name>\fP
+is the name of a repository in which you want a
+style to match\&. So, if you want a setting specific to \fI/usr/src/zsh\fP,
+with that being a cvs checkout, you can set \fB<repo\-root\-name>\fP to
+\fIzsh\fP to make it so\&.
+.PP
+There are three special values for \fB<vcs\-string>\fP: The first is named
+\fI\-init\-\fP, that is in effect as long as there was no decision what vcs
+backend to use\&. The second is \fI\-preinit\-\fP; it is used \fBbefore\fP
+\fIvcs_info\fP is run, when initializing the data exporting variables\&. The
+third special value is \fIformats\fP and is used by the \fBvcs_info_lastmsg\fP
+for looking up its styles\&.
+.PP
+The initial value of \fB<repo\-root\-name>\fP is \fI\-all\-\fP and it is replaced
+with the actual name, as soon as it is known\&. Only use this part of the
+context for defining the \fIformats\fP, \fIactionformats\fP or
+\fIbranchformat\fP styles\&. As it is guaranteed that \fB<repo\-root\-name>\fP is
+set up correctly for these only\&. For all other styles, just use \fB\&'*'\fP
+instead\&.
+.PP
+There are two pre\-defined values for \fB<user\-context>\fP:
+.PD 0
+.TP
+\fBdefault\fP
+the one used if none is specified
+.TP
+\fBcommand\fP
+used by vcs_info_lastmsg to lookup its styles
+.PD
+.PP
+You can of course use \fB\&':vcs_info:*'\fP to match all VCSs in all
+user\-contexts at once\&.
+.PP
+This is a description of all styles that are looked up\&.
+.PP
+.PD 0
+.TP
+.PD
+\fBformats\fP
+A list of formats, used when actionformats is not used
+(which is most of the time)\&.
+.TP
+\fBactionformats\fP
+A list of formats, used if a there is a special
+action going on in your current repository; (like an interactive rebase or
+a merge conflict)\&.
+.TP
+\fBbranchformat\fP
+Some backends replace \fI%b\fP in the formats and
+actionformats styles above, not only by a branch name but also by a
+revision number\&. This style let\&'s you modify how that string should look
+like\&.
+.TP
+\fBnvcsformats\fP
+These "formats" are exported, when we didn\&'t detect
+a version control system for the current directory\&. This is useful, if you
+want \fIvcs_info\fP to completely take over the generation of your prompt\&.
+You would do something like \fBPS1=\&'${vcs_info_msg_0_}'\fP to accomplish
+that\&.
+.TP
+\fBmax\-exports\fP
+Defines the maximum number if
+\fIvcs_info_msg_*_\fP variables \fIvcs_info\fP will export\&.
+.TP
+\fBenable\fP
+A list of backends you want to use\&. Checked in the
+\fI\-init\-\fP context\&. If this list contains an item called \fBNONE\fP no
+backend is used at all and \fIvcs_info\fP will do nothing\&. If this list
+contains \fBALL\fP \fIvcs_info\fP will use all backends known to it\&. Only with
+\fBALL\fP in \fBenable\fP, the \fBdisable\fP style has any effect\&. \fBALL\fP and
+\fBNONE\fP are actually tested case insensitively\&.
+.TP
+\fBdisable\fP
+A list of VCSs, you don\&'t want \fIvcs_info\fP to test for
+repositories (checked in the \fI\-init\-\fP context, too)\&. Only used if
+\fBenable\fP contains \fBALL\fP\&.
+.TP
+\fBuse\-server\fP
+This is used by the Perforce backend (\fBp4\fP) to decide if it should
+contact the Perforce server to find out if a directory is managed
+by Perforce\&.  This is the only reliable way of doing this, but runs
+the risk of a delay if the server name cannot be found\&.  If the
+server (more specifically, the \fIhost\fP\fB:\fP\fIport\fP pair describing the
+server) cannot be contacted its name is put into the associative array
+\fBvcs_info_p4_dead_servers\fP and not contacted again during the session
+until it is removed by hand\&.  If you do not set this style, the \fBp4\fP
+backend is only usable if you have set the environment variable
+\fBP4CONFIG\fP to a file name and have corresponding files in the root
+directories of each Perforce client\&.  See comments in the function
+\fBVCS_INFO_detect_p4\fP for more detail\&.
+.TP
+\fBuse\-simple\fP
+If there are two different ways of gathering
+information, you can select the simpler one by setting this style to true;
+the default is to use the not\-that\-simple code, which is potentially a lot
+slower but might be more accurate in all possible cases\&. This style is only
+used by the \fBbzr\fP backend\&.
+.TP
+\fBuse\-prompt\-escapes\fP
+Determines if we assume that the assembled
+string from \fIvcs_info\fP includes prompt escapes\&. (Used by
+\fBvcs_info_lastmsg\fP\&.)
+.PP
+The default values for these styles in all contexts are:
+.PP
+.PD 0
+.TP
+\fBformats\fP
+" (%s)\-[%b|%a]\-"
+.TP
+\fBactionformats\fP
+" (%s)\-[%b]\-"
+.TP
+\fBbranchformat\fP
+"%b:%r" (for bzr, svn and svk)
+.TP
+\fBnvcsformats\fP
+""
+.TP
+\fBmax\-exports\fP
+2
+.TP
+\fBenable\fP
+ALL
+.TP
+\fBdisable\fP
+(empty list)
+.TP
+\fBuse\-simple\fP
+false
+.TP
+\fBuse\-prompt\-escapes\fP
+true
+.PD
+.PP
+In normal \fBformats\fP and \fBactionformats\fP, the following replacements are
+done:
+.PP
+.PD 0
+.TP
+\fB%s\fP
+The vcs in use (git, hg, svn etc\&.)
+.TP
+\fB%b\fP
+Information about the current branch\&.
+.TP
+\fB%a\fP
+An identifier, that describes the action\&. Only makes sense in
+actionformats\&.
+.TP
+\fB%R\fP
+base directory of the repository\&.
+.TP
+\fB%r\fP
+repository name\&. If \fB%R\fP is \fI/foo/bar/repoXY\fP, \fB%r\fP is
+\fIrepoXY\fP\&.
+.TP
+\fB%S\fP
+subdirectory within a repository\&. If \fB$PWD\fP is
+\fI/foo/bar/reposXY/beer/tasty\fP, \fB%S\fP is \fIbeer/tasty\fP\&.
+.PD
+.PP
+In \fBbranchformat\fP these replacements are done:
+.PP
+.PD 0
+.TP
+\fB%b\fP
+the branch name
+.TP
+\fB%r\fP
+the current revision number
+.PD
+.PP
+Not all vcs backends have to support all replacements\&. For \fBnvcsformats\fP
+no replacements are performed at all\&. It is just a string\&.
+.PP
+.SS "Oddities"
+.PP
+If you want to use the \fB%b\fP (bold off) prompt expansion in \fIformats\fP,
+which expands \fB%b\fP itself, use \fB%%b\fP\&. That will cause the \fIvcs_info\fP
+expansion to replace \fB%%b\fP with \fB%b\fP\&. So zsh\&'s prompt expansion
+mechanism can handle it\&. Similarly, to hand down \fB%b\fP from
+\fIbranchformat\fP, use \fB%%%%b\fP\&. Sorry for this inconvenience, but it
+cannot be easily avoided\&. Luckily we do not clash with a lot of prompt
+expansions and this only needs to be done for those\&.
+.PP
+.SS "Function descriptions (public API)"
+.PP
+.PD 0
+.TP
+.PD
+\fBvcs_info\fP [\fIuser\-context\fP]
+The main function, that runs all
+backends and assembles all data into \fI${vcs_info_msg_*_}\fP\&. This is the
+function you want to call from \fBprecmd\fP if you want to include up\-to\-date
+information in your prompt (see Variable description below)\&. If an argument
+is given, that string will be used instead of \fBdefault\fP in the
+user\-context field of the style context\&.
+.TP
+\fBvcs_info_lastmsg\fP
+Outputs the last \fI${vcs_info_msg_*_}\fP value\&.
+Takes into account the value of the use\-prompt\-escapes style in
+\fI\&':vcs_info:formats:command:\-all\-'\fP\&. It also only prints \fBmax\-exports\fP
+values\&.
+.TP
+\fBvcs_info_printsys\fP [\fIuser\-context\fP]
+Prints a list of all
+supported version control systems\&. Useful to find out possible contexts
+(and which of them are enabled) or values for the \fIdisable\fP style\&.
+.TP
+\fBvcs_info_setsys\fP
+Initializes \fIvcs_info\fP\&'s internal list of
+available backends\&. With this function, you can add support for new VCSs
+without restarting the shell\&.
+.PP
+All functions named VCS_INFO_* are for internal use only\&.
+.PP
+.SS "Variable description"
+.PP
+.PD 0
+.TP
+.PD
+\fB${vcs_info_msg_N_}\fP (Note the trailing underscore)
+Where \fIN\fP is an integer, eg: \fIvcs_info_msg_0_\fP These variables
+are the storage for the informational message the last \fIvcs_info\fP call
+has assembled\&. These are strongly connected to the formats,
+\fBactionformats\fP and \fBnvcsformats\fP styles described above\&. Those styles
+are lists\&. The first member of that list gets expanded into
+\fI${vcs_info_msg_0_}\fP, the second into \fI${vcs_info_msg_1_}\fP
+and the Nth into \fI${vcs_info_msg_N\-1_}\fP\&. These parameters are
+exported into the environment\&. (See the \fBmax\-exports\fP style above\&.)
+.PP
+All variables named VCS_INFO_* are for internal use only\&.
+.PP
+.SS "Examples"
+.PP
+Don\&'t use \fBvcs_info\fP at all (even though it's in your prompt):
+.RS
+.nf
+\fBzstyle \&':vcs_info:*' enable NONE\fP
+.fi
+.RE
+.PP
+Disable the backends for \fBbzr\fP and \fBsvk\fP:
+.RS
+.nf
+\fBzstyle \&':vcs_info:*' disable bzr svk\fP
+.fi
+.RE
+.PP
+Disable everything \fIbut\fP \fBbzr\fP and \fBsvk\fP:
+.RS
+.nf
+\fBzstyle \&':vcs_info:*' enable bzr svk\fP
+.fi
+.RE
+.PP
+Provide a special formats for \fBgit\fP:
+.RS
+.nf
+\fBzstyle \&':vcs_info:git:*' formats       ' GIT, BABY! [%b]'
+zstyle \&':vcs_info:git:*' actionformats ' GIT ACTION! [%b|%a]'\fP
+.fi
+.RE
+.PP
+Use the quicker \fBbzr\fP backend
+.RS
+.nf
+\fBzstyle \&':vcs_info:bzr:*' use\-simple true\fP
+.fi
+.RE
+.PP
+If you do use \fBuse\-simple\fP, please report if it does `the\-right\-thing[tm]\&'\&.
+.PP
+Display the revision number in yellow for \fBbzr\fP and \fBsvn\fP:
+.RS
+.nf
+\fBzstyle \&':vcs_info:(svn|bzr):*' branchformat '%b%{'${fg[yellow]}'%}:%r'\fP
+.fi
+.RE
+.PP
+If you want colors, make sure you enclose the color codes in \fB%{\&.\&.\&.%}\fP,
+if you want to use the string provided by \fBvcs_info\fP in prompts\&.
+.PP
+Here is how to print the vcs information as a command (not in a prompt):
+.RS
+.nf
+\fBalias vcsi=\&'vcs_info command; vcs_info_lastmsg'\fP
+.fi
+.RE
+.PP
+This way, you can even define different formats for output via
+\fBvcs_info_lastmsg\fP in the \&':vcs_info:formats:command:*' namespace\&.
 .PP
 .SH "PROMPT THEMES"
 .PP
@@ -481,6 +958,16 @@ Words are any set of characters delimited by whitespace\&.
 \fBdefault\fP
 Restore the default settings; this is usually the same as `\fBnormal\fP\&'\&.
 .PP
+All but `\fBdefault\fP\&' can be input as an upper case character, which has
+the same effect but with subword matching turned on\&.  In this case, words
+with upper case characters are treated specially: each separate run of
+upper case characters, or an upper case character followed by any number of
+other characters, is considered a word\&.  The style \fBsubword\-range\fP
+can supply an alternative character range to the default `\fB[:upper:]\fP\&';
+the value of the style is treated as the contents of a `\fB[\fP\fI\&.\&.\&.\fP\fB]\fP\&'
+pattern (note that the outer brackets should not be supplied, only
+those surrounding named ranges)\&.
+.PP
 More control can be obtained using the \fBzstyle\fP command, as described in
 \fIzshmodules\fP(1)\&.  Each style is looked up in the
 context \fB:zle:\fP\fIwidget\fP where \fIwidget\fP is the name of the
@@ -528,6 +1015,9 @@ alphanumerics plus the characters `\fB\-\fP\&' and `\fB:\fP'\&.  Be careful
 including `\fB]\fP\&', `\fB^\fP' and `\fB\-\fP' as these are special inside
 character classes\&.
 .PP
+\fBword\-style\fP may also have `\fB\-subword\fP\&' appended to its value to
+turn on subword matching, as described above\&.
+.PP
 The style \fBskip\-chars\fP is mostly useful for
 \fBtranspose\-words\fP and similar functions\&.  If set, it gives a count of
 characters starting at the cursor position which will not be considered
@@ -550,9 +1040,10 @@ to an array of pairs of entries\&.  Each pair of entries consists of a
 matched against each \fIpattern\fP in turn until one matches; if it does,
 the context is extended by a colon and the corresponding \fIsubcontext\fP\&.
 Note that the test is made against the original word on the line, with no
-stripping of quotes\&.  If the cursor is at the end of the line the test is
-performed against an empty string; if it is on whitespace between words the
-test is made against a single space\&.  Some examples are given below\&.
+stripping of quotes\&.  Special handling is done between words: the current
+context is examined and if it contains the string \fBback\fP, the word before
+the cursor is considered, else the word after cursor is considered\&. Some
+examples are given below\&.
 .PP
 Here are some examples of use of the styles, actually taken from the
 simplified interface in \fBselect\-word\-style\fP:
@@ -626,6 +1117,9 @@ to override the use of styles\&.  The options are:
 .TP
 \fB\-C\fP
 \fIword\-chars\fP
+.TP
+\fB\-r\fP
+\fIsubword\-range\fP
 .PD
 .PP
 For example, \fBmatch\-words\-by\-style \-w shell \-c 0\fP may be used to
@@ -881,7 +1375,7 @@ Tilde\&.  (This is not \fB~\fP as RFC 1345 does not assume that
 character is present on the keyboard\&.)
 .TP
 \fB\-\fP
-Macron\&.  (A horizonal bar over the base character\&.)
+Macron\&.  (A horizontal bar over the base character\&.)
 .TP
 \fB(\fP
 Breve\&.  (A shallow dish shape over the base character\&.)
@@ -926,7 +1420,7 @@ The most common characters from the Arabic, Cyrillic, Greek and Hebrew
 alphabets are available; consult RFC 1345 for the appropriate sequences\&.
 In addition, a set of two letter codes not in RFC 1345 are available for
 the double\-width characters corresponding to ASCII characters from \fB!\fP
-to \fB~\fP (0x21 to 0x7e) by preceeding the character with \fB^\fP, for
+to \fB~\fP (0x21 to 0x7e) by preceding the character with \fB^\fP, for
 example \fB^A\fP for a double\-width \fBA\fP\&.
 .PP
 The following other two\-character sequences are understood\&.
@@ -1035,7 +1529,7 @@ Spanish feminine ordinal indicator
 \fB<<\fP
 Left guillemet
 .TP
-\fB\-\-\fP
+\fB\-\fP\fB\-\fP
 Soft hyphen
 .TP
 \fBRg\fP
@@ -1180,7 +1674,7 @@ clubs
 \fBMd\fP, \fBM8\fP, \fBM2\fP, \fBMb\fP, \fBMx\fP, \fBMX\fP
 Musical notation:
 crotchet (quarter note), quaver (eighth note), semiquavers (sixteenth
-notes), flag sign, natural signa, sharp sign
+notes), flag sign, natural sign, sharp sign
 .TP
 \fBFm\fP, \fBMl\fP
 Female, male
@@ -1428,7 +1922,7 @@ For example, starting from the line:
 .PP
 and invoking \fBreplace\-pattern\fP with the source string
 `\fBf(?)n\fP\&' and
-the replacment string `\fBc\e1r\fP\&' produces the not very useful line:
+the replacement string `\fBc\e1r\fP\&' produces the not very useful line:
 .PP
 .RS
 .nf
@@ -1541,7 +2035,7 @@ case:
 .PP
 .RS
 .nf
-\fBmodify\-current\-word \&'${(U)ARG}'\fP
+\fBmodify\-current\-argument \&'${(U)ARG}'\fP
 .fi
 .RE
 .PP
@@ -1551,7 +2045,7 @@ throughout:
 .PP
 .RS
 .nf
-\fBmodify\-current\-word \&'${(qq)${(Q)ARG}}'\fP
+\fBmodify\-current\-argument \&'${(qq)${(Q)ARG}}'\fP
 .fi
 .RE
 .RE
@@ -1853,7 +2347,7 @@ command to an appropriate viewer\&.
 .PD 0
 .TP
 .PD 0
-\fBzsh\-mime\-setup [\-flv]\fP
+\fBzsh\-mime\-setup\fP [ \fB\-fv\fP ] [ \fB\-l\fP [ \fIsuffix \&.\&.\&.\fP ] ]
 .TP
 .PD
 \fBzsh\-mime\-handler\fP
@@ -1877,8 +2371,14 @@ Repeated calls to \fBzsh\-mime\-setup\fP do not override the existing
 mapping between suffixes and executable files unless the option \fB\-f\fP
 is given\&.  Note, however, that this does not override existing suffix
 aliases assigned to handlers other than \fBzsh\-mime\-handler\fP\&.
+.PP
 Calling \fBzsh\-mime\-setup\fP with the option \fB\-l\fP lists the existing
-mappings without altering them\&.  Calling \fBzsh\-mime\-setup\fP with the option
+mappings without altering them\&.  Suffixes to list (which may contain
+pattern characters that should be quoted from immediate interpretation
+on the command line) may be given as additional arguments, otherwise
+all suffixes are listed\&.
+.PP
+Calling \fBzsh\-mime\-setup\fP with the option
 \fB\-v\fP causes verbose output to be shown during the setup operation\&.
 .PP
 The system respects the \fBmailcap\fP flags \fBneedsterminal\fP and
@@ -1911,6 +2411,28 @@ hence executable files are executed directly and not passed to a
 handler, and the option \fBAUTO_CD\fP may be used to change to directories
 that happen to have MIME suffixes\&.
 .TP
+\fBfile\-path\fP
+Used if the style \fBfind\-file\-in\-path\fP is true for the same context\&.
+Set to an array of directories that are used for searching for the
+file to be handled; the default is the command path given by the
+special parameter \fBpath\fP\&.  The shell option \fBPATH_DIRS\fP is respected;
+if that is set, the appropriate path will be searched even if the
+name of the file to be handled as it appears on the command line contains
+a `\fB/\fP\&'\&.
+The full context is \fB:mime:\&.\fP\fIsuffix\fP\fB:\fP, as described for the style
+\fBhandler\fP\&.
+.TP
+\fBfind\-file\-in\-path\fP
+If set, allows files whose names do not contain absolute paths
+to be searched for in the command path or the path specified by the
+\fBfile\-path\fP style\&.  If the file is not found in the path, it is looked
+for locally (whether or not the current directory is in the path); if it is
+not found locally, the handler will abort unless the \fBhandle\-nonexistent\fP
+style is set\&.  Files found in the path are tested as described for
+the style \fBexecute\-as\-is\fP\&.
+The full context is \fB:mime:\&.\fP\fIsuffix\fP\fB:\fP, as described for the style
+\fBhandler\fP\&.
+.TP
 \fBflags\fP
 Defines flags to go with a handler; the context is as for the
 \fBhandler\fP style, and the format is as for the flags in \fBmailcap\fP\&.
@@ -1923,6 +2445,8 @@ an array of extended glob patterns for arguments that will be passed to the
 handler even if they don\&'t exist\&.  If it is not explicitly set it
 defaults to \fB[[:alpha:]]#:/*\fP which allows URLs to be passed to the MIME
 handler even though they don\&'t exist in that format in the file system\&.
+The full context is \fB:mime:\&.\fP\fIsuffix\fP\fB:\fP, as described for the style
+\fBhandler\fP\&.
 .TP
 \fBhandler\fP
 Specifies a handler for a suffix; the suffix is given by the context as
@@ -2057,44 +2581,84 @@ alias \-s html=pick\-web\-browser\fP
 .RE
 .PP
 It is provided as an intelligent front end to dispatch a web browser\&.
-It will check if an X Windows display is available, and if so if there
-is already a browser running on the display which can accept a remote
-connection\&.  In that case, the file will be displayed in that browser;
-you should check explicitly if it has appeared in the running browser\&'s
-window\&.  Otherwise, it will start a new browser according to a built\-in
-set of preferences\&.
+It may be run as either a function or a shell script\&.  The status
+255 is returned if no browser could be started\&.
 .PP
-Alternatively, \fBpick\-web\-browser\fP can be run as a zsh script\&.
+Various styles are available to customize the choice of browsers:
 .PP
-Two styles are available to customize the choice of browsers:
-\fBx\-browsers\fP when running under the X Window System, and
-\fBtty\-browsers\fP otherwise\&.  These are arrays in decreasing order
-of preference consisting of the command name under which to start the
+.PD 0
+.TP
+.PD
+\fBbrowser\-style\fP
+The value of the style is an array giving preferences in decreasing order
+for the type of browser to use\&.  The values of elements may be
+.RS
+.PP
+.PD 0
+.TP
+.PD
+\fBrunning\fP
+Use a GUI browser that is already running when an X Window display is
+available\&.  The browsers listed in the \fBx\-browsers\fP style are tried
+in order until one is found; if it is, the file will be displayed in
+that browser, so the user may need to check whether it has appeared\&.
+If no running browser is found, one is not started\&.  Browsers other than
+Firefox, Opera and Konqueror are assumed to understand the Mozilla
+syntax for opening a URL remotely\&.
+.TP
+\fBx\fP
+Start a new GUI browser when an X Window display is available\&.  Search for
+the availability of one of the browsers listed in the \fBx\-browsers\fP style
+and start the first one that is found\&.  No check is made for an already
+running browser\&.
+.TP
+\fBtty\fP
+Start a terminal\-based browser\&.  Search for the availability of one
+of the browsers listed in the \fBtty\-browsers\fP style and start the
+first one that is found\&.
+.PP
+If the style is not set the default \fBrunning x tty\fP is used\&.
+.RE
+.TP
+\fBx\-browsers\fP
+An array in decreasing order
+of preference of browsers to use when running under the X Window System\&.
+The array consists of the command name under which to start the
 browser\&.  They are looked up in the context \fB:mime:\fP (which may
 be extended in future, so appending `\fB*\fP\&' is recommended)\&.  For
 example,
+.RS
 .PP
 .RS
 .nf
-\fBzstyle \&':mime:*' x\-browsers opera konqueror netscape\fP
+\fBzstyle \&':mime:*' x\-browsers opera konqueror firefox\fP
 .fi
 .RE
 .PP
-specifies that \fBpick\-web\-browser\fP should first look for a runing
-instance of Opera, Konqueror or Netscape, in that order, and if it
-fails to find any should attempt to start Opera\&.
-.PP
-In addition, the style \fBcommand\fP, if set, is used to pick the command
+specifies that \fBpick\-web\-browser\fP should first look for a running
+instance of Opera, Konqueror or Firefox, in that order, and if it
+fails to find any should attempt to start Opera\&.  The default is
+\fBfirefox mozilla netscape opera konqueror\fP\&.
+.RE
+.TP
+\fBtty\-browsers\fP
+An array similar to \fBx\-browsers\fP, except that it gives browsers to
+use use when no X Window display is available\&.  The default is
+\fBelinks links lynx\fP\&.
+.TP
+\fBcommand\fP
+If it is set this style is used to pick the command
 used to open a page for a browser\&.  The context is
 \fB:mime:browser:new:$browser:\fP to start a new browser or
 \fB:mime:browser:running:$browser:\fP to open a URL in a browser already
-runing on the current X display\&.  The escape sequence \fB%b\fP in the
-style\&'s value will be replaced by the browser, while \fB%u\fP will be
-replaced by the URL\&.  If the style is not set, the default for all new
-instances is equivalent to \fB%b %u\fP and the defaults for using running
+running on the current X display, where \fB$browser\fP is the value matched
+in the \fBx\-browsers\fP or \fBtty\-browsers\fP style\&.  The escape sequence
+\fB%b\fP in the style\&'s value will be replaced by the browser, while \fB%u\fP
+will be replaced by the URL\&.  If the style is not set, the default for all
+new instances is equivalent to \fB%b %u\fP and the defaults for using running
 browsers are equivalent to the values \fBkfmclient openURL %u\fP for
-Konqueror, \fBfirefox \-new\-tab %u\fP for Firefox and \fB%b \-remote
-"openUrl(%u)"\fP for all others\&.
+Konqueror, \fBfirefox \-new\-tab %u\fP for Firefox, \fBopera \-newpage %u\fP
+for Opera, and \fB%b \-remote "openUrl(%u)"\fP for all others\&.
 .RE
 .RE
 .PP
@@ -2120,8 +2684,8 @@ calculation is stored\&.  For example, the result of the calculation on the
 line preceded by `\fB4> \fP\&' is available as \fB$4\fP\&.  The last value
 calculated is available as \fBans\fP\&.  Full command line editing, including
 the history of previous calculations, is available; the history is saved in
-the file \fB~/\&.zcalc_history\fP\&.  To exit, enter a blank line or type `\fBq\fP\&'
-on its own\&.
+the file \fB~/\&.zcalc_history\fP\&.  To exit, enter a blank line or type `\fB:q\fP\&'
+on its own (`\fBq\fP\&' is allowed for historical compatibility)\&.
 .PP
 If arguments are given to \fBzcalc\fP on start up, they are used to prime the
 first few positional parameters\&.  A visual indication of this is given when
@@ -2141,39 +2705,53 @@ stored locally in the first element of the array \fBpsvar\fP, which can be
 referred to in \fBZCALCPROMPT\fP as `\fB%1v\fP\&'\&.  The default prompt is
 `\fB%1v> \fP\&'\&.
 .PP
+A few special commands are available; these are introduced by a colon\&.
+For backward compatibility, the colon may be omitted for certain
+commands\&.  Completion is available if \fBcompinit\fP has been run\&.
+.PP
 The output precision may be specified within zcalc by special commands
-familiar from many calculators:
+familiar from many calculators\&.
 .PD 0
 .TP
 .PD
-\fBnorm\fP
+\fB:norm\fP
 The default output format\&.  It corresponds to the printf \fB%g\fP
 specification\&.  Typically this shows six decimal digits\&.
 .TP
-\fBsci\fP \fIdigits\fP
+\fB:sci\fP \fIdigits\fP
 Scientific notation, corresponding to the printf \fB%g\fP output format with
 the precision given by \fIdigits\fP\&.  This produces either fixed point or
 exponential notation depending on the value output\&.
 .TP
-\fBfix\fP \fIdigits\fP
+\fB:fix\fP \fIdigits\fP
 Fixed point notation, corresponding to the printf \fB%f\fP output format with
 the precision given by \fIdigits\fP\&.
 .TP
-\fBeng\fP \fIdigits\fP
+\fB:eng\fP \fIdigits\fP
 Exponential notation, corresponding to the printf \fB%E\fP output format with
 the precision given by \fIdigits\fP\&.
+.TP
+\fB:raw\fP
+Raw output:  this is the default form of the output from a math
+evaluation\&.  This may show more precision than the number actually
+possesses\&.
 .PP
 Other special commands:
 .PD 0
 .TP
 .PD
-\fBlocal\fP \fIarg\fP \&.\&.\&.
+\fB:!\fP\fIline\&.\&.\&.\fP
+Execute \fIline\&.\&.\&.\fP as a normal shell command line\&.  Note that it
+is executed in the context of the function, i\&.e\&. with local variables\&.
+Space is optional after \fB:!\fP\&.
+.TP
+\fB:local\fP \fIarg\fP \&.\&.\&.
 Declare variables local to the function\&.  Note that certain variables
 are used by the function for its own purposes\&.  Other variables
 may be used, too, but they will be taken from or put into the global
 scope\&.
 .TP
-\fBfunction\fP \fIname\fP [ \fIbody\fP ]
+\fB:function\fP \fIname\fP [ \fIbody\fP ]
 Define a mathematical function or (with no \fIbody\fP) delete it\&.
 The function is defined using \fBzmathfuncdef\fP, see below\&.
 .RS
@@ -2190,17 +2768,14 @@ defines a function to cube the sole argument\&.
 .RE
 .TP
 \fB[#\fP\fIbase\fP\fB]\fP
-When this syntax appears on a line by itself, the default output radix
-is set to \fIbase\fP\&.  Use, for example, `\fB[#16]\fP\&' to display hexadecimal
-output preceded by an indication of the base, or `\fB[##16]\fP\&' just to
-display the raw number in the given base\&.  Bases themselves are always
-specified in decimal\&. `\fB[#]\fP\&' restores the normal output format\&.  Note
-that setting an output base suppresses floating point output; use `\fB[#]\fP\&'
-to return to normal operation\&.
-.RS
-.PP
-.RE
-.RE
+This is not a special command, rather part of normal arithmetic
+syntax; however, when this form appears on a line by itself the default
+output radix is set to \fIbase\fP\&.  Use, for example, `\fB[#16]\fP\&' to display
+hexadecimal output preceded by an indication of the base, or `\fB[##16]\fP\&'
+just to display the raw number in the given base\&.  Bases themselves are
+always specified in decimal\&. `\fB[#]\fP\&' restores the normal output format\&.
+Note that setting an output base suppresses floating point output; use
+`\fB[#]\fP\&' to return to normal operation\&.
 .PP
 See the comments in the function for a few extra tips\&.
 .RE
@@ -2222,6 +2797,56 @@ to refer to the shell function directly\&.
 .PP
 With one argument, remove the mathematical function \fImathfunc\fP
 as well as the shell function implementation\&.
+.RE
+.RE
+.PP
+.SH "USER CONFIGURATION FUNCTIONS"
+.PP
+The \fBzsh/newuser\fP module comes with a function to aid in configuring
+shell options for new users\&.  If the module is installed, this function can
+also be run by hand\&.  It is available even if the module\&'s default
+behaviour, namely running the function for a new user logging in without
+startup files, is inhibited\&.
+.PP
+.PD 0
+.TP
+.PD
+\fBzsh\-newuser\-install\fP [ \fB\-f\fP ]
+The function presents the user with various options for customizing
+their initialization scripts\&.  Currently only \fB~/\&.zshrc\fP is handled\&.
+\fB$ZDOTDIR/\&.zshrc\fP is used instead if the parameter \fBZDOTDIR\fP is
+set; this provides a way for the user to configure a file without
+altering an existing \fB\&.zshrc\fP\&.
+.RS
+.PP
+By default the function exits immediately if it finds any of the files
+\fB\&.zshenv\fP, \fB\&.zprofile\fP, \fB\&.zshrc\fP, or \fB\&.zlogin\fP in the appropriate
+directory\&.  The option \fB\-f\fP is required in order to force the function
+to continue\&.  Note this may happen even if \fB\&.zshrc\fP itself does not
+exist\&.
+.PP
+As currently configured, the function will exit immediately if the
+user has root privileges; this behaviour cannot be overridden\&.
+.PP
+Once activated, the function\&'s behaviour is supposed to be
+self\-explanatory\&.  Menus are present allowing the user to alter
+the value of options and parameters\&.  Suggestions for improvements are
+always welcome\&.
+.PP
+When the script exits, the user is given the opportunity to save the new
+file or not; changes are not irreversible until this point\&.  However,
+the script is careful to restrict changes to the file only to a group
+marked by the lines `\fB# Lines configured by zsh\-newuser\-install\fP\&' and
+`\fB# End of lines configured by zsh\-newuser\-install\fP\&'\&.  In addition,
+the old version of \fB\&.zshrc\fP is saved to a file with the suffix
+\fB\&.zni\fP appended\&.
+.PP
+If the function edits an existing \fB\&.zshrc\fP, it is up to the user
+to ensure that the changes made will take effect\&.  For example, if
+control usually returns early from the existing \fB\&.zshrc\fP the lines
+will not be executed; or a later initialization file may override
+options or parameters, and so on\&.  The function itself does not attempt to
+detect any such conflicts\&.
 .RE
 .RE
 .PP
@@ -2342,9 +2967,59 @@ the context prefix `\fB:completion:nslookup\fP\&'\&.
 See also the \fBpager\fP, \fBprompt\fP and \fBrprompt\fP styles below\&.
 .RE
 .TP
-\fBrun\-help\fP
-See `Accessing On\-Line Help\&'
-above\&.
+\fBrun\-help\fP \fIcmd\fP
+This function is designed to be invoked by the \fBrun\-help\fP ZLE widget,
+in place of the default alias\&.  See `Accessing On\-Line Help\&'
+above for setup instructions\&.
+.RS
+.PP
+In the discussion which follows, if \fIcmd\fP is a filesystem path, it is
+first reduced to its rightmost component (the file name)\&.
+.PP
+Help is first sought by looking for a file named \fIcmd\fP in the directory
+named by the \fBHELPDIR\fP parameter\&.  If no file is found, an assistant
+function, alias, or command named \fBrun\-help\-\fIcmd\fP\fP is sought\&.  If
+found, the assistant is executed with the rest of the current command line
+(everything after the command name \fIcmd\fP) as its arguments\&.  When
+neither file nor assistant is found, the external command
+`\fBman\fP \fIcmd\fP\&' is run\&.
+.PP
+An example assistant for the "ssh" command:
+.PP
+.RS
+.nf
+\fBrun\-help\-ssh() {
+    emulate \-LR zsh
+    local \-a args
+    # Delete the "\-l username" option
+    zparseopts \-D \-E \-a args l:
+    # Delete other options, leaving: host command
+    args=(${@:#\-*})
+    if [[ ${#args} \-lt 2 ]]; then
+        man ssh
+    else
+        run\-help $args[2]
+    fi
+}\fP
+.fi
+.RE
+.PP
+Several of these assistants are provided in the \fBFunctions/Misc\fP
+directory\&.  These must be autoloaded, or placed as executable scripts in
+your search path, in order to be found and used by \fBrun\-help\fP\&.
+.PP
+.PD 0
+.TP
+.PD 0
+\fBrun\-help\-git\fP
+.TP
+.PD 0
+\fBrun\-help\-svk\fP
+.TP
+.PD
+\fBrun\-help\-svn\fP
+Assistant functions for the \fBgit\fP, \fBsvk\fP, and \fBsvn\fP commands\&.
+.RE
 .TP
 \fBtetris\fP
 Zsh was once accused of not being as complete as Emacs,
@@ -2567,6 +3242,17 @@ The \fIoptstring\fP is split into words and
 passed down verbatim to the \fBcp\fP, \fBln\fP or \fBmv\fP command called to
 perform the work\&.  It should probably begin with a `\fB\-\fP\&'\&.
 .PD
+.PP
+Further examples:
+.PP
+.RS
+.nf
+\fBzmv \-v \&'(* *)' '${1// /_}'\fP
+.fi
+.RE
+.PP
+For any file in the current directory with at least one space in the name,
+replace every space by an underscore and display the commands executed\&.
 .PP
 For more complete examples and other implementation details, see the
 \fBzmv\fP source file, usually located in one of the directories named in

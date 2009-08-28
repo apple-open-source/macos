@@ -1,0 +1,109 @@
+# procepc1.tcl --
+#
+#  Test file for compilation.
+#  Tests compiled procedure bodies when the interpreter's epoch changes.
+#  Checks that changing the epoch does not trigger a recompilation.
+#
+# Copyright (c) 1998-2000 Ajuba Solutions
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+# 
+# RCS: @(#) $Id: procepc1.tbc,v 1.2 2000/05/30 22:19:09 wart Exp $
+# TclPro::Compiler::Include
+
+if {[catch {package require tbcload 1.0} err] == 1} {
+    error "The TclPro ByteCode Loader is not available"
+}
+tbcload::bceval {
+TclPro ByteCode 1 0 1.0 8.0
+10 0 75 16 0 0 48 0 5 10 10 -1 -1
+75
+3|E<!(H&s!/HW<!(3E<!3)Ppv;uW<!2|/=!6`8s!1iA9v/8UNw7/Ts!.EW<!3c8=!5`8s!1i
+A9v1J60%95Ts!.EW<!1E!!
+10
+8SC3wBkwn#0B!
+10
+Iq^m#PL`g%,*!
+16
+x
+4
+,CHr@
+x
+1
+-v
+x
+5
+S>%pGA!
+p
+6 0 39 5 0 0 24 0 5 6 6 -1 -1
+39
+w0E<!4`Ss!8BW<!.5C3w<4`H&+K&s!0i&v!8lA=!9&5Uv)'!!
+6
+,c/v!.'!
+6
+Gn^R#=E!
+5
+x
+6
+:<ylBLYw
+x
+7
+6?seDpX2-
+x
+7
+@)6-EiX2-
+x
+6
+82_`FWnw
+x
+4
+4/;EF
+0
+0
+2 4
+1
+Dv
+0 0 257
+1
+Ev
+1 0 257
+1
+8v
+2 0 1
+1
+9v
+3 0 1
+x
+6
+7,V`FW+%
+i
+1
+i
+2
+x
+6
+sX|;@ISw
+x
+5
+gIa:@7v
+x
+9
+gIa:@rZ<iC0v
+x
+7
+%6|,EYt|+
+i
+3
+i
+4
+i
+5
+i
+6
+x
+15
+rpwhC;Z2b3<?<+EfqT+
+0
+0
+}

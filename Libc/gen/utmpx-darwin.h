@@ -21,6 +21,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#include <pthread.h>
 
 #ifdef UTMP_COMPAT
 #define UTMP_COMPAT_UTMP0	0x01
@@ -32,7 +33,12 @@
 #define LASTLOG_FACILITY	"com.apple.system.lastlog"
 #define UTMPX_FACILITY		"com.apple.system.utmpx"
 
+#define	UTMPX_LOCK	if (__is_threaded) pthread_mutex_lock(&utmpx_mutex)
+#define	UTMPX_UNLOCK	if (__is_threaded) pthread_mutex_unlock(&utmpx_mutex)
+
 extern int utfile_system; /* are we using _PATH_UTMPX? */
+extern int __is_threaded;
+extern pthread_mutex_t utmpx_mutex;
 
 #ifdef __LP64__
 #define __need_struct_timeval32
@@ -69,6 +75,8 @@ struct utmpx32 {
 };
 #endif /* __LP64__ */
 
+void _endutxent(void);
+void _setutxent(void);
 struct utmpx *_pututxline(const struct utmpx *);
 #ifdef __LP64__
 void _utmpx32_64(const struct utmpx32 *, struct utmpx *);

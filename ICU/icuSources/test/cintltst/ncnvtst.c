@@ -1,16 +1,16 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2006, International Business Machines Corporation and
+ * Copyright (c) 1997-2007, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
-/*******************************************************************************
+/*****************************************************************************
 *
 * File CCONVTST.C
 *
 * Modification History:
 *        Name                     Description
 *   Madhu Katragadda              7/7/2000        Converter Tests for extended code coverage
-********************************************************************************
+******************************************************************************
 */
 #include <stdio.h>
 #include <stdlib.h>
@@ -381,7 +381,7 @@ static void TestErrorBehaviour(){
         static const uint8_t expected3MBCS[] = { 0x01, 0xa2, 0xb4, 0xa1, 0xe0};
         static const int32_t offsets3MBCS[]        = { 0x00, 0x01, 0x01, 0x02, 0x02};
 
-        static const UChar       sampleText4MBCS[] = { 0x0061, 0x00a6, 0xdc01};
+        static const UChar       sampleText4MBCS[] = { 0x0061, 0xFFE4, 0xdc01};
         static const uint8_t expected4MBCS[] = { 0x61, 0x8f, 0xa2, 0xc3, 0xf4, 0xfe};
         static const int32_t offsets4MBCS[]        = { 0x00, 0x01, 0x01, 0x01, 0x02, 0x02 };
 
@@ -1928,7 +1928,7 @@ TestUnicodeSet() {
 #if !UCONFIG_NO_LEGACY_CONVERSION
         { "UTF-8", 0, 0xd7ff, 0xe000, 0x10ffff, 0xd800, 0xdfff },
         { "windows-1251", 0, 0x7f, 0x410, 0x44f, 0x3000, 0xd7ff },
-        { "HZ", 0x410, 0x44f, 0x4e00, 0x4eff, 0xac00, 0xd7ff },
+        /* HZ test case fixed and moved to intltest's conversion.txt, ticket #6002 */
         { "shift-jis", 0x3041, 0x3093, 0x30a1, 0x30f3, 0x900, 0x1cff }
 #else
         { "UTF-8", 0, 0xd7ff, 0xe000, 0x10ffff, 0xd800, 0xdfff }

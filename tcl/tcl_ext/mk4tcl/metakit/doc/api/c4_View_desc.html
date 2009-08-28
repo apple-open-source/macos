@@ -1,0 +1,977 @@
+<html><head><base target=k-main></head><body bgcolor=white><nobr>
+
+<font face=Helvetica size=3>
+<dl><dt>
+
+  <b>class c4_View</b>
+<br><br>
+
+<dd><font face=Times size=3>
+A collection of data rows.<br><br>
+
+
+</font></dl>
+
+
+  <table cellborder=0>
+    <tr>
+    <td colspan=2>
+	  <font face=Helvetica size=-1><b>Public members</b></font>
+    </td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  
+    </td>
+	<td>
+	  <nobr>
+	  <b>c4_View</b> (<A HREF="c4_Sequence.html" >c4_Sequence</A>* implementation_ =0);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Construct a view based on a sequence</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  
+    </td>
+	<td>
+	  <nobr>
+	  <b>c4_View</b> (<A HREF="c4_CustomViewer.html" >c4_CustomViewer</A>* viewer_);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Construct a view based on a custom viewer</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  
+    </td>
+	<td>
+	  <nobr>
+	  <b>c4_View</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; view_);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Construct an empty view with one propertyConstruct a view from another one</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  
+    </td>
+	<td>
+	  <nobr>
+	  <b>c4_View</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; view_);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Construct an empty view with one propertyConstruct a view from another one</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  
+    </td>
+	<td>
+	  <nobr>
+	  <b>~c4_View</b> ();
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Destructor, decrements reference count</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_View.html" >c4_View</A>&#38; 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator= </b> (const <A HREF="c4_View.html" >c4_View</A>&#38; source_);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Make this view the same as another one</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  int 
+    </td>
+	<td>
+	  <nobr>
+	  <b>GetSize</b> () <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Return the number of entries</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  int 
+    </td>
+	<td>
+	  <nobr>
+	  <b>GetUpperBound</b> () <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Return highest index (size - 1)</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  void 
+    </td>
+	<td>
+	  <nobr>
+	  <b>SetSize</b> (int newSize_, int growBy_ =-1);
+	  
+	  <a href="c4_View_info.html#c4_View_SetSize_intint__" target="k-info">
+		<font face=Helvetica size=-1><br>
+			Change the size of this view</font></a>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  void 
+    </td>
+	<td>
+	  <nobr>
+	  <b>RemoveAll</b> ();
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Remove all entries (sets size to zero)</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_RowRef.html" >c4_RowRef</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>GetAt</b> (int index_) <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Return a reference to specified entry</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_RowRef.html" >c4_RowRef</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator[]</b> (int index_) <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Shorthand for <A HREF="c4_View.html" >c4_View</A>::GetAt</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  void 
+    </td>
+	<td>
+	  <nobr>
+	  <b>SetAt</b> (int index_, const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; row_);
+	  
+	  <a href="c4_View_info.html#c4_View_SetAt_intconst__" target="k-info">
+		<font face=Helvetica size=-1><br>
+			Change the value of the specified entry</font></a>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_RowRef.html" >c4_RowRef</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>ElementAt</b> (int index_);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Element access, for use as RHS or LHS</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  bool 
+    </td>
+	<td>
+	  <nobr>
+	  <b>GetItem</b> (int row_, int col_, <A HREF="c4_Bytes.html" >c4_Bytes</A>&#38; buf_) <i>const</i>;
+	  <a href="c4_View_info.html#c4_View_GetItem_intintc4_Bytes___const" target="k-info">
+	  
+		<font face=Helvetica size=-1><br>
+			Get a single data item in a generic way</font></a>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  void 
+    </td>
+	<td>
+	  <nobr>
+	  <b>SetAtGrow</b> (int index_, const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; row_);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Set an entry, growing the view if needed</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  int 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Add</b> (const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; row_);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Add a new entry, same as "SetAtGrow(GetSize(), ...)".</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  void 
+    </td>
+	<td>
+	  <nobr>
+	  <b>InsertAt</b> (int index_, const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; row_, int count_ =1);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Insert one or more copies of an entry</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  void 
+    </td>
+	<td>
+	  <nobr>
+	  <b>RemoveAt</b> (int index_, int count_ =1);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Remove entries starting at the given index</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  void 
+    </td>
+	<td>
+	  <nobr>
+	  <b>InsertAt</b> (int index_, const <A HREF="c4_View.html" >c4_View</A>&#38; view_);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Insert a copy of the contents of another view</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  bool 
+    </td>
+	<td>
+	  <nobr>
+	  <b>RelocateRows</b> (int from_, int count_, <A HREF="c4_View.html" >c4_View</A>&#38; dest_, int pos_);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Move attached rows to somewhere else in same storage</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  int 
+    </td>
+	<td>
+	  <nobr>
+	  <b>NumProperties</b> () <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Return the number of properties</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  const <A HREF="c4_Property.html" >c4_Property</A>&#38; 
+    </td>
+	<td>
+	  <nobr>
+	  <b>NthProperty</b> (int column_) <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Return the id of the N-th property</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  int 
+    </td>
+	<td>
+	  <nobr>
+	  <b>FindProperty</b> (int id_);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Find the index of a property, given its id</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  int 
+    </td>
+	<td>
+	  <nobr>
+	  <b>FindPropIndexByName</b> (const char* name_) <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Find the index of a property, given its name</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_View.html" >c4_View</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Structure</b> () <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Return a view which describes the structure of this view</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  const char* 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Describe</b> () <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Return a description of the structure</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  static const char* 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Description</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; view_);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Return a homogenized description of this view</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_View.html" >c4_View</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Duplicate</b> (bool deepCopy_ =false) <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Construct a new view with a copy of the data</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_View.html" >c4_View</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Clone</b> () <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Construct a new view with the same structure but no data</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  int 
+    </td>
+	<td>
+	  <nobr>
+	  <b>AddProperty</b> (const <A HREF="c4_Property.html" >c4_Property</A>&#38; property_);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Adds a property column to a view if not already present</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_View.html" >c4_View</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator, </b> (const <A HREF="c4_Property.html" >c4_Property</A>&#38; property_) <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Return a view like the first, with a property appended to it</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_View.html" >c4_View</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Sort</b> () <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Create view with all rows in natural (property-wise) order</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_View.html" >c4_View</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>SortOn</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; order_) <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Create view sorted according to the specified properties</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_View.html" >c4_View</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>SortOnReverse</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; order_, const <A HREF="c4_View.html" >c4_View</A>&#38; orderDown_) <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Create sorted view, with some properties sorted in reverse</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_View.html" >c4_View</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Select</b> (const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; criterium_) <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Create view with rows matching the specified value</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_View.html" >c4_View</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>SelectRange</b> (const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; rowLow_, const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; rowHigh_) <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Create view with row values within the specified range</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_View.html" >c4_View</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Project</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; order_) <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Create view with the specified property arrangement</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_View.html" >c4_View</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>ProjectWithout</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; order_) <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Create derived view with some properties omitted</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_View.html" >c4_View</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Slice</b> (int start_, int limit_ =-1, int step_ =1) <i>const</i>;
+	  
+	  <a href="c4_View_info.html#c4_View_Slice_intintint__const" target="k-info">
+		<font face=Helvetica size=-1><br>
+			Create view which is a segment/slice (default is up to end)</font></a>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_View.html" >c4_View</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Product</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; view_) <i>const</i>;
+	  
+	  <a href="c4_View_info.html#c4_View_Product_const__const" target="k-info">
+		<font face=Helvetica size=-1><br>
+			Create view which is the cartesian product with given view</font></a>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_View.html" >c4_View</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>RemapWith</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; order_) <i>const</i>;
+	  
+	  <a href="c4_View_info.html#c4_View_RemapWith_const__const" target="k-info">
+		<font face=Helvetica size=-1><br>
+			Create view which remaps another given view</font></a>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_View.html" >c4_View</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Pair</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; view_) <i>const</i>;
+	  
+	  <a href="c4_View_info.html#c4_View_Pair_const__const" target="k-info">
+		<font face=Helvetica size=-1><br>
+			Create view which pairs each row with corresponding row</font></a>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_View.html" >c4_View</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Concat</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; view_) <i>const</i>;
+	  
+	  <a href="c4_View_info.html#c4_View_Concat_const__const" target="k-info">
+		<font face=Helvetica size=-1><br>
+			Create view with rows from another view appended</font></a>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_View.html" >c4_View</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Rename</b> (const <A HREF="c4_Property.html" >c4_Property</A>&#38; old_, const <A HREF="c4_Property.html" >c4_Property</A>&#38; new_) <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Create view with one property renamed (must be of same type)</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_View.html" >c4_View</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>GroupBy</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; keys_, const <A HREF="c4_ViewProp.html" >c4_ViewProp</A>&#38; name_) <i>const</i>;
+	  <a href="c4_View_info.html#c4_View_GroupBy_constconst__const" target="k-info">
+	  
+		<font face=Helvetica size=-1><br>
+			Create view with a subview, grouped by the specified properties</font></a>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_View.html" >c4_View</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Counts</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; keys_, const <A HREF="c4_IntProp.html" >c4_IntProp</A>&#38; name_) <i>const</i>;
+	  <a href="c4_View_info.html#c4_View_Counts_constconst__const" target="k-info">
+	  
+		<font face=Helvetica size=-1><br>
+			Create view with count of duplicates, when grouped by key</font></a>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_View.html" >c4_View</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Unique</b> () <i>const</i>;
+	  
+	  <a href="c4_View_info.html#c4_View_Unique___const" target="k-info">
+		<font face=Helvetica size=-1><br>
+			Create view with all duplicate rows omitted</font></a>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_View.html" >c4_View</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Union</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; view_) <i>const</i>;
+	  
+	  <a href="c4_View_info.html#c4_View_Union_const__const" target="k-info">
+		<font face=Helvetica size=-1><br>
+			Create view which is the set union (assumes no duplicate rows)</font></a>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_View.html" >c4_View</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Intersect</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; view_) <i>const</i>;
+	  
+	  <a href="c4_View_info.html#c4_View_Intersect_const__const" target="k-info">
+		<font face=Helvetica size=-1><br>
+			Create view with all rows also in the given view (no dups)</font></a>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_View.html" >c4_View</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Different</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; view_) <i>const</i>;
+	  
+	  <a href="c4_View_info.html#c4_View_Different_const__const" target="k-info">
+		<font face=Helvetica size=-1><br>
+			Create view with all rows not in both views (no dups)</font></a>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_View.html" >c4_View</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Minus</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; view_) <i>const</i>;
+	  
+	  <a href="c4_View_info.html#c4_View_Minus_const__const" target="k-info">
+		<font face=Helvetica size=-1><br>
+			Create view with all rows not in the given view (no dups)</font></a>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_View.html" >c4_View</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>JoinProp</b> (const <A HREF="c4_ViewProp.html" >c4_ViewProp</A>&#38; sub_, bool outer_ =false) <i>const</i>;
+	  <a href="c4_View_info.html#c4_View_JoinProp_constbool__const" target="k-info">
+	  
+		<font face=Helvetica size=-1><br>
+			Create view with a specific subview expanded, like a join</font></a>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_View.html" >c4_View</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Join</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; keys_, const <A HREF="c4_View.html" >c4_View</A>&#38; view_, bool outer_ =false) <i>const</i>;
+	  <a href="c4_View_info.html#c4_View_Join_constconstbool__const" target="k-info">
+	  
+		<font face=Helvetica size=-1><br>
+			Create view which is the relational join on the given keys</font></a>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  int 
+    </td>
+	<td>
+	  <nobr>
+	  <b>GetIndexOf</b> (const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; row_) <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Return the index of the specified row in this view (or -1)</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  int 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Find</b> (const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; key_, int start_ =0) <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Find index of the the next entry matching the specified key</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  int 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Search</b> (const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; key_) <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Search for a key, using the native sort order of the view</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  int 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Compare</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; view_) <i>const</i>;
+	  
+	  
+		
+	</td>
+	</tr>
+  
+  </table>
+
+
+
+  <table cellborder=0>
+    <tr>
+    <td colspan=2>
+	  <font face=Helvetica size=-1><b>Protected members</b></font>
+    </td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  void 
+    </td>
+	<td>
+	  <nobr>
+	  <b>_IncSeqRef</b> ();
+	  
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  void 
+    </td>
+	<td>
+	  <nobr>
+	  <b>_DecSeqRef</b> ();
+	  
+	</td>
+	</tr>
+  
+  </table>
+
+
+
+  <table cellborder=0>
+    <tr>
+    <td colspan=2>
+	  <font face=Helvetica size=-1><b>Friends</b></font>
+    </td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  friend bool 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator==</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; a_, const <A HREF="c4_View.html" >c4_View</A>&#38; b_);
+	  <font face=Helvetica size=-1><br>Return true if the contents of both views are equal</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  friend bool 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator!=</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; a_, const <A HREF="c4_View.html" >c4_View</A>&#38; b_);
+	  <font face=Helvetica size=-1><br>Return true if the contents of both views are not equal</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  friend bool 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator< </b> (const <A HREF="c4_View.html" >c4_View</A>&#38; a_, const <A HREF="c4_View.html" >c4_View</A>&#38; b_);
+	  <font face=Helvetica size=-1><br>True if first view is less than second view</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  friend bool 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator> </b> (const <A HREF="c4_View.html" >c4_View</A>&#38; a_, const <A HREF="c4_View.html" >c4_View</A>&#38; b_);
+	  <font face=Helvetica size=-1><br>True if first view is greater than second view</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  friend bool 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator<=</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; a_, const <A HREF="c4_View.html" >c4_View</A>&#38; b_);
+	  <font face=Helvetica size=-1><br>True if first view is less or equal to second view</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  friend bool 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator>=</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; a_, const <A HREF="c4_View.html" >c4_View</A>&#38; b_);
+	  <font face=Helvetica size=-1><br>True if first view is greater or equal to second view</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  friend class 
+    </td>
+	<td>
+	  <nobr>
+	  <b>c4_ViewRef</b>;
+	  
+	</td>
+	</tr>
+  
+  </table>
+
+
+<br><hr size=1 width=50 align=left>
+
+<table cellborder=0>
+    <tr>
+    <td width=150>
+	  <font face=Helvetica size=-1><b>Header file</b></font>
+    </td>
+    <td>
+	  "mk4.h" &nbsp; -- &nbsp; Dec 9, 1999
+    </td>
+	</tr>
+
+  
+
+  
+</table>
+
+</font></font>
+
+</nobr></body></html>

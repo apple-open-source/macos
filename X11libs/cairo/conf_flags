@@ -1,0 +1,1 @@
+--x-include=/usr/X11/include --x-lib=/usr/X11/lib --disable-quartz --enable-xlib --enable-xlib-xrender --disable-xcb 

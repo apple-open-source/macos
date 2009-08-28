@@ -1,8 +1,8 @@
 /* ldapmodrdn.c - generic program to modify an entry's RDN using LDAP */
-/* $OpenLDAP: pkg/ldap/clients/tools/ldapmodrdn.c,v 1.106.2.5 2006/01/03 22:16:01 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/clients/tools/ldapmodrdn.c,v 1.116.2.4 2008/02/11 23:26:38 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * Portions Copyright 1998-2003 Kurt D. Zeilenga.
  * Portions Copyright 1998-2001 Net Boolean Incorporated.
  * Portions Copyright 2001-2003 IBM Corporation.
@@ -52,6 +52,7 @@
 #include <ac/ctype.h>
 #include <ac/string.h>
 #include <ac/unistd.h>
+#include <ac/socket.h>
 #include <ac/time.h>
 
 #include <ldap.h>
@@ -90,7 +91,7 @@ usage( void )
 
 
 const char options[] = "rs:"
-	"cd:D:e:f:h:H:IkKMnNO:p:P:QR:U:vVw:WxX:y:Y:Z";
+	"cd:D:e:f:h:H:IMnNO:o:p:P:QR:U:vVw:WxX:y:Y:Z";
 
 int
 handle_private_option( int i )
@@ -154,7 +155,7 @@ main(int argc, char **argv)
     LDAP		*ld;
 	int		rc, retval, havedn;
 
-    tool_init();
+    tool_init( TOOL_MODRDN );
     prog = lutil_progname( "ldapmodrdn", argc, argv );
 
 	tool_args( argc, argv );
@@ -198,9 +199,7 @@ main(int argc, char **argv)
 
 	tool_bind( ld );
 
-	if ( assertion || authzid || manageDSAit || noop ) {
-		tool_server_controls( ld, NULL, 0 );
-	}
+	tool_server_controls( ld, NULL, 0 );
 
     retval = rc = 0;
     if (havedn)
@@ -242,6 +241,7 @@ static int domodrdn(
 {
 	int rc, code, id;
 	char *matcheddn=NULL, *text=NULL, **refs=NULL;
+	LDAPControl **ctrls = NULL;
 	LDAPMessage *res;
 
     if ( verbose ) {
@@ -253,7 +253,7 @@ static int domodrdn(
 		}
 	}
 
-	if( not ) return LDAP_SUCCESS;
+	if( dont ) return LDAP_SUCCESS;
 
 	rc = ldap_rename( ld, dn, rdn, newSuperior, remove,
 		NULL, NULL, &id );
@@ -276,7 +276,7 @@ static int domodrdn(
 
 		rc = ldap_result( ld, LDAP_RES_ANY, LDAP_MSG_ALL, &tv, &res );
 		if ( rc < 0 ) {
-			ldap_perror( ld, "ldapmodrdn: ldap_result" );
+			tool_perror( "ldap_result", rc, NULL, NULL, NULL, NULL );
 			return rc;
 		}
 
@@ -285,7 +285,7 @@ static int domodrdn(
 		}
 	}
 
-	rc = ldap_parse_result( ld, res, &code, &matcheddn, &text, &refs, NULL, 1 );
+	rc = ldap_parse_result( ld, res, &code, &matcheddn, &text, &refs, &ctrls, 1 );
 
 	if( rc != LDAP_SUCCESS ) {
 		fprintf( stderr, "%s: ldap_parse_result: %s (%d)\n",
@@ -314,6 +314,11 @@ static int domodrdn(
 			}
 		}
 	}
+
+	if (ctrls) {
+		tool_print_ctrls( ld, ctrls );
+		ldap_controls_free( ctrls );
+    }
 
 	ber_memfree( text );
 	ber_memfree( matcheddn );

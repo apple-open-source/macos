@@ -552,7 +552,7 @@ pseudo_inits(FILE *fp)
 	for (dp = dtab; dp != 0; dp = dp->d_next) {
 		if (dp->d_type != PSEUDO_DEVICE || dp->d_init == 0)
 			continue;
-		fprintf(fp, "extern %s();\n", dp->d_init);
+		fprintf(fp, "extern int %s(int);\n", dp->d_init);
 	}
 #endif	notdef
 	fprintf(fp, "struct pseudo_init {\n");
@@ -565,10 +565,10 @@ pseudo_inits(FILE *fp)
 		count = dp->d_slave;
 		if (count <= 0)
 			count = 1;
-		fprintf(fp, "\t%d,\t%s,\n", count, dp->d_init);
+		fprintf(fp, "\t{%d,\t%s},\n", count, dp->d_init);
 	}
 #endif	notdef
-	fprintf(fp, "\t0,\t0,\n};\n");
+	fprintf(fp, "\t{0,\t0},\n};\n");
 }
 #endif
 
@@ -1666,7 +1666,7 @@ m68k_pseudo_inits(FILE *fp)
 	for (dp = dtab; dp != 0; dp = dp->d_next) {
 		if (dp->d_type != PSEUDO_DEVICE || dp->d_init == 0)
 			continue;
-		fprintf(fp, "extern %s();\n", dp->d_init);
+		fprintf(fp, "extern int %s(int);\n", dp->d_init);
 	}
 	fprintf(fp, "\nstruct pseudo_init pseudo_inits[] = {\n");
 	for (dp = dtab; dp != 0; dp = dp->d_next) {
@@ -1675,9 +1675,9 @@ m68k_pseudo_inits(FILE *fp)
 		count = dp->d_slave;
 		if (count <= 0)
 			count = 1;
-		fprintf(fp, "\t%d,\t%s,\n", count, dp->d_init);
+		fprintf(fp, "\t{%d,\t%s},\n", count, dp->d_init);
 	}
-	fprintf(fp, "\t0,\t0,\n};\n");
+	fprintf(fp, "\t{0,\t0},\n};\n");
 }
 
 void
@@ -1690,7 +1690,7 @@ i386_pseudo_inits(FILE *fp)
 	for (dp = dtab; dp != 0; dp = dp->d_next) {
 		if (dp->d_type != PSEUDO_DEVICE || dp->d_init == 0)
 			continue;
-		fprintf(fp, "extern %s();\n", dp->d_init);
+		fprintf(fp, "extern int %s(int);\n", dp->d_init);
 	}
 	fprintf(fp, "\nstruct pseudo_init pseudo_inits[] = {\n");
 	for (dp = dtab; dp != 0; dp = dp->d_next) {
@@ -1699,9 +1699,9 @@ i386_pseudo_inits(FILE *fp)
 		count = dp->d_slave;
 		if (count <= 0)
 			count = 1;
-		fprintf(fp, "\t%d,\t%s,\n", count, dp->d_init);
+		fprintf(fp, "\t{%d,\t%s},\n", count, dp->d_init);
 	}
-	fprintf(fp, "\t0,\t0,\n};\n");
+	fprintf(fp, "\t{0,\t0},\n};\n");
 }
 
 char *
@@ -1742,7 +1742,7 @@ nrw_pseudo_inits(FILE *fp)
 	for (dp = dtab; dp != 0; dp = dp->d_next) {
 		if (dp->d_type != PSEUDO_DEVICE || dp->d_init == 0)
 			continue;
-		fprintf(fp, "extern %s();\n", dp->d_init);
+		fprintf(fp, "extern int %s(int);\n", dp->d_init);
 	}
 	fprintf(fp, "\nstruct pseudo_init pseudo_inits[] = {\n");
 	for (dp = dtab; dp != 0; dp = dp->d_next) {
@@ -1751,9 +1751,9 @@ nrw_pseudo_inits(FILE *fp)
 		count = dp->d_slave;
 		if (count <= 0)
 			count = 1;
-		fprintf(fp, "\t%d,\t%s,\n", count, dp->d_init);
+		fprintf(fp, "\t{%d,\t%s},\n", count, dp->d_init);
 	}
-	fprintf(fp, "\t0,\t0,\n};\n");
+	fprintf(fp, "\t{0,\t0},\n};\n");
 }
 
 char *
@@ -1833,7 +1833,7 @@ hppa_pseudo_inits(FILE *fp)
 	for (dp = dtab; dp != 0; dp = dp->d_next) {
 		if (dp->d_type != PSEUDO_DEVICE || dp->d_init == 0)
 			continue;
-		fprintf(fp, "extern %s();\n", dp->d_init);
+		fprintf(fp, "extern int %s(int);\n", dp->d_init);
 	}
 	fprintf(fp, "\nstruct pseudo_init pseudo_inits[] = {\n");
 	for (dp = dtab; dp != 0; dp = dp->d_next) {
@@ -1842,9 +1842,9 @@ hppa_pseudo_inits(FILE *fp)
 		count = dp->d_slave;
 		if (count <= 0)
 			count = 1;
-		fprintf(fp, "\t%d,\t%s,\n", count, dp->d_init);
+		fprintf(fp, "\t{%d,\t%s},\n", count, dp->d_init);
 	}
-	fprintf(fp, "\t0,\t0,\n};\n");
+	fprintf(fp, "\t{0,\t0},\n};\n");
 }
 
 char *
@@ -1888,7 +1888,7 @@ sparc_pseudo_inits(FILE *fp)
 	for (dp = dtab; dp != 0; dp = dp->d_next) {
 		if (dp->d_type != PSEUDO_DEVICE || dp->d_init == 0)
 			continue;
-		fprintf(fp, "extern %s();\n", dp->d_init);
+		fprintf(fp, "extern int %s(int);\n", dp->d_init);
 	}
 	fprintf(fp, "\nstruct pseudo_init pseudo_inits[] = {\n");
 	for (dp = dtab; dp != 0; dp = dp->d_next) {
@@ -1897,9 +1897,9 @@ sparc_pseudo_inits(FILE *fp)
 		count = dp->d_slave;
 		if (count <= 0)
 			count = 1;
-		fprintf(fp, "\t%d,\t%s,\n", count, dp->d_init);
+		fprintf(fp, "\t{%d,\t%s},\n", count, dp->d_init);
 	}
-	fprintf(fp, "\t0,\t0,\n};\n");
+	fprintf(fp, "\t{0,\t0},\n};\n");
 }
 
 char *
@@ -1942,7 +1942,7 @@ ppc_pseudo_inits(FILE *fp)
 	for (dp = dtab; dp != 0; dp = dp->d_next) {
 		if (dp->d_type != PSEUDO_DEVICE || dp->d_init == 0)
 			continue;
-		fprintf(fp, "extern %s();\n", dp->d_init);
+		fprintf(fp, "extern int %s(int);\n", dp->d_init);
 	}
 	fprintf(fp, "\nstruct pseudo_init pseudo_inits[] = {\n");
 	for (dp = dtab; dp != 0; dp = dp->d_next) {
@@ -1951,9 +1951,9 @@ ppc_pseudo_inits(FILE *fp)
 		count = dp->d_slave;
 		if (count <= 0)
 			count = 1;
-		fprintf(fp, "\t%d,\t%s,\n", count, dp->d_init);
+		fprintf(fp, "\t{%d,\t%s},\n", count, dp->d_init);
 	}
-	fprintf(fp, "\t0,\t0,\n};\n");
+	fprintf(fp, "\t{0,\t0},\n};\n");
 }
 
 char *
@@ -1996,7 +1996,7 @@ arm_pseudo_inits(FILE *fp)
 	for (dp = dtab; dp != 0; dp = dp->d_next) {
 		if (dp->d_type != PSEUDO_DEVICE || dp->d_init == 0)
 			continue;
-		fprintf(fp, "extern %s();\n", dp->d_init);
+		fprintf(fp, "extern int %s(int);\n", dp->d_init);
 	}
 	fprintf(fp, "\nstruct pseudo_init pseudo_inits[] = {\n");
 	for (dp = dtab; dp != 0; dp = dp->d_next) {
@@ -2005,12 +2005,58 @@ arm_pseudo_inits(FILE *fp)
 		count = dp->d_slave;
 		if (count <= 0)
 			count = 1;
-		fprintf(fp, "\t%d,\t%s,\n", count, dp->d_init);
+		fprintf(fp, "\t{%d,\t%s},\n", count, dp->d_init);
 	}
-	fprintf(fp, "\t0,\t0,\n};\n");
+	fprintf(fp, "\t{0,\t0},\n};\n");
 }
 
 #endif /* MACHINE_ARM */
+
+#ifdef MACHINE_X86_64
+void	x86_64_pseudo_inits(FILE *fp);
+
+void
+x86_64_ioconf(void)
+{
+	FILE *fp;
+
+	unlink(path("ioconf.c"));
+	fp = fopen(path("ioconf.c"), "w");
+	if (fp == 0) {
+		perror(path("ioconf.c"));
+		exit(1);
+	}
+	fprintf(fp, "#include <dev/busvar.h>\n");
+	fprintf(fp, "\n");
+	x86_64_pseudo_inits (fp);
+	(void) fclose(fp);
+}
+
+void
+x86_64_pseudo_inits(FILE *fp)
+{
+	register struct device *dp;
+	int count;
+
+	fprintf(fp, "\n");
+	for (dp = dtab; dp != 0; dp = dp->d_next) {
+		if (dp->d_type != PSEUDO_DEVICE || dp->d_init == 0)
+			continue;
+		fprintf(fp, "extern int %s(int);\n", dp->d_init);
+	}
+	fprintf(fp, "\nstruct pseudo_init pseudo_inits[] = {\n");
+	for (dp = dtab; dp != 0; dp = dp->d_next) {
+		if (dp->d_type != PSEUDO_DEVICE || dp->d_init == 0)
+			continue;
+		count = dp->d_slave;
+		if (count <= 0)
+			count = 1;
+		fprintf(fp, "\t{%d,\t%s},\n", count, dp->d_init);
+	}
+	fprintf(fp, "\t{0,\t0},\n};\n");
+}
+
+#endif /* MACHINE_X86_64 */
 
 char *
 intv(struct device *dev)

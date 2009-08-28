@@ -648,9 +648,9 @@ errOut:
 				assert(privKey != NULL);
 				if(ortn == noErr) {
 					/* only do this on complete success so far */
-					ortn = SecKeyCreate(privKey, &keyRef);
+					ortn = SecKeyCreateWithCSSMKey(privKey, &keyRef);
 					if(ortn) {
-						SecImpExpDbg("SecKeyCreate error");
+						SecImpExpDbg("SecKeyCreateWithCSSMKey error");
 					}
 					/* keep going for CFRelease */
 				}

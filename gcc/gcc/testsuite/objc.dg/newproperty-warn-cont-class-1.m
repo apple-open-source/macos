@@ -1,6 +1,6 @@
 /* APPLE LOCAL file radar 5159695 */
 /* Test that proper warning is issued when class continuation is used with mismatched attributes. */
-/* { dg-options "-mmacosx-version-min=10.5" } */
+/* { dg-options "-mmacosx-version-min=10.5" { target powerpc*-*-darwin* i?86*-*-darwin* } } */
 /* { dg-do compile { target *-*-darwin* } } */
 
 @interface Foo

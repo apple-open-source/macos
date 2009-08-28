@@ -190,6 +190,12 @@ serial_open (const char *name)
   else if (strncmp (name, "unix:", 5) == 0)
     ops = serial_interface_lookup ("unix");
   /* APPLE LOCAL end classic-inferior-support */
+  /* APPLE LOCAL begin filedesc-support */
+  /* Add a "filedesc" serial interface, or which is an already opened file
+     handle that was given to us by someone else.  */
+  else if (strncmp (name, "filedesc:", 9) == 0)
+    ops = serial_interface_lookup ("filedesc");
+  /* APPLE LOCAL end filedesc-support */
   else if (strchr (name, ':'))
     ops = serial_interface_lookup ("tcp");
   else if (strncmp (name, "lpt", 3) == 0)

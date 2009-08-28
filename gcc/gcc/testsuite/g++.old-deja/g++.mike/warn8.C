@@ -1,4 +1,5 @@
 // { dg-do assemble  }
+// { dg-options "-Waddress" }
 
 struct foo {
   bool test();

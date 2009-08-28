@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2007, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,6 +25,7 @@
 #include <sys/uio.h>
 
 #include <dlfcn.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -41,10 +42,10 @@ int backtrace(void** buffer, int size) {
 }
 
 #if __LP64__
-#define _BACKTRACE_FORMAT "%-4d%-35s 0x%016x %s + %u"
+#define _BACKTRACE_FORMAT "%-4d%-35s 0x%016lx %s + %lu"
 #define _BACKTRACE_FORMAT_SIZE 82
 #else
-#define _BACKTRACE_FORMAT "%-4d%-35s 0x%08x %s + %u"
+#define _BACKTRACE_FORMAT "%-4d%-35s 0x%08lx %s + %lu"
 #define _BACKTRACE_FORMAT_SIZE 65
 #endif
 
@@ -62,16 +63,16 @@ static int _backtrace_snprintf(char* buf, size_t size, int frame, const void* ad
 	if (info->dli_sname) {
 		symbol = info->dli_sname;
 	} else {
-		snprintf(symbuf, sizeof(symbuf), "0x%x", info->dli_saddr);
+		snprintf(symbuf, sizeof(symbuf), "0x%lx", (uintptr_t)info->dli_saddr);
 	}
 
 	return snprintf(buf, size,
 			_BACKTRACE_FORMAT,
 			frame,
 			image,
-			addr,
+			(uintptr_t)addr,
 			symbol,
-			addr - info->dli_saddr) + 1;
+			(uintptr_t)addr - (uintptr_t)info->dli_saddr) + 1;
 }
 
 char** backtrace_symbols(void* const* buffer, int size) {

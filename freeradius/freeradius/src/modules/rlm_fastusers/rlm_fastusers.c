@@ -2,7 +2,7 @@
  * rlm_fastusers.c	authorization: Find a user in the hashed "users" file.
  *                	accounting:    Do nothing.  Auth module only.
  *
- * Version:	$Id: rlm_fastusers.c,v 1.33.4.1 2007/04/07 21:46:36 aland Exp $
+ * Version:	$Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -16,30 +16,23 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2000  The FreeRADIUS server project
+ * Copyright 2000,2006  The FreeRADIUS server project
  * Copyright 2000  Jeff Carneal <jeff@apex.net>
  */
 
-#include        "autoconf.h"
-#include        "libradius.h"
+#include        <freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include	<sys/socket.h>
-#include	<sys/time.h>
+#include	<freeradius-devel/radiusd.h>
+#include	<freeradius-devel/modules.h>
+
 #include	<sys/stat.h>
 
-#include	<stdio.h>
-#include	<stdlib.h>
-#include	<string.h>
-#include	<pwd.h>
-#include	<grp.h>
 #include	<ctype.h>
 #include	<fcntl.h>
 #include	<limits.h>
-
-#include	"radiusd.h"
-#include	"modules.h"
 
 struct fastuser_instance {
 	char *compat_mode;
@@ -70,12 +63,11 @@ static int fastuser_store(PAIR_LIST **hashtable, PAIR_LIST *entry, int idx);
 static PAIR_LIST *fastuser_find(REQUEST *request, PAIR_LIST *user,
 																const char *username);
 static void fastuser_tablestats(PAIR_LIST **hashtable, int size);
-static int fastuser_passcheck(REQUEST *request, PAIR_LIST *user, const char *name);
 
-static CONF_PARSER module_config[] = {
-	{ "usersfile",     PW_TYPE_STRING_PTR,
+static const CONF_PARSER module_config[] = {
+	{ "usersfile",     PW_TYPE_FILENAME,
 	  offsetof(struct fastuser_instance,usersfile), NULL, "${raddbdir}/users_fast" },
-	{ "acctusersfile",     PW_TYPE_STRING_PTR,
+	{ "acctusersfile",     PW_TYPE_FILENAME,
 	  offsetof(struct fastuser_instance,acctusersfile), NULL, "${raddbdir}/acct_users" },
 	{ "hashsize",     PW_TYPE_INTEGER,
 	  offsetof(struct fastuser_instance,hashsize), NULL, "100000" },
@@ -95,7 +87,7 @@ static int fallthrough(VALUE_PAIR *vp)
 {
 	VALUE_PAIR *tmp;
 	tmp = pairfind(vp, PW_FALL_THROUGH);
-	return tmp ? tmp->lvalue : 0;
+	return tmp ? tmp->vp_integer : 0;
 }
 
 /*
@@ -111,7 +103,7 @@ static int rad_check_return(VALUE_PAIR *list)
        */
 
       authtype = pairfind(list, PW_AUTHTYPE);
-      if((authtype) && authtype->lvalue == PW_AUTHTYPE_REJECT)  {
+      if((authtype) && authtype->vp_integer == PW_AUTHTYPE_REJECT)  {
               DEBUG2("rad_check_return:  Auth-Type is Reject");
               return RLM_MODULE_REJECT;
       }
@@ -440,20 +432,9 @@ static PAIR_LIST *fastuser_find(REQUEST *request, PAIR_LIST *user,
 	 */
 	while((cur) && (!userfound)) {
 		if((strcmp(cur->name, username)==0) &&
-				paircmp(request, request->packet->vps, cur->check, &request->reply->vps) == 0) {
-			/*
-			 * Usercollide means we have to compare check pairs
-			 * AND the password
-			 */
-			if(mainconfig.do_usercollide) {
-				if((userfound = fastuser_passcheck(request, cur, username))==0) {
-					cur = cur->next;
-				}
-
-			} else {
+				paircompare(request, request->packet->vps, cur->check, &request->reply->vps) == 0) {
 				userfound = 1;
 				DEBUG2("  fastusers: Matched %s at %d", cur->name, cur->lineno);
-			}
 		} else {
 			cur = cur->next;
 		}
@@ -499,45 +480,6 @@ static void fastuser_tablestats(PAIR_LIST **hashtable, int size) {
 		radlog(L_INFO, "rlm_fastusers:  Hash buckets with more than 256:  %d",
 					toomany);
 	}
-}
-
-static int fastuser_passcheck(REQUEST *request, PAIR_LIST *user,
-			      const char *name UNUSED)
-{
-	int found=0;
-	VALUE_PAIR	*check_save;
-
-	/*
-	 * We check for REJECT specially here or a REJECT
-	 * user will never match
-	 */
-	check_save = pairfind(user->check, PW_AUTHTYPE);
-	if((check_save) && check_save->lvalue == PW_AUTHTYPE_REJECT)  {
-		DEBUG2("  fastusers(uc):  User '%s' line %d is Auth-Type Reject, but usercollide match",
-					user->name, user->lineno);
-		return 1;
-	}
-
-	/* Save the orginal config items */
-	check_save = request->config_items;
-	request->config_items = NULL;
-
-	DEBUG2("  fastusers(uc): Checking %s at %d", user->name, user->lineno);
-
-	/* Copy this users check pairs to the request */
-	request->config_items = paircopy(user->check);
-
-	/* Check the req to see if we matched */
-	if(rad_check_password(request)==0) {
-		DEBUG2("  fastusers(uc): Matched %s at %d", user->name, user->lineno);
-		found = 1;
-	}
-
-	/* Restore check items */
-	pairfree(&request->config_items);
-	request->config_items = check_save;
-
-	return found;
 }
 
 /*
@@ -611,7 +553,7 @@ static int fastuser_authorize(void *instance, REQUEST *request)
 	 *	Grab the canonical user name.
 	 */
 	namepair = request->username;
-	name = namepair ? (char *) namepair->strvalue : "NONE";
+	name = namepair ? (char *) namepair->vp_strvalue : "NONE";
 
 	/*
 	 *	Find the entry for the user.
@@ -660,7 +602,7 @@ static int fastuser_authorize(void *instance, REQUEST *request)
 
 	curdefault = inst->defaults;
 	while(curdefault) {
-		if(paircmp(request, request->packet->vps, curdefault->check,
+		if(paircompare(request, request->packet->vps, curdefault->check,
 							&request->reply->vps) == 0) {
 			DEBUG2("  fastusers: Matched %s at %d",
 							curdefault->name, curdefault->lineno);
@@ -758,7 +700,7 @@ static int fastuser_preacct(void *instance, REQUEST *request)
 	struct fastuser_instance *inst = instance;
 
 	namepair = request->username;
-	name = namepair ? (char *) namepair->strvalue : "NONE";
+	name = namepair ? (char *) namepair->vp_strvalue : "NONE";
 	request_pairs = request->packet->vps;
 	config_pairs = &request->config_items;
 
@@ -770,7 +712,7 @@ static int fastuser_preacct(void *instance, REQUEST *request)
 		if (strcmp(name, pl->name) && strcmp(pl->name, "DEFAULT"))
 			continue;
 
-		if (paircmp(request, request_pairs, pl->check, &reply_pairs) == 0) {
+		if (paircompare(request, request_pairs, pl->check, &reply_pairs) == 0) {
 			DEBUG2("  acct_users: Matched %s at %d",
 			       pl->name, pl->lineno);
 			found = 1;
@@ -820,13 +762,9 @@ static int fastuser_detach(void *instance)
 		}
 	}
 
-	free(inst->compat_mode);
 	free(inst->hashtable);
 	pairlist_free(&inst->defaults);
 	pairlist_free(&inst->acctusers);
-	free(inst->usersfile);
-	free(inst->acctusersfile);
-	free(inst);
 	return 0;
 }
 
@@ -843,10 +781,11 @@ static int fastuser_accounting(void *instance UNUSED, REQUEST *request UNUSED)
 
 /* globally exported name */
 module_t rlm_fastusers = {
+	RLM_MODULE_INIT,
 	"fastusers",
 	0,				/* type: reserved */
-	NULL,				/* initialization */
 	fastuser_instantiate,		/* instantiation */
+	fastuser_detach,		/* detach */
 	{
 		fastuser_authenticate,	/* authentication */
 		fastuser_authorize,	/* authorization */
@@ -857,7 +796,5 @@ module_t rlm_fastusers = {
 		NULL,			/* post-proxy */
 		NULL			/* post-auth */
 	},
-	fastuser_detach,		/* detach */
-	NULL				/* destroy */
 };
 

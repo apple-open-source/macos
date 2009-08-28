@@ -21,6 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <inttypes.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -33,6 +34,10 @@
 #include <fcntl.h>
 #include <libxml/parser.h>
 #include <libxml/tree.h>
+
+#ifdef USE_STRCOMPAT
+#include "strcompat.h"
+#endif
 
 typedef struct usage {
     char *flag;
@@ -73,13 +78,23 @@ int main(int argc, char *argv[])
     int counter = 0, i;
     int first_arg = 1;
 
-    if (argc < 1) {
+    if (argc < 2) {
 	fprintf(stderr, "hdxml2manxml: No arguments given.\n");
+	fprintf(stderr, "\n");
+	fprintf(stderr, "Usage:\n");
+	fprintf(stderr, "\thdxml [-M section] filename.xml ...\n");
+	fprintf(stderr, "\n");
+	fprintf(stderr, "This tool outputs a series of .mxml files (suitable for use with\n");
+	fprintf(stderr, "xml2man) in the current directory based on the contents of a\n");
+	fprintf(stderr, "HeaderDoc XML output file (pass -X to headerdoc2html).  If no\n");
+	fprintf(stderr, "section number is given, the pages generated are assumed to be\n");
+	fprintf(stderr, "in man section 3.\n");
+	fprintf(stderr, "\n");
 	exit(-1);
     }
 
     if (!strcmp(argv[1], "-M")) {
-	if (argc < 3) {
+	if (argc < 4) {
 		fprintf(stderr, "hdxml2manxml: You must specify a man page section for -M.\n");
 		exit(-1);
 	}
@@ -99,12 +114,25 @@ int main(int argc, char *argv[])
 	    void *addr;
 	    struct stat sb;
 	    int fd = open(argv[i], O_RDONLY, 0);
-	    int len;
+	    size_t len;
 
 	    if (fd == -1) continue;
 
-	    fstat(fd, &sb);
-	    addr = mmap(NULL, (len=sb.st_size), PROT_READ, MAP_FILE, fd, 0);
+	    if (fstat(fd, &sb) == -1) {
+		fprintf(stderr, "Could not stat file \"%s\".  Skipping.\n", argv[i]);
+		continue;
+	    }
+	    len = sb.st_size;
+	    addr = mmap(NULL, len, PROT_READ, MAP_FILE | MAP_PRIVATE, fd, 0);
+	    // fprintf(stderr, "Mapped length 0x%lx at %p\n", len, addr);
+	    if ((uintptr_t)addr == (uintptr_t)-1) {
+		fprintf(stderr, "Could not memory map file.  Aborting.\n");
+		perror("hdxml2manxml");
+		exit(-1);
+	    }
+	    // fprintf(stderr, "DUMPING\n");
+	    // { char *pos = addr; size_t count = len; while (count) { printf("%c", *pos++); count--; }}
+	    // fprintf(stderr, "END DUMP\n");
 	    if (!(dp = xmlParseMemory(addr, len))) {
 		perror(argv[0]);
 		fprintf(stderr, "hdxml2manxml: could not parse XML file\n");
@@ -167,10 +195,10 @@ void processfile(char *filename, xmlDocPtr dp, int counter)
 	if (!strcmp((char *)node->name, "function")) {
 		name = textmatching(dp, "name", node->children, 0, 0);
 		if (name) {
-			strcpy(output_filename, name);
-			strcat(output_filename, ".mxml");
+			strlcpy(output_filename, name, MAXNAMLEN);
+			strlcat(output_filename, ".mxml", MAXNAMLEN);
 		} else {
-			sprintf(output_filename, "unknown-%06d.mxml", counter++);
+			snprintf(output_filename, MAXNAMLEN, "unknown-%06d.mxml", counter++);
 		}
 		hdxml2man(dp, node, output_filename);
 	} else if (strcmp((char *)node->name, "text")) {

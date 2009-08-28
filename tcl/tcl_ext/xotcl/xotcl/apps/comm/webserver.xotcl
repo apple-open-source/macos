@@ -1,0 +1,118 @@
+#!../../src/xotclsh
+# $Id: webserver.xotcl,v 1.9 2007/08/14 16:38:26 neumann Exp $
+array set opts {-root ../../doc -port 8086 -protected-port 9096 -pkgdir .}
+array set opts $argv
+lappend auto_path $opts(-pkgdir)
+#if {$::tcl_platform(platform) eq "windows"} {lappend auto_path .}
+package require XOTcl; namespace import -force xotcl::*
+
+proc ! string {
+  set f [open [::xotcl::tmpdir]/log w+]; 
+  puts $f "[clock format [clock seconds]] $string"
+  close $f
+}
+
+@ @File {
+  description {
+    This small demo program starts two different webservers:
+    <ul>
+    <li>Firstly, it provides a sample web server that povides the documents in 
+    ../../src/doc (or the files specified with -root) at port 8086 
+    (or at the port specified via the -port option) as unprotected resources.
+    <p>
+    <li>Secondly, it starts a second webserver with basic access control
+    (it accepts test/test as user/password) on port 9096 (or on the
+    port specified via -protected-port). If it receives an request
+    for an resource named "exit", it terminates. For all other requests
+    it returns actual information about the user and the issued request.
+    </ul>
+    To see, how it works, contact it e.g. from netscape.
+  }
+}
+
+! "#### webserver starting"
+# We load the following packages:
+#
+#::xotcl::package import ::xotcl::comm::httpd
+package require xotcl::comm::httpd
+
+! "#### httpd required"
+
+# now we can start the web-server instance with these settings
+#
+Httpd h1 -port $opts(-port) -root $opts(-root)
+@ Httpd h1 {description "unprotected web server"}
+
+! "#### h1 started"
+
+# specialized worker, which executes tcl commands in web pages
+@ Class SpecializedWorker { description {
+  Specialized worker that can be passed to any webserver
+}}
+Class SpecializedWorker -superclass Httpd::Wrk
+@ SpecializedWorker instproc respond {} { description {
+  This method handles all responses from the webserver to the client.
+  We implent here "exit", and we return the information about the  actual 
+  request and  user in HTML format for all other requests.
+  <p>This method is an example, how to access on the server side 
+  request specific infomation.
+}}
+SpecializedWorker instproc respond {} {
+  if {[my set resourceName] eq "exit"} {
+    set ::forever 1
+    #my showVars
+    #my set version 1.0;### ???? 
+    #puts stderr HERE
+  }
+  # return for all other requests the same response
+  foreach {a v} [my array get meta] {
+    append m <tr><td><em>$a</em></td><td>$v</td></tr>\n
+  }
+  set content {
+    <HTML><BODY>
+    <h3>Request Info</h3>
+    <table>
+    <tr><td><em>method:</em></td><td>[my set method]</td></tr>
+    <tr><td><em>resource:</em></td><td>[my set resourceName]</td></tr>
+    <tr><td><em>user:</em></td><td>[my set user]</td></tr>
+    <tr><td><em>version:</em></td><td>HTTP/[my set version]</td></tr>
+    <tr><td><em>response port:</em></td><td>[my set port]</td></tr>
+    <tr><td><em>request comes from:</em></td><td>[my set ipaddr]</td></tr>
+    </table>
+    <h3>Request Header Fields</h3>
+    <table>$m</table>
+    </BODY></HTML>
+  }
+  set c [subst $content]
+  my replyCode 200
+  my connection puts "Content-Type: text/html"
+  my connection puts "Content-Length: [string length $c]\n"
+  my connection puts-nonewline $c
+  my close
+}
+
+@ Httpd h2 {
+  description "Web server with basic authentication using the specialied worker"}
+
+if {[info exists env(USER)]} {
+  set USER "$env(USER)"
+} elseif {[info exists env(USERNAME)]} {
+  set USER "$env(USERNAME)"
+} else {
+  set USER unknown
+}
+if {$::tcl_platform(platform) eq "windows"} {
+  set USER unknown
+}
+
+Httpd h2 -port $opts(-protected-port) -root $opts(-root) \
+    -httpdWrk SpecializedWorker \
+    -mixin Httpd::BasicAccessControl \
+    -addRealmEntry test "u1 test $USER test"  -protectDir test "" {} 
+
+! "#### h2 started"
+
+#
+# and finally call the event loop... 
+#
+vwait forever

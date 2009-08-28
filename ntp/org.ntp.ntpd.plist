@@ -16,6 +16,8 @@
 	<true/>
       </dict>
     </dict>
+    <key>EnableTransactions</key>
+    <true/>
     <key>SHAuthorizationRight</key>
     <string>system.preferences</string>
   </dict>

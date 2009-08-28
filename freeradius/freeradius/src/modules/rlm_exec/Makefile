@@ -1,7 +1,7 @@
 #
 # Makefile
 #
-# Version:	$Id: Makefile,v 1.1.6.1 2006/02/10 19:47:14 nbk Exp $
+# Version:	$Id$
 #
 
 TARGET		= rlm_exec

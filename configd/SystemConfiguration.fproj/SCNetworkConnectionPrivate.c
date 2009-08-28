@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,7 +28,6 @@
 #include "SCNetworkConfigurationInternal.h"
 #include <notify.h>
 #include <pthread.h>
-#include <ppp/PPPControllerPriv.h>
 
 
 #pragma mark -
@@ -183,6 +182,133 @@ isA_SCUserPreferences(CFTypeRef obj)
 #define	USER_PREFERENCES_DEFAULT	CFSTR("ConnectByDefault")
 
 
+#define	LOG_CFPREFERENCES_CHANGES
+#ifdef	LOG_CFPREFERENCES_CHANGES
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+static void
+logCFPreferencesChange(CFStringRef serviceID, CFArrayRef newPreferences)
+{
+	CFBooleanRef	bVal;
+	char		dir[256];
+	CFArrayRef	oldPreferences;
+	CFStringRef	str;
+	CFStringRef	trace;
+	struct tm	tm_now;
+	struct timeval	tv_now;
+
+	bVal = CFPreferencesCopyAppValue(CFSTR("LOG_SC_CHANGES"), USER_PREFERENCES_APPLICATION_ID);
+	if (bVal != NULL) {
+		if (!isA_CFBoolean(bVal) || !CFBooleanGetValue(bVal)) {
+			// if debugging not enabled
+			CFRelease(bVal);
+			return;
+		}
+	} else {
+		// if debugging not enabled
+		return;
+	}
+
+	(void)gettimeofday(&tv_now, NULL);
+	(void)localtime_r(&tv_now.tv_sec, &tm_now);
+
+	str = CFStringCreateWithFormat(NULL, NULL,
+				       CFSTR("/var/tmp/com.apple.networkConnect-%@-%4d%02d%02d.%02d%02d%02d.%03d"),
+				       serviceID,
+				       tm_now.tm_year + 1900,
+				       tm_now.tm_mon + 1,
+				       tm_now.tm_mday,
+				       tm_now.tm_hour,
+				       tm_now.tm_min,
+				       tm_now.tm_sec,
+				       tv_now.tv_usec / 1000);
+	_SC_cfstring_to_cstring(str, dir, sizeof(dir), kCFStringEncodingUTF8);
+	CFRelease(str);
+
+	SCLog(TRUE, LOG_ERR, CFSTR("CFPreferences being updated, old/new in \"%s\""), dir);
+
+	if (mkdir(dir, 0755) == -1) {
+		SCLog(TRUE, LOG_ERR, CFSTR("logCFPreferencesChange mkdir() failed, error = %s"), SCErrorString(errno));
+		return;
+	}
+
+	trace = _SC_copyBacktrace();
+	if (trace != NULL) {
+		FILE	*f;
+		int	fd;
+		char	path[256];
+
+		strlcpy(path, dir, sizeof(path));
+		strlcat(path, "/backtrace", sizeof(path));
+		fd = open(path, O_WRONLY|O_CREAT|O_TRUNC|O_EXCL, 0644);
+		if (fd == -1) {
+			SCLog(TRUE, LOG_ERR, CFSTR("logCFPreferencesChange fopen() failed, error = %s"), SCErrorString(errno));
+			CFRelease(trace);
+			return;
+		}
+		f = fdopen(fd, "w");
+		SCPrint(TRUE, f, CFSTR("%@"), trace);
+		(void) fclose(f);
+		CFRelease(trace);
+	}
+
+	oldPreferences = CFPreferencesCopyAppValue(serviceID, USER_PREFERENCES_APPLICATION_ID);
+	if (oldPreferences != NULL) {
+		int		fd;
+		CFDataRef	data;
+		char		path[256];
+
+		strlcpy(path, dir, sizeof(path));
+		strlcat(path, "/old", sizeof(path));
+		fd = open(path, O_WRONLY|O_CREAT|O_TRUNC|O_EXCL, 0644);
+		if (fd == -1) {
+			SCLog(TRUE, LOG_ERR, CFSTR("logCFPreferencesChange fopen() failed, error = %s"), SCErrorString(errno));
+			CFRelease(oldPreferences);
+			return;
+		}
+		data = CFPropertyListCreateXMLData(NULL, oldPreferences);
+		if (data == NULL) {
+			SCLog(TRUE, LOG_ERR, CFSTR("logCFPreferencesChange CFPropertyListCreateXMLData() failed"));
+			close(fd);
+			CFRelease(oldPreferences);
+			return;
+		}
+		(void) write(fd, CFDataGetBytePtr(data), CFDataGetLength(data));
+		(void) close(fd);
+		CFRelease(data);
+		CFRelease(oldPreferences);
+	}
+
+	if (newPreferences != NULL) {
+		int		fd;
+		CFDataRef	data;
+		char		path[256];
+
+		strlcpy(path, dir, sizeof(path));
+		strlcat(path, "/new", sizeof(path));
+		fd = open(path, O_WRONLY|O_CREAT|O_TRUNC|O_EXCL, 0644);
+		if (fd == -1) {
+			SCLog(TRUE, LOG_ERR, CFSTR("logCFPreferencesChange fopen() failed, error = %s"), SCErrorString(errno));
+			return;
+		}
+		data = CFPropertyListCreateXMLData(NULL, newPreferences);
+		if (data == NULL) {
+			SCLog(TRUE, LOG_ERR, CFSTR("logCFPreferencesChange CFPropertyListCreateXMLData() failed"));
+			close(fd);
+			return;
+		}
+		(void) write(fd, CFDataGetBytePtr(data), CFDataGetLength(data));
+		(void) close(fd);
+		CFRelease(data);
+	}
+
+	return;
+}
+#endif	// LOG_CFPREFERENCES_CHANGES
+
+
 static CFArrayRef
 copyCFPreferencesForServiceID(CFStringRef serviceID)
 {
@@ -210,6 +336,10 @@ setCFPreferencesForServiceID(CFStringRef serviceID, CFArrayRef newPreferences)
 	if (CFPreferencesAppValueIsForced(serviceID, USER_PREFERENCES_APPLICATION_ID)) {
 		return FALSE;
 	}
+
+#ifdef	LOG_CFPREFERENCES_CHANGES
+	logCFPreferencesChange(serviceID, newPreferences);
+#endif	// LOG_CFPREFERENCES_CHANGES
 
 	CFPreferencesSetValue(serviceID,
 			      newPreferences,
@@ -1013,17 +1143,6 @@ SCNetworkConnectionCreateUserPreferences(SCNetworkConnectionRef connection)
 }
 
 
-#ifdef	NOTNOW
-Boolean
-SCNetworkConnectionSelectService(CFDictionaryRef	selectionOptions,
-				 SCNetworkServiceRef	*service,
-				 SCUserPreferencesRef	*userPreferences)
-{
-	return FALSE;
-}
-#endif	// NOTNOW
-
-
 static void
 update_PPP_entity(SCUserPreferencesRef userPreferences, CFDictionaryRef *userOptions)
 {
@@ -1321,6 +1440,36 @@ copyUserSharedSecretID(CFDictionaryRef config, SCUserPreferencesRef userPreferen
 }
 
 
+static CFStringRef
+copyUserXAuthID(CFDictionaryRef config, SCUserPreferencesRef userPreferences)
+{
+	CFMutableStringRef	xauth_id	= NULL;
+
+	if (config != NULL) {
+		CFStringRef	encryption;
+
+		encryption = CFDictionaryGetValue(config, kSCPropNetIPSecXAuthPasswordEncryption);
+		if (isA_CFString(encryption) &&
+		    CFEqual(encryption, kSCValNetIPSecXAuthPasswordEncryptionKeychain)) {
+			xauth_id = (CFMutableStringRef)CFDictionaryGetValue(config, kSCPropNetIPSecXAuthPassword);
+			if (xauth_id != NULL) {
+				CFRetain(xauth_id);
+			}
+		}
+	}
+
+	if (xauth_id == NULL) {
+		CFStringRef	unique_id;
+
+		unique_id = getUserPasswordID(config, userPreferences);
+		xauth_id = CFStringCreateMutableCopy(NULL, 0, unique_id);
+		CFStringAppend(xauth_id, CFSTR(".XAUTH"));
+	}
+
+	return xauth_id;
+}
+
+
 static Boolean
 checkUserPreferencesPassword(SCUserPreferencesRef		userPreferences,
 			     SCNetworkInterfaceRef		interface,
@@ -1374,6 +1523,17 @@ checkUserPreferencesPassword(SCUserPreferencesRef		userPreferences,
 		case kSCNetworkInterfacePasswordTypeEAPOL : {
 			_SCErrorSet(kSCStatusInvalidArgument);
 			return FALSE;
+		}
+
+		case kSCNetworkInterfacePasswordTypeIPSecXAuth : {
+			CFStringRef	interfaceType;
+
+			interfaceType = SCNetworkInterfaceGetInterfaceType(interface);
+			if (!CFEqual(interfaceType, kSCNetworkInterfaceTypeIPSec)) {
+				_SCErrorSet(kSCStatusInvalidArgument);
+				return FALSE;
+			}
+			break;
 		}
 
 		default :
@@ -1441,7 +1601,31 @@ SCUserPreferencesCheckInterfacePassword(SCUserPreferencesRef		userPreferences,
 						    NULL);
 
 			if (config != NULL)	CFRelease(config);
-				CFRelease(shared_id);
+			CFRelease(shared_id);
+			break;
+		}
+
+		case kSCNetworkInterfacePasswordTypeIPSecXAuth : {
+			CFDictionaryRef	config;
+			CFStringRef	xauth_id;
+
+			// get configuration
+			config = SCUserPreferencesCopyInterfaceConfiguration(userPreferences, interface);
+
+			// get XAuth ID
+			xauth_id = copyUserXAuthID(config, userPreferences);
+
+			// check
+			exists = __extract_password(NULL,
+						    config,
+						    kSCPropNetIPSecXAuthPassword,
+						    kSCPropNetIPSecXAuthPasswordEncryption,
+						    kSCValNetIPSecXAuthPasswordEncryptionKeychain,
+						    xauth_id,
+						    NULL);
+
+			if (config != NULL)	CFRelease(config);
+			CFRelease(xauth_id);
 			break;
 		}
 
@@ -1511,7 +1695,31 @@ SCUserPreferencesCopyInterfacePassword(SCUserPreferencesRef		userPreferences,
 						  &password);
 
 			if (config != NULL)	CFRelease(config);
-				CFRelease(shared_id);
+			CFRelease(shared_id);
+			break;
+		}
+
+		case kSCNetworkInterfacePasswordTypeIPSecXAuth : {
+			CFDictionaryRef	config;
+			CFStringRef	xauth_id;
+
+			// get configuration
+			config = SCUserPreferencesCopyInterfaceConfiguration(userPreferences, interface);
+
+			// get XAuth ID
+			xauth_id = copyUserXAuthID(config, userPreferences);
+
+			// extract
+			(void) __extract_password(NULL,
+						  config,
+						  kSCPropNetIPSecXAuthPassword,
+						  kSCPropNetIPSecXAuthPasswordEncryption,
+						  kSCValNetIPSecXAuthPasswordEncryptionKeychain,
+						  xauth_id,
+						  &password);
+
+			if (config != NULL)	CFRelease(config);
+			CFRelease(xauth_id);
 			break;
 		}
 
@@ -1538,6 +1746,7 @@ SCUserPreferencesRemoveInterfacePassword(SCUserPreferencesRef		userPreferences,
 	switch (passwordType) {
 		case kSCNetworkInterfacePasswordTypePPP : {
 			CFDictionaryRef	config;
+			CFDictionaryRef	newConfig	= NULL;
 			CFStringRef	unique_id;
 
 			// get configuration
@@ -1547,25 +1756,25 @@ SCUserPreferencesRemoveInterfacePassword(SCUserPreferencesRef		userPreferences,
 			unique_id = getUserPasswordID(config, userPreferences);
 
 			// remove password
-			ok = _SCSecKeychainPasswordItemRemove(NULL, unique_id);
+			ok = __remove_password(NULL,
+					       config,
+					       kSCPropNetPPPAuthPassword,
+					       kSCPropNetPPPAuthPasswordEncryption,
+					       kSCValNetPPPAuthPasswordEncryptionKeychain,
+					       unique_id,
+					       &newConfig);
 			if (ok) {
-				CFDictionaryRef		config;
-				CFMutableDictionaryRef	newConfig;
-
-				config = SCUserPreferencesCopyInterfaceConfiguration(userPreferences, interface);
-				if (config != NULL) {
-					newConfig = CFDictionaryCreateMutableCopy(NULL, 0, config);
-					CFDictionaryRemoveValue(newConfig, kSCPropNetPPPAuthPassword);
-					CFDictionaryRemoveValue(newConfig, kSCPropNetPPPAuthPasswordEncryption);
-					ok = SCUserPreferencesSetInterfaceConfiguration(userPreferences, interface, newConfig);
-					CFRelease(newConfig);
-				}
+				ok = SCUserPreferencesSetInterfaceConfiguration(userPreferences, interface, newConfig);
+				if (newConfig != NULL) CFRelease(newConfig);
 			}
+
+			if (config != NULL) CFRelease(config);
 			break;
 		}
 
 		case kSCNetworkInterfacePasswordTypeIPSecSharedSecret : {
 			CFDictionaryRef	config;
+			CFDictionaryRef	newConfig	= NULL;
 			CFStringRef	shared_id;
 
 			// get configuration
@@ -1577,24 +1786,52 @@ SCUserPreferencesRemoveInterfacePassword(SCUserPreferencesRef		userPreferences,
 			shared_id = copyUserSharedSecretID(config, userPreferences);
 
 			// remove password
-			ok = _SCSecKeychainPasswordItemRemove(NULL, shared_id);
+			ok = __remove_password(NULL,
+					       config,
+					       kSCPropNetIPSecSharedSecret,
+					       kSCPropNetIPSecSharedSecretEncryption,
+					       kSCValNetIPSecSharedSecretEncryptionKeychain,
+					       shared_id,
+					       &newConfig);
 			if (ok) {
-				CFMutableDictionaryRef	newConfig;
-
-				if (config != NULL) {
-					newConfig = CFDictionaryCreateMutableCopy(NULL, 0, config);
-					CFDictionaryRemoveValue(newConfig, kSCPropNetIPSecSharedSecret);
-					CFDictionaryRemoveValue(newConfig, kSCPropNetIPSecSharedSecretEncryption);
-					ok = SCUserPreferencesSetExtendedInterfaceConfiguration(userPreferences,
-												interface,
-												kSCEntNetIPSec,
-												newConfig);
-					CFRelease(newConfig);
-				}
+				ok = SCUserPreferencesSetExtendedInterfaceConfiguration(userPreferences,
+											interface,
+											kSCEntNetIPSec,
+											newConfig);
+				if (newConfig != NULL) CFRelease(newConfig);
 			}
 
-			if (config != NULL)	CFRelease(config);
+			if (config != NULL) CFRelease(config);
 			CFRelease(shared_id);
+			break;
+		}
+
+		case kSCNetworkInterfacePasswordTypeIPSecXAuth : {
+			CFDictionaryRef	config;
+			CFDictionaryRef	newConfig	= NULL;
+			CFStringRef	xauth_id;
+
+			// get configuration
+			config = SCUserPreferencesCopyInterfaceConfiguration(userPreferences, interface);
+
+			// get XAuth ID
+			xauth_id = copyUserXAuthID(config, userPreferences);
+
+			// remove password
+			ok = __remove_password(NULL,
+					       config,
+					       kSCPropNetIPSecXAuthPassword,
+					       kSCPropNetIPSecXAuthPasswordEncryption,
+					       kSCValNetIPSecXAuthPasswordEncryptionKeychain,
+					       xauth_id,
+					       &newConfig);
+			if (ok) {
+				ok = SCUserPreferencesSetInterfaceConfiguration(userPreferences, interface, newConfig);
+				if (newConfig != NULL) CFRelease(newConfig);
+			}
+
+			if (config != NULL) CFRelease(config);
+			CFRelease(xauth_id);
 			break;
 		}
 
@@ -1648,7 +1885,7 @@ SCUserPreferencesSetInterfacePassword(SCUserPreferencesRef		userPreferences,
 			// "PPP Password" --> keychain "Kind"
 			if (bundle != NULL) {
 				description = CFBundleCopyLocalizedString(bundle,
-									  CFSTR("KEYCHAIN_PPP_PASSWORD"),
+									  CFSTR("KEYCHAIN_KIND_PPP_PASSWORD"),
 									  CFSTR("PPP Password"),
 									  NULL);
 			}
@@ -1656,7 +1893,7 @@ SCUserPreferencesSetInterfacePassword(SCUserPreferencesRef		userPreferences,
 			// store password
 			ok = _SCSecKeychainPasswordItemSet(NULL,
 							   unique_id,
-							   (label != NULL)       ? label       : CFSTR("PPP"),
+							   (label != NULL)       ? label       : CFSTR("Network Connection"),
 							   (description != NULL) ? description : CFSTR("PPP Password"),
 							   account,
 							   password,
@@ -1705,7 +1942,7 @@ SCUserPreferencesSetInterfacePassword(SCUserPreferencesRef		userPreferences,
 			// "IPSec Shared Secret" --> keychain "Kind"
 			if (bundle != NULL) {
 				description = CFBundleCopyLocalizedString(bundle,
-									  CFSTR("KEYCHAIN_IPSEC_SHARED_SECRET"),
+									  CFSTR("KEYCHAIN_KIND_IPSEC_SHARED_SECRET"),
 									  CFSTR("IPSec Shared Secret"),
 									  NULL);
 			}
@@ -1713,7 +1950,7 @@ SCUserPreferencesSetInterfacePassword(SCUserPreferencesRef		userPreferences,
 			// set password
 			ok = _SCSecKeychainPasswordItemSet(NULL,
 							   shared_id,
-							   (label != NULL)       ? label       : CFSTR("PPP"),
+							   (label != NULL)       ? label       : CFSTR("VPN Connection"),
 							   (description != NULL) ? description : CFSTR("IPSec Shared Secret"),
 							   NULL,
 							   password,
@@ -1746,6 +1983,67 @@ SCUserPreferencesSetInterfacePassword(SCUserPreferencesRef		userPreferences,
 			if (description != NULL) CFRelease(description);
 			if (label       != NULL) CFRelease(label);
 			CFRelease(shared_id);
+			break;
+		}
+
+		case kSCNetworkInterfacePasswordTypeIPSecXAuth : {
+			CFStringRef	xauth_id;
+
+			// get configuration
+			config = SCUserPreferencesCopyInterfaceConfiguration(userPreferences, interface);
+
+			// get XAuth ID
+			xauth_id = copyUserXAuthID(config, userPreferences);
+
+			// User prefs XAuth name --> keychain "Account"
+			if (config != NULL) {
+				account = CFDictionaryGetValue(config, kSCPropNetIPSecXAuthName);
+			}
+
+			// User prefs "name" --> keychain "Name"
+			label = SCUserPreferencesCopyName(userPreferences);
+
+			// "IPSec XAuth Password" --> keychain "Kind"
+			if (bundle != NULL) {
+				description = CFBundleCopyLocalizedString(bundle,
+									  CFSTR("KEYCHAIN_KIND_IPSEC_XAUTH_PASSWORD"),
+									  CFSTR("IPSec XAuth Password"),
+									  NULL);
+			}
+
+			// store password
+			ok = _SCSecKeychainPasswordItemSet(NULL,
+							   xauth_id,
+							   (label != NULL)       ? label       : CFSTR("VPN Connection"),
+							   (description != NULL) ? description : CFSTR("IPSec XAuth Password"),
+							   account,
+							   password,
+							   options);
+			if (ok) {
+				CFMutableDictionaryRef	newConfig;
+
+				if (config != NULL) {
+					newConfig = CFDictionaryCreateMutableCopy(NULL, 0, config);
+				} else {
+					newConfig = CFDictionaryCreateMutable(NULL,
+									      0,
+									      &kCFTypeDictionaryKeyCallBacks,
+									      &kCFTypeDictionaryValueCallBacks);
+				}
+				CFDictionarySetValue(newConfig,
+						     kSCPropNetIPSecXAuthPassword,
+						     xauth_id);
+				CFDictionarySetValue(newConfig,
+						     kSCPropNetIPSecXAuthPasswordEncryption,
+						     kSCValNetIPSecXAuthPasswordEncryptionKeychain);
+				ok = SCUserPreferencesSetInterfaceConfiguration(userPreferences, interface, newConfig);
+				CFRelease(newConfig);
+			}
+
+			if (config      != NULL) CFRelease(config);
+			if (description != NULL) CFRelease(description);
+			if (label       != NULL) CFRelease(label);
+			CFRelease(xauth_id);
 			break;
 		}
 

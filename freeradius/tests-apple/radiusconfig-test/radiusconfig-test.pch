@@ -1,0 +1,7 @@
+//
+// Prefix header for all source files of the 'UpDownTest' target in the 'UpDownTest' project.
+//
+
+#ifdef __OBJC__
+    #import <Foundation/Foundation.h>
+#endif

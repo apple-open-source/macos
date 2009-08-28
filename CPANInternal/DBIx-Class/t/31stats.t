@@ -14,23 +14,23 @@ BEGIN {
 use lib qw(t/lib);
 
 use_ok('DBICTest');
-DBICTest->init_schema();
+my $schema = DBICTest->init_schema();
 
 my $cbworks = 0;
 
-DBICTest->schema->storage->debugcb(sub { $cbworks = 1; });
-DBICTest->schema->storage->debug(0);
-my $rs = DBICTest::CD->search({});
+$schema->storage->debugcb(sub { $cbworks = 1; });
+$schema->storage->debug(0);
+my $rs = $schema->resultset('CD')->search({});
 $rs->count();
 ok(!$cbworks, 'Callback not called with debug disabled');
 
-DBICTest->schema->storage->debug(1);
+$schema->storage->debug(1);
 
 $rs->count();
 ok($cbworks, 'Debug callback worked.');
 
 my $prof = new DBIx::Test::Profiler();
-DBICTest->schema->storage->debugobj($prof);
+$schema->storage->debugobj($prof);
 
 # Test non-transaction calls.
 $rs->count();
@@ -42,27 +42,27 @@ ok(!$prof->{'txn_commit'}, 'txn_commit not called');
 $prof->reset();
 
 # Test transaction calls
-DBICTest->schema->txn_begin();
+$schema->txn_begin();
 ok($prof->{'txn_begin'}, 'txn_begin called');
 
-$rs = DBICTest::CD->search({});
+$rs = $schema->resultset('CD')->search({});
 $rs->count();
 ok($prof->{'query_start'}, 'query_start called');
 ok($prof->{'query_end'}, 'query_end called');
 
-DBICTest->schema->txn_commit();
+$schema->txn_commit();
 ok($prof->{'txn_commit'}, 'txn_commit called');
 
 $prof->reset();
 
 # Test a rollback
-DBICTest->schema->txn_begin();
-$rs = DBICTest::CD->search({});
+$schema->txn_begin();
+$rs = $schema->resultset('CD')->search({});
 $rs->count();
-DBICTest->schema->txn_rollback();
+$schema->txn_rollback();
 ok($prof->{'txn_rollback'}, 'txn_rollback called');
 
-DBICTest->schema->storage->debug(0);
+$schema->storage->debug(0);
 
 package DBIx::Test::Profiler;
 use strict;

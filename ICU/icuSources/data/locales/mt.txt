@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2006 International Business Machines
+// * Copyright (C) 2008 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/mt.xml
@@ -30,8 +30,10 @@ mt{
         039{"Ewropa t’Isfel"}
         053{"Awstralja u New Zealand"}
         054{"Melanesja"}
+        057{"Reġjun ta’ Mikroneżja"}
         061{"Polinesja"}
         142{"Asja"}
+        143{"Asja Ċentrali"}
         145{"Asja tal-Punent"}
         150{"Ewropa"}
         151{"Ewropa tal-Lvant"}
@@ -39,7 +41,7 @@ mt{
         155{"Ewropa tal-Punent"}
         172{"Commonwealth tal-Istati Independenti"}
         419{"Amerika Latina u l-Karibew"}
-        833{"Isle of Man"}
+        830{"Gżejjer tal-Kanal Ingliż"}
         AD{"Andorra"}
         AE{"Emirati Għarab Maqgħuda"}
         AF{"Afganistan"}
@@ -55,6 +57,7 @@ mt{
         AT{"Awstrija"}
         AU{"Awstralja"}
         AW{"Aruba"}
+        AX{"Gżejjer Aland"}
         AZ{"Ażerbajġan"}
         BA{"Bożnija Ħerżegovina"}
         BB{"Barbados"}
@@ -140,6 +143,7 @@ mt{
         ID{"Indoneżja"}
         IE{"Irlanda"}
         IL{"Iżrael"}
+        IM{"Isle of Man"}
         IN{"Indja"}
         IO{"British Indian Ocean Territory"}
         IQ{"Iraq"}
@@ -158,7 +162,7 @@ mt{
         KP{"Koreja ta’ Fuq"}
         KR{"Koreja t’Isfel"}
         KW{"Kuwajt"}
-        KY{"Cayman Islands"}
+        KY{"Gżejjer Kajmani"}
         KZ{"Każakstan"}
         LA{"Laos"}
         LB{"Libanu"}
@@ -220,6 +224,7 @@ mt{
         PW{"Palau"}
         PY{"Paragwaj"}
         QA{"Qatar"}
+        QU{"Unjoni Ewropea"}
         RE{"Réunion"}
         RO{"Rumanija"}
         RU{"Russja"}
@@ -279,6 +284,7 @@ mt{
         ZA{"Afrika t’Isfel"}
         ZM{"Żambja"}
         ZW{"Żimbabwe"}
+        ZZ{"Reġjun Mhux Magħruf jew Mhux Validu"}
     }
     Currencies{
         EUR{
@@ -288,6 +294,10 @@ mt{
         MTL{
             "Lm",
             "Lira Maltija",
+        }
+        XXX{
+            "XXX",
+            "Munita Mhux Magħruf jew Mhux Validu",
         }
     }
     ExemplarCharacters{"[a à b ċ d e è f ġ g {għ} h ħ i ì j-o ò p-u ù v-x ż z]"}
@@ -315,6 +325,7 @@ mt{
         am{"Amħariku"}
         an{"Aragonese"}
         ang{"Ingliż, Antik"}
+        anp{"Angika"}
         apa{"Lingwi Apaċi"}
         ar{"Għarbi"}
         arc{"Aramajk"}
@@ -364,6 +375,7 @@ mt{
         cai{"Amerika Ċentrali (Oħra)"}
         car{"Karib"}
         cau{"Kawkasu (Oħra)"}
+        cch{"Atsam"}
         ce{"Ċeċen"}
         ceb{"Sibwano"}
         cel{"Keltiku (Oħra)"}
@@ -427,6 +439,7 @@ mt{
         fat{"Fanti"}
         ff{"Fulaħ"}
         fi{"Finlandiż"}
+        fil{"Filippino"}
         fiu{"Finno - Ugrijan"}
         fj{"Fiġi"}
         fo{"Fawriż"}
@@ -616,7 +629,7 @@ mt{
         nyn{"Nyankole"}
         nyo{"Njoro"}
         nzi{"Nżima"}
-        oc{"Provenzal (wara 1500)"}
+        oc{"Oċċitan"}
         oj{"Oġibwa"}
         om{"Oromo (Afan)"}
         or{"Orija"}
@@ -774,13 +787,36 @@ mt{
     LocaleScript{
         "Latn",
     }
+    NumberElements{
+        ".",
+        ",",
+        ";",
+        "%",
+        "0",
+        "#",
+        "-",
+        "E",
+        "‰",
+        "∞",
+        "NaN",
+        "+",
+    }
+    NumberPatterns{
+        "#,##0.###",
+        "¤#,##0.00",
+        "#,##0%",
+        "#E0",
+    }
     Scripts{
         Arab{"Għarbi"}
+        Grek{"Grieg"}
         Hans{"Ħan Sempliċi"}
         Hant{"Ħan Tradizzjonali"}
         Latn{"Latin"}
         Xpeo{"Persjan Antik"}
+        Zxxx{"Mhux Miktub"}
         Zyyy{"Komuni"}
+        Zzzz{"Skritt Mhux Magħruf jew Mhux Validu"}
     }
     Types{
         calendar{
@@ -805,7 +841,7 @@ mt{
     Variants{
         REVISED{"Ortografija Irriveda"}
     }
-    Version{"1.54"}
+    Version{"1.77"}
     calendar{
         gregorian{
             AmPmMarkers{
@@ -813,12 +849,12 @@ mt{
                 "WN",
             }
             DateTimePatterns{
-                "HH:mm:ss z",
+                "HH:mm:ss v",
                 "HH:mm:ss z",
                 "HH:mm:ss",
                 "HH:mm",
-                "EEEE, d 'ta’' MMMM yyyy",
-                "d 'ta’' MMMM yyyy",
+                "EEEE, d 'ta'’ MMMM yyyy",
+                "d 'ta'’ MMMM yyyy",
                 "dd MMM yyyy",
                 "dd/MM/yyyy",
                 "{1} {0}",
@@ -861,10 +897,19 @@ mt{
                     "QK",
                     "WK",
                 }
+                wide{
+                    "Qabel Kristu",
+                    "Wara Kristu",
+                }
             }
             fields{
                 day{
                     dn{"Jum"}
+                    relative{
+                        "-1"{"Lbieraħ"}
+                        "0"{"Illum"}
+                        "1"{"Għada"}
+                    }
                 }
                 era{
                     dn{"Epoka"}
@@ -884,8 +929,14 @@ mt{
                 week{
                     dn{"Ġimgħa"}
                 }
+                weekday{
+                    dn{"Jum tal-Ġimgħa"}
+                }
                 year{
                     dn{"Sena"}
+                }
+                zone{
+                    dn{"Żona"}
                 }
             }
             monthNames{
@@ -919,6 +970,22 @@ mt{
                         "Diċembru",
                     }
                 }
+                stand-alone{
+                    narrow{
+                        "J",
+                        "F",
+                        "M",
+                        "A",
+                        "M",
+                        "Ġ",
+                        "L",
+                        "A",
+                        "S",
+                        "O",
+                        "N",
+                        "D",
+                    }
+                }
             }
             quarters{
                 format{
@@ -928,23 +995,41 @@ mt{
                         "K3",
                         "K4",
                     }
+                    wide{
+                        "K1",
+                        "K2",
+                        "K3",
+                        "K4",
+                    }
                 }
             }
         }
+    }
+    codePatterns{
+        language{"Lingwa: {0}"}
+        script{"Skritt: {0}"}
+        territory{"Reġjun: {0}"}
     }
     measurementSystemNames{
         metric{"Metriku"}
     }
     zoneStrings{
+        "Etc:Unknown"{
+            ec{"Mhux Magħruf"}
+        }
         "Europe:London"{
             ec{"Londra"}
         }
         "Europe:Malta"{
             ec{"Valletta"}
+        }
+        "meta:Europe_Central"{
+            cu:int{1}
             ld{"Ħin Ċentrali Ewropew tas-Sajf"}
             ls{"Ħin Ċentrali Ewropew"}
-            sd{"CEST"}
-            ss{"CET"}
         }
+        gmtFormat{"GMT{0}"}
+        hourFormat{"+HH:mm;-HH:mm"}
+        regionFormat{"Ħin ta’ {0}"}
     }
 }

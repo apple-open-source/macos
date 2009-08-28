@@ -1,9 +1,9 @@
 /*
- * "$Id: getputfile.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: getputfile.c 7359 2008-02-29 19:01:35Z mike $"
  *
  *   Get/put file functions for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -45,13 +45,13 @@
 /*
  * 'cupsGetFd()' - Get a file from the server.
  *
- * This function returns HTTP_OK when the file is successfully retrieved.
+ * This function returns @code HTTP_OK@ when the file is successfully retrieved.
  *
- * @since CUPS 1.1.20@
+ * @since CUPS 1.1.20/Mac OS X 10.4@
  */
 
 http_status_t				/* O - HTTP status */
-cupsGetFd(http_t     *http,		/* I - HTTP connection to server */
+cupsGetFd(http_t     *http,		/* I - Connection to server or @code CUPS_HTTP_DEFAULT@ */
 	  const char *resource,		/* I - Resource name */
 	  int        fd)		/* I - File descriptor */
 {
@@ -66,16 +66,20 @@ cupsGetFd(http_t     *http,		/* I - HTTP connection to server */
   * Range check input...
   */
 
-  DEBUG_printf(("cupsGetFd(http=%p, resource=\"%s\", fd=%d)\n", http,
+  DEBUG_printf(("cupsGetFd(http=%p, resource=\"%s\", fd=%d)", http,
                 resource, fd));
 
-  if (!http || !resource || fd < 0)
+  if (!resource || fd < 0)
   {
     if (http)
       http->error = EINVAL;
 
     return (HTTP_ERROR);
   }
+
+  if (!http)
+    if ((http = _cupsConnect()) == NULL)
+      return (HTTP_SERVICE_UNAVAILABLE);
 
  /*
   * Then send GET requests to the HTTP server...
@@ -119,7 +123,10 @@ cupsGetFd(http_t     *http,		/* I - HTTP connection to server */
       */
 
       if (cupsDoAuthentication(http, "GET", resource))
+      {
+        status = HTTP_AUTHORIZATION_CANCELED;
         break;
+      }
 
       if (httpReconnect(http))
       {
@@ -175,6 +182,8 @@ cupsGetFd(http_t     *http,		/* I - HTTP connection to server */
   * Return the request status...
   */
 
+  DEBUG_printf(("1cupsGetFd: Returning %d...", status));
+
   return (status);
 }
 
@@ -182,13 +191,13 @@ cupsGetFd(http_t     *http,		/* I - HTTP connection to server */
 /*
  * 'cupsGetFile()' - Get a file from the server.
  *
- * This function returns HTTP_OK when the file is successfully retrieved.
+ * This function returns @code HTTP_OK@ when the file is successfully retrieved.
  *
- * @since CUPS 1.1.20@
+ * @since CUPS 1.1.20/Mac OS X 10.4@
  */
 
 http_status_t				/* O - HTTP status */
-cupsGetFile(http_t     *http,		/* I - HTTP connection to server */
+cupsGetFile(http_t     *http,		/* I - Connection to server or @code CUPS_HTTP_DEFAULT@ */
 	    const char *resource,	/* I - Resource name */
 	    const char *filename)	/* I - Filename */
 {
@@ -249,13 +258,14 @@ cupsGetFile(http_t     *http,		/* I - HTTP connection to server */
 /*
  * 'cupsPutFd()' - Put a file on the server.
  *
- * This function returns HTTP_CREATED when the file is stored successfully.
+ * This function returns @code HTTP_CREATED@ when the file is stored
+ * successfully.
  *
- * @since CUPS 1.1.20@
+ * @since CUPS 1.1.20/Mac OS X 10.4@
  */
 
 http_status_t				/* O - HTTP status */
-cupsPutFd(http_t     *http,		/* I - HTTP connection to server */
+cupsPutFd(http_t     *http,		/* I - Connection to server or @code CUPS_HTTP_DEFAULT@ */
           const char *resource,		/* I - Resource name */
 	  int        fd)		/* I - File descriptor */
 {
@@ -269,16 +279,20 @@ cupsPutFd(http_t     *http,		/* I - HTTP connection to server */
   * Range check input...
   */
 
-  DEBUG_printf(("cupsPutFd(http=%p, resource=\"%s\", fd=%d)\n", http,
+  DEBUG_printf(("cupsPutFd(http=%p, resource=\"%s\", fd=%d)", http,
                 resource, fd));
 
-  if (!http || !resource || fd < 0)
+  if (!resource || fd < 0)
   {
     if (http)
       http->error = EINVAL;
 
     return (HTTP_ERROR);
   }
+
+  if (!http)
+    if ((http = _cupsConnect()) == NULL)
+      return (HTTP_SERVICE_UNAVAILABLE);
 
  /*
   * Then send PUT requests to the HTTP server...
@@ -288,7 +302,7 @@ cupsPutFd(http_t     *http,		/* I - HTTP connection to server */
 
   do
   {
-    DEBUG_printf(("cupsPutFd: starting attempt, authstring=\"%s\"...\n",
+    DEBUG_printf(("2cupsPutFd: starting attempt, authstring=\"%s\"...",
                   http->authstring));
 
     httpClearFields(http);
@@ -346,7 +360,7 @@ cupsPutFd(http_t     *http,		/* I - HTTP connection to server */
 
     if (status == HTTP_ERROR && !retries)
     {
-      DEBUG_printf(("cupsPutFd: retry on status %d\n", status));
+      DEBUG_printf(("2cupsPutFd: retry on status %d", status));
 
       retries ++;
 
@@ -364,7 +378,7 @@ cupsPutFd(http_t     *http,		/* I - HTTP connection to server */
       continue;
     }
 
-    DEBUG_printf(("cupsPutFd: status=%d\n", status));
+    DEBUG_printf(("2cupsPutFd: status=%d", status));
 
     if (status == HTTP_UNAUTHORIZED)
     {
@@ -379,7 +393,10 @@ cupsPutFd(http_t     *http,		/* I - HTTP connection to server */
       */
 
       if (cupsDoAuthentication(http, "PUT", resource))
+      {
+        status = HTTP_AUTHORIZATION_CANCELED;
         break;
+      }
 
       if (httpReconnect(http))
       {
@@ -423,6 +440,8 @@ cupsPutFd(http_t     *http,		/* I - HTTP connection to server */
     httpFlush(http);
   }
 
+  DEBUG_printf(("1cupsPutFd: Returning %d...", status));
+
   return (status);
 }
 
@@ -430,13 +449,14 @@ cupsPutFd(http_t     *http,		/* I - HTTP connection to server */
 /*
  * 'cupsPutFile()' - Put a file on the server.
  *
- * This function returns HTTP_CREATED when the file is stored successfully.
+ * This function returns @code HTTP_CREATED@ when the file is stored
+ * successfully.
  *
- * @since CUPS 1.1.20@
+ * @since CUPS 1.1.20/Mac OS X 10.4@
  */
 
 http_status_t				/* O - HTTP status */
-cupsPutFile(http_t     *http,		/* I - HTTP connection to server */
+cupsPutFile(http_t     *http,		/* I - Connection to server or @code CUPS_HTTP_DEFAULT@ */
             const char *resource,	/* I - Resource name */
 	    const char *filename)	/* I - Filename */
 {
@@ -484,5 +504,5 @@ cupsPutFile(http_t     *http,		/* I - HTTP connection to server */
 
 
 /*
- * End of "$Id: getputfile.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: getputfile.c 7359 2008-02-29 19:01:35Z mike $".
  */

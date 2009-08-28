@@ -1,0 +1,42 @@
+# -*- tcl -*-
+# rules/manpage.api
+#
+# (c) 2001 Andreas Kupries <andreas_kupries@sourceforge.net>
+
+# Defines the procedures a manpage rules file has to support for good
+# manpages. The procedures here return errors.
+
+################################################################
+
+proc manpage_begin {command section version module shortdesc description} {
+    puts [list manpage trf/mp/$command $command mp.$command.html]
+    setoutput nul
+    return
+}
+
+################################################################
+
+proc manpage_end {}                 {}
+proc require     {pkg {version {}}} {}
+proc description {}                 {}
+proc section     {name}             {}
+proc para        {}                 {}
+proc call        {cmd args}         {}
+proc list_begin  {what}             {}
+proc list_end    {}                 {}
+proc lst_item    {text}             {}
+proc see_also    {args}             {}
+proc keywords    {args}             {}
+proc nl          {}                 {}
+proc bullet      {}                 {}
+proc enum        {}                 {}
+proc arg         {text}             {}
+proc cmd         {text}             {}
+proc emph        {text}             {}
+proc strong      {text}             {}
+proc setx        {v string}         {}
+proc appendx     {v string}         {}
+proc opt         {text} {}
+
+################################################################
+

@@ -39,6 +39,7 @@ struct myaddrs {
 	int udp_encap;
 #ifdef __APPLE__
 	int	in_use;
+	char *ifname;
 #endif
 };
 
@@ -53,5 +54,7 @@ extern void insmyaddr __P((struct myaddrs *, struct myaddrs **));
 extern void delmyaddr __P((struct myaddrs *));
 extern int initmyaddr __P((void));
 extern int getsockmyaddr __P((struct sockaddr *));
+extern struct myaddrs *find_myaddr __P((struct sockaddr *, int));
+
 
 #endif /* _GRABMYADDR_H */

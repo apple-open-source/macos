@@ -151,7 +151,7 @@ CSSM_RETURN CSSMAPI
 CSSM_ModuleDetach (CSSM_MODULE_HANDLE ModuleHandle)
 {
     BEGIN_API
-    Attachment *attachment = &killHandle<Attachment>(ModuleHandle);
+    Attachment *attachment = &HandleObject::findAndKill<Attachment>(ModuleHandle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE);
     attachment->detach(true);		// expect locked, will unlock
     // the attachment is now off the maps, known idle, and unhooked
     delete attachment;
@@ -181,7 +181,7 @@ CSSM_GetModuleGUIDFromHandle (CSSM_MODULE_HANDLE ModuleHandle,
                               CSSM_GUID_PTR ModuleGUID)
 {
     BEGIN_API
-    Attachment &attachment = findHandleAndLock<Attachment>(ModuleHandle);
+    Attachment &attachment = HandleObject::findAndLock<Attachment>(ModuleHandle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE);
     StLock<Mutex> _(attachment, true);
     Required(ModuleGUID) = attachment.module.myGuid();
     END_API(CSSM)
@@ -192,7 +192,7 @@ CSSM_GetSubserviceUIDFromHandle (CSSM_MODULE_HANDLE ModuleHandle,
                                  CSSM_SUBSERVICE_UID_PTR SubserviceUID)
 {
     BEGIN_API
-    Attachment &attachment = findHandleAndLock<Attachment>(ModuleHandle);
+    Attachment &attachment = HandleObject::findAndLock<Attachment>(ModuleHandle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE);
     StLock<Mutex> _(attachment, true);
     CSSM_SUBSERVICE_UID &result =  Required(SubserviceUID);
     result.Guid = attachment.module.myGuid();
@@ -217,7 +217,7 @@ CSSM_GetAPIMemoryFunctions (CSSM_MODULE_HANDLE AddInHandle,
                             CSSM_API_MEMORY_FUNCS_PTR AppMemoryFuncs)
 {
     BEGIN_API
-    Attachment &attachment = findHandleAndLock<Attachment>(AddInHandle);
+    Attachment &attachment = HandleObject::findAndLock<Attachment>(AddInHandle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE);
     StLock<Mutex> _(attachment, true);
     Required(AppMemoryFuncs) = attachment;
     END_API(CSSM)

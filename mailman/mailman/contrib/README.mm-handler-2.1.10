@@ -1,0 +1,29 @@
+mm-handler-2.1.10 is based on the original mm-handler.  See README.mm-handler
+for much important information that is not repeated here.
+
+This version was updated by David Champion <dgc@uchicago.edu> to add the
+ability to select a subset of list addresses to accept and to add switches
+to not generate bounces for non-existent lists and unaccepted or invalid
+list addresses.  It was further debugged and polished by Kenneth Porter
+<shiva@sewingwitch.com>.
+
+Kenneth added syslog logging using the perl Unix::Syslog module (available
+from CPAN and other repositories).  If you don't have that module, you must
+either install it or remove the module references and syslog references from
+mm-handler-2.1.10.
+
+This is a work in progress.  The major thing left to do is to arrange for
+it to exit with an appropriate exit code (e.g. EX_NOUSER or EX_UNAVAILABLE)
+when the message is undeliverable.  This in turn requires that mm-handler
+be invoked separately for each message recipient address.  The sample
+mailman.mc file is set up this way and mentions that the 'm' and 'n' flags
+should not be used, but mm-handler contains an address processing loop in
+case the 'm' flag is included in it's invocation.  This should be changed
+to log an appropriate error if mm-handler is invoked with multiple recipient
+addresses.
+
+See the threads "before next release: disable backscatter in default
+installation", "anti-backscatter mm-handler ..." and "mm-handler 2.1.10 ..."
+at <http://mail.python.org/pipermail/mailman-developers/2008-March/thread.html>
+for background and further information.
+

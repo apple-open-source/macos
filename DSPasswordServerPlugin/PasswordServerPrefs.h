@@ -25,15 +25,14 @@
 #define __PasswordServerPrefs__
 
 #import "PasswordServerPrefsDefs.h"
-#import <objc/Object.h>
-#import <CoreFoundation/CoreFoundation.h>
+#import <Foundation/Foundation.h>
 
 typedef struct SASLPluginListConverterContext {
 	short arrayIndex;
 	SASLPluginEntry *saslPluginState;
 } SASLPluginListConverterContext;
 
-@interface PasswordServerPrefsObject : Object {
+@interface PasswordServerPrefsObject : NSObject {
 	CFMutableDictionaryRef mPrefsDict;
 	CFCharacterSetRef mExternalToolIllegalChars;
 	PasswordServerPrefs mPrefs;
@@ -42,7 +41,8 @@ typedef struct SASLPluginListConverterContext {
 
 // constructor/destructor
 -(id)init;
--free;
+-(void)dealloc;
+-free DEPRECATED_ATTRIBUTE;
 
 // public methods
 -(void)getPrefs:(PasswordServerPrefs *)outPrefs;

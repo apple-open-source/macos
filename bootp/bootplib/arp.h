@@ -52,7 +52,7 @@ typedef struct {
 } route_msg;
 
 const char * 	arp_strerror(int err);
-int		arp_get(int s, route_msg * msg_p, struct in_addr * iaddr_p);
+int		arp_get(int s, route_msg * msg_p, struct in_addr * iaddr_p, int if_index);
 int		arp_set(int s, struct in_addr * iaddr_p, void * hwaddr_p, 
 			int hwaddr_len, int temp, int public);
 int 		arp_delete(int s, struct in_addr iaddr, int export);

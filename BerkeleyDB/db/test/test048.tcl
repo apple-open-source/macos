@@ -1,14 +1,14 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1999-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 1999,2007 Oracle.  All rights reserved.
 #
-# $Id: test048.tcl,v 1.2 2004/03/30 01:24:08 jtownsen Exp $
+# $Id: test048.tcl,v 12.5 2007/05/17 15:15:56 bostic Exp $
 #
 # TEST	test048
 # TEST	Cursor stability across Btree splits.
 proc test048 { method args } {
 	global errorCode
+	global is_je_test
 	source ./include.tcl
 
 	set tnum 048
@@ -115,7 +115,7 @@ proc test048 { method args } {
 
 	puts "\tTest$tnum.e: Make sure split happened."
 	# XXX We cannot call stat with active txns or we deadlock.
-	if { $txnenv != 1 } {
+	if { $txnenv != 1 && !$is_je_test } {
 		error_check_bad stat:check-split [is_substr [$db stat] \
 					"{{Internal pages} 0}"] 1
 	}

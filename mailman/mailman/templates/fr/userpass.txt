@@ -8,7 +8,7 @@ Vous êtes abonné avec l'adresse : %(user)s
 
 Votre mot de passe pour la liste %(listname)s est : %(password)s
 
-Pour modifier vos options d'abonnement, loggez-vous et visitez
+Pour modifier vos options d'abonnement, identifiez-vous et visitez
 votre page d'options :
 
     %(options_url)s

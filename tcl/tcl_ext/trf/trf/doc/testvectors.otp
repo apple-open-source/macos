@@ -1,0 +1,47 @@
+
+MD5 ENCODINGS
+
+Pass Phrase     Seed    Cnt Hex                 Six Word Format
+========================================================================
+This is a test. TeSt     0  9E87 6134 D904 99DD
+                                           INCH SEA ANNE LONG AHEM TOUR
+This is a test. TeSt     1  7965 E054 36F5 029F
+                                           EASE OIL FUM CURE AWRY AVIS
+This is a test. TeSt    99  50FE 1962 C496 5880
+                                           BAIL TUFT BITS GANG CHEF THY
+AbCdEfGhIjK     alpha1   0  8706 6DD9 644B F206
+                                           FULL PEW DOWN ONCE MORT ARC
+AbCdEfGhIjK     alpha1   1  7CD3 4C10 40AD D14B
+                                           FACT HOOF AT FIST SITE KENT
+AbCdEfGhIjK     alpha1  99  5AA3 7A81 F212 146C
+                                           BODE HOP JAKE STOW JUT RAP
+OTP's are good  correct  0  F205 7539 43DE 4CF9
+                                           ULAN NEW ARMY FUSE SUIT EYED
+OTP's are good  correct  1  DDCD AC95 6F23 4937
+                                           SKIM CULT LOB SLAM POE HOWL
+OTP's are good  correct 99  B203 E28F A525 BE47
+                                           LONG IVY JULY AJAR BOND LEE
+
+
+SHA1 ENCODINGS
+
+Pass Phrase     Seed    Cnt Hex                 Six Word Format
+========================================================================
+This is a test. TeSt     0  BB9E 6AE1 979D 8FF4
+                                           MILT VARY MAST OK SEES WENT
+This is a test. TeSt     1  63D9 3663 9734 385B
+                                           CART OTTO HIVE ODE VAT NUT
+This is a test. TeSt    99  87FE C776 8B73 CCF9
+                                           GAFF WAIT SKID GIG SKY EYED
+AbCdEfGhIjK     alpha1   0  AD85 F658 EBE3 83C9
+                                           LEST OR HEEL SCOT ROB SUIT
+AbCdEfGhIjK     alpha1   1  D07C E229 B5CF 119B
+                                           RITE TAKE GELD COST TUNE RECK
+AbCdEfGhIjK     alpha1  99  27BC 7103 5AAF 3DC6
+                                           MAY STAR TIN LYON VEDA STAN
+OTP's are good  correct  0  D51F 3E99 BF8E 6F0B
+                                           RUST WELT KICK FELL TAIL FRAU
+OTP's are good  correct  1  82AE B52D 9437 74E4
+                                           FLIT DOSE ALSO MEW DRUM DEFY
+OTP's are good  correct 99  4F29 6A74 FE15 67EC
+                                           AURA ALOE HURL WING BERG WAIT

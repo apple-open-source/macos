@@ -121,6 +121,8 @@ SHELL = @SHELL@
 STRIP = @STRIP@
 USE_COLOR_FALSE = @USE_COLOR_FALSE@
 USE_COLOR_TRUE = @USE_COLOR_TRUE@
+USE_NANORC_FALSE = @USE_NANORC_FALSE@
+USE_NANORC_TRUE = @USE_NANORC_TRUE@
 USE_NLS = @USE_NLS@
 USE_NLS_FALSE = @USE_NLS_FALSE@
 USE_NLS_TRUE = @USE_NLS_TRUE@
@@ -173,9 +175,13 @@ target_alias = @target_alias@
 target_cpu = @target_cpu@
 target_os = @target_os@
 target_vendor = @target_vendor@
-man_MANS = nano.1 nanorc.5 rnano.1
-BUILT_SOURCES = nano.1.html nanorc.5.html rnano.1.html
-EXTRA_DIST = $(man_MANS) $(BUILT_SOURCES)
+@USE_NANORC_FALSE@man_MANS = nano.1 rnano.1
+@USE_NANORC_TRUE@man_MANS = nano.1 nanorc.5 rnano.1
+@USE_NANORC_FALSE@BUILT_SOURCES = nano.1.html rnano.1.html
+@USE_NANORC_TRUE@BUILT_SOURCES = nano.1.html nanorc.5.html rnano.1.html
+nano_man_mans = nano.1 nanorc.5 rnano.1
+nano_built_sources = nano.1.html nanorc.5.html rnano.1.html
+EXTRA_DIST = $(nano_man_mans) $(nano_built_sources)
 all: $(BUILT_SOURCES)
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
@@ -428,11 +434,11 @@ uninstall-man: uninstall-man1 uninstall-man5
 
 
 nano.1.html: nano.1
-	cat $< | groff -t -mandoc -Thtml > $@
+	groff -t -mandoc -Thtml < $< > $@
 nanorc.5.html: nanorc.5
-	cat $< | groff -t -mandoc -Thtml > $@
+	groff -t -mandoc -Thtml < $< > $@
 rnano.1.html: rnano.1
-	cat $< | groff -t -mandoc -Thtml > $@
+	groff -t -mandoc -Thtml < $< > $@
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

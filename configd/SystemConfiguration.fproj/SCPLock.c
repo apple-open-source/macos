@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2004-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,10 +38,21 @@
 
 #include <grp.h>
 #include <fcntl.h>
+#include <stdio.h>
 #include <unistd.h>
 #include <pthread.h>
 #include <sys/errno.h>
 
+
+
+#if	TARGET_OS_IPHONE
+__private_extern__ int
+getgrnam_r(const char *name, __unused struct group *grp, __unused char *buf, __unused size_t bufsize, struct group **grpP)
+{
+	*grpP = getgrnam(name);
+	return (*grpP == NULL) ? -1 : 0;
+}
+#endif	/* TARGET_OS_IPHONE */
 
 
 static Boolean
@@ -194,10 +205,43 @@ createParentDirectory(const char *path)
 }
 
 
+static void
+reportDelay(SCPreferencesRef prefs, struct timeval *delay, Boolean isStale)
+{
+	aslmsg			m;
+	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
+	char			str[256];
+
+	m = asl_new(ASL_TYPE_MSG);
+	asl_set(m, "com.apple.message.domain", "com.apple.SystemConfiguration.SCPreferencesLock");
+	(void) _SC_cfstring_to_cstring(prefsPrivate->name, str, sizeof(str), kCFStringEncodingUTF8);
+	asl_set(m, "com.apple.message.signature", str);
+	(void) _SC_cfstring_to_cstring(prefsPrivate->prefsID, str, sizeof(str), kCFStringEncodingUTF8);
+	asl_set(m, "com.apple.message.signature2", str);
+	(void) snprintf(str, sizeof(str),
+			"%d.%3.3d",
+			(int)delay->tv_sec,
+			delay->tv_usec / 1000);
+	asl_set(m, "com.apple.message.value", str);
+	SCLOG(NULL, m, ASL_LEVEL_DEBUG,
+	      CFSTR("SCPreferences(%@:%@) lock delayed for %d.%3.3d seconds%s"),
+	      prefsPrivate->name,
+	      prefsPrivate->prefsID,
+	      (int)delay->tv_sec,
+	      delay->tv_usec / 1000,
+	      isStale ? " (stale)" : "");
+	asl_free(m);
+
+	return;
+}
+
+
 Boolean
 SCPreferencesLock(SCPreferencesRef prefs, Boolean wait)
 {
 	char			buf[32];
+	struct timeval		lockStart;
+	struct timeval		lockElapsed;
 	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
 	int			sc_status	= kSCStatusFailed;
 	struct stat		statBuf;
@@ -240,6 +284,8 @@ SCPreferencesLock(SCPreferencesRef prefs, Boolean wait)
 		prefsPrivate->lockPath = CFAllocatorAllocate(NULL, pathLen, 0);
 		snprintf(prefsPrivate->lockPath, pathLen, "%s-lock", path);
 	}
+
+	(void)gettimeofday(&lockStart, NULL);
 
     retry :
 
@@ -301,6 +347,9 @@ SCPreferencesLock(SCPreferencesRef prefs, Boolean wait)
 
     locked :
 
+	(void)gettimeofday(&prefsPrivate->lockTime, NULL);
+	timersub(&prefsPrivate->lockTime, &lockStart, &lockElapsed);
+
 	if (prefsPrivate->accessed) {
 		CFDataRef       currentSignature;
 		Boolean		match;
@@ -317,9 +366,7 @@ SCPreferencesLock(SCPreferencesRef prefs, Boolean wait)
 				SCLog(TRUE, LOG_DEBUG,
 				      CFSTR("SCPreferencesLock stat() failed: %s"),
 				      strerror(errno));
-				sc_status = kSCStatusStale;
-				unlink(prefsPrivate->lockPath);
-				goto error;
+				goto stale;
 			}
 		}
 
@@ -332,9 +379,7 @@ SCPreferencesLock(SCPreferencesRef prefs, Boolean wait)
 			 * session was accessed so we've got no choice
 			 * but to deny the lock request.
 			 */
-			sc_status = kSCStatusStale;
-			unlink(prefsPrivate->lockPath);
-			goto error;
+			goto stale;
 		}
 //	} else {
 //		/*
@@ -344,9 +389,24 @@ SCPreferencesLock(SCPreferencesRef prefs, Boolean wait)
 //		 */
 	}
 
+	if (lockElapsed.tv_sec > 0) {
+		// if we waited more than 1 second to acquire the lock
+		reportDelay(prefs, &lockElapsed, FALSE);
+	}
+
 	prefsPrivate->locked = TRUE;
 	pthread_mutex_unlock(&prefsPrivate->lock);
 	return TRUE;
+
+    stale :
+
+	sc_status = kSCStatusStale;
+	unlink(prefsPrivate->lockPath);
+
+	if (lockElapsed.tv_sec > 0) {
+		// if we waited more than 1 second to acquire the lock
+		reportDelay(prefs, &lockElapsed, TRUE);
+	}
 
     error :
 

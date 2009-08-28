@@ -22,7 +22,6 @@
 ##
 TESTROOT = ../..
 include ${TESTROOT}/include/common.makefile
-LD=ld64
 
 
 #

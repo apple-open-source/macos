@@ -6,6 +6,8 @@ use base 'DBIx::Class::Schema::Loader::DBI';
 use Carp::Clan qw/^DBIx::Class/;
 use Class::C3;
 
+our $VERSION = '0.04005';
+
 =head1 NAME
 
 DBIx::Class::Schema::Loader::DBI::DB2 - DBIx::Class::Schema::Loader::DBI DB2 Implementation.
@@ -15,10 +17,7 @@ DBIx::Class::Schema::Loader::DBI::DB2 - DBIx::Class::Schema::Loader::DBI DB2 Imp
   package My::Schema;
   use base qw/DBIx::Class::Schema::Loader/;
 
-  __PACKAGE__->loader_options(
-    relationships => 1,
-    db_schema     => "MYSCHEMA",
-  );
+  __PACKAGE__->loader_options( db_schema => "MYSCHEMA" );
 
   1;
 
@@ -42,7 +41,7 @@ sub _table_uniq_info {
         WHERE tc.TABSCHEMA = ? and tc.TABNAME = ? and tc.TYPE = 'U'}
     ) or die $DBI::errstr;
 
-    $sth->execute($self->db_schema, $table) or die $DBI::errstr;
+    $sth->execute($self->db_schema, uc $table) or die $DBI::errstr;
 
     my %keydata;
     while(my $row = $sth->fetchrow_arrayref) {
@@ -58,6 +57,33 @@ sub _table_uniq_info {
     $sth->finish;
     
     return \@uniqs;
+}
+
+sub _tables_list {
+    my $self = shift;
+    return map lc, $self->next::method;
+}
+
+sub _table_pk_info {
+    my ($self, $table) = @_;
+    return $self->next::method(uc $table);
+}
+
+sub _table_fk_info {
+    my ($self, $table) = @_;
+
+    my $rels = $self->next::method(uc $table);
+
+    foreach my $rel (@$rels) {
+        $rel->{remote_table} = lc $rel->{remote_table};
+    }
+
+    return $rels;
+}
+
+sub _columns_info_for {
+    my ($self, $table) = @_;
+    return $self->next::method(uc $table);
 }
 
 =head1 SEE ALSO

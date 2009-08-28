@@ -1,10 +1,9 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1997-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1997,2007 Oracle.  All rights reserved.
  *
- * $Id: TestKeyRange.cpp,v 1.2 2004/03/30 01:24:38 jtownsen Exp $
+ * $Id: TestKeyRange.cpp,v 12.6 2007/05/17 15:15:57 bostic Exp $
  */
 
 /*
@@ -12,8 +11,6 @@
  * change of /AccessExample/TestKeyRange/, the only other changes are
  * marked with comments that are notated as 'ADDED'.
  */
-
-#ifndef NO_SYSTEM_INCLUDES
 #include <sys/types.h>
 
 #include <iostream.h>
@@ -22,7 +19,6 @@
 #include <string.h>
 #ifndef _MSC_VER
 #include <unistd.h>
-#endif
 #endif
 
 #include <iomanip.h>

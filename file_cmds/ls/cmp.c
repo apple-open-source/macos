@@ -57,6 +57,7 @@ __RCSID("$FreeBSD: src/bin/ls/cmp.c,v 1.12 2002/06/30 05:13:54 obrien Exp $");
 #define ATIMENSEC_CMP(x, op, y) ((x)->st_atimensec op (y)->st_atimensec)
 #define CTIMENSEC_CMP(x, op, y) ((x)->st_ctimensec op (y)->st_ctimensec)
 #define MTIMENSEC_CMP(x, op, y) ((x)->st_mtimensec op (y)->st_mtimensec)
+#define BTIMENSEC_CMP(x, op, y) ((x)->st_birthtimensec op (y)->st_birthtimensec)
 #else
 #define ATIMENSEC_CMP(x, op, y) \
 	((x)->st_atimespec.tv_nsec op (y)->st_atimespec.tv_nsec)
@@ -64,6 +65,8 @@ __RCSID("$FreeBSD: src/bin/ls/cmp.c,v 1.12 2002/06/30 05:13:54 obrien Exp $");
 	((x)->st_ctimespec.tv_nsec op (y)->st_ctimespec.tv_nsec)
 #define MTIMENSEC_CMP(x, op, y) \
 	((x)->st_mtimespec.tv_nsec op (y)->st_mtimespec.tv_nsec)
+#define BTIMENSEC_CMP(x, op, y) \
+	((x)->st_birthtimespec.tv_nsec op (y)->st_birthtimespec.tv_nsec)
 #endif
 
 int
@@ -187,6 +190,36 @@ revsizecmp(a, b)
 	if (b->fts_statp->st_size > a->fts_statp->st_size)
 		return (-1);
 	if (b->fts_statp->st_size < a->fts_statp->st_size)
+		return (1);
+	else
+		return (revnamecmp(a, b));
+}
+
+int
+birthcmp(const FTSENT *a, const FTSENT *b)
+{
+	if (b->fts_statp->st_birthtime > a->fts_statp->st_birthtime)
+		return (1);
+	else if (b->fts_statp->st_birthtime < a->fts_statp->st_birthtime)
+		return (-1);
+	else if (BTIMENSEC_CMP(b->fts_statp, >, a->fts_statp))
+		return (1);
+	else if (BTIMENSEC_CMP(b->fts_statp, <, a->fts_statp))
+		return (-1);
+	else
+		return (namecmp(a, b));
+}
+
+int
+revbirthcmp(const FTSENT *a, const FTSENT *b)
+{
+	if (b->fts_statp->st_birthtime > a->fts_statp->st_birthtime)
+		return (-1);
+	else if (b->fts_statp->st_birthtime < a->fts_statp->st_birthtime)
+		return (1);
+	else if (BTIMENSEC_CMP(b->fts_statp, >, a->fts_statp))
+		return (-1);
+	else if (BTIMENSEC_CMP(b->fts_statp, <, a->fts_statp))
 		return (1);
 	else
 		return (revnamecmp(a, b));

@@ -1,0 +1,99 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin ipentry n 0.2]
+[moddesc   {An IP address entry widget}]
+[titledesc {An IP address entry widget}]
+[require Tcl 8.4]
+[require ipentry [opt 0.2]]
+[description]
+
+This package provides a widget for the entering of a IP address.  It
+guarantees a valid address at all times.
+
+[para]
+
+[list_begin definitions]
+
+[call [cmd ::ipentry::ipentry] [arg pathName] [opt "[arg option] [arg value]..."]]
+
+Creates a new ipentry widget and configures it with the given options and their values.
+
+[list_end]
+
+
+Each widget created with the command above supports the following methods:
+
+[list_begin definitions]
+
+[call [arg pathName] [method complete]]
+
+Returns a boolean value. True indicates that the entry contains a
+complete IP address, meaning all 4 fields have a value.
+
+[call [arg pathName] [method get]]
+
+Returns the contents of the entry as a list consisting of 4 elements.
+
+[call [arg pathName] [method insert] [arg iplist]]
+
+Takes a list of 4 elements and inserts one into each quad of the entry, in order.
+All values in the list must be integers. Values outside the range 0 to 255
+are modified to be within the range.
+
+[call [arg pathName] [method icursor] [arg index]]
+
+Sets the position of the widgets insertion cursor. Only integer values between
+0 and 15 are valid. Setting the icursor will only have an effect if the widget
+already has the input focus.
+
+[call [arg pathName] [method configure] [arg option] [arg value]...]
+
+Modifies the configuration of the widget. For options and
+their meaning see the widget options section.
+
+[call [arg pathName] [method cget] [arg option]]
+
+Returns information about the current configuration of the widget, for
+the specified option. For options and their meaning see the widget
+options section.
+
+[list_end]
+
+
+[section {Widget options}]
+
+[list_begin tkoption]
+
+[tkoption_def -textvariable textvariable Variable]
+
+The name of a variable which holds the value of the IP address.  The value must be a string of the form NNN.NNN.NNN.NNN or it will be modified to represent a valid IP address.
+
+[tkoption_def -state state State]
+
+Specifies one of three states for the entry: [const normal],
+[const disabled], or [const readonly].
+
+[tkoption_def -font                font Font]
+[tkoption_def -bd                  borderWidth BorderWidth]
+[tkoption_def -fg                  foreground Foreground]
+[tkoption_def -bg                  background Background]
+[tkoption_def -relief              relief Relief]
+[tkoption_def -highlightthickness  highlightThickness HighlightThickness]
+[tkoption_def -highlightcolor      highlightColor HighlightColor]
+[tkoption_def -highlightbackground highlightBackground HighlightBackground]
+[tkoption_def -selectbackground    selectBackground Background]
+[tkoption_def -selectforeground    selectForeground Foreground]
+[tkoption_def -selectborderwidth   selectBorderWidth BorderWidth]
+[tkoption_def -disabledbackground  disabledBackground DisabledBackground]
+[tkoption_def -disabledforeground  disabledForeground DisabledForeground]
+[tkoption_def -readonlybackground  readonlyBackground ReadonlyBackground]
+[tkoption_def -insertbackground    insertBackground Background]
+
+Standard widget options. See [cmd options] for a description of their
+meanings and values.
+
+[list_end]
+
+
+[keywords entry {ip address}]
+[manpage_end]
+

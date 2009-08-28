@@ -3,22 +3,27 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
+#ifndef IOCONNECT_MAPMEMORY_10_6
+#define IOCONNECT_MAPMEMORY_10_6	1
+#endif
 
 #include <IOKit/IOTypes.h>
 #include <device/device_types.h>
@@ -187,8 +192,6 @@ IOObjectCopySuperclassForClass(CFStringRef classname)
     char * my_cstr;
     kern_return_t kr; 
 
-    mach_port_t masterPort = __IOGetDefaultMasterPort();
-
     // if there's no argument, no point going on.  Return NULL.
     if (classname == NULL) {
 	return my_str;
@@ -199,7 +202,13 @@ IOObjectCopySuperclassForClass(CFStringRef classname)
 
     strncpy(orig_name, my_cstr, sizeof(io_name_t));
 
+    mach_port_t masterPort = __IOGetDefaultMasterPort();
+
     kr = io_object_get_superclass(masterPort, orig_name, my_name);
+
+    if (masterPort != MACH_PORT_NULL)
+	mach_port_deallocate(mach_task_self(), masterPort);
+
     if (kr == kIOReturnSuccess) {
 	my_str = CFStringCreateWithCString (kCFAllocatorDefault, my_name, kCFStringEncodingUTF8);
     }
@@ -216,8 +225,6 @@ IOObjectCopyBundleIdentifierForClass(CFStringRef classname)
     char * my_cstr;
     kern_return_t kr; 
 
-    mach_port_t masterPort = __IOGetDefaultMasterPort();
-
     // if there's no argument, no point going on.  Return NULL.
     if (classname == NULL) {
 	return my_str;
@@ -228,7 +235,13 @@ IOObjectCopyBundleIdentifierForClass(CFStringRef classname)
 
     strncpy(orig_name, my_cstr, sizeof(io_name_t));
 
+    mach_port_t masterPort = __IOGetDefaultMasterPort();
+
     kr = io_object_get_bundle_identifier(masterPort, orig_name, my_name);
+
+    if (masterPort != MACH_PORT_NULL)
+	mach_port_deallocate(mach_task_self(), masterPort);
+
     if (kr == kIOReturnSuccess) {
 	my_str = CFStringCreateWithCString (kCFAllocatorDefault, my_name, kCFStringEncodingUTF8);
     }
@@ -260,7 +273,7 @@ IOObjectIsEqualTo(
 }
 
 uint32_t
-IOObjectGetRetainCount(
+IOObjectGetKernelRetainCount(
 	io_object_t	object )
 {
     uint32_t	count;
@@ -271,6 +284,24 @@ IOObjectGetRetainCount(
     return( count );
 }
 
+uint32_t
+IOObjectGetRetainCount(
+	io_object_t	object )
+{
+    return( IOObjectGetKernelRetainCount(object) );
+}
+
+uint32_t
+IOObjectGetUserRetainCount(
+	io_object_t	object )
+{
+    mach_port_urefs_t urefs;
+
+    if( kIOReturnSuccess != mach_port_get_refs( mach_task_self(), object, MACH_PORT_RIGHT_SEND, &urefs))
+	urefs = 0;
+
+    return( urefs );
+}
 
 /*
  * IOIterator
@@ -334,17 +365,15 @@ IOServiceGetMatchingService(
 
 kern_return_t
 IOServiceGetMatchingServices(
-        mach_port_t	masterPort,
+        mach_port_t	_masterPort,
 	CFDictionaryRef	matching,
 	io_iterator_t * existing )
 {
     kern_return_t	kr;
     CFDataRef		data;
     CFIndex		dataLen;
-
-    if (MACH_PORT_NULL == masterPort)
-	masterPort = __IOGetDefaultMasterPort();
-
+    mach_port_t		masterPort;
+    
     if( !matching)
 	return( kIOReturnBadArgument);
 
@@ -354,6 +383,11 @@ IOServiceGetMatchingServices(
 	return( kIOReturnUnsupported );
 
     dataLen = CFDataGetLength(data);
+
+    if (MACH_PORT_NULL == _masterPort)
+	masterPort = __IOGetDefaultMasterPort();
+    else
+	masterPort = _masterPort;
 
     if ((size_t) dataLen < sizeof(io_string_t))
 	kr = io_service_get_matching_services( masterPort,
@@ -368,6 +402,8 @@ IOServiceGetMatchingServices(
     }
 
     CFRelease( data );
+    if ((masterPort != MACH_PORT_NULL) && (masterPort != _masterPort))
+	mach_port_deallocate(mach_task_self(), masterPort);
 
     return( kr );
 }
@@ -409,7 +445,7 @@ IOServiceMatchPropertyTable( io_service_t service, CFDictionaryRef matching,
 
 kern_return_t
 IOServiceAddNotification(
-        mach_port_t	 masterPort,
+        mach_port_t	 _masterPort,
 	const io_name_t	 notificationType,
 	CFDictionaryRef	 matching,
 	mach_port_t	 wakePort,
@@ -419,9 +455,7 @@ IOServiceAddNotification(
     kern_return_t	kr;
     CFDataRef		data;
     CFIndex		dataLen;
-
-    if (MACH_PORT_NULL == masterPort)
-	masterPort = __IOGetDefaultMasterPort();
+    mach_port_t		masterPort;
 
     if( !matching)
 	return( kIOReturnBadArgument);
@@ -432,6 +466,11 @@ IOServiceAddNotification(
 	return( kIOReturnUnsupported );
 
     dataLen = CFDataGetLength(data);
+
+    if (MACH_PORT_NULL == _masterPort)
+	masterPort = __IOGetDefaultMasterPort();
+    else
+	masterPort = _masterPort;
 
     if ((size_t) dataLen < sizeof(io_string_t))
 	kr = io_service_add_notification( masterPort, (char *) notificationType,
@@ -450,6 +489,8 @@ IOServiceAddNotification(
     }
 
     CFRelease( data );
+    if ((masterPort != MACH_PORT_NULL) && (masterPort != _masterPort))
+	mach_port_deallocate(mach_task_self(), masterPort);
 
     return( kr );
 }
@@ -537,6 +578,8 @@ IONotificationPortCreate(
 
     if (MACH_PORT_NULL == masterPort)
 	masterPort = __IOGetDefaultMasterPort();
+    else
+	IOObjectRetain(masterPort);
 
     notify = calloc( 1, sizeof( IONotificationPort));
     if( !notify)
@@ -560,7 +603,11 @@ IONotificationPortDestroy(
     if( notify->source)
         CFRelease( notify->source);
 
+    if (notify->dispatchQueue)
+        dispatch_release(notify->dispatchQueue);
+
     mach_port_destroy( mach_task_self(), notify->wakePort);
+    mach_port_deallocate(mach_task_self(), notify->masterPort);
 
     free( notify );
 }
@@ -601,6 +648,26 @@ IONotificationPortGetMachPort(
     return( notify->wakePort );
 }
 
+#if !TARGET_OS_EMBEDDED
+
+DISPATCH_CFMACHPORT_CALLBACK_DECL(_IODispatchCalloutWithDispatch, IODispatchCalloutFromCFMessage);
+
+void
+IONotificationPortSetDispatchQueue(IONotificationPortRef notify, dispatch_queue_t queue)
+{
+    if (notify->dispatchQueue)
+    {
+        dispatch_release(notify->dispatchQueue);
+        notify->dispatchQueue = NULL;
+    }
+    if (queue)
+    {
+	notify->dispatchQueue = dispatch_source_mig_create(notify->wakePort, 0, NULL, queue, _IODispatchCalloutWithDispatch);
+    }
+}
+
+#endif /* !TARGET_OS_EMBEDDED */
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /*
@@ -609,7 +676,7 @@ IONotificationPortGetMachPort(
 
 CFMutableDictionaryRef
 IOMakeMatching(
-        mach_port_t	masterPort,
+        mach_port_t	_masterPort,
 	uint32_t	type,
 	uint32_t	options,
 	void *		args,
@@ -618,9 +685,12 @@ IOMakeMatching(
     IOReturn			err;
     CFMutableDictionaryRef	result = 0;
     char * 			matching;
+    mach_port_t 		masterPort;
 
-    if (MACH_PORT_NULL == masterPort)
+    if (MACH_PORT_NULL == _masterPort)
 	masterPort = __IOGetDefaultMasterPort();
+    else
+	masterPort = _masterPort;
 
     matching = (char *) malloc( sizeof( io_string_t));
 
@@ -633,6 +703,9 @@ IOMakeMatching(
 	}
         free( matching );
     }
+
+    if ((masterPort != MACH_PORT_NULL) && (masterPort != _masterPort))
+	mach_port_deallocate(mach_task_self(), masterPort);
 
     return( result );
 }
@@ -666,6 +739,34 @@ MakeOneStringProp(
     return( dict );
 }
 
+static CFMutableDictionaryRef
+MakeOneNumProp(
+	CFStringRef	key,
+	uint64_t	value )
+{
+    CFMutableDictionaryRef	dict;
+    CFNumberRef			num;
+
+    dict = CFDictionaryCreateMutable( kCFAllocatorDefault, 0,
+		&kCFTypeDictionaryKeyCallBacks,
+		&kCFTypeDictionaryValueCallBacks);
+
+    if( !dict)
+	return( dict);
+
+    num = CFNumberCreate( kCFAllocatorDefault, kCFNumberSInt64Type, &value );
+    if( num) {
+        CFDictionarySetValue( dict, key, num );
+        CFRelease( num );
+    } else {
+	CFRelease( dict );
+	dict = 0;
+    }
+
+    return( dict );
+}
+
+
 CFMutableDictionaryRef
 IOServiceMatching(
 	const char *	name )
@@ -678,6 +779,13 @@ IOServiceNameMatching(
 	const char *	name )
 {
     return( MakeOneStringProp( CFSTR(kIONameMatchKey), name ));
+}
+
+CFMutableDictionaryRef
+IORegistryEntryIDMatching(
+	uint64_t	entryID )
+{
+    return( MakeOneNumProp( CFSTR(kIORegistryEntryIDKey), entryID ));
 }
 
 CFMutableDictionaryRef
@@ -872,18 +980,35 @@ IODispatchCalloutFromCFMessage(CFMachPortRef port __unused,
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 kern_return_t
+IOServiceGetBusyStateAndTime(
+	io_service_t    service,
+	uint64_t *	state,
+	uint32_t *	busy_state,
+	uint64_t *	accumulated_busy_time)
+{
+    kern_return_t	kr;
+
+    kr = io_service_get_state( service, state, busy_state, accumulated_busy_time );
+
+    if (kr != KERN_SUCCESS)
+    {
+	*state = 0;
+	*busy_state = 0;
+	*accumulated_busy_time = 0;
+    }
+
+    return( kr );
+}
+
+kern_return_t
 IOServiceGetBusyState(
 	io_service_t    service,
 	uint32_t *	busyState )
 {
-    kern_return_t	kr;
+    uint64_t		state;
+    uint64_t		accumulated_busy_time;
 
-    kr = io_service_get_busy_state( service, busyState );
-
-    if( kr != KERN_SUCCESS)
-	*busyState = 0;
-
-    return( kr );
+    return (IOServiceGetBusyStateAndTime(service, &state, busyState, &accumulated_busy_time));
 }
 
 kern_return_t
@@ -891,36 +1016,37 @@ IOServiceGetState(
 	io_service_t    service,
 	uint64_t *	state )
 {
-    kern_return_t	kr;
+    uint32_t		busy_state;
+    uint64_t		accumulated_busy_time;
 
-    kr = io_service_get_state( service, state );
-
-    if( kr != KERN_SUCCESS)
-	*state = 0;
-
-    return( kr );
+    return (IOServiceGetBusyStateAndTime(service, state, &busy_state, &accumulated_busy_time));
 }
 
 kern_return_t
 IOKitGetBusyState(
-        mach_port_t	masterPort,
+        mach_port_t	_masterPort,
 	uint32_t *	busyState )
 {
     io_service_t 	root;
     kern_return_t	kr;
+    mach_port_t		masterPort;
 
-    if (MACH_PORT_NULL == masterPort)
+    if (MACH_PORT_NULL == _masterPort)
 	masterPort = __IOGetDefaultMasterPort();
+    else
+	masterPort = _masterPort;
 
     kr = io_registry_entry_from_path( masterPort,
 			kIOServicePlane ":/", &root );
 
     if( kr == KERN_SUCCESS) {
-	kr = io_service_get_busy_state( root, busyState );
+	kr = IOServiceGetBusyState( root, busyState );
 	IOObjectRelease( root );
-
     } else
 	*busyState = 0;
+
+    if ((masterPort != MACH_PORT_NULL) && (masterPort != _masterPort))
+	mach_port_deallocate(mach_task_self(), masterPort);
 
     return( kr );
 }
@@ -944,15 +1070,18 @@ IOServiceWaitQuiet(
 
 kern_return_t
 IOKitWaitQuiet(
-        mach_port_t	masterPort,
+        mach_port_t	_masterPort,
 	mach_timespec_t * waitTime )
 {
     io_service_t 	root;
     kern_return_t	kr;
     mach_timespec_t	defaultWait = { 0, -1 };
+    mach_port_t		masterPort;
 
-    if (MACH_PORT_NULL == masterPort)
+    if (MACH_PORT_NULL == _masterPort)
 	masterPort = __IOGetDefaultMasterPort();
+    else
+	masterPort = _masterPort;
 
     kr = io_registry_entry_from_path( masterPort,
 			kIOServicePlane ":/", &root );
@@ -963,6 +1092,9 @@ IOKitWaitQuiet(
 	kr = io_service_wait_quiet( root, *waitTime );
 	IOObjectRelease( root );
     }
+
+    if ((masterPort != MACH_PORT_NULL) && (masterPort != _masterPort))
+	mach_port_deallocate(mach_task_self(), masterPort);
 
     return( kr );
 }
@@ -1057,25 +1189,26 @@ IOConnectSetNotificationPort(
 		type, port, reference));
 }
 
-#if !__LP64__
-kern_return_t
-IOConnectMapMemory(
-	io_connect_t		connect,
-	uint32_t		memoryType,
-	task_port_t		intoTask,
-	vm_address_t		*atAddress,
-	vm_size_t		*ofSize,
-	IOOptionBits		options )
+kern_return_t IOConnectMapMemory(
+	 io_connect_t	connect,
+	 uint32_t		memoryType,
+	 task_port_t	intoTask,
+	 vm_address_t	*atAddress,
+	 vm_size_t		*ofSize,
+	 IOOptionBits	options )
 {
+#if __LP64__
+    return io_connect_map_memory_into_task
+		(connect, memoryType, intoTask, (mach_vm_address_t *) atAddress, (mach_vm_size_t *) ofSize, options);
+
+#else
     return io_connect_map_memory
 		(connect, memoryType, intoTask, atAddress, ofSize, options);
+#endif
 }
 
-kern_return_t IOConnectMapMemory64
-#else
-kern_return_t IOConnectMapMemory
-#endif
-	(io_connect_t		connect,
+kern_return_t IOConnectMapMemory64(
+	 io_connect_t		connect,
 	 uint32_t		memoryType,
 	 task_port_t		intoTask,
 	 mach_vm_address_t	*atAddress,
@@ -1086,7 +1219,6 @@ kern_return_t IOConnectMapMemory
 		(connect, memoryType, intoTask, atAddress, ofSize, options);
 }
 
-#if !__LP64__
 kern_return_t
 IOConnectUnmapMemory(
 	io_connect_t		connect,
@@ -1094,15 +1226,17 @@ IOConnectUnmapMemory(
 	task_port_t		fromTask,
 	vm_address_t		atAddress )
 {
+#if __LP64__
+    return io_connect_unmap_memory_from_task
+		(connect, memoryType, fromTask, atAddress);
+#else
     return io_connect_unmap_memory
 		(connect, memoryType, fromTask, atAddress);
+#endif
 }
 
-kern_return_t IOConnectUnmapMemory64
-#else
-kern_return_t IOConnectUnmapMemory
-#endif
-	(io_connect_t		connect,
+kern_return_t IOConnectUnmapMemory64(
+	 io_connect_t		connect,
 	 uint32_t		memoryType,
 	 task_port_t		fromTask,
 	 mach_vm_address_t	atAddress)
@@ -1488,16 +1622,26 @@ IOConnectSetCFProperty(
 
 kern_return_t
 IORegistryCreateIterator(
-        mach_port_t	masterPort,
+        mach_port_t	_masterPort,
 	const io_name_t	plane,
 	IOOptionBits	options,
 	io_iterator_t * iterator )
 {
-    if (MACH_PORT_NULL == masterPort)
-	masterPort = __IOGetDefaultMasterPort();
+    kern_return_t	kr;
+    mach_port_t		masterPort;
 
-    return( io_registry_create_iterator( masterPort, (char *) plane,
-		options, iterator));
+    if (MACH_PORT_NULL == _masterPort)
+	masterPort = __IOGetDefaultMasterPort();
+    else
+	masterPort = _masterPort;
+
+    kr = io_registry_create_iterator( masterPort, (char *) plane,
+		options, iterator);
+
+    if ((masterPort != MACH_PORT_NULL) && (masterPort != _masterPort))
+	mach_port_deallocate(mach_task_self(), masterPort);
+
+    return( kr );
 }
 
 kern_return_t
@@ -1528,35 +1672,47 @@ IORegistryIteratorExitEntry(
 
 io_registry_entry_t
 IORegistryEntryFromPath(
-        mach_port_t		masterPort,
+        mach_port_t		_masterPort,
 	const io_string_t	path )
 {
     kern_return_t	kr;
     io_registry_entry_t	entry;
+    mach_port_t		masterPort;
 
-    if (MACH_PORT_NULL == masterPort)
+    if (MACH_PORT_NULL == _masterPort)
 	masterPort = __IOGetDefaultMasterPort();
+    else
+	masterPort = _masterPort;
 
     kr = io_registry_entry_from_path( masterPort, (char *) path, &entry );
     if( kIOReturnSuccess != kr)
 	entry = 0;
+
+    if ((masterPort != MACH_PORT_NULL) && (masterPort != _masterPort))
+	mach_port_deallocate(mach_task_self(), masterPort);
 
     return( entry );
 }
 
 io_registry_entry_t
 IORegistryGetRootEntry(
-        mach_port_t	masterPort )
+        mach_port_t	_masterPort )
 {
     kern_return_t	kr;
+    mach_port_t		masterPort;
     io_registry_entry_t	entry;
 
-    if (MACH_PORT_NULL == masterPort)
+    if (MACH_PORT_NULL == _masterPort)
 	masterPort = __IOGetDefaultMasterPort();
+    else
+	masterPort = _masterPort;
 
     kr = io_registry_get_root_entry( masterPort, &entry );
     if( kIOReturnSuccess != kr)
 	entry = 0;
+
+    if ((masterPort != MACH_PORT_NULL) && (masterPort != _masterPort))
+	mach_port_deallocate(mach_task_self(), masterPort);
 
     return( entry );
 }
@@ -1614,6 +1770,20 @@ IORegistryEntryGetLocationInPlane(
         plane = "";
     return( io_registry_entry_get_location_in_plane( entry,
 						(char *) plane, location ));
+}
+
+kern_return_t
+IORegistryEntryGetRegistryEntryID(
+	io_registry_entry_t	entry,
+	uint64_t *		entryID )
+{
+    kern_return_t kr;
+
+    kr =  io_registry_entry_get_registry_entry_id(entry, entryID);
+    if (KERN_SUCCESS != kr)
+	*entryID = 0;
+
+    return (kr);
 }
 
 
@@ -1940,81 +2110,137 @@ IOServiceOFPathToBSDName(mach_port_t	 masterPort,
 
 kern_return_t
 IOCatalogueSendData(
-        mach_port_t		masterPort,
+        mach_port_t		_masterPort,
         uint32_t                flag,
         const char             *buffer,
         uint32_t                size )
 {
     kern_return_t kr;
     kern_return_t result;
+    mach_port_t   masterPort;
 
-    if (MACH_PORT_NULL == masterPort)
+    if (MACH_PORT_NULL == _masterPort)
 	masterPort = __IOGetDefaultMasterPort();
+    else
+	masterPort = _masterPort;
 
     kr = io_catalog_send_data( masterPort, flag,
                             (char *) buffer, size, &result );
     if( KERN_SUCCESS == kr)
         kr = result;
-        
+
+    if ((masterPort != MACH_PORT_NULL) && (masterPort != _masterPort))
+	mach_port_deallocate(mach_task_self(), masterPort);
+
     return( kr );
 }
 
 kern_return_t
 IOCatalogueTerminate(
-        mach_port_t		masterPort,
+        mach_port_t		_masterPort,
         uint32_t                flag,
         io_name_t		description )
 {
-    if (MACH_PORT_NULL == masterPort)
-	masterPort = __IOGetDefaultMasterPort();
+    kern_return_t	kr;
+    mach_port_t		masterPort;
 
-    return( io_catalog_terminate( masterPort, flag, description ));
+    if (MACH_PORT_NULL == _masterPort)
+	masterPort = __IOGetDefaultMasterPort();
+    else
+	masterPort = _masterPort;
+
+    kr = io_catalog_terminate( masterPort, flag, description );
+
+    if ((masterPort != MACH_PORT_NULL) && (masterPort != _masterPort))
+	mach_port_deallocate(mach_task_self(), masterPort);
+
+    return( kr );
 }
 
 kern_return_t
 IOCatalogueGetData(
-        mach_port_t		masterPort,
+        mach_port_t		_masterPort,
         uint32_t                flag,
         char                  **buffer,
         uint32_t               *size )
 {
-    if (MACH_PORT_NULL == masterPort)
-	masterPort = __IOGetDefaultMasterPort();
+    kern_return_t	kr;
+    mach_port_t		masterPort;
 
-    return ( io_catalog_get_data( masterPort, flag, (char **)buffer, (unsigned *)size ) );
+    if (MACH_PORT_NULL == _masterPort)
+	masterPort = __IOGetDefaultMasterPort();
+    else
+	masterPort = _masterPort;
+
+    kr = io_catalog_get_data( masterPort, flag, (char **)buffer, (unsigned *)size );
+
+    if ((masterPort != MACH_PORT_NULL) && (masterPort != _masterPort))
+	mach_port_deallocate(mach_task_self(), masterPort);
+
+    return( kr );
 }
 
 kern_return_t
 IOCatlogueGetGenCount(
-        mach_port_t		masterPort,
+        mach_port_t		_masterPort,
         uint32_t               *genCount )
 {
-    if (MACH_PORT_NULL == masterPort)
-	masterPort = __IOGetDefaultMasterPort();
+    kern_return_t	kr;
+    mach_port_t		masterPort;
 
-    return ( io_catalog_get_gen_count( masterPort, genCount ) );
+    if (MACH_PORT_NULL == _masterPort)
+	masterPort = __IOGetDefaultMasterPort();
+    else
+	masterPort = _masterPort;
+
+    kr = io_catalog_get_gen_count( masterPort, genCount );
+
+    if ((masterPort != MACH_PORT_NULL) && (masterPort != _masterPort))
+	mach_port_deallocate(mach_task_self(), masterPort);
+
+    return( kr );
 }
 
 kern_return_t
 IOCatalogueModuleLoaded(
-        mach_port_t		masterPort,
+        mach_port_t		_masterPort,
         io_name_t               name )
 {
-    if (MACH_PORT_NULL == masterPort)
-	masterPort = __IOGetDefaultMasterPort();
+    kern_return_t	kr;
+    mach_port_t		masterPort;
 
-    return ( io_catalog_module_loaded( masterPort, name ) );
+    if (MACH_PORT_NULL == _masterPort)
+	masterPort = __IOGetDefaultMasterPort();
+    else
+	masterPort = _masterPort;
+
+    kr = io_catalog_module_loaded( masterPort, name );
+
+    if ((masterPort != MACH_PORT_NULL) && (masterPort != _masterPort))
+	mach_port_deallocate(mach_task_self(), masterPort);
+
+    return( kr );
 }
 
 kern_return_t
 IOCatalogueReset(
-        mach_port_t		masterPort,
+        mach_port_t		_masterPort,
 	uint32_t		flag )
 {
-    if (MACH_PORT_NULL == masterPort)
-	masterPort = __IOGetDefaultMasterPort();
+    kern_return_t	kr;
+    mach_port_t		masterPort;
 
-    return ( io_catalog_reset(masterPort, flag) );
+    if (MACH_PORT_NULL == _masterPort)
+	masterPort = __IOGetDefaultMasterPort();
+    else
+	masterPort = _masterPort;
+
+    kr = io_catalog_reset(masterPort, flag);
+
+    if ((masterPort != MACH_PORT_NULL) && (masterPort != _masterPort))
+	mach_port_deallocate(mach_task_self(), masterPort);
+
+    return( kr );
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -2023,14 +2249,24 @@ IOCatalogueReset(
 
 kern_return_t
 IORegistryCreateEnumerator(
-        mach_port_t	masterPort,
+        mach_port_t	_masterPort,
 	mach_port_t *	enumerator )
 {
-    if (MACH_PORT_NULL == masterPort)
-	masterPort = __IOGetDefaultMasterPort();
+    kern_return_t	kr;
+    mach_port_t		masterPort;
 
-    return( io_registry_create_iterator( masterPort,
-                                         "IOService", true, enumerator));
+    if (MACH_PORT_NULL == _masterPort)
+	masterPort = __IOGetDefaultMasterPort();
+    else
+	masterPort = _masterPort;
+
+    kr = io_registry_create_iterator( masterPort,
+                                         "IOService", true, enumerator );
+
+    if ((masterPort != MACH_PORT_NULL) && (masterPort != _masterPort))
+	mach_port_deallocate(mach_task_self(), masterPort);
+
+    return( kr );
 }
 
 kern_return_t

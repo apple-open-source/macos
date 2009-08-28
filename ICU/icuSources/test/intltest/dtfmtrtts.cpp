@@ -1,6 +1,6 @@
 /***********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2006, International Business Machines Corporation
+ * Copyright (c) 1997-2007, International Business Machines Corporation
  * and others. All Rights Reserved.
  ***********************************************************************/
  
@@ -98,17 +98,17 @@ void DateFormatRoundTripTest::TestCentury()
     fmt.format(date[1], result[1]);
     date[2] = fmt.parse(result[1], status);
 
-    /* This test case worked OK by accident before.Ê date[1] != date[0],
+    /* This test case worked OK by accident before.  date[1] != date[0],
      * because we use -80/+20 year window for 2-digit year parsing.
-     * (date[0] is in year 1926, date[1] is in year 2026.)Ê result[1] set
+     * (date[0] is in year 1926, date[1] is in year 2026.)  result[1] set
      * by the first format call returns "07/13/26 07:48:28 p.m. PST",
      * which is correct, because DST was not used in year 1926 in zone
-     * America/Los_Angeles.Ê When this is parsed, date[1] becomes a time
-     * in 2026, which is "07/13/26 08:48:28 p.m. PDT".Ê There was a zone
+     * America/Los_Angeles.  When this is parsed, date[1] becomes a time
+     * in 2026, which is "07/13/26 08:48:28 p.m. PDT".  There was a zone
      * offset calculation bug that observed DST in 1926, which was resolved.
      * Before the bug was resolved, result[0] == result[1] was true,
      * but after the bug fix, the expected result is actually
-     * result[0] != result[1]. -Yoshit
+     * result[0] != result[1]. -Yoshito
      */
     /* TODO: We need to review this code and clarify what we really
      * want to test here.
@@ -293,7 +293,8 @@ void DateFormatRoundTripTest::test(DateFormat *fmt, const Locale &origLocale, UB
     // patterns we have, but it may be a problem later.
 
     UBool hasEra = (pat.indexOf(UnicodeString("G")) != -1);
-    UBool hasZone = (pat.indexOf(UnicodeString("Z")) != -1) || (pat.indexOf(UnicodeString("z")) != -1) || (pat.indexOf(UnicodeString("v")) != -1);
+    UBool hasZoneDisplayName = (pat.indexOf(UnicodeString("z")) != -1) || (pat.indexOf(UnicodeString("v")) != -1) 
+        || (pat.indexOf(UnicodeString("V")) != -1);
 
     // Because patterns contain incomplete data representing the Date,
     // we must be careful of how we do the roundtrip.  We start with
@@ -375,7 +376,8 @@ void DateFormatRoundTripTest::test(DateFormat *fmt, const Locale &origLocale, UB
             int maxSmatch = 1;
             if (dmatch > maxDmatch) {
                 // Time-only pattern with zone information and a starting date in PST.
-                if(timeOnly && hasZone && fmt->getTimeZone().inDaylightTime(d[0], status) && ! failure(status, "TimeZone::inDST()")) {
+                if(timeOnly && hasZoneDisplayName
+                        && fmt->getTimeZone().inDaylightTime(d[0], status) && ! failure(status, "TimeZone::inDST()")) {
                     maxDmatch = 3;
                     maxSmatch = 2;
                 }
@@ -402,16 +404,20 @@ void DateFormatRoundTripTest::test(DateFormat *fmt, const Locale &origLocale, UB
                         && getField(d[0], UCAL_YEAR)
                             != getField(d[dmatch], UCAL_YEAR)
                         && !failure(status, "error status [smatch>maxSmatch]")
-                        && ((hasZone
+                        && ((hasZoneDisplayName
                          && (fmt->getTimeZone().inDaylightTime(d[0], status)
                                 == fmt->getTimeZone().inDaylightTime(d[dmatch], status)
                             || getField(d[0], UCAL_MONTH) == UCAL_APRIL
                             || getField(d[0], UCAL_MONTH) == UCAL_OCTOBER))
-                         || !hasZone)
+                         || !hasZoneDisplayName)
                          )
                 {
                     maxSmatch = 2;
-                }                
+                }
+                // If zone display name is used, fallback format might be used before 1970
+                else if (hasZoneDisplayName && d[0] < 0) {
+                    maxSmatch = 2;
+                }
             }
 
             if(dmatch > maxDmatch || smatch > maxSmatch) { // Special case for Japanese and Islamic (could have large negative years)

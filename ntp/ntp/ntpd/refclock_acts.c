@@ -368,7 +368,7 @@ acts_message(
 	up = (struct actsunit *)pp->unitptr;
 #ifdef DEBUG
 	ioctl(pp->io.fd, TIOCMGET, (char *)&modem);
-	sprintf(tbuf, "acts: %04x (%d %d) %d %s", modem, up->state,
+	sprintf(tbuf, "acts: %04x (%d %d) %lu %s", modem, up->state,
 	    up->timer, strlen(pp->a_lastcode), pp->a_lastcode);
 	if (debug)
 		printf("%s\n", tbuf);
@@ -754,7 +754,7 @@ acts_timeout(
 			sprintf(lockfile, LOCKFILE, up->unit);
 			fd = open(lockfile, O_WRONLY | O_CREAT | O_EXCL,
 			    0644);
-			if (!fd) {
+			if (fd < 0) {
 				msyslog(LOG_ERR, "acts: port busy");
 				return;
 			}

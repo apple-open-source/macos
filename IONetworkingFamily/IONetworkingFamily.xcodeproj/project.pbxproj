@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 42;
+	objectVersion = 45;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -114,7 +114,7 @@
 		C132AA6E0D3FCF980054798D /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/PrivateHeaders/IOKit/network";
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/network";
 			dstSubfolderSpec = 0;
 			files = (
 				C132AA6F0D3FCF980054798D /* IOEthernetController.h in CopyFiles */,
@@ -137,7 +137,7 @@
 		C132AA7D0D3FCF980054798D /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/network";
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/network";
 			dstSubfolderSpec = 0;
 			files = (
 				C17D35190D3FD1A200F185DB /* IONetworkStack.h in CopyFiles */,
@@ -186,7 +186,7 @@
 		B91BF40800CFEA6808CA29FD /* IOGatedOutputQueue.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOGatedOutputQueue.h; sourceTree = "<group>"; };
 		B91BF40A00CFEA6808CA29FD /* IONetworkStats.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IONetworkStats.h; sourceTree = "<group>"; };
 		B93FC6B0023527E308CA29FD /* IONetworkControllerPrivate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IONetworkControllerPrivate.h; sourceTree = "<group>"; };
-		C1165F260E229BAB00155EBF /* AspenSDK.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = AspenSDK.xcconfig; path = AppleInternal/XcodeConfig/AspenSDK.xcconfig; sourceTree = SYSTEM_DEVELOPER_DIR; };
+		C10D15F80ED643230001A02C /* AspenSDK.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = AspenSDK.xcconfig; path = AppleInternal/XcodeConfig/AspenSDK.xcconfig; sourceTree = DEVELOPER_DIR; };
 		C132AA670D3FCF980054798D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		C132AA680D3FCF980054798D /* IONetworkingFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IONetworkingFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		C132AA8C0D3FCF980054798D /* IONetworkingFamily Headers */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "IONetworkingFamily Headers"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -214,7 +214,7 @@
 		089C166AFE841209C02AAC07 /* IONetworkingFamily */ = {
 			isa = PBXGroup;
 			children = (
-				C1165F260E229BAB00155EBF /* AspenSDK.xcconfig */,
+				C10D15F80ED643230001A02C /* AspenSDK.xcconfig */,
 				247142CAFF3F8F9811CA285C /* Source */,
 				089C167CFE841241C02AAC07 /* Resources */,
 				19C28FB6FE9D52B211CA2CBB /* Products */,
@@ -362,7 +362,6 @@
 			buildPhases = (
 				C132AA6E0D3FCF980054798D /* CopyFiles */,
 				C132AA7D0D3FCF980054798D /* CopyFiles */,
-				C132AA870D3FCF980054798D /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -403,7 +402,7 @@
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			buildConfigurationList = DAD9E1EF09D4A8C0006678D2 /* Build configuration list for PBXProject "IONetworkingFamily" */;
-			compatibilityVersion = "Xcode 2.4";
+			compatibilityVersion = "Xcode 3.1";
 			hasScannedForEncodings = 1;
 			mainGroup = 089C166AFE841209C02AAC07 /* IONetworkingFamily */;
 			projectDirPath = "";
@@ -468,19 +467,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
-		};
-		C132AA870D3FCF980054798D /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
-			files = (
-			);
-			inputPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = "# not all Apple drivers completed the transition to mbuf_t per radar 3940931 in time for tiger.\n# To accomodate them, I left in the transition goo, and use this script to strip it all out\n# for the public headers.  When ready, all this voodoo can be undone by:\n# - manually perform the edit that occurs in the \"unifdef\" lines below\n# - remove this script phase\n# - change the destination in the copy files phase of InstallHeaders, back to \"Headers\" instead of \"PrivateHeaders\"\n# - remove __MBUF_TRANSITION from the project\n\n# first the kernel framework stuff\nTARGET_DIR=$DSTROOT/System/Library/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/network\nmkdir -m 755 -p $TARGET_DIR\nfor file in \\\n IOEthernetController.h \\\n IOEthernetInterface.h \\\n IOKernelDebugger.h \\\n IOMbufMemoryCursor.h \\\n IONetworkController.h \\\n IONetworkData.h \\\n IONetworkInterface.h \\\n IONetworkMedium.h \\\n IOPacketQueue.h \\\n IOOutputQueue.h \\\n IOBasicOutputQueue.h \\\n IOGatedOutputQueue.h \\\n IONetworkStats.h \\\n IOEthernetStats.h \ndo\n unifdef -D__MBUF_TRANSITION_STRIP $file | sed \"s/__MBUF_PROTO/mbuf_t/g\" >$TARGET_DIR/$file\n touch -r $file $TARGET_DIR/$file\ndone\n\nTARGET_DIR=$DSTROOT/System/Library/Frameworks/IOKit.framework/Versions/A/Headers/network\nmkdir -m 755 -p $TARGET_DIR\nfor file in \\\n IOEthernetController.h \\\n IOEthernetInterface.h \\\n IONetworkController.h \\\n IONetworkData.h \\\n IONetworkInterface.h \\\n IONetworkMedium.h \\\n IONetworkUserClient.h \\\n IONetworkStats.h \\\n IOEthernetStats.h \ndo\n unifdef -D__MBUF_TRANSITION_STRIP $file | sed \"s/__MBUF_PROTO/mbuf_t/g\" >$TARGET_DIR/$file\n touch -r $file $TARGET_DIR/$file\ndone\n";
 		};
 		C17D35220D3FD2D600F185DB /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -566,7 +552,7 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = __MBUF_TRANSITION_;
+				GCC_PREPROCESSOR_DEFINITIONS = "";
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = Info.plist;
@@ -575,7 +561,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IONetworkingFamily;
-				MODULE_VERSION = 1.6.0;
+				MODULE_VERSION = 1.8;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -597,7 +583,7 @@
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_PREPROCESSOR_DEFINITIONS = __MBUF_TRANSITION_;
+				GCC_PREPROCESSOR_DEFINITIONS = "";
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = Info.plist;
@@ -606,12 +592,13 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IONetworkingFamily;
-				MODULE_VERSION = 1.6.0;
+				MODULE_VERSION = 1.8;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IONetworkingFamily;
 				SECTORDER_FLAGS = "";
+				STRIP_INSTALLED_PRODUCT = YES;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -625,8 +612,9 @@
 		C132AA660D3FCF980054798D /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_PREPROCESSOR_DEFINITIONS = __MBUF_TRANSITION_;
+				GCC_PREPROCESSOR_DEFINITIONS = "";
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = Info.plist;
@@ -635,12 +623,13 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IONetworkingFamily;
-				MODULE_VERSION = 1.6.0;
+				MODULE_VERSION = 1.8;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IONetworkingFamily;
 				SECTORDER_FLAGS = "";
+				STRIP_INSTALLED_PRODUCT = YES;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -718,7 +707,7 @@
 		};
 		C17D35480D3FD2D600F185DB /* Development */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = C1165F260E229BAB00155EBF /* AspenSDK.xcconfig */;
+			baseConfigurationReference = C10D15F80ED643230001A02C /* AspenSDK.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -726,9 +715,10 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = __MBUF_TRANSITION_;
+				GCC_PREPROCESSOR_DEFINITIONS = "";
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_THUMB_SUPPORT = YES;
+				"GCC_THUMB_SUPPORT[arch=armv5]" = NO;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
@@ -736,7 +726,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IONetworkingFamily;
-				MODULE_VERSION = 1.6.0;
+				MODULE_VERSION = 1.8;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -754,14 +744,15 @@
 		};
 		C17D35490D3FD2D600F185DB /* Deployment */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = C1165F260E229BAB00155EBF /* AspenSDK.xcconfig */;
+			baseConfigurationReference = C10D15F80ED643230001A02C /* AspenSDK.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_PREPROCESSOR_DEFINITIONS = __MBUF_TRANSITION_;
+				GCC_PREPROCESSOR_DEFINITIONS = "";
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_THUMB_SUPPORT = YES;
+				"GCC_THUMB_SUPPORT[arch=armv5]" = NO;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
@@ -769,7 +760,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IONetworkingFamily;
-				MODULE_VERSION = 1.6.0;
+				MODULE_VERSION = 1.8;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -787,13 +778,14 @@
 		};
 		C17D354A0D3FD2D600F185DB /* Default */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = C1165F260E229BAB00155EBF /* AspenSDK.xcconfig */;
+			baseConfigurationReference = C10D15F80ED643230001A02C /* AspenSDK.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_PREPROCESSOR_DEFINITIONS = __MBUF_TRANSITION_;
+				GCC_PREPROCESSOR_DEFINITIONS = "";
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_THUMB_SUPPORT = YES;
+				"GCC_THUMB_SUPPORT[arch=armv5]" = NO;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
@@ -801,7 +793,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IONetworkingFamily;
-				MODULE_VERSION = 1.6.0;
+				MODULE_VERSION = 1.8;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -819,18 +811,24 @@
 		DAD9E1F009D4A8C0006678D2 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				STRIP_INSTALLED_PRODUCT = NO;
 			};
 			name = Development;
 		};
 		DAD9E1F109D4A8C0006678D2 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				STRIP_INSTALLED_PRODUCT = NO;
 			};
 			name = Deployment;
 		};
 		DAD9E1F209D4A8C0006678D2 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				STRIP_INSTALLED_PRODUCT = NO;
 			};
 			name = Default;
 		};

@@ -185,7 +185,128 @@
 	<key>Notifications</key>
 	<array/>
 	<key>OpenEditors</key>
-	<array/>
+	<array>
+		<dict>
+			<key>Content</key>
+			<dict>
+				<key>PBXProjectModuleGUID</key>
+				<string>72EC59380BBD988D00866673</string>
+				<key>PBXProjectModuleLabel</key>
+				<string>RTL8139.cpp</string>
+				<key>PBXSplitModuleInNavigatorKey</key>
+				<dict>
+					<key>Split0</key>
+					<dict>
+						<key>PBXProjectModuleGUID</key>
+						<string>72EC59390BBD988D00866673</string>
+						<key>PBXProjectModuleLabel</key>
+						<string>RTL8139.cpp</string>
+						<key>_historyCapacity</key>
+						<integer>0</integer>
+						<key>bookmark</key>
+						<string>723D99760BBDACDD00562210</string>
+						<key>history</key>
+						<array>
+							<string>723D99680BBD9B5400562210</string>
+						</array>
+					</dict>
+					<key>SplitCount</key>
+					<string>1</string>
+				</dict>
+				<key>StatusBarVisibility</key>
+				<true/>
+			</dict>
+			<key>Geometry</key>
+			<dict>
+				<key>Frame</key>
+				<string>{{0, 20}, {576, 1137}}</string>
+				<key>PBXModuleWindowStatusBarHidden2</key>
+				<false/>
+				<key>RubberWindowFrame</key>
+				<string>1178 0 576 1178 0 0 1920 1178 </string>
+			</dict>
+		</dict>
+		<dict>
+			<key>Content</key>
+			<dict>
+				<key>PBXProjectModuleGUID</key>
+				<string>72EC59350BBD988D00866673</string>
+				<key>PBXProjectModuleLabel</key>
+				<string>RTL8139PHY.cpp</string>
+				<key>PBXSplitModuleInNavigatorKey</key>
+				<dict>
+					<key>Split0</key>
+					<dict>
+						<key>PBXProjectModuleGUID</key>
+						<string>72EC59360BBD988D00866673</string>
+						<key>PBXProjectModuleLabel</key>
+						<string>RTL8139PHY.cpp</string>
+						<key>_historyCapacity</key>
+						<integer>0</integer>
+						<key>bookmark</key>
+						<string>723D99770BBDACDD00562210</string>
+						<key>history</key>
+						<array>
+							<string>723D99690BBD9B5400562210</string>
+						</array>
+					</dict>
+					<key>SplitCount</key>
+					<string>1</string>
+				</dict>
+				<key>StatusBarVisibility</key>
+				<true/>
+			</dict>
+			<key>Geometry</key>
+			<dict>
+				<key>Frame</key>
+				<string>{{0, 20}, {576, 1137}}</string>
+				<key>PBXModuleWindowStatusBarHidden2</key>
+				<false/>
+				<key>RubberWindowFrame</key>
+				<string>513 0 576 1178 0 0 1920 1178 </string>
+			</dict>
+		</dict>
+		<dict>
+			<key>Content</key>
+			<dict>
+				<key>PBXProjectModuleGUID</key>
+				<string>72EC593B0BBD988D00866673</string>
+				<key>PBXProjectModuleLabel</key>
+				<string>RTL8139.h</string>
+				<key>PBXSplitModuleInNavigatorKey</key>
+				<dict>
+					<key>Split0</key>
+					<dict>
+						<key>PBXProjectModuleGUID</key>
+						<string>72EC593C0BBD988D00866673</string>
+						<key>PBXProjectModuleLabel</key>
+						<string>RTL8139.h</string>
+						<key>_historyCapacity</key>
+						<integer>0</integer>
+						<key>bookmark</key>
+						<string>723D99780BBDACDD00562210</string>
+						<key>history</key>
+						<array>
+							<string>723D996A0BBD9B5400562210</string>
+						</array>
+					</dict>
+					<key>SplitCount</key>
+					<string>1</string>
+				</dict>
+				<key>StatusBarVisibility</key>
+				<true/>
+			</dict>
+			<key>Geometry</key>
+			<dict>
+				<key>Frame</key>
+				<string>{{0, 20}, {576, 1137}}</string>
+				<key>PBXModuleWindowStatusBarHidden2</key>
+				<false/>
+				<key>RubberWindowFrame</key>
+				<string>916 0 576 1178 0 0 1920 1178 </string>
+			</dict>
+		</dict>
+	</array>
 	<key>PerspectiveWidths</key>
 	<array>
 		<integer>-1</integer>
@@ -266,7 +387,6 @@
 							<key>PBXSmartGroupTreeModuleOutlineStateSelectionKey</key>
 							<array>
 								<array>
-									<integer>11</integer>
 									<integer>10</integer>
 								</array>
 							</array>
@@ -371,9 +491,9 @@
 			</array>
 			<key>TableOfContents</key>
 			<array>
-				<string>72B7D0C70C3D994C005C4751</string>
+				<string>723D99710BBD9D4800562210</string>
 				<string>1CE0B1FE06471DED0097A5F4</string>
-				<string>72B7D0C80C3D994C005C4751</string>
+				<string>723D99720BBD9D4800562210</string>
 				<string>1CE0B20306471E060097A5F4</string>
 				<string>1CE0B20506471E060097A5F4</string>
 			</array>
@@ -507,7 +627,10 @@
 	<integer>5</integer>
 	<key>WindowOrderList</key>
 	<array>
-		<string>/Volumes/main120gig/osX/projects/AppleRTL8139Ethernet.141.3.1/AppleRTL8139Ethernet.xcodeproj</string>
+		<string>72EC593B0BBD988D00866673</string>
+		<string>/Volumes/main80gig/osX/projects/AppleRTL8139Ethernet/AppleRTL8139Ethernet.xcodeproj</string>
+		<string>72EC59350BBD988D00866673</string>
+		<string>72EC59380BBD988D00866673</string>
 	</array>
 	<key>WindowString</key>
 	<string>1924 597 552 486 1920 150 1680 1050 </string>

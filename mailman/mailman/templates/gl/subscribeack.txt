@@ -1,0 +1,36 @@
+Dámoslle a benviada á rolda de distribución %(real_name)s@%(host_name)s
+%(welcome)s
+
+Para remitir unha mensaxe a esta rolda, envíeo ao enderezo seguinte:
+
+   %(emailaddr)s
+
+Para obter unha información xeral sobre a rolda, acceda ao enderezo seguinte:
+
+   %(listinfo_url)s
+
+Se algunha vez desexa anular a subscrición ou mudar as opcións (como, por exemplo, cambiar ao modo de mensaxes compiladas, cambiar o contrasinal
+etc.), consulte a páxina da súa subscripción no URL seguinte:
+
+  %(optionsurl)s
+%(umbrella)s
+
+Tamén pode realizar estes cambios a través do correo electrónico,
+se envía unha mensaxe a:
+
+  %(real_name)s-request@%(host_name)s
+
+en que deberá incluír a palabra "help" no asunto (non poña as comiñas) ou no
+corpo da mensaxe. Devolveráselle unha mensaxe coas instrucións.
+
+É necesario o contrasinal para poder cambiar as opcións (en que se inclúe o
+cambio do propio contrasinal) ou para anular a subscrición. O seu contrasinal é o seguinte:
+
+  %(password)s
+
+Polo xeral, o Mailman lembraralle mensualmente os contrasinais  que teña
+nas roldas de distribución de %(host_name)s, aínda que se o prefire pode
+desactivar este envío.  A lembranza tamén incluirá
+instrucións sobre como anular a súa subscrición ou como cambiar os
+parámetros. Na páxina de opcións hai un opción para que se lle
+envíe unha mensaxe de correo electrónico co seu contrasinal.

@@ -84,7 +84,7 @@
 #endif
 
 #define MEMORY_MIN 2048
-#define MEMORY_MAX 4194304
+#define MEMORY_MAX 16777216
 
 int
 getifaddrs(struct ifaddrs **pif)
@@ -131,6 +131,9 @@ getifaddrs(struct ifaddrs **pif)
 
 	if (needed < MEMORY_MIN) needed = MEMORY_MIN;
 	needed *= 2;
+	if (needed > MEMORY_MAX) needed = MEMORY_MAX;
+
+	buf = NULL;
 
 	while (needed <= MEMORY_MAX)
 	{
@@ -143,6 +146,12 @@ getifaddrs(struct ifaddrs **pif)
 		free(buf);
 		buf = NULL;
 		needed *= 2;
+	}
+
+	if (buf == NULL)
+	{
+		errno = ENOBUFS;
+		return (-1);
 	}
 
 	for (next = buf; next < buf + needed; next += rtm->rtm_msglen) {

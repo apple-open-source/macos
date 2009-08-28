@@ -26,6 +26,7 @@
 #if !TARGET_OS_EMBEDDED
 #define INFO_NIS 2
 #define INFO_OPEN_DIRECTORY 3
+#define INFO_PAM 4
 #endif
 
 #ifndef __SLICK__
@@ -54,6 +55,9 @@ extern int file_passwd(char *, char *);
 extern int nis_passwd(char *, char *);
 #ifdef INFO_OPEN_DIRECTORY
 extern int od_passwd(char *, char *, char*);
+#endif
+#ifdef INFO_PAM
+extern int pam_passwd(char *);
 #endif
 
 void
@@ -163,15 +167,17 @@ getpasswd(char *name, int isroot, int minlen, int mixcase, int nonalpha,
 void
 usage()
 {
-	fprintf(stderr, "usage: %s [-i infosystem] [-l location] [-u authname] [name]\n", progname);
+	fprintf(stderr, "usage: %s [-i infosystem] -l location]] [-u authname] [name]\n", progname);
 	fprintf(stderr, "  infosystem:\n");
 	fprintf(stderr, "    file\n");
 	fprintf(stderr, "    NIS\n");
 	fprintf(stderr, "    OpenDirectory\n");
+	fprintf(stderr, "    PAM\n");
 	fprintf(stderr, "  location (for infosystem):\n");
 	fprintf(stderr, "    file           location is path to file (default is %s)\n", _PASSWD_FILE);
 	fprintf(stderr, "    NIS            location is NIS domain name\n");
 	fprintf(stderr, "    OpenDirectory  location is directory node name\n");
+	fprintf(stderr, "    PAM            location is not used\n");
 	exit(1);
 }
 
@@ -184,13 +190,22 @@ main(int argc, char *argv[])
 	int infosystem, ch;
 	int free_user = 0;
 	
+#ifdef INFO_PAM
+	infosystem = INFO_PAM;
+#else
 #ifdef INFO_OPEN_DIRECTORY
-	/* since OpenDirectory works for most infosystems, make it the default */
 	infosystem = INFO_OPEN_DIRECTORY;
 #else
 	infosystem = INFO_FILE;
 #endif
-	
+#endif
+
+#ifdef INFO_OPEN_DIRECTORY
+	/* PAM is the default infosystem, but we still want to use OpenDirectory directly when run by root */
+	if (0 == getuid())
+		infosystem = INFO_OPEN_DIRECTORY;
+#endif
+
 	while ((ch = getopt(argc, argv, "i:l:u:")) != -1)
 		switch(ch) {
 		case 'i':
@@ -205,6 +220,10 @@ main(int argc, char *argv[])
 #ifdef INFO_OPEN_DIRECTORY
 			} else if (!strcasecmp(optarg, "opendirectory")) {
 				infosystem = INFO_OPEN_DIRECTORY;
+#endif
+#ifdef INFO_PAM
+			} else if (!strcasecmp(optarg, "PAM")) {
+				infosystem = INFO_PAM;
 #endif
 			} else {
 				fprintf(stderr, "%s: Unknown info system \'%s\'.\n",
@@ -231,6 +250,11 @@ main(int argc, char *argv[])
 	} else if (argc == 1) {
 		user = argv[0];
 	}
+
+#ifdef INFO_PAM
+	if (INFO_PAM == infosystem && NULL != locn)
+		usage();
+#endif
 
 	if (user == NULL)
 	{
@@ -269,6 +293,11 @@ main(int argc, char *argv[])
 #ifdef INFO_OPEN_DIRECTORY
 		case INFO_OPEN_DIRECTORY:
 			od_passwd(user, locn, auth);
+			break;
+#endif
+#ifdef INFO_PAM
+		case INFO_PAM:
+			pam_passwd(user);
 			break;
 #endif
 	}

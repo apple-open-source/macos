@@ -17,27 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
-
-/* Define the information needed to generate branch and scc insns.  This is
-   stored from the compare operation.  Note that we can't use "rtx" here
-   since it hasn't been defined!  */
-
-/* Define global data defined in frv.c.  */
-extern const char *frv_branch_cost_string;	/* -mbranch-cost option */
-extern int frv_branch_cost_int;			/* value of -mbranch_cost */
-
-extern const char *frv_cpu_string;		/* -mcpu= option */
-
-extern const char *frv_condexec_insns_str;	/* -mcond-exec-insns= option */
-extern int frv_condexec_insns;			/* value of -mcond-exec-insns */
-
-extern const char *frv_condexec_temps_str;	/* -mcond-exec-temps= option */
-extern int frv_condexec_temps;			/* value of -mcond-exec-temps */
-
-extern const char *frv_sched_lookahead_str;	/* -msched-lookahead= option */
-extern int frv_sched_lookahead;			/* value -msched-lookahead= */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* CPU type.  This must be identical to the cpu enumeration in frv.md.  */
 typedef enum frv_cpu
@@ -147,11 +128,6 @@ extern int frv_acc_group		(rtx);
 extern int frv_adjust_field_align	(tree, int);
 #endif
 
-extern void fixup_section		(void);
-extern void sdata_section		(void);
-extern void sbss_section		(void);
-extern void data_section		(void);
-
 #ifdef RTX_CODE
 extern int integer_register_operand	(rtx, enum machine_mode);
 extern int frv_load_operand		(rtx, enum machine_mode);
@@ -223,6 +199,18 @@ extern int accg_operand			(rtx, enum machine_mode);
 extern rtx frv_matching_accg_for_acc	(rtx);
 extern void frv_expand_fdpic_call	(rtx *, bool, bool);
 extern rtx frv_gen_GPsym2reg		(rtx, rtx);
-extern void frv_output_dwarf_dtprel	(FILE *, int, rtx);
+extern int frv_legitimate_memory_operand (rtx, enum machine_mode, int);
+
+/* Information about a relocation unspec.  SYMBOL is the relocation symbol
+   (a SYMBOL_REF or LABEL_REF), RELOC is the type of relocation and OFFSET
+   is the constant addend.  */
+struct frv_unspec {
+  rtx symbol;
+  int reloc;
+  HOST_WIDE_INT offset;
+};
+
+extern bool frv_const_unspec_p (rtx, struct frv_unspec *);
+
 #endif
 

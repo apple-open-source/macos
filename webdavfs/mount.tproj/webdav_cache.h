@@ -44,7 +44,7 @@ struct node_entry
 	size_t					name_length;			/* length of name */
 	char					*name;					/* the utf8 name */
 	CFStringRef				name_ref;				/* the name as a CFString */
-	ino_t					fileid;					/* file ID number */
+	webdav_ino_t			fileid;					/* file ID number */
 	webdav_filetype_t		node_type;				/* (int) either WEBDAV_FILE_TYPE or WEBDAV_DIR_TYPE */
 	u_int32_t				flags;
 	opaque_id				nodeid;					/* opaque_id assigned to this node */
@@ -93,7 +93,7 @@ struct node_entry
 	char					*file_entity_tag;		/* The entity-tag from the ETag response-header or from the getetag property */
 	uid_t					file_locktoken_uid;		/* the uid associated with the locktoken (filesystem_close and filesystem_lock need it to renew locks and to unlock). */
 	char					*file_locktoken;		/* the lock token, or NULL */
-	
+
 	/* Context for sequential writes */
 	struct stream_put_ctx* put_ctx;
 };

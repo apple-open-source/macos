@@ -36,6 +36,12 @@
 
 #include <CommonCrypto/aesopt.h>
 #include "aestab.h"
+#include <string.h>
+
+/*	Produce object code iff UseGladmanAES is defined.  Otherwise, suppress
+	use of this module, because some other AES implementation is being used.
+*/
+#if defined UseGladmanAES
 
 #if defined(__cplusplus)
 extern "C"
@@ -117,6 +123,10 @@ aes_rval aes_encrypt_key128(const unsigned char *key, aes_encrypt_ctx cx[1])
 #endif
     kel4(cx->ks, 9);
     cx->rn = 10;
+	#if CC_AES_USE_HARDWARE
+	bcopy(key, cx->keyBytes, 16);
+	cx->keyLength = 16;
+	#endif
 #if defined( AES_ERR_CHK )
     return aes_good;
 #endif
@@ -150,6 +160,10 @@ aes_rval aes_encrypt_key192(const unsigned char *key, aes_encrypt_ctx cx[1])
 #endif
     kel6(cx->ks, 7);
     cx->rn = 12;
+	#if CC_AES_USE_HARDWARE
+	bcopy(key, cx->keyBytes, 24);
+	cx->keyLength = 24;
+	#endif
 #if defined( AES_ERR_CHK )
     return aes_good;
 #endif
@@ -184,6 +198,10 @@ aes_rval aes_encrypt_key256(const unsigned char *key, aes_encrypt_ctx cx[1])
 #endif
     kel8(cx->ks, 6);
     cx->rn = 14;
+	#if CC_AES_USE_HARDWARE
+	bcopy(key, cx->keyBytes, 32);
+	cx->keyLength = 32;
+	#endif
 #if defined( AES_ERR_CHK )
     return aes_good;
 #endif
@@ -333,6 +351,10 @@ aes_rval aes_decrypt_key128(const unsigned char *key, aes_decrypt_ctx cx[1])
      kd4(cx->ks, 8); kdl4(cx->ks, 9);
 #endif
     cx->rn = 10;
+	#if CC_AES_USE_HARDWARE
+	bcopy(key, cx->keyBytes, 16);
+	cx->keyLength = 16;
+	#endif
 #if defined( AES_ERR_CHK )
     return aes_good;
 #endif
@@ -374,6 +396,10 @@ aes_rval aes_decrypt_key192(const unsigned char *key, aes_decrypt_ctx cx[1])
     kd6(cx->ks, 6); kdl6(cx->ks, 7);
 #endif
     cx->rn = 12;
+	#if CC_AES_USE_HARDWARE
+	bcopy(key, cx->keyBytes, 24);
+	cx->keyLength = 24;
+	#endif
 #if defined( AES_ERR_CHK )
     return aes_good;
 #endif
@@ -420,6 +446,10 @@ aes_rval aes_decrypt_key256(const unsigned char *key, aes_decrypt_ctx cx[1])
     kdl8(cx->ks, 6);
 #endif
     cx->rn = 14;
+	#if CC_AES_USE_HARDWARE
+	bcopy(key, cx->keyBytes, 32);
+	cx->keyLength = 32;
+	#endif
 #if defined( AES_ERR_CHK )
     return aes_good;
 #endif
@@ -454,3 +484,5 @@ aes_rval aes_decrypt_key(const unsigned char *key, int key_len, aes_decrypt_ctx 
 #if defined(__cplusplus)
 }
 #endif
+
+#endif	// defined UseGladmanAES

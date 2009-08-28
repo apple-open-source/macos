@@ -25,12 +25,19 @@ the column data. It also "deflates" references into an appropriate format
 for the database.
 
 It can be used, for example, to automatically convert to and from
-L<DateTime> objects for your date and time fields.
+L<DateTime> objects for your date and time fields. There's a
+conveniece component to actually do that though, try
+L<DBIx::Class::InflateColumn::DateTime>.
 
-It will accept arrayrefs, hashrefs and blessed references (objects),
-but not scalarrefs. Scalar references are passed through to the
-database to deal with, to allow such settings as C< \'year + 1'> and
-C< \'DEFAULT' > to work.
+It will handle all types of references except scalar references. It
+will not handle scalar values, these are ignored and thus passed
+through to L<SQL::Abstract>. This is to allow setting raw values to
+"just work". Scalar references are passed through to the database to
+deal with, to allow such settings as C< \'year + 1'> and C< \'DEFAULT' >
+to work.
+
+If you want to filter plain scalar values and replace them with
+something else, contribute a filtering component.
 
 =head1 METHODS
 
@@ -57,8 +64,7 @@ database, or consider L<DateTime::Format::DBI>.)
 
 The coderefs you set for inflate and deflate are called with two parameters,
 the first is the value of the column to be inflated/deflated, the second is the
-row object itself. Thus you can call C<< ->result_source->schema->storage->dbh >> on
-it, to feed to L<DateTime::Format::DBI>.
+row object itself. Thus you can call C<< ->result_source->schema->storage->dbh >> in your inflate/defalte subs, to feed to L<DateTime::Format::DBI>.
 
 In this example, calls to an event's C<insert_time> accessor return a
 L<DateTime> object. This L<DateTime> object is later "deflated" when
@@ -73,7 +79,7 @@ sub inflate_column {
   $self->throw_exception("inflate_column needs attr hashref")
     unless ref $attrs eq 'HASH';
   $self->column_info($col)->{_inflate_info} = $attrs;
-  $self->mk_group_accessors('inflated_column' => $col);
+  $self->mk_group_accessors('inflated_column' => [$self->column_info($col)->{accessor} || $col, $col]);
   return 1;
 }
 
@@ -162,93 +168,6 @@ sub store_inflated_column {
   }
   delete $self->{_column_data}{$col};
   return $self->{_inflated_column}{$col} = $inflated;
-}
-
-=head2 get_column
-
-Gets a column value in the same way as L<DBIx::Class::Row/get_column>. If there
-is an inflated value stored that has not yet been deflated, it is deflated
-when the method is invoked.
-
-=cut
-
-sub get_column {
-  my ($self, $col) = @_;
-  if (exists $self->{_inflated_column}{$col}
-        && !exists $self->{_column_data}{$col}) {
-    $self->store_column($col, $self->_deflated_column($col, $self->{_inflated_column}{$col})); 
-  }
-  return $self->next::method($col);
-}
-
-=head2 get_columns 
-
-Returns the get_column info for all columns as a hash,
-just like L<DBIx::Class::Row/get_columns>.  Handles inflation just
-like L</get_column>.
-
-=cut
-
-sub get_columns {
-  my $self = shift;
-  if (exists $self->{_inflated_column}) {
-    foreach my $col (keys %{$self->{_inflated_column}}) {
-      $self->store_column($col, $self->_deflated_column($col, $self->{_inflated_column}{$col}))
-       unless exists $self->{_column_data}{$col};
-    }
-  }
-  return $self->next::method;
-}
-
-=head2 has_column_loaded
-
-Like L<DBIx::Class::Row/has_column_loaded>, but also returns true if there
-is an inflated value stored.
-
-=cut
-
-sub has_column_loaded {
-  my ($self, $col) = @_;
-  return 1 if exists $self->{_inflated_column}{$col};
-  return $self->next::method($col);
-}
-
-=head2 update
-
-Updates a row in the same way as L<DBIx::Class::Row/update>, handling
-inflation and deflation of columns appropriately.
-
-=cut
-
-sub update {
-  my ($class, $attrs, @rest) = @_;
-  foreach my $key (keys %{$attrs||{}}) {
-    if (ref $attrs->{$key} && $class->has_column($key)
-          && exists $class->column_info($key)->{_inflate_info}) {
-      $class->set_inflated_column($key, delete $attrs->{$key});
-    }
-  }
-  return $class->next::method($attrs, @rest);
-}
-
-=head2 new
-
-Creates a row in the same way as L<DBIx::Class::Row/new>, handling
-inflation and deflation of columns appropriately.
-
-=cut
-
-sub new {
-  my ($class, $attrs, @rest) = @_;
-  my $inflated;
-  foreach my $key (keys %{$attrs||{}}) {
-    $inflated->{$key} = delete $attrs->{$key} 
-      if ref $attrs->{$key} && $class->has_column($key)
-         && exists $class->column_info($key)->{_inflate_info};
-  }
-  my $obj = $class->next::method($attrs, @rest);
-  $obj->{_inflated_column} = $inflated if $inflated;
-  return $obj;
 }
 
 =head1 SEE ALSO

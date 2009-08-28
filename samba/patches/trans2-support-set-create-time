@@ -2,7 +2,7 @@ Index: samba/source/smbd/trans2.c
 ===================================================================
 --- samba/source/smbd/trans2.c.orig
 +++ samba/source/smbd/trans2.c
-@@ -4820,6 +4820,7 @@ static NTSTATUS smb_set_info_standard(co
+@@ -4877,6 +4877,7 @@ static NTSTATUS smb_set_info_standard(co
  					const SMB_STRUCT_STAT *psbuf)
  {
  	struct timespec ts[2];
@@ -10,7 +10,7 @@ Index: samba/source/smbd/trans2.c
  
  	if (total_data < 12) {
  		return NT_STATUS_INVALID_PARAMETER;
-@@ -4830,6 +4831,14 @@ static NTSTATUS smb_set_info_standard(co
+@@ -4887,6 +4888,14 @@ static NTSTATUS smb_set_info_standard(co
  	/* write time */
  	ts[1] = convert_time_t_to_timespec(srv_make_unix_date2(pdata+l1_fdateLastWrite));
  
@@ -25,7 +25,7 @@ Index: samba/source/smbd/trans2.c
  	DEBUG(10,("smb_set_info_standard: file %s\n",
  		fname ? fname : fsp->fsp_name ));
  
-@@ -4851,6 +4860,7 @@ static NTSTATUS smb_set_file_basic_info(
+@@ -4908,6 +4917,7 @@ static NTSTATUS smb_set_file_basic_info(
  					const char *fname,
  					SMB_STRUCT_STAT *psbuf)
  {
@@ -33,7 +33,7 @@ Index: samba/source/smbd/trans2.c
  	/* Patch to do this correctly from Paul Eggert <eggert@twinsun.com>. */
  	struct timespec write_time;
  	struct timespec changed_time;
-@@ -4872,7 +4882,12 @@ static NTSTATUS smb_set_file_basic_info(
+@@ -4929,7 +4939,12 @@ static NTSTATUS smb_set_file_basic_info(
  		return status;
  	}
  
@@ -47,7 +47,7 @@ Index: samba/source/smbd/trans2.c
  
  	/* access time */
  	ts[0] = interpret_long_date(pdata+8);
-@@ -5287,6 +5302,7 @@ static NTSTATUS smb_set_file_unix_info2(
+@@ -5361,6 +5376,7 @@ static NTSTATUS smb_set_file_unix_info2(
  					const char *fname,
  					SMB_STRUCT_STAT *psbuf)
  {
@@ -55,7 +55,7 @@ Index: samba/source/smbd/trans2.c
  	NTSTATUS status;
  	uint32 smb_fflags;
  	uint32 smb_fmask;
-@@ -5304,6 +5320,12 @@ static NTSTATUS smb_set_file_unix_info2(
+@@ -5378,6 +5394,12 @@ static NTSTATUS smb_set_file_unix_info2(
  		return status;
  	}
  

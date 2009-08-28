@@ -3,6 +3,8 @@
 
 #include <sys/cdefs.h>
 
+#define MDNS_HANDLE_NAME "*MDNS*"
+
 #define DNS_FLAG_DEBUG                    0x00000001
 #define DNS_FLAG_CHECK_RESOLVER_DIR       0x00000002
 #define DNS_FLAG_HAVE_IPV6_SERVER         0x00000004

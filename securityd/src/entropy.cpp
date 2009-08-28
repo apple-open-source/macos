@@ -36,6 +36,7 @@
 // file that some fool administrator removed yesterday.
 //
 #include "entropy.h"
+#include "dtrace.h"
 #include <sys/sysctl.h>
 #include <mach/clock_types.h>
 #include <errno.h>
@@ -95,6 +96,7 @@ void EntropyManager::action()
 //
 void EntropyManager::collectEntropy()
 {
+	SECURITYD_ENTROPY_COLLECT();
     int mib[4];
     mib[0] = CTL_KERN;
     mib[1] = KERN_KDEBUG;
@@ -102,12 +104,17 @@ void EntropyManager::collectEntropy()
     mib[3] = 1;	// milliseconds maximum delay
     mach_timespec_t timings[timingsToCollect];
     size_t size = sizeof(timings);
-    int ret = sysctl(mib, 4, timings, &size, NULL, 0);
-    if (ret == -1) {
+    if (sysctl(mib, 4, timings, &size, NULL, 0)) {
         Syslog::alert("entropy collection failed (errno=%d)", errno);
         return;
     }
+	size /= sizeof(mach_timespec_t); // convert to element count
+	if (size > timingsToCollect)
+		size = timingsToCollect;	// pure paranoia
     char buffer[timingsToCollect];
+    size /= sizeof(mach_timespec_t); // convert to element count
+    if (size > timingsToCollect)
+        size = timingsToCollect;    // pure paranoia
     for (unsigned n = 0; n < size; n++)
         buffer[n] = timings[n].tv_nsec;	// truncating to LSB
 	secdebug("entropy", "Entropy size %d: %02x %02x %02x %02x %02x %02x %02x %02x...",
@@ -115,6 +122,7 @@ void EntropyManager::collectEntropy()
 		(unsigned char)buffer[0], (unsigned char)buffer[1], (unsigned char)buffer[2],
 		(unsigned char)buffer[3], (unsigned char)buffer[4], (unsigned char)buffer[5],
 		(unsigned char)buffer[6], (unsigned char)buffer[7]);
+	SECURITYD_ENTROPY_SEED((void *)buffer, size);
     addEntropy(buffer, size);
 }
 
@@ -126,6 +134,7 @@ void EntropyManager::updateEntropyFile()
 {
     if (Time::now() >= mNextUpdate) {
         try {
+			SECURITYD_ENTROPY_SAVE((char *)mEntropyFilePath.c_str());
 			mNextUpdate = Time::now() + Time::Interval(updateInterval);
             secdebug("entropy", "updating %s", mEntropyFilePath.c_str());
         	char buffer[entropyFileSize];

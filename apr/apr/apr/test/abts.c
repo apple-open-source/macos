@@ -1,8 +1,9 @@
-/* Copyright 2000-2004 Ryan Bloom
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -11,9 +12,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
- * Portions of this file were taken from testall.c in the APR test suite,
- * written by members of the Apache Software Foundation.
  */
 
 #include "abts.h"
@@ -252,6 +250,22 @@ void abts_int_nequal(abts_case *tc, const int expected, const int actual, int li
     }
 }
 
+void abts_size_equal(abts_case *tc, size_t expected, size_t actual, int lineno)
+{
+    update_status();
+    if (tc->failed) return;
+
+    if (expected == actual) return;
+
+    tc->failed = TRUE;
+    if (verbose) {
+        /* Note that the comparison is type-exact, reporting must be a best-fit */
+        fprintf(stderr, "Line %d: expected %lu, but saw %lu\n", lineno, 
+                (unsigned long)expected, (unsigned long)actual);
+        fflush(stderr);
+    }
+}
+
 void abts_str_equal(abts_case *tc, const char *expected, const char *actual, int lineno)
 {
     update_status();
@@ -369,6 +383,9 @@ int main(int argc, const char *const argv[]) {
     abts_suite *suite = NULL;
    
     initialize();
+
+    quiet = !isatty(STDOUT_FILENO);
+
     for (i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-v")) {
             verbose = 1;

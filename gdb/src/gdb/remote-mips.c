@@ -1858,7 +1858,8 @@ mips_wait (ptid_t ptid, struct target_waitstatus *status)
 	  CORE_ADDR func_start;
 	  CORE_ADDR pc = read_pc ();
 
-	  find_pc_partial_function (pc, &func_name, &func_start, NULL);
+	  find_pc_partial_function_no_inlined (pc, &func_name, &func_start, 
+					       NULL);
 	  if (func_name != NULL && strcmp (func_name, "_exit") == 0
 	      && func_start == pc)
 	    status->kind = TARGET_WAITKIND_EXITED;

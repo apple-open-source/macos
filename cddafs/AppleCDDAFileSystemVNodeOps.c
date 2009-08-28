@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -64,25 +64,31 @@
 #include <vfs/vfs_support.h>
 #include <string.h>
 #include <libkern/OSByteOrder.h>
+#include <IOKit/IOLib.h>
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Globals
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 const char gAIFFHeaderPadData[kPhysicalMediaBlockSize - sizeof(CDAIFFHeader)] = { 0 };
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Static Function Prototypes
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 static SInt32
 AddDirectoryEntry ( UInt32 nodeID, UInt8 type, const char * name, uio_t uio );
 
+static inline uint64_t
+__u64min(uint64_t a, uint64_t b)
+{
+	return (a > b ? b : a);
+}
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	AddDirectoryEntry - This routine adds a directory entry to the uio buffer
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 static SInt32
 AddDirectoryEntry ( UInt32			nodeID,
@@ -100,7 +106,7 @@ AddDirectoryEntry ( UInt32			nodeID,
 
 	DebugLog ( ( "fileName = %s\n", name ) );
 	
-	nameLength = strlen ( name );		
+	nameLength = ( SInt32 ) strlen ( name );		
 	DebugAssert ( ( nameLength < MAXNAMLEN + 1 ) );
 	
 	directoryEntry.d_fileno = nodeID;
@@ -129,7 +135,7 @@ AddDirectoryEntry ( UInt32			nodeID,
 	{
 		
 		// Move the data
-		uiomove ( ( caddr_t ) &directoryEntry, sizeof ( directoryEntry ), uio );
+		uiomove ( ( caddr_t ) &directoryEntry, ( int ) sizeof ( directoryEntry ), uio );
 				
 	}
 	
@@ -138,9 +144,9 @@ AddDirectoryEntry ( UInt32			nodeID,
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	CDDA_Lookup -	This routine performs a lookup
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 int
 CDDA_Lookup ( struct vnop_lookup_args * lookupArgsPtr )
@@ -214,7 +220,7 @@ struct vnop_lookup_args {
 	{
 		
 		DebugLog ( ( "No resource forks available, return ENOTDIR.\n" ) );
-		compNamePtr->cn_consume = sizeof ( _PATH_RSRCFORKSPEC ) - 1;
+		compNamePtr->cn_consume = ( uint32_t ) sizeof ( _PATH_RSRCFORKSPEC ) - 1;
 		error = ENOTDIR;
 		goto Exit;
 		
@@ -310,9 +316,9 @@ Exit:
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	CDDA_Open - This routine opens a file
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 int
 CDDA_Open ( struct vnop_open_args * openArgsPtr )
@@ -364,10 +370,10 @@ ERROR:
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	CDDA_Close -	This routine closes a file. Since we are a read-only
 //					filesystem, we don't have any cleaning up to do.
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 int
 CDDA_Close ( struct vnop_close_args * closeArgsPtr )
@@ -380,25 +386,14 @@ struct vnop_close_args {
 };
 */
 {
-	
-	DebugLog ( ( "CDDA_Close: Entering.\n" ) );
-
-#if DEBUG
-	DebugAssert ( ( closeArgsPtr != NULL ) );
-#else
-	#pragma unused ( closeArgsPtr )
-#endif
-	
-	DebugLog ( ( "CDDA_Close: exiting...\n" ) );
-	
+#pragma unused (closeArgsPtr)
 	return ( 0 );
-	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	CDDA_Read - This routine reads from a file
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 int
 CDDA_Read ( struct vnop_read_args * readArgsPtr )
@@ -476,7 +471,7 @@ struct vnop_read_args {
 			
 		}
 		
-		amountToCopy = ulmin ( uio_resid ( uio ), numBytes - offset );
+		amountToCopy = ( UInt32 ) __u64min ( uio_resid ( uio ), numBytes - offset );
 		
 		uiomove ( ( caddr_t ) &cddaNodePtr->u.xmlFile.fileDataPtr[offset],
 				  amountToCopy,
@@ -491,7 +486,7 @@ struct vnop_read_args {
 		
 		UInt32			headerSize		= 0;
 		UInt32			count			= 0;
-		UInt32			blockNumber		= 0;
+		UInt64			blockNumber		= 0;
 		off_t			offset			= 0;
 		off_t			sectorOffset	= 0;
 		buf_t			bufPtr			= NULL;
@@ -507,7 +502,7 @@ struct vnop_read_args {
 			
 		}
 		
-		headerSize = sizeof ( cddaNodePtr->u.file.aiffHeader );
+		headerSize = ( UInt32 ) sizeof ( cddaNodePtr->u.file.aiffHeader );
 		
 		// Copy any part of the header that we need to copy.
 		if ( offset < headerSize )
@@ -518,7 +513,7 @@ struct vnop_read_args {
 			
 			bytes = ( UInt8 * ) &cddaNodePtr->u.file.aiffHeader;
 			
-			amountToCopy = ulmin ( uio_resid ( uio ), headerSize - offset );
+			amountToCopy = ( UInt32 ) __u64min ( uio_resid ( uio ), headerSize - offset );
 			
 			uiomove ( ( caddr_t ) &bytes[offset],
 				  amountToCopy,
@@ -527,16 +522,16 @@ struct vnop_read_args {
 			offset += amountToCopy;
 			
 		}
-		
+
 		// Copy any part of the header pad that we need to copy.
 		if ( ( uio_resid ( uio ) > 0  ) &&
 			 ( offset < kPhysicalMediaBlockSize ) )
 		{
 			
 			UInt32	amountToCopy = 0;
-			
-			amountToCopy = ulmin ( uio_resid ( uio ), kPhysicalMediaBlockSize - offset );
-			
+
+			amountToCopy = ( UInt32 ) __u64min ( uio_resid ( uio ), kPhysicalMediaBlockSize - offset );
+
 			uiomove ( ( caddr_t ) &gAIFFHeaderPadData[offset - headerSize],
 				  amountToCopy,
 				  uio );
@@ -560,11 +555,11 @@ struct vnop_read_args {
 			{
 				
 				// Clip to requested transfer count and end of file.
-				count = ulmin ( uio_resid ( uio ), ( kPhysicalMediaBlockSize - sectorOffset ) );
-				count = ulmin ( count, cddaNodePtr->u.file.nodeInfoPtr->numBytes - uio_offset ( uio ) );
+				count = ( UInt32 ) __u64min ( uio_resid ( uio ), ( kPhysicalMediaBlockSize - sectorOffset ) );
+				count = ( UInt32 ) __u64min ( count, cddaNodePtr->u.file.nodeInfoPtr->numBytes - uio_offset ( uio ) );
 				
 				// Read the one sector
-				error = ( int ) buf_bread (
+				error = ( int ) buf_meta_bread (
 									cddaNodePtr->blockDeviceVNodePtr,
 									blockNumber,
 									kPhysicalMediaBlockSize,
@@ -602,7 +597,7 @@ struct vnop_read_args {
 					( uio_offset ( uio ) < cddaNodePtr->u.file.nodeInfoPtr->numBytes ) )
 			{
 				
-				UInt32		blocksToRead = 0;
+				UInt64		blocksToRead = 0;
 				
 				// Read in as close to MAXBSIZE chunks as possible
 				if ( uio_resid ( uio ) > kMaxBytesPerRead )
@@ -614,11 +609,11 @@ struct vnop_read_args {
 				else
 				{
 					blocksToRead	= uio_resid ( uio ) / kPhysicalMediaBlockSize;
-					count			= blocksToRead * kPhysicalMediaBlockSize;
+					count			= ( UInt32 ) ( blocksToRead * kPhysicalMediaBlockSize );
 				}
 				
-				// read kMaxBlocksPerRead blocks and put them in the cache.
-				error = ( int ) buf_bread (
+				// Read kMaxBlocksPerRead blocks and put them in the cache.
+				error = ( int ) buf_meta_bread (
 									cddaNodePtr->blockDeviceVNodePtr,
 									blockNumber,
 									count,
@@ -633,8 +628,8 @@ struct vnop_read_args {
 					
 				}
 				
-				count = ulmin ( count, cddaNodePtr->u.file.nodeInfoPtr->numBytes - uio_offset ( uio ) );
-				
+				count = ( UInt32 ) __u64min ( count, cddaNodePtr->u.file.nodeInfoPtr->numBytes - uio_offset ( uio ) );
+
 				// Move the data from the block into the buffer
 				uiomove ( ( caddr_t ) buf_dataptr ( bufPtr ), count, uio );
 				
@@ -657,10 +652,10 @@ struct vnop_read_args {
 				 ( uio_offset ( uio ) < cddaNodePtr->u.file.nodeInfoPtr->numBytes ) )
 			{
 				
-				count = ulmin ( uio_resid ( uio ), cddaNodePtr->u.file.nodeInfoPtr->numBytes - uio_offset ( uio ) );
+				count = ( UInt32 ) __u64min ( uio_resid ( uio ), cddaNodePtr->u.file.nodeInfoPtr->numBytes - uio_offset ( uio ) );
 				
 				// Read the one sector
-				error = ( int ) buf_bread (
+				error = ( int ) buf_meta_bread (
 									cddaNodePtr->blockDeviceVNodePtr,
 									blockNumber,
 									kPhysicalMediaBlockSize,
@@ -678,6 +673,10 @@ struct vnop_read_args {
 				// Move the data from the block into the buffer
 				uiomove ( ( caddr_t ) buf_dataptr ( bufPtr ), count, uio );
 				
+				// Make sure we mark any intermediate buffers as invalid as we don't need
+				// to keep them.
+				buf_markinvalid ( bufPtr );
+				
 				// Release this buffer back into the buffer pool. 
 				buf_brelse ( bufPtr );
 				
@@ -694,9 +693,9 @@ struct vnop_read_args {
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	CDDA_ReadDir -	This routine reads the contents of a directory
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 int
 CDDA_ReadDir ( struct vnop_readdir_args * readDirArgsPtr )
@@ -775,7 +774,7 @@ struct vnop_readdir_args {
 		
 	}
 	
-	direntSize	= sizeof ( struct dirent );
+	direntSize	= ( UInt32 ) sizeof ( struct dirent );
 	
 	// Synthesize '.', "..", and ".TOC.plist"
 	if ( uio_offset ( uio ) == 0 )
@@ -878,9 +877,9 @@ struct vnop_readdir_args {
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	CDDA_PageIn -	This routine handles VM PageIn requests
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 int
 CDDA_PageIn ( struct vnop_pagein_args * pageInArgsPtr )
@@ -939,7 +938,7 @@ struct vnop_pagein_args {
 			
 			ubc_upl_abort_range ( pageInArgsPtr->a_pl,
 								  pageInArgsPtr->a_pl_offset,
-								  pageInArgsPtr->a_size,
+								  ( upl_size_t ) pageInArgsPtr->a_size,
 								  UPL_ABORT_ERROR | UPL_ABORT_FREE_ON_EMPTY );
 			
 		}
@@ -957,7 +956,7 @@ struct vnop_pagein_args {
 			
 			ubc_upl_abort_range ( pageInArgsPtr->a_pl,
 								  pageInArgsPtr->a_pl_offset,
-								  pageInArgsPtr->a_size,
+								  ( upl_size_t ) pageInArgsPtr->a_size,
 								  UPL_ABORT_ERROR | UPL_ABORT_FREE_ON_EMPTY );
 			
 		}
@@ -978,7 +977,7 @@ struct vnop_pagein_args {
 			
 			ubc_upl_abort_range ( pageInArgsPtr->a_pl,
 								  pageInArgsPtr->a_pl_offset,
-								  pageInArgsPtr->a_size,
+								  ( upl_size_t ) pageInArgsPtr->a_size,
 								  UPL_ABORT_ERROR | UPL_ABORT_FREE_ON_EMPTY );
 			
 		}
@@ -993,7 +992,7 @@ struct vnop_pagein_args {
 				
 		kern_return_t		kret			= 0;
 		vm_offset_t			vmOffsetPtr		= 0;
-		off_t				amountToCopy	= 0;
+		UInt32				amountToCopy	= 0;
 					
 		// Map the physical page into the kernel address space
 		kret = ubc_upl_map ( pageInArgsPtr->a_pl, &vmOffsetPtr );
@@ -1009,7 +1008,7 @@ struct vnop_pagein_args {
 		// Zero fill the page
 		bzero ( ( caddr_t )( vmOffsetPtr + pageInArgsPtr->a_pl_offset ), PAGE_SIZE );
 		
-		amountToCopy = ulmin ( PAGE_SIZE, numBytes - pageInArgsPtr->a_f_offset );
+		amountToCopy = ( UInt32 ) __u64min ( PAGE_SIZE, numBytes - pageInArgsPtr->a_f_offset );
 		
 		// Copy the file data
 		bcopy ( &cddaNodePtr->u.xmlFile.fileDataPtr[pageInArgsPtr->a_f_offset],
@@ -1046,7 +1045,7 @@ struct vnop_pagein_args {
 	{
 		
 		UInt32			headerSize		= 0;
-		UInt32			blockNumber		= 0;
+		UInt64			blockNumber		= 0;
 		UInt32			count			= 0;
 		off_t			offset			= 0;
 		off_t			sectorOffset	= 0;
@@ -1067,7 +1066,7 @@ struct vnop_pagein_args {
 			
 		}
 		
-		headerSize = sizeof ( cddaNodePtr->u.file.aiffHeader );
+		headerSize = ( UInt32 ) sizeof ( cddaNodePtr->u.file.aiffHeader );
 
 		// Map the physical pages into the kernel address space
 		kret = ubc_upl_map ( pageInArgsPtr->a_pl, &vmOffsetPtr );
@@ -1087,10 +1086,10 @@ struct vnop_pagein_args {
 		if ( offset < headerSize )
 		{
 			
-			off_t		amountToCopy	= 0;
+			UInt32		amountToCopy	= 0;
 			UInt8 *		bytes			= NULL;
 			
-			amountToCopy = ulmin ( pageInArgsPtr->a_size, headerSize - offset );
+			amountToCopy = ( UInt32 ) __u64min ( pageInArgsPtr->a_size, headerSize - offset );
 			
 			bytes = ( UInt8 * ) &cddaNodePtr->u.file.aiffHeader;
 			
@@ -1110,9 +1109,9 @@ struct vnop_pagein_args {
 			 ( offset < kPhysicalMediaBlockSize ) )
 		{
 			
-			off_t	amountToCopy = 0;
+			UInt32	amountToCopy = 0;
 			
-			amountToCopy = ulmin ( residual, kPhysicalMediaBlockSize - offset );
+			amountToCopy = ( UInt32 ) __u64min ( residual, kPhysicalMediaBlockSize - offset );
 						
 			// Copy the header pad data (all zeroes).
 			bcopy ( &gAIFFHeaderPadData[offset - headerSize],
@@ -1140,11 +1139,11 @@ struct vnop_pagein_args {
 			{
 				
 				// Clip to requested transfer count and end of file.
-				count = ulmin ( residual, ( kPhysicalMediaBlockSize - sectorOffset ) );
-				count = ulmin ( count, cddaNodePtr->u.file.nodeInfoPtr->numBytes - offset );
+				count = ( UInt32 ) __u64min ( residual, ( kPhysicalMediaBlockSize - sectorOffset ) );
+				count = ( UInt32 ) __u64min ( count, cddaNodePtr->u.file.nodeInfoPtr->numBytes - offset );
 				
 				// Read the one sector
-				error = ( int ) buf_bread (
+				error = ( int ) buf_meta_bread (
 									cddaNodePtr->blockDeviceVNodePtr,
 									blockNumber,
 									kPhysicalMediaBlockSize,
@@ -1158,7 +1157,7 @@ struct vnop_pagein_args {
 					return ( error );
 					
 				}
-				
+
 				// Copy the data
 				bcopy ( ( void * ) ( ( char * ) buf_dataptr ( bufPtr ) + sectorOffset ),
 						( void * ) vmOffsetPtr,
@@ -1189,7 +1188,7 @@ struct vnop_pagein_args {
 					( offset < cddaNodePtr->u.file.nodeInfoPtr->numBytes ) )
 			{
 				
-				UInt32		blocksToRead = 0;
+				UInt64		blocksToRead = 0;
 				
 				// Read in as close to MAXBSIZE chunks as possible
 				if ( residual > kMaxBytesPerRead )
@@ -1201,11 +1200,11 @@ struct vnop_pagein_args {
 				else
 				{
 					blocksToRead	= residual / kPhysicalMediaBlockSize;
-					count			= blocksToRead * kPhysicalMediaBlockSize;
+					count			= ( UInt32 ) ( blocksToRead * kPhysicalMediaBlockSize );
 				}
 				
 				// read kMaxBlocksPerRead blocks and put them in the cache.
-				error = ( int ) buf_bread (
+				error = ( int ) buf_meta_bread (
 									cddaNodePtr->blockDeviceVNodePtr,
 									blockNumber,
 									count,
@@ -1220,7 +1219,7 @@ struct vnop_pagein_args {
 					
 				}
 				
-				count = ulmin ( count, cddaNodePtr->u.file.nodeInfoPtr->numBytes - offset );
+				count = ( UInt32 ) __u64min ( count, cddaNodePtr->u.file.nodeInfoPtr->numBytes - offset );
 				
 				// Copy the data
 				bcopy ( ( void * ) buf_dataptr ( bufPtr ), ( void * ) vmOffsetPtr, count );
@@ -1249,10 +1248,10 @@ struct vnop_pagein_args {
 				 ( offset < cddaNodePtr->u.file.nodeInfoPtr->numBytes ) )
 			{
 				
-				count = ulmin ( residual, cddaNodePtr->u.file.nodeInfoPtr->numBytes - offset );
+				count = ( UInt32 ) __u64min ( residual, cddaNodePtr->u.file.nodeInfoPtr->numBytes - offset );
 				
 				// Read the one sector
-				error = ( int ) buf_bread (
+				error = ( int ) buf_meta_bread (
 									cddaNodePtr->blockDeviceVNodePtr,
 									blockNumber,
 									kPhysicalMediaBlockSize,
@@ -1266,7 +1265,7 @@ struct vnop_pagein_args {
 					return ( error );
 					
 				}
-				
+
 				// Copy the data
 				bcopy ( ( void * ) buf_dataptr ( bufPtr ), ( void * ) vmOffsetPtr, count );
 				
@@ -1274,6 +1273,10 @@ struct vnop_pagein_args {
 				offset		+= count;
 				residual	-= count;
 				vmOffsetPtr += count;
+				
+				// Make sure we mark any intermediate buffers as invalid as we don't need
+				// to keep them.
+				buf_markinvalid ( bufPtr );
 				
 				// Release this buffer back into the buffer pool. 
 				buf_brelse ( bufPtr );
@@ -1299,7 +1302,7 @@ struct vnop_pagein_args {
 			// Commit the page to the vm subsystem
 			ubc_upl_commit_range (	pageInArgsPtr->a_pl,
 									pageInArgsPtr->a_pl_offset,
-									pageInArgsPtr->a_size,
+									( upl_size_t ) pageInArgsPtr->a_size,
 									UPL_COMMIT_FREE_ON_EMPTY | UPL_COMMIT_CLEAR_DIRTY );
 			
 		}
@@ -1313,9 +1316,9 @@ struct vnop_pagein_args {
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	CDDA_GetAttributes - This routine gets the attributes for a folder/file
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 int
 CDDA_GetAttributes ( struct vnop_getattr_args * getAttrArgsPtr )
@@ -1476,9 +1479,9 @@ struct vnop_getattr_args {
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	CDDA_Inactive - This routine simply unlocks a vnode.
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 int
 CDDA_Inactive ( struct vnop_inactive_args * inactiveArgsPtr )
@@ -1505,11 +1508,11 @@ struct vnop_inactive_args {
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	CDDA_Remove -	This routine removes a file from the name space. Since we
 //					are a read-only volume, we release any locks if appropriate
 //					and return EROFS
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 int 
 CDDA_Remove ( struct vnop_remove_args * removeArgsPtr )
@@ -1540,11 +1543,11 @@ struct vnop_remove_args {
 }	
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	CDDA_RmDir -	This routine removes a directory from the name space.
 //					Since we are a read-only volume, we release any locks
 //					and return EROFS
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 int 
 CDDA_RmDir ( struct vnop_rmdir_args * removeDirArgsPtr )
@@ -1574,12 +1577,12 @@ struct vnop_rmdir_args {
 }	
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	CDDA_Reclaim - This routine reclaims a vnode for use by the system.
 //
 //	Remove the vnode from our node info array, drop the fs reference,
 //	free our private data.
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 int
 CDDA_Reclaim ( struct vnop_reclaim_args * reclaimArgsPtr )
@@ -1644,10 +1647,10 @@ struct vnop_reclaim_args {
 
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	CDDA_BlockToOffset -	This routine converts logical block number to file
 //							offset
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 int
 CDDA_BlockToOffset ( struct vnop_blktooff_args * blockToOffsetArgsPtr )
@@ -1683,10 +1686,10 @@ struct vnop_blktooff_args {
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	CDDA_OffsetToBlock -	This routine converts a file offset to a logical
 //							block number
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 int
 CDDA_OffsetToBlock ( struct vnop_offtoblk_args * offsetToBlockArgsPtr )
@@ -1721,10 +1724,10 @@ struct vnop_offtoblk_args {
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	CDDA_Pathconf - Return POSIX pathconf information applicable to
 //					special devices
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 int
 CDDA_Pathconf ( struct vnop_pathconf_args * pathConfArgsPtr )
@@ -1780,10 +1783,10 @@ struct vnop_pathconf_args {
 		
 }
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	CDDA_GetXAttr - Handles extended attribute reads.
 //					In this case, just for FinderInfo.
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 int
 CDDA_GetXAttr ( struct vnop_getxattr_args * getXAttrArgsPtr )
@@ -1855,14 +1858,14 @@ struct vnop_getxattr_args {
 		
 	}
 	
-	return ( uiomove ( ( caddr_t ) buf, sizeof ( buf ), getXAttrArgsPtr->a_uio ) );
+	return ( uiomove ( ( caddr_t ) buf, ( int ) sizeof ( buf ), getXAttrArgsPtr->a_uio ) );
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Other macro'd function definitions
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 int ( **gCDDA_VNodeOp_p )( void * );
 typedef int (*VNOPFUNC) ( void * );
@@ -1873,9 +1876,9 @@ typedef int (*VNOPFUNC) ( void * );
 #endif
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	VNode Operation Vector Entry Description (Dispatch Table)
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 struct vnodeopv_entry_desc gCDDA_VNodeOperationEntries[] =
 {
@@ -1908,6 +1911,6 @@ struct vnodeopv_desc gCDDA_VNodeOperationsDesc =
 };
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //				End				Of			File
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------

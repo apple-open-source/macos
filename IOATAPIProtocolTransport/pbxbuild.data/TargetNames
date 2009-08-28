@@ -1,9 +1,0 @@
-if [ "${Target}" = "IOATAPIProtocolTransport" ]; then
-	Targets='InstallHdrs
-IOATAPIProtocolTransport'
-elif [ "${Target}" = "InstallHdrs" ]; then
-	Targets='InstallHdrs'
-else
-	Targets='InstallHdrs
-IOATAPIProtocolTransport'
-fi

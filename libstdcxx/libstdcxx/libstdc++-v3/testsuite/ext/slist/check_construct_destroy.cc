@@ -15,7 +15,7 @@
 //
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 //
 // As a special exception, you may use this file as part of a free software
@@ -35,11 +35,11 @@ using namespace __gnu_test;
 
 int main()
 {
-  typedef __gnu_cxx::slist<int, tracker_alloc<int> > Container;
+  typedef __gnu_cxx::slist<int, tracker_allocator<int> > Container;
   const int arr10[10] = { 2, 4, 1, 7, 3, 8, 10, 5, 9, 6 };
   bool ok = true;
 
-  allocation_tracker::resetCounts();
+  tracker_allocator_counter::reset();
   {
     Container c;
     ok = check_construct_destroy("empty container", 0, 0) && ok;
@@ -47,7 +47,7 @@ int main()
   ok = check_construct_destroy("empty container", 0, 0) && ok;
 
 
-  allocation_tracker::resetCounts();
+  tracker_allocator_counter::reset();
   {
     Container c(arr10, arr10 + 10);
     ok = check_construct_destroy("Construct from range", 10, 0) && ok;
@@ -56,7 +56,7 @@ int main()
 
   {
     Container c(arr10, arr10 + 10);
-    allocation_tracker::resetCounts();
+    tracker_allocator_counter::reset();
     c.insert(c.begin(), arr10[0]);
     ok = check_construct_destroy("Insert element", 1, 0) && ok;
   }
@@ -64,7 +64,7 @@ int main()
 
   {
     Container c(arr10, arr10 + 10);
-    allocation_tracker::resetCounts();
+    tracker_allocator_counter::reset();
     Container::iterator i5 = c.begin();
     std::advance(i5, 5);
     c.insert(i5, arr10, arr10+3);
@@ -74,7 +74,7 @@ int main()
 
   {
     Container c(arr10, arr10 + 10);
-    allocation_tracker::resetCounts();
+    tracker_allocator_counter::reset();
     Container::iterator i7 = c.begin();
     std::advance(i7, 5);
     c.insert(i7, arr10, arr10+10);

@@ -13,11 +13,12 @@ Index: samba/source/libsmb/clirap.c
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation; either version 2 of the License, or
-@@ -216,51 +218,116 @@ BOOL cli_NetServerEnum(struct cli_state 
+@@ -216,56 +218,125 @@ BOOL cli_NetServerEnum(struct cli_state 
  	char *p;
  	pstring param;
  	int uLevel = 1;
 -	int count = -1;
+ 	size_t len;
 +	uint32 func = RAP_NetServerEnum2;
 +	char *last_entry = NULL;
 +	int total_cnt = 0;
@@ -58,7 +59,12 @@ Index: samba/source/libsmb/clirap.c
 +		} else {
 +			pstrcpy_base(p,"WrLehDz", param);
 +		}
-+
+ 
+-	len = push_ascii(p, workgroup, sizeof(pstring)-PTR_DIFF(p,param)-1, STR_TERMINATE|STR_UPPER);
+-	if (len == (size_t)-1) {
+-		return false;
+-	}
+-	p += len;
 +		p = skip_string(param, sizeof(param), p);
 +		pstrcpy_base(p,"B16BBDz", param);
 +
@@ -71,13 +77,20 @@ Index: samba/source/libsmb/clirap.c
 +
 +		/* We have more data, tell the server were to continue from */
 +		if (last_entry) {
-+			p += push_ascii(p, last_entry,
++			len = push_ascii(p, last_entry,
 +				sizeof(pstring) - PTR_DIFF(p,param) - 1,
 +				STR_TERMINATE|STR_UPPER);
-+		} else
-+			p += push_ascii(p, workgroup,
++		} else {
++			len = push_ascii(p, workgroup,
 +				sizeof(pstring) - PTR_DIFF(p,param) - 1,
 +				STR_TERMINATE|STR_UPPER);
++		}
++
++		if (len == (size_t)-1) {
++			return false;
++		}
++
++		p += len;
 +
 +		if (!cli_api(cli,
 +			    param, PTR_DIFF(p,param), 8, /* params, length, max */
@@ -88,9 +101,7 @@ Index: samba/source/libsmb/clirap.c
 +			break;
 +		}
 +		res = rparam ? SVAL(rparam,0) : -1;
- 
--	p += push_ascii(p, workgroup, sizeof(pstring)-PTR_DIFF(p,param)-1, STR_TERMINATE|STR_UPPER);
--	
+ 	
 -	if (cli_api(cli, 
 -                    param, PTR_DIFF(p,param), 8,        /* params, length, max */
 -                    NULL, 0, CLI_BUFFER_SIZE,               /* data, length, max */
@@ -122,6 +133,8 @@ Index: samba/source/libsmb/clirap.c
 +			/* Keep track of how many we have read */
 +			return_cnt += count;
  			p = rdata;
+-					
++
 +			/*
 +			 * The last name in the previous NetServerEnum reply is
 +			 * sent back to server in the NetServerEnum3 request
@@ -140,14 +153,14 @@ Index: samba/source/libsmb/clirap.c
 +			    return_cnt = -1; /* Not part of total, so don't count. */
 +			    p = rdata+26; /* Skip the whole record */
 +			}
- 					
++
  			for (i = 0;i < count;i++, p += 26) {
 -				char *sname = p;
 -				int comment_offset = (IVAL(p,22) & 0xFFFF)-converter;
 -				const char *cmnt = comment_offset?(rdata+comment_offset):"";
+ 				pstring s1, s2;
 +				int comment_offset;
 +				const char *cmnt;
- 				pstring s1, s2;
  
 -				if (comment_offset < 0 || comment_offset > (int)rdrcnt) continue;
 +				sname = p;
@@ -161,7 +174,7 @@ Index: samba/source/libsmb/clirap.c
  
  				stype = IVAL(p,18) & ~SV_TYPE_LOCAL_LIST_ONLY;
  
-@@ -268,24 +335,46 @@ BOOL cli_NetServerEnum(struct cli_state 
+@@ -273,24 +344,46 @@ BOOL cli_NetServerEnum(struct cli_state 
  				pull_ascii_pstring(s2, cmnt);
  				fn(s1, stype, s2, state);
  			}

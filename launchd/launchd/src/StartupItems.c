@@ -112,9 +112,9 @@ void AddItemToFailedList(StartupContext aStartupContext, CFMutableDictionaryRef 
 }
 
 /**
- * startupItemListGetMatches returns an array of items which contain the string aService in the key aKey
+ * startupItemListCopyMatches returns an array of items which contain the string aService in the key aKey
  **/
-static CFMutableArrayRef startupItemListGetMatches(CFArrayRef anItemList, CFStringRef aKey, CFStringRef aService)
+static CFMutableArrayRef startupItemListCopyMatches(CFArrayRef anItemList, CFStringRef aKey, CFStringRef aService)
 {
 	CFMutableArrayRef aResult = NULL;
 
@@ -190,6 +190,7 @@ static void SpecialCasesStartupItemHandler(CFMutableDictionaryRef aConfig)
 		}
 
 		CFDictionaryReplaceValue(aConfig, type, aNewList);
+		CFRelease(aNewList);
 	}
 	if (type == kUsesKey)
 		return;
@@ -216,7 +217,7 @@ CFIndex StartupItemListCountServices(CFArrayRef anItemList)
 	return aResult;
 }
 
-static bool StartupItemSecurityCheck(const char *aPath)
+bool StartupItemSecurityCheck(const char *aPath)
 {
 	static struct timeval boot_time;
 	struct stat aStatBuf;
@@ -286,14 +287,14 @@ CFMutableArrayRef StartupItemListCreateWithMask(NSSearchPathDomainMask aMask)
 	while ((aState = NSGetNextSearchPathEnumeration(aState, aPath))) {
 		DIR *aDirectory;
 
-		strcpy(aPath + strlen(aPath), kStartupItemsPath);
+		strlcat(aPath, kStartupItemsPath, sizeof(aPath));
 		++aDomainIndex;
 
 		/* 5485016
 		 *
 		 * Just in case...
 		 */
-		mkdir(aPath, S_IRWXU|S_IRWXG|S_IROTH|S_IXOTH);
+		mkdir(aPath, S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
 
 		if (!StartupItemSecurityCheck(aPath))
 			continue;
@@ -430,10 +431,12 @@ CFMutableArrayRef StartupItemListCreateWithMask(NSSearchPathDomainMask aMask)
 CFMutableDictionaryRef StartupItemListGetProvider(CFArrayRef anItemList, CFStringRef aService)
 {
 	CFMutableDictionaryRef aResult = NULL;
-	CFMutableArrayRef aList = startupItemListGetMatches(anItemList, kProvidesKey, aService);
+	CFMutableArrayRef aList = startupItemListCopyMatches(anItemList, kProvidesKey, aService);
 
 	if (aList && CFArrayGetCount(aList) > 0)
 		aResult = (CFMutableDictionaryRef) CFArrayGetValueAtIndex(aList, 0);
+
+	if (aList) CFRelease(aList);
 
 	return aResult;
 }
@@ -578,7 +581,7 @@ static int countDependantsPresent(CFArrayRef aWaitingList, CFArrayRef anItemList
 
 	for (anItemIndex = 0; anItemIndex < anItemCount; anItemIndex++) {
 		CFStringRef anItem = CFArrayGetValueAtIndex(anItemList, anItemIndex);
-		CFArrayRef aMatchesList = startupItemListGetMatches(aWaitingList, aKey, anItem);
+		CFArrayRef aMatchesList = startupItemListCopyMatches(aWaitingList, aKey, anItem);
 
 		if (aMatchesList) {
 			aCount = aCount + CFArrayGetCount(aMatchesList);
@@ -604,7 +607,7 @@ pendingAntecedents(CFArrayRef aWaitingList, CFDictionaryRef aStatusDict, CFArray
 	for (anAntecedentIndex = 0; anAntecedentIndex < anAntecedentCount; ++anAntecedentIndex) {
 		CFStringRef anAntecedent = CFArrayGetValueAtIndex(anAntecedentList, anAntecedentIndex);
 		CFStringRef aKey = (anAction == kActionStart) ? kProvidesKey : kUsesKey;
-		CFArrayRef aMatchesList = startupItemListGetMatches(aWaitingList, aKey, anAntecedent);
+		CFArrayRef aMatchesList = startupItemListCopyMatches(aWaitingList, aKey, anAntecedent);
 
 		if (aMatchesList) {
 			CFIndex aMatchesListCount = CFArrayGetCount(aMatchesList);
@@ -655,7 +658,7 @@ static Boolean checkForDuplicates(CFArrayRef aWaitingList, CFDictionaryRef aStat
 		 * might provide that service.
 		 */
 		else {
-			CFArrayRef aMatchesList = startupItemListGetMatches(aWaitingList, kProvidesKey, aProvides);
+			CFArrayRef aMatchesList = startupItemListCopyMatches(aWaitingList, kProvidesKey, aProvides);
 			if (aMatchesList) {
 				CFIndex aMatchesListCount = CFArrayGetCount(aMatchesList);
 				CFIndex aMatchesListIndex;
@@ -923,28 +926,17 @@ int StartupItemRun(CFMutableDictionaryRef aStatusDict, CFMutableDictionaryRef an
 		anError = 0;
 	} else {
 		CFStringRef aBundlePathString = CFDictionaryGetValue(anItem, kBundlePathKey);
-		size_t aBundlePathCLength =
-		    CFStringGetMaximumSizeForEncoding(CFStringGetLength(aBundlePathString), kCFStringEncodingUTF8) + 1;
-		char *aBundlePath = (char *)malloc(aBundlePathCLength);
-		char anExecutable[PATH_MAX] = "";
+		char aBundlePath[PATH_MAX];
+		char anExecutable[PATH_MAX];
+		char *tmp;
 
-		if (!aBundlePath) {
-			syslog(LOG_EMERG, "malloc() failed; out of memory while running item %s", aBundlePathString);
-			return (anError);
-		}
-		if (!CFStringGetCString(aBundlePathString, aBundlePath, aBundlePathCLength, kCFStringEncodingUTF8)) {
+		if (!CFStringGetCString(aBundlePathString, aBundlePath, sizeof(aBundlePath), kCFStringEncodingUTF8)) {
 			CF_syslog(LOG_EMERG, CFSTR("Internal error while running item %@"), aBundlePathString);
 			return (anError);
 		}
 		/* Compute path to excecutable */
-		{
-			char           *tmp;
-			strncpy(anExecutable, aBundlePath, sizeof(anExecutable));	/* .../foo     */
-			tmp = rindex(anExecutable, '/');	/* /foo        */
-			strncat(anExecutable, tmp, strlen(tmp));	/* .../foo/foo */
-		}
-
-		free(aBundlePath);
+		tmp = rindex(aBundlePath, '/');
+		snprintf(anExecutable, sizeof(anExecutable), "%s%s", aBundlePath, tmp);
 
 		/**
 	         * Run the bundle

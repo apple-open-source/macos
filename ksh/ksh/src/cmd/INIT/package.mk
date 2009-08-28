@@ -1,7 +1,7 @@
 /*
  * source and binary package support
  *
- * @(#)package.mk (AT&T Research) 2007-03-28
+ * @(#)package.mk (AT&T Research) 2007-11-05
  *
  * usage:
  *
@@ -849,7 +849,7 @@ vendor.cyg = gnu
 			then	echo $(name) $(version) $(release|version) 1 > $tmp/t
 				$(CMP) $(CMPFLAGS) $tmp/t $(PACKAGEGEN)/$(name).ver || cp $tmp/t $(PACKAGEGEN)/$(name).ver
 				echo ";;;$(PACKAGEGEN)/$(name).ver;$(PACKAGELIB)/$(name).ver"
-				sed 's,1$,0,' $(~req) < /dev/null > $tmp/t
+				sed 's,1$,0,' $(~req:D=$(PACKAGEGEN):B:S=.ver:T=F) < /dev/null > $tmp/t
 				$(CMP) $(CMPFLAGS) $tmp/t $(PACKAGEGEN)/$(name).req || cp $tmp/t $(PACKAGEGEN)/$(name).req
 				echo ";;;$(PACKAGEGEN)/$(name).req;$(PACKAGELIB)/$(name).req"
 				{
@@ -1267,7 +1267,7 @@ binary : .binary.init .binary.gen .binary.$$(style)
 						done
 					done
 				fi
-				sed 's,1$,0,' $(~req) < /dev/null > $(PACKAGEGEN)/$(name).req
+				sed 's,1$,0,' $(~req:D=$(PACKAGEGEN):B:S=.ver:T=F) < /dev/null > $(PACKAGEGEN)/$(name).req
 				echo ";;;$(PACKAGEGEN)/$(name).req;$(PACKAGELIB)/$(name).req"
 				{
 					echo "name='$(name)'"
@@ -1450,7 +1450,7 @@ runtime : .runtime.init .runtime.gen .runtime.$$(style)
 					done
 				done
 			fi
-			sed 's,1$,0,' $(~req) < /dev/null > $(PACKAGEGEN)/$(name).req
+			sed 's,1$,0,' $(~req:D=$(PACKAGEGEN):B:S=.ver:T=F) < /dev/null > $(PACKAGEGEN)/$(name).req
 			echo ";;;$(PACKAGEGEN)/$(name).req;$(PACKAGELIB)/$(name).req"
 			{
 				echo "name='$(name)'"

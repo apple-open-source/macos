@@ -4,7 +4,7 @@
  		# all entities -- both %ent; and &ent; entities.  This differs from
  		# +value()+ in that +value+ only replaces %ent; entities.
  		def unnormalized
-+      document.record_entity_expansion
++			document.record_entity_expansion unless document.nil?
  			v = value()
  			return nil if v.nil?
  			@unnormalized = Text::unnormalize(v, parent)

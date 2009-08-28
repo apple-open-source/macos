@@ -8,7 +8,6 @@ UserType        = Administration
 ToolType        = Commands
 GnuAfterInstall = remove-dir install-plist
 Extra_CC_Flags	= -mdynamic-no-pic
-Extra_LD_Flags	= -dead_strip
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make

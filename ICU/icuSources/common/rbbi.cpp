@@ -1,6 +1,6 @@
 /*
 ***************************************************************************
-*   Copyright (C) 1999-2006 International Business Machines Corporation   *
+*   Copyright (C) 1999-2008 International Business Machines Corporation   *
 *   and others. All rights reserved.                                      *
 ***************************************************************************
 */
@@ -23,7 +23,7 @@
 #include "rbbirb.h"
 #include "cmemory.h"
 #include "cstring.h"
-#include "mutex.h"
+#include "umutex.h"
 #include "ucln_cmn.h"
 #include "brkeng.h"
 
@@ -41,9 +41,11 @@ static UBool fTrace = FALSE;
 
 U_NAMESPACE_BEGIN
 
+// The state number of the starting state
+#define START_STATE 1
 
-static const int16_t START_STATE = 1;     // The state number of the starting state
-static const int16_t STOP_STATE  = 0;     // The state-transition value indicating "stop"
+// The state-transition value indicating "stop"
+#define STOP_STATE  0
 
 
 UOBJECT_DEFINE_RTTI_IMPLEMENTATION(RuleBasedBreakIterator)
@@ -61,6 +63,20 @@ RuleBasedBreakIterator::RuleBasedBreakIterator(RBBIDataHeader* data, UErrorCode 
 {
     init();
     fData = new RBBIDataWrapper(data, status); // status checked in constructor
+    if (U_FAILURE(status)) {return;}
+    if(fData == 0) {
+        status = U_MEMORY_ALLOCATION_ERROR;
+        return;
+    }
+}
+
+/**
+ * Same as above but does not adopt memory
+ */
+RuleBasedBreakIterator::RuleBasedBreakIterator(const RBBIDataHeader* data, enum EDontAdopt, UErrorCode &status)
+{
+    init();
+    fData = new RBBIDataWrapper(data, RBBIDataWrapper::kDontAdopt, status); // status checked in constructor
     if (U_FAILURE(status)) {return;}
     if(fData == 0) {
         status = U_MEMORY_ALLOCATION_ERROR;
@@ -99,7 +115,7 @@ RuleBasedBreakIterator::RuleBasedBreakIterator( const UnicodeString  &rules,
     init();
     if (U_FAILURE(status)) {return;}
     RuleBasedBreakIterator *bi = (RuleBasedBreakIterator *)
-        RBBIRuleBuilder::createRuleBasedBreakIterator(rules, parseError, status);
+        RBBIRuleBuilder::createRuleBasedBreakIterator(rules, &parseError, status);
     // Note:  This is a bit awkward.  The RBBI ruleBuilder has a factory method that
     //        creates and returns a complete RBBI.  From here, in a constructor, we
     //        can't just return the object created by the builder factory, hence
@@ -321,8 +337,12 @@ void RuleBasedBreakIterator::setText(UText *ut, UErrorCode &status) {
     //   we can come to signaling a failure.
     //   (GetText() is obsolete, this failure is sort of OK)
     if (fDCharIter == NULL) {
-        static UChar c = 0;
+        static const UChar c = 0;
         fDCharIter = new UCharCharacterIterator(&c, 0);
+        if (fDCharIter == NULL) {
+            status = U_MEMORY_ALLOCATION_ERROR;
+            return;
+        }
     }
 
     if (fCharIter!=fSCharIter && fCharIter!=fDCharIter) {
@@ -1034,7 +1054,7 @@ int32_t RuleBasedBreakIterator::handleNext(const RBBIStateTable *statetable) {
                 lookaheadStatus      = 0;
                 // TODO:  make a standalone hard break in a rule work.
                 if (lookAheadHardBreak) {
-                    utext_setNativeIndex(fText, result);
+                    UTEXT_SETNATIVEINDEX(fText, result);
                     return result;
                 }
                 // Look-ahead completed, but other rules may match further.  Continue on
@@ -1085,13 +1105,13 @@ continueOn:
     //   (This really indicates a defect in the break rules.  They should always match
     //    at least one character.)
     if (result == initialPosition) {
-        utext_setNativeIndex(fText, initialPosition);
+        UTEXT_SETNATIVEINDEX(fText, initialPosition);
         UTEXT_NEXT32(fText);
         result = (int32_t)UTEXT_GETNATIVEINDEX(fText);
     }
 
     // Leave the iterator at our result position.
-    utext_setNativeIndex(fText, result);
+    UTEXT_SETNATIVEINDEX(fText, result);
     #ifdef RBBI_DEBUG
         if (fTrace) {
             RBBIDebugPrintf("result = %d\n\n", result);
@@ -1179,7 +1199,7 @@ int32_t RuleBasedBreakIterator::handlePrevious(const RBBIStateTable *statetable)
                 } else if (result == initialPosition) {
                     // Ran off start, no match found.
                     // move one index one (towards the start, since we are doing a previous())
-                    utext_setNativeIndex(fText, initialPosition);
+                    UTEXT_SETNATIVEINDEX(fText, initialPosition);
                     UTEXT_PREVIOUS32(fText);   // TODO:  shouldn't be necessary.  We're already at beginning.  Check.
                 }
                 break;
@@ -1245,7 +1265,7 @@ int32_t RuleBasedBreakIterator::handlePrevious(const RBBIStateTable *statetable)
                 lookaheadStatus      = 0;
                 // TODO:  make a standalone hard break in a rule work.
                 if (lookAheadHardBreak) {
-                    utext_setNativeIndex(fText, result);
+                    UTEXT_SETNATIVEINDEX(fText, result);
                     return result;
                 }
                 // Look-ahead completed, but other rules may match further.  Continue on
@@ -1293,13 +1313,13 @@ continueOn:
     //   (This really indicates a defect in the break rules.  They should always match
     //    at least one character.)
     if (result == initialPosition) {
-        utext_setNativeIndex(fText, initialPosition);
+        UTEXT_SETNATIVEINDEX(fText, initialPosition);
         UTEXT_PREVIOUS32(fText);
         result = (int32_t)UTEXT_GETNATIVEINDEX(fText);
     }
 
     // Leave the iterator at our result position.
-    utext_setNativeIndex(fText, result);
+    UTEXT_SETNATIVEINDEX(fText, result);
     #ifdef RBBI_DEBUG
         if (fTrace) {
             RBBIDebugPrintf("result = %d\n\n", result);
@@ -1679,11 +1699,11 @@ int32_t RuleBasedBreakIterator::checkDictionary(int32_t startPos,
     return (reverse ? startPos : endPos);
 }
 
-static UStack *gLanguageBreakFactories = NULL;
-
 U_NAMESPACE_END
 
 // defined in ucln_cmn.h
+
+static U_NAMESPACE_QUALIFIER UStack *gLanguageBreakFactories = NULL;
 
 /**
  * Release all static memory held by breakiterator.  
@@ -1700,7 +1720,7 @@ U_CDECL_END
 
 U_CDECL_BEGIN
 static void U_CALLCONV _deleteFactory(void *obj) {
-    delete (LanguageBreakFactory *) obj;
+    delete (U_NAMESPACE_QUALIFIER LanguageBreakFactory *) obj;
 }
 U_CDECL_END
 U_NAMESPACE_BEGIN
@@ -1710,13 +1730,11 @@ getLanguageBreakEngineFromFactory(UChar32 c, int32_t breakType)
 {
     UBool       needsInit;
     UErrorCode  status = U_ZERO_ERROR;
-    umtx_lock(NULL);
-    needsInit = (UBool)(gLanguageBreakFactories == NULL);
-    umtx_unlock(NULL);
+    UMTX_CHECK(NULL, (UBool)(gLanguageBreakFactories == NULL), needsInit);
     
     if (needsInit) {
         UStack  *factories = new UStack(_deleteFactory, NULL, status);
-        if (U_SUCCESS(status)) {
+        if (factories != NULL && U_SUCCESS(status)) {
             ICULanguageBreakFactory *builtIn = new ICULanguageBreakFactory(status);
             factories->push(builtIn, status);
 #ifdef U_LOCAL_SERVICE_HOOK
@@ -1766,7 +1784,7 @@ RuleBasedBreakIterator::getLanguageBreakEngine(UChar32 c) {
     
     if (fLanguageBreakEngines == NULL) {
         fLanguageBreakEngines = new UStack(status);
-        if (U_FAILURE(status)) {
+        if (fLanguageBreakEngines == NULL || U_FAILURE(status)) {
             delete fLanguageBreakEngines;
             fLanguageBreakEngines = 0;
             return NULL;

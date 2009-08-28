@@ -32,6 +32,8 @@
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <fcntl.h>
+#include <Security/cssmapplePriv.h>
+#include <syslog.h>
 
 static const char *kAppleDatabaseChanged = "com.apple.AppleDatabaseChanged";
 
@@ -727,90 +729,90 @@ ModifiedTable::writeTable(AtomicTempFile &inAtomicTempFile, uint32 inSectionOffs
 static const CSSM_DB_ATTRIBUTE_INFO RelationID =
 {
     CSSM_DB_ATTRIBUTE_NAME_AS_STRING,
-    {"RelationID"},
+    {(char*) "RelationID"},
     CSSM_DB_ATTRIBUTE_FORMAT_UINT32
 };
 static const CSSM_DB_ATTRIBUTE_INFO RelationName =
 {
     CSSM_DB_ATTRIBUTE_NAME_AS_STRING,
-    {"RelationName"},
+    {(char*) "RelationName"},
     CSSM_DB_ATTRIBUTE_FORMAT_STRING
 };
 static const CSSM_DB_ATTRIBUTE_INFO AttributeID =
 {
     CSSM_DB_ATTRIBUTE_NAME_AS_STRING,
-    {"AttributeID"},
+    {(char*) "AttributeID"},
     CSSM_DB_ATTRIBUTE_FORMAT_UINT32
 };
 static const CSSM_DB_ATTRIBUTE_INFO AttributeNameFormat =
 {
     CSSM_DB_ATTRIBUTE_NAME_AS_STRING,
-    {"AttributeNameFormat"},
+    {(char*) "AttributeNameFormat"},
     CSSM_DB_ATTRIBUTE_FORMAT_UINT32
 };
 static const CSSM_DB_ATTRIBUTE_INFO AttributeName =
 {
     CSSM_DB_ATTRIBUTE_NAME_AS_STRING,
-    {"AttributeName"},
+    {(char*) "AttributeName"},
     CSSM_DB_ATTRIBUTE_FORMAT_STRING
 };
 static const CSSM_DB_ATTRIBUTE_INFO AttributeNameID =
 {
     CSSM_DB_ATTRIBUTE_NAME_AS_STRING,
-    {"AttributeNameID"},
+    {(char*) "AttributeNameID"},
     CSSM_DB_ATTRIBUTE_FORMAT_BLOB
 };
 static const CSSM_DB_ATTRIBUTE_INFO AttributeFormat =
 {
     CSSM_DB_ATTRIBUTE_NAME_AS_STRING,
-    {"AttributeFormat"},
+    {(char*) "AttributeFormat"},
     CSSM_DB_ATTRIBUTE_FORMAT_UINT32
 };
 static const CSSM_DB_ATTRIBUTE_INFO IndexID =
 {
     CSSM_DB_ATTRIBUTE_NAME_AS_STRING,
-    {"IndexID"},
+    {(char*) "IndexID"},
     CSSM_DB_ATTRIBUTE_FORMAT_UINT32
 };
 static const CSSM_DB_ATTRIBUTE_INFO IndexType =
 {
     CSSM_DB_ATTRIBUTE_NAME_AS_STRING,
-    {"IndexType"},
+    {(char*) "IndexType"},
     CSSM_DB_ATTRIBUTE_FORMAT_UINT32
 };
 static const CSSM_DB_ATTRIBUTE_INFO IndexedDataLocation =
 {
     CSSM_DB_ATTRIBUTE_NAME_AS_STRING,
-    {"IndexedDataLocation"},
+    {(char*) "IndexedDataLocation"},
     CSSM_DB_ATTRIBUTE_FORMAT_UINT32
 };
 static const CSSM_DB_ATTRIBUTE_INFO ModuleID =
 {
     CSSM_DB_ATTRIBUTE_NAME_AS_STRING,
-    {"ModuleID"},
+    {(char*) "ModuleID"},
     CSSM_DB_ATTRIBUTE_FORMAT_BLOB
 };
 static const CSSM_DB_ATTRIBUTE_INFO AddinVersion =
 {
     CSSM_DB_ATTRIBUTE_NAME_AS_STRING,
-    {"AddinVersion"},
+    {(char*) "AddinVersion"},
     CSSM_DB_ATTRIBUTE_FORMAT_STRING
 };
 static const CSSM_DB_ATTRIBUTE_INFO SSID =
 {
     CSSM_DB_ATTRIBUTE_NAME_AS_STRING,
-    {"SSID"},
+    {(char*) "SSID"},
     CSSM_DB_ATTRIBUTE_FORMAT_UINT32
 };
 static const CSSM_DB_ATTRIBUTE_INFO SubserviceType =
 {
     CSSM_DB_ATTRIBUTE_NAME_AS_STRING,
-    {"SubserviceType"},
+    {(char*) "SubserviceType"},
     CSSM_DB_ATTRIBUTE_FORMAT_UINT32
 };
 
 #define ATTRIBUTE(type, name) \
-	{ CSSM_DB_ATTRIBUTE_NAME_AS_STRING, { #name }, CSSM_DB_ATTRIBUTE_FORMAT_ ## type }
+	{ CSSM_DB_ATTRIBUTE_NAME_AS_STRING, { (char*) #name }, CSSM_DB_ATTRIBUTE_FORMAT_ ## type }
 	
 static const CSSM_DB_ATTRIBUTE_INFO AttrSchemaRelations[] =
 {
@@ -1122,6 +1124,12 @@ DbVersion::createCursor(const CSSM_QUERY *inQuery) const
 	}
 
 	return findTable(inQuery->RecordType).createCursor(inQuery, *this);
+}
+
+bool DbVersion::hasTable(Table::Id inTableId) const
+{
+    TableMap::const_iterator it = mTableMap.find(inTableId);
+	return it != mTableMap.end();
 }
 
 const Table &
@@ -1952,6 +1960,15 @@ DbModifier::insertTable(Table::Id inTableId, const string &inTableName,
     }
 }
 
+
+
+bool DbModifier::hasTable(Table::Id inTableId)
+{
+	return getDbVersion(false)->hasTable(inTableId);
+}
+
+
+
 ModifiedTable &
 DbModifier::findTable(Table::Id inTableId)
 {
@@ -2271,6 +2288,40 @@ AppleDatabase::dataDelete(DbContext &inDbContext,
 {
     try
     {
+		// syslog if it's the .Mac password
+		CSSM_DB_RECORD_ATTRIBUTE_DATA attrData;
+		// we have to do this in two phases -- the first to get the record type, and the second to actually read the attributes.  Otherwise, we might get
+		// an exception.
+		memset(&attrData, 0, sizeof(attrData));
+		dataGetFromUniqueRecordId(inDbContext, inUniqueRecord, &attrData, NULL);
+		
+		if (attrData.DataRecordType == CSSM_DL_DB_RECORD_GENERIC_PASSWORD)
+		{
+			CSSM_DB_ATTRIBUTE_DATA attributes;
+			
+			// setup some attributes and see if we are indeed the .Mac password
+			attributes.Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_INTEGER;
+			attributes.Info.Label.AttributeID = 'svce';
+			attributes.Info.AttributeFormat = 0;
+			attributes.NumberOfValues = 1;
+			attributes.Value = NULL;
+
+			attrData.NumberOfAttributes = 1;
+			attrData.AttributeData = &attributes;		
+			
+			dataGetFromUniqueRecordId(inDbContext, inUniqueRecord, &attrData, NULL);
+			
+			// now check the results
+			std::string dataString((const char*) attrData.AttributeData[0].Value[0].Data, attrData.AttributeData[0].Value[0].Length);
+			if (dataString == "iTools")
+			{
+				syslog(LOG_WARNING, "Warning: Removed .Me password");
+			}
+			
+			free(attrData.AttributeData[0].Value[0].Data);
+			free(attrData.AttributeData[0].Value);
+		}
+		
 		StLock<Mutex> _(mWriteLock);
 		Table::Id aTableId;
 		const RecordId aRecordId(parseUniqueRecord(inUniqueRecord, aTableId));
@@ -2364,7 +2415,7 @@ AppleDatabase::dataGetNext(DbContext &inDbContext,
                            CssmData *inoutData,
                            CSSM_DB_UNIQUE_RECORD_PTR &outUniqueRecord)
 {
-	auto_ptr<Cursor> aCursor(&findHandle<Cursor>(inResultsHandle, CSSMERR_DL_INVALID_RESULTS_HANDLE));
+	auto_ptr<Cursor> aCursor(&HandleObject::find<Cursor>(inResultsHandle, CSSMERR_DL_INVALID_RESULTS_HANDLE));
 	Table::Id aTableId;
 	RecordId aRecordId;
 	
@@ -2381,7 +2432,7 @@ void
 AppleDatabase::dataAbortQuery(DbContext &inDbContext,
                               CSSM_HANDLE inResultsHandle)
 {
-	delete &findHandle<Cursor>(inResultsHandle, CSSMERR_DL_INVALID_RESULTS_HANDLE);
+	delete &HandleObject::find<Cursor>(inResultsHandle, CSSMERR_DL_INVALID_RESULTS_HANDLE);
 }
 
 void
@@ -2484,7 +2535,25 @@ AppleDatabase::passThrough(DbContext &dbContext,
 	case CSSM_APPLEFILEDL_ROLLBACK:
 		mDbModifier.rollback();
 		break;
-	
+
+	case CSSM_APPLECSPDL_DB_RELATION_EXISTS:
+	{
+		CSSM_BOOL returnValue;
+		
+		CSSM_DB_RECORDTYPE recordType = *(CSSM_DB_RECORDTYPE*) inputParams;
+		if (recordType == CSSM_DL_DB_RECORD_ANY || recordType == CSSM_DL_DB_RECORD_ALL_KEYS)
+		{
+			returnValue = CSSM_TRUE;
+		}
+		else
+		{
+			returnValue = mDbModifier.hasTable(recordType);
+		}
+		
+		*(CSSM_BOOL*) outputParams = returnValue;
+		break;
+	}
+
 	default:
 		CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
 		break;

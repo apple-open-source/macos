@@ -1,6 +1,5 @@
-# APPLE LOCAL file x86_64
-#ifndef __x86_64__
 # APPLE LOCAL file 4099000
+#ifndef __x86_64__
 #define THUNK(REG)				\
 .private_extern ___i686.get_pc_thunk.REG	;\
 ___i686.get_pc_thunk.REG:			;\

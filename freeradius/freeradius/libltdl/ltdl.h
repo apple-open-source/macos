@@ -228,7 +228,7 @@ LT_SCOPE	int	lt_dlpreload_default
 				LT_PARAMS((const lt_dlsymlist *preloaded));
 
 #define LTDL_SET_PRELOADED_SYMBOLS() 		LT_STMT_START{	\
-	/*extern const lt_dlsymlist lt_preloaded_symbols[];	*/	\
+	extern const lt_dlsymlist lt_preloaded_symbols[];		\
 	lt_dlpreload_default(lt_preloaded_symbols);			\
 						}LT_STMT_END
 

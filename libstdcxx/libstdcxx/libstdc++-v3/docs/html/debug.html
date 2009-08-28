@@ -286,7 +286,10 @@
   under pedantic debug mode libstdc++ would signal an error. To enable
   the pedantic debug mode, compile your program with
   both <code>-D_GLIBCXX_DEBUG</code>
-  and <code>-D_GLIBCXX_DEBUG_PEDANTIC</code> .</p>
+  and <code>-D_GLIBCXX_DEBUG_PEDANTIC</code> .
+  (N.B. In GCC 3.4.x and 4.0.0, due to a bug,
+  <code>-D_GLIBXX_DEBUG_PEDANTIC</code> was also needed. The problem has
+  been fixed in GCC 4.0.1 and later versions.) </p>
 
 <p>The following library components provide extra debugging
   capabilities in debug mode:</p>
@@ -294,16 +297,16 @@
   <li><code>std::basic_string</code> (no safe iterators)</li>
   <li><code>std::bitset</code></li>
   <li><code>std::deque</code></li>
-  <li><code>__gnu_cxx::hash_map</code></li>
-  <li><code>__gnu_cxx::hash_multimap</code></li>
-  <li><code>__gnu_cxx::hash_multiset</code></li>
-  <li><code>__gnu_cxx::hash_set</code></li>
   <li><code>std::list</code></li>
   <li><code>std::map</code></li>
   <li><code>std::multimap</code></li>
   <li><code>std::multiset</code></li>
   <li><code>std::set</code></li>
   <li><code>std::vector</code></li>
+  <li><code>__gnu_cxx::hash_map</code></li>
+  <li><code>__gnu_cxx::hash_multimap</code></li>
+  <li><code>__gnu_cxx::hash_multiset</code></li>
+  <li><code>__gnu_cxx::hash_set</code></li>
 </ul>
 
 
@@ -417,7 +420,7 @@
 
 
 <h3 class="left"><a name="verbterm">Tracking uncaught exceptions</a></h3>
-<p>The <a href="19_diagnostics/howto.html#4">verbose termination handler</a>
+<p>The <a href="18_support/howto.html#4">verbose termination handler</a>
    gives information about uncaught exceptions which are killing the
    program.  It is described in the linked-to page.
 </p>

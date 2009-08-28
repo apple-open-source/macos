@@ -19,6 +19,8 @@ FILES := System/Library/LaunchDaemons/com.apple.newsyslog.plist \
 	System/Library/LaunchDaemons/com.apple.periodic-daily.plist \
 	System/Library/LaunchDaemons/com.apple.periodic-weekly.plist \
 	System/Library/LaunchDaemons/com.apple.periodic-monthly.plist \
+	System/Library/LaunchDaemons/com.apple.var-db-dslocal-backup.plist \
+	System/Library/LaunchDaemons/com.apple.var-db-shadow-backup.plist \
 	private/etc/defaults/periodic.conf \
 	private/etc/newsyslog.conf \
 	usr/share/man/man5/periodic.conf.5
@@ -27,13 +29,17 @@ FILES := System/Library/LaunchDaemons/com.apple.newsyslog.plist \
 BINS := private/etc/periodic/daily/100.clean-logs \
 	private/etc/periodic/daily/110.clean-tmps \
 	private/etc/periodic/daily/130.clean-msgs \
+	private/etc/periodic/daily/140.clean-rwho \
+	private/etc/periodic/daily/199.clean-fax \
+	private/etc/periodic/daily/310.accounting \
+	private/etc/periodic/daily/400.status-disks \
+	private/etc/periodic/daily/420.status-network \
 	private/etc/periodic/daily/430.status-rwho \
-	private/etc/periodic/daily/500.daily \
-	private/etc/periodic/weekly/310.locate \
+	private/etc/periodic/daily/999.local \
 	private/etc/periodic/weekly/320.whatis \
 	private/etc/periodic/weekly/999.local \
+	private/etc/periodic/monthly/199.rotate-fax \
 	private/etc/periodic/monthly/200.accounting \
-	private/etc/periodic/monthly/500.monthly \
 	private/etc/periodic/monthly/999.local
 
 COMMANDS := newsyslog periodic
@@ -62,3 +68,4 @@ install::
 			DSTROOT=$(DSTROOT); \
 	done; \
 	'
+	$(INSTALL_DIRECTORY) $(DSTROOT)/private/etc/newsyslog.d

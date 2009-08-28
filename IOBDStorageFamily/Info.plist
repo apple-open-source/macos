@@ -6,10 +6,6 @@
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>IOBDStorageFamily</string>
-	<key>CFBundleGetInfoString</key>
-	<string>1.5, Copyright © 2006-2007 Apple Inc.</string>
-	<key>CFBundleIconFile</key>
-	<string></string>
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.iokit.IOBDStorageFamily</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -19,11 +15,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.5</string>
+	<string>1.6</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.5</string>
+	<string>1.6</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOBDBlockStorageDriver</key>
@@ -52,16 +48,20 @@
 			<string>IOBSD</string>
 		</dict>
 	</dict>
+	<key>NSHumanReadableCopyright</key>
+	<string>Copyright © 2006-2009 Apple Inc. All rights reserved.</string>
+	<key>OSBundleAllowUserLoad</key>
+	<true/>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.5</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.iokit.IODVDStorageFamily</key>
-		<string>1.5</string>
+		<string>1.6</string>
 		<key>com.apple.iokit.IOCDStorageFamily</key>
-		<string>1.5</string>
+		<string>1.6</string>
 		<key>com.apple.iokit.IOStorageFamily</key>
-		<string>1.5</string>
+		<string>1.6</string>
 		<key>com.apple.kpi.bsd</key>
 		<string>8.0</string>
 		<key>com.apple.kpi.iokit</key>

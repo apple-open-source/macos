@@ -26,6 +26,8 @@ install-strip:
 	strip "$(DSTROOT)/usr/sbin/dnssec-signkey"
 	strip "$(DSTROOT)/usr/sbin/dnssec-makekeyset"
 	strip "$(DSTROOT)/usr/sbin/dnssec-keygen"
+	strip "$(DSTROOT)/usr/sbin/dnssec-dsfromkey"
+	strip "$(DSTROOT)/usr/sbin/dnssec-keyfromlabel"
 	strip "$(DSTROOT)/usr/bin/nsupdate"
 	strip "$(DSTROOT)/usr/bin/nslookup"
 	strip "$(DSTROOT)/usr/bin/host"
@@ -48,4 +50,3 @@ install-extra:
 install-sandbox-profile:
 	mkdir -p $(DSTROOT)/usr/share/sandbox
 	install -c -m 644 named.sb $(DSTROOT)/usr/share/sandbox
-

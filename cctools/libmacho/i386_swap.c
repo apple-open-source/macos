@@ -690,7 +690,7 @@ enum NXByteOrder target_byte_sex)
     } ss;
 
     enum NXByteOrder host_byte_sex;
-    unsigned long i;
+    int i;
 
 	host_byte_sex = NXHostByteOrder();
 
@@ -857,10 +857,10 @@ enum NXByteOrder target_byte_sex)
 				wrtflt	:1,
 				prot	:1;
 	    } pgfault;
-	    unsigned long word;
+	    uint32_t word;
 	} u;
     } sec;
-    unsigned long word;
+    uint32_t word;
     enum NXByteOrder host_byte_sex;
 
 	host_byte_sex = NXHostByteOrder();

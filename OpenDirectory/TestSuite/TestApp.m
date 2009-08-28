@@ -1,6 +1,7 @@
 #import <Foundation/Foundation.h>
 #import <OpenDirectory/NSOpenDirectory.h>
-#import <CFOpenDirectory/CFOpenDirectory.h>
+#import <OpenDirectory/OpenDirectory.h>
+#import <DirectoryService/DirectoryService.h>
 #import <unistd.h>
 
 uint32_t    gTestCase       = 0;
@@ -155,10 +156,10 @@ int main( int argc, char *argv[] )
             {
                 printf("-[ODSession initWithOptions:] over Proxy - PASS\n");
                 
-                ODNode  *odNode = [ODNode nodeWithSession: sessionRef type: kODTypeAuthenticationSearchNode error: &error];
+                ODNode  *odNode = [ODNode nodeWithSession: sessionRef type: kODNodeTypeAuthentication error: &error];
                 if( nil != odNode )
                 {
-                    NSArray *searchPolicy = [odNode subnodeNames: &error];
+                    NSArray *searchPolicy = [odNode subnodeNamesAndReturnError: &error];
                     
                     if( nil != searchPolicy )
                     {
@@ -192,7 +193,7 @@ int main( int argc, char *argv[] )
         {
             printf( "-[ODSession initWithOptions: nil] - PASS\n" );
             
-            NSArray *nodeNames = [sessionRef nodeNames: nil];
+            NSArray *nodeNames = [sessionRef nodeNamesAndReturnError: nil];
             if( [nodeNames count] > 0 )
             {
                 printf( "-[ODSession nodeNames:] returned results - PASS\n" );
@@ -202,7 +203,7 @@ int main( int argc, char *argv[] )
                 printf( "-[ODSession nodeNames:] returned results - FAIL\n" );
             }
             
-            ODNode  *odNode = [ODNode nodeWithSession: sessionRef type: kODTypeAuthenticationSearchNode error: &error];
+            ODNode  *odNode = [ODNode nodeWithSession: sessionRef type: kODNodeTypeAuthentication error: &error];
             if( nil != odNode )
             {
                 ODQuery *pSearch = [ODQuery queryWithNode: odNode
@@ -239,7 +240,7 @@ int main( int argc, char *argv[] )
                     }
                 }
 
-                NSArray *searchPolicy = [odNode subnodeNames: &error];
+                NSArray *searchPolicy = [odNode subnodeNamesAndReturnError: &error];
                 
                 if( nil != searchPolicy )
                 {
@@ -250,7 +251,7 @@ int main( int argc, char *argv[] )
                     printf( "-[ODNode subnodeNames] (kODTypeAuthenticationSearchNode) - FAIL (%s)\n", [[error description] UTF8String] );;
                 }
                 
-                NSArray *unreachableSubnodes = [odNode unreachableSubnodeNames: &error];
+                NSArray *unreachableSubnodes = [odNode unreachableSubnodeNamesAndReturnError: &error];
                 
                 if( nil != unreachableSubnodes)
                 {
@@ -344,7 +345,7 @@ int main( int argc, char *argv[] )
             printf( "-[ODNode nodeWithSession:name:] with /LDAPv3/od.apple.com - FAIL (%s)\n", [[error description] UTF8String] );
         }
         
-        nodeRef = (ODNode *)ODNodeCreateWithNodeType( kCFAllocatorDefault, kODSessionDefault, kODTypeLocalNode, (CFErrorRef *) &error );
+        nodeRef = (ODNode *)ODNodeCreateWithNodeType( kCFAllocatorDefault, kODSessionDefault, kODNodeTypeLocalNodes, (CFErrorRef *) &error );
         if( nil != nodeRef )
         {
             printf( "ODNodeCreateWithType with kODTypeLocalNode - PASS\n" );
@@ -418,7 +419,7 @@ int main( int argc, char *argv[] )
                     printf( "-[ODRecord recordDetailsForAttributes: @kDSAttributesAll] - FAIL\n" );
                 }
 				
-                NSDictionary *policy = [userRecord passwordPolicy: &error];
+                NSDictionary *policy = [userRecord passwordPolicyAndReturnError: &error];
                 if( nil != policy )
                 {
                     printf( "-[ODRecord passwordPolicy] - PASS\n" );
@@ -519,7 +520,7 @@ int main( int argc, char *argv[] )
                 printf( "-[ODNode nodeDetailsForKeys:] - FAIL (%s)\n", [[error description] UTF8String] );
             }
             
-            NSArray *recTypes = [nodeRef supportedRecordTypes: &error];
+            NSArray *recTypes = [nodeRef supportedRecordTypesAndReturnError: &error];
             if( nil != recTypes )
             {
                 printf( "-[ODNode supportedRecordTypes] - PASS\n" );
@@ -550,7 +551,7 @@ int main( int argc, char *argv[] )
                 {
                     printf( "-[ODNode createRecordWithRecordType:name:attributes:] - PASS\n" );
                         
-                    if( [record deleteRecord: &error] )
+                    if( [record deleteRecordAndReturnError: &error] )
                     {
                         printf( "-[ODRecord deleteRecord] - PASS\n" );
                     }
@@ -613,7 +614,7 @@ int main( int argc, char *argv[] )
                         printf( "-[ODNode changePassword:toPassword:] - FAIL (%s)\n", [[error description] UTF8String] );;
                     }
                     
-                    if( [record setValues: [NSArray arrayWithObject:@"Test street"] forAttribute: @kDSNAttrState error: &error] )
+                    if( [record setValue: @"Test street" forAttribute: @kDSNAttrState error: &error] )
                     {
                         printf( "-[ODRecord setValues:forAttribute:] - PASS\n" );
                     }
@@ -681,14 +682,14 @@ int main( int argc, char *argv[] )
                             printf( "[ODRecord addMemberRecord:] - FAIL (%s)\n", [[error description] UTF8String] );;
                         }
                         
-                        [group deleteRecord: &error];
+                        [group deleteRecordAndReturnError: &error];
                     }
                     else
                     {
                         printf( "-[ODNode createRecordWithRecordType:name:attributes:] (Group) - FAIL (%s)\n", [[error description] UTF8String] );;
                     }
                     
-                    [record deleteRecord: &error];
+                    [record deleteRecordAndReturnError: &error];
                 }
                 else
                 {

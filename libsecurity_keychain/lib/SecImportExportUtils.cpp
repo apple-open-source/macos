@@ -181,8 +181,11 @@ CFStringRef impExpImportDeleteExtension(
  * kSecFormatUnknown	 PKCS1    X509    OPENSSL   X509     PKCS3    X509
  * kSecFormatSSH		  SSH      SSH      n/s     n/s       n/s     n/s
  * kSecFormatSSHv2        n/s     SSH2      n/s     SSH2      n/s     n/s
+ *
+ * The only external format supported for ECDSA and ECDH keys is kSecFormatOpenSSL,
+ * which translates to OPENSSL for private keys and X509 for public keys.
  */
-
+ 
 /* Arrays expressing the above table. */
 
 /* l.s. dimension is pub/priv for one alg */
@@ -198,7 +201,8 @@ typedef struct {
 #define SIE_ALG_RSA		0
 #define SIE_ALG_DSA		1
 #define SIE_ALG_DH		2
-#define SIE_ALG_LAST	SIE_ALG_DH
+#define SIE_ALG_ECDSA	3
+#define SIE_ALG_LAST	SIE_ALG_ECDSA
 #define SIE_NUM_ALGS	(SIE_ALG_LAST + 1)
 
 /* kSecFormatOpenSSL */
@@ -207,6 +211,7 @@ static algForms opensslAlgForms[SIE_NUM_ALGS] =
 	{ CSSM_KEYBLOB_RAW_FORMAT_PKCS1,	CSSM_KEYBLOB_RAW_FORMAT_X509 },		// RSA
 	{ CSSM_KEYBLOB_RAW_FORMAT_OPENSSL,  CSSM_KEYBLOB_RAW_FORMAT_X509 },		// DSA
 	{ CSSM_KEYBLOB_RAW_FORMAT_PKCS3,	CSSM_KEYBLOB_RAW_FORMAT_X509 },		// D-H
+	{ CSSM_KEYBLOB_RAW_FORMAT_OPENSSL,	CSSM_KEYBLOB_RAW_FORMAT_X509 },		// ECDSA
 };
 
 /* kSecFormatBSAFE */
@@ -215,6 +220,7 @@ static algForms bsafeAlgForms[SIE_NUM_ALGS] =
 	{ CSSM_KEYBLOB_RAW_FORMAT_PKCS8,	CSSM_KEYBLOB_RAW_FORMAT_PKCS1 },	// RSA
 	{ CSSM_KEYBLOB_RAW_FORMAT_FIPS186,  CSSM_KEYBLOB_RAW_FORMAT_FIPS186 },	// DSA
 	{ CSSM_KEYBLOB_RAW_FORMAT_PKCS8,	CSSM_KEYBLOB_RAW_FORMAT_NONE },		// D-H
+	{ CSSM_KEYBLOB_RAW_FORMAT_NONE,		CSSM_KEYBLOB_RAW_FORMAT_NONE },		// ECDSA not supported
 };
 
 /* kSecFormatSSH (v1) */
@@ -223,6 +229,7 @@ static algForms ssh1AlgForms[SIE_NUM_ALGS] =
 	{ CSSM_KEYBLOB_RAW_FORMAT_OPENSSH,	CSSM_KEYBLOB_RAW_FORMAT_OPENSSH },	// RSA only
 	{ CSSM_KEYBLOB_RAW_FORMAT_NONE,		CSSM_KEYBLOB_RAW_FORMAT_NONE },		// DSA not supported
 	{ CSSM_KEYBLOB_RAW_FORMAT_NONE,		CSSM_KEYBLOB_RAW_FORMAT_NONE },		// D-H not supported
+	{ CSSM_KEYBLOB_RAW_FORMAT_NONE,		CSSM_KEYBLOB_RAW_FORMAT_NONE },		// ECDSA not supported
 };
 
 /* kSecFormatSSHv2 */
@@ -231,6 +238,7 @@ static algForms ssh2AlgForms[SIE_NUM_ALGS] =
 	{ CSSM_KEYBLOB_RAW_FORMAT_NONE,		CSSM_KEYBLOB_RAW_FORMAT_OPENSSH2 },	// RSA - public only
 	{ CSSM_KEYBLOB_RAW_FORMAT_NONE,		CSSM_KEYBLOB_RAW_FORMAT_OPENSSH2 },	// DSA - public only
 	{ CSSM_KEYBLOB_RAW_FORMAT_NONE,		CSSM_KEYBLOB_RAW_FORMAT_NONE },		// D-H not supported
+	{ CSSM_KEYBLOB_RAW_FORMAT_NONE,		CSSM_KEYBLOB_RAW_FORMAT_NONE },		// ECDSA not supported
 };
 
 /*
@@ -267,6 +275,9 @@ OSStatus impExpKeyForm(
 			break;
 		case CSSM_ALGID_DH:
 			algDex = SIE_ALG_DH;
+			break;
+		case CSSM_ALGID_ECDSA:
+			algDex = SIE_ALG_ECDSA;
 			break;
 		default:
 			return CSSMERR_CSP_INVALID_ALGORITHM;
@@ -321,8 +332,9 @@ static bool impExpGuessKeyParams(
 	SecExternalItemType		*itemType,			// IN/OUT
 	CSSM_ALGORITHMS			*keyAlg)			// IN/OUT
 {
-	CSSM_ALGORITHMS minAlg		 = CSSM_ALGID_RSA;			// then DSA, then...
-	CSSM_ALGORITHMS maxAlg		 = CSSM_ALGID_DH;
+	/* CSSM alg list: RSA, DSA, DH, ECDSA */
+	CSSM_ALGORITHMS minAlg		 = CSSM_ALGID_RSA;	
+	CSSM_ALGORITHMS maxAlg		 = CSSM_ALGID_ECDSA;
 	SecExternalFormat minForm    = kSecFormatOpenSSL;		// then SSH, BSAFE, then...
 	SecExternalFormat maxForm    = kSecFormatSSHv2;
 	SecExternalItemType minType  = kSecItemTypePrivateKey;  // just two
@@ -356,6 +368,7 @@ static bool impExpGuessKeyParams(
 		case CSSM_ALGID_RSA:
 		case CSSM_ALGID_DSA:
 		case CSSM_ALGID_DH:
+		case CSSM_ALGID_ECDSA:
 			minAlg = maxAlg = *keyAlg;
 			break;
 		default:
@@ -390,8 +403,6 @@ static bool impExpGuessKeyParams(
 					NULL,		// no printName
 					NULL);		// no returned items
 				if(ortn == noErr) {
-					SecImpInferDbg("impExpGuessKeyParams SUCCESS form %s type %s",
-						impExpExtFormatStr(theForm), impExpExtItemTypeStr(theType));
 					*externForm = theForm;
 					*itemType = theType;
 					*keyAlg = theAlg;
@@ -446,7 +457,11 @@ static bool impExpGuessKeyParams(
 			case CSSM_ALGID_DSA: 
 				theAlg = CSSM_ALGID_DH; 
 				break;
+			case CSSM_ALGID_DH:
+				theAlg = CSSM_ALGID_ECDSA;
+				break;
 			default:
+				/* i.e. CSSM_ALGID_ECDSA, we already broke at theAlg == maxAlg */
 				assert(0);
 				ourRtn = false;
 				goto done;

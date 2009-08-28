@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001, 2003-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001, 2003-2005, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,6 +24,7 @@
 #ifndef _SCDYNAMICSTORESETSPECIFICPRIVATE_H
 #define _SCDYNAMICSTORESETSPECIFICPRIVATE_H
 
+#include <Availability.h>
 #include <sys/cdefs.h>
 #include <SystemConfiguration/SCDynamicStore.h>
 
@@ -61,7 +62,7 @@ SCDynamicStoreSetConsoleInformation	(
 					uid_t			uid,
 					gid_t			gid,
 					CFArrayRef		sessions
-					);
+					)			__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_NA);
 
 /*!
 	@function SCDynamicStoreSetConsoleUser
@@ -83,7 +84,7 @@ SCDynamicStoreSetConsoleUser		(
 					const char		*user,
 					uid_t			uid,
 					gid_t			gid
-					);
+					)			__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_NA);
 
 __END_DECLS
 

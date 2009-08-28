@@ -25,10 +25,10 @@
 #define _USB_H
 
 #if KERNEL
-#include <libkern/OSByteOrder.h>
-#include <IOKit/IOMemoryDescriptor.h>
+	#include <libkern/OSByteOrder.h>
+	#include <IOKit/IOMemoryDescriptor.h>
 #else
-#include <architecture/byte_order.h>
+	#include <libkern/OSByteOrder.h>
 #endif
 
 #include <IOKit/IOTypes.h>
@@ -47,9 +47,8 @@ extern "C" {
      @discussion	This header file contains definitions and structures that are used in the different USB API's in Mac OS X, both in the kernel and in the user space.
      */
 
-#if KERNEL
     /*!
-    @defined Kernel Endian conversion definitions
+    @defined	Endian conversion definitions
      @discussion The USB API's use a convention of specifying parameters in the host order.  The USB spec specifies that multi-byte items should be
      formatted in little endian order.  The following macros allow one to translate multi-byte values from Host order to USB order and vice versa.  There are separate macros for
      in-kernel use and for user space use.
@@ -58,18 +57,6 @@ extern "C" {
 #define HostToUSBWord OSSwapHostToLittleInt16
 #define USBToHostLong OSSwapLittleToHostInt32
 #define HostToUSBLong OSSwapHostToLittleInt32
-#else
-    /*!
-    @defined User Space Endian conversion definitions
-     @discussion The USB API's use a convention of specifying parameters in the host order.  The USB spec specifies that multi-byte items should be
-     formatted in little endian order.  The following macros allow one to translate multi-byte values from Host order to USB order and vice versa.  There are separate macros for
-     in-kernel use and for user space use.
-     */
-#define USBToHostWord NXSwapLittleShortToHost
-#define HostToUSBWord NXSwapHostShortToLittle
-#define USBToHostLong NXSwapLittleLongToHost
-#define HostToUSBLong NXSwapHostLongToLittle
-#endif
 
     /*!
     @enum Miscellaneous Constants
@@ -365,7 +352,8 @@ typedef struct IOUSBLowLatencyIsocCompletion {
 #define kIOUSBHighSpeedSplitError     iokit_usb_err(0x4b)		// 0xe000404b Error to hub on high speed bus trying to do split transaction
 #define kIOUSBSyncRequestOnWLThread	iokit_usb_err(0x4a)			// 0xe000404a  A synchronous USB request was made on the workloop thread (from a callback?).  Only async requests are permitted in that case
 #define kIOUSBDeviceNotHighSpeed	iokit_usb_err(0x49)			// 0xe0004049  The device is not a high speed device, so the EHCI driver returns an error
-
+#define kIOUSBDevicePortWasNotSuspended iokit_usb_err(0x50)		// 0xe0004050  Port was not suspended
+	
 /*!
 @defined IOUSBFamily hardware error codes
 @discussion These errors are returned by the OHCI controller.  The # in parenthesis (xx) corresponds to the OHCI Completion Code.
@@ -948,13 +936,13 @@ typedef struct LowLatencyUserBufferInfoV2 LowLatencyUserBufferInfoV2;
 
 struct LowLatencyUserBufferInfoV2 
 {
-    UInt32							cookie;
-    void *							bufferAddress;
-    IOByteCount						bufferSize;
-    UInt32							bufferType;
-    Boolean							isPrepared;
+	UInt32							cookie;
+	void *							bufferAddress;
+	IOByteCount						bufferSize;
+	UInt32							bufferType;
+	Boolean							isPrepared;
 	void *							mappedUHCIAddress;
-    LowLatencyUserBufferInfoV2 *	nextBuffer;
+	LowLatencyUserBufferInfoV2 *	nextBuffer;
 };
 
 	

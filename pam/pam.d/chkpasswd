@@ -1,3 +1,0 @@
-# chkpasswd: auth account
-auth       required       pam_unix.so
-account    required       pam_unix.so

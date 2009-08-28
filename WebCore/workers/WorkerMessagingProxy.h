@@ -31,20 +31,23 @@
 
 #include "ScriptExecutionContext.h"
 #include "WorkerContextProxy.h"
+#include "WorkerLoaderProxy.h"
 #include "WorkerObjectProxy.h"
 #include <wtf/Noncopyable.h>
+#include <wtf/PassOwnPtr.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
 
+    class MessagePortChannel;
     class ScriptExecutionContext;
     class String;
     class Worker;
     class WorkerThread;
 
-    class WorkerMessagingProxy : public WorkerContextProxy, public WorkerObjectProxy, Noncopyable {
+    class WorkerMessagingProxy : public WorkerContextProxy, public WorkerObjectProxy, public WorkerLoaderProxy, Noncopyable {
     public:
         WorkerMessagingProxy(Worker*);
 
@@ -52,22 +55,24 @@ namespace WebCore {
         // (Only use these methods in the worker object thread.)
         virtual void startWorkerContext(const KURL& scriptURL, const String& userAgent, const String& sourceCode);
         virtual void terminateWorkerContext();
-        virtual void postMessageToWorkerContext(const String& message);
+        virtual void postMessageToWorkerContext(const String&, PassOwnPtr<MessagePortChannel>);
         virtual bool hasPendingActivity() const;
         virtual void workerObjectDestroyed();
 
         // Implementations of WorkerObjectProxy.
         // (Only use these methods in the worker context thread.)
-        virtual void postMessageToWorkerObject(const String& message);
+        virtual void postMessageToWorkerObject(const String&, PassOwnPtr<MessagePortChannel>);
         virtual void postExceptionToWorkerObject(const String& errorMessage, int lineNumber, const String& sourceURL);
         virtual void postConsoleMessageToWorkerObject(MessageDestination, MessageSource, MessageLevel, const String& message, int lineNumber, const String& sourceURL);
         virtual void confirmMessageFromWorkerObject(bool hasPendingActivity);
         virtual void reportPendingActivity(bool hasPendingActivity);
         virtual void workerContextDestroyed();
 
-        void postTaskToWorkerObject(PassRefPtr<ScriptExecutionContext::Task>);
-        void postTaskToWorkerContext(PassRefPtr<ScriptExecutionContext::Task>);
-        void postTaskForModeToWorkerContext(PassRefPtr<ScriptExecutionContext::Task>, const String& mode);
+        // Implementation of WorkerLoaderProxy.
+        // These methods are called on different threads to schedule loading
+        // requests and to send callbacks back to WorkerContext.
+        virtual void postTaskToLoader(PassRefPtr<ScriptExecutionContext::Task>);
+        virtual void postTaskForModeToWorkerContext(PassRefPtr<ScriptExecutionContext::Task>, const String& mode);
 
         void workerThreadCreated(PassRefPtr<WorkerThread>);
 

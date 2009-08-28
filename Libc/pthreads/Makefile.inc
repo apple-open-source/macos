@@ -9,8 +9,8 @@ MISRCS += pthread_cancelable.c pthread_cond.c pthread_tsd.c pthread.c \
 
 .ifdef FEATURE_PLOCKSTAT
 ${SYMROOTINC}/plockstat.h: ${.CURDIR}/pthreads/plockstat.d
-	mkdir -p ${SYMROOTINC}
-	dtrace -o ${.TARGET} -C -h -s ${.ALLSRC}
+	${MKDIR} ${SYMROOTINC}
+	${DTRACE} -o ${.TARGET} -C -h -s ${.ALLSRC}
 
 .for _src in pthread_cond.c pthread_mutex.c pthread_rwlock.c
 ${_src:R}.${OBJSUFFIX}: ${SYMROOTINC}/plockstat.h
@@ -40,6 +40,15 @@ CFLAGS-pthread_cancelable.c += -DLIBC_ALIAS_PTHREAD_COND_TIMEDWAIT -DLIBC_ALIAS_
 CFLAGS-pthread_cond.c += -DLIBC_ALIAS_PTHREAD_COND_INIT
 CFLAGS-pthread_mutex.c += -DLIBC_ALIAS_PTHREAD_MUTEXATTR_DESTROY
 CFLAGS-pthread_rwlock.c += -DLIBC_ALIAS_PTHREAD_RWLOCK_DESTROY -DLIBC_ALIAS_PTHREAD_RWLOCK_INIT -DLIBC_ALIAS_PTHREAD_RWLOCK_RDLOCK -DLIBC_ALIAS_PTHREAD_RWLOCK_TRYRDLOCK -DLIBC_ALIAS_PTHREAD_RWLOCK_TRYWRLOCK -DLIBC_ALIAS_PTHREAD_RWLOCK_UNLOCK -DLIBC_ALIAS_PTHREAD_RWLOCK_WRLOCK
+
+.if defined(CCARCH) && ${CCARCH} == armv6
+CFLAGS-pthread.c += -mno-thumb
+CFLAGS-pthread_cancelable.c += -mno-thumb
+CFLAGS-pthread_cond.c += -mno-thumb
+CFLAGS-pthread_mutex.c += -mno-thumb
+CFLAGS-pthread_rwlock.c += -mno-thumb
+CFLAGS-pthread_tsd.c += -mno-thumb
+.endif
 
 STRIP_HDRS += pthread.h
 

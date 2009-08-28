@@ -8,15 +8,20 @@
 Project               = thread
 ProjectName           = Thread
 
-Extra_Configure_Flags = $(TEA_Configure_Flags)
-Extra_LD_Flags        = -L$(TclFramework)
-Extra_Environment     = $(TEA_Environment)
-Extra_Install_Flags   = GENERIC_HDRS=
+# Fetch info
+Release               = 2.6.5
+TEApotVersion         = 0.0.0.2008.11.04.18.15.38
+TEApotProject         = $(Project)
 
-GnuAfterInstall       = strip install-doc fix-owner
+Extra_Configure_Flags = $(TEA_Configure_Flags)
+Extra_Environment     = $(TEA_Environment)
+
+GnuAfterInstall       = strip install-doc fix-perms
 
 # include TEA Tcl extension build support
 include ../TEA.make
+
+Install_Target        = install-binaries install-doc
 
 install-doc:
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(TclExtHtmlDir)"

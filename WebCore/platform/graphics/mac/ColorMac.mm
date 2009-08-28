@@ -24,30 +24,41 @@
  */
 
 #import "config.h"
-#import "Color.h"
 #import "ColorMac.h"
 
-#import <AppKit/AppKit.h>
-#import <wtf/Assertions.h>
-#import <wtf/StdLibExtras.h>
 #import <wtf/RetainPtr.h>
-
-@interface WebCoreControlTintObserver : NSObject
-+ (void)controlTintDidChange;
-@end
+#import <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
 // NSColor calls don't throw, so no need to block Cocoa exceptions in this file
 
-static RGBA32 oldAquaFocusRingColor = 0xFF7DADD9;
-static RGBA32 systemFocusRingColor;
 static bool useOldAquaFocusRingColor;
 
+RGBA32 oldAquaFocusRingColor()
+{
+    return 0xFF7DADD9;
+}
+
+void setUsesTestModeFocusRingColor(bool newValue)
+{
+    useOldAquaFocusRingColor = newValue;
+}
+
+bool usesTestModeFocusRingColor()
+{
+    return useOldAquaFocusRingColor;
+}
 
 static RGBA32 makeRGBAFromNSColor(NSColor *c)
 {
-    return makeRGBA((int)(255 * [c redComponent]), (int)(255 * [c greenComponent]), (int)(255 * [c blueComponent]), (int)(255 * [c alphaComponent]));
+    CGFloat redComponent;
+    CGFloat greenComponent;
+    CGFloat blueComponent;
+    CGFloat alpha;
+    [c getRed:&redComponent green:&greenComponent blue:&blueComponent alpha:&alpha];
+
+    return makeRGBA(255 * redComponent, 255 * greenComponent, 255 * blueComponent, 255 * alpha);
 }
 
 Color colorFromNSColor(NSColor *c)
@@ -55,21 +66,21 @@ Color colorFromNSColor(NSColor *c)
     return Color(makeRGBAFromNSColor(c));
 }
 
-NSColor* nsColor(const Color& color)
+NSColor *nsColor(const Color& color)
 {
-    unsigned c = color.rgb();
+    RGBA32 c = color.rgb();
     switch (c) {
         case 0: {
             // Need this to avoid returning nil because cachedRGBAValues will default to 0.
-            DEFINE_STATIC_LOCAL(RetainPtr<NSColor>, clearColor, ([NSColor colorWithDeviceRed:0.0f green:0.0f blue:0.0f alpha:0.0f]));
+            DEFINE_STATIC_LOCAL(RetainPtr<NSColor>, clearColor, ([NSColor colorWithDeviceRed:0 green:0 blue:0 alpha:0]));
             return clearColor.get();
         }
         case Color::black: {
-            DEFINE_STATIC_LOCAL(RetainPtr<NSColor>, blackColor, ([NSColor colorWithDeviceRed:0.0f green:0.0f blue:0.0f alpha:1.0f]));
+            DEFINE_STATIC_LOCAL(RetainPtr<NSColor>, blackColor, ([NSColor colorWithDeviceRed:0 green:0 blue:0 alpha:1]));
             return blackColor.get();
         }
         case Color::white: {
-            DEFINE_STATIC_LOCAL(RetainPtr<NSColor>, whiteColor, ([NSColor colorWithDeviceRed:1.0f green:1.0f blue:1.0f alpha:1.0f]));
+            DEFINE_STATIC_LOCAL(RetainPtr<NSColor>, whiteColor, ([NSColor colorWithDeviceRed:1 green:1 blue:1 alpha:1]));
             return whiteColor.get();
         }
         default: {
@@ -81,10 +92,10 @@ NSColor* nsColor(const Color& color)
                 if (cachedRGBAValues[i] == c)
                     return cachedColors[i].get();
 
-            NSColor* result = [NSColor colorWithDeviceRed:color.red() / 255.0f
-                                                    green:color.green() / 255.0f
-                                                     blue:color.blue() / 255.0f
-                                                    alpha:color.alpha() /255.0f];
+            NSColor *result = [NSColor colorWithDeviceRed:static_cast<CGFloat>(color.red()) / 255
+                                                    green:static_cast<CGFloat>(color.green()) / 255
+                                                     blue:static_cast<CGFloat>(color.blue()) / 255
+                                                    alpha:static_cast<CGFloat>(color.alpha()) /255];
 
             static int cursor;
             cachedRGBAValues[cursor] = c;
@@ -96,16 +107,13 @@ NSColor* nsColor(const Color& color)
     }
 }
 
-static CGColorRef CGColorFromNSColor(NSColor* color)
+static CGColorRef CGColorFromNSColor(NSColor *color)
 {
     // This needs to always use device colorspace so it can de-calibrate the color for
     // CGColor to possibly recalibrate it.
-    NSColor* deviceColor = [color colorUsingColorSpaceName:NSDeviceRGBColorSpace];
-    CGFloat red = [deviceColor redComponent];
-    CGFloat green = [deviceColor greenComponent];
-    CGFloat blue = [deviceColor blueComponent];
-    CGFloat alpha = [deviceColor alphaComponent];
-    const CGFloat components[4] = { red, green, blue, alpha };
+    CGFloat components[4];
+    NSColor *deviceColor = [color colorUsingColorSpaceName:NSDeviceRGBColorSpace];
+    [deviceColor getRed:&components[0] green:&components[1] blue:&components[2] alpha:&components[3]];
     static CGColorSpaceRef deviceRGBColorSpace = CGColorSpaceCreateDeviceRGB();
     CGColorRef cgColor = CGColorCreate(deviceRGBColorSpace, components);
     return cgColor;
@@ -119,42 +127,4 @@ CGColorRef createCGColor(const Color& c)
     return CGColorFromNSColor(nsColor(c));
 }
 
-Color focusRingColor()
-{
-    static bool tintIsKnown = false;
-    if (!tintIsKnown) {
-        [[NSNotificationCenter defaultCenter] addObserver:[WebCoreControlTintObserver class]
-                                                 selector:@selector(controlTintDidChange)
-                                                     name:NSControlTintDidChangeNotification
-                                                   object:NSApp];
-        [WebCoreControlTintObserver controlTintDidChange];
-        tintIsKnown = true;
-    }
-    
-    if (usesTestModeFocusRingColor())
-        return oldAquaFocusRingColor;
-    
-    return systemFocusRingColor;
-}
-
-bool usesTestModeFocusRingColor()
-{
-    return useOldAquaFocusRingColor;
-}
-
-void setUsesTestModeFocusRingColor(bool newValue)
-{
-    useOldAquaFocusRingColor = newValue;
-}
-
-}
-
-@implementation WebCoreControlTintObserver
-
-+ (void)controlTintDidChange
-{
-    NSColor* color = [[NSColor keyboardFocusIndicatorColor] colorUsingColorSpaceName:NSDeviceRGBColorSpace];
-    WebCore::systemFocusRingColor = WebCore::makeRGBAFromNSColor(color);
-}
-
-@end
+} // namespace WebCore

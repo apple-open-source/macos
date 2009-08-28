@@ -84,7 +84,7 @@
 +	  } else if (strcmp(*p, "all") == 0) {
 +	      next_flag = NEXT_ALL_FLAGS;
 +	  } else {
-+	      error ("Unrecognized flag `%s'.", *p);
++	      error (NILF, "Unrecognized flag `%s'.", *p);
 +	  }
 +      }
 +  }

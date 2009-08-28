@@ -2,9 +2,9 @@
 #
 #  svnversion_tests.py:  testing the 'svnversion' tool.
 #
-#  Subversion is a tool for revision control. 
+#  Subversion is a tool for revision control.
 #  See http://subversion.tigris.org for more information.
-#    
+#
 # ====================================================================
 # Copyright (c) 2003 CollabNet.  All rights reserved.
 #
@@ -18,6 +18,7 @@
 
 # General modules
 import os.path
+import warnings
 
 # Our testing module
 import svntest
@@ -27,8 +28,6 @@ from svntest import wc
 Skip = svntest.testcase.Skip
 XFail = svntest.testcase.XFail
 Item = svntest.wc.StateItem
-
-SVNAnyOutput = svntest.SVNAnyOutput
 
 #----------------------------------------------------------------------
 
@@ -49,20 +48,18 @@ def svnversion_test(sbox):
                                             [ "1S\n" ], [])
 
   mu_path = os.path.join(wc_dir, 'A', 'mu')
-  svntest.main.file_append (mu_path, 'appended mu text')
+  svntest.main.file_append(mu_path, 'appended mu text')
 
   # Text modified
   svntest.actions.run_and_verify_svnversion("Modified text", wc_dir, repo_url,
                                             [ "1M\n" ], [])
 
   expected_output = wc.State(wc_dir, {'A/mu' : Item(verb='Sending')})
-  expected_status = svntest.actions.get_virginal_state(wc_dir, 2)
-  expected_status.tweak(wc_rev=1)
+  expected_status = svntest.actions.get_virginal_state(wc_dir, 1)
   expected_status.tweak('A/mu', wc_rev=2)
-  if svntest.actions.run_and_verify_commit (wc_dir,
-                                            expected_output, expected_status,
-                                            None, None, None, None, None,
-                                            wc_dir):
+  if svntest.actions.run_and_verify_commit(wc_dir,
+                                           expected_output, expected_status,
+                                           None, wc_dir):
     raise svntest.Failure
 
   # Unmodified, mixed
@@ -80,7 +77,7 @@ def svnversion_test(sbox):
                                             [ "1:2M\n" ], [])
 
   iota_path = os.path.join(wc_dir, 'iota')
-  gamma_url = svntest.main.current_repo_url + '/A/D/gamma'
+  gamma_url = sbox.repo_url + '/A/D/gamma'
   expected_output = wc.State(wc_dir, {'iota' : Item(status='U ')})
   expected_status.tweak('A/mu', status=' M')
   expected_status.tweak('iota', switched='S', wc_rev=2)
@@ -118,7 +115,28 @@ def svnversion_test(sbox):
   # No directory generates an error
   svntest.actions.run_and_verify_svnversion("None existent directory",
                                             os.path.join(wc_dir, 'Q', 'X'),
-                                            repo_url, None, SVNAnyOutput)
+                                            repo_url,
+                                            None, svntest.verify.AnyOutput)
+
+  # Perform a sparse checkout of under the existing WC, and confirm that
+  # svnversion detects it as a "partial" WC.
+  A_path = os.path.join(wc_dir, "A")
+  A_A_path = os.path.join(A_path, "SPARSE_A")
+  expected_output = wc.State(A_path, {
+    "SPARSE_A"    : Item(),
+    "SPARSE_A/mu" : Item(status='A '),
+    })
+  expected_disk = wc.State("", {
+    "mu" : Item(expected_disk.desc['A/mu'].contents),
+    })
+  svntest.actions.run_and_verify_checkout(repo_url + "/A", A_A_path,
+                                          expected_output, expected_disk,
+                                          None, None, None, None,
+                                          "--depth=files")
+
+  # Partial (sparse) checkout
+  svntest.actions.run_and_verify_svnversion("Sparse checkout", A_A_path,
+                                            repo_url, [ "2SP\n" ], [])
 
 
 #----------------------------------------------------------------------
@@ -134,7 +152,7 @@ def ignore_externals(sbox):
   externals_desc = "ext -r 1 " + repo_url + "/A/D/G" + "\n"
   tmp_f = os.tempnam(wc_dir, 'tmp')
   svntest.main.file_append(tmp_f, externals_desc)
-  svntest.actions.run_and_verify_svn("", None, [],
+  svntest.actions.run_and_verify_svn(None, None, [],
                                      'pset',
                                      '-F', tmp_f, 'svn:externals', C_path)
   os.remove(tmp_f)
@@ -146,14 +164,14 @@ def ignore_externals(sbox):
   svntest.actions.run_and_verify_commit(wc_dir,
                                         expected_output,
                                         expected_status,
-                                        None, None, None, None, None,
-                                       wc_dir)
+                                        None, wc_dir)
 
   # Update to get it on disk
   svntest.actions.run_and_verify_svn(None, None, [], 'up', wc_dir)
   ext_path = os.path.join(C_path, 'ext')
-  out, err = svntest.actions.run_and_verify_svn(None, SVNAnyOutput, [],
-                                                'info', ext_path)
+  exit_code, out, err = svntest.actions.run_and_verify_svn(
+    None, svntest.verify.AnyOutput, [], 'info', ext_path)
+
   for line in out:
     if line.find('Revision: 1') != -1:
       break
@@ -175,6 +193,7 @@ test_list = [ None,
              ]
 
 if __name__ == '__main__':
+  warnings.filterwarnings('ignore', 'tempnam', RuntimeWarning)
   svntest.main.run_tests(test_list)
   # NOTREACHED
 

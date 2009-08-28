@@ -54,11 +54,11 @@ extern int i386_stopped_data_address (CORE_ADDR *);
 
 /* Insert a hardware-assisted breakpoint at address ADDR.  SHADOW is
    unused.  Return 0 on success, EBUSY on failure.  */
-extern int i386_insert_hw_breakpoint (CORE_ADDR addr, void *shadow);
+extern int i386_insert_hw_breakpoint (CORE_ADDR addr, gdb_byte *shadow);
 
 /* Remove a hardware-assisted breakpoint at address ADDR.  SHADOW is
    unused. Return 0 on success, -1 on failure.  */
-extern int  i386_remove_hw_breakpoint (CORE_ADDR addr, void *shadow);
+extern int  i386_remove_hw_breakpoint (CORE_ADDR addr, gdb_byte *shadow);
 
 /* Returns the number of hardware watchpoints of type TYPE that we can
    set.  Value is positive if we can set CNT watchpoints, zero if

@@ -175,7 +175,7 @@ bool IOFireWireSBP2Target::start( IOService *provider )
     else
         return false;
 
-    FWKLOG( ( "IOFireWireSBP2Target<0x%08lx> : started\n", (UInt32)this ) );
+    FWKLOG( ( "IOFireWireSBP2Target<%p> : started\n", this ) );
 	
 	fExpansionData->fStarted = true;
 	
@@ -188,7 +188,7 @@ bool IOFireWireSBP2Target::start( IOService *provider )
 
 void IOFireWireSBP2Target::stop( IOService *provider )
 {
-    FWKLOG( ( "IOFireWireSBP2Target<0x%08lx>::stop\n", (UInt32)this ) );
+    FWKLOG( ( "IOFireWireSBP2Target<%p>::stop\n", this ) );
 
     IOService::stop(provider);
 }
@@ -211,11 +211,11 @@ bool IOFireWireSBP2Target::finalize( IOOptionBits options )
 
 void IOFireWireSBP2Target::free( void )
 {
-	FWKLOG( ( "IOFireWireSBP2Target<0x%08lx>::free\n", (UInt32)this ) );
+	FWKLOG( ( "IOFireWireSBP2Target<%p>::free\n", this ) );
 
 	if( fIOCriticalSectionCount != 0 )
 	{
-		IOLog( "IOFireWireSBP2Target<0x%08lx>::free - fIOCriticalSectionCount == %d!\n", (UInt32)this, fIOCriticalSectionCount );
+		IOLog( "IOFireWireSBP2Target<%p>::free - fIOCriticalSectionCount == %d!\n", this, fIOCriticalSectionCount );
 	}
 	
 	while( fIOCriticalSectionCount != 0 )
@@ -252,7 +252,7 @@ IOReturn IOFireWireSBP2Target::message( UInt32 type, IOService *nub, void *arg )
 {
     IOReturn res = kIOReturnUnsupported;
 
-    FWKLOG( ("IOFireWireSBP2Target<0x%08lx> : message 0x%x, arg 0x%08lx\n", (UInt32)this, type, arg) );
+    FWKLOG( ("IOFireWireSBP2Target<%p> : message 0x%x, arg 0x%08lx\n", this, type, arg) );
 
     res = IOService::message(type, nub, arg);
     if( kIOReturnUnsupported == res )
@@ -260,18 +260,18 @@ IOReturn IOFireWireSBP2Target::message( UInt32 type, IOService *nub, void *arg )
         switch (type)
         {                
             case kIOMessageServiceIsTerminated:
-                FWKLOG( ( "IOFireWireSBP2Target<0x%08lx> : kIOMessageServiceIsTerminated\n", (UInt32)this ) );
+                FWKLOG( ( "IOFireWireSBP2Target<%p> : kIOMessageServiceIsTerminated\n", this ) );
                 res = kIOReturnSuccess;
                 break;
 
             case kIOMessageServiceIsSuspended:
-                FWKLOG( ( "IOFireWireSBP2Target<0x%08lx> : kIOMessageServiceIsSuspended\n", (UInt32)this ) );
+                FWKLOG( ( "IOFireWireSBP2Target<%p> : kIOMessageServiceIsSuspended\n", this ) );
                 clearMgmtAgentAccess();
                 res = kIOReturnSuccess;
                 break;
 
             case kIOMessageServiceIsResumed:
-                FWKLOG( ( "IOFireWireSBP2Target<0x%08lx> : kIOMessageServiceIsResumed\n", (UInt32)this ) );
+                FWKLOG( ( "IOFireWireSBP2Target<%p> : kIOMessageServiceIsResumed\n", this ) );
                 configurePhysicalFilter();
                 res = kIOReturnSuccess;
                 break;
@@ -314,7 +314,7 @@ bool IOFireWireSBP2Target::handleOpen( IOService * forClient, IOOptionBits optio
 {
     bool ok = true;
 
-    FWKLOG(( "IOFireWireSBP2Target<0x%08lx>::handleOpen entered fOpenFromLUNCount = %d, fOpenFromTarget = %d\n", (UInt32)this, fOpenFromLUNCount, fOpenFromTarget ));
+    FWKLOG(( "IOFireWireSBP2Target<%p::handleOpen entered fOpenFromLUNCount = %d, fOpenFromTarget = %d\n", this, fOpenFromLUNCount, fOpenFromTarget ));
     
     IOFireWireSBP2LUN * lunClient = OSDynamicCast( IOFireWireSBP2LUN, forClient );
     if( lunClient != NULL )
@@ -331,7 +331,7 @@ bool IOFireWireSBP2Target::handleOpen( IOService * forClient, IOOptionBits optio
             {
                 fOpenFromLUNCount++;
                 ok = IOService::handleOpen( this, options, arg );
-                FWKLOG(( "IOFireWireSBP2Target<0x%08lx>::handleOpen called open\n", (UInt32)this ));
+                FWKLOG(( "IOFireWireSBP2Target<%p>::handleOpen called open\n", this ));
             }
         }
         else
@@ -354,21 +354,21 @@ bool IOFireWireSBP2Target::handleOpen( IOService * forClient, IOOptionBits optio
             {
                 fOpenFromTarget = true;
                 ok = IOService::handleOpen( forClient, options, arg );
-                FWKLOG(( "IOFireWireSBP2Target<0x%08lx>::handleOpen called open\n", (UInt32)this ));
+                FWKLOG(( "IOFireWireSBP2Target<%p>::handleOpen called open\n", this ));
             }
         }
         else
             ok = false;   // already open
     }
 
-    FWKLOG(( "IOFireWireSBP2Target<0x%08lx>::handleOpen - exit handleOpen fOpenFromLUNCount = %d, fOpenFromTarget = %d\n", (UInt32)this, fOpenFromLUNCount, fOpenFromTarget ));
+    FWKLOG(( "IOFireWireSBP2Target<%p>::handleOpen - exit handleOpen fOpenFromLUNCount = %d, fOpenFromTarget = %d\n", this, fOpenFromLUNCount, fOpenFromTarget ));
     
     return ok;
 }
 
 void IOFireWireSBP2Target::handleClose( IOService * forClient, IOOptionBits options )
 {
-    FWKLOG(( "IOFireWireSBP2Target<0x%08lx>::handleClose enter handleClose fOpenFromLUNCount = %d, fOpenFromTarget = %d\n", (UInt32)this, fOpenFromLUNCount, fOpenFromTarget ));
+    FWKLOG(( "IOFireWireSBP2Target<%p>::handleClose enter handleClose fOpenFromLUNCount = %d, fOpenFromTarget = %d\n", this, fOpenFromLUNCount, fOpenFromTarget ));
     
     IOFireWireSBP2LUN * lunClient = OSDynamicCast( IOFireWireSBP2LUN, forClient );
     if( lunClient != NULL )
@@ -381,7 +381,7 @@ void IOFireWireSBP2Target::handleClose( IOService * forClient, IOOptionBits opti
             {
                 IOService::handleClose( this, options);
                 fProviderUnit->close(this, options);
-                FWKLOG(( "IOFireWireSBP2Target<0x%08lx>::handleClose - called close\n", (UInt32)this ));
+                FWKLOG(( "IOFireWireSBP2Target<%p>::handleClose - called close\n", this ));
             }
         }
     }
@@ -392,11 +392,11 @@ void IOFireWireSBP2Target::handleClose( IOService * forClient, IOOptionBits opti
             fOpenFromTarget = false;
             IOService::handleClose(forClient, options);
             fProviderUnit->close(this, options);
-            FWKLOG(( "IOFireWireSBP2Target<0x%08lx>::handleClose - called close\n", (UInt32)this ));
+            FWKLOG(( "IOFireWireSBP2Target<%p::handleClose - called close\n", this ));
         }
     }
 
-    FWKLOG(( "IOFireWireSBP2Target<0x%08lx>::handleClose - exit handleClose fOpenFromLUNCount = %d, fOpenFromTarget = %d\n", (UInt32)this, fOpenFromLUNCount, fOpenFromTarget ));
+    FWKLOG(( "IOFireWireSBP2Target<%p>::handleClose - exit handleClose fOpenFromLUNCount = %d, fOpenFromTarget = %d\n", this, fOpenFromLUNCount, fOpenFromTarget ));
 }
 
 //
@@ -470,13 +470,13 @@ void IOFireWireSBP2Target::scanForLUNs( void )
         device = OSDynamicCast( IOFireWireDevice, providerService );
         if( device == NULL )
             status = kIOReturnError;
-        FWKLOG( ("IOFireWireSBP2Target<0x%08lx> : unit = 0x%08lx, provider = 0x%08lx, device = 0x%08lx\n", (UInt32)this, fProviderUnit, providerService, device) );
+        FWKLOG( ("IOFireWireSBP2Target<%p> : unit = 0x%08lx, provider = 0x%08lx, device = 0x%08lx\n", this, fProviderUnit, providerService, device) );
     }
     
     if( status == kIOReturnSuccess )
     {
         status = device->getConfigDirectory( directory );
-        FWKLOG( ( "IOFireWireSBP2Target<0x%08lx> : status = %d\n", (UInt32)this, status ) );
+        FWKLOG( ( "IOFireWireSBP2Target<%p> : status = %d\n", this, status ) );
     }
     
     //
@@ -491,7 +491,7 @@ void IOFireWireSBP2Target::scanForLUNs( void )
     //
     
     status = fProviderUnit->getConfigDirectory( directory );
-    FWKLOG( ( "IOFireWireSBP2Target<0x%08lx> : status = %d\n", (UInt32)this, status ) );
+    FWKLOG( ( "IOFireWireSBP2Target<%p> : status = %d\n", this, status ) );
   	
 	//
 	// find command spec id
@@ -574,8 +574,8 @@ void IOFireWireSBP2Target::scanForLUNs( void )
     if( status == kIOReturnSuccess )
         tempStatus = directory->getKeyValue( kFirmwareRevKey, info.firmwareRev );
 
-     FWKLOG( ( "IOFireWireSBP2Target<0x%08lx> : status = %d, cmdSpecID = %d, cmdSet = %d, vendorID = %d, softwareRev = %d, firmwareRev = %d\n",
-                             (UInt32)this, status, info.cmdSpecID, info.cmdSet, info.vendorID, info.softwareRev, info.firmwareRev ) );
+     FWKLOG( ( "IOFireWireSBP2Target<%p> : status = %d, cmdSpecID = %d, cmdSet = %d, vendorID = %d, softwareRev = %d, firmwareRev = %d\n",
+                             this, status, info.cmdSpecID, info.cmdSet, info.vendorID, info.softwareRev, info.firmwareRev ) );
 
     //
     // look for luns implemented as immediate values
@@ -589,8 +589,8 @@ void IOFireWireSBP2Target::scanForLUNs( void )
             // get index key
             UInt32 key;
             tempStatus = directory->getIndexEntry( pos, key );
-            FWKLOG( ( "IOFireWireSBP2Target<0x%08lx> : tempStatus = %d, pos = %d, key = %d\n",
-                             (UInt32)this, tempStatus, pos, key ) );
+            FWKLOG( ( "IOFireWireSBP2Target<%p> : tempStatus = %d, pos = %d, key = %d\n",
+                             this, tempStatus, pos, key ) );
             
             // if it was the LUN key
             if( tempStatus == kIOReturnSuccess && key >> kConfigEntryKeyValuePhase == kLUNKey )
@@ -602,14 +602,14 @@ void IOFireWireSBP2Target::scanForLUNs( void )
                     info.lun = data  & 0x0000ffff;
                     info.devType = (data & 0x001f0000) >> 16;
 
-                    FWKLOG( ( "IOFireWireSBP2Target<0x%08lx> : cmdSpecID = %d, cmdSet = %d, vendorID = %d, softwareRev = %d\n",
-                             (UInt32)this, info.cmdSpecID, info.cmdSet, info.vendorID, info.softwareRev ) );
-                    FWKLOG( ( "IOFireWireSBP2Target<0x%08lx> : firmwareRev = %d, lun = %d, devType = %d\n",
-                             (UInt32)this, info.firmwareRev, info.lun, info.devType ) );
-					FWKLOG( ( "IOFireWireSBP2Target<0x%08lx> : unitCharacteristics = %d, managementOffset = %d,\n",
-                             (UInt32)this, info.unitCharacteristics, info.managementOffset ) );
-					FWKLOG( ( "IOFireWireSBP2Target<0x%08lx> : revision = %d, fastStartSupported = %d, fastStart = 0x%08lx\n",
-                         (UInt32)this, info.revision, info.fastStartSupported, info.fastStart ) );
+                    FWKLOG( ( "IOFireWireSBP2Target<%p> : cmdSpecID = %d, cmdSet = %d, vendorID = %d, softwareRev = %d\n",
+                             this, info.cmdSpecID, info.cmdSet, info.vendorID, info.softwareRev ) );
+                    FWKLOG( ( "IOFireWireSBP2Target<%p> : firmwareRev = %d, lun = %d, devType = %d\n",
+                             this, info.firmwareRev, info.lun, info.devType ) );
+					FWKLOG( ( "IOFireWireSBP2Target<%p> : unitCharacteristics = %d, managementOffset = %d,\n",
+                             this, info.unitCharacteristics, info.managementOffset ) );
+					FWKLOG( ( "IOFireWireSBP2Target<%p> : revision = %d, fastStartSupported = %d, fastStart = 0x%08lx\n",
+                         this, info.revision, info.fastStartSupported, info.fastStart ) );
 						 
                     // force vendors to use real values, (0, 0) is not legal
                     if( (info.cmdSpecID & 0x00ffffff) || (info.cmdSet & 0x00ffffff) )
@@ -658,12 +658,12 @@ void IOFireWireSBP2Target::scanForLUNs( void )
                 info.lun = lunValue  & 0x0000ffff;
                 info.devType = (lunValue & 0x001f0000) >> 16;
 
-                FWKLOG( ( "IOFireWireSBP2Target<0x%08lx> : cmdSpecID = %d, cmdSet = %d, vendorID = %d, softwareRev = %d\n",
-                         (UInt32)this, info.cmdSpecID, info.cmdSet, info.vendorID, info.softwareRev ) );
-                FWKLOG( ( "IOFireWireSBP2Target<0x%08lx> : firmwareRev = %d, lun = %d, devType = %d\n",
-                         (UInt32)this, info.firmwareRev, info.lun, info.devType ) );
-				FWKLOG( ( "IOFireWireSBP2Target<0x%08lx> : revision = %d, fastStartSupported = %d, fastStart = 0x%08lx\n",
-                         (UInt32)this, info.revision, info.fastStartSupported, info.fastStart ) );
+                FWKLOG( ( "IOFireWireSBP2Target<%p> : cmdSpecID = %d, cmdSet = %d, vendorID = %d, softwareRev = %d\n",
+                         this, info.cmdSpecID, info.cmdSet, info.vendorID, info.softwareRev ) );
+                FWKLOG( ( "IOFireWireSBP2Target<%p> : firmwareRev = %d, lun = %d, devType = %d\n",
+                         this, info.firmwareRev, info.lun, info.devType ) );
+				FWKLOG( ( "IOFireWireSBP2Target<%p> : revision = %d, fastStartSupported = %d, fastStart = 0x%08lx\n",
+                         this, info.revision, info.fastStartSupported, info.fastStart ) );
 						 
                 // force vendors to use real values, (0, 0) is not legal
                 if( (info.cmdSpecID & 0x00ffffff) || (info.cmdSet & 0x00ffffff) )
@@ -824,7 +824,7 @@ IOReturn IOFireWireSBP2Target::createLUN( LUNInfo * info )
             if( success )
                 newLUN->registerService();
 
-            FWKLOG( ( "IOFireWireSBP2Target<0x%08lx> : created LUN object - success = %d\n", (UInt32)this, success ) );
+            FWKLOG( ( "IOFireWireSBP2Target<%p> : created LUN object - success = %d\n", this, success ) );
 
             if( !success )
                 status = kIOReturnError;
@@ -874,7 +874,7 @@ void IOFireWireSBP2Target::setTargetFlags( UInt32 flags )
 {
 	fFlags |= flags;
     
-	FWKLOG(( "IOFireWireSBP2Target<0x%08lx>::setTargetFlags 0x%08lx\n", (UInt32)this, fFlags ));
+	FWKLOG(( "IOFireWireSBP2Target<%p>::setTargetFlags 0x%08lx\n", this, fFlags ));
     
     configurePhysicalFilter();
 }
@@ -883,7 +883,7 @@ void IOFireWireSBP2Target::clearTargetFlags( UInt32 flags )
 {
 	fFlags &= ~flags;
     
-	FWKLOG(( "IOFireWireSBP2Target<0x%08lx>::clearTargetFlags 0x%08lx\n", (UInt32)this, fFlags ));
+	FWKLOG(( "IOFireWireSBP2Target<%p>::clearTargetFlags 0x%08lx\n", this, fFlags ));
     
     configurePhysicalFilter();
 }
@@ -951,12 +951,12 @@ void IOFireWireSBP2Target::configurePhysicalFilter( void )
     
     if( disablePhysicalAccess )
     {
-		FWKLOG(( "IOFireWireSBP2Target<0x%08lx>::configurePhysicalFilter disabling physical access for unit 0x%08lx\n", (UInt32)this, fProviderUnit ));
+		FWKLOG(( "IOFireWireSBP2Target<%p>::configurePhysicalFilter disabling physical access for unit 0x%08lx\n", this, fProviderUnit ));
         fProviderUnit->setNodeFlags( kIOFWDisableAllPhysicalAccess );
     }
     else
     {
-		FWKLOG(( "IOFireWireSBP2Target<0x%08lx>::configurePhysicalFilter enabling physical access for unit 0x%08lx\n", (UInt32)this, fProviderUnit ));
+		FWKLOG(( "IOFireWireSBP2Target<%p>::configurePhysicalFilter enabling physical access for unit 0x%08lx\n", this, fProviderUnit ));
         fProviderUnit->clearNodeFlags( kIOFWDisableAllPhysicalAccess );
     }
     
@@ -970,11 +970,11 @@ IOReturn IOFireWireSBP2Target::beginIOCriticalSection( void )
 {
 	IOReturn status = kIOReturnSuccess;
 
-	FWKLOG(( "IOFireWireSBP2Target<0x%08lx>::beginIOCriticalSection\n", (UInt32)this ));
+	FWKLOG(( "IOFireWireSBP2Target<%p>::beginIOCriticalSection\n", this ));
 	
 	if( fFlags & kIOFWSBP2FailsOnBusResetsDuringIO )
 	{
-		FWKLOG(( "IOFireWireSBP2Target<0x%08lx>::beginIOCriticalSection fControl->disableSoftwareBusResets()\n", (UInt32)this ));
+		FWKLOG(( "IOFireWireSBP2Target<%p>::beginIOCriticalSection fControl->disableSoftwareBusResets()\n", this ));
 		status = fControl->beginIOCriticalSection();
 		if( status == kIOReturnSuccess )
 		{
@@ -982,7 +982,7 @@ IOReturn IOFireWireSBP2Target::beginIOCriticalSection( void )
 		}
 	}
 	
-	FWKLOG(( "IOFireWireSBP2Target<0x%08lx>::beginIOCriticalSection status = 0x%08lx\n", (UInt32)this, (UInt32)status ));
+	FWKLOG(( "IOFireWireSBP2Target<%p>::beginIOCriticalSection status = 0x%08lx\n", this, (UInt32)status ));
 	
 	return status;
 }
@@ -993,11 +993,11 @@ IOReturn IOFireWireSBP2Target::beginIOCriticalSection( void )
 
 void IOFireWireSBP2Target::endIOCriticalSection( void )
 {
-	FWKLOG(( "IOFireWireSBP2Target<0x%08lx>::endIOCriticalSection\n", (UInt32)this ));
+	FWKLOG(( "IOFireWireSBP2Target<%p>::endIOCriticalSection\n", this ));
 
 	if( fFlags & kIOFWSBP2FailsOnBusResetsDuringIO )
 	{
-		FWKLOG(( "IOFireWireSBP2Target<0x%08lx>::endIOCriticalSection fControl->enableSoftwareBusResets()\n", (UInt32)this ));
+		FWKLOG(( "IOFireWireSBP2Target<%p>::endIOCriticalSection fControl->enableSoftwareBusResets()\n", this ));
 		
 		if( fIOCriticalSectionCount != 0 )
 		{
@@ -1006,7 +1006,11 @@ void IOFireWireSBP2Target::endIOCriticalSection( void )
 		}
 		else
 		{
-			IOLog( "IOFireWireSBP2Target<0x%08lx>::endIOCriticalSection - fIOCriticalSectionCount == 0!\n", (UInt32)this );
+#if __LP64__
+			IOLog( "IOFireWireSBP2Target<0x%016llx>::endIOCriticalSection - fIOCriticalSectionCount == 0!\n", (UInt64)this );
+#else
+			IOLog( "IOFireWireSBP2Target<%p>::endIOCriticalSection - fIOCriticalSectionCount == 0!\n", this );
+#endif
 		}
 	}
 }

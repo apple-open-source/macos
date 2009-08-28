@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -64,6 +64,9 @@
 #define QUERY_FLAG_SEARCH_REVERSE 0x00000001
 
 #define FACILITY_CONSOLE "com.apple.console"
+
+/* Shared with Libc */
+#define NOTIFY_RC "com.apple.asl.remote"
 
 #define SEARCH_EOF -1
 #define SEARCH_NULL 0
@@ -296,32 +299,12 @@ procinfo(char *pname, int *pid, int *uid)
 }
 
 int
-rcontrol_get_string(const char *prefix, int pid, int *val)
+rcontrol_get_string(const char *name, int *val)
 {
 	int t, status;
-	char *name;
 	uint64_t x;
 
-	status = NOTIFY_STATUS_OK;
-
-	if (pid == RC_SYSLOGD)
-	{
-		status = notify_register_plain(NOTIFY_SYSTEM_ASL_FILTER, &t);
-	}
-	else if (pid == RC_MASTER)
-	{
-		status = notify_register_plain(NOTIFY_SYSTEM_MASTER, &t);
-	}
-	else
-	{
-		name = NULL;
-		asprintf(&name, "%s.%d", prefix, pid);
-		if (name == NULL) return NOTIFY_STATUS_FAILED;
-
-		status = notify_register_plain(name, &t);
-		free(name);
-	}
-
+	status = notify_register_plain(name, &t);
 	if (status != NOTIFY_STATUS_OK) return status;
 
 	x = 0;
@@ -334,37 +317,17 @@ rcontrol_get_string(const char *prefix, int pid, int *val)
 }
 
 int
-rcontrol_set_string(const char *prefix, int pid, int filter)
+rcontrol_set_string(const char *name, int filter)
 {
 	int t, status;
-	char *name;
 	uint64_t x;
 
-	status = NOTIFY_STATUS_OK;
-
-	if (pid == RC_SYSLOGD)
-	{
-		status = notify_register_plain(NOTIFY_SYSTEM_ASL_FILTER, &t);
-	}
-	else if (pid == RC_MASTER)
-	{
-		status = notify_register_plain(NOTIFY_SYSTEM_MASTER, &t);
-	}
-	else
-	{
-		name = NULL;
-		asprintf(&name, "%s.%d", prefix, pid);
-		if (name == NULL) return NOTIFY_STATUS_FAILED;
-
-		status = notify_register_plain(name, &t);
-		free(name);
-	}
-
+	status = notify_register_plain(name, &t);
 	if (status != NOTIFY_STATUS_OK) return status;
 
 	x = filter;
 	status = notify_set_state(t, x);
-	if ((pid == RC_SYSLOGD) && (status == NOTIFY_STATUS_OK)) status = notify_post(NOTIFY_SYSTEM_ASL_FILTER);
+	notify_post(NOTIFY_RC);
 	notify_cancel(t);
 	return status;
 }
@@ -517,8 +480,22 @@ asl_filter_string(int f)
 	return str;
 }
 
+const char *
+rcontrol_name(pid_t pid, uid_t uid)
+{
+	static char str[1024];
+
+	if (pid == RC_SYSLOGD) return NOTIFY_SYSTEM_ASL_FILTER;
+	if (pid == RC_MASTER) return NOTIFY_SYSTEM_MASTER;
+
+	memset(str, 0, sizeof(str));
+	if (uid == 0) snprintf(str, sizeof(str) - 1, "%s.%d", NOTIFY_PREFIX_SYSTEM, pid);
+	else snprintf(str, sizeof(str) - 1, "user.uid.%d.syslog.%d", uid, pid);
+	return str;
+}
+
 int
-rcontrol_get(const char *prefix, int pid)
+rcontrol_get(pid_t pid, uid_t uid)
 {
 	int filter, status;
 	const char *name;
@@ -530,7 +507,7 @@ rcontrol_get(const char *prefix, int pid)
 		name = "Master";
 		if (pid == RC_SYSLOGD) name = "ASL Data Store";
 
-		status = rcontrol_get_string(NULL, pid, &filter);
+		status = rcontrol_get_string(rcontrol_name(pid, uid), &filter);
 		if (status == NOTIFY_STATUS_OK)
 		{
 			printf("%s filter mask: %s\n", name, asl_filter_string(filter));
@@ -541,7 +518,7 @@ rcontrol_get(const char *prefix, int pid)
 		return -1;
 	}
 
-	status = rcontrol_get_string(prefix, pid, &filter);
+	status = rcontrol_get_string(rcontrol_name(pid, uid), &filter);
 	if (status == NOTIFY_STATUS_OK)
 	{
 		printf("Process %d syslog filter mask: %s\n", pid, asl_filter_string(filter));
@@ -553,7 +530,7 @@ rcontrol_get(const char *prefix, int pid)
 }
 
 int
-rcontrol_set(const char *prefix, int pid, int filter)
+rcontrol_set(pid_t pid, uid_t uid, int filter)
 {
 	int status;
 	const char *name;
@@ -562,7 +539,7 @@ rcontrol_set(const char *prefix, int pid, int filter)
 	{
 		name = "Master";
 		if (pid == RC_SYSLOGD) name = "ASL Data Store";
-		status = rcontrol_set_string(NULL, pid, filter);
+		status = rcontrol_set_string(rcontrol_name(pid, uid), filter);
 
 		if (status == NOTIFY_STATUS_OK)
 		{
@@ -574,9 +551,10 @@ rcontrol_set(const char *prefix, int pid, int filter)
 		return -1;
 	}
 
-	status = rcontrol_set_string(prefix, pid, filter);
+	status = rcontrol_set_string(rcontrol_name(pid, uid), filter);
 	if (status == NOTIFY_STATUS_OK)
 	{
+		if (pid == RC_SYSLOGD) status = notify_post(NOTIFY_SYSTEM_ASL_FILTER);
 		printf("Set process %d syslog filter mask set: %s\n", pid, asl_filter_string(filter));
 		return 0;
 	}
@@ -732,11 +710,31 @@ asl_string_to_level(const char *s)
 	return -1;
 }
 
+const char *
+asl_string_to_char_level(const char *s)
+{
+	if (s == NULL) return NULL;
+
+	if ((s[0] >= '0') && (s[0] <= '7') && (s[1] == '\0')) return s;
+
+	if (!strncasecmp(s, "em", 2)) return "0";
+	else if (!strncasecmp(s, "p",  1)) return "0";
+	else if (!strncasecmp(s, "a",  1)) return "1";
+	else if (!strncasecmp(s, "c",  1)) return "2";
+	else if (!strncasecmp(s, "er", 2)) return "3";
+	else if (!strncasecmp(s, "x",  1)) return "3";
+	else if (!strncasecmp(s, "w",  1)) return "4";
+	else if (!strncasecmp(s, "n",  1)) return "5";
+	else if (!strncasecmp(s, "i",  1)) return "6";
+	else if (!strncasecmp(s, "d",  1)) return "7";
+
+	return NULL;
+}
+
 int
 syslog_remote_control(int argc, char *argv[])
 {
 	int pid, uid, status, mask;
-	const char *prefix;
 
 	if ((argc < 3) || (argc > 4))
 	{
@@ -786,9 +784,6 @@ syslog_remote_control(int argc, char *argv[])
 
 	if (pid == 0) pid = RC_MASTER;
 
-	prefix = NOTIFY_PREFIX_USER;
-	if (uid == 0) prefix = NOTIFY_PREFIX_SYSTEM;
-
 	if (argc == 4)
 	{
 		if ((pid == RC_MASTER) && (!strcasecmp(argv[3], "off"))) mask = 0;
@@ -803,11 +798,11 @@ syslog_remote_control(int argc, char *argv[])
 			}
 		}
 
-		rcontrol_set(prefix, pid, mask);
+		rcontrol_set(pid, uid, mask);
 	}
 	else
 	{
-		rcontrol_get(prefix, pid);
+		rcontrol_get(pid, uid);
 	}
 
 	return 0;
@@ -890,7 +885,7 @@ syslog_send(int argc, char *argv[])
 	if (rhost == NULL)
 	{
 		filter = 0;
-		status = rcontrol_get_string(NULL, RC_SYSLOGD, &filter);
+		status = rcontrol_get_string(rcontrol_name(RC_SYSLOGD, 0), &filter);
 		if (status != 0)
 		{
 			fprintf(stderr, "Warning: Can't get current syslogd ASL filter value\n");
@@ -1251,11 +1246,30 @@ int
 add_op(asl_msg_t *q, char *key, char *op, char *val, uint32_t flags)
 {
 	uint32_t o;
+	const char *qval;
 
 	if (key == NULL) return -1;
 	if (q == NULL) return -1;
 
+	qval = NULL;
+	if (strcmp(key, ASL_KEY_TIME) == 0)
+	{
+		qval = (const char *)val;
+	}
+	else if ((strcmp(key, ASL_KEY_LEVEL) == 0) && (_isanumber(val) == 0))
+	{
+		/* Convert level strings to numeric values */
+		qval = asl_string_to_char_level(val);
+		if (qval == NULL)
+		{
+			fprintf(stderr, "invalid value for \"Level\"key: %s\n", val);
+			return -1;
+		}
+	}
+
 	o = ASL_QUERY_OP_NULL;
+	if (val == NULL) o = ASL_QUERY_OP_TRUE;
+
 	if (op != NULL)
 	{
 		o = optype(op);
@@ -1266,16 +1280,16 @@ add_op(asl_msg_t *q, char *key, char *op, char *val, uint32_t flags)
 			return -1;
 		}
 
-		if ((o & ASL_QUERY_OP_NUMERIC) && (strcmp(key, ASL_KEY_TIME) != 0) && (_isanumber(val) == 0))
+		if ((qval == NULL) && (o & ASL_QUERY_OP_NUMERIC) && (_isanumber(val) == 0))
 		{
 			fprintf(stderr, "non-numeric value supplied for numeric operator %s %s %s\n", key, op, val);
 			return -1;
 		}
-
 	}
 
 	o |= flags;
-	asl_set_query(q, key, val, o);
+	if (qval != NULL) asl_set_query(q, key, qval, o);
+	else asl_set_query(q, key, val, o);
 
 	return 0;
 }
@@ -1720,7 +1734,7 @@ main(int argc, char *argv[])
 	}
 
 	/* output should be line buffered */
-	setlinebuf(outfile);
+	if (outfile != NULL) setlinebuf(outfile);
 
 	search_once(outfile, pfmt, pflags, qlist, qmin, &cmax, 0, batch, 1, tail_count);
 

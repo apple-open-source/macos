@@ -1,0 +1,47 @@
+--- bt_split.c.orig	2008-09-07 11:37:54.000000000 -0700
++++ bt_split.c	2008-09-07 12:29:24.000000000 -0700
+@@ -210,7 +210,7 @@ __bt_split(t, sp, key, data, flags, ilen
+ 			nbytes = NRINTERNAL;
+ 			break;
+ 		default:
+-			abort();
++			LIBC_ABORT("illegal rchild->flags & P_TYPE (0x%x)", rchild->flags & P_TYPE);
+ 		}
+ 
+ 		/* Split the parent page if necessary or shift the indices. */
+@@ -285,7 +285,7 @@ __bt_split(t, sp, key, data, flags, ilen
+ 			((RINTERNAL *)dest)->pgno = rchild->pgno;
+ 			break;
+ 		default:
+-			abort();
++			LIBC_ABORT("illegal rchild->flags & P_TYPE (0x%x)", rchild->flags & P_TYPE);
+ 		}
+ 
+ 		/* Unpin the held pages. */
+@@ -580,7 +580,7 @@ bt_broot(t, h, l, r)
+ 		((BINTERNAL *)dest)->pgno = r->pgno;
+ 		break;
+ 	default:
+-		abort();
++		LIBC_ABORT("illegal h->flags & P_TYPE (0x%x)", h->flags & P_TYPE);
+ 	}
+ 
+ 	/* There are two keys on the page. */
+@@ -663,7 +663,7 @@ bt_psplit(t, h, l, r, pskip, ilen)
+ 				isbigkey = 0;
+ 				break;
+ 			default:
+-				abort();
++				LIBC_ABORT("illegal h->flags & P_TYPE (0x%x)", h->flags & P_TYPE);
+ 			}
+ 
+ 		/*
+@@ -756,7 +756,7 @@ bt_psplit(t, h, l, r, pskip, ilen)
+ 			nbytes = NRLEAF(rl);
+ 			break;
+ 		default:
+-			abort();
++			LIBC_ABORT("illegal h->flags & P_TYPE (0x%x)", h->flags & P_TYPE);
+ 		}
+ 		++nxt;
+ 		r->linp[off] = r->upper -= nbytes;

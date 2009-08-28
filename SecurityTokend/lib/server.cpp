@@ -102,7 +102,7 @@ int Server::operator () (int argc, const char *argv[], SecTokendCallbackFlags fl
 //
 void Server::termination(uint32 reason, uint32 options)
 {
-	secdebug("tokenlib", "terminate(%ld,0x%lx) received", reason, options);
+	secdebug("tokenlib", "terminate(%d,0x%x) received", reason, options);
 	if (terminate)
 		terminate(reason, options);	// ignore return code
 	exit(0);

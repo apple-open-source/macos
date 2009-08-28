@@ -38,7 +38,9 @@
 */
 
 
-/* meta-rightname prefixes that configure authorization for policy changes */
+/* 
+ * meta-rightname prefixes that configure authorization for policy changes 
+ */
 
 /*!
 	@defined kConfigRightAdd
@@ -61,13 +63,35 @@
 */
 #define kConfigRight					"config."
 
+/*
+ * Other rights
+ */
+
+/*! @defined kAuthorizationRightScreensaver
+    the right requested to unlock the screen 
+*/
+#define kAuthorizationRightScreensaver "system.login.screensaver"
+
+/*! @defined LOGIN_KC_CREATION_RIGHT
+	the right used to invoke the right mechanisms to (re)create a login
+	keychain 
+*/
+#define LOGIN_KC_CREATION_RIGHT	"system.keychain.create.loginkc"
+
+/*
+ * Miscellaneous rules
+ */
+
 /*!
 	@defined kRuleIsRoot
-	canned rule for daemon to daemon convincing (see AuthorizationDB.h for public ones)
+	canned rule for daemon to daemon convincing (see AuthorizationDB.h for 
+    public ones)
 */
 #define kAuthorizationRuleIsRoot				"is-root"
 
-/* rule classes the specify behavior */
+/* 
+ * Rule classes 
+ */
 
 /*!	@defined kAuthorizationRuleClass
 	Specifying rule class 
@@ -84,7 +108,9 @@
 */
 #define kAuthorizationRuleClassMechanisms		"evaluate-mechanisms"
 
-/* rule attributes to specify above classes */
+/* 
+ * Rule attributes to specify above classes 
+ */
 
 /*! @defined kAuthorizationRuleParameterGroup
 	string, group specification for user rules. 
@@ -102,54 +128,74 @@
 #define kAuthorizationRuleParameterRules		"rules"
 
 /*! @defined kAuthorizationRuleParameterMechanisms
-	mechanism specification, a sequence of mechanisms to be evaluated */
+	mechanism specification, a sequence of mechanisms to be evaluated 
+*/
 #define kAuthorizationRuleParameterMechanisms	"mechanisms"
 
 /*! @defined kAuthorizationRightParameterTimeout
-	timeout if any when a remembered right expires.
-	special values:
-	- not specified retains previous behavior: most privileged, credential based.
-	- zero grants the right once
-(can be achieved with zero credential timeout, needed?)
+	Timeout if any when a remembered right expires.
+	Special values:
+	- not specified retains previous behavior: most privileged, credential-
+      based.
+	- zero grants the right once (can be achieved with zero credential 
+      timeout, needed?)
 	- all other values are interpreted as number of seconds since granted.
 */
 #define kAuthorizationRightParameterTimeout	"timeout-right"
 
 /*! @defined kAuthorizationRuleParameterCredentialTimeout
-	timeout if any for the use of cached credentials when authorizing rights.
-	- not specified allows for any credentials regardless of age; rights will be remembered in authorizations, removing a credential does not stop it from granting this right, specifying a zero timeout for the right will delegate it back to requiring a credential.
-	- all other values are interpreted as number of seconds since the credential was created
-	- zero only allows for the use of credentials created "now" // This is deprecated by means of specifying zero for kRightTimeout
+	Timeout if any for the use of cached credentials when authorizing rights.
+	- not specified allows for any credentials regardless of age; rights 
+      will be remembered in authorizations, removing a credential does not 
+      stop it from granting this right, specifying a zero timeout for the 
+      right will delegate it back to requiring a credential.
+	- all other values are interpreted as number of seconds since the 
+      credential was created
+	- zero only allows for the use of credentials created "now" 
+      (this is deprecated by means of specifying zero for kRightTimeout)
 */
 #define kAuthorizationRuleParameterCredentialTimeout		"timeout"
 
 /*!	@defined kAuthorizationRuleParameterCredentialShared
-	boolean that indicates whether credentials acquired during authorization are added to the shared pool.
+	boolean that indicates whether credentials acquired during 
+    authorization are added to the shared pool.
 */
 #define kAuthorizationRuleParameterCredentialShared		"shared"
 
 /*! @defined kAuthorizationRuleParameterAllowRoot
-	boolean that indicates whether to grant a right purely because the caller is root */
+	boolean that indicates whether to grant a right purely because the 
+    caller is root 
+*/
 #define kAuthorizationRuleParameterAllowRoot		"allow-root"
 
 /*! @defined kAuthorizationRuleParameterCredentialSessionOwner
-	boolean that indicates whether to grant a right based on a valid session-owner credential */
+	boolean that indicates whether to grant a right based on a valid 
+    session-owner credential 
+*/
 #define kAuthorizationRuleParameterCredentialSessionOwner		"session-owner"
 
-/*! @defined kRuleDefaultPrompt
-	dictionary of localization-name and localized prompt pairs */
+/*! @defined kAuthorizationRuleParameterDefaultPrompt
+	dictionary of localization-name and localized prompt pairs 
+*/
 #define kAuthorizationRuleParameterDefaultPrompt	"default-prompt"
 
 /*! @defined kAuthorizationRuleParameterDescription
-    string, default description of right.  Usually localized versions are added using the
-    AuthorizationDBSet call (@see AuthorizationDB.h). */
+    string, default description of right.  Usually localized versions are 
+    added using the AuthorizationDBSet call (@see AuthorizationDB.h). 
+*/
 #define kAuthorizationRuleParameterDescription      "description"
 
 /*! @defined kAuthorizationRuleParameterAuthenticateUser
-	boolean that indicates whether to authenticate the user requesting authorization */
+	boolean that indicates whether to authenticate the user requesting 
+    authorization 
+*/
 #define kAuthorizationRuleParameterAuthenticateUser		"authenticate-user"
 
-/* authorization hints passed between securityd and agent */
+/*
+ * Hints for internal Authorization use
+ */
+
+/* passed between securityd and agent */
 #define AGENT_HINT_SUGGESTED_USER "suggested-user"
 #define AGENT_HINT_SUGGESTED_USER_LONG "suggested-realname"
 #define AGENT_HINT_REQUIRE_USER_IN_GROUP "require-user-in-group"
@@ -166,6 +212,39 @@
 #define AGENT_HINT_RETRY_REASON "reason"
 #define AGENT_HINT_AUTHORIZE_RULE "authorize-rule"
 #define AGENT_HINT_TOKEN_NAME "token-name"
+
+/* passed by loginwindow to securityd and agent */
+#define AGENT_HINT_IMMEDIATE_LAUNCH "immediate-agent"
+
+/* keychain panels */
+// ACLowner etc. code identity panel
+
+// Application Path is needed at this stage for identifying the application 
+// for which the ACL entry is about to be updated
+#define AGENT_HINT_APPLICATION_PATH "application-path"
+#define AGENT_HINT_ACL_TAG "acl-tag"
+#define AGENT_HINT_GROUPKEY "group-key"
+#define AGENT_HINT_ACL_MISMATCH "acl-mismatch"
+#define AGENT_HINT_KEYCHAIN_ITEM_NAME "keychain-item-name"
+#define AGENT_HINT_KEYCHAIN_PATH "keychain-path"
+#define AGENT_HINT_WINDOW_LEVEL "window-level"
+
+/* Login Keychain Creation hint keys */
+#define AGENT_HINT_ATTR_NAME "loginKCCreate:attributeName"
+#define AGENT_HINT_LOGIN_KC_NAME "loginKCCreate:pathName"
+#define AGENT_HINT_LOGIN_KC_EXISTS_IN_KC_FOLDER "loginKCCreate:exists"
+#define AGENT_HINT_LOGIN_KC_USER_NAME "loginKCCreate:userName"
+#define AGENT_HINT_LOGIN_KC_CUST_STR1 "loginKCCreate:customStr1"
+#define AGENT_HINT_LOGIN_KC_CUST_STR2 "loginKCCreate:customStr2"
+#define AGENT_HINT_LOGIN_KC_USER_HAS_OTHER_KCS_STR "loginKCCreate:moreThanOneKeychainExists"
+
+/* Keychain synchronization */
+// iDisk keychain blob metainfo dictionary; follows "defaults" naming
+#define AGENT_HINT_KCSYNC_DICT "com.apple.keychainsync.dictionary"
+
+/*
+ * Context values for specific internal clients
+ */
 
 /* passed from mechanisms to loginwindow */
 #define kAuthorizationEnvironmentTokenSubserviceID "token-subservice-uid"
@@ -188,43 +267,14 @@
 #define AGENT_CONTEXT_NEW_PASSWORD "new-password"
 
 #define AGENT_HINT_SHOW_ADD_TO_KEYCHAIN "show-add-to-keychain"
+/* can be in hints or context */
 #define AGENT_ADD_TO_KEYCHAIN "add-to-keychain"
 
 #define AGENT_CONTEXT_AUTHENTICATION_FAILURE "authentication-failure"
 
 /* keychain panels */
 // ACLowner etc. code identity panel
-
-// Application Path is needed at this stage for identifying the application 
-// for which the ACL entry is about to be updated
-#define AGENT_HINT_APPLICATION_PATH "application-path"
-#define AGENT_HINT_ACL_TAG "acl-tag"
-#define AGENT_HINT_GROUPKEY "group-key"
-#define AGENT_HINT_ACL_MISMATCH "acl-mismatch"
-#define AGENT_HINT_KEYCHAIN_ITEM_NAME "keychain-item-name"
-#define AGENT_HINT_KEYCHAIN_PATH "keychain-path"
-#define AGENT_HINT_WINDOW_LEVEL "window-level"
-
 #define AGENT_CONTEXT_REMEMBER_ACTION   "remember-action"
 #define AGENT_CONTEXT_ALLOW   "allow"
-
-/* Login Keychain Creation hint and context keys */
-
-#define AGENT_HINT_ATTR_NAME "loginKCCreate:attributeName"
-#define AGENT_HINT_LOGIN_KC_NAME "loginKCCreate:pathName"
-#define AGENT_HINT_LOGIN_KC_EXISTS_IN_KC_FOLDER "loginKCCreate:exists"
-#define AGENT_HINT_LOGIN_KC_USER_NAME "loginKCCreate:userName"
-#define AGENT_HINT_LOGIN_KC_CUST_STR1 "loginKCCreate:customStr1"
-#define AGENT_HINT_LOGIN_KC_CUST_STR2 "loginKCCreate:customStr2"
-#define AGENT_HINT_LOGIN_KC_USER_HAS_OTHER_KCS_STR "loginKCCreate:moreThanOneKeychainExists"
-
-/*! @defined LOGIN_KC_CREATION_RIGHT
-	the right used to invoke the right mechanisms to (re)create a login
-	keychain */
-#define LOGIN_KC_CREATION_RIGHT	"system.keychain.create.loginkc"
-
-/* Keychain synchronization */
-// iDisk keychain blob metainfo dictionary; follows "defaults" naming
-#define AGENT_HINT_KCSYNC_DICT "com.apple.keychainsync.dictionary"
 
 #endif /* !_SECURITY_AUTHORIZATIONTAGSPRIV_H_ */

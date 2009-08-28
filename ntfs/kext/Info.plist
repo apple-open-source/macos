@@ -6,8 +6,8 @@
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>ntfs</string>
-	<key>CFBundleGetInfoString</key>
-	<string>NTFS File System Extension</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>Copyright © 2002-2008 Apple Inc. All rights reserved.</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.filesystems.ntfs</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -17,21 +17,23 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.1</string>
+	<string>3.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.1</string>
+	<string>3.0</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.kpi.bsd</key>
-		<string>9.0.0</string>
+		<string>10.0.0d2</string>
 		<key>com.apple.kpi.libkern</key>
-		<string>9.0.0</string>
+		<string>10.0.0d2</string>
 		<key>com.apple.kpi.mach</key>
-		<string>9.0.0</string>
+		<string>10.0.0d2</string>
+		<key>com.apple.kpi.private</key>
+		<string>10.0.0d2</string>
 		<key>com.apple.kpi.unsupported</key>
-		<string>9.0.0</string>
+		<string>10.0.0d2</string>
 	</dict>
 </dict>
 </plist>

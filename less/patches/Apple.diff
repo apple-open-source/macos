@@ -1,0 +1,818 @@
+diff -up ../less-418/command.c ./command.c
+--- ../less-418/command.c	2007-12-10 08:40:37.000000000 -0800
++++ ./command.c	2008-02-22 10:53:10.000000000 -0800
+@@ -37,6 +37,7 @@ extern int ignore_eoi;
+ extern int secure;
+ extern int hshift;
+ extern int show_attn;
++extern int less_is_more;
+ extern char *every_first_cmd;
+ extern char *curr_altfilename;
+ extern char version[];
+@@ -55,6 +56,11 @@ extern int screen_trashed;	/* The screen
+ extern int shift_count;
+ extern int oldbot;
+ extern int forw_prompt;
++extern int file_errors;
++extern int unix2003_compat;
++extern int add_newline;
++extern char * active_dashp_command;
++extern int display_next_file_or_exit;
+ 
+ static char ungot[UNGOT_SIZE];
+ static char *ungotp = NULL;
+@@ -222,7 +228,14 @@ exec_mca()
+ 	case A_EXAMINE:
+ 		if (secure)
+ 			break;
+-		edit_list(cbuf);
++		if (edit_list(cbuf)) {
++			/* means cbuf is empty, so it's the current file */
++			if (unix2003_compat) {
++				/* Test 114: expects :e to reset linenum */
++				number = 1;
++				jump_back(number);
++			}
++		}
+ #if TAGS
+ 		/* If tag structure is loaded then clean it up. */
+ 		cleantags();
+@@ -475,6 +488,9 @@ mca_char(c)
+ 		 *	*  Toggle the PAST_EOF flag
+ 		 *	@  Toggle the FIRST_FILE flag
+ 		 */
++		if (active_dashp_command) {
++			add_newline = 1;
++		}
+ 		if (len_cmdbuf() > 0)
+ 			/*
+ 			 * Only works for the first char of the pattern.
+@@ -484,12 +500,16 @@ mca_char(c)
+ 		flag = 0;
+ 		switch (c)
+ 		{
+-		case CONTROL('E'): /* ignore END of file */
+ 		case '*':
++			if (less_is_more)
++				break;
++		case CONTROL('E'): /* ignore END of file */
+ 			flag = SRCH_PAST_EOF;
+ 			break;
+-		case CONTROL('F'): /* FIRST file */
+ 		case '@':
++			if (less_is_more)
++				break;
++		case CONTROL('F'): /* FIRST file */
+ 			flag = SRCH_FIRST_FILE;
+ 			break;
+ 		case CONTROL('K'): /* KEEP position */
+@@ -638,7 +658,12 @@ prompt()
+ 	if ((get_quit_at_eof() == OPT_ONPLUS || quit_if_one_screen) &&
+ 	    hit_eof && !(ch_getflags() & CH_HELPFILE) && 
+ 	    next_ifile(curr_ifile) == NULL_IFILE)
++		{
++		if (file_errors)
++			if (unix2003_compat)
++				quit(QUIT_ERROR);
+ 		quit(QUIT_OK);
++		}
+ 	quit_if_one_screen = FALSE;
+ #if 0 /* This doesn't work well because some "te"s clear the screen. */
+ 	/*
+@@ -901,7 +926,11 @@ commands()
+ 	char *tagfile;
+ 
+ 	search_type = SRCH_FORW;
+-	wscroll = (sc_height + 1) / 2;
++	if (unix2003_compat) {
++		wscroll = (sc_height) / 2;
++	} else {
++		wscroll = (sc_height + 1) / 2;
++	}
+ 	newaction = A_NOACTION;
+ 
+ 	for (;;)
+@@ -1021,6 +1050,7 @@ commands()
+ 		if (action != A_PREFIX)
+ 			cmd_reset();
+ 
++		display_next_file_or_exit = 0;
+ 		switch (action)
+ 		{
+ 		case A_DIGIT:
+@@ -1041,6 +1071,7 @@ commands()
+ 			/*
+ 			 * Forward one screen.
+ 			 */
++			display_next_file_or_exit = 1;
+ 			if (number <= 0)
+ 				number = get_swindow();
+ 			cmd_exec();
+@@ -1070,6 +1101,7 @@ commands()
+ 			/*
+ 			 * Forward N (default 1) line.
+ 			 */
++			display_next_file_or_exit = 1;
+ 			if (number <= 0)
+ 				number = 1;
+ 			cmd_exec();
+@@ -1151,6 +1183,7 @@ commands()
+ 			 * Forward N lines 
+ 			 * (default same as last 'd' or 'u' command).
+ 			 */
++			display_next_file_or_exit = 1;
+ 			if (number > 0)
+ 				wscroll = (int) number;
+ 			cmd_exec();
+@@ -1271,6 +1304,9 @@ commands()
+ 			}
+ 			if (extra != NULL)
+ 				quit(*extra);
++			if (file_errors)
++				if (unix2003_compat)
++					quit(QUIT_ERROR);
+ 			quit(QUIT_OK);
+ 			break;
+ 
+diff -up ../less-418/decode.c ./decode.c
+--- ../less-418/decode.c	2007-12-10 08:35:52.000000000 -0800
++++ ./decode.c	2008-02-22 10:53:10.000000000 -0800
+@@ -33,6 +33,11 @@
+ #include "less.h"
+ #include "cmd.h"
+ #include "lesskey.h"
++#ifdef __APPLE__
++#include "get_compat.h"
++#else
++#define COMPAT_MODE(func, mode) 1
++#endif
+ 
+ extern int erase_char, erase2_char, kill_char;
+ extern int secure;
+@@ -165,6 +170,16 @@ static unsigned char cmdtable[] =
+ 	'Z','Z',0,			A_QUIT
+ };
+ 
++/* 
++ * Command table for UNIX 2003 compatibility: added first before builtin
++ * so that these commands override the normal LESS commands
++ */
++
++static unsigned char UNIX03cmdtable[] =
++{
++	's',0,				A_F_LINE
++};
++
+ static unsigned char edittable[] =
+ {
+ 	'\t',0,	    			EC_F_COMPLETE,	/* TAB */
+@@ -216,6 +231,7 @@ struct tablelist
+ /*
+  * List of command tables and list of line-edit tables.
+  */
++static struct tablelist *list_UNIX03cmd_tables = NULL;
+ static struct tablelist *list_fcmd_tables = NULL;
+ static struct tablelist *list_ecmd_tables = NULL;
+ static struct tablelist *list_var_tables = NULL;
+@@ -292,6 +308,9 @@ init_cmds()
+ 	/*
+ 	 * Add the default command tables.
+ 	 */
++	if (COMPAT_MODE("bin/more", "unix2003")) {
++		add_UNIX03cmd_table((char*)UNIX03cmdtable, sizeof(UNIX03cmdtable));
++	}
+ 	add_fcmd_table((char*)cmdtable, sizeof(cmdtable));
+ 	add_ecmd_table((char*)edittable, sizeof(edittable));
+ #if USERFILE
+@@ -344,6 +363,18 @@ add_cmd_table(tlist, buf, len)
+ }
+ 
+ /*
++ * Add the UNIX2003 command table.
++ */
++	public void
++add_UNIX03cmd_table(buf, len)
++	char *buf;
++	int len;
++{
++	if (add_cmd_table(&list_UNIX03cmd_tables, buf, len) < 0)
++		error("Warning: some commands disabled", NULL_PARG);
++}
++
++/*
+  * Add a command table.
+  */
+ 	public void
+@@ -507,6 +538,11 @@ fcmd_decode(cmd, sp)
+ 	char *cmd;
+ 	char **sp;
+ {
++	if (list_UNIX03cmd_tables != NULL) {
++		/* If it exists, try to decode it first */
++		int v = cmd_decode(list_UNIX03cmd_tables, cmd, sp);
++		if (v != A_INVALID) return v;
++	}
+ 	return (cmd_decode(list_fcmd_tables, cmd, sp));
+ }
+ 
+diff -up ../less-418/edit.c ./edit.c
+--- ../less-418/edit.c	2007-12-10 08:35:52.000000000 -0800
++++ ./edit.c	2008-02-22 10:53:10.000000000 -0800
+@@ -33,6 +33,11 @@ extern char openquote;
+ extern char closequote;
+ #endif
+ 
++extern int file_errors;
++extern int unix2003_compat;
++extern char * active_dashp_command;
++extern char * dashp_commands;
++
+ #if LOGFILE
+ extern int logfile;
+ extern int force_logfile;
+@@ -385,6 +390,12 @@ edit_ifile(ifile)
+ 	curr_altfilename = alt_filename;
+ 	curr_altpipe = alt_pipe;
+ 	set_open(curr_ifile); /* File has been opened */
++	if (unix2003_compat) {
++		/* support the -p command line option */
++		if (dashp_commands) {
++			active_dashp_command = dashp_commands;
++		}
++	}
+ 	get_pos(curr_ifile, &initial_scrpos);
+ 	new_file = TRUE;
+ 	ch_init(f, chflags);
+@@ -549,6 +560,7 @@ edit_istep(h, n, dir)
+ 		{
+ 			if (edit_ifile(h) == 0)
+ 				break;
++			file_errors++;
+ 		}
+ 		if (next == NULL_IFILE)
+ 		{
+diff -up ../less-418/forwback.c ./forwback.c
+--- ../less-418/forwback.c	2007-12-10 08:35:52.000000000 -0800
++++ ./forwback.c	2008-02-22 10:53:10.000000000 -0800
+@@ -22,6 +22,7 @@ public int screen_trashed;
+ public int squished;
+ public int no_back_scroll = 0;
+ public int forw_prompt;
++public int display_next_file_or_exit = 0;
+ 
+ extern int sigs;
+ extern int top_scroll;
+@@ -34,6 +35,7 @@ extern int ignore_eoi;
+ extern int clear_bg;
+ extern int final_attr;
+ extern int oldbot;
++extern int unix2003_compat;
+ #if TAGS
+ extern char *tagoption;
+ #endif
+@@ -136,8 +138,10 @@ forw(n, pos, force, only_last, nblank)
+ 			pos_clear();
+ 			add_forw_pos(pos);
+ 			force = 1;
+-			clear();
+-			home();
++			if (!unix2003_compat) {
++				clear();
++				home();
++			}
+ 		}
+ 
+ 		if (pos != position(BOTTOM_PLUS_ONE) || empty_screen())
+diff -up ../less-418/funcs.h ./funcs.h
+--- ../less-418/funcs.h	2007-12-31 16:51:17.000000000 -0800
++++ ./funcs.h	2008-02-22 10:53:10.000000000 -0800
+@@ -84,6 +84,7 @@
+ 	public void ungetsc ();
+ 	public void commands ();
+ 	public void init_cmds ();
++	public void add_UNIX03cmd_table ();
+ 	public void add_fcmd_table ();
+ 	public void add_ecmd_table ();
+ 	public int fcmd_decode ();
+@@ -203,6 +204,7 @@
+ 	public void opt_quote ();
+ 	public void opt_query ();
+ 	public int get_swindow ();
++	public void opt_dashp ();
+ 	public void scan_option ();
+ 	public void toggle_option ();
+ 	public int single_char_option ();
+diff -up ../less-418/ifile.c ./ifile.c
+--- ../less-418/ifile.c	2007-12-10 08:35:52.000000000 -0800
++++ ./ifile.c	2008-02-22 10:53:10.000000000 -0800
+@@ -23,6 +23,7 @@
+ #include "less.h"
+ 
+ extern IFILE	curr_ifile;
++extern int	unix2003_compat;
+ 
+ struct ifile {
+ 	struct ifile *h_next;		/* Links for command line list */
+@@ -229,8 +230,13 @@ get_ifile(filename, prev)
+ {
+ 	register struct ifile *p;
+ 
+-	if ((p = find_ifile(filename)) == NULL)
++	if (unix2003_compat) {
++		/* don't exclude duplicates in list */
+ 		p = new_ifile(filename, int_ifile(prev));
++	} else {
++		if ((p = find_ifile(filename)) == NULL)
++			p = new_ifile(filename, int_ifile(prev));
++	}
+ 	return (ext_ifile(p));
+ }
+ 
+diff -up ../less-418/main.c ./main.c
+--- ../less-418/main.c	2007-12-10 08:35:52.000000000 -0800
++++ ./main.c	2008-02-22 10:53:10.000000000 -0800
+@@ -18,6 +18,13 @@
+ #include <windows.h>
+ #endif
+ 
++#ifdef __APPLE__
++#include "get_compat.h"
++#else
++#define COMPAT_MODE(func, mode) 1
++#endif
++
++
+ public char *	every_first_cmd = NULL;
+ public int	new_file;
+ public int	is_tty;
+@@ -33,6 +40,11 @@ public int	quitting;
+ public int	secure;
+ public int	dohelp;
+ public int	less_is_more;
++public int	file_errors = 0;
++public int	unix2003_compat = 0;
++public int	add_newline = 0;
++public char *	active_dashp_command = NULL;
++public char *	dashp_commands = NULL;
+ 
+ #if LOGFILE
+ public int	logfile = -1;
+@@ -71,7 +83,11 @@ main(argc, argv)
+ {
+ 	IFILE ifile;
+ 	char *s;
++	extern char *__progname;
+ 
++	if (COMPAT_MODE("bin/more", "unix2003")) {
++		unix2003_compat = 1;
++	}
+ #ifdef __EMX__
+ 	_response(&argc, &argv);
+ 	_wildcard(&argc, &argv);
+@@ -107,10 +123,6 @@ main(argc, argv)
+ 	GetConsoleTitle(consoleTitle, sizeof(consoleTitle)/sizeof(char));
+ #endif /* WIN32 */
+ 
+-	/*
+-	 * Process command line arguments and LESS environment arguments.
+-	 * Command line arguments override environment arguments.
+-	 */
+ 	is_tty = isatty(1);
+ 	get_term();
+ 	init_cmds();
+@@ -130,9 +142,17 @@ main(argc, argv)
+ 	}
+ 	if (strcmp(s, "more") == 0)
+ 		less_is_more = 1;
+-
++	else
++		unix2003_compat = 0;
+ 	init_prompt();
+-
++	if (less_is_more) {
++		if (!unix2003_compat) {
++			scan_option("-E");
++		}
++		scan_option("-m");
++		scan_option("-G");
++		scan_option("-X"); /* avoid alternate screen */
++	}
+ 	s = lgetenv(less_is_more ? "MORE" : "LESS");
+ 	if (s != NULL)
+ 		scan_option(save(s));
+@@ -171,8 +191,20 @@ main(argc, argv)
+ 	}
+ 	editproto = lgetenv("LESSEDIT");
+ 	if (editproto == NULL || *editproto == '\0')
+-		editproto = "%E ?lm+%lm. %f";
++	{
++		if (unix2003_compat) {
++			editproto = "%E ?l+%l. %f";
++		} else {
++			editproto = "%E ?lm+%lm. %f";
++		}
++	}
+ #endif
++	if (less_is_more) {
++		if (unix2003_compat) {
++			/* If -n option appears, force screen size override */
++			get_term();
++		}
++	}
+ 
+ 	/*
+ 	 * Call get_ifile with all the command line filenames
+@@ -226,16 +258,23 @@ main(argc, argv)
+ 		{
+ 			if (edit_stdin() == 0)
+ 				cat_file();
++			else
++				file_errors++;
+ 		} else if (edit_first() == 0)
+ 		{
+ 			do {
+ 				cat_file();
+ 			} while (edit_next(1) == 0);
++		} else
++			file_errors++;
++		if (file_errors) {
++			if (unix2003_compat) 
++				quit(QUIT_ERROR);
+ 		}
+ 		quit(QUIT_OK);
+ 	}
+ 
+-	if (missing_cap && !know_dumb)
++	if (missing_cap && !know_dumb && !less_is_more)
+ 		error("WARNING: terminal is not fully functional", NULL_PARG);
+ 	init_mark();
+ 	open_getchr();
+@@ -248,16 +287,21 @@ main(argc, argv)
+ #if TAGS
+ 	if (tagoption != NULL || strcmp(tags, "-") == 0)
+ 	{
++		int tags_skip_other_files = 1;
+ 		/*
+ 		 * A -t option was given.
+ 		 * Verify that no filenames were also given.
+ 		 * Edit the file selected by the "tags" search,
+ 		 * and search for the proper line in the file.
+ 		 */
+-		if (nifile() > 0)
+-		{
+-			error("No filenames allowed with -t option", NULL_PARG);
+-			quit(QUIT_ERROR);
++		if (unix2003_compat) {
++			tags_skip_other_files = 0;
++		} else {
++			if (nifile() > 0)
++			{
++				error("No filenames allowed with -t option", NULL_PARG);
++				quit(QUIT_ERROR);
++			}
+ 		}
+ 		findtag(tagoption);
+ 		if (edit_tagfile())  /* Edit file which contains the tag */
+@@ -270,7 +314,14 @@ main(argc, argv)
+ 		if (initial_scrpos.pos == NULL_POSITION)
+ 			quit(QUIT_ERROR);
+ 		initial_scrpos.ln = jump_sline;
+-	} else
++		if (!tags_skip_other_files) {
++			/* TBD: -t under unix2003 requires other files on
++			   command line to be processed after tagfile, but
++			   conformance tests do not test this feature
++			 */
++		}
++	}
++	else
+ #endif
+ 	if (nifile() == 0)
+ 	{
+@@ -284,6 +335,10 @@ main(argc, argv)
+ 
+ 	init();
+ 	commands();
++	if (file_errors) {
++		if (unix2003_compat) 
++			quit(QUIT_ERROR);
++	}
+ 	quit(QUIT_OK);
+ 	/*NOTREACHED*/
+ 	return (0);
+diff -up ../less-418/optfunc.c ./optfunc.c
+--- ../less-418/optfunc.c	2007-12-10 08:35:52.000000000 -0800
++++ ./optfunc.c	2008-02-22 10:53:10.000000000 -0800
+@@ -48,6 +48,7 @@ extern char version[];
+ extern int jump_sline;
+ extern int jump_sline_fraction;
+ extern int less_is_more;
++extern char* dashp_commands;
+ #if LOGFILE
+ extern char *namelogfile;
+ extern int force_logfile;
+@@ -666,3 +667,13 @@ get_swindow()
+ 	return (sc_height + swindow);
+ }
+ 
++/* Following handler function is used in Unix 2003 override of -p option.  */
++
++	public void
++opt_dashp(type,s)
++	int type;
++	char *s;
++{
++	dashp_commands = s;
++}
++
+diff -up ../less-418/option.c ./option.c
+--- ../less-418/option.c	2007-12-10 08:35:52.000000000 -0800
++++ ./option.c	2008-02-22 10:53:10.000000000 -0800
+@@ -32,6 +32,7 @@ extern int screen_trashed;
+ extern int less_is_more;
+ extern int quit_at_eof;
+ extern char *every_first_cmd;
++extern int unix2003_compat;
+ 
+ /* 
+  * Scan an argument (either from the command line or from the 
+@@ -134,9 +135,25 @@ scan_option(s)
+ 			s--;
+ 			optc = 'z';
+ 			break;
+-		case 'n':
+-			if (less_is_more)
+-				optc = 'z';
++		case 'n':	/* For more under Unix2003, -n acts differently  */
++			if (less_is_more) {
++				if (unix2003_compat)
++					optc = ']';
++				else
++					optc = 'z';
++			}
++			break;
++		case 'i':	/* For more under Unix2003, -i acts like -I */
++			if (less_is_more) {
++				if (unix2003_compat)
++					optc = 'I';
++			}
++			break;
++		case 'p':	/* For more under Unix2003, -p acts differently  */
++			if (less_is_more) {
++				if (unix2003_compat)
++					optc = '}';
++			}
+ 			break;
+ 		}
+ 
+diff -up ../less-418/opttbl.c ./opttbl.c
+--- ../less-418/opttbl.c	2007-12-10 08:35:52.000000000 -0800
++++ ./opttbl.c	2008-02-22 10:53:10.000000000 -0800
+@@ -47,6 +47,7 @@ public int no_keypad;		/* Disable sendin
+ public int twiddle;             /* Show tildes after EOF */
+ public int show_attn;		/* Hilite first unread line */
+ public int shift_count;		/* Number of positions to shift horizontally */
++public int dashn_numline_count;	/* Number of lines override (Unix 2003) */
+ public int status_col;		/* Display a status column */
+ public int use_lessopen;	/* Use the LESSOPEN filter */
+ public int quit_on_intr;	/* Quit on interrupt */
+@@ -450,6 +451,26 @@ static struct loption option[] =
+ 			NULL
+ 		}
+ 	},
++	/* The following entries are added to support UNIX 2003 
++	   compatibility. Each is used because the original option
++	   was already defined in "less".
++	 */
++	{ ']', NULL,
++		NUMBER, 0, &dashn_numline_count, NULL,
++		{	/* This entry maps from the -n option */
++			NULL,
++			NULL,
++			NULL
++		}
++	},
++	{ '}', NULL,
++		STRING, 0, NULL, opt_dashp,
++		{	/* This entry maps from the -p option */
++			NULL,
++			NULL,
++			NULL
++		}
++	},
+ 	{ '\0', NULL, NOVAR, 0, NULL, NULL, { NULL, NULL, NULL } }
+ };
+ 
+diff -up ../less-418/position.c ./position.c
+--- ../less-418/position.c	2007-12-10 08:35:52.000000000 -0800
++++ ./position.c	2008-02-22 10:53:10.000000000 -0800
+@@ -186,7 +186,7 @@ get_scrpos(scrpos)
+ 	 * Find the first line on the screen which has something on it,
+ 	 * and return the screen line number and the file position.
+ 	 */
+-	for (i = 0; i < sc_height;  i++)
++	for (i = 0; i < table_size;  i++)
+ 		if (table[i] != NULL_POSITION)
+ 		{
+ 			scrpos->ln = i+1;
+diff -up ../less-418/screen.c ./screen.c
+--- ../less-418/screen.c	2007-12-31 16:50:42.000000000 -0800
++++ ./screen.c	2008-02-22 10:53:10.000000000 -0800
+@@ -227,6 +227,8 @@ extern int quiet;		/* If VERY_QUIET, use
+ extern int no_back_scroll;
+ extern int swindow;
+ extern int no_init;
++extern int quit_at_eof;
++extern int less_is_more;
+ extern int no_keypad;
+ extern int sigs;
+ extern int wscroll;
+@@ -241,6 +243,8 @@ extern int hilite_search;
+ extern char *tgetstr();
+ extern char *tgoto();
+ 
++extern int unix2003_compat;
++extern int dashn_numline_count;
+ 
+ /*
+  * Change terminal to "raw mode", or restore to "normal" mode.
+@@ -794,27 +798,56 @@ scrsize()
+ #endif
+ #endif
+ 
+-	if (sys_height > 0)
+-		sc_height = sys_height;
+-	else if ((s = lgetenv("LINES")) != NULL)
+-		sc_height = atoi(s);
++	if (unix2003_compat) {
++		if (dashn_numline_count) /* Overrides all other sources */
++			sc_height = dashn_numline_count;
++		else {
++			if (sys_height > 0)
++				sc_height = sys_height;
++			/* don't override LINES/COLUMNS if conforming to UNIX 03 */
++			if ((s = lgetenv("LINES")) != NULL)
++				sc_height = atoi(s);
+ #if !MSDOS_COMPILER
+-	else if ((n = ltgetnum("li")) > 0)
+- 		sc_height = n;
++			else if ((n = ltgetnum("li")) > 0)
++ 				sc_height = n;
+ #endif
+-	else
+-		sc_height = DEF_SC_HEIGHT;
++			else
++				sc_height = DEF_SC_HEIGHT;
++		}
+ 
+-	if (sys_width > 0)
+-		sc_width = sys_width;
+-	else if ((s = lgetenv("COLUMNS")) != NULL)
+-		sc_width = atoi(s);
++		if (sys_width > 0)
++			sc_width = sys_width;
++		if ((s = lgetenv("COLUMNS")) != NULL)
++			sc_width = atoi(s);
++#if !MSDOS_COMPILER
++		else if ((n = ltgetnum("co")) > 0)
++ 			sc_width = n;
++#endif
++		else
++			sc_width = DEF_SC_WIDTH;
++	} else {
++		if (sys_height > 0)
++			sc_height = sys_height;
++		else if ((s = lgetenv("LINES")) != NULL)
++			sc_height = atoi(s);
++#if !MSDOS_COMPILER
++		else if ((n = ltgetnum("li")) > 0)
++ 			sc_height = n;
++#endif
++		else
++			sc_height = DEF_SC_HEIGHT;
++
++		if (sys_width > 0)
++			sc_width = sys_width;
++		else if ((s = lgetenv("COLUMNS")) != NULL)
++			sc_width = atoi(s);
+ #if !MSDOS_COMPILER
+-	else if ((n = ltgetnum("co")) > 0)
+- 		sc_width = n;
++		else if ((n = ltgetnum("co")) > 0)
++ 			sc_width = n;
+ #endif
+-	else
+-		sc_width = DEF_SC_WIDTH;
++		else
++			sc_width = DEF_SC_WIDTH;
++	}
+ }
+ 
+ #if MSDOS_COMPILER==MSOFTC
+diff -up ../less-418/search.c ./search.c
+--- ../less-418/search.c	2007-12-10 08:35:52.000000000 -0800
++++ ./search.c	2008-02-22 10:53:10.000000000 -0800
+@@ -23,7 +23,7 @@
+ #if HAVE_POSIX_REGCOMP
+ #include <regex.h>
+ #ifdef REG_EXTENDED
+-#define	REGCOMP_FLAG	REG_EXTENDED
++#define	REGCOMP_FLAG	(less_is_more ? 0 : REG_EXTENDED)
+ #else
+ #define	REGCOMP_FLAG	0
+ #endif
+@@ -53,6 +53,7 @@ extern int linenums;
+ extern int sc_height;
+ extern int jump_sline;
+ extern int bs_mode;
++extern int less_is_more;
+ extern int ctldisp;
+ extern int status_col;
+ extern void * constant ml_search;
+diff -up ../less-418/signal.c ./signal.c
+--- ../less-418/signal.c	2007-12-10 08:35:52.000000000 -0800
++++ ./signal.c	2008-02-22 10:53:10.000000000 -0800
+@@ -34,6 +34,7 @@ extern int linenums;
+ extern int wscroll;
+ extern int reading;
+ extern int quit_on_intr;
++extern int less_is_more;
+ extern long jump_sline_fraction;
+ 
+ /*
+@@ -58,6 +59,8 @@ u_interrupt(type)
+ 	if (kbhit())
+ 		getkey();
+ #endif
++	if (less_is_more)
++		quit(0);
+ 	if (reading)
+ 		intread();
+ }
+diff -up ../less-418/tags.c ./tags.c
+--- ../less-418/tags.c	2007-12-10 08:35:52.000000000 -0800
++++ ./tags.c	2008-02-22 10:53:10.000000000 -0800
+@@ -22,6 +22,7 @@ static int curseq;
+ 
+ extern int linenums;
+ extern int sigs;
++extern int unix2003_compat;
+ 
+ enum tag_result {
+ 	TAG_FOUND,
+@@ -400,6 +401,7 @@ ctagsearch()
+ 	LINENUM linenum;
+ 	int len;
+ 	char *line;
++	int found_string_match;
+ 
+ 	pos = ch_zero();
+ 	linenum = find_linenum(pos);
+@@ -447,7 +449,13 @@ ctagsearch()
+ 		 * the way to end of line (no extra chars after the match).
+ 		 */
+ 		len = strlen(curtag->tag_pattern);
+-		if (strncmp(curtag->tag_pattern, line, len) == 0 &&
++		if (unix2003_compat) {
++			/* this should probably be the else case too */
++			found_string_match = strstr(line, curtag->tag_pattern) != NULL;
++		} else {
++			found_string_match = strncmp(curtag->tag_pattern, line, len) == 0;
++		}
++		if (found_string_match  &&
+ 		    (!curtag->tag_endline || line[len] == '\0' || line[len] == '\r'))
+ 		{
+ 			curtag->tag_linenum = find_linenum(linepos);
+diff -up ../less-418/ttyin.c ./ttyin.c
+--- ../less-418/ttyin.c	2007-12-10 08:35:52.000000000 -0800
++++ ./ttyin.c	2008-02-22 10:53:10.000000000 -0800
+@@ -27,6 +27,8 @@ static DWORD console_mode;
+ public int tty;
+ extern int sigs;
+ extern int utf_mode;
++extern char * active_dashp_command;
++extern int add_newline;
+ 
+ /*
+  * Open keyboard for input.
+@@ -103,6 +105,20 @@ getchr()
+ 	char c;
+ 	int result;
+ 
++	if (active_dashp_command) {
++		/* Use it until all gone */
++		c = *active_dashp_command++;
++		if (c =='\0') {
++			active_dashp_command = NULL;
++			if (add_newline) {
++				c = '\n';
++				add_newline = 0;
++				return (c & 0377);
++			}
++		} else 
++			return (c & 0377);
++	}
++
+ 	do
+ 	{
+ #if MSDOS_COMPILER && MSDOS_COMPILER != DJGPPC

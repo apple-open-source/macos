@@ -24,15 +24,12 @@
  *
  ******************************************************************************/
 
-#include <CoreFoundation/CoreFoundation.h>
-#include <SystemConfiguration/SCValidation.h>
-#include <IOKit/IOMessage.h>
-#include <IOKit/pwr_mgt/IOPMLibPrivate.h>
 #include <notify.h>
 #include <utmpx.h>
 #include <sys/stat.h>
 #include <err.h>
 #include <asl.h>
+#include "PrivateLib.h"
 #include "TTYKeepAwake.h"
 #include "PMSettings.h"
 
@@ -169,8 +166,8 @@ bool TTYKeepAwakeSleepWakeNotification ( natural_t messageType )
          */
         if(preventers)
         {
-            asl_log(NULL, NULL, ASL_LEVEL_INFO, 
-                "PMCFGD: System Sleep prevented by active remote login session (%d second threshold).\n", settingIdleSleepSeconds);
+            asl_log(NULL, NULL, ASL_LEVEL_ERR, 
+                "PowerManagement configd: System Sleep prevented by active remote login session (%d second threshold).\n", settingIdleSleepSeconds);
 
             int i, count;
             count = CFArrayGetCount(preventers);
@@ -178,8 +175,8 @@ bool TTYKeepAwakeSleepWakeNotification ( natural_t messageType )
                 if( (preventer_name = 
                         isA_CFString(CFArrayGetValueAtIndex(preventers, i))) )
                 {
-                    asl_log(NULL, NULL, ASL_LEVEL_INFO, 
-                                        "PMCFGD: tty sleep preventer: %s\n",
+                    asl_log(NULL, NULL, ASL_LEVEL_ERR, 
+                                        "PowerManagement configd: tty sleep preventer: %s\n",
                                         CFStringGetCStringPtr( preventer_name,
                                                         kCFStringEncodingMacRoman));
                 }

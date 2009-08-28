@@ -3,18 +3,20 @@
 	<key>OpenSourceProject</key>
 	<string>tcsh</string>
 	<key>OpenSourceVersion</key>
-	<string>6.14.00</string>
+	<string>6.15.00</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.tcsh.org</string>
 	<key>OpenSourceURL</key>
-	<string>ftp://ftp.astron.com/pub/tcsh/tcsh-6.14.00.tar.gz</string>
+	<string>ftp://ftp.astron.com/pub/tcsh/tcsh-6.15.00.tar.gz</string>
 	<key>OpenSourceSHA1</key>
-	<string>55a08b31a57cfd8631edd1fb7e42f18578d8198a</string>
+	<string>d24f7bf27e80222a6293b6629c14db547f0b7387</string>
 	<key>OpenSourceImportDate</key>
-	<string>2007-2-23</string>
+	<string>2008-1-23</string>
 	<key>OpenSourceModifications</key>
 	<array>
-		<string> Change bsd4.4 config file to reflect POSIX signals </string>
+	<string>Fix for http://bugs.gw.com/view.php?id=49</string>
+	<string>Patch host.defs for x86_64</string>
+	<string>Fix bug in dorepeat with change from 6.16.00</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>

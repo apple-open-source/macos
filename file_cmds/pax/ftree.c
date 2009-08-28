@@ -1,4 +1,4 @@
-/*	$OpenBSD: ftree.c,v 1.25 2004/04/16 22:50:23 deraadt Exp $	*/
+/*	$OpenBSD: ftree.c,v 1.28 2008/05/06 06:54:28 henning Exp $	*/
 /*	$NetBSD: ftree.c,v 1.4 1995/03/21 09:07:21 cgd Exp $	*/
 
 /*-
@@ -38,7 +38,7 @@
 #if 0
 static const char sccsid[] = "@(#)ftree.c	8.2 (Berkeley) 4/18/94";
 #else
-static const char rcsid[] __attribute__((__unused__)) = "$OpenBSD: ftree.c,v 1.25 2004/04/16 22:50:23 deraadt Exp $";
+static const char rcsid[] = "$OpenBSD: ftree.c,v 1.28 2008/05/06 06:54:28 henning Exp $";
 #endif
 #endif /* not lint */
 
@@ -170,6 +170,7 @@ ftree_add(char *str, int chflg)
 		str[len] = '\0';
 	ft->fname = str;
 	ft->refcnt = 0;
+	ft->newercnt = 0;
 	ft->chflg = chflg;
 	ft->fow = NULL;
 	if (fthead == NULL) {
@@ -215,6 +216,31 @@ ftree_sel(ARCHD *arcn)
 }
 
 /*
+ * ftree_notsel()
+ *	this entry has not been selected by pax.
+ */
+
+void
+ftree_notsel()
+{
+	if (ftent != NULL)
+		(void)fts_set(ftsp, ftent, FTS_SKIP);
+}
+
+/*
+ * ftree_skipped_newer()
+ *	file has been skipped because a newer file exists and -u/-D given
+ */
+
+void
+ftree_skipped_newer(ARCHD *arcn)
+{
+	/* skipped due to -u/-D, mark accordingly */
+	if (ftcur != NULL)
+		ftcur->newercnt = 1;
+}
+
+/*
  * ftree_chk()
  *	called at end on pax execution. Prints all those file args that did not
  *	have a selected member (reference count still 0)
@@ -237,7 +263,7 @@ ftree_chk(void)
 	 * that never had a match
 	 */
 	for (ft = fthead; ft != NULL; ft = ft->fow) {
-		if ((ft->refcnt > 0) || ft->chflg)
+		if ((ft->refcnt > 0) || ft->newercnt > 0 || ft->chflg)
 			continue;
 		if (wban == 0) {
 			paxwarn(1,"WARNING! These file names were not selected:");
@@ -291,12 +317,12 @@ ftree_arg(void)
 				return(-1);
 			if (ftcur->chflg) {
 				/* First fchdir() back... */
-				if (fchdir(cwdfd) < 0) {
+				if (fdochdir(cwdfd) < 0) {
 					syswarn(1, errno,
 					  "Can't fchdir to starting directory");
 					return(-1);
 				}
-				if (chdir(ftcur->fname) < 0) {
+				if (dochdir(ftcur->fname) < 0) {
 					syswarn(1, errno, "Can't chdir to %s",
 					    ftcur->fname);
 					return(-1);
@@ -355,6 +381,8 @@ next_file(ARCHD *arcn)
 	 */
 	for (;;) {
 		if ((ftent = fts_read(ftsp)) == NULL) {
+			if (errno)
+				syswarn(1, errno, "next_file");
 			/*
 			 * out of files in this tree, go to next arg, if none
 			 * we are done
@@ -501,6 +529,8 @@ next_file(ARCHD *arcn)
 	 * copy file name, set file name length
 	 */
 	arcn->nlen = strlcpy(arcn->name, ftent->fts_path, sizeof(arcn->name));
+	if (arcn->nlen >= sizeof(arcn->name))
+		arcn->nlen = sizeof(arcn->name) - 1; /* XXX truncate? */
 	arcn->org_name = ftent->fts_path;
 	return(0);
 }

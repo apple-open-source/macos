@@ -53,8 +53,7 @@ notify_server(mach_msg_header_t *request, mach_msg_header_t *reply)
 
 	switch (Request->not_header.msgh_id) {
 		case MACH_NOTIFY_NO_SENDERS :
-			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("No more senders for port %d, closing."),
-			      Request->not_header.msgh_local_port);
+			__MACH_PORT_DEBUG(TRUE, "*** notify_server MACH_NOTIFY_NO_SENDERS", Request->not_header.msgh_local_port);
 			cleanupSession(Request->not_header.msgh_local_port);
 
 			Reply->Head.msgh_bits		= 0;

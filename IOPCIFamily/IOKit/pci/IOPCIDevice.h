@@ -28,54 +28,54 @@
 
 /* Definitions of PCI Config Registers */
 enum {
-    kIOPCIConfigVendorID		= 0x00,
-    kIOPCIConfigDeviceID		= 0x02,
-    kIOPCIConfigCommand			= 0x04,
-    kIOPCIConfigStatus			= 0x06,
-    kIOPCIConfigRevisionID		= 0x08,
-    kIOPCIConfigClassCode		= 0x09,
-    kIOPCIConfigCacheLineSize		= 0x0C,
-    kIOPCIConfigLatencyTimer		= 0x0D,
-    kIOPCIConfigHeaderType		= 0x0E,
-    kIOPCIConfigBIST			= 0x0F,
-    kIOPCIConfigBaseAddress0		= 0x10,
-    kIOPCIConfigBaseAddress1		= 0x14,
-    kIOPCIConfigBaseAddress2		= 0x18,
-    kIOPCIConfigBaseAddress3		= 0x1C,
-    kIOPCIConfigBaseAddress4		= 0x20,
-    kIOPCIConfigBaseAddress5		= 0x24,
-    kIOPCIConfigCardBusCISPtr		= 0x28,
-    kIOPCIConfigSubSystemVendorID	= 0x2C,
-    kIOPCIConfigSubSystemID		= 0x2E,
-    kIOPCIConfigExpansionROMBase	= 0x30,
-    kIOPCIConfigCapabilitiesPtr		= 0x34,
-    kIOPCIConfigInterruptLine		= 0x3C,
-    kIOPCIConfigInterruptPin		= 0x3D,
-    kIOPCIConfigMinimumGrant		= 0x3E,
-    kIOPCIConfigMaximumLatency		= 0x3F
+    kIOPCIConfigVendorID                = 0x00,
+    kIOPCIConfigDeviceID                = 0x02,
+    kIOPCIConfigCommand                 = 0x04,
+    kIOPCIConfigStatus                  = 0x06,
+    kIOPCIConfigRevisionID              = 0x08,
+    kIOPCIConfigClassCode               = 0x09,
+    kIOPCIConfigCacheLineSize           = 0x0C,
+    kIOPCIConfigLatencyTimer            = 0x0D,
+    kIOPCIConfigHeaderType              = 0x0E,
+    kIOPCIConfigBIST                    = 0x0F,
+    kIOPCIConfigBaseAddress0            = 0x10,
+    kIOPCIConfigBaseAddress1            = 0x14,
+    kIOPCIConfigBaseAddress2            = 0x18,
+    kIOPCIConfigBaseAddress3            = 0x1C,
+    kIOPCIConfigBaseAddress4            = 0x20,
+    kIOPCIConfigBaseAddress5            = 0x24,
+    kIOPCIConfigCardBusCISPtr           = 0x28,
+    kIOPCIConfigSubSystemVendorID       = 0x2C,
+    kIOPCIConfigSubSystemID             = 0x2E,
+    kIOPCIConfigExpansionROMBase        = 0x30,
+    kIOPCIConfigCapabilitiesPtr         = 0x34,
+    kIOPCIConfigInterruptLine           = 0x3C,
+    kIOPCIConfigInterruptPin            = 0x3D,
+    kIOPCIConfigMinimumGrant            = 0x3E,
+    kIOPCIConfigMaximumLatency          = 0x3F
 };
 
 /* Definitions of Capabilities PCI Config Register */
 enum {
-    kIOPCICapabilityIDOffset		= 0x00,
-    kIOPCINextCapabilityOffset		= 0x01,
+    kIOPCICapabilityIDOffset            = 0x00,
+    kIOPCINextCapabilityOffset          = 0x01,
 
-    kIOPCIPowerManagementCapability	= 0x01,
-    kIOPCIAGPCapability        		= 0x02,
+    kIOPCIPowerManagementCapability     = 0x01,
+    kIOPCIAGPCapability                 = 0x02,
     kIOPCIVitalProductDataCapability    = 0x03,
-    kIOPCISlotIDCapability       	= 0x04,
-    kIOPCIMSICapability       		= 0x05,
-    kIOPCICPCIHotswapCapability       	= 0x06,
-    kIOPCIPCIXCapability       		= 0x07,
-    kIOPCILDTCapability       		= 0x08,
+    kIOPCISlotIDCapability              = 0x04,
+    kIOPCIMSICapability                 = 0x05,
+    kIOPCICPCIHotswapCapability         = 0x06,
+    kIOPCIPCIXCapability                = 0x07,
+    kIOPCILDTCapability                 = 0x08,
     kIOPCIVendorSpecificCapability      = 0x09,
-    kIOPCIDebugPortCapability       	= 0x0a,
+    kIOPCIDebugPortCapability           = 0x0a,
     kIOPCICPCIResourceControlCapability = 0x0b,
-    kIOPCIHotplugCapability       	= 0x0c,
-    kIOPCIAGP8Capability       		= 0x0e,
-    kIOPCISecureCapability       	= 0x0f,
-    kIOPCIPCIExpressCapability       	= 0x10,
-    kIOPCIMSIXCapability       		= 0x11,
+    kIOPCIHotplugCapability             = 0x0c,
+    kIOPCIAGP8Capability                = 0x0e,
+    kIOPCISecureCapability              = 0x0f,
+    kIOPCIPCIExpressCapability          = 0x10,
+    kIOPCIMSIXCapability                = 0x11,
 
     kIOPCIExpressErrorReportingCapability     = -1UL,
     kIOPCIExpressVirtualChannelCapability     = -2UL,
@@ -85,155 +85,155 @@ enum {
 
 /* Space definitions */
 enum {
-    kIOPCIConfigSpace		= 0,
-    kIOPCIIOSpace		= 1,
-    kIOPCI32BitMemorySpace	= 2,
-    kIOPCI64BitMemorySpace	= 3
+    kIOPCIConfigSpace           = 0,
+    kIOPCIIOSpace               = 1,
+    kIOPCI32BitMemorySpace      = 2,
+    kIOPCI64BitMemorySpace      = 3
 };
 
 /* Command register definitions */
 enum {
-    kIOPCICommandIOSpace		= 0x0001,
-    kIOPCICommandMemorySpace		= 0x0002,
-    kIOPCICommandBusMaster		= 0x0004,
-    kIOPCICommandSpecialCycles		= 0x0008,
-    kIOPCICommandMemWrInvalidate	= 0x0010,
-    kIOPCICommandPaletteSnoop		= 0x0020,
-    kIOPCICommandParityError		= 0x0040,
-    kIOPCICommandAddressStepping	= 0x0080,
-    kIOPCICommandSERR			= 0x0100,
-    kIOPCICommandFastBack2Back		= 0x0200,
-    kIOPCICommandInterruptDisable	= 0x0400
+    kIOPCICommandIOSpace                = 0x0001,
+    kIOPCICommandMemorySpace            = 0x0002,
+    kIOPCICommandBusMaster              = 0x0004,
+    kIOPCICommandSpecialCycles          = 0x0008,
+    kIOPCICommandMemWrInvalidate        = 0x0010,
+    kIOPCICommandPaletteSnoop           = 0x0020,
+    kIOPCICommandParityError            = 0x0040,
+    kIOPCICommandAddressStepping        = 0x0080,
+    kIOPCICommandSERR                   = 0x0100,
+    kIOPCICommandFastBack2Back          = 0x0200,
+    kIOPCICommandInterruptDisable       = 0x0400
 };
 
 /* Status register definitions */
 enum {
-    kIOPCIStatusCapabilities		= 0x0010,
-    kIOPCIStatusPCI66			= 0x0020,
-    kIOPCIStatusUDF			= 0x0040,
-    kIOPCIStatusFastBack2Back		= 0x0080,
-    kIOPCIStatusDevSel0			= 0x0000,
-    kIOPCIStatusDevSel1			= 0x0200,
-    kIOPCIStatusDevSel2			= 0x0400,
-    kIOPCIStatusDevSel3			= 0x0600,
-    kIOPCIStatusTargetAbortCapable	= 0x0800,
-    kIOPCIStatusTargetAbortActive	= 0x1000,
-    kIOPCIStatusMasterAbortActive	= 0x2000,
-    kIOPCIStatusSERRActive		= 0x4000,
-    kIOPCIStatusParityErrActive		= 0x8000
+    kIOPCIStatusCapabilities            = 0x0010,
+    kIOPCIStatusPCI66                   = 0x0020,
+    kIOPCIStatusUDF                     = 0x0040,
+    kIOPCIStatusFastBack2Back           = 0x0080,
+    kIOPCIStatusDevSel0                 = 0x0000,
+    kIOPCIStatusDevSel1                 = 0x0200,
+    kIOPCIStatusDevSel2                 = 0x0400,
+    kIOPCIStatusDevSel3                 = 0x0600,
+    kIOPCIStatusTargetAbortCapable      = 0x0800,
+    kIOPCIStatusTargetAbortActive       = 0x1000,
+    kIOPCIStatusMasterAbortActive       = 0x2000,
+    kIOPCIStatusSERRActive              = 0x4000,
+    kIOPCIStatusParityErrActive         = 0x8000
 };
 
 // constants which are part of the PCI Bus Power Management Spec.
 enum
 {
     // capabilities bits in the 16 bit capabilities register
-    kPCIPMCPMESupportFromD3Cold	= 0x8000,
-    kPCIPMCPMESupportFromD3Hot	= 0x4000,
-    kPCIPMCPMESupportFromD2		= 0x2000,
-    kPCIPMCPMESupportFromD1		= 0x1000,
-    kPCIPMCPMESupportFromD0		= 0x0800,
-    kPCIPMCD2Support			= 0x0400,
-    kPCIPMCD1Support			= 0x0200,
+    kPCIPMCPMESupportFromD3Cold = 0x8000,
+    kPCIPMCPMESupportFromD3Hot  = 0x4000,
+    kPCIPMCPMESupportFromD2             = 0x2000,
+    kPCIPMCPMESupportFromD1             = 0x1000,
+    kPCIPMCPMESupportFromD0             = 0x0800,
+    kPCIPMCD2Support                    = 0x0400,
+    kPCIPMCD1Support                    = 0x0200,
  
-    kPCIPMCD3Support			= 0x0001
+    kPCIPMCD3Support                    = 0x0001
 };
 
 enum
 {
     // bits in the power management control/status register
-    kPCIPMCSPMEStatus			= 0x8000,
-    kPCIPMCSPMEEnable			= 0x0100,
-    kPCIPMCSPowerStateMask		= 0x0003,
-    kPCIPMCSPowerStateD3		= 0x0003,
-    kPCIPMCSPowerStateD2		= 0x0002,
-    kPCIPMCSPowerStateD1		= 0x0001,
-    kPCIPMCSPowerStateD0		= 0x0000,
+    kPCIPMCSPMEStatus                   = 0x8000,
+    kPCIPMCSPMEEnable                   = 0x0100,
+    kPCIPMCSPowerStateMask              = 0x0003,
+    kPCIPMCSPowerStateD3                = 0x0003,
+    kPCIPMCSPowerStateD2                = 0x0002,
+    kPCIPMCSPowerStateD1                = 0x0001,
+    kPCIPMCSPowerStateD0                = 0x0000,
     
-    kPCIPMCSDefaultEnableBits		= (~(IOOptionBits)0)
+    kPCIPMCSDefaultEnableBits           = (~(IOOptionBits)0)
 };
 
 union IOPCIAddressSpace {
-    UInt32		bits;
+    UInt32              bits;
     struct {
 #if __BIG_ENDIAN__
-        unsigned int	reloc:1;
-        unsigned int	prefetch:1;
-        unsigned int	t:1;
-        unsigned int	resv:3;
-        unsigned int	space:2;
-        unsigned int	busNum:8;
-        unsigned int	deviceNum:5;
-        unsigned int	functionNum:3;
-        unsigned int	registerNum:8;
+        unsigned int    reloc:1;
+        unsigned int    prefetch:1;
+        unsigned int    t:1;
+        unsigned int    resv:3;
+        unsigned int    space:2;
+        unsigned int    busNum:8;
+        unsigned int    deviceNum:5;
+        unsigned int    functionNum:3;
+        unsigned int    registerNum:8;
 #elif __LITTLE_ENDIAN__
-        unsigned int	registerNum:8;
-        unsigned int	functionNum:3;
-        unsigned int	deviceNum:5;
-        unsigned int	busNum:8;
-        unsigned int	space:2;
-        unsigned int	resv:3;
-        unsigned int	t:1;
-        unsigned int	prefetch:1;
-        unsigned int	reloc:1;
+        unsigned int    registerNum:8;
+        unsigned int    functionNum:3;
+        unsigned int    deviceNum:5;
+        unsigned int    busNum:8;
+        unsigned int    space:2;
+        unsigned int    resv:3;
+        unsigned int    t:1;
+        unsigned int    prefetch:1;
+        unsigned int    reloc:1;
 #endif
     } s;
     struct {
 #if __BIG_ENDIAN__
-        unsigned int	resv:4;
-        unsigned int	registerNumExtended:4;
-        unsigned int	busNum:8;
-        unsigned int	deviceNum:5;
-        unsigned int	functionNum:3;
-        unsigned int	registerNum:8;
+        unsigned int    resv:4;
+        unsigned int    registerNumExtended:4;
+        unsigned int    busNum:8;
+        unsigned int    deviceNum:5;
+        unsigned int    functionNum:3;
+        unsigned int    registerNum:8;
 #elif __LITTLE_ENDIAN__
-        unsigned int	registerNum:8;
-        unsigned int	functionNum:3;
-        unsigned int	deviceNum:5;
-        unsigned int	busNum:8;
-        unsigned int	registerNumExtended:4;
-        unsigned int	resv:4;
+        unsigned int    registerNum:8;
+        unsigned int    functionNum:3;
+        unsigned int    deviceNum:5;
+        unsigned int    busNum:8;
+        unsigned int    registerNumExtended:4;
+        unsigned int    resv:4;
 #endif
     } es;
 };
 
 struct IOPCIPhysicalAddress {
-    IOPCIAddressSpace	physHi;
-    UInt32		physMid;
-    UInt32		physLo;
-    UInt32		lengthHi;
-    UInt32		lengthLo;
+    IOPCIAddressSpace   physHi;
+    UInt32              physMid;
+    UInt32              physLo;
+    UInt32              lengthHi;
+    UInt32              lengthLo;
 };
 
 // IOPCIDevice matching property names
-#define kIOPCIMatchKey			"IOPCIMatch"
-#define kIOPCIPrimaryMatchKey		"IOPCIPrimaryMatch"
-#define kIOPCISecondaryMatchKey		"IOPCISecondaryMatch"
-#define kIOPCIClassMatchKey		"IOPCIClassMatch"
+#define kIOPCIMatchKey                  "IOPCIMatch"
+#define kIOPCIPrimaryMatchKey           "IOPCIPrimaryMatch"
+#define kIOPCISecondaryMatchKey         "IOPCISecondaryMatch"
+#define kIOPCIClassMatchKey             "IOPCIClassMatch"
 
 // property to control PCI default config space save on sleep
-#define kIOPMPCIConfigSpaceVolatileKey	"IOPMPCIConfigSpaceVolatile"
+#define kIOPMPCIConfigSpaceVolatileKey  "IOPMPCIConfigSpaceVolatile"
 
 // pci express link status
-#define kIOPCIExpressLinkStatusKey	 "IOPCIExpressLinkStatus"
+#define kIOPCIExpressLinkStatusKey       "IOPCIExpressLinkStatus"
 // pci express link capabilities
 #define kIOPCIExpressLinkCapabilitiesKey "IOPCIExpressLinkCapabilities"
 
 #ifndef kIOPlatformDeviceASPMEnableKey
-#define kIOPlatformDeviceASPMEnableKey	"IOPlatformDeviceASPMEnable"
+#define kIOPlatformDeviceASPMEnableKey  "IOPlatformDeviceASPMEnable"
 #endif
 
 #ifndef kIOPCIDeviceASPMSupportedKey
-#define kIOPCIDeviceASPMSupportedKey	"pci-aspm-supported"
+#define kIOPCIDeviceASPMSupportedKey    "pci-aspm-supported"
 #endif
 
-#define kIOPCIPMEOptionsKey		"IOPCIPMEOptions"
+#define kIOPCIPMEOptionsKey             "IOPCIPMEOptions"
 
 
 enum {
     kIOPCIDevicePowerStateCount = 3,
-    kIOPCIDeviceOffState	= 0,
-    kIOPCIDeviceDozeState	= 1,
-    kIOPCIDeviceOnState		= 2,
+    kIOPCIDeviceOffState        = 0,
+    kIOPCIDeviceDozeState       = 1,
+    kIOPCIDeviceOnState         = 2,
 };
 
 enum
@@ -265,22 +265,22 @@ A PCI device driver can also match on the values of certain config space registe
 In each case, several matching values can be specified, and an optional mask for the value of the config space register may follow the value, preceded by an '&' character.
 <br>
 <br>
-	kIOPCIMatchKey, "IOPCIMatch"
+        kIOPCIMatchKey, "IOPCIMatch"
 <br>
 The kIOPCIMatchKey property matches the vendor and device ID (0x00) register, or the subsystem register (0x2c).
 <br>
 <br>
-	kIOPCIPrimaryMatchKey, "IOPCIPrimaryMatch"
+        kIOPCIPrimaryMatchKey, "IOPCIPrimaryMatch"
 <br>
 The kIOPCIPrimaryMatchKey property matches the vendor and device ID (0x00) register.
 <br>
 <br>
-	kIOPCISecondaryMatchKey, "IOPCISecondaryMatch"
+        kIOPCISecondaryMatchKey, "IOPCISecondaryMatch"
 <br>
 The kIOPCISecondaryMatchKey property matches the subsystem register (0x2c).
 <br>
 <br>
-	kIOPCIClassMatchKey, "IOPCIClassMatch"
+        kIOPCIClassMatchKey, "IOPCIClassMatch"
 <br>
 The kIOPCIClassMatchKey property matches the class code register (0x08). The default mask for this register is 0xffffff00.
 <br>
@@ -288,20 +288,20 @@ The kIOPCIClassMatchKey property matches the class code register (0x08). The def
 Examples:
 <br>
 <br>
-      &ltkey&gtIOPCIMatch&lt/key&gt		<br>
-	&ltstring&gt0x00261011&lt/string&gt
+      &ltkey&gtIOPCIMatch&lt/key&gt             <br>
+        &ltstring&gt0x00261011&lt/string&gt
 <br>
 Matches a device whose vendor ID is 0x1011, and device ID is 0x0026, including subsystem IDs.
 <br>
 <br>
-      &ltkey&gtIOPCIMatch&lt/key&gt		<br>
-	&ltstring&gt0x00789004&0x00ffffff 0x78009004&0x0xff00ffff&lt/string&gt
+      &ltkey&gtIOPCIMatch&lt/key&gt             <br>
+        &ltstring&gt0x00789004&0x00ffffff 0x78009004&0x0xff00ffff&lt/string&gt
 <br>
 Matches with any device with a vendor ID of 0x9004, and a device ID of 0xzz78 or 0x78zz, where 'z' is don't care.
 <br>
 <br>
-      &ltkey&gtIOPCIClassMatch&lt/key&gt	<br>
-	&ltstring&gt0x02000000&0xffff0000&lt/string&gt
+      &ltkey&gtIOPCIClassMatch&lt/key&gt        <br>
+        &ltstring&gt0x02000000&0xffff0000&lt/string&gt
 <br>
 <br>
 Matches a device whose class code is 0x0200zz, an ethernet device.
@@ -317,8 +317,8 @@ class IOPCIDevice : public IOService
     friend class IOPCIMessagedInterruptController;
 
 protected:
-    IOPCIBridge *	parent;
-    IOMemoryMap *	ioMap;
+    IOPCIBridge *       parent;
+    IOMemoryMap *       ioMap;
     OSObject *          slotNameProperty;
 
 /*! @var reserved
@@ -326,49 +326,54 @@ protected:
     struct IOPCIDeviceExpansionData * reserved;
 
 public:
-    IOPCIAddressSpace	space;
-    UInt32	*	savedConfig;
+    IOPCIAddressSpace   space;
+    UInt32      *       savedConfig;
 
 public:
     /* IOService/IORegistryEntry methods */
 
     virtual bool init( OSDictionary *  propTable );
     virtual bool init( IORegistryEntry * from,
-				const IORegistryPlane * inPlane );
+                                const IORegistryPlane * inPlane );
     virtual void free();
     virtual bool attach( IOService * provider );
     virtual void detach( IOService * provider );
+
+    virtual IOReturn newUserClient( task_t owningTask, void * securityID,
+                                    UInt32 type,  OSDictionary * properties,
+                                    IOUserClient ** handler );
+
     virtual IOReturn powerStateWillChangeTo (IOPMPowerFlags  capabilities, 
-					     unsigned long   stateNumber, 
-					     IOService*      whatDevice);
+                                             unsigned long   stateNumber, 
+                                             IOService*      whatDevice);
     virtual IOReturn setPowerState( unsigned long, IOService * );
 
     virtual bool compareName( OSString * name, OSString ** matched = 0 ) const;
-    virtual bool matchPropertyTable( OSDictionary *	table,
-                                     SInt32       *	score );
+    virtual bool matchPropertyTable( OSDictionary *     table,
+                                     SInt32       *     score );
     virtual IOService * matchLocation( IOService * client );
     virtual IOReturn getResources( void );
     virtual IOReturn setProperties(OSObject * properties);
     virtual IOReturn callPlatformFunction(const OSSymbol * functionName,
-					  bool waitForFunction,
-					  void * p1, void * p2,
-					  void * p3, void * p4);
+                                          bool waitForFunction,
+                                          void * p1, void * p2,
+                                          void * p3, void * p4);
     virtual IOReturn callPlatformFunction(const char * functionName,
-					  bool waitForFunction,
-					  void * p1, void * p2,
-					  void * p3, void * p4);
+                                          bool waitForFunction,
+                                          void * p1, void * p2,
+                                          void * p3, void * p4);
 
     /* Config space accessors */
 
     virtual UInt32 configRead32( IOPCIAddressSpace space, UInt8 offset );
     virtual void configWrite32( IOPCIAddressSpace space,
-					UInt8 offset, UInt32 data );
+                                        UInt8 offset, UInt32 data );
     virtual UInt16 configRead16( IOPCIAddressSpace space, UInt8 offset );
     virtual void configWrite16( IOPCIAddressSpace space,
-					UInt8 offset, UInt16 data );
+                                        UInt8 offset, UInt16 data );
     virtual UInt8 configRead8( IOPCIAddressSpace space, UInt8 offset );
     virtual void configWrite8( IOPCIAddressSpace space,
-					UInt8 offset, UInt8 data );
+                                        UInt8 offset, UInt8 data );
 
 /*! @function configRead32
     @abstract Reads a 32-bit value from the PCI device's configuration space.
@@ -504,7 +509,7 @@ public:
     @result An instance of IOMemoryMap, or zero if the index is beyond the count available. The mapping should be released only when access to it is no longer required. */
 
     virtual IOMemoryMap * mapDeviceMemoryWithRegister( UInt8 reg,
-						IOOptionBits options = 0 );
+                                                IOOptionBits options = 0 );
 
 /*! @function ioDeviceMemory
     @abstract Accessor to the I/O space aperture for the bus.
@@ -523,7 +528,7 @@ public:
     @param map If the offset is relative to the beginning of a device's aperture, an IOMemoryMap object for that object should be passed in. Otherwise, passing zero will write the value relative to the beginning of the bus' I/O space. */
 
     virtual void ioWrite32( UInt16 offset, UInt32 value,
-				IOMemoryMap * map = 0 );
+                                IOMemoryMap * map = 0 );
 
 /*! @function ioWrite16
     @abstract Writes a 16-bit value to an I/O space aperture.
@@ -533,7 +538,7 @@ public:
     @param map If the offset is relative to the beginning of a device's aperture, an IOMemoryMap object for that object should be passed in. Otherwise, passing zero will write the value relative to the beginning of the bus' I/O space. */
 
     virtual void ioWrite16( UInt16 offset, UInt16 value,
-				IOMemoryMap * map = 0 );
+                                IOMemoryMap * map = 0 );
 
 /*! @function ioWrite8
     @abstract Writes a 8-bit value to an I/O space aperture.
@@ -543,7 +548,7 @@ public:
     @param map If the offset is relative to the beginning of a device's aperture, an IOMemoryMap object for that object should be passed in. Otherwise, passing zero will write the value relative to the beginning of the bus' I/O space. */
 
     virtual void ioWrite8( UInt16 offset, UInt8 value,
-				IOMemoryMap * map = 0 );
+                                IOMemoryMap * map = 0 );
 
 /*! @function ioRead32
     @abstract Reads a 32-bit value from an I/O space aperture.

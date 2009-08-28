@@ -5,10 +5,12 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: lib523.c,v 1.3 2006-10-25 09:20:44 yangtse Exp $
+ * $Id: lib523.c,v 1.6 2008-09-20 04:26:57 yangtse Exp $
  */
 
 #include "test.h"
+
+#include "memdebug.h"
 
 int test(char *URL)
 {
@@ -26,11 +28,11 @@ int test(char *URL)
     return TEST_ERR_MAJOR_BAD;
   }
 
-  curl_easy_setopt(curl, CURLOPT_PROXY, arg2);
+  curl_easy_setopt(curl, CURLOPT_PROXY, libtest_arg2);
   curl_easy_setopt(curl, CURLOPT_URL, URL);
-  curl_easy_setopt(curl, CURLOPT_PORT, 19999);
+  curl_easy_setopt(curl, CURLOPT_PORT, 19999L);
   curl_easy_setopt(curl, CURLOPT_USERPWD, "xxx:yyy");
-  curl_easy_setopt(curl, CURLOPT_VERBOSE, TRUE);
+  curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
 
   res = curl_easy_perform(curl);
 

@@ -44,15 +44,11 @@ if  { [gdb_compile "${arch_src}" "${objdir}/${subdir}/${arch_base}_ppc.o" object
 if  { [gdb_compile "${arch_src}" "${objdir}/${subdir}/${arch_base}_i386.o" object {debug additional_flags=-arch\ i386}] != "" } {
     gdb_suppress_entire_file "Testcase i386 archive object compile failed, so all tests in this file will automatically fail."
 }
-if  { [gdb_compile "${arch_src}" "${objdir}/${subdir}/${arch_base}_ppc64.o" object {debug additional_flags=-arch\ ppc64}] != "" } {
-    gdb_suppress_entire_file "Testcase ppc64 archive object compile failed, so all tests in this file will automatically fail."
-}
 
 file delete -force $arch_a
-verbose -log "lipo -create -arch ppc \"${objdir}/${subdir}/${arch_base}_ppc.o\" -arch i386 \"${objdir}/${subdir}/${arch_base}_i386.o\" -arch ppc64 \"${objdir}/${subdir}/${arch_base}_ppc64.o\" \-output \"$arch_o\""
+verbose -log "lipo -create -arch ppc \"${objdir}/${subdir}/${arch_base}_ppc.o\" -arch i386 \"${objdir}/${subdir}/${arch_base}_i386.o\" \-output \"$arch_o\""
 exec lipo -create -arch ppc "${objdir}/${subdir}/${arch_base}_ppc.o" \
           -arch i386 "${objdir}/${subdir}/${arch_base}_i386.o" \
-          -arch ppc64 "${objdir}/${subdir}/${arch_base}_ppc64.o" \
           -output "$arch_o"
 verbose -log "libtool -static -o \"$arch_a\" \"$arch_o\""
 exec libtool -static -o $arch_a $arch_o

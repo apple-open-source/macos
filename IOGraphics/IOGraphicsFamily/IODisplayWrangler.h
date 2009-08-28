@@ -94,9 +94,9 @@ private:
     virtual void idleDisplays( void );
       
     static bool _displayHandler( void * target, void * ref,
-                            IOService * newService );
+                            IOService * newService, IONotifier * notifier );
     static bool _displayConnectHandler( void * target, void * ref,
-                            IOService * newService );
+                            IOService * newService, IONotifier * notifier );
 
     virtual bool displayHandler( OSSet * set, IODisplay * newDisplay);
     virtual bool displayConnectHandler( void * ref, IODisplayConnect * connect);

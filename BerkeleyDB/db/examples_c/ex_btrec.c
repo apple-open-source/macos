@@ -1,10 +1,9 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1997-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1997,2007 Oracle.  All rights reserved.
  *
- * $Id: ex_btrec.c,v 1.2 2004/03/30 01:23:16 jtownsen Exp $
+ * $Id: ex_btrec.c,v 12.6 2007/05/17 15:15:12 bostic Exp $
  */
 
 #include <sys/types.h>
@@ -37,7 +36,7 @@ ex_btrec()
 	DB_BTREE_STAT *statp;
 	FILE *fp;
 	db_recno_t recno;
-	u_int32_t len;
+	size_t len;
 	int cnt, ret;
 	char *p, *t, buf[1024], rbuf[1024];
 	const char *progname = "ex_btrec";		/* Program name. */
@@ -92,7 +91,7 @@ ex_btrec()
 
 		key.data = buf;
 		data.data = rbuf;
-		data.size = key.size = len - 1;
+		data.size = key.size = (u_int32_t)len - 1;
 
 		if ((ret =
 		    dbp->put(dbp, NULL, &key, &data, DB_NOOVERWRITE)) != 0) {
@@ -106,7 +105,7 @@ ex_btrec()
 	(void)fclose(fp);
 
 	/* Print out the number of records in the database. */
-	if ((ret = dbp->stat(dbp, &statp, 0)) != 0) {
+	if ((ret = dbp->stat(dbp, NULL, &statp, 0)) != 0) {
 		dbp->err(dbp, ret, "DB->stat");
 		goto err1;
 	}
@@ -133,19 +132,19 @@ ex_btrec()
 		recno = atoi(buf);
 
 		/*
-		 * Reset the key each time, the dbp->c_get() routine returns
+		 * Reset the key each time, the dbp->get() routine returns
 		 * the key and data pair, not just the key!
 		 */
 		key.data = &recno;
 		key.size = sizeof(recno);
-		if ((ret = dbcp->c_get(dbcp, &key, &data, DB_SET_RECNO)) != 0)
+		if ((ret = dbcp->get(dbcp, &key, &data, DB_SET_RECNO)) != 0)
 			goto get_err;
 
 		/* Display the key and data. */
 		show("k/d\t", &key, &data);
 
 		/* Move the cursor a record forward. */
-		if ((ret = dbcp->c_get(dbcp, &key, &data, DB_NEXT)) != 0)
+		if ((ret = dbcp->get(dbcp, &key, &data, DB_NEXT)) != 0)
 			goto get_err;
 
 		/* Display the key and data. */
@@ -159,7 +158,7 @@ ex_btrec()
 		data.size = sizeof(recno);
 		data.ulen = sizeof(recno);
 		data.flags |= DB_DBT_USERMEM;
-		if ((ret = dbcp->c_get(dbcp, &key, &data, DB_GET_RECNO)) != 0) {
+		if ((ret = dbcp->get(dbcp, &key, &data, DB_GET_RECNO)) != 0) {
 get_err:		dbp->err(dbp, ret, "DBcursor->get");
 			if (ret != DB_NOTFOUND && ret != DB_KEYEMPTY)
 				goto err2;
@@ -170,7 +169,7 @@ get_err:		dbp->err(dbp, ret, "DBcursor->get");
 		memset(&data, 0, sizeof(data));
 	}
 
-	if ((ret = dbcp->c_close(dbcp)) != 0) {
+	if ((ret = dbcp->close(dbcp)) != 0) {
 		dbp->err(dbp, ret, "DBcursor->close");
 		goto err1;
 	}
@@ -182,7 +181,7 @@ get_err:		dbp->err(dbp, ret, "DBcursor->get");
 
 	return (0);
 
-err2:	(void)dbcp->c_close(dbcp);
+err2:	(void)dbcp->close(dbcp);
 err1:	(void)dbp->close(dbp, 0);
 	return (ret);
 

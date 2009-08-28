@@ -103,10 +103,10 @@ struct general_symbol_info
 
   union
   {
-    /* The fact that this is a long not a LONGEST mainly limits the
+    /* The fact that this is an int not a LONGEST mainly limits the
        range of a LOC_CONST.  Since LOC_CONST_BYTES exists, I'm not
        sure that is a big deal.  */
-    long ivalue;
+    int ivalue;
 
     struct block *block;
 
@@ -675,7 +675,6 @@ struct symbol
 #define SYMBOL_TYPE(symbol)		(symbol)->type
 #define SYMBOL_LINE(symbol)		(symbol)->line
 #define SYMBOL_BASEREG(symbol)		(symbol)->aux_value.basereg
-#define SYMBOL_OBJFILE(symbol)          (symbol)->aux_value.objfile
 #define SYMBOL_OPS(symbol)              (symbol)->ops
 #define SYMBOL_LOCATION_BATON(symbol)   (symbol)->aux_value.ptr
 
@@ -883,6 +882,10 @@ struct symtab
 
   char *debugformat;
 
+  /* String of producer version information.  May be zero.  */
+
+  char *producer;
+
   /* String of version information.  May be zero.  */
 
   char *version;
@@ -976,6 +979,17 @@ struct oso_pst_list {
    
 /* END APPLE LOCAL */
 
+/* APPLE LOCAL begin psym equivalences  */
+/* An malloc'able array of names (sym_list) plus the necessary bookkeeping.
+   This struct is a field in the partial symtab, to keep track of
+   psym equivalence names in the PST.  */
+
+struct equiv_psym_list {
+  int num_syms;
+  int list_size;
+  char **sym_list;
+};
+/* APPLE LOCAL end psym equivalences  */
 
 /* Each source file that has not been fully read in is represented by
    a partial_symtab.  This contains the information on where in the
@@ -1100,6 +1114,12 @@ struct partial_symtab
      we use to map the address of the statics in the OSO .o file.  */
   struct oso_fun_list *statics_list;
   /* END APPLE LOCAL */
+  /* APPLE LOCAL begin psym equivalences  */
+  /* This field contains an array of equivalence names found in the
+     compile unit when reading the partial dies. An example of an
+     equivalence name for 'putenv' is '*_putenv$UNIX2003'.  */
+  struct equiv_psym_list *equiv_psyms;
+  /* APPLE LOCAL end psym equivalences  */
 };
 
 /* APPLE LOCAL fix-and-continue */
@@ -1243,15 +1263,23 @@ int addr_inside_main_func (CORE_ADDR pc);
 /* lookup the function symbol corresponding to the address */
 
 extern struct symbol *find_pc_function (CORE_ADDR);
+/* APPLE LOCAL inlined function symbols & blocks  */
+extern struct symbol *find_pc_function_no_inlined (CORE_ADDR);
 
 /* lookup the function corresponding to the address and section */
 
 extern struct symbol *find_pc_sect_function (CORE_ADDR, asection *);
+/* APPLE LOCAL inlined function symbols & blocks  */
+extern struct symbol *find_pc_sect_function_no_inlined (CORE_ADDR, asection *);
 
 /* lookup function from address, return name, start addr and end addr */
 
 extern int find_pc_partial_function (CORE_ADDR, char **, CORE_ADDR *,
 				     CORE_ADDR *);
+
+extern int find_pc_partial_function_no_inlined (CORE_ADDR, char **, 
+						CORE_ADDR *,
+						CORE_ADDR *);
 
 extern void clear_pc_function_cache (void);
 
@@ -1336,6 +1364,13 @@ extern struct minimal_symbol *lookup_minimal_symbol (const char *,
 						     const char *,
 						     struct objfile *);
 
+/* APPLE LOCAL begin return multiple symbols  */
+extern struct minimal_symbol *lookup_minimal_symbol_all (const char *, 
+							 const char *,
+							 struct objfile *,
+						      struct symbol_search **);
+/* APPLE LOCAL end return multiply symbols  */
+
 extern struct minimal_symbol *lookup_minimal_symbol_text (const char *,
 							  struct objfile *);
 
@@ -1399,6 +1434,22 @@ struct symtabs_and_lines
   int nelts;
 };
 
+
+/* APPLE LOCAL begin address context.  */
+struct address_context
+{
+  CORE_ADDR address; /* The address described in this context baton.  */
+  asection *bfd_section; /* BFD section for ADDRESS.  */
+  struct block *block;	/* The lowest block associated with ADDRESS.  */
+  struct minimal_symbol *msymbol; /* The min symbol for ADDRESS.  */
+  struct partial_symbol *psymbol; /* The partial symbol for ADDRESS.  */
+  struct symbol *symbol; /* The symbol for ADDRESS.  */
+  struct symtab_and_line sal;
+};
+
+extern void init_address_context (struct address_context *addr_ctx);
+
+/* APPLE LOCAL begin address context.  */
 
 
 /* Some types and macros needed for exception catchpoints.
@@ -1600,6 +1651,42 @@ extern int deprecated_hp_som_som_object_present;
 /* APPLE LOCAL begin address ranges  */
 extern void update_inlined_function_line_table_entry (CORE_ADDR, CORE_ADDR,
 						      CORE_ADDR);
+
 /* APPLE LOCAL end address ranges  */
+/* APPLE LOCAL begin psym equivalences  */
+/* This global variable is a flag indicating that some psym equivalence
+   names were found and recorded when processing the partial dies.  */
+extern int psym_equivalences;
+
+extern int psym_name_match (const char *, const char *);
+
+/* APPLE LOCAL end psym equivalences  */
+
+/* APPLE LOCAL begin cache lookup values for improved performance  */
+
+extern asection * cached_mapped_section;
+extern asection * cached_overlay_section;
+extern struct obj_section * cached_sect_section;
+extern struct symtab * cached_symtab;
+extern struct partial_symtab * cached_psymtab;
+extern struct symtab_and_line * cached_pc_line;
+extern struct symbol * cached_pc_function;
+extern struct blockvector * cached_blockvector;
+extern int cached_blockvector_index;
+extern struct block * cached_block;
+
+extern CORE_ADDR last_block_lookup_pc;
+extern CORE_ADDR last_blockvector_lookup_pc;
+extern CORE_ADDR last_function_lookup_pc;
+extern CORE_ADDR last_pc_line_lookup_pc;
+extern CORE_ADDR last_psymtab_lookup_pc;
+extern CORE_ADDR last_symtab_lookup_pc;
+extern CORE_ADDR last_sect_section_lookup_pc;
+extern CORE_ADDR last_mapped_section_lookup_pc;
+extern CORE_ADDR last_overlay_section_lookup_pc;
+
+void symtab_clear_cached_lookup_values (void);
+
+/* APPLE LOCAL end cache lookup values for improved performance  */
 
 #endif /* !defined(SYMTAB_H) */

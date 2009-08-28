@@ -17,6 +17,7 @@
 #include "config.h"
 #include "ClipboardGtk.h"
 
+#include "FileList.h"
 #include "NotImplemented.h"
 #include "StringHash.h"
 
@@ -67,6 +68,12 @@ HashSet<String> ClipboardGtk::types() const
 {
     notImplemented();
     return HashSet<String>();
+}
+
+PassRefPtr<FileList> ClipboardGtk::files() const
+{
+    notImplemented();
+    return 0;
 }
 
 IntPoint ClipboardGtk::dragLocation() const

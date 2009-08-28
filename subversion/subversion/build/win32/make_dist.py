@@ -2,9 +2,18 @@ import os
 import sys
 import shutil
 import getopt
+try:
+  my_getopt = getopt.gnu_getopt
+except AttributeError:
+  my_getopt = getopt.getopt
 import glob
 import traceback
-import ConfigParser
+try:
+  # Python >=3.0
+  import configparser
+except ImportError:
+  # Python <3.0
+  import ConfigParser as configparser
 
 # The script directory and the source base directory
 _scriptdir = os.path.dirname(sys.argv[0])
@@ -48,8 +57,8 @@ class Action:
       return None
 
   def _copy_file(self, source, target):
-    print 'copy:', source
-    print '  to:', target
+    print('copy: %s' % source)
+    print('  to: %s' % target)
     shutil.copyfile(source, target)
 
 class File(Action):
@@ -73,7 +82,7 @@ class OptFile(Action):
   def run(self, dir, cfg):
     path = self._safe_expand(cfg, self.path)
     if path is None or not os.path.isfile(path):
-      print 'make_dist: File not found:', self.path
+      print('make_dist: File not found: %s' % self.path)
       return
     if self.name is None:
       name = os.path.basename(path)
@@ -98,7 +107,7 @@ class InstallDocs(Action):
   def run(self, dir, cfg):
     config = self._expand(cfg, self.config)
     pattern = os.path.join(self._expand(cfg, self.path), '*.*')
-    print 'make_dist: Generating documentation'
+    print('make_dist: Generating documentation')
     old_cwd = os.getcwd()
     try:
       os.chdir(_srcdir)
@@ -119,9 +128,9 @@ class InstallIconv(Action):
   def run(self, dir, cfg):
     source = os.path.abspath(self._expand(cfg, self.source))
     build_mode = self._expand(cfg, self.build_mode)
-    print 'make_dist: Installing apr-iconv modules'
-    install = ('"%s" -nologo -f Makefile.win install' 
-               + ' INSTALL_DIR="%s"' 
+    print('make_dist: Installing apr-iconv modules')
+    install = ('"%s" -nologo -f Makefile.win install'
+               + ' INSTALL_DIR="%s"'
                + ' BUILD_MODE=%s BIND_MODE=%s') \
                % (cfg.get('tools', 'nmake'),
                   os.path.abspath(dir),
@@ -147,7 +156,7 @@ class InstallJar(Action):
   def run(self, dir, cfg):
     source = os.path.abspath(self._expand(cfg, self.source))
     jarfile = os.path.abspath(os.path.join(dir, self.jar))
-    print 'make_dist: Creating jar', self.jar
+    print('make_dist: Creating jar %s' % self.jar)
     _system('"%s" cvf "%s" -C "%s" .'
             % (cfg.get('tools', 'jar'), jarfile, source))
 
@@ -180,24 +189,46 @@ _disttree = {'': OptFile('%(readme)s', 'README.txt'),
                      File('%(blddir)s/svnserve/svnserve.pdb'),
                      File('%(blddir)s/svnversion/svnversion.exe'),
                      File('%(blddir)s/svnversion/svnversion.pdb'),
+                     File('%(blddir)s/../contrib/client-side/svn-push/svn-push.exe'),
+                     File('%(blddir)s/../contrib/client-side/svn-push/svn-push.pdb'),
+                     File('%(blddir)s/../tools/client-side/svnmucc/svnmucc.exe'),
+                     File('%(blddir)s/../tools/client-side/svnmucc/svnmucc.pdb'),
+                     File('%(blddir)s/../tools/server-side/svnauthz-validate.exe'),
+                     File('%(blddir)s/../tools/server-side/svnauthz-validate.pdb'),
+                     File('%(blddir)s/../tools/server-side/svn-populate-node-origins-index.exe'),
+                     File('%(blddir)s/../tools/server-side/svn-populate-node-origins-index.pdb'),
                      File('%(blddir)s/mod_dav_svn/mod_dav_svn.so'),
                      File('%(blddir)s/mod_dav_svn/mod_dav_svn.pdb'),
                      File('%(blddir)s/mod_authz_svn/mod_authz_svn.so'),
                      File('%(blddir)s/mod_authz_svn/mod_authz_svn.pdb'),
-                     File('%(@apr)s/%(aprrel)s/libapr.dll'),
-                     File('%(@apr)s/%(aprrel)s/libapr.pdb'),
-                     File('%(@apr-iconv)s/%(aprrel)s/libapriconv.dll'),
-                     File('%(@apr-iconv)s/%(aprrel)s/libapriconv.pdb'),
-                     File('%(@apr-util)s/%(aprrel)s/libaprutil.dll'),
-                     File('%(@apr-util)s/%(aprrel)s/libaprutil.pdb'),
+                     FileGlob('%(blddir)s/libsvn_*/libsvn_*.dll'),
+                     FileGlob('%(blddir)s/libsvn_*/libsvn_*.pdb'),
+                     File('%(@apr)s/%(aprrel)s/libapr-1.dll'),
+                     File('%(@apr)s/%(aprrel)s/libapr-1.pdb'),
+                     File('%(@apr-iconv)s/%(aprrel)s/libapriconv-1.dll'),
+                     File('%(@apr-iconv)s/%(aprrel)s/libapriconv-1.pdb'),
+                     File('%(@apr-util)s/%(aprrel)s/libaprutil-1.dll'),
+                     File('%(@apr-util)s/%(aprrel)s/libaprutil-1.pdb'),
                      File('%(@berkeley-db)s/bin/libdb%(bdbver)s.dll'),
+                     File('%(@sasl)s/lib/libsasl.dll'),
+                     File('%(@sasl)s/lib/libsasl.pdb'),
+                     File('%(@sasl)s/utils/pluginviewer.exe'),
+                     File('%(@sasl)s/utils/pluginviewer.pdb'),
+                     File('%(@sasl)s/utils/sasldblistusers2.exe'),
+                     File('%(@sasl)s/utils/sasldblistusers2.pdb'),
+                     File('%(@sasl)s/utils/saslpasswd2.exe'),
+                     File('%(@sasl)s/utils/saslpasswd2.pdb'),
                      OptFile('%(@berkeley-db)s/bin/libdb%(bdbver)s.pdb'),
+                     OptFile('%(@sqlite)s/bin/sqlite3.dll'),
                      OptFile('%(@openssl)s/out32dll/libeay32.dll'),
                      OptFile('%(@openssl)s/out32dll/libeay32.pdb'),
                      OptFile('%(@openssl)s/out32dll/ssleay32.dll'),
                      OptFile('%(@openssl)s/out32dll/ssleay32.pdb'),
+                     OptFile('%(@openssl)s/out32dll/openssl.exe'),
                      OptFile('%(@libintl)s/bin/intl3_svn.dll'),
                      OptFile('%(@libintl)s/bin/intl3_svn.pdb'),
+                     FileGlob('%(@sasl)s/plugins/sasl*.dll'),
+                     FileGlob('%(@sasl)s/plugins/sasl*.pdb'),
                      ),
 
              'doc': InstallDocs('%(srcdir)s/doc/doxygen.conf',
@@ -212,15 +243,40 @@ _disttree = {'': OptFile('%(readme)s', 'README.txt'),
 
              'lib': (FileGlob('%(blddir)s/libsvn_*/*.lib'),
                      FileGlob('%(blddir)s/libsvn_*/*.pdb')),
-             'lib/apr': File('%(@apr)s/%(aprrel)s/libapr.lib'),
-             'lib/apr-iconv': File('%(@apr-iconv)s/%(aprrel)s/libapriconv.lib'),
-             'lib/apr-util': (File('%(@apr-util)s/%(aprrel)s/libaprutil.lib'),
+             'lib/apr': File('%(@apr)s/%(aprrel)s/libapr-1.lib'),
+             'lib/apr-iconv': File('%(@apr-iconv)s/%(aprrel)s/libapriconv-1.lib'),
+             'lib/apr-util': (File('%(@apr-util)s/%(aprrel)s/libaprutil-1.lib'),
                               File('%(@apr-util)s/%(aprxml)s/xml.lib'),
-                              File('%(@apr-util)s/%(aprxml)s/xml_src.pdb'),
+                              File('%(@apr-util)s/%(aprxml)s/xml.pdb'),
                               ),
              'lib/neon': (File('%(@neon)s/libneon.lib'),
                           OptFile('%(@zlib)s/zlibstat.lib'),
                           ),
+
+             'lib/serf': (File('%(@serf)s/Release/serf.lib'),
+                          ),
+
+             'lib/sasl': (File('%(@sasl)s/lib/libsasl.lib'),
+                          File('%(@sasl)s/lib/libsasl.pdb'),
+                          ),
+
+             'licenses': None,
+             'licenses/bdb': File('%(@berkeley-db)s/LICENSE'),
+             'licenses/neon': File('%(@neon)s/src/COPYING.LIB'),
+             'licenses/serf': File('%(@serf)s/LICENSE'),
+             'licenses/zlib': File('%(@zlib)s/README'),
+             'licenses/apr-util': (File('%(@apr-util)s/LICENSE'),
+                                   File('%(@apr-util)s/NOTICE'),
+                                   ),
+             'licenses/apr-iconv': (File('%(@apr-iconv)s/LICENSE'),
+                                    File('%(@apr-iconv)s/NOTICE'),
+                                    ),
+             'licenses/apr': (File('%(@apr)s/LICENSE'),
+                              File('%(@apr)s/NOTICE'),
+                              ),
+             'licenses/openssl': File('%(@openssl)s/LICENSE'),
+             'licenses/svn' : File('%(srcdir)s/COPYING'),
+             'licenses/cyrus-sasl' : File('%(@sasl)s/COPYING'),
 
              'perl': None,
              'perl/site': None,
@@ -239,11 +295,29 @@ _disttree = {'': OptFile('%(readme)s', 'README.txt'),
                                ),
              'python/svn': FileGlob('%(bindsrc)s/swig/python/svn/*.py'),
 
-             'javahl': (FileGlob('%(binddir)s/java/javahl/native/libsvn*.dll'),
-                        FileGlob('%(binddir)s/java/javahl/native/libsvn*.pdb'),
+             'javahl': (FileGlob('%(binddir)s/javahl/native/libsvn*.dll'),
+                        FileGlob('%(binddir)s/javahl/native/libsvn*.pdb'),
                         InstallJar('svnjavahl.jar',
-                                   '%(bindsrc)s/java/javahl/classes'),
+                                   '%(bindsrc)s/javahl/classes'),
                         ),
+
+             'ruby': None,
+             'ruby/lib': None,
+             'ruby/lib/svn': FileGlob('%(bindsrc)s/swig/ruby/svn/*.rb'),
+             'ruby/ext': None,
+             'ruby/ext/svn': None,
+             'ruby/ext/svn/ext':
+               (FileGlob('%(binddir)s/swig/ruby/*.dll'),
+                FileGlob('%(binddir)s/swig/ruby/*.pdb'),
+                FileGlob('%(binddir)s/swig/ruby/libsvn_swig_ruby/*.dll'),
+                FileGlob('%(binddir)s/swig/ruby/libsvn_swig_ruby/*.pdb'),
+                FileGlob('%(blddir)s/libsvn_*/*.dll'),
+                File('%(@berkeley-db)s/bin/libdb%(bdbver)s.dll'),
+                OptFile('%(@sqlite)s/bin/sqlite3.dll'),
+                OptFile('%(@libintl)s/bin/intl3_svn.dll'),
+                File('%(@apr)s/%(aprrel)s/libapr-1.dll'),
+                File('%(@apr-iconv)s/%(aprrel)s/libapriconv-1.dll'),
+                File('%(@apr-util)s/%(aprrel)s/libaprutil-1.dll')),
 
              'share': None,
              'share/locale': InstallMoFiles('%(srcdir)s/%(svnrel)s/mo'),
@@ -287,11 +361,15 @@ def _read_config():
                    os.path.abspath(os.path.join(_srcdir, 'neon')),
                    }
 
-  cfg = ConfigParser.ConfigParser(path_defaults)
-  cfg.readfp(open(os.path.join(_scriptdir, 'make_dist.conf'), 'r'))
+  cfg = configparser.ConfigParser(path_defaults)
+  try:
+    cfg.readfp(open(os.path.join(_scriptdir, 'make_dist.conf'), 'r'))
+  except:
+    _stderr.write('Unable to open and read make_dist.conf\n')
+    _exit(1)
 
   # Read the options config generated by gen-make.py
-  optcfg = ConfigParser.ConfigParser()
+  optcfg = configparser.ConfigParser()
   optcfg.readfp(open(os.path.join(_srcdir, 'gen-make.opts'), 'r'))
 
   # Move the runtime options into the DEFAULT section
@@ -300,8 +378,8 @@ def _read_config():
       continue
     optdir = os.path.abspath(os.path.join(_srcdir, optcfg.get('options', opt)))
     if not os.path.isdir(optdir):
-      print 'make_dist:', opt, '=', optdir
-      print 'make_dist: Target is not a directory'
+      print('make_dist: %s = %s' % (opt, optdir))
+      print('make_dist: Target is not a directory')
       _exit(1)
     cfg.set('DEFAULT', '@' + opt[7:], optdir)
 
@@ -336,7 +414,7 @@ def _make_zip(suffix, pathlist, extras):
     os.chdir(_distdir)
     if os.path.exists(zipname):
       os.remove(zipname)
-    print 'make_dist: Creating %s' % zipname
+    print('make_dist: Creating %s' % zipname)
     _stdout.write('make_dist: Creating %s\n' % zipname)
     _system(zipcmd)
   except:
@@ -354,13 +432,12 @@ def _make_dist(cfg):
       shutil.rmtree(distdir)
     os.makedirs(distdir)
 
-    dirlist = _disttree.keys()
-    dirlist.sort()
+    dirlist = sorted(_disttree.keys())
 
     for reldir in dirlist:
       dir = os.path.join(distdir, reldir)
       if not os.path.exists(dir):
-        print 'make_dist: Creating directory', reldir
+        print('make_dist: Creating directory %s' % reldir)
         _stdout.write('make_dist: Creating directory %s\n' % reldir)
         os.makedirs(dir)
       action = _disttree[reldir]
@@ -374,20 +451,31 @@ def _make_dist(cfg):
 
     xpdb = '-x "*.pdb"'
     _make_zip('',        ('/README.txt', '/bin', '/httpd',
-                          '/iconv', '/share/locale'), xpdb)
+                          '/iconv', '/licenses', '/share/locale'), xpdb)
     _make_zip('_dev',    ('/README.txt', '/doc', '/include', '/lib'), xpdb)
     _make_zip('_javahl', ('/README.txt', '/javahl'), xpdb)
     _make_zip('_pdb',    ('',), '-i "*.pdb"')
     _make_zip('_pl',     ('/README.txt', '/perl'), xpdb)
     _make_zip('_py',     ('/README.txt', '/python'), xpdb)
+    _make_zip('_rb',     ('/README.txt', '/ruby', '/licenses', '/share/locale'),
+              xpdb)
 
+    _stdout.write('make_dist: Creating ruby gem\n')
+    gem_script = os.path.join(_scriptdir, 'make_gem.rb')
+    rubycmd = '"%s" "%s" --output-dir="%s"' % (cfg.get('tools', 'ruby'),
+              gem_script, _distdir)
+    rubycmd += ' "' + distdir + '\\README.txt"'
+    rubycmd += ' "' + distdir + '\\ruby"'
+    rubycmd += ' "' + distdir + '\\licenses"'
+    rubycmd += ' "' + distdir + '\\share"'
+    _system(rubycmd)
   except:
     traceback.print_exc(None, _stderr)
     _exit(1)
 
 
 if __name__ == '__main__':
-  opts, args = getopt.getopt(sys.argv[1:], '', ['readme='])
+  opts, args = my_getopt(sys.argv[1:], '', ['readme='])
   if len(args) != 2 or len(opts) > 1:
     _stderr.write('Usage: make_dist.py [--readme=<file>] <distname> <distdir>\n')
     _exit(2)

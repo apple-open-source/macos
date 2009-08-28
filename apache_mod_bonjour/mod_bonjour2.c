@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2003-2007 Apple Inc. All rights reserved.
+Copyright (c) 2003-2009 Apple Inc. All rights reserved.
 
 License for apache_mod_bonjour module:
 Redistribution and use in source and binary forms, with or without modification, 
@@ -59,6 +59,7 @@ the APIs.
  * put userdata in the global pool so that the code can tell whether it's in the 
  * bootstrap phase or the real processing phase. 
  *
+ * To do : make this work without mod_userdir, by recognizing its config directives
  */
 
 #define CORE_PRIVATE                    1
@@ -219,7 +220,7 @@ static void registerService( const char* inName, uint16_t *inPort, char* inTxt,
 	}
 	strlcpy(regName, inName, MAX_NAME_FORMAT);
 		
-    if (regName)
+    if (*regName)
         strncpy( registrationRecPtr->name, regName, sizeof(registrationRecPtr->name) );
 		
     registrationRecPtr->serverData = serverData;
@@ -292,7 +293,7 @@ static tDirStatus processUsers( tDirReference inDirRef, tDirNodeReference inNode
     tDirStatus          dsStatus;
     apr_uint32_t		recordCount = 0;
     unsigned long       i;
-    tContextData        contextDataRecList = NULL;
+    tContextData        contextDataRecList = 0;
     tAttributeValueListRef  attrValueListRef;
     tAttributeEntryPtr	attrEntryPtr;
     tAttributeValueEntryPtr attrValueEntryPtr;
@@ -427,7 +428,7 @@ static tDirStatus processUsers( tDirReference inDirRef, tDirNodeReference inNode
             dsCloseAttributeList( attrListRef );
             dsDeallocRecordEntry( inDirRef, recordEntryPtr );
         }
-    } while (contextDataRecList != NULL);
+    } while (contextDataRecList != 0);
     
     dsDataBufferDeAllocate( inDirRef, nameDataBufferPtr );
     dsDataListDeallocate( inDirRef, &attributeList );
@@ -458,6 +459,8 @@ static int getUserSitePath( const char *inUserName, char *outSitePath, cmd_parms
     userdir_config *s_cfg;
     
     module* userdir_mod = ap_find_linked_module( "mod_userdir.c" );
+    if (!userdir_mod)
+        userdir_mod = ap_find_linked_module( "mod_userdir_apple.c" );
     if (!userdir_mod) {
 	ap_log_error(APLOG_MARK, APLOG_NOERRNO|APLOG_INFO, 0, cmd->server,
             "%s Mod_userdir not loaded", MSG_PREFIX);
@@ -655,7 +658,7 @@ static void getTitle( char* inSiteFolder, char* outTitle, cmd_parms* cmd ) {
     if (!dir_mod) {
 	ap_log_error(APLOG_MARK, APLOG_NOERRNO|APLOG_INFO, 0, cmd->server,
             "%s Mod_dir not loaded", MSG_PREFIX);
-        *outTitle = NULL;
+        outTitle = NULL;
         return;
     }
 
@@ -663,7 +666,7 @@ static void getTitle( char* inSiteFolder, char* outTitle, cmd_parms* cmd ) {
     if (!dir_cfg) {
 		ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_INFO, 0, cmd->server,
             "%s Mod_dir config not present", MSG_PREFIX );
-        *outTitle = NULL;
+        outTitle = NULL;
         return;
     }
 
@@ -681,9 +684,9 @@ static void getTitle( char* inSiteFolder, char* outTitle, cmd_parms* cmd ) {
         char *dirIndexName = *dirIndexNames;
         char fullSitePath[PATH_MAX+1];
 
-        strncpy( fullSitePath, inSiteFolder, sizeof(fullSitePath) );
-        strcat( fullSitePath, "/" );
-        strncat( fullSitePath, dirIndexName, sizeof(fullSitePath) - strlen( fullSitePath ) );
+        strlcpy( fullSitePath, inSiteFolder, sizeof(fullSitePath) );
+        strlcat( fullSitePath, "/", sizeof(fullSitePath) );
+        strlcat( fullSitePath, dirIndexName, sizeof(fullSitePath) );
         // Use the first index file of type text/html. Should fix this to use mime type
         if ((strlen( dirIndexName ) > 5 && !strcmp( &(dirIndexName[strlen( dirIndexName ) - 5]), ".html" ))
             || (strlen( dirIndexName ) > 4 && !strcmp( &(dirIndexName[strlen( dirIndexName ) - 4]), ".htm" ))) {
@@ -692,7 +695,7 @@ static void getTitle( char* inSiteFolder, char* outTitle, cmd_parms* cmd ) {
                 ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_NOTICE, 0, cmd->server,
                     "%s Index file %s has no title.",
                     MSG_PREFIX, fullSitePath );
-                *outTitle = NULL;
+                outTitle = NULL;
                 return;
             }
             // Title found by extractHTMLTitle could be way longer than what we want to use for Bonjour; truncate.
@@ -701,7 +704,7 @@ static void getTitle( char* inSiteFolder, char* outTitle, cmd_parms* cmd ) {
         }
     }
 
-    *outTitle = NULL;
+    outTitle = NULL;
 }
 
 /* Compute checksum with same result as cksum(1)
@@ -763,6 +766,14 @@ static Boolean	userHasValidCustomizedSite( char* inUserName, cmd_parms* cmd ) {
 	/* Leopard9A556 Italian  */ 1624979716U, 
 	/* Leopard9A556 Spanish  */ 2075108216U, 
 	/* Leopard9A556 Dutch    */ 3080089696U, 
+	
+	/* SnowLeopard10A354 English */ 3347385980U,
+	/* SnowLeopard10A354 Japanese */ 560382875U, 
+	/* SnowLeopard10A354 French   */ 1071842387U, 
+	/* SnowLeopard10A354 German   */ 2756617632U, 
+	/* SnowLeopard10A354 Italian same as Leopard */
+	/* SnowLeopard10A354 Spanish  */ 1593960486U, 
+	/* SnowLeopard10A354 Dutch    */ 3594138231U, 
 
 	0U};
 	apr_uint32_t checkSum;
@@ -793,7 +804,7 @@ static Boolean	userHasValidCustomizedSite( char* inUserName, cmd_parms* cmd ) {
             MSG_PREFIX, inUserName );
         return FALSE;
     }
-    strcat( site_path, "/index.html" );
+    strlcat( site_path, "/index.html", sizeof(site_path) );
 	if (stat( site_path, &userIndexFinfo ) == -1) {
         ap_log_error( APLOG_MARK,  - APLOG_NOERRNO|APLOG_WARNING, 0, cmd->server,
             "%s Skipping user '%s' - cannot read index file '%s'.",
@@ -912,14 +923,14 @@ static void registerUser( const char* inUserName, const char* inRegNameFormat,
         strncpy( regName, pw->pw_gecos, sizeof(regName) );
 	else if (!strcasecmp( regNameFormat, "title" )) {
         getTitle( site_path, (char*)&title, cmd );
-        if (title && strcmp( title, ""  ))
+        if (*title && strcmp( title, ""  ))
             strncpy( regName, title, sizeof(regName) );
         else
             strncpy( regName, pw->pw_gecos, sizeof(regName) );
     }
 	else if (!strcasecmp( regNameFormat, "longname-title" )) {
         getTitle( site_path, (char*)&title, cmd );
-        if (title && strcmp( title, ""  ))
+        if (*title && strcmp( title, ""  ))
             snprintf( regName, sizeof(regName), "%s - %s", pw->pw_gecos, title );
         else
             strncpy( regName, pw->pw_gecos, sizeof(regName) );
@@ -939,7 +950,7 @@ static void registerUser( const char* inUserName, const char* inRegNameFormat,
                 switch (regNameFormat[i + 1]) {
                     case 't':	// %t - HTML title
                         getTitle( site_path, (char*)&title, cmd );
-                        if (title && strcmp( title, "" )) {
+                        if (*title && strcmp( title, "" )) {
                             strncat( regName, title, sizeof(regName) );
                             j = j + strlen( title );
                         }
@@ -956,7 +967,7 @@ static void registerUser( const char* inUserName, const char* inRegNameFormat,
                         i++;
                         break;
                     case 'u':	// %u - uid
-                        sprintf( uidStr, "%d", pw->pw_uid );
+                        snprintf( uidStr, sizeof(uidStr), "%d", pw->pw_uid );
                         strncat( regName, uidStr, sizeof(regName) );
                         j = j + strlen( uidStr );
                         i++;

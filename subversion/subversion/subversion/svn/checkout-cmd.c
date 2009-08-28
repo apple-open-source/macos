@@ -2,7 +2,7 @@
  * checkout-cmd.c -- Subversion checkout command
  *
  * ====================================================================
- * Copyright (c) 2000-2006 CollabNet.  All rights reserved.
+ * Copyright (c) 2000-2007 CollabNet.  All rights reserved.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution.  The terms
@@ -33,21 +33,21 @@
 
 /*** Code. ***/
 
-/* 
+/*
   This is what it does
 
   - case 1: one URL
     $ svn co http://host/repos/module
     checkout into ./module/
-  
+
   - case 2: one URL and explicit path
     $ svn co http://host/repos/module path
     checkout into ./path/
-  
+
   - case 3: multiple URLs
     $ svn co http://host1/repos1/module1 http://host2/repos2/module2
     checkout into ./module1/ and ./module2/
-  
+
   - case 4: multiple URLs and explicit path
     $ svn co http://host1/repos1/module1 http://host2/repos2/module2 path
     checkout into ./path/module1/ and ./path/module2/
@@ -70,14 +70,15 @@ svn_cl__checkout(apr_getopt_t *os,
   const char *repos_url;
   int i;
 
-  SVN_ERR(svn_opt_args_to_target_array2(&targets, os, 
-                                        opt_state->targets, pool));
+  SVN_ERR(svn_cl__args_to_target_array_print_reserved(&targets, os,
+                                                      opt_state->targets,
+                                                      ctx, pool));
 
   if (! targets->nelts)
     return svn_error_create(SVN_ERR_CL_INSUFFICIENT_ARGS, 0, NULL);
 
   /* Add a path if the user only specified URLs */
-  local_dir = ((const char **) (targets->elts))[targets->nelts - 1];
+  local_dir = APR_ARRAY_IDX(targets, targets->nelts - 1, const char *);
   if (svn_path_is_url(local_dir))
     {
       if (targets->nelts == 1)
@@ -96,7 +97,7 @@ svn_cl__checkout(apr_getopt_t *os,
         {
           local_dir = "";
         }
-      (*((const char **) apr_array_push(targets))) = local_dir;
+      APR_ARRAY_PUSH(targets, const char *) = local_dir;
     }
   else
     {
@@ -122,10 +123,10 @@ svn_cl__checkout(apr_getopt_t *os,
       SVN_ERR(svn_cl__check_cancel(ctx->cancel_baton));
 
       /* Validate the REPOS_URL */
-      repos_url = ((const char **) (targets->elts))[i];
+      repos_url = APR_ARRAY_IDX(targets, i, const char *);
       if (! svn_path_is_url(repos_url))
-        return svn_error_createf 
-          (SVN_ERR_BAD_URL, NULL, 
+        return svn_error_createf
+          (SVN_ERR_BAD_URL, NULL,
            _("'%s' does not appear to be a URL"), repos_url);
 
       /* Get a possible peg revision. */
@@ -156,14 +157,16 @@ svn_cl__checkout(apr_getopt_t *os,
           revision.kind = svn_opt_revision_head;
       }
 
-      SVN_ERR(svn_client_checkout2(NULL, true_url, target_dir,
-                                   &peg_revision,
-                                   &revision,
-                                   opt_state->nonrecursive ? FALSE : TRUE,
-                                   opt_state->ignore_externals,
-                                   ctx, subpool));
+      SVN_ERR(svn_client_checkout3
+              (NULL, true_url, target_dir,
+               &peg_revision,
+               &revision,
+               opt_state->depth,
+               opt_state->ignore_externals,
+               opt_state->force,
+               ctx, subpool));
     }
   svn_pool_destroy(subpool);
-  
+
   return SVN_NO_ERROR;
 }

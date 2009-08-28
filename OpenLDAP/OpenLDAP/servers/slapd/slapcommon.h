@@ -1,8 +1,8 @@
 /* slapcommon.h - common definitions for the slap tools */
-/* $OpenLDAP: pkg/ldap/servers/slapd/slapcommon.h,v 1.7.2.4 2006/01/03 22:16:16 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/slapcommon.h,v 1.14.2.4 2008/02/11 23:26:44 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,10 +35,12 @@ enum slaptool {
 typedef struct tool_vars {
 	Backend *tv_be;
 	int tv_verbose;
+	int tv_quiet;
 	int tv_update_ctxcsn;
 	int tv_continuemode;
 	int tv_nosubordinates;
 	int tv_dryrun;
+	int tv_jumpline;
 	Filter *tv_filter;
 	struct berval tv_sub_ndn;
 	struct LDIFFP	*tv_ldiffp;
@@ -58,12 +60,15 @@ typedef struct tool_vars {
 	slap_ssf_t tv_tls_ssf;
 	slap_ssf_t tv_sasl_ssf;
 	unsigned tv_dn_mode;
+	unsigned int tv_csnsid;
 } tool_vars;
 
 extern tool_vars tool_globals;
 
 #define	be tool_globals.tv_be
 #define verbose tool_globals.tv_verbose
+#define quiet tool_globals.tv_quiet
+#define jumpline tool_globals.tv_jumpline
 #define update_ctxcsn tool_globals.tv_update_ctxcsn
 #define continuemode tool_globals.tv_continuemode
 #define nosubordinates tool_globals.tv_nosubordinates
@@ -87,6 +92,7 @@ extern tool_vars tool_globals;
 #define tls_ssf tool_globals.tv_tls_ssf
 #define sasl_ssf tool_globals.tv_sasl_ssf
 #define dn_mode tool_globals.tv_dn_mode
+#define csnsid tool_globals.tv_csnsid
 #define SLAP_TOOL_LDAPDN_PRETTY		SLAP_LDAPDN_PRETTY
 #define SLAP_TOOL_LDAPDN_NORMAL		(SLAP_LDAPDN_PRETTY << 1)
 

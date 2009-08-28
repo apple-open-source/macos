@@ -1,0 +1,62 @@
+Administratívne požiadavky môžu byť zobrazené dvoma spôsobmi. Buď
+<a href=\"%(summaryurl)s\">hromadne</a> alebo <em>detailne</em>.
+Pri hromadnom zobrazení sú všetky požiadavky pochádzajúce od
+toho istého účastníka zobrazené spolu a môže o nich byť rozhodnuté
+naraz. Pri detailnom zobrazení je každý príspevok zobrazený
+samostatne a administrátor rozhoduje o každom príspevku jednotlivo.
+Detailné zobrazenie obsahuje naviac všetky hlavičky a časť z tela
+správy.
+
+<p>Pre pozastavené príspevky vyberte jednu z týchto činností:
+<ul>
+<li><b>Ponechať</b> - Nechať správu čakať vo fronte, nemá vplyv na
+nastavenie preposielania, to znamená, že správu môžete preposlať
+a pritom ponechať vo fronte
+
+<li><b>Akceptovať</b> - Rozoslať správu do konferencie. Ak nejde o správu,
+ale o žiadosť o prihlásenie účastníka, tak bude prihlásený.
+
+<li><b>Zamietnuť</b> - Vrátiť správu odosielateľovi. Môžete uviesť i dôvod,
+ktorý bude uvedený v odpovedi na zamietnutie. Správa bude vymazaná z fronty.
+Ak ide o žiadosť o prihlásenie účastníka, tak bude zamietnutá.
+
+<li><b>Zahodiť</b> - vhodné pre spam. Správa bude potichu odstránená, nikomu
+nebude nič poslané. Ak ide o žiadosť o prihlásenie účastníka, tak mu nebude
+odoslaná odpoveď.
+</ul>
+
+<p>Výberom voľby <b>Ponechať</b> môžete ponechať správu vo fronte pre
+pre neskoršie vybavenie správcom. To sa využíva predovšetkým pri správach,
+ktoré nie sú spamom a vyžadujú ďalšie odvetné akcie.
+
+S pomocou voľby <b>Preposlať</b> môžete odoslať kópiu správy na adresu,
+ktorú vyplníte do poľa vedľa tejto voľby. Ak potrebujete
+niektorý príspevok pre rozoslaním zmeniť, musíte si ho preposlať na svoju
+adresu a pôvodnú správu zahodiť. Potom, čo správu upravíte, musíte ju poslať
+späť do konferencie, prípadne s hlavičkou <tt>Approved:</tt>, do ktorej
+doplníte heslo pre danú konferenciu. Etika vyžaduje, aby ste v takom prípade
+do textu uviedli upozornenie, že ste správu pozmenili a vysvetlili, prečo
+ste tak konali.
+
+<p>Pri nových účastníkoch sa zvykne nastaviť moderácia, aby ich
+príspevky boli najprv preverené moderátorom. Zrušením nastavenia moderácie
+umožníte účastníkovi prispievať do konferencie bez kontroly jeho príspevkov.
+
+<p>Ak odosielateľ nie je účastníkom konferencie, môžete jeho e-mailovú
+adresu vložiť do <em>filtra odesielateľov</em>. Funkcia týchto filtrov
+je popísaná na <a href=\"%(filterurl)s\">stránke s konfiguráciou filtrovania
+</a>. Príspevky môžu byť na základe filtrov buď automaticky
+akceptované, automaticky podržané do rozhodnutia moderátora,
+automaticky vrátené alebo automaticky zahodené (spam). Ak je
+odosielateľ účastníkom alebo je už zahrnutý vo filtroch, táto voľba
+nebude k dispozícii.
+
+<p>Ak ste už prešli celou stránkou, kliknite na jej hornom alebo
+spodnom okraji na tlačidlo <em>Potvrdiť všetky zmeny</em>. Tým sa 
+prenesú prevedené zmeny do databázý a server prevedie podľa daných pokyov
+potrebné operácie. Ak u niektorej položky nevyberiete ani jednu voľbu,
+nebude nijak ovplyvnená a zostane uložena v databáze. Budete ju môcť
+kedykoľvek nabudúce zmeniť.
+
+
+<p><a href="%(summaryurl)s">Návrat na prehľad čakajúcích požiadaviek</a>

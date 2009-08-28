@@ -1,0 +1,139 @@
+[manpage_begin docstrip_util n 1.2]
+[copyright "2003-2005 Lars Hellstr\u00F6m\
+  <Lars dot Hellstrom at residenset dot net>"]
+[moddesc {Literate programming tool}]
+[titledesc {Docstrip-related utilities}]
+[require Tcl 8.4]
+[require docstrip::util [opt 1.2]]
+[description]
+
+The [package docstrip::util] package is meant for collecting various
+utility procedures that may be useful for developers who make use of
+the [package docstrip] package in some projects. It is separate from
+the main package to avoid overhead for end-users.
+
+
+[section Commands]
+
+[list_begin definitions]
+[call [cmd docstrip::util::ddt2man] [arg text]]
+  The [cmd ddt2man] command reformats [arg text] from the general
+  [syscmd docstrip] format to [package doctools] [file .man] format
+  (Tcl Markup Language for Manpages). The different line types are
+  treated as follows:
+  [list_begin definitions]
+  [def {comment and metacomment lines}]
+    The '%' and '%%' prefixes are removed, the rest of the text is
+    kept as it is.
+  [def {empty lines}]
+    These are kept as they are. (Effectively this means that they will
+    count as comment lines after a comment line and as code lines
+    after a code line.)
+  [def {code lines}]
+    [cmd example_begin] and [cmd example_end] commands are placed
+    at the beginning and end of every block of consecutive code
+    lines. Brackets in a code line are converted to [cmd lb] and
+    [cmd rb] commands.
+  [def {verbatim guards}]
+    These are processed as usual, so they do not show up in the
+    result but every line in a verbatim block is treated as a code
+    line.
+  [def {other guards}]
+    These are treated as code lines, except that the actual guard is
+    [cmd emph]asised.
+  [list_end]
+
+  At the time of writing, no project has employed [package doctools]
+  markup in master source files, so experience of what works well is
+  not available. A source file could however look as follows
+[example {
+   % [manpage_begin gcd n 1.0]
+   % [moddesc {Greatest Common Divisor}]
+   % [require gcd [opt 1.0]]
+   % [description]
+   %
+   % [list_begin definitions]
+   % [call [cmd gcd] [arg a] [arg b]]
+   %   The [cmd gcd] procedure takes two arguments [arg a] and [arg b] which
+   %   must be integers and returns their greatest common divisor.
+   proc gcd {a b} {
+   %   The first step is to take the absolute values of the arguments.
+   %   This relieves us of having to worry about how signs will be treated
+   %   by the remainder operation.
+      set a [expr {abs($a)}]
+      set b [expr {abs($b)}]
+   %   The next line does all of Euclid's algorithm! We can make do
+   %   without a temporary variable, since $a is substituted before the
+   %   [lb]set a $b[rb] and thus continues to hold a reference to the
+   %   "old" value of [var a].
+      while {$b>0} { set b [expr { $a % [set a $b] }] }
+   %   In Tcl 8.3 we might want to use [cmd set] instead of [cmd return]
+   %   to get the slight advantage of byte-compilation.
+   %<tcl83>  set a
+   %<!tcl83>   return $a
+   }
+   % [list_end]
+   %
+   % [manpage_end]
+}]
+  If the above text is (suitably unindented and) fed through
+  [cmd docstrip::util::ddt2man] then the result will be a syntactically
+  correct [package doctools] manpage, even though its purpose is a
+  bit different.
+  [para]
+
+  It is suggested that master source code files with [package doctools]
+  markup are given the suffix [file .ddt], hence the "ddt" in
+  [cmd ddt2man].
+
+[call [cmd docstrip::util::guards] [arg subcmd] [arg text]]
+  The [cmd guards] command returns information (mostly of a
+  statistical nature) about the ordinary docstrip guards that occur
+  in the [arg text]. The [arg subcmd] selects what is returned.
+
+  [list_begin definitions]
+  [def counts]
+    List the guard expression terminals with counts. The format of
+    the return value is a dictionary which maps the terminal name to
+    the number of occurencies of it in the file.
+  [def exprcount]
+    List the guard expressions with counts. The format of the return
+    value is a dictionary which maps the expression to the number of
+    occurencies of it in the file.
+  [def exprerr]
+    List the syntactically incorrect guard expressions (e.g.
+    parentheses do not match, or a terminal is missing). The return
+    value is a list, with the elements in no particular order.
+  [def expressions]
+    List the guard expressions. The return value is a list, with the
+    elements in no particular order.
+  [def exprmods]
+    List the guard expressions with modifiers. The format of the return
+    value is a dictionary where each index is a guard expression and
+    each entry is a string with one character for every guard line that
+    has this expression. The characters in the entry specify what
+    modifier was used in that line: +, -, *, /, or (for guard without
+    modifier:) space. This is the most primitive form of the
+    information gathered by [cmd guards].
+  [def names]
+    List the guard expression terminals. The return value is a list,
+    with the elements in no particular order.
+  [def rotten]
+    List the malformed guard lines (this does not include lines where
+    only the expression is malformed, though). The format of the return
+    value is a dictionary which maps line numbers to their contents.
+  [list_end]
+[call [cmd docstrip::util::thefile] [arg filename] [
+  opt "[arg option] [arg value] ..."
+]]
+  The [cmd thefile] command opens the file [arg filename], reads it to
+  end, closes it, and returns the contents. The option-value pairs are
+  passed on to [cmd fconfigure] to configure the open file channel
+  before anything is read from it.
+[list_end]
+
+[see_also docstrip doctools doctools_fmt]
+
+[keywords documentation source {literate programming} docstrip]
+[keywords doctools .ddt]
+[manpage_end]

@@ -1,3 +1,30 @@
+/*
+ * Copyright (c) 2006-2008 Apple Inc. All rights reserved.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ * 
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+ */
 #include <unistd.h>
 #include <string.h>
 
@@ -6,35 +33,44 @@
 
 #include <mach/vm_types.h>
 
+#include <mach-o/swap.h>
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
 
 #include "macho_util.h"
 
+static boolean_t macho_swap_32(u_char *file);
+static boolean_t macho_swap_64(u_char *file);
+
+static boolean_t macho_unswap_32(u_char *file);
+static boolean_t macho_unswap_64(u_char *file);
 
 /*******************************************************************************
 *
 *******************************************************************************/
 macho_seek_result macho_find_symbol(
-    const void * file_start,
-    const void * file_end,
-    const char * name,
-    const struct nlist ** symbol_entry,
-    const void ** symbol_address)
+    const void          * file_start,
+    const void          * file_end,
+    const char          * name,
+          uint8_t       * nlist_type,
+    const void         ** symbol_address)
 {
-    macho_seek_result result = macho_seek_result_not_found;
-    macho_seek_result symtab_result = macho_seek_result_not_found;
-    uint8_t swap = 0;
+    macho_seek_result       result = macho_seek_result_not_found;
+    macho_seek_result       symtab_result = macho_seek_result_not_found;
+    uint8_t                 swap = 0;
+    char                    sixtyfourbit = 0;
     struct symtab_command * symtab = NULL;
-    struct nlist * syms_address;
-    const void * string_list;
-    char * symbol_name;
-    unsigned int sym_offset;
-    unsigned int str_offset;
-    unsigned int num_syms;
-    unsigned int syms_bytes;
-    unsigned int sym_index;
+    struct nlist          * syms_address;
+    struct nlist_64       * syms_address_64;
+    const void            * string_list;
+    char                  * symbol_name;
+    unsigned int            sym_offset;
+    unsigned int            str_offset;
+    unsigned int            num_syms;
+    unsigned int            syms_bytes;
+    unsigned int            sym_index;
 
     if (symbol_address) {
          *symbol_address = 0;
@@ -45,8 +81,11 @@ macho_seek_result macho_find_symbol(
         goto finish;
     }
 
-    if (MAGIC32(file_start) == MH_CIGAM) {
+    if (ISSWAPPEDMACHO(MAGIC32(file_start))) {
         swap = 1;
+    }
+    if (ISMACHO64(MAGIC32(file_start))) {
+        sixtyfourbit = 1;
     }
 
     sym_offset = CondSwapInt32(swap, symtab->symoff);
@@ -54,8 +93,14 @@ macho_seek_result macho_find_symbol(
     num_syms   = CondSwapInt32(swap, symtab->nsyms);
 
     syms_address = (struct nlist *)(file_start + sym_offset);
+    syms_address_64 = (struct nlist_64 *)(file_start + sym_offset);
+
     string_list = file_start + str_offset;
-    syms_bytes = num_syms * sizeof(struct nlist);
+    if (sixtyfourbit) {
+        syms_bytes = num_syms * sizeof(struct nlist);
+    } else {
+        syms_bytes = num_syms * sizeof(struct nlist_64);
+    }
 
     if ((char *)syms_address + syms_bytes > (char *)file_end) {
         result = macho_seek_result_error;
@@ -63,80 +108,107 @@ macho_seek_result macho_find_symbol(
     }
 
     for (sym_index = 0; sym_index < num_syms; sym_index++) {
-        struct nlist * seekptr;
-        uint32_t string_index;
+        struct nlist    * seekptr;
+        struct nlist_64 * seekptr_64;
+        uint32_t          string_index;
+        uint8_t           n_type;
+        uint8_t           n_sect;
+        uint64_t          n_value;
 
-        seekptr = &syms_address[sym_index];
+        if (sixtyfourbit) {
+            seekptr_64   = &syms_address_64[sym_index];
+            string_index = CondSwapInt32(swap, seekptr_64->n_un.n_strx);
+            n_type       = seekptr_64->n_type;
+            n_sect       = seekptr_64->n_sect;
+            n_value      = CondSwapInt64(swap, seekptr_64->n_value);
+        } else {
+            seekptr      = &syms_address[sym_index];
+            string_index = CondSwapInt32(swap, seekptr->n_un.n_strx);
+            n_type       = seekptr->n_type;
+            n_sect       = seekptr->n_sect;
+            n_value      = (uint64_t)CondSwapInt32(swap, seekptr->n_value);
+        }
 
-        string_index = CondSwapInt32(swap, seekptr->n_un.n_strx);
-
-        // no need to swap n_type (one-byte value)
-        if (string_index == 0 || seekptr->n_type & N_STAB) {
+        if (string_index == 0 || n_type & N_STAB) {
             continue;
         }
         symbol_name = (char *)(string_list + string_index);
 
         if (strcmp(name, symbol_name) == 0) {
 
-            uint32_t symbol_offset = CondSwapInt32(swap, seekptr->n_value);
-            uint8_t sect_num = seekptr->n_sect;
-
-            if (symbol_entry) {
-                *symbol_entry = seekptr;
+            if (nlist_type) {
+                *nlist_type = n_type;
             }
-            switch (seekptr->n_type & N_TYPE) {
-              case N_SECT:
-                {
-                    struct section * sect_info = macho_find_section_numbered(
-                        file_start, file_end, sect_num);
-
-                    if (sect_info) {
+            switch (n_type & N_TYPE) {
+                case N_SECT:
+                    {
+                        void * v_sect_info = macho_find_section_numbered(
+                            file_start, file_end, n_sect);
+    
+    
+                        if (!v_sect_info) {
+                            break;  // out of the switch
+                        }
+                        
                         if (symbol_address) {
-                            size_t reloffset = (symbol_offset -
-                                CondSwapInt32(swap, sect_info->addr));
-
-                            *symbol_address = file_start;
-                            *symbol_address += CondSwapInt32(swap,
-                                sect_info->offset);
-                            *symbol_address += reloffset;
+                            if (sixtyfourbit) {
+                                struct section_64 * sect_info_64 =
+                                    (struct section_64 *)v_sect_info;
+        
+                                // this isn't right for 64bit? compare below
+                                size_t reloffset = (n_value -
+                                    CondSwapInt64(swap, sect_info_64->addr));
+        
+                                *symbol_address = file_start;
+                                *symbol_address += CondSwapInt32(swap,
+                                    sect_info_64->offset);
+                                *symbol_address += reloffset;
+                            } else {
+                                struct section * sect_info =
+                                    (struct section *)v_sect_info;
+        
+                                size_t reloffset = (n_value -
+                                    CondSwapInt32(swap, sect_info->addr));
+        
+                                *symbol_address = file_start;
+                                *symbol_address += CondSwapInt32(swap,
+                                    sect_info->offset);
+                                *symbol_address += reloffset;
+                            }
                         }
                         result = macho_seek_result_found;
                         goto finish;
                     }
-                }
-                break;
-
-              case N_UNDF:
-                result = macho_seek_result_found_no_value;
-                goto finish;
-                break;
-
-              case N_ABS:
-                result = macho_seek_result_found_no_value;
+                    break;
+    
+                case N_UNDF:
+                    result = macho_seek_result_found_no_value;
+                    goto finish;
+                    break;
+  
+                case N_ABS:
+                    result = macho_seek_result_found_no_value;
 #if 0
 // I don't know how to calculate the offset for this and there
 // may not be a value anyhow.
-                if (symbol_address) {
-                    *symbol_address = file_start;
-                    *symbol_address += symbol_offset;
-                }
+                    if (symbol_address) {
+                        *symbol_address = file_start;
+                        *symbol_address += n_value;
+                    }
 #endif
-                goto finish;
-                break;
-
+                    goto finish;
+                    break;
+  
 #if 0
 // don't know how to do this one yet
-              case N_INDR:
-                symbol_name = (char *)(string_list + string_index);
-                result = macho_find_symbol(file_start, file_end,
-                    symbol_name, symbol_address);
-                goto finish;
-                break;
+                case N_INDR:
+                    goto finish;
+                    break;
 #endif
-
-              default:
-                goto finish;
-                break;
+    
+                default:
+                    goto finish;
+                    break;
             }
         }
     }
@@ -154,19 +226,19 @@ typedef struct {
 
 static macho_seek_result __macho_lc_is_symtab(
     struct load_command * lc_cmd,
-    const void * file_end,
-    uint8_t swap,
-    void * user_data);
+    const void          * file_end,
+    uint8_t               swap,
+    void                * user_data);
 
 /******************************************************************************/
 
 macho_seek_result macho_find_symtab(
-    const void * file_start,
-    const void * file_end,
+    const void             * file_start,
+    const void             * file_end,
     struct symtab_command ** symtab)
 {
     macho_seek_result result = macho_seek_result_not_found;
-    _symtab_scan sym_data;
+    _symtab_scan      sym_data;
 
     bzero(&sym_data, sizeof(sym_data));
 
@@ -190,13 +262,13 @@ macho_seek_result macho_find_symtab(
 
 static macho_seek_result __macho_lc_is_symtab(
     struct load_command * lc_cmd,
-    const void * file_end,
-    uint8_t swap,
-    void * user_data)
+    const void          * file_end,
+    uint8_t               swap,
+    void                * user_data)
 {
-    macho_seek_result result = macho_seek_result_not_found;
-    _symtab_scan * sym_data = (_symtab_scan *)user_data;
-    uint32_t cmd;
+    macho_seek_result   result = macho_seek_result_not_found;
+    _symtab_scan      * sym_data = (_symtab_scan *)user_data;
+    uint32_t            cmd;
 
     if ((void *)(lc_cmd + sizeof(struct load_command)) > file_end) {
         result = macho_seek_result_error;
@@ -231,28 +303,34 @@ finish:
 * section can't be found.
 *******************************************************************************/
 typedef struct {
-    uint8_t sect_num;
-    uint8_t sect_counter;
-    struct section * sect_info;
+    char       sixtyfourbit;
+    uint8_t    sect_num;
+    uint8_t    sect_counter;
+    void     * sect_info;  // struct section or section_64 depending
 } _sect_scan;
 
 static macho_seek_result __macho_sect_in_lc(
     struct load_command * lc_cmd,
-    const void * file_end,
-    uint8_t swap,
-    void * user_data);
+    const void          * file_end,
+    uint8_t               swap,
+    void                * user_data);
 
 /******************************************************************************/
 
-struct section * macho_find_section_numbered(
+void * macho_find_section_numbered(
     const void * file_start,
     const void * file_end,
-    uint8_t sect_num)
+    uint8_t      sect_num)
 {
     _sect_scan sect_data;
 
     bzero(&sect_data, sizeof(sect_data));
+
     sect_data.sect_num = sect_num;
+
+    if (ISMACHO64(MAGIC32(file_start))) {
+        sect_data.sixtyfourbit = 1;
+    }
 
     if (macho_seek_result_found == macho_scan_load_commands(
         file_start, file_end, &__macho_sect_in_lc, &sect_data)) {
@@ -267,13 +345,13 @@ struct section * macho_find_section_numbered(
 
 static macho_seek_result __macho_sect_in_lc(
     struct load_command * lc_cmd,
-    const void * file_end,
-    uint8_t swap,
-    void * user_data)
+    const void          * file_end,
+    uint8_t               swap,
+    void                * user_data)
 {
-    macho_seek_result result = macho_seek_result_not_found;
-    _sect_scan * sect_data = (_sect_scan *)user_data;
-    uint32_t cmd;
+    macho_seek_result   result    = macho_seek_result_not_found;
+    _sect_scan        * sect_data = (_sect_scan *)user_data;
+    uint32_t            cmd;
 
     if (sect_data->sect_counter > sect_data->sect_num) {
         result = macho_seek_result_stop;
@@ -287,19 +365,56 @@ static macho_seek_result __macho_sect_in_lc(
 
     cmd = CondSwapInt32(swap, lc_cmd->cmd);
 
-    if (cmd == LC_SEGMENT) {
-        struct segment_command * seg_cmd = (struct segment_command *)lc_cmd;
-        uint32_t cmd_size;
-        uint32_t num_sects;
-        uint32_t sects_size;
-        struct section * seek_sect;
-        uint32_t sect_index;
+    if (cmd == LC_SEGMENT_64) {
+        struct segment_command_64 * seg_cmd =
+            (struct segment_command_64 *)lc_cmd;
+        uint32_t                    cmd_size;
+        uint32_t                    num_sects;
+        uint32_t                    sects_size;
+        struct section_64         * seek_sect;
+        uint32_t                    sect_index;
 
         cmd_size = CondSwapInt32(swap, seg_cmd->cmdsize);
         num_sects = CondSwapInt32(swap, seg_cmd->nsects);
-        sects_size = num_sects * sizeof(struct section);
+        sects_size = num_sects * sizeof(*seek_sect);
 
-        if (cmd_size != (sizeof(struct segment_command) + sects_size)) {
+        if (cmd_size != (sizeof(*seg_cmd) + sects_size)) {
+            result = macho_seek_result_error;
+            goto finish;
+        }
+
+        if (((void *)lc_cmd + cmd_size) > file_end) {
+            result = macho_seek_result_error;
+            goto finish;
+        }
+
+        for (sect_index = 0; sect_index < num_sects; sect_index++) {
+
+            seek_sect = (struct section_64 *)((void *)lc_cmd +
+                sizeof(*seg_cmd) +
+                (sect_index * sizeof(*seek_sect)));
+
+            sect_data->sect_counter++;
+
+            if (sect_data->sect_counter == sect_data->sect_num) {
+                sect_data->sect_info = seek_sect;
+                result = macho_seek_result_found;
+                goto finish;
+            }
+        }
+    } else if (cmd == LC_SEGMENT) {
+        struct segment_command    * seg_cmd = (struct segment_command *)lc_cmd;
+        uint32_t                    cmd_size;
+        uint32_t                    num_sects;
+        uint32_t                    sects_size;
+        struct section            * seek_sect;
+        uint32_t                    sect_index;
+
+        cmd_size = CondSwapInt32(swap, seg_cmd->cmdsize);
+        num_sects = CondSwapInt32(swap, seg_cmd->nsects);
+        sects_size = num_sects * sizeof(*seek_sect);
+
+        if (cmd_size != (sizeof(*seg_cmd) + sects_size)) {
             result = macho_seek_result_error;
             goto finish;
         }
@@ -312,8 +427,8 @@ static macho_seek_result __macho_sect_in_lc(
         for (sect_index = 0; sect_index < num_sects; sect_index++) {
 
             seek_sect = (struct section *)((void *)lc_cmd +
-                sizeof(struct segment_command) +
-                (sect_index * sizeof(struct section)));
+                sizeof(*seg_cmd) +
+                (sect_index * sizeof(*seek_sect)));
 
             sect_data->sect_counter++;
 
@@ -336,31 +451,24 @@ finish:
 #define CMDSIZE_MULT_64  (8)
 
 macho_seek_result macho_scan_load_commands(
-    const void * file_start,
-    const void * file_end,
-    macho_lc_callback lc_callback,
-    void * user_data)
+    const void        * file_start,
+    const void        * file_end,
+    macho_lc_callback   lc_callback,
+    void              * user_data)
 {
-    macho_seek_result result = macho_seek_result_not_found;
+    macho_seek_result       result = macho_seek_result_not_found;
+    struct mach_header    * mach_header = (struct mach_header *)file_start;
 
-    struct mach_header * mach_header = (struct mach_header *)file_start;
+    uint8_t                 swap = 0;
+    uint32_t                cmdsize_mult = CMDSIZE_MULT_32;
 
-    uint8_t swap = 0;
-    uint32_t cmdsize_mult = CMDSIZE_MULT_32;
+    uint32_t                num_cmds;
+    uint32_t                sizeofcmds;
+    char                  * cmds_end;
 
-    uint32_t num_cmds;
-    uint32_t sizeofcmds;
-    char * cmds_end;
-
-    uint32_t cmd_index;
-    struct load_command * load_commands;
-    struct load_command * seek_lc;
-
-    if ((void *)file_start > file_end ||
-        ((void *)(file_start + sizeof(struct mach_header)) > file_end)) {
-        result = macho_seek_result_error;
-        goto finish;
-    }
+    uint32_t                cmd_index;
+    struct load_command  * load_commands;
+    struct load_command  * seek_lc;
 
     switch (MAGIC32(file_start)) {
       case MH_MAGIC_64:
@@ -381,8 +489,18 @@ macho_seek_result macho_scan_load_commands(
         break;
     }
 
-    load_commands = (struct load_command *)
-        (file_start + sizeof(struct mach_header));
+    if (cmdsize_mult == CMDSIZE_MULT_64) {
+        load_commands = (struct load_command *)
+            (file_start + sizeof(struct mach_header_64));
+    } else {
+        load_commands = (struct load_command *)
+            (file_start + sizeof(struct mach_header));
+    }
+
+    if (file_start >= file_end || (((void *)load_commands) > file_end)) {
+        result = macho_seek_result_error;
+        goto finish;
+    }
 
     num_cmds   = CondSwapInt32(swap, mach_header->ncmds);
     sizeofcmds = CondSwapInt32(swap, mach_header->sizeofcmds);
@@ -438,3 +556,325 @@ macho_seek_result macho_scan_load_commands(
 finish:
     return result;
 }
+
+/*******************************************************************************
+*******************************************************************************/
+boolean_t macho_swap(
+    u_char    * file)
+{
+    boolean_t result = FALSE;
+    struct mach_header *hdr = (struct mach_header *) file;
+
+    if (hdr->magic == MH_CIGAM) {
+        result = macho_swap_32(file);
+    } else if (hdr->magic == MH_CIGAM_64) {
+        result = macho_swap_64(file);
+    }
+
+    return result;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+static boolean_t macho_swap_32(
+    u_char    * file)
+{
+    boolean_t result = FALSE;
+    struct mach_header *hdr = (struct mach_header *) file;
+    struct load_command *lc = (struct load_command *) &hdr[1];
+    struct segment_command *seg = NULL;
+    u_long offset = 0;
+    u_int cmd = 0;
+    u_int cmdsize = 0;
+    u_int i = 0;
+
+    if (!hdr || hdr->magic != MH_CIGAM) goto finish;
+
+    swap_mach_header(hdr, NXHostByteOrder());
+
+    offset = sizeof(*hdr);
+    for (i = 0; i < hdr->ncmds; ++i) {
+        lc = (struct load_command *) (file + offset);
+
+        cmd = OSSwapInt32(lc->cmd);
+        cmdsize = OSSwapInt32(lc->cmdsize);
+        offset += cmdsize;
+
+        if (cmd == LC_SEGMENT) {
+            seg = (struct segment_command *) lc;
+            swap_segment_command(seg, NXHostByteOrder());
+        } else {
+            swap_load_command(lc, NXHostByteOrder());
+        }
+    }
+
+    result = TRUE;
+finish:
+    return result;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+boolean_t macho_swap_64(
+    u_char    * file)
+{
+    boolean_t result = FALSE;
+    struct mach_header_64 *hdr = (struct mach_header_64 *) file;
+    struct load_command *lc = (struct load_command *) &hdr[1];
+    struct segment_command_64 *seg = NULL;
+    u_long offset = 0;
+    u_int cmd = 0;
+    u_int cmdsize = 0;
+    u_int i = 0;
+
+    if (!hdr || hdr->magic != MH_CIGAM_64) goto finish;
+
+    swap_mach_header_64(hdr, NXHostByteOrder());
+
+    offset = sizeof(*hdr);
+    for (i = 0; i < hdr->ncmds; ++i) {
+        lc = (struct load_command *) (file + offset);
+
+        cmd = OSSwapInt32(lc->cmd);
+        cmdsize = OSSwapInt32(lc->cmdsize);
+        offset += cmdsize;
+
+        if (cmd == LC_SEGMENT_64) {
+            seg = (struct segment_command_64 *) lc;
+            swap_segment_command_64(seg, NXHostByteOrder());
+        } else {
+            swap_load_command(lc, NXHostByteOrder());
+        }
+    }
+
+    result = TRUE;
+finish:
+    return result;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+boolean_t macho_unswap(
+    u_char    * file)
+{
+    boolean_t result = FALSE;
+    struct mach_header *hdr = (struct mach_header *) file;
+
+    if (hdr->magic == MH_MAGIC) {
+        result = macho_unswap_32(file);
+    } else if (hdr->magic == MH_MAGIC_64) {
+        result = macho_unswap_64(file);
+    }
+
+    return result;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+boolean_t macho_unswap_32(
+    u_char    * file)
+{
+    boolean_t result = FALSE;
+    enum NXByteOrder order = 0;
+    struct mach_header *hdr = (struct mach_header *) file;
+    struct load_command *lc = (struct load_command *) &hdr[1];
+    struct segment_command *seg = NULL;
+    u_long offset = 0;
+    u_int i = 0;
+
+    if (NXHostByteOrder() == NX_LittleEndian) {
+        order = NX_BigEndian;
+    } else {
+        order = NX_LittleEndian;
+    }
+
+    if (!hdr || hdr->magic != MH_MAGIC) goto finish;
+
+    offset = sizeof(*hdr);
+    for (i = 0; i < hdr->ncmds; ++i) {
+        lc = (struct load_command *) (file + offset);
+        offset += lc->cmdsize;
+
+        if (lc->cmd == LC_SEGMENT) {
+            seg = (struct segment_command *) lc;
+            swap_segment_command(seg, order);
+        } else {
+            swap_load_command(lc, order);
+        }
+            
+    }
+
+    swap_mach_header(hdr, order);
+
+    result = TRUE;
+finish:
+    return result;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+boolean_t macho_unswap_64(
+    u_char    * file)
+{
+    boolean_t result = FALSE;
+    enum NXByteOrder order = 0;
+    struct mach_header_64 *hdr = (struct mach_header_64 *) file;
+    struct load_command *lc = (struct load_command *) &hdr[1];
+    struct segment_command_64 *seg = NULL;
+    u_long offset = 0;
+    u_int i = 0;
+
+    if (NXHostByteOrder() == NX_LittleEndian) {
+        order = NX_BigEndian;
+    } else {
+        order = NX_LittleEndian;
+    }
+
+    if (!hdr || hdr->magic != MH_MAGIC_64) goto finish;
+
+    offset = sizeof(*hdr);
+    for (i = 0; i < hdr->ncmds; ++i) {
+        lc = (struct load_command *) (file + offset);
+        offset += lc->cmdsize;
+
+        if (lc->cmd == LC_SEGMENT_64) {
+            seg = (struct segment_command_64 *) lc;
+            swap_segment_command_64(seg, order);
+        } else {
+            swap_load_command(lc, order);
+        }
+    }
+
+    swap_mach_header_64(hdr, order);
+
+    result = TRUE;
+finish:
+    return result;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+struct segment_command * macho_get_segment_by_name(
+    struct mach_header    * mach_header,
+    const char            * segname)
+{
+    struct segment_command *segment = NULL;
+    struct load_command *lc = NULL;
+    u_char *base = (u_char *) mach_header;
+    size_t offset = sizeof(*mach_header);
+    u_int i = 0;
+    
+    if (mach_header->magic != MH_MAGIC) goto finish;
+    
+    for (i = 0; i < mach_header->ncmds; ++i) {
+        lc = (struct load_command *) (base + offset);
+        
+        if (lc->cmd == LC_SEGMENT) {
+            segment = (struct segment_command *) lc;
+            if (!strncmp(segment->segname, segname, sizeof(segment->segname))) {
+                break;
+            }
+            segment = NULL;
+        }
+        
+        offset += lc->cmdsize;
+    }
+
+finish:    
+    return segment;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+struct segment_command_64 * macho_get_segment_by_name_64(
+    struct mach_header_64      * mach_header,
+    const char                 * segname)
+{
+    struct segment_command_64 *segment = NULL;
+    struct load_command *lc = NULL;
+    u_char *base = (u_char *) mach_header;
+    size_t offset = sizeof(*mach_header);
+    u_int i = 0;
+    
+    if (mach_header->magic != MH_MAGIC_64) goto finish;
+    
+    for (i = 0; i < mach_header->ncmds; ++i) {
+        lc = (struct load_command *) (base + offset);
+        
+        if (lc->cmd == LC_SEGMENT_64) {
+            segment = (struct segment_command_64 *) lc;
+            if (!strncmp(segment->segname, segname, sizeof(segment->segname))) {
+                break;
+            }
+            segment = NULL;
+        }
+        
+        offset += lc->cmdsize;
+    }
+    
+finish:    
+    return segment;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+struct section * macho_get_section_by_name(
+    struct mach_header    * mach_header,
+    const char            * segname,
+    const char            * sectname)
+{
+    struct segment_command *segment = NULL;
+    struct section *section = NULL;
+    u_int i = 0;
+    
+    if (mach_header->magic != MH_MAGIC) goto finish;
+    
+    segment = macho_get_segment_by_name(mach_header, segname);
+    if (!segment) goto finish;
+    
+    section = (struct section *) (&segment[1]);
+    for (i = 0; i < segment->nsects; ++i, ++section) {
+        if (!strncmp(section->sectname, sectname, sizeof(section->sectname))) {
+            break;
+        }
+    }
+    
+    if (i == segment->nsects) {
+        section = NULL;
+    }
+    
+finish:
+    return section;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+struct section_64 * macho_get_section_by_name_64(
+    struct mach_header_64     * mach_header,
+    const char                * segname,
+    const char                * sectname)
+{
+    struct segment_command_64 *segment = NULL;
+    struct section_64 *section = NULL;
+    u_int i = 0;
+    
+    if (mach_header->magic != MH_MAGIC_64) goto finish;
+    
+    segment = macho_get_segment_by_name_64(mach_header, segname);
+    if (!segment) goto finish;
+    
+    section = (struct section_64 *) (&segment[1]);
+    for (i = 0; i < segment->nsects; ++i, ++section) {
+        if (!strncmp(section->sectname, sectname, sizeof(section->sectname))) {
+            break;
+        }
+    }
+    
+    if (i == segment->nsects) {
+        section = NULL;
+    }
+    
+finish:
+    return section;
+}
+

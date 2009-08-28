@@ -5,5 +5,5 @@
 
 void foo()
 {
-  asm mov eax,eax ?		/* { dg-error "(parse|syntax) error before" } */
+  asm mov eax,eax ?		/* { dg-error "expected expression before" } */
 }

@@ -42,7 +42,7 @@ using namespace KeychainCore;
 // DynamicDLDBList
 //
 DynamicDLDBList::DynamicDLDBList()
-	: mSearchListSet(false)
+	: mMutex(Mutex::recursive), mSearchListSet(false)
 {
 }
 
@@ -82,6 +82,8 @@ DynamicDLDBList::_add(const Guid &guid, uint32 subserviceID, CSSM_SERVICE_TYPE s
 bool
 DynamicDLDBList::_add(const DLDbIdentifier &dlDbIdentifier)
 {
+	StLock<Mutex>_(mMutex);
+	
 	if (find(mSearchList.begin(), mSearchList.end(), dlDbIdentifier) == mSearchList.end())
 	{
 		mSearchList.push_back(dlDbIdentifier);
@@ -103,6 +105,8 @@ DynamicDLDBList::_remove(const Guid &guid, uint32 subserviceID, CSSM_SERVICE_TYP
 bool
 DynamicDLDBList::_remove(const DLDbIdentifier &dlDbIdentifier)
 {
+	StLock<Mutex>_(mMutex);
+	
 	// search for subserviceUid but ignore the dbName, which is dynamic
 	for (SearchList::iterator it = mSearchList.begin(); it != mSearchList.end(); it++)
 		if (it->ssuid() == dlDbIdentifier.ssuid())
@@ -120,6 +124,8 @@ DynamicDLDBList::_remove(const DLDbIdentifier &dlDbIdentifier)
 bool
 DynamicDLDBList::_load()
 {
+	StLock<Mutex>_(mMutex);
+	
 	bool list_changed = false;
 	MDSClient::Directory &mds = MDSClient::mds();
 	MDSClient::Table<MDSClient::Common> common(mds);
@@ -168,7 +174,7 @@ DynamicDLDBList::_load()
 const vector<DLDbIdentifier> &
 DynamicDLDBList::searchList()
 {
-	StLock<Mutex> stAPILock(globals().apiLock);
+	StLock<Mutex>_(mMutex);
     if (!mSearchListSet)
     {
 		// Load all dynamic DL's so we start receiving notifications.
@@ -184,30 +190,27 @@ void
 DynamicDLDBList::callback(const Guid &guid, uint32 subserviceID,
 	CSSM_SERVICE_TYPE subserviceType, CSSM_MODULE_EVENT eventType)
 {
-	IFDEBUG(
-		char buffer[Guid::stringRepLength+1];
-		guid.toString(buffer);
-		debug("event", "Recieved callback from guid: %s ssid: %lu type: %lu event: %lu",
- 			buffer, (unsigned long)subserviceID, (unsigned long)subserviceType, (unsigned long)eventType);
-	)
+	secdebug("event", "Received callback from guid: %s ssid: %lu type: %lu event: %lu",
+ 			guid.toString().c_str(), (unsigned long)subserviceID, (unsigned long)subserviceType, (unsigned long)eventType);
 
+	StLock<Mutex>_(mMutex);
+	
 	bool list_changed = false;
 
 	if (subserviceType & CSSM_SERVICE_DL)
 	{
-		StLock<Mutex> stAPILock(globals().apiLock);
 		if (eventType == CSSM_NOTIFY_INSERT)
 		{
 			/* A DL or CSP/DL was inserted. */
 			secdebug("dynamic", "%sDL module: %s SSID: %lu inserted",
-				(subserviceType & CSSM_SERVICE_CSP) ? "CSP/" : "", buffer, (unsigned long)subserviceID);
+				(subserviceType & CSSM_SERVICE_CSP) ? "CSP/" : "", guid.toString().c_str(), (unsigned long)subserviceID);
 			list_changed = _add(guid, subserviceID, subserviceType);
 		}
 		else if (eventType == CSSM_NOTIFY_REMOVE)
 		{
 			/* A DL or CSP/DL was removed. */
 			secdebug("dynamic", "%sDL module: %s SSID: %lu removed",
-				(subserviceType & CSSM_SERVICE_CSP) ? "CSP/" : "", buffer, (unsigned long)subserviceID);
+				(subserviceType & CSSM_SERVICE_CSP) ? "CSP/" : "", guid.toString().c_str(), (unsigned long)subserviceID);
 			list_changed = _remove(guid, subserviceID, subserviceType);
 		}
 	}

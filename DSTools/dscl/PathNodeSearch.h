@@ -38,7 +38,10 @@
 	AuthorizationExternalForm _authExternalForm;
 	BOOL _haveRights;
 	DSoNodeConfig* _configNode;
+	tDirPatternMatch _type;
 }
+
+- initWithNode:(DSoNode*)inNode path:(NSString*)inPath type:(tDirPatternMatch)val;
 
 - (tDirStatus) modify:(tAttrCAM)inAction withKey:(NSString*)inKey withValues:(NSArray*)inValues;
 

@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2009 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -259,15 +259,15 @@ protected:
     @result The return from IOService::newUserClient() is returned. */
 
     virtual IOReturn newUserClient( task_t          owningTask,
-                                    void *          security_id,
-                                    UInt32          type,
-                                    OSDictionary *  properties,
-                                    IOUserClient ** handler );
+                                   void *          security_id,
+                                   UInt32          type,
+                                   OSDictionary *  properties,
+                                   IOUserClient ** handler );
     IOReturn newUserClientGated(task_t          owningTask,
                                 void *          security_id,
                                 OSDictionary *  properties,
                                 IOUserClient ** handler );
-
+    
 /*! @function publishProperties
     @abstract Publish HID properties to the I/O Kit registry.
     @discussion Called by the start() method to fetch and publish all

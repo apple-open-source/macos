@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,8 +26,6 @@
 #define super IODVDBlockStorageDevice
 OSDefineMetaClassAndAbstractStructors(IOBDBlockStorageDevice, IODVDBlockStorageDevice)
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 bool IOBDBlockStorageDevice::init(OSDictionary * properties)
 {
     //
@@ -45,66 +43,19 @@ bool IOBDBlockStorageDevice::init(OSDictionary * properties)
     return true;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOBDBlockStorageDevice, 0);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOBDBlockStorageDevice, 1);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOBDBlockStorageDevice, 2);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOBDBlockStorageDevice, 3);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOBDBlockStorageDevice, 4);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOBDBlockStorageDevice, 5);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOBDBlockStorageDevice, 6);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOBDBlockStorageDevice, 7);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOBDBlockStorageDevice, 8);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOBDBlockStorageDevice, 9);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
+OSMetaClassDefineReservedUnused(IOBDBlockStorageDevice,  0);
+OSMetaClassDefineReservedUnused(IOBDBlockStorageDevice,  1);
+OSMetaClassDefineReservedUnused(IOBDBlockStorageDevice,  2);
+OSMetaClassDefineReservedUnused(IOBDBlockStorageDevice,  3);
+OSMetaClassDefineReservedUnused(IOBDBlockStorageDevice,  4);
+OSMetaClassDefineReservedUnused(IOBDBlockStorageDevice,  5);
+OSMetaClassDefineReservedUnused(IOBDBlockStorageDevice,  6);
+OSMetaClassDefineReservedUnused(IOBDBlockStorageDevice,  7);
+OSMetaClassDefineReservedUnused(IOBDBlockStorageDevice,  8);
+OSMetaClassDefineReservedUnused(IOBDBlockStorageDevice,  9);
 OSMetaClassDefineReservedUnused(IOBDBlockStorageDevice, 10);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOBDBlockStorageDevice, 11);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOBDBlockStorageDevice, 12);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOBDBlockStorageDevice, 13);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOBDBlockStorageDevice, 14);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOBDBlockStorageDevice, 15);

@@ -31,12 +31,10 @@ public:
     virtual ~OptionGroupElement() { }
 
     virtual String groupLabelText() const = 0;
-
-protected:
-    OptionGroupElement() { }
 };
 
 OptionGroupElement* toOptionGroupElement(Element*);
+bool isOptionGroupElement(Element*);
 
 }
 

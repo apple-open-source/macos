@@ -22,17 +22,17 @@
  */
 
 /*
- * Copyright (c) 1998 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2008 Apple Inc. All rights reserved.
  *
  *	Implements _setjmp()
  *
  */
 
-#include "SYS.h"
+#include <architecture/arm/asm_help.h>
 #include "_setjmp.h"
 #include <arm/arch.h>
 
-MI_ENTRY_POINT(__setjmp)
+ENTRY_POINT(__setjmp)
 	stmia	r0!, { r4-r8, r10-r11, sp, lr }
 #ifdef _ARM_ARCH_6
 	fstmiax	r0, { d8-d15 }

@@ -1,16 +1,16 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+ *
+ * "Portions Copyright (c) 1999, 2008 Apple Inc.  All Rights
  * Reserved.  This file contains Original Code and/or Modifications of
  * Original Code as defined in and that are subject to the Apple Public
  * Source License Version 1.0 (the 'License').  You may not use this file
  * except in compliance with the License.  Please obtain a copy of the
  * License at http://www.apple.com/publicsource and read it before using
  * this file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -18,31 +18,31 @@
  * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
  * License for the specific language governing rights and limitations
  * under the License."
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
-/* 
+/*
  * Mach Operating System
  * Copyright (c) 1991,1990 Carnegie Mellon University
  * All Rights Reserved.
- * 
+ *
  * Permission to use, copy, modify and distribute this software and its
  * documentation is hereby granted, provided that both the copyright
  * notice and this permission notice appear in all copies of the
  * software, derivative works or modified versions, and any portions
  * thereof, and that both notices appear in supporting documentation.
- * 
- * CARNEGIE MELLON ALLOWS FREE USE OF THIS SOFTWARE IN ITS 
+ *
+ * CARNEGIE MELLON ALLOWS FREE USE OF THIS SOFTWARE IN ITS
  * CONDITION.  CARNEGIE MELLON DISCLAIMS ANY LIABILITY OF ANY KIND FOR
  * ANY DAMAGES WHATSOEVER RESULTING FROM THE USE OF THIS SOFTWARE.
- * 
+ *
  * Carnegie Mellon requests users of this software to return to
- * 
+ *
  *  Software Distribution Coordinator  or  Software.Distribution@CS.CMU.EDU
  *  School of Computer Science
  *  Carnegie Mellon University
  *  Pittsburgh PA 15213-3890
- * 
+ *
  * any improvements or extensions that they make and grant Carnegie the
  * rights to redistribute these changes.
  */
@@ -54,89 +54,80 @@
 #include "strdefs.h"
 
 string_t
-strmake(string)
-    char *string;
+strmake(char *string)
 {
-    register string_t saved;
-
-    saved = malloc(strlen(string) + 1);
-    if (saved == strNULL)
-	fatal("strmake('%s'): %s", string, strerror(errno));
-    return strcpy(saved, string);
+  register string_t saved;
+  
+  saved = malloc(strlen(string) + 1);
+  if (saved == strNULL)
+    fatal("strmake('%s'): %s", string, strerror(errno));
+  return strcpy(saved, string);
 }
 
 string_t
-strconcat(left, right)
-    string_t left, right;
+strconcat(string_t left, string_t right)
 {
-    register string_t saved;
-
-    saved = malloc(strlen(left) + strlen(right) + 1);
-    if (saved == strNULL)
-	fatal("strconcat('%s', '%s'): %s",
-	      left, right, strerror(errno));
-    return strcat(strcpy(saved, left), right);
+  register string_t saved;
+  
+  saved = malloc(strlen(left) + strlen(right) + 1);
+  if (saved == strNULL)
+    fatal("strconcat('%s', '%s'): %s", left, right, strerror(errno));
+  return strcat(strcpy(saved, left), right);
 }
 
 string_t
-strphrase(left, right)
-    string_t left, right;
+strphrase(string_t left, string_t right)
 {
-    string_t saved;
-    string_t current;
-    size_t llen;
-
-    llen = strlen(left);
-    saved = malloc(llen + strlen(right) + 2);
-    if (saved == strNULL)
-	fatal("strphrase('%s', '%s'): %s",
-	      left, right, strerror(errno));
-    strcpy(saved, left);
-    current = saved + llen;
-    *(current++) = ' ';
-    strcpy(current, right);
-    free(left);
-    return(saved);
+  string_t saved;
+  string_t current;
+  size_t llen;
+  
+  llen = strlen(left);
+  saved = malloc(llen + strlen(right) + 2);
+  if (saved == strNULL)
+    fatal("strphrase('%s', '%s'): %s", left, right, strerror(errno));
+  strcpy(saved, left);
+  current = saved + llen;
+  *(current++) = ' ';
+  strcpy(current, right);
+  free(left);
+  return(saved);
 }
 
 void
-strfree(string)
-    string_t string;
+strfree(string_t string)
 {
-    free(string);
+  free(string);
 }
 
 char *
-strbool(bool)
-    boolean_t bool;
+strbool(boolean_t bool)
 {
-    if (bool)
-	return "TRUE";
-    else
-	return "FALSE";
+  if (bool)
+    return "TRUE";
+  else
+    return "FALSE";
 }
 
 char *
-strstring(string)
-    string_t string;
+strstring(string_t string)
 {
-    if (string == strNULL)
-	return "NULL";
-    else
-	return string;
+  if (string == strNULL)
+    return "NULL";
+  else
+    return string;
 }
 
 char *
-toupperstr(p)
-    char *p;
+toupperstr(char *p)
 {
-    register char *s = p;
-    char c;
-
-    while ((c = *s)) {
-        if (islower(c))
-	    *s = toupper(c);
-        s++;
-    }
-    return(p);
+  register char *s = p;
+  char c;
+  
+  while ((c = *s)) {
+    if (islower(c))
+      *s = toupper(c);
+    s++;
+  }
+  return(p);
 }

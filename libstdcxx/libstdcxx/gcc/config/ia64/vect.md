@@ -1,5 +1,5 @@
 ;; IA-64 machine description for vector operations.
-;; Copyright (C) 2004
+;; Copyright (C) 2004, 2005
 ;;
 ;; This file is part of GCC.
 ;;
@@ -15,8 +15,8 @@
 ;;
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 
 ;; Integer vector operations
@@ -212,9 +212,39 @@
   "pmpyshr2 %0 = %1, %2, 0"
   [(set_attr "itanium_class" "mmmul")])
 
+(define_insn "pmpy2_r"
+  [(set (match_operand:V2SI 0 "gr_register_operand" "=r")
+	(mult:V2SI
+	  (vec_select:V2SI
+	    (sign_extend:V4SI
+	      (match_operand:V4HI 1 "gr_register_operand" "r"))
+	    (parallel [(const_int 0) (const_int 2)]))
+	  (vec_select:V2SI
+	    (sign_extend:V4SI
+	      (match_operand:V4HI 2 "gr_register_operand" "r"))
+	    (parallel [(const_int 0) (const_int 2)]))))]
+  ""
+  "pmpy2.r %0 = %1, %2"
+  [(set_attr "itanium_class" "mmshf")])
+
+(define_insn "pmpy2_l"
+  [(set (match_operand:V2SI 0 "gr_register_operand" "=r")
+	(mult:V2SI
+	  (vec_select:V2SI
+	    (sign_extend:V4SI
+	      (match_operand:V4HI 1 "gr_register_operand" "r"))
+	    (parallel [(const_int 1) (const_int 3)]))
+	  (vec_select:V2SI
+	    (sign_extend:V4SI
+	      (match_operand:V4HI 2 "gr_register_operand" "r"))
+	    (parallel [(const_int 1) (const_int 3)]))))]
+  ""
+  "pmpy2.l %0 = %1, %2"
+  [(set_attr "itanium_class" "mmshf")])
+
 (define_expand "umax<mode>3"
   [(set (match_operand:VECINT 0 "gr_register_operand" "")
-	(smax:VECINT (match_operand:VECINT 1 "gr_register_operand" "")
+	(umax:VECINT (match_operand:VECINT 1 "gr_register_operand" "")
 		     (match_operand:VECINT 2 "gr_register_operand" "")))]
   ""
 {
@@ -288,7 +318,7 @@
   [(set (match_operand:VECINT24 0 "gr_register_operand" "=r")
 	(ashift:VECINT24
 	  (match_operand:VECINT24 1 "gr_register_operand" "r")
-	  (match_operand:VECINT24 2 "gr_reg_or_5bit_operand" "rn")))]
+	  (match_operand:DI 2 "gr_reg_or_5bit_operand" "rn")))]
   ""
   "pshl<vecsize> %0 = %1, %2"
   [(set_attr "itanium_class" "mmshf")])
@@ -297,7 +327,7 @@
   [(set (match_operand:VECINT24 0 "gr_register_operand" "=r")
 	(ashiftrt:VECINT24
 	  (match_operand:VECINT24 1 "gr_register_operand" "r")
-	  (match_operand:VECINT24 2 "gr_reg_or_5bit_operand" "rn")))]
+	  (match_operand:DI 2 "gr_reg_or_5bit_operand" "rn")))]
   ""
   "pshr<vecsize> %0 = %1, %2"
   [(set_attr "itanium_class" "mmshf")])
@@ -306,10 +336,112 @@
   [(set (match_operand:VECINT24 0 "gr_register_operand" "=r")
 	(lshiftrt:VECINT24
 	  (match_operand:VECINT24 1 "gr_register_operand" "r")
-	  (match_operand:VECINT24 2 "gr_reg_or_5bit_operand" "rn")))]
+	  (match_operand:DI 2 "gr_reg_or_5bit_operand" "rn")))]
   ""
   "pshr<vecsize>.u %0 = %1, %2"
   [(set_attr "itanium_class" "mmshf")])
+
+(define_expand "vec_shl_<mode>"
+  [(set (match_operand:VECINT 0 "gr_register_operand" "")
+	(ashift:DI (match_operand:VECINT 1 "gr_register_operand" "")
+		   (match_operand:DI 2 "gr_reg_or_6bit_operand" "")))]
+  ""
+{
+  operands[0] = gen_lowpart (DImode, operands[0]);
+  operands[1] = gen_lowpart (DImode, operands[1]);
+})
+
+(define_expand "vec_shr_<mode>"
+  [(set (match_operand:VECINT 0 "gr_register_operand" "")
+        (lshiftrt:DI (match_operand:VECINT 1 "gr_register_operand" "")
+                     (match_operand:DI 2 "gr_reg_or_6bit_operand" "")))]
+  ""
+{
+  operands[0] = gen_lowpart (DImode, operands[0]);
+  operands[1] = gen_lowpart (DImode, operands[1]);
+})
+
+(define_expand "widen_usumv8qi3"
+  [(match_operand:V4HI 0 "gr_register_operand" "")
+   (match_operand:V8QI 1 "gr_register_operand" "")
+   (match_operand:V4HI 2 "gr_register_operand" "")]
+  ""
+{
+  ia64_expand_widen_sum (operands, true);
+  DONE;
+})
+
+(define_expand "widen_usumv4hi3"
+  [(match_operand:V2SI 0 "gr_register_operand" "")
+   (match_operand:V4HI 1 "gr_register_operand" "")
+   (match_operand:V2SI 2 "gr_register_operand" "")]
+  ""
+{
+  ia64_expand_widen_sum (operands, true);
+  DONE;
+})
+
+(define_expand "widen_ssumv8qi3"
+  [(match_operand:V4HI 0 "gr_register_operand" "")
+   (match_operand:V8QI 1 "gr_register_operand" "")
+   (match_operand:V4HI 2 "gr_register_operand" "")]
+  ""
+{
+  ia64_expand_widen_sum (operands, false);
+  DONE;
+})
+
+(define_expand "widen_ssumv4hi3"
+  [(match_operand:V2SI 0 "gr_register_operand" "")
+   (match_operand:V4HI 1 "gr_register_operand" "")
+   (match_operand:V2SI 2 "gr_register_operand" "")]
+  ""
+{
+  ia64_expand_widen_sum (operands, false);
+  DONE;
+})
+
+(define_expand "udot_prodv8qi"
+  [(match_operand:V2SI 0 "gr_register_operand" "")
+   (match_operand:V8QI 1 "gr_register_operand" "")
+   (match_operand:V8QI 2 "gr_register_operand" "")
+   (match_operand:V2SI 3 "gr_register_operand" "")]
+  ""
+{
+  ia64_expand_dot_prod_v8qi (operands, true);
+  DONE;
+})
+
+(define_expand "sdot_prodv8qi"
+  [(match_operand:V2SI 0 "gr_register_operand" "")
+   (match_operand:V8QI 1 "gr_register_operand" "")
+   (match_operand:V8QI 2 "gr_register_operand" "")
+   (match_operand:V2SI 3 "gr_register_operand" "")]
+  ""
+{
+  ia64_expand_dot_prod_v8qi (operands, false);
+  DONE;
+})
+
+(define_expand "sdot_prodv4hi"
+  [(match_operand:V2SI 0 "gr_register_operand" "")
+   (match_operand:V4HI 1 "gr_register_operand" "")
+   (match_operand:V4HI 2 "gr_register_operand" "")
+   (match_operand:V2SI 3 "gr_register_operand" "")]
+  ""
+{
+  rtx l, r, t;
+
+  r = gen_reg_rtx (V2SImode);
+  l = gen_reg_rtx (V2SImode);
+  t = gen_reg_rtx (V2SImode);
+
+  emit_insn (gen_pmpy2_r (r, operands[1], operands[2]));
+  emit_insn (gen_pmpy2_l (l, operands[1], operands[2]));
+  emit_insn (gen_addv2si3 (t, r, operands[3]));
+  emit_insn (gen_addv2si3 (operands[0], t, l));
+  DONE;
+})
 
 (define_expand "vcond<mode>"
   [(set (match_operand:VECINT 0 "gr_register_operand" "")
@@ -659,7 +791,7 @@
   [(set_attr "itanium_class" "mmshf")])
 
 (define_expand "vec_initv2si"
-  [(match_operand:V2SF 0 "gr_register_operand" "")
+  [(match_operand:V2SI 0 "gr_register_operand" "")
    (match_operand 1 "" "")]
   ""
 {
@@ -669,7 +801,10 @@
 
   if (GET_CODE (op1) == CONST_INT && GET_CODE (op2) == CONST_INT)
     {
-      x = gen_rtx_CONST_VECTOR (V2SImode, XVEC (operands[1], 0));
+      rtvec v = rtvec_alloc (2);
+      RTVEC_ELT (v, 0) = TARGET_BIG_ENDIAN ? op2 : op1;
+      RTVEC_ELT (v, 1) = TARGET_BIG_ENDIAN ? op1 : op2;;
+      x = gen_rtx_CONST_VECTOR (V2SImode, v);
       emit_move_insn (operands[0], x);
       DONE;
     }
@@ -679,7 +814,10 @@
   if (!gr_reg_or_0_operand (op2, SImode))
     op2 = force_reg (SImode, op2);
 
-  x = gen_rtx_VEC_CONCAT (V2SImode, op1, op2);
+  if (TARGET_BIG_ENDIAN)
+    x = gen_rtx_VEC_CONCAT (V2SImode, op2, op1);
+  else
+    x = gen_rtx_VEC_CONCAT (V2SImode, op1, op2);
   emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
   DONE;
 })
@@ -697,15 +835,11 @@
 ;; padd.uus
 ;; pavg
 ;; pavgsub
-;; pmpy
 ;; pmpyshr, general form
 ;; psad
 ;; pshladd
 ;; pshradd
 ;; psub.uus
-;; vec_set<mode>
-;; vec_extract<mode>
-;; vec_init<mode>
 
 ;; Floating point vector operations
 
@@ -773,29 +907,95 @@
   "fpnegabs %0 = %1"
   [(set_attr "itanium_class" "fmisc")])
 
+;; In order to convince combine to merge plus and mult to a useful fpma,
+;; we need a couple of extra patterns.
 (define_expand "addv2sf3"
-  [(set (match_operand:V2SF 0 "fr_register_operand" "")
-	(plus:V2SF
-	  (mult:V2SF (match_operand:V2SF 1 "fr_register_operand" "")
-		     (match_dup 3))
-	  (match_operand:V2SF 2 "fr_register_operand" "")))]
+  [(parallel
+    [(set (match_operand:V2SF 0 "fr_register_operand" "")
+	  (plus:V2SF (match_operand:V2SF 1 "fr_register_operand" "")
+		     (match_operand:V2SF 2 "fr_register_operand" "")))
+     (use (match_dup 3))])]
   ""
 {
   rtvec v = gen_rtvec (2, CONST1_RTX (SFmode), CONST1_RTX (SFmode));
   operands[3] = force_reg (V2SFmode, gen_rtx_CONST_VECTOR (V2SFmode, v));
 })
 
+;; The split condition here could be combine_completed, if we had such.
+(define_insn_and_split "*addv2sf3_1"
+  [(set (match_operand:V2SF 0 "fr_register_operand" "=f")
+	(plus:V2SF (match_operand:V2SF 1 "fr_register_operand" "f")
+		   (match_operand:V2SF 2 "fr_register_operand" "f")))
+   (use (match_operand:V2SF 3 "fr_register_operand" "f"))]
+  ""
+  "#"
+  "reload_completed"
+  [(set (match_dup 0)
+	(plus:V2SF
+	  (mult:V2SF (match_dup 1) (match_dup 3))
+	  (match_dup 2)))]
+  "")
+
+(define_insn_and_split "*addv2sf3_2"
+  [(set (match_operand:V2SF 0 "fr_register_operand" "=f")
+	(plus:V2SF
+	  (mult:V2SF (match_operand:V2SF 1 "fr_register_operand" "f")
+		     (match_operand:V2SF 2 "fr_register_operand" "f"))
+	  (match_operand:V2SF 3 "fr_register_operand" "f")))
+    (use (match_operand:V2SF 4 "" "X"))]
+  ""
+  "#"
+  ""
+  [(set (match_dup 0)
+	(plus:V2SF
+	  (mult:V2SF (match_dup 1) (match_dup 2))
+	  (match_dup 3)))]
+  "")
+
+;; In order to convince combine to merge minus and mult to a useful fpms,
+;; we need a couple of extra patterns.
 (define_expand "subv2sf3"
-  [(set (match_operand:V2SF 0 "fr_register_operand" "")
-	(minus:V2SF
-	  (mult:V2SF (match_operand:V2SF 1 "fr_register_operand" "")
-		     (match_dup 3))
-	  (match_operand:V2SF 2 "fr_register_operand" "")))]
+  [(parallel
+    [(set (match_operand:V2SF 0 "fr_register_operand" "")
+	  (minus:V2SF (match_operand:V2SF 1 "fr_register_operand" "")
+		      (match_operand:V2SF 2 "fr_register_operand" "")))
+     (use (match_dup 3))])]
   ""
 {
   rtvec v = gen_rtvec (2, CONST1_RTX (SFmode), CONST1_RTX (SFmode));
   operands[3] = force_reg (V2SFmode, gen_rtx_CONST_VECTOR (V2SFmode, v));
 })
+
+;; The split condition here could be combine_completed, if we had such.
+(define_insn_and_split "*subv2sf3_1"
+  [(set (match_operand:V2SF 0 "fr_register_operand" "=f")
+	(minus:V2SF (match_operand:V2SF 1 "fr_register_operand" "f")
+		    (match_operand:V2SF 2 "fr_register_operand" "f")))
+   (use (match_operand:V2SF 3 "fr_register_operand" "f"))]
+  ""
+  "#"
+  "reload_completed"
+  [(set (match_dup 0)
+	(minus:V2SF
+	  (mult:V2SF (match_dup 1) (match_dup 3))
+	  (match_dup 2)))]
+  "")
+
+(define_insn_and_split "*subv2sf3_2"
+  [(set (match_operand:V2SF 0 "fr_register_operand" "=f")
+	(minus:V2SF
+	  (mult:V2SF (match_operand:V2SF 1 "fr_register_operand" "f")
+		     (match_operand:V2SF 2 "fr_register_operand" "f"))
+	  (match_operand:V2SF 3 "fr_register_operand" "f")))
+    (use (match_operand:V2SF 4 "" "X"))]
+  ""
+  "#"
+  ""
+  [(set (match_dup 0)
+	(minus:V2SF
+	  (mult:V2SF (match_dup 1) (match_dup 2))
+	  (match_dup 3)))]
+  "")
 
 (define_insn "mulv2sf3"
   [(set (match_operand:V2SF 0 "fr_register_operand" "=f")
@@ -845,7 +1045,7 @@
   "fpnma %0 = %1, %2, %3"
   [(set_attr "itanium_class" "fmac")])
 
-(define_insn "smaxv2sf2"
+(define_insn "smaxv2sf3"
   [(set (match_operand:V2SF 0 "fr_register_operand" "=f")
 	(smax:V2SF (match_operand:V2SF 1 "fr_register_operand" "f")
 		   (match_operand:V2SF 2 "fr_register_operand" "f")))]
@@ -853,13 +1053,46 @@
   "fpmax %0 = %1, %2"
   [(set_attr "itanium_class" "fmisc")])
 
-(define_insn "sminv2sf2"
+(define_insn "sminv2sf3"
   [(set (match_operand:V2SF 0 "fr_register_operand" "=f")
 	(smin:V2SF (match_operand:V2SF 1 "fr_register_operand" "f")
 		   (match_operand:V2SF 2 "fr_register_operand" "f")))]
   ""
   "fpmin %0 = %1, %2"
   [(set_attr "itanium_class" "fmisc")])
+
+(define_expand "reduc_splus_v2sf"
+  [(match_operand:V2SF 0 "fr_register_operand" "")
+   (match_operand:V2SF 1 "fr_register_operand" "")]
+  ""
+{
+  rtx tmp = gen_reg_rtx (V2SFmode);
+  emit_insn (gen_fswap (tmp, operands[1], CONST0_RTX (V2SFmode)));
+  emit_insn (gen_addv2sf3 (operands[0], operands[1], tmp));
+  DONE;
+})
+
+(define_expand "reduc_smax_v2sf"
+  [(match_operand:V2SF 0 "fr_register_operand" "")
+   (match_operand:V2SF 1 "fr_register_operand" "")]
+  ""
+{
+  rtx tmp = gen_reg_rtx (V2SFmode);
+  emit_insn (gen_fswap (tmp, operands[1], CONST0_RTX (V2SFmode)));
+  emit_insn (gen_smaxv2sf3 (operands[0], operands[1], tmp));
+  DONE;
+})
+
+(define_expand "reduc_smin_v2sf"
+  [(match_operand:V2SF 0 "fr_register_operand" "")
+   (match_operand:V2SF 1 "fr_register_operand" "")]
+  ""
+{
+  rtx tmp = gen_reg_rtx (V2SFmode);
+  emit_insn (gen_fswap (tmp, operands[1], CONST0_RTX (V2SFmode)));
+  emit_insn (gen_sminv2sf3 (operands[0], operands[1], tmp));
+  DONE;
+})
 
 (define_expand "vcondv2sf"
   [(set (match_operand:V2SF 0 "fr_register_operand" "")
@@ -873,30 +1106,8 @@
 {
   rtx x, cmp;
 
-  PUT_MODE (operands[3], V2SFmode);
-  switch (GET_CODE (operands[3]))
-    {
-    case EQ:
-    case NE:
-    case LT:
-    case LE:
-    case UNORDERED:
-    case ORDERED:
-      break;
-
-    case GT:
-    case GE:
-      x = XEXP (operands[3], 0);
-      XEXP (operands[3], 0) = XEXP (operands[3], 1);
-      XEXP (operands[3], 1) = x;
-      PUT_CODE (operands[3], swap_condition (GET_CODE (operands[3])));
-      break;
-
-    default:
-      abort ();
-    }
-
   cmp = gen_reg_rtx (V2SFmode);
+  PUT_MODE (operands[3], V2SFmode);
   emit_insn (gen_rtx_SET (VOIDmode, cmp, operands[3]));
 
   x = gen_rtx_IF_THEN_ELSE (V2SFmode, cmp, operands[1], operands[2]);
@@ -906,12 +1117,21 @@
 
 (define_insn "*fpcmp"
   [(set (match_operand:V2SF 0 "fr_register_operand" "=f")
+	(match_operator:V2SF 3 "comparison_operator"
+	  [(match_operand:V2SF 1 "fr_reg_or_0_operand" "fU")
+	   (match_operand:V2SF 2 "fr_reg_or_0_operand" "fU")]))]
+  ""
+  "fpcmp.%D3 %0 = %F1, %F2"
+  [(set_attr "itanium_class" "fmisc")])
+
+(define_insn "*fselect"
+  [(set (match_operand:V2SF 0 "fr_register_operand" "=f")
 	(if_then_else:V2SF
 	  (match_operand:V2SF 1 "fr_register_operand" "f")
 	  (match_operand:V2SF 2 "fr_reg_or_0_operand" "fU")
 	  (match_operand:V2SF 3 "fr_reg_or_0_operand" "fU")))]
   ""
-  "fselect %0 = %2, %3, %1"
+  "fselect %0 = %F2, %F3, %1"
   [(set_attr "itanium_class" "fmisc")])
 
 (define_expand "vec_initv2sf"
@@ -935,12 +1155,14 @@
   if (!fr_reg_or_fp01_operand (op2, SFmode))
     op2 = force_reg (SFmode, op2);
 
-  x = gen_rtx_VEC_CONCAT (V2SFmode, op1, op2);
-  emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+  if (TARGET_BIG_ENDIAN)
+    emit_insn (gen_fpack (operands[0], op2, op1));
+  else
+    emit_insn (gen_fpack (operands[0], op1, op2));
   DONE;
 })
 
-(define_insn "*fpack"
+(define_insn "fpack"
   [(set (match_operand:V2SF 0 "fr_register_operand" "=f")
 	(vec_concat:V2SF
 	  (match_operand:SF 1 "fr_reg_or_fp01_operand" "fG")
@@ -949,8 +1171,134 @@
   "fpack %0 = %F2, %F1"
   [(set_attr "itanium_class" "fmisc")])
 
+(define_insn "fswap"
+  [(set (match_operand:V2SF 0 "fr_register_operand" "=f")
+	(vec_select:V2SF
+	  (vec_concat:V4SF
+	    (match_operand:V2SF 1 "fr_reg_or_0_operand" "fU")
+	    (match_operand:V2SF 2 "fr_reg_or_0_operand" "fU"))
+	  (parallel [(const_int 1) (const_int 2)])))]
+  ""
+  "fswap %0 = %F1, %F2"
+  [(set_attr "itanium_class" "fmisc")])
+
+(define_insn "*fmix_l"
+  [(set (match_operand:V2SF 0 "fr_register_operand" "=f")
+	(vec_select:V2SF
+	  (vec_concat:V4SF
+	    (match_operand:V2SF 1 "fr_reg_or_0_operand" "fU")
+	    (match_operand:V2SF 2 "fr_reg_or_0_operand" "fU"))
+	  (parallel [(const_int 1) (const_int 3)])))]
+  ""
+  "fmix.l %0 = %F2, %F1"
+  [(set_attr "itanium_class" "fmisc")])
+
+(define_insn "fmix_r"
+  [(set (match_operand:V2SF 0 "fr_register_operand" "=f")
+	(vec_select:V2SF
+	  (vec_concat:V4SF
+	    (match_operand:V2SF 1 "fr_reg_or_0_operand" "fU")
+	    (match_operand:V2SF 2 "fr_reg_or_0_operand" "fU"))
+	  (parallel [(const_int 0) (const_int 2)])))]
+  ""
+  "fmix.r %0 = %F2, %F1"
+  [(set_attr "itanium_class" "fmisc")])
+
+(define_insn "fmix_lr"
+  [(set (match_operand:V2SF 0 "fr_register_operand" "=f")
+	(vec_select:V2SF
+	  (vec_concat:V4SF
+	    (match_operand:V2SF 1 "fr_reg_or_0_operand" "fU")
+	    (match_operand:V2SF 2 "fr_reg_or_0_operand" "fU"))
+	  (parallel [(const_int 0) (const_int 3)])))]
+  ""
+  "fmix.lr %0 = %F2, %F1"
+  [(set_attr "itanium_class" "fmisc")])
+
+(define_expand "vec_setv2sf"
+  [(match_operand:V2SF 0 "fr_register_operand" "")
+   (match_operand:SF 1 "fr_register_operand" "")
+   (match_operand 2 "const_int_operand" "")]
+  ""
+{
+  rtx tmp = gen_reg_rtx (V2SFmode);
+  emit_insn (gen_fpack (tmp, operands[1], CONST0_RTX (SFmode)));
+
+  switch (INTVAL (operands[2]))
+    {
+    case 0:
+      emit_insn (gen_fmix_lr (operands[0], tmp, operands[0]));
+      break;
+    case 1:
+      emit_insn (gen_fmix_r (operands[0], operands[0], tmp));
+      break;
+    default:
+      gcc_unreachable ();
+    }
+  DONE;
+})
+
+(define_insn_and_split "*vec_extractv2sf_0_le"
+  [(set (match_operand:SF 0 "nonimmediate_operand" "=r,f,m")
+	(unspec:SF [(match_operand:V2SF 1 "nonimmediate_operand" "rfm,rm,r")
+		    (const_int 0)]
+		   UNSPEC_VECT_EXTR))]
+  "!TARGET_BIG_ENDIAN"
+  "#"
+  "reload_completed"
+  [(set (match_dup 0) (match_dup 1))]
+{
+  if (REG_P (operands[1]) && FR_REGNO_P (REGNO (operands[1])))
+    operands[0] = gen_rtx_REG (V2SFmode, REGNO (operands[0]));
+  else if (MEM_P (operands[1]))
+    operands[1] = adjust_address (operands[1], SFmode, 0);
+  else
+    operands[1] = gen_rtx_REG (SFmode, REGNO (operands[1]));
+})
+
+(define_insn_and_split "*vec_extractv2sf_0_be"
+  [(set (match_operand:SF 0 "register_operand" "=r,f")
+	(unspec:SF [(match_operand:V2SF 1 "register_operand" "rf,r")
+		    (const_int 0)]
+		   UNSPEC_VECT_EXTR))]
+  "TARGET_BIG_ENDIAN"
+  "#"
+  "reload_completed"
+  [(set (match_dup 0) (match_dup 1))]
+{
+  if (REG_P (operands[1]) && FR_REGNO_P (REGNO (operands[1])))
+    operands[0] = gen_rtx_REG (V2SFmode, REGNO (operands[0]));
+  else
+    operands[1] = gen_rtx_REG (SFmode, REGNO (operands[1]));
+})
+
+(define_insn_and_split "*vec_extractv2sf_1"
+  [(set (match_operand:SF 0 "register_operand" "=r")
+	(unspec:SF [(match_operand:V2SF 1 "register_operand" "r")
+		    (const_int 1)]
+		   UNSPEC_VECT_EXTR))]
+  ""
+  "#"
+  "reload_completed"
+  [(const_int 0)]
+{
+  operands[0] = gen_rtx_REG (DImode, REGNO (operands[0]));
+  operands[1] = gen_rtx_REG (DImode, REGNO (operands[1]));
+  if (TARGET_BIG_ENDIAN)
+    emit_move_insn (operands[0], operands[1]);
+  else
+    emit_insn (gen_lshrdi3 (operands[0], operands[1], GEN_INT (32)));
+  DONE;
+})
+
+(define_expand "vec_extractv2sf"
+  [(set (match_operand:SF 0 "register_operand" "")
+	(unspec:SF [(match_operand:V2SF 1 "register_operand" "")
+		    (match_operand:DI 2 "const_int_operand" "")]
+		   UNSPEC_VECT_EXTR))]
+  ""
+  "")
+
 ;; Missing operations
 ;; fprcpa
 ;; fpsqrta
-;; vec_setv2sf
-;; vec_extractv2sf

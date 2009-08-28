@@ -347,7 +347,7 @@ dbx_fixup_variants (struct type *real_type)
     {
       if (!TYPE_ADDRESS_CLASS_ALL(variant)
 	  && TYPE_LENGTH (variant) == 0)
-	TYPE_LENGTH(variant) = len;
+	TYPE_LENGTH_ASSIGN (variant) = len;
       variant = variant->chain;
     }
 }
@@ -1823,7 +1823,7 @@ again:
 	  {
 	    /* It's being defined as itself.  That means it is "void".  */
 	    TYPE_CODE (type) = TYPE_CODE_VOID;
-	    TYPE_LENGTH (type) = 1;
+	    TYPE_LENGTH_ASSIGN (type) = 1;
 	  }
 	else if (type_size >= 0 || is_string)
 	  {
@@ -1963,14 +1963,14 @@ again:
 
     case 'k':			/* Const qualifier on some type (Sun) */
       type = read_type (pp, objfile);
-      type = make_cv_type (1, TYPE_VOLATILE (type), type,
+      type = make_cvr_type (1, TYPE_VOLATILE (type), TYPE_RESTRICT (type), type,
 			   /* APPLE LOCAL objfile for types */
 			   dbx_lookup_type (typenums, objfile));
       break;
 
     case 'B':			/* Volatile qual on some type (Sun) */
       type = read_type (pp, objfile);
-      type = make_cv_type (TYPE_CONST (type), 1, type,
+      type = make_cvr_type (TYPE_CONST (type), 1, TYPE_RESTRICT (type), type,
 			   /* APPLE LOCAL objfile for types */
 			   dbx_lookup_type (typenums, objfile));
       break;
@@ -2209,7 +2209,7 @@ again:
 
   /* Size specified in a type attribute overrides any other size.  */
   if (type_size != -1)
-    TYPE_LENGTH (type) = (type_size + TARGET_CHAR_BIT - 1) / TARGET_CHAR_BIT;
+    TYPE_LENGTH_ASSIGN (type) = (type_size + TARGET_CHAR_BIT - 1) / TARGET_CHAR_BIT;
 
   /* APPLE LOCAL: We've found this type, but there may be variants of it -
      like const and volatile.  They all share the same "main_type" so that
@@ -3692,7 +3692,7 @@ read_struct_type (char **pp, struct type *type, enum type_code type_code,
 
   {
     int nbits;
-    TYPE_LENGTH (type) = read_huge_number (pp, 0, &nbits, 0);
+    TYPE_LENGTH_ASSIGN (type) = read_huge_number (pp, 0, &nbits, 0);
     if (nbits != 0)
       return error_type (pp, objfile);
   }
@@ -3857,7 +3857,7 @@ read_enum_type (char **pp, struct type *type,
 
   /* Now fill in the fields of the type-structure.  */
 
-  TYPE_LENGTH (type) = TARGET_INT_BIT / HOST_CHAR_BIT;
+  TYPE_LENGTH_ASSIGN (type) = TARGET_INT_BIT / HOST_CHAR_BIT;
   TYPE_CODE (type) = TYPE_CODE_ENUM;
   TYPE_FLAGS (type) &= ~TYPE_FLAG_STUB;
   if (unsigned_enum)
@@ -3884,7 +3884,7 @@ read_enum_type (char **pp, struct type *type,
 	  struct symbol *xsym = syms->symbol[j];
 	  SYMBOL_TYPE (xsym) = type;
 	  TYPE_FIELD_NAME (type, n) = DEPRECATED_SYMBOL_NAME (xsym);
-	  TYPE_FIELD_BITPOS (type, n) = SYMBOL_VALUE (xsym);
+	  TYPE_FIELD_BITPOS_ASSIGN (type, n) = SYMBOL_VALUE (xsym);
 	  TYPE_FIELD_BITSIZE (type, n) = 0;
 	}
       if (syms == osyms)

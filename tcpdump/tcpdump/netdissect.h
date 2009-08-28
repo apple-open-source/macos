@@ -21,7 +21,7 @@
  * WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- * @(#) $Header: /tcpdump/master/tcpdump/netdissect.h,v 1.16.2.4 2006/02/08 01:40:09 hannes Exp $ (LBL)
+ * @(#) $Header: /tcpdump/master/tcpdump/netdissect.h,v 1.23.2.2 2008-04-04 19:42:52 guy Exp $ (LBL)
  */
 
 #ifndef netdissect_h
@@ -77,6 +77,7 @@ extern const char *tok2strbuf(const struct tok *, const char *, int,
 /* tok2str is deprecated */
 extern const char *tok2str(const struct tok *, const char *, int);
 extern char *bittok2str(const struct tok *, const char *, int);
+extern char *bittok2str_nosep(const struct tok *, const char *, int);
 
 
 typedef struct netdissect_options netdissect_options;
@@ -101,12 +102,18 @@ struct netdissect_options {
   int ndo_Aflag;		/* print packet only in ascii observing TAB,
 				 * LF, CR and SPACE as graphical chars
 				 */
+  int ndo_Bflag;		/* buffer size */
+  int ndo_Iflag;		/* rfmon (monitor) mode */
   int ndo_Oflag;                /* run filter code optimizer */
   int ndo_dlt;                  /* if != -1, ask libpcap for the DLT it names*/
   int ndo_pflag;                /* don't go promiscuous */
 
   int ndo_Cflag;                /* rotate dump files after this many bytes */ 
   int ndo_Cflag_count;      /* Keep track of which file number we're writing */
+  int ndo_gflag;            /* no line break in verbose mode for easier grepping */
+  int ndo_Gflag;            /* rotate dump files after this many seconds */
+  int ndo_Gflag_count;      /* number of files created with Gflag rotation */
+  time_t ndo_Gflag_time;    /* The last time_t the dump file was rotated. */
   int ndo_Wflag;          /* recycle output files after this number of files */
   int ndo_WflagChars;
   int ndo_suppress_default_print; /* don't use default_print() for unknown packet types */
@@ -164,6 +171,9 @@ struct netdissect_options {
 #define max(a,b) ((b)>(a)?(b):(a))
 #endif
 
+#ifdef __APPLE__
+#define DEFAULT_SNAPLEN 65535   /* entire packet */
+#else /* __APPLE__ */
 #ifndef INET6
 /*
  * The default snapshot length.  This value allows most printers to print
@@ -175,6 +185,7 @@ struct netdissect_options {
 #else
 #define DEFAULT_SNAPLEN 96
 #endif
+#endif /* __APPLE__ */
 
 #ifndef BIG_ENDIAN
 #define BIG_ENDIAN 4321
@@ -246,7 +257,7 @@ extern const char *dnnum_string(netdissect_options *, u_short);
 #include <pcap.h>
 
 
-extern void eap_print(netdissect_options *,const u_char *, u_int);    
+extern void eap_print(netdissect_options *,const u_char *, u_int);
 extern int esp_print(netdissect_options *,
 		     register const u_char *bp, int len, register const u_char *bp2,
 		     int *nhdr, int *padlen);
@@ -259,6 +270,7 @@ extern void ip_print(netdissect_options *,const u_char *, u_int);
 extern void ip_print_inner(netdissect_options *ndo,
 			   const u_char *bp, u_int length, u_int nh,
 			   const u_char *bp2);
+extern void rrcp_print(netdissect_options *,const u_char *, u_int);
 
 /* stuff that has not yet been rototiled */
 #if 0

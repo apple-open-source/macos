@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -66,7 +66,7 @@
 #include "IOSCSIParallelFamilyDebugging.h"
 
 #if ( SCSI_PARALLEL_INTERFACE_CONTROLLER_DEBUGGING_LEVEL >= 1 )
-#define PANIC_NOW(x)		IOPanic x
+#define PANIC_NOW(x)		panic x
 #else
 #define PANIC_NOW(x)		
 #endif
@@ -443,10 +443,15 @@ IOSCSIParallelInterfaceController::stop ( IOService * provider )
 	// Halt all services from the subclass.
 	StopController ( );
 	
-	fHBAHasBeenInitialized = false;
-	
-	// Inform the subclass to terminate all allocated resources
-	TerminateController ( );
+	if ( fHBAHasBeenInitialized == true )
+	{
+		
+		fHBAHasBeenInitialized = false;
+		
+		// Inform the subclass to terminate all allocated resources
+		TerminateController ( );
+		
+	}
 	
 	// Free all of the SCSIParallelTasks and the pool.
 	DeallocateSCSIParallelTasks ( );
@@ -548,7 +553,7 @@ IOSCSIParallelInterfaceController::GetSCSIDomainIdentifier ( void )
 
 
 //-----------------------------------------------------------------------------
-//	  SetHBAProperty - Sets a property for this object. 			   [PUBLIC]
+//	SetHBAProperty - Sets a property for this object.	 			   [PUBLIC]
 //-----------------------------------------------------------------------------
 
 bool	
@@ -682,6 +687,8 @@ IOSCSIParallelInterfaceController::SetHBAProperty (
 	hbaDict->release ( );
 	hbaDict = NULL;
 	
+	messageClients ( kIOMessageServicePropertyChange );
+	
 	
 ErrorExit:
 	
@@ -692,7 +699,7 @@ ErrorExit:
 
 
 //-----------------------------------------------------------------------------
-//	  RemoveHBAProperty - Removes a property for this object. 		   [PUBLIC]
+//	RemoveHBAProperty - Removes a property for this object. 		   [PUBLIC]
 //-----------------------------------------------------------------------------
 
 void	
@@ -719,7 +726,7 @@ IOSCSIParallelInterfaceController::RemoveHBAProperty ( const char * key )
 		goto ErrorExit;
 		
 	}
-
+	
 	copyDict = OSDynamicCast ( OSDictionary, copyProperty ( kIOPropertyControllerCharacteristicsKey ) );
 	require_nonzero ( copyDict, ErrorExit );
 	
@@ -738,6 +745,8 @@ IOSCSIParallelInterfaceController::RemoveHBAProperty ( const char * key )
 	setProperty ( kIOPropertyControllerCharacteristicsKey, hbaDict );
 	hbaDict->release ( );
 	hbaDict = NULL;
+	
+	messageClients ( kIOMessageServicePropertyChange );
 	
 	
 ErrorExit:
@@ -982,35 +991,37 @@ void
 IOSCSIParallelInterfaceController::FreeSCSIParallelTask (
 							SCSIParallelTaskIdentifier returnTask )
 {
-	
-	SCSIParallelTask *	parallelTask 	= NULL;
+
+	SCSIParallelTask *	parallelTask	= NULL;
 	IOReturn			status			= kIOReturnSuccess;
-	
+
 	parallelTask = OSDynamicCast ( SCSIParallelTask, returnTask );
-	
+
 	require_nonzero ( parallelTask, ERROR_EXIT_NULL_TASK );
-	
+
 	parallelTask->SetSCSITaskIdentifier ( NULL );
-	
+
 	status = parallelTask->clearMemoryDescriptor ( false );
-	
+
 	if ( status != kIOReturnSuccess )
 	{
-		
+
 		ERROR_LOG ( ( "FreeSCSIParallelTask: Task %p seems to be still active. "
 					"IODMACommand::complete ( ) may not have been called for "
 					"this task.", returnTask ) );
-		
-	}
-	
+
+	}	
+
 	fParallelTaskPool->returnCommand ( ( IOCommand * ) returnTask );
+	
+	return;
 	
 	
 ERROR_EXIT_NULL_TASK:
-	
-	
+
+
 	STATUS_LOG ( ( "FreeSCSIParallelTask: Encountered a NULL task pointer!\n" ) );
-	
+
 	return;
 
 }
@@ -1028,6 +1039,7 @@ IOSCSIParallelInterfaceController::AllocateSCSIParallelTasks ( void )
 	bool				result			= false;
 	SCSIParallelTask *	parallelTask 	= NULL;
 	UInt32				taskSize		= 0;
+	UInt32				index			= 0;
 	UInt64				mask			= 0;
 	OSNumber *			value			= NULL;
 	OSDictionary *		constraints		= NULL;
@@ -1099,7 +1111,7 @@ IOSCSIParallelInterfaceController::AllocateSCSIParallelTasks ( void )
 	
 	// Now try to allocate the remaining Tasks that the HBA reports that it
 	// can support.
-	for ( UInt32 index = 1; index < fSupportedTaskCount; index++ )
+	for ( index = 1; index < fSupportedTaskCount; index++ )
 	{
 		
 		// Allocate the command with enough space for the HBA specific data
@@ -1120,6 +1132,16 @@ IOSCSIParallelInterfaceController::AllocateSCSIParallelTasks ( void )
 			fParallelTaskPool->returnCommand ( parallelTask );
 			
 		}
+		
+	}
+	
+	// Did the subclass override the command pool size?
+	value = OSDynamicCast ( OSNumber, getProperty ( kIOCommandPoolSizeKey ) );
+	if ( value == NULL )
+	{
+		
+		// No, set the default to be the number of commands we allocated.
+		setProperty ( kIOCommandPoolSizeKey, index, 32 );
 		
 	}
 	
@@ -1212,7 +1234,7 @@ IOSCSIParallelInterfaceController::ExecuteParallelTask (
 	if ( fHBACanAcceptClientRequests == true )
 	{
 		
-		// If the controller has not suspended, send the task now
+		// If the controller has not suspended, send the task now.
 		serviceResponse = ProcessParallelTask ( parallelRequest );
 		
 	}
@@ -1608,6 +1630,9 @@ IOSCSIParallelInterfaceController::CreateTargetForID (
 	require_nonzero ( dict, DICT_CREATION_FAILED );
 	
 	result = CreateTargetForID ( targetID, dict );
+	
+	dict->release ( );
+	dict = NULL;
 	
 	
 DICT_CREATION_FAILED:
@@ -2179,15 +2204,15 @@ IOSCSIParallelInterfaceController::NotifyClientsOfPortStatusChange (
 	{
 		
 		case kSCSIPort_StatusOnline:
-			linkStatus = kIOPropertyPortStatusLinkEstablishedKey;
+			linkStatus = ( char * ) kIOPropertyPortStatusLinkEstablishedKey;
 			break;
 		
 		case kSCSIPort_StatusOffline:
-			linkStatus = kIOPropertyPortStatusNoLinkEstablishedKey;
+			linkStatus = ( char * ) kIOPropertyPortStatusNoLinkEstablishedKey;
 			break;
 		
 		case kSCSIPort_StatusFailure:
-			linkStatus = kIOPropertyPortStatusLinkFailedKey;
+			linkStatus = ( char * ) kIOPropertyPortStatusLinkFailedKey;
 			break;
 		
 		default:

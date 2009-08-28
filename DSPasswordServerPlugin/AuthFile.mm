@@ -69,6 +69,58 @@ int32_t gDESKeyArray[] = {	3785, 1706062950, 57253, 290150789, 20358, -189566931
 							26821, 1697433225, 49601, 1067086915, 42371, -1280392416, 46874, -1550815422, 
 							47922, -788758000, 7254, -590256566, 22097, 1547481608, 22125, -1323694915 };
 
+
+void BSDTimeStructCopy2StructTM(const BSDTimeStructCopy* ourTM, struct tm* sysTM)
+{
+    sysTM->tm_sec    = ourTM->tm_sec;
+    sysTM->tm_min    = ourTM->tm_min;
+    sysTM->tm_hour   = ourTM->tm_hour;
+    sysTM->tm_mday   = ourTM->tm_mday;
+    sysTM->tm_mon    = ourTM->tm_mon;
+    sysTM->tm_year   = ourTM->tm_year;
+    sysTM->tm_wday   = ourTM->tm_wday;
+    sysTM->tm_yday   = ourTM->tm_yday;
+    sysTM->tm_isdst  = ourTM->tm_isdst;
+    sysTM->tm_gmtoff = (long)ourTM->tm_gmtoff;
+    sysTM->tm_zone   = NULL;
+}
+
+void StructTM2BSDTimeStructCopy(const struct tm* sysTM, BSDTimeStructCopy* ourTM)
+{
+    ourTM->tm_sec    = sysTM->tm_sec;
+    ourTM->tm_min    = sysTM->tm_min;
+    ourTM->tm_hour   = sysTM->tm_hour;
+    ourTM->tm_mday   = sysTM->tm_mday;
+    ourTM->tm_mon    = sysTM->tm_mon;
+    ourTM->tm_year   = sysTM->tm_year;
+    ourTM->tm_wday   = sysTM->tm_wday;
+    ourTM->tm_yday   = sysTM->tm_yday;
+    ourTM->tm_isdst  = sysTM->tm_isdst;
+    ourTM->tm_gmtoff = (uint32_t)sysTM->tm_gmtoff;
+    ourTM->tm_zone   = 0;
+}
+
+time_t BSDTimeStructCopy_timegm(const BSDTimeStructCopy* ourTM)
+{
+    struct tm bsdTimeStruct;
+    BSDTimeStructCopy2StructTM(ourTM, &bsdTimeStruct);
+    return timegm(&bsdTimeStruct);
+}
+
+void BSDTimeStructCopy_gmtime_r(const time_t* clock, BSDTimeStructCopy* ourTM)
+{
+    struct tm bsdTimeStruct;
+    gmtime_r(clock, &bsdTimeStruct);
+    StructTM2BSDTimeStructCopy(&bsdTimeStruct, ourTM);
+}
+
+size_t BSDTimeStructCopy_strftime(char *s, size_t maxsize, const char *format, const BSDTimeStructCopy *ourTM)
+{
+    struct tm bsdTimeStruct;
+    BSDTimeStructCopy2StructTM(ourTM, &bsdTimeStruct);
+    return strftime(s, maxsize, format, &bsdTimeStruct);
+}
+
 #if DEBUGTIME
 //------------------------------------------------------------------------------------------------
 //	GetTimeAsString
@@ -110,12 +162,12 @@ int TimeIsStale( BSDTimeStructCopy *inTime )
     time(&theGMTime);
     
     // get user time in seconds
-    theTime = timegm( (struct tm *)inTime );
+    theTime = BSDTimeStructCopy_timegm( inTime );
     if ( theTime <= 0 )
 		theTime = 0x7FFFFFFF;
 	
 #if DEBUGTIME
-    LogTimeAsString( (BSDTimeStructCopy *)inTime, "pwrec" );
+    LogTimeAsString( inTime, "pwrec" );
     SRVLOG1( kLogMeta, "theTime: %ld, %ld", theGMTime, theTime );
     SRVLOG1( kLogMeta, "diff: %ld", theGMTime - theTime );
 #endif
@@ -141,12 +193,12 @@ int LoginTimeIsStale( BSDTimeStructCopy *inLastLogin, unsigned long inMaxMinutes
     time(&theGMTime);
     
     // get user time in seconds
-    theTime = timegm( (struct tm *)inLastLogin );
+    theTime = BSDTimeStructCopy_timegm( inLastLogin );
 //    if ( theTime <= 0 )
 //		theTime = theGMTime;
 
 #if DEBUGTIME
-    LogTimeAsString( (BSDTimeStructCopy *)inLastLogin, "pwrec" );
+    LogTimeAsString( inLastLogin, "pwrec" );
     SRVLOG1( kLogMeta, "theGMTime, theTime: %ld, %ld", theGMTime, theTime );
     SRVLOG1( kLogMeta, "diff: %ld", ((theGMTime - theTime)/60) );
     SRVLOG1( kLogMeta, "min-nonuse: %ld", maxMinutesOfNonUse );
@@ -193,8 +245,8 @@ void PWGlobalAccessFeaturesToString( PWGlobalAccessFeatures *inAccessFeatures, c
 #else
 				"%s=%lu %s=%lu %s=%lu ",
 #endif
-                kPWPolicyStr_expirationDateGMT, timegm( (struct tm *)&inAccessFeatures->expirationDateGMT ),
-                kPWPolicyStr_hardExpireDateGMT, timegm( (struct tm *)&inAccessFeatures->hardExpireDateGMT ),
+                kPWPolicyStr_expirationDateGMT, BSDTimeStructCopy_timegm( &inAccessFeatures->expirationDateGMT ),
+                kPWPolicyStr_hardExpireDateGMT, BSDTimeStructCopy_timegm( &inAccessFeatures->hardExpireDateGMT ),
                 kPWPolicyStr_maxMinutesUntilChangePW, inAccessFeatures->maxMinutesUntilChangePassword );
     
     sprintf( temp3Str,
@@ -224,10 +276,10 @@ void PWGlobalAccessFeaturesToString( PWGlobalAccessFeatures *inAccessFeatures, c
 //------------------------------------------------------------------------------------------------
 
 void PWGlobalAccessFeaturesToStringExtra( PWGlobalAccessFeatures *inAccessFeatures, PWGlobalMoreAccessFeatures *inExtraFeatures,
-	int inMaxLen, char *outString )
+	size_t inMaxLen, char *outString )
 {
     char tempStr[2048];
-	long len;
+	size_t len;
 	
     if ( outString == NULL || inAccessFeatures == NULL )
         return;
@@ -288,7 +340,7 @@ void PWAccessFeaturesToString( PWAccessFeatures *inAccessFeatures, char *outStri
 //	Prepares the PWAccessFeatures struct for transmission over our text-based protocol
 //------------------------------------------------------------------------------------------------
 
-void PWAccessFeaturesToStringExtra( PWAccessFeatures *inAccessFeatures, PWMoreAccessFeatures *inExtraFeatures, int inMaxLen,
+void PWAccessFeaturesToStringExtra( PWAccessFeatures *inAccessFeatures, PWMoreAccessFeatures *inExtraFeatures, size_t inMaxLen,
 	char *outString )
 {
     char temp2Str[2048];
@@ -424,8 +476,8 @@ void PWActualAccessFeaturesToString( PWGlobalAccessFeatures *inGAccessFeatures, 
     
     sprintf( temp3Str, "%s=%d %s=%lu %s=%lu ",
                 kPWPolicyStr_requiresNumeric, requiresNumeric,
-                kPWPolicyStr_expirationDateGMT, timegm( (struct tm *)&inAccessFeatures->expirationDateGMT ),
-                kPWPolicyStr_hardExpireDateGMT, timegm( (struct tm *)&inAccessFeatures->hardExpireDateGMT ) );
+                kPWPolicyStr_expirationDateGMT, BSDTimeStructCopy_timegm( &inAccessFeatures->expirationDateGMT ),
+                kPWPolicyStr_hardExpireDateGMT, BSDTimeStructCopy_timegm( &inAccessFeatures->hardExpireDateGMT ) );
     
     snprintf( temp4Str, sizeof(temp4Str),
 #ifdef __LP64__
@@ -550,8 +602,8 @@ void PWActualAccessFeaturesToStringWithoutStateInfoExtra(
                 kPWPolicyStr_usingHardExpirationDate, usingHardExpirationDate,
                 kPWPolicyStr_requiresAlpha, requiresAlpha,
                 kPWPolicyStr_requiresNumeric, requiresNumeric,
-                kPWPolicyStr_expirationDateGMT, timegm( (struct tm *)&inAccessFeatures->expirationDateGMT ),
-                kPWPolicyStr_hardExpireDateGMT, timegm( (struct tm *)&inAccessFeatures->hardExpireDateGMT ) );
+                kPWPolicyStr_expirationDateGMT, BSDTimeStructCopy_timegm( &inAccessFeatures->expirationDateGMT ),
+                kPWPolicyStr_hardExpireDateGMT, BSDTimeStructCopy_timegm( &inAccessFeatures->hardExpireDateGMT ) );
     
     snprintf( tempStr, sizeof(tempStr),
 #ifdef __LP64__
@@ -596,10 +648,10 @@ void PWActualAccessFeaturesToStringWithoutStateInfoExtra(
 //------------------------------------------------------------------------------------------------
 
 void PWActualAccessFeaturesToStringExtra( PWGlobalAccessFeatures *inGAccessFeatures, PWAccessFeatures *inAccessFeatures,
-	PWMoreAccessFeatures *inExtraFeatures, int inMaxLen, char *outString )
+	PWMoreAccessFeatures *inExtraFeatures, size_t inMaxLen, char *outString )
 {
-	int segment1Length = 0;
-	int segment2Length = 0;
+	size_t segment1Length = 0;
+	size_t segment2Length = 0;
 	unsigned int requiresMixedCase = (inExtraFeatures->requiresMixedCase || inGAccessFeatures->requiresMixedCase);
 	unsigned int requiresSymbol = (inExtraFeatures->requiresSymbol || inGAccessFeatures->requiresSymbol);
 	unsigned long notGuessablePattern = inExtraFeatures->notGuessablePattern;
@@ -671,8 +723,8 @@ void PWAccessFeaturesToStringWithoutStateInfo( PWAccessFeatures *inAccessFeature
                 kPWPolicyStr_usingHardExpirationDate, (inAccessFeatures->usingHardExpirationDate != 0),
                 kPWPolicyStr_requiresAlpha, (inAccessFeatures->requiresAlpha != 0),
 				kPWPolicyStr_requiresNumeric, (inAccessFeatures->requiresNumeric != 0),
-                kPWPolicyStr_expirationDateGMT, timegm( (struct tm *)&inAccessFeatures->expirationDateGMT ),
-                kPWPolicyStr_hardExpireDateGMT, timegm( (struct tm *)&inAccessFeatures->hardExpireDateGMT ),
+                kPWPolicyStr_expirationDateGMT, BSDTimeStructCopy_timegm( &inAccessFeatures->expirationDateGMT ),
+                kPWPolicyStr_hardExpireDateGMT, BSDTimeStructCopy_timegm( &inAccessFeatures->hardExpireDateGMT ),
                 kPWPolicyStr_maxMinutesUntilChangePW, inAccessFeatures->maxMinutesUntilChangePassword,
                 kPWPolicyStr_maxMinutesUntilDisabled, inAccessFeatures->maxMinutesUntilDisabled,
                 kPWPolicyStr_maxMinutesOfNonUse, inAccessFeatures->maxMinutesOfNonUse,
@@ -692,7 +744,7 @@ void PWAccessFeaturesToStringWithoutStateInfo( PWAccessFeatures *inAccessFeature
 //------------------------------------------------------------------------------------------------
 
 void PWAccessFeaturesToStringWithoutStateInfoExtra( PWAccessFeatures *inAccessFeatures, PWMoreAccessFeatures *inExtraFeatures,
-	int inMaxLen, char *outString )
+	size_t inMaxLen, char *outString )
 {
 	if ( inMaxLen >= 2048 )
 	{
@@ -755,6 +807,7 @@ Boolean StringToPWGlobalAccessFeatures( const char *inString, PWGlobalAccessFeat
     const char *newPasswordRequired = strstr( inString, kPWPolicyStr_newPasswordRequired );
 //    const char *notGuessablePattern = strstr( inString, kPWPolicyStr_notGuessablePattern );
     unsigned long value;
+    time_t timetTime;
     
     if ( StringToPWAccessFeatures_GetValue( usingHistory, &value ) )
 	{
@@ -765,7 +818,7 @@ Boolean StringToPWGlobalAccessFeatures( const char *inString, PWGlobalAccessFeat
 				value = kPWFileMaxHistoryCount;
 			
 			inOutAccessFeatures->usingHistory = 1;
-			SetGlobalHistoryCount(*inOutAccessFeatures, value - 1);
+			SetGlobalHistoryCount(*inOutAccessFeatures, (unsigned int)value - 1);
 		}
 		else
 		{
@@ -778,52 +831,58 @@ Boolean StringToPWGlobalAccessFeatures( const char *inString, PWGlobalAccessFeat
 		inOutAccessFeatures->noModifyPasswordforSelf = (value==0);
 	
     if ( StringToPWAccessFeatures_GetValue( usingExpirationDate, &value ) )
-        inOutAccessFeatures->usingExpirationDate = value;
+        inOutAccessFeatures->usingExpirationDate = (unsigned int)value;
     
     if ( StringToPWAccessFeatures_GetValue( usingHardExpirationDate, &value ) )
-        inOutAccessFeatures->usingHardExpirationDate = value;
+        inOutAccessFeatures->usingHardExpirationDate = (unsigned int)value;
     
     if ( StringToPWAccessFeatures_GetValue( requiresAlpha, &value ) )
-        inOutAccessFeatures->requiresAlpha = value;
+        inOutAccessFeatures->requiresAlpha = (unsigned int)value;
     
     if ( StringToPWAccessFeatures_GetValue( requiresNumeric, &value ) )
-        inOutAccessFeatures->requiresNumeric = value;
+        inOutAccessFeatures->requiresNumeric = (unsigned int)value;
     
     if ( StringToPWAccessFeatures_GetValue( expirationDateGMT, &value ) )
-		gmtime_r( (time_t *)&value, (struct tm *)&inOutAccessFeatures->expirationDateGMT );
+    {
+        timetTime = (time_t)value;
+        BSDTimeStructCopy_gmtime_r( &timetTime, &inOutAccessFeatures->expirationDateGMT );
+    }
     
     if ( StringToPWAccessFeatures_GetValue( hardExpireDateGMT, &value ) )
-		gmtime_r( (time_t *)&value, (struct tm *)&inOutAccessFeatures->hardExpireDateGMT );
+    {
+        timetTime = (time_t)value;
+        BSDTimeStructCopy_gmtime_r( &timetTime, &inOutAccessFeatures->hardExpireDateGMT );
+    }
 	
     if ( StringToPWAccessFeatures_GetValue( maxMinutesUntilChangePassword, &value ) )
-        inOutAccessFeatures->maxMinutesUntilChangePassword = value;
+        inOutAccessFeatures->maxMinutesUntilChangePassword = (UInt32)value;
     
     if ( StringToPWAccessFeatures_GetValue( maxMinutesUntilDisabled, &value ) )
-        inOutAccessFeatures->maxMinutesUntilDisabled = value;
+        inOutAccessFeatures->maxMinutesUntilDisabled = (UInt32)value;
     
     if ( StringToPWAccessFeatures_GetValue( maxMinutesOfNonUse, &value ) )
-        inOutAccessFeatures->maxMinutesOfNonUse = value;
+        inOutAccessFeatures->maxMinutesOfNonUse = (UInt32)value;
     
     if ( StringToPWAccessFeatures_GetValue( maxFailedLoginAttempts, &value ) )
         inOutAccessFeatures->maxFailedLoginAttempts = (UInt16)value;
     
     if ( StringToPWAccessFeatures_GetValue( minChars, &value ) )
-        inOutAccessFeatures->minChars = value;
+        inOutAccessFeatures->minChars = (UInt16)value;
         
     if ( StringToPWAccessFeatures_GetValue( maxChars, &value ) )
-        inOutAccessFeatures->maxChars = value;
+        inOutAccessFeatures->maxChars = (UInt16)value;
         
 	if ( StringToPWAccessFeatures_GetValue( passwordCannotBeName, &value ) )
-		inOutAccessFeatures->passwordCannotBeName = value;
+		inOutAccessFeatures->passwordCannotBeName = (unsigned int)value;
 	
 	if ( StringToPWAccessFeatures_GetValue( requiresMixedCase, &value ) )
-		inOutAccessFeatures->requiresMixedCase = value;
+		inOutAccessFeatures->requiresMixedCase = (unsigned int)value;
 	
 	if ( StringToPWAccessFeatures_GetValue( requiresSymbol, &value ) )
-		inOutAccessFeatures->requiresSymbol = value;
+		inOutAccessFeatures->requiresSymbol = (unsigned int)value;
 	
 	if ( StringToPWAccessFeatures_GetValue( newPasswordRequired, &value ) )
-		inOutAccessFeatures->newPasswordRequired = value;
+		inOutAccessFeatures->newPasswordRequired = (unsigned int)value;
 	
     // no checking for now
     return true;
@@ -845,10 +904,10 @@ Boolean StringToPWGlobalAccessFeaturesExtra( const char *inString, PWGlobalAcces
     unsigned long value;
 	
 	if ( StringToPWAccessFeatures_GetValue( notGuessablePattern, &value ) )
-		inOutExtraFeatures->notGuessablePattern = value;
+		inOutExtraFeatures->notGuessablePattern = (UInt32)value;
 		
 	if ( StringToPWAccessFeatures_GetValue( minutesUntilFailedLoginReset, &value ) )
-		inOutExtraFeatures->minutesUntilFailedLoginReset = value;
+		inOutExtraFeatures->minutesUntilFailedLoginReset = (UInt32)value;
 	
 	return result;
 }
@@ -887,15 +946,16 @@ Boolean StringToPWAccessFeatures( const char *inString, PWAccessFeatures *inOutA
 	const char *isSessionKeyAgent = strstr( inString, kPWPolicyStr_isSessionKeyAgent );
 	const char *resetToGlobalDefaults = strstr( inString, kPWPolicyStr_resetToGlobalDefaults );
     unsigned long value;
+    time_t timetTime;
     
     if ( StringToPWAccessFeatures_GetValue( isDisabled, &value ) )
-        inOutAccessFeatures->isDisabled = value;
+        inOutAccessFeatures->isDisabled = (int)value;
     
     if ( StringToPWAccessFeatures_GetValue( isAdminUser, &value ) )
-        inOutAccessFeatures->isAdminUser = value;
+        inOutAccessFeatures->isAdminUser = (int)value;
     
     if ( StringToPWAccessFeatures_GetValue( newPasswordRequired, &value ) )
-        inOutAccessFeatures->newPasswordRequired = value;
+        inOutAccessFeatures->newPasswordRequired = (int)value;
     
     if ( StringToPWAccessFeatures_GetValue( usingHistory, &value ) )
 	{
@@ -906,7 +966,7 @@ Boolean StringToPWAccessFeatures( const char *inString, PWAccessFeatures *inOutA
 				value = kPWFileMaxHistoryCount;
 			
 			inOutAccessFeatures->usingHistory = 1;
-			inOutAccessFeatures->historyCount = value - 1;
+			inOutAccessFeatures->historyCount = (unsigned int)value - 1;
 		}
 		else
 		{
@@ -916,49 +976,55 @@ Boolean StringToPWAccessFeatures( const char *inString, PWAccessFeatures *inOutA
     }
 	
     if ( StringToPWAccessFeatures_GetValue( canModifyPasswordforSelf, &value ) )
-        inOutAccessFeatures->canModifyPasswordforSelf = value;
+        inOutAccessFeatures->canModifyPasswordforSelf = (int)value;
     
     if ( StringToPWAccessFeatures_GetValue( usingExpirationDate, &value ) )
-        inOutAccessFeatures->usingExpirationDate = value;
+        inOutAccessFeatures->usingExpirationDate = (int)value;
     
     if ( StringToPWAccessFeatures_GetValue( usingHardExpirationDate, &value ) )
-        inOutAccessFeatures->usingHardExpirationDate = value;
+        inOutAccessFeatures->usingHardExpirationDate = (int)value;
     
     if ( StringToPWAccessFeatures_GetValue( requiresAlpha, &value ) )
-        inOutAccessFeatures->requiresAlpha = value;
+        inOutAccessFeatures->requiresAlpha = (int)value;
     
     if ( StringToPWAccessFeatures_GetValue( requiresNumeric, &value ) )
-        inOutAccessFeatures->requiresNumeric = value;
+        inOutAccessFeatures->requiresNumeric = (int)value;
     
     if ( StringToPWAccessFeatures_GetValue( expirationDateGMT, &value ) )
-		gmtime_r( (time_t *)&value, (struct tm *)&inOutAccessFeatures->expirationDateGMT );
+    {
+        timetTime = (time_t)value;
+		BSDTimeStructCopy_gmtime_r( &timetTime, &inOutAccessFeatures->expirationDateGMT );
+    }
     
     if ( StringToPWAccessFeatures_GetValue( hardExpireDateGMT, &value ) )
-		gmtime_r( (time_t *)&value, (struct tm *)&inOutAccessFeatures->hardExpireDateGMT );
+    {
+        timetTime = (time_t)value;
+		BSDTimeStructCopy_gmtime_r( &timetTime, &inOutAccessFeatures->hardExpireDateGMT );
+    }
 	
 	if ( StringToPWAccessFeatures_GetValue( maxMinutesUntilChangePassword, &value ) )
-        inOutAccessFeatures->maxMinutesUntilChangePassword = value;
+        inOutAccessFeatures->maxMinutesUntilChangePassword = (UInt32)value;
     
     if ( StringToPWAccessFeatures_GetValue( maxMinutesUntilDisabled, &value ) )
-        inOutAccessFeatures->maxMinutesUntilDisabled = value;
+        inOutAccessFeatures->maxMinutesUntilDisabled = (UInt32)value;
     
     if ( StringToPWAccessFeatures_GetValue( maxMinutesOfNonUse, &value ) )
-        inOutAccessFeatures->maxMinutesOfNonUse = value;
+        inOutAccessFeatures->maxMinutesOfNonUse = (UInt32)value;
     
     if ( StringToPWAccessFeatures_GetValue( maxFailedLoginAttempts, &value ) )
         inOutAccessFeatures->maxFailedLoginAttempts = (UInt16)value;
     
     if ( StringToPWAccessFeatures_GetValue( minChars, &value ) )
-        inOutAccessFeatures->minChars = value;
+        inOutAccessFeatures->minChars = (UInt16)value;
         
     if ( StringToPWAccessFeatures_GetValue( maxChars, &value ) )
-        inOutAccessFeatures->maxChars = value;
+        inOutAccessFeatures->maxChars = (UInt16)value;
 	
 	if ( StringToPWAccessFeatures_GetValue( passwordCannotBeName, &value ) )
-		inOutAccessFeatures->passwordCannotBeName = value;
+		inOutAccessFeatures->passwordCannotBeName = (int)value;
 	
 	if ( StringToPWAccessFeatures_GetValue( isSessionKeyAgent, &value ) )
-		inOutAccessFeatures->isSessionKeyAgent = value;
+		inOutAccessFeatures->isSessionKeyAgent = (int)value;
 
 	// this policy must be processed last
 	if ( StringToPWAccessFeatures_GetValue( resetToGlobalDefaults, &value ) && value > 0 )
@@ -1018,37 +1084,37 @@ Boolean StringToPWAccessFeaturesExtra( const char *inString, PWAccessFeatures *i
 	if ( result )
 	{   
 		if ( StringToPWAccessFeatures_GetValue( requiresMixedCase, &value ) )
-			inOutExtraFeatures->requiresMixedCase = value;
+			inOutExtraFeatures->requiresMixedCase = (UInt32)value;
 		
 		if ( StringToPWAccessFeatures_GetValue( requiresSymbol, &value ) )
-			inOutExtraFeatures->requiresSymbol = value;
+			inOutExtraFeatures->requiresSymbol = (unsigned int)value;
 		
 		if ( StringToPWAccessFeatures_GetValue( notGuessablePattern, &value ) )
-			inOutExtraFeatures->notGuessablePattern = value;
+			inOutExtraFeatures->notGuessablePattern = (unsigned int)value;
 		
 		if ( StringToPWAccessFeatures_GetValue( isComputerAccount, &value ) )
-			inOutExtraFeatures->isComputerAccount = value;
+			inOutExtraFeatures->isComputerAccount = (unsigned int)value;
 		
 		if ( StringToPWAccessFeatures_GetValue( adminNoChangePasswords, &value ) )
-			inOutExtraFeatures->adminNoChangePasswords = value;
+			inOutExtraFeatures->adminNoChangePasswords = (unsigned int)value;
 			
 		if ( StringToPWAccessFeatures_GetValue( adminNoSetPolicies, &value ) )
-			inOutExtraFeatures->adminNoSetPolicies = value;
+			inOutExtraFeatures->adminNoSetPolicies = (unsigned int)value;
 			
 		if ( StringToPWAccessFeatures_GetValue( adminNoCreate, &value ) )
-			inOutExtraFeatures->adminNoCreate = value;
+			inOutExtraFeatures->adminNoCreate = (unsigned int)value;
 			
 		if ( StringToPWAccessFeatures_GetValue( adminNoDelete, &value ) )
-			inOutExtraFeatures->adminNoDelete = value;
+			inOutExtraFeatures->adminNoDelete = (unsigned int)value;
 			
 		if ( StringToPWAccessFeatures_GetValue( adminNoClearState, &value ) )
-			inOutExtraFeatures->adminNoClearState = value;
+			inOutExtraFeatures->adminNoClearState = (unsigned int)value;
 			
 		if ( StringToPWAccessFeatures_GetValue( adminNoPromoteAdmins, &value ) )
-			inOutExtraFeatures->adminNoPromoteAdmins = value;
+			inOutExtraFeatures->adminNoPromoteAdmins = (unsigned int)value;
 			
 		if ( StringToPWAccessFeatures_GetValue( adminClass, &value ) )
-			inOutExtraFeatures->adminClass = value;
+			inOutExtraFeatures->adminClass = (unsigned int)value;
 		
 		if ( StringToPWAccessFeatures_GetValue( resetToGlobalDefaults, &value ) && value > 0 )
 		{
@@ -1167,6 +1233,20 @@ void pwsf_PreserveUnrepresentedPolicies( const char *inOriginalStr, int inMaxLen
 					 MIN(curLen + (endPtr - warnOfDisableMinutes) + 1, inMaxLen) );
 		else
 			strlcat( inOutString, warnOfDisableMinutes, inMaxLen );
+
+		curLen = strlen( inOutString );
+	}
+
+	const char *passwordLastSetTime = strstr( inOriginalStr, kPWPolicyStr_passwordLastSetTime );
+	if( passwordLastSetTime != NULL )
+	{
+		endPtr = strchr( passwordLastSetTime, ' ' );
+		if( endPtr != NULL )
+			strlcat( inOutString,
+					 passwordLastSetTime, 
+					 MIN(curLen + (endPtr - passwordLastSetTime) + 1, inMaxLen) );
+		else
+			strlcat( inOutString, passwordLastSetTime, inMaxLen );
 	}
 }
 
@@ -1253,7 +1333,7 @@ void pwsf_CreateReplicaFile( const char *inIPStr, const char *inDNSStr, const ch
 		
 		[replicaFile setReplicaPolicy:kReplicaAllowAll];
 		[replicaFile saveXMLData];
-		[replicaFile free];
+		[replicaFile release];
 	}
 }
 
@@ -1297,7 +1377,7 @@ void pwsf_ResetReplicaFile( const char *inPublicKey )
 			if ( CFDictionaryGetValueIfPresent(serverDict, CFSTR(kPWReplicaDNSKey), (const void **)&dnsString) )
 				CFStringGetCString( dnsString, dnsStr, sizeof(dnsStr), kCFStringEncodingUTF8 );
 		}
-		[replicaFile free];
+		[replicaFile release];
 	}
 	
 	// replace the replica file
@@ -1316,7 +1396,7 @@ void pwsf_ResetReplicaFile( const char *inPublicKey )
 				[newReplicaFile setParentWithDict:serverDict];
 				[newReplicaFile saveXMLData];
 			}
-			[newReplicaFile free];
+			[newReplicaFile release];
 		}
 	}
 }
@@ -1789,7 +1869,7 @@ void pwsf_AddHashesToPWRecord( const char *inRealm, bool inAddNT, bool inAddLM, 
 // ----------------------------------------------------------------------------------------
 
 void
-pwsf_getHashCramMD5(const unsigned char *inPassword, long inPasswordLen, unsigned char *outHash, unsigned long *outHashLen )
+pwsf_getHashCramMD5(const unsigned char *inPassword, size_t inPasswordLen, unsigned char *outHash, size_t *outHashLen )
 {
 	HMAC_MD5_STATE state;
 	
@@ -1807,7 +1887,7 @@ pwsf_getHashCramMD5(const unsigned char *inPassword, long inPasswordLen, unsigne
 // ----------------------------------------------------------------------------------------
 
 void
-pwsf_getSaltedSHA1(const unsigned char *inPassword, long inPasswordLen, unsigned char *outHash, unsigned long *outHashLen)
+pwsf_getSaltedSHA1(const unsigned char *inPassword, size_t inPasswordLen, unsigned char *outHash, size_t *outHashLen)
 {
 	CC_SHA1_CTX ctx;
 	unsigned long salt = pwsf_getRandom();
@@ -1817,7 +1897,7 @@ pwsf_getSaltedSHA1(const unsigned char *inPassword, long inPasswordLen, unsigned
 	
 	CC_SHA1_Init(&ctx);
 	CC_SHA1_Update(&ctx, &salt, 4);
-	CC_SHA1_Update(&ctx, inPassword, inPasswordLen);
+	CC_SHA1_Update(&ctx, inPassword, (CC_LONG)inPasswordLen);
 	CC_SHA1_Final(outHash + 4, &ctx);
 	memcpy(outHash, &salt, 4);
 	*outHashLen = (4 + CC_SHA1_DIGEST_LENGTH);
@@ -1913,9 +1993,30 @@ void pwsf_addHashSaltedSHA1( PWFileEntry *inOutPasswordRec )
 int pwsf_TestDisabledStatus( PWAccessFeatures *inAccess, PWGlobalAccessFeatures *inGAccess, struct tm *inCreationDate, struct tm *inLastLoginTime, UInt16 *inOutFailedLoginAttempts )
 {
 	PWDisableReasonCode ignored;
+    BSDTimeStructCopy creationDate;
+    BSDTimeStructCopy lastLoginTime;
+    
+    StructTM2BSDTimeStructCopy( inCreationDate, &creationDate );
+    StructTM2BSDTimeStructCopy( inLastLoginTime, &lastLoginTime );
+	
+	return pwsf_TestDisabledStatusWithReasonCode( inAccess, inGAccess, &creationDate, &lastLoginTime,
+                                                  inOutFailedLoginAttempts, &ignored );
+}
+
+
+//------------------------------------------------------------------------------------
+//	pwsf_TestDisabledStatus
+//
+//	Returns: kAuthUserDisabled or kAuthOK
+//
+//  <inOutFailedLoginAttempts> is set to 0 if the failed login count is exceeded.
+//------------------------------------------------------------------------------------
+int pwsf_TestDisabledStatusPWS( PWAccessFeatures *inAccess, PWGlobalAccessFeatures *inGAccess, BSDTimeStructCopy *inCreationDate, BSDTimeStructCopy *inLastLoginTime, UInt16 *inOutFailedLoginAttempts )
+{
+	PWDisableReasonCode ignored;
 	
 	return pwsf_TestDisabledStatusWithReasonCode( inAccess, inGAccess, inCreationDate, inLastLoginTime,
-				inOutFailedLoginAttempts, &ignored );
+                                                  inOutFailedLoginAttempts, &ignored );
 }
 
 
@@ -1928,7 +2029,7 @@ int pwsf_TestDisabledStatus( PWAccessFeatures *inAccess, PWGlobalAccessFeatures 
 //  <outReasonCode> is only valid if the return value is kAuthUserDisabled.
 //------------------------------------------------------------------------------------
 
-int pwsf_TestDisabledStatusWithReasonCode( PWAccessFeatures *inAccess, PWGlobalAccessFeatures *inGAccess, struct tm *inCreationDate, struct tm *inLastLoginTime, UInt16 *inOutFailedLoginAttempts, PWDisableReasonCode *outReasonCode )
+int pwsf_TestDisabledStatusWithReasonCode( PWAccessFeatures *inAccess, PWGlobalAccessFeatures *inGAccess, BSDTimeStructCopy *inCreationDate, BSDTimeStructCopy *inLastLoginTime, UInt16 *inOutFailedLoginAttempts, PWDisableReasonCode *outReasonCode )
 {
 	bool setToDisabled = false;
 	
@@ -1977,14 +2078,14 @@ int pwsf_TestDisabledStatusWithReasonCode( PWAccessFeatures *inAccess, PWGlobalA
 	// maxMinutesUntilDisabled
 	if ( inAccess->maxMinutesUntilDisabled > 0 )
 	{
-		if ( LoginTimeIsStale((BSDTimeStructCopy *)inCreationDate, inAccess->maxMinutesUntilDisabled) )
+		if ( LoginTimeIsStale(inCreationDate, inAccess->maxMinutesUntilDisabled) )
 		{
 			*outReasonCode = kPWDisabledExpired;
 			setToDisabled = true;
 		}
 	}
 	else
-	if ( inGAccess->maxMinutesUntilDisabled > 0 && LoginTimeIsStale((BSDTimeStructCopy *)inCreationDate, inGAccess->maxMinutesUntilDisabled) )
+	if ( inGAccess->maxMinutesUntilDisabled > 0 && LoginTimeIsStale(inCreationDate, inGAccess->maxMinutesUntilDisabled) )
 	{
 		*outReasonCode = kPWDisabledExpired;
 		setToDisabled = true;
@@ -1992,7 +2093,7 @@ int pwsf_TestDisabledStatusWithReasonCode( PWAccessFeatures *inAccess, PWGlobalA
 	
 	if ( inAccess->maxMinutesOfNonUse > 0 )
 	{
-		if ( LoginTimeIsStale( (BSDTimeStructCopy *)inLastLoginTime, inAccess->maxMinutesOfNonUse) )
+		if ( LoginTimeIsStale( inLastLoginTime, inAccess->maxMinutesOfNonUse) )
 		{
 			*outReasonCode = kPWDisabledInactive;
 			setToDisabled = true;
@@ -2000,7 +2101,7 @@ int pwsf_TestDisabledStatusWithReasonCode( PWAccessFeatures *inAccess, PWGlobalA
 	}
 	else
     if ( inGAccess->maxMinutesOfNonUse > 0 &&
-		 LoginTimeIsStale( (BSDTimeStructCopy *)inLastLoginTime, inGAccess->maxMinutesOfNonUse) )
+		 LoginTimeIsStale( inLastLoginTime, inGAccess->maxMinutesOfNonUse) )
     {
 		*outReasonCode = kPWDisabledInactive;
 		setToDisabled = true;
@@ -2017,6 +2118,20 @@ int pwsf_TestDisabledStatusWithReasonCode( PWAccessFeatures *inAccess, PWGlobalA
 //------------------------------------------------------------------------------------------------
 
 int pwsf_ChangePasswordStatus( PWAccessFeatures *inAccess, PWGlobalAccessFeatures *inGAccess, struct tm *inModDateOfPassword )
+{
+    BSDTimeStructCopy modDateOfPassword;
+    StructTM2BSDTimeStructCopy( inModDateOfPassword, &modDateOfPassword );
+    return pwsf_ChangePasswordStatusPWS( inAccess, inGAccess, &modDateOfPassword );
+}
+
+
+//------------------------------------------------------------------------------------------------
+//	pwsf_ChangePasswordStatusPWS
+//
+//	Returns: kAuthOK, kAuthPasswordNeedsChange, kAuthPasswordExpired
+//------------------------------------------------------------------------------------------------
+
+int pwsf_ChangePasswordStatusPWS( PWAccessFeatures *inAccess, PWGlobalAccessFeatures *inGAccess, BSDTimeStructCopy *inModDateOfPassword )
 {
 	bool needsChange = false;
 	
@@ -2041,11 +2156,11 @@ int pwsf_ChangePasswordStatus( PWAccessFeatures *inAccess, PWGlobalAccessFeature
 		// maxMinutesUntilChangePassword
 		if ( inAccess->maxMinutesUntilChangePassword > 0 )
 		{
-			if ( LoginTimeIsStale( (BSDTimeStructCopy *)inModDateOfPassword, inAccess->maxMinutesUntilChangePassword ) )
+			if ( LoginTimeIsStale( inModDateOfPassword, inAccess->maxMinutesUntilChangePassword ) )
 				needsChange = true;
 		}
 		else
-		if ( inGAccess->maxMinutesUntilChangePassword > 0 && LoginTimeIsStale( (BSDTimeStructCopy *)inModDateOfPassword, inGAccess->maxMinutesUntilChangePassword ) )
+		if ( inGAccess->maxMinutesUntilChangePassword > 0 && LoginTimeIsStale( inModDateOfPassword, inGAccess->maxMinutesUntilChangePassword ) )
 		{
 			needsChange = true;
 		}
@@ -2232,7 +2347,7 @@ int pwsf_RequiredCharacterStatusExtra(PWAccessFeatures *access, PWGlobalAccessFe
 //	Returns: the position in the database file (from SEEK_SET) for the slot
 //----------------------------------------------------------------------------------------------------
 
-long pwsf_slotToOffset(long slot)
+off_t pwsf_slotToOffset(uint32_t slot)
 {
    	return sizeof(PWFileHeader) + (slot - 1) * sizeof(PWFileEntry);
 }
@@ -2244,14 +2359,15 @@ long pwsf_slotToOffset(long slot)
 //	Returns: a time struct based on GMT
 //----------------------------------------------------------------------------------------------------
 
-void pwsf_getGMTime(struct tm *inOutGMT)
+void pwsf_getGMTime(BSDTimeStructCopy *outGMT)
 {
-    time_t theTime;
-    struct tm gmt;
+    if ( outGMT != NULL )
+    {
+        time_t theTime;
     
-    time(&theTime);
-    gmtime_r(&theTime, &gmt);
-    memcpy( inOutGMT, &gmt, sizeof(struct tm) );
+        time(&theTime);
+        BSDTimeStructCopy_gmtime_r(&theTime, outGMT);
+    }
 }
 
 
@@ -2278,15 +2394,15 @@ unsigned long pwsf_getTimeForRef(void)
 
 unsigned long pwsf_getRandom(void)
 {
-	UInt32 result;
-	UInt32 uiNow;
+	unsigned long result;
+	unsigned long uiNow;
 	time_t now;
 	
 	result = (unsigned long) random();
 	
 	time(&now);
-	uiNow = (unsigned long)now + result;
-	srandom(uiNow);
+	uiNow = now + result;
+	srandom((unsigned int)uiNow);
 	
 	return result;
 }
@@ -2366,7 +2482,7 @@ static inline void ConvertHexToBinaryFastWithNtoHL( const char *inHex, int len, 
 	}
 #else
 	register int idx2;
-	const int lc = len / (sizeof(UInt32)*2);
+	const int lc = len / (int)(sizeof(UInt32)*2);
 	
 	tptr += sizeof(UInt32) - 1;
 	for ( idx2 = 0; idx2 < lc; idx2++ ) {
@@ -2406,7 +2522,7 @@ int pwsf_stringToPasswordRecRef(const char *inRefStr, PWFileEntry *outPasswordRe
 //	pwsf_compress_header
 //----------------------------------------------------------------------------------------------------
 
-int pwsf_compress_header( PWFileHeader *inHeader, unsigned char **outCompressedHeader, unsigned int *outCompressedHeaderLength )
+int pwsf_compress_header( PWFileHeader *inHeader, unsigned char **outCompressedHeader, size_t *outCompressedHeaderLength )
 {
 	PWFileHeaderCompressed *outPWHeader = NULL;
 	
@@ -2457,7 +2573,7 @@ int pwsf_compress_header( PWFileHeader *inHeader, unsigned char **outCompressedH
 //	pwsf_expand_header
 //----------------------------------------------------------------------------------------------------
 
-int pwsf_expand_header( const unsigned char *inCompressedHeader, unsigned int inCompressedHeaderLength, PWFileHeader *outHeader )
+int pwsf_expand_header( const unsigned char *inCompressedHeader, size_t inCompressedHeaderLength, PWFileHeader *outHeader )
 {
 	PWFileHeaderCompressed *cHeader = (PWFileHeaderCompressed *)inCompressedHeader;
 	
@@ -2486,11 +2602,11 @@ int pwsf_expand_header( const unsigned char *inCompressedHeader, unsigned int in
 //	pwsf_compress_slot
 //----------------------------------------------------------------------------------------------------
 
-int pwsf_compress_slot( PWFileEntry *inPasswordRec, unsigned char **outCompressedRecord, unsigned int *outCompressedRecordLength )
+int pwsf_compress_slot( PWFileEntry *inPasswordRec, unsigned char **outCompressedRecord, size_t *outCompressedRecordLength )
 {
 	PWFileEntryCompressed *outPWRec = NULL;
-	long requiredDigestLength = sizeof(UInt16);		// 2 bytes for the in-use flags
-	long requiredLength = 0;
+	size_t requiredDigestLength = sizeof(UInt16);		// 2 bytes for the in-use flags
+	size_t requiredLength = 0;
 	unsigned long len;
 	UInt16 digestFlags = 0x000;
 	SInt16 groupCount = 0;
@@ -2510,6 +2626,8 @@ int pwsf_compress_slot( PWFileEntry *inPasswordRec, unsigned char **outCompresse
 			switch( idx )
 			{
 				case kPWHashSlotSMB_NT:
+					requiredDigestLength += 32;
+					break;
 				case kPWHashSlotSMB_LAN_MANAGER:
 				case kPWHashSlotDIGEST_MD5:
 					requiredDigestLength += 16;
@@ -2554,10 +2672,10 @@ int pwsf_compress_slot( PWFileEntry *inPasswordRec, unsigned char **outCompresse
 	outPWRec->slot = bigEndianEntry.slot;
 	
 	// times need to be converted from host byte order
-	outPWRec->creationDate = htonl( timegm((struct tm *)&inPasswordRec->creationDate) );
-	outPWRec->modificationDate = htonl( timegm((struct tm *)&inPasswordRec->modificationDate) );
-	outPWRec->modDateOfPassword = htonl( timegm((struct tm *)&inPasswordRec->modDateOfPassword) );
-	outPWRec->lastLogin = htonl( timegm((struct tm *)&inPasswordRec->lastLogin) );
+	outPWRec->creationDate = htonl( (uint32_t)BSDTimeStructCopy_timegm(&inPasswordRec->creationDate) );
+	outPWRec->modificationDate = htonl( (uint32_t)BSDTimeStructCopy_timegm(&inPasswordRec->modificationDate) );
+	outPWRec->modDateOfPassword = htonl( (uint32_t)BSDTimeStructCopy_timegm(&inPasswordRec->modDateOfPassword) );
+	outPWRec->lastLogin = htonl( (uint32_t)BSDTimeStructCopy_timegm(&inPasswordRec->lastLogin) );
 	
 	outPWRec->failedLoginAttempts = bigEndianEntry.failedLoginAttempts;
 	
@@ -2565,8 +2683,8 @@ int pwsf_compress_slot( PWFileEntry *inPasswordRec, unsigned char **outCompresse
 	memcpy( &outPWRec->access, &bigEndianEntry.access, sizeof(char) * 2 );
 	
 	// times need to be converted from host byte order
-	outPWRec->access.expirationDateGMT = htonl( timegm((struct tm *)&inPasswordRec->access.expirationDateGMT) );
-	outPWRec->access.hardExpireDateGMT = htonl( timegm((struct tm *)&inPasswordRec->access.hardExpireDateGMT) );
+	outPWRec->access.expirationDateGMT = htonl( (uint32_t)BSDTimeStructCopy_timegm(&inPasswordRec->access.expirationDateGMT) );
+	outPWRec->access.hardExpireDateGMT = htonl( (uint32_t)BSDTimeStructCopy_timegm(&inPasswordRec->access.hardExpireDateGMT) );
 	
 	outPWRec->access.maxMinutesUntilChangePassword = bigEndianEntry.access.maxMinutesUntilChangePassword;
 	outPWRec->access.maxMinutesUntilDisabled = bigEndianEntry.access.maxMinutesUntilDisabled;
@@ -2596,6 +2714,9 @@ int pwsf_compress_slot( PWFileEntry *inPasswordRec, unsigned char **outCompresse
 			switch( idx )
 			{
 				case kPWHashSlotSMB_NT:
+					ConvertHexToBinary( &bigEndianEntry.digest[idx].digest[1], (unsigned char *)tptr, &len );
+					tptr += 32;
+					break;
 				case kPWHashSlotSMB_LAN_MANAGER:
 					ConvertHexToBinary( &bigEndianEntry.digest[idx].digest[1], (unsigned char *)tptr, &len );
 					tptr += 16;
@@ -2646,7 +2767,7 @@ int pwsf_compress_slot( PWFileEntry *inPasswordRec, unsigned char **outCompresse
 //	pwsf_expand_slot
 //----------------------------------------------------------------------------------------------------
 
-int pwsf_expand_slot( const unsigned char *inCompressedRecord, unsigned int inCompressedRecordLength, PWFileEntry *inOutPasswordRec )
+int pwsf_expand_slot( const unsigned char *inCompressedRecord, size_t inCompressedRecordLength, PWFileEntry *inOutPasswordRec )
 {
 	PWFileEntryCompressed *inRec = (PWFileEntryCompressed *)inCompressedRecord;
 	UInt16 digestFlags = 0x000;
@@ -2656,6 +2777,7 @@ int pwsf_expand_slot( const unsigned char *inCompressedRecord, unsigned int inCo
 	int idx;
 	char adminID[35] = {0};
 	char filePath[PATH_MAX];
+    time_t timetTime;
 	
 	if ( inCompressedRecord == NULL || inCompressedRecordLength < sizeof(PWFileEntryCompressed) )
 		return -1;
@@ -2670,19 +2792,31 @@ int pwsf_expand_slot( const unsigned char *inCompressedRecord, unsigned int inCo
 	// convert times
 	inRec->creationDate = ntohl( inRec->creationDate );
 	if ( inRec->creationDate != -1 )
-		gmtime_r(&inRec->creationDate, (struct tm *)&inOutPasswordRec->creationDate);
+    {
+        timetTime = (time_t)inRec->creationDate;
+		BSDTimeStructCopy_gmtime_r(&timetTime, &inOutPasswordRec->creationDate);
+    }
 
 	inRec->modificationDate = ntohl( inRec->modificationDate );
 	if ( inRec->modificationDate != -1 )
-		gmtime_r(&inRec->modificationDate, (struct tm *)&inOutPasswordRec->modificationDate);
+    {
+        timetTime = (time_t)inRec->modificationDate;
+		BSDTimeStructCopy_gmtime_r(&timetTime, &inOutPasswordRec->modificationDate);
+    }
 
 	inRec->modDateOfPassword = ntohl( inRec->modDateOfPassword );
 	if ( inRec->modDateOfPassword != -1 )
-		gmtime_r(&inRec->modDateOfPassword, (struct tm *)&inOutPasswordRec->modDateOfPassword);
+    {
+        timetTime = (time_t)inRec->modDateOfPassword;
+		BSDTimeStructCopy_gmtime_r(&timetTime, &inOutPasswordRec->modDateOfPassword);
+    }
 
 	inRec->lastLogin = ntohl( inRec->lastLogin );
 	if ( inRec->lastLogin != -1 )
-		gmtime_r(&inRec->lastLogin, (struct tm *)&inOutPasswordRec->lastLogin);
+    {
+        timetTime = (time_t)inRec->lastLogin;
+		BSDTimeStructCopy_gmtime_r(&timetTime, &inOutPasswordRec->lastLogin);
+    }
 	
 	inOutPasswordRec->failedLoginAttempts = inRec->failedLoginAttempts;
 	
@@ -2692,11 +2826,11 @@ int pwsf_expand_slot( const unsigned char *inCompressedRecord, unsigned int inCo
 	// convert times
 	if ( inRec->access.expirationDateGMT != -1 ) {
 		inRec->access.expirationDateGMT = ntohl( inRec->access.expirationDateGMT );
-		gmtime_r(&inRec->access.expirationDateGMT, (struct tm *)&inOutPasswordRec->access.expirationDateGMT);
+		BSDTimeStructCopy_gmtime_r((const time_t*)&inRec->access.expirationDateGMT, &inOutPasswordRec->access.expirationDateGMT);
 	}
 	if ( inRec->access.hardExpireDateGMT != -1 ) {
 		inRec->access.hardExpireDateGMT = ntohl( inRec->access.hardExpireDateGMT );
-		gmtime_r(&inRec->access.hardExpireDateGMT, (struct tm *)&inOutPasswordRec->access.hardExpireDateGMT);
+		BSDTimeStructCopy_gmtime_r((const time_t*)&inRec->access.hardExpireDateGMT, &inOutPasswordRec->access.hardExpireDateGMT);
 	}
 	
 	inOutPasswordRec->access.maxMinutesUntilChangePassword = inRec->access.maxMinutesUntilChangePassword;
@@ -2728,9 +2862,9 @@ int pwsf_expand_slot( const unsigned char *inCompressedRecord, unsigned int inCo
 			{
 				case kPWHashSlotSMB_NT:
 					strcpy( inOutPasswordRec->digest[kPWHashSlotSMB_NT].method, kSMBNTStorageTag );
-					ConvertBinaryToHex( (unsigned char *)tptr, 16, &inOutPasswordRec->digest[kPWHashSlotSMB_NT].digest[1] );
+					ConvertBinaryToHex( (unsigned char *)tptr, 32, &inOutPasswordRec->digest[kPWHashSlotSMB_NT].digest[1] );
 					inOutPasswordRec->digest[kPWHashSlotSMB_NT].digest[0] = 64;
-					tptr += 16;
+					tptr += 32;
 					break;
 				
 				case kPWHashSlotSMB_LAN_MANAGER:
@@ -3230,13 +3364,13 @@ int pwsf_GetGroupListWithPath( const char *basePath, PWFileEntry *adminRec, uuid
 	CFStringRef uuidString = NULL;
 	CFUUIDRef uuidRef = NULL;
 	CFUUIDBytes uuidBytes;
-	int groupCount = -1;
-	int idx = 0;
+	CFIndex groupCount = -1;
+	CFIndex idx = 0;
 	char slotStr[35];
 	char pathStr[PATH_MAX];
 	
 	if ( adminRec == NULL || outGroupList == NULL )
-		return groupCount;
+		return (int)groupCount;
 		
 	*outGroupList = NULL;
 			
@@ -3291,7 +3425,7 @@ int pwsf_GetGroupListWithPath( const char *basePath, PWFileEntry *adminRec, uuid
 			break;
 	}
 	
-	return groupCount;
+	return (int)groupCount;
 }
 
 

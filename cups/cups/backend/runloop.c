@@ -1,5 +1,5 @@
 /*
- * "$Id: runloop.c 7648 2008-06-16 17:41:11Z mike $"
+ * "$Id: runloop.c 7895 2008-09-02 19:19:43Z mike $"
  *
  *   Common run loop APIs for the Common UNIX Printing System (CUPS).
  *
@@ -25,6 +25,7 @@
  */
 
 #include "backend-private.h"
+#include <limits.h>
 #ifdef __hpux
 #  include <sys/time.h>
 #else
@@ -141,10 +142,13 @@ backendDrainOutput(int print_fd,	/* I - Print file descriptor */
 
 ssize_t					/* O - Total bytes on success, -1 on error */
 backendRunLoop(
-    int  print_fd,			/* I - Print file descriptor */
-    int  device_fd,			/* I - Device file descriptor */
-    int  use_bc,			/* I - Use back-channel? */
-    void (*side_cb)(int, int, int))	/* I - Side-channel callback */
+    int         print_fd,		/* I - Print file descriptor */
+    int         device_fd,		/* I - Device file descriptor */
+    int         snmp_fd,		/* I - SNMP socket or -1 if none */
+    http_addr_t *addr,			/* I - Address of device */
+    int         use_bc,			/* I - Use back-channel? */
+    void        (*side_cb)(int, int, int, http_addr_t *, int))
+					/* I - Side-channel callback */
 {
   int		nfds;			/* Maximum file descriptor value + 1 */
   fd_set	input,			/* Input set for reading */
@@ -158,15 +162,18 @@ backendRunLoop(
   char		print_buffer[8192],	/* Print data buffer */
 		*print_ptr,		/* Pointer into print data buffer */
 		bc_buffer[1024];	/* Back-channel data buffer */
+  struct timeval timeout;		/* Timeout for select() */
+  time_t	curtime,		/* Current time */
+		snmp_update = 0;
 #if defined(HAVE_SIGACTION) && !defined(HAVE_SIGSET)
   struct sigaction action;		/* Actions for POSIX signals */
 #endif /* HAVE_SIGACTION && !HAVE_SIGSET */
 
 
   fprintf(stderr,
-          "DEBUG: backendRunLoop(print_fd=%d, device_fd=%d, use_bc=%d, "
-	  "side_cb=%p)\n",
-          print_fd, device_fd, use_bc, side_cb);
+          "DEBUG: backendRunLoop(print_fd=%d, device_fd=%d, snmp_fd=%d, "
+	  "addr=%p, use_bc=%d, side_cb=%p)\n",
+          print_fd, device_fd, snmp_fd, addr, use_bc, side_cb);
 
  /*
   * If we are printing data from a print driver on stdin, ignore SIGTERM
@@ -188,6 +195,14 @@ backendRunLoop(
 #else
     signal(SIGTERM, SIG_IGN);
 #endif /* HAVE_SIGSET */
+  }
+  else if (print_fd < 0)
+  {
+   /*
+    * Copy print data from stdin, but don't mess with the signal handlers...
+    */
+
+    print_fd = 0;
   }
 
  /*
@@ -221,7 +236,10 @@ backendRunLoop(
 
     if (use_bc || side_cb)
     {
-      if (select(nfds, &input, &output, NULL, NULL) < 0)
+      timeout.tv_sec  = 5;
+      timeout.tv_usec = 0;
+
+      if (select(nfds, &input, &output, NULL, &timeout) < 0)
       {
        /*
 	* Pause printing to clear any pending errors...
@@ -229,8 +247,8 @@ backendRunLoop(
 
 	if (errno == ENXIO && offline != 1)
 	{
-	  fputs("STATE: +offline-error\n", stderr);
-	  _cupsLangPuts(stderr, _("INFO: Printer is currently off-line.\n"));
+	  fputs("STATE: +offline-report\n", stderr);
+	  _cupsLangPuts(stderr, _("INFO: Printer is currently offline.\n"));
 	  offline = 1;
 	}
 	else if (errno == EINTR && total_bytes == 0)
@@ -256,7 +274,7 @@ backendRunLoop(
       * loop since it may have read from print_fd...
       */
 
-      (*side_cb)(print_fd, device_fd, use_bc);
+      (*side_cb)(print_fd, device_fd, snmp_fd, addr, use_bc);
       continue;
     }
 
@@ -334,7 +352,7 @@ backendRunLoop(
 	{
 	  if (paperout != 1)
 	  {
-	    fputs("STATE: +media-empty-error\n", stderr);
+	    fputs("STATE: +media-empty-warning\n", stderr);
 	    _cupsLangPuts(stderr, _("ERROR: Out of paper!\n"));
 	    paperout = 1;
 	  }
@@ -343,7 +361,7 @@ backendRunLoop(
 	{
 	  if (offline != 1)
 	  {
-	    fputs("STATE: +offline-error\n", stderr);
+	    fputs("STATE: +offline-report\n", stderr);
 	    _cupsLangPuts(stderr, _("INFO: Printer is currently off-line.\n"));
 	    offline = 1;
 	  }
@@ -359,14 +377,14 @@ backendRunLoop(
       {
         if (paperout)
 	{
-	  fputs("STATE: -media-empty-error\n", stderr);
+	  fputs("STATE: -media-empty-warning\n", stderr);
 	  paperout = 0;
 	}
 
 	if (offline)
 	{
-	  fputs("STATE: -offline-error\n", stderr);
-	  _cupsLangPuts(stderr, _("INFO: Printer is now on-line.\n"));
+	  fputs("STATE: -offline-report\n", stderr);
+	  _cupsLangPuts(stderr, _("INFO: Printer is now online.\n"));
 	  offline = 0;
 	}
 
@@ -376,6 +394,18 @@ backendRunLoop(
 	print_ptr   += bytes;
 	total_bytes += bytes;
       }
+    }
+
+   /*
+    * Do SNMP updates periodically...
+    */
+
+    if (snmp_fd >= 0 && time(&curtime) >= snmp_update)
+    {
+      if (backendSNMPSupplies(snmp_fd, addr, NULL, NULL))
+        snmp_update = INT_MAX;
+      else
+        snmp_update = curtime + 5;
     }
   }
 
@@ -388,5 +418,5 @@ backendRunLoop(
 
 
 /*
- * End of "$Id: runloop.c 7648 2008-06-16 17:41:11Z mike $".
+ * End of "$Id: runloop.c 7895 2008-09-02 19:19:43Z mike $".
  */

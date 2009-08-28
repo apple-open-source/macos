@@ -1,10 +1,10 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
-*                      by AT&T Knowledge Ventures                      *
+*                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
 *            http://www.opensource.org/licenses/cpl1.0.txt             *
@@ -20,38 +20,21 @@
 *                                                                      *
 ***********************************************************************/
 #pragma prototyped
-
 /*
- * _PACKAGE_astsa <ast.h>
+ * standalone mini ast+sfio interface
  */
 
-#ifndef _PACKAGE_astsa
-#define _PACKAGE_astsa		1
+#ifndef _AST_H
+#define _AST_H
+
+#include "ast_sa.h"
 
 #include <ast_common.h>
-#include <stdarg.h>
-#include <sfio.h>
-#include <limits.h>
-#if _hdr_stdlib
+
+#include <stdio.h>
 #include <stdlib.h>
-#endif
-#if _hdr_unistd
-#include <unistd.h>
-#else
-extern ssize_t		write(int, const void*, size_t);
-#endif
-
-#define elementsof(x)	(sizeof(x)/sizeof(x[0]))
-#define newof(p,t,n,x)	((p)?(t*)realloc((char*)(p),sizeof(t)*(n)+(x)):(t*)calloc(1,sizeof(t)*(n)+(x)))
-#define oldof(p,t,n,x)	((p)?(t*)realloc((char*)(p),sizeof(t)*(n)+(x)):(t*)malloc(sizeof(t)*(n)+(x)))
-#define roundof(x,y)	(((x)+(y)-1)&~((y)-1))
-#define ssizeof(x)	((int)sizeof(x))
-#define streq(a,b)	(*(a)==*(b)&&!strcmp(a,b))
-#define strneq(a,b,n)	(*(a)==*(b)&&!strncmp(a,b,n))
-
-#define ERROR_translating()		0
-#define ERROR_translate(a,b,c,s)	errorx(a,b,c,s)
-#define errorx(a,b,c,s)			(s)
+#include <string.h>
+#include <limits.h>
 
 #define STR_MAXIMAL	01		/* maximal match		*/
 #define STR_LEFT	02		/* implicit left anchor		*/
@@ -59,42 +42,106 @@ extern ssize_t		write(int, const void*, size_t);
 #define STR_ICASE	010		/* ignore case			*/
 #define STR_GROUP	020		/* (|&) inside [@|&](...) only	*/
 
-#if defined(__STDC__) || defined(__cplusplus) || defined(c_plusplus)
-#define NiL		0
-#define NoP(x)		(void)(x)
-#else
-#define NiL		((char*)0)
-#define NoP(x)		(&x,1)
-#endif
-
-#if !defined(NoF)
-#define NoF(x)		void _DATA_ ## x () {}
-#if !defined(_DATA_)
-#define _DATA_
-#endif
-#endif
-
-#if !defined(NoN)
-#define NoN(x)		void _STUB_ ## x () {}
-#if !defined(_STUB_)
-#define _STUB_
-#endif
-#endif
-
 typedef int (*Error_f)(void*, void*, int, ...);
 
-#define strerror	_ast_strerror
-#define fmterror	_ast_strerror
+typedef struct
+{
 
-#if _BLD_ast && defined(__EXPORT__)
-#define extern		extern __EXPORT__
+	char*		id;
+
+	struct
+	{
+	unsigned int	serial;
+	unsigned int	set;
+	}		locale;
+
+	long		tmp_long;
+	size_t		tmp_size;
+	short		tmp_short;
+	char		tmp_char;
+	wchar_t		tmp_wchar;
+
+	int		(*collate)(const char*, const char*);
+
+	int		tmp_int;
+	void*		tmp_pointer;
+
+	int		mb_cur_max;
+	int		(*mb_len)(const char*, size_t);
+	int		(*mb_towc)(wchar_t*, const char*, size_t);
+	size_t		(*mb_xfrm)(char*, const char*, size_t);
+	int		(*mb_width)(wchar_t);
+	int		(*mb_conv)(char*, wchar_t);
+
+	unsigned int	env_serial;
+
+	char		pad[944];
+
+} _Ast_info_t;
+
+#define ast		_ast_info_
+
+#define elementsof(x)	(sizeof(x)/sizeof(x[0]))
+#define integralof(x)	(((char*)(x))-((char*)0))
+#define newof(p,t,n,x)	((p)?(t*)realloc((char*)(p),sizeof(t)*(n)+(x)):(t*)calloc(1,sizeof(t)*(n)+(x)))
+#define pointerof(x)	((void*)((char*)0+(x)))
+#define roundof(x,y)	(((x)+(y)-1)&~((y)-1))
+
+#ifndef offsetof
+#define offsetof(type,member) ((unsigned long)&(((type*)0)->member))
 #endif
 
-extern char*		_ast_strerror(int);
-extern void		astwinsize(int, int*, int*);
-extern int		strgrpmatch(const char*, const char*, int*, int, int);
-extern int		strmatch(const char*, const char*);
+#if defined(__STDC__) || defined(__cplusplus) || defined(c_plusplus)
+#define NiL			0
+#define NoP(x)			(void)(x)
+#else
+#define NiL			((char*)0)
+#define NoP(x)			(&x,1)
+#endif
 
-#undef	extern
+#define fmtident(s)		((char*)(s)+10)
+#define mbchar(s)		(*s++)
+#define setlocale(a,b)
+
+#define streq(a,b)		(*(a)==*(b)&&!strcmp(a,b))
+#define strneq(a,b,n)		(*(a)==*(b)&&!strncmp(a,b,n))
+#define strton(s,t,b,f)		strtol(s,t,0)
+#define strtonll(s,t,b,f)	strtoll(s,t,0)
+
+#define Sfio_t		FILE
+
+#define sfstdin		stdin
+#define sfstdout	stdout
+#define sfstderr	stderr
+
+#define sfclose(f)	fclose(f)
+#define sffileno(f)	fileno(f)
+#define sfgetc(f)	fgetc(f)
+#define sfopen(f,n,m)	fopen(n,m)
+#define sfputc(f,c)	fputc(c,f)
+#define sfread(f,b,n)	fread(b,n,1,f)
+#define sfseek(f,p,w)	fseek(f,p,w)
+#define sfset(f,v,n)
+#define sfsync(f)	fflush(f)
+#define sfwrite(f,b,n)	fwrite(b,n,1,f)
+
+#define sfprintf	fprintf
+#define sfsprintf	snprintf
+#define sfvprintf	vfprintf
+
+#define sfscanf		fscanf
+
+#define sfgetr		_sf_getr
+
+#include <sfstr.h>
+
+extern _Ast_info_t	ast;
+
+extern int		astwinsize(int, int*, int*);
+extern char*		fmtbuf(size_t);
+extern char*		fmtip4(uint32_t, int);
+extern char*		sfgetr(Sfio_t*, int, int);
+extern int		strmatch(const char*, const char*);
+extern int		strtoip4(const char*, char**, uint32_t*, unsigned char*);
 
 #endif

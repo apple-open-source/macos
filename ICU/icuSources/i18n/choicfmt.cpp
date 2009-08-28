@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 1997-2006, International Business Machines Corporation and    *
+* Copyright (C) 1997-2008, International Business Machines Corporation and    *
 * others. All Rights Reserved.                                                *
 *******************************************************************************
 *
@@ -168,10 +168,26 @@ ChoiceFormat::operator=(const   ChoiceFormat& that)
         fChoiceLimits = (double*) uprv_malloc( sizeof(double) * fCount);
         fClosures = (UBool*) uprv_malloc( sizeof(UBool) * fCount);
         fChoiceFormats = new UnicodeString[fCount];
-
-        uprv_arrayCopy(that.fChoiceLimits, fChoiceLimits, fCount);
-        uprv_arrayCopy(that.fClosures, fClosures, fCount);
-        uprv_arrayCopy(that.fChoiceFormats, fChoiceFormats, fCount);
+        
+        // check for memory allocation error
+        if (!fChoiceLimits || !fClosures || !fChoiceFormats) {
+            if (fChoiceLimits) {
+                uprv_free(fChoiceLimits);
+                fChoiceLimits = NULL;
+            }
+            if (fClosures) {
+                uprv_free(fClosures);
+                fClosures = NULL;
+            }
+            if (fChoiceFormats) {
+                delete[] fChoiceFormats;
+                fChoiceFormats = NULL;
+            }
+        } else {
+            uprv_arrayCopy(that.fChoiceLimits, fChoiceLimits, fCount);
+            uprv_arrayCopy(that.fClosures, fClosures, fCount);
+            uprv_arrayCopy(that.fChoiceFormats, fChoiceFormats, fCount);
+        }
     }
     return *this;
 }
@@ -205,7 +221,7 @@ ChoiceFormat::stod(const UnicodeString& string)
 // -------------------------------------
 
 /**
- * Convert a double value to a string
+ * Convert a double value to a string without the overhead of ICU.
  */
 UnicodeString&
 ChoiceFormat::dtos(double value,
@@ -214,9 +230,9 @@ ChoiceFormat::dtos(double value,
     /* Buffer to contain the digits and any extra formatting stuff. */
     char temp[DBL_DIG + 16];
     char *itrPtr = temp;
-    char *startPtr;
+    char *expPtr;
 
-    sprintf(temp, "%.*f", DBL_DIG, value);
+    sprintf(temp, "%.*g", DBL_DIG, value);
 
     /* Find and convert the decimal point.
        Using setlocale on some machines will cause sprintf to use a comma for certain locales.
@@ -224,20 +240,37 @@ ChoiceFormat::dtos(double value,
     while (*itrPtr && (*itrPtr == '-' || isdigit(*itrPtr))) {
         itrPtr++;
     }
-    if (*itrPtr) {
+    if (*itrPtr != 0 && *itrPtr != 'e') {
+        /* We reached something that looks like a decimal point.
+        In case someone used setlocale(), which changes the decimal point. */
         *itrPtr = '.';
+        itrPtr++;
     }
-
-    /* remove trailing zeros, except the one after '.' */
-    startPtr = itrPtr + 1;
-    itrPtr = uprv_strchr(startPtr, 0);
-    while(--itrPtr > startPtr){
-        if(*itrPtr == '0'){
-            *itrPtr = 0;
-        }else{
-            break;
+    /* Search for the exponent */
+    while (*itrPtr && *itrPtr != 'e') {
+        itrPtr++;
+    }
+    if (*itrPtr == 'e') {
+        itrPtr++;
+        /* Verify the exponent sign */
+        if (*itrPtr == '+' || *itrPtr == '-') {
+            itrPtr++;
+        }
+        /* Remove leading zeros. You will see this on Windows machines. */
+        expPtr = itrPtr;
+        while (*itrPtr == '0') {
+            itrPtr++;
+        }
+        if (*itrPtr && expPtr != itrPtr) {
+            /* Shift the exponent without zeros. */
+            while (*itrPtr) {
+                *(expPtr++)  = *(itrPtr++);
+            }
+            // NULL terminate
+            *expPtr = 0;
         }
     }
+
     string = UnicodeString(temp, -1, US_INV);    /* invariant codepage */
     return string;
 }
@@ -474,48 +507,6 @@ ChoiceFormat::toPattern(UnicodeString& result) const
     return result;
 }
 
-#ifdef U_USE_CHOICE_FORMAT_DEPRECATES
-// -------------------------------------
-// Adopts the limit and format arrays.
-
-void
-ChoiceFormat::adoptChoices(double *limits, 
-                           UnicodeString *formats, 
-                           int32_t cnt )
-{
-    adoptChoices(limits, (UBool *)0, formats, cnt);
-}
-
-// -------------------------------------
-// Adopts the limit and format arrays.
-
-void
-ChoiceFormat::adoptChoices(double *limits, 
-                           UBool *closures,
-                           UnicodeString *formats, 
-                           int32_t cnt )
-{
-    if(limits == 0 || formats == 0)
-        return;
-
-    uprv_free(fChoiceLimits);
-    uprv_free(fClosures);
-    delete [] fChoiceFormats;
-    fChoiceLimits = limits;
-    fClosures = closures;
-    fChoiceFormats = formats;
-    fCount = cnt;
-
-    if (fClosures == 0) {
-        fClosures = (UBool*) uprv_malloc( sizeof(UBool) * fCount);
-        int32_t i;
-        for (i=0; i<fCount; ++i) {
-            fClosures[i] = FALSE;
-        }
-    }
-}
-#endif
-
 // -------------------------------------
 // Sets the limit and format arrays. 
 void
@@ -537,9 +528,15 @@ ChoiceFormat::setChoices(  const double* limits,
     if(limits == 0 || formats == 0)
         return;
 
-    uprv_free(fChoiceLimits);
-    uprv_free(fClosures);
-    delete [] fChoiceFormats;
+    if (fChoiceLimits) {
+        uprv_free(fChoiceLimits);
+    }
+    if (fClosures) {
+        uprv_free(fClosures);
+    }
+    if (fChoiceFormats) {
+        delete [] fChoiceFormats;
+    }
 
     // Note that the old arrays are deleted and this owns
     // the created array.
@@ -548,6 +545,23 @@ ChoiceFormat::setChoices(  const double* limits,
     fClosures = (UBool*) uprv_malloc( sizeof(UBool) * fCount);
     fChoiceFormats = new UnicodeString[fCount];
 
+    //check for memory allocation error
+    if (!fChoiceLimits || !fClosures || !fChoiceFormats) {
+        if (fChoiceLimits) {
+            uprv_free(fChoiceLimits);
+            fChoiceLimits = NULL;
+        }
+        if (fClosures) {
+            uprv_free(fClosures);
+            fClosures = NULL;
+        }
+        if (fChoiceFormats) {
+            delete[] fChoiceFormats;
+            fChoiceFormats = NULL;
+        }
+        return;
+    }
+    
     uprv_arrayCopy(limits, fChoiceLimits, fCount);
     uprv_arrayCopy(formats, fChoiceFormats, fCount);
 

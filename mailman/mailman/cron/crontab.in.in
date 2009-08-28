@@ -22,3 +22,6 @@
 # turn this on if the internal archiver is used and
 # GZIP_ARCHIVE_TXT_FILES is false in mm_cfg.py
 27 3 * * * @PYTHON@ -S @prefix@/cron/nightly_gzip
+#
+# At 4:30AM daily, cull old entries from the 'bad' and 'shunt' queues.
+30 4 * * * @PYTHON@ -S @prefix@/cron/cull_bad_shunt

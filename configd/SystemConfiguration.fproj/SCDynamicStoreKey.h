@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2002, 2004, 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002, 2004, 2005, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,8 +22,12 @@
  */
 
 #ifndef _SCDYNAMICSTOREKEY_H
+#ifdef	USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS
+#include <SystemConfiguration/_SCDynamicStoreKey.h>
+#else	/* USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS */
 #define _SCDYNAMICSTOREKEY_H
 
+#include <Availability.h>
 #include <sys/cdefs.h>
 #include <CoreFoundation/CoreFoundation.h>
 
@@ -61,7 +65,7 @@ SCDynamicStoreKeyCreate				(
 						CFAllocatorRef	allocator,
 						CFStringRef	fmt,
 						...
-						);
+						)		__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 /*!
 	@function SCDynamicStoreKeyCreateNetworkGlobalEntity
@@ -86,7 +90,7 @@ SCDynamicStoreKeyCreateNetworkGlobalEntity	(
 						CFAllocatorRef	allocator,
 						CFStringRef	domain,
 						CFStringRef	entity
-						);
+						)		__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 /*!
 	@function SCDynamicStoreKeyCreateNetworkInterface
@@ -108,7 +112,7 @@ CFStringRef
 SCDynamicStoreKeyCreateNetworkInterface		(
 						CFAllocatorRef	allocator,
 						CFStringRef	domain
-						);
+						)		__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 /*!
 	@function SCDynamicStoreKeyCreateNetworkInterfaceEntity
@@ -136,7 +140,7 @@ SCDynamicStoreKeyCreateNetworkInterfaceEntity	(
 						CFStringRef	domain,
 						CFStringRef	ifname,
 						CFStringRef	entity
-						);
+						)		__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 /*!
 	@function SCDynamicStoreKeyCreateNetworkServiceEntity
@@ -165,7 +169,7 @@ SCDynamicStoreKeyCreateNetworkServiceEntity	(
 						CFStringRef	domain,
 						CFStringRef	serviceID,
 						CFStringRef	entity
-						);
+						)		__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 /*!
 	@function SCDynamicStoreKeyCreateComputerName
@@ -183,7 +187,7 @@ SCDynamicStoreKeyCreateNetworkServiceEntity	(
 CFStringRef
 SCDynamicStoreKeyCreateComputerName		(
 						CFAllocatorRef		allocator
-						);
+						)		__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 /*!
 	@function SCDynamicStoreKeyCreateConsoleUser
@@ -200,7 +204,7 @@ SCDynamicStoreKeyCreateComputerName		(
 CFStringRef
 SCDynamicStoreKeyCreateConsoleUser		(
 						CFAllocatorRef		allocator
-						);
+						)		__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_NA);
 
 /*!
 	@function SCDynamicStoreKeyCreateHostNames
@@ -218,7 +222,7 @@ SCDynamicStoreKeyCreateConsoleUser		(
 CFStringRef
 SCDynamicStoreKeyCreateHostNames		(
 						CFAllocatorRef		allocator
-						);
+						)		__OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/);
 
 /*!
 	@function SCDynamicStoreKeyCreateLocation
@@ -236,7 +240,7 @@ SCDynamicStoreKeyCreateHostNames		(
 CFStringRef
 SCDynamicStoreKeyCreateLocation			(
 						CFAllocatorRef		allocator
-						);
+						)		__OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/);
 
 /*!
 	@function SCDynamicStoreKeyCreateProxies
@@ -254,8 +258,9 @@ SCDynamicStoreKeyCreateLocation			(
 CFStringRef
 SCDynamicStoreKeyCreateProxies			(
 						CFAllocatorRef		allocator
-						);
+						)		__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 __END_DECLS
 
-#endif /* _SCDYNAMICSTOREKEY_H */
+#endif	/* USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS */
+#endif	/* _SCDYNAMICSTOREKEY_H */

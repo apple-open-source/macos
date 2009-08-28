@@ -1,7 +1,7 @@
 
 # Darwin /dev/kmem-based lsof Makefile
 #
-# $Id: Makefile,v 1.6 2007/05/24 22:35:11 ajn Exp $
+# $Id: Makefile,v 1.8 2008/10/21 16:15:34 abe Exp $
 
 PROG=	lsof
 
@@ -24,10 +24,10 @@ GRP=
 HDR=    lsof.h lsof_fields.h dlsof.h machine.h proto.h dproto.h
 
 SRC=    ddev.c dfile.c dmnt.c dnode.c dnode1.c dproc.c dsock.c dstore.c \
-	arg.c main.c misc.c node.c print.c proc.c store.c usage.c
+	arg.c main.c misc.c node.c print.c proc.c store.c usage.c util.c
 
 OBJ=	ddev.o dfile.o dmnt.o dnode.o dnode1.o dproc.o dsock.o dstore.o \
-	arg.o main.o misc.o node.o print.o proc.o store.o usage.o
+	arg.o main.o misc.o node.o print.o proc.o store.o usage.o util.o
 
 MAN=	lsof.8
 
@@ -165,5 +165,7 @@ proc.o:		${HDR} proc.c
 store.o:	${HDR} store.c
 
 usage.o:	${HDR} version.h usage.c
+
+util.o:		${HDR} util.c
 
 # *** Do not add anything here - It will go away. ***

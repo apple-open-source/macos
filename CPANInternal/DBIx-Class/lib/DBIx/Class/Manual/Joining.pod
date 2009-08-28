@@ -1,0 +1,171 @@
+=head1 NAME 
+
+DBIx::Class::Manual::Joining - Manual on joining tables with DBIx::Class
+
+=head1 DESCRIPTION
+
+This document should help you to use L<DBIx::Class> if you are trying
+to convert your normal SQL queries into DBIx::Class based queries, if
+you use joins extensively (and also probably if you don't).
+
+=head1 WHAT ARE JOINS
+
+If you ended up here and you don't actually know what joins are yet,
+then you should likely try the L<DBIx::Class::Manual::Intro>
+instead. Skip this part if you know what joins are..
+
+But I'll explain anyway. Assuming you have created your database in a
+more or less sensible way, you will end up with several tables that
+contain C<related> information. For example, you may have a table
+containing information about C<CDs>, containing the CD title and it's
+year of publication, and another table containing all the C<Track>s
+for the CDs, one track per row.
+
+When you wish to extract information about a particular CD and all
+it's tracks, You can either fetch the CD row, then make another query
+to fetch the tracks, or you can use a join. Compare:
+
+  SELECT ID, Title, Year FROM CD WHERE Title = 'Funky CD';
+  # .. Extract the ID, which is 10
+  SELECT Name, Artist FROM Tracks WHERE CDID = 10;
+
+  SELECT cd.ID, cd.Title, cd.Year, tracks.Name, tracks.Artist FROM CD JOIN Tracks ON CD.ID = tracks.CDID WHERE cd.Title = 'Funky CD';
+
+So, joins are a way of extending simple select statements to include
+fields from other, related, tables. There are various types of joins,
+depending on which combination of the data you wish to retrieve, see
+L<MySQL's doc on JOINs|http://dev.mysql.com/doc/refman/5.0/en/join.html>.
+
+=head1 DEFINING JOINS AND RELATIONSHIPS
+
+In L<DBIx::Class> each relationship between two tables needs to first
+be defined in the L<ResultSource|DBIx::Class::Manual::Glossary/ResultSource> for the
+table. If the relationship needs to be accessed in both directions
+(i.e. Fetch all tracks of a CD, and fetch the CD data for a Track),
+then it needs to be defined in both tables.
+
+For the CDs/Tracks example, that means writing, in C<MySchema::CD>:
+
+  MySchema::CD->has_many('tracks', 'MySchema::Tracks');
+
+And in C<MySchema::Tracks>:
+
+  MySchema::Tracks->belongs_to('cd', 'MySchema::CD', 'CDID');
+
+There are several other types of relationships, they are more
+comprehensively described in L<DBIx::Class::Relationship>.
+
+=head1 USING JOINS
+
+Once you have defined all your relationships, using them in actual
+joins is fairly simple. The type of relationship that you chose
+e.g. C<has_many>, already indicates what sort of join will be
+performed. C<has_many> produces a C<LEFT JOIN> for example, which will
+fetch all the rows on the left side, whether there are matching rows
+on the right (table being joined to), or not. You can force other
+types of joins in your relationship, see the
+L<DBIx::Class::Relationship> docs.
+
+When performing either a L<search|DBIx::Class::ResultSet/search> or a
+L<find|DBIx::Class::ResultSet/find> operation, you can specify which
+C<relations> to also fetch data from (or sort by), using the
+L<join|DBIx::Class::ResultSet/join> attribute, like this:
+
+  $schema->resultset('CD')->search(
+    { 'Title' => 'Funky CD' },
+    { join      => 'tracks',
+      '+select' => [ 'tracks.Name', 'tracks.Artist' ],
+      '+as'     => [ 'TrackName', 'ArtistName' ]
+    }
+  );
+
+If you don't recognise most of this syntax, you should probably go
+read L<DBIx::Class::ResultSet/search> and
+L<DBIx::Class::ResultSet/ATTRIBUTES>, but here's a quick break down:
+
+The first argument to search is a hashref of the WHERE attributes, in
+this case a simple restriction on the Title column. The second
+argument is a hashref of attributes to the search, '+select' adds
+extra columns to the select (from the joined table(s) or from
+calculations), and '+as' gives aliases to those fields.
+
+'join' specifies which C<relationships> to include in the query. The
+distinction between C<relationships> and C<tables> is important here,
+only the C<relationship> names are valid.
+
+This example should magically produce SQL like the second select in
+L</WHAT ARE JOINS> above.
+
+=head1 COMPLEX JOINS AND STUFF
+
+=head2 Across multiple relations
+
+For simplicity in the example above, the C<Artist> was shown as a
+simple text firld in the C<Tracks> table, in reality, you'll want to
+have the artists in their own table as well, thus to fetch the
+complete set of data we'll need to join to the Artist table too.
+
+In C<MySchema::Tracks>:
+
+  MySchema::Tracks->belongs_to('artist', 'MySchema::Artist', 'ArtistID');
+
+The search:
+
+  $schema->resultset('CD')->search(
+    { 'Title' => 'Funky CD' },
+    { join      => { 'tracks' => 'artist' },
+      '+select' => [ 'tracks.Name', 'artist.Artist' ],
+      '+as'     => [ 'TrackName', 'ArtistName' ]
+    }
+  );
+
+Which is:
+
+  SELECT me.ID, me.Title, me.Year, tracks.Name, artist.Artist FROM CD me JOIN Tracks tracks ON CD.ID = tracks.CDID JOIN Artists artist ON tracks.ArtistID = artist.ID WHERE me.Title = 'Funky CD';
+
+To perform joins using relations of the tables you are joining to, use
+a hashref to indicate the join depth. This can theoretically go as
+deep as you like (warning, contrived examples!): 
+
+  join => { room => { table => 'leg' } }
+
+To join two relations at the same level, use an arrayref instead:
+
+  join => { room => [ 'chair', 'table' ] } 
+
+Or combine the two:
+
+  join => { room => [ 'chair', { table => 'leg' } ]
+
+=head2 Table aliases
+
+As an aside to all the discussion on joins, note that L<DBIx::Class>
+uses the C<relation names> as table aliases. This is important when
+you need to add grouping or ordering to your queries:
+
+  $schema->resultset('CD')->search(
+    { 'Title' => 'Funky CD' },
+    { join      => { 'tracks' => 'artist' },
+      order_by  => [ 'tracks.Name', 'artist.Artist' ],
+      '+select' => [ 'tracks.Name', 'artist.Artist' ],
+      '+as'     => [ 'TrackName', 'ArtistName' ]
+    }
+  );
+
+  SELECT me.ID, me.Title, me.Year, tracks.Name, artist.Artist FROM CD me JOIN Tracks tracks ON CD.ID = tracks.CDID JOIN Artists artist ON tracks.ArtistID = artist.ID WHERE me.Title = 'Funky CD' ORDER BY tracks.Name, artist.Artist;
+
+This is essential if any of your tables have columns with the same names.
+
+Note that the table of the resultsource the search was performed on, is always aliased to C<me>.
+
+=head2 Joining to the same table twice
+
+There is no magic to this, just do it. The table aliases will
+automatically be numbered:
+
+  join => [ 'room', 'room' ]
+
+The aliases are: C<room> and C<room_2>.
+
+=cut
+

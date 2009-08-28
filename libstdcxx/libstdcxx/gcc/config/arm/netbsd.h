@@ -1,5 +1,5 @@
 /* NetBSD/arm a.out version.
-   Copyright (C) 1993, 1994, 1997, 1998, 2003, 2004
+   Copyright (C) 1993, 1994, 1997, 1998, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Mark Brinicombe (amb@physig.ph.kcl.ac.uk)
 
@@ -17,8 +17,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 /* Run-time Target Specification.  */
 #undef  TARGET_VERSION
@@ -36,7 +36,7 @@
 #define SUBTARGET_CPU_DEFAULT TARGET_CPU_arm6
 
 #undef TARGET_DEFAULT
-#define TARGET_DEFAULT (ARM_FLAG_APCS_FRAME)
+#define TARGET_DEFAULT (MASK_APCS_FRAME)
 
 /* Some defines for CPP.
    arm32 is the NetBSD port name, so we always define arm32 and __arm32__.  */
@@ -58,7 +58,7 @@
 %(cpp_cpu_arch) %(cpp_float) %(cpp_endian) %(netbsd_cpp_spec) \
 "
 
-/* Because TARGET_DEFAULT sets ARM_FLAG_SOFT_FLOAT */
+/* Because TARGET_DEFAULT sets MASK_SOFT_FLOAT */
 #undef CPP_FLOAT_DEFAULT_SPEC
 #define CPP_FLOAT_DEFAULT_SPEC "-D__SOFTFP__"
 
@@ -137,19 +137,6 @@
    requirements.  */
 #undef  DEFAULT_STRUCTURE_SIZE_BOUNDARY
 #define DEFAULT_STRUCTURE_SIZE_BOUNDARY 8
-
-/* Emit code to set up a trampoline and synchronize the caches.  */
-#undef  INITIALIZE_TRAMPOLINE
-#define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT)                      \
-{                                                                      \
-  emit_move_insn (gen_rtx_MEM (SImode, plus_constant ((TRAMP), 8)),   \
-                 (CXT));                                               \
-  emit_move_insn (gen_rtx_MEM (SImode, plus_constant ((TRAMP), 12)),  \
-                 (FNADDR));                                            \
-  emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__clear_cache"),      \
-                    0, VOIDmode, 2, TRAMP, Pmode,                      \
-                    plus_constant (TRAMP, TRAMPOLINE_SIZE), Pmode);    \
-}
 
 /* Clear the instruction cache from `BEG' to `END'.  This makes a
    call to the ARM32_SYNC_ICACHE architecture specific syscall.  */

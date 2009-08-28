@@ -1,0 +1,22 @@
+--- mu-conference_0.8/src/jcomp/jcr_deliver.c	2007-06-09 02:47:37.000000000 -0700
++++ mu-conference_0.8_apple/src/jcomp/jcr_deliver.c	2009-03-27 13:39:09.000000000 -0700
+@@ -28,7 +28,8 @@
+   if (d == NULL)
+     return;
+ 
+-  while (jcr->stream_state != _STREAM_CONNECTED) {
++  while ((jcr->stream_state != _STREAM_CONNECTED) &&
++      (! jcr->in_shutdown)) {
+     log_debug(JDBG, "Stream not ready ... waiting to queue pkts");
+     sleep(1);
+   }
+@@ -58,6 +59,9 @@
+     g_time_val_add(&timeout, (5 * G_USEC_PER_SEC));
+     d = (dpacket)g_async_queue_timed_pop(jcr->dqueue, &timeout);
+ 
++    if (jcr->in_shutdown)
++        break;
++
+     if (d == NULL) {
+       if (jcr->stream_state == _STREAM_CONNECTED)
+          continue;

@@ -9,10 +9,6 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
 .\" 4. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
@@ -30,7 +26,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)getgrouplist.3	8.1 (Berkeley) 6/9/93
-.\" $FreeBSD: src/lib/libc/gen/getgrouplist.3,v 1.7 2001/10/01 16:08:51 ru Exp $
+.\" $FreeBSD: src/lib/libc/gen/getgrouplist.3,v 1.9 2007/01/09 00:27:53 imp Exp $
 .\"
 .Dd June 9, 1993
 .Dt GETGROUPLIST 3
@@ -44,6 +40,7 @@
 .In unistd.h
 .Ft int
 .Fn getgrouplist "const char *name" "int basegid" "int *groups" "int *ngroups"
+.\".Fn getgrouplist "const char *name" "gid_t basegid" "gid_t *groups" "int *ngroups"
 .Sh DESCRIPTION
 The
 .Fn getgrouplist
@@ -56,7 +53,7 @@ is automatically included in the groups list.
 Typically this value is given as
 the group number from the password file.
 .Pp
-The resulting group list is returned in the integer array pointed to by
+The resulting group list is returned in the array pointed to by
 .Fa groups .
 The caller specifies the size of the
 .Fa groups

@@ -3,6 +3,12 @@
 ## See the usage() function for operating instructions. ##
 
 import re
+try:
+  # Python >=2.6
+  from functools import reduce
+except ImportError:
+  # Python <2.6
+  pass
 import sys
 import operator
 
@@ -65,7 +71,9 @@ def output_summary(trails, outfile):
 
 
 # custom compare function
-def _freqtable_cmp((a, b), (c, d)):
+def _freqtable_cmp(a_b, c_d):
+  (a, b) = a_b
+  (c, d) = c_d
   c = cmp(d, b)
   if not c:
     c = cmp(a, c)
@@ -76,12 +84,12 @@ def list_frequencies(list):
   Given a list, return a list composed of (item, frequency)
   in sorted order
   """
-  
+
   counter = {}
   for item in list:
     counter[item] = counter.get(item, 0) + 1
 
-  frequencies = counter.items()
+  frequencies = list(counter.items())
   frequencies.sort(_freqtable_cmp)
 
   return frequencies
@@ -94,7 +102,7 @@ def output_trail_length_frequencies(trails, outfile):
 
   total_trails = len(ops)
   frequencies = list_frequencies(ops)
- 
+
   outfile.write(_seperator)
   outfile.write('Trail length frequencies\n')
   outfile.write(_seperator)
@@ -106,7 +114,7 @@ def output_trail_length_frequencies(trails, outfile):
 
 
 def output_trail(outfile, trail, column = 0):
-  ### Output the trail itself, in it's own column
+  ### Output the trail itself, in its own column
 
   if len(trail) == 0:
     outfile.write('<empty>\n')
@@ -122,7 +130,7 @@ def output_trail(outfile, trail, column = 0):
     else:
       line = line + ', ' + op_str
   outfile.write('%s\n' % line)
-    
+
   outfile.write('\n')
 
 
@@ -154,7 +162,7 @@ def output_txn_body_frequencies(trails, outfile):
 
   total_trails = len(trails)
   frequencies = list_frequencies(bodies)
-  
+
   outfile.write(_seperator)
   outfile.write('txn_body frequencies\n')
   outfile.write(_seperator)

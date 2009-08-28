@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 - 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,13 +42,11 @@
 #include <string.h>
 #include <stdio.h>
 #include <syslog.h>
-#include <openssl/evp.h>
-#include <openssl/hmac.h>
-#include <openssl/sha.h>
+#include <CommonCrypto/CommonDigest.h>
+#include <CommonCrypto/CommonCryptor.h>
+#include <CommonCrypto/CommonHMAC.h>
 #include <Security/SecureTransport.h>
 #include <Security/SecCertificate.h>
-#include <Security/SecIdentity.h>
-#include <Security/SecIdentitySearch.h>
 #include <sys/param.h>
 #include <EAP8021X/EAPTLSUtil.h>
 #include <EAP8021X/EAPCertificateUtil.h>
@@ -61,6 +59,7 @@
 #include <EAP8021X/EAPClientModule.h>
 #include <EAP8021X/mschap.h>
 #include <CoreFoundation/CFPreferences.h>
+#include <TargetConditionals.h>
 #include "myCFUtil.h"
 #include "printdata.h"
 
@@ -604,7 +603,6 @@ typedef struct {
     bool			master_key_valid;
     uint8_t			master_key[MASTER_KEY_LENGTH];
     uint8_t			extended_master_key[EXTENDED_MASTER_KEY_LENGTH];
-    CFArrayRef			last_trusted_server_certs;
     CFArrayRef			server_certs;
     bool			resume_sessions;
     bool			use_pac;
@@ -692,7 +690,7 @@ BufferAdvanceWritePtr(BufferRef buf, int size)
  ** PAC preferences/keychain routines
  **/
 
-#define kEAPFASTApplicationID	CFSTR("com.apple.network.eapolclient.eapfast")
+#define kEAPFASTApplicationID	CFSTR("com.apple.network.eapclient.eapfast")
 
 #define kPACList		CFSTR("PACList")
 #define kPACKey			CFSTR("PACKey")
@@ -702,6 +700,8 @@ BufferAdvanceWritePtr(BufferRef buf, int size)
 #define kAuthorityID		CFSTR("AuthorityID")
 #define kAuthorityIDInfo	CFSTR("AuthorityIDInfo")
 #define kInitiatorID		CFSTR("InitiatorID")
+
+#if ! TARGET_OS_EMBEDDED
 
 static OSStatus
 mySecAccessCreateWithUid(uid_t uid, SecAccessRef * ret_access)
@@ -766,6 +766,8 @@ mySecAccessCreateWithUid(uid_t uid, SecAccessRef * ret_access)
 					   acls,
 					   ret_access));
 }
+
+#endif /* TARGET_OS_EMBEDDED */
 
 STATIC CFArrayRef
 pac_list_copy(void)
@@ -950,8 +952,11 @@ pac_keychain_init_items(bool system_mode,
 			CFDataRef * initiator_p, SecAccessRef * access_p,
 			CFDataRef * descr_p, CFDataRef * label_p)
 {
-    OSStatus		status;
+    OSStatus		status = noErr;
 
+#if TARGET_OS_EMBEDDED
+    *access_p = NULL;
+#else /* TARGET_OS_EMBEDDED */
     if (system_mode) {
 	status = mySecAccessCreateWithUid(0, access_p);
 	if (status != noErr) {
@@ -970,6 +975,7 @@ pac_keychain_init_items(bool system_mode,
 	    goto done;
 	}
     }
+#endif /* TARGET_OS_EMBEDDED */
     *initiator_p = CFDataCreate(NULL, initiator, initiator_length);
     *label_p = CFDataCreateWithBytesNoCopy(NULL,
 					   (void *)PAC_KEY_LABEL,
@@ -979,7 +985,9 @@ pac_keychain_init_items(bool system_mode,
 					   (void *)PAC_KEY_DESCR,
 					   PAC_KEY_DESCR_SIZE,
 					   kCFAllocatorNull);
+#if ! TARGET_OS_EMBEDDED
  done:
+#endif /* ! TARGET_OS_EMBEDDED */
     return (status);
 }
 
@@ -1259,7 +1267,7 @@ T_PRF(const void * key, int key_length,
     int			left;
     void *		output;
     uint16_t		outputlength = htons(key_material_length);
-    uint8_t		t_buf[SHA_DIGEST_LENGTH];
+    uint8_t		t_buf[CC_SHA1_DIGEST_LENGTH];
 
     if (key_material_length == 0) {
 	fprintf(stderr, "T_PRF: key_material_length is 0");
@@ -1301,8 +1309,8 @@ T_PRF(const void * key, int key_length,
 	*offset++ = i + 1;
 
 	/* Ti = HMAC-SHA1 (key, [T(i-1) +] S + outputlength + i) */
-	HMAC(EVP_sha1(), key, key_length, data, (offset - data), t_buf, NULL);
-
+	CCHmac(kCCHmacAlgSHA1,
+	       key, key_length, data, (offset - data), t_buf);
 	if (left <= sizeof(t_buf)) {
 	    memcpy(output, t_buf, left);
 	    break;
@@ -1320,6 +1328,7 @@ T_PRF(const void * key, int key_length,
 /**
  ** EAP client module access convenience routines
  **/
+
 STATIC void
 eap_client_free(EAPClientPluginDataRef plugin)
 {
@@ -1329,12 +1338,7 @@ eap_client_free(EAPClientPluginDataRef plugin)
 	EAPClientModulePluginFree(context->eap.module, 
 				  &context->eap.plugin_data);
 	context->eap.module = NULL;
-	if (context->eap.plugin_data.properties != NULL
-	    && (context->eap.plugin_data.properties 
-		!= plugin->properties)) {
-	    my_CFRelease((CFDictionaryRef *)
-			 &context->eap.plugin_data.properties);
-	}
+	my_CFRelease((CFDictionaryRef *)&context->eap.plugin_data.properties);
 	bzero(&context->eap.plugin_data, sizeof(context->eap.plugin_data));
     }
     my_CFRelease(&context->eap.require_props);
@@ -1395,7 +1399,7 @@ eap_client_set_properties(EAPClientPluginDataRef plugin)
     }
     else {
 	*((CFDictionaryRef *)&context->eap.plugin_data.properties) 
-	    = plugin->properties;
+	    = CFRetain(plugin->properties);
     }
     return;
 }
@@ -1719,7 +1723,6 @@ eapfast_free_context(EAPClientPluginDataRef plugin)
     }
     my_CFRelease(&context->certs);
     my_CFRelease(&context->server_certs);
-    my_CFRelease(&context->last_trusted_server_certs);
     memoryIOClearBuffers(&context->mem_io);
     my_CFRelease(&context->pac_dict);
     free(context);
@@ -2371,11 +2374,13 @@ TLVListParse(TLVListRef tlvlist_p,
 		}
 		tlvlist_p->eap = (EAPPayloadTLVRef)scan;
 	    }
-	    if (EAPPacketValid((EAPPacketRef)scan->tlv_value, tlv_length, FALSE) == FALSE) {
+	    if (EAPPacketValid((EAPPacketRef)scan->tlv_value, tlv_length, 
+			       NULL) == FALSE) {
 		syslog(LOG_NOTICE, 
 		       "EAP-FAST: EAP Payload TLV invalid");
 		if (debug) {
-		    (void)EAPPacketValid((EAPPacketRef)scan->tlv_value, tlv_length, TRUE);
+		    (void)EAPPacketValid((EAPPacketRef)scan->tlv_value,
+					 tlv_length, stdout);
 		}
 		goto done;
 	    }
@@ -2437,7 +2442,7 @@ TLVListParse(TLVListRef tlvlist_p,
 	default:
 	    if (tlvlist_p != NULL) {
 		if (TLVTypeIsMandatory(tlv_type)
-		    && tlvlist_p->mandatory != NULL) {
+		    && tlvlist_p->mandatory == NULL) {
 		    /* we don't understand this TLV, and it's mandatory */
 		    tlvlist_p->mandatory = scan;
 		}
@@ -2661,8 +2666,9 @@ process_crypto_binding(EAPFASTPluginDataRef context,
 
     /* calculate the Server Compound MAC, and compare against input TLV */
     memset(cb_p->cb_compound_mac, 0, sizeof(cb_p->cb_compound_mac));
-    HMAC(EVP_sha1(), imck + S_IMCK_LENGTH, CMK_LENGTH,
-	 (unsigned char *)cb_p, sizeof(*cb_p), compound_mac, NULL);;
+    CCHmac(kCCHmacAlgSHA1,
+	   imck + S_IMCK_LENGTH, CMK_LENGTH,
+	   (unsigned char *)cb_p, sizeof(*cb_p), compound_mac);
     if (bcmp(crypto->cb_compound_mac, compound_mac,
 	     sizeof(compound_mac)) != 0) {
 	syslog(LOG_NOTICE,
@@ -2677,8 +2683,9 @@ process_crypto_binding(EAPFASTPluginDataRef context,
     cb_p->cb_nonce[sizeof(cb_p->cb_nonce) - 1] |= 0x01; /* LSBit must be 1 */
     cb_p->cb_sub_type = kCryptoBindingSubTypeBindingResponse;
     /* calculate the Client Compound MAC */
-    HMAC(EVP_sha1(), imck + S_IMCK_LENGTH, CMK_LENGTH,
-	 (unsigned char *)cb_p, sizeof(*cb_p), compound_mac, NULL);
+    CCHmac(kCCHmacAlgSHA1,
+	   imck + S_IMCK_LENGTH, CMK_LENGTH,
+	   (unsigned char *)cb_p, sizeof(*cb_p), compound_mac);
     memcpy(cb_p->cb_compound_mac, compound_mac, sizeof(compound_mac));
     BufferAdvanceWritePtr(buf, CRYPTO_BINDING_TLV_LENGTH + TLV_HEADER_LENGTH);
 
@@ -2901,7 +2908,7 @@ eapfast_eap(EAPClientPluginDataRef plugin, EAPTLSPacketRef eaptls_in,
 		== FALSE) {
 		EAPPacketValid((const EAPPacketRef)in_pkt_p,
 			       EAPPacketGetLength((const EAPPacketRef)in_pkt_p),
-			       TRUE);
+			       stdout);
 	    }
 	}
 	switch (in_pkt_p->code) {
@@ -2951,7 +2958,7 @@ eapfast_eap(EAPClientPluginDataRef plugin, EAPTLSPacketRef eaptls_in,
 		EAPPacketValid((const EAPPacketRef)out_pkt_p,
 			       EAPPacketGetLength((const EAPPacketRef)
 						  out_pkt_p),
-			       TRUE);
+			       stdout);
 	    }
 	}
 	if (make_eap(&out_tlvs_buf, (void *)out_pkt_p, out_pkt_size)
@@ -3027,14 +3034,6 @@ eapfast_verify_server(EAPClientPluginDataRef plugin,
 	}
     }
 
-    if (context->last_trusted_server_certs != NULL
-	&& context->server_certs != NULL
-	&& EAPSecCertificateListEqual(context->last_trusted_server_certs,
-				      context->server_certs)) {
-	/* user already said OK to this cert chain */
-	context->trust_proceed = TRUE;
-	return (NULL);
-    }
     context->trust_status
 	= EAPTLSVerifyServerCertificateChain(plugin->properties, 
 					     context->server_certs,
@@ -3048,15 +3047,8 @@ eapfast_verify_server(EAPClientPluginDataRef plugin,
     switch (context->trust_status) {
     case kEAPClientStatusOK:
 	context->trust_proceed = TRUE;
-	my_CFRelease(&context->last_trusted_server_certs);
-	context->last_trusted_server_certs = CFRetain(context->server_certs);
 	break;
-    case kEAPClientStatusUnknownRootCertificate:
-    case kEAPClientStatusNoRootCertificate:
-    case kEAPClientStatusCertificateExpired:
-    case kEAPClientStatusCertificateNotYetValid:
-    case kEAPClientStatusServerCertificateNotTrusted:
-    case kEAPClientStatusCertificateRequiresConfirmation:
+    case kEAPClientStatusUserInputRequired:
 	/* ask user whether to proceed or not */
 	*client_status = context->last_client_status 
 	    = kEAPClientStatusUserInputRequired;
@@ -3442,7 +3434,8 @@ eapfast_process(EAPClientPluginDataRef plugin,
 	}
 	break;
     case kEAPCodeFailure:
-	if (context->inner_auth_state == kEAPFASTInnerAuthStateFailure) {
+	if (context->inner_auth_state == kEAPFASTInnerAuthStateFailure
+	    || context->pac_was_provisioned == FALSE) {
 	    context->plugin_state = kEAPClientStateFailure;
 	}
 	break;
@@ -3453,11 +3446,14 @@ eapfast_process(EAPClientPluginDataRef plugin,
  done:
     if (context->plugin_state == kEAPClientStateFailure) {
 	if (context->last_ssl_error == noErr) {
-	    if (context->last_client_status == kEAPClientStatusOK) {
+	    switch (context->last_client_status) {
+	    case kEAPClientStatusOK:
+	    case kEAPClientStatusUserInputRequired:
 		*client_status = kEAPClientStatusFailed;
-	    }
-	    else {
+		break;
+	    default:
 		*client_status = context->last_client_status;
+		break;
 	    }
 	}
 	else {

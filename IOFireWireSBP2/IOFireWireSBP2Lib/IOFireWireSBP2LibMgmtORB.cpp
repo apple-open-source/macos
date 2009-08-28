@@ -137,9 +137,9 @@ IOReturn IOFireWireSBP2LibMgmtORB::init( io_connect_t connection, mach_port_t as
 			fMgmtORBRef = 0; // just to make sure
 		
 		#if __LP64__
-			FWLOG(( "IOFireWireSBP2LibMgmtORB :  status = 0x%08x = fMgmtORBRef 0x%016llx\n", status, fMgmtORBRef ));
+			FWLOG(( "IOFireWireSBP2LibMgmtORB<%p> :  status = 0x%08x = fMgmtORBRef 0x%016llx\n", this, status, fMgmtORBRef ));
 		#else
-			FWLOG(( "IOFireWireSBP2LibMgmtORB :  status = 0x%08x = fMgmtORBRef 0x%08lx\n", status, fMgmtORBRef ));
+			FWLOG(( "IOFireWireSBP2LibMgmtORB<%p> :  status = 0x%08x = fMgmtORBRef 0x%016llx\n", this, status, fMgmtORBRef ));
 		#endif
 	}
 	
@@ -147,14 +147,13 @@ IOReturn IOFireWireSBP2LibMgmtORB::init( io_connect_t connection, mach_port_t as
 	{
 		io_async_ref64_t asyncRef;
 		mach_msg_type_number_t	size = 0;
-
-		asyncRef[0]	= fAsyncPort;
-		asyncRef[1]	= (uint64_t)this;
-		asyncRef[2]	= (uint64_t)&IOFireWireSBP2LibMgmtORB::staticORBCompletion;
+		
+		asyncRef[kIOAsyncCalloutFuncIndex]	= (uint64_t)&IOFireWireSBP2LibMgmtORB::staticORBCompletion;
+		asyncRef[kIOAsyncCalloutRefconIndex]	= (uint64_t)this;
 		
 		uint64_t params[1];
 		params[0] = fMgmtORBRef;
-		 		
+		
 		status = IOConnectCallAsyncScalarMethod( fConnection, kIOFWSBP2UserClientSetMgmtORBCallback, fAsyncPort, asyncRef, 3, params, 1, NULL, &size  );
 	}		
 
@@ -350,7 +349,7 @@ IOReturn IOFireWireSBP2LibMgmtORB::setCommandFunction( UInt32 function )
 						  kIOFWSBP2UserClientMgmtORBSetCommandFunction, 
 						  params, 2, NULL, &len );
 						  
-		FWLOG(( "IOFireWireSBP2LibMgmtORB : setCommandFunction = 0x%08lx\n", function ));
+		FWLOG(( "IOFireWireSBP2LibMgmtORB : setCommandFunction = 0x%08x\n", (uint32_t)function ));
 	}
 	
 	return status;
@@ -476,14 +475,15 @@ IOReturn IOFireWireSBP2LibMgmtORB::setResponseBuffer( void * buf, UInt32 len )
 // callback methods
 
 void IOFireWireSBP2LibMgmtORB::staticORBCompletion( void *refcon, IOReturn result, 
-													io_user_reference_t *args )
+													io_user_reference_t *args, int numArgs  )
 {
-	((IOFireWireSBP2LibMgmtORB*)refcon)->ORBCompletion( result, args );
+	((IOFireWireSBP2LibMgmtORB*)refcon)->ORBCompletion( result, args, numArgs );
 }
 
-void IOFireWireSBP2LibMgmtORB::ORBCompletion( IOReturn result, io_user_reference_t *args )
+void IOFireWireSBP2LibMgmtORB::ORBCompletion( IOReturn result, io_user_reference_t *args, int numArgs )
 {
-	FWLOG(( "IOFireWireSBP2LibMgmtORB : ORBCompletion\n" ));
+	FWLOG(( "IOFireWireSBP2LibMgmtORB<%p> : ORBCompletion - fORBCallbackRoutine = %p, args = %p numArgs = %d\n", 
+		this, fORBCallbackRoutine, args, numArgs ));
 	
 	if( fORBCallbackRoutine != NULL )
 		(fORBCallbackRoutine)( fORBCallbackRefCon, (IOReturn)args[0], (void*)fRefCon );

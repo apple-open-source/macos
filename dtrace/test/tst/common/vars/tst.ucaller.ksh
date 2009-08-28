@@ -36,6 +36,9 @@ dylib=libSystem.B.dylib
 prog="/bin/echo"
 caller=exit
 callee=__cxa_finalize
+#
+# Added -xevaltime="exec" and -Z flags. The target process was exiting before we could get it instrumented with the default postinit evaltime
+#
 else
 prog="/usr/bin/echo"
 dylib=ld.so.1
@@ -43,7 +46,7 @@ caller=calloc
 callee=malloc
 fi
 
-dtrace -qs /dev/stdin -c $prog <<EOF
+dtrace -xevaltime="exec" -Zqs /dev/stdin -c $prog <<EOF
 pid\$target:$dylib:$caller:entry
 {
 	self->$caller = 1;

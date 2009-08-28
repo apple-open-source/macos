@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2004  Mark Nudelman
+ * Copyright (C) 1984-2007  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -125,6 +125,7 @@ static unsigned char cmdtable[] =
 	'7',0,				A_DIGIT,
 	'8',0,				A_DIGIT,
 	'9',0,				A_DIGIT,
+	'.',0,				A_DIGIT,
 
 	'=',0,				A_STAT,
 	CONTROL('G'),0,			A_STAT,
@@ -717,7 +718,7 @@ lesskey(filename, sysvar)
 		close(f);
 		return (-1);
 	}
-	if (lseek(f, (off_t)0, 0) == BAD_LSEEK)
+	if (lseek(f, (off_t)0, SEEK_SET) == BAD_LSEEK)
 	{
 		free(buf);
 		close(f);

@@ -430,7 +430,7 @@ SInt32 CConfigs:: ConfigSearchPolicy ( void )
 					//set the member dict variable
 					fConfigDict		= configDict;
 
-					free(configVersion);
+					delete [] configVersion;
 					configVersion = nil;
 				}//if (configVersion != nil)
 				// don't release the configDict since it is the cast configPropertyList
@@ -553,7 +553,7 @@ SInt32 CConfigs:: ConfigSearchPolicy ( void )
 						//set the member dict variable
 						fConfigDict		= configDict;
 
-						free(configVersion);
+						delete [] configVersion;
 						configVersion = nil;
 					}//if (configVersion != nil)
 					// don't release the configDict since it is the cast configPropertyList
@@ -805,7 +805,7 @@ SInt32 CConfigs:: ConfigList ( void )
 	CFArrayRef				cfArrayRef			= nil;
 	CFIndex					cfConfigCount		= 0;
 	char				   *tmpBuff				= nil;
-	CFIndex					cfBuffSize			= 1024;
+	const CFIndex			cfBuffSize			= 1024;
 	char				   *outSearchNode		= nil;
 
 
@@ -833,15 +833,15 @@ SInt32 CConfigs:: ConfigList ( void )
 					if ( CFGetTypeID( cfSearchNode ) == CFStringGetTypeID() )
 					{
 						//assume that the extracted strings will be significantly less than 1024 characters
-						tmpBuff = new char[1024];
-						::memset(tmpBuff,0,1024);
+						tmpBuff = new char[cfBuffSize];
+						::memset(tmpBuff,0,cfBuffSize);
 						if (CFStringGetCString(cfSearchNode, tmpBuff, cfBuffSize, kCFStringEncodingUTF8))
 						{
 							outSearchNode = new char[1+strlen(tmpBuff)];
 							::strcpy(outSearchNode, tmpBuff);
 
 							pSearchNode = MakeListData(outSearchNode);
-							delete(outSearchNode);
+							delete [] outSearchNode;
 
 							if (pSearchNodeList == nil)
 							{
@@ -858,7 +858,7 @@ SInt32 CConfigs:: ConfigList ( void )
 							}
 							pSearchNode = nil;
 						}
-						delete( tmpBuff );
+						delete [] tmpBuff;
 					}
 				}
 			} // loop over search nodes
@@ -885,7 +885,7 @@ char *CConfigs::GetVersion ( CFDictionaryRef configDict )
 	char			   *outVersion	= nil;
 	CFStringRef			cfStringRef	= nil;
 	char			   *tmpBuff		= nil;
-	CFIndex				cfBuffSize	= 1024;
+	const CFIndex		cfBuffSize	= 1024;
 
 	if ( CFDictionaryContainsKey( configDict, fXMLSearchPathVersionKeyString ) )
 	{
@@ -895,14 +895,14 @@ char *CConfigs::GetVersion ( CFDictionaryRef configDict )
 			if ( CFGetTypeID( cfStringRef ) == CFStringGetTypeID() )
 			{
 				//assume that the extracted strings will be significantly less than 1024 characters
-				tmpBuff = new char[1024];
-				::memset(tmpBuff,0,1024);
+				tmpBuff = new char[cfBuffSize];
+				::memset(tmpBuff,0,cfBuffSize);
 				if (CFStringGetCString(cfStringRef, tmpBuff, cfBuffSize, kCFStringEncodingUTF8 ))
 				{
 					outVersion = new char[1+strlen(tmpBuff)];
 					::strcpy(outVersion, tmpBuff);
 				}
-				delete( tmpBuff );
+				delete [] tmpBuff;
 			}
 		}
 	}
@@ -935,7 +935,7 @@ char *CConfigs::GetAugmentDirNodeName ( CFDictionaryRef configDict )
 	char			   *outName		= nil;
 	CFStringRef			cfStringRef	= nil;
 	char			   *tmpBuff		= nil;
-	CFIndex				cfBuffSize	= 1024;
+	const CFIndex		cfBuffSize	= 1024;
 
 	if ( CFDictionaryContainsKey( configDict, fXMLAugmentDirNodeNameKeyString ) )
 	{
@@ -945,14 +945,14 @@ char *CConfigs::GetAugmentDirNodeName ( CFDictionaryRef configDict )
 			if ( CFGetTypeID( cfStringRef ) == CFStringGetTypeID() )
 			{
 				//assume that the extracted strings will be significantly less than 1024 characters
-				tmpBuff = new char[1024];
-				::memset(tmpBuff,0,1024);
+				tmpBuff = new char[cfBuffSize];
+				::memset(tmpBuff,0,cfBuffSize);
 				if (CFStringGetCString(cfStringRef, tmpBuff, cfBuffSize, kCFStringEncodingUTF8 ))
 				{
 					outName = new char[1+strlen(tmpBuff)];
 					::strcpy(outName, tmpBuff);
 				}
-				delete( tmpBuff );
+				delete [] tmpBuff;
 			}
 		}
 	}
@@ -984,7 +984,7 @@ char *CConfigs::GetToBeAugmentedDirNodeName ( CFDictionaryRef configDict )
 	char			   *outName		= nil;
 	CFStringRef			cfStringRef	= nil;
 	char			   *tmpBuff		= nil;
-	CFIndex				cfBuffSize	= 1024;
+	const CFIndex		cfBuffSize	= 1024;
 
 	if ( CFDictionaryContainsKey( configDict, fXMLToBeAugmentedDirNodeNameKeyString ) )
 	{
@@ -994,14 +994,14 @@ char *CConfigs::GetToBeAugmentedDirNodeName ( CFDictionaryRef configDict )
 			if ( CFGetTypeID( cfStringRef ) == CFStringGetTypeID() )
 			{
 				//assume that the extracted strings will be significantly less than 1024 characters
-				tmpBuff = new char[1024];
-				::memset(tmpBuff,0,1024);
+				tmpBuff = new char[cfBuffSize];
+				::memset(tmpBuff,0,cfBuffSize);
 				if (CFStringGetCString(cfStringRef, tmpBuff, cfBuffSize, kCFStringEncodingUTF8 ))
 				{
 					outName = new char[1+strlen(tmpBuff)];
 					::strcpy(outName, tmpBuff);
 				}
-				delete( tmpBuff );
+				delete [] tmpBuff;
 			}
 		}
 	}
@@ -1090,15 +1090,13 @@ CFDictionaryRef CConfigs::AugmentAttrListDict ( void )
 
 CFDictionaryRef CConfigs::GetAugmentAttrListDict ( CFDictionaryRef configDict )
 {
-	CFDictionaryRef		cfDictRef	= nil;
-
-	if ( CFDictionaryContainsKey( configDict, fXMLAugmentAttrListDictKeyString ) )
-	{
-		cfDictRef = (CFDictionaryRef)CFDictionaryGetValue( configDict, fXMLAugmentAttrListDictKeyString );
+	CFDictionaryRef cfDictRef = (CFDictionaryRef) CFDictionaryGetValue( configDict, fXMLAugmentAttrListDictKeyString );
+	if ( cfDictRef != NULL && CFGetTypeID(cfDictRef) != CFDictionaryGetTypeID() ) {
+		cfDictRef = NULL;
 	}
 
 	// return if nil or not
-	return( cfDictRef );
+	return cfDictRef;
 
 } // GetAugmentAttrListDict
 #endif
@@ -1326,7 +1324,11 @@ SInt32 CConfigs::CleanListData ( sSearchList *inList )
 
     if ( inList != nil )
     {
-        DSFreeString(inList->fNodeName);
+		if ( inList->fNodeName != NULL ) {
+			delete [] inList->fNodeName;
+			inList->fNodeName = NULL;
+		}
+		
 		inList->fOpened					= false;
 		inList->fHasNeverOpened		= true;
 		inList->fNodeReachable			= false;

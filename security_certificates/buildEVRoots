@@ -345,8 +345,7 @@ for OID in `cat "$TMPFILE"`; do
 		    fi
 		else
 		    # get SHA-1 hash value for the certificate
-			# note that prior to SnowLeopard, the default for hashes was MD5; now it is SHA1
-		    CERT_SHA1=`"$OPENSSL" x509 -inform DER -in "$CERT_TO_HASH" -fingerprint -sha1 -noout | sed -e 's/SHA1 Fingerprint=//' -e 's/://g'`
+		    CERT_SHA1=`"$OPENSSL" x509 -inform DER -in "$CERT_TO_HASH" -fingerprint -noout | sed -e 's/SHA1 Fingerprint=//' -e 's/://g'`
 		    printf "Certificate fingerprint for \"%s\":\n" "$CERTFILE"
 		    printf "  SHA1: %s\n" "$CERT_SHA1"
 		    printf "%s" "$CERT_SHA1" | xxd -r -p > /tmp/certsha1hashtmp

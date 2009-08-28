@@ -8,6 +8,11 @@
 Project = Libsystem
 VersionLetter = B
 
+# Remove any NEXT_ROOT argument
+override MAKEOVERRIDES := $(filter-out NEXT_ROOT=%,$(MAKEOVERRIDES))
+override MAKEFILEPATH := $(subst $(NEXT_ROOT),,$(MAKEFILEPATH))
+unexport NEXT_ROOT
+
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
 ifeq ($(Version),0)
@@ -22,6 +27,10 @@ no_target:
 ifndef RC_TARGET_CONFIG
 export RC_TARGET_CONFIG = MacOSX
 endif
+
+# Default platform order file.  The platform Makefile.inc can override.
+PLATFORM_ORDER_FILE = $(SRCROOT)/Platforms/$(RC_TARGET_CONFIG)/System.order
+
 include Platforms/$(RC_TARGET_CONFIG)/Makefile.inc
 
 ##---------------------------------------------------------------------
@@ -54,46 +63,46 @@ build:: fake libSystem
 	@set -x && \
 	cd $(DSTROOT)/usr/lib && \
 	for i in $(BSD_LIBS); do \
-	    ln -sf libSystem.dylib lib$$i.dylib || exit 1; \
+	    $(LN) -sf libSystem.dylib lib$$i.dylib || exit 1; \
 	done
-	find $(DSTROOT) -type l ! -perm 755 | xargs chmod -hv 755
-	install -d $(DSTROOT)$(FPATH)/Versions/$(VersionLetter)/Resources
+	$(FIND) $(DSTROOT) -type l ! -perm 755 | $(XARGS) chmod -hv 755
+	$(INSTALL_DIRECTORY) $(DSTROOT)$(FPATH)/Versions/$(VersionLetter)/Resources
 	@set -x && \
 	cd $(DSTROOT)$(FPATH) && \
-	ln -sf Versions/Current/PrivateHeaders && \
-	ln -sf Versions/Current/Resources && \
+	$(LN) -sf Versions/Current/PrivateHeaders && \
+	$(LN) -sf Versions/Current/Resources && \
 	for S in $(SUFFIX); do \
-	    ln -sf Versions/Current/System$$S || exit 1; \
+	    $(LN) -sf Versions/Current/System$$S || exit 1; \
 	done && \
 	cd Versions && \
-	ln -sf $(VersionLetter) Current && \
+	$(LN) -sf $(VersionLetter) Current && \
 	cd $(VersionLetter) && \
 	for S in $(SUFFIX); do \
-	    ln -sf ../../../../../../usr/lib/libSystem.$(VersionLetter)$$S.dylib System$$S || exit 1; \
+	    $(LN) -sf ../../../../../../usr/lib/libSystem.$(VersionLetter)$$S.dylib System$$S || exit 1; \
 	done && \
-	cp -f $(SRCROOT)/Info.plist Resources
+	$(CP) $(SRCROOT)/Info.plist Resources
 
 # 4993197: force dependency generation for libsyscall.a
 fake:
 	@set -x && \
 	cd $(OBJROOT) && \
-	echo 'main() { __getpid(); return 0; }' > fake.c && \
-	cc -c $(RC_CFLAGS) fake.c && \
-	ld -r -o fake $(foreach ARCH,$(RC_ARCHS),-arch $(ARCH)) fake.o -lsyscall -L$(LIBSYS)
+	$(ECHO) 'main() { __getpid(); return 0; }' > fake.c && \
+	$(CC) -c $(RC_CFLAGS) fake.c && \
+	$(LD) -r -o fake $(foreach ARCH,$(RC_ARCHS),-arch $(ARCH)) fake.o -lsyscall -L$(LIBSYS)
 
 libc:
-	mkdir -p '$(OBJROOT)/libc'
-	bsdmake -C libsys install \
+	$(MKDIR) '$(OBJROOT)/libc'
+	$(BSDMAKE) -C libsys install \
 	DSTROOT='$(DSTROOT)' \
 	OBJROOT='$(OBJROOT)/libc' \
 	SRCROOT='$(SRCROOT)' \
 	SYMROOT='$(SYMROOT)'
 
 libSystem: libc
-	mkdir -p '$(OBJROOT)/libSystem'
-	bsdmake install \
+	$(MKDIR) '$(OBJROOT)/libSystem'
+	$(BSDMAKE) install \
 	FEATURE_LIBMATHCOMMON=$(FEATURE_LIBMATHCOMMON) \
-	FEATURE_ORDER_FILE=$(FEATURE_ORDER_FILE) \
+	PLATFORM_ORDER_FILE=$(PLATFORM_ORDER_FILE) \
 	FORMS='$(FORMS)' \
 	Version=$(Version) \
 	VersionLetter=$(VersionLetter) \

@@ -1,23 +1,22 @@
 /*
- * Copyright (c) 1999, 2002-2003, 2005-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999, 2002-2003, 2005-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -31,9 +30,8 @@
 #include <sys/time.h>
 
 #include "Scavenger.h"
+#include "../fsck_messages.h"
 
-extern char *stat_msg[];
-extern char *err_msg[];
 
 /*
  *	This is the straight GMT conversion constant:
@@ -53,7 +51,7 @@ UInt32 GetTimeUTC(void)
 
 	(void) gettimeofday(&time, &zone);
 
-	return (time.tv_sec + MAC_GMT_FACTOR);
+	return time.tv_sec + MAC_GMT_FACTOR;
 }
 
 /*
@@ -64,7 +62,7 @@ UInt32 GetTimeLocal(Boolean forHFS)
 {
 	struct timeval time;
 	struct timezone zone;
-	UInt32 localTime;
+	time_t localTime;
 
 	(void) gettimeofday(&time, &zone);
 	localTime = time.tv_sec + MAC_GMT_FACTOR - (zone.tz_minuteswest * 60);
@@ -72,7 +70,7 @@ UInt32 GetTimeLocal(Boolean forHFS)
 	if (forHFS && zone.tz_dsttime)
 		localTime += 3600;
 
-	return localTime;
+	return (UInt32)localTime;
 }
 
 
@@ -195,101 +193,14 @@ OSErr PtrAndHand(const void *ptr1, Handle hand2, long size)
 }
 
 
-/* deprecated call, use PrintError instead */
+/* deprecated call, use fsckPrint() instead */
 void WriteError( SGlobPtr GPtr, short msgID, UInt32 tarID, UInt64 tarBlock )  
 {
-	PrintError(GPtr, msgID, 0);
+	fsckPrint(GPtr->context, msgID);
 
-	if (GPtr->logLevel > 0 && !GPtr->guiControl && (tarID | tarBlock) != 0)
+	if ((fsckGetVerbosity(GPtr->context) > 0) && 
+	    (fsckGetOutputStyle(GPtr->context) == fsckOutputTraditional) &&
+	    (tarID | tarBlock) != 0) {
 		plog("(%ld, %qd)\n", (long)tarID, tarBlock);
-}
-
-/* deprecated call, use PrintStatus instead */
-void WriteMsg( SGlobPtr GPtr, short messageID, short messageType )
-{
-	PrintStatus(GPtr, messageID, 0);
-}
-
-
-/*
- * Print a localizable message to stdout
- *
- * output looks something like...
- *
- * (S, "Checking Catalog file", 0)
- */
-static void
-print_localized(const char *type, const char *message, int vargc, va_list ap)
-{
-	int i;
-	char string[256];
-	static char sub[] = {"%@"};
-
-	switch (vargc) {
-	case 1:	sprintf(string, message, sub);
-		break;
-	case 2:	sprintf(string, message, sub, sub);
-		break;
-	case 3:	sprintf(string, message, sub, sub, sub);
-		break;
-	default:
-		strcpy(string, message);
-	}
-
-	fplog(stdout, "(%s,\"%s\",%d)\n", type, string, vargc);
-	for (i = 0; i < vargc; i++)
-		fplog(stdout, "%s\n", (char *)va_arg(ap, char *));
-	fflush(stdout);
-}
-
-
-/* Print an eror message to stdout */
-void
-PrintError(SGlobPtr GPtr, short error, int vargc, ...)
-{
-	int index;
-	va_list ap;
-
-	index = abs(error) - E_FirstError;
-
-	if (GPtr->logLevel > 0 && index >= 0) {
-		va_start(ap, vargc);
-
-		if (!GPtr->guiControl) {
-			plog("   ");
-			vplog(err_msg[index], ap);
-			plog("\n");
-		} else {
-			print_localized("E", err_msg[index], vargc, ap);
-		}
-
-		va_end(ap);
 	}
 }
-
-
-/* Print a status message to stdout */
-void
-PrintStatus(SGlobPtr GPtr, short status, int vargc, ...)
-{
-	int index;
-	va_list ap;
-
-	index = status - M_FirstMessage;
-
-	if (GPtr->logLevel > 1 && index >= 0) {
-		va_start(ap, vargc);
-
-		if (!GPtr->guiControl) {
-			plog("** ");
-			vplog(stat_msg[index], ap);
-			plog("\n");
-		} else {
-			print_localized("S", stat_msg[index], vargc, ap);
-		}
-
-		va_end(ap);
-	}
-}
-
-

@@ -1,0 +1,454 @@
+<html><head><base target=k-main></head><body bgcolor=white><nobr>
+
+<font face=Helvetica size=3>
+<dl><dt>
+
+  <b>class c4_Cursor</b>
+<br><br>
+
+<dd><font face=Times size=3>
+An iterator for collections of rows (views).<br><br>
+
+
+</font></dl>
+
+
+  <table cellborder=0>
+    <tr>
+    <td colspan=2>
+	  <font face=Helvetica size=-1><b>Public members</b></font>
+    </td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  
+    </td>
+	<td>
+	  <nobr>
+	  <b>c4_Cursor</b> (<A HREF="c4_Sequence.html" >c4_Sequence</A>&#38; implementation_, int index_);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Construct a new cursor</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_RowRef.html" >c4_RowRef</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator* </b> () <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Dereference this cursor to "almost" a row</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_RowRef.html" >c4_RowRef</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator[]</b> (int index_) <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			This is the same as *(cursor + offset)</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_Cursor.html" >c4_Cursor</A>&#38; 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator++</b> ();
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Pre-increment the cursor</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_Cursor.html" >c4_Cursor</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator++</b> (int);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Post-increment the cursor</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_Cursor.html" >c4_Cursor</A>&#38; 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator--</b> ();
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Pre-decrement the cursor</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_Cursor.html" >c4_Cursor</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator--</b> (int);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Post-decrement the cursor</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_Cursor.html" >c4_Cursor</A>&#38; 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator+=</b> (int offset_);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Advance by a given offset</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_Cursor.html" >c4_Cursor</A>&#38; 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator-=</b> (int offset_);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Back up by a given offset</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_Cursor.html" >c4_Cursor</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator- </b> (int) <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Subtract a specified offset</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  int 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator- </b> (<A HREF="c4_Cursor.html" >c4_Cursor</A> cursor_) <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Return the distance between two cursors</font>
+	</td>
+	</tr>
+  
+  </table>
+
+
+
+
+
+  <table cellborder=0>
+    <tr>
+    <td colspan=2>
+	  <font face=Helvetica size=-1><b>Friends</b></font>
+    </td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  friend <A HREF="c4_Cursor.html" >c4_Cursor</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator+ </b> (<A HREF="c4_Cursor.html" >c4_Cursor</A> cursor_, int offset_);
+	  <font face=Helvetica size=-1><br>Add specified offset</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  friend <A HREF="c4_Cursor.html" >c4_Cursor</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator+ </b> (int offset_, <A HREF="c4_Cursor.html" >c4_Cursor</A> cursor_);
+	  <font face=Helvetica size=-1><br>Add specified offset to cursor</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  friend bool 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator==</b> (<A HREF="c4_Cursor.html" >c4_Cursor</A> a_, <A HREF="c4_Cursor.html" >c4_Cursor</A> b_);
+	  <font face=Helvetica size=-1><br>Return true if both cursors are equal</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  friend bool 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator!=</b> (<A HREF="c4_Cursor.html" >c4_Cursor</A> a_, <A HREF="c4_Cursor.html" >c4_Cursor</A> b_);
+	  <font face=Helvetica size=-1><br>Return true if both cursors are not equal</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  friend bool 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator< </b> (<A HREF="c4_Cursor.html" >c4_Cursor</A> a_, <A HREF="c4_Cursor.html" >c4_Cursor</A> b_);
+	  <font face=Helvetica size=-1><br>True if first cursor is less than second cursor</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  friend bool 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator> </b> (<A HREF="c4_Cursor.html" >c4_Cursor</A> a_, <A HREF="c4_Cursor.html" >c4_Cursor</A> b_);
+	  <font face=Helvetica size=-1><br>True if first cursor is greater than second cursor</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  friend bool 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator<=</b> (<A HREF="c4_Cursor.html" >c4_Cursor</A> a_, <A HREF="c4_Cursor.html" >c4_Cursor</A> b_);
+	  <font face=Helvetica size=-1><br>True if first cursor is less or equal to second cursor</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  friend bool 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator>=</b> (<A HREF="c4_Cursor.html" >c4_Cursor</A> a_, <A HREF="c4_Cursor.html" >c4_Cursor</A> b_);
+	  <font face=Helvetica size=-1><br>True if first cursor is greater or equal to second cursor</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  friend bool 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator==</b> (const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; a_, const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; b_);
+	  <font face=Helvetica size=-1><br>Return true if the contents of both rows are equal</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  friend bool 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator!=</b> (const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; a_, const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; b_);
+	  <font face=Helvetica size=-1><br>Return true if the contents of both rows are not equal</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  friend bool 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator< </b> (const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; a_, const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; b_);
+	  <font face=Helvetica size=-1><br>True if first row is less than second row</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  friend bool 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator> </b> (const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; a_, const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; b_);
+	  <font face=Helvetica size=-1><br>True if first row is greater than second row</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  friend bool 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator<=</b> (const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; a_, const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; b_);
+	  <font face=Helvetica size=-1><br>True if first row is less or equal to second row</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  friend bool 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator>=</b> (const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; a_, const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; b_);
+	  <font face=Helvetica size=-1><br>True if first row is greater or equal to second row</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  friend class 
+    </td>
+	<td>
+	  <nobr>
+	  <b>c4_MemoRef</b>;
+	  
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  friend class 
+    </td>
+	<td>
+	  <nobr>
+	  <b>c4_Reference</b>;
+	  
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  friend class 
+    </td>
+	<td>
+	  <nobr>
+	  <b>c4_Row</b>;
+	  
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  friend class 
+    </td>
+	<td>
+	  <nobr>
+	  <b>c4_RowRef</b>;
+	  
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  friend class 
+    </td>
+	<td>
+	  <nobr>
+	  <b>c4_View</b>;
+	  
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  friend class 
+    </td>
+	<td>
+	  <nobr>
+	  <b>c4_Sequence</b>;
+	  
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  friend class 
+    </td>
+	<td>
+	  <nobr>
+	  <b>c4_FilterSeq</b>;
+	  
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  friend class 
+    </td>
+	<td>
+	  <nobr>
+	  <b>c4_SortSeq</b>;
+	  
+	</td>
+	</tr>
+  
+  </table>
+
+
+<br><hr size=1 width=50 align=left>
+
+<table cellborder=0>
+    <tr>
+    <td width=150>
+	  <font face=Helvetica size=-1><b>Header file</b></font>
+    </td>
+    <td>
+	  "mk4.h" &nbsp; -- &nbsp; Dec 9, 1999
+    </td>
+	</tr>
+
+  
+
+  
+</table>
+
+</font></font>
+
+</nobr></body></html>

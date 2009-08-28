@@ -106,7 +106,7 @@ void MediaPlayerPrivate::load(const String& url)
     cancelSeek();
 
     m_qtMovie.set(new QTMovieWin(this));
-    m_qtMovie->load(url.characters(), url.length());
+    m_qtMovie->load(url.characters(), url.length(), m_player->preservesPitch());
     m_qtMovie->setVolume(m_player->volume());
     m_qtMovie->setVisible(m_player->visible());
 }
@@ -252,8 +252,14 @@ void MediaPlayerPrivate::setRate(float rate)
 {
     if (!m_qtMovie)
         return;
-    if (!paused())
-        m_qtMovie->setRate(rate);
+    m_qtMovie->setRate(rate);
+}
+
+void MediaPlayerPrivate::setPreservesPitch(bool preservesPitch)
+{
+    if (!m_qtMovie)
+        return;
+    m_qtMovie->setPreservesPitch(preservesPitch);
 }
 
 int MediaPlayerPrivate::dataRate() const
@@ -421,9 +427,33 @@ void MediaPlayerPrivate::paint(GraphicsContext* p, const IntRect& r)
 {
     if (p->paintingDisabled() || !m_qtMovie || m_hasUnsupportedTracks)
         return;
+
+    bool usingTempBitmap = false;
+    OwnPtr<GraphicsContext::WindowsBitmap> bitmap;
     HDC hdc = p->getWindowsContext(r);
+    if (!hdc) {
+        // The graphics context doesn't have an associated HDC so create a temporary
+        // bitmap where QTMovieWin can draw the frame and we can copy it.
+        usingTempBitmap = true;
+        bitmap.set(p->createWindowsBitmap(r.size()));
+        hdc = bitmap->hdc();
+
+        // FIXME: is this necessary??
+        XFORM xform;
+        xform.eM11 = 1.0f;
+        xform.eM12 = 0.0f;
+        xform.eM21 = 0.0f;
+        xform.eM22 = 1.0f;
+        xform.eDx = -r.x();
+        xform.eDy = -r.y();
+        SetWorldTransform(hdc, &xform);
+    }
+
     m_qtMovie->paint(hdc, r.x(), r.y());
-    p->releaseWindowsContext(hdc, r);
+    if (usingTempBitmap)
+        p->drawWindowsBitmap(bitmap.get(), r.topLeft());
+    else
+        p->releaseWindowsContext(hdc, r);
 
 #if DRAW_FRAME_RATE
     if (m_frameCountWhilePlaying > 10) {
@@ -486,7 +516,7 @@ MediaPlayer::SupportsType MediaPlayerPrivate::supportsType(const String& type, c
 {
     // only return "IsSupported" if there is no codecs parameter for now as there is no way to ask QT if it supports an
     //  extended MIME type
-    return mimeTypeCache().contains(type) ? (!codecs.isEmpty() ? MediaPlayer::MayBeSupported : MediaPlayer::IsSupported) : MediaPlayer::IsNotSupported;
+    return mimeTypeCache().contains(type) ? (codecs.isEmpty() ? MediaPlayer::MayBeSupported : MediaPlayer::IsSupported) : MediaPlayer::IsNotSupported;
 }
 
 void MediaPlayerPrivate::movieEnded(QTMovieWin* movie)
@@ -533,6 +563,13 @@ void MediaPlayerPrivate::movieNewImageAvailable(QTMovieWin* movie)
     }
 #endif
     m_player->repaint();
+}
+
+bool MediaPlayerPrivate::hasSingleSecurityOrigin() const
+{
+    // We tell quicktime to disallow resources that come from different origins
+    // so we all media is single origin.
+    return true;
 }
 
 }

@@ -28,7 +28,7 @@ swap_i860_thread_state_regs(
 struct i860_thread_state_regs *cpu,
 enum NXByteOrder target_byte_sex)
 {
-    unsigned long i;
+    int i;
 
 	for(i = 0; i < 31; i++)
 	    cpu->ireg[i] = NXSwapLong(cpu->ireg[i]);

@@ -1,0 +1,285 @@
+# -*- Tcl -*- $Id: trace.xotcl,v 1.12 2007/08/14 16:38:26 neumann Exp $
+package provide xotcl::trace 0.91
+package require XOTcl
+
+namespace eval ::xotcl::trace {
+  namespace import ::xotcl::*
+
+  @ @File {description {
+    Various tracing tools for the XOTcl language.
+  }
+  }
+  @ Object instproc traceFilter {
+    args "arbitrary args"
+  } {
+    Description {
+      Filter to trace every method call on an object or class hierarchy.
+      Outputs a message befora and after each call of the traced object.
+    }
+    return "empty string"
+  }
+  @ Object Trace { 
+    Description {
+      Write trace outputs and produce statistics. Variable traceStream
+      defines where to write trace output (default: stderr).
+    }
+  }
+  @ Trace proc puts {line "output line"} {
+    Description {
+      Define how traceFilter writes to the output stream. Default:
+      write to trace stream.
+    }
+  }
+  @ Trace proc openTraceFile {name "file name"} {
+    Description {
+      Redirect trace output to file.
+    }
+  }
+  @ Trace proc closeTraceFile {name "file name"} {
+    Description {
+      Close trace  file and redirect output to stderr.
+    }
+  }
+  @ Object instproc lintFilter {} {
+    Description {Experimental lint filter}
+  }
+  @ Object instproc statFilter {} {
+    Description {Experimental statistics filter}
+  }
+  @ Object instproc showVars {args "ist of variables"} {
+    Description {Show the values of the specified variables (or of all variables)
+      of an object on stderr.}
+  }
+  @ Object instproc showMsg {msg "optional output"} {
+    Description {Show a message msg with the form "[self] $cls->$method $msg" on stderr.}
+  }
+  @ Object instproc showClass {} { Description {Show classes and mixins of the object}}
+  @ Object instproc showStack {maxDepth "max stack depth, default=100"} { 
+    Description {Show callstack up to the specified calldepth.}}
+  @ Object instproc showCall {} { Description {Show the current call with the form "[self] $cls->$method $args" on stderr.}}
+  @ Object instproc showTimeStart {"?handle?" "Handle object name, optional"} {Description {start a timer}}
+  @ Object instproc showTimeEnd {"?handle?" "Handle object name, optional"} {Description {end a timer and show result}}
+
+  ##########################################################################
+
+  proc showCall {} { Trace deprecated-function showCall}
+  proc showVars {} { Trace deprecated-function showVars}
+  proc showObj {o {printObjectName 1}} { Trace deprecated-function showObj}
+  proc showStack {{m 100}} { Trace deprecated-function showStack}
+
+
+  Object Trace
+  Trace set traceStream stderr
+  Trace proc openTraceFile name {
+    my set traceStream [open $name w]
+  }
+  Trace proc closeTraceFile {} {
+    close $Trace::traceStream
+    my set traceStream stderr
+  }
+  Trace proc puts line {
+    puts $Trace::traceStream $line
+  }
+  Trace proc add {type obj} {
+    if {[my isclass $obj]} {
+      $obj instfilter add ${type}Filter
+    } else {
+      $obj filter add ${type}Filter
+    }
+  }
+  Trace proc delete {type obj} {
+    if {[my isclass $obj]} {
+      $obj instfilter delete ${type}Filter
+    } else {
+      $obj filter delete ${type}Filter
+    }
+  }
+  Trace proc statReset {} {
+    catch {my unset stat}
+  }
+  Trace proc statReportClass c {
+    if {[my exists stat($c)]} {
+      puts "\nClass $c: [my set stat($c)] references"
+      foreach method [$c info instprocs] {
+         set key $c->$method			       
+         if {[info exists stat($key)]} {
+           puts "\t$key: [my set stat($key)] references"
+         } else {
+           puts "\t$key: not used"
+         }
+       }
+    } else {
+      puts "\nClass $c: not used"
+    }
+    foreach subclass [lsort [$c info subclass]] {
+      my [self proc] $subclass
+    }
+  }
+  Trace proc statReport {} {
+    my statReportClass Object
+  }
+  Trace proc statCount key {
+    if {[my exists stat($key)]} {
+      my incr stat($key)
+    } else {
+      my incr set stat($key) 1
+    }
+  }
+  Trace proc deprecated-function {name} {
+    puts stderr "Function <$name> is deprecated. Use method with same name instead."
+  }
+
+
+
+  Object instproc traceFilter args {
+    # don't trace the Trace object
+    if {[self] eq "::Trace"} {return [next]}
+    set context "[self callingclass]->[self callingproc]"
+    set method [self calledproc]
+    switch -- $method {
+      proc -
+      instproc {set dargs [list [lindex $args 0] [lindex $args 1] ...] }
+      default  {set dargs $args }
+    }
+    #my showStack
+    Trace puts "CALL $context>  [self]->$method $dargs (next=[self next])"
+    set result [next]
+    Trace puts "EXIT $context>  [self]->$method ($result)"
+    return $result
+  }
+
+  Object instproc lintFilter args {
+    #puts stderr c=[self class],ic[my info class],p=[self calledproc]
+    #puts stderr " =====================METHOD='[self calledproc]'"
+    my instvar __reported
+    switch -exact -- [self calledproc] {
+      instvar {
+        set ccls [self callingclass]
+        set method [self callingproc]
+
+        #puts stderr ccls=$ccls.
+        if {$ccls eq ""} { ;## instvar in proc
+          set bod [my info body $method]
+          set context "proc [self]->$method"
+        } else { ;## instvar in instproc
+          set bod [$ccls info instbody $method]
+          set context "instproc $ccls->$method"
+        }
+        foreach v $args {
+          set vpattern "$v\[^a-zA-Z0-9\]"
+          if {[regexp "\[\$\]$vpattern" $bod]} continue
+          if {[regexp " *$vpattern" $bod]}  continue
+          #if {[regexp "info *exists *$vpattern" $bod]}  continue
+          #if {[regexp "append *$vpattern" $bod]}  continue
+          #if {[regexp "array.*$vpattern" $bod]}  continue
+          if {[info exists __reported($v,$context)]} continue
+          set __reported($v,$context) 1
+          puts stderr "'$v' of 'instvar $args' is NOT used in\n\
+	$context ... {$bod}"
+        }
+      }
+    }
+    next
+  }
+  Object instproc statFilter args {
+    # don't return statistics from the Trace object
+    #puts stderr "self=[self]"
+    if {[self] eq "::Trace"} {return [next]}
+    set ccls [self callingclass]
+    set cmet [self callingproc]
+    set met [self calledproc]
+    #::puts stderr "cls=$ccls->$cmet, [self]->$met"
+    Trace statCount $ccls
+    Trace statCount $ccls->$cmet
+    next
+  }
+
+
+
+  ######################################################################
+  # show**** methods
+  #
+  Object instproc showVars args {
+    set msg {}
+    if {$args == {}} {
+      foreach var [lsort [my info vars]] {
+        if {[my array exists $var]} {
+          append msg "\n\t$var: "
+          #puts stderr "ARRAY $var"
+          #puts stderr "ARRAY names <[[self]array names $var]>"
+          foreach i [lsort [my array names $var]] {
+            append msg $i=[my set ${var}($i)] ", "
+          }
+        } elseif {[my exists $var]} {
+          append msg "\n\t$var: " [list [my set $var]]
+        } else {
+          append msg "\n\t$var: " UNKNOWN
+        }
+      }
+    } else {
+      foreach var $args {
+        if {[my array exists $var]} {
+          lappend msg $var: ARRAY
+        } elseif {[my exists $var]} {
+          lappend msg $var: [my set $var]
+        } else {
+          lappend msg $var: UNKNOWN
+        }
+      }
+    }
+    set method [self callingproc]
+    set cls [self callingclass]
+    puts stderr "[self] $cls->$method $msg"
+    #puts stderr "        MIXINS: [my info mixin]"
+  }
+  Object instproc showMsg msg {
+    set method [self callingproc]
+    set cls [self callingclass]
+    puts stderr "[self] $cls->$method $msg"
+  }
+  Object instproc showClass {} {
+    set method [self callingproc]
+    set cls [self callingclass]
+    puts stderr "[self] $cls->$method class [my info class]\
+	mixins {[my info mixin]}"
+  }
+  Object instproc showStack {{m 100}} {
+    set max [info level]  
+    if {$m<$max} {set max $m}
+    puts stderr "Call Stack (level: command)"
+    for {set i 0} {$i < $max} {incr i} {
+      if {[catch {set s [uplevel $i self]} msg]} {
+        set s ""
+      }
+      puts stderr "[format %5d -$i]:\t$s [info level [expr {-$i}]]"
+    }
+  }
+  Object instproc showCall {} {
+    set method [self callingproc]
+    set cls [self callingclass]
+    set args [lreplace [info level -1] 0 0]
+    puts stderr "[self] $cls->$method $args"
+  }
+  Object instproc showTimeStart {{handle __h}} {
+    upvar [self callinglevel] $handle obj
+    set obj [Object [self]::[my autoname __time]]
+    $obj set clicks [clock clicks]
+    return
+  }
+  Object instproc showTimeEnd {{handle __h}} {
+    upvar [self callinglevel] $handle obj
+    set method [self callingproc]
+    set cls [self callingclass]
+    set elapsed [expr {([clock clicks]-[$obj set clicks])/1000000.0}]
+    puts stderr "[self] $cls->$method: elapsed [format %.2f $elapsed]secs"
+    $obj destroy
+  }
+
+
+  ######################################################################
+
+
+  namespace export showCall showVars showObj showStack Trace
+}
+
+namespace import ::xotcl::trace::*

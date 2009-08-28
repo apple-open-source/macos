@@ -2,7 +2,7 @@
  *  agentclient.h
  *  SecurityAgent
  *
- *  Copyright (c) 2002 Apple Computer, Inc.. All rights reserved.
+ *  Copyright (c) 2002,2008 Apple Inc.. All rights reserved.
  *
  */
 
@@ -25,7 +25,14 @@
 namespace SecurityAgent {
 #endif /* __cplusplus__ */
 
-#define kMaximumAuthorizationTries 3
+// Manimum number of failed authentications before
+// SecurityAgent dialog is killed.
+#define kMaximumAuthorizationTries 10000
+
+// Number of failed authentications before a password
+// hint is displayed.
+#define kAuthorizationTriesBeforeHint 3
+
 #define maxPassphraseLength 1024
     
 //
@@ -91,6 +98,9 @@ public:
 	virtual ~Client();
 
     static AuthItemSet clientHints(SecurityAgent::RequestorType type, std::string &path, pid_t clientPid, uid_t clientUid);
+    
+    static OSStatus startTransaction(Port serverPort);
+    static OSStatus endTransaction(Port serverPort);
 	
 protected:
 	void establishServer();

@@ -17,8 +17,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-   02111-1307, USA.  */
+   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301, USA.  */
 
 #ifndef __FRV_H__
 #define __FRV_H__
@@ -187,7 +187,7 @@
 #undef	LINK_SPEC
 #define LINK_SPEC "\
 %{h*} %{v:-V} \
-%{b} %{Wl,*:%*} \
+%{b} \
 %{mfdpic:-melf32frvfd -z text} \
 %{static:-dn -Bstatic} \
 %{shared:-Bdynamic} \
@@ -210,13 +210,6 @@
 
 #ifndef CPU_TYPE
 #define CPU_TYPE		FRV_CPU_FR500
-#endif
-
-/* Allow us to easily change the default for -malloc-cc.  */
-#ifndef	DEFAULT_NO_ALLOC_CC
-#define MASK_DEFAULT_ALLOC_CC	MASK_ALLOC_CC
-#else
-#define MASK_DEFAULT_ALLOC_CC	0
 #endif
 
 /* Run-time target specifications */
@@ -275,104 +268,6 @@
   while (0)
 
 
-/* This declaration should be present.  */
-extern int target_flags;
-
-/* This series of macros is to allow compiler command arguments to enable or
-   disable the use of optional features of the target machine.  For example,
-   one machine description serves both the 68000 and the 68020; a command
-   argument tells the compiler whether it should use 68020-only instructions or
-   not.  This command argument works by means of a macro `TARGET_68020' that
-   tests a bit in `target_flags'.
-
-   Define a macro `TARGET_FEATURENAME' for each such option.  Its definition
-   should test a bit in `target_flags'; for example:
-
-        #define TARGET_68020 (target_flags & 1)
-
-   One place where these macros are used is in the condition-expressions of
-   instruction patterns.  Note how `TARGET_68020' appears frequently in the
-   68000 machine description file, `m68k.md'.  Another place they are used is
-   in the definitions of the other macros in the `MACHINE.h' file.  */
-
-#define MASK_GPR_32	     0x00000001	/* Limit gprs to 32 registers */
-#define MASK_FPR_32	     0x00000002	/* Limit fprs to 32 registers */
-#define MASK_SOFT_FLOAT	     0x00000004	/* Use software floating point */
-#define MASK_ALLOC_CC	     0x00000008	/* Dynamically allocate icc/fcc's */
-#define MASK_DWORD	     0x00000010	/* Change ABi to allow dbl word insns*/
-#define MASK_DOUBLE	     0x00000020	/* Use double precision instructions */
-#define MASK_MEDIA	     0x00000040	/* Use media instructions */
-#define MASK_MULADD	     0x00000080	/* Use multiply add/subtract insns */
-#define MASK_LIBPIC	     0x00000100	/* -fpic that can be linked w/o pic */
-#define MASK_ACC_4	     0x00000200	/* Only use four media accumulators */
-#define MASK_PACK	     0x00000400 /* Set to enable packed output */
-#define MASK_LONG_CALLS	     0x00000800 /* Use indirect calls */
-#define MASK_ALIGN_LABELS    0x00001000 /* Optimize label alignments */
-#define MASK_LINKED_FP	     0x00002000 /* Follow ABI linkage requirements.  */
-#define MASK_BIG_TLS         0x00008000 /* Assume a big TLS segment */
-
-			 		/* put debug masks up high */
-#define MASK_DEBUG_ARG	     0x40000000	/* debug argument handling */
-#define MASK_DEBUG_ADDR	     0x20000000	/* debug go_if_legitimate_address */
-#define MASK_DEBUG_STACK     0x10000000	/* debug stack frame */
-#define MASK_DEBUG	     0x08000000	/* general debugging switch */
-#define MASK_DEBUG_LOC	     0x04000000	/* optimize line # table */
-#define MASK_DEBUG_COND_EXEC 0x02000000	/* debug cond exec code */
-#define MASK_NO_COND_MOVE    0x01000000	/* disable conditional moves */
-#define MASK_NO_SCC	     0x00800000	/* disable set conditional codes */
-#define MASK_NO_COND_EXEC    0x00400000	/* disable conditional execution */
-#define MASK_NO_VLIW_BRANCH  0x00200000	/* disable repacking branches */
-#define MASK_NO_MULTI_CE     0x00100000	/* disable multi-level cond exec */
-#define MASK_NO_NESTED_CE    0x00080000	/* disable nested cond exec */
-#define MASK_FDPIC           0x00040000	/* Follow the new uClinux ABI.  */
-#define MASK_INLINE_PLT      0x00020000 /* Inline FDPIC PLTs.  */
-#define MASK_GPREL_RO	     0x00010000 /* Use GPREL for read-only data.  */
-
-#define MASK_DEFAULT		MASK_DEFAULT_ALLOC_CC
-
-#define TARGET_GPR_32		((target_flags & MASK_GPR_32) != 0)
-#define TARGET_FPR_32		((target_flags & MASK_FPR_32) != 0)
-#define TARGET_SOFT_FLOAT	((target_flags & MASK_SOFT_FLOAT) != 0)
-#define TARGET_ALLOC_CC		((target_flags & MASK_ALLOC_CC) != 0)
-#define TARGET_DWORD		((target_flags & MASK_DWORD) != 0)
-#define TARGET_DOUBLE		((target_flags & MASK_DOUBLE) != 0)
-#define TARGET_MEDIA		((target_flags & MASK_MEDIA) != 0)
-#define TARGET_MULADD		((target_flags & MASK_MULADD) != 0)
-#define TARGET_LIBPIC		((target_flags & MASK_LIBPIC) != 0)
-#define TARGET_ACC_4		((target_flags & MASK_ACC_4) != 0)
-#define TARGET_DEBUG_ARG	((target_flags & MASK_DEBUG_ARG) != 0)
-#define TARGET_DEBUG_ADDR	((target_flags & MASK_DEBUG_ADDR) != 0)
-#define TARGET_DEBUG_STACK	((target_flags & MASK_DEBUG_STACK) != 0)
-#define TARGET_DEBUG		((target_flags & MASK_DEBUG) != 0)
-#define TARGET_DEBUG_LOC	((target_flags & MASK_DEBUG_LOC) != 0)
-#define TARGET_DEBUG_COND_EXEC	((target_flags & MASK_DEBUG_COND_EXEC) != 0)
-#define TARGET_NO_COND_MOVE	((target_flags & MASK_NO_COND_MOVE) != 0)
-#define TARGET_NO_SCC		((target_flags & MASK_NO_SCC) != 0)
-#define TARGET_NO_COND_EXEC	((target_flags & MASK_NO_COND_EXEC) != 0)
-#define TARGET_NO_VLIW_BRANCH	((target_flags & MASK_NO_VLIW_BRANCH) != 0)
-#define TARGET_NO_MULTI_CE	((target_flags & MASK_NO_MULTI_CE) != 0)
-#define TARGET_NO_NESTED_CE	((target_flags & MASK_NO_NESTED_CE) != 0)
-#define TARGET_FDPIC	        ((target_flags & MASK_FDPIC) != 0)
-#define TARGET_INLINE_PLT	((target_flags & MASK_INLINE_PLT) != 0)
-#define TARGET_BIG_TLS		((target_flags & MASK_BIG_TLS) != 0)
-#define TARGET_GPREL_RO		((target_flags & MASK_GPREL_RO) != 0)
-#define TARGET_PACK		((target_flags & MASK_PACK) != 0)
-#define TARGET_LONG_CALLS	((target_flags & MASK_LONG_CALLS) != 0)
-#define TARGET_ALIGN_LABELS	((target_flags & MASK_ALIGN_LABELS) != 0)
-#define TARGET_LINKED_FP	((target_flags & MASK_LINKED_FP) != 0)
-
-#define TARGET_GPR_64		(! TARGET_GPR_32)
-#define TARGET_FPR_64		(! TARGET_FPR_32)
-#define TARGET_HARD_FLOAT	(! TARGET_SOFT_FLOAT)
-#define TARGET_FIXED_CC		(! TARGET_ALLOC_CC)
-#define TARGET_COND_MOVE	(! TARGET_NO_COND_MOVE)
-#define TARGET_SCC		(! TARGET_NO_SCC)
-#define TARGET_COND_EXEC	(! TARGET_NO_COND_EXEC)
-#define TARGET_VLIW_BRANCH	(! TARGET_NO_VLIW_BRANCH)
-#define TARGET_MULTI_CE		(! TARGET_NO_MULTI_CE)
-#define TARGET_NESTED_CE	(! TARGET_NO_NESTED_CE)
-#define TARGET_ACC_8		(! TARGET_ACC_4)
-
 #define TARGET_HAS_FPRS		(TARGET_HARD_FLOAT || TARGET_MEDIA)
 
 #define NUM_GPRS		(TARGET_GPR_32? 32 : 64)
@@ -420,122 +315,6 @@ extern int target_flags;
 #define HAVE_AS_TLS 0
 #endif
 
-/* This macro defines names of command options to set and clear bits in
-   `target_flags'.  Its definition is an initializer with a subgrouping for
-   each command option.
-
-   Each subgrouping contains a string constant, that defines the option name,
-   a number, which contains the bits to set in `target_flags', and an optional
-   second string which is the textual description that will be displayed when
-   the user passes --help on the command line.  If the number entry is negative
-   then the specified bits will be cleared instead of being set.  If the second
-   string entry is present but empty, then no help information will be displayed
-   for that option, but it will not count as an undocumented option.  The actual
-   option name, asseen on the command line is made by appending `-m' to the
-   specified name.
-
-   One of the subgroupings should have a null string.  The number in this
-   grouping is the default value for `target_flags'.  Any target options act
-   starting with that value.
-
-   Here is an example which defines `-m68000' and `-m68020' with opposite
-   meanings, and picks the latter as the default:
-
-        #define TARGET_SWITCHES \
-          { { "68020",  1, ""},      \
-            { "68000", -1, "Compile for the m68000"},     \
-            { "",       1, }}
-
-   This declaration must be present.  */
-
-#define TARGET_SWITCHES							    \
-{{ "gpr-32",		  MASK_GPR_32,		"Only use 32 gprs"},	    \
- { "gpr-64",		 -MASK_GPR_32,		"Use 64 gprs"},		    \
- { "fpr-32",		  MASK_FPR_32,		"Only use 32 fprs"},	    \
- { "fpr-64",		 -MASK_FPR_32,		"Use 64 fprs"},		    \
- { "hard-float",	 -MASK_SOFT_FLOAT,	"Use hardware floating point" },\
- { "soft-float",	  MASK_SOFT_FLOAT,	"Use software floating point" },\
- { "alloc-cc",		  MASK_ALLOC_CC,	"Dynamically allocate cc's" }, \
- { "fixed-cc",		 -MASK_ALLOC_CC,	"Just use icc0/fcc0" },	    \
- { "dword",		  MASK_DWORD,		"Change ABI to allow double word insns" }, \
- { "no-dword",		 -MASK_DWORD,		"Do not use double word insns" }, \
- { "double",		  MASK_DOUBLE,		"Use fp double instructions" }, \
- { "no-double",		 -MASK_DOUBLE,		"Do not use fp double insns" }, \
- { "media",		  MASK_MEDIA,		"Use media instructions" }, \
- { "no-media",		 -MASK_MEDIA,		"Do not use media insns" }, \
- { "muladd",		  MASK_MULADD,		"Use multiply add/subtract instructions" }, \
- { "no-muladd",		 -MASK_MULADD,		"Do not use multiply add/subtract insns" }, \
- { "ultilib-library-pic", 0,			"Link with the library-pic libraries" }, \
- { "library-pic",	  MASK_LIBPIC,		"PIC support for building libraries" }, \
- { "acc-4",		  MASK_ACC_4,		"Use 4 media accumulators" }, \
- { "acc-8",		 -MASK_ACC_4,		"Use 8 media accumulators" }, \
- { "pack",		  MASK_PACK,		"Pack VLIW instructions" }, \
- { "no-pack",		 -MASK_PACK,		"Do not pack VLIW instructions" }, \
- { "no-eflags",		  0,			"Do not mark ABI switches in e_flags" }, \
- { "debug-arg",		  MASK_DEBUG_ARG,	"Internal debug switch" },  \
- { "debug-addr",	  MASK_DEBUG_ADDR,	"Internal debug switch" },  \
- { "debug-stack",	  MASK_DEBUG_STACK,	"Internal debug switch" },  \
- { "debug",		  MASK_DEBUG,		"Internal debug switch" },  \
- { "debug-cond-exec",	  MASK_DEBUG_COND_EXEC,	"Internal debug switch" },  \
- { "debug-loc",		  MASK_DEBUG_LOC,	"Internal debug switch" },  \
- { "align-labels",	  MASK_ALIGN_LABELS,	"Enable label alignment optimizations" }, \
- { "no-align-labels",	 -MASK_ALIGN_LABELS,	"Disable label alignment optimizations" }, \
- { "cond-move",		 -MASK_NO_COND_MOVE,	"Enable conditional moves" },  \
- { "no-cond-move",	  MASK_NO_COND_MOVE,	"Disable conditional moves" },  \
- { "scc",		 -MASK_NO_SCC,		"Enable setting gprs to the result of comparisons" },  \
- { "no-scc",		  MASK_NO_SCC,		"Disable setting gprs to the result of comparisons" },  \
- { "cond-exec",		 -MASK_NO_COND_EXEC,	"Enable conditional execution other than moves/scc" }, \
- { "no-cond-exec",	  MASK_NO_COND_EXEC,	"Disable conditional execution other than moves/scc" }, \
- { "vliw-branch",	 -MASK_NO_VLIW_BRANCH,	"Run pass to pack branches into VLIW insns" }, \
- { "no-vliw-branch",	  MASK_NO_VLIW_BRANCH,	"Do not run pass to pack branches into VLIW insns" }, \
- { "multi-cond-exec",	 -MASK_NO_MULTI_CE,	"Disable optimizing &&/|| in conditional execution" }, \
- { "no-multi-cond-exec",  MASK_NO_MULTI_CE,	"Enable optimizing &&/|| in conditional execution" }, \
- { "nested-cond-exec",	 -MASK_NO_NESTED_CE,	"Enable nested conditional execution optimizations" }, \
- { "no-nested-cond-exec" ,MASK_NO_NESTED_CE,	"Disable nested conditional execution optimizations" }, \
- { "long-calls",	  MASK_LONG_CALLS,	"Disallow direct calls to global functions" }, \
- { "no-long-calls",	 -MASK_LONG_CALLS,	"Allow direct calls to global functions" }, \
- { "linked-fp",		  MASK_LINKED_FP,	"Follow the EABI linkage requirements" }, \
- { "no-linked-fp",	 -MASK_LINKED_FP,	"Don't follow the EABI linkage requirements" }, \
- { "fdpic",	          MASK_FDPIC,		"Enable file descriptor PIC mode" }, \
- { "no-fdpic",	         -MASK_FDPIC,		"Disable file descriptor PIC mode" }, \
- { "inline-plt",	  MASK_INLINE_PLT,	"Enable inlining of PLT in function calls" }, \
- { "no-inline-plt",	 -MASK_INLINE_PLT,	"Disable inlining of PLT in function calls" }, \
- { "TLS",		  MASK_BIG_TLS,         "Assume a large TLS segment" }, \
- { "tls",                -MASK_BIG_TLS,		"Do not assume a large TLS segment" }, \
- { "gprel-ro",		  MASK_GPREL_RO,	"Enable use of GPREL for read-only data in FDPIC" }, \
- { "no-gprel-ro",	 -MASK_GPREL_RO,	"Disable use of GPREL for read-only data in FDPIC" }, \
- { "tomcat-stats",	  0, 			"Cause gas to print tomcat statistics" }, \
- { "",			  MASK_DEFAULT,		"" }}			    \
-
-/* This macro is similar to `TARGET_SWITCHES' but defines names of command
-   options that have values.  Its definition is an initializer with a
-   subgrouping for each command option.
-
-   Each subgrouping contains a string constant, that defines the fixed part of
-   the option name, the address of a variable, and an optional description string.
-   The variable, of type `char *', is set to the text following the fixed part of
-   the option as it is specified on the command line.  The actual option name is
-   made by appending `-m' to the specified name.
-
-   Here is an example which defines `-mshort-data-NUMBER'.  If the given option
-   is `-mshort-data-512', the variable `m88k_short_data' will be set to the
-   string `"512"'.
-
-        extern char *m88k_short_data;
-        #define TARGET_OPTIONS \
-         { { "short-data-", & m88k_short_data, \
-	 "Specify the size of the short data section"  } }
-
-   This declaration is optional.  */
-#define TARGET_OPTIONS							      \
-{									      \
-  { "cpu=",		&frv_cpu_string,	 "Set cpu type", 0},	      \
-  { "branch-cost=",	&frv_branch_cost_string, "Internal debug switch", 0}, \
-  { "cond-exec-insns=", &frv_condexec_insns_str, "Internal debug switch", 0}, \
-  { "cond-exec-temps=", &frv_condexec_temps_str, "Internal debug switch", 0}, \
-  { "sched-lookahead=", &frv_sched_lookahead_str,"Internal debug switch", 0}, \
-}
-
 /* This macro is a C statement to print on `stderr' a string describing the
    particular machine description choice.  Every machine description should
    define `TARGET_VERSION'.  For example:
@@ -572,7 +351,7 @@ extern int target_flags;
 
    You should not use this macro to change options that are not
    machine-specific.  These should uniformly selected by the same optimization
-   level on all supported machines.  Use this macro to enable machbine-specific
+   level on all supported machines.  Use this macro to enable machine-specific
    optimizations.
 
    *Do not examine `write_symbols' in this macro!* The debugging options are
@@ -819,7 +598,6 @@ extern int target_flags;
 #define FPR_FIRST       64			/* First FP reg */
 #define FPR_LAST        127			/* Last  FP reg */
 
-#define DEFAULT_CONDEXEC_TEMPS 4		/* reserve 4 regs by default */
 #define GPR_TEMP_NUM	frv_condexec_temps	/* # gprs to reserve for temps */
 
 /* We reserve the last CR and CCR in each category to be used as a reload
@@ -1598,6 +1376,9 @@ extern enum reg_class reg_class_from_letter[];
    : (C) == 'U' ? EXTRA_CONSTRAINT_FOR_U (VALUE)			\
    : 0)
 
+#define EXTRA_MEMORY_CONSTRAINT(C,STR) \
+  ((C) == 'U' || (C) == 'R' || (C) == 'T')
+
 #define CONSTRAINT_LEN(C, STR) \
   ((C) == 'D' ? 3 : DEFAULT_CONSTRAINT_LEN ((C), (STR)))
 
@@ -1667,9 +1448,9 @@ typedef struct frv_stack {
    to a smaller address.  */
 #define STACK_GROWS_DOWNWARD 1
 
-/* Define this macro if the addresses of local variable slots are at negative
-   offsets from the frame pointer.  */
-#define FRAME_GROWS_DOWNWARD
+/* Define this macro to nonzero if the addresses of local variable slots
+   are at negative offsets from the frame pointer.  */
+#define FRAME_GROWS_DOWNWARD 1
 
 /* Offset from the frame pointer to the first local variable slot to be
    allocated.
@@ -1713,13 +1494,6 @@ typedef struct frv_stack {
    zero, but may be `NULL_RTX' if there is not way to determine the return
    address of other frames.  */
 #define RETURN_ADDR_RTX(COUNT, FRAMEADDR) frv_return_addr_rtx (COUNT, FRAMEADDR)
-
-/* This function contains machine specific function data.  */
-struct machine_function GTY(())
-{
-  /* True if we have created an rtx that relies on the stack frame.  */
-  int frame_needed;
-};
 
 #define RETURN_POINTER_REGNUM LR_REGNO
 
@@ -2037,7 +1811,7 @@ struct machine_function GTY(())
 
 /* How Large Values are Returned.  */
 
-/* The number of the register that is used to to pass the structure
+/* The number of the register that is used to pass the structure
    value address.  */
 #define FRV_STRUCT_VALUE_REGNUM (GPR_FIRST + 3)
 
@@ -2379,19 +2153,8 @@ do {							\
 #define HAVE_PRE_MODIFY_REG 1
 
 
-/* Returns a mode from class `MODE_CC' to be used when comparison operation
-   code OP is applied to rtx X and Y.  For example, on the SPARC,
-   `SELECT_CC_MODE' is defined as (see *note Jump Patterns::.  for a
-   description of the reason for this definition)
+/* We define extra CC modes in frv-modes.def so we need a selector.  */
 
-        #define SELECT_CC_MODE(OP,X,Y) \
-          (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT          \
-           ? ((OP == EQ || OP == NE) ? CCFPmode : CCFPEmode)    \
-           : ((GET_CODE (X) == PLUS || GET_CODE (X) == MINUS    \
-               || GET_CODE (X) == NEG) \
-              ? CC_NOOVmode : CCmode))
-
-   You need not define this macro if `EXTRA_CC_MODES' is not defined.  */
 #define SELECT_CC_MODE frv_select_cc_mode
 
 /* A C expression whose value is one if it is always safe to reverse a
@@ -2444,18 +2207,6 @@ do {							\
 
 /* A C expression for the cost of a branch instruction.  A value of 1 is the
    default; other values are interpreted relative to that.  */
-
-/* Here are additional macros which do not specify precise relative costs, but
-   only that certain actions are more expensive than GCC would ordinarily
-   expect.  */
-
-/* We used to default the branch cost to 2, but I changed it to 1, to avoid
-   generating SCC instructions and or/and-ing them together, and then doing the
-   branch on the result, which collectively generate much worse code.  */
-#ifndef DEFAULT_BRANCH_COST
-#define DEFAULT_BRANCH_COST 1
-#endif
-
 #define BRANCH_COST frv_branch_cost_int
 
 /* Define this macro as a C expression which is nonzero if accessing less than
@@ -2524,43 +2275,6 @@ do {							\
    program so they can be changed program startup time if the program is loaded
    at a different address than linked for.  */
 #define FIXUP_SECTION_ASM_OP	"\t.section .rofixup,\"a\""
-
-/* A list of names for sections other than the standard two, which are
-   `in_text' and `in_data'.  You need not define this macro
-   on a system with no other sections (that GCC needs to use).  */
-#undef  EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_sdata, in_const, in_fixup
-
-/* One or more functions to be defined in "varasm.c".  These
-   functions should do jobs analogous to those of `text_section' and
-   `data_section', for your additional sections.  Do not define this
-   macro if you do not define `EXTRA_SECTIONS'.  */
-#undef  EXTRA_SECTION_FUNCTIONS
-#define EXTRA_SECTION_FUNCTIONS                                         \
-	SDATA_SECTION_FUNCTION						\
-	FIXUP_SECTION_FUNCTION
-
-#define SDATA_SECTION_FUNCTION						\
-void									\
-sdata_section (void)							\
-{									\
-  if (in_section != in_sdata)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", SDATA_SECTION_ASM_OP);		\
-      in_section = in_sdata;						\
-    }									\
-}
-
-#define FIXUP_SECTION_FUNCTION						\
-void									\
-fixup_section (void)							\
-{									\
-  if (in_section != in_fixup)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", FIXUP_SECTION_ASM_OP);		\
-      in_section = in_fixup;						\
-    }									\
-}
 
 /* Position Independent Code.  */
 
@@ -2606,13 +2320,6 @@ do {									\
   assemble_name (STREAM, LABEL);					\
 } while (0)
 
-#if HAVE_AS_TLS
-/* Emit a dtp-relative reference to a TLS variable.  */
-
-#define ASM_OUTPUT_DWARF_DTPREL(FILE, SIZE, X) \
-  frv_output_dwarf_dtprel ((FILE), (SIZE), (X))
-#endif
-
 /* Whether to emit the gas specific dwarf2 line number support.  */
 #define DWARF2_ASM_LINE_DEBUG_INFO (TARGET_DEBUG_LOC)
 
@@ -2653,9 +2360,9 @@ extern int size_directive_output;
 #define ASM_OUTPUT_ALIGNED_DECL_LOCAL(STREAM, DECL, NAME, SIZE, ALIGN)	\
 do {                                                                   	\
   if ((SIZE) > 0 && (SIZE) <= g_switch_value)				\
-    named_section (0, ".sbss", 0);                                    	\
+    switch_to_section (get_named_section (NULL, ".sbss", 0));           \
   else                                                                 	\
-    bss_section ();                                                  	\
+    switch_to_section (bss_section);                                  	\
   ASM_OUTPUT_ALIGN (STREAM, floor_log2 ((ALIGN) / BITS_PER_UNIT));     	\
   ASM_DECLARE_OBJECT_NAME (STREAM, NAME, DECL);                        	\
   ASM_OUTPUT_SKIP (STREAM, (SIZE) ? (SIZE) : 1);                       	\
@@ -2911,8 +2618,8 @@ fprintf (STREAM, "\t.word .L%d\n", VALUE)
 #define ASM_OUTPUT_CASE_LABEL(STREAM, PREFIX, NUM, TABLE)               \
 do {                                                                    \
   if (flag_pic)                                                         \
-    function_section (current_function_decl);                           \
-  (*targetm.asm_out.internal_label) (STREAM, PREFIX, NUM);                      \
+    switch_to_section (function_section (current_function_decl));       \
+  (*targetm.asm_out.internal_label) (STREAM, PREFIX, NUM);              \
 } while (0)
 
 
@@ -2992,104 +2699,6 @@ do {                                                                    \
 
 /* Miscellaneous Parameters.  */
 
-/* Define this if you have defined special-purpose predicates in the file
-   `MACHINE.c'.  This macro is called within an initializer of an array of
-   structures.  The first field in the structure is the name of a predicate and
-   the second field is an array of rtl codes.  For each predicate, list all rtl
-   codes that can be in expressions matched by the predicate.  The list should
-   have a trailing comma.  Here is an example of two entries in the list for a
-   typical RISC machine:
-
-        #define PREDICATE_CODES \
-          {"gen_reg_rtx_operand", {SUBREG, REG}},  \
-          {"reg_or_short_cint_operand", {SUBREG, REG, CONST_INT}},
-
-   Defining this macro does not affect the generated code (however, incorrect
-   definitions that omit an rtl code that may be matched by the predicate can
-   cause the compiler to malfunction).  Instead, it allows the table built by
-   `genrecog' to be more compact and efficient, thus speeding up the compiler.
-   The most important predicates to include in the list specified by this macro
-   are thoses used in the most insn patterns.  */
-#define PREDICATE_CODES							\
-  { "integer_register_operand",		{ REG, SUBREG }},		\
-  { "frv_load_operand",			{ REG, SUBREG, MEM }},		\
-  { "gpr_no_subreg_operand",		{ REG }},			\
-  { "gpr_or_fpr_operand",		{ REG, SUBREG }},		\
-  { "gpr_or_int12_operand",		{ REG, SUBREG, CONST_INT }},	\
-  { "gpr_fpr_or_int12_operand",		{ REG, SUBREG, CONST_INT }},	\
-  { "gpr_or_int10_operand",		{ REG, SUBREG, CONST_INT }},	\
-  { "gpr_or_int_operand",		{ REG, SUBREG, CONST_INT }},	\
-  { "move_source_operand",		{ REG, SUBREG, CONST_INT, MEM,	\
-					  CONST_DOUBLE, CONST,		\
-					  SYMBOL_REF, LABEL_REF }},	\
-  { "move_destination_operand",		{ REG, SUBREG, MEM }},		\
-  { "movcc_fp_destination_operand",	{ REG, SUBREG, MEM }},		\
-  { "condexec_source_operand",		{ REG, SUBREG, CONST_INT, MEM,	\
-					  CONST_DOUBLE }},		\
-  { "condexec_dest_operand",		{ REG, SUBREG, MEM }},		\
-  { "reg_or_0_operand",			{ REG, SUBREG, CONST_INT }},	\
-  { "lr_operand",			{ REG }},			\
-  { "gpr_or_memory_operand",		{ REG, SUBREG, MEM }},		\
-  { "gpr_or_memory_operand_with_scratch", { REG, SUBREG, MEM }},	\
-  { "fpr_or_memory_operand",		{ REG, SUBREG, MEM }},		\
-  { "int12_operand",			{ CONST_INT }},			\
-  { "int_2word_operand",		{ CONST_INT, CONST_DOUBLE,	\
-					  SYMBOL_REF, LABEL_REF, CONST }}, \
-  { "fdpic_operand",			{ REG }},			\
-  { "fdpic_fptr_operand",		{ REG }},			\
-  { "ldd_address_operand",		{ REG, SUBREG, PLUS }},		\
-  { "got12_operand",			{ CONST }},			\
-  { "const_unspec_operand",		{ CONST }},			\
-  { "icc_operand",			{ REG }},			\
-  { "fcc_operand",			{ REG }},			\
-  { "cc_operand",			{ REG }},			\
-  { "icr_operand",			{ REG }},			\
-  { "fcr_operand",			{ REG }},			\
-  { "cr_operand",			{ REG }},			\
-  { "fpr_operand",			{ REG, SUBREG }},		\
-  { "even_reg_operand",			{ REG, SUBREG }},		\
-  { "odd_reg_operand",			{ REG, SUBREG }},		\
-  { "even_gpr_operand",			{ REG, SUBREG }},		\
-  { "odd_gpr_operand",			{ REG, SUBREG }},		\
-  { "quad_fpr_operand",			{ REG, SUBREG }},		\
-  { "even_fpr_operand",			{ REG, SUBREG }},		\
-  { "odd_fpr_operand",			{ REG, SUBREG }},		\
-  { "dbl_memory_one_insn_operand",	{ MEM }},			\
-  { "dbl_memory_two_insn_operand",	{ MEM }},			\
-  { "call_operand",			{ REG, SUBREG, CONST_INT,	\
-					  CONST, SYMBOL_REF }}, 	\
-  { "sibcall_operand",			{ REG, SUBREG, CONST_INT,	\
-					  CONST }}, 			\
-  { "upper_int16_operand",		{ CONST_INT }},			\
-  { "uint16_operand",			{ CONST_INT }},			\
-  { "symbolic_operand",                 { SYMBOL_REF, CONST_INT }},     \
-  { "relational_operator",		{ EQ, NE, LE, LT, GE, GT,	\
-					  LEU, LTU, GEU, GTU }},	\
-  { "integer_relational_operator",	{ EQ, NE, LE, LT, GE, GT,	\
-					  LEU, LTU, GEU, GTU }},	\
-  { "float_relational_operator",	{ EQ, NE, LE, LT, GE, GT }},	\
-  { "ccr_eqne_operator",		{ EQ, NE }},			\
-  { "minmax_operator",			{ SMIN, SMAX, UMIN, UMAX }},	\
-  { "condexec_si_binary_operator",	{ PLUS, MINUS, AND, IOR, XOR,	\
-					  ASHIFT, ASHIFTRT, LSHIFTRT }}, \
-  { "condexec_si_media_operator",	{ AND, IOR, XOR }},		\
-  { "condexec_si_divide_operator",	{ DIV, UDIV }},			\
-  { "condexec_si_unary_operator",	{ NOT, NEG }},			\
-  { "condexec_sf_add_operator",		{ PLUS, MINUS }},		\
-  { "condexec_sf_conv_operator",	{ ABS, NEG }},			\
-  { "intop_compare_operator",		{ PLUS, MINUS, AND, IOR, XOR,	\
-					  ASHIFT, ASHIFTRT, LSHIFTRT }}, \
-  { "fpr_or_int6_operand",		{ REG, SUBREG, CONST_INT }},	\
-  { "int6_operand",			{ CONST_INT }},			\
-  { "int5_operand",			{ CONST_INT }},			\
-  { "uint5_operand",			{ CONST_INT }},			\
-  { "uint4_operand",			{ CONST_INT }},			\
-  { "uint1_operand",			{ CONST_INT }},			\
-  { "acc_operand",			{ REG, SUBREG }},		\
-  { "even_acc_operand",			{ REG, SUBREG }},		\
-  { "quad_acc_operand",			{ REG, SUBREG }},		\
-  { "accg_operand",			{ REG, SUBREG }},
-
 /* An alias for a machine mode name.  This is the machine mode that elements of
    a jump-table should have.  */
 #define CASE_VECTOR_MODE SImode
@@ -3160,9 +2769,6 @@ do {                                                                    \
    BRANCH_COST+1 is the default if the machine does not use
    cc0, and 1 if it does use cc0.  */
 #define MAX_CONDITIONAL_EXECUTE frv_condexec_insns
-
-/* Default value of MAX_CONDITIONAL_EXECUTE if no -mcond-exec-insns= */
-#define DEFAULT_CONDEXEC_INSNS 8
 
 /* A C expression to modify the code described by the conditional if
    information CE_INFO, possibly updating the tests in TRUE_EXPR, and
@@ -3338,7 +2944,15 @@ enum frv_builtins
   FRV_BUILTIN_IACCreadl,
   FRV_BUILTIN_IACCsetll,
   FRV_BUILTIN_IACCsetl,
-  FRV_BUILTIN_SCAN
+  FRV_BUILTIN_SCAN,
+  FRV_BUILTIN_READ8,
+  FRV_BUILTIN_READ16,
+  FRV_BUILTIN_READ32,
+  FRV_BUILTIN_READ64,
+  FRV_BUILTIN_WRITE8,
+  FRV_BUILTIN_WRITE16,
+  FRV_BUILTIN_WRITE32,
+  FRV_BUILTIN_WRITE64
 };
 #define FRV_BUILTIN_FIRST_NONMEDIA FRV_BUILTIN_SMUL
 

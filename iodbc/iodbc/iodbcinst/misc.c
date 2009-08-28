@@ -126,10 +126,10 @@ WORD configMode = ODBC_BOTH_DSN;
  *               3. No odbc.ini presence, return NULL.
  *
  * For MacX:     1. Check for $ODBCINI variable, if exists return $ODBCINI.
- *               2. Check for $HOME/Library/ODBC/odbc.ini or
- *                  ~/Library/ODBC/.odbc.ini file, if exists return it.
- *               3. Check for $HOME/.odbc.ini or ~/.odbc.ini file, if exists
+ *               2. Check for $HOME/.odbc.ini or ~/.odbc.ini file, if exists
  *                  return it.
+ *               3. Check for $HOME/Library/ODBC/odbc.ini or
+ *                  ~/.odbc.ini file, if exists return it.
  *               4. Check for SYS_ODBC_INI build variable, if exists return
  *                  it. (ie : /etc/odbc.ini).
  *               5. Check for /Library/ODBC/odbc.ini
@@ -257,49 +257,46 @@ _iodbcadm_getinifile (char *buf, int size, int bIsInst, int doCreate)
       if (doCreate || access (buf, R_OK) == 0)
 	return buf;
 #  else	/* else VMS */
-
-	/*
-	 *  2b. Check either $HOME/.odbc.ini or ~/.odbc.ini
-	 */
-	if ((ptr = getenv ("HOME")) == NULL)
+      /*
+       *  2b. Check either $HOME/.odbc.ini or ~/.odbc.ini
+       */
+      if ((ptr = getenv ("HOME")) == NULL)
 	{
-	    ptr = (char *) getpwuid (getuid ());
-	    
-	    if (ptr != NULL)
-		ptr = ((struct passwd *) ptr)->pw_dir;
+	  ptr = (char *) getpwuid (getuid ());
+
+	  if (ptr != NULL)
+	    ptr = ((struct passwd *) ptr)->pw_dir;
 	}
-	
-	/*
-	 * Try to check the ~/Library/ODBC/odbc.ini
-	 */
-	if (ptr != NULL) {
-	    snprintf (buf, size,
-		      bIsInst ? "%s" ODBCINST_INI_APP : "%s" ODBC_INI_APP, ptr);
-	    
-	    if (access (buf, R_OK) == 0)
-		return buf;
-	    else if (doCreate)
+
+      if (ptr != NULL)
+	{
+	  snprintf (buf, size, bIsInst ? "%s/.odbcinst.ini" : "%s/.odbc.ini",
+	      ptr);
+
+	  if (doCreate || access (buf, R_OK) == 0)
+	    return buf;
+
+#if defined(__APPLE__)
+	  /*
+	   * Try to check the ~/Library/ODBC/odbc.ini
+	   */
+	  snprintf (buf, size,
+	      bIsInst ? "%s" ODBCINST_INI_APP : "%s" ODBC_INI_APP, ptr);
+
+	  if (access (buf, R_OK) == 0)
+	    return buf;
+	  else if (doCreate)
 	    {
-		int f = open ((char *) buf, O_CREAT,
-			      S_IREAD | S_IWRITE | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
-		if (f != -1)
+	      int f = open ((char *) buf, O_CREAT,
+		  S_IREAD | S_IWRITE | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+	      if (f != -1)
 		{
-		    close (f);
-		    return buf;
+		  close (f);
+		  return buf;
 		}
 	    }
+#   endif /* endif __APPLE__ */
 	}
-	
-	if (ptr != NULL)
-	{
-	    snprintf (buf, size, bIsInst ? "%s/.odbcinst.ini" : "%s/.odbc.ini",
-		      ptr);
-	    
-	    if (doCreate || access (buf, R_OK) == 0)
-		return buf;
-	    
-	}
-	
 
 #  endif /* endif VMS */
     }

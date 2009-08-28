@@ -1,0 +1,1699 @@
+# -*- tcl -*- $Id: Access.xotcl,v 1.9 2007/08/14 16:38:26 neumann Exp $
+
+set httpAccessVersion 0.91
+package provide xotcl::comm::httpAccess $httpAccessVersion
+
+package require xotcl::comm::pcache
+package require xotcl::comm::mime
+package require xotcl::comm::connection
+package require xotcl::trace
+
+package require XOTcl
+
+namespace eval ::xotcl::comm::httpAccess {
+    namespace import ::xotcl::*
+
+    variable os
+    variable VERSION
+
+    if {[catch {set os [exec uname -sr]}]} {
+	if {[catch {set os [exec uname -a]}]} { set os unknownOS }
+    }
+    if {![info exists VERSION]} { set VERSION 1.0 }
+
+
+    # assert is used only for invariants in the source
+    proc assert {f r} {
+	set got [eval $f]
+	if {$got != $r} {
+	    puts stderr "assertion failed: \[$f\] == $r (got $got)"
+	}
+    }
+
+
+    # resolve and checkUrl implement URL handling (primarily completion)
+    proc checkUrl {url} {
+	#puts stderr "checkUrl: <$url>"
+	if {![regexp {^([^:]+:/)/([^/]+)(/.*)?$} $url _ scheme network path]} {
+	    regexp {^([^:]+:)(/.*)?$} $url _ scheme path
+	}
+	if {![info exists path]} {
+	    # no access scheme provided, try some heuristics...
+	    if {[regexp {^[./]} $url]} {
+		# expand leading "." to pwd
+		if {[regexp {^\.(.*)$} $url _ url]} { set url [pwd]$url }
+		return file:$url
+	    } else {
+		set url http://$url
+		regsub {///$} $url // url
+		return $url
+	    }
+	}
+	if {$path eq ""} {set path /}
+	return [expr {[info exists network] ?
+		      "$scheme/$network$path" : "$scheme$path"}]
+    }
+
+    # resolving a relative url with respect to a base url (based on rfc 1808)
+    proc resolve {rel base {childTagName ""}} {
+	if {$base eq ""}    { return [checkUrl $rel] }
+	if {$rel eq ""}     { return $base }
+	if {[regexp {^[^:]+:/} $rel _]} { return [checkUrl $rel] }
+	if {![regexp {^([^:]+:/)/([^/]+)(/.*)$} $base _ baseScheme baseNetwork basePath]} {
+	    regexp {^([^:]+:)(/.*)$} $base _ baseScheme basePath
+	} elseif {[regexp {^[^:/]+:} $rel]} {
+	    return $rel
+	}
+	regexp {^(.*)\#.*$} $basePath _ basePath
+	regexp {^(.*)[?].*$} $basePath _ basePath
+	if {[regexp {^//([^/]+)/(.*)$} $rel _ relNetwork relPath]} {
+	    return $baseScheme/$relNetwork/$relPath
+	}
+	if {[info exists baseNetwork]} {
+	    append baseScheme /$baseNetwork
+	}
+	#puts stderr rel=<$rel>
+	if {![string match "/*" $rel]} {
+	    #puts stderr rel<$rel>base<$basePath>
+	    if {[string match \#* $rel]} {
+		set r $basePath$rel
+	    } elseif {![regsub {/([^/]*)$} $basePath /$rel r]} {
+		set r /$rel
+	    }
+	    while {[regsub -all {/\./} $r / r]} {}
+	    regsub {/\.$} $r / r
+	    while {[regsub -all {/[^/.]+/\.\./} $r / r]} {}
+	    # remove leading /../ (netscapes navigator does this)
+	    while {[regsub {^/\.\./} $r / r]} {}
+	    set rel $r
+	    #puts stderr finalrel<$r>
+	}
+	#if {$childTagName ne ""} 
+	if {1} {
+	    upvar 1 $childTagName childTag 
+	    catch {unset childTag}
+	    if {[regexp {^(.+)\#(.+)$} $rel _ rel childTag]} {
+		#puts stderr childTag=$childTag,url=$baseScheme$rel.
+	    }
+	}
+	return $baseScheme$rel
+    }
+
+    assert {resolve "" http://mohegan/} http://mohegan/
+    assert {resolve http://mohegan/ ""} http://mohegan/
+    assert {resolve http://mohegan ""} http://mohegan/
+    assert {resolve http://mohegan/ http://nestroy} http://mohegan/
+    assert {resolve test.html http://127.0.0.1/} http://127.0.0.1/test.html
+    assert {resolve test http://nestroy/} http://nestroy/test
+    assert {resolve test file:/u/neumann/old} file:/u/neumann/test
+    assert {resolve /test http://nestroy/} http://nestroy/test
+    assert {resolve //mohegan/index.html http://nestroy/} http://mohegan/index.html
+    assert {resolve //mohegan/index.html http://nestroy/} http://mohegan/index.html
+    assert {resolve index.html http://nestroy/dir/} http://nestroy/dir/index.html
+    assert {resolve ./index.html http://nestroy/dir/} http://nestroy/dir/index.html
+    assert {resolve ././index.html http://nestroy/dir/} http://nestroy/dir/index.html
+    assert {resolve ../index.html http://nestroy/dir/} http://nestroy/index.html
+    assert {resolve ../../index.html http://nestroy/dir/} http://nestroy/index.html
+    assert {resolve ../../../test file:/u/neumann/old} file:/test
+    assert {resolve newdir/  http://nestroy/dir/} http://nestroy/dir/newdir/
+    assert {resolve /newdir/  http://nestroy/dir/} http://nestroy/newdir/
+    assert {resolve file:/u/neumann/ice.html ""} file:/u/neumann/ice.html
+    assert {resolve \#label http://nestroy/h.html} http://nestroy/h.html
+    assert {resolve mailto:user@host http://nestroy/h.html} mailto:user@host
+    assert {resolve ../../../../mis2001/folien/081101.ppt  http://wwwi.wu-wien.ac.at/Studium/Abschnitt_2/LVA_ws01/IT/index.html} http://wwwi.wu-wien.ac.at/mis2001/folien/081101.ppt
+
+
+    ##############################################################
+    # Every object of class Access informs the (possibly empty) list of 
+    # informObjects during its lifecycle with the following messages
+    #   
+    #   startCb:   when the request for the object is created
+    #              and was classified and initialized
+    #
+    #   notifyCb:  when the type of the incming data is dertermined
+    #              (typically after parsing the http header)
+    #
+    #   incCb:     when new data is available
+    #
+    #   endCb:     when the request is finished sucessfully and the object
+    #              is going to be destroyed
+    #
+    #   cancelCb:  when the request is finished nonsucessfully and the object
+    #              is going to be destroyed
+    #
+    # All these messages receive the name of the Access object
+    # as first parameter, incCb has two more arguments (totalsize 
+    # and currentsize) 
+
+    # caching:
+    # 0 no caching
+    # 1 volatile cache (does not check cache, keeps spool file for back button)
+    # 2 persistent cache
+
+    Class Access -parameter {
+	{method GET} {blocking 0} {httpVersion 1.1} {headers {}} 
+	url query data contentType path caching sinkClass parentUrl
+    }
+    Access instproc informObject x {
+	foreach i $x { my lappend informObjects $i }
+    }
+    Access instproc method x {
+			      my set method [string toupper $x]
+			  }
+    Access instproc unknown {m args} {
+	error "Method '$m' with args '$args' is unknown for [self class]"
+    }
+
+    Access proc checkRunning {} {
+	foreach u [my array names running] {
+	    puts stderr "... running: $u"
+	}
+	puts stderr "... -----------"
+    }
+    Access proc createRequest args {
+	#my showCall
+	set informobject {}
+	set allowJoin 1
+	set nargs {}
+	foreach {a v} $args {
+	    switch -exact -- $a {
+		-url           {set url $v;          lappend nargs $a $v}
+		-informObject  {set informobject $v; lappend nargs $a $v}
+		-parentRequest {set parentRequest $v}
+		-allowJoin     {set allowJoin $v}
+		default        {lappend nargs $a $v}
+	    }
+	}
+	#if {[my array exists running]} {parray [self]::running}
+	if {[my exists running($url)] && $allowJoin} {
+	    my showMsg "we can join running($url)=[my set running($url)]"
+	    # we can join the request.
+	    # requests are joined by adding the informobjects to
+	    # the existing request
+	    set token [my set running($url)]
+	    # delegation to a different request works only so easy
+	    # when loading to a file...
+	    $token informObject $informobject
+	    return $token
+	} else {
+	    set token [my autoname ::req]
+	    if {[info exists parentRequest]} {
+		set token ${parentRequest}$token
+	    } 
+	    #my showMsg "TOKEN = $token $url"
+	    return [eval my create $token $nargs]
+	}
+    }
+    Access instproc running {} {
+	#my showCall
+	[self class] set running([my url]) [self]
+    }
+    Access instproc stop {} {
+	#showCall
+	my instvar url
+	if {[[self class] exists running($url)]} {
+	    #puts stderr "my unset [[self class] set running($url)]
+	    [self class] unset running($url)
+	    #if {[my array exists running]} { parray [self class]::running }
+	} else {
+	    #puts stderr "not running($url)"
+	    #if {[my array exists running]} { parray [self class]::running }
+	}
+    }
+    #Access instproc destroy args {
+    #  my showCall
+    #  next
+    #}
+    Access instproc init args {
+	#my showCall
+	my instvar method url
+	if {![my exists informObjects]} {
+	    my set informObjects {}
+	}
+	next
+	if {![my exists caching]} { 
+	    if {$method eq "GET"} {
+		set defaultCaching 2
+	    } else {
+		set defaultCaching 1
+	    }
+	    my caching $defaultCaching
+	}
+	#my showVars
+
+	set url [string trim $url]
+	my initialize
+	if {[my classify $url]} {
+	    #my showVars
+	    # now inform all interested objects that we have the object
+	    my doCallbacks startCb
+	    #my showVars blocking
+	    # trigger the transfer... (might be blocking or not)
+	    my $method
+	    if {![my exists finished]} {
+		# the request is not finished
+		if {[my blocking]} {
+		    #my showMsg "waiting"
+		    my vwait finished
+		    #my showMsg "waiting DONE"
+		}
+	    }
+	}
+    }
+    Access instproc getContent {} {
+	[my set sink] content
+    }
+
+    #########################################
+    Access instproc timeout t {
+	my set timeout [::after $t [self] timeoutOccured]
+    }
+    Access instproc timeoutOccured {} {
+	#my showCall
+	my unset timeout
+	my abort "timeout exceeded"
+    }
+    Access instproc timeoutFinish {} {
+	if {[my exists timeout]} {
+	    after cancel [my set timeout]
+	    my unset timeout
+	}
+    }
+    #########################################
+
+    Access instproc initialize {} {
+	#my showCall
+	my set state           0
+	my set meta            {}
+	my set currentsize     0
+	my set totalsize       0
+    }
+    Access instproc classify {url} {
+	my instvar host path port method
+	#my showVars caching
+	if {[my caching] > 1 && [persistentCache isValidated $url]} {
+	    #puts stderr "*** cacheable && validated"
+	    #showVars
+	    #persistentCache dump
+	    set access CacheAccess
+	} elseif {[regexp -nocase {^http://([^/:]+)(:([0-9]+))?(/.*)?$} $url \
+		       _ host y givenPort path]} {
+	    if {$givenPort ne ""} {set port $givenPort } {set port 80}
+	    switch -exact $method {
+		PROPFIND -
+		PROPPATCH -
+		COPY -
+		MKCOL -
+		MOVE -
+		LOCK -
+		UNLOCK {
+		    package require xotcl::comm::dav
+		    set access Dav
+		}
+		default {set access Http}
+	    }
+	} elseif {[regexp -nocase {^https://([^/:]+)(:([0-9]+))?(/.*)$} $url \
+		       _ host y givenPort path]} {
+	    if {$givenPort ne ""} {set port $givenPort } {set port 443}
+	    set access Https
+	} elseif {[regexp -nocase {^file:(.*)$} $url _ path]} {
+	    set access File
+	} elseif {[regexp -nocase {^ftp://([^/]+)/(.*)$} $url _ host path]} {
+	    package require xotcl::comm::ftp
+	    set access Ftp
+	} elseif {[regexp -nocase {^imap://([^/]+)/(.*)$} $url _ host path]} {
+	    package require xotcl::comm::imap
+	    set access Imap
+	} elseif {[regexp -nocase {^cmd:/(.*)$} $url _ path]} {
+	    set access xotcl::Cmd    
+	} elseif {[regexp -nocase {^ldap://([^/:]+)?(:([0-9]+))?(/.*)$} \
+		       $url _ host y givenPort path]} {
+	    if {$givenPort ne ""} { set port $givenPort }
+	    my showMsg "*** ldap://<$host>:<$port>/<$path>"
+	    package require xotcl::comm::ldap
+	    set access Ldap  
+	} else {
+	    #my set state 0
+	    my abort "Unsupported URL: '$url'"
+	    return 0
+	}
+	my class $access
+	#my showMsg "class of request = $access"
+	return 1
+    }
+    Access instproc revisit {} {
+	my class ReAccess
+	my initialize
+	my [my set method]
+    }
+    ### dummy stubs for 'close' and 'GET' for error cases
+    Access instproc close {} {
+    }
+    Access instproc GET {} {
+	if {[my exists errormsg]} { ;# the error was already reportet
+	    my finish
+	} else {
+	    my abort "unknown error"
+	}
+    }
+
+    Access instproc headerDone {} {
+	my instvar caching sink
+	if {[my exists ignoreBody]} return
+	if {[my exists sinkClass] && $caching>0 } {
+	    error "can´t set both sinkclass and caching"
+	}
+	switch $caching {
+	    2 {
+		set sink [CacheFileSink create [self]::cfs]
+		#my showMsg "[self class] result goes to cache"
+		$sink notifyCb [self]
+	    }
+	    1 {
+		set sink [CacheFileSink create [self]::cfs -persistent 0]
+		#my showMsg "result goes to volatile cache"
+		$sink notifyCb [self]
+	    }
+	    0 {
+		if {[my exists sinkClass]} {
+		    set sink [[my sinkClass] create [self]::s]
+		}
+	    }
+	}
+	my doCallbacks notifyCb
+    }
+    Access instproc mkSpoolFile {{name ""}} {
+	if {![my exists fileName]} {
+	    my set fileName [persistentCache newEntry [my url] [self] [my caching] $name]
+	}
+    }
+    Access instproc block {} {
+	my set block
+    }
+    Access instproc kill {} {
+	my showCall
+	my set state -1; #interrupted
+	my finish
+    }
+    Access instproc abort {msg} {
+	#my showCall
+	#my showVars
+	my instvar state errormsg
+	if {[catch {::printError "[self] ($state): $msg"} err]} {
+	    puts stderr "\n$err\nERROR [self] ($state): $msg\n"
+	}
+	#my set error [list $msg $::errorInfo $::errorCode]
+	my caching 0
+	if {[my exists ignoreBody]} {
+	    my unset ignoreBody
+	}
+	set state -2 ;# error
+	set errormsg $msg
+	my finish
+    }
+    Access instproc finish {} {
+	#my showCall
+	my timeoutFinish
+	my close
+	#my showVars state ignoreBody
+	# state is "interrupted" or "error"
+	if {[my set state] < 0} {
+	    set action cancelCb
+	    set success 0
+	} else {
+	    set action endCb
+	    #set state ok
+	    set success 1
+	}
+	if {[my exists ignoreBody]} {
+	    my stop
+	    #my set finished $success
+	    set cmd [my set ignoreBody]
+	    my unset ignoreBody
+	    #my showMsg "executing... <$cmd>"
+	    eval my $cmd
+	} else {
+	    if {[my exists sink]} {
+		[my set sink] $action [self]
+	    }
+	    #catch {after cancel $after} ;# ????
+	    my doCallbacks $action
+	    my stop
+	    my set finished $success
+	}
+    }
+    Access instproc eof {} {
+	#my showCall
+	#my showMsg "c [my set currentsize]== t [[self set totalsize]]"
+	#my set state eof
+	my finish
+    }
+    Access instproc doCallbacks {cb} {
+	#my showCall
+	if {[my exists ignoreBody]} {
+	    my showMsg "ignoring callback"
+	} else {
+	    foreach obj [my set informObjects] {
+		#my showMsg "*** $obj $cb [self]"
+		#puts stderr "------------ calling: $obj $cb [self]"
+		if {[catch {$obj $cb [self]} errormsg]} {
+		    puts stderr "--------------$cb:errormsg=$errormsg, \
+		     errorInfo=$::errorInfo, \
+		     errorCode=$::errorCode."
+		}
+		#puts stderr "------------ calling DONE: $obj $cb [self]"
+	    }
+	}
+    }
+    Access instproc shutdown {} {
+	#my showMsg "state=[my set state] > 3"
+	if {[my set state] > 3} {
+	    my set mustDestroy 1
+	} else {
+	    #my showVars
+	    #my showStack
+	    #my showMsg "DESTROY !!!"
+	    if {[my set state] > -2} {
+		my destroy
+	    }
+	}
+    }
+
+
+    Class FileAccess -superclass Access
+    FileAccess instproc initialize args {
+	my caching 0
+	next
+    }
+    FileAccess instproc close {} {
+    }
+    FileAccess instproc block {} {
+	my showTimeStart
+	set S [open [my set fileName] r]
+	fconfigure $S -translation binary
+	set block [::read $S]
+	::close $S
+	my showTimeEnd
+	return $block
+    }
+    FileAccess instproc GET {} {
+	my instvar path response totalsize currentsize \
+	    fileName informObjects
+	set fileName $path
+	set totalsize [file size $path]
+	set response "file 200 OK"
+	my headerDone
+	my set state 4
+	set currentsize $totalsize
+	#my showVars informObjects 
+	foreach obj $informObjects {
+	    $obj incCb [self] $totalsize $currentsize
+	}
+	my eof
+    }
+
+
+    Class File -superclass FileAccess
+    File instproc GET {} {
+	my instvar path
+	#puts stderr path=$path,exists=[file exists $path]
+	if {![file exists $path]} {
+	    my abort "No such file '$path'"
+	    return
+	}
+	if {![my exists contentType]} {
+	    my contentType [Mime guessContentType $path]
+	}
+	my set sink [FileSink create [self]::fas -fileName $path]
+	#puts stderr ****sink=$sink,[$sink info class]
+	#puts stderr "*** before next ([self class])"
+	next
+	#puts stderr "*** after next ([self class])"
+    }
+
+    Class CacheAccess -superclass File
+    CacheAccess instproc GET {} {
+	my instvar url
+	my path         [persistentCache cacheFileName $url]
+	my contentType  [persistentCache contentType $url]
+	my set meta     [persistentCache meta $url]
+	next
+    }
+
+    Class ReAccess -superclass File
+    ReAccess instproc GET {} {
+	my instvar fileName sink
+	my set block       ""
+	my set currentsize 0
+	my caching     0
+	if {![info exists fileName]} {
+	    set fileName [$sink set fileName]
+	}
+	my set path $fileName
+	next
+    }
+
+
+
+    Class Cmd -superclass Access
+    Cmd instproc init args {
+	if {![my exists caching]} {
+	    my caching 0
+	}
+	next
+    }
+    Cmd instproc GET {} {
+	my instvar path block totalsize currentsize \
+	    response informObjects state
+	if {[catch {set block [eval $path]} error]} {
+	    my contentType text/plain
+	    set block $error
+	} else {
+	    my contentType text/html
+	}
+	set totalsize [string length $block]
+	set response "cmd 200 OK"
+	my headerDone
+	my set state 4
+	set currentsize $totalsize
+	foreach obj $informObjects {
+	    $obj incCb [self] $totalsize $currentsize
+	    #$obj endCb [self]
+	}
+	#set state eof
+	my finish
+    }
+    Cmd instproc block args {
+	my instvar block
+	return $block
+    }
+
+
+    #Class NetAccess -superclass Access -parameter {host port}
+    Class NetAccess -superclass Access
+    NetAccess instproc initialize args {
+	if {![my exists blocksize]} {my set blocksize 512}
+	my set readMethod read
+	next
+    }
+    NetAccess instproc read {} {
+	#my instvar S blocksize block
+	#set block [::read $S $blocksize]
+	my instvar S block blocksize
+	set block [::read $S $blocksize]
+    }
+    NetAccess instproc gzread {} {
+	my instvar S Z blocksize block
+	puts -nonewline $Z [::read $S $blocksize]
+	set block [::read $Z]
+	#puts stderr len=[string length $block],block=<$block>
+    }
+    NetAccess instproc gzopen {} {
+	my instvar Z S readMethod
+	requireModules {zipchan libzipchan.so}
+	fconfigure $S -translation binary
+	set Z [zipchan]
+	set readMethod gzread
+    }
+    NetAccess instproc close {} {
+	#my showMsg "**** close persistent=[my exists persistent]"
+	if {![my exists persistent]} {
+	    foreach stream {S Z} {
+		if {[my exists $stream]} {
+		    ::close [my set $stream]
+		    my unset $stream
+		}
+	    }
+	}
+	my stop
+    }
+    NetAccess instproc hold {} {
+	my instvar S
+	$S hold
+    }
+    NetAccess instproc resume {} {
+	my instvar S
+	$S resume
+    }
+    NetAccess instproc readData {} {
+	#my showCall
+	if {[catch {
+	    #puts stderr "??????????????readMethod=[my set readMethod]"
+	    my [my set readMethod]
+	    my pushBlock
+	} err]} {
+	    puts stderr ERR=$err
+	    my set block ""
+	    my abort $err
+	}
+    }
+    NetAccess instproc pushBlock {} {
+	#my showCall
+	my instvar block
+	if {[set n [string length $block]]} {
+	    my instvar currentsize totalsize informObjects sink
+	    #my showVars n currentsize totalsize
+	    incr currentsize $n
+	    if {$currentsize > $totalsize} {
+		set totalsize $currentsize
+	    }
+	    #my showMsg "total=$totalsize current=$currentsize"
+	    if {[my exists ignoreBody]} {
+		#puts stderr "ignoring: <$block>"
+	    } else {
+		if {[info exists sink]} {
+		    $sink incCb [self] $totalsize $currentsize
+		}
+		foreach obj $informObjects {
+		    #my showMsg "call incbCb $totalsize $currentsize $obj [$obj info class]"
+		    $obj incCb [self] $totalsize $currentsize
+		    #my showMsg "done incbCb $totalsize $currentsize"
+		}
+	    }
+	} else {
+	    #my showVars n
+	    return [my eof]
+	}
+    }
+
+    Class Http -superclass NetAccess  ;###  -parameter {query {httpVersion 1.0}}
+    Http set proxyfilter  httpProxyRequired
+    Http set proxyhost    {}
+    Http set proxyport    {}
+    Http set accept       */*
+    if {[info exists argv0]} {
+	Http set useragent    "[file tail $argv0] httpAccess/$httpAccessVersion xotcl/$::xotcl::version ($os)"
+    }
+    Http proc proxyfilter {host phostv pportv} {
+	my instvar proxyfilter proxyhost proxyport
+	upvar \#1 $phostv phost $pportv pport
+	switch -- $proxyfilter {
+	    httpProxyRequired {
+		if {[string length $proxyhost]} {
+		    if {![string length $proxyport]} { set proxyport 8080 }
+		    set phost $proxyhost
+		    set pport $proxyport
+		}
+	    }
+	}
+    }
+
+    Http instproc initialize args {
+	if {![my exists port]}        {my set port 80}
+	if {![my exists httpVersion]} {my set httpVersion 1.1}
+	next
+	#my showMsg "result queried from net"
+    }
+    Http instproc GET {} {
+	#my showCall
+	if {[my exists query]} {
+	    my instvar query caching
+	    my append url ?$query
+	    my append path ?$query
+	    if {$caching == 2} {set caching 1}
+	    my showVars caching $query
+	}
+	my open
+    }
+    Http instproc HEAD {} {
+	my open
+    }
+    Http instproc POST {} {
+	# we have query and data only for a uniform interface for
+	# forms that cann pass the attribute value pairs always via
+	# query.
+	if {[my exists query]} {
+	    my data [my query]
+	}
+	my open
+    }
+    Http instproc PUT {} {  
+	my open
+    }
+    # Http1.1
+    Http instproc OPTIONS {} {
+	my showCall
+	my open  
+    }
+    # Http1.1
+    Http instproc TRACE {} {
+	my showCall
+    }
+    # Http1.1
+    Http instproc DELETE {} {
+	#my showCall
+	my open  
+    }
+    Http instproc openConnection {host port reuse} {
+	return [Connection make [self] $host $port $reuse _]
+    }
+    Http instproc open {} {
+	#my showCall
+	my instvar url S state host port path
+	if {$state > 0} {
+	    puts stderr "... [self]:$proc ignoring request in state $state"
+	    return
+	}
+	Http proxyfilter $host phost pport
+	if {[info exists phost] && [string length $phost]} {
+	    set usePort $pport
+	    set useHost $phost
+	    set path $url
+	} else {
+	    set usePort $port
+	    set useHost $host
+	}
+
+	set S [my openConnection $useHost $usePort [expr {[my httpVersion]>1.0}]]
+	if {[$S exists error]} {
+	    my abort [$S set error]
+	    return
+	}
+	set state 2
+	my running
+	$S event writable [self] ask
+    }
+
+    Http instproc ask {} {
+	my instvar url S state host port path \
+	    method headers data caching
+
+	$S event writable [self] {}
+
+	if {[pwdManager checkAvailableCredentials $url credentials]} {
+	    eval lappend headers $credentials
+	    #my showMsg "*** new headers = <$headers>"
+	}
+	if {$caching==2 && [persistentCache ifModifiedHeader $url ifModified]} {
+	    eval lappend headers $ifModified
+	    #puts stderr "new headers = <$headers>"
+	}
+	# Send data in cr-lf format, but accept any line terminators
+	$S translation {auto crlf}
+
+	#my showMsg "'$method $path HTTP/[my httpVersion]' headers {$headers}"
+	$S puts "$method $path HTTP/[my httpVersion]"
+	if {[$S  exists error]} {
+	    my abort "Connection refused by host '$host' port '$port'\n\
+    	[$S set error]"
+	    return
+	}
+
+	$S puts "Accept: [Http set accept]"
+	$S puts "Host: $host"
+	$S puts "User-Agent: [Http set useragent]"
+	foreach {tag value} $headers {
+	    regsub -all \[\n\r\] $value {} value
+	    set tag [string trim $tag]
+	    if {[string length $tag]} {
+		#my showMsg "+++ <$tag: $value>"
+		$S puts "$tag: $value"
+	    }
+	}
+	if {[my exists data]} {
+	    $S puts "Content-Length: [string length $data]"
+	    $S puts "Content-Type: [my contentType]"
+	    $S puts ""
+	    $S translation {auto binary}
+	    $S puts-nonewline $data
+	} else {
+	    $S puts ""
+	}
+	$S flush
+	if {[$S  exists error]} {
+	    my instvar host port
+	    my abort "Connection refused by host '$host' port '$port'\n\
+		[$S set error]"
+	} else {
+	    set state 3
+	    $S event readable [self] headerStart
+	}
+    }
+
+    Http instproc headerStart {} {
+	#my showCall
+	my instvar S response
+	set n [$S gets response]
+	#my showVars n response
+	if {[$S  exists error]} {
+	    my instvar host port
+	    my abort "Error on connection to host '$host' port '$port'\n\
+		[$S set error]"
+	    return
+	}
+	#my showMsg "n=$n, eof=[$S eof]"
+	if {$n == -1 && ![$S eof]} {
+	    #my showMsg "******************************input pending, no full line"
+	    return
+	}
+	my instvar responseCode responseHttpVersion
+	if {[regexp {^HTTP/([0-9.]+) +([0-9]+) *} $response _ \
+		 responseHttpVersion responseCode]} {
+	    #my showMsg "response valid: '$response'"
+	    $S event readable [self] header
+	} else {
+	    my instvar host port
+	    my abort "Unexpected response from $host:$port\n    $n: '$response'"
+	}
+    }
+    Http instproc header {} {
+	my instvar S meta totalsize
+	if {[$S gets line]} {
+	    #my showMsg "line=$line"
+	    if {[regexp -nocase {^content-type:(.+)$} $line _ type]} {
+		my contentType [string trim $type]
+	    } elseif {[regexp -nocase {^content-length:(.+)$} $line _ length]} {
+		set totalsize [string trim $length]
+	    }
+	    if {[regexp -nocase {^([^:]+): *(.+)$} $line _ key value]} {
+		lappend meta [string tolower $key] $value
+	    }
+	} else {
+	    my headerDone
+	}
+    }
+    Http array set expectsBody \
+	{GET 1 HEAD 0 POST 1 PUT 0 DELETE 1 OPTIONS 0 TRACE 1}
+    Http instproc headerDone {} {
+	#my showVars meta
+	my instvar S meta method responseCode responseHttpVersion
+	[self class] instvar expectsBody
+	set expectBody $expectsBody($method)
+
+	array set v [my set meta]
+	if {([info exists v(connection)] && $v(connection) eq "close") || \
+		$responseHttpVersion < 1.1} {
+	    $S makePersistent 0
+	} else {
+	    $S makePersistent 1
+	}
+	
+	switch $responseCode {
+	    200 {}
+	    204 {
+		#set state empty
+		my finish
+		set block ""
+		set expectBody 0
+		return
+	    }
+	    301 -
+	    302 {
+		# the request is redirected to another server
+		my set ignoreBody [list redirect $v(location)]
+		
+		# RFC2068 Note: When automatically redirecting a POST request after
+		# receiving a 302 status code, some existing HTTP/1.0 user agents
+		# will erroneously change it into a GET request.
+		#my method GET 
+		
+		my showMsg "redirect '[my url]' --> '$v(location)'"
+	    }
+	    304 { ;#  Not Modified, use cached version
+		my set ignoreBody cacheAccess
+		set expectBody 1
+		#my showMsg "result comes from cache"
+	    }
+	    401 {
+		my set ignoreBody \
+		    [list resubmitAuthenticated $v(www-authenticate)]
+		#my showMsg "resubmitAuthenticated $v(www-authenticate)"
+		if {[my exists resubmitAuthenticated]} {
+		    if {[my set resubmitAuthenticated] > 5} {
+			my abort "Too many wrong passwords given"
+		    } else {
+			my incr resubmitAuthenticated
+		    }
+		} else {
+		    my set resubmitAuthenticated 1
+		}
+		set expectBody 1
+	    }
+	    404 {
+		my instvar url
+		#my showVars
+		my set ignoreBody [list abort "File Not Found on Server '$url'"]
+		set expectBody 1
+	    }
+	    default {
+		#my showVars responseCode
+	    }
+	}
+	next
+	if {![my exists S]} {;# this request was already canceled
+	    return
+	}
+	if {[info exists v(transfer-encoding)]} {
+	    if {$v(transfer-encoding) == "chunked"} {
+		$S translation {auto binary}
+		my set state 4
+		$S event readable [self] readChunkedLength
+	    } else {
+		my abort "Unexpected Transfer encoding '$v(transfer-encoding)'"
+	    }
+	} else {
+	    # yahoo does not send a content length for a get request
+	    #if {$totalsize == 0 && ($responseCode > 300 || !$expectsBody($method) )} 
+	    #my showVars method totalsize expectsBody($method) expectBody
+	    # the following is used currently for Actiweb-Agents:
+	    # the reponse of a PUTS contains a BODY!
+	    if {!$expectBody && 
+		[::info exists v(content-length)] &&
+		$v(content-length) > 0} {
+		set expectBody 1
+		#my showMsg "setting expectBody 1"
+	    }
+
+	    if {!$expectBody} {
+		#$S event readable [self] ""
+		#set state eof
+		my finish
+		set block ""
+	    } else {
+		### To avoid CRLF problmes we set the translation for 
+		### the body entity  to binary
+		$S translation binary
+		my set state 4
+		$S event readable [self] readData
+	    }
+	}
+    }
+
+    Http instproc cacheAccess {} {
+	# there is an actual version of the document in the cache
+	#showCall
+	persistentCache validated [my url]
+	#my close
+	my class CacheAccess
+	#my showMsg "result comes from cache [persistentCache cacheFileName $url]"
+	my caching 0 ;# should be really: toCache 0
+	my GET
+    }
+
+    Http instproc redirect location {
+	# the request is redirected to another server
+	if {$location ne [my url] } {
+	    #my showVars
+	    my url $location
+	    my initialize
+	    my classify $location
+	    my [my set method]
+	}
+    }
+    Http instproc resubmitAuthenticated headerField {
+	#my showCall
+	# the server requires authentification
+	my instvar path method
+	if {[pwdManager checkRequestedAuthentification $method $path $headerField \
+		 type realm]} {
+	    my instvar url caching method headers
+	    array set v $headers
+	    #my showVars
+	    catch {unset v(Authorization)}
+	    set headers [array get v]
+	    pwdManager removePasswd $realm
+	    my close
+	    if {[pwdManager requireCredentials $realm $url]} {
+		my initialize
+		if {$caching == 2} {set caching 1}
+		my $method
+	    }
+	} else {
+	    my abort "unknown authentication method '$headerField'"
+	}
+    }
+    Http instproc readChunkedLength {} {
+	#my showCall
+	my instvar S chunkLength totalsize
+	set length [$S gets lengthString]
+	if {$length > 0} {
+	    set chunkLength [expr 0x$lengthString]
+	    #my showVars lengthString chunkLength
+	    if {$chunkLength == 0} {
+		$S event readable [self] readChunkedTrailer
+	    } else {
+		incr totalsize $chunkLength
+		$S translation {binary}
+		$S event readable [self] readChunkedData
+	    }
+	}
+    }
+    Http instproc readChunkedTrailer {} {
+	#my showCall
+	my instvar S state block
+	set size [$S gets line]
+	if {$size != 0} {
+	    showObj [self]
+	    my abort "expected trailer size 0, got size $size"
+	} else {
+	    #set state eof
+	    my finish
+	    set block ""
+	    #showObj [self]
+	}
+    }
+    Http instproc readChunkedData {} {
+	#my showCall
+	my instvar S block totalsize currentsize chunkLength
+	set block [$S readSize $chunkLength]
+	set received [string length $block]
+	#my showVars block
+	#my showVars currentsize totalsize chunkLength received
+	if {$chunkLength == $received} {
+	    $S translation {auto binary}
+	    $S event readable [self] readChunkedLength
+	} else {
+	    incr chunkLength -$received
+	}
+	my pushBlock
+    }
+
+    Http instproc readData {} {
+	#my showCall
+	my instvar S block totalsize currentsize
+	set block [$S read]
+	#puts stderr "????? bl=[string length $block]"
+	if {[$S exists error]} {
+	    set block ""
+	    my abort [$S set error]
+	    return
+	}
+	my pushBlock
+	#my showMsg "c [my set currentsize]== t [[self set totalsize]]"
+	if {$currentsize == $totalsize && 
+	    [my exists S] && [$S exists persistent]} {
+	    #my showMsg "PERSITENT, end of entity reached"
+	    #my set state eof
+	    my finish
+	    set block ""
+	    #showObj [self]
+	}
+	if {[my exists mustDestroy]} {
+	    #my showMsg "mustDestroy was set"
+	    my destroy
+	}
+    }
+    Http instproc close {} {
+	#my showCall
+	if {[my exists S]} {
+	    [my set S] close
+	    #unset S
+	}
+	#next
+    }
+    Http instproc freeConnection {} {
+	#showCall
+	my instvar S
+	#::puts stderr "[self] freeing $S !!!!!!!!!!!!!!!!!!!!!!!"
+	unset S
+    }
+
+
+    #Access instproc makeZombie {} {
+    #  my showMsg "procs= [my info procs], i [Object info instcommands]"
+    #  my class Zombie
+    #}
+    #Class Zombie
+    #Zombie instproc unknown {m args} {
+    #  my showMsg "+++ zombie method '$m' called"
+    #}
+
+
+    Class Https -superclass Http
+    Https instproc initialize args {
+	#my showCall
+	package require tls 
+	if {![my exists port]} { my set port 443}
+	next
+	### temporary solution, FIXME: 
+	### zur zeit muss man den secure-webserver.xotcl und 
+	### secure-webclient.xotcl jedenfalls aus dem xotcl/apps/xocomm-apps
+	### verzeichnis starten, da haben wir mal die cfg files in unserem
+	### baum....
+	source .ssl/ssl-configuration.xotcl
+	###
+    }
+    Https instproc openConnection {host port reuse} {
+	set S [Connection make [self] $host $port $reuse reused]
+	if {$reused} {
+	    #my showMsg "reusing $S"
+	} else {
+	    my showMsg "make the socket ([$S socket]) secure ..."    
+	    set cmd [list $S importSSL]
+	    foreach attr {cafile cadir certfile cipher command keyfile \
+			      model request require ssl2 ssl3 tls1} {
+		if {[sslClientConfig exists $attr]} {
+		    lappend cmd -$attr [sslClientConfig set $attr]
+		}
+	    }
+	    my showMsg "the assembled command is... ´$cmd´"    
+	    eval $cmd
+	    puts stderr "CHANNELS= [file channels]"
+	}
+	return $S
+    }
+
+
+
+    #######################################################################
+    Object pwdManager
+    pwdManager proc requirePasswd {realm username password} {
+	# used by ftp and imap
+	my instvar user area
+	upvar [self callinglevel] $password passwd
+	if {[my exists pwd($realm)]} {
+	    #my showMsg "*** reusing password for $realm"
+	    set passwd [my set pwd($realm)]
+	    return 1
+	} else {
+	    userPwd user $username
+	    if {[userPwd show $realm user($realm) passwd]} {
+		set area($realm/$username) $realm
+		return 1
+	    }
+	}
+	return 0
+    }
+    pwdManager proc storePasswd {realm username password} {
+	# used by ftp and imap
+	my instvar pwd user
+	set pwd($realm) $password
+	set user($realm) $username
+    }
+    pwdManager proc removePasswd {realm} {
+	if {[my exists pwd($realm)]} {
+	    my unset pwd($realm) 
+	    my unset user($realm) 
+	}
+    }
+    pwdManager proc requireCredentials {realm url} {
+	regexp {^(.*/)[^/]*$} $url _ path
+	if {[my exists pwd($realm)]} {
+	    #my showMsg "*** register url=$url for ther realm=$realm"
+	    my set area($path) $realm
+	    return 1
+	} else {
+	    my instvar pwd user
+	    if {[info exists ::env(USER)]} {
+		set USER $::env(USER)
+	    } elseif {[info exists ::env(USERNAME)]} {
+		set USER $::env(USERNAME)
+	    } else {
+		set USER unknown
+	    }
+
+	    userPwd user $USER
+	    if {[userPwd show $realm user($realm) pwd($realm)]} {
+		#my showMsg "*** setting password for realm '$realm' url=$path"
+		my set area($path) $realm
+		return 1
+	    }
+	}
+	return 0
+    }
+    pwdManager proc encodeCredentials {authMethod realm} {
+	#my showCall
+	switch $authMethod {
+	    basic  {set credential [my encodeCredentialsBasic $realm]}
+	    digest {set credential [my encodeCredentialsDigest $realm]}
+	}
+	return $credential
+    }
+    pwdManager proc encodeCredentialsBasic {realm} {
+	my instvar pwd user
+	return [list Authorization \
+		    "Basic [base64 encode $user($realm):$pwd($realm)]"]
+    }
+    pwdManager proc encodeCredentialsDigest {realm} {
+	#my showCall
+	package require tcu;        #FIXME: noch nicht in distribution
+	my instvar digestResponseData
+	my mkDigestResponseData $realm
+	set digestResponse {}
+	foreach {t v} [array get digestResponseData] {
+	    append digestResponse " $t = \"$v\","
+	}
+	return [list Authorization "Digest [string trimright $digestResponse ,]"] 
+    }
+    pwdManager proc mkDigestResponseData {realm} {
+	#my showCall
+	my instvar pwd user digestResponseData requestUri
+	# RFC 2617
+	#   credentials      = "Digest" digest-response
+	#   digest-response  = 1#( username | realm | nonce | digest-uri
+	#                                | response | [ algorithm ] | [cnonce] |
+	#                                [opaque] | [message-qop] |
+	#                                    [nonce-count]  | [auth-param] )
+	#   username         = "username" "=" username-value
+	#   username-value   = quoted-string
+	#   digest-uri       = "uri" "=" digest-uri-value
+	#   digest-uri-value = request-uri   ; As specified by HTTP/1.1
+	#   message-qop      = "qop" "=" qop-value
+	#   cnonce           = "cnonce" "=" cnonce-value
+	#   cnonce-value     = nonce-value
+	#   nonce-count      = "nc" "=" nc-value
+	#   nc-value         = 8LHEX
+	#   response         = "response" "=" request-digest
+	#   request-digest = <"> 32LHEX <">
+	#   LHEX             =  "0" | "1"| ...| "e" | "f"  
+	set digestResponseData(username) $user($realm)
+	set digestResponseData(uri) $requestUri
+	set digestResponseData(cnonce) "TEST"
+	set digestResponseData(nc) 00000001
+	set digestResponseData(response) [my mkRequestDigest]
+	#parray digestResponseData
+    }
+    pwdManager proc mkRequestDigest {} {
+	# returns a string of 32 hex digits, which proves that the user
+	# knows a password
+	
+	#A1 = unq(username-value) ":" unq(realm-value) ":" passwd
+	my instvar digestResponseData pwd requestMethod requestUri
+	append A1 $digestResponseData(username)\
+	    : $digestResponseData(realm) : $pwd($digestResponseData(realm))
+	if {![my exists digestResponseData(qop)] || 
+	    $digestResponseData(qop) eq "auth"} {
+	    append A2 $requestMethod : $requestUri
+	} elseif {$digestResponseData(qop) eq "auth-int"} {
+	    #A2 = Method ":" digest-uri-value ":" H(entity-body)
+	    append A2 $requestMethod : $requestUri: ""
+	}
+	if {[my exists digestResponseData(qop)]} {
+	    append reqDigest $digestResponseData(nonce) : \
+		$digestResponseData(nc) : \
+		$digestResponseData(cnonce): \
+		$digestResponseData(qop)
+	    set reqDigest [md5 [md5 $A1]:$reqDigest:[md5 $A2]]
+	} else {    
+	    set reqDigest [md5 [md5 $A1]:$digestResponseData(nonce):[md5 $A2]]
+	}  
+	return $reqDigest 
+    }
+
+    pwdManager proc checkAvailableCredentials {url returnCredentials} {
+	# we start a fresh request and check, whether we have sent for this url
+	# (directory) already some credentials in an earlier reqhest.
+	my instvar authMethod
+	regexp {^(.*/)[^/]*$} $url _ path
+	if {[my exists area($path)]} {
+	    set realm [my set area($path)]
+	    upvar [self callinglevel] $returnCredentials credentials
+	    #my showMsg "*** adding credentials for realm=$realm and $path"
+	    set credentials [my encodeCredentials $authMethod $realm]
+	    return 1
+	}
+	return 0
+    }
+    pwdManager proc checkRequestedAuthentification {reqMethod path headerField 
+						    typeVar realmVar} {
+	# check for which realm with which authentification method the
+	# server wants an authentification
+	#my showCall
+	upvar [self callinglevel] $typeVar type $realmVar realm
+	my instvar authMethod digestResponseData requestUri requestMethod
+	set requestUri $path
+	set requestMethod $reqMethod
+	if {[regexp {^Basic realm="(.*)"$} $headerField _ realm]} {
+	    set type basic;#    FD: musste da lassen wg. call by reference
+	    set authMethod $type
+	    return 1
+	} elseif {[regsub {^Digest } $headerField _ headerField]} {
+	    set type digest ;# FD: musste da lassen wg. call by reference
+	    set authMethod $type
+	    foreach pair [split $headerField ,] {      
+		if {[regexp {^(.*) *= *(".*")$} $pair _ n v]} {
+		    set digestResponseData([string trim $n]) [string trim [string trim $v] \"]
+		}
+	    }
+	    set realm $digestResponseData(realm)
+	    return 1
+	}
+	return 0
+    }
+
+    #######################################################################
+    # test classes
+    Class Sink
+    Sink instproc startCb         {r}   {
+	my set contentLength 0
+	next
+    }
+    Sink instproc notifyCb      {r}     {
+	next
+    }
+    Sink instproc incCb         {r t c} {
+	my set contentLength $t
+	next
+    }
+    Sink instproc endCb         {r}     {
+	next
+	#showCall
+    }
+    Sink instproc cancelCb      {r}     {
+	next
+	#showCall
+    }
+    Sink instproc content       {}      {
+	next
+	#showCall
+    }
+    Sink instproc contentLength {}      {
+	my set contentLength
+	#showCall
+    }
+
+
+    Class TimeSink -superclass Sink
+    TimeSink instproc startCb         {r}   {
+	my set startTime [clock clicks]
+	next
+    }
+    TimeSink instproc notifyCb      {r}     {
+	my set notifyTime [clock clicks]
+	next
+    }
+    TimeSink instproc endCb         {r}     {
+	my set endTime [clock clicks]
+	next
+	my reportTimes
+    }
+    TimeSink instproc cancelCb      {r}     {
+	my set endTime [clock clicks]
+	next
+    }
+    TimeSink instproc reportTimes {}     {
+	my instvar startTime endTime notifyTime
+	set bytes [my contentLength]
+	set grossSecs		[expr {($endTime-$startTime)/1000000.0}]
+	set grossKbps		[expr {($bytes/1000.0)/$grossSecs}]
+	set netSecs		[expr {($endTime-$notifyTime)/1000000.0}]
+	set netKbps [expr {($bytes/1000.0)/$netSecs}]
+	#if {[catch {set netKbps [expr {($bytes/1000.0)/$netSecs}]}]} {
+	#  set netKbps 0
+	#}
+	set headSecs		[expr {$grossSecs-$netSecs}]
+	foreach v {grossSecs grossKbps netSecs netKbps headSecs} {
+	    set $v [format %.2f [set $v]]
+	}
+	my showMsg "got $bytes bytes in $grossSecs ($headSecs+$netSecs) seconds,\
+	$grossKbps ($netKbps) KB/S"
+    }
+
+
+    Class ParallelSink -superclass Sink -parameter {
+	{httpVersion 1.1}
+	{sinkClass TimeSink}
+	{maxsimultaneous 20}
+    }
+    ParallelSink instproc init args {
+	next
+	my set running 1
+	my set numrequests 0
+	my set sumbytes 0
+	my set blocked {}
+    }
+    ParallelSink instproc startCb r {
+	#my showCall
+	my incr running
+	my incr numrequests
+	#puts stderr "... running++ [my set running]"
+    }
+    ParallelSink instproc endCb r {
+	#my showCall
+	my incr sumbytes [$r set currentsize]
+	my done $r
+    }
+    ParallelSink instproc cancelCb r {
+	#my showCall
+	my done $r
+    }
+    ParallelSink instproc done r {
+	#my showCall
+	my instvar blocked
+	$r shutdown
+	my incr running -1
+	#puts stderr "... running-- [my set running] [llength [Http info instances]]"
+	#puts stderr [Http info instances]
+	#foreach i [Http info instances] {puts stderr "\t$i: [$i set method] [$i set url]"}
+	#puts stderr RUNNING=[my set running]
+	if {[llength $blocked] > 0} {
+	    set newreq [lindex $blocked 0]
+	    set blocked [lrange $blocked 1 end]
+	    my scheduleRequest [lindex $newreq 0] [lindex $newreq 1] [lindex $newreq 2]
+	} elseif {[my set running] < 1} {
+	    my set done 1
+	}
+    }
+
+
+    ParallelSink instproc scheduleRequest {method url {parentUrl ""}} {
+	my instvar requests blocked running maxsimultaneous
+	if {$running > $maxsimultaneous} {
+	    lappend blocked [list $method $url $parentUrl]
+	} else {
+	    set cmd [list Access createRequest -url $url \
+			 -sinkClass [my sinkClass] \
+			 -informObject [self] \
+			 -method $method \
+			 -timeout 25000 \
+			 -caching 0 -allowJoin 0 -httpVersion [my httpVersion]]
+	    if {$parentUrl ne ""} {
+		lappend cmd -parentUrl $parentUrl
+	    }
+	    set r [eval $cmd]
+	}
+    }
+
+    ParallelSink instproc requests {urls} {
+	my showTimeStart
+	foreach url $urls { my scheduleRequest GET $url }
+	my wait
+	my showTimeEnd
+    }
+
+    ParallelSink instproc wait {} {
+	my instvar running
+	if {$running > 0} {
+	    set savedValue $running
+	    #my showMsg ".......... waiting for initially $running requests"
+	    if {[catch {my vwait done} err]} {
+		my showMsg "vwait returned: $err "
+	    }
+	    #my showMsg "$savedValue requests FINISHED "
+	}
+    }
+
+    Class MemorySink -superclass Sink
+    MemorySink instproc incCb         {r t c} {
+	my append d [$r block]
+	next
+    }
+    MemorySink instproc content       {}      {
+	return [my set d]
+    }
+    MemorySink instproc contentLength {}      {
+	if {[my exists d]} {
+	    return [string length [my set d]]
+	} else {
+	    return 0
+	}
+    }
+
+    Class FileSink  -superclass Sink -parameter fileName
+    ### write methods
+    #FileSink instproc startCb         {r}   {
+    #  next
+    #}
+    FileSink instproc notifyCb      {r}     {
+	#my showVars
+	next
+	my instvar file fileName
+	if {[info exists fileName]} {
+	    set file [::open $fileName w]
+	    fconfigure $file -translation binary
+	} else {
+	    # we have no filename; we assume the sink must be a dummy sink
+	    # that deletgates its work to some other FileSink
+	    my class ShadowFileSink
+	    my notifyCb $r
+	}
+    }
+    FileSink instproc incCb {r t c} {
+	next
+	if {[my exists file]} {
+	    if {$r == "req0"} {
+		puts stderr "*******************************************************"
+		puts stderr [$r block]
+		puts stderr "*******************************************************"
+	    }
+	    puts -nonewline [my set file] [$r block]
+	}
+    }
+    FileSink instproc endCb  {r} {
+	#my showCall
+	next
+	my close
+    }
+    FileSink instproc cancelCb  {r} {
+	next
+	my close
+    }
+    FileSink instproc close {} {
+	if {[my exists file]} {
+	    ::close [my set file]
+	    my unset file
+	}
+    }
+    ### read methods
+    FileSink instproc content {} {
+	next
+	my instvar file fileName
+	set file [::open $fileName r]
+	fconfigure $file -translation binary
+	set d [read [my set file]]
+	my close
+	return $d
+    }
+    FileSink instproc contentLength {}      {
+	next
+	if {[my exists fileName]} {
+	    return [file size [my set fileName]]
+	} else {
+	    return 0
+	}
+    }
+
+
+    Class ShadowFileSink -superclass Sink
+    ShadowFileSink instproc notifyCb      {r} {
+	next
+	my set token $r
+    }
+    ShadowFileSink instproc content       {} {
+	my instvar token
+	next
+	return [[$token set sink] content]
+    }
+    ShadowFileSink instproc contentLength {} {
+	my instvar token
+	next
+	return [[$token set sink] contentLength]
+    }
+
+
+    Class CacheFileSink -superclass FileSink -parameter {{persistent 1}}
+    CacheFileSink instproc notifyCb req {
+	#my showCall
+	if {![my exists fileName]} {
+	    my instvar persistent
+	    set url [$req set url]
+	    my set fileName [persistentCache newEntry $url $req $persistent ""]
+	}
+	# it is important to execute next after setting the fileName...
+	next
+    }
+    CacheFileSink instproc endCb req {
+	#my showCall
+	my instvar persistent
+	next
+	if {$persistent} {
+	    persistentCache entryDone [$req set url]
+	}
+    }
+    CacheFileSink instproc cancelCb req {
+	next
+	if {[my exists fileName]} {
+	    file delete [my set fileName]
+	    my unset fileName
+	}
+    }
+    CacheFileSink instproc destroy {} {
+	#my showCall
+	if {[my exists fileName] && ![my set persistent]} {
+	    #my showMsg "file delete $fileName"
+	    file delete [my set fileName]
+	    my unset fileName
+	}
+	next
+    }
+
+
+    #===========================================================
+
+    Class SimpleRequest -parameter {
+	{caching 0} 
+	{useFileSink 0} 
+	{blocking 1} 
+	{timing 0} 
+	url fileName 
+	timeout httpVersion method headers data query contentType informObject
+    }
+    SimpleRequest instproc fileName x {
+	my set fileName $x
+	my set useFileSink 1
+    }
+    SimpleRequest instproc init args {
+	my instvar useFileSink fileName sink caching token  
+	#my showMsg "Starting Request"
+	next
+	if {[info exists fileName]} {
+	    set sink [FileSink create [self]::sink -fileName $fileName]
+	} elseif {$useFileSink || $caching > 0} {
+	    set sink [FileSink create [self]::sink]
+	} else {
+	    set sink [MemorySink create [self]::sink]
+	}
+	#my showMsg "class of sink = [$sink info class]"
+	if {[my set timing]} {
+	    $sink mixin TimeSink
+	}
+	set cmd [list Access createRequest \
+		     -url [my url] \
+		     -informObject $sink \
+		     -blocking [my blocking] \
+		     -caching $caching]
+	foreach optionalParameter {
+	    timeout httpVersion method headers data query  
+	    contentType informObject
+	} {
+	    if {[my exists $optionalParameter]} {
+		lappend cmd -$optionalParameter [my set $optionalParameter]
+	    }
+	}
+	#my showMsg "cmd=$cmd"
+	set token [eval $cmd]
+	#if {[my success]} {
+	#  $sink reportTimes
+	#  #puts stderr <[$sink content]>
+	#}
+    }
+    SimpleRequest instproc success {} {
+	if {[my exists token]} {
+	    return [expr {[[my set token] set finished] == 1}]
+	} 
+	return 0
+    }
+    SimpleRequest instproc destroy {} {
+	if {[my exists token]} {
+	    [my set token] destroy
+	}
+	next
+    }
+    SimpleRequest instproc getContent {} {
+	[my set sink] content
+    }
+    SimpleRequest instproc getContentLength {} {
+	[my set sink] contentLength
+    }
+    #SimpleRequest instproc destroy args { next }
+
+    #######################################################################
+
+    namespace export \
+	Access FileAccess File CacheAccess ReAccess \
+	Cmd NetAccess Http Https Sink TimeSink \
+	ParallelSink MemorySink FileSink \
+	ShadowFileSink CacheFileSink SimpleRequest
+}
+
+namespace import ::xotcl::comm::httpAccess::*

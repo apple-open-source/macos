@@ -1,7 +1,7 @@
 
 /*
  *
- * (C) Copyright IBM Corp. 1998-2005 - All Rights Reserved
+ * (C) Copyright IBM Corp. 1998-2008 - All Rights Reserved
  *
  */
 
@@ -10,6 +10,8 @@
 #include "ThaiLayoutEngine.h"
 #include "ScriptAndLanguageTags.h"
 #include "LEGlyphStorage.h"
+
+#include "KernTable.h"
 
 #include "ThaiShaping.h"
 
@@ -23,7 +25,10 @@ ThaiLayoutEngine::ThaiLayoutEngine(const LEFontInstance *fontInstance, le_int32 
     fErrorChar = 0x25CC;
 
     // Figure out which presentation forms the font uses
-    if (fontInstance->canDisplay(0x0E64)) {
+    if (! fontInstance->canDisplay(0x0E01)) {
+        // No Thai in font; don't use presentation forms.
+        fGlyphSet = 3;
+    } else if (fontInstance->canDisplay(0x0E64)) {
         // WorldType uses reserved space in Thai block
         fGlyphSet = 0;
     } else if (fontInstance->canDisplay(0xF701)) {
@@ -83,12 +88,36 @@ le_int32 ThaiLayoutEngine::computeGlyphs(const LEUnicode chars[], le_int32 offse
     }
 
     glyphCount = ThaiShaping::compose(chars, offset, count, fGlyphSet, fErrorChar, outChars, glyphStorage);
-    mapCharsToGlyphs(outChars, 0, glyphCount, FALSE, FALSE, TRUE, glyphStorage, success);
+    mapCharsToGlyphs(outChars, 0, glyphCount, FALSE, FALSE, glyphStorage, success);
 
     LE_DELETE_ARRAY(outChars);
 
     glyphStorage.adoptGlyphCount(glyphCount);
     return glyphCount;
+}
+
+// This is the same as LayoutEngline::adjustGlyphPositions() except that it doesn't call adjustMarkGlyphs
+void ThaiLayoutEngine::adjustGlyphPositions(const LEUnicode chars[], le_int32 offset, le_int32 count, le_bool  /*reverse*/,
+                                        LEGlyphStorage &glyphStorage, LEErrorCode &success)
+{
+    if (LE_FAILURE(success)) {
+        return;
+    }
+
+    if (chars == NULL || offset < 0 || count < 0) {
+        success = LE_ILLEGAL_ARGUMENT_ERROR;
+        return;
+    }
+
+    if (fTypoFlags & 0x1) { /* kerning enabled */
+      static const le_uint32 kernTableTag = LE_KERN_TABLE_TAG;
+
+      KernTable kt(fFontInstance, getFontTable(kernTableTag));
+      kt.process(glyphStorage);
+    }
+
+    // default is no adjustments
+    return;
 }
 
 U_NAMESPACE_END

@@ -51,7 +51,7 @@ struct hash_entry {
   const char *string;
   /* Hash code.  This is the full hash code, not the index into the
      table.  */
-  unsigned long hash;
+  uint32_t hash;
   /* Pointer being stored in the hash table.  */
   PTR data;
 };
@@ -68,12 +68,12 @@ struct hash_control {
 
 #ifdef HASH_STATISTICS
   /* Statistics.  */
-  unsigned long lookups;
-  unsigned long hash_compares;
-  unsigned long string_compares;
-  unsigned long insertions;
-  unsigned long replacements;
-  unsigned long deletions;
+  uint32_t lookups;
+  uint32_t hash_compares;
+  uint32_t string_compares;
+  uint32_t insertions;
+  uint32_t replacements;
+  uint32_t deletions;
 #endif /* HASH_STATISTICS */
 };
 
@@ -127,16 +127,16 @@ hash_die (struct hash_control *table)
 
 static struct hash_entry *hash_lookup (struct hash_control *,
 				       const char *,
+				       size_t,
 				       struct hash_entry ***,
-				       unsigned long *);
+				       uint32_t *);
 
 static struct hash_entry *
-hash_lookup (struct hash_control *table, const char *key,
-	     struct hash_entry ***plist, unsigned long *phash)
+hash_lookup (struct hash_control *table, const char *key, size_t len,
+	     struct hash_entry ***plist, uint32_t *phash)
 {
-  register unsigned long hash;
-  unsigned int len;
-  register const unsigned char *s;
+  register uint32_t hash;
+  size_t n;
   register unsigned int c;
   unsigned int index;
   struct hash_entry **list;
@@ -148,13 +148,11 @@ hash_lookup (struct hash_control *table, const char *key,
 #endif
 
   hash = 0;
-  len = 0;
-  s = (const unsigned char *) key;
-  while ((c = *s++) != '\0')
+  for (n = 0; n < len; n++)
     {
+      c = key[n];
       hash += c + (c << 17);
       hash ^= hash >> 2;
-      ++len;
     }
   hash += len + (len << 17);
   hash ^= hash >> 2;
@@ -180,8 +178,7 @@ hash_lookup (struct hash_control *table, const char *key,
 #ifdef HASH_STATISTICS
 	  ++table->string_compares;
 #endif
-
-	  if (strcmp (p->string, key) == 0)
+	  if (strncmp(p->string, key, len) == 0 && p->string[len] == '\0')
 	    {
 	      if (prev != NULL)
 		{
@@ -210,9 +207,9 @@ hash_insert (struct hash_control *table, const char *key, PTR value)
 {
   struct hash_entry *p;
   struct hash_entry **list;
-  unsigned long hash;
+  uint32_t hash;
 
-  p = hash_lookup (table, key, &list, &hash);
+  p = hash_lookup (table, key, strlen (key), &list, &hash);
   if (p != NULL)
     return "exists";
 
@@ -240,9 +237,9 @@ hash_jam (struct hash_control *table, const char *key, PTR value)
 {
   struct hash_entry *p;
   struct hash_entry **list;
-  unsigned long hash;
+  uint32_t hash;
 
-  p = hash_lookup (table, key, &list, &hash);
+  p = hash_lookup (table, key, strlen (key), &list, &hash);
   if (p != NULL)
     {
 #ifdef HASH_STATISTICS
@@ -279,7 +276,7 @@ hash_replace (struct hash_control *table, const char *key, PTR value)
   struct hash_entry *p;
   PTR ret;
 
-  p = hash_lookup (table, key, NULL, NULL);
+  p = hash_lookup (table, key, strlen (key), NULL, NULL);
   if (p == NULL)
     return NULL;
 
@@ -302,7 +299,22 @@ hash_find (struct hash_control *table, const char *key)
 {
   struct hash_entry *p;
 
-  p = hash_lookup (table, key, NULL, NULL);
+  p = hash_lookup (table, key, strlen (key), NULL, NULL);
+  if (p == NULL)
+    return NULL;
+
+  return p->data;
+}
+
+/* As hash_find, but KEY is of length LEN and is not guaranteed to be
+   NUL-terminated.  */
+
+PTR
+hash_find_n (struct hash_control *table, const char *key, size_t len)
+{
+  struct hash_entry *p;
+
+  p = hash_lookup (table, key, len, NULL, NULL);
   if (p == NULL)
     return NULL;
 
@@ -318,7 +330,7 @@ hash_delete (struct hash_control *table, const char *key)
   struct hash_entry *p;
   struct hash_entry **list;
 
-  p = hash_lookup (table, key, &list, NULL);
+  p = hash_lookup (table, key, strlen (key), &list, NULL);
   if (p == NULL)
     return NULL;
 
@@ -366,8 +378,8 @@ hash_print_statistics (FILE *f ATTRIBUTE_UNUSED,
 {
 #ifdef HASH_STATISTICS
   unsigned int i;
-  unsigned long total;
-  unsigned long empty;
+  uint32_t total;
+  uint32_t empty;
 
   fprintf (f, "%s hash statistics:\n", name);
   fprintf (f, "\t%lu lookups\n", table->lookups);

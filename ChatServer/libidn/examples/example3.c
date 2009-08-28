@@ -1,5 +1,5 @@
 /* example3.c --- Example ToASCII() code showing how to use Libidn.
- * Copyright (C) 2002, 2003, 2004  Simon Josefsson
+ * Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007  Simon Josefsson
  *
  * This file is part of GNU Libidn.
  *
@@ -32,9 +32,9 @@
  * $ libtool cc -o example3 example3.c `pkg-config --cflags --libs libidn`
  * $ ./example3
  * Input domain encoded as `ISO-8859-1': www.räksmörgåsª.example
- * Read string (length 23): 77 77 77 2e 72 e4 6b 73 6d f6 72 67 e5 73 aa 2e 65 78 61 6d 70 6c 65 
+ * Read string (length 23): 77 77 77 2e 72 e4 6b 73 6d f6 72 67 e5 73 aa 2e 65 78 61 6d 70 6c 65
  * ACE label (length 33): 'www.xn--rksmrgsa-0zap8p.example'
- * 77 77 77 2e 78 6e 2d 2d 72 6b 73 6d 72 67 73 61 2d 30 7a 61 70 38 70 2e 65 78 61 6d 70 6c 65 
+ * 77 77 77 2e 78 6e 2d 2d 72 6b 73 6d 72 67 73 61 2d 30 7a 61 70 38 70 2e 65 78 61 6d 70 6c 65
  * $
  *
  */

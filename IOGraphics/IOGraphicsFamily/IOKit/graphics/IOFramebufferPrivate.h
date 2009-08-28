@@ -73,17 +73,7 @@
                                     int width,
                                     int height );
 
-    static void StdFBDisplayCursor444(
-                                    IOFramebuffer * inst,
-                                    StdFBShmem_t *shmem,
-                                    volatile unsigned short *vramPtr,
-                                    unsigned int cursStart,
-                                    unsigned int vramRow,
-                                    unsigned int cursRow,
-                                    int width,
-                                    int height );
-
-    static void StdFBDisplayCursor32Axxx(
+    static void StdFBDisplayCursor30Axxx(
                                     IOFramebuffer * inst,
                                     StdFBShmem_t *shmem,
                                     volatile unsigned int *vramPtr,
@@ -93,7 +83,7 @@
                                     int width,
                                     int height );
 
-    static void StdFBDisplayCursor32xxxA(
+    static void StdFBDisplayCursor32Axxx(
                                     IOFramebuffer * inst,
                                     StdFBShmem_t *shmem,
                                     volatile unsigned int *vramPtr,
@@ -133,10 +123,17 @@
                                           IOInterruptEventSource * evtSrc, int intCount );
     static void deferredSpeedChangeEvent( OSObject * owner,
 					      IOInterruptEventSource * evtSrc, int intCount );
+
+    static IOReturn pmSettingsChange(OSObject *target, const OSSymbol *type,
+						 OSObject *val, uintptr_t refcon);
+
+    static void globalEvent( OSObject * target,
+			     IOInterruptEventSource * evtSrc, int intCount );
+
     void checkDeferredCLUTSet( void );
     void updateCursorForCLUTSet( void );
     IOReturn updateGammaTable(	UInt32 channelCount, UInt32 dataCount,
-				UInt32 dataWidth, void * data );
+				UInt32 dataWidth, const void * data );
 
     static void dpInterruptProc(OSObject * target, void * ref);
     static void dpInterrupt(OSObject * owner, IOTimerEventSource * sender);
@@ -169,7 +166,7 @@
                                     UInt32 messageType, IOService * service,
                                     void * messageArgument, vm_size_t argSize );
     static bool clamshellHandler( void * target, void * ref,
-   				       IOService * resourceService );
+   				       IOService * resourceService, IONotifier * notifier );
     static void clamshellProbeAction( OSObject * owner, IOTimerEventSource * sender );
 
     static IOReturn probeAll( IOOptionBits options );
@@ -186,55 +183,40 @@
 
     // --
 
-    IOReturn extCreateSharedCursor( int shmemVersion,
-					int maxWidth, int maxHeight );
-    IOReturn extGetPixelInformation( 
-	IODisplayModeID displayMode, IOIndex depth,
-	IOPixelAperture aperture, IOPixelInformation * pixelInfo );
-    IOReturn extGetCurrentDisplayMode( 
-                            IODisplayModeID * displayMode, IOIndex * depth );
-    IOReturn extSetStartupDisplayMode( 
-                            IODisplayModeID displayMode, IOIndex depth );
-    IOReturn extSetGammaTable( 
-                            UInt32 channelCount, UInt32 dataCount,
-                            UInt32 dataWidth, void * data );
-    IOReturn extGetDisplayModeCount( IOItemCount * count );
-    IOReturn extGetDisplayModes( IODisplayModeID * allModes,
-					IOByteCount * size );
-    IOReturn extSetDisplayMode( IODisplayModeID displayMode,
-                                    IOIndex depth );
-    IOReturn extGetInformationForDisplayMode( 
-		IODisplayModeID mode, void * info, IOByteCount length );
+    static IOReturn extCreateSharedCursor(OSObject * target, void * reference, IOExternalMethodArguments * args);
+    static IOReturn extGetPixelInformation(OSObject * target, void * reference, IOExternalMethodArguments * args);
+    static IOReturn extGetCurrentDisplayMode(OSObject * target, void * reference, IOExternalMethodArguments * args);
+    static IOReturn extSetStartupDisplayMode(OSObject * target, void * reference, IOExternalMethodArguments * args);
+    static IOReturn extSetGammaTable(OSObject * target, void * reference, IOExternalMethodArguments * args);
+    static IOReturn extGetDisplayModeCount(OSObject * target, void * reference, IOExternalMethodArguments * args);
+    static IOReturn extGetDisplayModes(OSObject * target, void * reference, IOExternalMethodArguments * args);
+    static IOReturn extSetDisplayMode(OSObject * target, void * reference, IOExternalMethodArguments * args);
+    static IOReturn extGetInformationForDisplayMode(OSObject * target, void * reference, IOExternalMethodArguments * args);
 
-    IOReturn extGetVRAMMapOffset( IOPixelAperture aperture,
-				 IOByteCount * offset );
-    IOReturn extSetBounds( IOGBounds * bounds );
+    static IOReturn extGetVRAMMapOffset(OSObject * target, void * reference, IOExternalMethodArguments * args);
+    static IOReturn extSetBounds(OSObject * target, void * reference, IOExternalMethodArguments * args);
 
-    IOReturn extSetNewCursor( void * cursor, IOIndex frame,
-					IOOptionBits options );
-    IOReturn extSetCursorVisible( bool visible );
-    IOReturn extSetCursorPosition( SInt32 x, SInt32 y );
-    IOReturn extSetColorConvertTable( UInt32 select,
-                                        UInt8 * data, IOByteCount length );
-    IOReturn extSetCLUTWithEntries( UInt32 index, IOOptionBits options,
-                            IOColorEntry * colors, IOByteCount inputCount );
-    IOReturn extSetAttribute(
-            IOSelect attribute, UInt32 value, IOFramebuffer * other );
-    IOReturn extGetAttribute( 
-            IOSelect attribute, UInt32 * value, IOFramebuffer * other );
-    IOReturn getDefaultMode( 
-                        IOIndex connection, IODisplayModeID * mode, IOIndex * depth);
-    IOReturn extValidateDetailedTiming( 
-                void * description, void * outDescription,
-                IOByteCount inSize, IOByteCount * outSize );
+    static IOReturn extSetNewCursor(OSObject * target, void * reference, IOExternalMethodArguments * args);
+    static IOReturn extSetCursorVisible(OSObject * target, void * reference, IOExternalMethodArguments * args);
+    static IOReturn extSetCursorPosition(OSObject * target, void * reference, IOExternalMethodArguments * args);
+    static IOReturn extSetColorConvertTable(OSObject * target, void * reference, IOExternalMethodArguments * args);
+    static IOReturn extSetCLUTWithEntries(OSObject * target, void * reference, IOExternalMethodArguments * args);
+    static IOReturn extSetAttribute(OSObject * target, void * reference, IOExternalMethodArguments * args);
+    static IOReturn extGetAttribute(OSObject * target, void * reference, IOExternalMethodArguments * args);
+    static IOReturn extValidateDetailedTiming(OSObject * target, void * reference, IOExternalMethodArguments * args);
+    static IOReturn extAcknowledgeNotification(OSObject * target, void * reference, IOExternalMethodArguments * args);
+
+    // --
+
+    IOReturn extSetProperties( OSDictionary * dict );
     IOReturn extRegisterNotificationPort( 
                     mach_port_t 	port,
                     UInt32		type,
                     UInt32		refCon );
-    IOReturn extAcknowledgeNotification( void );
-    IOReturn extSetProperties( OSDictionary * dict );
 
 public:
+    static void fbLock( void );
+    static void fbUnlock( void );
 
     static void clamshellEnable( SInt32 delta );
     static IOOptionBits clamshellState( void );

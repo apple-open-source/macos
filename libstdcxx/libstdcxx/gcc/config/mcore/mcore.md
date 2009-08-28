@@ -1,5 +1,6 @@
 ;;  Machine description the Motorola MCore
-;;  Copyright (C) 1993, 1999, 2000, 2004 Free Software Foundation, Inc.
+;;  Copyright (C) 1993, 1999, 2000, 2004, 2005
+;;  Free Software Foundation, Inc.
 ;;  Contributed by Motorola.
 
 ;; This file is part of GCC.
@@ -16,8 +17,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;- See file "rtl.def" for documentation on define_insn, match_*, et. al.
 
@@ -52,6 +53,8 @@
 (define_insn_reservation "memory" 2
 			 (eq_attr "type" "load")
 			 "nothing")
+
+(include "predicates.md")
 
 ;; -------------------------------------------------------------------------
 ;; Test and bit test
@@ -381,7 +384,7 @@
      case 2: return \"and	%0,%1\";
      /* case -1: return \"bclri	%0,%Q2\";	 will not happen */
      case 3: return mcore_output_bclri (operands[0], INTVAL (operands[2]));
-     default: abort ();
+     default: gcc_unreachable ();
      }
 }")
 
@@ -401,7 +404,7 @@
      case 1: return \"andi	%0,%2\";
      case 2: return \"and	%0,%1\";
      case 3: return mcore_output_bclri (operands[0], INTVAL (operands[2]));
-     default: abort ();
+     default: gcc_unreachable ();
      }
 }")
 
@@ -436,7 +439,7 @@
      case 0: return \"or	%0,%2\";
      case 1: return \"bseti	%0,%P2\";
      case 2: return mcore_output_bseti (operands[0], INTVAL (operands[2]));
-     default: abort ();
+     default: gcc_unreachable ();
      }
 }")
 
@@ -452,7 +455,7 @@
      case 0: return \"or	%0,%2\";
      case 1: return \"bseti	%0,%P2\";
      case 2: return mcore_output_bseti (operands[0], INTVAL (operands[2]));
-     default: abort ();
+     default: gcc_unreachable ();
      }
 }")
 
@@ -925,8 +928,7 @@
    && INTVAL (operands[2]) > 0 && ! (INTVAL (operands[2]) & 0x80000000)"
   "*
 {
-  if (GET_MODE (operands[2]) != SImode)
-     abort ();
+  gcc_assert (GET_MODE (operands[2]) == SImode);
   if (TARGET_LITTLE_END)
     return \"addu	%0,%2\;cmphs	%0,%2\;incf	%R0\";
   return \"addu	%R0,%2\;cmphs	%R0,%2\;incf	%0\";
@@ -3069,7 +3071,7 @@
    else if ((ofs = mcore_halfword_offset (INTVAL (operands[3]))) > -1)
       mode = HImode;
    else
-      abort ();
+      gcc_unreachable ();
 
    if (ofs > 0) 
       operands[4] = gen_rtx_MEM (mode, 
@@ -3145,15 +3147,14 @@
  	   return \"btsti	%1,%2\\n\\tmovt	%0,%4\";
        }
 
-     abort ();
+     gcc_unreachable ();
     }
   else if (GET_CODE (operands[3]) == CONST_INT
            && INTVAL (operands[3]) == 0
 	   && GET_CODE (operands[4]) == REG)
      return \"btsti	%1,%2\\n\\tclrt	%0\";
 
-  abort ();
-  return \"\"; 
+  gcc_unreachable ();
 }")
 
 ; experimental - do the constant folding ourselves.  note that this isn't

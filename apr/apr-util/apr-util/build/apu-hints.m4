@@ -1,10 +1,10 @@
 dnl -------------------------------------------------------- -*- autoconf -*-
-dnl Copyright 2003-2005 The Apache Software Foundation or its licensors, as
-dnl applicable.
-dnl
-dnl Licensed under the Apache License, Version 2.0 (the "License");
-dnl you may not use this file except in compliance with the License.
-dnl You may obtain a copy of the License at
+dnl Licensed to the Apache Software Foundation (ASF) under one or more
+dnl contributor license agreements.  See the NOTICE file distributed with
+dnl this work for additional information regarding copyright ownership.
+dnl The ASF licenses this file to You under the Apache License, Version 2.0
+dnl (the "License"); you may not use this file except in compliance with
+dnl the License.  You may obtain a copy of the License at
 dnl
 dnl     http://www.apache.org/licenses/LICENSE-2.0
 dnl
@@ -49,6 +49,7 @@ if test "x$apu_preload_done" != "xyes" ; then
     *-solaris2*)
         APR_SETIFNULL(apu_iconv_inbuf_const, [1])
         APR_SETIFNULL(apu_crypt_threadsafe, [1])
+        AC_SEARCH_LIBS(fdatasync, [rt posix4])
         ;;
     *-sco3.2v5*)
 	APR_SETIFNULL(apu_db_xtra_libs, [-lsocket])

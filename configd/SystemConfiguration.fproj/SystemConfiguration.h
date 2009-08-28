@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2008, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,6 +24,7 @@
 #ifndef _SYSTEMCONFIGURATION_H
 #define _SYSTEMCONFIGURATION_H
 
+#include <Availability.h>
 #include <sys/cdefs.h>
 #include <CoreFoundation/CoreFoundation.h>
 
@@ -66,6 +67,7 @@
 	@constant kSCStatusReachabilityUnknown
 		A determination could not be made regarding the reachability
 		of the specified nodename or address.
+	@constant kSCStatusConnectionNoService	Network service for connection not available
 */
 enum {
 	/*
@@ -100,7 +102,13 @@ enum {
 	/*
 	 * SCNetwork error codes
 	 */
-	kSCStatusReachabilityUnknown		= 4001	/* Network reachability cannot be determined */
+	kSCStatusReachabilityUnknown		= 4001,	/* Network reachability cannot be determined */
+	/*
+	 * SCNetworkConnection error codes
+	 */
+#if	(__MAC_OS_X_VERSION_MIN_REQUIRED >= 1060) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)
+	kSCStatusConnectionNoService		= 5001	/* Network service for connection not available */
+#endif
 };
 
 
@@ -130,7 +138,7 @@ enum {
 	@discussion CFError domain associated with errors reported by
 		the SystemConfiguration.framework.
  */
-extern const CFStringRef	kCFErrorDomainSystemConfiguration	AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+extern const CFStringRef	kCFErrorDomainSystemConfiguration	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0);
 
 __BEGIN_DECLS
 
@@ -140,7 +148,7 @@ __BEGIN_DECLS
 		as the result of calling a System Configuration framework API.
 	@result Returns the last error encountered.
  */
-CFErrorRef	SCCopyLastError		(void);
+CFErrorRef	SCCopyLastError		(void)				__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0);
 
 /*!
 	@function SCError
@@ -148,7 +156,7 @@ CFErrorRef	SCCopyLastError		(void);
 		as the result of calling a System Configuration framework API.
 	@result Returns the last error encountered.
  */
-int		SCError			(void);
+int		SCError			(void)				__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0);
 
 /*!
 	@function SCErrorString
@@ -157,7 +165,7 @@ int		SCError			(void);
 	@param status The SCDynamicStoreStatus to be returned.
 	@result Returns a pointer to the error message string.
  */
-const char *	SCErrorString		(int	status);
+const char *	SCErrorString		(int	status)			__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0);
 
 __END_DECLS
 

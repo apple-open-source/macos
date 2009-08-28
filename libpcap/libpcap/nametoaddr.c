@@ -24,7 +24,7 @@
 
 #ifndef lint
 static const char rcsid[] _U_ =
-    "@(#) $Header: /tcpdump/master/libpcap/nametoaddr.c,v 1.77.2.3 2005/04/20 11:13:51 guy Exp $ (LBL)";
+    "@(#) $Header: /tcpdump/master/libpcap/nametoaddr.c,v 1.82.2.1 2008/02/06 10:21:47 guy Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -80,7 +80,7 @@ struct rtentry;		/* declarations in <net/if.h> */
 #include "pcap-int.h"
 
 #include "gencode.h"
-#include <pcap-namedb.h>
+#include <pcap/namedb.h>
 
 #ifdef HAVE_OS_PROTO_H
 #include "os-proto.h"
@@ -276,7 +276,7 @@ pcap_nametoproto(const char *str)
 #include "ethertype.h"
 
 struct eproto {
-	char *s;
+	const char *s;
 	u_short p;
 };
 
@@ -388,7 +388,7 @@ __pcap_atodn(const char *s, bpf_u_int32 *addr)
 
 	u_int node, area;
 
-	if (sscanf((char *)s, "%d.%d", &area, &node) != 2)
+	if (sscanf(s, "%d.%d", &area, &node) != 2)
 		bpf_error("malformed decnet address '%s'", s);
 
 	*addr = (area << AREASHIFT) & AREAMASK;
@@ -398,7 +398,15 @@ __pcap_atodn(const char *s, bpf_u_int32 *addr)
 }
 
 /*
- * Convert 's' which has the form "xx:xx:xx:xx:xx:xx" into a new
+ * Convert 's', which can have the one of the forms:
+ *
+ *	"xx:xx:xx:xx:xx:xx"
+ *	"xx.xx.xx.xx.xx.xx"
+ *	"xx-xx-xx-xx-xx-xx"
+ *	"xxxx.xxxx.xxxx"
+ *	"xxxxxxxxxxxx"
+ *
+ * (or various mixes of ':', '.', and '-') into a new
  * ethernet address.  Assumes 's' is well formed.
  */
 u_char *
@@ -410,7 +418,7 @@ pcap_ether_aton(const char *s)
 	e = ep = (u_char *)malloc(6);
 
 	while (*s) {
-		if (*s == ':')
+		if (*s == ':' || *s == '.' || *s == '-')
 			s += 1;
 		d = xdtoi(*s++);
 		if (isxdigit((unsigned char)*s)) {
@@ -474,7 +482,7 @@ pcap_ether_hostton(const char *name)
 	u_char a[6];
 
 	ap = NULL;
-	if (ether_hostton((char *)name, (struct ether_addr *)a) == 0) {
+	if (ether_hostton(name, (struct ether_addr *)a) == 0) {
 		ap = (u_char *)malloc(6);
 		if (ap != NULL)
 			memcpy((char *)ap, (char *)a, 6);

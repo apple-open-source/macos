@@ -2,9 +2,8 @@
  * CDDL HEADER START
  *
  * The contents of this file are subject to the terms of the
- * Common Development and Distribution License, Version 1.0 only
- * (the "License").  You may not use this file except in compliance
- * with the License.
+ * Common Development and Distribution License (the "License").
+ * You may not use this file except in compliance with the License.
  *
  * You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
  * or http://www.opensolaris.org/os/licensing.
@@ -19,28 +18,25 @@
  *
  * CDDL HEADER END
  */
-/*	Copyright (c) 1988 AT&T	*/
-/*	  All Rights Reserved  	*/
-
 
 /*
- * Copyright 2004 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)newphdr.c	1.17	05/06/08 SMI"
+/*	Copyright (c) 1988 AT&T	*/
+/*	  All Rights Reserved  	*/
 
-#if !defined(_ELF64)
-// XXX_PRAGMA_WEAK #pragma weak elf32_newphdr = _elf32_newphdr
-#endif
+#pragma ident	"@(#)newphdr.c	1.18	08/05/31 SMI"
 
-#include "syn.h"
 #include <stdlib.h>
 #include <memory.h>
 #include <errno.h>
 #include "decl.h"
 #include "msg.h"
+#if defined(__APPLE__)
 #include <string.h>
+#endif /* __APPLE__ */
 
 /*
  * This module is compiled twice, the second time having

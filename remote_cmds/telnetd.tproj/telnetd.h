@@ -31,6 +31,7 @@
  * SUCH DAMAGE.
  *
  *	@(#)telnetd.h	8.1 (Berkeley) 6/4/93
+ * $FreeBSD: src/contrib/telnet/telnetd/telnetd.h,v 1.2 2001/11/30 21:06:38 markm Exp $
  */
 
 
@@ -45,5 +46,4 @@
 
 /* other external variables */
 extern	char **environ;
-extern	int errno;
-
+extern	const char *altlogin;

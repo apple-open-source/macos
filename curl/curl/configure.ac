@@ -5,7 +5,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2007, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -18,43 +18,75 @@
 # This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
 # KIND, either express or implied.
 #
-# $Id: configure.ac,v 1.245 2007-06-12 21:39:21 bagder Exp $
-###########################################################################
+# $Id: configure.ac,v 1.392 2009-02-13 05:49:58 yangtse Exp $
+#***************************************************************************
 dnl Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.57)
 
-dnl We don't know the version number "staticly" so we use a dash here
-AC_INIT(curl, [-], [a suitable curl mailing list => http://curl.haxx.se/mail/])
+dnl We don't know the version number "statically" so we use a dash here
+AC_INIT([curl], [-], [a suitable curl mailing list => http://curl.haxx.se/mail/])
+
+CURL_OVERRIDE_AUTOCONF
 
 dnl configure script copyright
-AC_COPYRIGHT([Copyright (c) 1998 - 2006 Daniel Stenberg, <daniel@haxx.se>
-This configure script may be copied, distributed and modified under the 
+AC_COPYRIGHT([Copyright (c) 1998 - 2008 Daniel Stenberg, <daniel@haxx.se>
+This configure script may be copied, distributed and modified under the
 terms of the curl license; see COPYING for more details])
 
 AC_CONFIG_SRCDIR([lib/urldata.h])
-AM_CONFIG_HEADER(lib/config.h src/config.h)
+AM_CONFIG_HEADER(lib/config.h src/config.h include/curl/curlbuild.h)
 AM_MAINTAINER_MODE
 
-dnl SED is needed by some of the tools
-AC_PATH_PROG( SED, sed, sed-was-not-found-by-configure,
-              $PATH:/usr/bin:/usr/local/bin)
-AC_SUBST(SED)
+CURL_CHECK_OPTION_DEBUG
+CURL_CHECK_OPTION_OPTIMIZE
+CURL_CHECK_OPTION_WARNINGS
 
-if test "x$SED" = "xsed-was-not-found-by-configure"; then
-  AC_MSG_WARN([sed was not found, this may ruin your chances to build fine])
-fi
+CURL_CHECK_PATH_SEPARATOR
 
-dnl AR is used by libtool, and try the odd Solaris path too
-dnl we use AC_CHECK_TOOL since this should make a library for the target
-dnl platform
-AC_CHECK_TOOL(AR, ar,
-              ar-was-not-found-by-configure,
-              $PATH:/usr/bin:/usr/local/bin:/usr/ccs/bin)
-AC_SUBST(AR)
-if test "x$AR" = "xar-was-not-found-by-configure"; then
-  AC_MSG_WARN([ar was not found, this may ruin your chances to build fine])
+dnl SED is mandatory for configure process and libtool.
+dnl Set it now, allowing it to be changed later.
+AC_PATH_PROG([SED], [sed], [not_found],
+  [$PATH:/usr/bin:/usr/local/bin])
+if test -z "$SED" || test "$SED" = "not_found"; then
+  AC_MSG_ERROR([sed not found in PATH. Cannot continue without sed.])
 fi
+AC_SUBST([SED])
+
+dnl GREP is mandatory for configure process and libtool.
+dnl Set it now, allowing it to be changed later.
+AC_PATH_PROG([GREP], [grep], [not_found],
+  [$PATH:/usr/bin:/usr/local/bin])
+if test -z "$GREP" || test "$GREP" = "not_found"; then
+  AC_MSG_ERROR([grep not found in PATH. Cannot continue without grep.])
+fi
+AC_SUBST([GREP])
+
+dnl EGREP is mandatory for configure process and libtool.
+dnl Set it now, allowing it to be changed later.
+if echo a | ($GREP -E '(a|b)') >/dev/null 2>&1; then
+  AC_MSG_CHECKING([for egrep])
+  EGREP="$GREP -E"
+  AC_MSG_RESULT([$EGREP])
+else
+  AC_PATH_PROG([EGREP], [egrep], [not_found],
+    [$PATH:/usr/bin:/usr/local/bin])
+fi
+if test -z "$EGREP" || test "$EGREP" = "not_found"; then
+  AC_MSG_ERROR([egrep not found in PATH. Cannot continue without egrep.])
+fi
+AC_SUBST([EGREP])
+
+dnl AR is mandatory for configure process and libtool.
+dnl This is target dependant, so check it as a tool.
+AC_PATH_TOOL([AR], [ar], [not_found],
+  [$PATH:/usr/bin:/usr/local/bin])
+if test -z "$AR" || test "$AR" = "not_found"; then
+  AC_MSG_ERROR([ar not found in PATH. Cannot continue without ar.])
+fi
+AC_SUBST([AR])
+
+AC_SUBST(libext)
 
 dnl figure out the libcurl version
 VERSION=`$SED -ne 's/^#define LIBCURL_VERSION "\(.*\)"/\1/p' ${srcdir}/include/curl/curlver.h`
@@ -89,6 +121,8 @@ dnl initialize all the info variables
  curl_manual_msg="no      (--enable-manual)"
 curl_verbose_msg="enabled (--disable-verbose)"
    curl_sspi_msg="no      (--enable-sspi)"
+   curl_ldap_msg="no      (--enable-ldap / --with-ldap-lib / --with-lber-lib)"
+  curl_ldaps_msg="no      (--enable-ldaps)"
 
 dnl
 dnl Save anything in $LIBS for later
@@ -103,11 +137,17 @@ AC_CANONICAL_HOST
 dnl Get system canonical name
 AC_DEFINE_UNQUOTED(OS, "${host}", [cpu-machine-OS])
 
-dnl Check for AIX weirdos
-AC_AIX
-
 dnl Checks for programs.
-AC_PROG_CC
+CURL_CHECK_PROG_CC
+
+dnl Our curl_off_t internal and external configure settings
+CURL_CONFIGURE_CURL_OFF_T
+
+dnl This defines _ALL_SOURCE for AIX
+CURL_CHECK_AIX_ALL_SOURCE
+
+dnl Our configure and build reentrant settings
+CURL_CONFIGURE_REENTRANT
 
 dnl check for how to do large files
 AC_SYS_LARGEFILE
@@ -115,26 +155,12 @@ AC_SYS_LARGEFILE
 dnl support building of Windows DLLs
 AC_LIBTOOL_WIN32_DLL
 
-dnl skip libtool C++ and Fortran compiler checks
-m4_ifdef([AC_PROG_CXX], [m4_undefine([AC_PROG_CXX])])
-m4_defun([AC_PROG_CXX],[])
-m4_ifdef([AC_PROG_CXXCPP], [m4_undefine([AC_PROG_CXXCPP])])
-m4_defun([AC_PROG_CXXCPP],[true])
-m4_ifdef([AC_PROG_F77], [m4_undefine([AC_PROG_F77])])
-m4_defun([AC_PROG_F77],[])
+CURL_PROCESS_DEBUG_BUILD_OPTS
 
-dnl skip libtool C++ and Fortran linker checks
-m4_ifdef([AC_LIBTOOL_CXX], [m4_undefine([AC_LIBTOOL_CXX])])
-m4_defun([AC_LIBTOOL_CXX],[])
-m4_ifdef([AC_LIBTOOL_CXXCPP], [m4_undefine([AC_LIBTOOL_CXXCPP])])
-m4_defun([AC_LIBTOOL_CXXCPP],[true])
-m4_ifdef([AC_LIBTOOL_F77], [m4_undefine([AC_LIBTOOL_F77])])
-m4_defun([AC_LIBTOOL_F77],[])
-
-dnl force libtool to build static libraries with PIC on AMD64-linux
-AC_MSG_CHECKING([if arch-OS host is AMD64-linux (to build static libraries with PIC)])
+dnl force libtool to build static libraries with PIC on AMD64-Linux & FreeBSD
+AC_MSG_CHECKING([if arch-OS host is AMD64-Linux/FreeBSD (to build static libraries with PIC)])
 case $host in
-  x86_64*linux*)
+  x86_64*linux*|amd64*freebsd*|ia64*freebsd*)
     AC_MSG_RESULT([yes])
     with_pic=yes
     ;;
@@ -148,7 +174,7 @@ AC_PROG_LIBTOOL
 
 AC_MSG_CHECKING([if we need -no-undefined])
 case $host in
-  *-*-cygwin | *-*-mingw* | *-*-pw32*)
+  *-*-cygwin* | *-*-mingw* | *-*-pw32* | *-*-cegcc*)
     need_no_undefined=yes
     ;;
   *)
@@ -171,6 +197,7 @@ case $host in
 esac
 AC_MSG_RESULT($mimpure)
 AM_CONDITIONAL(MIMPURE, test x$mimpure = xyes)
+AM_CONDITIONAL(STATICLIB, false)
 
 AC_MSG_CHECKING([if we need BUILDING_LIBCURL])
 case $host in
@@ -182,6 +209,7 @@ case $host in
     then
       AC_DEFINE(CURL_STATICLIB, 1, [when not building a shared library])
       AC_MSG_RESULT(yes)
+      AM_CONDITIONAL(STATICLIB, true)
     else
       AC_MSG_RESULT(no)
     fi
@@ -208,17 +236,70 @@ dnl check if there's a way to force code inline
 AC_C_INLINE
 
 dnl **********************************************************************
-dnl Make sure that our checks for headers windows.h winsock.h winsock2.h 
-dnl and ws2tcpip.h take precedence over any other further checks which 
+dnl platform/compiler/architecture specific checks/flags
+dnl **********************************************************************
+
+CURL_CHECK_COMPILER
+CURL_SET_COMPILER_BASIC_OPTS
+CURL_SET_COMPILER_DEBUG_OPTS
+CURL_SET_COMPILER_OPTIMIZE_OPTS
+CURL_SET_COMPILER_WARNING_OPTS
+
+case $host in
+  #
+  x86_64*linux*|amd64*freebsd*|ia64*freebsd*)
+    #
+    if test "$compiler_id" = "INTEL_UNIX_C"; then
+      #
+      if test "$compiler_num" -ge "900" &&
+        test "$compiler_num" -lt "1000"; then
+        dnl icc 9.X specific
+        CFLAGS="$CFLAGS -i-dynamic"
+      fi
+      #
+      if test "$compiler_num" -ge "1000"; then
+        dnl icc 10.X or later
+        CFLAGS="$CFLAGS -shared-intel"
+      fi
+      #
+    fi
+    ;;
+  #
+esac
+
+CURL_CHECK_COMPILER_HALT_ON_ERROR
+CURL_CHECK_COMPILER_ARRAY_SIZE_NEGATIVE
+
+dnl **********************************************************************
+dnl Compilation based checks should not be done before this point.
+dnl **********************************************************************
+
+dnl **********************************************************************
+dnl Make sure that our checks for headers windows.h winsock.h winsock2.h
+dnl and ws2tcpip.h take precedence over any other further checks which
 dnl could be done later using AC_CHECK_HEADER or AC_CHECK_HEADERS for
 dnl this specific header files. And do them before its results are used.
 dnl **********************************************************************
 
 CURL_CHECK_HEADER_WINDOWS
-CURL_CHECK_HEADER_WINSOCK
-CURL_CHECK_HEADER_WINSOCK2
-CURL_CHECK_HEADER_WS2TCPIP
-
+CURL_CHECK_NATIVE_WINDOWS
+case X-"$ac_cv_native_windows" in
+  X-yes)
+    CURL_CHECK_HEADER_WINSOCK
+    CURL_CHECK_HEADER_WINSOCK2
+    CURL_CHECK_HEADER_WS2TCPIP
+    CURL_CHECK_HEADER_WINLDAP
+    CURL_CHECK_HEADER_WINBER
+    ;;
+  *)
+    ac_cv_header_winsock_h="no"
+    ac_cv_header_winsock2_h="no"
+    ac_cv_header_ws2tcpip_h="no"
+    ac_cv_header_winldap_h="no"
+    ac_cv_header_winber_h="no"
+    ;;
+esac
+CURL_CHECK_WIN32_LARGEFILE
 
 dnl ************************************************************
 dnl switch off particular protocols
@@ -279,11 +360,72 @@ AC_HELP_STRING([--disable-ldap],[Disable LDAP support]),
        AC_DEFINE(CURL_DISABLE_LDAP, 1, [to disable LDAP])
        AC_SUBST(CURL_DISABLE_LDAP, [1])
        ;;
+  *)
+       case $host in
+         *-*-cygwin*)
+           # Force no ldap. config/build process is broken for cygwin
+           AC_DEFINE(CURL_DISABLE_LDAP, 1, [to disable LDAP])
+           AC_SUBST(CURL_DISABLE_LDAP, [1])
+           AC_MSG_RESULT(no)
+           ;;
+         *)
+           AC_MSG_RESULT(yes)
+       esac
+       ;;
+  esac ],[
+       case $host in
+         *-*-cygwin*)
+           # Force no ldap. config/build process is broken for cygwin
+           AC_DEFINE(CURL_DISABLE_LDAP, 1, [to disable LDAP])
+           AC_SUBST(CURL_DISABLE_LDAP, [1])
+           AC_MSG_RESULT(no)
+           ;;
+         *)
+           AC_MSG_RESULT(yes)
+       esac ]
+)
+AC_MSG_CHECKING([whether to support ldaps])
+AC_ARG_ENABLE(ldaps,
+AC_HELP_STRING([--enable-ldaps],[Enable LDAPS support])
+AC_HELP_STRING([--disable-ldaps],[Disable LDAPS support]),
+[ case "$enableval" in
+  no)
+       AC_MSG_RESULT(no)
+       AC_DEFINE(CURL_DISABLE_LDAPS, 1, [to disable LDAPS])
+       AC_SUBST(CURL_DISABLE_LDAPS, [1])
+       ;;
+  *)   if test x$CURL_DISABLE_LDAP = x1 ; then
+               AC_MSG_RESULT(LDAP support needs to be enabled in order to enable LDAPS support!)
+               AC_DEFINE(CURL_DISABLE_LDAPS, 1, [to disable LDAPS])
+               AC_SUBST(CURL_DISABLE_LDAPS, [1])
+       else
+               AC_MSG_RESULT(yes)
+               AC_DEFINE(HAVE_LDAP_SSL, 1, [Use LDAPS implementation])
+               curl_ldaps_msg="enabled"
+       fi
+       ;;
+  esac ],
+       AC_MSG_RESULT(no)
+       AC_DEFINE(CURL_DISABLE_LDAPS, 1, [to disable LDAPS])
+       AC_SUBST(CURL_DISABLE_LDAPS, [1])
+)
+
+AC_MSG_CHECKING([whether to support proxies])
+AC_ARG_ENABLE(proxy,
+AC_HELP_STRING([--enable-proxy],[Enable proxy support])
+AC_HELP_STRING([--disable-proxy],[Disable proxy support]),
+[ case "$enableval" in
+  no)
+       AC_MSG_RESULT(no)
+       AC_DEFINE(CURL_DISABLE_PROXY, 1, [to disable proxies])
+       AC_SUBST(CURL_DISABLE_PROXY, [1])
+       ;;
   *)   AC_MSG_RESULT(yes)
        ;;
   esac ],
        AC_MSG_RESULT(yes)
 )
+
 AC_MSG_CHECKING([whether to support dict])
 AC_ARG_ENABLE(dict,
 AC_HELP_STRING([--enable-dict],[Enable DICT support])
@@ -353,13 +495,6 @@ dnl The actual use of the USE_MANUAL variable is done much later in this
 dnl script to allow other actions to disable it as well.
 
 dnl **********************************************************************
-dnl check if this is the Intel ICC compiler, and if so make it stricter
-dnl (convert warning 147 into an error) so that it properly can detect the
-dnl gethostbyname_r() version
-dnl **********************************************************************
-CURL_DETECT_ICC([CFLAGS="$CFLAGS -we 147"])
-
-dnl **********************************************************************
 dnl Checks for libraries.
 dnl **********************************************************************
 
@@ -389,64 +524,116 @@ then
   AC_MSG_CHECKING([for gethostbyname with both nsl and socket libs])
   my_ac_save_LIBS=$LIBS
   LIBS="-lnsl -lsocket $LIBS"
-  AC_TRY_LINK( ,
-             [gethostbyname();],
-             [ dnl found it!
-             HAVE_GETHOSTBYNAME="1"
-             AC_MSG_RESULT([yes])],
-             [ dnl failed!
-             AC_MSG_RESULT([no])
-             dnl restore LIBS
-             LIBS=$my_ac_save_LIBS]
-             )
+  AC_LINK_IFELSE([
+    AC_LANG_PROGRAM([[
+    ]],[[
+      gethostbyname();
+    ]])
+  ],[
+    AC_MSG_RESULT([yes])
+    HAVE_GETHOSTBYNAME="1"
+  ],[
+    AC_MSG_RESULT([no])
+    LIBS=$my_ac_save_LIBS
+  ])
 fi
 
 if test "$HAVE_GETHOSTBYNAME" != "1"
 then
-  dnl This is for Msys/Mingw
-  AC_MSG_CHECKING([for gethostbyname in ws2_32])
-  my_ac_save_LIBS=$LIBS
-  LIBS="-lws2_32 $LIBS"
-  AC_TRY_LINK([#include <winsock2.h>],
-               [gethostbyname("www.dummysite.com");],
-               [ dnl worked!
-               ws2="yes"
-               AC_MSG_RESULT([yes])
-               HAVE_GETHOSTBYNAME="1"],
-               [ dnl failed, restore LIBS
-               LIBS=$my_ac_save_LIBS
-               AC_MSG_RESULT(no)]
-             )
+  dnl This is for winsock systems
+  if test "$ac_cv_header_windows_h" = "yes"; then
+    if test "$ac_cv_header_winsock_h" = "yes"; then
+      case $host in
+        *-*-mingw32ce*)
+          winsock_LIB="-lwinsock"
+          ;;
+        *)
+          winsock_LIB="-lwsock32"
+          ;;
+      esac
+    fi
+    if test "$ac_cv_header_winsock2_h" = "yes"; then
+      winsock_LIB="-lws2_32"
+    fi
+    if test ! -z "$winsock_LIB"; then
+      my_ac_save_LIBS=$LIBS
+      LIBS="$winsock_LIB $LIBS"
+      AC_MSG_CHECKING([for gethostbyname in $winsock_LIB])
+      AC_LINK_IFELSE([
+        AC_LANG_PROGRAM([[
+#ifdef HAVE_WINDOWS_H
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#ifdef HAVE_WINSOCK2_H
+#include <winsock2.h>
+#else
+#ifdef HAVE_WINSOCK_H
+#include <winsock.h>
+#endif
+#endif
+#endif
+        ]],[[
+          gethostbyname("www.dummysite.com");
+        ]])
+      ],[
+        AC_MSG_RESULT([yes])
+        HAVE_GETHOSTBYNAME="1"
+      ],[
+        AC_MSG_RESULT([no])
+        winsock_LIB=""
+        LIBS=$my_ac_save_LIBS
+      ])
+    fi
+  fi
 fi
 
 if test "$HAVE_GETHOSTBYNAME" != "1"
 then
   dnl This is for Minix 3.1
   AC_MSG_CHECKING([for gethostbyname for Minix 3])
-  AC_TRY_LINK([
+  AC_LINK_IFELSE([
+    AC_LANG_PROGRAM([[
 /* Older Minix versions may need <net/gen/netdb.h> here instead */
-#include <netdb.h>],
-               [gethostbyname("www.dummysite.com");],
-               [ dnl worked!
-               AC_MSG_RESULT([yes])
-               HAVE_GETHOSTBYNAME="1"],
-               AC_MSG_RESULT(no)
-             )
+#include <netdb.h>
+    ]],[[
+      gethostbyname("www.dummysite.com");
+    ]])
+  ],[
+    AC_MSG_RESULT([yes])
+    HAVE_GETHOSTBYNAME="1"
+  ],[
+    AC_MSG_RESULT([no])
+  ])
 fi
 
 if test "$HAVE_GETHOSTBYNAME" != "1"
 then
   dnl This is for eCos with a stubbed DNS implementation
   AC_MSG_CHECKING([for gethostbyname for eCos])
-  AC_TRY_LINK([
+  AC_LINK_IFELSE([
+    AC_LANG_PROGRAM([[
 #include <stdio.h>
-#include <netdb.h>],
-               [gethostbyname("www.dummysite.com");],
-               [ dnl worked!
-               AC_MSG_RESULT([yes])
-               HAVE_GETHOSTBYNAME="1"],
-               AC_MSG_RESULT(no)
-             )
+#include <netdb.h>
+    ]],[[
+      gethostbyname("www.dummysite.com");
+    ]])
+  ],[
+    AC_MSG_RESULT([yes])
+    HAVE_GETHOSTBYNAME="1"
+  ],[
+    AC_MSG_RESULT([no])
+  ])
+fi
+
+if test "$HAVE_GETHOSTBYNAME" != "1"
+then
+  dnl gethostbyname in the network lib - for Haiku OS
+  AC_CHECK_LIB(network, gethostbyname,
+               [HAVE_GETHOSTBYNAME="1"
+               LIBS="$LIBS -lnetwork"
+               ])
 fi
 
 if test "$HAVE_GETHOSTBYNAME" != "1"
@@ -459,9 +646,7 @@ then
 fi
 
 
-if test "$HAVE_GETHOSTBYNAME" = "1"; then
-  AC_DEFINE(HAVE_GETHOSTBYNAME, 1, [If you have gethostbyname])
-else
+if test "$HAVE_GETHOSTBYNAME" != "1"; then
   AC_MSG_ERROR([couldn't find libraries for gethostbyname()])
 fi
 
@@ -474,9 +659,16 @@ if test "$ac_cv_lib_resolve_strcasecmp" = "$ac_cv_func_strcasecmp"; then
                ,
                -lnsl)
 fi
+ac_cv_func_strcasecmp="no"
 
 dnl socket lib?
 AC_CHECK_FUNC(connect, , [ AC_CHECK_LIB(socket, connect) ])
+
+dnl **********************************************************************
+dnl In case that function clock_gettime with monotonic timer is available,
+dnl check for additional required libraries.
+dnl **********************************************************************
+CURL_CHECK_LIBS_CLOCK_GETTIME_MONOTONIC
 
 dnl **********************************************************************
 dnl The preceding library checks are all potentially useful for test
@@ -500,87 +692,90 @@ AC_HELP_STRING([--enable-libgcc],[use libgcc when linking]),
        AC_MSG_RESULT(no)
 )
 
-dnl dl lib?
-AC_CHECK_FUNC(dlclose, , [ AC_CHECK_LIB(dl, dlopen) ])
-
 dnl **********************************************************************
-dnl Check for the name of dynamic OpenLDAP libraries
+dnl Check for LDAP
 dnl **********************************************************************
 
 LDAPLIBNAME=""
 AC_ARG_WITH(ldap-lib,
-AC_HELP_STRING([--with-ldap-lib=libname],[Specify name of dynamic ldap lib file]),
+AC_HELP_STRING([--with-ldap-lib=libname],[Specify name of ldap lib file]),
  [LDAPLIBNAME="$withval"])
 
 LBERLIBNAME=""
 AC_ARG_WITH(lber-lib,
-AC_HELP_STRING([--with-lber-lib=libname],[Specify name of dynamic lber lib file]),
+AC_HELP_STRING([--with-lber-lib=libname],[Specify name of lber lib file]),
  [LBERLIBNAME="$withval"])
 
 if test x$CURL_DISABLE_LDAP != x1 ; then
 
+  CURL_CHECK_HEADER_LBER
+  CURL_CHECK_HEADER_LDAP
+  CURL_CHECK_HEADER_LDAPSSL
+  CURL_CHECK_HEADER_LDAP_SSL
+
   if test -z "$LDAPLIBNAME" ; then
     case $host in
-      *-*-cygwin | *-*-mingw* | *-*-pw32*)
+      *-*-cygwin* | *-*-mingw* | *-*-pw32*)
         dnl Windows uses a single and unique OpenLDAP DLL name
-        LDAPLIBNAME="wldap32.dll"
+        LDAPLIBNAME="wldap32"
         LBERLIBNAME="no"
         ;;
     esac
   fi
 
   if test "$LDAPLIBNAME" ; then
-    AC_DEFINE_UNQUOTED(DL_LDAP_FILE, "$LDAPLIBNAME")
-    AC_MSG_CHECKING([name of dynamic library ldap])
-    AC_MSG_RESULT($LDAPLIBNAME)
+    AC_CHECK_LIB("$LDAPLIBNAME", ldap_init,, [
+      AC_MSG_WARN(["$LDAPLIBNAME" is not an LDAP library: LDAP disabled])
+      AC_DEFINE(CURL_DISABLE_LDAP, 1, [to disable LDAP])
+      AC_SUBST(CURL_DISABLE_LDAP, [1])])
+      AC_DEFINE(CURL_DISABLE_LDAPS, 1, [to disable LDAPS])
+      AC_SUBST(CURL_DISABLE_LDAPS, [1])
   else
-    dnl Try to find the right ldap library name for this system
-    CURL_DLLIB_NAME(DL_LDAP_FILE, ldap)
-  fi
-
-  if test "$LBERLIBNAME" ; then
-    dnl If name is "no" then don't define this variable at all
-    dnl (it's only needed if libldap.so's dependencies are broken).
-    if test "$LBERLIBNAME" != "no" ; then 
-      AC_DEFINE_UNQUOTED(DL_LBER_FILE, "$LBERLIBNAME")
-    fi
-    AC_MSG_CHECKING([name of dynamic library lber])
-    AC_MSG_RESULT($LBERLIBNAME)
-  else
-    dnl Try to find the right lber library name for this system
-    CURL_DLLIB_NAME(DL_LBER_FILE, lber)
+    dnl Try to find the right ldap libraries for this system
+    CURL_CHECK_LIBS_LDAP
+    case X-"$curl_cv_ldap_LIBS" in
+      X-unknown)
+        AC_MSG_WARN([Cannot find libraries for LDAP support: LDAP disabled])
+        AC_DEFINE(CURL_DISABLE_LDAP, 1, [to disable LDAP])
+        AC_SUBST(CURL_DISABLE_LDAP, [1])
+        AC_DEFINE(CURL_DISABLE_LDAPS, 1, [to disable LDAPS])
+        AC_SUBST(CURL_DISABLE_LDAPS, [1])
+        ;;
+    esac
   fi
 fi
 
-dnl **********************************************************************
-dnl Check for the presence of the winmm library.
-dnl **********************************************************************
+if test x$CURL_DISABLE_LDAP != x1 ; then
 
-case $host in
-  *-*-cygwin*)
-    dnl Under Cygwin, winmm exists but is not needed as WIN32 is not #defined
-    dnl and gettimeofday() will be used regardless of the outcome of this test.
-    dnl Skip this test, otherwise -lwinmm will be needlessly added to LIBS
-    dnl (and recorded as such in the .la file, potentially affecting downstream
-    dnl clients of the library.)
-    ;;
-  *)
-    AC_MSG_CHECKING([for timeGetTime in winmm])
-    my_ac_save_LIBS=$LIBS
-    LIBS="-lwinmm $LIBS"
-    AC_TRY_LINK([#include <windef.h>
-                 #include <mmsystem.h>
-                 ],
-                 [timeGetTime();],
-                 [ dnl worked!
-                 AC_MSG_RESULT([yes])
-                 ],
-                 [ dnl failed, restore LIBS
-                 LIBS=$my_ac_save_LIBS
-                 AC_MSG_RESULT(no)]
-               )
-    ;;
-esac
+  if test "$LBERLIBNAME" ; then
+    dnl If name is "no" then don't define this library at all
+    dnl (it's only needed if libldap.so's dependencies are broken).
+    if test "$LBERLIBNAME" != "no" ; then
+      AC_CHECK_LIB("$LBERLIBNAME", ber_free,, [
+        AC_MSG_WARN(["$LBERLIBNAME" is not an LBER library: LDAP disabled])
+        AC_DEFINE(CURL_DISABLE_LDAP, 1, [to disable LDAP])
+        AC_SUBST(CURL_DISABLE_LDAP, [1])])
+        AC_DEFINE(CURL_DISABLE_LDAPS, 1, [to disable LDAPS])
+        AC_SUBST(CURL_DISABLE_LDAPS, [1])
+    fi
+  fi
+fi
+
+if test x$CURL_DISABLE_LDAP != x1 ; then
+  AC_CHECK_FUNCS([ldap_url_parse])
+
+  if test "$LDAPLIBNAME" = "wldap32"; then
+    curl_ldap_msg="enabled (winldap)"
+    AC_DEFINE(CURL_LDAP_WIN, 1, [Use W$ LDAP implementation])
+    case $host in
+      *-*-cygwin* | *-*-pw32*)
+        AC_DEFINE(CURL_LDAP_HYBRID, 1, [W$ LDAP with non-W$ compiler])
+        ;;
+    esac
+  else
+    curl_ldap_msg="enabled (OpenLDAP)"
+  fi
+fi
 
 dnl **********************************************************************
 dnl Checks for IPv6
@@ -623,24 +818,20 @@ if test "$ipv6" = "yes"; then
   curl_ipv6_msg="enabled"
 fi
 
-dnl **********************************************************************
-dnl Check how non-blocking sockets are set
-dnl **********************************************************************
-AC_ARG_ENABLE(nonblocking,
-AC_HELP_STRING([--enable-nonblocking],[Enable detecting how to do it])
-AC_HELP_STRING([--disable-nonblocking],[Disable non-blocking socket detection]),
-[
-  if test "$enableval" = "no" ; then
-    AC_MSG_WARN([non-blocking sockets disabled])
-    AC_DEFINE(HAVE_DISABLED_NONBLOCKING, 1,
-    [to disable NON-BLOCKING connections])
+# Check if struct sockaddr_in6 have sin6_scope_id member
+if test "$ipv6" = yes; then
+  AC_MSG_CHECKING([if struct sockaddr_in6 has sin6_scope_id member])
+  AC_TRY_COMPILE([
+#include <sys/types.h>
+#include <netinet/in.h>] ,
+  struct sockaddr_in6 s; s.sin6_scope_id = 0; , have_sin6_scope_id=yes)
+  if test "$have_sin6_scope_id" = yes; then
+    AC_MSG_RESULT([yes])
+    AC_DEFINE(HAVE_SOCKADDR_IN6_SIN6_SCOPE_ID, 1, [Define to 1 if struct sockaddr_in6 has the sin6_scope_id member])
   else
-    CURL_CHECK_NONBLOCKING_SOCKET
+    AC_MSG_RESULT([no])
   fi
-],
-[
-  CURL_CHECK_NONBLOCKING_SOCKET
-])
+fi
 
 dnl **********************************************************************
 dnl Check if the operating system allows programs to write to their own argv[]
@@ -650,26 +841,26 @@ AC_MSG_CHECKING([if argv can be written to])
 AC_CACHE_VAL(curl_cv_writable_argv, [
 AC_RUN_IFELSE([[
 int main(int argc, char ** argv) {
-	argv[0][0] = ' ';
-	return (argv[0][0] == ' ')?0:1;
+        argv[0][0] = ' ';
+        return (argv[0][0] == ' ')?0:1;
 }
-	]],
-	curl_cv_writable_argv=yes,
-	curl_cv_writable_argv=no,
-	curl_cv_writable_argv=cross)
+        ]],
+        curl_cv_writable_argv=yes,
+        curl_cv_writable_argv=no,
+        curl_cv_writable_argv=cross)
 ])
 case $curl_cv_writable_argv in
 yes)
-	AC_DEFINE(HAVE_WRITABLE_ARGV, 1, [Define this symbol if your OS supports changing the contents of argv])
-	AC_MSG_RESULT(yes)
-	;;
+        AC_DEFINE(HAVE_WRITABLE_ARGV, 1, [Define this symbol if your OS supports changing the contents of argv])
+        AC_MSG_RESULT(yes)
+        ;;
 no)
-	AC_MSG_RESULT(no)
-	;;
+        AC_MSG_RESULT(no)
+        ;;
 *)
         AC_MSG_RESULT(no)
         AC_MSG_WARN([the previous check could not be made default was used])
-	;;
+        ;;
 esac
 
 dnl **********************************************************************
@@ -792,7 +983,7 @@ if test x"$want_spnego" = xyes; then
      else
         LDFLAGS="$LDFLAGS $SPNEGO_LIB_DIR"
      fi
- 
+
      AC_MSG_RESULT(yes)
      AC_DEFINE(HAVE_SPNEGO, 1,
                [Define this if you have the SPNEGO library fbopenssl])
@@ -806,16 +997,19 @@ dnl **********************************************************************
 dnl Check for GSS-API libraries
 dnl **********************************************************************
 
+dnl check for gss stuff in the /usr as default
+
+GSSAPI_ROOT="/usr"
 AC_ARG_WITH(gssapi-includes,
   AC_HELP_STRING([--with-gssapi-includes=DIR],
                  [Specify location of GSSAPI header]),
-  [ GSSAPI_INCS="-I$withval" 
+  [ GSSAPI_INCS="-I$withval"
     want_gss="yes" ]
 )
 
 AC_ARG_WITH(gssapi-libs,
   AC_HELP_STRING([--with-gssapi-libs=DIR],
-  		 [Specify location of GSSAPI libs]),
+                 [Specify location of GSSAPI libs]),
   [ GSSAPI_LIB_DIR="-L$withval"
     want_gss="yes" ]
 )
@@ -825,7 +1019,11 @@ AC_ARG_WITH(gssapi,
                  [Where to look for GSSAPI]), [
   GSSAPI_ROOT="$withval"
   if test x"$GSSAPI_ROOT" != xno; then
-    want_gss="yes" 
+    want_gss="yes"
+    if test x"$GSSAPI_ROOT" = xyes; then
+      dnl if yes, then use default root
+      GSSAPI_ROOT="/usr"
+    fi
   fi
 ])
 
@@ -837,11 +1035,15 @@ if test x"$want_gss" = xyes; then
   if test -z "$GSSAPI_INCS"; then
      if test -f "$GSSAPI_ROOT/bin/krb5-config"; then
         GSSAPI_INCS=`$GSSAPI_ROOT/bin/krb5-config --cflags gssapi`
+        GSSAPI_LIBS=`$GSSAPI_ROOT/bin/krb5-config --libs gssapi`
      elif test "$GSSAPI_ROOT" != "yes"; then
         GSSAPI_INCS="-I$GSSAPI_ROOT/include"
+        GSSAPI_LIBS="-lgssapi"
      fi
   fi
+
   CPPFLAGS="$CPPFLAGS $GSSAPI_INCS"
+  LIBS="$LIBS $GSSAPI_LIBS"
 
   AC_CHECK_HEADER(gss.h,
     [
@@ -850,18 +1052,17 @@ if test x"$want_gss" = xyes; then
       gnu_gss=yes
     ],
     [
-      dnl not found, check Heimdal
-      AC_CHECK_HEADER(gssapi.h,
-        [
-          dnl found in the given dirs
-          AC_DEFINE(HAVE_GSSHEIMDAL, 1, [if you have the Heimdal gssapi libraries])
-        ],
-        [
-          dnl not found, check in gssapi/ subdir 
-          AC_CHECK_HEADER(gssapi/gssapi.h,
+      dnl not found, check Heimdal or MIT
+      AC_CHECK_HEADERS(
+        [gssapi/gssapi.h gssapi/gssapi_generic.h gssapi/gssapi_krb5.h],
+        [],
+        [not_mit=1])
+      if test "x$not_mit" = "x1"; then
+        dnl MIT not found, check for Heimdal
+        AC_CHECK_HEADER(gssapi.h,
             [
-              dnl found 
-              AC_DEFINE(HAVE_GSSMIT, 1, [if you have the MIT gssapi libraries])
+              dnl found
+              AC_DEFINE(HAVE_GSSHEIMDAL, 1, [if you have the Heimdal gssapi libraries])
             ],
             [
               dnl no header found, disabling GSS
@@ -869,8 +1070,31 @@ if test x"$want_gss" = xyes; then
               AC_MSG_WARN(disabling GSSAPI since no header files was found)
             ]
           )
-        ]
-      )        
+      else
+        dnl MIT found
+        AC_DEFINE(HAVE_GSSMIT, 1, [if you have the MIT gssapi libraries])
+        dnl check if we have a really old MIT kerberos (<= 1.2)
+        AC_MSG_CHECKING([if gssapi headers declare GSS_C_NT_HOSTBASED_SERVICE])
+        AC_COMPILE_IFELSE([
+          AC_LANG_PROGRAM([[
+#include <gssapi/gssapi.h>
+#include <gssapi/gssapi_generic.h>
+#include <gssapi/gssapi_krb5.h>
+          ]],[[
+            gss_import_name(
+                            (OM_uint32 *)0,
+                            (gss_buffer_t)0,
+                            GSS_C_NT_HOSTBASED_SERVICE,
+                            (gss_name_t *)0);
+          ]])
+        ],[
+          AC_MSG_RESULT([yes])
+        ],[
+          AC_MSG_RESULT([no])
+          AC_DEFINE(HAVE_OLD_GSSMIT, 1,
+            [if you have an old MIT gssapi library, lacking GSS_C_NT_HOSTBASED_SERVICE])
+        ])
+      fi
     ]
   )
 else
@@ -883,23 +1107,28 @@ if test x"$want_gss" = xyes; then
 
   if test -n "$gnu_gss"; then
     curl_gss_msg="enabled (GNU GSS)"
-    LDFLAGS="$LDFLAGS $GSSAPI_LIB_DIR -lgss"
+    LDFLAGS="$LDFLAGS $GSSAPI_LIB_DIR"
+    LIBS="$LIBS -lgss"
   elif test -z "$GSSAPI_LIB_DIR"; then
      if test -f "$GSSAPI_ROOT/bin/krb5-config"; then
-        gss_ldflags=`$GSSAPI_ROOT/bin/krb5-config --libs gssapi`
-	LDFLAGS="$LDFLAGS $gss_ldflags"
+        dnl krb5-config doesn't have --libs-only-L or similar, put everything
+        dnl into LIBS
+        gss_libs=`$GSSAPI_ROOT/bin/krb5-config --libs gssapi`
+        LIBS="$LIBS $gss_libs"
      elif test "$GSSAPI_ROOT" != "yes"; then
-        LDFLAGS="$LDFLAGS -L$GSSAPI_ROOT/lib$libsuff -lgssapi"
+        LDFLAGS="$LDFLAGS -L$GSSAPI_ROOT/lib$libsuff"
+        LIBS="$LIBS -lgssapi"
      else
-        LDFLAGS="$LDFLAGS -lgssapi"
+        LIBS="$LIBS -lgssapi"
      fi
   else
-     LDFLAGS="$LDFLAGS $GSSAPI_LIB_DIR -lgssapi"
+     LDFLAGS="$LDFLAGS $GSSAPI_LIB_DIR"
+     LIBS="$LIBS -lgssapi"
   fi
 else
   CPPFLAGS="$save_CPPFLAGS"
 fi
-  
+
 dnl **********************************************************************
 dnl Check for the presence of SSL libraries and headers
 dnl **********************************************************************
@@ -942,49 +1171,35 @@ if test X"$OPT_SSL" != Xno; then
     PKGTEST="no"
     PREFIX_OPENSSL=$OPT_SSL
     LIB_OPENSSL="$PREFIX_OPENSSL/lib$libsuff"
-    LDFLAGS="$LDFLAGS -L$LIB_OPENSSL"
-    CPPFLAGS="$CPPFLAGS -I$PREFIX_OPENSSL/include/openssl -I$PREFIX_OPENSSL/include"
+    if [ "$PREFIX_OPENSSL" != "/usr" ] ; then
+      LDFLAGS="$LDFLAGS -L$LIB_OPENSSL"
+      CPPFLAGS="$CPPFLAGS -I$PREFIX_OPENSSL/include"
+    fi
+    CPPFLAGS="$CPPFLAGS -I$PREFIX_OPENSSL/include/openssl"
     ;;
   esac
 
   if test "$PKGTEST" = "yes"; then
 
-    dnl Detect the pkg-config tool, as it may have extra info about the
-    dnl openssl installation we can use. I *believe* this is what we are
-    dnl expected to do on really recent Redhat Linux hosts.
+    CURL_CHECK_PKGCONFIG(openssl)
 
-    AC_PATH_PROG( PKGCONFIG, pkg-config, no, $PATH:/usr/bin:/usr/local/bin)
     if test "$PKGCONFIG" != "no" ; then
-      AC_MSG_CHECKING([OpenSSL options with pkg-config])
+      SSL_LIBS=`$PKGCONFIG --libs-only-l openssl 2>/dev/null`
+      SSL_LDFLAGS=`$PKGCONFIG --libs-only-L openssl 2>/dev/null`
+      SSL_CPPFLAGS=`$PKGCONFIG --cflags-only-I openssl 2>/dev/null`
 
-      $PKGCONFIG --exists openssl
-      SSL_EXISTS=$?
+      LIB_OPENSSL=`echo $SSL_LDFLAGS | sed -e 's/-L//g'`
 
-      if test "$SSL_EXISTS" -eq "0"; then
-        SSL_LIBS=`$PKGCONFIG --libs-only-l openssl 2>/dev/null`
-        SSL_LDFLAGS=`$PKGCONFIG --libs-only-L openssl 2>/dev/null`
-        SSL_CPPFLAGS=`$PKGCONFIG --cflags-only-I openssl 2>/dev/null`
-
-	LIB_OPENSSL=`echo $SSL_LDFLAGS | sed -e 's/-L//g'`
-
-        dnl use the values pkg-config reported
-        LIBS="$LIBS $SSL_LIBS"
-        CPPFLAGS="$CPPFLAGS $SSL_CPPFLAGS"
-        LDFLAGS="$LDFLAGS $SSL_LDFLAGS"
-        AC_MSG_RESULT([found])
-      else
-        AC_MSG_RESULT([no])
-      fi
+      dnl use the values pkg-config reported
+      LIBS="$LIBS $SSL_LIBS"
+      CPPFLAGS="$CPPFLAGS $SSL_CPPFLAGS"
+      LDFLAGS="$LDFLAGS $SSL_LDFLAGS"
     fi
   fi
 
   dnl This is for Msys/Mingw
-  case $host in    
-    *-*-cygwin*)
-      dnl Under Cygwin this is extraneous and causes an unnecessary -lgdi32
-      dnl to be added to LIBS and recorded in the .la file.
-      ;;
-    *)
+  case $host in
+    *-*-msys* | *-*-mingw*)
       AC_MSG_CHECKING([for gdi32])
       my_ac_save_LIBS=$LIBS
       LIBS="-lgdi32 $LIBS"
@@ -1051,7 +1266,7 @@ if test X"$OPT_SSL" != Xno; then
         dnl name
         AC_CHECK_HEADERS(x509.h rsa.h crypto.h pem.h ssl.h err.h)
 
-        if test $ac_cv_header_x509_h = yes && 
+        if test $ac_cv_header_x509_h = yes &&
            test $ac_cv_header_crypto_h = yes &&
            test $ac_cv_header_ssl_h = yes; then
           dnl three matches
@@ -1103,21 +1318,23 @@ if test X"$OPT_SSL" != Xno; then
     dnl and acting like OpenSSL.
 
     AC_MSG_CHECKING([for yaSSL using OpenSSL compatibility mode])
-    AC_TRY_COMPILE([
+    AC_COMPILE_IFELSE([
+      AC_LANG_PROGRAM([[
 #include <openssl/ssl.h>
-      ],[
+      ]],[[
 #if defined(YASSL_VERSION) && defined(OPENSSL_VERSION_NUMBER)
         int dummy = SSL_ERROR_NONE;
 #else
         Not the yaSSL OpenSSL compatibility header.
 #endif
-      ],[ 
-        AC_MSG_RESULT([yes])
-        AC_DEFINE_UNQUOTED(USE_YASSLEMUL, 1,
-          [Define to 1 if using yaSSL in OpenSSL compatibility mode.])
-        curl_ssl_msg="enabled (OpenSSL emulation by yaSSL)"
-      ],[
-        AC_MSG_RESULT([no])
+      ]])
+    ],[
+      AC_MSG_RESULT([yes])
+      AC_DEFINE_UNQUOTED(USE_YASSLEMUL, 1,
+        [Define to 1 if using yaSSL in OpenSSL compatibility mode.])
+      curl_ssl_msg="enabled (OpenSSL emulation by yaSSL)"
+    ],[
+      AC_MSG_RESULT([no])
     ])
   fi
 
@@ -1197,6 +1414,7 @@ else
   if test "$HAVE_LIBZ" = "1" && test "$HAVE_ZLIB_H" != "1"
   then
     AC_MSG_WARN([configure found only the libz lib, not the header file!])
+    HAVE_LIBZ=""
   elif test "$HAVE_LIBZ" != "1" && test "$HAVE_ZLIB_H" = "1"
   then
     AC_MSG_WARN([configure found only the libz header file, not the lib!])
@@ -1241,7 +1459,7 @@ if test X"$OPT_LIBSSH2" != Xno; then
   yes)
     dnl --with-libssh2 (without path) used
     PREFIX_LIBSSH2=/usr/local/lib
-    LIB_LIBSSH2="$PREFIX_LIBSSH2/lib$libsuff"
+    LIB_LIBSSH2="$PREFIX_LIBSSH2$libsuff"
     ;;
   off)
     dnl no --with-libssh2 option given, just check default places
@@ -1257,11 +1475,13 @@ if test X"$OPT_LIBSSH2" != Xno; then
   esac
 
   AC_CHECK_LIB(ssh2, libssh2_channel_open_ex)
-  
+
   AC_CHECK_HEADERS(libssh2.h,
     curl_ssh_msg="enabled (libSSH2)"
     LIBSSH2_ENABLED=1
-    AC_DEFINE(USE_LIBSSH2, 1, [if libSSH2 is in use]))
+    AC_DEFINE(USE_LIBSSH2, 1, [if libSSH2 is in use])
+    AC_SUBST(USE_LIBSSH2, [1])
+  )
 
   if test X"$OPT_LIBSSH2" != Xoff &&
      test "$LIBSSH2_ENABLED" != "1"; then
@@ -1282,7 +1502,7 @@ if test X"$OPT_LIBSSH2" != Xno; then
 fi
 
 dnl **********************************************************************
-dnl Check for the random seed preferences 
+dnl Check for the random seed preferences
 dnl **********************************************************************
 
 if test X"$OPENSSL_ENABLED" = X"1"; then
@@ -1314,7 +1534,7 @@ if test X"$OPENSSL_ENABLED" = X"1"; then
 fi
 
 dnl ----------------------------------------------------
-dnl FIX: only check for GnuTLS if OpenSSL is not enabled
+dnl check for GnuTLS
 dnl ----------------------------------------------------
 
 dnl Default to compiler & linker defaults for GnuTLS files & libraries.
@@ -1328,33 +1548,55 @@ AC_HELP_STRING([--without-gnutls], [disable GnuTLS detection]),
 if test "$OPENSSL_ENABLED" != "1"; then
 
   if test X"$OPT_GNUTLS" != Xno; then
+
+    AC_MSG_NOTICE([OPT_GNUTLS is $OPT_GNUTLS])
+
+    addld=""
     if test "x$OPT_GNUTLS" = "xyes"; then
-     check=`libgnutls-config --version 2>/dev/null`
-     if test -n "$check"; then
-       addlib=`libgnutls-config --libs`
-       addcflags=`libgnutls-config --cflags`
-       version=`libgnutls-config --version`
-       gtlsprefix=`libgnutls-config --prefix`
-     fi
+      check=`libgnutls-config --version 2>/dev/null`
+      if test -n "$check"; then
+        addlib=`libgnutls-config --libs`
+        addcflags=`libgnutls-config --cflags`
+        version=`libgnutls-config --version`
+        gtlslib=`libgnutls-config --prefix`/lib$libsuff
+      fi
     else
       addlib=`$OPT_GNUTLS/bin/libgnutls-config --libs`
       addcflags=`$OPT_GNUTLS/bin/libgnutls-config --cflags`
       version=`$OPT_GNUTLS/bin/libgnutls-config --version 2>/dev/null`
-      gtlsprefix=$OPT_GNUTLS
-      if test -z "$version"; then
-        version="unknown"
-      fi
+      gtlslib=$OPT_GNUTLS/lib$libsuff
     fi
+
+    if test -z "$version"; then
+      CURL_CHECK_PKGCONFIG(gnutls)
+
+      if test "$PKGCONFIG" != "no" ; then
+        addlib=`$PKGCONFIG --libs-only-l gnutls`
+        addld=`$PKGCONFIG --libs-only-L gnutls`
+        addcflags=`$PKGCONFIG --cflags-only-I gnutls`
+        version=`$PKGCONFIG --modversion gnutls`
+        gtlslib=`echo $addld | $SED -e 's/-L//'`
+      fi
+
+    fi
+
+    if test -z "$version"; then
+      dnl lots of efforts, still no go
+      version="unknown"
+    fi
+
     if test -n "$addlib"; then
 
       CLEANLIBS="$LIBS"
       CLEANCPPFLAGS="$CPPFLAGS"
-  
+      CLEADLDFLAGS="$LDFLAGS"
+
       LIBS="$LIBS $addlib"
+      LDFLAGS="$LDFLAGS $addld"
       if test "$addcflags" != "-I/usr/include"; then
          CPPFLAGS="$CPPFLAGS $addcflags"
       fi
-  
+
       AC_CHECK_LIB(gnutls, gnutls_check_version,
        [
        AC_DEFINE(USE_GNUTLS, 1, [if GnuTLS is enabled])
@@ -1367,18 +1609,20 @@ if test "$OPENSSL_ENABLED" != "1"; then
          LIBS="$CLEANLIBS"
          CPPFLAGS="$CLEANCPPFLAGS"
        ])
-  
+
       if test "x$USE_GNUTLS" = "xyes"; then
         AC_MSG_NOTICE([detected GnuTLS version $version])
 
-        dnl when shared libs were found in a path that the run-time
-        dnl linker doesn't search through, we need to add it to
-        dnl LD_LIBRARY_PATH to prevent further configure tests to fail
-        dnl due to this
+        if test -n "$gtlslib"; then
+          dnl when shared libs were found in a path that the run-time
+          dnl linker doesn't search through, we need to add it to
+          dnl LD_LIBRARY_PATH to prevent further configure tests to fail
+          dnl due to this
 
-        LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$gtlsprefix/lib$libsuff"
-        export LD_LIBRARY_PATH
-        AC_MSG_NOTICE([Added $gtlsprefix/lib$libsuff to LD_LIBRARY_PATH])
+          LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$gtlslib"
+          export LD_LIBRARY_PATH
+          AC_MSG_NOTICE([Added $gtlslib to LD_LIBRARY_PATH])
+        fi
       fi
 
     fi
@@ -1403,30 +1647,40 @@ if test "$OPENSSL_ENABLED" != "1" -a "$GNUTLS_ENABLED" != "1"; then
 
   if test X"$OPT_NSS" != Xno; then
     if test "x$OPT_NSS" = "xyes"; then
-     check=`pkg-config --version 2>/dev/null`
-     if test -n "$check"; then
-       addlib=`pkg-config --libs nss`
-       addcflags=`pkg-config --cflags nss`
-       version=`pkg-config --modversion nss`
-       nssprefix=`pkg-config --variable=prefix nss`
-     fi
+
+      CURL_CHECK_PKGCONFIG(nss)
+
+      if test "$PKGCONFIG" != "no" ; then
+        addlib=`$PKGCONFIG --libs nss`
+        addcflags=`$PKGCONFIG --cflags nss`
+        version=`$PKGCONFIG --modversion nss`
+        nssprefix=`$PKGCONFIG --variable=prefix nss`
+      fi
     else
       # Without pkg-config, we'll kludge in some defaults
       addlib="-lssl3 -lsmime3 -lnss3 -lplds4 -lplc4 -lnspr4 -lpthread -ldl"
-      addcflags="-I$OPT_NSS/include" 
+      addcflags="-I$OPT_NSS/include"
       version="unknown"
       gtlsprefix=$OPT_GNUTLS
     fi
+
+    dnl Check for functionPK11_CreateGenericObject
+    dnl this is needed for using the PEM PKCS#11 module
+    AC_CHECK_LIB(nss3, PK11_CreateGenericObject,
+     [
+     AC_DEFINE(HAVE_PK11_CREATEGENERICOBJECT, 1, [if you have the function PK11_CreateGenericObject])
+     AC_SUBST(HAVE_PK11_CREATEGENERICOBJECT, [1])
+     ])
     if test -n "$addlib"; then
 
       CLEANLIBS="$LIBS"
       CLEANCPPFLAGS="$CPPFLAGS"
-  
+
       LIBS="$LIBS $addlib"
       if test "$addcflags" != "-I/usr/include"; then
          CPPFLAGS="$CPPFLAGS $addcflags"
       fi
-  
+
       AC_CHECK_LIB(nss3, NSS_Initialize,
        [
        AC_DEFINE(USE_NSS, 1, [if NSS is enabled])
@@ -1439,7 +1693,7 @@ if test "$OPENSSL_ENABLED" != "1" -a "$GNUTLS_ENABLED" != "1"; then
          LIBS="$CLEANLIBS"
          CPPFLAGS="$CLEANCPPFLAGS"
        ])
-  
+
       if test "x$USE_NSS" = "xyes"; then
         AC_MSG_NOTICE([detected NSS version $version])
 
@@ -1462,36 +1716,17 @@ fi dnl OPENSSL != 1 -a GNUTLS_ENABLED != 1
 if test "x$OPENSSL_ENABLED$GNUTLS_ENABLED$NSS_ENABLED" = "x"; then
   AC_MSG_WARN([SSL disabled, you will not be able to use HTTPS, FTPS, NTLM and more.])
   AC_MSG_WARN([Use --with-ssl, --with-gnutls or --with-nss to address this.])
+else
+  # SSL is enabled, genericly
+  AC_SUBST(SSL_ENABLED)
+  SSL_ENABLED="1"
 fi
 
 dnl **********************************************************************
 dnl Check for the CA bundle
 dnl **********************************************************************
 
-if test X"$USE_GNUTLS$OPENSSL_ENABLED" != "X"; then
-
-  AC_MSG_CHECKING([CA cert bundle install path])
-
-  AC_ARG_WITH(ca-bundle,
-AC_HELP_STRING([--with-ca-bundle=FILE], [File name to install the CA bundle as])
-AC_HELP_STRING([--without-ca-bundle], [Don't install the CA bundle]),
-    [ ca="$withval" ],
-    [
-      if test "x$prefix" != xNONE; then
-        ca="\${prefix}/share/curl/curl-ca-bundle.crt"
-      else
-        ca="$ac_default_prefix/share/curl/curl-ca-bundle.crt"
-      fi
-    ] )
-
-    if test "x$ca" != "xno"; then
-      CURL_CA_BUNDLE='"'$ca'"'
-      AC_SUBST(CURL_CA_BUNDLE)  
-    fi
-    AC_MSG_RESULT([$ca])
-fi dnl only done if some kind of SSL was enabled
-
-AM_CONDITIONAL(CABUNDLE, test x$ca != xno)
+CURL_CHECK_CA_BUNDLE
 
 dnl **********************************************************************
 dnl Check for the presence of IDN libraries and headers
@@ -1539,8 +1774,8 @@ case "$LIBIDN" in
          AC_CHECK_FUNCS( idn_free idna_strerror tld_strerror)
          AC_CHECK_HEADERS( idn-free.h tld.h )
        fi
-                    
-       ;; 
+
+       ;;
 esac
 
 dnl Default is to try the thread-safe versions of a few functions
@@ -1581,22 +1816,22 @@ then
   AC_DEFINE(DISABLED_THREADSAFE, 1,
     [Set to explicitly specify we don't want to use thread-safe functions])
 else
-  if test "$ipv6" != "yes"; then
+  dnl if test "$ipv6" != "yes"; then
     dnl dig around for gethostbyname_r()
-    CURL_CHECK_GETHOSTBYNAME_R()
+    dnl the old gethostbyname_r check was done here
 
     dnl dig around for gethostbyaddr_r()
-    dnl CURL_CHECK_GETHOSTBYADDR_R()
-  fi
+    dnl the old gethostbyaddr_r check was here BUT COMMENTED OUT
+  dnl fi
 
   dnl poke around for inet_ntoa_r()
-  CURL_CHECK_INET_NTOA_R()
+  dnl the old inet_ntoa_r check was done here
 
   dnl is there a localtime_r()
-  CURL_CHECK_LOCALTIME_R()
+  dnl the old localtime_r check was done here
 
   dnl is there a strerror_r()
-  CURL_CHECK_STRERROR_R()
+  dnl the old strerror_r check was done here
 
   checkfor_gmtime_r="yes"
 fi
@@ -1613,73 +1848,13 @@ if test "x$RECENTAIX" = "xyes"; then
 
   AC_DEFINE(_THREAD_SAFE, 1, [define this if you need it to compile thread-safe code])
 
-  dnl check if this is the IMB xlc compiler
-  dnl Details thanks to => http://predef.sourceforge.net/
-  AC_MSG_CHECKING([if this is the xlc compiler])
-  AC_EGREP_CPP([^__xlC__], [__xlC__],
-         dnl action if the text is found, this it has not been replaced by the
-         dnl cpp
-         XLC="no"
-         AC_MSG_RESULT([no]),
-         dnl the text was not found, it was replaced by the cpp
-         XLC="yes"
-         AC_MSG_RESULT([yes])
-         CFLAGS="$CFLAGS -qthreaded"
-         dnl AIX xlc has to have strict aliasing turned off. If not,
-         dnl the optimizer assumes that pointers can only point to
-         dnl an object of the same type.
-         CFLAGS="$CFLAGS -qnoansialias"
-       )
-
-
   dnl is there a localtime_r()
-  CURL_CHECK_LOCALTIME_R()
+  dnl the old localtime_r check was done here
 
   dnl is there a strerror_r()
-  CURL_CHECK_STRERROR_R()
+  dnl the old strerror_r check was done here
 
   checkfor_gmtime_r="yes"
-fi
-
-if test x$cross_compiling != xyes; then
-
-  if test x$checkfor_gmtime_r = xyes; then
-
-    dnl if gmtime_r was found, verify that it actually works, as (at least) HPUX
-    dnl 10.20 is known to have a buggy one. If it doesn't work, disable use of
-    dnl it.
-
-    AC_MSG_CHECKING([if gmtime_r exists and works])
-    AC_RUN_IFELSE([[
-    #include <time.h>
-    int main(void)
-    {
-    time_t local = 1170352587;
-    struct tm *gmt;
-    struct tm keeper;
-    putenv("TZ=CST6CDT");
-    tzset();
-    gmt = gmtime_r(&local, &keeper);
-    if(gmt) {
-      return 0;
-    }
-    return 1; /* failure */
-    }
-     ]],
-     dnl success, do nothing
-     AC_MSG_RESULT(yes)
-     AC_DEFINE(HAVE_GMTIME_R, 1, [if you have (a working) gmtime_r])
-     ,
-     dnl failure, now disable the function
-     AC_MSG_RESULT(no)
-    ,
-    dnl not invoked when crosscompiling)
-     echo "hej"
-    )
-  fi
-else
-  dnl and for crosscompilings
-  AC_CHECK_FUNCS(gmtime_r)
 fi
 
 
@@ -1700,6 +1875,7 @@ AC_CHECK_HEADERS(
         sys/select.h \
         sys/socket.h \
         sys/ioctl.h \
+        sys/uio.h \
         assert.h \
         unistd.h \
         stdlib.h \
@@ -1707,6 +1883,7 @@ AC_CHECK_HEADERS(
         arpa/inet.h \
         net/if.h \
         netinet/in.h \
+        sys/un.h \
         netinet/tcp.h \
         netdb.h \
         sys/sockio.h \
@@ -1716,7 +1893,6 @@ AC_CHECK_HEADERS(
         termio.h \
         sgtty.h \
         fcntl.h \
-        dlfcn.h \
         alloca.h \
         time.h \
         io.h \
@@ -1724,6 +1900,7 @@ AC_CHECK_HEADERS(
         utime.h \
         sys/utime.h \
         sys/poll.h \
+        poll.h \
         sys/resource.h \
         libgen.h \
         locale.h \
@@ -1753,6 +1930,9 @@ dnl default includes
 #ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
 #endif
+#ifdef HAVE_SYS_UN_H
+#include <sys/un.h>
+#endif
 ]
 )
 
@@ -1764,17 +1944,26 @@ AC_HEADER_TIME
 CURL_CHECK_STRUCT_TIMEVAL
 CURL_VERIFY_RUNTIMELIBS
 
-AC_CHECK_SIZEOF(curl_off_t, ,[
-#include <stdio.h>
-#include "$srcdir/include/curl/curl.h"
-])
 AC_CHECK_SIZEOF(size_t)
+AC_CHECK_SIZEOF(int)
 AC_CHECK_SIZEOF(long)
+CURL_CONFIGURE_LONG
 AC_CHECK_SIZEOF(time_t)
+AC_CHECK_SIZEOF(off_t)
+
+soname_bump=no
+if test x"$ac_cv_native_windows" != "xyes" &&
+   test $ac_cv_sizeof_off_t -ne $curl_sizeof_curl_off_t; then
+  AC_MSG_WARN([This libcurl built is probably not ABI compatible with previous])
+  AC_MSG_WARN([builds! You MUST read lib/README.curl_off_t to figure it out.])
+  soname_bump=yes
+fi
+
 
 AC_CHECK_TYPE(long long,
-   [AC_DEFINE(HAVE_LONGLONG, 1, [if your compiler supports long long])]
-   longlong="yes"  
+   [AC_DEFINE(HAVE_LONGLONG, 1,
+      [Define to 1 if the compiler supports the 'long long' data type.])]
+   longlong="yes"
 )
 
 if test "xyes" = "x$longlong"; then
@@ -1815,13 +2004,55 @@ TYPE_SIG_ATOMIC_T
 
 AC_TYPE_SIGNAL
 
-AC_FUNC_SELECT_ARGTYPES
+CURL_CHECK_FUNC_SELECT
 
 CURL_CHECK_FUNC_RECV
-
+CURL_CHECK_FUNC_RECVFROM
 CURL_CHECK_FUNC_SEND
-
 CURL_CHECK_MSG_NOSIGNAL
+
+CURL_CHECK_FUNC_ALARM
+CURL_CHECK_FUNC_FCNTL
+CURL_CHECK_FUNC_FDOPEN
+CURL_CHECK_FUNC_FREEADDRINFO
+CURL_CHECK_FUNC_FREEIFADDRS
+CURL_CHECK_FUNC_FTRUNCATE
+CURL_CHECK_FUNC_GETADDRINFO
+CURL_CHECK_FUNC_GETHOSTBYADDR
+CURL_CHECK_FUNC_GETHOSTBYADDR_R
+CURL_CHECK_FUNC_GETHOSTBYNAME
+CURL_CHECK_FUNC_GETHOSTBYNAME_R
+CURL_CHECK_FUNC_GETHOSTNAME
+CURL_CHECK_FUNC_GETIFADDRS
+CURL_CHECK_FUNC_GETSERVBYPORT_R
+CURL_CHECK_FUNC_GMTIME_R
+CURL_CHECK_FUNC_INET_NTOA_R
+CURL_CHECK_FUNC_INET_NTOP
+CURL_CHECK_FUNC_INET_PTON
+CURL_CHECK_FUNC_IOCTL
+CURL_CHECK_FUNC_IOCTLSOCKET
+CURL_CHECK_FUNC_IOCTLSOCKET_CAMEL
+CURL_CHECK_FUNC_LOCALTIME_R
+CURL_CHECK_FUNC_POLL
+CURL_CHECK_FUNC_SETSOCKOPT
+CURL_CHECK_FUNC_SIGACTION
+CURL_CHECK_FUNC_SIGINTERRUPT
+CURL_CHECK_FUNC_SIGNAL
+CURL_CHECK_FUNC_SIGSETJMP
+CURL_CHECK_FUNC_STRCASECMP
+CURL_CHECK_FUNC_STRCASESTR
+CURL_CHECK_FUNC_STRCMPI
+CURL_CHECK_FUNC_STRDUP
+CURL_CHECK_FUNC_STRERROR_R
+CURL_CHECK_FUNC_STRICMP
+CURL_CHECK_FUNC_STRLCAT
+CURL_CHECK_FUNC_STRNCASECMP
+CURL_CHECK_FUNC_STRNCMPI
+CURL_CHECK_FUNC_STRNICMP
+CURL_CHECK_FUNC_STRSTR
+CURL_CHECK_FUNC_STRTOK_R
+CURL_CHECK_FUNC_STRTOLL
+CURL_CHECK_FUNC_WRITEV
 
 dnl Checks for library functions.
 dnl AC_PROG_GCC_TRADITIONAL
@@ -1834,104 +2065,48 @@ case $host in
      AC_MSG_NOTICE([skip check for pipe on msdosdjgpp])
     ;;
 esac
-AC_CHECK_FUNCS( strtoll \
-                socket \
-                select \
-                strdup \
-                strstr \
-                strtok_r \
-                uname \
-                strcasecmp \
-                stricmp \
-                strcmpi \
-                gethostbyaddr \
-                gettimeofday \
-                inet_addr \
-                inet_ntoa \
-                inet_pton \
-                perror \
-                closesocket \
-                siginterrupt \
-                sigaction \
-                signal \
-                getpass_r \
-                strlcat \
-                getpwuid \
-                geteuid \
-                dlopen \
-                utime \
-                sigsetjmp \
-                basename \
-                setlocale \
-                ftruncate \
-                pipe \
-                poll \
-                getprotobyname \
-                getrlimit \
-                setrlimit \
-                fork \
-                setmode,
-dnl if found
-[],
-dnl if not found, $ac_func is the name we check for
-func="$ac_func"
-eval skipcheck=\$skipcheck_$func
-if test "x$skipcheck" != "xyes"; then
-  AC_MSG_CHECKING([deeper for $func])
-  AC_TRY_LINK( [],
-               [ $func ();],
-               AC_MSG_RESULT(yes!)
-               eval "ac_cv_func_$func=yes"
-               def=`echo "HAVE_$func" | tr 'a-z' 'A-Z'`
-               AC_DEFINE_UNQUOTED($def, 1, [If you have $func]),
-               AC_MSG_RESULT(but still no)
-               )
-fi
-)
 
-dnl For some reason, the check above doesn't properly detect select() with
-dnl Msys/Mingw
-if test "$ac_cv_func_select" = "no"; then
-  AC_MSG_CHECKING([for select in ws2_32])
-  AC_TRY_LINK([
-#undef inline
-#ifdef HAVE_WINDOWS_H
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#include <windows.h>
-#ifdef HAVE_WINSOCK2_H
-#include <winsock2.h>
-#else
-#ifdef HAVE_WINSOCK_H
-#include <winsock.h>
-#endif
-#endif
-#endif
+AC_CHECK_FUNCS([basename \
+  closesocket \
+  fork \
+  geteuid \
+  getpass_r \
+  getppid \
+  getprotobyname \
+  getpwuid \
+  getrlimit \
+  gettimeofday \
+  inet_addr \
+  perror \
+  pipe \
+  setlocale \
+  setmode \
+  setrlimit \
+  socket \
+  uname \
+  utime
+],[
+],[
+  func="$ac_func"
+  eval skipcheck=\$skipcheck_$func
+  if test "x$skipcheck" != "xyes"; then
+    AC_MSG_CHECKING([deeper for $func])
+    AC_LINK_IFELSE([
+      AC_LANG_PROGRAM([[
+      ]],[[
+        $func ();
+      ]])
     ],[
-      select(0,(fd_set *)NULL,(fd_set *)NULL,(fd_set *)NULL,(struct timeval *)NULL);
-    ],[ 
       AC_MSG_RESULT([yes])
-      HAVE_SELECT="1"
-      AC_DEFINE_UNQUOTED(HAVE_SELECT, 1,
-        [Define to 1 if you have the select function.])
+      eval "ac_cv_func_$func=yes"
+      AC_DEFINE_UNQUOTED([AS_TR_CPP([HAVE_$func])], [1],
+        [Define to 1 if you have the $func function.])
     ],[
-      AC_MSG_ERROR([You can't compile without a select])
-  ])
-fi
+      AC_MSG_RESULT([but still no])
+    ])
+  fi
+])
 
-dnl sigsetjmp() might be a macro and no function so if it isn't found already
-dnl we make an extra check here!
-if test "$ac_cv_func_sigsetjmp" != "yes"; then
-  AC_MSG_CHECKING([for sigsetjmp defined as macro])
-  AC_TRY_LINK( [#include <setjmp.h>],
-               [sigjmp_buf jmpenv;
-                sigsetjmp(jmpenv, 1);],
-               AC_MSG_RESULT(yes)
-               AC_DEFINE(HAVE_SIGSETJMP, 1, [If you have sigsetjmp]),
-               AC_MSG_RESULT(no)
-               )
-fi
 
 AC_CHECK_DECL(basename, ,
               AC_DEFINE(NEED_BASENAME_PROTO, 1, [If you lack a fine basename() prototype]),
@@ -1946,68 +2121,35 @@ AC_CHECK_DECL(basename, ,
 #endif
 )
 
-AC_CHECK_DECL(inet_pton, ,
-              AC_DEFINE(HAVE_NO_INET_PTON_PROTO, 1,
-                        [Defined if no inet_pton() prototype available]),
-[
-#ifdef HAVE_ARPA_INET_H
-#include <arpa/inet.h>
-#endif
-]
-)
 
 dnl Check if the getnameinfo function is available
 dnl and get the types of five of its arguments.
 CURL_CHECK_FUNC_GETNAMEINFO
 
 if test "$ipv6" = "yes"; then
-  CURL_CHECK_WORKING_GETADDRINFO
+  if test "$ac_cv_func_getaddrinfo" = "yes"; then
+    AC_DEFINE(ENABLE_IPV6, 1, [Define if you want to enable IPv6 support])
+    IPV6_ENABLED=1
+    AC_SUBST(IPV6_ENABLED)
+  fi
   CURL_CHECK_NI_WITHSCOPEID
 fi
 
-AC_MSG_CHECKING([if we are Mac OS X (to disable poll)])
-disable_poll=no
-case $host in
-  *-*-darwin*)
-    disable_poll="yes";
-    ;;
-  *)
-    ;;
-esac
-AC_MSG_RESULT($disable_poll)
+dnl ************************************************************
+dnl enable non-blocking communications
+dnl
+CURL_CHECK_OPTION_NONBLOCKING
+CURL_CHECK_NONBLOCKING_SOCKET
 
-if test "$disable_poll" = "no"; then
+dnl ************************************************************
+dnl nroff tool stuff
+dnl
 
-  dnl poll() might be badly emulated, as in Mac OS X 10.3 (and other BSDs?) and
-  dnl to find out we make an extra check here!
-  if test "$ac_cv_func_poll" = "yes"; then
-    AC_MSG_CHECKING([if poll works with NULL inputs])
-    AC_RUN_IFELSE([
-#ifdef HAVE_SYS_POLL_H
-#include <sys/poll.h>
-#endif
-
-  int main(void)
-  {
-    /* make this return 0 == timeout since there's nothing to read from */
-    return poll((void *)0, 0, 10 /*ms*/);
-  }
-],
-    AC_MSG_RESULT(yes)
-    AC_DEFINE(HAVE_POLL_FINE, 1, [If you have a fine poll]),
-    AC_MSG_RESULT(no),
-    AC_MSG_RESULT(cross-compiling assumes yes)
-    AC_DEFINE(HAVE_POLL_FINE, 1, [If you have a fine poll])
-    ) dnl end of AC_RUN_IFELSE
-  fi dnl poll() was found
-fi dnl poll()-check is not disabled
-
-
-AC_PATH_PROG( PERL, perl, , 
+AC_PATH_PROG( PERL, perl, ,
   $PATH:/usr/local/bin/perl:/usr/bin/:/usr/local/bin )
 AC_SUBST(PERL)
 
-AC_PATH_PROGS( NROFF, gnroff nroff, , 
+AC_PATH_PROGS( NROFF, gnroff nroff, ,
   $PATH:/usr/bin/:/usr/local/bin )
 AC_SUBST(NROFF)
 
@@ -2102,25 +2244,26 @@ AC_HELP_STRING([--disable-ares],[Disable c-ares for name lookups]),
          dnl out and don't use the "embedded" ares dir (in which case we don't
          dnl check it because it might not have been built yet)
          AC_MSG_CHECKING([that c-ares is good and recent enough])
-         AC_LINK_IFELSE( [
+         AC_LINK_IFELSE([
+           AC_LANG_PROGRAM([[
 #include <ares.h>
-/* provide a set of dummy functions in case c-ares was built with debug */
-void curl_dofree() { }
-void curl_sclose() { }
-void curl_domalloc() { }
-
-int main(void)
-{
-  ares_channel channel;
-  ares_cancel(channel); /* added in 1.2.0 */
-  ares_process_fd(channel, 0, 0); /* added in 1.4.0 */
-  return 0;
-}
-],
-          AC_MSG_RESULT(yes),
-          AC_MSG_RESULT(no)
-          AC_MSG_ERROR([c-ares library defective or too old])
-          )
+             /* set of dummy functions in case c-ares was built with debug */
+             void curl_dofree() { }
+             void curl_sclose() { }
+             void curl_domalloc() { }
+             void curl_docalloc() { }
+             void curl_socket() { }
+           ]],[[
+             ares_channel channel;
+             ares_cancel(channel); /* added in 1.2.0 */
+             ares_process_fd(channel, 0, 0); /* added in 1.4.0 */
+           ]])
+         ],[
+           AC_MSG_RESULT([yes])
+         ],[
+           AC_MSG_RESULT([no])
+           AC_MSG_ERROR([c-ares library defective or too old])
+         ])
        fi
        ;;
   esac ],
@@ -2138,7 +2281,6 @@ AC_HELP_STRING([--disable-verbose],[Disable verbose strings]),
   no)
        AC_MSG_RESULT(no)
        AC_DEFINE(CURL_DISABLE_VERBOSE_STRINGS, 1, [to disable verbose strings])
-       AC_SUBST(CURL_DISABLE_VERBOSE_STRINGS)
        curl_verbose_msg="no"
        ;;
   *)   AC_MSG_RESULT(yes)
@@ -2146,8 +2288,6 @@ AC_HELP_STRING([--disable-verbose],[Disable verbose strings]),
   esac ],
        AC_MSG_RESULT(yes)
 )
-
-CURL_CHECK_NATIVE_WINDOWS
 
 dnl ************************************************************
 dnl enable SSPI support
@@ -2161,7 +2301,7 @@ AC_HELP_STRING([--disable-sspi],[Disable SSPI]),
        if test "$ac_cv_native_windows" = "yes"; then
          AC_MSG_RESULT(yes)
          AC_DEFINE(USE_WINDOWS_SSPI, 1, [to enable SSPI support])
-         AC_SUBST(USE_WINDOWS_SSPI)
+         AC_SUBST(USE_WINDOWS_SSPI, [1])
          curl_sspi_msg="yes"
        else
          AC_MSG_RESULT(no)
@@ -2176,31 +2316,6 @@ AC_HELP_STRING([--disable-sspi],[Disable SSPI]),
 )
 
 dnl ************************************************************
-dnl lame option to switch on debug options
-dnl
-AC_MSG_CHECKING([whether to enable debug options])
-AC_ARG_ENABLE(debug,
-AC_HELP_STRING([--enable-debug],[Enable pedantic debug options])
-AC_HELP_STRING([--disable-debug],[Disable debug options]),
-[ case "$enableval" in
-  no)
-       AC_MSG_RESULT(no)
-       ;;
-  *)   AC_MSG_RESULT(yes)
-
-    CPPFLAGS="$CPPFLAGS -DCURLDEBUG"
-    CFLAGS="$CFLAGS -g"
-
-    dnl set compiler "debug" options to become more picky, and remove
-    dnl optimize options from CFLAGS
-    CURL_CC_DEBUG_OPTS
-       ;;
-  esac
- ],
-       AC_MSG_RESULT(no)
-)
-
-dnl ************************************************************
 dnl disable cryptographic authentication
 dnl
 AC_MSG_CHECKING([whether to enable cryptographic authentication methods])
@@ -2211,7 +2326,6 @@ AC_HELP_STRING([--disable-crypto-auth],[Disable cryptographic authentication]),
   no)
        AC_MSG_RESULT(no)
        AC_DEFINE(CURL_DISABLE_CRYPTO_AUTH, 1, [to disable cryptographic authentication])
-       AC_SUBST(CURL_DISABLE_CRYPTO_AUTH)
        ;;
   *)   AC_MSG_RESULT(yes)
        ;;
@@ -2230,7 +2344,6 @@ AC_HELP_STRING([--disable-cookies],[Disable cookies support]),
   no)
        AC_MSG_RESULT(no)
        AC_DEFINE(CURL_DISABLE_COOKIES, 1, [to disable cookies support])
-       AC_SUBST(CURL_DISABLE_COOKIES)
        ;;
   *)   AC_MSG_RESULT(yes)
        ;;
@@ -2251,29 +2364,25 @@ AC_HELP_STRING([--disable-hidden-symbols],[Leave all symbols with default visibi
   no)
        AC_MSG_RESULT(no)
        ;;
-  *)   
+  *)
        AC_MSG_CHECKING([whether $CC supports it])
        if test "$GCC" = yes ; then
          if $CC --help --verbose 2>&1 | grep fvisibility= > /dev/null ; then
-	   AC_MSG_RESULT(yes)
-	   AC_DEFINE(CURL_HIDDEN_SYMBOLS, 1, [to enable hidden symbols])
-	   AC_SUBST(CURL_HIDDEN_SYMBOLS)
-	   AC_DEFINE(CURL_EXTERN_SYMBOL, [__attribute__ ((visibility ("default")))], [to make a symbol visible])
-	   AC_SUBST(CURL_EXTERN_SYMBOL)
-	   CFLAGS="$CFLAGS -fvisibility=hidden"
+           AC_MSG_RESULT(yes)
+           AC_DEFINE(CURL_HIDDEN_SYMBOLS, 1, [to enable hidden symbols])
+           AC_DEFINE(CURL_EXTERN_SYMBOL, [__attribute__ ((visibility ("default")))], [to make a symbol visible])
+           CFLAGS="$CFLAGS -fvisibility=hidden"
          else
             AC_MSG_RESULT(no)
           fi
 
        else
-       	 dnl Test for SunPro cc
-       	 if $CC 2>&1 | grep flags >/dev/null && $CC -flags | grep xldscope= >/dev/null ; then
+         dnl Test for SunPro cc
+         if $CC 2>&1 | grep flags >/dev/null && $CC -flags | grep xldscope= >/dev/null ; then
            AC_MSG_RESULT(yes)
-	   AC_DEFINE(CURL_HIDDEN_SYMBOLS, 1, [to enable hidden symbols])
-	   AC_SUBST(CURL_HIDDEN_SYMBOLS)
-	   AC_DEFINE(CURL_EXTERN_SYMBOL, [__global], [to make a symbol visible])
-	   AC_SUBST(CURL_EXTERN_SYMBOL)
-	   CFLAGS="$CFLAGS -xldscope=hidden"
+           AC_DEFINE(CURL_HIDDEN_SYMBOLS, 1, [to enable hidden symbols])
+           AC_DEFINE(CURL_EXTERN_SYMBOL, [__global], [to make a symbol visible])
+           CFLAGS="$CFLAGS -xldscope=hidden"
          else
            AC_MSG_RESULT(no)
          fi
@@ -2284,15 +2393,36 @@ AC_HELP_STRING([--disable-hidden-symbols],[Leave all symbols with default visibi
 )
 
 dnl ************************************************************
-if test "x$ws2" = "xyes"; then
+dnl enforce SONAME bump
+dnl 
+
+AC_MSG_CHECKING([whether to enforce SONAME bump])
+AC_ARG_ENABLE(soname-bump,
+AC_HELP_STRING([--enable-soname-bump],[Enable enforced SONAME bump])
+AC_HELP_STRING([--disable-soname-bump],[Disable enforced SONAME bump]),
+[ case "$enableval" in
+  yes)   AC_MSG_RESULT(yes)
+         soname_bump=yes
+         ;;
+  *)
+         AC_MSG_RESULT(no)
+         ;;
+  esac ],
+        AC_MSG_RESULT($soname_bump)
+)
+AM_CONDITIONAL(SONAME_BUMP, test x$soname_bump = xyes)
+
+
+dnl ************************************************************
+if test ! -z "$winsock_LIB"; then
 
   dnl If ws2_32 is wanted, make sure it is the _last_ lib in LIBS (makes
   dnl things work when built with c-ares). But we can't just move it last
   dnl since then other stuff (SSL) won't build. So we simply append it to the
   dnl end.
 
-  LIBS="$LIBS -lws2_32"
-  TEST_SERVER_LIBS="$TEST_SERVER_LIBS -lws2_32"
+  LIBS="$LIBS $winsock_LIB"
+  TEST_SERVER_LIBS="$TEST_SERVER_LIBS $winsock_LIB"
 
 fi
 
@@ -2311,25 +2441,109 @@ LIBS=$ALL_LIBS  dnl LIBS is a magic variable that's used for every link
 
 AM_CONDITIONAL(CROSSCOMPILING, test x$cross_compiling = xyes)
 
+dnl
+dnl For keeping supported features and protocols also in pkg-config file
+dnl since it is more cross-compile frient than curl-config
+dnl
+
+if test "x$USE_SSLEAY" = "x1"; then
+  SUPPORT_FEATURES="$SUPPORT_FEATURES SSL"
+elif test -n "$SSL_ENABLED"; then
+  SUPPORT_FEATURES="$SUPPORT_FEATURES SSL"
+fi
+if test "@KRB4_ENABLED@" = "x1"; then
+  SUPPORT_FEATURES="$SUPPORT_FEATURES KRB4"
+fi
+if test "x$IPV6_ENABLED" = "x1"; then
+  SUPPORT_FEATURES="$SUPPORT_FEATURES IPv6"
+fi
+if test "x$HAVE_LIBZ" = "x1"; then
+  SUPPORT_FEATURES="$SUPPORT_FEATURES libz"
+fi
+if test "x$HAVE_ARES" = "x1"; then
+  SUPPORT_FEATURES="$SUPPORT_FEATURES AsynchDNS"
+fi
+if test "x$IDN_ENABLED" = "x1"; then
+  SUPPORT_FEATURES="$SUPPORT_FEATURES IDN"
+fi
+if test "x$USE_WINDOWS_SSPI" = "x1"; then
+  SUPPORT_FEATURES="$SUPPORT_FEATURES SSPI"
+fi
+if test "x$USE_SSLEAY" = "x1" -o "x$USE_WINDOWS_SSPI" = "x1" -o "x$GNUTLS_ENABLED" = "x1"; then
+  SUPPORT_FEATURES="$SUPPORT_FEATURES NTLM"
+fi
+
+AC_SUBST(SUPPORT_FEATURES)
+
+dnl For supported protocols in pkg-config file
+if test "x$CURL_DISABLE_HTTP" != "x1"; then
+  SUPPORT_PROTOCOLS="$SUPPORT_PROTOCOLS HTTP"
+  if test "x$SSL_ENABLED" = "x1"; then
+    SUPPORT_PROTOCOLS="$SUPPORT_PROTOCOLS HTTPS"
+  fi
+fi
+if test "x$CURL_DISABLE_FTP" != "x1"; then
+  SUPPORT_PROTOCOLS="$SUPPORT_PROTOCOLS FTP"
+  if test "x$SSL_ENABLED" = "x1"; then
+    SUPPORT_PROTOCOLS="$SUPPORT_PROTOCOLS FTPS"
+  fi
+fi
+if test "x$CURL_DISABLE_FILE" != "x1"; then
+  SUPPORT_PROTOCOLS="$SUPPORT_PROTOCOLS FILE"
+fi
+if test "x$CURL_DISABLE_TELNET" != "x1"; then
+  SUPPORT_PROTOCOLS="$SUPPORT_PROTOCOLS TELNET"
+fi
+if test "x$CURL_DISABLE_LDAP" != "x1"; then
+  SUPPORT_PROTOCOLS="$SUPPORT_PROTOCOLS LDAP"
+fi
+if test "x$CURL_DISABLE_LDAPS" != "x1"; then
+  SUPPORT_PROTOCOLS="$SUPPORT_PROTOCOLS LDAPS"
+fi
+if test "x$CURL_DISABLE_DICT" != "x1"; then
+  SUPPORT_PROTOCOLS="$SUPPORT_PROTOCOLS DICT"
+fi
+if test "x$CURL_DISABLE_TFTP" != "x1"; then
+  SUPPORT_PROTOCOLS="$SUPPORT_PROTOCOLS TFTP"
+fi
+if test "x$USE_LIBSSH2" = "x1"; then
+  SUPPORT_PROTOCOLS="$SUPPORT_PROTOCOLS SCP"
+  SUPPORT_PROTOCOLS="$SUPPORT_PROTOCOLS SFTP"
+fi
+
+AC_SUBST(SUPPORT_PROTOCOLS)
+
+dnl squeeze whitespace out of some variables
+
+squeeze CFLAGS
+squeeze CPPFLAGS
+squeeze DEFS
+squeeze LDFLAGS
+squeeze LIBS
+
+squeeze CURL_LIBS
+squeeze LIBCURL_LIBS
+squeeze TEST_SERVER_LIBS
+
 AC_CONFIG_FILES([Makefile \
-	   docs/Makefile \
+           docs/Makefile \
            docs/examples/Makefile \
            docs/libcurl/Makefile \
-	   include/Makefile \
-	   include/curl/Makefile \
-	   src/Makefile \
+           include/Makefile \
+           include/curl/Makefile \
+           src/Makefile \
            lib/Makefile \
            tests/Makefile \
            tests/data/Makefile \
            tests/server/Makefile \
            tests/libtest/Makefile \
-	   packages/Makefile \
-	   packages/Win32/Makefile \
-	   packages/Win32/cygwin/Makefile \
-	   packages/Linux/Makefile \
-	   packages/Linux/RPM/Makefile \
-	   packages/Linux/RPM/curl.spec \
-	   packages/Linux/RPM/curl-ssl.spec \
+           packages/Makefile \
+           packages/Win32/Makefile \
+           packages/Win32/cygwin/Makefile \
+           packages/Linux/Makefile \
+           packages/Linux/RPM/Makefile \
+           packages/Linux/RPM/curl.spec \
+           packages/Linux/RPM/curl-ssl.spec \
            packages/Solaris/Makefile \
            packages/DOS/Makefile \
            packages/EPM/curl.list \
@@ -2358,9 +2572,23 @@ AC_MSG_NOTICE([Configured to build curl/libcurl:
   c-ares support:  ${curl_ares_msg}
   ipv6 support:    ${curl_ipv6_msg}
   IDN support:     ${curl_idn_msg}
-  Build libcurl:   Shared=${enable_shared}, Static=${enable_static} 
+  Build libcurl:   Shared=${enable_shared}, Static=${enable_static}
   Built-in manual: ${curl_manual_msg}
   Verbose errors:  ${curl_verbose_msg}
   SSPI support:    ${curl_sspi_msg}
-  ca cert path:    ${ca}
+  ca cert bundle:  ${ca}
+  ca cert path:    ${capath}
+  LDAP support:    ${curl_ldap_msg}
+  LDAPS support:   ${curl_ldaps_msg} 
 ])
+
+if test "x$soname_bump" = "xyes"; then
+
+cat <<EOM
+  SONAME bump:     yes - WARNING: this library will be built with the SONAME
+                   number bumped due to (a detected) ABI breakage.
+                   See lib/README.curl_off_t for details on this.
+EOM
+
+fi
+

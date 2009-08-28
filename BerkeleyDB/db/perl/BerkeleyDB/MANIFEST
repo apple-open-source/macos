@@ -19,10 +19,13 @@ mkpod
 ppport.h
 README
 t/btree.t
+t/cds.t
 t/db-3.0.t
 t/db-3.1.t
 t/db-3.2.t
 t/db-3.3.t
+t/db-4.x.t
+t/db-4.4.t
 t/destroy.t
 t/encrypt.t
 t/env.t
@@ -34,6 +37,7 @@ t/filter.t
 t/hash.t
 t/join.t
 t/mldbm.t
+t/pod.t
 t/queue.t
 t/recno.t
 t/strict.t
@@ -41,6 +45,8 @@ t/subdb.t
 t/txn.t
 t/unknown.t
 t/util.pm
+t/Test/More.pm
+t/Test/Builder.pm
 Todo
 typemap
 patches/5.004

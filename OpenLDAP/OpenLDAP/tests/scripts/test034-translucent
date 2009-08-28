@@ -1,8 +1,8 @@
 #! /bin/sh
-# $OpenLDAP: pkg/ldap/tests/scripts/test034-translucent,v 1.1.2.5 2006/01/03 22:16:29 kurt Exp $
+# $OpenLDAP: pkg/ldap/tests/scripts/test034-translucent,v 1.8.2.6 2008/02/11 23:26:51 kurt Exp $
 ## This work is part of OpenLDAP Software <http://www.openldap.org/>.
 ##
-## Copyright 2004-2006 The OpenLDAP Foundation.
+## Copyright 2004-2008 The OpenLDAP Foundation.
 ## All rights reserved.
 ##
 ## Redistribution and use in source and binary forms, with or without
@@ -25,11 +25,6 @@ if test $TRANSLUCENT = translucentno ; then
 	exit 0
 fi 
 
-if test $BACKEND = ldbm ; then
-	echo "Translucent Proxy overlay not qualified for use with LDBM, test skipped"
-	exit 0
-fi
-
 if test $AC_ldap = ldapno ; then
 	echo "Translucent Proxy overlay requires back-ldap backend, test skipped"
 	exit 0
@@ -37,6 +32,15 @@ fi
 
 # configure backside
 mkdir -p $TESTDIR $DBDIR1
+
+$SLAPPASSWD -g -n >$CONFIGPWF
+echo "rootpw `$SLAPPASSWD -T $CONFIGPWF`" >$TESTDIR/configpw.conf
+
+if test $MONITORDB != no ; then
+	DBIX=2
+else
+	DBIX=1
+fi
 
 . $CONFFILTER $BACKEND $MONITORDB < $TRANSLUCENTREMOTECONF > $CONF1
 echo "Running slapadd to build remote slapd database..."
@@ -201,41 +205,19 @@ if test $RC != 32 ; then
 	exit 1
 fi
 
-echo "Shutting down local slapd..."
-kill -HUP $LOCALPID
-sleep 5
+echo "Dynamically configuring local slapd without translucent_no_glue..."
 
-echo "Configuring local slapd without translucent_no_glue..."
-. $CONFFILTER $BACKEND $MONITORDB < $TRANSLUCENTLOCALCONF | \
-	grep -v translucent_no_glue > $CONF2
-
-echo "Restarting local slapd on TCP/IP port $PORT2..."
-$SLAPD -f $CONF2 -h $URI2 -d $LVL $TIMING >> $LOG2 2>&1 &
-PID=$!
-if test $WAIT != 0 ; then
-    echo PID $PID
-    read foo
-fi
-LOCALPID="$PID"
-KILLPIDS="$REMOTEPID $PID"
-
-sleep 1
-
-for i in 0 1 2 3 4 5; do
-	$LDAPSEARCH -s base -b "$MONITOR" -H $URI2 \
-		'objectclass=*' > /dev/null 2>&1
-	RC=$?
-	if test $RC = 0 ; then
-		break
-	fi
-	echo "Waiting 5 seconds for local slapd to start..."
-	sleep 5
-done
-
+$LDAPMODIFY -D cn=config -H $URI2 -y $CONFIGPWF <<EOF
+dn: olcOverlay={0}translucent,olcDatabase={$DBIX}$BACKEND,cn=config
+changetype: modify
+replace: olcTranslucentNoGlue
+olcTranslucentNoGlue: FALSE
+EOF
+RC=$?
 if test $RC != 0 ; then
-	echo "ldapsearch failed ($RC)!"
-	test $KILLSERVERS != no && kill -HUP $KILLPIDS
-	exit $RC
+    echo "ldapmodify of dynamic config failed ($RC)"
+    test $KILLSERVERS != no && kill -HUP $KILLPIDS
+    exit 1
 fi
 
 echo "Testing add: valid local record..."
@@ -577,6 +559,24 @@ if test $RC != 16 ; then
 	exit 1
 fi
 
+echo "Testing delete: valid local record, remote attribute..."
+
+$LDAPMODIFY -v -D "$TRANSLUCENTROOT" -H $URI2 -w $PASSWD > \
+        $TESTOUT 2>&1 << EOF_MOD8
+version: 1
+dn: uid=danger,ou=users,o=translucent
+changetype: modify
+delete: initials
+EOF_MOD8
+
+RC=$?
+if test $RC != 0 ; then
+	echo "ldapmodify failed ($RC)"
+	grep "$FAILURE" $TESTOUT
+	test $KILLSERVERS != no && kill -HUP $KILLPIDS
+	exit 1
+fi
+
 echo "Testing modify: valid remote record, combination add-modify-delete..."
 
 $LDAPMODIFY -v -D "$TRANSLUCENTROOT" -H $URI2 -w $PASSWD > \
@@ -624,40 +624,22 @@ if test "$ATTR" != "preferredLanguage: ISO8859-1" ; then
 	exit 1
 fi
 
-echo "Shutting down local slapd..."
-kill -HUP $LOCALPID
-sleep 5
+echo "Dynamically configuring local slapd with translucent_no_glue and translucent_strict..."
 
-echo "Configuring local slapd with translucent_strict..."
-echo translucent_strict >> $CONF2
-
-echo "Restarting slapd on TCP/IP port $PORT2..."
-$SLAPD -f $CONF2 -h $URI2 -d $LVL $TIMING >> $LOG2 2>&1 &
-PID=$!
-if test $WAIT != 0 ; then
-    echo PID $PID
-    read foo
-fi
-LOCALPID="$PID"
-KILLPIDS="$REMOTEPID $PID"
-
-sleep 1
-
-for i in 0 1 2 3 4 5; do
-	$LDAPSEARCH -s base -b "$MONITOR" -H $URI2 \
-		'objectclass=*' > /dev/null 2>&1
-	RC=$?
-	if test $RC = 0 ; then
-		break
-	fi
-	echo "Waiting 5 seconds for local slapd to start..."
-	sleep 5
-done
-
+$LDAPMODIFY -D cn=config -H $URI2 -y $CONFIGPWF <<EOF
+dn: olcOverlay={0}translucent,olcDatabase={$DBIX}$BACKEND,cn=config
+changetype: modify
+replace: olcTranslucentNoGlue
+olcTranslucentNoGlue: TRUE
+-
+replace: olcTranslucentStrict
+olcTranslucentStrict: TRUE
+EOF
+RC=$?
 if test $RC != 0 ; then
-	echo "ldapsearch failed ($RC)!"
-	test $KILLSERVERS != no && kill -HUP $KILLPIDS
-	exit $RC
+    echo "ldapmodify of dynamic config failed ($RC)"
+    test $KILLSERVERS != no && kill -HUP $KILLPIDS
+    exit 1
 fi
 
 echo "Testing strict mode delete: nonexistent local attribute..."
@@ -720,7 +702,101 @@ if test $RC != 19 ; then
 	exit 1
 fi
 
+echo "Testing invalid Bind request..."
+$LDAPWHOAMI -D "$TRANSLUCENTDN" -H $URI2 -w Wrong"$TRANSLUCENTPASSWD" > \
+	$TESTOUT 2>&1
+RC=$?
+if test $RC != 49 ; then
+	echo "ldapwhoami failed ($RC), expected INVALID CREDENTIALS!"
+	grep "$FAILURE" $TESTOUT
+	test $KILLSERVERS != no && kill -HUP $KILLPIDS
+	exit 1
+fi
+
+$LDAPWHOAMI -D "$TRANSLUCENTDN" -H $URI2 -w "$TRANSLUCENTPASSWD" > \
+	$TESTOUT 2>&1
+RC=$?
+if test $RC != 0 ; then
+	echo "ldapwhoami failed ($RC), expected SUCCESS!"
+	grep "$FAILURE" $TESTOUT
+	test $KILLSERVERS != no && kill -HUP $KILLPIDS
+	exit 1
+fi
+
+echo "Testing search: unconfigured local filter..."
+$LDAPSEARCH -H $URI2 -b "o=translucent" "(employeeType=consultant)" > $SEARCHOUT 2>&1
+
+ATTR=`grep dn: $SEARCHOUT` > $NOWHERE 2>&1
+if test -n "$ATTR" ; then
+	echo "got result $ATTR, should have been no result"
+	test $KILLSERVERS != no && kill -HUP $KILLPIDS
+	exit 1
+fi
+
+echo "Dynamically configuring local slapd with translucent_local..."
+
+$LDAPMODIFY -D cn=config -H $URI2 -y $CONFIGPWF <<EOF
+dn: olcOverlay={0}translucent,olcDatabase={$DBIX}$BACKEND,cn=config
+changetype: modify
+add: olcTranslucentLocal
+olcTranslucentLocal: employeeType
+EOF
+RC=$?
+if test $RC != 0 ; then
+    echo "ldapmodify of dynamic config failed ($RC)"
+    test $KILLSERVERS != no && kill -HUP $KILLPIDS
+    exit 1
+fi
+
+echo "Testing search: configured local filter..."
+$LDAPSEARCH -H $URI2 -b "o=translucent" "(employeeType=consultant)" > $SEARCHOUT 2>&1
+
+ATTR=`grep dn: $SEARCHOUT` > $NOWHERE 2>&1
+if test -z "$ATTR" ; then
+	echo "got no result, should have found entry"
+	test $KILLSERVERS != no && kill -HUP $KILLPIDS
+	exit 1
+fi
+
+echo "Testing search: unconfigured remote filter..."
+$LDAPSEARCH -H $URI2 -b "o=translucent" "(|(employeeType=foo)(carlicense=right))" > $SEARCHOUT 2>&1
+
+ATTR=`grep dn: $SEARCHOUT` > $NOWHERE 2>&1
+if test -n "$ATTR" ; then
+	echo "got result $ATTR, should have been no result"
+	test $KILLSERVERS != no && kill -HUP $KILLPIDS
+	exit 1
+fi
+
+echo "Dynamically configuring local slapd with translucent_remote..."
+
+$LDAPMODIFY -D cn=config -H $URI2 -y $CONFIGPWF <<EOF
+dn: olcOverlay={0}translucent,olcDatabase={$DBIX}$BACKEND,cn=config
+changetype: modify
+add: olcTranslucentRemote
+olcTranslucentRemote: carLicense
+EOF
+RC=$?
+if test $RC != 0 ; then
+    echo "ldapmodify of dynamic config failed ($RC)"
+    test $KILLSERVERS != no && kill -HUP $KILLPIDS
+    exit 1
+fi
+
+echo "Testing search: configured remote filter..."
+$LDAPSEARCH -H $URI2 -b "o=translucent" "(|(employeeType=foo)(carlicense=right))" > $SEARCHOUT 2>&1
+
+ATTR=`grep dn: $SEARCHOUT` > $NOWHERE 2>&1
+if test -z "$ATTR" ; then
+	echo "got no result, should have found entry"
+	test $KILLSERVERS != no && kill -HUP $KILLPIDS
+	exit 1
+fi
+
 test $KILLSERVERS != no && kill -HUP $KILLPIDS
 
 echo ">>>>> Test succeeded"
+
+test $KILLSERVERS != no && wait
+
 exit 0

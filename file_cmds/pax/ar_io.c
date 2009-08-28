@@ -1,4 +1,4 @@
-/*	$OpenBSD: ar_io.c,v 1.36 2004/06/20 16:22:08 niklas Exp $	*/
+/*	$OpenBSD: ar_io.c,v 1.38 2008/06/11 00:49:08 pvalchev Exp $	*/
 /*	$NetBSD: ar_io.c,v 1.5 1996/03/26 23:54:13 mrg Exp $	*/
 
 /*-
@@ -38,7 +38,7 @@
 #if 0
 static const char sccsid[] = "@(#)ar_io.c	8.2 (Berkeley) 4/18/94";
 #else
-static const char rcsid[] __attribute__((__unused__)) = "$OpenBSD: ar_io.c,v 1.36 2004/06/20 16:22:08 niklas Exp $";
+static const char rcsid[] = "$OpenBSD: ar_io.c,v 1.38 2008/06/11 00:49:08 pvalchev Exp $";
 #endif
 #endif /* not lint */
 
@@ -46,7 +46,9 @@ static const char rcsid[] __attribute__((__unused__)) = "$OpenBSD: ar_io.c,v 1.3
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
+#ifndef __APPLE__
 #include <sys/mtio.h>
+#endif	/* !__APPLE__ */
 #include <sys/param.h>
 #include <sys/wait.h>
 #include <signal.h>
@@ -57,6 +59,7 @@ static const char rcsid[] __attribute__((__unused__)) = "$OpenBSD: ar_io.c,v 1.3
 #include <errno.h>
 #include <stdlib.h>
 #include <err.h>
+#include <stdint.h>
 #include "pax.h"
 #include "options.h"
 #include "extern.h"
@@ -71,6 +74,7 @@ static const char rcsid[] __attribute__((__unused__)) = "$OpenBSD: ar_io.c,v 1.3
 #define APP_MODE	O_RDWR		/* mode for append */
 #define STDO		"<STDOUT>"	/* pseudo name for stdout */
 #define STDN		"<STDIN>"	/* pseudo name for stdin */
+#define _NONE		"<NONE>"	/* pseudo name for no files */
 static int arfd = -1;			/* archive file descriptor */
 static int artyp = ISREG;		/* archive type: file/FIFO/tape */
 static int arvol = 1;			/* archive volume number */
@@ -87,7 +91,9 @@ const char *gzip_program;		/* name of gzip program */
 static pid_t zpid = -1;			/* pid of child process */
 int force_one_volume;			/* 1 if we ignore volume changes */
 
+#ifndef __APPLE__
 static int get_phys(void);
+#endif	/* __APPLE__ */
 extern sigset_t s_mask;
 static void ar_start_gzip(int, const char *, int);
 
@@ -103,8 +109,9 @@ static void ar_start_gzip(int, const char *, int);
 int
 ar_open(const char *name)
 {
+#ifndef __APPLE__
 	struct mtget mb;
-
+#endif	/* __APPLE__ */
 	if (arfd != -1)
 		(void)close(arfd);
 	arfd = -1;
@@ -149,7 +156,7 @@ ar_open(const char *name)
 		/*
 		 * arfd not used in COPY mode
 		 */
-		arcname = "<NONE>";
+		arcname = _NONE;
 		lstrval = 1;
 		return(0);
 	}
@@ -157,8 +164,7 @@ ar_open(const char *name)
 		return(-1);
 
 	if (chdname != NULL)
-		if (chdir(chdname) != 0) {
-			syswarn(1, errno, "Failed chdir to %s", chdname);
+		if (dochdir(chdname) == -1) {
 			return(-1);
 		}
 	/*
@@ -180,9 +186,12 @@ ar_open(const char *name)
 		return(-1);
 	}
 
+#ifndef __APPLE__
 	if (S_ISCHR(arsb.st_mode))
 		artyp = ioctl(arfd, MTIOCGET, &mb) ? ISCHR : ISTAPE;
-	else if (S_ISBLK(arsb.st_mode))
+	else
+#endif	/* !__APPLE__ */
+	if (S_ISBLK(arsb.st_mode))
 		artyp = ISBLK;
 	else if ((lseek(arfd, (off_t)0L, SEEK_CUR) == -1) && (errno == ESPIPE))
 		artyp = ISPIPE;
@@ -405,10 +414,11 @@ ar_close(void)
 		(void)fprintf(listf,
 #	ifdef LONG_OFF_T
 		    "%s: %s vol %d, %lu files, %lu bytes read, %lu bytes written.\n",
-#	else
-		    "%s: %s vol %d, %lu files, %qu bytes read, %qu bytes written.\n",
-#	endif
 		    argv0, frmt->name, arvol-1, flcnt, rdcnt, wrcnt);
+#	else
+		    "%s: %s vol %d, %lu files, %ju bytes read, %ju bytes written.\n",
+		    argv0, frmt->name, arvol-1, flcnt, (uintmax_t)rdcnt, (uintmax_t)wrcnt);
+#	endif
 	(void)fflush(listf);
 	flcnt = 0;
 }
@@ -663,7 +673,7 @@ ar_write(char *buf, int bsz)
 			break;
 		if (errno == EACCES) {
 			paxwarn(0, "Write failed, archive is write protected.");
-			res = lstrval = 0;
+			lstrval = 0;
 			return(0);
 		}
 		/*
@@ -729,7 +739,9 @@ ar_rdsync(void)
 	long fsbz;
 	off_t cpos;
 	off_t mpos;
+#ifndef __APPLE__
 	struct mtop mb;
+#endif	/* !__APPLE__ */
 
 	/*
 	 * Fail resync attempts at user request (done) or if this is going to be
@@ -747,6 +759,7 @@ ar_rdsync(void)
 		did_io = 1;
 
 	switch (artyp) {
+#ifndef __APPLE__
 	case ISTAPE:
 		/*
 		 * if the last i/o was a successful data transfer, we assume
@@ -767,6 +780,7 @@ ar_rdsync(void)
 			break;
 		lstrval = 1;
 		break;
+#endif	/* !__APPLE__ */
 	case ISREG:
 	case ISCHR:
 	case ISBLK:
@@ -872,8 +886,10 @@ int
 ar_rev(off_t sksz)
 {
 	off_t cpos;
+#ifndef __APPLE__
 	struct mtop mb;
 	int phyblk;
+#endif	/* __APPLE__ */
 
 	/*
 	 * make sure we do not have try to reverse on a flawed archive
@@ -936,6 +952,7 @@ ar_rev(off_t sksz)
 			return(-1);
 		}
 		break;
+#ifndef __APPLE__
 	case ISTAPE:
 		/*
 		 * Calculate and move the proper number of PHYSICAL tape
@@ -984,11 +1001,12 @@ ar_rev(off_t sksz)
 			return(-1);
 		}
 		break;
+#endif	/* !__APPLE__ */
 	}
 	lstrval = 1;
 	return(0);
 }
-
+#ifndef __APPLE__
 /*
  * get_phys()
  *	Determine the physical block size on a tape drive. We need the physical
@@ -1102,7 +1120,7 @@ get_phys(void)
 	}
 	return(phyblk);
 }
-
+#endif	/* !__APPLE__ */
 /*
  * ar_next()
  *	prompts the user for the next volume in this archive. For some devices
@@ -1131,9 +1149,8 @@ ar_next(void)
 	if (sigprocmask(SIG_SETMASK, &o_mask, NULL) < 0)
 		syswarn(0, errno, "Unable to restore signal mask");
 
-	/* Don't query for new volume if format is unknown */
 	if (frmt == NULL || done || !wr_trail || force_one_volume || strcmp(NM_TAR, argv0) == 0 ||
-								     strcmp(NM_PAX, argv0) == 0)
+	    strcmp(NM_PAX, argv0) == 0)
 		return(-1);
 
 	tty_prnt("\nATTENTION! %s archive volume change required.\n", argv0);
@@ -1294,7 +1311,7 @@ ar_start_gzip(int fd, const char *gzip_program, int wr)
 		close(fds[0]);
 		close(fds[1]);
 		if (execlp(gzip_program, gzip_program, gzip_flags, (char *)NULL) < 0)
-			err(1, "could not exec");
+			err(1, "could not exec %s", gzip_program);
 		/* NOTREACHED */
 	}
 }

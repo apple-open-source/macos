@@ -174,6 +174,7 @@ static NTSTATUS message_notify(struct process_id procid)
 	pid_t pid = procid.pid;
 	int ret;
 	uid_t euid = geteuid();
+	BOOL restore_credentials = False;
 
 	/*
 	 * Doing kill with a non-positive pid causes messages to be
@@ -184,17 +185,15 @@ static NTSTATUS message_notify(struct process_id procid)
 
 	if (euid != 0) {
 		/* If we're not root become so to send the message. */
-		save_re_uid();
-		set_effective_uid(0);
+		become_root();
+		restore_credentials = True;
 	}
 
 	ret = kill(pid, SIGUSR1);
 
-	if (euid != 0) {
+	if (restore_credentials) {
 		/* Go back to who we were. */
-		int saved_errno = errno;
-		restore_re_uid_fromroot();
-		errno = saved_errno;
+		unbecome_root();
 	}
 
 	if (ret == -1) {
@@ -281,12 +280,14 @@ static NTSTATUS message_send_pid_internal(struct process_id pid, int msg_type,
 			if (tdb_chainlock_with_timeout(tdb, kbuf, timeout) == -1) {
 				DEBUG(0,("message_send_pid_internal: failed to get "
 					 "chainlock with timeout %ul.\n", timeout));
+				SAFE_FREE(dbuf.dptr);
 				return NT_STATUS_IO_TIMEOUT;
 			}
 		} else {
 			if (tdb_chainlock(tdb, kbuf) == -1) {
 				DEBUG(0,("message_send_pid_internal: failed to get "
 					 "chainlock.\n"));
+				SAFE_FREE(dbuf.dptr);
 				return NT_STATUS_LOCK_NOT_GRANTED;
 			}
 		}	
@@ -303,12 +304,14 @@ static NTSTATUS message_send_pid_internal(struct process_id pid, int msg_type,
 		if (tdb_chainlock_with_timeout(tdb, kbuf, timeout) == -1) {
 			DEBUG(0,("message_send_pid_internal: failed to get chainlock "
 				 "with timeout %ul.\n", timeout));
+			SAFE_FREE(dbuf.dptr);
 			return NT_STATUS_IO_TIMEOUT;
 		}
 	} else {
 		if (tdb_chainlock(tdb, kbuf) == -1) {
 			DEBUG(0,("message_send_pid_internal: failed to get "
 				 "chainlock.\n"));
+			SAFE_FREE(dbuf.dptr);
 			return NT_STATUS_LOCK_NOT_GRANTED;
 		}
 	}	

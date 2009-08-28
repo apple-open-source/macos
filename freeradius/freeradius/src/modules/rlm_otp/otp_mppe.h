@@ -1,5 +1,5 @@
 /*
- * $Id: otp_mppe.h,v 1.1.2.3 2006/10/24 05:15:46 fcusack Exp $
+ * $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -22,8 +22,8 @@
 #ifndef OTP_MPPE_H
 #define OTP_MPPE_H
 
-#include "ident.h"
-RCSIDH(otp_mppe_h, "$Id: otp_mppe.h,v 1.1.2.3 2006/10/24 05:15:46 fcusack Exp $")
+#include <freeradius-devel/ident.h>
+RCSIDH(otp_mppe_h, "$Id$")
 
 /* Some hardcoding here ... because not all types have #defines */
 #define PW_MS_CHAP_CHALLENGE  ((311 << 16) | 11)

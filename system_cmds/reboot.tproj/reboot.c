@@ -67,6 +67,8 @@ static const char rcsid[] =
 #include <mach/mach.h>			// task_self, etc
 #include <servers/bootstrap.h>	// bootstrap
 #include <reboot2.h>
+#include <utmpx.h>
+#include <sys/time.h>
 #endif
 
 void usage(void);
@@ -150,19 +152,14 @@ main(int argc, char *argv[])
 	}
 
 #if defined(__APPLE__) && !TARGET_OS_EMBEDDED
-	if (!lflag) {	// shutdown(8) has already checked w/kextd
-		if ((errno = reserve_reboot()) && !qflag)
+	if (!qflag && !lflag) {	// shutdown(8) has already checked w/kextd
+		if ((errno = reserve_reboot()))
 			err(1, "couldn't lock for reboot");
 	}
 #endif
 
 	if (qflag) {
-		#ifdef __APPLE__
-	        	// launchd(8) handles reboot.  This call returns NULL on success.
-        		exit(reboot2(howto) == NULL ? EXIT_SUCCESS : EXIT_FAILURE); 
-		#else /* __APPLE__ */
 		reboot(howto);
-		#endif /* __APPLE__ */
 		err(1, NULL);
 	}
 
@@ -193,7 +190,20 @@ main(int argc, char *argv[])
 			syslog(LOG_CRIT, "rebooted by %s", user);
 		}
 	}
+#if defined(__APPLE__) 
+	{
+		struct utmpx utx;
+		bzero(&utx, sizeof(utx));
+		utx.ut_type = BOOT_TIME;
+		gettimeofday(&utx.ut_tv, NULL);
+		pututxline(&utx);
+
+		int newvalue = 1;
+		sysctlbyname("kern.willshutdown", NULL, NULL, &newvalue, sizeof(newvalue));
+	}
+#else
 	logwtmp("~", "shutdown", "");
+#endif
 
 	/*
 	 * Do a sync early on, so disks start transfers while we're off

@@ -4,12 +4,10 @@
 
 Project = nfs_fs
 
-include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
+inplace:
+	@$(MAKE) all SRCROOT=. OBJROOT=. SYMROOT=. DSTROOT=/
 
-SRCROOT ?= .
-OBJROOT ?= .
-SYMROOT ?= .
-DSTROOT ?= .
+include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
 #
 # Files/Directories that get installed:

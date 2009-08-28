@@ -1,9 +1,8 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1996-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 1996,2007 Oracle.  All rights reserved.
 #
-# $Id: recd019.tcl,v 1.2 2004/03/30 01:24:08 jtownsen Exp $
+# $Id: recd019.tcl,v 12.5 2007/05/17 15:15:55 bostic Exp $
 #
 # TEST	recd019
 # TEST	Test txn id wrap-around and recovery.
@@ -118,4 +117,6 @@ proc recd019 { method {numid 50} args} {
 
 	set ret [catch {exec $util_path/db_recover -h $testdir} r]
 	error_check_good db_recover $ret 0
+	set fixed_len $orig_fixed_len
+	return
 }

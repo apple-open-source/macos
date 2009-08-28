@@ -1,5 +1,5 @@
 /*
- * "$Id: cupsctl.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id$"
  *
  *   CUPS control program for the Common UNIX Printing System (CUPS).
  *
@@ -222,5 +222,5 @@ usage(const char *opt)			/* I - Option character/string */
 
 
 /*
- * End of "$Id: cupsctl.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id$".
  */

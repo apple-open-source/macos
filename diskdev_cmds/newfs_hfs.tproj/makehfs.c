@@ -1,21 +1,22 @@
 /*
- * Copyright (c) 1999-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -44,6 +45,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <wipefs.h>
 
 /*
  * CommonCrypto is meant to be a more stable API than OpenSSL.
@@ -53,10 +55,11 @@
 #define COMMON_DIGEST_FOR_OPENSSL
 #include <CommonCrypto/CommonDigest.h>
 
-#include <architecture/byte_order.h>
+#include <libkern/OSByteOrder.h>
 
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFStringEncodingExt.h>
+#include <DiskArbitration/DiskArbitration.h>
 
 #include <TargetConditionals.h>
 
@@ -98,19 +101,24 @@ static void WriteVH __P((const DriveInfo *driveInfo, HFSPlusVolumeHeader *hp));
 static void InitVH __P((hfsparams_t *defaults, UInt64 sectors,
 		HFSPlusVolumeHeader *header));
 
-static void WriteBitmap __P((const DriveInfo *dip, UInt32 startingSector,
+static void AllocateExtent(UInt8 *buffer, UInt32 startBlock, UInt32 blockCount);
+static void WriteBitmap __P((const DriveInfo *dip, UInt64 startingSector,
         UInt32 alBlksUsed, UInt8 *buffer));
 
-static void WriteExtentsFile __P((const DriveInfo *dip, UInt32 startingSector,
+static void WriteExtentsFile __P((const DriveInfo *dip, UInt64 startingSector,
         const hfsparams_t *dp, HFSExtentDescriptor *bbextp, void *buffer,
         UInt32 *bytesUsed, UInt32 *mapNodes));
 static void InitExtentsRoot __P((UInt16 btNodeSize, HFSExtentDescriptor *bbextp,
 		void *buffer));
 
-static void WriteCatalogFile __P((const DriveInfo *dip, UInt32 startingSector,
+static void WriteAttributesFile(const DriveInfo *driveInfo, UInt64 startingSector,
+        const hfsparams_t *dp, HFSExtentDescriptor *bbextp, void *buffer,
+        UInt32 *bytesUsed, UInt32 *mapNodes);
+
+static void WriteCatalogFile __P((const DriveInfo *dip, UInt64 startingSector,
         const hfsparams_t *dp, HFSPlusVolumeHeader *header, void *buffer,
         UInt32 *bytesUsed, UInt32 *mapNodes));
-static void WriteJournalInfo(const DriveInfo *driveInfo, UInt32 startingSector,
+static int  WriteJournalInfo(const DriveInfo *driveInfo, UInt64 startingSector,
 			     const hfsparams_t *dp, HFSPlusVolumeHeader *header,
 			     void *buffer);
 static void InitCatalogRoot_HFSPlus __P((const hfsparams_t *dp, const HFSPlusVolumeHeader *header, void * buffer));
@@ -120,20 +128,20 @@ static void InitFirstCatalogLeaf __P((const hfsparams_t *dp, void * buffer,
 static void InitSecondCatalogLeaf __P((const hfsparams_t *dp, void *buffer));
 
 static void WriteDesktopDB(const hfsparams_t *dp, const DriveInfo *driveInfo,
-        UInt32 startingSector, void *buffer, UInt32 *mapNodes);
+        UInt64 startingSector, void *buffer, UInt32 *mapNodes);
 
-static void WriteSystemFile __P((const DriveInfo *dip, UInt32 startingSector,
+static void WriteSystemFile __P((const DriveInfo *dip, UInt64 startingSector,
 		UInt32 *filesize));
-static void WriteReadMeFile __P((const DriveInfo *dip, UInt32 startingSector,
+static void WriteReadMeFile __P((const DriveInfo *dip, UInt64 startingSector,
 		UInt32 *filesize));
-static void WriteMapNodes __P((const DriveInfo *driveInfo, UInt32 diskStart,
+static void WriteMapNodes __P((const DriveInfo *driveInfo, UInt64 diskStart,
 		UInt32 firstMapNode, UInt32 mapNodes, UInt16 btNodeSize, void *buffer));
 static void WriteBuffer __P((const DriveInfo *driveInfo, UInt64 startingSector,
-		UInt32 byteCount, const void *buffer));
+		UInt64 byteCount, const void *buffer));
 static UInt32 Largest __P((UInt32 a, UInt32 b, UInt32 c, UInt32 d ));
 
 static void MarkBitInAllocationBuffer __P((HFSPlusVolumeHeader *header,
-		UInt32 allocationBlock, void* sectorBuffer, UInt32 *sector));
+		UInt32 allocationBlock, void* sectorBuffer, UInt64 *sector));
 
 static UInt32 GetDefaultEncoding();
 
@@ -141,7 +149,7 @@ static UInt32 UTCToLocal __P((UInt32 utcTime));
 
 static UInt32 DivideAndRoundUp __P((UInt32 numerator, UInt32 denominator));
 
-static int ConvertUTF8toUnicode __P((const UInt8* source, UInt32 bufsize,
+static int ConvertUTF8toUnicode __P((const UInt8* source, size_t bufsize,
 		UniChar* unibuf, UInt16 *charcount));
 
 static int getencodinghint(unsigned char *name);
@@ -175,6 +183,28 @@ void SETOFFSET (void *buffer, UInt16 btNodeSize, SInt16 recOffset, SInt16 vecOff
 #endif
 
 /*
+ * wipefs() in -lutil knows about multiple filesystem formats.
+ * This replaces the code:
+ *	WriteBuffer(driveInfo, 0, diskBlocksUsed * kBytesPerSector, NULL);
+ *	WriteBuffer(driveInfo, driveInfo->totalSectors - 8, 4 * 1024, NULL);
+ * which was used to erase the beginning and end of the filesystem.
+ *
+ */
+static int
+dowipefs(int fd)
+{
+	int err;
+	wipefs_ctx handle;
+
+	err = wipefs_alloc(fd, 0/*sectorSize*/, &handle);
+	if (err == 0) {
+		err = wipefs_wipe(handle);
+	}
+	wipefs_free(&handle);
+	return err;
+}
+
+/*
  * make_hfs
  *	
  * This routine writes an initial HFS volume structure onto a volume.
@@ -187,8 +217,8 @@ void SETOFFSET (void *buffer, UInt16 btNodeSize, SInt16 recOffset, SInt16 vecOff
 int
 make_hfs(const DriveInfo *driveInfo,
 	  hfsparams_t *defaults,
-	  UInt32 *plusSectors,
-	  UInt32 *plusOffset)
+	  uint32_t *plusSectors,
+	  uint32_t *plusOffset)
 {
 	UInt32 sector;
 	UInt32 diskBlocksUsed;
@@ -215,7 +245,7 @@ make_hfs(const DriveInfo *driveInfo,
 	defaults->encodingHint = getencodinghint(defaults->volumeName);
 
 	/* MDB Initialized in native byte order */
-	InitMDB(defaults, driveInfo->totalSectors, mdbp);
+	InitMDB(defaults, (UInt32)driveInfo->totalSectors, mdbp);
 
 	
 	/*--- ZERO OUT BEGINNING OF DISK (bitmap and b-trees):  */
@@ -227,9 +257,7 @@ make_hfs(const DriveInfo *driveInfo,
 		diskBlocksUsed += MAX(sizeof(hfswrap_readme), mdbp->drAlBlkSiz) / kBytesPerSector;
 		diskBlocksUsed += MAX(24 * 1024, mdbp->drAlBlkSiz) / kBytesPerSector;
 	}
-	WriteBuffer(driveInfo, 0, diskBlocksUsed * kBytesPerSector, NULL);
-	/* also clear out last 8 sectors (4K) */
-	WriteBuffer(driveInfo, driveInfo->totalSectors - 8, 4 * 1024, NULL);
+	(void)dowipefs(driveInfo->fd);
 
 	/* If this is a wrapper, add boot files... */
 	if (defaults->flags & kMakeHFSWrapper) {
@@ -326,16 +354,16 @@ int
 make_hfsplus(const DriveInfo *driveInfo, hfsparams_t *defaults)
 {
 	UInt16			btNodeSize;
-	UInt32			sector;
 	UInt32			sectorsPerBlock;
-	UInt32			volumeBlocksUsed;
 	UInt32			mapNodes;
 	UInt32			sectorsPerNode;
+	UInt32			temp;
+	UInt32 			bytesUsed;
+	UInt32			endOfAttributes;
 	void			*nodeBuffer = NULL;
 	HFSPlusVolumeHeader	*header = NULL;
-	UInt32			temp;
-	UInt32			bits;
-	UInt32 			bytesUsed;
+	UInt64			sector;
+	UInt64			bytesToZero;
 
 	/* --- Create an HFS Plus header:  */
 
@@ -352,21 +380,31 @@ make_hfsplus(const DriveInfo *driveInfo, hfsparams_t *defaults)
 
 
 	/*--- ZERO OUT BEGINNING OF DISK:  */
+	/*
+	 * Clear out the space to be occupied by the bitmap and B-Trees.
+	 * The first chunk is the boot sectors, volume header, allocation bitmap,
+	 * journal, Extents B-tree, and Attributes B-tree (if any).
+	 * The second chunk is the Catalog B-tree.
+	 */
+	endOfAttributes = header->extentsFile.extents[0].startBlock +
+	                  header->extentsFile.extents[0].blockCount +
+	                  header->attributesFile.extents[0].blockCount;
+	bytesToZero = (UInt64) endOfAttributes * header->blockSize;
+	WriteBuffer(driveInfo, 0, bytesToZero, NULL);
 
-	volumeBlocksUsed = header->totalBlocks - header->freeBlocks - 1;
-	if ( header->blockSize == 512 )
-		volumeBlocksUsed--;
-	bytesUsed = ((header->totalBlocks - header->freeBlocks) * sectorsPerBlock) * kBytesPerSector;
-	WriteBuffer(driveInfo, 0, bytesUsed, NULL);
-	/* also clear out last 8 sectors (4K) */
-	WriteBuffer(driveInfo, driveInfo->totalSectors - 8, 4 * 1024, NULL);
+	bytesToZero = (UInt64) header->catalogFile.extents[0].blockCount * header->blockSize;
+	sector = header->catalogFile.extents[0].startBlock * sectorsPerBlock;
+	WriteBuffer(driveInfo, sector, bytesToZero, NULL);
+	
+	/* use wipefs() API to clear metadata from device */
+	(void) dowipefs(driveInfo->fd);
 
 	/*--- Allocate a buffer for the rest of our IO:  */
 
 	temp = Largest( defaults->catalogNodeSize * 2,
 			defaults->extentsNodeSize,
 			header->blockSize,
-			(header->totalBlocks - header->freeBlocks) / 8 );
+			(header->catalogFile.extents[0].startBlock + header->catalogFile.extents[0].blockCount + 7) / 8 );
 	/* 
 	 * If size is not a mutiple of 512, round up to nearest sector
 	 */
@@ -382,10 +420,13 @@ make_hfsplus(const DriveInfo *driveInfo, hfsparams_t *defaults)
 	/*--- WRITE ALLOCATION BITMAP BITS TO DISK:  */
 
 	sector = header->allocationFile.extents[0].startBlock * sectorsPerBlock;
-	bits = header->totalBlocks - header->freeBlocks;
-	bits -= (header->blockSize == 512) ? 2 : 1;
-	WriteBitmap(driveInfo, sector, bits, nodeBuffer);
-
+	bzero(nodeBuffer, temp);
+	AllocateExtent(nodeBuffer, 0, endOfAttributes);
+	AllocateExtent(nodeBuffer,
+	               header->catalogFile.extents[0].startBlock,
+	               header->catalogFile.extents[0].blockCount);
+	WriteBuffer(driveInfo, sector, temp, nodeBuffer);
+	
 	/*
 	 * Write alternate Volume Header bitmap bit to allocations file at
 	 * 2nd to last sector on HFS+ volume
@@ -395,7 +436,7 @@ make_hfsplus(const DriveInfo *driveInfo, hfsparams_t *defaults)
 	MarkBitInAllocationBuffer( header, header->totalBlocks - 1, nodeBuffer, &sector );
 
 	if ( header->blockSize == 512 ) {
-		UInt32	sector2;
+		UInt64	sector2;
 		MarkBitInAllocationBuffer( header, header->totalBlocks - 2,
 			nodeBuffer, &sector2 );
 		
@@ -422,10 +463,26 @@ make_hfsplus(const DriveInfo *driveInfo, hfsparams_t *defaults)
 	sector = header->extentsFile.extents[0].startBlock * sectorsPerBlock;
 	WriteExtentsFile(driveInfo, sector, defaults, NULL, nodeBuffer, &bytesUsed, &mapNodes);
 
-	if (mapNodes > 0)
+	if (mapNodes > 0) {
 		WriteMapNodes(driveInfo, (sector + bytesUsed/kBytesPerSector),
 			bytesUsed/btNodeSize, mapNodes, btNodeSize, nodeBuffer);
+	}
 
+	
+
+	/*--- WRITE FILE ATTRIBUTES B-TREE TO DISK:  */
+	if (defaults->attributesClumpSize) {
+
+		btNodeSize = defaults->attributesNodeSize;
+		sectorsPerNode = btNodeSize/kBytesPerSector;
+	
+		sector = header->attributesFile.extents[0].startBlock * sectorsPerBlock;
+		WriteAttributesFile(driveInfo, sector, defaults, NULL, nodeBuffer, &bytesUsed, &mapNodes);
+		if (mapNodes > 0) {
+			WriteMapNodes(driveInfo, (sector + bytesUsed/kBytesPerSector),
+				bytesUsed/btNodeSize, mapNodes, btNodeSize, nodeBuffer);
+		}
+	}
 	
 	/*--- WRITE CATALOG B-TREE TO DISK:  */
 	
@@ -435,14 +492,17 @@ make_hfsplus(const DriveInfo *driveInfo, hfsparams_t *defaults)
 	sector = header->catalogFile.extents[0].startBlock * sectorsPerBlock;
 	WriteCatalogFile(driveInfo, sector, defaults, header, nodeBuffer, &bytesUsed, &mapNodes);
 
-	if (mapNodes > 0)
+	if (mapNodes > 0) {
 		WriteMapNodes(driveInfo, (sector + bytesUsed/kBytesPerSector),
 			bytesUsed/btNodeSize, mapNodes, btNodeSize, nodeBuffer);
+	}
 
 	/*--- JOURNALING SETUP */
 	if (defaults->journaledHFS) {
 	    sector = header->journalInfoBlock * sectorsPerBlock;
-	    WriteJournalInfo(driveInfo, sector, defaults, header, nodeBuffer);
+	    if (WriteJournalInfo(driveInfo, sector, defaults, header, nodeBuffer) != 0) {
+		err(EINVAL, "Failed to create the journal");
+	    }
 	}
 	
 	/*--- WRITE VOLUME HEADER TO DISK:  */
@@ -596,8 +656,8 @@ InitMDB(hfsparams_t *defaults, UInt32 driveBlocks, HFS_MDB *mdbp)
 	/* Generate and write UUID for the HFS disk */
 	GenerateVolumeUUID(&newVolumeUUID);
 	finderInfoUUIDPtr = (VolumeUUID *)(&mdbp->drFndrInfo[6]);
-	finderInfoUUIDPtr->v.high = NXSwapHostLongToBig(newVolumeUUID.v.high); 
-	finderInfoUUIDPtr->v.low = NXSwapHostLongToBig(newVolumeUUID.v.low); 
+	finderInfoUUIDPtr->v.high = OSSwapHostToBigInt32(newVolumeUUID.v.high); 
+	finderInfoUUIDPtr->v.low = OSSwapHostToBigInt32(newVolumeUUID.v.low); 
 }
 
 
@@ -636,7 +696,15 @@ InitVH(hfsparams_t *defaults, UInt64 sectors, HFSPlusVolumeHeader *hp)
 	UInt32  nextBlock;
 	VolumeUUID	newVolumeUUID;	
 	VolumeUUID*	finderInfoUUIDPtr;
-	
+	UInt64	hotFileBandSize;
+	UInt64 volsize;
+
+/* 
+ * 2 MB is the minimum size for the new behavior with 
+ * space after the attr b-tree, and hotfile stuff. 
+ */
+#define MINVOLSIZE_WITHSPACE 2097152 
+
 	bzero(hp, kBytesPerSector);
 
 	blockSize = defaults->blockSize;
@@ -652,7 +720,8 @@ InitVH(hfsparams_t *defaults, UInt64 sectors, HFSPlusVolumeHeader *hp)
 	} else if ( blockSize == 1024 ) {
 		burnedBlocksBeforeVH = 1;
 	}
-
+	nextBlock = burnedBlocksBeforeVH + 1;		/* +1 for VH itself */
+	
 	bitmapBlocks = defaults->allocationClumpSize / blockSize;
 
 	/* note: add 2 for the Alternate VH, and VH */
@@ -665,7 +734,7 @@ InitVH(hfsparams_t *defaults, UInt64 sectors, HFSPlusVolumeHeader *hp)
 		hp->signature = kHFSPlusSigWord;
 		hp->version = kHFSPlusVersion;
 	}
-	hp->attributes = kHFSVolumeUnmountedMask;
+	hp->attributes = kHFSVolumeUnmountedMask | kHFSUnusedNodeFixMask;
 	hp->lastMountedVersion = kHFSPlusMountVersion;
 
 	/* NOTE: create date is in local time, not GMT!  */
@@ -681,6 +750,8 @@ InitVH(hfsparams_t *defaults, UInt64 sectors, HFSPlusVolumeHeader *hp)
 	hp->totalBlocks = blockCount;
 	hp->freeBlocks = blockCount;	/* will be adjusted at the end */
 
+	volsize = (UInt64) blockCount * (UInt64) blockSize;
+
 	hp->rsrcClumpSize = defaults->rsrcClumpSize;
 	hp->dataClumpSize = defaults->dataClumpSize;
 	hp->nextCatalogID = defaults->nextFreeFileID;
@@ -690,9 +761,10 @@ InitVH(hfsparams_t *defaults, UInt64 sectors, HFSPlusVolumeHeader *hp)
 	hp->allocationFile.clumpSize = defaults->allocationClumpSize;
 	hp->allocationFile.logicalSize = defaults->allocationClumpSize;
 	hp->allocationFile.totalBlocks = bitmapBlocks;
-  	hp->allocationFile.extents[0].startBlock = 1 + burnedBlocksBeforeVH;
+  	hp->allocationFile.extents[0].startBlock = nextBlock;
 	hp->allocationFile.extents[0].blockCount = bitmapBlocks;
-	
+	nextBlock += hp->allocationFile.extents[0].blockCount;
+
 	/* set up journal files */
 	if (defaults->journaledHFS) {
 		hp->fileCount           = 2;
@@ -700,17 +772,15 @@ InitVH(hfsparams_t *defaults, UInt64 sectors, HFSPlusVolumeHeader *hp)
 		hp->nextCatalogID      += 2;
 
 		/*
-		 * Allocate 1 block for the journalInfoBlock the
-		 * journal file size is pass in hfsparams_t
+		 * Allocate 1 block for the journalInfoBlock.  The
+		 * journal file size is passed in hfsparams_t.
 		 */
-	    hp->journalInfoBlock = hp->allocationFile.extents[0].startBlock +
-				   hp->allocationFile.extents[0].blockCount;
-	    blocksUsed += 1 + ((defaults->journalSize) / blockSize);
-	    nextBlock = hp->journalInfoBlock + 1 + (defaults->journalSize / blockSize);
+	    hp->journalInfoBlock = nextBlock;
+	    /*XXX What if journal is on a different device? */
+	    blocksUsed += 1 + ((defaults->journalSize+blockSize-1) / blockSize);
+	    nextBlock += 1 + ((defaults->journalSize+blockSize-1) / blockSize);
 	} else {
 	    hp->journalInfoBlock = 0;
-	    nextBlock = hp->allocationFile.extents[0].startBlock +
-			hp->allocationFile.extents[0].blockCount;
 	}
 
 	/* set up extents b-tree file */
@@ -720,33 +790,101 @@ InitVH(hfsparams_t *defaults, UInt64 sectors, HFSPlusVolumeHeader *hp)
 	hp->extentsFile.extents[0].startBlock = nextBlock;
 	hp->extentsFile.extents[0].blockCount = hp->extentsFile.totalBlocks;
 	blocksUsed += hp->extentsFile.totalBlocks;
-
+	nextBlock += hp->extentsFile.totalBlocks;
+	
+	/* set up attributes b-tree file */
+	if (defaults->attributesClumpSize) {
+		hp->attributesFile.clumpSize = defaults->attributesClumpSize;
+		hp->attributesFile.logicalSize = defaults->attributesClumpSize;
+		hp->attributesFile.totalBlocks = defaults->attributesClumpSize / blockSize;
+		hp->attributesFile.extents[0].startBlock = nextBlock;
+		hp->attributesFile.extents[0].blockCount = hp->attributesFile.totalBlocks;
+		blocksUsed += hp->attributesFile.totalBlocks;
+		nextBlock += hp->attributesFile.totalBlocks;
+		
+		/*
+		 * Leave some room for the Attributes B-tree to grow, if the volsize >= 2MB
+		 */
+		if (volsize >= MINVOLSIZE_WITHSPACE) {
+			nextBlock += 10 * (hp->attributesFile.clumpSize / blockSize);
+		}
+	}
 
 	/* set up catalog b-tree file */
 	hp->catalogFile.clumpSize = defaults->catalogClumpSize;
 	hp->catalogFile.logicalSize = defaults->catalogClumpSize;
 	hp->catalogFile.totalBlocks = defaults->catalogClumpSize / blockSize;
-	hp->catalogFile.extents[0].startBlock =
-		hp->extentsFile.extents[0].startBlock +
-		hp->extentsFile.extents[0].blockCount;
+	hp->catalogFile.extents[0].startBlock = nextBlock;
 	hp->catalogFile.extents[0].blockCount = hp->catalogFile.totalBlocks;
 	blocksUsed += hp->catalogFile.totalBlocks;
-
-	hp->freeBlocks -= blocksUsed;
+	nextBlock += hp->catalogFile.totalBlocks;
 	
 	/*
 	 * Add some room for the catalog file to grow...
 	 */
-	hp->nextAllocation = blocksUsed - 1 - burnedBlocksAfterAltVH +
-		10 * (hp->catalogFile.clumpSize / hp->blockSize);
+	nextBlock += 10 * (hp->catalogFile.clumpSize / hp->blockSize);
+
+	/*
+	 * Add some room for the hot file band.  This uses the same 5MB per GB
+	 * as the kernel.  The #defines below were copied from the kernel.  But again,
+	 * only do this if the volume is bigger than 2 MB. 
+	 */
+	if (volsize >= MINVOLSIZE_WITHSPACE) {
+#define HOTBAND_MINIMUM_SIZE  (10*1024*1024)
+#define HOTBAND_MAXIMUM_SIZE  (512*1024*1024)
+		hotFileBandSize = (UInt64) blockCount * blockSize / 1024 * 5;
+		if (hotFileBandSize > HOTBAND_MAXIMUM_SIZE)
+			hotFileBandSize = HOTBAND_MAXIMUM_SIZE;
+		else if (hotFileBandSize < HOTBAND_MINIMUM_SIZE)
+			hotFileBandSize = HOTBAND_MINIMUM_SIZE;
+		nextBlock += hotFileBandSize / blockSize;
+	}
+	hp->nextAllocation = nextBlock;
 	
+	/* Adjust free blocks to reflect everything we have allocated. */
+	hp->freeBlocks -= blocksUsed;
+
 	/* Generate and write UUID for the HFS+ disk */
 	GenerateVolumeUUID(&newVolumeUUID);
 	finderInfoUUIDPtr = (VolumeUUID *)(&hp->finderInfo[24]);
-	finderInfoUUIDPtr->v.high = NXSwapHostLongToBig(newVolumeUUID.v.high); 
-	finderInfoUUIDPtr->v.low = NXSwapHostLongToBig(newVolumeUUID.v.low); 
+	finderInfoUUIDPtr->v.high = OSSwapHostToBigInt32(newVolumeUUID.v.high); 
+	finderInfoUUIDPtr->v.low = OSSwapHostToBigInt32(newVolumeUUID.v.low); 
 }
 
+
+/*
+ * AllocateExtent
+ *
+ * Mark the given extent as in-use in the given bitmap buffer.
+ */
+static void AllocateExtent(UInt8 *buffer, UInt32 startBlock, UInt32 blockCount)
+{
+	UInt8 *p;
+	
+	/* Point to start of extent in bitmap buffer */
+	p = buffer + (startBlock / 8);
+	
+	/* Partial byte at start of extent */
+	if (startBlock & 7)
+	{
+		*(p++) |= 0xFF >> (startBlock & 7);
+		blockCount -= 8 - (startBlock & 7);
+	}
+	
+	/* Fill in whole bytes */
+	if (blockCount >= 8)
+	{
+		memset(p, 0xFF, blockCount / 8);
+		p += blockCount / 8;
+		blockCount &= 7;
+	}
+	
+	/* Partial byte at end of extent */
+	if (blockCount)
+	{
+		*(p++) |= 0xFF << (8 - blockCount);
+	}
+}
 
 /*
  * InitBitmap
@@ -755,12 +893,13 @@ InitVH(hfsparams_t *defaults, UInt64 sectors, HFSPlusVolumeHeader *hp)
  * that are in use have their corresponding bit set.
  * 
  * It assumes that initially there are no gaps between allocated blocks.
+ * Allocation blocks 0 through alBlksUsed-1 will be marked in-use.
  * 
  * It also assumes the buffer is big enough to hold all the bits
  * (ie its at least (alBlksUsed/8) bytes in size.
  */
 static void
-WriteBitmap(const DriveInfo *driveInfo, UInt32 startingSector,
+WriteBitmap(const DriveInfo *driveInfo, UInt64 startingSector,
         UInt32 alBlksUsed, UInt8 *buffer)
 {
 	UInt32	bytes, bits, bytesUsed;
@@ -792,7 +931,7 @@ WriteBitmap(const DriveInfo *driveInfo, UInt32 startingSector,
  * accessed through direct casting once it leaves this function.
  */
 static void
-WriteExtentsFile(const DriveInfo *driveInfo, UInt32 startingSector,
+WriteExtentsFile(const DriveInfo *driveInfo, UInt64 startingSector,
         const hfsparams_t *dp, HFSExtentDescriptor *bbextp, void *buffer,
         UInt32 *bytesUsed, UInt32 *mapNodes)
 {
@@ -943,30 +1082,214 @@ InitExtentsRoot(UInt16 btNodeSize, HFSExtentDescriptor *bbextp, void *buffer)
 	SETOFFSET(buffer, btNodeSize, offset, 2);
 }
 
+
+/*
+ * WriteAttributesFile
+ *
+ * Initializes and writes out the attributes b-tree file.
+ *
+ * Byte swapping is performed in place. The buffer should not be
+ * accessed through direct casting once it leaves this function.
+ */
 static void
-WriteJournalInfo(const DriveInfo *driveInfo, UInt32 startingSector,
+WriteAttributesFile(const DriveInfo *driveInfo, UInt64 startingSector,
+        const hfsparams_t *dp, HFSExtentDescriptor *bbextp, void *buffer,
+        UInt32 *bytesUsed, UInt32 *mapNodes)
+{
+	BTNodeDescriptor	*ndp;
+	BTHeaderRec		*bthp;
+	UInt8			*bmp;
+	UInt32			nodeBitsInHeader;
+	UInt32			fileSize;
+	UInt32			nodeSize;
+	UInt32			temp;
+	SInt16			offset;
+
+	*mapNodes = 0;
+	fileSize = dp->attributesClumpSize;
+	nodeSize = dp->attributesNodeSize;
+
+	bzero(buffer, nodeSize);
+
+
+	/* FILL IN THE NODE DESCRIPTOR:  */
+	ndp = (BTNodeDescriptor *)buffer;
+	ndp->kind			= kBTHeaderNode;
+	ndp->numRecords		= SWAP_BE16 (3);
+	offset = sizeof(BTNodeDescriptor);
+
+	SETOFFSET(buffer, nodeSize, offset, 1);
+
+
+	/* FILL IN THE HEADER RECORD:  */
+	bthp = (BTHeaderRec *)((UInt8 *)buffer + offset);
+    //	bthp->treeDepth		= 0;
+    //	bthp->rootNode		= 0;
+    //	bthp->firstLeafNode	= 0;
+    //	bthp->lastLeafNode	= 0;
+    //	bthp->leafRecords	= 0;
+	bthp->nodeSize		= SWAP_BE16 (nodeSize);
+	bthp->totalNodes	= SWAP_BE32 (fileSize / nodeSize);
+	bthp->freeNodes		= SWAP_BE32 (SWAP_BE32 (bthp->totalNodes) - 1);  /* header */
+	bthp->clumpSize		= SWAP_BE32 (fileSize);
+
+	bthp->attributes |= SWAP_BE32 (kBTBigKeysMask);
+	bthp->maxKeyLength = SWAP_BE16 (kHFSPlusAttrKeyMaximumLength);
+
+	offset += sizeof(BTHeaderRec);
+
+	SETOFFSET(buffer, nodeSize, offset, 2);
+
+	offset += kBTreeHeaderUserBytes;
+
+	SETOFFSET(buffer, nodeSize, offset, 3);
+
+
+	/* FIGURE OUT HOW MANY MAP NODES (IF ANY):  */
+	nodeBitsInHeader = 8 * (nodeSize
+					- sizeof(BTNodeDescriptor)
+					- sizeof(BTHeaderRec)
+					- kBTreeHeaderUserBytes
+					- (4 * sizeof(SInt16)) );
+	if (SWAP_BE32 (bthp->totalNodes) > nodeBitsInHeader) {
+		UInt32	nodeBitsInMapNode;
+		
+		ndp->fLink		= SWAP_BE32 (SWAP_BE32 (bthp->lastLeafNode) + 1);
+		nodeBitsInMapNode = 8 * (nodeSize
+						- sizeof(BTNodeDescriptor)
+						- (2 * sizeof(SInt16))
+						- 2 );
+		*mapNodes = (SWAP_BE32 (bthp->totalNodes) - nodeBitsInHeader +
+			(nodeBitsInMapNode - 1)) / nodeBitsInMapNode;
+		bthp->freeNodes = SWAP_BE32 (SWAP_BE32 (bthp->freeNodes) - *mapNodes);
+	}
+
+
+	/* 
+	 * FILL IN THE MAP RECORD, MARKING NODES THAT ARE IN USE.
+	 * Note - worst case (32MB alloc blk) will have only 18 nodes in use.
+	 */
+	bmp = ((UInt8 *)buffer + offset);
+	temp = SWAP_BE32 (bthp->totalNodes) - SWAP_BE32 (bthp->freeNodes);
+
+	/* Working a byte at a time is endian safe */
+	while (temp >= 8) { *bmp = 0xFF; temp -= 8; bmp++; }
+	*bmp = ~(0xFF >> temp);
+	offset += nodeBitsInHeader/8;
+
+	SETOFFSET(buffer, nodeSize, offset, 4);
+
+	*bytesUsed = (SWAP_BE32 (bthp->totalNodes) - SWAP_BE32 (bthp->freeNodes) - *mapNodes) * nodeSize;
+	WriteBuffer(driveInfo, startingSector, *bytesUsed, buffer);
+}
+
+
+static int
+get_dev_uuid(const char *disk_name, char *dev_uuid_str, int dev_uuid_len)
+{
+    DADiskRef dref;
+    CFDictionaryRef description;
+    CFUUIDRef dev_uuid;
+    CFStringRef uuid_str;
+    int ret = EINVAL;
+    DASessionRef session;
+
+    session = DASessionCreate(kCFAllocatorDefault);
+    if (session == NULL) {
+	printf("Could not create a diskarb session.\n");
+	return EINVAL;
+    }
+
+    dev_uuid_str[0] = '\0';
+
+    dref =  DADiskCreateFromBSDName(NULL, session, disk_name);
+    if (dref != NULL) {
+	description = DADiskCopyDescription(dref);
+	if (description != NULL) {
+	    dev_uuid = CFDictionaryGetValue(description, kDADiskDescriptionMediaUUIDKey);
+	    if (dev_uuid != NULL) {
+		uuid_str = CFUUIDCreateString(NULL, dev_uuid);
+		if (uuid_str) {
+		    if (CFStringGetFileSystemRepresentation(uuid_str, dev_uuid_str, dev_uuid_len) != 0) {
+			ret = 0;
+		    }
+		    CFRelease(uuid_str);
+		}
+	    }
+	    CFRelease(description);
+	}
+	CFRelease(dref);
+    }
+
+    CFRelease(session);
+    
+    return ret;
+}
+
+static int
+clear_journal_dev(const char *dev_name)
+{
+    int fd;
+
+    fd = open(dev_name, O_RDWR);
+    if (fd < 0) {
+	printf("Failed to open the journal device %s (%s)\n", dev_name, strerror(errno));
+	return -1;
+    }
+
+    dowipefs(fd);
+
+    close(fd);
+    return 0;
+}
+
+
+static int
+WriteJournalInfo(const DriveInfo *driveInfo, UInt64 startingSector,
 		 const hfsparams_t *dp, HFSPlusVolumeHeader *header,
 		 void *buffer)
 {
     JournalInfoBlock *jibp = buffer;
     
-    memset(buffer, 0xdb, header->blockSize);
+    memset(buffer, 0xdb, driveInfo->physSectorSize);
     memset(jibp, 0, sizeof(JournalInfoBlock));
     
-    jibp->flags   = kJIJournalInFSMask;
+    if (dp->journalDevice) {
+	char uuid_str[64];
+
+	if (get_dev_uuid(dp->journalDevice, uuid_str, sizeof(uuid_str)) == 0) {
+	    strlcpy((char *)&jibp->reserved[0], uuid_str, sizeof(jibp->reserved));
+	    
+	    // we also need to blast out some zeros to the journal device
+	    // in case it had a file system on it previously.  that way
+	    // it's "initialized" in the sense that the previous contents
+	    // won't get mounted accidently.  if this fails we'll bail out.
+	    if (clear_journal_dev(dp->journalDevice) != 0) {
+		return -1;
+	    }
+	} else {
+	    printf("FAILED to get the device uuid for device %s\n", dp->journalDevice);
+	    strlcpy((char *)&jibp->reserved[0], "NO-DEV-UUID", sizeof(jibp->reserved));
+	    return -1;
+	}
+    } else {
+	jibp->flags = kJIJournalInFSMask;
+    }
     jibp->flags  |= kJIJournalNeedInitMask;
-    jibp->offset  = (header->journalInfoBlock + 1) * header->blockSize;
+    jibp->offset  = ((UInt64) header->journalInfoBlock + 1) * header->blockSize;
     jibp->size    = dp->journalSize;
 
     jibp->flags  = SWAP_BE32(jibp->flags);
     jibp->offset = SWAP_BE64(jibp->offset);
     jibp->size   = SWAP_BE64(jibp->size);
     
-    WriteBuffer(driveInfo, startingSector, header->blockSize, buffer);
+    WriteBuffer(driveInfo, startingSector, driveInfo->physSectorSize, buffer);
 
     jibp->flags  = SWAP_BE32(jibp->flags);
     jibp->offset = SWAP_BE64(jibp->offset);
     jibp->size   = SWAP_BE64(jibp->size);
+
+    return 0;
 }
 
 
@@ -979,7 +1302,7 @@ WriteJournalInfo(const DriveInfo *driveInfo, UInt32 startingSector,
  * might need to have map nodes setup.
  */
 static void
-WriteCatalogFile(const DriveInfo *driveInfo, UInt32 startingSector,
+WriteCatalogFile(const DriveInfo *driveInfo, UInt64 startingSector,
         const hfsparams_t *dp, HFSPlusVolumeHeader *header, void *buffer,
         UInt32 *bytesUsed, UInt32 *mapNodes)
 {
@@ -1110,7 +1433,7 @@ InitCatalogRoot_HFSPlus(const hfsparams_t *dp, const HFSPlusVolumeHeader *header
 	HFSPlusCatalogThread	*ctp;
 	UInt16					nodeSize;
 	SInt16					offset;
-	UInt32					unicodeBytes;
+	size_t					unicodeBytes;
 	UInt8 canonicalName[256];
 	CFStringRef cfstr;
 	Boolean	cfOK;
@@ -1201,7 +1524,7 @@ InitCatalogRoot_HFSPlus(const hfsparams_t *dp, const HFSPlusVolumeHeader *header
 	 */
 	if (dp->journaledHFS) {
 		struct HFSUniStr255 *nodename1, *nodename2;
-		int uBytes1, uBytes2;
+		size_t uBytes1, uBytes2;
 
 		/* File record #1 */
 		ckp = (HFSPlusCatalogKey *)((UInt8 *)buffer + offset);
@@ -1227,7 +1550,7 @@ InitCatalogRoot_HFSPlus(const hfsparams_t *dp, const HFSPlusVolumeHeader *header
 		cfp->userInfo.fdCreator	  = SWAP_BE32 (kHFSPlusCreator);
 		cfp->userInfo.fdFlags     = SWAP_BE16 (kIsInvisible + kNameLocked);
 		cfp->dataFork.logicalSize = SWAP_BE64 (dp->journalSize);
-		cfp->dataFork.totalBlocks = SWAP_BE32 (dp->journalSize / dp->blockSize);
+		cfp->dataFork.totalBlocks = SWAP_BE32 ((dp->journalSize+dp->blockSize-1) / dp->blockSize);
 
 		cfp->dataFork.extents[0].startBlock = SWAP_BE32 (header->journalInfoBlock + 1);
 		cfp->dataFork.extents[0].blockCount = cfp->dataFork.totalBlocks;
@@ -1586,7 +1909,7 @@ InitCatalogRoot_HFS(const hfsparams_t *dp, void * buffer)
 
 static void
 WriteDesktopDB(const hfsparams_t *dp, const DriveInfo *driveInfo,
-               UInt32 startingSector, void *buffer, UInt32 *mapNodes)
+               UInt64 startingSector, void *buffer, UInt32 *mapNodes)
 {
 	BTNodeDescriptor *ndp;
 	BTHeaderRec	*bthp;
@@ -1676,7 +1999,7 @@ WriteDesktopDB(const hfsparams_t *dp, const DriveInfo *driveInfo,
 
 
 static void
-WriteSystemFile(const DriveInfo *dip, UInt32 startingSector, UInt32 *filesize)
+WriteSystemFile(const DriveInfo *dip, UInt64 startingSector, UInt32 *filesize)
 {
 	int fd;
 	ssize_t	datasize, writesize;
@@ -1686,11 +2009,11 @@ WriteSystemFile(const DriveInfo *dip, UInt32 startingSector, UInt32 *filesize)
 	if (stat(HFS_BOOT_DATA, &stbuf) < 0)
 		err(1, "stat %s", HFS_BOOT_DATA);
 	
+	if (stbuf.st_size > (64 * 1024))
+		errx(1, "hfsbootdata file too big.");
+
 	datasize = stbuf.st_size;
 	writesize = ROUNDUP(datasize, dip->sectorSize);
-
-	if (datasize > (64 * 1024))
-		errx(1, "hfsbootdata file too big.");
 
 	if ((buf = malloc(writesize)) == NULL)
 		err(1, NULL);
@@ -1719,7 +2042,7 @@ WriteSystemFile(const DriveInfo *dip, UInt32 startingSector, UInt32 *filesize)
 
 
 static void
-WriteReadMeFile(const DriveInfo *dip, UInt32 startingSector, UInt32 *filesize)
+WriteReadMeFile(const DriveInfo *dip, UInt64 startingSector, UInt32 *filesize)
 {
 	ssize_t	datasize, writesize;
 	UInt8 *buf;
@@ -1746,7 +2069,7 @@ WriteReadMeFile(const DriveInfo *dip, UInt32 startingSector, UInt32 *filesize)
  * Initializes a B-tree map node and writes it out to disk.
  */
 static void
-WriteMapNodes(const DriveInfo *driveInfo, UInt32 diskStart, UInt32 firstMapNode,
+WriteMapNodes(const DriveInfo *driveInfo, UInt64 diskStart, UInt32 firstMapNode,
 	UInt32 mapNodes, UInt16 btNodeSize, void *buffer)
 {
 	UInt32	sectorsPerNode;
@@ -1760,7 +2083,7 @@ WriteMapNodes(const DriveInfo *driveInfo, UInt32 diskStart, UInt32 firstMapNode,
 	nd->numRecords	= SWAP_BE16 (1);
 	
 	/* note: must belong word aligned (hence the extra -2) */
-	mapRecordBytes = btNodeSize - sizeof(BTNodeDescriptor) - 2*sizeof(SInt16) - 2;	
+	mapRecordBytes = btNodeSize - sizeof(BTNodeDescriptor) - 2*sizeof(SInt16) - 2;  
 
 	SETOFFSET(buffer, btNodeSize, sizeof(BTNodeDescriptor), 1);
 	SETOFFSET(buffer, btNodeSize, sizeof(BTNodeDescriptor) + mapRecordBytes, 2);
@@ -1792,7 +2115,7 @@ WriteMapNodes(const DriveInfo *driveInfo, UInt32 diskStart, UInt32 firstMapNode,
  * @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
  */
 static void
-WriteBuffer(const DriveInfo *driveInfo, UInt64 startingSector, UInt32 byteCount,
+WriteBuffer(const DriveInfo *driveInfo, UInt64 startingSector, UInt64 byteCount,
 	const void *buffer)
 {
 	off_t sector;
@@ -1919,7 +2242,7 @@ static UInt32 Largest( UInt32 a, UInt32 b, UInt32 c, UInt32 d )
  * bitmap bit, and return the sector number the block belongs in.
  */
 static void MarkBitInAllocationBuffer( HFSPlusVolumeHeader *header,
-	UInt32 allocationBlock, void* sectorBuffer, UInt32 *sector )
+	UInt32 allocationBlock, void* sectorBuffer, UInt64 *sector )
 {
 
 	UInt8 *byteP;
@@ -1987,8 +2310,8 @@ GetDefaultEncoding()
         char buffer[MAXPATHLEN + 1];
         int fd;
 
-        strcpy(buffer, passwdp->pw_dir);
-        strcat(buffer, __kCFUserEncodingFileName);
+        strlcpy(buffer, passwdp->pw_dir, sizeof(buffer));
+        strlcat(buffer, __kCFUserEncodingFileName, sizeof(buffer));
 
         if ((fd = open(buffer, O_RDONLY, 0)) > 0) {
             size_t readSize;
@@ -2004,7 +2327,7 @@ GetDefaultEncoding()
 
 
 static int
-ConvertUTF8toUnicode(const UInt8* source, UInt32 bufsize, UniChar* unibuf,
+ConvertUTF8toUnicode(const UInt8* source, size_t bufsize, UniChar* unibuf,
 	UInt16 *charcount)
 {
 	UInt8 byte;

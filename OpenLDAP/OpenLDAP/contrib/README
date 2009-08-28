@@ -11,8 +11,12 @@ Current contributions:
 		LDAP C++ API
 		Contributed by SuSE Gmbh.
 
+	ldaptcl
+		LDAP TCL API
+		Contributed by NeoSoft
+
 	slapd-modules
-		Native modules
+		Native-API modules
 
 	slapd-tools
 		Tools to use with slapd
@@ -24,4 +28,4 @@ Current contributions:
 OpenLDAP Contributing Guidelines are available at:
   <http://www.openldap.org/devel/contributing.html>.
 
-$OpenLDAP: pkg/ldap/contrib/README,v 1.14.2.6 2005/04/29 21:28:59 kurt Exp $
+$OpenLDAP: pkg/ldap/contrib/README,v 1.19 2006/01/25 21:13:14 kurt Exp $

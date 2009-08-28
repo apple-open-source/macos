@@ -1,0 +1,73 @@
+<!-- #bbinclude "header.txt"
+  #PAGETITLE#="Kerberos Errors"
+  #BASEHREF#="" 
+-->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN"
+			"http://www.w3.org/TR/REC-html40/loose.dtd">
+<HTML>
+<HEAD> 
+	<BASE HREF="http://web.mit.edu/macdev/KfM/KerberosFramework/KerberosErrors/Documentation/index.html">
+  	<META NAME="keywords" CONTENT="#KEYWORDS#">
+	<META NAME="description" CONTENT="#DESCRIPTION#">
+	<TITLE>Kerberos Errors</TITLE> 
+	<STYLE TYPE="text/css">
+		@import url(../../../Common/Documentation/templates/site.css);
+	</STYLE>
+</HEAD>
+<BODY>
+
+<DIV ID="menu">
+<IMG SRC="../../../Common/Documentation/graphics/Kerberos.jpg" ALT="Kerberos for Macintosh Logo">
+<HR>
+<P><A HREF="../../../Common/Documentation/index.html">Home</A></P>
+<P><A HREF="http://web.mit.edu/kerberos/">MIT Kerberos</A></P>
+<P><A HREF="http://web.mit.edu/ist/">MIT IS&amp;T</A></P>
+<HR>
+<P><A HREF="../../../Common/Documentation/news.html">News</A></P>
+<P><A HREF="../../../Common/Documentation/documentation.html">Documentation</A></P>
+<P><A HREF="../../../Common/Documentation/developer.html">Developer Resources</A></P>
+<P><A HREF="../../../Common/Documentation/license.html">License</A></P>
+<HR>
+<P><A HREF="../../../Common/Documentation/download.html">Download</A></P>
+<P><A HREF="../../../Common/Documentation/support.html">Support</A></P>
+<P><A HREF="../../../Common/Documentation/contact.html">Contact Us</A></P>
+</DIV>
+<DIV ID="body">
+<!-- end bbinclude -->
+<!-- #bbinclude "icon.txt" #ICON#="../../../Common/Documentation/graphics/ThreeHeadsAndKey.gif" 
+	#TEXT#="<H2>Kerberos Errors</H2>" -->
+<TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0>
+   <TR VALIGN=middle>
+      <TD ALIGN=center> <IMG CLASS=icon SRC="../../../Common/Documentation/graphics/ThreeHeadsAndKey.gif" ALT="An icon image (description text to the right)" WIDTH=32 HEIGHT=32> </TD>
+      <TD ALIGN=left> <H2>Kerberos Errors</H2> </TD>
+   </TR>
+</TABLE>
+<!-- end bbinclude -->
+
+<P>The Kerberos Errors API is a Mac OS X version of the com_err API used by
+Kerberos on Unix platforms.  It has been augmented to use CFBundle string lists
+so Kerberos error codes can be localized.</P>
+
+<P> Kerberos Errors also ships with its own compile_et which generates a strings 
+list which should be appended onto the InfoPlist.strings file in your bundle.<P>
+
+<P> <A HREF="api.html">Kerberos Errors API Specification</A></P>
+
+<P> Please read the Kerberos Errors <A HREF="Bugs">Bugs List</A> and 
+<A HREF="Version%20history">Version History</A> for information
+on the latest release of Kerberos Errors.</P>
+
+<!-- #bbinclude "footer.txt" -->
+</DIV>
+<DIV ID="footer">
+	<P>
+		Copyright 2007 Massachusetts Institute of Technology.<BR>
+		Last updated on $Date: 2007-08-27 16:27:32 -0400 (Mon, 27 Aug 2007) $ <BR> 
+		Last modified by $Author: lxs $ 
+	</P>
+</DIV>
+<!-- Begin MIT-use only web reporting counter -->
+	<IMG SRC="http://counter.mit.edu/tally" WIDTH=1 HEIGHT=1 ALT="">
+<!-- End MIT-use only web reporting counter -->
+</BODY></HTML>
+<!-- end bbinclude -->

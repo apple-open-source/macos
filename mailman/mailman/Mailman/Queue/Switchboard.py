@@ -1,4 +1,4 @@
-# Copyright (C) 2001-2006 by the Free Software Foundation, Inc.
+# Copyright (C) 2001-2008 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -35,7 +35,6 @@
 # needs.
 
 import os
-import sha
 import time
 import email
 import errno
@@ -46,6 +45,7 @@ from Mailman import mm_cfg
 from Mailman import Utils
 from Mailman import Message
 from Mailman.Logging.Syslog import syslog
+from Mailman.Utils import sha_new
 
 # 20 bytes of all bits set, maximum sha.digest() value
 shamax = 0xffffffffffffffffffffffffffffffffffffffffL
@@ -63,6 +63,10 @@ SAVE_MSGS_AS_PICKLES = True
 # Small increment to add to time in case two entries have the same time.  This
 # prevents skipping one of two entries with the same time until the next pass.
 DELTA = .0001
+# We count the number of times a file has been moved to .bak and recovered.
+# In order to prevent loops and a message flood, when the count reaches this
+# value, we move the file to the shunt queue as a .psv.
+MAX_BAK_COUNT = 3
 
 
 
@@ -114,7 +118,7 @@ class Switchboard:
         # this system) and the sha hex digest.
         #rcvtime = data.setdefault('received_time', now)
         rcvtime = data.setdefault('received_time', now)
-        filebase = `rcvtime` + '+' + sha.new(hashfood).hexdigest()
+        filebase = `rcvtime` + '+' + sha_new(hashfood).hexdigest()
         filename = os.path.join(self.__whichq, filebase + '.pck')
         tmpfile = filename + '.tmp'
         # Always add the metadata schema version number
@@ -150,10 +154,7 @@ class Switchboard:
         fp = open(filename)
         # Move the file to the backup file name for processing.  If this
         # process crashes uncleanly the .bak file will be used to re-instate
-        # the .pck file in order to try again.  XXX what if something caused
-        # Python to constantly crash?  Is it possible that we'd end up mail
-        # bombing recipients or crushing the archiver?  How would we defend
-        # against that?
+        # the .pck file in order to try again.
         os.rename(filename, backfile)
         try:
             msg = cPickle.load(fp)
@@ -164,12 +165,27 @@ class Switchboard:
             msg = email.message_from_string(msg, Message.Message)
         return msg, data
 
-    def finish(self, filebase):
+    def finish(self, filebase, preserve=False):
         bakfile = os.path.join(self.__whichq, filebase + '.bak')
         try:
-            os.unlink(bakfile)
+            if preserve:
+                psvfile = os.path.join(mm_cfg.BADQUEUE_DIR, filebase + '.psv')
+                # Create the directory if it doesn't yet exist.
+                # Copied from __init__.
+                omask = os.umask(0)                       # rwxrws---
+                try:
+                    try:
+                        os.mkdir(mm_cfg.BADQUEUE_DIR, 0770)
+                    except OSError, e:
+                        if e.errno <> errno.EEXIST: raise
+                finally:
+                    os.umask(omask)
+                os.rename(bakfile, psvfile)
+            else:
+                os.unlink(bakfile)
         except EnvironmentError, e:
-            syslog('error', 'Failed to unlink backup file: %s', bakfile)
+            syslog('error', 'Failed to unlink/preserve backup file: %s',
+                   bakfile)
 
     def files(self, extension='.pck'):
         times = {}
@@ -198,8 +214,42 @@ class Switchboard:
     def recover_backup_files(self):
         # Move all .bak files in our slice to .pck.  It's impossible for both
         # to exist at the same time, so the move is enough to ensure that our
-        # normal dequeuing process will handle them.
+        # normal dequeuing process will handle them.  We keep count in
+        # _bak_count in the metadata of the number of times we recover this
+        # file.  When the count reaches MAX_BAK_COUNT, we move the .bak file
+        # to a .psv file in the shunt queue.
         for filebase in self.files('.bak'):
             src = os.path.join(self.__whichq, filebase + '.bak')
             dst = os.path.join(self.__whichq, filebase + '.pck')
-            os.rename(src, dst)
+            fp = open(src, 'rb+')
+            try:
+                try:
+                    msg = cPickle.load(fp)
+                    data_pos = fp.tell()
+                    data = cPickle.load(fp)
+                except Exception, s:
+                    # If unpickling throws any exception, just log and
+                    # preserve this entry
+                    syslog('error', 'Unpickling .bak exception: %s\n'
+                           + 'preserving file: %s', s, filebase)
+                    self.finish(filebase, preserve=True)
+                else:
+                    data['_bak_count'] = data.setdefault('_bak_count', 0) + 1
+                    fp.seek(data_pos)
+                    if data.get('_parsemsg'):
+                        protocol = 0
+                    else:
+                        protocol = 1
+                    cPickle.dump(data, fp, protocol)
+                    fp.truncate()
+                    fp.flush()
+                    os.fsync(fp.fileno())
+                    if data['_bak_count'] >= MAX_BAK_COUNT:
+                        syslog('error',
+                               '.bak file max count, preserving file: %s',
+                               filebase)
+                        self.finish(filebase, preserve=True)
+                    else:
+                        os.rename(src, dst)
+            finally:
+                fp.close()

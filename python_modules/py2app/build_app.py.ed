@@ -1,3 +1,4 @@
+/self.semi_standalone = is_system()/s/is_system()/False/
 /mm\.mm\.run_file(runtime)/a
                     # always copy the system runtime
                     if runtime.startswith('/System/Library/Frameworks/Python.framework'):

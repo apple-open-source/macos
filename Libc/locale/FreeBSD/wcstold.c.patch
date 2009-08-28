@@ -1,6 +1,6 @@
---- wcstold.c.orig	2007-03-16 01:15:20.000000000 -0700
-+++ wcstold.c	2007-03-16 03:04:39.000000000 -0700
-@@ -27,44 +27,64 @@
+--- wcstold.c.orig	2008-10-09 11:50:53.000000000 -0700
++++ wcstold.c	2008-10-29 00:51:34.000000000 -0700
+@@ -27,44 +27,67 @@
  #include <sys/cdefs.h>
  __FBSDID("$FreeBSD: src/lib/libc/locale/wcstold.c,v 1.4 2004/04/07 09:47:56 tjr Exp $");
  
@@ -14,6 +14,9 @@
  /*
   * See wcstod() for comments as to the logic used.
   */
++
++extern size_t __wcs_end_offset(const char * __restrict buf, const char * __restrict end, locale_t loc);
++
  long double
 -wcstold(const wchar_t * __restrict nptr, wchar_t ** __restrict endptr)
 +wcstold_l(const wchar_t * __restrict nptr, wchar_t ** __restrict endptr,
@@ -67,7 +70,7 @@
  
  	if (endptr != NULL)
 -		*endptr = (wchar_t *)nptr + (end - buf);
-+		*endptr = (end == buf) ? (wchar_t *)nptr0 : ((wchar_t *)first + (end - buf));
++		*endptr = (end == buf) ? (wchar_t *)nptr0 : ((wchar_t *)first + __wcs_end_offset(buf, end, loc));
  
 -	free(buf);
 +	_simple_sfree(b);

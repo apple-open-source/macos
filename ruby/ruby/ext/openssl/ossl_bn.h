@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_bn.h 11708 2007-02-12 23:01:19Z shyouhei $
+ * $Id: ossl_bn.h 12496 2007-06-08 15:02:04Z technorama $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -14,9 +14,12 @@
 extern VALUE cBN;
 extern VALUE eBNError;
 
-VALUE ossl_bn_new(BIGNUM *);
+extern BN_CTX *ossl_bn_ctx;
+
+VALUE ossl_bn_new(const BIGNUM *);
 BIGNUM *GetBNPtr(VALUE);
 void Init_ossl_bn(void);
+
 
 #endif /* _OSS_BN_H_ */
 

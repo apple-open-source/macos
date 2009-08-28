@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2001-2005, International Business Machines
+*   Copyright (C) 2001-2008, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -26,23 +26,13 @@
 #include "unicode/translit.h"
 #include "ucase.h"
 
-U_CDECL_BEGIN
-
-typedef int32_t U_CALLCONV
-UCaseMapFull(const UCaseProps *csp, UChar32 c,
-             UCaseContextIterator *iter, void *context,
-             const UChar **pString,
-             const char *locale, int32_t *locCache);
-
-U_CDECL_END
-
 U_NAMESPACE_BEGIN
 
 /**
  * A transliterator that performs locale-sensitive
  * case mapping.
  */
-class U_I18N_API CaseMapTransliterator : public Transliterator {
+class CaseMapTransliterator : public Transliterator {
 public:
     /**
      * Constructs a transliterator.
@@ -63,25 +53,20 @@ public:
     CaseMapTransliterator(const CaseMapTransliterator&);
 
     /**
-     * Assignment operator.
-     */
-    CaseMapTransliterator& operator=(const CaseMapTransliterator&);
-
-    /**
      * Transliterator API.
      * @return a copy of the object.
      */
-    virtual Transliterator* clone(void) const;
+    virtual Transliterator* clone(void) const = 0;
 
     /**
      * ICU "poor man's RTTI", returns a UClassID for the actual class.
      */
-    virtual UClassID getDynamicClassID() const;
+    //virtual UClassID getDynamicClassID() const;
 
     /**
      * ICU "poor man's RTTI", returns a UClassID for this class.
      */
-    static UClassID U_EXPORT2 getStaticClassID();
+    U_I18N_API static UClassID U_EXPORT2 getStaticClassID();
 
 protected:
     /**
@@ -99,6 +84,13 @@ protected:
 
     const UCaseProps *fCsp;
     UCaseMapFull *fMap;
+
+private:
+    /**
+     * Assignment operator.
+     */
+    CaseMapTransliterator& operator=(const CaseMapTransliterator&);
+
 };
 
 U_NAMESPACE_END

@@ -2,8 +2,8 @@
  * ntfs_unistr.h - Defines for Unicode string handling in the NTFS kernel
  *		   driver.
  *
- * Copyright (c) 2006, 2007 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006, 2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2008 Anton Altaparmakov.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2008 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -44,13 +44,13 @@
 #include "ntfs_volume.h"
 
 __private_extern__ BOOL ntfs_are_names_equal(const ntfschar *s1, size_t s1_len,
-		const ntfschar *s2, size_t s2_len, const IGNORE_CASE_BOOL ic,
+		const ntfschar *s2, size_t s2_len, const BOOL case_sensitive,
 		const ntfschar *upcase, const u32 upcase_len);
 
 __private_extern__ int ntfs_collate_names(const ntfschar *name1,
 		const u32 name1_len, const ntfschar *name2,
 		const u32 name2_len, const int err_val,
-		const IGNORE_CASE_BOOL ic, const ntfschar *upcase,
+		const BOOL case_sensitive, const ntfschar *upcase,
 		const u32 upcase_len);
 
 __private_extern__ int ntfs_ucsncmp(const ntfschar *s1, const ntfschar *s2,
@@ -70,14 +70,14 @@ static inline void ntfs_file_upcase_value(FILENAME_ATTR *filename_attr,
 
 static inline int ntfs_file_compare_values(FILENAME_ATTR *filename_attr1,
 		FILENAME_ATTR *filename_attr2, const int err_val,
-		const IGNORE_CASE_BOOL ic, const ntfschar *upcase,
+		const BOOL case_sensitive, const ntfschar *upcase,
 		const u32 upcase_len)
 {
 	return ntfs_collate_names((ntfschar*)&filename_attr1->filename,
 			filename_attr1->filename_length,
 			(ntfschar*)&filename_attr2->filename,
 			filename_attr2->filename_length,
-			err_val, ic, upcase, upcase_len);
+			err_val, case_sensitive, upcase, upcase_len);
 }
 
 __private_extern__ signed ntfs_to_utf8(const ntfs_volume *vol,
@@ -86,5 +86,7 @@ __private_extern__ signed ntfs_to_utf8(const ntfs_volume *vol,
 
 __private_extern__ signed utf8_to_ntfs(const ntfs_volume *vol, const u8 *ins,
 		const size_t ins_size, ntfschar **outs, size_t *outs_size);
+
+__private_extern__ void ntfs_upcase_table_generate(ntfschar *uc, int uc_size);
 
 #endif /* !_OSX_NTFS_UNISTR_H */

@@ -31,12 +31,16 @@
 
 
 #define PPTP_NKE	"PPTP.kext"
+#define PPTP_NKE_ID	"com.apple.nke.pptp"
 
 /* PPTP exit codes */
 #define EXIT_PPTP_NOSERVER  		1
 #define EXIT_PPTP_NOANSWER  		2
 #define EXIT_PPTP_PROTOCOLERROR 	5
 #define EXIT_PPTP_NETWORKCHANGED 	6
+#ifdef TARGET_EMBEDDED_OS
+#define EXIT_PPTP_NOEDGE			7
+#endif
 
 /* define pptp messages */
 #define PPTP_CONTROL_MSG	1

@@ -1,0 +1,33 @@
+Minor verification errors in smb.conf.5 due to unescaped backslashes.
+
+Index: samba/docs/manpages/smb.conf.5
+===================================================================
+--- samba/docs/manpages/smb.conf.5.orig
++++ samba/docs/manpages/smb.conf.5
+@@ -4933,13 +4933,13 @@ passwd program must be executed on the N
+ .sp
+ The string can contain the macro
+ \fI%n\fR
+-which is substituted for the new password. The chat sequence can also contain the standard macros \n, \r, \t and \s to give line-feed, carriage-return, tab and space. The chat sequence string can also contain a '*' which matches any sequence of characters. Double quotes can be used to collect strings with spaces in them into a single string.
++which is substituted for the new password. The chat sequence can also contain the standard macros \\n, \\r, \\t and \\s to give line-feed, carriage-return, tab and space. The chat sequence string can also contain a '*' which matches any sequence of characters. Double quotes can be used to collect strings with spaces in them into a single string.
+ .sp
+ If the send string in any part of the chat sequence is a full stop ".", then no string is sent. Similarly, if the expect string is a full stop then no string is expected.
+ .sp
+ If the
+ pam password change parameter is set to
+-\fByes\fR, the chat pairs may be matched in any order, and success is determined by the PAM result, not any particular output. The \n macro is ignored for PAM conversions.
++\fByes\fR, the chat pairs may be matched in any order, and success is determined by the PAM result, not any particular output. The \\n macro is ignored for PAM conversions.
+ .sp
+ Default:
+ \fB\fIpasswd chat\fR = *new*password* %n\\n*new*password* %n\\n *changed* \fR
+@@ -5776,8 +5776,8 @@ The setting of this parameter determines
+ 
+ .nf
+ 
+-HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\
+-           Control\LSA\RestrictAnonymous
++HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\
++           Control\\LSA\\RestrictAnonymous
+ 
+ .fi
+ registry key in Windows 2000 and Windows NT. When set to 0, user and group list information is returned to anyone who asks. When set to 1, only an authenticated user can retrive user and group list information. For the value 2, supported by Windows 2000/XP and Samba, no anonymous connections are allowed at all. This can break third party and Microsoft applications which expect to be allowed to perform operations anonymously.

@@ -1,3 +1,46 @@
+Changes for the 5.26 release (the cctools-721 release):
+- Changed the Makefile and removed -force_cpusubtype_ALL from KERN.  Radar bug
+  #6233829.
+
+Changes for the 5.26 release (the cctools-705 release):
+- Ported to run on 64-bit hosts.  Radar bug #6022298.
+
+Changes for the 5.26 release (the cctools-700 release):
+- Fixed a problem with swap_relocation_info() in swap.c where it was incorrectly
+  using "long" which should be "uint32_t" in two places, the fields r_address
+  and r_value fields of the swapped_relocation_info and the
+  swapped_scattered_relocation_info structures.  Radar bug #5904383.
+
+Changes for the 5.25 release (the cctools-697 release):
+
+Changes for the 5.25 release (the cctools-696 release):
+- Changed the Makefile to use -iwithsysroot as part of the KERN flags.
+
+Changes for the 5.25 release (the cctools-679.4 and cctools-686 releases):
+- Changed the Makefile to test OLD_LIBKLD passed down from the upper Makefile
+  so to not build libmacho_kld.a when OLD_LIBKLD is not YES. Radar bug #5780592.
+
+Changes for the 5.25 release (the cctools-682 release):
+- Updated NXCombineCpuSubtypes() in arch.c to include arm.
+
+Changes for the 5.25 release (the cctools-681 release):
+- Removed all __OPEN_SOURCE__ references in: Makefile, notes and arch.c .
+
+Changes for the 5.25 release (the cctools-677 release):
+- Changed the Makefile to not use -Wno-long-double and -no-cpp-precomp .
+  Radar bug #5563553.
+
+Changes for the 5.25 release (the cctools-676 release):
+- Changed get_end.c, getsecbyname.c and getsegbyname.c to stop defining
+  _NSGetMachExecuteHeader and just use it out of <crt_externs.h>.
+  Radar bug #4696889.
+
+Changes for the 5.25 release (the cctools-673 release):
+- Changed the sources so the arm stuff is not in the open source version.
+  Radar bug #5326431.
+  - Changed the Makefile to build with -D__OPEN_SOURCE__ with $(OPEN)
+  - Added #ifndef __OPEN_SOURCE__ to arch.c to bracket arm code.
+
 Changes for the 5.24 release (the cctools-652 release):
 - Added creating a vers.c file and linking in the vers.o into the libmacho
   archives.  Radar bug #4980378.

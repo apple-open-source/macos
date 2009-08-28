@@ -1,0 +1,385 @@
+
+CHANGES in QuickTimeTcl (brief)
+-------------------------------
+
+To 3.1b6
+
+ -   bugfix in 'timecode -sourcename'
+
+ -   updated to Tcl_FSOpenFileChannel mainly in 'export' which solves some
+     problems in -read/save settingsfile
+
+ -   added 'playhints' command
+
+To 3.1b5:
+
+ -   added a pause before stop in sequence grabber since otherwise could hang
+
+ -   switched back to VC6 build environmant on Windows due to problem with
+     standard C lib versions.
+
+ -   fixed instability issue on Windows when exiting.
+
+
+To 3.1b4:
+
+ -   fixed serious problem with exiting wish when things could be called
+     in the wrong order and then crash.
+
+ -   fixed an audio problem on Windows (added DestroyPortAssociation again).
+
+ -   added image command to sequence grabber which is much faster than picture.
+
+ -   added 'end' when specifying movie time and duration.
+
+
+To 3.1b3:
+ 
+ -   removed a Tcl_DoOneEvent call in -mccommand on OSX since could create
+     infinite loop.
+
+ -   fixed fatal memory issue when doing timer callback for async movie 
+     loading.
+
+
+To 3.1b2:
+
+ -   added focus highlights.
+
+ -   added key bindings.
+
+ -   added undo with empty argument; returns undo level.
+
+ -   added select all/none; select can use end for duration.
+
+
+To 3.1b1:
+
+ -   removed DestroyPortAssociation on windows since it could cause crashes on exit
+
+ -   fixed memory leak in 'image write'
+
+ -   always closes movie file in case of failure
+
+ -   makes -loadcommand callbacks as a timer event to avoid MacOSX infinite loop
+     problems
+
+ -   all memory released are now made from an EventuallyRelease call
+
+ -   rewrote 'image write' from scratch and added the possibility to display
+     compression dialogs for specific formats. Also returns the file path
+     every time -format {quicktime -dialog} is used to save image to file.
+
+
+To 3.1a1:
+
+ -   new 'timecode' command
+ 
+ -   new 'tracks media' subcommand
+ 
+ -   new 'tracks nextinterestingtime' subcommand
+
+ -   new 'nextinterestingtime' command
+ 
+ -   sets GWorld to offscreen before opening movie
+ 
+ -   new 'userdata' command for movie and tracks
+ 
+ -   new 'callback' command for time events
+ 
+ -   'seqgrabber' widget objectified; configure command rewritten; header file
+
+ -   'movie' widget objectified; many rewrites; split into several source files;
+     header file; tcl callbacks remain to be objectified
+ 	 
+ -   fixed bug in 'tracks add picture imageList' command
+ 
+ -   cleaned up 'effect' command code, fixed possible crash cause (KillPict)
+ 
+ -   'flatten' now returns file path if saved or empty in case of cancellation
+ 
+ -   replaced old debug printouts with a function; new command to control debug
+     stuff: 'quicktimetcl::debuglevel'
+
+ -   Mac: removed Expose tk events from the movie player which fixed the infinite
+     loop of update events sent if controller obscured
+     
+ -   Added new loadstate 'playthroughok'
+ 
+
+To 3.0 GM:
+
+ -   Preparations for a Mac OS X version.
+
+ -   Fixed bug with 'tracks paste' where the current selection referred to the
+     source movie and not dest movie.
+
+
+To 3.0b2:
+
+ -   Require QT version 5.0
+ 
+ -   Fixed various missing utf translations in 'panoinfo'.
+ 
+ -   Added 'hotspot' command with subcommands 'setid', 'setwiredactions', 
+     and 'configure'. Configure with '-enabled' and '-name' options.
+     Setwiredactions with '-enabled', '-pan', '-tilt', and '-fov'.
+     
+ -   Closes the QTVR flatten export component after usage.
+ 
+ -   Added a Carbon target and implemented all changes necessary.
+     Also added timers so we serve ourself with the necessary cpu time.
+ 
+ -   In grabbers bottleneck replaced CGrafPort with a GWorld to work with Carbon.
+ 
+ -   Uses NavigationLib for tk_getOpenFilePreview if Appearence lib or Carbon.
+ 
+ -   Much extended capabilities for the 'export' command.
+ 
+ -   Added '-showfps' and '-playduringrecord' options to the grabber.
+ 
+ -   Added '::quicktimetcl::canopen' command.
+ 
+ -   Better error handling in 'paste' command, and 'paste' sets the width & height
+     of movie to the pasted item if previously without visual content.
+ 
+ -   Now support for alpha channels (transparency) in graphics importer,
+     'image create photo'.
+     
+ -   Fixed really nasty bug on the mac with clip regions that caused crashes
+     sometimes when a movie was destroyed.
+
+ -   Fixed bug where the combination -file and -volume did not set the volume.
+ 
+    
+To 3.0b1: (September «01)
+
+ -   Added new commands for VR panos: pan, tilt, fieldofview.
+    
+ -   Added new options for VR panos: -swing and -swingspeed.
+    
+ -   The -mccommand callback now also reports VR events, such as pan, tilt,
+     fieldofview, triggerhotspot.
+        
+ -   Uses Tcl_GetIndexFromObj to dispatch movie commands instead of strcmp.
+     Use this also for the tracks sub command.
+    
+ -   movie 'save' command should save the file in the resource fork if known,
+     else save in data fork.
+        
+ -   New 'saveas' command with '-resource' option.
+    
+ -   Modified the 'new' command to use the data fork as default, and with an
+     option '-resource'.
+    
+ -   Rewrote the 'flatten' command to not use a resource fork, but added an 
+     option '-resource'. Special 'flatten' for QTVR.
+    
+ -   New '-loadintoram' option.
+    
+ -   New 'haschanged' command.
+        
+ -   A TCL_BREAK (break) return from the -mccommand tcl proc now stops the
+     corresponding action.
+           
+ -   New '-qtvrqualitystatic' and '-qtvrqualitymotion' options.           
+        
+ -   New 'tracks configure -graphicsmode, -graphicsmodecolor, -offset, -matrix'.
+    
+ -   'tracks add text' now takes a number of options.
+    
+ -   Grabber: moved SGSetGWorld before video channel creation; now
+     runs on Windows too.
+        
+ -   The following: "-balance", "-layer", "-volume", are now
+     set by "tracks configure" instead of being tracks commands.
+  
+ -   New 'tracks configure -enabled' which eventually shall replace 'tracks disable'
+     and 'tracks enable'.
+        
+ -   Uses temp memory in 'tracks add picture'. 
+    
+ -   CheckAndSetErrorResult is changed to better report errors from non Movie
+     Toolbox API's.
+     
+ -   Added '-width' and '-height' options to the 'picture' command. (pre6)
+
+ -   The 'picture' and 'tracks picture' commands now verify that movie
+     is for eyes, else return error.
+
+ -   The -url option without -loadcommand now starts downloading movie right
+     away, also before it is displayed.
+
+ -   Fixed UTF translation of -name from 'QuickTimeStat Components'.
+
+ -   Pressing the cancel button in the 'export' dialog now returns an empty
+     string also on Windows.
+
+ -   Enhanced error handling in various places.
+
+ -   Added some options to the 'flatten' command.
+
+ -   The -url/-loadcommand combination now correctly sets the command line
+     options.
+
+ -   Fixed crash when doing 'configure -file' from the '-mccommand' tcl proc
+     for QTVR movies by disposing movie at idle. (pre7)
+
+ -   Added a variable ::quicktimetcl::effectfinished to wait for the effect
+     dialog to be finished.
+
+ -   Added the ::quicktimetcl:: namespace and the version and patchlevel
+     variables in that namespace.
+
+ -   QuickTimeStat is now ::quicktimetcl::info instead.
+
+ -   Always uses an offscreen to remedy display problem (configure -file & play). 
+     (pre8)
+
+ -   In 'picture' and 'tracks picture' uses the actual pictures dimension instead
+     of the movies display dimension, since they are different for QTVR movies.
+
+ -   New command, 'panoinfo'.
+
+ -   The 'tracks add picture' is rewritten to support a number of options as
+     well as sequence compression. (pre9)
+
+ -   Added 'tracks add picturefile' command.
+
+ -   Added '-audioonly' option to sequence grabber.
+ 
+
+To 3.0a3: (April «01)
+
+ -   Windows: audio only movie always use an offscreen GWorld to draw into so 
+     that there is no risk of any controller to be drawn when played unmapped.
+        
+ -   DestroyMovie is now only called as a response to a DestroyNotify event
+     since direct calls resulted in crashes if any failure when creating 
+     the movie.     
+        
+ -   Now invalidates the controller region in the controller callback 
+     function to force redrawing the controller. Any 'update' commands in
+     the tcl procedure stopped update events to the controller.
+        
+ -   Now 'tracks full' and 'gettime' don't give a sublist for each option.
+            
+ -   Image export stuff reworked and extended; now -format uses all lowercase
+     characters (quicktime instead of QuickTime); added all formats there are
+     to export; added -dialog option to enable user settings. Docs.
+        
+ -   QuickTimeStat ICcodecs now returns {-subtype type -name name} instead of 
+     a sublist for each option. QuickTimeStat Components now also gives a 
+     straight list of '-key value' pairs.
+        
+ -   Added a safe init and some safety checks.
+        
+ -   Added 'AllComponents.tcl' example; extended the 'SimpleEdit.tcl' example.
+
+
+To 3.0a2: (Februar «01)
+
+ -   Fixed bug in the compress command (canceled). Changed start time to zero
+     for compress.
+    
+ -   Movie video effect command now works.
+    
+ -   Audio/Video sequence grabber settings dialog now works.
+    
+ -   Asynchronous remote movie loading. Cool!
+    
+ -   Fixed sound problem.
+    
+ -   Numerous other bug fixes.
+    
+ -   Added selection via the controller with the -mcedit option.
+    
+ -   Added cut/copy/paste/clear via the movie controller, and options to paste.
+    
+ -   Added clear command.
+    
+ -   Added callback messages setSelectionBegin and setSelectionDuration for
+     -mccommand.
+        
+ -   Added a "step" command (from Bruce?).
+        
+ -   Added controllerinfo command to movie widget.    
+    
+ -   Fixed problems in the image photo interface relating to the
+        transparency. Transparency is still not supported.       
+
+ -   And, of course, the Windows port with some code fragments from Steve Aronson.
+    
+    
+(001122):
+
+ -   In order to be compatible with Mac Tcl/Tk 8.3.2, the build process has 
+     been changed. Thanks to Daniel Steffen. Merged in changes to the sources.
+
+
+From 2.1.2 to 3.0a1: (September «00)
+   
+ -   New sequence grabber widget for previewing video from an external source.
+     Supports recording and a number of options. Audio and video settings dialogs.
+    
+ -   New movie file open dialog with preview, 'tk_getOpenFilePreview'.
+
+ -   Reorganized header and changed its name. Moved various things into the files
+     such static function declarations etc.
+    
+ -   Restructured configuration handling; everything is handled by a new function,
+     'ConfigureMoviePlayer' which conforms better with how other tk widgets are
+     structured and is much more practical and clearer.    
+
+ -   Tried to comply with Tcls "Engineering Manual".
+    
+ -   Several new options and commands, such as loopstates, loading movie from an
+     url, controller tcl callback procedure, custombutton, resizable button, 
+     export dialog, rate, ismovie, ispanoramic, isvisual, time, select, add, 
+     default QuickTime progress dialog ...
+        
+ -   The tracks sub command is more or less completely new including track
+     editing via a fake track clipboard that only contains references to track
+     segments etc...
+        
+ -   A few incompatible changes: "tracks add"; all lowercase returns from 
+     "tracks full", "gettime"; "getselection" -> "select"; etc...
+          
+ -   Numerous bug fixes: update events are now handled correctly in most cases,
+     the controllers active/deactive state now set with the toplevels state, etc. 
+     Some bugs left here. 
+        
+ -   Movie controller handling completely reorganized and put in the 
+     ConfigureMoviePlayer function.
+        
+ -   Implemented internal clipping which was not handled at all before.    
+    
+ -   Endians for the four character type codes fixed.
+    
+ -   Translations between utf and external for tcl >8.0.
+    
+ -   Check for the return value fnfErr instead of creating an empty file when
+     creating a FSSpec.
+        
+ -   The select command now accepts that the duration is optional. If no duration,
+     the insertion point is just placed at the start time.
+            
+ -   Changed Apple routine names that collide with Window names.
+    
+ -   Added Apple error messages; tried to separate tcl errors from internal
+     Apple (Movie Toolbox) errors.
+        
+ -   Support for new image format and image object interface for tcl >8.2.
+    
+ -   Added a "movie" command to subsequently replace the "Movie" command.
+    
+ -   Now possible to play sound only movies without a controller if not displayed.
+    
+ -   Prepared in various places for single fork movies.
+    
+ -   Added "QuickTimeStat ConnectSpeed" command.
+        
+ -   Brand new html manual pages.    
+    
+ -   Added folder with ExampleCode (tcl); just source them into wish.
+       

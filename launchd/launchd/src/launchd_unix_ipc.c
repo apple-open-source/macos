@@ -18,11 +18,12 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 
-static const char *const __rcs_file_version__ = "$Revision: 23792 $";
+static const char *const __rcs_file_version__ = "$Revision: 23921 $";
 
 #include "config.h"
 #include "launchd_unix_ipc.h"
 
+#include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/event.h>
@@ -60,6 +61,7 @@ static LIST_HEAD(, conncb) connections;
 static launch_data_t adjust_rlimits(launch_data_t in);
 
 static void ipc_readmsg2(launch_data_t data, const char *cmd, void *context);
+static void ipc_readmsg(launch_data_t msg, void *context);
 
 static void ipc_listen_callback(void *obj __attribute__((unused)), struct kevent *kev);
 
@@ -72,7 +74,7 @@ static char *sockdir = NULL;
 
 static bool ipc_inited = false;
 
-void
+static void
 ipc_clean_up(void)
 {
 	if (ipc_self != getpid()) {
@@ -80,9 +82,9 @@ ipc_clean_up(void)
 	}
 
 	if (-1 == unlink(sockpath)) {
-		runtime_syslog(LOG_WARNING, "unlink(\"%s\"): %m", sockpath);
+		runtime_syslog(LOG_WARNING, "unlink(\"%s\"): %s", sockpath, strerror(errno));
 	} else if (-1 == rmdir(sockdir)) {
-		runtime_syslog(LOG_WARNING, "rmdir(\"%s\"): %m", sockdir);
+		runtime_syslog(LOG_WARNING, "rmdir(\"%s\"): %s", sockdir, strerror(errno));
 	}
 }
 
@@ -101,7 +103,7 @@ ipc_server_init(void)
 	memset(&sun, 0, sizeof(sun));
 	sun.sun_family = AF_UNIX;
 
-	if (getpid() == 1) {
+	if (pid1_magic) {
 		strcpy(ourdir, LAUNCHD_SOCK_PREFIX);
 		strncpy(sun.sun_path, LAUNCHD_SOCK_PREFIX "/sock", sizeof(sun.sun_path));
 
@@ -114,17 +116,18 @@ ipc_server_init(void)
 				stat(ourdir, &sb);
 				if (!S_ISDIR(sb.st_mode)) {
 					errno = EEXIST;
-					runtime_syslog(LOG_ERR, "mkdir(\"%s\"): %m", LAUNCHD_SOCK_PREFIX);
+					runtime_syslog(LOG_ERR, "mkdir(\"%s\"): %s", LAUNCHD_SOCK_PREFIX, strerror(errno));
 					goto out_bad;
 				}
 			} else {
-				runtime_syslog(LOG_ERR, "mkdir(\"%s\"): %m", ourdir);
+				runtime_syslog(LOG_ERR, "mkdir(\"%s\"): %s", ourdir, strerror(errno));
 				goto out_bad;
 			}
 		}
 	} else {
-		snprintf(ourdir, sizeof(ourdir), "/tmp/launchd-%u.XXXXXX", getpid());
-		if (!launchd_assumes(mkdtemp(ourdir) != NULL)) {
+		snprintf(ourdir, sizeof(ourdir), _PATH_TMP "launchd-%u.XXXXXX", getpid());
+		if (mkdtemp(ourdir) == NULL) {
+			runtime_syslog(LOG_ERR, "Could not create critical directory \"%s\": %s", ourdir, strerror(errno));
 			goto out_bad;
 		}
 		snprintf(sun.sun_path, sizeof(sun.sun_path), "%s/sock", ourdir);
@@ -132,7 +135,7 @@ ipc_server_init(void)
 
 	if (unlink(sun.sun_path) == -1 && errno != ENOENT) {
 		if (errno != EROFS) {
-			runtime_syslog(LOG_ERR, "unlink(\"thesocket\"): %m");
+			runtime_syslog(LOG_ERR, "unlink(\"thesocket\"): %s", strerror(errno));
 		}
 		goto out_bad;
 	}
@@ -147,18 +150,18 @@ ipc_server_init(void)
 
 	if (r == -1) {
 		if (errno != EROFS) {
-			runtime_syslog(LOG_ERR, "bind(\"thesocket\"): %m");
+			runtime_syslog(LOG_ERR, "bind(\"thesocket\"): %s", strerror(errno));
 		}
 		goto out_bad;
 	}
 
 	if (listen(fd, SOMAXCONN) == -1) {
-		runtime_syslog(LOG_ERR, "listen(\"thesocket\"): %m");
+		runtime_syslog(LOG_ERR, "listen(\"thesocket\"): %s", strerror(errno));
 		goto out_bad;
 	}
 
 	if (kevent_mod(fd, EVFILT_READ, EV_ADD, 0, 0, &kqipc_listen_callback) == -1) {
-		runtime_syslog(LOG_ERR, "kevent_mod(\"thesocket\", EVFILT_READ): %m");
+		runtime_syslog(LOG_ERR, "kevent_mod(\"thesocket\", EVFILT_READ): %s", strerror(errno));
 		goto out_bad;
 	}
 
@@ -183,7 +186,12 @@ ipc_open(int fd, job_t j)
 	fcntl(fd, F_SETFL, O_NONBLOCK);
 
 	c->kqconn_callback = ipc_callback;
-	c->conn = launchd_fdopen(fd);
+	if( j ) {
+		c->conn = launchd_fdopen(-1, fd);
+	} else {
+		c->conn = launchd_fdopen(fd, -1);
+	}
+	
 	c->j = j;
 	LIST_INSERT_HEAD(&connections, c, sle);
 	kevent_mod(fd, EVFILT_READ, EV_ADD, 0, 0, &c->kqconn_callback);
@@ -212,7 +220,7 @@ ipc_callback(void *obj, struct kevent *kev)
 	if (kev->filter == EVFILT_READ) {
 		if (launchd_msg_recv(c->conn, ipc_readmsg, c) == -1 && errno != EAGAIN) {
 			if (errno != ECONNRESET) {
-				runtime_syslog(LOG_DEBUG, "%s(): recv: %m", __func__);
+				runtime_syslog(LOG_DEBUG, "%s(): recv: %s", __func__, strerror(errno));
 			}
 			ipc_close(c);
 		}
@@ -220,7 +228,7 @@ ipc_callback(void *obj, struct kevent *kev)
 		r = launchd_msg_send(c->conn, NULL);
 		if (r == -1) {
 			if (errno != EAGAIN) {
-				runtime_syslog(LOG_DEBUG, "%s(): send: %m", __func__);
+				runtime_syslog(LOG_DEBUG, "%s(): send: %s", __func__, strerror(errno));
 				ipc_close(c);
 			}
 		} else if (r == 0) {
@@ -232,9 +240,15 @@ ipc_callback(void *obj, struct kevent *kev)
 	}
 }
 
-static void set_user_env(launch_data_t obj, const char *key, void *context __attribute__((unused)))
+static void 
+set_user_env(launch_data_t obj, const char *key, void *context __attribute__((unused)))
 {
-	setenv(key, launch_data_get_string(obj), 1);
+	const char *v = launch_data_get_string(obj);
+	if( v ) {
+		setenv(key, v, 1);
+	} else {
+		runtime_syslog(LOG_WARNING, "Attempt to set NULL environment variable: %s (type = %d)", key, launch_data_get_type(obj));
+	}
 }
 
 void
@@ -321,13 +335,12 @@ ipc_readmsg(launch_data_t msg, void *context)
 		if (errno == EAGAIN) {
 			kevent_mod(launchd_getfd(rmc.c->conn), EVFILT_WRITE, EV_ADD, 0, 0, &rmc.c->kqconn_callback);
 		} else {
-			runtime_syslog(LOG_DEBUG, "launchd_msg_send() == -1: %m");
+			runtime_syslog(LOG_DEBUG, "launchd_msg_send() == -1: %s", strerror(errno));
 			ipc_close(rmc.c);
 		}
 	}
 	launch_data_free(rmc.resp);
 }
-
 
 void
 ipc_readmsg2(launch_data_t data, const char *cmd, void *context)
@@ -340,88 +353,113 @@ ipc_readmsg2(launch_data_t data, const char *cmd, void *context)
 		return;
 	}
 
-	//job_log(rmc->c->j, LOG_DEBUG, "Unix IPC request: %s", cmd);
+//	job_log(rmc->c->j, LOG_NOTICE, "Socket IPC request: %s.", cmd);
 
-	if (data == NULL) {
-		if (!strcmp(cmd, LAUNCH_KEY_CHECKIN)) {
-			if (rmc->c->j) {
-				resp = job_export(rmc->c->j);
-				job_checkin(rmc->c->j);
-			} else {
-				resp = launch_data_new_errno(EACCES);
+	/* Do not allow commands other than check-in to come over the trusted socket
+	 * on the Desktop. On Embedded, allow all commands over the trusted socket if
+	 * the job has the God Mode key set.
+	 */
+#if TARGET_OS_EMBEDDED
+	bool allow_privileged_ops = ( !rmc->c->j || job_is_god(rmc->c->j) );
+#else
+	bool allow_privileged_ops = !rmc->c->j;
+#endif
+	
+	if( rmc->c->j && strcmp(cmd, LAUNCH_KEY_CHECKIN) == 0 ) {
+		resp = job_export(rmc->c->j);
+		job_checkin(rmc->c->j);
+	} else if( allow_privileged_ops ) {
+	#if TARGET_OS_EMBEDDED
+		g_embedded_privileged_action = rmc->c->j && job_is_god(rmc->c->j);
+	#endif
+		if( data == NULL ) {
+			if (!strcmp(cmd, LAUNCH_KEY_SHUTDOWN)) {
+				launchd_shutdown();
+				resp = launch_data_new_errno(0);
+			} else if (!strcmp(cmd, LAUNCH_KEY_SINGLEUSER)) {
+				launchd_single_user();
+				resp = launch_data_new_errno(0);
+			} else if (!strcmp(cmd, LAUNCH_KEY_GETJOBS)) {
+				resp = job_export_all();
+				ipc_revoke_fds(resp);
+			} else if (!strcmp(cmd, LAUNCH_KEY_GETRESOURCELIMITS)) {
+				resp = adjust_rlimits(NULL);
+			} else if (!strcmp(cmd, LAUNCH_KEY_GETRUSAGESELF)) {
+				struct rusage rusage;
+				getrusage(RUSAGE_SELF, &rusage);
+				resp = launch_data_new_opaque(&rusage, sizeof(rusage));
+			} else if (!strcmp(cmd, LAUNCH_KEY_GETRUSAGECHILDREN)) {
+				struct rusage rusage;
+				getrusage(RUSAGE_CHILDREN, &rusage);
+				resp = launch_data_new_opaque(&rusage, sizeof(rusage));
 			}
-		} else if (!strcmp(cmd, LAUNCH_KEY_SHUTDOWN)) {
-			launchd_shutdown();
-			resp = launch_data_new_errno(0);
-		} else if (!strcmp(cmd, LAUNCH_KEY_SINGLEUSER)) {
-			launchd_single_user();
-			resp = launch_data_new_errno(0);
-		} else if (!strcmp(cmd, LAUNCH_KEY_GETJOBS)) {
-			resp = job_export_all();
-			ipc_revoke_fds(resp);
-		} else if (!strcmp(cmd, LAUNCH_KEY_GETRESOURCELIMITS)) {
-			resp = adjust_rlimits(NULL);
-		} else if (!strcmp(cmd, LAUNCH_KEY_GETRUSAGESELF)) {
-			struct rusage rusage;
-			getrusage(RUSAGE_SELF, &rusage);
-			resp = launch_data_new_opaque(&rusage, sizeof(rusage));
-		} else if (!strcmp(cmd, LAUNCH_KEY_GETRUSAGECHILDREN)) {
-			struct rusage rusage;
-			getrusage(RUSAGE_CHILDREN, &rusage);
-			resp = launch_data_new_opaque(&rusage, sizeof(rusage));
-		}
-	} else if (!strcmp(cmd, LAUNCH_KEY_STARTJOB)) {
-		if ((j = job_find(launch_data_get_string(data))) != NULL) {
-			job_dispatch(j, true);
-			errno = 0;
-		}
-		resp = launch_data_new_errno(errno);
-	} else if (!strcmp(cmd, LAUNCH_KEY_STOPJOB)) {
-		if ((j = job_find(launch_data_get_string(data))) != NULL) {
-			job_stop(j);
-			errno = 0;
-		}
-		resp = launch_data_new_errno(errno);
-	} else if (!strcmp(cmd, LAUNCH_KEY_REMOVEJOB)) {
-		if ((j = job_find(launch_data_get_string(data))) != NULL) {
-			job_remove(j);
-			errno = 0;
-		}
-		resp = launch_data_new_errno(errno);
-	} else if (!strcmp(cmd, LAUNCH_KEY_SUBMITJOB)) {
-		if (launch_data_get_type(data) == LAUNCH_DATA_ARRAY) {
-			resp = job_import_bulk(data);
 		} else {
-			if (job_import(data)) {
-				errno = 0;
+			if (!strcmp(cmd, LAUNCH_KEY_STARTJOB)) {
+				if ((j = job_find(launch_data_get_string(data))) != NULL) {
+					errno = job_dispatch(j, true) ? 0 : errno;
+				}
+				resp = launch_data_new_errno(errno);
+			} else if (!strcmp(cmd, LAUNCH_KEY_STOPJOB)) {
+				if ((j = job_find(launch_data_get_string(data))) != NULL) {
+					errno = 0;
+					job_stop(j);
+				}
+				resp = launch_data_new_errno(errno);
+			} else if (!strcmp(cmd, LAUNCH_KEY_REMOVEJOB)) {
+				if ((j = job_find(launch_data_get_string(data))) != NULL) {
+					errno = 0;
+					job_remove(j);
+				}
+				resp = launch_data_new_errno(errno);
+			} else if (!strcmp(cmd, LAUNCH_KEY_SUBMITJOB)) {
+				if (launch_data_get_type(data) == LAUNCH_DATA_ARRAY) {
+					resp = job_import_bulk(data);
+				} else {
+					if (job_import(data)) {
+						errno = 0;
+					}
+					resp = launch_data_new_errno(errno);
+				}
+			} else if (!strcmp(cmd, LAUNCH_KEY_UNSETUSERENVIRONMENT)) {
+				unsetenv(launch_data_get_string(data));
+				resp = launch_data_new_errno(0);
+			} else if (!strcmp(cmd, LAUNCH_KEY_SETUSERENVIRONMENT)) {
+				launch_data_dict_iterate(data, set_user_env, NULL);
+				resp = launch_data_new_errno(0);
+			} else if (!strcmp(cmd, LAUNCH_KEY_SETRESOURCELIMITS)) {
+				resp = adjust_rlimits(data);
+			} else if (!strcmp(cmd, LAUNCH_KEY_GETJOB)) {
+				if ((j = job_find(launch_data_get_string(data))) == NULL) {
+					resp = launch_data_new_errno(errno);
+				} else {
+					resp = job_export(j);
+					ipc_revoke_fds(resp);
+				}
+			} else if( !strcmp(cmd, LAUNCH_KEY_SETPRIORITYLIST) ) {
+				resp = launch_data_new_errno(launchd_set_jetsam_priorities(data));
 			}
-			resp = launch_data_new_errno(errno);
 		}
-	} else if (!strcmp(cmd, LAUNCH_KEY_UNSETUSERENVIRONMENT)) {
-		unsetenv(launch_data_get_string(data));
-		resp = launch_data_new_errno(0);
-	} else if (!strcmp(cmd, LAUNCH_KEY_SETUSERENVIRONMENT)) {
-		launch_data_dict_iterate(data, set_user_env, NULL);
-		resp = launch_data_new_errno(0);
-	} else if (!strcmp(cmd, LAUNCH_KEY_SETRESOURCELIMITS)) {
-		resp = adjust_rlimits(data);
-	} else if (!strcmp(cmd, LAUNCH_KEY_GETJOB)) {
-		if ((j = job_find(launch_data_get_string(data))) == NULL) {
-			resp = launch_data_new_errno(errno);
-		} else {
-			resp = job_export(j);
-			ipc_revoke_fds(resp);
-		}
+	#if TARGET_OS_EMBEDDED
+		g_embedded_privileged_action = false;
+	#endif
+	} else {
+		resp = launch_data_new_errno(EACCES);
 	}
 
 	rmc->resp = resp;
+}
+
+static int
+close_abi_fixup(int fd)
+{
+	return runtime_close(fd);
 }
 
 void
 ipc_close(struct conncb *c)
 {
 	LIST_REMOVE(c, sle);
-	launchd_close(c->conn, runtime_close);
+	launchd_close(c->conn, close_abi_fixup);
 	free(c);
 }
 
@@ -450,7 +488,7 @@ adjust_rlimits(launch_data_t in)
 				continue;
 			}
 
-			if (/* XXX readcfg_pid && */ getpid() == 1 && (i == RLIMIT_NOFILE || i == RLIMIT_NPROC)) {
+			if (/* XXX readcfg_pid && */ pid1_magic && (i == RLIMIT_NOFILE || i == RLIMIT_NPROC)) {
 				int gmib[] = { CTL_KERN, KERN_MAXPROC };
 				int pmib[] = { CTL_KERN, KERN_MAXPROCPERUID };
 				const char *gstr = "kern.maxproc";
@@ -463,12 +501,6 @@ adjust_rlimits(launch_data_t in)
 					pmib[1] = KERN_MAXFILESPERPROC;
 					gstr = "kern.maxfiles";
 					pstr = "kern.maxfilesperproc";
-					break;
-				case RLIMIT_NPROC:
-					/* kernel will not clamp to this value, we must */
-					if (gval > 2500) {
-						gval = 2500;
-					}
 					break;
 				default:
 					break;

@@ -2,7 +2,7 @@
 *
 * @APPLE_LICENSE_HEADER_START@
 * 
-* Copyright (c) 2007-2008 Apple Inc.  All Rights Reserved.
+ * Copyright © 1997-2009 Apple Inc.  All rights reserved.
 * 
 * This file contains Original Code and/or Modifications of Original Code
 * as defined in and that are subject to the Apple Public Source License
@@ -41,10 +41,34 @@
 #include <IOKit/usb/IOUSBRootHubDevice.h>
 #include <IOKit/usb/IOUSBHubPolicyMaker.h>
 #include <IOKit/usb/IOUSBLog.h>
+#include "USBTracepoints.h"
+
+
+
+//================================================================================================
+//
+//   Globals
+//
+//================================================================================================
+//
+uint32_t *				IOUSBControllerV3::_gHibernateState;	
+
+
+//================================================================================================
+//
+//   Local Definitions
+//
+//================================================================================================
+//
+#define super IOUSBControllerV2
+#define _controllerCanSleep				_expansionData->_controllerCanSleep
+#define _rootHubPollingRate32			_v3ExpansionData->_rootHubPollingRate32
+#define _rootHubTransactionWasAborted	_v3ExpansionData->_rootHubTransactionWasAborted
+
 
 
 #ifndef CONTROLLERV3_USE_KPRINTF
-	#define CONTROLLERV3_USE_KPRINTF 0
+#define CONTROLLERV3_USE_KPRINTF 0
 #endif
 
 #if CONTROLLERV3_USE_KPRINTF
@@ -56,16 +80,6 @@ __attribute__((format(printf, 1, 2)));
 #define USBError( LEVEL, FORMAT, ARGS... )  { kprintf( FORMAT "\n", ## ARGS ) ; }
 #endif
 
-#define _controllerCanSleep				_expansionData->_controllerCanSleep
-
-//================================================================================================
-//
-//   Local Definitions
-//
-//================================================================================================
-//
-#define super IOUSBControllerV2
-
 //================================================================================================
 //
 //   IOKit Constructors and Destructors
@@ -74,9 +88,6 @@ __attribute__((format(printf, 1, 2)));
 //
 OSDefineMetaClass( IOUSBControllerV3, IOUSBControllerV2 )
 OSDefineAbstractStructors(IOUSBControllerV3, IOUSBControllerV2)
-
-// Global
-uint32_t *				IOUSBControllerV3::_gHibernateState;	
 
 //================================================================================================
 //
@@ -90,22 +101,17 @@ IOUSBControllerV3::init(OSDictionary * propTable)
 {
     if (!super::init(propTable))  return false;
 
-#if 0					// turn on when we add expansion data
     // allocate our expansion data
     if (!_v3ExpansionData)
     {
-		_v3ExpansionData = (V2ExpansionData *)IOMalloc(sizeof(V3ExpansionData));
+		_v3ExpansionData = (V3ExpansionData *)IOMalloc(sizeof(V3ExpansionData));
 		if (!_v2ExpansionData)
 			return false;
 		bzero(_v3ExpansionData, sizeof(V3ExpansionData));
     }
-#endif
 	
  	_powerStateChangingTo = kUSBPowerStateStable;
    return true;
-	
-ErrorExit:
-	return false;
 }
 
 
@@ -121,6 +127,7 @@ IOUSBControllerV3::start( IOService * provider )
 		if (err)
 		{
 			USBLog(1, "IOUSBControllerV3(%s)[%p]::start - CheckForEHCIController returned (%p)", getName(), this, (void*)err);
+			USBTrace( kUSBTController, kTPControllerV3Start, (uintptr_t)this, err, 0, 1 );
 			return false;
 		}
 	}
@@ -139,13 +146,15 @@ IOUSBControllerV3::start( IOService * provider )
 	
 	if ( _rootHubTimer == NULL )
 	{
-		USBLog(1, "AppleUSBUHCI[%p]::UIMInitialize - couldn't allocate timer event source", this);
+		USBLog(1, "IOUSBControllerV3[%p]::UIMInitialize - couldn't allocate timer event source", this);
+		USBTrace( kUSBTController, kTPControllerV3Start, (uintptr_t)this, kIOReturnNoMemory, 0, 2 );
 		return kIOReturnNoMemory;
 	}
 	
 	if ( _workLoop->addEventSource( _rootHubTimer ) != kIOReturnSuccess )
 	{
-		USBLog(1, "AppleUSBUHCI[%p]::UIMInitialize - couldn't add timer event source", this);
+		USBLog(1, "IOUSBControllerV3[%p]::UIMInitialize - couldn't add timer event source", this);
+		USBTrace( kUSBTController, kTPControllerV3Start, (uintptr_t)this, kIOReturnError, 0, 3 );
 		return kIOReturnError;
 	}
 		
@@ -154,6 +163,7 @@ IOUSBControllerV3::start( IOService * provider )
 	if (err)
 	{
 		USBLog(1, "IOUSBControllerV3(%s)[%p]::start - InitForPM returned (%p)", getName(), this, (void*)err);
+		USBTrace( kUSBTController, kTPControllerV3Start, (uintptr_t)this, err, 0, 4 );
 		return false;
 	}
 	
@@ -275,23 +285,26 @@ IOUSBControllerV3::powerStateWillChangeTo ( IOPMPowerFlags capabilities, unsigne
 IOReturn
 IOUSBControllerV3::setPowerState( unsigned long powerStateOrdinal, IOService* whatDevice )
 {
-
+	USBTrace_Start( kUSBTController, kTPControllersetPowerState, (uintptr_t)this, (int)powerStateOrdinal, (uintptr_t)whatDevice, (int)_myPowerState );
 	USBLog(5, "IOUSBControllerV3(%s)[%p]::setPowerState - powerStateOrdinal(%d) - whatDevice(%p) current state(%d)", getName(), this, (int)powerStateOrdinal, whatDevice, (int)_myPowerState);
 	if ( whatDevice != this )
 	{
 		USBLog(1,"IOUSBControllerV3(%s)[%p]::setPowerState - whatDevice != this", getName(), this);
+		USBTrace( kUSBTController, kTPControllersetPowerState, (uintptr_t)this, 0, 0, 1 );
 		return kIOPMAckImplied;
 	}
 	
-	if ( isInactive() || (_onCardBus && _pcCardEjected) )
+	if ( isInactive() )
 	{
-		USBLog(1,"IOUSBControllerV3(%s)[%p]::setPowerState - isInactive (or pccardEjected) - no op", getName(), this);
+		USBLog(1,"IOUSBControllerV3(%s)[%p]::setPowerState - isInactive - no op", getName(), this);
+		USBTrace( kUSBTController, kTPControllersetPowerState, (uintptr_t)this, 0, 0, 2 );
 		return kIOPMAckImplied;
 	}
 	
 	if (powerStateOrdinal > kUSBPowerStateOn)
 	{
 		USBLog(1,"IOUSBControllerV3(%s)[%p]::setPowerState - bad ordinal(%d)", getName(), this, (int)powerStateOrdinal);
+		USBTrace( kUSBTController, kTPControllersetPowerState, (uintptr_t)this, 0, 0, 3 );
 		return kIOPMNoSuchState;
 	}
 	
@@ -364,6 +377,8 @@ IOUSBControllerV3::setPowerState( unsigned long powerStateOrdinal, IOService* wh
 	HandlePowerChange(powerStateOrdinal);
 	
 	USBLog(5, "IOUSBControllerV3(%s)[%p]::setPowerState - returning kIOPMAckImplied", getName(), this);
+	USBTrace_End( kUSBTController, kTPControllersetPowerState, (uintptr_t)this, _myPowerState, 0, 0);
+	
 	return kIOPMAckImplied;
 }
 
@@ -467,7 +482,16 @@ IOUSBControllerV3::systemWillShutdown( IOOptionBits specifier )
 void
 IOUSBControllerV3::free()
 {
-    super::free();
+ 	//  This needs to be the LAST thing we do, as it disposes of our "fake" member
+    //  variables.
+    //
+    if (_v3ExpansionData)
+    {
+        bzero(_v3ExpansionData, sizeof(ExpansionData));
+		IOFree(_v3ExpansionData, sizeof(ExpansionData));
+    }
+
+	super::free();
 }
 
 
@@ -479,7 +503,6 @@ IOUSBControllerV3::CheckForEHCIController(IOService *provider)
 	OSIterator				*siblings = NULL;
 	OSIterator				*ehciList = NULL;
     mach_timespec_t			t;
-    OSDictionary			*matching;
     IOService				*service;
     IORegistryEntry			*entry;
     bool					ehciPresent = false;
@@ -624,6 +647,7 @@ IOUSBControllerV3::AllocatePowerStateArray(void)
 	if (!_myPowerStates)
 	{
 		USBLog(1, "IOUSBControllerV3(%s)[%p]::AllocatePowerStateArray - no memory", getName(), this);
+		USBTrace( kUSBTController, kTPAllocatePowerStateArray, (uintptr_t)this, kIOReturnNoMemory, 0, 0 );
 		return kIOReturnNoMemory;
 	}
 	bzero(_myPowerStates, kUSBNumberBusPowerStates * sizeof(IOPMPowerState));
@@ -678,6 +702,7 @@ IOUSBControllerV3::InitForPM(void)
 	if (err)
 	{
 		USBLog(1, "IOUSBControllerV3(%s)[%p]::InitForPM - AllocatePowerStateArray returned (%p)", getName(), this, (void*)err);
+		USBTrace( kUSBTController, kTPInitForPM, (uintptr_t)this, err, 0, 0 );
 		return kIOReturnNoMemory;
 	}
 	
@@ -701,12 +726,14 @@ IOUSBControllerV3::InitForPM(void)
 IOReturn
 IOUSBControllerV3::CheckPowerModeBeforeGatedCall(char *fromStr)
 {
+#pragma unused (fromStr)
+	
 	IOReturn	kr = kIOReturnSuccess;
 	SInt32		retries = 100;
 	
 	// This method will sleep the running thread if the power state is not > Sleep
 	// An exception will be if we are already on the workLoop thread
-	
+	// USBTrace_Start( kUSBTController, kTPControllerCheckPowerModeBeforeGatedCall, (uintptr_t)this );
 	
 	if (!_workLoop)								// this should never happen - good luck if it does
 		return kIOReturnNotPermitted;
@@ -726,6 +753,7 @@ IOUSBControllerV3::CheckPowerModeBeforeGatedCall(char *fromStr)
 			{
 				USBLog(1, "IOUSBControllerV3(%s)[%p]::CheckPowerModeBeforeGatedCall - call (%s) - onThread is true while !_controllerAvailable", getName(), this, fromStr);
 				kr = kIOReturnNotReady;
+				USBTrace( kUSBTController, kTPControllerCheckPowerModeBeforeGatedCall, (uintptr_t)this, (int)_myPowerState, kr, 1 );
 			}
 		}
 		else
@@ -749,8 +777,12 @@ IOUSBControllerV3::CheckPowerModeBeforeGatedCall(char *fromStr)
 		{
 			USBLog(1, "IOUSBControllerV3(%s)[%p]::CheckPowerModeBeforeGatedCall - call (%s) while _myPowerState(%d) _controllerAvailable (%s) - we could not wake up the controller, returning kIOReturnNotResponding", getName(), this, fromStr, (int)_myPowerState, _controllerAvailable ? "true" : "false");
 			kr = kIOReturnNotResponding;
+			USBTrace( kUSBTController, kTPControllerCheckPowerModeBeforeGatedCall, (uintptr_t)this, (int)_myPowerState, kr, 2 );
 		}
 	}
+
+	// USBTrace_End( kUSBTController, kTPControllerCheckPowerModeBeforeGatedCall, (uintptr_t)this, kr);
+
 	return kr;
 }
 
@@ -759,6 +791,7 @@ IOUSBControllerV3::CheckPowerModeBeforeGatedCall(char *fromStr)
 IOReturn
 IOUSBControllerV3::DoEnableAddressEndpoints(OSObject *owner, void *arg0, void *arg1, void *arg2, void *arg3 )
 {
+#pragma unused (arg2, arg3)
     IOUSBControllerV3 *me = (IOUSBControllerV3 *)owner;
 	
     return me->UIMEnableAddressEndpoints((USBDeviceAddress)(uintptr_t)arg0, (bool)(uintptr_t) arg1);
@@ -779,6 +812,7 @@ IOUSBControllerV3::EnableAddressEndpoints(USBDeviceAddress address, bool enable)
 IOReturn
 IOUSBControllerV3::DoEnableAllEndpoints(OSObject *owner, void *arg0, void *arg1, void *arg2, void *arg3 )
 {
+#pragma unused (arg1, arg2, arg3)
     IOUSBControllerV3 *me = (IOUSBControllerV3 *)owner;
 	
     return me->UIMEnableAllEndpoints((bool)(uintptr_t)arg0);
@@ -901,9 +935,12 @@ IOUSBControllerV3::IsControllerAvailable(void)
 IOReturn
 IOUSBControllerV3::GatedPowerChange(OSObject *owner, void *arg0, void *arg1, void *arg2, void *arg3 )
 {
+#pragma unused (arg1, arg2, arg3)
     IOUSBControllerV3			*me = (IOUSBControllerV3 *)owner;
 	unsigned long				powerStateOrdinal = (unsigned long)arg0;
 	unsigned long				oldState = me->_myPowerState;
+
+	// USBTrace_Start( kUSBTController, kTPControllerGatedPowerChange, (uintptr_t)me, powerStateOrdinal, oldState );
 	
 	switch (powerStateOrdinal)
 	{
@@ -952,8 +989,8 @@ IOUSBControllerV3::GatedPowerChange(OSObject *owner, void *arg0, void *arg1, voi
 		if (oldState < kUSBPowerStateLowPower)
 		{
 			me->EnableInterruptsFromController(true);
-			if (me->_rootHubPollingRate)						// only once we have done this once
-				me->RootHubStartTimer(me->_rootHubPollingRate);		// restart the timer on wakeup
+			if (me->_rootHubPollingRate32)						// only once we have done this once
+				me->RootHubStartTimer32(me->_rootHubPollingRate32);		// restart the timer on wakeup
 		}
 		
 		if ( me->_rootHubDevice == NULL )
@@ -966,6 +1003,7 @@ IOUSBControllerV3::GatedPowerChange(OSObject *owner, void *arg0, void *arg1, voi
 			if ( err != kIOReturnSuccess )
 			{
 				USBLog(1,"AppleUSBEHCI[%p]::powerStateDidChangeTo - Could not create root hub device upon wakeup (%x)!", me, err);
+				USBTrace( kUSBTController, kTPControllerGatedPowerChange, (uintptr_t)me, err, 0, 0 );
 			}
 			else
 			{
@@ -978,6 +1016,9 @@ IOUSBControllerV3::GatedPowerChange(OSObject *owner, void *arg0, void *arg1, voi
 			me->_watchdogUSBTimer->setTimeoutMS(kUSBWatchdogTimeoutMS);
 		}
 	}
+
+	// USBTrace_End( kUSBTController, kTPControllerGatedPowerChange, (uintptr_t)me);
+	
 	return kIOReturnSuccess;
 }
 
@@ -1038,8 +1079,8 @@ IOUSBControllerV3::EnsureUsability(void)
 void 
 IOUSBControllerV3::RootHubTimerFired(OSObject *owner, IOTimerEventSource *sender)
 {
+#pragma unused (sender)
     IOUSBControllerV3		*me;
-    UInt32					period;
 	IOReturn				ret;
     
     me = OSDynamicCast(IOUSBControllerV3, owner);
@@ -1060,11 +1101,13 @@ IOUSBControllerV3::RootHubTimerFired(OSObject *owner, IOTimerEventSource *sender
 	{
 		USBLog(7, "IOUSBControllerV3(%s)[%p]::RootHubTimerFired", me->getName(), me);
 	}
+	
+	USBTrace( kUSBTController, kTPControllerRootHubTimer, (uintptr_t)me, (uintptr_t)me->_rootHubDevice->GetPolicyMaker(), (uintptr_t)me->_rootHubDevice->GetPolicyMaker()->getPowerState(), 4 );
     ret = me->CheckForRootHubChanges();
 	
 	// fire it up again
-    if (me->_rootHubPollingRate && !me->isInactive() && me->_controllerAvailable)
-		me->_rootHubTimer->setTimeoutMS(me->_rootHubPollingRate);
+    if (me->_rootHubPollingRate32 && !me->isInactive() && me->_controllerAvailable)
+		me->_rootHubTimer->setTimeoutMS(me->_rootHubPollingRate32);
 }
 
 
@@ -1078,7 +1121,7 @@ IOUSBControllerV3::CheckForRootHubChanges(void)
 	UInt8									bytesToMove;
 	UInt8*									pBytes;
 	int										i;
-	
+
 	// first call into the UIM to get the latest version of the bitmap
 	UIMRootHubStatusChange();
 	
@@ -1094,18 +1137,20 @@ IOUSBControllerV3::CheckForRootHubChanges(void)
 		else
 		{
 			USBLog(1, "IOUSBControllerV3(%s)[%p]::CheckForRootHubChanges - _rootHubStatusChangedBitmap(%p) with no _rootHubDevice or policy maker!!", getName(), this, (void*)_rootHubStatusChangedBitmap);
+			USBTrace( kUSBTController, kTPControllerCheckForRootHubChanges, (uintptr_t)this, _rootHubStatusChangedBitmap, 0, 0);
 		}
+		
 		if (_outstandingRHTrans[0].completion.action)
 		{
+			// Save our corrent transaction and move all other transactions down the queue, and make sure the last one has a NULL completion
 			xaction = _outstandingRHTrans[0];
-			for (i = 1; i < kIOUSBMaxRootHubTransactions ; i++)
+			for (i = 0; i < (kIOUSBMaxRootHubTransactions-1); i++)
 			{
-				_outstandingRHTrans[i-1] = _outstandingRHTrans[i];
-				if (_outstandingRHTrans[i].completion.action == NULL)
-				{
-					break;
-				}
+				_outstandingRHTrans[i] = _outstandingRHTrans[i+1];
 			}
+			_outstandingRHTrans[kIOUSBMaxRootHubTransactions-1].completion.action = NULL;
+			
+			// Create the bitmap
 			if (_rootHubNumPorts < 8)
 			{
 				bytesToMove = 1;
@@ -1118,6 +1163,11 @@ IOUSBControllerV3::CheckForRootHubChanges(void)
 				wBitmap = HostToUSBWord(_rootHubStatusChangedBitmap);
 				pBytes = (UInt8*)&wBitmap;
 			}
+			USBTrace( kUSBTController, kTPControllerRootHubTimer, (uintptr_t)this, 0, 0, 5 );
+			USBLog(6, "IOUSBControllerV3(%s)[%p]::CheckForRootHubChanges - stopping timer and calling complete", getName(), this);
+			RootHubStopTimer();
+			_rootHubTransactionWasAborted = false;
+			
 			xaction.buf->writeBytes(0, pBytes, bytesToMove);
 			Complete(xaction.completion, kIOReturnSuccess, xaction.bufLen - bytesToMove);
 		}
@@ -1126,6 +1176,7 @@ IOUSBControllerV3::CheckForRootHubChanges(void)
 			USBLog(5, "IOUSBControllerV3(%s)[%p]::CheckForRootHubChanges - no one is listening - i will try again later", getName(), this);
 		}
 	}
+	
 	return kIOReturnSuccess;
 }
 
@@ -1141,6 +1192,12 @@ IOUSBControllerV3::RootHubQueueInterruptRead(IOMemoryDescriptor *buf, UInt32 buf
 {
     int				i;
 
+	USBTrace_Start( kUSBTController, kTPControllerRootHubQueueInterruptRead, (uintptr_t)this, (uintptr_t)buf, bufLen, 0);
+	USBLog(6, "IOUSBControllerV3(%s)[%p]::RootHubQueueInterruptRead, starting timer", getName(), this);
+	
+	// Start the RootHub timer
+	RootHubStartTimer32(kUSBRootHubPollingRate);
+	
     for (i = 0; i < kIOUSBMaxRootHubTransactions; i++)
     {
         if (_outstandingRHTrans[i].completion.action == NULL)
@@ -1153,13 +1210,28 @@ IOUSBControllerV3::RootHubQueueInterruptRead(IOMemoryDescriptor *buf, UInt32 buf
 			if (i != 0)
 			{
 				USBLog(1, "IOUSBControllerV3(%s)[%p]::RootHubQueueInterruptRead - this is index(%d) - UNEXPECTED?", getName(), this, (int)i);
+				USBTrace( kUSBTController, kTPControllerRootHubQueueInterruptRead, (uintptr_t)this, i, 0, 0 );
+				break;
 			}
+			
+			// If this is the first transaction after an abort interrupt read, complete it immediately
+			if ( _rootHubTransactionWasAborted )
+			{
+				USBLog(6, "IOUSBControllerV3(%s)[%p]::RootHubQueueInterruptRead  _rootHubTransactionWasAborted was true, calling CheckForRootHubChanges()", getName(), this);
+				CheckForRootHubChanges();
+			}
+			
             return kIOReturnSuccess;
         }
+		else
+		{
+			USBLog(1, "IOUSBControllerV3(%s)[%p]::RootHubQueueInterruptRead  we already had a completion.action for trans: %d, returning an error", getName(), this, i);
+			break;
+		}
     }
 
-    Complete(completion, kIOReturnInternalError, bufLen);				// too many trans
-	return kIOReturnInternalError;
+	USBTrace_End( kUSBTController, kTPControllerRootHubQueueInterruptRead, (uintptr_t)this, kIOReturnInternalError, bufLen, 0);
+	return kIOReturnNotPermitted;
 }
 
 
@@ -1174,6 +1246,11 @@ IOUSBControllerV3::RootHubAbortInterruptRead()
     int										i;
 	IOUSBRootHubInterruptTransaction		xaction;
 
+	USBTrace( kUSBTController, kTPControllerRootHubTimer, (uintptr_t)this, 0, 0, 3 );
+	USBLog(6, "IOUSBControllerV3(%s)[%p]::RootHubAbortInterruptRead, stopping timer", getName(), this);
+
+	RootHubStopTimer();
+
 	xaction = _outstandingRHTrans[0];
 	if (xaction.completion.action)
 	{
@@ -1184,6 +1261,8 @@ IOUSBControllerV3::RootHubAbortInterruptRead()
 		}
 		_outstandingRHTrans[kIOUSBMaxRootHubTransactions-1].completion.action = NULL;
 		Complete(xaction.completion, kIOReturnAborted, xaction.bufLen);
+		
+		_rootHubTransactionWasAborted = true;
 	}
 	return kIOReturnSuccess;
 }
@@ -1193,21 +1272,38 @@ IOUSBControllerV3::RootHubAbortInterruptRead()
 IOReturn				
 IOUSBControllerV3::RootHubStartTimer(UInt8 pollingRate)
 {
-	if ((pollingRate == 0) || (pollingRate > 64))
+#pragma unused (pollingRate)
+	
+	USBLog(1,"IOUSBControllerV3(%s)[[%p]::RootHubStartTimer  Obsolete method called", getName(), this);
+	return kIOReturnUnsupported;
+	
+}
+
+IOReturn				
+IOUSBControllerV3::RootHubStartTimer32(uint32_t pollingRate)
+{
+	USBTrace( kUSBTController, kTPControllerRootHubTimer, (uintptr_t)this, pollingRate, 0, 1 );
+
+	if (pollingRate == 0)
 	{
-		USBLog(1, "IOUSBControllerV3(%s)[%p]::RootHubStartTimer - invalid polling rate (%d)", getName(), this, pollingRate);
+		USBLog(1, "IOUSBControllerV3(%s)[%p]::RootHubStartTimer32 - invalid polling rate (%d)", getName(), this, pollingRate);
+		USBTrace( kUSBTController, kTPControllerRootHubTimer, (uintptr_t)this, pollingRate, kIOReturnBadArgument, 6 );
 		return kIOReturnBadArgument;
 	}
-	_rootHubPollingRate = pollingRate;
+	_rootHubPollingRate32 = pollingRate;
 	
 	if (_rootHubTimer)
 	{
-		_rootHubTimer->setTimeoutMS(_rootHubPollingRate);
+		USBLog(6, "IOUSBControllerV3(%s)[%p]::RootHubStartTimer32", getName(), this);
+		
+		_rootHubTimer->setTimeoutMS(_rootHubPollingRate32);
 	}
 	else
 	{
-		USBLog(1, "IOUSBControllerV3(%s)[%p]::RootHubStartTimer - NO TIMER!!", getName(), this);
+		USBLog(1, "IOUSBControllerV3(%s)[%p]::RootHubStartTimer32 - NO TIMER!!", getName(), this);
+		USBTrace( kUSBTController, kTPControllerRootHubTimer, (uintptr_t)this, 0, kIOReturnSuccess, 7 );
 	}
+	
 	return kIOReturnSuccess;
 }
 
@@ -1216,6 +1312,9 @@ IOUSBControllerV3::RootHubStartTimer(UInt8 pollingRate)
 IOReturn				
 IOUSBControllerV3::RootHubStopTimer(void)
 {
+	
+	USBTrace( kUSBTController, kTPControllerRootHubTimer, (uintptr_t)this, 0, 0, 2 );
+	USBLog(6, "IOUSBControllerV3(%s)[%p]::RootHubStopTimer", getName(), this);
 	
 	// first of all, make sure that we are not currently inside of the RootHubTimerFired method before we cancel the timeout
 	// note that if we are not in it now, we won't get into it because at this point _controllerAvailable is false
@@ -1236,6 +1335,7 @@ IOUSBControllerV3::RootHubStopTimer(void)
 UInt32
 IOUSBControllerV3::AllocateExtraRootHubPortPower(UInt32 extraPowerRequested)
 {
+#pragma unused (extraPowerRequested)
 	USBLog(2, "IOUSBControllerV3(%s)[%p]::AllocateExtraRootHubPortPower - not available on this controller", getName(), this);
 	return 0;
 }
@@ -1244,6 +1344,7 @@ IOUSBControllerV3::AllocateExtraRootHubPortPower(UInt32 extraPowerRequested)
 void
 IOUSBControllerV3::ReturnExtraRootHubPortPower(UInt32 extraPowerReturned)
 {
+#pragma unused (extraPowerReturned)
 	USBLog(2, "IOUSBControllerV3(%s)[%p]::ReturnExtraRootHubPortPower - not available on this controller", getName(), this);
 	return;
 }
@@ -1300,7 +1401,7 @@ IOUSBControllerV3::DeviceRequest(IOUSBDevRequest *request,  IOUSBCompletion *com
 	{
 		// use changePowerStateTo (as opposed to changePowerStateToPriv) to maintain the ON state 
 		// on behalf of some client from user space. If the hub is already active, then this is essentially a NOP
-		USBLog(4, "IOUSBControllerV3(%s)[%p]::DeviceRequest - current state (%d) _powerStateChangingTo(%d) - calling changePowerStateTo(4)", getName(), this, (int)_myPowerState, (int)_powerStateChangingTo);
+		USBLog(7, "IOUSBControllerV3(%s)[%p]::DeviceRequest - current state (%d) _powerStateChangingTo(%d) - calling changePowerStateTo(4)", getName(), this, (int)_myPowerState, (int)_powerStateChangingTo);
 		changePowerStateTo(kUSBPowerStateOn);
 	}
 
@@ -1313,7 +1414,7 @@ IOUSBControllerV3::DeviceRequest(IOUSBDevRequest *request,  IOUSBCompletion *com
 	if ((_powerStateChangingTo == kUSBPowerStateStable) || (_powerStateChangingTo > kUSBPowerStateSleep))
 	{
 		// now go back to the LowPower state if our child is still in LowPower state
-		USBLog(4, "IOUSBControllerV3(%s)[%p]::DeviceRequest done - current state (%d) - calling changePowerStateTo(3)", getName(), this, (int)_myPowerState);
+		USBLog(7, "IOUSBControllerV3(%s)[%p]::DeviceRequest done - current state (%d) - calling changePowerStateTo(3)", getName(), this, (int)_myPowerState);
 		changePowerStateTo(kUSBPowerStateLowPower);
 	}
 	return kr;
@@ -1329,7 +1430,7 @@ IOUSBControllerV3::DeviceRequest(IOUSBDevRequestDesc *request,  IOUSBCompletion 
 	// use changePowerStateTo (as opposed to changePowerStateToPriv) to maintain the ON state 
 	// on behalf of some client from user space. If the hub is already active, then this is essentially a NOP
 	// we should probably run this through a gate with an incrementer/decrementer
-	USBLog(5, "IOUSBControllerV3(%s)[%p]::DeviceRequest - current state (%d) _powerStateChangingTo(%d) - calling changePowerStateTo(4)", getName(), this, (int)_myPowerState, (int)_powerStateChangingTo);
+	USBLog(7, "IOUSBControllerV3(%s)[%p]::DeviceRequest - current state (%d) _powerStateChangingTo(%d) - calling changePowerStateTo(4)", getName(), this, (int)_myPowerState, (int)_powerStateChangingTo);
 	changePowerStateTo(kUSBPowerStateOn);
 
 	kr = CheckPowerModeBeforeGatedCall((char *) "DeviceRequest");
@@ -1339,7 +1440,7 @@ IOUSBControllerV3::DeviceRequest(IOUSBDevRequestDesc *request,  IOUSBCompletion 
 	kr = IOUSBController::DeviceRequest(request, completion, address, epNum, noDataTimeout, completionTimeout);
 	
 	// now go back to the LowPower state if our child is still in LowPower state
-	USBLog(5, "IOUSBControllerV3(%s)[%p]::DeviceRequest done - current state (%d) - calling changePowerStateTo(3)", getName(), this, (int)_myPowerState);
+	USBLog(7, "IOUSBControllerV3(%s)[%p]::DeviceRequest done - current state (%d) - calling changePowerStateTo(3)", getName(), this, (int)_myPowerState);
 	changePowerStateTo(kUSBPowerStateLowPower);
 	
 	return kr;
@@ -1551,7 +1652,7 @@ IOUSBControllerV3::ReadV2(IOMemoryDescriptor *buffer, USBDeviceAddress	address, 
 }
 
 
-OSMetaClassDefineReservedUnused(IOUSBControllerV3,  0);
+OSMetaClassDefineReservedUsed(IOUSBControllerV3,  0);
 OSMetaClassDefineReservedUnused(IOUSBControllerV3,  1);
 OSMetaClassDefineReservedUnused(IOUSBControllerV3,  2);
 OSMetaClassDefineReservedUnused(IOUSBControllerV3,  3);

@@ -142,7 +142,8 @@ class TIrLargestEvent : public TIrEvent
     public:
 
 	static TIrLargestEvent * tIrLargestEvent();     // allocate a TIrEvent with room to morph (ugh!)
-	ULong           fSubClassFields[kMaxSubClassFields];
+    //ULong           fSubClassFields[kMaxSubClassFields];
+    uintptr_t           fSubClassFields[kMaxSubClassFields];	// LP64 test
 };
 
 

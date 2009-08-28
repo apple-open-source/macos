@@ -31,7 +31,7 @@
  * SUCH DAMAGE.
  *
  *	@(#)extern.h	8.3 (Berkeley) 4/16/94
- *	$FreeBSD: src/usr.bin/find/extern.h,v 1.23 2006/05/14 20:23:00 krion Exp $
+ *	$FreeBSD: src/usr.bin/find/extern.h,v 1.24 2008/02/23 16:29:04 imp Exp $
  */
 
 #include <sys/cdefs.h>
@@ -74,6 +74,7 @@ creat_f	c_nouser;
 creat_f	c_perm;
 creat_f	c_print;
 creat_f	c_regex;
+creat_f	c_samefile;
 creat_f	c_simple;
 creat_f	c_size;
 creat_f	c_type;
@@ -90,6 +91,7 @@ exec_f	f_depth;
 exec_f	f_empty;
 exec_f	f_exec;
 exec_f	f_expr;
+exec_f	f_false;
 exec_f	f_flags;
 exec_f	f_fstype;
 exec_f	f_group;
@@ -108,6 +110,7 @@ exec_f	f_perm;
 exec_f	f_print;
 exec_f	f_print0;
 exec_f	f_prune;
+exec_f	f_quit;
 exec_f	f_regex;
 exec_f	f_size;
 exec_f	f_type;

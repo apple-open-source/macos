@@ -1,3 +1,5 @@
+/*	$NetBSD: vmbuf.c,v 1.4 2006/09/09 16:22:10 manu Exp $	*/
+
 /*	$KAME: vmbuf.c,v 1.11 2001/11/26 16:54:29 sakane Exp $	*/
 
 /*
@@ -44,6 +46,7 @@
 #include "misc.h"
 #include "vmbuf.h"
 #include "debug.h"
+#include "plog.h"
 #include "gcmalloc.h"
 
 vchar_t *
@@ -119,6 +122,11 @@ vdup(src)
 	vchar_t *src;
 {
 	vchar_t *new;
+
+	if (src == NULL) {
+		plog(LLV_ERROR, LOCATION, NULL, "vdup(NULL) called\n");
+		return NULL;
+	}
 
 	if ((new = vmalloc(src->l)) == NULL)
 		return NULL;

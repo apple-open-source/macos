@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2006-16-11</string>
+	<key>OpenSourceLicense</key>
+	<string>Apache-style</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>OpenSSL.txt</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>Data Pig Fix</string>
+		<string>Manpage Tweaks</string>
+		<string>bn Manpage Fix</string>
+		<string>Overlappoing Manpage Fix</string>
+		<string>RSA_padding_check_SSLv23 Fix</string>
+		<string>noinstfips</string>
+		<string>OpenSSL 097b to 097g Patch</string>
+		<string>64 bit Patch</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>OpenSSL</string>
+	<key>OpenSourceSHA1</key>
+	<string>5a6df79d5902f3bcc4147814822403fe4613c54d</string>
+	<key>OpenSourceURL</key>
+	<string>http://www.openssl.org/source/openssl-0.9.7l.tar.gz</string>
+	<key>OpenSourceVersion</key>
+	<string>0.9.7l</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://wwww.openssh.org/</string>
+</dict>
+</plist>

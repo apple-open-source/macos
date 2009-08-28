@@ -21,6 +21,8 @@
 #ifndef REMOTE_H
 #define REMOTE_H
 
+#include <sys/time.h>
+
 /* FIXME?: move this interface down to tgt vector) */
 
 /* Read a packet from the remote machine, with error checking, and
@@ -54,11 +56,48 @@ extern void remote_cisco_objfile_relocate (bfd_signed_vma text_off,
 
 extern void async_remote_interrupt_twice (void *arg);
 
-extern int remote_write_bytes (CORE_ADDR memaddr, char *myaddr, int len);
+extern int remote_write_bytes (CORE_ADDR memaddr, const gdb_byte *myaddr, 
+			       int len);
 
 extern int remote_read_bytes (CORE_ADDR memaddr, char *myaddr, int len);
 
 extern void (*deprecated_target_resume_hook) (void);
 extern void (*deprecated_target_wait_loop_hook) (void);
+
+/* APPLE LOCAL
+   When in mi mode, we track the time it takes to complete each command
+   and we track how many remote protocol packets were used to complete
+   that command.
+   The remote protocol can have multiple commands "in flight" at once
+   and we don't have access to those nested structures here in remote.c.
+   So we use a simple stack mechanism where CURRENT_REMOTE_STATS points
+   to the currently active mi command and mi-main.c is responsible for
+   updating this as we start/finish mi commands.  */
+
+extern struct remote_stats *current_remote_stats;
+
+struct remote_stats {
+  int pkt_sent;
+  int pkt_recvd;
+  int acks_sent;
+  int acks_recvd;
+  int assigned_to_global;
+
+  /* The mi token (sequence #) for this command, if available, as a
+     string of numeral digits, truncated to 15 characters if longer than
+     that.  */
+  char mi_token[16];
+
+  /* pktstart is a convenience place for all the packet sending
+     routines to remember the start time before the packet goes out.  */
+  struct timeval pktstart;
+
+  /* total time spent communicating/waiting for responses from the remote
+     stub.  */
+  struct timeval totaltime;
+};
+
+extern uint64_t total_packets_sent;
+extern uint64_t total_packets_received;
 
 #endif

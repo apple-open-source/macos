@@ -53,6 +53,22 @@ static const uint32_t kVendorProductMask = 0x0000FFFF;
 static const uint32_t kVendorIDApple = 0x05AC;
 static const uint16_t kProductIDBuiltInISight = 0x8501;
 
+/*
+	Copied from USBVideoClass-230.2.3/Digitizers/USBVDC/Camera/USBClient/APW_VDO_USBVDC_USBClient.h
+*/
+
+enum {
+	kBuiltIniSightProductID = 0x8501,
+	kBuiltIniSightWave2ProductID = 0x8502,
+	kBuiltIniSightWave3ProductID = 0x8505,
+	kUSBWave4ProductID        = 0x8507,
+	kUSBWave2InK29ProductID        = 0x8508,
+	kUSBWaveReserved1ProductID        = 0x8509,
+	kUSBWaveReserved2ProductID        = 0x850a,
+	kExternaliSightProductID = 0x1111,
+	kLogitechVendorID = 0x046d
+};
+
 //
 // Construct a PCSCMonitor.
 // We strongly assume there's only one of us around here.
@@ -409,7 +425,7 @@ PCSCMonitor::DeviceSupport PCSCMonitor::deviceSupport(const IOKit::Device &dev)
 
                // composite USB device with interface class
 		if (CFRef<CFNumberRef> cfInterface = dev.property<CFNumberRef>("bInterfaceClass"))
-			switch (IFDEBUG(uint32 clas =) cfNumber(cfInterface)) {
+			switch (uint32 clas = cfNumber(cfInterface)) {
 			case kUSBChipSmartCardInterfaceClass:		// CCID smartcard reader - go
 				secdebug("scsel", "  CCID smartcard reader recognized");
 				return definite;
@@ -463,7 +479,14 @@ bool PCSCMonitor::isExcludedDevice(const IOKit::Device &dev)
 		productID = cfNumber(cfProductID);
 	
 	secdebug("scsel", "  checking device for possible exclusion [vendor id: 0x%08X, product id: 0x%08X]", vendorID, productID);
-	return ((vendorID & kVendorProductMask) == kVendorIDApple && (productID & kVendorProductMask) == kProductIDBuiltInISight);
+
+	if ((vendorID & kVendorProductMask) != kVendorIDApple)
+		return false;	// i.e. it is not an excluded device
+	
+	// Since Apple does not manufacture smartcard readers, just exclude
+	// If we even start making them, we should make it a CCID reader anyway
+	
+	return true;
 }
 
 //

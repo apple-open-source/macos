@@ -1,7 +1,7 @@
-# $OpenLDAP: pkg/ldap/contrib/slapd-modules/comp_match/Makefile,v 1.3.2.5 2006/01/03 22:16:02 kurt Exp $
+# $OpenLDAP: pkg/ldap/contrib/slapd-modules/comp_match/Makefile,v 1.11.2.3 2008/02/11 23:26:38 kurt Exp $
 # This work is part of OpenLDAP Software <http://www.openldap.org/>.
 #
-# Copyright 2003-2006 The OpenLDAP Foundation.
+# Copyright 2003-2008 The OpenLDAP Foundation.
 # Portions Copyright 2004 by IBM Corporation.
 # All rights reserved.
 
@@ -15,12 +15,11 @@
 # top-level directory of the distribution or, alternatively, at
 # <http://www.OpenLDAP.org/license.html>.
 
-topbuilddir = ../../../../build
 topsrcdir = ../../..
-snaccdir = /usr/local/snacc
+snaccdir = ../$(topsrcdir)/snacc
 openssldir = /usr/local/include/openssl
 
-LIBTOOL=$(topbuilddir)/libtool
+LIBTOOL=$(topsrcdir)/libtool
 OPT=-g -O2 -DLDAP_COMPONENT
 CC=gcc
 

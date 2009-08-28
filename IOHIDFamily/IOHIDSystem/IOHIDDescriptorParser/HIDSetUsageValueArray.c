@@ -83,10 +83,10 @@ OSStatus HIDSetUsageValueArray(HIDReportType reportType,
 									UInt32 iCollection,
 									HIDUsage usage,
 									UInt8 *psUsageBuffer,
-									UInt32 iByteLength,
+									ByteCount iByteLength,
 									HIDPreparsedDataRef preparsedDataRef,
 									void *psReport,
-									UInt32 iReportLength)
+									ByteCount iReportLength)
 {
 	HIDPreparsedDataPtr ptPreparsedData = (HIDPreparsedDataPtr) preparsedDataRef;
 	HIDCollection *ptCollection;

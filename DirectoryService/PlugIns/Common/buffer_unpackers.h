@@ -40,6 +40,11 @@ tDirStatus GetNameAndDataFromBuffer		(	tDataBufferPtr inAuthData,
 											unsigned char **inOutItemTwo,
 											UInt32 *outItemTwoLength,
 											unsigned int *outItemCount );
+tDirStatus GetDataFromAuthBuffer		(	tDataBufferPtr inAuthData,
+                                			int nodeNum,
+                                			unsigned char **outData,
+                                			UInt32 *outLen );
+
 
 SInt32 UnpackSambaBufferFirstThreeItems	(	tDataBufferPtr inAuthData,
 											tDataListPtr *outDataList,

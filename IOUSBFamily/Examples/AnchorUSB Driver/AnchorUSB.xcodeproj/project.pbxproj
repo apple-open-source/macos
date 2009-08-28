@@ -20,7 +20,7 @@
 		089C167EFE841241C02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		1A224C3EFF42367911CA2CB7 /* AnchorUSB.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AnchorUSB.h; sourceTree = "<group>"; };
 		1A224C3FFF42367911CA2CB7 /* AnchorUSB.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AnchorUSB.cpp; sourceTree = "<group>"; };
-		EE52238C07B1ACB500BF87EA /* AnchorUSB.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = AnchorUSB.plist; sourceTree = "<group>"; };
+		EE52238C07B1ACB500BF87EA /* AnchorUSB.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = AnchorUSB.plist; sourceTree = "<group>"; };
 		EE52238D07B1ACB500BF87EA /* AnchorUSB.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AnchorUSB.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -122,7 +122,6 @@
 			mainGroup = 089C166AFE841209C02AAC07 /* AnchorUSB */;
 			projectDirPath = "";
 			projectRoot = "";
-			shouldCheckCompatibility = 1;
 			targets = (
 				EE52238007B1ACB500BF87EA /* AnchorUSB */,
 			);
@@ -239,7 +238,6 @@
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				PREBINDING = NO;
-				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
 			};
 			name = Debug;
 		};
@@ -249,7 +247,6 @@
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				PREBINDING = NO;
-				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
 			};
 			name = Release;
 		};

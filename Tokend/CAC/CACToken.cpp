@@ -114,7 +114,8 @@ void CACToken::select(const unsigned char *applet)
 
 	transmit(applet, applet_length, result, resultLength);
 	// If the select command failed this isn't a cac card, so we are done.
-	if (resultLength < 2 || result[resultLength - 2] != 0x90 && result[resultLength - 2] != 0x61 /* || result[resultLength - 1] != 0x0D */)
+	if (resultLength < 2 || result[resultLength - 2] != 0x90 &&
+		result[resultLength - 2] != 0x61 /* || result[resultLength - 1] != 0x0D */)
 		PCSC::Error::throwMe(SCARD_E_PROTO_MISMATCH);
 
 	if (isInTransaction())
@@ -451,20 +452,20 @@ uint32 CACToken::probe(SecTokendProbeFlags flags,
 		{
 			unsigned char result[0x2F];
 			size_t resultLength = sizeof(result);
-			uint32_t cacreturn = getData(result, resultLength);
+		/*	uint32_t cacreturn = */ getData(result, resultLength);
 
 			/* Score of 200 to ensure that CAC "wins" for Hybrid CAC/PIV cards */
-				score = 200;				
-				// Now stick in the bytes returned by getData into the
-				// tokenUid.
+			score = 200;
+			// Now stick in the bytes returned by getData into the
+			// tokenUid.
 			if(resultLength > 20)
-				{
-					sprintf(tokenUid,
-						"CAC-%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X",
-						result[3], result[4], result[5], result[6], result[19],
-						result[20], result[15], result[16], result[17],
-						result[18]);
-				}
+			{
+				sprintf(tokenUid,
+					"CAC-%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X",
+					result[3], result[4], result[5], result[6], result[19],
+					result[20], result[15], result[16], result[17],
+					result[18]);
+			}
 			else
 			{
 				/* Cannot generated a tokenUid given the returned data.
@@ -476,10 +477,10 @@ uint32 CACToken::probe(SecTokendProbeFlags flags,
 				strftime(reinterpret_cast<char *>(buffer), 80, "%s", timestruct);
 				snprintf(tokenUid, TOKEND_MAX_UID, "CAC-%s", buffer);
 			}
-				Tokend::ISO7816Token::name(tokenUid);
-				secdebug("probe", "recognized %s", tokenUid);
-			}
+			Tokend::ISO7816Token::name(tokenUid);
+			secdebug("probe", "recognized %s", tokenUid);
 		}
+	}
 	catch (...)
 	{
 		doDisconnect = true;
@@ -587,13 +588,13 @@ void CACToken::populate()
 
 	RefPointer<Tokend::Record> idKey(new CACKeyRecord(
 		kSelectCACAppletPKIID, "Identity Private Key",
-		privateKeyRelation.metaRecord(), true));
+		privateKeyRelation.metaRecord()));
 	RefPointer<Tokend::Record> eSigKey(new CACKeyRecord(
 		kSelectCACAppletPKIESig, "Email Signing Private Key",
-		privateKeyRelation.metaRecord(), true));
+		privateKeyRelation.metaRecord()));
 	RefPointer<Tokend::Record> eCryKey(new CACKeyRecord(
 		kSelectCACAppletPKIECry, "Email Encryption Private Key",
-		privateKeyRelation.metaRecord(), false));
+		privateKeyRelation.metaRecord()));
 
 	privateKeyRelation.insertRecord(idKey);
 	privateKeyRelation.insertRecord(eSigKey);

@@ -5,7 +5,7 @@
 #	http://www.cisco.com/univercd/cc/td/doc/product/access/acs_soft/csacs4nt/csnt30/user/ad.htm
 #	http://www.cisco.com/univercd/cc/td/doc/product/access/acs_soft/csacs4nt/acs31/acsuser/ad.htm
 #
-#	$Id: dictionary.cisco.vpn3000,v 1.7.4.3 2006/11/17 00:01:18 aland Exp $
+#	$Id$
 #
 VENDOR		Cisco-VPN3000			3076
 

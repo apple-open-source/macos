@@ -2,7 +2,7 @@
 
 package Bundle::DBI;
 
-$VERSION = sprintf("%d.%02d", q$Revision: 11.3 $ =~ /(\d+)\.(\d+)/o);
+our $VERSION = sprintf("12.%06d", q$Revision: 8695 $ =~ /(\d+)/o);
 
 1;
 
@@ -22,7 +22,7 @@ DBI - for to get to know thyself
 
 DBI::Shell 11.91 - the DBI command line shell
 
-Storable 2.06 - for DBD::Proxy and DBI::ProxyServer
+Storable 2.06 - for DBD::Proxy, DBI::ProxyServer, DBD::Forward
 
 Net::Daemon 0.37 - for DBD::Proxy and DBI::ProxyServer
 

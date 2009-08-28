@@ -24,7 +24,7 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-NEXTSTEP_PB_CFLAGS = -Wno-four-char-constants -Wall -Werror
+NEXTSTEP_PB_CFLAGS = -Wno-four-char-constants -Wall -Werror -D_DARWIN_USE_64_BIT_INODE
 
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc

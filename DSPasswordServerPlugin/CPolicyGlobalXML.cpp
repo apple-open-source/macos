@@ -286,21 +286,21 @@ CPolicyGlobalXML::ConvertPropertyListPolicyToStruct( CFMutableDictionaryRef inPo
 		CFGetTypeID(valueRef) == CFNumberGetTypeID() &&
 		CFNumberGetValue( (CFNumberRef)valueRef, kCFNumberLongType, &aLongValue) )
 	{
-		mExtraGlobalPolicy.notGuessablePattern = aLongValue;
+		mExtraGlobalPolicy.notGuessablePattern = (UInt32)aLongValue;
 	}
 	
     // expirationDateGMT
 	if ( CFDictionaryGetValueIfPresent( mPolicyDict, CFSTR(kPWPolicyStr_expirationDateGMT), (const void **)&valueRef ) &&
 		CFGetTypeID(valueRef) == CFDateGetTypeID() )
 	{
-		this->ConvertCFDateToBSDTime( (CFDateRef)valueRef, (struct tm *)&mGlobalPolicy.expirationDateGMT );
+		this->ConvertCFDateToBSDTime( (CFDateRef)valueRef, &mGlobalPolicy.expirationDateGMT );
 	}
 	
 	// hardExpireDateGMT
 	if ( CFDictionaryGetValueIfPresent( mPolicyDict, CFSTR(kPWPolicyStr_hardExpireDateGMT), (const void **)&valueRef ) &&
 		CFGetTypeID(valueRef) == CFDateGetTypeID() )
 	{
-		this->ConvertCFDateToBSDTime( (CFDateRef)valueRef, (struct tm *)&mGlobalPolicy.hardExpireDateGMT );
+		this->ConvertCFDateToBSDTime( (CFDateRef)valueRef, &mGlobalPolicy.hardExpireDateGMT );
 	}
 	
 	// maxMinutesUntilChangePassword
@@ -308,7 +308,7 @@ CPolicyGlobalXML::ConvertPropertyListPolicyToStruct( CFMutableDictionaryRef inPo
 		CFGetTypeID(valueRef) == CFNumberGetTypeID() &&
 		CFNumberGetValue( (CFNumberRef)valueRef, kCFNumberLongType, &aLongValue) )
 	{
-		mGlobalPolicy.maxMinutesUntilChangePassword = aLongValue;
+		mGlobalPolicy.maxMinutesUntilChangePassword = (UInt32)aLongValue;
 	}
 	
 	// maxMinutesUntilDisabled
@@ -316,7 +316,7 @@ CPolicyGlobalXML::ConvertPropertyListPolicyToStruct( CFMutableDictionaryRef inPo
 		CFGetTypeID(valueRef) == CFNumberGetTypeID() &&
 		CFNumberGetValue( (CFNumberRef)valueRef, kCFNumberLongType, &aLongValue) )
 	{
-		mGlobalPolicy.maxMinutesUntilDisabled = aLongValue;
+		mGlobalPolicy.maxMinutesUntilDisabled = (UInt32)aLongValue;
 	}
 
 	// maxMinutesOfNonUse
@@ -324,7 +324,7 @@ CPolicyGlobalXML::ConvertPropertyListPolicyToStruct( CFMutableDictionaryRef inPo
 		CFGetTypeID(valueRef) == CFNumberGetTypeID() &&
 		CFNumberGetValue( (CFNumberRef)valueRef, kCFNumberLongType, &aLongValue) )
 	{
-		mGlobalPolicy.maxMinutesOfNonUse = aLongValue;
+		mGlobalPolicy.maxMinutesOfNonUse = (UInt32)aLongValue;
 	}
 
 	// maxFailedLoginAttempts
@@ -441,8 +441,8 @@ CPolicyGlobalXML::ConvertStructToPropertyListPolicy( void )
 	
 	CFBooleanRef canModifyPasswordforSelfRef = mGlobalPolicy.noModifyPasswordforSelf ? kCFBooleanFalse : kCFBooleanTrue;
 	
-	this->ConvertBSDTimeToCFDate( (struct tm *)&(mGlobalPolicy.expirationDateGMT), &expirationDateGMTRef );
-	this->ConvertBSDTimeToCFDate( (struct tm *)&(mGlobalPolicy.hardExpireDateGMT), &hardExpireDateGMTRef );
+    this->ConvertBSDTimeToCFDate( &(mGlobalPolicy.expirationDateGMT), &expirationDateGMTRef );
+	this->ConvertBSDTimeToCFDate( &(mGlobalPolicy.hardExpireDateGMT), &hardExpireDateGMTRef );
 	
 	// build dictionary
 	if ( usingHistoryRef != NULL )

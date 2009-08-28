@@ -1,0 +1,6 @@
+1g,/.*python[^ ]*,s,,/System/Library/Frameworks/Python.framework/Versions/@VERSION@/Resources/Python.app/Contents/MacOS/Python,
+1a
+import sys
+sys.argv[0] = sys.argv[0].replace('@SEP@@VERSION@', '')
+.
+w

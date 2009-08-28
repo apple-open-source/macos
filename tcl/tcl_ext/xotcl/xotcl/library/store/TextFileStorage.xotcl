@@ -1,0 +1,160 @@
+package provide xotcl::store::textfile 0.84
+package require xotcl::store
+package require XOTcl
+
+namespace eval ::xotcl::store::textfile {
+    namespace import ::xotcl::*
+
+    Class Storage=TextFile -superclass Storage -parameter {
+	filename
+	reorgCounter
+	reorgMaxValue
+    }
+
+    Storage=TextFile instproc init args {
+	my instvar reorgCounter reorgMaxValue searchID
+	::set reorgCounter 0
+	::set reorgMaxValue 1000
+	::set searchID ""
+	next
+    }
+    Storage=TextFile instproc reorganizeDB {} {
+	my instvar noreorg reorgCounter reorgMaxValue filename keys
+	::set reorgCounter -1
+	#puts "***reorganizeDB"
+	if {[::info exists filename]} {
+	    ::set noreorg 1
+	    ::array set bkeys [::array get keys]
+	    ::array set keys {}
+	    #    parray bkeys
+
+	    ::set bak $filename.orig
+	    file rename -force $filename $bak
+	    foreach k [::array names bkeys] {
+		::set bf [::open $bak r]
+		seek $bf [lindex $bkeys($k) 0]
+		::set c [read $bf [lindex $bkeys($k) 1]]
+		::close $bf
+		#puts "***STORING $k [lindex $c 1]"
+		my set $k [lindex $c 1]
+	    }
+	    file delete -force $bak
+	    ::unset noreorg
+	}
+    }
+    Storage=TextFile instproc open fn {
+	my instvar keys filename
+	::array set keys {}
+	::set position 0
+	::set filename $fn
+	if {[file exists $filename]} {
+	    ::set f [::open $filename r]
+	    ::set c [read $f]
+	    ::close $f
+	    foreach {k v} $c {
+		lappend keyList $k
+	    }
+	    ::set f [::open $filename r]
+	    while {1} {
+		set position [tell $f]
+		if {!([gets $f line] >= 0)} {		
+		    break
+		}
+
+		set k [lindex $keyList 0]
+		if {[string match $k* $line]} {
+		    set lastLength [string length $line]
+		    set keys($k) [concat $position $lastLength]
+		    set lastKey $k
+		    set lastPosition $position
+		    set keyList [lreplace $keyList 0 0]
+		} elseif {[info exists lastKey]} {
+		    set lastLength [expr $lastLength + [string length $line] + 1]
+		    set keys($lastKey) [concat $lastPosition $lastLength]
+		}
+	    }
+	    ::close $f
+
+	    #parray keys
+	}
+    }
+    Storage=TextFile instproc exists key {
+	my instvar keys
+	info exists keys($key)
+    }
+
+    Storage=TextFile instproc set args {
+	my instvar keys noreorg reorgCounter reorgMaxValue filename
+	::set key [lindex $args 0]
+	::set l [llength $args]
+	if {$l == 1} {     ;# fetch
+	    if {[::info exists keys($key)]} {
+		::set f [::open $filename r]
+		#puts "***fetch -- $keys($key)"
+		seek $f [lindex $keys($key) 0]
+		::set c [read $f [lindex $keys($key) 1]]
+		::close $f
+		return [lindex $c 1]
+	    } else {
+		error "no such variable '$key'"    
+	    }
+	} elseif {$l == 2} {    ;# store
+	    if {![::info exists noreorg] && [::info exists keys($key)]} {
+		::incr reorgCounter    
+	    }
+	    ::set f [::open $filename a+]
+	    ::set position [tell $f]
+	    #puts "***store -- putting [::list $key [lindex $args 1]] at $position"
+	    ::set c [::list $key [lindex $args 1]]
+	    puts $f $c
+	    ::close $f
+	    ::set keys($key) [::list $position [expr {[string length $c] + 1}]]
+	    #  parray keys
+	    if {$reorgCounter > $reorgMaxValue} {
+		my reorganizeDB    
+	    }
+	} else { next }
+    }
+
+    Storage=TextFile instproc names  {} {
+	my array names keys
+    }
+    Storage=TextFile instproc close {} {
+	my instvar filename keys
+	my reorganizeDB
+	::unset filename
+	::unset keys
+    }
+    Storage=TextFile instproc unset key {
+	my instvar keys
+	if {[::info exists keys($key)]} {
+	    ::unset keys($key)
+	}
+	my reorganizeDB
+    }
+
+    Storage=TextFile instproc firstkey {} {
+	my instvar keys searchID
+	if {$searchID ne ""} {
+	    array donesearch keys $searchID
+	}
+	::set searchID [array startsearch keys]
+	return [array nextelement keys $searchID]
+    }
+    Storage=TextFile instproc nextkey {} {
+	my instvar keys searchID
+	if {$searchID eq ""} {
+	    error "[self class]: firstkey was not invoked on storage search"
+	}
+	::set elt [array nextelement keys $searchID]
+	if {$elt eq ""} {
+	    # if array end is reach search is terminated automatically!!
+	    ::set searchID ""
+	}
+	return $elt
+    }
+
+    namespace export Storage=TextFile
+}
+
+namespace import ::xotcl::store::textfile::*

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -126,7 +126,7 @@ _notifyadd(mach_port_t 			server,
 )
 {
 	CFStringRef		key		= NULL;	/* key  (un-serialized) */
-	serverSessionRef	mySession	= getSession(server);
+	serverSessionRef	mySession;
 
 	/* un-serialize the key */
 	if (!_SCUnserializeString(&key, NULL, (void *)keyRef, keyLen)) {
@@ -139,6 +139,7 @@ _notifyadd(mach_port_t 			server,
 		goto done;
 	}
 
+	mySession = getSession(server);
 	if (mySession == NULL) {
 		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
 		goto done;
@@ -276,7 +277,7 @@ _notifyset(mach_port_t 			server,
 )
 {
 	CFArrayRef		keys		= NULL;	/* key (un-serialized) */
-	serverSessionRef	mySession	= getSession(server);
+	serverSessionRef	mySession;
 	CFArrayRef		patterns	= NULL;	/* patterns (un-serialized) */
 
 	*sc_status = kSCStatusOK;
@@ -309,6 +310,7 @@ _notifyset(mach_port_t 			server,
 		goto done;
 	}
 
+	mySession = getSession(server);
 	if (mySession == NULL) {
 		/* you must have an open session to play */
 		*sc_status = kSCStatusNoStoreSession;

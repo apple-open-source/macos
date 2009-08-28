@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Rob Braun
+ * Copyright (c) 2005-2007 Rob Braun
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,7 +28,7 @@
  */
 /*
  * 03-Apr-2005
- * DRI: Rob Braun <bbraun@opendarwin.org>
+ * DRI: Rob Braun <bbraun@synack.net>
  */
 /*
  * Portions Copyright 2006, Apple Computer, Inc.
@@ -56,27 +56,26 @@ struct _hash_context{
 	EVP_MD_CTX archived_cts;
 	uint8_t	unarchived;
 	uint8_t archived;
+	uint64_t count;
 };
 
 #define CONTEXT(x) ((struct _hash_context *)(*x))
 
 static char* xar_format_hash(const unsigned char* m,unsigned int len);
 
-int32_t xar_hash_unarchived(xar_t x, xar_file_t f, const char *attr, void **in, size_t *inlen, void **context) {
-	return xar_hash_unarchived_out(x,f,attr,*in,*inlen,context);
+int32_t xar_hash_unarchived(xar_t x, xar_file_t f, xar_prop_t p, void **in, size_t *inlen, void **context) {
+	return xar_hash_unarchived_out(x,f,p,*in,*inlen,context);
 }
 
-int32_t xar_hash_unarchived_out(xar_t x, xar_file_t f, const char *attr, void *in, size_t inlen, void **context) {
+int32_t xar_hash_unarchived_out(xar_t x, xar_file_t f, xar_prop_t p, void *in, size_t inlen, void **context) {
 	const char *opt;
-	char *tmpstr;
 	const EVP_MD *md;
+	xar_prop_t tmpp;
 
-	if(!context)
-		return 0;
-	
-	asprintf(&tmpstr, "%s/extracted-checksum", attr);
-	opt = xar_attr_get(f, tmpstr, "style");
-	free(tmpstr);
+	opt = NULL;
+	tmpp = xar_prop_pget(p, "extracted-checksum");
+	if( tmpp )
+		opt = xar_attr_pget(f, tmpp, "style");
 	
 	if( !opt ) 	
 		opt = xar_opt_get(x, XAR_OPT_FILECKSUM);
@@ -99,26 +98,25 @@ int32_t xar_hash_unarchived_out(xar_t x, xar_file_t f, const char *attr, void *i
 	if( inlen == 0 )
 		return 0;
 	
+	CONTEXT(context)->count += inlen;
 	EVP_DigestUpdate(&(CONTEXT(context)->unarchived_cts), in, inlen);
 	return 0;
 }
 
-int32_t xar_hash_archived(xar_t x, xar_file_t f, const char *attr, void **in, size_t *inlen, void **context)
+int32_t xar_hash_archived(xar_t x, xar_file_t f, xar_prop_t p, void **in, size_t *inlen, void **context)
 {
-	return xar_hash_archived_in(x,f,attr,*in,*inlen,context);
+	return xar_hash_archived_in(x,f,p,*in,*inlen,context);
 }
 
-int32_t xar_hash_archived_in(xar_t x, xar_file_t f, const char *attr, void *in, size_t inlen, void **context) {
+int32_t xar_hash_archived_in(xar_t x, xar_file_t f, xar_prop_t p, void *in, size_t inlen, void **context) {
 	const char *opt;
 	const EVP_MD *md;
-	char *tmpstr;
+	xar_prop_t tmpp;
 	
-	if(!context)
-		return 0;
-	
-	asprintf(&tmpstr, "%s/archived-checksum", attr);
-	opt = xar_attr_get(f, tmpstr, "style");
-	free(tmpstr);
+	opt = NULL;
+	tmpp = xar_prop_pget(p, "archived-checksum");
+	if( tmpp )
+		opt = xar_attr_pget(f, tmpp, "style");
 	
 	if( !opt ) 	
 		opt = xar_opt_get(x, XAR_OPT_FILECKSUM);
@@ -141,17 +139,22 @@ int32_t xar_hash_archived_in(xar_t x, xar_file_t f, const char *attr, void *in, 
 	if( inlen == 0 )
 		return 0;
 
+	CONTEXT(context)->count += inlen;
 	EVP_DigestUpdate(&(CONTEXT(context)->archived_cts), in, inlen);
 	return 0;
 }
 
-int32_t xar_hash_done(xar_t x, xar_file_t f, const char *attr, void **context) {
+int32_t xar_hash_done(xar_t x, xar_file_t f, xar_prop_t p, void **context) {
 	unsigned char hashstr[EVP_MAX_MD_SIZE];
-	char *str, *tmpstr;
+	char *str;
 	unsigned int len;
+	xar_prop_t tmpp;
 
 	if(!CONTEXT(context))
 		return 0;
+
+	if( CONTEXT(context)->count == 0 )
+		goto DONE;
 
 	if( CONTEXT(context)->unarchived ){
 		EVP_MD_CTX		*ctx = &CONTEXT(context)->unarchived_cts;
@@ -161,12 +164,11 @@ int32_t xar_hash_done(xar_t x, xar_file_t f, const char *attr, void **context) {
 		memset(hashstr, 0, sizeof(hashstr));
 		EVP_DigestFinal(&(CONTEXT(context)->unarchived_cts), hashstr, &len);
 		str = xar_format_hash(hashstr,len);
-		asprintf(&tmpstr, "%s/extracted-checksum", attr);
 		if( f ) {
-			xar_prop_set(f, tmpstr, str);
-			xar_attr_set(f, tmpstr, "style", type);
+			tmpp = xar_prop_pset(f, p, "extracted-checksum", str);
+			if( tmpp )
+				xar_attr_pset(f, tmpp, "style", type);
 		}
-		free(tmpstr);
 		free(str);		
 	}
 
@@ -178,15 +180,15 @@ int32_t xar_hash_done(xar_t x, xar_file_t f, const char *attr, void **context) {
 		memset(hashstr, 0, sizeof(hashstr));
 		EVP_DigestFinal(&(CONTEXT(context)->archived_cts), hashstr, &len);
 		str = xar_format_hash(hashstr,len);
-		asprintf(&tmpstr, "%s/archived-checksum", attr);
 		if( f ) {
-			xar_prop_set(f, tmpstr, str);
-			xar_attr_set(f, tmpstr, "style", type);
+			tmpp = xar_prop_pset(f, p, "archived-checksum", str);
+			if( tmpp )
+				xar_attr_pset(f, tmpp, "style", type);
 		}
-		free(tmpstr);
 		free(str);
 	}
 	
+DONE:
 	if(*context){
 		free(*context);
 		*context = NULL;		
@@ -210,22 +212,24 @@ static char* xar_format_hash(const unsigned char* m,unsigned int len) {
 	return result;
 }
 
-int32_t xar_hash_out_done(xar_t x, xar_file_t f, const char *attr, void **context) {
-	const char *uncomp, *uncompstyle;
+int32_t xar_hash_out_done(xar_t x, xar_file_t f, xar_prop_t p, void **context) {
+	const char *uncomp = NULL, *uncompstyle = NULL;
 	unsigned char hashstr[EVP_MAX_MD_SIZE];
 	unsigned int len;
 	char *tmpstr;
 	const EVP_MD *md;
 	int32_t err = 0;
+	xar_prop_t tmpp;
 
 	if(!CONTEXT(context))
 		return 0;
 
 	if( CONTEXT(context)->archived ){	
-		asprintf(&tmpstr, "%s/archived-checksum", attr);
-		xar_prop_get(f, tmpstr, &uncomp);
-		uncompstyle = xar_attr_get(f, tmpstr, "style");
-		free(tmpstr);
+		tmpp = xar_prop_pget(p, "archived-checksum");
+		if( tmpp ) {
+			uncompstyle = xar_attr_pget(f, tmpp, "style");
+			uncomp = xar_prop_getvalue(tmpp);
+		}
 		
 		md = EVP_get_digestbyname(uncompstyle);
 

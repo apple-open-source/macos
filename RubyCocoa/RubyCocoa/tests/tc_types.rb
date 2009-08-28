@@ -132,8 +132,8 @@ class TC_Types < Test::Unit::TestCase
   def test_float_nsnumber
     assert(!OSX::CFNumberIsFloatType(42))
     assert(OSX::CFNumberIsFloatType(42.42))
-    assert(!OSX::NSNumber.numberWithInt(42).float?)
-    assert(OSX::NSNumber.numberWithFloat(42.42).float?)
+    assert(OSX::NSNumber.numberWithInt(42).integer?)
+    assert(!OSX::NSNumber.numberWithFloat(42.42).integer?)
   end
 
   def test_cftypes
@@ -263,5 +263,18 @@ class TC_Types < Test::Unit::TestCase
     size3 = rect2.size.clone
     assert_equal(rect.size, size3)
     assert(!OSX::NSZone.instance_methods(false).include?('dup'))
+  end
+
+  def test_cary_struct
+    OSX.load_bridge_support_file('CAryStructTest.bridgesupport')
+    o = OSX::NSObject.new
+    t1 = o.test1
+    assert_kind_of(OSX::Ttype1, t1)
+    assert_equal(1.0, t1.a)
+    assert_equal(2.0, t1.b)
+    t2 = o.test2
+    assert_kind_of(OSX::Ttype2, t2)
+    assert_equal(1.0, t2.a[0])
+    assert_equal(2.0, t2.a[1])
   end
 end

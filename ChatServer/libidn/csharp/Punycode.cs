@@ -1,28 +1,29 @@
-/// <summary> Copyright (C) 2004, 2005  Free Software Foundation, Inc.
+/// <summary>
 /// *
-/// Author: Alexander Gnauck AG-Software
+/// Author: Alexander Gnauck AG-Software, mailto:gnauck@ag-software.de
 /// *
 /// This file is part of GNU Libidn.
 /// *
-/// This program is free software; you can redistribute it and/or
-/// modify it under the terms of the GNU General Public License as
-/// published by the Free Software Foundation; either version 2 of the
-/// License, or (at your option) any later version.
+/// This library is free software; you can redistribute it and/or
+/// modify it under the terms of the GNU Lesser General Public License
+/// as published by the Free Software Foundation; either version 2.1 of
+/// the License, or (at your option) any later version.
 /// *
-/// This program is distributed in the hope that it will be useful,
-/// but WITHOUT ANY WARRANTY; without even the implied warranty of
+/// This library is distributed in the hope that it will be useful, but
+/// WITHOUT ANY WARRANTY; without even the implied warranty of
 /// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-/// General Public License for more details.
+/// Lesser General Public License for more details.
 /// *
-/// You should have received a copy of the GNU General Public License
-/// along with this program; if not, write to the Free Software
-/// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-/// 02111-1307 USA.
+/// You should have received a copy of the GNU Lesser General Public
+/// License along with this library; if not, write to the Free Software
+/// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301
+/// USA
 /// </summary>
 
 using System;
+using System.Text;
 
-namespace gnu.inet.encoding
+namespace Gnu.Inet.Encoding
 {	
 	
 	public class Punycode
@@ -37,27 +38,24 @@ namespace gnu.inet.encoding
 		internal const int SKEW = 38;
 		internal const char DELIMITER = '-';
 		
-		/// <summary> Punycodes a unicode string.
-		/// *
+		/// <summary>
+        /// Punycodes a unicode string.
 		/// </summary>
-		/// <param name="input">Unicode string.
-		/// </param>
-		/// <returns> Punycoded string.
-		/// 
-		/// </returns>
-		public static System.String encode(System.String input)
+		/// <param name="input">Unicode string.</param>
+		/// <returns> Punycoded string.</returns>
+		public static string Encode(string input)
 		{
 			int n = INITIAL_N;
 			int delta = 0;
 			int bias = INITIAL_BIAS;
-			System.Text.StringBuilder output = new System.Text.StringBuilder();
+			StringBuilder output = new StringBuilder();
 			
 			// Copy all basic code points to the output
 			int b = 0;
 			for (int i = 0; i < input.Length; i++)
 			{
 				char c = input[i];
-				if (isBasic(c))
+				if (IsBasic(c))
 				{
 					output.Append(c);
 					b++;
@@ -126,12 +124,12 @@ namespace gnu.inet.encoding
 							{
 								break;
 							}
-							output.Append((char) digit2codepoint(t + (q - t) % (BASE - t)));
+							output.Append((char) Digit2Codepoint(t + (q - t) % (BASE - t)));
 							q = (q - t) / (BASE - t);
 						}
 						
-						output.Append((char) digit2codepoint(q));
-						bias = adapt(delta, h + 1, h == b);
+						output.Append((char) Digit2Codepoint(q));
+						bias = Adapt(delta, h + 1, h == b);
 						delta = 0;
 						h++;
 					}
@@ -144,20 +142,17 @@ namespace gnu.inet.encoding
 			return output.ToString();
 		}
 		
-		/// <summary> Decode a punycoded string.
-		/// *
+		/// <summary>
+        /// Decode a punycoded string.
 		/// </summary>
-		/// <param name="input">Punycode string
-		/// </param>
-		/// <returns> Unicode string.
-		/// 
-		/// </returns>
-		public static System.String decode(System.String input)
+		/// <param name="input">Punycode string</param>
+		/// <returns> Unicode string.</returns>
+		public static string Decode(string input)
 		{
 			int n = INITIAL_N;
 			int i = 0;
 			int bias = INITIAL_BIAS;
-			System.Text.StringBuilder output = new System.Text.StringBuilder();
+			StringBuilder output = new StringBuilder();
 			
 			int d = input.LastIndexOf((System.Char) DELIMITER);
 			if (d > 0)
@@ -165,7 +160,7 @@ namespace gnu.inet.encoding
 				for (int j = 0; j < d; j++)
 				{
 					char c = input[j];
-					if (!isBasic(c))
+					if (!IsBasic(c))
 					{
 						throw new PunycodeException(PunycodeException.BAD_INPUT);
 					}
@@ -190,7 +185,7 @@ namespace gnu.inet.encoding
 						throw new PunycodeException(PunycodeException.BAD_INPUT);
 					}
 					int c = input[d++];
-					int digit = codepoint2digit(c);
+					int digit = Codepoint2Digit(c);
 					if (digit > (System.Int32.MaxValue - i) / w)
 					{
 						throw new PunycodeException(PunycodeException.OVERFLOW);
@@ -218,9 +213,9 @@ namespace gnu.inet.encoding
 					w = w * (BASE - t);
 				}
 				
-				bias = adapt(i - oldi, output.Length + 1, oldi == 0);
+				bias = Adapt(i - oldi, output.Length + 1, oldi == 0);
 				
-				if (i / (output.Length + 1) > System.Int32.MaxValue - n)
+				if (i / (output.Length + 1) > Int32.MaxValue - n)
 				{
 					throw new PunycodeException(PunycodeException.OVERFLOW);
 				}
@@ -236,7 +231,7 @@ namespace gnu.inet.encoding
 			return output.ToString();
 		}
 		
-		public static int adapt(int delta, int numpoints, bool first)
+		public static int Adapt(int delta, int numpoints, bool first)
 		{
 			if (first)
 			{
@@ -259,12 +254,12 @@ namespace gnu.inet.encoding
 			return k + ((BASE - TMIN + 1) * delta) / (delta + SKEW);
 		}
 		
-		public static bool isBasic(char c)
+		public static bool IsBasic(char c)
 		{
 			return c < 0x80;
 		}
 		
-		public static int digit2codepoint(int d)
+		public static int Digit2Codepoint(int d)
 		{
 			if (d < 26)
 			{
@@ -282,7 +277,7 @@ namespace gnu.inet.encoding
 			}
 		}
 		
-		public static int codepoint2digit(int c)
+		public static int Codepoint2Digit(int c)
 		{
 			if (c - '0' < 10)
 			{

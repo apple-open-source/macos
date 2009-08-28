@@ -77,7 +77,7 @@
  * ndp - display, set, delete and flush neighbor cache
  */
 
-
+#include <stdint.h>
 #include <sys/param.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
@@ -119,7 +119,7 @@
 
 /* packing rule for routing socket */
 #define ROUNDUP(a) \
-	((a) > 0 ? (1 + (((a) - 1) | (sizeof(long) - 1))) : sizeof(long))
+	((a) > 0 ? (1 + (((a) - 1) | (sizeof(uint32_t) - 1))) : sizeof(uint32_t))
 #define ADVANCE(x, n) (x += ROUNDUP((n)->sa_len))
 
 static int pid;
@@ -958,7 +958,7 @@ ifinfo(argc, argv)
 	memset(nullbuf, 0, sizeof(nullbuf));
 	if (memcmp(nullbuf, ND.randomid, sizeof(nullbuf)) != 0) {
 		int j;
-		u_int8_t *rbuf;
+		u_int8_t *rbuf = NULL;
 
 		for (i = 0; i < 3; i++) {
 			switch(i) {

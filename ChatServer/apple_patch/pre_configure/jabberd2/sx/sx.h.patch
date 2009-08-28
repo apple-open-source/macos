@@ -1,0 +1,13 @@
+--- /tmp/jabberd-2.1.24.1/sx/sx.h	2008-04-27 02:57:25.000000000 -0700
++++ ./jabberd2/sx/sx.h	2009-05-26 13:11:08.000000000 -0700
+@@ -399,3 +399,10 @@ JABBERD2_API int         __sx_event(cons
+ #include "plugins.h"
+ 
+ #endif
++
++int sx_apple_password_callback(char *return_buf, int return_buf_size, int in_rwflag, void *in_userdata);
++typedef struct ssl_userdata_st *ssl_userdata_t; 
++struct ssl_userdata_st {
++    char *pemfile;
++    char *password;
++};

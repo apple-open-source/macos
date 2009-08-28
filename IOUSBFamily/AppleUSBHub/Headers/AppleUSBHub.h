@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright © 1998-2009 Apple Inc.  All rights reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -54,7 +54,8 @@ __attribute__((format(printf, 1, 2)));
 enum
 {
       kErrataCaptiveOKBit = 1,
-      kStartupDelayBit = 2
+      kStartupDelayBit = 2,
+	  kDisplayOverCurrentTimeout = 30			// # of seconds that need to pass before we will show an overcurrent dialog again
 };
 
 
@@ -102,7 +103,7 @@ class AppleUSBHub : public IOUSBHubPolicyMaker
     
 	bool								_needInterruptRead;						// T if we need a new interrupt read on either a power change or on the last I/O
 	bool								_needToCallResetDevice;
-	bool								_interruptReadPending;					// T if there is ab outstanding read on the interrupt pipe
+	UInt32								_interruptReadPending;					// 1 if there is ab outstanding read on the interrupt pipe, 0 if there is not
     
     UInt32								_powerForCaptive;
     thread_call_t						_workThread;
@@ -113,6 +114,7 @@ class AppleUSBHub : public IOUSBHubPolicyMaker
 	thread_call_t						_waitForPortResumesThread;
 	thread_call_t						_ensureUsabilityThread;
 	thread_call_t						_initialDelayThread;
+	thread_call_t						_hubResetPortThread;
 
     // Port stuff
     UInt8								_readBytes;
@@ -125,6 +127,7 @@ class AppleUSBHub : public IOUSBHubPolicyMaker
 	bool								_checkPortsThreadActive;
 	bool								_abandonCheckPorts;						// T if we should abandon the check ports thread
 	bool								_doPortActionLock;						// Lock to synchronize accesses to any "PortAction" (supend/reenumerate)
+	bool								_waitingForPowerOn;						// T if we are in a commandSleep waiting for a power change to ON
     IOTimerEventSource *				_timerSource;
     UInt32								_timeoutFlag;
     UInt32								_portTimeStamp[32];
@@ -139,6 +142,8 @@ class AppleUSBHub : public IOUSBHubPolicyMaker
     UInt32								_startupDelay;
 	AbsoluteTime						_wakeupTime;
 	bool								_ignoreDisconnectOnWakeup;
+	bool								_overCurrentNoticeDisplayed;
+	AbsoluteTime						_overCurrentNoticeTimeStamp;
     
     static void 	InterruptReadHandlerEntry(OSObject *target, void *param, IOReturn status, UInt32 bufferSizeRemaining);
     void			InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining);
@@ -231,6 +236,14 @@ class AppleUSBHub : public IOUSBHubPolicyMaker
 	// local function for an initial delay
 	void				InitialDelay(void);
 	
+	// local function for an resettting our port
+	void				HubResetPortAfterPowerChangeDone(void);
+	
+	// waiting for power change
+	IOReturn			WaitForPowerOn( uint64_t timeout );
+	void				WakeOnPowerOn( );
+
+	
 	static const char *	HubMessageToString(UInt32 message);
 	
 public:
@@ -267,6 +280,9 @@ public:
 	
 	// static entry for InitialDelay to not Lower the Hub Power State until some time has passed (5 seconds)
     static void				InitialDelayEntry(OSObject *target);
+	
+	// static entry for HubResetPortAfterPowerChangeDoneEntry to issue a ResetDevice() on another thread other than powerChangeDone
+    static void				HubResetPortAfterPowerChangeDoneEntry(OSObject *target);
 	
 	// inline method
     IOUSBDevice * GetDevice(void) { return _device; }

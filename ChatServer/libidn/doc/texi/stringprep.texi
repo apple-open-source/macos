@@ -1,3 +1,5 @@
+@subheading stringprep
+@anchor{stringprep}
 @deftypefun {int} {stringprep} (char * @var{in}, size_t @var{maxlen}, Stringprep_profile_flags @var{flags}, const Stringprep_profile * @var{profile})
 @var{in}: input/ouput array with string to prepare.
 

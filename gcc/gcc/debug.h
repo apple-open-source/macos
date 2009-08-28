@@ -1,5 +1,5 @@
 /* Debug hooks for GCC.
-   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -13,16 +13,13 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 #ifndef GCC_DEBUG_H
 #define GCC_DEBUG_H
 
-/* APPLE LOCAL begin mainline 2006-05-15 rewrite 4548482  */
-#include "input.h"
-/* APPLE LOCAL end mainline 2006-05-15 rewrite 4548482  */
-
 /* APPLE LOCAL begin opt diary */
+#include "input.h"
 /* Optimization diary messages */
 enum debug_od_msg
   {
@@ -136,9 +133,7 @@ struct gcc_debug_hooks
   /* DECL is an inline function which is about to be emitted out of
      line.  The hook is useful to, e.g., emit abstract debug info for
      the inline before it gets mangled by optimization.  */
-  /* APPLE LOCAL begin mainline 2006-05-15 rewrite 4548482  */
-  void (* outlining_inline_function) (tree decl, source_locus);
-  /* APPLE LOCAL end mainline 2006-05-15 rewrite 4548482  */
+  void (* outlining_inline_function) (tree decl);
 
   /* Called from final_scan_insn for any CODE_LABEL insn whose
      LABEL_NAME is non-null.  */
@@ -155,6 +150,11 @@ struct gcc_debug_hooks
   /* Called to emit optimization diary entry.  */
   void (* opt_diary_entry) (enum debug_od_msg, expanded_location);
   /* APPLE LOCAL end opt diary */
+
+  /* Called from final_scan_insn if there is a switch between hot and cold
+     text sections.  */
+  void (* switch_text_section) (void);
+
   /* This is 1 if the debug writer wants to see start and end commands for the
      main source files, and 0 otherwise.  */
   int start_end_main_source_file;
@@ -169,9 +169,6 @@ extern void debug_nothing_int_charstar (unsigned int, const char *);
 extern void debug_nothing_int (unsigned int);
 extern void debug_nothing_int_int (unsigned int, unsigned int);
 extern void debug_nothing_tree (tree);
-/* APPLE LOCAL begin mainline 2006-05-15 rewrite 4548482  */
-extern void debug_nothing_tree_loc (tree, source_locus);
-/* APPLE LOCAL end mainline 2006-05-15 rewrite 4548482  */
 extern void debug_nothing_tree_int (tree, int);
 extern void debug_nothing_tree_tree (tree, tree);
 extern bool debug_true_tree (tree);

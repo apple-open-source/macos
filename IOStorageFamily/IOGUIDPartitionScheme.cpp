@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,11 +32,7 @@
 #define super IOPartitionScheme
 OSDefineMetaClassAndStructors(IOGUIDPartitionScheme, IOPartitionScheme);
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 #define UCS_LITTLE_ENDIAN 0x00000001
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 static size_t ucs2_to_utf8( const uint16_t * ucs2str,
                             size_t           ucs2strsiz,
@@ -67,8 +63,6 @@ static size_t ucs2_to_utf8( const uint16_t * ucs2str,
     return utf8strlen;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 static void uuid_unswap(uuid_t uu)
 {
     uint8_t tmp;
@@ -78,8 +72,6 @@ static void uuid_unswap(uuid_t uu)
     tmp = uu[4];  uu[4] = uu[5];  uu[5] = tmp;
     tmp = uu[6];  uu[6] = uu[7];  uu[7] = tmp;
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 bool IOGUIDPartitionScheme::init(OSDictionary * properties)
 {
@@ -98,8 +90,6 @@ bool IOGUIDPartitionScheme::init(OSDictionary * properties)
     return true;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 void IOGUIDPartitionScheme::free()
 {
     //
@@ -110,8 +100,6 @@ void IOGUIDPartitionScheme::free()
 
     super::free();
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IOService * IOGUIDPartitionScheme::probe(IOService * provider, SInt32 * score)
 {
@@ -133,8 +121,6 @@ IOService * IOGUIDPartitionScheme::probe(IOService * provider, SInt32 * score)
 
     return ( _partitions ) ? this : 0;
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 bool IOGUIDPartitionScheme::start(IOService * provider)
 {
@@ -173,8 +159,6 @@ bool IOGUIDPartitionScheme::start(IOService * provider)
     return true;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 void IOGUIDPartitionScheme::stop(IOService * provider)
 {
     //
@@ -204,8 +188,6 @@ void IOGUIDPartitionScheme::stop(IOService * provider)
 
     super::stop(provider);
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IOReturn IOGUIDPartitionScheme::requestProbe(IOOptionBits options)
 {
@@ -242,8 +224,6 @@ IOReturn IOGUIDPartitionScheme::requestProbe(IOOptionBits options)
 
     return partitions ? kIOReturnSuccess : kIOReturnError;
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 OSSet * IOGUIDPartitionScheme::scan(SInt32 * score)
 {
@@ -371,12 +351,25 @@ OSSet * IOGUIDPartitionScheme::scan(SInt32 * score)
 
     // Determine whether the partition entry size is valid.
 
-    gptBlock = OSSwapLittleToHostInt64(headerMap->hdr_lba_table);
     gptCheck = OSSwapLittleToHostInt32(headerMap->hdr_crc_table);
-    gptCount = OSSwapLittleToHostInt32(headerMap->hdr_entries);
     gptSize  = OSSwapLittleToHostInt32(headerMap->hdr_entsz);
 
     if ( gptSize < sizeof(gpt_ent) )
+    {
+        goto scanErr;
+    }
+
+    if ( gptSize > UINT16_MAX )
+    {
+        goto scanErr;
+    }
+
+    // Determine whether the partition entry count is valid.
+
+    gptBlock = OSSwapLittleToHostInt64(headerMap->hdr_lba_table);
+    gptCount = OSSwapLittleToHostInt32(headerMap->hdr_entries);
+
+    if ( gptCount > UINT16_MAX )
     {
         goto scanErr;
     }
@@ -461,8 +454,6 @@ scanErr:
     return 0;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 bool IOGUIDPartitionScheme::isPartitionUsed(gpt_ent * partition)
 {
     //
@@ -471,8 +462,6 @@ bool IOGUIDPartitionScheme::isPartitionUsed(gpt_ent * partition)
 
     return uuid_is_null(partition->ent_type) ? false : true;
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 bool IOGUIDPartitionScheme::isPartitionCorrupt( gpt_ent * /* partition   */ ,
                                                 UInt32    /* partitionID */ )
@@ -485,8 +474,6 @@ bool IOGUIDPartitionScheme::isPartitionCorrupt( gpt_ent * /* partition   */ ,
 
     return false;
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 bool IOGUIDPartitionScheme::isPartitionInvalid( gpt_ent * partition,
                                                 UInt32    partitionID )
@@ -524,8 +511,6 @@ bool IOGUIDPartitionScheme::isPartitionInvalid( gpt_ent * partition,
     return false;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 IOMedia * IOGUIDPartitionScheme::instantiateMediaObject( gpt_ent * partition,
                                                          UInt32    partitionID )
 {
@@ -533,12 +518,12 @@ IOMedia * IOGUIDPartitionScheme::instantiateMediaObject( gpt_ent * partition,
     // Instantiate a new media object to represent the given partition.
     //
 
-    IOMedia * media          = getProvider();
-    UInt64    mediaBlockSize = media->getPreferredBlockSize();
-    UInt64    partitionBase  = 0;
-    char      partitionHint[36 + 1];
-    char      partitionName[36 * 3 + 1];
-    UInt64    partitionSize  = 0;
+    IOMedia *     media          = getProvider();
+    UInt64        mediaBlockSize = media->getPreferredBlockSize();
+    UInt64        partitionBase  = 0;
+    uuid_string_t partitionHint;
+    char          partitionName[36 * 3 + 1];
+    UInt64        partitionSize  = 0;
 
     ucs2_to_utf8( partition->ent_name,
                   sizeof(partition->ent_name),
@@ -577,13 +562,13 @@ IOMedia * IOGUIDPartitionScheme::instantiateMediaObject( gpt_ent * partition,
             // Set a name for this partition.
 
             char name[24];
-            snprintf(name, sizeof(name), "Untitled %ld", partitionID);
+            snprintf(name, sizeof(name), "Untitled %d", (int) partitionID);
             newMedia->setName(partitionName[0] ? partitionName : name);
 
             // Set a location value (the partition number) for this partition.
 
             char location[12];
-            snprintf(location, sizeof(location), "%ld", partitionID);
+            snprintf(location, sizeof(location), "%d", (int) partitionID);
             newMedia->setLocation(location);
 
             // Set the "Partition ID" key for this partition.
@@ -592,7 +577,7 @@ IOMedia * IOGUIDPartitionScheme::instantiateMediaObject( gpt_ent * partition,
 
             // Set the "Universal Unique ID" key for this partition.
 
-            char uuid[48];
+            uuid_string_t uuid;
             uuid_unparse(partition->ent_uuid, uuid);
             newMedia->setProperty(kIOMediaUUIDKey, uuid);
         }
@@ -606,8 +591,6 @@ IOMedia * IOGUIDPartitionScheme::instantiateMediaObject( gpt_ent * partition,
     return newMedia;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 IOMedia * IOGUIDPartitionScheme::instantiateDesiredMediaObject(
                                                          gpt_ent * partition,
                                                          UInt32    partitionID )
@@ -619,8 +602,7 @@ IOMedia * IOGUIDPartitionScheme::instantiateDesiredMediaObject(
     return new IOMedia;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
+#ifndef __LP64__
 bool IOGUIDPartitionScheme::attachMediaObjectToDeviceTree(IOMedia * media)
 {
     //
@@ -630,8 +612,6 @@ bool IOGUIDPartitionScheme::attachMediaObjectToDeviceTree(IOMedia * media)
     return super::attachMediaObjectToDeviceTree(media);
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 void IOGUIDPartitionScheme::detachMediaObjectFromDeviceTree(IOMedia * media)
 {
     //
@@ -640,67 +620,21 @@ void IOGUIDPartitionScheme::detachMediaObjectFromDeviceTree(IOMedia * media)
 
     super::detachMediaObjectFromDeviceTree(media);
 }
+#endif /* !__LP64__ */
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOGUIDPartitionScheme, 0);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOGUIDPartitionScheme, 1);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOGUIDPartitionScheme, 2);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOGUIDPartitionScheme, 3);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOGUIDPartitionScheme, 4);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOGUIDPartitionScheme, 5);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOGUIDPartitionScheme, 6);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOGUIDPartitionScheme, 7);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOGUIDPartitionScheme, 8);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOGUIDPartitionScheme, 9);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
+OSMetaClassDefineReservedUnused(IOGUIDPartitionScheme,  0);
+OSMetaClassDefineReservedUnused(IOGUIDPartitionScheme,  1);
+OSMetaClassDefineReservedUnused(IOGUIDPartitionScheme,  2);
+OSMetaClassDefineReservedUnused(IOGUIDPartitionScheme,  3);
+OSMetaClassDefineReservedUnused(IOGUIDPartitionScheme,  4);
+OSMetaClassDefineReservedUnused(IOGUIDPartitionScheme,  5);
+OSMetaClassDefineReservedUnused(IOGUIDPartitionScheme,  6);
+OSMetaClassDefineReservedUnused(IOGUIDPartitionScheme,  7);
+OSMetaClassDefineReservedUnused(IOGUIDPartitionScheme,  8);
+OSMetaClassDefineReservedUnused(IOGUIDPartitionScheme,  9);
 OSMetaClassDefineReservedUnused(IOGUIDPartitionScheme, 10);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOGUIDPartitionScheme, 11);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOGUIDPartitionScheme, 12);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOGUIDPartitionScheme, 13);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOGUIDPartitionScheme, 14);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOGUIDPartitionScheme, 15);

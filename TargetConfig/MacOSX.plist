@@ -11,15 +11,6 @@
 			<key>TARGET_RT_BIG_ENDIAN</key>
 			<true/>
 		</dict>
-		<key>ppc64</key>
-		<dict>
-			<key>TARGET_CPU_PPC64</key>
-			<true/>
-			<key>TARGET_RT_64_BIT</key>
-			<true/>
-			<key>TARGET_RT_BIG_ENDIAN</key>
-			<true/>
-		</dict>
 		<key>i386</key>
 		<dict>
 			<key>TARGET_CPU_X86</key>
@@ -39,18 +30,21 @@
 	</dict>
 	<key>TargetConditionals</key>
 	<dict>
-        	<key>TARGET_OS_MAC</key>
-        	<true/>
-        	<key>TARGET_RT_MAC_MACHO</key>
-        	<true/>
+		<key>TARGET_OS_MAC</key>
+		<true/>
+		<key>TARGET_RT_MAC_MACHO</key>
+		<true/>
 		<key>TARGET_HAVE_IPV6</key>
 		<true/>
 		<key>TARGET_HAVE_PPP</key>
 		<true/>
+		<key>TARGET_HAVE_QUARANTINE</key>
+		<true/>
+		<key>TARGET_HAVE_SANDBOX</key>
+		<true/>
 	</dict>
 	<key>TargetConfiguration</key>
-	<dict>
-	</dict>
+	<dict/>
 	<key>TargetConfigProduct</key>
 	<string>MacOSX</string>
 	<key>TargetConfigVersion</key>

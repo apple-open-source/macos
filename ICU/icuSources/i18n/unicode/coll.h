@@ -1,10 +1,15 @@
 /*
 ******************************************************************************
-*   Copyright (C) 1996-2006, International Business Machines                 *
+*   Copyright (C) 1996-2008, International Business Machines                 *
 *   Corporation and others.  All Rights Reserved.                            *
 ******************************************************************************
 */
 
+/**
+ * \file 
+ * \brief C++ API: Collation Service.
+ */
+ 
 /**
 * File coll.h
 *
@@ -46,11 +51,6 @@
 
 #include "unicode/utypes.h"
 
-/**
- * \file 
- * \brief C++ API: Collation Service.
- */
- 
 #if !UCONFIG_NO_COLLATION
 
 #include "unicode/uobject.h"
@@ -84,7 +84,7 @@ class CollationKey;
 * <em>Important: </em>The ICU collation service has been reimplemented
 * in order to achieve better performance and UCA compliance.
 * For details, see the
-* <a href="http://dev.icu-project.org/cgi-bin/viewcvs.cgi/~checkout~/icuhtml/design/collation/ICU_collation_design.htm">
+* <a href="http://source.icu-project.org/repos/icu/icuhtml/trunk/design/collation/ICU_collation_design.htm">
 * collation design document</a>.
 * <p>
 * <code>Collator</code> is an abstract base class. Subclasses implement
@@ -600,7 +600,6 @@ public:
      */
     static const Locale* U_EXPORT2 getAvailableLocales(int32_t& count);
 
-#if !UCONFIG_NO_SERVICE
     /**
      * Return a StringEnumeration over the locales available at the time of the call,
      * including registered locales.  If a severe error occurs (such as out of memory
@@ -610,7 +609,6 @@ public:
      * @stable ICU 2.6
      */
     static StringEnumeration* U_EXPORT2 getAvailableLocales(void);
-#endif
 
     /**
      * Create a string enumerator of all possible keywords that are relevant to
@@ -649,7 +647,7 @@ public:
      * applications who wish to cache collators, or otherwise reuse
      * collators when possible.  The functional equivalent may change
      * over time.  For more information, please see the <a
-     * href="http://icu.sourceforge.net/userguide/locale.html#services">
+     * href="http://icu-project.org/userguide/locale.html#services">
      * Locales and Services</a> section of the ICU User Guide.
      * @param keyword a particular keyword as enumerated by
      * ucol_getKeywords.
@@ -922,7 +920,7 @@ protected:
     * @param validLocale the valid locale
     * @internal
     */
-    virtual void setLocales(const Locale& requestedLocale, const Locale& validLocale);
+    virtual void setLocales(const Locale& requestedLocale, const Locale& validLocale, const Locale& actualLocale);
 
 public:
 #if !UCONFIG_NO_SERVICE

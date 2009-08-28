@@ -1,0 +1,42 @@
+Data::UUID version 0.146
+=================
+
+Data::UUID - Perl extension for generating Globally/Universally 
+	     Unique Identifiers (GUIDs/UUIDs).
+
+This module provides a framework for generating UUIDs (Universally Unique
+Identifiers, also known as GUIDs (Globally Unique Identifiers). A UUID is
+128 bits long, and is guaranteed to be different from all other UUIDs/GUIDs
+generated until 3400 A.D. UUIDs were originally used in the Network Computing 
+System (NCS) and later in the Open Software Foundation's (OSF) Distributed 
+Computing Environment. Currently many different technologies rely on UUIDs to
+provide unique identity for various software components, Microsoft COM/DCOM
+for instance, uses GUIDs very extensively to uniquely identify classes, 
+applications and components across network-connected systems.
+
+INSTALLATION
+
+To install this module type the following:
+
+   perl Makefile.PL
+   make
+   make test
+   make install
+
+NOTE: This module is designed to save its state information in a permanent 
+storage location. The installation script (i.e. Makefile.PL) prompts for 
+a directory name to use as a storage location for state file and defaults 
+this directory to "/var/tmp" if no directory name is provided. 
+The installation script will not accept names of directories that do not
+exist, however, it will take the locations, which the installing user
+has no write permissions to. In this case, the state information will not be
+saved, which will maximize the chances of generating duplicate UUIDs.
+
+DEPENDENCIES
+
+  No dependencies.
+
+COPYRIGHT AND LICENCE
+
+Copyright (C) 2001, Alexander Golomshtok
+

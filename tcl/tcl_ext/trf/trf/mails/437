@@ -1,0 +1,383 @@
+Return-Path: bluepeak.westend.com!popeye
+Return-Path: <popeye@bluepeak.westend.com>
+Received: from popeye.bluepeak.westend.com by bluepeak  with smtp
+	(Smail3.2 #1) id m10Wumg-00027eC; Tue, 13 Apr 1999 06:26:50 +0200 (MEST)
+Received: from genesis for a.kupries
+ with Cubic Circle's cucipop (v1.10 1996/09/06) Tue Apr 13 06:25:21 1999
+X-From_: matt@novadigm.com  Tue Apr 13 05:21:47 1999
+Received: from mail_srv.novadigm.com (novadigm.com [208.244.225.99])
+	by genesis.westend.com (8.8.6/8.8.6) with ESMTP id FAA06345
+	for <a.kupries@westend.com>; Tue, 13 Apr 1999 05:21:45 +0200 (MET DST)
+Received: from LAPCAT ([208.244.230.179]) by mail_srv.novadigm.com with SMTP (Microsoft Exchange Internet Mail Service Version 5.5.2232.9)
+	id 2ZFZR0ZG; Mon, 12 Apr 1999 23:15:50 -0400
+Message-ID: <00e801be855c$701803a0$b3e6f4d0@lapcat.novadigm.com>
+Reply-To: "Matt Newman" <matt@novadigm.com>
+From: "Matt Newman" <matt@novadigm.com>
+To: "Andreas Kupries" <a.kupries@westend.com>
+Subject: Got it! Filevents that it
+Date: Mon, 12 Apr 1999 23:16:50 -0400
+MIME-Version: 1.0
+Content-Type: multipart/mixed;
+	boundary="----=_NextPart_000_00D1_01BE853A.8B89BDD0"
+X-Priority: 3
+X-MSMail-Priority: Normal
+X-Mailer: Microsoft Outlook Express 4.72.2106.4
+X-MimeOLE: Produced By Microsoft MimeOLE V4.72.2106.4
+
+This is a multi-part message in MIME format.
+
+------=_NextPart_000_00D1_01BE853A.8B89BDD0
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+
+I have attached a patch that should support both non-blocking and also the
+filevent stuff.
+
+So now before stacking channels the only thing you should need to do is the
+fconfigure stuff, the filevent can be put on the exposed channel and works
+correctly.
+
+The only thing (I think) that needs to be address, and you are by far the
+better judge of this than me, is the situation where a layer has some data
+buffered? I don't think it's an issue but I wanted your opinion on it.
+
+I have added three new fields to the Transform structure -
+
+ self - our own channel pointer (used for the NotifyChannel)
+ flags - currently only CHANNEL_ASYNC
+ watchMask - record of last TrfWatch mask.
+
+I think with this swinging I can hide the stacking from any prior Tcl code
+that was using a channel and only change the Channel Create code to do any
+additional stacking required.
+
+In fact even fcopy should work (I think).
+
+Anyway try it out and let me know what you think.
+
+Matt Newman
+
+------=_NextPart_000_00D1_01BE853A.8B89BDD0
+Content-Type: application/octet-stream;
+	name="registry.c.diff"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: attachment;
+	filename="registry.c.diff"
+
+Index: registry.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+RCS file: /cvs/tcl/trf/generic/registry.c,v
+retrieving revision 1.1.1.1
+diff -c -r1.1.1.1 registry.c
+*** registry.c	1999/04/11 16:52:52	1.1.1.1
+--- registry.c	1999/04/13 03:17:30
+***************
+*** 36,41 ****
+--- 36,53 ----
+  #define ASSOC "binTrf"
+ =20
+  /*
++  * Normally defined in tcl*Port.h
++  */
++ #ifndef EWOULDBLOCK
++ #define EWOULDBLOCK EAGAIN
++ #endif
++=20
++ /*
++  * Possible values for 'flags' field in control structure.
++  */
++ #define CHANNEL_ASYNC		(1<<0) /* non-blocking mode */
++=20
++ /*
+   * Structures used by an attached transformation procedure
+   *
+   * =3D> Information stored for a single direction of the channel.
+***************
+*** 57,66 ****
+--- 69,81 ----
+ =20
+ =20
+  typedef struct _TrfTransformationInstance_ {
++   Tcl_Channel self;  /* Our own Channel handle */
+    Tcl_Channel parent; /* The channel superceded by this one */
+ =20
+    int readIsFlushed; /* flag to note wether in.flushProc was called or =
+not */
+ =20
++   int flags;         /* currently CHANNEL_ASYNC or zero */
++   int watchMask;     /* current TrfWatch mask */
+    int mode;          /* mode of parent channel,
+  		      * OR'ed combination of
+  		      * TCL_READABLE, TCL_WRITABLE */
+***************
+*** 105,110 ****
+--- 120,128 ----
+  TrfDeleteCmd _ANSI_ARGS_((ClientData clientData));
+ =20
+  static int
++ TrfBlock _ANSI_ARGS_ ((ClientData instanceData, int mode));
++=20
++ static int
+  TrfClose _ANSI_ARGS_ ((ClientData instanceData, Tcl_Interp* interp));
+ =20
+  static int
+***************
+*** 168,173 ****
+--- 186,194 ----
+  PutInterpResult _ANSI_ARGS_ ((ClientData clientData,
+  			      unsigned char* outString, int outLen,
+  			      Tcl_Interp* interp));
++=20
++ static void
++ ChannelHandler _ANSI_ARGS_ ((ClientData clientData, int mask));
+  =0C
+  /*
+   *------------------------------------------------------*
+***************
+*** 331,337 ****
+     */
+ =20
+    entry->transType->typeName         =3D (char*) type->name;
+!   entry->transType->blockModeProc    =3D NULL;
+    entry->transType->closeProc        =3D TrfClose;
+    entry->transType->inputProc        =3D TrfInput;
+    entry->transType->outputProc       =3D TrfOutput;
+--- 352,358 ----
+     */
+ =20
+    entry->transType->typeName         =3D (char*) type->name;
+!   entry->transType->blockModeProc    =3D TrfBlock;
+    entry->transType->closeProc        =3D TrfClose;
+    entry->transType->inputProc        =3D TrfInput;
+    entry->transType->outputProc       =3D TrfOutput;
+***************
+*** 881,886 ****
+--- 902,942 ----
+  /*
+   *------------------------------------------------------*
+   *
++  *	TrfBlock --
++  *
++  *	------------------------------------------------*
++  *	Trap handler. Called by the generic IO system
++  *	during destruction of the transformation channel.
++  *	------------------------------------------------*
++  *
++  *	Sideeffects:
++  *		Releases the memory allocated in
++  *		'AttachTransform'.
++  *
++  *	Result:
++  *		None.
++  *
++  *------------------------------------------------------*
++  */
++=20
++ static int
++ TrfBlock (instanceData, mode)
++ ClientData  instanceData;
++ int mode;
++ {
++   TrfTransformationInstance* trans =3D (TrfTransformationInstance*) =
+instanceData;
++=20
++   if (mode =3D=3D TCL_MODE_NONBLOCKING) {
++     trans->flags |=3D CHANNEL_ASYNC;
++   } else {
++     trans->flags &=3D ~(CHANNEL_ASYNC);
++   }
++   return 0;
++ }
++ =0C
++ /*
++  *------------------------------------------------------*
++  *
+   *	TrfClose --
+   *
+   *	------------------------------------------------*
+***************
+*** 911,916 ****
+--- 967,978 ----
+    TrfTransformationInstance* trans =3D (TrfTransformationInstance*) =
+instanceData;
+ =20
+    /*
++    * Remove event handler to underlying channel, this could
++    * be because we are closing for real, or being "unstacked".
++    */
++   Tcl_DeleteChannelHandler( trans->parent, ChannelHandler, =
+(ClientData) trans);
++=20
++   /*
+     * Flush data waiting in transformation buffers to output.
+     * Flush input too, maybe there are side effects other
+     * parts do rely on (-> message digests).
+***************
+*** 1043,1049 ****
+         */
+ =20
+        if (! Tcl_Eof (trans->parent)) {
+! 	return gotBytes;
+        } else {
+  	if (trans->readIsFlushed) {
+  	  /* already flushed, nothing to do anymore */
+--- 1105,1116 ----
+         */
+ =20
+        if (! Tcl_Eof (trans->parent)) {
+! 	if (gotBytes =3D=3D 0 && trans->flags & CHANNEL_ASYNC) {
+! 	  *errorCodePtr =3D EWOULDBLOCK;
+! 	  return -1;
+! 	} else {
+! 	  return gotBytes;
+! 	}
+        } else {
+  	if (trans->readIsFlushed) {
+  	  /* already flushed, nothing to do anymore */
+***************
+*** 1240,1250 ****
+--- 1307,1335 ----
+    Tcl_ChannelType*           p_type     =3D Tcl_GetChannelType         =
+(trans->parent);
+    ClientData                 p_instance =3D Tcl_GetChannelInstanceData =
+(trans->parent);
+ =20
++   if (mask =3D=3D trans->watchMask)
++     return;
++=20
++   if (trans->watchMask) {
++     /*
++      * Remove event handler to underlying channel, this could
++      * be because we are closing for real, or being "unstacked".
++      */
++     Tcl_DeleteChannelHandler( trans->parent, ChannelHandler, =
+(ClientData) trans);
++   }
++   trans->watchMask =3D mask;
++   if (trans->watchMask) {
++     /* Setup active monitor for events on underlying Channel */
++     Tcl_CreateChannelHandler( trans->parent, trans->watchMask,
++ 				ChannelHandler, (ClientData) trans);
++   }
++ #if 0
+  #if (TCL_MAJOR_VERSION < 8)
+    p_type->watchChannelProc (p_instance, mask);
+  #else
+    p_type->watchProc (p_instance, mask);
+  #endif
++ #endif
+  }
+  =0C
+  #if (TCL_MAJOR_VERSION < 8)
+***************
+*** 1576,1582 ****
+  Trf_Options        optInfo;
+  Tcl_Interp*        interp;
+  {
+-   Tcl_Channel                new;
+    TrfTransformationInstance* trans;
+ =20
+    trans =3D (TrfTransformationInstance*) Tcl_Alloc (sizeof =
+(TrfTransformationInstance));
+--- 1661,1666 ----
+***************
+*** 1585,1590 ****
+--- 1669,1676 ----
+    trans->clientData       =3D entry->trfType->clientData;
+    trans->parent           =3D attach;
+    trans->readIsFlushed    =3D 0;
++   trans->flags            =3D 0;
++   trans->watchMask        =3D 0;
+    trans->mode             =3D Tcl_GetChannelMode (attach);
+ =20
+    if (ENCODE_REQUEST (entry, optInfo)) {
+***************
+*** 1640,1658 ****
+     * Build channel from converter definition and stack it upon the one =
+we shall attach to.
+     */
+ =20
+!   new =3D Tcl_ReplaceChannel (interp,
+  			    entry->transType, (ClientData) trans,
+  			    trans->mode, attach);
+ =20
+ =20
+!   if (new =3D=3D (Tcl_Channel) NULL) {
+      Tcl_Free ((char*) trans);
+      Tcl_AppendResult (interp, "internal error in Tcl_ReplaceChannel", =
+(char*) NULL);
+      return TCL_ERROR;
+    }
+ =20
+    /*  Tcl_RegisterChannel (interp, new); */
+!   Tcl_AppendResult (interp, Tcl_GetChannelName (new), (char*) NULL);
+ =20
+    return TCL_OK;
+  }
+--- 1726,1744 ----
+     * Build channel from converter definition and stack it upon the one =
+we shall attach to.
+     */
+ =20
+!   trans->self =3D Tcl_ReplaceChannel (interp,
+  			    entry->transType, (ClientData) trans,
+  			    trans->mode, attach);
+ =20
+ =20
+!   if (trans->self =3D=3D (Tcl_Channel) NULL) {
+      Tcl_Free ((char*) trans);
+      Tcl_AppendResult (interp, "internal error in Tcl_ReplaceChannel", =
+(char*) NULL);
+      return TCL_ERROR;
+    }
+ =20
+    /*  Tcl_RegisterChannel (interp, new); */
+!   Tcl_AppendResult (interp, Tcl_GetChannelName (trans->self), (char*) =
+NULL);
+ =20
+    return TCL_OK;
+  }
+***************
+*** 1806,1809 ****
+--- 1892,1926 ----
+    r->used +=3D outLen;
+ =20
+    return TCL_OK;
++ }
++ =0C
++ /*
++  *------------------------------------------------------*
++  *
++  *	ChannelHandler --
++  *
++  *	------------------------------------------------*
++  *	Handler called by Tcl as a result of
++  *	Tcl_CreateChannelHandler - to inform us of activity
++  *	on the underlying channel.
++  *	------------------------------------------------*
++  *
++  *	Sideeffects:
++  *		May generate subsequent calls to
++  *		Tcl_NotifyChannel.
++  *
++  *	Result:
++  *		None.
++  *
++  *------------------------------------------------------*
++  */
++=20
++ static void
++ ChannelHandler (clientData, mask)
++ ClientData     clientData;
++ int            mask;
++ {
++   TrfTransformationInstance* trans =3D (TrfTransformationInstance*) =
+clientData;
++=20
++   Tcl_NotifyChannel(trans->self, mask);
+  }
+
+------=_NextPart_000_00D1_01BE853A.8B89BDD0--

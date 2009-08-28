@@ -27,27 +27,43 @@
 #include <sys/kauth.h>
 #include <stdint.h>
 
+/* create a standard name that can be used by other clients */
+#ifndef kDSStdMachDSMembershipPortName
+	#define kDSStdMachDSMembershipPortName "com.apple.system.DirectoryService.membership_v1"
+#endif
+
+#ifndef MAX_MIG_INLINE_DATA
+#define MAX_MIG_INLINE_DATA 16384
+#endif
+
 typedef struct kauth_identity_extlookup kauth_identity_extlookup;
 typedef char* mstring;
 
 typedef struct StatBlock
 {
-	uint32_t fTotalUpTime;
-	uint32_t fTotalCallsHandled;
-	uint32_t fAverageuSecPerCall;
-	uint32_t fCacheHits;
-	uint32_t fCacheMisses;
-	uint32_t fTotalRecordLookups;
-	uint32_t fNumFailedRecordLookups;
-	uint32_t fAverageuSecPerRecordLookup;
-	uint32_t fTotalMembershipSearches;
-	uint32_t fAverageuSecPerMembershipSearch;
-	uint32_t fTotalLegacySearches;
-	uint32_t fAverageuSecPerLegacySearch;
-	uint32_t fTotalGUIDMemberSearches;
-	uint32_t fAverageuSecPerGUIDMemberSearch;
-	uint32_t fTotalNestedMemberSearches;
-	uint32_t fAverageuSecPerNestedMemberSearch;
+	uint64_t fTotalUpTime;
+	
+	uint64_t fTotalCallsHandled;
+	uint64_t fAverageuSecPerCall;
+	
+	uint64_t fCacheHits;
+	uint64_t fCacheMisses;
+	
+	uint64_t fTotalRecordLookups;
+	uint64_t fNumFailedRecordLookups;
+	uint64_t fAverageuSecPerRecordLookup;
+	
+	uint64_t fTotalMembershipSearches;
+	uint64_t fAverageuSecPerMembershipSearch;
+	
+	uint64_t fTotalLegacySearches;
+	uint64_t fAverageuSecPerLegacySearch;
+	
+	uint64_t fTotalGUIDMemberSearches;
+	uint64_t fAverageuSecPerGUIDMemberSearch;
+	
+	uint64_t fTotalNestedMemberSearches;
+	uint64_t fAverageuSecPerNestedMemberSearch;
 } StatBlock;
 
 typedef uint32_t GIDArray[16];

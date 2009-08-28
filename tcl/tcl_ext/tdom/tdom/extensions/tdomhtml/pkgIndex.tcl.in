@@ -1,0 +1,2 @@
+package ifneeded tdomhtml @VERSION@ "set _V_ @VERSION@; source [list [file join $dir tdomhtml.tcl]]"
+

@@ -1,5 +1,5 @@
 /************************************************************************
- * Copyright (C) 1996-2006, International Business Machines Corporation *
+ * Copyright (C) 1996-2008, International Business Machines Corporation *
  * and others. All Rights Reserved.                                     *
  ************************************************************************
  *  2003-nov-07   srl       Port from Java
@@ -521,7 +521,7 @@ public:
    * Note: In this case, "winter" refers to the northern hemisphere's seasons.
    * @internal
    */
-//  static double WINTER_SOLSTICE();
+  static double WINTER_SOLSTICE();
 
   /**
    * Find the next time at which the sun's ecliptic longitude will have
@@ -596,7 +596,7 @@ public:
    * For use with {@link #getMoonTime getMoonTime}
    * @internal
    */
-//  static const MoonAge NEW_MOON();
+  static const MoonAge NEW_MOON();
 
   /**
    * Constant representing the moon's first quarter.
@@ -668,44 +668,6 @@ public:
   // Other utility methods
   //-------------------------------------------------------------------------
 private:
-  /***
-   * Given 'value', add or subtract 'range' until 0 <= 'value' < range.
-   * The modulus operator.
-   */
-  inline static double normalize(double value, double range)  {
-    return value - range * Math::floorDivide(value, range);
-  }
-
-  /**
-   * Normalize an angle so that it's in the range 0 - 2pi.
-   * For positive angles this is just (angle % 2pi), but the Java
-   * mod operator doesn't work that way for negative numbers....
-   */
-  inline static double norm2PI(double angle)  {
-    return normalize(angle, CalendarAstronomer::PI * 2.0);
-  }
-
-  /**
-   * Normalize an angle into the range -PI - PI
-   */
-  inline static  double normPI(double angle)  {
-    return normalize(angle + PI, CalendarAstronomer::PI * 2.0) - PI;
-  }
-
-  /**
-   * Find the "true anomaly" (longitude) of an object from
-   * its mean anomaly and the eccentricity of its orbit.  This uses
-   * an iterative solution to Kepler's equation.
-   *
-   * @param meanAnomaly   The object's longitude calculated as if it were in
-   *                      a regular, circular orbit, measured in radians
-   *                      from the point of perigee.
-   *
-   * @param eccentricity  The eccentricity of the orbit
-   *
-   * @return The true anomaly (longitude) measured in radians
-   */
-  double trueAnomaly(double meanAnomaly, double eccentricity);
 
   /**
    * Return the obliquity of the ecliptic (the angle between the ecliptic
@@ -740,16 +702,16 @@ private:
   // of this object, so the clearCache method is provided.
   //
 
-  double    julianDay       ;
-  double    julianCentury   ;
-  double    sunLongitude    ;
-  double    meanAnomalySun  ;
-  double    moonLongitude   ;
-  double    moonEclipLong   ;
-  double    meanAnomalyMoon ;
-  double    eclipObliquity  ;
-  double    siderealT0      ;
-  double    siderealTime    ;
+  double    julianDay;
+  double    julianCentury;
+  double    sunLongitude;
+  double    meanAnomalySun;
+  double    moonLongitude;
+  double    moonEclipLong;
+  double    meanAnomalyMoon;
+  double    eclipObliquity;
+  double    siderealT0;
+  double    siderealTime;
 
   void clearCache();
 
@@ -772,7 +734,7 @@ U_NAMESPACE_BEGIN
  * Cache of month -> julian day
  * @internal
  */
-class U_I18N_API CalendarCache : public UMemory {
+class CalendarCache : public UMemory {
 public:
   static int32_t get(CalendarCache** cache, int32_t key, UErrorCode &status);
   static void put(CalendarCache** cache, int32_t key, int32_t value, UErrorCode &status);

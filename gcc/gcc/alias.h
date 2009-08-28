@@ -15,8 +15,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_ALIAS_H
 #define GCC_ALIAS_H
@@ -24,7 +24,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 extern HOST_WIDE_INT new_alias_set (void);
 extern HOST_WIDE_INT get_varargs_alias_set (void);
 extern HOST_WIDE_INT get_frame_alias_set (void);
-extern void record_base_value (unsigned int, rtx, int);
 extern bool component_uses_parent_alias_set (tree);
+
+/* This alias set can be used to force a memory to conflict with all
+   other memories, creating a barrier across which no memory reference
+   can move.  Note that there are other legacy ways to create such
+   memory barriers, including an address of SCRATCH.  */
+#define ALIAS_SET_MEMORY_BARRIER	((HOST_WIDE_INT) -1)
 
 #endif /* GCC_ALIAS_H */

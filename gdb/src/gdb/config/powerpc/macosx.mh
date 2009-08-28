@@ -42,7 +42,7 @@ NATDEPFILES = \
 	$(MACOSX_FILES) \
 	$(CFM_FILES)
 
-XM_CLIBS = $(CFM_LIBS)
+XM_CLIBS = $(CFM_LIBS) -framework Security
 
 MH_CFLAGS = -I$(srcdir)/macosx $(CFM_CFLAGS)
 
@@ -55,12 +55,14 @@ CFM_CFLAGS = -DWITH_CFM=1
 
 CFM_LIBS = 
 
-MH_CFLAGS += -DUSE_PTHREADS=1 -Wall -Wimplicit -Wno-long-double
+# APPLE LOCAL - Allow more than 256 streams to be open at a time.
+
+MH_CFLAGS += -DUSE_PTHREADS=1 -Wall -Wimplicit -D_DARWIN_UNLIMITED_STREAMS
 
 _all: all
 
 $(MACH_EXC_SERVER_PREFACE)excServer.c $(MACH_EXC_SERVER_PREFACE)excUser.c: macosx.defs
-	$(NEXT_ROOT)/usr/bin/mig -I. $<
+	$(SDKROOT)/usr/bin/mig -I. $<
 
 clean::
 	rm -f $(MACH_EXC_SERVER_PREFACE)excServer.c $(MACH_EXC_SERVER_PREFACE)excUser.c $(MACH_EXC_SERVER_PREFACE)exc.h

@@ -1,9 +1,8 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1999-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 1999,2007 Oracle.  All rights reserved.
 #
-# $Id: test070.tcl,v 1.2 2004/03/30 01:24:08 jtownsen Exp $
+# $Id: test070.tcl,v 12.5 2007/05/17 15:15:56 bostic Exp $
 #
 # TEST	test070
 # TEST	Test of DB_CONSUME (Four consumers, 1000 items.)
@@ -107,7 +106,7 @@ proc test070 { method {nconsumers 4} {nproducers 2} \
 		}
 		close $iid
 	}
-	set sortreclist [lsort -integer $reclist]
+	set sortreclist [lsort -command int32_compare $reclist]
 
 	set nitems [expr $start + $nitems]
 	for { set ndx $start } { $ndx < $nitems } { set ndx [expr $ndx + 1] } {

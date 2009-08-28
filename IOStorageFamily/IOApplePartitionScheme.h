@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -196,6 +196,7 @@ protected:
                                                     UInt32 partitionID,
                                                     UInt32 partitionBlockSize );
 
+#ifndef __LP64__
     /*
      * Attach the given media object to the device tree plane.
      */
@@ -207,6 +208,7 @@ protected:
      */
 
     virtual void detachMediaObjectFromDeviceTree(IOMedia * media) __attribute__ ((deprecated));
+#endif /* !__LP64__ */
 
 public:
 

@@ -1,5 +1,4 @@
-Na Twoje, jako administratora, potwierdzenie czeka wiadomo¶æ wys³ana
-na listê dyskusyjn±:
+W panelu administracyjnym pojawi³y siê nowe zadania:
 
     Lista:   %(listname)s@%(hostname)s
     Od:      %(sender)s

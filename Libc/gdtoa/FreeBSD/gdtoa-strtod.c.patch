@@ -1,6 +1,6 @@
---- gdtoa-strtod.c.orig	2007-10-04 15:00:21.000000000 -0700
-+++ gdtoa-strtod.c	2007-10-04 15:02:41.000000000 -0700
-@@ -29,6 +29,8 @@
+--- gdtoa-strtod.c.orig	2008-10-28 12:07:31.000000000 -0700
++++ gdtoa-strtod.c	2008-10-28 12:22:37.000000000 -0700
+@@ -29,6 +29,8 @@ THIS SOFTWARE.
  /* Please send bug reports to David M. Gay (dmg at acm dot org,
   * with " at " changed at "@" and " dot " changed to ".").	*/
  
@@ -9,7 +9,7 @@
  #include "gdtoaimp.h"
  #ifndef NO_FENV_H
  #include <fenv.h>
-@@ -59,11 +61,11 @@
+@@ -58,11 +60,11 @@ static CONST double tinytens[] = { 1e-16
  #endif
  
   double
@@ -24,88 +24,55 @@
  #endif
  {
  #ifdef Avoid_Underflow
-@@ -80,8 +82,12 @@
+@@ -79,13 +81,14 @@ strtod
  	int inexact, oldinexact;
  #endif
- #ifdef Honor_FLT_ROUNDS
--	int rounding;
-+	int rounding = Flt_Rounds;
- #endif
-+#ifdef USE_LOCALE
-+	char *decimal_point;
-+	int decimal_point_len;
-+#endif /* USE_LOCALE */
- 
- 	sign = nz0 = nz = decpt = 0;
- 	dval(rv) = 0.;
-@@ -126,7 +132,7 @@
+ #ifdef USE_LOCALE
++	NORMALIZE_LOCALE(loc);
+ #ifdef NO_LOCALE_CACHE
+-	char *decimalpoint = localeconv()->decimal_point;
++	char *decimalpoint = localeconv_l(loc)->decimal_point;
  #else
+ 	char *decimalpoint;
+ 	static char *decimalpoint_cache;
+ 	if (!(s0 = decimalpoint_cache)) {
+-		s0 = localeconv()->decimal_point;
++		s0 = localeconv_l(loc)->decimal_point;
+ 		if ((decimalpoint_cache = (char*)malloc(strlen(s0) + 1))) {
+ 			strcpy(decimalpoint_cache, s0);
+ 			s0 = decimalpoint_cache;
+@@ -155,7 +158,7 @@ strtod
+ #else /*}{*/
  #define fpi1 fpi
- #endif
+ #endif /*}}*/
 -			switch((i = gethex(&s, &fpi1, &exp, &bb, sign)) & STRTOG_Retmask) {
 +			switch((i = gethex(&s, &fpi1, &exp, &bb, sign, loc)) & STRTOG_Retmask) {
  			  case STRTOG_NoNumber:
  				s = s00;
  				sign = 0;
-@@ -156,14 +162,22 @@
- 		else if (nd < 16)
- 			z = 10*z + c - '0';
- 	nd0 = nd;
-+	NORMALIZE_LOCALE(loc);
- #ifdef USE_LOCALE
--	if (c == *localeconv()->decimal_point)
-+	decimal_point = localeconv_l(loc)->decimal_point;
-+	decimal_point_len = strlen(decimal_point);
-+	if (strncmp(s, decimal_point, decimal_point_len) == 0)
- #else
- 	if (c == '.')
- #endif
- 		{
- 		decpt = 1;
-+#ifdef USE_LOCALE
-+		s += decimal_point_len;
-+		c = *s;
-+#else
- 		c = *++s;
-+#endif
- 		if (!nd) {
- 			for(; c == '0'; c = *++s)
- 				nz++;
-@@ -379,7 +393,7 @@
- 	scale = 0;
- #endif
- #ifdef Honor_FLT_ROUNDS
--	if ((rounding = Flt_Rounds) >= 2) {
-+	if (rounding >= 2) {
- 		if (sign)
- 			rounding = rounding == 2 ? 0 : 2;
- 		else
-@@ -512,7 +526,11 @@
+@@ -545,7 +548,11 @@ strtod
  
  	/* Put digits into bd: true value = bd * 10^e */
  
 -	bd0 = s2b(s0, nd0, nd, y);
 +#ifdef USE_LOCALE
-+	bd0 = s2b(s0, nd0, nd, y, decimal_point_len);
++	bd0 = s2b(s0, nd0, nd, y, strlen(decimalpoint));
 +#else
 +	bd0 = s2b(s0, nd0, nd, y, 1);
 +#endif
  
  	for(;;) {
  		bd = Balloc(bd0->k);
-@@ -956,7 +974,11 @@
+@@ -992,7 +999,7 @@ strtod
  		dval(rv) *= dval(rv0);
  #ifndef NO_ERRNO
  		/* try to avoid the bug of testing an 8087 register value */
-+#if __DARWIN_UNIX03
-+		if (word0(rv) == 0 && word1(rv) == 0 || dval(rv) < DBL_MIN)
-+#else /* !__DARWIN_UNIX03 */
+-#ifdef IEEE_Arith
++#if defined(IEEE_Arith) && __DARWIN_UNIX03
+ 		if (!(word0(rv) & Exp_mask))
+ #else
  		if (word0(rv) == 0 && word1(rv) == 0)
-+#endif /* __DARWIN_UNIX03 */
- 			errno = ERANGE;
- #endif
- 		}
-@@ -980,3 +1002,13 @@
+@@ -1020,3 +1027,13 @@ strtod
  	return sign ? -dval(rv) : dval(rv);
  	}
  

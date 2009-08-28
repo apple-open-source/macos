@@ -600,6 +600,8 @@ void ContainerNode::insertedIntoDocument()
 void ContainerNode::removedFromDocument()
 {
     Node::removedFromDocument();
+    if (document()->cssTarget() == this) 
+        document()->setCSSTarget(0); 
     setInDocument(false);
     removedFromTree(false);
     for (Node* child = m_firstChild; child; child = child->nextSibling())
@@ -798,7 +800,7 @@ void ContainerNode::setActive(bool down, bool pause)
         if (reactsToPress)
             setNeedsStyleRecalc();
         if (renderer() && renderer()->style()->hasAppearance()) {
-            if (theme()->stateChanged(renderer(), PressedState))
+            if (renderer()->theme()->stateChanged(renderer(), PressedState))
                 reactsToPress = true;
         }
         if (reactsToPress && pause) {
@@ -840,7 +842,7 @@ void ContainerNode::setHovered(bool over)
         if (renderer()->style()->affectedByHoverRules())
             setNeedsStyleRecalc();
         if (renderer() && renderer()->style()->hasAppearance())
-            theme()->stateChanged(renderer(), HoverState);
+            renderer()->theme()->stateChanged(renderer(), HoverState);
     }
 }
 

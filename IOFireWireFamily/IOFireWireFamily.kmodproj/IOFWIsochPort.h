@@ -38,6 +38,9 @@
 #include <libkern/c++/OSObject.h>
 #include <IOKit/firewire/IOFireWireFamilyCommon.h>
 
+/*! @class IOFWIsochPort
+*/
+
 class IOFWIsochPort : public OSObject
 {
     OSDeclareAbstractStructors(IOFWIsochPort)

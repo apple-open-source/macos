@@ -1,6 +1,6 @@
 .TH LDAPMODRDN 1 "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man1/ldapmodrdn.1,v 1.34.2.4 2006/01/03 22:16:04 kurt Exp $
-.\" Copyright 1998-2006 The OpenLDAP Foundation All Rights Reserved.
+.\" $OpenLDAP: pkg/ldap/doc/man/man1/ldapmodrdn.1,v 1.38.2.4 2008/02/11 23:26:39 kurt Exp $
+.\" Copyright 1998-2008 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 ldapmodrdn \- LDAP rename entry tool
@@ -8,6 +8,8 @@ ldapmodrdn \- LDAP rename entry tool
 .B ldapmodrdn
 [\c
 .BR \-r ]
+[\c
+.BI \-s \ newsup\fR]
 [\c
 .BR \-n ]
 [\c
@@ -59,7 +61,7 @@ ldapmodrdn \- LDAP rename entry tool
 .SH DESCRIPTION
 .B ldapmodrdn
 is a shell-accessible interface to the
-.BR ldap_modrdn2 (3)
+.BR ldap_rename (3)
 library call.
 .LP
 .B ldapmodrdn
@@ -73,6 +75,10 @@ option, or from the command-line pair \fIdn\fP and
 .TP
 .B \-r
 Remove old RDN values from the entry.  Default is to keep old values.
+.TP
+.BI \-s \ newsup
+Specify a new superior entry. (I.e., move the target entry and make it a
+child of the new superior.)  This option is not supported in LDAPv2.
 .TP
 .B \-n
 Show what would be done, but don't actually change entries.  Useful for
@@ -214,11 +220,8 @@ status and a diagnostic message being written to standard error.
 .BR ldapsearch (1),
 .BR ldap.conf (5),
 .BR ldap (3),
-.BR ldap_modrdn2 (3)
+.BR ldap_rename (3)
 .SH AUTHOR
 The OpenLDAP Project <http://www.openldap.org/>
 .SH ACKNOWLEDGEMENTS
-.B OpenLDAP
-is developed and maintained by The OpenLDAP Project (http://www.openldap.org/).
-.B OpenLDAP
-is derived from University of Michigan LDAP 3.3 Release.  
+.so ../Project

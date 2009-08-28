@@ -36,7 +36,7 @@
 namespace CryptKit {
 
 /*
- * FEE version of a BinaryKey.
+ * FEE/ECDSA version of a BinaryKey.
  */
 class FEEBinaryKey : public BinaryKey {
 public:
@@ -86,7 +86,7 @@ public:
 };	/* KeyPairGenContext */
 
 /*
- * CSPKeyInfoProvider for FEE keys
+ * CSPKeyInfoProvider for FEE and ECDSA keys
  */
 class FEEKeyInfoProvider : public CSPKeyInfoProvider 
 {

@@ -8,9 +8,7 @@ acronym interfaceName=HTMLElement
 address interfaceName=HTMLElement
 applet
 area
-#if ENABLE_VIDEO
-audio wrapperOnlyIfMediaIsAvailable
-#endif
+audio wrapperOnlyIfMediaIsAvailable,conditional=VIDEO
 b interfaceName=HTMLElement
 base
 basefont interfaceName=HTMLBaseFontElement
@@ -27,6 +25,10 @@ cite interfaceName=HTMLElement
 code interfaceName=HTMLElement
 col interfaceName=HTMLTableColElement
 colgroup interfaceName=HTMLTableColElement
+datagrid interfaceName=HTMLDataGridElement,conditional=DATAGRID
+dcell interfaceName=HTMLDataGridCellElement,conditional=DATAGRID
+dcol interfaceName=HTMLDataGridColElement,conditional=DATAGRID
+drow interfaceName=HTMLDataGridRowElement,conditional=DATAGRID
 dd interfaceName=HTMLElement
 del interfaceName=HTMLModElement
 dfn interfaceName=HTMLElement
@@ -73,7 +75,11 @@ nobr interfaceName=HTMLElement
 noembed interfaceName=HTMLElement
 noframes interfaceName=HTMLElement
 nolayer interfaceName=HTMLElement
+#if ENABLE_XHTMLMP
+noscript interfaceName=HTMLNoScriptElement
+#else
 noscript interfaceName=HTMLElement
+#endif
 object constructorNeedsCreatedByParser
 ol interfaceName=HTMLOListElement
 optgroup interfaceName=HTMLOptGroupElement, constructorNeedsFormElement
@@ -83,14 +89,15 @@ param
 plaintext interfaceName=HTMLElement
 pre
 q interfaceName=HTMLQuoteElement
+rp interfaceName=HTMLElement
+rt interfaceName=HTMLElement
+ruby interfaceName=HTMLElement
 s interfaceName=HTMLElement
 samp interfaceName=HTMLElement
 script constructorNeedsCreatedByParser
 select constructorNeedsFormElement
 small interfaceName=HTMLElement
-#if ENABLE_VIDEO
-source wrapperOnlyIfMediaIsAvailable
-#endif
+source wrapperOnlyIfMediaIsAvailable,conditional=VIDEO
 span interfaceName=HTMLElement
 strike interfaceName=HTMLElement
 strong interfaceName=HTMLElement
@@ -110,8 +117,6 @@ tt interfaceName=HTMLElement
 u interfaceName=HTMLElement
 ul interfaceName=HTMLUListElement
 var interfaceName=HTMLElement
-#if ENABLE_VIDEO
-video wrapperOnlyIfMediaIsAvailable
-#endif
+video wrapperOnlyIfMediaIsAvailable,conditional=VIDEO
 wbr interfaceName=HTMLElement
 xmp interfaceName=HTMLPreElement

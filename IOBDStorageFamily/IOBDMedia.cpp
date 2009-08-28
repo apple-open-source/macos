@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -27,8 +27,6 @@
 #define	super IOMedia
 OSDefineMetaClassAndStructors(IOBDMedia, IOMedia)
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 IOBDBlockStorageDriver * IOBDMedia::getProvider() const
 {
     //
@@ -39,8 +37,6 @@ IOBDBlockStorageDriver * IOBDMedia::getProvider() const
 
     return (IOBDBlockStorageDriver *) IOService::getProvider();
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 bool IOBDMedia::matchPropertyTable(OSDictionary * table, SInt32 * score)
 {
@@ -58,8 +54,6 @@ bool IOBDMedia::matchPropertyTable(OSDictionary * table, SInt32 * score)
 
     return compareProperty(table, kIOBDMediaTypeKey);
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IOReturn IOBDMedia::reportKey( IOMemoryDescriptor * buffer,
                                UInt8                keyClass,
@@ -79,8 +73,6 @@ IOReturn IOBDMedia::reportKey( IOMemoryDescriptor * buffer,
                                      /* format   */ (DVDKeyFormat) format );
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 IOReturn IOBDMedia::sendKey( IOMemoryDescriptor * buffer,
                              UInt8                keyClass,
                              UInt8                grantID,
@@ -97,13 +89,11 @@ IOReturn IOBDMedia::sendKey( IOMemoryDescriptor * buffer,
                                    /* format   */ (DVDKeyFormat) format );
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-IOReturn IOBDMedia::readStructure( IOMemoryDescriptor *     buffer,
-                                   UInt8                    format,
-                                   UInt32                   address,
-                                   UInt8                    layer,
-                                   UInt8                    grantID )
+IOReturn IOBDMedia::readStructure( IOMemoryDescriptor * buffer,
+                                   UInt8                format,
+                                   UInt32               address,
+                                   UInt8                layer,
+                                   UInt8                grantID )
 {
     if (isInactive())
     {
@@ -122,8 +112,6 @@ IOReturn IOBDMedia::readStructure( IOMemoryDescriptor *     buffer,
                                          /* grantID */ grantID );
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 IOReturn IOBDMedia::getSpeed(UInt16 * kilobytesPerSecond)
 {
     if (isInactive())
@@ -134,8 +122,6 @@ IOReturn IOBDMedia::getSpeed(UInt16 * kilobytesPerSecond)
     return getProvider()->getSpeed(kilobytesPerSecond);
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 IOReturn IOBDMedia::setSpeed(UInt16 kilobytesPerSecond)
 {
     if (isInactive())
@@ -145,8 +131,6 @@ IOReturn IOBDMedia::setSpeed(UInt16 kilobytesPerSecond)
 
     return getProvider()->setSpeed(kilobytesPerSecond);
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IOReturn IOBDMedia::readDiscInfo( IOMemoryDescriptor * buffer,
                                   UInt8                type,
@@ -169,8 +153,6 @@ IOReturn IOBDMedia::readDiscInfo( IOMemoryDescriptor * buffer,
     return getProvider()->readDiscInfo( /* buffer          */ buffer,
                                         /* actualByteCount */ actualByteCount );
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IOReturn IOBDMedia::readTrackInfo( IOMemoryDescriptor * buffer,
                                    UInt32               address,
@@ -199,8 +181,6 @@ IOReturn IOBDMedia::readTrackInfo( IOMemoryDescriptor * buffer,
                                         /* actualByteCount */ actualByteCount );
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 IOReturn IOBDMedia::splitTrack(UInt32 address)
 {
     if (isInactive())
@@ -211,66 +191,19 @@ IOReturn IOBDMedia::splitTrack(UInt32 address)
     return getProvider()->splitTrack(address);
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOBDMedia, 0);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOBDMedia, 1);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOBDMedia, 2);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOBDMedia, 3);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOBDMedia, 4);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOBDMedia, 5);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOBDMedia, 6);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOBDMedia, 7);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOBDMedia, 8);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOBDMedia, 9);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
+OSMetaClassDefineReservedUnused(IOBDMedia,  0);
+OSMetaClassDefineReservedUnused(IOBDMedia,  1);
+OSMetaClassDefineReservedUnused(IOBDMedia,  2);
+OSMetaClassDefineReservedUnused(IOBDMedia,  3);
+OSMetaClassDefineReservedUnused(IOBDMedia,  4);
+OSMetaClassDefineReservedUnused(IOBDMedia,  5);
+OSMetaClassDefineReservedUnused(IOBDMedia,  6);
+OSMetaClassDefineReservedUnused(IOBDMedia,  7);
+OSMetaClassDefineReservedUnused(IOBDMedia,  8);
+OSMetaClassDefineReservedUnused(IOBDMedia,  9);
 OSMetaClassDefineReservedUnused(IOBDMedia, 10);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOBDMedia, 11);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOBDMedia, 12);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOBDMedia, 13);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOBDMedia, 14);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOBDMedia, 15);

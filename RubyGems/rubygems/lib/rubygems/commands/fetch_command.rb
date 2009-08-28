@@ -33,28 +33,28 @@ class Gem::Commands::FetchCommand < Gem::Command
 
   def execute
     version = options[:version] || Gem::Requirement.default
+    all = Gem::Requirement.default
 
     gem_names = get_all_gem_names
 
     gem_names.each do |gem_name|
       dep = Gem::Dependency.new gem_name, version
-      specs_and_sources = Gem::SourceInfoCache.search_with_source dep, true
+
+      specs_and_sources = Gem::SpecFetcher.fetcher.fetch dep, all
 
       specs_and_sources.sort_by { |spec,| spec.version }
 
       spec, source_uri = specs_and_sources.last
 
-      gem_file = "#{spec.full_name}.gem"
-
-      gem_path = File.join source_uri, 'gems', gem_file
-
-      gem = Gem::RemoteFetcher.fetcher.fetch_path gem_path
-
-      File.open gem_file, 'wb' do |fp|
-        fp.write gem
+      if spec.nil? then
+        alert_error "Could not find #{gem_name} in any repository"
+        next
       end
 
-      say "Downloaded #{gem_file}"
+      path = Gem::RemoteFetcher.fetcher.download spec, source_uri
+      FileUtils.mv path, "#{spec.full_name}.gem"
+
+      say "Downloaded #{spec.full_name}"
     end
   end
 

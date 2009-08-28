@@ -59,10 +59,10 @@
 	mGlobalPolicy.requiresMixedCase = [self intValueForKey:CFSTR(kPWPolicyStr_requiresMixedCase) inDictionary:policyDict];
 	mGlobalPolicy.requiresSymbol = [self intValueForKey:CFSTR(kPWPolicyStr_requiresSymbol) inDictionary:policyDict];
 	mGlobalPolicy.newPasswordRequired = [self intValueForKey:CFSTR(kPWPolicyStr_newPasswordRequired) inDictionary:policyDict];
-	pwsf_ConvertCFDateToBSDTime( [self dateValueForKey:CFSTR(kPWPolicyStr_expirationDateGMT) inDictionary:policyDict],
-		(struct tm *)&mGlobalPolicy.expirationDateGMT );
-	pwsf_ConvertCFDateToBSDTime( [self dateValueForKey:CFSTR(kPWPolicyStr_hardExpireDateGMT) inDictionary:policyDict],
-		(struct tm *)&mGlobalPolicy.hardExpireDateGMT );
+	pwsf_ConvertCFDateToBSDTimeStructCopy( [self dateValueForKey:CFSTR(kPWPolicyStr_expirationDateGMT) inDictionary:policyDict],
+		&mGlobalPolicy.expirationDateGMT );
+	pwsf_ConvertCFDateToBSDTimeStructCopy( [self dateValueForKey:CFSTR(kPWPolicyStr_hardExpireDateGMT) inDictionary:policyDict],
+		&mGlobalPolicy.hardExpireDateGMT );
 	mGlobalPolicy.maxMinutesUntilChangePassword = [self intValueForKey:CFSTR(kPWPolicyStr_maxMinutesUntilChangePW)
 		inDictionary:policyDict];
 	mGlobalPolicy.maxMinutesUntilDisabled = [self intValueForKey:CFSTR(kPWPolicyStr_maxMinutesUntilDisabled)
@@ -96,8 +96,8 @@
 		historyNumber = (mGlobalPolicy.usingHistory != 0);
 		if ( historyNumber > 0 )
 			historyNumber += GlobalHistoryCount(mGlobalPolicy);
-		pwsf_ConvertBSDTimeToCFDate( (struct tm *)&(mGlobalPolicy.expirationDateGMT), &expirationDateGMTRef );
-		pwsf_ConvertBSDTimeToCFDate( (struct tm *)&(mGlobalPolicy.hardExpireDateGMT), &hardExpireDateGMTRef );
+		pwsf_ConvertBSDTimeStructCopyToCFDate( &(mGlobalPolicy.expirationDateGMT), &expirationDateGMTRef );
+		pwsf_ConvertBSDTimeStructCopyToCFDate( &(mGlobalPolicy.hardExpireDateGMT), &hardExpireDateGMTRef );
 	
 		CFNumberRef usingHistoryRef = CFNumberCreate( kCFAllocatorDefault, kCFNumberIntType, &historyNumber );
 			

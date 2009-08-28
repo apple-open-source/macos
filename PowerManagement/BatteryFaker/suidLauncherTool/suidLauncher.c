@@ -73,7 +73,7 @@ int main(int argc, char *argv[])
         printf("Error %d from execvp \"%s\"; \"%s\"\n", exec_err, strerror(exec_err), argv[1]);
         return 2;
     } else {
-        printf("Error %d return from execvp \"%s\".\n", argv[1]);
+        printf("Error %d return from execvp \"%s\".\n", exec_err, argv[1]);
         return 3;
     }
 }

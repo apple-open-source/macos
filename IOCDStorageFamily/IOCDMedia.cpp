@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -21,15 +21,94 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <IOKit/IOSyncer.h>
 #include <IOKit/storage/IOCDBlockStorageDriver.h>
 #include <IOKit/storage/IOCDMedia.h>
 
 #define	super IOMedia
 OSDefineMetaClassAndStructors(IOCDMedia, IOMedia)
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-// Local Functions
+class IOStorageSyncerLock
+{
+protected:
+
+    IOLock * _lock;
+
+public:
+
+    inline IOStorageSyncerLock( )
+    {
+        _lock = IOLockAlloc( );
+    }
+
+    inline ~IOStorageSyncerLock( )
+    {
+        if ( _lock ) IOLockFree( _lock );
+    }
+
+    inline void lock( )
+    {
+        IOLockLock( _lock );
+    }
+
+    inline void unlock( )
+    {
+        IOLockUnlock( _lock );
+    }
+
+    inline void sleep( void * event )
+    {
+        IOLockSleep( _lock, event, THREAD_UNINT );
+    }
+
+    inline void wakeup( void * event )
+    {
+        IOLockWakeup( _lock, event, false );
+    }
+};
+
+static IOStorageSyncerLock gIOStorageSyncerLock;
+
+class IOStorageSyncer
+{
+protected:
+
+    IOReturn _status;
+    bool     _wakeup;
+
+public:
+
+    IOStorageSyncer( )
+    {
+        _wakeup = false;
+    }
+
+    IOReturn wait( )
+    {
+        gIOStorageSyncerLock.lock( );
+
+        while ( _wakeup == false )
+        {
+            gIOStorageSyncerLock.sleep( this );
+        }
+
+        gIOStorageSyncerLock.unlock( );
+
+        return _status;
+    }
+
+    void signal( IOReturn status )
+    {
+        _status = status;
+
+        gIOStorageSyncerLock.lock( );
+
+        _wakeup = true;
+
+        gIOStorageSyncerLock.wakeup( this );
+
+        gIOStorageSyncerLock.unlock( );
+    }
+};
 
 static void storageCompletion(void *   target,
                               void *   parameter,
@@ -41,10 +120,8 @@ static void storageCompletion(void *   target,
     //
 
     if (parameter)  *((UInt64 *)parameter) = actualByteCount;
-    ((IOSyncer *)target)->signal(status);
+    ((IOStorageSyncer *)target)->signal(status);
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IOCDBlockStorageDriver * IOCDMedia::getProvider() const
 {
@@ -56,8 +133,6 @@ IOCDBlockStorageDriver * IOCDMedia::getProvider() const
 
     return (IOCDBlockStorageDriver *) IOService::getProvider();
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 bool IOCDMedia::matchPropertyTable(OSDictionary * table, SInt32 * score)
 {
@@ -77,12 +152,11 @@ bool IOCDMedia::matchPropertyTable(OSDictionary * table, SInt32 * score)
            compareProperty(table, kIOCDMediaTypeKey);
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-void IOCDMedia::read(IOService *          /* client */,
-                     UInt64               byteStart,
-                     IOMemoryDescriptor * buffer,
-                     IOStorageCompletion  completion)
+void IOCDMedia::read(IOService *           /* client */,
+                     UInt64                byteStart,
+                     IOMemoryDescriptor *  buffer,
+                     IOStorageAttributes * attributes,
+                     IOStorageCompletion * completion)
 {
     //
     // Read data from the storage object at the specified byte offset into the
@@ -130,15 +204,19 @@ void IOCDMedia::read(IOService *          /* client */,
                            /* buffer     */ buffer,
                            /* sectorArea */ (CDSectorArea) 0xF8, // (2352 bytes)
                            /* sectorType */ (CDSectorType) 0x00, // ( all types)
+#ifdef __LP64__
+                           /* attributes */ attributes,
                            /* completion */ completion );
+#else /* !__LP64__ */
+                           /* completion */ completion ? *completion : (IOStorageCompletion) { 0 } );
+#endif /* !__LP64__ */
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-void IOCDMedia::write(IOService *          client,
-                      UInt64               byteStart,
-                      IOMemoryDescriptor * buffer,
-                      IOStorageCompletion  completion)
+void IOCDMedia::write(IOService *           client,
+                      UInt64                byteStart,
+                      IOMemoryDescriptor *  buffer,
+                      IOStorageAttributes * attributes,
+                      IOStorageCompletion * completion)
 {
     //
     // Write data into the storage object at the specified byte offset from the
@@ -199,17 +277,23 @@ void IOCDMedia::write(IOService *          client,
                            /* buffer     */ buffer,
                            /* sectorArea */ (CDSectorArea) 0xF8, // (2352 bytes)
                            /* sectorType */ (CDSectorType) 0x00, // ( all types)
+#ifdef __LP64__
+                           /* attributes */ attributes,
                            /* completion */ completion );
+#else /* !__LP64__ */
+                           /* completion */ completion ? *completion : (IOStorageCompletion) { 0 } );
+#endif /* !__LP64__ */
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-IOReturn IOCDMedia::readCD(IOService *          client,
-                           UInt64               byteStart,
-                           IOMemoryDescriptor * buffer,
-                           CDSectorArea         sectorArea,
-                           CDSectorType         sectorType,
-                           UInt64 *             actualByteCount)
+IOReturn IOCDMedia::readCD(IOService *           client,
+                           UInt64                byteStart,
+                           IOMemoryDescriptor *  buffer,
+                           CDSectorArea          sectorArea,
+                           CDSectorType          sectorType,
+#ifdef __LP64__
+                           IOStorageAttributes * attributes,
+#endif /* __LP64__ */
+                           UInt64 *              actualByteCount)
 {
     //
     // Read data from the CD media object at the specified byte offset into the
@@ -222,35 +306,38 @@ IOReturn IOCDMedia::readCD(IOService *          client,
     //
 
     IOStorageCompletion completion;
-    IOSyncer *          completionSyncer;
-
-    // Initialize the lock we will synchronize against.
-
-    completionSyncer = IOSyncer::create();
+    IOStorageSyncer     syncer;
 
     // Fill in the completion information for this request.
 
-    completion.target    = completionSyncer;
+    completion.target    = &syncer;
     completion.action    = storageCompletion;
     completion.parameter = actualByteCount;
 
     // Issue the asynchronous read.
 
+#ifdef __LP64__
+    readCD(client, byteStart, buffer, sectorArea, sectorType, attributes, &completion);
+#else /* !__LP64__ */
     readCD(client, byteStart, buffer, sectorArea, sectorType, completion);
+#endif /* !__LP64__ */
 
     // Wait for the read to complete.
 
-    return completionSyncer->wait();
+    return syncer.wait();
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-void IOCDMedia::readCD(IOService *          client,
-                       UInt64               byteStart,
-                       IOMemoryDescriptor * buffer,
-                       CDSectorArea         sectorArea,
-                       CDSectorType         sectorType,
-                       IOStorageCompletion  completion)
+void IOCDMedia::readCD(IOService *           client,
+                       UInt64                byteStart,
+                       IOMemoryDescriptor *  buffer,
+                       CDSectorArea          sectorArea,
+                       CDSectorType          sectorType,
+#ifdef __LP64__
+                       IOStorageAttributes * attributes,
+                       IOStorageCompletion * completion)
+#else /* !__LP64__ */
+                       IOStorageCompletion   completion)
+#endif /* !__LP64__ */
 {
     //
     // Read data from the CD media object at the specified byte offset into the
@@ -294,10 +381,11 @@ void IOCDMedia::readCD(IOService *          client,
                            /* buffer     */ buffer,
                            /* sectorArea */ sectorArea,
                            /* sectorType */ sectorType,
+#ifdef __LP64__
+                           /* attributes */ attributes,
+#endif /* __LP64__ */
                            /* completion */ completion );
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IOReturn IOCDMedia::readISRC(UInt8 track, CDISRC isrc)
 {
@@ -315,8 +403,6 @@ IOReturn IOCDMedia::readISRC(UInt8 track, CDISRC isrc)
     return getProvider()->readISRC(track, isrc);
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 IOReturn IOCDMedia::readMCN(CDMCN mcn)
 {
     //
@@ -332,8 +418,6 @@ IOReturn IOCDMedia::readMCN(CDMCN mcn)
 
     return getProvider()->readMCN(mcn);
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 CDTOC * IOCDMedia::getTOC()
 {
@@ -351,8 +435,6 @@ CDTOC * IOCDMedia::getTOC()
     return getProvider()->getTOC();
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 IOReturn IOCDMedia::getSpeed(UInt16 * kilobytesPerSecond)
 {
     //
@@ -367,10 +449,6 @@ IOReturn IOCDMedia::getSpeed(UInt16 * kilobytesPerSecond)
     return getProvider()->getSpeed(kilobytesPerSecond);
 }
 
-OSMetaClassDefineReservedUsed(IOCDMedia, 0);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 IOReturn IOCDMedia::setSpeed(UInt16 kilobytesPerSecond)
 {
     //
@@ -384,10 +462,6 @@ IOReturn IOCDMedia::setSpeed(UInt16 kilobytesPerSecond)
 
     return getProvider()->setSpeed(kilobytesPerSecond);
 }
-
-OSMetaClassDefineReservedUsed(IOCDMedia, 1);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IOReturn IOCDMedia::readTOC(IOMemoryDescriptor * buffer,
                             CDTOCFormat          format,
@@ -417,10 +491,6 @@ IOReturn IOCDMedia::readTOC(IOMemoryDescriptor * buffer,
                                 /* actualByteCount      */ actualByteCount );
 }
 
-OSMetaClassDefineReservedUsed(IOCDMedia, 2);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 IOReturn IOCDMedia::readDiscInfo(IOMemoryDescriptor * buffer,
                                  UInt16 *             actualByteCount)
 {
@@ -442,10 +512,6 @@ IOReturn IOCDMedia::readDiscInfo(IOMemoryDescriptor * buffer,
                                 /* buffer               */ buffer,
                                 /* actualByteCount      */ actualByteCount );
 }
-
-OSMetaClassDefineReservedUsed(IOCDMedia, 3);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IOReturn IOCDMedia::readTrackInfo(IOMemoryDescriptor *   buffer,
                                   UInt32                 address,
@@ -473,16 +539,17 @@ IOReturn IOCDMedia::readTrackInfo(IOMemoryDescriptor *   buffer,
                                 /* actualByteCount      */ actualByteCount );
 }
 
-OSMetaClassDefineReservedUsed(IOCDMedia, 4);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-void IOCDMedia::writeCD(IOService *          client,
-                        UInt64               byteStart,
-                        IOMemoryDescriptor * buffer,
-                        CDSectorArea         sectorArea,
-                        CDSectorType         sectorType,
-                        IOStorageCompletion  completion)
+void IOCDMedia::writeCD(IOService *           client,
+                        UInt64                byteStart,
+                        IOMemoryDescriptor *  buffer,
+                        CDSectorArea          sectorArea,
+                        CDSectorType          sectorType,
+#ifdef __LP64__
+                        IOStorageAttributes * attributes,
+                        IOStorageCompletion * completion)
+#else /* !__LP64__ */
+                        IOStorageCompletion   completion)
+#endif /* !__LP64__ */
 {
     //
     // Write data into the CD media object at the specified byte offset from the
@@ -536,19 +603,21 @@ void IOCDMedia::writeCD(IOService *          client,
                             /* buffer     */ buffer,
                             /* sectorArea */ sectorArea,
                             /* sectorType */ sectorType,
+#ifdef __LP64__
+                            /* attributes */ attributes,
+#endif /* __LP64__ */
                             /* completion */ completion );
 }
 
-OSMetaClassDefineReservedUsed(IOCDMedia, 5);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-IOReturn IOCDMedia::writeCD(IOService *          client,
-                            UInt64               byteStart,
-                            IOMemoryDescriptor * buffer,
-                            CDSectorArea         sectorArea,
-                            CDSectorType         sectorType,
-                            UInt64 *             actualByteCount)
+IOReturn IOCDMedia::writeCD(IOService *           client,
+                            UInt64                byteStart,
+                            IOMemoryDescriptor *  buffer,
+                            CDSectorArea          sectorArea,
+                            CDSectorType          sectorType,
+#ifdef __LP64__
+                            IOStorageAttributes * attributes,
+#endif /* __LP64__ */
+                            UInt64 *              actualByteCount)
 {
     //
     // Write data into the CD media object at the specified byte offset from the
@@ -559,61 +628,50 @@ IOReturn IOCDMedia::writeCD(IOService *          client,
     //
 
     IOStorageCompletion completion;
-    IOSyncer *          completionSyncer;
-
-    // Initialize the lock we will synchronize against.
-
-    completionSyncer = IOSyncer::create();
+    IOStorageSyncer     syncer;
 
     // Fill in the completion information for this request.
 
-    completion.target    = completionSyncer;
+    completion.target    = &syncer;
     completion.action    = storageCompletion;
     completion.parameter = actualByteCount;
 
     // Issue the asynchronous write.
 
+#ifdef __LP64__
+    writeCD(client, byteStart, buffer, sectorArea, sectorType, attributes, &completion);
+#else /* !__LP64__ */
     writeCD(client, byteStart, buffer, sectorArea, sectorType, completion);
+#endif /* !__LP64__ */
 
-    // Wait for the read to complete.
+    // Wait for the write to complete.
 
-    return completionSyncer->wait();
+    return syncer.wait();
 }
 
-OSMetaClassDefineReservedUsed(IOCDMedia, 6);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOCDMedia, 7);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOCDMedia, 8);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOCDMedia, 9);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
+#ifdef __LP64__
+OSMetaClassDefineReservedUnused(IOCDMedia,  0);
+OSMetaClassDefineReservedUnused(IOCDMedia,  1);
+OSMetaClassDefineReservedUnused(IOCDMedia,  2);
+OSMetaClassDefineReservedUnused(IOCDMedia,  3);
+OSMetaClassDefineReservedUnused(IOCDMedia,  4);
+OSMetaClassDefineReservedUnused(IOCDMedia,  5);
+OSMetaClassDefineReservedUnused(IOCDMedia,  6);
+#else /* !__LP64__ */
+OSMetaClassDefineReservedUsed(IOCDMedia,  0);
+OSMetaClassDefineReservedUsed(IOCDMedia,  1);
+OSMetaClassDefineReservedUsed(IOCDMedia,  2);
+OSMetaClassDefineReservedUsed(IOCDMedia,  3);
+OSMetaClassDefineReservedUsed(IOCDMedia,  4);
+OSMetaClassDefineReservedUsed(IOCDMedia,  5);
+OSMetaClassDefineReservedUsed(IOCDMedia,  6);
+#endif /* !__LP64__ */
+OSMetaClassDefineReservedUnused(IOCDMedia,  7);
+OSMetaClassDefineReservedUnused(IOCDMedia,  8);
+OSMetaClassDefineReservedUnused(IOCDMedia,  9);
 OSMetaClassDefineReservedUnused(IOCDMedia, 10);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOCDMedia, 11);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOCDMedia, 12);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOCDMedia, 13);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOCDMedia, 14);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOCDMedia, 15);

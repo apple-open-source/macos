@@ -11,40 +11,23 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = 05097264094910D30034B52C /* Build configuration list for PBXAggregateTarget "all" */;
 			buildPhases = (
-				05932F440ADEEA1A0042551A /* ShellScript */,
+				05932F440ADEEA1A0042551A /* Script: Create system cache folders */,
+				24A1A5150EE31A440048BA79 /* Copy Other Man Pages */,
 			);
 			dependencies = (
 				050972FE094910D30034B52C /* PBXTargetDependency */,
 				05097300094910D30034B52C /* PBXTargetDependency */,
 				05762B1D09D0C71C00EC18C1 /* PBXTargetDependency */,
 				24EE72D409EC994F008CF6B0 /* PBXTargetDependency */,
-				05097302094910D30034B52C /* PBXTargetDependency */,
+				24C4E57E0DD3EC8500A70AB5 /* PBXTargetDependency */,
 				05097304094910D30034B52C /* PBXTargetDependency */,
 				05097306094910D30034B52C /* PBXTargetDependency */,
+				24C5F6FA0DC7ED3600E4BA01 /* PBXTargetDependency */,
 				05097308094910D30034B52C /* PBXTargetDependency */,
 				0509730A094910D30034B52C /* PBXTargetDependency */,
+				A659DB460D130B3100ACA221 /* PBXTargetDependency */,
 			);
 			name = all;
-			productName = all;
-		};
-		A98954CB0D58E74E0098ED5E /* embedded */ = {
-			isa = PBXAggregateTarget;
-			buildConfigurationList = A98954DF0D58E74E0098ED5E /* Build configuration list for PBXAggregateTarget "embedded" */;
-			buildPhases = (
-				A98954DE0D58E74E0098ED5E /* ShellScript */,
-			);
-			dependencies = (
-				A98954E40D58E76C0098ED5E /* PBXTargetDependency */,
-				A98954E60D58E7700098ED5E /* PBXTargetDependency */,
-				A98954D00D58E74E0098ED5E /* PBXTargetDependency */,
-				A98954D20D58E74E0098ED5E /* PBXTargetDependency */,
-				A98954D40D58E74E0098ED5E /* PBXTargetDependency */,
-				A98954D60D58E74E0098ED5E /* PBXTargetDependency */,
-				A98954D80D58E74E0098ED5E /* PBXTargetDependency */,
-				A98954DA0D58E74E0098ED5E /* PBXTargetDependency */,
-				A98954DC0D58E74E0098ED5E /* PBXTargetDependency */,
-			);
-			name = embedded;
 			productName = all;
 		};
 /* End PBXAggregateTarget section */
@@ -53,128 +36,89 @@
 		0509726F094910D30034B52C /* kextcache_main.c in Sources */ = {isa = PBXBuildFile; fileRef = 14A199C601EB7C6E02CA2A87 /* kextcache_main.c */; };
 		05097270094910D30034B52C /* compression.c in Sources */ = {isa = PBXBuildFile; fileRef = 14DA20A701EE680802CA2A87 /* compression.c */; };
 		05097271094910D30034B52C /* arch.c in Sources */ = {isa = PBXBuildFile; fileRef = 14DA20A901EE682802CA2A87 /* arch.c */; };
-		05097272094910D30034B52C /* mkext_file.c in Sources */ = {isa = PBXBuildFile; fileRef = 14FEF92B025BBA6E02CA28EB /* mkext_file.c */; };
-		05097273094910D30034B52C /* prelink.c in Sources */ = {isa = PBXBuildFile; fileRef = 03328FC704598E7303CA2A5F /* prelink.c */; };
 		05097275094910D30034B52C /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1492D20D01E541CE02CA2A87 /* IOKit.framework */; };
 		05097276094910D30034B52C /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 146BE2D201F7A95A02CA2A87 /* CoreFoundation.framework */; };
-		05097279094910D30034B52C /* kextcache.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 14A633FD01F7647402CA2A87 /* kextcache.8 */; };
-		05097286094910D30034B52C /* globals.h in Headers */ = {isa = PBXBuildFile; fileRef = 1492D1A501E53D0502CA2A87 /* globals.h */; };
-		05097288094910D30034B52C /* logging.h in Headers */ = {isa = PBXBuildFile; fileRef = 1492D1A901E53D0502CA2A87 /* logging.h */; };
-		05097289094910D30034B52C /* PTLock.h in Headers */ = {isa = PBXBuildFile; fileRef = 1492D1AE01E53D0502CA2A87 /* PTLock.h */; };
-		0509728A094910D30034B52C /* queue.h in Headers */ = {isa = PBXBuildFile; fileRef = 1492D1AF01E53D0502CA2A87 /* queue.h */; };
-		0509728B094910D30034B52C /* request.h in Headers */ = {isa = PBXBuildFile; fileRef = 1492D1B101E53D0502CA2A87 /* request.h */; };
+		05097279094910D30034B52C /* kextcache.8 in Copy Man Pages */ = {isa = PBXBuildFile; fileRef = 14A633FD01F7647402CA2A87 /* kextcache.8 */; };
 		0509728D094910D30034B52C /* kextd_main.c in Sources */ = {isa = PBXBuildFile; fileRef = 1492D1AA01E53D0502CA2A87 /* kextd_main.c */; };
-		0509728E094910D30034B52C /* logging.c in Sources */ = {isa = PBXBuildFile; fileRef = 1492D1A801E53D0502CA2A87 /* logging.c */; };
-		0509728F094910D30034B52C /* mig_server.c in Sources */ = {isa = PBXBuildFile; fileRef = 1492D1AB01E53D0502CA2A87 /* mig_server.c */; };
-		05097290094910D30034B52C /* PTLock.c in Sources */ = {isa = PBXBuildFile; fileRef = 1492D1AD01E53D0502CA2A87 /* PTLock.c */; };
-		05097291094910D30034B52C /* request.c in Sources */ = {isa = PBXBuildFile; fileRef = 1492D1B001E53D0502CA2A87 /* request.c */; };
+		0509728F094910D30034B52C /* kextd_mig_server.c in Sources */ = {isa = PBXBuildFile; fileRef = 1492D1AB01E53D0502CA2A87 /* kextd_mig_server.c */; };
+		05097291094910D30034B52C /* kextd_request.c in Sources */ = {isa = PBXBuildFile; fileRef = 1492D1B001E53D0502CA2A87 /* kextd_request.c */; };
 		05097292094910D30034B52C /* kextmanager.defs in Sources */ = {isa = PBXBuildFile; fileRef = 14597B28022D521B02CA29F8 /* kextmanager.defs */; settings = {ATTRIBUTES = (Server, ); }; };
 		05097294094910D30034B52C /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1492D20D01E541CE02CA2A87 /* IOKit.framework */; };
 		05097295094910D30034B52C /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 146BE2D201F7A95A02CA2A87 /* CoreFoundation.framework */; };
-		05097298094910D30034B52C /* kextd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 14D5D8AE01F5072802CA2A87 /* kextd.8 */; };
-		050972A6094910D30034B52C /* kextload_main.c in Sources */ = {isa = PBXBuildFile; fileRef = 1492D1A001E53CC502CA2A87 /* kextload_main.c */; };
-		050972A8094910D30034B52C /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1492D20D01E541CE02CA2A87 /* IOKit.framework */; };
-		050972A9094910D30034B52C /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 146BE2D201F7A95A02CA2A87 /* CoreFoundation.framework */; };
-		050972AC094910D30034B52C /* kextload.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 14D5D8AF01F5072802CA2A87 /* kextload.8 */; };
+		05097298094910D30034B52C /* kextd.8 in Copy Man Pages */ = {isa = PBXBuildFile; fileRef = 14D5D8AE01F5072802CA2A87 /* kextd.8 */; };
 		050972BA094910D30034B52C /* kextstat_main.c in Sources */ = {isa = PBXBuildFile; fileRef = 149E0AB702664EC402CA28EB /* kextstat_main.c */; };
-		050972BE094910D30034B52C /* kextstat.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 149E0ABB02665FD902CA28EB /* kextstat.8 */; };
+		050972BE094910D30034B52C /* kextstat.8 in Copy Man Pages */ = {isa = PBXBuildFile; fileRef = 149E0ABB02665FD902CA28EB /* kextstat.8 */; };
 		050972CC094910D30034B52C /* kextunload_main.c in Sources */ = {isa = PBXBuildFile; fileRef = 1492D1B401E53D2702CA2A87 /* kextunload_main.c */; };
 		050972CE094910D30034B52C /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1492D20D01E541CE02CA2A87 /* IOKit.framework */; };
 		050972CF094910D30034B52C /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 146BE2D201F7A95A02CA2A87 /* CoreFoundation.framework */; };
-		050972D2094910D30034B52C /* kextunload.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 14D5D8B001F5072802CA2A87 /* kextunload.8 */; };
+		050972D2094910D30034B52C /* kextunload.8 in Copy Man Pages */ = {isa = PBXBuildFile; fileRef = 14D5D8B001F5072802CA2A87 /* kextunload.8 */; };
 		050972E0094910D30034B52C /* mkextunpack_main.c in Sources */ = {isa = PBXBuildFile; fileRef = 14A9DD8D025401E002CA28EB /* mkextunpack_main.c */; };
 		050972E1094910D30034B52C /* compression.c in Sources */ = {isa = PBXBuildFile; fileRef = 14DA20A701EE680802CA2A87 /* compression.c */; };
 		050972E3094910D30034B52C /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 146BE2D201F7A95A02CA2A87 /* CoreFoundation.framework */; };
-		050972E6094910D30034B52C /* mkextunpack.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 14A9DD970254F38602CA28EB /* mkextunpack.8 */; };
+		050972E6094910D30034B52C /* mkextunpack.8 in Copy Man Pages */ = {isa = PBXBuildFile; fileRef = 14A9DD970254F38602CA28EB /* mkextunpack.8 */; };
 		050972F4094910D30034B52C /* kextsymboltool.c in Sources */ = {isa = PBXBuildFile; fileRef = A68176200485795F007579F1 /* kextsymboltool.c */; };
 		052113EA09D0C86000E51ACA /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 146BE2D201F7A95A02CA2A87 /* CoreFoundation.framework */; };
 		052114BE09D0C86700E51ACA /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1492D20D01E541CE02CA2A87 /* IOKit.framework */; };
 		053151B309DDEEAE00AABF39 /* QEQuery.c in Sources */ = {isa = PBXBuildFile; fileRef = 053151B109DDEEAE00AABF39 /* QEQuery.c */; };
 		05762AC809D0BA7A00EC18C1 /* kextfind_main.c in Sources */ = {isa = PBXBuildFile; fileRef = 05762AC709D0BA7A00EC18C1 /* kextfind_main.c */; };
-		05762ACC09D0BA9700EC18C1 /* kextfind.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 05762AC909D0BA8200EC18C1 /* kextfind.8 */; };
-		05762AD109D0BB3900EC18C1 /* utility.c in Sources */ = {isa = PBXBuildFile; fileRef = 05762ACF09D0BB3900EC18C1 /* utility.c */; settings = {COMPILER_FLAGS = "-Wno-deprecated-declarations"; }; };
-		05762AD209D0BB4200EC18C1 /* utility.h in Headers */ = {isa = PBXBuildFile; fileRef = 05762ACE09D0BB3900EC18C1 /* utility.h */; };
-		05762AD309D0BB4200EC18C1 /* utility.c in Sources */ = {isa = PBXBuildFile; fileRef = 05762ACF09D0BB3900EC18C1 /* utility.c */; settings = {COMPILER_FLAGS = "-Wno-deprecated-declarations"; }; };
-		058248A60974758700E44A92 /* com.apple.kextd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 058248A50974758700E44A92 /* com.apple.kextd.plist */; };
+		05762ACC09D0BA9700EC18C1 /* kextfind.8 in Copy Man Pages */ = {isa = PBXBuildFile; fileRef = 05762AC909D0BA8200EC18C1 /* kextfind.8 */; };
+		058248A60974758700E44A92 /* com.apple.kextd.plist in Copy launchd plists */ = {isa = PBXBuildFile; fileRef = 058248A50974758700E44A92 /* com.apple.kextd.plist */; };
 		05BE31FB09DDFE20009C8663 /* kextfind_query.c in Sources */ = {isa = PBXBuildFile; fileRef = 05BE31FA09DDFE20009C8663 /* kextfind_query.c */; };
-		05E5D3F60B4DD7FC00E2E59F /* serialize_kextload.c in Sources */ = {isa = PBXBuildFile; fileRef = 05E5D3F40B4DD7FC00E2E59F /* serialize_kextload.c */; };
+		05E5D3F60B4DD7FC00E2E59F /* kextd_serialize_kextload.c in Sources */ = {isa = PBXBuildFile; fileRef = 05E5D3F40B4DD7FC00E2E59F /* kextd_serialize_kextload.c */; };
 		0C3171670AB0E2F900B8CA9A /* bootcaches.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C3171650AB0E2F900B8CA9A /* bootcaches.c */; };
-		0C3171680AB0E2F900B8CA9A /* bootcaches.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C3171660AB0E2F900B8CA9A /* bootcaches.h */; };
 		0C3171690AB0E2F900B8CA9A /* bootcaches.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C3171650AB0E2F900B8CA9A /* bootcaches.c */; };
-		0C31716A0AB0E2F900B8CA9A /* bootcaches.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C3171660AB0E2F900B8CA9A /* bootcaches.h */; };
-		0C31716D0AB0E7D700B8CA9A /* watchvol.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C31716B0AB0E7D700B8CA9A /* watchvol.c */; };
-		0C31716E0AB0E7D700B8CA9A /* watchvol.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C31716C0AB0E7D700B8CA9A /* watchvol.h */; };
+		0C31716D0AB0E7D700B8CA9A /* kextd_watchvol.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C31716B0AB0E7D700B8CA9A /* kextd_watchvol.c */; };
 		0C3171710AB0E82000B8CA9A /* safecalls.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C31716F0AB0E82000B8CA9A /* safecalls.c */; };
-		0C3171720AB0E82000B8CA9A /* safecalls.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C3171700AB0E82000B8CA9A /* safecalls.h */; };
 		0C3171730AB0E82000B8CA9A /* safecalls.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C31716F0AB0E82000B8CA9A /* safecalls.c */; };
-		0C3171740AB0E82000B8CA9A /* safecalls.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C3171700AB0E82000B8CA9A /* safecalls.h */; };
 		0C3171770AB0E84E00B8CA9A /* update_boot.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C3171750AB0E84E00B8CA9A /* update_boot.c */; };
-		0C3171780AB0E84E00B8CA9A /* update_boot.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C3171760AB0E84E00B8CA9A /* update_boot.h */; };
 		0C31717A0AB0EDBA00B8CA9A /* libbless.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C3171790AB0EDBA00B8CA9A /* libbless.a */; };
 		0C31717B0AB0EDBA00B8CA9A /* libbless.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C3171790AB0EDBA00B8CA9A /* libbless.a */; };
 		0C31717D0AB0EDD800B8CA9A /* DiskArbitration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C31717C0AB0EDD800B8CA9A /* DiskArbitration.framework */; };
 		0C3171930AB0EE0800B8CA9A /* libAppleRAID.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C3171920AB0EE0800B8CA9A /* libAppleRAID.a */; };
-		0C3171A00AB0F80F00B8CA9A /* bootcaches.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0C31719F0AB0F80F00B8CA9A /* bootcaches.plist */; };
-		0CD259BC0B003A1C0041EADC /* utility.c in Sources */ = {isa = PBXBuildFile; fileRef = 05762ACF09D0BB3900EC18C1 /* utility.c */; settings = {COMPILER_FLAGS = "-Wno-deprecated-declarations"; }; };
-		0CD259D80B00415A0041EADC /* utility.c in Sources */ = {isa = PBXBuildFile; fileRef = 05762ACF09D0BB3900EC18C1 /* utility.c */; settings = {COMPILER_FLAGS = "-Wno-deprecated-declarations"; }; };
-		0CD259DB0B00438B0041EADC /* utility.c in Sources */ = {isa = PBXBuildFile; fileRef = 05762ACF09D0BB3900EC18C1 /* utility.c */; settings = {COMPILER_FLAGS = "-Wno-deprecated-declarations"; }; };
 		0CF69C540C8CC127007E76E8 /* kextmanager_async.defs in Sources */ = {isa = PBXBuildFile; fileRef = 0CF69C530C8CC127007E76E8 /* kextmanager_async.defs */; settings = {ATTRIBUTES = (Client, ); }; };
 		0CFB02460AB0FBAD003AC039 /* DiskArbitration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C31717C0AB0EDD800B8CA9A /* DiskArbitration.framework */; };
-		0CFB02590AB0FC3B003AC039 /* logging.c in Sources */ = {isa = PBXBuildFile; fileRef = 1492D1A801E53D0502CA2A87 /* logging.c */; };
-		0CFB025A0AB0FC41003AC039 /* logging.h in Headers */ = {isa = PBXBuildFile; fileRef = 1492D1A901E53D0502CA2A87 /* logging.h */; };
 		0CFB025C0AB0FC75003AC039 /* ApplicationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0CFB025B0AB0FC75003AC039 /* ApplicationServices.framework */; };
+		240BB1B10E0B383700AFC366 /* kext_tools_util.c in Sources */ = {isa = PBXBuildFile; fileRef = 24F041730DC2906D001CFC70 /* kext_tools_util.c */; };
+		24162D690E6600B400ACEA84 /* mkext1_file.c in Sources */ = {isa = PBXBuildFile; fileRef = 14FEF92B025BBA6E02CA28EB /* mkext1_file.c */; };
+		24162D750E6602AB00ACEA84 /* fork_program.c in Sources */ = {isa = PBXBuildFile; fileRef = 24A1ACD50DD6E3FB00B6E4A0 /* fork_program.c */; };
 		2459EC4309EB7B7E002EE862 /* kextfind_report.c in Sources */ = {isa = PBXBuildFile; fileRef = 2459EC4109EB7B7E002EE862 /* kextfind_report.c */; };
+		245CC3670DDD6561002E3E22 /* kextd_personalities.c in Sources */ = {isa = PBXBuildFile; fileRef = 245CC3660DDD6561002E3E22 /* kextd_personalities.c */; };
+		245CC4080DDD767D002E3E22 /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1452E76F01F9032A02CA28EB /* libz.dylib */; };
+		245E54CE0F5F436500387475 /* kext_logging.8 in Copy Man Pages */ = {isa = PBXBuildFile; fileRef = 245E506D0F5F2BD500387475 /* kext_logging.8 */; };
+		24640A410EC58022000D6238 /* kextload_main.c in Sources */ = {isa = PBXBuildFile; fileRef = 24640A3F0EC58022000D6238 /* kextload_main.c */; };
+		247474600E0B106300F438A8 /* bootcaches.plist in Copy bootcaches.plist */ = {isa = PBXBuildFile; fileRef = 24AF80980E09E94A002ED318 /* bootcaches.plist */; };
+		2479E3BB0DCDAF8600DA4448 /* kext_tools_util.c in Sources */ = {isa = PBXBuildFile; fileRef = 24F041730DC2906D001CFC70 /* kext_tools_util.c */; };
+		2487628F0E68DC6700F7ACDC /* kext_tools_util.c in Sources */ = {isa = PBXBuildFile; fileRef = 24F041730DC2906D001CFC70 /* kext_tools_util.c */; };
+		249522FF0F00769E00F5BB3B /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 249522FE0F00769E00F5BB3B /* SystemConfiguration.framework */; };
+		2495232A0F0076BE00F5BB3B /* kextd_usernotification.c in Sources */ = {isa = PBXBuildFile; fileRef = 249523290F0076BE00F5BB3B /* kextd_usernotification.c */; };
+		249EA5C90DE9108300765DFF /* kext_tools_util.c in Sources */ = {isa = PBXBuildFile; fileRef = 24F041730DC2906D001CFC70 /* kext_tools_util.c */; };
+		24A1ACD60DD6E3FB00B6E4A0 /* fork_program.c in Sources */ = {isa = PBXBuildFile; fileRef = 24A1ACD50DD6E3FB00B6E4A0 /* fork_program.c */; };
+		24A8C6280DD7713500AAA1AC /* kext_tools_util.c in Sources */ = {isa = PBXBuildFile; fileRef = 24F041730DC2906D001CFC70 /* kext_tools_util.c */; };
+		24AB3D370EC9016200FD69AB /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 24AB3D360EC9016200FD69AB /* libbsm.dylib */; };
+		24ABA3A50DD65C7D001ED413 /* kext_tools_util.c in Sources */ = {isa = PBXBuildFile; fileRef = 24F041730DC2906D001CFC70 /* kext_tools_util.c */; };
+		24ABA67A0DD65CD3001ED413 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 146BE2D201F7A95A02CA2A87 /* CoreFoundation.framework */; };
+		24ABA67B0DD65CD7001ED413 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1492D20D01E541CE02CA2A87 /* IOKit.framework */; };
+		24ABA7790DD65D03001ED413 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1492D20D01E541CE02CA2A87 /* IOKit.framework */; };
+		24B5CBEB0DD67DCC00745C00 /* kext_tools_util.c in Sources */ = {isa = PBXBuildFile; fileRef = 24F041730DC2906D001CFC70 /* kext_tools_util.c */; };
 		24B704C209E0C17B0091113C /* kextfind_tables.c in Sources */ = {isa = PBXBuildFile; fileRef = 24B704C009E0C17B0091113C /* kextfind_tables.c */; };
 		24B7FFCC09DF3F1E0091113C /* kextfind_commands.c in Sources */ = {isa = PBXBuildFile; fileRef = 24B7FFCA09DF3F1E0091113C /* kextfind_commands.c */; };
+		24C2DF9D0DD271B3001D2CC0 /* kextutil.8 in Copy Man Pages */ = {isa = PBXBuildFile; fileRef = 24C5D1670DD13ACE00205DF5 /* kextutil.8 */; };
+		24C4E5810DD3EC9300A70AB5 /* kext_tools_util.c in Sources */ = {isa = PBXBuildFile; fileRef = 24F041730DC2906D001CFC70 /* kext_tools_util.c */; };
+		24C4E6C40DD3EC9900A70AB5 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 146BE2D201F7A95A02CA2A87 /* CoreFoundation.framework */; };
+		24C4E6C50DD3EC9900A70AB5 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1492D20D01E541CE02CA2A87 /* IOKit.framework */; };
+		24C4E6CA0DD3ECB600A70AB5 /* kextload.8 in Copy Man Pages */ = {isa = PBXBuildFile; fileRef = 24C5D1680DD13AD900205DF5 /* kextload.8 */; };
+		24D6B65D0DCD1EEF00B82BAC /* kext_tools_util.c in Sources */ = {isa = PBXBuildFile; fileRef = 24F041730DC2906D001CFC70 /* kext_tools_util.c */; };
 		24E1F0FD09EC4FEB00262C22 /* kextlibs_main.c in Sources */ = {isa = PBXBuildFile; fileRef = 24E1F0FC09EC4FEB00262C22 /* kextlibs_main.c */; };
 		24E1F16509EC5A3E00262C22 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 146BE2D201F7A95A02CA2A87 /* CoreFoundation.framework */; };
 		24E1F16609EC5A4200262C22 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1492D20D01E541CE02CA2A87 /* IOKit.framework */; };
-		24EE729909EC8B50008CF6B0 /* utility.c in Sources */ = {isa = PBXBuildFile; fileRef = 05762ACF09D0BB3900EC18C1 /* utility.c */; settings = {COMPILER_FLAGS = "-Wno-deprecated-declarations"; }; };
-		24EE72D209EC934B008CF6B0 /* kextlibs.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 24EE72C809EC9338008CF6B0 /* kextlibs.8 */; };
-		A98954830D58E7120098ED5E /* bootcaches.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C3171660AB0E2F900B8CA9A /* bootcaches.h */; };
-		A98954840D58E7120098ED5E /* safecalls.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C3171700AB0E82000B8CA9A /* safecalls.h */; };
-		A98954850D58E7120098ED5E /* update_boot.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C3171760AB0E84E00B8CA9A /* update_boot.h */; };
-		A98954860D58E7120098ED5E /* logging.h in Headers */ = {isa = PBXBuildFile; fileRef = 1492D1A901E53D0502CA2A87 /* logging.h */; };
-		A98954880D58E7120098ED5E /* kextcache_main.c in Sources */ = {isa = PBXBuildFile; fileRef = 14A199C601EB7C6E02CA2A87 /* kextcache_main.c */; };
-		A98954890D58E7120098ED5E /* compression.c in Sources */ = {isa = PBXBuildFile; fileRef = 14DA20A701EE680802CA2A87 /* compression.c */; };
-		A989548A0D58E7120098ED5E /* arch.c in Sources */ = {isa = PBXBuildFile; fileRef = 14DA20A901EE682802CA2A87 /* arch.c */; };
-		A989548B0D58E7120098ED5E /* mkext_file.c in Sources */ = {isa = PBXBuildFile; fileRef = 14FEF92B025BBA6E02CA28EB /* mkext_file.c */; };
-		A989548C0D58E7120098ED5E /* prelink.c in Sources */ = {isa = PBXBuildFile; fileRef = 03328FC704598E7303CA2A5F /* prelink.c */; };
-		A989548D0D58E7120098ED5E /* bootcaches.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C3171650AB0E2F900B8CA9A /* bootcaches.c */; };
-		A989548E0D58E7120098ED5E /* safecalls.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C31716F0AB0E82000B8CA9A /* safecalls.c */; };
-		A989548F0D58E7120098ED5E /* update_boot.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C3171750AB0E84E00B8CA9A /* update_boot.c */; };
-		A98954900D58E7120098ED5E /* logging.c in Sources */ = {isa = PBXBuildFile; fileRef = 1492D1A801E53D0502CA2A87 /* logging.c */; };
-		A98954910D58E7120098ED5E /* utility.c in Sources */ = {isa = PBXBuildFile; fileRef = 05762ACF09D0BB3900EC18C1 /* utility.c */; settings = {COMPILER_FLAGS = "-Wno-deprecated-declarations"; }; };
-		A98954930D58E7120098ED5E /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1492D20D01E541CE02CA2A87 /* IOKit.framework */; };
-		A98954940D58E7120098ED5E /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 146BE2D201F7A95A02CA2A87 /* CoreFoundation.framework */; };
-		A98954950D58E7120098ED5E /* libbless.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C3171790AB0EDBA00B8CA9A /* libbless.a */; };
-		A989549A0D58E7120098ED5E /* kextcache.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 14A633FD01F7647402CA2A87 /* kextcache.8 */; };
-		A98954A30D58E7330098ED5E /* globals.h in Headers */ = {isa = PBXBuildFile; fileRef = 1492D1A501E53D0502CA2A87 /* globals.h */; };
-		A98954A40D58E7330098ED5E /* logging.h in Headers */ = {isa = PBXBuildFile; fileRef = 1492D1A901E53D0502CA2A87 /* logging.h */; };
-		A98954A50D58E7330098ED5E /* PTLock.h in Headers */ = {isa = PBXBuildFile; fileRef = 1492D1AE01E53D0502CA2A87 /* PTLock.h */; };
-		A98954A60D58E7330098ED5E /* queue.h in Headers */ = {isa = PBXBuildFile; fileRef = 1492D1AF01E53D0502CA2A87 /* queue.h */; };
-		A98954A70D58E7330098ED5E /* request.h in Headers */ = {isa = PBXBuildFile; fileRef = 1492D1B101E53D0502CA2A87 /* request.h */; };
-		A98954A80D58E7330098ED5E /* bootcaches.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C3171660AB0E2F900B8CA9A /* bootcaches.h */; };
-		A98954A90D58E7330098ED5E /* watchvol.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C31716C0AB0E7D700B8CA9A /* watchvol.h */; };
-		A98954AA0D58E7330098ED5E /* safecalls.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C3171700AB0E82000B8CA9A /* safecalls.h */; };
-		A98954AC0D58E7330098ED5E /* kextd_main.c in Sources */ = {isa = PBXBuildFile; fileRef = 1492D1AA01E53D0502CA2A87 /* kextd_main.c */; };
-		A98954AD0D58E7330098ED5E /* logging.c in Sources */ = {isa = PBXBuildFile; fileRef = 1492D1A801E53D0502CA2A87 /* logging.c */; };
-		A98954AE0D58E7330098ED5E /* mig_server.c in Sources */ = {isa = PBXBuildFile; fileRef = 1492D1AB01E53D0502CA2A87 /* mig_server.c */; };
-		A98954AF0D58E7330098ED5E /* PTLock.c in Sources */ = {isa = PBXBuildFile; fileRef = 1492D1AD01E53D0502CA2A87 /* PTLock.c */; };
-		A98954B00D58E7330098ED5E /* request.c in Sources */ = {isa = PBXBuildFile; fileRef = 1492D1B001E53D0502CA2A87 /* request.c */; };
-		A98954B10D58E7330098ED5E /* kextmanager.defs in Sources */ = {isa = PBXBuildFile; fileRef = 14597B28022D521B02CA29F8 /* kextmanager.defs */; settings = {ATTRIBUTES = (Server, ); }; };
-		A98954B20D58E7330098ED5E /* bootcaches.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C3171650AB0E2F900B8CA9A /* bootcaches.c */; };
-		A98954B30D58E7330098ED5E /* watchvol.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C31716B0AB0E7D700B8CA9A /* watchvol.c */; };
-		A98954B40D58E7330098ED5E /* safecalls.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C31716F0AB0E82000B8CA9A /* safecalls.c */; };
-		A98954B50D58E7330098ED5E /* utility.c in Sources */ = {isa = PBXBuildFile; fileRef = 05762ACF09D0BB3900EC18C1 /* utility.c */; settings = {COMPILER_FLAGS = "-Wno-deprecated-declarations"; }; };
-		A98954B60D58E7330098ED5E /* serialize_kextload.c in Sources */ = {isa = PBXBuildFile; fileRef = 05E5D3F40B4DD7FC00E2E59F /* serialize_kextload.c */; };
-		A98954B70D58E7330098ED5E /* kextmanager_async.defs in Sources */ = {isa = PBXBuildFile; fileRef = 0CF69C530C8CC127007E76E8 /* kextmanager_async.defs */; settings = {ATTRIBUTES = (Client, ); }; };
-		A98954B90D58E7330098ED5E /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1492D20D01E541CE02CA2A87 /* IOKit.framework */; };
-		A98954BA0D58E7330098ED5E /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 146BE2D201F7A95A02CA2A87 /* CoreFoundation.framework */; };
-		A98954BB0D58E7330098ED5E /* libbless.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C3171790AB0EDBA00B8CA9A /* libbless.a */; };
-		A98954BD0D58E7330098ED5E /* libAppleRAID.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C3171920AB0EE0800B8CA9A /* libAppleRAID.a */; };
-		A98954C00D58E7330098ED5E /* kextd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 14D5D8AE01F5072802CA2A87 /* kextd.8 */; };
-		A98954C20D58E7330098ED5E /* com.apple.kextd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 058248A50974758700E44A92 /* com.apple.kextd.plist */; };
+		24EDE7120F0061180097FF87 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 146BE2D201F7A95A02CA2A87 /* CoreFoundation.framework */; };
+		24EE72D209EC934B008CF6B0 /* kextlibs.8 in Copy Man Pages */ = {isa = PBXBuildFile; fileRef = 24EE72C809EC9338008CF6B0 /* kextlibs.8 */; };
+		24F65A0F0D94896F00D1C132 /* kextd_mach.defs in Sources */ = {isa = PBXBuildFile; fileRef = 24F65A0B0D94892800D1C132 /* kextd_mach.defs */; settings = {ATTRIBUTES = (Client, Server, ); }; };
+		24FD2F700DC121DD0065A35B /* kextutil_main.c in Sources */ = {isa = PBXBuildFile; fileRef = 24FD2F6F0DC121DD0065A35B /* kextutil_main.c */; };
+		24FD2FDB0DC1454E0065A35B /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 146BE2D201F7A95A02CA2A87 /* CoreFoundation.framework */; };
+		24FD30230DC145530065A35B /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1492D20D01E541CE02CA2A87 /* IOKit.framework */; };
+		A659DB390D130A3700ACA221 /* setsegname.c in Sources */ = {isa = PBXBuildFile; fileRef = A659DB380D130A3700ACA221 /* setsegname.c */; };
+		A6F960050D05B7C800EE36C5 /* libstdc++.6.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = A6F960040D05B7C800EE36C5 /* libstdc++.6.dylib */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -191,13 +135,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = 05097284094910D30034B52C;
 			remoteInfo = "kextd (Upgraded)";
-		};
-		05097301094910D30034B52C /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 1492D16B01E53C3C02CA2A87 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 050972A3094910D30034B52C;
-			remoteInfo = "kextload (Upgraded)";
 		};
 		05097303094910D30034B52C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -234,6 +171,20 @@
 			remoteGlobalIDString = 05762ABF09D0B98500EC18C1;
 			remoteInfo = kextfind;
 		};
+		24C4E57D0DD3EC8500A70AB5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1492D16B01E53C3C02CA2A87 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 24C4E5770DD3EC7C00A70AB5;
+			remoteInfo = kextload;
+		};
+		24C5F6F90DC7ED3600E4BA01 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1492D16B01E53C3C02CA2A87 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 24FD2F580DC1218F0065A35B;
+			remoteInfo = kextutil;
+		};
 		24EE72D309EC994F008CF6B0 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 1492D16B01E53C3C02CA2A87 /* Project object */;
@@ -241,209 +192,153 @@
 			remoteGlobalIDString = 24E1F0ED09EC4F9B00262C22;
 			remoteInfo = kextlibs;
 		};
-		A98954D10D58E74E0098ED5E /* PBXContainerItemProxy */ = {
+		A659DB450D130B3100ACA221 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 1492D16B01E53C3C02CA2A87 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 05762ABF09D0B98500EC18C1;
-			remoteInfo = kextfind;
-		};
-		A98954D30D58E74E0098ED5E /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 1492D16B01E53C3C02CA2A87 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 24E1F0ED09EC4F9B00262C22;
-			remoteInfo = kextlibs;
-		};
-		A98954D50D58E74E0098ED5E /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 1492D16B01E53C3C02CA2A87 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 050972A3094910D30034B52C;
-			remoteInfo = "kextload (Upgraded)";
-		};
-		A98954D70D58E74E0098ED5E /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 1492D16B01E53C3C02CA2A87 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 050972B7094910D30034B52C;
-			remoteInfo = "kextstat (Upgraded)";
-		};
-		A98954D90D58E74E0098ED5E /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 1492D16B01E53C3C02CA2A87 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 050972C9094910D30034B52C;
-			remoteInfo = "kextunload (Upgraded)";
-		};
-		A98954DB0D58E74E0098ED5E /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 1492D16B01E53C3C02CA2A87 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 050972DD094910D30034B52C;
-			remoteInfo = "mkextunpack (Upgraded)";
-		};
-		A98954DD0D58E74E0098ED5E /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 1492D16B01E53C3C02CA2A87 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 050972F1094910D30034B52C;
-			remoteInfo = "kextsymboltool (Upgraded)";
-		};
-		A98954E30D58E76C0098ED5E /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 1492D16B01E53C3C02CA2A87 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = A98954810D58E7120098ED5E;
-			remoteInfo = kextcache_embedded;
-		};
-		A98954E50D58E7700098ED5E /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 1492D16B01E53C3C02CA2A87 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = A98954A10D58E7330098ED5E;
-			remoteInfo = kextd_embedded;
+			remoteGlobalIDString = A659DB2E0D13099100ACA221;
+			remoteInfo = setsegname;
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		05097278094910D30034B52C /* CopyFiles */ = {
+		05097278094910D30034B52C /* Copy Man Pages */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
 			dstPath = /usr/share/man/man8;
 			dstSubfolderSpec = 0;
 			files = (
-				05097279094910D30034B52C /* kextcache.8 in CopyFiles */,
+				05097279094910D30034B52C /* kextcache.8 in Copy Man Pages */,
 			);
+			name = "Copy Man Pages";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		05097297094910D30034B52C /* CopyFiles */ = {
+		05097297094910D30034B52C /* Copy Man Pages */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
 			dstPath = /usr/share/man/man8;
 			dstSubfolderSpec = 0;
 			files = (
-				05097298094910D30034B52C /* kextd.8 in CopyFiles */,
+				05097298094910D30034B52C /* kextd.8 in Copy Man Pages */,
 			);
+			name = "Copy Man Pages";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		050972AB094910D30034B52C /* CopyFiles */ = {
+		050972BD094910D30034B52C /* Copy Man Pages */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				050972BE094910D30034B52C /* kextstat.8 in Copy Man Pages */,
+			);
+			name = "Copy Man Pages";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		050972D1094910D30034B52C /* Copy Man Pages */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				050972D2094910D30034B52C /* kextunload.8 in Copy Man Pages */,
+			);
+			name = "Copy Man Pages";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		050972E5094910D30034B52C /* Copy Man Pages */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
 			dstPath = /usr/share/man/man8/;
 			dstSubfolderSpec = 0;
 			files = (
-				050972AC094910D30034B52C /* kextload.8 in CopyFiles */,
+				050972E6094910D30034B52C /* mkextunpack.8 in Copy Man Pages */,
 			);
+			name = "Copy Man Pages";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		050972BD094910D30034B52C /* CopyFiles */ = {
+		05762ACA09D0BA8F00EC18C1 /* Copy Man Pages */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
 			dstPath = /usr/share/man/man8;
 			dstSubfolderSpec = 0;
 			files = (
-				050972BE094910D30034B52C /* kextstat.8 in CopyFiles */,
+				05762ACC09D0BA9700EC18C1 /* kextfind.8 in Copy Man Pages */,
 			);
+			name = "Copy Man Pages";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		050972D1094910D30034B52C /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /usr/share/man/man8;
-			dstSubfolderSpec = 0;
-			files = (
-				050972D2094910D30034B52C /* kextunload.8 in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		050972E5094910D30034B52C /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /usr/share/man/man8/;
-			dstSubfolderSpec = 0;
-			files = (
-				050972E6094910D30034B52C /* mkextunpack.8 in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		05762ACA09D0BA8F00EC18C1 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /usr/share/man/man8;
-			dstSubfolderSpec = 0;
-			files = (
-				05762ACC09D0BA9700EC18C1 /* kextfind.8 in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		058248A80974768B00E44A92 /* CopyFiles */ = {
+		058248A80974768B00E44A92 /* Copy launchd plists */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
 			dstPath = /System/Library/LaunchDaemons;
 			dstSubfolderSpec = 0;
 			files = (
-				058248A60974758700E44A92 /* com.apple.kextd.plist in CopyFiles */,
+				058248A60974758700E44A92 /* com.apple.kextd.plist in Copy launchd plists */,
 			);
+			name = "Copy launchd plists";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		0C3171A50AB0F88700B8CA9A /* CopyFiles */ = {
+		0C3171A50AB0F88700B8CA9A /* Copy bootcaches.plist */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
 			dstPath = /usr/standalone;
 			dstSubfolderSpec = 0;
 			files = (
-				0C3171A00AB0F80F00B8CA9A /* bootcaches.plist in CopyFiles */,
+				247474600E0B106300F438A8 /* bootcaches.plist in Copy bootcaches.plist */,
 			);
+			name = "Copy bootcaches.plist";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		24EE72D009EC9343008CF6B0 /* CopyFiles */ = {
+		24A1A5150EE31A440048BA79 /* Copy Other Man Pages */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man5;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			name = "Copy Other Man Pages";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		24C2E35F0DD271D2001D2CC0 /* Copy Man Pages */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				24C2DF9D0DD271B3001D2CC0 /* kextutil.8 in Copy Man Pages */,
+			);
+			name = "Copy Man Pages";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		24C4E6D70DD3ECC000A70AB5 /* Copy Man Pages */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				24C4E6CA0DD3ECB600A70AB5 /* kextload.8 in Copy Man Pages */,
+			);
+			name = "Copy Man Pages";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		24EE72D009EC9343008CF6B0 /* Copy Man Pages */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
 			dstPath = /usr/share/man/man8;
 			dstSubfolderSpec = 0;
 			files = (
-				24EE72D209EC934B008CF6B0 /* kextlibs.8 in CopyFiles */,
+				245E54CE0F5F436500387475 /* kext_logging.8 in Copy Man Pages */,
+				24EE72D209EC934B008CF6B0 /* kextlibs.8 in Copy Man Pages */,
 			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		A98954990D58E7120098ED5E /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /usr/share/man/man8;
-			dstSubfolderSpec = 0;
-			files = (
-				A989549A0D58E7120098ED5E /* kextcache.8 in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		A98954BF0D58E7330098ED5E /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /usr/share/man/man8;
-			dstSubfolderSpec = 0;
-			files = (
-				A98954C00D58E7330098ED5E /* kextd.8 in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		A98954C10D58E7330098ED5E /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /System/Library/LaunchDaemons;
-			dstSubfolderSpec = 0;
-			files = (
-				A98954C20D58E7330098ED5E /* com.apple.kextd.plist in CopyFiles */,
-			);
+			name = "Copy Man Pages";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		03328FC704598E7303CA2A5F /* prelink.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = prelink.c; sourceTree = "<group>"; };
 		0509727E094910D30034B52C /* kextcache */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = kextcache; sourceTree = BUILT_PRODUCTS_DIR; };
 		0509729D094910D30034B52C /* kextd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = kextd; sourceTree = BUILT_PRODUCTS_DIR; };
-		050972B1094910D30034B52C /* kextload */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = kextload; sourceTree = BUILT_PRODUCTS_DIR; };
 		050972C3094910D30034B52C /* kextstat */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = kextstat; sourceTree = BUILT_PRODUCTS_DIR; };
 		050972D7094910D30034B52C /* kextunload */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = kextunload; sourceTree = BUILT_PRODUCTS_DIR; };
 		050972EB094910D30034B52C /* mkextunpack */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mkextunpack; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -453,17 +348,15 @@
 		05762AC009D0B98500EC18C1 /* kextfind */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = kextfind; sourceTree = BUILT_PRODUCTS_DIR; };
 		05762AC709D0BA7A00EC18C1 /* kextfind_main.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = kextfind_main.c; sourceTree = "<group>"; };
 		05762AC909D0BA8200EC18C1 /* kextfind.8 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = kextfind.8; sourceTree = "<group>"; };
-		05762ACE09D0BB3900EC18C1 /* utility.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = utility.h; sourceTree = "<group>"; };
-		05762ACF09D0BB3900EC18C1 /* utility.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = utility.c; sourceTree = "<group>"; };
-		058248A50974758700E44A92 /* com.apple.kextd.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = com.apple.kextd.plist; sourceTree = "<group>"; };
+		058248A50974758700E44A92 /* com.apple.kextd.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; path = com.apple.kextd.plist; sourceTree = "<group>"; };
 		05BAEF2109DE0AFC00DF8C66 /* kextfind_query.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kextfind_query.h; sourceTree = "<group>"; };
 		05BE31FA09DDFE20009C8663 /* kextfind_query.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kextfind_query.c; sourceTree = "<group>"; };
-		05BE31FD09DDFE9A009C8663 /* kextfind.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kextfind.h; sourceTree = "<group>"; };
-		05E5D3F40B4DD7FC00E2E59F /* serialize_kextload.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = serialize_kextload.c; sourceTree = "<group>"; };
+		05BE31FD09DDFE9A009C8663 /* kextfind_main.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kextfind_main.h; sourceTree = "<group>"; };
+		05E5D3F40B4DD7FC00E2E59F /* kextd_serialize_kextload.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kextd_serialize_kextload.c; sourceTree = "<group>"; };
 		0C3171650AB0E2F900B8CA9A /* bootcaches.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = bootcaches.c; sourceTree = "<group>"; };
 		0C3171660AB0E2F900B8CA9A /* bootcaches.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = bootcaches.h; sourceTree = "<group>"; };
-		0C31716B0AB0E7D700B8CA9A /* watchvol.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = watchvol.c; sourceTree = "<group>"; };
-		0C31716C0AB0E7D700B8CA9A /* watchvol.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = watchvol.h; sourceTree = "<group>"; };
+		0C31716B0AB0E7D700B8CA9A /* kextd_watchvol.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = kextd_watchvol.c; sourceTree = "<group>"; };
+		0C31716C0AB0E7D700B8CA9A /* kextd_watchvol.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = kextd_watchvol.h; sourceTree = "<group>"; };
 		0C31716F0AB0E82000B8CA9A /* safecalls.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = safecalls.c; sourceTree = "<group>"; };
 		0C3171700AB0E82000B8CA9A /* safecalls.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = safecalls.h; sourceTree = "<group>"; };
 		0C3171750AB0E84E00B8CA9A /* update_boot.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = update_boot.c; sourceTree = "<group>"; };
@@ -471,24 +364,16 @@
 		0C3171790AB0EDBA00B8CA9A /* libbless.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libbless.a; path = /usr/local/lib/libbless.a; sourceTree = "<absolute>"; };
 		0C31717C0AB0EDD800B8CA9A /* DiskArbitration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskArbitration.framework; path = /System/Library/Frameworks/DiskArbitration.framework; sourceTree = "<absolute>"; };
 		0C3171920AB0EE0800B8CA9A /* libAppleRAID.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libAppleRAID.a; path = /usr/local/lib/libAppleRAID.a; sourceTree = "<absolute>"; };
-		0C31719F0AB0F80F00B8CA9A /* bootcaches.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = bootcaches.plist; sourceTree = "<group>"; };
 		0CF69C530C8CC127007E76E8 /* kextmanager_async.defs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.mig; path = kextmanager_async.defs; sourceTree = "<group>"; };
 		0CFB025B0AB0FC75003AC039 /* ApplicationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ApplicationServices.framework; path = /System/Library/Frameworks/ApplicationServices.framework; sourceTree = "<absolute>"; };
 		1452E76F01F9032A02CA28EB /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = /usr/lib/libz.1.1.3.dylib; sourceTree = "<absolute>"; };
-		1452E77001F9032A02CA28EB /* libkld.dylib */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libkld.dylib; path = /usr/local/lib/libkld.dylib; sourceTree = "<absolute>"; };
 		14597B28022D521B02CA29F8 /* kextmanager.defs */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.mig; path = kextmanager.defs; sourceTree = "<group>"; };
 		146BE2D201F7A95A02CA2A87 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
-		1492D1A001E53CC502CA2A87 /* kextload_main.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = kextload_main.c; sourceTree = "<group>"; };
-		1492D1A501E53D0502CA2A87 /* globals.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = globals.h; sourceTree = "<group>"; };
-		1492D1A801E53D0502CA2A87 /* logging.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = logging.c; sourceTree = "<group>"; };
-		1492D1A901E53D0502CA2A87 /* logging.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = logging.h; sourceTree = "<group>"; };
+		1492D1A501E53D0502CA2A87 /* kextd_globals.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = kextd_globals.h; sourceTree = "<group>"; };
 		1492D1AA01E53D0502CA2A87 /* kextd_main.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = kextd_main.c; sourceTree = "<group>"; };
-		1492D1AB01E53D0502CA2A87 /* mig_server.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = mig_server.c; sourceTree = "<group>"; };
-		1492D1AD01E53D0502CA2A87 /* PTLock.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = PTLock.c; sourceTree = "<group>"; };
-		1492D1AE01E53D0502CA2A87 /* PTLock.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = PTLock.h; sourceTree = "<group>"; };
-		1492D1AF01E53D0502CA2A87 /* queue.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = queue.h; sourceTree = "<group>"; };
-		1492D1B001E53D0502CA2A87 /* request.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = request.c; sourceTree = "<group>"; };
-		1492D1B101E53D0502CA2A87 /* request.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = request.h; sourceTree = "<group>"; };
+		1492D1AB01E53D0502CA2A87 /* kextd_mig_server.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = kextd_mig_server.c; sourceTree = "<group>"; };
+		1492D1B001E53D0502CA2A87 /* kextd_request.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = kextd_request.c; sourceTree = "<group>"; };
+		1492D1B101E53D0502CA2A87 /* kextd_request.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = kextd_request.h; sourceTree = "<group>"; };
 		1492D1B401E53D2702CA2A87 /* kextunload_main.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = kextunload_main.c; sourceTree = "<group>"; };
 		1492D20D01E541CE02CA2A87 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
 		149E0AB702664EC402CA28EB /* kextstat_main.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = kextstat_main.c; sourceTree = "<group>"; };
@@ -498,23 +383,54 @@
 		14A9DD8D025401E002CA28EB /* mkextunpack_main.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = mkextunpack_main.c; sourceTree = SOURCE_ROOT; };
 		14A9DD970254F38602CA28EB /* mkextunpack.8 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = mkextunpack.8; sourceTree = "<group>"; };
 		14D5D8AE01F5072802CA2A87 /* kextd.8 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = kextd.8; sourceTree = "<group>"; };
-		14D5D8AF01F5072802CA2A87 /* kextload.8 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = kextload.8; sourceTree = "<group>"; };
 		14D5D8B001F5072802CA2A87 /* kextunload.8 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = kextunload.8; sourceTree = "<group>"; };
 		14DA20A701EE680802CA2A87 /* compression.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = compression.c; sourceTree = "<group>"; };
 		14DA20A901EE682802CA2A87 /* arch.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = arch.c; sourceTree = "<group>"; };
-		14FEF92B025BBA6E02CA28EB /* mkext_file.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = mkext_file.c; sourceTree = "<group>"; };
+		14FEF92B025BBA6E02CA28EB /* mkext1_file.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = mkext1_file.c; sourceTree = "<group>"; };
+		2401C8760E0978C700500BEE /* compression.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = compression.h; sourceTree = "<group>"; };
+		2401C87A0E097E9A00500BEE /* mkext1_file.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = mkext1_file.h; sourceTree = "<group>"; };
+		2415D7D30DE3B63500841434 /* kextcache_main.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kextcache_main.h; sourceTree = "<group>"; };
 		2459EC4009EB7B7E002EE862 /* kextfind_report.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kextfind_report.h; sourceTree = "<group>"; };
 		2459EC4109EB7B7E002EE862 /* kextfind_report.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kextfind_report.c; sourceTree = "<group>"; };
+		245CC3650DDD6561002E3E22 /* kextd_personalities.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kextd_personalities.h; sourceTree = "<group>"; };
+		245CC3660DDD6561002E3E22 /* kextd_personalities.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kextd_personalities.c; sourceTree = "<group>"; };
+		245E506D0F5F2BD500387475 /* kext_logging.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = kext_logging.8; sourceTree = "<group>"; };
+		24640A3F0EC58022000D6238 /* kextload_main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kextload_main.c; sourceTree = "<group>"; };
+		24640A400EC58022000D6238 /* kextload_main.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kextload_main.h; sourceTree = "<group>"; };
+		249522FE0F00769E00F5BB3B /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = /System/Library/Frameworks/SystemConfiguration.framework; sourceTree = "<absolute>"; };
+		249523280F0076BE00F5BB3B /* kextd_usernotification.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kextd_usernotification.h; sourceTree = "<group>"; };
+		249523290F0076BE00F5BB3B /* kextd_usernotification.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kextd_usernotification.c; sourceTree = "<group>"; };
+		24A1A9410DD6A81100B6E4A0 /* kextd_mig_server.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kextd_mig_server.h; sourceTree = "<group>"; };
+		24A1ACD40DD6E3FB00B6E4A0 /* fork_program.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = fork_program.h; sourceTree = "<group>"; };
+		24A1ACD50DD6E3FB00B6E4A0 /* fork_program.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = fork_program.c; sourceTree = "<group>"; };
+		24A8C5E50DD7675B00AAA1AC /* kextstat_main.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kextstat_main.h; sourceTree = "<group>"; };
+		24AAC80B0DD6324100619783 /* kextunload_main.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kextunload_main.h; sourceTree = "<group>"; };
+		24AB3D360EC9016200FD69AB /* libbsm.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libbsm.dylib; path = /usr/lib/libbsm.dylib; sourceTree = "<absolute>"; };
+		24AF80980E09E94A002ED318 /* bootcaches.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = bootcaches.plist; sourceTree = "<group>"; };
+		24B5CB850DD6766000745C00 /* kextd_main.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kextd_main.h; sourceTree = "<group>"; };
 		24B704BF09E0C17B0091113C /* kextfind_tables.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kextfind_tables.h; sourceTree = "<group>"; };
 		24B704C009E0C17B0091113C /* kextfind_tables.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kextfind_tables.c; sourceTree = "<group>"; };
 		24B7FFC909DF3F1E0091113C /* kextfind_commands.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kextfind_commands.h; sourceTree = "<group>"; };
 		24B7FFCA09DF3F1E0091113C /* kextfind_commands.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kextfind_commands.c; sourceTree = "<group>"; };
+		24BF692E0DC977ED006BC30C /* libkxld.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libkxld.dylib; path = /usr/lib/system/libkxld.dylib; sourceTree = "<absolute>"; };
+		24C4E5780DD3EC7C00A70AB5 /* kextload */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = kextload; sourceTree = BUILT_PRODUCTS_DIR; };
+		24C5D1670DD13ACE00205DF5 /* kextutil.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = kextutil.8; sourceTree = "<group>"; };
+		24C5D1680DD13AD900205DF5 /* kextload.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = kextload.8; sourceTree = "<group>"; };
+		24D6B7020DCD329600B82BAC /* kextlibs_main.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kextlibs_main.h; sourceTree = "<group>"; };
 		24E1F0EE09EC4F9B00262C22 /* kextlibs */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = kextlibs; sourceTree = BUILT_PRODUCTS_DIR; };
 		24E1F0FC09EC4FEB00262C22 /* kextlibs_main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kextlibs_main.c; sourceTree = "<group>"; };
 		24EE72C809EC9338008CF6B0 /* kextlibs.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = kextlibs.8; sourceTree = "<group>"; };
+		24F041720DC2906D001CFC70 /* kext_tools_util.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kext_tools_util.h; sourceTree = "<group>"; };
+		24F041730DC2906D001CFC70 /* kext_tools_util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kext_tools_util.c; sourceTree = "<group>"; };
+		24F57F210F005C5D006111B5 /* KextUserAgent.plugin */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KextUserAgent.plugin; sourceTree = BUILT_PRODUCTS_DIR; };
+		24F65A0B0D94892800D1C132 /* kextd_mach.defs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.mig; path = kextd_mach.defs; sourceTree = "<group>"; };
+		24FD2F590DC1218F0065A35B /* kextutil */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = kextutil; sourceTree = BUILT_PRODUCTS_DIR; };
+		24FD2F6E0DC121DD0065A35B /* kextutil_main.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kextutil_main.h; sourceTree = "<group>"; };
+		24FD2F6F0DC121DD0065A35B /* kextutil_main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kextutil_main.c; sourceTree = "<group>"; };
+		A659DB2F0D13099100ACA221 /* setsegname */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = setsegname; sourceTree = BUILT_PRODUCTS_DIR; };
+		A659DB380D130A3700ACA221 /* setsegname.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = setsegname.c; sourceTree = "<group>"; };
 		A68176200485795F007579F1 /* kextsymboltool.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = kextsymboltool.c; sourceTree = "<group>"; };
-		A989549F0D58E7120098ED5E /* kextcache */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = kextcache; sourceTree = BUILT_PRODUCTS_DIR; };
-		A98954C90D58E7330098ED5E /* kextd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = kextd; sourceTree = BUILT_PRODUCTS_DIR; };
+		A6F960040D05B7C800EE36C5 /* libstdc++.6.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libstdc++.6.dylib"; path = "/usr/lib/libstdc++.6.dylib"; sourceTree = "<absolute>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -522,11 +438,11 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				05097275094910D30034B52C /* IOKit.framework in Frameworks */,
 				05097276094910D30034B52C /* CoreFoundation.framework in Frameworks */,
-				0C31717B0AB0EDBA00B8CA9A /* libbless.a in Frameworks */,
+				05097275094910D30034B52C /* IOKit.framework in Frameworks */,
 				0CFB02460AB0FBAD003AC039 /* DiskArbitration.framework in Frameworks */,
 				0CFB025C0AB0FC75003AC039 /* ApplicationServices.framework in Frameworks */,
+				0C31717B0AB0EDBA00B8CA9A /* libbless.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -534,20 +450,14 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				05097294094910D30034B52C /* IOKit.framework in Frameworks */,
 				05097295094910D30034B52C /* CoreFoundation.framework in Frameworks */,
-				0C31717A0AB0EDBA00B8CA9A /* libbless.a in Frameworks */,
+				05097294094910D30034B52C /* IOKit.framework in Frameworks */,
 				0C31717D0AB0EDD800B8CA9A /* DiskArbitration.framework in Frameworks */,
 				0C3171930AB0EE0800B8CA9A /* libAppleRAID.a in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		050972A7094910D30034B52C /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				050972A8094910D30034B52C /* IOKit.framework in Frameworks */,
-				050972A9094910D30034B52C /* CoreFoundation.framework in Frameworks */,
+				0C31717A0AB0EDBA00B8CA9A /* libbless.a in Frameworks */,
+				245CC4080DDD767D002E3E22 /* libz.dylib in Frameworks */,
+				24AB3D370EC9016200FD69AB /* libbsm.dylib in Frameworks */,
+				249522FF0F00769E00F5BB3B /* SystemConfiguration.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -555,6 +465,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				24ABA67A0DD65CD3001ED413 /* CoreFoundation.framework in Frameworks */,
+				24ABA67B0DD65CD7001ED413 /* IOKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -562,8 +474,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				050972CE094910D30034B52C /* IOKit.framework in Frameworks */,
 				050972CF094910D30034B52C /* CoreFoundation.framework in Frameworks */,
+				050972CE094910D30034B52C /* IOKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -572,6 +484,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				050972E3094910D30034B52C /* CoreFoundation.framework in Frameworks */,
+				24ABA7790DD65D03001ED413 /* IOKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -579,6 +492,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A6F960050D05B7C800EE36C5 /* libstdc++.6.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -591,6 +505,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		24C4E5760DD3EC7C00A70AB5 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				24C4E6C40DD3EC9900A70AB5 /* CoreFoundation.framework in Frameworks */,
+				24C4E6C50DD3EC9900A70AB5 /* IOKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		24E1F0EC09EC4F9B00262C22 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -600,24 +523,27 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		A98954920D58E7120098ED5E /* Frameworks */ = {
+		24F57F1F0F005C5D006111B5 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A98954930D58E7120098ED5E /* IOKit.framework in Frameworks */,
-				A98954940D58E7120098ED5E /* CoreFoundation.framework in Frameworks */,
-				A98954950D58E7120098ED5E /* libbless.a in Frameworks */,
+				24EDE7120F0061180097FF87 /* CoreFoundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		A98954B80D58E7330098ED5E /* Frameworks */ = {
+		24FD2F570DC1218F0065A35B /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A98954B90D58E7330098ED5E /* IOKit.framework in Frameworks */,
-				A98954BA0D58E7330098ED5E /* CoreFoundation.framework in Frameworks */,
-				A98954BB0D58E7330098ED5E /* libbless.a in Frameworks */,
-				A98954BD0D58E7330098ED5E /* libAppleRAID.a in Frameworks */,
+				24FD2FDB0DC1454E0065A35B /* CoreFoundation.framework in Frameworks */,
+				24FD30230DC145530065A35B /* IOKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A659DB2D0D13099100ACA221 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -642,7 +568,7 @@
 		05762AC209D0B99D00EC18C1 /* kextfind */ = {
 			isa = PBXGroup;
 			children = (
-				05BE31FD09DDFE9A009C8663 /* kextfind.h */,
+				05BE31FD09DDFE9A009C8663 /* kextfind_main.h */,
 				05762AC709D0BA7A00EC18C1 /* kextfind_main.c */,
 				24B704BF09E0C17B0091113C /* kextfind_tables.h */,
 				24B704C009E0C17B0091113C /* kextfind_tables.c */,
@@ -658,36 +584,44 @@
 			name = kextfind;
 			sourceTree = "<group>";
 		};
-		058248A40974756200E44A92 /* Resources */ = {
+		058248A40974756200E44A92 /* kextd & boot≠root resources */ = {
 			isa = PBXGroup;
 			children = (
 				058248A50974758700E44A92 /* com.apple.kextd.plist */,
-				0C31719F0AB0F80F00B8CA9A /* bootcaches.plist */,
+				24AF80980E09E94A002ED318 /* bootcaches.plist */,
 			);
-			name = Resources;
+			name = "kextd & boot≠root resources";
 			sourceTree = "<group>";
 		};
-		1485151D03F1F3B302CA28EB /* Shared Source */ = {
+		1485151D03F1F3B302CA28EB /* boot≠root shared */ = {
 			isa = PBXGroup;
 			children = (
 				0C3171660AB0E2F900B8CA9A /* bootcaches.h */,
 				0C3171650AB0E2F900B8CA9A /* bootcaches.c */,
-				14DA20A701EE680802CA2A87 /* compression.c */,
 				0C3171700AB0E82000B8CA9A /* safecalls.h */,
 				0C31716F0AB0E82000B8CA9A /* safecalls.c */,
-				05762ACE09D0BB3900EC18C1 /* utility.h */,
-				05762ACF09D0BB3900EC18C1 /* utility.c */,
 			);
-			name = "Shared Source";
+			name = "boot≠root shared";
 			sourceTree = "<group>";
 		};
 		1492D16C01E53C3C02CA2A87 = {
 			isa = PBXGroup;
 			children = (
-				0C31719F0AB0F80F00B8CA9A /* bootcaches.plist */,
-				1492D18701E53C9C02CA2A87 /* Source */,
-				058248A40974756200E44A92 /* Resources */,
-				14D5D8AD01F5072802CA2A87 /* Documentation */,
+				24C462410DBE942B00E11943 /* shared source */,
+				1485151D03F1F3B302CA28EB /* boot≠root shared */,
+				14A199C501EB7C6E02CA2A87 /* kextcache */,
+				1492D1A201E53CF102CA2A87 /* kextd */,
+				058248A40974756200E44A92 /* kextd & boot≠root resources */,
+				05762AC209D0B99D00EC18C1 /* kextfind */,
+				24E1F0F709EC4FD500262C22 /* kextlibs */,
+				24640A3A0EC57FD8000D6238 /* kextload */,
+				149E0AAE02664E7602CA28EB /* kextstat */,
+				A6817625048579EE007579F1 /* kextsymboltool */,
+				1492D1A101E53CF102CA2A87 /* kextunload */,
+				24FD2F6C0DC1219E0065A35B /* kextutil */,
+				14A9DD90025401EB02CA28EB /* mkextunpack */,
+				A659DB420D130AF200ACA221 /* setsegname */,
+				24A1A4F00EE318720048BA79 /* man pages */,
 				1492D21101E5423102CA2A87 /* External Frameworks and Libraries */,
 				1492D16F01E53C9002CA2A87 /* Products */,
 			);
@@ -698,39 +632,24 @@
 			children = (
 				0509727E094910D30034B52C /* kextcache */,
 				0509729D094910D30034B52C /* kextd */,
-				050972B1094910D30034B52C /* kextload */,
 				050972C3094910D30034B52C /* kextstat */,
 				050972D7094910D30034B52C /* kextunload */,
 				050972EB094910D30034B52C /* mkextunpack */,
 				050972FB094910D30034B52C /* kextsymboltool */,
 				05762AC009D0B98500EC18C1 /* kextfind */,
 				24E1F0EE09EC4F9B00262C22 /* kextlibs */,
-				A989549F0D58E7120098ED5E /* kextcache */,
-				A98954C90D58E7330098ED5E /* kextd */,
+				A659DB2F0D13099100ACA221 /* setsegname */,
+				24FD2F590DC1218F0065A35B /* kextutil */,
+				24C4E5780DD3EC7C00A70AB5 /* kextload */,
+				24F57F210F005C5D006111B5 /* KextUserAgent.plugin */,
 			);
 			name = Products;
-			sourceTree = "<group>";
-		};
-		1492D18701E53C9C02CA2A87 /* Source */ = {
-			isa = PBXGroup;
-			children = (
-				1485151D03F1F3B302CA28EB /* Shared Source */,
-				14A199C501EB7C6E02CA2A87 /* kextcache */,
-				1492D1A201E53CF102CA2A87 /* kextd */,
-				05762AC209D0B99D00EC18C1 /* kextfind */,
-				24E1F0F709EC4FD500262C22 /* kextlibs */,
-				1492D1A301E53CF102CA2A87 /* kextload */,
-				149E0AAE02664E7602CA28EB /* kextstat */,
-				A6817625048579EE007579F1 /* kextsymboltool */,
-				1492D1A101E53CF102CA2A87 /* kextunload */,
-				14A9DD90025401EB02CA28EB /* mkextunpack */,
-			);
-			name = Source;
 			sourceTree = "<group>";
 		};
 		1492D1A101E53CF102CA2A87 /* kextunload */ = {
 			isa = PBXGroup;
 			children = (
+				24AAC80B0DD6324100619783 /* kextunload_main.h */,
 				1492D1B401E53D2702CA2A87 /* kextunload_main.c */,
 			);
 			name = kextunload;
@@ -739,31 +658,25 @@
 		1492D1A201E53CF102CA2A87 /* kextd */ = {
 			isa = PBXGroup;
 			children = (
+				24B5CB850DD6766000745C00 /* kextd_main.h */,
 				1492D1AA01E53D0502CA2A87 /* kextd_main.c */,
-				1492D1A501E53D0502CA2A87 /* globals.h */,
-				1492D1A901E53D0502CA2A87 /* logging.h */,
-				1492D1A801E53D0502CA2A87 /* logging.c */,
-				1492D1AE01E53D0502CA2A87 /* PTLock.h */,
-				1492D1AD01E53D0502CA2A87 /* PTLock.c */,
-				1492D1AF01E53D0502CA2A87 /* queue.h */,
-				1492D1B101E53D0502CA2A87 /* request.h */,
-				1492D1B001E53D0502CA2A87 /* request.c */,
-				1492D1AB01E53D0502CA2A87 /* mig_server.c */,
+				1492D1A501E53D0502CA2A87 /* kextd_globals.h */,
+				245CC3650DDD6561002E3E22 /* kextd_personalities.h */,
+				245CC3660DDD6561002E3E22 /* kextd_personalities.c */,
+				1492D1B101E53D0502CA2A87 /* kextd_request.h */,
+				1492D1B001E53D0502CA2A87 /* kextd_request.c */,
+				249523280F0076BE00F5BB3B /* kextd_usernotification.h */,
+				249523290F0076BE00F5BB3B /* kextd_usernotification.c */,
+				05E5D3F40B4DD7FC00E2E59F /* kextd_serialize_kextload.c */,
+				24A1A9410DD6A81100B6E4A0 /* kextd_mig_server.h */,
+				1492D1AB01E53D0502CA2A87 /* kextd_mig_server.c */,
+				0C31716C0AB0E7D700B8CA9A /* kextd_watchvol.h */,
+				0C31716B0AB0E7D700B8CA9A /* kextd_watchvol.c */,
 				14597B28022D521B02CA29F8 /* kextmanager.defs */,
+				24F65A0B0D94892800D1C132 /* kextd_mach.defs */,
 				0CF69C530C8CC127007E76E8 /* kextmanager_async.defs */,
-				0C31716C0AB0E7D700B8CA9A /* watchvol.h */,
-				0C31716B0AB0E7D700B8CA9A /* watchvol.c */,
-				05E5D3F40B4DD7FC00E2E59F /* serialize_kextload.c */,
 			);
 			name = kextd;
-			sourceTree = "<group>";
-		};
-		1492D1A301E53CF102CA2A87 /* kextload */ = {
-			isa = PBXGroup;
-			children = (
-				1492D1A001E53CC502CA2A87 /* kextload_main.c */,
-			);
-			name = kextload;
 			sourceTree = "<group>";
 		};
 		1492D21101E5423102CA2A87 /* External Frameworks and Libraries */ = {
@@ -771,8 +684,11 @@
 			children = (
 				146BE2D201F7A95A02CA2A87 /* CoreFoundation.framework */,
 				1492D20D01E541CE02CA2A87 /* IOKit.framework */,
-				1452E77001F9032A02CA28EB /* libkld.dylib */,
+				249522FE0F00769E00F5BB3B /* SystemConfiguration.framework */,
+				24BF692E0DC977ED006BC30C /* libkxld.dylib */,
 				1452E76F01F9032A02CA28EB /* libz.dylib */,
+				A6F960040D05B7C800EE36C5 /* libstdc++.6.dylib */,
+				24AB3D360EC9016200FD69AB /* libbsm.dylib */,
 				0515F62C0AC1D3B800B291F3 /* Boot≠Root Support */,
 			);
 			name = "External Frameworks and Libraries";
@@ -781,6 +697,7 @@
 		149E0AAE02664E7602CA28EB /* kextstat */ = {
 			isa = PBXGroup;
 			children = (
+				24A8C5E50DD7675B00AAA1AC /* kextstat_main.h */,
 				149E0AB702664EC402CA28EB /* kextstat_main.c */,
 			);
 			name = kextstat;
@@ -789,12 +706,11 @@
 		14A199C501EB7C6E02CA2A87 /* kextcache */ = {
 			isa = PBXGroup;
 			children = (
+				2415D7D30DE3B63500841434 /* kextcache_main.h */,
 				14A199C601EB7C6E02CA2A87 /* kextcache_main.c */,
-				14DA20A901EE682802CA2A87 /* arch.c */,
-				14FEF92B025BBA6E02CA28EB /* mkext_file.c */,
-				03328FC704598E7303CA2A5F /* prelink.c */,
 				0C3171760AB0E84E00B8CA9A /* update_boot.h */,
 				0C3171750AB0E84E00B8CA9A /* update_boot.c */,
+				24A1A4FA0EE319850048BA79 /* mkext1 */,
 			);
 			name = kextcache;
 			sourceTree = "<group>";
@@ -807,27 +723,79 @@
 			name = mkextunpack;
 			sourceTree = "<group>";
 		};
-		14D5D8AD01F5072802CA2A87 /* Documentation */ = {
+		24640A3A0EC57FD8000D6238 /* kextload */ = {
 			isa = PBXGroup;
 			children = (
+				24640A400EC58022000D6238 /* kextload_main.h */,
+				24640A3F0EC58022000D6238 /* kextload_main.c */,
+			);
+			name = kextload;
+			sourceTree = "<group>";
+		};
+		24A1A4F00EE318720048BA79 /* man pages */ = {
+			isa = PBXGroup;
+			children = (
+				245E506D0F5F2BD500387475 /* kext_logging.8 */,
 				14A633FD01F7647402CA2A87 /* kextcache.8 */,
 				14D5D8AE01F5072802CA2A87 /* kextd.8 */,
 				05762AC909D0BA8200EC18C1 /* kextfind.8 */,
 				24EE72C809EC9338008CF6B0 /* kextlibs.8 */,
-				14D5D8AF01F5072802CA2A87 /* kextload.8 */,
+				24C5D1680DD13AD900205DF5 /* kextload.8 */,
 				149E0ABB02665FD902CA28EB /* kextstat.8 */,
 				14D5D8B001F5072802CA2A87 /* kextunload.8 */,
+				24C5D1670DD13ACE00205DF5 /* kextutil.8 */,
 				14A9DD970254F38602CA28EB /* mkextunpack.8 */,
 			);
-			name = Documentation;
+			name = "man pages";
+			sourceTree = "<group>";
+		};
+		24A1A4FA0EE319850048BA79 /* mkext1 */ = {
+			isa = PBXGroup;
+			children = (
+				2401C87A0E097E9A00500BEE /* mkext1_file.h */,
+				14FEF92B025BBA6E02CA28EB /* mkext1_file.c */,
+				2401C8760E0978C700500BEE /* compression.h */,
+				14DA20A701EE680802CA2A87 /* compression.c */,
+				14DA20A901EE682802CA2A87 /* arch.c */,
+			);
+			name = mkext1;
+			sourceTree = "<group>";
+		};
+		24C462410DBE942B00E11943 /* shared source */ = {
+			isa = PBXGroup;
+			children = (
+				24F041720DC2906D001CFC70 /* kext_tools_util.h */,
+				24F041730DC2906D001CFC70 /* kext_tools_util.c */,
+				24A1ACD40DD6E3FB00B6E4A0 /* fork_program.h */,
+				24A1ACD50DD6E3FB00B6E4A0 /* fork_program.c */,
+			);
+			name = "shared source";
 			sourceTree = "<group>";
 		};
 		24E1F0F709EC4FD500262C22 /* kextlibs */ = {
 			isa = PBXGroup;
 			children = (
+				24D6B7020DCD329600B82BAC /* kextlibs_main.h */,
 				24E1F0FC09EC4FEB00262C22 /* kextlibs_main.c */,
 			);
 			name = kextlibs;
+			sourceTree = "<group>";
+		};
+		24FD2F6C0DC1219E0065A35B /* kextutil */ = {
+			isa = PBXGroup;
+			children = (
+				24FD2F6E0DC121DD0065A35B /* kextutil_main.h */,
+				24FD2F6F0DC121DD0065A35B /* kextutil_main.c */,
+			);
+			name = kextutil;
+			sourceTree = "<group>";
+		};
+		A659DB420D130AF200ACA221 /* setsegname */ = {
+			isa = PBXGroup;
+			children = (
+				A659DB380D130A3700ACA221 /* setsegname.c */,
+			);
+			name = setsegname;
 			sourceTree = "<group>";
 		};
 		A6817625048579EE007579F1 /* kextsymboltool */ = {
@@ -840,107 +808,14 @@
 		};
 /* End PBXGroup section */
 
-/* Begin PBXHeadersBuildPhase section */
-		0509726D094910D30034B52C /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				0C31716A0AB0E2F900B8CA9A /* bootcaches.h in Headers */,
-				0C3171720AB0E82000B8CA9A /* safecalls.h in Headers */,
-				0C3171780AB0E84E00B8CA9A /* update_boot.h in Headers */,
-				0CFB025A0AB0FC41003AC039 /* logging.h in Headers */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		05097285094910D30034B52C /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				05097286094910D30034B52C /* globals.h in Headers */,
-				05097288094910D30034B52C /* logging.h in Headers */,
-				05097289094910D30034B52C /* PTLock.h in Headers */,
-				0509728A094910D30034B52C /* queue.h in Headers */,
-				0509728B094910D30034B52C /* request.h in Headers */,
-				0C3171680AB0E2F900B8CA9A /* bootcaches.h in Headers */,
-				0C31716E0AB0E7D700B8CA9A /* watchvol.h in Headers */,
-				0C3171740AB0E82000B8CA9A /* safecalls.h in Headers */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		050972A4094910D30034B52C /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				05762AD209D0BB4200EC18C1 /* utility.h in Headers */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		050972B8094910D30034B52C /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		050972CA094910D30034B52C /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		050972DE094910D30034B52C /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		050972F2094910D30034B52C /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		A98954820D58E7120098ED5E /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				A98954830D58E7120098ED5E /* bootcaches.h in Headers */,
-				A98954840D58E7120098ED5E /* safecalls.h in Headers */,
-				A98954850D58E7120098ED5E /* update_boot.h in Headers */,
-				A98954860D58E7120098ED5E /* logging.h in Headers */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		A98954A20D58E7330098ED5E /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				A98954A30D58E7330098ED5E /* globals.h in Headers */,
-				A98954A40D58E7330098ED5E /* logging.h in Headers */,
-				A98954A50D58E7330098ED5E /* PTLock.h in Headers */,
-				A98954A60D58E7330098ED5E /* queue.h in Headers */,
-				A98954A70D58E7330098ED5E /* request.h in Headers */,
-				A98954A80D58E7330098ED5E /* bootcaches.h in Headers */,
-				A98954A90D58E7330098ED5E /* watchvol.h in Headers */,
-				A98954AA0D58E7330098ED5E /* safecalls.h in Headers */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXHeadersBuildPhase section */
-
 /* Begin PBXNativeTarget section */
 		0509726C094910D30034B52C /* kextcache */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 0509727A094910D30034B52C /* Build configuration list for PBXNativeTarget "kextcache" */;
 			buildPhases = (
-				0509726D094910D30034B52C /* Headers */,
 				0509726E094910D30034B52C /* Sources */,
 				05097274094910D30034B52C /* Frameworks */,
-				05097277094910D30034B52C /* Rez */,
-				05097278094910D30034B52C /* CopyFiles */,
+				05097278094910D30034B52C /* Copy Man Pages */,
 			);
 			buildRules = (
 			);
@@ -956,13 +831,11 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 05097299094910D30034B52C /* Build configuration list for PBXNativeTarget "kextd" */;
 			buildPhases = (
-				05097285094910D30034B52C /* Headers */,
 				0509728C094910D30034B52C /* Sources */,
 				05097293094910D30034B52C /* Frameworks */,
-				05097296094910D30034B52C /* Rez */,
-				05097297094910D30034B52C /* CopyFiles */,
-				058248A80974768B00E44A92 /* CopyFiles */,
-				0C3171A50AB0F88700B8CA9A /* CopyFiles */,
+				05097297094910D30034B52C /* Copy Man Pages */,
+				058248A80974768B00E44A92 /* Copy launchd plists */,
+				0C3171A50AB0F88700B8CA9A /* Copy bootcaches.plist */,
 			);
 			buildRules = (
 			);
@@ -974,35 +847,13 @@
 			productReference = 0509729D094910D30034B52C /* kextd */;
 			productType = "com.apple.product-type.tool";
 		};
-		050972A3094910D30034B52C /* kextload */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 050972AD094910D30034B52C /* Build configuration list for PBXNativeTarget "kextload" */;
-			buildPhases = (
-				050972A4094910D30034B52C /* Headers */,
-				050972A5094910D30034B52C /* Sources */,
-				050972A7094910D30034B52C /* Frameworks */,
-				050972AA094910D30034B52C /* Rez */,
-				050972AB094910D30034B52C /* CopyFiles */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = kextload;
-			productInstallPath = /sbin;
-			productName = kxload;
-			productReference = 050972B1094910D30034B52C /* kextload */;
-			productType = "com.apple.product-type.tool";
-		};
 		050972B7094910D30034B52C /* kextstat */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 050972BF094910D30034B52C /* Build configuration list for PBXNativeTarget "kextstat" */;
 			buildPhases = (
-				050972B8094910D30034B52C /* Headers */,
 				050972B9094910D30034B52C /* Sources */,
 				050972BB094910D30034B52C /* Frameworks */,
-				050972BC094910D30034B52C /* Rez */,
-				050972BD094910D30034B52C /* CopyFiles */,
+				050972BD094910D30034B52C /* Copy Man Pages */,
 			);
 			buildRules = (
 			);
@@ -1018,11 +869,9 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 050972D3094910D30034B52C /* Build configuration list for PBXNativeTarget "kextunload" */;
 			buildPhases = (
-				050972CA094910D30034B52C /* Headers */,
 				050972CB094910D30034B52C /* Sources */,
 				050972CD094910D30034B52C /* Frameworks */,
-				050972D0094910D30034B52C /* Rez */,
-				050972D1094910D30034B52C /* CopyFiles */,
+				050972D1094910D30034B52C /* Copy Man Pages */,
 			);
 			buildRules = (
 			);
@@ -1038,11 +887,9 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 050972E7094910D30034B52C /* Build configuration list for PBXNativeTarget "mkextunpack" */;
 			buildPhases = (
-				050972DE094910D30034B52C /* Headers */,
 				050972DF094910D30034B52C /* Sources */,
 				050972E2094910D30034B52C /* Frameworks */,
-				050972E4094910D30034B52C /* Rez */,
-				050972E5094910D30034B52C /* CopyFiles */,
+				050972E5094910D30034B52C /* Copy Man Pages */,
 			);
 			buildRules = (
 			);
@@ -1058,10 +905,8 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 050972F7094910D30034B52C /* Build configuration list for PBXNativeTarget "kextsymboltool" */;
 			buildPhases = (
-				050972F2094910D30034B52C /* Headers */,
 				050972F3094910D30034B52C /* Sources */,
 				050972F5094910D30034B52C /* Frameworks */,
-				050972F6094910D30034B52C /* Rez */,
 			);
 			buildRules = (
 			);
@@ -1079,7 +924,7 @@
 			buildPhases = (
 				05762ABD09D0B98500EC18C1 /* Sources */,
 				05762ABE09D0B98500EC18C1 /* Frameworks */,
-				05762ACA09D0BA8F00EC18C1 /* CopyFiles */,
+				05762ACA09D0BA8F00EC18C1 /* Copy Man Pages */,
 			);
 			buildRules = (
 			);
@@ -1090,13 +935,30 @@
 			productReference = 05762AC009D0B98500EC18C1 /* kextfind */;
 			productType = "com.apple.product-type.tool";
 		};
+		24C4E5770DD3EC7C00A70AB5 /* kextload */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 24C4E57F0DD3EC8A00A70AB5 /* Build configuration list for PBXNativeTarget "kextload" */;
+			buildPhases = (
+				24C4E5750DD3EC7C00A70AB5 /* Sources */,
+				24C4E5760DD3EC7C00A70AB5 /* Frameworks */,
+				24C4E6D70DD3ECC000A70AB5 /* Copy Man Pages */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = kextload;
+			productName = kextload;
+			productReference = 24C4E5780DD3EC7C00A70AB5 /* kextload */;
+			productType = "com.apple.product-type.tool";
+		};
 		24E1F0ED09EC4F9B00262C22 /* kextlibs */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 24E1F0F809EC4FD500262C22 /* Build configuration list for PBXNativeTarget "kextlibs" */;
 			buildPhases = (
 				24E1F0EB09EC4F9B00262C22 /* Sources */,
 				24E1F0EC09EC4F9B00262C22 /* Frameworks */,
-				24EE72D009EC9343008CF6B0 /* CopyFiles */,
+				24EE72D009EC9343008CF6B0 /* Copy Man Pages */,
 			);
 			buildRules = (
 			);
@@ -1107,45 +969,53 @@
 			productReference = 24E1F0EE09EC4F9B00262C22 /* kextlibs */;
 			productType = "com.apple.product-type.tool";
 		};
-		A98954810D58E7120098ED5E /* kextcache_embedded */ = {
+		24F57F200F005C5D006111B5 /* KextUserAgent */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = A989549B0D58E7120098ED5E /* Build configuration list for PBXNativeTarget "kextcache_embedded" */;
+			buildConfigurationList = 24F57F280F005C7C006111B5 /* Build configuration list for PBXNativeTarget "KextUserAgent" */;
 			buildPhases = (
-				A98954820D58E7120098ED5E /* Headers */,
-				A98954870D58E7120098ED5E /* Sources */,
-				A98954920D58E7120098ED5E /* Frameworks */,
-				A98954980D58E7120098ED5E /* Rez */,
-				A98954990D58E7120098ED5E /* CopyFiles */,
+				24F57F1E0F005C5D006111B5 /* Sources */,
+				24F57F1F0F005C5D006111B5 /* Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
-			name = kextcache_embedded;
-			productInstallPath = /usr/sbin;
-			productName = kextcache;
-			productReference = A989549F0D58E7120098ED5E /* kextcache */;
+			name = KextUserAgent;
+			productName = KextUserAgent;
+			productReference = 24F57F210F005C5D006111B5 /* KextUserAgent.plugin */;
+			productType = "com.apple.product-type.bundle";
+		};
+		24FD2F580DC1218F0065A35B /* kextutil */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 24FD2F6D0DC1219E0065A35B /* Build configuration list for PBXNativeTarget "kextutil" */;
+			buildPhases = (
+				24FD2F560DC1218F0065A35B /* Sources */,
+				24FD2F570DC1218F0065A35B /* Frameworks */,
+				24C2E35F0DD271D2001D2CC0 /* Copy Man Pages */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = kextutil;
+			productName = kextutil;
+			productReference = 24FD2F590DC1218F0065A35B /* kextutil */;
 			productType = "com.apple.product-type.tool";
 		};
-		A98954A10D58E7330098ED5E /* kextd_embedded */ = {
+		A659DB2E0D13099100ACA221 /* setsegname */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = A98954C50D58E7330098ED5E /* Build configuration list for PBXNativeTarget "kextd_embedded" */;
+			buildConfigurationList = A659DB340D1309CE00ACA221 /* Build configuration list for PBXNativeTarget "setsegname" */;
 			buildPhases = (
-				A98954A20D58E7330098ED5E /* Headers */,
-				A98954AB0D58E7330098ED5E /* Sources */,
-				A98954B80D58E7330098ED5E /* Frameworks */,
-				A98954BE0D58E7330098ED5E /* Rez */,
-				A98954BF0D58E7330098ED5E /* CopyFiles */,
-				A98954C10D58E7330098ED5E /* CopyFiles */,
+				A659DB2C0D13099100ACA221 /* Sources */,
+				A659DB2D0D13099100ACA221 /* Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
-			name = kextd_embedded;
-			productInstallPath = /usr/libexec;
-			productName = kextd;
-			productReference = A98954C90D58E7330098ED5E /* kextd */;
+			name = setsegname;
+			productName = setsegname;
+			productReference = A659DB2F0D13099100ACA221 /* setsegname */;
 			productType = "com.apple.product-type.tool";
 		};
 /* End PBXNativeTarget section */
@@ -1162,114 +1032,36 @@
 			projectRoot = "";
 			targets = (
 				05097255094910D30034B52C /* all */,
-				A98954CB0D58E74E0098ED5E /* embedded */,
 				0509726C094910D30034B52C /* kextcache */,
 				05097284094910D30034B52C /* kextd */,
 				05762ABF09D0B98500EC18C1 /* kextfind */,
 				24E1F0ED09EC4F9B00262C22 /* kextlibs */,
-				050972A3094910D30034B52C /* kextload */,
+				24C4E5770DD3EC7C00A70AB5 /* kextload */,
 				050972B7094910D30034B52C /* kextstat */,
 				050972F1094910D30034B52C /* kextsymboltool */,
 				050972C9094910D30034B52C /* kextunload */,
+				24F57F200F005C5D006111B5 /* KextUserAgent */,
+				24FD2F580DC1218F0065A35B /* kextutil */,
 				050972DD094910D30034B52C /* mkextunpack */,
-				A98954810D58E7120098ED5E /* kextcache_embedded */,
-				A98954A10D58E7330098ED5E /* kextd_embedded */,
+				A659DB2E0D13099100ACA221 /* setsegname */,
 			);
 		};
 /* End PBXProject section */
 
-/* Begin PBXRezBuildPhase section */
-		05097277094910D30034B52C /* Rez */ = {
-			isa = PBXRezBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		05097296094910D30034B52C /* Rez */ = {
-			isa = PBXRezBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		050972AA094910D30034B52C /* Rez */ = {
-			isa = PBXRezBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		050972BC094910D30034B52C /* Rez */ = {
-			isa = PBXRezBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		050972D0094910D30034B52C /* Rez */ = {
-			isa = PBXRezBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		050972E4094910D30034B52C /* Rez */ = {
-			isa = PBXRezBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		050972F6094910D30034B52C /* Rez */ = {
-			isa = PBXRezBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		A98954980D58E7120098ED5E /* Rez */ = {
-			isa = PBXRezBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		A98954BE0D58E7330098ED5E /* Rez */ = {
-			isa = PBXRezBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXRezBuildPhase section */
-
 /* Begin PBXShellScriptBuildPhase section */
-		05932F440ADEEA1A0042551A /* ShellScript */ = {
+		05932F440ADEEA1A0042551A /* Script: Create system cache folders */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
 			files = (
 			);
 			inputPaths = (
 			);
+			name = "Script: Create system cache folders";
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "# Create the system caches directory and set its ownership/permissions.\n#\nCACHES_DIR=$DSTROOT/System/Library/Caches\n/bin/echo \"Making system caches directory, ${CACHES_DIR}\"\n/bin/mkdir -p -m 0755 \"${CACHES_DIR}\"\n\n/bin/echo \"Setting owner and permissions on system caches directory\"\n/usr/sbin/chown root:wheel \"${CACHES_DIR}\"\n\n\n# Create the extension caches directory and set its ownership/permissions.\n#\nKEXT_CACHES_DIR=$DSTROOT/System/Library/Extensions/Caches\n/bin/echo \"Making kernel extension caches directory, ${KEXT_CACHES_DIR}\"\n/bin/mkdir -p -m 0755 \"${KEXT_CACHES_DIR}\"\n\n/bin/echo \"Setting owner and permissions on system caches directory\"\n/usr/sbin/chown root:wheel \"${KEXT_CACHES_DIR}\"\n";
-		};
-		A98954DE0D58E74E0098ED5E /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
-			files = (
-			);
-			inputPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = "# Create the system caches directory and set its ownership/permissions.\n#\nCACHES_DIR=$DSTROOT/System/Library/Caches\n/bin/echo \"Making system caches directory, ${CACHES_DIR}\"\n/bin/mkdir -p -m 0755 \"${CACHES_DIR}\"\n\n/bin/echo \"Setting owner and permissions on system caches directory\"\n/usr/sbin/chown root:wheel \"${CACHES_DIR}\"\n\n\n# Create the extension caches directory and set its ownership/permissions.\n#\nKEXT_CACHES_DIR=$DSTROOT/System/Library/Extensions/Caches\n/bin/echo \"Making kernel extension caches directory, ${KEXT_CACHES_DIR}\"\n/bin/mkdir -p -m 0755 \"${KEXT_CACHES_DIR}\"\n\n/bin/echo \"Setting owner and permissions on system caches directory\"\n/usr/sbin/chown root:wheel \"${KEXT_CACHES_DIR}\"\n";
+			shellScript = "# Create the system caches directory and set its ownership/permissions.\n#\nSYS_CACHES_DIR=\"${DSTROOT}/System/Library/Caches\"\n\n/bin/echo \"Making system caches directory, ${SYS_CACHES_DIR}\"\n/bin/mkdir -p -m 0755 \"${SYS_CACHES_DIR}\"\n\n# Create the extension caches directory and set its ownership/permissions.\n#\n# Commented out, soon to change caching scheme but old scheme no longer used\n#\nKEXT_CACHES_DIR=\"${SYS_CACHES_DIR}/com.apple.kext.caches\"\nKEXT_SLE_CACHE_DIR=\"${KEXT_CACHES_DIR}/Directories/System/Library/Extensions\"\nKEXT_STARTUP_CACHE_DIR=\"${KEXT_CACHES_DIR}/Startup\"\n\n/bin/echo \"Making kernel extension caches directories, ${KEXT_SLE_CACHE_DIR}\"\n/bin/mkdir -p -m 0755 \"${KEXT_SLE_CACHE_DIR}\"\n/bin/mkdir -p -m 0755 \"${KEXT_STARTUP_CACHE_DIR}\"\n\n/bin/echo \"Setting owner and permissions on system caches directory and contents\"\n/usr/sbin/chown -R root:wheel \"${SYS_CACHES_DIR}\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -1279,15 +1071,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				0509726F094910D30034B52C /* kextcache_main.c in Sources */,
-				05097270094910D30034B52C /* compression.c in Sources */,
 				05097271094910D30034B52C /* arch.c in Sources */,
-				05097272094910D30034B52C /* mkext_file.c in Sources */,
-				05097273094910D30034B52C /* prelink.c in Sources */,
-				0C3171690AB0E2F900B8CA9A /* bootcaches.c in Sources */,
-				0C3171710AB0E82000B8CA9A /* safecalls.c in Sources */,
 				0C3171770AB0E84E00B8CA9A /* update_boot.c in Sources */,
-				0CFB02590AB0FC3B003AC039 /* logging.c in Sources */,
-				0CD259BC0B003A1C0041EADC /* utility.c in Sources */,
+				05097270094910D30034B52C /* compression.c in Sources */,
+				0C3171690AB0E2F900B8CA9A /* bootcaches.c in Sources */,
+				24162D690E6600B400ACEA84 /* mkext1_file.c in Sources */,
+				0C3171710AB0E82000B8CA9A /* safecalls.c in Sources */,
+				249EA5C90DE9108300765DFF /* kext_tools_util.c in Sources */,
+				24162D750E6602AB00ACEA84 /* fork_program.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1296,26 +1087,19 @@
 			buildActionMask = 2147483647;
 			files = (
 				0509728D094910D30034B52C /* kextd_main.c in Sources */,
-				0509728E094910D30034B52C /* logging.c in Sources */,
-				0509728F094910D30034B52C /* mig_server.c in Sources */,
-				05097290094910D30034B52C /* PTLock.c in Sources */,
-				05097291094910D30034B52C /* request.c in Sources */,
-				05097292094910D30034B52C /* kextmanager.defs in Sources */,
+				0509728F094910D30034B52C /* kextd_mig_server.c in Sources */,
+				245CC3670DDD6561002E3E22 /* kextd_personalities.c in Sources */,
+				05097291094910D30034B52C /* kextd_request.c in Sources */,
+				05E5D3F60B4DD7FC00E2E59F /* kextd_serialize_kextload.c in Sources */,
+				0C31716D0AB0E7D700B8CA9A /* kextd_watchvol.c in Sources */,
+				24B5CBEB0DD67DCC00745C00 /* kext_tools_util.c in Sources */,
 				0C3171670AB0E2F900B8CA9A /* bootcaches.c in Sources */,
-				0C31716D0AB0E7D700B8CA9A /* watchvol.c in Sources */,
+				24A1ACD60DD6E3FB00B6E4A0 /* fork_program.c in Sources */,
 				0C3171730AB0E82000B8CA9A /* safecalls.c in Sources */,
-				0CD259D80B00415A0041EADC /* utility.c in Sources */,
-				05E5D3F60B4DD7FC00E2E59F /* serialize_kextload.c in Sources */,
+				05097292094910D30034B52C /* kextmanager.defs in Sources */,
 				0CF69C540C8CC127007E76E8 /* kextmanager_async.defs in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		050972A5094910D30034B52C /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				050972A6094910D30034B52C /* kextload_main.c in Sources */,
-				05762AD309D0BB4200EC18C1 /* utility.c in Sources */,
+				24F65A0F0D94896F00D1C132 /* kextd_mach.defs in Sources */,
+				2495232A0F0076BE00F5BB3B /* kextd_usernotification.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1324,6 +1108,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				050972BA094910D30034B52C /* kextstat_main.c in Sources */,
+				24A8C6280DD7713500AAA1AC /* kext_tools_util.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1332,7 +1117,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				050972CC094910D30034B52C /* kextunload_main.c in Sources */,
-				0CD259DB0B00438B0041EADC /* utility.c in Sources */,
+				24ABA3A50DD65C7D001ED413 /* kext_tools_util.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1342,6 +1127,7 @@
 			files = (
 				050972E0094910D30034B52C /* mkextunpack_main.c in Sources */,
 				050972E1094910D30034B52C /* compression.c in Sources */,
+				240BB1B10E0B383700AFC366 /* kext_tools_util.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1358,12 +1144,21 @@
 			buildActionMask = 2147483647;
 			files = (
 				05762AC809D0BA7A00EC18C1 /* kextfind_main.c in Sources */,
-				05762AD109D0BB3900EC18C1 /* utility.c in Sources */,
 				053151B309DDEEAE00AABF39 /* QEQuery.c in Sources */,
 				05BE31FB09DDFE20009C8663 /* kextfind_query.c in Sources */,
 				24B7FFCC09DF3F1E0091113C /* kextfind_commands.c in Sources */,
 				24B704C209E0C17B0091113C /* kextfind_tables.c in Sources */,
 				2459EC4309EB7B7E002EE862 /* kextfind_report.c in Sources */,
+				2487628F0E68DC6700F7ACDC /* kext_tools_util.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		24C4E5750DD3EC7C00A70AB5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				24640A410EC58022000D6238 /* kextload_main.c in Sources */,
+				24C4E5810DD3EC9300A70AB5 /* kext_tools_util.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1372,43 +1167,31 @@
 			buildActionMask = 2147483647;
 			files = (
 				24E1F0FD09EC4FEB00262C22 /* kextlibs_main.c in Sources */,
-				24EE729909EC8B50008CF6B0 /* utility.c in Sources */,
+				24D6B65D0DCD1EEF00B82BAC /* kext_tools_util.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		A98954870D58E7120098ED5E /* Sources */ = {
+		24F57F1E0F005C5D006111B5 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A98954880D58E7120098ED5E /* kextcache_main.c in Sources */,
-				A98954890D58E7120098ED5E /* compression.c in Sources */,
-				A989548A0D58E7120098ED5E /* arch.c in Sources */,
-				A989548B0D58E7120098ED5E /* mkext_file.c in Sources */,
-				A989548C0D58E7120098ED5E /* prelink.c in Sources */,
-				A989548D0D58E7120098ED5E /* bootcaches.c in Sources */,
-				A989548E0D58E7120098ED5E /* safecalls.c in Sources */,
-				A989548F0D58E7120098ED5E /* update_boot.c in Sources */,
-				A98954900D58E7120098ED5E /* logging.c in Sources */,
-				A98954910D58E7120098ED5E /* utility.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		A98954AB0D58E7330098ED5E /* Sources */ = {
+		24FD2F560DC1218F0065A35B /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A98954AC0D58E7330098ED5E /* kextd_main.c in Sources */,
-				A98954AD0D58E7330098ED5E /* logging.c in Sources */,
-				A98954AE0D58E7330098ED5E /* mig_server.c in Sources */,
-				A98954AF0D58E7330098ED5E /* PTLock.c in Sources */,
-				A98954B00D58E7330098ED5E /* request.c in Sources */,
-				A98954B10D58E7330098ED5E /* kextmanager.defs in Sources */,
-				A98954B20D58E7330098ED5E /* bootcaches.c in Sources */,
-				A98954B30D58E7330098ED5E /* watchvol.c in Sources */,
-				A98954B40D58E7330098ED5E /* safecalls.c in Sources */,
-				A98954B50D58E7330098ED5E /* utility.c in Sources */,
-				A98954B60D58E7330098ED5E /* serialize_kextload.c in Sources */,
-				A98954B70D58E7330098ED5E /* kextmanager_async.defs in Sources */,
+				24FD2F700DC121DD0065A35B /* kextutil_main.c in Sources */,
+				2479E3BB0DCDAF8600DA4448 /* kext_tools_util.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A659DB2C0D13099100ACA221 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A659DB390D130A3700ACA221 /* setsegname.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1424,11 +1207,6 @@
 			isa = PBXTargetDependency;
 			target = 05097284094910D30034B52C /* kextd */;
 			targetProxy = 050972FF094910D30034B52C /* PBXContainerItemProxy */;
-		};
-		05097302094910D30034B52C /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 050972A3094910D30034B52C /* kextload */;
-			targetProxy = 05097301094910D30034B52C /* PBXContainerItemProxy */;
 		};
 		05097304094910D30034B52C /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -1455,55 +1233,25 @@
 			target = 05762ABF09D0B98500EC18C1 /* kextfind */;
 			targetProxy = 05762B1C09D0C71C00EC18C1 /* PBXContainerItemProxy */;
 		};
+		24C4E57E0DD3EC8500A70AB5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 24C4E5770DD3EC7C00A70AB5 /* kextload */;
+			targetProxy = 24C4E57D0DD3EC8500A70AB5 /* PBXContainerItemProxy */;
+		};
+		24C5F6FA0DC7ED3600E4BA01 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 24FD2F580DC1218F0065A35B /* kextutil */;
+			targetProxy = 24C5F6F90DC7ED3600E4BA01 /* PBXContainerItemProxy */;
+		};
 		24EE72D409EC994F008CF6B0 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 24E1F0ED09EC4F9B00262C22 /* kextlibs */;
 			targetProxy = 24EE72D309EC994F008CF6B0 /* PBXContainerItemProxy */;
 		};
-		A98954D00D58E74E0098ED5E /* PBXTargetDependency */ = {
+		A659DB460D130B3100ACA221 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 05762ABF09D0B98500EC18C1 /* kextfind */;
-			targetProxy = A98954D10D58E74E0098ED5E /* PBXContainerItemProxy */;
-		};
-		A98954D20D58E74E0098ED5E /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 24E1F0ED09EC4F9B00262C22 /* kextlibs */;
-			targetProxy = A98954D30D58E74E0098ED5E /* PBXContainerItemProxy */;
-		};
-		A98954D40D58E74E0098ED5E /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 050972A3094910D30034B52C /* kextload */;
-			targetProxy = A98954D50D58E74E0098ED5E /* PBXContainerItemProxy */;
-		};
-		A98954D60D58E74E0098ED5E /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 050972B7094910D30034B52C /* kextstat */;
-			targetProxy = A98954D70D58E74E0098ED5E /* PBXContainerItemProxy */;
-		};
-		A98954D80D58E74E0098ED5E /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 050972C9094910D30034B52C /* kextunload */;
-			targetProxy = A98954D90D58E74E0098ED5E /* PBXContainerItemProxy */;
-		};
-		A98954DA0D58E74E0098ED5E /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 050972DD094910D30034B52C /* mkextunpack */;
-			targetProxy = A98954DB0D58E74E0098ED5E /* PBXContainerItemProxy */;
-		};
-		A98954DC0D58E74E0098ED5E /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 050972F1094910D30034B52C /* kextsymboltool */;
-			targetProxy = A98954DD0D58E74E0098ED5E /* PBXContainerItemProxy */;
-		};
-		A98954E40D58E76C0098ED5E /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = A98954810D58E7120098ED5E /* kextcache_embedded */;
-			targetProxy = A98954E30D58E76C0098ED5E /* PBXContainerItemProxy */;
-		};
-		A98954E60D58E7700098ED5E /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = A98954A10D58E7330098ED5E /* kextd_embedded */;
-			targetProxy = A98954E50D58E7700098ED5E /* PBXContainerItemProxy */;
+			target = A659DB2E0D13099100ACA221 /* setsegname */;
+			targetProxy = A659DB450D130B3100ACA221 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1513,7 +1261,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				OTHER_CFLAGS = "";
@@ -1552,6 +1300,7 @@
 		05097267094910D30034B52C /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1575,9 +1324,10 @@
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				INSTALL_PATH = /usr/sbin;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -1605,6 +1355,7 @@
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /usr/sbin;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -1630,6 +1381,8 @@
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /usr/sbin;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -1656,11 +1409,12 @@
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				INSTALL_PATH = /usr/libexec;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = "-DKEXTD";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PREBINDING = NO;
@@ -1687,8 +1441,9 @@
 				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /usr/libexec;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = "-DKEXTD";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PREBINDING = NO;
@@ -1712,76 +1467,15 @@
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_OPTIMIZATION_LEVEL = 1;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_OPTIMIZATION_LEVEL = s;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /usr/libexec;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = "-DKEXTD";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PREBINDING = NO;
 				PRODUCT_NAME = kextd;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Default;
-		};
-		050972AE094910D30034B52C /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				INSTALL_PATH = /sbin;
-				OTHER_CFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PREBINDING = NO;
-				PRODUCT_NAME = kextload;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		050972AF094910D30034B52C /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				INSTALL_PATH = /sbin;
-				OTHER_CFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PREBINDING = NO;
-				PRODUCT_NAME = kextload;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		050972B0094910D30034B52C /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				INSTALL_PATH = /sbin;
-				OTHER_CFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PREBINDING = NO;
-				PRODUCT_NAME = kextload;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
@@ -1797,7 +1491,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /usr/sbin;
@@ -1841,7 +1535,8 @@
 		050972C2094910D30034B52C /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				GCC_OPTIMIZATION_LEVEL = 1;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_OPTIMIZATION_LEVEL = s;
 				INSTALL_PATH = /usr/sbin;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1862,7 +1557,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /sbin;
@@ -1908,7 +1603,8 @@
 		050972D6094910D30034B52C /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				GCC_OPTIMIZATION_LEVEL = 1;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_OPTIMIZATION_LEVEL = s;
 				INSTALL_PATH = /sbin;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -1930,7 +1626,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /usr/sbin;
@@ -1976,7 +1672,8 @@
 		050972EA094910D30034B52C /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				GCC_OPTIMIZATION_LEVEL = 1;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_OPTIMIZATION_LEVEL = s;
 				INSTALL_PATH = /usr/sbin;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -1998,7 +1695,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /usr/local/bin;
@@ -2043,6 +1740,8 @@
 		050972FA094910D30034B52C /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /usr/local/bin;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -2062,17 +1761,22 @@
 		0509730F094910F30034B52C /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ONLY_ACTIVE_ARCH_PRE_XCODE_3_1)";
+				BUILD_VARIANTS = normal;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				ONLY_ACTIVE_ARCH_PRE_XCODE_3_1 = "$(NATIVE_ARCH_ACTUAL)";
 				OTHER_CFLAGS = (
 					"$(inherited)",
-					"-mmacosx-version-min=10.5",
+					"-mmacosx-version-min=10.6",
 					"-D__MigTypeCheck=1",
 				);
 				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include;
 				STRIP_STYLE = all;
+				VALID_ARCHS = "armv6 i386 x86_64";
 				WARNING_CFLAGS = "-Wall";
 			};
 			name = Development;
@@ -2080,15 +1784,20 @@
 		05097310094910F30034B52C /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				BUILD_VARIANTS = normal;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				OTHER_CFLAGS = (
 					"$(inherited)",
-					"-mmacosx-version-min=10.5",
+					"-mmacosx-version-min=10.6",
 					"-D__MigTypeCheck=1",
 				);
 				STRIP_STYLE = all;
+				VALID_ARCHS = "armv6 i386 x86_64";
 				WARNING_CFLAGS = "-Wall";
 			};
 			name = Deployment;
@@ -2096,15 +1805,20 @@
 		05097311094910F30034B52C /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				BUILD_VARIANTS = normal;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				OTHER_CFLAGS = (
 					"$(inherited)",
-					"-mmacosx-version-min=10.5",
+					"-mmacosx-version-min=10.6",
 					"-D__MigTypeCheck=1",
 				);
 				STRIP_STYLE = all;
+				VALID_ARCHS = "armv6 i386 x86_64";
 				WARNING_CFLAGS = "-Wall";
 			};
 			name = Default;
@@ -2114,10 +1828,11 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				INSTALL_PATH = /usr/sbin;
 				MACH_O_TYPE = mh_execute;
 				PREBINDING = NO;
@@ -2133,6 +1848,7 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /usr/sbin;
 				MACH_O_TYPE = mh_execute;
 				PREBINDING = NO;
@@ -2148,8 +1864,9 @@
 					i386,
 					ppc,
 				);
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G5;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G4;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /usr/sbin;
 				MACH_O_TYPE = mh_execute;
 				PREBINDING = NO;
@@ -2158,16 +1875,68 @@
 			};
 			name = Default;
 		};
+		24C4E57A0DD3EC7D00A70AB5 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_BIT_PRE_XCODE_3_1 = "ppc i386";
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /sbin;
+				PREBINDING = NO;
+				PRODUCT_NAME = kextload;
+			};
+			name = Development;
+		};
+		24C4E57B0DD3EC7D00A70AB5 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_BIT_PRE_XCODE_3_1 = "ppc i386";
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /sbin;
+				PREBINDING = NO;
+				PRODUCT_NAME = kextload;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		24C4E57C0DD3EC7D00A70AB5 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_BIT_PRE_XCODE_3_1 = "ppc i386";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G4;
+				INSTALL_PATH = /sbin;
+				PREBINDING = NO;
+				PRODUCT_NAME = kextload;
+			};
+			name = Default;
+		};
 		24E1F0F909EC4FD500262C22 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /usr/sbin;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					/usr/lib/system,
+				);
 				PREBINDING = NO;
 				PRODUCT_NAME = kextlibs;
 				ZERO_LINK = YES;
@@ -2182,6 +1951,10 @@
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/sbin;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					/usr/lib/system,
+				);
 				PREBINDING = NO;
 				PRODUCT_NAME = kextlibs;
 				ZERO_LINK = NO;
@@ -2195,9 +1968,13 @@
 					i386,
 					ppc,
 				);
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G5;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G4;
 				INSTALL_PATH = /usr/sbin;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					/usr/lib/system,
+				);
 				MACH_O_TYPE = mh_execute;
 				PREBINDING = NO;
 				PRODUCT_NAME = kextlibs;
@@ -2205,109 +1982,95 @@
 			};
 			name = Default;
 		};
-		A989549C0D58E7120098ED5E /* Development */ = {
+		24F57F220F005C5E006111B5 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = NO;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
-				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				DEPLOYMENT_POSTPROCESSING = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PREBINDING = NO;
-				PRODUCT_NAME = kextcache;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Carbon.framework/Headers/Carbon.h";
+				INFOPLIST_FILE = "KextUserAgent-Info.plist";
+				INSTALL_PATH = /System/Library/UserEventPlugins;
+				OTHER_LDFLAGS = (
+					"-framework",
+					Carbon,
 				);
-				ZERO_LINK = YES;
+				PREBINDING = NO;
+				PRODUCT_NAME = KextUserAgent;
+				SEPARATE_STRIP = NO;
+				STRIP_INSTALLED_PRODUCT = NO;
+				WRAPPER_EXTENSION = plugin;
 			};
 			name = Development;
 		};
-		A989549D0D58E7120098ED5E /* Deployment */ = {
+		24F57F230F005C5E006111B5 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
-				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEPLOYMENT_POSTPROCESSING = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PREBINDING = NO;
-				PRODUCT_NAME = kextcache;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
+				GCC_MODEL_TUNING = G5;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Carbon.framework/Headers/Carbon.h";
+				INFOPLIST_FILE = "KextUserAgent-Info.plist";
+				INSTALL_PATH = /System/Library/UserEventPlugins;
+				OTHER_LDFLAGS = (
+					"-framework",
+					Carbon,
 				);
+				PREBINDING = NO;
+				PRODUCT_NAME = KextUserAgent;
+				SEPARATE_STRIP = NO;
+				STRIP_INSTALLED_PRODUCT = NO;
+				WRAPPER_EXTENSION = plugin;
 				ZERO_LINK = NO;
 			};
 			name = Deployment;
 		};
-		A989549E0D58E7120098ED5E /* Default */ = {
+		24F57F240F005C5E006111B5 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				DEPLOYMENT_POSTPROCESSING = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Carbon.framework/Headers/Carbon.h";
+				INFOPLIST_FILE = "KextUserAgent-Info.plist";
+				INSTALL_PATH = /System/Library/UserEventPlugins;
+				OTHER_LDFLAGS = (
+					"-framework",
+					Carbon,
 				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
 				PREBINDING = NO;
-				PRODUCT_NAME = kextcache;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				PRODUCT_NAME = KextUserAgent;
+				SEPARATE_STRIP = NO;
+				STRIP_INSTALLED_PRODUCT = NO;
+				WRAPPER_EXTENSION = plugin;
 			};
 			name = Default;
 		};
-		A98954C60D58E7330098ED5E /* Development */ = {
+		24FD2F5B0DC1218F0065A35B /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
-				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				DEBUG_INFORMATION_FORMAT = dwarf;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				INSTALL_PATH = /usr/libexec;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_MIGFLAGS = "-F$(SDKROOT)/System/Library/Frameworks/ -DNO_SECURITY_FRAMEWORK";
-				OTHER_REZFLAGS = "";
+				INSTALL_PATH = /usr/bin;
+				LIBRARY_SEARCH_PATHS = "";
 				PREBINDING = NO;
-				PRODUCT_NAME = kextd;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
+				PRODUCT_NAME = kextutil;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -2317,26 +2080,17 @@
 			};
 			name = Development;
 		};
-		A98954C70D58E7330098ED5E /* Deployment */ = {
+		24FD2F5C0DC1218F0065A35B /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
-				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				DEBUG_INFORMATION_FORMAT = dwarf;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				INSTALL_PATH = /usr/libexec;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_MIGFLAGS = "-F$(SDKROOT)/System/Library/Frameworks/ -DNO_SECURITY_FRAMEWORK";
-				OTHER_REZFLAGS = "";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/bin;
+				LIBRARY_SEARCH_PATHS = "";
 				PREBINDING = NO;
-				PRODUCT_NAME = kextd;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
+				PRODUCT_NAME = kextutil;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -2346,86 +2100,63 @@
 			};
 			name = Deployment;
 		};
-		A98954C80D58E7330098ED5E /* Default */ = {
+		24FD2F5D0DC1218F0065A35B /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
-				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_OPTIMIZATION_LEVEL = 1;
-				INSTALL_PATH = /usr/libexec;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_MIGFLAGS = "-F$(SDKROOT)/System/Library/Frameworks/ -DNO_SECURITY_FRAMEWORK";
-				OTHER_REZFLAGS = "";
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G4;
+				INSTALL_PATH = /usr/bin;
+				LIBRARY_SEARCH_PATHS = "";
 				PREBINDING = NO;
-				PRODUCT_NAME = kextd;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
+				PRODUCT_NAME = kextutil;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
 				);
+				ZERO_LINK = YES;
 			};
 			name = Default;
 		};
-		A98954E00D58E74E0098ED5E /* Development */ = {
+		A659DB310D13099100ACA221 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = all;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				INSTALL_PATH = /usr/local/bin;
+				PREBINDING = NO;
+				PRODUCT_NAME = setsegname;
 				ZERO_LINK = YES;
 			};
 			name = Development;
 		};
-		A98954E10D58E74E0098ED5E /* Deployment */ = {
+		A659DB320D13099100ACA221 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = all;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/bin;
+				PREBINDING = NO;
+				PRODUCT_NAME = setsegname;
 				ZERO_LINK = NO;
 			};
 			name = Deployment;
 		};
-		A98954E20D58E74E0098ED5E /* Default */ = {
+		A659DB330D13099100ACA221 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = all;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G4;
+				INSTALL_PATH = /usr/local/bin;
+				PREBINDING = NO;
+				PRODUCT_NAME = setsegname;
+				ZERO_LINK = YES;
 			};
 			name = Default;
 		};
@@ -2458,16 +2189,6 @@
 				0509729A094910D30034B52C /* Development */,
 				0509729B094910D30034B52C /* Deployment */,
 				0509729C094910D30034B52C /* Default */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
-		};
-		050972AD094910D30034B52C /* Build configuration list for PBXNativeTarget "kextload" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				050972AE094910D30034B52C /* Development */,
-				050972AF094910D30034B52C /* Deployment */,
-				050972B0094910D30034B52C /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
@@ -2532,6 +2253,16 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
+		24C4E57F0DD3EC8A00A70AB5 /* Build configuration list for PBXNativeTarget "kextload" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				24C4E57A0DD3EC7D00A70AB5 /* Development */,
+				24C4E57B0DD3EC7D00A70AB5 /* Deployment */,
+				24C4E57C0DD3EC7D00A70AB5 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
 		24E1F0F809EC4FD500262C22 /* Build configuration list for PBXNativeTarget "kextlibs" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -2542,32 +2273,32 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
-		A989549B0D58E7120098ED5E /* Build configuration list for PBXNativeTarget "kextcache_embedded" */ = {
+		24F57F280F005C7C006111B5 /* Build configuration list for PBXNativeTarget "KextUserAgent" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				A989549C0D58E7120098ED5E /* Development */,
-				A989549D0D58E7120098ED5E /* Deployment */,
-				A989549E0D58E7120098ED5E /* Default */,
+				24F57F220F005C5E006111B5 /* Development */,
+				24F57F230F005C5E006111B5 /* Deployment */,
+				24F57F240F005C5E006111B5 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
-		A98954C50D58E7330098ED5E /* Build configuration list for PBXNativeTarget "kextd_embedded" */ = {
+		24FD2F6D0DC1219E0065A35B /* Build configuration list for PBXNativeTarget "kextutil" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				A98954C60D58E7330098ED5E /* Development */,
-				A98954C70D58E7330098ED5E /* Deployment */,
-				A98954C80D58E7330098ED5E /* Default */,
+				24FD2F5B0DC1218F0065A35B /* Development */,
+				24FD2F5C0DC1218F0065A35B /* Deployment */,
+				24FD2F5D0DC1218F0065A35B /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
-		A98954DF0D58E74E0098ED5E /* Build configuration list for PBXAggregateTarget "embedded" */ = {
+		A659DB340D1309CE00ACA221 /* Build configuration list for PBXNativeTarget "setsegname" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				A98954E00D58E74E0098ED5E /* Development */,
-				A98954E10D58E74E0098ED5E /* Deployment */,
-				A98954E20D58E74E0098ED5E /* Default */,
+				A659DB310D13099100ACA221 /* Development */,
+				A659DB320D13099100ACA221 /* Deployment */,
+				A659DB330D13099100ACA221 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;

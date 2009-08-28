@@ -125,7 +125,7 @@ lFOUND_CTCP:
 		 char newpacket[65536];	  /* Estimate of maximum packet size :) */
 		 int  copyat = i;			  /* Same */
 		 int  iCopy = 0;			  /* How much data have we written to copy-back string? */
-		 unsigned long org_addr;  /* Original IP address */
+		 in_addr_t org_addr;  /* Original IP address */
 		 unsigned short org_port; /* Original source port address */
 	 lCTCP_START:
 		 if( i >= dlen || iCopy >= sizeof(newpacket) )
@@ -209,7 +209,7 @@ lFOUND_CTCP:
 		 /* Fetch IP address */
 		 org_addr = 0;
 		 while(i<dlen && isdigit(sptr[i])) {
-			 if( org_addr > ULONG_MAX/10UL )	{ /* Terminate on overflow */
+			 if( org_addr > 0xFFFFFFFF/10UL )	{ /* Terminate on overflow */
 				 DBprintf(("DCC Address overflow (org_addr == 0x%08lx, next char %c\n", org_addr, sptr[i]));
 				 goto lBAD_CTCP;
 			 }
@@ -283,7 +283,7 @@ lFOUND_CTCP:
 				 alias_address = GetAliasAddress(link);
 				 iCopy += snprintf(&newpacket[iCopy],
 										 sizeof(newpacket)-iCopy, 
-										 "%lu ", (u_long)htonl(alias_address.s_addr));
+										 "%u ", (in_addr_t)htonl(alias_address.s_addr));
 				 if( iCopy >= sizeof(newpacket) ) { /* Truncated/fit exactly - bad news */
 					 DBprintf(("DCC constructed packet overflow.\n"));
 					 goto lBAD_CTCP;

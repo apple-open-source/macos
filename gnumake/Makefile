@@ -8,11 +8,13 @@ ProjectName           = gnumake
 UserType              = Developer
 ToolType              = Commands
 Extra_Configure_Flags = --program-prefix="gnu" --disable-nls
-Extra_CC_Flags        = -mdynamic-no-pic
-GnuAfterInstall       = install-html install-links install-plist
+Extra_CC_Flags        = -mdynamic-no-pic -DUSE_POSIX_SPAWN
+GnuAfterInstall       = install-html install-links install-plist strip-binary
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
+
+Install_Target = install
 
 install-html:
 	$(MAKE) -C $(BuildDirectory) html
@@ -25,8 +27,12 @@ install-links:
 	$(LN) -fs gnumake.1 $(DSTROOT)/usr/share/man/man1/make.1
 	$(RM) $(DSTROOT)/usr/share/info/dir
 
+strip-binary:
+	$(CP) $(DSTROOT)/usr/bin/gnumake $(SYMROOT)
+	$(STRIP) $(DSTROOT)/usr/bin/gnumake
+	
+
 # Automatic Extract & Patch
-AEP            = YES
 AEP_Project    = $(Project)
 AEP_Version    = 3.81
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
@@ -48,24 +54,20 @@ AEP_Patches    = patch-Makefile.in \
                  patch-variable.h \
                  PR-3849799.patch \
                  PR-4339040.patch \
-                 PR-4482353.patch
-
-ifeq ($(suffix $(AEP_Filename)),.bz2)
-AEP_ExtractOption = j
-else
-AEP_ExtractOption = z
-endif
+                 PR-4482353.patch \
+		 PR-5071266.patch \
+                 PR-6280514.patch
 
 # Extract the source.
 install_source::
-ifeq ($(AEP),YES)
-	$(TAR) -C $(SRCROOT) -$(AEP_ExtractOption)xf $(SRCROOT)/$(AEP_Filename)
+	$(TAR) -C $(SRCROOT) -xf $(SRCROOT)/$(AEP_Filename)
 	$(RMDIR) $(SRCROOT)/$(Project)
 	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(Project)
+	@echo "== applying patches in $(SRCROOT)/$(Project) ==" && cd $(SRCROOT)/$(Project) && \
 	for patchfile in $(AEP_Patches); do \
-		(cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile) || exit 1; \
+		echo "patch -p0 -F0 -i $(SRCROOT)/patches/$$patchfile"; \
+		patch -p0 -F0 -i $(SRCROOT)/patches/$$patchfile || exit 1; \
 	done
-endif
 
 OSV = $(DSTROOT)/usr/local/OpenSourceVersions
 OSL = $(DSTROOT)/usr/local/OpenSourceLicenses

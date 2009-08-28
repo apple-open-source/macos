@@ -1,6 +1,6 @@
 // Locale support -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -16,7 +16,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -28,14 +28,14 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-//
-// ISO C++ 14882: 22.1  Locales
-//
-
 /** @file locale_facets.h
  *  This is an internal header file, included by other library headers.
  *  You should not attempt to use it directly.
  */
+
+//
+// ISO C++ 14882: 22.1  Locales
+//
 
 #ifndef _LOCALE_FACETS_H
 #define _LOCALE_FACETS_H 1
@@ -44,12 +44,14 @@
 
 #include <ctime>	// For struct tm
 #include <cwctype>	// For wctype_t
+#include <bits/ctype_base.h>	
 #include <iosfwd>
 #include <bits/ios_base.h>  // For ios_base, ios_base::iostate
 #include <streambuf>
+#include <bits/cpp_type_traits.h>
 
-namespace std
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   // NB: Don't instantiate required wchar_t facets if no wchar_t support.
 #ifdef _GLIBCXX_USE_WCHAR_T
 # define  _GLIBCXX_NUM_FACETS 28
@@ -129,7 +131,6 @@ namespace std
 
   // 22.2.1.1  Template class ctype
   // Include host and configuration specific ctype enums for ctype_base.
-  #include <bits/ctype_base.h>
 
   // Common base for ctype<_CharT>.
   /**
@@ -1504,9 +1505,6 @@ namespace std
     use_facet<ctype<wchar_t> >(const locale& __loc);
 #endif //_GLIBCXX_USE_WCHAR_T
 
-  // Include host and configuration specific ctype inlines.
-  #include <bits/ctype_inline.h>
-
   /// @brief  class ctype_byname [22.2.1.2].
   template<typename _CharT>
     class ctype_byname : public ctype<_CharT>
@@ -1529,8 +1527,15 @@ namespace std
   template<>
     ctype_byname<wchar_t>::ctype_byname(const char*, size_t refs);
 
-  // 22.2.1.5  Template class codecvt
-  #include <bits/codecvt.h>
+_GLIBCXX_END_NAMESPACE
+
+// Include host and configuration specific ctype inlines.
+#include <bits/ctype_inline.h>
+
+// 22.2.1.5  Template class codecvt
+#include <bits/codecvt.h>
+
+_GLIBCXX_BEGIN_NAMESPACE(std)
 
   // 22.2.2  The numeric category.
   class __num_base
@@ -1910,6 +1915,7 @@ namespace std
       ~numpunct_byname() { }
     };
 
+_GLIBCXX_BEGIN_LDBL_NAMESPACE
   /**
    *  @brief  Facet for parsing number strings.
    *
@@ -1950,7 +1956,7 @@ namespace std
        *  @brief  Numeric parsing.
        *
        *  Parses the input stream into the bool @a v.  It does so by calling
-       *  num_put::do_put().
+       *  num_get::do_get().
        *
        *  If ios_base::boolalpha is set, attempts to read
        *  ctype<CharT>::truename() or ctype<CharT>::falsename().  Sets
@@ -1979,7 +1985,7 @@ namespace std
        *  @brief  Numeric parsing.
        *
        *  Parses the input stream into the integral variable @a v.  It does so
-       *  by calling num_put::do_put().
+       *  by calling num_get::do_get().
        *
        *  Parsing is affected by the flag settings in @a io.
        *
@@ -2043,7 +2049,7 @@ namespace std
        *  @brief  Numeric parsing.
        *
        *  Parses the input stream into the integral variable @a v.  It does so
-       *  by calling num_put::do_put().
+       *  by calling num_get::do_get().
        *
        *  The input characters are parsed like the scanf %g specifier.  The
        *  matching type length modifier is also used.
@@ -2084,7 +2090,7 @@ namespace std
        *  @brief  Numeric parsing.
        *
        *  Parses the input stream into the pointer variable @a v.  It does so
-       *  by calling num_put::do_put().
+       *  by calling num_get::do_get().
        *
        *  The input characters are parsed like the scanf %p specifier.
        *
@@ -2123,6 +2129,44 @@ namespace std
         iter_type
         _M_extract_int(iter_type, iter_type, ios_base&, ios_base::iostate&,
 		       _ValueT& __v) const;
+
+      template<typename _CharT2>
+      typename __gnu_cxx::__enable_if<__is_char<_CharT2>::__value, int>::__type
+        _M_find(const _CharT2*, size_t __len, _CharT2 __c) const
+        {
+	  int __ret = -1;
+	  if (__len <= 10)
+	    {
+	      if (__c >= _CharT2('0') && __c < _CharT2(_CharT2('0') + __len))
+		__ret = __c - _CharT2('0');
+	    }
+	  else
+	    {
+	      if (__c >= _CharT2('0') && __c <= _CharT2('9'))
+		__ret = __c - _CharT2('0');
+	      else if (__c >= _CharT2('a') && __c <= _CharT2('f'))
+		__ret = 10 + (__c - _CharT2('a'));
+	      else if (__c >= _CharT2('A') && __c <= _CharT2('F'))
+		__ret = 10 + (__c - _CharT2('A'));
+	    }
+	  return __ret;
+	}
+
+      template<typename _CharT2>
+      typename __gnu_cxx::__enable_if<!__is_char<_CharT2>::__value, 
+				      int>::__type
+        _M_find(const _CharT2* __zero, size_t __len, _CharT2 __c) const
+        {
+	  int __ret = -1;
+	  const char_type* __q = char_traits<_CharT2>::find(__zero, __len, __c);
+	  if (__q)
+	    {
+	      __ret = __q - __zero;
+	      if (__ret > 15)
+		__ret -= 6;
+	    }
+	  return __ret;
+	}
 
       //@{
       /**
@@ -2176,13 +2220,27 @@ namespace std
       do_get(iter_type, iter_type, ios_base&, ios_base::iostate& __err,
 	     double&) const;
 
+      // XXX GLIBCXX_ABI Deprecated
+#if defined _GLIBCXX_LONG_DOUBLE_COMPAT && defined __LONG_DOUBLE_128__
+      virtual iter_type
+      __do_get(iter_type, iter_type, ios_base&, ios_base::iostate& __err,
+	       double&) const;
+#else
       virtual iter_type
       do_get(iter_type, iter_type, ios_base&, ios_base::iostate& __err,
 	     long double&) const;
+#endif
 
       virtual iter_type
       do_get(iter_type, iter_type, ios_base&, ios_base::iostate& __err,
 	     void*&) const;
+
+      // XXX GLIBCXX_ABI Deprecated
+#if defined _GLIBCXX_LONG_DOUBLE_COMPAT && defined __LONG_DOUBLE_128__
+      virtual iter_type
+      do_get(iter_type, iter_type, ios_base&, ios_base::iostate& __err,
+	     long double&) const;
+#endif
       //@}
     };
 
@@ -2438,17 +2496,30 @@ namespace std
       virtual iter_type
       do_put(iter_type, ios_base&, char_type __fill, double __v) const;
 
+      // XXX GLIBCXX_ABI Deprecated
+#if defined _GLIBCXX_LONG_DOUBLE_COMPAT && defined __LONG_DOUBLE_128__
+      virtual iter_type
+      __do_put(iter_type, ios_base&, char_type __fill, double __v) const;
+#else
       virtual iter_type
       do_put(iter_type, ios_base&, char_type __fill, long double __v) const;
+#endif
 
       virtual iter_type
       do_put(iter_type, ios_base&, char_type __fill, const void* __v) const;
+
+      // XXX GLIBCXX_ABI Deprecated
+#if defined _GLIBCXX_LONG_DOUBLE_COMPAT && defined __LONG_DOUBLE_128__
+      virtual iter_type
+      do_put(iter_type, ios_base&, char_type __fill, long double __v) const;
+#endif
       //@}
     };
 
   template <typename _CharT, typename _OutIter>
     locale::id num_put<_CharT, _OutIter>::id;
 
+_GLIBCXX_END_LDBL_NAMESPACE
 
   /**
    *  @brief  Facet for localized string comparison.
@@ -2963,8 +3034,12 @@ namespace std
 				 const tm*) const;
 #endif
 
+_GLIBCXX_END_NAMESPACE
+
   // Include host and configuration specific timepunct functions.
   #include <bits/time_members.h>
+
+_GLIBCXX_BEGIN_NAMESPACE(std)
 
   /**
    *  @brief  Facet for parsing dates and times.
@@ -3953,6 +4028,7 @@ namespace std
   template<typename _CharT, bool _Intl>
     const bool moneypunct_byname<_CharT, _Intl>::intl;
 
+_GLIBCXX_BEGIN_LDBL_NAMESPACE
   /**
    *  @brief  Facet for parsing monetary amounts.
    *
@@ -4064,9 +4140,16 @@ namespace std
        *  value.  This function is a hook for derived classes to change the
        *  value returned.  @see get() for details.
        */
+      // XXX GLIBCXX_ABI Deprecated
+#if defined _GLIBCXX_LONG_DOUBLE_COMPAT && defined __LONG_DOUBLE_128__
+      virtual iter_type
+      __do_get(iter_type __s, iter_type __end, bool __intl, ios_base& __io,
+	       ios_base::iostate& __err, double& __units) const;
+#else
       virtual iter_type
       do_get(iter_type __s, iter_type __end, bool __intl, ios_base& __io,
 	     ios_base::iostate& __err, long double& __units) const;
+#endif
 
       /**
        *  @brief  Read and parse a monetary value.
@@ -4078,6 +4161,13 @@ namespace std
       virtual iter_type
       do_get(iter_type __s, iter_type __end, bool __intl, ios_base& __io,
 	     ios_base::iostate& __err, string_type& __digits) const;
+
+      // XXX GLIBCXX_ABI Deprecated
+#if defined _GLIBCXX_LONG_DOUBLE_COMPAT && defined __LONG_DOUBLE_128__
+      virtual iter_type
+      do_get(iter_type __s, iter_type __end, bool __intl, ios_base& __io,
+	     ios_base::iostate& __err, long double& __units) const;
+#endif
 
       template<bool _Intl>
         iter_type
@@ -4191,9 +4281,16 @@ namespace std
        *  @param  units  Place to store result of parsing.
        *  @return  Iterator after writing.
        */
+      // XXX GLIBCXX_ABI Deprecated
+#if defined _GLIBCXX_LONG_DOUBLE_COMPAT && defined __LONG_DOUBLE_128__
+      virtual iter_type
+      __do_put(iter_type __s, bool __intl, ios_base& __io, char_type __fill,
+	       double __units) const;
+#else
       virtual iter_type
       do_put(iter_type __s, bool __intl, ios_base& __io, char_type __fill,
 	     long double __units) const;
+#endif
 
       /**
        *  @brief  Format and output a monetary value.
@@ -4217,6 +4314,13 @@ namespace std
       do_put(iter_type __s, bool __intl, ios_base& __io, char_type __fill,
 	     const string_type& __digits) const;
 
+      // XXX GLIBCXX_ABI Deprecated
+#if defined _GLIBCXX_LONG_DOUBLE_COMPAT && defined __LONG_DOUBLE_128__
+      virtual iter_type
+      do_put(iter_type __s, bool __intl, ios_base& __io, char_type __fill,
+	     long double __units) const;
+#endif
+
       template<bool _Intl>
         iter_type
         _M_insert(iter_type __s, ios_base& __io, char_type __fill,
@@ -4225,6 +4329,8 @@ namespace std
 
   template<typename _CharT, typename _OutIter>
     locale::id money_put<_CharT, _OutIter>::id;
+
+_GLIBCXX_END_LDBL_NAMESPACE
 
   /**
    *  @brief  Messages facet base class providing catalog typedef.
@@ -4487,9 +4593,12 @@ namespace std
       { }
     };
 
+_GLIBCXX_END_NAMESPACE
+
   // Include host and configuration specific messages functions.
   #include <bits/messages_members.h>
 
+_GLIBCXX_BEGIN_NAMESPACE(std)
 
   // Subclause convenience interfaces, inlines.
   // NB: These are inline because, when used in a loop, some compilers
@@ -4573,6 +4682,7 @@ namespace std
     inline _CharT
     tolower(_CharT __c, const locale& __loc)
     { return use_facet<ctype<_CharT> >(__loc).tolower(__c); }
-} // namespace std
+
+_GLIBCXX_END_NAMESPACE
 
 #endif

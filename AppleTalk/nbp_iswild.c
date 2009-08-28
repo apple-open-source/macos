@@ -37,23 +37,10 @@
 #include <unistd.h>
 #include <string.h>
 
-#include <netat/appletalk.h>
-#include <netat/nbp.h>
+#include "at_proto.h"
 
 int	nbp_iswild (entity)
 at_entity_t	*entity;
 {
-
-	if (entity->object.len < NBP_NVE_STR_SIZE)
-		entity->object.str[entity->object.len] = '\0';
-	if (entity->type.len < NBP_NVE_STR_SIZE)
-		entity->type.str[entity->type.len] = '\0';
-	if (	strchr(entity->object.str, '=')			|| 
-		strchr(entity->object.str, NBP_SPL_WILDCARD)	||
-		strchr(entity->type.str, '=')			||
-		strchr(entity->type.str, NBP_SPL_WILDCARD)
-	)
-		return (1);
-	else
 		return (0);
 }

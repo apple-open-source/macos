@@ -37,7 +37,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 2005 Apple Computer, Inc. and Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: dsock.c,v 1.6 2006/03/23 21:28:26 ajn Exp $";
+static char *rcsid = "$Id: dsock.c,v 1.5 2008/10/21 16:15:16 abe Exp $";
 #endif
 
 
@@ -152,6 +152,30 @@ process_socket(pid, fd)
 		(si.psi.soi_kind != SOCKINFO_TCP))
 	    {
 		break;
+	    }
+	/*
+	 * Process TCP state inclusions and exclusions, as required.
+	 */
+	    if ((si.psi.soi_kind == SOCKINFO_TCP) && (TcpStXn || TcpStIn)) {
+		int tsnx = (int)si.psi.soi_proto.pri_tcp.tcpsi_state
+			 + TcpStOff;
+
+		if ((tsnx >= 0) && (tsnx < TcpNstates)) {
+		    if (TcpStXn) {
+			if (TcpStX[tsnx]) {
+			    Lf->sf |= SELEXCLF;
+			    return;
+			}
+		    }
+		    if (TcpStIn) {
+			if (TcpStI[tsnx])
+			    TcpStI[tsnx] = 2;
+			else {
+			    Lf->sf |= SELEXCLF;
+			    return;
+			}
+		    }
+		}
 	    }
 	/*
 	 * Process an Internet domain socket.

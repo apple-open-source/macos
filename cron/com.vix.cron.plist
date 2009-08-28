@@ -21,5 +21,7 @@
 	<array>
 		<string>/usr/lib/cron/tabs</string>
 	</array>
+	<key>EnableTransactions</key>
+	<true/>
 </dict>
 </plist>

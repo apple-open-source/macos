@@ -7,7 +7,6 @@ static NSString   *kSnapFileName = @"BatterySnapshots.xml";
 
 - (id)init
 {
-    NSStream    *inputStream = NULL;
     NSArray     *fileContents = NULL;
     NSString    *snapFilePath = NULL;
     

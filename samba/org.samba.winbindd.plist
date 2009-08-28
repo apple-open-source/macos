@@ -9,6 +9,8 @@
 		<string>/usr/sbin/winbindd</string>
 		<string>-F</string>
 	</array>
+	<key>EnableTransactions</key>
+	<false/>
 	<key>TimeOut</key>
 	<integer>600</integer>
 	<key>Sockets</key>

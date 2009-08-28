@@ -1,8 +1,7 @@
 
 /********************************************************************
- * COPYRIGHT: 
- * Copyright (c) 1997-2005, International Business Machines Corporation and
- * others. All Rights Reserved.
+ * Copyright (c) 1997-2009, International Business Machines
+ * Corporation and others. All Rights Reserved.
  ********************************************************************/
  
 #ifndef __TimeZoneTest__
@@ -86,12 +85,24 @@ public:
     void TestAliasedNames(void);
     
     void TestFractionalDST(void);
+
+    void TestFebruary(void);
+
+    void TestCanonicalID(void);
     
+    virtual void TestDisplayNamesMeta();
+
     static const UDate INTERVAL;
 
 private:
     // internal functions
-    static UnicodeString& formatMinutes(int32_t min, UnicodeString& rv);
+    static UnicodeString& formatOffset(int32_t offset, UnicodeString& rv);
+    static UnicodeString& formatTZID(int32_t offset, UnicodeString& rv);
+
+    // Some test case data is current date/tzdata version sensitive and producing errors
+    // when year/rule are changed.
+    static const int32_t REFERENCE_YEAR;
+    static const char *REFERENCE_DATA_VERSION;
 };
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

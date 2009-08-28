@@ -1,19 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
 	<key>OpenSourceProject</key>
 	<string>mod_perl</string>
 	<key>OpenSourceVersion</key>
-	<string>2.0.2</string>
+	<string>2.0.4</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://perl.apache.org/</string>
 	<key>OpenSourceURL</key>
-	<string>http://perl.apache.org/dist/mod_perl-2.0.2.tar.gz</string>
+	<string>http://perl.apache.org/dist/mod_perl-2.0.4.tar.gz</string>
 	<key>OpenSourceSHA1</key>
-	<string>aa2c8b24883d474a236c061a8d2c4eea621380d6</string>
+	<string>65299a16ec414a690a48a2bbe63acaa3c6bb897b</string>
 	<key>OpenSourceImportDate</key>
-	<string>2006-10-05</string>
+	<string>2009-01-13</string>
 	<key>OpenSourceLicense</key>
 	<string>Apache</string>
 	<key>OpenSourceLicenseFile</key>

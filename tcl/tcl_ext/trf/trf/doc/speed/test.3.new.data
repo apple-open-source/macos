@@ -1,0 +1,6 @@
+set time(bin,1000,new) 38191
+set time(bin,1000000,new) 16836644
+set time(oct,1000,new) 38838
+set time(oct,1000000,new) 14537171
+set time(hex,1000,new) 21618
+set time(hex,1000000,new) 15715247

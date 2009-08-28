@@ -1,6 +1,6 @@
 /* Generate code from machine description to recognize rtl as insns.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -16,8 +16,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-   02111-1307, USA.  */
+   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301, USA.  */
 
 
 /* This program is used to produce insn-recog.c, which contains a
@@ -61,10 +61,6 @@
 #define OUTPUT_LABEL(INDENT_STRING, LABEL_NUMBER) \
   printf("%sL%d: ATTRIBUTE_UNUSED_LABEL\n", (INDENT_STRING), (LABEL_NUMBER))
 
-/* Holds an array of names indexed by insn_code_number.  */
-static char **insn_name_ptr = 0;
-static int insn_name_ptr_size = 0;
-
 /* A listhead of decision trees.  The alternatives to a node are kept
    in a doubly-linked list so we can easily add nodes to the proper
    place when merging.  */
@@ -87,6 +83,7 @@ struct decision_test
   /* These types are roughly in the order in which we'd like to test them.  */
   enum decision_type
     {
+      DT_num_insns,
       DT_mode, DT_code, DT_veclen,
       DT_elt_zero_int, DT_elt_one_int, DT_elt_zero_wide, DT_elt_zero_wide_safe,
       DT_const_int,
@@ -96,6 +93,7 @@ struct decision_test
 
   union
   {
+    int num_insns;		/* Number if insn in a define_peephole2.  */
     enum machine_mode mode;	/* Machine mode of node.  */
     RTX_CODE code;		/* Code to test.  */
 
@@ -272,7 +270,15 @@ compute_predicate_codes (rtx exp, char codes[NUM_RTX_CODE])
       break;
 
     case MATCH_CODE:
-      /* MATCH_CODE allows a specified list of codes.  */
+      /* MATCH_CODE allows a specified list of codes.  However, if it
+	 does not apply to the top level of the expression, it does not
+	 constrain the set of codes for the top level.  */
+      if (XSTR (exp, 1)[0] != '\0')
+	{
+	  memset (codes, Y, NUM_RTX_CODE);
+	  break;
+	}
+
       memset (codes, N, NUM_RTX_CODE);
       {
 	const char *next_code = XSTR (exp, 0);
@@ -439,7 +445,7 @@ static void find_afterward
   (struct decision_head *, struct decision *);
 
 static void change_state
-  (const char *, const char *, struct decision *, const char *);
+  (const char *, const char *, const char *);
 static void print_code
   (enum rtx_code);
 static void write_afterward
@@ -470,9 +476,6 @@ static struct decision_head make_insn_sequence
   (rtx, enum routine_type);
 static void process_tree
   (struct decision_head *, enum routine_type);
-
-static void record_insn_name
-  (int, const char *);
 
 static void debug_decision_0
   (struct decision *, int, int);
@@ -508,7 +511,7 @@ new_decision_test (enum decision_type type, struct decision_test ***pplace)
   struct decision_test **place = *pplace;
   struct decision_test *test;
 
-  test = xmalloc (sizeof (*test));
+  test = XNEW (struct decision_test);
   test->next = *place;
   test->type = type;
   *place = test;
@@ -923,8 +926,22 @@ add_to_sequence (rtx pattern, struct decision_head *last, const char *position,
       /* Toplevel peephole pattern.  */
       if (insn_type == PEEPHOLE2 && top)
 	{
-	  /* We don't need the node we just created -- unlink it.  */
-	  last->first = last->last = NULL;
+	  int num_insns;
+
+	  /* Check we have sufficient insns.  This avoids complications
+	     because we then know peep2_next_insn never fails.  */
+	  num_insns = XVECLEN (pattern, 0);
+	  if (num_insns > 1)
+	    {
+	      test = new_decision_test (DT_num_insns, &place);
+	      test->u.num_insns = num_insns;
+	      last = &sub->success;
+	    }
+	  else
+	    {
+	      /* We don't need the node we just created -- unlink it.  */
+	      last->first = last->last = NULL;
+	    }
 
 	  for (i = 0; i < (size_t) XVECLEN (pattern, 0); i++)
 	    {
@@ -1174,6 +1191,12 @@ maybe_both_true_2 (struct decision_test *d1, struct decision_test *d2)
     {
       switch (d1->type)
 	{
+	case DT_num_insns:
+	  if (d1->u.num_insns == d2->u.num_insns)
+	    return 1;
+	  else
+	    return -1;
+
 	case DT_mode:
 	  return d1->u.mode == d2->u.mode;
 
@@ -1372,6 +1395,9 @@ nodes_identical_1 (struct decision_test *d1, struct decision_test *d2)
 {
   switch (d1->type)
     {
+    case DT_num_insns:
+      return d1->u.num_insns == d2->u.num_insns;
+
     case DT_mode:
       return d1->u.mode == d2->u.mode;
 
@@ -1767,8 +1793,7 @@ find_afterward (struct decision_head *head, struct decision *real_afterward)
    match multiple insns and we try to step past the end of the stream.  */
 
 static void
-change_state (const char *oldpos, const char *newpos,
-	      struct decision *afterward, const char *indent)
+change_state (const char *oldpos, const char *newpos, const char *indent)
 {
   int odepth = strlen (oldpos);
   int ndepth = strlen (newpos);
@@ -1793,22 +1818,8 @@ change_state (const char *oldpos, const char *newpos,
       /* It's a different insn from the first one.  */
       if (ISUPPER (newpos[depth]))
 	{
-	  /* We can only fail if we're moving down the tree.  */
-	  if (old_has_insn >= 0 && oldpos[old_has_insn] >= newpos[depth])
-	    {
-	      printf ("%stem = peep2_next_insn (%d);\n",
-		      indent, newpos[depth] - 'A');
-	    }
-	  else
-	    {
-	      printf ("%stem = peep2_next_insn (%d);\n",
-		      indent, newpos[depth] - 'A');
-	      printf ("%sif (tem == NULL_RTX)\n", indent);
-	      if (afterward)
-		printf ("%s  goto L%d;\n", indent, afterward->number);
-	      else
-		printf ("%s  goto ret0;\n", indent);
-	    }
+	  printf ("%stem = peep2_next_insn (%d);\n",
+		  indent, newpos[depth] - 'A');
 	  printf ("%sx%d = PATTERN (tem);\n", indent, depth + 1);
 	}
       else if (ISLOWER (newpos[depth]))
@@ -1842,7 +1853,7 @@ write_afterward (struct decision *start, struct decision *afterward,
     printf("%sgoto ret0;\n", indent);
   else
     {
-      change_state (start->position, afterward->position, NULL, indent);
+      change_state (start->position, afterward->position, indent);
       printf ("%sgoto L%d;\n", indent, afterward->number);
     }
 }
@@ -2067,6 +2078,10 @@ write_cond (struct decision_test *p, int depth,
 {
   switch (p->type)
     {
+    case DT_num_insns:
+      printf ("peep2_current_count >= %d", p->u.num_insns);
+      break;
+
     case DT_mode:
       printf ("GET_MODE (x%d) == %smode", depth, GET_MODE_NAME (p->u.mode));
       break;
@@ -2113,7 +2128,7 @@ write_cond (struct decision_test *p, int depth,
       break;
 
     case DT_c_test:
-      printf ("(%s)", p->u.c_test);
+      print_c_condition (p->u.c_test);
       break;
 
     case DT_accept_insn:
@@ -2175,7 +2190,7 @@ write_action (struct decision *p, struct decision_test *test,
 		    indent, test->u.insn.num_clobbers_to_add);
 	  printf ("%sreturn %d;  /* %s */\n", indent,
 		  test->u.insn.code_number,
-		  insn_name_ptr[test->u.insn.code_number]);
+		  get_insn_name (test->u.insn.code_number));
 	  break;
 
 	case SPLIT:
@@ -2363,7 +2378,7 @@ write_tree (struct decision_head *head, const char *prevpos,
 	  else
 	    printf ("  if (tem >= 0)\n    return tem;\n");
 
-	  change_state (p->position, p->afterward->position, NULL, "  ");
+	  change_state (p->position, p->afterward->position, "  ");
 	  printf ("  goto L%d;\n", p->afterward->number);
 	}
       else
@@ -2376,7 +2391,7 @@ write_tree (struct decision_head *head, const char *prevpos,
     {
       int depth = strlen (p->position);
 
-      change_state (prevpos, p->position, head->last->afterward, "  ");
+      change_state (prevpos, p->position, "  ");
       write_tree_1 (head, depth, type);
 
       for (p = head->first; p; p = p->next)
@@ -2481,6 +2496,7 @@ write_header (void)
 #include \"resource.h\"\n\
 #include \"toplev.h\"\n\
 #include \"reload.h\"\n\
+#include \"tm-constrs.h\"\n\
 \n");
 
   puts ("\n\
@@ -2533,8 +2549,6 @@ make_insn_sequence (rtx insn, enum routine_type type)
 
   /* We should never see an insn whose C test is false at compile time.  */
   gcc_assert (truth);
-
-  record_insn_name (next_insn_code, (type == RECOG ? XSTR (insn, 0) : NULL));
 
   c_test_pos[0] = '\0';
   if (type == PEEPHOLE2)
@@ -2784,52 +2798,14 @@ main (int argc, char **argv)
   return (ferror (stdout) != 0 ? FATAL_EXIT_CODE : SUCCESS_EXIT_CODE);
 }
 
-/* Define this so we can link with print-rtl.o to get debug_rtx function.  */
-const char *
-get_insn_name (int code)
-{
-  if (code < insn_name_ptr_size)
-    return insn_name_ptr[code];
-  else
-    return NULL;
-}
-
-static void
-record_insn_name (int code, const char *name)
-{
-  static const char *last_real_name = "insn";
-  static int last_real_code = 0;
-  char *new;
-
-  if (insn_name_ptr_size <= code)
-    {
-      int new_size;
-      new_size = (insn_name_ptr_size ? insn_name_ptr_size * 2 : 512);
-      insn_name_ptr = xrealloc (insn_name_ptr, sizeof(char *) * new_size);
-      memset (insn_name_ptr + insn_name_ptr_size, 0,
-	      sizeof(char *) * (new_size - insn_name_ptr_size));
-      insn_name_ptr_size = new_size;
-    }
-
-  if (!name || name[0] == '\0')
-    {
-      new = xmalloc (strlen (last_real_name) + 10);
-      sprintf (new, "%s+%d", last_real_name, code - last_real_code);
-    }
-  else
-    {
-      last_real_name = new = xstrdup (name);
-      last_real_code = code;
-    }
-
-  insn_name_ptr[code] = new;
-}
-
 static void
 debug_decision_2 (struct decision_test *test)
 {
   switch (test->type)
     {
+    case DT_num_insns:
+      fprintf (stderr, "num_insns=%d", test->u.num_insns);
+      break;
     case DT_mode:
       fprintf (stderr, "mode=%s", GET_MODE_NAME (test->u.mode));
       break;

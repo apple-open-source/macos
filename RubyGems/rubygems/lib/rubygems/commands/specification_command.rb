@@ -3,6 +3,7 @@ require 'rubygems/command'
 require 'rubygems/local_remote_options'
 require 'rubygems/version_option'
 require 'rubygems/source_info_cache'
+require 'rubygems/format'
 
 class Gem::Commands::SpecificationCommand < Gem::Command
 
@@ -39,18 +40,22 @@ class Gem::Commands::SpecificationCommand < Gem::Command
   def execute
     specs = []
     gem = get_one_gem_name
+    dep = Gem::Dependency.new gem, options[:version]
 
     if local? then
-      source_index = Gem::SourceIndex.from_installed_gems
-      specs.push(*source_index.search(/\A#{gem}\z/, options[:version]))
+      if File.exist? gem then
+        specs << Gem::Format.from_file_by_path(gem).spec rescue nil
+      end
+
+      if specs.empty? then
+        specs.push(*Gem.source_index.search(dep))
+      end
     end
 
     if remote? then
-      alert_warning "Remote information is not complete\n\n"
+      found = Gem::SpecFetcher.fetcher.fetch dep
 
-      Gem::SourceInfoCache.cache_data.each do |_,sice|
-        specs.push(*sice.source_index.search(gem, options[:version]))
-      end
+      specs.push(*found.map { |spec,| spec })
     end
 
     if specs.empty? then
@@ -58,12 +63,12 @@ class Gem::Commands::SpecificationCommand < Gem::Command
       terminate_interaction 1
     end
 
-    output = lambda { |spec| say spec.to_yaml; say "\n" }
+    output = lambda { |s| say s.to_yaml; say "\n" }
 
     if options[:all] then
       specs.each(&output)
     else
-      spec = specs.sort_by { |spec| spec.version }.last
+      spec = specs.sort_by { |s| s.version }.last
       output[spec]
     end
   end

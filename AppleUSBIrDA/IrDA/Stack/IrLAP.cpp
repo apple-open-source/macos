@@ -20,11 +20,7 @@
 #include "IrLSAPConn.h"
 #include "CIrDevice.h"
 
-//#include <libkern/libkern.h>      // for random()
-
 #define forMac 1    // TEMP TEMP TEMP -- clean up the code
-
-extern "C" ULong random();          // from libkern, will it link??
 
 const UByte IrSlotCounts[4] = {1, 6, 8, 16};        // valid discovery slots
 
@@ -381,7 +377,7 @@ EventTraceCauseDesc TraceEvents[] = {
 
 };
 
-    #define XTRACE(x, y, z) IrDALogAdd ( x, y, (int)z & 0xffff, TraceEvents, true )
+    #define XTRACE(x, y, z) IrDALogAdd ( x, y, (uintptr_t)z & 0xffff, TraceEvents, true )
 #else
     #define XTRACE(x, y, z) ((void)0)
 #endif  // hasTracing && hasLAPTracing
@@ -406,7 +402,7 @@ TIrLAP *
 TIrLAP::tIrLAP(TIrGlue *irda, TIrQOS *myQOS, TIrQOS* peerQOS)
 {
     TIrLAP *obj = new TIrLAP;
-    XTRACE(kLogCreate, (int)obj >> 16, obj);
+    XTRACE(kLogCreate, 0, obj);
     
     if (obj && !obj->Init(irda, myQOS, peerQOS)) {
 	obj->release();
@@ -418,7 +414,7 @@ TIrLAP::tIrLAP(TIrGlue *irda, TIrQOS *myQOS, TIrQOS* peerQOS)
 Boolean
 TIrLAP::Init(TIrGlue *irda, TIrQOS *myQOS, TIrQOS* peerQOS)
 {
-    XTRACE(kLogInit, (int)this >> 16, this);
+    XTRACE(kLogInit, 0, this);
     
     fState = kIrLAPDisconnectedState;       // maybe should have an invalid state here
     fConnAddr = 0;
@@ -529,7 +525,7 @@ Fail:
 void
 TIrLAP::free()
 {
-    XTRACE(kLogFree, (int)this >> 16, this);
+    XTRACE(kLogFree, 0, this);
     
 #define FREE(x) { if (x) { (x)->release(); x = nil; } }
 	
@@ -543,7 +539,7 @@ TIrLAP::free()
     
     
     if (fIrDA) {
-	int Review_Event_Free;      // may be able to delete this
+	//int Review_Event_Free;      // may be able to delete this
 	//if (fLocalBusyEvent) {
 	//  fIrDA->ReleaseEventBlock(fLocalBusyEvent);
 	//  fLocalBusyEvent = nil;
@@ -593,10 +589,10 @@ TIrLAP::Resume(void)
 //--------------------------------------------------------------------------------
 //      GetNickName
 //--------------------------------------------------------------------------------
-void TIrLAP::GetNickName( UInt8 * nickName )
+void TIrLAP::GetNickName( UInt8 * nickName, int maxlen )
 {
     if( fNickName[0] != 0 )
-	strcpy( ( char * )nickName, ( const char * )fNickName );
+	strlcpy( ( char * )nickName, ( const char * )fNickName, maxlen);
     else
 	nickName[0] = 0;
 }
@@ -613,7 +609,7 @@ void TIrLAP::FreeGetBuffers()
 	
     // Free the input buffers (allocated during connect with peer)
     for (index = 0, flag=1; index < fNumGetBuffers; index++, flag <<= 1) {
-	XTRACE(kLogFreeGetBuffers1, (int)fGetBuffers[index] >> 16, fGetBuffers[index]);
+	XTRACE(kLogFreeGetBuffers1, 0, fGetBuffers[index]);
 	XTRACE(kLogFreeGetBuffers2, flag, index);
 	
 	check(fGetBuffers[index]);
@@ -627,14 +623,14 @@ void TIrLAP::FreeGetBuffers()
 	    // if it's in use as fInputBuffer then it won't have it's avail flag set
 	    // but we can free it anyway since we own it (wasn't sent up the stack) 
 	    if (fInputBuffer == fGetBuffers[index]) {
-		XTRACE(kLogFreeGetBuffers4, (int)fInputBuffer >> 16, fInputBuffer);
+		XTRACE(kLogFreeGetBuffers4, 0, fInputBuffer);
 		fInputBuffer = nil;
 		fGetBuffers[index]->Delete();               // release the buffer
 	    }
 	    else {      // memory leak, but let's not free it since it may be in use
-		DebugLog("memory leak! fInputBuffer=0x%lx\n", (UInt32)fInputBuffer);
+		DebugLog("memory leak! fInputBuffer=0x%lx\n", (uintptr_t)fInputBuffer);
 		DebugLog("buffer problem in free get buffers, index %ld, buffer 0x%lx\n",
-				index, (UInt32) fGetBuffers[index]);
+				(long int)index, (uintptr_t) fGetBuffers[index]);
 		//IrDALogTracingOff();
 	    }
 	}
@@ -1166,7 +1162,7 @@ void TIrLAP::HandleConnectStateEvent(ULong event)
     #if forMac                                                  // Report I are connected, though not
 			    fConnected = true;                  // really until I receive an RR from
 								// the other size.
-			    GetDiscovery->GetRemoteDeviceName( fPeerDevAddr, fNickName );
+			    GetDiscovery->GetRemoteDeviceName( fPeerDevAddr, fNickName, sizeof(fNickName));
     #endif
 			}
 		    }
@@ -1492,7 +1488,7 @@ void TIrLAP::HandleReplyStateEvent(ULong event)
 				    
 				    if( discObj ) {
 					TIrDscInfo* discoveryInfo = TIrDscInfo::tIrDscInfo();
-					TIrDiscoverReply* discoverReply = (TIrDiscoverReply*)fCurrentRequest;   // ?
+					//TIrDiscoverReply* discoverReply = (TIrDiscoverReply*)fCurrentRequest;   // ?
 					if (discoveryInfo ) {
 					    // Fill in, extract info for discover info
 					    discoveryInfo->SetVersion(xidCmd.fVersion);
@@ -2651,7 +2647,7 @@ void TIrLAP::ProcessRecdInfoOrSuperFrame()
 		    // This should never happen!
 		    XASSERT(fInputBuffer != fIOBufferItem);
 		    if (fInputBuffer == fIOBufferItem) {    // Debugging
-			DebugLog("oops, fInputbuffer == fIObufferItem 0x%lx", (UInt32) fInputBuffer);
+			DebugLog("oops, fInputbuffer == fIObufferItem 0x%lx", (uintptr_t) fInputBuffer);
 			//IrDALogTracingOff();              // Debugging!
 		    }
 		    
@@ -3172,7 +3168,7 @@ void TIrLAP::StartDataReceive()
     if (fInputBuffer) {                 // if non-nil, then we already have a getbuffer
 					// and reuse the current input buffer
 	inputBuffer = fInputBuffer;
-	XTRACE( kReusingBuffer, (int)fInputBuffer >> 16, fInputBuffer );
+	XTRACE( kReusingBuffer, 0, fInputBuffer );
     }
 
     else {
@@ -3188,7 +3184,7 @@ void TIrLAP::StartDataReceive()
 		fGetBufferAvail &= ~flags;              // allocate the buffer
 		inputBuffer = fGetBuffers[index];
 		//fNeedNewInputBuffer = false;
-		XTRACE(kLogStartDataRcv1, (int)inputBuffer >> 16, inputBuffer);
+		XTRACE(kLogStartDataRcv1, 0, inputBuffer);
 		XTRACE(kLogStartDataRcv2, flags, index);
 		break;
 	    }
@@ -3196,7 +3192,7 @@ void TIrLAP::StartDataReceive()
     }
 
     if (inputBuffer == fIOBufferItem )      // debugging only
-	XTRACE( kUsingDefaultBuffer, (int)fIOBufferItem >> 16, fIOBufferItem );
+	XTRACE( kUsingDefaultBuffer, 0, fIOBufferItem );
 
     require(inputBuffer, Bogus);
     StartInput(inputBuffer);
@@ -3217,7 +3213,7 @@ void TIrLAP::ReleaseInputBuffer(CBufferSegment* inputBuffer)
     ULong index;
     Boolean bufferFound = false;
     
-    XTRACE(kLogReleaseInputBuffer, (int)inputBuffer >> 16, inputBuffer);
+    XTRACE(kLogReleaseInputBuffer, 0, inputBuffer);
 
     // Find the buffer
     for (index = 0, flags = 1; index < fNumGetBuffers; index++, flags <<= 1) {
@@ -3437,7 +3433,7 @@ void TIrLAP::OutputUAResponse()
 #if forMac
     if (!fConnected) {              // calling OutputUA more than once, tell discover only once
 	fConnected = true;                      // jdg flag as connected a little earlier than before
-	GetDiscovery->GetRemoteDeviceName( fPeerDevAddr, fNickName );
+	GetDiscovery->GetRemoteDeviceName( fPeerDevAddr, fNickName, sizeof(fNickName) );
     }
 #endif
 
@@ -3723,8 +3719,8 @@ void TIrLAP::StopOutput()
 //--------------------------------------------------------------------------------
 void TIrLAP::StartInput(CBufferSegment* inputBuffer)
 {
-    XTRACE(kLogStartInput, (int)inputBuffer >> 16, inputBuffer);
-    XTRACE(kLogStartInput2, (int)fInputBuffer >> 16, fInputBuffer);
+    XTRACE(kLogStartInput, 0, inputBuffer);
+    XTRACE(kLogStartInput2, 0, fInputBuffer);
     
     require(inputBuffer, Bogus);        // shouldn't ever happen
     //Boolean localBusy = fLocalBusy || fSetLocalBusyPending;

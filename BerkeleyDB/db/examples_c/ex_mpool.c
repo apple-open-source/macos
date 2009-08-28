@@ -1,10 +1,9 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1997-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1997,2007 Oracle.  All rights reserved.
  *
- * $Id: ex_mpool.c,v 1.2 2004/03/30 01:23:16 jtownsen Exp $
+ * $Id: ex_mpool.c,v 12.7 2007/05/17 15:15:12 bostic Exp $
  */
 
 #include <sys/types.h>
@@ -216,7 +215,7 @@ run(hits, cachesize, pagesize, npages, progname)
 	srand((u_int)time(NULL));
 	for (cnt = 0; cnt < hits; ++cnt) {
 		pageno = rand() % npages;
-		if ((ret = mfp->get(mfp, &pageno, 0, &p)) != 0) {
+		if ((ret = mfp->get(mfp, &pageno, NULL, 0, &p)) != 0) {
 			dbenv->err(dbenv, ret,
 			    "unable to retrieve page %lu", (u_long)pageno);
 			goto err;
@@ -228,7 +227,7 @@ run(hits, cachesize, pagesize, npages, progname)
 			    (u_long)pageno, *(int *)p);
 			goto err;
 		}
-		if ((ret = mfp->put(mfp, p, 0)) != 0) {
+		if ((ret = mfp->put(mfp, p, DB_PRIORITY_UNCHANGED, 0)) != 0) {
 			dbenv->err(dbenv, ret,
 			    "unable to return page %lu", (u_long)pageno);
 			goto err;

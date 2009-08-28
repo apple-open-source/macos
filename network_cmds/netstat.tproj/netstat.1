@@ -305,8 +305,10 @@ c	RTF_PRCLONING	Protocol-specified generate new routes on use
 D	RTF_DYNAMIC	Created dynamically (by redirect)
 G	RTF_GATEWAY	Destination requires forwarding by intermediary
 H	RTF_HOST	Host entry (net otherwise)
+I	RTF_IFSCOPE	Route is associated with an interface scope
 L	RTF_LLINFO	Valid protocol to link address translation
 M	RTF_MODIFIED	Modified dynamically (by redirect)
+m	RTF_MULTICAST	The route represents a multicast address
 R	RTF_REJECT	Host or net unreachable
 S	RTF_STATIC	Manually added
 U	RTF_UP		Route usable
@@ -322,6 +324,8 @@ route for the duration of a connection while connectionless protocols
 obtain a route while sending to the same destination.  The use field
 provides a count of the number of packets sent using that route.  The
 interface entry indicates the network interface utilized for the route.
+A route which is marked with the RTF_IFSCOPE flag is instantiated for
+the corresponding interface.
 .Pp
 When
 .Nm netstat
@@ -346,6 +350,7 @@ option.
 .Xr hosts 5 ,
 .Xr networks 5 ,
 .Xr protocols 5 ,
+.Xr route 8 ,
 .Xr services 5 ,
 .Xr iostat 8 ,
 .Xr trpt 8 ,

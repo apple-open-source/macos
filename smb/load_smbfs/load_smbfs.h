@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,6 +35,6 @@ typedef char *string_t;
 /* We only support the default code page currently */
 #define SMBFS_DEFAULT_CODE_PAGE "default"
 
-int load_encodings(char * localcs, char *locale);
+int load_encodings(char * localcs, const char *locale);
 
 #endif /* _LOAD_SMBFS_H_ */

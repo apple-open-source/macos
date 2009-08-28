@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>OpenSourceProject</key>
+	<string>tcp_wrappers</string>
+	<key>OpenSourceVersion</key>
+	<string>7.6-ipv6.4</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>ftp://ftp.porcupine.org/pub/security/index.html</string>
+	<key>OpenSourceURL</key>
+	<string>ftp://ftp.porcupine.org/pub/security/tcp_wrappers_7.6-ipv6.4.tar.gz</string>
+	<key>OpenSourceSHA1</key>
+	<string>e82e269337223a001118e5084b05c6c53fe53dc5</string>
+	<key>OpenSourceImportDate</key>
+	<string>2008-04-07</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>Remove common symbols in libwrap.a (3007736).</string>
+		<string>Minor man page nits.</string>
+		<string>Compilation fixes in hosts_access.c</string>
+		<string>Build modifications in Makefile.</string>
+	</array>
+	<key>OpenSourceLicense</key>
+	<string>other</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>tcp_wrappers.txt</string>
+</dict>
+</plist>

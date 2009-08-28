@@ -41,20 +41,39 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/assert.c,v 1.7 2002/02/01 00:57:29 obrien E
 #include <stdio.h>
 #include <stdlib.h>
 
+extern const char *__crashreporter_info__;
+static const char badasprintf[] =
+    "Assertion failed and asprintf also failed to create full error string";
+
 void
 __assert_rtn(func, file, line, failedexpr)
 	const char *func, *file;
 	int line;
 	const char *failedexpr;
 {
-	if (func == NULL)
+	char *str = NULL;
+
+	if (func == NULL) {
 		(void)fprintf(stderr,
 		     "Assertion failed: (%s), file %s, line %d.\n", failedexpr,
 		     file, line);
-	else
+		if (!__crashreporter_info__) {
+			asprintf(&str,
+			     "Assertion failed: (%s), file %s, line %d.\n",
+			     failedexpr, file, line);
+			__crashreporter_info__ = str ? str : badasprintf;
+		}
+	} else {
 		(void)fprintf(stderr,
 		     "Assertion failed: (%s), function %s, file %s, line %d.\n",
 		     failedexpr, func, file, line);
+		if (!__crashreporter_info__) {
+			asprintf(&str,
+			     "Assertion failed: (%s), function %s, file %s, line %d.\n",
+			     failedexpr, func, file, line);
+			__crashreporter_info__ = str ? str : badasprintf;
+		}
+	}
 	abort();
 	/* NOTREACHED */
 }

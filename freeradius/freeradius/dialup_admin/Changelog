@@ -1,3 +1,112 @@
+Ver 1.80:
+* Remove snmp_clearsession. It is replaced by clearsession which supports both snmp and telnet
+  methods of removing a user from an access server. Add corresponding configuration directives
+  general_sessionclear_method and nasXX_sessionclear_method
+* Create a new function da_sql_limit() and use that to pass LIMIT arguments to the database layer
+  since the syntax is different between db vendors
+* Rename the badusers date field to incidentdate to avoid reserved words in databases. Bug found by
+  Peter Nixon
+* Count online users correctly (through a separate query) in user_finger.
+* Use the correct max results variable in lib/*/find.php3
+* In time2strclock also show days if applicable
+* In lib/sql/attrmap.php3, only register variables once. Go through $show_attrs and set default attribute
+  mappings for any attribute that a mapping does not exist.
+* Change the order of OID's used in snmpfinger for cisco NASes
+Ver 1.78:
+* Add a snmp_clearsession which can disconnect a user by using the Cisco AAA Session MIB
+* Add a configuration directive general_sessionclear_bin
+* Add a session disconnect button in the 'clear open sessions' page
+* Also clear sessions from the sql extra servers in the 'clear open sessions' page
+* In bin/snmpfinger also accept @,. in the username
+* If we are stripping realms, then if needed strip them from the data returned by snmpfinger in
+  user_finger.php3
+* Add a header with the page encoding before sending any page (header added in config.php3)
+  This closes Bug #153
+* Fix a problem when reading username.mappings
+* If date calculation fails, abort
+* Add a backup_radacct script
+* Add an sqlrelay functions file. The user_admin page does not currently work. Looking into it.
+* Add sqlrelay support in the scripts. Add a sqlrelay_query script to run sqlrelay commands
+* Update password_check to work with all password attributes and use the configuration directives
+* Add more documentation for per user counter limit attributes (daily/weekly/monthly limits)
+* Make all counter limits default to none so that people don't get confused
+* In clear_opensessions depending on sql type use either IS NULL or = 0 in the DELETE statement.
+  We need to find a cleaner solution to this. This closes bug#175
+* Log somewhat more verbose error messages when the sql_command binary is not found in the bin scripts
+* Make nasXX_finger_type actually work since the place where nas information was stored was changed a
+  long time ago. Bug noted by Nick Bright
+* In user_finger only set LD_LIBRARY_PATH once, not each time we call snmpfinger
+* Add support for usrhiper in snmpfinger. Patch from Nick Bright
+* urlencode() all occurrences of the $login variable when used in url's. Bug noted by Dag Landau
+* Show the correct nas type in nas_admin. Bug noted by Nick Bright
+* Correctly calculate the nas ip in lib/sql/nas_list.php3. Add a check_ip() function in lib/functions.php3
+  Bug noted by Nick Bright
+* Correctly check nas validity in nas_admin.php3. Bug noted by Nick Bright
+* Don't use $num in stats.php3, change it to $stats_num
+Ver 1.75:
+* A LOT of security related fixes. Now dialupadmin should hopefully be secure enough to
+  be accessed by normal users (not administrators).
+* Move a few elements in the CSS file from the body tag. Suggestion by Gary McKinney
+* Update FAQ about using php with no sql support.
+* Allow the user to select between viewing FAQ,HOWTO or README in the help page.
+* Use $_SERVER instead of $HTTP_SERVER_VARS
+* Add a drop down menu with existing groups in group_new.php3
+* Check for sql in show_groups.php3
+* In lib/sql/group_info.php3 if $login is not set, find available groups and place them in
+  $existing_groups along with a count of users per group. Use the functionality in group_new.php3
+  and show_groups.php3
+* Update TODO
+* Add the style sheet in the content.html
+* Enlarge the width for the left frame
+* Make show_groups and the drop down menu in group_new work
+* Use lower cased row names in badusers page
+* Wrong foreach in show_groups and group_new.
+* Fix operator escaping in lib/sql/change_attrs.php3
+* In user_state also take into account any open sessions when calculating daily/weekly usage.
+  Add two more lines in the output stating the number of current open sessions and the time used.
+* Move a few header() calls after including config.php3 so that we have access to the relevant
+  variables.
+* Make pagesize 'all' work again. Bug found by apellido jr., wilfredo p.
+* Make 'Add NAS' function in the nas admin page more easily accessible
+* Fix a small bug in user_admin.php3 found by Joerg Staedele
+* Fix a small typo in the userinfo mysql schema. Found by Evert Meulie
+* Fix bug #136, bugs found by Pawel Foremski
+* Small type in login_time_create, close bug #141
+* In config.php3 remove whitespaces from $login. Don't remove '-'
+* Add lib/sql/group_change.php3 to add and delete a user from groups
+* Add a new directive sql_show_all_groups. If set to true then in user edit page we show all available
+  groups with the ones the user is a member of highlighted. The administrator can then directly
+  change user group membership by changing membership in this group list.
+* On group creation, if member list is empty report that, not that the group was created.
+* In the show groups page, note that we only show groups with members
+* In lib/sql/group_info.php3 only unset variables if we need to. In lib/sql/defaults.php3 don't run for groups
+  only for users
+* Fix Bug #167
+Ver 1.72:
+* Move the xlat function to a separate file in lib/xlat.php3
+* Add a lib/sql/nas_list.php3 to also get the nas list from sql (naslist.conf still works)
+* add realms nasdb and nasadmin in username.mappings. nasadmin is used to signify if the
+  user is allowed to use the nas_admin page. nasdb is used to shorten the nas list to only
+  a few specific entries. That way administrator responsible for a few access servers will
+  only be able to administer those access servers and not see the rest of the nas list.
+* Add username searching in the find page as suggested by joram agten
+* Don't use nas_list in nas_admin
+* Add postgresql specific sql schema by apellido jr., wilfredo p. Move each sql schema to a
+  separate directory (mysql and postgresql)
+* Change is_int to is_numeric. This closes Bug #90
+* Escape special characters in the sql password. This closes bug #96
+* Do an xlat for general_accounting_attrs_file and general_user_edit_attrs_file. That way we can
+  have different mappings for each administrator.
+* Use require_once instead of require when including xlat.php3
+* Add debug statements in sql connect functions
+* Add a missing.php3 file with functions that may be missing from the PHP version used. Include it
+  if a function is missing. Currently only array_change_key_case() is included
+* Set general_restrict_nasadmin_access to no by default. It causes confusion.
+* Set the general_username_mappings_file variable
+* Fix a small error in lib/sql/find.php3. This closes bug #103
+* Add a small note in the FAQ about checking for sql/ldap driver availability in PHP if the user get's
+  a blank white page back.
+
 Ver 1.70.3:
 * Test for unset variable, rather than empty variable in clean_radacct,
   monthly_tot_stats and truncate_radacct.
@@ -8,11 +117,11 @@ Ver 1.70.2:
 * HTTP form fields will always fail is_int, use in_numeric instead.
 
 Ver 1.70.1:
-* Report correct data transfer statistics for users
-* Lower-case sql column names to match creation scripts
-* Fix creation of empty groups
-* Put quote around usernames in HTML output
-* Properly notice when we've got a blank password to SQL
+* Report correct data transfer statistics for users.
+* Lower-case sql column names to match creation scripts.
+* Fix creation of empty groups.
+* Put quote around usernames in HTML output.
+* Properly notice when we've got a blank password to SQL.
 
 Ver 1.70:
 * Add the /bin postgresql compatibility patch from Guy Fraser

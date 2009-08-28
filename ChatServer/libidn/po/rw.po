@@ -16,7 +16,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: libidn 0.5.6\n"
 "Report-Msgid-Bugs-To: bug-libidn@gnu.org\n"
-"POT-Creation-Date: 2005-12-03 11:36+0100\n"
+"POT-Creation-Date: 2007-05-31 12:54+0200\n"
 "PO-Revision-Date: 2005-04-04 10:55-0700\n"
 "Last-Translator: Steven Michael Murphy <murf@e-tools.com>\n"
 "Language-Team: Kinyarwanda <translation-team-rw@lists.sourceforge.net>\n"
@@ -164,7 +164,7 @@ msgid "Could not convert from UTF-8 to UCS-4."
 msgstr "OYA GUHINDURA Bivuye 8 Kuri 4."
 
 #, fuzzy, c-format
-msgid "input[%d] = U+%04x\n"
+msgid "input[%lu] = U+%04x\n"
 msgstr "Iyinjiza U"
 
 #, c-format
@@ -172,7 +172,7 @@ msgid "stringprep_profile: %s"
 msgstr ""
 
 #, fuzzy, c-format
-msgid "output[%d] = U+%04x\n"
+msgid "output[%lu] = U+%04x\n"
 msgstr "Ibisohoka U"
 
 #, fuzzy, c-format
@@ -203,11 +203,11 @@ msgid "idna_to_unicode_8z4z (TLD): %s"
 msgstr ""
 
 #, fuzzy, c-format
-msgid "tld[%d] = U+%04x\n"
+msgid "tld[%lu] = U+%04x\n"
 msgstr "U"
 
 #, fuzzy, c-format
-msgid "tld_check_4z (position %d): %s"
+msgid "tld_check_4z (position %lu): %s"
 msgstr "Ibirindiro"
 
 #, c-format

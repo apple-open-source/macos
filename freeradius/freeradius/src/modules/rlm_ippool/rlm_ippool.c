@@ -1,7 +1,7 @@
 /*
  * rlm_ippool.c
  *
- * Version:  $Id: rlm_ippool.c,v 1.31 2004/05/03 10:51:26 kkalev Exp $
+ * Version:  $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,9 +15,9 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2001  The FreeRADIUS server project
+ * Copyright 2001,2006  The FreeRADIUS server project
  * Copyright 2002  Kostas Kalevras <kkalev@noc.ntua.gr>
  *
  * March 2002, Kostas Kalevras <kkalev@noc.ntua.gr>
@@ -49,38 +49,24 @@
  *   to request->timestamp and timeout to %{Session-Timeout:-0}. When we search for a free entry
  *   we check if timeout has expired. If it has then we free the entry. We also add a maximum
  *   timeout configuration directive. If it is non zero then we also use that one to free entries.
+ * Jul 2004, Kostas Kalevras <kkalev@noc.ntua.gr>
+ * - If Pool-Name is set to DEFAULT then always run.
+ * Mar 2005, Kostas Kalevras <kkalev@noc.ntua.gr>
+ * - Make the key an MD5 of a configurable xlated string. This closes Bug #42
  */
 
-#include "config.h"
-#include "autoconf.h"
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <freeradius-devel/radiusd.h>
+#include <freeradius-devel/modules.h>
+
+#include "config.h"
 #include <ctype.h>
 
-#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
-#endif
-
-#ifdef HAVE_STDINT_H
-#include <stdint.h>
-#endif
-
-#ifdef HAVE_INTTYPES_H
-#include <inttypes.h>
-#endif
-
-#ifdef HAVE_NETINET_IN_H
-#include <netinet/in.h>
-#endif
-
-#include "radiusd.h"
-#include "modules.h"
-#include "conffile.h"
+#include "../../include/md5.h"
 
 #include <gdbm.h>
-#include <time.h>
 
 #ifdef NEEDS_GDBM_SYNC
 #	define GDBM_SYNCOPT GDBM_SYNC
@@ -96,8 +82,6 @@
 
 #define MAX_NAS_NAME_SIZE 64
 
-static const char rcsid[] = "$Id: rlm_ippool.c,v 1.31 2004/05/03 10:51:26 kkalev Exp $";
-
 /*
  *	Define a structure for our module configuration.
  *
@@ -109,6 +93,7 @@ typedef struct rlm_ippool_t {
 	char *session_db;
 	char *ip_index;
 	char *name;
+	char *key;
 	uint32_t range_start;
 	uint32_t range_stop;
 	uint32_t netmask;
@@ -142,8 +127,7 @@ typedef struct ippool_info {
 } ippool_info;
 
 typedef struct ippool_key {
-	char nas[MAX_NAS_NAME_SIZE];
-	unsigned int port;
+	char key[16];
 } ippool_key;
 
 /*
@@ -155,9 +139,10 @@ typedef struct ippool_key {
  *	to the strdup'd string into 'config.string'.  This gets around
  *	buffer over-flows.
  */
-static CONF_PARSER module_config[] = {
+static const CONF_PARSER module_config[] = {
   { "session-db", PW_TYPE_STRING_PTR, offsetof(rlm_ippool_t,session_db), NULL, NULL },
   { "ip-index", PW_TYPE_STRING_PTR, offsetof(rlm_ippool_t,ip_index), NULL, NULL },
+  { "key", PW_TYPE_STRING_PTR, offsetof(rlm_ippool_t,key), NULL, "%{NAS-IP-Address} %{NAS-Port}" },
   { "range-start", PW_TYPE_IPADDR, offsetof(rlm_ippool_t,range_start), NULL, "0" },
   { "range-stop", PW_TYPE_IPADDR, offsetof(rlm_ippool_t,range_stop), NULL, "0" },
   { "netmask", PW_TYPE_IPADDR, offsetof(rlm_ippool_t,netmask), NULL, "0" },
@@ -166,7 +151,6 @@ static CONF_PARSER module_config[] = {
   { "maximum-timeout", PW_TYPE_INTEGER, offsetof(rlm_ippool_t,max_timeout), NULL, "0" },
   { NULL, -1, 0, NULL, NULL }
 };
-
 
 /*
  *	Do any per-module initialization that is separate to each
@@ -186,10 +170,8 @@ static int ippool_instantiate(CONF_SECTION *conf, void **instance)
 	ippool_key key;
 	datum key_datum;
 	datum data_datum;
-	int i;
-	unsigned j;
 	const char *cli = "0";
-	char *pool_name = NULL;
+	const char *pool_name = NULL;
 
 	/*
 	 *	Set up a storage area for instance data
@@ -257,9 +239,10 @@ static int ippool_instantiate(CONF_SECTION *conf, void **instance)
 			 * active = 0
 			 */
 		int rcode;
+		uint32_t i, j;
 		uint32_t or_result;
 		char str[32];
-		const char *nas_init = "NOT_EXIST";
+		char init_str[17];
 
 		DEBUG("rlm_ippool: Initializing database");
 		for(i=data->range_start,j=~0;i<=data->range_stop;i++,j--){
@@ -276,8 +259,9 @@ static int ippool_instantiate(CONF_SECTION *conf, void **instance)
 				continue;
 			}
 
-			strcpy(key.nas, nas_init);
-			key.port = j;
+			sprintf(init_str,"%016d",j);
+			DEBUG("rlm_ippool: Initialized bucket: %s",init_str);
+			memcpy(key.key, init_str,16);
 			key_datum.dptr = (char *) &key;
 			key_datum.dsize = sizeof(ippool_key);
 
@@ -295,9 +279,9 @@ static int ippool_instantiate(CONF_SECTION *conf, void **instance)
 			if (rcode < 0) {
 				radlog(L_ERR, "rlm_ippool: Failed storing data to %s: %s",
 						data->session_db, gdbm_strerror(gdbm_errno));
-				free(data);
 				gdbm_close(data->gdbm);
 				gdbm_close(data->ip);
+				free(data);
 				return -1;
 			}
 		}
@@ -329,52 +313,47 @@ static int ippool_accounting(void *instance, REQUEST *request)
 	datum data_datum;
 	datum save_datum;
 	int acctstatustype = 0;
-	unsigned int port = ~0;
 	int rcode;
-	char nas[MAX_NAS_NAME_SIZE];
 	ippool_info entry;
 	ippool_key key;
 	int num = 0;
 	VALUE_PAIR *vp;
 	char str[32];
+	uint8_t key_str[17];
+	char hex_str[35];
+	char xlat_str[MAX_STRING_LEN];
+	FR_MD5_CTX md5_context;
 
 
 	if ((vp = pairfind(request->packet->vps, PW_ACCT_STATUS_TYPE)) != NULL)
-		acctstatustype = vp->lvalue;
+		acctstatustype = vp->vp_integer;
 	else {
-		DEBUG("rlm_ippool: Could not find account status type in packet. Return NOOP.");
+		RDEBUG("Could not find account status type in packet. Return NOOP.");
 		return RLM_MODULE_NOOP;
 	}
 	switch(acctstatustype){
 		case PW_STATUS_STOP:
-			if ((vp = pairfind(request->packet->vps, PW_NAS_PORT)) != NULL)
-				port = vp->lvalue;
-			else {
-				DEBUG("rlm_ippool: Could not find port number in packet. Return NOOP.");
+			if (!radius_xlat(xlat_str,MAX_STRING_LEN,data->key, request, NULL)){
+				RDEBUG("xlat on the 'key' directive failed");
 				return RLM_MODULE_NOOP;
 			}
-			if ((vp = pairfind(request->packet->vps, PW_NAS_IP_ADDRESS)) != NULL)
-				strncpy(nas, vp->strvalue, MAX_NAS_NAME_SIZE - 1);
-			else {
-				if ((vp = pairfind(request->packet->vps, PW_NAS_IDENTIFIER)) != NULL)
-					strncpy(nas, vp->strvalue, MAX_NAS_NAME_SIZE - 1);
-				else {
-					DEBUG("rlm_ippool: Could not find nas information in packet. Return NOOP.");
-					return RLM_MODULE_NOOP;
-				}
-			}
+			fr_MD5Init(&md5_context);
+			fr_MD5Update(&md5_context, xlat_str, strlen(xlat_str));
+			fr_MD5Final(key_str, &md5_context);
+			key_str[16] = '\0';
+			fr_bin2hex(key_str,hex_str,16);
+			hex_str[32] = '\0';
+			RDEBUG("MD5 on 'key' directive maps to: %s",hex_str);
+			memcpy(key.key,key_str,16);
 			break;
 		default:
 			/* We don't care about any other accounting packet */
-			DEBUG("rlm_ippool: This is not an Accounting-Stop. Return NOOP.");
+			RDEBUG("This is not an Accounting-Stop. Return NOOP.");
 
 			return RLM_MODULE_NOOP;
 	}
 
-	memset(key.nas,0,MAX_NAS_NAME_SIZE);
-	strncpy(key.nas,nas,MAX_NAS_NAME_SIZE -1 );
-	key.port = port;
-	DEBUG("rlm_ippool: Searching for an entry for nas/port: %s/%u",key.nas,key.port);
+	RDEBUG("Searching for an entry for key: '%s'",xlat_str);
 	key_datum.dptr = (char *) &key;
 	key_datum.dsize = sizeof(ippool_key);
 
@@ -387,7 +366,7 @@ static int ippool_accounting(void *instance, REQUEST *request)
 		 */
 		memcpy(&entry, data_datum.dptr, sizeof(ippool_info));
 		free(data_datum.dptr);
-		DEBUG("rlm_ippool: Deallocated entry for ip/port: %s/%u",ip_ntoa(str,entry.ipaddr),port);
+		RDEBUG("Deallocated entry for ip: %s",ip_ntoa(str,entry.ipaddr));
 		entry.active = 0;
 		entry.timestamp = 0;
 		entry.timeout = 0;
@@ -420,7 +399,7 @@ static int ippool_accounting(void *instance, REQUEST *request)
 			free(data_datum.dptr);
 			if (num >0){
 				num--;
-				DEBUG("rlm_ippool: num: %d",num);
+				RDEBUG("num: %d",num);
 				data_datum.dptr = (char *) &num;
 				data_datum.dsize = sizeof(int);
 				rcode = gdbm_store(data->ip, key_datum, data_datum, GDBM_REPLACE);
@@ -444,7 +423,7 @@ static int ippool_accounting(void *instance, REQUEST *request)
 	}
 	else{
 		pthread_mutex_unlock(&data->op_mutex);
-		DEBUG("rlm_ippool: Entry not found");
+		RDEBUG("Entry not found");
 	}
 
 	return RLM_MODULE_OK;
@@ -453,14 +432,12 @@ static int ippool_accounting(void *instance, REQUEST *request)
 static int ippool_postauth(void *instance, REQUEST *request)
 {
 	rlm_ippool_t *data = (rlm_ippool_t *) instance;
-	unsigned int port = 0;
 	int delete = 0;
 	int found = 0;
 	int mppp = 0;
 	int extra = 0;
 	int rcode;
 	int num = 0;
-	char nas[MAX_NAS_NAME_SIZE];
 	datum key_datum;
 	datum nextkey;
 	datum data_datum;
@@ -470,6 +447,10 @@ static int ippool_postauth(void *instance, REQUEST *request)
 	VALUE_PAIR *vp;
 	char *cli = NULL;
 	char str[32];
+	uint8_t key_str[17];
+	char hex_str[35];
+	char xlat_str[MAX_STRING_LEN];
+	FR_MD5_CTX md5_context;
 
 
 	/* quiet the compiler */
@@ -480,49 +461,35 @@ static int ippool_postauth(void *instance, REQUEST *request)
 	 * run only if they match
 	 */
 	if ((vp = pairfind(request->config_items, PW_POOL_NAME)) != NULL){
-		if (data->name == NULL || strcmp(data->name,vp->strvalue))
+		if (data->name == NULL || (strcmp(data->name,vp->vp_strvalue) && strcmp(vp->vp_strvalue,"DEFAULT")))
 			return RLM_MODULE_NOOP;
 	} else {
-		DEBUG("rlm_ippool: Could not find Pool-Name attribute.");
+		RDEBUG("Could not find Pool-Name attribute.");
 		return RLM_MODULE_NOOP;
 	}
 
-	/*
-	 * Get the nas ip address
-	 * If not fail
-	 */
-	if ((vp = pairfind(request->packet->vps, PW_NAS_IP_ADDRESS)) != NULL)
-		strncpy(nas, vp->strvalue, MAX_NAS_NAME_SIZE - 1);
-	else{
-		if ((vp = pairfind(request->packet->vps, PW_NAS_IDENTIFIER)) != NULL)
-			strncpy(nas, vp->strvalue, MAX_NAS_NAME_SIZE - 1);
-		else{
-			DEBUG("rlm_ippool: Could not find nas information. Return NOOP.");
-			return RLM_MODULE_NOOP;
-		}
-	}
 
 	/*
 	 * Find the caller id
 	 */
 	if ((vp = pairfind(request->packet->vps, PW_CALLING_STATION_ID)) != NULL)
-		cli = vp->strvalue;
+		cli = vp->vp_strvalue;
 
-	/*
-	 * Find the port
-	 * If not fail
-	 */
-	if ((vp = pairfind(request->packet->vps, PW_NAS_PORT)) != NULL)
-		port = vp->lvalue;
-	else{
-		DEBUG("rlm_ippool: Could not find nas port information. Return NOOP.");
+
+	if (!radius_xlat(xlat_str,MAX_STRING_LEN,data->key, request, NULL)){
+		RDEBUG("xlat on the 'key' directive failed");
 		return RLM_MODULE_NOOP;
 	}
+	fr_MD5Init(&md5_context);
+	fr_MD5Update(&md5_context, xlat_str, strlen(xlat_str));
+	fr_MD5Final(key_str, &md5_context);
+	key_str[16] = '\0';
+	fr_bin2hex(key_str,hex_str,16);
+	hex_str[32] = '\0';
+	RDEBUG("MD5 on 'key' directive maps to: %s",hex_str);
+	memcpy(key.key,key_str,16);
 
-	memset(key.nas,0,MAX_NAS_NAME_SIZE);
-	strncpy(key.nas,nas,MAX_NAS_NAME_SIZE -1 );
-	key.port = port;
-	DEBUG("rlm_ippool: Searching for an entry for nas/port: %s/%u",key.nas,key.port);
+	RDEBUG("Searching for an entry for key: '%s'",hex_str);
 	key_datum.dptr = (char *) &key;
 	key_datum.dsize = sizeof(ippool_key);
 
@@ -537,7 +504,7 @@ static int ippool_postauth(void *instance, REQUEST *request)
 		memcpy(&entry, data_datum.dptr, sizeof(ippool_info));
 		free(data_datum.dptr);
 		if (entry.active){
-			DEBUG("rlm_ippool: Found a stale entry for ip/port: %s/%u",ip_ntoa(str,entry.ipaddr),port);
+			RDEBUG("Found a stale entry for ip: %s",ip_ntoa(str,entry.ipaddr));
 			entry.active = 0;
 			entry.timestamp = 0;
 			entry.timeout = 0;
@@ -568,7 +535,7 @@ static int ippool_postauth(void *instance, REQUEST *request)
 				free(data_datum.dptr);
 				if (num >0){
 					num--;
-					DEBUG("rlm_ippool: num: %d",num);
+					RDEBUG("num: %d",num);
 					data_datum.dptr = (char *) &num;
 					data_datum.dsize = sizeof(int);
 					rcode = gdbm_store(data->ip, key_datum, data_datum, GDBM_REPLACE);
@@ -597,15 +564,15 @@ static int ippool_postauth(void *instance, REQUEST *request)
 	 * If there is a Framed-IP-Address attribute in the reply, check for override
 	 */
 	if (pairfind(request->reply->vps, PW_FRAMED_IP_ADDRESS) != NULL) {
-		DEBUG("rlm_ippool: Found Framed-IP-Address attribute in reply attribute list.");
+		RDEBUG("Found Framed-IP-Address attribute in reply attribute list.");
 		if (data->override)
 		{
 			/* Override supplied Framed-IP-Address */
-			DEBUG("rlm_ippool: override is set to yes. Override the existing Framed-IP-Address attribute.");
+			RDEBUG("override is set to yes. Override the existing Framed-IP-Address attribute.");
 			pairdelete(&request->reply->vps, PW_FRAMED_IP_ADDRESS);
 		} else {
 			/* Abort */
-			DEBUG("rlm_ippool: override is set to no. Return NOOP.");
+			RDEBUG("override is set to no. Return NOOP.");
 			return RLM_MODULE_NOOP;
 		}
 	}
@@ -627,15 +594,12 @@ static int ippool_postauth(void *instance, REQUEST *request)
 				memcpy(&entry,data_datum.dptr, sizeof(ippool_info));
 				free(data_datum.dptr);
 				/*
-		 		* If we find an entry for the same caller-id and nas with active=1
+		 		* If we find an entry for the same caller-id with active=1
 		 		* then we use that for multilink (MPPP) to work properly.
 		 		*/
 				if (strcmp(entry.cli,cli) == 0 && entry.active){
-					memcpy(&key,key_datum.dptr,sizeof(ippool_key));
-					if (!strcmp(key.nas,nas)){
-						mppp = 1;
-						break;
-					}
+					mppp = 1;
+					break;
 				}
 			}
 			nextkey = gdbm_nextkey(data->gdbm, key_datum);
@@ -656,7 +620,7 @@ static int ippool_postauth(void *instance, REQUEST *request)
 				 * Find an entry with active == 0
 				 * or an entry that has expired
 				 */
-				if (entry.active == 0 || (entry.timestamp && ((entry.timeout && 
+				if (entry.active == 0 || (entry.timestamp && ((entry.timeout &&
 				request->timestamp >= (entry.timestamp + entry.timeout)) ||
 				(data->max_timeout && request->timestamp >= (entry.timestamp + data->max_timeout))))){
 					datum tmp;
@@ -669,7 +633,7 @@ static int ippool_postauth(void *instance, REQUEST *request)
 					 * If we find an entry in the ip index and the number is zero (meaning
 					 * that we haven't allocated the same ip address to another nas/port pair)
 					 * or if we don't find an entry then delete the session entry so
-					 * that we can change the key (nas/port)
+					 * that we can change the key
 					 * Else we don't delete the session entry since we haven't yet deallocated the
 					 * corresponding ip address and we continue our search.
 					 */
@@ -718,10 +682,7 @@ static int ippool_postauth(void *instance, REQUEST *request)
 			datum data_datum_tmp;
 			ippool_key key_tmp;
 
-			memset(key_tmp.nas,0,MAX_NAS_NAME_SIZE);
-			strncpy(key_tmp.nas,nas,MAX_NAS_NAME_SIZE -1 );
-			key_tmp.port = port;
-			DEBUG("rlm_ippool: Searching for an entry for nas/port: %s/%u",key_tmp.nas,key_tmp.port);
+			memcpy(key_tmp.key,key_str,16);
 			key_datum_tmp.dptr = (char *) &key_tmp;
 			key_datum_tmp.dsize = sizeof(ippool_key);
 
@@ -729,13 +690,13 @@ static int ippool_postauth(void *instance, REQUEST *request)
 			if (data_datum_tmp.dptr != NULL){
 
 				rcode = gdbm_store(data->gdbm, key_datum, data_datum_tmp, GDBM_REPLACE);
+				free(data_datum_tmp.dptr);
 				if (rcode < 0) {
 					radlog(L_ERR, "rlm_ippool: Failed storing data to %s: %s",
 						data->session_db, gdbm_strerror(gdbm_errno));
 						pthread_mutex_unlock(&data->op_mutex);
 					return RLM_MODULE_FAIL;
 				}
-				free(data_datum_tmp.dptr);
 			}
 		}
 		else{
@@ -768,21 +729,19 @@ static int ippool_postauth(void *instance, REQUEST *request)
 		free(key_datum.dptr);
 		entry.active = 1;
 		entry.timestamp = request->timestamp;
-		if ((vp = pairfind(request->reply->vps, PW_SESSION_TIMEOUT)) != NULL)	
-			entry.timeout = (time_t) vp->lvalue;
+		if ((vp = pairfind(request->reply->vps, PW_SESSION_TIMEOUT)) != NULL)
+			entry.timeout = (time_t) vp->vp_integer;
 		else
 			entry.timeout = 0;
 		if (extra)
 			entry.extra = 1;
 		data_datum.dptr = (char *) &entry;
 		data_datum.dsize = sizeof(ippool_info);
-		memset(key.nas,0,MAX_NAS_NAME_SIZE);
-		strncpy(key.nas,nas,MAX_NAS_NAME_SIZE - 1);
-		key.port = port;
+		memcpy(key.key, key_str, 16);
 		key_datum.dptr = (char *) &key;
 		key_datum.dsize = sizeof(ippool_key);
 
-		DEBUG2("rlm_ippool: Allocating ip to nas/port: %s/%u",key.nas,key.port);
+		DEBUG2("rlm_ippool: Allocating ip to key: '%s'",hex_str);
 		rcode = gdbm_store(data->gdbm, key_datum, data_datum, GDBM_REPLACE);
 		if (rcode < 0) {
 			radlog(L_ERR, "rlm_ippool: Failed storing data to %s: %s",
@@ -801,7 +760,7 @@ static int ippool_postauth(void *instance, REQUEST *request)
 		} else
 			num = 0;
 		num++;
-		DEBUG("rlm_ippool: num: %d",num);
+		RDEBUG("num: %d",num);
 		data_datum.dptr = (char *) &num;
 		data_datum.dsize = sizeof(int);
 		rcode = gdbm_store(data->ip, key_datum, data_datum, GDBM_REPLACE);
@@ -814,34 +773,26 @@ static int ippool_postauth(void *instance, REQUEST *request)
 		pthread_mutex_unlock(&data->op_mutex);
 
 
-		DEBUG("rlm_ippool: Allocated ip %s to client on nas %s,port %u",ip_ntoa(str,entry.ipaddr),
-				key.nas,port);
-		if ((vp = paircreate(PW_FRAMED_IP_ADDRESS, PW_TYPE_IPADDR)) == NULL) {
-			radlog(L_ERR|L_CONS, "no memory");
-			return RLM_MODULE_FAIL;
-		}
-		vp->lvalue = entry.ipaddr;
-		ip_ntoa(vp->strvalue, vp->lvalue);
-		pairadd(&request->reply->vps, vp);
+		RDEBUG("Allocated ip %s to client key: %s",ip_ntoa(str,entry.ipaddr),hex_str);
+		vp = radius_paircreate(request, &request->reply->vps,
+				       PW_FRAMED_IP_ADDRESS, PW_TYPE_IPADDR);
+		vp->vp_ipaddr = entry.ipaddr;
 
 		/*
 		 *	If there is no Framed-Netmask attribute in the
 		 *	reply, add one
 		 */
 		if (pairfind(request->reply->vps, PW_FRAMED_IP_NETMASK) == NULL) {
-			if ((vp = paircreate(PW_FRAMED_IP_NETMASK, PW_TYPE_IPADDR)) == NULL)
-				radlog(L_ERR|L_CONS, "no memory");
-			else {
-				vp->lvalue = ntohl(data->netmask);
-				ip_ntoa(vp->strvalue, vp->lvalue);
-				pairadd(&request->reply->vps, vp);
-			}
+			vp = radius_paircreate(request, &request->reply->vps,
+					       PW_FRAMED_IP_NETMASK,
+					       PW_TYPE_IPADDR);
+			vp->vp_ipaddr = ntohl(data->netmask);
 		}
 
 	}
 	else{
 		pthread_mutex_unlock(&data->op_mutex);
-		DEBUG("rlm_ippool: No available ip addresses in pool.");
+		RDEBUG("No available ip addresses in pool.");
 		return RLM_MODULE_NOTFOUND;
 	}
 
@@ -854,8 +805,6 @@ static int ippool_detach(void *instance)
 
 	gdbm_close(data->gdbm);
 	gdbm_close(data->ip);
-	free(data->session_db);
-	free(data->ip_index);
 	pthread_mutex_destroy(&data->op_mutex);
 
 	free(instance);
@@ -872,10 +821,11 @@ static int ippool_detach(void *instance)
  *	is single-threaded.
  */
 module_t rlm_ippool = {
-	"IPPOOL",
+	RLM_MODULE_INIT,
+	"ippool",
 	RLM_TYPE_THREAD_SAFE,		/* type */
-	NULL,				/* initialization */
 	ippool_instantiate,		/* instantiation */
+	ippool_detach,			/* detach */
 	{
 		NULL,			/* authentication */
 		NULL,		 	/* authorization */
@@ -886,6 +836,4 @@ module_t rlm_ippool = {
 		NULL,			/* post-proxy */
 		ippool_postauth		/* post-auth */
 	},
-	ippool_detach,			/* detach */
-	NULL,				/* destroy */
 };

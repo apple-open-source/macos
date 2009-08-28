@@ -8,6 +8,11 @@ use DBIx::Class::Schema;
 use DBIx::Class::Storage::DBI;
 use DBIx::Class::ClassResolver::PassThrough;
 use DBI;
+use Scalar::Util;
+
+unless ($INC{"DBIx/Class/CDBICompat.pm"}) {
+  warn "IMPORTANT: DBIx::Class::DB is DEPRECATED AND *WILL* BE REMOVED. DO NOT USE.\n";
+}
 
 __PACKAGE__->load_components(qw/ResultSetProxy/);
 
@@ -23,29 +28,15 @@ sub storage { shift->schema_instance(@_)->storage; }
 
 DBIx::Class::DB - (DEPRECATED) classdata schema component
 
-=head1 SYNOPSIS
-
-  package MyDB;
-
-  use base qw/DBIx::Class/;
-  __PACKAGE__->load_components('DB');
-
-  __PACKAGE__->connection('dbi:...', 'user', 'pass', \%attrs);
-
-  package MyDB::MyTable;
-
-  use base qw/MyDB/;
-  __PACKAGE__->load_components('Core'); # just load this in MyDB if it will
-                                        # always be there
-
-  ...
-
 =head1 DESCRIPTION
 
 This class is designed to support the Class::DBI connection-as-classdata style
 for DBIx::Class. You are *strongly* recommended to use a DBIx::Class::Schema
 instead; DBIx::Class::DB will not undergo new development and will be moved
-to being a CDBICompat-only component before 1.0.
+to being a CDBICompat-only component before 1.0. In order to discourage further
+use, documentation has been removed as of 0.08000
+
+=begin HIDE_BECAUSE_THIS_CLASS_IS_DEPRECATED
 
 =head1 METHODS
 
@@ -150,13 +141,49 @@ native L<DBIx::Class::ResultSet> system.
 =cut
 
 sub resultset_instance {
-  my $class = ref $_[0] || $_[0];
-  my $source = $class->result_source_instance;
+  $_[0]->result_source_instance->resultset
+}
+
+=head2 result_source_instance
+
+Returns an instance of the result source for this class
+
+=cut
+
+sub result_source_instance {
+  my $class = shift;
+  $class = ref $class || $class;
+ 
+  __PACKAGE__->mk_classdata(qw/_result_source_instance/)
+    unless __PACKAGE__->can('_result_source_instance');
+
+  
+  return $class->_result_source_instance(@_) if @_;
+
+  my $source = $class->_result_source_instance;
+  return {} unless Scalar::Util::blessed($source);
+
   if ($source->result_class ne $class) {
-    $source = $source->new($source);
-    $source->result_class($class);
+    # Remove old source instance so we dont get deep recursion
+    #$DB::single = 1;
+    # Need to set it to a non-undef value so that it doesn't just fallback to
+    # a parent class's _result_source_instance
+    #$class->_result_source_instance({});
+    #$class->table($class);
+    #$source = $class->_result_source_instance;
+
+    $DB::single = 1;
+    $source = $source->new({ 
+        %$source, 
+        source_name  => $class,
+        result_class => $class
+    } );
+    $class->_result_source_instance($source);
+    if (my $coderef = $class->can('schema_instance')) {
+        $coderef->($class)->register_class($class, $class);
+    }
   }
-  return $source->resultset;
+  return $source;
 }
 
 =head2 resolve_class
@@ -176,6 +203,8 @@ Alias for L<txn_commit>
 ****DEPRECATED****
 
 Alias for L<txn_rollback>
+
+=end HIDE_BECAUSE_THIS_CLASS_IS_DEPRECATED
 
 =head1 AUTHORS
 

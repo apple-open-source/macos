@@ -146,6 +146,7 @@ void			if_link_update(interface_t * if_p);
 void			if_link_copy(interface_t * dest, 
 				     const interface_t * source);
 boolean_t		if_is_wireless(interface_t * if_p);
+int			if_link_index(interface_t * if_p);
 
 static __inline__ int
 dl_to_arp_hwtype(int dltype)

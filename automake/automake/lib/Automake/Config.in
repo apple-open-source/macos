@@ -18,6 +18,7 @@
 
 package Automake::Config;
 use strict;
+use File::Basename ();
 
 use 5.006;
 require Exporter;
@@ -30,7 +31,10 @@ our @EXPORT = qw ($APIVERSION $PACKAGE $VERSION $libdir);
 our $APIVERSION = '@APIVERSION@';
 our $PACKAGE = '@PACKAGE@';
 our $VERSION = '@VERSION@';
-our $libdir = '@datadir@/@PACKAGE@-@APIVERSION@';
+
+my $_bindir = File::Basename::dirname($0);
+(my $_datadir = '@datadir@') =~ s,^/usr,$_bindir/..,;
+our $libdir = "$_datadir/@PACKAGE@-@APIVERSION@";
 
 1;;
 

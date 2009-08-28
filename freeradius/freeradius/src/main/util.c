@@ -1,7 +1,7 @@
 /*
  * util.c	Various utility functions.
  *
- * Version:     $Id: util.c,v 1.37.2.1.2.2 2007/06/12 09:31:46 aland Exp $
+ * Version:     $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,35 +15,22 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2000  The FreeRADIUS server project
+ * Copyright 2000,2006  The FreeRADIUS server project
  */
 
-static const char rcsid[] = "$Id: util.c,v 1.37.2.1.2.2 2007/06/12 09:31:46 aland Exp $";
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include "autoconf.h"
-#include "libradius.h"
+#include <freeradius-devel/radiusd.h>
+#include <freeradius-devel/rad_assert.h>
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <ctype.h>
 #include <signal.h>
 
 #include <sys/stat.h>
 #include <fcntl.h>
-
-#ifdef HAVE_UNISTD_H
-#	include <unistd.h>
-#endif
-
-#ifdef HAVE_NETINET_IN_H
-#include <netinet/in.h>
-#endif
-
-#include "radiusd.h"
-#include "rad_assert.h"
 
 /*
  *	The signal() function in Solaris 2.5.1 sets SA_NODEFER in
@@ -56,6 +43,7 @@ static const char rcsid[] = "$Id: util.c,v 1.37.2.1.2.2 2007/06/12 09:31:46 alan
  *	Using sigaction() to reset the signal handler fixes the problem,
  *	so where available, we prefer that solution.
  */
+
 void (*reset_signal(int signo, void (*func)(int)))(int)
 {
 #ifdef HAVE_SIGACTION
@@ -81,6 +69,8 @@ void (*reset_signal(int signo, void (*func)(int)))(int)
 	 *	so we don't have a choice.
 	 */
 	signal(signo, func);
+
+	return NULL;
 #endif
 }
 
@@ -152,6 +142,8 @@ void *request_data_get(REQUEST *request,
 {
 	request_data_t **last;
 
+	if (!request) return NULL;
+
 	for (last = &(request->data); *last != NULL; last = &((*last)->next)) {
 		if (((*last)->unique_ptr == unique_ptr) &&
 		    ((*last)->unique_int == unique_int)) {
@@ -172,6 +164,28 @@ void *request_data_get(REQUEST *request,
 
 
 /*
+ *	Get opaque data from a request without removing it.
+ */
+void *request_data_reference(REQUEST *request,
+		       void *unique_ptr, int unique_int)
+{
+	request_data_t **last;
+
+	for (last = &(request->data); *last != NULL; last = &((*last)->next)) {
+		if (((*last)->unique_ptr == unique_ptr) &&
+		    ((*last)->unique_int == unique_int)) {
+			request_data_t *this = *last;
+			void *ptr = this->opaque;
+
+			return ptr;
+		}
+	}
+
+	return NULL;		/* wasn't found, too bad... */
+}
+
+
+/*
  *	Free a REQUEST struct.
  */
 void request_free(REQUEST **request_ptr)
@@ -183,23 +197,21 @@ void request_free(REQUEST **request_ptr)
 
 	request = *request_ptr;
 
-	/*
-	 *	If there's a thread currently active on this request,
-	 *	blow up!
-	 */
-	rad_assert(request->child_pid == NO_SUCH_CHILD_PID);
-
 	if (request->packet)
 		rad_free(&request->packet);
 
+#ifdef WITH_PROXY
 	if (request->proxy)
 		rad_free(&request->proxy);
+#endif
 
 	if (request->reply)
 		rad_free(&request->reply);
 
+#ifdef WITH_PROXY
 	if (request->proxy_reply)
 		rad_free(&request->proxy_reply);
+#endif
 
 	if (request->config_items)
 		pairfree(&request->config_items);
@@ -220,10 +232,18 @@ void request_free(REQUEST **request_ptr)
 		request->data = NULL;
 	}
 
+	if (request->root &&
+	    (request->root->refcount > 0)) {
+		request->root->refcount--;
+		request->root = NULL;
+	}
+
 #ifndef NDEBUG
 	request->magic = 0x01020304;	/* set the request to be nonsense */
-	strcpy(request->secret, "REQUEST-DELETED");
-	strcpy(request->proxysecret, "REQUEST-DELETED");
+#endif
+	request->client = NULL;
+#ifdef WITH_PROXY
+	request->home_server = NULL;
 #endif
 	free(request);
 
@@ -268,7 +288,7 @@ int rad_mkdir(char *directory, int mode)
 	 *	Look for the LAST directory name.  Try to create that,
 	 *	failing on any error.
 	 */
-	p = strrchr(directory, '/');
+	p = strrchr(directory, FR_DIR_SEP);
 	if (p != NULL) {
 		*p = '\0';
 		rcode = rad_mkdir(directory, mode);
@@ -285,7 +305,7 @@ int rad_mkdir(char *directory, int mode)
 		 *	Reset the directory delimiter, and go ask
 		 *	the system to make the directory.
 		 */
-		*p = '/';
+		*p = FR_DIR_SEP;
 	} else {
 		return 0;
 	}
@@ -315,19 +335,15 @@ void *rad_malloc(size_t size)
 	return ptr;
 }
 
-void xfree(const char *ptr)
-{
-	free((char *)ptr);
-}
-
 /*
  *	Logs an error message and aborts the program
  *
  */
 
-void NEVER_RETURNS rad_assert_fail (const char *file, unsigned int line)
+void NEVER_RETURNS rad_assert_fail (const char *file, unsigned int line,
+				    const char *expr)
 {
-	radlog(L_ERR|L_CONS, "Assertion failed in %s, line %u", file, line);
+	radlog(L_ERR, "ASSERT FAILED %s[%u]: %s", file, line, expr);
 	abort();
 }
 
@@ -344,18 +360,22 @@ REQUEST *request_alloc(void)
 #ifndef NDEBUG
 	request->magic = REQUEST_MAGIC;
 #endif
+#ifdef WITH_PROXY
 	request->proxy = NULL;
+#endif
 	request->reply = NULL;
+#ifdef WITH_PROXY
 	request->proxy_reply = NULL;
+#endif
 	request->config_items = NULL;
 	request->username = NULL;
 	request->password = NULL;
 	request->timestamp = time(NULL);
-	request->child_pid = NO_SUCH_CHILD_PID;
-	request->container = NULL;
 	request->options = RAD_REQUEST_OPTION_NONE;
-	request->component = "<server core>";
-	request->module = "<server core>";
+
+	request->module = "";
+	request->component = "";
+	if (debug_flag) request->radlog = radlog_request;
 
 	return request;
 }
@@ -367,181 +387,174 @@ REQUEST *request_alloc(void)
  *	This function allows modules to inject fake requests
  *	into the server, for tunneled protocols like TTLS & PEAP.
  */
-REQUEST *request_alloc_fake(REQUEST *oldreq)
+REQUEST *request_alloc_fake(REQUEST *request)
 {
-  REQUEST *request;
+  REQUEST *fake;
 
-  request = request_alloc();
+  fake = request_alloc();
 
-  request->number = oldreq->number;
-  request->child_pid = NO_SUCH_CHILD_PID;
-  request->options = RAD_REQUEST_OPTION_FAKE_REQUEST;
-
-  request->packet = rad_alloc(0);
-  rad_assert(request->packet != NULL);
-
-  request->reply = rad_alloc(0);
-  rad_assert(request->reply != NULL);
+  fake->number = request->number;
+#ifdef HAVE_PTHREAD_H
+  fake->child_pid = request->child_pid;
+#endif
+  fake->parent = request;
+  fake->root = request->root;
+  fake->client = request->client;
 
   /*
-   *	Fill in the fake request packet.
+   *	For new server support.
+   *
+   *	FIXME: Key instead off of a "virtual server" data structure.
+   *
+   *	FIXME: Permit different servers for inner && outer sessions?
    */
-  request->packet->sockfd = -1;
-  request->packet->src_ipaddr = htonl(INADDR_LOOPBACK);
-  request->packet->dst_ipaddr = htonl(INADDR_LOOPBACK);
-  request->packet->src_port = request->number >> 8;
-  request->packet->dst_port = 0;
+  fake->server = request->server;
+
+  fake->packet = rad_alloc(0);
+  if (!fake->packet) {
+	  request_free(&fake);
+	  return NULL;
+  }
+
+  fake->reply = rad_alloc(0);
+  if (!fake->reply) {
+	  request_free(&fake);
+	  return NULL;
+  }
+
+  fake->master_state = REQUEST_ACTIVE;
+  fake->child_state = REQUEST_RUNNING;
 
   /*
-   *	This isn't STRICTLY required, as the fake request SHOULD NEVER
+   *	Fill in the fake request.
+   */
+  fake->packet->sockfd = -1;
+  fake->packet->src_ipaddr = request->packet->src_ipaddr;
+  fake->packet->src_port = request->packet->src_port;
+  fake->packet->dst_ipaddr = request->packet->dst_ipaddr;
+  fake->packet->dst_port = 0;
+
+  /*
+   *	This isn't STRICTLY required, as the fake request MUST NEVER
    *	be put into the request list.  However, it's still reasonable
    *	practice.
    */
-  request->packet->id = request->number & 0xff;
-  request->packet->code = oldreq->packet->code;
-  request->timestamp = oldreq->timestamp;
+  fake->packet->id = fake->number & 0xff;
+  fake->packet->code = request->packet->code;
+  fake->timestamp = request->timestamp;
+ 
+  /*
+   *	Required for new identity support
+   */
+  fake->listener = request->listener;
 
   /*
    *	Fill in the fake reply, based on the fake request.
    */
-  request->reply->sockfd = request->packet->sockfd;
-  request->reply->dst_ipaddr = request->packet->src_ipaddr;
-  request->reply->dst_port = request->packet->src_port;
-  request->reply->id = request->packet->id;
-  request->reply->code = 0; /* UNKNOWN code */
+  fake->reply->sockfd = fake->packet->sockfd;
+  fake->reply->src_ipaddr = fake->packet->dst_ipaddr;
+  fake->reply->src_port = fake->packet->dst_port;
+  fake->reply->dst_ipaddr = fake->packet->src_ipaddr;
+  fake->reply->dst_port = fake->packet->src_port;
+  fake->reply->id = fake->packet->id;
+  fake->reply->code = 0; /* UNKNOWN code */
 
-  return request;
+  /*
+   *	Copy debug information.
+   */
+  fake->options = request->options;
+  fake->radlog = request->radlog;
+
+  return fake;
 }
 
 
 /*
- *  Perform any RFC specified cleaning of outgoing replies
+ *	Copy a quoted string.
  */
-void rfc_clean(RADIUS_PACKET *packet)
+int rad_copy_string(char *to, const char *from)
 {
-	VALUE_PAIR *vps = NULL;
+	int length = 0;
+	char quote = *from;
 
-	switch (packet->code) {
-		/*
-		 *	In the default case, we just move all of the
-		 *	attributes over.
-		 */
-	default:
-		vps = packet->vps;
-		packet->vps = NULL;
-		break;
-
-		/*
-		 *	Accounting responses can only contain
-		 *	Proxy-State and VSA's.  Note that we do NOT
-		 *	move the Proxy-State attributes over, as the
-		 *	Proxy-State attributes in this packet are NOT
-		 *	the right ones to use.  The reply function
-		 *	takes care of copying those attributes from
-		 *	the original request, which ARE the right ones
-		 *	to use.
-		 */
-	case PW_ACCOUNTING_RESPONSE:
-		pairmove2(&vps, &(packet->vps), PW_VENDOR_SPECIFIC);
-		break;
-
-		/*
-		 *	Authentication REJECT's can have only
-		 *	EAP-Message, Message-Authenticator
-		 *	Reply-Message and Proxy-State.
-		 *
-		 *	We delete everything other than these.
-		 *	Proxy-State is added below, just before the
-		 *	reply is sent.
-		 */
-	case PW_AUTHENTICATION_REJECT:
-		pairmove2(&vps, &(packet->vps), PW_EAP_MESSAGE);
-		pairmove2(&vps, &(packet->vps), PW_MESSAGE_AUTHENTICATOR);
-		pairmove2(&vps, &(packet->vps), PW_REPLY_MESSAGE);
-		break;
-	}
-
-	/*
-	 *	Move the newly cleaned attributes over.
-	 */
-	pairfree(&packet->vps);
-	packet->vps = vps;
-
-	/*
-	 *	FIXME: Perform other, more generic sanity checks.
-	 */
-}
-
-
-/*
- *  Reject a request, by sending a trivial reply packet.
- */
- void request_reject(REQUEST *request)
-{
-	VALUE_PAIR *vps;
-
-	/*
-	 *	Already rejected.  Don't do anything.
-	 */
-	if (request->options & RAD_REQUEST_OPTION_REJECTED) {
-		return;
-	}
-
-	DEBUG2("Server rejecting request %d.", request->number);
-	switch (request->packet->code) {
-		/*
-		 *  Accounting requests, etc. get dropped on the floor.
-		 */
-		default:
-		case PW_ACCOUNTING_REQUEST:
-		case PW_STATUS_SERVER:
-			break;
-
-		/*
-		 *  Authentication requests get their Proxy-State
-		 *  attributes copied over, and an otherwise blank
-		 *  reject message sent.
-		 */
-		case PW_AUTHENTICATION_REQUEST:
-			request->reply->code = PW_AUTHENTICATION_REJECT;
-
-			/*
-			 *  Perform RFC limitations on outgoing replies.
-			 */
-			rfc_clean(request->reply);
-
-			/*
-			 *  Need to copy Proxy-State from request->packet->vps
-			 */
-			vps = paircopy2(request->packet->vps, PW_PROXY_STATE);
-			if (vps != NULL)
-				pairadd(&(request->reply->vps), vps);
-			break;
-	}
-
-	/*
-	 *	If a reply exists, send it.
-	 *
-	 *	But DON'T send a RADIUS packet for a fake request.
-	 */
-	if ((request->reply->code != 0) &&
-	    ((request->options & RAD_REQUEST_OPTION_FAKE_REQUEST) == 0)) {
-		/*
-		 *	If we're not delaying authentication rejects,
-		 *	then send the response immediately.  Otherwise,
-		 *	mark the request as delayed, and do NOT send a
-		 *	response.
-		 */
-		if (mainconfig.reject_delay == 0) {
-			rad_send(request->reply, request->packet,
-				     request->secret);
-		} else {
-			request->options |= RAD_REQUEST_OPTION_DELAYED_REJECT;
+	do {
+		if (*from == '\\') {
+			*(to++) = *(from++);
+			length++;
 		}
-	}
+		*(to++) = *(from++);
+		length++;
+	} while (*from && (*from != quote));
+
+	if (*from != quote) return -1; /* not properly quoted */
+
+	*(to++) = quote;
+	length++;
+	*to = '\0';
+
+	return length;
+}
+
+
+/*
+ *	Copy a %{} string.
+ */
+int rad_copy_variable(char *to, const char *from)
+{
+	int length = 0;
+	int sublen;
+
+	*(to++) = *(from++);
+	length++;
+
+	while (*from) {
+		switch (*from) {
+		case '"':
+		case '\'':
+			sublen = rad_copy_string(to, from);
+			if (sublen < 0) return sublen;
+			from += sublen;
+			to += sublen;
+			break;
+
+		case '}':	/* end of variable expansion */
+			*(to++) = *(from++);
+			*to = '\0';
+			length++;
+			return length; /* proper end of variable */
+
+		case '\\':
+			*(to++) = *(from++);
+			*(to++) = *(from++);
+			length += 2;
+			break;
+
+		case '%':	/* start of variable expansion */
+			if (from[1] == '{') {
+				*(to++) = *(from++);
+				length++;
+
+				sublen = rad_copy_variable(to, from);
+				if (sublen < 0) return sublen;
+				from += sublen;
+				to += sublen;
+				length += sublen;
+			} /* else FIXME: catch %%{ ?*/
+
+			/* FALL-THROUGH */
+			break;
+
+		default:
+			*(to++) = *(from++);
+			length++;
+			break;
+		}
+	} /* loop over the input string */
 
 	/*
-	 *	Remember that it was rejected.
+	 *	We ended the string before a trailing '}'
 	 */
-	request->options |= RAD_REQUEST_OPTION_REJECTED;
+
+	return -1;
 }
+

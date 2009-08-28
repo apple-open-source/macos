@@ -52,25 +52,25 @@ enum {
  * @field result The result of the transaction. Common errors are kIOReturnNoDevice if there is no device responding at the given address, kIOReturnUnsupportedMode if the type of transaction is unsupported on the requested bus.
  * @field completion A completion routine to be executed when the request completes. If NULL is passed, the request is synchronous, otherwise it may execute asynchronously.
  * @field commFlags Flags that modify the I2C transaction type. The following flags are defined:<br>
-        kIOI2CUseSubAddressCommFlag Transaction includes a subaddress.<br>
+ *      kIOI2CUseSubAddressCommFlag Transaction includes a subaddress.<br>
  * @field minReplyDelay Minimum delay as absolute time between send and reply transactions.
  * @field sendAddress I2C address to write.
  * @field sendSubAddress I2C subaddress to write.
  * @field __reservedB Set to zero.
  * @field sendTransactionType The following types of transaction are defined for the send part of the request:<br>
-        kIOI2CNoTransactionType No send transaction to perform. <br>
-        kIOI2CSimpleTransactionType Simple I2C message. <br>
-        kIOI2CCombinedTransactionType Combined format I2C R/~W transaction. <br>
+ *      kIOI2CNoTransactionType No send transaction to perform. <br>
+ *      kIOI2CSimpleTransactionType Simple I2C message. <br>
+ *      kIOI2CCombinedTransactionType Combined format I2C R/~W transaction. <br>
  * @field sendBuffer Pointer to the send buffer.
  * @field sendBytes Number of bytes to send. Set to actual bytes sent on completion of the request.
  * @field replyAddress I2C Address from which to read.
  * @field replySubAddress I2C Address from which to read.
  * @field __reservedC Set to zero.
  * @field replyTransactionType The following types of transaction are defined for the reply part of the request:<br>
-        kIOI2CNoTransactionType No reply transaction to perform. <br>
-        kIOI2CSimpleTransactionType Simple I2C message. <br>
-        kIOI2CDDCciReplyTransactionType DDC/ci message (with embedded length). See VESA DDC/ci specification. <br>
-        kIOI2CCombinedTransactionType Combined format I2C R/~W transaction. <br>
+ *      kIOI2CNoTransactionType No reply transaction to perform. <br>
+ *      kIOI2CSimpleTransactionType Simple I2C message. <br>
+ *      kIOI2CDDCciReplyTransactionType DDC/ci message (with embedded length). See VESA DDC/ci specification. <br>
+ *      kIOI2CCombinedTransactionType Combined format I2C R/~W transaction. <br>
  * @field replyBuffer Pointer to the reply buffer.
  * @field replyBytes Max bytes to reply (size of replyBuffer). Set to actual bytes received on completion of the request.
  * @field __reservedD Set to zero.
@@ -231,6 +231,10 @@ IOReturn IOI2CSendRequest( IOI2CConnectRef connect, IOOptionBits options,
 #else
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+/*! @class IOI2CInterface
+    @abstract The base class for an I2C bus interface.
+    @discussion The IOI2CInterface base class defines an I2C bus interface. Not useful for developers. */
 
 class IOI2CInterface : public IOService
 {

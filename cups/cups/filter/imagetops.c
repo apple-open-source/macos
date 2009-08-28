@@ -1,9 +1,9 @@
 /*
- * "$Id: imagetops.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: imagetops.c 6649 2007-07-11 21:46:42Z mike $"
  *
  *   Image file to PostScript filter for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 1993-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -212,7 +212,11 @@ main(int  argc,				/* I - Number of command-line arguments */
 
   if ((val = cupsGetOption("scaling", num_options, options)) != NULL)
     zoom = atoi(val) * 0.01;
-  else if (cupsGetOption("fitplot", num_options, options))
+  else if ((val = cupsGetOption("fitplot", num_options, options)) != NULL &&
+           !strcasecmp(val, "true"))
+    zoom = 1.0;
+  else if ((val = cupsGetOption("fit-to-page", num_options, options)) != NULL &&
+           !strcasecmp(val, "true"))
     zoom = 1.0;
 
   if ((val = cupsGetOption("ppi", num_options, options)) != NULL)
@@ -1061,5 +1065,5 @@ ps_ascii85(cups_ib_t *data,		/* I - Data to print */
 
 
 /*
- * End of "$Id: imagetops.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: imagetops.c 6649 2007-07-11 21:46:42Z mike $".
  */

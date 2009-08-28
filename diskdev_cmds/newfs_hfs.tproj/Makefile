@@ -7,11 +7,10 @@ CFILES = hfs_endian.c makehfs.c newfs_hfs.c
 MANPAGES = newfs_hfs.8
 	      #hfsbootdata.img newfs_hfs.8
 
-Extra_CC_Flags = -Wall -Werror -mdynamic-no-pic \
-	-D_DARWIN_USE_64_BIT_INODE=1 \
+Extra_CC_Flags = -Wall -mdynamic-no-pic \
 	-D_LONG_LONG -Wno-four-char-constants
 Extra_LD_Flags = -dead_strip -lutil
-Extra_Frameworks = -framework CoreFoundation
+Extra_Frameworks = -framework CoreFoundation -framework DiskArbitration
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make
 

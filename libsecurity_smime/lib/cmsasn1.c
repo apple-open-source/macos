@@ -308,11 +308,12 @@ static const SecAsn1Template SecCmsOriginatorIdentifierOrKeyTemplate[] = {
 	  SEC_ASN1_SUB(SecCmsIssuerAndSNTemplate),
 	  SecCmsOriginatorIDOrKeyIssuerSN },
     { SEC_ASN1_EXPLICIT | SEC_ASN1_CONSTRUCTED | SEC_ASN1_CONTEXT_SPECIFIC |
-      SEC_ASN1_XTRN | 1,
+      /* this was tag 1 here, 2 for the next; RFC 3852 says they are 0 and 1 */
+      SEC_ASN1_XTRN | 0,
 	  offsetof(SecCmsOriginatorIdentifierOrKey,id.subjectKeyID),
-	  SEC_ASN1_SUB(kSecAsn1PointerToOctetStringTemplate) ,
+	  kSecAsn1OctetStringTemplate,
 	  SecCmsOriginatorIDOrKeySubjectKeyID },
-    { SEC_ASN1_EXPLICIT | SEC_ASN1_CONSTRUCTED | SEC_ASN1_CONTEXT_SPECIFIC | 2,
+    { SEC_ASN1_EXPLICIT | SEC_ASN1_CONSTRUCTED | SEC_ASN1_CONTEXT_SPECIFIC | 1,
 	  offsetof(SecCmsOriginatorIdentifierOrKey,id.originatorPublicKey),
 	  SecCmsOriginatorPublicKeyTemplate,
 	  SecCmsOriginatorIDOrKeyOriginatorPublicKey },
@@ -355,7 +356,7 @@ static const SecAsn1Template SecCmsRecipientEncryptedKeyTemplate[] = {
 	  SecCmsKeyAgreeRecipientIdentifierTemplate },
     { SEC_ASN1_INLINE | SEC_ASN1_XTRN,
 	  offsetof(SecCmsRecipientEncryptedKey,encKey),
-	  SEC_ASN1_SUB(kSecAsn1BitStringTemplate) },
+	  SEC_ASN1_SUB(kSecAsn1OctetStringTemplate) },
     { 0 }
 };
 

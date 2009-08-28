@@ -2,7 +2,7 @@ Index: samba/source/configure.in
 ===================================================================
 --- samba/source/configure.in.orig
 +++ samba/source/configure.in
-@@ -3087,6 +3087,16 @@ if test x"$samba_cv_HAVE_STAT_ST_FLAGS" 
+@@ -3106,6 +3106,16 @@ if test x"$samba_cv_HAVE_STAT_ST_FLAGS" 
  		[Whether the stat struct has a st_flags member])
  fi
  
@@ -39,7 +39,7 @@ Index: samba/source/smbd/dosmode.c
  	if (ro_opts == MAP_READONLY_YES) {
  		/* Original Samba method - map inverse of user "w" bit. */
  		if ((sbuf->st_mode & S_IWUSR) == 0) {
-@@ -163,16 +172,57 @@ static uint32 dos_mode_from_sbuf(connect
+@@ -163,18 +172,59 @@ static uint32 dos_mode_from_sbuf(connect
  			result |= aRONLY;
  		}
  	} /* Else never set the readonly bit. */
@@ -99,13 +99,16 @@ Index: samba/source/smbd/dosmode.c
 +#endif
 +
  	if (S_ISDIR(sbuf->st_mode))
- 		result = aDIR | (result & aRONLY);
+-		result = aDIR | (result & aRONLY);
++		result |= aDIR;
  
+ 	result |= set_sparse_flag(sbuf);
+  
 Index: samba/source/smbd/posix_acls.c
 ===================================================================
 --- samba/source/smbd/posix_acls.c.orig
 +++ samba/source/smbd/posix_acls.c
-@@ -4301,6 +4301,18 @@ BOOL can_access_file(connection_struct *
+@@ -4330,6 +4330,18 @@ BOOL can_access_file(connection_struct *
  		}
  	}
  

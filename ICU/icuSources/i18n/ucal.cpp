@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-*   Copyright (C) 1996-2006, International Business Machines
+*   Copyright (C) 1996-2008, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *******************************************************************************
 */
@@ -18,6 +18,7 @@
 #include "unicode/ustring.h"
 #include "unicode/strenum.h"
 #include "cmemory.h"
+#include "cstring.h"
 #include "ustrenum.h"
 
 U_NAMESPACE_USE
@@ -104,54 +105,6 @@ ucal_getDSTSavings(const UChar* zoneID, UErrorCode* ec) {
     return result;
 }
 
-#ifdef U_USE_UCAL_OBSOLETE_2_8
-U_CAPI const UChar* U_EXPORT2
-ucal_getAvailableTZIDs(        int32_t         rawOffset,
-                int32_t         index,
-                UErrorCode*     status)
-{
-
-  if(U_FAILURE(*status)) return 0;
-  
-  int32_t count = 0;
-  const UChar *retVal = 0;
-  
-  const UnicodeString** tzs = TimeZone::createAvailableIDs(rawOffset, 
-                                 count);
-
-  if(tzs == 0) {
-    *status = U_MEMORY_ALLOCATION_ERROR;
-    return 0;
-  }
-
-  if(index < count)
-    retVal = tzs[index]->getBuffer();
-  else
-    *status = U_INDEX_OUTOFBOUNDS_ERROR;
-  
-  uprv_free(tzs);
-  return retVal;
-}
-
-U_CAPI int32_t U_EXPORT2
-ucal_countAvailableTZIDs(int32_t rawOffset)
-{  
-
-  int32_t count = 0;
-  
-  const UnicodeString** tzs = TimeZone::createAvailableIDs(rawOffset, 
-                                  count);
-
-  if(tzs == 0) {
-    // TBD: U_MEMORY_ALLOCATION_ERROR
-    return 0;
-  }
-
-  uprv_free(tzs);
-  return count;
-}
-#endif
-
 U_CAPI UDate  U_EXPORT2
 ucal_getNow()
 {
@@ -159,13 +112,14 @@ ucal_getNow()
   return Calendar::getNow();
 }
 
-// ignore type until we add more subclasses
+#define ULOC_LOCALE_IDENTIFIER_CAPACITY (ULOC_FULLNAME_CAPACITY + 1 + ULOC_KEYWORD_AND_VALUES_CAPACITY)
+
 U_CAPI UCalendar*  U_EXPORT2
-ucal_open(    const    UChar*          zoneID,
-            int32_t        len,
-        const    char*       locale,
-            UCalendarType     /*type*/,
-            UErrorCode*    status)
+ucal_open(  const UChar*  zoneID,
+            int32_t       len,
+            const char*   locale,
+            UCalendarType caltype,
+            UErrorCode*   status)
 {
 
   if(U_FAILURE(*status)) return 0;
@@ -176,7 +130,16 @@ ucal_open(    const    UChar*          zoneID,
   if (U_FAILURE(*status)) {
       return NULL;
   }
-  
+
+  if ( caltype == UCAL_GREGORIAN ) {
+      char  localeBuf[ULOC_LOCALE_IDENTIFIER_CAPACITY];
+      uprv_strncpy(localeBuf, locale, ULOC_LOCALE_IDENTIFIER_CAPACITY);
+      uloc_setKeywordValue("calendar", "gregorian", localeBuf, ULOC_LOCALE_IDENTIFIER_CAPACITY, status);
+      if (U_FAILURE(*status)) {
+          return NULL;
+      }
+      return (UCalendar*)Calendar::createInstance(zone, Locale(localeBuf), *status);
+  }
   return (UCalendar*)Calendar::createInstance(zone, Locale(locale), *status);
 }
 
@@ -185,6 +148,22 @@ ucal_close(UCalendar *cal)
 {
 
   delete (Calendar*) cal;
+}
+
+U_CAPI UCalendar* U_EXPORT2 
+ucal_clone(const UCalendar* cal,
+           UErrorCode*      status)
+{
+  if(U_FAILURE(*status)) return 0;
+  
+  Calendar* res = ((Calendar*)cal)->clone();
+
+  if(res == 0) {
+    *status = U_MEMORY_ALLOCATION_ERROR;
+    return 0;
+  }
+
+  return (UCalendar*) res;
 }
 
 U_CAPI void  U_EXPORT2
@@ -214,289 +193,289 @@ ucal_getTimeZoneDisplayName(const     UCalendar*                 cal,
                     UErrorCode*             status)
 {
 
-  if(U_FAILURE(*status)) return -1;
+    if(U_FAILURE(*status)) return -1;
 
-  const TimeZone& tz = ((Calendar*)cal)->getTimeZone();
-  UnicodeString id;
-  if(!(result==NULL && resultLength==0)) {
-    // NULL destination for pure preflighting: empty dummy string
-    // otherwise, alias the destination buffer
-    id.setTo(result, 0, resultLength);
-  }
+    const TimeZone& tz = ((Calendar*)cal)->getTimeZone();
+    UnicodeString id;
+    if(!(result==NULL && resultLength==0)) {
+        // NULL destination for pure preflighting: empty dummy string
+        // otherwise, alias the destination buffer
+        id.setTo(result, 0, resultLength);
+    }
 
-  switch(type) {
+    switch(type) {
   case UCAL_STANDARD:
-    tz.getDisplayName(FALSE, TimeZone::LONG, Locale(locale), id);
-    break;
+      tz.getDisplayName(FALSE, TimeZone::LONG, Locale(locale), id);
+      break;
 
   case UCAL_SHORT_STANDARD:
-    tz.getDisplayName(FALSE, TimeZone::SHORT, Locale(locale), id);
-    break;
+      tz.getDisplayName(FALSE, TimeZone::SHORT, Locale(locale), id);
+      break;
 
   case UCAL_DST:
-    tz.getDisplayName(TRUE, TimeZone::LONG, Locale(locale), id);
-    break;
+      tz.getDisplayName(TRUE, TimeZone::LONG, Locale(locale), id);
+      break;
 
   case UCAL_SHORT_DST:
-    tz.getDisplayName(TRUE, TimeZone::SHORT, Locale(locale), id);
-    break;
-  }
+      tz.getDisplayName(TRUE, TimeZone::SHORT, Locale(locale), id);
+      break;
+    }
 
-  return id.extract(result, resultLength, *status);
+    return id.extract(result, resultLength, *status);
 }
 
 U_CAPI UBool  U_EXPORT2
 ucal_inDaylightTime(    const    UCalendar*      cal, 
-            UErrorCode*     status )
+                    UErrorCode*     status )
 {
 
-  if(U_FAILURE(*status)) return (UBool) -1;
-  return ((Calendar*)cal)->inDaylightTime(*status);
+    if(U_FAILURE(*status)) return (UBool) -1;
+    return ((Calendar*)cal)->inDaylightTime(*status);
 }
 
-U_DRAFT void U_EXPORT2
+U_CAPI void U_EXPORT2
 ucal_setGregorianChange(UCalendar *cal, UDate date, UErrorCode *pErrorCode) {
-  if(U_FAILURE(*pErrorCode)) {
-    return;
-  }
-  Calendar *cpp_cal = (Calendar *)cal;
-  if(cpp_cal->getDynamicClassID() != GregorianCalendar::getStaticClassID()) {
-    *pErrorCode = U_UNSUPPORTED_ERROR;
-    return;
-  }
-  ((GregorianCalendar *)cpp_cal)->setGregorianChange(date, *pErrorCode);
+    if(U_FAILURE(*pErrorCode)) {
+        return;
+    }
+    Calendar *cpp_cal = (Calendar *)cal;
+    if(cpp_cal->getDynamicClassID() != GregorianCalendar::getStaticClassID()) {
+        *pErrorCode = U_UNSUPPORTED_ERROR;
+        return;
+    }
+    ((GregorianCalendar *)cpp_cal)->setGregorianChange(date, *pErrorCode);
 }
 
-U_DRAFT UDate U_EXPORT2
+U_CAPI UDate U_EXPORT2
 ucal_getGregorianChange(const UCalendar *cal, UErrorCode *pErrorCode) {
-  if(U_FAILURE(*pErrorCode)) {
-    return (UDate)0;
-  }
-  Calendar *cpp_cal = (Calendar *)cal;
-  if(cpp_cal->getDynamicClassID() != GregorianCalendar::getStaticClassID()) {
-    *pErrorCode = U_UNSUPPORTED_ERROR;
-    return (UDate)0;
-  }
-  return ((GregorianCalendar *)cpp_cal)->getGregorianChange();
+    if(U_FAILURE(*pErrorCode)) {
+        return (UDate)0;
+    }
+    Calendar *cpp_cal = (Calendar *)cal;
+    if(cpp_cal->getDynamicClassID() != GregorianCalendar::getStaticClassID()) {
+        *pErrorCode = U_UNSUPPORTED_ERROR;
+        return (UDate)0;
+    }
+    return ((GregorianCalendar *)cpp_cal)->getGregorianChange();
 }
 
 U_CAPI int32_t U_EXPORT2
 ucal_getAttribute(    const    UCalendar*              cal,
-            UCalendarAttribute      attr)
+                  UCalendarAttribute      attr)
 {
 
-  switch(attr) {
+    switch(attr) {
   case UCAL_LENIENT:
-    return ((Calendar*)cal)->isLenient();
-    
+      return ((Calendar*)cal)->isLenient();
+
   case UCAL_FIRST_DAY_OF_WEEK:
-    return ((Calendar*)cal)->getFirstDayOfWeek();
-      
+      return ((Calendar*)cal)->getFirstDayOfWeek();
+
   case UCAL_MINIMAL_DAYS_IN_FIRST_WEEK:
-    return ((Calendar*)cal)->getMinimalDaysInFirstWeek();
+      return ((Calendar*)cal)->getMinimalDaysInFirstWeek();
 
   default:
-    break;
-  }
-  return -1;
+      break;
+    }
+    return -1;
 }
 
 U_CAPI void U_EXPORT2
 ucal_setAttribute(      UCalendar*              cal,
-            UCalendarAttribute      attr,
-            int32_t                 newValue)
+                  UCalendarAttribute      attr,
+                  int32_t                 newValue)
 {
 
-  switch(attr) {
+    switch(attr) {
   case UCAL_LENIENT:
-    ((Calendar*)cal)->setLenient((UBool)newValue);
-    break;
-    
+      ((Calendar*)cal)->setLenient((UBool)newValue);
+      break;
+
   case UCAL_FIRST_DAY_OF_WEEK:
-    ((Calendar*)cal)->setFirstDayOfWeek((UCalendarDaysOfWeek)newValue);
-    break;
-      
+      ((Calendar*)cal)->setFirstDayOfWeek((UCalendarDaysOfWeek)newValue);
+      break;
+
   case UCAL_MINIMAL_DAYS_IN_FIRST_WEEK:
-    ((Calendar*)cal)->setMinimalDaysInFirstWeek((uint8_t)newValue);
-    break;
-  }
+      ((Calendar*)cal)->setMinimalDaysInFirstWeek((uint8_t)newValue);
+      break;
+    }
 }
 
 U_CAPI const char* U_EXPORT2
 ucal_getAvailable(int32_t index)
 {
 
-  return uloc_getAvailable(index);
+    return uloc_getAvailable(index);
 }
 
 U_CAPI int32_t U_EXPORT2
 ucal_countAvailable()
 {
 
-  return uloc_countAvailable();
+    return uloc_countAvailable();
 }
 
 U_CAPI UDate  U_EXPORT2
 ucal_getMillis(    const    UCalendar*      cal,
-        UErrorCode*     status)
+               UErrorCode*     status)
 {
 
-  if(U_FAILURE(*status)) return (UDate) 0;
+    if(U_FAILURE(*status)) return (UDate) 0;
 
-  return ((Calendar*)cal)->getTime(*status);
+    return ((Calendar*)cal)->getTime(*status);
 }
 
 U_CAPI void  U_EXPORT2
 ucal_setMillis(        UCalendar*      cal,
-            UDate           dateTime,
-            UErrorCode*     status )
+               UDate           dateTime,
+               UErrorCode*     status )
 {
-  if(U_FAILURE(*status)) return;
+    if(U_FAILURE(*status)) return;
 
-  ((Calendar*)cal)->setTime(dateTime, *status);
+    ((Calendar*)cal)->setTime(dateTime, *status);
 }
 
 // TBD: why does this take an UErrorCode?
 U_CAPI void  U_EXPORT2
 ucal_setDate(        UCalendar*        cal,
-            int32_t            year,
-            int32_t            month,
-            int32_t            date,
-            UErrorCode        *status)
+             int32_t            year,
+             int32_t            month,
+             int32_t            date,
+             UErrorCode        *status)
 {
 
-  if(U_FAILURE(*status)) return;
+    if(U_FAILURE(*status)) return;
 
-  ((Calendar*)cal)->set(year, month, date);
+    ((Calendar*)cal)->set(year, month, date);
 }
 
 // TBD: why does this take an UErrorCode?
 U_CAPI void  U_EXPORT2
 ucal_setDateTime(    UCalendar*        cal,
-            int32_t            year,
-            int32_t            month,
-            int32_t            date,
-            int32_t            hour,
-            int32_t            minute,
-            int32_t            second,
-            UErrorCode        *status)
+                 int32_t            year,
+                 int32_t            month,
+                 int32_t            date,
+                 int32_t            hour,
+                 int32_t            minute,
+                 int32_t            second,
+                 UErrorCode        *status)
 {
-  if(U_FAILURE(*status)) return;
+    if(U_FAILURE(*status)) return;
 
-  ((Calendar*)cal)->set(year, month, date, hour, minute, second);
+    ((Calendar*)cal)->set(year, month, date, hour, minute, second);
 }
 
 U_CAPI UBool  U_EXPORT2
 ucal_equivalentTo(    const UCalendar*      cal1,
-            const UCalendar*      cal2)
+                  const UCalendar*      cal2)
 {
 
-  return ((Calendar*)cal1)->isEquivalentTo(*((Calendar*)cal2));
+    return ((Calendar*)cal1)->isEquivalentTo(*((Calendar*)cal2));
 }
 
 U_CAPI void  U_EXPORT2
 ucal_add(    UCalendar*                cal,
-        UCalendarDateFields        field,
-        int32_t                    amount,
-        UErrorCode*                status)
+         UCalendarDateFields        field,
+         int32_t                    amount,
+         UErrorCode*                status)
 {
 
-  if(U_FAILURE(*status)) return;
+    if(U_FAILURE(*status)) return;
 
-  ((Calendar*)cal)->add(field, amount, *status);
+    ((Calendar*)cal)->add(field, amount, *status);
 }
 
 U_CAPI void  U_EXPORT2
 ucal_roll(        UCalendar*            cal,
-            UCalendarDateFields field,
-            int32_t                amount,
-            UErrorCode*            status)
+          UCalendarDateFields field,
+          int32_t                amount,
+          UErrorCode*            status)
 {
 
-  if(U_FAILURE(*status)) return;
+    if(U_FAILURE(*status)) return;
 
-  ((Calendar*)cal)->roll(field, amount, *status);
+    ((Calendar*)cal)->roll(field, amount, *status);
 }
 
 U_CAPI int32_t  U_EXPORT2
 ucal_get(    const    UCalendar*                cal,
-        UCalendarDateFields        field,
-        UErrorCode*                status )
+         UCalendarDateFields        field,
+         UErrorCode*                status )
 {
 
-  if(U_FAILURE(*status)) return -1;
+    if(U_FAILURE(*status)) return -1;
 
-  return ((Calendar*)cal)->get(field, *status);
+    return ((Calendar*)cal)->get(field, *status);
 }
 
 U_CAPI void  U_EXPORT2
 ucal_set(    UCalendar*                cal,
-        UCalendarDateFields        field,
-        int32_t                    value)
+         UCalendarDateFields        field,
+         int32_t                    value)
 {
 
-  ((Calendar*)cal)->set(field, value);
+    ((Calendar*)cal)->set(field, value);
 }
 
 U_CAPI UBool  U_EXPORT2
 ucal_isSet(    const    UCalendar*                cal,
-        UCalendarDateFields        field)
+           UCalendarDateFields        field)
 {
 
-  return ((Calendar*)cal)->isSet(field);
+    return ((Calendar*)cal)->isSet(field);
 }
 
 U_CAPI void  U_EXPORT2
 ucal_clearField(    UCalendar*            cal,
-            UCalendarDateFields field)
+                UCalendarDateFields field)
 {
 
-  ((Calendar*)cal)->clear(field);
+    ((Calendar*)cal)->clear(field);
 }
 
 U_CAPI void  U_EXPORT2
 ucal_clear(UCalendar* calendar)
 {
 
-  ((Calendar*)calendar)->clear();
+    ((Calendar*)calendar)->clear();
 }
 
 U_CAPI int32_t  U_EXPORT2
 ucal_getLimit(    const    UCalendar*              cal,
-            UCalendarDateFields     field,
-            UCalendarLimitType      type,
-            UErrorCode        *status)
+              UCalendarDateFields     field,
+              UCalendarLimitType      type,
+              UErrorCode        *status)
 {
 
-  if(status==0 || U_FAILURE(*status)) {
-    return -1;
-  }
-  
-  switch(type) {
+    if(status==0 || U_FAILURE(*status)) {
+        return -1;
+    }
+
+    switch(type) {
   case UCAL_MINIMUM:
-    return ((Calendar*)cal)->getMinimum(field);
+      return ((Calendar*)cal)->getMinimum(field);
 
   case UCAL_MAXIMUM:
-    return ((Calendar*)cal)->getMaximum(field);
+      return ((Calendar*)cal)->getMaximum(field);
 
   case UCAL_GREATEST_MINIMUM:
-    return ((Calendar*)cal)->getGreatestMinimum(field);
+      return ((Calendar*)cal)->getGreatestMinimum(field);
 
   case UCAL_LEAST_MAXIMUM:
-    return ((Calendar*)cal)->getLeastMaximum(field);
+      return ((Calendar*)cal)->getLeastMaximum(field);
 
   case UCAL_ACTUAL_MINIMUM:
-    return ((Calendar*)cal)->getActualMinimum(field,
-                          *status);
+      return ((Calendar*)cal)->getActualMinimum(field,
+          *status);
 
   case UCAL_ACTUAL_MAXIMUM:
-    return ((Calendar*)cal)->getActualMaximum(field,
-                          *status);
+      return ((Calendar*)cal)->getActualMaximum(field,
+          *status);
 
   default:
-    break;
-  }
-  return -1;
+      break;
+    }
+    return -1;
 }
 
 U_CAPI const char * U_EXPORT2
@@ -509,6 +488,55 @@ ucal_getLocaleByType(const UCalendar *cal, ULocDataLocaleType type, UErrorCode* 
         return NULL;
     }
     return ((Calendar*)cal)->getLocaleID(type, *status);
+}
+
+U_CAPI const char * U_EXPORT2
+ucal_getTZDataVersion(UErrorCode* status)
+{
+    return TimeZone::getTZDataVersion(*status);
+}
+
+U_CAPI int32_t U_EXPORT2
+ucal_getCanonicalTimeZoneID(const UChar* id, int32_t len,
+                            UChar* result, int32_t resultCapacity, UBool *isSystemID, UErrorCode* status) {
+    if(status == 0 || U_FAILURE(*status)) {
+        return 0;
+    }
+    if (isSystemID) {
+        *isSystemID = FALSE;
+    }
+    if (id == 0 || len == 0 || result == 0 || resultCapacity <= 0) {
+        *status = U_ILLEGAL_ARGUMENT_ERROR;
+        return 0;
+    }
+    int32_t reslen = 0;
+    UnicodeString canonical;
+    UBool systemID = FALSE;
+    TimeZone::getCanonicalID(UnicodeString(id, len), canonical, systemID, *status);
+    if (U_SUCCESS(*status)) {
+        if (isSystemID) {
+            *isSystemID = systemID;
+        }
+        reslen = canonical.extract(result, resultCapacity, *status);
+    }
+    return reslen;
+}
+
+U_CAPI const char * U_EXPORT2
+ucal_getType(const UCalendar *cal, UErrorCode* status)
+{
+    if (U_FAILURE(*status)) {
+        return NULL;
+    }
+    return ((Calendar*)cal)->getType();
+}
+
+// The following is a temporary Apple-specific API to help InternationalPrefs
+// transition to the updated version of the above ICU API. It will be removed soon.
+U_CAPI const char * U_EXPORT2
+ucal_getTypeWithError(const UCalendar *cal, UErrorCode* status)
+{
+    return ucal_getType(cal, status);
 }
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

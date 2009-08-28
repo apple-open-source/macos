@@ -120,6 +120,7 @@ endif
 ifneq ($(SDKROOT),)
 Extra_CC_Flags += -isysroot $(SDKROOT)
 Extra_LD_Flags += -Wl,-syslibroot,$(SDKROOT)
+export MIGCC = $(shell xcrun -find -sdk $(SDKROOT) cc)
 endif
 
 ## Dylib Support ##
@@ -138,7 +139,7 @@ PROFILE_OFILE_SUFFIX=_profile.o
 RELEASE_ALL_OFILES = $(foreach OFILE, \
 		$(CFILES:.c=.o) \
 		$(MFILES:.m=.o) \
-		$(CXXFILES:.%=.o) \
+		$(CXXFILES:.cc=.o) \
 		$(OTHER_OFILES), \
 			$(OBJROOT)/$(Project)/$(notdir $(OFILE)))
 DEBUG_ALL_OFILES = $(RELEASE_ALL_OFILES:.o=$(DEBUG_OFILE_SUFFIX))

@@ -42,8 +42,13 @@ while [ "$i" -lt 10 ]; do
 	child=$!
 	sleep 1
 	if [ -f /usr/lib/dtrace/darwin.d ] ; then
-			killall dtrace
-			sleep 1
+                dtracepid=`ps -ef | grep '[/    ]dtrace'|grep " $child " | awk '{ print $2 }'`
+		if [ -n "$dtracepid" ]; then
+		    kill -9 $dtracepid 
+		else
+		    killall dtrace
+		fi
+		sleep 1
 	else
 			kill -9 $child
 	fi

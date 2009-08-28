@@ -113,11 +113,11 @@ protected:
 	class Handler {
 	public:
 		Handler() : mHandle(0) { }
-		CSSM_HANDLE &tokenHandle() { return mHandle; }
-		CSSM_HANDLE tokenHandle() const { return mHandle; }
+		GenericHandle &tokenHandle() { return mHandle; }
+		GenericHandle tokenHandle() const { return mHandle; }
 
 	protected:
-		CSSM_HANDLE mHandle;
+		GenericHandle mHandle;
 	};
 	
 	// CSSM-style search handles (returned by findFirst)

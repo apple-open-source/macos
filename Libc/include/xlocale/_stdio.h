@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2005, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,38 +26,39 @@
 
 __BEGIN_DECLS
 int	 asprintf_l(char **, locale_t, const char *, ...)
-		__DARWIN_LDBL_COMPAT2(asprintf_l);
+		__DARWIN_LDBL_COMPAT2(asprintf_l) __printflike(3, 4);
 int	 fprintf_l(FILE * __restrict, locale_t, const char * __restrict, ...)
-		__DARWIN_LDBL_COMPAT2(fprintf_l);
+		__DARWIN_LDBL_COMPAT2(fprintf_l) __printflike(3, 4);
 int	 fscanf_l(FILE * __restrict, locale_t, const char * __restrict, ...)
-		__DARWIN_LDBL_COMPAT2(fscanf_l);
+		__DARWIN_LDBL_COMPAT2(fscanf_l) __scanflike(3, 4);
 int	 printf_l(locale_t, const char * __restrict, ...)
-		__DARWIN_LDBL_COMPAT2(printf_l);
+		__DARWIN_LDBL_COMPAT2(printf_l) __printflike(2, 3);
 int	 scanf_l(locale_t, const char * __restrict, ...)
-		__DARWIN_LDBL_COMPAT2(scanf_l);
+		__DARWIN_LDBL_COMPAT2(scanf_l) __scanflike(2, 3);
 int	 snprintf_l(char * __restrict, size_t, locale_t,
-		const char * __restrict, ...) __DARWIN_LDBL_COMPAT2(snprintf_l);
+		const char * __restrict, ...)
+		__DARWIN_LDBL_COMPAT2(snprintf_l) __printflike(4, 5);
 int	 sprintf_l(char * __restrict, locale_t, const char * __restrict, ...)
-		__DARWIN_LDBL_COMPAT2(sprintf_l);
+		__DARWIN_LDBL_COMPAT2(sprintf_l) __printflike(3, 4);
 int	 sscanf_l(const char * __restrict, locale_t, const char * __restrict,
-		...) __DARWIN_LDBL_COMPAT2(sscanf_l);
+		...) __DARWIN_LDBL_COMPAT2(sscanf_l) __scanflike(3, 4);
 int	 vasprintf_l(char **, locale_t, const char *, va_list)
-		__DARWIN_LDBL_COMPAT2(vasprintf_l);
+		__DARWIN_LDBL_COMPAT2(vasprintf_l) __printflike(3, 0);
 int	 vfprintf_l(FILE * __restrict, locale_t, const char * __restrict,
-		va_list) __DARWIN_LDBL_COMPAT2(vfprintf_l);
+		va_list) __DARWIN_LDBL_COMPAT2(vfprintf_l) __printflike(3, 0);
 int	 vfscanf_l(FILE * __restrict, locale_t, const char * __restrict,
-		va_list) __DARWIN_LDBL_COMPAT2(vfscanf_l);
+		va_list) __DARWIN_LDBL_COMPAT2(vfscanf_l) __scanflike(3, 0);
 int	 vprintf_l(locale_t, const char * __restrict, va_list)
-		__DARWIN_LDBL_COMPAT2(vprintf_l);
+		__DARWIN_LDBL_COMPAT2(vprintf_l) __printflike(2, 0);
 int	 vscanf_l(locale_t, const char * __restrict, va_list)
-		__DARWIN_LDBL_COMPAT2(vscanf_l);
+		__DARWIN_LDBL_COMPAT2(vscanf_l) __scanflike(2, 0);
 int	 vsnprintf_l(char * __restrict, size_t, locale_t,
 		const char * __restrict, va_list)
-		__DARWIN_LDBL_COMPAT2(vsnprintf_l);
+		__DARWIN_LDBL_COMPAT2(vsnprintf_l) __printflike(4, 0);
 int	 vsprintf_l(char * __restrict, locale_t, const char * __restrict,
-		va_list) __DARWIN_LDBL_COMPAT2(vsprintf_l);
+		va_list) __DARWIN_LDBL_COMPAT2(vsprintf_l) __printflike(3, 0);
 int	 vsscanf_l(const char * __restrict, locale_t, const char * __restrict,
-		va_list) __DARWIN_LDBL_COMPAT2(vsscanf_l);
+		va_list) __DARWIN_LDBL_COMPAT2(vsscanf_l) __scanflike(3, 0);
 __END_DECLS
 
 #endif /* _XLOCALE__STDIO_H_ */

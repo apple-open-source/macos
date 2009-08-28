@@ -22,19 +22,19 @@
  */
 
 //
-// codesign - Swiss Army Knife tool for Code Signing operations
+// cs_dump - codesign dump/display operations
 //
 #include "codesign.h"
-#include <security_codesigning/reqdumper.h>
+#include <Security/CSCommonPriv.h>
+#include <Security/SecCodePriv.h>
+#include <security_codesigning/codedirectory.h>		// strictly for the data format
 
-using namespace CodeSigning;
 using namespace UnixPlusPlus;
 
 
 //
 // Local functions
 //
-static void dumpRequirements(CodeSigning::SecStaticCode *ondisk, FILE *output);
 static void extractCertificates(const char *prefix, CFArrayRef certChain);
 static string flagForm(uint32_t flags);
 
@@ -45,137 +45,148 @@ static string flagForm(uint32_t flags);
 //
 void dump(const char *target)
 {
-	try {
-		CFRef<SecStaticCodeRef> codeRef;
-		MacOSError::check(SecStaticCodeCreateWithPath(CFTempURL(target), 0, &codeRef.aref()));
-		if (detached) {
-			CFRef<CFDataRef> dsig = cfLoadFile(detached);
+	// get the code object (static or dynamic)
+	CFRef<SecStaticCodeRef> codeRef = codePath(target);	// dynamic input
+	if (!codeRef)
+		MacOSError::check(SecStaticCodeCreateWithPath(CFTempURL(target), kSecCSDefaultFlags, &codeRef.aref()));
+	if (detached)
+		if (CFRef<CFDataRef> dsig = cfLoadFile(detached))
 			MacOSError::check(SecCodeSetDetachedSignature(codeRef, dsig, kSecCSDefaultFlags));
-		}
-		
-		// get official (API driven) information
-		CFRef<CFDictionaryRef> api;
-		SecCSFlags flags = kSecCSInternalInformation
-			| kSecCSSigningInformation
-			| kSecCSRequirementInformation;
-		if (modifiedFiles)
-			flags |= kSecCSContentInformation;
-		MacOSError::check(SecCodeCopySigningInformation(codeRef, flags, &api.aref()));
-		
-		// dive below the API line to get at the internal state
-		SecStaticCode *code =
-			static_cast<SecStaticCode *>(SecCFObject::required(codeRef, 0));
-		const CodeDirectory *dir = code->codeDirectory();
-		
-		// basic stuff
-		note(0, "Executable=%s", code->mainExecutablePath().c_str());
-		note(1, "Identifier=%s", code->identifier().c_str());
-		note(1, "Format=%s", code->format().c_str());
+		else
+			fail("%s: cannot load detached signature", detached);
+	
+	// get official (API driven) information
+	struct Info : public CFDictionary {
+		Info() : CFDictionary(errSecCSInternalError) { }
+		const std::string string(CFStringRef key) { return cfString(get<CFStringRef>(key)); }
+		const std::string url(CFStringRef key) { return cfString(get<CFURLRef>(key)); }
+		using CFDictionary::get;	// ... and all the others
+	};
+	Info api;
+	SecCSFlags flags = kSecCSInternalInformation
+		| kSecCSSigningInformation
+		| kSecCSRequirementInformation
+		| kSecCSInternalInformation;
+	if (modifiedFiles)
+		flags |= kSecCSContentInformation;
+	MacOSError::check(SecCodeCopySigningInformation(codeRef, flags, &api.aref()));
+ 	
+	// if the code is not signed, stop here
+	if (!api.get(kSecCodeInfoIdentifier))
+		MacOSError::throwMe(errSecCSUnsigned);
+	
+	// basic stuff
+	note(0, "Executable=%s", api.url(kSecCodeInfoMainExecutable).c_str());
+	note(1, "Identifier=%s", api.string(kSecCodeInfoIdentifier).c_str());
+	note(1, "Format=%s", api.string(kSecCodeInfoFormat).c_str());
 
-		// code directory
-		const char *cdLocation = detached ? "detached" : "embedded";
-		note(1, "CodeDirectory v=%x size=%d flags=%s hashes=%d+%d location=%s",
-			int(dir->version), dir->length(), flagForm(dir->flags).c_str(),
-			int(dir->nCodeSlots), int(dir->nSpecialSlots), cdLocation);
-		if (verbose > 2) {
-			SHA1 hash;
-			hash(dir, dir->length());
-			note(3, "CDHash=%s", hashString(hash).c_str());
+	// code directory
+	using namespace CodeSigning;
+	const CodeDirectory *dir =
+		(const CodeDirectory *)CFDataGetBytePtr(api.get<CFDataRef>(kSecCodeInfoCodeDirectory));
+	note(1, "CodeDirectory v=%x size=%d flags=%s hashes=%d+%d location=%s",
+		int(dir->version), dir->length(), flagForm(dir->flags).c_str(),
+		int(dir->nCodeSlots), int(dir->nSpecialSlots), api.string(kSecCodeInfoSource).c_str());
+
+	if (const CodeDirectory::Scatter *scatter = dir->scatterVector()) {
+		const CodeDirectory::Scatter *end = scatter;
+		while (end->count) end++;
+		note(1, "ScatterVector count=%d", int(end - scatter));
+		for (const CodeDirectory::Scatter *s = scatter; s < end; s++)
+			note(3, "Scatter i=%u count=%u base=%u offset=0x%llx",
+				unsigned(s - scatter), unsigned(s->count), unsigned(s->base), uint64_t(s->targetOffset));
+	}
+
+	if (verbose > 2)
+		if (CFTypeRef hashInfo = api.get(kSecCodeInfoUnique)) {
+			CFDataRef hash = CFDataRef(hashInfo);
+			if (CFDataGetLength(hash) != sizeof(SHA1::Digest))
+				note(3, "CDHash=(unknown format)");
+			else
+				note(3, "CDHash=%s", hashString(CFDataGetBytePtr(hash)).c_str());
 		}
 
-		// signature
-		if (dir->flags & kSecCodeSignatureAdhoc) {
-			note(1, "Signature=adhoc");
-		} else if (CFDataRef signature = code->signature()) {
-			note(1, "Signature size=%d", CFDataGetLength(signature));
-		CFArrayRef certChain = CFArrayRef(CFDictionaryGetValue(api, kSecCodeInfoCertificates));
-			if (verbose > 1) {
-				// dump cert chain
+	// signature
+	if (dir->flags & kSecCodeSignatureAdhoc) {
+		note(1, "Signature=adhoc");
+	} else if (CFDataRef signature = api.get<CFDataRef>(kSecCodeInfoCMS)) {
+		note(1, "Signature size=%d", CFDataGetLength(signature));
+		CFArrayRef certChain = api.get<CFArrayRef>(kSecCodeInfoCertificates);
+		if (verbose > 1) {
+			// dump cert chain
 			CFIndex count = CFArrayGetCount(certChain);
-				for (CFIndex n = 0; n < count; n++) {
+			for (CFIndex n = 0; n < count; n++) {
 				SecCertificateRef cert = SecCertificateRef(CFArrayGetValueAtIndex(certChain, n));
-					CFRef<CFStringRef> commonName;
-					MacOSError::check(SecCertificateCopyCommonName(cert, &commonName.aref()));
-					note(2, "Authority=%s", cfString(commonName).c_str());
-				}
+				CFRef<CFStringRef> commonName;
+				MacOSError::check(SecCertificateCopyCommonName(cert, &commonName.aref()));
+				note(2, "Authority=%s", cfString(commonName).c_str());
 			}
+		}
 		if (extractCerts)
 			extractCertificates(extractCerts, certChain);
-			if (CFDateRef time = CFDateRef(CFDictionaryGetValue(api, kSecCodeInfoTime))) {
-				CFRef<CFLocaleRef> userLocale = CFLocaleCopyCurrent();
-				CFRef<CFDateFormatterRef> format = CFDateFormatterCreate(NULL, userLocale,
-					kCFDateFormatterMediumStyle, kCFDateFormatterMediumStyle);
-				CFRef<CFStringRef> s = CFDateFormatterCreateStringWithDate(NULL, format, time);
-				note(1, "Signed Time=%s", cfString(s).c_str());
-			}
-		} else {
-			fprintf(stderr, "%s: no signature\n", target);
-			// but continue dumping
+		if (CFDateRef time = CFDateRef(CFDictionaryGetValue(api, kSecCodeInfoTime))) {
+			CFRef<CFLocaleRef> userLocale = CFLocaleCopyCurrent();
+			CFRef<CFDateFormatterRef> format = CFDateFormatterCreate(NULL, userLocale,
+				kCFDateFormatterMediumStyle, kCFDateFormatterMediumStyle);
+			CFRef<CFStringRef> s = CFDateFormatterCreateStringWithDate(NULL, format, time);
+			note(1, "Signed Time=%s", cfString(s).c_str());
 		}
+	} else {
+		fprintf(stderr, "%s: no signature\n", target);
+		// but continue dumping
+	}
 
-		if (CFDictionaryRef info = code->infoDictionary())
-			note(1, "Info.plist entries=%d", CFDictionaryGetCount(info));
-		else
-			note(1, "Info.plist=not bound");
-		
-		if (CFDictionaryRef resources = code->resourceDictionary()) {
-			CFDictionaryRef rules =
-				CFDictionaryRef(CFDictionaryGetValue(resources, CFSTR("rules")));
-			CFDictionaryRef files
-				= CFDictionaryRef(CFDictionaryGetValue(resources, CFSTR("files")));
-			note(1, "Sealed Resources rules=%d files=%d",
-				CFDictionaryGetCount(rules), CFDictionaryGetCount(files));
+	if (CFDictionaryRef info = api.get<CFDictionaryRef>(kSecCodeInfoPList))
+		note(1, "Info.plist entries=%d", CFDictionaryGetCount(info));
+	else
+		note(1, "Info.plist=not bound");
+	
+	if (CFDictionaryRef resources = api.get<CFDictionaryRef>(kSecCodeInfoResourceDirectory)) {
+		CFDictionaryRef rules =
+			CFDictionaryRef(CFDictionaryGetValue(resources, CFSTR("rules")));
+		CFDictionaryRef files
+			= CFDictionaryRef(CFDictionaryGetValue(resources, CFSTR("files")));
+		note(1, "Sealed Resources rules=%d files=%d",
+			CFDictionaryGetCount(rules), CFDictionaryGetCount(files));
+	} else
+		note(1, "Sealed Resources=none");
+	
+	CFDataRef ireqdata = api.get<CFDataRef>(kSecCodeInfoRequirementData);
+	CFRef<CFDictionaryRef> ireqset;
+	if (ireqdata)
+		MacOSError::check(SecRequirementsCopyRequirements(ireqdata, kSecCSDefaultFlags, &ireqset.aref()));
+	if (internalReq) {
+		FILE *output;
+		if (!strcmp(internalReq, "-")) {
+			output = stdout;
+		} else if (!(output = fopen(internalReq, "w"))) {
+			perror(internalReq);
+			exit(exitFailure);
+		}
+		if (CFStringRef ireqs = api.get<CFStringRef>(kSecCodeInfoRequirements))
+			fprintf(output, "%s", cfString(ireqs).c_str());
+		if (!(ireqset && CFDictionaryContainsKey(ireqset, CFTempNumber(uint32_t(kSecDesignatedRequirementType))))) {	// no explicit DR
+			CFRef<SecRequirementRef> dr;
+			MacOSError::check(SecCodeCopyDesignatedRequirement(codeRef, kSecCSDefaultFlags, &dr.aref()));
+			CFRef<CFStringRef> drstring;
+			MacOSError::check(SecRequirementCopyString(dr, kSecCSDefaultFlags, &drstring.aref()));
+			fprintf(output, "# designated => %s\n", cfString(drstring).c_str());
+		}
+		if (output != stdout)
+			fclose(output);
+	} else {
+		if (ireqdata) {
+			note(1, "Internal requirements count=%d size=%d",
+				CFDictionaryGetCount(ireqset), CFDataGetLength(ireqdata));
 		} else
-			note(1, "Sealed Resources=none");
-		
-		const Requirements *reqs = code->internalRequirements();
-		if (internalReq) {
-			if (!strcmp(internalReq, "-")) {
-				dumpRequirements(code, stdout);
-			} else if (FILE *f = fopen(internalReq, "w")) {
-				dumpRequirements(code, f);
-				fclose(f);
-			} else {
-				perror(internalReq);
-				exit(exitFailure);
-			}
-		} else {
-			if (reqs)
-				note(1, "Internal requirements count=%d size=%d",
-					reqs->count(), reqs->length());
-			else
-				note(1, "Internal requirements=none");
-		}
-		
-		if (entitlements)
-			writeData(CFDataRef(CFDictionaryGetValue(api, kSecCodeInfoEntitlements)), entitlements, "a");
-
-		if (modifiedFiles)
-			writeFileList(CFArrayRef(CFDictionaryGetValue(api, kSecCodeInfoChangedFiles)), modifiedFiles, "a");
-		
-	} catch (...) {
-		diagnose(target, exitFailure);
+			note(1, "Internal requirements=none");
 	}
-}
 
+	if (entitlements)
+		writeData(CFDataRef(CFDictionaryGetValue(api, kSecCodeInfoEntitlements)), entitlements, "a");
 
-//
-// Dump the requirements of an internal OnDisk object to a file.
-// This includes any implicit Designated Requirement.
-//
-void dumpRequirements(SecStaticCode *ondisk, FILE *output)
-{
-	const Requirements *reqs = ondisk->internalRequirements();
-	puts(Dumper::dump(reqs).c_str());
-	if (ondisk->internalRequirement(kSecDesignatedRequirementType) == NULL) {
-		try {
-			const Requirement *req = ondisk->designatedRequirement();
-			fprintf(output, "# designated => %s\n",
-				Dumper::dump(req).c_str());
-		} catch (...) {
-			fprintf(output, "# Unable to generate implicit designated requirement\n");
-		}
-	}
+	if (modifiedFiles)
+		writeFileList(CFArrayRef(CFDictionaryGetValue(api, kSecCodeInfoChangedFiles)), modifiedFiles, "a");
 }
 
 
@@ -192,7 +203,7 @@ void extractCertificates(const char *prefix, CFArrayRef certChain)
 		CSSM_DATA certData;
 		MacOSError::check(SecCertificateGetData(cert, &certData));
 		char name[PATH_MAX];
-		snprintf(name, sizeof(name), "%s%d", prefix, n);
+		snprintf(name, sizeof(name), "%s%ld", prefix, n);
 		AutoFileDesc(name, O_WRONLY | O_CREAT | O_TRUNC).writeAll(certData.Data, certData.Length);
 	}
 }
@@ -204,20 +215,14 @@ string flagForm(uint32_t flags)
 		return "0x0(none)";
 
 	string r;
-	if (flags & kSecCodeSignatureHost)
-		r += ",host";
-	if (flags & kSecCodeSignatureAdhoc)
-		r += ",adhoc";
-	if (flags & kSecCodeSignatureForceKill)
-		r += ",kill";
-	if (flags & kSecCodeSignatureForceHard)
-		r += ",hard";
-	if (flags & ~(kSecCodeSignatureHost
-			| kSecCodeSignatureAdhoc
-			| kSecCodeSignatureForceKill
-			| kSecCodeSignatureForceHard)) {
+	uint32_t leftover = flags;
+	for (const SecCodeDirectoryFlagTable *item = kSecCodeDirectoryFlagTable; item->name; item++)
+		if (flags & item->value) {
+			r = r + "," + item->name;
+			leftover &= ~item->value;
+		}
+	if (leftover)
 		r += ",???";
-	}
 	char buf[80];
 	snprintf(buf, sizeof(buf), "0x%x", flags);
 	return string(buf) + "(" + r.substr(1) + ")";

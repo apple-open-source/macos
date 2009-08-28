@@ -177,6 +177,31 @@
 >1:  [[ path/testy = *((#s)|/)test((#e)|/)* ]]
 >1:  [[ path/testy/ohyes = *((#s)|/)test((#e)|/)* ]]
 >1:  [[ path/atest/ohyes = *((#s)|/)test((#e)|/)* ]]
+>0:  [[ XabcdabcY = X(ab|c|d)(#c5)Y ]]
+>0:  [[ XabcdabcY = X(ab|c|d)(#c1,5)Y ]]
+>0:  [[ XabcdabcY = X(ab|c|d)(#c5,8)Y ]]
+>0:  [[ XabcdabcY = X(ab|c|d)(#c4,)Y ]]
+>1:  [[ XabcdabcY = X(ab|c|d)(#c6,)Y ]]
+>1:  [[ XabcdabcY = X(ab|c|d)(#c1,4)Y ]]
+>0:  [[ ZX = Z(|)(#c1)X ]]
+>0:  [[ froofroo = (fro(#c2))(#c2) ]]
+>1:  [[ froofroofroo = (fro(#c2))(#c2) ]]
+>1:  [[ froofro = (fro(#c2))(#c2) ]]
+>0:  [[ ax = ?(#c1,2)x ]]
+>0:  [[ ax = ?(#c1,)x ]]
+>0:  [[ ax = ?(#c0,1)x ]]
+>1:  [[ ax = ?(#c0,0)x ]]
+>1:  [[ ax = ?(#c2,)x ]]
+>0:  [[ aa = a(#c1,2)a ]]
+>0:  [[ aa = a(#c1,)a ]]
+>0:  [[ aa = a(#c0,1)a ]]
+>1:  [[ aa = a(#c0,0)a ]]
+>1:  [[ aa = a(#c2,)a ]]
+>0:  [[ test.zsh = *.?(#c1)sh ]]
+>0:  [[ test.bash = *.?(#c2)sh ]]
+>0:  [[ test.bash = *.?(#c1,2)sh ]]
+>0:  [[ test.bash = *.?(#c1,)sh ]]
+>0:  [[ test.zsh = *.?(#c1,)sh ]]
 >0 tests failed.
 
   globtest globtests.ksh
@@ -357,3 +382,7 @@
 >  [[:IFSSPACE:]] yes
 >/ [[:WORD:]] no
 >/ [[:WORD:]] yes
+
+ [[ foo = (#c0)foo ]]
+1:Misplaced (#c...) flag
+?(eval):1: bad pattern: (#c0)foo

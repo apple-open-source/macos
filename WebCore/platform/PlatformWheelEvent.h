@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,20 +28,6 @@
 
 #include "IntPoint.h"
 
-#if PLATFORM(MAC)
-#ifdef __OBJC__
-@class NSEvent;
-#else
-class NSEvent;
-#endif
-#endif
-
-#if PLATFORM(WIN)
-typedef struct HWND__* HWND;
-typedef unsigned WPARAM;
-typedef long LPARAM;
-#endif
-
 #if PLATFORM(GTK)
 typedef struct _GdkEventScroll GdkEventScroll;
 #endif
@@ -52,12 +38,21 @@ class QWheelEvent;
 QT_END_NAMESPACE
 #endif
 
+#if PLATFORM(WIN)
+typedef struct HWND__* HWND;
+typedef unsigned WPARAM;
+typedef long LPARAM;
+#endif
+
 #if PLATFORM(WX)
 class wxMouseEvent;
 class wxPoint;
 #endif
 
 namespace WebCore {
+
+    class FloatPoint;
+    class FloatSize;
 
     // Wheel events come in two flavors:
     // The ScrollByPixelWheelEvent is a fine-grained event that specifies the precise number of pixels to scroll.  It is sent directly by MacBook touchpads on OS X,
@@ -93,18 +88,23 @@ namespace WebCore {
         void accept() { m_isAccepted = true; }
         void ignore() { m_isAccepted = false; }
 
-#if PLATFORM(MAC)
-        PlatformWheelEvent(NSEvent*);
-#endif
-#if PLATFORM(WIN)
-        PlatformWheelEvent(HWND, WPARAM, LPARAM, bool isMouseHWheel);
-#endif
 #if PLATFORM(GTK)
         PlatformWheelEvent(GdkEventScroll*);
 #endif
+
+#if PLATFORM(MAC) && defined(__OBJC__)
+        PlatformWheelEvent(NSEvent *, NSView *windowView);
+#endif
+
 #if PLATFORM(QT)
         PlatformWheelEvent(QWheelEvent*);
 #endif
+
+#if PLATFORM(WIN)
+        PlatformWheelEvent(HWND, WPARAM, LPARAM, bool isMouseHWheel);
+        PlatformWheelEvent(HWND, const FloatSize& delta, const FloatPoint& location);
+#endif
+
 #if PLATFORM(WX)
         PlatformWheelEvent(const wxMouseEvent&, const wxPoint&);
 #endif

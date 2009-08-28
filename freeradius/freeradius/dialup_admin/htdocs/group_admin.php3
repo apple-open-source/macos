@@ -10,7 +10,7 @@ if ($config[general_lib_type] != 'sql'){
 <meta http-equiv="Content-Type" content="text/html; charset=$config[general_charset]">
 <link rel="stylesheet" href="style.css">
 </head>
-<body bgcolor="#80a040" background="images/greenlines1.gif" link="black" alink="black">
+<body>
 <center>
 <b>This page is only available if you are using sql as general library type</b>
 </body>
@@ -19,6 +19,7 @@ EOM;
 	exit();
 }
 
+unset($group_members);
 if (is_file("../lib/$config[general_lib_type]/group_info.php3")){
 	include("../lib/$config[general_lib_type]/group_info.php3");
 	if ($group_exists == 'no'){
@@ -27,7 +28,7 @@ if (is_file("../lib/$config[general_lib_type]/group_info.php3")){
 <meta http-equiv="Content-Type" content="text/html; charset=$config[general_charset]">
 <link rel="stylesheet" href="style.css">
 </head>
-<body bgcolor="#80a040" background="images/greenlines1.gif" link="black" alink="black">
+<body>
 <center>
 <form action="group_admin.php3" method=get>
 <b>Group Name&nbsp;&nbsp;</b>
@@ -48,7 +49,7 @@ EOM;
 <meta http-equiv="Content-Type" content="text/html; charset=<?php echo $config[general_charset]?>">
 <link rel="stylesheet" href="style.css">
 </head>
-<body bgcolor="#80a040" background="images/greenlines1.gif" link="black" alink="black">
+<body>
 <center>
 <table border=0 width=550 cellpadding=0 cellspacing=0>
 <tr valign=top>
@@ -85,8 +86,8 @@ if ($do_changes == 1){
 		include("../lib/$config[general_lib_type]/group_info.php3");
 }
 ?>
-	
-   
+
+
    <form method=post>
       <input type=hidden name=login value="<?php echo $login ?>">
       <input type=hidden name=do_changes value=0>
@@ -97,7 +98,7 @@ if ($do_changes == 1){
 Group Members (Check to Delete)
 </td>
 <td>
-<select name=del_members[] multiple size=5> 
+<select name=del_members[] multiple size=5>
 <?php
 foreach ($group_members as $member){
 	echo "<option value=\"$member\">$member\n";

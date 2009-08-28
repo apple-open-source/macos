@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -36,7 +36,7 @@ struct atime_t {
 #define APR_DELTA_EPOCH_IN_USEC   APR_TIME_C(11644473600000000);
 
 
-__inline void FileTimeToAprTime(apr_time_t *result, FILETIME *input)
+static APR_INLINE void FileTimeToAprTime(apr_time_t *result, FILETIME *input)
 {
     /* Convert FILETIME one 64 bit number so we can work with it. */
     *result = input->dwHighDateTime;
@@ -48,7 +48,7 @@ __inline void FileTimeToAprTime(apr_time_t *result, FILETIME *input)
 }
 
 
-__inline void AprTimeToFileTime(LPFILETIME pft, apr_time_t t)
+static APR_INLINE void AprTimeToFileTime(LPFILETIME pft, apr_time_t t)
 {
     LONGLONG ll;
     t += APR_DELTA_EPOCH_IN_USEC;

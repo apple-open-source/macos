@@ -10,5 +10,4 @@ serverprefix do_;
 
 routine load_kext(
 				test_port	: mach_port_t;
-				kextname	: string_t;
-				codepage 	: string_t);
+				kextname	: string_t);

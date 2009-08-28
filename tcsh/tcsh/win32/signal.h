@@ -62,15 +62,15 @@
 
 /* signal action codes */
 
-#define SIG_DFL (void (*)(int))0	   /* default signal action */
-#define SIG_IGN (void (*)(int))1	   /* ignore signal */
-#define SIG_SGE (void (*)(int))3	   /* signal gets error */
-#define SIG_ACK (void (*)(int))4	   /* acknowledge */
+#define SIG_DFL (void (*)(int))IntToPtr(0)   /* default signal action */
+#define SIG_IGN (void (*)(int))IntToPtr(1)   /* ignore signal */
+#define SIG_SGE (void (*)(int))IntToPtr(3)   /* signal gets error */
+#define SIG_ACK (void (*)(int))IntToPtr(4)   /* acknowledge */
 
 
 /* signal error value (returned by signal call on error) */
 
-#define SIG_ERR (void (*)(int))-1	   /* signal error value */
+#define SIG_ERR (void (*)(int))IntToPtr(-1)   /* signal error value */
 
 
 #define SIG_BLOCK 0
@@ -92,6 +92,7 @@ struct sigaction {
 
 #define sigemptyset(ptr) (*(ptr) = 0)
 #define sigfillset(ptr)  ( *(ptr) = ~(sigset_t)0,0)
+
 
 /* Function prototypes */
 

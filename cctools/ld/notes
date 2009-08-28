@@ -23,6 +23,62 @@ Build problems:
 - For m68k builds -finline-functions crashes the compiler (used in the Makefile
   on the ld_build target).
 
+Changes for the 5.26 release (the cctools-738 release):
+- Removed the code and files for the old ProjectBuilder interface including the
+  use of mig(1) in the Makefile.  The files make.defs make_defs.h were removed
+  and the code in ld.c, pass1.c and symbols.c  had the code with these old
+  interfaces removed.  Radar bug #6457206.
+- Added support for the arm ARM_THUMB_32BIT_BRANCH relocation entry.  Radar bug
+  #6511482.
+
+Changes for the 5.26 release (the cctools-721 release):
+- Changed the Makefile and removed -force_cpusubtype_ALL from KERN.  Radar bug
+  #6233829.
+
+Changes for the 5.26 release (the cctools-711 release):
+- Changed the Makefile so -D__DARWIN_UNIX03=__arm__ is always added to KERN
+  Radar bug #6098280.
+
+Changes for the 5.26 release (the cctools-705 release):
+- Code changes for other code to work on 64-bit hosts:   Radar bug #6022298.
+  - Changed the types of the local variables hi21, lo14, w, w1, and w2 in
+    hppa_reloc in hppa_reloc.c from unsigned long to uint32_t .
+  - Added a cast to (int *) for the assignment of output_thread_info
+    entry_point and stack_pointer for the arm thread state.
+  - Changed the types of dylib_current_version, dylib_compatibility_version,
+    nremove_symbols and nsave_symbols from unsigned long to uint32_t in ld.[ch].
+    Changed the use of %lu to %u for these in ld.c .
+
+Changes for the 5.26 release (the cctools-699 release):
+- Changed uuid.c to directly call uuid_generate_random() without the dynamic
+  lookup.  Radar bug #5620031.
+
+Changes for the 5.25 release (the cctools-695 release):
+- Changed the Makefile to use -iwithsysroot as part of the KERN flags.
+
+Changes for the 5.25 release (the cctools-681 release):
+- Removed all __OPEN_SOURCE__ references in Makefile, notes, objects.c,
+  objects.h, sections.c, symbols.c, layout.c, ld.c and arm_reloc .
+
+Changes for the 5.25 release (the cctools-679.3 release):
+- Changed the Makefile to test OLD_LIBKLD pass down from the upper Makefile
+  so to not build libkld when OLD_LIBKLD is NO.  Radar bug #5698612.
+
+Changes for the 5.25 release (the cctools-677 release):
+- Changed the Makefile to not use -Wno-long-double and -no-cpp-precomp .
+  Radar bug #5563553.
+
+Changes for the 5.25 release (the cctools-676 release):
+- Changed check_cur_obj() in pass1.c to know about S_DTRACE_DOF section types
+  enough to not cause an error about unknown section type.
+
+Changes for the 5.25 release (the cctools-673 release):
+- Changed the sources so the arm stuff is not in the open source version.
+  Radar bug #5326431.
+  - Changed the Makefile to #ifndef __OPEN_SOURCE__ out the arm files
+  - Added #ifndef __OPEN_SOURCE__ to the following files to bracket arm code:
+    layout.c, ld.c, objects.c, objects.h, sections.c, symbols.c and arm_reloc.c.
+
 Changes for the 5.24 release (the cctools-663 release):
 - Changed the code in ld.[ch], pass1.c, symbols.c, layout.c and pass2.c for
   the new get_macosx_deployment_target() interface.  Radar bug #5132019.

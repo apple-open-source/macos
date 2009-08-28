@@ -35,8 +35,9 @@
 #include <Security/SecKey.h>
 #include <Security/SecCertificate.h>
 #include <Security/SecKeychainItem.h>
-#include <Security/SecKeychainItemPriv.h>
 #include <Security/cssmapple.h>
+
+//#define REGISTER_SCHEMA_RELATIONS 1
 
 namespace Tokend
 {
@@ -140,13 +141,13 @@ void Schema::create()
 #endif
 
 #ifdef REGISTER_SCHEMA_RELATIONS
-	registerRelation("CSSM_DL_DB_SCHEMA_INFO", CSSM_DL_DB_SCHEMA_INFO)
+	registerRelation("CSSM_DL_DB_SCHEMA_INFO", CSSM_DL_DB_SCHEMA_INFO);
 	registerAttribute(CSSM_DL_DB_SCHEMA_INFO, &an_RelationID, 0,
 		kAF_UINT32, true);
 	registerAttribute(CSSM_DL_DB_SCHEMA_INFO, &an_RelationName, 1,
 		kAF_UINT32, false);
 	registerRelation("CSSM_DL_DB_SCHEMA_ATTRIBUTES",
-		CSSM_DL_DB_SCHEMA_ATTRIBUTES)
+		CSSM_DL_DB_SCHEMA_ATTRIBUTES);
 	registerAttribute(CSSM_DL_DB_SCHEMA_ATTRIBUTES, &an_RelationID, 0,
 		kAF_UINT32, true);
 	registerAttribute(CSSM_DL_DB_SCHEMA_ATTRIBUTES, &an_AttributeID, 2,
@@ -159,7 +160,7 @@ void Schema::create()
 		kAF_BLOB, false);
 	registerAttribute(CSSM_DL_DB_SCHEMA_ATTRIBUTES, &an_AttributeFormat, 6,
 		kAF_UINT32, false);
-	registerRelation("CSSM_DL_DB_SCHEMA_INDEXES", CSSM_DL_DB_SCHEMA_INDEXES)
+	registerRelation("CSSM_DL_DB_SCHEMA_INDEXES", CSSM_DL_DB_SCHEMA_INDEXES);
 	registerAttribute(CSSM_DL_DB_SCHEMA_INDEXES, &an_RelationID, 0,
 		kAF_UINT32, true);
 	registerAttribute(CSSM_DL_DB_SCHEMA_INDEXES, &an_IndexID, 1,
@@ -177,6 +178,8 @@ void Schema::create()
 // layer expects.
 Relation *Schema::createStandardRelation(RelationId relationId)
 {
+	// avoid include of <Security/SecKeychainItemPriv.h> for definition of kSecProtectedDataItemAttr
+	const uint32 localkSecProtectedDataItemAttr    = 'prot';	/* Item's data is protected (encrypted) (Boolean) */
 	std::string relationName;
 	// Get the name based on the relation
 	switch (relationId)
@@ -191,6 +194,8 @@ Relation *Schema::createStandardRelation(RelationId relationId)
 		relationName = "CSSM_DL_DB_RECORD_X509_CERTIFICATE"; break;
 	case CSSM_DL_DB_RECORD_GENERIC:
 		relationName = "CSSM_DL_DB_RECORD_GENERIC"; break;
+	case CSSM_DL_DB_RECORD_GENERIC_PASSWORD:
+		relationName = "CSSM_DL_DB_RECORD_GENERIC_PASSWORD"; break;
 	default: CssmError::throwMe(CSSMERR_DL_INVALID_RECORDTYPE);
 	}
 
@@ -230,7 +235,22 @@ Relation *Schema::createStandardRelation(RelationId relationId)
 		an_SignRecover = "SignRecover",
 		an_VerifyRecover = "VerifyRecover",
 		an_Wrap = "Wrap",
-		an_Unwrap = "Unwrap";
+		an_Unwrap = "Unwrap",
+		an_CreationDate = "CreationDate",
+		an_ModDate = "ModDate",
+		an_Description = "Description",
+		an_Comment = "Comment",
+		an_Creator = "Creator",
+		an_Type = "Type",
+		an_ScriptCode = "ScriptCode",
+		an_Invisible = "Invisible",
+		an_Negative = "Negative",
+		an_CustomIcon = "CustomIcon",
+		an_Protected = "Protected",
+		an_Account = "Account",
+		an_Service = "Service",
+		an_Generic = "Generic"
+		;
 
 	// @@@ HARDWIRED Based on what SecKeychain layer expects @@@
 	switch (relationId)
@@ -334,6 +354,39 @@ Relation *Schema::createStandardRelation(RelationId relationId)
         if (relationId == CSSM_DL_DB_RECORD_PUBLIC_KEY)
             mPublicKeyHashCoder.setPublicKeyMetaAttribute(&(rt->metaRecord()
 				.metaAttribute(kSecKeyLabel)));
+		break;
+	case CSSM_DL_DB_RECORD_GENERIC_PASSWORD:
+		createAttribute(*rt, &an_CreationDate, kSecCreationDateItemAttr,
+			kAF_TIME_DATE, true).attributeCoder(&mZeroCoder);
+		createAttribute(*rt, &an_ModDate, kSecModDateItemAttr,
+			kAF_TIME_DATE, true).attributeCoder(&mZeroCoder);
+		createAttribute(*rt, &an_Description, kSecDescriptionItemAttr,
+			kAF_BLOB, false).attributeCoder(&mZeroCoder);
+		createAttribute(*rt, &an_Comment, kSecCommentItemAttr,
+			kAF_BLOB, false).attributeCoder(&mZeroCoder);
+		createAttribute(*rt, &an_Creator, kSecCreatorItemAttr, kAF_UINT32, 0);
+		createAttribute(*rt, &an_Type, kSecTypeItemAttr, kAF_UINT32, 0);
+		createAttribute(*rt, &an_ScriptCode, kSecScriptCodeItemAttr, kAF_UINT32, 0);
+
+		createAttribute(*rt, &an_PrintName, kSecLabelItemAttr, kAF_BLOB, false)
+			.attributeCoder(&mDescriptionCoder);
+		createAttribute(*rt, &an_Alias, kSecAlias, kAF_BLOB, false)
+			.attributeCoder(&mZeroCoder);
+
+		createAttribute(*rt, &an_Invisible, kSecInvisibleItemAttr, kAF_UINT32, 0);
+		createAttribute(*rt, &an_Negative, kSecNegativeItemAttr, kAF_UINT32, 0);
+		createAttribute(*rt, &an_CustomIcon, kSecCustomIconItemAttr,
+			kAF_BLOB, false).attributeCoder(&mZeroCoder);
+		createAttribute(*rt, &an_Protected, localkSecProtectedDataItemAttr,
+			kAF_BLOB, false).attributeCoder(&mZeroCoder);
+		createAttribute(*rt, &an_Account, kSecAccountItemAttr,
+			kAF_BLOB, false).attributeCoder(&mZeroCoder);
+		createAttribute(*rt, &an_Service, kSecServiceItemAttr,
+			kAF_BLOB, false).attributeCoder(&mZeroCoder);
+		createAttribute(*rt, &an_Generic, kSecGenericItemAttr,
+			kAF_BLOB, false).attributeCoder(&mZeroCoder);
+		rt->metaRecord().attributeCoderForData(&mDataAttributeCoder);
+
 		break;
 	}
 

@@ -1,4 +1,6 @@
-/* $Id: handler.c,v 1.13.4.4 2005/07/14 12:00:36 vanhu Exp $ */
+/*	$NetBSD: handler.c,v 1.9.6.6 2007/06/06 09:20:12 vanhu Exp $	*/
+
+/* Id: handler.c,v 1.28 2006/05/26 12:17:29 manubsd Exp */
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -48,6 +50,10 @@
 #include "sockmisc.h"
 #include "debug.h"
 
+#ifdef ENABLE_HYBRID
+#include <resolv.h>
+#endif
+
 #include "schedule.h"
 #include "grabmyaddr.h"
 #include "algorithm.h"
@@ -68,6 +74,9 @@
 #include "handler.h"
 #include "gcmalloc.h"
 #include "nattraversal.h"
+#include "ike_session.h"
+
+#include "sainfo.h"
 
 #ifdef HAVE_GSSAPI
 #include "gssapi.h"
@@ -138,13 +147,23 @@ getph1byaddr(local, remote)
 {
 	struct ph1handle *p;
 
+	plog(LLV_DEBUG2, LOCATION, NULL, "getph1byaddr: start\n");
+	plog(LLV_DEBUG2, LOCATION, NULL, "local: %s\n", saddr2str(local));
+	plog(LLV_DEBUG2, LOCATION, NULL, "remote: %s\n", saddr2str(remote));
+
 	LIST_FOREACH(p, &ph1tree, chain) {
 		if (p->status == PHASE1ST_EXPIRED)
 			continue;
+		plog(LLV_DEBUG2, LOCATION, NULL, "p->local: %s\n", saddr2str(p->local));
+		plog(LLV_DEBUG2, LOCATION, NULL, "p->remote: %s\n", saddr2str(p->remote));
 		if (CMPSADDR(local, p->local) == 0
-		 && CMPSADDR(remote, p->remote) == 0)
+			&& CMPSADDR(remote, p->remote) == 0){
+			plog(LLV_DEBUG2, LOCATION, NULL, "matched\n");
 			return p;
+		}
 	}
+
+	plog(LLV_DEBUG2, LOCATION, NULL, "no match\n");
 
 	return NULL;
 }
@@ -185,6 +204,24 @@ getph1bydstaddrwop(remote)
 	}
 
 	return NULL;
+}
+
+int
+islast_ph1(ph1) 
+	struct ph1handle *ph1;
+{
+	struct ph1handle *p;
+
+	LIST_FOREACH(p, &ph1tree, chain) {
+		if (p->status == PHASE1ST_EXPIRED)
+			continue;
+		if (CMPSADDR(ph1->remote, p->remote) == 0) {
+			if (p == ph1)
+				continue;
+			return 0;
+		}
+	}
+	return 1;
 }
 
 /*
@@ -246,9 +283,13 @@ newph1()
 	iph1->dpd_lastack = 0;
 	iph1->dpd_seq = 0;
 	iph1->dpd_fails = 0;
+    iph1->peer_sent_ike = 0;
 	iph1->dpd_r_u = NULL;
 #endif
-
+#ifdef ENABLE_VPNCONTROL_PORT
+	iph1->ping_sched = NULL;
+#endif
+	iph1->is_dying = 0;
 	return iph1;
 }
 
@@ -259,9 +300,11 @@ void
 delph1(iph1)
 	struct ph1handle *iph1;
 {
+	if (iph1 == NULL)
+		return;
+
 	/* SA down shell script hook */
-	if (iph1 != NULL)
-		script_hook(iph1, SCRIPT_PHASE1_DOWN);
+	script_hook(iph1, SCRIPT_PHASE1_DOWN);
 
 	EVT_PUSH(iph1->local, iph1->remote, EVTT_PHASE1_DOWN, NULL);
 
@@ -276,9 +319,19 @@ delph1(iph1)
 	}
 #endif
 
+#ifdef ENABLE_HYBRID
+	if (iph1->mode_cfg)
+		isakmp_cfg_rmstate(iph1);
+	VPTRINIT(iph1->xauth_awaiting_userinput_msg);
+#endif
+
 #ifdef ENABLE_DPD
 	if (iph1->dpd_r_u != NULL)
 		SCHED_KILL(iph1->dpd_r_u);
+#endif
+#ifdef ENABLE_VPNCONTROL_PORT
+	if (iph1->ping_sched != NULL)
+		SCHED_KILL(iph1->ping_sched);
 #endif
 
 	if (iph1->remote) {
@@ -295,15 +348,11 @@ delph1(iph1)
 		iph1->approval = NULL;
 	}
 
-#ifdef ENABLE_HYBRID
-	if (iph1->mode_cfg)
-		isakmp_cfg_rmstate(iph1);
-#endif
-
 	VPTRINIT(iph1->authstr);
 
 	sched_scrub_param(iph1);
 	iph1->sce = NULL;
+	iph1->sce_rekey = NULL;
 	iph1->scr = NULL;
 
 	VPTRINIT(iph1->sendbuf);
@@ -333,6 +382,9 @@ delph1(iph1)
 	VPTRINIT(iph1->id);
 	VPTRINIT(iph1->id_p);
 
+	if(iph1->approval != NULL)
+		delisakmpsa(iph1->approval);
+
 	if (iph1->ivm) {
 		oakley_delivm(iph1->ivm);
 		iph1->ivm = NULL;
@@ -348,6 +400,16 @@ delph1(iph1)
 	gssapi_free_state(iph1);
 #endif
 
+#ifdef __APPLE__
+	if (iph1->parent_session) {
+		ike_session_unlink_ph1_from_session(iph1);
+	}
+	if (iph1->rmconf) {
+		unlink_rmconf_from_ph1(iph1->rmconf);
+		iph1->rmconf = NULL;
+	}
+#endif
+	
 	racoon_free(iph1);
 }
 
@@ -380,17 +442,30 @@ remph1(iph1)
  * flush isakmp-sa
  */
 void
-flushph1()
+flushph1(int ignore_established_handles)
 {
 	struct ph1handle *p, *next;
-
+	
 	for (p = LIST_FIRST(&ph1tree); p; p = next) {
 		next = LIST_NEXT(p, chain);
-
+		
 		/* send delete information */
-		if (p->status == PHASE1ST_ESTABLISHED) 
+		if (p->status == PHASE1ST_ESTABLISHED) {
+			if (ignore_established_handles &&
+			    (ike_session_has_negoing_ph2(p->parent_session) ||
+			     p->mode_cfg->flags)) {
+				plog(LLV_DEBUG2, LOCATION, NULL,
+					 "skipping ph1 handler that's established... because it's needed by children phase2s\n");
+			    continue;
+		    }
+			/* send delete information */
+			plog(LLV_DEBUG2, LOCATION, NULL,
+				 "got a ph1 handler to flush...\n");
 			isakmp_info_send_d1(p);
+		}
 
+		ike_session_stopped_by_controller(p->parent_session,
+										  ike_session_stopped_by_flush);
 		remph1(p);
 		delph1(p);
 	}
@@ -469,8 +544,21 @@ getph2byid(src, dst, spid)
 	LIST_FOREACH(p, &ph2tree, chain) {
 		if (spid == p->spid &&
 		    CMPSADDR(src, p->src) == 0 &&
-		    CMPSADDR(dst, p->dst) == 0)
-			return p;
+		    CMPSADDR(dst, p->dst) == 0){
+			/* Sanity check to detect zombie handlers
+			 * XXX Sould be done "somewhere" more interesting,
+			 * because we have lots of getph2byxxxx(), but this one
+			 * is called by pk_recvacquire(), so is the most important.
+			 */
+			if(p->status < PHASE2ST_ESTABLISHED &&
+			   p->retry_counter == 0
+			   && p->sce == NULL && p->scr == NULL){
+				plog(LLV_DEBUG, LOCATION, NULL,
+					 "Zombie ph2 found, expiring it\n");
+				isakmp_ph2expire(p);
+			}else
+				return p;
+		}
 	}
 
 	return NULL;
@@ -542,6 +630,7 @@ newph2()
 		return NULL;
 
 	iph2->status = PHASE1ST_SPAWN;
+	iph2->is_dying = 0;
 
 	return iph2;
 }
@@ -635,6 +724,16 @@ delph2(iph2)
 		iph2->proposal = NULL;
 	}
 
+#ifdef __APPLE__
+	if (iph2->parent_session) {
+		ike_session_unlink_ph2_from_session(iph2);
+	}
+	if (iph2->sainfo) {
+		unlink_sainfo_from_ph2(iph2->sainfo);
+		iph2->sainfo = NULL;
+	}
+#endif
+
 	racoon_free(iph2);
 }
 
@@ -664,17 +763,33 @@ initph2tree()
 }
 
 void
-flushph2()
+flushph2(int ignore_established_handles)
 {
 	struct ph2handle *p, *next;
 
+	plog(LLV_DEBUG2, LOCATION, NULL,
+		 "flushing all ph2 handlers...\n");
+
 	for (p = LIST_FIRST(&ph2tree); p; p = next) {
 		next = LIST_NEXT(p, chain);
-
-		/* send delete information */
-		if (p->status == PHASE2ST_ESTABLISHED) 
+		
+		if (p->status == PHASE2ST_ESTABLISHED){
+			if (ignore_established_handles) {
+				plog(LLV_DEBUG2, LOCATION, NULL,
+					 "skipping ph2 handler that's established...\n");
+			    continue;
+		    }
+			/* send delete information */
+			plog(LLV_DEBUG2, LOCATION, NULL,
+				 "got an established ph2 handler to flush...\n");
 			isakmp_info_send_d2(p);
-
+		}else{
+			plog(LLV_DEBUG2, LOCATION, NULL,
+				 "got a ph2 handler to flush (state %d)\n", p->status);
+		}
+		
+		ike_session_stopped_by_controller(p->parent_session,
+										  ike_session_stopped_by_flush);
 		delete_spd(p);
 		unbindph12(p);
 		remph2(p);
@@ -699,7 +814,11 @@ deleteallph2(src, dst, proto_id)
 		next = LIST_NEXT(iph2, chain);
 		if (iph2->proposal == NULL && iph2->approval == NULL)
 			continue;
-		if (iph2->approval != NULL) {
+		if (cmpsaddrwop(src, iph2->src) != 0 ||
+		    cmpsaddrwop(dst, iph2->dst) != 0) {
+            continue;
+        }
+        if (iph2->approval != NULL) {
 			for (pr = iph2->approval->head; pr != NULL;
 			     pr = pr->next) {
 				if (proto_id == pr->proto_id)
@@ -714,9 +833,42 @@ deleteallph2(src, dst, proto_id)
 		}
 		continue;
  zap_it:
+        plog(LLV_DEBUG2, LOCATION, NULL,
+             "deleteallph2: got a ph2 handler...\n");
+        if (iph2->status == PHASE2ST_ESTABLISHED)
+            isakmp_info_send_d2(iph2);
+        ike_session_stopped_by_controller(iph2->parent_session,
+                                          ike_session_stopped_by_flush);
 		unbindph12(iph2);
 		remph2(iph2);
 		delph2(iph2);
+	}
+}
+
+/*
+ * Delete all Phase 1 handlers for this src/dst.
+ */
+void
+deleteallph1(src, dst)
+struct sockaddr *src, *dst;
+{
+	struct ph1handle *iph1, *next;
+
+	for (iph1 = LIST_FIRST(&ph1tree); iph1 != NULL; iph1 = next) {
+		next = LIST_NEXT(iph1, chain);
+		if (cmpsaddrwop(src, iph1->local) != 0 ||
+		    cmpsaddrwop(dst, iph1->remote) != 0) {
+			continue;
+        }
+        plog(LLV_DEBUG2, LOCATION, NULL,
+             "deleteallph1: got a ph1 handler...\n");
+        if (iph1->status == PHASE2ST_ESTABLISHED)
+		isakmp_info_send_d1(iph1);
+
+		ike_session_stopped_by_controller(iph1->parent_session,
+						  ike_session_stopped_by_flush);
+		remph1(iph1);
+		delph1(iph1);
 	}
 }
 
@@ -726,6 +878,9 @@ bindph12(iph1, iph2)
 	struct ph1handle *iph1;
 	struct ph2handle *iph2;
 {
+	if (iph2->ph1 && (struct ph1handle *)iph2->ph1bind.le_next == iph1) {
+		plog(LLV_ERROR, LOCATION, NULL, "duplicate %s.\n", __FUNCTION__);		
+	}
 	iph2->ph1 = iph1;
 	LIST_INSERT_HEAD(&iph1->ph2tree, iph2, ph1bind);
 }
@@ -735,8 +890,34 @@ unbindph12(iph2)
 	struct ph2handle *iph2;
 {
 	if (iph2->ph1 != NULL) {
+		plog(LLV_DEBUG, LOCATION, NULL, "unbindph12.\n");
 		iph2->ph1 = NULL;
 		LIST_REMOVE(iph2, ph1bind);
+	}
+}
+
+void
+rebindph12(new_ph1, iph2)
+struct ph1handle *new_ph1;
+struct ph2handle *iph2;
+{
+	if (!new_ph1) {
+		return;
+	}
+
+	// reconcile the ph1-to-ph2 binding
+	plog(LLV_DEBUG, LOCATION, NULL, "rebindph12.\n");
+	unbindph12(iph2);
+	bindph12(new_ph1, iph2);
+	// recalculate ivm since ph1 binding has changed
+	if (iph2->ivm != NULL) {
+		oakley_delivm(iph2->ivm);
+		if (new_ph1->status == PHASE1ST_ESTABLISHED) {
+			iph2->ivm = oakley_newiv2(new_ph1, iph2->msgid);
+			plog(LLV_DEBUG, LOCATION, NULL, "ph12 binding changed... recalculated ivm.\n");
+		} else {
+			iph2->ivm = NULL;
+		}
 	}
 }
 
@@ -773,6 +954,12 @@ inscontacted(remote)
 		return -1;
 
 	new->remote = dupsaddr(remote);
+	if (new->remote == NULL) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			"failed to allocate buffer.\n");
+		racoon_free(new);
+		return -1;
+	}
 
 	LIST_INSERT_HEAD(&ctdtree, new, chain);
 
@@ -840,9 +1027,11 @@ check_recvdpkt(remote, local, rbuf)
 
 	/*
 	 * the packet was processed before, but the remote address mismatches.
+         * ignore the port to accomodate port changes (e.g. floating).
 	 */
-	if (cmpsaddrstrict(remote, r->remote) != 0)
-		return 2;
+	if (cmpsaddrwop(remote, r->remote) != 0) {
+	        return 2;
+        }
 
 	/*
 	 * it should not check the local address because the packet
@@ -888,9 +1077,10 @@ check_recvdpkt(remote, local, rbuf)
  * adding a hash of received packet into the received list.
  */
 int
-add_recvdpkt(remote, local, sbuf, rbuf)
+add_recvdpkt(remote, local, sbuf, rbuf, non_esp)
 	struct sockaddr *remote, *local;
 	vchar_t *sbuf, *rbuf;
+    size_t non_esp;
 {
 	struct recvdpkt *new = NULL;
 
@@ -927,13 +1117,30 @@ add_recvdpkt(remote, local, sbuf, rbuf)
 		del_recvdpkt(new);
 		return -1;
 	}
-	new->sendbuf = vdup(sbuf);
-	if (new->sendbuf == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"failed to allocate buffer.\n");
-		del_recvdpkt(new);
-		return -1;
-	}
+
+	if (non_esp) {
+		plog (LLV_DEBUG, LOCATION, NULL, "Adding NON-ESP marker\n");
+
+        /* If NAT-T port floating is in use, 4 zero bytes (non-ESP marker) 
+         must added just before the packet itself. For this we must 
+         allocate a new buffer and release it at the end. */
+        if ((new->sendbuf = vmalloc (sbuf->l + non_esp)) == NULL) {
+            plog(LLV_ERROR, LOCATION, NULL, 
+                 "failed to allocate extra buf for non-esp\n");
+            del_recvdpkt(new);
+            return -1;
+        }
+        *(u_int32_t *)new->sendbuf->v = 0;
+        memcpy(new->sendbuf->v + non_esp, sbuf->v, sbuf->l);
+    } else {
+        new->sendbuf = vdup(sbuf);
+        if (new->sendbuf == NULL) {
+            plog(LLV_ERROR, LOCATION, NULL,
+                 "failed to allocate buffer.\n");
+            del_recvdpkt(new);
+            return -1;
+        }
+    }
 
 	new->retry_counter = lcconf->retry_counter;
 	new->time_send = 0;
@@ -1036,5 +1243,131 @@ exclude_cfg_addr(addr)
 	}
 
 	return 1;
+}
+#endif
+
+#ifdef ENABLE_HYBRID
+struct ph1handle *
+getph1bylogin(login)
+	char *login;
+{
+	struct ph1handle *p;
+
+	LIST_FOREACH(p, &ph1tree, chain) {
+		if (p->mode_cfg == NULL)
+			continue;
+		if (strncmp(p->mode_cfg->login, login, LOGINLEN) == 0)
+			return p;
+	}
+
+	return NULL;
+}
+
+int
+purgeph1bylogin(login)
+	char *login;
+{
+	struct ph1handle *p;
+	int found = 0;
+
+	LIST_FOREACH(p, &ph1tree, chain) {
+		if (p->mode_cfg == NULL)
+			continue;
+		if (strncmp(p->mode_cfg->login, login, LOGINLEN) == 0) {
+			if (p->status == PHASE1ST_ESTABLISHED)
+				isakmp_info_send_d1(p);
+			purge_remote(p);
+			found++;
+		}
+	}
+
+	return found;
+}
+
+int
+purgephXbydstaddrwop(remote)
+struct sockaddr *remote;
+{
+	int    found = 0;
+	struct ph1handle *p;
+	
+	LIST_FOREACH(p, &ph1tree, chain) {
+		if (cmpsaddrwop(remote, p->remote) == 0) {
+            plog(LLV_WARNING, LOCATION, NULL,
+                 "in %s... purging phase1 and related phase2s\n", __FUNCTION__);
+            ike_session_purge_ph2s_by_ph1(p);
+			if (p->status == PHASE1ST_ESTABLISHED)
+				isakmp_info_send_d1(p);
+            isakmp_ph1expire(p);
+			found++;
+		}
+	}
+
+	return found;
+}
+
+void
+purgephXbyspid(u_int32_t spid,
+               int       del_boundph1)
+{
+	struct ph2handle *iph2;
+    struct ph1handle *iph1;
+
+    // do ph2's first... we need the ph1s for notifications
+	LIST_FOREACH(iph2, &ph2tree, chain) {
+		if (spid == iph2->spid) {
+            if (iph2->status == PHASE2ST_ESTABLISHED) {
+                isakmp_info_send_d2(iph2);
+            }
+            isakmp_ph2expire(iph2); // iph2 will go down 1 second later.
+            ike_session_stopped_by_controller(iph2->parent_session,
+                                              ike_session_stopped_by_flush);
+        }
+    }
+
+    // do the ph1s last.
+	LIST_FOREACH(iph2, &ph2tree, chain) {
+		if (spid == iph2->spid) {
+            if (del_boundph1 && iph2->parent_session) {
+                for (iph1 = LIST_FIRST(&iph2->parent_session->ikev1_state.ph1tree); iph1; iph1 = LIST_NEXT(iph1, ph1ofsession_chain)) {
+                    if (iph1->status == PHASE1ST_ESTABLISHED) {
+                        isakmp_info_send_d1(iph1);
+                    }
+                    isakmp_ph1expire(iph1);
+                }
+            }
+		}
+	}
+}
+
+#endif
+
+#ifdef ENABLE_DPD
+int
+ph1_force_dpd (struct sockaddr *remote)
+{
+    int status = -1;
+    struct ph1handle *p;
+
+    LIST_FOREACH(p, &ph1tree, chain) {
+        if (cmpsaddrwop(remote, p->remote) == 0) {
+            if (p->status == PHASE1ST_ESTABLISHED &&
+                !p->is_dying &&
+                p->dpd_support &&
+                p->rmconf->dpd_interval) {
+                if(!p->dpd_fails) {
+                    isakmp_info_send_r_u(p);
+                    status = 0;
+                } else {
+                    plog(LLV_DEBUG2, LOCATION, NULL, "skipping forced-DPD for phase1 (dpd already in progress).\n");
+                }
+            } else {
+                plog(LLV_DEBUG2, LOCATION, NULL, "skipping forced-DPD for phase1 (status %d, dying %d, dpd-support %d, dpd-interval %d).\n",
+                     p->status, p->is_dying, p->dpd_support, p->rmconf->dpd_interval);
+            }
+        }
+    }
+
+	return status;
 }
 #endif

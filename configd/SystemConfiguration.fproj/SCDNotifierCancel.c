@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2008, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -67,17 +67,22 @@ SCDynamicStoreNotifyCancel(SCDynamicStoreRef store)
 			return TRUE;
 		case Using_NotifierInformViaCallback :
 			/* invalidate and release the run loop source */
-			CFRunLoopSourceInvalidate(storePrivate->callbackRLS);
-			CFRelease(storePrivate->callbackRLS);
-			storePrivate->callbackRLS = NULL;
+			if (storePrivate->callbackRLS != NULL) {
+				CFRunLoopSourceInvalidate(storePrivate->callbackRLS);
+				CFRelease(storePrivate->callbackRLS);
+				storePrivate->callbackRLS = NULL;
+			}
 
 			/* invalidate and release the callback mach port */
-			CFMachPortInvalidate(storePrivate->callbackPort);
-			CFRelease(storePrivate->callbackPort);
-			storePrivate->callbackPort		= NULL;
+			if (storePrivate->callbackPort != NULL) {
+				__MACH_PORT_DEBUG(TRUE, "*** SCDynamicStoreNotifyCancel", CFMachPortGetPort(storePrivate->callbackPort));
+				CFMachPortInvalidate(storePrivate->callbackPort);
+				CFRelease(storePrivate->callbackPort);
+				storePrivate->callbackPort = NULL;
+			}
 
-			storePrivate->callbackArgument		= NULL;
-			storePrivate->callbackFunction		= NULL;
+			storePrivate->callbackArgument	= NULL;
+			storePrivate->callbackFunction	= NULL;
 			break;
 		default :
 			break;
@@ -89,11 +94,13 @@ SCDynamicStoreNotifyCancel(SCDynamicStoreRef store)
 	storePrivate->notifyStatus = NotifierNotRegistered;
 
 	if (status != KERN_SUCCESS) {
-#ifdef	DEBUG
-		if (status != MACH_SEND_INVALID_DEST)
-			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreNotifyCancel notifycancel(): %s"), mach_error_string(status));
-#endif	/* DEBUG */
-		(void) mach_port_destroy(mach_task_self(), storePrivate->server);
+		if (status == MACH_SEND_INVALID_DEST) {
+			/* the server's gone and our session port's dead, remove the dead name right */
+			(void) mach_port_deallocate(mach_task_self(), storePrivate->server);
+		} else {
+			/* we got an unexpected error, leave the [session] port alone */
+			SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStoreNotifyCancel notifycancel(): %s"), mach_error_string(status));
+		}
 		storePrivate->server = MACH_PORT_NULL;
 		_SCErrorSet(status);
 		return FALSE;

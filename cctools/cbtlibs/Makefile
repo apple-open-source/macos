@@ -1,15 +1,5 @@
 RC_OS = macos
 OFLAG = -O
-ifeq "macos" "$(RC_OS)"
-  X_CFLAGS := $(shell if [ "$(RC_RELEASE)" != "Beaker" ] &&    \
-			 [ "$(RC_RELEASE)" != "Bunsen" ] &&    \
-			 [ "$(RC_RELEASE)" != "Gonzo"  ] &&    \
-			 [ "$(RC_RELEASE)" != "Kodiak" ]; then \
-	     echo -Wno-long-double -no-cpp-precomp ; \
-	     fi; )
-endif
-
-
 USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ] && \
 				  [ "$(RC_XBS)" != "YES" ]; then \
 	     echo YES ; else echo NO ; \
@@ -82,10 +72,10 @@ endif
 
 libsyminfo.a: libsyminfo.o
 	$(CC) $(CFLAGS) $(RC_CFLAGS) -nostdlib -r \
-		-o $(OBJROOT)/libsyminfo.o \
+		-o $(OBJROOT)/libsyminfo.o.tmp \
 		libsyminfo.o $(LIBSTUFF)
 	libtool -static -o $(SYMROOT)/libsyminfo.a \
-		$(OBJROOT)/libsyminfo.o
+		$(OBJROOT)/libsyminfo.o.tmp
 
 
 lib_ofiles_install: lib_ofiles

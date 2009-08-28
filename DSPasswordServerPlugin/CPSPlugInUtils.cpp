@@ -49,7 +49,10 @@ SInt32 PWSErrToDirServiceError( PWServerError inError )
             result = SASLErrToDirServiceError( inError.err );
             break;
 		
-		case kConnectionError:
+        case kConnectionError:
+            result = eDSAuthServerError;
+            break;
+
 		case kGeneralError:
 			result = eDSAuthFailed;
 			break;
@@ -310,7 +313,7 @@ long GetServerListFromBonjourForKeyHash( const char *inKeyHash, CFRunLoopRef inR
 								{
 									case AF_INET:
 										CFDataGetBytes( sockAddrRef, CFRangeMake(0, sizeof(address)), (UInt8*)&address );
-										if ( inet_ntop(sockHdr.sa_family, &address.sin_addr, serverEntry.ip, sizeof(serverEntry.ip)) != NULL )
+										if ( inet_ntop(sockHdr.sa_family, &address.sin_addr, serverEntry.ip, (socklen_t)sizeof(serverEntry.ip)) != NULL )
 										{
 											strlcpy( serverEntry.id, inKeyHash, sizeof(serverEntry.id) );
 											strcpy( serverEntry.port, kPasswordServerPortStr );
@@ -389,7 +392,7 @@ static void ServiceBrowserCallBack(CFNetServiceBrowserRef browser, CFOptionFlags
 					{
 						case AF_INET:
 							CFDataGetBytes( sockAddrRef, CFRangeMake(0, sizeof(address)), (UInt8*)&address );
-							if ( inet_ntop(sockHdr.sa_family, &address.sin_addr, serverEntry.ip, sizeof(serverEntry.ip)) != NULL )
+							if ( inet_ntop(sockHdr.sa_family, &address.sin_addr, serverEntry.ip, (socklen_t)sizeof(serverEntry.ip)) != NULL )
 							{
 								char nameBuffer[256];
 								

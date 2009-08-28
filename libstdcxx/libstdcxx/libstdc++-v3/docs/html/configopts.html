@@ -136,9 +136,9 @@ options</a></h1>
  <dd><p>Select a target-specific underlying std::allocator.  The
         choices are 'new' to specify a wrapper for new, 'malloc' to
         specify a wrapper for malloc, 'mt' for a fixed power of two allocator
-        (<a href="ext/mt_allocator.html">documented</a> under extensions) or
-        'bitmap' for a bitmap allocator. This option can change the
-        library ABI.
+        (<a href="ext/mt_allocator.html">documented</a> under extensions),
+	'pool' for the SGI pooled allocator or 'bitmap' for a bitmap allocator.
+	This option can change the library ABI.
      </p>
  </dd>
 
@@ -234,14 +234,13 @@ options</a></h1>
     </p>
  </dd>
 
- <dt><code>--enable-c-mbchar  </code>[default]</dt>
- <dd><p>Certain template specializations are required for wide
-        character conversion support.  This is tricky and currently
-        changing rapidly, and can cause problems on new platforms.
-        Disabling wide character specializations is useful for initial
-        porting steps, but builds only a subset of what is required by
-        ISO.  By default, this option is on.  This option can change
-        the library ABI.
+ <dt><code>--enable-wchar_t  </code>[default]</dt>
+ <dd><p>Template specializations for the &quot;wchar_t&quot; type are
+        required for wide character conversion support.  Disabling
+        wide character specializations may be expedient for initial
+        porting efforts, but builds only a subset of what is required by
+        ISO, and is not recommended.  By default, this option is on.
+        This option can change the library ABI.
      </p>
  </dd>
 
@@ -278,14 +277,29 @@ options</a></h1>
  </dd>
 
  <dt><code>--enable-symvers[=style]  </code></dt>
+
  <dd><p>In 3.1 and later, tries to turn on symbol versioning in the
-        shared library (if a shared library has been requested).  The
-        only 'style' currently supported is 'gnu' which requires that
-        a recent version of the GNU linker be in use.  With no style
-        given, the configure script will try to guess if the 'gnu'
-        style can be used, and if so, will turn it on.  Hopefully
-        people will volunteer to do other 'style' options.
+        shared library (if a shared library has been
+        requested). Values for 'style' that are currently supported
+        are 'gnu', 'gnu-versioned-namespace', 'darwin', and
+        'darwin-export'. Both gnu- options require that a recent
+        version of the GNU linker be in use. Both darwin options are
+        equivalent. With no style given, the configure script will try
+        to guess correct defaults for the host system, probe to see if
+        additional requirements are necessary and present for
+        activation, and if so, will turn symbol versioning on. This
+        option can change the library ABI.
      </p>
+
+ </dd>
+
+ <dt><code>--enable-visibility  </code></dt>
+ <dd><p> In 4.2 and later, enables or disables visibility attributes.
+        If enabled (as by default), and the compiler seems capable of
+        passing the simple sanity checks thrown at it, adjusts items
+        in namespace std, namespace std::tr1, and namespace __gnu_cxx
+        so that -fvisibility options work.
+    </p>
  </dd>
 
  <dt><code>--enable-libstdcxx-pch  </code></dt>

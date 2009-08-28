@@ -1,8 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1996,2007 Oracle.  All rights reserved.
  */
 /*
  * Copyright (c) 1990, 1993, 1994, 1995, 1996
@@ -38,17 +37,11 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
+ * $Id: bt_compare.c,v 12.9 2007/05/17 15:14:46 bostic Exp $
  */
 
 #include "db_config.h"
-
-#ifndef lint
-static const char revid[] = "$Id: bt_compare.c,v 1.2 2004/03/30 01:21:12 jtownsen Exp $";
-#endif /* not lint */
-
-#ifndef NO_SYSTEM_INCLUDES
-#include <sys/types.h>
-#endif
 
 #include "db_int.h"
 #include "dbinc/db_page.h"
@@ -58,12 +51,13 @@ static const char revid[] = "$Id: bt_compare.c,v 1.2 2004/03/30 01:21:12 jtownse
  * __bam_cmp --
  *	Compare a key to a given record.
  *
- * PUBLIC: int __bam_cmp __P((DB *, const DBT *, PAGE *,
- * PUBLIC:    u_int32_t, int (*)(DB *, const DBT *, const DBT *), int *));
+ * PUBLIC: int __bam_cmp __P((DB *, DB_TXN *, const DBT *, PAGE *, u_int32_t,
+ * PUBLIC:    int (*)(DB *, const DBT *, const DBT *), int *));
  */
 int
-__bam_cmp(dbp, dbt, h, indx, func, cmpp)
+__bam_cmp(dbp, txn, dbt, h, indx, func, cmpp)
 	DB *dbp;
+	DB_TXN *txn;
 	const DBT *dbt;
 	PAGE *h;
 	u_int32_t indx;
@@ -84,9 +78,9 @@ __bam_cmp(dbp, dbt, h, indx, func, cmpp)
 	 * !!!
 	 * We do not clear the pg_dbt DBT even though it's likely to contain
 	 * random bits.  That should be okay, because the app's comparison
-	 * routine had better not be looking at fields other than data/size.
-	 * We don't clear it because we go through this path a lot and it's
-	 * expensive.
+	 * routine had better not be looking at fields other than data, size
+	 * and app_data.  We don't clear it because we go through this path a
+	 * lot and it's expensive.
 	 */
 	switch (TYPE(h)) {
 	case P_LBTREE:
@@ -96,6 +90,7 @@ __bam_cmp(dbp, dbt, h, indx, func, cmpp)
 		if (B_TYPE(bk->type) == B_OVERFLOW)
 			bo = (BOVERFLOW *)bk;
 		else {
+			pg_dbt.app_data = NULL;
 			pg_dbt.data = bk->data;
 			pg_dbt.size = bk->len;
 			*cmpp = func(dbp, dbt, &pg_dbt);
@@ -129,6 +124,7 @@ __bam_cmp(dbp, dbt, h, indx, func, cmpp)
 		if (B_TYPE(bi->type) == B_OVERFLOW)
 			bo = (BOVERFLOW *)(bi->data);
 		else {
+			pg_dbt.app_data = NULL;
 			pg_dbt.data = bi->data;
 			pg_dbt.size = bi->len;
 			*cmpp = func(dbp, dbt, &pg_dbt);
@@ -142,7 +138,7 @@ __bam_cmp(dbp, dbt, h, indx, func, cmpp)
 	/*
 	 * Overflow.
 	 */
-	return (__db_moff(dbp, dbt,
+	return (__db_moff(dbp, txn, dbt,
 	    bo->pgno, bo->tlen, func == __bam_defcmp ? NULL : func, cmpp));
 }
 
@@ -204,8 +200,12 @@ __bam_defpfx(dbp, a, b)
 			return (cnt);
 
 	/*
-	 * We know that a->size must be <= b->size, or they wouldn't be
-	 * in this order.
+	 * They match up to the smaller of the two sizes.
+	 * Collate the longer after the shorter.
 	 */
-	return (a->size < b->size ? a->size + 1 : a->size);
+	if (a->size < b->size)
+		return (a->size + 1);
+	if (b->size < a->size)
+		return (b->size + 1);
+	return (b->size);
 }

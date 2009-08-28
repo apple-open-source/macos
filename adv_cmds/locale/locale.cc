@@ -1,22 +1,16 @@
 #include <iostream>
 #include <sstream>
 #include <map>
+#include <set>
 #include <vector>
 #include <algorithm>
 
-extern "C" {
-	#include <unistd.h>
-	#include <langinfo.h>
-	#include <locale.h>
-	#include <sys/types.h>
-	#include <dirent.h>
-
-	extern char *optarg;
-	extern int optind;
-	extern int optopt;
-	extern int opterr;
-	extern int optreset;
-}
+#include <unistd.h>
+#include <langinfo.h>
+#include <locale.h>
+#include <xlocale.h>
+#include <sys/types.h>
+#include <dirent.h>
 
 #define LAST(array) array + (sizeof(array) / sizeof(*array))
 
@@ -176,13 +170,51 @@ void list_all_valid_locales() {
 			}
 		}
 	}
-
+	closedir(d);
 	if (!found_C) {
 		cout << "C" << endl;
 	}
 	if (!found_POSIX) {
 		cout << "POSIX" << endl;
 	}
+}
+
+void show_all_unique_codesets() {
+	string locale_dir("/usr/share/locale");
+	DIR *d = opendir(locale_dir.c_str());
+	struct dirent *de;
+	static string expected[] = { "LC_COLLATE", "LC_CTYPE", "LC_MESSAGES",
+	  "LC_NUMERIC", "LC_TIME" };
+	set<string> codesets;
+	for(de = readdir(d); de; de = readdir(d)) {
+		string lname(de->d_name, de->d_namlen);
+		string ldir(locale_dir + "/" + lname);
+		int cnt = 0;
+		DIR *ld = opendir(ldir.c_str());
+		if (ld) {
+			struct dirent *lde;
+			for(lde = readdir(ld); lde; lde = readdir(ld)) {
+				string fname(lde->d_name, lde->d_namlen);
+				if (LAST(expected) != find(expected, LAST(expected), fname)) {
+					cnt++;
+				}
+			}
+			closedir(ld);
+
+			if (cnt == LAST(expected) - expected) {
+				locale_t xloc = newlocale(LC_ALL_MASK, lname.c_str(), NULL);
+				if (xloc) {
+					char *cs = nl_langinfo_l(CODESET, xloc);
+					if (cs && *cs && (codesets.find(cs) == codesets.end())) {
+						cout << cs << endl;
+						codesets.insert(cs);
+					}
+					freelocale(xloc);
+				}
+			}
+		}
+	}
+	closedir(d);
 }
 
 typedef map<string, keyword *> keywords_t;
@@ -203,17 +235,30 @@ void add_kw(keyword *k) {
 	}
 }
 
+string grouping(char *g) {
+	ostringstream ss;
+	if (*g == 0) {
+	    ss << "0";
+	} else {
+	    ss << static_cast<int>(*g);
+	    while(*++g) {
+		ss << ";" << static_cast<int>(*g);
+	    }
+	}
+	return ss.str();
+}
+
 void init_keywords() {
 	struct lconv *lc = localeconv();
 	if (lc) {
 		add_kw(new lc_keyword(LC_NUMERIC, "decimal_point", lc->decimal_point));
 		add_kw(new lc_keyword(LC_NUMERIC, "thousands_sep", lc->thousands_sep));
-		add_kw(new lc_keyword(LC_NUMERIC, "grouping", lc->grouping));
+		add_kw(new lc_keyword(LC_NUMERIC, "grouping", grouping(lc->grouping)));
 		add_kw(new lc_keyword(LC_MONETARY, "int_curr_symbol", lc->int_curr_symbol));
 		add_kw(new lc_keyword(LC_MONETARY, "currency_symbol", lc->currency_symbol));
 		add_kw(new lc_keyword(LC_MONETARY, "mon_decimal_point", lc->mon_decimal_point));
 		add_kw(new lc_keyword(LC_MONETARY, "mon_thousands_sep", lc->mon_thousands_sep));
-		add_kw(new lc_keyword(LC_MONETARY, "mon_grouping", lc->mon_grouping));
+		add_kw(new lc_keyword(LC_MONETARY, "mon_grouping", grouping(lc->mon_grouping)));
 		add_kw(new lc_keyword(LC_MONETARY, "positive_sign", lc->positive_sign));
 		add_kw(new lc_keyword(LC_MONETARY, "negative_sign", lc->negative_sign));
 		add_kw(new lc_keyword(LC_MONETARY, "int_frac_digits", tostr((int)lc->int_frac_digits), V_NUM));
@@ -264,7 +309,7 @@ void init_keywords() {
 	add_kw(new li_keyword(LC_MESSAGES, "yesstr", YESSTR));
 	add_kw(new li_keyword(LC_MESSAGES, "nostr", NOSTR));
 
-	add_kw(new lc_keyword(LC_SPECIAL, "charmap", ""));
+	add_kw(new li_keyword(LC_CTYPE, "charmap", CODESET));
 	add_kw(new lc_keyword(LC_SPECIAL, "categories", "LC_COLLATE LC_CTYPE LC_MESSAGES LC_MONETARY LC_NUMERIC LC_TIME"));
 
 	// add_kw: CRNCYSTR D_MD_ORDER CODESET RADIXCHAR THOUSEP
@@ -341,9 +386,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	if (sw_charmaps) {
-		// We only support the "Portable Character Set", so this 
-		// should be the empty list
-		cout << endl;
+	        show_all_unique_codesets();
 		return 0;
 	}
 

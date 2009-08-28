@@ -65,10 +65,14 @@
 #include <fcntl.h>
 #include <sys/time.h>
 #include <syslog.h>
+#include <poll.h>
 #include "SASLCode.h"
 #include "CPSUtilities.h"
 
 extern int errno;
+
+/* in ms */
+#define CONNECT_TIMEOUT 1000
 
 /* remove \r\n at end of the line */
 void sasl_chop(char *s)
@@ -135,7 +139,7 @@ int simple(void *context /*__attribute__((unused))*/,
     }
     
     if (*result != NULL && len != NULL)
-        *len = strlen(*result);
+        *len = (int)strlen(*result);
     
     return SASL_OK;
 }
@@ -169,17 +173,17 @@ getsecret(sasl_conn_t *conn,
 }
 
 
-long getconn(const char *host, const char *port, int *outSocket)
+int getconn(const char *host, const char *port, int *outSocket)
 {
     char servername[1024];
     struct sockaddr_in sin;
     int sock = 0;
-    long siResult = 0;
+    int siResult = 0;
     int rc;
 	struct in_addr inetAddr;
 	char *endPtr = NULL;
-	struct timeval timeoutVal = { 30, 0 };
-	struct timeval sendTimeoutVal = { 120, 0 };
+	struct timeval timeoutVal = { 10, 0 };
+	struct timeval sendTimeoutVal = { 10, 0 };
 	struct addrinfo *res, *res0;
     
     if ( host==NULL || port==NULL || outSocket==NULL )
@@ -200,7 +204,7 @@ long getconn(const char *host, const char *port, int *outSocket)
 			rc = getaddrinfo( servername, NULL, NULL, &res0 );
 			if (rc != 0) {
 				syslog(LOG_INFO,"getaddrinfo");
-				throw((long)-1);
+				throw((int)-1);
 			}
 			
 			for ( res = res0; res != NULL; res = res->ai_next )
@@ -218,7 +222,7 @@ long getconn(const char *host, const char *port, int *outSocket)
 		sin.sin_port = htons(strtol(port, &endPtr, 10));
         if ((sin.sin_port == 0) || (endPtr == port)) {
 			syslog(LOG_INFO, "port '%s' unknown\n", port);
-			throw((long)-1);
+			throw((int)-1);
 		}
 		
         sin.sin_family = AF_INET;
@@ -229,31 +233,55 @@ long getconn(const char *host, const char *port, int *outSocket)
 			sock = socket(AF_INET, SOCK_STREAM, 0);
 			if (sock < 0) {
 				syslog(LOG_INFO,"socket");
-				throw((long)-1);
+				throw((int)-1);
 			}
 			else
 			if ( sock > 0 )
 				break;
         }
 		
-		if ( setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeoutVal, sizeof(timeoutVal) ) == -1 )
+		if ( setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeoutVal, (socklen_t)sizeof(timeoutVal) ) == -1 )
 		{
 			syslog(LOG_INFO,"setsockopt SO_RCVTIMEO");
-            throw((long)-1);
+            throw((int)-1);
 		}
-		if ( setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &sendTimeoutVal, sizeof(sendTimeoutVal) ) == -1 )
+		if ( setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &sendTimeoutVal, (socklen_t)sizeof(sendTimeoutVal) ) == -1 )
 		{
 			syslog(LOG_INFO, "setsockopt SO_SNDTIMEO");
-			//throw((long)-1);	// not fatal
+			//throw((int)-1);	// not fatal
 		}
 		
-        if (connect(sock, (struct sockaddr *) &sin, sizeof (sin)) < 0) {
-            syslog(LOG_INFO,"connect");
-            throw((long)-1);
+        int flags = fcntl(sock, F_GETFL, NULL);
+        flags |= O_NONBLOCK;
+        fcntl(sock, F_SETFL, flags);
+        errno = 0;
+        if (connect(sock, (struct sockaddr *) &sin, (socklen_t)sizeof (sin)) < 0) {
+            if (errno != EINPROGRESS) {
+                    syslog(LOG_INFO,"connect");
+                    throw((int)-1);
+            }
+            struct pollfd pollList;
+            pollList.fd = sock;
+            pollList.events = POLLSTANDARD;
+            pollList.revents = 0;
+            if (poll(&pollList, 1, CONNECT_TIMEOUT) < 1) {
+                    throw((int)-1);
+            }
+            if (!(pollList.revents & POLLOUT)) {
+                    throw((int)-1);
+            }
+            int val = 1;
+            socklen_t s = sizeof(int);
+            getsockopt(sock, SOL_SOCKET, SO_ERROR, (void*)(&val), &s);
+            if (val) {
+                    throw((int)-1);
+            }
         }
+        flags &= ~O_NONBLOCK;
+        fcntl(sock, F_SETFL, flags);
     }
     
-    catch( long error )
+    catch( int error )
     {
         siResult = error;
 		if ( sock > 0 ) {
@@ -315,7 +343,7 @@ long getconn(const char *host, const char *port, int *outSocket)
 
 const unsigned char *COLON = (unsigned char *)":";
 
-bool UTF8_In_8859_1(const unsigned char *base, int len)
+bool UTF8_In_8859_1(const unsigned char *base, size_t len)
 {
     const unsigned char *scan, *end;
     
@@ -341,7 +369,7 @@ void MD5_UTF8_8859_1(
 	MD5_CTX * ctx,
 	bool In_ISO_8859_1,
 	const unsigned char *base,
-	int len)
+	size_t len)
 {
     const unsigned char *scan, *end;
     unsigned char cbuf;
@@ -372,7 +400,7 @@ void DigestCalcSecret(
 	unsigned char *pszUserName,
 	unsigned char *pszRealm,
 	unsigned char *Password,
-	int PasswordLen,
+	size_t PasswordLen,
 	HASH HA1)
 {
     bool In_8859_1;
@@ -385,9 +413,9 @@ void DigestCalcSecret(
 	MD5_Init(&Md5Ctx);
     
     /* We have to convert UTF-8 to ISO-8859-1 if possible */
-    In_8859_1 = UTF8_In_8859_1(pszUserName, strlen((char *) pszUserName));
+    In_8859_1 = UTF8_In_8859_1(pszUserName, (int)strlen((char *) pszUserName));
     MD5_UTF8_8859_1(&Md5Ctx, In_8859_1,
-		    pszUserName, strlen((char *) pszUserName));
+		    pszUserName, (int)strlen((char *) pszUserName));
     
     MD5_Update(&Md5Ctx, COLON, 1);
     
@@ -409,7 +437,7 @@ void DigestCalcSecret(
 
 void hmac_md5_init(HMAC_MD5_CTX *hmac,
 			 const unsigned char *key,
-			 int key_len)
+			 size_t key_len)
 {
 	unsigned char k_ipad[65];    /* inner padding -
 				* key XORd with ipad
@@ -479,7 +507,7 @@ void hmac_md5_init(HMAC_MD5_CTX *hmac,
  * was made to pad the key out to 64 bytes in the first place. */
 void pwsf_hmac_md5_precalc(HMAC_MD5_STATE *state,
 			    const unsigned char *key,
-			    int key_len)
+			    size_t key_len)
 {
 	HMAC_MD5_CTX hmac;
 	//unsigned loop;

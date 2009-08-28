@@ -1,12 +1,11 @@
-<!--$Id: faq.html,v 1.2 2004/03/30 01:22:56 jtownsen Exp $-->
-<!--Copyright 1997-2003 by Sleepycat Software, Inc.-->
-<!--All rights reserved.-->
+<!--$Id: faq.so,v 1.12 2006/09/07 19:26:44 alanb Exp $-->
+<!--Copyright (c) 1997,2007 Oracle.  All rights reserved.-->
 <!--See the file LICENSE for redistribution information.-->
 <html>
 <head>
 <title>Berkeley DB Reference Guide: Replication FAQ</title>
 <meta name="description" content="Berkeley DB: An embedded database programmatic toolkit.">
-<meta name="keywords" content="embedded,database,programmatic,toolkit,b+tree,btree,hash,hashing,transaction,transactions,locking,logging,access method,access methods,Java,C,C++">
+<meta name="keywords" content="embedded,database,programmatic,toolkit,btree,hash,hashing,transaction,transactions,locking,logging,access method,access methods,Java,C,C++">
 </head>
 <body bgcolor=white>
 <table width="100%"><tr valign=top>
@@ -19,11 +18,13 @@
 <p><li><b>Does Berkeley DB provide support for forwarding write queries from
 clients to masters?</b>
 <p>No, it does not.  The Berkeley DB RPC server code could be modified to support
-this functionality, but in general this protocol is left entirely to
-the application.  Note, there is no reason not to use the communications
+this functionality, but in general this protocol is left entirely to the
+application.  Note, there is no reason not to use the communications
 channels the application establishes for replication support to forward
-database update messages to the master, Berkeley DB does not require that
-those channels be used exclusively for replication messages.</p>
+database update messages to the master, since Berkeley DB does not require
+those channels to be used exclusively for replication messages.
+Replication Manager does not currently offer this service to the
+application.</p>
 <p><li><b>Can I use replication to partition my environment across
 multiple sites?</b>
 <p>No, this is not possible.  All replicated databases must be equally
@@ -48,7 +49,7 @@ for more information).</p>
 <p>This depends on the specifics of the application.  One common way is to
 write the <b>rec</b> and <b>control</b> arguments' sizes and data to
 a socket connected to each remote site.  On a fast, local area net, the
-simplest method is likely to be construct broadcast messages.  Each
+simplest method is likely to be to construct broadcast messages.  Each
 Berkeley DB message would be encapsulated inside an application specific
 message, with header information specifying the intended recipient(s)
 for the message.  This will likely require a global numbering scheme,
@@ -96,15 +97,9 @@ communications process which is responsible for forwarding the message
 to the appropriate client.  Alternatively, a broadcast mechanism will
 simplify the entire networking infrastructure, as processes will likely
 no longer have to maintain their own specific network connections.</p>
-<p><li><b>Can I use replication to replicate just the database
-environment's log files?</b>
-<p>Yes.  If the <a href="../../api_c/rep_start.html#DB_REP_LOGSONLY">DB_REP_LOGSONLY</a> flag is specified to
-<a href="../../api_c/rep_start.html">DB_ENV-&gt;rep_start</a>, the client site acts as a repository for logfiles
-(see <a href="../../ref/rep/logonly.html">Log file only clients</a> for more
-information).</p>
 </ol>
 <table width="100%"><tr><td><br></td><td align=right><a href="../rep/partition.html"><img src="../../images/prev.gif" alt="Prev"></a><a href="../toc.html"><img src="../../images/ref.gif" alt="Ref"></a><a href="../rep/ex.html"><img src="../../images/next.gif" alt="Next"></a>
 </td></tr></table>
-<p><font size=1><a href="../../sleepycat/legal.html">Copyright (c) 1996-2003</a> <a href="http://www.sleepycat.com">Sleepycat Software, Inc.</a> - All rights reserved.</font>
+<p><font size=1>Copyright (c) 1996,2007 Oracle.  All rights reserved.</font>
 </body>
 </html>

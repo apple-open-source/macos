@@ -1,4 +1,4 @@
-# Copyright (C) 2001-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 2001-2008 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,7 +12,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 """Unit tests for Mailman/SecurityManager.py
 """
@@ -20,8 +21,6 @@
 import os
 import unittest
 import errno
-import md5
-import sha
 import Cookie
 try:
     import crypt
@@ -33,13 +32,14 @@ from StringIO import StringIO
 from Mailman import mm_cfg
 from Mailman import Utils
 from Mailman import Errors
+from Mailman.Utils import md5_new, sha_new
 
 from TestBase import TestBase
 
 
 
 def password(plaintext):
-    return sha.new(plaintext).hexdigest()
+    return sha_new(plaintext).hexdigest()
 
 
 
@@ -132,7 +132,7 @@ class TestAuthenticate(TestBase):
     def test_list_admin_upgrade(self):
         eq = self.assertEqual
         mlist = self._mlist
-        mlist.password = md5.new('ssSSss').digest()
+        mlist.password = md5_new('ssSSss').digest()
         eq(mlist.Authenticate(
             [mm_cfg.AuthListAdmin], 'ssSSss'), mm_cfg.AuthListAdmin)
         eq(mlist.password, password('ssSSss'))
@@ -146,10 +146,10 @@ class TestAuthenticate(TestBase):
     def test_list_admin_oldstyle_unauth(self):
         eq = self.assertEqual
         mlist = self._mlist
-        mlist.password = md5.new('ssSSss').digest()
+        mlist.password = md5_new('ssSSss').digest()
         eq(mlist.Authenticate(
             [mm_cfg.AuthListAdmin], 'xxxxxx'), mm_cfg.UnAuthorized)
-        eq(mlist.password, md5.new('ssSSss').digest())
+        eq(mlist.password, md5_new('ssSSss').digest())
         # Test crypt upgrades if crypt is supported
         if crypt:
             mlist.password = crypted = crypt.crypt('rrRRrr', 'zc')

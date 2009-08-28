@@ -1,0 +1,509 @@
+# -*- tcl -*-
+# graphops.testsuite.setup:  Setting up implementation specific definitions.
+#
+# Copyright (c) 2008 Andreas Kupries <andreas_kupries@users.sourceforge.net>
+# All rights reserved.
+#
+# RCS: @(#) $Id: XOpsSetup,v 1.8 2008/11/19 07:39:33 andreas_kupries Exp $
+
+# -------------------------------------------------------------------------
+
+# Place holder for future setup / helper actions.
+
+
+proc SETUP_A {} {
+    # Used by kruskal, prim tests
+
+    graph mygraph
+    mygraph node insert 'node0'
+    mygraph node insert 'node1'
+    mygraph node insert 'node2'
+    mygraph node insert 'node3'
+    mygraph node insert 'node4'
+    mygraph node insert 'node5'
+    mygraph node insert 'node6'
+
+    mygraph arc insert 'node0' 'node1' 'arc0_1'
+    mygraph arc insert 'node0' 'node3' 'arc0_3'
+    mygraph arc insert 'node1' 'node3' 'arc1_3' 
+    mygraph arc insert 'node1' 'node4' 'arc1_4'
+    mygraph arc insert 'node2' 'node0' 'arc2_0'
+    mygraph arc insert 'node2' 'node5' 'arc2_5'
+    mygraph arc insert 'node3' 'node4' 'arc3_4'
+    mygraph arc insert 'node3' 'node6' 'arc3_6'
+    mygraph arc insert 'node3' 'node2' 'arc3_2'
+    mygraph arc insert 'node3' 'node5' 'arc3_5'
+    mygraph arc insert 'node4' 'node6' 'arc4_6'
+    mygraph arc insert 'node6' 'node5' 'arc6_5'
+
+    mygraph arc setweight 'arc0_1' 2
+    mygraph arc setweight 'arc0_3' 1
+    mygraph arc setweight 'arc1_3' 3
+    mygraph arc setweight 'arc1_4' 10
+    mygraph arc setweight 'arc2_0' 4
+    mygraph arc setweight 'arc2_5' 5
+    mygraph arc setweight 'arc3_4' 2
+    mygraph arc setweight 'arc3_6' 4
+    mygraph arc setweight 'arc3_2' 2
+    mygraph arc setweight 'arc3_5' 8
+    mygraph arc setweight 'arc4_6' 6
+    mygraph arc setweight 'arc6_5' 1
+
+    # 2 --/4/--> 0 --/2/--> 1
+    # |^         |         /|
+    # - \        -        / -
+    # 5  -|2|-   1   -/3/-  10
+    # -       \  -  /       -
+    # |        \ | /        |
+    # V         \VV         V
+    # 5 <--/8/-- 3 --/2/--> 4
+    #  ^         |         /
+    #   \        -        /
+    #    -|1|-   4   -/6/-
+    #         \  -  /
+    #          \ | /
+    #           \VV
+    #            6
+
+    return
+}
+
+proc SETUP_A2 {} {
+    SETUP_A
+    mygraph arc insert 'node0' 'node2' 'arc0_2'
+    mygraph arc insert 'node0' 'node4' 'arc0_4'
+    return
+}
+
+# -------------------------------------------------------------------------
+
+proc SETUP_B {} {
+    # Predefined Graph for testing on:
+    # - isConnected?
+    # - connectedComponents
+    # - prim
+    # - isEulerian?
+    # Author: Alejandro Eduardo Cruz Paz
+    # 28 August 2008
+
+    graph mygraph
+    # Graph's nodes definition
+    mygraph node insert S
+    mygraph node insert A
+    mygraph node insert B
+    mygraph node insert C
+    mygraph node insert D
+    mygraph node insert E
+        
+    # setup arcs and it's weights
+    mygraph arc insert S A S_A ;	mygraph arc setweight S_A 3
+    mygraph arc insert A C A_C ;	mygraph arc setweight A_C 2
+    mygraph arc insert S B S_B ;	mygraph arc setweight S_B 1
+    mygraph arc insert A B A_B ;	mygraph arc setweight A_B 1
+    mygraph arc insert B C B_C ;	mygraph arc setweight B_C 3
+    mygraph arc insert B D B_D ;	mygraph arc setweight B_D 5
+    mygraph arc insert C D C_D ;	mygraph arc setweight C_D 1
+    mygraph arc insert D E D_E ;	mygraph arc setweight D_E 1
+    mygraph arc insert C E C_E ;	mygraph arc setweight C_E 3
+
+    # S --/3/--> A --/2/--> C --/3/--> E
+    #  \         |        /^|        /-^
+    #   \        -       /  -       /
+    #    -|1|    1  -|3|-   1  -|1|-
+    #        \   - /        - /
+    #         \  V/         V/
+    #          > B --/5/--> D
+    #
+
+    return
+}
+
+proc SETUP_B2 {} {
+    graph mygraph
+
+    mygraph node insert A B C D E F G
+
+    mygraph arc insert A B
+    mygraph arc insert A E
+    mygraph arc insert B D
+    mygraph arc insert B F
+    mygraph arc insert C A
+    mygraph arc insert D C
+    mygraph arc insert E B
+    mygraph arc insert E F
+    mygraph arc insert F A
+    mygraph arc insert F G
+    mygraph arc insert G E
+    return
+}
+
+# -------------------------------------------------------------------------
+
+proc SETUP_C {} {
+    # Predefined Graph for testing on:
+    # - isConnected? 
+    # - isEulerian?
+    # - isBipartite?
+    # Author: Alejandro Eduardo Cruz Paz
+    # 28 August 2008
+
+    graph mygraph
+    mygraph node insert A
+    mygraph node insert B
+    mygraph node insert C
+    mygraph node insert D
+    mygraph node insert E
+    mygraph node insert F
+
+    mygraph arc insert A B A_B 
+    mygraph arc insert B D B_D
+    mygraph arc insert D C D_C
+    mygraph arc insert C A C_A
+    mygraph arc insert A E A_E
+    mygraph arc insert E F E_F
+
+    mygraph arc setweight A_B 9
+    mygraph arc setweight B_D 10
+    mygraph arc setweight D_C 4
+    mygraph arc setweight C_A 3
+    return
+}
+
+# -------------------------------------------------------------------------
+
+proc SETUP_D {} {
+    # Predefined Graph for testing on:
+    # - isConnected?
+    # - isEulerian?
+    # - isBipartite?
+    # Author: Alejandro Eduardo Cruz Paz
+    # 28 August 2008
+
+    graph mygraph
+    mygraph node insert a
+    mygraph node insert b
+    mygraph node insert c
+    mygraph node insert d
+    
+    mygraph node insert f
+    mygraph node insert g
+    mygraph node insert h
+    
+    mygraph node insert i
+    mygraph node insert j
+    
+    mygraph arc insert d f
+    mygraph arc insert h j
+    mygraph arc insert i j
+    mygraph arc insert f g
+    mygraph arc insert g h
+    mygraph arc insert h f
+    mygraph arc insert a b
+    mygraph arc insert b c
+    mygraph arc insert c d
+    mygraph arc insert d a
+    return
+}
+
+# -------------------------------------------------------------------------
+
+proc SETUP_E {} {
+    # Predefined Graph for testing on:
+    #  - isBipartite?
+    #  - maxMatching
+    # - isEulerian?
+    # Author: Alejandro Eduardo Cruz Paz
+    # 28 August 2008
+
+    graph mygraph	
+    mygraph node insert 1w
+    mygraph node insert 1b
+    mygraph node insert 2w
+    mygraph node insert 2b
+    mygraph node insert 3w
+    mygraph node insert 3b
+    mygraph node insert 4w
+    mygraph node insert 4b
+    mygraph node insert 5w
+    mygraph node insert 5b
+    mygraph node insert 6w
+    mygraph node insert 6b
+    mygraph node insert 7w
+    mygraph node insert 7b
+    mygraph node insert 8w
+    mygraph node insert 8b
+    
+    mygraph arc insert 1b 1w
+    mygraph arc insert 1b 2w
+    mygraph arc insert 2b 1w
+    mygraph arc insert 2b 2w
+    mygraph arc insert 2b 3w
+    mygraph arc insert 2b 4w
+    mygraph arc insert 3b 2w
+    mygraph arc insert 3b 3w
+    mygraph arc insert 3b 5w
+    mygraph arc insert 3w 4b
+    mygraph arc insert 4b 3w
+    mygraph arc insert 4b 4w
+    mygraph arc insert 4b 6w
+    mygraph arc insert 4w 5b
+    mygraph arc insert 4w 7b
+    mygraph arc insert 5b 5w
+    mygraph arc insert 5b 6w
+    mygraph arc insert 5w 6b
+    mygraph arc insert 6b 6w
+    mygraph arc insert 6w 7b
+    mygraph arc insert 6w 8b
+    mygraph arc insert 7b 7w 
+    mygraph arc insert 7w 8b
+    mygraph arc insert 8b 8w
+    mygraph arc insert 8w 7b
+    return
+}
+
+# -------------------------------------------------------------------------
+
+proc SETUP_F {} {
+    # Predefined Graph for testing on:
+    #  - isBipartite?
+    #  - maxMatching
+    # Author: Alejandro Eduardo Cruz Paz
+    # 28 August 2008
+    graph mygraph
+    
+    mygraph node insert 1w
+    mygraph node insert 1b
+    mygraph node insert 2w
+    mygraph node insert 2b
+    mygraph node insert 3w
+    mygraph node insert 3b
+    mygraph node insert 4w
+    mygraph node insert 4b
+    
+    mygraph arc insert 1b 2w
+    mygraph arc insert 1b 3w
+    mygraph arc insert 1b 4w
+    mygraph arc insert 1w 3b
+    mygraph arc insert 2b 1w
+    mygraph arc insert 2b 3w
+    mygraph arc insert 3b 2w
+    mygraph arc insert 3w 4b
+    mygraph arc insert 4b 1w
+    mygraph arc insert 4b 2w
+    mygraph arc insert 4w 2b
+    mygraph arc insert 4w 3b
+    return
+}
+
+# -------------------------------------------------------------------------
+
+proc SETUP_G {} {
+    # Predefined Graph for testing on:
+    #  - isBipartite?
+    #  - maxMatching 
+    #  - isBridge?
+    # Author: Alejandro Eduardo Cruz Paz
+    # 28 August 2008
+
+    graph mygraph
+    
+    mygraph node insert 1w
+    mygraph node insert 1b
+    mygraph node insert 2w
+    mygraph node insert 2b
+    mygraph node insert 3w
+    mygraph node insert 3b
+    mygraph node insert 4w
+    mygraph node insert 4b
+    mygraph node insert 5w
+    mygraph node insert 5b
+    
+    mygraph arc insert 1b 5w bridge1
+    mygraph arc insert 2b 4w
+    mygraph arc insert 2w 4b
+    mygraph arc insert 2w 5b
+    mygraph arc insert 3b 4w
+    mygraph arc insert 3w 4b
+    mygraph arc insert 3w 5b
+    mygraph arc insert 4b 4w bridge2
+    mygraph arc insert 5b 1w bridge3
+    mygraph arc insert 5w 2b
+    mygraph arc insert 5w 3b nobridge
+    return
+}
+
+# -------------------------------------------------------------------------
+
+proc SETUP_H {} {
+    # Predefined Graph for testing on:
+    # - isConnected?
+    # - isEulerian?
+    # Author: Alejandro Eduardo Cruz Paz
+    # 28 August 2008
+
+    graph mygraph
+    mygraph node insert A
+    mygraph node insert B
+    mygraph node insert C
+    mygraph node insert D
+    mygraph node insert E
+
+    mygraph arc insert A B A_B ;    mygraph arc setweight A_B 10
+    mygraph arc insert B C B_C ;    mygraph arc setweight B_C 8
+    mygraph arc insert D C D_C ;    mygraph arc setweight D_C 2
+    mygraph arc insert B D B_D ;    mygraph arc setweight B_D 7
+    mygraph arc insert C D C_D ;    mygraph arc setweight C_D 1
+    mygraph arc insert D E D_E ;    mygraph arc setweight D_E 6
+    mygraph arc insert E A E_A ;    mygraph arc setweight E_A 4
+    return
+}
+
+# -------------------------------------------------------------------------
+
+proc SETUP_I {} {
+    # Predefined Graph for testing on:
+    # isConnected?
+    # isEulerian?
+    # Author: Alejandro Eduardo Cruz Paz
+    # 28 August 2008
+
+    graph mygraph
+    
+    mygraph node insert N1 
+    mygraph node insert N2
+    mygraph node insert N3
+    mygraph node insert N4
+    mygraph node insert N5
+    
+    mygraph arc insert N1 N5 N1_N5
+    mygraph arc insert N2 N5 N2_N5
+    mygraph arc insert N3 N5 N3_N5
+    mygraph arc insert N4 N5 N4_N5
+    return
+}
+
+# -------------------------------------------------------------------------
+
+proc SETUP_J {} {
+    # Predefined Graph for testing on:
+    # isConnected?
+    # Author: Alejandro Eduardo Cruz Paz
+    # 28 August 2008
+
+    graph mygraph
+    
+    mygraph node insert 1
+    mygraph node insert 2
+    mygraph node insert 3
+    mygraph node insert 4
+    mygraph node insert 5
+    mygraph node insert 6
+    mygraph node insert 7
+    
+    mygraph arc insert 7 6
+    mygraph arc insert 6 7
+    mygraph arc insert 1 4
+    mygraph arc insert 4 5
+    return
+}
+
+# -------------------------------------------------------------------------
+
+proc SETUP_K {} {
+    # Predefined Graph for testing on:
+    # isConnected?
+    # Author: Alejandro Eduardo Cruz Paz
+    # 28 August 2008
+
+    graph mygraph
+    
+    mygraph node insert No1
+    mygraph node insert No2
+    mygraph node insert No3
+    mygraph node insert No4
+    mygraph node insert No5
+    
+    mygraph arc insert No1 No2 a
+    mygraph arc insert No2 No3 b
+    mygraph arc insert No3 No4 c
+    mygraph arc insert No4 No2 d
+    
+    mygraph arc insert No5 No5 e
+    return
+}
+
+proc SETUP_K2 {} {
+    SETUP_K
+    mygraph arc insert No5 No1 f
+    mygraph arc insert No5 No2 g
+    return
+}
+
+# -------------------------------------------------------------------------
+
+proc SETUP_L {} {
+    # Koenigsberg.
+
+    graph mygraph
+    mygraph node insert a b c d
+    mygraph arc  insert a c
+    mygraph arc  insert a d
+    mygraph arc  insert b a
+    mygraph arc  insert b c
+    mygraph arc  insert c a
+    mygraph arc  insert d a
+    mygraph arc  insert d b
+    return
+}    
+
+# -------------------------------------------------------------------------
+
+proc SETUP_M {} {
+    # penta-hex-something
+
+    graph mygraph
+    mygraph node insert 1 2 3 4 5 6
+    mygraph arc  insert 1 2
+    mygraph arc  insert 2 3
+    mygraph arc  insert 3 4
+    mygraph arc  insert 4 5
+    mygraph arc  insert 5 1
+    mygraph arc  insert 1 6
+    mygraph arc  insert 6 2
+    mygraph arc  insert 2 5
+    mygraph arc  insert 5 6
+    mygraph arc  insert 6 3
+    mygraph arc  insert 3 1
+    return
+}    
+
+# -------------------------------------------------------------------------
+
+proc SETUP_N {} {
+    # Predefined Graph for testing on:
+    # isConnected?
+    # Author: Alejandro Eduardo Cruz Paz
+    # 28 August 2008
+
+    graph mygraph
+    
+    mygraph node insert 0 1 2 a b c d e f
+    mygraph arc insert 0 1
+    mygraph arc insert 1 2
+    mygraph arc insert 2 0
+
+    mygraph arc insert a b
+    mygraph arc insert b 0
+    mygraph arc insert 0 a
+
+    mygraph arc insert c d
+    mygraph arc insert d 1
+    mygraph arc insert 1 c
+
+    mygraph arc insert e f
+    mygraph arc insert f 2
+    mygraph arc insert 2 e
+    return
+}
+
+# -------------------------------------------------------------------------

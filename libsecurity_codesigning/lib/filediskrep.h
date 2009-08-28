@@ -77,6 +77,7 @@ class FileDiskRep::Writer : public SingleDiskRep::Writer {
 	friend class FileDiskRep;
 public:
 	void component(CodeDirectory::SpecialSlot slot, CFDataRef data);
+	void remove();
 	bool preferredStore();
 
 protected:

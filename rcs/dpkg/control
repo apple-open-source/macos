@@ -1,7 +1,0 @@
-Package: rcs
-Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
-Vendor: GNU Project
-Version: 5.7
-URL: ftp://prep.ai.mit.edu/pub/gnu/rcs/
-Description: Revision Control System
-Build-Depends: build-base

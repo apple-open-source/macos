@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/slapi/slapi.h,v 1.33.2.4 2006/01/03 22:16:25 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/slapi/slapi.h,v 1.56.2.3 2008/02/11 23:26:49 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2002-2006 The OpenLDAP Foundation.
+ * Copyright 2002-2008 The OpenLDAP Foundation.
  * Portions Copyright 1997,2002-2003 IBM Corporation.
  * All rights reserved.
  *
@@ -30,11 +30,11 @@ LDAP_BEGIN_DECL
 /*
  * Quick 'n' dirty to make struct slapi_* in slapi-plugin.h opaque
  */
-#define slapi_entry	slap_entry
-#define slapi_attr	slap_attr
+#define slapi_entry	Entry
+#define slapi_attr	Attribute
 #define slapi_value	berval
 #define slapi_valueset	berval *
-#define slapi_filter	slap_filter
+#define slapi_filter	Filter
 
 LDAP_END_DECL
 
@@ -45,7 +45,6 @@ LDAP_BEGIN_DECL
 #define SLAPI_OVERLAY_NAME			"slapi"
 
 #define SLAPI_OPERATION_PBLOCK(_op)		((_op)->o_callback->sc_private)
-#define SLAPI_CONNECTION_PBLOCK(_conn)		((_conn)->c_pb);
 #define SLAPI_BACKEND_PBLOCK(_be)		((_be)->be_pb)
 
 #define SLAPI_OPERATION_EXTENSIONS(_op)		((_op)->o_hdr->oh_extensions)

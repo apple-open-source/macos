@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,36 +39,33 @@
 #include <sys/lock.h>
 #include <sys/sysctl.h>
 #include <sys/socket.h>
-#include <sys/signalvar.h>
 #include <sys/kpi_mbuf.h>
 #include <sys/vnode.h>
 
 #include <sys/smb_apple.h>
-#include <sys/utfconv.h>
-
-#include <sys/smb_iconv.h>
-
 #include <netsmb/smb.h>
 #include <netsmb/smb_conn.h>
 #include <netsmb/smb_rq.h>
 #include <netsmb/smb_subr.h>
 #include <netsmb/smb_dev.h>
+#include <netsmb/smb_converter.h>
 
 MALLOC_DEFINE(M_SMBDATA, "SMBDATA", "Misc netsmb data");
 MALLOC_DEFINE(M_SMBSTR, "SMBSTR", "netsmb string data");
 MALLOC_DEFINE(M_SMBTEMP, "SMBTEMP", "Temp netsmb data");
 
-#ifdef DEBUG
-void smb_hexdump(const char *func, char *s, unsigned char *buf, int len)
+#ifdef SMB_DEBUG
+void smb_hexdump(const char *func, const char *s, unsigned char *buf, size_t inlen)
 {
-    long addr;
-    int i;
+    int32_t addr;
+    int32_t i;
+	int32_t len = (int32_t)inlen;
 	
-	printf("%s: %s hexdump: %x length %d\n", func, s, (unsigned int)buf, len );
+	printf("%s: hexdump: %s %p length %d inlen %ld\n", func, s, buf, len, inlen);
     addr = 0;
     while( addr < len )
     {
-        printf("%6.6lx - " , addr );
+        printf("%6.6x - " , addr );
         for( i=0; i<16; i++ )
         {
             if( addr+i < len )
@@ -92,30 +89,23 @@ void smb_hexdump(const char *func, char *s, unsigned char *buf, int len)
     }
     printf("\" \n");
 }
-#endif // DEBUG
+#endif // SMB_DEBUG
 
-void
-smb_scred_init(struct smb_cred *scred, vfs_context_t vfsctx)
+int
+smb_sigintr(vfs_context_t context)
 {
-	scred->scr_vfsctx = vfsctx;
-	scred->pid = proc_pid(vfs_context_proc(vfsctx));
-}
-
-PRIVSYM int
-smb_sigintr(vfs_context_t vfsctx)
-{
-	if (vfsctx && vfs_context_issignal(vfsctx, SMB_SIGMASK))
+	if (context && vfs_context_issignal(context, SMB_SIGMASK))
 		return (EINTR);
 	return (0);
 }
 
 char *
-smb_strdup(const char *s)
+smb_strdup(const char *s, size_t maxlen)
 {
 	char *p;
-	int len;
+	size_t len;
 
-	len = s ? strlen(s) + 1 : 1;
+	len = s ? strnlen(s, maxlen) + 1 : 1;
 	p = malloc(len, M_SMBSTR, M_WAITOK);
 	if (s)
 		bcopy(s, p, len);
@@ -130,14 +120,17 @@ smb_strdup(const char *s)
 void *
 smb_memdupin(user_addr_t umem, int len)
 {
+	int error;
 	char *p;
 	
 	if (len > 32 * 1024)
 		return NULL;
 	p = malloc(len, M_SMBSTR, M_WAITOK);
-	if (copyin(umem, p, len) == 0)
+	error = copyin(umem, p, len);
+	if (error == 0)
 		return p;
-	free(p, M_SMBSTR);
+	SMBDEBUG("error = %d\n", error);
+	free(p, M_SMBDATA);
 	return NULL;
 }
 
@@ -159,19 +152,13 @@ smb_memdup(const void *umem, int len)
 }
 
 void
-smb_strfree(char *s)
-{
-	free(s, M_SMBSTR);
-}
-
-void
 smb_memfree(void *s)
 {
 	free(s, M_SMBSTR);
 }
 
 void *
-smb_zmalloc(unsigned long size, int type, int flags)
+smb_zmalloc(size_t size, int type, int flags)
 {
 
 #ifdef M_ZERO
@@ -183,54 +170,6 @@ smb_zmalloc(unsigned long size, int type, int flags)
 	return p;
 #endif
 }
-
-size_t
-smb_strtouni(u_int16_t *dst, const char *src, size_t inlen, int flags)
-{
-	size_t outlen;
-
-        if (!inlen)
-                 inlen = strlen(src);
-	if (BYTE_ORDER != LITTLE_ENDIAN)
-		flags |= UTF_REVERSE_ENDIAN;
-	if (utf8_decodestr((u_int8_t *)src, inlen, dst, &outlen, inlen * 2, 0, flags) != 0)
-                outlen = 0;
-        if (!(flags & UTF_NO_NULL_TERM)) {
-                dst[outlen/2] = 0;
-                outlen += 2;
-        }       
-        return (outlen);
-}
-
-#ifdef MAY_BE_USEFULL_IN_FUTURE
-/*
- * Converts the network UTF-16 string to a UTF-8 string.
- * 
- * NOTES:
- *    The resulting UTF-8 string is NULL terminated.
- * 
- *		dst -	UTF-16
- *		src -	UTF-8
- *		inlen - sizeof UTF16 String
- *		maxlen - size of the src
- *		flags  - 
- *			UTF_REVERSE_ENDIAN: Unicode byteorder is opposite current runtime
- *			UTF_NO_NULL_TERM:  don't add NULL termination to UTF-8 output
- */
-size_t
-smb_unitostr(char *dst, const u_int16_t *src, size_t inlen, size_t maxlen, int flags)
-{
-	size_t outlen;
-
-	if (BYTE_ORDER != LITTLE_ENDIAN)
-		flags |= UTF_REVERSE_ENDIAN;
-
-	if (utf8_encodestr(src, inlen, (u_int8_t *)dst, &outlen, maxlen, 0, flags) != 0)
-		outlen = 0;
-
-	return (outlen);
-}
-#endif // MAY_BE_USEFULL_IN_FUTURE
 
 #ifdef SMB_SOCKETDATA_DEBUG
 void
@@ -251,44 +190,26 @@ m_dumpm(mbuf_t m) {
 }
 #endif
 
-#ifndef EPROTO
-#define EPROTO ECONNABORTED
-#endif
-#ifndef ENODATA
-#define ENODATA EINVAL
-#endif
-#ifndef ETIME
-#define ETIME ETIMEDOUT
-#endif
-#ifndef ENETFSACCOUNTRESTRICTED
-#define ENETFSACCOUNTRESTRICTED -5042
-#endif
-#ifndef ENETFSPWDNEEDSCHANGE
-#define ENETFSPWDNEEDSCHANGE -5045
-#endif
-#ifndef ENETFSPWDPOLICY
-#define ENETFSPWDPOLICY -5046
-#endif
-
 static struct {
 	u_int32_t nterr;
 	u_int32_t errno;
 } nt2errno[] = {
+	{NT_STATUS_LOGON_TYPE_NOT_GRANTED,	EAUTH},
 	{NT_STATUS_ACCESS_DENIED,			EACCES},
 	{NT_STATUS_ACCESS_VIOLATION,		EACCES},
-	{NT_STATUS_ACCOUNT_DISABLED,		ENETFSACCOUNTRESTRICTED},	/* ask the admin for help */
-	{NT_STATUS_ACCOUNT_RESTRICTION,		ENETFSACCOUNTRESTRICTED},	/* ask the admin for help */	
-	{NT_STATUS_LOGIN_TIME_RESTRICTION,	ENETFSACCOUNTRESTRICTED},	/* ask the admin for help */	
-	{NT_STATUS_ACCOUNT_LOCKED_OUT,		ENETFSACCOUNTRESTRICTED},	/* ask the admin for help */	
-	{NT_STATUS_INVALID_ACCOUNT_NAME,	ENETFSACCOUNTRESTRICTED},	/* ask the admin for help */ 
-	{NT_STATUS_PWD_TOO_SHORT,			ENETFSPWDPOLICY},			/* violates password policy */	
-	{NT_STATUS_PWD_TOO_RECENT,			ENETFSPWDPOLICY},			/* violates password policy */
-	{NT_STATUS_PWD_HISTORY_CONFLICT,	ENETFSPWDPOLICY},			/* violates password policy */	
-	{NT_STATUS_ACCOUNT_EXPIRED,			ENETFSACCOUNTRESTRICTED},	/* ask the admin for help */	
-	{NT_STATUS_PASSWORD_EXPIRED,		ENETFSPWDNEEDSCHANGE},		/* change your password */
-	{NT_STATUS_PASSWORD_RESTRICTION,	ENETFSPWDPOLICY},			/* violates password policy */
-	{NT_STATUS_PASSWORD_MUST_CHANGE,	ENETFSPWDNEEDSCHANGE},		/* change your password */
-	{NT_STATUS_INVALID_LOGON_HOURS,		ENETFSACCOUNTRESTRICTED},	/* ask the admin for help */
+	{NT_STATUS_ACCOUNT_DISABLED,		SMB_ENETFSACCOUNTRESTRICTED},	/* ask the admin for help */
+	{NT_STATUS_ACCOUNT_RESTRICTION,		SMB_ENETFSACCOUNTRESTRICTED},	/* ask the admin for help */	
+	{NT_STATUS_LOGIN_TIME_RESTRICTION,	SMB_ENETFSACCOUNTRESTRICTED},	/* ask the admin for help */	
+	{NT_STATUS_ACCOUNT_LOCKED_OUT,		SMB_ENETFSACCOUNTRESTRICTED},	/* ask the admin for help */	
+	{NT_STATUS_INVALID_ACCOUNT_NAME,	SMB_ENETFSACCOUNTRESTRICTED},	/* ask the admin for help */ 
+	{NT_STATUS_PWD_TOO_SHORT,			SMB_ENETFSPWDPOLICY},			/* violates password policy */	
+	{NT_STATUS_PWD_TOO_RECENT,			SMB_ENETFSPWDPOLICY},			/* violates password policy */
+	{NT_STATUS_PWD_HISTORY_CONFLICT,	SMB_ENETFSPWDPOLICY},			/* violates password policy */	
+	{NT_STATUS_ACCOUNT_EXPIRED,			SMB_ENETFSACCOUNTRESTRICTED},	/* ask the admin for help */	
+	{NT_STATUS_PASSWORD_EXPIRED,		SMB_ENETFSPWDNEEDSCHANGE},		/* change your password */
+	{NT_STATUS_PASSWORD_RESTRICTION,	SMB_ENETFSPWDPOLICY},			/* violates password policy */
+	{NT_STATUS_PASSWORD_MUST_CHANGE,	SMB_ENETFSPWDNEEDSCHANGE},		/* change your password */
+	{NT_STATUS_INVALID_LOGON_HOURS,		SMB_ENETFSACCOUNTRESTRICTED},	/* ask the admin for help */
 	{NT_STATUS_ADDRESS_ALREADY_EXISTS,	EADDRINUSE},
 	{NT_STATUS_BAD_NETWORK_NAME,		ENOENT},
 	{NT_STATUS_BUFFER_TOO_SMALL,		EMOREDATA},
@@ -304,7 +225,7 @@ static struct {
 	{NT_STATUS_DLL_NOT_FOUND,		ENOENT},
 	{NT_STATUS_END_OF_FILE,			ENODATA},
 	{NT_STATUS_FILE_IS_A_DIRECTORY,		EISDIR},
-	{NT_STATUS_FILE_LOCK_CONFLICT,		EACCES},
+	{NT_STATUS_FILE_LOCK_CONFLICT,		EIO}, /* Return the IO error (AFP Like) and let the lock code reset it */ 
 	{NT_STATUS_LOCK_NOT_GRANTED,		EACCES},
 	{NT_STATUS_FLOAT_INEXACT_RESULT,	ERANGE},
 	{NT_STATUS_FLOAT_OVERFLOW,		ERANGE},
@@ -358,7 +279,7 @@ static struct {
 	{NT_STATUS_REGISTRY_QUOTA_LIMIT,	EDQUOT},
 	{NT_STATUS_REMOTE_DISCONNECT,		ESHUTDOWN},
 	{NT_STATUS_REMOTE_NOT_LISTENING,	ECONNREFUSED},
-	{NT_STATUS_REQUEST_NOT_ACCEPTED,	EACCES},
+	{NT_STATUS_REQUEST_NOT_ACCEPTED,	EUSERS},
 	{NT_STATUS_RETRY,			EAGAIN},
 	{NT_STATUS_SHARING_VIOLATION,		EBUSY},
 	{NT_STATUS_TIMER_NOT_CANCELED,		ETIME},
@@ -370,9 +291,10 @@ static struct {
 	{NT_STATUS_DELETE_PENDING,		EACCES},
 	{NT_STATUS_OBJECT_NAME_INVALID,		ENOENT},
 	{NT_STATUS_CANNOT_DELETE,		EPERM},
-	{NT_STATUS_RANGE_NOT_LOCKED,		EIO},	/* Range not lock and overlap should be EIO */
+	{NT_STATUS_RANGE_NOT_LOCKED,		EAGAIN},	/* Setting to match F_SETLK, see AFP  */
 	{NT_STATUS_INVALID_LEVEL,	ENOTSUP},
 	{NT_STATUS_MORE_PROCESSING_REQUIRED,  EAGAIN},		/* SetupX message requires more processing */
+	{ NT_STATUS_CANCELLED,	ECANCELED},
 	{0,	0}
 };
 
@@ -946,6 +868,7 @@ smb_maperror(int eclass, int eno)
 		switch (eno) {
 			case ERRunknownlevel:
 			return ENOTSUP;
+			case ERRnosupport:
 		    case ERRbadfunc:
 		    case ERRbadenv:
 		    case ERRbadformat:
@@ -1039,6 +962,8 @@ smb_maperror(int eclass, int eno)
 			return EIO;
 		    case ERRacctexpired: /* NT: account exists but disabled */
 			return EPERM;
+			case ERRnosupport:
+				return EINVAL;
 		}
 		break;
 	    case ERRHRD:
@@ -1071,9 +996,8 @@ smb_maperror(int eclass, int eno)
 }
 
 
-int
-smb_put_dmem(struct mbchain *mbp, struct smb_vc *vcp, const char *src,
-	int size, int flags, int *lenp)
+int smb_put_dmem(struct mbchain *mbp, struct smb_vc *vcp, const char *src, 
+				 size_t size, int flags, size_t *lenp)
 {
 	char convbuf[512];
 	char *dst;
@@ -1082,35 +1006,28 @@ smb_put_dmem(struct mbchain *mbp, struct smb_vc *vcp, const char *src,
 
 	if (size == 0)
 		return 0;
-        if (vcp->vc_toserver == NULL) {
-                error =  mb_put_mem(mbp, src, size, MB_MSYSTEM);
-                if (!error && lenp)
-                        *lenp += size;
-                return error;
-        }
 	inlen = size;
 	outlen = sizeof(convbuf);
 	dst = convbuf;
 
-	error = iconv_conv(vcp->vc_toserver, &src, &inlen, &dst, &outlen, flags);
+	error = smb_convert_to_network(&src, &inlen, &dst, &outlen, flags, SMB_UNICODE_STRINGS(vcp));
 	if (error)
 		return error;
 	outlen = sizeof(convbuf) - outlen;
 	if (SMB_UNICODE_STRINGS(vcp))
 		mb_put_padbyte(mbp);
 	error = mb_put_mem(mbp, (c_caddr_t)convbuf, outlen, MB_MSYSTEM);
-        if (!error && lenp)
-                *lenp += outlen;
+	if (!error && lenp)
+		*lenp += outlen;
 	return error;
 }
 
-
-int
-smb_put_dstring(struct mbchain *mbp, struct smb_vc *vcp, const char *src, int flags)
+int smb_put_dstring(struct mbchain *mbp, struct smb_vc *vcp, const char *src, 
+					size_t maxlen, int flags)
 {
 	int error;
 
-	error = smb_put_dmem(mbp, vcp, src, strlen(src), flags, NULL);
+	error = smb_put_dmem(mbp, vcp, src, strnlen(src, maxlen), flags, NULL);
 	if (error)
 		return error;
 	if (SMB_UNICODE_STRINGS(vcp))
@@ -1122,14 +1039,24 @@ smb_put_dstring(struct mbchain *mbp, struct smb_vc *vcp, const char *src, int fl
  * Get the user name out of the Kerberos client principal name. If no client
  * principal name, then do nothing.
  */
-void smb_get_username_from_kcpn(struct smb_vc *vcp, char *kuser)
+void smb_get_username_from_kcpn(struct smb_vc *vcp, char *kuser, size_t maxlen)
 {
-	if (vcp->vc_gss.gss_cpn) {
-		char *realm;
-		
-		strlcpy(kuser, vcp->vc_gss.gss_cpn, SMB_MAXUSERNAMELEN + 1);
-		realm = strchr(kuser, KERBEROS_REALM_DELIMITER);
-		if (realm)	/* We really only what the client name, skip the realm stuff */
-			*realm = 0;
-	}
+	char *realm;
+	char * gss_cpn;
+
+	/* Nothing to do here just return */
+	if (vcp->vc_gss.gss_cpn == NULL)
+		return;
+	/* Never play with the original, need to make a copy */
+	gss_cpn = smb_strdup(vcp->vc_gss.gss_cpn, SMB_MAX_KERB_PN+1);
+	/* Couldn't make a copy get out */
+	if (gss_cpn == NULL)
+		return;
+	
+	realm = strchr(gss_cpn, KERBEROS_REALM_DELIMITER);
+	if (realm)	/* We really only what the client name, skip the realm stuff */
+		*realm = 0;
+	strlcpy(kuser, gss_cpn, maxlen);
+	/* Done with the copy free it */
+	free(gss_cpn , M_SMBSTR);
 }

@@ -1,0 +1,16 @@
+#!/bin/sh
+
+# If there is a global system configuration file, suck it in.
+#
+if [ -r /etc/defaults/periodic.conf ]
+then
+    . /etc/defaults/periodic.conf
+    source_periodic_confs
+fi
+
+if [ -d /var/spool/fax ]; then
+    echo ""
+    echo "Removing scratch fax files"
+    cd /var/spool/fax && \
+    find . -type f -name '[0-9]*.[0-9][0-9][0-9]' -mtime +7 -delete >/dev/null 2>&1;
+fi

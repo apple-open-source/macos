@@ -66,6 +66,8 @@ __FBSDID("$FreeBSD: src/sbin/shutdown/shutdown.c,v 1.28 2005/01/25 08:40:51 delp
 #include <util.h>
 #include <bsm/libbsm.h>
 #include <bsm/audit_uevents.h>
+#include <vproc.h>
+#include <vproc_priv.h>
 
 #include "kextmanager.h"
 #include <IOKit/kext/kextmanager_types.h>
@@ -74,6 +76,8 @@ __FBSDID("$FreeBSD: src/sbin/shutdown/shutdown.c,v 1.28 2005/01/25 08:40:51 delp
 #include <mach/mach.h>			// task_self, etc
 #include <servers/bootstrap.h>	// bootstrap
 #include <reboot2.h>
+#include <utmpx.h>
+#include <sys/sysctl.h>
 
 #include "pathnames.h"
 #endif /* __APPLE__ */
@@ -278,6 +282,11 @@ main(int argc, char **argv)
 		}
 		if (forkpid)
 			errx(0, "[pid %d]", forkpid);
+#ifdef __APPLE__
+		/* 5863185: reboot2() needs to talk to launchd. */
+		if (_vprocmgr_detach_from_console(0) != NULL)
+			warnx("can't detach from console");
+#endif /* __APPLE__ */
 	}
 	audit_shutdown(0);
 	setsid();
@@ -409,8 +418,10 @@ die_you_gravy_sucking_pig_dog()
 #ifndef __APPLE__
 	char *empty_environ[] = { NULL };
 #else
-	if ((errno = reserve_reboot()))
-		err(1, "couldn't lock for reboot");
+	if ((errno = reserve_reboot())) {
+		warn("couldn't lock for reboot");
+		finish(0);
+	}
 #endif
 
 	syslog(LOG_NOTICE, "%s%s by %s: %s",
@@ -460,21 +471,33 @@ die_you_gravy_sucking_pig_dog()
 				}
 			}
 		}
-		exit((kr == kIOReturnSuccess) ? 0 : 1);
 	} else {
 		int howto = 0;
 
+#if defined(__APPLE__) 
+		{
+			struct utmpx utx;
+			bzero(&utx, sizeof(utx));
+			utx.ut_type = SHUTDOWN_TIME;
+			gettimeofday(&utx.ut_tv, NULL);
+			pututxline(&utx);
+
+			int newvalue = 1;
+			sysctlbyname("kern.willshutdown", NULL, NULL, &newvalue, sizeof(newvalue));
+		}
+#else
 		logwtmp("~", "shutdown", "");
+#endif
 
 		if (dohalt) howto |= RB_HALT;
 		if (doups) howto |= RB_UPSDELAY;
 		if (nosync) howto |= RB_NOSYNC;
 
 		// launchd(8) handles reboot.  This call returns NULL on success.
-		exit(reboot2(howto) == NULL ? EXIT_SUCCESS : EXIT_FAILURE);
+		if (reboot2(howto)) {
+			syslog(LOG_ERR, "shutdown: launchd reboot failed.");
+		}
 	}
-	/* NOT-REACHED */
-
 #else /* __APPLE__ */
 	if (!oflag) {
 		(void)kill(1, doreboot ? SIGINT :	/* reboot */
@@ -598,7 +621,6 @@ getoffset(char *timearg)
 void
 nolog()
 {
-#ifndef __APPLE__
 	int logfd;
 	char *ct;
 
@@ -616,16 +638,13 @@ nolog()
 		(void)write(logfd, mbuf, strlen(mbuf));
 		(void)close(logfd);
 	}
-#endif /* !__APPLE__ */
 }
 
 void
 finish(int signo __unused)
 {
-#ifndef __APPLE__
 	if (!killflg)
 		(void)unlink(_PATH_NOLOGIN);
-#endif
 	exit(0);
 }
 

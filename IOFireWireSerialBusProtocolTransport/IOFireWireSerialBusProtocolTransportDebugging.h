@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -21,10 +21,47 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#ifndef _IO_FIRE_WIRE_SERIAL_BUS_PROTOCOL_TRANSPORT_DEBUGGING_
-#define _IO_FIRE_WIRE_SERIAL_BUS_PROTOCOL_TRANSPORT_DEBUGGING_
 
-#include <IOKit/IOLib.h>
+#ifndef _IOKIT_IO_FIREWIRE_SERIAL_BUS_PROTOCOL_TRANSPORT_DEBUGGING_H_
+#define _IOKIT_IO_FIREWIRE_SERIAL_BUS_PROTOCOL_TRANSPORT_DEBUGGING_H_
+
+#include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
+#define FWSBP_SYSCTL	"debug.FirewireSBPTransport"
+
+typedef struct FWSysctlArgs
+{
+	uint32_t		type;
+	uint32_t		operation;
+	uint32_t		debugFlags;
+} FWSysctlArgs;
+
+
+#define kFWTypeDebug	'FRWR'
+
+enum
+{
+	kFWOperationGetFlags 	= 0,
+	kFWOperationSetFlags	= 1
+};
+
+
+extern UInt32	gSBP2DiskDebugFlags;
+
+enum
+{
+	kSBP2DiskEnableDebugLoggingBit		= 0,
+	kSBP2DiskEnableTracePointsBit		= 1,
+	
+	kSBP2DiskEnableDebugLoggingMask		= (1 << kSBP2DiskEnableDebugLoggingBit),
+	kSBP2DiskEnableTracePointsMask		= (1 << kSBP2DiskEnableTracePointsBit),
+};
+
 
 #if KERNEL
 
@@ -57,6 +94,53 @@ void IOFireWireSerialBusProtocolTransportDebugAssert ( const char * componentNam
 
 #include </usr/include/AssertMacros.h>
 
+
+// Other helpful macros (maybe some day these will make
+// their way into /usr/include/AssertMacros.h)
+
+#define require_success( errorCode, exceptionLabel ) \
+	require( kIOReturnSuccess == (errorCode), exceptionLabel )
+
+#define require_success_action( errorCode, exceptionLabel, action ) \
+	require_action( kIOReturnSuccess == (errorCode), exceptionLabel, action )
+
+#define require_success_quiet( errorCode, exceptionLabel ) \
+	require_quiet( kIOReturnSuccess == (errorCode), exceptionLabel )
+
+#define require_success_action_quiet( errorCode, exceptionLabel, action ) \
+	require_action_quiet( kIOReturnSuccess == (errorCode), exceptionLabel, action )
+
+#define require_success_string( errorCode, exceptionLabel, message ) \
+	require_string( kIOReturnSuccess == (errorCode), exceptionLabel, message )
+
+#define require_success_action_string( errorCode, exceptionLabel, action, message ) \
+	require_action_string( kIOReturnSuccess == (errorCode), exceptionLabel, action, message )
+
+
+#define require_nonzero( obj, exceptionLabel ) \
+	require( ( 0 != obj ), exceptionLabel )
+
+#define require_nonzero_action( obj, exceptionLabel, action ) \
+	require_action( ( 0 != obj ), exceptionLabel, action )
+
+#define require_nonzero_quiet( obj, exceptionLabel ) \
+	require_quiet( ( 0 != obj ), exceptionLabel )
+
+#define require_nonzero_action_quiet( obj, exceptionLabel, action ) \
+	require_action_quiet( ( 0 != obj ), exceptionLabel, action )
+
+#define require_nonzero_string( obj, exceptionLabel, message ) \
+	require_string( ( 0 != obj ), exceptionLabel, message )
+
+#define require_nonzero_action_string( obj, exceptionLabel, action, message ) \
+	require_action_string( ( 0 != obj ), exceptionLabel, action, message )
+
+
 #define DEBUG_UNUSED( X )		( void )( X )
 
-#endif	/* _IO_FIRE_WIRE_SERIAL_BUS_PROTOCOL_TRANSPORT_DEBUGGING_ */
+#ifdef __cplusplus
+}
+#endif
+
+
+#endif	/* _IOKIT_IO_FIREWIRE_SERIAL_BUS_PROTOCOL_TRANSPORT_DEBUGGING_H_ */

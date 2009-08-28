@@ -1,7 +1,7 @@
 /*
  *  gensetup.c
  *
- *  $Id: gensetup.c,v 1.4 2006/12/21 11:23:43 source Exp $
+ *  $Id: gensetup.c,v 1.5 2007/02/02 11:58:14 source Exp $
  *
  *  The iODBC driver manager.
  *
@@ -388,6 +388,10 @@ create_fgensetup (HWND hwnd, LPCSTR dsn, LPCSTR attrs, BOOL add, BOOL *verify_co
   gtk_window_set_modal (GTK_WINDOW (gensetup), TRUE);
   gtk_window_set_policy (GTK_WINDOW (gensetup), FALSE, FALSE, FALSE);
 
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_widget_show (gensetup);
+#endif
+
   dialog_vbox1 = GTK_DIALOG (gensetup)->vbox;
   gtk_object_set_data (GTK_OBJECT (gensetup), "dialog_vbox1", dialog_vbox1);
   gtk_widget_show (dialog_vbox1);
@@ -547,7 +551,7 @@ create_fgensetup (HWND hwnd, LPCSTR dsn, LPCSTR attrs, BOOL add, BOOL *verify_co
   gtk_widget_show (cb_verify);
   gtk_fixed_put (GTK_FIXED (fixed1), cb_verify, 8, 390);
   gtk_widget_set_uposition (cb_verify, 8, 390);
-  gtk_widget_set_usize (cb_verify, 230, 24);
+  gtk_widget_set_usize (cb_verify, 240, 24);
 
   dialog_action_area1 = GTK_DIALOG (gensetup)->action_area;
   gtk_object_set_data (GTK_OBJECT (gensetup), "dialog_action_area1",
@@ -667,6 +671,10 @@ create_keyval (HWND hwnd, LPCSTR attrs, BOOL *verify_conn)
   gtk_window_set_position (GTK_WINDOW (gensetup), GTK_WIN_POS_CENTER);
   gtk_window_set_modal (GTK_WINDOW (gensetup), TRUE);
   gtk_window_set_policy (GTK_WINDOW (gensetup), FALSE, FALSE, FALSE);
+
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_widget_show (gensetup);
+#endif
 
   dialog_vbox1 = GTK_DIALOG (gensetup)->vbox;
   gtk_object_set_data (GTK_OBJECT (gensetup), "dialog_vbox1", dialog_vbox1);

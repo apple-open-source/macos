@@ -1,7 +1,7 @@
 /*
  *  herr.c
  *
- *  $Id: herr.c,v 1.29 2007/01/05 12:22:39 source Exp $
+ *  $Id: herr.c,v 1.30 2007/10/07 14:09:10 source Exp $
  *
  *  Error stack management functions
  *
@@ -363,11 +363,16 @@ _iodbcdm_sqlerror (
 
   if (herr == SQL_NULL_HERR)	/* no err on drv mng */
     {
-      /* call driver */
-      unicode_driver = ((ENV_t *) ((DBC_t *)thdbc)->henv)->unicode_driver;
-      dodbc_ver = ((ENV_t *) ((DBC_t *)thdbc)->henv)->dodbc_ver;
-      odbc_ver = ((GENV_t *) ((DBC_t *)thdbc)->genv)->odbc_ver;
+      if (((DBC_t *)hdbc)->genv)
+        odbc_ver = ((GENV_t *) ((DBC_t *)hdbc)->genv)->odbc_ver;
 
+      if (((DBC_t *)hdbc)->henv)
+        {
+          unicode_driver = ((ENV_t *) ((DBC_t *)hdbc)->henv)->unicode_driver;
+          dodbc_ver = ((ENV_t *) ((DBC_t *)hdbc)->henv)->dodbc_ver;
+        }
+
+      /* call driver */
       if ((unicode_driver && waMode != 'W') 
           || (!unicode_driver && waMode == 'W'))
         {

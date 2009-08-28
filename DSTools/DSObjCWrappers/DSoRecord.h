@@ -58,7 +58,7 @@
  * @param inRecRef The DS record reference number referring to this record.
  * @param inType The DS string constant for type of this record.
  */
-- (DSoRecord*)initInNode:(DSoNode*)inParent recordRef:(tRecordReference)inRecRef type:(const char*)inType;
+- (DSoRecord*)initInNode:(DSoNode*)inParent recordRef:(tRecordReference)inRecRef type:(const char*)inType DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method initInNode:type:name:
@@ -71,26 +71,26 @@
  * @param inType The DS string constant for the type of this record.
  * @param inName The record name for this record.
  */
-- (DSoRecord*)initInNode:(DSoNode*)inParent type:(const char*)inType name:(NSString*)inName;
+- (DSoRecord*)initInNode:(DSoNode*)inParent type:(const char*)inType name:(NSString*)inName DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 	// simple accessors.
 /*!
  * @method getName
  * @abstract Retrieve the record's name.
  */
-- (NSString*)getName;
+- (NSString*)getName DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method getType
  * @abstract Retrieve the record's DS type string constant.
  */
-- (const char*)getType;
+- (const char*)getType DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method node
  * @abstract Retrieve a pointer to the Record's container node.
  */
-- (DSoNode*)node;
+- (DSoNode*)node DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 	// Calculation methods.
 
@@ -98,7 +98,7 @@
  * @method attributeCount
  * @abstract Retrieve the number of attribute types this record has.
  */
-- (unsigned long)attributeCount;
+- (unsigned long)attributeCount DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 //- (NSArray*)getAttributeTypes;
 
 /*!
@@ -106,7 +106,7 @@
  * @abstract Retrieve a list of the attribute types this record has.
  * @result An array of NSString objects whose values are the names of the attribute types.
  */
-- (NSArray*)getAllAttributes;
+- (NSArray*)getAllAttributes DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method getAllAttributesAndValues
@@ -115,7 +115,7 @@
  *		and whose values are NSArray objects containing a list of the values
  *		for that attribute type.
  */
-- (NSDictionary*)getAllAttributesAndValues;
+- (NSDictionary*)getAllAttributesAndValues DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method getAttributes:
@@ -124,7 +124,7 @@
  *		and whose values are NSArray objects containing a list of the values
  *		for that attribute type.
  */
-- (NSDictionary*)getAttributes:(NSArray*)inAttributes;
+- (NSDictionary*)getAttributes:(NSArray*)inAttributes DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method getAttribute:
@@ -134,9 +134,9 @@
  *		This method will return the first value of the specified attribute.
  * @result An NSString containing the first value of the given attribute type.
  */
-- (NSString*)getAttribute:(const char*)inAttributeType;
+- (NSString*)getAttribute:(const char*)inAttributeType DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
-- (id)getAttribute:(const char*)inAttributeType allowBinary:(BOOL)inAllowBinary;
+- (id)getAttribute:(const char*)inAttributeType allowBinary:(BOOL)inAllowBinary DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method getAttribute:index:
@@ -149,9 +149,9 @@
  * @param inIndex The index of the value desired.  The first value has an index of '1'.
  * @result An NSString containing the first value of the given attribute type.
  */
-- (NSString*)getAttribute:(const char*)inAttributeType index:(unsigned long)inIndex;
+- (NSString*)getAttribute:(const char*)inAttributeType index:(unsigned long)inIndex DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
-- (id)getAttribute:(const char*)inAttributeType index:(unsigned long)inIndex allowBinary:(BOOL)inAllowBinary;
+- (id)getAttribute:(const char*)inAttributeType index:(unsigned long)inIndex allowBinary:(BOOL)inAllowBinary DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method getAttribute:range:
@@ -163,9 +163,9 @@
  * @param inRange An NSRange values specifying the desired range. The first value has a location of 1. 
  * @result An array of NSString objects containing the values of the desired attribute.
  */
-- (NSArray*)getAttribute:(const char*)inAttributeType range:(NSRange)inRange;
+- (NSArray*)getAttribute:(const char*)inAttributeType range:(NSRange)inRange DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
-- (NSArray*)getAttribute:(const char*)inAttributeType range:(NSRange)inRange allowBinary:(BOOL)inAllowBinary;
+- (NSArray*)getAttribute:(const char*)inAttributeType range:(NSRange)inRange allowBinary:(BOOL)inAllowBinary DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
 * @method getAttributeValueCount:
@@ -175,7 +175,7 @@
 * @param inAttributeType The DS constant for a known attribute type or the string for an unknown type.
 * @result The number of values.
 */
-- (unsigned long)getAttributeValueCount:(const char*)inAttributeType;
+- (unsigned long)getAttributeValueCount:(const char*)inAttributeType DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method setAttribute:value:
@@ -185,7 +185,7 @@
  * @param inAttributeType The DS constant for a known attribute type or the string for an unknown type.
  * @param inAttributeValue An NSString or NSData object containing the value of the new attribute.
  */
-- (void)setAttribute:(const char*)inAttributeType value:(id)inAttributeValue;
+- (void)setAttribute:(const char*)inAttributeType value:(id)inAttributeValue DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method setAttribute:values:
@@ -197,14 +197,14 @@
  * @param inAttributeType The DS constant for a known attribute type or the string for an unknown type.
  * @param inAttributeValues An array of NSString or NSData objects containing the values of the new attribute.
  */
-- (void)setAttribute:(const char*)inAttributeType values:(NSArray*)inAttributeValues;
+- (void)setAttribute:(const char*)inAttributeType values:(NSArray*)inAttributeValues DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method addAttribute:values:
  * @abstract Add values to an existing attribute, merging values.
  * @discussion Invokes addAttribute:values:mergeValues: with mergeValues set to YES.
  */
-- (void)addAttribute:(const char*)inAttributeType values:(NSArray*)inAttributeValues;
+- (void)addAttribute:(const char*)inAttributeType values:(NSArray*)inAttributeValues DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method addAttribute:values:mergeValues:
@@ -217,7 +217,7 @@
  * @param inAttributeValues An array of NSString objects containing the values to add.
  * @param mergVals NO or YES depending on if you want to add the value again or not.
  */
-- (void)addAttribute:(const char*)inAttributeType values:(NSArray*)inAttributeValues mergeValues:(BOOL)mergVals;
+- (void)addAttribute:(const char*)inAttributeType values:(NSArray*)inAttributeValues mergeValues:(BOOL)mergVals DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method changeAttribute:oldValue:newValue:
@@ -228,7 +228,7 @@
  * @param inAttrValue The existing old value to be changed.
  * @param inNewAttrValue The new value to replace the old value.
  */
-- (void)changeAttribute:(const char*)inAttributeType oldValue:(NSString*)inAttrValue newValue:(id)inNewAttrValue;
+- (void)changeAttribute:(const char*)inAttributeType oldValue:(NSString*)inAttrValue newValue:(id)inNewAttrValue DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method changeAttribute:index:newValue:
@@ -239,7 +239,7 @@
  * @param inIndex The index of the old value to change The first value has an index of '1'
  * @param inNewAttrValue The new value to replace the old value.
  */
-- (void)changeAttribute:(const char*)inAttributeType index:(unsigned int)inIndex newValue:(id)inNewAttrValue;
+- (void)changeAttribute:(const char*)inAttributeType index:(unsigned int)inIndex newValue:(id)inNewAttrValue DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method attributeExists:withValue:
@@ -250,7 +250,7 @@
  * @param inAttributeValue The value to search for.
  * @result YES if the value exists for this attribute, NO otherwise.
  */
-- (BOOL)attributeExists:(const char*)inAttributeType withValue:(id)inAttributeValue;
+- (BOOL)attributeExists:(const char*)inAttributeType withValue:(id)inAttributeValue DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method removeAttribute:
@@ -258,7 +258,7 @@
  * @discussion Removes an attribute (type) and all its values.
  * @param inAttributetype The DS constant for a known attribute type in the record.
  */
-- (void)removeAttribute:(const char*)inAttributeType;
+- (void)removeAttribute:(const char*)inAttributeType DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method removeAttribute:value:
@@ -268,7 +268,7 @@
  * @param inAttributetype The DS constant for a known attribute type in the record.
  * @param inAttributeValue The value to remove NSData or NSString.
  */
-- (void)removeAttribute:(const char*)inAttributeType value:(id)inAttributeValue;
+- (void)removeAttribute:(const char*)inAttributeType value:(id)inAttributeValue DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method removeAttribute:values:
@@ -278,7 +278,7 @@
  * @param inAttributetype The DS constant for a known attribute type in the record.
  * @param inAttributeValues Array of NSStrings or NSDatas with the values to remove.
  */
-- (void)removeAttribute:(const char*)inAttributeType values:(NSArray*)inAttributeValues;
+- (void)removeAttribute:(const char*)inAttributeType values:(NSArray*)inAttributeValues DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method removeAttribute:index:
@@ -288,7 +288,7 @@
  * @param inAttributetype The DS constant for a known attribute type in the record.
  * @param inIndex The index of the value to remove.
  */
-- (void)removeAttribute:(const char*)inAttributeType index:(unsigned int)inIndex;
+- (void)removeAttribute:(const char*)inAttributeType index:(unsigned int)inIndex DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method removeRecord
@@ -299,7 +299,7 @@
  *		since any further operations on the object will result in Exceptions
  *		being raised, or unpredictable results.
  */
-- (void)removeRecord;
+- (void)removeRecord DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
     // Other methods.
 /*!
@@ -307,6 +307,6 @@
  * @abstract Method for accessing the low-level data type.
  * @result The DS record reference number for this record.
  */
-- (tRecordReference)dsRecordReference;
+- (tRecordReference)dsRecordReference DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 @end

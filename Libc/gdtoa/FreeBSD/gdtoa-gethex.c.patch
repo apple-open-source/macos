@@ -1,6 +1,6 @@
---- gdtoa-gethex.c.orig	2005-01-20 20:12:36.000000000 -0800
-+++ gdtoa-gethex.c	2005-03-23 15:45:22.000000000 -0800
-@@ -29,6 +29,8 @@
+--- gdtoa-gethex.c.orig	2008-10-28 11:14:40.000000000 -0700
++++ gdtoa-gethex.c	2008-10-28 11:20:32.000000000 -0700
+@@ -29,6 +29,8 @@ THIS SOFTWARE.
  /* Please send bug reports to David M. Gay (dmg at acm dot org,
   * with " at " changed at "@" and " dot " changed to ".").	*/
  
@@ -9,7 +9,7 @@
  #include "gdtoaimp.h"
  
  #ifdef USE_LOCALE
-@@ -37,10 +39,10 @@
+@@ -37,10 +39,10 @@ THIS SOFTWARE.
  
   int
  #ifdef KR_headers
@@ -23,73 +23,20 @@
  #endif
  {
  	Bigint *b;
-@@ -49,7 +51,13 @@
- 	ULong L, lostbits, *x;
+@@ -50,13 +52,14 @@ gethex( CONST char **sp, FPI *fpi, Long 
  	Long e, e1;
  #ifdef USE_LOCALE
--	unsigned char decimalpoint = *localeconv()->decimal_point;
-+	char *decimalpoint;
-+	unsigned char *decimalpointend = NULL;
-+	int decimalpointlen;
-+
+ 	int i;
 +	NORMALIZE_LOCALE(loc);
-+	decimalpoint = localeconv_l(loc)->decimal_point;
-+	decimalpointlen = strlen(decimalpoint);
+ #ifdef NO_LOCALE_CACHE
+-	const unsigned char *decimalpoint = (unsigned char*)localeconv()->decimal_point;
++	const unsigned char *decimalpoint = (unsigned char*)localeconv_l(loc)->decimal_point;
  #else
- #define decimalpoint '.'
- #endif
-@@ -67,9 +75,18 @@
- 	e = 0;
- 	if (!hexdig[*s]) {
- 		zret = 1;
-+#ifdef USE_LOCALE
-+		if (strncmp((char *)s, decimalpoint, decimalpointlen) != 0)
-+#else /* USE_LOCALE */
- 		if (*s != decimalpoint)
-+#endif /* USE_LOCALE */
- 			goto pcheck;
-+#ifdef USE_LOCALE
-+		decpt = (s += decimalpointlen);
-+		decimalpointend = s - 1;
-+#else /* USE_LOCALE */
- 		decpt = ++s;
-+#endif /* USE_LOCALE */
- 		if (!hexdig[*s])
- 			goto pcheck;
- 		while(*s == '0')
-@@ -81,8 +98,18 @@
- 		}
- 	while(hexdig[*s])
- 		s++;
--	if (*s == decimalpoint && !decpt) {
-+#ifdef USE_LOCALE
-+	if (strncmp((char *)s, decimalpoint, decimalpointlen) == 0 && !decpt)
-+#else /* USE_LOCALE */
-+	if (*s == decimalpoint && !decpt)
-+#endif /* USE_LOCALE */
-+	{
-+#ifdef USE_LOCALE
-+		decpt = (s += decimalpointlen);
-+		decimalpointend = s - 1;
-+#else /* USE_LOCALE */
- 		decpt = ++s;
-+#endif /* USE_LOCALE */
- 		while(hexdig[*s])
- 			s++;
- 		}
-@@ -123,8 +150,15 @@
- 	n = 0;
- 	L = 0;
- 	while(s1 > s0) {
-+#ifdef USE_LOCALE
-+		if (--s1 == decimalpointend) {
-+			s1 -= decimalpointlen - 1;
-+			continue;
-+		}
-+#else /* USE_LOCALE */
- 		if (*--s1 == decimalpoint)
- 			continue;
-+#endif /* USE_LOCALE */
- 		if (n == 32) {
- 			*x++ = L;
- 			L = 0;
+ 	const unsigned char *decimalpoint;
+ 	static unsigned char *decimalpoint_cache;
+ 	if (!(s0 = decimalpoint_cache)) {
+-		s0 = (unsigned char*)localeconv()->decimal_point;
++		s0 = (unsigned char*)localeconv_l(loc)->decimal_point;
+ 		if ((decimalpoint_cache = (char*)malloc(strlen(s0) + 1))) {
+ 			strcpy(decimalpoint_cache, s0);
+ 			s0 = decimalpoint_cache;

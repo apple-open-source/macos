@@ -71,7 +71,9 @@ void l2tp_udp_thread_func(struct l2tp_udp_thread *thread_socket);
 kern_return_t thread_terminate(register thread_act_t act);
 int l2tp_udp_init_threads(int nb_threads);
 void l2tp_udp_dispose_threads();
+#ifndef TARGET_EMBEDDED_OS
 static int sysctl_nb_threads SYSCTL_HANDLER_ARGS;
+#endif
 
 /* -----------------------------------------------------------------------------
 Globals
@@ -87,11 +89,12 @@ static lck_attr_t		*l2tp_udp_mtx_attr;
 static lck_grp_t		*l2tp_udp_mtx_grp;
 static lck_grp_attr_t	*l2tp_udp_mtx_grp_attr;
 
+#ifndef TARGET_EMBEDDED_OS
 SYSCTL_PROC(_net_ppp_l2tp, OID_AUTO, nb_threads, CTLTYPE_INT|CTLFLAG_RW|CTLFLAG_NOAUTO|CTLFLAG_KERN,
     &l2tp_udp_nb_threads, 0, sysctl_nb_threads, "I", "Number of l2tp output threads 0 - 16");
 SYSCTL_INT(_net_ppp_l2tp, OID_AUTO, thread_outq_size, CTLTYPE_INT|CTLFLAG_RW|CTLFLAG_NOAUTO|CTLFLAG_KERN,
     &l2tp_udp_thread_outq_size, 0, "Queue size for each l2tp output thread");
- 
+#endif 
 
 /* -----------------------------------------------------------------------------
 intialize L2TP/UDP layer
@@ -125,8 +128,10 @@ int l2tp_udp_init()
 	if (err)
 		goto fail;
 		
+#ifndef TARGET_EMBEDDED_OS
     sysctl_register_oid(&sysctl__net_ppp_l2tp_nb_threads);
     sysctl_register_oid(&sysctl__net_ppp_l2tp_thread_outq_size);
+#endif
 	l2tp_udp_inited = 1;
 
 	return 0;
@@ -159,7 +164,10 @@ int l2tp_udp_dispose()
 	if (!l2tp_udp_inited)
 		return 0;
 		
+#ifndef TARGET_EMBEDDED_OS
     sysctl_unregister_oid(&sysctl__net_ppp_l2tp_nb_threads);
+    sysctl_unregister_oid(&sysctl__net_ppp_l2tp_thread_outq_size);
+#endif
 
 	l2tp_udp_dispose_threads();
 	
@@ -176,6 +184,7 @@ int l2tp_udp_dispose()
     return 0;
 }
 
+#ifndef TARGET_EMBEDDED_OS
 /* -----------------------------------------------------------------------------
 sysctl to change the number of threads
 ----------------------------------------------------------------------------- */
@@ -195,6 +204,7 @@ static int sysctl_nb_threads SYSCTL_HANDLER_ARGS
 	
 	return error;
 }
+#endif
 
 /* -----------------------------------------------------------------------------
 initialize the worker threads
@@ -213,7 +223,7 @@ int l2tp_udp_init_threads(int nb_threads)
 	if (l2tp_udp_nb_threads == nb_threads)
 		return 0;
 	
-	log(LOGVAL, "l2tp_udp_init_threads: changing # of threads from %d to %d\n", l2tp_udp_nb_threads, nb_threads);
+	IOLog("l2tp_udp_init_threads: changing # of threads from %d to %d\n", l2tp_udp_nb_threads, nb_threads);
 
 	l2tp_udp_dispose_threads();
 
@@ -473,7 +483,7 @@ int l2tp_udp_attach(socket_t *socket, struct sockaddr *addr, int *thread, int no
 				min = i;
 		*thread = min;
 		l2tp_udp_threads[min].nbclient += 1;
-		//log(LOGVAL, "l2tp_udp_attach: worker thread #%d (total client for thread is now %d)\n", *thread, l2tp_udp_threads[*thread].nbclient);
+		//IOLog("l2tp_udp_attach: worker thread #%d (total client for thread is now %d)\n", *thread, l2tp_udp_threads[*thread].nbclient);
 	}
 	else 
 	  *thread = -1;
@@ -496,7 +506,7 @@ int l2tp_udp_detach(socket_t so, int thread)
 		if (thread >= 0 && thread < l2tp_udp_nb_threads) {
 			if (l2tp_udp_threads[thread].nbclient > 0)
 				l2tp_udp_threads[thread].nbclient -= 1;
-			//log(LOGVAL, "l2tp_udp_detach: worker thread #%d (total client for thread is now %d)\n", thread, l2tp_udp_threads[thread].nbclient);
+			//IOLog("l2tp_udp_detach: worker thread #%d (total client for thread is now %d)\n", thread, l2tp_udp_threads[thread].nbclient);
 		}
 			
 		lck_mtx_unlock(ppp_domain_mutex);

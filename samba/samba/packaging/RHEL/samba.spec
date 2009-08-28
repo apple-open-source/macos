@@ -5,8 +5,8 @@ Summary: Samba SMB client and server
 Vendor: Samba Team
 Packager: Samba Team <samba@samba.org>
 Name:         samba
-Version:      3.0.25b
-Release:      3
+Version:      3.0.28a
+Release:      1
 Epoch:        0
 License: GNU GPL version 2
 Group: System Environment/Daemons

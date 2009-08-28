@@ -26,7 +26,7 @@
  * Provides routines to byte swap Mach buffers.
  */
  
-#ifndef __BIG_ENDIAN__
+#if __LITTLE_ENDIAN__
 
 #include "DSMachEndian.h"
 #include <string.h>
@@ -37,14 +37,21 @@
 #include <ctype.h>
 #include <syslog.h>
 #include <Security/Authorization.h>
+#include <DirectoryService/DirServicesConst.h>
+#include <DirectoryService/DirServicesPriv.h>
 
 #include "CServerPlugin.h"
 #include "CLog.h"
 #include "CReftable.h"
 #include "CSharedData.h"
+#include "SharedConsts.h"	// for sComData
 
-#define DUMP_BUFFER 0
-#if DUMP_BUFFER
+// uncomment the line below to dump the mach buffers to a file
+//#define DUMP_BUFFER
+
+#ifdef DUMP_BUFFER
+
+#include <libkern/OSAtomic.h>
 
 char* objectTypes[] =
 {
@@ -114,7 +121,7 @@ char* objectTypes[] =
 	"kAttrValueList"
 };
 
-FILE* gDumpFile = NULL;
+static FILE* gDumpFile = NULL;
 
 void DumpBuf(char* buf, UInt32 len)
 {
@@ -133,44 +140,46 @@ void DumpBuf(char* buf, UInt32 len)
 }
 #endif
 
-
-DSMachEndian::DSMachEndian(sComData* message, int direction) : fMessage(message)
-{
-    toBig = (direction == kDSSwapToBig);
-}
-
-void DSMachEndian::SwapMessage()
+void SwapMachMessage( sComData *message, eSwapDirection direction )
 {
     short i;
     sObject* object;
     bool isTwoWay = false;
     
-    if (fMessage == nil) return;
+    if (message == nil) return;
     
-#if DUMP_BUFFER
+#ifdef DUMP_BUFFER
     UInt32 bufSize = 0;
-    if (gDumpFile == NULL)
-        gDumpFile = fopen("/Library/Logs/DirectoryService/PacketDump", "w");
+    if ( gDumpFile == NULL )
+	{
+		FILE *tempFile = fopen( "/Library/Logs/DirectoryService/MachMsgDump", "w" );
+		if ( OSAtomicCompareAndSwapPtrBarrier(NULL, tempFile, (void **) &gDumpFile) == false )
+		{
+			// close the file.
+			fclose( tempFile );
+		}
+	}
         
-    if (toBig)
-        fprintf(gDumpFile, "\n\n\nBuffer in host order (preSwap)\n");
+    if (direction == kDSSwapNetworkToHostOrder)
+        fprintf(gDumpFile, "\n\n\nBuffer in Network order (preSwap)\n");
     else
-        fprintf(gDumpFile, "\n\n\nBuffer in network order (preSwap)\n");
+        fprintf(gDumpFile, "\n\n\nBuffer in Host order (preSwap)\n");
+	
     for (i=0; i< 10; i++)
     {
-        object = &fMessage->obj[i];
-        UInt32 objType = DSGetLong(&object->type, toBig);
-        UInt32 offset = DSGetLong(&object->offset, toBig);
-        UInt32 length = DSGetLong(&object->length, toBig);
+        object = &message->obj[i];
+        UInt32 objType = DSGetLong(&object->type, direction);
+        UInt32 offset = DSGetLong(&object->offset, direction);
+        UInt32 length = DSGetLong(&object->length, direction);
         char* type = "unknown";
         if (objType >= kResult && objType <= kAttrValueList)
             type = objectTypes[objType - kResult];
         if (objType != 0)
         {
             if (length > 0)
-                    fprintf(gDumpFile, "Object %d, type %s, offset %ld, size %ld\n", i, type, DSGetLong(&object->offset, toBig), DSGetLong(&object->length, toBig));
+                    fprintf(gDumpFile, "Object %d, type %s, offset %ld, size %ld\n", i, type, DSGetLong(&object->offset, direction), DSGetLong(&object->length, direction));
             else
-                    fprintf(gDumpFile, "Object %d, type %s, value %ld\n", i, type, DSGetLong(&object->count, toBig));
+                    fprintf(gDumpFile, "Object %d, type %s, value %ld\n", i, type, DSGetLong(&object->count, direction));
         }
         if (length > 0)
         {
@@ -178,14 +187,12 @@ void DSMachEndian::SwapMessage()
             if (size > bufSize) bufSize = size;
         }
     }
-    DumpBuf(fMessage->data, bufSize);
+    DumpBuf(message->data, bufSize);
 #endif
     
-    DSSwapLong(&fMessage->fDataSize, toBig);
-    DSSwapLong(&fMessage->fDataLength, toBig);
-    DSSwapLong(&fMessage->fMsgID, toBig);
-    DSSwapLong(&fMessage->fPID, toBig);
-    //DSSwapLong(&fMessage->fIPAddress, toBig); //zero is used for the mach ipc case
+    DSSwapLong(&message->fDataSize, direction);
+    DSSwapLong(&message->fDataLength, direction);
+    DSSwapLong(&message->fMsgID, direction);
     
 	UInt32 aNodeRef = 0;
 
@@ -197,79 +204,63 @@ void DSMachEndian::SwapMessage()
     // if this is the auth case or custom call case, we need to do some checks
     for (i=0; i< 10; i++)
     {
-        object = &fMessage->obj[i];
-        UInt32 objType = DSGetLong(&object->type, toBig);
-
-        // check for two-way random special case before we start swapping stuff
-        if (objType == kAuthMethod)
-        {
-            char* method = (char *)fMessage + DSGetLong(&object->offset, toBig);
-            if ( ::strcmp( method, kDSStdAuth2WayRandom ) == 0 )
-                isTwoWay = true;
-        }
-
-		//check for Custom Call special casing
-		if (objType == kCustomRequestCode)
-		{
-			bCustomCall = true;
-			aCustomRequestNum = (UInt32)DSGetLong(&object->count, toBig);
-DbgLog(kLogTCPEndpoint, "DSMachEndian::SwapMessage(): kCustomRequestCode with code %u", aCustomRequestNum );
-		}
+        object = &message->obj[i];
+        UInt32 objType = DSGetLong( &object->type, direction );
+		char* method;
 		
-		if (objType == ktNodeRef)
+		switch ( objType )
 		{
-			//need to determine the nodename for discrimination of duplicate custom call codes - server and FW sends
-			aNodeRef = (UInt32)DSGetLong(&object->count, toBig);
-		}
-
-		if (objType == kResult)
-		{
-			bIsAPICallResponse = true;
+			case kAuthMethod:
+				// check for two-way random special case before we start swapping stuff
+				method = (char *)message + DSGetLong( &object->offset, direction );
+				if ( strcmp(method, kDSStdAuth2WayRandom) == 0 )
+					isTwoWay = true;
+				break;
+			case kCustomRequestCode:
+				//check for Custom Call special casing
+				bCustomCall = true;
+				aCustomRequestNum = DSGetLong( &object->count, direction );
+				break;
+			case ktNodeRef:
+				//need to determine the nodename for discrimination of duplicate custom call codes - server
+				aNodeRef = (UInt32)DSGetLong( &object->count, direction );
+				break;
+			case kResult:
+				bIsAPICallResponse = true;
+				break;
 		}
     } // for (i=0; i< 10; i++)
 	
-	if ( bCustomCall && (aCustomRequestNum != 0) )
+	if ( bCustomCall && aCustomRequestNum != 0 && aNodeRef != 0 )
 	{
-		if (aNodeRef != 0)
-		{
-			CServerPlugin *aPluginPtr = nil;
-			SInt32 myResult = CRefTable::VerifyNodeRef( aNodeRef, &aPluginPtr, fMessage->fPID, 0 );
-			if (myResult == eDSNoErr)
-			{
-				aPluginName = aPluginPtr->GetPluginName();
-				if (aPluginName != nil)
-				{
-				}
-			}
-		}
+		aPluginName = dsGetPluginNamePriv( aNodeRef, getpid() );
 	}
 
     // swap objects
     for (i=0; i< 10; i++)
     {
-        object = &fMessage->obj[i];
+        object = &message->obj[i];
 
         if (object->type == 0)
             continue;
             
-        UInt32 objType = DSGetAndSwapLong(&object->type, toBig);
-        DSSwapLong(&object->count, toBig);
-        UInt32 objOffset = DSGetAndSwapLong(&object->offset, toBig);
-        DSSwapLong(&object->used, toBig);
-        UInt32 objLength = DSGetAndSwapLong(&object->length, toBig);
+        UInt32 objType = DSGetAndSwapLong(&object->type, direction);
+        DSSwapLong(&object->count, direction);
+        UInt32 objOffset = DSGetAndSwapLong(&object->offset, direction);
+        DSSwapLong(&object->used, direction);
+        UInt32 objLength = DSGetAndSwapLong(&object->length, direction);
             
-        DSSwapObjectData(objType, (char *)fMessage + objOffset, objLength, (!isTwoWay), bCustomCall, aCustomRequestNum, (const char*)aPluginName, bIsAPICallResponse, toBig);
+        DSSwapObjectData(objType, (char *)message + objOffset, objLength, (!isTwoWay), bCustomCall, aCustomRequestNum, (const char*)aPluginName, bIsAPICallResponse, direction);
     }
     
-#if DUMP_BUFFER
-    if (toBig)
-        fprintf(gDumpFile, "\n\nBuffer in network order (post Swap)\n");
+#ifdef DUMP_BUFFER
+    if (direction == kDSSwapNetworkToHostOrder)
+        fprintf(gDumpFile, "\n\nBuffer in Host order (post Swap)\n");
     else
-        fprintf(gDumpFile, "\n\nBuffer in host order (post Swap)\n");
-    DumpBuf(fMessage->data, bufSize);
+        fprintf(gDumpFile, "\n\nBuffer in Network order (post Swap)\n");
+    DumpBuf(message->data, bufSize);
     fflush(stdout);
 #endif
 }
-
 
 #endif

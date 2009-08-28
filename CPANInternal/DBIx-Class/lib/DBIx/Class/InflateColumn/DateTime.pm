@@ -14,7 +14,7 @@ Load this component and then declare one or more
 columns to be of the datetime, timestamp or date datatype.
 
   package Event;
-  __PACKAGE__->load_components(qw/InflateColumn::DateTime/);
+  __PACKAGE__->load_components(qw/InflateColumn::DateTime Core/);
   __PACKAGE__->add_columns(
     starts_when => { data_type => 'datetime' }
   );
@@ -23,6 +23,12 @@ Then you can treat the specified column as a L<DateTime> object.
 
   print "This event starts the month of ".
     $event->starts_when->month_name();
+
+If you want to set a specific timezone for that field, use:
+
+  __PACKAGE__->add_columns(
+    starts_when => { data_type => 'datetime', extra => { timezone => "America/Chicago" } }
+  );
 
 =head1 DESCRIPTION
 
@@ -33,7 +39,7 @@ one your code should continue to work without modification (though note
 that this feature is new as of 0.07, so it may not be perfect yet - bug
 reports to the list very much welcome).
 
-For more help with components, see L<DBIx::Class::Manual::Component>.
+For more help with using components, see L<DBIx::Class::Manual::Component/USING>.
 
 =cut
 
@@ -54,7 +60,12 @@ sub register_column {
   $self->next::method($column, $info, @rest);
   return unless defined($info->{data_type});
   my $type = lc($info->{data_type});
-  $type = 'datetime' if ($type eq 'timestamp');
+  $type = 'datetime' if ($type =~ /^timestamp/);
+  my $timezone;
+  if ( exists $info->{extra} and exists $info->{extra}{timezone} and defined $info->{extra}{timezone} ) {
+    $timezone = $info->{extra}{timezone};
+  }
+
   if ($type eq 'datetime' || $type eq 'date') {
     my ($parse, $format) = ("parse_${type}", "format_${type}");
     $self->inflate_column(
@@ -62,10 +73,13 @@ sub register_column {
         {
           inflate => sub {
             my ($value, $obj) = @_;
-            $obj->_datetime_parser->$parse($value);
+            my $dt = $obj->_datetime_parser->$parse($value);
+            $dt->set_time_zone($timezone) if $timezone;
+            return $dt;
           },
           deflate => sub {
             my ($value, $obj) = @_;
+            $value->set_time_zone($timezone) if $timezone;
             $obj->_datetime_parser->$format($value);
           },
         }

@@ -3,13 +3,25 @@
 /* Define this to an absolute name of <fcntl.h>. */
 #undef ABSOLUTE_FCNTL_H
 
+/* Define this to an absolute name of <stdlib.h>. */
+#undef ABSOLUTE_STDLIB_H
+
 /* Define this to an absolute name of <sys/stat.h>. */
 #undef ABSOLUTE_SYS_STAT_H
+
+/* Define this to an absolute name of <sys/time.h>. */
+#undef ABSOLUTE_SYS_TIME_H
+
+/* Define this to an absolute name of <time.h>. */
+#undef ABSOLUTE_TIME_H
+
+/* Define this to an absolute name of <unistd.h>. */
+#undef ABSOLUTE_UNISTD_H
 
 /* Define if an assembler version of longest_match is available. */
 #undef ASMV
 
-/* Define to 1 when using the gnulib fcntl-safer module. */
+/* Define to 1 when using the gnulib module fcntl-safer. */
 #undef GNULIB_FCNTL_SAFER
 
 /* Define to 1 if you have the `chown' function. */
@@ -22,10 +34,6 @@
 /* Define to 1 if you have the declaration of `mkdir', and to 0 if you don't.
    */
 #undef HAVE_DECL_MKDIR
-
-/* Define to 1 if you have the declaration of `nanosleep', and to 0 if you
-   don't. */
-#undef HAVE_DECL_NANOSLEEP
 
 /* Define to 1 if you have the declaration of `strerror_r', and to 0 if you
    don't. */
@@ -118,11 +126,14 @@
 /* Define to 1 if `st_atim.tv_nsec' is member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_ATIM_TV_NSEC
 
-/* Define to 1 if `st_spare1' is member of `struct stat'. */
-#undef HAVE_STRUCT_STAT_ST_SPARE1
+/* Define to 1 if `st_birthtimensec' is member of `struct stat'. */
+#undef HAVE_STRUCT_STAT_ST_BIRTHTIMENSEC
 
-/* Define if struct timespec is declared in <time.h>. */
-#undef HAVE_STRUCT_TIMESPEC
+/* Define to 1 if `st_birthtimespec.tv_nsec' is member of `struct stat'. */
+#undef HAVE_STRUCT_STAT_ST_BIRTHTIMESPEC_TV_NSEC
+
+/* Define to 1 if `st_birthtim.tv_nsec' is member of `struct stat'. */
+#undef HAVE_STRUCT_STAT_ST_BIRTHTIM_TV_NSEC
 
 /* Define if struct utimbuf is declared -- usually in <utime.h>. Some systems
    have utime.h but don't declare the struct anywhere. */
@@ -199,9 +210,6 @@
 /* Define to 1 if strerror_r returns char *. */
 #undef STRERROR_R_CHAR_P
 
-/* Define to 1 if you can safely include both <sys/time.h> and <time.h>. */
-#undef TIME_WITH_SYS_TIME
-
 /* Define to 1 if the type of the st_atim member of a struct stat is struct
    timespec. */
 #undef TYPEOF_STRUCT_STAT_ST_ATIM_IS_STRUCT_TIMESPEC
@@ -263,6 +271,10 @@
 
 /* Define to `long int' if <sys/types.h> does not define. */
 #undef off_t
+
+/* Define to equivalent of C99 restrict keyword, or to nothing if this is not
+   supported. Do not define if restrict is supported directly. */
+#undef restrict
 
 /* Define to `unsigned int' if <sys/types.h> does not define. */
 #undef size_t

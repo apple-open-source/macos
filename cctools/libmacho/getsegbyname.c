@@ -25,11 +25,7 @@
 #ifndef __OPENSTEP__
 
 #ifndef RLD
-#ifdef __LP64__
-extern struct mach_header_64 *_NSGetMachExecuteHeader(void);
-#else /* !defined(__LP64__) */
 #include <crt_externs.h>
-#endif /* !defined(__LP64__) */
 #endif /* !defined(RLD) */
 
 #else /* defined(__OPENSTEP__) */
@@ -49,7 +45,7 @@ static type * var ## _pointer = 0
 #define SETUP_VAR(var)						\
 if ( var ## _pointer == 0) {				\
     _dyld_lookup_and_bind( STRINGIFY(_ ## var),		\
-                           (unsigned long *) & var ## _pointer, 0);	\
+                           (uint32_t *) & var ## _pointer, 0);	\
 }
 #define USE_VAR(var) (* var ## _pointer)
 #endif
@@ -70,7 +66,7 @@ char *segname)
 {
     static struct mach_header *mhp = NULL;
     struct segment_command *sgp;
-    unsigned long i;
+    uint32_t i;
 #ifndef RLD
 #ifndef __OPENSTEP__
 	if(mhp == NULL)
@@ -103,7 +99,7 @@ char *segname)
 {
     static struct mach_header_64 *mhp = NULL;
     struct segment_command_64 *sgp;
-    unsigned long i;
+    uint32_t i;
 
 	if(mhp == NULL)
 #ifndef RLD

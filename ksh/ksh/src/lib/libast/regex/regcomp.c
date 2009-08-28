@@ -1,10 +1,10 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
-*                      by AT&T Knowledge Ventures                      *
+*                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
 *            http://www.opensource.org/licenses/cpl1.0.txt             *
@@ -1432,7 +1432,7 @@ bra(Cenv_t* env)
 			drop(env->disc, e);
 			if (ic = env->flags & REG_ICASE)
 				elements *= 2;
-			if (!(e = node(env, REX_COLL_CLASS, 1, 1, (elements + 1) * sizeof(Celt_t))))
+			if (!(e = node(env, REX_COLL_CLASS, 1, 1, (elements + 2) * sizeof(Celt_t))))
 				return 0;
 			ce = (Celt_t*)e->re.data;
 			e->re.collate.invert = neg;
@@ -2039,6 +2039,7 @@ grp(Cenv_t* env, int parno)
 	case 'G':
 	case 'I':
 	case 'K':
+	case 'L':
 	case 'M':
 	case 'N':
 	case 'R':
@@ -2052,6 +2053,13 @@ grp(Cenv_t* env, int parno)
 		{
 			switch (c)
 			{
+			case ')':
+				if (!(env->flags & REG_LITERAL))
+				{
+					env->error = REG_BADRPT;
+					return 0;
+				}
+				/*FALLTHROUGH*/
 			case 0:
 			case T_CLOSE:
 				x = 0;
@@ -2455,7 +2463,7 @@ grp(Cenv_t* env, int parno)
 		return 0;
 	c = token(env);
 	env->parnest--;
-	if (c != T_CLOSE)
+	if (c != T_CLOSE && (!(env->flags & REG_LITERAL) || c != ')'))
 	{
 		env->error = REG_EPAREN;
 		return 0;

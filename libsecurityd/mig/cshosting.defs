@@ -38,7 +38,6 @@ import <securityd_client/ucsp_types.h>;
 					out rcode: OSStatus
 
 
-
 //
 // Code Signing Hosting protocol.
 // These routines are straightforward implementations of the hosting
@@ -49,7 +48,9 @@ import <securityd_client/ucsp_types.h>;
 // anyone without authentication. It's supposed to be easy to obtain a host's
 // hosting port, so don't hand out any secrets in your implementation.
 //
-routine findGuest(CSH_PORTS; in host: SecGuestRef; in attributes: Data;
+routine findGuest(CSH_PORTS; in host: SecGuestRef; in attributes: XMLBlob;
 	out guest: GuestChain; out subhost: mach_port_make_send_t);
 routine guestStatus(CSH_PORTS; in guest: SecGuestRef; out status: uint32);
-routine guestPath(CSH_PORTS; in guest: SecGuestRef; out path: FilePathOut);
+skip;
+routine identifyGuest(CSH_PORTS; in guest: SecGuestRef; out path: FilePathOut;
+	out cdhash: HashDataOut; out hashLength: uint32; out attributes: XMLBlobOut);

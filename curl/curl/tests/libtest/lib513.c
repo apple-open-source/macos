@@ -5,10 +5,12 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: lib513.c,v 1.3 2006-10-25 09:20:44 yangtse Exp $
+ * $Id: lib513.c,v 1.5 2008-09-20 04:26:57 yangtse Exp $
  */
 
 #include "test.h"
+
+#include "memdebug.h"
 
 static size_t read_callback(void *ptr, size_t size, size_t nmemb, void *userp)
 {
@@ -39,10 +41,10 @@ int test(char *URL)
   curl_easy_setopt(curl, CURLOPT_URL, URL);
 
   /* Now specify we want to POST data */
-  curl_easy_setopt(curl, CURLOPT_POST, TRUE);
+  curl_easy_setopt(curl, CURLOPT_POST, 1L);
 
   /* Set the expected POST size */
-  curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, 1);
+  curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, 1L);
 
   /* we want to use our own read function */
   curl_easy_setopt(curl, CURLOPT_READFUNCTION, read_callback);
@@ -51,10 +53,10 @@ int test(char *URL)
   curl_easy_setopt(curl, CURLOPT_INFILE, NULL);
 
   /* get verbose debug output please */
-  curl_easy_setopt(curl, CURLOPT_VERBOSE, 1);
+  curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
 
   /* include headers in the output */
-  curl_easy_setopt(curl, CURLOPT_HEADER, TRUE);
+  curl_easy_setopt(curl, CURLOPT_HEADER, 1L);
 
   /* Perform the request, res will get the return code */
   res = curl_easy_perform(curl);

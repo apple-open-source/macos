@@ -32,7 +32,7 @@
 #include <Security/x509defs.h>
 #include <Security/certextensions.h>
 
-#include <Security/asn1Templates.h>
+#include <Security/SecAsn1Templates.h>
 
 /***
  *** get/set/free functions called out from CrlFields.cpp

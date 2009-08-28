@@ -36,6 +36,7 @@
 #include <signal.h>
 #include <fcntl.h>
 #include <sys/types.h>
+#include <sys/ioctl.h>
 #include <stdarg.h>
 #include <sys/resource.h>
 #include <syslog.h>
@@ -179,7 +180,7 @@ main(argc, argv)
 		}
 		if ((defval = defread("AUTOMOUNTD_TRACE=")) != NULL) {
 			errno = 0;
-			trace = strtol(defval, (char **)NULL, 10);
+			trace = (int)strtol(defval, (char **)NULL, 10);
 			if (errno != 0)
 				trace = 0;
 		}
@@ -242,10 +243,16 @@ main(argc, argv)
 	if (getenv("CPU") == NULL) {
 #if defined(__ppc__)
 		(void) putenv("CPU=powerpc");
-#elif defined(__i386__)
+#elif defined(__i386__) || defined(__x86_64__)
+		/*
+		 * At least on Solaris, "CPU" appears to be the
+		 * narrowest ISA the machine supports, with
+		 * "NATISA" being the widest, so "CPU" is "i386"
+		 * even on x86-64.
+		 */
 		(void) putenv("CPU=i386");
 #else
-		syslog(LOG_ERR, "can't determine processor type");
+#error "can't determine processor type");
 #endif
 	}
 
@@ -582,7 +589,7 @@ wait_for_flush_indication_thread(void *arg)
 
 kern_return_t
 autofs_readdir(__unused mach_port_t server, autofs_pathname rda_map,
-    uint64_t rda_offset, uint32_t rda_count, int *status, uint64_t *rddir_offset,
+    int64_t rda_offset, uint32_t rda_count, int *status, int64_t *rddir_offset,
     boolean_t *rddir_eof, byte_buffer *rddir_entries,
     mach_msg_type_number_t *rddir_entriesCnt, security_token_t token)
 {
@@ -739,6 +746,10 @@ autofs_mount(__unused mach_port_t server, autofs_pathname map,
 	 * (all messages from the kernel will be from root).
 	 */
 	if (token.val[0] != 0) {
+		/*
+		 * Release the GSSD port send right, as we won't be using it.
+		 */
+		mach_port_deallocate(current_task(), gssd_port);
 		*mr_type = AUTOFS_DONE;
 		*err  = EPERM;
 		*mr_verbose = 0;
@@ -751,6 +762,10 @@ autofs_mount(__unused mach_port_t server, autofs_pathname map,
 	 * null-terminated string out of it.
 	 */
 	if (nameCnt < 1 || nameCnt > MAXNAMLEN) {
+		/*
+		 * Release the GSSD port send right, as we won't be using it.
+		 */
+		mach_port_deallocate(current_task(), gssd_port);
 		*mr_type = AUTOFS_DONE;
 		*err = ENOENT;
 		*mr_verbose = 0;
@@ -759,6 +774,10 @@ autofs_mount(__unused mach_port_t server, autofs_pathname map,
 	}
 	key = malloc(nameCnt + 1);
 	if (key == NULL) {
+		/*
+		 * Release the GSSD port send right, as we won't be using it.
+		 */
+		mach_port_deallocate(current_task(), gssd_port);
 		*mr_type = AUTOFS_DONE;
 		*err = ENOMEM;
 		*mr_verbose = 0;
@@ -780,6 +799,10 @@ autofs_mount(__unused mach_port_t server, autofs_pathname map,
 
 	status = do_mount1(map, key, subdir, opts, path, isdirect, sendereuid,
 	    gssd_port, actions, actionsCnt);
+	/*
+	 * Release the GSSD port send right, as we're done with it.
+	 */
+	mach_port_deallocate(current_task(), gssd_port);
 	if (status == 0 && *actionsCnt != 0)
 		*mr_type = AUTOFS_ACTION;
 	else
@@ -941,6 +964,7 @@ autofs_check_thishost(__unused mach_port_t server, autofs_component name,
 	}
 
 	*is_us = host_is_us(name, nameCnt);
+
 	end_worker_thread();
 	return KERN_SUCCESS;
 }
@@ -1000,7 +1024,7 @@ autofs_check_trigger(__unused mach_port_t server, autofs_pathname map,
 
 	if (trace > 0) {
 		trace_prt(1, "CHECK TRIGGER REPLY    : status=%d, istrigger = %d\n",
-			status, istrigger);
+			status, *istrigger);
 	}
 
 	if (status && verbose) {
@@ -1023,8 +1047,7 @@ autofs_check_trigger(__unused mach_port_t server, autofs_pathname map,
 /*
  * Used for reporting messages from code
  * shared with automount command.
- * Formats message into a buffer and
- * calls syslog.
+ * Calls vsyslog to log the message.
  *
  * Print an error.
  * Works like printf (fmt string and variable args)
@@ -1035,30 +1058,12 @@ void
 pr_msg(const char *fmt, ...)
 {
 	va_list ap;
-	char fmtbuff[BUFSIZ], buff[BUFSIZ];
-	const char *p1;
-	char *p2;
 
-	p2 = fmtbuff;
 #if 0
 	fmt = gettext(fmt);
 #endif
 
-	for (p1 = fmt; *p1; p1++) {
-		if (*p1 == '%' && *(p1+1) == 'm') {
-			(void) strcpy(p2, strerror(errno));
-			p2 += strlen(p2);
-			p1++;
-		} else {
-			*p2++ = *p1;
-		}
-	}
-	if (p2 > fmtbuff && *(p2-1) != '\n')
-		*p2++ = '\n';
-	*p2 = '\0';
-
 	va_start(ap, fmt);
-	(void) vsprintf(buff, fmtbuff, ap);
+	(void) vsyslog(LOG_ERR, fmt, ap);
 	va_end(ap);
-	syslog(LOG_ERR, buff);
 }

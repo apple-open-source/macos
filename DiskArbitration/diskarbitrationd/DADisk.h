@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -51,11 +51,11 @@ enum
     kDADiskStateRequireRepairQuotas  = 0x00000004,
     kDADiskStateStagedProbe          = 0x00010000,
     kDADiskStateStagedPeek           = 0x00020000,
-    kDADiskStateStagedRepair         = 0x00040000,
-    kDADiskStateStagedApprove        = 0x00080000,
-    kDADiskStateStagedAuthorize      = 0x00100000,
-    kDADiskStateStagedMount          = 0x00200000,
-    kDADiskStateStagedAppear         = 0x00400000,
+    kDADiskStateStagedAppear         = 0x00040000,
+    kDADiskStateStagedRepair         = 0x00080000,
+    kDADiskStateStagedApprove        = 0x00100000,
+    kDADiskStateStagedAuthorize      = 0x00200000,
+    kDADiskStateStagedMount          = 0x00400000,
     kDADiskStateStagedUnrepairable   = 0x00800000,
     kDADiskStateZombie               = 0x10000000
 };

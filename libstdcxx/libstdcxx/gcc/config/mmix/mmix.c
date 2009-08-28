@@ -1,5 +1,6 @@
 /* Definitions of target machine for GNU compiler, for MMIX.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
    Contributed by Hans-Peter Nilsson (hp@bitrange.com)
 
 This file is part of GCC.
@@ -16,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -105,11 +106,6 @@ Boston, MA 02111-1307, USA.  */
    the compare expander.  */
 rtx mmix_compare_op0;
 rtx mmix_compare_op1;
-
-/* We ignore some options with arguments.  They are passed to the linker,
-   but also ends up here because they start with "-m".  We tell the driver
-   to store them in a variable we don't inspect.  */
-const char *mmix_cc1_ignored_option;
 
 /* Declarations of locals.  */
 
@@ -208,6 +204,8 @@ static bool mmix_pass_by_reference (const CUMULATIVE_ARGS *,
 #define TARGET_PASS_BY_REFERENCE mmix_pass_by_reference
 #undef TARGET_CALLEE_COPIES
 #define TARGET_CALLEE_COPIES hook_bool_CUMULATIVE_ARGS_mode_tree_bool_true
+#undef TARGET_DEFAULT_TARGET_FLAGS
+#define TARGET_DEFAULT_TARGET_FLAGS TARGET_DEFAULT
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -226,7 +224,7 @@ mmix_override_options (void)
      labels.  */
   if (flag_pic)
     {
-      warning ("-f%s not supported: ignored", (flag_pic > 1) ? "PIC" : "pic");
+      warning (0, "-f%s not supported: ignored", (flag_pic > 1) ? "PIC" : "pic");
       flag_pic = 0;
     }
 }
@@ -1184,7 +1182,7 @@ mmix_file_start (void)
   fputs ("! mmixal:= 8H LOC Data_Section\n", asm_out_file);
 
   /* Make sure each file starts with the text section.  */
-  text_section ();
+  switch_to_section (text_section);
 }
 
 /* TARGET_ASM_FILE_END.  */
@@ -1193,7 +1191,7 @@ static void
 mmix_file_end (void)
 {
   /* Make sure each file ends with the data section.  */
-  data_section ();
+  switch_to_section (data_section);
 }
 
 /* ASM_OUTPUT_SOURCE_FILENAME.  */
@@ -1302,11 +1300,10 @@ mmix_assemble_integer (rtx x, unsigned int size, int aligned_p)
 	return true;
 
       case 8:
-	if (GET_CODE (x) == CONST_DOUBLE)
-	  /* We don't get here anymore for CONST_DOUBLE, because DImode
-	     isn't expressed as CONST_DOUBLE, and DFmode is handled
-	     elsewhere.  */
-	  abort ();
+	/* We don't get here anymore for CONST_DOUBLE, because DImode
+	   isn't expressed as CONST_DOUBLE, and DFmode is handled
+	   elsewhere.  */
+	gcc_assert (GET_CODE (x) != CONST_DOUBLE);
 	assemble_integer_with_op ("\tOCTA\t", x);
 	return true;
       }
@@ -1353,7 +1350,7 @@ mmix_asm_output_aligned_local (FILE *stream,
 			       int size,
 			       int align)
 {
-  data_section ();
+  switch_to_section (data_section);
 
   ASM_OUTPUT_ALIGN (stream, exact_log2 (align/BITS_PER_UNIT));
   assemble_name (stream, name);
@@ -1894,7 +1891,7 @@ mmix_expand_prologue (void)
 
   /* Make sure we don't get an unaligned stack.  */
   if ((stack_space_to_allocate % 8) != 0)
-    internal_error ("stack frame not a multiple of 8 bytes: %d",
+    internal_error ("stack frame not a multiple of 8 bytes: %wd",
 		    stack_space_to_allocate);
 
   if (current_function_pretend_args_size)
@@ -2130,7 +2127,7 @@ mmix_expand_epilogue (void)
 
   /* Make sure we don't get an unaligned stack.  */
   if ((stack_space_to_deallocate % 8) != 0)
-    internal_error ("stack frame not a multiple of octabyte: %d",
+    internal_error ("stack frame not a multiple of octabyte: %wd",
 		    stack_space_to_deallocate);
 
   /* We will add back small offsets to the stack pointer as we go.
@@ -2344,139 +2341,6 @@ mmix_shiftable_wyde_value (unsigned HOST_WIDEST_INT value)
     }
 
   return 1;
-}
-
-/* True if this is an address_operand or a symbolic operand.  */
-
-int
-mmix_symbolic_or_address_operand (rtx op, enum machine_mode mode)
-{
-  switch (GET_CODE (op))
-    {
-    case SYMBOL_REF:
-    case LABEL_REF:
-      return 1;
-    case CONST:
-      op = XEXP (op, 0);
-      if ((GET_CODE (XEXP (op, 0)) == SYMBOL_REF
-	   || GET_CODE (XEXP (op, 0)) == LABEL_REF)
-	  && (GET_CODE (XEXP (op, 1)) == CONST_INT
-	      || (GET_CODE (XEXP (op, 1)) == CONST_DOUBLE
-		  && GET_MODE (XEXP (op, 1)) == VOIDmode)))
-	return 1;
-      /* Fall through.  */
-    default:
-      return address_operand (op, mode);
-    }
-}
-
-/* True if this is a register or CONST_INT (or CONST_DOUBLE for DImode).
-   We could narrow the value down with a couple of predicated, but that
-   doesn't seem to be worth it at the moment.  */
-
-int
-mmix_reg_or_constant_operand (rtx op, enum machine_mode mode)
-{
-  return register_operand (op, mode)
-    || (GET_CODE (op) == CONST_DOUBLE && GET_MODE (op) == VOIDmode)
-    || GET_CODE (op) == CONST_INT;
-}
-
-/* True if this is a register with a condition-code mode.  */
-
-int
-mmix_reg_cc_operand (rtx op, enum machine_mode mode)
-{
-  if (mode == VOIDmode)
-    mode = GET_MODE (op);
-
-  return register_operand (op, mode)
-    && (mode == CCmode || mode == CC_UNSmode || mode == CC_FPmode
-	|| mode == CC_FPEQmode || mode == CC_FUNmode);
-}
-
-/* True if this is a foldable comparison operator
-   - one where a the result of (compare:CC (reg) (const_int 0)) can be
-   replaced by (reg).  */
-
-int
-mmix_foldable_comparison_operator (rtx op, enum machine_mode mode)
-{
-  RTX_CODE code = GET_CODE (op);
-
-  if (mode == VOIDmode)
-    mode = GET_MODE (op);
-
-  if (mode == VOIDmode && COMPARISON_P (op))
-    mode = GET_MODE (XEXP (op, 0));
-
-  return ((mode == CCmode || mode == DImode)
-	  && (code == NE || code == EQ || code == GE || code == GT
-	      || code == LE))
-    /* FIXME: This may be a stupid trick.  What happens when GCC wants to
-       reverse the condition?  Can it do that by itself?  Maybe it can
-       even reverse the condition to fit a foldable one in the first
-       place?  */
-    || (mode == CC_UNSmode && (code == GTU || code == LEU));
-}
-
-/* Like comparison_operator, but only true if this comparison operator is
-   applied to a valid mode.  Needed to avoid jump.c generating invalid
-   code with -ffast-math (gcc.dg/20001228-1.c).  */
-
-int
-mmix_comparison_operator (rtx op, enum machine_mode mode)
-{
-  RTX_CODE code = GET_CODE (op);
-
-  /* Comparison operators usually don't have a mode, but let's try and get
-     one anyway for the day that changes.  */
-  if (mode == VOIDmode)
-    mode = GET_MODE (op);
-
-  /* Get the mode from the first operand if we don't have one.  */
-  if (mode == VOIDmode && COMPARISON_P (op))
-    mode = GET_MODE (XEXP (op, 0));
-
-  /* FIXME: This needs to be kept in sync with the tables in
-     mmix_output_condition.  */
-  return
-    (mode == VOIDmode && COMPARISON_P (op))
-    || (mode == CC_FUNmode
-	&& (code == ORDERED || code == UNORDERED))
-    || (mode == CC_FPmode
-	&& (code == GT || code == LT))
-    || (mode == CC_FPEQmode
-	&& (code == NE || code == EQ))
-    || (mode == CC_UNSmode
-	&& (code == GEU || code == GTU || code == LEU || code == LTU))
-    || (mode == CCmode
-	&& (code == NE || code == EQ || code == GE || code == GT
-	    || code == LE || code == LT))
-    || (mode == DImode
-	&& (code == NE || code == EQ || code == GE || code == GT
-	    || code == LE || code == LT || code == LEU || code == GTU));
-}
-
-/* True if this is a register or 0 (int or float).  */
-
-int
-mmix_reg_or_0_operand (rtx op, enum machine_mode mode)
-{
-  /* FIXME: Is mode calculation necessary and correct?  */
-  return
-    op == CONST0_RTX (mode == VOIDmode ? GET_MODE (op) : mode)
-    || register_operand (op, mode);
-}
-
-/* True if this is a register or an int 0..255.  */
-
-int
-mmix_reg_or_8bit_operand (rtx op, enum machine_mode mode)
-{
-  return register_operand (op, mode)
-    || (GET_CODE (op) == CONST_INT
-	&& CONST_OK_FOR_LETTER_P (INTVAL (op), 'I'));
 }
 
 /* Returns zero if code and mode is not a valid condition from a
@@ -2841,19 +2705,13 @@ mmix_intval (rtx x)
 
 	  REAL_VALUE_TO_TARGET_DOUBLE (value, bits);
 
-	  if (sizeof (long) < sizeof (HOST_WIDEST_INT))
-	    {
-	      retval = (unsigned long) bits[1] / 2;
-	      retval *= 2;
-	      retval |= (unsigned long) bits[1] & 1;
-	      retval
-		|= (unsigned HOST_WIDEST_INT) bits[0]
-		  << (sizeof (bits[0]) * 8);
-	    }
-	  else
-	    retval = (unsigned long) bits[1];
-
-	  return retval;
+	  /* The double cast is necessary to avoid getting the long
+	     sign-extended to unsigned long long(!) when they're of
+	     different size (usually 32-bit hosts).  */
+	  return
+	    ((unsigned HOST_WIDEST_INT) (unsigned long) bits[0]
+	     << (unsigned HOST_WIDEST_INT) 32U)
+	    | (unsigned HOST_WIDEST_INT) (unsigned long) bits[1];
 	}
       else if (GET_MODE (x) == SFmode)
 	{

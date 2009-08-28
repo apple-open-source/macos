@@ -1,6 +1,6 @@
 /* Generate code to initialize optabs from machine description.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 #include "bconfig.h"
@@ -84,6 +84,7 @@ static const char * const optabs[] =
   "smul_highpart_optab->handlers[$A].insn_code = CODE_FOR_$(smul$a3_highpart$)",
   "smul_widen_optab->handlers[$B].insn_code = CODE_FOR_$(mul$a$b3$)$N",
   "umul_widen_optab->handlers[$B].insn_code = CODE_FOR_$(umul$a$b3$)$N",
+  "usmul_widen_optab->handlers[$B].insn_code = CODE_FOR_$(usmul$a$b3$)$N",
   "sdiv_optab->handlers[$A].insn_code = CODE_FOR_$(div$a3$)",
   "sdivv_optab->handlers[$A].insn_code = CODE_FOR_$(div$V$I$a3$)",
   "udiv_optab->handlers[$A].insn_code = CODE_FOR_$(udiv$I$a3$)",
@@ -119,11 +120,14 @@ static const char * const optabs[] =
   "copysign_optab->handlers[$A].insn_code = CODE_FOR_$(copysign$F$a3$)",
   "sqrt_optab->handlers[$A].insn_code = CODE_FOR_$(sqrt$a2$)",
   "floor_optab->handlers[$A].insn_code = CODE_FOR_$(floor$a2$)",
+  "lfloor_optab->handlers[$A].insn_code = CODE_FOR_$(lfloor$a2$)",
   "ceil_optab->handlers[$A].insn_code = CODE_FOR_$(ceil$a2$)",
+  "lceil_optab->handlers[$A].insn_code = CODE_FOR_$(lceil$a2$)",
   "round_optab->handlers[$A].insn_code = CODE_FOR_$(round$a2$)",
   "btrunc_optab->handlers[$A].insn_code = CODE_FOR_$(btrunc$a2$)",
   "nearbyint_optab->handlers[$A].insn_code = CODE_FOR_$(nearbyint$a2$)",
   "rint_optab->handlers[$A].insn_code = CODE_FOR_$(rint$a2$)",
+  "lrint_optab->handlers[$A].insn_code = CODE_FOR_$(lrint$a2$)",
   "sincos_optab->handlers[$A].insn_code = CODE_FOR_$(sincos$a3$)",
   "sin_optab->handlers[$A].insn_code = CODE_FOR_$(sin$a2$)",
   "asin_optab->handlers[$A].insn_code = CODE_FOR_$(asin$a2$)",
@@ -165,15 +169,51 @@ static const char * const optabs[] =
   "reload_in_optab[$A] = CODE_FOR_$(reload_in$a$)",
   "reload_out_optab[$A] = CODE_FOR_$(reload_out$a$)",
   "movmem_optab[$A] = CODE_FOR_$(movmem$a$)",
-  "clrmem_optab[$A] = CODE_FOR_$(clrmem$a$)",
   "cmpstr_optab[$A] = CODE_FOR_$(cmpstr$a$)",
+  "cmpstrn_optab[$A] = CODE_FOR_$(cmpstrn$a$)",
   "cmpmem_optab[$A] = CODE_FOR_$(cmpmem$a$)",
+  "setmem_optab[$A] = CODE_FOR_$(setmem$a$)",
+  "sync_add_optab[$A] = CODE_FOR_$(sync_add$I$a$)",
+  "sync_sub_optab[$A] = CODE_FOR_$(sync_sub$I$a$)",
+  "sync_ior_optab[$A] = CODE_FOR_$(sync_ior$I$a$)",
+  "sync_and_optab[$A] = CODE_FOR_$(sync_and$I$a$)",
+  "sync_xor_optab[$A] = CODE_FOR_$(sync_xor$I$a$)",
+  "sync_nand_optab[$A] = CODE_FOR_$(sync_nand$I$a$)",
+  "sync_old_add_optab[$A] = CODE_FOR_$(sync_old_add$I$a$)",
+  "sync_old_sub_optab[$A] = CODE_FOR_$(sync_old_sub$I$a$)",
+  "sync_old_ior_optab[$A] = CODE_FOR_$(sync_old_ior$I$a$)",
+  "sync_old_and_optab[$A] = CODE_FOR_$(sync_old_and$I$a$)",
+  "sync_old_xor_optab[$A] = CODE_FOR_$(sync_old_xor$I$a$)",
+  "sync_old_nand_optab[$A] = CODE_FOR_$(sync_old_nand$I$a$)",
+  "sync_new_add_optab[$A] = CODE_FOR_$(sync_new_add$I$a$)",
+  "sync_new_sub_optab[$A] = CODE_FOR_$(sync_new_sub$I$a$)",
+  "sync_new_ior_optab[$A] = CODE_FOR_$(sync_new_ior$I$a$)",
+  "sync_new_and_optab[$A] = CODE_FOR_$(sync_new_and$I$a$)",
+  "sync_new_xor_optab[$A] = CODE_FOR_$(sync_new_xor$I$a$)",
+  "sync_new_nand_optab[$A] = CODE_FOR_$(sync_new_nand$I$a$)",
+  "sync_compare_and_swap[$A] = CODE_FOR_$(sync_compare_and_swap$I$a$)",
+  "sync_compare_and_swap_cc[$A] = CODE_FOR_$(sync_compare_and_swap_cc$I$a$)",
+  "sync_lock_test_and_set[$A] = CODE_FOR_$(sync_lock_test_and_set$I$a$)",
+  "sync_lock_release[$A] = CODE_FOR_$(sync_lock_release$I$a$)",
   "vec_set_optab->handlers[$A].insn_code = CODE_FOR_$(vec_set$a$)",
   "vec_extract_optab->handlers[$A].insn_code = CODE_FOR_$(vec_extract$a$)",
   "vec_init_optab->handlers[$A].insn_code = CODE_FOR_$(vec_init$a$)",
+  "vec_shl_optab->handlers[$A].insn_code = CODE_FOR_$(vec_shl_$a$)",
+  "vec_shr_optab->handlers[$A].insn_code = CODE_FOR_$(vec_shr_$a$)",
   "vec_realign_load_optab->handlers[$A].insn_code = CODE_FOR_$(vec_realign_load_$a$)",
   "vcond_gen_code[$A] = CODE_FOR_$(vcond$a$)",
-  "vcondu_gen_code[$A] = CODE_FOR_$(vcondu$a$)" };
+  "vcondu_gen_code[$A] = CODE_FOR_$(vcondu$a$)",
+  "ssum_widen_optab->handlers[$A].insn_code = CODE_FOR_$(widen_ssum$I$a3$)",
+  "usum_widen_optab->handlers[$A].insn_code = CODE_FOR_$(widen_usum$I$a3$)",
+  "udot_prod_optab->handlers[$A].insn_code = CODE_FOR_$(udot_prod$I$a$)",
+  "sdot_prod_optab->handlers[$A].insn_code = CODE_FOR_$(sdot_prod$I$a$)",
+  "reduc_smax_optab->handlers[$A].insn_code = CODE_FOR_$(reduc_smax_$a$)",
+  "reduc_umax_optab->handlers[$A].insn_code = CODE_FOR_$(reduc_umax_$a$)",
+  "reduc_smin_optab->handlers[$A].insn_code = CODE_FOR_$(reduc_smin_$a$)",
+  "reduc_umin_optab->handlers[$A].insn_code = CODE_FOR_$(reduc_umin_$a$)",
+  "reduc_splus_optab->handlers[$A].insn_code = CODE_FOR_$(reduc_splus_$a$)" ,
+  "reduc_uplus_optab->handlers[$A].insn_code = CODE_FOR_$(reduc_uplus_$a$)" 
+};
 
 static void gen_insn (rtx);
 
@@ -268,7 +308,9 @@ gen_insn (rtx insn)
                             || mode_class[i] == MODE_INT
                             || mode_class[i] == MODE_PARTIAL_INT
 			    || mode_class[i] == MODE_VECTOR_INT)
-			&& (! force_float || mode_class[i] == MODE_FLOAT 
+			&& (! force_float
+			    || mode_class[i] == MODE_FLOAT 
+			    || mode_class[i] == MODE_DECIMAL_FLOAT
 			    || mode_class[i] == MODE_COMPLEX_FLOAT
 			    || mode_class[i] == MODE_VECTOR_FLOAT))
 		      break;
@@ -318,7 +360,7 @@ gen_insn (rtx insn)
 	  case 'I':  case 'F':  case 'N':
 	    break;
 	  case 'V':
-            if (GET_MODE_CLASS (m1) == MODE_FLOAT)
+	    if (SCALAR_FLOAT_MODE_P (m1))
               printf ("v");
             break;
 	  case 'a':
@@ -410,11 +452,4 @@ from the machine description file `md'.  */\n\n");
 
   fflush (stdout);
   return (ferror (stdout) != 0 ? FATAL_EXIT_CODE : SUCCESS_EXIT_CODE);
-}
-
-/* Define this so we can link with print-rtl.o to get debug_rtx function.  */
-const char *
-get_insn_name (int code ATTRIBUTE_UNUSED)
-{
-  return NULL;
 }

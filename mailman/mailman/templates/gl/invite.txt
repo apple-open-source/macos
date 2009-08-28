@@ -1,0 +1,20 @@
+O seu enderezo de correo electrónico "%(email)s" recibiu un convite do administrador para se unir á rolda de distribución %(listname)s de %(hostname)s.
+Pode aceptar este convite con só responder esta mensaxe co
+asunto intacto.
+
+Tamén pode visitar a páxina web:
+
+    %(confirmurl)s
+
+ou pode incluír a liña seguinte (e só a liña seguinte) nunha
+mensaxe dirixida a %(requestaddr)s:
+
+    confirm %(cookie)s
+
+Cómpre salientar que premer a opción de responder debería funcionar na
+maioría dos programas de correo electrónico.
+
+Se quere declinar o convite, só ten que ignorar esta mensaxe.  Se
+ten algunha pregunta que formular, envíea a
+
+%(listowner)s.

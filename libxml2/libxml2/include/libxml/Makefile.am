@@ -34,6 +34,7 @@ xmlinc_HEADERS = \
 		c14n.h \
 		xmlautomata.h \
 		xmlregexp.h \
+		xmlmodule.h \
 		xmlschemas.h \
 		schemasInternals.h \
 		xmlschemastypes.h \
@@ -47,7 +48,8 @@ xmlinc_HEADERS = \
 		xmlwriter.h \
 		chvalid.h \
 		pattern.h \
-		xmlsave.h
+		xmlsave.h \
+		schematron.h
 
 install-exec-hook:
 	$(mkinstalldirs) $(DESTDIR)$(xmlincdir)

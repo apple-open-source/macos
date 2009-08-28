@@ -6,7 +6,7 @@
 #  See http://subversion.tigris.org for more information.
 #
 # ====================================================================
-# Copyright (c) 2000-2004 CollabNet.  All rights reserved.
+# Copyright (c) 2000-2004, 2008-2009 CollabNet.  All rights reserved.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution.  The terms
@@ -17,7 +17,7 @@
 ######################################################################
 
 # General modules
-import string, sys, re, os, os.path, shutil
+import os
 
 # Our testing module
 import svntest
@@ -32,17 +32,11 @@ Item = svntest.wc.StateItem
 # Helper function
 def check_proplist(path, exp_out):
   """Verify that property list on PATH has a value of EXP_OUT"""
-  out, err = svntest.main.run_svn(None, 'proplist', '--verbose', path)
 
-  out2 = []
-  for line in out[1:]:
-    out2 = out2 + [string.strip(line)]
-  out2.sort()
-  exp_out.sort()
-  if out2 != exp_out:
-    print "Expected properties:", exp_out
-    print "Actual properties:  ", out2
-    print "Actual proplist output:", out
+  props = svntest.tree.get_props([path]).get(path, {})
+  if props != exp_out:
+    print("Expected properties: %s" % exp_out)
+    print("Actual properties:   %s" % props)
     raise svntest.Failure
 
 
@@ -56,6 +50,9 @@ def create_config(config_dir, enable_flag):
 
   # contents of the file 'config'
   config_contents = '''\
+[auth]
+password-stores =
+
 [miscellany]
 enable-auto-props = %s
 
@@ -64,20 +61,11 @@ enable-auto-props = %s
 *.jpg = jpgfile=ja
 fubar* = tarfile=si
 foobar.lha = lhafile=da;lzhfile=niet
-spacetest = abc = def ; ghi = ; = j 
+spacetest = abc = def ; ghi = ; = j
 * = auto=oui
 ''' % (enable_flag and 'yes' or 'no')
 
   svntest.main.create_config_dir(config_dir, config_contents)
-
-#----------------------------------------------------------------------
-
-def create_test_file(dir, name):
-  "create a test file"
-
-  fd = open(os.path.join(dir, name), 'w')
-  fd.write('foo\nbar\nbaz\n')
-  fd.close()
 
 #----------------------------------------------------------------------
 
@@ -98,19 +86,17 @@ def autoprops_test(sbox, cmd, cfgenable, clienable, subdir):
   # some directories
   wc_dir = sbox.wc_dir
   tmp_dir = os.path.abspath(svntest.main.temp_dir)
-  config_dir = os.path.join(tmp_dir, 'autoprops_config')
-  repos_url = svntest.main.current_repo_url
-  svntest.main.set_config_dir(config_dir)
+  config_dir = os.path.join(tmp_dir, 'autoprops_config_' + sbox.name)
+  repos_url = sbox.repo_url
 
   # initialize parameters
   if cmd == 'import':
-    parameters = ['import', '--username', svntest.main.wc_author,
-                            '--password', svntest.main.wc_passwd, '-m', 'bla']
+    parameters = ['import', '-m', 'bla']
     files_dir = tmp_dir
   else:
     parameters = ['add']
     files_dir = wc_dir
-  
+
   parameters = parameters + ['--config-dir', config_dir]
 
   create_config(config_dir, cfgenable)
@@ -141,7 +127,8 @@ def autoprops_test(sbox, cmd, cfgenable, clienable, subdir):
                'foobar.lha',
                'spacetest']
   for filename in filenames:
-    create_test_file(files_dir, filename)
+    svntest.main.file_write(os.path.join(files_dir, filename),
+                            'foo\nbar\nbaz\n')
 
   if len(subdir) == 0:
     # add/import the files
@@ -162,25 +149,26 @@ def autoprops_test(sbox, cmd, cfgenable, clienable, subdir):
 
   # do an svn co if needed
   if cmd == 'import':
-    svntest.main.run_svn(None, 'checkout', repos_url, files_wc_dir)
+    svntest.main.run_svn(None, 'checkout', repos_url, files_wc_dir,
+                        '--config-dir', config_dir)
 
   # check the properties
   if enable_flag:
     filename = os.path.join(files_wc_dir, 'foo.h')
-    check_proplist(filename, ['auto : oui'])
+    check_proplist(filename, {'auto':'oui'})
     filename = os.path.join(files_wc_dir, 'foo.c')
-    check_proplist(filename, ['auto : oui', 'cfile : yes'])
+    check_proplist(filename, {'auto':'oui', 'cfile':'yes'})
     filename = os.path.join(files_wc_dir, 'foo.jpg')
-    check_proplist(filename, ['auto : oui', 'jpgfile : ja'])
+    check_proplist(filename, {'auto':'oui', 'jpgfile':'ja'})
     filename = os.path.join(files_wc_dir, 'fubar.tar')
-    check_proplist(filename, ['auto : oui', 'tarfile : si'])
+    check_proplist(filename, {'auto':'oui', 'tarfile':'si'})
     filename = os.path.join(files_wc_dir, 'foobar.lha')
-    check_proplist(filename, ['auto : oui', 'lhafile : da', 'lzhfile : niet'])
+    check_proplist(filename, {'auto':'oui', 'lhafile':'da', 'lzhfile':'niet'})
     filename = os.path.join(files_wc_dir, 'spacetest')
-    check_proplist(filename, ['auto : oui', 'abc : def', 'ghi :'])
+    check_proplist(filename, {'auto':'oui', 'abc':'def', 'ghi':''})
   else:
     for filename in filenames:
-      check_proplist(os.path.join(files_wc_dir, filename), [])
+      check_proplist(os.path.join(files_wc_dir, filename), {})
 
 
 #----------------------------------------------------------------------

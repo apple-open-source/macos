@@ -1,11 +1,42 @@
 package util ;
 
+use strict;
+
+use vars qw( $wantOK) ;
+$wantOK = 1 ;
+
+sub _ok
+{
+    my $no = shift ;
+    my $result = shift ;
+ 
+    print "not " unless $result ;
+    print "ok $no\n" ;
+    return $result;
+}
+
+sub import
+{
+    my $class = shift ;
+    my $no_want_ok = shift ;
+
+    $wantOK = 0 if $no_want_ok ;
+    if (! $no_want_ok)
+    {
+        *main::ok = \&_ok ;
+    }
+}
+
 package main ;
 
 use strict ;
 use BerkeleyDB ;
 use File::Path qw(rmtree);
 use vars qw(%DB_errors $FA) ;
+
+use vars qw( @StdErrFile );
+
+@StdErrFile = ( -ErrFile => *STDERR, -ErrPrefix => "\n# " ) ;
 
 $| = 1;
 
@@ -39,22 +70,23 @@ $FA = 0 ;
 
     sub new
     {
-	my $self = shift ;
+        my $self = shift ;
         #my @files = () ;
         foreach (@_)
         {
             $_ = $basename ;
-            unlink $basename ;
+            1 while unlink $basename ;
             push @files, $basename ;
             ++ $basename ;
         }
- 	bless [ @files ], $self ;
+        bless [ @files ], $self ;
     }
 
     sub DESTROY
     {
-	my $self = shift ;
-	#unlink @{ $self } ;
+        my $self = shift ;
+        chmod 0777, @{ $self } ;
+        for (@$self) { 1 while unlink $_ } ;
     }
 
     END
@@ -149,6 +181,20 @@ sub docat_del
     local $/ = undef;
     open(CAT,$file) || die "Cannot open $file: $!";
     my $result = <CAT> || "" ;
+    close(CAT);
+    unlink $file ;
+    $result = normalise($result);
+    return $result;
+}   
+
+sub docat_del_sort
+{ 
+    my $file = shift;
+    open(CAT,$file) || die "Cannot open $file: $!";
+    my @got = <CAT>;
+    @got = sort @got;
+
+    my $result = join('', @got) || "" ;
     close(CAT);
     unlink $file ;
     $result = normalise($result);
@@ -254,14 +300,6 @@ sub addData
     return ($ret == 0) ;
 }
 
-sub ok
-{
-    my $no = shift ;
-    my $result = shift ;
- 
-    print "not " unless $result ;
-    print "ok $no\n" ;
-}
 
 
 # These two subs lifted directly from MLDBM.pm
@@ -318,5 +356,13 @@ sub fillout
     substr($template, 0, length($var)) = $var ;
     return $template ;
 }
+
+sub title
+{
+    #diag "" ;
+    ok(1, $_[0]) ;
+    #diag "" ;
+}
+
 
 1;

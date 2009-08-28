@@ -39,6 +39,8 @@
 # Additional variables inherited from ReleaseControl/Common.make
 ##
 
+NCPU := "-j`sysctl -n hw.activecpu`"
+
 ifndef CoreOSMakefiles
 CoreOSMakefiles = $(MAKEFILEPATH)/CoreOS
 endif
@@ -129,9 +131,10 @@ ifneq ($(GnuNoInstall),YES)
 		echo "Installing $(Project) for $$arch..." && \
 		$(MKDIR) $(BuildDirectory)/install-$$arch && \
 		umask $(Install_Mask) && \
-		$(MAKE) -C $(BuildDirectory)/$$arch $(Environment) \
+		$(MAKE) $(NCPU) -C $(BuildDirectory)/$$arch $(Environment) \
 			$(Install_Flags) $(Install_Target) || exit 1 ; \
 	done
+	rm -rf "$(BuildDirectory)/install-x86_64/./usr/local/lib"
 	./merge-lipo `for arch in $(RC_ARCHS) ; do echo $(BuildDirectory)/install-$$arch ; done` $(DSTROOT)
 	$(_v) $(FIND) $(DSTROOT) $(Find_Cruft) | $(XARGS) $(RMDIR)
 	$(_v) $(FIND) $(SYMROOT) $(Find_Cruft) | $(XARGS) $(RMDIR)
@@ -152,7 +155,7 @@ build:: configure
 ifneq ($(GnuNoBuild),YES)
 	$(_v) for arch in $(RC_ARCHS) ; do \
 		echo "Building $(Project) for $$arch..." && \
-		$(MAKE) -C $(BuildDirectory)/$$arch $(Environment) || exit 1; \
+		$(MAKE) $(NCPU) -C $(BuildDirectory)/$$arch $(Environment) || exit 1; \
 	done
 endif
 

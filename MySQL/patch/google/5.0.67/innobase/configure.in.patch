@@ -1,0 +1,34 @@
+--- base5067/innobase/configure.in	2008-08-04 05:19:12.000000000 -0700
++++ m5067/innobase/configure.in	2008-09-08 06:53:12.000000000 -0700
+@@ -42,6 +42,31 @@
+ AC_CHECK_FUNCS(sched_yield)
+ AC_CHECK_FUNCS(fdatasync)
+ AC_CHECK_FUNCS(localtime_r)
++
++# as http://lists.mysql.com/commits/40686 does
++AC_CACHE_CHECK([whether the compiler provides atomic builtins],
++               [mysql_cv_atomic_builtins], [AC_TRY_RUN([
++  int main()
++  {
++    int foo= -10; int bar= 10;
++    __sync_fetch_and_add(&foo, bar);
++    if (foo)
++      return -1;
++    bar= __sync_lock_test_and_set(&foo, bar);
++    if (bar || foo != 10)
++      return -1;
++    bar= __sync_val_compare_and_swap(&bar, foo, 15);
++    if (bar)
++      return -1;
++    return 0;
++  }
++], [mysql_cv_atomic_builtins=yes], [mysql_cv_atomic_builtins=no])])
++
++if test "x$mysql_cv_atomic_builtins" = xyes; then
++  AC_DEFINE(HAVE_ATOMIC_BUILTINS, 1,
++            [Define to 1 if compiler provides atomic builtins.])
++fi
++
+ #AC_CHECK_FUNCS(readdir_r) MySQL checks that it has also the right args.
+ # Some versions of Unix only take 2 arguments.
+ #AC_C_INLINE  Already checked in MySQL

@@ -1,9 +1,9 @@
 /*
- * "$Id: emit.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: emit.c 7863 2008-08-26 03:39:59Z mike $"
  *
  *   PPD code emission routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007-2008 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -32,7 +32,6 @@
  *                           options.
  *   ppd_compare_cparams() - Compare the order of two custom parameters.
  *   ppd_handle_media()    - Handle media selection...
- *   ppd_sort()            - Sort options by ordering numbers...
  */
 
 /*
@@ -58,7 +57,6 @@
 
 static int	ppd_compare_cparams(ppd_cparam_t *a, ppd_cparam_t *b);
 static void	ppd_handle_media(ppd_file_t *ppd);
-static int	ppd_sort(ppd_choice_t **c1, ppd_choice_t **c2);
 
 
 /*
@@ -73,6 +71,9 @@ static const char ppd_custom_code[] =
 /*
  * 'ppdCollect()' - Collect all marked options that reside in the specified
  *                  section.
+ *
+ * The choices array should be freed using @code free@ when you are
+ * finished with it.
  */
 
 int					/* O - Number of options marked */
@@ -88,7 +89,10 @@ ppdCollect(ppd_file_t    *ppd,		/* I - PPD file data */
  * 'ppdCollect2()' - Collect all marked options that reside in the
  *                   specified section and minimum order.
  *
- * @since CUPS 1.2@
+ * The choices array should be freed using @code free@ when you are
+ * finished with it.
+ *
+ * @since CUPS 1.2/Mac OS X 10.5@
  */
 
 int					/* O - Number of options marked */
@@ -97,16 +101,15 @@ ppdCollect2(ppd_file_t    *ppd,		/* I - PPD file data */
 	    float         min_order,	/* I - Minimum OrderDependency value */
             ppd_choice_t  ***choices)	/* O - Pointers to choices */
 {
-  int		i, j, k, m;		/* Looping vars */
-  ppd_group_t	*g,			/* Current group */
-		*sg;			/* Current sub-group */
-  ppd_option_t	*o;			/* Current option */
   ppd_choice_t	*c;			/* Current choice */
+  ppd_section_t	csection;		/* Current section */
+  float		corder;			/* Current OrderDependency value */
   int		count;			/* Number of choices collected */
   ppd_choice_t	**collect;		/* Collected choices */
+  float		*orders;		/* Collected order values */
 
 
-  DEBUG_printf(("ppdCollect2(ppd=%p, section=%d, min_order=%f, choices=%p)\n",
+  DEBUG_printf(("ppdCollect2(ppd=%p, section=%d, min_order=%f, choices=%p)",
                 ppd, section, min_order, choices));
 
   if (!ppd || !choices)
@@ -118,13 +121,21 @@ ppdCollect2(ppd_file_t    *ppd,		/* I - PPD file data */
   }
 
  /*
-  * Allocate memory for up to 1000 selected choices...
+  * Allocate memory for up to N selected choices...
   */
 
   count = 0;
-  if ((collect = calloc(sizeof(ppd_choice_t *), 1000)) == NULL)
+  if ((collect = calloc(sizeof(ppd_choice_t *),
+                        cupsArrayCount(ppd->marked))) == NULL)
   {
     *choices = NULL;
+    return (0);
+  }
+
+  if ((orders = calloc(sizeof(float), cupsArrayCount(ppd->marked))) == NULL)
+  {
+    *choices = NULL;
+    free(collect);
     return (0);
   }
 
@@ -132,30 +143,61 @@ ppdCollect2(ppd_file_t    *ppd,		/* I - PPD file data */
   * Loop through all options and add choices as needed...
   */
 
-  for (i = ppd->num_groups, g = ppd->groups; i > 0; i --, g ++)
+  for (c = (ppd_choice_t *)cupsArrayFirst(ppd->marked);
+       c;
+       c = (ppd_choice_t *)cupsArrayNext(ppd->marked))
   {
-    for (j = g->num_options, o = g->options; j > 0; j --, o ++)
-      if (o->section == section && o->order >= min_order)
-	for (k = o->num_choices, c = o->choices; k > 0; k --, c ++)
-	  if (c->marked && count < 1000)
-	  {
-	    DEBUG_printf(("ppdCollect2: %s=%s marked...\n", o->keyword,
-	                  c->choice));
-            collect[count] = c;
-	    count ++;
-	  }
+    csection = c->option->section;
+    corder   = c->option->order;
 
-    for (j = g->num_subgroups, sg = g->subgroups; j > 0; j --, sg ++)
-      for (k = sg->num_options, o = sg->options; k > 0; k --, o ++)
-	if (o->section == section && o->order >= min_order)
-	  for (m = o->num_choices, c = o->choices; m > 0; m --, c ++)
-	    if (c->marked && count < 1000)
-	    {
-	      DEBUG_printf(("ppdCollect2: %s=%s marked...\n", o->keyword,
-	                    c->choice));
-              collect[count] = c;
-	      count ++;
-	    }
+    if (!strcmp(c->choice, "Custom"))
+    {
+      ppd_attr_t	*attr;		/* NonUIOrderDependency value */
+      float		aorder;		/* Order value */
+      char		asection[17],	/* Section name */
+			amain[PPD_MAX_NAME + 1],
+			aoption[PPD_MAX_NAME];
+					/* *CustomFoo and True */
+
+
+      for (attr = ppdFindAttr(ppd, "NonUIOrderDependency", NULL);
+           attr;
+	   attr = ppdFindNextAttr(ppd, "NonUIOrderDependency", NULL))
+        if (attr->value &&
+	    sscanf(attr->value, "%f%16s%41s%40s", &aorder, asection, amain,
+	           aoption) == 4 &&
+	    !strncmp(amain, "*Custom", 7) &&
+	    !strcmp(amain + 7, c->option->keyword) && !strcmp(aoption, "True"))
+	{
+	 /*
+	  * Use this NonUIOrderDependency...
+	  */
+
+          corder = aorder;
+
+	  if (!strcmp(asection, "DocumentSetup"))
+	    csection = PPD_ORDER_DOCUMENT;
+	  else if (!strcmp(asection, "ExitServer"))
+	    csection = PPD_ORDER_EXIT;
+	  else if (!strcmp(asection, "JCLSetup"))
+	    csection = PPD_ORDER_JCL;
+	  else if (!strcmp(asection, "PageSetup"))
+	    csection = PPD_ORDER_PAGE;
+	  else if (!strcmp(asection, "Prolog"))
+	    csection = PPD_ORDER_PROLOG;
+	  else
+	    csection = PPD_ORDER_ANY;
+
+	  break;
+	}
+    }
+
+    if (csection == section && corder >= min_order)
+    {
+      collect[count] = c;
+      orders[count]  = corder;
+      count ++;
+    }
   }
 
  /*
@@ -163,10 +205,25 @@ ppdCollect2(ppd_file_t    *ppd,		/* I - PPD file data */
   */
 
   if (count > 1)
-    qsort(collect, count, sizeof(ppd_choice_t *),
-          (int (*)(const void *, const void *))ppd_sort);
+  {
+    int i, j;				/* Looping vars */
 
-  DEBUG_printf(("ppdCollect2: %d marked choices...\n", count));
+    for (i = 0; i < (count - 1); i ++)
+      for (j = i + 1; j < count; j ++)
+        if (orders[i] > orders[j])
+	{
+	  c          = collect[i];
+	  corder     = orders[i];
+	  collect[i] = collect[j];
+	  orders[i]  = orders[j];
+	  collect[j] = c;
+	  orders[j]  = corder;
+	}
+  }
+
+  free(orders);
+
+  DEBUG_printf(("2ppdCollect2: %d marked choices...", count));
 
  /*
   * Return the array and number of choices; if 0, free the array since
@@ -208,7 +265,7 @@ ppdEmit(ppd_file_t    *ppd,		/* I - PPD file record */
  *
  * When "limit" is zero, this function is identical to ppdEmit().
  *
- * @since CUPS 1.2@
+ * @since CUPS 1.2/Mac OS X 10.5@
  */
 
 int					/* O - 0 on success, -1 on failure */
@@ -333,7 +390,8 @@ ppdEmitJCL(ppd_file_t *ppd,		/* I - PPD file record */
 	   const char *title)		/* I - Title */
 {
   char		*ptr;			/* Pointer into JCL string */
-  char		temp[81];		/* Local title string */
+  char		temp[65],		/* Local title string */
+		displaymsg[33];		/* Local display string */
 
 
  /*
@@ -359,12 +417,19 @@ ppdEmitJCL(ppd_file_t *ppd,		/* I - PPD file record */
     */
 
     ppd_attr_t	*charset;		/* PJL charset */
+    ppd_attr_t	*display;		/* PJL display command */
 
 
     if ((charset = ppdFindAttr(ppd, "cupsPJLCharset", NULL)) != NULL)
     {
       if (!charset->value || strcasecmp(charset->value, "UTF-8"))
         charset = NULL;
+    }
+
+    if ((display = ppdFindAttr(ppd, "cupsPJLDisplay", NULL)) != NULL)
+    {
+      if (!display->value)
+        display = NULL;
     }
 
     fputs("\033%-12345X@PJL\n", fp);
@@ -400,14 +465,39 @@ ppdEmitJCL(ppd_file_t *ppd,		/* I - PPD file record */
       }
 
    /*
-    * Eliminate any path info from the job title...
+    * Clean up the job title...
     */
 
     if ((ptr = strrchr(title, '/')) != NULL)
+    {
+     /*
+      * Only show basename of file path...
+      */
+
       title = ptr + 1;
+    }
+
+    if (!strncmp(title, "smbprn.", 7))
+    {
+     /*
+      * Skip leading smbprn.######## from Samba jobs...
+      */
+
+      for (title += 7; *title && isdigit(*title & 255); title ++);
+      for (; *title && isspace(*title & 255); title ++);
+
+      if ((ptr = strstr(title, " - ")) != NULL)
+      {
+       /*
+	* Skip application name in "Some Application - Title of job"...
+	*/
+
+	title = ptr + 3;
+      }
+    }
 
    /*
-    * Replace double quotes with single quotes and 8-bit characters with
+    * Replace double quotes with single quotes and UTF-8 characters with
     * question marks so that the title does not cause a PJL syntax error.
     */
 
@@ -416,16 +506,32 @@ ppdEmitJCL(ppd_file_t *ppd,		/* I - PPD file record */
     for (ptr = temp; *ptr; ptr ++)
       if (*ptr == '\"')
         *ptr = '\'';
-      else if (charset && (*ptr & 128))
+      else if (!charset && (*ptr & 128))
         *ptr = '?';
+
+   /*
+    * CUPS STR #3125: Long PJL JOB NAME causes problems with some printers
+    *
+    * Generate the display message, truncating at 32 characters + nul to avoid
+    * issues with some printer's PJL implementations...
+    */
+
+    snprintf(displaymsg, sizeof(displaymsg), "%d %s %s", job_id, user, temp);
 
    /*
     * Send PJL JOB and PJL RDYMSG commands before we enter PostScript mode...
     */
 
-    fprintf(fp, "@PJL JOB NAME = \"%s\" DISPLAY = \"%d %s %s\"\n", temp,
-            job_id, user, temp);
-    fprintf(fp, "@PJL RDYMSG DISPLAY = \"%d %s %s\"\n", job_id, user, temp);
+    if (display && strcmp(display->value, "job"))
+    {
+      fprintf(fp, "@PJL JOB NAME = \"%s\"\n", temp);
+
+      if (display && !strcmp(display->value, "rdymsg"))
+        fprintf(fp, "@PJL RDYMSG DISPLAY = \"%s\"\n", displaymsg);
+    }
+    else
+      fprintf(fp, "@PJL JOB NAME = \"%s\" DISPLAY = \"%s\"\n", temp,
+	      displaymsg);
   }
   else
     fputs(ppd->jcl_begin, fp);
@@ -440,7 +546,7 @@ ppdEmitJCL(ppd_file_t *ppd,		/* I - PPD file record */
 /*
  * 'ppdEmitJCLEnd()' - Emit JCLEnd code to a file.
  *
- * @since CUPS 1.2@
+ * @since CUPS 1.2/Mac OS X 10.5@
  */
 
 int					/* O - 0 on success, -1 on failure */
@@ -497,12 +603,12 @@ ppdEmitJCLEnd(ppd_file_t *ppd,		/* I - PPD file record */
  * returned string.
  *
  * The return string is allocated on the heap and should be freed using
- * free() when you are done with it.
+ * @code free@ when you are done with it.
  *
- * @since CUPS 1.2@
+ * @since CUPS 1.2/Mac OS X 10.5@
  */
 
-char *					/* O - String containing option code */
+char *					/* O - String containing option code or @code NULL@ if there is no option code */
 ppdEmitString(ppd_file_t    *ppd,	/* I - PPD file record */
               ppd_section_t section,	/* I - Section to write */
 	      float         min_order)	/* I - Lowest OrderDependency */
@@ -520,7 +626,7 @@ ppdEmitString(ppd_file_t    *ppd,	/* I - PPD file record */
   struct lconv	*loc;			/* Locale data */
 
 
-  DEBUG_printf(("ppdEmitString(ppd=%p, section=%d, min_order=%f)\n",
+  DEBUG_printf(("ppdEmitString(ppd=%p, section=%d, min_order=%f)",
                 ppd, section, min_order));
 
  /*
@@ -591,7 +697,7 @@ ppdEmitString(ppd_file_t    *ppd,	/* I - PPD file record */
            !strcasecmp(choices[i]->option->keyword, "PageRegion")) &&
           !strcasecmp(choices[i]->choice, "Custom"))
       {
-        DEBUG_puts("ppdEmitString: Custom size set!");
+        DEBUG_puts("2ppdEmitString: Custom size set!");
 
         bufsize += 37;			/* %%BeginFeature: *CustomPageSize True\n */
         bufsize += 50;			/* Five 9-digit numbers + newline */
@@ -601,8 +707,8 @@ ppdEmitString(ppd_file_t    *ppd,	/* I - PPD file record */
 	                                      choices[i]->option->keyword))
 	           != NULL)
       {
-        bufsize += 17 + strlen(choices[i]->option->keyword) + 6;
-					/* %%BeginFeature: *keyword True\n */
+        bufsize += 23 + strlen(choices[i]->option->keyword) + 6;
+					/* %%BeginFeature: *Customkeyword True\n */
 
         
         for (cparam = (ppd_cparam_t *)cupsArrayFirst(coption->params);
@@ -646,7 +752,8 @@ ppdEmitString(ppd_file_t    *ppd,	/* I - PPD file record */
   * Allocate memory...
   */
 
-  DEBUG_printf(("ppdEmitString: Allocating %d bytes for string...\n", bufsize));
+  DEBUG_printf(("2ppdEmitString: Allocating %d bytes for string...",
+                (int)bufsize));
 
   if ((buffer = calloc(1, bufsize)) == NULL)
   {
@@ -758,8 +865,8 @@ ppdEmitString(ppd_file_t    *ppd,	/* I - PPD file record */
       * Send DSC comments with option...
       */
 
-      DEBUG_printf(("Adding code for %s=%s...\n", choices[i]->option->keyword,
-                    choices[i]->choice));
+      DEBUG_printf(("2ppdEmitString: Adding code for %s=%s...",
+		    choices[i]->option->keyword, choices[i]->choice));
 
       if ((!strcasecmp(choices[i]->option->keyword, "PageSize") ||
            !strcasecmp(choices[i]->option->keyword, "PageRegion")) &&
@@ -963,8 +1070,8 @@ ppdEmitString(ppd_file_t    *ppd,	/* I - PPD file record */
 		      "} stopped cleartomark\n", bufend - bufptr + 1);
       bufptr += strlen(bufptr);
 
-      DEBUG_printf(("ppdEmitString: Offset in string is %d...\n",
-                    bufptr - buffer));
+      DEBUG_printf(("2ppdEmitString: Offset in string is %d...",
+                    (int)(bufptr - buffer)));
     }
     else
     {
@@ -1004,17 +1111,32 @@ static void
 ppd_handle_media(ppd_file_t *ppd)	/* I - PPD file */
 {
   ppd_choice_t	*manual_feed,		/* ManualFeed choice, if any */
-		*input_slot,		/* InputSlot choice, if any */
-		*page;			/* PageSize/PageRegion */
+		*input_slot;		/* InputSlot choice, if any */
   ppd_size_t	*size;			/* Current media size */
   ppd_attr_t	*rpr;			/* RequiresPageRegion value */
 
 
  /*
-  * This function determines if the user has selected a media source
-  * via the InputSlot or ManualFeed options; if so, it marks the
-  * PageRegion option corresponding to the current media size.
-  * Otherwise it marks the PageSize option.
+  * This function determines what page size code to use, if any, for the
+  * current media size, InputSlot, and ManualFeed selections.
+  *
+  * We use the PageSize code if:
+  *
+  * 1. A custom media size is selected.
+  * 2. ManualFeed and InputSlot are not selected (or do not exist).
+  * 3. ManualFeed is selected but is False and InputSlot is not selected or
+  *    the selection has no code - the latter check done to support "auto" or
+  *    "printer default" InputSlot options.
+  *
+  * We use the PageRegion code if:
+  *
+  * 4. RequiresPageRegion does not exist and the PPD contains cupsFilter
+  *    keywords, indicating this is a CUPS-based driver.
+  * 5. RequiresPageRegion exists for the selected InputSlot (or "All" for any
+  *    InputSlot or ManualFeed selection) and is True.
+  *
+  * If none of the 5 conditions are true, no page size code is used and we
+  * unmark any existing PageSize or PageRegion choices.
   */
 
   if ((size = ppdPageSize(ppd, NULL)) == NULL)
@@ -1031,68 +1153,57 @@ ppd_handle_media(ppd_file_t *ppd)	/* I - PPD file */
   if (!rpr)
     rpr = ppdFindAttr(ppd, "RequiresPageRegion", "All");
 
-  if (!strcasecmp(size->name, "Custom") || (!manual_feed && !input_slot) ||
-      !((manual_feed && !strcasecmp(manual_feed->choice, "True")) ||
-        (input_slot && input_slot->code && input_slot->code[0])))
+  if (!strcasecmp(size->name, "Custom") ||
+      (!manual_feed && !input_slot) ||
+      (manual_feed && !strcasecmp(manual_feed->choice, "False") &&
+       (!input_slot || (input_slot->code && !input_slot->code[0]))) ||
+      (!rpr && ppd->num_filters > 0))
   {
    /*
-    * Manual feed was not selected and/or the input slot selection does
-    * not contain any PostScript code.  Use the PageSize option...
+    * Use PageSize code...
     */
 
     ppdMarkOption(ppd, "PageSize", size->name);
   }
-  else
+  else if (rpr && rpr->value && !strcasecmp(rpr->value, "True"))
   {
    /*
-    * Manual feed was selected and/or the input slot selection contains
-    * PostScript code.  Use the PageRegion option...
+    * Use PageRegion code...
     */
 
     ppdMarkOption(ppd, "PageRegion", size->name);
-
+  }
+  else
+  {
    /*
-    * RequiresPageRegion does not apply to manual feed so we need to
-    * check that we are not doing manual feed before unmarking PageRegion.
+    * Do not use PageSize or PageRegion code...
     */
 
-    if (!(manual_feed && !strcasecmp(manual_feed->choice, "True")) &&
-        ((rpr && rpr->value && !strcmp(rpr->value, "False")) ||
-         (!rpr && !ppd->num_filters)))
+    ppd_choice_t	*page;		/* PageSize/Region choice, if any */
+
+    if ((page = ppdFindMarkedChoice(ppd, "PageSize")) != NULL)
     {
      /*
-      * Either the PPD file specifies no PageRegion code or the PPD file
-      * not for a CUPS raster driver and thus defaults to no PageRegion
-      * code...  Unmark the PageRegion choice so that we don't output the
-      * code...
+      * Unmark PageSize...
       */
 
-      page = ppdFindMarkedChoice(ppd, "PageRegion");
+      page->marked = 0;
+      cupsArrayRemove(ppd->marked, page);
+    }
 
-      if (page)
-        page->marked = 0;
+    if ((page = ppdFindMarkedChoice(ppd, "PageRegion")) != NULL)
+    {
+     /*
+      * Unmark PageRegion...
+      */
+
+      page->marked = 0;
+      cupsArrayRemove(ppd->marked, page);
     }
   }
 }
 
 
 /*
- * 'ppd_sort()' - Sort options by ordering numbers...
- */
-
-static int			/* O - -1 if c1 < c2, 0 if equal, 1 otherwise */
-ppd_sort(ppd_choice_t **c1,	/* I - First choice */
-         ppd_choice_t **c2)	/* I - Second choice */
-{
-  if ((*c1)->option->order < (*c2)->option->order)
-    return (-1);
-  else if ((*c1)->option->order > (*c2)->option->order)
-    return (1);
-  else
-    return (0);
-}
-
-
-/*
- * End of "$Id: emit.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: emit.c 7863 2008-08-26 03:39:59Z mike $".
  */

@@ -452,9 +452,15 @@ void MDSAttrParser::parseCspCapabilitiesRecord(
 		
 		/*
 		 * Append the GroupId attribute, which we infer from the current index 
-		 * into Capabilitites. 
+		 * into Capabilitites.  However, thou shalt not use > 4-byte values 
+         * for MDS, so convert from CFIndex first.  
 		 */
-		MDSRawValueToDbAttr(&capDex, sizeof(CFIndex), CSSM_DB_ATTRIBUTE_FORMAT_UINT32, 
+        if (capDex > uint32(~0)) {
+            MPDebug("parseCspCapabilitiesRecord: too large an index for MDS");
+            break;
+        }
+        uint32 index32 = uint32(capDex);
+		MDSRawValueToDbAttr(&index32, sizeof(index32), CSSM_DB_ATTRIBUTE_FORMAT_UINT32, 
 			"GroupId", outAttrs[numTopLevelAttrs + numCapDictAttrs]);
 		numCapDictAttrs++;	
 		

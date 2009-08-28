@@ -1,0 +1,63 @@
+#!../../src/xotclsh
+# $Id: persistenceExample.xotcl,v 1.2 2006/02/18 22:17:33 neumann Exp $
+#
+# load the persistence component
+package require xotcl::store::persistence
+
+# Two example objects
+Object o
+# set two variables to default values
+o set x 1
+o set y 1
+
+Object p
+# set two variables to default values
+p set x 1
+p set y 1
+
+####################################
+# now we make these vars persistent
+####################################
+
+
+# 1. we need the PersistenceMgr (for gdbm we have to specify a file
+# name). If we want to get rid of the current setting and start again
+# we default values, we have to delete this file
+PersistenceMgr pmgr -dirName . -fileName example-db
+
+# 2. we have to make the objects persistent. We register the
+# persistence strategy as per-object mixin on the two objects
+#
+# one uses the lazy, one the eager strategy
+
+o mixin Persistent=Eager
+p mixin Persistent=Lazy
+
+# 3. tell the objects, which PersistenceMgr to use
+
+o persistenceMgr pmgr
+p persistenceMgr pmgr
+
+# 4. make the vars persistent
+
+o persistent {x y}
+p persistent {x y}
+
+#####################################
+
+# now the vars are loaded from the persistence store
+#
+# we incr them to demonstrate the persistency; and print the results
+
+o incr x 2
+o append y 1
+p incr x 3
+p append y 2
+
+puts "Values:"
+puts "  o->x: [o set x]"
+puts "  o->y: [o set y]"
+puts "  p->x: [p set x]"
+puts "  p->y: [p set y]"
+
+# now run the program several times to see the results 

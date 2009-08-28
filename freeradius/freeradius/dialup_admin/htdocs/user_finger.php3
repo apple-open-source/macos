@@ -1,6 +1,7 @@
 <?php
 require('../conf/config.php3');
 require('../lib/attrshow.php3');
+require('../lib/sql/nas_list.php3');
 if (!isset($usage_summary)){
 	echo <<<EOM
 <html>
@@ -21,14 +22,14 @@ if ($config[general_decode_normal_attributes] == 'yes'){
 	$k = init_decoder();
 	$decode_normal = 1;
 }
-require('../lib/functions.php3');
+require_once('../lib/functions.php3');
 require("../lib/$config[general_lib_type]/functions.php3");
 
 if (is_file("../lib/sql/drivers/$config[sql_type]/functions.php3"))
 	include_once("../lib/sql/drivers/$config[sql_type]/functions.php3");
 else{
 	echo <<<EOM
-<body bgcolor="#80a040" background="images/greenlines1.gif" link="black" alink="black">
+<body>
 <center>
 <b>Could not include SQL library functions. Aborting</b>
 </body>
@@ -40,8 +41,10 @@ EOM;
 $date = strftime('%A, %e %B %Y, %T %Z');
 
 $sql_extra_query = '';
-if ($config[sql_accounting_extra_query] != '')
-	$sql_extra_query = sql_xlat($config[sql_accounting_extra_query],$login,$config);
+if ($config[sql_accounting_extra_query] != ''){
+	$sql_extra_query = xlat($config[sql_accounting_extra_query],$login,$config);
+	$sql_extra_query = da_sql_escape_string($sql_extra_query);
+}
 
 $link = @da_sql_pconnect($config);
 $link2 = connect2db($config);
@@ -49,7 +52,10 @@ $tot_in = $tot_rem = 0;
 if ($link){
 	$h = 21;
 	$servers_num = 0;
+	if ($config[general_ld_library_path] != '')
+		putenv("LD_LIBRARY_PATH=$config[general_ld_library_path]");
 	foreach($nas_list as $nas){
+		$j = 0;
 		$num = 0;
 
 		if ($server != ''){
@@ -60,46 +66,62 @@ if ($link){
 		}
 		else
 			$servers_num++;
+		if ($nas[ip] == '')
+			continue;
 		$name_data = $nas[ip];
 		$community_data = $nas[community];
 		$server_name[$servers_num] = $nas[name];
 		$server_model[$servers_num] = $nas[model];
-		if ($config[general_ld_library_path] != '')
-			putenv("LD_LIBRARY_PATH=$config[general_ld_library_path]");
 		$extra = "";
-		if ($config[$finger_type] != 'database' && $config[general_finger_type] == 'snmp'){
-			if ($config[$nas_type] == '')
-				$nas_type = $config[general_nas_type];
-			else
-				$nas_type = $nas[type];
+		$finger_type = $config[general_finger_type];
+		if ($nas[finger_type] != '')
+			$finger_type = $nas[finger_type];
+		if ($finger_type == 'snmp'){
+			$nas_type = ($nas[type] != '') ? $nas[type] : $config[general_nas_type];
 			if ($nas_type == '')
 				$nas_type = 'cisco';
 
 			$users=exec("$config[general_snmpfinger_bin] $name_data $community_data $nas_type");
-			if (strlen($users))
+			if (strlen($users)){
 				$extra = "AND username IN ($users)";
+				if ($config[general_strip_realms] == 'yes'){
+					if ($config[general_realm_format] == 'prefix')
+						$match = "'[^']+" . $config[general_realm_delimiter];
+					else
+						$match = $config[general_realm_delimiter] . "[^']+'";
+					$extra = preg_replace("/$match/","'",$extra);
+				}
+			}
+		}
+		$search = @da_sql_query($link,$config,
+		"SELECT COUNT(*) AS onlineusers FROM $config[sql_accounting_table] WHERE
+		acctstoptime IS NULL AND nasipaddress = '$name_data' $extra $sql_extra_query;");
+		if ($search){
+			if (($row = @da_sql_fetch_array($search,$config)))
+				$num = $row[onlineusers];
 		}
 		$search = @da_sql_query($link,$config,
 		"SELECT DISTINCT username,acctstarttime,framedipaddress,callingstationid
 		FROM $config[sql_accounting_table] WHERE
 		acctstoptime IS NULL AND nasipaddress = '$name_data' $extra $sql_extra_query
-		GROUP BY username ORDER BY acctstarttime;");
+		GROUP BY username,acctstarttime,framedipaddress,callingstationid
+		ORDER BY acctstarttime;");
 		if ($search){
 			$now = time();
 			while($row = @da_sql_fetch_array($search,$config)){
-				$num++;
+				$j++;
 				$h += 21;
 				$user = $row['username'];
-				$finger_info[$servers_num][$num]['ip'] = $row['framedipaddress'];
-				if ($finger_info[$servers_num][$num]['ip'] == '')
-					$finger_info[$servers_num][$num]['ip'] = '-';
+				$finger_info[$servers_num][$j]['ip'] = $row['framedipaddress'];
+				if ($finger_info[$servers_num][$j]['ip'] == '')
+					$finger_info[$servers_num][$j]['ip'] = '-';
 				$session_time = $row['acctstarttime'];
 				$session_time = date2timediv($session_time,$now);
-				$finger_info[$servers_num][$num]['session_time'] = time2strclock($session_time);
-				$finger_info[$servers_num][$num]['user'] = $user;
-				$finger_info[$servers_num][$num]['callerid'] = $row['callingstationid'];
-				if ($finger_info[$servers_num][$num]['callerid'] == '')
-					$finger_info[$servers_num][$num]['callerid'] = '-';
+				$finger_info[$servers_num][$j]['session_time'] = time2strclock($session_time);
+				$finger_info[$servers_num][$j]['user'] = $user;
+				$finger_info[$servers_num][$j]['callerid'] = $row['callingstationid'];
+				if ($finger_info[$servers_num][$j]['callerid'] == '')
+					$finger_info[$servers_num][$j]['callerid'] = '-';
 				if ($user_info["$user"] == ''){
 					$user_info["$user"] = get_user_info($link2,$user,$config,$decode_normal,$k);
 					if ($user_info["$user"] == '' || $user_info["$user"] == ' ')
@@ -108,6 +130,7 @@ if ($link){
 			}
 			$height[$servers_num] = $h;
 		}
+		$server_counting[$servers_num] = $j;
 		$server_loggedin[$servers_num] = $num;
 		$server_rem[$servers_num] = ($config[$portnum]) ? ($config[$portnum] - $num) : 'unknown';
 		$tot_in += $num;
@@ -123,7 +146,7 @@ if (isset($usage_summary)){
 }
 ?>
 
-<body bgcolor="#80a040" background="images/greenlines1.gif" link="black" alink="black">
+<body>
 <center>
 <table border=0 width=550 cellpadding=0 cellspacing=0>
 <tr valign=top>
@@ -166,17 +189,18 @@ echo <<<EOM
 	<th>name</th><th>duration</th>
 	</tr>
 EOM;
-	for( $k = 1; $k <= $server_loggedin[$j]; $k++){
+	for( $k = 1; $k <= $server_counting[$j]; $k++){
 		$user = $finger_info[$j][$k][user];
 		if ($user == '')
 			$user = '&nbsp;';
+		$User = urlencode($user);
 		$time = $finger_info[$j][$k][session_time];
 		$ip = $finger_info[$j][$k][ip];
 		$cid = $finger_info[$j][$k][callerid];
 		$inf = $user_info[$user];
 		echo <<<EOM
 	<tr align=center>
-	<td>$k</td><td><a href="user_admin.php3?login=$user" title="Edit User $user">$user</a></td>
+	<td>$k</td><td><a href="user_admin.php3?login=$User" title="Edit User $user">$user</a></td>
 EOM;
 if ($acct_attrs['uf'][4] != '') echo "<td>$ip</td>\n";
 if ($acct_attrs['uf'][9] != '') echo "<td>$cid</td>\n";

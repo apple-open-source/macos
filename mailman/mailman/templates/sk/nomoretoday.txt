@@ -1,0 +1,11 @@
+Z vašej adresy `%(sender)s' sme dostali správu požadujúcu
+zaslanie automatickej odpovede z konferencie %(listname)s.
+Takýchto správ sme ale dnes už obdržali %(num)s a tak sa
+domnievame, že mohlo dojsť k zacykleniu pošty.
+Aby sa zabránilo vracaniu pošty medzi robotmi, ktorí si navzájom
+posielajú automatické odpovede, už Vám dnes e-mailové odpovede
+posielať nebudeme. Prosím skúste zajtra.
+
+Ak si myslíte, že ide o omyl, kontaktujte správcu konferencie
+na adrese:
+%(owneremail)s"

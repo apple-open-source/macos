@@ -25,6 +25,7 @@
 #define _IOATACONTROLLER_H
 
 #include <IOKit/IOTypes.h>
+#include <IOKit/IOBufferMemoryDescriptor.h>
 #include <IOKit/IOCommandGate.h>
 #include <IOKit/IOService.h>
 #include <IOKit/IOWorkLoop.h>
@@ -35,7 +36,7 @@ class IOATABusCommand;
 class IOATABusInfo;
 class IOATADevConfig;
 
-/*! @class IOATAController : public IOService
+/*! @class IOATAController
     @abstract The base class for ata controller family. Provides the interface common to all ata bus controllers.
     @discussion Subclasses of IOATAController implement drivers for specific bus hardware. Disk devices are clients of 
     IOATAController and communicate via the IOATABusNub instantiated for each device discovered by the specific IOATAController
@@ -46,13 +47,13 @@ class IOATADevConfig;
     
     @discussion The header doc for this class is incomplete. The source however is heavily commented and should be consulted until 
     such time as complete header doc is available.
-*/    
+*/
 
 
 
 class IOATAController : public IOService
 {
-    OSDeclareDefaultStructors(IOATAController)
+    OSDeclareDefaultStructors(IOATAController);
 
 public:
 
@@ -157,9 +158,7 @@ protected:
 /*! @function handleCommand
     @abstract Called by executeCommand() to handle the client command
     from the workloop context.
-    @param client The client object.
     @param command The command code.
-    @param param0 Command parameter.
     @param param1 Command parameter.
     @param param2 Command parameter.
     @param param3 Command parameter.
@@ -173,15 +172,15 @@ protected:
 
 /*! @function busCanDispatch
     @abstract answers whether the bus is in state such that the next command 
-    @can be dispatched.
+    can be dispatched.
 	@result true - bus is free to issue commands. false - bus cannot issue
-	@commands at this time. */
+	commands at this time. */
 	virtual bool busCanDispatch( void );
 
 
 /*! @function dispatchNext
-    @Causes the command at the front of the queue to dequeue, made the 
-    @current command and begin execution.
+    @abstract Causes the command at the front of the queue to dequeue, made the 
+    current command and begin execution.
 	@result  noErr indicates successful dispatch.  */
 	virtual IOReturn dispatchNext( void );
 
@@ -278,9 +277,12 @@ private:
 
 protected:
 /*! @struct ExpansionData
-    @discussion This structure will be used to expand the capablilties of the IOWorkLoop in the future.
-    */    
-    struct ExpansionData { };
+    @discussion This structure will be used to expand the capablilties of the IOATAController in the future.
+    */
+    typedef struct ExpansionData
+    {
+    	IOBufferMemoryDescriptor*	_doubleBufferDesc;
+    } ExpansionData;
 
 /*! @var reserved
     Reserved for future use.  (Internal use only)  */

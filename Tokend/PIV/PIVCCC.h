@@ -39,7 +39,7 @@ class PIVCCC
 {
 public:
 	PIVCCC(const byte_string &data) throw(PIVError);
-    virtual ~PIVCCC();
+	virtual ~PIVCCC();
 
 	const unsigned char *identifier() const { return mIdentifier; }
 	std::string hexidentifier() const;

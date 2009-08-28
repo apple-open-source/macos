@@ -1,5 +1,5 @@
 /*
-Copyright (c) 1997-2002 Apple Computer, Inc. All rights reserved.
+Copyright (c) 1997-2008 Apple Inc. All rights reserved.
 Copyright (c) 1994-1996 NeXT Software, Inc.  All rights reserved.
  
 IMPORTANT:  This Apple software is supplied to you by Apple Computer, Inc. (ÒAppleÓ) in consideration of your agreement to the following terms, and your use, installation, modification or redistribution of this Apple software constitutes acceptance of these terms.  If you do not agree with these terms, please do not use, install, modify or redistribute this Apple software.
@@ -50,9 +50,9 @@ probe(IOService *provider, SInt32 *score)
     
     OSData *propData = OSDynamicCast(OSData, Provider->getProperty("AAPL,slot-name"));
     if (propData && (propData->getLength()) < 16)
-        sprintf(buf, "PCI %s Bus=%d Dev=%d Func=%d", (char *)(propData->getBytesNoCopy()), bus, dev, func);
+        snprintf(buf, sizeof (buf), "PCI %s Bus=%d Dev=%d Func=%d", (char *)(propData->getBytesNoCopy()), bus, dev, func);
     else
-        sprintf(buf, "PCI Bus=%d Dev=%d Func=%d", bus, dev, func);
+        snprintf(buf, sizeof (buf), "PCI Bus=%d Dev=%d Func=%d", bus, dev, func);
     setProperty(kLocationKey, buf);
     Location = (OSDynamicCast(OSString, getProperty(kLocationKey))->getCStringNoCopy());
 
@@ -61,7 +61,7 @@ probe(IOService *provider, SInt32 *score)
     
     InterfaceInstance=dev;
 
-    sprintf(buf, "Apple16X50PCI%d", (int)InterfaceInstance);
+    snprintf(buf, sizeof (buf), "Apple16X50PCI%d", (int)InterfaceInstance);
     setName(buf);
     
     // turn off all access except Config space (for now)
@@ -80,7 +80,7 @@ probeUART(void* refCon, Apple16X50UARTSync *uart, OSDictionary *properties)
     uart = super::probeUART(refCon, uart, properties);
     if (!uart) return false;
     
-    sprintf(buf, "%s BAR=%d Offset=%d", Location, (int)REFCON_TO_BAR(refCon), (int)REFCON_TO_OFFSET(refCon));
+    snprintf(buf, sizeof (buf), "%s BAR=%lu Offset=%lu", Location, REFCON_TO_BAR((uintptr_t)refCon), REFCON_TO_OFFSET((uintptr_t)refCon));
     uart->setProperty(kLocationKey, buf);
     return uart;    
 }
@@ -202,12 +202,12 @@ free()
 UInt8 Apple16X50PCI::
 getReg(UInt32 reg, void *refCon)
 {
-    return (Provider->ioRead8(reg+REFCON_TO_OFFSET(refCon), Map[REFCON_TO_BAR(refCon)]));
+    return (Provider->ioRead8(reg+REFCON_TO_OFFSET((uintptr_t)refCon), Map[REFCON_TO_BAR((uintptr_t)refCon)]));
 }
 
 void Apple16X50PCI::
 setReg(UInt32 reg, UInt8 val, void *refCon)
 {
-    Provider->ioWrite8(reg+REFCON_TO_OFFSET(refCon), val, Map[REFCON_TO_BAR(refCon)]);
+    Provider->ioWrite8(reg+REFCON_TO_OFFSET((uintptr_t)refCon), val, Map[REFCON_TO_BAR((uintptr_t)refCon)]);
 }
 

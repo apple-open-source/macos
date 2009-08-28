@@ -10,3 +10,6 @@ Extra_CC_Flags = -Wall -mdynamic-no-pic -DINET6
 Extra_LD_Flags = -dead_strip
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make
+
+after_install:
+	codesign -s- $(DSTROOT)/usr/sbin/aslmanager

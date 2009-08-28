@@ -11,20 +11,23 @@ QString		(\"[^"\n]*\")
 AString		(\<[^>\n]*\>)
 FileName	({QString}|{AString})
 
+/* new flex syntax to accomplish the same thing as #define YY_NO_UNPUT */
+%option nounput
+
 %{
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999, 2008 Apple, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+ *
+ * "Portions Copyright (c) 1999, 2008 Apple Inc.  All Rights
  * Reserved.  This file contains Original Code and/or Modifications of
  * Original Code as defined in and that are subject to the Apple Public
  * Source License Version 1.0 (the 'License').  You may not use this file
  * except in compliance with the License.  Please obtain a copy of the
  * License at http://www.apple.com/publicsource and read it before using
  * this file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -32,31 +35,31 @@ FileName	({QString}|{AString})
  * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
  * License for the specific language governing rights and limitations
  * under the License."
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
-/* 
+/*
  * Mach Operating System
  * Copyright (c) 1991,1990 Carnegie Mellon University
  * All Rights Reserved.
- * 
+ *
  * Permission to use, copy, modify and distribute this software and its
  * documentation is hereby granted, provided that both the copyright
  * notice and this permission notice appear in all copies of the
  * software, derivative works or modified versions, and any portions
  * thereof, and that both notices appear in supporting documentation.
- * 
+ *
  * CARNEGIE MELLON ALLOWS FREE USE OF THIS SOFTWARE IN ITS "AS IS"
  * CONDITION.  CARNEGIE MELLON DISCLAIMS ANY LIABILITY OF ANY KIND FOR
  * ANY DAMAGES WHATSOEVER RESULTING FROM THE USE OF THIS SOFTWARE.
- * 
+ *
  * Carnegie Mellon requests users of this software to return to
- * 
+ *
  *  Software Distribution Coordinator  or  Software.Distribution@CS.CMU.EDU
  *  School of Computer Science
  *  Carnegie Mellon University
  *  Pittsburgh PA 15213-3890
- * 
+ *
  * any improvements or extensions that they make and grant Carnegie Mellon
  * the rights to redistribute these changes.
  */
@@ -143,6 +146,7 @@ extern void yyerror();
 <Normal>[Aa][Uu][Dd][Ii][Tt][Tt][Oo][Kk][Ee][Nn]	RETURN(syAuditToken);
 <Normal>[Ss][Ee][Rr][Vv][Ee][Rr][Aa][Uu][Dd][Ii][Tt][Tt][Oo][Kk][Ee][Nn] RETURN(syServerAuditToken);
 <Normal>[Uu][Ss][Ee][Rr][Aa][Uu][Dd][Ii][Tt][Tt][Oo][Kk][Ee][Nn]	RETURN(syUserAuditToken);
+<Normal>[Ss][Ee][Rr][Vv][Ee][Rr][Cc][Oo][Nn][Tt][Ee][Xx][Tt][Tt][Oo][Kk][Ee][Nn]	RETURN(syServerContextToken);
 <Normal>[Ii][Nn][Oo][Uu][Tt]			RETURN(syInOut);
 <Normal>[Rr][Ee][Qq][Uu][Ee][Ss][Tt][Pp][Oo][Rr][Tt]	RETURN(syRequestPort);
 <Normal>[Rr][Ee][Pp][Ll][Yy][Pp][Oo][Rr][Tt]		RETURN(syReplyPort);
@@ -264,13 +268,13 @@ extern void yyerror();
 extern void
 LookNormal()
 {
-    SAVE(Normal);
+  SAVE(Normal);
 }
 
 extern void
 LookString()
 {
-    SAVE(String);
+  SAVE(String);
 }
 
 extern void
@@ -282,28 +286,26 @@ LookQString()
 extern void
 LookFileName()
 {
-    SAVE(FileName);
+  SAVE(FileName);
 }
 
 static void
-doSharp(body)
-    char *body;
+doSharp(char *body)
 {
-    register char *startName, *endName;
+  register char *startName, *endName;
 
-    lineno = atoi(body);
-    startName = strchr(body, '"');
-    if (startName != NULL)
-    {
-	endName = strrchr(body, '"');
-	*endName = '\0';
-	strfree(yyinname);
-	yyinname = strmake(startName+1);
-    }
+  lineno = atoi(body);
+  startName = strchr(body, '"');
+  if (startName != NULL) {
+    endName = strrchr(body, '"');
+    *endName = '\0';
+    strfree(yyinname);
+    yyinname = strmake(startName+1);
+  }
 }
 
 int
 yywrap()
 {
-        return 1;
+  return 1;
 }

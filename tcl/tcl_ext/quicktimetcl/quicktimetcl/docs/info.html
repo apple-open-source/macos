@@ -1,0 +1,139 @@
+<HTML>
+
+<HEAD>
+
+<TITLE>QuickTimeTcl Commands - ::quicktimetcl::info manual page</TITLE>
+
+</HEAD>
+
+<BODY>
+
+<DL>
+    <DD><A HREF="info.html#M1">NAME</A>
+    
+    <DL>
+	<DD>::quicktimetcl::info - shows various QuickTime information
+    </DL>
+    
+    <DD><A HREF="info.html#M2">SYNOPSIS</A>
+    
+    <DL>
+	<DD><B>package require QuickTimeTcl</B> ?<I>version</I>? 
+	<DD><B>::quicktimetcl::info </B> <I>command</I>
+    </DL>
+    
+    <DD><A HREF="info.html#M3">DESCRIPTION</A>
+    <DD><A HREF="info.html#M4">COMMANDS</A>
+    
+    <DL>
+	<DD><A HREF="info.html#M5"><B>::quicktimetcl::info</B>  
+	<B>qtversion</B></A> 
+	<DD><A 
+	HREF="info.html#M6"><B>::quicktimetcl::info</B>  <B>icversion</B></A> 
+	<DD><A HREF="info.html#M7"><B>::quicktimetcl::info</B>  
+	<B>iccodecs</B></A> 
+	<DD><A 
+	HREF="info.html#M8"><B>::quicktimetcl::info</B>  <B>components</B> 
+	?<I>type</I>?</A> 
+	<DD><A HREF="info.html#M9"><B>::quicktimetcl::info</B>  
+	<B>connectspeed</B></A>
+    </DL>
+    
+</DL>
+
+<DD><A HREF="info.html#M10">SEE ALSO</A> <DD><A 
+HREF="info.html#M11">KEYWORDS</A>
+</DL>
+
+<HR>
+
+<H3><A NAME="M1">NAME</A></H3>
+
+::quicktimetcl::info - Shows various QuickTime information, such as version 
+number, codecs, and components.
+
+<P>
+<H3><A NAME="M2">SYNOPSIS</A></H3>
+
+<B>package require QuickTimeTcl</B> ?<I>version</I>?<BR>
+<B>::quicktimetcl::info </B> <I>command</I>
+
+<H3><A NAME="M3">DESCRIPTION</A></H3>
+
+Information on the installed QuickTime software is returned. This includes 
+QuickTime version number, compressor manager version number, image 
+compressor codecs, and installed components. This command has an old alias 
+<B>QuickTimeStat</B>, which still exists but shouldn't be used anymore.
+
+<H3><A NAME="M4">COMMANDS</A></H3>
+
+Displays various information on the installed QuickTime software, such as 
+QuickTime version number, codecs, and components. Note that numbers are in 
+the long format so you have to figure out where to set the decimal point 
+yourself. For instance, a <B>connectspeed</B> of 2800 means a 28.8 kbps 
+modem.
+
+<P>
+
+<DL>
+    
+    <P>
+    <DT><A NAME="M5"><B>::quicktimetcl::info</B> <B>qtversion</B> </A> <DD>Returns the 
+    QuickTime version in hex format. For instance, 412800 means version 4.1.2.
+    
+    <P>
+    <DT><A NAME="M6"><B>::quicktimetcl::info</B> <B>icversion</B> </A> <DD>Returns the 
+    version number of the image compressor manager.
+    
+    <P>
+    <DT><A NAME="M7"><B>::quicktimetcl::info</B> <B>iccodecs</B> </A> <DD>Returns a 
+    list of elements of the following form: <CODE>{-subtype <I>subType</I>
+    -name <I>name</I>}</CODE>, where <CODE><I>subType</I></CODE> is a four 
+    character code defining the codec, and the <I>name</I> is just a 
+    descriptive name.
+    
+    <P>
+    <DT><A NAME="M8"><B>::quicktimetcl::info</B> <B>components</B> ?<I>type</I>? </A> <DD>Returns a 
+    list of elements of the following form: <CODE>{-type <I>type</I>
+    -subtype <I>subType</I> -manufacture <I>manufacturer</I> -name 
+    <I>name</I>}</CODE> describing all the components on this system. Both 
+    <CODE><I>type</I></CODE> and <CODE><I>subType</I></CODE> are four letter 
+    codes defining the component. The <CODE>-name</CODE> part need not 
+    exist for all components. Beware: this is a very long list, with a 
+    total of 792 on my Mac running QuickTime 4.1.2 (full install), and the 
+    Tcl/Tk console is not happy to print all that. Instead use, for 
+    instance,
+    <CODE>set a [::quicktimetcl::info components]; set b 1</CODE> to supress the 
+    output. 
+    
+    <P>
+    If <I>type</I> is given, the command will only return 
+    components of this type. One example of this is the Graphics Exporter 
+    Component, <B>grex</B>, which handles all exports of still images. By 
+    convention, a <B>grex</B> component has its subtype identical to the 
+    Mac file type for the corresponding graphics format.
+    
+    <P>
+    <DT><A NAME="M8"><B>::quicktimetcl::info</B> <B>connectspeed</B> </A> <DD>Returns 
+    the preferred connection speed set in the QuickTime user preferences, or 
+    2800 (28.8 modem) if not set.
+</DL>
+
+<H3><A NAME="M10">SEE ALSO</A></H3>
+
+<B><A HREF="movie.html">Movie</A></B>, <B><A 
+HREF="seqgrabber.html">seqgrabber</A></B>, and<B> <A 
+HREF="getOpenFilePreview.html">tk_getOpenFilePreview</A></B>
+
+<H3><A NAME="M11">KEYWORDS</A></H3>
+
+<U><A HREF="movie.html">movie</A></U>, and <U>QuickTime</U>
+<HR>
+
+<PRE>
+Copyright &#169; 1998-1999 Bruce O'Neel 
+Copyright &#169; 2000-2001 Mats Bengtsson</PRE>
+
+</BODY>
+
+</HTML>

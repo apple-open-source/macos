@@ -12,5 +12,7 @@
 	<array>
 		<string>autofsd</string>
 	</array>
+	<key>EnableTransactions</key>
+	<true/>
 </dict>
 </plist>

@@ -56,7 +56,8 @@ struct ppp_msg {
     u_char 		m_data[1];	// msg data sent or received
 };
 
-
+#define PPP_MSG_MAX_DATA_LEN		(64 * 1024)	/* arbitrary limit... 64K */
+#define PPP_MSG_MAX_SERVICEID_LEN	 64			/* arbitrary limit... 64 bytes */
 
 /* codes for ppp messages */
 enum {
@@ -228,7 +229,8 @@ enum {
     PPP_DISCONNECTLINK,
     PPP_HOLDOFF,
     PPP_ONHOLD,
-    PPP_WAITONBUSY
+    PPP_WAITONBUSY,
+	PPP_WAITING
 };
 
 // events

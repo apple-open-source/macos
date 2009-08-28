@@ -1,0 +1,94 @@
+--- tar/bsdtar.c.orig	2008-10-13 19:23:17.000000000 -0700
++++ tar/bsdtar.c	2008-10-13 19:23:40.000000000 -0700
+@@ -68,18 +68,6 @@
+ 
+ #include "bsdtar.h"
+ 
+-/*
+- * Per POSIX.1-1988, tar defaults to reading/writing archives to/from
+- * the default tape device for the system.  Pick something reasonable here.
+- */
+-#ifdef __linux
+-#define	_PATH_DEFTAPE "/dev/st0"
+-#endif
+-
+-#ifndef _PATH_DEFTAPE
+-#define	_PATH_DEFTAPE "/dev/tape"
+-#endif
+-
+ /* External function to parse a date/time string (from getdate.y) */
+ time_t get_date(const char *);
+ 
+@@ -133,11 +121,6 @@
+ 	/* Look up uid of current user for future reference */
+ 	bsdtar->user_uid = geteuid();
+ 
+-	/* Default: open tape drive. */
+-	bsdtar->filename = getenv("TAPE");
+-	if (bsdtar->filename == NULL)
+-		bsdtar->filename = _PATH_DEFTAPE;
+-
+ 	/* Default: preserve mod time on extract */
+ 	bsdtar->extract_flags = ARCHIVE_EXTRACT_TIME;
+ 
+@@ -614,7 +597,7 @@
+ 	"  -c Create  -r Add/Replace  -t List  -u Update  -x Extract\n"
+ 	"Common Options:\n"
+ 	"  -b #  Use # 512-byte records per I/O block\n"
+-	"  -f <filename>  Location of archive (default " _PATH_DEFTAPE ")\n"
++	"  -f <filename>  Location of archive\n"
+ 	"  -v    Verbose\n"
+ 	"  -w    Interactive\n"
+ 	"Create: %p -c [options] [<file> | <dir> | @<archive> | -C <dir> ]\n"
+--- tar/bsdtar.1.orig	2008-10-13 19:23:49.000000000 -0700
++++ tar/bsdtar.1	2008-10-13 19:25:19.000000000 -0700
+@@ -177,11 +177,6 @@
+ The filename can be
+ .Pa -
+ for standard input or standard output.
+-If not specified, the default tape device will be used.
+-(On
+-.Fx ,
+-the default tape device is
+-.Pa /dev/sa0 . )
+ .It Fl H
+ (c and r mode only)
+ Symbolic links named on the command line will be followed; the
+@@ -462,26 +457,12 @@
+ See
+ .Xr environ 7
+ for more information.
+-.It Ev TAPE
+-The default tape device.
+-The
+-.Fl f
+-option overrides this.
+ .It Ev TZ
+ The timezone to use when displaying dates.
+ See
+ .Xr environ 7
+ for more information.
+ .El
+-.Sh FILES
+-.Bl -tag -width ".Ev BLOCKSIZE"
+-.It Pa /dev/sa0
+-The default tape device, if not overridden by the
+-.Ev TAPE
+-environment variable or the
+-.Fl f
+-option.
+-.El
+ .Sh EXIT STATUS
+ .Ex -std
+ .Sh EXAMPLES
+@@ -498,10 +479,6 @@
+ archive:
+ .Dl Nm Fl tvf Pa file.tar.gz
+ .Pp
+-To extract all entries from the archive on
+-the default tape drive:
+-.Dl Nm Fl x
+-.Pp
+ To examine the contents of an ISO 9660 cdrom image:
+ .Dl Nm Fl tf Pa image.iso
+ .Pp

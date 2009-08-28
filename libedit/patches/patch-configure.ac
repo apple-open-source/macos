@@ -1,12 +1,12 @@
---- configure.ac.orig	2006-08-29 12:18:07.000000000 -0700
-+++ configure.ac	2006-09-04 15:44:52.000000000 -0700
-@@ -9,7 +9,8 @@ AM_INIT_AUTOMAKE
+--- configure.ac.orig	2008-07-12 02:35:33.000000000 -0700
++++ configure.ac	2008-08-07 12:17:43.000000000 -0700
+@@ -9,7 +9,8 @@
  AC_PROG_LIBTOOL
  
  # libtool -version-info
--AC_SUBST(LT_VERSION, [0:21:0])
-+# use 1.9 to get 2.9
-+AC_SUBST(LT_VERSION, [1:9:0])
+-AC_SUBST(LT_VERSION, [0:27:0])
++# use 1.11 to get 2.11
++AC_SUBST(LT_VERSION, [1:11:0])
  
  # AC_PROG_LIBTOOL runs AC_CANONICAL_HOST
  case $host in 

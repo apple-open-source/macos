@@ -1,0 +1,12 @@
+Vaša požiadavka do konferencie %(listname)s
+
+    %(request)s
+
+bola zamietnutá správcom konferencie. Správca uviedol následujúci dôvod
+zamietnutia požiadavky:
+
+"%(reason)s"
+
+Dotazy alebo pripomienky zasielajte správcovi konferencie na adresu:
+
+    %(adminaddr)s

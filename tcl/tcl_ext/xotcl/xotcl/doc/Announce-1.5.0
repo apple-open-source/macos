@@ -1,0 +1,232 @@
+Announcing XOTcl 1.5.0
+*************************
+
+Hi everybody. We are pleased to announce the availability of XOTcl 1.5.0.
+Major changes relative to 1.4.0 are:
+
+    * Improved Functionality
+
+       + The C-level implementation of XOTcl creates now the basic
+         classes ::xotcl::Object and ::xotcl::Class completely without
+         any methods. All predefined methods are now registered from
+         the initialization script-code (predefined.xotcl) via the new
+         command
+ 
+             ::xotcl::alias <class>|<obj> <methodName> \
+                      ?-objscope? ?-per-object? <cmdName>
+
+          which is used for registering predefined Tcl commands as
+          methods. These aliases are like zero cost forwarders, since
+          they lookup the function pointer from the commands and used
+          these in the methods.
+
+          This change makes it possible to register the same command
+          on different classes (with maybe different names), such that
+          for example the predefined set method of ::xotcl::Object can
+          be replaced with a different method and the set method can
+          be registered on some other classes (maybe some application
+          classes).
+
+          This change makes it as well quite easy to develop some
+          other object oriented languages based on the XOTcl
+          framework, since all methods can be rearrange from the Tcl
+          layer .
+
+
+       + Slots
+
+          A slot is a meta-object that manages property-changes of
+          objects. A property is either an attribute or a role of an
+          relation.
+
+          In a nutshell, a slot has among other attributes 
+            - a  name (which it used to access it), 
+            - a domain (object or class on which it can be used) , and
+            - can be multivalued or not
+
+          Every slot defines a uniform interface to access its
+          content.  So has for example, every multivalued slot a
+          method "add" to add a value to the list of values and a
+          method "remove" to remove it again.
+
+          We distinguish between system slots (predefined slots like
+          class, superclass, mixin, instmixin, filter, instfilter) and
+          application slots (e.g.  attributes of classes).
+
+         System Slots
+         ========
+
+         System slots are predefined slots defining e.g. some relations
+         between classes, or between objects and classes. 
+
+         The predefined system slots are:
+         - superclass: every class in XOTcl has one or more superclasses.
+            The name of this slot is "superclass", the domain is "::xotcl::Class",
+            the slot is multivalued.  One object might have multiple superclasses.
+         - class: every object has a class; therefore, the domain of the slot
+            is "::xotcl::Class", the property is not multivalued.
+         - mixin: every object in XOTcl can have one or more mixin classes.
+            The name of this slot is "mixin", the domain is "::xotcl::Object", the slot is
+            multivalued.
+         - instmixin: same as above, but the domain is "::xotcl::Class"
+         - filter, instfilter: similar to "mixin" and "instmixin"
+
+         Every slot can be used set and query the property from its domain.
+         The syntax for setting values is
+           <object> <property> newValue
+         and for getting its values is
+           set x [<object> <property>]
+
+         Every multivalued slot has as well a method "add" and "remove"
+
+         Examples for using the system slot "mixin"
+
+            Object o; Class M; class N
+            o mixin ::M        ;# replacing the per-object mixins of o with M
+            o mixin add ::N        ;# add N to the front of the mixin list
+            o mixin delete ::M   ;# delete M from the mixin list
+            puts [o mixin]         ;# query the current mixin list
+        
+ 
+         Attribute Slots
+         =========
+
+         Attribute slots are used to manage the setting and querying
+         of instance variables. We define now a person with three
+         attributes,"name", "salary" and "projects".
+   
+           Class Person -slots {
+             Attribute name
+             Attribute salary -default 0
+             Attribute projects -default {} -multivalued true
+           }
+
+         Examples for using the slots are
+
+           Person p1 -name "Joe"        
+           p1 projects add project1
+
+         Some additional features of the slots are:
+
+          - Support for value checking for 
+               * primitive types (all types from "string is", like integer, 
+                  boolean, ...)
+               * instances of Classes (e.g. value must be an instance
+                  of Person)
+               * custom value checkers
+               * uniform interface for single and multi-valued slots
+
+            - Support for lazy initialization (e.g. when costly
+               commands (like SQL) are used to initialize instance
+               variables, not all variables are used for each object)
+        
+             - more experimental low level functionality, like
+               * initcmd (executed, whenever the variable is read the first time)
+               * valuecmd (executed, whenever the variable is read)
+               * valuechangedcmd (executed, whenever the variable is altered)
+              
+           For more details, see http://media.wu-wien.ac.at/doc/tutorial.html#slots
+
+
+       + Re-implementation of the method "parameter" based on slots.
+           All forms except 
+               ... -parameter {name1 {name2 default2}} ...
+           (I.e. pure accessor parameters and parameters with
+           defaults) are deprecated, since slots are the much more
+           powerful and orthogonal construct.
+
+           The old c-based parameter support based on "parameterclass"
+           is deprecated. It is still in the C-code (the method "parameter"
+           is redefined in predefined.xotcl). If someone urgently needs
+           it, please remove the parameter instproc from predefined
+           for the time being, and write an email to me, in case
+           you really need it). The C code for parameter will be removed
+           in the next release.
+
+       + Improved introspection though the procsearch method. This
+           method reports now in its second argument not only
+           [inst]proc but as well [inst]forward, [inst]parametercmd
+           and [inst]cmd (the latter for methods implemented in C.
+
+        * Improved introspection through "info"
+           - new subcommand "info slots"
+           - implemented backwards bug-compatible "info parameter",
+              deprecated
+
+       + Improved serializer
+           - better handling of cyclical dependencies, when mixins are involved
+           - fix for namespace handling to make the XOTcl communication 
+              library classes working with the aolserver (thanks for Stefan Sobernig 
+              for pointing this out)
+           - Now other ::xotcl::* objects can be included in the aolserver blueprint 
+              (e.g. non positional argument handlers)
+           - handling of slot dependencies
+           - more convenient calling of the serializer:
+              Method "serialize" for Object is defined when the package xotcl::serializer
+              is loaded.
+
+       + Improved forwarding commands
+            - New option for the argument substitution. When the argument
+               list of the forward command contains "%argclindex {a b c}", then
+               depending of the number of arguments at invocation "a", "b"
+               or "c" is substituted. If more arguments are used at the invocation
+               of the forwarder than values are contained in the list after %argclindex,
+               an error is generated.
+            - New options for forwarder: 
+               * The option -earlybinding can be used to look 
+                  up the function  pointer of the called Tcl command at 
+                 definition time of the forwarder instead of invocation time. 
+                 This option should only be used for calling C-implemented Tcl commands)
+               * The option -verbose prints the substituted command in the forwarder
+                  prior to invocation.
+
+       + New snit-like utility functions:
+            - ::xotcl::myvar varName: return the fully qualified variable name 
+               of the specified variable.
+            - ::xotcl::myproc methodName ?args?: call an xotcl method without the need 
+               of using "[list [self] methodName ...]"
+            Both commands are namespace exported
+
+       + added "subst" to the set of Tcl imported methods (like e.g. incr, append, ...)
+          On can do now:
+            % Object o
+            ::o
+            % o subst {I am [self]}
+            I am ::o
+
+       + added new method for ::xotcl::Object named "contains":
+           This method is essentially a value added back-port 
+           of the OpenACS version. It allows to create a nested
+           object structure with little syntactic overhead. See tutorial
+           or language reference for more details.
+
+     * Improved code quality: 
+       + fixed a bug with nonpositional arguments, some 
+           positional arguments and "args"
+       + fixed a bug in nonpositional arguments when called without 
+           arguments
+       + tested with Tcl 8.4.13 and 8.5a4
+       + improved error messages in connection with nonpositional arguments
+       + fixed a bug in the xotcl trace module (many thanks to jima for reporting)
+       + fixed a namespace bug in ::xotcl::package require in connection with xotclide 
+           (many thanks to Bill Paulsen and Artur Trzewik for identifying the problem and
+           suggesting a fix)
+       + improved documentation (e.g. new sections added, 
+           some sections deleted, spelling improved, in total 8 pages longer)
+       + fixed documentation bugs (many thanks for Kristoffer for reporting)
+       + more regression tests added
+
+ For more details about the changes, please consult the ChangeLog and
+ documentation.
+
+MORE INFO
+  General and more detailed information about XOTcl and its components
+  can be found at http://www.xotcl.org
+
+
+Best regards,
+
+Gustaf Neumann
+Uwe Zdun
+
+

@@ -3,9 +3,9 @@
 #
 #  CVS Info :
 #
-#     $Author: iccir $
-#     $Date: 2007/01/30 23:46:50 $
-#     $Revision: 1.3 $
+#     $Author: mrowe $
+#     $Date: 2009/03/09 22:52:16 $
+#     $Revision: 1.4 $
 #
 #  Copyright (c) 1998-2003 World Wide Web Consortium
 #  (Massachusetts Institute of Technology, European Research 
@@ -77,7 +77,7 @@ TIDYEXT=/D SUPPORT_ACCESSIBILITY_CHECKS=1 /D SUPPORT_UTF16_ENCODINGS=1 /D SUPPOR
 # /c	Compiles without linking
 # In the following, replace /D "_CONSOLE" by /D "_WINDOWS" for Windows programs
 
-CFLAGS=/nologo /TC /W4 /Za /FD /c /D "WIN32" /D "_CONSOLE" /D "_MBCS" $(TIDYEXT) /I $(INCLDIR)
+CFLAGS=/nologo /TC /W4 /Za /FD /c /GS /D "WIN32" /D "_CONSOLE" /D "_MBCS" $(TIDYEXT) /I $(INCLDIR) /D _CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES
 
 ## Additional flags for debug compilation
 # /Gm	Enables minimal rebuild
@@ -102,7 +102,7 @@ CNDEBUG=/Ox /MT /D "NDEBUG"
 NAMEFLAG=/Fo
 ## General flags for link
 # In the following, replace /subsystem:console by /subsystem:windows for Windows programs
-LDFLAGS= /nologo /subsystem:console /machine:I386 /libpath:"."
+LDFLAGS= /nologo /subsystem:console /machine:I386 /libpath:"." /NXCOMPAT /DYNAMICBASE /SAFESEH
 LIBFLAGS= -lib
 
 ## Additional flags for debug link

@@ -1,3 +1,9 @@
+07-10-29 cksum.c: add SUM_LEGACY for -r
+07-10-12 cp.c: plug usage string memory leak by using per-builtin state
+07-09-21 cksum.c: add sumprint() default scale arg, --scale, --bsd for solaris
+07-09-10 chmod.c: add --show,-n
+07-07-27 wclib.c: bias <wchar.h> checks for modern unix
+07-07-17 cat.c: fix --squeeze-blank to reduce multiple blank lines to *one*
 07-05-20 cmd.h: handle msvc's balk at if(0)0=0;
 07-05-20 cksum.c: #include <modex.h>
 07-05-11 cmd.h: add _CMD_CONTEXT_OK() to verify >= 20070511 context

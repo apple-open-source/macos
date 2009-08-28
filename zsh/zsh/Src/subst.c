@@ -66,6 +66,7 @@ prefork(LinkList list, int flags)
 	    else
 		setdata(node, (void *) getoutputfile(str));	/* =(...) */
 	    if (!getdata(node)) {
+		setdata(node, dupstring(""));
 		unqueue_signals();
 		return;
 	    }
@@ -527,7 +528,8 @@ filesubstr(char **namptr, int assign)
     char *str = *namptr;
 
     if (*str == Tilde && str[1] != '=' && str[1] != Equals) {
-	char *ptr;
+	Shfunc dirfunc;
+	char *ptr, *tmp, *res, *ptr2;
 	int val;
 
 	val = zstrtol(str + 1, &ptr, 10);
@@ -538,9 +540,23 @@ filesubstr(char **namptr, int assign)
 	    *namptr = dyncat(pwd, str + 2);
 	    return 1;
 	} else if (str[1] == '-' && isend(str[2])) {   /* ~- */
-	    char *tmp;
 	    *namptr = dyncat((tmp = oldpwd) ? tmp : pwd, str + 2);
 	    return 1;
+	} else if (str[1] == Inbrack &&
+		   (dirfunc = getshfunc("zsh_directory_name")) &&
+		   (ptr2 = strchr(str+2, Outbrack))) {
+	    char **arr;
+	    untokenize(tmp = dupstrpfx(str+2, ptr2 - (str+2)));
+	    remnulargs(tmp);
+	    arr = subst_string_by_func(dirfunc, "n", tmp);
+	    res = arr ? *arr : NULL;
+	    if (res) {
+		*namptr = dyncat(res, ptr2+1);
+		return 1;
+	    }
+	    if (isset(NOMATCH))
+		zerr("no directory expansion: ~[%s]", tmp);
+	    return 0;
 	} else if (!inblank(str[1]) && isend(*ptr) &&
 		   (!idigit(str[1]) || (ptr - str < 4))) {
 	    char *ds;
@@ -1216,6 +1232,27 @@ substevalchar(char *ptr)
     return metafy(ptr, len, META_USEHEAP);
 }
 
+/*
+ * Helper function for arguments to parameter flags which
+ * handles the (p) and (~) flags as escapes and tok_arg respectively.
+ */
+
+static char *
+untok_and_escape(char *s, int escapes, int tok_arg)
+{
+    int klen;
+    char *dst;
+
+    untokenize(dst = dupstring(s));
+    if (escapes) {
+	dst = getkeystring(dst, &klen, GETKEYS_SEP, NULL);
+	dst = metafy(dst, klen, META_HREALLOC);
+    }
+    if (tok_arg)
+	shtokenize(dst);
+    return dst;
+}
+
 /* parameter substitution */
 
 #define	isstring(c) ((c) == '$' || (char)(c) == String || (char)(c) == Qstring)
@@ -1260,13 +1297,16 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
      * parameter (the value v) to storing them in val and aval.
      * However, sometimes you find v reappearing temporarily.
      *
-     * The values -1 and 2 are special to isarr.  It looks like 2 is
-     * some kind of an internal flag to do with whether the array's been
-     * copied, in which case I don't know why we don't use the copied
-     * flag, but they do both occur close together so they presumably
-     * have different effects.  The value -1 is used to force us to
-     * keep an empty array.  It's tested in the YUK chunk (I mean the
-     * one explicitly marked as such).
+     * The values -1 and 2 are special to isarr.  The value -1 is used
+     * to force us to keep an empty array.  It's tested in the YUK chunk
+     * (I mean the one explicitly marked as such).  The value 2
+     * indicates an array has come from splitting a scalar.  We use
+     * that to override the usual rule that in double quotes we don't
+     * remove empty elements (so "${(s.:):-foo::bar}" produces two
+     * words).  This seems to me to be quite the wrong thing to do,
+     * but it looks like code may be relying on it.  So we require (@)
+     * as well before we keep the empty fields (look for assignments
+     * like "isarr = nojoin ? 1 : 2").
      */
     int isarr = 0;
     /*
@@ -1316,11 +1356,6 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
     int spbreak = isset(SHWORDSPLIT) && !ssub && !qt;
     /* Scalar and array value, see isarr above */
     char *val = NULL, **aval = NULL;
-    /*
-     * Padding based on setting in parameter rather than substitution
-     * flags.  This is only used locally.
-     */
-    unsigned int fwidth = 0;
     /*
      * vbuf and v are both used to retrieve parameter values; this
      * is a kludge, we pass down vbuf and it may or may not return v.
@@ -1487,23 +1522,16 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 	    int tt = 0;
 	    zlong num;
 	    /*
-	     * The (p) flag is (uniquely) only remembered within
+	     * The (p) flag is only remembered within
 	     * this block.  It says we do print-style handling
 	     * on the values for flags, but only on those.
-	     * This explains the ghastly macro, but why can't it
-	     * be a function?  UNTOK_AND_ESCAPE is defined
-	     * so that the argument must be an lvalue.
 	     */
 	    int escapes = 0;
-	    int klen;
-#define UNTOK(C)  (itok(C) ? ztokens[(C) - Pound] : (C))
-#define UNTOK_AND_ESCAPE(X, S) {\
-		untokenize(X = dupstring(S));\
-		if (escapes) {\
-		    X = getkeystring(X, &klen, GETKEYS_SEP, NULL);\
-		    X = metafy(X, klen, META_HREALLOC);\
-		}\
-	    }
+	    /*
+	     * '~' in parentheses caused tokenization of string arg:
+	     * similar to (p).
+	     */
+	    int tok_arg = 0;
 
 	    for (s++; (c = *s) != ')' && c != Outpar; s++, tt = 0) {
 		int arglen;	/* length of modifier argument */
@@ -1513,6 +1541,10 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 		switch (c) {
 		case ')':
 		case Outpar:
+		    break;
+		case '~':
+		case Tilde:
+		    tok_arg = !tok_arg;
 		    break;
 		case 'A':
 		    ++arrasg;
@@ -1628,9 +1660,11 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 			sav = *t;
 			*t = '\0';
 			if (tt)
-			    UNTOK_AND_ESCAPE(spsep, s + arglen)
+			    spsep = untok_and_escape(s + arglen,
+						     escapes, tok_arg);
 			else
-			    UNTOK_AND_ESCAPE(sep, s + arglen)
+			    sep = untok_and_escape(s + arglen,
+						   escapes, tok_arg);
 			*t = sav;
 			s = t + arglen - 1;
 		    } else
@@ -1663,9 +1697,11 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 		    sav = *t;
 		    *t = '\0';
 		    if (tt)
-			UNTOK_AND_ESCAPE(premul, s + arglen)
+			premul = untok_and_escape(s + arglen, escapes,
+						  tok_arg);
 		    else
-			UNTOK_AND_ESCAPE(postmul, s + arglen)
+			postmul = untok_and_escape(s + arglen, escapes,
+						   tok_arg);
 		    *t = sav;
 		    sav = *s;
 		    s = t + arglen;
@@ -1681,9 +1717,11 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 		    sav = *t;
 		    *t = '\0';
 		    if (tt)
-			UNTOK_AND_ESCAPE(preone, s + arglen)
+			preone = untok_and_escape(s + arglen,
+						  escapes, tok_arg);
 		    else
-			UNTOK_AND_ESCAPE(postone, s + arglen)
+			postone = untok_and_escape(s + arglen,
+						   escapes, tok_arg);
 		    *t = sav;
 		    /* -1 since loop will increment */
 		    s = t + arglen - 1;
@@ -1917,7 +1955,8 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 			     hkeys|hvals|
 			     (arrasg ? SCANPM_ASSIGNING : 0)|
 			     (qt ? SCANPM_DQUOTED : 0))) ||
-	    (v->pm && (v->pm->node.flags & PM_UNSET)))
+	    (v->pm && (v->pm->node.flags & PM_UNSET)) ||
+	    (v->flags & VALFLAG_EMPTY))
 	    vunset = 1;
 
 	if (wantt) {
@@ -2008,7 +2047,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 	    v->isarr = isarr;
 	    v->pm = pm;
 	    v->end = -1;
-	    if (getindex(&s, v, qt) || s == os)
+	    if (getindex(&s, v, qt ? SCANPM_DQUOTED : 0) || s == os)
 		break;
 	}
 	/*
@@ -2025,8 +2064,11 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 	 * in the subexp stuff or immediately above.
 	 */
 	if ((isarr = v->isarr)) {
-	    /* No way to get here with v->inv != 0, so getvaluearr() *
-	     * is called by getarrvalue(); needn't test PM_HASHED.   */
+	    /*
+	     * No way to get here with v->flags & VALFLAG_INV, so
+	     * getvaluearr() is called by getarrvalue(); needn't test
+	     * PM_HASHED.
+	     */
 	    if (v->isarr == SCANPM_WANTINDEX) {
 		isarr = v->isarr = 0;
 		val = dupstring(v->pm->node.nam);
@@ -2048,149 +2090,22 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 		int tmplen = arrlen(v->pm->gsu.a->getfn(v->pm));
 
 		if (v->start < 0)
-		    v->start += tmplen + v->inv;
-		if (!v->inv && (v->start >= tmplen || v->start < 0))
+		    v->start += tmplen + ((v->flags & VALFLAG_INV) ? 1 : 0);
+		if (!(v->flags & VALFLAG_INV) &&
+		    (v->start >= tmplen || v->start < 0))
 		    vunset = 1;
 	    }
 	    if (!vunset) {
 		/*
-		 * There really is a value.  Apply any necessary
-		 * padding or case transformation.  Note these
-		 * are the per-parameter transformations specified
-		 * with typeset, not the per-substitution ones set
-		 * by flags.  TODO: maybe therefore this would
-		 * be more consistent if moved into getstrvalue()?
-		 * Bet that's easier said than done.
-		 *
-		 * TODO: use string widths.  In fact, shouldn't the
-		 * strlen()s be ztrlen()s anyway?
+		 * There really is a value.  Padding and case
+		 * transformations used to be handled here, but
+		 * are now handled in getstrvalue() for greater
+		 * consistency.  However, we get unexpected effects
+		 * if we allow them to applied on every call, so
+		 * set the flag that allows them to be substituted.
 		 */
+		v->flags |= VALFLAG_SUBST;
 		val = getstrvalue(v);
-		fwidth = v->pm->width ? v->pm->width : (int)strlen(val);
-		switch (v->pm->node.flags & (PM_LEFT | PM_RIGHT_B | PM_RIGHT_Z)) {
-		    char *t, *tend;
-		    unsigned int t0;
-
-		case PM_LEFT:
-		case PM_LEFT | PM_RIGHT_Z:
-		    t = val;
-		    if (v->pm->node.flags & PM_RIGHT_Z)
-			while (*t == '0')
-			    t++;
-		    else
-			while (iblank(*t))
-			    t++;
-		    MB_METACHARINIT();
-		    for (tend = t, t0 = 0; t0 < fwidth && *tend; t0++)
-			tend += MB_METACHARLEN(tend);
-		    /*
-		     * t0 is the number of characters from t used,
-		     * hence (fwidth - t0) is the number of padding
-		     * characters.  fwidth is a misnomer: we use
-		     * character counts, not character widths.
-		     *
-		     * (tend - t) is the number of bytes we need
-		     * to get fwidth characters or the entire string;
-		     * the characters may be multiple bytes.
-		     */
-		    fwidth -= t0; /* padding chars remaining */
-		    t0 = tend - t; /* bytes to copy from string */
-		    val = (char *) hcalloc(t0 + fwidth + 1);
-		    memcpy(val, t, t0);
-		    if (fwidth)
-			memset(val + t0, ' ', fwidth);
-		    val[t0 + fwidth] = '\0';
-		    copied = 1;
-		    break;
-		case PM_RIGHT_B:
-		case PM_RIGHT_Z:
-		case PM_RIGHT_Z | PM_RIGHT_B:
-		    {
-			int zero = 1;
-			/* Calculate length in possibly multibyte chars */
-			unsigned int charlen = MB_METASTRLEN(val);
-
-			if (charlen < fwidth) {
-			    char *valprefend = val;
-			    int preflen;
-			    if (v->pm->node.flags & PM_RIGHT_Z) {
-				/*
-				 * This is a documented feature: when deciding
-				 * whether to pad with zeroes, ignore
-				 * leading blanks already in the value;
-				 * only look for numbers after that.
-				 * Not sure how useful this really is.
-				 * It's certainly confusing to code around.
-				 */
-				for (t = val; iblank(*t); t++)
-				    ;
-				/*
-				 * Allow padding after initial minus
-				 * for numeric variables.
-				 */
-				if ((v->pm->node.flags &
-				     (PM_INTEGER|PM_EFLOAT|PM_FFLOAT)) &&
-				    *t == '-')
-				    t++;
-				/*
-				 * Allow padding after initial 0x or
-				 * base# for integer variables.
-				 */
-				if (v->pm->node.flags & PM_INTEGER) {
-				    if (isset(CBASES) &&
-					t[0] == '0' && t[1] == 'x')
-					t += 2;
-				    else if ((valprefend = strchr(t, '#')))
-					t = valprefend + 1;
-				}
-				valprefend = t;
-				if (!*t)
-				    zero = 0;
-				else if (v->pm->node.flags &
-					 (PM_INTEGER|PM_EFLOAT|PM_FFLOAT)) {
-				    /* zero always OK */
-				} else if (!idigit(*t))
-				    zero = 0;
-			    }
-			    /* number of characters needed for padding */
-			    fwidth -= charlen;
-			    /* bytes from original string */
-			    t0 = strlen(val);
-			    t = (char *) hcalloc(fwidth + t0 + 1);
-			    /* prefix guaranteed to be single byte chars */
-			    preflen = valprefend - val;
-			    memset(t + preflen, 
-				   (((v->pm->node.flags & PM_RIGHT_B)
-				     || !zero) ?       ' ' : '0'), fwidth);
-			    /*
-			     * Copy - or 0x or base# before any padding
-			     * zeroes.
-			     */
-			    if (preflen)
-				memcpy(t, val, preflen);
-			    memcpy(t + preflen + fwidth,
-				   valprefend, t0 - preflen);
-			    t[fwidth + t0] = '\0';
-			    val = t;
-			    copied = 1;
-			} else {
-			    /* Need to skip (charlen - fwidth) chars */
-			    for (t0 = charlen - fwidth; t0; t0--)
-				val += MB_METACHARLEN(val);
-			}
-		    }
-		    break;
-		}
-		switch (v->pm->node.flags & (PM_LOWER | PM_UPPER)) {
-		case PM_LOWER:
-		    val = casemodify(val, CASMOD_LOWER);
-		    copied = 1;
-		    break;
-		case PM_UPPER:
-		    val = casemodify(val, CASMOD_UPPER);
-		    copied = 1;
-		    break;
-		}
 	    }
 	}
 	/*
@@ -2449,7 +2364,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 		    char *arr[2], **t, **a, **p;
 		    if (spsep || spbreak) {
 			aval = sepsplit(val, spsep, 0, 1);
-			isarr = 2;
+			isarr = nojoin ? 1 : 2;
 			l = arrlen(aval);
 			if (l && !*(aval[l-1]))
 			    l--;
@@ -2714,7 +2629,8 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 	    else if (getlen == 2) {
 		if (*aval)
 		    for (len = -sl, ctr = aval;
-			 len += sl + MB_METASTRLEN(*ctr), *++ctr;);
+			 len += sl + MB_METASTRLEN2(*ctr, multi_width),
+			     *++ctr;);
 	    }
 	    else
 		for (ctr = aval;
@@ -2722,7 +2638,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 		     len += wordcount(*ctr, spsep, getlen > 3), ctr++);
 	} else {
 	    if (getlen < 3)
-		len = MB_METASTRLEN(val);
+		len = MB_METASTRLEN2(val, multi_width);
 	    else
 		len = wordcount(val, spsep, getlen > 3);
 	}
@@ -2768,7 +2684,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 	    else if (!aval[1])
 		val = aval[0];
 	    else
-		isarr = 2;
+		isarr = nojoin ? 1 : 2;
 	}
 	if (isarr)
 	    l->list.flags |= LF_ARRAY;
@@ -2822,8 +2738,8 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 		char *tmps;
 		unmetafy(*ap, &len);
 		untokenize(*ap);
-		tmps = unmetafy(promptexpand(metafy(*ap, len, META_NOALLOC),
-					     0, NULL, NULL), &len);
+		tmps = promptexpand(metafy(*ap, len, META_NOALLOC),
+				    0, NULL, NULL, NULL);
 		*ap = dupstring(tmps);
 		free(tmps);
 	    }
@@ -2833,8 +2749,8 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 		val = dupstring(val), copied = 1;
 	    unmetafy(val, &len);
 	    untokenize(val);
-	    tmps = unmetafy(promptexpand(metafy(val, len, META_NOALLOC),
-					0, NULL, NULL), &len);
+	    tmps = promptexpand(metafy(val, len, META_NOALLOC),
+					0, NULL, NULL, NULL);
 	    val = dupstring(tmps);
 	    free(tmps);
 	}
@@ -2969,15 +2885,8 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 	else if (!nextnode(firstnode(list)))
 	    val = getdata(firstnode(list));
 	else {
-	    char **ap;
-	    LinkNode node;
-
-	    aval = ap = (char **) zhalloc((countlinknodes(list) + 1) *
-					  sizeof(char *));
-	    for (node = firstnode(list); node; incnode(node))
-		*ap++ = (char *) getdata(node);
-	    *ap = NULL;
-	    isarr = 2;
+	    aval = hlinklist2array(list, 0);
+	    isarr = nojoin ? 1 : 2;
 	    l->list.flags |= LF_ARRAY;
 	}
 	copied = 1;

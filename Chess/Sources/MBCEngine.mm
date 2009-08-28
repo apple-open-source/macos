@@ -15,6 +15,9 @@
 	Change History (most recent first):
 
 		$Log: MBCEngine.mm,v $
+		Revision 1.22  2008/10/24 22:45:45  neerache
+		<rdar://problem/5844722> Chess: black may illegally move first in new game
+		
 		Revision 1.21  2007/03/02 20:03:57  neerache
 		Fix undo timing problems <rdar://problem/4139329>
 		
@@ -376,6 +379,12 @@ using std::max;
 
 - (void) startGame:(MBCVariant)variant playing:(MBCSide)sideToPlay
 {
+	//
+	// <rdar://problem/5844722> Get rid of queued up move notifications
+	//
+	[self enableEngineMoves:NO];
+	if ([fEngineTask isRunning])
+		[NSObject cancelPreviousPerformRequestsWithTarget:self];
 	if (!fSetPosition) {
 		[self initGame:variant];
 		fLastSide = kBlackSide;

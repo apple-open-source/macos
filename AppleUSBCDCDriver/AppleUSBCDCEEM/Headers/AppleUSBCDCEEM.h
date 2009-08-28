@@ -114,6 +114,7 @@ typedef struct
     mbuf_t			m;
     bool			avail;
     IOUSBCompletion		writeCompletionInfo;
+	UInt32			indx;
 } pipeOutBuffers;
 
 typedef struct 
@@ -122,6 +123,7 @@ typedef struct
     UInt8			*pipeInBuffer;
     bool			dead;
     IOUSBCompletion		readCompletionInfo;
+	UInt32			indx;
 } pipeInBuffers;
 
 	// EEM bit definitions and masks

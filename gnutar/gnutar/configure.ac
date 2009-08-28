@@ -1,7 +1,7 @@
 # Configure template for GNU tar.
 
 # Copyright (C) 1991, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-# 2002, 2003, 2004 Free Software Foundation, Inc.
+# 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,28 +15,29 @@
 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-# 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301, USA.
 
-AC_INIT([GNU tar], [1.15.1], [bug-tar@gnu.org])
+AC_INIT([GNU tar], [1.17], [bug-tar@gnu.org])
 AC_CONFIG_SRCDIR([src/tar.c])
-AC_CONFIG_AUX_DIR([config])
+AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_HEADERS([config.h:config.hin])
-AC_PREREQ([2.59])
-AM_INIT_AUTOMAKE([1.8 gnu dist-bzip2 dist-shar std-options])
+AC_PREREQ([2.60])
+AM_INIT_AUTOMAKE([1.9 gnits tar-ustar dist-bzip2 dist-shar std-options])
 
-gl_USE_SYSTEM_EXTENSIONS
 AC_PROG_CC
 AC_EXEEXT
 AC_PROG_RANLIB
 AC_PROG_YACC
+gl_EARLY
+
 AC_SYS_LARGEFILE
 AC_ISC_POSIX
 AC_C_INLINE
 
-AC_CHECK_HEADERS(fcntl.h linux/fd.h memory.h net/errno.h \
-  sgtty.h string.h \
-  sys/param.h sys/device.h sys/gentape.h \
+AC_CHECK_HEADERS_ONCE(fcntl.h linux/fd.h memory.h net/errno.h \
+  sgtty.h string.h stropts.h \
+  sys/param.h sys/device.h sys/filio.h sys/gentape.h \
   sys/inet.h sys/io/trioctl.h \
   sys/mtio.h sys/time.h sys/tprintf.h sys/tape.h \
   unistd.h locale.h)
@@ -53,8 +54,7 @@ AC_HEADER_DIRENT
 AC_HEADER_MAJOR
 AC_HEADER_STAT
 AC_HEADER_STDC
-AC_STRUCT_ST_BLKSIZE
-AC_STRUCT_ST_BLOCKS
+
 AC_MSG_CHECKING([for st_fstype string in struct stat])
 AC_CACHE_VAL(diff_cv_st_fstype_string,
   [AC_TRY_COMPILE([#include <sys/types.h>
@@ -81,51 +81,16 @@ AC_CHECK_TYPE(dev_t, unsigned)
 AC_CHECK_TYPE(ino_t, unsigned)
 
 gt_TYPE_SSIZE_T
-gl_AC_TYPE_INTMAX_T
-jm_AC_TYPE_UINTMAX_T
 
 # gnulib modules
-tar_GNULIB
+gl_INIT
+# paxutils modules
+tar_PAXUTILS
 
-
-AC_CHECK_MEMBERS([struct stat.st_spare1, struct stat.st_atim.tv_nsec, struct stat.st_atimespec.tv_nsec, struct stat.st_atimensec], , ,
-                 [
-#include <sys/types.h>
-#include <sys/stat.h>])
-
-# Save and restore LIBS so e.g., -lrt, isn't added to it.  Otherwise, *all*
-# programs in the package would end up linked with that potentially-shared
-# library, inducing unnecessary run-time overhead.
-
-# Solaris 2.5.1 needs -lposix4 to get the clock_gettime function.
-# Solaris 7 prefers the library name -lrt to the obsolescent name -lposix4.
-tar_save_LIBS=$LIBS
-  LIB_CLOCK_GETTIME=
-  AC_SEARCH_LIBS(clock_gettime, [rt posix4])
-  case "$ac_cv_search_clock_gettime" in
-    -l*) LIB_CLOCK_GETTIME=$ac_cv_search_clock_gettime;;
-  esac
-  AC_SUBST(LIB_CLOCK_GETTIME)
-  AC_CHECK_FUNCS(clock_gettime)
-LIBS=$tar_save_LIBS
-
-AC_CHECK_FUNCS(fsync lstat mkfifo readlink strerror symlink setlocale utimes)
+AC_CHECK_FUNCS(fsync getdtablesize lstat mkfifo readlink strerror symlink setlocale utimes)
 AC_CHECK_DECLS([getgrgid],,, [#include <grp.h>])
 AC_CHECK_DECLS([getpwuid],,, [#include <pwd.h>])
 AC_CHECK_DECLS([time],,, [#include <time.h>])
-
-# Set LIB_SETSOCKOPT to -lnsl -lsocket if necessary.
-tar_save_LIBS=$LIBS
-  LIB_SETSOCKOPT=
-  AC_SEARCH_LIBS(setsockopt, [socket], ,
-    [AC_SEARCH_LIBS(setsockopt, [socket], , , [-lnsl])])
-  AC_SEARCH_LIBS(setsockopt, [nsl])
-
-  case "$ac_cv_search_setsockopt" in
-    -l*) LIB_SETSOCKOPT=$ac_cv_search_setsockopt
-  esac
-  AC_SUBST(LIB_SETSOCKOPT)
-LIBS=$tar_save_LIBS
 
 AC_REPLACE_FUNCS(waitpid)
 
@@ -189,7 +154,7 @@ else
   case $DEFAULT_ARCHIVE in
     *[[0-7][lmh]])
       AC_DEFINE(DENSITY_LETTER, 1,
-	[[Define to 1 if density may be indicated by [lmh] at end of device.]])
+	[Define to 1 if density may be indicated by [lmh] at end of device.])
       device_prefix=`echo $DEFAULT_ARCHIVE | sed 's/[0-7][lmh]$//'`
       ;;
     *[[0-7]])
@@ -218,7 +183,22 @@ AC_DEFINE_UNQUOTED(DEFAULT_BLOCKING, $DEFAULT_BLOCKING,
   [Define to a number giving the default blocking size for archives.])
 AC_MSG_RESULT($DEFAULT_BLOCKING)
 
-PU_RMT
+AC_MSG_CHECKING(for default quoting style)
+
+m4_define([QUOTING_STYLES],dnl
+          [literal|shell|shell-always|c|escape|locale|clocale])
+DEFAULT_QUOTING_STYLE="escape"
+AC_ARG_VAR([DEFAULT_QUOTING_STYLE],
+           [Set the default quoting style. Allowed values are: ] m4_bpatsubst(QUOTING_STYLES,[|], [[, ]]) [. Default is "escape".])
+
+case $DEFAULT_QUOTING_STYLE in
+QUOTING_STYLES) ;;
+*)  AC_MSG_ERROR(Invalid quoting style);;
+esac
+AC_MSG_RESULT($DEFAULT_QUOTING_STYLE)
+DEFAULT_QUOTING_STYLE=`echo ${DEFAULT_QUOTING_STYLE}|sed 's/-/_/g'`_quoting_style
+AC_DEFINE_UNQUOTED(DEFAULT_QUOTING_STYLE, $DEFAULT_QUOTING_STYLE,
+  [Define to a default quoting style (see lib/quoteargs.c for the list)])
 
 # Iconv
 AM_ICONV
@@ -233,8 +213,8 @@ AC_CHECK_TYPE(iconv_t,:,
 ])
 
 # Gettext.
-AM_GNU_GETTEXT([external], [need-ngettext])
-AM_GNU_GETTEXT_VERSION(0.12.1)
+AM_GNU_GETTEXT([external], [need-formatstring-macros])
+AM_GNU_GETTEXT_VERSION([0.16])
 
 # Initialize the test suite.
 AC_CONFIG_TESTDIR(tests)
@@ -258,9 +238,6 @@ if date +%Y-%m-%d 2>/dev/null >&2; then
 else
 	BACKUP_SED_COND='/^\#IF_DATE_FORMAT_OK/,/^\#ELSE_DATE_FORMAT_OK/d;/^\#ENDIF_DATE_FORMAT_OK/d'
 fi
-
-AC_CHECK_FUNCS(copyfile)
-AC_CHECK_HEADERS(copyfile.h)
 
 AC_OUTPUT([Makefile\
            doc/Makefile\

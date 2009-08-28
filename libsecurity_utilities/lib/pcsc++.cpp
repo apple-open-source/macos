@@ -59,7 +59,7 @@ inline void decode(vector<string> &names, const vector<char> &buffer, size_t siz
 //
 Error::Error(unsigned long err) : error(err)
 {
-	IFDEBUG(debugDiagnose(this));
+	SECURITY_EXCEPTION_THROW_PCSC(this, err);
 }
 
 
@@ -91,14 +91,6 @@ int Error::unixError() const
 {
 	return EINVAL;  //@@@ preliminary
 }
-
-#if !defined(NDEBUG)
-void Error::debugDiagnose(const void *id) const
-{
-    secdebug("exception", "%p PCSC::Error %s (%ld) osStatus %ld",
-		id, pcsc_stringify_error(error), error, osStatus());
-}
-#endif //NDEBUG
 
 
 //
@@ -152,8 +144,7 @@ Session::Session()
 
 Session::~Session()
 {
-	if (mIsOpen)
-		Error::check(SCardReleaseContext(mContext));
+	close();
 }
 
 
@@ -183,6 +174,7 @@ void Session::close()
 	if (mIsOpen) {
 		mIsOpen = false;
 		try {
+			if (mContext)
 			Error::check(SCardReleaseContext(mContext));
 			secdebug("pcsc", "context closed");
 		} catch (const Error &err) {

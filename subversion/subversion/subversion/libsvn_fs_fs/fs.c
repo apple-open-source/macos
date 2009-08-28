@@ -1,7 +1,7 @@
 /* fs.c --- creating, opening and closing filesystems
  *
  * ====================================================================
- * Copyright (c) 2000-2006 CollabNet.  All rights reserved.
+ * Copyright (c) 2000-2007 CollabNet.  All rights reserved.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution.  The terms
@@ -27,33 +27,21 @@
 #include "svn_fs.h"
 #include "svn_delta.h"
 #include "svn_version.h"
+#include "svn_pools.h"
 #include "fs.h"
 #include "err.h"
-#include "dag.h"
 #include "fs_fs.h"
 #include "tree.h"
 #include "lock.h"
+#include "id.h"
 #include "svn_private_config.h"
+#include "private/svn_fs_util.h"
 
 #include "../libsvn_fs/fs-loader.h"
 
 /* A prefix for the pool userdata variables used to hold
    per-filesystem shared data.  See fs_serialized_init. */
 #define SVN_FSFS_SHARED_USERDATA_PREFIX "svn-fsfs-shared-"
-
-
-
-/* If filesystem FS is already open, then return an
-   SVN_ERR_FS_ALREADY_OPEN error.  Otherwise, return zero.  */
-static svn_error_t *
-check_already_open(svn_fs_t *fs)
-{
-  if (fs->fsap_data)
-    return svn_error_create(SVN_ERR_FS_ALREADY_OPEN, 0,
-                            _("Filesystem object already open"));
-  else
-    return SVN_NO_ERROR;
-}
 
 
 
@@ -110,6 +98,13 @@ fs_serialized_init(svn_fs_t *fs, apr_pool_t *common_pool, apr_pool_t *pool)
       if (status)
         return svn_error_wrap_apr(status,
                                   _("Can't create FSFS txn list mutex"));
+
+      /* ... not to mention locking the txn-current file. */
+      status = apr_thread_mutex_create(&ffsd->txn_current_lock,
+                                       APR_THREAD_MUTEX_DEFAULT, common_pool);
+      if (status)
+        return svn_error_wrap_apr(status,
+                                  _("Can't create FSFS txn-current mutex"));
 #endif
 
       key = apr_pstrdup(common_pool, key);
@@ -140,7 +135,6 @@ fs_set_errcall(svn_fs_t *fs,
 
 /* The vtable associated with a specific open filesystem. */
 static fs_vtable_t fs_vtable = {
-  fs_serialized_init,
   svn_fs_fs__youngest_rev,
   svn_fs_fs__revision_prop,
   svn_fs_fs__revision_proplist,
@@ -164,23 +158,32 @@ static fs_vtable_t fs_vtable = {
 
 /* Creating a new filesystem. */
 
-/* This implements the fs_library_vtable_t.create() API.  Create a new
-   fsfs-backed Subversion filesystem at path PATH and link it into
-   *FS.  Perform temporary allocations in POOL. */
+/* Set up vtable and fsap_data fields in FS. */
 static svn_error_t *
-fs_create(svn_fs_t *fs, const char *path, apr_pool_t *pool)
+initialize_fs_struct(svn_fs_t *fs)
 {
-  fs_fs_data_t *ffd;
-
-  SVN_ERR(check_already_open(fs));
-
-  ffd = apr_pcalloc(fs->pool, sizeof(*ffd));
+  fs_fs_data_t *ffd = apr_pcalloc(fs->pool, sizeof(*ffd));
   fs->vtable = &fs_vtable;
   fs->fsap_data = ffd;
+  return SVN_NO_ERROR;
+}
+
+/* This implements the fs_library_vtable_t.create() API.  Create a new
+   fsfs-backed Subversion filesystem at path PATH and link it into
+   *FS.  Perform temporary allocations in POOL, and fs-global allocations
+   in COMMON_POOL. */
+static svn_error_t *
+fs_create(svn_fs_t *fs, const char *path, apr_pool_t *pool,
+          apr_pool_t *common_pool)
+{
+  SVN_ERR(svn_fs__check_fs(fs, FALSE));
+
+  SVN_ERR(initialize_fs_struct(fs));
 
   SVN_ERR(svn_fs_fs__create(fs, path, pool));
 
-  return SVN_NO_ERROR;
+  SVN_ERR(svn_fs_fs__initialize_caches(fs, pool));
+  return fs_serialized_init(fs, common_pool, pool);
 }
 
 
@@ -190,20 +193,79 @@ fs_create(svn_fs_t *fs, const char *path, apr_pool_t *pool)
 /* This implements the fs_library_vtable_t.open() API.  Open an FSFS
    Subversion filesystem located at PATH, set *FS to point to the
    correct vtable for the filesystem.  Use POOL for any temporary
-   allocations. */
+   allocations, and COMMON_POOL for fs-global allocations. */
 static svn_error_t *
-fs_open(svn_fs_t *fs, const char *path, apr_pool_t *pool)
+fs_open(svn_fs_t *fs, const char *path, apr_pool_t *pool,
+        apr_pool_t *common_pool)
 {
-  fs_fs_data_t *ffd;
-
-  ffd = apr_pcalloc(fs->pool, sizeof(*ffd));
-  fs->vtable = &fs_vtable;
-  fs->fsap_data = ffd;
+  SVN_ERR(initialize_fs_struct(fs));
 
   SVN_ERR(svn_fs_fs__open(fs, path, pool));
 
-  return SVN_NO_ERROR;
+  SVN_ERR(svn_fs_fs__initialize_caches(fs, pool));
+  return fs_serialized_init(fs, common_pool, pool);
 }
+
+
+
+/* This implements the fs_library_vtable_t.open_for_recovery() API. */
+static svn_error_t *
+fs_open_for_recovery(svn_fs_t *fs,
+                     const char *path,
+                     apr_pool_t *pool, apr_pool_t *common_pool)
+{
+  /* Recovery for FSFS is currently limited to recreating the current
+     file from the latest revision. */
+
+  /* The only thing we have to watch out for is that the current file
+     might not exist.  So we'll try to create it here unconditionally,
+     and just ignore any errors that might indicate that it's already
+     present. (We'll need it to exist later anyway as a source for the
+     new file's permissions). */
+
+  /* Use a partly-filled fs pointer first to create current.  This will fail
+     if current already exists, but we don't care about that. */
+  fs->path = apr_pstrdup(fs->pool, path);
+  svn_error_clear(svn_io_file_create(svn_fs_fs__path_current(fs, pool),
+                                     "0 1 1\n", pool));
+
+  /* Now open the filesystem properly by calling the vtable method directly. */
+  return fs_open(fs, path, pool, common_pool);
+}
+
+
+
+/* This implements the fs_library_vtable_t.upgrade_fs() API. */
+static svn_error_t *
+fs_upgrade(svn_fs_t *fs, const char *path, apr_pool_t *pool,
+           apr_pool_t *common_pool)
+{
+  SVN_ERR(svn_fs__check_fs(fs, FALSE));
+  SVN_ERR(initialize_fs_struct(fs));
+  SVN_ERR(svn_fs_fs__open(fs, path, pool));
+  SVN_ERR(svn_fs_fs__initialize_caches(fs, pool));
+  SVN_ERR(fs_serialized_init(fs, common_pool, pool));
+  return svn_fs_fs__upgrade(fs, pool);
+}
+
+static svn_error_t *
+fs_pack(svn_fs_t *fs,
+        const char *path,
+        svn_fs_pack_notify_t notify_func,
+        void *notify_baton,
+        svn_cancel_func_t cancel_func,
+        void *cancel_baton,
+        apr_pool_t *pool)
+{
+  SVN_ERR(svn_fs__check_fs(fs, FALSE));
+  SVN_ERR(initialize_fs_struct(fs));
+  SVN_ERR(svn_fs_fs__open(fs, path, pool));
+  SVN_ERR(svn_fs_fs__initialize_caches(fs, pool));
+  SVN_ERR(fs_serialized_init(fs, pool, pool));
+  return svn_fs_fs__pack(fs, notify_func, notify_baton,
+                         cancel_func, cancel_baton, pool);
+}
+
 
 
 
@@ -212,30 +274,13 @@ fs_open(svn_fs_t *fs, const char *path, apr_pool_t *pool)
    The CLEAN_LOGS argument is ignored and included for Subversion
    1.0.x compatibility.  Perform all temporary allocations in POOL. */
 static svn_error_t *
-fs_hotcopy(const char *src_path, 
-           const char *dest_path, 
-           svn_boolean_t clean_logs, 
+fs_hotcopy(const char *src_path,
+           const char *dest_path,
+           svn_boolean_t clean_logs,
            apr_pool_t *pool)
 {
-  SVN_ERR(svn_fs_fs__hotcopy(src_path, dest_path, pool));
-
-  return SVN_NO_ERROR;
+  return svn_fs_fs__hotcopy(src_path, dest_path, pool);
 }
-
-
-
-/* This function is included for Subversion 1.0.x compatibility.  It has
-   no effect for fsfs backed Subversion filesystems.  It conforms to
-   the fs_library_vtable_t.bdb_recover() API. */
-static svn_error_t *
-fs_recover(const char *path,
-           apr_pool_t *pool)
-{
-  /* This is a no-op for FSFS. */
-
-  return SVN_NO_ERROR;
-}
-
 
 
 
@@ -265,71 +310,7 @@ fs_delete_fs(const char *path,
              apr_pool_t *pool)
 {
   /* Remove everything. */
-  SVN_ERR(svn_io_remove_dir(path, pool));
-
-  return SVN_NO_ERROR;
-}
-
-
- 
-/* Miscellany */
-
-const char *
-svn_fs_fs__canonicalize_abspath(const char *path, apr_pool_t *pool)
-{
-  char *newpath;
-  int path_len;
-  int path_i = 0, newpath_i = 0;
-  svn_boolean_t eating_slashes = FALSE;
-
-  /* No PATH?  No problem. */
-  if (! path)
-    return NULL;
-  
-  /* Empty PATH?  That's just "/". */
-  if (! *path)
-    return apr_pstrdup(pool, "/");
-
-  /* Now, the fun begins.  Alloc enough room to hold PATH with an
-     added leading '/'. */
-  path_len = strlen(path);
-  newpath = apr_pcalloc(pool, path_len + 2);
-
-  /* No leading slash?  Fix that. */
-  if (*path != '/')
-    {
-      newpath[newpath_i++] = '/';
-    }
-  
-  for (path_i = 0; path_i < path_len; path_i++)
-    {
-      if (path[path_i] == '/')
-        {
-          /* The current character is a '/'.  If we are eating up
-             extra '/' characters, skip this character.  Else, note
-             that we are now eating slashes. */
-          if (eating_slashes)
-            continue;
-          eating_slashes = TRUE;
-        }
-      else
-        {
-          /* The current character is NOT a '/'.  If we were eating
-             slashes, we need not do that any more. */
-          if (eating_slashes)
-            eating_slashes = FALSE;
-        }
-
-      /* Copy the current character into our new buffer. */
-      newpath[newpath_i++] = path[path_i];
-    }
-  
-  /* Did we leave a '/' attached to the end of NEWPATH (other than in
-     the root directory case)? */
-  if ((newpath[newpath_i - 1] == '/') && (newpath_i > 1))
-    newpath[newpath_i - 1] = '\0';
-
-  return newpath;
+  return svn_io_remove_dir2(path, FALSE, NULL, NULL, pool);
 }
 
 static const svn_version_t *
@@ -352,16 +333,19 @@ static fs_library_vtable_t library_vtable = {
   fs_version,
   fs_create,
   fs_open,
+  fs_open_for_recovery,
+  fs_upgrade,
   fs_delete_fs,
   fs_hotcopy,
   fs_get_description,
-  fs_recover,
+  svn_fs_fs__recover,
+  fs_pack,
   fs_logfiles
 };
 
 svn_error_t *
 svn_fs_fs__init(const svn_version_t *loader_version,
-                fs_library_vtable_t **vtable)
+                fs_library_vtable_t **vtable, apr_pool_t* common_pool)
 {
   static const svn_version_checklist_t checklist[] =
     {

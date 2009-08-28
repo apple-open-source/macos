@@ -233,7 +233,7 @@ static int ada_is_direct_array_type (struct type *);
 static void ada_language_arch_info (struct gdbarch *,
 				    struct language_arch_info *);
 
-static void check_size (const struct type *);
+static void check_size (struct type *);
 
 
 
@@ -506,7 +506,7 @@ lim_warning (const char *format, ...)
    GDB.  */
 
 static void
-check_size (const struct type *type)
+check_size (struct type *type)
 {
   if (TYPE_LENGTH (type) > varsize_limit)
     error (_("object size is larger than varsize-limit"));
@@ -572,7 +572,7 @@ discrete_type_high_bound (struct type *type)
     case TYPE_CODE_ENUM:
       return
         value_from_longest (type,
-                            TYPE_FIELD_BITPOS (type,
+                            TYPE_FIELD_BITPOS_ASSIGN (type,
                                                TYPE_NFIELDS (type) - 1));
     case TYPE_CODE_INT:
       return value_from_longest (type, max_of_type (type));
@@ -1598,11 +1598,11 @@ packed_array_type (struct type *type, long *elt_bits)
                            &low_bound, &high_bound) < 0)
     low_bound = high_bound = 0;
   if (high_bound < low_bound)
-    *elt_bits = TYPE_LENGTH (new_type) = 0;
+    *elt_bits = TYPE_LENGTH_ASSIGN (new_type) = 0;
   else
     {
       *elt_bits *= (high_bound - low_bound + 1);
-      TYPE_LENGTH (new_type) =
+      TYPE_LENGTH_ASSIGN (new_type) =
         (*elt_bits + HOST_CHAR_BIT - 1) / HOST_CHAR_BIT;
     }
 
@@ -1616,13 +1616,11 @@ static struct type *
 decode_packed_array_type (struct type *type)
 {
   struct symbol *sym;
-  struct block **blocks;
   const char *raw_name = ada_type_name (ada_check_typedef (type));
   char *name = (char *) alloca (strlen (raw_name) + 1);
   char *tail = strstr (raw_name, "___XP");
   struct type *shadow_type;
   long bits;
-  int i, n;
 
   type = desc_base_type (type);
 
@@ -3750,7 +3748,6 @@ add_defn_to_vec (struct obstack *obstackp,
                  struct block *block, struct symtab *symtab)
 {
   int i;
-  size_t tmp;
   struct ada_symbol_info *prevDefns = defns_collected (obstackp, 0);
 
   if (SYMBOL_TYPE (sym) != NULL)
@@ -6043,7 +6040,7 @@ empty_record (struct objfile *objfile)
   TYPE_NAME (type) = "<empty>";
   TYPE_TAG_NAME (type) = NULL;
   TYPE_FLAGS (type) = 0;
-  TYPE_LENGTH (type) = 0;
+  TYPE_LENGTH_ASSIGN (type) = 0;
   return type;
 }
 
@@ -6112,7 +6109,7 @@ ada_template_to_fixed_record_type_1 (struct type *type,
     {
       off = align_value (off, field_alignment (type, f))
 	+ TYPE_FIELD_BITPOS (type, f);
-      TYPE_FIELD_BITPOS (rtype, f) = off;
+      TYPE_FIELD_BITPOS_ASSIGN (rtype, f) = off;
       TYPE_FIELD_BITSIZE (rtype, f) = 0;
 
       if (ada_is_variant_part (type, f))
@@ -6151,7 +6148,7 @@ ada_template_to_fixed_record_type_1 (struct type *type,
       if (off + fld_bit_len > bit_len)
         bit_len = off + fld_bit_len;
       off += bit_incr;
-      TYPE_LENGTH (rtype) =
+      TYPE_LENGTH_ASSIGN (rtype) =
         align_value (bit_len, TARGET_CHAR_BIT) / TARGET_CHAR_BIT;
     }
 
@@ -6190,7 +6187,7 @@ ada_template_to_fixed_record_type_1 (struct type *type,
             TARGET_CHAR_BIT;
           if (off + fld_bit_len > bit_len)
             bit_len = off + fld_bit_len;
-          TYPE_LENGTH (rtype) =
+          TYPE_LENGTH_ASSIGN (rtype) =
             align_value (bit_len, TARGET_CHAR_BIT) / TARGET_CHAR_BIT;
         }
     }
@@ -6212,7 +6209,7 @@ ada_template_to_fixed_record_type_1 (struct type *type,
     }
   else
     {
-      TYPE_LENGTH (rtype) = align_value (TYPE_LENGTH (rtype),
+      TYPE_LENGTH_ASSIGN (rtype) = align_value (TYPE_LENGTH (rtype),
                                          TYPE_LENGTH (type));
     }
 
@@ -6277,7 +6274,7 @@ template_to_static_fixed_type (struct type *type0)
           TYPE_NAME (type) = ada_type_name (type0);
           TYPE_TAG_NAME (type) = NULL;
           TYPE_FLAGS (type) |= TYPE_FLAG_FIXED_INSTANCE;
-          TYPE_LENGTH (type) = 0;
+          TYPE_LENGTH_ASSIGN (type) = 0;
         }
       TYPE_FIELD_TYPE (type, f) = new_type;
       TYPE_FIELD_NAME (type, f) = TYPE_FIELD_NAME (type0, f);
@@ -6322,7 +6319,7 @@ to_record_with_fixed_variant_part (struct type *type, const gdb_byte *valaddr,
   TYPE_NAME (rtype) = ada_type_name (type);
   TYPE_TAG_NAME (rtype) = NULL;
   TYPE_FLAGS (rtype) |= TYPE_FLAG_FIXED_INSTANCE;
-  TYPE_LENGTH (rtype) = TYPE_LENGTH (type);
+  TYPE_LENGTH_ASSIGN (rtype) = TYPE_LENGTH (type);
 
   branch_type = to_fixed_variant_branch_type
     (TYPE_FIELD_TYPE (type, variant_field),
@@ -6344,9 +6341,9 @@ to_record_with_fixed_variant_part (struct type *type, const gdb_byte *valaddr,
       TYPE_FIELD_TYPE (rtype, variant_field) = branch_type;
       TYPE_FIELD_NAME (rtype, variant_field) = "S";
       TYPE_FIELD_BITSIZE (rtype, variant_field) = 0;
-      TYPE_LENGTH (rtype) += TYPE_LENGTH (branch_type);
+      TYPE_LENGTH_ASSIGN (rtype) += TYPE_LENGTH (branch_type);
     }
-  TYPE_LENGTH (rtype) -= TYPE_LENGTH (TYPE_FIELD_TYPE (type, variant_field));
+  TYPE_LENGTH_ASSIGN (rtype) -= TYPE_LENGTH (TYPE_FIELD_TYPE (type, variant_field));
 
   value_free_to_mark (mark);
   return rtype;
@@ -7145,7 +7142,7 @@ ada_evaluate_subexp (struct type *expect_type, struct expression *exp,
                      int *pos, enum noside noside)
 {
   enum exp_opcode op;
-  int tem, tem2, tem3;
+  int tem;
   int pc;
   struct value *arg1 = NULL, *arg2 = NULL, *arg3;
   struct type *type;

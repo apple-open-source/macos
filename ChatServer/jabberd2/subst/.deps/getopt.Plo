@@ -1,3 +1,0 @@
-getopt.lo .libs/getopt.o: getopt.c ../config.h
-
-../config.h:

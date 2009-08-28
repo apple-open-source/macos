@@ -100,6 +100,9 @@
 #include <dict.h>
 #include <stringops.h>
 #include <split_at.h>
+#ifdef __APPLE_OS_X_SERVER__
+#include <pwd.h>
+#endif
 
 /* Global library. */
 
@@ -188,6 +191,18 @@ const char *maps_find(MAPS *maps, const char *name, int flags)
 		msg_info("%s: %s: %s: %s = %s", myname, maps->title,
 			 *map_name, name, expansion);
 	    return (expansion);
+#ifdef __APPLE_OS_X_SERVER__
+	} else if (strncmp(maps->title, "virtual_alias_maps", 18) == 0 ) {
+		/* if virtual_alias_maps, we want to look in the directory
+			for a possible match as well */
+		struct passwd *pwd;
+		if ((pwd = getpwnam(name)) != 0) {
+			if (msg_verbose)
+			msg_info("%s: %s: %s: %s = %s", myname, maps->title,
+				 *map_name, name, pwd->pw_name);
+			return (pwd->pw_name);
+		}
+#endif
 	} else if (dict_errno != 0) {
 	    break;
 	}

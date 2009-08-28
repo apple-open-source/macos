@@ -59,11 +59,13 @@ SyslogFacility AUTHPRIV
 
 # To disable tunneled clear text passwords, change to no here! Also,
 # remember to set the UsePAM setting to 'no'.
-#PasswordAuthentication yes
+#PasswordAuthentication no
 #PermitEmptyPasswords no
 
 # SACL options
-#SACLSupport yes
+# The default for the SACLSupport option is now "no", as this option has been
+# depreciated in favor of SACL enforcement in the PAM configuration (/etc/pam.d/sshd).
+#SACLSupport no
 
 # Change to no to disable s/key passwords
 #ChallengeResponseAuthentication yes
@@ -72,7 +74,6 @@ SyslogFacility AUTHPRIV
 #KerberosAuthentication no
 #KerberosOrLocalPasswd yes
 #KerberosTicketCleanup yes
-#KerberosGetAFSToken no
 
 # GSSAPI options
 #GSSAPIAuthentication no

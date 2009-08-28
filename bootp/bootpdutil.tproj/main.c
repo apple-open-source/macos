@@ -252,11 +252,11 @@ CFStringArrayCreateWithCStringArray(const char * * list, int count)
 static CFNumberRef
 number_create(const char * str)
 {
-    int			val;
+    unsigned long	val;
 		    
     val = strtoul(str, NULL, 0);
     if (val != ULONG_MAX && errno != ERANGE) {
-	return (CFNumberCreate(NULL, kCFNumberIntType, &val));
+	return (CFNumberCreate(NULL, kCFNumberLongType, &val));
     }
     return (NULL);
 }

@@ -1,9 +1,9 @@
-/* $Id: text.c,v 1.156 2006/11/10 02:47:11 dolorous Exp $ */
+/* $Id: text.c,v 1.163.2.1 2007/04/22 15:04:05 dolorous Exp $ */
 /**************************************************************************
  *   text.c                                                               *
  *                                                                        *
  *   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004 Chris Allegretta    *
- *   Copyright (C) 2005, 2006 David Lawrence Ramsey                       *
+ *   Copyright (C) 2005, 2006, 2007 David Lawrence Ramsey                 *
  *   This program is free software; you can redistribute it and/or modify *
  *   it under the terms of the GNU General Public License as published by *
  *   the Free Software Foundation; either version 2, or (at your option)  *
@@ -63,7 +63,7 @@ void do_mark(void)
 }
 #endif /* !NANO_TINY */
 
-/* Delete one character. */
+/* Delete the character under the cursor. */
 void do_delete(void)
 {
     bool do_refresh = FALSE;
@@ -191,11 +191,11 @@ void do_tab(void)
 }
 
 #ifndef NANO_TINY
-/* Indent or unindent the current line (or all lines covered by the mark
- * if the mark is on) len columns, depending on whether len is positive
- * or negative.  If the TABS_TO_SPACES flag is set, indent/unindent by
- * len spaces.  Otherwise, indent/unindent by (len / tabsize) tabs and
- * (len % tabsize) spaces. */
+/* Indent or unindent the current line (or, if the mark is on, all lines
+ * covered by the mark) len columns, depending on whether len is
+ * positive or negative.  If the TABS_TO_SPACES flag is set, indent or
+ * unindent by len spaces.  Otherwise, indent or unindent by (len /
+ * tabsize) tabs and (len % tabsize) spaces. */
 void do_indent(ssize_t cols)
 {
     bool indent_changed = FALSE;
@@ -1212,9 +1212,16 @@ void backup_lines(filestruct *first_line, size_t par_len)
      * line, putting first_line, edittop, current, and mark_begin at the
      * same lines in the copied paragraph that they had in the original
      * paragraph. */
-    if (openfile->current != openfile->fileage)
+    if (openfile->current != openfile->fileage) {
 	top = openfile->current->prev;
-    else
+#ifndef NANO_TINY
+	if (old_mark_set &&
+		openfile->current->lineno == mb_lineno_save) {
+	    openfile->mark_begin = openfile->current;
+	    openfile->mark_begin_x = mark_begin_x_save;
+	}
+#endif
+    } else
 	top = openfile->current;
     for (i = par_len; i > 0 && top != NULL; i--) {
 	if (top->lineno == fl_lineno_save)
@@ -2197,7 +2204,7 @@ const char *do_alt_speller(char *tempfile_name)
 
     if (!WIFEXITED(alt_spell_status) ||
 		WEXITSTATUS(alt_spell_status) != 0) {
-	char *altspell_error;
+	char *alt_spell_error;
 	char *invoke_error = _("Error invoking \"%s\"");
 
 #ifndef NANO_TINY
@@ -2205,11 +2212,11 @@ const char *do_alt_speller(char *tempfile_name)
 	openfile->mark_set = old_mark_set;
 #endif
 
-	altspell_error =
+	alt_spell_error =
 		charalloc(strlen(invoke_error) +
 		strlen(alt_speller) + 1);
-	sprintf(altspell_error, invoke_error, alt_speller);
-	return altspell_error;
+	sprintf(alt_spell_error, invoke_error, alt_speller);
+	return alt_spell_error;
     }
 
 #ifndef NANO_TINY
@@ -2301,7 +2308,7 @@ const char *do_alt_speller(char *tempfile_name)
  * specified, use it.  Otherwise, use the internal spell checker. */
 void do_spell(void)
 {
-    int i;
+    bool status;
     FILE *temp_file;
     char *temp = safe_tempfile(&temp_file);
     const char *spell_msg;
@@ -2311,14 +2318,14 @@ void do_spell(void)
 	return;
     }
 
+    status =
 #ifndef NANO_TINY
-    if (openfile->mark_set)
-	i = write_marked_file(temp, temp_file, TRUE, OVERWRITE);
-    else
+	openfile->mark_set ? write_marked_file(temp, temp_file, TRUE,
+	OVERWRITE) :
 #endif
-	i = write_file(temp, temp_file, TRUE, OVERWRITE, FALSE);
+	write_file(temp, temp_file, TRUE, OVERWRITE, FALSE);
 
-    if (i == -1) {
+    if (!status) {
 	statusbar(_("Error writing temp file: %s"), strerror(errno));
 	free(temp);
 	return;
@@ -2445,6 +2452,8 @@ void do_verbatim_input(void)
     for (i = 0; i < kbinput_len; i++)
 	output[i] = (char)kbinput[i];
     output[i] = '\0';
+
+    free(kbinput);
 
     do_output(output, kbinput_len, TRUE);
 

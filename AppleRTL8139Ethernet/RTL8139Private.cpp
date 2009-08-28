@@ -65,7 +65,7 @@ void RTL8139::transmitterInterrupt( bool *reclaimed )
 
 				// Record reason for the transmit abort.
 
-            if ( collisions == 0xF )	BUMP_ETHER_COUNTER( excessiveCollisions );
+            if ( collisions == 0x0F )	BUMP_ETHER_COUNTER( excessiveCollisions );
             if ( txStatus & R_TSD_OWC )	BUMP_ETHER_COUNTER( lateCollisions );
             if ( txStatus & R_TSD_CRS )	BUMP_ETHER_COUNTER( carrierSenseErrors );
             break;  // wait for retransmission
@@ -106,59 +106,76 @@ void RTL8139::transmitterInterrupt( bool *reclaimed )
 
 void RTL8139::receiverInterrupt( bool *queued )
 {
-	rbuf_hdr_t    rbh;		// 4 byte Rx packet header
-	mbuf_t        pkt;
-	UInt16        pktLen;
+	mbuf_t		pkt;
+	UInt16		status, count;	// from buffer header
+	UInt16		pktLen;
 	UInt32		totalBytes = 0;
+	volatile UInt8	vu8;
 
-//	ELG( fRxOffset, OSReadLittleInt32( fpRxBuffer, fRxOffset ), 'Rx I', "RTL8139::receiverInterrupt" );
-    while ( (csrRead8( RTL_CM ) & R_CM_BUFE) == 0 )
+
+	ELG(	fRxOffset << 16 | csrRead16( RTL_CBA ),
+			OSReadLittleInt16( fpRxBuffer, fRxOffset ) << 16 | OSReadLittleInt16( fpRxBuffer, fRxOffset + 2 ),
+			'Rx I', "RTL8139::receiverInterrupt" );
+
+    while ( true )
     {
-		if ( totalBytes > 0x10000 )		// protect against flood of small packets.
+		vu8 = csrRead8( RTL_CM );
+		if ( vu8 & R_CM_BUFE )
+			break;
+
+        status	= OSReadLittleInt16( fpRxBuffer, fRxOffset );
+        count	= OSReadLittleInt16( fpRxBuffer, fRxOffset + sizeof( UInt16 ) );
+
+		if ( status == 0xFFFF || count >= 0xFFF0 )
 		{
-			ELG( 0, totalBytes, 'RxLm', "RTL8139::receiverInterrupt - reached loop limit." );
+			ELG( status, count, 'BufE', "RTL8139::receiverInterrupt - Buffer should have been Empty" );
+			break;			// Break if packet still coming in from FIFO.
+		}
+
+		totalBytes	+= count;				/// ???? do this only for M63
+		if ( totalBytes > 0x10000 )			// Do no more than 1 Ring at a time.
+		{
+			ELG( fRxOffset, totalBytes, 'RxXS', "RTL8139::receiverInterrupt - excess pkt processing" );
 			break;
 		}
 
-        *(UInt32*)&rbh = OSReadLittleInt32( fpRxBuffer, fRxOffset );
-        pktLen = rbh.rb_count - 4;  // get Rx'd frame length deducting 4 FCS bytes
-		fRxOffset += sizeof( rbh );
-		totalBytes += pktLen;
+        pktLen	= count - 4;		 		// get Rx'd frame length deducting 4 FCS bytes
+		fRxOffset += 2 * sizeof( UInt16 );	// move past status/count header
 
 			// Update receiver error counters:
 
-        if ( rbh.rb_status & (R_RSR_FAE | R_RSR_CRC | R_RSR_LONG | R_RSR_RUNT | R_RSR_ISE) )
+        if ( status & (R_RSR_FAE | R_RSR_CRC | R_RSR_LONG | R_RSR_RUNT | R_RSR_ISE) )
         {
-			ALRT( fRxOffset, *(UInt32*)&rbh, ' Rx-', "RTL8139::receiverInterrupt" );
+			ALRT( fRxOffset, status << 16 | count, ' Rx-', "RTL8139::receiverInterrupt - error detected" );
             BUMP_NET_COUNTER( inputErrors );
 
-            if ( rbh.rb_status & R_RSR_FAE )	BUMP_ETHER_COUNTER( alignmentErrors );
-            if ( rbh.rb_status & R_RSR_CRC )	BUMP_ETHER_COUNTER( fcsErrors );
-            if ( rbh.rb_status & R_RSR_LONG )	BUMP_ETHER_COUNTER( frameTooLongs );
-            if ( rbh.rb_status & R_RSR_RUNT )	BUMP_ETHER_RX_COUNTER( frameTooShorts );
-            if ( rbh.rb_status & R_RSR_ISE )	BUMP_ETHER_RX_COUNTER( phyErrors );
+            if ( status & R_RSR_FAE )	BUMP_ETHER_COUNTER(		alignmentErrors	);
+            if ( status & R_RSR_CRC )	BUMP_ETHER_COUNTER(		fcsErrors		);
+            if ( status & R_RSR_LONG )	BUMP_ETHER_COUNTER(		frameTooLongs	);
+            if ( status & R_RSR_RUNT )	BUMP_ETHER_RX_COUNTER(	frameTooShorts	);
+            if ( status & R_RSR_ISE )	BUMP_ETHER_RX_COUNTER(	phyErrors		);
 
 				// Will the assertion of any error bits clear the
 				// R_RSR_ROK bit? We make it so.
 
-            rbh.rb_status &= ~R_RSR_ROK;
-        }
+            status &= ~R_RSR_ROK;
+        }/* end IF some kind of Rx error */
 
-        if ( (rbh.rb_status & R_RSR_ROK) == 0 )
+        if ( (status & R_RSR_ROK) == 0 )
         {
-			ALRT( fRxOffset, *(UInt32*)&rbh, 'Rok-', "RTL8139::receiverInterrupt - not OK" );
+			ALRT( fRxOffset, status << 16 | count, 'Rok-', "RTL8139::receiverInterrupt - Rx restart" );
 				// Restart the receiver when an error is encountered.
             restartReceiver();
             BUMP_ETHER_RX_COUNTER( resets );
             DEBUG_LOG( "%s: restarted receiver\n", getName() );
             break;
-        }
+        }/* end IF Rx not ok and receiver restarted */
 
         if ( (pktLen < MINPACK - 4) || (pktLen > MAXPACK - 4) )
         {
 				// Invalid Rx'd frame length, skip it:
 
-			ALRT( fRxOffset, *(UInt32*)&rbh, 'RxL-', "RTL8139::receiverInterrupt - length bad" );
+			ALRT( fRxOffset, status << 16 | count, 'RxL-', "RTL8139::receiverInterrupt - length bad" );
             DEBUG_LOG( "%s: bad packet length (%d)\n", getName(), pktLen );
             BUMP_NET_COUNTER( inputErrors );
             if ( pktLen < MINPACK )
@@ -196,13 +213,12 @@ void RTL8139::receiverInterrupt( bool *queued )
         }/* end if/ELSE good frame */
 
 			// Advance Rx offset to start of the next packet:
-
-        fRxOffset += IORound( pktLen + 4, 4 );			// account for 4 FCS bytes
-	///	csrWrite16Slow( RTL_CAPR, fRxOffset - 0x10 );	// leave a gap
-        csrWrite16( RTL_CAPR, fRxOffset - 0x10 );		// leave a gap
+		fRxOffset += (count + 3) & ~3;		// round up to 4-byte boundary
+		if ( fBuiltin )
+			 csrWrite16(     RTL_CAPR, fRxOffset - 0x10 );	// M63
+		else csrWrite16Slow( RTL_CAPR, fRxOffset - 0x10 );	// card
     }/* end WHILE buffer not empty */
 
-    BUMP_ETHER_RX_COUNTER( interrupts );
 	return;
 }/* end receiverInterrupt */
 
@@ -210,48 +226,50 @@ void RTL8139::receiverInterrupt( bool *queued )
 
 void RTL8139::restartReceiver()
 {
-    UInt8	tmp_cm;
+	UInt8	cm;
 
-	tmp_cm = csrRead8( RTL_CM );
-	ELG( 0000, tmp_cm, 'ReRx', "RTL8139::restartReceiver" );
+	cm = csrRead8( RTL_CM );
+	ELG( 0000, cm, 'ReRx', "RTL8139::restartReceiver" );
 
-    tmp_cm &= ~R_CM_RE;
-    csrWrite8( RTL_CM, tmp_cm );
-    IOSleep( 10 );
+	cm &= ~R_CM_RE;					// Clear Rx Enable in the Command register
+	csrWrite8( RTL_CM, cm );
+	IOSleep( 10 );
 
 		/* any timing specifications on stopping the engine? */
 
-    fRxOffset = 0;
+	csrWrite32(		RTL_RBSTART,	fRxBufferPhys );
+	if ( fBuiltin )
+		 csrWrite16(     RTL_CAPR, 0 );	// M63
+	else csrWrite16Slow( RTL_CAPR, 0 );	// card
+	fRxOffset = 0;
 
-    csrWrite32( RTL_RBSTART, fRxBufferPhys );
+	cm |= R_CM_RE;
+	csrWrite8( RTL_CM, cm );		// Set Rx Enable
 
-    tmp_cm |= R_CM_RE;
-    csrWrite8( RTL_CM, tmp_cm );
-
-	csrWrite32( RTL_RCR, reg_rcr );
+	csrWrite32( RTL_RCR, reg_rcr );	// Redo the Rx Configuration Register
 	return;
 }/* end restartReceiver */
 
 
 void RTL8139::enableHardwareInterrupts()
 {
-	UInt16	imr;	// always use the Tx interrupt
-
 	ELG( 0, fSpeed100, 'eHWI', "RTL8139::enableHardwareInterrupts" );
 
 	if ( fSpeed100 )
 	{		// Use Tx interrupts; poll for Rx frames on the Realtek timer:
 		csrWrite32( RTL_TIMER_INT, 32768 );	// set about 1 ms in the timer value
 		csrWrite32( RTL_TCTR, 0 );			// start the timer
-		imr = R_ISR_TMOUT | R_ISR_TOK | R_ISR_TER;
+	///	fIMR = R_ISR_TMOUT | R_ISR_TOK | R_ISR_TER;
+	///	fIMR = R_ISR_TMOUT | R_ISR_TOK | R_ISR_TER | R_ISR_RER | R_ISR_RXOVW | R_ISR_FOVW;
+		fIMR = R_ISR_TMOUT;		// Enable R_ISR_TOK and R_ISR_TER when Tx packet stall
 	}
 	else	// 10 Mbps:
 	{
-		imr = R_ISR_ALL;
+		fIMR = R_ISR_ALL;
 		csrWrite32( RTL_TIMER_INT, 0 );	// turn off the timer
 	}
 
-	csrWrite16( RTL_IMR, imr );
+	csrWrite16( RTL_IMR, fIMR );
     interruptEnabled = true;
 	return;
 }/* end enableHardwareInterrupts */
@@ -275,7 +293,7 @@ bool RTL8139::allocateDescriptorMemory()
 
 	size = (TX_BUF_SIZE * kTxBufferCount) + (RX_BUF_SIZE + PAGE_SIZE);
 
-	ELG( 0, size, 'AlDM', "RTL8139::allocateDescriptorMemory" );
+	ELG( 0, size, 'AlDM', "RTL8139::allocateDescriptorMemory - size" );
 
     fpTxRxMD = IOBufferMemoryDescriptor::withOptions( 
 								/* options   */	kIOMemoryPhysicallyContiguous,
@@ -334,11 +352,11 @@ bool RTL8139::initAdapter( IOOptionBits options )
 
 		// Save config1 register (not used).
 
-    reg_config1 = csrRead8( RTL_CONFIG1 );	
+    fRegConfig1 = csrRead8( RTL_CONFIG1 );	
 
 		// Update the physical address of the Rx buffer:
 
-    csrWrite32( RTL_RBSTART, fRxBufferPhys );
+	csrWrite32( RTL_RBSTART, fRxBufferPhys );
     fRxOffset = 0;
 
 		// Update the physical address of the Tx buffers:
@@ -358,7 +376,7 @@ bool RTL8139::initAdapter( IOOptionBits options )
 
 		// TCR - transmit configuration register.
 
-    csrWrite32( RTL_TCR, R_TCR_MXDMA | R_TCR_IFG );
+	csrWrite32( RTL_TCR, R_TCR_MXDMA | R_TCR_IFG );		// 64 B DMA, IFG min - illegal
 
 		// RCR - receive configuration register. Save the value to be used
 		// later if the receiver is restarted, or multicast/promiscuous mode
@@ -373,8 +391,9 @@ bool RTL8139::initAdapter( IOOptionBits options )
     return true;
 }/* end initAdapter */
 
-	/* interruptOccurred is called by real Tx interrupts and	*/
-	/* by invocations from timeoutOccurred for Rx.				*/
+	/* interruptOccurred is called by real Tx interrupts	*/
+	/* and by invocations from timeoutOccurred for Rx		*/
+	/* or Realtek timer interrupt							*/
 
 void RTL8139::interruptOccurred( IOInterruptEventSource *src, int count )
 {
@@ -396,48 +415,48 @@ void RTL8139::interruptOccurred( IOInterruptEventSource *src, int count )
     lockState = IODebuggerLock( this );		// Keep KDP out
 
 	isr = csrRead16( RTL_ISR );
-	ELG( 0, isr, 'Int+', "RTL8139::interruptOccurred" );
+	ELG( csrRead32( RTL_MPC ), isr, 'Int+', "RTL8139::interruptOccurred" );
+
+	if ( fSpeed100 )
+	{
+		csrWrite32( RTL_TCTR, 0 );		// reset the timer.
+		csrWrite16( RTL_IMR, fIMR );	// Mask off possible Tx ints. Reduce this PCI transaction???
+	}
 
 	if ( isr )
 	{
-		if ( isr & R_ISR_TMOUT )
-			csrWrite32( RTL_TCTR, 0 );	// reset the timer.
-
-		if ( isr &  (R_ISR_FOVW | R_ISR_RXOVW) )	// If either FIFO overflow or Buffer overflow,
-			 isr |= (R_ISR_FOVW | R_ISR_RXOVW);		// ack both. /// mlj - I don't know why.
-
+		if ( isr & (R_ISR_FOVW | R_ISR_RXOVW) )	// If either FIFO or Buffer overflow,
+		{										
+			ELG( 0, isr, 'RxOv', "RTL8139::interruptOccurred - Rx FIFO or Buffer overflow" );
+			isr |= R_ISR_FOVW | R_ISR_RXOVW;	// ack both. /// mlj - I don't know why.
+		}
 		csrWrite16( RTL_ISR, isr );		// Acknowledge pending interrupt sources
 
 		if ( isr & (R_ISR_TOK | R_ISR_TER) )
 		{
 			BUMP_ETHER_TX_COUNTER( interrupts );
 			transmitterInterrupt( &serviceOutputQ );
+			
 		}
 	}
 
-	receiverInterrupt( &flushInputQ );	// Always check for Rx frames.
+	if ( isr & (R_ISR_ROK | R_ISR_RER | R_ISR_RXOVW | R_ISR_FOVW) )
+	{
+		receiverInterrupt( &flushInputQ );
+    	BUMP_ETHER_RX_COUNTER( interrupts );
+	}
 
 #if NOT_YET
-		// Packet underrun or link change interrupt:
-
-	if ( isr & R_ISR_PUN )
+	if ( isr & R_ISR_PUN )		// Packet underrun or link change interrupt:
 	{
-		UInt16 tmp_rtl74 = csrRead16( RTL_74 );
+		UInt16	tmp_rtl74 = csrRead16( RTL_74 );
 		if ( tmp_rtl74 & SIZE16_BIT11 ) // link change
 		{
-			if ( tmp_rtl74 & SIZE16_BIT10 ) // link ok
-			{
-			}
-			else // link down
-			{
-			}
-		}
-		else
-		{
+			if ( tmp_rtl74 & SIZE16_BIT10 )	{} // link ok
+			else							{} // link down
 		}
 	}
 #endif
-
 		// If debugger reclaimed the Tx buffer, then we will still expect a
 		// hardware interrupt after returning from the debugger, but the Tx
 		// interrupt handler will not reclaim any buffer space. If the output
@@ -474,7 +493,7 @@ void RTL8139::interruptOccurred( IOInterruptEventSource *src, int count )
 	//---------------------------------------------------------------------------
 	// Note: This function must not block. Otherwise it may expose
 	// re-entrancy issues in the BSD networking stack.
-	// Note also that this method is usually called on the clien'ts thread not
+	// Note also that this method is usually called on the client's thread not
 	// the workloop.
 
 UInt32 RTL8139::outputPacket( mbuf_t pkt, void *param )
@@ -497,6 +516,7 @@ UInt32 RTL8139::outputPacket( mbuf_t pkt, void *param )
 			// Stall the output queue until the ack by the interrupt handler.
         DEBUG_LOG( "outputPacket() <===\n" );
         IODebuggerUnlock( lockState );
+		csrWrite16( RTL_IMR, fIMR | R_ISR_TOK | R_ISR_TER );	// Mask ON Tx interrupt
         return kIOReturnOutputStall;
     }
 
@@ -629,8 +649,8 @@ void RTL8139::reclaimTransmitBuffer()	// KDP only
 
 void RTL8139::receivePacket( void *pkt, UInt32 *pktLen, UInt32 timeout )	// KDP
 {
-	rbuf_hdr_t  rbh;     // 4 byte Rx packet header
-	UInt16	    rxLen;
+	UInt16			status, count;	// from buffer header
+	UInt16			rxLen;
 
     *pktLen = 0;
     timeout *= 1000;  // convert ms to us
@@ -644,16 +664,17 @@ void RTL8139::receivePacket( void *pkt, UInt32 *pktLen, UInt32 timeout )	// KDP
             continue;
         }
 
-        *(UInt32*)&rbh	= OSReadLittleInt32( fpRxBuffer, fRxOffset );
-        rxLen			= rbh.rb_count;		// includes 4 bytes of FCS
-		fRxOffset	   += sizeof( rbh );
+        status	= OSReadLittleInt16( fpRxBuffer, fRxOffset );
+        count	= OSReadLittleInt16( fpRxBuffer, fRxOffset + sizeof( UInt16 ) );
+        rxLen	= count;		// includes 4 bytes of FCS
+		fRxOffset += 2 * sizeof( UInt16 );	// move past buffer header
 
-	//	kprintf( "RTL8139::receivePacket status %x len %d\n", rbh.rb_status, rxLen );
+	//	kprintf( "RTL8139::receivePacket status %x len %d\n", status, rxLen );
 
-        if ( rbh.rb_status & (R_RSR_FAE | R_RSR_CRC | R_RSR_LONG | R_RSR_RUNT | R_RSR_ISE) )
-             rbh.rb_status &= ~R_RSR_ROK;
+        if ( status & (R_RSR_FAE | R_RSR_CRC | R_RSR_LONG | R_RSR_RUNT | R_RSR_ISE) )
+             status &= ~R_RSR_ROK;
 
-        if ( (rbh.rb_status & R_RSR_ROK) == 0 )
+        if ( (status & R_RSR_ROK) == 0 )
         {
             restartReceiver();
             continue;
@@ -726,22 +747,24 @@ void RTL8139::registerEEPROM()
 	//	IOLog( "RTL8139::fixEnetFlowControl *** Checksum is incorrect. %04x, %04x\n", contents[ 0x32 / 2 ], checksum );
 
 	if ( (contents[ 6 ] & 0x0002) != 0 )	// Check Flow Control bit
-		IOLog( "RTL8139::fixEnetFlowControl - Flow Control is disabled\n" );
+		IOLog( "RTL8139::registerEEPROM - Flow Control is disabled\n" );
 
 		/* put the contents in the IORegistry:	*/
 
 	arrayStrings = OSArray::withCapacity( kEEPROM_SIZE / 0x10 );	// 8 rows of data
 
+#ifdef SPRINTF_DEPRECATED
 	for ( i = 0 ; i < (kEEPROM_SIZE / sizeof( UInt16 )); i += 8 )	// 16 bytes per row
 	{
 		sprintf( printBuffer, "%04x %04x %04x %04x   %04x %04x %04x %04x",
 			contents[ i+0 ], contents[i+1], contents[i+2], contents[i+3],
 			contents[ i+4 ], contents[i+5], contents[i+6], contents[i+7] );
-				///	IOLog( "RTL8139::registerEEPROM: %s\n", printBuffer );
+IOLog( "RTL8139::registerEEPROM: %s\n", printBuffer );
 		tmpString = OSString::withCString( printBuffer );
 		arrayStrings->setObject( tmpString );
 		tmpString->release();
 	}
+#endif // SPRINTF_DEPRECATED
 
 	setProperty( "EEPROM words", arrayStrings );
 	arrayStrings->release();
@@ -757,7 +780,7 @@ void RTL8139::registerEEPROM()
 	outEEPROM16( 6, contents[ 6 ] );				// do it.
 	outEEPROM16( 0x32 / 2, 0x10000 - checksum );	// adjust the checksum
 	
-	IOLog( "RTL8139::fixEnetFlowControl - Ethernet Flow Control is now enabled.\n" );
+	IOLog( "RTL8139::registerEEPROM - Ethernet Flow Control is now enabled.\n" );
 #endif // CRAP
 
 #if USE_ELG
@@ -765,7 +788,7 @@ void RTL8139::registerEEPROM()
 #endif // USE_ELG
 
 	return;
-}/* end fixEnetFlowControl */
+}/* end registerEEPROM */
 
 
 void RTL8139::write9346CR( UInt8 value )

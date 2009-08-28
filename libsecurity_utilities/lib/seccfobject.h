@@ -28,10 +28,13 @@
 
 #include <CoreFoundation/CFRuntime.h>
 #include <new>
+#include "threading.h"
 
 namespace Security {
 
 class CFClass;
+
+RecursiveMutex& GetDOMutex();
 
 #define SECCFFUNCTIONS(OBJTYPE, APIPTR, ERRCODE, CFCLASS) \
 \
@@ -83,7 +86,6 @@ public:
 	static SecCFObject *optional(CFTypeRef) throw();
 	static SecCFObject *required(CFTypeRef, OSStatus error);
 	static void *allocate(size_t size, const CFClass &cfclass) throw(std::bad_alloc);
-	static void clearDeletedObjects() throw();
 
 	virtual ~SecCFObject();
 
@@ -100,6 +102,7 @@ public:
     virtual CFHashCode hash();
 	virtual CFStringRef copyFormattingDesc(CFDictionaryRef dict);
 	virtual CFStringRef copyDebugDesc();
+	virtual void aboutToDestruct();
 };
 
 //
@@ -162,5 +165,6 @@ bool operator !=(const SecPointer<T> &r1, const SecPointer<T> &r2)
 }
 
 } // end namespace Security
+
 
 #endif

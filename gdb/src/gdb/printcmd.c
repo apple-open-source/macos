@@ -228,6 +228,9 @@ decode_format (char **string_ptr, int oformat, int osize)
       /* APPLE LOCAL: OSType formatting */
       else if (*p == 'T')
         val.format = *p++;
+      /* APPLE LOCAL: floating point hex formatting */
+      else if (*p == 'A')
+        val.format = *p++;
       else
 	break;
     }
@@ -267,6 +270,7 @@ decode_format (char **string_ptr, int oformat, int osize)
 	  internal_error (__FILE__, __LINE__, _("failed internal consistency check"));
 	break;
       case 'f':
+      case 'A':
 	/* Floating point has to be word or giantword.  */
 	if (osize == 'w' || osize == 'g')
 	  val.size = osize;
@@ -406,7 +410,7 @@ print_scalar_formatted (const void *valaddr, struct type *type,
       return;
     }
 
-  if (format != 'f')
+  if (format != 'f' && format != 'A')
     val_long = unpack_long (type, valaddr);
 
   /* If the value is a pointer, and pointers and addresses are not the
@@ -474,13 +478,28 @@ print_scalar_formatted (const void *valaddr, struct type *type,
       break;
 
     case 'f':
-      if (len == TYPE_LENGTH (builtin_type_float))
-        type = builtin_type_float;
-      else if (len == TYPE_LENGTH (builtin_type_double))
-        type = builtin_type_double;
-      else if (len == TYPE_LENGTH (builtin_type_long_double))
-        type = builtin_type_long_double;
-      print_floating (valaddr, type, stream);
+    case 'A':
+      /* APPLE LOCAL: If the type of the value isn't already float, force it 
+         to the appropriately sized float for printing.
+
+         We need to do this when printing i386 vector (xmm) registers -- we 
+         have a TYPE_CODE_FLT type but it's reverse endian (it's big-endian
+         in gdb) so simply replacing it with builtin_type_float will print
+         it backwards (it'll treat the bytes as a little-endian formatted
+         floating point value).  */
+      if (TYPE_CODE (type) != TYPE_CODE_FLT)
+        {
+          if (len == TYPE_LENGTH (builtin_type_float))
+            type = builtin_type_float;
+          else if (len == TYPE_LENGTH (builtin_type_double))
+            type = builtin_type_double;
+          else if (len == TYPE_LENGTH (builtin_type_long_double))
+            type = builtin_type_long_double;
+        }
+      if (format == 'A')
+        print_floating_in_hex (valaddr, type, stream);
+      else
+        print_floating (valaddr, type, stream);
       break;
 
     case 0:
@@ -698,6 +717,30 @@ build_address_symbolic (CORE_ADDR addr,  /* IN */
     return 1;
 
   /* If the nearest symbol is too far away, don't print anything symbolic.  */
+
+  /* Make sure the minimal symbol we found is in the same section as the
+     address we're looking for.  If not, then we've found some random
+     last-symbol-in-the-address-space and misusing it. */
+
+  /* Get the *actual* section for MSYMBOL, see if the ADDR we're looking
+     for is contained within it.  Note that the SYMBOL_BFD_SECTION(msymbol) is
+     not necessarily correct.  e.g. a constant string is in __TEXT,__cstring
+     but the msymbol will have __TEXT,__text because other parts of gdb assume
+     that the SYMBOL_BFD_SECTION for a given minsym is only one of a couple
+     sections.  */
+
+  if (msymbol)
+    {
+      struct obj_section *verify_sect = 
+        find_pc_sect_in_ordered_sections (SYMBOL_VALUE_ADDRESS (msymbol), NULL);
+      if (verify_sect)
+	{
+	  /* If ADDR outside the range of this section, we didn't find a real
+	     matching symbol.  */
+	  if (addr < verify_sect->addr || addr >= verify_sect->endaddr)
+	    return 1;
+	}
+    }
 
   /* For when CORE_ADDR is larger than unsigned int, we do math in
      CORE_ADDR.  But when we detect unsigned wraparound in the
@@ -940,7 +983,6 @@ print_command_1 (char *exp, int inspect, int voidprint)
 
   if (exp && *exp)
     {
-      struct type *type;
       /* APPLE LOCAL initialize innermost_block  */
       innermost_block = NULL;
       expr = parse_expression (exp);
@@ -1108,6 +1150,7 @@ static void
 address_info (char *exp, int from_tty)
 {
   struct symbol *sym;
+  struct block *bl;
   struct minimal_symbol *msymbol;
   long val;
   long basereg;
@@ -1119,8 +1162,19 @@ address_info (char *exp, int from_tty)
   if (exp == 0)
     error (_("Argument required."));
 
-  sym = lookup_symbol (exp, get_selected_block (0), VAR_DOMAIN,
-		       &is_a_field_of_this, (struct symtab **) NULL);
+  /* APPLE LOCAL: Walk the chain of blocks until we get to the function
+     block before we pass that to lookup_symbol as the scope.  Else the
+     block argument is ignored and we'll mistakenly do an unscoped search.  */
+
+  bl = get_selected_block (NULL);
+  if (bl != NULL)
+    {
+      while (BLOCK_FUNCTION (bl) == 0 && BLOCK_SUPERBLOCK (bl) != 0)
+	bl = BLOCK_SUPERBLOCK (bl);
+    }
+
+  sym = lookup_symbol (exp, bl, VAR_DOMAIN, &is_a_field_of_this, 
+                       (struct symtab **) NULL);
   if (sym == NULL)
     {
       if (is_a_field_of_this)
@@ -1905,10 +1959,11 @@ printf_command (char *arg, int from_tty)
     /* Now scan the string for %-specs and see what kinds of args they want.
        argclass[I] classifies the %-specs so we can give printf_filtered
        something of the right size.  */
+    /* APPLE LOCAL: Added pointer_arg to handle "%p".  */
 
     enum argclass
       {
-	no_arg, int_arg, string_arg, double_arg, long_long_arg
+	no_arg, int_arg, string_arg, double_arg, long_long_arg, pointer_arg
       };
     enum argclass *argclass;
     enum argclass this_argclass;
@@ -1942,7 +1997,10 @@ printf_command (char *arg, int from_tty)
 	    case 'g':
 	      this_argclass = double_arg;
 	      break;
-
+	      /* APPLE LOCAL: Handle "%p"  */
+	    case 'p':
+	      this_argclass = pointer_arg;
+              break;
 	    case '*':
 	      error (_("`*' not supported for precision or width in printf"));
 
@@ -2059,6 +2117,13 @@ printf_command (char *arg, int from_tty)
 	      printf_filtered (current_substring, val);
 	      break;
 	    }
+	  case pointer_arg:
+	    {
+	      /* APPLE LOCAL: Handle "%p".  */
+	      CORE_ADDR val = value_as_address (val_args[i]);
+	      printf_filtered (current_substring, val);
+	      break;
+	    }
 	  default:		/* purecov: deadcode */
 	    error (_("internal error in printf_command"));		/* purecov: deadcode */
 	  }
@@ -2070,6 +2135,113 @@ printf_command (char *arg, int from_tty)
   }
   do_cleanups (old_cleanups);
 }
+
+/* APPLE LOCAL: invoke-block */
+static void
+invoke_block_command (char *args, int from_tty)
+{
+  char **argv;
+  struct cleanup *argv_cleanup;
+  struct expression *expr;
+  struct value *block_val;
+  struct value *implementation_fn;
+  struct type *block_type;
+  struct type *block_deref;
+  int nargs;
+  struct value **val_argv;
+  int i;
+  struct value *ret_val;
+  int histindex;
+  struct cleanup *print_closure_cleanup;
+
+  argv = buildargv (args);
+  if (argv == NULL)
+    error ("No arguments provided.");
+
+  argv_cleanup = make_cleanup_freeargv (argv);
+
+  /* The first argument is the expression that resolves to the
+     block pointer.  */
+  if (argv[0] == NULL)
+    error ("No arguments provided.");
+
+  innermost_block = NULL;
+
+  /* Turn off "print_closure" or we'll get the full dynamic type and
+     have to cast it back to the basic invoke_impl struct.  I don't
+     want to be dependent on the details of how to do that.  */
+  print_closure_cleanup = make_cleanup_set_restore_print_closure (0);
+
+  expr = parse_expression (argv[0]);
+  block_val = evaluate_expression (expr);
+
+  do_cleanups (print_closure_cleanup);
+
+  block_type = check_typedef (value_type (block_val));
+  if (!block_type)
+    error ("Can't get type of block pointer expression: \"%s\".",
+	   argv[0]);
+
+  block_deref = TYPE_TARGET_TYPE (block_type);
+
+  implementation_fn = get_closure_implementation_fn (block_val);
+  if (implementation_fn == NULL)
+    error ("Could not find block implementation function for \"%s\".\n",
+	   argv[0]);
+
+  /* Okay, now we've found the block function, and we can call it,
+     passing in the block value, and whatever other arguments were
+     provided.  */
+  /* Count the args, remember that we have to pass the block pointer
+     as the first argument.  */
+  nargs = 0;
+  while (argv[nargs] != NULL)
+    nargs++;
+
+  val_argv = (struct value **) malloc (nargs * sizeof (struct value *));
+  make_cleanup (xfree, val_argv);
+
+  val_argv[0] = block_val;
+  for (i = 1; i < nargs; i++)
+    {
+      struct expression *arg_expr;
+      struct value *arg_value;
+      arg_expr = parse_expression (argv[i]);
+      arg_value = evaluate_expression (arg_expr);
+      val_argv[i] = arg_value;
+    }
+  
+  ret_val = call_function_by_hand (implementation_fn, nargs, val_argv);
+  
+  do_cleanups (argv_cleanup);
+
+  /* Now output the value returned, and stick it in the value
+     history.  */
+  histindex = record_latest_value (ret_val);
+
+  if (histindex >= 0)
+    annotate_value_history_begin (histindex, value_type (ret_val));
+  else
+    annotate_value_begin (value_type (ret_val));
+
+  if (histindex >= 0)
+    printf_filtered ("$%d = ", histindex);
+
+  if (histindex >= 0)
+    annotate_value_history_value ();
+
+  /* FIXME: Should we allow a /format? */
+  print_formatted (ret_val, 0, 0, gdb_stdout);
+  printf_filtered ("\n");
+
+  if (histindex >= 0)
+    annotate_value_history_end ();
+  else
+    annotate_value_end ();
+
+}
+
+/* END APPLE LOCAL */
 
 void
 _initialize_printcmd (void)
@@ -2092,7 +2264,7 @@ ADDRESS is an expression for the memory address to examine.\n\
 FMT is a repeat count followed by a format letter and a size letter.\n\
 Format letters are o(octal), x(hex), d(decimal), u(unsigned decimal),\n\
   t(binary), f(float), a(address), i(instruction), c(char) and s(string),\n\
-  T(OSType).\n\
+  T(OSType), A(floating point values in hex).\n\
 Size letters are b(byte), h(halfword), w(word), g(giant, 8 bytes).\n\
 The specified number of objects of the specified size are printed\n\
 according to the format.\n\n\
@@ -2217,6 +2389,15 @@ EXP may be preceded with /FMT, where FMT is a format letter\n\
 but no count or size letter (see \"x\" command)."));
   set_cmd_completer (c, location_completer);
   add_com_alias ("p", "print", class_vars, 1);
+
+  /* APPLE LOCAL: invoke-block */
+  c = add_com ("invoke-block", class_vars, invoke_block_command, "\
+Invoke the function associated with the block passed in as the first\n\
+argument.  Specify the other arguments to the block function in a space separated\n\
+list.  If you have spaces in an argument, use \"s to delimit the argument.  If you\n\
+need to put a \" in an argument, pass it as \\\".");
+  set_cmd_completer (c, location_completer);
+  /* END APPLE LOCAL */
 
   c = add_com ("inspect", class_vars, inspect_command, _("\
 Same as \"print\" command, except that if you are running in the epoch\n\

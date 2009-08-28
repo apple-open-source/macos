@@ -1,0 +1,49 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin getstring n 0.1]
+[moddesc   {A dialog which prompts for a string input}]
+[titledesc {A string dialog}]
+[require Tcl 8.4]
+[require getstring [opt 0.1]]
+[description]
+
+This package provides a dialog which consists of an Entry, OK, and
+Cancel buttons.
+
+[para]
+
+[list_begin definitions]
+
+[call [cmd ::getstring::tk_getString] [arg pathName] [arg variable] [arg text]\
+[opt options]]
+
+Creates a dialog which prompts the user with [arg text] to input a text string.
+The contents of the entry are put in the [arg variable] upon closure of the
+dialog. The command returns a boolean indicating if the user pressed OK or
+not. If -geometry is not specified, the dialog is centered in its parent
+toplevel unless its parent is . in which case the dialog is centered in the
+screen. 
+
+Options:
+-title
+-allowempty a boolean argument indicating if the dialog should accept an empty entry
+-entryoptions simply passes its arguments through to the entry widget. This is valuble for performing extra validation
+using the Entry widget validation hooks.
+-geometry specifies the geometry of the window
+
+[list_end]
+
+[section EXAMPLE]
+
+[example {
+package require getstring
+namespace import getstring::*
+
+if {[tk_getString .gs text "Feed me a string please:"]} {
+    puts "user entered: $text"
+}
+
+}]
+
+[keywords entry dialog string]
+[manpage_end]
+

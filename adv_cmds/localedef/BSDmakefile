@@ -1,9 +1,0 @@
-SCRIPTS=        ${.CURDIR}/localedef
-MAN1=            localedef.1
-SCRIPTSNAME=    localedef
-BINDIR= /usr/bin
-
-localedef all clean:
-	true
-
-.include <bsd.prog.mk>

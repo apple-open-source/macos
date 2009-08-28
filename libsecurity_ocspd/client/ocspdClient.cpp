@@ -41,7 +41,7 @@ public:
 	~ocspdGlobals();
 	mach_port_t serverPort();
 private:
-	UnixPlusPlus::StaticForkMonitor mForkMonitor;
+	UnixPlusPlus::ForkMonitor mForkMonitor;
 	MachPlusPlus::Port mServerPort;
 	Mutex mLock;
 };
@@ -72,12 +72,12 @@ mach_port_t ocspdGlobals::serverPort()
 		return rtnPort;
 	}
 	
-	char *serverName = NULL;
+	const char *serverName = NULL;
 	#ifndef	NDEBUG
 	serverName = getenv(OCSPD_BOOTSTRAP_ENV);
 	#endif
 	if(serverName == NULL) {
-		serverName = OCSPD_BOOTSTRAP_NAME;
+		serverName = (char*) OCSPD_BOOTSTRAP_NAME;
 	}
 	try {
 		mServerPort = MachPlusPlus::Bootstrap().lookup(serverName);

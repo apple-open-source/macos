@@ -113,8 +113,8 @@ protected:
 	//////////////////////////////////////
 	// callback static methods
 	
-	static void staticORBCompletion( void *refcon, IOReturn result, io_user_reference_t *args );
-	virtual void ORBCompletion( IOReturn result, io_user_reference_t *args );
+	static void staticORBCompletion( void *refcon, IOReturn result, io_user_reference_t *args, int numArgs );
+	virtual void ORBCompletion( IOReturn result, io_user_reference_t *args, int numArgs );
 
 public:
 	

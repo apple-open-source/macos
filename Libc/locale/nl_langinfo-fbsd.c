@@ -59,6 +59,8 @@ nl_langinfo_l(nl_item item, locale_t loc)
 			else if (strcmp(s, "C") == 0 ||
 				 strcmp(s, "POSIX") == 0)
 				ret = "US-ASCII";
+			else if (strcmp(s, "UTF-8") == 0)
+				ret = "UTF-8";
 		}
 		break;
 	case D_T_FMT:

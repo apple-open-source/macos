@@ -157,7 +157,7 @@ EventTraceCauseDesc IrLSAPConnTraceEvents[] = {
     {kDequeueEventEnd,              "IrLSAPConn: Event End"}
 };
 
-#define XTRACE(x, y, z) IrDALogAdd( x, y, (int)z & 0xffff, IrLSAPConnTraceEvents, true)
+#define XTRACE(x, y, z) IrDALogAdd( x, y, (uintptr_t)z & 0xffff, IrLSAPConnTraceEvents, true)
 #else
 #define XTRACE(x, y, z) ((void)0)
 #endif
@@ -176,7 +176,7 @@ TLSAPConn::tLSAPConn(TIrGlue* irda, TIrStream* client)
 {
     TLSAPConn *obj = new TLSAPConn;
     
-    XTRACE(kNullEvent, (int)obj >> 16, obj);
+    XTRACE(kNullEvent, 0, obj);
     
     if (obj && !obj->Init(irda, client)) {
 	obj->release();
@@ -192,7 +192,7 @@ TLSAPConn::tLSAPConn(TIrGlue* irda, TIrStream* client)
 void
 TLSAPConn::free()
 {
-    XTRACE(kDestroy, (int)this >> 16, this);
+    XTRACE(kDestroy, 0, this);
     // Free things allocated by TLSAPConn
     // Release my lsapId if it was obtained
     if ((fMyLSAPId != kInvalidLSAPId) && (fMyLSAPId != kNameServerLSAPId)) {
@@ -270,7 +270,7 @@ void TLSAPConn::AssignId(ULong id)
 //--------------------------------------------------------------------------------
 UByte TLSAPConn::GetMyLSAPId(void)
 {
-    XTRACE(kGetMyId, (int)this >> 16, this);
+    XTRACE(kGetMyId, 0, this);
     XTRACE(kGetMyId, 0, fMyLSAPId);
     return fMyLSAPId;
 };
@@ -387,7 +387,7 @@ void TLSAPConn::HandleDisconnectedStateEvent(ULong event)
 		// Throw any get/put requests that were in the pipeline back with an error
 		TIrEvent* getPutReq = (TIrEvent*)GetCurrentEvent();
 		XTRACE(kDiscLeftoversReplyEvent, event, 0);
-		XTRACE(kDiscLeftoversReplyEvent, (int)fClient >> 16, fClient);   // testing
+		XTRACE(kDiscLeftoversReplyEvent, 0, fClient);   // testing
 		getPutReq->fEvent = (UByte)RequestIdToReplyId(getPutReq->fEvent);
 		getPutReq->fResult = kIrDAErrNotConnected;  // ***FIXME: Better result code?
 		fClient->EnqueueEvent(getPutReq);
@@ -403,7 +403,7 @@ void TLSAPConn::HandleDisconnectedStateEvent(ULong event)
 		// Pass the replies up to the client
 		TIrEvent* reply = (TIrEvent*)GetCurrentEvent();
 		XTRACE(kDiscLeftoversReplyEvent, event, reply->fPendEvent);
-		XTRACE(kDiscLeftoversReplyEvent, (int)fClient >> 16, fClient);   // testing
+		XTRACE(kDiscLeftoversReplyEvent, 0, fClient);   // testing
 		reply->fEvent = (UByte)RequestIdToReplyId(reply->fPendEvent);
 		fClient->EnqueueEvent(reply);
 	    }
@@ -999,7 +999,7 @@ void TLSAPConn::HandleDisconnectPendingStateEvent(ULong event)
     //static int rejectCount = 0;               // temp debugging
     
     XTRACE(kLogDiscPendingEvent, 0, event);
-    XTRACE(kLogDiscPendingClient, (int)fClient >> 16, fClient);
+    XTRACE(kLogDiscPendingClient, 0, fClient);
     
     switch (event) {
     
@@ -1032,7 +1032,7 @@ void TLSAPConn::HandleDisconnectPendingStateEvent(ULong event)
 	case kIrPutDataReplyEvent:
 	    XTRACE(kLogDiscPendingMiscReply, event, eventBlock->fPendEvent);
 	    if (GetCurrentEvent() == fPendConnLstn) {
-		XTRACE(kLogDiscPendingConnLstnDone, (int)fPendConnLstn >> 16, fPendConnLstn);
+		XTRACE(kLogDiscPendingConnLstnDone, 0, fPendConnLstn);
 		fPendConnLstn = nil;            // there isn't a listen/connect pending event anymore
 	    }
 	    

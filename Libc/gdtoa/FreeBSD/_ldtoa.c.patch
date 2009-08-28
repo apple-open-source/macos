@@ -1,6 +1,6 @@
---- _ldtoa.c.orig	2004-06-03 15:17:18.000000000 -0700
-+++ _ldtoa.c	2005-10-09 00:09:11.000000000 -0700
-@@ -46,7 +46,7 @@
+--- _ldtoa.c.orig	2008-09-07 11:38:10.000000000 -0700
++++ _ldtoa.c	2008-09-07 12:55:35.000000000 -0700
+@@ -46,7 +46,7 @@ char *
  __ldtoa(long double *ld, int mode, int ndigits, int *decpt, int *sign,
      char **rve)
  {
@@ -9,7 +9,7 @@
  		LDBL_MANT_DIG,			/* nbits */
  		LDBL_MIN_EXP - LDBL_MANT_DIG,	/* emin */
  		LDBL_MAX_EXP - LDBL_MANT_DIG,	/* emax */
-@@ -61,28 +61,55 @@
+@@ -61,28 +61,57 @@ __ldtoa(long double *ld, int mode, int n
  	char *ret;
  	union IEEEl2bits u;
  	uint32_t bits[(LDBL_MANT_DIG + 31) / 32];
@@ -17,9 +17,7 @@
 +#ifdef Honor_FLT_ROUNDS
 +	int rounding = Flt_Rounds;
 +#endif
-+#if defined(__ppc__) || defined(__ppc64__)
 +	int type;
-+#endif /* defined(__ppc__) || defined(__ppc64__) */
  
  	u.e = *ld;
 +#if defined(__ppc__) || defined(__ppc64__)
@@ -32,16 +30,21 @@
 +		type = FP_SUBNORMAL;
 +	if (type == FP_SUBNORMAL)
 +		u.e *= 1.0e32L;
++#else /* !defined(__ppc__) && !defined(__ppc64__) */
++	type = fpclassify(u.e);
 +#endif /* defined(__ppc__) || defined(__ppc64__) */
  	*sign = u.bits.sign;
  	be = u.bits.exp - (LDBL_MAX_EXP - 1) - (LDBL_MANT_DIG - 1);
- 	LDBL_TO_ARRAY32(u, bits);
- 
 +#if defined(__ppc__) || defined(__ppc64__)
-+	switch (type) {
-+	case FP_SUBNORMAL:
++	be -= LDBL_TO_ARRAY32(u, bits);
 +#else /* !defined(__ppc__) && !defined(__ppc64__) */
- 	switch (fpclassify(u.e)) {
+ 	LDBL_TO_ARRAY32(u, bits);
++#endif /* defined(__ppc__) || defined(__ppc64__) */
+ 
+-	switch (fpclassify(u.e)) {
++	switch (type) {
++#if defined(__ppc__) || defined(__ppc64__)
++	case FP_SUBNORMAL:
 +#endif /* defined(__ppc__) || defined(__ppc64__) */
  	case FP_NORMAL:
 +	case FP_SUPERNORMAL:
@@ -67,8 +70,12 @@
  	case FP_INFINITE:
  		kind = STRTOG_Infinite;
  		break;
-@@ -93,8 +120,19 @@
- 		abort();
+@@ -90,11 +119,22 @@ __ldtoa(long double *ld, int mode, int n
+ 		kind = STRTOG_NaN;
+ 		break;
+ 	default:
+-		abort();
++		LIBC_ABORT("fpclassify returned %d", type);
  	}
  
 -	ret = gdtoa(&fpi, be, (ULong *)bits, &kind, mode, ndigits, decpt, rve);

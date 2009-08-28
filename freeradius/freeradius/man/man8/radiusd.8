@@ -1,42 +1,93 @@
-.TH RADIUSD 8 "23 June 2004" "" "FreeRADIUS Daemon"
+.TH RADIUSD 8 "27 Dec 2007" "" "FreeRADIUS Daemon"
 .SH NAME
 radiusd - Authentication, Authorization and Accounting server
 .SH SYNOPSIS
 .B radiusd
-.RB [ \-A ]
-.RB [ \-S ]
-.RB [ \-a
-.IR accounting_directory ]
-.RB [ \-b ]
-.RB [ \-c ]
+.RB [ \-C ]
 .RB [ \-d
 .IR config_directory ]
 .RB [ \-f ]
 .RB [ \-i
 .IR ip-address ]
-.RB [ \-l
-.IR log_directory ]
-.RB [ \-g
-.IR facility ]
+.RB [ \-n
+.IR name ]
 .RB [ \-p
 .IR port ]
 .RB [ \-s ]
 .RB [ \-v ]
 .RB [ \-x ]
 .RB [ \-X ]
-.RB [ \-y ]
-.RB [ \-z ]
 .SH DESCRIPTION
-This is the FreeRADIUS implementation of the well known
-.B radius
-server program.  Even though this program is largely compatible with
-\fILivingston's\fP radius version 2.0, it is \fBnot\fP based on any
-part of that code.
-.PP
 FreeRADIUS is a high-performance and highly configurable RADIUS
-server.  As a result, it can be difficult to configure in systems with
-complex requirements.  Our suggestion is to proceed via the following
-steps:
+server.  It supports many database back-ends such as flat-text files,
+SQL, LDAP, Perl, Python, etc.  It also supports many authentication
+protocols such as PAP, CHAP, MS-CHAP(v2), HTTP Digest, and EAP
+(EAP-MD5, EAP-TLS, PEAP, EAP-TTLS, EAP-SIM, etc.).
+
+Version 2.0 has preliminary support for Cisco's VLAN Query Protocol,
+also known as VMPS.
+.SH OPTIONS
+The following command-line options are accepted by the server.
+.IP \-C
+Check the configuration and exit immediately.  If there is a problem
+reading the configuration, then the server will exit with a non-zero
+status code.  If the configuration appears to be acceptable, then the
+server will exit with a zero status code.
+
+Note that there are many limitations to this check.  Due to the
+complexities involved in \fIalmost\fP starting a RADIUS server, these
+checks are necessarily incomplete.  The server can return a zero
+status code when run with -C, but may still exit with an error when
+run normally.
+
+See the output of 
+.B "radiusd -XC"
+for an informative list of which modules are checked for correct
+configuration, and which modules are skipped, and therefore not checked.
+.IP "\-d \fIconfig directory\fP"
+Defaults to \fI/etc/raddb\fP. \fBRadiusd\fP looks here for its configuration
+files such as the \fIdictionary\fP and the \fIusers\fP files.
+.IP "\-i \fIip-address\fP"
+Defines which IP address that the server uses for sending and
+receiving packets.
+
+If this command-line option is given, then the "bind_address" and all
+"listen{}" entries in \fIradiusd.conf\fP are ignored.
+
+This option MUST be used in conjunction with "-p".
+.IP \-f
+Do not fork, stay running as a foreground process.
+.IP "\-n 
+Read \fIraddb/name.conf\fP instead of \fIraddb/radiusd.conf\fP.
+.IP "\-p \fIport\fP"
+Normally radiusd listens on the ports specified in \fI/etc/services\fP
+(radius and radacct). When this option is given, radiusd listens on
+the specified port for authentication requests and on the specified
+port +1 for accounting requests.
+
+If this command-line option is given, then the "port" directive in
+\fIradiusd.conf\fP is ignored.
+
+This option MUST be used in conjunction with "-i".
+.IP \-s
+Run in "single server" mode.  The server normally runs with multiple
+threads and/or processes, which can lower its response time to
+requests.  Some systems have issues with threading, however, so
+running in "single server" mode may help to address those issues.  In
+single server mode, the server will also not "daemonize"
+(auto-background) itself.
+.IP \-v
+Print server version information and exit.
+.IP \-X
+Debugging mode.  Equivalent to -sfxx -l stdout
+.IP \-x
+Finer-grained debug mode. In this mode the server will print details
+of every request on it's \fBstdout\fP output. You can specify this
+option multiple times (-x -x or -xx) to get more detailed output.
+.SH DEBUGGING
+The server can be difficult to configure correctly in systems with
+complex requirements.  We STRONGLY RECOMMEND proceeding via the
+following steps:
 .PP
 1) Always run the server in debugging mode (
 .B radiusd -X
@@ -65,7 +116,6 @@ include the output from debugging mode (
 .B radiusd -X
 ).  This information will allow people to help you.  Without it, your
 message will get ignored.
-
 .SH BACKGROUND
 \fBRADIUS\fP is a protocol spoken between an access server, typically
 a device connected to several modems or ISDN lines, and a \fBradius\fP
@@ -79,129 +129,6 @@ The access server also sends login and logout records to the \fBradius\fP
 server so accounting can be done. These records are kept for each terminal
 server seperately in a file called \fBdetail\fP, and in the \fIwtmp\fP
 compatible logfile \fB/var/log/radwtmp\fP.
-
-.SH OPTIONS
-
-.IP \-A
-Write a file \fIdetail.auth\fP in addition to the standard \fBdetail\fP file
-in the same directory. This file will contain all the authentication-request
-records. This can be useful for debugging, but not for normal operation.
-
-This command line option is accepted only for backwards
-compatibility.  It no longer does anything.  See the configuration for
-the \fIdetail\fP module in \fIradiusd.conf\fP.
-
-.IP \-S
-Write the stripped usernames (without prefix or suffix) in the \fBdetail\fP
-file instead of the raw record as received from the terminal server.
-
-This command line option is deprecated.  See the \fIlog_stripped_names\fP
-configuration item in the \fIradiusd.conf\fP file.
-
-.IP "\-a \fIaccounting directory\fP"
-This defaults to \fI/var/log/radacct\fP. If that directory exists,
-\fBradiusd\fP will write an ascii accounting record into a detail file for
-every login/logout recorded. The location of the detail file is
-\fIacct_dir/\fP\fBterminal_server\fP\fI/detail\fP.
-
-This command line option is deprecated.  See the \fIradacctdir\fP
-configuration item in the \fIradiusd.conf\fP file.
-
-.IP "\-l \fIlogging directory\fP"
-This defaults to \fI/var/log\fP. \fBRadiusd\fP writes a logfile here
-called \fIradius.log\fP. It contains informational and error messages,
-and optionally a record of every login attempt (for aiding an ISP's
-helpdesk). The special arguments \fIstdout\fP and \fIstderr\fP cause
-the information to get written to the standard output, or standard
-error instead. The special argument \fIsyslog\fP sends the information
-with \fBsyslog\fP(3).
-
-This command line option is deprecated.  See the \fIlog_dir\fP
-configuration item in the \fIradiusd.conf\fP file.
-
-.IP "\-g \fIfacility\fP"
-Specifies the syslog facility to be used with \fB-l syslog\fP. Default is
-\fIdaemon\fP. Another reasonable choice would be \fIauthpriv\fP.
-
-.IP "\-d \fIconfig directory\fP"
-Defaults to \fI/etc/raddb\fP. \fBRadiusd\fP looks here for its configuration
-files such as the \fIdictionary\fP and the \fIusers\fP files.
-
-.IP "\-i \fIip-address\fP"
-Defines which IP addres to bind to for sending and receiving packets-
-useful for multi-homed hosts.
-
-This command line option is deprecated.  See the \fIbind_address\fP
-configuration item in the \fIradiusd.conf\fP file.
-
-.IP \-b
-If the \fBradius\fP server binary was compiled with \fIdbm\fP support,
-this flag tells it to actually \fIuse\fP the database files instead of the
-flat \fIusers\fP file.
-
-This command line option is deprecated, and does not do anything.
-
-.IP \-c
-This is still an \fIexperimental\fP feature.
-Cache the password, group and shadow files in a hash-table in memory.
-This makes the radius process use a bit more memory, but username
-lookups in the password file are \fImuch\fP faster.
-.IP
-After every change in the real password file (user added, password changed)
-you need to send a \fBSIGHUP\fP to the radius server to let it re-read
-its configuration and the password/group/shadow files !
-
-This command line option is deprecated.  See the \fIcache\fP
-configuration item for the \fIunix\fP module in the \fIradiusd.conf\fP
-file.
-
-.IP \-f
-Do not fork, stay running as a foreground process.
-
-.IP "\-p \fIport\fP"
-Normally radiusd listens on the ports specified in \fI/etc/services\fP
-(radius and radacct). With this option radiusd listens on the specified
-port for authentication requests and on the specified port +1 for
-accounting requests.
-
-This command line option is deprecated.  See the \fIport\fP
-configuration item in the \fIradiusd.conf\fP file.
-
-.IP \-s
-Run in "single server" mode.  The server normally runs with multiple
-threads and/or processes, which can lower its response time to
-requests.  Some systems have issues with threading, however, so
-running in "single server" mode may help to address those issues.  In
-single server mode, the server will also not "daemonize"
-(auto-background) itself.
-
-.IP \-v
-Print server version information and exit.
-
-.IP \-x
-Debug mode. In this mode the server will print details of every request
-on it's \fBstderr\fP output. Most useful in combination with \fB-s\fP.
-You can specify this option 2 times (-x -x or -xx) to get a bit more
-debugging output.
-
-.IP \-X
-Extended debug mode.  Equivalent to -sfxx, but simpler to explain.
-
-.IP \-y
-Write details about every authentication request in the
-\fIradius.log\fP file.
-
-This command line option is deprecated.  See the \fIlog_auth\fP
-configuration item in the \fIradiusd.conf\fP file.
-
-.IP \-z
-Include the password in the \fIradius.log\fP file \fBeven\fP for successful
-logins. \fIThis is very insecure!\fP.
-
-This command line option is deprecated.  See the
-\fIlog_auth_badpass\fP and the \fIlog_auth_goodpass\fP configuration
-items in the \fIradiusd.conf\fP file.
-
 .SH CONFIGURATION
 \fBRadiusd\fP uses a number of configuration files. Each file has it's
 own manpage describing the format of the file. These files are:
@@ -212,19 +139,6 @@ items.
 This file is usually static. It defines all the possible RADIUS attributes
 used in the other configuration files.  You don't have to modify it.
 It includes other dictionary files in the same directory.
-.IP clients
-[ Deprecated ] Contains the IP address and a secret key for every
-client that wants to connect to the server.
-.IP naslist
-Contains an entry for every NAS (Network Access Server) in the network. This
-is not the same as a client, especially if you have \fBradius\fP proxy server
-in your network. In that case, the proxy server is the client and it sends
-requests for different NASes.
-.IP
-It also contains a abbreviated name for each
-terminal server, used to create the directory name where the \fBdetail\fP
-file is written, and used for the \fB/var/log/radwtmp\fP file. Finally
-it also defines what type of NAS (Cisco, Livingston, Portslave) the NAS is.
 .IP hints
 Defines certain hints to the radius server based on the users's loginname
 or other attributes sent by the access server. It also provides for
@@ -244,7 +158,7 @@ the UNIX \fI/etc/passwd\fP file. However it is also possible to define all
 users, and their passwords, in this file.
 .SH SEE ALSO
 radiusd.conf(5), users(5), huntgroups(5), hints(5),
-clients(5), dictionary(5).
+dictionary(5).
 .SH AUTHOR
 The FreeRADIUS Server Project (http://www.freeradius.org)
 

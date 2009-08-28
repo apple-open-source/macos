@@ -180,28 +180,12 @@ bool AppleRAIDStripeMemoryDescriptor::configureForMemoryDescriptor(IOMemoryDescr
     
     mdMemoryDescriptor = memoryDescriptor;
     
-    _direction = memoryDescriptor->getDirection();
+    _flags = (_flags & ~kIOMemoryDirectionMask) | memoryDescriptor->getDirection();
     
     return _length != 0;
 }
 
-IOPhysicalAddress AppleRAIDStripeMemoryDescriptor::getPhysicalSegment(IOByteCount offset, IOByteCount *length)
-{
-    UInt32		memberBlockStart = (mdMemberByteStart + offset) / mdSetBlockSize;
-    UInt32		memberBlockOffset = (mdMemberByteStart + offset) % mdSetBlockSize;
-    UInt32		setBlockNumber = memberBlockStart * mdMemberCount + mdMemberIndex - mdSetBlockStart;
-    IOByteCount		setOffset = setBlockNumber * mdSetBlockSize + memberBlockOffset - mdSetBlockOffset;
-    IOPhysicalAddress	physAddress;
-    
-    physAddress = mdMemoryDescriptor->getPhysicalSegment(setOffset, length);
-    
-    memberBlockOffset = mdSetBlockSize - memberBlockOffset;
-    if (length && (*length > memberBlockOffset)) *length = memberBlockOffset;
-    
-    return physAddress;
-}
-
-addr64_t AppleRAIDStripeMemoryDescriptor::getPhysicalSegment64(IOByteCount offset, IOByteCount *length)
+addr64_t AppleRAIDStripeMemoryDescriptor::getPhysicalSegment(IOByteCount offset, IOByteCount *length, IOOptionBits options)
 {
     UInt32		memberBlockStart = (mdMemberByteStart + offset) / mdSetBlockSize;
     UInt32		memberBlockOffset = (mdMemberByteStart + offset) % mdSetBlockSize;
@@ -209,11 +193,10 @@ addr64_t AppleRAIDStripeMemoryDescriptor::getPhysicalSegment64(IOByteCount offse
     IOByteCount		setOffset = setBlockNumber * mdSetBlockSize + memberBlockOffset - mdSetBlockOffset;
     addr64_t		physAddress;
     
-    physAddress = mdMemoryDescriptor->getPhysicalSegment64(setOffset, length);
+    physAddress = mdMemoryDescriptor->getPhysicalSegment(setOffset, length, options);
     
     memberBlockOffset = mdSetBlockSize - memberBlockOffset;
     if (length && (*length > memberBlockOffset)) *length = memberBlockOffset;
     
     return physAddress;
 }
-

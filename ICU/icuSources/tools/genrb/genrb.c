@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 1998-2006, International Business Machines
+*   Copyright (C) 1998-2008, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -47,13 +47,14 @@ enum
     ICUDATADIR,
     WRITE_JAVA,
     COPYRIGHT,
-    PACKAGE_NAME,
+    /* PACKAGE_NAME, This option is deprecated and should not be used ever. */
     BUNDLE_NAME,
     WRITE_XLIFF,
     STRICT,
     NO_BINARY_COLLATION,
     /*added by Jing*/
-    LANGUAGE
+    LANGUAGE,
+    NO_COLLATION_RULES
 };
 
 UOption options[]={
@@ -68,12 +69,13 @@ UOption options[]={
                       UOPTION_ICUDATADIR,
                       UOPTION_WRITE_JAVA,
                       UOPTION_COPYRIGHT,
-                      UOPTION_PACKAGE_NAME,
+                      /* UOPTION_PACKAGE_NAME, This option is deprecated and should not be used ever. */
                       UOPTION_BUNDLE_NAME,
                       UOPTION_DEF( "write-xliff", 'x', UOPT_OPTIONAL_ARG),
                       UOPTION_DEF( "strict",    'k', UOPT_NO_ARG), /* 14 */
                       UOPTION_DEF( "noBinaryCollation", 'C', UOPT_NO_ARG),/* 15 */
-                      UOPTION_DEF( "language",  'l', UOPT_REQUIRES_ARG)
+                      UOPTION_DEF( "language",  'l', UOPT_REQUIRES_ARG), /* 16 */
+                      UOPTION_DEF( "omitCollationRules", 'R', UOPT_NO_ARG),/* 17 */
                   };
 
 static     UBool       write_java = FALSE;
@@ -140,16 +142,25 @@ main(int argc,
                 u_getDataDirectory(), u_getDataDirectory(), u_getDataDirectory());
         fprintf(stderr,
                 "\t-j or --write-java       write a Java ListResourceBundle for ICU4J, followed by optional encoding\n"
-                "\t                         defaults to ASCII and \\uXXXX format.\n"
+                "\t                         defaults to ASCII and \\uXXXX format.\n");
+                /* This option is deprecated and should not be used ever.
                 "\t-p or --package-name     For ICU4J: package name for writing the ListResourceBundle for ICU4J,\n"
-                "\t                         defaults to com.ibm.icu.impl.data\n");
+                "\t                         defaults to com.ibm.icu.impl.data\n"); */
         fprintf(stderr,
                 "\t-b or --bundle-name      bundle name for writing the ListResourceBundle for ICU4J,\n"
                 "\t                         defaults to LocaleElements\n"
-                "\t-x or --write-xliff      write a XLIFF file for the resource bundle. Followed by an optional output file name.\n"
+                "\t-x or --write-xliff      write an XLIFF file for the resource bundle. Followed by\n"
+                "\t                         an optional output file name.\n"
                 "\t-k or --strict           use pedantic parsing of syntax\n"
                 /*added by Jing*/
-                "\t-l or --language         For XLIFF: language code compliant with ISO 639.\n");
+                "\t-l or --language         for XLIFF: language code compliant with BCP 47.\n");
+        fprintf(stderr,
+                "\t-C or --noBinaryCollation  do not generate binary collation image;\n"
+                "\t                           makes .res file smaller but collator instantiation much slower;\n"
+                "\t                           maintains ability to get tailoring rules\n"
+                "\t-R or --omitCollationRules do not include collation (tailoring) rules;\n"
+                "\t                           makes .res file smaller and maintains collator instantiation speed\n"
+                "\t                           but tailoring rules will not be available (they are rarely used)\n");
 
         return argc < 0 ? U_ILLEGAL_ARGUMENT_ERROR : U_ZERO_ERROR;
     }
@@ -175,6 +186,7 @@ main(int argc,
     if(options[DESTDIR].doesOccur) {
         outputDir = options[DESTDIR].value;
     }
+    /* This option is deprecated and should never be used.
     if(options[PACKAGE_NAME].doesOccur) {
         gPackageName = options[PACKAGE_NAME].value;
         if(!strcmp(gPackageName, "ICUDATA"))
@@ -185,7 +197,7 @@ main(int argc,
         {
             gPackageName = NULL;
         }
-    }
+    }*/
 
     if(options[ENCODING].doesOccur) {
         encoding = options[ENCODING].value;
@@ -222,11 +234,7 @@ main(int argc,
         }
     }
 
-    if(options[NO_BINARY_COLLATION].doesOccur) {
-      initParser(FALSE);
-    } else {
-      initParser(TRUE);
-    }
+    initParser(options[NO_BINARY_COLLATION].doesOccur, options[NO_COLLATION_RULES].doesOccur);
 
     /*added by Jing*/
     if(options[LANGUAGE].doesOccur) {
@@ -250,6 +258,11 @@ main(int argc,
             printf("Processing file \"%s\"\n", theCurrentFileName);
         }
         processFile(arg, encoding, inputDir, outputDir, gPackageName, &status);
+    }
+
+    /* Dont return warnings as a failure */
+    if (! U_FAILURE(status)) {
+        return 0;
     }
 
     return status;

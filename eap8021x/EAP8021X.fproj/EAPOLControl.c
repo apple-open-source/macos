@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -65,8 +65,6 @@ EAPOLControlStart(const char * interface_name, CFDictionaryRef config_dict)
     mach_port_t			server;
     int				result = 0;
     kern_return_t		status;
-    xmlDataOut_t		xml_data = NULL;
-    CFIndex			xml_data_len = 0;
     mach_port_t 		unpriv_bootstrap_port = MACH_PORT_NULL;
     
     status = bootstrap_unprivileged(bootstrap_port, &unpriv_bootstrap_port);
@@ -83,15 +81,16 @@ EAPOLControlStart(const char * interface_name, CFDictionaryRef config_dict)
 	result = EINVAL;
 	goto done;
     }
-    if (!xmlSerialize(config_dict, &data, 
-		      (void **)&xml_data, &xml_data_len)) {
+    data = CFPropertyListCreateXMLData(NULL, config_dict);
+    if (data == NULL) {
 	result = ENOMEM;
 	goto done;
     }
     strncpy(if_name, interface_name, sizeof(if_name));
     status = eapolcontroller_start(server,
-				   if_name, xml_data,
-				   xml_data_len, 
+				   if_name, 
+				   (xmlDataOut_t)CFDataGetBytePtr(data),
+				   CFDataGetLength(data),
 				   unpriv_bootstrap_port,
 				   &result);
     if (status != KERN_SUCCESS) {
@@ -142,8 +141,6 @@ EAPOLControlUpdate(const char * interface_name, CFDictionaryRef config_dict)
     mach_port_t			server;
     int				result = 0;
     kern_return_t		status;
-    xmlDataOut_t		xml_data = NULL;
-    CFIndex			xml_data_len = 0;
 
     if (get_server_port(&server, &status) == FALSE) {
 	result = ENXIO;
@@ -153,15 +150,16 @@ EAPOLControlUpdate(const char * interface_name, CFDictionaryRef config_dict)
 	result = EINVAL;
 	goto done;
     }
-    if (!xmlSerialize(config_dict, &data, 
-		      (void **)&xml_data, &xml_data_len)) {
+    data = CFPropertyListCreateXMLData(NULL, config_dict);
+    if (data == NULL) {
 	result = ENOMEM;
 	goto done;
     }
     strncpy(if_name, interface_name, sizeof(if_name));
-    status = eapolcontroller_update(server,
-				    if_name, xml_data,
-				    xml_data_len, &result);
+    status = eapolcontroller_update(server, if_name,
+				    (xmlDataOut_t)CFDataGetBytePtr(data),
+				    CFDataGetLength(data),
+				    &result);
     if (status != KERN_SUCCESS) {
 	mach_error("eapolcontroller_update failed", status);
 	result = ENXIO;
@@ -196,6 +194,49 @@ EAPOLControlRetry(const char * interface_name)
 }
 
 int
+EAPOLControlProvideUserInput(const char * interface_name, 
+			     CFDictionaryRef user_input)
+{
+    CFDataRef			data = NULL;
+    if_name_t			if_name;
+    mach_port_t			server;
+    int				result = 0;
+    kern_return_t		status;
+    xmlDataOut_t		xml_data = NULL;
+    CFIndex			xml_data_len = 0;
+
+    if (get_server_port(&server, &status) == FALSE) {
+	result = ENXIO;
+	goto done;
+    }
+    if (user_input != NULL) {
+	if (isA_CFDictionary(user_input) == NULL) {
+	    result = EINVAL;
+	    goto done;
+	}
+	data = CFPropertyListCreateXMLData(NULL, user_input);
+	if (data == NULL) {
+	    result = ENOMEM;
+	    goto done;
+	}
+	xml_data = (xmlDataOut_t)CFDataGetBytePtr(data);
+	xml_data_len = CFDataGetLength(data);
+    }
+    strncpy(if_name, interface_name, sizeof(if_name));
+    status = eapolcontroller_provide_user_input(server,
+						if_name, xml_data,
+						xml_data_len, &result);
+    if (status != KERN_SUCCESS) {
+	mach_error("eapolcontroller_provide_user_input failed", status);
+	result = ENXIO;
+	goto done;
+    }
+ done:
+    my_CFRelease(&data);
+    return (result);
+}
+
+int
 EAPOLControlCopyStateAndStatus(const char * interface_name, 
 			       EAPOLControlState * state,
 			       CFDictionaryRef * status_dict_p)
@@ -223,18 +264,18 @@ EAPOLControlCopyStateAndStatus(const char * interface_name,
 	goto done;
     }
     if (status_data != NULL) {
-	if (xmlUnserialize((CFPropertyListRef *)status_dict_p, 
-			   status_data, status_data_len) == FALSE) {
-	    result = EINVAL;
-	    goto failed;
+	*status_dict_p =
+	    my_CFPropertyListCreateWithBytePtrAndLength(status_data, 
+							status_data_len);
+	(void)vm_deallocate(mach_task_self(), (vm_address_t)status_data, 
+			    status_data_len);
+	if (*status_dict_p == NULL) {
+	    result = ENOMEM;
+	    goto done;
 	}
     }
     
  done:
-    return (result);
-
- failed:
-    my_CFRelease(status_dict_p);
     return (result);
 }
 
@@ -279,6 +320,110 @@ EAPOLControlKeyCreate(const char * interface_name)
     my_CFRelease(&if_name_cf);
     return (str);
 }
+
+#if ! TARGET_OS_EMBEDDED
+int
+EAPOLControlStartSystem(const char * interface_name, CFDictionaryRef options)
+{
+    CFDataRef			data = NULL;
+    if_name_t			if_name;
+    mach_port_t			server;
+    int				result = 0;
+    kern_return_t		status;
+    xmlDataOut_t		xml_data = NULL;
+    CFIndex			xml_data_len = 0;
+    
+    if (get_server_port(&server, &status) == FALSE) {
+	result = ENXIO;
+	goto done;
+    }
+    if (options != NULL) {
+	if (isA_CFDictionary(options) == NULL) {
+	    result = EINVAL;
+	    goto done;
+	}
+	data = CFPropertyListCreateXMLData(NULL, options);
+	if (data == NULL) {
+	    result = ENOMEM;
+	    goto done;
+	}
+	xml_data = (xmlDataOut_t)CFDataGetBytePtr(data);
+	xml_data_len = CFDataGetLength(data);
+    }
+    strncpy(if_name, interface_name, sizeof(if_name));
+    status = eapolcontroller_start_system(server, if_name,
+					  xml_data, xml_data_len, 
+					  &result);
+    if (status != KERN_SUCCESS) {
+	mach_error("eapolcontroller_start_system failed", status);
+	result = ENXIO;
+	goto done;
+    }
+    if (result != 0) {
+	fprintf(stderr, "eapolcontroller_start_system: result is %d\n", result);
+    }
+ done:
+    my_CFRelease(&data);
+    return (result);
+}
+
+/*
+ * Function: EAPOLControlCopyLoginWindowConfiguration
+ * Purpose:
+ *   If LoginWindow mode is activated during this login session, returns the
+ *   configuration that was used.  This value is cleared when the user logs out.
+ *
+ * Returns:
+ *   0 and non-NULL CFDictionaryRef value in *config_p on success,
+ *   non-zero on failure
+ */
+int
+EAPOLControlCopyLoginWindowConfiguration(const char * interface_name,
+					 CFDictionaryRef * ret_config_p)
+{
+    if_name_t			if_name;
+    int				result = 0;
+    mach_port_t			server;
+    kern_return_t		status;
+    xmlDataOut_t		config = NULL;
+    unsigned int		config_len = 0;
+
+    *ret_config_p = NULL;
+    if (get_server_port(&server, &status) == FALSE) {
+	result = ENXIO;
+	goto done;
+    }
+    strncpy(if_name, interface_name, sizeof(if_name));
+    status = eapolcontroller_copy_loginwindow_config(server,
+						     if_name,
+						     &config,
+						     &config_len,
+						     &result);
+    if (status != KERN_SUCCESS) {
+	mach_error("eapolcontroller_copy_loginwindow_config failed", status);
+	result = ENXIO;
+	goto done;
+    }
+    if (result != 0 || config == NULL) {
+	if (result == 0) {
+	    /* should not happen */
+	    result = ENOENT;
+	}
+	goto done;
+    }
+    *ret_config_p = my_CFPropertyListCreateWithBytePtrAndLength(config,
+								config_len);
+    (void)vm_deallocate(mach_task_self(), (vm_address_t)config,
+			config_len);
+    if (*ret_config_p == NULL) {
+	result = ENOMEM;
+	goto done;
+    }
+    
+ done:
+    return (result);
+}
+#endif /* ! TARGET_OS_EMBEDDED */
 
 CFStringRef
 EAPOLControlAnyInterfaceKeyCreate(void)

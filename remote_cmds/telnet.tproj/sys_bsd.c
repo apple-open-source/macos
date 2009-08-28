@@ -31,33 +31,27 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
-#include <stdlib.h>
-#include <err.h>
-
-#ifdef __FBSDID
-__FBSDID("$FreeBSD: src/crypto/telnet/telnet/sys_bsd.c,v 1.2.8.4 2002/04/13 10:59:08 markm Exp $");
-#endif
-
-#ifndef __unused
-#define __unused        __attribute__((__unused__))
-#endif
-
+#if 0
 #ifndef lint
 static const char sccsid[] = "@(#)sys_bsd.c	8.4 (Berkeley) 5/30/95";
 #endif
+#endif
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/contrib/telnet/telnet/sys_bsd.c,v 1.12 2003/05/04 02:54:48 obrien Exp $");
 
 /*
  * The following routines try to encapsulate what is system dependent
  * (at least between 4.x and dos) which is used in telnet.c.
  */
 
-#include <sys/types.h>
+#include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <err.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <arpa/telnet.h>
 
@@ -660,9 +654,9 @@ TerminalNewMode(int f)
 	(void) signal(SIGTSTP, SIG_DFL);
 # ifndef SOLARIS
 	(void) sigsetmask(sigblock(0) & ~(1<<(SIGTSTP-1)));
-# else	SOLARIS
+# else	/* SOLARIS */
 	(void) sigrelse(SIGTSTP);
-# endif	SOLARIS
+# endif	/* SOLARIS */
 #endif	/* SIGTSTP */
 #ifndef USE_TERMIO
 	ltc = oltc;
@@ -1115,7 +1109,7 @@ process_rings(int netin, int netout, int netex, int ttyin, int ttyout, int poll)
      */
     if (FD_ISSET(tin, ibitsp)) {
 	FD_CLR(tin, ibitsp);
-	c = TerminalRead((char *)ttyiring.supply, ring_empty_consecutive(&ttyiring));
+	c = TerminalRead((char*)ttyiring.supply, ring_empty_consecutive(&ttyiring));
 	if (c < 0 && errno == EIO)
 	    c = 0;
 	if (c < 0 && errno == EWOULDBLOCK) {

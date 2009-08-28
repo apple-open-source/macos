@@ -1,7 +1,10 @@
 package DBIx::Class::Storage::Statistics;
 use strict;
+use warnings;
 
-use base qw/DBIx::Class::AccessorGroup Class::Data::Accessor/;
+use base qw/Class::Accessor::Grouped/;
+use IO::File;
+
 __PACKAGE__->mk_group_accessors(simple => qw/callback debugfh/);
 
 =head1 NAME
@@ -43,6 +46,35 @@ be an IO::Handle compatible object (only the C<print> method is used). Initially
 should be set to STDERR - although see information on the
 L<DBIC_TRACE> environment variable.
 
+=head2 print
+
+Prints the specified string to our debugging filehandle, which we will attempt
+to open if we haven't yet.  Provided to save our methods the worry of how
+to display the message.
+
+=cut
+sub print {
+  my ($self, $msg) = @_;
+
+  if(!defined($self->debugfh())) {
+    my $fh;
+    my $debug_env = $ENV{DBIX_CLASS_STORAGE_DBI_DEBUG}
+                  || $ENV{DBIC_TRACE};
+    if (defined($debug_env) && ($debug_env =~ /=(.+)$/)) {
+      $fh = IO::File->new($1, 'w')
+        or die("Cannot open trace file $1");
+    } else {
+      $fh = IO::File->new('>&STDERR')
+        or die('Duplication of STDERR for debug output failed (perhaps your STDERR is closed?)');
+    }
+
+    $fh->autoflush();
+    $self->debugfh($fh);
+  }
+
+  $self->debugfh->print($msg);
+}
+
 =head2 txn_begin
 
 Called when a transaction begins.
@@ -51,7 +83,7 @@ Called when a transaction begins.
 sub txn_begin {
   my $self = shift;
 
-  $self->debugfh->print("BEGIN WORK\n");
+  $self->print("BEGIN WORK\n");
 }
 
 =head2 txn_rollback
@@ -62,7 +94,7 @@ Called when a transaction is rolled back.
 sub txn_rollback {
   my $self = shift;
 
-  $self->debugfh->print("ROLLBACK\n");
+  $self->print("ROLLBACK\n");
 }
 
 =head2 txn_commit
@@ -73,7 +105,7 @@ Called when a transaction is committed.
 sub txn_commit {
   my $self = shift;
 
-  $self->debugfh->print("COMMIT\n");
+  $self->print("COMMIT\n");
 }
 
 =head2 query_start
@@ -93,7 +125,7 @@ sub query_start {
     return;
   }
 
-  $self->debugfh->print($message);
+  $self->print($message);
 }
 
 =head2 query_end

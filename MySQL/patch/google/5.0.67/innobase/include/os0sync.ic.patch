@@ -1,0 +1,36 @@
+--- base5067/innobase/include/os0sync.ic	2008-08-04 05:19:14.000000000 -0700
++++ m5067/innobase/include/os0sync.ic	2008-09-08 06:53:12.000000000 -0700
+@@ -44,3 +44,33 @@
+ #endif
+ #endif
+ }
++
++#ifdef HAVE_ATOMIC_BUILTINS
++/**************************************************************
++Atomic compare-and-swap for InnoDB. Currently requires GCC atomic builtins. */
++UNIV_INLINE
++ibool
++os_compare_and_swap(
++/*================*/
++					/* out: true if swapped */
++	volatile lint* 	ptr,		/* in: pointer to target */
++	lint		oldVal,		/* in: value to compare to */
++	lint		newVal)		/* in: value to swap in */
++{
++	return __sync_bool_compare_and_swap(ptr, oldVal, newVal);
++}
++
++/**************************************************************
++Atomic increment for InnoDB. Currently requires GCC atomic builtins. */
++UNIV_INLINE
++lint
++os_atomic_increment(
++/*================*/
++					/* out: resulting value */
++	volatile lint*	ptr,		/* in: pointer to target */
++	lint		amount)		/* in: amount of increment */
++{
++	return __sync_add_and_fetch(ptr, amount);
++}
++
++#endif /* HAVE_ATOMIC_BUILTINS */

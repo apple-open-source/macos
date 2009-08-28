@@ -1,5 +1,0 @@
-/CFLAGS = /s/$/ + '  XXXCFLAGSXXX'/
-/os\.system/a
-	os.system('strip -Sx "%(dest)s"' % locals())
-.
-w

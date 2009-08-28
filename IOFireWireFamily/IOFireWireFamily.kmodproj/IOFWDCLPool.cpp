@@ -292,7 +292,7 @@ IOFWDCLPool::importUserProgram (
 		InfoLog("...done error=%x\n", error ) ;		
 	}
 	
-	delete exportData;
+	delete[] exportData;
 	
 	return error ;
 }

@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-* Copyright (c) 2002-2006, International Business Machines
+* Copyright (c) 2002-2008, International Business Machines
 * Corporation and others.  All Rights Reserved.
 **********************************************************************
 */
@@ -219,40 +219,51 @@ typedef enum UCurrCurrencyType {
 U_STABLE UEnumeration * U_EXPORT2
 ucurr_openISOCurrencies(uint32_t currType, UErrorCode *pErrorCode);
 
-
-#ifdef XP_CPLUSPLUS
-#include "unicode/unistr.h"
-#include "unicode/parsepos.h"
-U_NAMESPACE_BEGIN
-
-/**
- * Attempt to parse the given string as a currency, either as a
- * display name in the given locale, or as a 3-letter ISO 4217
- * code.  If multiple display names match, then the longest one is
- * selected.  If both a display name and a 3-letter ISO code
- * match, then the display name is preferred, unless it's length
- * is less than 3.
- *
- * @param locale the locale of the display names to match
- * @param text the text to parse
- * @param pos input-output position; on input, the position within
- * text to match; must have 0 <= pos.getIndex() < text.length();
- * on output, the position after the last matched character. If
- * the parse fails, the position in unchanged upon output.
- * @return the ISO 4217 code, as a string, of the best match, or
- * null if there is no match
- *
- * @internal
+/** 
+ * Finds the number of valid currency codes for the
+ * given locale and date.
+ * @param locale the locale for which to retrieve the
+ *               currency count.
+ * @param date   the date for which to retrieve the
+ *               currency count for the given locale.
+ * @param ec     error code
+ * @return       the number of currency codes for the
+ *               given locale and date.  If 0, currency
+ *               codes couldn't be found for the input
+ *               values are invalid.
+ * @draft ICU 4.0
  */
-U_INTERNAL void
-uprv_parseCurrency(const char* locale,
-                   const UnicodeString& text,
-                   ParsePosition& pos,
-                   UChar* result,
-                   UErrorCode& ec);
+U_DRAFT int32_t U_EXPORT2
+ucurr_countCurrencies(const char* locale, 
+                 UDate date, 
+                 UErrorCode* ec); 
 
-U_NAMESPACE_END
-#endif
+/** 
+ * Finds a currency code for the given locale and date 
+ * @param locale the locale for which to retrieve a currency code.  
+ *               Currency can be specified by the "currency" keyword 
+ *               in which case it overrides the default currency code 
+ * @param date   the date for which to retrieve a currency code for 
+ *               the given locale. 
+ * @param index  the index within the available list of currency codes
+ *               for the given locale on the given date.
+ * @param buff   fill in buffer. Can be NULL for preflighting. 
+ * @param buffCapacity capacity of the fill in buffer. Can be 0 for 
+ *               preflighting. If it is non-zero, the buff parameter 
+ *               must not be NULL. 
+ * @param ec     error code 
+ * @return       length of the currency string. It should always be 3. 
+ *               If 0, currency couldn't be found or the input values are  
+ *               invalid.  
+ * @draft ICU 4.0 
+ */ 
+U_DRAFT int32_t U_EXPORT2 
+ucurr_forLocaleAndDate(const char* locale, 
+                UDate date, 
+                int32_t index,
+                UChar* buff, 
+                int32_t buffCapacity, 
+                UErrorCode* ec); 
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
 

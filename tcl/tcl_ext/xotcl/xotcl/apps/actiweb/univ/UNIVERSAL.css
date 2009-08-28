@@ -1,0 +1,21 @@
+A {color: yellow; }
+A:selected {color: red; }
+A:visited {color: #6699FF; }
+
+BODY {background-color: #000066; color: #FFFFFF; margin-left: 10;  shading: no;}
+
+B.outer { background-color: #000066; color: #FFFFFF; }
+B.inner,TD { background-color: #110088; color: #FFFFFF; }
+
+H1,H2 {font-family:Helvetica,sans-serif; text-align:center; }
+H3 {font-family:Helvetica,sans-serif; color: #FFFFFF;}
+HR {align:center; shading:no;}
+LI,UL,OL {font-family:Helvetica,sans-serif; }
+
+TABLE {shading: no; border-style: solid; border-color: solid red; background-color: #110088;}
+
+
+TH {font-family:Helvetica,sans-serif;}
+DT {font-family:Helvetica,sans-serif; font-weight:bold;}
+
+

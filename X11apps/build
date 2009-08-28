@@ -22,7 +22,6 @@ sub build_app {
     build("mkfontscale");
     build("oclock");
     build("rgb");
-    build("scripts");
     build("sessreg");
     build("showfont");
     build("twm");
@@ -36,6 +35,7 @@ sub build_app {
     build("xditview");
     build("xdm");
     build("xdpyinfo");
+    build("xedit");
     build("xev");
     build("xeyes");
     build("xfd");
@@ -136,15 +136,19 @@ if($target eq 'install') {
     $ENV{PATH}="$ENV{DSTROOT}$prefix/bin:$prefix/bin:$ENV{PATH}";
     
     foreach $arch (split(/ /,$ENV{RC_ARCHS})) {
-	$arch_flags_all .= "-arch $arch ";
-	$arch_flags_32 .= "-arch $arch " unless $arch =~ /64/;
+        $arch_flags_lib .= "-arch $arch ";
+        if($ENV{MACOSFORGE_RELEASE} eq "YES") {
+            $arch_flags_exec .= " -arch $arch " unless $arch =~ /64/;
+        } else {
+            $arch_flags_exec .= " -arch $arch " unless $arch =~ /ppc/;
+        }
     }
     
     $ENV{MACOSX_DEPLOYMENT_TARGET}=$osx_version;
     
     system "date";
     
-    set_arch_32();
+    set_arch_exec();
 
     build_app();
 
@@ -177,13 +181,14 @@ sub build {
 
     chdir("$ENV{OBJROOT}/$full_path");
     sys_print("autoreconf -fvi") unless($module eq 'xterm');
+#    sys_print("glibtoolize --force --copy") if($module eq 'xterm');
 
     if($module eq 'xkeyboard-config') {
         sys_print("sed -e 's/_description/description/g' -e 's/_shortDescription/shortDescription/g' rules/base.xml.in > rules/base.xml")
     }
 
     print "Configuring...\n";
-    $conf_flags=" --prefix=$prefix --disable-static --disable-dependency-tracking --disable-nls --mandir=$prefix/man ";
+    $conf_flags=" --prefix=$prefix --disable-static --disable-dependency-tracking --disable-nls ";
 
     $conf_flags_path=$ENV{OBJROOT}."/$module/conf_flags";
     $post_config_path=$ENV{OBJROOT}."/$module/post-config";
@@ -216,14 +221,14 @@ sub make_dsyms {
     close FIND;
 }
 
-sub set_arch_32 {
-    $ENV{CFLAGS}="-I$ENV{DSTROOT}$prefix/include -D__DEBUG__ -g3 -pipe $arch_flags_32 -D__DARWIN__ ";
-    $ENV{LDFLAGS}="-pipe $arch_flags_32";
+sub set_arch_exec {
+    $ENV{CFLAGS}="-I$ENV{DSTROOT}$prefix/include -D__DEBUG__ -ggdb3 -Os -pipe $arch_flags_exec -D__DARWIN__ -D_FORTIFY_SOURCE=2 -Wall -Wformat-security";
+    $ENV{LDFLAGS}="-pipe $arch_flags_exec";
 }
 
-sub set_arch_all {
-    $ENV{CFLAGS}="-I$ENV{DSTROOT}$prefix/include -D__DEBUG__ -g3 -pipe $arch_flags_all";
-    $ENV{LDFLAGS}="-pipe $arch_flags_all";
+sub set_arch_lib {
+    $ENV{CFLAGS}="-I$ENV{DSTROOT}$prefix/include -D__DEBUG__ -ggdb3 -Os -pipe $arch_flags_lib -D__DARWIN__ -D_FORTIFY_SOURCE=2 -Wall -Wformat-security";
+    $ENV{LDFLAGS}="-pipe $arch_flags_lib";
 }
 
 sub sys_print {

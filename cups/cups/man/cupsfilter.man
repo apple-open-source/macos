@@ -1,9 +1,9 @@
 .\"
-.\" "$Id$"
+.\" "$Id: cupsfilter.man 7936 2008-09-11 03:12:59Z mike $"
 .\"
 .\"   cupsfilter man page for the Common UNIX Printing System (CUPS).
 .\"
-.\"   Copyright 2007 by Apple Inc.
+.\"   Copyright 2007-2009 by Apple Inc.
 .\"
 .\"   These coded instructions, statements, and computer programs are the
 .\"   property of Apple Inc. and are protected by Federal copyright
@@ -11,14 +11,16 @@
 .\"   which should have been included with this file.  If this file is
 .\"   file is missing or damaged, see the license at "http://www.cups.org/".
 .\"
-.TH cupsfilter 8 "Common UNIX Printing System" "19 October 2007" "Apple Inc."
+.TH cupsfilter 8 "CUPS" "26 February 2009" "Apple Inc."
 .SH NAME
 cupsfilter \- convert a file to another format using cups filters
 .SH SYNOPSIS
 .B cupsfilter
 [ -c
 .I config-file
-] [ -m
+] [ -e ] -j
+.I job-id[,N]
+[ -m
 .I mime/type
 ] [ -n
 .I copies
@@ -40,9 +42,20 @@ through CUPS. By default, \fIcupsfilter\fR generates a PDF file.
 .br
 Uses the named cupsd.conf configuration file.
 .TP 5
+-e
+.br
+Use every filter from the PPD file.
+.TP 5
+-j job-id[,N]
+.br
+Converts document N from the specified job. If N is omitted, document 1 is
+converted.
+.TP 5
 -m mime/type
 .br
 Specifies the destination file type. The default file type is application/pdf.
+Use printer/foo to convert to the printer format defined by the filters in the
+PPD file.
 .TP 5
 -n copies
 .br
@@ -67,7 +80,7 @@ This will be addressed in a future CUPS release.
 .br
 http://localhost:631/help
 .SH COPYRIGHT
-Copyright 2007 by Apple Inc.
+Copyright 2007-2009 by Apple Inc.
 .\"
-.\" End of "$Id$".
+.\" End of "$Id: cupsfilter.man 7936 2008-09-11 03:12:59Z mike $".
 .\"

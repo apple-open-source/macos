@@ -2,6 +2,7 @@ package # hide from PAUSE
     DBICTest::Schema::Track;
 
 use base 'DBIx::Class::Core';
+__PACKAGE__->load_components(qw/InflateColumn::DateTime/);
 
 __PACKAGE__->table('track');
 __PACKAGE__->add_columns(
@@ -19,6 +20,11 @@ __PACKAGE__->add_columns(
   'title' => {
     data_type => 'varchar',
     size      => 100,
+  },
+  last_updated_on => {
+    data_type => 'datetime',
+    accessor => 'updated_date',
+    is_nullable => 1
   },
 );
 __PACKAGE__->set_primary_key('trackid');

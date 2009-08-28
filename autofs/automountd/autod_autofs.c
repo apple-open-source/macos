@@ -47,9 +47,10 @@ static int process_opts(char *options, uint32_t *directp);
 
 static const struct mntopt mopts_autofs[] = {
 	MOPT_STDOPTS,
-	{ MNTOPT_RESTRICT,	0, AUTOFS_MNT_RESTRICT, 1 },
-	{ MNTOPT_RDDIR,		1, AUTOFS_MNT_NORDDIR, 1 },
-	{ NULL,			0, 0, 0 }
+	{ MNTOPT_RESTRICT,		0, AUTOFS_MNT_RESTRICT, 1 },
+	{ MNTOPT_RDDIR,			1, AUTOFS_MNT_NORDDIR, 1 },
+	{ MNTOPT_HIDEFROMFINDER,	0, AUTOFS_MNT_HIDEFROMFINDER, 1 },
+	{ NULL,				0, 0, 0 }
 };
 
 int

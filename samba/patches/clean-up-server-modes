@@ -38,7 +38,7 @@ Index: samba/source/nmbd/nmbd.c
  /* log to standard output ? */
  static BOOL log_stdout;
  
-@@ -578,7 +572,7 @@ static void process(void)
+@@ -592,7 +586,7 @@ static void process(void)
   Open the socket communication.
   **************************************************************************** */
  
@@ -47,7 +47,7 @@ Index: samba/source/nmbd/nmbd.c
  {
  	/*
  	 * The sockets opened here will be used to receive broadcast
-@@ -588,12 +582,13 @@ static BOOL open_sockets(BOOL isdaemon, 
+@@ -602,12 +596,13 @@ static BOOL open_sockets(BOOL isdaemon, 
  	 * now deprecated.
  	 */
  
@@ -64,7 +64,7 @@ Index: samba/source/nmbd/nmbd.c
    
  	ClientDGRAM = open_socket_in(SOCK_DGRAM, DGRAM_PORT,
  					   3, interpret_addr(lp_socket_address()),
-@@ -622,15 +617,19 @@ static BOOL open_sockets(BOOL isdaemon, 
+@@ -636,15 +631,19 @@ static BOOL open_sockets(BOOL isdaemon, 
   int main(int argc, const char *argv[])
  {
  	pstring logfile;
@@ -88,7 +88,7 @@ Index: samba/source/nmbd/nmbd.c
  	{"no-process-group", 0, POPT_ARG_VAL, &no_process_group, True, "Don't create a new process group" },
  	{"log-stdout", 'S', POPT_ARG_VAL, &log_stdout, True, "Log to stdout" },
  	{"hosts", 'H', POPT_ARG_STRING, &p_lmhosts, 'H', "Load a netbios hosts file"},
-@@ -680,12 +679,11 @@ static BOOL open_sockets(BOOL isdaemon, 
+@@ -694,12 +693,11 @@ static BOOL open_sockets(BOOL isdaemon, 
  	BlockSignals(True, SIGUSR2);
  #endif
  
@@ -103,7 +103,7 @@ Index: samba/source/nmbd/nmbd.c
  		DEBUG(0,("ERROR: Can't log to stdout (-S) unless daemon is in foreground (-F) or interactive (-i)\n"));
  		exit(1);
  	}
-@@ -712,14 +710,19 @@ static BOOL open_sockets(BOOL isdaemon, 
+@@ -726,14 +724,19 @@ static BOOL open_sockets(BOOL isdaemon, 
  
  	set_samba_nb_type();
  
@@ -129,7 +129,7 @@ Index: samba/source/nmbd/nmbd.c
  	}
  
  #if HAVE_SETPGID
-@@ -727,7 +730,7 @@ static BOOL open_sockets(BOOL isdaemon, 
+@@ -741,7 +744,7 @@ static BOOL open_sockets(BOOL isdaemon, 
  	 * If we're interactive we want to set our own process group for 
  	 * signal management.
  	 */
@@ -138,7 +138,7 @@ Index: samba/source/nmbd/nmbd.c
  		setpgid( (pid_t)0, (pid_t)0 );
  #endif
  
-@@ -758,7 +761,7 @@ static BOOL open_sockets(BOOL isdaemon, 
+@@ -772,7 +775,7 @@ static BOOL open_sockets(BOOL isdaemon, 
  
  	DEBUG( 3, ( "Opening sockets %d\n", global_nmb_port ) );
  

@@ -79,14 +79,14 @@ mkdir ${SAMBA_TESTSUITE}
 	Bin/large-transfer-sizes.sh localhost $PUBLIC $BB_USER $BB_PASS
 
     ./Scripts/make-xilog-testcase.pl \
-	Bin/bsd-flag-attributes.sh $BB_PASS
+	Bin/bsd-flag-attributes.sh $BB_USER $BB_PASS
 
     ./Scripts/make-xilog-testcase.pl Bin/admin-mount-volumes.sh
 
     ./Scripts/make-xilog-testcase.pl \
 	Bin/constant-rate-lookup.sh localhost $PUBLIC $BB_USER $BB_PASS
 
-    ./Scripts/make-xilog-testcase.pl Bin/module-prealloc.sh 
+    ./Scripts/make-xilog-testcase.pl Bin/module-prealloc.sh
 
     ./Scripts/make-xilog-testcase.pl \
 	Bin/dfree-quota-support.sh  $BB_USER $BB_PASS

@@ -178,6 +178,8 @@ static char copyright[] =
  * Global variables
  */
 
+int LsofFd = -1;			/* lsof pipe FD */
+FILE *LsofFs = (FILE *)NULL;		/* stream for lsof pipe FD */
 char *LsofPath = (char *)NULL;		/* path to lsof executable */
 pid_t LsofPid = (pid_t)0;		/* PID of lsof child process */
 int LTopt_h = 0;			/* "-h" option's switch value */
@@ -195,8 +197,6 @@ static char *GOv = (char *)NULL;	/* option `:' value pointer */
 static int GOx1 = 1;			/* first opt[][] index */
 static int GOx2 = 0;			/* second opt[][] index */
 static LTfldo_t *Fo = (LTfldo_t *)NULL;	/* allocated LTfldo_t structures */
-static int LsofFd = -1;			/* lsof pipe FD */
-static FILE *LsofFs = (FILE *)NULL;	/* stream for lsof pipe FD */
 static int Ufo = 0;			/* Fo[] structures used */
 
 
@@ -537,7 +537,12 @@ ExecLsof(opt)
 	if (!(LsofFs = fdopen(LsofFd, "r")))
 	    return("ERROR!!!  ExecLsof() can't open stream to lsof output FD");
     }
-    return((char *)NULL);			/* All is well. */
+/*
+ * Wait a bit for lsof to start and put something in its pipe, then return
+ * an "All is well." response.
+ */
+    sleep(1);
+    return((char *)NULL);
 }
 
 
@@ -918,7 +923,7 @@ RdFrLsof(nf, em)
 	if (!(vp = (char *)malloc(tlen + 1))) {
 
 	/*
-	 * A serios error has occurred; there's no space for the field value.
+	 * A serious error has occurred; there's no space for the field value.
 	 */
 	    (void) snprintf(buf, bufl,
 		"ERROR!!!  RdFrLsof() can't allocate %d field bytes", tlen + 1);

@@ -15,7 +15,7 @@ Index: samba/source/lib/util.c
 ===================================================================
 --- samba/source/lib/util.c.orig
 +++ samba/source/lib/util.c
-@@ -1592,20 +1592,24 @@ uid_t nametouid(const char *name)
+@@ -1593,20 +1593,24 @@ uid_t nametouid(const char *name)
   Convert a name to a gid_t if possible. Return -1 if not a group. 
  ********************************************************************/
  

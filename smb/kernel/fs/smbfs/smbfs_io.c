@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,22 +35,15 @@
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/vnode.h>
-#include <sys/resourcevar.h>	/* defines plimit structure in proc struct */
 #include <sys/kernel.h>
 #include <sys/proc.h>
 #include <sys/fcntl.h>
 #include <sys/mount.h>
 #include <sys/namei.h>
 #include <sys/dirent.h>
-#include <sys/signalvar.h>
 #include <sys/sysctl.h>
-
 #include <sys/kauth.h>
 
-#include <sys/syslog.h>
-#ifdef thread_sleep_simple_lock
-#undef thread_sleep_simple_lock
-#endif
 #include <sys/smb_apple.h>
 #include <netsmb/smb.h>
 #include <netsmb/smb_conn.h>
@@ -59,119 +52,206 @@
 #include <fs/smbfs/smbfs.h>
 #include <fs/smbfs/smbfs_node.h>
 #include <fs/smbfs/smbfs_subr.h>
-#include <sys/smb_iconv.h>
-
-#include <sys/buf.h>
-
-/* keep build working with older headers */
-#ifndef round_page_32
-	#define round_page_32 round_page
-#endif
+#include <netsmb/smb_converter.h>
 
 static int smbfs_fastlookup = 1;
-
-extern struct linker_set sysctl_net_smb_fs;
 
 SYSCTL_DECL(_net_smb_fs);
 SYSCTL_INT(_net_smb_fs, OID_AUTO, fastlookup, CTLFLAG_RW, &smbfs_fastlookup, 0, "");
 
+/*
+ * In the future I would like to move all the read directory code into
+ * its own file, but for now lets leave it here.
+ */
+#define SMB_DIRENTRY_LEN(namlen) \
+		((sizeof(struct direntry) + (namlen) - (MAXPATHLEN-1) + 7) & ~7)
+#define SMB_DIRENT_LEN(namlen) \
+		((sizeof(struct dirent) - (NAME_MAX+1)) + (((namlen) + 1 + 3) &~ 3))
 
-#define DE_SIZE	(int)(sizeof(struct dirent))
-
-PRIVSYM int smbfs_readvdir(vnode_t vp, uio_t uio, vfs_context_t vfsctx)
+/*
+ * This routine will fill in the correct values for the correct structure. The
+ * de value points t0 either a direntry or dirent structure.
+ */
+static uint32_t smbfs_fill_direntry(void *de, const char *name, size_t nmlen, u_int8_t dtype, u_int64_t ino, int flags)
 {
-	struct dirent de;
-	struct smb_cred scred;
+	uint32_t delen = 0;
+	
+	if (flags & VNODE_READDIR_EXTENDED) {
+		struct direntry *de64 = (struct direntry *)de;
+
+		/* Never truncate the name, if it won't fit just drop it */
+		if (nmlen >= sizeof(de64->d_name))
+			return 0;
+		bzero(de64, sizeof(*de64));
+		de64->d_fileno = ino;
+		de64->d_type = dtype;
+		de64->d_namlen = nmlen;
+		bcopy(name, de64->d_name, de64->d_namlen);
+		delen = de64->d_reclen = SMB_DIRENTRY_LEN(de64->d_namlen);
+		SMBVDEBUG("de64.d_name = %s de64.d_namlen = %d\n", de64->d_name, de64->d_namlen);
+	} else {
+		struct dirent *de32 = (struct dirent *)de;
+		
+		/* Never truncate the name, if it won't fit just drop it */
+		if (nmlen >= sizeof(de32->d_name))
+			return 0;
+		bzero(de32, sizeof(*de32));
+		de32->d_fileno = (ino_t)ino;
+		de32->d_type = dtype;
+		/* Should never happen, but just in case never overwrite the buffer */
+		de32->d_namlen = nmlen;
+		bcopy(name, de32->d_name, de32->d_namlen);
+		delen = de32->d_reclen = SMB_DIRENT_LEN(de32->d_namlen);
+		SMBVDEBUG("de32.d_name = %s de32.d_namlen = %d\n", de32->d_name, de32->d_namlen);
+	}
+	return delen;
+}
+
+/* We have an entry left over from before we need to put it into the users
+ * buffer before doing any more searches. At this point we always expect 
+ * them to have enough room for one entry. If not enough room then uiomove 
+ * will return an error. We need to check and make sure they are using the
+ * same size structure as the last lookup. If not reset the entry before
+ * doing the uiomove.
+ */
+static int smb_add_next_entry(struct smbnode *np, uio_t uio, int flags, int32_t *numdirent)
+{
+	union {
+		struct dirent de32;
+		struct direntry de64;		
+	}hold_de;
+	void *de  = &hold_de;
+	uint32_t delen;
+	int	error = 0;
+
+	SMBVDEBUG("%s, Using Next Entry %s\n",  np->n_name,   (flags & VNODE_READDIR_EXTENDED) ? 
+				  ((struct direntry *)(np->d_nextEntry))->d_name : ((struct dirent *)(np->d_nextEntry))->d_name);
+		
+	if (np->d_nextEntryFlags != (flags & VNODE_READDIR_EXTENDED)) {
+		SMBVDEBUG("Next Entry flags don't match was 0x%x now 0x%x\n",
+				  np->d_nextEntryFlags, (flags & VNODE_READDIR_EXTENDED));
+		if (np->d_nextEntryFlags & VNODE_READDIR_EXTENDED) {
+			/* Have a direntry need a dirent */
+			struct direntry *de64p = np->d_nextEntry;
+			delen = smbfs_fill_direntry(de, de64p->d_name, de64p->d_namlen, de64p->d_type, de64p->d_fileno, flags);
+		} else {
+			/* Have a dirent need a direntry */
+			struct dirent *de32p = np->d_nextEntry;
+			delen = smbfs_fill_direntry(de, de32p->d_name, de32p->d_namlen, de32p->d_type, de32p->d_fileno, flags);				
+		}
+	} else {
+		de = np->d_nextEntry;
+		delen = np->d_nextEntryLen;
+	}
+	/* Name wouldn't fit in the directory entry just drop it nothing else we can do */
+	if (delen == 0)
+		goto done;
+	error = uiomove(de, delen, uio);
+	if (error)
+		goto done;
+	(*numdirent)++;
+	np->d_offset++;
+	
+done:	
+	FREE(np->d_nextEntry, M_TEMP);
+	np->d_nextEntry = NULL;
+	np->d_nextEntryLen = 0;
+	return error;
+}
+
+int smbfs_readvdir(vnode_t vp, uio_t uio, vfs_context_t context, int flags, int32_t *numdirent)
+{
+	struct smbnode *np = VTOSMB(vp);
+	union {
+		struct dirent de32;
+		struct direntry de64;		
+	}de;
 	struct smbfs_fctx *ctx;
 	vnode_t newvp;
-	struct smbnode *np = VTOSMB(vp);
-	int error;
 	off_t offset;
-	user_ssize_t limit;
-
-	if (uio_resid(uio) < DE_SIZE || uio_offset(uio) < 0)
-		return (EINVAL);
-
-	np = VTOSMB(vp);
-	/*
-	 * This cache_purge ensures that name cache for this dir will be
-	 * current - it'll only have the items for which the smbfs_nget
-	 * MAKEENTRY happened.
-	 *
-	 * We no longer make this call. Since we are calling this everytime, none of our
-	 * items  every get put in the name cache. What would be nice is to have
-	 * a way to cache purge the children and only do that if uio offset is zero. Not
-	 * sure that is worth it. Leaving the code in for now in case we run into any problems.
-	 *
-	 * if (smbfs_fastlookup)
-	 *	cache_purge(vp);
+	u_int8_t dtype;
+	uint32_t delen;
+	int error = 0;
+		
+	/* Do we need to start or restarting the directory listing */
+	offset = uio_offset(uio);
+	if ((offset == 0) || (offset != np->d_offset) || (np->d_fctx == NULL)) {
+		SMBVDEBUG("Reopening search for %s %lld:%lld\n", np->n_name, offset, np->d_offset);
+		smbfs_closedirlookup(np, context);
+		error = smbfs_smb_findopen(np, "*", 1, SMB_FA_SYSTEM | SMB_FA_HIDDEN | SMB_FA_DIR,
+								   context, &np->d_fctx, NO_SFM_CONVERSIONS);
+		if (error) {
+			SMBWARNING("Can't open search for %s, error = %d", np->n_name, error);
+			goto done;			
+		}
+	}
+	ctx = np->d_fctx;
+	
+	SMBVDEBUG("dirname='%s' offset %lld \n", np->n_name, offset);
+	/* 
+	 * SMB servers will return the dot and dotdot in most cases. If the share is a 
+	 * FAT Filesystem then the information return could be bogus, also if its a
+	 * FAT drive then they won't even return the dot or the dotdot. Since we already
+	 * know everything about dot and dotdot just fill them in here and then skip
+	 * them during the lookup.
 	 */
-	SMBVDEBUG("dirname='%s'\n", np->n_name);
-	smb_scred_init(&scred, vfsctx);
-	// LP64todo - should change to handle 64-bit values
-	offset = uio_offset(uio) / DE_SIZE; 	/* offset in the directory */
-	limit = uio_resid(uio) / DE_SIZE;
-	while (limit && offset < 2) {
-		limit--;
-		bzero((caddr_t)&de, DE_SIZE);
-		de.d_reclen = DE_SIZE;
-		de.d_fileno = (offset == 0) ? np->n_ino :
-		    (np->n_parent ? np->n_parent->n_ino : 2);
-		if (de.d_fileno == 0)
-			de.d_fileno = 0x7ffffffd + offset;
-		de.d_namlen = offset + 1;
-		de.d_name[0] = '.';
-		de.d_name[1] = '.';
-		de.d_name[offset + 1] = '\0';
-		de.d_type = DT_DIR;
-		error = uiomove((caddr_t)&de, DE_SIZE, uio);
+	if (offset == 0) {
+		int ii;
+		
+		for (ii=0; ii < 2; ii++) {
+			u_int64_t node_ino = (ii == 0) ? np->n_ino : (np->n_parent ? np->n_parent->n_ino : 2);
+			/* 
+			 * XXX
+			 * I don't believe the the two lines below are needed. Wrote up  <rdar://problem/6693209> 
+			 * to cover that work. Would like to investage some more before removing it.
+			 */
+			if (node_ino == 0)
+				node_ino = 0x7ffffffd + ii;
+			delen = smbfs_fill_direntry(&de, "..", ii + 1, DT_DIR, node_ino, flags);
+			/* 
+			 * At this point we always expect them to have enough room for dot
+			 * and dotdot. If not enough room then uiomove will return an error.
+			 */
+			error = uiomove((void *)&de, delen, uio);
+			if (error)
+				goto done;
+			(*numdirent)++;
+			np->d_offset++;
+			offset++;
+		}
+	}
+
+	/* 
+	 * They are continuing from some point ahead of us in the buffer. Skip all
+	 * entries until we reach their point in the buffer.
+	 */
+	while (np->d_offset < offset) {
+		error = smbfs_smb_findnext(ctx, context);
+		if (error) {
+			smbfs_closedirlookup(np, context);
+			goto done;			
+		}
+		np->d_offset++;
+	}
+	/* We have an entry left over from before we need to put it into the users
+	 * buffer before doing any more searches. 
+	 */
+	if (np->d_nextEntry) {
+		error = smb_add_next_entry(np, uio, flags, numdirent);	
 		if (error)
-			return error;
-		offset++;
+			goto done;
 	}
-	if (limit == 0)
-		return (0);
-	if (offset != np->n_dirofs || np->n_dirseq == NULL) {
-		SMBVDEBUG("Reopening search %ld:%ld\n", offset, np->n_dirofs);
-		if (np->n_dirseq) {
-			smbfs_smb_findclose(np->n_dirseq, &scred);
-			np->n_dirseq = NULL;
-		}
-		np->n_dirofs = 2;
-		error = smbfs_smb_findopen(np, "*", 1,
-		    SMB_FA_SYSTEM | SMB_FA_HIDDEN | SMB_FA_DIR,
-		    &scred, &ctx, NO_SFM_CONVERSIONS);
-		if (error) {
-			SMBVDEBUG("can not open search, error = %d", error);
-			return error;
-		}
-		np->n_dirseq = ctx;
-	} else
-		ctx = np->n_dirseq;
-	while (np->n_dirofs < offset) {
-		error = smbfs_smb_findnext(ctx, offset - np->n_dirofs++, &scred);
-		if (error) {
-			smbfs_smb_findclose(np->n_dirseq, &scred);
-			np->n_dirseq = NULL;
-			return (error == ENOENT ? 0 : error);
-		}
-	}
-	error = 0;
-	for (; limit; limit--, offset++) {
-		error = smbfs_smb_findnext(ctx, limit, &scred);
+	
+	/* Loop until we end the search or we don't have enough room for the max element */
+	while (uio_resid(uio)) {
+		error = smbfs_smb_findnext(ctx, context);
 		if (error)
 			break;
-		np->n_dirofs++;
-		bzero((caddr_t)&de, DE_SIZE);
-		de.d_reclen = DE_SIZE;
-		de.d_fileno = ctx->f_attr.fa_ino;
-		de.d_type = (ctx->f_attr.fa_attr & SMB_FA_DIR) ? DT_DIR : DT_REG;
-		de.d_namlen = ctx->f_nmlen;
-		bcopy(ctx->f_name, de.d_name, de.d_namlen);
-		de.d_name[de.d_namlen] = '\0';
+		dtype = (ctx->f_attr.fa_attr & SMB_FA_DIR) ? DT_DIR : DT_REG;
+		delen = smbfs_fill_direntry(&de, ctx->f_name, ctx->f_nmlen, dtype, ctx->f_attr.fa_ino, flags);
 		if (smbfs_fastlookup) {
-			error = smbfs_nget(vnode_mount(vp), vp, ctx->f_name, ctx->f_nmlen, &ctx->f_attr, &newvp, MAKEENTRY, vfsctx);
-			if (!error) {
+			error =  smbfs_nget(vnode_mount(vp), vp, ctx->f_name, ctx->f_nmlen, &ctx->f_attr, &newvp, MAKEENTRY, context);
+			if (error == 0) {
 				/* 
 				 * Some applications use the inode as a marker and expect it to be presistent. Currently our
 				 * inode numbers are create by hashing the name and adding the parent inode number. Once a node
@@ -180,26 +260,57 @@ PRIVSYM int smbfs_readvdir(vnode_t vp, uio_t uio, vfs_context_t vfsctx)
 				 * ctx->f_attr.fa_ino, but if its in our hash table it will have its original number. So in either
 				 * case set the file number to the inode number that was used when the node was created.
 				 */
-				de.d_fileno = VTOSMB(newvp)->n_ino;
+				if (flags & VNODE_READDIR_EXTENDED)
+					de.de64.d_fileno = VTOSMB(newvp)->n_ino;
+				else
+					de.de32.d_fileno = (ino_t)VTOSMB(newvp)->n_ino;
 				smbnode_unlock(VTOSMB(newvp));	/* Release the smbnode lock */
 				vnode_put(newvp);
-			}
+			} else  /* ignore errors from smbfs_nget, shouldn't stop the directory listing */
+				error = 0;
 		}
-		error = uiomove((caddr_t)&de, DE_SIZE, uio);
-		if (error)
+		/* Name wouldn't fit in the directory entry just drop it nothing else we can do */
+		if (delen == 0)
+			continue;
+		if (uio_resid(uio) >= delen) {
+			error = uiomove((void *)&de, delen, uio);
+			if (error)
+				break;
+			(*numdirent)++;
+			np->d_offset++;				
+		} else {
+			SMBVDEBUG("%s, Saving Next Entry %s,  resid == %lld\n", np->n_name, 
+					  ctx->f_name, uio_resid(uio));
+			MALLOC(np->d_nextEntry, void *, delen, M_TEMP, M_WAITOK);
+			if (np->d_nextEntry) {
+				bcopy(&de, np->d_nextEntry, delen);
+				np->d_nextEntryLen = delen;
+				np->d_nextEntryFlags = (flags & VNODE_READDIR_EXTENDED);
+			}
 			break;
+		}
 	}
-	if (error == ENOENT)
-		error = 0;
+done: 
+	/*
+	 * We use the uio offset to store the last directory index count. Since 
+	 * the uio offset is really never used, we can set it without causing any 
+	 * issues. Got this idea from the NFS code and it makes things a 
+	 * lot simplier. 
+	 */
+	uio_setoffset(uio, np->d_offset);
+
+	if (error && (error != ENOENT)) {
+		SMBWARNING("%s directory lookup failed with error of %d\n", np->n_name, error);		
+	}
 	return error;
 }
 
-PRIVSYM int smbfs_doread(vnode_t vp, uio_t uiop, struct smb_cred *scred, u_int16_t fid)
+int smbfs_doread(vnode_t vp, uio_t uiop, vfs_context_t context, u_int16_t fid)
 {
 	struct smbmount *smp = VFSTOSMBFS(vnode_mount(vp));
 	struct smbnode *np = VTOSMB(vp);
 	int error;
-	int requestsize;
+	user_ssize_t requestsize;
 	user_ssize_t remainder;
 	
 	
@@ -218,7 +329,7 @@ PRIVSYM int smbfs_doread(vnode_t vp, uio_t uiop, struct smb_cred *scred, u_int16
 	/* adjust size of read */
 	uio_setresid(uiop, requestsize);
 	
-	error = smb_read(smp->sm_share, fid, uiop, scred);
+	error = smb_read(smp->sm_share, fid, uiop, context);
 	
 	/* set remaining uio_resid */
 	uio_setresid(uiop, (uio_resid(uiop) + remainder));
@@ -235,11 +346,12 @@ exit:
 char smbzeroes[4096] = { 0 };
 
 static int
-smbfs_zero_fill(vnode_t vp, u_int16_t fid, u_quad_t from, u_quad_t to, struct smb_cred *scredp, int timo)
+smbfs_zero_fill(vnode_t vp, u_int16_t fid, u_quad_t from, u_quad_t to, 
+				vfs_context_t context, int timo)
 {
 	struct smbmount *smp = VTOSMBFS(vp);
-	struct smbnode *np = VTOSMB(vp);
-	int len, error = 0;
+	user_size_t len;
+	int error = 0;
 	uio_t uio;
 
 	/*
@@ -248,16 +360,15 @@ smbfs_zero_fill(vnode_t vp, u_int16_t fid, u_quad_t from, u_quad_t to, struct sm
 	 */
 	uio = uio_create(1, from, UIO_SYSSPACE, UIO_WRITE);
 	while (from < to) {
-		len = min(to - from, sizeof smbzeroes);
+		len = MIN((to - from), sizeof(smbzeroes));
 		uio_reset(uio, from, UIO_SYSSPACE, UIO_WRITE );
 		uio_addiov(uio, CAST_USER_ADDR_T(&smbzeroes[0]), len);
-		error = smb_write(smp->sm_share, fid, uio, scredp, timo);
+		error = smb_write(smp->sm_share, fid, uio, context, timo);
 		timo = 0;
-		np->n_flag |= (NFLUSHWIRE | NATTRCHANGED);
 		if (error)
 			break;
 			/* nothing written */
-		if (uio_resid(uio) == len) {
+		if (uio_resid(uio) == (user_ssize_t)len) {
 			SMBDEBUG(" short from=%llu to=%llu\n", from, to);
 			break;
 		}
@@ -273,7 +384,8 @@ smbfs_zero_fill(vnode_t vp, u_int16_t fid, u_quad_t from, u_quad_t to, struct sm
  * to make sure the data return is zero filled. For UNIX servers we get this for free. So if the server is UNIX
  * just return and let the server handle this issue.
  */
-int smbfs_0extend(vnode_t vp, u_int16_t fid, u_quad_t from, u_quad_t to, struct smb_cred *scredp, int timo)
+int smbfs_0extend(vnode_t vp, u_int16_t fid, u_quad_t from, u_quad_t to, 
+				  vfs_context_t context, int timo)
 {
 	struct smbmount *smp = VTOSMBFS(vp);
 	struct smb_vc *vcp = SSTOVC(smp->sm_share);
@@ -290,8 +402,8 @@ int smbfs_0extend(vnode_t vp, u_int16_t fid, u_quad_t from, u_quad_t to, struct 
 	 * servers. For all others just write one byte of zero data at the eof of file. This will cause the NTFS windows
 	 * servers to zero fill.
 	 */
-	if ((smp->sm_share->ss_fstype != SMB_FS_NTFS) || ((vcp->vc_flags & SMBV_NT4)) || ((vcp->vc_flags & SMBV_WIN2K)))
-		error = smbfs_zero_fill(vp, fid, from, to, scredp, timo);
+	if ((smp->sm_share->ss_fstype != SMB_FS_NTFS) || ((vcp->vc_flags & SMBV_NT4)) || ((vcp->vc_flags & SMBV_WIN2K_XP)))
+		error = smbfs_zero_fill(vp, fid, from, to, context, timo);
 	else {
 		char onezero = 0;
 		int len = 1;
@@ -300,20 +412,20 @@ int smbfs_0extend(vnode_t vp, u_int16_t fid, u_quad_t from, u_quad_t to, struct 
 			/* Writing one byte of zero before the eof will force NTFS to zero fill. */
 		uio = uio_create(1, (to - 1) , UIO_SYSSPACE, UIO_WRITE);
 		uio_addiov(uio, CAST_USER_ADDR_T(&onezero), len);
-		error = smb_write(smp->sm_share, fid, uio, scredp, timo);
+		error = smb_write(smp->sm_share, fid, uio, context, timo);
 		uio_free(uio);
 	}
 	return(error);
 }
 
-PRIVSYM int smbfs_dowrite(vnode_t vp, uio_t uiop, u_int16_t fid, vfs_context_t vfsctx, int ioflag, int timo)
+int smbfs_dowrite(vnode_t vp, uio_t uiop, u_int16_t fid, vfs_context_t context, 
+				  int ioflag, int timo)
 {
 	struct smbmount *smp = VTOSMBFS(vp);
 	struct smbnode *np = VTOSMB(vp);
-	struct smb_cred scred;
 	int error = 0;
 
-	SMBVDEBUG("ofs=%d,resid=%d\n",(int)uio_offset(uiop), uio_resid(uiop));
+	SMBVDEBUG("ofs=%lld,resid=%lld\n",uio_offset(uiop), uio_resid(uiop));
 	/*
 	 * Changed this code while working on removing extra over the wire flush calls. Didn't
 	 * change the excution of the code here. May want to look at that later, but for now
@@ -325,13 +437,12 @@ PRIVSYM int smbfs_dowrite(vnode_t vp, uio_t uiop, u_int16_t fid, vfs_context_t v
 	if (uio_resid(uiop) == 0)
 		return (0);
 
-	smb_scred_init(&scred, vfsctx);
 	/* We have a hole in the file make sure it gets zero filled */
 	if (uio_offset(uiop) > (off_t)np->n_size)
-		error = smbfs_0extend(vp, fid, np->n_size, uio_offset(uiop), &scred, timo);
+		error = smbfs_0extend(vp, fid, np->n_size, uio_offset(uiop), context, timo);
 
 	if (!error)
-		error = smb_write(smp->sm_share, fid, uiop, &scred, timo);
+		error = smb_write(smp->sm_share, fid, uiop, context, timo);
 	np->n_flag |= (NFLUSHWIRE | NATTRCHANGED);
 
 	if ((!error) && (uio_offset(uiop) > (off_t)np->n_size))

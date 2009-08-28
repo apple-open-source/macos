@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -834,10 +834,10 @@ mark_set_resources (rtx x, struct resources *res, int in_dest,
 static bool
 return_insn_p (rtx insn)
 {
-  if (GET_CODE (insn) == JUMP_INSN && GET_CODE (PATTERN (insn)) == RETURN)
+  if (JUMP_P (insn) && GET_CODE (PATTERN (insn)) == RETURN)
     return true;
 
-  if (GET_CODE (insn) == INSN && GET_CODE (PATTERN (insn)) == SEQUENCE)
+  if (NONJUMP_INSN_P (insn) && GET_CODE (PATTERN (insn)) == SEQUENCE)
     return return_insn_p (XVECEXP (PATTERN (insn), 0, 0));
 
   return false;
@@ -949,7 +949,7 @@ mark_target_live_regs (rtx insns, rtx target, struct resources *res)
 	{
 	  /* Allocate a place to put our results and chain it into the
 	     hash table.  */
-	  tinfo = xmalloc (sizeof (struct target_info));
+	  tinfo = XNEW (struct target_info);
 	  tinfo->uid = INSN_UID (target);
 	  tinfo->block = b;
 	  tinfo->next
@@ -965,7 +965,7 @@ mark_target_live_regs (rtx insns, rtx target, struct resources *res)
      TARGET.  Otherwise, we must assume everything is live.  */
   if (b != -1)
     {
-      regset regs_live = BASIC_BLOCK (b)->global_live_at_start;
+      regset regs_live = BASIC_BLOCK (b)->il.rtl->global_live_at_start;
       unsigned int j;
       unsigned int regno;
       rtx start_insn, stop_insn;
@@ -1226,8 +1226,8 @@ init_resource_info (rtx epilogue_insn)
     }
 
   /* Allocate and initialize the tables used by mark_target_live_regs.  */
-  target_hash_table = xcalloc (TARGET_HASH_PRIME, sizeof (struct target_info *));
-  bb_ticks = xcalloc (last_basic_block, sizeof (int));
+  target_hash_table = XCNEWVEC (struct target_info *, TARGET_HASH_PRIME);
+  bb_ticks = XCNEWVEC (int, last_basic_block);
 }
 
 /* Free up the resources allocated to mark_target_live_regs ().  This

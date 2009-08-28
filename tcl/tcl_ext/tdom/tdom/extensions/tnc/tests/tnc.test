@@ -1,0 +1,427 @@
+# Features covered: tnc interface.
+#
+# This file contains a collection of tests of the tnc command. This tests
+# are primary there to test the tcl interface of the tnc command and the 
+# validation commands.
+#
+#    tnc-1.*: Basics
+#    tnc-2.*: Parsing with tnc enabled
+#    tnc-3.*: ValidationCmds
+#    tnc-4.*: parser uses -useForeignDTD
+#
+# Copyright (c) 2003 Rolf Ade.
+
+
+set testDir [file dir [info script]]
+source [file join $testDir loadtnc.tcl]
+
+
+set xml {<!DOCTYPE root [
+    <!ELEMENT root (#PCDATA|a|b)*>
+    <!ELEMENT a (#PCDATA)>
+    <!ELEMENT b EMPTY>
+]>
+<root>
+text<a>text</a><b/>more text
+</root>}
+
+test tnc-1.1 {tnc enable} {
+     set parser [expat]
+     tnc $parser enable
+     $parser free
+     set result ""
+} {}
+
+test tnc-1.2 {tnc enable} {
+    expat parser
+    tnc parser enable
+    parser free
+    set result ""
+} {}
+
+test tnc-1.3 {try to enable tnc for an already tnc enabled parser} {
+    set parser [expat]
+    tnc $parser enable
+    set result [catch {tnc $parser enable}]
+    $parser free
+    set result
+} {1}
+
+test tnc-1.4 {tnc - first arg isn't a parser} {
+    set errMsg ""
+    set result [catch {tnc foo enable} errMsg]
+    list $result $errMsg
+} {1 {First argument has to be a expat parser object}}
+
+test tnc-1.5 {tnc - wrong method name (second arg)} {
+    set parser [expat]
+    set errMsg ""
+    set result [catch {tnc $parser foobaz} errMsg]
+    $parser free
+    list $result $errMsg
+} {1 {bad method "foobaz": must be enable, remove, or getValidateCmd}}
+
+test tnc-2.1 {parse with tnc enabled} {
+    set parser [expat]
+    tnc $parser enable
+    set result [catch {$parser parse $xml}]
+    $parser free
+    set result
+} {0}
+
+test tnc-2.2 {parse with tnc enabled} {
+    set parser [expat]
+    tnc $parser enable
+    set result [catch {$parser parse $xml}]
+    $parser free
+    set result
+} {0}
+
+test tnc-2.3 {parse with tnc enabled} {
+    set parser [expat]
+    tnc $parser enable
+    set result [catch {$parser parse $xml}]
+    $parser free
+    set result
+} {0}
+
+# This is like $xml, only with wrong root element
+set xmlWrong {<!DOCTYPE root [
+    <!ELEMENT root (#PCDATA|a|b)*>
+    <!ELEMENT a (#PCDATA)>
+    <!ELEMENT b EMPTY>
+]>
+<wrong>
+text<a>text</a><b/>more text
+</wrong>}
+
+test tnc-2.4 {parse with tnc enable - wrong document element} {
+    set parser [expat]
+    tnc $parser enable
+    set errMsg ""
+    set result [catch {$parser parse $xmlWrong} errMsg]
+    $parser free
+    lappend result $errMsg
+} {1 {Validation error at line 6, character 0: No declaration for this element.}}
+
+test tnc-2.5 {invalid DTD} {
+    set parser [expat]
+    tnc $parser enable
+    set result [catch {$parser parse {<!DOCTYPE root [
+    <!ELEMENT root (#PCDATA|a|b)*>
+    <!ELEMENT a (#PCDATA)>
+    <!ELEMENT b EMPTY>
+    <!BOGUS bah>
+]>
+<root>
+text<a>text</a><b/>more text
+</root>}}]
+    $parser free
+    set result
+} {1}
+
+test tnc-2.6 {invalid document} {
+    set parser [expat]
+    tnc $parser enable
+    set errMsg ""
+    set result [catch {$parser parse {<!DOCTYPE root [
+    <!ELEMENT root (#PCDATA|a|b)*>
+    <!ELEMENT a (#PCDATA)>
+    <!ELEMENT b EMPTY>
+]>
+<!-- This not well-formed document doesn't have a root element -->}} errMsg]
+    $parser free
+    set result
+} {1}
+
+test tnc-3.1 {validate cmd} {
+    set parser [expat]
+    tnc $parser enable
+    set result [catch {$parser parse $xml}]
+    set validator [tnc $parser getValidateCmd]
+    rename $validator {}
+    $parser free
+    set result
+} {0}
+
+test tnc-3.2 {validate cmd} {
+    set parser [expat]
+    tnc $parser enable
+    set result [catch {$parser parse $xml}]
+    set validator [tnc $parser getValidateCmd]
+    $parser free
+    rename $validator {}
+    set result
+} {0}
+
+test tnc-3.3 {validate cmd} {
+    set parser [expat]
+    tnc $parser enable
+    set result [catch {$parser parse $xml}]
+    set validator [tnc $parser getValidateCmd]
+    $parser reset
+    lappend result [catch {$parser parse $xml}]
+    rename $validator {}
+    $parser free
+    set result
+} {0 0}
+
+test tnc-3.4 {validate cmd} {
+    set parser [expat]
+    tnc $parser enable
+    tdom $parser enable
+    $parser parse $xml
+    set validator [tnc $parser getValidateCmd]
+    set doc [tdom $parser getdoc]
+    $parser free
+    set result [catch {$validator validateTree [$doc documentElement]} errMsg]
+    rename $validator {}
+    $doc delete
+    if {$result} {
+        set errMsg
+    } else {
+        set result
+    }
+} {0}
+
+test tnc-3.5 {validate cmd} {
+    set parser [expat]
+    tnc $parser enable
+    tdom $parser enable
+    $parser parse $xml
+    set validator [tnc $parser getValidateCmd]
+    tnc $parser remove
+    $parser reset
+    $parser parse $xml
+    set doc [tdom $parser getdoc]
+    $parser free
+    set result [catch {$validator validateTree [$doc documentElement]} errMsg]
+    rename $validator {}
+    $doc delete
+    if {$result} {
+        set errMsg
+    } else {
+        set result
+    }
+} {0}
+
+test tnc-3.6 {validate cmd} {
+    set parser [expat]
+    tnc $parser enable
+    tdom $parser enable
+    $parser parse $xml
+    set validator [tnc $parser getValidateCmd]
+    tnc $parser remove
+    $parser reset
+    $parser parse $xml
+    set doc [tdom $parser getdoc]
+    $parser free
+    set root [$doc documentElement]
+    set result [catch {$validator validateTree $root}]
+    foreach child [$root childNodes] {
+        if {[$child nodeType] == "ELEMENT_NODE"} {
+            lappend result [catch {$validator validateTree $child}]
+        }
+    }
+    rename $validator {}
+    $doc delete
+    set result
+} {0 0 0}
+
+
+test tnc-3.7 {validate cmd} {
+    set parser [expat]
+    tnc $parser enable
+    set result [catch {$parser parse $xmlWrong}]
+    set validator [tnc $parser getValidateCmd]
+    $parser free
+    set doc [dom parse $xml]
+    set root [$doc documentElement]
+    lappend result [catch {$validator validateTree $root}]
+    lappend result [catch {$validator validateDocument $doc}]
+    $validator delete
+    $doc delete
+    set result
+} {1 0 0}
+
+test tnc-3.8 {validator cmd generated from not-wellformed document with well-formed DTD} {
+    set parser [expat]
+    tnc $parser enable
+    set errMsg ""
+    catch {$parser parse {<!DOCTYPE root [
+    <!ELEMENT root (#PCDATA|a|b)*>
+    <!ELEMENT a (#PCDATA)>
+    <!ELEMENT b EMPTY>
+]>
+<!-- This not well-formed document doesn't have a root element -->}}
+    tnc $parser getValidateCmd validator
+    set doc [dom parse $xml]
+    set result [validator validateDocument $doc]
+    $parser free
+    validator delete
+    $doc delete
+    set result
+} {1}
+
+test tnc-3.9 {validator cmd - validation error info} {
+    set parser [expat]
+    tnc $parser enable
+    $parser parse $xml
+    tnc $parser getValidateCmd validator
+    $parser free
+    set doc [dom parse $xml]
+    set result [validator validateDocument $doc errInfo]
+    validator delete
+    $doc delete
+    set result
+    lappend result $errInfo
+} {1 {}}
+
+test tnc-3.10 {validator cmd - validation error info} {
+    set parser [expat]
+    tnc $parser enable
+    $parser parse $xml
+    tnc $parser getValidateCmd validator
+    $parser free
+    set doc [dom parse $xml]
+    set errInfo "something"
+    set result [validator validateDocument $doc errInfo]
+    validator delete
+    $doc delete
+    set result
+    lappend result $errInfo
+} {1 {}}
+
+test tnc-3.11 {validator cmd - validation error info} {
+    set parser [expat]
+    tnc $parser enable
+    $parser parse $xml
+    tnc $parser getValidateCmd validator
+    $parser free
+    set doc [dom parse $xmlWrong]
+    set result [validator validateDocument $doc errInfo]
+    validator delete
+    $doc delete
+    set result
+    lappend result $errInfo
+} {0 {Root element doesn't match DOCTYPE name.}}
+
+
+test tnc-3.12 {validator cmd - validation error info} {
+    set parser [expat]
+    tnc $parser enable
+    $parser parse $xml
+    tnc $parser getValidateCmd validator
+    $parser free
+    set doc [dom parse $xml]
+    set root [$doc documentElement]
+    $root appendChild [$doc createElement wrong]
+    set result [validator validateDocument $doc errInfo]
+    lappend result $errInfo
+    lappend result [validator validateTree $root errInfo]
+    lappend result $errInfo
+    validator delete
+    $doc delete
+    set result
+} {0 {No declaration for this element.} 0 {No declaration for this element.}}
+
+set xmlID {<!DOCTYPE elem [
+<!ELEMENT elem (elem*)>
+<!ATTLIST elem id ID #IMPLIED>
+]>
+<elem>
+    <elem id="id1"/>
+    <elem id="id2"/>
+    <elem id="id3"/>
+    <elem id="id4"/>
+</elem>}
+
+test tnc-3.13 {validator cmd - validateDocument with ID's} {
+    set parser [expat]
+    tnc $parser enable
+    tdom $parser enable
+    $parser parse $xmlID
+    set validator [tnc $parser getValidateCmd]
+    set doc [tdom $parser getdoc]
+    $parser free
+    set result [$validator validateDocument $doc errInfo]
+    lappend result $errInfo
+    set root [$doc documentElement]
+    $root setAttribute id "id1"
+    lappend result [$validator validateTree $root errInfo]
+    lappend result $errInfo
+    lappend result [$validator validateDocument $doc errInfo]
+    lappend result $errInfo
+    $doc delete
+    $validator delete
+    set result
+} {1 {} 0 {ID attribute values must be unique within the document.} 0 {ID attribute values must be unique within the document.}}
+
+test tnc-3.14 {validator cmd - validateAttributes} {
+    set parser [expat]
+    tnc $parser enable
+    tdom $parser enable
+    $parser parse $xmlID
+    set validator [tnc $parser getValidateCmd]
+    set doc [tdom $parser getdoc]
+    $parser free
+    set root [$doc documentElement]
+    $root setAttribute wrongAtt "id1"
+    set result [$validator validateAttributes $root errInfo]
+    lappend result $errInfo
+    $doc delete
+    $validator delete
+    set result
+} {0 {Unknown attribute for this element.}}
+
+proc extrefhandler-4.1 {base systemId publicId} {
+    if {$systemId == ""} {
+        return [list "string" $base {
+    <!ELEMENT root (#PCDATA|a|b)*>
+    <!ELEMENT a (#PCDATA)>
+    <!ELEMENT b EMPTY>
+}]
+    } else {
+        error "error in tnc-4.1"
+    }
+}
+
+test tnc-4.1 {document has no DTD, DTD provided via -useForeignDTD} {
+    set parser [expat -externalentitycommand extrefhandler-4.1 \
+                      -paramentityparsing always \
+                      -useForeignDTD 1]
+    tnc $parser enable
+    $parser parse {<root>
+text<a>text</a><b/>more text
+</root>}
+    $parser free
+    set result 1
+} {1}
+
+proc extrefhandler-4.2 {base systemId publicId} {
+    global parser
+
+    if {$systemId == ""} {
+        tnc $parser remove
+        return [list string $base ""]
+    } else {
+        error "error in tnc-4.2"
+    }
+}
+
+test tnc-4.2 {remove tnc from parser in extrefhandler} {
+    set parser [expat -externalentitycommand extrefhandler-4.2 \
+                            -paramentityparsing always \
+                            -useForeignDTD 1]
+    tnc $parser enable
+    $parser parse <foo/>
+    $parser free
+    set result 1
+} {1}
+    
+# cleanup
+::tcltest::cleanupTests
+return
+
+
+

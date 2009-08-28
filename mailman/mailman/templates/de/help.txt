@@ -1,6 +1,6 @@
 Hilfetext zur Mailingliste %(listname)s:
 
-Sie lesen den Hilfetext für Email-Befehle des Mailinglistenservers
+Sie lesen den Hilfetext für E-Mail-Befehle des Mailinglistenservers
 "Mailman", Version %(version)s. Im Folgenden werden Befehle beschrieben,
 die Sie senden können, um Informationen über Ihre Abonnements zu erhalten
 oder diese zu ändern. Alle Befehle können in der Betreffzeile (Subject)

@@ -25,6 +25,7 @@
 #include "CLDAPNodeConfig.h"
 #include "CLDAPReplicaInfo.h"
 #include "CCachePlugin.h"
+#include "CSharedData.h"
 
 #include <DirectoryServiceCore/PrivateTypes.h>
 #include <DirectoryService/DirServicesConst.h>
@@ -138,7 +139,7 @@ CLDAPConnection	*CLDAPConnection::CreateCopy( void )
 }
 
 #if defined(DEBUG_LOCKS) || defined(DEBUG_LOCKS_HISTORY) || defined(DEBUG_LDAPSESSION_LOCKS)
-LDAP *CLDAPConnection::LockLDAPSessionDebug( char *inFile, int inLine )
+LDAP *CLDAPConnection::LockLDAPSessionDebug( const char *inFile, int inLine )
 #else
 LDAP *CLDAPConnection::LockLDAPSession( void )
 #endif
@@ -218,7 +219,7 @@ LDAP *CLDAPConnection::LockLDAPSession( void )
 }
 
 #if defined(DEBUG_LOCKS) || defined(DEBUG_LOCKS_HISTORY) || defined(DEBUG_LDAPSESSION_LOCKS)
-void CLDAPConnection::UnlockLDAPSessionDebug( LDAP * &inLDAP, bool inFailed, char *inFile, int inLine )
+void CLDAPConnection::UnlockLDAPSessionDebug( LDAP * &inLDAP, bool inFailed, const char *inFile, int inLine )
 #else
 void CLDAPConnection::UnlockLDAPSession( LDAP * &inLDAP, bool inFailed )
 #endif
@@ -409,7 +410,7 @@ tDirStatus CLDAPConnection::AuthenticateKerberos( const char *inUsername, const 
 		retval = krb5_cc_initialize( krbContext, krbCache, principal );
 		if ( retval ) break;
 
-		DbgLog( kLogDebug, "CLDAPConnection::AuthenticateKerberos - Initialized cache <%s> for user <%s>", principalString );
+		DbgLog( kLogDebug, "CLDAPConnection::AuthenticateKerberos - Initialized cache <%s> for user <%s>", fKerberosCache, principalString );
 		
 		// GSSAPI's cache name needs to be set to match if we are getting ready to use GSSAPI
 		retval = krb5_cc_store_cred( krbContext, krbCache, inCredsPtr );
@@ -581,8 +582,7 @@ void CLDAPConnection::SetConnectionStatus( int32_t inStatus )
 			strlcpy( nodeName, "/LDAPv3/", sizeof(nodeName) );
 			strlcat( nodeName, fNodeConfig->fNodeName, sizeof(nodeName) );
 			
-			if ( gCacheNode != NULL )
-				gCacheNode->UpdateNodeReachability( nodeName, (inStatus == kConnectionSafe) );
+			dsSetNodeCacheAvailability( nodeName, (inStatus == kConnectionSafe) );
 		}
 	}
 }

@@ -6,14 +6,21 @@
         <string>com.apple.kextd</string>
         <key>ProgramArguments</key>
         <array>
-                <string>/usr/libexec/kextd</string>
+            <string>/usr/libexec/kextd</string>
         </array>
         <key>KeepAlive</key>
-        <true/>
+        <dict>
+                <key>SuccessfulExit</key>
+                <false/>
+        </dict>
         <key>MachServices</key>
-	<dict>
-        	<key>com.apple.KernelExtensionServer</key>
-		<true/>
-	</dict>
+        <dict>
+            <key>com.apple.KernelExtensionServer</key>
+            <dict>
+                <!-- HostSpecialPort # from xnu/osfmk/mach/host_special_ports.h -->
+                <key>HostSpecialPort</key>
+                <integer>15</integer>
+            </dict>
+        </dict>
 </dict>
 </plist>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2008 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -29,11 +29,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>			//used for mkdir and stat
-#include <syslog.h>
 #include <mach/mach_time.h>	// for dsTimeStamp
 #include <libkern/OSAtomic.h>
 
 #include <Security/Authorization.h>
+#include <dispatch/dispatch.h>
+#include <assert.h>
 
 #include "DirServices.h"
 #include "DirServicesUtils.h"
@@ -61,9 +62,14 @@
 #include "DSEventSemaphore.h"
 #include "CContinue.h"
 #include "GetMACAddress.h"
+#include "CInternalDispatch.h"
+#include "CDSPluginUtils.h"
+#include "Mbrd_MembershipResolver.h"
+#include "WorkstationService.h"
 
 extern	bool			gServerOS;
 extern	CCachePlugin	*gCacheNode;
+extern	dsBool			gDSLocalOnlyMode;
 
 uint32_t				gSystemGoingToSleep			= 0;
 int32_t CSearchPlugin::fAuthCheckNodeThreadActive		= false;
@@ -85,7 +91,7 @@ static CSearchPlugin		*gSearchNode			= nil;
 
 static void DHCPChangeNotification( SCDynamicStoreRef aSCDStore, CFArrayRef changedKeys, void *inInfo )
 {                       
-	if ( inInfo != NULL && !gSystemGoingToSleep && OSAtomicCompareAndSwap32Barrier(false, true, &gInitializeActive) == true ) //if going to sleep do not do this
+	if ( inInfo != NULL && gSystemGoingToSleep != 0 && __sync_bool_compare_and_swap(&gInitializeActive, false, true) == true ) //if going to sleep do not do this
 	{
 		CSearchPluginHandlerThread* aSearchPluginHandlerThread = new CSearchPluginHandlerThread( DSCThread::kTSSearchPlugInHndlrThread, 2, inInfo );
 		if (aSearchPluginHandlerThread != NULL)
@@ -93,17 +99,6 @@ static void DHCPChangeNotification( SCDynamicStoreRef aSCDStore, CFArrayRef chan
 		//we don't keep a handle to the search plugin handler threads and don't check if they get created
 	}
 }// DHCPChangeNotification
-
-// returns -1 = deregister, 0 = no change, 1 = register.
-int ShouldRegisterWorkstation(void)
-{
-	int result = 0;
-	
-	if ( ( gSearchNode != nil ) && !gSystemGoingToSleep ) //if going to sleep do not do this
-		result = gSearchNode->fRegisterWorkstation ? 1 : -1;
-	
-	return result;
-}
 
 #pragma mark -
 #pragma mark Specific Search Plugin Handler Routines for Run Loop spawned jobs
@@ -114,7 +109,7 @@ int ShouldRegisterWorkstation(void)
 //
 //--------------------------------------------------------------------------------------------------
 
-CSearchPluginHandlerThread::CSearchPluginHandlerThread ( void ) : CInternalDispatchThread(kTSSearchPlugInHndlrThread)
+CSearchPluginHandlerThread::CSearchPluginHandlerThread ( void ) : DSCThread(kTSSearchPlugInHndlrThread)
 {
 	fThreadSignature	= kTSSearchPlugInHndlrThread;
 	fWhichFunction		= 0;
@@ -127,7 +122,7 @@ CSearchPluginHandlerThread::CSearchPluginHandlerThread ( void ) : CInternalDispa
 //
 //--------------------------------------------------------------------------------------------------
 
-CSearchPluginHandlerThread::CSearchPluginHandlerThread ( const FourCharCode inThreadSignature, int inWhichFunction, void *inNeededClass ) : CInternalDispatchThread(inThreadSignature)
+CSearchPluginHandlerThread::CSearchPluginHandlerThread ( const FourCharCode inThreadSignature, int inWhichFunction, void *inNeededClass ) : DSCThread(inThreadSignature)
 {
 	fThreadSignature	= inThreadSignature;
 	fWhichFunction		= inWhichFunction;
@@ -187,6 +182,8 @@ void CSearchPluginHandlerThread::StopThread ( void )
 SInt32 CSearchPluginHandlerThread::ThreadMain ( void )
 {
 	CSearchPlugin *aSearchPlugin = (CSearchPlugin *) fNeededClass;
+	
+	CInternalDispatch::AddCapability();
 
 	if ( aSearchPlugin != nil )
 	{
@@ -243,10 +240,7 @@ CSearchPlugin::CSearchPlugin ( FourCharCode inSig, const char *inName ) : CServe
 
 	if ( gSNContinue == nil )
 	{
-		if (gServerOS)
-			gSNContinue = new CContinue( CSearchPlugin::ContinueDeallocProc, 256 );
-		else
-			gSNContinue = new CContinue( CSearchPlugin::ContinueDeallocProc, 64 );
+		gSNContinue = new CContinue( CSearchPlugin::ContinueDeallocProc );
 	}
 	
 	// let's register our notification of DHCP LDAP changes and Location changes
@@ -280,12 +274,31 @@ CSearchPlugin::CSearchPlugin ( FourCharCode inSig, const char *inName ) : CServe
 	DSCFRelease( notifyKeys );
 	DSCFRelease( store );
 	
+	notifyKeys = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
+	CFArrayAppendValue( notifyKeys, CFSTR(kDSNodeEvent) );
+	store = SCDynamicStoreCreate( kCFAllocatorDefault, CFSTR("NodeChangeQueue"), NotifyNodeEvent, &scContext );
+	if ( store != NULL )
+	{
+		SCDynamicStoreSetNotificationKeys( store, notifyKeys, NULL );
+		CFRunLoopSourceRef rls = SCDynamicStoreCreateRunLoopSource( kCFAllocatorDefault, store, 0 );
+		if (rls != NULL)
+		{
+			// this source will not block as it will spawn a thread to do the work
+			CFRunLoopAddSource( CFRunLoopGetMain(), rls, kCFRunLoopDefaultMode );
+			CFRelease( rls );
+		}
+	}
+	
+	DSCFRelease( notifyKeys );
+	DSCFRelease( store );
+	
 	gSearchNode = this;
 	::dsOpenDirService( &fDirRef ); //don't check the return since we are direct dispatch inside the daemon
 	
 	fRegisterWorkstation = false;
 	
 #if AUGMENT_RECORDS
+	fAugmentTimer = NULL;
 	fAugmentNodeRef = 0;
 #endif
 
@@ -358,7 +371,6 @@ SInt32 CSearchPlugin::Initialize ( void )
 	char		   *aSearchNodeName			= nil;
 	char		   *aSearchConfigFilePrefix	= nil;
 	sSearchList	   *aSearchNodeList			= nil;
-	sSearchList	   *autoSearchNodeList		= nil;
 	CConfigs	   *aConfigFromXML			= nil;
 	UInt32			aSearchPolicy			= 0;
 	eDirNodeType	aDirNodeType			= kUnknownNodeType;
@@ -474,7 +486,9 @@ SInt32 CSearchPlugin::Initialize ( void )
 					
 					//if custom list was nil we go ahead anyways with local only
 					//local policy nodes always added in regardless
-					siResult = AddLocalNodesAsFirstPaths(&aSearchNodeList);
+					if ( aSearchConfigType != eDSContactsSearchNodeName ) {
+						siResult = AddLocalNodesAsFirstPaths(&aSearchNodeList);
+					}
 					break;
 
 				case kLocalSearchPolicy:
@@ -487,7 +501,6 @@ SInt32 CSearchPlugin::Initialize ( void )
 				default:
 					DbgLog( kLogPlugin, "Setting search policy to Automatic search" );
 					siResult = AddLocalNodesAsFirstPaths(&aSearchNodeList);
-					autoSearchNodeList = DupSearchListWithNewRefs(aSearchNodeList);
 					break;
 			} // switch on aSearchPolicy
 			
@@ -566,13 +579,21 @@ SInt32 CSearchPlugin::Initialize ( void )
 					}
 					else
 					{
-						sSearchList *aListPtr = nil;
-						aListPtr = aSearchNodeList->fNext; //always skip the local node
-						aListPtr = aListPtr->fNext; //always skip the BSD node
+						sSearchList *aListPtr = aSearchNodeList;
 						while (aListPtr != nil)
 						{
-							aListPtr->fNodeReachable = false;
-							aListPtr->fHasNeverOpened = true;
+							if ( aListPtr->fNodeName == NULL || (strcmp(aListPtr->fNodeName, "/Local/Default") != 0 &&
+																 strcmp(aListPtr->fNodeName, "/BSD/local") != 0) )
+							{
+								aListPtr->fNodeReachable = false;
+								aListPtr->fHasNeverOpened = true;
+							}
+							else
+							{
+								aListPtr->fNodeReachable = true;
+								aListPtr->fHasNeverOpened = false;
+							}
+							
 							aListPtr = aListPtr->fNext;
 						}
 					}
@@ -624,13 +645,6 @@ SInt32 CSearchPlugin::Initialize ( void )
 			}
 
 		} //for loop over search node indices
-		
-		//clean up the cached auto search list if it exists
-		if ( (autoSearchNodeList != nil) && (lastSearchConfig != nil) )
-		{
-			CleanSearchListData( autoSearchNodeList );
-		}
-
 		
 		{  //Default Network Search Policy
 			DbgLog( kLogPlugin, "Setting Default Network Search Node Configuraton" );
@@ -765,14 +779,30 @@ SInt32 CSearchPlugin::Initialize ( void )
 	}
 	DSFreeString(fAuthSearchPathCheck);
 	fAuthSearchPathCheck = authSearchPathCheck;
-	if (bShouldNotify)
-	{
-		gSrvrCntl->NodeSearchPolicyChanged();
+	if (bShouldNotify) {
+		NodeReachabilityChanged();
 	}
 	fSomeNodeFailedToOpen = false;
+	
+	if ( fAugmentTimer == NULL )
+	{
+		fAugmentTimer = dispatch_source_timer_create( DISPATCH_TIMER_INTERVAL, 
+													  3600ULL * NSEC_PER_SEC, // every hour
+													  30ULL * NSEC_PER_SEC,
+													  NULL,
+													  dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT),
+													  ^(dispatch_source_t ds) {
+														  // we intentionally ignore errors, etc, this is never released or cancelled
+														  DbgLog( kLogInfo, "CSearchPlugin - Checking for new augmented configuration records" );
+														  CInternalDispatch::AddCapability();
+														  gSearchNode->CheckForAugmentConfig( eDSAuthenticationSearchNodeName );
+														  gSearchNode->CheckForAugmentConfig( eDSContactsSearchNodeName );
+													  } );
+	}
+	
 	fMutex.SignalLock();
 	
-	OSAtomicCompareAndSwap32Barrier( true, false, &gInitializeActive );
+	__sync_bool_compare_and_swap( &gInitializeActive, true, false );
 	
 	return( siResult );
 
@@ -828,7 +858,9 @@ bool CSearchPlugin:: SwitchSearchPolicy ( UInt32 inSearchPolicy, sSearchConfig *
 						
 					//if custom list was nil we go ahead anyways with local only
 					//local policy nodes always added in regardless
-					siResult = AddLocalNodesAsFirstPaths(&(inSearchConfig->fSearchNodeList));
+					if ( inSearchConfig != NULL && inSearchConfig->fSearchConfigKey != eDSContactsSearchNodeName ) {
+						siResult = AddLocalNodesAsFirstPaths(&(inSearchConfig->fSearchNodeList));
+					}
 					break;
 
 				case kLocalSearchPolicy:
@@ -913,13 +945,21 @@ bool CSearchPlugin:: SwitchSearchPolicy ( UInt32 inSearchPolicy, sSearchConfig *
 				}
 				else
 				{
-					sSearchList *aListPtr = nil;
-					aListPtr = inSearchConfig->fSearchNodeList->fNext; //always skip the local node
-					aListPtr = aListPtr->fNext;
+					sSearchList *aListPtr = inSearchConfig->fSearchNodeList;
 					while (aListPtr != nil)
 					{
-						aListPtr->fNodeReachable = false;
-						aListPtr->fHasNeverOpened = true;
+						if ( aListPtr->fNodeName == NULL || (strcmp(aListPtr->fNodeName, "/Local/Default") != 0 &&
+															 strcmp(aListPtr->fNodeName, "/BSD/local") != 0) )
+						{
+							aListPtr->fNodeReachable = false;
+							aListPtr->fHasNeverOpened = true;
+						}
+						else
+						{
+							aListPtr->fNodeReachable = true;
+							aListPtr->fHasNeverOpened = false;
+						}
+						
 						aListPtr = aListPtr->fNext;
 					}
 				}
@@ -992,14 +1032,6 @@ bool CSearchPlugin:: SwitchSearchPolicy ( UInt32 inSearchPolicy, sSearchConfig *
 		}
 		fAuthSearchPathCheck = authSearchPathCheck;
 
-		gSrvrCntl->NodeSearchPolicyChanged();
-		
-		//we should flush our cache because our policy changed
-		if ( gCacheNode != NULL )
-		{
-			gCacheNode->EmptyCacheEntryType( CACHE_ENTRY_TYPE_ALL );
-		}
-
 		//not really checking if changed
 		bAuthSwitched = true;
 	}
@@ -1009,6 +1041,69 @@ bool CSearchPlugin:: SwitchSearchPolicy ( UInt32 inSearchPolicy, sSearchConfig *
 	return( bAuthSwitched );
 
 } // SwitchSearchPolicy
+
+// --------------------------------------------------------------------------------
+//	* NodeReachabilityChanged ()
+// --------------------------------------------------------------------------------
+
+static void
+__NodeReachabilityChanged( void )
+{
+	dispatch_async( dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_HIGH), 
+				    ^(void) {
+						// flag membership cache
+						dsNodeStateChangeOccurred();
+						
+						// Now notify clients that our policy has changed as that is what they watch for
+						CSearchPlugin::NotifySearchPolicyChanged();
+						
+						// Launch kerberosautoconfig so our kerberos config is up to date
+						LaunchKerberosAutoConfigTool();
+						
+						DbgLog( kLogInfo, "CSearchPlugin::NodeReachabilityChanged - finished doing tasks" );
+					} );
+}
+
+void
+CSearchPlugin::NodeReachabilityChanged( void )
+{
+	__NodeReachabilityChanged();
+}
+
+// --------------------------------------------------------------------------------
+//	* NotifySearchPolicyChanged ()
+// --------------------------------------------------------------------------------
+
+void
+CSearchPlugin::NotifySearchPolicyChanged( void )
+{
+	SCDynamicStoreRef store = SCDynamicStoreCreate( kCFAllocatorDefault, NULL, NULL, NULL );
+	if ( store != NULL )
+	{
+		if ( SCDynamicStoreNotifyValue(store, CFSTR(kDSStdNotifySearchPolicyChanged)) == false ) {
+			DbgLog( kLogError, "Could not notify " kDSStdNotifySearchPolicyChanged " in System Configuration" );
+		}
+		else {
+			DbgLog( kLogDebug, "CSearchPlugin::NotifySearchPolicyChanged - notification occurred" );
+		}
+		
+		CFRelease( store );
+		store = NULL;
+	}
+	else
+	{
+		DbgLog( kLogError, "CSearchPlugin::NotifySearchPolicyChanged - SCDynamicStoreCreate not yet available from System Configuration" );
+	}
+	
+	if ( gSearchNode != NULL && gSystemGoingToSleep == false )
+	{
+		if ( gSearchNode->fRegisterWorkstation == true ) {
+			WorkstationServiceRegister();
+		} else {
+			WorkstationServiceUnregister();
+		}
+	}
+}
 
 
 // --------------------------------------------------------------------------------
@@ -1021,11 +1116,13 @@ sSearchList *CSearchPlugin:: GetDefaultLocalPath( void )
 	sSearchList			   *outSrchList			= nil;
 
 
-	outSrchList = (sSearchList *)calloc( sizeof( sSearchList ), sizeof(char) );
+	outSrchList = (sSearchList *)calloc( 1, sizeof(sSearchList) );
 	outSrchList->fNodeName = strdup(kstrDefaultLocalNodeName);
+	outSrchList->fNodeReachable = true;
+	outSrchList->fHasNeverOpened = false;
 
 	outSrchList->fDataList = ::dsBuildFromPathPriv( kstrDefaultLocalNodeName, "/" );
-	DbgLog( kLogPlugin, "CSearchPlugin::GetDefaultLocalPath<setlocalfirst>:Search policy node %l = %s", uiCntr++, outSrchList->fNodeName );
+	DbgLog( kLogDebug, "CSearchPlugin::GetDefaultLocalPath<setlocalfirst>:Search policy node %l = %s", uiCntr++, outSrchList->fNodeName );
 
 	return( outSrchList );
 
@@ -1041,11 +1138,13 @@ sSearchList *CSearchPlugin:: GetBSDLocalPath( void )
 	UInt32					uiCntr				= 2;
 	sSearchList			   *outSrchList			= nil;
 
-	outSrchList = (sSearchList *)calloc( sizeof( sSearchList ), sizeof(char) );
+	outSrchList = (sSearchList *)calloc( 1, sizeof(sSearchList) );
 	outSrchList->fNodeName = strdup( kstrBSDLocalNodeName );
+	outSrchList->fNodeReachable = true;
+	outSrchList->fHasNeverOpened = false;
 
 	outSrchList->fDataList = dsBuildFromPathPriv( kstrBSDLocalNodeName, "/" );
-	DbgLog( kLogPlugin, "CSearchPlugin::GetBSDLocalPath<setbsdsecond>:Search policy node %l = %s", uiCntr++, outSrchList->fNodeName );
+	DbgLog( kLogDebug, "CSearchPlugin::GetBSDLocalPath<setbsdsecond>:Search policy node %l = %s", uiCntr++, outSrchList->fNodeName );
 
 	return( outSrchList );
 
@@ -1517,8 +1616,8 @@ SInt32 CSearchPlugin::ReleaseContinueData ( sReleaseContinueData *inData )
 {
 	SInt32	siResult	= eDSNoErr;
 
-	// RemoveItem calls our ContinueDeallocProc to clean up
-	if ( gSNContinue->RemoveItem( inData->fInContinueData ) != eDSNoErr )
+	// RemoveContext calls our ContinueDeallocProc to clean up
+	if ( gSNContinue->RemoveContext( inData->fInContinueData ) != eDSNoErr )
 	{
 		siResult = eDSInvalidContext;
 	}
@@ -1542,6 +1641,9 @@ SInt32 CSearchPlugin::OpenDirNode ( sOpenDirNode *inData )
 	char			   *pathStr				= nil;
 	sSearchContextData *pContext			= nil;
 	sSearchConfig	   *aSearchConfigList	= nil;
+
+	// if we are in local only mode
+	if ( gDSLocalOnlyMode == true ) return siResult;
 
 	if ( inData != nil )
 	{
@@ -1615,8 +1717,8 @@ SInt32 CSearchPlugin::CloseDirNode ( sCloseDirNode *inData )
 		pContext = (sSearchContextData *) gSNNodeRef->GetItemData( inData->fInNodeRef );
 		if ( pContext == nil ) throw( (SInt32)eDSInvalidNodeRef );
 
+		gSNContinue->RemovePointersForRefNum( inData->fInNodeRef );
 		gSNNodeRef->RemoveItem( inData->fInNodeRef );
-		gSNContinue->RemoveItems( inData->fInNodeRef );
 	}
 
 	catch( SInt32 err )
@@ -1767,7 +1869,6 @@ SInt32 CSearchPlugin::GetDirNodeInfo ( sGetDirNodeInfo *inData )
 			if ( (	(::strcmp( pAttrName, kDSAttributesAll ) == 0)	|| 
 					(::strcmp( pAttrName, kDS1AttrNSPSearchPath ) == 0) ) &&
 					(pContext->fSearchConfigKey != eDSNetworkSearchNodeName) )
-				//NetInfo search policy path
 			{
 				aTmpData->Clear();
 
@@ -1780,8 +1881,8 @@ SInt32 CSearchPlugin::GetDirNodeInfo ( sGetDirNodeInfo *inData )
 				if ( inData->fInAttrInfoOnly == false )
 				{
 					uiNodeCnt = 0;
+					// TODO:  Why don't we read the policy directly?
 					AddLocalNodesAsFirstPaths(&pListPtr);
-					if ( pListPtr == nil ) throw( (SInt32)eSearchPathNotDefined );
 					AddDefaultLDAPNodesLast(&pListPtr);
 					
 					pListPtrToo = pListPtr;
@@ -1840,7 +1941,6 @@ SInt32 CSearchPlugin::GetDirNodeInfo ( sGetDirNodeInfo *inData )
 				{
 					uiNodeCnt = 0;
 					AddLocalNodesAsFirstPaths(&pListPtr);
-					if ( pListPtr == nil ) throw( (SInt32)eSearchPathNotDefined );
 
 					pListPtrToo = pListPtr;
 					while ( pListPtr != nil )
@@ -1901,16 +2001,21 @@ SInt32 CSearchPlugin::GetDirNodeInfo ( sGetDirNodeInfo *inData )
 					{
 						pListCustom = aSearchConfig->pConfigFromXML->GetCustom();
 					}
-					AddLocalNodesAsFirstPaths(&pListPtr);
-					if ( pListPtr == nil ) throw( (SInt32)eSearchPathNotDefined );
+					if ( pContext->fSearchConfigKey != eDSContactsSearchNodeName ) {
+						AddLocalNodesAsFirstPaths(&pListPtr);
+					}
 					
 					//add the local to the front of the custom
-					pListPtrToo = pListPtr;
-					while ( pListPtrToo->fNext != nil )
-					{
-						pListPtrToo = pListPtrToo->fNext;
+					if ( pListPtr != nil ) {
+						pListPtrToo = pListPtr;
+						while ( pListPtrToo->fNext != nil ) {
+							pListPtrToo = pListPtrToo->fNext;
+						}
+						pListPtrToo->fNext = pListCustom;
 					}
-					pListPtrToo->fNext = pListCustom;
+					else {
+						pListPtr = pListCustom;
+					}
 
 					uiNodeCnt = 0;
 					pListPtrToo = pListPtr;
@@ -2202,13 +2307,13 @@ SInt32 CSearchPlugin::GetRecordList ( sGetRecordList *inData )
 		if( siResult != eDSNoErr ) throw( siResult );
 
 		// Set it to the first node in the search list - this check doesn't need to use the context search path
-		if ( pContext->fSearchNodeList == nil ) throw( (SInt32)eSearchPathNotDefined );
+		if ( pContext->fSearchNodeList == nil ) throw( (SInt32)eDSNoErr );
 
-		if ( inData->fIOContinueData != nil )
+		if ( inData->fIOContinueData != 0 )
 		{
-			if ( gSNContinue->VerifyItem( inData->fIOContinueData ) == true )
+			pInContinue = (sSearchContinueData *) gSNContinue->GetPointer( inData->fIOContinueData );
+			if ( pInContinue != NULL )
 			{
-				pInContinue = (sSearchContinueData *)inData->fIOContinueData;
 				if (pInContinue->bNodeBuffTooSmall)
 				{
 					pInContinue->bNodeBuffTooSmall = false;
@@ -2245,7 +2350,7 @@ SInt32 CSearchPlugin::GetRecordList ( sGetRecordList *inData )
 						pContinue->fDataBuff = ::dsDataBufferAllocatePriv( inData->fInDataBuff->fBufferSize );
 						if ( pContinue->fDataBuff == nil ) throw( (SInt32)eMemoryAllocError );
 					}
-					//pInContinue->fDataBuff will get freed below in gSNContinue->RemoveItem
+					//pInContinue->fDataBuff will get freed below in gSNContinue->RemoveContext
 				}
 				else
 				{
@@ -2257,14 +2362,15 @@ SInt32 CSearchPlugin::GetRecordList ( sGetRecordList *inData )
 				pContinue->fTotalRecCount	= pInContinue->fTotalRecCount;
 				pContinue->bNodeBuffTooSmall= pInContinue->bNodeBuffTooSmall;
 
-				// RemoveItem calls our ContinueDeallocProc to clean up
+				// RemoveContext calls our ContinueDeallocProc to clean up
 				// since we transfered ownership of these pointers we need to make sure they
 				// are nil so the ContinueDeallocProc doesn't free them now
-				pInContinue->fContextData		= nil;
-				gSNContinue->RemoveItem( inData->fIOContinueData );
+				pInContinue->fContextData		= 0;
+				
+				gSNContinue->RemoveContext( inData->fIOContinueData );
+				inData->fIOContinueData = 0;
 
 				pInContinue = nil;
-				inData->fIOContinueData = nil;
 
 				runState = pContinue->fState;
 			}
@@ -2387,8 +2493,7 @@ SInt32 CSearchPlugin::GetRecordList ( sGetRecordList *inData )
 							//KW add to the total rec count what is going out for this call
 							pContinue->fTotalRecCount += inData->fOutRecEntryCount;
 							pContinue->fState = lastState;
-							inData->fIOContinueData	= pContinue;
-							gSNContinue->AddItem( pContinue, inData->fInNodeRef );
+							inData->fIOContinueData	= gSNContinue->AddPointer( pContinue, inData->fInNodeRef );
 							siResult = eDSNoErr;
 							break;
 
@@ -2405,13 +2510,12 @@ SInt32 CSearchPlugin::GetRecordList ( sGetRecordList *inData )
 							}
 							else
 							{
-								inData->fIOContinueData = pContinue;
-								gSNContinue->AddItem( pContinue, inData->fInNodeRef );
+								inData->fIOContinueData = gSNContinue->AddPointer( pContinue, inData->fInNodeRef );
 							}
 							break;
 
 						case keBufferTooSmall:
-							if (pContinue->fContextData == nil) //buffer too small in search node itself
+							if (pContinue->fContextData == 0) //buffer too small in search node itself
 							{
 								pContinue->fState = keAddDataToBuff;
 								siResult = eDSBufferTooSmall;
@@ -2438,8 +2542,7 @@ SInt32 CSearchPlugin::GetRecordList ( sGetRecordList *inData )
 								else
 									pContinue->fState = keGetRecordList;
 							}
-							inData->fIOContinueData	= pContinue;
-							gSNContinue->AddItem( pContinue, inData->fInNodeRef );
+							inData->fIOContinueData	= gSNContinue->AddPointer( pContinue, inData->fInNodeRef );
 							break;
 							
 						default:
@@ -2453,7 +2556,11 @@ SInt32 CSearchPlugin::GetRecordList ( sGetRecordList *inData )
 				{
 					if ( pContinue != nil )
 					{
-						CSearchPlugin::ContinueDeallocProc( pContinue );
+						if ( inData->fIOContinueData != 0 )
+							gSNContinue->RemoveContext( inData->fIOContinueData );
+						else
+							ContinueDeallocProc( pContinue );
+						inData->fIOContinueData = 0;
 						pContinue = nil;
 					}
 					done = true;
@@ -2485,7 +2592,7 @@ SInt32 CSearchPlugin::GetRecordList ( sGetRecordList *inData )
 							// We found records, add them to our out buff
 							runState = keAddDataToBuff;
 						}
-						else if (pContinue->fContextData == nil)
+						else if (pContinue->fContextData == 0)
 						{
 							// No records were found on this node, do
 							//	we need to get next node
@@ -2504,7 +2611,7 @@ SInt32 CSearchPlugin::GetRecordList ( sGetRecordList *inData )
 						//we need to ensure that continue data from previous node is NOT sent to the next node and that it is released
 						if (siResult == eDSInvalidRecordType)
 						{
-							if (pContinue->fContextData != nil)
+							if (pContinue->fContextData != 0)
 							{
 								//release the continue data
 								dsReleaseContinueData(pContinue->fNodeRef, pContinue->fContextData);
@@ -2646,10 +2753,10 @@ SInt32 CSearchPlugin::GetRecordList ( sGetRecordList *inData )
 		siResult = err;
 	}
 
-	if ( (inData->fIOContinueData == nil) && (pContinue != nil ) )
+	if ( (inData->fIOContinueData == 0) && (pContinue != 0 ) )
 	{
 		// we have decided not to return contine data, need to free it
-		CSearchPlugin::ContinueDeallocProc( pContinue );
+		ContinueDeallocProc( pContinue );
 		pContinue = nil;
 	}
 
@@ -3102,13 +3209,13 @@ SInt32 CSearchPlugin::AttributeValueSearch ( sDoAttrValueSearchWithData *inData 
 		if( siResult != eDSNoErr ) throw( siResult );
 		
 		// Set it to the first node in the search list - this check doesn't need to use the context search path
-		if ( pContext->fSearchNodeList == nil ) throw( (SInt32)eSearchPathNotDefined );
+		if ( pContext->fSearchNodeList == nil ) throw( (SInt32)eDSNoErr );
 
-		if ( inData->fIOContinueData != nil )
+		if ( inData->fIOContinueData != 0 )
 		{
-			if ( gSNContinue->VerifyItem( inData->fIOContinueData ) == true )
+			pInContinue = (sSearchContinueData *) gSNContinue->GetPointer( inData->fIOContinueData );
+			if ( pInContinue != NULL )
 			{
-				pInContinue = (sSearchContinueData *)inData->fIOContinueData;
 				if (pInContinue->bNodeBuffTooSmall)
 				{
 					pInContinue->bNodeBuffTooSmall = false;
@@ -3145,7 +3252,7 @@ SInt32 CSearchPlugin::AttributeValueSearch ( sDoAttrValueSearchWithData *inData 
 						pContinue->fDataBuff = ::dsDataBufferAllocatePriv( inData->fOutDataBuff->fBufferSize );
 						if ( pContinue->fDataBuff == nil ) throw( (SInt32)eMemoryAllocError );
 					}
-					//pInContinue->fDataBuff will get freed below in gSNContinue->RemoveItem
+					//pInContinue->fDataBuff will get freed below in gSNContinue->RemoveContext
 				}
 				else
 				{
@@ -3158,14 +3265,15 @@ SInt32 CSearchPlugin::AttributeValueSearch ( sDoAttrValueSearchWithData *inData 
 				pContinue->bNodeBuffTooSmall= pInContinue->bNodeBuffTooSmall;
 				
 
-				// RemoveItem calls our ContinueDeallocProc to clean up
+				// RemoveContext calls our ContinueDeallocProc to clean up
 				// since we transfered ownership of these pointers we need to make sure they
 				// are nil so the ContinueDeallocProc doesn't free them now
 				pInContinue->fContextData		= nil;
-				gSNContinue->RemoveItem( inData->fIOContinueData );
+				
+				gSNContinue->RemoveContext( inData->fIOContinueData );
+				inData->fIOContinueData = 0;
 
 				pInContinue = nil;
-				inData->fIOContinueData = nil;
 
 				runState = pContinue->fState;
 			}
@@ -3310,8 +3418,7 @@ SInt32 CSearchPlugin::AttributeValueSearch ( sDoAttrValueSearchWithData *inData 
 							//KW add to the total rec count what is going out for this call
 							pContinue->fTotalRecCount += inData->fOutMatchRecordCount;
 							pContinue->fState = lastState;
-							inData->fIOContinueData	= pContinue;
-							gSNContinue->AddItem( pContinue, inData->fInNodeRef );
+							inData->fIOContinueData	= gSNContinue->AddPointer( pContinue, inData->fInNodeRef );
 							siResult = eDSNoErr;
 							break;
 
@@ -3328,13 +3435,12 @@ SInt32 CSearchPlugin::AttributeValueSearch ( sDoAttrValueSearchWithData *inData 
 							}
 							else
 							{
-								inData->fIOContinueData = pContinue;
-								gSNContinue->AddItem( pContinue, inData->fInNodeRef );
+								inData->fIOContinueData = gSNContinue->AddPointer( pContinue, inData->fInNodeRef );
 							}
 							break;
 
 						case keBufferTooSmall:
-							if (pContinue->fContextData == nil) //buffer too small in search node itself
+							if (pContinue->fContextData == 0) //buffer too small in search node itself
 							{
 								pContinue->fState = keAddDataToBuff;
 								siResult = eDSBufferTooSmall;
@@ -3361,8 +3467,7 @@ SInt32 CSearchPlugin::AttributeValueSearch ( sDoAttrValueSearchWithData *inData 
 								else
 									pContinue->fState = keGetRecordList;
 							}
-							inData->fIOContinueData	= pContinue;
-							gSNContinue->AddItem( pContinue, inData->fInNodeRef );
+							inData->fIOContinueData	= gSNContinue->AddPointer( pContinue, inData->fInNodeRef );
 							break;
 
 						default:
@@ -3376,7 +3481,11 @@ SInt32 CSearchPlugin::AttributeValueSearch ( sDoAttrValueSearchWithData *inData 
 				{
 					if ( pContinue != nil )
 					{
-						CSearchPlugin::ContinueDeallocProc( pContinue );
+						if ( inData->fIOContinueData != 0 )
+							gSNContinue->RemoveContext( inData->fIOContinueData );
+						else
+							ContinueDeallocProc( pContinue );
+						inData->fIOContinueData = 0;
 						pContinue = nil;
 					}
 					done = true;
@@ -3409,7 +3518,7 @@ SInt32 CSearchPlugin::AttributeValueSearch ( sDoAttrValueSearchWithData *inData 
 							// We found records, add them to our out buff
 							runState = keAddDataToBuff;
 						}
-						else if (pContinue->fContextData == nil)
+						else if (pContinue->fContextData == 0)
 						{
 							// No records were found on this node, do
 							//	we need to get next node
@@ -3428,7 +3537,7 @@ SInt32 CSearchPlugin::AttributeValueSearch ( sDoAttrValueSearchWithData *inData 
 						//we need to ensure that continue data from previous node is NOT sent to the next node and that it is released
 						if (siResult == eDSInvalidRecordType)
 						{
-							if (pContinue->fContextData != nil)
+							if (pContinue->fContextData != 0)
 							{
 								//release the continue data
 								dsReleaseContinueData(pContinue->fNodeRef, pContinue->fContextData);
@@ -3570,10 +3679,10 @@ SInt32 CSearchPlugin::AttributeValueSearch ( sDoAttrValueSearchWithData *inData 
 		siResult = err;
 	}
 
-	if ( (inData->fIOContinueData == nil) && (pContinue != nil ) )
+	if ( (inData->fIOContinueData == 0) && (pContinue != nil ) )
 	{
 		// we have decided not to return contine data, need to free it
-		CSearchPlugin::ContinueDeallocProc( pContinue );
+		ContinueDeallocProc( pContinue );
 		pContinue = nil;
 	}
 
@@ -3617,13 +3726,13 @@ SInt32 CSearchPlugin::MultipleAttributeValueSearch ( sDoMultiAttrValueSearchWith
 		if( siResult != eDSNoErr ) throw( siResult );
 		
 		// Set it to the first node in the search list - this check doesn't need to use the context search path
-		if ( pContext->fSearchNodeList == nil ) throw( (SInt32)eSearchPathNotDefined );
+		if ( pContext->fSearchNodeList == nil ) throw( (SInt32)eDSNoErr );
 
-		if ( inData->fIOContinueData != nil )
+		if ( inData->fIOContinueData != 0 )
 		{
-			if ( gSNContinue->VerifyItem( inData->fIOContinueData ) == true )
+			pInContinue = (sSearchContinueData *) gSNContinue->GetPointer( inData->fIOContinueData );
+			if ( pInContinue != NULL )
 			{
-				pInContinue = (sSearchContinueData *)inData->fIOContinueData;
 				if (pInContinue->bNodeBuffTooSmall)
 				{
 					pInContinue->bNodeBuffTooSmall = false;
@@ -3660,7 +3769,7 @@ SInt32 CSearchPlugin::MultipleAttributeValueSearch ( sDoMultiAttrValueSearchWith
 						pContinue->fDataBuff = ::dsDataBufferAllocatePriv( inData->fOutDataBuff->fBufferSize );
 						if ( pContinue->fDataBuff == nil ) throw( (SInt32)eMemoryAllocError );
 					}
-					//pInContinue->fDataBuff will get freed below in gSNContinue->RemoveItem
+					//pInContinue->fDataBuff will get freed below in gSNContinue->RemoveContext
 				}
 				else
 				{
@@ -3673,14 +3782,15 @@ SInt32 CSearchPlugin::MultipleAttributeValueSearch ( sDoMultiAttrValueSearchWith
 				pContinue->bNodeBuffTooSmall= pInContinue->bNodeBuffTooSmall;
 				
 
-				// RemoveItem calls our ContinueDeallocProc to clean up
+				// RemoveContext calls our ContinueDeallocProc to clean up
 				// since we transfered ownership of these pointers we need to make sure they
 				// are nil so the ContinueDeallocProc doesn't free them now
 				pInContinue->fContextData		= nil;
-				gSNContinue->RemoveItem( inData->fIOContinueData );
+				
+				gSNContinue->RemoveContext( inData->fIOContinueData );
+				inData->fIOContinueData = 0;
 
 				pInContinue = nil;
-				inData->fIOContinueData = nil;
 
 				runState = pContinue->fState;
 			}
@@ -3826,8 +3936,7 @@ SInt32 CSearchPlugin::MultipleAttributeValueSearch ( sDoMultiAttrValueSearchWith
 							//KW add to the total rec count what is going out for this call
 							pContinue->fTotalRecCount += inData->fOutMatchRecordCount;
 							pContinue->fState = lastState;
-							inData->fIOContinueData	= pContinue;
-							gSNContinue->AddItem( pContinue, inData->fInNodeRef );
+							inData->fIOContinueData	= gSNContinue->AddPointer( pContinue, inData->fInNodeRef );
 							siResult = eDSNoErr;
 							break;
 
@@ -3844,13 +3953,12 @@ SInt32 CSearchPlugin::MultipleAttributeValueSearch ( sDoMultiAttrValueSearchWith
 							}
 							else
 							{
-								inData->fIOContinueData = pContinue;
-								gSNContinue->AddItem( pContinue, inData->fInNodeRef );
+								inData->fIOContinueData = gSNContinue->AddPointer( pContinue, inData->fInNodeRef );
 							}
 							break;
 
 						case keBufferTooSmall:
-							if (pContinue->fContextData == nil) //buffer too small in search node itself
+							if (pContinue->fContextData == 0) //buffer too small in search node itself
 							{
 								pContinue->fState = keAddDataToBuff;
 								siResult = eDSBufferTooSmall;
@@ -3877,8 +3985,7 @@ SInt32 CSearchPlugin::MultipleAttributeValueSearch ( sDoMultiAttrValueSearchWith
 								else
 									pContinue->fState = keGetRecordList;
 							}
-							inData->fIOContinueData	= pContinue;
-							gSNContinue->AddItem( pContinue, inData->fInNodeRef );
+							inData->fIOContinueData	= gSNContinue->AddPointer( pContinue, inData->fInNodeRef );
 							break;
 
 						default:
@@ -3892,7 +3999,11 @@ SInt32 CSearchPlugin::MultipleAttributeValueSearch ( sDoMultiAttrValueSearchWith
 				{
 					if ( pContinue != nil )
 					{
-						CSearchPlugin::ContinueDeallocProc( pContinue );
+						if ( inData->fIOContinueData != 0 )
+							gSNContinue->RemoveContext( inData->fIOContinueData );
+						else
+							ContinueDeallocProc( pContinue );
+						inData->fIOContinueData = 0;
 						pContinue = nil;
 					}
 					done = true;
@@ -3925,7 +4036,7 @@ SInt32 CSearchPlugin::MultipleAttributeValueSearch ( sDoMultiAttrValueSearchWith
 							// We found records, add them to our out buff
 							runState = keAddDataToBuff;
 						}
-						else if (pContinue->fContextData == nil)
+						else if (pContinue->fContextData == 0)
 						{
 							runState = keGetNextNodeRef;
 						}
@@ -3943,7 +4054,7 @@ SInt32 CSearchPlugin::MultipleAttributeValueSearch ( sDoMultiAttrValueSearchWith
 						//we need to ensure that continue data from previous node is NOT sent to the next node and that it is released
 						if (siResult == eDSInvalidRecordType)
 						{
-							if (pContinue->fContextData != nil)
+							if (pContinue->fContextData != 0)
 							{
 								//release the continue data
 								dsReleaseContinueData(pContinue->fNodeRef, pContinue->fContextData);
@@ -4084,10 +4195,10 @@ SInt32 CSearchPlugin::MultipleAttributeValueSearch ( sDoMultiAttrValueSearchWith
 		siResult = err;
 	}
 
-	if ( (inData->fIOContinueData == nil) && (pContinue != nil ) )
+	if ( (inData->fIOContinueData == 0) && (pContinue != nil ) )
 	{
 		// we have decided not to return contine data, need to free it
-		CSearchPlugin::ContinueDeallocProc( pContinue );
+		ContinueDeallocProc( pContinue );
 		pContinue = nil;
 	}
 	
@@ -4102,10 +4213,9 @@ SInt32 CSearchPlugin::MultipleAttributeValueSearch ( sDoMultiAttrValueSearchWith
 void CSearchPlugin::SystemGoingToSleep( void )
 {
 	//set a network change blocking flag at sleep
-	OSAtomicTestAndSet( 0, &gSystemGoingToSleep );
+	__sync_or_and_fetch( &gSystemGoingToSleep, 1 );
 	
 	sSearchConfig	*aSearchConfig		= NULL;
-	sSearchList		*aSearchNodeList	= NULL;
 	sSearchList		*aNodeListPtr		= NULL;
 	
 	//mutex -- get the node list to flag all of the nodes offline and update the cache the same
@@ -4114,25 +4224,22 @@ void CSearchPlugin::SystemGoingToSleep( void )
 	aSearchConfig = FindSearchConfigWithKey(eDSAuthenticationSearchNodeName);
 	if ( aSearchConfig != nil )
 	{
-		aSearchNodeList = aSearchConfig->fSearchNodeList;
-		if (aSearchNodeList != nil)
+		aNodeListPtr = aSearchConfig->fSearchNodeList;
+		while (aNodeListPtr != nil)
 		{
-			aNodeListPtr = aSearchNodeList->fNext; //always skip the local node(s)
-			aNodeListPtr = aNodeListPtr->fNext; //bsd is always 2nd now
-			while (aNodeListPtr != nil)
+			if (aNodeListPtr->fNodeName != nil && strcmp(aNodeListPtr->fNodeName, "/Local/Default") != 0 &&
+				strcmp(aNodeListPtr->fNodeName, "/BSD/local") != 0)
 			{
-				if (aNodeListPtr->fNodeName != nil)
+				aNodeListPtr->fNodeReachable = false;
+				if ( gCacheNode != NULL )
 				{
 					aNodeListPtr->fNodeReachable = false;
-					if ( gCacheNode != NULL )
-					{
-						DBGLOG1( kLogPlugin, "CSearchPlugin::SystemGoingToSleep updating node reachability <%s> to <Unavailable>", 
-								 aNodeListPtr->fNodeName );
-						gCacheNode->UpdateNodeReachability( aNodeListPtr->fNodeName, false );
-					}
+					dsSetNodeCacheAvailability( aNodeListPtr->fNodeName, false );
+					DbgLog( kLogPlugin, "CSearchPlugin::SystemGoingToSleep updating node reachability <%s> to <Unavailable>", 
+						    aNodeListPtr->fNodeName );
 				}
-				aNodeListPtr = aNodeListPtr->fNext;
 			}
+			aNodeListPtr = aNodeListPtr->fNext;
 		}
 	}		
 	
@@ -4147,7 +4254,7 @@ void CSearchPlugin::SystemWillPowerOn( void )
 {
 	//reset a network change blocking flag at wake
 	DBGLOG( kLogPlugin, "CSearchPlugin::SystemWillPowerOn request" );
-	OSAtomicTestAndClear( 0, &gSystemGoingToSleep );
+	__sync_and_and_fetch( &gSystemGoingToSleep, 0 );
 	EnsureCheckNodesThreadIsRunning( eDSAuthenticationSearchNodeName ); // ensure our thread is running
 	EnsureCheckNodesThreadIsRunning( eDSContactsSearchNodeName ); // ensure our thread is running
 }//SystemWillPowerOn
@@ -4155,6 +4262,15 @@ void CSearchPlugin::SystemWillPowerOn( void )
 #pragma mark -
 #pragma mark Support Routines
 #pragma mark -
+
+void CSearchPlugin::NotifyNodeEvent( SCDynamicStoreRef aSCDStore, CFArrayRef changedKeys, void *inInfo )
+{
+	if ( gSearchNode != NULL )
+	{
+		gSearchNode->EnsureCheckNodesThreadIsRunning( eDSAuthenticationSearchNodeName ); // ensure our thread is running
+		gSearchNode->EnsureCheckNodesThreadIsRunning( eDSContactsSearchNodeName ); // ensure our thread is running
+	}
+}
 
 void CSearchPlugin::UpdateContinueForAugmented( sSearchContextData *inContext, sSearchContinueData *inContinue, tDataListPtr inAttrTypeRequestList )
 {
@@ -4251,14 +4367,14 @@ SInt32 CSearchPlugin::GetNextNodeRef ( tDirNodeReference inNodeRef, tDirNodeRefe
 		}
 	}
 
-	if ( (nodeIndex == 0) || (nodeIndex == 1) ) //local node and local BSD node in all cases should always be reachable
+	// TODO: stop forcing this type of stuff, just let the node check do its job
+	if ( pNodeList != NULL && inContext->fSearchConfigKey != eDSContactsSearchNodeName && ((nodeIndex == 0) || (nodeIndex == 1)) )
 	{
+		//local node and local BSD node in all cases should always be reachable
 		pNodeList->fNodeReachable = true;
 		pNodeList->fHasNeverOpened = false;
 	}
 
-	//no more attempt to enhance connectability to netinfo hierarchy
-	
 	//look over the remainder of the list to find the next successful open or simply finish
 	while ( pNodeList != nil )
 	{
@@ -4435,11 +4551,10 @@ SInt32 CSearchPlugin::AddDataToOutBuff ( sSearchContinueData *inContinue, CBuff 
 #if AUGMENT_RECORDS
 	bool					bAugmentThisNode= false;
 	bool					bAskedForGUIDinAugment	= false;
-	char*					augGUIDValue	= nil;
 	CFMutableArrayRef		realNodeAttrList= NULL;
 	CFArrayRef				anArray			= NULL;
 	CFMutableArrayRef		augNodeAttrList	= NULL;
-	char*					realNodeGUID	= nil;
+	bool					realNodeGUID	= false;
 	char*					recTypeSuffix	= nil;
 #endif
 
@@ -4577,7 +4692,7 @@ SInt32 CSearchPlugin::AddDataToOutBuff ( sSearchContinueData *inContinue, CBuff 
 								if (strcmp(pAttrEntry->fAttributeSignature.fBufferData, kDS1AttrGeneratedUID) == 0)
 								{
 									//not forcing retrieval of this attr so this can be used as a failure check but not an absolute match check
-									realNodeGUID = strdup(pValueEntry->fAttributeValueData.fBufferData);
+									realNodeGUID = true;
 								}
 							}
 #endif
@@ -4709,7 +4824,7 @@ SInt32 CSearchPlugin::AddDataToOutBuff ( sSearchContinueData *inContinue, CBuff 
 					}
 				}// if (anArray != NULL)
 				bool firstAddedToList = false;
-				if (realNodeGUID != nil)
+				if ( realNodeGUID == true )
 				{
 					augmentAttrTypes = dsBuildListFromStrings( fDirRef, kDS1AttrGeneratedUID, NULL );
 					firstAddedToList = true;
@@ -4777,7 +4892,7 @@ SInt32 CSearchPlugin::AddDataToOutBuff ( sSearchContinueData *inContinue, CBuff 
 						dataBuff = nil;
 						dataBuff = ::dsDataBufferAllocate( fDirRef, bufSize * 2 );
 					}
-				} while ( (siResult == eDSBufferTooSmall) || ( (siResult == eDSNoErr) && (augmentRecCount == 0) && (augmentContext != nil) ) );
+				} while ( (siResult == eDSBufferTooSmall) || ( (siResult == eDSNoErr) && (augmentRecCount == 0) && (augmentContext != 0) ) );
 				DSFreeString( cpAugmentRecName );
 				
 				if ( augmentRecName != NULL ) {
@@ -4817,7 +4932,6 @@ SInt32 CSearchPlugin::AddDataToOutBuff ( sSearchContinueData *inContinue, CBuff 
 							aTmpData->AppendString( pAugAttrEntry->fAttributeSignature.fBufferData );
 
 							bool bAddAttr = true;
-							bool bGetGUID = false;
 							if ( inContinue->fAttrOnly == false )
 							{
 								// did we get a guid
@@ -4828,7 +4942,6 @@ SInt32 CSearchPlugin::AddDataToOutBuff ( sSearchContinueData *inContinue, CBuff 
 										bAddAttr = false;
 										attrCnt--; //decrement total attr count
 									}
-									bGetGUID = true;
 								}
 								
 								if (bAddAttr)
@@ -4844,11 +4957,6 @@ SInt32 CSearchPlugin::AddDataToOutBuff ( sSearchContinueData *inContinue, CBuff 
 									{
 										aTmpData->AppendLong( pAugValueEntry->fAttributeValueData.fBufferLength );
 										aTmpData->AppendBlock( pAugValueEntry->fAttributeValueData.fBufferData, pAugValueEntry->fAttributeValueData.fBufferLength );
-									}
-									if (bGetGUID)
-									{
-										//get the GUID to possibly compare with to be augmented record
-										augGUIDValue = strdup(pAugValueEntry->fAttributeValueData.fBufferData);
 									}
 									if ( pAugValueEntry != NULL )
 									{
@@ -4967,11 +5075,6 @@ SInt32 CSearchPlugin::AddDataToOutBuff ( sSearchContinueData *inContinue, CBuff 
 		aTmpData = nil;
 	}
 	
-#if AUGMENT_RECORDS
-	DSFreeString(realNodeGUID);
-	DSFreeString(augGUIDValue);
-#endif
-
 	return( siResult );
 
 } // AddDataToOutBuff
@@ -4996,7 +5099,6 @@ SInt32 CSearchPlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 	sSearchList					*nodeListPtr	= nil;
 	AuthorizationRef			authRef			= 0;
 	AuthorizationItemSet		*resultRightSet = NULL;
-	AuthorizationExternalForm	blankExtForm;
 	bool						verifyAuthRef	= true;
 	CFRange						aRange;
 
@@ -5015,55 +5117,71 @@ SInt32 CSearchPlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 		aRequest = inData->fInRequestCode;
 		bufLen = inData->fInRequestData->fBufferLength;
 		
-		if (aRequest != eDSCustomCallSearchSubNodesUnreachable && aRequest != eDSCustomCallSearchCheckForAugmentRecord)
+		// check which requests need authorization
+		switch ( aRequest )
 		{
-			if ( pContext->fEffectiveUID == 0 )
-			{
-				if ( bufLen >= sizeof(AuthorizationExternalForm) )
-				{
-					bzero(&blankExtForm, sizeof(AuthorizationExternalForm));
-					if (memcmp(inData->fInRequestData->fBufferData, &blankExtForm, sizeof(AuthorizationExternalForm)) == 0)
-						verifyAuthRef = false;
+			// these don't require an authorization ref
+			case eDSCustomCallSearchSubNodesUnreachable:
+			case eDSCustomCallSearchCheckForAugmentRecord:
+				break;
+				
+			case eDSCustomCallSearchSetPolicyAutomatic:
+			case eDSCustomCallSearchSetPolicyLocalOnly:
+			case eDSCustomCallSearchSetPolicyCustom:
+			case eDSCustomCallSearchSetCustomNodeList:
+			case eDSCustomCallSearchReadDHCPLDAPSize:
+			case eDSCustomCallSearchReadDHCPLDAPData:
+			case eDSCustomCallSearchWriteDHCPLDAPData:
+				if ( pContext->fEffectiveUID == 0 ) {
+					if ( bufLen >= sizeof(AuthorizationExternalForm) ) {
+						// TODO: why do we really care anyway, doesn't provide any extra security
+						AuthorizationExternalForm	blankExtForm = { {0} };
+						
+						if (memcmp(inData->fInRequestData->fBufferData, &blankExtForm, sizeof(AuthorizationExternalForm)) == 0)
+							break;
+					}
+					else {
+						break;
+					}
 				}
-				else
-				{
-					verifyAuthRef = false;
+				else {
+					if ( bufLen < sizeof(AuthorizationExternalForm) ) {
+						siResult = eDSInvalidBuffFormat;
+						goto finish;
+					}
 				}
-			}
-			else
-			{
-				if ( bufLen < sizeof(AuthorizationExternalForm) )
-					throw( (SInt32)eDSInvalidBuffFormat );
-			}
-			if (verifyAuthRef) {
-				siResult = AuthorizationCreateFromExternalForm((AuthorizationExternalForm *)inData->fInRequestData->fBufferData,
-														&authRef);
-				if (siResult != errAuthorizationSuccess)
-				{
-					DbgLog( kLogPlugin, "CSearchPlugin: AuthorizationCreateFromExternalForm returned error %d", siResult );
-					syslog( LOG_ALERT, "Search Custom Call <%d> AuthorizationCreateFromExternalForm returned error %d", aRequest, siResult );
-					throw( (SInt32)eDSPermissionError );
+				
+				if ( verifyAuthRef ) {
+					AuthorizationItem rights[] = { {"system.services.directory.configure", 0, 0, 0} };
+					AuthorizationItemSet rightSet = { sizeof(rights)/ sizeof(*rights), rights };
+					
+					siResult = AuthorizationCreateFromExternalForm((AuthorizationExternalForm *)inData->fInRequestData->fBufferData,
+																   &authRef);
+					if (siResult != errAuthorizationSuccess) {
+						DbgLog( kLogPlugin, "CSearchPlugin: AuthorizationCreateFromExternalForm returned error %d", siResult );
+						siResult = eDSPermissionError;
+						goto finish;
+					}
+					
+					siResult = AuthorizationCopyRights(authRef, &rightSet, NULL,
+													   kAuthorizationFlagExtendRights, &resultRightSet);
+					if (resultRightSet != NULL) {
+						AuthorizationFreeItemSet(resultRightSet);
+						resultRightSet = NULL;
+					}
+					
+					if (siResult != errAuthorizationSuccess) {
+						DbgLog( kLogPlugin, "CSearchPlugin: AuthorizationCopyRights returned error %d", siResult );
+						siResult = eDSPermissionError;
+						goto finish;
+					}
 				}
-		
-				AuthorizationItem rights[] = { {"system.services.directory.configure", 0, 0, 0} };
-				AuthorizationItemSet rightSet = { sizeof(rights)/ sizeof(*rights), rights };
-		
-				siResult = AuthorizationCopyRights(authRef, &rightSet, NULL,
-											kAuthorizationFlagExtendRights, &resultRightSet);
-				if (resultRightSet != NULL)
-				{
-					AuthorizationFreeItemSet(resultRightSet);
-					resultRightSet = NULL;
-				}
-				if (siResult != errAuthorizationSuccess)
-				{
-					DbgLog( kLogPlugin, "CSearchPlugin: AuthorizationCopyRights returned error %d", siResult );
-					syslog( LOG_ALERT, "AuthorizationCopyRights returned error %d", siResult );
-					throw( (SInt32)eDSPermissionError );
-				}
-			}
+				break;
+				
+			default:
+				return eNotHandledByThisNode;
 		}
-
+		
 		// have to verify the auth ref before grabbing the mutex to avoid deadlock
 		fMutex.WaitLock();
 		try
@@ -5073,9 +5191,9 @@ SInt32 CSearchPlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 			aSearchConfig = FindSearchConfigWithKey(pContext->fSearchConfigKey);
 			if ( aSearchConfig == nil ) throw( (SInt32)eDSInvalidNodeRef );		
 
-			// Set it to the first node in the search list - this check doesn't need to use the context search path
-			if ( aSearchConfig->fSearchNodeList == nil ) throw( (SInt32)eSearchPathNotDefined );
-
+			siResult = CheckSearchPolicyChange(pContext, inData->fInNodeRef, 0);
+			if( siResult != eDSNoErr ) throw( siResult );
+			
 			switch( aRequest )
 			{
 				case eDSCustomCallSearchSetPolicyAutomatic:
@@ -5104,34 +5222,12 @@ SInt32 CSearchPlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 					if ( aSearchConfig->fSearchConfigKey == eDSContactsSearchNodeName )
 						eventSemaphore = &fContactPolicyChangeEvent;
 					
-					eventSemaphore->ResetEvent();
-					
 					bAuthSwitched = SwitchSearchPolicy( kCustomSearchPolicy, aSearchConfig );
 					//need to save the switch to the config file
 					if (aSearchConfig->pConfigFromXML)
 					{
 						siResult = aSearchConfig->pConfigFromXML->SetSearchPolicy(kCustomSearchPolicy);
 						siResult = aSearchConfig->pConfigFromXML->WriteConfig();
-					}
-				
-					// wait up to 15 seconds for at least 1 pass through the nodes, this is not guaranteed since any node can block
-					// the check
-					if ( (bAuthSwitched && aSearchConfig->fSearchConfigKey == eDSAuthenticationSearchNodeName) || 
-						 aSearchConfig->fSearchConfigKey == eDSContactsSearchNodeName )
-					{
-						// need to give up our lock so the thread can run
-						fMutex.SignalLock();
-						
-						// post a network transition to free the search for next round
-						if ( eventSemaphore->WaitForEvent(15 * kMilliSecsPerSec) == false )
-						{
-							DbgLog( kLogPlugin, "CSearchPlugin::DoPluginCustomCall - eDSCustomCallSearchSetPolicyCustom - timed out waiting for node check" );
-						}
-						
-						fMutex.WaitLock();
-#if AUGMENT_RECORDS
-						CheckForAugmentConfig( (tDirPatternMatch) aSearchConfig->fSearchConfigKey );
-#endif
 					}
 					break;
 					
@@ -5165,29 +5261,8 @@ SInt32 CSearchPlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 						if ( aSearchConfig->fSearchConfigKey == eDSContactsSearchNodeName )
 							eventSemaphore = &fContactPolicyChangeEvent;
 
-						eventSemaphore->ResetEvent();
-
 						// need to reset the policy since changes made to the data need to be picked up
 						bAuthSwitched = SwitchSearchPolicy( kCustomSearchPolicy, aSearchConfig );
-
-						// wait up to 15 seconds for at least 1 pass through the nodes, this is not guaranteed since any node can block
-						// the check
-						if ( (bAuthSwitched && aSearchConfig->fSearchConfigKey == eDSAuthenticationSearchNodeName) || 
-							 aSearchConfig->fSearchConfigKey == eDSContactsSearchNodeName )
-						{
-							// need to give up our lock so the thread can run
-							fMutex.SignalLock();
-							
-							if ( eventSemaphore->WaitForEvent(15 * kMilliSecsPerSec) == false )
-							{
-								DbgLog( kLogPlugin, "CSearchPlugin::DoPluginCustomCall - eDSCustomCallSearchSetCustomNodeList timed out waiting for node check" );
-							}
-							
-							fMutex.WaitLock();
-	#if AUGMENT_RECORDS
-							CheckForAugmentConfig( (tDirPatternMatch) aSearchConfig->fSearchConfigKey );
-	#endif
-						}
 					}
 					break;
 
@@ -5196,7 +5271,7 @@ SInt32 CSearchPlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 
 					if ( inData->fOutRequestResponse == nil ) throw( (SInt32)eDSNullDataBuff );
 					if ( inData->fOutRequestResponse->fBufferData == nil ) throw( (SInt32)eDSEmptyBuffer );
-					if ( inData->fOutRequestResponse->fBufferSize < sizeof( CFIndex ) ) throw( (SInt32)eDSInvalidBuffFormat );
+					if ( inData->fOutRequestResponse->fBufferSize < sizeof( int32_t ) ) throw( (SInt32)eDSInvalidBuffFormat );
 					if ( aSearchConfig->pConfigFromXML != nil)
 					{
 						// need four bytes for size
@@ -5207,15 +5282,15 @@ SInt32 CSearchPlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 						}
 						if (xmlData != 0)
 						{
-							*(CFIndex*)(inData->fOutRequestResponse->fBufferData) = CFDataGetLength(xmlData);
-							inData->fOutRequestResponse->fBufferLength = sizeof( CFIndex );
+							*(int32_t*)(inData->fOutRequestResponse->fBufferData) = (int32_t) CFDataGetLength(xmlData);
+							inData->fOutRequestResponse->fBufferLength = sizeof( int32_t );
 							CFRelease(xmlData);
 							xmlData = 0;
 						}
 						else
 						{
-							*(CFIndex*)(inData->fOutRequestResponse->fBufferData) = 0;
-							inData->fOutRequestResponse->fBufferLength = sizeof( CFIndex );
+							*(int32_t*)(inData->fOutRequestResponse->fBufferData) = 0;
+							inData->fOutRequestResponse->fBufferLength = sizeof( int32_t );
 						}
 					}
 					break;
@@ -5268,14 +5343,6 @@ SInt32 CSearchPlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 					DbgLog( kLogPlugin, "CSearchPlugin::DoPluginCustomCall updating DHCP LDAP configuration for policy %X", aSearchConfig->fSearchConfigKey );
 				
 					bAuthSwitched = SwitchSearchPolicy( aSearchConfig->fSearchNodePolicy, aSearchConfig );
-
-	#if AUGMENT_RECORDS
-					if ( (bAuthSwitched && aSearchConfig->fSearchConfigKey == eDSAuthenticationSearchNodeName) || 
-						 aSearchConfig->fSearchConfigKey == eDSContactsSearchNodeName)
-					{
-						CheckForAugmentConfig( (tDirPatternMatch) aSearchConfig->fSearchConfigKey );
-					}
-	#endif
 					break;
 					
 				case eDSCustomCallSearchSubNodesUnreachable:
@@ -5287,25 +5354,18 @@ SInt32 CSearchPlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 					
 					CFMutableArrayRef nodeList = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
 
-					const int NUM_POLICIES = 2;
-					int policies[NUM_POLICIES] = { eDSAuthenticationSearchNodeName, eDSContactsSearchNodeName };
-					for (int i = 0;  i < NUM_POLICIES;  i++)
+					if (aSearchConfig != nil)
 					{
-						aSearchConfig = FindSearchConfigWithKey( policies[i] );
-						if (aSearchConfig != nil)
+						nodeListPtr = aSearchConfig->fSearchNodeList;
+						while (nodeListPtr != nil)
 						{
-							nodeListPtr = aSearchConfig->fSearchNodeList->fNext;	// skip /Local/Default - always reachable
-							nodeListPtr = nodeListPtr->fNext;						// skip /BSD/Local - always reachable
-							while (nodeListPtr != nil)
+							if (nodeListPtr->fNodeReachable == false && nodeListPtr->fNodeName != nil)
 							{
-								if (!nodeListPtr->fNodeReachable && nodeListPtr->fNodeName != nil)
-								{
-									CFStringRef nodeStr = CFStringCreateWithCString( kCFAllocatorDefault, nodeListPtr->fNodeName, kCFStringEncodingUTF8 );
-									CFArrayAppendValue( nodeList, nodeStr );
-									DSCFRelease( nodeStr );
-								}
-								nodeListPtr = nodeListPtr->fNext;
+								CFStringRef nodeStr = CFStringCreateWithCString( kCFAllocatorDefault, nodeListPtr->fNodeName, kCFStringEncodingUTF8 );
+								CFArrayAppendValue( nodeList, nodeStr );
+								DSCFRelease( nodeStr );
 							}
+							nodeListPtr = nodeListPtr->fNext;
 						}
 					}
 					
@@ -5322,15 +5382,48 @@ SInt32 CSearchPlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 
 						CFDataGetBytes( xmlData, aRange, (UInt8*)(inData->fOutRequestResponse->fBufferData) );
 						inData->fOutRequestResponse->fBufferLength = aRange.length;
-						DSCFRelease( nodeList );
 						DSCFRelease( xmlData );
 					}
+					
+					DSCFRelease( nodeList );
 					break;
 				}
 				
 				default:
 					break;
 			}
+			
+			if ( bAuthSwitched ) {
+				switch ( aSearchConfig->fSearchConfigKey ) {
+					case eDSAuthenticationSearchNodeName:
+						if ( eventSemaphore != NULL ) {
+							eventSemaphore->ResetEvent();
+						}
+						
+						dsFlushMembershipCache();
+						if ( gCacheNode != NULL ) {
+							gCacheNode->EmptyCacheEntryType( CACHE_ENTRY_TYPE_ALL );
+						}
+						
+						NodeReachabilityChanged();
+						
+						// if we have an event semaphore, let's wait on it
+						if ( eventSemaphore != NULL ) {
+							fMutex.SignalLock(); // need to give up our lock so the thread can run
+						
+							// post a network transition to free the search for next round
+							if ( eventSemaphore->WaitForEvent(15 * kMilliSecsPerSec) == false ) {
+								DbgLog( kLogPlugin, "CSearchPlugin::DoPluginCustomCall - eDSCustomCallSearchSetPolicyCustom - timed out waiting for node check" );
+							}
+						
+							fMutex.WaitLock();
+						}
+						
+					case eDSContactsSearchNodeName:
+						CheckForAugmentConfig( (tDirPatternMatch) aSearchConfig->fSearchConfigKey );
+						break;
+				}
+			}			
 		}
 		catch( SInt32 err )
 		{
@@ -5347,6 +5440,8 @@ SInt32 CSearchPlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 	{
 		siResult = err;
 	}
+	
+finish:
 
 	if (authRef != 0)
 	{
@@ -5422,10 +5517,7 @@ SInt32 CSearchPlugin:: CleanSearchListData ( sSearchList *inList )
 		{
 			pDeleteList = pList;
 			pList = pList->fNext;		//assign to next BEFORE deleting current
-			if (pDeleteList->fNodeName != nil)
-			{
-				delete ( pDeleteList->fNodeName );
-			}
+			DSFree( pDeleteList->fNodeName );
 			pDeleteList->fOpened = false;
 			pDeleteList->fNodeReachable		= false;
 			if (pDeleteList->fNodeRef != 0)
@@ -5441,8 +5533,7 @@ SInt32 CSearchPlugin:: CleanSearchListData ( sSearchList *inList )
 				free( pDeleteList->fDataList );
 				pDeleteList->fDataList = nil;
 			}
-			delete( pDeleteList );
-			pDeleteList = nil;
+			DSFree( pDeleteList );
 		}
 	}
 
@@ -5657,7 +5748,6 @@ sSearchList *CSearchPlugin::DupSearchListWithNewRefs ( sSearchList *inSearchList
 	sSearchList	   *aSearchList			= nil;
 	sSearchList	   *tailSearchList		= nil;
 	bool			isFirst				= true;
-	bool			getLocalFirst  		= true;
 
 	//this might be a good place to refresh (re-init?) the search policy to get a fresh perspective on the search paths?
 	while (pSearchList != nil)
@@ -5665,13 +5755,8 @@ sSearchList *CSearchPlugin::DupSearchListWithNewRefs ( sSearchList *inSearchList
    		aSearchList = (sSearchList *)calloc( 1, sizeof( sSearchList ) );
 		
 		//init
-		aSearchList->fOpened	= false;
 		aSearchList->fHasNeverOpened	= pSearchList->fHasNeverOpened;
 		aSearchList->fNodeReachable		= pSearchList->fNodeReachable;
-		aSearchList->fNodeRef	= 0;
-		aSearchList->fNodeName	= nil;
-		aSearchList->fDataList	= nil;
-		aSearchList->fNext		= nil;
 
 		//need to retain the order
 		if (isFirst)
@@ -5691,21 +5776,7 @@ sSearchList *CSearchPlugin::DupSearchListWithNewRefs ( sSearchList *inSearchList
 			aSearchList->fNodeName = (char *)calloc(1, ::strlen(pSearchList->fNodeName) + 1);
 			strcpy(aSearchList->fNodeName,pSearchList->fNodeName);
 
-			//aSearchList->fDataList = ::dsBuildFromPathPriv( aSearchList->fNodeName, "/" );
-			
-			if (getLocalFirst)
-			{
-				aSearchList->fDataList = ::dsBuildFromPathPriv( kstrDefaultLocalNodeName, "/" );
-
-				//let's open lazily when we actually need the node ref
-				getLocalFirst = false;
-			}
-			else
-			{
-				aSearchList->fDataList = ::dsBuildFromPathPriv( aSearchList->fNodeName, "/" );
-			
-				//let's open lazily when we actually need the node ref
-			}
+			aSearchList->fDataList = dsBuildFromPathPriv( aSearchList->fNodeName, "/" );
 		}
 
 		pSearchList = pSearchList->fNext;
@@ -5732,7 +5803,7 @@ void CSearchPlugin::ContinueDeallocProc ( void* inContinueData )
 			pContinue->fDataBuff = nil;
 		}
 
-		if ( pContinue->fContextData != nil )
+		if ( pContinue->fContextData != 0 )
 		{
 			::dsReleaseContinueData( pContinue->fNodeRef, pContinue->fContextData );
 			pContinue->fContextData = nil;
@@ -5814,7 +5885,7 @@ SInt32 CSearchPlugin::CheckSearchPolicyChange( sSearchContextData *pContext, tDi
 	//check whether search policy has switched and if it has then adjust to the new one
 	else if ( ( pContext->bListChanged ) && ( pContext->fSearchConfigKey != eDSNetworkSearchNodeName ) )
 	{
-		if ( inContinueData != nil )
+		if ( inContinueData != 0 )
 		{
 			//in the middle of continue data the search policy has changed so exit here
 			siResult = eDSInvalidContinueData; //KW would like a more appropriate error code
@@ -5825,7 +5896,7 @@ SInt32 CSearchPlugin::CheckSearchPolicyChange( sSearchContextData *pContext, tDi
 			{
 				// If the list has changed and we can't get the lock, invalidate
 				// whatever is going on.  Prevents deadlock.
-				if ( !pContext->pSearchListMutex->WaitTry() )
+				if ( !pContext->pSearchListMutex->WaitTryLock() )
 				{
 					fMutex.SignalLock();
 					return eDSBadContextData;
@@ -5837,7 +5908,7 @@ SInt32 CSearchPlugin::CheckSearchPolicyChange( sSearchContextData *pContext, tDi
 			CleanSearchListData( pContext->fSearchNodeList );
 			
 			//remove all existing continue data off of this reference
-			gSNContinue->RemoveItems( inNodeRef );
+			gSNContinue->RemovePointersForRefNum( inNodeRef );
 			
 			//get the updated search path list with new unique refs of each
 			//search path node for use by this client who opened the search node
@@ -5997,7 +6068,7 @@ sSearchList *CSearchPlugin::BuildNetworkNodeList ( void )
 				
 			} // for loop over uiIndex
 			
-			done = (context == nil);
+			done = (context == 0);
 
 		} // while done == false
 		
@@ -6149,7 +6220,7 @@ CFDictionaryRef CSearchPlugin::FindAugmentConfigRecord( tDirPatternMatch nodeTyp
             context = nil;
 			do 
 			{
-				siResult = dsGetRecordList( aSearchNodeRef, dataBuff, recName, eDSExact, recType, attrTypes, false, &recCount, &context);
+				siResult = dsGetRecordList( aSearchNodeRef, dataBuff, recName, eDSiExact, recType, attrTypes, false, &recCount, &context);
 				if (siResult == eDSBufferTooSmall)
 				{
 					UInt32 bufSize = dataBuff->fBufferSize;
@@ -6157,7 +6228,7 @@ CFDictionaryRef CSearchPlugin::FindAugmentConfigRecord( tDirPatternMatch nodeTyp
 					dataBuff = nil;
 					dataBuff = ::dsDataBufferAllocate( fDirRef, bufSize * 2 );
 				}
-			} while ( (siResult == eDSBufferTooSmall) || ( (siResult == eDSNoErr) && (recCount == 0) && (context != nil) ) );
+			} while ( (siResult == eDSBufferTooSmall) || ( (siResult == eDSNoErr) && (recCount == 0) && (context != 0) ) );
 			
 			if ( (siResult == eDSNoErr) && (recCount > 0) )
 			{
@@ -6330,7 +6401,6 @@ void CSearchPlugin::CheckNodes( tDirPatternMatch policyToCheck, int32_t *threadF
 	// This function is called by the extra thread only...
 	
 	sSearchConfig  *aSearchConfig		= nil;
-	sSearchList	   *aSearchNodeList		= nil;
 	sSearchList	   *aNodeListPtr		= nil;
 	CFMutableArrayRef	aNodeList		= 0;
 	CFStringRef			aNodeStr		= 0;
@@ -6352,21 +6422,17 @@ void CSearchPlugin::CheckNodes( tDirPatternMatch policyToCheck, int32_t *threadF
 		aSearchConfig = FindSearchConfigWithKey( policyToCheck );
 		if ( aSearchConfig != nil )
 		{
-			aSearchNodeList = aSearchConfig->fSearchNodeList;
-			if (aSearchNodeList != nil)
+			aNodeListPtr = aSearchConfig->fSearchNodeList;
+			while (aNodeListPtr != nil)
 			{
-				aNodeListPtr = aSearchNodeList->fNext; //always skip the local node(s)
-				aNodeListPtr = aNodeListPtr->fNext; //bsd is always 2nd now
-				while (aNodeListPtr != nil)
+				if (aNodeListPtr->fNodeName != nil && strcmp(aNodeListPtr->fNodeName, "/Local/Default") != 0 &&
+					strcmp(aNodeListPtr->fNodeName, "/BSD/local") != 0)
 				{
-					if (aNodeListPtr->fNodeName != nil)
-					{
-						aNodeStr = CFStringCreateWithCString( kCFAllocatorDefault, aNodeListPtr->fNodeName, kCFStringEncodingUTF8 );
-						CFArrayAppendValue(aNodeList, aNodeStr);
-						CFRelease(aNodeStr);
-					}
-					aNodeListPtr = aNodeListPtr->fNext;
+					aNodeStr = CFStringCreateWithCString( kCFAllocatorDefault, aNodeListPtr->fNodeName, kCFStringEncodingUTF8 );
+					CFArrayAppendValue(aNodeList, aNodeStr);
+					CFRelease(aNodeStr);
 				}
+				aNodeListPtr = aNodeListPtr->fNext;
 			}
 		}		
 		
@@ -6401,74 +6467,68 @@ void CSearchPlugin::CheckNodes( tDirPatternMatch policyToCheck, int32_t *threadF
 			aSearchConfig = FindSearchConfigWithKey( policyToCheck );
 			if ( aSearchConfig != nil )
 			{
-				aSearchNodeList = aSearchConfig->fSearchNodeList;
-				if (aSearchNodeList != nil)
+				aNodeListPtr = aSearchConfig->fSearchNodeList;
+				while (aNodeListPtr != nil)
 				{
-					// always two now
-					aNodeListPtr = aSearchNodeList->fNext; //always skip the local node(s)
-					aNodeListPtr = aNodeListPtr->fNext; //always skip the local node(s)
-					while (aNodeListPtr != nil)
+					if (strcmp(aNodeListPtr->fNodeName, tmpStr) == 0) //same node
 					{
-						if (strcmp(aNodeListPtr->fNodeName, tmpStr) == 0) //same node
+						bool newState = (result==eDSNoErr);
+						
+						if (aNodeListPtr->fNodeReachable != newState)
 						{
-							bool newState = (result==eDSNoErr);
+							aNodeListPtr->fNodeReachable = newState;
 							
-							if (aNodeListPtr->fNodeReachable != newState)
+							// if this node has never been opened, flush the cache
+							if (newState && aNodeListPtr->fHasNeverOpened)
 							{
-								aNodeListPtr->fNodeReachable = newState;
-								
-								// if this node has never been opened, flush the cache
-								if (newState && aNodeListPtr->fHasNeverOpened)
-								{
-									aNodeListPtr->fHasNeverOpened = false;
-									if ( gCacheNode != NULL && policyToCheck == eDSAuthenticationSearchNodeName )
-									{
-										gCacheNode->EmptyCacheEntryType( CACHE_ENTRY_TYPE_ALL );
-										DBGLOG1( kLogPlugin, "CSearchPlugin::CheckNodes first time reachability of <%s> flushing cache", tmpStr );
-									}
-								}
-								else
-								{
-									if ( gCacheNode != NULL && policyToCheck == eDSAuthenticationSearchNodeName )
-										gCacheNode->EmptyCacheEntryType( CACHE_ENTRY_TYPE_NEGATIVE );
-									
-									DBGLOG2( kLogPlugin, "CSearchPlugin::CheckNodes updating search policy for reachability of <%s> to <%s>", tmpStr,
-											(newState ? "Available" : "Unavailable") );
-								}
-								
-								//let all the context node references know about the update
-								gSNNodeRef->DoOnAllItems(CSearchPlugin::ContextSetListChangedProc);
-								
-								// we only notify of positive changes as they are the ones that make a difference
-								if (newState)
-								{
-									if ( policyToCheck == eDSAuthenticationSearchNodeName ) {
-										gSrvrCntl->NodeSearchPolicyChanged();
-									}
-									else if ( policyToCheck == eDSContactsSearchNodeName ) {
-										SCDynamicStoreRef store = SCDynamicStoreCreate( NULL, CFSTR("DirectoryService"), NULL, NULL );
-										if ( store != NULL )
-										{
-											if ( SCDynamicStoreNotifyValue( store, CFSTR(kDSStdNotifyContactSearchPolicyChanged) ) )
-												DbgLog( kLogNotice, "CSearchPlugin::CheckNodes - notify sent for contact search policy change" );
-											DSCFRelease(store);
-										}
-									}
-								}
-								
-								// update the reachability of the node
-								//   if it is reachable we update all
-								//   if it is not reachable, we do not update LDAPv3 since it does it directly
+								aNodeListPtr->fHasNeverOpened = false;
 								if ( gCacheNode != NULL && policyToCheck == eDSAuthenticationSearchNodeName )
 								{
-									gCacheNode->UpdateNodeReachability( aNodeListPtr->fNodeName, aNodeListPtr->fNodeReachable );
+									gCacheNode->EmptyCacheEntryType( CACHE_ENTRY_TYPE_ALL );
+									DBGLOG1( kLogPlugin, "CSearchPlugin::CheckNodes first time reachability of <%s> flushing cache", tmpStr );
+								}
+							}
+							else
+							{
+								if ( gCacheNode != NULL && policyToCheck == eDSAuthenticationSearchNodeName )
+									gCacheNode->EmptyCacheEntryType( CACHE_ENTRY_TYPE_NEGATIVE );
+								
+								DBGLOG2( kLogPlugin, "CSearchPlugin::CheckNodes updating search policy for reachability of <%s> to <%s>", tmpStr,
+										 (newState ? "Available" : "Unavailable") );								
+							}
+							
+							//let all the context node references know about the update
+							gSNNodeRef->DoOnAllItems(CSearchPlugin::ContextSetListChangedProc);
+							
+							// we only notify of positive changes as they are the ones that make a difference
+							if (newState == true)
+							{
+								if ( policyToCheck == eDSAuthenticationSearchNodeName ) {
+									NodeReachabilityChanged();
+								}
+								else if ( policyToCheck == eDSContactsSearchNodeName ) {
+									SCDynamicStoreRef store = SCDynamicStoreCreate( NULL, CFSTR("DirectoryService"), NULL, NULL );
+									if ( store != NULL )
+									{
+										if ( SCDynamicStoreNotifyValue( store, CFSTR(kDSStdNotifyContactSearchPolicyChanged) ) )
+											DbgLog( kLogNotice, "CSearchPlugin::CheckNodes - notify sent for contact search policy change" );
+										DSCFRelease(store);
+									}
 								}
 							}
 							
-							break;
+							// update the reachability of the node
+							//   if it is reachable we update all
+							//   if it is not reachable, we do not update LDAPv3 since it does it directly
+							if ( policyToCheck == eDSAuthenticationSearchNodeName )
+							{
+								dsSetNodeCacheAvailability( aNodeListPtr->fNodeName, aNodeListPtr->fNodeReachable );
+							}
 						}
-						aNodeListPtr = aNodeListPtr->fNext;
+						
+						break;
 					}
+					aNodeListPtr = aNodeListPtr->fNext;
 				}
 			}		
 			
@@ -6484,7 +6544,8 @@ void CSearchPlugin::CheckNodes( tDirPatternMatch policyToCheck, int32_t *threadF
 		aNodeList = 0;
 		
 		// post policy change event that we scanned the search nodes at least once
-		eventSemaphore->PostEvent();
+		if ( eventSemaphore != NULL )
+			eventSemaphore->PostEvent();
 		
 		//delay until next try again to check reachability of search policy nodes
 		if (bTryAgain)

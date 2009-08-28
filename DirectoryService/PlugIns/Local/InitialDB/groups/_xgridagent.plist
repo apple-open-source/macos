@@ -19,5 +19,9 @@
 	<array>
 		<string>*</string>
 	</array>
+	<key>realname</key>
+	<array>
+		<string>Xgrid Agent</string>
+	</array>
 </dict>
 </plist>

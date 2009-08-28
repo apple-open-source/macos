@@ -1,7 +1,7 @@
-# $OpenLDAP: pkg/ldap/build/man.mk,v 1.27.2.5 2006/01/03 22:16:01 kurt Exp $
+# $OpenLDAP: pkg/ldap/build/man.mk,v 1.32.2.4 2008/02/11 23:26:37 kurt Exp $
 ## This work is part of OpenLDAP Software <http://www.openldap.org/>.
 ##
-## Copyright 1998-2006 The OpenLDAP Foundation.
+## Copyright 1998-2008 The OpenLDAP Foundation.
 ## All rights reserved.
 ##
 ## Redistribution and use in source and binary forms, with or without
@@ -27,12 +27,13 @@ all-common:
 			-e 's%LOCALSTATEDIR%/var/db/openldap%' \
 			-e 's%SYSCONFDIR%/etc/openldap%' \
 			-e 's%DATADIR%$(datadir)%' \
-			-e 's%SBINDIR%$(sbindir)%' \
+			-e 's%SBINDIR%/usr/sbin%' \
 			-e 's%BINDIR%$(bindir)%' \
 			-e 's%LIBDIR%$(libdir)%' \
 			-e 's%LIBEXECDIR%/usr/libexec%' \
 			-e 's%RELEASEDATE%$(RELEASEDATE)%' \
-			$(srcdir)/$$page > $$page.$(TMP_SUFFIX); \
+				$(srcdir)/$$page \
+			| (cd $(srcdir); $(SOELIM) -) > $$page.$(TMP_SUFFIX); \
 	done
 
 install-common:

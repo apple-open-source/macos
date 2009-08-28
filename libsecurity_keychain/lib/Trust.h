@@ -77,8 +77,9 @@ public:
     SecTrustResultType result() const			{ return mResult; }
 	OSStatus cssmResultCode() const				{ return mTpReturn; }
     TP getTPHandle() const						{ return mTP; }
-    CFRef<CFArrayRef> policies() const          { return mPolicies; }
-    CFRef<CFArrayRef> anchors() const           { return mAnchors; }
+    CFArrayRef policies() const					{ return mPolicies; }
+    CFArrayRef anchors() const					{ return mAnchors; }
+	CFDateRef time() const						{ return mVerifyTime; }
 
 	// an independent release function for TP evidence results
 	// (yes, we could hand this out to the C layer if desired)
@@ -91,7 +92,7 @@ private:
 		CFCopyRef<CFArrayRef> anchors);
 	void clearResults();
 	
-	Keychain keychainByDLDb(const CSSM_DL_DB_HANDLE &handle) const;
+	Keychain keychainByDLDb(const CSSM_DL_DB_HANDLE &handle);
 
 	/* revocation policy support */
 	CFMutableArrayRef	addSpecifiedRevocationPolicies(uint32 &numAdded, 
@@ -138,7 +139,10 @@ private:
 	bool mUsingTrustSettings;
 
 public:
-    static ModuleNexus<TrustStore> Trust::gStore;
+    static ModuleNexus<TrustStore> gStore;
+
+private:
+	Mutex mMutex;
 };
 
 } // end namespace KeychainCore

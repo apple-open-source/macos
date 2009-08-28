@@ -53,7 +53,7 @@ IOFireWireIRM * IOFireWireIRM::create( IOFireWireController * controller )
         
     if( status == kIOReturnSuccess )
     {
-        me = new IOFireWireIRM;
+        me = OSTypeAlloc( IOFireWireIRM );
         if( me == NULL )
             status = kIOReturnNoMemory;
     }
@@ -111,7 +111,7 @@ bool IOFireWireIRM::initWithController(IOFireWireController * control)
 	//
 	
 	fLockCmdInUse = false;
-	fLockCmd = new IOFWCompareAndSwapCommand;
+	fLockCmd = OSTypeAlloc( IOFWCompareAndSwapCommand );
 	FWPANICASSERT( fLockCmd != NULL );
 	fLockCmd->initAll( fControl, 0, FWAddress(), NULL, NULL, 0, IOFireWireIRM::lockCompleteStatic, this );
 
@@ -358,6 +358,8 @@ bool IOFireWireIRMAllocation::init( IOFireWireController * control,
 	fReleaseIRMResourcesOnFree = releaseIRMResourcesOnFree;
 	fBandwidthUnits = 0;
 	fIsochChannel = 64;
+
+	fControl->addToIRMAllocationSet(this);
 	
 	isAllocated = false;
 	return true;
@@ -375,15 +377,22 @@ void IOFireWireIRMAllocation::release() const
 
 	int retainCnt = getRetainCount();
 	
-	if ((retainCnt == 2) && (isAllocated == true))
+	if ( retainCnt == 2 )
 	{
-		// The controller has an extra retain on the IOFireWireIRMAllocation object
-		// because it's in the array used to restore allocations after a bus-reset.
-		// We now need to remove it from the controller's array, so it's no longer
-		// auto-restored after bus-reset!
-		fControl->removeIRMAllocation((IOFireWireIRMAllocation*)this);
+		if( isAllocated == false )
+		{
+			fControl->removeFromIRMAllocationSet((IOFireWireIRMAllocation*)this);
+		}
+		else
+		{
+			// The controller has an extra retain on the IOFireWireIRMAllocation object
+			// because it's in the array used to restore allocations after a bus-reset.
+			// We now need to remove it from the controller's array, so it's no longer
+			// auto-restored after bus-reset!
+			fControl->removeIRMAllocation((IOFireWireIRMAllocation*)this);
+		}
 	}
-	
+
 	OSObject::release();
 
 	// Bypass unlock if we just did the last release!
@@ -401,6 +410,7 @@ void IOFireWireIRMAllocation::free( void )
 	// Take the lock
 	IORecursiveLockLock(fLock);
 
+	
 	// If we need to release the isoch resources, do so now!
 	if (isAllocated)
 	{
@@ -474,6 +484,8 @@ IOReturn IOFireWireIRMAllocation::allocateIsochResources(UInt8 isochChannel, UIn
 	
 	// Unlock the lock
 	IORecursiveLockUnlock(fLock);
+	
+	FWTrace( kFWTIsoch, kTPIsochIRMAllocateIsochResources, (uintptr_t)(fControl->getLink()), fIsochChannel, fBandwidthUnits, res );
 	
 	return res;
 }
@@ -569,8 +581,12 @@ void IOFireWireIRMAllocation::handleBusReset(UInt32 generation)
 		threadInfo->fBandwidthUnits = fBandwidthUnits;
 
 		retain();	// retain ourself for the thread to use
-		
-		IOCreateThread( threadFunc, threadInfo );
+
+		thread_t		thread;
+		if( kernel_thread_start((thread_continue_t)threadFunc, threadInfo, &thread ) == KERN_SUCCESS )
+		{
+			thread_deallocate(thread);
+		}
 	}
 	
 	// Unlock the lock
@@ -661,4 +677,6 @@ void IOFireWireIRMAllocation::threadFunc( void * arg )
 	// clean up thread info
 	IOFree( threadInfo, sizeof(threadInfo) );
     pIRMAllocation->release();		// retain occurred in handleBusReset
+	
+	FWTrace( kFWTIsoch, kTPIsochIRMThreadFunc, (uintptr_t)(threadInfo->fControl->getLink()), threadInfo->fIsochChannel, threadInfo->fBandwidthUnits, res );
 }

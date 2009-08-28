@@ -17,7 +17,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -29,7 +29,7 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-/** @file ref_fwd.h
+/** @file tr1/ref_fwd.h
  *  This is an internal header file, included by other library headers.
  *  You should not attempt to use it directly.
  */
@@ -40,8 +40,7 @@
 
 namespace std
 {
-namespace tr1
-{
+_GLIBCXX_BEGIN_NAMESPACE(tr1)
 
 template<typename _Tp>
   class reference_wrapper;
@@ -54,6 +53,7 @@ template<typename _Tp>
 template<typename _Tp>
   reference_wrapper<const _Tp>
   cref(const _Tp& __t);
-}
+
+_GLIBCXX_END_NAMESPACE
 }
 #endif

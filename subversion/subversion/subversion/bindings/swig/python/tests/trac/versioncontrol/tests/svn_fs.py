@@ -19,9 +19,14 @@ import tempfile
 import unittest
 from urllib import pathname2url
 
-try:
+if sys.version_info[0] >= 3:
+  # Python >=3.0
+  from io import StringIO
+else:
+  # Python <3.0
+  try:
     from cStringIO import StringIO
-except ImportError:
+  except ImportError:
     from StringIO import StringIO
 
 from svn import core, repos
@@ -30,7 +35,7 @@ from trac.test import TestSetup
 from trac.versioncontrol import Changeset, Node
 from trac.versioncontrol.svn_fs import SubversionRepository
 
-REPOS_PATH = os.path.join(tempfile.gettempdir(), 'trac-svnrepos')
+REPOS_PATH = tempfile.mktemp("-trac-svnrepos")
 REPOS_URL = pathname2url(REPOS_PATH)
 if REPOS_URL.startswith("///"):
   # Don't add extra slashes if they're already present.
@@ -54,22 +59,12 @@ class SubversionRepositoryTestSetup(TestSetup):
 
         r = repos.svn_repos_create(REPOS_PATH, '', '', None, None)
         repos.svn_repos_load_fs2(r, dumpfile, StringIO(),
-                                repos.svn_repos_load_uuid_default, '',
+                                repos.svn_repos_load_uuid_ignore, '',
                                 0, 0, None)
 
     def tearDown(self):
         if os.path.exists(REPOS_PATH):
-            if os.name == 'nt':
-                # The Windows version of 'shutil.rmtree' doesn't override the
-                # permissions of read-only files, so we have to do it
-                # ourselves:
-                db_format_file = os.path.join(REPOS_PATH, 'db', 'format')
-                if os.path.isfile(db_format_file):
-                    os.chmod(db_format_file, stat.S_IRWXU)
-                format_file = os.path.join(REPOS_PATH, 'format')
-                if os.path.isfile(format_file):
-                    os.chmod(format_file, stat.S_IRWXU)
-            shutil.rmtree(REPOS_PATH)
+            repos.delete(REPOS_PATH)
 
 
 class SubversionRepositoryTestCase(unittest.TestCase):
@@ -154,7 +149,7 @@ class SubversionRepositoryTestCase(unittest.TestCase):
         self.assertEqual('native', props['svn:eol-style'])
         self.assertEqual('text/plain', props['svn:mime-type'])
 
-    # Revision Log / node history 
+    # Revision Log / node history
 
     def test_get_node_history(self):
         node = self.repos.get_node('/trunk/README2.txt')
@@ -172,7 +167,7 @@ class SubversionRepositoryTestCase(unittest.TestCase):
         self.assertEqual(('trunk/README.txt', 2, 'add'), history.next())
         self.assertRaises(StopIteration, history.next)
 
-    # Revision Log / path history 
+    # Revision Log / path history
 
     def test_get_path_history(self):
         history = self.repos.get_path_history('/trunk/README2.txt', None)
@@ -185,7 +180,7 @@ class SubversionRepositoryTestCase(unittest.TestCase):
         self.assertEqual(('tags/v1/README.txt', 7, 'copy'), history.next())
         self.assertEqual(('trunk/README.txt', 3, 'unknown'), history.next())
         self.assertRaises(StopIteration, history.next)
-        
+
     def test_get_path_history_copied_dir(self):
         history = self.repos.get_path_history('/branches/v1x', None)
         self.assertEqual(('branches/v1x', 12, 'copy'), history.next())
@@ -206,7 +201,7 @@ class SubversionRepositoryTestCase(unittest.TestCase):
             new = self.repos.get_node(*expected[1])
             self.assertEqual((new.path, new.rev), (got[1].path, got[1].rev))
         self.assertEqual(expected[2], (got[2], got[3]))
-        
+
     def test_diff_file_different_revs(self):
         diffs = self.repos.get_deltas('trunk/README.txt', 2, 'trunk/README.txt', 3)
         self._cmp_diff((('trunk/README.txt', 2),
@@ -226,7 +221,7 @@ class SubversionRepositoryTestCase(unittest.TestCase):
         diffs = self.repos.get_deltas('trunk/README.txt', 7,
                                       'tags/v1/README.txt', 7)
         self.assertRaises(StopIteration, diffs.next)
- 
+
     def test_diff_dir_different_revs(self):
         diffs = self.repos.get_deltas('trunk', 4, 'trunk', 8)
         self._cmp_diff((None, ('trunk/dir1/dir2', 8),
@@ -259,7 +254,7 @@ class SubversionRepositoryTestCase(unittest.TestCase):
         diffs = self.repos.get_deltas('trunk', 7,
                                       'tags/v1', 7)
         self.assertRaises(StopIteration, diffs.next)
-        
+
     # Changesets
 
     def test_changeset_repos_creation(self):

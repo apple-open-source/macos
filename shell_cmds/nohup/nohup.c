@@ -95,8 +95,8 @@ main(int argc, char *argv[])
 	(void)signal(SIGHUP, SIG_IGN);
 
 #ifdef __APPLE__
-	if (_vprocmgr_move_subset_to_user(geteuid(), "Background") != NULL)
-		err(EXIT_MISC, "can't migrate to background session");
+	if (_vprocmgr_detach_from_console(0) != NULL)
+		err(EXIT_MISC, "can't detach from console");
 #endif
 	execvp(*argv, argv);
 	exit_status = (errno == ENOENT) ? EXIT_NOTFOUND : EXIT_NOEXEC;

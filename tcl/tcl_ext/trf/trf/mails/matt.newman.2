@@ -1,0 +1,83 @@
+MIME-Version: 1.0
+Return-Path: bluepeak.westend.com!popeye
+Return-Path: <popeye@bluepeak.westend.com>
+Received: from popeye.bluepeak.westend.com by bluepeak  with smtp
+	(Smail3.2 #1) id m11UMxv-00027eC; Fri, 24 Sep 1999 06:28:11 +0200 (MEST)
+Received: from genesis for a.kupries
+ with Cubic Circle's cucipop (v1.10 1996/09/06) Fri Sep 24 06:22:53 1999
+Received: from ficus.frogspace.net (root@[216.65.97.3] (may be forged))
+	by genesis.westend.com (8.8.6/8.8.6) with ESMTP id EAA08560
+	for <a.kupries@westend.com>; Fri, 24 Sep 1999 04:16:25 +0200 (MET DST)
+Received: from [208.244.224.65] (helo=host65.novadigm.com)
+	by ficus.frogspace.net with smtp (Exim 3.02 #1)
+	id 11UKeS-0000B8-00; Thu, 23 Sep 1999 21:59:56 -0400
+Received: from LAPCAT by host65.novadigm.com
+          via smtpd (for [216.65.97.216]) with SMTP; 24 Sep 1999 02:25:17 UT
+X-From_: matt@sensus.org  Fri Sep 24 04:16:27 1999
+Message-ID: <001001bf0632$c45d17f0$b3e6f4d0@lapcat>
+From: "Matt Newman" <matt@sensus.org>
+To: "Andreas Kupries" <a.kupries@westend.com>
+Cc: "Jean-Claude Wippler" <jcw@equi4.com>
+Subject: [trf1.8] Support for Seek on FD
+Date: Thu, 23 Sep 1999 22:15:58 -0400
+X-Priority: 3
+X-MSMail-Priority: Normal
+X-Mailer: Microsoft Outlook Express 4.72.2106.4
+X-MimeOLE: Produced By Microsoft MimeOLE V4.72.2106.4
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain;
+              charset="iso-8859-1"
+
+I have been grapping with a problem using the zip compression method and
+wanted to share my thoughts.
+
+A normal Tcl paradigm is to do
+
+set fd [open foo w]
+puts $fd data
+close $fd
+set size [file size foo]
+
+But in the case of any form of transformation it is quite often nice to know
+the pre-transformation size - i.e. in the case of zip the uncompressed size.
+Now you can normally tell howmuch data has been written to a channel by
+doing
+
+set fd [open foo w]
+puts $fd data
+flush $fd
+set size [tell $fd]
+close $fd
+
+(If the channel supports seeks)
+
+However when you do this with the Trf channels two problems raise their ugly
+heads....
+
+1) Calling [tell] before the flush seems to brake the channel in some way
+(try it out - reverse the flush & tell)
+
+2) The registry.c SeekProc calls the underlying channel's SeekProc.
+
+The later is not correct under almost all non 1-1 transformations, since
+offsets (sizes) may be different on each side of the transformation.
+
+This also has the side effect that [tell] on a transformed FD returns the
+underlying offset, not the pre-transform offset.
+
+It occured to me that the Seek support may need to be different for
+different types of transform, instead of the single generic one in
+registry.c
+
+One simple situtation I could propose would be that the registry.c code
+maintain a byte-count and only support Tcl_Seek(ch, 0, SEEK_CUR) which is
+what [tell] uses - and throws an error in all other cases - at least for
+writing this would give me a very simple way of getting the pre-transform
+byte-count.
+
+What do you think?
+
+Matt Newman
+
+PS. My "real" need is to know the pre and post compression sizes - but this
+need would hold true for all other transforms too.

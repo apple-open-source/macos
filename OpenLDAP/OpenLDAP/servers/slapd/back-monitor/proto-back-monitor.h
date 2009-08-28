@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/proto-back-monitor.h,v 1.25.2.6 2006/01/03 22:16:21 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/proto-back-monitor.h,v 1.33.2.5 2008/02/11 23:26:47 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2001-2006 The OpenLDAP Foundation.
+ * Copyright 2001-2008 The OpenLDAP Foundation.
  * Portions Copyright 2001-2003 Pierangelo Masarati.
  * All rights reserved.
  *
@@ -50,6 +50,11 @@ monitor_cache_add LDAP_P((
 	Entry			*e ));
 extern int
 monitor_cache_get LDAP_P((
+	monitor_info_t		*mi,
+	struct berval		*ndn,
+	Entry			**ep ));
+extern int
+monitor_cache_remove LDAP_P((
 	monitor_info_t		*mi,
 	struct berval		*ndn,
 	Entry			**ep ));
@@ -116,12 +121,51 @@ extern monitor_entry_t *
 monitor_entrypriv_create LDAP_P((
 	void ));
 
+extern Entry *
+monitor_entry_stub LDAP_P((
+	struct berval	*pdn,
+	struct berval	*pndn,
+	struct berval	*rdn,
+	ObjectClass		*oc,
+	monitor_info_t	*mi,
+	struct berval	*create,
+	struct berval	*modify));
+
 /*
  * init
  */
 extern int
+monitor_subsys_is_opened LDAP_P((
+	void ));
+extern int
 monitor_back_register_subsys LDAP_P((
 	monitor_subsys_t	*ms ));
+extern int
+monitor_back_register_backend LDAP_P((
+	BackendInfo		*bi ));
+extern int
+monitor_back_register_database LDAP_P((
+	BackendDB		*be,
+	struct berval	*ndn ));
+extern int
+monitor_back_register_overlay_info LDAP_P((
+	slap_overinst		*on ));
+extern int
+monitor_back_register_overlay LDAP_P((
+	BackendDB		*be ));
+extern int
+monitor_back_register_backend_limbo LDAP_P((
+	BackendInfo		*bi ));
+extern int
+monitor_back_register_database_limbo LDAP_P((
+	BackendDB		*be,
+	struct berval	*ndn ));
+extern int
+monitor_back_register_overlay_info_limbo LDAP_P((
+	slap_overinst		*on ));
+extern int
+monitor_back_register_overlay_limbo LDAP_P((
+	BackendDB		*be ));
 extern monitor_subsys_t *
 monitor_back_get_subsys LDAP_P((
 	const char		*name ));
@@ -134,16 +178,20 @@ monitor_back_is_configured LDAP_P(( void ));
 extern int
 monitor_back_register_entry LDAP_P((
 	Entry			*e,
-	monitor_callback_t	*cb ));
+	monitor_callback_t	*cb,
+	monitor_subsys_t	*mss,
+	unsigned long		flags ));
 extern int
 monitor_back_register_entry_parent LDAP_P((
 	Entry			*e,
 	monitor_callback_t	*cb,
+	monitor_subsys_t	*mss,
+	unsigned long		flags,
 	struct berval		*base,
 	int			scope,
 	struct berval		*filter ));
 extern int
-monitor_filter2ndn LDAP_P((
+monitor_search2ndn LDAP_P((
 	struct berval		*base,
 	int			scope,
 	struct berval		*filter,
@@ -158,6 +206,31 @@ monitor_back_register_entry_attrs LDAP_P((
 	struct berval		*filter ));
 extern int
 monitor_back_register_entry_callback LDAP_P((
+	struct berval		*ndn,
+	monitor_callback_t	*cb,
+	struct berval		*base,
+	int			scope,
+	struct berval		*filter ));
+extern int
+monitor_back_unregister_entry LDAP_P((
+	struct berval		*ndn ));
+extern int
+monitor_back_unregister_entry_parent LDAP_P((
+	struct berval		*nrdn,
+	monitor_callback_t	*target_cb,
+	struct berval		*base,
+	int			scope,
+	struct berval		*filter ));
+extern int
+monitor_back_unregister_entry_attrs LDAP_P((
+	struct berval		*ndn,
+	Attribute		*a,
+	monitor_callback_t	*cb,
+	struct berval		*base,
+	int			scope,
+	struct berval		*filter ));
+extern int
+monitor_back_unregister_entry_callback LDAP_P((
 	struct berval		*ndn,
 	monitor_callback_t	*cb,
 	struct berval		*base,

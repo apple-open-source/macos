@@ -51,9 +51,9 @@ __private_extern__
 void
 checkout(
 struct arch *archs,
-unsigned long narchs)
+uint32_t narchs)
 {
-    unsigned long i, j;
+    uint32_t i, j;
 
 	for(i = 0; i < narchs; i++){
 	    if(archs[i].type == OFILE_ARCHIVE){
@@ -77,7 +77,7 @@ struct arch *arch,
 struct member *member,
 struct object *object)
 {
-    unsigned long i, ncmds, flags;
+    uint32_t i, ncmds, flags;
     struct load_command *lc;
     struct segment_command *sg;
     struct segment_command_64 *sg64;
@@ -134,6 +134,12 @@ struct object *object)
 			"LC_SEGMENT_SPLIT_INFO load command): ");
 		object->split_info_cmd = (struct linkedit_data_command *)lc;
 	    }
+	    else if((lc->cmd == LC_DYLD_INFO) ||(lc->cmd == LC_DYLD_INFO_ONLY)){
+		if(object->dyld_info != NULL)
+		    fatal_arch(arch, member, "malformed file (more than one "
+			"LC_DYLD_INFO load command): ");
+		object->dyld_info = (struct dyld_info_command *)lc;
+	    }
 	    else if(lc->cmd == LC_SEGMENT){
 		sg = (struct segment_command *)lc;
 		if(strcmp(sg->segname, SEG_LINKEDIT) == 0){
@@ -159,7 +165,7 @@ struct object *object)
 		dl_id = (struct dylib_command *)lc;
 		if(dl_id->dylib.name.offset >= dl_id->cmdsize)
 		    fatal_arch(arch, member, "malformed file (name.offset of "
-			"load command %lu extends past the end of the load "
+			"load command %u extends past the end of the load "
 			"command): ", i);
 	    }
 	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
@@ -282,7 +288,7 @@ struct arch *arch,
 struct member *member,
 struct object *object)
 {
-    unsigned long offset, rounded_offset, isym;
+    uint32_t offset, rounded_offset, isym;
 
 	if(object->mh != NULL){
 	    if(object->seg_linkedit == NULL)
@@ -309,6 +315,35 @@ struct object *object)
 		    "be processed) in: ");
 
 	    offset = object->seg_linkedit64->fileoff;
+	}
+	if(object->dyld_info != NULL){
+	    /* dyld_info starts at beginning of __LINKEDIT */
+	    if (object->dyld_info->rebase_off != 0){
+		if (object->dyld_info->rebase_off != offset)
+		    order_error(arch, member, "dyld_info "
+			"out of place");
+	    }
+	    else if (object->dyld_info->bind_off != 0){
+		if (object->dyld_info->bind_off != offset)
+		    order_error(arch, member, "dyld_info "
+			"out of place");
+	    }
+	    /* update offset to end of dyld_info contents */
+	    if (object->dyld_info->export_size != 0)
+		offset = object->dyld_info->export_off + 
+			    object->dyld_info->export_size;
+	    else if (object->dyld_info->lazy_bind_size != 0)
+		offset = object->dyld_info->lazy_bind_off + 
+			    object->dyld_info->lazy_bind_size;
+	    else if (object->dyld_info->weak_bind_size != 0)
+		offset = object->dyld_info->weak_bind_off + 
+			    object->dyld_info->weak_bind_size;
+	    else if (object->dyld_info->bind_size != 0)
+		offset = object->dyld_info->bind_off + 
+			    object->dyld_info->bind_size;
+	    else if (object->dyld_info->rebase_size != 0)
+		offset = object->dyld_info->rebase_off + 
+			    object->dyld_info->rebase_size;
 	}
 	if(object->dyst->nlocrel != 0){
 	    if(object->dyst->locreloff != offset)
@@ -482,8 +517,8 @@ struct arch *arch,
 struct member *member,
 struct object *object)
 {
-    unsigned long end, strend, rounded_strend;
-    unsigned long indirectend, rounded_indirectend;
+    uint32_t end, strend, rounded_strend;
+    uint32_t indirectend, rounded_indirectend;
 
 	if(object->st != NULL && object->st->nsyms != 0){
 	    end = object->object_size;

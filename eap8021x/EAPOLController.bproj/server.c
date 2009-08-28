@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -44,13 +44,12 @@
 #include <SystemConfiguration/SCDPlugin.h>
 #include <CoreFoundation/CFMachPort.h>
 #include "controller.h"
-#include "eapolcontroller.h"
+#include "eapolcontrollerServer.h"
 #include "eapolcontroller_types.h"
 #include "eapolcontroller_ext.h"
 #include "server.h"
 #include "myCFUtil.h"
 
-extern struct mig_subsystem	eapolcontroller_subsystem;
 extern boolean_t		eapolcontroller_server(mach_msg_header_t *, 
 						       mach_msg_header_t *);
 
@@ -59,91 +58,53 @@ static gid_t S_gid = -1;
 
 static CFMachPortRef		server_cfport;
 
-static Boolean
-xmlSerialize(CFPropertyListRef		obj,
-	     CFDataRef			*xml,
-	     void			**dataRef,
-	     CFIndex			*dataLen)
+static vm_address_t
+my_CFPropertyListCreateVMData(CFPropertyListRef plist,
+			      mach_msg_type_number_t * 	ret_data_len)
+
 {
-    CFDataRef	myXml;
+    vm_address_t	data;
+    int			data_len;
+    kern_return_t	status;
+    CFDataRef		xml_data;
 
-    if (!obj) {
-	/* if no object to serialize */
-	return FALSE;
+    data = 0;
+    *ret_data_len = 0;
+    xml_data = CFPropertyListCreateXMLData(NULL, plist);
+    if (xml_data == NULL) {
+	goto done;
     }
-
-    if (!xml && !(dataRef && dataLen)) {
-	/* if not keeping track of allocated space */
-	return FALSE;
+    data_len = CFDataGetLength(xml_data);
+    status = vm_allocate(mach_task_self(), &data, data_len, TRUE);
+    if (status != KERN_SUCCESS) {
+	goto done;
     }
+    bcopy((char *)CFDataGetBytePtr(xml_data), (char *)data, data_len);
+    *ret_data_len = data_len;
 
-    myXml = CFPropertyListCreateXMLData(NULL, obj);
-    if (!myXml) {
-	if (xml)	*xml     = NULL;
-	if (dataRef)	*dataRef = NULL;
-	if (dataLen)	*dataLen = 0;
-	return FALSE;
-    }
-
-    if (xml) {
-	*xml = myXml;
-	if (dataRef) {
-	    *dataRef = (void *)CFDataGetBytePtr(myXml);
-	}
-	if (dataLen) {
-	    *dataLen = CFDataGetLength(myXml);
-	}
-    } else {
-	kern_return_t	status;
-
-	*dataLen = CFDataGetLength(myXml);
-	status = vm_allocate(mach_task_self(), (void *)dataRef, *dataLen, TRUE);
-	if (status != KERN_SUCCESS) {
-	    CFRelease(myXml);
-	    *dataRef = NULL;
-	    *dataLen = 0;
-	    return FALSE;
-	}
-
-	bcopy((char *)CFDataGetBytePtr(myXml), *dataRef, *dataLen);
-	CFRelease(myXml);
-    }
-
-    return TRUE;
+ done:
+    my_CFRelease(&xml_data);
+    return (data);
 }
 
-
-static Boolean
-xmlUnserialize(CFPropertyListRef	*obj,
-	       void			*dataRef,
-	       CFIndex			dataLen)
+static CFPropertyListRef
+my_CFPropertyListCreateWithBytePtrAndLength(const void * data, int data_len)
 {
-    kern_return_t		status;
-    CFDataRef		xml;
-    CFStringRef		xmlError;
+    CFPropertyListRef	plist;
+    CFDataRef		xml_data;
 
-    if (!obj) {
-	return FALSE;
+    xml_data = CFDataCreateWithBytesNoCopy(NULL, 
+					   (const UInt8 *)data, data_len,
+					   kCFAllocatorNull);
+    if (xml_data == NULL) {
+	return (NULL);
     }
-
-    xml = CFDataCreate(NULL, (void *)dataRef, dataLen);
-    status = vm_deallocate(mach_task_self(), (vm_address_t)dataRef, dataLen);
-    if (status != KERN_SUCCESS) {
-	/* non-fatal???, proceed */
-    }
-    *obj = CFPropertyListCreateFromXMLData(NULL,
-					   xml,
-					   kCFPropertyListImmutable,
-					   &xmlError);
-    CFRelease(xml);
-
-    if (!obj) {
-	if (xmlError) {
-	    CFRelease(xmlError);
-	}
-	return FALSE;
-    }
-    return TRUE;
+    plist = CFPropertyListCreateFromXMLData(NULL,
+					    xml_data,
+					    kCFPropertyListImmutable,
+					    NULL);
+    CFRelease(xml_data);
+    return (plist);
 }
 
 static __inline__ void
@@ -189,43 +150,101 @@ eapolcontroller_copy_status(mach_port_t server,
     *status_len = 0;
     *result = ControllerCopyStateAndStatus(if_name, state, &dict);
     if (dict != NULL) {
-	if (!xmlSerialize(dict, NULL, 
-			  (void **)status, (CFIndex *)status_len)) {
+	*status = (xmlDataOut_t)my_CFPropertyListCreateVMData(dict, status_len);
+	if (*status == NULL) {
 	    syslog(LOG_NOTICE, "EAPOLController: failed to serialize data");
-	    *status = NULL;
-	    *status_len = 0;
 	}
     }
     my_CFRelease(&dict);
     return (KERN_SUCCESS);
 }
 
+#if ! TARGET_OS_EMBEDDED
+kern_return_t
+eapolcontroller_copy_loginwindow_config(mach_port_t server,
+					if_name_t if_name,
+					xmlDataOut_t * config,
+					mach_msg_type_number_t * config_len,
+					int * result)
+{
+    CFDictionaryRef	dict = NULL;
+
+    *config = NULL;
+    *config_len = 0;
+    *result = ControllerCopyLoginWindowConfiguration(if_name, &dict);
+    if (dict != NULL) {
+	*config = (xmlDataOut_t)my_CFPropertyListCreateVMData(dict, config_len);
+	if (*config == NULL) {
+	    syslog(LOG_NOTICE, "EAPOLController: failed to serialize data");
+	}
+    }
+    my_CFRelease(&dict);
+    return (KERN_SUCCESS);
+}
+#endif /* ! TARGET_OS_EMBEDDED */
+
 kern_return_t
 eapolcontroller_start(mach_port_t server,
 		      if_name_t if_name, xmlData_t config, 
 		      mach_msg_type_number_t config_len,
 		      mach_port_t bootstrap,
-		      int * result)
+		      int * ret_result)
 {
     CFDictionaryRef	dict = NULL;
+    int			result = EINVAL;
 
-    *result = 0;
-    if (config == NULL
-	|| xmlUnserialize((CFPropertyListRef *)&dict, 
-			  (void *)config, config_len) == FALSE
-	|| isA_CFDictionary(dict) == NULL) {
-	*result = EINVAL;
-	goto failed;
+    if (config == NULL) {
+	goto done;
+    }
+    dict = my_CFPropertyListCreateWithBytePtrAndLength(config, config_len);
+    (void)vm_deallocate(mach_task_self(), (vm_address_t)config, config_len);
+    if (isA_CFDictionary(dict) == NULL) {
+	goto done;
     }
     if (S_uid == -1) {
-	*result = EPERM;
-	goto failed;
+	result = EPERM;
+	goto done;
     }
-    *result = ControllerStart(if_name, S_uid, S_gid, dict, bootstrap);
- failed:
+    result = ControllerStart(if_name, S_uid, S_gid, dict, bootstrap);
+
+done:
+    *ret_result = result;
     my_CFRelease(&dict);
     return (KERN_SUCCESS);
 }
+
+#if ! TARGET_OS_EMBEDDED 
+kern_return_t
+eapolcontroller_start_system(mach_port_t server,
+			     if_name_t if_name, 
+			     xmlData_t options,
+			     mach_msg_type_number_t options_len,
+			     int * ret_result)
+{
+    CFDictionaryRef	dict = NULL;
+    int			result = EINVAL;
+
+    if (options != NULL) {
+	dict = my_CFPropertyListCreateWithBytePtrAndLength(options, 
+							   options_len);
+	(void)vm_deallocate(mach_task_self(), (vm_address_t)options,
+			    options_len);
+	if (isA_CFDictionary(dict) == NULL) {
+	    goto done;
+	}
+    }
+    if (S_uid == -1) {
+	result = EPERM;
+	goto done;
+    }
+    result = ControllerStartSystem(if_name, S_uid, S_gid, dict);
+
+ done:
+    my_CFRelease(&dict);
+    *ret_result = result;
+    return (KERN_SUCCESS);
+}
+#endif /* ! TARGET_OS_EMBEDDED */
 
 kern_return_t
 eapolcontroller_stop(mach_port_t server,
@@ -239,23 +258,51 @@ kern_return_t
 eapolcontroller_update(mach_port_t server,
 		       if_name_t if_name, xmlData_t config, 
 		       mach_msg_type_number_t config_len,
-		       int * result)
+		       int * ret_result)
 {
     CFDictionaryRef	dict = NULL;
+    int			result = EINVAL;
 
-    *result = 0;
-    if (config == NULL
-	|| xmlUnserialize((CFPropertyListRef *)&dict, 
-			  (void *)config, config_len) == FALSE
-	|| isA_CFDictionary(dict) == NULL) {
-	*result = EINVAL;
-	goto failed;
+    if (config == NULL) {
+	goto done;
     }
-    *result = ControllerUpdate(if_name, S_uid, S_gid,
-			       dict);
+    dict = my_CFPropertyListCreateWithBytePtrAndLength(config, config_len);
+    (void)vm_deallocate(mach_task_self(), (vm_address_t)config, config_len);
+    if (isA_CFDictionary(dict) == NULL) {
+	goto done;
+    }
+    result = ControllerUpdate(if_name, S_uid, S_gid, dict);
 
- failed:
+ done:
     my_CFRelease(&dict);
+    *ret_result = result;
+    return (KERN_SUCCESS);
+}
+
+kern_return_t
+eapolcontroller_provide_user_input(mach_port_t server,
+				   if_name_t if_name, xmlData_t user_input, 
+				   mach_msg_type_number_t user_input_len,
+				   int * ret_result)
+{
+    CFDictionaryRef	dict = NULL;
+    int			result = EINVAL;
+    
+    if (user_input == NULL) {
+	goto done;
+    }
+    dict = my_CFPropertyListCreateWithBytePtrAndLength(user_input,
+						       user_input_len);
+    (void)vm_deallocate(mach_task_self(), (vm_address_t)user_input,
+			user_input_len);
+    if (isA_CFDictionary(dict) == NULL) {
+	goto done;
+    }
+    result = ControllerProvideUserInput(if_name, S_uid, S_gid, dict);
+
+ done:
+    my_CFRelease(&dict);
+    *ret_result = result;
     return (KERN_SUCCESS);
 }
 
@@ -283,35 +330,36 @@ eapolcontroller_client_attach(mach_port_t server, task_t task,
 			      xmlDataOut_t * control, 
 			      mach_msg_type_number_t * control_len,
 			      mach_port_t * bootstrap,
-			      int * result)
+			      int * ret_result)
 {
     int			pid;
     CFDictionaryRef	dict = NULL;
+    int			result = EINVAL;
     kern_return_t	status;
 
     *control = NULL;
     *control_len = 0;
     status = pid_for_task(task, &pid);
     if (status != KERN_SUCCESS) {
-	(void)mach_port_destroy(mach_task_self(), notify_port);
-	*result = EINVAL;
-	goto failed;
+	(void)mach_port_deallocate(mach_task_self(), notify_port);
+	goto done;
     }
-    *result = ControllerClientAttach(pid, if_name, notify_port, session,
-				     &dict, bootstrap);
+    result = ControllerClientAttach(pid, if_name, notify_port, session,
+				    &dict, bootstrap);
     if (dict != NULL) {
-	if (!xmlSerialize(dict, NULL, 
-			  (void **)control, (CFIndex *)control_len)) {
+	*control = (xmlDataOut_t)my_CFPropertyListCreateVMData(dict, 
+							       control_len);
+	if (*control == 0) {
 	    syslog(LOG_NOTICE, "EAPOLController: failed to serialize data");
-	    *control = NULL;
-	    *control_len = 0;
 	}
     }
     my_CFRelease(&dict);
- failed:
+
+ done:
     if (task != TASK_NULL) {
-	(void)mach_port_destroy(mach_task_self(), task);
+	(void)mach_port_deallocate(mach_task_self(), task);
     }
+    *ret_result = result;
     return (KERN_SUCCESS);
 }
 
@@ -335,11 +383,10 @@ eapolcontroller_client_getconfig(mach_port_t server,
 
     *result = ControllerClientGetConfig(server, &dict);
     if (dict != NULL) {
-	if (!xmlSerialize(dict, NULL, 
-			  (void **)control, (CFIndex *)control_len)) {
+	*control = (xmlDataOut_t)my_CFPropertyListCreateVMData(dict, 
+							       control_len);
+	if (*control == NULL) {
 	    syslog(LOG_NOTICE, "EAPOLController: failed to serialize data");
-	    *control = NULL;
-	    *control_len = 0;
 	}
     }
     my_CFRelease(&dict);
@@ -350,21 +397,26 @@ kern_return_t
 eapolcontroller_client_report_status(mach_port_t server,
 				     xmlData_t status_data,
 				     mach_msg_type_number_t status_data_len,
-				     int * result)
+				     int * ret_result)
 {
-    CFDictionaryRef	status_dict = NULL;
+    CFDictionaryRef	dict = NULL;
+    int			result = EINVAL;
 
-    *result = 0;
-    if (status_data == NULL
-	|| xmlUnserialize((CFPropertyListRef *)&status_dict, 
-			  (void *)status_data, status_data_len) == FALSE
-	|| isA_CFDictionary(status_dict) == NULL) {
-	*result = EINVAL;
-	goto failed;
+    if (status_data == NULL) {
+	goto done;
     }
-    *result = ControllerClientReportStatus(server, status_dict);
- failed:
-    my_CFRelease(&status_dict);
+    dict = my_CFPropertyListCreateWithBytePtrAndLength(status_data,
+						       status_data_len);
+    (void)vm_deallocate(mach_task_self(), (vm_address_t)status_data,
+			status_data_len);
+    if (isA_CFDictionary(dict) == NULL) {
+	goto done;
+    }
+    result = ControllerClientReportStatus(server, dict);
+
+ done:
+    my_CFRelease(&dict);
+    *ret_result = result;
     return (KERN_SUCCESS);
 };
 
@@ -377,7 +429,7 @@ eapolcontroller_client_force_renew(mach_port_t server,
 };
 
 boolean_t
-server_active()
+server_active(void)
 {
     mach_port_t		server;
     kern_return_t	result;
@@ -398,14 +450,6 @@ process_notification(mach_msg_header_t * request)
     if ((notify->not_header.msgh_id > MACH_NOTIFY_LAST) ||
 	(notify->not_header.msgh_id < MACH_NOTIFY_FIRST)) {
 	return FALSE;	/* if this is not a notification message */
-    }
-    switch (notify->not_header.msgh_id) {
-    case MACH_NOTIFY_NO_SENDERS:
-    case MACH_NOTIFY_DEAD_NAME:
-	ControllerClientPortDead(notify->not_header.msgh_local_port);
-	break;
-    default :
-	break;
     }
     return (TRUE);
 }
@@ -430,7 +474,8 @@ server_handle_request(CFMachPortRef port, void *msg, CFIndex size, void *info)
 	    reply = (mach_msg_header_t *)reply_s;
 	}
 	if (eapolcontroller_server(request, reply) == FALSE) {
-	    syslog(LOG_NOTICE, "unknown message ID (%d) received",
+	    syslog(LOG_NOTICE,
+		   "EAPOLController: unknown message ID (%d)",
 		   request->msgh_id);
 	    mach_msg_destroy(request);
 	}
@@ -438,8 +483,8 @@ server_handle_request(CFMachPortRef port, void *msg, CFIndex size, void *info)
 	    int		options;
 
 	    options = MACH_SEND_MSG;
-	    if (MACH_MSGH_BITS_REMOTE(reply->msgh_bits) 
-		== MACH_MSG_TYPE_MOVE_SEND) {
+	    if (MACH_MSGH_BITS_REMOTE(reply->msgh_bits)
+                != MACH_MSG_TYPE_MOVE_SEND_ONCE) {
 		options |= MACH_SEND_TIMEOUT;
 	    }
 	    r = mach_msg(reply,
@@ -463,21 +508,28 @@ server_handle_request(CFMachPortRef port, void *msg, CFIndex size, void *info)
 }
 
 void
-server_init()
+server_register(void)
 {
     kern_return_t 	status;
-    CFRunLoopSourceRef	rls;
 
     server_cfport = CFMachPortCreate(NULL, server_handle_request, NULL, NULL);
-    rls = CFMachPortCreateRunLoopSource(NULL, server_cfport, 0);
-    CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
-    CFRelease(rls);
-
     status = bootstrap_register(bootstrap_port, EAPOLCONTROLLER_SERVER, 
 				CFMachPortGetPort(server_cfport));
     if (status != BOOTSTRAP_SUCCESS) {
+	my_CFRelease(&server_cfport);
 	mach_error("bootstrap_register", status);
     }
     return;
 }
 
+void
+server_start(void)
+{
+    CFRunLoopSourceRef	rls;
+
+    if (server_cfport != NULL) {
+	rls = CFMachPortCreateRunLoopSource(NULL, server_cfport, 0);
+	CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
+	CFRelease(rls);
+    }
+}

@@ -1,4 +1,4 @@
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <html>
 <!-- SECTION: Specifications -->
 <head>
@@ -8,11 +8,11 @@
 </head>
 <body>
 <!--
-  "$Id: spec-ppd.html 7444 2008-04-09 22:41:03Z mike $"
+  "$Id: spec-ppd.html 7937 2008-09-11 16:16:41Z mike $"
 
   CUPS PPD extensions specification for the Common UNIX Printing System (CUPS).
 
-  Copyright 2007-2008 by Apple Inc.
+  Copyright 2007-2009 by Apple Inc.
   Copyright 1997-2007 by Easy Software Products.
 
   These coded instructions, statements, and computer programs are the
@@ -21,6 +21,8 @@
   which should have been included with this file.  If this file is
   file is missing or damaged, see the license at "http://www.cups.org/".
 -->
+
+<H1 CLASS="title">CUPS PPD Extensions</H1>
 
 <h2 class='title'><a name='INTRODUCTION'>Introduction</a></h2>
 
@@ -38,14 +40,15 @@ filtering.</p>
 <p>The PPD format is text-based and uses lines of up to 255
 characters terminated by a carriage return, linefeed, or
 combination of carriage return and line feed. The following ABNF
-definition [RFC2234] defines the general format of lines in a PPD
+definition [RFC4234] defines the general format of lines in a PPD
 file:</p>
 
 <pre class='command'>
 PPD-FILE = HEADER +(DATA / COMMENT / LINE-END)
 
-HEADER   = "*" 0x50.50.44.2D.41.64.6F.62.65 ":"   ; *PPD-Adobe:
-           *WSP DQUOTE "4.3" DQUOTE LINE-END
+HEADER   = "*PPD-Adobe:" *WSP DQUOTE VERSION DQUOTE LINE-END
+
+VERSION  = "4.0" / "4.1" / "4.2" / "4.3"
 
 COMMENT  = "*%" *TCHAR LINE-END
 
@@ -56,9 +59,9 @@ VALUE    = 1*TCHAR / DQUOTE 1*SCHAR DQUOTE
 
 KCHAR    = ALPHA / DIGIT / "_" / "." / "-"
 
-SCHAR    = LINE-END / WSP / %x21 / %x23-7E / %xA0-FF
+SCHAR    = LINE-END / WSP / %x21.23-7E.A0-FF
 
-TCHAR    = %x20-7E / %xA0-FF
+TCHAR    = %x20-7E.A0-FF
 
 LINE-END = CR / LF / CR LF
 </pre>
@@ -164,7 +167,7 @@ and resources permit.</p>
 
 </blockquote>
 
-<h3><a name='cupsColorProfile'>cupsColorProfile</a></h3>
+<h3><span class='info'>Deprecated</span><a name='cupsColorProfile'>cupsColorProfile</a></h3>
 
 <p class='summary'>*cupsColorProfile Resolution/MediaType: "density
 gamma m00 m01 m02 m10 m11 m12 m20 m21 m22"</p>
@@ -208,7 +211,8 @@ function is applied <i>after</i> the CMY transformation:</p>
 *cupsColorProfile -/-: "0.9 2.0 1.0 0.0 -0.2 -0.4 1.0 0.0 -0.2 0.0 1.0"
 </pre>
 
-<h3><span class='info'>Mac OS X 10.3/CUPS 1.2</span><a name='cupsICCProfile'>cupsICCProfile</a></h3>
+
+<h3><span class='info'>Mac OS X 10.3/CUPS 1.2/Mac OS X 10.5</span><a name='cupsICCProfile'>cupsICCProfile</a></h3>
 
 <p class='summary'>*cupsICCProfile
 ColorModel.MediaType.Resolution/Description: "filename"</p>
@@ -295,9 +299,9 @@ equivalent.</p>
 <p class='summary'>*APCustomColorMatchingProfile: name</p>
 
 <p>This attribute defines a supported RGB color profile that can be used
-when doing custom color matching. Currently only <tt>sRGB</tt> and
-<tt>AdobeRGB</tt> are supported. If not specified, RGB data will use the
-Generic RGB colorspace.</p>
+when doing custom color matching. Currently only <tt>sRGB</tt>,
+<tt>AdobeRGB</tt>, and <tt>GenericRGB</tt> are supported. If not specified, RGB
+data will use the GenericRGB colorspace.</p>
 
 <blockquote><b>Note:</b>
 
@@ -324,8 +328,8 @@ Add the named profile to the print settings using the key
 <p class='summary'>*APDefaultCustomColorMatchingProfile: name</p>
 
 <p>This attribute defines the default RGB color profile that will be used
-when doing custom color matching. Currently only <tt>sRGB</tt> and
-<tt>AdobeRGB</tt> are supported.</p>
+when doing custom color matching. Currently only <tt>sRGB</tt>,
+<tt>AdobeRGB</tt>, and <tt>GenericRGB</tt> are supported.</p>
 
 <p>Examples:</p>
 
@@ -341,7 +345,7 @@ when doing custom color matching. Currently only <tt>sRGB</tt> and
 
 <p>This attribute specifies that the driver provides its own custom color
 matching. When <tt>true</tt>, the default hand-off colorspace will be
-Generic Gray, Generic RGB, or Generic CMYK depending on the number of
+GenericGray, GenericRGB, or GenericCMYK depending on the number of
 components the driver requests. The <a
 href='#APDefaultCustomColorMatchingProfile'><tt>APDefaultCustomColorMatchingProfile</tt></a>
 attribute can be used to override the default 3-component (RGB) colorspace.</p>
@@ -353,6 +357,105 @@ attribute can be used to override the default 3-component (RGB) colorspace.</p>
 <pre class='command'>
 *APSupportsCustomColorMatching: true
 *APDefaultCustomColorMatchingProfile: sRGB
+</pre>
+
+
+<h2 class='title'><a name='CONSTRAINTS'>Constraints</a></h2>
+
+<p>Constraints are option choices that are not allowed by the driver or
+device, for example printing 2-sided transparencies. All versions of CUPS
+support constraints defined by the legacy Adobe <tt>UIConstraints</tt> and
+<tt>NonUIConstraints</tt> attributes which support conflicts between any two
+option choices, for example:</p>
+
+<pre class='command'>
+*% Do not allow 2-sided printing on transparency media
+*UIConstraints: "*Duplex *MediaType Transparency"
+*UIConstraints: "*MediaType Transparency *Duplex"
+</pre>
+
+<p>While nearly all constraints can be expressed using these attributes, there
+are valid scenarios requiring constraints between more than two option choices.
+In addition, resolution of constraints is problematic since users and software
+have to guess how a particular constraint is best resolved.</p>
+
+<p>CUPS 1.4 and higher define two new attributes for constraints,
+<tt>cupsUIConstraints</tt> and <tt>cupsUIResolver</tt>. Each
+<tt>cupsUIConstraints</tt> attribute points to a <tt>cupsUIResolver</tt>
+attribute which specifies alternate options that resolve the conflict condition.
+The same <tt>cupsUIResolver</tt> can be used by multiple
+<tt>cupsUIConstraints</tt>.</p>
+
+<blockquote><b>Note:</b>
+
+    <p>When developing PPD files that contain constraints, it is very important
+    to use the <a href="man-cupstestppd.html">cupstestppd(1)</a> program to
+    verify that your constraints are accurate and cannot result in unresolvable
+    option selections.</p>
+
+</blockquote>
+
+<h3><span class='info'>CUPS 1.4/Mac OS X 10.6</span><a name='cupsUIConstraints'>cupsUIConstraints</a></h3>
+
+<p class='summary'>*cupsUIConstraints resolver: "*Keyword1 *Keyword2 ..."<br>
+*cupsUIConstraints resolver: "*Keyword1 OptionKeyword1 *Keyword2 ..."<br>
+*cupsUIConstraints resolver: "*Keyword1 *Keyword2 OptionKeyword2 ..."<br>
+*cupsUIConstraints resolver: "*Keyword1 OptionKeyword1 *Keyword2 OptionKeyword2 ..."<br>
+*cupsUIConstraints: "*InstallableKeyword1 OptionKeyword1 *Keyword2 OptionKeyword2 ..."</p>
+
+<p>Lists two or more options which conflict. The "resolver" string is a
+(possibly unique) keyword which specifies which options to change when the
+constraint exists. When no resolver is provided, CUPS first tries the default
+choice followed by testing each option choice to resolve the conflict.</p>
+
+<p>Examples:</p>
+
+<pre class='command'>
+<em>*% Specify that 2-sided printing cannot happen on transparencies</em> 
+*cupsUIConstraints transparency: "*Duplex *MediaType Transparency"
+
+<em>*% Specify that envelope printing cannot happen from the paper trays</em> 
+*cupsUIConstraints envelope: "*PageSize Env10 *InputSlot Tray1"
+*cupsUIConstraints envelope: "*PageSize Env10 *InputSlot Tray1"
+*cupsUIConstraints envelope: "*PageSize EnvDL *InputSlot Tray2"
+*cupsUIConstraints envelope: "*PageSize EnvDL *InputSlot Tray2"
+
+<em>*% Specify an installable option constraint for the envelope feeder</em>
+*cupsUIConstraints: "*InputSlot EnvFeeder *InstalledEnvFeeder"
+
+<em>*% Specify that photo printing cannot happen on plain paper or transparencies at 1200dpi</em> 
+*cupsUIConstraints photo: "*OutputMode Photo *MediaType Plain *Resolution 1200dpi"
+*cupsUIConstraints photo: "*OutputMode Photo *MediaType Transparency *Resolution 1200dpi"
+</pre>
+
+<h3><span class='info'>CUPS 1.4/Mac OS X 10.6</span><a name='cupsUIResolver'>cupsUIResolver</a></h3>
+
+<p class='summary'>*cupsUIResolution resolver: "*Keyword1 OptionKeyword1 *Keyword2 OptionKeyword2 ..."</p>
+
+<p>Specifies two or more options to mark/select to resolve a constraint. The
+"resolver" string identifies a particular action to take for one or more
+<a href='#cupsUIConstraints'><tt>cupsUIConstraints</tt></a>. The same action
+can be used for multiple constraints. The option keyword pairs are treated as
+an ordered list of option selections to try - only the first N selections will
+be used, where N is the minimum number of selections required. Because
+<a href="api-ppd.html#cupsResolveConflicts"><code>cupsResolveConflicts()</code></a>
+will not change the most recent option selection passed to it, at least two
+options from the constraints must be listed to avoid situations where conflicts
+cannot be resolved.</p>
+
+<p>Examples:</p>
+
+<pre class='command'>
+<em>*% Specify the options to change for the 2-sided transparency constraint</em> 
+*cupsUIResolver transparency: "*Duplex None *MediaType Plain"
+
+<em>*% Specify the options to change for the envelope printing constraints.  Notice
+*% that we try to change the InputSlot to either the envelope feeder or the
+*% manual feed first, then we change the page size...</em>
+*cupsUIResolver envelope: "*InputSlot EnvFeeder *InputSlot ManualFeed *PageSize Letter"
+
+<em>*% Specify the options to change for the photo printing constraints</em> 
+*cupsUIResolver photo: "*OutputMode Best *Resolution 600dpi"
 </pre>
 
 
@@ -950,9 +1053,99 @@ PRE B {
 </table></div>
 
 
+<h2 class='title'><a name='MEDIA'>Media Attributes</a></h2>
+
+<p>The CUPS media attributes allow drivers to specify alternate custom page
+size limits based on up to two options.</p>
+
+<h3><span class='info'>CUPS 1.4/Mac OS X 10.6</span><a name='cupsMediaQualifier2'>cupsMediaQualifier2</a></h3>
+
+<p class='summary'>*cupsMediaQualifier2: MainKeyword</p>
+
+<p>This attribute specifies the second option to use for overriding the
+custom page size limits.</p>
+
+<p>Example:</p>
+
+<pre class='command'>
+<em>*% Specify alternate custom page size limits based on InputSlot and Quality</em>
+*cupsMediaQualifier2: InputSlot
+*cupsMediaQualifier3: Quality
+*cupsMaxSize .Manual.: "1000 1000"
+*cupsMinSize .Manual.: "100 100"
+*cupsMinSize .Manual.Photo: "200 200"
+*cupsMinSize ..Photo: "300 300"
+</pre>
+
+<h3><span class='info'>CUPS 1.4/Mac OS X 10.6</span><a name='cupsMediaQualifier3'>cupsMediaQualifier3</a></h3>
+
+<p class='summary'>*cupsMediaQualifier3: MainKeyword</p>
+
+<p>This attribute specifies the third option to use for overriding the
+custom page size limits.</p>
+
+<p>Example:</p>
+
+<pre class='command'>
+<em>*% Specify alternate custom page size limits based on InputSlot and Quality</em>
+*cupsMediaQualifier2: InputSlot
+*cupsMediaQualifier3: Quality
+*cupsMaxSize .Manual.: "1000 1000"
+*cupsMinSize .Manual.: "100 100"
+*cupsMinSize .Manual.Photo: "200 200"
+*cupsMinSize ..Photo: "300 300"
+</pre>
+
+<h3><span class='info'>CUPS 1.4/Mac OS X 10.6</span><a name='cupsMinSize'>cupsMinSize</a></h3>
+
+<p class='summary'>*cupsMinSize .Qualifier2.Qualifier3: "width length"<br>
+*cupsMinSize .Qualifier2.: "width length"<br>
+*cupsMinSize ..Qualifier3: "width length"</p>
+
+<p>This attribute specifies alternate minimum custom page sizes in points.
+The <a href='#cupsMediaQualifier2'><tt>cupsMediaQualifier2</tt></a> and
+<a href='#cupsMediaQualifier3'><tt>cupsMediaQualifier3</tt></a> attributes
+are used to identify options to use for matching.</p>
+
+<p>Example:</p>
+
+<pre class='command'>
+<em>*% Specify alternate custom page size limits based on InputSlot and Quality</em>
+*cupsMediaQualifier2: InputSlot
+*cupsMediaQualifier3: Quality
+*cupsMaxSize .Manual.: "1000 1000"
+*cupsMinSize .Manual.: "100 100"
+*cupsMinSize .Manual.Photo: "200 200"
+*cupsMinSize ..Photo: "300 300"
+</pre>
+
+<h3><span class='info'>CUPS 1.4/Mac OS X 10.6</span><a name='cupsMaxSize'>cupsMaxSize</a></h3>
+
+<p class='summary'>*cupsMaxSize .Qualifier2.Qualifier3: "width length"<br>
+*cupsMaxSize .Qualifier2.: "width length"<br>
+*cupsMaxSize ..Qualifier3: "width length"</p>
+
+<p>This attribute specifies alternate maximum custom page sizes in points.
+The <a href='#cupsMediaQualifier2'><tt>cupsMediaQualifier2</tt></a> and
+<a href='#cupsMediaQualifier3'><tt>cupsMediaQualifier3</tt></a> attributes
+are used to identify options to use for matching.</p>
+
+<p>Example:</p>
+
+<pre class='command'>
+<em>*% Specify alternate custom page size limits based on InputSlot and Quality</em>
+*cupsMediaQualifier2: InputSlot
+*cupsMediaQualifier3: Quality
+*cupsMaxSize .Manual.: "1000 1000"
+*cupsMinSize .Manual.: "100 100"
+*cupsMinSize .Manual.Photo: "200 200"
+*cupsMinSize ..Photo: "300 300"
+</pre>
+
+
 <h2 class='title'><a name='ATTRIBUTES'>General Attributes</a></h2>
 
-<h3><span class='info'>CUPS 1.3</span><a name='cupsBackSide'>cupsBackSide</a></h3>
+<h3><span class='info'>CUPS 1.3/Mac OS X 10.5</span><a name='cupsBackSide'>cupsBackSide</a></h3>
 
 <p class='summary'>*cupsBackSide: keyword</p>
 
@@ -1048,7 +1241,23 @@ will be ignored.</p>
 <p>Also see the related <a href='#APDuplexRequiresFlippedMargin'><tt>APDuplexRequiresFlippedMargin</tt></a>
 attribute.</p>
 
-<h3><span class='info'>CUPS 1.3</span><a name='cupsEvenDuplex'>cupsEvenDuplex</a></h3>
+<h3><span class='info'>CUPS 1.4/Mac OS X 10.6</span><a name='cupsCommands'>cupsCommands</a></h3>
+
+<p class='summary'>*cupsCommands: "name name2 ... nameN"</p>
+
+<p>This string attribute specifies the commands that are supported by the
+CUPS command file filter for this device. The command names are separated
+by whitespace.</p>
+
+<p>Example:</p>
+
+<pre class='command'>
+<em>*% Specify the list of commands we support</em> 
+*cupsCommands: "AutoConfigure Clean PrintSelfTestPage ReportLevels com.vendor.foo"
+</pre>
+
+
+<h3><span class='info'>CUPS 1.3/Mac OS X 10.5</span><a name='cupsEvenDuplex'>cupsEvenDuplex</a></h3>
 
 <p class='summary'>*cupsEvenDuplex: boolean</p>
 
@@ -1132,7 +1341,7 @@ Ghostscript can use:</p>
 *cupsFlipDuplex: true
 </pre></blockquote>
 
-<h3><span class='info'>CUPS 1.3</span><a name='cupsIPPFinishings'>cupsIPPFinishings</a></h3>
+<h3><span class='info'>CUPS 1.3/Mac OS X 10.5</span><a name='cupsIPPFinishings'>cupsIPPFinishings</a></h3>
 
 <p class='summary'>*cupsIPPFinishings number/text: "*Option Choice ..."</p>
 
@@ -1148,7 +1357,7 @@ values to PPD options and choices.</p>
 *cupsIPPFinishings 21/staple-bottom-left: "*StapleLocation SingleLandscape"
 </pre>
 
-<h3><span class='info'>CUPS 1.3</span><a name='cupsIPPReason'>cupsIPPReason</a></h3>
+<h3><span class='info'>CUPS 1.3/Mac OS X 10.5</span><a name='cupsIPPReason'>cupsIPPReason</a></h3>
 
 <p class='summary'>*cupsIPPReason reason/Reason Text: "optional URIs"</p>
 
@@ -1192,21 +1401,7 @@ http://www.vendor.com/help"
 *End
 </pre>
 
-<h3><span class='info'>CUPS 1.4</span><a name='cupsMarkerName'>cupsMarkerName</a></h3>
-
-<p class='summary'>*cupsMarkerName/Name Text: ""</p>
-
-<p>This optional attribute maps <code>marker-names</code> strings that are
-generated by the driver to human readable text.</p>
-
-<p>Examples:</p>
-
-<pre class='command'>
-<em>*% Map cyanToner to "Cyan Toner"</em>
-*cupsMarkerName cyanToner/Cyan Toner: ""
-</pre>
-
-<h3><span class='info'>CUPS 1.2</span><a name='cupsLanguages'>cupsLanguages</a></h3>
+<h3><span class='info'>CUPS 1.2/Mac OS X 10.5</span><a name='cupsLanguages'>cupsLanguages</a></h3>
 
 <p class='summary'>*cupsLanguages: "locale list"</p>
 
@@ -1236,6 +1431,34 @@ hardware. The default value is <code>false</code>.</p>
 *cupsManualCopies: true
 </pre>
 
+<h3><span class='info'>CUPS 1.4/Mac OS X 10.6</span><a name='cupsMarkerName'>cupsMarkerName</a></h3>
+
+<p class='summary'>*cupsMarkerName/Name Text: ""</p>
+
+<p>This optional attribute maps <code>marker-names</code> strings that are
+generated by the driver to human readable text.</p>
+
+<p>Examples:</p>
+
+<pre class='command'>
+<em>*% Map cyanToner to "Cyan Toner"</em>
+*cupsMarkerName cyanToner/Cyan Toner: ""
+</pre>
+
+<h3><span class='info'>CUPS 1.4/Mac OS X 10.6</span><a name='cupsMarkerNotice'>cupsMarkerNotice</a></h3>
+
+<p class='summary'>*cupsMarkerNotice: "disclaimer text"</p>
+
+<p>This optional attribute provides disclaimer text for the supply level
+information provided by the driver, typically something like "supply levels
+are approximate".</p>
+
+<p>Examples:</p>
+
+<pre class='command'>
+*cupsMarkerNotice: "Supply levels are approximate."
+</pre>
+
 <h3><a name='cupsModelNumber'>cupsModelNumber</a></h3>
 
 <p class='summary'>*cupsModelNumber: number</p>
@@ -1251,8 +1474,7 @@ the output for a specific model of printer.</p>
 *cupsModelNumber: 1234
 </pre>
 
-
-<h3><span class='info'>CUPS 1.3</span><a name='cupsPJLCharset'>cupsPJLCharset</a></h3>
+<h3><span class='info'>CUPS 1.3/Mac OS X 10.5</span><a name='cupsPJLCharset'>cupsPJLCharset</a></h3>
 
 <p class='summary'>*cupsPJLCharset: "ISO character set name"</p>
 
@@ -1267,8 +1489,26 @@ assumed.</p>
 *cupsPJLCharset: "UTF-8"
 </pre>
 
+<h3><span class='info'>CUPS 1.4/Mac OS X 10.6</span><a name='cupsPJLDisplay'>cupsPJLDisplay</a></h3>
 
-<h3><span class='info'>CUPS 1.2</span><a name='cupsPortMonitor'>cupsPortMonitor</a></h3>
+<p class='summary'>*cupsPJLDisplay: "what"</p>
+
+<p>This optional attribute specifies which command is used to display the
+job ID, name, and user on the printer's control panel. "What" is either "none"
+to disable this functionality, "job" to use "@PJL JOB DISPLAY", or "rdymsg"
+to use "@PJL RDYMSG DISPLAY". The default is "job".</p>
+
+<p>Examples:</p>
+
+<pre class='command'>
+<em>*% Display job information using @PJL SET RDYMSG DISPLAY="foo"</em>
+*cupsPJLDisplay: "rdymsg"
+
+<em>*% Display job information display</em>
+*cupsPJLDisplay: "none"
+</pre>
+
+<h3><span class='info'>CUPS 1.2/Mac OS X 10.5</span><a name='cupsPortMonitor'>cupsPortMonitor</a></h3>
 
 <p class='summary'>*cupsPortMonitor urischeme/Descriptive Text: "port monitor"</p>
 
@@ -1300,7 +1540,7 @@ to disable the port monitor for the given URI scheme.</p>
 *cupsPortMonitor usb/USB Status Monitor: "epson-usb"
 </pre>
 
-<h3><span class='info'>CUPS 1.3</span><a name='cupsPreFilter'>cupsPreFilter</a></h3>
+<h3><span class='info'>CUPS 1.3/Mac OS X 10.5</span><a name='cupsPreFilter'>cupsPreFilter</a></h3>
 
 <p class='summary'>*cupsPreFilter: "source/type cost program"</p>
 
@@ -1316,6 +1556,21 @@ before the filter that accepts the given MIME type.</p>
 
 <em>*% PNG pre-filter</em>
 *cupsPreFilter: "image/png 0 mypngprefilter"
+</pre>
+
+<h3><span class='info'>CUPS 1.4/Mac OS X 10.6</span><a name='cupsSNMPSupplies'>cupsSNMPSupplies</a></h3>
+
+<p class='summary'>*cupsSNMPSupplies: boolean</p>
+
+<p>This attribute tells the standard network backends whether they should query
+the standard SNMP Printer MIB OIDs for supply levels. The default value is
+<code>True</code>.
+
+<p>Example:</p>
+
+<pre class='command'>
+<em>*% Do not use SNMP queries to report supply levels</em>
+*cupsSNMPSupplies: False
 </pre>
 
 <h3><a name='cupsVersion'>cupsVersion</a></h3>
@@ -1459,6 +1714,20 @@ looking up IPP reason codes for this printer driver. The
 *APHelpBook: "file:///Library/Printers/vendor/Help.bundle"
 </pre>
 
+<h3><span class='info'>Mac OS X 10.6</span><a name='APICADriver'>APICADriver</a></h3>
+
+<p class='summary'>*APICADriver: boolean</p>
+
+<p>This attribute specifies whether the device has a matching Image Capture
+Architecture (ICA) driver for scanning. The default is <tt>False</tt>.</p>
+
+<p>Examples:</p>
+
+<pre class='command'>
+*APICADriver: True
+*APScanAppBundleID: "com.apple.ImageCaptureApp"
+</pre>
+
 <h3><span class='info'>Mac OS X 10.3</span><a name='APPrinterIconPath'>APPrinterIconPath</a></h3>
 
 <p class='summary'>*APPrinterIconPath: "/Library/Printers/vendor/filename.icns"</p>
@@ -1563,6 +1832,20 @@ information.</p>
 *APPrinterPrinterUtilityPath: "/Library/Printers/vendor/Tools/utility.app"
 </pre>
 
+<h3><span class='info'>Mac OS X 10.6</span><a name='APScannerOnly'>APScannerOnly</a></h3>
+
+<p class='summary'>*APScannerOnly: boolean</p>
+
+<p>This attribute specifies whether the device has scanning but no printing
+capabilities. The default is <tt>False</tt>.</p>
+
+<p>Examples:</p>
+
+<pre class='command'>
+*APICADriver: True
+*APScannerOnly: True
+</pre>
+
 <h3><span class='info'>Mac OS X 10.3</span><a name='APScanAppBundleID'>APScanAppBundleID</a></h3>
 
 <p class='summary'>*APScanAppBundleID: "bundle ID"</p>
@@ -1573,13 +1856,49 @@ the device.</p>
 <p>Examples:</p>
 
 <pre class='command'>
+*APICADriver: True
 *APScanAppBundleID: "com.apple.ImageCaptureApp"
 </pre>
 
 
 <h2 class='title'><a name='HISTORY'>Change History</a></h2>
 
-<h3>Changes in CUPS 1.3.1</a></h3>
+<h3>Changes in CUPS 1.4</h3>
+
+<ul>
+
+	<li>Added <a href='#APICADriver'><tt>APICADriver</tt></a>
+	attribute.</li>
+
+	<li>Added <a href='#cupsCommands'><tt>cupsCommands</tt></a>
+	attribute.</li>
+
+	<li>Added <a href='#cupsMarkerName'><tt>cupsMarkerName</tt></a>
+	attribute.</li>
+
+	<li>Added <a href='#cupsMarkerNotice'><tt>cupsMarkerNotice</tt></a>
+	attribute.</li>
+
+	<li>Added <a href='#cupsPJLDisplay'><tt>cupsPJLDisplay</tt></a>
+	attribute.</li>
+
+	<li>Added <a href='#cupsSNMPSupplies'><tt>cupsSNMPSupplies</tt></a>
+	attribute.</li>
+
+	<li>Added <a href='#cupsUIResolver'><tt>cupsUIResolver</tt></a> and
+	<a href='#cupsUIConstraints'><tt>cupsUIConstraints</tt></a>
+	attributes.</li>
+
+	<li>Added
+	<a href='#cupsMediaQualifier2'><tt>cupsMediaQualifier2</tt></a>,
+	<a href='#cupsMediaQualifier3'><tt>cupsMediaQualifier3</tt></a>,
+	<a href='#cupsMinSize'><tt>cupsMinSize</tt></a>, and
+	<a href='#cupsMaxSize'><tt>cupsMaxSize</tt></a> attributes.</li>
+
+</ul>
+
+
+<h3>Changes in CUPS 1.3.1</h3>
 
 <ul>
 
@@ -1594,21 +1913,26 @@ the device.</p>
 </ul>
 
 
-<h3>Changes in CUPS 1.3</a></h3>
+<h3>Changes in CUPS 1.3</h3>
 
 <ul>
 
-	<li>Added <tt>cupsBackSide</tt> and deprecated <tt>cupsFlipDuplex</tt>.</li>
+	<li>Added <a href='#cupsBackSide'><tt>cupsBackSide</tt></a> and
+	deprecated <a href='#cupsFlipDuplex'><tt>cupsFlipDuplex</tt></a>.</li>
 
-	<li>Added text URI information to <tt>cupsIPPReason</tt> documentation.</li>
+	<li>Added text URI information to
+	<a href='#cupsIPPReason'><tt>cupsIPPReason</tt></a> documentation.</li>
 
-	<li>Added <tt>APPrinterPreset</tt>, <tt>cupsIPPFinishings</tt>, and <tt>cupsPreFilter</tt> attributes.</li>
+	<li>Added <a href='#APPrinterPreset'><tt>APPrinterPreset</tt></a>,
+	<a href='#cupsIPPFinishings'><tt>cupsIPPFinishings</tt></a>, and
+	<a href='#cupsPreFilter'><tt>cupsPreFilter</tt></a> attributes.</li>
 
-	<li>Added discussion of custom option code, sample <tt>CustomPageSize</tt> code, and "do not use dict and put" note.</li>
+	<li>Added discussion of custom option code, sample
+	<tt>CustomPageSize</tt> code, and "do not use dict and put" note.</li>
 
 </ul>
 
-<h3>Changes in CUPS 1.2.8</a></h3>
+<h3>Changes in CUPS 1.2.8</h3>
 
 <ul>
 
@@ -1617,7 +1941,7 @@ the device.</p>
 
 </ul>
 
-<h3>Changes in CUPS 1.2</a></h3>
+<h3>Changes in CUPS 1.2</h3>
 
 <ul>
 
@@ -1625,27 +1949,28 @@ the device.</p>
 
 	<li>Added custom option values support</li>
 
-	<li>Added <tt>APHelpBook</tt> attribute</li>
+	<li>Added <a href='#APHelpBook'><tt>APHelpBook</tt></a> attribute</li>
 
-	<li>Added <tt>APDuplexRequiresFlippedMargin</tt> attribute</li>
+	<li>Added <a href='#APDuplexRequiresFlippedMargin'><tt>APDuplexRequiresFlippedMargin</tt></a>
+	attribute</li>
 
-	<li>Added <tt>cupsICCProfile</tt> attribute</li>
+	<li>Added <a href='#cupsICCProfile'><tt>cupsICCProfile</tt></a> attribute</li>
 
-	<li>Added <tt>cupsIPPReason</tt> attribute</li>
+	<li>Added <a href='#cupsIPPReason'><tt>cupsIPPReason</tt></a> attribute</li>
 
-	<li>Added <tt>cupsLanguages</tt> attribute</li>
+	<li>Added <a href='#cupsLanguages'><tt>cupsLanguages</tt></a> attribute</li>
 
-	<li>Added <tt>cupsPortMonitor</tt> attribute</li>
+	<li>Added <a href='#cupsPortMonitor'><tt>cupsPortMonitor</tt></a> attribute</li>
 
 	<li>Removed <tt>cupsProtocol</tt> attribute</li>
 
 </ul>
 
-<h3>Changes in CUPS 1.1</a></h3>
+<h3>Changes in CUPS 1.1</h3>
 
 <ul>
 
-	<li>Added <tt>cupsFlipDuplex</tt> attribute</li>
+	<li>Added <a href='#cupsFlipDuplex'><tt>cupsFlipDuplex</tt></a> attribute</li>
 
 	<li>Added <tt>cupsProtocol</tt> attribute</li>
 

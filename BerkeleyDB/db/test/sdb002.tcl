@@ -1,9 +1,8 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1999-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 1999,2007 Oracle.  All rights reserved.
 #
-# $Id: sdb002.tcl,v 1.2 2004/03/30 01:24:08 jtownsen Exp $
+# $Id: sdb002.tcl,v 12.5 2007/05/17 15:15:55 bostic Exp $
 #
 # TEST	sdb002
 # TEST	Tests basic subdb functionality
@@ -70,7 +69,7 @@ proc subdb002_main { method nentries largs } {
 		set sdb002_env berkdb_env
 	}
 	set env [eval {$sdb002_env -create -cachesize {0 10000000 0} \
-	    -mode 0644 -txn} -home $testdir $encargs]
+	    -mode 0644} -home $testdir $encargs]
 	error_check_good env_open [is_valid_env $env] TRUE
 	puts "Subdb002: $method ($largs) basic subdb tests in an environment"
 
@@ -122,7 +121,6 @@ proc subdb002_body { method omethod nentries largs testfile env } {
 
 	set pflags ""
 	set gflags ""
-	set txn ""
 	set count 0
 
 	if { [is_record_based $method] == 1 } {
@@ -143,7 +141,7 @@ proc subdb002_body { method omethod nentries largs testfile env } {
 			set key $str
 		}
 		set ret [eval \
-		    {$db put} $txn $pflags {$key [chop_data $method $str]}]
+		    {$db put} $pflags {$key [chop_data $method $str]}]
 		error_check_good put $ret 0
 
 		set ret [eval {$db get} $gflags {$key}]
@@ -155,6 +153,7 @@ proc subdb002_body { method omethod nentries largs testfile env } {
 	# Now we will get each key from the DB and compare the results
 	# to the original.
 	puts "\tSubdb002.b: dump file"
+	set txn ""
 	dump_file $db $txn $t1 $checkfunc
 	error_check_good db_close [$db close] 0
 

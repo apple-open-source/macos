@@ -414,6 +414,30 @@ int l2tp_send_hello(int fd, struct l2tp_parameters *our_params)
 }
 
 /* -----------------------------------------------------------------------------
+ Send a bunch of Hellos to trigger ipsec
+ ----------------------------------------------------------------------------- */
+int l2tp_send_hello_trigger(int fd, struct sockaddr *peer_address)	
+{
+    int    hello_count, size, i;
+    size_t len = sizeof(int);
+
+    if (sysctlbyname("net.key.blockacq_count", &hello_count, &len, 0, 0)) {
+        hello_count = 10;
+        error("Failed to probe blockacq count: using %d", hello_count);
+    }
+
+    size = prepare_Hello(control_buf, MAX_CNTL_BUFFER_SIZE);
+    for (i = 0; i <= hello_count; i++) {
+        if (l2tp_send(fd, control_buf, size, 0, peer_address, "Hello")) {
+            error("Failed to send L2TP hello trigger. tried %d, max %d", i, hello_count);
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
+/* -----------------------------------------------------------------------------
         Send a SCCRQ
 ----------------------------------------------------------------------------- */
 int l2tp_send_SCCRQ(int fd, struct sockaddr *peer_address, 
@@ -592,14 +616,16 @@ int process_pkt_data(u_int8_t* buf, size_t len, u_int16_t* type, struct l2tp_par
                             return -1;		
                     }
             
-            /* check avp size and mark it in bitmap */
-            attr_size = avp_attr[avp_type].size;
-            if (attr_size != AVP_SIZE_VARIABLE && value_len != attr_size) {
-                    error("L2TP AVP with invalid len... AVP type = %d\n", avp_type);
-                    return -1;
-            }
-            avp_bitmap |= avp_attr[avp_type].maskbit;
-
+            /* if known avp type - check avp size and mark it in bitmap */
+			if (avp_type <= L2TP_LAST_AVP_TYPE) {
+				attr_size = avp_attr[avp_type].size;
+				if (attr_size != AVP_SIZE_VARIABLE && value_len != attr_size) {
+						error("L2TP AVP with invalid len... AVP type = %d\n", avp_type);
+						return -1;
+				}
+				avp_bitmap |= avp_attr[avp_type].maskbit;
+			}
+				
             switch (avp_type) {
                     case L2TP_AVP_PROTO_VERS:
                             params->protocol_vers = ntohs(*((u_int16_t*)value_buf));
@@ -627,15 +653,15 @@ int process_pkt_data(u_int8_t* buf, size_t len, u_int16_t* type, struct l2tp_par
                             break;
                             
                     case L2TP_AVP_HOST_NAME:
-                            if (value_len > MAX_HOST_NAME_SIZE)
-                                    value_len = MAX_HOST_NAME_SIZE;
+                            if (value_len >= sizeof(params->host_name))
+                                    value_len = sizeof(params->host_name) - 1;
                             bcopy(value_buf, params->host_name, value_len);
                             params->host_name[value_len] = 0;
                             break;
                             
                     case L2TP_AVP_VENDOR_NAME:
-                            if (value_len > MAX_VENDOR_NAME_SIZE)
-                                    value_len = MAX_VENDOR_NAME_SIZE;
+                            if (value_len >= sizeof(params->vendor_name))
+                                    value_len = sizeof(params->vendor_name) - 1;
                             bcopy(value_buf, params->vendor_name, value_len);
                             params->vendor_name[value_len] = 0;
                             break;
@@ -773,8 +799,8 @@ int process_pkt_data(u_int8_t* buf, size_t len, u_int16_t* type, struct l2tp_par
                                     params->error_code = ntohs(*((u_int16_t*)value_buf));
 									value_buf += sizeof(u_int16_t);
                                     if (value_len -= sizeof(u_int32_t)) {
-                                            if (value_len > MAX_ERROR_MSG_SIZE)
-                                                    value_len = MAX_ERROR_MSG_SIZE;
+                                            if (value_len >= sizeof(params->error_message))
+                                                    value_len = sizeof(params->error_message) - 1;
                                             bcopy(value_buf, params->error_message, value_len);
                                     }
                                     params->error_message[value_len] = 0;
@@ -811,9 +837,9 @@ int process_pkt_data(u_int8_t* buf, size_t len, u_int16_t* type, struct l2tp_par
 							value_buf += sizeof(u_int16_t);
                             params->cause_message = *value_buf++;
                             if (value_len -= (sizeof(u_int16_t) + sizeof(u_int8_t))) {
-                                    if (value_len > MAX_CAUSE_MSG_SIZE)
-                                            value_len = MAX_CAUSE_MSG_SIZE;
-                                    bcopy(value_buf, &(params->cause_message), value_len);
+                                    if (value_len >= sizeof(params->advisory_message))
+                                            value_len = sizeof(params->advisory_message) - 1;
+                                    bcopy(value_buf, params->advisory_message, value_len);
                             }
                             params->advisory_message[value_len] = 0;
                             break;
@@ -956,7 +982,7 @@ char *msg_type_str(u_int16_t msg_type)
         case L2TP_WEN: 		return "WEN";
         case L2TP_SLI: 		return "SLI";
    }
-   sprintf(text, "unknown message (type = 0x%x)", msg_type);    
+   snprintf(text, sizeof(text), "unknown message (type = 0x%x)", msg_type);
     return (text);
 }
 
@@ -1397,7 +1423,7 @@ int l2tp_send(int fd, u_int8_t* buf, int len, u_int16_t session_id, struct socka
 ----------------------------------------------------------------------------- */
 int l2tp_recv(int fd, u_int8_t* buf, int len, int *outlen, struct sockaddr *from, int timeout, char *text)
 {	
-    int			addrlen = from->sa_len;
+    socklen_t		addrlen = from->sa_len;
     ssize_t 		result;
     struct timeval	tv;
     fd_set		rset;

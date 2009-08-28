@@ -1,5 +1,7 @@
 /*
-* Copyright (C) 2001-2003, International Business Machines Corporation and others. All Rights Reserved.
+**********************************************************************
+*   Copyright (C) 2001-2008, International Business Machines
+*   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
 *   07/26/01    aliu        Creation.
@@ -92,7 +94,7 @@ UMatchDegree Quantifier::matches(const Replaceable& text,
  */
 UnicodeString& Quantifier::toPattern(UnicodeString& result,
                                      UBool escapeUnprintable) const {
-    result.truncate(0);
+	result.truncate(0);
     matcher->toMatcher()->toPattern(result, escapeUnprintable);
     if (minCount == 0) {
         if (maxCount == 1) {
@@ -126,7 +128,7 @@ UBool Quantifier::matchesIndexValue(uint8_t v) const {
  */
 void Quantifier::addMatchSetTo(UnicodeSet& toUnionTo) const {
     if (maxCount > 0) {
-    matcher->toMatcher()->addMatchSetTo(toUnionTo);
+        matcher->toMatcher()->addMatchSetTo(toUnionTo);
     }
 }
 
@@ -134,7 +136,7 @@ void Quantifier::addMatchSetTo(UnicodeSet& toUnionTo) const {
  * Implement UnicodeFunctor
  */
 void Quantifier::setData(const TransliterationRuleData* d) {
-    matcher->setData(d);
+		matcher->setData(d);
 }
 
 U_NAMESPACE_END

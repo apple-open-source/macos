@@ -52,3 +52,4 @@
 #endif
 
 #define Honor_FLT_ROUNDS
+#define Trust_FLT_ROUNDS

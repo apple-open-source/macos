@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2007,2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -74,6 +74,9 @@ bool launchd_job_status(const char * job, LaunchJobStatus& info);
 /* Ask launchd to stop the named job. */
 bool launchd_stop_job(const char * job);
 
+/* Reconfigure a running SMB service. */
+bool smbcontrol_reconfigure(const char * daemon);
+
 class LaunchService;
 bool launchd_unload_job(const LaunchService& svc);
 bool launchd_load_job(const LaunchService& svc);
@@ -81,11 +84,16 @@ bool launchd_load_job(const LaunchService& svc);
 class LaunchService
 {
 public:
-    LaunchService(const std::string& job_label, const std::string& job_plist)
-	: m_joblabel(job_label), m_jobplist(job_plist), m_required(false)
+    LaunchService(const std::string& n,
+	    const std::string& j, const std::string& p)
+	: m_name(n), m_joblabel(j), m_jobplist(p), m_required(false)
     {}
 
+    // Return the daemon name
+    const std::string& name(void) const { return m_name; }
+    // Return the launchd job name
     const std::string& label(void) const { return m_joblabel; }
+    // Return the launchd plist path
     const std::string& plist(void) const { return m_jobplist; }
 
     bool required(bool yesno) { return (m_required = yesno); }
@@ -102,11 +110,8 @@ public:
 	return ::launchd_job_status(this->m_joblabel.c_str(), info);
     }
 
-    void stop() const;
-    void start() const;
-    void restart() const;
-
 private:
+    std::string	    m_name;
     std::string	    m_joblabel;
     std::string	    m_jobplist;
     bool	    m_required;
@@ -126,10 +131,12 @@ public:
     static bool ForceSync;
     static bool ForceSuspend;
     static bool ForceRestart;
+    static bool DefaultGuest;
 
     static command_type Command;
 
-    static void parse(int argc, char * const * argv);
+    static void parse_prefs(int argc, char * const * argv);
+    static void parse_shares(int argc, char * const * argv);
 };
 
 class Preferences
@@ -156,8 +163,10 @@ private:
 class SyncMutex
 {
 public:
-    SyncMutex();
+    SyncMutex(const char * path);
     ~SyncMutex();
+
+    operator bool() const { return m_fd != -1; }
 
 private:
     SyncMutex(const SyncMutex&); // nocopy

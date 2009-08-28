@@ -1,6 +1,5 @@
 /* version.c --- Version handling.
- * Copyright (C) 2002, 2003, 2004  Simon Josefsson
- * Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+ * Copyright (C) 2002, 2003, 2004, 2006, 2007  Simon Josefsson
  *
  * This file is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -18,50 +17,13 @@
  *
  */
 
-/* This file is based on src/global.c from Werner Koch's libgcrypt */
-
-#if HAVE_CONFIG_H
+#ifdef HAVE_CONFIG_H
 # include "config.h"
 #endif
 
-#include <ctype.h>
-#include <string.h>
-
 #include "stringprep.h"
 
-static const char *
-parse_version_number (const char *s, int *number)
-{
-  int val = 0;
-
-  if (*s == '0' && isdigit (s[1]))
-    return NULL;		/* leading zeros are not allowed */
-  for (; isdigit (*s); s++)
-    {
-      val *= 10;
-      val += *s - '0';
-    }
-  *number = val;
-  return val < 0 ? NULL : s;
-}
-
-
-static const char *
-parse_version_string (const char *s, int *major, int *minor, int *micro)
-{
-  s = parse_version_number (s, major);
-  if (!s || *s != '.')
-    return NULL;
-  s++;
-  s = parse_version_number (s, minor);
-  if (!s || *s != '.')
-    return NULL;
-  s++;
-  s = parse_version_number (s, micro);
-  if (!s)
-    return NULL;
-  return s;			/* patchlevel */
-}
+#include <strverscmp.h>
 
 /**
  * stringprep_check_version - check for library version
@@ -80,30 +42,8 @@ parse_version_string (const char *s, int *major, int *minor, int *micro)
 const char *
 stringprep_check_version (const char *req_version)
 {
-  const char *ver = VERSION;
-  int my_major, my_minor, my_micro;
-  int rq_major, rq_minor, rq_micro;
-  const char *my_plvl, *rq_plvl;
+  if (!req_version || strverscmp (req_version, PACKAGE_VERSION) <= 0)
+    return PACKAGE_VERSION;
 
-  if (!req_version)
-    return ver;
-
-  my_plvl = parse_version_string (ver, &my_major, &my_minor, &my_micro);
-  if (!my_plvl)
-    return NULL;		/* very strange our own version is bogus */
-  rq_plvl = parse_version_string (req_version, &rq_major, &rq_minor,
-				  &rq_micro);
-  if (!rq_plvl)
-    return NULL;		/* req version string is invalid */
-
-  if (my_major > rq_major
-      || (my_major == rq_major && my_minor > rq_minor)
-      || (my_major == rq_major && my_minor == rq_minor
-	  && my_micro > rq_micro)
-      || (my_major == rq_major && my_minor == rq_minor
-	  && my_micro == rq_micro && strcmp (my_plvl, rq_plvl) >= 0))
-    {
-      return ver;
-    }
   return NULL;
 }

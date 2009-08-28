@@ -29,6 +29,7 @@
 #include <limits.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
 #include <mach/mach.h>
 #include <libc.h>
 
@@ -45,7 +46,7 @@
 struct seg_addr_table *
 parse_default_seg_addr_table(
 char **seg_addr_table_name,
-unsigned long *table_size)
+uint32_t *table_size)
 {
 #ifdef __GONZO_BUNSEN_BEAKER__
 	*seg_addr_table_name = "/Local/Developer/seg_addr_table";
@@ -79,12 +80,11 @@ parse_seg_addr_table(
 char *file_name,/* file name of the seg_addr_table file */
 char *flag,	/* "-seg_addr_table" or "default" */
 char *argument, /* -seg_addr_table argument or "segment address table" */
-unsigned long *table_size)
+uint32_t *table_size)
 {
     int fd;
-    kern_return_t r;
     struct stat stat_buf;
-    unsigned long j, k, file_size, seg_addr_table_size, line;
+    uint32_t j, k, file_size, seg_addr_table_size, line;
     char *file_addr, *endp;
     struct seg_addr_table *new_seg_addr_table;
 
@@ -98,12 +98,13 @@ unsigned long *table_size)
 	 * For some reason mapping files with zero size fails
 	 * so it has to be handled specially.
 	 */
+	file_addr = NULL;
 	if(stat_buf.st_size != 0){
-	    if((r = map_fd((int)fd, (vm_offset_t)0,
-		(vm_offset_t *)&file_addr, (boolean_t)TRUE,
-		(vm_size_t)stat_buf.st_size)) != KERN_SUCCESS)
-		mach_fatal(r, "can't map file: %s for %s %s",
-		    file_name, flag, argument);
+	    file_addr = mmap(0, stat_buf.st_size, PROT_READ|PROT_WRITE,
+			     MAP_FILE|MAP_PRIVATE, fd, 0);
+	    if((intptr_t)file_addr == -1)
+		system_error("can't map file: %s for %s %s", file_name, flag,
+			     argument);
 	}
 	else
 	    fatal("Empty file: %s for %s %s", file_name, flag, argument);
@@ -146,11 +147,11 @@ unsigned long *table_size)
 	    new_seg_addr_table[k].seg1addr =
 		strtoul(file_addr + j, &endp, 16);
 	    if(endp == NULL)
-		fatal("improper hexadecimal number on line %lu in "
+		fatal("improper hexadecimal number on line %u in "
 		      "file: %s for %s %s", j, file_name, flag, argument);
 	    j = endp - file_addr;
 	    if(j == file_size)
-		fatal("missing library install name on line %lu in file: "
+		fatal("missing library install name on line %u in file: "
 		      "%s for %s %s", j, file_name, flag, argument);
 	    /*
 	     * Since we checked to see the file ends in a '\n' we can
@@ -159,21 +160,21 @@ unsigned long *table_size)
 	    while(file_addr[j] == ' ' || file_addr[j] == '\t')
 		j++;
 	    if(file_addr[j] == '\n')
-		fatal("missing library install name on line %lu in file: "
+		fatal("missing library install name on line %u in file: "
 		      "%s for %s %s", j, file_name, flag, argument);
 
 	    new_seg_addr_table[k].segs_read_write_addr =
 		strtoul(file_addr + j, &endp, 16);
 	    if(endp == NULL || endp == file_addr + j){
 		new_seg_addr_table[k].split = FALSE;
-		new_seg_addr_table[k].segs_read_write_addr = ULONG_MAX;
+		new_seg_addr_table[k].segs_read_write_addr = UINT_MAX;
 	    }
 	    else{
 		j = endp - file_addr;
 		new_seg_addr_table[k].split = TRUE;
 		new_seg_addr_table[k].segs_read_only_addr =
 		    new_seg_addr_table[k].seg1addr;
-		new_seg_addr_table[k].seg1addr =  ULONG_MAX;
+		new_seg_addr_table[k].seg1addr =  UINT_MAX;
 		while(file_addr[j] == ' ' || file_addr[j] == '\t')
 		    j++;
 	    }
@@ -191,8 +192,8 @@ unsigned long *table_size)
 	new_seg_addr_table[k].install_name = NULL;
 	new_seg_addr_table[k].seg1addr = 0;
 	new_seg_addr_table[k].split = FALSE;
-	new_seg_addr_table[k].segs_read_only_addr = ULONG_MAX;
-	new_seg_addr_table[k].segs_read_write_addr = ULONG_MAX;
+	new_seg_addr_table[k].segs_read_only_addr = UINT_MAX;
+	new_seg_addr_table[k].segs_read_write_addr = UINT_MAX;
 	new_seg_addr_table[k].line = line;
 
 	*table_size = k;
@@ -238,12 +239,12 @@ void (*processor)(struct seg_addr_table *entry, FILE *out_fp, void *cookie),
 void *cookie)
 {
     int fd;
-    kern_return_t r;
     struct stat stat_buf;
-    unsigned long i, file_size, line, comment_prefix_length;
+    uint32_t i, file_size, line, comment_prefix_length;
     char *file_addr, *endp;
     struct seg_addr_table entry;
 
+	file_addr = NULL;
 	if((fd = open(file_name, O_RDONLY, 0)) == -1)
 	    system_fatal("can't open file: %s", file_name);
 	if(fstat(fd, &stat_buf) == -1)
@@ -253,10 +254,10 @@ void *cookie)
 	 * so it has to be handled specially.
 	 */
 	if(stat_buf.st_size != 0){
-	    if((r = map_fd((int)fd, (vm_offset_t)0,
-		(vm_offset_t *)&file_addr, (boolean_t)TRUE,
-		(vm_size_t)stat_buf.st_size)) != KERN_SUCCESS)
-		mach_fatal(r, "can't map file: %s", file_name);
+	    file_addr = mmap(0, stat_buf.st_size, PROT_READ|PROT_WRITE,
+			     MAP_FILE|MAP_PRIVATE, fd, 0);
+	    if((intptr_t)file_addr == -1)
+		system_error("can't map file: %s", file_name);
 	}
 	else
 	    fatal("empty file: %s ", file_name);
@@ -306,11 +307,11 @@ void *cookie)
 	    }
 	    entry.seg1addr = strtoul(file_addr + i, &endp, 16);
 	    if(endp == NULL)
-		fatal("improper hexadecimal number on line %lu in file: %s",
+		fatal("improper hexadecimal number on line %u in file: %s",
 		      line, file_name);
 	    i = endp - file_addr;
 	    if(i == file_size)
-		fatal("missing library install name on line %lu in file: %s",
+		fatal("missing library install name on line %u in file: %s",
 		      line, file_name);
 	    /*
 	     * Since we checked to see the file ends in a '\n' we can
@@ -319,19 +320,19 @@ void *cookie)
 	    while(file_addr[i] == ' ' || file_addr[i] == '\t')
 		i++;
 	    if(file_addr[i] == '\n')
-		fatal("missing library install name on line %lu in file: %s",
+		fatal("missing library install name on line %u in file: %s",
 		      line, file_name);
 
 	    entry.segs_read_write_addr = strtoul(file_addr + i, &endp, 16);
 	    if(endp == NULL || endp == file_addr + i){
 		entry.split = FALSE;
-		entry.segs_read_write_addr = ULONG_MAX;
+		entry.segs_read_write_addr = UINT_MAX;
 	    }
 	    else{
 		i = endp - file_addr;
 		entry.split = TRUE;
 		entry.segs_read_only_addr = entry.seg1addr;
-		entry.seg1addr = ULONG_MAX;
+		entry.seg1addr = UINT_MAX;
 		while(file_addr[i] == ' ' || file_addr[i] == '\t')
 		    i++;
 	    }

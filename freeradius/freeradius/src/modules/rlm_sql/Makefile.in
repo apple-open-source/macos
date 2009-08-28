@@ -1,5 +1,5 @@
 #
-# $Id: Makefile.in,v 1.2.2.1.2.2 2006/05/25 16:24:42 nbk Exp $
+# $Id$
 #
 
 TARGET		= @targetname@

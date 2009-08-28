@@ -97,6 +97,7 @@ private:
 // An IOKit-style device matching dictionary, with convenient helper methods
 //
 class DeviceMatch : public CFRef<CFMutableDictionaryRef> {
+	NOCOPY(DeviceMatch)
 public:
 	DeviceMatch(CFMutableDictionaryRef dict) : CFRef<CFMutableDictionaryRef>(dict) { }		// this dictionary
 	DeviceMatch();							// empty dictionary
@@ -104,6 +105,8 @@ public:
 	DeviceMatch(const char *cls, const char *name, uint32_t value, ...); // class plus value pairs
 	
 	CFRef<CFMutableDictionaryRef> &dict() { return static_cast<CFRef<CFMutableDictionaryRef> &>(*this); }
+	operator bool () const { return this->get() != NULL; }
+	bool operator ! () const { return this->get() == NULL; }
 	
 	void add(const char *name, uint32_t value);	// add one name/value pair
 };
@@ -132,7 +135,7 @@ public:
 			natural_t messageType, void *messageArgument) {}
 	};
 	
-	void add(DeviceMatch match, Receiver &receiver, const char *type = kIOFirstMatchNotification);
+	void add(const DeviceMatch &match, Receiver &receiver, const char *type = kIOFirstMatchNotification);
 	void addInterestNotification(Receiver &receiver, io_service_t service,
 		const io_name_t interestType = kIOGeneralInterest);
 

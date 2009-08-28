@@ -66,13 +66,13 @@
  */
 static nltype indirectchild = {
 	"(*)" ,				/* the name */
-	(unsigned long) 0 ,		/* the pc entry point */
-	(unsigned long) 0 ,		/* entry point aligned to histogram */
+	(uint64_t) 0 ,			/* the pc entry point */
+	(uint64_t) 0 ,			/* entry point aligned to histogram */
 	(double) 0.0 ,			/* ticks in this routine */
 	(double) 0.0 ,			/* cumulative ticks in children */
-	(long) 0 ,			/* order called */
-	(long) 0 ,			/* how many times called */
-	(long) 0 ,			/* how many calls to self */
+	(uint32_t) 0 ,			/* order called */
+	(int32_t) 0 ,			/* how many times called */
+	(int32_t) 0 ,			/* how many calls to self */
 	(double) 1.0 ,			/* propagation fraction */
 	(double) 0.0 ,			/* self propagation time */
 	(double) 0.0 ,			/* child propagation time */
@@ -91,7 +91,7 @@ operandenum
 operandmode( modep )
     struct modebyte	*modep;
 {
-    long	usesreg = modep -> regfield;
+    uint32_t	usesreg = modep -> regfield;
     
     switch ( modep -> modefield ) {
 	case 0:
@@ -181,7 +181,7 @@ operandname( mode )
 }
 
 static
-long
+uint32_t
 operandlength( modep )
     struct modebyte	*modep;
 {
@@ -218,43 +218,43 @@ operandlength( modep )
 }
 
 static
-unsigned long
+uint32_t
 reladdr( modep )
     struct modebyte	*modep;
 {
     operandenum	mode = operandmode( modep );
     char	*cp;
     short	*sp;
-    long	*lp;
+    int32_t	*lp;
 
     cp = (char *) modep;
     cp += 1;			/* skip over the mode */
     switch ( mode ) {
 	default:
 	    fprintf( stderr , "[reladdr] not relative address\n" );
-	    return (unsigned long) modep;
+	    return (uint32_t) modep;
 	case byterel:
-	    return (unsigned long) ( cp + sizeof *cp + *cp );
+	    return (uint32_t) ( cp + sizeof *cp + *cp );
 	case wordrel:
 	    sp = (short *) cp;
-	    return (unsigned long) ( cp + sizeof *sp + *sp );
+	    return (uint32_t) ( cp + sizeof *sp + *sp );
 	case longrel:
-	    lp = (long *) cp;
-	    return (unsigned long) ( cp + sizeof *lp + *lp );
+	    lp = (int32_t *) cp;
+	    return (uint32_t) ( cp + sizeof *lp + *lp );
     }
 }
 
 findcalls( parentp , p_lowpc , p_highpc )
     nltype		*parentp;
-    unsigned long	p_lowpc;
-    unsigned long	p_highpc;
+    uint32_t		p_lowpc;
+    uint32_t		p_highpc;
 {
     unsigned char	*instructp;
-    long		length;
+    int32_t		length;
     nltype		*childp;
     operandenum		mode;
     operandenum		firstmode;
-    unsigned long	destpc;
+    uint32_t	destpc;
 
     if ( textspace == 0 ) {
 	return;
@@ -317,7 +317,7 @@ findcalls( parentp , p_lowpc , p_highpc )
 			 *	[are there others that we miss?,
 			 *	 e.g. arrays of pointers to functions???]
 			 */
-		    addarc( parentp , &indirectchild , (long) 0 , 0);
+		    addarc( parentp , &indirectchild , (uint32_t) 0 , 0);
 		    length += operandlength(
 				(struct modebyte *) ( instructp + length ) );
 		    continue;
@@ -330,7 +330,7 @@ findcalls( parentp , p_lowpc , p_highpc )
 			 *	a function.
 			 */
 		    destpc = reladdr( (struct modebyte *) (instructp+length) )
-				- (unsigned long) textspace;
+				- (uint32_t) textspace;
 		    if ( destpc >= s_lowpc && destpc <= s_highpc ) {
 			childp = nllookup( destpc );
 #			ifdef DEBUG
@@ -345,7 +345,7 @@ findcalls( parentp , p_lowpc , p_highpc )
 				/*
 				 *	a hit
 				 */
-			    addarc( parentp , childp , (long) 0 , 0);
+			    addarc( parentp , childp , (uint32_t) 0 , 0);
 			    length += operandlength( (struct modebyte *)
 					    ( instructp + length ) );
 			    continue;
@@ -380,13 +380,13 @@ findcalls( parentp , p_lowpc , p_highpc )
 void
 findcalls(
 nltype *parentp,
-unsigned long p_lowpc,
-unsigned long p_highpc)
+uint32_t p_lowpc,
+uint32_t p_highpc)
 {
     unsigned short	*instructp;
-    long		length;
+    int32_t		length;
     nltype		*childp;
-    unsigned long	destpc;
+    uint32_t		destpc;
 
 	if(textspace == NULL){
 	    return;
@@ -419,8 +419,8 @@ unsigned long p_highpc)
 		    length = 2;	/* 2 words */
 		    disp = instructp[1];
 		}
-		destpc = (unsigned long)instructp + disp + 2 - 
-			 (unsigned long)textspace;
+		destpc = (uint32_t)instructp + disp + 2 - 
+			 (uint32_t)textspace;
 gotdestpc:
 		if(destpc >= sample_sets->s_lowpc &&
 		   destpc <= sample_sets->s_highpc){

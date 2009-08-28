@@ -138,7 +138,7 @@ wanted.  The written form of this is @code{(nil)}.
 The various expression codes are divided into several @dfn{classes},
 which are represented by single characters.  You can determine the class
 of an RTX code with the macro @code{GET_RTX_CLASS (@var{code})}.
-Currently, @file{rtx.def} defines these classes:
+Currently, @file{rtl.def} defines these classes:
 
 @table @code
 @item RTX_OBJ
@@ -455,6 +455,16 @@ that is, some sort of constant.  In this case, the @code{symbol_ref}
 is an entry in the per-file constant pool; again, there is no associated
 front end symbol table entry.
 
+@findex SYMBOL_REF_CONSTANT
+@item SYMBOL_REF_CONSTANT (@var{x})
+If @samp{CONSTANT_POOL_ADDRESS_P (@var{x})} is true, this is the constant
+pool entry for @var{x}.  It is null otherwise.
+
+@findex SYMBOL_REF_DATA
+@item SYMBOL_REF_DATA (@var{x})
+A field of opaque type used to store @code{SYMBOL_REF_DECL} or
+@code{SYMBOL_REF_CONSTANT}.
+
 @findex SYMBOL_REF_FLAGS
 @item SYMBOL_REF_FLAGS (@var{x})
 In a @code{symbol_ref}, this is used to communicate various predicates
@@ -491,11 +501,41 @@ See @code{TARGET_IN_SMALL_DATA_P}.
 This is a multi-bit field accessor that returns the @code{tls_model}
 to be used for a thread-local storage symbol.  It returns zero for
 non-thread-local symbols.
+
+@findex SYMBOL_REF_HAS_BLOCK_INFO_P
+@findex SYMBOL_FLAG_HAS_BLOCK_INFO
+@item SYMBOL_FLAG_HAS_BLOCK_INFO
+Set if the symbol has @code{SYMBOL_REF_BLOCK} and
+@code{SYMBOL_REF_BLOCK_OFFSET} fields.
+
+@findex SYMBOL_REF_ANCHOR_P
+@findex SYMBOL_FLAG_ANCHOR
+@cindex @option{-fsection-anchors}
+@item SYMBOL_FLAG_ANCHOR
+Set if the symbol is used as a section anchor.  ``Section anchors''
+are symbols that have a known position within an @code{object_block}
+and that can be used to access nearby members of that block.
+They are used to implement @option{-fsection-anchors}.
+
+If this flag is set, then @code{SYMBOL_FLAG_HAS_BLOCK_INFO} will be too.
 @end table
 
 Bits beginning with @code{SYMBOL_FLAG_MACH_DEP} are available for
 the target's use.
 @end table
+
+@findex SYMBOL_REF_BLOCK
+@item SYMBOL_REF_BLOCK (@var{x})
+If @samp{SYMBOL_REF_HAS_BLOCK_INFO_P (@var{x})}, this is the
+@samp{object_block} structure to which the symbol belongs,
+or @code{NULL} if it has not been assigned a block.
+
+@findex SYMBOL_REF_BLOCK_OFFSET
+@item SYMBOL_REF_BLOCK_OFFSET (@var{x})
+If @samp{SYMBOL_REF_HAS_BLOCK_INFO_P (@var{x})}, this is the offset of @var{x}
+from the first object in @samp{SYMBOL_REF_BLOCK (@var{x})}.  The value is
+negative if @var{x} has not yet been assigned to a block, or it has not
+been given an offset within that block.
 @end table
 
 @node Flags
@@ -567,14 +607,6 @@ the branch is taken.  For annulled branches with
 branch is not taken.  When @code{INSN_ANNULLED_BRANCH_P} is not set,
 this insn will always be executed.  Stored in the @code{in_struct}
 field and printed as @samp{/s}.
-
-@findex LABEL_OUTSIDE_LOOP_P
-@cindex @code{label_ref} and @samp{/s}
-@cindex @code{in_struct}, in @code{label_ref}
-@item LABEL_OUTSIDE_LOOP_P (@var{x})
-In @code{label_ref} expressions, nonzero if this is a reference to a
-label that is outside the innermost loop containing the reference to the
-label.  Stored in the @code{in_struct} field and printed as @samp{/s}.
 
 @findex LABEL_PRESERVE_P
 @cindex @code{code_label} and @samp{/i}
@@ -1081,6 +1113,22 @@ number.  This mode only has 80 meaningful bits (ten bytes).  Some
 processors require such numbers to be padded to twelve bytes, others
 to sixteen; this mode is used for either.
 
+@findex SDmode
+@item SDmode
+``Single Decimal Floating'' mode represents a four byte decimal
+floating point number (as distinct from conventional binary floating
+point).
+
+@findex DDmode
+@item DDmode
+``Double Decimal Floating'' mode represents an eight byte decimal
+floating point number.
+
+@findex TDmode
+@item TDmode
+``Tetra Decimal Floating'' mode represents a sixteen byte decimal
+floating point number all 128 of whose bits are meaningful.
+
 @findex TFmode
 @item TFmode
 ``Tetra Floating'' mode represents a sixteen byte floating point number
@@ -1173,6 +1221,11 @@ Floating point modes.  By default these are @code{QFmode},
 @code{HFmode}, @code{TQFmode}, @code{SFmode}, @code{DFmode},
 @code{XFmode} and @code{TFmode}.
 
+@findex MODE_DECIMAL_FLOAT
+@item MODE_DECIMAL_FLOAT
+Decimal floating point modes.  By default these are @code{SDmode},
+@code{DDmode} and @code{TDmode}.
+
 @findex MODE_COMPLEX_INT
 @item MODE_COMPLEX_INT
 Complex integer modes.  (These are not currently implemented).
@@ -1191,7 +1244,8 @@ Algol or Pascal function variables including a static chain.
 @findex MODE_CC
 @item MODE_CC
 Modes representing condition code values.  These are @code{CCmode} plus
-any modes listed in the @code{EXTRA_CC_MODES} macro.  @xref{Jump Patterns},
+any @code{CC_MODE} modes listed in the @file{@var{machine}-modes.def}.  
+@xref{Jump Patterns},
 also see @ref{Condition Code}.
 
 @findex MODE_RANDOM
@@ -1390,7 +1444,7 @@ The @code{symbol_ref} contains a mode, which is usually @code{Pmode}.
 Usually that is the only mode for which a symbol is directly valid.
 
 @findex label_ref
-@item (label_ref @var{label})
+@item (label_ref:@var{mode} @var{label})
 Represents the value of an assembler label for code.  It contains one
 operand, an expression, which must be a @code{code_label} or a @code{note}
 of type @code{NOTE_INSN_DELETED_LABEL} that appears in the instruction
@@ -1398,6 +1452,9 @@ sequence to identify the place where the label should go.
 
 The reason for using a distinct expression type for code label
 references is so that jump optimization can distinguish them.
+
+The @code{label_ref} contains a mode, which is usually @code{Pmode}.
+Usually that is the only mode for which a label is directly valid.
 
 @item (const:@var{m} @var{exp})
 Represents a constant that is the result of an assembly-time
@@ -1501,9 +1558,9 @@ value of @code{FIRST_PARM_OFFSET}.
 @findex VIRTUAL_STACK_VARS_REGNUM
 @cindex @code{FRAME_GROWS_DOWNWARD} and virtual registers
 @item VIRTUAL_STACK_VARS_REGNUM
-If @code{FRAME_GROWS_DOWNWARD} is defined, this points to immediately
-above the first variable on the stack.  Otherwise, it points to the
-first variable on the stack.
+If @code{FRAME_GROWS_DOWNWARD} is defined to a nonzero value, this points
+to immediately above the first variable on the stack.  Otherwise, it points
+to the first variable on the stack.
 
 @cindex @code{STARTING_FRAME_OFFSET} and virtual registers
 @cindex @code{FRAME_POINTER_REGNUM} and virtual registers
@@ -1824,9 +1881,18 @@ or the first operand must be loaded into a register while its mode is
 still known.
 
 @findex neg
+@findex ss_neg
+@cindex negation
+@cindex negation with signed saturation
 @item (neg:@var{m} @var{x})
-Represents the negation (subtraction from zero) of the value represented
-by @var{x}, carried out in mode @var{m}.
+@itemx (ss_neg:@var{m} @var{x})
+These two expressions represent the negation (subtraction from zero) of
+the value represented by @var{x}, carried out in mode @var{m}.  They
+differ in the behavior on overflow of integer modes.  In the case of
+@code{neg}, the negation of the operand may be a number not representable
+in mode @var{m}, in which case it is truncated to @var{m}.  @code{ss_neg}
+ensures that an out-of-bounds result saturates to the maximum or minimum
+representable value.
 
 @findex mult
 @cindex multiplication
@@ -1933,12 +1999,21 @@ and @var{y}, carried out in machine mode @var{m}, which must be a
 fixed-point mode.
 
 @findex ashift
+@findex ss_ashift
 @cindex left shift
 @cindex shift
 @cindex arithmetic shift
+@cindex arithmetic shift with signed saturation
 @item (ashift:@var{m} @var{x} @var{c})
-Represents the result of arithmetically shifting @var{x} left by @var{c}
-places.  @var{x} have mode @var{m}, a fixed-point machine mode.  @var{c}
+@itemx (ss_ashift:@var{m} @var{x} @var{c})
+These two expressions represent the result of arithmetically shifting @var{x}
+left by @var{c} places.  They differ in their behavior on overflow of integer
+modes.  An @code{ashift} operation is a plain shift with no special behavior
+in case of a change in the sign bit; @code{ss_ashift} saturates to the minimum
+or maximum representable value if any of the bits shifted out differs from the
+final sign bit.
+
+@var{x} have mode @var{m}, a fixed-point machine mode.  @var{c}
 be a fixed-point mode or be a constant with mode @code{VOIDmode}; which
 mode is determined by the mode called for in the machine description
 entry for the left-shift instruction.  For example, on the VAX, the mode
@@ -2966,14 +3041,7 @@ TARGET_PASS_BY_REFERENCE}) are stored.  If the argument is
 caller-copied (@pxref{Register Arguments, TARGET_CALLEE_COPIES}),
 the stack slot will be mentioned in @code{CLOBBER} and @code{USE}
 entries; if it's callee-copied, only a @code{USE} will appear, and the
-@code{MEM} may point to addresses that are not stack slots.  These
-@code{MEM}s are used only in libcalls, because, unlike regular function
-calls, @code{CONST_CALL}s (which libcalls generally are, @pxref{Flags,
-CONST_CALL_P}) aren't assumed to read and write all memory, so flow
-would consider the stores dead and remove them.  Note that, since a
-libcall must never return values in memory (@pxref{Aggregate Return,
-RETURN_IN_MEMORY}), there will never be a @code{CLOBBER} for a memory
-address holding a return value.
+@code{MEM} may point to addresses that are not stack slots.
 
 @code{CLOBBER}ed registers in this list augment registers specified in
 @code{CALL_USED_REGISTERS} (@pxref{Register Basics}).
@@ -3101,7 +3169,7 @@ becomes another virtual start of the loop when considering loop
 invariants.
 
 @findex NOTE_INSN_FUNCTION_BEG
-@item NOTE_INSN_FUNCTION_END
+@item NOTE_INSN_FUNCTION_BEG
 Appears at the start of the function body, after the function
 prologue.
 
@@ -3112,9 +3180,6 @@ Appears near the end of the function body, just before the label that
 does not suffice for returning).  This note may be deleted by jump
 optimization.
 
-@findex NOTE_INSN_SETJMP
-@item NOTE_INSN_SETJMP
-Appears following each call to @code{setjmp} or a related function.
 @end table
 
 These codes are printed symbolically when they appear in debugging dumps.
@@ -3295,6 +3360,11 @@ of this note indicates to other optimizations that this this branching
 instruction should not be ``collapsed'' into a simpler branching
 construct.  It is used when the optimization to partition basic blocks
 into hot and cold sections is turned on.
+
+@findex REG_SETJMP
+@item REG_SETJMP 
+Appears attached to each @code{CALL_INSN} to @code{setjmp} or a 
+related function.
 @end table
 
 The following notes describe attributes of outputs of an insn:

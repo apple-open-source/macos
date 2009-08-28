@@ -81,6 +81,20 @@ class TC_PassByRef < Test::Unit::TestCase
     assert_equal(666.0, bridged.passByRefVarious_integer_floating_(nil, nil))
   end
 
+  def test_passbyref_methods_with_qualifiers
+    bridged = OSX::PassByRef.alloc.init
+  
+    # type qualifiers, such as "in" "inout" "out" should be ignored
+    assert_equal(0, bridged.passByRefObjectWithTypeQualifiers(nil))
+    assert_equal([1, bridged], bridged.passByRefObjectWithTypeQualifiers_)
+
+    # Various. ignoreing type qualifiers 
+    assert_nil(bridged.passByRefVariousTypeQualifiers_integer_floating(nil, nil, nil))
+    assert_equal([bridged, 333, 333.0], bridged.passByRefVariousTypeQualifiers_integer_floating_)
+    assert_equal([333, 333.0], bridged.passByRefVariousTypeQualifiers_integer_floating_(nil))
+    assert_equal(333.0, bridged.passByRefVariousTypeQualifiers_integer_floating_(nil, nil))
+  end
+
   def test_passbyref_subclass_methods
     bridged = OSX::PassByRefSubclass1.alloc.init
     
@@ -101,6 +115,20 @@ class TC_PassByRef < Test::Unit::TestCase
     assert_equal([bridged, 6666, 6666.0], bridged.passByRefVarious_integer_floating_)
     assert_equal([6666, 6666.0], bridged.passByRefVarious_integer_floating_(nil))
     assert_equal(6666.0, bridged.passByRefVarious_integer_floating_(nil, nil))
+  end
+
+  def test_passbyref_subclass_methods_with_modifiers
+    bridged = OSX::PassByRefSubclass1.alloc.init
+  
+    # type qualifiers, such as "in" "inout" "out" should be ignored
+    assert_equal(0, bridged.passByRefObjectWithTypeQualifiers(nil))
+    assert_equal([1, bridged], bridged.passByRefObjectWithTypeQualifiers_)
+
+    # Various. ignoreing type qualifiers 
+    assert_nil(bridged.passByRefVariousTypeQualifiers_integer_floating(nil, nil, nil))
+    assert_equal([bridged, 333, 333.0], bridged.passByRefVariousTypeQualifiers_integer_floating_)
+    assert_equal([333, 333.0], bridged.passByRefVariousTypeQualifiers_integer_floating_(nil))
+    assert_equal(333.0, bridged.passByRefVariousTypeQualifiers_integer_floating_(nil, nil))
   end
 
   def test_passbyref_foundation

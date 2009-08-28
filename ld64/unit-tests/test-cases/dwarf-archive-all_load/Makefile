@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2007 Apple Inc. All rights reserved.
+# Copyright (c) 2007-2008 Apple Inc. All rights reserved.
 #
 # @APPLE_LICENSE_HEADER_START@
 # 
@@ -36,7 +36,7 @@ run:
 	${CC} ${CCFLAGS} -gdwarf-2 baz.c -c -o baz.o
 	${FAIL_IF_BAD_OBJ} baz.o
 	libtool -static bar.o baz.o foo.o -o liball.a
-	${CC} ${CCFLAGS} liball.a -all_load -dynamiclib -o liball.dylib -nodefaultlibs
+	${CC} ${CCFLAGS} liball.a -all_load -dynamiclib -o liball.dylib -nodefaultlibs -lSystem
 	${FAIL_IF_BAD_MACHO} liball.dylib
 	nm -fap liball.dylib | ./stabs-filter.pl > liball.dylib.stabs
 	${PASS_IFF} diff liball.dylib.stabs expected-stabs

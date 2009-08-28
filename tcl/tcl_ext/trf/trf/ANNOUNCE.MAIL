@@ -1,0 +1,21 @@
+From:         Andreas Kupries <andreas_kupries@users.sourceforge.net>
+Reply-to:     Andreas Kupries <andreas_kupries@users.sourceforge.net>
+Mime-version: 1.0
+Content-type: text/plain; charset=us-ascii
+Subject:      trf 2.1.3
+To:           tcl-announce@mitchell.org, lvirden@cas.org
+
+Hello world,
+
+I hereby announce trf 2.1.3.
+
+It is 
+	an extension implementing several new channel-types.
+	Instances store their contents in memory, not on disk.
+    
+@ANO@
+
+The distribution can be found at
+	<http://tcltrf.sourceforge.net/>
+
+@SIG@

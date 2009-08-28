@@ -30,13 +30,14 @@ BOOT:
 #if (PATCHLEVEL > 4) || ((PATCHLEVEL == 4) && (SUBVERSION >= 70))
   HV *stash = gv_stashpv("Crypt::Rijndael", 0);
 
-  newCONSTSUB (stash, "keysize",   newSViv (32));
-  newCONSTSUB (stash, "blocksize", newSViv (16));
-  newCONSTSUB (stash, "MODE_ECB",  newSViv (MODE_ECB));
-  newCONSTSUB (stash, "MODE_CBC",  newSViv (MODE_CBC));
-  newCONSTSUB (stash, "MODE_CFB",  newSViv (MODE_CFB));
-  newCONSTSUB (stash, "MODE_OFB",  newSViv (MODE_OFB));
-  newCONSTSUB (stash, "MODE_CTR",  newSViv (MODE_CTR));
+  newCONSTSUB (stash, "keysize",    newSViv (32)        );
+  newCONSTSUB (stash, "blocksize",  newSViv (16)        );
+  newCONSTSUB (stash, "MODE_ECB",   newSViv (MODE_ECB)  );
+  newCONSTSUB (stash, "MODE_CBC",   newSViv (MODE_CBC)  );
+  newCONSTSUB (stash, "MODE_CFB",   newSViv (MODE_CFB)  );
+  newCONSTSUB (stash, "MODE_PCBC",  newSViv (MODE_PCBC) );
+  newCONSTSUB (stash, "MODE_OFB",   newSViv (MODE_OFB)  );
+  newCONSTSUB (stash, "MODE_CTR",   newSViv (MODE_CTR)  );
 #endif
 }
 
@@ -74,6 +75,13 @@ int
 MODE_CFB(...)
   CODE:
      RETVAL=MODE_CFB;
+  OUTPUT:
+     RETVAL
+
+int
+MODE_PCBC(...)
+  CODE:
+     RETVAL=MODE_PCBC;
   OUTPUT:
      RETVAL
 
@@ -117,7 +125,7 @@ new(class, key, mode=MODE_ECB)
 	  RETVAL->ctx.mode = RETVAL->mode = mode;
 	  /* set the IV to zero on initialization */
 	  memset(RETVAL->iv, 0, RIJNDAEL_BLOCKSIZE);
-          rijndael_setup(&RETVAL->ctx, keysize, SvPV_nolen(key));
+          rijndael_setup(&RETVAL->ctx, keysize, (UINT8 *) SvPV_nolen(key));
 
 	}
 	OUTPUT:
@@ -134,6 +142,8 @@ set_iv(self, data)
 	  STRLEN size;
 	  void *rawbytes = SvPV(data,size);
 
+	  if( size !=  RIJNDAEL_BLOCKSIZE )
+	  	croak( "set_iv: initial value must be the blocksize (%d bytes), but was %d bytes", RIJNDAEL_BLOCKSIZE, size );
 	  memcpy(self->iv, rawbytes, RIJNDAEL_BLOCKSIZE);
 	}
 
@@ -157,7 +167,7 @@ encrypt(self, data)
 	    SvPOK_only (RETVAL);
 	    SvCUR_set (RETVAL, size);
 	    (ix ? block_decrypt : block_encrypt)
-	      (&self->ctx, rawbytes, size, SvPV_nolen(RETVAL), self->iv);
+	      (&self->ctx, rawbytes, size, (UINT8 *) SvPV_nolen(RETVAL), self->iv);
           } else
             RETVAL = newSVpv ("", 0);
         }

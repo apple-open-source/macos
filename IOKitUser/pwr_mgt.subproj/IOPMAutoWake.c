@@ -3,25 +3,27 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
 #include <TargetConditionals.h>
 #include <IOKit/pwr_mgt/IOPM.h>
+#include <IOKit/pwr_mgt/IOPMLibDefs.h>
 #include "IOSystemConfiguration.h"
 #include "IOPMKeys.h"
 #include "IOPMLib.h"
@@ -32,6 +34,13 @@ enum {
     kIOPMMaxScheduledEntries = 1000
 };
 
+#ifndef kIOPMMaintenanceScheduleImmediate
+#define kIOPMMaintenanceScheduleImmediate   "MaintenanceImmediate"
+#endif
+
+#ifndef kPMSetMaintenanceWakeCalendar
+#define kPMSetMaintenanceWakeCalendar 8
+#endif
 
 // Forward decls
 
@@ -72,6 +81,9 @@ IOReturn IOPMCancelScheduledPowerEvent(
     CFStringRef my_id, 
     CFStringRef wake_or_restart);    
 CFArrayRef IOPMCopyScheduledPowerEvents( void );
+static IOReturn doAMaintenanceWake(
+    CFDateRef earliestRequest);
+
 
 
 static CFComparisonResult compare_dates(
@@ -97,8 +109,8 @@ static CFComparisonResult compare_dates(
 #define ROUND_SCHEDULE_TIME	(5.0)
 #define MIN_SCHEDULE_TIME	(5.0)
 #else
-#define ROUND_SCHEDULE_TIME	(30.0)
-#define MIN_SCHEDULE_TIME	(30.0)
+#define ROUND_SCHEDULE_TIME	(5.0)
+#define MIN_SCHEDULE_TIME	(5.0)
 #endif  /* TARGET_OS_EMBEDDED */
 
 
@@ -106,11 +118,7 @@ static CFAbsoluteTime roundOffDate(CFAbsoluteTime time)
 {
     // round time down to the closest multiple of ROUND_SCHEDULE_TIME seconds
     // CFAbsoluteTimes are encoded as doubles
-#if TARGET_OS_EMBEDDED
     return (CFAbsoluteTime) (trunc(time / ((double) ROUND_SCHEDULE_TIME)) * ((double) ROUND_SCHEDULE_TIME)); 
-#else
-    return (CFAbsoluteTime)nearbyint((time - fmod(time, (double)ROUND_SCHEDULE_TIME)));
-#endif /* TARGET_OS_EMBEDDED */
 }
 
 static CFDictionaryRef 
@@ -166,7 +174,8 @@ inputsValid(
         CFEqual(type, CFSTR(kIOPMAutoWakeScheduleImmediate)) ||
         CFEqual(type, CFSTR(kIOPMAutoPowerScheduleImmediate)) ||
         CFEqual(type, CFSTR(kIOPMAutoWakeRelativeSeconds)) ||
-        CFEqual(type, CFSTR(kIOPMAutoPowerRelativeSeconds))  ))
+        CFEqual(type, CFSTR(kIOPMAutoPowerRelativeSeconds)) ||
+        CFEqual(type, CFSTR(kIOPMMaintenanceScheduleImmediate)) ))
     {
         return false;
     }
@@ -290,24 +299,84 @@ _setRootDomainProperty(
     CFStringRef                 key, 
     CFTypeRef                   val) 
 {
-    io_iterator_t               it;
     io_registry_entry_t         root_domain;
     IOReturn                    ret;
 
-    IOServiceGetMatchingServices(
-                    MACH_PORT_NULL, 
-                    IOServiceNameMatching("IOPMrootDomain"), 
-                    &it);
-
-    if(!it) return kIOReturnError;
-
-    root_domain = (io_registry_entry_t)IOIteratorNext(it);
+    root_domain = IORegistryEntryFromPath( kIOMasterPortDefault, 
+                kIOPowerPlane ":/IOPowerConnection/IOPMrootDomain");
     if(!root_domain) return kIOReturnError;
  
     ret = IORegistryEntrySetCFProperty(root_domain, key, val);
 
     IOObjectRelease(root_domain);
-    IOObjectRelease(it);
+    return ret;
+}
+
+static IOReturn doAMaintenanceWake(
+    CFDateRef earliestRequest)
+ {
+    CFGregorianDate         maintGregorian;
+    IOPMCalendarStruct      pmMaintenanceDate;
+    IOReturn                connectReturn = 0;
+    size_t                  connectReturnSize = sizeof(IOReturn);
+    io_connect_t            root_domain_connect = IO_OBJECT_NULL;
+    io_registry_entry_t     root_domain = IO_OBJECT_NULL;
+    IOReturn                ret = kIOReturnError;
+    kern_return_t           kr = -1;
+
+    // Package maintenance time as a PMCalendarType and pass it into IOPMrootDomain
+    CFTimeZoneRef  myTimeZone = NULL;
+    
+    myTimeZone = CFTimeZoneCreateWithTimeIntervalFromGMT(0, 0.0);
+    if (!myTimeZone)
+        goto exit;
+
+    maintGregorian = CFAbsoluteTimeGetGregorianDate(
+                        CFDateGetAbsoluteTime(earliestRequest), myTimeZone);
+
+    CFRelease(myTimeZone);
+    
+    // Stuff into PM Calendar struct
+    bzero(&pmMaintenanceDate, sizeof(pmMaintenanceDate));
+    pmMaintenanceDate.year = maintGregorian.year;
+    pmMaintenanceDate.month = maintGregorian.month;
+    pmMaintenanceDate.day = maintGregorian.day;
+    pmMaintenanceDate.hour = maintGregorian.hour;
+    pmMaintenanceDate.minute = maintGregorian.minute;
+    pmMaintenanceDate.second = maintGregorian.second;
+
+    // Open up RootDomain
+    
+    root_domain = IORegistryEntryFromPath( kIOMasterPortDefault, 
+                kIOPowerPlane ":/IOPowerConnection/IOPMrootDomain");
+
+    if (root_domain != IO_OBJECT_NULL)
+    {
+        kr = IOServiceOpen(root_domain, mach_task_self(), 0, &root_domain_connect);
+        
+        if (KERN_SUCCESS == kr)
+        {
+            kr = IOConnectCallStructMethod(
+                root_domain_connect, 
+                kPMSetMaintenanceWakeCalendar,
+                &pmMaintenanceDate, sizeof(pmMaintenanceDate),      // inputs struct
+                &connectReturn, &connectReturnSize);                // outputs struct
+    
+            IOServiceClose(root_domain_connect);
+        }
+        
+        IOObjectRelease(root_domain);
+    }
+
+    if ((KERN_SUCCESS != kr) || (kIOReturnSuccess != connectReturn))
+    {
+        // Cry, cry, cry.
+        ret = kIOReturnError;
+        goto exit;
+    }
+
+    ret = kIOReturnSuccess;
+exit:
     return ret;
 }
 
@@ -447,7 +516,11 @@ IOReturn IOPMSchedulePowerEvent(
         goto exit;
     }
 
-    if( CFEqual(type, CFSTR(kIOPMAutoWakeScheduleImmediate)) )
+    if( CFEqual(type, CFSTR(kIOPMMaintenanceScheduleImmediate)) )
+    {
+        ret = doAMaintenanceWake(time_to_wake);
+        goto exit;
+    } else if( CFEqual(type, CFSTR(kIOPMAutoWakeScheduleImmediate)) )
     {
 
         // Just send down the wake event immediately

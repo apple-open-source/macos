@@ -1,26 +1,3 @@
-/*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
 /*-
  * Copyright (c) 1985, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -54,14 +31,14 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__unused static char sccsid[] = "@(#)measure.c	8.2 (Berkeley) 3/26/95";
-#endif /* not lint */
-
-#ifdef sgi
-#ident "$Revision: 1.2 $"
+#if 0
+static char sccsid[] = "@(#)measure.c	8.1 (Berkeley) 6/6/93";
 #endif
+static const char rcsid[] =
+  "$FreeBSD: src/usr.sbin/timed/timed/measure.c,v 1.7 2001/11/20 07:13:40 jhb Exp $";
+#endif /* not lint */
+#include <sys/cdefs.h>
 
 #include "globals.h"
 #include <netinet/in_systm.h>
@@ -120,7 +97,7 @@ measure(maxmsec, wmsec, hname, addr, print)
 			goto quit;
 		}
 	}
-	    
+
 
 	/*
 	 * empty the icmp input queue
@@ -155,10 +132,6 @@ measure(maxmsec, wmsec, hname, addr, print)
 
 	FD_ZERO(&ready);
 
-#ifdef sgi
-	sginap(1);			/* start at a clock tick */
-#endif /* sgi */
-
 	(void)gettimeofday(&tdone, 0);
 	mstotvround(&tout, maxmsec);
 	timevaladd(&tdone, &tout);		/* when we give up */
@@ -166,6 +139,7 @@ measure(maxmsec, wmsec, hname, addr, print)
 	mstotvround(&twait, wmsec);
 
 	rcvcount = 0;
+	trials = 0;
 	while (rcvcount < MSGS) {
 		(void)gettimeofday(&tcur, 0);
 
@@ -214,7 +188,7 @@ measure(maxmsec, wmsec, hname, addr, print)
 			if (cc < 0)
 				goto quit;
 
-			/* 
+			/*
 			 * got something.  See if it is ours
 			 */
 			icp = (struct icmp *)(packet + (ip->ip_hl << 2));
@@ -297,8 +271,7 @@ quit:
 		}
 	} else if (print) {
 		if (errno != 0)
-			fprintf(stderr, "measure %s: %s\n", hname,
-				strerror(errno));
+			warn("measure %s", hname);
 	} else {
 		if (errno != 0) {
 			syslog(LOG_ERR, "measure %s: %m", hname);
@@ -328,13 +301,11 @@ mstotvround(res, x)
 	struct timeval *res;
 	long x;
 {
-#ifndef sgi
 	if (x < 0)
 		x = -((-x + 3)/5);
 	else
 		x = (x+3)/5;
 	x *= 5;
-#endif /* sgi */
 	res->tv_sec = x/1000;
 	res->tv_usec = (x-res->tv_sec*1000)*1000;
 	if (res->tv_usec < 0) {

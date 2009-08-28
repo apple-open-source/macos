@@ -13,7 +13,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -36,7 +36,7 @@ class Ctype1
 protected:
   const char*
   do_narrow(const char* lo, const char* hi,
-	    char dflt, char* to) const 
+	    char, char* to) const 
   {
     for (int i = 0; lo != hi; ++lo, ++to, ++i)
       *to = *lo + i;

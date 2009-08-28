@@ -47,7 +47,6 @@ __FBSDID("$FreeBSD: src/lib/libc/stdtime/localtime.c,v 1.40 2004/08/24 00:15:37 
 
 #define	_MUTEX_LOCK(x)		if (__isthreaded) _pthread_mutex_lock(x)
 #define	_MUTEX_UNLOCK(x)	if (__isthreaded) _pthread_mutex_unlock(x)
-extern int __pthread_tsd_first;
 
 /*
 ** SunOS 4.1.1 headers lack O_BINARY.
@@ -1420,7 +1419,7 @@ const time_t * const	timep;
 	if (__isthreaded != 0) {
 		_pthread_mutex_lock(&localtime_mutex);
 		if (localtime_key == (pthread_key_t)-1) {
-			localtime_key = __pthread_tsd_first + 2;
+			localtime_key = __LIBC_PTHREAD_KEY_LOCALTIME;
 			if (pthread_key_init_np(localtime_key, free) < 0) {
 				_pthread_mutex_unlock(&localtime_mutex);
 				return(NULL);
@@ -1554,7 +1553,7 @@ const time_t * const	timep;
 	if (__isthreaded != 0) {
 		_pthread_mutex_lock(&gmtime_mutex);
 		if (gmtime_key == (pthread_key_t)-1) {
-			gmtime_key = __pthread_tsd_first + 3;
+			gmtime_key = __LIBC_PTHREAD_KEY_GMTIME;
 			if (pthread_key_init_np(gmtime_key, free) < 0) {
 				_pthread_mutex_unlock(&gmtime_mutex);
 				return(NULL);
@@ -1751,7 +1750,20 @@ const time_t * const	timep;
 **	to local time in the form of a string.  It is equivalent to
 **		asctime(localtime(timer))
 */
+#ifdef __LP64__
+	/*
+	 * In 64-bit, the timep value may produce a time value with a year
+	 * that exceeds 32-bits in size (won't fit in struct tm), so localtime
+	 * will return NULL.
+	 */
+	struct tm *tm = localtime(timep);
+
+	if (tm == NULL)
+		return NULL;
+	return asctime(tm);
+#else /* !__LP64__ */
 	return asctime(localtime(timep));
+#endif /* __LP64__ */
 }
 
 char *
@@ -1761,7 +1773,18 @@ char *			buf;
 {
 	struct tm	tm;
 
+#ifdef __LP64__
+	/*
+	 * In 64-bit, the timep value may produce a time value with a year
+	 * that exceeds 32-bits in size (won't fit in struct tm), so localtime_r
+	 * will return NULL.
+	 */
+	if (localtime_r(timep, &tm) == NULL)
+		return NULL;
+	return asctime_r(&tm, buf);
+#else /* !__LP64__ */
 	return asctime_r(localtime_r(timep, &tm), buf);
+#endif /* __LP64__ */
 }
 
 /*
@@ -1951,7 +1974,13 @@ int			unix03;
 	** Divide the search space in half
 	** (this works whether time_t is signed or unsigned).
 	*/
+#ifdef __LP64__
+	/* optimization: see if the value is 31-bit (signed) */
+	t = (((time_t) 1) << (TYPE_BIT(int) - 1)) - 1;
+	bits = ((*funcp)(&t, offset, &mytm) == NULL || tmcomp(&mytm, &yourtm) < 0) ? TYPE_BIT(time_t) - 1 : TYPE_BIT(int) - 1;
+#else /* !__LP64__ */
 	bits = TYPE_BIT(time_t) - 1;
+#endif /* __LP64__ */
 	/*
 	** If we have more than this, we will overflow tm_year for tmcomp().
 	** We should really return an error if we cannot represent it.

@@ -1,3 +1,4 @@
+// $OpenLDAP: pkg/ldap/contrib/ldapc++/src/LDAPSchema.h,v 1.1.8.2 2008/04/14 23:09:26 quanah Exp $
 /*
  * Copyright 2003, OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
@@ -6,7 +7,6 @@
 #ifndef LDAP_SCHEMA_H
 #define LDAP_SCHEMA_H
 
-#include <ldap.h>
 #include <string>
 #include <map>
 
@@ -44,8 +44,8 @@ class LDAPSchema{
          * Fill the object_classes map
 	 * @param oc description of one objectclass (string returned by search
 	 * command), in form:
-	 * "( SuSE.YaST.OC:5 NAME 'userTemplate' SUP objectTemplate STRUCTURAL
-	 *    DESC 'User object template' MUST ( cn ) MAY ( secondaryGroup ))"
+	 * "( 1.2.3.4.5 NAME '<name>' SUP <supname> STRUCTURAL
+	 *    DESC '<description>' MUST ( <attrtype> ) MAY ( <attrtype> ))"
          */
 	void setObjectClasses (const StringList &oc);
 
@@ -53,7 +53,7 @@ class LDAPSchema{
          * Fill the attr_types map
 	 * @param at description of one attribute type
 	 *  (string returned by search command), in form:
-	 * "( SuSE.YaST.Attr:19 NAME ( 'skelDir' ) DESC ''
+	 * "( 1.2.3.4.6 NAME ( '<name>' ) DESC '<desc>'
 	 *    EQUALITY caseExactIA5Match SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )"
          */
 	void setAttributeTypes (const StringList &at);

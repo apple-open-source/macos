@@ -1,5 +1,5 @@
 /*
- * "$Id: search.c 7421 2008-04-01 20:32:12Z mike $"
+ * "$Id: search.c 7720 2008-07-11 22:46:21Z mike $"
  *
  *   Search routines for the Common UNIX Printing System (CUPS).
  *
@@ -47,7 +47,14 @@ cgiCompileSearch(const char *query)	/* I - Query string */
   char		*lword;			/* Last word in query */
 
 
-  DEBUG_printf(("help_compile_search(query=\"%s\")\n", query ? query : "(nil)"));
+  DEBUG_printf(("cgiCompileSearch(query=\"%s\")\n", query));
+
+ /*
+  * Range check input...
+  */
+
+  if (!query)
+    return (NULL);
 
  /*
   * Allocate a regular expression storage structure...
@@ -370,5 +377,5 @@ cgiFreeSearch(void *search)		/* I - Search context */
 
 
 /*
- * End of "$Id: search.c 7421 2008-04-01 20:32:12Z mike $".
+ * End of "$Id: search.c 7720 2008-07-11 22:46:21Z mike $".
  */

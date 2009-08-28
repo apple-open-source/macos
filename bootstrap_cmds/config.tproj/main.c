@@ -202,6 +202,10 @@ main(int argc, char *argv[])
 		arm_ioconf();
 		break;
 
+	case MACHINE_X86_64:
+		x86_64_ioconf();
+		break;
+
 	default:
 		printf("Specify machine type, e.g. ``machine vax''\n");
 		exit(1);

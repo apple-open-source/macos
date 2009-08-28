@@ -1,0 +1,36 @@
+<plist version="1.0">
+<array>
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2009-01-20</string>
+	<key>OpenSourceProject</key>
+	<string>clang</string>
+	<key>OpenSourceVersion</key>
+	<string>090120</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://clang.llvm.org/</string>
+        <key>OpenSourceSVN</key>
+        <string>svn export http://llvm.org/svn/llvm-project/cfe/trunk</string>
+	<key>OpenSourceLicense</key>
+	<string>University of Illinois Open Source License</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>clang.txt</string>
+</dict>
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2009-01-20</string>
+	<key>OpenSourceProject</key>
+	<string>llvm</string>
+	<key>OpenSourceVersion</key>
+	<string>090120</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://llvm.org/</string>
+        <key>OpenSourceSVN</key>
+        <string>svn export http://llvm.org/svn/llvm-project/llvm/trunk</string>
+	<key>OpenSourceLicense</key>
+	<string>University of Illinois Open Source License</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>clang-llvm.txt</string>
+</dict>
+</array>
+</plist>

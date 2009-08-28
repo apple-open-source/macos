@@ -1,6 +1,6 @@
 /*
  *
- * (C) Copyright IBM Corp. 1998-2005 - All Rights Reserved
+ * (C) Copyright IBM Corp. 1998-2006 - All Rights Reserved
  *
  */
 
@@ -76,7 +76,10 @@ le_uint32 PairPositioningFormat1Subtable::process(GlyphIterator *glyphIterator, 
             valueRecord2->adjustPosition(SWAPW(valueFormat2), (char *) this, *glyphIterator, fontInstance);
         }
 
-        return 2;
+        // back up glyphIterator so second glyph can be
+        // first glyph in the next pair
+        glyphIterator->prev();
+        return 1;
     }
 
     return 0;
@@ -112,7 +115,10 @@ le_uint32 PairPositioningFormat2Subtable::process(GlyphIterator *glyphIterator, 
             valueRecord2->adjustPosition(SWAPW(valueFormat2), (const char *) this, *glyphIterator, fontInstance);
         }
 
-        return 2;
+        // back up glyphIterator so second glyph can be
+        // first glyph in the next pair
+        glyphIterator->prev();
+        return 1;
     }
 
     return 0;
@@ -120,6 +126,20 @@ le_uint32 PairPositioningFormat2Subtable::process(GlyphIterator *glyphIterator, 
 
 const PairValueRecord *PairPositioningFormat1Subtable::findPairValueRecord(TTGlyphID glyphID, const PairValueRecord *records, le_uint16 recordCount, le_uint16 recordSize) const
 {
+#if 1
+	// The OpenType spec. says that the ValueRecord table is
+	// sorted by secondGlyph. Unfortunately, there are fonts
+	// around that have an unsorted ValueRecord table.
+	const PairValueRecord *record = records;
+
+	for(le_int32 r = 0; r < recordCount; r += 1) {
+		if (SWAPW(record->secondGlyph) == glyphID) {
+			return record;
+		}
+
+		record = (const PairValueRecord *) ((char *) record + recordSize);
+	}
+#else
     le_uint8 bit = OpenTypeUtilities::highBit(recordCount);
     le_uint16 power = 1 << bit;
     le_uint16 extra = (recordCount - power) * recordSize;
@@ -143,6 +163,7 @@ const PairValueRecord *PairPositioningFormat1Subtable::findPairValueRecord(TTGly
     if (SWAPW(record->secondGlyph) == glyphID) {
         return record;
     }
+#endif
 
     return NULL;
 }

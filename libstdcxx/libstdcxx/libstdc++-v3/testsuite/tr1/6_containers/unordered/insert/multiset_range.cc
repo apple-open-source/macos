@@ -17,7 +17,7 @@
 //
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // 6.3.4.5 unordered_multiset
@@ -27,7 +27,7 @@
 #include <iterator>
 #include <algorithm>
 #include <tr1/unordered_set>
-#include "testsuite_hooks.h"
+#include <testsuite_hooks.h>
 
 bool test __attribute__((unused)) = true;
 
@@ -42,7 +42,7 @@ void test01()
 			     "magenta", "yellow", "orange", "pink", "gray" };
 
   s.insert(A+0, A+N);
-  VERIFY(s.size() == N);
+  VERIFY(s.size() == static_cast<unsigned int>(N));
   VERIFY(std::distance(s.begin(), s.end()) == N);
 
   for (int i = 0; i < N; ++i) {
@@ -62,7 +62,7 @@ void test02()
   const int A[N] = { 3, 7, 4, 8, 2, 4, 6, 7 };
 
   s.insert(A+0, A+N);
-  VERIFY(s.size() == N);
+  VERIFY(s.size() == static_cast<unsigned int>(N));
   VERIFY(std::distance(s.begin(), s.end()) == N);
 
   VERIFY(std::count(s.begin(), s.end(), 2) == 1);

@@ -37,7 +37,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 2005  Apple Computer, Inc. and Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: dmnt.c,v 1.5 2006/03/23 21:28:26 ajn Exp $";
+static char *rcsid = "$Id: dmnt.c,v 1.3 2005/11/04 18:51:07 abe Exp abe $";
 #endif
 
 
@@ -81,6 +81,16 @@ readmnt()
 
 	    if (!mb->f_type)
 		continue;
+	/*
+	 * Avoid file systems that are not appropriate paths to
+ 	 * user data (e.g. automount maps, triggers).
+ 	 */
+ 	    if (mb->f_flags & MNT_AUTOMOUNTED) {
+ 		if (!strncmp(mb->f_mntfromname, "map ", 4)
+ 		||  !strcmp(mb->f_mntfromname, "trigger"))
+ 		    continue;
+ 	    }
+
 	/*
 	 * Interpolate a possible symbolic directory link.
 	 */

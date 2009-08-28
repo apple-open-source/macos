@@ -1,10 +1,10 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*           Copyright (c) 1996-2007 AT&T Knowledge Ventures            *
+*          Copyright (c) 1996-2007 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
-*                      by AT&T Knowledge Ventures                      *
+*                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
 *            http://www.opensource.org/licenses/cpl1.0.txt             *
@@ -790,7 +790,7 @@ sha256_done(Sum_t* p)
 }
 
 static int
-sha256_print(Sum_t* p, Sfio_t* sp, register int flags)
+sha256_print(Sum_t* p, Sfio_t* sp, register int flags, size_t scale)
 {
 	register Sha256_t*	sha = (Sha256_t*)p;
 	register sha2_byte*	d;
@@ -1152,7 +1152,7 @@ sha512_done(Sum_t* p)
 }
 
 static int
-sha512_print(Sum_t* p, Sfio_t* sp, register int flags)
+sha512_print(Sum_t* p, Sfio_t* sp, register int flags, size_t scale)
 {
 	register Sha512_t*	sha = (Sha512_t*)p;
 	register sha2_byte*	d;
@@ -1221,7 +1221,7 @@ sha384_open(const Method_t* method, const char* name)
 }
 
 static int
-sha384_print(Sum_t* p, Sfio_t* sp, register int flags)
+sha384_print(Sum_t* p, Sfio_t* sp, register int flags, size_t scale)
 {
 	register Sha384_t*	sha = (Sha384_t*)p;
 	register sha2_byte*	d;

@@ -19,6 +19,8 @@ You should have received a copy of the GNU General Public License
 along with GAS; see the file COPYING.  If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
+#include <stdint.h>
+
 /***********************************************************************\
 *									*
 *	Arbitrary-precision floating point arithmetic.			*
@@ -54,7 +56,7 @@ struct FLONUM_STRUCT {
   LITTLENUM_TYPE *	high;	/* high order littlenum of a bignum */
   LITTLENUM_TYPE *	leader;	/* -> 1st non-zero littlenum */
 				/* If flonum is 0.0, leader==low-1 */
-  long int		exponent; /* base LITTLENUM_RADIX */
+  int32_t		exponent; /* base LITTLENUM_RADIX */
   char			sign;	/* '+' or '-' */
 };
 
@@ -65,7 +67,7 @@ struct const_FLONUM_STRUCT {
   const LITTLENUM_TYPE *	high;	/* high order littlenum of a bignum */
   const LITTLENUM_TYPE *	leader;	/* -> 1st non-zero littlenum */
 					/* If flonum is 0.0, leader==low-1 */
-  long int		exponent; /* base LITTLENUM_RADIX */
+  int32_t		exponent; /* base LITTLENUM_RADIX */
   char			sign;	/* '+' or '-' */
 };
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2007, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,8 +25,8 @@
 #define _SCPREFERENCESPRIVATE_H
 
 
+#include <Availability.h>
 #include <sys/cdefs.h>
-#include <AvailabilityMacros.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SCPreferences.h>
 
@@ -70,7 +70,7 @@ SCDynamicStoreKeyCreatePreferences	(
 					CFAllocatorRef		allocator,
 					CFStringRef		prefsID,
 					SCPreferencesKeyType	keyType
-					)	AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
+					)	__OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_4,__IPHONE_2_0,__IPHONE_2_0);
 
 __END_DECLS
 

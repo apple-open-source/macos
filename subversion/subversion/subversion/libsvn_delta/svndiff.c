@@ -1,8 +1,8 @@
-/* 
+/*
  * svndiff.c -- Encoding and decoding svndiff-format deltas.
- * 
+ *
  * ====================================================================
- * Copyright (c) 2000-2006 CollabNet.  All rights reserved.
+ * Copyright (c) 2000-2006, 2008 CollabNet.  All rights reserved.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution.  The terms
@@ -47,7 +47,7 @@
 
 /* We make one of these and get it passed back to us in calls to the
    window handler.  We only use it to record the write function and
-   baton passed to svn_txdelta_to_svndiff ().  */
+   baton passed to svn_txdelta_to_svndiff2().  */
 struct encoder_baton {
   svn_stream_t *output;
   svn_boolean_t header_done;
@@ -123,10 +123,10 @@ zlib_encode(const char *data, apr_size_t len, svn_stringbuf_t *out)
 {
   unsigned long endlen;
   unsigned int intlen;
-  
+
   append_encoded_int(out, len);
   intlen = out->len;
-  
+
   if (len < MIN_COMPRESS_SIZE)
     {
       svn_stringbuf_appendbytes(out, data, len);
@@ -134,12 +134,12 @@ zlib_encode(const char *data, apr_size_t len, svn_stringbuf_t *out)
   else
     {
       svn_stringbuf_ensure(out, svnCompressBound(len) + intlen);
-      endlen = out->blocksize;    
-      
-      if (compress2((unsigned char *)out->data + intlen, &endlen, 
+      endlen = out->blocksize;
+
+      if (compress2((unsigned char *)out->data + intlen, &endlen,
                     (const unsigned char *)data, len,
-                    SVNDIFF1_COMPRESS_LEVEL) != Z_OK)        
-        return svn_error_create(SVN_ERR_SVNDIFF_INVALID_COMPRESSED_DATA, 
+                    SVNDIFF1_COMPRESS_LEVEL) != Z_OK)
+        return svn_error_create(SVN_ERR_SVNDIFF_INVALID_COMPRESSED_DATA,
                                 NULL,
                                 _("Compression of svndiff data failed"));
 
@@ -276,7 +276,7 @@ svn_txdelta_to_svndiff2(svn_txdelta_window_handler_t *handler,
   eb->header_done = FALSE;
   eb->pool = subpool;
   eb->version = svndiff_version;
-  
+
   *handler = window_handler;
   *handler_baton = eb;
 }
@@ -325,7 +325,7 @@ struct decode_baton
      not transmit the whole svndiff data stream, you will want this to
      be FALSE. */
   svn_boolean_t error_on_early_close;
-  
+
   /* svndiff version in use by delta.  */
   unsigned char version;
 };
@@ -383,8 +383,8 @@ zlib_decode(svn_stringbuf_t *in, svn_stringbuf_t *out)
   char *oldplace = in->data;
 
   /* First thing in the string is the original length.  */
-  in->data = (char *)decode_size(&len, (unsigned char *)in->data, 
-                                 (unsigned char *)in->data+in->len);  
+  in->data = (char *)decode_size(&len, (unsigned char *)in->data,
+                                 (unsigned char *)in->data+in->len);
   /* We need to subtract the size of the encoded original length off the
    *      still remaining input length.  */
   in->len -= (in->data - oldplace);
@@ -398,24 +398,24 @@ zlib_decode(svn_stringbuf_t *in, svn_stringbuf_t *out)
       unsigned long zliblen;
 
       svn_stringbuf_ensure(out, len);
-      
+
       zliblen = len;
-      if (uncompress  ((unsigned char *)out->data, &zliblen, 
+      if (uncompress  ((unsigned char *)out->data, &zliblen,
                        (const unsigned char *)in->data, in->len) != Z_OK)
-        return svn_error_create(SVN_ERR_SVNDIFF_INVALID_COMPRESSED_DATA, 
+        return svn_error_create(SVN_ERR_SVNDIFF_INVALID_COMPRESSED_DATA,
                                 NULL,
                                 _("Decompression of svndiff data failed"));
-      
+
       /* Zlib should not produce something that has a different size than the
          original length we stored. */
       if (zliblen != len)
-        return svn_error_create(SVN_ERR_SVNDIFF_INVALID_COMPRESSED_DATA, 
+        return svn_error_create(SVN_ERR_SVNDIFF_INVALID_COMPRESSED_DATA,
                                 NULL,
                                 _("Size of uncompressed data "
                                   "does not match stored original length"));
       out->len = zliblen;
     }
-  return SVN_NO_ERROR;  
+  return SVN_NO_ERROR;
 }
 
 /* Decode an instruction into OP, returning a pointer to the text
@@ -476,21 +476,20 @@ count_and_verify_instructions(int *ninst,
   while (p < end)
     {
       p = decode_instruction(&op, p, end);
-      if (p == NULL || op.length <= 0 || op.length > tview_len - tpos)
-        {
-          if (p == NULL)
-            return svn_error_createf
-              (SVN_ERR_SVNDIFF_INVALID_OPS, NULL,
-               _("Invalid diff stream: insn %d cannot be decoded"), n);
-          else if (op.length <= 0)
-            return svn_error_createf
-              (SVN_ERR_SVNDIFF_INVALID_OPS, NULL,
-               _("Invalid diff stream: insn %d has non-positive length"), n);
-          else
-            return svn_error_createf
-              (SVN_ERR_SVNDIFF_INVALID_OPS, NULL,
-               _("Invalid diff stream: insn %d overflows the target view"), n);
-        }
+
+      /* Detect any malformed operations from the instruction stream. */
+      if (p == NULL)
+        return svn_error_createf
+          (SVN_ERR_SVNDIFF_INVALID_OPS, NULL,
+           _("Invalid diff stream: insn %d cannot be decoded"), n);
+      else if (op.length <= 0)
+        return svn_error_createf
+          (SVN_ERR_SVNDIFF_INVALID_OPS, NULL,
+           _("Invalid diff stream: insn %d has non-positive length"), n);
+      else if (op.length > tview_len - tpos)
+        return svn_error_createf
+          (SVN_ERR_SVNDIFF_INVALID_OPS, NULL,
+           _("Invalid diff stream: insn %d overflows the target view"), n);
 
       switch (op.action_code)
         {
@@ -553,7 +552,7 @@ decode_window(svn_txdelta_window_t *window, svn_filesize_t sview_offset,
   window->tview_len = tview_len;
 
   insend = data + inslen;
-  
+
   if (version == 1)
     {
       svn_stringbuf_t *instin, *ndin;
@@ -562,11 +561,11 @@ decode_window(svn_txdelta_window_t *window, svn_filesize_t sview_offset,
       instin = svn_stringbuf_ncreate((const char *)data, insend - data, pool);
       instout = svn_stringbuf_create("", pool);
       SVN_ERR(zlib_decode(instin, instout));
-      
+
       ndin = svn_stringbuf_ncreate((const char *)insend, newlen, pool);
       ndout = svn_stringbuf_create("", pool);
       SVN_ERR(zlib_decode(ndin, ndout));
-      
+
       newlen = ndout->len;
       data = (unsigned char *)instout->data;
       insend = (unsigned char *)instout->data + instout->len;
@@ -580,13 +579,13 @@ decode_window(svn_txdelta_window_t *window, svn_filesize_t sview_offset,
       new_data->len = newlen;
     }
 
-  /* Count the instructions and make sure they are all valid.  */ 
-  SVN_ERR(count_and_verify_instructions(&ninst, data, insend, 
+  /* Count the instructions and make sure they are all valid.  */
+  SVN_ERR(count_and_verify_instructions(&ninst, data, insend,
                                         sview_len, tview_len, newlen));
- 
+
   /* Allocate a buffer for the instructions and decode them. */
   ops = apr_palloc(pool, ninst * sizeof(*ops));
-  npos = 0;  
+  npos = 0;
   window->src_ops = 0;
   for (op = ops; op < ops + ninst; op++)
     {
@@ -599,7 +598,7 @@ decode_window(svn_txdelta_window_t *window, svn_filesize_t sview_offset,
           npos += op->length;
         }
     }
-  assert(data == insend);
+  SVN_ERR_ASSERT(data == insend);
 
   window->ops = ops;
   window->num_ops = ninst;
@@ -685,7 +684,7 @@ write_handler(void *baton,
       if (sview_offset < 0 || inslen + newlen < inslen
           || sview_len + tview_len < sview_len
           || sview_offset + sview_len < sview_offset)
-        return svn_error_create(SVN_ERR_SVNDIFF_CORRUPT_WINDOW, NULL, 
+        return svn_error_create(SVN_ERR_SVNDIFF_CORRUPT_WINDOW, NULL,
                                 _("Svndiff contains corrupt window header"));
 
       /* Check for source windows which slide backwards.  */
@@ -694,7 +693,7 @@ write_handler(void *baton,
               || (sview_offset + sview_len
                   < db->last_sview_offset + db->last_sview_len)))
         return svn_error_create
-          (SVN_ERR_SVNDIFF_BACKWARD_VIEW, NULL, 
+          (SVN_ERR_SVNDIFF_BACKWARD_VIEW, NULL,
            _("Svndiff has backwards-sliding source views"));
 
       /* Wait for more data if we don't have enough bytes for the
@@ -713,7 +712,7 @@ write_handler(void *baton,
       newpool = svn_pool_create(db->pool);
       p += inslen + newlen;
       remaining = db->buffer->data + db->buffer->len - (const char *) p;
-      db->buffer = 
+      db->buffer =
         svn_stringbuf_ncreate((const char *) p, remaining, newpool);
 
       /* Remember the offset and length of the source view for next time.  */
@@ -841,7 +840,7 @@ read_window_header(svn_stream_t *stream, svn_filesize_t *sview_offset,
   if (*sview_offset < 0 || *inslen + *newlen < *inslen
       || *sview_len + *tview_len < *sview_len
       || *sview_offset + *sview_len < *sview_offset)
-    return svn_error_create(SVN_ERR_SVNDIFF_CORRUPT_WINDOW, NULL, 
+    return svn_error_create(SVN_ERR_SVNDIFF_CORRUPT_WINDOW, NULL,
                             _("Svndiff contains corrupt window header"));
 
   return SVN_NO_ERROR;
@@ -866,9 +865,8 @@ svn_txdelta_read_svndiff_window(svn_txdelta_window_t **window,
     return svn_error_create(SVN_ERR_SVNDIFF_UNEXPECTED_END, NULL,
                             _("Unexpected end of svndiff input"));
   *window = apr_palloc(pool, sizeof(**window));
-  SVN_ERR(decode_window(*window, sview_offset, sview_len, tview_len, inslen,
-                        newlen, buf, pool, svndiff_version));
-  return SVN_NO_ERROR;
+  return decode_window(*window, sview_offset, sview_len, tview_len, inslen,
+                       newlen, buf, pool, svndiff_version);
 }
 
 
@@ -877,7 +875,7 @@ svn_txdelta_skip_svndiff_window(apr_file_t *file,
                                 int svndiff_version,
                                 apr_pool_t *pool)
 {
-  svn_stream_t *stream = svn_stream_from_aprfile(file, pool);
+  svn_stream_t *stream = svn_stream_from_aprfile2(file, TRUE, pool);
   svn_filesize_t sview_offset;
   apr_size_t sview_len, tview_len, inslen, newlen;
   apr_off_t offset;

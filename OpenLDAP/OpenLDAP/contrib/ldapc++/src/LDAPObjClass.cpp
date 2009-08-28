@@ -1,3 +1,4 @@
+// $OpenLDAP: pkg/ldap/contrib/ldapc++/src/LDAPObjClass.cpp,v 1.3.6.2 2008/05/01 21:28:42 quanah Exp $
 /*
  * Copyright 2003, OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
@@ -90,31 +91,31 @@ void LDAPObjClass::setOid (char *oc_oid) {
 	oid = oc_oid;
 }
 
-string LDAPObjClass::getOid () {
+string LDAPObjClass::getOid() const {
     return oid;
 }
 
-string LDAPObjClass::getDesc () {
+string LDAPObjClass::getDesc() const {
     return desc;
 }
 
-StringList LDAPObjClass::getNames () {
+StringList LDAPObjClass::getNames() const {
     return names;
 }
 
-StringList LDAPObjClass::getMust () {
+StringList LDAPObjClass::getMust() const {
     return must;
 }
 
-StringList LDAPObjClass::getMay () {
+StringList LDAPObjClass::getMay() const {
     return may;
 }
 
-StringList LDAPObjClass::getSup () {
+StringList LDAPObjClass::getSup() const {
     return sup;
 }
 
-string LDAPObjClass::getName () {
+string LDAPObjClass::getName() const {
 
     if (names.empty())
 	return "";
@@ -122,7 +123,7 @@ string LDAPObjClass::getName () {
 	return *(names.begin());
 }
 
-int LDAPObjClass::getKind () {
+int LDAPObjClass::getKind() const {
      return kind;
 }
 

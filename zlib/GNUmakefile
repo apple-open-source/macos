@@ -1,19 +1,20 @@
 ##
-# GNUmakefile for nano
+# GNUmakefile for zlib
 ##
 
 ## Configuration ##
 
 Project        = zlib
 Name           = $(Project)
-Version        = 1.2.3
-Name_Vers      = $(Name)-$(Version)
+Vers           = 1.2.3
+Name_Vers      = $(Name)-$(Vers)
 Compress_Type  = bz2
 Tarball        = $(Name_Vers).tar.$(Compress_Type)
 Extract_Dir    = $(Name_Vers)
-Patch_List     = Makefile.in.diff compress.c.diff configure.diff zconf.in.h.diff zlib.h.diff
+Patch_List     = Makefile.in.diff compress.c.diff configure.diff strlcpy.diff zconf.in.h.diff zlib.h.diff Makefile.msc.diff win32_zlib1.rc.diff
 
 ## Don't modify below here ##
+include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
 # Determine correct extract option (default = gzip).
 ifeq ($(Compress_Type),bz2)
@@ -25,19 +26,25 @@ endif
 no_target:
 	@$(MAKE) -f Makefile
 
-# Hijack the install stage to extract/patch the source.
-install:
+# patch the source (install_source in Common.make has already copied to SRCROOT)
+install_source::
 	@echo "-- Extracting distfiles --"
-	rmdir $(OBJROOT)
-	cp -r $(SRCROOT) $(OBJROOT)
-	rm -rf $(OBJROOT)/$(Project)
-	cd $(OBJROOT) && tar $(Extract_Option)xf $(OBJROOT)/$(Tarball)
-	mv $(OBJROOT)/$(Extract_Dir) $(OBJROOT)/$(Project)
+	$(RMDIR) "$(SRCROOT)/$(Project)"
+	$(TAR) -C "$(SRCROOT)" -$(Extract_Option)xof "$(Tarball)"
+	$(MV) "$(SRCROOT)/$(Extract_Dir)" "$(SRCROOT)/$(Project)"
 	@echo "-- Applying patches --"
-	$(_v) for patchfile in $(Patch_List); do \
-		cd $(OBJROOT)/$(Project) && patch -p0 < $(OBJROOT)/patches/$$patchfile; \
+	@set -x && \
+	cd "$(SRCROOT)/$(Project)" && \
+	for patchfile in $(Patch_List); do \
+		patch -p0 -i $(SRCROOT)/patches/$$patchfile || exit 1; \
 	done
-	@echo "-- Done extracting/patching, continuing --"
+
+# Copy, build and install
+build::
+	@echo "-- Copying to OBJROOT --"
+	$(RMDIR) "$(OBJROOT)"
+	$(CP) "$(SRCROOT)" "$(OBJROOT)"
+	@echo "-- Building/Installing --"
 	$(MAKE) -C $(OBJROOT) -f Makefile install \
 		SRCROOT=$(OBJROOT) \
 		OBJROOT=$(OBJROOT)/$(Project)

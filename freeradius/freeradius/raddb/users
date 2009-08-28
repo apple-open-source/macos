@@ -2,12 +2,6 @@
 #	Please read the documentation file ../doc/processing_users_file,
 #	or 'man 5 users' (after installing the server) for more information.
 #
-#	As of 1.1.4, you SHOULD NOT use Auth-Type.  See "man rlm_pap"
-#	for a much better way of dealing with differing passwords.
-#	If you set Auth-Type, SOME AUTHENTICATION METHODS WILL NOT WORK.
-#	If you don't set Auth-Type, the server will figure out what to do,
-#	and will almost always do the right thing.
-#
 #	This file contains authentication security and configuration
 #	information for each user.  Accounting requests are NOT processed
 #	through this file.  Instead, see 'acct_users', in this directory.
@@ -18,12 +12,6 @@
 #	include password, comm server name, comm server port number, protocol
 #	type (perhaps set by the "hints" file), and huntgroup name (set by
 #	the "huntgroups" file).
-#
-#	Indented (with the tab character) lines following the first
-#	line indicate the configuration values to be passed back to
-#	the comm server to allow the initiation of a user session.
-#	This can include things like the PPP configuration values
-#	or the host to log the user onto.
 #
 #	If you are not sure why a particular reply is being sent by the
 #	server, then run the server in debugging mode (radiusd -X), and
@@ -38,6 +26,16 @@
 #	in the order they appear in this file. The first entry that
 #	matches the login-request will stop processing unless you use
 #	the Fall-Through variable.
+#
+#	If you use the database support to turn this file into a .db or .dbm
+#	file, the DEFAULT entries _have_ to be at the end of this file and
+#	you can't have multiple entries for one username.
+#
+#	Indented (with the tab character) lines following the first
+#	line indicate the configuration values to be passed back to
+#	the comm server to allow the initiation of a user session.
+#	This can include things like the PPP configuration values
+#	or the host to log the user onto.
 #
 #	You can include another `users' file with `$INCLUDE users.other'
 #
@@ -90,7 +88,7 @@
 # Note the double quotes surrounding the name.
 #
 #"John Doe"	Cleartext-Password := "hello"
-#		Reply-Message = "Hello, %u"
+#		Reply-Message = "Hello, %{User-Name}"
 
 #
 # Dial user back and telnet to the default host for that port
@@ -126,13 +124,10 @@
 
 #
 # If the user logs in as 'username.shell', then authenticate them
-# against the system database, give them shell access, and stop processing
+# using the default method, give them shell access, and stop processing
 # the rest of the file.
 #
-# Note that authenticating against an /etc/passwd file works ONLY for PAP,
-# and not for CHAP, MS-CHAP, or EAP.
-#
-#DEFAULT	Suffix == ".shell", Auth-Type := System
+#DEFAULT	Suffix == ".shell"
 #		Service-Type = Login-User,
 #		Login-Service = Telnet,
 #		Login-IP-Host = your.shell.machine
@@ -145,13 +140,6 @@
 # A name-value pair from a DEFAULT entry will _NEVER_ override
 # an already existing name-value pair.
 #
-
-#
-# First setup all accounts to be checked against the UNIX /etc/passwd.
-# (Unless a password was already given earlier in this file).
-#
-DEFAULT	Auth-Type = System
-	Fall-Through = 1
 
 #
 # Set up different IP address pools for the terminal servers.
@@ -167,13 +155,13 @@ DEFAULT	Auth-Type = System
 #		Fall-Through = Yes
 
 #
-# Defaults for all framed connections.
+# Sample defaults for all framed connections.
 #
-DEFAULT	Service-Type == Framed-User
-	Framed-IP-Address = 255.255.255.254,
-	Framed-MTU = 576,
-	Service-Type = Framed-User,
-	Fall-Through = Yes
+#DEFAULT	Service-Type == Framed-User
+#	Framed-IP-Address = 255.255.255.254,
+#	Framed-MTU = 576,
+#	Service-Type = Framed-User,
+#	Fall-Through = Yes
 
 #
 # Default for PPP: dynamic IP address, PPP mode, VJ-compression.
@@ -210,6 +198,6 @@ DEFAULT	Hint == "SLIP"
 # # Last default: shell on the local terminal server.
 # #
 # DEFAULT
-# 	Service-Type = Shell-User
+# 	Service-Type = Administrative-User
 
 # On no match, the user is denied access.

@@ -28,7 +28,7 @@
 
 #define kMaxRetries     5
 
-static uint8_t  retryDelaysTable[kMaxRetries] =
+static int  retryDelaysTable[kMaxRetries] =
     { 1, 10, 100, 1000, 1000 };
 
 // Power states!

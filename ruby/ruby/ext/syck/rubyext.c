@@ -2,8 +2,8 @@
 /*
  * rubyext.c
  *
- * $Author: shyouhei $
- * $Date: 2008-06-15 22:09:35 +0900 (Sun, 15 Jun 2008) $
+ * $Author: knu $
+ * $Date: 2008-04-18 19:03:26 +0900 (Fri, 18 Apr 2008) $
  *
  * Copyright (C) 2003-2005 why the lucky stiff
  */
@@ -268,9 +268,13 @@ rb_syck_mktime(str, len)
     {
         char padded[] = "000000";
         char *end = ptr + 1;
+        char *p = end;
         while ( isdigit( *end ) ) end++;
-        MEMCPY(padded, ptr + 1, char, end - (ptr + 1));
-        usec = strtol(padded, NULL, 10);
+        if (end - p < sizeof(padded)) {
+            MEMCPY(padded, ptr + 1, char, end - (ptr + 1));
+            p = padded;
+        }
+        usec = strtol(p, NULL, 10);
     }
     else
     {
@@ -913,7 +917,6 @@ static VALUE
 syck_resolver_initialize( self )
     VALUE self;
 {
-    VALUE tags = rb_hash_new();
     rb_ivar_set(self, s_tags, rb_hash_new());
     return self;
 }
@@ -948,7 +951,6 @@ VALUE
 syck_resolver_detect_implicit( self, val )
     VALUE self, val;
 {
-    char *type_id;
     return rb_str_new2( "" );
 }
 
@@ -1304,7 +1306,6 @@ syck_genericresolver_node_import( self, node )
         break;
 
         case syck_seq_kind:
-            rb_iv_set(obj, "@kind", sym_seq);
             v = rb_ary_new2( syck_seq_count( n ) );
             for ( i = 0; i < syck_seq_count( n ); i++ )
             {
@@ -1315,10 +1316,10 @@ syck_genericresolver_node_import( self, node )
                 style = sym_inline;
             } 
             obj = rb_funcall( cSeq, s_new, 3, t, v, style );
+            rb_iv_set(obj, "@kind", sym_seq);
         break;
 
         case syck_map_kind:
-            rb_iv_set(obj, "@kind", sym_map);
             v = rb_hash_new();
             for ( i = 0; i < syck_map_count( n ); i++ )
             {
@@ -1329,6 +1330,7 @@ syck_genericresolver_node_import( self, node )
                 style = sym_inline;
             } 
             obj = rb_funcall( cMap, s_new, 3, t, v, style );
+            rb_iv_set(obj, "@kind", sym_map);
         break;
     }
 
@@ -2024,7 +2026,6 @@ syck_emitter_emit( argc, argv, self )
     VALUE self;
 {
     VALUE oid, proc;
-    char *anchor_name;
     SyckEmitter *emitter;
     struct emitter_xtra *bonus;
     SYMID symple;

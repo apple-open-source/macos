@@ -66,3 +66,10 @@ routine _asl_server_prune
 	out status : int;
 	SecToken token : security_token_t
 );
+
+simpleroutine _asl_server_message
+(
+	server : mach_port_t;
+	message : ooline_data, dealloc;
+	ServerAuditToken token : audit_token_t
+);

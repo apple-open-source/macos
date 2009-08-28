@@ -63,8 +63,10 @@
 #include <sys/select.h>
 #include <net/if.h>
 
-#include <netat/appletalk.h>
-#include <netat/at_var.h>
+#include "at_proto.h"
+
+#define	SET_ERRNO(e) errno = e
+
 
 /* zip_getmyzone() will return 0 on success, and -1 on failure. */
 
@@ -76,25 +78,6 @@ int zip_getmyzone(
 	at_nvestr_t *zone
 )
 {
-	at_if_cfg_t cfg;
-	int fd;
-
-        if ((fd = socket(AF_APPLETALK, SOCK_RAW, 0)) < 0) 
-		return(-1);
-
-	if (!ifName) 
-		cfg.ifr_name[0] = '\0'; /* use the default interface */
-	else
-		strncpy(cfg.ifr_name, ifName, sizeof(cfg.ifr_name));
-
-	if (ioctl(fd, AIOCGETIFCFG, (caddr_t)&cfg) < 0) {
-		close(fd);
-		return(-1);
-	}
-
-	zone->len = cfg.zonename.len;
-	strncpy(zone->str, cfg.zonename.str, zone->len);
-
-	close(fd);
-	return (0);
+	SET_ERRNO(ENXIO);
+	return (-1);
 }

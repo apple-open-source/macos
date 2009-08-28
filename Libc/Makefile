@@ -10,10 +10,11 @@
 LIB=c
 SHLIB_MAJOR= 1
 SHLIB_MINOR= 0
-.if (${MACHINE_ARCH} == unknown)
-MACHINE_ARCH != /usr/bin/arch
-.endif 
-.if !empty $(MACHINE_ARCH:M*64)
+
+.include <CoreOS/Standard/Commands.mk>
+.include <CoreOS/Standard/Variables.mk>
+
+.if !empty(MACHINE_ARCH:M*64)
 LP64 = 1
 .endif
 # RC_TARGET_CONFIG may not be set, so default to MacOSX (which is good enough
@@ -22,10 +23,19 @@ LP64 = 1
 RC_TARGET_CONFIG = MacOSX
 .endif
 
-#use default compiler
-#CC = gcc-4.0
-GCC_VERSION != cc -dumpversion | sed -e 's/^\([^.]*\.[^.]*\).*/\1/'
-GCC_42 != perl -e "print ($(GCC_VERSION) >= 4.2 ? 'YES' : 'NO')"
+# Use default compiler, so comment out OTHERCC
+#OTHERCC = gcc-4.0
+# HOSTCC is the compiler on the local host, so we need to unset any SDKROOT
+# to before calling PATH_OF_COMMAND
+.ifdef OTHERCC
+MYCC != ${PATH_OF_COMMAND} ${OTHERCC}
+HOSTCC != export -n SDKROOT && ${PATH_OF_COMMAND} ${OTHERCC}
+.else
+MYCC = ${CC}
+HOSTCC != export -n SDKROOT && ${PATH_OF_COMMAND} cc
+.endif
+GCC_VERSION != ${MYCC} -dumpversion | ${SED} -e 's/^\([^.]*\.[^.]*\).*/\1/'
+GCC_42 != ${PERL} -e "print ($(GCC_VERSION) >= 4.2 ? 'YES' : 'NO')"
 
 .ifdef ALTLIBCHEADERS
 INCLUDEDIR = ${ALTLIBCHEADERS}
@@ -39,8 +49,8 @@ PRIVINC = -I${PRIVATEHEADERS}
 LIBCFLAGS += ${PRIVINC}
 
 SYMROOTINC = ${SYMROOT}/include
-CFLAGS = -g -arch ${CCARCH} ${RC_NONARCH_CFLAGS} -std=gnu99 -fno-common -Wmost
-CFLAGS += -D__LIBC__ -D__DARWIN_UNIX03=1 -D__DARWIN_64_BIT_INO_T=1 -D__DARWIN_NON_CANCELABLE=1 -D__DARWIN_VERS_1050=1
+CFLAGS = -g -arch ${CCARCH} ${RC_NONARCH_CFLAGS} -std=gnu99 -fno-common -fno-builtin -Wmost
+CFLAGS += -D__LIBC__ -D__DARWIN_UNIX03=1 -D__DARWIN_64_BIT_INO_T=1 -D__DARWIN_NON_CANCELABLE=1 -D__DARWIN_VERS_1050=1 -D_FORTIFY_SOURCE=0
 CFLAGS += -DNOID -DLIBC_MAJOR=${SHLIB_MAJOR}
 CFLAGS += -I${.OBJDIR} -I${SYMROOTINC} -I${.CURDIR}/include
 AINC = -g -arch ${CCARCH} ${RC_NONARCH_CFLAGS}
@@ -71,7 +81,7 @@ OBJROOT ?= .
 SRCROOT ?= ${.CURDIR}
 .ifndef SYMROOT
 SYMROOT = ${.CURDIR}/SYMROOT
-_x_ != test -d ${SYMROOT} || mkdir -p ${SYMROOT}
+_x_ != ${TEST} -d ${SYMROOT} || ${MKDIR} ${SYMROOT}
 .endif
 DESTDIR ?= ${DSTROOT}
 MAKEOBJDIR ?= ${OBJROOT}
@@ -85,8 +95,6 @@ libc_version.c:
 .include "${.CURDIR}/Makefile.inc"
 .include "Makefile.xbs"
 
-MANFILTER = unifdef -t ${UNIFDEFARGS}
-.if exists(/usr/share/mk/bsd.init.mk)
+MANFILTER = ${UNIFDEF} -t ${UNIFDEFARGS}
 .include <bsd.init.mk>
-.endif
 .include <bsd.man.mk>

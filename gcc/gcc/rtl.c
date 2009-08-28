@@ -1,6 +1,6 @@
 /* RTL utility routines.
    Copyright (C) 1987, 1988, 1991, 1994, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003, 2004, 2005 Free Software Foundation, Inc.
+   2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This file is compiled twice: once for the generator programs
    once for the compiler.  */
@@ -33,7 +33,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "real.h"
 #include "ggc.h"
-#include "errors.h"
+#ifdef GENERATOR_FILE
+# include "errors.h"
+#else
+# include "toplev.h"
+#endif
 
 
 /* Indexed by rtx code, gives number of operands for an rtx with that code.
@@ -105,7 +109,7 @@ const enum rtx_class rtx_class[NUM_RTX_CODE] = {
 
 /* Indexed by rtx code, gives the size of the rtx in bytes.  */
 
-const unsigned char rtx_size[NUM_RTX_CODE] = {
+const unsigned char rtx_code_size[NUM_RTX_CODE] = {
 #define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS)				\
   ((ENUM) == CONST_INT || (ENUM) == CONST_DOUBLE			\
    ? RTX_HDR_SIZE + (sizeof FORMAT - 1) * sizeof (HOST_WIDE_INT)	\
@@ -166,6 +170,16 @@ rtvec_alloc (int n)
   return rt;
 }
 
+/* Return the number of bytes occupied by rtx value X.  */
+
+unsigned int
+rtx_size (rtx x)
+{
+  if (GET_CODE (x) == SYMBOL_REF && SYMBOL_REF_HAS_BLOCK_INFO_P (x))
+    return RTX_HDR_SIZE + sizeof (struct block_symbol);
+  return RTX_CODE_SIZE (GET_CODE (x));
+}
+
 /* Allocate an rtx of code CODE.  The CODE is stored in the rtx;
    all the rest is initialized to zero.  */
 
@@ -174,8 +188,7 @@ rtx_alloc_stat (RTX_CODE code MEM_STAT_DECL)
 {
   rtx rt;
 
-  rt = (rtx) ggc_alloc_typed_stat (gt_ggc_e_7rtx_def,
-				   RTX_SIZE (code) PASS_MEM_STAT);
+  rt = (rtx) ggc_alloc_zone_pass_stat (RTX_CODE_SIZE (code), &rtl_zone);
 
   /* We want to clear everything up to the FLD array.  Normally, this
      is one int, but we don't want to assume that and it isn't very
@@ -186,7 +199,7 @@ rtx_alloc_stat (RTX_CODE code MEM_STAT_DECL)
 
 #ifdef GATHER_STATISTICS
   rtx_alloc_counts[code]++;
-  rtx_alloc_sizes[code] += RTX_SIZE (code);
+  rtx_alloc_sizes[code] += RTX_CODE_SIZE (code);
 #endif
 
   return rt;
@@ -243,13 +256,11 @@ copy_rtx (rtx orig)
       break;
     }
 
-  copy = rtx_alloc (code);
-
-  /* Copy the various flags, and other information.  We assume that
-     all fields need copying, and then clear the fields that should
+  /* Copy the various flags, fields, and other information.  We assume
+     that all fields need copying, and then clear the fields that should
      not be copied.  That is the sensible default behavior, and forces
      us to explicitly document why we are *not* copying a flag.  */
-  memcpy (copy, orig, RTX_HDR_SIZE);
+  copy = shallow_copy_rtx (orig);
 
   /* We do not copy the USED flag, which is used as a mark bit during
      walks over the RTL.  */
@@ -264,41 +275,38 @@ copy_rtx (rtx orig)
   format_ptr = GET_RTX_FORMAT (GET_CODE (copy));
 
   for (i = 0; i < GET_RTX_LENGTH (GET_CODE (copy)); i++)
-    {
-      copy->u.fld[i] = orig->u.fld[i];
-      switch (*format_ptr++)
-	{
-	case 'e':
-	  if (XEXP (orig, i) != NULL)
-	    XEXP (copy, i) = copy_rtx (XEXP (orig, i));
-	  break;
+    switch (*format_ptr++)
+      {
+      case 'e':
+	if (XEXP (orig, i) != NULL)
+	  XEXP (copy, i) = copy_rtx (XEXP (orig, i));
+	break;
 
-	case 'E':
-	case 'V':
-	  if (XVEC (orig, i) != NULL)
-	    {
-	      XVEC (copy, i) = rtvec_alloc (XVECLEN (orig, i));
-	      for (j = 0; j < XVECLEN (copy, i); j++)
-		XVECEXP (copy, i, j) = copy_rtx (XVECEXP (orig, i, j));
-	    }
-	  break;
+      case 'E':
+      case 'V':
+	if (XVEC (orig, i) != NULL)
+	  {
+	    XVEC (copy, i) = rtvec_alloc (XVECLEN (orig, i));
+	    for (j = 0; j < XVECLEN (copy, i); j++)
+	      XVECEXP (copy, i, j) = copy_rtx (XVECEXP (orig, i, j));
+	  }
+	break;
 
-	case 't':
-	case 'w':
-	case 'i':
-	case 's':
-	case 'S':
-	case 'T':
-	case 'u':
-	case 'B':
-	case '0':
-	  /* These are left unchanged.  */
-	  break;
+      case 't':
+      case 'w':
+      case 'i':
+      case 's':
+      case 'S':
+      case 'T':
+      case 'u':
+      case 'B':
+      case '0':
+	/* These are left unchanged.  */
+	break;
 
-	default:
-	  gcc_unreachable ();
-	}
-    }
+      default:
+	gcc_unreachable ();
+      }
   return copy;
 }
 
@@ -307,11 +315,12 @@ copy_rtx (rtx orig)
 rtx
 shallow_copy_rtx_stat (rtx orig MEM_STAT_DECL)
 {
+  unsigned int size;
   rtx copy;
 
-  copy = (rtx) ggc_alloc_typed_stat (gt_ggc_e_7rtx_def,
-				     RTX_SIZE (GET_CODE (orig)) PASS_MEM_STAT);
-  memcpy (copy, orig, RTX_SIZE (GET_CODE (orig)));
+  size = rtx_size (orig);
+  copy = (rtx) ggc_alloc_zone_pass_stat (size, &rtl_zone);
+  memcpy (copy, orig, size);
   return copy;
 }
 
@@ -432,7 +441,8 @@ rtx_equal_p (rtx x, rtx y)
   return 1;
 }
 
-void dump_rtx_statistics (void)
+void
+dump_rtx_statistics (void)
 {
 #ifdef GATHER_STATISTICS
   int i;
@@ -510,6 +520,32 @@ rtl_check_failed_code2 (rtx r, enum rtx_code code1, enum rtx_code code2,
     ("RTL check: expected code '%s' or '%s', have '%s' in %s, at %s:%d",
      GET_RTX_NAME (code1), GET_RTX_NAME (code2), GET_RTX_NAME (GET_CODE (r)),
      func, trim_filename (file), line);
+}
+
+void
+rtl_check_failed_code_mode (rtx r, enum rtx_code code, enum machine_mode mode,
+			    bool not_mode, const char *file, int line,
+			    const char *func)
+{
+  internal_error ((not_mode
+		   ? ("RTL check: expected code '%s' and not mode '%s', "
+		      "have code '%s' and mode '%s' in %s, at %s:%d")
+		   : ("RTL check: expected code '%s' and mode '%s', "
+		      "have code '%s' and mode '%s' in %s, at %s:%d")),
+		  GET_RTX_NAME (code), GET_MODE_NAME (mode),
+		  GET_RTX_NAME (GET_CODE (r)), GET_MODE_NAME (GET_MODE (r)),
+		  func, trim_filename (file), line);
+}
+
+/* Report that line LINE of FILE tried to access the block symbol fields
+   of a non-block symbol.  FUNC is the function that contains the line.  */
+
+void
+rtl_check_failed_block_symbol (const char *file, int line, const char *func)
+{
+  internal_error
+    ("RTL check: attempt to treat non-block symbol as a block symbol "
+     "in %s, at %s:%d", func, trim_filename (file), line);
 }
 
 /* XXX Maybe print the vector?  */

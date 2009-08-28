@@ -25,6 +25,11 @@
 #include "PIVUtilities.h"
 
 template<size_t MAX_SIZE>
+SecureBufferAllocator<MAX_SIZE>::SecureBufferAllocator()
+: nextFree(0) {
+}
+
+template<size_t MAX_SIZE>
 SecureBufferAllocator<MAX_SIZE>::~SecureBufferAllocator() {
 	/* Clear out all buffers */
 	for(size_t i = 0; i < buffers.size(); i++)

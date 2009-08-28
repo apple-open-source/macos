@@ -2212,7 +2212,7 @@ void tp_policyTrustSettingParams(
 			if(smimeKu & (CE_KU_DigitalSignature | CE_KU_KeyCertSign | CE_KU_CRLSign)) {
 				ku |= kSecTrustSettingsKeyUseSignature;
 			}
-			if(smimeKu & (CE_KU_KeyEncipherment & CE_KU_DataEncipherment)) {
+			if(smimeKu & (CE_KU_KeyEncipherment | CE_KU_DataEncipherment)) {
 				ku |= kSecTrustSettingsKeyUseEnDecryptKey;
 			}
 			*keyUse = ku;

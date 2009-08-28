@@ -13,4 +13,4 @@ install:
 clean:
 	rm -f *.so
 
-# $Id: Makefile,v 1.1 2003/02/20 23:36:41 jas Exp $
+# $Id$

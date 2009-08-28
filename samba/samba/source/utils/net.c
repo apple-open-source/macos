@@ -11,6 +11,8 @@
 
    Reworked again by abartlet in December 2001
 
+   Copyright (C) 2008 Apple Inc. All rights reserved.
+
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2 of the License, or
@@ -39,6 +41,7 @@
 
 #include "includes.h"
 #include "utils/net.h"
+#include "opendirectory.h"
 
 /***********************************************************************/
 /* Beginning of internationalization section.  Translatable constants  */
@@ -602,6 +605,26 @@ static int net_getlocalsid(int argc, const char **argv)
 		name = global_myname();
 	}
 
+    if (lp_opendirectory()) {
+	tDirStatus status;
+	char * errmsg;
+
+	if (strequal(name, global_myname())) {
+		status = opendirectory_query_machine_sid(NULL,
+						&sid);
+	} else {
+		status = opendirectory_query_domain_sid(NULL,
+						opt_workgroup, &sid);
+	}
+
+	if (status != eDSNoErr) {
+		errmsg = dsCopyDirStatusName(status);
+		d_printf("Can't fetch domain SID for %s: %s\n", name, errmsg);
+		return 1;
+	}
+
+    } else {
+
 	if(!initialize_password_db(False)) {
 		DEBUG(0, ("WARNING: Could not open passdb - local sid may not reflect passdb\n"
 			  "backend knowlege (such as the sid stored in LDAP)\n"));
@@ -622,8 +645,12 @@ static int net_getlocalsid(int argc, const char **argv)
 		DEBUG(0, ("Can't fetch domain SID for name: %s\n", name));
 		return 1;
 	}
+
+    }
+
 	sid_to_string(sid_str, &sid);
 	d_printf("SID for domain %s is: %s\n", name, sid_str);
+
 	return 0;
 }
 
@@ -639,6 +666,21 @@ static int net_setlocalsid(int argc, const char **argv)
 		return 1;
 	}
 
+	if (lp_opendirectory()) {
+		tDirStatus status;
+		char * errmsg;
+
+		status = opendirectory_store_machine_sid(NULL, &sid);
+		if (status != eDSNoErr) {
+			errmsg = dsCopyDirStatusName(status);
+			d_printf("Can't store domain SID for %s: %s\n",
+				global_myname(), errmsg);
+			return 1;
+		}
+
+		return 0;
+	}
+
 	if (!secrets_store_domain_sid(global_myname(), &sid)) {
 		DEBUG(0,("Can't store domain SID as a pdc/bdc.\n"));
 		return 1;
@@ -650,6 +692,12 @@ static int net_setlocalsid(int argc, const char **argv)
 static int net_setdomainsid(int argc, const char **argv)
 {
 	DOM_SID sid;
+
+	if (lp_opendirectory()) {
+		d_printf("Use Workgroup Manager to set the domain SID "
+			"while in Open Directory mode.\n");
+		return 1;
+	}
 
 	if ( (argc != 1)
 	     || (strncmp(argv[0], "S-1-5-21-", strlen("S-1-5-21-")) != 0)
@@ -672,9 +720,49 @@ static int net_getdomainsid(int argc, const char **argv)
 	DOM_SID domain_sid;
 	fstring sid_str;
 
+    if (lp_opendirectory()) {
+	tDirStatus status;
+	char * errmsg;
+
+	status = opendirectory_query_machine_sid(NULL, &domain_sid);
+
+	sid_to_string(sid_str, &domain_sid);
+	d_printf("SID for domain %s is: %s\n", global_myname(), sid_str);
+	if (status != eDSNoErr) {
+		errmsg = dsCopyDirStatusName(status);
+		d_fprintf(stderr, "Could not fetch local SID (%s)\n", errmsg);
+		return 1;
+	}
+
+	status = opendirectory_query_domain_sid(NULL, opt_workgroup,
+				&domain_sid);
+	if (status != eDSNoErr) {
+		errmsg = dsCopyDirStatusName(status);
+		d_fprintf(stderr, "Could not fetch %s domain SID (%s)\n",
+			opt_workgroup, errmsg);
+		return 1;
+	}
+
+	sid_to_string(sid_str, &domain_sid);
+	d_printf("SID for domain %s is: %s\n", opt_workgroup, sid_str);
+
+	return 0;
+    } else {
+
+
 	if(!initialize_password_db(False)) {
 		DEBUG(0, ("WARNING: Could not open passdb - domain sid may not reflect passdb\n"
 			  "backend knowlege (such as the sid stored in LDAP)\n"));
+	}
+
+	/* first check to see if we can even access secrets, so we don't
+	   panic when we can't. */
+
+	if (!secrets_init()) {
+		d_fprintf(stderr, "Unable to open secrets.tdb.  "
+				  "Can't fetch domainSID for name: %s\n",
+				  get_global_sam_name());
+		return 1;
 	}
 
 	/* Generate one, if it doesn't exist */
@@ -694,6 +782,7 @@ static int net_getdomainsid(int argc, const char **argv)
 
 	sid_to_string(sid_str, &domain_sid);
 	d_printf("SID for domain %s is: %s\n", opt_workgroup, sid_str);
+    }
 
 	return 0;
 }
@@ -997,6 +1086,10 @@ static struct functable net_func[] = {
 
 	if (!opt_user_name && getenv("LOGNAME")) {
 		opt_user_name = getenv("LOGNAME");
+	}
+
+	if (!opt_user_name) {
+		opt_user_name = "";
 	}
 
 	if (!opt_workgroup) {

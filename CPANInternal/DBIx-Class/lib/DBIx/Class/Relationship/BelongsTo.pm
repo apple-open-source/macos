@@ -41,20 +41,25 @@ sub belongs_to {
     );
   }
   # explicit join condition
-  elsif (ref $cond eq 'HASH') {
-    my $cond_rel;
-    for (keys %$cond) {
-      if (m/\./) { # Explicit join condition
-        $cond_rel = $cond;
-        last;
+  elsif (ref $cond) {
+    if (ref $cond eq 'HASH') { # ARRAY is also valid
+      my $cond_rel;
+      for (keys %$cond) {
+        if (m/\./) { # Explicit join condition
+          $cond_rel = $cond;
+          last;
+        }
+        $cond_rel->{"foreign.$_"} = "self.".$cond->{$_};
       }
-      $cond_rel->{"foreign.$_"} = "self.".$cond->{$_};
+      $cond = $cond_rel;
     }
-    my $acc_type = (keys %$cond_rel == 1 and $class->has_column($rel))
-      ? 'filter'
-      : 'single';
+    my $acc_type = ((ref $cond eq 'HASH')
+                       && keys %$cond == 1
+                       && $class->has_column($rel))
+                     ? 'filter'
+                     : 'single';
     $class->add_relationship($rel, $f_class,
-      $cond_rel,
+      $cond,
       { accessor => $acc_type, %{$attrs || {}} }
     );
   }

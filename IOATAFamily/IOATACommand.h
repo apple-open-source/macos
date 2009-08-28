@@ -36,6 +36,15 @@
 #include "IOATATypes.h"
 
 
+class IOExtendedLBA;
+class IOATACommand;
+
+
+/*! @typedef IOATACompletionFunction callback function for ATA disk devices.
+*/
+typedef void (IOATACompletionFunction)(IOATACommand* command );
+
+
 /*!
 @class IOATACommand
 
@@ -50,16 +59,10 @@ Disk device drivers will only have visibility to this interface and may not subc
 Disk device drivers should instead make use of the void* refcon field which the controllers will not 
 touch
 */
-class IOExtendedLBA;
-class IOATACommand;
-
-/*! @typedef IOATACompletionFunction callback function for ATA disk devices.
-*/
-typedef void (IOATACompletionFunction)(IOATACommand* command );
 
 class IOATACommand : public IOCommand {
 
-	OSDeclareAbstractStructors( IOATACommand )
+	OSDeclareAbstractStructors( IOATACommand );
 	
 	public:
 	
@@ -201,13 +204,11 @@ class IOATACommand : public IOCommand {
 	@abstract convenience method that sets the taskfile registers into a 28-bit LBA address, with unit selected and LBA bit set. return err if param out of range, return kIOSuccess (kATANoErr) = 0 on return if successful
 	*/
 	virtual IOReturn setLBA28( UInt32 lba, ataUnitID inUnit);
-
 	
 	/*!@function setPacketCommand
 	@abstract ATAPI command packet max size is 16 bytes. Makes deep copy of data. 
 	*/
 	virtual IOReturn setPacketCommand( UInt16 packetSizeBytes, UInt8* command); 
-
 	
 	// the following registers are only accessed by register access 
 	// commands. Not by normal command dispatch where they are handled 
@@ -252,13 +253,13 @@ class IOATACommand : public IOCommand {
 	*/
 	virtual bool	getCommandInUse( void );  // returns true if IOATAController is using the command.
 	
-	
 	// for use by disk drivers, clients of IOATADevice only.
 	// IOATADevice and IOATAControllers shall not use this field in any manner
 	/*!@var refCon
 	@abstract for use by disk drivers, clients of IOATADevice only. IOATADevice and IOATAControllers shall not use this field in any manner.
 	*/
-	void*	refCon;			
+	void*	refCon;
+	
 	/*!@var refCon2
 	@abstract for use by disk drivers, clients of IOATADevice only. IOATADevice and IOATAControllers shall not use this field in any manner.
 	*/
@@ -291,7 +292,7 @@ class IOATACommand : public IOCommand {
 protected:
 /*! @struct ExpansionData
     @discussion This structure will be used to expand the capablilties of the IOWorkLoop in the future.
-    */    
+    */
     struct ExpansionData {IOExtendedLBA* extLBA; };
 
 /*! @var reserved
@@ -333,46 +334,113 @@ public:
 };
 
 
+/*!
+@class IOExtendedLBA
+
+@discussion
+If 48-bit LBAs are supported, IOExtendedLBA is used to represent a 48-bit LBA.
+The driver examines the ATA identify data to determine if 48-bit addressing is
+supported.
+*/
+
 class IOExtendedLBA : public OSObject
 {
-	OSDeclareDefaultStructors( IOExtendedLBA )
+	OSDeclareDefaultStructors( IOExtendedLBA );
 	
 	public:
 	static IOExtendedLBA* createIOExtendedLBA(IOATACommand* owner);
 	
 	// terminology as established in ATA/ATAPI-6. 
 	// for the extended LBA address
-	virtual void setLBALow16( UInt16 lbaLow);
-	virtual UInt16 getLBALow16 (void);
 	
+	/*!@function setLBALow16
+	@abstract convenience method that sets the lower 16 bits of a 48-bit LBA
+	*/
+	virtual void setLBALow16( UInt16 lbaLow);
+	
+	/*!@function getLBALow16
+	@abstract convenience method that gets the lower 16 bits of a 48-bit LBA
+	*/
+	virtual UInt16 getLBALow16 (void);
+
+	/*!@function setLBAMid16
+	@abstract convenience method that sets the middle 16 bits of a 48-bit LBA
+	*/
 	virtual void setLBAMid16 (UInt16 lbaMid);
+
+	/*!@function getLBAMid16
+	@abstract convenience method that gets the middle 16 bits of a 48-bit LBA
+	*/
 	virtual UInt16 getLBAMid16( void );
 	
+	/*!@function setLBAHigh16
+	@abstract convenience method that sets the high 16 bits of a 48-bit LBA
+	*/
 	virtual void setLBAHigh16( UInt16 lbaHigh );
-	virtual UInt16 getLBAHigh16( void );
 	
+	/*!@function getLBAHigh16
+	@abstract convenience method that gets the high 16 bits of a 48-bit LBA
+	*/
+	virtual UInt16 getLBAHigh16( void );
+
+	/*!@function setSectorCount16
+	@abstract  Taskfile access. Registers are named in accordance with ATA Standards conventions
+	*/
 	virtual void setSectorCount16( UInt16 sectorCount );
+	
+	/*!@function getSectorCount16
+	@abstract  Taskfile access. Registers are named in accordance with ATA Standards conventions
+	*/
 	virtual UInt16 getSectorCount16( void );
 	
+	/*!@function setFeatures16
+	@abstract  Taskfile access. Registers are named in accordance with ATA Standards conventions
+	*/
 	virtual void setFeatures16( UInt16 features );
+	
+	/*!@function getFeatures16
+	@abstract  Taskfile access. Registers are named in accordance with ATA Standards conventions
+	*/
 	virtual UInt16 getFeatures16( void );
 
+	/*!@function setDevice
+	@abstract  Taskfile access. Registers are named in accordance with ATA Standards conventions
+	*/
 	virtual void setDevice( UInt8 inDevice );
+
+	/*!@function getDevice
+	@abstract  Taskfile access. Registers are named in accordance with ATA Standards conventions
+	*/
 	virtual UInt8 getDevice( void );
 
+	/*!@function setCommand
+	@abstract  Taskfile access. Registers are named in accordance with ATA Standards conventions
+	*/
 	virtual void setCommand( UInt8 inCommand );
+
+	/*!@function getCommand
+	@abstract  Taskfile access. Registers are named in accordance with ATA Standards conventions
+	*/
 	virtual UInt8 getCommand( void );
 
-	
+	/*!@function setExtendedLBA
+	@abstract convenience method that sets the taskfile registers into a 48-bit LBA address, along with sector count, and unit selected and LBA bit set
+	*/
 	virtual void setExtendedLBA( UInt32 inLBAHi, UInt32 inLBALo, ataUnitID inUnit, UInt16 extendedCount, UInt8 extendedCommand);
+	
+	/*!@function getExtendedLBA
+	@abstract convenience method that gets a 48-bit LBA
+	*/
 	virtual void getExtendedLBA(  UInt32* outLBAHi, UInt32* outLBALo );
 
+	/*!@function zeroData
+	@abstract convenience method that zeros out the lba, sector count, features, device, and command member variables
+	*/
 	virtual void zeroData(void);
 	
-
 	/*! @struct ExpansionData
     @discussion This structure will be used to expand the capablilties in the future.
-    */    
+    */
     struct ExpansionData { };
 
 	/*! @var reserved

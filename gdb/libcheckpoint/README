@@ -1,5 +1,0 @@
-This directory includes code for helper functions that GDB wants
-to call in the inferior.
-
-They get built into a dylib that GDB can ask to load by calling the
-inferior's dlopen().

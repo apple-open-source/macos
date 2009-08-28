@@ -531,6 +531,12 @@ Python_Init(void)
 	if (PythonMod_Init())
 	    goto fail;
 
+	/* Remove the element from sys.path that was added because of our
+	 * argv[0] value in PythonMod_Init().  Previously we used an empty
+	 * string, but dependinding on the OS we then get an empty entry or
+	 * the current directory in sys.path. */
+	PyRun_SimpleString("import sys; sys.path = filter(lambda x: x != '/must>not&exist', sys.path)");
+
 	/* the first python thread is vim's, release the lock */
 	Python_SaveThread();
 
@@ -1145,14 +1151,23 @@ VimToPython(typval_T *our_tv, int depth, PyObject *lookupDict)
 
     /* Check if we run into a recursive loop.  The item must be in lookupDict
      * then and we can use it again. */
-    sprintf(ptrBuf, PRINTF_DECIMAL_LONG_U, (long_u)our_tv);
-    result = PyDict_GetItemString(lookupDict, ptrBuf);
-    if (result != NULL)
-	Py_INCREF(result);
-    else if (our_tv->v_type == VAR_STRING)
+    if ((our_tv->v_type == VAR_LIST && our_tv->vval.v_list != NULL)
+	    || (our_tv->v_type == VAR_DICT && our_tv->vval.v_dict != NULL))
+    {
+	sprintf(ptrBuf, PRINTF_DECIMAL_LONG_U,
+	        our_tv->v_type == VAR_LIST ? (long_u)our_tv->vval.v_list
+		                           : (long_u)our_tv->vval.v_dict);
+	result = PyDict_GetItemString(lookupDict, ptrBuf);
+	if (result != NULL)
+	{
+	    Py_INCREF(result);
+	    return result;
+	}
+    }
+
+    if (our_tv->v_type == VAR_STRING)
     {
 	result = Py_BuildValue("s", our_tv->vval.v_string);
-	PyDict_SetItemString(lookupDict, ptrBuf, result);
     }
     else if (our_tv->v_type == VAR_NUMBER)
     {
@@ -1161,7 +1176,6 @@ VimToPython(typval_T *our_tv, int depth, PyObject *lookupDict)
 	/* For backwards compatibility numbers are stored as strings. */
 	sprintf(buf, "%ld", (long)our_tv->vval.v_number);
 	result = Py_BuildValue("s", buf);
-	PyDict_SetItemString(lookupDict, ptrBuf, result);
     }
 # ifdef FEAT_FLOAT
     else if (our_tv->v_type == VAR_FLOAT)
@@ -1170,7 +1184,6 @@ VimToPython(typval_T *our_tv, int depth, PyObject *lookupDict)
 
 	sprintf(buf, "%f", our_tv->vval.v_float);
 	result = Py_BuildValue("s", buf);
-	PyDict_SetItemString(lookupDict, ptrBuf, result);
     }
 # endif
     else if (our_tv->v_type == VAR_LIST)
@@ -1179,10 +1192,11 @@ VimToPython(typval_T *our_tv, int depth, PyObject *lookupDict)
 	listitem_T	*curr;
 
 	result = PyList_New(0);
-	PyDict_SetItemString(lookupDict, ptrBuf, result);
 
 	if (list != NULL)
 	{
+	    PyDict_SetItemString(lookupDict, ptrBuf, result);
+
 	    for (curr = list->lv_first; curr != NULL; curr = curr->li_next)
 	    {
 		newObj = VimToPython(&curr->li_tv, depth + 1, lookupDict);
@@ -1194,7 +1208,6 @@ VimToPython(typval_T *our_tv, int depth, PyObject *lookupDict)
     else if (our_tv->v_type == VAR_DICT)
     {
 	result = PyDict_New();
-	PyDict_SetItemString(lookupDict, ptrBuf, result);
 
 	if (our_tv->vval.v_dict != NULL)
 	{
@@ -1202,6 +1215,8 @@ VimToPython(typval_T *our_tv, int depth, PyObject *lookupDict)
 	    long_u	todo = ht->ht_used;
 	    hashitem_T	*hi;
 	    dictitem_T	*di;
+
+	    PyDict_SetItemString(lookupDict, ptrBuf, result);
 
 	    for (hi = ht->ht_array; todo > 0; ++hi)
 	    {
@@ -2345,7 +2360,8 @@ PythonMod_Init(void)
 {
     PyObject *mod;
     PyObject *dict;
-    static char *(argv[2]) = {"", NULL};
+    /* The special value is removed from sys.path in Python_Init(). */
+    static char *(argv[2]) = {"/must>not&exist/foo", NULL};
 
     /* Fixups... */
     BufferType.ob_type = &PyType_Type;

@@ -66,8 +66,6 @@ typedef void (*l2tp_rfc_event_callback)(void *data, u_int32_t evt, void *msg);
 
 u_int16_t l2tp_rfc_init();
 u_int16_t l2tp_rfc_dispose();
-int l2tp_rfc_attach(u_short unit, u_long *dl_tag);
-int l2tp_rfc_detach(u_short unit);
 u_int16_t l2tp_rfc_new_client(void *host, void **data,
                          l2tp_rfc_input_callback input, 
                          l2tp_rfc_event_callback event);

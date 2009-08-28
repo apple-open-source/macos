@@ -12,7 +12,12 @@
 #define IN_LIBXSLT
 #include "libxslt.h"
 
+#ifndef	XSLT_NEED_TRIO
 #include <stdio.h>
+#else
+#include <trio.h>
+#endif
+
 #include <string.h>
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
@@ -47,11 +52,6 @@
 #endif /* _MS_VER */
 #endif /* WIN32 */
 
-#ifdef XSLT_NEED_TRIO
-#include "trio.h"
-#define vsnprintf trio_vsnprintf
-#endif
-
 /************************************************************************
  * 									*
  * 			Convenience function				*
@@ -76,7 +76,7 @@
  * default declaration values unless DTD use has been turned off.
  *
  * Returns the attribute value or NULL if not found. The string is allocated
- *         in the stylesheet dictionnary.
+ *         in the stylesheet dictionary.
  */
 const xmlChar *
 xsltGetCNsProp(xsltStylesheetPtr style, xmlNodePtr node,
@@ -173,6 +173,15 @@ xsltGetNsProp(xmlNodePtr node, const xmlChar *name, const xmlChar *nameSpace) {
 	return(NULL);
 
     prop = node->properties;
+    /*
+    * TODO: Substitute xmlGetProp() for xmlGetNsProp(), since the former
+    * is not namespace-aware and will return an attribute with equal
+    * name regardless of its namespace.
+    * Example:
+    *   <xsl:element foo:name="myName"/>
+    *   So this would return "myName" even if an attribute @name
+    *   in the XSLT was requested.
+    */
     if (nameSpace == NULL)
 	return(xmlGetProp(node, name));
     while (prop != NULL) {
@@ -286,10 +295,119 @@ xsltGetUTF8Char(const unsigned char *utf, int *len) {
     return(c);
 
 error:
-    *len = 0;
+    if (len != NULL)
+	*len = 0;
     return(-1);
 }
 
+#ifdef XSLT_REFACTORED
+
+/**
+ * xsltPointerListAddSize:
+ * @list: the pointer list structure
+ * @item: the item to be stored
+ * @initialSize: the initial size of the list
+ *
+ * Adds an item to the list.
+ *
+ * Returns the position of the added item in the list or
+ *         -1 in case of an error.
+ */
+int
+xsltPointerListAddSize(xsltPointerListPtr list,		       
+		       void *item,
+		       int initialSize)
+{
+    if (list->items == NULL) {
+	if (initialSize <= 0)
+	    initialSize = 1;
+	list->items = (void **) xmlMalloc(
+	    initialSize * sizeof(void *));
+	if (list->items == NULL) {
+	    xsltGenericError(xsltGenericErrorContext,
+	     "xsltPointerListAddSize: memory allocation failure.\n");
+	    return(-1);
+	}
+	list->number = 0;
+	list->size = initialSize;
+    } else if (list->size <= list->number) {
+	list->size *= 2;
+	list->items = (void **) xmlRealloc(list->items,
+	    list->size * sizeof(void *));
+	if (list->items == NULL) {
+	    xsltGenericError(xsltGenericErrorContext,
+	     "xsltPointerListAddSize: memory re-allocation failure.\n");
+	    list->size = 0;
+	    return(-1);
+	}
+    }
+    list->items[list->number++] = item;
+    return(0);
+}
+
+/**
+ * xsltPointerListCreate:
+ * @initialSize: the initial size for the list
+ *
+ * Creates an xsltPointerList structure.
+ *
+ * Returns a xsltPointerList structure or NULL in case of an error.
+ */
+xsltPointerListPtr
+xsltPointerListCreate(int initialSize)
+{
+    xsltPointerListPtr ret;
+
+    ret = xmlMalloc(sizeof(xsltPointerList));
+    if (ret == NULL) {
+	xsltGenericError(xsltGenericErrorContext,
+	     "xsltPointerListCreate: memory allocation failure.\n");
+	return (NULL);
+    }
+    memset(ret, 0, sizeof(xsltPointerList));
+    if (initialSize > 0) {
+	xsltPointerListAddSize(ret, NULL, initialSize);
+	ret->number = 0;
+    }
+    return (ret);
+}
+
+/**
+ * xsltPointerListFree:
+ * @list: pointer to the list to be freed
+ *
+ * Frees the xsltPointerList structure. This does not free
+ * the content of the list.
+ */
+void
+xsltPointerListFree(xsltPointerListPtr list)
+{
+    if (list == NULL)
+	return;
+    if (list->items != NULL)
+	xmlFree(list->items);
+    xmlFree(list);
+}
+
+/**
+ * xsltPointerListClear:
+ * @list: pointer to the list to be cleared
+ *
+ * Resets the list, but does not free the allocated array
+ * and does not free the content of the list.
+ */
+void
+xsltPointerListClear(xsltPointerListPtr list)
+{
+    if (list->items != NULL) {
+	xmlFree(list->items);
+	list->items = NULL;
+    }
+    list->number = 0;
+    list->size = 0;
+}
+
+#endif /* XSLT_REFACTORED */
 
 /************************************************************************
  * 									*
@@ -307,20 +425,27 @@ error:
  */
 void
 xsltMessage(xsltTransformContextPtr ctxt, xmlNodePtr node, xmlNodePtr inst) {
+    xmlGenericErrorFunc error = xsltGenericError;
+    void *errctx = xsltGenericErrorContext;
     xmlChar *prop, *message;
     int terminate = 0;
 
     if ((ctxt == NULL) || (inst == NULL))
 	return;
 
-    prop = xsltGetNsProp(inst, (const xmlChar *)"terminate", XSLT_NAMESPACE);
+    if (ctxt->error != NULL) {
+	error = ctxt->error;
+	errctx = ctxt->errctx;
+    }
+
+    prop = xmlGetNsProp(inst, (const xmlChar *)"terminate", NULL);
     if (prop != NULL) {
 	if (xmlStrEqual(prop, (const xmlChar *)"yes")) {
 	    terminate = 1;
 	} else if (xmlStrEqual(prop, (const xmlChar *)"no")) {
 	    terminate = 0;
 	} else {
-	    xsltGenericError(xsltGenericErrorContext,
+	    error(errctx,
 		"xsl:message : terminate expecting 'yes' or 'no'\n");
 	    ctxt->state = XSLT_STATE_ERROR;
 	}
@@ -330,10 +455,9 @@ xsltMessage(xsltTransformContextPtr ctxt, xmlNodePtr node, xmlNodePtr inst) {
     if (message != NULL) {
 	int len = xmlStrlen(message);
 
-	xsltGenericError(xsltGenericErrorContext, "%s",
-		         (const char *)message);
+	error(errctx, "%s", (const char *)message);
 	if ((len > 0) && (message[len - 1] != '\n'))
-	    xsltGenericError(xsltGenericErrorContext, "\n");
+	    error(errctx, "\n");
 	xmlFree(message);
     }
     if (terminate)
@@ -358,7 +482,7 @@ xsltMessage(xsltTransformContextPtr ctxt, xmlNodePtr node, xmlNodePtr inst) {
 								\
     size = 150;							\
 								\
-    while (1) {							\
+    while (size < 64000) {					\
 	va_start(ap, msg);					\
   	chars = vsnprintf(str, size, msg, ap);			\
 	va_end(ap);						\
@@ -512,8 +636,16 @@ xsltPrintErrorContext(xsltTransformContextPtr ctxt,
     
     if (ctxt != NULL)
 	type = "runtime error";
-    else if (style != NULL)
+    else if (style != NULL) {
+#ifdef XSLT_REFACTORED
+	if (XSLT_CCTXT(style)->errSeverity == XSLT_ERROR_SEVERITY_WARNING)
+	    type = "compilation warning";
+	else
+	    type = "compilation error";
+#else
 	type = "compilation error";
+#endif
+    }
 
     if ((file != NULL) && (line != 0) && (name != NULL))
 	error(errctx, "%s: file %s line %d element %s\n",
@@ -594,11 +726,11 @@ xsltTransformError(xsltTransformContextPtr ctxt,
 
 /**
  * xsltSplitQName:
- * @dict: a dictionnary
+ * @dict: a dictionary
  * @name:  the full QName
  * @prefix: the return value
  *
- * Split QNames into prefix and local names, both allocated from a dictionnary.
+ * Split QNames into prefix and local names, both allocated from a dictionary.
  *
  * Returns: the localname or NULL in case of error.
  */
@@ -753,9 +885,16 @@ xsltGetQNameURI2(xsltStylesheetPtr style, xmlNodePtr node,
     qname = xmlStrndup(*name, len);
     ns = xmlSearchNs(node->doc, node, qname);
     if (ns == NULL) {
-        xsltGenericError(xsltGenericErrorContext,
+	if (style) {
+	    xsltTransformError(NULL, style, node,
+		"No namespace bound to prefix '%s'.\n",
+		qname);
+	    style->errors++;
+	} else {
+	    xsltGenericError(xsltGenericErrorContext,
                 "%s : no namespace bound to prefix %s\n",
 		*name, qname);
+	}
         *name = NULL;
         xmlFree(qname);
         return(NULL);
@@ -776,6 +915,7 @@ xsltGetQNameURI2(xsltStylesheetPtr style, xmlNodePtr node,
  * @list:  the node set
  *
  * reorder the current node list @list accordingly to the document order
+ * This function is slow, obsolete and should not be used anymore.
  */
 void
 xsltDocumentSortFunction(xmlNodeSetPtr list) {
@@ -813,12 +953,16 @@ xsltDocumentSortFunction(xmlNodeSetPtr list) {
  */
 xmlXPathObjectPtr *
 xsltComputeSortResult(xsltTransformContextPtr ctxt, xmlNodePtr sort) {
+#ifdef XSLT_REFACTORED
+    xsltStyleItemSortPtr comp;
+#else
+    xsltStylePreCompPtr comp;
+#endif
     xmlXPathObjectPtr *results = NULL;
     xmlNodeSetPtr list = NULL;
     xmlXPathObjectPtr res;
     int len = 0;
-    int i;
-    xsltStylePreCompPtr comp;
+    int i;    
     xmlNodePtr oldNode;
     xmlNodePtr oldInst;
     int	oldPos, oldSize ;
@@ -864,8 +1008,18 @@ xsltComputeSortResult(xsltTransformContextPtr ctxt, xmlNodePtr sort) {
 	ctxt->xpathCtxt->proximityPosition = i + 1;
 	ctxt->node = list->nodeTab[i];
 	ctxt->xpathCtxt->node = ctxt->node;
+#ifdef XSLT_REFACTORED
+	if (comp->inScopeNs != NULL) {
+	    ctxt->xpathCtxt->namespaces = comp->inScopeNs->list;
+	    ctxt->xpathCtxt->nsNr = comp->inScopeNs->xpathNumber;
+	} else {
+	    ctxt->xpathCtxt->namespaces = NULL;
+	    ctxt->xpathCtxt->nsNr = 0;
+	}
+#else
 	ctxt->xpathCtxt->namespaces = comp->nsList;
 	ctxt->xpathCtxt->nsNr = comp->nsNr;
+#endif
 	res = xmlXPathCompiledEval(comp->comp, ctxt->xpathCtxt);
 	if (res != NULL) {
 	    if (res->type != XPATH_STRING)
@@ -921,6 +1075,11 @@ xsltComputeSortResult(xsltTransformContextPtr ctxt, xmlNodePtr sort) {
 void	
 xsltDefaultSortFunction(xsltTransformContextPtr ctxt, xmlNodePtr *sorts,
 	           int nbsorts) {
+#ifdef XSLT_REFACTORED
+    xsltStyleItemSortPtr comp;
+#else
+    xsltStylePreCompPtr comp;
+#endif
     xmlXPathObjectPtr *resultsTab[XSLT_MAX_SORT];
     xmlXPathObjectPtr *results = NULL, *res;
     xmlNodeSetPtr list = NULL;
@@ -930,8 +1089,7 @@ xsltDefaultSortFunction(xsltTransformContextPtr ctxt, xmlNodePtr *sorts,
     int tst;
     int depth;
     xmlNodePtr node;
-    xmlXPathObjectPtr tmp;
-    xsltStylePreCompPtr comp;
+    xmlXPathObjectPtr tmp;    
     int tempstype[XSLT_MAX_SORT], temporder[XSLT_MAX_SORT];
 
     if ((ctxt == NULL) || (sorts == NULL) || (nbsorts <= 0) ||
@@ -1234,7 +1392,13 @@ xsltSetCtxtParseOptions(xsltTransformContextPtr ctxt, int options)
     if (ctxt == NULL)
         return(-1);
     oldopts = ctxt->parserOptions;
+    if (ctxt->xinclude)
+        oldopts |= XML_PARSE_XINCLUDE;
     ctxt->parserOptions = options;
+    if (options & XML_PARSE_XINCLUDE)
+        ctxt->xinclude = 1;
+    else
+        ctxt->xinclude = 0;
     return(oldopts);
 }
 
@@ -1543,9 +1707,9 @@ xsltSaveResultToFd(int fd, xmlDocPtr result, xsltStylesheetPtr style) {
  * @style:  the stylesheet
  *
  * Save the result @result obtained by applying the @style stylesheet
- * to a file or @URL
+ * to a new allocated string.
  *
- * Returns the number of byte written or -1 in case of failure.
+ * Returns 0 in case of success and -1 in case of error
  */
 int
 xsltSaveResultToString(xmlChar **doc_txt_ptr, int * doc_txt_len, 
@@ -1921,20 +2085,57 @@ xsltGetProfileInformation(xsltTransformContextPtr ctxt)
  */
 xmlXPathCompExprPtr
 xsltXPathCompile(xsltStylesheetPtr style, const xmlChar *str) {
-    xmlXPathContext xctxt;
+    xmlXPathContextPtr xpathCtxt;
     xmlXPathCompExprPtr ret;
 
-    memset(&xctxt, 0, sizeof(xctxt));
-    if (style != NULL)
-	xctxt.dict = style->dict;
-    ret = xmlXPathCtxtCompile(&xctxt, str);
+    if (style != NULL) {
+#ifdef XSLT_REFACTORED_XPATHCOMP
+	if (XSLT_CCTXT(style)) {
+	    /*
+	    * Proposed by Jerome Pesenti
+	    * --------------------------
+	    * For better efficiency we'll reuse the compilation
+	    * context's XPath context. For the common stylesheet using
+	    * XPath expressions this will reduce compilation time to
+	    * about 50%.
+	    *
+	    * See http://mail.gnome.org/archives/xslt/2006-April/msg00037.html
+	    */
+	    xpathCtxt = XSLT_CCTXT(style)->xpathCtxt;
+	    xpathCtxt->doc = style->doc;
+	} else
+	    xpathCtxt = xmlXPathNewContext(style->doc);
+#else
+	xpathCtxt = xmlXPathNewContext(style->doc);
+#endif
+	if (xpathCtxt == NULL)
+	    return NULL;
+	xpathCtxt->dict = style->dict;
+    } else {
+	xpathCtxt = xmlXPathNewContext(NULL);
+	if (xpathCtxt == NULL)
+	    return NULL;
+    }
+    /*
+    * Compile the expression.
+    */
+    ret = xmlXPathCtxtCompile(xpathCtxt, str);
+
+#ifdef XSLT_REFACTORED_XPATHCOMP
+    if ((style == NULL) || (! XSLT_CCTXT(style))) {
+	xmlXPathFreeContext(xpathCtxt);
+    }
+#else
+    xmlXPathFreeContext(xpathCtxt);
+#endif
     /*
      * TODO: there is a lot of optimizations which should be possible
      *       like variable slot precomputations, function precomputations, etc.
      */
-     
+
     return(ret);
 }
+
 /************************************************************************
  * 									*
  * 		Hooks for the debugger					*

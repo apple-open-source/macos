@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,7 +38,7 @@ __END_DECLS
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #endif /* MIN */
 
-#define next_page(x) trunc_page_32(x + PAGE_SIZE)
+#define next_page(x) trunc_page(x + PAGE_SIZE)
 
 #if 0 
 #define ERROR_LOG(args...)  IOLog(args)
@@ -109,16 +109,16 @@ bool IOMbufMemoryCursor::initWithSpecification(OutputSegmentFunc inOutSeg,
 
 static inline void coalesceSegments(mbuf_t srcm, mbuf_t dstm)
 {
-    vm_offset_t src, dst;
+    uintptr_t src, dst;
     SInt32 srcLen, dstLen;
     mbuf_t temp;
     mbuf_t head = srcm;
 	
     srcLen = mbuf_len( srcm );
-    src = (vm_offset_t) mbuf_data(srcm);
+    src = (uintptr_t) mbuf_data(srcm);
 
     dstLen = mbuf_len( dstm );
-    dst = (vm_offset_t) mbuf_data( dstm );
+    dst = (uintptr_t) mbuf_data( dstm );
 	
     for (;;) {
         if (srcLen < dstLen) {
@@ -135,7 +135,7 @@ static inline void coalesceSegments(mbuf_t srcm, mbuf_t dstm)
             srcm = temp;
 
             srcLen = mbuf_len( srcm );
-            src = (vm_offset_t)mbuf_data(srcm);
+            src = (uintptr_t)mbuf_data(srcm);
         }
         else if (srcLen > dstLen) {
 
@@ -149,7 +149,7 @@ static inline void coalesceSegments(mbuf_t srcm, mbuf_t dstm)
             dstm = temp;
 
             dstLen = mbuf_len( dstm );
-            dst = (vm_offset_t)mbuf_data( dstm );
+            dst = (uintptr_t)mbuf_data( dstm );
         }
         else {  /* (srcLen == dstLen) */
 
@@ -173,9 +173,9 @@ static inline void coalesceSegments(mbuf_t srcm, mbuf_t dstm)
 
             assert(srcm);
             dstLen = mbuf_len ( dstm );
-            dst = (vm_offset_t)mbuf_data( dstm );
+            dst = (uintptr_t)mbuf_data( dstm );
             srcLen = mbuf_len( srcm );
-            src = (vm_offset_t)mbuf_data( srcm );
+            src = (uintptr_t)mbuf_data( srcm );
         }
     }
 }
@@ -222,7 +222,7 @@ static inline bool analyseSegments(
     // equal to zero.
     //  
     do {
-        vm_offset_t vmo;
+        uintptr_t vmo;
         
         outLen += mbuf_len(in);
 
@@ -243,9 +243,9 @@ static inline bool analyseSegments(
                 continue;
             }
             
-            vmo = (vm_offset_t)mbuf_data(out);
+            vmo = (uintptr_t)mbuf_data(out);
             mbuf_setlen(out, MCLBYTES);  /* Fill in target copy size */
-            doneSegs += (round_page_32(vmo + MCLBYTES) - trunc_page_32(vmo))
+            doneSegs += (round_page(vmo + MCLBYTES) - trunc_page(vmo))
                      /   PAGE_SIZE;
 
             // If the number of segments of the output chain, plus
@@ -271,8 +271,8 @@ static inline bool analyseSegments(
         }
 
         // Compute number of segment in current outgoing mbuf.
-        vmo = (vm_offset_t)mbuf_data(out);
-        outSegs = (round_page_32(vmo + outLen) - trunc_page_32(vmo)) / PAGE_SIZE;
+        vmo = (uintptr_t)mbuf_data(out);
+        outSegs = (round_page(vmo + outLen) - trunc_page(vmo)) / PAGE_SIZE;
         if (doneSegs + outSegs > (int) maxSegs) {
             ERROR_LOG("analyseSegments: maxSegs limit 2 reached! %ld %ld %ld\n",
                       doneSegs, outSegs, maxSegs);
@@ -286,7 +286,7 @@ static inline bool analyseSegments(
             // Hmm, we have to recompute from scratch. Copy code from genPhys.
             int thisLen = 0, mbufLen;
 
-            vmo = (vm_offset_t)mbuf_data(in);
+            vmo = (uintptr_t)mbuf_data(in);
             for (mbufLen = mbuf_len(in); mbufLen; mbufLen -= thisLen) {
                 thisLen = MIN(next_page(vmo), vmo + mbufLen) - vmo;
                 vmo += thisLen;
@@ -348,7 +348,7 @@ UInt32 IOMbufMemoryCursor::genPhysicalSegments(mbuf_t packet, void *vector,
 
     if ( mbuf_next(packet) == 0 )
     {
-        vm_offset_t               src;
+        uintptr_t               src;
         struct IOPhysicalSegment  physSeg;
 
         /*
@@ -356,9 +356,9 @@ UInt32 IOMbufMemoryCursor::genPhysicalSegments(mbuf_t packet, void *vector,
          * so if the data buffer doesn't span a page boundary
          * we can take the simple way out
          */
-        src = (vm_offset_t)mbuf_data(packet);
+        src = (uintptr_t)mbuf_data(packet);
 
-        if ( trunc_page_32(src) == trunc_page_32(src + mbuf_len(packet) - 1) )
+        if ( trunc_page(src) == trunc_page(src + mbuf_len(packet) - 1) )
         {
             physSeg.location = (IOPhysicalAddress) mcl_to_paddr((char *)src);
             if ( physSeg.location )
@@ -375,8 +375,8 @@ UInt32 IOMbufMemoryCursor::genPhysicalSegments(mbuf_t packet, void *vector,
 
     if ( doCoalesce == true && maxSegs == 1 )
     {
-        vm_offset_t               src;
-        vm_offset_t               dst;
+        uintptr_t               src;
+        uintptr_t               dst;
         mbuf_t               m;
         mbuf_t               mnext;
         mbuf_t               out;
@@ -391,11 +391,11 @@ UInt32 IOMbufMemoryCursor::genPhysicalSegments(mbuf_t packet, void *vector,
         if (mbuf_getpacket( M_DONTWAIT, &out ))
 			return 0;
 		mbuf_setflags( out, mbuf_flags( out ) & ~M_PKTHDR );
-        dst = (vm_offset_t)mbuf_data(out);
+        dst = (uintptr_t)mbuf_data(out);
 
         do
         {
-            src = (vm_offset_t)mbuf_data(m);
+            src = (uintptr_t)mbuf_data(m);
             BCOPY( src, dst, mbuf_len(m) );
             dst += mbuf_len(m);
             len += mbuf_len(m);
@@ -403,7 +403,7 @@ UInt32 IOMbufMemoryCursor::genPhysicalSegments(mbuf_t packet, void *vector,
 
         mbuf_setlen(out , len);
 
-        dst = (vm_offset_t)mbuf_data(out);
+        dst = (uintptr_t)mbuf_data(out);
         physSeg.location = (IOPhysicalAddress) mcl_to_paddr((char *)dst);
         if (!physSeg.location)
         {
@@ -449,10 +449,10 @@ tryAgain:
     // For each mbuf in incoming packet.
     do {
         vm_size_t   mbufLen, thisLen = 0;
-        vm_offset_t src;
+        uintptr_t src;
 
         // Step through each segment in the current mbuf
-        for (mbufLen = mbuf_len(m), src = (vm_offset_t)mbuf_data(m);
+        for (mbufLen = mbuf_len(m), src = (uintptr_t)mbuf_data(m);
              mbufLen;
              src += thisLen, mbufLen -= thisLen)
         {

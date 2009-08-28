@@ -243,3 +243,87 @@ domXPathSelect( xmlNodePtr refNode, xmlChar * path ) {
 
     return rv;
 }
+
+/**
+ * Most of the code is stolen from testXPath. 
+ * The almost only thing I added, is the storeing of the data, so
+ * we can access the data easily - or say more easiely than through
+ * libxml2.
+ **/
+
+xmlXPathObjectPtr
+domXPathFindCtxt( xmlXPathContextPtr ctxt, xmlChar * path ) {
+    xmlXPathObjectPtr res = NULL;
+  
+    if ( ctxt->node != NULL && path != NULL ) {
+        xmlXPathCompExprPtr comp;
+
+        xmlDocPtr tdoc = NULL;
+        xmlNodePtr froot = ctxt->node;
+
+        comp = xmlXPathCompile( path );
+        if ( comp == NULL ) {
+            return NULL;
+        }
+        
+        if ( ctxt->node->doc == NULL ) {
+            /* if one XPaths a node from a fragment, libxml2 will
+               refuse the lookup. this is not very usefull for XML
+               scripters. thus we need to create a temporary document
+               to make libxml2 do it's job correctly.
+             */
+            tdoc = xmlNewDoc( NULL );
+
+            /* find refnode's root node */
+            while ( froot != NULL ) {
+                if ( froot->parent == NULL ) {
+                    break;
+                }
+                froot = froot->parent;
+            }
+            xmlAddChild((xmlNodePtr)tdoc, froot);
+
+            ctxt->node->doc = tdoc;
+        }
+       
+        res = xmlXPathCompiledEval(comp, ctxt);
+
+        xmlXPathFreeCompExpr(comp);
+
+        if ( tdoc != NULL ) {
+            /* after looking through a fragment, we need to drop the
+               fake document again */
+	    xmlSetTreeDoc(froot,NULL);
+            froot->doc = NULL;
+            tdoc->children = NULL;
+            tdoc->last     = NULL;
+            froot->parent  = NULL;
+            ctxt->node->doc = NULL;
+
+            xmlFreeDoc( tdoc );
+        }
+    }
+    return res;
+}
+
+xmlNodeSetPtr
+domXPathSelectCtxt( xmlXPathContextPtr ctxt, xmlChar * path ) {
+    xmlNodeSetPtr rv = NULL;
+    xmlXPathObjectPtr res = NULL;
+  
+    res = domXPathFindCtxt( ctxt, path );
+    
+    if (res != NULL) {
+            /* here we have to transfer the result from the internal
+               structure to the return value */
+        	/* get the result from the query */
+        	/* we have to unbind the nodelist, so free object can 
+        	   not kill it */
+        rv = res->nodesetval;  
+        res->nodesetval = 0 ;
+    }
+
+    xmlXPathFreeObject(res);
+
+    return rv;
+}

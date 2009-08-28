@@ -1,0 +1,313 @@
+commit 427023df02bd38ff9dc2af2a2059466f37f4cfd8
+Author: Benjamin Close <Benjamin.Close@clearchain.com>
+Date:   Wed Dec 19 15:17:34 2007 +1030
+
+    Fix build under autoconf 2.57
+    
+    configure.ac specifies a max version of 2.57 but AC_CHECK_HEADERS_ONCE
+    was only introduced to autoconf in 2.59c. Drop the _ONCE to make autoconf happy
+    
+    Bug: 13631
+    Found by: tinderbox
+    Approved by: daniels@
+
+commit e09956f244099ddd36b1a2cd5d7800d5fc7120c1
+Author: Kim Woelders <kim@woelders.dk>
+Date:   Thu Dec 6 05:30:43 2007 -0500
+
+    Select correct client window in WM’s using virtual roots
+    From bug 2185¹
+    
+    When manually selecting a window, xprop finds the top-level window containing
+    the pointer and uses XmuClientWindow to attempt to find a client window having
+    WM_STATE set.
+    
+    In a WM using virtual roots (e.g. enlightenment, desks other than first) this
+    fails beacuse the top-level window is a virtual root, and XmuClientWindow seems
+    to find the first client having WM_STATE set, which only by coincidence will be
+    the one the user intended to select (i.e. containing the pointer).
+    
+    The solution is to descend the window hierarchy at the pointer location to find
+    a window with WM_STATE set.
+    
+    1] https://bugs.freedesktop.org/show_bug.cgi?id=2185
+    
+    Signed-off-by: James Cloos <cloos@jhcloos.com>
+
+commit 9ccda86dae06375750685977a81f4fb1cabf3d00
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Aug 10 14:52:27 2007 -0700
+
+    Version bump: 1.0.3
+
+commit 4f7bc8ecad63db6b7557b5556ac6f604e84eb55e
+Author: Jay Hobson <jay.hobson@sun.com>
+Date:   Wed Aug 8 13:38:33 2001 -0700
+
+    Sun Bug 4474581: xprop fails in Japanese locale
+    
+    CJK locales need a much longer string as they include
+    many \xXX entries which expand into /XXXXXXXX entries.
+    Increased the buffer from 10000 to 500000 bytes.
+    Make sure buffer pointer doesn't go negative in _put_char.
+
+commit 23e375f3842b433b0af7f150135537f7381208ae
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Aug 10 14:17:51 2007 -0700
+
+    Simplify printing of usage message
+
+commit fc788dc35532ebff44b5828f686b42e0deeec52c
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Aug 10 13:40:17 2007 -0700
+
+    Convert old #ifdefs for HAS_WTYPE_H & HAS_WCHAR_H to autoconf checks
+
+commit b9860eeb000018a83233cec14ff0db8687a146b5
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Aug 10 13:33:17 2007 -0700
+
+    Replace sprintf's with snprintf's
+
+commit 64326bae4e9b9c05b8781403ee27af95065eb2fb
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Aug 10 12:08:57 2007 -0700
+
+    Coverity #905: Handle_Prop_Requests returned without freeing storage "thunks"
+
+commit 866ceb3a671a9ab93b3ecbdf3231902ab2251ce3
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Aug 10 11:56:41 2007 -0700
+
+    ANSIfy function declarations in dsimple.c
+
+commit 5424a5c064d96b33a4acdf951734cd3a493a7ea3
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Aug 10 11:52:39 2007 -0700
+
+    Purge unused code from dsimple.c
+    
+    dsimple.c was originally shared source among several X apps.
+    Since modularization gave each app it's own copy, much of the code is
+    no longer needed in each app.
+
+commit 2d7dc57ae1d5e0af6e6ecb70764c512f6d518d6a
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Aug 10 11:43:04 2007 -0700
+
+    Add hooks to check sources with lint/sparse/etc.
+
+commit 7b3c0c95b9bb223ae779b8bf0c7d78967e0dcd9e
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Aug 10 11:35:27 2007 -0700
+
+    Change xprop_CFLAGS to AM_CFLAGS to clear automake-1.10 warning
+    
+    Makefile.am:27: compiling `dsimple.c' with per-target flags requires `AM_PROG_CC_C_O' in `configure.ac'
+
+commit c843fa3f4e65f2e1e133633b445f8693b1cc617c
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Aug 10 11:34:23 2007 -0700
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit 20955b2e662bb659533287d86fcd4d1cf75d3551
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu May 24 11:15:36 2007 -0700
+
+    renamed: .cvsignore -> .gitignore
+
+commit 91ca94a1d9e7eed7449c4243d84433180fc04566
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu May 24 11:12:17 2007 -0700
+
+    X.Org bug #10616: Add all the X info commands to See Also
+    
+    X.Org Bugzilla #10616: <https://bugs.freedesktop.org/show_bug.cgi?id=10616>
+    Reported upstream from
+    Debian bug #350313 <http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=350313>
+
+commit 4e8c0ec7c0b6b6602ae402313d8314f7653046ba
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Tue Aug 29 20:03:33 2006 +0300
+
+    bump to 1.0.2
+
+commit b8e4793e6bc939ee7b558f7eba7e4a485ed3bc7f
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Thu Jul 27 09:11:10 2006 +0300
+
+    remove misleading comment
+
+commit 47514347db811d002e7f3ca05d390565bc3ee5e5
+Author: Branden Robinson <branden@debian.org>
+Date:   Thu Jul 27 06:14:54 2006 +0300
+
+    handle actual_format_return == 0 (#7647)
+    Handle buggy servers which set actual_format_return == 0, instead of aborting.
+
+commit 56afcb5553455db8486bfb0e65e74506fc681940
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 21 02:29:53 2005 +0000
+
+    Update package version for X11R7 release.
+
+commit 851cad34f8905d5111c7b5e30222efba8d630499
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon Dec 19 16:22:46 2005 +0000
+
+    Stub COPYING files
+
+commit 587c42a9bf142d16ddb349ab0afada5cbffc42c7
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:10 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit 299da02da003a5804e58cf5e613aa1aa3321b3cb
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Dec 6 22:48:25 2005 +0000
+
+    Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+commit 04bfd06dfa055d0143e2a98da1b06f84f02dca6d
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:27 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit 47e6c291ac25c8d83e7c70bc6bc4424d96cc8005
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Nov 28 22:01:46 2005 +0000
+
+    Change *mandir targets to use new *_MAN_DIR variables set by xorg-macros.m4
+        update to fix bug #5167 (Linux prefers *.1x man pages in man1 subdir)
+
+commit 3ab40d98cb38bd4f86bf93324af33fc995f9d3fd
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Mon Nov 21 10:35:07 2005 +0000
+
+    Another pass at .cvsignores for apps.
+
+commit 454179bc4b51b24975e283c6ba1cd53d68d5e991
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Nov 21 03:14:16 2005 +0000
+
+    Change dependency from xmu to xmuu since the full xmu (with all its baggage
+        like Xt) is not needed here.
+
+commit 62ca400ec36c59d941f85ce998cd8b694e121d26
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Sun Nov 20 22:08:55 2005 +0000
+
+    Add/improve .cvsignore files for apps.
+
+commit 7c240b0e4c3499046f2ba48b3aeefac358a0ded8
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:47:57 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit a7863c7b5d50c2f1e771501b300855b754799b7b
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Oct 17 23:56:24 2005 +0000
+
+    Use @APP_MAN_SUFFIX@ instead of $(APP_MAN_SUFFIX) in macro substitutions to
+        work better with BSD make
+
+commit 80aee62a58d653e62726f3cffd632bf91bc170a8
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Oct 14 00:25:47 2005 +0000
+
+    Use sed to fill in variables in man page
+
+commit 3be3e6aaca45e0084eeb2634508d6644b1d5ce91
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Aug 1 20:25:32 2005 +0000
+
+    Install man pages to section 1 instead of section m (Patch from Donnie
+        Berkholz)
+
+commit 54f2394a17da3a991d20d35e072e7fb2ec8df81c
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:37 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit 4f970b38bdd2199adcd3510a84db12bcbf94c685
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Wed Jul 20 19:32:03 2005 +0000
+
+    Use a unique token for PKG_CHECK_MODULES. Otherwise, if you use a global
+        configure cache, you cache it, and the cached value is probably wrong.
+
+commit 721114f44cbd225a8fcd3655d4ded2dc8cc8837f
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Fri Jul 8 20:58:05 2005 +0000
+
+    Add build system for xprop
+
+commit aa117205949e38efa5befcef3b206a8ea582109f
+Author: Roland Mainz <roland.mainz@nrubsig.org>
+Date:   Wed Oct 6 19:29:59 2004 +0000
+
+    Fix for https://freedesktop.org/bugzilla/show_bug.cgi?id=1518 - Add filter
+        support to "xlsfonts" that it can filter builtin-, glyph- and/or other
+        kinds of printer fonts (controlled by the xp-listfonts-modes attribute
+        as described in the CDE DtPrint and Xprint specifications).
+
+commit d079bb69ea920d386a856d8cdd6b89a0f5632b16
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 19:55:03 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit f5a1731210c83736e2b9f9a044e2f94947177229
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:35:42 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit 50acd849cb081dd9c458f1429a3b8108a26af050
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:13:15 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit f708da3feea11c5b859dc7652c8875f67065692e
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:36:26 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit 49eb94d8560ca7609cc9c44f24a9a875ea3a1aca
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:24:14 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit 077b108056e58dbc7a46b447c4b4c05de9f30d85
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:29:15 2003 +0000
+
+    XFree86 4.3.99.16 Bring the tree up to date for the Cygwin folks
+
+commit 28c8159745754e1bd577797c2ef0d0bebded8299
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:49:23 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit 4cc997bd2d02961b95bff992f6dbfa30138879a9
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 15:54:54 2003 +0000
+
+    R6.6 is the Xorg base-line

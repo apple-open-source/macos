@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in
-# Copyright (C) 2002, 2003, 2004, 2005 Simon Josefsson.
+# Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007 Simon Josefsson.
 #
 # This file is part of GNU Libidn.
 #
@@ -18,9 +18,9 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
-SUBDIRS = gl lib po src doc tests examples java csharp
+SUBDIRS = gl lib/gl lib po src doc tests examples java csharp
 
-ACLOCAL_AMFLAGS = -I m4 -I gl/m4
+ACLOCAL_AMFLAGS = -I m4 -I gl/m4 -I lib/gl/m4
 DISTCHECK_CONFIGURE_FLAGS = --enable-gtk-doc
 
 EXTRA_DIST = FAQ libc/README libc/getaddrinfo-idn.txt libc/example.c \
@@ -39,39 +39,28 @@ pkgconfig_DATA = libidn.pc
 
 # Maintainer targets
 
-POURL = ftp://ftp.unex.es/pub/gnu-i18n/po/maint/$(PACKAGE)
-update-po:
-	cd po && \
-	wget --no-verbose --timestamping --retr-symlinks $(POURL)/*.po && \
-	cvs add `ls *.po | grep -v quot.po` || true && \
-	ls *.po | sed 's/.po//' > LINGUAS && \
-	cvs commit -m "Sync with TP." LINGUAS `ls *.po | grep -v quot.po`
+update-po: refresh-po
+	git-update-index --add `ls po/*.po | grep -v quot.po` || true && \
+	echo sv >> po/LINGUAS && \
+	git-commit -m "Sync with TP." po/LINGUAS `ls po/*.po | grep -v quot.po`
 
 ChangeLog:
-	cvs2cl --FSF --fsf --usermap .cvsusers -I ChangeLog -I .cvs \
-		-I autogen.sh -I contrib -I doc/specifications/ -I draft- && \
+	git log --pretty --numstat --summary | git2cl > ChangeLog
 	cat .cvscopying >> ChangeLog
-
-indent:
-	(cd lib && make indent)
-	(cd examples && make indent)
-	(cd src && make indent)
-	(cd tests && make indent)
 
 tag = $(PACKAGE)-`echo $(VERSION) | sed 's/\./-/g'`
 htmldir = ../www-$(PACKAGE)
 
 release:
-	cvs upd -p -r HEAD NEWS > /dev/null
-	if cvs upd -p -r $(tag) NEWS > /dev/null; then false else true; fi
-	rm -f ChangeLog && cvs upd ChangeLog
-	cvs commit
+	! git-tag -l $(tag) > /dev/null
 	rm -f ChangeLog
 	$(MAKE) ChangeLog distcheck
-	cvs commit -m "" ChangeLog
-	cvs rtag $(tag) $(PACKAGE)
-	gnupload --to alpha.gnu.org:libidn $(distdir).tar.gz
-	cd doc && ./gendocs.sh --html "--css-include=texinfo.css" \
+	git commit -m Generated. ChangeLog
+	git-tag -u b565716f! -m $(VERSION) $(tag)
+	build-aux/gnupload --to alpha.gnu.org:libidn $(distdir).tar.gz
+	cd doc && env MAKEINFO="makeinfo -I ../examples" \
+		      TEXI2DVI="texi2dvi -I ../examples" \
+		../build-aux/gendocs.sh --html "--css-include=texinfo.css" \
 		-o ../$(htmldir)/manual/ $(PACKAGE) "GNU Libidn"
 	cp -v $(distdir).tar.gz{,.sig} $(htmldir)/releases/
 	cp -v doc/reference/html/*.{html,png,devhelp,css} $(htmldir)/reference/

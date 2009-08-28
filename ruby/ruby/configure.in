@@ -44,10 +44,20 @@ fi
 GNU_LD=$rb_cv_prog_gnu_ld
 AC_SUBST(GNU_LD)])
 
+unset GREP_OPTIONS
 rb_version=`grep RUBY_VERSION $srcdir/version.h`
 MAJOR=`expr "$rb_version" : '#define RUBY_VERSION "\([0-9][0-9]*\)\.[0-9][0-9]*\.[0-9][0-9]*"'`
 MINOR=`expr "$rb_version" : '#define RUBY_VERSION "[0-9][0-9]*\.\([0-9][0-9]*\)\.[0-9][0-9]*"'`
 TEENY=`expr "$rb_version" : '#define RUBY_VERSION "[0-9][0-9]*\.[0-9][0-9]*\.\([0-9][0-9]*\)"'`
+if test "$MAJOR" = ""; then
+  AC_MSG_ERROR(could not determine MAJOR number from version.h)
+fi
+if test "$MINOR" = ""; then
+  AC_MSG_ERROR(could not determine MINOR number from version.h)
+fi
+if test "$TEENY" = ""; then
+  AC_MSG_ERROR(could not determine TEENY number from version.h)
+fi
 AC_SUBST(MAJOR)
 AC_SUBST(MINOR)
 AC_SUBST(TEENY)
@@ -75,6 +85,7 @@ AC_CANONICAL_TARGET
 target_os=`echo $target_os | sed 's/linux-gnu$/linux/;s/linux-gnu/linux-/'`
 ac_install_sh='' # unusable for extension libraries.
 
+ifelse(currently,disabled, [
 dnl checks for fat-binary
 AC_ARG_ENABLE(fat-binary,
        [  --enable-fat-binary=ARCHS
@@ -128,6 +139,7 @@ if test "$fat_binary" != no; then
     done
     AC_DEFINE(NEXT_FAT_BINARY)
 fi
+], [fat_binary=no])
 
 case $target_cpu in
   i?86) frame_address=yes;;
@@ -370,7 +382,22 @@ case "$target_os" in
 nextstep*)	;;
 openstep*)	;;
 rhapsody*)	;;
-darwin*)	LIBS="-lobjc $LIBS";;
+darwin*)	LIBS="-lobjc $LIBS"
+		CPPFLAGS="$CPPFLAGS -D_XOPEN_SOURCE -D_DARWIN_C_SOURCE"
+		AC_TRY_CPP([#include <AvailabilityMacros.h>
+		    #if MAC_OS_X_VERSION_MAX_ALLOWED <= 1040
+		    #error pre OS X 10.4
+		    [!<===== pre OS X 10.4 =====>]
+		    #endif
+		    ],
+		    [
+		    test "x$target_cpu" = xppc && ac_cv_header_ucontext_h=no
+		    ],
+		    [
+		    AC_DEFINE(BROKEN_SETREUID, 1)
+		    AC_DEFINE(BROKEN_SETREGID, 1)
+		    ])
+		;;
 hpux*)		LIBS="-lm $LIBS"
 		ac_cv_c_inline=no;;
 human*)		ac_cv_func_getpgrp_void=yes
@@ -422,6 +449,8 @@ msdosdjgpp*)	LIBS="-lm $LIBS"
 		ac_cv_func_setrlimit=no
 		;;
 bsdi*)          LIBS="-lm $LIBS"
+		AC_DEFINE(BROKEN_SETREUID, 1)
+		AC_DEFINE(BROKEN_SETREGID, 1)
                 ac_cv_sizeof_rlim_t=8;;
 freebsd*)	LIBS="-lm $LIBS"
 		AC_CACHE_CHECK([whether -lxpg4 has to be linked],
@@ -561,9 +590,59 @@ AC_CHECK_FUNCS(fmod killpg wait4 waitpid syscall chroot fsync getcwd eaccess\
 	      lchown lchmod getpgrp setpgrp getpgid setpgid initgroups\
 	      getgroups setgroups getpriority getrlimit setrlimit sysconf\
 	      group_member dlopen sigprocmask\
-	      sigaction _setjmp setsid telldir seekdir fchmod\
+	      sigaction sigsetjmp _setjmp _longjmp setsid telldir seekdir fchmod\
 	      mktime timegm gettimeofday\
 	      cosh sinh tanh round setuid setgid setenv unsetenv)
+
+AC_CACHE_CHECK(for __builtin_setjmp, ac_cv_func___builtin_setjmp,
+[AC_TRY_LINK([@%:@include <setjmp.h>
+    jmp_buf jb; void t(v) int v; {__builtin_longjmp(jb, v);}],
+    [__builtin_setjmp(jb);],
+    [ac_cv_func___builtin_setjmp=yes],
+    [ac_cv_func___builtin_setjmp=no])
+])
+
+test x$ac_cv_func__longjmp = xno && ac_cv_func__setjmp=no
+
+AC_MSG_CHECKING(for setjmp type)
+AC_ARG_WITH(setjmp-type, 
+	[  --with-setjmp-type      select setjmp type], [
+	case $withval in
+	__builtin_setjmp) setjmp_prefix=__builtin_;;
+	_setjmp) setjmp_prefix=_;;
+	sigsetjmp) setjmp_prefix=sig;;
+	setjmp) setjmp_prefix=;;
+	'') unset setjmp_prefix;;
+	*)   AC_MSG_ERROR(invalid setjmp type: $withval);;
+	esac], [unset setjmp_prefix])
+if test ${setjmp_prefix+set}; then
+    if test "${setjmp_prefix}" && eval test '$ac_cv_func_'${setjmp_prefix}setjmp = no; then
+	AC_MSG_ERROR(${setjmp_prefix}setjmp is not available)
+    fi
+elif test "$ac_cv_func___builtin_setjmp" = yes; then
+    setjmp_prefix=__builtin_
+elif test "$ac_cv_func__setjmp" = yes; then
+    setjmp_prefix=_
+elif test "$ac_cv_func_sigsetjmp" = yes; then
+    case $target_os in
+    solaris*|cygwin*)
+	setjmp_prefix=;;
+    *)
+	setjmp_prefix=sig;;
+    esac
+else
+    setjmp_prefix=
+fi
+if test x$setjmp_prefix = xsig; then
+    setjmp_sigmask=yes
+else
+    unset setjmp_sigmask
+fi
+AC_MSG_RESULT(${setjmp_prefix}setjmp)
+AC_DEFINE_UNQUOTED([RUBY_SETJMP(env)], [${setjmp_prefix}setjmp(env${setjmp_sigmask+,0})])
+AC_DEFINE_UNQUOTED([RUBY_LONGJMP(env,val)], [${setjmp_prefix}longjmp(env,val)])
+AC_DEFINE_UNQUOTED(RUBY_JMP_BUF, ${setjmp_sigmask+${setjmp_prefix}}jmp_buf)
+
 AC_ARG_ENABLE(setreuid,
        [  --enable-setreuid       use setreuid()/setregid() according to need even if obsolete.],
        [use_setreuid=$enableval])
@@ -592,15 +671,23 @@ fi
 AC_DEFUN([RUBY_CHECK_VARTYPE], [dnl
 AC_CACHE_CHECK([for external $1], rb_cv_var_$1,
   [rb_cv_var_$1=no
-  AC_TRY_COMPILE([#define _XOPEN_SOURCE 1
-    $2
-    const volatile void *volatile t;],
+  AC_TRY_COMPILE([
+#ifndef _XOPEN_SOURCE
+#define _XOPEN_SOURCE 1
+#endif
+$2
+;
+const volatile void *volatile t;],
     [t = &(&$1)[0];],
     [for t in $3; do
-      AC_TRY_COMPILE([#define _XOPEN_SOURCE 1
-        $2
-        extern $t $1;
-        const volatile void *volatile t;],
+      AC_TRY_COMPILE([
+#ifndef _XOPEN_SOURCE
+#define _XOPEN_SOURCE 1
+#endif
+$2
+;
+extern $t $1;
+const volatile void *volatile t;],
         [t = &(&$1)[0];],
         [rb_cv_var_$1=$t; break])
     done])])
@@ -608,13 +695,13 @@ if test "[$rb_cv_var_]$1" != no; then
   AC_DEFINE([HAVE_VAR_]m4_toupper($1))
   AC_DEFINE_UNQUOTED([TYPEOF_VAR_]m4_toupper($1), $rb_cv_var_$1)
 fi])
-RUBY_CHECK_VARTYPE(timezone, [#include <time.h>], [long int])
-RUBY_CHECK_VARTYPE(altzone, [#include <time.h>], [long int])
+RUBY_CHECK_VARTYPE(timezone, [@%:@include <time.h>], [long int])
+RUBY_CHECK_VARTYPE(altzone, [@%:@include <time.h>], [long int])
 if test "$rb_cv_var_timezone" = no; then
   AC_CHECK_FUNCS(timezone)
-  if test "$ ac_cv_func_timezone" = yes; then
+  if test "$ac_cv_func_timezone" = yes; then
     AC_CACHE_CHECK([whether timezone requires zero arguments], rb_cv_func_timezone_void,
-      [AC_TRY_COMPILE([#include <time.h>],
+      [AC_TRY_COMPILE([@%:@include <time.h>],
 	[(void)timezone(0, 0);],
 	[rb_cv_func_timezone_void=no],
 	[rb_cv_func_timezone_void=yes])]
@@ -1050,11 +1137,23 @@ if test "$with_dln_a_out" != yes; then
     esac
   fi
 
+
+  AC_ARG_ENABLE(rpath,
+       [  --disable-rpath         embed run path into extension libraries.],
+       [enable_rpath=$enableval], [enable_rpath="$rb_cv_binary_elf"])
+  if test "$enable_rpath" = yes; then
+    LIBPATHFLAG=" -L%1\$-s"
+    RPATHFLAG=" ${linker_flag}-R%1\$-s"
+  fi
+
   case "$target_os" in
 	hpux*)		DLDFLAGS="$DLDFLAGS -E"
 			: ${LDSHARED='ld -b'}
 			XLDFLAGS="$XLDFLAGS -Wl,-E"
 			: ${LIBPATHENV=SHLIB_PATH}
+			if test "$rb_cv_prog_gnu_ld" = no; then
+			    RPATHFLAG=' +b %1$-s'
+			fi
 			rb_cv_dlopen=yes;;
 	solaris*) 	if test "$GCC" = yes; then
                           : ${LDSHARED='$(CC) -shared'}
@@ -1120,11 +1219,11 @@ if test "$with_dln_a_out" != yes; then
         aix*)           if test "$GCC" = yes; then
 			    : ${LDSHARED='$(CC) -shared'}
 			else
-			    : ${LDSHARED='/usr/ccs/bin/ld'}
+			    : ${LDSHARED='$(CC)'}
 			fi
-			DLDFLAGS="${linker_flag}-G"' -eInit_$(TARGET)'
-			LDFLAGS="${LDFLAGS} ${linker_flag}-brtl"
-			XLDFLAGS="${linker_flag}-bE:ruby.imp"
+			LDSHARED="$LDSHARED ${linker_flag}-G"
+			DLDFLAGS='-eInit_$(TARGET)'
+			XLDFLAGS="${linker_flag}-bE:ruby.imp ${linker_flag}-brtl"
                         : ${ARCHFILE="ruby.imp"}
                         TRY_LINK='$(CC) $(LDFLAGS) -oconftest $(INCFLAGS) -I$(hdrdir) $(CPPFLAGS)'
                         TRY_LINK="$TRY_LINK"' $(CFLAGS) $(src) $(LIBPATH) $(LOCAL_LIBS) $(LIBS)'
@@ -1164,14 +1263,6 @@ if test "$with_dln_a_out" != yes; then
 	*) 		: ${LDSHARED='ld'} ;;
   esac
   AC_MSG_RESULT($rb_cv_dlopen)
-
-  AC_ARG_ENABLE(rpath,
-       [  --disable-rpath         embed run path into extension libraries.],
-       [enable_rpath=$enableval], [enable_rpath="$rb_cv_binary_elf"])
-  if test "$enable_rpath" = yes; then
-    LIBPATHFLAG=" -L%1\$-s"
-    RPATHFLAG=" ${linker_flag}-R%1\$-s"
-  fi
 fi
 AC_SUBST(LINK_SO)
 AC_SUBST(LIBPATHFLAG)
@@ -1331,9 +1422,10 @@ if test x"$cross_compiling" = xyes; then
   PREP=fake.rb
   RUNRUBY='$(MINIRUBY) -I`cd $(srcdir)/lib; pwd`'
 else
-  MINIRUBY='./miniruby$(EXEEXT)'
+  MINIRUBY='./miniruby$(EXEEXT) -I$(srcdir)/lib'
+  MINIRUBY="$MINIRUBY"' -I$(EXTOUT)/common -I./- -r$(srcdir)/ext/purelib.rb'
   PREP='miniruby$(EXEEXT)'
-  RUNRUBY='$(MINIRUBY) $(srcdir)/runruby.rb --extout=$(EXTOUT) --'
+  RUNRUBY='$(MINIRUBY) $(srcdir)/runruby.rb --extout=$(EXTOUT)'
 fi
 AC_SUBST(MINIRUBY)
 AC_SUBST(PREP)
@@ -1420,7 +1512,7 @@ if test "$enable_shared" = 'yes'; then
 	LIBRUBY_ALIASES='lib$(RUBY_SO_NAME).sl.$(MAJOR).$(MINOR) lib$(RUBY_SO_NAME).sl'
 	;;
     aix*)
-	LIBRUBY_DLDFLAGS="${linker_flag}-G ${linker_flag}-bnoentry $XLDFLAGS"
+	LIBRUBY_DLDFLAGS="${linker_flag}-bnoentry $XLDFLAGS"
 	LIBRUBYARG_SHARED='-L${libdir} -l${RUBY_SO_NAME}'
 	SOLIBS='-lm -lc'
 	;;
@@ -1564,6 +1656,12 @@ case "$build_os" in
 esac
 
 CPPFLAGS="$CPPFLAGS "'$(DEFS)'
+test -z "$CFLAGS" || CFLAGS="$CFLAGS "; CFLAGS="$CFLAGS"'${cflags}'
+test -z "$CPPFLAGS" || CPPFLAGS="$CPPFLAGS "; CPPFLAGS="$CPPFLAGS"'${cppflags}'
+AC_SUBST(cppflags, [])dnl
+AC_SUBST(cflags, ['${optflags} ${debugflags}'])dnl
+AC_SUBST(optflags)dnl
+AC_SUBST(debugflags)dnl
 AC_SUBST(XCFLAGS)dnl
 AC_SUBST(XLDFLAGS)dnl
 AC_SUBST(LIBRUBY_LDSHARED)
@@ -1608,37 +1706,53 @@ case "$target_os" in
     rubyw_install_name="$RUBYW_INSTALL_NAME"
     ;;
 esac
+RUBY_LIB_PREFIX=`eval echo \\"${libdir}/ruby\\"`
+
+AC_ARG_WITH(sitedir,
+	    [  --with-sitedir=DIR      site libraries in DIR [[LIBDIR/ruby/site_ruby]]],
+            [sitedir=$withval],
+            [sitedir='${libdir}/ruby/site_ruby'])
+SITE_DIR=`eval echo \\"${sitedir}\\"`
+
 case "$target_os" in
   cygwin*|mingw*|*djgpp*|os2-emx*)
-    RUBY_LIB_PREFIX="/lib/ruby"
+    RUBY_LIB_PREFIX="`eval echo "$RUBY_LIB_PREFIX" | sed 's|^NONE/|/|;s|^'"$prefix"'/|/|'`"
+    RUBY_SITE_LIB_PATH="`eval echo "$SITE_DIR" | sed 's|^NONE/|/|;s|^'"$prefix"'/|/|'`"
     ;;
   *)
-    RUBY_LIB_PREFIX="${prefix}/lib/ruby"
+    RUBY_LIB_PREFIX="`eval echo \\"$RUBY_LIB_PREFIX\\" | sed 's|^NONE/|'"$prefix"'/|'`"
+    RUBY_SITE_LIB_PATH="`eval echo \\"$SITE_DIR\\" | sed 's|^NONE/|'"$prefix"'/|'`"
     ;;
 esac
 RUBY_LIB_PATH="${RUBY_LIB_PREFIX}/${MAJOR}.${MINOR}"
-
-AC_ARG_WITH(sitedir,
-	    [  --with-sitedir=DIR      site libraries in DIR [PREFIX/lib/ruby/site_ruby]],
-            [sitedir=$withval],
-            [sitedir='${prefix}/lib/ruby/site_ruby'])
-SITE_DIR=`eval echo \\"${sitedir}\\"`
-case "$target_os" in
-  cygwin*|mingw*|*djgpp*|os2-emx*)
-    RUBY_SITE_LIB_PATH="`expr "$SITE_DIR" : "$prefix\(/.*\)"`" ||
-    RUBY_SITE_LIB_PATH="$SITE_DIR";;
-  *)
-    RUBY_SITE_LIB_PATH="$SITE_DIR";;
-esac
 RUBY_SITE_LIB_PATH2="${RUBY_SITE_LIB_PATH}/${MAJOR}.${MINOR}"
 
 AC_DEFINE_UNQUOTED(RUBY_LIB, "${RUBY_LIB_PATH}")
 AC_DEFINE_UNQUOTED(RUBY_SITE_LIB, "${RUBY_SITE_LIB_PATH}")
 AC_DEFINE_UNQUOTED(RUBY_SITE_LIB2, "${RUBY_SITE_LIB_PATH2}")
 
+AC_ARG_WITH(vendordir,
+	    [  --with-vendordir=DIR    vendor libraries in DIR [[LIBDIR/ruby/vendor_ruby]]],
+            [vendordir=$withval],
+            [vendordir='${libdir}/ruby/vendor_ruby'])
+VENDOR_DIR=`eval echo \\"${vendordir}\\"`
+case "$target_os" in
+  cygwin*|mingw*|*djgpp*|os2-emx*)
+    RUBY_VENDOR_LIB_PATH="`eval echo "$VENDOR_DIR" | sed 's|^NONE/|/|;s|^'"$prefix"'/|/|'`"
+    ;;
+  *)
+    RUBY_VENDOR_LIB_PATH="`eval echo \\"$VENDOR_DIR\\" | sed 's|^NONE/|'"$prefix"'/|'`"
+    ;;
+esac
+RUBY_VENDOR_LIB_PATH2="${RUBY_VENDOR_LIB_PATH}/${MAJOR}.${MINOR}"
+
+AC_DEFINE_UNQUOTED(RUBY_VENDOR_LIB, "${RUBY_VENDOR_LIB_PATH}")
+AC_DEFINE_UNQUOTED(RUBY_VENDOR_LIB2, "${RUBY_VENDOR_LIB_PATH2}")
+
 AC_SUBST(arch)dnl
 AC_SUBST(sitearch)dnl
 AC_SUBST(sitedir)dnl
+AC_SUBST(vendordir)dnl
 
 configure_args=$ac_configure_args
 AC_SUBST(configure_args)dnl
@@ -1651,6 +1765,8 @@ if test "$fat_binary" != no ; then
 
     AC_DEFINE_UNQUOTED(RUBY_SITE_THIN_ARCHLIB,
                  "${RUBY_SITE_LIB_PATH}/" __ARCHITECTURE__ "-${target_os}")
+    AC_DEFINE_UNQUOTED(RUBY_VENDOR_THIN_ARCHLIB,
+                 "${RUBY_VENDOR_LIB_PATH}/" __ARCHITECTURE__ "-${target_os}")
     AC_DEFINE_UNQUOTED(RUBY_PLATFORM, __ARCHITECTURE__ "-${target_os}")
 else
     arch="${target_cpu}-${target_os}"
@@ -1658,12 +1774,13 @@ else
 fi
 
 case "$target_os" in
-  mingw*) sitearch="i386-$rb_cv_msvcrt" ;;
+  mingw*) sitearch="$target_cpu-$rb_cv_msvcrt" ;;
   *) sitearch="${arch}" ;;
 esac
 
 AC_DEFINE_UNQUOTED(RUBY_ARCHLIB, "${RUBY_LIB_PATH}/${arch}")
 AC_DEFINE_UNQUOTED(RUBY_SITE_ARCHLIB, "${RUBY_SITE_LIB_PATH2}/${sitearch}")
+AC_DEFINE_UNQUOTED(RUBY_VENDOR_ARCHLIB, "${RUBY_VENDOR_LIB_PATH2}/${sitearch}")
 
 AC_ARG_WITH(search-path,
 		[  --with-search-path=DIR specify the additional search path],
@@ -1701,6 +1818,7 @@ else
   tr -d '\015' < confdefs.h > config.h
 fi
 tr -d '\015' < largefile.h > confdefs.h
+rm largefile.h
 
 AC_CONFIG_FILES($FIRSTMAKEFILE)
 AC_CONFIG_FILES(Makefile, [{

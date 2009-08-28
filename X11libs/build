@@ -3,7 +3,9 @@
 $target=shift @ARGV;
 $ENV{DESTDIR}=$ENV{DSTROOT};
 
-$ENV{PYTHONPATH}="/usr/X11/lib/python2.5:/usr/X11/lib/python2.5/site-packages";
+if($ENV{MACOSFORGE_RELEASE} eq "YES") {
+    $ENV{PYTHONPATH}="/usr/X11/lib/python2.5:/usr/X11/lib/python2.5/site-packages:$ENV{PYTHONPATH}";
+}
 
 sub sys_print {
     $command=shift;
@@ -81,18 +83,23 @@ if($target eq 'install') {
     foreach $arch (split(/ /,$ENV{RC_ARCHS})) {
 	$arch_flags .= " -arch $arch ";
     }
-    $ENV{CC}="gcc -I$ENV{DSTROOT}$prefix/include ";
-    $ENV{CFLAGS}="-I$prefix/include -D__DEBUG__ -g3 -pipe $arch_flags -O3  -DHAVE_LAUNCHD -DTRANS_REOPEN ";
-    $ENV{LDFLAGS}="-L$ENV{DSTROOT}$prefix/lib -L$prefix/lib -pipe $arch_flags  -DHAVE_LAUNCHD -DTRANS_REOPEN ";
+    $ENV{CC}="gcc -I$ENV{DSTROOT}$prefix/include -I$ENV{DSTROOT}$prefix/include/pixman-1 ";
+    $ENV{CFLAGS}="-I$prefix/include -D__DEBUG__ -ggdb3 -pipe $arch_flags -Os -D_FORTIFY_SOURCE=2 -Wall -Wformat-security";
+    $ENV{LDFLAGS}="-L$ENV{DSTROOT}$prefix/lib -L$prefix/lib -pipe $arch_flags";
     $ENV{MACOSX_DEPLOYMENT_TARGET}=$osx_version;
      
     build_lib();
     
-    fix_la_reverse();
+    if($ENV{MACOSFORGE_RELEASE} eq "YES") {
+        fix_la_reverse();
+    } else {
+        nuke_la();
+    }
+
     sys_print_nodie("rm $ENV{DSTROOT}$prefix/lib/*.so.*");
-    lipo64("$ENV{DSTROOT}$prefix/bin/cxpm");
-    lipo64("$ENV{DSTROOT}$prefix/bin/sxpm");
-    lipo64("$ENV{DSTROOT}$prefix/bin/makestrs");
+    lipoexec("$ENV{DSTROOT}$prefix/bin/cxpm");
+    lipoexec("$ENV{DSTROOT}$prefix/bin/sxpm");
+    lipoexec("$ENV{DSTROOT}$prefix/bin/makestrs");
     make_dsyms();
 }
 
@@ -118,9 +125,10 @@ sub build {
     sys_print("ditto $ENV{SRCROOT}/$full_path $ENV{OBJROOT}/$full_path");
 
     chdir("$ENV{OBJROOT}/$full_path");
-    sys_print("autoreconf -fvi");
+    sys_print("autoreconf -fvi") unless($module eq 'cairo');
+
     print "Configuring...\n";
-    $conf_flags=" --prefix=$prefix --disable-static --disable-dependency-tracking --disable-nls --datarootdir=$prefix/share --mandir=/usr/X11/man ";
+    $conf_flags=" --prefix=$prefix --disable-static --disable-dependency-tracking --disable-nls ";
 
     $conf_flags_path=$ENV{SRCROOT}."/$dir/$module/conf_flags";
     $post_config_path=$ENV{SRCROOT}."/$dir/$module/post_config";
@@ -130,13 +138,23 @@ sub build {
 	chomp $conf_flags;
     }
 
-    sys_print("sed -i.bak 's/sysconfig.get_python_lib(\\([^,]\\),0/sysconfig.get_python_lib(\\1,1/g' configure");
+    if($ENV{MACOSFORGE_RELEASE} eq "YES") {
+        sys_print("sed -i.bak 's/sysconfig.get_python_lib(\\([^,]\\),0/sysconfig.get_python_lib(\\1,1/g' configure");
+    } else {
+        sys_print(q{sed -i.bak 's|from distutils import sysconfig; print sysconfig.get_python_lib(.*,.*,prefix=.*)|import sys, os;print os.path.join(sys.prefix, \\\\"Extras/X11\\\\")|' configure});
+    }
 
     sys_print("./configure $conf_flags");
     sys_print("make -j".`sysctl -n hw.activecpu`);
-    sys_print("make install");
+
+    if($module eq 'libXaw8') {
+        # This is for backwards compatability only.  Newer versions of libXaw don't provide this dylib
+        sys_print("make install-exec");
+    } else {
+        sys_print("make install");
+    }
+
     fix_la();
-    sys_print_nodie("rm $ENV{DSTROOT}$prefix/lib/*.bak");
     chdir('../..');
 }
 
@@ -146,6 +164,7 @@ sub build {
 #
 # the libraries have a dependency order:
 # xtrans, Xau, Xdmcp before anything else
+# xcb before xcb-utils or X11
 # fontenc before Xfont
 # ICE before SM
 # X11 before Xext
@@ -160,8 +179,9 @@ sub build_lib {
     build("xtrans");
     build("libpthread-stubs");
     build("libXau");
-    build("libxcb");
     build("libXdmcp");
+    build("libxcb");
+    build("xcb-util");
     build("libX11");
     build("libXext");
     build("libAppleWM");
@@ -176,6 +196,7 @@ sub build_lib {
     build("libXmu");
     build("libXpm");
     build("libXp");
+    build("libXaw8");
     build("libXaw");
     build("libXfixes");
     build("libXcomposite");
@@ -201,6 +222,8 @@ sub build_lib {
     build("libXtst");
     build("libXv");
     build("libXvMC");
+    build("cairo");
+    build("xpyb");
 }
 
 sub make_dsyms {
@@ -218,19 +241,30 @@ sub make_dsyms {
 }
 
 sub fix_la {
-    sys_print("sed -i.bak 's_libdir=.*_libdir=$ENV{DSTROOT}$prefix/lib_' $ENV{DSTROOT}$prefix/lib/*.la");
-    sys_print("sed -i.bak 's_ ".$prefix."_ ".$ENV{DSTROOT}.$prefix."_' $ENV{DSTROOT}$prefix/lib/*.la");
-    sys_print("rm $ENV{DSTROOT}$prefix/lib/*.bak");
+    sys_print_nodie("sed -i.bak 's_libdir=.*_libdir=$ENV{DSTROOT}$prefix/lib_' $ENV{DSTROOT}$prefix/lib/*.la");
+    sys_print_nodie("sed -i.bak 's_ ".$prefix."_ ".$ENV{DSTROOT}.$prefix."_' $ENV{DSTROOT}$prefix/lib/*.la");
+    sys_print_nodie("sed -i.bak \"s/\\(library_names='[^ ]* [^ ]*\\) [^ ]*'/\\1'/\" $ENV{DSTROOT}$prefix/lib/*.la");
+    sys_print_nodie("rm $ENV{DSTROOT}$prefix/lib/*.bak");
 }
 
 sub fix_la_reverse {
-    sys_print("sed -i.bak 's_libdir=.*_libdir=$prefix/lib_' $ENV{DSTROOT}$prefix/lib/*.la");
-    sys_print("sed -i.bak 's_$ENV{DSTROOT}__g' $ENV{DSTROOT}$prefix/lib/*.la");
-    sys_print("rm $ENV{DSTROOT}$prefix/lib/*.bak");
+    sys_print_nodie("sed -i.bak 's_libdir=.*_libdir=$prefix/lib_' $ENV{DSTROOT}$prefix/lib/*.la");
+    sys_print_nodie("sed -i.bak 's_$ENV{DSTROOT}__g' $ENV{DSTROOT}$prefix/lib/*.la");
+    sys_print_nodie("rm $ENV{DSTROOT}$prefix/lib/*.bak");
 }
 
-sub lipo64 {
+sub lipoexec {
     $fname=shift;
-    sys_print_nodie("lipo $fname -verify_arch x86_64 && lipo -remove x86_64 -output $fname $fname");
-    sys_print_nodie("lipo $fname -verify_arch ppc64 && lipo -remove ppc64 -output $fname $fname");
+    if($ENV{MACOSFORGE_RELEASE} eq "YES") {
+        sys_print_nodie("lipo $fname -verify_arch x86_64 && lipo -remove x86_64 -output $fname $fname");
+        sys_print_nodie("lipo $fname -verify_arch ppc64 && lipo -remove ppc64 -output $fname $fname");
+    } else {
+        sys_print_nodie("lipo $fname -verify_arch ppc && lipo -remove ppc -output $fname $fname");
+    }
 }
+
+sub nuke_la {
+    sys_print("rm $ENV{DSTROOT}$prefix/lib/*.la");
+    sys_print("rm $ENV{DSTROOT}/" . `python -c 'import sys, os;print os.path.join(sys.prefix, "Extras/X11/xcb/xcb.la")'`);
+}
+

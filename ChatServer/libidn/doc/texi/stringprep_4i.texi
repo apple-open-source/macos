@@ -1,3 +1,5 @@
+@subheading stringprep_4i
+@anchor{stringprep_4i}
 @deftypefun {int} {stringprep_4i} (uint32_t * @var{ucs4}, size_t * @var{len}, size_t @var{maxucs4len}, Stringprep_profile_flags @var{flags}, const Stringprep_profile * @var{profile})
 @var{ucs4}: input/output array with string to prepare.
 

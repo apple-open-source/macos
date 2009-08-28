@@ -6,7 +6,13 @@ def generate_dict(name, version, tarball):
 	regex = re.compile('^    <td><small>&nbsp;\[<a href=\"/CPAN/(.*)/%s\">Download</a>\]$' % tarball)
 	found_license = -1
 
-	f = urllib.urlopen('http://search.cpan.org/dist/%s/' % name)
+	# Handle CPAN's new "UNAUTHORIZED RELEASE" feature.
+	if name in [ 'Algorithm-Diff', 'TermReadKey' ]:
+		url = 'http://search.cpan.org/dist/%s-%s/' % (name, version)
+	else:
+		url = 'http://search.cpan.org/dist/%s/' % name
+
+	f = urllib.urlopen(url)
 	for line in f.readlines():
 		# match download path
 		m = regex.match(line)
@@ -32,7 +38,9 @@ def generate_dict(name, version, tarball):
 	checksum = h.hexdigest()
 
 	# Determine import date.
-	import_date = time.strftime('%Y-%m-%d', time.localtime(os.stat(filename)[stat.ST_MTIME]))
+	svn_info_command = os.popen('svn info %s | grep \'^Last Changed Date: \' | awk \'{ print $4 }\'' % filename)
+	import_date = svn_info_command.read().strip()
+	svn_info_command.close()
 
 	# Output dictionary.
 	print '\t<dict>'
@@ -41,7 +49,7 @@ def generate_dict(name, version, tarball):
 	print '\t\t<key>OpenSourceVersion</key>'
 	print '\t\t<string>%s</string>' % version
 	print '\t\t<key>OpenSourceWebsiteURL</key>'
-	print '\t\t<string>http://search.cpan.org/dist/%s/</string>' % name
+	print '\t\t<string>%s</string>' % url
 	print '\t\t<key>OpenSourceURL</key>'
 	print '\t\t<string>http://search.cpan.org/CPAN/%s/%s</string>' % (path, tarball)
 	print '\t\t<key>OpenSourceSHA1</key>'

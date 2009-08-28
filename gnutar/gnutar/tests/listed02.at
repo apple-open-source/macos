@@ -1,7 +1,7 @@
 # Process this file with autom4te to create testsuite. -*- Autotest -*-
 
 # Test suite for GNU tar.
-# Copyright (C) 2004 Free Software Foundation, Inc.
+# Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,8 +15,8 @@
 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-# 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301, USA.
 
 # Check if listed-incremental backups work for files moved from one directory
 # to another. 
@@ -26,12 +26,12 @@
 #  http://lists.gnu.org/archive/html/bug-tar/2004-06/msg00028.html
 
 AT_SETUP([working --listed])
-AT_KEYWORDS([listed02])
+AT_KEYWORDS([listed incremental listed02])
 
 AT_TAR_CHECK([
-mkdir directory
-
+AT_SORT_PREREQ
 echo Create directories
+
 mkdir tart
 sleep 1
 mkdir tart/c0
@@ -47,17 +47,22 @@ done
 
 sleep 1
 echo Creating main archive
-tar -c -v --listed-incremental=tart.incr1 -f archive.1 tart || exit 1
+tar -c -v --listed-incremental=tart.incr1 -f archive.1 tart 2> err || exit 1
+
+# The above prints two lines to stderr announcing the new directories c0 and c1.
+# Ensure that they appear in this script's stderr in sorted order.
+sort err 1>&2; rm -f err
 
 sleep 1
 echo Modifying filesystem
 rm tart/a1
+
 mv tart/b1 tart/b2
 mv tart/c1 tart/c2
 touch tart/c2/ca3
 
 echo Directory contents
-find tart|sort 2>/dev/null
+find tart -print | sort 2>/dev/null
 
 sleep 1
 echo Creating incremental archive
@@ -76,7 +81,7 @@ echo Extracting incremental archive
 tar -x -v --listed-incremental=tart.incr2 -f archive.2 | sort 2>/dev/null 
 
 echo Final files:
-find tart|sort 2>/dev/null
+find tart -print | sort 2>/dev/null
 ],
 [0],
 [Create directories
@@ -106,8 +111,6 @@ tart/
 tart/c0/
 tart/c2/
 tart/b2
-tart/c2/ca1
-tart/c2/ca2
 tart/c2/ca3
 Extracting main archive
 tart/
@@ -122,13 +125,10 @@ tart/c1/ca2
 Extracting incremental archive
 tar: Deleting `tart/a1'
 tar: Deleting `tart/b1'
-tar: Deleting `tart/c1'
 tart/
 tart/b2
 tart/c0/
 tart/c2/
-tart/c2/ca1
-tart/c2/ca2
 tart/c2/ca3
 Final files:
 tart
@@ -143,7 +143,7 @@ tart/c2/ca3
 ],
 [tar: tart/c0: Directory is new
 tar: tart/c1: Directory is new
-tar: tart/c2: Directory is new
+tar: tart/c2: Directory has been renamed from `tart/c1'
 ],
 [],[],[gnu, oldgnu])
 

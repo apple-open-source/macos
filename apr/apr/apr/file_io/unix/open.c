@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -26,17 +26,15 @@
 #include "fsio.h"
 #endif
 
-apr_status_t apr_unix_file_cleanup(void *thefile)
+static apr_status_t file_cleanup(apr_file_t *file, int is_child)
 {
-    apr_file_t *file = thefile;
-    apr_status_t flush_rv = APR_SUCCESS, rv = APR_SUCCESS;
+    apr_status_t rv = APR_SUCCESS;
 
-    if (file->buffered) {
-        flush_rv = apr_file_flush(file);
-    }
     if (close(file->filedes) == 0) {
         file->filedes = -1;
-        if (file->flags & APR_DELONCLOSE) {
+
+        /* Only the parent process should delete the file! */
+        if (!is_child && (file->flags & APR_DELONCLOSE)) {
             unlink(file->fname);
         }
 #if APR_HAS_THREADS
@@ -51,7 +49,7 @@ apr_status_t apr_unix_file_cleanup(void *thefile)
     }
 #ifndef WAITIO_USES_POLL
     if (file->pollset != NULL) {
-        int pollset_rv = apr_pollset_destroy(file->pollset);
+        apr_status_t pollset_rv = apr_pollset_destroy(file->pollset);
         /* If the file close failed, return its error value,
          * not apr_pollset_destroy()'s.
          */
@@ -60,7 +58,26 @@ apr_status_t apr_unix_file_cleanup(void *thefile)
         }
     }
 #endif /* !WAITIO_USES_POLL */
+    return rv;
+}
+
+apr_status_t apr_unix_file_cleanup(void *thefile)
+{
+    apr_file_t *file = thefile;
+    apr_status_t flush_rv = APR_SUCCESS, rv = APR_SUCCESS;
+
+    if (file->buffered) {
+        flush_rv = apr_file_flush(file);
+    }
+
+    rv = file_cleanup(file, 0);
+
     return rv != APR_SUCCESS ? rv : flush_rv;
+}
+
+apr_status_t apr_unix_child_file_cleanup(void *thefile)
+{
+    return file_cleanup(thefile, 1);
 }
 
 APR_DECLARE(apr_status_t) apr_file_open(apr_file_t **new, 
@@ -150,7 +167,8 @@ APR_DECLARE(apr_status_t) apr_file_open(apr_file_t **new,
     (*new)->buffered = (flag & APR_BUFFERED) > 0;
 
     if ((*new)->buffered) {
-        (*new)->buffer = apr_palloc(pool, APR_FILE_BUFSIZE);
+        (*new)->buffer = apr_palloc(pool, APR_FILE_DEFAULT_BUFSIZE);
+        (*new)->bufsize = APR_FILE_DEFAULT_BUFSIZE;
 #if APR_HAS_THREADS
         if ((*new)->flags & APR_XTHREAD) {
             (*new)->thlock = thlock;
@@ -178,7 +196,7 @@ APR_DECLARE(apr_status_t) apr_file_open(apr_file_t **new,
     if (!(flag & APR_FILE_NOCLEANUP)) {
         apr_pool_cleanup_register((*new)->pool, (void *)(*new), 
                                   apr_unix_file_cleanup, 
-                                  apr_unix_file_cleanup);
+                                  apr_unix_child_file_cleanup);
     }
     return APR_SUCCESS;
 }
@@ -239,7 +257,8 @@ APR_DECLARE(apr_status_t) apr_os_file_put(apr_file_t **file,
 #endif
 
     if ((*file)->buffered) {
-        (*file)->buffer = apr_palloc(pool, APR_FILE_BUFSIZE);
+        (*file)->buffer = apr_palloc(pool, APR_FILE_DEFAULT_BUFSIZE);
+        (*file)->bufsize = APR_FILE_DEFAULT_BUFSIZE;
 #if APR_HAS_THREADS
         if ((*file)->flags & APR_XTHREAD) {
             apr_status_t rv;
@@ -262,32 +281,69 @@ APR_DECLARE(apr_status_t) apr_file_eof(apr_file_t *fptr)
     return APR_SUCCESS;
 }   
 
-APR_DECLARE(apr_status_t) apr_file_open_stderr(apr_file_t **thefile, 
-                                               apr_pool_t *pool)
+APR_DECLARE(apr_status_t) apr_file_open_flags_stderr(apr_file_t **thefile, 
+                                                     apr_int32_t flags,
+                                                     apr_pool_t *pool)
 {
     int fd = STDERR_FILENO;
 
-    return apr_os_file_put(thefile, &fd, 0, pool);
+    return apr_os_file_put(thefile, &fd, flags | APR_WRITE, pool);
+}
+
+APR_DECLARE(apr_status_t) apr_file_open_flags_stdout(apr_file_t **thefile, 
+                                                     apr_int32_t flags,
+                                                     apr_pool_t *pool)
+{
+    int fd = STDOUT_FILENO;
+
+    return apr_os_file_put(thefile, &fd, flags | APR_WRITE, pool);
+}
+
+APR_DECLARE(apr_status_t) apr_file_open_flags_stdin(apr_file_t **thefile, 
+                                                    apr_int32_t flags,
+                                                    apr_pool_t *pool)
+{
+    int fd = STDIN_FILENO;
+
+    return apr_os_file_put(thefile, &fd, flags | APR_READ, pool);
+}
+
+APR_DECLARE(apr_status_t) apr_file_open_stderr(apr_file_t **thefile, 
+                                               apr_pool_t *pool)
+{
+    return apr_file_open_flags_stderr(thefile, 0, pool);
 }
 
 APR_DECLARE(apr_status_t) apr_file_open_stdout(apr_file_t **thefile, 
                                                apr_pool_t *pool)
 {
-    int fd = STDOUT_FILENO;
-
-    return apr_os_file_put(thefile, &fd, 0, pool);
+    return apr_file_open_flags_stdout(thefile, 0, pool);
 }
 
 APR_DECLARE(apr_status_t) apr_file_open_stdin(apr_file_t **thefile, 
                                               apr_pool_t *pool)
 {
-    int fd = STDIN_FILENO;
-
-    return apr_os_file_put(thefile, &fd, 0, pool);
+    return apr_file_open_flags_stdin(thefile, 0, pool);
 }
 
 APR_IMPLEMENT_INHERIT_SET(file, flags, pool, apr_unix_file_cleanup)
 
-APR_IMPLEMENT_INHERIT_UNSET(file, flags, pool, apr_unix_file_cleanup)
+/* We need to do this by hand instead of using APR_IMPLEMENT_INHERIT_UNSET
+ * because the macro sets both cleanups to the same function, which is not
+ * suitable on Unix (see PR 41119). */
+APR_DECLARE(apr_status_t) apr_file_inherit_unset(apr_file_t *thefile)
+{
+    if (thefile->flags & APR_FILE_NOCLEANUP) {
+        return APR_EINVAL;
+    }
+    if (thefile->flags & APR_INHERIT) {
+        thefile->flags &= ~APR_INHERIT;
+        apr_pool_child_cleanup_set(thefile->pool,
+                                   (void *)thefile,
+                                   apr_unix_file_cleanup,
+                                   apr_unix_child_file_cleanup);
+    }
+    return APR_SUCCESS;
+}
 
 APR_POOL_IMPLEMENT_ACCESSOR(file)

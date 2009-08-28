@@ -1,6 +1,6 @@
 /* ieee754-df.S double-precision floating point support for ARM
 
-   Copyright (C) 2003, 2004  Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005  Free Software Foundation, Inc.
    Contributed by Nicolas Pitre (nico@cam.org)
 
    This file is free software; you can redistribute it and/or modify it
@@ -24,8 +24,8 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 /*
  * Notes: 
@@ -81,7 +81,7 @@ ARM_FUNC_START subdf3
 ARM_FUNC_ALIAS aeabi_dsub subdf3
 
 	eor	yh, yh, #0x80000000	@ flip sign bit of second arg
-#if defined(__thumb__) && !defined(__THUMB_INTERWORK__)
+#if defined(__INTERWORKING_STUBS__)
 	b	1f			@ Skip Thumb-code prologue
 #endif
 
@@ -326,7 +326,7 @@ LSYM(Lad_s):
 	beq	1f
 
 	@ Result is x + 0.0 = x or 0.0 + y = y.
-	teq	r4, #0
+	orrs	ip, r4, xl
 	moveq	xh, yh
 	moveq	xl, yl
 	RETLDM	"r4, r5"
@@ -994,7 +994,7 @@ LSYM(Ldv_s):
 	mov	xl, yl
 	mov	xh, yh
 	b	LSYM(Lml_n)		@ <anything> / NAN -> NAN
-2:	@ If both are non-zero, we need to normalize and resume above.
+2:	@ If both are nonzero, we need to normalize and resume above.
 	orrs	r6, xl, xh, lsl #1
 	orrnes	r6, yl, yh, lsl #1
 	bne	LSYM(Lml_d)
@@ -1115,7 +1115,7 @@ ARM_FUNC_ALIAS aeabi_cdcmple aeabi_cdcmpeq
 	
 ARM_FUNC_START	aeabi_dcmpeq
 
-	str	lr, [sp, #-4]!
+	str	lr, [sp, #-8]!
 	ARM_CALL aeabi_cdcmple
 	moveq	r0, #1	@ Equal to.
 	movne	r0, #0	@ Less than, greater than, or unordered.
@@ -1125,7 +1125,7 @@ ARM_FUNC_START	aeabi_dcmpeq
 
 ARM_FUNC_START	aeabi_dcmplt
 
-	str	lr, [sp, #-4]!
+	str	lr, [sp, #-8]!
 	ARM_CALL aeabi_cdcmple
 	movcc	r0, #1	@ Less than.
 	movcs	r0, #0	@ Equal to, greater than, or unordered.
@@ -1135,7 +1135,7 @@ ARM_FUNC_START	aeabi_dcmplt
 
 ARM_FUNC_START	aeabi_dcmple
 
-	str	lr, [sp, #-4]!
+	str	lr, [sp, #-8]!
 	ARM_CALL aeabi_cdcmple
 	movls	r0, #1  @ Less than or equal to.
 	movhi	r0, #0	@ Greater than or unordered.
@@ -1145,7 +1145,7 @@ ARM_FUNC_START	aeabi_dcmple
 
 ARM_FUNC_START	aeabi_dcmpge
 
-	str	lr, [sp, #-4]!
+	str	lr, [sp, #-8]!
 	ARM_CALL aeabi_cdrcmple
 	movls	r0, #1	@ Operand 2 is less than or equal to operand 1.
 	movhi	r0, #0	@ Operand 2 greater than operand 1, or unordered.
@@ -1155,7 +1155,7 @@ ARM_FUNC_START	aeabi_dcmpge
 
 ARM_FUNC_START	aeabi_dcmpgt
 
-	str	lr, [sp, #-4]!
+	str	lr, [sp, #-8]!
 	ARM_CALL aeabi_cdrcmple
 	movcc	r0, #1	@ Operand 2 is less than operand 1.
 	movcs	r0, #0  @ Operand 2 is greater than or equal to operand 1,

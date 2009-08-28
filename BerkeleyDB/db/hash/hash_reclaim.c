@@ -1,21 +1,12 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1996,2007 Oracle.  All rights reserved.
+ *
+ * $Id: hash_reclaim.c,v 12.9 2007/05/17 15:15:38 bostic Exp $
  */
 
 #include "db_config.h"
-
-#ifndef lint
-static const char revid[] = "$Id: hash_reclaim.c,v 1.2 2004/03/30 01:23:27 jtownsen Exp $";
-#endif /* not lint */
-
-#ifndef NO_SYSTEM_INCLUDES
-#include <sys/types.h>
-
-#include <string.h>
-#endif
 
 #include "db_int.h"
 #include "dbinc/db_page.h"
@@ -50,10 +41,17 @@ __ham_reclaim(dbp, txn)
 	if ((ret = __ham_get_meta(dbc)) != 0)
 		goto err;
 
+	/* Write lock the metapage for deallocations. */
+	if ((ret = __ham_dirty_meta(dbc, 0)) != 0)
+		goto err;
+
+	/* Avoid locking every page, we have the handle locked exclusive. */
+	F_SET(dbc, DBC_DONTLOCK);
+
 	if ((ret = __ham_traverse(dbc,
 	    DB_LOCK_WRITE, __db_reclaim_callback, dbc, 1)) != 0)
 		goto err;
-	if ((ret = __db_c_close(dbc)) != 0)
+	if ((ret = __dbc_close(dbc)) != 0)
 		goto err;
 	if ((ret = __ham_release_meta(dbc)) != 0)
 		goto err;
@@ -61,7 +59,7 @@ __ham_reclaim(dbp, txn)
 
 err:	if (hcp->hdr != NULL)
 		(void)__ham_release_meta(dbc);
-	(void)__db_c_close(dbc);
+	(void)__dbc_close(dbc);
 	return (ret);
 }
 
@@ -92,6 +90,7 @@ __ham_truncate(dbc, countp)
 	if ((t_ret = __ham_release_meta(dbc)) != 0 && ret == 0)
 		ret = t_ret;
 
-	*countp = trunc.count;
+	if (countp != NULL)
+		*countp = trunc.count;
 	return (ret);
 }

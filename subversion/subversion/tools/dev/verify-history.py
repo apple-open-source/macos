@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 # This program is used to verify the FS history code.
 #
@@ -17,7 +17,7 @@
 #
 #   export VERIFY=/path/to/verify-history.py
 #   export MYREPOS=/path/to/repos
-#   
+#
 #   # List the paths in HEAD of the repos (filtering out the directories)
 #   for VCFILE in `svn ls -R file://${MYREPOS} | grep -v '/$'`; do
 #     echo "Checking ${VCFILE}"
@@ -31,16 +31,16 @@ from svn import core, repos, fs
 class HistoryChecker:
   def __init__(self, fs_ptr):
     self.fs_ptr = fs_ptr
-        
+
   def _check_history(self, path, revision):
     root = fs.revision_root(self.fs_ptr, revision)
     changes = fs.paths_changed(root)
     while 1:
-      if changes.has_key(path):
+      if path in changes:
         return 1
       if path == '/':
         return 0
-      idx = string.rfind(path, '/')
+      idx = path.rfind('/')
       if idx != -1:
         path = path[:idx]
       else:
@@ -48,9 +48,9 @@ class HistoryChecker:
 
   def add_history(self, path, revision, pool=None):
     if not self._check_history(path, revision):
-      print "**WRONG** %8d %s" % (revision, path)
+      print("**WRONG** %8d %s" % (revision, path))
     else:
-      print "          %8d %s" % (revision, path)
+      print("          %8d %s" % (revision, path))
 
 
 def check_history(fs_ptr, path, revision):
@@ -62,7 +62,7 @@ def check_history(fs_ptr, path, revision):
 def main():
   argc = len(sys.argv)
   if argc < 3 or argc > 4:
-    print "Usage: %s PATH-TO-REPOS PATH-IN-REPOS [REVISION]"
+    print("Usage: %s PATH-TO-REPOS PATH-IN-REPOS [REVISION]" % sys.argv[0])
     sys.exit(1)
 
   fs_ptr = repos.fs(repos.open(sys.argv[1]))

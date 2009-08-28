@@ -17,7 +17,7 @@ BEGIN {
 
 use DBICTest::ResultSetManager; # uses Class::Inspector
 
-my $schema = DBICTest::ResultSetManager->compose_connection('DB', 'foo');
+my $schema = DBICTest::ResultSetManager->compose_namespace('DB');
 my $rs = $schema->resultset('Foo');
 
 ok( !DB::Foo->can('bar'), 'Foo class does not have bar method' );

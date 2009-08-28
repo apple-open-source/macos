@@ -1,4 +1,31 @@
 /*
+ * Copyright (c) 2008 Apple Inc. All rights reserved.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ *
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+ */
+/*
  * Copyright (c) 1983, 1988, 1993, 1995
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -162,17 +189,23 @@ _serv_cache_getservbyport(int port, char *proto)
  * -a (all) flag is specified.
  */
 void
-protopr(u_long proto,		/* for sysctl version we pass proto # */
+protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 	char *name, int af)
 {
 	int istcp;
 	static int first = 1;
 	char *buf;
 	const char *mibvar;
+	struct xinpgen *xig, *oxig;
+#if !TARGET_OS_EMBEDDED
+	struct xtcpcb64 *tp = NULL;
+	struct xinpcb64 *inp;
+	struct xsocket64 *so;
+#else
 	struct tcpcb *tp = NULL;
 	struct inpcb *inp;
-	struct xinpgen *xig, *oxig;
 	struct xsocket *so;
+#endif
 	size_t len;
 
 	istcp = 0;
@@ -185,7 +218,11 @@ protopr(u_long proto,		/* for sysctl version we pass proto # */
 			tcp_done = 1;
 #endif
 		istcp = 1;
+#if !TARGET_OS_EMBEDDED
+		mibvar = "net.inet.tcp.pcblist64";
+#else
 		mibvar = "net.inet.tcp.pcblist";
+#endif
 		break;
 	case IPPROTO_UDP:
 #ifdef INET6
@@ -194,13 +231,25 @@ protopr(u_long proto,		/* for sysctl version we pass proto # */
 		else
 			udp_done = 1;
 #endif
+#if !TARGET_OS_EMBEDDED
+		mibvar = "net.inet.udp.pcblist64";
+#else
 		mibvar = "net.inet.udp.pcblist";
+#endif
 		break;
 	case IPPROTO_DIVERT:
+#if !TARGET_OS_EMBEDDED
+		mibvar = "net.inet.divert.pcblist64";
+#else
 		mibvar = "net.inet.divert.pcblist";
+#endif
 		break;
 	default:
+#if !TARGET_OS_EMBEDDED
+		mibvar = "net.inet.raw.pcblist64";
+#else
 		mibvar = "net.inet.raw.pcblist";
+#endif
 		break;
 	}
 	len = 0;
@@ -233,12 +282,23 @@ protopr(u_long proto,		/* for sysctl version we pass proto # */
 	     xig->xig_len > sizeof(struct xinpgen);
 	     xig = (struct xinpgen *)((char *)xig + xig->xig_len)) {
 		if (istcp) {
+#if !TARGET_OS_EMBEDDED
+			tp = (struct xtcpcb64 *)xig;
+			inp = &tp->xt_inpcb;
+			so = &inp->xi_socket;
+#else
 			tp = &((struct xtcpcb *)xig)->xt_tp;
 			inp = &((struct xtcpcb *)xig)->xt_inp;
 			so = &((struct xtcpcb *)xig)->xt_socket;
+#endif
 		} else {
+#if !TARGET_OS_EMBEDDED
+			inp = (struct xinpcb64 *)xig;
+			so = &inp->xi_socket;
+#else
 			inp = &((struct xinpcb *)xig)->xi_inp;
 			so = &((struct xinpcb *)xig)->xi_socket;
+#endif
 		}
 
 		/* Ignore sockets for protocols other than the desired one. */
@@ -261,7 +321,7 @@ protopr(u_long proto,		/* for sysctl version we pass proto # */
 			))
 		    )
 			continue;
-#ifdef __APPLE__
+
                 /*
                  * Local address is not an indication of listening socket or
                  * server sockey but just rather the socket has been bound.
@@ -269,26 +329,6 @@ protopr(u_long proto,		/* for sysctl version we pass proto # */
                  */
                 if (!aflag && istcp && tp->t_state <= TCPS_LISTEN)
                     continue;
-#else
-                if (!aflag && 
-		    (
-		     (af == AF_INET &&
-		      inet_lnaof(inp->inp_laddr) == INADDR_ANY)
-#ifdef INET6
-		     || (af == AF_INET6 &&
-			 IN6_IS_ADDR_UNSPECIFIED(&inp->in6p_laddr))
-#endif /* INET6 */
-		     || (af == AF_UNSPEC &&
-			 (((inp->inp_vflag & INP_IPV4) != 0 &&
-			   inet_lnaof(inp->inp_laddr) == INADDR_ANY)
-#ifdef INET6
-			  || ((inp->inp_vflag & INP_IPV6) != 0 &&
-			      IN6_IS_ADDR_UNSPECIFIED(&inp->in6p_laddr))
-#endif
-			  ))
-		     ))
-                    continue;
-#endif
 
                 if (Lflag && !so->so_qlimit)
                     continue;
@@ -303,7 +343,11 @@ protopr(u_long proto,		/* for sysctl version we pass proto # */
 	"Current listen queue sizes (qlen/incqlen/maxqlen)");
 			putchar('\n');
 			if (Aflag)
+#if !TARGET_OS_EMBEDDED
+				printf("%-16.16s ", "Socket");
+#else
 				printf("%-8.8s ", "Socket");
+#endif
 			if (Lflag)
 				printf("%-14.14s %-22.22s\n",
 					"Listen", "Local Address");
@@ -318,9 +362,18 @@ protopr(u_long proto,		/* for sysctl version we pass proto # */
 		}
                 if (Aflag) {
                         if (istcp)
+#if !TARGET_OS_EMBEDDED
+                                printf("%16lx ", (u_long)inp->inp_ppcb);
+#else
                                 printf("%8lx ", (u_long)inp->inp_ppcb);
+
+#endif
                         else
+#if !TARGET_OS_EMBEDDED
+                                printf("%16lx ", (u_long)so->so_pcb);
+#else
                                 printf("%8lx ", (u_long)so->so_pcb);
+#endif
                 }
 		if (Lflag) {
 				char buf[15];
@@ -434,7 +487,7 @@ protopr(u_long proto,		/* for sysctl version we pass proto # */
  * Dump TCP statistics structure.
  */
 void
-tcp_stats(u_long off , char *name, int af )
+tcp_stats(uint32_t off , char *name, int af )
 {
 	static struct tcpstat ptcpstat;
 	struct tcpstat tcpstat;
@@ -552,12 +605,12 @@ tcp_stats(u_long off , char *name, int af )
  * Dump UDP statistics structure.
  */
 void
-udp_stats(u_long off , char *name, int af )
+udp_stats(uint32_t off , char *name, int af )
 {
 	static struct udpstat pudpstat;
 	struct udpstat udpstat;
 	size_t len = sizeof udpstat;
-	u_long delivered;
+	uint32_t delivered;
 
 	if (sysctlbyname("net.inet.udp.stats", &udpstat, &len, 0, 0) < 0) {
 		warn("sysctl: net.inet.udp.stats");
@@ -582,9 +635,6 @@ udp_stats(u_long off , char *name, int af )
 	p1a(udps_hdrops, "\t%u with incomplete header\n");
 	p1a(udps_badlen, "\t%u with bad data length field\n");
 	p1a(udps_badsum, "\t%u with bad checksum\n");
-#ifndef __APPLE__
-	p1a(udps_nosum, "\t%u with no checksum\n");
-#endif
 	p1a(udps_noport, "\t%u dropped due to no socket\n");
 	p(udps_noportbcast,
 	    "\t%u broadcast/multicast datagram%s dropped due to no socket\n");
@@ -598,7 +648,7 @@ udp_stats(u_long off , char *name, int af )
 		    UDPDIFF(udps_noportbcast) -
 		    UDPDIFF(udps_fullsock);
 	if (delivered || sflag <= 1)
-		printf("\t%lu delivered\n", delivered);
+		printf("\t%u delivered\n", delivered);
 	p(udps_opackets, "\t%u datagram%s output\n");
 
 	if (interval > 0)
@@ -613,7 +663,7 @@ udp_stats(u_long off , char *name, int af )
  * Dump IP statistics structure.
  */
 void
-ip_stats(u_long off , char *name, int af )
+ip_stats(uint32_t off , char *name, int af )
 {
 	static struct ipstat pipstat;
 	struct ipstat ipstat;
@@ -700,7 +750,7 @@ static	char *icmpnames[] = {
  * Dump ICMP statistics.
  */
 void
-icmp_stats(u_long off , char *name, int af )
+icmp_stats(uint32_t off , char *name, int af )
 {
 	static struct icmpstat picmpstat;
 	struct icmpstat icmpstat;
@@ -773,7 +823,7 @@ icmp_stats(u_long off , char *name, int af )
  * Dump IGMP statistics structure.
  */
 void
-igmp_stats(u_long off , char *name, int af )
+igmp_stats(uint32_t off , char *name, int af )
 {
 	static struct igmpstat pigmpstat;
 	struct igmpstat igmpstat;

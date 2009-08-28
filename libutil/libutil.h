@@ -96,9 +96,6 @@ struct sockaddr;
 int	realhostname_sa(char *host, size_t hsize, struct sockaddr *addr,
 			     int addrlen);
 
-int	kld_isloaded(const char *name);
-int	kld_load(const char *name);
-
 #ifdef _STDIO_H_	/* avoid adding new includes */
 char   *fparseln(FILE *, size_t *, size_t *, const char[3], int);
 #endif
@@ -124,6 +121,8 @@ int pidfile_write(struct pidfh *pfh);
 int pidfile_close(struct pidfh *pfh);
 int pidfile_remove(struct pidfh *pfh);
 #endif
+
+int reexec_to_match_kernel(void);
 
 __END_DECLS
 

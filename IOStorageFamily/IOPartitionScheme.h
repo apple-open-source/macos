@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -177,19 +177,23 @@ protected:
      * Attach the given media object to the device tree plane.
      */
 
+#ifdef __LP64__
+    virtual bool attachMediaObjectToDeviceTree(IOMedia * media);
+#else /* !__LP64__ */
     virtual bool attachMediaObjectToDeviceTree(IOMedia *    media,
-                                               IOOptionBits options = 0);
-
-    OSMetaClassDeclareReservedUsed(IOPartitionScheme, 0); /* 10.5.0 */
+                                               IOOptionBits options = 0); /* 10.5.0 */
+#endif /* !__LP64__ */
 
     /*
      * Detach the given media object from the device tree plane.
      */
 
+#ifdef __LP64__
+    virtual void detachMediaObjectFromDeviceTree(IOMedia * media);
+#else /* !__LP64__ */
     virtual void detachMediaObjectFromDeviceTree(IOMedia *    media,
-                                                 IOOptionBits options = 0);
-
-    OSMetaClassDeclareReservedUsed(IOPartitionScheme, 1); /* 10.5.0 */
+                                                 IOOptionBits options = 0); /* 10.5.0 */
+#endif /* !__LP64__ */
 
     /*
      * Updates a set of existing partitions, represented by partitionsOld,
@@ -202,9 +206,7 @@ protected:
      */
 
     virtual OSSet * juxtaposeMediaObjects(OSSet * partitionsOld,
-                                          OSSet * partitionsNew);
-
-    OSMetaClassDeclareReservedUsed(IOPartitionScheme, 2); /* 10.5.0 */
+                                          OSSet * partitionsNew); /* 10.5.0 */
 
 public:
 
@@ -326,6 +328,15 @@ public:
 
     virtual IOMedia * getProvider() const;
 
+#ifdef __LP64__
+    OSMetaClassDeclareReservedUnused(IOPartitionScheme,  0);
+    OSMetaClassDeclareReservedUnused(IOPartitionScheme,  1);
+    OSMetaClassDeclareReservedUnused(IOPartitionScheme,  2);
+#else /* !__LP64__ */
+    OSMetaClassDeclareReservedUsed(IOPartitionScheme,  0);
+    OSMetaClassDeclareReservedUsed(IOPartitionScheme,  1);
+    OSMetaClassDeclareReservedUsed(IOPartitionScheme,  2);
+#endif /* !__LP64__ */
     OSMetaClassDeclareReservedUnused(IOPartitionScheme,  3);
     OSMetaClassDeclareReservedUnused(IOPartitionScheme,  4);
     OSMetaClassDeclareReservedUnused(IOPartitionScheme,  5);

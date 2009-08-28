@@ -1,10 +1,12 @@
 #
-# xbs-compatible Makefile for bzip2.
+# xbs-compatible Makefile for pyobjc.
 #
 
-Project             = pyobjc
+#GCC_VERSION := $(shell cc -dumpversion | sed -e 's/^\([^.]*\.[^.]*\).*/\1/')
+#GCC_42 := $(shell perl -e "print ($(GCC_VERSION) >= 4.2 ? 'YES' : 'NO')")
+
 GnuNoConfigure      = YES
-Extra_CC_Flags      = -no-cpp-precomp
+Extra_CC_Flags      = -no-cpp-precomp -g
 Extra_Install_Flags = PREFIX=$(RC_Install_Prefix)
 
 #include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
@@ -24,11 +26,11 @@ install-plist:
 # Automatic Extract & Patch
 AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = private-Leopard-branch-20071207
+AEP_Version    = trunk-20090623
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = fixup.diff
+AEP_Patches    = fixup.diff PR-6090358-remove-sync.diff parser-fixes.diff NSString.diff float.diff pyobjc-framework-Cocoa_setup.py.diff objc-class.m.diff CGFloat.diff
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j
@@ -39,21 +41,28 @@ endif
 # Extract the source.
 install_source::
 ifeq ($(AEP),YES)
-	$(TAR) -C $(SRCROOT) -$(AEP_ExtractOption)xf $(SRCROOT)/$(AEP_Filename)
+	$(TAR) -C $(SRCROOT) -$(AEP_ExtractOption)xof $(SRCROOT)/$(AEP_Filename)
 	$(RMDIR) $(SRCROOT)/$(AEP_Project)
 	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(AEP_Project)
-	@set -x && for patchfile in $(AEP_Patches); do \
-		cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile || exit 1; \
+	@set -x && \
+	cd $(SRCROOT)/$(Project) && \
+	for patchfile in $(AEP_Patches); do \
+	    patch -p0 -i $(SRCROOT)/patches/$$patchfile || exit 1; \
+	done && \
+	for patchfile in `find . -name pyobjc-api.h | xargs fgrep -l __LP64__`; do \
+	    mv -f $$patchfile $$patchfile.orig && \
+	    { unifdef -DCGFLOAT_DEFINED -DNSINTEGER_DEFINED $$patchfile.orig > $$patchfile || [ $$? -ne 2 ]; } || exit 1; \
+	done
+	ed - $(SRCROOT)/$(Project)/pyobjc-core/setup.py < '$(SRCROOT)/patches/pyobjc-core_setup.py.ed'
+	@set -x && cd '$(SRCROOT)/$(Project)/pyobjc-xcode/Project Templates' && \
+	for patchfile in `find . -name project.pbxproj -print0 | xargs -0 fgrep -l MacOSX10.5.sdk | sed 's/ /@/g'`; do \
+	    ed - "`echo $$patchfile | sed 's/@/ /g'`" < $(SRCROOT)/patches/PR-6150200-10.6sdk.ed || exit 1; \
 	done
 	@set -x && for z in `find $(SRCROOT)/$(Project) -name \*.py -size 0c`; do \
-		echo '#' > $$z || exit 1; \
+	    echo '#' > $$z || exit 1; \
 	done
-	ditto $(SRCROOT)/$(Project)/pyobjc/ez_setup $(SRCROOT)/$(Project)/stable/pyobjc-xcode/ez_setup
 	find $(SRCROOT)/$(Project) -name main -print -delete
 	find $(SRCROOT)/$(Project) -name \*.so -print -delete
-	@set -x && for z in `find $(SRCROOT)/$(Project) -name dist`; do \
-		$(RMDIR) $$z || exit 1; \
-	done
 endif
 
 copysource:
@@ -64,49 +73,35 @@ EXAMPLES=/Developer/Examples/Python/PyObjC
 EXTRAS=$(shell python -c "import sys, os;print os.path.join(sys.prefix, 'Extras')")
 INIT = $(OBJROOT)/init.py
 
-TEMPLATES=/Developer/Library/Xcode
-APPTEMPLATES=$(TEMPLATES)/Project Templates/Application
-FILETEMPLATES=$(TEMPLATES)/File Templates
-TEMPLATEDATA = $(OBJROOT)/$(Project)/stable/pyobjc-xcode/Lib/PyObjCTools/XcodeSupport/template-data
-XCODESUPPORT = Xcode Support
+XCODESUPPORT = pyobjc-xcode
 
 real-install:
 	echo import site > "$(INIT)"
-	echo 'site.addsitedir("$(SYMROOT)$(EXTRAS)/lib/python")' >> "$(INIT)"
+	echo 'site.addsitedir("$(DSTROOT)$(EXTRAS)/lib/python")' >> "$(INIT)"
 	@set -x && \
-	cd '$(OBJROOT)/$(Project)/stable' && \
-	for pkg in pyobjc-core pyobjc-framework-* pyobjc-xcode; do \
-	    cd "$(OBJROOT)/$(Project)/stable/$$pkg" && \
-	    CFLAGS="$(RC_CFLAGS) $(MYEXTRACFLAGS)" LDFLAGS="$(RC_CFLAGS)" \
-	    PYTHONSTARTUP="$(INIT)" \
-	    python setup.py install --home="$(EXTRAS)" --root="$(SYMROOT)" || exit 1; \
+	cd '$(OBJROOT)/$(Project)' && \
+	for pkg in pyobjc-core pyobjc-framework-*; do \
+	    cd "$(OBJROOT)/$(Project)/$$pkg" && \
+	    ARCHFLAGS="$(RC_CFLAGS) -D_FORTIFY_SOURCE=0" PYTHONSTARTUP="$(INIT)" \
+	    python setup.py install --home="$(EXTRAS)" --root="$(DSTROOT)" || exit 1; \
 	done
-	@set -x && cd "$(SYMROOT)$(EXTRAS)/lib/python" && \
+	@set -x && cd "$(DSTROOT)$(EXTRAS)/lib/python" && \
+	install -d PyObjC && \
 	for x in *; do \
 	    if [ "$$x" != PyObjC -a "$$x" != PyObjC.pth ]; then \
-		ditto "$$x" "PyObjC/$$x" && \
-		$(RM) -r "$$x" || exit 1; \
-	    fi; \
+		if [ -e PyObjC/$$x ]; then \
+		    ditto $$x PyObjC/$$x && \
+		    $(RMDIR) $$x; \
+		else \
+		    $(MV) "$$x" PyObjC; \
+		fi; \
+	    fi || exit 1; \
 	done
-	ditto "$(SYMROOT)"/System "$(DSTROOT)"/System
-
-install-templates:
-	$(INSTALL) -d '$(DSTROOT)$(TEMPLATES)'
-	$(INSTALL) -d '$(DSTROOT)$(APPTEMPLATES)'
-	$(INSTALL) -d '$(DSTROOT)$(FILETEMPLATES)'
-	rsync -rplt '$(TEMPLATEDATA)/File Templates/Pure Python' '$(DSTROOT)$(FILETEMPLATES)'
-	rsync -rplt '$(OBJROOT)/$(Project)/$(XCODESUPPORT)/File Templates/' '$(DSTROOT)$(FILETEMPLATES)'
-	@set -x && \
-	cd '$(OBJROOT)/$(Project)/$(XCODESUPPORT)/Project Templates' && \
-	./project-tool.py -k -v --template 'Cocoa-Python Application/CocoaApp.xcodeproj/TemplateInfo.plist' 'Cocoa-Python Application' '$(DSTROOT)$(APPTEMPLATES)/Cocoa-Python Application' && \
-	./project-tool.py -k -v --template 'Cocoa-Python Core Data Application/CocoaApp.xcodeproj/TemplateInfo.plist' 'Cocoa-Python Core Data Application' '$(DSTROOT)$(APPTEMPLATES)/Cocoa-Python Core Data Application' && \
-	./project-tool.py -k -v --template 'Cocoa-Python Core Data Document-based Application/CocoaDocApp.xcodeproj/TemplateInfo.plist' 'Cocoa-Python Core Data Document-based Application' '$(DSTROOT)$(APPTEMPLATES)/Cocoa-Python Core Data Document-based Application' && \
-	./project-tool.py -k -v --template 'Cocoa-Python Document-based Application/CocoaDocApp.xcodeproj/TemplateInfo.plist' 'Cocoa-Python Document-based Application' '$(DSTROOT)$(APPTEMPLATES)/Cocoa-Python Document-based Application'
 
 install-docs:
 	$(INSTALL) -d '$(DSTROOT)$(DOCS)'
 	@set -x && \
-	for e in `find "$(OBJROOT)/$(Project)/stable" -name Doc \! -empty -maxdepth 2`; do \
+	for e in `find "$(OBJROOT)/$(Project)" -name Doc ! -empty ! -path '*pyobjc-metadata*'`; do \
 	    d=`dirname $$e` && \
 	    n=`basename $$d` && \
 	    case $$n in \
@@ -121,7 +116,7 @@ install-docs:
 install-examples:
 	$(INSTALL) -d '$(DSTROOT)$(EXAMPLES)'
 	@set -x && \
-	for e in `find "$(OBJROOT)/$(Project)/stable" -name Examples \! -empty -maxdepth 2`; do \
+	for e in `find "$(OBJROOT)/$(Project)" -name Examples ! -empty -maxdepth 2`; do \
 	    d=`dirname $$e` && \
 	    n=`basename $$d` && \
 	    case $$n in \
@@ -133,20 +128,23 @@ install-examples:
 	    esac \
 	done
 
-# 5171430 - PyObjC's CoreGraphics conflicts with Apple's CoreGraphics, so
-# remove ours until we come up with a better solution
-remove-CoreGraphics:
-	$(RMDIR) $(DSTROOT)$(EXTRAS)/lib/python/PyObjC/CoreGraphics
-
 fix_strip:
 	@echo ======== fix verification errors =========
 	@echo '=== strip .so files ==='
-	find "$(DSTROOT)" -name \*.so -print -exec $(STRIP) -x {} ';'
+	@set -x && cd '$(DSTROOT)' && \
+	for i in `find . -name \*.so | sed 's,^\./,,'`; do \
+	    rsync -R $$i $(SYMROOT) && \
+	    $(STRIP) -x $$i || exit 1; \
+	done
 
 fix_bogus_files:
 	@echo '=== fix bogus_files ==='
 	find -d "$(DSTROOT)$(EXAMPLES)" -name '*~.nib' -print -exec rm -rf {} ';'
 
-fix_verification-errors: fix_strip fix_bogus_files
+fix_inappropriate_executables:
+	@echo '=== fix inappropriate_executables ==='
+	chmod a-x "$(DSTROOT)$(EXAMPLES)/Quartz/Core Graphics/CGRotation/demo.png"
 
-install:: copysource install-plist real-install install-templates install-docs install-examples remove-CoreGraphics fix_verification-errors
+fix_verification-errors: fix_bogus_files fix_inappropriate_executables fix_strip
+
+install:: copysource install-plist real-install install-docs install-examples fix_verification-errors

@@ -6,9 +6,10 @@ HTTP GET
 --write-out
 </keywords>
 </info>
+
 # Server-side
 <reply>
-<data nocheck="1">
+<data nocheck="yes">
 HTTP/1.1 200 OK swsclose
 Funny-head: yesyes
 Content-Type: text/html; charset=ISO-8859-4   
@@ -25,7 +26,7 @@ http
 HTTP content-type with spaces in
  </name>
  <command>
--w '%{content_type}\n' http://%HOSTIP:%HTTPPORT/57 -o log/out57
+-w "%{content_type}\n" http://%HOSTIP:%HTTPPORT/57 -o log/out57
 </command>
 </client>
 
@@ -39,7 +40,7 @@ text/html; charset=ISO-8859-4
 </strip>
 <protocol>
 GET /57 HTTP/1.1
-Host: 127.0.0.1:%HTTPPORT
+Host: %HOSTIP:%HTTPPORT
 Accept: */*
 
 </protocol>

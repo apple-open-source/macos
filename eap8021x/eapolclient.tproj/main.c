@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -53,14 +53,13 @@
 
 #include <EAP8021X/LinkAddresses.h>
 #include <EAP8021X/EAPClientModule.h>
+#include <SystemConfiguration/SCPreferences.h>
 #include <SystemConfiguration/SCValidation.h>
+#include "EAPOLSocketPrivate.h"
 #include "EAPOLSocket.h"
 #include "Supplicant.h"
 #include "myCFUtil.h"
 #include "mylog.h"
-
-static SupplicantRef 		supp = NULL;
-
 
 extern EAPClientPluginFuncRef
 md5_introspect(EAPClientPluginFuncName name);
@@ -82,6 +81,9 @@ eapgtc_introspect(EAPClientPluginFuncName name);
 
 extern EAPClientPluginFuncRef
 eapfast_introspect(EAPClientPluginFuncName name);
+
+extern EAPClientPluginFuncRef
+eapsim_introspect(EAPClientPluginFuncName name);
 
 EAPClientModuleStatus
 S_load_modules()
@@ -130,55 +132,99 @@ S_load_modules()
 		status);
 	return (status);
     }
+    status = EAPClientModuleAddBuiltinModule(eapsim_introspect);
+    if (status != kEAPClientModuleStatusOK) {
+	fprintf(stderr, "EAPClientAddBuiltinModule(eapsim) failed %d\n",
+		status);
+	return (status);
+    }
     return (kEAPClientModuleStatusOK);
 }
 
-#define EAPOLCLIENT_LOG_DIR	"/var/log/eapolclient"
+#define EAPOLCLIENT_PACKET_LOG_DIR	"/var/log/eapolclient"
 
 static void
-setup_log_file(const char * if_name, uid_t uid, gid_t gid)
+setup_packet_log_file(const char * if_name, uid_t uid, gid_t gid)
 {
     char 		filename[512];
     int			log_fd;
     struct stat		sb;
 
-    if (stat(EAPOLCLIENT_LOG_DIR, &sb) < 0) {
-	my_log(LOG_DEBUG, "%s: stat " EAPOLCLIENT_LOG_DIR " failed, %m", 
+    if (stat(EAPOLCLIENT_PACKET_LOG_DIR, &sb) < 0) {
+	my_log(LOG_DEBUG,
+	       "%s: stat " EAPOLCLIENT_PACKET_LOG_DIR " failed, %m", 
 	       if_name);
 	return;
     }
     if ((sb.st_mode & S_IFDIR) == 0) {
-	my_log(LOG_DEBUG, "%s: " EAPOLCLIENT_LOG_DIR " is not a directory", 
+	my_log(LOG_DEBUG,
+	       "%s: " EAPOLCLIENT_PACKET_LOG_DIR " is not a directory", 
 	       if_name);
 	return;
     }
     snprintf(filename, sizeof(filename), 
-	     EAPOLCLIENT_LOG_DIR "/uid%lu-%s.log", (unsigned long)uid, 
+	     EAPOLCLIENT_PACKET_LOG_DIR "/uid%lu-%s.log", (unsigned long)uid, 
 	     if_name);
     log_fd = open(filename, O_CREAT | O_WRONLY | O_APPEND, 0600);
     if (log_fd < 0) {
 	my_log(LOG_NOTICE, "%s: failed to open %s, %m", if_name,
 	       filename);
+	return;
     }
-    else {
-	my_log(LOG_NOTICE, "%s: using log file %s", if_name, filename);
-	fchown(log_fd, uid, gid);
-	fflush(stdout);
-	fflush(stderr);
-	dup2(log_fd, STDOUT_FILENO);
-	dup2(log_fd, STDERR_FILENO);
-    }
+    my_log(LOG_NOTICE, "%s: debug/packet log file %s", if_name, filename);
+    fchown(log_fd, uid, gid);
+    fflush(stdout);
+    fflush(stderr);
+    dup2(log_fd, STDOUT_FILENO);
+    dup2(log_fd, STDERR_FILENO);
     return;
 }
 
-static void
-init_random()
+static FILE *
+setup_log_file(SCPreferencesRef prefs, 
+	       const char * if_name, uint32_t * ret_log_flags)
 {
-    struct timeval 	tv;
-    
-    gettimeofday(&tv, 0);
-    srandom(tv.tv_usec);
-    return;
+    FILE *		log_file = NULL;
+    CFNumberRef		log_flags;
+
+    *ret_log_flags = 0;
+    if (prefs == NULL) {
+	return (NULL);
+    }
+    log_flags = SCPreferencesGetValue(prefs, CFSTR("LogFlags"));
+    if (log_flags != NULL) {
+	if (isA_CFNumber(log_flags) == NULL
+	    || CFNumberGetValue(log_flags, kCFNumberIntType, 
+				ret_log_flags) == FALSE) {
+	    my_log(LOG_NOTICE, "com.apple.eapolclient.LogFlags invalid");
+	}
+	else {
+	    char 		filename[512];
+
+	    snprintf(filename, sizeof(filename), 
+		     "/var/log/eapolclient.%s.log", if_name);
+	    log_file = fopen(filename, "a+");
+	    if (log_file == NULL) {
+		my_log(LOG_NOTICE, "could not open '%s', %s\n",
+		       filename, strerror(errno));
+	    }
+	    else {
+		my_log(LOG_NOTICE, "opened log file '%s'",
+		       filename);
+	    }
+	    if ((*ret_log_flags & kLogFlagIncludeStdoutStderr) != 0) {
+		int		log_fd;
+
+		fflush(stdout);
+		fflush(stderr);
+
+		log_fd = fileno(log_file);
+		dup2(log_fd, STDOUT_FILENO);
+		dup2(log_fd, STDERR_FILENO);
+	    }
+	}
+    }
+    return (log_file);
 }
 
 static void
@@ -190,23 +236,50 @@ usage(char * progname)
     exit(EX_USAGE);
 }
 
+static void
+log_then_exit(int exit_code)
+{
+    eapolclient_log(kLogFlagBasic, "exit\n");
+    exit(exit_code);
+    return;
+}
+
+static SCPreferencesRef
+open_prefs(void)
+{
+    SCPreferencesRef	prefs;
+
+    prefs = SCPreferencesCreate(NULL, CFSTR("eapolclient"),
+				CFSTR("com.apple.eapolclient.plist"));
+    if (prefs == NULL) {
+	my_log(LOG_NOTICE, "SCPreferencesCreate failed");
+	return (NULL);
+    }
+    return (prefs);
+}
+
 int
 main(int argc, char * argv[1])
 {
     char			ch;
-    CFDictionaryRef		dict = NULL;
+    CFDictionaryRef		config_dict = NULL;
     char *			config_file = NULL;
+    CFDictionaryRef		control_dict = NULL;
     bool			d_flag = FALSE;
-    int				fd;
     bool			g_flag = FALSE;
     gid_t			gid = 0;
     char *			if_name = NULL;
     LinkAddressesRef		link_addrs = NULL;
     struct sockaddr_dl *	link = NULL;
+    FILE *			log_file;
+    uint32_t			log_flags = 0;
     bool			n_flag = FALSE;
+    SCPreferencesRef		prefs;
+    bool			s_flag = FALSE;
+    EAPOLSocketSourceRef	source;
+    SupplicantRef 		supp = NULL;
     bool			u_flag = FALSE;
     uid_t			uid = 0;
-    bool			s_flag = FALSE;
 
     link_addrs = LinkAddresses_create();
     if (link_addrs == NULL) {
@@ -266,63 +339,87 @@ main(int argc, char * argv[1])
     }
     openlog("eapolclient", LOG_CONS | LOG_PID, LOG_DAEMON);
     if (d_flag == FALSE) {
-	setup_log_file(if_name, uid, gid);
+	setup_packet_log_file(if_name, uid, gid);
     }
-    fd = eapol_socket(if_name, FALSE);
-    if (fd < 0) {
-	my_log(LOG_NOTICE, "eapol_socket(%s) failed", if_name);
-	exit(EX_UNAVAILABLE);
+    prefs = open_prefs();
+    log_file = setup_log_file(prefs, if_name, &log_flags);
+    if (log_file != NULL) {
+	eapolclient_log_set(log_file, log_flags);
+    }
+    eapolclient_log(kLogFlagBasic,
+		    "start pid %d uid %d gid %d log_flags 0x%x\n",
+		    getpid(), uid, gid, log_flags);
+    EAPOLSocketSetGlobals(prefs);
+    my_CFRelease(&prefs);
+    source = EAPOLSocketSourceCreate(if_name,
+				     (const struct ether_addr *)
+				     (link->sdl_data + link->sdl_nlen),
+				     &control_dict);
+    if (source == NULL) {
+	my_log(LOG_NOTICE, "EAPOLSocketSourceCreate(%s) failed", if_name);
+	log_then_exit(EX_UNAVAILABLE);
     }
     if (g_flag) {
 	if (setgid(gid) < 0) {
 	    syslog(LOG_NOTICE, "setgid(%d) failed, %m", gid);
-	    exit(EX_NOPERM);
+	    log_then_exit(EX_NOPERM);
 	}
     }
     if (u_flag) {
 	if (setuid(uid) < 0) {
 	    syslog(LOG_NOTICE, "setuid(%d) failed, %m", uid);
-	    exit(EX_NOPERM);
+	    log_then_exit(EX_NOPERM);
 	}
     }
     if (config_file != NULL) {
-	dict = (CFDictionaryRef)my_CFPropertyListCreateFromFile(config_file);
-	if (isA_CFDictionary(dict) == NULL) {
-	    fprintf(stderr, "contents of file %s invalid\n", config_file);
-	    my_CFRelease(&dict);
-	    exit (EX_CONFIG);
+	if (control_dict != NULL) {
+	    fprintf(stderr, "Ignoring -c %s\n", config_file);
+	}
+	else {
+	    config_dict = (CFDictionaryRef)
+		my_CFPropertyListCreateFromFile(config_file);
+	    if (isA_CFDictionary(config_dict) == NULL) {
+		fprintf(stderr, "contents of file %s invalid\n", config_file);
+		my_CFRelease(&config_dict);
+		log_then_exit(EX_CONFIG);
+	    }
 	}
     }
-    if (S_load_modules() != kEAPClientModuleStatusOK) {
-	exit(EX_SOFTWARE);
+    if (config_dict == NULL && control_dict == NULL) {
+	my_log(LOG_NOTICE, "%s: config/control dictionary missing", if_name);
+	log_then_exit(EX_SOFTWARE);
     }
-
-    /* the Supplicant owns the file descriptor */
-    supp = Supplicant_create(fd, link, s_flag);
+    if (S_load_modules() != kEAPClientModuleStatusOK) {
+	log_then_exit(EX_SOFTWARE);
+    }
+    supp = EAPOLSocketSourceCreateSupplicant(source, control_dict, s_flag);
     if (supp == NULL) {
-	syslog(LOG_NOTICE, "Supplicant_create failed");
-	exit(EX_UNAVAILABLE);
+	syslog(LOG_NOTICE, "EAPOLSocketSourceCreateSupplicant failed");
+	EAPOLSocketSourceFree(&source);
+	log_then_exit(EX_UNAVAILABLE);
     }
     if (n_flag) {
 	Supplicant_set_no_ui(supp);
     }
-    if (Supplicant_attached(supp)) {
+    if (control_dict != NULL) {
 	(void)setsid();
 	(void)chdir("/");
     }
     else {
-	(void)Supplicant_update_configuration(supp, dict);
-	my_CFRelease(&dict);
+	(void)Supplicant_update_configuration(supp, config_dict);
     }
+    my_CFRelease(&control_dict);
+    my_CFRelease(&config_dict);
     if (d_flag) {
 	Supplicant_set_debug(supp, TRUE);
 	EAPOLSocketSetDebug(TRUE);
     }
-    init_random();
+    my_log(LOG_NOTICE, "%s START", if_name);
     Supplicant_start(supp);
     
     LinkAddresses_free(&link_addrs);
     CFRunLoopRun();
 
-    exit(EX_OK);
+    log_then_exit(EX_OK);
+    return (0);
 }

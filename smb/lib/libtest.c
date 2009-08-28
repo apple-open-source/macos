@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2007 - 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -44,6 +44,64 @@
 #include <netsmb/smb_lib.h>
 #include <parse_url.h>
 
+#ifdef TEST_SMB_GETMOUNTINFO
+
+netfsError TEST_SMB_GetMountInfo(CFStringRef in_Mountpath, CFDictionaryRef *out_MountInfo)
+{
+	int error;
+	char mountpath[256];
+	struct statfs statbuf;
+	char *sharepointname;
+	char *url;
+	size_t url_length;
+	CFStringRef url_CString;
+	CFMutableDictionaryRef	mutableDict = NULL;
+	
+	*out_MountInfo = NULL;
+	mutableDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, 
+											&kCFTypeDictionaryValueCallBacks);
+	if (mutableDict == NULL)
+		return ENOMEM;
+	
+	CFStringGetCString(in_Mountpath, mountpath, sizeof(mountpath), kCFStringEncodingUTF8);
+	
+	if (statfs(mountpath, &statbuf) == -1) {
+		CFRelease(mutableDict);
+		error = errno;
+		free(mountpath);
+		return error;
+	}
+	
+	smb_ctx_get_user_mount_info(statbuf.f_mntonname, mutableDict);
+	
+	sharepointname = statbuf.f_mntfromname;
+	/* Skip all leading slashes and backslashes*/
+	while ((*sharepointname == '/') || (*sharepointname == '\\')) {
+		++sharepointname;
+	}
+	url_length = sizeof(SMB_PREFIX) + strlen(sharepointname); /* sizeof(SMB_PREFIX) will include the null byte */
+	url = malloc(url_length);
+	if (url == NULL) {
+		CFRelease(mutableDict);
+		return ENOMEM;	
+	}
+	strlcpy(url, SMB_PREFIX, url_length);
+	strlcat(url, sharepointname, url_length);
+	url_CString = CFStringCreateWithCString(kCFAllocatorDefault, url,
+											kCFStringEncodingUTF8);
+	free(url);
+	if (url_CString == NULL) {
+		CFRelease(mutableDict);		
+		return ENOMEM;
+	}
+	CFDictionarySetValue (mutableDict, kMountedURLKey, url_CString);
+	
+	*out_MountInfo = mutableDict;
+	CFRelease(url_CString);
+	return 0;
+}
+#endif // TEST_SMB_GETMOUNTINFO
+
 /*
  * SMB_CreateSessionRef
  *
@@ -56,7 +114,7 @@ netfsError SMB_CreateSessionRef(void **sessionRef)
 	int error;
 	
 	/* Need to initialize the library and load the kext */
-	error = smb_load_library(NULL);
+	error = smb_load_library();
 	if (error) {
 		smb_log_info("%s: loading the smb library failed!", error, ASL_LEVEL_ERR, __FUNCTION__);
 		*sessionRef = NULL;
@@ -137,6 +195,7 @@ netfsError SMB_GetServerInfo(CFURLRef url, void *sessionRef, CFDictionaryRef ope
  */
 netfsError SMB_EnumerateShares(void *sessionRef, CFDictionaryRef in_EnumerateOptions, CFDictionaryRef *sharePoints ) 
 {
+#pragma unused(in_EnumerateOptions)
 	if (sessionRef == NULL) {
 		smb_log_info("%s: failed session reference is NULL!", EINVAL, ASL_LEVEL_ERR, __FUNCTION__);
 		return EINVAL;
@@ -309,7 +368,7 @@ static int do_user_test(CFStringRef urlString)
 	CFDictionaryRef shares = NULL;
 	CFDictionaryRef ServerParams = NULL;
 	
-	error = smb_load_library(NULL);
+	error = smb_load_library();
 	if (error)
 		return error;
 	url = CFURLCreateWithString (NULL, urlString, NULL);
@@ -361,7 +420,7 @@ static int mount_one_volume(CFStringRef urlString)
 	
 	if ((mkdir("/Volumes/george/TestMountPts/mp", S_IRWXU | S_IRWXG) == -1) && (errno != EEXIST))
 		return errno;
-	error = smb_load_library(NULL);
+	error = smb_load_library();
 	if (error)
 		return error;
 	url = CFURLCreateWithString (NULL, urlString, NULL);
@@ -439,7 +498,7 @@ static int list_shares_once(CFStringRef urlString)
 	CFMutableDictionaryRef OpenOptions = NULL;
 	CFDictionaryRef shares = NULL;
 	
-	error = smb_load_library(NULL);
+	error = smb_load_library();
 	if (error)
 		return error;
 	urlString = TestCreateStringByReplacingPercentEscapesUTF8(urlString, CFSTR(""));
@@ -475,7 +534,7 @@ static int list_shares_once(CFStringRef urlString)
 /* 
 * Test based on the netfs routines 
  */
-static void do_netfs_test(CFStringRef urlString, int doGuest)
+static void do_netfs_test(CFStringRef urlString, int doGuest, int doKerberos)
 {
 	CFURLRef url = NULL;
 	CFMutableDictionaryRef openOptions = NULL;
@@ -490,7 +549,6 @@ static void do_netfs_test(CFStringRef urlString, int doGuest)
 	openOptions = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 	if (!openOptions)
 		goto WeAreDone;
-	CFDictionarySetValue (openOptions, kUseKerberosKey, kCFBooleanTrue);
 	
 	error = SMB_CreateSessionRef(&sessionRef);
 	if (error)
@@ -499,7 +557,10 @@ static void do_netfs_test(CFStringRef urlString, int doGuest)
 	if (error)
 		goto WeAreDone;
 	CFShow(serverParms);
-	if (doGuest)
+	
+	if (doKerberos)
+		CFDictionarySetValue (openOptions, kUseKerberosKey, kCFBooleanTrue);
+	else if (doGuest)
 		CFDictionarySetValue (openOptions, kUseGuestKey, kCFBooleanTrue);
 	else {
 		CFDictionarySetValue (openOptions, kUseGuestKey, kCFBooleanFalse);
@@ -579,17 +640,27 @@ static void do_ctx_test(int type_of_test)
 			
 	};
 }
+
+
 int main(int argc, char **argv)
 {
-	int type_of_test = 3;
+#pragma unused(argc, argv)
+	int type_of_test = 5;
 	int doGuest = FALSE;
+	int doKerberos = FALSE;
+#ifdef TEST_SMB_GETMOUNTINFO
+	CFDictionaryRef out_MountInfo;
 
-
+	int error = TEST_SMB_GetMountInfo(CFSTR("/Volumes/EmptyShare"), &out_MountInfo);
+	fprintf(stderr, " SMB_GetMountInfo returned %d\n", error);
+	if (error == 0)
+		CFShow(out_MountInfo);
+#endif // TEST_SMB_GETMOUNTINFO
 	if (type_of_test < 4)
 		do_ctx_test(type_of_test);
 	else if (!doGuest)
-		do_netfs_test(CFSTR("smb://local1:local@smb-win2003.apple.com"), doGuest);
+		do_netfs_test(CFSTR("smb://local1:local@smb-win2003.apple.com"), doGuest, doKerberos);
 	else
-		do_netfs_test(CFSTR("smb://smb-win2003.apple.com"), doGuest);
+		do_netfs_test(CFSTR("smb://griffinfax"), doGuest, doKerberos);
 	return 0;
 }

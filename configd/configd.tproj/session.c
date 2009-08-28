@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2007-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,6 +35,9 @@
 #include "configd_server.h"
 #include "session.h"
 
+#include <unistd.h>
+#include <bsm/libbsm.h>
+
 /* information maintained for each active session */
 static serverSessionRef	*sessions = NULL;
 static int		nSessions = 0;
@@ -47,7 +50,7 @@ getSession(mach_port_t server)
 	int	i;
 
 	if (server == MACH_PORT_NULL) {
-		SCLog(TRUE, LOG_NOTICE, CFSTR("Excuse me, why is getSession() being called with an invalid port?"));
+		SCLog(TRUE, LOG_ERR, CFSTR("Excuse me, why is getSession() being called with an invalid port?"));
 		return NULL;
 	}
 
@@ -60,7 +63,7 @@ getSession(mach_port_t server)
 		} else if (thisSession->key == server) {
 			return thisSession;	/* we've seen this server before */
 		} else if (thisSession->store &&
-				      (((SCDynamicStorePrivateRef)thisSession->store)->notifySignalTask == server)) {
+			   (((SCDynamicStorePrivateRef)thisSession->store)->notifySignalTask == server)) {
 			return thisSession;
 		}
 	}
@@ -75,6 +78,7 @@ serverSessionRef
 addSession(mach_port_t server, CFStringRef (*copyDescription)(const void *info))
 {
 	CFMachPortContext	context	= { 0, NULL, NULL, NULL, NULL };
+	mach_port_t		mp	= server;
 	int			n = -1;
 
 	if (nSessions <= 0) {
@@ -109,24 +113,37 @@ addSession(mach_port_t server, CFStringRef (*copyDescription)(const void *info))
 	context.copyDescription	= copyDescription;
 
 	if (server == MACH_PORT_NULL) {
-		// SCDynamicStore client ports 
+		// create mach port for SCDynamicStore client
 		(void) mach_port_allocate(mach_task_self(),
 					  MACH_PORT_RIGHT_RECEIVE,
-					  &server);
+					  &mp);
+	}
+
+	//
+	// Note: we create the CFMachPort *before* we insert a send
+	//       right present to ensure that CF does not establish
+	//       its dead name notification.
+	//
+	sessions[n]->serverPort = CFMachPortCreateWithPort(NULL,
+							   mp,
+							   configdCallback,
+							   &context,
+							   NULL);
+
+	if (server == MACH_PORT_NULL) {
+		// insert send right that will be moved to the client
 		(void) mach_port_insert_right(mach_task_self(),
-					      server,
-					      server,
+					      mp,
+					      mp,
 					      MACH_MSG_TYPE_MAKE_SEND);
 	}
-	sessions[n]->key		 = server;
-	sessions[n]->serverPort		 = CFMachPortCreateWithPort(NULL,
-								    server,
-								    configdCallback,
-								    &context,
-								    NULL);
+
+	sessions[n]->key		 = mp;
 //	sessions[n]->serverRunLoopSource = NULL;
 //	sessions[n]->store		 = NULL;
-	sessions[n]->callerEUID          = 1;		/* not "root" */
+	sessions[n]->callerEUID          = 1;           /* not "root" */
+	sessions[n]->callerRootAccess	 = UNKNOWN;
+	sessions[n]->callerWriteAccess	 = UNKNOWN;
 
 	return sessions[n];
 }
@@ -205,17 +222,15 @@ cleanupSession(mach_port_t server)
 			 * Close any open connections including cancelling any outstanding
 			 * notification requests and releasing any locks.
 			 */
+			__MACH_PORT_DEBUG(TRUE, "*** cleanupSession", server);
 			(void) __SCDynamicStoreClose(&thisSession->store, TRUE);
+			__MACH_PORT_DEBUG(TRUE, "*** cleanupSession (after __SCDynamicStoreClose)", server);
 
 			/*
-			 * Our send right has already been removed. Remove our
-			 * receive right.
+			 * Our send right has already been removed. Remove our receive right.
 			 */
-			mach_port_mod_refs(mach_task_self(),
-					   thisSession->key,
-					   MACH_PORT_RIGHT_RECEIVE,
-					   -1);
-			
+			(void) mach_port_mod_refs(mach_task_self(), server, MACH_PORT_RIGHT_RECEIVE, -1);
+
 			/*
 			 * Lastly, remove the session entry.
 			 */
@@ -224,17 +239,20 @@ cleanupSession(mach_port_t server)
 			return;
 		}
 	}
+
+	SCLog(TRUE, LOG_ERR, CFSTR("MACH_NOTIFY_NO_SENDERS w/no session, port = %d"), server);
+	__MACH_PORT_DEBUG(TRUE, "*** cleanupSession w/no session", server);
 	return;
 }
 
 
 __private_extern__
 void
-listSessions()
+listSessions(FILE *f)
 {
 	int	i;
 
-	fprintf(stderr, "Current sessions:");
+	SCPrint(TRUE, f, CFSTR("Current sessions :\n"));
 	for (i = 0; i < nSessions; i++) {
 		serverSessionRef	thisSession = sessions[i];
 
@@ -242,16 +260,165 @@ listSessions()
 			continue;
 		}
 
-		fprintf(stderr, " %d", thisSession->key);
+		SCPrint(TRUE, f, CFSTR("\t%d : port = 0x%x"), i, thisSession->key);
 
-		if (thisSession->store) {
-			task_t	task = ((SCDynamicStorePrivateRef)thisSession->store)->notifySignalTask;
+		if (thisSession->store != NULL) {
+			SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)thisSession->store;
 
-			if (task != TASK_NULL) {
-			       fprintf(stderr, "/%d", task);
+			if (storePrivate->notifySignalTask != TASK_NULL) {
+			       SCPrint(TRUE, f, CFSTR(", task = %d"), storePrivate->notifySignalTask);
 			}
 		}
+
+		if (sessionData != NULL) {
+			CFDictionaryRef	info;
+			CFStringRef	key;
+
+			key = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), thisSession->key);
+			info = CFDictionaryGetValue(sessionData, key);
+			CFRelease(key);
+			if (info != NULL) {
+				CFStringRef	name;
+
+				name = CFDictionaryGetValue(info, kSCDName);
+				if (name != NULL) {
+					SCPrint(TRUE, f, CFSTR(", name = %@"), name);
+				}
+			}
+		}
+
+		if (thisSession->serverPort != NULL) {
+			SCPrint(TRUE, f, CFSTR("\n\t\t%@"), thisSession->serverPort);
+		}
+
+		if (thisSession->serverRunLoopSource != NULL) {
+			SCPrint(TRUE, f, CFSTR("\n\t\t%@"), thisSession->serverRunLoopSource);
+		}
+
+		SCPrint(TRUE, f, CFSTR("\n"));
 	}
-	fprintf(stderr, "\n");
+
+	SCPrint(TRUE, f, CFSTR("\n"));
+	return;
 }
 
+
+#if	TARGET_OS_IPHONE
+
+#include <Security/Security.h>
+#include <Security/SecTask.h>
+
+static CFStringRef
+sessionName(serverSessionRef session)
+{
+	CFDictionaryRef	info;
+	CFStringRef	name	= NULL;
+	CFStringRef	sessionKey;
+
+	sessionKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), session->key);
+	info = CFDictionaryGetValue(sessionData, sessionKey);
+	CFRelease(sessionKey);
+
+	if (info != NULL) {
+		name = CFDictionaryGetValue(info, kSCDName);
+	}
+
+	return (name != NULL) ? name : CFSTR("???");
+}
+
+
+static Boolean
+hasEntitlement(serverSessionRef session, CFStringRef entitlement)
+{
+	Boolean		hasEntitlement	= FALSE;
+	SecTaskRef	task;
+
+	/* Create the security task from the audit token. */
+	task = SecTaskCreateWithAuditToken(NULL, session->auditToken);
+	if (task != NULL) {
+		CFErrorRef	error	= NULL;
+		CFTypeRef	value;
+
+		/* Get the value for the entitlement. */
+		value = SecTaskCopyValueForEntitlement(task, kSCWriteEntitlementName, &error);
+		if (value != NULL) {
+			if (isA_CFBoolean(value)) {
+				if (CFBooleanGetValue(value)) {
+					/* if client DOES have entitlement */
+					hasEntitlement = YES;
+				}
+			} else {
+				SCLog(TRUE, LOG_ERR,
+				      CFSTR("hasEntitlement: entitlement not valid: %@"),
+				      sessionName(session));
+			}
+
+			CFRelease(value);
+		} else if (error != NULL) {
+			SCLog(TRUE, LOG_ERR,
+			      CFSTR("hasEntitlement SecTaskCopyValueForEntitlement() failed, error=%@: %@"),
+			      error,
+			      sessionName(session));
+			CFRelease(error);
+		}
+
+		CFRelease(task);
+	} else {
+		SCLog(TRUE, LOG_ERR,
+		      CFSTR("hasEntitlement SecTaskCreateWithAuditToken() failed: %@"),
+		      sessionName(session));
+	}
+
+	return hasEntitlement;
+}
+
+#endif	// TARGET_OS_IPHONE
+
+
+__private_extern__
+Boolean
+hasRootAccess(serverSessionRef session)
+{
+	if (session->callerRootAccess == UNKNOWN) {
+		/*
+		 * get the credentials associated with the caller.
+		 */
+		audit_token_to_au32(session->auditToken,
+				    NULL,			// auidp
+				    &session->callerEUID,	// euid
+				    NULL,			// egid
+				    NULL,			// ruid
+				    NULL,			// rgid
+				    NULL,			// pid
+				    NULL,			// asid
+				    NULL);			// tid
+
+		session->callerRootAccess = (session->callerEUID == 0) ? YES : NO;
+	}
+
+	return (session->callerRootAccess == YES) ? TRUE : FALSE;
+}
+
+
+__private_extern__
+Boolean
+hasWriteAccess(serverSessionRef session)
+{
+	if (session->callerWriteAccess == UNKNOWN) {
+		/* assume that the client DOES NOT have the entitlement */
+		session->callerWriteAccess = NO;
+
+		if (hasRootAccess(session)) {
+			// grant write access to eUID==0 processes
+			session->callerWriteAccess = YES;
+		}
+#if	TARGET_OS_IPHONE
+		else if (hasEntitlement(session, kSCWriteEntitlementName)) {
+			// grant write access to "entitled" processes
+			session->callerWriteAccess = YES;
+		}
+#endif	// TARGET_OS_IPHONE
+	}
+
+	return (session->callerWriteAccess == YES) ? TRUE : FALSE;
+}

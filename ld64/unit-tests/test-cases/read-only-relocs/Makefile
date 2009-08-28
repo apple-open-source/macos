@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
 #
 # @APPLE_LICENSE_HEADER_START@
 #
@@ -24,21 +24,40 @@ TESTROOT = ../..
 include ${TESTROOT}/include/common.makefile
 
 #
-# The point of this test is a sanity check that ld
-# will fail to link a dylib compiled with -mdynamic-no-pic
+# Test that ld can linke a dylib built with -mdynamic-no-pic
 #
 
 
 SHELL = bash # use bash shell so we can redirect just stderr
 
-run:
-	@if [ ${ARCH} = x86_64 ] ; then \
-	${PASS_IFF} /usr/bin/true ; \
-	else \
-	$(MAKE) all ; \
-	fi
+NO_PIC =  
+STATIC =  
+
+ifeq (${ARCH},i386)
+	NO_PIC =  -mdynamic-no-pic
+	STATIC =  -static
+else 
+	ifeq (${ARCH},ppc)
+		NO_PIC =  -mdynamic-no-pic
+		STATIC =  -mdynamic-no-pic
+	endif
+endif
+
+
+
 all:
-	${FAIL_IFF} ${CC} ${CCFLAGS} test.c -mdynamic-no-pic -dynamiclib -o test-${ARCH}.dylib 2> fail.log
+	# build libfoo.dylib as regular dylib
+	${CC} ${CCFLAGS} foo.c -dynamiclib -o libfoo.dylib
+	# build libtest.dylib using -mdynamic-no-pic and -read_only_relocs suppress
+	${CC} ${CCFLAGS} test.c -c ${NO_PIC}
+	${CC} ${CCFLAGS} test.o libfoo.dylib -dynamiclib -o libtest.dylib -read_only_relocs suppress -Wl,-w
+	# build libtest.dylib using -static and -read_only_relocs suppress
+	${CC} ${CCFLAGS} test.c -c ${STATIC}
+	${CC} ${CCFLAGS} test.o libfoo.dylib -dynamiclib -o libtest.dylib -read_only_relocs suppress -Wl,-w
+	# build main using -static and -read_only_relocs suppress
+	${CC} ${CCFLAGS} test.c -c ${STATIC}
+	${CC} ${CCFLAGS} test.o libfoo.dylib -o foo -read_only_relocs suppress -Wl,-w
+	${PASS_IFF_GOOD_MACHO} foo
 
 clean:
-	rm -rf *.dylib fail.log
+	rm -rf test.o libfoo.dylib libtest.dylib foo

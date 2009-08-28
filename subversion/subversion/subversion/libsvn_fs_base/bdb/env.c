@@ -24,13 +24,13 @@
 #include <apr_time.h>
 #endif
 
-#include <apr_atomic.h>
 #include <apr_strings.h>
 #include <apr_hash.h>
 
 #include "svn_path.h"
 #include "svn_pools.h"
 #include "svn_utf.h"
+#include "private/svn_atomic.h"
 
 #include "bdb-err.h"
 #include "bdb_compat.h"
@@ -47,7 +47,7 @@
    threads, so all direct or indirect access to the pool is serialized
    with a global mutex.
 
-   Because several threads can now hse the same DB_ENV handle, we must
+   Because several threads can now use the same DB_ENV handle, we must
    use the DB_THREAD flag when opening the environments, otherwise the
    env handles (and all of libsvn_fs_base) won't be thread-safe.
 
@@ -60,29 +60,6 @@
    then, it's quite probable that threading is seriously broken on
    those systems anyway, so we'll rely on APR_HAS_THREADS.)
 */
-
-
-/* The apr_atomic API changed somewhat between apr-0.x and apr-1.x.
-
-   ### Should we move these defines to svn_private_config.h? */
-/* ### Note: svn__atomic_cas should not be combined with the other
-       svn__atomic operations.  A comment in apr_atomic.h explains
-       that on some platforms, the CAS function is implemented in a
-       way that is incompatible with the other atomic operations. */
-#include <apr_version.h>
-#if APR_MAJOR_VERSION > 0
-# define svn__atomic_t apr_uint32_t
-# define svn__atomic_read(mem) apr_atomic_read32((mem))
-# define svn__atomic_set(mem, val) apr_atomic_set32((mem), (val))
-# define svn__atomic_cas(mem, with, cmp) \
-    apr_atomic_cas32((mem), (with), (cmp))
-#else
-# define svn__atomic_t apr_atomic_t
-# define svn__atomic_read(mem) apr_atomic_read((mem))
-# define svn__atomic_set(mem, val) apr_atomic_set((mem), (val))
-# define svn__atomic_cas(mem, with, cmp) \
-    apr_atomic_cas((mem), (with), (cmp))
-#endif /* APR_MAJOR_VERSION */
 
 
 /* The cache key for a Berkeley DB environment descriptor.  This is a
@@ -106,12 +83,21 @@ struct bdb_env_t
   /**************************************************************************/
   /* Error Reporting */
 
-  /* Berkeley DB returns extended error info by callback before returning
-     an error code from the failing function.  The callback baton type is a
-     string, not an arbitrary struct, so we prefix our struct with a valid
-     string, to avoid problems should BDB ever try to interpret our baton as
-     a string.  Initializers of this structure must strcpy the value of
-     BDB_ERRPFX_STRING into this array.  */
+  /* A (char *) casted pointer to this structure is passed to BDB's
+     set_errpfx(), which treats it as a NUL-terminated character
+     string to prefix all BDB error messages.  However, svn also
+     registers bdb_error_gatherer() as an error handler with
+     set_errcall() which turns off BDB's default printing of errors to
+     stderr and anytime thereafter when BDB reports an error and
+     before the BDB function returns, it calls bdb_error_gatherer()
+     and passes the same error prefix (char *) pointer given to
+     set_errpfx().  The bdb_error_gatherer() callback casts the
+     (char *) it back to a (bdb_env_t *).
+
+     To avoid problems should BDB ever try to interpret our baton as a
+     string, the first field in the structure is a char
+     errpfx_string[].  Initializers of this structure must strcpy the
+     value of BDB_ERRPFX_STRING into this array.  */
   char errpfx_string[sizeof(BDB_ERRPFX_STRING)];
 
   /* Extended error information. */
@@ -153,8 +139,8 @@ struct bdb_env_t
 
      Note 2: Unlike other fields in this structure, this field is not
              protected by the cache mutex on threaded platforms, and
-             should only be accesses via the svn__atomic functions. */
-  volatile svn__atomic_t panic;
+             should only be accesses via the svn_atomic functions. */
+  volatile svn_atomic_t panic;
 
   /* The key for the environment descriptor cache. */
   bdb_env_key_t key;
@@ -228,6 +214,8 @@ convert_bdb_error(bdb_env_t *bdb, int db_err)
 static void
 bdb_error_gatherer(const DB_ENV *dbenv, const char *baton, const char *msg)
 {
+  /* See the documentation at bdb_env_t's definition why the
+     (bdb_env_t *) cast is safe and why it is done. */
   bdb_error_info_t *error_info = get_error_info((bdb_env_t *) baton);
   svn_error_t *new_err;
 
@@ -269,7 +257,7 @@ cleanup_env(void *data)
 /* This cleanup is the fall back plan.  If the thread exits and the
    environment hasn't been closed it's responsible for cleanup of the
    thread local error info variable, which would otherwise be leaked.
-   Normally it will not be called, because svn_fs_base__close will
+   Normally it will not be called, because svn_fs_bdb__close will
    set the thread's error info to NULL after cleaning it up. */
 static void
 cleanup_error_info(void *baton)
@@ -300,7 +288,7 @@ create_env(bdb_env_t **bdbp, const char *path, apr_pool_t *pool)
                                     svn_path_local_style(path, pool),
                                     pool));
 #endif
-  
+
   /* Allocate the whole structure, including strings, from the heap,
      because it must survive the cache pool cleanup. */
   path_size = strlen(path) + 1;
@@ -334,7 +322,10 @@ create_env(bdb_env_t **bdbp, const char *path, apr_pool_t *pool)
   db_err = db_env_create(&(bdb->env), 0);
   if (!db_err)
     {
+      /* See the documentation at bdb_env_t's definition why the
+         (char *) cast is safe and why it is done. */
       bdb->env->set_errpfx(bdb->env, (char *) bdb);
+
       /* bdb_error_gatherer is in parens to stop macro expansion. */
       bdb->env->set_errcall(bdb->env, (bdb_error_gatherer));
 
@@ -373,81 +364,40 @@ clear_cache(void *data)
   bdb_cache_lock = NULL;
   return APR_SUCCESS;
 }
-
-/* Magic values for atomic initialization of the environment cache. */
-#define BDB_CACHE_UNINITIALIZED 0
-#define BDB_CACHE_START_INIT    1
-#define BDB_CACHE_INIT_FAILED   2
-#define BDB_CACHE_INITIALIZED   3
-static volatile svn__atomic_t bdb_cache_state = BDB_CACHE_UNINITIALIZED;
 #endif /* APR_HAS_THREADS */
 
+static volatile svn_atomic_t bdb_cache_state;
 
-svn_error_t *
-svn_fs_bdb__init(void)
+static svn_error_t *
+bdb_init_cb(apr_pool_t *pool)
 {
-  /* We have to initialize the cache exactly once.  Because APR
-     doesn't have statically-initialized mutexes, we implement a poor
-     man's spinlock using svn__atomic_cas. */
 #if APR_HAS_THREADS
   apr_status_t apr_err;
-  svn__atomic_t cache_state = svn__atomic_cas(&bdb_cache_state,
-                                              BDB_CACHE_START_INIT,
-                                              BDB_CACHE_UNINITIALIZED);
-#endif /* APR_HAS_THREADS */
-
+#endif
+  bdb_cache_pool = svn_pool_create(pool);
+  bdb_cache = apr_hash_make(bdb_cache_pool);
 #if APR_HAS_THREADS
-  if (cache_state == BDB_CACHE_UNINITIALIZED)
-#else
-  if (!bdb_cache_pool)
-#endif /* APR_HAS_THREADS */
+  apr_err = apr_thread_mutex_create(&bdb_cache_lock,
+                                    APR_THREAD_MUTEX_DEFAULT,
+                                    bdb_cache_pool);
+  if (apr_err)
     {
-      bdb_cache_pool = svn_pool_create(NULL);
-      bdb_cache = apr_hash_make(bdb_cache_pool);
-#if APR_HAS_THREADS
-      apr_err = apr_thread_mutex_create(&bdb_cache_lock,
-                                        APR_THREAD_MUTEX_DEFAULT,
-                                        bdb_cache_pool);
-      if (apr_err)
-        {
-          /* Tell other threads that the initialisation failed. */
-          svn__atomic_cas(&bdb_cache_state,
-                          BDB_CACHE_INIT_FAILED,
-                          BDB_CACHE_START_INIT);
-          return svn_error_create(apr_err, NULL,
-                                  "Couldn't initialize the cache of"
-                                  " Berkeley DB environment descriptors");
-        }
-
-      apr_pool_cleanup_register(bdb_cache_pool, NULL, clear_cache,
-                                apr_pool_cleanup_null);
-
-      svn__atomic_cas(&bdb_cache_state,
-                      BDB_CACHE_INITIALIZED,
-                      BDB_CACHE_START_INIT);
-#endif /* APR_HAS_THREADS */
+      return svn_error_create(apr_err, NULL,
+                              "Couldn't initialize the cache of"
+                              " Berkeley DB environment descriptors");
     }
-#if APR_HAS_THREADS
-  /* Wait for whichever thread is initializing the cache to finish. */
-  /* XXX FIXME: Should we have a maximum wait here, like we have in
-                the Windows file IO spinner? */
-  else while (cache_state != BDB_CACHE_INITIALIZED)
-    {
-      if (cache_state == BDB_CACHE_INIT_FAILED)
-        return svn_error_create(SVN_ERR_FS_GENERAL, NULL,
-                                "Couldn't initialize the cache of"
-                                " Berkeley DB environment descriptors");
-
-      apr_sleep(APR_USEC_PER_SEC / 1000);
-      cache_state = svn__atomic_cas(&bdb_cache_state,
-                                    BDB_CACHE_UNINITIALIZED,
-                                    BDB_CACHE_UNINITIALIZED);
-    }
+  apr_pool_cleanup_register(bdb_cache_pool, NULL, clear_cache,
+                            apr_pool_cleanup_null);
 #endif /* APR_HAS_THREADS */
 
   return SVN_NO_ERROR;
 }
 
+svn_error_t *
+svn_fs_bdb__init(apr_pool_t* pool)
+{
+  return svn_atomic__init_once(&bdb_cache_state, bdb_init_cb, pool);
+}
 
 static APR_INLINE void
 acquire_cache_mutex(void)
@@ -516,7 +466,7 @@ bdb_cache_get(const bdb_env_key_t *keyp, svn_boolean_t *panicp)
   bdb_env_t *bdb = apr_hash_get(bdb_cache, keyp, sizeof *keyp);
   if (bdb && bdb->env)
     {
-      *panicp = !!svn__atomic_read(&bdb->panic);
+      *panicp = !!svn_atomic_read(&bdb->panic);
 #if SVN_BDB_VERSION_AT_LEAST(4,2)
       if (!*panicp)
         {
@@ -525,7 +475,7 @@ bdb_cache_get(const bdb_env_key_t *keyp, svn_boolean_t *panicp)
               || (flags & DB_PANIC_ENVIRONMENT))
             {
               /* Something is wrong with the environment. */
-              svn__atomic_set(&bdb->panic, TRUE);
+              svn_atomic_set(&bdb->panic, TRUE);
               *panicp = TRUE;
               bdb = NULL;
             }
@@ -559,7 +509,7 @@ bdb_close(bdb_env_t *bdb)
   /* Free the environment descriptor. The pool cleanup will do this unless
      the cache has already been destroyed. */
   if (bdb->pool)
-    apr_pool_destroy(bdb->pool);
+    svn_pool_destroy(bdb->pool);
   else
     free(bdb);
   return err;
@@ -572,7 +522,7 @@ svn_fs_bdb__close(bdb_env_baton_t *bdb_baton)
   svn_error_t *err = SVN_NO_ERROR;
   bdb_env_t *bdb = bdb_baton->bdb;
 
-  assert(bdb_baton->env == bdb_baton->bdb->env);
+  SVN_ERR_ASSERT(bdb_baton->env == bdb_baton->bdb->env);
 
   /* Neutralize bdb_baton's pool cleanup to prevent double-close. See
      cleanup_env_baton(). */
@@ -598,9 +548,11 @@ svn_fs_bdb__close(bdb_env_baton_t *bdb_baton)
 
       /* If the environment is panicked and automatic recovery is not
          enabled, return an appropriate error. */
-      if (!SVN_BDB_AUTO_RECOVER && svn__atomic_read(&bdb->panic))
+#if !SVN_BDB_AUTO_RECOVER
+      if (svn_atomic_read(&bdb->panic))
         err = svn_error_create(SVN_ERR_FS_BERKELEY_DB, NULL,
                                db_strerror(DB_RUNRECOVERY));
+#endif
     }
   else
     {
@@ -626,7 +578,7 @@ bdb_open(bdb_env_t *bdb, u_int32_t flags, int mode)
   flags |= DB_THREAD;
 #endif
   SVN_ERR(convert_bdb_error
-          (bdb, bdb->env->open(bdb->env, bdb->path_bdb, flags, mode)));
+          (bdb, (bdb->env->open)(bdb->env, bdb->path_bdb, flags, mode)));
 
 #if SVN_BDB_AUTO_COMMIT
   /* Assert the BDB_AUTO_COMMIT flag on the opened environment. This
@@ -637,10 +589,8 @@ bdb_open(bdb_env_t *bdb, u_int32_t flags, int mode)
           (bdb, bdb->env->set_flags(bdb->env, SVN_BDB_AUTO_COMMIT, 1)));
 #endif
 
-  SVN_ERR(bdb_cache_key(&bdb->key, &bdb->dbconfig_file,
-                        bdb->path, bdb->pool));
-
-  return SVN_NO_ERROR;
+  return bdb_cache_key(&bdb->key, &bdb->dbconfig_file,
+                       bdb->path, bdb->pool);
 }
 
 
@@ -763,7 +713,7 @@ svn_fs_bdb__get_panic(bdb_env_baton_t *bdb_baton)
     return TRUE;
 
   assert(bdb_baton->env == bdb_baton->bdb->env);
-  return !!svn__atomic_read(&bdb_baton->bdb->panic);
+  return !!svn_atomic_read(&bdb_baton->bdb->panic);
 }
 
 void
@@ -773,7 +723,7 @@ svn_fs_bdb__set_panic(bdb_env_baton_t *bdb_baton)
     return;
 
   assert(bdb_baton->env == bdb_baton->bdb->env);
-  svn__atomic_set(&bdb_baton->bdb->panic, TRUE);
+  svn_atomic_set(&bdb_baton->bdb->panic, TRUE);
 }
 
 

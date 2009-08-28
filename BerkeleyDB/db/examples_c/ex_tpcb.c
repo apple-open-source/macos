@@ -1,10 +1,9 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1997-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1997,2007 Oracle.  All rights reserved.
  *
- * $Id: ex_tpcb.c,v 1.2 2004/03/30 01:23:16 jtownsen Exp $
+ * $Id: ex_tpcb.c,v 12.8 2007/05/17 15:15:12 bostic Exp $
  */
 
 #include <sys/types.h>
@@ -24,7 +23,7 @@ extern int getopt(int, char * const *, const char *);
 
 typedef enum { ACCOUNT, BRANCH, TELLER } FTYPE;
 
-DB_ENV	 *db_init __P((const char *, const char *, int, int, u_int32_t));
+DB_ENV	 *db_init __P((const char *, const char *, int, u_int32_t));
 int	  hpopulate __P((DB *, int, int, int, int));
 int	  populate __P((DB *, u_int32_t, u_int32_t, int, const char *));
 u_int32_t random_id __P((FTYPE, int, int, int));
@@ -102,6 +101,8 @@ typedef struct _histrec {
 	u_int8_t	pad[RECLEN - 4 * sizeof(u_int32_t)];
 } histrec;
 
+char *progname = "ex_tpcb";			/* Program name. */
+
 int
 main(argc, argv)
 	int argc;
@@ -112,10 +113,9 @@ main(argc, argv)
 	DB_ENV *dbenv;
 	int accounts, branches, seed, tellers, history;
 	int ch, iflag, mpool, ntxns, ret, txn_no_sync, verbose;
-	const char *home, *progname;
+	const char *home;
 
 	home = "TESTDIR";
-	progname = "ex_tpcb";
 	accounts = branches = history = tellers = 0;
 	iflag = mpool = ntxns = txn_no_sync = verbose = 0;
 	seed = (int)time(NULL);
@@ -173,7 +173,7 @@ main(argc, argv)
 
 	/* Initialize the database environment. */
 	if ((dbenv = db_init(home,
-	    progname, mpool, iflag, txn_no_sync ? DB_TXN_NOSYNC : 0)) == NULL)
+	    progname, mpool, txn_no_sync ? DB_TXN_NOSYNC : 0)) == NULL)
 		return (EXIT_FAILURE);
 
 	accounts = accounts == 0 ? ACCOUNTS : accounts;
@@ -236,9 +236,9 @@ usage(progname)
  *	Initialize the environment.
  */
 DB_ENV *
-db_init(home, prefix, cachesize, initializing, flags)
+db_init(home, prefix, cachesize, flags)
 	const char *home, *prefix;
-	int cachesize, initializing;
+	int cachesize;
 	u_int32_t flags;
 {
 	DB_ENV *dbenv;
@@ -246,7 +246,8 @@ db_init(home, prefix, cachesize, initializing, flags)
 	int ret;
 
 	if ((ret = db_env_create(&dbenv, 0)) != 0) {
-		dbenv->err(dbenv, ret, "db_env_create");
+		fprintf(stderr,
+		    "%s: db_env_create: %s\n", progname, db_strerror(ret));
 		return (NULL);
 	}
 	dbenv->set_errfile(dbenv, stderr);
@@ -258,8 +259,8 @@ db_init(home, prefix, cachesize, initializing, flags)
 		(void)dbenv->set_flags(dbenv, DB_TXN_NOSYNC, 1);
 	flags &= ~(DB_TXN_NOSYNC);
 
-	local_flags = flags | DB_CREATE | (initializing ? DB_INIT_MPOOL :
-	    DB_INIT_TXN | DB_INIT_LOCK | DB_INIT_LOG | DB_INIT_MPOOL);
+	local_flags = flags | DB_CREATE | DB_INIT_LOCK | DB_INIT_LOG |
+	    DB_INIT_MPOOL | DB_INIT_TXN;
 	if ((ret = dbenv->open(dbenv, home, local_flags, 0)) != 0) {
 		dbenv->err(dbenv, ret, "DB_ENV->open: %s", home);
 		(void)dbenv->close(dbenv, 0);
@@ -285,7 +286,7 @@ tp_populate(env, accounts, branches, history, tellers, verbose)
 
 	idnum = BEGID;
 	balance = 500000;
-	oflags = DB_CREATE | DB_TRUNCATE;
+	oflags = DB_CREATE;
 
 	if ((ret = db_create(&dbp, env, 0)) != 0) {
 		env->err(env, ret, "db_create");
@@ -499,12 +500,10 @@ tp_run(dbenv, n, accounts, branches, tellers, verbose)
 	int n, accounts, branches, tellers, verbose;
 {
 	DB *adb, *bdb, *hdb, *tdb;
-	double gtps, itps;
-	int failed, ifailed, ret, txns;
-	time_t starttime, curtime, lasttime;
+	int failed, ret, txns;
+	time_t start_time, end_time;
 
 	adb = bdb = hdb = tdb = NULL;
-	txns = failed = 0;
 
 	/*
 	 * Open the database files.
@@ -546,27 +545,16 @@ tp_run(dbenv, n, accounts, branches, tellers, verbose)
 		goto err;
 	}
 
-	starttime = time(NULL);
-	lasttime = starttime;
-	for (ifailed = 0; n-- > 0;) {
-		txns++;
-		ret = tp_txn(dbenv, adb, bdb, tdb, hdb,
-		    accounts, branches, tellers, verbose);
-		if (ret != 0) {
-			failed++;
-			ifailed++;
-		}
-		if (n % 5000 == 0) {
-			curtime = time(NULL);
-			gtps = (double)(txns - failed) / (curtime - starttime);
-			itps = (double)(5000 - ifailed) / (curtime - lasttime);
-			printf("%d txns %d failed ", txns, failed);
-			printf("%6.2f TPS (gross) %6.2f TPS (interval)\n",
-			   gtps, itps);
-			lasttime = curtime;
-			ifailed = 0;
-		}
-	}
+	(void)time(&start_time);
+	for (txns = n, failed = 0; n-- > 0;)
+		if ((ret = tp_txn(dbenv, adb, bdb, tdb, hdb,
+		    accounts, branches, tellers, verbose)) != 0)
+			++failed;
+	(void)time(&end_time);
+	if (end_time == start_time)
+		++end_time;
+	printf("%s: %d txns: %d failed, %.2f TPS\n", progname,
+	    txns, failed, (txns - failed) / (double)(end_time - start_time));
 
 err:	if (adb != NULL)
 		(void)adb->close(adb, 0);
@@ -576,8 +564,6 @@ err:	if (adb != NULL)
 		(void)tdb->close(tdb, 0);
 	if (hdb != NULL)
 		(void)hdb->close(hdb, 0);
-
-	printf("%ld transactions begun %ld failed\n", (long)txns, (long)failed);
 	return (ret == 0 ? 0 : 1);
 }
 
@@ -602,8 +588,9 @@ tp_txn(dbenv, adb, bdb, tdb, hdb, accounts, branches, tellers, verbose)
 	acurs = bcurs = tcurs = NULL;
 
 	/*
-	 * XXX We could move a lot of this into the driver to make this
-	 * faster.
+	 * !!!
+	 * This is sample code -- we could move a lot of this into the driver
+	 * to make it faster.
 	 */
 	account = random_id(ACCOUNT, accounts, branches, tellers);
 	branch = random_id(BRANCH, accounts, branches, tellers);
@@ -630,7 +617,14 @@ tp_txn(dbenv, adb, bdb, tdb, hdb, accounts, branches, tellers, verbose)
 	/* Request 0 bytes since we're just positioning. */
 	d_histdbt.flags = DB_DBT_PARTIAL;
 
-	/* START TIMING */
+	/*
+	 * START PER-TRANSACTION TIMING.
+	 *
+	 * Technically, TPCB requires a limit on response time, you only get
+	 * to count transactions that complete within 2 seconds.  That's not
+	 * an issue for this sample application -- regardless, here's where
+	 * the transaction begins.
+	 */
 	if (dbenv->txn_begin(dbenv, NULL, &t, 0) != 0)
 		goto err;
 
@@ -641,26 +635,26 @@ tp_txn(dbenv, adb, bdb, tdb, hdb, accounts, branches, tellers, verbose)
 
 	/* Account record */
 	k_dbt.data = &account;
-	if (acurs->c_get(acurs, &k_dbt, &d_dbt, DB_SET) != 0)
+	if (acurs->get(acurs, &k_dbt, &d_dbt, DB_SET) != 0)
 		goto err;
 	rec.balance += 10;
-	if (acurs->c_put(acurs, &k_dbt, &d_dbt, DB_CURRENT) != 0)
+	if (acurs->put(acurs, &k_dbt, &d_dbt, DB_CURRENT) != 0)
 		goto err;
 
 	/* Branch record */
 	k_dbt.data = &branch;
-	if (bcurs->c_get(bcurs, &k_dbt, &d_dbt, DB_SET) != 0)
+	if (bcurs->get(bcurs, &k_dbt, &d_dbt, DB_SET) != 0)
 		goto err;
 	rec.balance += 10;
-	if (bcurs->c_put(bcurs, &k_dbt, &d_dbt, DB_CURRENT) != 0)
+	if (bcurs->put(bcurs, &k_dbt, &d_dbt, DB_CURRENT) != 0)
 		goto err;
 
 	/* Teller record */
 	k_dbt.data = &teller;
-	if (tcurs->c_get(tcurs, &k_dbt, &d_dbt, DB_SET) != 0)
+	if (tcurs->get(tcurs, &k_dbt, &d_dbt, DB_SET) != 0)
 		goto err;
 	rec.balance += 10;
-	if (tcurs->c_put(tcurs, &k_dbt, &d_dbt, DB_CURRENT) != 0)
+	if (tcurs->put(tcurs, &k_dbt, &d_dbt, DB_CURRENT) != 0)
 		goto err;
 
 	/* History record */
@@ -670,24 +664,24 @@ tp_txn(dbenv, adb, bdb, tdb, hdb, accounts, branches, tellers, verbose)
 	if (hdb->put(hdb, t, &k_histdbt, &d_histdbt, DB_APPEND) != 0)
 		goto err;
 
-	if (acurs->c_close(acurs) != 0 || bcurs->c_close(bcurs) != 0 ||
-	    tcurs->c_close(tcurs) != 0)
+	if (acurs->close(acurs) != 0 || bcurs->close(bcurs) != 0 ||
+	    tcurs->close(tcurs) != 0)
 		goto err;
 
 	ret = t->commit(t, 0);
 	t = NULL;
 	if (ret != 0)
 		goto err;
+	/* END PER-TRANSACTION TIMING. */
 
-	/* END TIMING */
 	return (0);
 
 err:	if (acurs != NULL)
-		(void)acurs->c_close(acurs);
+		(void)acurs->close(acurs);
 	if (bcurs != NULL)
-		(void)bcurs->c_close(bcurs);
+		(void)bcurs->close(bcurs);
 	if (tcurs != NULL)
-		(void)tcurs->c_close(tcurs);
+		(void)tcurs->close(tcurs);
 	if (t != NULL)
 		(void)t->abort(t);
 

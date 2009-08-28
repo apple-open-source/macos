@@ -544,15 +544,15 @@ pmapdump(argc, argv)
 		printf("   program vers proto   port\n");
 		for (; head != NULL; head = head->pml_next) {
 			printf("%10ld%5ld",
-			    head->pml_map.pm_prog,
-			    head->pml_map.pm_vers);
+			    (long)head->pml_map.pm_prog,
+			    (long)head->pml_map.pm_vers);
 			if (head->pml_map.pm_prot == IPPROTO_UDP)
 				printf("%6s",  "udp");
 			else if (head->pml_map.pm_prot == IPPROTO_TCP)
 				printf("%6s", "tcp");
 			else
-				printf("%6ld",  head->pml_map.pm_prot);
-			printf("%7ld",  head->pml_map.pm_port);
+				printf("%6ld",  (long)head->pml_map.pm_prot);
+			printf("%7ld",  (long)head->pml_map.pm_port);
 			rpc = getrpcbynumber(head->pml_map.pm_prog);
 			if (rpc)
 				printf("  %s\n", rpc->r_name);

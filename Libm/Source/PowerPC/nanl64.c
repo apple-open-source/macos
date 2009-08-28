@@ -5,6 +5,6 @@
 	Including "nanl.c" defines nanl.  We also define the synonym nanl$LDBL64.
 */
 
-#include "../nanl.c"
+#include "nanl.c"
 
 asm (".text	\n	.globl _nanl$LDBL64	\n	_nanl$LDBL64:	b _nanl");

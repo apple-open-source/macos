@@ -31,17 +31,15 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
-
-#ifdef __FBSDID
-__FBSDID("$FreeBSD: src/crypto/telnet/telnet/main.c,v 1.4.2.5 2002/04/13 10:59:08 markm Exp $");
-#endif
-
+#if 0
 #ifndef lint
 static const char sccsid[] = "@(#)main.c	8.3 (Berkeley) 5/30/95";
 #endif
+#endif
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/contrib/telnet/telnet/main.c,v 1.20 2005/01/09 10:24:45 maxim Exp $");
 
-#include <sys/types.h>
+#include <sys/param.h>
 #include <sys/socket.h>
 #include <stdlib.h>
 #include <string.h>
@@ -63,14 +61,12 @@ static const char sccsid[] = "@(#)main.c	8.3 (Berkeley) 5/30/95";
 #define OPTS_FORWARD_CREDS	0x00000002
 #define OPTS_FORWARDABLE_CREDS	0x00000001
 
-#if 0
-#define FORWARD
-#endif
-
 #if defined(IPSEC) && defined(IPSEC_POLICY_IPSEC)
 char *ipsec_policy_in = NULL;
 char *ipsec_policy_out = NULL;
 #endif
+
+extern int tos;
 
 int family = AF_UNSPEC;
 
@@ -92,7 +88,7 @@ tninit(void)
 static void
 usage(void)
 {
-	fprintf(stderr, "Usage: %s %s%s%s%s\n",
+	fprintf(stderr, "usage: %s %s%s%s%s\n",
 	    prompt,
 #ifdef	AUTHENTICATION
 	    "[-4] [-6] [-8] [-E] [-K] [-L] [-N] [-S tos] [-X atype] [-c] [-d]",
@@ -121,8 +117,9 @@ usage(void)
 int
 main(int argc, char *argv[])
 {
+	u_long ultmp;
 	int ch;
-	char *user;
+	char *ep, *user;
 	char *src_addr = NULL;
 #ifdef	FORWARD
 	extern int forward_flags;
@@ -157,7 +154,7 @@ main(int argc, char *argv[])
 #define IPSECOPT
 #endif
 	while ((ch = getopt(argc, argv,
-			    "468EKLNS:X:acde:fFk:l:n:rs:t:uxy" IPSECOPT)) != -1)
+			    "468EKLNS:X:acde:fFk:l:n:rs:uxy" IPSECOPT)) != -1)
 #undef IPSECOPT
 	{
 		switch(ch) {
@@ -187,9 +184,7 @@ main(int argc, char *argv[])
 			doaddrlookup = 0;
 			break;
 		case 'S':
-		    {
 #ifdef	HAS_GETTOS
-			extern int tos;
 
 			if ((tos = parsetos(optarg, "tcp")) < 0)
 				fprintf(stderr, "%s%s%s%s\n",
@@ -197,11 +192,16 @@ main(int argc, char *argv[])
 					optarg,
 					"; will try to use default TOS");
 #else
-			fprintf(stderr,
-			   "%s: Warning: -S ignored, no parsetos() support.\n",
-								prompt);
+#define	MAXTOS	255
+			ultmp = strtoul(optarg, &ep, 0);
+			if (*ep || ep == optarg || ultmp > MAXTOS)
+				fprintf(stderr, "%s%s%s%s\n",
+					prompt, ": Bad TOS argument '",
+					optarg,
+					"; will try to use default TOS");
+			else
+				tos = ultmp;
 #endif
-		    }
 			break;
 		case 'X':
 #ifdef	AUTHENTICATION
@@ -219,7 +219,7 @@ main(int argc, char *argv[])
 			skiprc = 1;
 			break;
 		case 'd':
-			debug = 1;
+			telnet_debug = 1;
 			break;
 		case 'e':
 			set_escape_char(optarg);

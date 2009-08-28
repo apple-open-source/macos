@@ -47,39 +47,23 @@
 // debug output, but nothing worse should happen.
 //
 CommonError::CommonError()
-	IFDEBUG(: mCarrier(true))
 {
 }
 
+
+//
+// We strongly encourage catching all exceptions by const reference, so the copy
+// constructor of our exceptions should never be called.
+// We trace a copy to help catch violations of this rule.
+//
 CommonError::CommonError(const CommonError &source)
 {
-#if !defined(NDEBUG)
-	if (source.mCarrier)
-		source.debugDiagnose(this);
-	mCarrier = source.mCarrier;
-	source.mCarrier = false;
-#endif //NDEBUG
+	SECURITY_EXCEPTION_COPY(this, &source);
 }
 
 CommonError::~CommonError() throw ()
 {
-#if !defined(NDEBUG)
-	if (mCarrier)
-		secdebug("exception", "%p handled", this);
-#endif //NDEBUG
-}
-
-// default debugDiagnose gets what it can (virtually)
-extern "C" const char *cssmErrorString(OSStatus status);
-
-void CommonError::debugDiagnose(const void *id) const
-{
-#if !defined(NDEBUG)
-	putenv("CFBundleDisableStringsSharing=yes");
-	secdebug("exception", "%p %s %s (OSStatus=0x%lx)",
-		id, Debug::typeName(*this).c_str(),
-		cssmErrorString(osStatus()), osStatus());
-#endif //NDEBUG
+	SECURITY_EXCEPTION_HANDLED(this);
 }
 
 
@@ -88,12 +72,12 @@ void CommonError::debugDiagnose(const void *id) const
 //
 UnixError::UnixError() : error(errno)
 {
-	IFDEBUG(debugDiagnose(this));
+	SECURITY_EXCEPTION_THROW_UNIX(this, errno);
 }
 
 UnixError::UnixError(int err) : error(err)
 {
-	IFDEBUG(debugDiagnose(this));
+	SECURITY_EXCEPTION_THROW_UNIX(this, err);
 }
 
 const char *UnixError::what() const throw ()
@@ -113,21 +97,13 @@ void UnixError::throwMe(int err) { throw UnixError(err); }
 // @@@ This is a hack for the Network protocol state machine
 UnixError UnixError::make(int err) { return UnixError(err); }
 
-#if !defined(NDEBUG)
-void UnixError::debugDiagnose(const void *id) const
-{
-    secdebug("exception", "%p UnixError %s (%d) osStatus %ld",
-		id, strerror(error), error, osStatus());
-}
-#endif //NDEBUG
-
 
 //
 // MacOSError exceptions
 //
 MacOSError::MacOSError(int err) : error(err)
 {
-	IFDEBUG(debugDiagnose(this));
+	SECURITY_EXCEPTION_THROW_OSSTATUS(this, err);
 }
 
 const char *MacOSError::what() const throw ()
@@ -158,7 +134,7 @@ void MacOSError::throwMe(int error)
 //
 CFError::CFError()
 {
-	IFDEBUG(debugDiagnose(this));
+	SECURITY_EXCEPTION_THROW_CF(this);
 }
 
 const char *CFError::what() const throw ()

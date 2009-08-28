@@ -1,8 +1,8 @@
 #! /bin/sh
-# $OpenLDAP: pkg/ldap/tests/scripts/relay,v 1.3.2.8 2006/01/03 22:16:28 kurt Exp $
+# $OpenLDAP: pkg/ldap/tests/scripts/relay,v 1.13.2.5 2008/02/11 23:52:49 quanah Exp $
 ## This work is part of OpenLDAP Software <http://www.openldap.org/>.
 ##
-## Copyright 1998-2006 The OpenLDAP Foundation.
+## Copyright 1998-2008 The OpenLDAP Foundation.
 ## All rights reserved.
 ##
 ## Redistribution and use in source and binary forms, with or without
@@ -17,8 +17,9 @@ echo "Using $RELAY backend..."
 echo ""
 
 echo "Starting slapd on TCP/IP port $PORT1..."
+echo "======== Starting slapd with $RELAY backend ========" >> $LOG1
 . $CONFFILTER $BACKEND $MONITORDB < $RELAYCONF > $CONF1
-$SLAPD -f $CONF1 -h $URI1 -d $LVL $TIMING > $LOG1 2>&1 &
+$SLAPD -f $CONF1 -h $URI1 -d $LVL $TIMING >> $LOG1 2>&1 &
 PID=$!
 if test $WAIT != 0 ; then
     echo PID $PID
@@ -60,7 +61,7 @@ cat /dev/null > $SEARCHOUT
 BASEDN="dc=example,dc=com"
 echo "Searching base=\"$BASEDN\"..."
 echo "# searching base=\"$BASEDN\"..." >> $SEARCHOUT
-$LDAPSEARCH -h $LOCALHOST -p $PORT1 -b "$BASEDN" >> $SEARCHOUT 2>&1
+$LDAPSEARCH -S '' -h $LOCALHOST -p $PORT1 -b "$BASEDN" >> $SEARCHOUT 2>&1
 RC=$?
 if test $RC != 0 ; then
 	echo "Search failed ($RC)!"
@@ -71,7 +72,7 @@ fi
 BASEDN="o=Example,c=US"
 echo "Searching base=\"$BASEDN\"..."
 echo "# searching base=\"$BASEDN\"..." >> $SEARCHOUT
-$LDAPSEARCH -h $LOCALHOST -p $PORT1 -b "$BASEDN" >> $SEARCHOUT 2>&1
+$LDAPSEARCH -S '' -h $LOCALHOST -p $PORT1 -b "$BASEDN" >> $SEARCHOUT 2>&1
 RC=$?
 if test $RC != 0 ; then
 	echo "Search failed ($RC)!"
@@ -82,7 +83,7 @@ fi
 BASEDN="o=Esempio,c=IT"
 echo "Searching base=\"$BASEDN\"..."
 echo "# searching base=\"$BASEDN\"..." >> $SEARCHOUT
-$LDAPSEARCH -h $LOCALHOST -p $PORT1 -b "$BASEDN" >> $SEARCHOUT 2>&1
+$LDAPSEARCH -S '' -h $LOCALHOST -p $PORT1 -b "$BASEDN" >> $SEARCHOUT 2>&1
 RC=$?
 if test $RC != 0 ; then
 	echo "Search failed ($RC)!"
@@ -93,7 +94,7 @@ fi
 BASEDN="o=Beispiel,c=DE"
 echo "Searching base=\"$BASEDN\"..."
 echo "# searching base=\"$BASEDN\"..." >> $SEARCHOUT
-$LDAPSEARCH -h $LOCALHOST -p $PORT1 -b "$BASEDN" >> $SEARCHOUT 2>&1
+$LDAPSEARCH -S '' -h $LOCALHOST -p $PORT1 -b "$BASEDN" >> $SEARCHOUT 2>&1
 RC=$?
 if test $RC != 0 ; then
 	echo "Search failed ($RC)!"
@@ -232,7 +233,7 @@ fi
 
 echo "Searching base=\"$BASEDN\"..."
 echo "# searching base=\"$BASEDN\"..." >> $SEARCHOUT
-$LDAPSEARCH -h $LOCALHOST -p $PORT1 -b "$BASEDN" >> $SEARCHOUT 2>&1
+$LDAPSEARCH -S '' -h $LOCALHOST -p $PORT1 -b "$BASEDN" >> $SEARCHOUT 2>&1
 RC=$?
 if test $RC != 0 ; then
 	echo "Search failed ($RC)!"
@@ -243,7 +244,7 @@ fi
 BASEDN="o=Esempio,c=IT"
 echo "Searching base=\"$BASEDN\"..."
 echo "# searching base=\"$BASEDN\"..." >> $SEARCHOUT
-$LDAPSEARCH -h $LOCALHOST -p $PORT1 -b "$BASEDN" >> $SEARCHOUT 2>&1
+$LDAPSEARCH -S '' -h $LOCALHOST -p $PORT1 -b "$BASEDN" >> $SEARCHOUT 2>&1
 RC=$?
 if test $RC != 0 ; then
 	echo "Search failed ($RC)!"
@@ -260,7 +261,7 @@ echo "# 	attrs=\"'*' ref\"" >> $SEARCHOUT
 BASEDN="dc=example,dc=com"
 echo "	base=\"$BASEDN\"..."
 echo "# 	base=\"$BASEDN\"..." >> $SEARCHOUT
-$LDAPSEARCH -h $LOCALHOST -p $PORT1 -b "$BASEDN" -M "$FILTER" '*' ref \
+$LDAPSEARCH -S '' -h $LOCALHOST -p $PORT1 -b "$BASEDN" -M "$FILTER" '*' ref \
 	>> $SEARCHOUT 2>&1
 RC=$?
 if test $RC != 0 ; then
@@ -272,7 +273,7 @@ fi
 BASEDN="o=Example,c=US"
 echo "	base=\"$BASEDN\"..."
 echo "# 	base=\"$BASEDN\"..." >> $SEARCHOUT
-$LDAPSEARCH -h $LOCALHOST -p $PORT1 -b "$BASEDN" -M "$FILTER" '*' ref \
+$LDAPSEARCH -S '' -h $LOCALHOST -p $PORT1 -b "$BASEDN" -M "$FILTER" '*' ref \
 	>> $SEARCHOUT 2>&1
 RC=$?
 if test $RC != 0 ; then
@@ -284,7 +285,7 @@ fi
 BASEDN="o=Esempio,c=IT"
 echo "	base=\"$BASEDN\"..."
 echo "# 	base=\"$BASEDN\"..." >> $SEARCHOUT
-$LDAPSEARCH -h $LOCALHOST -p $PORT1 -b "$BASEDN" -M "$FILTER" '*' ref \
+$LDAPSEARCH -S '' -h $LOCALHOST -p $PORT1 -b "$BASEDN" -M "$FILTER" '*' ref \
 	>> $SEARCHOUT 2>&1
 RC=$?
 if test $RC != 0 ; then
@@ -301,7 +302,7 @@ echo "	base=\"$BASEDN\"..."
 echo "# searching filter=\"$FILTER\"" >> $SEARCHOUT
 echo "# 	attrs=\"seeAlso\"" >> $SEARCHOUT
 echo "# 	base=\"$BASEDN\"..." >> $SEARCHOUT
-$LDAPSEARCH -h $LOCALHOST -p $PORT1 -b "$BASEDN" "$FILTER" seeAlso \
+$LDAPSEARCH -S '' -h $LOCALHOST -p $PORT1 -b "$BASEDN" "$FILTER" seeAlso \
 	>> $SEARCHOUT 2>&1
 RC=$?
 if test $RC != 0 ; then
@@ -317,7 +318,7 @@ echo "	base=\"$BASEDN\"..."
 echo "# searching filter=\"$FILTER\"" >> $SEARCHOUT
 echo "# 	attrs=\"uid\"" >> $SEARCHOUT
 echo "# 	base=\"$BASEDN\"..." >> $SEARCHOUT
-$LDAPSEARCH -h $LOCALHOST -p $PORT1 -b "$BASEDN" "$FILTER" uid \
+$LDAPSEARCH -S '' -h $LOCALHOST -p $PORT1 -b "$BASEDN" "$FILTER" uid \
 	>> $SEARCHOUT 2>&1
 RC=$?
 if test $RC != 0 ; then
@@ -333,7 +334,7 @@ echo "	base=\"$BASEDN\"..."
 echo "# searching filter=\"$FILTER\"" >> $SEARCHOUT
 echo "# 	attrs=\"member\"" >> $SEARCHOUT
 echo "# 	base=\"$BASEDN\"..." >> $SEARCHOUT
-$LDAPSEARCH -h $LOCALHOST -p $PORT1 -b "$BASEDN" "$FILTER" member \
+$LDAPSEARCH -S '' -h $LOCALHOST -p $PORT1 -b "$BASEDN" "$FILTER" member \
 	>> $SEARCHOUT 2>&1
 RC=$?
 if test $RC != 0 ; then

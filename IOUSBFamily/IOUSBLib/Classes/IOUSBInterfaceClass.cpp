@@ -1738,7 +1738,7 @@ IOUSBInterfaceClass::WriteIsochPipeAsync(UInt8 pipeRef, void *buf, UInt64 frameS
     asyncRef[kIOAsyncCalloutFuncIndex] = (uint64_t) callback;
     asyncRef[kIOAsyncCalloutRefconIndex] = (uint64_t) refCon;
 		
-	ret = IOConnectCallAsyncScalarMethod( fConnection, kUSBInterfaceUserClientWriteIsochPipe, IONotificationPortGetMachPort(fAsyncPort), asyncRef, kIOAsyncCalloutCount, 
+	ret = IOConnectCallAsyncScalarMethod( fConnection, kUSBInterfaceUserClientReadIsochPipe, IONotificationPortGetMachPort(fAsyncPort), asyncRef, kIOAsyncCalloutCount, 
 								   input, 6, 0, 0);
     if (ret == MACH_SEND_INVALID_DEST)
     {

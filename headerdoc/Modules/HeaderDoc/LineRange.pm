@@ -1,10 +1,9 @@
 #! /usr/bin/perl -w
 #
 # Class name: LineRange
-# Synopsis: Helper code fro availability (line ranges)
+# Synopsis: Helper code for availability (line ranges)
 #
-# Author: David Gatwood (dgatwood@apple.com)
-# Last Updated: $Date: 2007/04/24 23:34:16 $
+# Last Updated: $Date: 2009/03/30 19:38:50 $
 # 
 # Copyright (c) 2006 Apple Computer, Inc.  All rights reserved.
 #
@@ -44,7 +43,7 @@ use Carp qw(cluck);
 
 use strict;
 use vars qw($VERSION @ISA);
-$VERSION = '$Revision: 1.1.2.2 $';
+$HeaderDoc::LineRange::VERSION = '$Revision: 1.4 $';
 
 # Inheritance
 # @ISA = qw(HeaderDoc::HeaderElement);
@@ -118,16 +117,19 @@ sub new {
 	my ($self) = shift;
 	my $line = shift;
 
-	# print "START: ".$self->{_start}." END: ".$self->{_end}." VAL: $line\n";
+	my $localDebug = 0;
+
+	print STDERR "START: ".$self->{_start}." END: ".$self->{_end}." VAL: $line\n" if ($localDebug);
 
 	if ($line < $self->{_start}) {
-		# print "LT\n";
+		print STDERR "LT\n" if ($localDebug);
 		return 0;
 	}
 	if ($line > $self->{_end}) {
-		# print "GT\n";
+		print STDERR "GT\n" if ($localDebug);
 		return 0;
 	}
+	print STDERR "INRANGE\n" if ($localDebug);
 	return 1;
     }
 }

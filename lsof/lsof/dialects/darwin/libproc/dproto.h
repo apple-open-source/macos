@@ -37,7 +37,7 @@
 
 
 /*
- * $Id: dproto.h,v 1.5 2006/03/23 21:28:26 ajn Exp $
+ * $Id: dproto.h,v 1.5 2006/03/27 23:23:13 abe Exp $
  */
 
 _PROTOTYPE(extern void enter_file_info,(struct proc_fileinfo *pfi));

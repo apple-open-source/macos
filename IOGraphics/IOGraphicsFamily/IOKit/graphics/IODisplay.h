@@ -209,9 +209,6 @@ protected:
     SInt32	fMinBrightness;
     SInt32	fMaxBrightness;
     UInt16	fMaxBrightnessLevel[kIODisplayNumPowerStates];
-    
-    OSSymbol    *fDisplaySleepUsesDimSettingKey;
-    OSObject    *fPMSettingNotificationHandle;
 
 public:
     virtual IOService * probe( IOService *, SInt32 * );

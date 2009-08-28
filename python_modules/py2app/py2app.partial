@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>py2app</string>
+        <key>OpenSourceVersion</key>
+        <string>0.4.2</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://undefined.org/python/#py2app</string>
+        <key>OpenSourceSVN</key>
+        <string>svn export http://svn.red-bean.com/pyobjc/trunk/pyobjc/py2app</string>
+        <key>OpenSourceImportDate</key>
+        <string>2009-01-21</string>
+        <key>OpenSourceLicense</key>
+        <string>MIT</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>python_modules.txt</string>
+</dict>

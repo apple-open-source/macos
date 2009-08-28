@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -15,7 +15,7 @@
  */
 
 #include "apr_private.h"
-#include "win32/apr_arch_threadproc.h"
+#include "apr_arch_threadproc.h"
 #include "apr_thread_proc.h"
 #include "apr_general.h"
 #include "apr_lib.h"
@@ -94,7 +94,6 @@ APR_DECLARE(apr_status_t) apr_thread_create(apr_thread_t **new,
         return APR_ENOMEM;
     }
 
-    (*new)->pool = pool;
     (*new)->data = data;
     (*new)->func = func;
     (*new)->td   = NULL;
@@ -108,7 +107,7 @@ APR_DECLARE(apr_status_t) apr_thread_create(apr_thread_t **new,
      */
 #ifndef _WIN32_WCE
     if ((handle = (HANDLE)_beginthreadex(NULL,
-                        attr && attr->stacksize > 0 ? attr->stacksize : 0,
+                        (DWORD) (attr ? attr->stacksize : 0),
                         (unsigned int (APR_THREAD_FUNC *)(void *))dummy_worker,
                         (*new), 0, &temp)) == 0) {
         return APR_FROM_OS_ERROR(_doserrno);

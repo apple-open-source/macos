@@ -127,20 +127,6 @@ extern "C" {
 #define RX_BUF_SIZE             (1024 * 64)	// max out the Rx buffer size
 #define TX_BUF_SIZE             (1024 * 2)
 
-		/* Header prepended to each rx packet: */
-	struct rbuf_hdr_t
-	{
-#if defined( __BIG_ENDIAN__ ) // FIXME
-		UInt16 rb_count;   // Receive byte count = packet length + 14  + 4
-		UInt16 rb_status;  // Receive status
-#elif defined( __LITTLE_ENDIAN__ )
-		UInt16 rb_status;  // Receive status
-		UInt16 rb_count;   // Receive byte count = packet length + 14  + 4
-#else
-#error Unknown machine endianess
-#endif
-	};
-
 
 	enum
 	{		/* command values to send to the user client:	*/
@@ -240,9 +226,10 @@ public:
         kOwnedByHost = 1
     };
 
-    UInt8		reg_config1;
+    UInt8		fRegConfig1;		// unused but read once.
     UInt32		reg_rcr;
 	UInt32		currentLevel;
+	bool		fBuiltin;
 	bool		enabledByBSD;
     bool		enabledByKDP;
 	bool		interruptEnabled;
@@ -254,6 +241,7 @@ public:
     UInt16		reg_bms;
     UInt32		reg_mar0;
     UInt32		reg_mar4;
+    UInt16		fIMR;			// Interrupt Mask Register
 
     void	restartReceiver();
     void	transmitterInterrupt( bool* reclaimed );
@@ -308,6 +296,13 @@ public:
 		ELG( value, offset, 'Wr16', "csrWrite16" );
 		OSWriteLittleInt16( csrBase, offset, value );
 	}/* end csrWrite16 */
+
+    inline void csrWrite16Slow( UInt16 offset, UInt16 value )
+    {
+		ELG( value, offset, 'W16S', "csrWrite16Slow" );
+		pciNub->ioWrite16( offset, value, csrMap );
+		pciNub->ioRead16(  offset, csrMap );
+	}/* end csrWrite16Slow */
 
     inline void csrWrite8(  UInt16 offset, UInt8 value )
 	{

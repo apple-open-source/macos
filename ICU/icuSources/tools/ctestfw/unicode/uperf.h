@@ -1,8 +1,7 @@
 /*
 **********************************************************************
-* Copyright (c) 2002-2005, International Business Machines
+* Copyright (c) 2002-2007, International Business Machines
 * Corporation and others.  All Rights Reserved.
-**********************************************************************
 **********************************************************************
 */
 #ifndef _UPERF_H
@@ -15,6 +14,10 @@
 #include "unicode/testtype.h"
 #include "unicode/utimer.h"
 #include "ucbuf.h"
+
+// Forward declarations from uoptions.h.
+struct UOption;
+typedef struct UOption UOption;
 
 #if !UCONFIG_NO_CONVERSION
 
@@ -126,31 +129,40 @@ public:
 protected:
     UPerfTest(int32_t argc, const char* argv[], UErrorCode& status);
 
+    UPerfTest(int32_t argc, const char* argv[],
+              UOption addOptions[], int32_t addOptionsCount,
+              const char *addUsage,
+              UErrorCode& status);
+
+    void init(UOption addOptions[], int32_t addOptionsCount,
+              UErrorCode& status);
+
     virtual UPerfFunction* runIndexedTest( int32_t index, UBool exec, const char* &name, char* par = NULL ); // overide !
 
     virtual UBool runTestLoop( char* testname, char* par );
 
     virtual UBool callTest( UPerfTest& testToBeCalled, char* par );
 
-    UBool        verbose;
-    const char*  sourceDir;
-    const char*  fileName;
+    int32_t      _argc;
+    const char** _argv;
+    const char * _addUsage;
     char*        resolvedFileName;
+    UCHARBUF*    ucharBuf;
     const char*  encoding;
     UBool        uselen;
-    int32_t      iterations;
-    int32_t      passes;
-    int32_t      time;
-    const char** _argv;
-    int32_t      _argc;
+    const char*  fileName;
+    const char*  sourceDir;
     int32_t      _remainingArgc;
     ULine*       lines;
     int32_t      numLines;
-    UCHARBUF*    ucharBuf;
     UBool        line_mode;
-    UBool        bulk_mode;
     UChar* buffer;
     int32_t      bufferLen;
+    UBool        verbose;
+    UBool        bulk_mode;
+    int32_t      passes;
+    int32_t      iterations;
+    int32_t      time;
     const char*  locale;
 private:
     UPerfTest*   caller;

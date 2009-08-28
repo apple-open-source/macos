@@ -84,6 +84,9 @@ endif
 ifeq ($(WITH_THREADS),posix)
 LIBS += -lpthreadGC
 endif
+ifeq ($(WITH_MODULES),1)
+LIBS += -lkernel32
+endif
 
 # The archiver and its options.
 AR = ar.exe
@@ -123,6 +126,7 @@ XML_OBJS = $(XML_INTDIR)/c14n.o\
 	$(XML_INTDIR)/relaxng.o\
 	$(XML_INTDIR)/SAX.o\
 	$(XML_INTDIR)/SAX2.o\
+	$(XML_INTDIR)/schematron.o\
 	$(XML_INTDIR)/threads.o\
 	$(XML_INTDIR)/tree.o\
 	$(XML_INTDIR)/uri.o\
@@ -133,6 +137,7 @@ XML_OBJS = $(XML_INTDIR)/c14n.o\
 	$(XML_INTDIR)/xmlmemory.o\
 	$(XML_INTDIR)/xmlreader.o\
 	$(XML_INTDIR)/xmlregexp.o\
+	$(XML_INTDIR)/xmlmodule.o\
 	$(XML_INTDIR)/xmlsave.o\
 	$(XML_INTDIR)/xmlschemas.o\
 	$(XML_INTDIR)/xmlschemastypes.o\
@@ -168,6 +173,7 @@ XML_OBJS_A = $(XML_INTDIR_A)/c14n.o\
 	$(XML_INTDIR_A)/relaxng.o\
 	$(XML_INTDIR_A)/SAX.o\
 	$(XML_INTDIR_A)/SAX2.o\
+	$(XML_INTDIR_A)/schematron.o\
 	$(XML_INTDIR_A)/threads.o\
 	$(XML_INTDIR_A)/tree.o\
 	$(XML_INTDIR_A)/uri.o\
@@ -178,6 +184,7 @@ XML_OBJS_A = $(XML_INTDIR_A)/c14n.o\
 	$(XML_INTDIR_A)/xmlmemory.o\
 	$(XML_INTDIR_A)/xmlreader.o\
 	$(XML_INTDIR_A)/xmlregexp.o\
+	$(XML_INTDIR_A)/xmlmodule.o\
 	$(XML_INTDIR_A)/xmlsave.o\
 	$(XML_INTDIR_A)/xmlschemas.o\
 	$(XML_INTDIR_A)/xmlschemastypes.o\
@@ -198,11 +205,16 @@ UTILS = $(BINDIR)/xmllint.exe\
 	$(BINDIR)/testHTML.exe\
 	$(BINDIR)/testReader.exe\
 	$(BINDIR)/testRegexp.exe\
+	$(BINDIR)/testModule.exe\
 	$(BINDIR)/testRelax.exe\
 	$(BINDIR)/testSAX.exe\
 	$(BINDIR)/testSchemas.exe\
 	$(BINDIR)/testURI.exe\
-	$(BINDIR)/testXPath.exe
+	$(BINDIR)/testXPath.exe\
+	$(BINDIR)/runtest.exe\
+	$(BINDIR)/runsuite.exe\
+	$(BINDIR)/testapi.exe
+
 ifeq ($(WITH_THREADS),yes)
 UTILS += $(BINDIR)/testThreadsWin32.exe
 endif
@@ -225,44 +237,40 @@ libxmla : $(BINDIR)/$(XML_A)
 utils : $(UTILS)
 
 clean :
-	cmd.exe /C if exist $(XML_INTDIR) rmdir /S /Q $(XML_INTDIR)
-	cmd.exe /C if exist $(XML_INTDIR_A) rmdir /S /Q $(XML_INTDIR_A)
-	cmd.exe /C if exist $(UTILS_INTDIR) rmdir /S /Q $(UTILS_INTDIR)
-	cmd.exe /C if exist $(BINDIR) rmdir /S /Q $(BINDIR)
-	cmd.exe /C if exist depends.mingw del depends.mingw
+	cmd.exe /C "if exist $(XML_INTDIR) rmdir /S /Q $(XML_INTDIR)"
+	cmd.exe /C "if exist $(XML_INTDIR_A) rmdir /S /Q $(XML_INTDIR_A)"
+	cmd.exe /C "if exist $(UTILS_INTDIR) rmdir /S /Q $(UTILS_INTDIR)"
+	cmd.exe /C "if exist $(BINDIR) rmdir /S /Q $(BINDIR)"
+	cmd.exe /C "if exist depends.mingw del depends.mingw"
 
 distclean : clean
-	cmd.exe /C if exist config.* del config.*
-	cmd.exe /C if exist Makefile del Makefile
+	cmd.exe /C "if exist config.* del config.*"
+	cmd.exe /C "if exist Makefile del Makefile"
 
 rebuild : clean all
 
-install : all
-	cmd.exe /C if not exist $(INCPREFIX)\libxml mkdir $(INCPREFIX)\libxml
-	cmd.exe /C if not exist $(BINPREFIX) mkdir $(BINPREFIX)
-	cmd.exe /C if not exist $(LIBPREFIX) mkdir $(LIBPREFIX)
-	cmd.exe /C copy $(XML_SRCDIR)\include\libxml\*.h $(INCPREFIX)\libxml
-	cmd.exe /C copy $(BINDIR)\$(XML_SO) $(SOPREFIX)
-	cmd.exe /C copy $(BINDIR)\$(XML_A) $(LIBPREFIX)
-	cmd.exe /C copy $(BINDIR)\$(XML_IMP) $(LIBPREFIX)
-	cmd.exe /C copy $(BINDIR)\*.exe $(BINPREFIX)
+install-libs : all
+	cmd.exe /C "if not exist $(INCPREFIX)\libxml mkdir $(INCPREFIX)\libxml"
+	cmd.exe /C "if not exist $(BINPREFIX) mkdir $(BINPREFIX)"
+	cmd.exe /C "if not exist $(LIBPREFIX) mkdir $(LIBPREFIX)"
+	cmd.exe /C "copy $(XML_SRCDIR)\include\libxml\*.h $(INCPREFIX)\libxml"
+	cmd.exe /C "copy $(BINDIR)\$(XML_SO) $(SOPREFIX)"
+	cmd.exe /C "copy $(BINDIR)\$(XML_A) $(LIBPREFIX)"
+	cmd.exe /C "copy $(BINDIR)\$(XML_IMP) $(LIBPREFIX)"
+	cmd.exe /C "copy $(BINDIR)\xml*.exe $(BINPREFIX)"
 
-install-bindist : all
-	cmd.exe /C if not exist $(INCPREFIX)\libxml mkdir $(INCPREFIX)\libxml
-	cmd.exe /C if not exist $(BINPREFIX) mkdir $(BINPREFIX)
-	cmd.exe /C if not exist $(LIBPREFIX) mkdir $(LIBPREFIX)
-	cmd.exe /C copy $(XML_SRCDIR)\include\libxml\*.h $(INCPREFIX)\libxml
-	cmd.exe /C copy $(BINDIR)\$(XML_SO) $(SOPREFIX)
-	cmd.exe /C copy $(BINDIR)\$(XML_A) $(LIBPREFIX)
-	cmd.exe /C copy $(BINDIR)\$(XML_IMP) $(LIBPREFIX)
-	cmd.exe /C copy $(BINDIR)\xml*.exe $(BINPREFIX)
+install : install-libs
+	cmd.exe /C "copy $(BINDIR)\*.exe $(BINPREFIX)"
+
+install-dist : install-libs
+	cmd.exe /C "copy $(BINDIR)\xml*.exe $(BINPREFIX)"
 
 # This is a target for me, to make a binary distribution. Not for the public use,
 # keep your hands off :-)
 BDVERSION = $(LIBXML_MAJOR_VERSION).$(LIBXML_MINOR_VERSION).$(LIBXML_MICRO_VERSION)
 BDPREFIX = $(XML_BASENAME)-$(BDVERSION).win32
 bindist : all
-	$(MAKE) PREFIX=$(BDPREFIX) SOPREFIX=$(BDPREFIX)/bin install-bindist
+	$(MAKE) PREFIX=$(BDPREFIX) SOPREFIX=$(BDPREFIX)/bin install-dist
 	cscript //NoLogo configure.js genreadme $(XML_BASENAME) $(BDVERSION) $(BDPREFIX)\readme.txt
 
 

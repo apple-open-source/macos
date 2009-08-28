@@ -1,4 +1,3 @@
-/* APPLE LOCAL file mainline */
 /* { dg-do compile } */
 /* APPLE LOCAL testsuite nested functions */
 /* { dg-options "-Wpadded -fnested-functions" }

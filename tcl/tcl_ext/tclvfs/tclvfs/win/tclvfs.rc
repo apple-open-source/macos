@@ -1,0 +1,40 @@
+// tclvfs.rc - Copyright (C) 2008 Pat Thoyts <patthoyts@users.sf.net>
+//
+// Note: the version numbers in here are all provided from the makefile.
+//       No editing required.
+//
+// $Id: tclvfs.rc,v 1.1 2008/04/30 15:18:56 patthoyts Exp $
+
+#include <winver.h>
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION	COMMAVERSION
+ PRODUCTVERSION	COMMAVERSION
+ FILEFLAGSMASK	0x3fL
+#ifdef DEBUG
+ FILEFLAGS	VS_FF_DEBUG
+#else
+ FILEFLAGS	0x0L
+#endif
+ FILEOS		VOS__WINDOWS32
+ FILETYPE	VFT_DLL
+ FILESUBTYPE	0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"   /* LANG_ENGLISH/SUBLANG_ENGLISH_US, Unicode CP */
+        BEGIN
+            VALUE "FileDescription",  "Tcl virtual filesystem support\0"
+            VALUE "OriginalFilename", "vfs" VERSION ".dll\0"
+            VALUE "FileVersion",      DOTVERSION "\0"
+            VALUE "LegalCopyright",   "Copyright \251 2001 Vince Darley et al.\0"
+            VALUE "ProductName",      "TclVfs " DOTVERSION " for Windows\0"
+            VALUE "ProductVersion",   DOTVERSION "\0"
+            VALUE "Comments",         "http://sourceforge.net/projects/tclvfs\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END

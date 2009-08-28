@@ -88,6 +88,7 @@
 #include "exitcode.h"
 #include "snprintf.h"
 #include "cpp_dialect.h"
+#include "versinfo.h"
 
 static int dcc_argv_append(char *argv[], char *toadd)
 {
@@ -147,10 +148,17 @@ int dcc_scan_args(char *argv[], char **input_file, char **output_file,
         rs_log_error("unrecognized distcc option: %s", argv[0]);
         exit(EXIT_BAD_ARGUMENTS);
     }
+    
+    /*  Replace the originally requested compiler in argv[0] with the allowed one from dcc_get_allowed_compiler_for_path() */
+    char *compilerPath = dcc_get_allowed_compiler_for_path(argv[0]);
+    if (compilerPath && strcmp(compilerPath, argv[0]) != 0) {
+        free(argv[0]);
+        argv[0] = compilerPath;
+    }
 
     *input_file = *output_file = NULL;
 
-    for (i = 0; (a = argv[i]); i++) {
+    for (i = 1; (a = argv[i]); i++) {
         if (a[0] == '-') {
             if (!strcmp(a, "-E")) {
                 rs_trace("-E call for cpp must be local");

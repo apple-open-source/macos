@@ -1,0 +1,338 @@
+# rpcvar.test - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
+#
+# Provide a set of tests to excercise the rpcvar package
+#
+# -------------------------------------------------------------------------
+# This software is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the accompanying file `LICENSE'
+# for more details.
+# -------------------------------------------------------------------------
+#
+# @(#)$Id: rpcvar.test,v 1.5 2002/09/21 00:10:29 patthoyts Exp $
+
+# Initialize the required packages
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+    #source [file join [pwd] [file dirname [info script]] defs.tcl]
+}
+
+if {[catch {package require rpcvar}]} {
+    catch {puts stderr "Cannot load the rpcvar package"}
+    return
+}
+
+# -------------------------------------------------------------------------
+
+# Basic variable manipulation
+
+catch {unset t0}
+catch {unset t1}
+
+test rpcvar-1.1 {Basic variable creation} {
+    set failed [catch {rpcvar::rpcvar int 2} result]
+    if { ! $failed } {
+        set failed [catch {
+            rpcvar::is_rpcvar $result
+        } result]
+    }
+    set result
+} {1}
+
+test rpcvar-1.2 {Basic variable test negative} {
+    set t0 {}
+    catch {rpcvar::is_rpcvar $t0} result
+    set result
+} {0}
+
+test rpcvar-1.3 {Basic variable test get type} {
+    set failed [catch {rpcvar::rpcvar int 2} result]
+    if { ! $failed } {
+        set failed [catch {
+            rpcvar::rpctype $result
+        } result]
+    }
+    set result
+} {int}
+
+test rpcvar-1.4 {Basic variable test get value} {
+    set failed [catch {rpcvar::rpcvar int 2} result]
+    if { ! $failed } {
+        set failed [catch {
+            rpcvar::rpcvalue $result
+        } result]
+    }
+    set result
+} {2}
+
+test rpcvar-1.5 {Test array subtype} {
+    set failed [catch {rpcvar::rpcvar array(int) {1 2 3 4 5}} result]
+    if {! $failed} {
+        set failed [catch {
+            rpcvar::rpcsubtype $result
+        } result]
+    }
+    set result
+} {int}
+
+test rpcvar-1.6 {Test array of arrays subtype} {
+    set failed [catch {rpcvar::rpcvar array(array(int)) {{1 2} {3 4}}} result]
+    if {! $failed} {
+        set failed [catch {
+            rpcvar::rpcsubtype $result
+        } result]
+    }
+    set result
+} {array(int)}
+
+catch {unset t0}
+catch {unset t1}
+
+# -------------------------------------------------------------------------
+
+# Nasty types test
+
+test rpcvar-2.1 {Nasty variable creation} {
+    set failed [catch {
+        rpcvar::rpcvar {$ztype} {$zvalue}
+    } result]
+    if { ! $failed } {
+        set failed [catch {
+            rpcvar::is_rpcvar $result
+        } result]
+    }
+    set result
+} {1}
+
+test rpcvar-2.2 {Nasty variable test get type} {
+    set failed [catch {
+        rpcvar::rpcvar {$ztype} {$zvalue}
+    } result]
+    if { ! $failed } {
+        set failed [catch {
+            rpcvar::rpctype $result
+        } result]
+    }
+    set result
+} {$ztype}
+
+test rpcvar-2.4 {Nasty variable test get value} {
+    set failed [catch {
+        rpcvar::rpcvar {$ztype} {$zvalue}
+    } result]
+    if { ! $failed } {
+        set failed [catch {
+            rpcvar::rpcvalue $result
+        } result]
+    }
+    set result
+} {$zvalue}
+
+catch {unset t1}
+
+# -------------------------------------------------------------------------
+
+# test the type guessing code
+
+test rpcvar-3.1 {Guess type of integer} {
+    catch {rpcvar::rpctype 2} result
+    set result
+} {int}
+
+test rpcvar-3.2a {Guess type of double (float)} {
+    catch {rpcvar::rpctype 2.5} result
+    set result
+} {float}
+
+test rpcvar-3.2b {Guess type of double} {
+    catch {rpcvar::rpctype 1e150} result
+    set result
+} {double}
+
+test rpcvar-3.2b {Guess type of double} {
+    catch {rpcvar::rpctype 1e-150} result
+    set result
+} {double}
+
+test rpcvar-3.3 {Guess type of struct} {
+    catch {unset t0}
+    array set t0 {}
+    catch {rpcvar::rpctype t0} result
+    catch {unset t0}
+    set result
+} {struct}
+
+test rpcvar-3.4 {Guess type of boolean true} {
+    catch {rpcvar::rpctype true} result
+    set result
+} {boolean}
+
+test rpcvar-3.5 {Guess type of boolean false} {
+    catch {rpcvar::rpctype false} result
+    set result
+} {boolean}
+
+test rpcvar-3.6 {Guess type of string} {
+    catch {rpcvar::rpctype hello} result
+    set result
+} {string}
+
+# -------------------------------------------------------------------------
+
+test rpcvar-4.1 {Test the namespace assignment} {
+    set failed [catch {
+        rpcvar::rpcvar -namespace urn:tclsoap int 4
+    } result]
+    if { ! $failed } {
+        set failed [catch {
+            rpcvar::rpcnamespace $result
+        } result]
+    }
+    set result
+} {urn:tclsoap}
+
+test rpcvar-4.2 {Test the namespace non-assignment} {
+    set failed [catch {
+        rpcvar::rpcvar int 4
+    } result]
+    if { ! $failed } {
+        set failed [catch {
+            rpcvar::rpcnamespace $result
+        } result]
+    }
+    set result
+} {}
+
+# -------------------------------------------------------------------------
+
+test rpcvar-5.1 {Test attributes: non-assignment} {
+    set failed [catch {
+        rpcvar::rpcvar -namespace urn:tclsoap int 5
+    } result]
+    if { ! $failed } {
+        set failed [catch {
+            rpcvar::rpcattributes $result
+        } result]
+    }
+    set result
+} {}
+
+test rpcvar-5.2 {Test attributes: check assignment} {
+    set failed [catch {
+        rpcvar::rpcvar -namespace urn:tclsoap \
+                -attributes {actor next mustUnderstand 0} int 5
+    } result]
+    if {!$failed} {
+        set failed [catch {
+            array set attr [rpcvar::rpcattributes $result]
+            set attr(actor)
+        } result]
+    }
+    set result
+} {next}
+
+# -------------------------------------------------------------------------
+
+test rpcvar-6.1 {Test typedef: define struct} {
+    catch {rpcvar::typedef -namespace urn:tclsoap \
+            {varInt int varFloat float} MyStruct} result
+    set result
+} {MyStruct}
+
+test rpcvar-6.2 {Test typedef: check exists for valid type} {
+    catch {rpcvar::typedef -exists MyStruct} result
+    set result
+} {1}
+
+test rpcvar-6.3 {Test typedef: check exists for invalid type} {
+    catch {rpcvar::typedef -exists NotMyStruct} result
+    set result
+} {0}
+
+test rpcvar-6.4 {Test typedef: check -info} {
+    set f [catch {array set a [rpcvar::typedef -info MyStruct]} result]
+    if {! $f} {
+        set result $a(varInt)
+        append result $a(varFloat)
+    }
+    set result
+} {intfloat}
+
+test rpcvar-6.5 {Test typedef: check -namespace for invalid type} {
+    catch {rpcvar::typedef -namespace NotMyStruct} result
+    set result
+} {}
+
+test rpcvar-6.6 {Test typedef: check -namespace for valid type} {
+    catch {rpcvar::typedef -namespace MyStruct} result
+    set result
+} {urn:tclsoap}
+
+test rpcvar-6.7 {Test typedef: check enumerations} {
+    catch {rpcvar::typedef -namespace urn:tclsoap \
+            -enum {red green blue black} Colour} result
+    set result
+} {Colour}
+
+
+test rpcvar-6.8 {Test typedef: check -enum usage} {
+    catch {rpcvar::typedef -info Colour} result
+    set result
+} {enum}
+
+test rpcvar-6.9 {Test typedef: validate enumeration members} {
+    catch {rpcvar::rpcvalidate Colour red} result
+    set result
+} {1}
+
+test rpcvar-6.10 {Test typedef: validate enumeration members} {
+    catch {rpcvar::rpcvalidate Colour yellow} result
+    set result
+} {0}
+
+# -------------------------------------------------------------------------
+
+# Patch #494275
+test rpcvar-7.1 {Test string: string construction should not deref array by same name} {
+    catch {unset a}
+    set a(name) val
+    set result [rpcvar::rpcvar string a]
+    rpcvar::rpcvalue $result
+} {a}
+
+test rpcvar-7.1 {Test tcl array: struct type should accept array or list} {
+    catch {unset a}
+    set a(name) val
+    set result [rpcvar::rpcvar struct a]
+    rpcvar::rpcvalue $result
+} {name val}
+
+test rpcvar-7.2 {Test tcl array: struct type should accept array or list} {
+    catch {unset a}
+    set a(name) val
+    set result [rpcvar::rpcvar struct [array get a]]
+    rpcvar::rpcvalue $result
+} {name val}
+
+# -------------------------------------------------------------------------
+
+test rpcvar-8.1 {Test RPC parameter lists} {
+    if {![catch {rpcvar::rpcvar -paramlist red 0xff0000 green 0x00ff00 blue 0x0000ff} r]} {
+        catch {rpcvar::rpcvalue $r} r
+    }
+    set r
+} {red 0xff0000 green 0x00ff00 blue 0x0000ff}
+
+# -------------------------------------------------------------------------
+
+# Clean up the tests
+
+::tcltest::cleanupTests
+return
+
+# Local variables:
+#    mode: tcl
+#    indent-tabs-mode: nil
+# End:

@@ -1,9 +1,8 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1996-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 1996,2007 Oracle.  All rights reserved.
 #
-# $Id: recd005.tcl,v 1.2 2004/03/30 01:24:07 jtownsen Exp $
+# $Id: recd005.tcl,v 12.7 2007/05/17 15:15:55 bostic Exp $
 #
 # TEST	recd005
 # TEST	Verify reuse of file ids works on catastrophic recovery.
@@ -23,8 +22,9 @@ proc recd005 { method args} {
 
 	set testfile1 recd005.1.db
 	set testfile2 recd005.2.db
-	set eflags \
-	    "-create -txn -lock_max 2000 -lock_max_objects 2000 -home $testdir"
+	set max_locks 2000
+	set eflags "-create -txn -lock_max_locks $max_locks \
+	    -lock_max_objects $max_locks -home $testdir"
 
 	set tnum 0
 	foreach sizes "{1000 10} {10 1000}" {

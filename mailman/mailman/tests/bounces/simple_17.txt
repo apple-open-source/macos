@@ -1,0 +1,76 @@
+Return-Path: <MAILER-DAEMON@sb7.songbird.com>
+Received: from nz-out-0102.google.com (nz-out-0102.google.com [64.233.162.199])
+	by sb7.songbird.com (8.12.11.20060308/8.12.11) with ESMTP id
+	k4A9vtBp031861
+	for <gpc-talk-bounces@grizz.org>; Wed, 10 May 2006 02:57:56 -0700
+Message-Id: <200605100957.k4A9vtBp031861@sb7.songbird.com>
+Received: by nz-out-0102.google.com with SMTP id m22so1664192nzf
+	for <gpc-talk-bounces@grizz.org>; Wed, 10 May 2006 02:57:22 -0700 (PDT)
+DomainKey-Signature: a=rsa-sha1; q=dns; c=nofws; s=beta; d=googlemail.com;
+	h=received:from:to:subject:date;
+	b=itbNrMpynpFDGRA3H64TOv6bR4G2VheOanpQ+2ptQ6qXql7I3q+Wb42T5/7K2pRPUJyVyzJNaT2Lk9s2btWq7FOYeGTRvUapLbNQ/JJcrekaPkXT10YQCgYoxpo1UJVuE6zwj9cxpL2SFoKRdfaIjnEzdl3YTPoH7L8TPUSmsK0=
+Received: by 10.36.48.19 with SMTP id v19mr424437nzv;
+	Wed, 10 May 2006 02:57:22 -0700 (PDT)
+Received: by 10.36.48.19 with SMTP id v19mr539291nzv;
+	Wed, 10 May 2006 02:57:22 -0700 (PDT)
+From: Mail Delivery Subsystem <mailer-daemon@googlemail.com>
+To: gpc-talk-bounces@grizz.org
+Subject: Delivery Status Notification (Failure)
+Date: Wed, 10 May 2006 02:57:22 -0700 (PDT)
+X-SongbirdInformation: support@songbird.com for more information
+X-Songbird: Clean
+X-Songbird-From: 
+
+This is an automatically generated Delivery Status Notification
+
+Delivery to the following recipient failed permanently:
+
+     internetsailing@gmail.com
+
+   ----- Original message -----
+
+Received: by 10.36.48.19 with SMTP id v19mr424427nzv;
+        Wed, 10 May 2006 02:57:21 -0700 (PDT)
+Return-Path: <gpc-talk-bounces@grizz.org>
+Received: from sara.dreamhost.com (sara.dreamhost.com [66.33.196.112])
+        by mx.gmail.com with ESMTP id r9si3586885nza.2006.05.10.02.57.21;
+        Wed, 10 May 2006 02:57:21 -0700 (PDT)
+Received-SPF: neutral (gmail.com: 66.33.196.112 is neither permitted nor denied by best guess record for domain of gpc-talk-bounces@grizz.org)
+Received: from sb7.songbird.com (sb7.songbird.com [208.184.79.137])
+	by sara.dreamhost.com (Postfix) with ESMTP id EC6134975D
+	for <decanofu@internetyachtclub.com>; Wed, 10 May 2006 02:57:20 -0700 (PDT)
+Received: from sb7.songbird.com (sb7.songbird.com [127.0.0.1])
+	by sb7.songbird.com (8.12.11.20060308/8.12.11) with ESMTP id k4A9vnNk031834
+	for <decanofu@internetyachtclub.com>; Wed, 10 May 2006 02:57:49 -0700
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Subject: Your message to GPC-talk awaits moderator approval
+From: gpc-talk-bounces@grizz.org
+To: decanofu@internetyachtclub.com
+Message-ID: <mailman.12400.1147255068.1568.gpc-talk@grizz.org>
+Date: Wed, 10 May 2006 02:57:48 -0700
+Precedence: bulk
+X-BeenThere: gpc-talk@grizz.org
+X-Mailman-Version: 2.1.5
+List-Id: Grizzly Peak Cyclists general discussion list <gpc-talk.grizz.org>
+X-List-Administrivia: yes
+Sender: gpc-talk-bounces@grizz.org
+Errors-To: gpc-talk-bounces@grizz.org
+X-SongbirdInformation: support@songbird.com for more information
+X-Songbird: Clean
+X-Songbird-From: gpc-talk-bounces@grizz.org
+
+Your mail to 'GPC-talk' with the subject
+
+    What IS 0EM Software And Why D0 You Care?
+
+Is being held until the list moderator can review it for approval.
+
+The reason it is being held:
+
+    Post by non-member to a members-only list
+
+
+   ----- Message truncated -----
+

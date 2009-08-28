@@ -1,0 +1,509 @@
+# Commands covered: snack::filter
+#
+
+package require -exact snack 2.2
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+test filter-1.1 {filter command create/destroy} {
+  set f [snack::filter map 1.0]
+  set res $f
+  $f destroy
+  set res
+} map1
+
+test filter-1.2 {filter command configure} {
+  set f [snack::filter map 1.0]
+  $f configure 0.5
+  set res $f
+  $f destroy
+  set res
+} map2
+
+test filter-2.1 {sound filter command, map 0.5} {
+  set s [snack::sound snd -load ex1.wav]
+  set f [snack::filter map 0.5]
+  $s filter $f
+  set res [$s sample 0]
+  $f destroy
+  $s destroy
+  set res
+} 588
+
+test filter-2.2 {sound filter command, map 0.1} {
+  set s [snack::sound snd -load ex1.wav]
+  set f [snack::filter map 0.1]
+  $s filter $f
+  set res [$s sample 0]
+  $f destroy
+  $s destroy
+  set res
+} 117
+
+test filter-2.3 {sound filter command, map stereo r<->l} {
+  set s [snack::sound snd -channels 2]
+  $s length 10
+  $s sample 5 1 2
+  set f [snack::filter map 0 1 1 0]
+  $s filter $f
+  set res [$s sample 5]
+  $f destroy
+  $s destroy
+  set res
+} {2 1}
+
+test filter-2.4 {sound filter command, map stereo r+l/2} {
+  set s [snack::sound snd -channels 2]
+  $s length 10
+  $s sample 5 10 20
+  set f [snack::filter map 0.5 0.5 0.5 0.5]
+  $s filter $f
+  set res [$s sample 5]
+  $f destroy
+  $s destroy
+  set res
+} {15 15}
+
+test filter-2.7 {sound filter command, with -start/-end options} {
+  set s [snack::sound snd]
+  $s length 1000000
+  $s sample 500001 1000
+  $s sample 500002 1000
+  $s sample 500003 1000
+  $s sample 500004 1000
+  set f [snack::filter map 0.5]
+  $s filter $f -start 500002 -end 500003
+  set res [$s sample 500001],[$s sample 500002],[$s sample 500003],[$s sample 500004]
+  $f destroy
+  $s destroy
+  set res
+} {1000,500,500,1000}
+
+test filter-2.8 {sound filter command, stereo, with -start/-end options} {
+  set s [snack::sound snd -channels 2]
+  $s length 1000000
+  $s sample 500001 1002 2002 
+  $s sample 500002 1004 2004
+  $s sample 500003 1006 2006
+  $s sample 500004 1008 2008
+  set f [snack::filter map 0.5]
+  $s filter $f -start 500002 -end 500003
+  set res [$s sample 500001],[$s sample 500002],[$s sample 500003],[$s sample 500004]
+  $f destroy
+  $s destroy
+  set res
+} {1002 2002,502 1002,503 1003,1008 2008}
+
+test filter-2.9 {sound filter command, with -start/-end options} {
+  set s [snack::sound snd]
+  $s length 1000000
+  $s sample 400001 1000
+  $s sample 400002 1000
+  $s sample 600003 1000
+  $s sample 600004 1000
+  set f [snack::filter map 0.5]
+  $s filter $f -start 400002 -end 600003
+  set res [$s sample 400001],[$s sample 400002],[$s sample 600003],[$s sample 600004]
+  $f destroy
+  $s destroy
+  set res
+} {1000,500,500,1000}
+
+test filter-2.10 {sound filter command, stereo, with -start/-end options} {
+  set s [snack::sound snd -channels 2]
+  $s length 1000000
+  $s sample 400001 1002 2002
+  $s sample 400002 1004 2004
+  $s sample 600003 1006 2006
+  $s sample 600004 1008 2008
+  set f [snack::filter map 0.5]
+  $s filter $f -start 400002 -end 600003
+  set res [$s sample 400001],[$s sample 400002],[$s sample 600003],[$s sample 600004]
+  $f destroy
+  $s destroy
+  set res
+} {1002 2002,502 1002,503 1003,1008 2008}
+
+test filter-2.11 {sound filter command, long sound, check samples} {
+  set s [snack::sound snd]
+  $s length 1000000
+  $s sample 500001 3000
+  $s sample 500002 -3000
+  set f [snack::filter map 0.25]
+  $s filter $f
+  set res [$s max],[$s min]
+  $s sample 500001 0
+  $s sample 500002 0
+  $s changed New
+  append res ,[$s max],[$s min]
+  $f destroy
+  $s destroy
+  set res
+} {750,-750,0,0}
+
+test filter-2.12 {sound filter command, long stereo sound, check samples} {
+  set s [snack::sound snd -channels 2]
+  $s length 1000000
+  $s sample 500001 3000 4000
+  $s sample 500002 -3000 -4000
+  set f [snack::filter map 0.25]
+  $s filter $f
+  set res [$s max],[$s min]
+  $s sample 500001 0 0
+  $s sample 500002 0 0
+  $s changed New
+  append res ,[$s max],[$s min]
+  $f destroy
+  $s destroy
+  set res
+} {1000,-1000,0,0}
+
+test filter-2.13 {sound filter command, long 3-chan sound, check samples} {
+  set s [snack::sound snd -channels 3]
+  $s length 1000000
+  $s sample 500001 3000 4000 5000
+  $s sample 500002 -3000 -4000 -5000
+  set f [snack::filter map 0.25]
+  $s filter $f
+  set res [$s max],[$s min]
+  $s sample 500001 0 0 0
+  $s sample 500002 0 0 0
+  $s changed New
+  append res ,[$s max],[$s min]
+  $f destroy
+  $s destroy
+  set res
+} {1250,-1250,0,0}
+
+test filter-2.14 {sound filter command, stereo, map filter reconfigured} {
+  set s [snack::sound snd -channels 2]
+  $s length 1000000
+  $s sample 500001 3000 4000
+  $s sample 500002 -3000 -4000
+  set f [snack::filter map 0.25]
+  $s filter $f
+  set res [$s max],[$s min]
+  $f configure 2.0
+  $s filter $f
+  append res ,[$s max],[$s min]
+  $s sample 500001 0 0
+  $s sample 500002 0 0
+  $s changed New
+  append res ,[$s max],[$s min]
+  $f destroy
+  $s destroy
+  set res
+} {1000,-1000,2000,-2000,0,0}
+
+test filter-2.15 {sound filter command, long sound, check samples} {
+  set s [snack::sound snd]
+  $s length 200000
+  $s sample 100001 3000
+  $s sample 100002 -3000
+  set f [snack::filter map 0.25]
+  $s filter $f -start 100000
+  set res [$s max],[$s min]
+  $s sample 100001 0
+  $s sample 100002 0
+  $s changed New
+  append res ,[$s max],[$s min]
+  $f destroy
+  $s destroy
+  set res
+} {750,-750,0,0}
+
+test filter-3.1 {sound filter command, with -progress option} {
+  set res ""
+  proc prog {msg frac} {
+    lappend ::res $frac
+  }
+  set s [snack::sound snd]
+  $s length 100000
+  set f [snack::filter map 0.5]
+  $s filter $f -progress prog
+  $f destroy
+  $s destroy
+  set res
+} {0.0 0.0 1.0}
+
+test filter-3.2 {sound filter command, missing -progress argument} {
+  set s [snack::sound snd -load ex1.wav]
+  set f [snack::filter map 0.5]
+  catch {$s filter $f -progress} msg
+  $f destroy
+  $s destroy
+  set msg
+} {No argument given for -progress option}
+
+test filter-3.3 {sound filter command, empty string -progress argument} {
+  set s [snack::sound snd -load ex1.wav]
+  set f [snack::filter map 0.5]
+  $s filter $f -progress ""
+  set res [$s sample 0]
+  $f destroy
+  $s destroy
+  set res
+} 588
+
+test filter-4.1 {filter compose} {
+  set f1 [snack::filter map 0.5]
+  set f2 [snack::filter map 0.5]
+  set cf [snack::filter compose $f1 $f2]
+  set res $cf
+  $f1 destroy
+  $f2 destroy
+  $cf destroy
+  set res
+} compose21
+
+test filter-4.2 {filter compose, apply three-filter composition} {
+  set s [snack::sound snd]
+  $s length 10
+  $s sample 5 1000
+  set f1 [snack::filter map 0.6]
+  set f2 [snack::filter map 0.5]
+  set f3 [snack::filter map 0.4]
+  set cf [snack::filter compose $f1 $f2 $f3]
+  $s filter $cf
+  set res [$s sample 5]
+  $f1 destroy
+  $f2 destroy
+  $f3 destroy
+  $cf destroy
+  $s destroy
+  set res
+} {120}
+
+test filter-4.3 {filter compose, no filter specified} {
+  catch {snack::filter compose} msg
+  set msg
+} {wrong # args: should be "compose filter1 filter2 ..."}
+
+test filter-4.4 {filter compose, only one filter specified} {
+  catch {snack::filter compose junk} msg
+  set msg
+} {wrong # args: should be "compose filter1 filter2 ..."}
+
+test filter-5.1 {echo filter, missing parameter} {
+  catch {snack::filter echo} msg
+  set msg
+} {wrong # args: should be "echo inGain outGain delay1 decay1 ..."}
+
+test filter-5.2 {echo filter, negative delay parameter} {
+  catch {snack::filter echo 0.0 0.0 -100 0} msg
+  set msg
+} {Delay must be positive}
+
+test filter-5.3 {echo filter, negative decay parameter} {
+  catch {snack::filter echo 0.0 0.0 100 -1} msg
+  set msg
+} {Decay must be positive}
+
+test filter-5.4 {echo filter, decay parameter > 1.0} {
+  catch {snack::filter echo 0.0 0.0 100 1.1} msg
+  set msg
+} {Decay must be < 1.0}
+
+test filter-5.5 {echo filter, applied to sound} {
+  set s [snack::sound snd -load ex1.wav]
+  $s length 16000
+  set f [snack::filter echo 0.5 0.5 100 0.5]
+  $s filter $f
+  set res [$s info]
+  $f destroy
+  $s destroy
+  set res
+} {17600 16000 6151 -2997 Lin16 1 WAV 44}
+
+test filter-5.6 {echo filter, applied to sound} {
+  set s [snack::sound snd -load ex1.wav]
+  $s length 16000
+  set f [snack::filter echo 0.5 0.5 100 0.5]
+  $s filter $f -continuedrain 0
+  set res [$s info]
+  $f destroy
+  $s destroy
+  set res
+} {16000 16000 6151 -2997 Lin16 1 WAV 44}
+
+test filter-5.7 {echo filter, applied to sound} {
+  set s [snack::sound snd -load ex1.wav]
+  $s length 16000
+  set f [snack::filter echo 0.5 0.5 100 0.5]
+  $s filter $f -end 15199
+  set res [$s info]
+  $f destroy
+  $s destroy
+  set res
+} {16800 16000 6151 -2997 Lin16 1 WAV 44}
+
+test filter-6.1 {generator filter, testing generation with empty sound} {
+  set s [snack::sound snd]
+  set f1 [snack::filter formant 500 50]
+  set f2 [snack::filter formant 1500 75]
+  set f3 [snack::filter formant 2500 100]
+  set f4 [snack::filter formant 3500 150]
+  set g1 [snack::filter generator 75 2500 .1 rectangle 16000]
+  set c1 [snack::filter compose $g1 $f1 $f2 $f3 $f4]
+  $s filter $c1
+  $s length 0
+  $s filter $c1
+  set res [$s info]
+  $f1 destroy
+  $f2 destroy
+  $f3 destroy
+  $f4 destroy
+  $g1 destroy
+  $c1 destroy
+  $s destroy
+  set res
+} {16000 16000 10026 -6287 Lin16 1 RAW 0}
+
+test filter-7.1 {iir filter, applied to sound} {
+  set s [snack::sound snd -load ex1.wav]
+  set f [snack::filter iir -numerator "0.99 -0.99" -denominator "1 -0.99"]
+  $s filter $f -continuedrain 0
+  set res [$s info]
+  $f destroy
+  $s destroy
+  set res
+} {15820 16000 13222 -9615 Lin16 1 WAV 44}
+
+test filter-7.2 {iir filter, applied to stereo sound} {
+  set s [snack::sound snd -load ex1.wav]
+  $s convert -channels 2
+  set f [snack::filter iir -numerator "0.99 -0.99" -denominator "1 -0.99"]
+  $s filter $f -continuedrain 0
+  set res [$s info]
+  $f destroy
+  $s destroy
+  set res
+} {15820 16000 13222 -9616 Lin16 2 WAV 44}
+
+test filter-8.1 {fade filter, applied to sound} {
+  set s [snack::sound snd -rate 4000]
+  $s length 4
+  $s sample 0 100
+  $s sample 1 100
+  $s sample 2 100
+  $s sample 3 100
+  set f [snack::filter fade in linear 1]
+  $s filter $f
+  set res [$s sample 0],[$s sample 1],[$s sample 2],[$s sample 3]
+  $f destroy
+  $s destroy
+  set res
+} {0,33,66,100}
+
+test filter-8.2 {fade filter, applied to sound} {
+  set s [snack::sound snd -rate 4000]
+  $s length 4
+  $s sample 0 100
+  $s sample 1 100
+  $s sample 2 100
+  $s sample 3 100
+  set f [snack::filter fade out linear 1]
+  $s filter $f
+  set res [$s sample 0],[$s sample 1],[$s sample 2],[$s sample 3]
+  $f destroy
+  $s destroy
+  set res
+} {100,66,33,0}
+
+test filter-8.3 {fade filter, applied to sound} {
+  set s [snack::sound snd -rate 4000]
+  $s length 4
+  $s sample 0 100
+  $s sample 1 100
+  $s sample 2 100
+  $s sample 3 100
+  set f [snack::filter fade in linear 1 0.5]
+  $s filter $f
+  set res [$s sample 0],[$s sample 1],[$s sample 2],[$s sample 3]
+  $f destroy
+  $s destroy
+  set res
+} {50,66,83,100}
+
+test filter-8.4 {fade filter, applied to sound} {
+  set s [snack::sound snd -rate 4000]
+  $s length 4
+  $s sample 0 100
+  $s sample 1 100
+  $s sample 2 100
+  $s sample 3 100
+  set f [snack::filter fade out linear 1 0.5]
+  $s filter $f
+  set res [$s sample 0],[$s sample 1],[$s sample 2],[$s sample 3]
+  $f destroy
+  $s destroy
+  set res
+} {100,83,66,50}
+
+test filter-8.5 {fade filter, applied to sound} {
+  set s [snack::sound snd -rate 4000]
+  $s length 4
+  $s sample 0 10000
+  $s sample 1 10000
+  $s sample 2 10000
+  $s sample 3 10000
+  set f [snack::filter fade in exponential 1]
+  $s filter $f
+  set res [$s sample 0],[$s sample 1],[$s sample 2],[$s sample 3]
+  $f destroy
+  $s destroy
+  set res
+} {0,12,356,10000}
+
+test filter-8.6 {fade filter, applied to sound} {
+  set s [snack::sound snd -rate 4000]
+  $s length 4
+  $s sample 0 10000
+  $s sample 1 10000
+  $s sample 2 10000
+  $s sample 3 10000
+  set f [snack::filter fade out exponential 1]
+  $s filter $f
+  set res [$s sample 0],[$s sample 1],[$s sample 2],[$s sample 3]
+  $f destroy
+  $s destroy
+  set res
+} {10000,356,12,0}
+
+test filter-8.7 {fade filter, applied to sound} {
+  set s [snack::sound snd -rate 4000]
+  $s length 4
+  $s sample 0 10000
+  $s sample 1 10000
+  $s sample 2 10000
+  $s sample 3 10000
+  set f [snack::filter fade in exponential 1 0.5]
+  $s filter $f
+  set res [$s sample 0],[$s sample 1],[$s sample 2],[$s sample 3]
+  $f destroy
+  $s destroy
+  set res
+} {5000,5006,5178,10000}
+
+test filter-8.8 {fade filter, applied to sound} {
+  set s [snack::sound snd -rate 4000]
+  $s length 4
+  $s sample 0 10000
+  $s sample 1 10000
+  $s sample 2 10000
+  $s sample 3 10000
+  set f [snack::filter fade out exponential 1 0.5]
+  $s filter $f
+  set res [$s sample 0],[$s sample 1],[$s sample 2],[$s sample 3]
+  $f destroy
+  $s destroy
+  set res
+} {10000,5178,5006,5000}
+
+
+# cleanup
+::tcltest::cleanupTests
+return

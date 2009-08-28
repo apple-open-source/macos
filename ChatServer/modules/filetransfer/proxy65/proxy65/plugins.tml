@@ -1,5 +1,0 @@
-# -*- Python -*-
-
-register("JEP 65 Proxy", "proxy65.proxy65",
-         description="JEP 65 Bytestream Proxy Component",
-         type='tap', tapname='proxy65')

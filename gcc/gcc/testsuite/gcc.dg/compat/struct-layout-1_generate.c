@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* Compile with gcc -o struct-layout-1_generate{,.c} generate_random{,_r}.c */
 
@@ -46,6 +46,7 @@ enum TYPE
   TYPE_CUINT,
   TYPE_FLOAT,
   TYPE_CFLOAT,
+  TYPE_DEC_FLOAT,
   TYPE_SENUM,
   TYPE_UENUM,
   TYPE_PTR,
@@ -82,7 +83,14 @@ struct types base_types[] = {
 { "float", TYPE_FLOAT, 0, 0 },
 { "double", TYPE_FLOAT, 0, 0 },
 { "long double", TYPE_FLOAT, 0, 0 },
+#ifndef SKIP_DECIMAL_FLOAT
+{ "_Decimal32", TYPE_DEC_FLOAT, 0, 0 },
+{ "_Decimal64", TYPE_DEC_FLOAT, 0, 0 },
+{ "_Decimal128", TYPE_DEC_FLOAT, 0, 0 },
+#define NTYPES1 21
+#else
 #define NTYPES1 18
+#endif
 { "Tchar", TYPE_UINT, 127, 'C' },
 { "Tschar", TYPE_INT, 127, 'C' },
 { "Tuchar", TYPE_UINT, 255, 'C' },
@@ -103,6 +111,11 @@ struct types base_types[] = {
 { "Tfloat", TYPE_FLOAT, 0, 0 },
 { "Tdouble", TYPE_FLOAT, 0, 0 },
 { "Tldouble", TYPE_FLOAT, 0, 0 },
+#ifndef SKIP_DECIMAL_FLOAT
+{ "TDecimal32", TYPE_DEC_FLOAT, 0, 0 },
+{ "TDecimal64", TYPE_DEC_FLOAT, 0, 0 },
+{ "TDecimal128", TYPE_DEC_FLOAT, 0, 0 },
+#endif
 { "enum E0", TYPE_UENUM, 0, ' ' },
 { "enum E1", TYPE_UENUM, 1, ' ' },
 { "enum E2", TYPE_SENUM, 3, ' ' },
@@ -214,6 +227,11 @@ struct types attrib_types[] = {
 { "Talfloat", TYPE_FLOAT, 0, 0 },
 { "Taldouble", TYPE_FLOAT, 0, 0 },
 { "Talldouble", TYPE_FLOAT, 0, 0 },
+#ifndef SKIP_DECIMAL_FLOAT
+{ "TalDecimal32", TYPE_DEC_FLOAT, 0, 0 },
+{ "TalDecimal64", TYPE_DEC_FLOAT, 0, 0 },
+{ "TalDecimal128", TYPE_DEC_FLOAT, 0, 0 },
+#endif
 { "TalE0", TYPE_UENUM, 0, ' ' },
 { "TalE1", TYPE_UENUM, 1, ' ' },
 { "TalE2", TYPE_SENUM, 3, ' ' },
@@ -242,6 +260,11 @@ struct types attrib_types[] = {
 { "Tal1float", TYPE_FLOAT, 0, 0 },
 { "Tal1double", TYPE_FLOAT, 0, 0 },
 { "Tal1ldouble", TYPE_FLOAT, 0, 0 },
+#ifndef SKIP_DECIMAL_FLOAT
+{ "Tal1Decimal32", TYPE_DEC_FLOAT, 0, 0},
+{ "Tal1Decimal64", TYPE_DEC_FLOAT, 0, 0},
+{ "Tal1Decimal128", TYPE_DEC_FLOAT, 0, 0},
+#endif
 { "Tal1E0", TYPE_UENUM, 0, ' ' },
 { "Tal1E1", TYPE_UENUM, 1, ' ' },
 { "Tal1E2", TYPE_SENUM, 3, ' ' },
@@ -270,6 +293,11 @@ struct types attrib_types[] = {
 { "Tal2float", TYPE_FLOAT, 0, 0 },
 { "Tal2double", TYPE_FLOAT, 0, 0 },
 { "Tal2ldouble", TYPE_FLOAT, 0, 0 },
+#ifndef SKIP_DECIMAL_FLOAT
+{ "Tal2Decimal32", TYPE_DEC_FLOAT, 0, 0 },
+{ "Tal2Decimal64", TYPE_DEC_FLOAT, 0, 0 },
+{ "Tal2Decimal128", TYPE_DEC_FLOAT, 0, 0 },
+#endif
 { "Tal2E0", TYPE_UENUM, 0, ' ' },
 { "Tal2E1", TYPE_UENUM, 1, ' ' },
 { "Tal2E2", TYPE_SENUM, 3, ' ' },
@@ -298,6 +326,11 @@ struct types attrib_types[] = {
 { "Tal4float", TYPE_FLOAT, 0, 0 },
 { "Tal4double", TYPE_FLOAT, 0, 0 },
 { "Tal4ldouble", TYPE_FLOAT, 0, 0 },
+#ifndef SKIP_DECIMAL_FLOAT
+{ "Tal4Decimal32", TYPE_DEC_FLOAT, 0, 0 },
+{ "Tal4Decimal64", TYPE_DEC_FLOAT, 0, 0 },
+{ "Tal4Decimal128", TYPE_DEC_FLOAT, 0, 0 },
+#endif
 { "Tal4E0", TYPE_UENUM, 0, ' ' },
 { "Tal4E1", TYPE_UENUM, 1, ' ' },
 { "Tal4E2", TYPE_SENUM, 3, ' ' },
@@ -326,6 +359,11 @@ struct types attrib_types[] = {
 { "Tal8float", TYPE_FLOAT, 0, 0 },
 { "Tal8double", TYPE_FLOAT, 0, 0 },
 { "Tal8ldouble", TYPE_FLOAT, 0, 0 },
+#ifndef SKIP_DECIMAL_FLOAT
+{ "Tal8Decimal32", TYPE_DEC_FLOAT, 0, 0 },
+{ "Tal8Decimal64", TYPE_DEC_FLOAT, 0, 0 },
+{ "Tal8Decimal128", TYPE_DEC_FLOAT, 0, 0 },
+#endif
 { "Tal8E0", TYPE_UENUM, 0, ' ' },
 { "Tal8E1", TYPE_UENUM, 1, ' ' },
 { "Tal8E2", TYPE_SENUM, 3, ' ' },
@@ -354,6 +392,11 @@ struct types attrib_types[] = {
 { "Tal16float", TYPE_FLOAT, 0, 0 },
 { "Tal16double", TYPE_FLOAT, 0, 0 },
 { "Tal16ldouble", TYPE_FLOAT, 0, 0 },
+#ifndef SKIP_DECIMAL_FLOAT
+{ "Tal16Decimal32", TYPE_DEC_FLOAT, 0, 0 },
+{ "Tal16Decimal64", TYPE_DEC_FLOAT, 0, 0 },
+{ "Tal16Decimal128", TYPE_DEC_FLOAT, 0, 0 },
+#endif
 { "Tal16E0", TYPE_UENUM, 0, ' ' },
 { "Tal16E1", TYPE_UENUM, 1, ' ' },
 { "Tal16E2", TYPE_SENUM, 3, ' ' },
@@ -472,6 +515,11 @@ struct types attrib_array_types[] = {
 { "Talx1float", TYPE_FLOAT, 0, 0 },
 { "Talx1double", TYPE_FLOAT, 0, 0 },
 { "Talx1ldouble", TYPE_FLOAT, 0, 0 },
+#ifndef SKIP_DECIMAL_FLOAT
+{ "Talx1Decimal32", TYPE_DEC_FLOAT, 0 ,0 },
+{ "Talx1Decimal64", TYPE_DEC_FLOAT, 0 ,0 },
+{ "Talx1Decimal128", TYPE_DEC_FLOAT, 0 ,0 },
+#endif
 { "Talx1E0", TYPE_UENUM, 0, ' ' },
 { "Talx1E1", TYPE_UENUM, 1, ' ' },
 { "Talx1E2", TYPE_SENUM, 3, ' ' },
@@ -496,6 +544,11 @@ struct types attrib_array_types[] = {
 { "Talx2float", TYPE_FLOAT, 0, 0 },
 { "Talx2double", TYPE_FLOAT, 0, 0 },
 { "Talx2ldouble", TYPE_FLOAT, 0, 0 },
+#ifndef SKIP_DECIMAL_FLOAT
+{ "Talx2Decimal32", TYPE_DEC_FLOAT, 0 , 0 },
+{ "Talx2Decimal64", TYPE_DEC_FLOAT, 0 , 0 },
+{ "Talx2Decimal128", TYPE_DEC_FLOAT, 0 , 0 },
+#endif
 { "Talx2E0", TYPE_UENUM, 0, ' ' },
 { "Talx2E1", TYPE_UENUM, 1, ' ' },
 { "Talx2E2", TYPE_SENUM, 3, ' ' },
@@ -518,6 +571,11 @@ struct types attrib_array_types[] = {
 { "Talx4float", TYPE_FLOAT, 0, 0 },
 { "Talx4double", TYPE_FLOAT, 0, 0 },
 { "Talx4ldouble", TYPE_FLOAT, 0, 0 },
+#ifndef SKIP_DECIMAL_FLOAT
+{ "Talx4Decimal32", TYPE_DEC_FLOAT, 0 , 0 },
+{ "Talx4Decimal64", TYPE_DEC_FLOAT, 0 , 0 },
+{ "Talx4Decimal128", TYPE_DEC_FLOAT, 0 , 0 },
+#endif
 { "Talx4E0", TYPE_UENUM, 0, ' ' },
 { "Talx4E1", TYPE_UENUM, 1, ' ' },
 { "Talx4E2", TYPE_SENUM, 3, ' ' },
@@ -536,7 +594,11 @@ struct types attrib_array_types[] = {
 { "Taly8cptr", TYPE_PTR, 0, 0 },
 { "Taly8iptr", TYPE_PTR, 0, 0 },
 { "Talx8double", TYPE_FLOAT, 0, 0 },
-{ "Talx8ldouble", TYPE_FLOAT, 0, 0 }
+{ "Talx8ldouble", TYPE_FLOAT, 0, 0 },
+#ifndef SKIP_DECIMAL_FLOAT
+{ "Talx8Decimal64", TYPE_DEC_FLOAT, 0, 0 },
+{ "Talx8Decimal128", TYPE_DEC_FLOAT, 0, 0 }
+#endif
 #define NAATYPES2 (sizeof (attrib_array_types) / sizeof (attrib_array_types[0]))
 };
 struct types complex_attrib_array_types[] = {
@@ -656,7 +718,7 @@ struct entry
 #define HASH_SIZE 32749 
 static struct entry *hash_table[HASH_SIZE];
 
-static int idx, limidx, output_one;
+static int idx, limidx, output_one, short_enums;
 static const char *destdir;
 static const char *srcdir;
 FILE *outfile;
@@ -695,7 +757,8 @@ switchfiles (int fields)
     }
   fprintf (outfile, "\
 /* { dg-options \"-I%s\" } */\n\
-/* { dg-options \"-I%s -fno-common\" { target hppa*-*-hpux* } } */\n\
+/* { dg-options \"-I%s -fno-common\" { target hppa*-*-hpux* *-*-darwin* } } */\n\
+/* { dg-options \"-I%s -mno-base-addresses\" { target mmix-*-* } } */\n\
 #include \"struct-layout-1.h\"\n\
 \n\
 #define TX(n, type, attrs, fields, ops) extern void test##n (void);\n\
@@ -713,7 +776,7 @@ int main (void)\n\
       abort ();\n\
     }\n\
   exit (0);\n\
-}\n", srcdir, srcdir, filecnt, filecnt);
+}\n", srcdir, srcdir, srcdir, filecnt, filecnt);
   fclose (outfile);
   sprintf (destptr, "t%03d_x.c", filecnt);
   outfile = fopen (destbuf, "w");
@@ -721,11 +784,12 @@ int main (void)\n\
     goto fail;
   fprintf (outfile, "\
 /* { dg-options \"-w -I%s\" } */\n\
-/* { dg-options \"-w -I%s -fno-common\" { target hppa*-*-hpux* } } */\n\
+/* { dg-options \"-w -I%s -fno-common\" { target hppa*-*-hpux* *-*-darwin* } } */\n\
+/* { dg-options \"-w -I%s -mno-base-addresses\" { target mmix-*-* } } */\n\
 #include \"struct-layout-1_x1.h\"\n\
 #include \"t%03d_test.h\"\n\
 #include \"struct-layout-1_x2.h\"\n\
-#include \"t%03d_test.h\"\n", srcdir, srcdir, filecnt, filecnt);
+#include \"t%03d_test.h\"\n", srcdir, srcdir, srcdir, filecnt, filecnt);
   fclose (outfile);
   sprintf (destptr, "t%03d_y.c", filecnt);
   outfile = fopen (destbuf, "w");
@@ -733,11 +797,12 @@ int main (void)\n\
     goto fail;
   fprintf (outfile, "\
 /* { dg-options \"-w -I%s\" } */\n\
-/* { dg-options \"-w -I%s -fno-common\" { target hppa*-*-hpux* } } */\n\
+/* { dg-options \"-w -I%s -fno-common\" { target hppa*-*-hpux* *-*-darwin* } } */\n\
+/* { dg-options \"-w -I%s -mno-base-addresses\" { target mmix-*-* } } */\n\
 #include \"struct-layout-1_y1.h\"\n\
 #include \"t%03d_test.h\"\n\
 #include \"struct-layout-1_y2.h\"\n\
-#include \"t%03d_test.h\"\n", srcdir, srcdir, filecnt, filecnt);
+#include \"t%03d_test.h\"\n", srcdir, srcdir, srcdir, filecnt, filecnt);
   fclose (outfile);
   sprintf (destptr, "t%03d_test.h", filecnt);
   outfile = fopen (destbuf, "w");
@@ -786,6 +851,13 @@ subfield (struct entry *e, char *letter)
 	    snprintf (buf, 20, "%c[]", *letter);
 	  else
 	    snprintf (buf, 20, "%c[%d]", *letter, e[0].arr_len);
+	  /* If this is an array type, do not put aligned attributes on
+	     elements.  Aligning elements to a value greater than their
+	     size will result in a compiler error.  */
+	  if (type == 1
+	      && ((strncmp (e[0].attrib, "atal", 4) == 0)
+		   || strncmp (e[0].attrib, "atpaal", 6) == 0))
+	    type = 2;
 	}
       else
         {
@@ -842,18 +914,32 @@ subfield (struct entry *e, char *letter)
         }
       ++*letter;
       if (e[0].attrib)
-	switch (generate_random () % 3)
-          {
-          case 0:
-            fprintf (outfile, "%s %s %s;", e[0].attrib, e[0].type->name, buf);
-            break;
-          case 1:
-            fprintf (outfile, "%s %s %s;", e[0].type->name, e[0].attrib, buf);
-            break;
-          case 2:
-            fprintf (outfile, "%s %s %s;", e[0].type->name, buf, e[0].attrib);
-            break;
-          }
+	{
+	  /* If this is an array type, do not put aligned attributes on
+	     elements.  Aligning elements to a value greater than their
+	     size will result in a compiler error.  */
+	  if (e[0].etype == ETYPE_ARRAY
+              && ((strncmp (e[0].attrib, "atal", 4) == 0)
+                   || strncmp (e[0].attrib, "atpaal", 6) == 0))
+	    type = 2;
+	  else
+            type = generate_random () % 3;
+	  switch (type)
+	    {
+	    case 0:
+	      fprintf (outfile, "%s %s %s;", e[0].attrib, e[0].type->name,
+		       buf);
+	      break;
+	    case 1:
+	      fprintf (outfile, "%s %s %s;", e[0].type->name, e[0].attrib,
+		       buf);
+	      break;
+	    case 2:
+	      fprintf (outfile, "%s %s %s;", e[0].type->name, buf,
+		       e[0].attrib);
+	      break;
+	    }
+	}
       else
 	fprintf (outfile, "%s %s;", e[0].type->name, buf);
       return 1;
@@ -926,6 +1012,11 @@ output_FNB (char mode, struct entry *e)
 {
   unsigned long long int l1, l2, m;
   int signs = 0;
+#ifndef SKIP_DECIMAL_FLOAT
+  int suffix = 0;
+  char DEC_SUFFIX[3][3]={"DF","DD","DL"};
+#endif
+  
   const char *p, *q;
 
   if (e->type->type == TYPE_OTHER)
@@ -967,6 +1058,29 @@ output_FNB (char mode, struct entry *e)
       fprintf (outfile, "%s%f,%s%f", (signs & 1) ? "-" : "",
 	       ((double) l1) / 64, (signs & 2) ? "-" : "", ((double) l2) / 64);
       break;
+#ifndef SKIP_DECIMAL_FLOAT
+    case TYPE_DEC_FLOAT:
+      l1 &= 0xffffff;
+      l2 &= 0xffffff;
+      signs = generate_random () & 3;
+      
+      /* Get the suffix of Decimal Floting Points per 
+	 e->type->name.  Distinguish these three DFP types by
+         e->type->name.  */
+      if (strstr(e->type->name, "Decimal32")) suffix=0;
+      else if (strstr(e->type->name, "Decimal64")) suffix=1;
+      else if (strstr(e->type->name, "Decimal128")) suffix=2;
+      else
+	abort ();
+
+      /* Formatted input/output specifiers for DFP types have not been
+         implemented in GLIBC.  %f here used in fprintf is just to 
+         dump the numbers to outfile.  */
+      fprintf (outfile, "%s%f%s,%s%f%s", 
+	       (signs & 1) ? "-" : "", ((double) l1) / 64, DEC_SUFFIX[suffix], 
+	       (signs & 2) ? "-" : "", ((double) l2) / 64, DEC_SUFFIX[suffix]);
+      break;
+#endif
     case TYPE_CINT:
       signs = generate_random () & 3;
       l1 &= e->type->maxval;
@@ -1645,10 +1759,14 @@ generate_fields (enum FEATURE features, struct entry *e, struct entry *parent,
 		    abort ();
 		  if (!mi)
 		    mi = 1;
-		  if (mi <= 32)
-		    ma = 32;
-		  else
+		  if (mi > 32)
 		    ma = 64;
+		  else if (mi > 16 || !short_enums)
+		    ma = 32;
+		  else if (mi > 8)
+		    ma = 16;
+		  else
+		    ma = 8;
 		  break;
 		default:
 		  abort ();
@@ -1821,6 +1939,10 @@ main (int argc, char **argv)
 	  output_one = 1;
 	  limidx = atoi (optarg);
 	  break;
+	case 'e':
+	  short_enums = 1;
+	  i--;
+	  break;
 	default:
 	  fprintf (stderr, "unrecognized option %s\n", argv[i]);
 	  goto usage;
@@ -1843,7 +1965,7 @@ main (int argc, char **argv)
     {
     usage:
       fprintf (stderr, "Usage:\n\
-%s [-s srcdir -d destdir] [-n count] [-i idx]\n\
+%s [-e] [-s srcdir -d destdir] [-n count] [-i idx]\n\
 Either -s srcdir -d destdir or -i idx must be used\n", argv[0]);
       return 1;
     }

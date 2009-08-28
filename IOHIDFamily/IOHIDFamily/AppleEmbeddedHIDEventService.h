@@ -32,7 +32,7 @@ class AppleEmbeddedHIDEventService: public IOHIDEventService
     OSDeclareAbstractStructors( AppleEmbeddedHIDEventService )
 
 protected:
-    virtual void            dispatchAccelerometerEvent(AbsoluteTime timestamp, IOFixed x, IOFixed y, IOFixed z, IOOptionBits options=0);
+    virtual void            dispatchAccelerometerEvent(AbsoluteTime timestamp, IOFixed x, IOFixed y, IOFixed z, IOHIDAccelerometerType type = 0, IOOptionBits options=0);
     
     virtual void            dispatchProximityEvent(AbsoluteTime timestamp, IOFixed level, IOOptionBits options=0);
     

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -93,7 +93,7 @@ my_CFStringToCString(CFStringRef cfstr, CFStringEncoding encoding)
 }
 
 static void *
-read_file(char * filename, size_t * data_length)
+read_file(const char * filename, size_t * data_length)
 {
     void *		data = NULL;
     size_t		len = 0;
@@ -128,7 +128,7 @@ read_file(char * filename, size_t * data_length)
 }
 
 static int
-write_file(char * filename, void * data, size_t data_length)
+write_file(const char * filename, const void * data, size_t data_length)
 {
     char		path[MAXPATHLEN];
     int			fd = -1;
@@ -154,7 +154,7 @@ write_file(char * filename, void * data, size_t data_length)
 }
 
 CFPropertyListRef 
-my_CFPropertyListCreateFromFile(char * filename)
+my_CFPropertyListCreateFromFile(const char * filename)
 {
     void *		buf;
     size_t		bufsize;
@@ -181,7 +181,7 @@ my_CFPropertyListCreateFromFile(char * filename)
 }
 
 int
-my_CFPropertyListWriteFile(CFPropertyListRef plist, char * filename)
+my_CFPropertyListWriteFile(CFPropertyListRef plist, const char * filename)
 {
     CFDataRef	data;
     int		ret;
@@ -194,95 +194,29 @@ my_CFPropertyListWriteFile(CFPropertyListRef plist, char * filename)
 	return (0);
     }
     ret = write_file(filename, 
-		     (void *)CFDataGetBytePtr(data), CFDataGetLength(data));
+		     (const void *)CFDataGetBytePtr(data),
+		     CFDataGetLength(data));
     CFRelease(data);
     return (ret);
 }
 
-Boolean
-xmlSerialize(CFPropertyListRef		obj,
-	     CFDataRef			*xml,
-	     void			**dataRef,
-	     CFIndex			*dataLen)
+__private_extern__ CFPropertyListRef
+my_CFPropertyListCreateWithBytePtrAndLength(const void * data, int data_len)
 {
-    CFDataRef	myXml;
+    CFPropertyListRef	plist;
+    CFDataRef		xml_data;
 
-    if (!obj) {
-	/* if no object to serialize */
-	return FALSE;
+    xml_data = CFDataCreateWithBytesNoCopy(NULL, (const UInt8 *)data,
+					   data_len,
+					   kCFAllocatorNull);
+    if (xml_data == NULL) {
+	return (NULL);
     }
-
-    if (!xml && !(dataRef && dataLen)) {
-	/* if not keeping track of allocated space */
-	return FALSE;
-    }
-
-    myXml = CFPropertyListCreateXMLData(NULL, obj);
-    if (!myXml) {
-	if (xml)	*xml     = NULL;
-	if (dataRef)	*dataRef = NULL;
-	if (dataLen)	*dataLen = 0;
-	return FALSE;
-    }
-
-    if (xml) {
-	*xml = myXml;
-	if (dataRef) {
-	    *dataRef = (void *)CFDataGetBytePtr(myXml);
-	}
-	if (dataLen) {
-	    *dataLen = CFDataGetLength(myXml);
-	}
-    } else {
-	kern_return_t	status;
-
-	*dataLen = CFDataGetLength(myXml);
-	status = vm_allocate(mach_task_self(), (void *)dataRef, *dataLen, TRUE);
-	if (status != KERN_SUCCESS) {
-	    CFRelease(myXml);
-	    *dataRef = NULL;
-	    *dataLen = 0;
-	    return FALSE;
-	}
-
-	bcopy((char *)CFDataGetBytePtr(myXml), *dataRef, *dataLen);
-	CFRelease(myXml);
-    }
-
-    return TRUE;
-}
-
-Boolean
-xmlUnserialize(CFPropertyListRef	*obj,
-	       void			*dataRef,
-	       CFIndex			dataLen)
-{
-    kern_return_t		status;
-    CFDataRef		xml;
-    CFStringRef		xmlError;
-
-    if (!obj) {
-	return FALSE;
-    }
-
-    xml = CFDataCreate(NULL, (void *)dataRef, dataLen);
-    status = vm_deallocate(mach_task_self(), (vm_address_t)dataRef, dataLen);
-    if (status != KERN_SUCCESS) {
-	/* non-fatal???, proceed */
-    }
-    *obj = CFPropertyListCreateFromXMLData(NULL,
-					   xml,
-					   kCFPropertyListImmutable,
-					   &xmlError);
-    CFRelease(xml);
-
-    if (!obj) {
-	if (xmlError) {
-	    CFRelease(xmlError);
-	}
-	return FALSE;
-    }
-    return TRUE;
+    plist = CFPropertyListCreateFromXMLData(NULL, xml_data,
+					    kCFPropertyListImmutable,
+					    NULL);
+    CFRelease(xml_data);
+    return (plist);
 }
 
 __private_extern__ Boolean

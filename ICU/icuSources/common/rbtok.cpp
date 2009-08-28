@@ -1,8 +1,7 @@
 /*
 ***************************************************************************
-*   Copyright (C) 2006 Apple Computer, Inc. All rights reserved.          *
+* Copyright (C) 2006-2008 Apple Inc. All Rights Reserved.                 *
 ***************************************************************************
-
 */
 
 #include "unicode/utypes.h"
@@ -240,6 +239,12 @@ RuleBasedTokenizer::RuleBasedTokenizer(const UnicodeString &rules, UParseError &
 
 RuleBasedTokenizer::RuleBasedTokenizer(uint8_t *data, UErrorCode &status)
     : RuleBasedBreakIterator((RBBIDataHeader *)data, status)
+{
+    init();
+}
+
+RuleBasedTokenizer::RuleBasedTokenizer(const uint8_t *data, enum EDontAdopt, UErrorCode &status)
+    : RuleBasedBreakIterator((const RBBIDataHeader *)data, RuleBasedBreakIterator::kDontAdopt, status)
 {
     init();
 }

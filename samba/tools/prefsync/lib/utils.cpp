@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2007,2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -55,13 +55,13 @@ CFStringRef cfstring_wrap(const char * str)
     return ret;
 }
 
-std::string cfstring_convert(CFStringRef cfstr)
+std::string cfstring_convert(CFStringRef cfstr, CFStringEncoding e)
 {
     const char * ptr;
     CFIndex bufsz;
     char * buf;
 
-    if ((ptr = CFStringGetCStringPtr(cfstr, kCFStringEncodingUTF8))) {
+    if ((ptr = CFStringGetCStringPtr(cfstr, e))) {
 	return std::string(ptr);
     }
 
@@ -70,22 +70,27 @@ std::string cfstring_convert(CFStringRef cfstr)
 	return std::string();
     }
 
-    bufsz = CFStringGetMaximumSizeForEncoding(CFStringGetLength(cfstr),
-					    kCFStringEncodingUTF8);
+    bufsz = CFStringGetMaximumSizeForEncoding(CFStringGetLength(cfstr), e);
 
     if ((buf = new char[bufsz + 1]) == NULL) {
 	throw std::runtime_error("out of memory");
     }
 
-    if (!CFStringGetCString(cfstr, buf, bufsz, kCFStringEncodingUTF8)) {
+    if (!CFStringGetCString(cfstr, buf, bufsz + 1, e)) {
+	delete[] buf;
 	free(buf);
 	throw std::runtime_error("CFString conversion failed");
     }
 
     std::string result = std::string(buf);
-    free(buf);
+    delete[] buf;
 
     return result;
+}
+
+std::string cfstring_convert(CFStringRef cfstr)
+{
+    return cfstring_convert(cfstr, kCFStringEncodingUTF8);
 }
 
 std::string cftype_string(CFTypeID obj_type)
@@ -100,13 +105,11 @@ std::string cftype_string(CFTypeID obj_type)
     return ret;
 }
 
-SyncMutex::SyncMutex()
+SyncMutex::SyncMutex(const char * path)
 {
-    this->m_fd = ::open(kSMBPreferencesSyncTool, O_RDONLY | O_EXLOCK);
-    if (this->m_fd == -1) {
-	throw std::runtime_error("unable to acquire preferences mutex");
-    }
+    this->m_fd = ::open(path, O_RDONLY | O_EXLOCK);
 
+    // NOTE: m_fd might be -1 from now, meaning we did not acquire the mutex.
 }
 
 SyncMutex::~SyncMutex()
@@ -139,8 +142,13 @@ void post_service_notification(const char * service_name,
 	return;
     }
 
-    VERBOSE("posting %s with %s=>%s\n",
-	    SERVICE_CHANGED, service_name, service_state);
+    if (service_state) {
+	VERBOSE("posting %s for %s=>%s\n",
+		SERVICE_CHANGED, service_name, service_state);
+    } else {
+	VERBOSE("posting %s for %s\n",
+		SERVICE_CHANGED, service_name);
+    }
 
     cf_typeref<CFMutableDictionaryRef>
 	info(CFDictionaryCreateMutable(kCFAllocatorDefault,
@@ -153,12 +161,16 @@ void post_service_notification(const char * service_name,
 
     try {
 	cf_typeref<CFStringRef> name(cfstring_wrap(service_name));
-	cf_typeref<CFStringRef> state(cfstring_wrap(service_state));
+	cf_typeref<CFStringRef>
+	    state(cfstring_wrap(service_state ?  service_state : ""));
 
 	/* cfstring_wrap() can throw. */
 
 	CFDictionaryAddValue(info, CFSTR("ServiceName"), name);
-	CFDictionaryAddValue(info, CFSTR("State"), state);
+
+	if (service_state) {
+	    CFDictionaryAddValue(info, CFSTR("State"), state);
+	}
 
 	CFNotificationCenterPostNotificationWithOptions(notify,
 		CFSTR(SERVICE_CHANGED),

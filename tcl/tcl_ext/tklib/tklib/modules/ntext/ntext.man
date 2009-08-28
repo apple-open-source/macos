@@ -1,0 +1,113 @@
+[comment {-*- tcl -*- ntext manpage}]
+[manpage_begin ntext n 0.81]
+[moddesc   {Alternative Bindings for the Text Widget}]
+[titledesc {Alternative Bindings for the Text Widget}]
+[require Tcl 8.5]
+[require Tk 8.5]
+[require ntext [opt 0.81]]
+[description]
+
+The purpose of the [package ntext] package is to make the text widget behave more like other text-editing applications. It makes the text widget more useful for implementing a text editor, and makes it behave in a way that will be more familiar to most users.
+[para]
+
+The package provides a binding tag named [emph Ntext] for use by text widgets in place of the default [emph Text] binding tag.
+[para]
+
+Package [package ntext] 's functions and variables are contained entirely in the [var ::ntext] namespace; its other code is contained in the binding tag [emph Ntext].  [package ntext] has no exports to the global or other namespaces, and no new widget commands.  It uses modified copies of the Tk code, leaving the original code, and the [emph Text] binding tag, unchanged.
+
+[comment {use emph instead of term, because term creates a hyperlink, and ntext, Ntext and Text occur in almost every sentence: the page would be covered with the same hyperlinks many times}]
+[para]
+
+The differences between the [emph Ntext] binding tag and the default [emph Text] binding tag are in three categories:
+
+[list_begin bullet]
+
+[bullet] Some [emph Text] bindings behave differently from most text-editing applications.  [emph Ntext] gives these bindings more familiar behaviour.  For details see [term ntextBindings].
+
+[bullet] When a logical line with leading whitespace is word-wrapped onto more than one display line, the wrapped display lines begin further to the left than the first display line, which can make the text layout untidy and difficult to read.  [emph Ntext] can indent the wrapped lines to match the leading whitespace of the first display line (this facility is switched off by default).  For details see [term ntextIndent].
+
+[bullet] When the user navigates or selects text, Tcl/Tk sometimes needs to detect word boundaries.  [emph Ntext] provides improved rules for word boundary detection.  For details see [term ntextWordBreak].
+
+[list_end]
+
+The remainder of this page describes the basic use and configuration of all three aspects of [emph Ntext].  For more detailed information on the different facilities of [emph Ntext], see the pages [term ntextBindings], [term ntextIndent], and [term ntextWordBreak].
+
+[para]
+
+See Section [sectref EXAMPLE] for how to apply the [emph Ntext] binding tag in place of the [emph Text] binding tag.
+
+[section {CONFIGURATION OPTIONS}]
+
+[emph Ntext] provides alternatives to a number of behaviours of the classic [emph Text] binding tag.  Where there is an option, the [emph Ntext] behaviour (except for display-line indentation) is switched on by default.
+
+[para]
+
+
+The behaviour of [emph Ntext] may be configured application-wide by setting the values of a number of namespace variables:
+[para]
+[var ::ntext::classicAnchor]
+[list_begin bullet]
+[bullet]
+   [const 0] - (default value) selects [emph Ntext] behaviour, i.e. the anchor point is fixed
+[bullet]
+   [const 1] - selects classic [emph Text] behaviour, i.e. the anchor point is variable
+[list_end]
+[para]
+[var ::ntext::classicExtras]
+[list_begin bullet]
+[bullet]
+   [const 0] - (default value) selects [emph Ntext] behaviour, i.e. several traditional [emph Text] bindings are de-activated
+[bullet]
+   [const 1] - selects classic [emph Text] behaviour, i.e. all [emph Text] bindings are activated
+[list_end]
+[para]
+[var ::ntext::classicMouseSelect]
+[list_begin bullet]
+[bullet]
+   [const 0] - (default value) selects [emph Ntext] behaviour, i.e. the anchor point for mouse selection operations is moved by keyboard navigation
+[bullet]
+   [const 1] - selects classic [emph Text] behaviour
+[list_end]
+[para]
+[var ::ntext::classicWordBreak]
+[list_begin bullet]
+[bullet]
+   [const 0] - (default value) selects [emph Ntext] behaviour, i.e. platform-independent, two classes of word characters and one class of non-word characters.
+[bullet]
+   [const 1] - selects classic [emph Text] behaviour, i.e. platform-dependent, one class of word characters and one class of non-word characters
+[bullet]
+   After changing this value, the matching patterns should be recalculated.  See [term ntextWordBreak] for details and advanced configuration options.
+[list_end]
+[para]
+[var ::ntext::classicWrap]
+[list_begin bullet]
+[bullet]
+   [const 0] - selects [emph Ntext] behaviour, i.e. display lines of text widgets in [arg -wrap] [arg word] mode are indented to match the initial whitespace of the first display line of a logical line.  If the widget already holds text when this value is set, a function call may be necessary.  See [term ntextIndent] for detailed instructions on the use of [emph Ntext] 's indentation.
+[bullet]
+   [const 1] - (default value) selects classic [emph Text] behaviour, i.e. no indentation
+[list_end]
+[para]
+[var ::ntext::overwrite]
+[list_begin bullet]
+[bullet]
+   [const 0] - (initial value) text typed at the keyboard is inserted into the widget
+[bullet]
+   [const 1] - text typed at the keyboard overwrites text already in the widget
+[bullet]
+   The value is toggled by the [emph Insert] key.
+[list_end]
+
+[section EXAMPLE]
+
+To create a text widget .t and use the [emph Ntext] bindings:
+[example {
+package require ntext
+text .t
+bindtags .t {.t Ntext . all}
+}]
+
+See bindtags for more information.
+[see_also ntextWordBreak ntextIndent ntextBindings]
+[see_also text bindtags regexp re_syntax]
+[keywords text bindtags regexp re_syntax]
+[manpage_end]

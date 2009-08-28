@@ -6,7 +6,7 @@
 Project               = tcsh
 UserType              = Administration
 ToolType              = Commands
-Extra_CC_Flags        = -D_PATH_TCSHELL='\"/bin/tcsh\"' -no-cpp-precomp -mdynamic-no-pic -DDARWIN
+Extra_CC_Flags        = -D_PATH_TCSHELL='\"/bin/tcsh\"' -no-cpp-precomp -mdynamic-no-pic -DDARWIN -fstack-protector-all
 Extra_Configure_Flags = --bindir="/bin"
 Extra_Install_Flags   = DESTBIN="$(DSTROOT)/bin" MANSECT="1" DESTMAN="$(DSTROOT)/usr/share/man/man1" srcdir="$(SRCROOT)/tcsh"
 GnuAfterInstall       = install-links install-rc install-plist
@@ -33,8 +33,7 @@ install-rc:
 	$(_V) $(INSTALL) -c -m 0644 -o root -g wheel $(SRCROOT)/csh.logout $(DSTROOT)/$(ETCDIR)/
 
 install-links:
-	$(_v) $(CP) $(DSTROOT)$(BINDIR)/tcsh $(SYMROOT)/tcsh
-	$(_v) $(STRIP) $(DSTROOT)$(BINDIR)/tcsh
+	$(_v) $(CP) $(OBJROOT)/tcsh $(SYMROOT)/tcsh
 	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(BINDIR)
 	$(_v) $(LN) -f $(DSTROOT)$(BINDIR)/tcsh $(DSTROOT)$(BINDIR)/csh
 	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)/usr/share/man/man1
@@ -48,19 +47,19 @@ install-plist:
 	$(_v) $(INSTALL_DIRECTORY) $(OSV)
 	$(_v) $(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist
 	$(_v) $(INSTALL_DIRECTORY) $(OSL)
-	$(_v) $(INSTALL_FILE) $(SRCROOT)/LICENSE $(OSL)/$(Project).txt
+	$(_v) $(INSTALL_FILE) $(SRCROOT)/$(Project)/Copyright $(OSL)/$(Project).txt
 
 # Automatic Extract & Patch
 AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = 6.14.00
+AEP_Version    = 6.15.00
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = config.bsd4.4.patch config_f.h.diff \
+AEP_Patches    = config_f.h.diff \
 		 init.login.patch init.README.patch init.logout.patch \
 		 init.aliases.patch init.rc.patch init.completions.patch init.tcsh.defaults.patch \
-		 init.environment.patch sh.proc.c.patch
+		 init.environment.patch sh.proc.c.patch sh.lex.c.patch host.defs.patch sh.func.c.patch
 
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
@@ -76,6 +75,6 @@ ifeq ($(AEP),YES)
 	$(RMDIR) $(SRCROOT)/$(Project)
 	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(Project)
 	for patchfile in $(AEP_Patches); do \
-		cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile || exit 1; \
+		cd $(SRCROOT)/$(Project) && patch -p0 -F0 < $(SRCROOT)/patches/$$patchfile || exit 1; \
 	done
 endif

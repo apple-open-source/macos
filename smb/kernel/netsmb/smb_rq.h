@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,7 +40,7 @@
 #endif
 
 #define	SMBR_ALLOCED		0x0001	/* structure was malloced */
-#define	SMBR_SENT			0x0002	/* request successfully transmitted */
+#define SMBR_ASYNC			0x0002	/* This is async request, should never be set if SMBR_INTERNAL is set */
 #define	SMBR_REXMIT			0x0004	/* Request was retransmitted during a reconnect*/
 #define	SMBR_INTR			0x0008	/* request interrupted */
 #define	SMBR_RECONNECTED	0x0010	/* The message was handled during a reconnect */
@@ -72,15 +72,18 @@ enum smbrq_state {
 
 struct smb_vc;
 
+#define MAX_SR_RECONNECT_CNT	5
+
 struct smb_rq {
 	enum smbrq_state	sr_state;
 	struct smb_vc * 	sr_vc;
 	struct smb_share*	sr_share;
+	u_int32_t		sr_reconnect_cnt;
 	u_short			sr_mid;
 	u_int32_t		sr_seqno;
 	u_int32_t		sr_rseqno;
-	struct mbchain		sr_rq;
-	u_char			sr_cmd;
+	struct mbchain	sr_rq;
+	u_int8_t		sr_cmd;
 	u_int8_t		sr_rqflags;
 	u_int16_t		sr_rqflags2;
 	u_char *		sr_wcount;
@@ -90,7 +93,7 @@ struct smb_rq {
 	int			sr_rplast;
 	u_int32_t	sr_flags;	/* SMBR_* */
 	int			sr_rpsize;
-	struct smb_cred *	sr_cred;
+	vfs_context_t	sr_context;
 	int			sr_timo;
 	struct timespec 	sr_timesent;
 	int			sr_lerror;
@@ -99,7 +102,7 @@ struct smb_rq {
 	u_int16_t *		sr_rquid;
 	u_int8_t		sr_errclass;
 	u_int16_t		sr_serror;
-	u_int32_t		sr_error;
+	u_int32_t		sr_error;	/* Note: This is the NT Status, if the flag is set */
 	u_int8_t		sr_rpflags;
 	u_int16_t		sr_rpflags2;
 	u_int16_t		sr_rptid;
@@ -107,8 +110,10 @@ struct smb_rq {
 	u_int16_t		sr_rpuid;
 	u_int16_t		sr_rpmid;
 	lck_mtx_t		sr_slock;	/* short term locks */
-	struct smb_t2rq *       sr_t2;
+	struct smb_t2rq *sr_t2;
 	TAILQ_ENTRY(smb_rq)	sr_link;
+	void *sr_callback_args;
+	void (*sr_callback)(void *);
 };
 
 struct smb_t2rq {
@@ -125,7 +130,7 @@ struct smb_t2rq {
 	struct mbchain	t2_tdata;	/* data to transmit */
 	struct mdchain	t2_rparam;	/* received paramters */
 	struct mdchain	t2_rdata;	/* received data */
-	struct smb_cred * t2_cred;
+	vfs_context_t	t2_context;
 	struct smb_connobj * t2_source;
 	struct smb_rq *	t2_rq;
 	struct smb_vc * t2_vc;
@@ -148,7 +153,7 @@ struct smb_ntrq {
 	struct mbchain	nt_tdata;	/* data to transmit */
 	struct mdchain	nt_rparam;	/* received paramters */
 	struct mdchain	nt_rdata;	/* received data */
-	struct smb_cred * nt_cred;
+	vfs_context_t	nt_context;
 	struct smb_connobj * nt_source;
 	struct smb_rq *	nt_rq;
 	struct smb_vc * nt_vc;
@@ -159,10 +164,8 @@ struct smb_ntrq {
 };
 
 void mbuf_cat_internal(mbuf_t md_top, mbuf_t m0);
-int  smb_rq_alloc(struct smb_connobj *layer, u_char cmd,
-	struct smb_cred *scred, struct smb_rq **rqpp);
-int  smb_rq_init(struct smb_rq *rqp, struct smb_connobj *layer, u_char cmd,
-	struct smb_cred *scred);
+int  smb_rq_alloc(struct smb_connobj *layer, u_char cmd, vfs_context_t context, struct smb_rq **rqpp);
+int smb_rq_init(struct smb_rq *rqp, struct smb_connobj *layer, u_char cmd, vfs_context_t context);
 void smb_rq_done(struct smb_rq *rqp);
 int  smb_rq_getrequest(struct smb_rq *rqp, struct mbchain **mbpp);
 int  smb_rq_getreply(struct smb_rq *rqp, struct mdchain **mbpp);
@@ -172,21 +175,20 @@ void smb_rq_bstart(struct smb_rq *rqp);
 void smb_rq_bend(struct smb_rq *rqp);
 int  smb_rq_intr(struct smb_rq *rqp);
 int  smb_rq_simple(struct smb_rq *rqp);
-int  smb_rq_simple_timed(struct smb_rq *rqp, int timeout);
+int  smb_rq_simple_timed(struct smb_rq *rqp, int timo);
 
-int  smb_t2_alloc(struct smb_connobj *layer, u_short setup, struct smb_cred *scred,
+int  smb_t2_alloc(struct smb_connobj *layer, u_short setup, vfs_context_t context,
 	struct smb_t2rq **rqpp);
 int  smb_t2_init(struct smb_t2rq *rqp, struct smb_connobj *layer, u_short *setup,
-	int setupcnt, struct smb_cred *scred);
+	int setupcnt, vfs_context_t context);
 void smb_t2_done(struct smb_t2rq *t2p);
 int  smb_t2_request(struct smb_t2rq *t2p);
 u_int32_t smb_t2_err(struct smb_t2rq *t2p);
 
-int  smb_nt_alloc(struct smb_connobj *layer, u_short fn, struct smb_cred *scred,
-	struct smb_ntrq **rqpp);
-int  smb_nt_init(struct smb_ntrq *rqp, struct smb_connobj *layer, u_short fn,
-	struct smb_cred *scred);
+int smb_nt_alloc(struct smb_connobj *layer, u_short fn, vfs_context_t context, struct smb_ntrq **rqpp);
 void smb_nt_done(struct smb_ntrq *ntp);
 int  smb_nt_request(struct smb_ntrq *ntp);
+int  smb_nt_reply(struct smb_ntrq *ntp);
+int smb_nt_async_request(struct smb_ntrq *ntp, void *nt_callback, void *nt_callback_args);
 
 #endif /* !_NETSMB_SMB_RQ_H_ */

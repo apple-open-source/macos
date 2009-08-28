@@ -45,6 +45,7 @@ static const char rcsid[] =
 	"$Id: ifconfig.c,v 1.8 2004/08/26 23:55:21 lindak Exp $";
 #endif /* not lint */
 
+#include <stdint.h>
 #include <sys/param.h>
 #define KERNEL_PRIVATE
 #include <sys/ioctl.h>
@@ -70,14 +71,6 @@ static const char rcsid[] =
 #include <netinet6/nd6.h>	/* Define ND6_INFINITE_LIFETIME */
 #endif
 
-
-/* XNS */
-#ifdef NS
-#define	NSIP
-#include <netns/ns.h>
-#include <netns/ns_if.h>
-#endif
-/* OSI */
 
 #include <ctype.h>
 #include <err.h>
@@ -289,10 +282,6 @@ af_status	in6_status;
 af_getaddr	in6_getaddr;
 af_getprefix	in6_getprefix;
 #endif /*INET6*/
-#ifdef NS
-af_status	xns_status;
-af_getaddr	xns_getaddr;
-#endif
 
 /* Known address families */
 const
@@ -302,8 +291,8 @@ struct	afswtch {
 	af_status *af_status;
 	af_getaddr *af_getaddr;
 	af_getprefix *af_getprefix;
-	u_long af_difaddr;
-	u_long af_aifaddr;
+	uint32_t af_difaddr;
+	uint32_t af_aifaddr;
 	caddr_t af_ridreq;
 	caddr_t af_addreq;
 } afs[] = {
@@ -315,10 +304,6 @@ struct	afswtch {
 	     SIOCDIFADDR_IN6, SIOCAIFADDR_IN6,
 	     C(in6_ridreq), C(in6_addreq) },
 #endif /*INET6*/
-#ifdef NS
-	{ "ns", AF_NS, xns_status, xns_getaddr, NULL,
-	     SIOCDIFADDR, SIOCAIFADDR, C(ridreq), C(addreq) },
-#endif
 	{ "ether", AF_LINK, ether_status, ether_getaddr, NULL,
 	     0, SIOCSIFLLADDR, NULL, C(ridreq) },
 #if 0	/* XXX conflicts with the media command */
@@ -344,7 +329,7 @@ struct	afswtch {
  */
 
 #define ROUNDUP(a) \
-	((a) > 0 ? (1 + (((a) - 1) | (sizeof(long) - 1))) : sizeof(long))
+	((a) > 0 ? (1 + (((a) - 1) | (sizeof(uint32_t) - 1))) : sizeof(uint32_t))
 #define ADVANCE(x, n) (x += ROUNDUP((n)->sa_len))
 
 void
@@ -659,18 +644,6 @@ ifconfig(argc, argv, afp)
 		   it is not specified. */
 		setifprefixlen("64", 0, s, afp);
 		/* in6_getprefix("64", MASK) if MASK is available here... */
-	}
-#endif
-#ifdef NS
-	if (setipdst && ifr.ifr_addr.sa_family == AF_NS) {
-		struct nsip_req rq;
-		int size = sizeof(rq);
-
-		rq.rq_ns = addreq.ifra_addr;
-		rq.rq_ip = addreq.ifra_dstaddr;
-
-		if (setsockopt(s, 0, SO_NSIP_ROUTE, &rq, size) < 0)
-			Perror("Encapsulation Routing");
 	}
 #endif
 	if (clearaddr) {
@@ -1155,7 +1128,7 @@ tunnel_status(s)
 {
 	char psrcaddr[NI_MAXHOST];
 	char pdstaddr[NI_MAXHOST];
-	u_long srccmd, dstcmd;
+	uint32_t srccmd, dstcmd;
 	struct ifreq *ifrp;
 	const char *ver = "";
 #ifdef NI_WITHSCOPEID
@@ -1239,7 +1212,7 @@ in_status(s, info)
 	sin = (struct sockaddr_in *)info->rti_info[RTAX_NETMASK];
 	if (!sin)
 		sin = &null_sin;
-	printf("netmask 0x%lx ", (unsigned long)ntohl(sin->sin_addr.s_addr));
+	printf("netmask 0x%0x ", (uint32_t)ntohl(sin->sin_addr.s_addr));
 
 	if (flags & IFF_BROADCAST) {
 		/* note RTAX_BRD overlap with IFF_POINTOPOINT */
@@ -1398,32 +1371,6 @@ in6_status(s, info)
 	putchar('\n');
 }
 #endif /*INET6*/
-
-#ifdef NS
-void
-xns_status(s, info)
-	int s ;
-	struct rt_addrinfo * info;
-{
-	struct sockaddr_ns *sns, null_sns;
-
-	memset(&null_sns, 0, sizeof(null_sns));
-
-	sns = (struct sockaddr_ns *)info->rti_info[RTAX_IFA];
-	printf("\tns %s ", ns_ntoa(sns->sns_addr));
-
-	if (flags & IFF_POINTOPOINT) {
-		sns = (struct sockaddr_ns *)info->rti_info[RTAX_BRD];
-		if (!sns)
-			sns = &null_sns;
-		printf("--> %s ", ns_ntoa(sns->sns_addr));
-	}
-
-	putchar('\n');
-	close(s);
-}
-#endif
-
 
 void
 ether_status(s, info)

@@ -37,10 +37,10 @@ extern mach_port_t clock_port;
 extern semaphore_t clock_sem;
 #ifdef VARIANT_CANCELABLE
 extern void _pthread_testcancel(pthread_t thread, int isconforming);
-extern int __semwait_signal(int cond_sem, int mutex_sem, int timeout, int relative, time_t tv_sec, __int32_t tv_nsec);
+extern int __semwait_signal(int cond_sem, int mutex_sem, int timeout, int relative, __int64_t tv_sec, __int32_t tv_nsec);
 #define	SEMWAIT_SIGNAL	__semwait_signal
 #else /* !VARIANT_CANCELABLE */
-extern int __semwait_signal_nocancel(int cond_sem, int mutex_sem, int timeout, int relative, time_t tv_sec, __int32_t tv_nsec);
+extern int __semwait_signal_nocancel(int cond_sem, int mutex_sem, int timeout, int relative, __int64_t tv_sec, __int32_t tv_nsec);
 #define	SEMWAIT_SIGNAL	__semwait_signal_nocancel
 #endif /* VARIANT_CANCELABLE */
 
@@ -71,7 +71,7 @@ nanosleep(const struct timespec *requested_time, struct timespec *remaining_time
             return -1;
         }
     }
-    ret = SEMWAIT_SIGNAL(clock_sem, MACH_PORT_NULL, 1, 1, requested_time->tv_sec, requested_time->tv_nsec);
+    ret = SEMWAIT_SIGNAL(clock_sem, MACH_PORT_NULL, 1, 1, (int64_t)requested_time->tv_sec, (int32_t)requested_time->tv_nsec);    
     if (ret < 0) {
         if (errno == ETIMEDOUT) {
 		return 0;

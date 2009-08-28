@@ -1,4 +1,3 @@
-require 'test/unit'
 require File.join(File.expand_path(File.dirname(__FILE__)), 'gemutilities')
 require 'rubygems/commands/specification_command'
 
@@ -12,6 +11,7 @@ class TestGemCommandsSpecificationCommand < RubyGemTestCase
 
   def test_execute
     foo = quick_gem 'foo'
+    Gem.source_index.add_spec foo
 
     @cmd.options[:args] = %w[foo]
 
@@ -45,7 +45,7 @@ class TestGemCommandsSpecificationCommand < RubyGemTestCase
   def test_execute_bad_name
     @cmd.options[:args] = %w[foo]
 
-    assert_raise MockGemUi::TermError do
+    assert_raises MockGemUi::TermError do
       use_ui @ui do
         @cmd.execute
       end
@@ -73,7 +73,10 @@ class TestGemCommandsSpecificationCommand < RubyGemTestCase
   def test_execute_remote
     foo = quick_gem 'foo'
 
-    util_setup_source_info_cache foo
+    @fetcher = Gem::FakeFetcher.new
+    Gem::RemoteFetcher.fetcher = @fetcher
+
+    util_setup_spec_fetcher foo
 
     FileUtils.rm File.join(@gemhome, 'specifications',
                            "#{foo.full_name}.gemspec")
@@ -85,8 +88,8 @@ class TestGemCommandsSpecificationCommand < RubyGemTestCase
       @cmd.execute
     end
 
-    assert_equal "#{foo.to_yaml}\n", @ui.output
-    assert_equal "WARNING:  Remote information is not complete\n\n", @ui.error
+    assert_match %r|\A--- !ruby/object:Gem::Specification|, @ui.output
+    assert_match %r|name: foo|, @ui.output
   end
 
 end

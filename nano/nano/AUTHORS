@@ -1,4 +1,4 @@
-$Id: AUTHORS,v 1.15 2006/10/28 22:55:08 dolorous Exp $
+$Id: AUTHORS,v 1.15.2.1 2007/04/04 20:05:39 dolorous Exp $
 This file lists people who have made significant contribution to the
 nano editor.  Please see the ChangeLog for specific changes by author.
 -------------------------------------------------------------------------
@@ -6,7 +6,7 @@ nano editor.  Please see the ChangeLog for specific changes by author.
 Chris Allegretta <chrisa@asty.org>
 	* Original program author, former stable series maintainer.
 
-David Lawrence Ramsey <pooka109@cox.net>
+David Lawrence Ramsey <pooka109@gmail.com>
 	* Current stable series maintainer.  Multiple buffer support,
 	  operating dir (-o) option, bug fixes for display routines,
 	  wrapping code, spelling fixes, const mode, parts of the UTF-8

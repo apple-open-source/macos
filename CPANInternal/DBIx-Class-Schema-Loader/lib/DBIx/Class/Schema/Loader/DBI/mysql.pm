@@ -6,6 +6,8 @@ use base 'DBIx::Class::Schema::Loader::DBI';
 use Carp::Clan qw/^DBIx::Class/;
 use Class::C3;
 
+our $VERSION = '0.04005';
+
 =head1 NAME
 
 DBIx::Class::Schema::Loader::DBI::mysql - DBIx::Class::Schema::Loader::DBI mysql Implementation.
@@ -15,9 +17,7 @@ DBIx::Class::Schema::Loader::DBI::mysql - DBIx::Class::Schema::Loader::DBI mysql
   package My::Schema;
   use base qw/DBIx::Class::Schema::Loader/;
 
-  __PACKAGE__->load_from_connection(
-    relationships => 1,
-  );
+  __PACKAGE__->loader_options( debug => 1 );
 
   1;
 
@@ -26,6 +26,22 @@ DBIx::Class::Schema::Loader::DBI::mysql - DBIx::Class::Schema::Loader::DBI mysql
 See L<DBIx::Class::Schema::Loader::Base>.
 
 =cut
+
+# had to override here because MySQL apparently
+#  doesn't support '%' syntax.  Perhaps the other
+#  drivers support this syntax also, but I didn't
+#  want to risk breaking some esoteric DBD::foo version
+#  in a maint release...
+sub _tables_list { 
+    my $self = shift;
+
+    my $dbh = $self->schema->storage->dbh;
+    my @tables = $dbh->tables(undef, $self->db_schema, undef, undef);
+    s/\Q$self->{_quoter}\E//g for @tables;
+    s/^.*\Q$self->{_namesep}\E// for @tables;
+
+    return @tables;
+}
 
 sub _table_fk_info {
     my ($self, $table) = @_;

@@ -109,19 +109,17 @@ inline void ScheduleQueue<Time>::schedule(Event *event, Time when)
 	}
 	event->fireTime = when;
 	// newly schedule the event
-	IFDEBUG(unsigned pos = 0);
 	for (; ev != &first; ev = ev->fwd) {
-		IFDEBUG(pos++);
 		if (ev->fireTime > when) {
 			event->putBefore(ev);
-			secdebug("schedq", "%p (%.3f) scheduled before %p [at %u]", event, double(when), ev, pos);
+			secdebug("schedq", "%p (%.3f) scheduled before %p", event, double(when), ev);
 			return;
 		}
 	}
 	
 	// hit the end-of-queue; put at end
 	event->putBefore(&first);
-	secdebug("schedq", "%p (%.3f) scheduled last [after %u]", event, double(when), pos);
+	secdebug("schedq", "%p (%.3f) scheduled last", event, double(when));
 }
 
 template <class Time>

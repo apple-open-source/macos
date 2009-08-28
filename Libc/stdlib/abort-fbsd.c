@@ -39,6 +39,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/abort.c,v 1.9 2003/08/16 11:43:57 davidx
 
 #include "namespace.h"
 #include <signal.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <stddef.h>
 #include <unistd.h>
@@ -47,6 +48,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/abort.c,v 1.9 2003/08/16 11:43:57 davidx
 
 extern void (*__cleanup)();
 extern void __abort(void) __dead2;
+extern const char *__crashreporter_info__;
 
 #define TIMEOUT	10000	/* 10 milliseconds */
 
@@ -55,6 +57,8 @@ abort()
 {
 	struct sigaction act;
 
+	if (!__crashreporter_info__)
+		__crashreporter_info__ = "abort() called";
 	/*
 	 * POSIX requires we flush stdio buffers on abort.
 	 * XXX ISO C requires that abort() be async-signal-safe.
@@ -84,6 +88,8 @@ __abort()
 {
 	struct sigaction act;
 
+	if (!__crashreporter_info__)
+		__crashreporter_info__ = "__abort() called";
 	act.sa_handler = SIG_DFL;
 	act.sa_flags = 0;
 	sigfillset(&act.sa_mask);
@@ -93,4 +99,17 @@ __abort()
 	(void)raise(SIGABRT);
 	usleep(TIMEOUT); /* give time for signal to happen */
 	__builtin_trap(); /* never exit normally */
+}
+
+__private_extern__ void
+abort_report_np(const char *fmt, ...)
+{
+	char *str;
+	va_list ap;
+
+	va_start(ap, fmt);
+	vasprintf(&str, fmt, ap);
+	va_end(ap);
+	__crashreporter_info__ = str ? str : fmt;
+	abort();
 }

@@ -1,6 +1,6 @@
 /*  
 ********************************************************************************
-*   Copyright (C) 1997-2006, International Business Machines
+*   Copyright (C) 1997-2008, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 ********************************************************************************
 *
@@ -22,6 +22,7 @@
 
 #if !UCONFIG_NO_FORMATTING
 
+#include "unicode/calendar.h"
 #include "unicode/uobject.h"
 #include "unicode/locid.h"
 #include "unicode/ures.h"
@@ -36,6 +37,8 @@ U_NAMESPACE_BEGIN
 /* forward declaration */
 class SimpleDateFormat;
 class Hashtable;
+class ZoneStringFormat;
+class SafeZoneStringFormatPtr;
 
 /**
  * DateFormatSymbols is a public class for encapsulating localizable date-time
@@ -177,7 +180,7 @@ public:
     UBool operator!=(const DateFormatSymbols& other) const { return !operator==(other); }
 
     /**
-     * Gets era strings. For example: "AD" and "BC".
+     * Gets abbreviated era strings. For example: "AD" and "BC".
      *
      * @param count    Filled in with length of the array.
      * @return         the era strings.
@@ -186,7 +189,7 @@ public:
     const UnicodeString* getEras(int32_t& count) const;
 
     /**
-     * Sets era strings. For example: "AD" and "BC".
+     * Sets abbreviated era strings. For example: "AD" and "BC".
      * @param eras  Array of era strings (DateFormatSymbols retains ownership.)
      * @param count Filled in with length of the array.
      * @stable ICU 2.0
@@ -198,7 +201,7 @@ public:
      *
      * @param count    Filled in with length of the array.
      * @return         the era name strings.
-     * @draft ICU 3.4
+     * @stable ICU 3.4
      */
     const UnicodeString* getEraNames(int32_t& count) const;
 
@@ -206,9 +209,26 @@ public:
      * Sets era name strings. For example: "Anno Domini" and "Before Christ".
      * @param eraNames  Array of era name strings (DateFormatSymbols retains ownership.)
      * @param count Filled in with length of the array.
-     * @draft ICU 3.6
+     * @stable ICU 3.6
      */
     void setEraNames(const UnicodeString* eraNames, int32_t count);
+
+    /**
+     * Gets narrow era strings. For example: A" and "D".
+     *
+     * @param count    Filled in with length of the array.
+     * @return         the narrow era strings.
+     * @draft ICU 4.2
+     */
+    const UnicodeString* getNarrowEras(int32_t& count) const;
+
+    /**
+     * Sets narrow era strings. For example: "A" and "B".
+     * @param narrowEras  Array of narrow era strings (DateFormatSymbols retains ownership.)
+     * @param count Filled in with length of the array.
+     * @draft ICU 4.2
+     */
+    void setNarrowEras(const UnicodeString* narrowEras, int32_t count);
 
     /**
      * Gets month strings. For example: "January", "February", etc.
@@ -246,7 +266,7 @@ public:
 
     /**
      * Selector for date formatting context
-     * @draft ICU 3.6
+     * @stable ICU 3.6
      */
     enum DtContextType {
          FORMAT,
@@ -256,7 +276,7 @@ public:
 
     /**
      * Selector for date formatting width
-     * @draft ICU 3.6
+     * @stable ICU 3.6
      */
     enum DtWidthType {
          ABBREVIATED,
@@ -271,7 +291,7 @@ public:
      * @param context The formatting context, either FORMAT or STANDALONE
      * @param width   The width of returned strings, either WIDE, ABBREVIATED, or NARROW.
      * @return the month strings. (DateFormatSymbols retains ownership.)
-     * @draft ICU 3.4
+     * @stable ICU 3.4
      */
     const UnicodeString* getMonths(int32_t& count, DtContextType context, DtWidthType width) const;
 
@@ -282,7 +302,7 @@ public:
      * @param count   Filled in with length of the array.
      * @param context The formatting context, either FORMAT or STANDALONE
      * @param width   The width of returned strings, either WIDE, ABBREVIATED, or NARROW.
-     * @draft ICU 3.6
+     * @stable ICU 3.6
      */
     void setMonths(const UnicodeString* months, int32_t count, DtContextType context, DtWidthType width);
 
@@ -325,7 +345,7 @@ public:
      * @param context The formatting context, either FORMAT or STANDALONE
      * @param width   The width of returned strings, either WIDE, ABBREVIATED, or NARROW
      * @return the month strings. (DateFormatSymbols retains ownership.)
-     * @draft ICU 3.4
+     * @stable ICU 3.4
      */
     const UnicodeString* getWeekdays(int32_t& count, DtContextType context, DtWidthType width) const;
 
@@ -335,7 +355,7 @@ public:
      * @param count     Filled in with length of the array.
      * @param context   The formatting context, either FORMAT or STANDALONE
      * @param width     The width of returned strings, either WIDE, ABBREVIATED, or NARROW
-     * @draft ICU 3.6
+     * @stable ICU 3.6
      */
     void setWeekdays(const UnicodeString* weekdays, int32_t count, DtContextType context, DtWidthType width);
 
@@ -346,7 +366,7 @@ public:
      * @param width   The width of returned strings, either WIDE or ABBREVIATED. There
      *                are no NARROW quarters.
      * @return the quarter strings. (DateFormatSymbols retains ownership.)
-     * @draft ICU 3.6
+     * @stable ICU 3.6
      */
     const UnicodeString* getQuarters(int32_t& count, DtContextType context, DtWidthType width) const;
 
@@ -358,7 +378,7 @@ public:
      * @param context The formatting context, either FORMAT or STANDALONE
      * @param width   The width of returned strings, either WIDE or ABBREVIATED. There
      *                are no NARROW quarters.
-     * @draft ICU 3.6
+     * @stable ICU 3.6
      */
     void setQuarters(const UnicodeString* quarters, int32_t count, DtContextType context, DtWidthType width);
 
@@ -405,6 +425,10 @@ public:
 
     /**
      * Gets localized date-time pattern characters. For example: 'u', 't', etc.
+     * <p>
+     * Note: ICU no longer provides localized date-time pattern characters for a locale
+     * starting ICU 3.8.  This method returns the non-localized date-time pattern
+     * characters unless user defined localized data is set by setLocalPatternChars.
      * @param result    Output param which will receive the localized date-time pattern characters.
      * @return          A reference to 'result'.
      * @stable ICU 2.0
@@ -440,62 +464,13 @@ public:
      */
     static UClassID U_EXPORT2 getStaticClassID();
 
-    /**
-     * The translation type of the translated zone strings
-     * @internal ICU 3.6
-     */
-    enum TimeZoneTranslationType {
-        TIMEZONE_SHORT_GENERIC,
-        TIMEZONE_SHORT_STANDARD,
-        TIMEZONE_SHORT_DAYLIGHT,
-        TIMEZONE_LONG_GENERIC,
-        TIMEZONE_LONG_STANDARD,
-        TIMEZONE_LONG_DAYLIGHT,
-        TIMEZONE_EXEMPLAR_CITY,
-        TIMEZONE_COUNT
-    };
-    
-    /**
-     * Creates an enumeration of time zone IDs. The object is owned by the caller and should delete it after use.
-     * The time zone IDs are just for programmatic lookup. NOT LOCALIZED!!!
-     * @param status   Input/output parameter, set to success or
-     *                 failure code upon return.
-     * @return A new StringEnumeration object
-     * @internal ICU 3.6
-     */
-    virtual StringEnumeration* createZoneStringIDs(UErrorCode &status);
-
-    /**
-     * Gets timezone string give the key and translation type
-     * @param ID       The ID of zone strings,  e.g: "America/Los_Angeles".
-     *                 The time zone ID is  for programmatic lookup.
-     * @param type     The translation type requested
-     * @param result   Output parameter to recieve the translation string
-     * @param status   Input/output parameter, set to success or
-     *                 failure code upon return.
-     * @return the input UnicodeString parameter for chaining
-     * @internal ICU 3.6
-     */
-    UnicodeString& getZoneString(const UnicodeString &ID, const TimeZoneTranslationType type, UnicodeString &result, UErrorCode &status);
-
-    /**
-     * Sets timezone string for the given the ID and translation type
-     * @param ID       The ID of zone strings,  e.g: "America/Los_Angeles".
-     *                 The time zone ID is for programmatic lookup.
-     * @param type     The translation type to set the value for
-     * @param value    The string with which current translation needs to be replaced
-     * @param status   Input/output parameter, set to success or     
-     * @internal ICU 3.6
-     */
-    void setZoneString(const UnicodeString &ID, const TimeZoneTranslationType type, const UnicodeString &value, UErrorCode &status);
-
 private:
 
     friend class SimpleDateFormat;
     friend class DateFormatSymbolsSingleSetter; // see udat.cpp
 
     /**
-     * Era strings. For example: "AD" and "BC".
+     * Abbreviated era strings. For example: "AD" and "BC".
      */
     UnicodeString*  fEras;
     int32_t         fErasCount;
@@ -505,6 +480,12 @@ private:
      */
     UnicodeString*  fEraNames;
     int32_t         fEraNamesCount;
+
+    /**
+     * Narrow era strings. For example: "A" and "B".
+     */
+    UnicodeString*  fNarrowEras;
+    int32_t         fNarrowErasCount;
 
     /**
      * Month strings. For example: "January", "February", etc.
@@ -611,12 +592,34 @@ private:
     /**
      * The format data of all the timezones in this locale.
      */
-    UnicodeString** fZoneStrings;
+    UnicodeString   **fZoneStrings;         // Zone string array set by setZoneStrings
+    UnicodeString   **fLocaleZoneStrings;   // Zone string array created by the locale
     int32_t         fZoneStringsRowCount;
     int32_t         fZoneStringsColCount;
-    StringEnumeration* fZoneIDEnumeration;
-    Hashtable*         fZoneStringsHash;
-    UResourceBundle* fResourceBundle;
+
+    const ZoneStringFormat  *fZoneStringFormat;
+    ZoneStringFormat        *fZSFLocal;         // Local ZoneStringFormat instance
+    SafeZoneStringFormatPtr *fZSFCachePtr;      // Cached ZoneStringFormat
+    Locale                  fZSFLocale;         // Locale used for getting ZoneStringFormat
+
+    /**
+     * Pattern string used for localized time zone GMT format.  For example, "GMT{0}"
+     */
+    UnicodeString   fGmtFormat;
+
+    /**
+     * Pattern strings used for formatting zone offset in a localized time zone GMT string.
+     */
+    UnicodeString  *fGmtHourFormats;
+    int32_t         fGmtHourFormatsCount; 
+
+    enum GMTHourType {
+        GMT_NEGATIVE_HMS = 0,
+        GMT_NEGATIVE_HM,
+        GMT_POSITIVE_HMS,
+        GMT_POSITIVE_HM,
+        GMT_HOUR_COUNT
+    };
 
     /**
      * Localized date-time pattern characters. For example: use 'u' as 'y'.
@@ -678,21 +681,6 @@ private:
     void createZoneStrings(const UnicodeString *const * otherStrings);
 
     /**
-     * Package private: used by SimpleDateFormat
-     * Gets the index for the given time zone ID to obtain the timezone
-     * strings for formatting. The time zone ID is just for programmatic
-     * lookup. NOT LOCALIZED!!!
-     * @param ID the given time zone ID.
-     * @return the index of the given time zone ID.  Returns -1 if
-     * the given time zone ID can't be located in the DateFormatSymbols object.
-     * @see java.util.SimpleTimeZone
-     */
-    int32_t getZoneIndex(const UnicodeString& ID) const;
-
-    // Internal method; see source for documentation
-    int32_t _getZoneIndex(const UnicodeString& id) const;
-
-    /**
      * Delete all the storage owned by this object.
      */
     void dispose(void);
@@ -703,65 +691,26 @@ private:
      */
     void copyData(const DateFormatSymbols& other);
 
+
+    /**
+     * Returns a ZoneStringFormat, used only by SimpleDateFormat for now.
+     */
+    const ZoneStringFormat* getZoneStringFormat(void) const;
+
+    /**
+     * Create a ZoneStringFormat by locale if not yet availble
+     */
+    void initZoneStringFormat(void);
+
+    /**
+     * Create zone strings array by locale if not yet available
+     */
+    void initZoneStringsArray(void);
+
     /**
      * Delete just the zone strings.
      */
     void disposeZoneStrings(void);
-    /**
-     * Initializes the zoneStrings hash and keys StringEnumeration after reading the zoneStrings resource
-     */
-    void initZoneStrings(UErrorCode &status);
-    /** 
-     * initialzes the zoneStrings has and keys enumeration after reading the strings[][]. Required for backwards
-     * compatibility of setZoneStrings method
-     */
-    void initZoneStrings(const UnicodeString** strings, int32_t rowCount, int32_t collumnCount, UErrorCode& status);
-    /**
-     * initialization of the fZoneStrings data member
-     */
-    void initZoneStringsArray(UErrorCode& status);
-    /**
-     * Creates a deep clone of the Hashtable
-     */
-    Hashtable* createZoneStringsHash(const Hashtable* otherHash);
-    
-    /**
-     * Fetches the key from the hashtable for a given ID.
-     * e.g: for a given ID such as PST returns "Americal/Los_Angeles"
-     * Used by SimpleDateFormat class.
-     * @param ID The id of the time zone for which the key needs to be fetched
-     * @param result Output parameter to recieve the key.
-     * @return the input UnicodeString object for chaining
-     */
-    UnicodeString& getZoneID(const UnicodeString& zid, UnicodeString& result, UErrorCode& status);
-    
-    /**
-     * Fetches the zone type and zone string from the hashtable for a given key.
-     * e.g: for key: "Americal/Los_Angeles", text: "2004/1/1 PT 1:00" and start:9
-     * returns TIMEZONE_SHORT_GENERIC and "PT". 
-     * Used by SimpleDateFormat class.
-     * @param ID the name of the timezone
-     * @param text the string containing the time zone translation
-     * @param start The position in string where time zone string starts
-     * @param type  output parameter to recieve the type of time zone string
-     * @param value output parameter to recieve the the acutal time zone string
-     */
-    void getZoneType(const UnicodeString& zid, const UnicodeString& text, int32_t start, TimeZoneTranslationType& type, UnicodeString& value, UErrorCode& status);
-    
-    /**
-     * Fetches the zone type and zone string from the hashtable by cycling through all elements in the hashtable.
-     * e.g: text: "2004/1/1 PT 1:00" and start:9
-     * returns "Americal/Los_Angeles", TIMEZONE_SHORT_GENERIC and "PT". Used by SimpleDateFormat class.
-     * Used by SimpleDateFormat class.
-     * @param ID output parameter to recieve the key name of the time zone
-     * @param text the string containing the time zone translation
-     * @param start The position in string where time zone string starts
-     * @param type  output parameter to recieve the type of time zone string
-     * @param value output parameter to recieve the the acutal time zone string
-     * @param status output parameter to recive the error information
-     */
-    void findZoneIDTypeValue(UnicodeString& zid, const UnicodeString& text, int32_t start, TimeZoneTranslationType& type, UnicodeString& value, UErrorCode& status);
-
 };
 
 U_NAMESPACE_END

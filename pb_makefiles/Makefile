@@ -13,24 +13,21 @@ PROJECTVERSION = 2.8
 PROJECT_TYPE = Bundle
 
 GLOBAL_RESOURCES = aggregate.make app.make build.make bundle.make\
-                   commands-HPUX.make commands-MACOS.make\
-                   commands-NEXTSTEP.make commands-SOLARIS.make\
-                   commands-WINDOWS.make common.make compatibility.make\
+                   commands-MACOS.make\
+                   common.make compatibility.make\
                    depend.make flags.make framework.make\
                    implicitrules.make install.make installhdrs.make\
                    installsrc.make javapackage.make javawrapper.make library.make\
-                   Makefile.preamble.template Makefile.postamble.template\
                    palette.make prebuild.make recursion.make\
                    reinstall.make subproj.make tool.make versions.make\
                    wrapped-common.make platform-variables.make\
-                   platform-variables-extra.make convertBundle
+                   platform-variables-extra.make
 
-CFILES = clonehdrs.c dotdotify.c newer.c readdir.c
+CFILES = clonehdrs.c dotdotify.c newer.c readdir.c fastcp.c frameworkFlags.c ofileListTool.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble BUGS.rtf\
-            platform.make CVSVersionInfo.txt ConvertMakefilesReadMe.rtf\
-            ConvertMakefilesToNewDirs.sh SearchForOldDirs.sh\
-            next-cvs.make next-cvs_project_version.sh next-sgs.make
+            platform.make \
+            next-cvs.make next-cvs_project_version.sh
 
 
 MAKEFILEDIR = .

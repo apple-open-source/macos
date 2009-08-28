@@ -40,6 +40,7 @@
 #include "enums.h"
 #include "structs.h"
 #include "bless.h"
+#include "protos.h"
 
 int blesslog(void *context, int loglevel, const char *string) {
     int ret = 0;

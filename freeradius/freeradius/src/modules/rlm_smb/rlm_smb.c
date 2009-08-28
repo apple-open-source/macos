@@ -1,7 +1,7 @@
 /*
  * rlm_smb.c
  *
- * Version:	$Id: rlm_smb.c,v 1.4 2004/02/26 19:04:35 aland Exp $
+ * Version:	$Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,25 +15,19 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2002  The FreeRADIUS server project
+ * Copyright 2002,2006  The FreeRADIUS server project
  * Copyright 2002  Alan DeKok <aland@ox.org>
  */
 
-#include "autoconf.h"
-#include "libradius.h"
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include <stdio.h>
-#include <stdlib.h>
-
-#include "radiusd.h"
-#include "modules.h"
-#include "conffile.h"
+#include <freeradius-devel/radiusd.h>
+#include <freeradius-devel/modules.h>
 
 #include "valid.h"
-
-static const char rcsid[] = "$Id: rlm_smb.c,v 1.4 2004/02/26 19:04:35 aland Exp $";
 
 /*
  *	Define a structure for our module configuration.
@@ -57,7 +51,7 @@ typedef struct rlm_smb_t {
  *	to the strdup'd string into 'config.string'.  This gets around
  *	buffer over-flows.
  */
-static CONF_PARSER module_config[] = {
+static const CONF_PARSER module_config[] = {
   { "server",  PW_TYPE_STRING_PTR, offsetof(rlm_smb_t,server), NULL,  NULL},
   { "backup",  PW_TYPE_STRING_PTR, offsetof(rlm_smb_t,backup), NULL,  NULL},
   { "domain",  PW_TYPE_STRING_PTR, offsetof(rlm_smb_t,domain), NULL,  NULL},
@@ -132,7 +126,7 @@ static int smb_authenticate(void *instance, REQUEST *request)
 	 *  Ensure that we're being passed a plain-text password,
 	 *  and not anything else.
 	 */
-	if (request->password->attribute != PW_PASSWORD) {
+	if (request->password->attribute != PW_USER_PASSWORD) {
 		radlog(L_AUTH, "rlm_smb: Attribute \"User-Password\" is required for authentication.  Cannot use \"%s\".", request->password->name);
 		return RLM_MODULE_INVALID;
 	}
@@ -140,8 +134,8 @@ static int smb_authenticate(void *instance, REQUEST *request)
 	/*
 	 *  Call the SMB magic to do the work.
 	 */
-	rcode = Valid_User(request->username->strvalue,
-			   request->password->strvalue,
+	rcode = Valid_User(request->username->vp_strvalue,
+			   request->password->vp_strvalue,
 			   data->server, data->backup, data->domain);
 
 	switch (rcode) {
@@ -168,9 +162,6 @@ static int smb_detach(void *instance)
 {
 	rlm_smb_t *data = (rlm_smb_t *) instance;
 
-	if (data->server) free(data->server);
-	if (data->backup) free(data->backup);
-	if (data->domain) free(data->domain);
 
 	free(instance);
 	return 0;
@@ -186,10 +177,11 @@ static int smb_detach(void *instance)
  *	is single-threaded.
  */
 module_t rlm_smb = {
+	RLM_MODULE_INIT,
 	"SMB",
 	RLM_TYPE_THREAD_UNSAFE,		/* type */
-	NULL,				/* initialization */
 	smb_instantiate,		/* instantiation */
+	smb_detach,			/* detach */
 	{
 		smb_authenticate,	/* authentication */
 		NULL,			/* authorization */
@@ -200,6 +192,4 @@ module_t rlm_smb = {
 		NULL,			/* post-proxy */
 		NULL			/* post-auth */
 	},
-	smb_detach,			/* detach */
-	NULL,				/* destroy */
 };

@@ -32,7 +32,7 @@
 #include <IOKit/IOUserClient.h>
 #include <IOKit/assert.h>
 #include <IOKit/IOLib.h>
-#include <IOKit/IOMemoryDescriptor.h>
+#include <IOKit/IOSubMemoryDescriptor.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
 #include <IOKit/IOMessage.h>
 

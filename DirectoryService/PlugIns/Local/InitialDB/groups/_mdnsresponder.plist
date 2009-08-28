@@ -18,5 +18,9 @@
 	<array>
 		<string>*</string>
 	</array>
+	<key>realname</key>
+	<array>
+		<string>mDNSResponder</string>
+	</array>
 </dict>
 </plist>

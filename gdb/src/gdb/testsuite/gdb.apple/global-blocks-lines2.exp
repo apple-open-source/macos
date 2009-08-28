@@ -1,0 +1,61 @@
+
+if $tracelevel then {
+        strace $tracelevel
+        }
+
+#
+# test running programs
+#
+
+set prms_id 0
+set bug_id 0
+
+set testfile "global-blocks-lines2"
+set srcfile ${testfile}.c
+set binfile ${objdir}/${subdir}/${testfile}
+
+set additional_flags "additional_flags=-mmacosx-version-min=10.6"
+if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable [list debug $additional_flags]] != "" } {
+     gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
+}
+
+if {$debug_default_format_is_dwarf == 0 } then {
+        return;
+}
+
+# Start with a fresh gdb
+gdb_exit
+gdb_start
+gdb_reinitialize_dir $srcdir/$subdir
+gdb_file_cmd "${binfile}"
+
+send_gdb "set width 0\n"
+gdb_expect -re "$gdb_prompt $"
+
+gdb_test "break __block_global_1" "Breakpoint 1 at .*" "Set breakpoint at first Block function"
+gdb_test "break __block_global_2" "Breakpoint 2 at .*" "Set breakpoint at second Block function"
+gdb_test "break __block_global_3" "Breakpoint 3 at .*" "Set breakpoint at third Block function"
+
+
+gdb_test "run" "Starting program: $binfile *\r\n\Reading symbols for shared libraries \(\[.+\]\)+ done.*Breakpoint 1.*" "continue to breakpoint at first Block function"
+
+# Verifying linear stepping over/through first block function
+
+gdb_test "next" ".*Hello there, world.*main .*s_helloBlock.*" "Next from first Block function"
+
+# Verifying linear stepping through second block function
+
+gdb_test "continue" ".*Breakpoint 2, .*" "Continue to second Block function"
+
+gdb_test "next" ".*Hello there, world.*main .*CP.*" "Next from second Block function"
+
+# Verifying linear stepping through third block function
+
+gdb_test "continue" ".*Breakpoint 3, .*" "Continue to third Block function"
+
+gdb_test "next" ".*main .*printf.*" "Next from third Block function"
+
+# gdb_test "continue" ".*Program exited normally.*" "Finish program"
+
+gdb_exit
+return 0

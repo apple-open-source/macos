@@ -90,7 +90,7 @@ extern char *progname;
 /*
  * Ticks per second.
  */
-extern long hz;
+extern uint32_t hz;
 
 extern char *a_outname;
 #define	A_OUTNAME	"a.out"
@@ -141,8 +141,8 @@ struct nl {
     double		time;		/* ticks in this routine */
     double		childtime;	/* cumulative ticks in children */
     uint32_t		order;		/* order called */
-    long		ncall;		/* how many times called */
-    long		selfcalls;	/* how many calls to self */
+    int32_t		ncall;		/* how many times called */
+    int32_t		selfcalls;	/* how many calls to self */
     double		propfraction;	/* what % of time propagates */
     double		propself;	/* how much self time propagates */
     double		propchild;	/* how much child time propagates */
@@ -159,7 +159,7 @@ typedef struct nl	nltype;
 
 extern nltype	*nl;			/* the whole namelist */
 extern nltype	*npe;			/* the virtual end of the namelist */
-extern unsigned long nname;		/* the number of function names */
+extern uint32_t nname;		/* the number of function names */
 
 /*
  * The list of file names and the ranges their pc's cover used for building
@@ -172,7 +172,7 @@ struct file {
     char *what_name;
 }; 
 extern struct file *files;
-extern unsigned long n_files;
+extern uint32_t n_files;
 
 /*
  * flag which marks a nl entry as topologically ``busy''
@@ -209,14 +209,14 @@ struct sample_set {
 #endif
 };
 extern struct sample_set *sample_sets;
-extern unsigned long nsample_sets;
+extern uint32_t nsample_sets;
     
 #ifdef __OPENSTEP__
 /*
  * The rld loaded state from the gmon.out file.
  */
 struct rld_loaded_state *grld_loaded_state;
-extern unsigned long grld_nloaded_states;
+extern uint32_t grld_nloaded_states;
 extern void get_rld_state_symbols(void);
 #endif
 
@@ -270,7 +270,7 @@ extern struct stringlist *Flist;
 /*
  * The debug value for debugging gprof.
  */
-extern unsigned long debug;
+extern uint32_t debug;
 
 #define	DFNDEBUG	1
 #define	CYCLEDEBUG	2
@@ -287,11 +287,11 @@ extern unsigned long debug;
 #define	DYLDDEBUG	4096
 
 struct shlib_text_range {
-    unsigned long lowpc;
-    unsigned long highpc;
+    uint32_t lowpc;
+    uint32_t highpc;
 };
 extern struct shlib_text_range *shlib_text_ranges;
-extern unsigned long nshlib_text_ranges;
+extern uint32_t nshlib_text_ranges;
 
 /*
  * External function declarations for the functions of the gprof source.
@@ -310,8 +310,8 @@ extern unsigned long nshlib_text_ranges;
 /* calls.c */
     extern void findcalls(
 	nltype *parentp,
-	unsigned long p_lowpc,
-	unsigned long p_highpc);
+	uint32_t p_lowpc,
+	uint32_t p_highpc);
 
     /* dfn.c */
     extern void dfn(
@@ -326,7 +326,7 @@ extern unsigned long nshlib_text_ranges;
 	uint64_t *text_max);
 
 /* hertz.c */
-    extern unsigned long hertz(
+    extern uint32_t hertz(
 	void);
 
 /* lookup.c */

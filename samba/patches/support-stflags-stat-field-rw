@@ -1,0 +1,56 @@
+Index: samba/source/smbd/dosmode.c
+===================================================================
+--- samba/source/smbd/dosmode.c.orig
++++ samba/source/smbd/dosmode.c
+@@ -519,6 +519,51 @@ int file_set_dosmode(connection_struct *
+ 		return 0;
+ 	}
+ 
++#if defined(HAVE_STAT_ST_FLAGS)
++	/* We have st_flags support so we ought to be able to use
++	 * SMB_VFS_CHFLAGS to set the DOS attributes directly into
++	 * the BSD file flags.
++	 */
++	{
++		int st_flags = 0;
++
++#ifdef UF_IMMUTABLE
++		/* We only set the read-only bit for files, since the DOS
++		 * semantics are to ignore read-only on directories.
++		 */
++		if (S_ISREG(st->st_mode) &&
++		    (dosmode & FILE_ATTRIBUTE_READONLY)) {
++			st_flags |= UF_IMMUTABLE;
++		}
++#endif
++
++#ifdef UF_HIDDEN
++		if (dosmode & FILE_ATTRIBUTE_HIDDEN) {
++			st_flags |= UF_HIDDEN;
++		}
++#endif
++
++#ifdef UF_NODUMP
++		/* If the file is not marked as "needs to be archived", then we
++		 * should mark it as NODUMP (ie, "don't dump this").
++		 */
++		if (!(dosmode & FILE_ATTRIBUTE_ARCHIVE)) {
++			st_flags |= UF_NODUMP;
++		}
++#endif
++
++		if (SMB_VFS_CHFLAGS(conn, fname, st_flags) == 0) {
++			notify_fname(conn, NOTIFY_ACTION_MODIFIED,
++				     FILE_NOTIFY_CHANGE_ATTRIBUTES, fname);
++			st->st_flags = st_flags;
++			return 0;
++		}
++
++		return -1;
++	}
++
++#endif /* defined(HAVE_STAT_ST_FLAGS) */
++
+ 	unixmode = unix_mode(conn,dosmode,fname, parent_dir);
+ 
+ 	/* preserve the s bits */

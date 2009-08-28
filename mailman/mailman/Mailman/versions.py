@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2005 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2007 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -33,11 +33,14 @@ run again until another version change is detected.
 """
 
 
+import email
+
 from types import ListType, StringType
 
 from Mailman import mm_cfg
 from Mailman import Utils
 from Mailman import Message
+from Mailman.Bouncer import _BounceInfo
 from Mailman.MemberAdaptor import UNKNOWN
 from Mailman.Logging.Syslog import syslog
 
@@ -406,6 +409,11 @@ def NewVars(l):
     # multipart/alternative collapse
     add_only_if_missing('collapse_alternatives',
                         mm_cfg.DEFAULT_COLLAPSE_ALTERNATIVES)
+    # exclude/include lists
+    add_only_if_missing('regular_exclude_lists',
+                        mm_cfg.DEFAULT_REGULAR_EXCLUDE_LISTS)
+    add_only_if_missing('regular_include_lists',
+                        mm_cfg.DEFAULT_REGULAR_INCLUDE_LISTS)
 
 
 
@@ -419,7 +427,6 @@ def UpdateOldUsers(mlist):
     # Go through all the keys in bounce_info.  If the key is not a member, or
     # if the data is not a _BounceInfo instance, chuck the bounce info.  We're
     # doing things differently now.
-    from Mailman.Bouncer import _BounceInfo
     for m in mlist.bounce_info.keys():
         if not mlist.isMember(m) or not isinstance(mlist.getBounceInfo(m),
                                                    _BounceInfo):
@@ -486,7 +493,7 @@ def NewRequestsDatabase(l):
             for p in v:
                 author, text = p[2]
                 reason = p[3]
-                msg = Message.OutgoingMessage(text)
+                msg = email.message_from_string(text, Message.Message)
                 l.HoldMessage(msg, reason)
             del r[k]
         elif k == 'add_member':

@@ -1,7 +1,8 @@
 /* Test whether difference of local labels doesn't force
    variables into writable sections.  */
-/* { dg-do compile } */
+/* { dg-do compile { target fpic } } */
 /* { dg-options "-O2 -fpic" } */
+/* { dg-options "-O2 -fpic -mpt-fixed" { target sh64*-*-* } } */
 /* { dg-final { scan-assembler-not ".data.rel.ro.local" } } */
 
 int foo (int a)

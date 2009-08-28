@@ -21,7 +21,6 @@
 #include "ntp_stdlib.h"
 
 #include <stdio.h>
-#include <netdb.h>
 #include <signal.h>
 #include <ctype.h>
 
@@ -135,7 +134,6 @@ static	int getnetnum	P((const char *num, struct sockaddr_in *addr,
 			   int complain));
 
 
-extern void	addserver	P((char *));
 /*
  * loadservers - load list of NTP servers from configuration file
  */
@@ -202,10 +200,8 @@ M
 
 	if ((fp = fopen(FindConfig(config_file), "r")) == NULL)
 	{
-#ifndef __APPLE__
 		fprintf(stderr, "getconfig: Couldn't open <%s>\n", FindConfig(config_file));
 		msyslog(LOG_INFO, "getconfig: Couldn't open <%s>", FindConfig(config_file));
-#endif
 #ifdef SYS_WINNT
 		/* Under WinNT try alternate_config_file name, first NTP.CONF, then NTP.INI */
 
@@ -237,9 +233,7 @@ M
 					tokens[0]);
 				break;
 			}
-#ifdef __APPLE__
-			addserver(tokens[1]);
-#else			
+			
 			if (!getnetnum(tokens[1], &peeraddr, 1)) {
 				/* Resolve now, or lose! */
 				break;
@@ -371,7 +365,7 @@ M
 				srvcnt++;
 			}
 			break;
-#endif			
+			
 			case CONFIG_KEYS:
 			if (ntokens >= 2) {
 				key_file = (char *) emalloc(strlen(tokens[1]) + 1);
@@ -383,16 +377,13 @@ M
 	(void) fclose(fp);
 
 	/* build final list */
-#ifndef __APPLE__
 	sys_numservers = srvcnt;
 	sys_servers = (struct server **) 
 	    emalloc(sys_numservers * sizeof(struct server *));
 	for(i=0;i<sys_numservers;i++) {
 		sys_servers[i] = srvlist;
-		sys_servers[i]->event_time = i+1;
 		srvlist = srvlist->next_server;
 	}
-#endif
 }
 
 
@@ -529,16 +520,6 @@ getnetnum(
 			printf("getnetnum %s step %d buf %s temp %d netnum %lu\n",
 			   num, i, buf, temp, (u_long)netnum);
 #endif
-	}
-
-	if (i < 4) {
-		struct hostent *hp;
-
-		if ((hp = gethostbyname(num)) != 0) {
-			memmove((char *)&netnum, hp->h_addr, sizeof(u_int32));
-			netnum = ntohl(netnum);
-			i = 4;
-		}
 	}
 
 	if (i < 4) {

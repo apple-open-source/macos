@@ -174,7 +174,7 @@ display(const char *tfn, struct passwd *pw)
 	}
 
 #ifdef OPEN_DIRECTORY
-	CFArrayRef values = CFDictionaryGetValue(attrs, CFSTR(kDSNAttrRecordName));
+	CFArrayRef values = CFDictionaryGetValue(attrs, kODAttributeTypeRecordName);
 	CFStringRef username = (values && CFArrayGetCount(values)) > 0 ? CFArrayGetValueAtIndex(values, 0) : NULL;
 
 	(void)cfprintf(fp,
@@ -191,7 +191,7 @@ display(const char *tfn, struct passwd *pw)
 	ENTRY* ep;
 	for (ep = list; ep->prompt; ep++)
 		if (!ep->restricted) {
-			ep->display(attrs, ep->attrName, ep->prompt, fp);
+			ep->display(attrs, *ep->attrName, ep->prompt, fp);
 			ndisplayed++;
 		}
 	if(!ndisplayed) {
@@ -367,7 +367,7 @@ verify(const char *tfn, struct passwd *pw)
 			{
 				CFStringRef str = CFStringCreateWithCString(NULL, val, kCFStringEncodingUTF8);
 				if (str) {
-					CFDictionarySetValue(npw, ep->attrName, str);
+					CFDictionarySetValue(npw, *ep->attrName, str);
 					CFRelease(str);
 				}
 			}

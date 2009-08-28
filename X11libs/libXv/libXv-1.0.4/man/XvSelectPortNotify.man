@@ -1,0 +1,41 @@
+.TH XvSelectPortNotify __libmansuffix__ __vendorversion__
+.SH Name
+XvSelectPortNotify \- enable or disable XvPortNotify(__libmansuffix__) events
+.\"
+.SH Syntax
+.B #include <X11/extensions/Xvlib.h>
+.sp
+.nf
+.BI "XvSelectPortNotify(Display *" dpy ", XvPortID " port ", Bool " onoff ");"
+.fi
+.SH Arguments
+.\"
+.IP \fIdpy\fR 8
+Specifies the connection to the X server.
+.IP \fIport\fR 8
+Specifies the port for which PortNotify events are to be generated
+when its attributes are changed using XvSetPortAttribute(__libmansuffix__).
+.IP \fIonoff\fR 8
+Specifies whether notification is to be enabled or disabled.
+.\"
+.SH Description
+.\"
+XvSelectPortNotify(__libmansuffix__) enables or disables PortNotify event
+delivery to the requesting client.  XvPortNotify(__libmansuffix__) events are
+generated when port attributes are changed using XvSetPortAttribute(__libmansuffix__).
+.\"
+.SH Returned Values
+.IP [Success] 8
+Returned if XvSelectPortNotify(__libmansuffix__) completed successfully.
+.IP [XvBadExtension] 8
+Returned if the Xv extension is unavailable.
+.IP [XvBadAlloc] 8
+Returned if XvSelectPortNotify(__libmansuffix__) failed to allocate memory to process
+the request.
+.SH Diagnostics
+.IP [XvBadPort] 8
+Generated if the requested port does not exist.
+.SH See Also
+.\"
+XvSetPortNotify(__libmansuffix__), XvSetPortAttribute(__libmansuffix__), XvPortNotify(__libmansuffix__)
+.br

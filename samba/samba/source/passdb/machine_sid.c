@@ -5,6 +5,8 @@
    Copyright (C) Andrew Tridgell		2002
    Copyright (C) Gerald (Jerry) Carter		2000
    Copyright (C) Stefan (metze) Metzmacher	2002
+
+   Copyright (C) 2008 Apple Inc. All rights reserved.
       
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -22,6 +24,7 @@
 */
 
 #include "includes.h"
+#include "opendirectory.h"
 
 /* NOTE! the global_sam_sid is the SID of our local SAM. This is only
    equal to the domain SID when we are a DC, otherwise its our
@@ -176,6 +179,35 @@ static DOM_SID *pdb_generate_sam_sid(void)
 	return sam_sid;
 }   
 
+static DOM_SID * opendirectory_sam_sid(void)
+{
+	DOM_SID * sam_sid;
+	tDirStatus status;
+
+	if(!(sam_sid = SMB_MALLOC_P(DOM_SID))) {
+		return NULL;
+	}
+
+	if (!IS_DC) {
+		status = opendirectory_query_machine_sid(NULL, sam_sid);
+		LOG_DS_ERROR(DS_TRACE_ERRORS, status,
+			"opendirectory_query_machine_sid");
+
+	} else {
+		status = opendirectory_query_domain_sid(NULL,
+				lp_workgroup(), sam_sid);
+		LOG_DS_ERROR(DS_TRACE_ERRORS, status,
+			"opendirectory_query_domain_sid");
+	}
+
+	if (status != eDSNoErr) {
+		SAFE_FREE(sam_sid);
+		return NULL;
+	}
+
+	return sam_sid;
+}
+
 /* return our global_sam_sid */
 DOM_SID *get_global_sam_sid(void)
 {
@@ -185,8 +217,18 @@ DOM_SID *get_global_sam_sid(void)
 	/* memory for global_sam_sid is allocated in 
 	   pdb_generate_sam_sid() as needed */
 
+	if (lp_opendirectory()) {
+		if (!(global_sam_sid = opendirectory_sam_sid())) {
+			DEBUG(0, ("Could not generate a machine SID\n"));
+			exit(1);
+		}
+
+		return global_sam_sid;
+	}
+
 	if (!(global_sam_sid = pdb_generate_sam_sid())) {
-		smb_panic("Could not generate a machine SID\n");
+		DEBUG(0, ("Could not generate a machine SID\n"));
+		exit(1);
 	}
 
 	return global_sam_sid;
@@ -206,10 +248,16 @@ void reset_global_sam_sid(void)
 
 BOOL sid_check_is_domain(const DOM_SID *sid)
 {
-	DOM_SID apple_wellknown =
+	const DOM_SID apple_wellknown =
 	    { 1, 1, {0,0,0,0,0,5}, {21,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
 
+
+	const DOM_SID apple_compat =
+	    { 1, 4, {0,0,0,0,0,5},
+		{21,987654321,987654321,987654321,0,0,0,0,0,0,0,0,0,0,0}};
+
 	return sid_equal(sid, get_global_sam_sid()) ||
+		sid_equal(sid, &apple_compat) ||
 		sid_equal(sid, &apple_wellknown);
 }
 

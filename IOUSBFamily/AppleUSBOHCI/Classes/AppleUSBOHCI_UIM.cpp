@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright © 1998-2009 Apple Inc.  All rights reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -36,6 +36,7 @@ extern "C" {
 
 #include "AppleUSBOHCI.h"
 #include "AppleUSBOHCIMemoryBlocks.h"
+#include "USBTracepoints.h"
 
 #define DEBUGGING_LEVEL 0	// 1 = low; 2 = high; 3 = extreme
 
@@ -90,8 +91,8 @@ AppleUSBOHCI::CreateGeneralTransfer(AppleOHCIEndpointDescriptorPtr queue, IOUSBC
     //
     if ( (USBToHostLong(queue->pShared->tdQueueHeadPtr) & kOHCIHeadPointer_H) && !( (type == kOHCIControlSetupType) && ( ((USBToHostLong(queue->pShared->flags) & kOHCIEDControl_EN) >> kOHCIEDControl_ENPhase) == 0 )) )
     {
-        
         USBLog(1, "AppleUSBOHCI[%p]::CreateGeneralTransfer - trying to queue to a stalled pipe", this);
+		USBTrace( kUSBTOHCI, kTPOHCICreateGeneralTransfer , (uintptr_t)this, kOHCIControlSetupType, kIOUSBPipeStalled, 0 );
         status = kIOUSBPipeStalled;
     }
     else if (bufferSize != 0)
@@ -278,6 +279,7 @@ AppleUSBOHCI::CreateGeneralTransfer(AppleOHCIEndpointDescriptorPtr queue, IOUSBC
     if (status)
 	{
         USBLog(1, "AppleUSBOHCI[%p] CreateGeneralTransfer: returning status 0x%x", this, status);
+		USBTrace( kUSBTOHCI, kTPOHCICreateGeneralTransfer , (uintptr_t)this, status, 0, 0 );
 	}
     return (status);
 }
@@ -625,7 +627,7 @@ AppleUSBOHCI::UIMCreateInterruptEndpoint(
             return kIOReturnBadArgument;
         }
         
-        return RootHubStartTimer(pollingRate);
+        return RootHubStartTimer32(pollingRate);
     }
     
     // Modify direction to be an OHCI direction, as opposed to the USB direction.
@@ -903,6 +905,7 @@ AppleUSBOHCI::UIMAbortEndpoint(short				functionAddress,
         if ( (endpointNumber != 1) && (endpointNumber != 0) )
         {
             USBLog(1, "AppleUSBOHCI[%p] UIMAbortEndpoint: bad params - endpNumber: %d", this, endpointNumber );
+			USBTrace( kUSBTOHCI, kTPOHCIAbortEndpoint , (uintptr_t)this, functionAddress, endpointNumber, kIOReturnBadArgument );
             return kIOReturnBadArgument;
         }
         
@@ -972,6 +975,7 @@ AppleUSBOHCI::UIMDeleteEndpoint(
         if ( (endpointNumber != 1) && (endpointNumber != 0) )
         {
             USBLog(1, "AppleUSBOHCI[%p] UIMDeleteEndpoint: bad params - endpNumber: %d", this, endpointNumber );
+			USBTrace( kUSBTOHCI, kTPOHCIDeleteEndpoint , (uintptr_t)this, functionAddress, endpointNumber, kIOReturnBadArgument );
             return kIOReturnBadArgument;
         }
         
@@ -1070,6 +1074,7 @@ AppleUSBOHCI::UIMClearEndpointStall(short functionAddress, short endpointNumber,
         if ( (endpointNumber != 1) && (endpointNumber != 0) )
         {
             USBLog(1, "AppleUSBOHCI[%p] UIMClearEndpointStall: bad params - endpNumber: %d", this, endpointNumber );
+			USBTrace( kUSBTOHCI, kTPOHCIEndpointStall , (uintptr_t)this, functionAddress, endpointNumber, kIOReturnBadArgument );
             return kIOReturnBadArgument;
         }
         
@@ -1775,7 +1780,7 @@ AppleUSBOHCI::UIMCheckForTimeouts(void)
 	
     // If we are not active anymore or if we're in ohciBusStateOff, then don't check for timeouts 
     //
-    if ( isInactive() || (_onCardBus && _pcCardEjected) || !_controllerAvailable || (_myBusState != kUSBBusStateRunning))
+    if ( isInactive() || !_controllerAvailable || (_myBusState != kUSBBusStateRunning))
 	{
 		USBLog(7,"AppleUSBOHCI[%p]  UIMCheckForTimeouts for bus %d -- not appropriate", this, (uint32_t)_busNumber);
         return;
@@ -2036,6 +2041,7 @@ AppleUSBOHCI::UIMCreateIsochTransfer(IOUSBIsocCommand *command)
     if (pNewITD == NULL)
     {
         USBLog(1,"AppleUSBOHCI[%p]::UIMCreateIsochTransfer Could not allocate a new iTD", this);
+		USBTrace( kUSBTOHCI, kTPOHCICreateIsochTransfer, (uint32_t)bufferSize, (uint32_t)frameCount, (uint32_t)updateFrequency, kIOReturnNoMemory );
         return kIOReturnNoMemory;
     }
 	

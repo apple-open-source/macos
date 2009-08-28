@@ -37,7 +37,6 @@
 #include <security_utilities/globalizer.h>
 #include <security_utilities/alloc.h>
 #include <security_utilities/cfutilities.h>
-#include <security_utilities/ktracecodes.h>
 #include <security_cdsa_utilities/cssmbridge.h>
 #include <security_cdsa_utilities/AuthorizationWalkers.h>
 #include <securityd_client/ssclient.h>
@@ -71,7 +70,6 @@ OSStatus AuthorizationCreate(const AuthorizationRights *rights,
 	AuthorizationFlags flags,
 	AuthorizationRef *authorization)
 {
-    Debug::trace(kSecTraceAuthorizationCreateStart);
 	BEGIN_API
 	AuthorizationBlob result;
 	server().authCreate(rights, environment, flags, result);
@@ -85,7 +83,6 @@ OSStatus AuthorizationCreate(const AuthorizationRights *rights,
 		// If no authorizationRef is desired free the one we just created.
 		server().authRelease(result, flags);
 	}
-	Debug::trace(kSecTraceAuthorizationCreateEnd);
 	END_API(CSSM)
 }
 
@@ -112,12 +109,10 @@ OSStatus AuthorizationCopyRights(AuthorizationRef authorization,
 	AuthorizationFlags flags,
 	AuthorizationRights **authorizedRights)
 {
-    Debug::trace(kSecTraceAuthorizationCopyRightsStart);
 	BEGIN_API
 	AuthorizationBlob *auth = (AuthorizationBlob *)authorization;
 	server().authCopyRights(Required(auth, errAuthorizationInvalidRef),
 		rights, environment, flags, authorizedRights);
-	Debug::trace(kSecTraceAuthorizationCopyRightsEnd);
 	END_API(CSSM)
 }
 
@@ -129,12 +124,10 @@ OSStatus AuthorizationCopyInfo(AuthorizationRef authorization,
 	AuthorizationString tag,
 	AuthorizationItemSet **info)
 {
-    Debug::trace(kSecTraceAuthorizationCopyInfoStart);
 	BEGIN_API
 	AuthorizationBlob *auth = (AuthorizationBlob *)authorization;
 	server().authCopyInfo(Required(auth, errAuthorizationInvalidRef),
 		tag, Required(info));
-	Debug::trace(kSecTraceAuthorizationCopyInfoEnd);
 	END_API(CSSM)
 }
 
@@ -424,7 +417,7 @@ OSStatus AuthorizationRightSet(AuthorizationRef authRef,
 				if (!locURL)
 					continue;
 				
-				CFDataRef tableData;
+				CFDataRef tableData = NULL;
 				SInt32 errCode;
 				CFStringRef errStr;
 				CFPropertyListRef stringTable;
@@ -433,7 +426,9 @@ OSStatus AuthorizationRightSet(AuthorizationRef authRef,
 				
 				if (errCode)
 				{
-					CFRelease(tableData);
+					if (NULL != tableData) {
+						CFRelease(tableData);
+					}
 					continue;
 				}
 		

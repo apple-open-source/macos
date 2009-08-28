@@ -29,6 +29,7 @@
 
 #include "macosx-nat-inferior.h"
 #include "macosx-nat-cfmthread.h"
+#include "macosx-nat-cfm.h"
 
 static CORE_ADDR
 lookup_address (const char *s)

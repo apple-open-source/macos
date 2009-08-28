@@ -40,6 +40,8 @@
 #include <err.h>
 #include <sys/stat.h>
 #include <sys/mount.h>
+#include <sys/types.h>
+#include <sys/sysctl.h>
 
 #include "enums.h"
 #include "structs.h"

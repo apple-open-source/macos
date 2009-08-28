@@ -47,16 +47,17 @@ void SimpleFontData::platformInit()
     m_scriptCache = 0;
     m_scriptFontProperties = 0;
     m_isSystemFont = false;
-    m_syntheticBoldOffset = 0;
 
-    if (m_font.useGDI())
+    m_syntheticBoldOffset = m_platformData.syntheticBold() ? 1.0f : 0.f;
+
+    if (m_platformData.useGDI())
        return initGDIFont();
 
     HDC hdc = GetDC(0);
     SaveDC(hdc);
 
-    cairo_scaled_font_t* scaledFont = m_font.scaledFont();
-    const double metricsMultiplier = cairo_win32_scaled_font_get_metrics_factor(scaledFont) * m_font.size();
+    cairo_scaled_font_t* scaledFont = m_platformData.scaledFont();
+    const double metricsMultiplier = cairo_win32_scaled_font_get_metrics_factor(scaledFont) * m_platformData.size();
 
     cairo_win32_scaled_font_select_font(scaledFont, hdc);
 
@@ -95,25 +96,15 @@ void SimpleFontData::platformCharWidthInit()
     // charwidths are set in platformInit.
 }
 
-void SimpleFontData::platformDestroy()
-{
-    cairo_font_face_destroy(m_font.fontFace());
-    cairo_scaled_font_destroy(m_font.scaledFont());
-
-    DeleteObject(m_font.hfont());
-
-    platformCommonDestroy();
-}
-
 float SimpleFontData::platformWidthForGlyph(Glyph glyph) const
 {
-    if (m_font.useGDI())
+    if (m_platformData.useGDI())
        return widthForGDIGlyph(glyph);
 
     HDC hdc = GetDC(0);
     SaveDC(hdc);
 
-    cairo_scaled_font_t* scaledFont = m_font.scaledFont();
+    cairo_scaled_font_t* scaledFont = m_platformData.scaledFont();
     cairo_win32_scaled_font_select_font(scaledFont, hdc);
 
     int width;
@@ -124,14 +115,14 @@ float SimpleFontData::platformWidthForGlyph(Glyph glyph) const
     RestoreDC(hdc, -1);
     ReleaseDC(0, hdc);
 
-    const double metricsMultiplier = cairo_win32_scaled_font_get_metrics_factor(scaledFont) * m_font.size();
+    const double metricsMultiplier = cairo_win32_scaled_font_get_metrics_factor(scaledFont) * m_platformData.size();
     return width * metricsMultiplier;
 }
 
 void SimpleFontData::setFont(cairo_t* cr) const
 {
     ASSERT(cr);
-    m_font.setFont(cr);
+    m_platformData.setFont(cr);
 }
 
 }

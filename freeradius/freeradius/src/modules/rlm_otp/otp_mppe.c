@@ -1,5 +1,5 @@
 /*
- * $Id: otp_mppe.c,v 1.1.2.3 2006/10/24 05:15:46 fcusack Exp $
+ * $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -19,14 +19,14 @@
  * Copyright 2005,2006 TRI-D Systems, Inc.
  */
 
-#include "ident.h"
-RCSID("$Id: otp_mppe.c,v 1.1.2.3 2006/10/24 05:15:46 fcusack Exp $")
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
 /* avoid inclusion of these FR headers which conflict w/ OpenSSL */
-#define _LRAD_MD4_H
-#define _LRAD_SHA1_H
+#define _FR_MD4_H
+#define _FR_SHA1_H
 
-#include <rad_assert.h>
+#include <freeradius-devel/rad_assert.h>
 
 #include "extern.h"
 #include "otp.h"
@@ -178,7 +178,7 @@ otp_mppe(REQUEST *request, otp_pwe_t pwe, const otp_option_t *opt,
       /*                    0x  (ID) ( ASCII("S="ASCII(auth_md))) */
       char auth_octet_string[2 + 2 + (2 * sizeof(auth_md_string))];
 
-      char *username = request->username->strvalue;
+      char *username = request->username->vp_strvalue;
       int username_len = request->username->length;
 
       /* "Magic server to client signing constant" */
@@ -215,14 +215,14 @@ otp_mppe(REQUEST *request, otp_pwe_t pwe, const otp_option_t *opt,
       /* MD1 */
       SHA1_Init(&ctx);
       SHA1_Update(&ctx, password_md_md, MD4_DIGEST_LENGTH);
-      SHA1_Update(&ctx, rvp->strvalue + 26, 24);
+      SHA1_Update(&ctx, rvp->vp_strvalue + 26, 24);
       SHA1_Update(&ctx, magic1, sizeof(magic1));
       SHA1_Final(md1, &ctx);
 
       /* MD2 */
       SHA1_Init(&ctx);
-      SHA1_Update(&ctx, rvp->strvalue + 2, 16);
-      SHA1_Update(&ctx, cvp->strvalue, 16);
+      SHA1_Update(&ctx, rvp->vp_strvalue + 2, 16);
+      SHA1_Update(&ctx, cvp->vp_strvalue, 16);
       SHA1_Update(&ctx, username, username_len);
       SHA1_Final(md2, &ctx);
 
@@ -242,7 +242,7 @@ otp_mppe(REQUEST *request, otp_pwe_t pwe, const otp_option_t *opt,
       /* And then octet conversion.  Ugh! */
       auth_octet_string[0] = '0';
       auth_octet_string[1] = 'x';
-      (void) sprintf(&auth_octet_string[2], "%02X", rvp->strvalue[0]);
+      (void) sprintf(&auth_octet_string[2], "%02X", rvp->vp_strvalue[0]);
       for (i = 0; i < sizeof(auth_md_string) - 1; ++i)
         (void) sprintf(&auth_octet_string[i * 2 +4], "%02X", auth_md_string[i]);
 
@@ -357,7 +357,7 @@ otp_mppe(REQUEST *request, otp_pwe_t pwe, const otp_option_t *opt,
       /* Generate the master session key. */
       SHA1_Init(&ctx);
       SHA1_Update(&ctx, password_md_md, MD4_DIGEST_LENGTH);
-      SHA1_Update(&ctx, rvp->strvalue + 26, 24);
+      SHA1_Update(&ctx, rvp->vp_strvalue + 26, 24);
       SHA1_Update(&ctx, Magic1, sizeof(Magic1));
       SHA1_Final(sha_md, &ctx);
       (void) memcpy(MasterKey, sha_md, 16);

@@ -2,7 +2,7 @@
 /* Test that alignment of __class_list sections, among others, are at their 'natural'
    alignment on x86. */
 /* { dg-do compile { target i?86-*-darwin* } } */
-/* { dg-skip-if "" { i?86-*-darwin* } { "-m64" } { "" } } */
+/* { dg-require-effective-target ilp32 } */
 /* { dg-options "-mmacosx-version-min=10.5 -fobjc-abi-version=2" } */
 
 @interface c1 @end

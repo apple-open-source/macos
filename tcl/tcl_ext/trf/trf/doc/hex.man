@@ -1,0 +1,21 @@
+[vset    encoding hex]
+[include encoding/header.inc]
+
+[para]
+
+This encoding transforms every byte in the input into a sequence of 2
+characters containing the hexadecimal representation of the byte.
+
+For example
+
+[para]
+[example {
+	% hex -mode encode Z
+	5A
+}]
+
+[include encoding/middle.inc]
+
+[keywords bin oct]
+[include encoding/footer.inc]
+

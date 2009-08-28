@@ -1,6 +1,6 @@
---- _SB/Libc/string/FreeBSD/memccpy.3	2003-05-20 15:23:54.000000000 -0700
-+++ _SB/Libc/string/FreeBSD/memccpy.3.edit	2006-06-28 16:55:53.000000000 -0700
-@@ -43,26 +43,31 @@
+--- memccpy.3.orig	2008-02-29 10:45:52.000000000 -0800
++++ memccpy.3	2008-02-29 12:03:32.000000000 -0800
+@@ -43,27 +43,35 @@
  .Sh SYNOPSIS
  .In string.h
  .Ft void *
@@ -36,5 +36,9 @@
 -.Fa len
 +.Fa n
  bytes are copied, and a NULL pointer is returned.
++.Pp
++The source and destination strings should not overlap, as the
++behavior is undefined.
  .Sh SEE ALSO
  .Xr bcopy 3 ,
+ .Xr memcpy 3 ,

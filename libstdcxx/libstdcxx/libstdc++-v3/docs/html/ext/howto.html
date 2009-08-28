@@ -358,6 +358,12 @@
         calculating an incorrect number of characters to write.
     </dd>
 
+    <dt><a href="lwg-defects.html#169">169</a>:
+        <em>Bad efficiency of overflow() mandated</em>
+    </dt>
+    <dd>Grow efficiently the internal array object.
+    </dd>
+
     <dt><a href="lwg-defects.html#171">171</a>:
         <em>Strange seekpos() semantics due to joint position</em>
     </dt>
@@ -381,7 +387,7 @@
         <em>operator&gt;&gt;(istream&amp;, string&amp;) doesn't set failbit</em>
     </dt>
     <dd>If nothing is extracted into the string, <code>op&gt;&gt;</code> now
-        sets <code>failbit</code> (which can cause an exception, etc, etc).
+        sets <code>failbit</code> (which can cause an exception, etc., etc.).
     </dd>
 
     <dt><a href="lwg-defects.html#214">214</a>:
@@ -399,11 +405,25 @@
         is specified in the conversion specification.
     </dd>
 
+    <dt><a href="lwg-active.html#233">233</a>:
+        <em>Insertion hints in associative containers</em>
+    </dt>
+    <dd>Implement N1780, first check before then check after, insert as close
+        to hint as possible.
+    </dd>
+
     <dt><a href="lwg-defects.html#235">235</a>:
         <em>No specification of default ctor for reverse_iterator</em>
     </dt>
     <dd>The declaration of <code>reverse_iterator</code> lists a default constructor.
         However, no specification is given what this constructor should do.
+    </dd>
+
+    <dt><a href="lwg-defects.html#241">241</a>:
+        <em>Does unique_copy() require CopyConstructible and Assignable?</em>
+    </dt>
+    <dd>Add an helper for forward_iterator/output_iterator, fix the existing
+        one for input_iterator/output_iterator not to rely on Assignability.
     </dd>
 
     <dt><a href="lwg-defects.html#243">243</a>:
@@ -451,6 +471,13 @@
         <em>Wrong type in num_get::get() overloads</em>
     </dt>
     <dd>Similar to 118.
+    </dd>
+
+    <dt><a href="lwg-defects.html#280">280</a>:
+        <em>Comparison of reverse_iterator to const reverse_iterator</em>
+    </dt>
+    <dd>Add global functions with two template parameters.
+        (NB: not added for now a templated assignment operator) 
     </dd>
 
     <dt><a href="lwg-defects.html#292">292</a>:
@@ -503,22 +530,74 @@
     <dd>Replace &quot;new&quot; with &quot;::new&quot;.
     </dd>
 
-    <dt><a href="lwg-active.html#409">409</a>:
+    <dt><a href="lwg-defects.html#409">409</a>:
         <em>Closing an fstream should clear the error state</em>
     </dt>
     <dd>Have <code>open</code> clear the error flags.
     </dd>
 
-    <dt><a href="lwg-active.html#434">434</a>:
+    <dt><a href="lwg-active.html#431">431</a>:
+        <em>Swapping containers with unequal allocators</em>
+    </dt>
+    <dd>Implement Option 3, as per N1599.
+    </dd>
+
+    <dt><a href="lwg-defects.html#432">432</a>:
+        <em>432. stringbuf::overflow() makes only one write position
+	    available</em>
+    </dt>
+    <dd>Implement the resolution, beyond DR 169.
+    </dd>
+
+    <dt><a href="lwg-defects.html#434">434</a>:
         <em>bitset::to_string() hard to use</em>
     </dt>
     <dd>Add three overloads, taking fewer template arguments.
     </dd>
 
-    <dt><a href="lwg-active.html#453">453</a>:
+    <dt><a href="lwg-defects.html#453">453</a>:
         <em>basic_stringbuf::seekoff need not always fail for an empty stream</em>
     </dt>
     <dd>Don't fail if the next pointer is null and newoff is zero.
+    </dd>
+
+    <dt><a href="lwg-defects.html#455">455</a>:
+        <em>cerr::tie() and wcerr::tie() are overspecified</em>
+    </dt>
+    <dd>Initialize cerr tied to cout and wcerr tied to wcout.
+    </dd>
+
+    <dt><a href="lwg-defects.html#464">464</a>:
+        <em>Suggestion for new member functions in standard containers</em>
+    </dt>
+    <dd>Add <code>data()</code> to <code>std::vector</code> and
+        <code>at(const key_type&amp;)</code> to <code>std::map</code>.
+    </dd>
+
+    <dt><a href="lwg-defects.html#508">508</a>:
+        <em>Bad parameters for ranlux64_base_01</em>
+    </dt>
+    <dd>Fix the parameters.
+    </dd>
+
+    <dt><a href="lwg-closed.html#512">512</a>:
+        <em>Seeding subtract_with_carry_01 from a single unsigned long</em>
+    </dt>
+    <dd>Construct a <code>linear_congruential</code> engine and seed with it.
+    </dd>
+
+    <dt><a href="lwg-defects.html#538">538</a>:
+        <em>241 again: Does unique_copy() require CopyConstructible
+	    and Assignable?</em>
+    </dt>
+    <dd>In case of input_iterator/output_iterator rely on Assignability of
+        input_iterator' value_type.
+    </dd>
+
+    <dt><a href="lwg-active.html#586">586</a>:
+        <em>string inserter not a formatted function</em>
+    </dt>
+    <dd>Change it to be a formatted output function (i.e. catch exceptions).
     </dd>
 <!--
     <dt><a href="lwg-defects.html#"></a>:

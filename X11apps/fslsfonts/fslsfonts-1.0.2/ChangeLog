@@ -1,0 +1,179 @@
+commit 449643fa6811de4539c498d43f3af777a0a7c037
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri May 23 16:31:20 2008 -0700
+
+    fslsfonts 1.0.2
+
+commit 8c3d918964ff5823ce9685be54e129dc5909cc69
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri May 23 16:26:29 2008 -0700
+
+    Fill in COPYING with copyright/license notices from sources
+
+commit 7b43c5804a406baacdeb88d4192ce0810994e8d8
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu May 22 19:46:17 2008 -0700
+
+    Clarify syntax of -server & FONTSERVER in man page
+
+commit 02e0bc6cebba093a382e0ab57ebe02e0c467b0d5
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Dec 6 16:36:58 2007 -0500
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit 04305c486e81c275b7b31a505395a8279a9e4867
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Aug 10 16:24:06 2007 -0700
+
+    renamed: .cvsignore -> .gitignore
+
+commit 907a6cd8e28a754b0ea574ffa7d13bfc39252647
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Aug 10 16:23:31 2007 -0700
+
+    Change fslsfonts_CFLAGS to AM_CFLAGS to make automake-1.10 happier
+
+commit d95896f7ec4c9f721e90e68e4adc9eeefeebe27e
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 21 02:29:42 2005 +0000
+
+    Update package version for X11R7 release.
+
+commit 3900748043ff4b6c179d29bab627950df51da9ba
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon Dec 19 16:22:40 2005 +0000
+
+    Stub COPYING files
+
+commit 76e8606615fabc7d59d784cc3bc51aa5bcaff51e
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:02 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit dbe7f917a70438e76f4b51222615dd55cde55aa1
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Dec 6 22:48:16 2005 +0000
+
+    Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+commit fad46dca9871152094c7e936868752fcbc439fd6
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:15 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit 43f92f7d48025d32cf4afb13e551c69288785cea
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Nov 28 22:01:36 2005 +0000
+
+    Change *mandir targets to use new *_MAN_DIR variables set by xorg-macros.m4
+        update to fix bug #5167 (Linux prefers *.1x man pages in man1 subdir)
+
+commit 4470242281e691908a30e7ed2d5e0bb999c57b7f
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Mon Nov 21 10:34:55 2005 +0000
+
+    Another pass at .cvsignores for apps.
+
+commit 70c7a94df711bc4ff0995529b0592dcac9b2554b
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Sun Nov 20 22:08:48 2005 +0000
+
+    Add/improve .cvsignore files for apps.
+
+commit fd22b40b6ad75d65d6298f57db388e7e114ff0a1
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:47:48 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit 4e72c7c22a9cc85b677aae221647a6e9c97ca358
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Oct 17 23:56:19 2005 +0000
+
+    Use @APP_MAN_SUFFIX@ instead of $(APP_MAN_SUFFIX) in macro substitutions to
+        work better with BSD make
+
+commit e88396dbb6f9e4c918a01b31e97b7048c4f75cfc
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Oct 14 00:25:41 2005 +0000
+
+    Use sed to fill in variables in man page
+
+commit c884539ec3cf80d489a4907ab3abdcc32f81dc4f
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Aug 1 20:25:27 2005 +0000
+
+    Install man pages to section 1 instead of section m (Patch from Donnie
+        Berkholz)
+
+commit f24a7a29a50a871aec34900e2e65dc9f268eae53
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:28 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit e03e8dd59d692c551c89e5d3dce5ed6dfdbea63b
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Wed Jul 20 19:31:48 2005 +0000
+
+    Use a unique token for PKG_CHECK_MODULES. Otherwise, if you use a global
+        configure cache, you cache it, and the cached value is probably wrong.
+
+commit 492cae010ee83167c662df163f37dec2ef5b8b8b
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Wed Jul 6 16:17:30 2005 +0000
+
+    Build system for fslsfonts
+
+commit 27fb0a16c0dad6976a675a23b2df811310d8df68
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 19:54:32 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit 7122e2d65c98630c3ff79b6ce1f39ff77c1bdb1d
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:34:50 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit ed0b544968dfe8514ead28f566a945f0b2d2e7b9
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:12:50 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit e7f14cc37ca82396ca7116efcc9f48a687644ea0
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:36:15 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit d7b500a10f7d6574d065baf32bd5f5e8e27588e1
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:23:54 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit ab1d154e3006704f4a33b1d73b0435540299b9ba
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:57 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit 0f93bed073a9dbc1b436f26a5f55ffbedea4471f
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 15:54:52 2003 +0000
+
+    R6.6 is the Xorg base-line

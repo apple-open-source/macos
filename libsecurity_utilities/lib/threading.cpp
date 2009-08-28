@@ -50,28 +50,6 @@ ThreadStoreSlot::~ThreadStoreSlot()
 
 
 //
-// Common locking primitive handling
-//
-bool LockingPrimitive::debugHasInitialized;
-bool LockingPrimitive::loggingMutexi;
-
-inline void LockingPrimitive::init(bool log)
-{
-#if !defined(THREAD_NDEBUG)
-	// this debug-setup code isn't interlocked, but it's idempotent
-	// (don't worry, be happy)
-	if (!debugHasInitialized) {
-		loggingMutexi = Debug::debugging("mutex") || Debug::debugging("mutex-c");
-		debugHasInitialized = true;
-	}
-	debugLog = log && loggingMutexi;
-#else
-    debugLog = false;
-#endif //THREAD_NDEBUG
-}
-
-
-//
 // Mutex implementation
 //
 struct MutexAttributes {
@@ -92,17 +70,13 @@ struct MutexAttributes {
 static ModuleNexus<MutexAttributes> mutexAttrs;
 
 
-Mutex::Mutex(bool log)
+Mutex::Mutex()
 {
-	init(log);
-	mUseCount = mContentionCount = 0;
 	check(pthread_mutex_init(&me, NULL));
 }
 
-Mutex::Mutex(Type type, bool log)
+Mutex::Mutex(Type type)
 {
-	init(log);
-	mUseCount = mContentionCount = 0;
 	switch (type) {
 	case normal:
 		check(pthread_mutex_init(&me, IFELSEDEBUG(&mutexAttrs().checking, NULL)));
@@ -116,76 +90,30 @@ Mutex::Mutex(Type type, bool log)
 
 Mutex::~Mutex()
 {
-#if !defined(THREAD_NDEBUG)
-	if (debugLog) {
-		if (mContentionCount > 0)
-			secdebug("mutex-c", "%p destroyed after %ld/%ld locks/contentions",
-					 this, mUseCount, mContentionCount);
-		else if (mUseCount > 100)
-			secdebug("mutex", "%p destroyed after %ld locks", this, mUseCount);
-	}
-#endif //THREAD_NDEBUG
 	check(pthread_mutex_destroy(&me));
 }
 
 
 void Mutex::lock()
 {
-#if !defined(THREAD_NDEBUG)
-	mUseCount++;
-	if (debugLog) {
-		switch (int err = pthread_mutex_trylock(&me)) {
-		case 0:
-			break;
-		case EBUSY:
-			if (debugLog)
-				secdebug("mutex-c", "%p contended (%ld of %ld)", this, ++mContentionCount, mUseCount);
-			check(pthread_mutex_lock(&me));
-			break;
-		default:
-			UnixError::throwMe(err);
-		}
-		if (mUseCount % 100 == 0)
-			secdebug("mutex", "%p locked %ld", this, mUseCount);
-		else
-			secdebug("mutex", "%p locked", this);
-        return;
-    }
-#endif //THREAD_NDEBUG
 	check(pthread_mutex_lock(&me));
 }
 
 
 bool Mutex::tryLock()
 {
-	mUseCount++;
 	if (int err = pthread_mutex_trylock(&me)) {
 		if (err != EBUSY)
 			UnixError::throwMe(err);
-#if !defined(THREAD_NDEBUG)
-		if (debugLog)
-			secdebug("mutex-c", "%p trylock contended (%ld of %ld)",
-				this, ++mContentionCount, mUseCount);
-#endif //THREAD_NDEBUG
 		return false;
 	}
-#if !defined(THREAD_NDEBUG)
-	if (debugLog)
-		if (mUseCount % 100 == 0)
-			secdebug("mutex", "%p locked %ld", this, mUseCount);
-		else
-			secdebug("mutex", "%p locked", this);
-#endif //THREAD_NDEBUG
+
 	return true;
 }
 
 
 void Mutex::unlock()
 {
-#if !defined(MUTEX_NDEBUG)
-	if (debugLog)
-		secdebug("mutex", "%p unlocked", this);
-#endif //MUTEX_NDEBUG
 	check(pthread_mutex_unlock(&me));
 }
 
@@ -195,7 +123,6 @@ void Mutex::unlock()
 //
 Condition::Condition(Mutex &lock) : mutex(lock)
 {
-	init(true);
     check(pthread_cond_init(&me, NULL));
 }
 
@@ -227,7 +154,7 @@ void CountingMutex::enter()
 {
     lock();
     mCount++;
-    secdebug("mutex", "%p up to %d", this, mCount);
+    secdebug("cmutex", "%p up to %d", this, mCount);
     unlock();
 }
 
@@ -236,7 +163,7 @@ bool CountingMutex::tryEnter()
     if (!tryLock())
         return false;
     mCount++;
-    secdebug("mutex", "%p up to %d (was try)", this, mCount);
+    secdebug("cmutex", "%p up to %d (was try)", this, mCount);
     unlock();
     return true;
 }
@@ -246,14 +173,14 @@ void CountingMutex::exit()
     lock();
     assert(mCount > 0);
     mCount--;
-    secdebug("mutex", "%p down to %d", this, mCount);
+    secdebug("cmutex", "%p down to %d", this, mCount);
     unlock();
 }
 
 void CountingMutex::finishEnter()
 {
     mCount++;
-    secdebug("mutex", "%p finish up to %d", this, mCount);
+    secdebug("cmutex", "%p finish up to %d", this, mCount);
     unlock();
 }
 
@@ -261,7 +188,7 @@ void CountingMutex::finishExit()
 {
     assert(mCount > 0);
     mCount--; 
-    secdebug("mutex", "%p finish down to %d", this, mCount);
+    secdebug("cmutex", "%p finish down to %d", this, mCount);
     unlock();
 }
 
@@ -301,7 +228,7 @@ void Thread::run()
 void *Thread::runner(void *arg)
 {
     Thread *me = static_cast<Thread *>(arg);
-#if 0       // for WWDC 2007 seed
+#if 0       // for WWDC 2007 seed @@@ ??? still there? what Radar?
     if (int err = pthread_detach(me->self.mIdent))
         UnixError::throwMe(err);
 #endif

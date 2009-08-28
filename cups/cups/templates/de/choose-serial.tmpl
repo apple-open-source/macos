@@ -1,13 +1,16 @@
+<DIV CLASS="indent">
+
+<H2 CLASS="title">{op=modify-printer?{printer_name} &auml;ndern:Drucker hinzuf&uuml;gen}</H2>
+
 <FORM METHOD="POST" ACTION="/admin">
 <INPUT TYPE="HIDDEN" NAME="OP" VALUE="{op}">
-<INPUT TYPE="HIDDEN" NAME="PRINTER_NAME" VALUE="{printer_name}">
-<INPUT TYPE="HIDDEN" NAME="PRINTER_LOCATION" VALUE="{?printer_location}">
-<INPUT TYPE="HIDDEN" NAME="PRINTER_INFO" VALUE="{?printer_info}">
-<INPUT TYPE="HIDDEN" NAME="DEVICE_URI" VALUE="{device_uri}">
-
-<H2 CLASS="title">Serielle Anschlusseinstellungen f&uuml;r {printer_name}</H2>
+{printer_name?<INPUT TYPE="HIDDEN" NAME="printer_name" VALUE="{printer_name}">:}
 
 <TABLE>
+<TR>
+<TH CLASS="label">Verbindung:</TH>
+<TD><INPUT TYPE="HIDDEN" NAME="DEVICE_URI" VALUE="{device_uri}">{device_uri}</TD>
+</TR>
 <TR>
 <TH CLASS="label">Baud Rate:</TH>
 <TD><SELECT NAME="BAUDRATE">
@@ -17,9 +20,9 @@
 <TR>
 <TH CLASS="label">Parit&auml;t:</TH>
 <TD><SELECT NAME="PARITY">
-<OPTION VALUE="none" {?parity=none?SELECTED:}>None
-<OPTION VALUE="even" {?parity=even?SELECTED:}>Even
-<OPTION VALUE="odd" {?parity=odd?SELECTED:}>Odd
+<OPTION VALUE="none" {?parity=none?SELECTED:}>Keine
+<OPTION VALUE="even" {?parity=even?SELECTED:}>Gerade
+<OPTION VALUE="odd" {?parity=odd?SELECTED:}>Ungerade
 </SELECT></TD>
 </TR>
 <TR>
@@ -40,8 +43,9 @@
 </TR>
 <TR>
 <TD></TD>
-<TD><INPUT TYPE="IMAGE" SRC="/images/button-continue.gif" ALT="Fortsetzen"></TD>
+<TD><INPUT TYPE="SUBMIT" VALUE="Weiter"></TD>
 </TR>
 </TABLE>
 
 </FORM>
+</DIV>

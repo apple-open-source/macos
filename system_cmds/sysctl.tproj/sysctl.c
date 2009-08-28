@@ -493,6 +493,10 @@ old_parse(string, flags)
 			fprintf(stderr, "%s: type is unknown to this program\n",
 			    string);
 			return;
+		case ENOENT:
+			fprintf(stderr, "%s: no such MIB\n",
+			    string);
+			return;
 		default:
 			perror(string);
 			return;
@@ -567,11 +571,11 @@ old_parse(string, flags)
 		}
 		return;
 
+	case CTLTYPE_NODE:
 	case CTLTYPE_STRUCT:
 		return;
 
 	default:
-	case CTLTYPE_NODE:
 		fprintf(stderr, "%s: unknown type returned\n",
 		    string);
 		return;
@@ -663,8 +667,10 @@ findname(string, level, bufp, namelist)
 	if (bufp[0][strlen(*bufp)-1] == '.') 
 		bufp[0][strlen(*bufp)-1]='\0';
 	if (namelist->list == 0 || (name = strsep(bufp, ".")) == NULL) {
-		fprintf(stderr, "%s: incomplete specification\n", string);
-		invalid_name_used = 1;
+		if (!foundSome) {
+			fprintf(stderr, "%s: incomplete specification\n", string);
+			invalid_name_used = 1;
+		}
 		return (-1);
 	}
 	for (i = 0; i < namelist->size; i++)
@@ -672,9 +678,11 @@ findname(string, level, bufp, namelist)
 		    strcmp(name, namelist->list[i].ctl_name) == 0)
 			break;
 	if (i == namelist->size) {
-		fprintf(stderr, "%s level name %s in %s is invalid\n",
-		    level, name, string);
-		invalid_name_used = 1;
+		if (!foundSome) {
+			fprintf(stderr, "%s level name %s in %s is invalid\n",
+			    level, name, string);
+			invalid_name_used = 1;
+		}
 		return (-1);
 	}
 	return (i);
@@ -710,6 +718,8 @@ parse(char *string, int flags)
 	u_int kind;
 
 	bufp = buf;
+	if (snprintf(buf, BUFSIZ, "%s", string) >= BUFSIZ)
+                errx(1, "MIB too long");
 	snprintf(buf, BUFSIZ, "%s", string);
 	if ((cp = strchr(string, '=')) != NULL) {
 		if (!wflag)

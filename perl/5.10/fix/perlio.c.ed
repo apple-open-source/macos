@@ -1,0 +1,8 @@
+/Local variables:/-1i
+__private_extern__ void
+_zero_posn_(PerlIO *fp)
+{
+    PerlIOSelf(fp, PerlIOBuf)->posn = 0;
+}
+.
+w

@@ -1,7 +1,7 @@
 //
 //  rbbiscan.h
 //
-//  Copyright (C) 2002-2005, International Business Machines Corporation and others.
+//  Copyright (C) 2002-2008, International Business Machines Corporation and others.
 //  All Rights Reserved.
 //
 //  This file contains declarations for class RBBIRuleScanner
@@ -41,17 +41,15 @@ class   RBBISymbolTable;
 //                        encountered.
 //
 //--------------------------------------------------------------------------------
-static const int    kStackSize = 100;               // The size of the state stack for
-                                                    //   rules parsing.  Corresponds roughly
-                                                    //   to the depth of parentheses nesting
-                                                    //   that is allowed in the rules.
-
-enum EParseAction {dummy01, dummy02};               // Placeholder enum for the specifier for
-                                                    //   actions that are specified in the
-                                                    //   rule parsing state table.
 
 class RBBIRuleScanner : public UMemory {
 public:
+
+    enum {
+        kStackSize = 100            // The size of the state stack for
+    };                              //   rules parsing.  Corresponds roughly
+                                    //   to the depth of parentheses nesting
+                                    //   that is allowed in the rules.
 
     struct RBBIRuleChar {
         UChar32             fChar;
@@ -81,7 +79,7 @@ public:
     static UnicodeString stripRules(const UnicodeString &rules);
 private:
 
-    UBool       doParseActions(EParseAction a);
+    UBool       doParseActions(int32_t a);
     void        error(UErrorCode e);                   // error reporting convenience function.
     void        fixOpStack(RBBINode::OpPrecedence p);
                                                        //   a character.
@@ -139,7 +137,7 @@ private:
                                                      //   The key is the string used for creating
                                                      //   the set.
 
-    UnicodeSet                    *fRuleSets[10];    // Unicode Sets that are needed during
+    UnicodeSet                     fRuleSets[10];    // Unicode Sets that are needed during
                                                      //  the scanning of RBBI rules.  The
                                                      //  indicies for these are assigned by the
                                                      //  perl script that builds the state tables.

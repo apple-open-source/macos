@@ -1,34 +1,36 @@
 /* loader-dlopen.c --  dynamic linking with dlopen/dlsym
-   Copyright (C) 1998, 1999, 2000, 2004, 2006 Free Software Foundation, Inc.
-   Originally by Thomas Tanner <tanner@ffii.org>
+
+   Copyright (C) 1998, 1999, 2000, 2004, 2006,
+                 2007 Free Software Foundation, Inc.
+   Written by Thomas Tanner, 1998
 
    NOTE: The canonical source of this file is maintained with the
    GNU Libtool package.  Report bugs to bug-libtool@gnu.org.
 
-This library is free software; you can redistribute it and/or
+GNU Libltdl is free software; you can redistribute it and/or
 modify it under the terms of the GNU Lesser General Public
 License as published by the Free Software Foundation; either
 version 2 of the License, or (at your option) any later version.
 
 As a special exception to the GNU Lesser General Public License,
 if you distribute this file as part of a program or library that
-is built using GNU libtool, you may include it under the same
-distribution terms that you use for the rest of that program.
+is built using GNU Libtool, you may include this file under the
+same distribution terms that you use for the rest of that program.
 
-This library is distributed in the hope that it will be useful,
+GNU Libltdl is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-Lesser General Public License for more details.
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Lesser General Public License for more details.
 
 You should have received a copy of the GNU Lesser General Public
-License along with this library; if not, write to the Free Software
-Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301  USA
-
+License along with GNU Libltdl; see the file COPYING.LIB.  If not, a
+copy can be downloaded from  http://www.gnu.org/licenses/lgpl.html,
+or obtained by writing to the Free Software Foundation, Inc.,
+51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 */
 
-#include "lt_dlloader.h"
 #include "lt__private.h"
+#include "lt_dlloader.h"
 
 /* Use the preprocessor to rename non-static symbols to avoid namespace
    collisions when the loader code is statically linked into libltdl.
@@ -43,7 +45,8 @@ LT_END_C_DECLS
 
 /* Boilerplate code to set up the vtable for hooking this loader into
    libltdl's loader list:  */
-static lt_module vm_open  (lt_user_data loader_data, const char *filename);
+static lt_module vm_open  (lt_user_data loader_data, const char *filename,
+                           lt_dladvise advise);
 static int	 vm_close (lt_user_data loader_data, lt_module module);
 static void *	 vm_sym   (lt_user_data loader_data, lt_module module,
 			  const char *symbolname);
@@ -121,16 +124,18 @@ get_vtable (lt_user_data loader_data)
 #  define LT_LAZY_OR_NOW	0
 #endif /* !LT_LAZY_OR_NOW */
 
-/* Open MPI */
-#if !defined(LT_GLOBAL)
-#  if defined(RTLD_GLOBAL)
-#    define LT_GLOBAL	RTLD_GLOBAL
-#  else
-#    if defined(DL_GLOBAL)
-#      define LT_GLOBAL	DL_GLOBAL
-#    endif
-#  endif /* !RTLD_GLOBAL */
-#endif
+/* We only support local and global symbols from modules for loaders
+   that provide such a thing, otherwise the system default is used.  */
+#if !defined(RTLD_GLOBAL)
+#  if defined(DL_GLOBAL)
+#    define RTLD_GLOBAL		DL_GLOBAL
+#  endif
+#endif /* !RTLD_GLOBAL */
+#if !defined(RTLD_LOCAL)
+#  if defined(DL_LOCAL)
+#    define RTLD_LOCAL		DL_LOCAL
+#  endif
+#endif /* !RTLD_LOCAL */
 
 #if defined(HAVE_DLERROR)
 #  define DLERROR(arg)	dlerror ()
@@ -145,9 +150,35 @@ get_vtable (lt_user_data loader_data)
    loader.  Returns an opaque representation of the newly opened
    module for processing with this loader's other vtable functions.  */
 static lt_module
-vm_open (lt_user_data LT__UNUSED loader_data, const char *filename)
+vm_open (lt_user_data LT__UNUSED loader_data, const char *filename,
+         lt_dladvise advise)
 {
-  lt_module module = dlopen (filename, LT_GLOBAL | LT_LAZY_OR_NOW);
+  int		module_flags = LT_LAZY_OR_NOW;
+  lt_module	module;
+
+  if (advise)
+    {
+#ifdef RTLD_GLOBAL
+      /* If there is some means of asking for global symbol resolution,
+         do so.  */
+      if (((lt__advise *) advise)->is_symglobal)
+        module_flags |= RTLD_GLOBAL;
+#else
+      /* Otherwise, reset that bit so the caller can tell it wasn't
+         acted on.  */
+      ((lt__advise *) advise)->is_symglobal = 0;
+#endif
+
+/* And similarly for local only symbol resolution.  */
+#ifdef RTLD_LOCAL
+      if (((lt__advise *) advise)->is_symlocal)
+        module_flags |= RTLD_LOCAL;
+#else
+      ((lt__advise *) advise)->is_symlocal = 0;
+#endif
+    }
+
+  module = dlopen (filename, module_flags);
 
   if (!module)
     {

@@ -1,0 +1,18 @@
+README			Guess what?
+MANIFEST		This file
+MD5.pm			Digest::MD5 Perl Module
+hints/dec_osf.pl	Workaround for DEC compiler bug
+hints/irix_6.pl		Workaround for IRIX compiler bug
+hints/MacOS.pl		Workaround for Mac compiler bug
+MD5.xs			MD5 Perl 'XS' source file
+typemap			Supplementary typemap
+Makefile.PL		Perl Makefile builder
+rfc1321.txt		The MD5 Message-Digest Algorithm
+t/align.t		Try unaligned memory blocks
+t/badfile.t             Try addfile() on unopened file
+t/bits.t		Try add_bits method
+t/clone.t		Try clone() method.
+t/files.t		Check a few files.
+t/md5-aaa.t		Exercise padding code
+t/utf8.t		Try some Unicode strings
+Changes			Version history

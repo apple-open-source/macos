@@ -17,15 +17,15 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the
-   Free Software Foundation, 59 Temple Place - Suite 330, Boston,
-   MA 02111-1307, USA.  */
+   Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
+   MA 02110-1301, USA.  */
 
 #undef  TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (PowerPC E500 GNU/Linux)");
 
 /* Override rs6000.h and sysv4.h definition.  */
 #undef	TARGET_DEFAULT
-#define	TARGET_DEFAULT (MASK_POWERPC | MASK_NEW_MNEMONICS)
+#define	TARGET_DEFAULT (MASK_POWERPC | MASK_NEW_MNEMONICS | MASK_STRICT_ALIGN)
 
 #undef TARGET_SPE_ABI
 #undef TARGET_SPE
@@ -47,16 +47,16 @@
 #define SUBSUBTARGET_OVERRIDE_OPTIONS \
   if (rs6000_select[1].string == NULL) \
     rs6000_cpu = PROCESSOR_PPC8540; \
-  if (rs6000_abi_string == NULL || strstr (rs6000_abi_string, "spe") == NULL) \
+  if (!rs6000_explicit_options.abi) \
     rs6000_spe_abi = 1; \
-  if (rs6000_float_gprs_string == NULL) \
+  if (!rs6000_explicit_options.float_gprs) \
     rs6000_float_gprs = 1; \
   /* See note below.  */ \
-  /*if (rs6000_long_double_size_string == NULL)*/ \
+  /*if (!rs6000_explicit_options.long_double)*/ \
   /*  rs6000_long_double_type_size = 128;*/ \
-  if (rs6000_spe_string == NULL) \
+  if (!rs6000_explicit_options.spe) \
     rs6000_spe = 1; \
-  if (rs6000_isel_string == NULL) \
+  if (!rs6000_explicit_options.isel) \
     rs6000_isel = 1; \
   if (target_flags & MASK_64BIT) \
     error ("-m64 not supported in this configuration")

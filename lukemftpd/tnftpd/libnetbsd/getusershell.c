@@ -1,4 +1,4 @@
-/* $Id: getusershell.c,v 1.2 2003/12/15 12:18:43 lukem Exp $ */
+/* $NetBSD: getusershell.c,v 1.4 2008/09/21 16:35:25 lukem Exp $ */
 /* from	NetBSD: getusershell.c,v 1.12 1998/11/13 15:49:29 christos Exp */
 
 /*
@@ -100,7 +100,7 @@ initshells(void)
 		(void)fclose(fp);
 		return (okshells);
 	}
-	if ((cp = malloc((u_int)statb.st_size)) == NULL) {
+	if ((cp = malloc((unsigned int)statb.st_size)) == NULL) {
 		(void)fclose(fp);
 		return (okshells);
 	}

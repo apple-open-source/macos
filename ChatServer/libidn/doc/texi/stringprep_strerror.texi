@@ -1,3 +1,5 @@
+@subheading stringprep_strerror
+@anchor{stringprep_strerror}
 @deftypefun {const char *} {stringprep_strerror} (Stringprep_rc @var{rc})
 @var{rc}: a @code{Stringprep_rc} return code.
 

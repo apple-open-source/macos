@@ -28,7 +28,7 @@
  */
 /*
  * 03-Apr-2005
- * DRI: Rob Braun <bbraun@opendarwin.org>
+ * DRI: Rob Braun <bbraun@synack.net>
  */
 
 #include <stdlib.h>
@@ -48,6 +48,7 @@
 #include <getopt.h>
 #include <regex.h>
 #include <errno.h>
+#include <time.h>
 #include "xar.h"
 #include "config.h"
 
@@ -60,11 +61,16 @@ static char *SubdocName = NULL;
 static char *Toccksum = NULL;
 static char *Compression = NULL;
 static char *Rsize = NULL;
+static char *CompressionArg = NULL;
+static char *Chdir = NULL;
 
 static int Err = 0;
+static int List = 0;
 static int Verbose = 0;
 static int Coalesce = 0;
 static int LinkSame = 0;
+static int NoOverwrite = 0;
+static int SaveSuid = 0;
 
 struct lnode {
 	char *str;
@@ -76,13 +82,38 @@ struct lnode *Exclude = NULL;
 struct lnode *Exclude_Tail = NULL;
 struct lnode *NoCompress = NULL;
 struct lnode *NoCompress_Tail = NULL;
+struct lnode *PropInclude = NULL;
+struct lnode *PropInclude_Tail = NULL;
+struct lnode *PropExclude = NULL;
+struct lnode *PropExclude_Tail = NULL;
 
 static int32_t err_callback(int32_t sev, int32_t err, xar_errctx_t ctx, void *usrctx);
 
-static void print_file(xar_file_t f) {
-	if( Verbose ) {
+static void print_file(xar_t x, xar_file_t f) {
+	if( List && Verbose ) {
+		char *size = xar_get_size(x, f);
 		char *path = xar_get_path(f);
-		printf("%s\n", path);
+		char *type = xar_get_type(x, f);
+		char *mode = xar_get_mode(x, f);
+		char *user = xar_get_owner(x, f);
+		char *group = xar_get_group(x, f);
+		char *mtime = xar_get_mtime(x, f);
+		printf("%s %8s/%-8s %10s %s %s\n", mode, user, group, size, mtime, path);
+		free(size);
+		free(type);
+		free(path);
+		free(mode);
+		free(user);
+		free(group);
+		free(mtime);
+	} else if( List || Verbose ) {
+		char *path = xar_get_path(f);
+		
+		if (xar_path_issane(path) == 0) 
+			printf("Warning, archive contains invalid path: %s\n", path);
+		else 
+			printf("%s\n", path);
+			
 		free(path);
 	}
 }
@@ -95,11 +126,13 @@ static void add_subdoc(xar_t x) {
 	struct stat sb;
 
 	if( SubdocName == NULL ) SubdocName = "subdoc";
-	s = xar_subdoc_new(x, (const char *)SubdocName);
 
 	fd = open(Subdoc, O_RDONLY);
-	if( fd < 0 )
+	if( fd < 0 ) {
+		fprintf(stderr, "ERROR: subdoc file %s doesn't exist.  Ignoring.\n", Subdoc);
 		return;
+	}
+	s = xar_subdoc_new(x, (const char *)SubdocName);
 	fstat(fd, &sb);
 	len = sb.st_size;
 	buf = malloc(len+1);
@@ -157,6 +190,9 @@ static int archive(const char *filename, int arglen, char *args[]) {
 	if( Compression )
 		xar_opt_set(x, XAR_OPT_COMPRESSION, Compression);
 
+	if( CompressionArg )
+		xar_opt_set(x, XAR_OPT_COMPRESSIONARG, CompressionArg);
+
 	if( Coalesce )
 		xar_opt_set(x, XAR_OPT_COALESCE, "true");
 
@@ -167,6 +203,13 @@ static int archive(const char *filename, int arglen, char *args[]) {
 		xar_opt_set(x, XAR_OPT_RSIZE, Rsize);
 
 	xar_register_errhandler(x, err_callback, NULL);
+
+	for( i = PropInclude; i; i=i->next ) {
+		xar_opt_set(x, XAR_OPT_PROPINCLUDE, i->str);
+	}
+	for( i = PropExclude; i; i=i->next ) {
+		xar_opt_set(x, XAR_OPT_PROPEXCLUDE, i->str);
+	}
 
 	if( Subdoc )
 		add_subdoc(x);
@@ -225,7 +268,7 @@ static int archive(const char *filename, int arglen, char *args[]) {
 		if( !f ) {
 			fprintf(stderr, "Error adding file %s\n", ent->fts_path);
 		} else {
-			print_file(f);
+			print_file(x, f);
 		}
 		if( !nocompress_match )
 			xar_opt_set(x, XAR_OPT_COMPRESSION, default_compression);
@@ -261,11 +304,64 @@ static int extract(const char *filename, int arglen, char *args[]) {
 	xar_iter_t i;
 	xar_file_t f;
 	int files_extracted = 0;
+	int argi;
+	struct lnode *extract_files = NULL;
+	struct lnode *extract_tail = NULL;
+	struct lnode *lnodei = NULL;
+	struct lnode *dirs = NULL;
+
+	for(argi = 0; args[argi]; argi++) {
+		struct lnode *tmp;
+		int err;
+		tmp = malloc(sizeof(struct lnode));
+		tmp->str = strdup(args[argi]);
+		tmp->next = NULL;
+		err = regcomp(&tmp->reg, tmp->str, REG_NOSUB);
+		if( err ) {
+			char errstr[1024];
+			regerror(err, &tmp->reg, errstr, sizeof(errstr));
+			printf("Error with regular expression %s: %s\n", tmp->str, errstr);
+			exit(1);
+		}
+		if( extract_files == NULL ) {
+			extract_files = tmp;
+			extract_tail = tmp;
+		} else {
+			extract_tail->next = tmp;
+			extract_tail = tmp;
+		}
+		
+		/* Add a clause for recursive extraction */
+		tmp = malloc(sizeof(struct lnode));
+		asprintf(&tmp->str, "%s/.*", args[argi]);
+		tmp->next = NULL;
+		err = regcomp(&tmp->reg, tmp->str, REG_NOSUB);
+		if( err ) {
+			char errstr[1024];
+			regerror(err, &tmp->reg, errstr, sizeof(errstr));
+			printf("Error with regular expression %s: %s\n", tmp->str, errstr);
+			exit(1);
+		}
+		if( extract_files == NULL ) {
+			extract_files = tmp;
+			extract_tail = tmp;
+		} else {
+			extract_tail->next = tmp;
+			extract_tail = tmp;
+		}
+	}
 
 	x = xar_open(filename, READ);
 	if( !x ) {
 		fprintf(stderr, "Error opening xar archive: %s\n", filename);
 		exit(1);
+	}
+
+	if(Chdir) {
+		if( chdir(Chdir) != 0 ) {
+			fprintf(stderr, "Unable to chdir to %s\n", Chdir);
+			exit(1);
+		}
 	}
 
 	xar_register_errhandler(x, err_callback, NULL);
@@ -278,6 +374,9 @@ static int extract(const char *filename, int arglen, char *args[]) {
 	}
 	if ( Rsize != NULL ) {
 		xar_opt_set(x, XAR_OPT_RSIZE, Rsize);
+	}
+	if( SaveSuid ) {
+		xar_opt_set(x, XAR_OPT_SAVESUID, XAR_OPT_VAL_TRUE);
 	}
 	
 	i = xar_iter_new();
@@ -294,9 +393,11 @@ static int extract(const char *filename, int arglen, char *args[]) {
 		char *path = xar_get_path(f);
 
 		if( args[0] ) {
-			int i;
-			for(i = 0; args[i]; i++) {
-				if( strcmp(path, args[i]) == 0 ) {
+			for(i = extract_files; i != NULL; i = i->next) {
+				int extract_match = 1;
+
+				extract_match = regexec(&i->reg, path, 0, NULL, 0);
+				if( !extract_match ) {
 					matched = 1;
 					break;
 				}
@@ -317,12 +418,42 @@ static int extract(const char *filename, int arglen, char *args[]) {
 			continue;
 		}
 		
+		if (!xar_path_issane(path)) {
+			if (Verbose)
+				printf("Warning, not extracting file \"%s\" because it's path is invalid.\n", path);
+			free(path);
+			continue;
+		}
+		
 		if( matched ) {
-			files_extracted++;
-			print_file(f);
-			xar_extract(x, f);
+			struct stat sb;
+			if( NoOverwrite && (lstat(path, &sb) == 0) ) {
+				printf("%s already exists, not overwriting\n", path);
+			} else {
+				const char *prop = NULL;
+				int deferred = 0;
+				if( xar_prop_get(f, "type", &prop) == 0 ) {
+					if( strcmp(prop, "directory") == 0 ) {
+						struct lnode *tmpl = calloc(sizeof(struct lnode),1);
+						tmpl->str = (char *)f;
+						tmpl->next = dirs;
+						dirs = tmpl;
+						deferred = 1;
+					}
+				}
+				if( ! deferred ) {
+					files_extracted++;
+					print_file(x, f);
+					xar_extract(x, f);
+				}
+			}
 		}
 		free(path);
+	}
+	for(lnodei = dirs; lnodei; lnodei = lnodei->next) {
+		files_extracted++;
+		print_file(x,(xar_file_t)lnodei->str);
+		xar_extract(x, (xar_file_t)lnodei->str);
 	}
 	if( args[0] && (files_extracted == 0) ) {
 		fprintf(stderr, "No files matched extraction criteria.\n");
@@ -337,6 +468,15 @@ static int extract(const char *filename, int arglen, char *args[]) {
 		fprintf(stderr, "Error extracting the archive\n");
 		if( !Err )
 			Err = 42;
+	}
+
+	for(lnodei = extract_files; lnodei != NULL; ) {
+		struct lnode *tmp;
+		free(lnodei->str);
+		regfree(&lnodei->reg);
+		tmp = lnodei;
+		lnodei = lnodei->next;
+		free(tmp);
 	}
 	return Err;
 }
@@ -363,6 +503,32 @@ static int list(const char *filename, int arglen, char *args[]) {
 	xar_t x;
 	xar_iter_t i;
 	xar_file_t f;
+	int argi = 0;
+	struct lnode *list_files = NULL;
+	struct lnode *list_tail = NULL;
+	struct lnode *lnodei = NULL;
+
+	for(argi = 0; args[argi]; argi++) {
+		struct lnode *tmp;
+		int err;
+		tmp = malloc(sizeof(struct lnode));
+		tmp->str = strdup(args[argi]);
+		tmp->next = NULL;
+		err = regcomp(&tmp->reg, tmp->str, REG_NOSUB);
+		if( err ) {
+			char errstr[1024];
+			regerror(err, &tmp->reg, errstr, sizeof(errstr));
+			printf("Error with regular expression %s: %s\n", tmp->str, errstr);
+			exit(1);
+		}
+		if( list_files == NULL ) {
+			list_files = tmp;
+			list_tail = tmp;
+		} else {
+			list_tail->next = tmp;
+			list_tail = tmp;
+		}
+	}
 
 	x = xar_open(filename, READ);
 	if( !x ) {
@@ -377,11 +543,46 @@ static int list(const char *filename, int arglen, char *args[]) {
 	}
 
 	for(f = xar_file_first(x, i); f; f = xar_file_next(i)) {
-		print_file(f);
+		int matched = 0;
+
+		if( args[0] ) {
+			char *path = xar_get_path(f);
+			
+			if (xar_path_issane(path) == 0) {
+				fprintf(stderr, "Warning, archive contains invalid path: %s\n", path);
+				free(path);
+				continue;
+			}
+
+			for(lnodei = list_files; lnodei != NULL; lnodei = lnodei->next) {
+				int list_match = 1;
+
+				list_match = regexec(&lnodei->reg, path, 0, NULL, 0);
+				if( !list_match ) {
+					matched = 1;
+					break;
+				}
+			}
+			free(path);
+		} else {
+			matched = 1;
+		}
+
+		if( matched )
+			print_file(x, f);
 	}
 
 	xar_iter_free(i);
 	xar_close(x);
+
+	for(lnodei = list_files; lnodei != NULL; ) {
+		struct lnode *tmp;
+		free(lnodei->str);
+		regfree(&lnodei->reg);
+		tmp = lnodei;
+		lnodei = lnodei->next;
+		free(tmp);
+	}
 
 	return Err;
 }
@@ -444,9 +645,11 @@ static int dump_header(const char *filename) {
 
 static int32_t err_callback(int32_t sev, int32_t err, xar_errctx_t ctx, void *usrctx) {
 	xar_file_t f;
+	xar_t x;
 	const char *str;
 	int e;
 
+	x = xar_err_get_archive(ctx);
 	f = xar_err_get_file(ctx);
 	str = xar_err_get_string(ctx);
 	e = xar_err_get_errno(ctx);
@@ -460,7 +663,7 @@ static int32_t err_callback(int32_t sev, int32_t err, xar_errctx_t ctx, void *us
 		break;
 	case XAR_SEVERITY_NORMAL:
 		if( (err = XAR_ERR_ARCHIVE_CREATION) && f )
-    			print_file(f);
+    			print_file(x, f);
 		break;
 	case XAR_SEVERITY_NONFATAL:
 	case XAR_SEVERITY_FATAL:
@@ -495,6 +698,7 @@ static void usage(const char *prog) {
 	fprintf(stderr, "\t-t               Lists an archive\n");
 	fprintf(stderr, "\t-f <filename>    Specifies an archive to operate on [REQUIRED!]\n");
 	fprintf(stderr, "\t-v               Print filenames as they are archived\n");
+	fprintf(stderr, "\t-C <path>        On extract, chdir to this location\n");
 	fprintf(stderr, "\t-n name          Provides a name for a subdocument\n");
 	fprintf(stderr, "\t-s <filename>    On extract, specifies the file to extract\n");
 	fprintf(stderr, "\t                      subdocuments to.\n");
@@ -512,8 +716,13 @@ static void usage(const char *prog) {
 	fprintf(stderr, "\t                      specified file.\n");
 	fprintf(stderr, "\t--dump-header    Prints out the xar binary header information\n");
 	fprintf(stderr, "\t--compression    Specifies the compression type to use.\n");
-	fprintf(stderr, "\t                      Valid values: none, gzip, bzip2\n");
+	fprintf(stderr, "\t                      Valid values: none, gzip, bzip2, lzma\n");
 	fprintf(stderr, "\t                      Default: gzip\n");
+	fprintf(stderr, "\t-a               Synonym for \"--compression=lzma\"\n");
+	fprintf(stderr, "\t-j               Synonym for \"--compression=bzip2\"\n");
+	fprintf(stderr, "\t-z               Synonym for \"--compression=gzip\"\n");
+	fprintf(stderr, "\t--compression-args=arg Specifies arguments to be passed\n");
+	fprintf(stderr, "\t                       to the compression engine.\n");
 	fprintf(stderr, "\t--list-subdocs   List the subdocuments in the xml header\n");
 	fprintf(stderr, "\t--extract-subdoc=name Extracts the specified subdocument\n");
 	fprintf(stderr, "\t                      to a document in cwd named <name>.xml\n");
@@ -527,6 +736,13 @@ static void usage(const char *prog) {
 	fprintf(stderr, "\t--link-same      Hardlink identical files\n");
 	fprintf(stderr, "\t--no-compress    POSIX regular expression of files\n");
 	fprintf(stderr, "\t                      to archive, but not compress.\n");
+	fprintf(stderr, "\t--prop-include   File properties to include in archive\n");
+	fprintf(stderr, "\t--prop-exclude   File properties to exclude in archive\n");
+	fprintf(stderr, "\t--distribution   Only includes a subset of file properties\n");
+	fprintf(stderr, "\t                      appropriate for archive distribution\n");
+	fprintf(stderr, "\t--keep-existing  Do not overwrite existing files while extracting\n");
+	fprintf(stderr, "\t-k               Synonym for --keep-existing\n");
+	fprintf(stderr, "\t--keep-setuid    Preserve the suid/sgid bits when extracting\n");
 	fprintf(stderr, "\t--version        Print xar's version number\n");
 
 	return;
@@ -537,6 +753,7 @@ static void print_version() {
 }
 
 int main(int argc, char *argv[]) {
+	int ret;
 	char *filename = NULL;
 	char command = 0, c;
 	char **args;
@@ -561,6 +778,12 @@ int main(int argc, char *argv[]) {
 		{"coalesce-heap", 0, 0, 9},
 		{"link-same", 0, 0, 10},
 		{"no-compress", 1, 0, 11},
+		{"prop-include", 1, 0, 12},
+		{"prop-exclude", 1, 0, 13},
+		{"distribution", 0, 0, 14},
+		{"keep-existing", 0, 0, 15},
+		{"keep-setuid", 0, 0, 16},
+		{"compression-args", 1, 0, 17},
 		{ 0, 0, 0, 0}
 	};
 
@@ -569,7 +792,7 @@ int main(int argc, char *argv[]) {
 		exit(1);
 	}
 
-	while( (c = getopt_long(argc, argv, "xcvtf:hpPln:s:d:v", o, &loptind)) != -1 ) {
+	while( (c = getopt_long(argc, argv, "axcC:vtjzf:hpPln:s:d:vk", o, &loptind)) != -1 ) {
 		switch(c) {
 		case  1 : if( !optarg ) {
 		          	usage(argv[0]);
@@ -590,7 +813,8 @@ int main(int argc, char *argv[]) {
 		          }
 		          if( (strcmp(optarg, XAR_OPT_VAL_NONE) != 0) &&
 		              (strcmp(optarg, XAR_OPT_VAL_GZIP) != 0) &&
-		              (strcmp(optarg, XAR_OPT_VAL_BZIP) != 0) ) {
+		              (strcmp(optarg, XAR_OPT_VAL_BZIP) != 0) &&
+		              (strcmp(optarg, XAR_OPT_VAL_LZMA) != 0) ) {
 		          	usage(argv[0]);
 		          	exit(1);
 		          }
@@ -672,6 +896,64 @@ int main(int argc, char *argv[]) {
 				NoCompress_Tail = tmp;
 			}
 			break;
+		case 12 :
+			tmp = malloc(sizeof(struct lnode));
+			tmp->str = optarg;
+			tmp->next = NULL;
+			if( PropInclude == NULL ) {
+				PropInclude = tmp;
+				PropInclude_Tail = tmp;
+			} else {
+				PropInclude_Tail->next = tmp;
+				PropInclude_Tail = tmp;
+			}
+			break;
+		case 13 :
+			tmp = malloc(sizeof(struct lnode));
+			tmp->str = optarg;
+			tmp->next = NULL;
+			if( PropExclude == NULL ) {
+				PropExclude = tmp;
+				PropExclude_Tail = tmp;
+			} else {
+				PropExclude_Tail->next = tmp;
+				PropExclude_Tail = tmp;
+			}
+			break;
+		case 14 :
+		{
+			char *props[] = { "type", "data", "mode", "name" };
+			int i;
+			for( i = 0; i < 4; i++ ) {
+				tmp = malloc(sizeof(struct lnode));
+				tmp->str = strdup(props[i]);
+				tmp->next = NULL;
+				if( PropInclude == NULL ) {
+					PropInclude = tmp;
+					PropInclude_Tail = tmp;
+				} else {
+					PropInclude_Tail->next = tmp;
+					PropInclude_Tail = tmp;
+				}
+			}
+		}
+			break;
+		case 'k':
+		case 15 :
+			NoOverwrite++;
+			break;
+		case 16 :
+			SaveSuid++;
+			break;
+		case 17 :
+			CompressionArg = optarg;
+			break;
+		case 'C': if( !optarg ) {
+		          	usage(argv[0]);
+		          	exit(1);
+		          }
+		          Chdir = optarg;
+		          break;
 		case 'c':
 		case 'x':
 		case 't':
@@ -681,8 +963,17 @@ int main(int argc, char *argv[]) {
 				exit(1);
 			}
 			if( c == 't' )
-				Verbose++;
+				List = 1;
 			command = c;
+			break;
+		case 'a':
+			Compression = "lzma";
+			break;
+		case 'j':
+			Compression = "bzip2";
+			break;
+		case 'z':
+			Compression = "gzip";
 			break;
 		case 'f':
 		        required_dash_f = 1;
@@ -754,10 +1045,12 @@ int main(int argc, char *argv[]) {
 			return extract(filename, arglen, args);
 		case 't':
 			arglen = argc - optind;
-			args = malloc(sizeof(char*) * (arglen+1));
+			args = calloc(sizeof(char*) * (arglen+1),1);
 			for( i = 0; i < arglen; i++ )
 				args[i] = strdup(argv[optind + i]);
-			return list(filename, arglen, args);
+			ret = list(filename, arglen, args);
+			for( i = 0; i < arglen; i++ )
+				free(args[i]);
 		case  6 :
 		case 's':
 			x = xar_open(filename, READ);

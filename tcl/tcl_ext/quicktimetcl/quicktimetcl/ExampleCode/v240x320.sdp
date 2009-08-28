@@ -1,0 +1,11 @@
+u=http://machine64/
+e=admin@machine64
+
+m=video 2656 RTP/AVP 96
+a=rtpmap:96 x-qt
+c=IN IP4 127.0.0.1/1/1
+
+
+
+
+

@@ -1,0 +1,13 @@
+# http://module-build.sourceforge.net/META-spec.html
+#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
+name:         XML-LibXML
+version:      1.65
+version_from: LibXML.pm
+installdirs:  site
+requires:
+    XML::LibXML::Common:           0.13
+    XML::NamespaceSupport:         1.07
+    XML::SAX:                      0.11
+
+distribution_type: module
+generated_by: ExtUtils::MakeMaker version 6.30

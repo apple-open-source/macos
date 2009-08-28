@@ -1,0 +1,199 @@
+Announcing XOTcl 1.2.0
+**********************
+
+WHAT IS XOTCL?
+
+  XOTcl is an object-oriented extension of Tcl that was derived from
+  OTcl. In short, XOTcl tries to provide a highly flexible,
+  reflective, component-based, and object-oriented environment. It
+  integrates language support for high level concepts which are not
+  found in other languages, with reasonable performance. It prevails
+  the Tcl programming style and the dynamic/introspective nature of
+  the language, rather than introducing other language's styles and
+  rigidness (such as C++) into Tcl.
+
+
+CHANGES relative to 1.1.1 are:
+
+  - Qualitative Improvements
+     * improved  performance (up to more than 30% faster)
+     * reduced dependency on Tcl internals (stack rewritings removed)
+     * less C-code (code reduction of about 500 lines c code)     
+     * defined macros to access Tcl's internal structures
+     Due to the speedup, an emulation of an itcl like language
+     in XOTcl can be faster than itcl itself (see below).
+
+  - Functional Improvements 
+     * new subcommands of self:
+       self callinglevel: returns the scope of the proc/instproc
+            calling the current method (ignoring filters and next)
+       self activelevel: returns the scope of the proc/instproc
+            preceding the current method (might be a next call, 
+            ignoring filters)
+       the returned level can be used in uplevel/upvar as first argument
+
+     * new methods upvar/uplevel
+       "my uplevel set x 1" is a short form of "uplevel [self callinglevel] set x 1"
+
+     * sub-objects can be called like methods (potential incompatibility)
+       If an object named o has a sub-object q (i.e. o::q) it is now
+       possible to invoke the sub-object via "o q ?method args?". This change
+       makes it possible to 
+
+       - to redefine tcl sub-commands via procs/instprocs by defining 
+         the command with subcommands as an object (instead of defining
+         a command as a proc and its subcommands via a large
+         and hard-to-refine switch statement)
+
+       - to use the same approach for defining subcommands of subcommands
+         (and so on) in the same way; it would be possible to define e.g. 
+         the xotcl info methods via an object),
+
+       - to use interceptors (filters/mixins) for some or all subcommands (maybe you 
+         are only interested in "file delete")
+
+       - to extend a tcl command on the fly by defining new subcommands
+         (by defining new procs/instprocs)
+
+       - to use the unknown mechanism to produce dynamic error messages
+         about valid subcommands (via introspection commands).
+
+       As a simple example, one define the a specialized version of Tcl's 
+       file-command (say ns::file) like the following:
+
+       namespace eval ns {
+         Object file 
+         file proc tail name {
+           set tail [file tail $name]
+           regexp {[^/\\]+$} $tail tail
+           return $tail
+         }
+         file proc unknown {subcmd args} {
+           return eval ::file $subcmd $args
+         }
+      }
+
+ For more details, please consult the ChangeLog    
+
+MORE INFO
+  General and more detailed information about XOTcl and its components
+  can be found at http://www.xotcl.org
+
+
+Best regards,
+
+Gustaf Neumann
+Uwe Zdun
+
+#=======================================================================
+# extract from the logfile of oobench (in oo-bench.tar.gz,
+# see http://media.wu-wien.ac.at/download.html)
+
+XOTcl
+  methcall:  0.470u 0.000s 0:00.41 114.6%       0+0k 0+0io 347pf+0w
+ITcl emulation in XOTcl
+  methcall:  0.590u 0.000s 0:00.62 95.1%        0+0k 0+0io 351pf+0w
+itcl
+  methcall:  0.870u 0.020s 0:00.92 96.7%        0+0k 0+0io 347pf+0w
+
+
+#=======================================================================
+package require XOTcl; namespace import -force xotcl::*
+
+###########################################################
+## Small example to emulate a itcl-like language in XOTcl
+##  -gustaf neumann            Jan. 2004
+###########################################################
+namespace eval itcl {
+  Class create class -superclass Class
+  class instproc instvars {} {
+    set vars [list]; set c [self]
+    for {} {[string compare ::xotcl::Object $c]} {set c [$c info superclass]} {
+      eval lappend vars [$c set __autovars]
+    }
+    return "\n\tmy instvar [lsort -unique $vars]"
+  }
+  class proc constructor {args} {
+    if {[llength $args]==2} {
+      foreach {arglist body} $args break
+    } else { 
+      foreach {arglist construct body} $args break
+      set body $construct\n$body
+    }
+    my parameter [list {this [self]}]
+    my proc constructor args {uplevel next $args}
+    my instproc init $arglist [my instvars]\n$body
+  }
+  class proc method {name arglist body} {
+    my proc $name args {uplevel next $args}
+    my instproc $name $arglist [my instvars]\n$body
+  }
+  class proc inherit {class} {
+    my superclass $class
+  }
+  class proc variable {arglist} {
+    foreach v $arglist {my lappend __autovars $v}
+  }
+  class instproc init {classdef} {
+    my set __autovars this
+    namespace eval [self class] $classdef
+    my class Class
+  }
+}
+
+###########################################################
+# Two Demo classes from oo-bench
+###########################################################
+itcl::class Toggle {
+  variable state
+  constructor {start_state} {
+    set state $start_state
+  }
+  method value {} {
+    return $state
+  }
+
+  method activate {} {
+    set state [expr {!$state}]
+    return $this
+  }
+}
+
+itcl::class NthToggle {
+  inherit Toggle
+  variable count_max
+  variable counter
+  constructor {start_state max_counter} {
+    Toggle::constructor $start_state
+  } {
+    set count_max $max_counter
+    set counter 0
+  }
+  method activate {} {
+    if {[incr counter] >= $count_max} {
+      Toggle::activate
+      set counter 0
+    }
+    return $this
+  }
+}
+
+
+proc main {} {
+  set n [lindex $::argv 0]
+  set val 1
+  set toggle [Toggle t1 $val]
+  for {set i 0} {$i < $n} {incr i} {
+    set val [[$toggle activate] value]
+  }
+  if {$val} {puts "true"} else {puts "false"}
+  
+  set val 1
+  set ntoggle [NthToggle t2 1 3]
+  for {set i 0} {$i < $n} {incr i} {
+    set val [[$ntoggle activate] value]
+  }
+  if {$val}  {puts "true"} else {puts "false"}
+}
+                                                                              
+main

@@ -57,6 +57,11 @@ set objfile2 "${testfile}b.o"
 set binfile  "${objdir}/${subdir}/${testfile}"
 set additional_flags "additional_flags=-gstabs+ -feliminate-unused-debug-symbols"
 
+if [target_info exists darwin64] {
+   verbose "This test file not applicable for x86-64, skipping."
+   return
+}
+
 if  { [gdb_compile "$srcdir/$subdir/$srcfile1" "$objdir/$subdir/$objfile1" object {debug c++}] != "" } {
      gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }

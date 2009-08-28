@@ -1,126 +1,107 @@
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <HTML>
 <HEAD>
 	<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=utf-8">
 	<TITLE>Home - CUPS @CUPS_VERSION@@CUPS_REVISION@</TITLE>
 	<LINK REL="STYLESHEET" TYPE="text/css" HREF="/cups.css">
-	<LINK REL="SHORTCUT ICON" HREF="/favicon.ico" TYPE="image/x-icon">
+	<LINK REL="SHORTCUT ICON" HREF="/images/cups-icon.png" TYPE="image/png">
 </HEAD>
 <BODY>
-<TABLE WIDTH="100%" STYLE="height: 100%;" BORDER="0" CELLSPACING="0" CELLPADDING="0" SUMMARY="Common UNIX Printing System @CUPS_VERSION@">
-<TR CLASS="header">
-<TD VALIGN="TOP" WIDTH="15" ROWSPAN="2"><IMG SRC="/images/top-left.gif" WIDTH="15" HEIGHT="80" ALT=""></TD>
-<TD VALIGN="TOP" WIDTH="55" ROWSPAN="2"><IMG SRC="/images/top-middle.gif" WIDTH="55" HEIGHT="80" ALT=""></TD>
-<TD WIDTH="100%" HEIGHT="60"><H1>Common UNIX Printing System @CUPS_VERSION@@CUPS_REVISION@</H1></TD>
-<TD ALIGN="RIGHT" VALIGN="TOP" WIDTH="15" ROWSPAN="2"><IMG
-SRC="/images/top-right.gif" WIDTH="15" HEIGHT="15" ALT=""></TD>
+<TABLE CLASS="page" SUMMARY="{title}">
+<TR><TD CLASS="body">
+<TABLE BORDER="0" CELLPADDING="0" CELLSPACING="0" SUMMARY="">
+<TR HEIGHT="36">
+<TD><A HREF="http://www.cups.org/" TARGET="_blank"><IMG
+SRC="/images/left.gif" WIDTH="64" HEIGHT="36" BORDER="0" ALT=""></A></TD>
+<TD CLASS="sel"><A HREF="/">&nbsp;&nbsp;Home&nbsp;&nbsp;</A></TD>
+<TD CLASS="unsel"><A HREF="/admin">&nbsp;&nbsp;Administration&nbsp;&nbsp;</A></TD>
+<TD CLASS="unsel"><A HREF="/classes/">&nbsp;&nbsp;Classes&nbsp;&nbsp;</A></TD>
+<TD CLASS="unsel"><A HREF="/help/">&nbsp;&nbsp;Online&nbsp;Help&nbsp;&nbsp;</A></TD>
+<TD CLASS="unsel"><A HREF="/jobs/">&nbsp;&nbsp;Jobs&nbsp;&nbsp;</A></TD>
+<TD CLASS="unsel"><A HREF="/printers/">&nbsp;&nbsp;Printers&nbsp;&nbsp;</A></TD>
+<TD CLASS="unsel" WIDTH="100%"><FORM ACTION="/help/" METHOD="GET"><INPUT
+TYPE="SEARCH" NAME="QUERY" SIZE="20" PLACEHOLDER="Search Help"
+AUTOSAVE="org.cups.help" RESULTS="20"></FORM></TD>
+<TD><IMG SRC="/images/right.gif" WIDTH="4" HEIGHT="36" ALT=""></TD>
 </TR>
-<TR CLASS="header"><TD WIDTH="100%" VALIGN="BOTTOM" NOWRAP>
+</TABLE>
 
-<A CLASS="sel" HREF="/"><IMG SRC="/images/tab-left.gif" WIDTH="4"
-HEIGHT="4" ALIGN="TOP" BORDER="0"
-ALT="">&nbsp;&nbsp;Home&nbsp;&nbsp;<IMG
-SRC="/images/tab-right.gif" WIDTH="4" HEIGHT="4" ALIGN="TOP"
-BORDER="0" ALT=""></A>
+<TABLE CLASS="indent" SUMMARY="">
+<TR><TD STYLE="padding-right: 20px;">
 
-&nbsp;<A CLASS="unsel" HREF="/admin/"><IMG SRC="/images/tab-left.gif" WIDTH="4"
-HEIGHT="4" ALIGN="TOP" BORDER="0"
-ALT="">&nbsp;&nbsp;Administration&nbsp;&nbsp;<IMG
-SRC="/images/tab-right.gif" WIDTH="4" HEIGHT="4" ALIGN="TOP"
-BORDER="0" ALT=""></A>
+<H1>CUPS @CUPS_VERSION@</H1>
 
-&nbsp;<A CLASS="unsel" HREF="/classes/"><IMG SRC="/images/tab-left.gif" WIDTH="4"
-HEIGHT="4" ALIGN="TOP" BORDER="0"
-ALT="">&nbsp;&nbsp;Classes&nbsp;&nbsp;<IMG
-SRC="/images/tab-right.gif" WIDTH="4" HEIGHT="4" ALIGN="TOP"
-BORDER="0" ALT=""></A>
+<P>CUPS is the standards-based, open source printing system developed by
+<A HREF="http://www.apple.com/">Apple Inc.</A> for Mac OS<SUP>&reg;</SUP> X and
+other UNIX<SUP>&reg;</SUP>-like operating systems.</P>
 
-&nbsp;<A CLASS="unsel" HREF="/help/"><IMG SRC="/images/tab-left.gif" WIDTH="4"
-HEIGHT="4" ALIGN="TOP" BORDER="0"
-ALT="">&nbsp;&nbsp;Documentation/Help&nbsp;&nbsp;<IMG
-SRC="/images/tab-right.gif" WIDTH="4" HEIGHT="4" ALIGN="TOP"
-BORDER="0" ALT=""></A>
+</TD>
+<TD><A HREF="http://www.cups.org/"><IMG SRC="images/cups-icon.png" WIDTH="128"
+HEIGHT="128" ALT="CUPS"></A></TD>
+</TR>
+</TABLE>
 
-&nbsp;<A CLASS="unsel" HREF="/jobs/"><IMG SRC="/images/tab-left.gif" WIDTH="4"
-HEIGHT="4" ALIGN="TOP" BORDER="0"
-ALT="">&nbsp;&nbsp;Jobs&nbsp;&nbsp;<IMG
-SRC="/images/tab-right.gif" WIDTH="4" HEIGHT="4" ALIGN="TOP"
-BORDER="0" ALT=""></A>
+<TABLE CLASS="indent" SUMMARY="">
+<TR><TD VALIGN="top" STYLE="border-right: dotted thin #cccccc; padding-right: 20px;">
 
-&nbsp;<A CLASS="unsel" HREF="/printers/"><IMG SRC="/images/tab-left.gif" WIDTH="4"
-HEIGHT="4" ALIGN="TOP" BORDER="0"
-ALT="">&nbsp;&nbsp;Printers&nbsp;&nbsp;<IMG
-SRC="/images/tab-right.gif" WIDTH="4" HEIGHT="4" ALIGN="TOP"
-BORDER="0" ALT=""></A>
+<H2>CUPS for Users</H2>
+
+<P><A HREF="help/overview.html">Overview of CUPS</A></P>
+
+<P><A HREF="help/options.html">Command-Line Printing and Options</A></P>
+
+<P><A HREF="help/whatsnew.html">What's New in CUPS 1.4</A></P>
+
+<P><A HREF="http://www.cups.org/newsgroups.php?gcups.general">User Forum</A></P>
+
+</TD><TD VALIGN="top" STYLE="border-right: dotted thin #cccccc; padding-left: 20px; padding-right: 20px;">
+
+<H2>CUPS for Administrators</H2>
+
+<P><A HREF="admin">Adding Printers and Classes</A></P>
+
+<P><A HREF="help/policies.html">Managing Operation Policies</A></P>
+
+<P><A HREF="help/accounting.html">Printer Accounting Basics</A></P>
+
+<P><A HREF="help/security.html">Server Security</A></P>
+
+<P><A HREF="help/kerberos.html">Using Kerberos Authentication</A></P>
+
+<P><A HREF="help/network.html">Using Network Printers</A></P>
+
+<P><A HREF="help/ref-cupsd-conf.html">cupsd.conf Reference</A></P>
+
+<P><A HREF="http://www.cups.org/ppd.php">Find Printer Drivers</A></P>
+
+</TD><TD VALIGN="top" STYLE="padding-left: 20px;">
+
+<H2>CUPS for Developers</H2>
+
+<P><A HREF="help/api-overview.html">Introduction to CUPS Programming</A></P>
+
+<P><A HREF="help/api-cups.html">CUPS API</A></P>
+
+<P><A HREF="help/api-filter.html">Filter and Backend Programming</A></P>
+
+<P><A HREF="help/api-httpipp.html">HTTP and IPP APIs</A></P>
+
+<P><A HREF="help/api-ppd.html">PPD API</A></P>
+
+<P><A HREF="help/api-raster.html">Raster API</A></P>
+
+<P><A HREF="help/ref-ppdcfile.html">PPD Compiler Driver Information File Reference</A></P>
+
+<P><A HREF="http://www.cups.org/newsgroups.php?gcups.development">Developer Forum</A></P>
 
 </TD></TR>
-<TR CLASS="page">
-<TD WIDTH="15">&nbsp;</TD>
-<TD COLSPAN="2" WIDTH="100%" VALIGN="TOP" CLASS="page">
+</TABLE>
 
-<H2 CLASS="title">Welcome!</H2>
-
-<P>These web pages allow you to monitor your printers and jobs as well
-as perform system administration tasks. Click on any of the tabs above
-or on the buttons below to perform a task.</P>
-
-<P>
-<A HREF="/help/"><IMG SRC="/images/button-help.gif" CLASS="button" ALT="Help"></A>
-<A HREF="/admin?OP=add-class"><IMG SRC="/images/button-add-class.gif" CLASS="button" ALT="Add Class"></A>
-<A HREF="/admin?OP=add-printer"><IMG SRC="/images/button-add-printer.gif" CLASS="button" ALT="Add Printer"></A>
-<A HREF="/classes"><IMG SRC="/images/button-manage-classes.gif" CLASS="button" ALT="Manage Classes"></A>
-<A HREF="/jobs"><IMG SRC="/images/button-manage-jobs.gif" CLASS="button" ALT="Manage Jobs"></A>
-<A HREF="/printers"><IMG SRC="/images/button-manage-printers.gif" CLASS="button" ALT="Manage Printers"></A>
-<A HREF="/admin"><IMG SRC="/images/button-manage-server.gif" CLASS="button" ALT="Manage Server"></A>
-</P>
-
-<P><I>If you are asked for a username and password, enter your login
-username and password or the "root" username and password.</I></P>
-
-<H2 CLASS="title">About CUPS</H2>
-
-<P>
-<IMG SRC="/images/happy.gif" ALIGN="LEFT" WIDTH="196" HEIGHT="144"
-STYLE="padding-right: 10px;" ALT="Happy Computer and Printer">
-
-CUPS provides a portable printing layer for
-UNIX<SUP>&reg;</SUP>-based operating systems. It is developed and
-maintained by <A HREF="http://www.apple.com">Apple Inc.</a> to promote a standard printing solution. CUPS is the
-standard printing system used on MacOS<SUP>&reg;</SUP> X and most
-Linux<SUP>&reg;</SUP> distributions.</P>
-
-<P>CUPS uses the <A HREF="http://www.pwg.org/ipp/"
-TARGET="_blank"> Internet Printing Protocol ("IPP")</A> as the
-basis for managing print jobs and queues and adds network
-printer browsing and PostScript Printer Description ("PPD")
-based printing options to support real-world printing.<BR CLEAR="ALL"></P>
-
-<H2 CLASS="title">For Printer Drivers and Assistance</H2>
-
-<P>Visit the official CUPS site for printer drivers and
-assistance:</P>
-
-<PRE>
-    <A HREF="http://www.cups.org/" TARGET="_blank">www.cups.org</A>
-</PRE>
-
-</TD>
-<TD WIDTH="15">&nbsp;</TD>
-</TR>
-<TR CLASS="header">
-<TD VALIGN="BOTTOM" WIDTH="15"><IMG SRC="/images/bottom-left.gif"
-WIDTH="15" HEIGHT="15" ALT=""></TD>
-<TD COLSPAN="2" WIDTH="100%" STYLE="padding: 5;">
-
-<P><SMALL>The Common UNIX Printing System, CUPS, and the CUPS logo are
-trademarks of <A HREF="http://www.apple.com">Apple Inc.</A> CUPS is
-copyright 2007-2008 Apple Inc. All rights reserved.</SMALL></P>
-
-</TD>
-
-<TD ALIGN="RIGHT" VALIGN="BOTTOM" WIDTH="15"><IMG SRC="/images/bottom-right.gif"
-WIDTH="15" HEIGHT="15" ALT=""></TD>
-</TR>
+</TD></TR>
+<TR><TD>&nbsp;</TD></TR>
+<TR><TD CLASS="trailer">CUPS and the CUPS logo are trademarks of
+<A HREF="http://www.apple.com">Apple Inc.</A> CUPS is copyright 2007-2009 Apple
+Inc. All rights reserved.</TD></TR>
 </TABLE>
 </BODY>
 </HTML>

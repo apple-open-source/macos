@@ -191,10 +191,6 @@ Interpret
 .I PATTERN
 as a list of fixed strings, separated by newlines,
 any of which is to be matched.
-.BR \-P ", " \-\^\-perl-regexp
-Interpret
-.I PATTERN
-as a Perl regular expression.
 .TP
 .BI \-f " FILE" "\fR,\fP \-\^\-file=" FILE
 Obtain patterns from
@@ -304,6 +300,11 @@ This is especially useful for tools like zgrep, e.g.
 .TP
 .BR \-\^\-line-buffered
 Turns on line buffering. However, this can be a performance penalty.
+.TP
+.BR \-P ", " \-\^\-perl-regexp
+Interpret
+.I PATTERN
+as a Perl regular expression.
 .TP
 .BR \-q ", " \-\^\-quiet ", " \-\^\-silent
 Quiet; do not write anything to standard output.

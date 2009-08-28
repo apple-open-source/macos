@@ -1,37 +1,24 @@
---- memset.3	2003-05-20 15:23:54.000000000 -0700
-+++ memset.3.edit	2006-06-28 16:55:53.000000000 -0700
-@@ -41,29 +41,34 @@
+--- memset.3.orig	2008-02-29 10:45:51.000000000 -0800
++++ memset.3	2008-02-29 10:59:18.000000000 -0800
+@@ -41,7 +41,7 @@
  .Os
  .Sh NAME
  .Nm memset
 -.Nd write a byte to byte string
-+.Nd write a byte to a byte string
++.Nd fill a byte string with a byte value
  .Sh LIBRARY
  .Lb libc
  .Sh SYNOPSIS
- .In string.h
- .Ft void *
--.Fn memset "void *b" "int c" "size_t len"
-+.Fo memset
-+.Fa "void *b"
-+.Fa "int c"
-+.Fa "size_t n"
-+.Fc
- .Sh DESCRIPTION
- The
- .Fn memset
- function
- writes
--.Fa len
-+.Fa n
+@@ -56,7 +56,7 @@
+ .Fa len
  bytes of value
  .Fa c
- (converted to an unsigned char) to the string
--.Fa b .
-+.Fa s .
+-(converted to an unsigned char) to the string
++(converted to an unsigned char) to the byte string
+ .Fa b .
  .Sh RETURN VALUES
  The
- .Fn memset
+@@ -64,6 +64,7 @@
  function returns its first argument.
  .Sh SEE ALSO
  .Xr bzero 3 ,

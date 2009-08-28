@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,8 +35,9 @@ enum {
     kSupplicantStateHeld = 5,
     kSupplicantStateLogoff = 6,
     kSupplicantStateInactive = 7,
+    kSupplicantStateNoAuthenticator = 8,
     kSupplicantStateFirst = kSupplicantStateDisconnected,
-    kSupplicantStateLast = kSupplicantStateInactive,
+    kSupplicantStateLast = kSupplicantStateNoAuthenticator
 };
 
 typedef uint32_t SupplicantState;
@@ -53,6 +54,7 @@ SupplicantStateString(SupplicantState state)
 	"Held",
 	"Logoff",
 	"Inactive",
+	"No Authenticator"
     };
 
     if (state >= kSupplicantStateFirst

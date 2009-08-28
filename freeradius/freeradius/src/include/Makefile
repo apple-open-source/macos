@@ -1,8 +1,11 @@
 #
 # Makefile
 #
-# Version:	$Id: Makefile,v 1.2.4.1 2006/08/16 21:43:18 nbk Exp $
+# Version:	$Id$
 #
+
+HEADERS	= hash.h libradius.h md4.h md5.h missing.h packet.h radius.h \
+		radpaths.h sha1.h token.h udpfromto.h vqp.h ident.h 
 
 include ../../Make.inc
 .PHONY: all clean distclean install
@@ -18,3 +21,9 @@ distclean:
 clean:
 
 install:
+	$(INSTALL) -d -m 755 $(R)$(includedir)/freeradius
+	for i in $(HEADERS); do \
+		sed 's/^#include <freeradius-devel/#include <freeradius/' $$i > .inst.$$$$ ; \
+		$(INSTALL) -m 644 .inst.$$$$   $(R)$(includedir)/freeradius/$$i; \
+		rm -f .inst.$$$$ ; \
+	done

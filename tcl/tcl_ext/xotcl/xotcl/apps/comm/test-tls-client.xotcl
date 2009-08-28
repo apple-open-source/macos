@@ -1,0 +1,86 @@
+#!../../src/xotclsh
+#
+# $Id: test-tls-client.xotcl,v 1.2 2006/02/18 22:17:32 neumann Exp $
+
+package require tls
+
+proc bgerror {err} {
+    global errorInfo
+    puts stderr "BG Error: $errorInfo"
+}
+
+array set opts {
+    -port 8443
+    -host localhost
+}
+array set opts $argv
+
+
+
+
+proc readCB {CHAN} {
+  #puts stderr "*** CALL: readCB $CHAN" 
+  if {![eof $CHAN]} {
+    set rData [gets $CHAN]
+    puts stderr "\nREADING ..."
+    puts stderr "------------------------------------------------------"
+    puts stderr <$rData>
+    puts stderr "------------------------------------------------------"
+    
+    #fileevent $CHAN writable [list writeCB $CHAN]
+  } else {
+    catch {close $CHAN}
+    puts stderr "\nSocket ($CHAN) is closed."
+    exit
+  }
+}
+proc writeCB  {CHAN} {
+  #puts stderr "*** CALL: writeCB $CHAN" 
+  #puts stderr "fileevent $CHAN writable {}"
+  fileevent $CHAN writable {}
+  set wData "GET / HTTP/1.1\r\nHost: localhost\r\nAccept: */*\r\n\r\n"
+  #set wData "GET\n"
+  puts -nonewline $CHAN $wData    
+  flush $CHAN
+  #puts stderr "\nfileevent $CHAN readable [list readCB $CHAN]"
+  fileevent $CHAN readable [list readCB $CHAN]
+}
+
+puts stderr "\n\n\n~~~~~~~~~~~~ Trying $opts(-host):$opts(-port)"
+#
+# Create socket 
+#
+set chan [socket   -async $opts(-host) $opts(-port)]
+
+tls::import $chan -command callback -cafile cacert.pem -certfile  client.pem  -server 0 -keyfile client.key -request 1 -require 1 
+
+puts stderr "setting channel to auto binary"
+fconfigure $chan -translation {auto binary}
+puts stderr "fileevent $chan writable [list writeCB $chan]"
+fileevent $chan writable [list writeCB $chan]
+
+
+Object callback
+callback proc error {chan msg} {
+  puts stderr "+++TLS/$chan: error: $msg"
+}
+callback proc verify {chan depth cert rc err} {
+  array set c $cert
+  if {$rc != "1"} {
+    puts stderr "+++TLS/$chan: verify/$depth: Bad Cert: $err (rc = $rc)"
+  } else {
+    puts stderr "+++TLS/$chan: verify/$depth: $c(subject)"
+  }
+  return $rc
+}
+callback proc info {chan state minor msg} {
+  puts stderr "+++TLS/$chan $state $minor: $msg"
+
+}
+callback proc unknown {option args} {
+  my showCall
+  return -code error "bad option \"$option\": must be one of error, info, or verify"
+}
+
+
+vwait forever

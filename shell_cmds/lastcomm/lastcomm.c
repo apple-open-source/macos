@@ -62,7 +62,9 @@ __RCSID("$NetBSD: lastcomm.c,v 1.14 1998/04/02 10:22:03 kleink Exp $");
 #include <time.h>
 #include <tzfile.h>
 #include <unistd.h>
-#include <utmp.h>
+/* definitions from utmp.h */
+#define UT_NAMESIZE     8
+#define UT_LINESIZE     8
 #include "pathnames.h"
 
 time_t	 expand __P((u_int));

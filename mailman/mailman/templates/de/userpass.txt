@@ -13,8 +13,8 @@ und besuchen die Seite:
 
 %(options_url)s
 
-Sie koennen allerdings auch Aenderunge via e-Mail machen, indem Sie eine
-e-Mail an die Adresse:
+Sie koennen allerdings auch Aenderunge via E-Mail machen, indem Sie eine
+E-Mail an die Adresse:
 
 %(requestaddr)s
 

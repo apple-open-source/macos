@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2006 Joe Orton <joe@manyfish.co.uk>    -*- autoconf -*-
+# Copyright (C) 1998-2008 Joe Orton <joe@manyfish.co.uk>    -*- autoconf -*-
 # Copyright (C) 2004 Aleix Conchillo Flaque <aleix@member.fsf.org>
 #
 # This file is free software; you may copy and/or distribute it with
@@ -14,7 +14,7 @@
 
 # This file is part of the neon HTTP/WebDAV client library.
 # See http://www.webdav.org/neon/ for the latest version. 
-# Please send any feedback to <neon@webdav.org>
+# Please send any feedback to <neon@lists.manyfish.co.uk>
 
 #
 # Usage:
@@ -136,21 +136,21 @@ AC_DEFUN([NE_VERSIONS_BUNDLED], [
 
 # Define the current versions.
 NE_VERSION_MAJOR=0
-NE_VERSION_MINOR=26
+NE_VERSION_MINOR=28
 NE_VERSION_PATCH=3
 NE_VERSION_TAG=
 
-# libtool library interface versioning.  Release policy dictates that
-# for neon 0.x.y, each x brings an incompatible interface change, and
-# each y brings no interface change, and since this policy has been
-# followed since 0.1, x == CURRENT, y == RELEASE, 0 == AGE.  For
-# 1.x.y, this will become N + x == CURRENT, y == RELEASE, x == AGE,
-# where N is constant (and equal to CURRENT + 1 from the final 0.x
-# release)
-NEON_INTERFACE_VERSION="${NE_VERSION_MINOR}:${NE_VERSION_PATCH}:0"
+# 0.28.x is backwards-compatible with 0.27.x, so AGE=1
+NE_LIBTOOL_VERSINFO="28:${NE_VERSION_PATCH}:1"
 
 NE_DEFINE_VERSIONS
 
+])
+
+dnl Adds an ABI variation tag which will be added to the SONAME of
+dnl a shared library.  e.g. NE_ADD_ABITAG(FOO)
+AC_DEFUN([NE_ADD_ABITAG], [
+: Disabled for 0.28 to retain 0.27 ABI
 ])
 
 dnl Define the minimum required versions, usage:
@@ -262,6 +262,13 @@ NEON_CHECK_VERSION([
     NEON_CHECK_SUPPORT([socks], [SOCKS], [SOCKSv5])
     NEON_CHECK_SUPPORT([ts_ssl], [TS_SSL], [thread-safe SSL])
     neon_got_library=yes
+    if test $NE_FLAG_LFS = yes; then
+       NEON_FORMAT(off64_t)
+       AC_DEFINE_UNQUOTED([NE_FMT_NE_OFF_T], [NE_FMT_OFF64_T], 
+            [Define to be printf format string for ne_off_t])
+    else
+       AC_DEFINE_UNQUOTED([NE_FMT_NE_OFF_T], [NE_FMT_OFF_T])
+    fi
 ], [neon_got_library=no])
 ])
 
@@ -494,7 +501,15 @@ else
          [LFS support omitted: 64-bit support functions not found])
      fi], [NE_DISABLE_SUPPORT(LFS, [LFS support omitted: off64_t type not found])])
    CPPFLAGS=$ne_save_CPPFLAGS
-fi])
+fi
+if test "$NE_FLAG_LFS" = "yes"; then
+   AC_DEFINE_UNQUOTED([NE_FMT_NE_OFF_T], [NE_FMT_OFF64_T], 
+                      [Define to be printf format string for ne_off_t])
+   NE_ADD_ABITAG(LFS)
+else
+   AC_DEFINE_UNQUOTED([NE_FMT_NE_OFF_T], [NE_FMT_OFF_T])
+fi
+])
 
 dnl NEON_FORMAT(TYPE[, HEADERS[, [SPECIFIER]])
 dnl
@@ -507,7 +522,8 @@ AC_DEFUN([NEON_FORMAT], [
 
 AC_REQUIRE([NEON_FORMAT_PREP])
 
-AC_CHECK_SIZEOF($1, [$2])
+AC_CHECK_SIZEOF($1,, [AC_INCLUDES_DEFAULT
+$2])
 
 dnl Work out which specifier character to use
 m4_ifdef([ne_spec], [m4_undefine([ne_spec])])
@@ -569,7 +585,7 @@ AC_REQUIRE([AC_FUNC_STRERROR_R])
 
 AC_CHECK_HEADERS([sys/time.h limits.h sys/select.h arpa/inet.h libintl.h \
 	signal.h sys/socket.h netinet/in.h netinet/tcp.h netdb.h sys/poll.h \
-	sys/limits.h],,,
+	sys/limits.h fcntl.h iconv.h],,,
 [AC_INCLUDES_DEFAULT
 /* netinet/tcp.h requires netinet/in.h on some platforms. */
 #ifdef HAVE_NETINET_IN_H
@@ -581,7 +597,7 @@ AC_REQUIRE([NE_SNPRINTF])
 AC_CACHE_CHECK([for timezone global], ne_cv_cc_timezone, [
 AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <sys/types.h>
 #include <time.h>]],
-[[time_t t = 0 - timezone;]])],
+[[time_t t = 0 - timezone; timezone = 1;]])],
 ne_cv_cc_timezone=yes, ne_cv_cc_timezone=no)])
 
 if test "$ne_cv_cc_timezone" = "yes"; then
@@ -593,7 +609,7 @@ NE_LARGEFILE
 
 AC_REPLACE_FUNCS(strcasecmp)
 
-AC_CHECK_FUNCS(signal setvbuf setsockopt stpcpy poll)
+AC_CHECK_FUNCS(signal setvbuf setsockopt stpcpy poll fcntl getsockopt)
 
 if test "x${ac_cv_func_poll}${ac_cv_header_sys_poll_h}y" = "xyesyesy"; then
   AC_DEFINE([NE_USE_POLL], 1, [Define if poll() should be used])
@@ -623,7 +639,7 @@ NE_SEARCH_LIBS(getaddrinfo, nsl,,
       AC_MSG_NOTICE([getaddrinfo support disabled on HP-UX 11.0x/11.1x]) ;;
    *)
      ne_enable_gai=yes
-     NE_CHECK_FUNCS(gai_strerror inet_ntop,,[ne_enable_gai=no; break]) ;;
+     NE_CHECK_FUNCS(gai_strerror getnameinfo inet_ntop,,[ne_enable_gai=no; break]) ;;
    esac
 ])
 
@@ -660,10 +676,22 @@ else
 ])
 fi
 
+AC_CHECK_TYPES(socklen_t,,
+# Linux accept(2) says this should be size_t for SunOS 5... gah.
+[AC_DEFINE([socklen_t], [int], 
+                        [Define if socklen_t is not available])],[
+#ifdef HAVE_SYS_TYPES_H
+# include <sys/types.h>
+#endif
+#ifdef HAVE_SYS_SOCKET_H
+# include <sys/socket.h>
+#endif
+])
+
 AC_CHECK_MEMBERS([struct tm.tm_gmtoff, struct tm.__tm_gmtoff],,,
   [#include <time.h>])
 
-if test $ac_cv_member_struct_tm_tm_gmtoff$ac_cv_member_struct_tm___tm_gmtoff = nono; then
+if test ${ac_cv_member_struct_tm_tm_gmtoff}${ac_cv_member_struct_tm___tm_gmtoff}${ne_cv_cc_timezone} = nonono; then
   AC_MSG_WARN([no timezone handling in date parsing on this platform])
 fi
 
@@ -739,6 +767,7 @@ if test "x$neon_no_webdav" = "xyes"; then
   # No WebDAV support
   NEONOBJS="$NEONOBJS \$(NEON_BASEOBJS)"
   NE_DISABLE_SUPPORT(DAV, [WebDAV support is not enabled])
+  NE_ADD_ABITAG(NODAV)
 else
   # WebDAV support
   NEONOBJS="$NEONOBJS \$(NEON_DAVOBJS)"
@@ -849,6 +878,10 @@ AC_ARG_WITH(ssl,
 AC_ARG_WITH(egd,
 [[  --with-egd[=PATH]       enable EGD support [using EGD socket at PATH]]])
 
+AC_ARG_WITH(pakchois,
+            AS_HELP_STRING([--without-pakchois],
+                           [disable support for PKCS#11 using pakchois]))
+
 case $with_ssl in
 /*)
    AC_MSG_NOTICE([to use SSL libraries in non-standard locations, try --with-ssl --with-libs=$with_ssl])
@@ -871,6 +904,7 @@ yes|openssl)
    if test "$ne_cv_lib_ssl097" = "yes"; then
       AC_MSG_NOTICE([OpenSSL >= 0.9.7; EGD support not needed in neon])
       NE_ENABLE_SUPPORT(SSL, [SSL support enabled, using OpenSSL (0.9.7 or later)])
+      NE_CHECK_FUNCS(CRYPTO_set_idptr_callback)
    else
       # Fail if OpenSSL is older than 0.9.6
       NE_CHECK_OPENSSLVER(ne_cv_lib_ssl096, 0.9.6, 0x00906000L)
@@ -912,9 +946,8 @@ gnutls)
    ne_gnutls_ver=`$GNUTLS_CONFIG --version`
    case $ne_gnutls_ver in
    1.0.?|1.0.1?|1.0.20|1.0.21) 
-      AC_MSG_ERROR([GNU TLS version $ne_gnutls_ver is too old -- 1.0.22 or later required]) ;;
-   1.*) ;;
-   *) AC_MSG_ERROR([GNU TLS version $ne_gnutls_ver is not supported]) ;;
+      AC_MSG_ERROR([GNU TLS version $ne_gnutls_ver is too old -- 1.0.22 or later required]) 
+      ;;
    esac
 
    CPPFLAGS="$CPPFLAGS `$GNUTLS_CONFIG --cflags`"
@@ -927,8 +960,27 @@ gnutls)
    NEON_LIBS="$NEON_LIBS `$GNUTLS_CONFIG --libs`"
    AC_DEFINE([HAVE_GNUTLS], 1, [Define if GnuTLS support is enabled])
 
-   # Check for functions in later releases.
-   NE_CHECK_FUNCS(gnutls_session_get_data2)
+   # Check for functions in later releases
+   NE_CHECK_FUNCS(gnutls_session_get_data2 gnutls_x509_dn_get_rdn_ava \ 
+                  gnutls_sign_callback_set)
+
+   # Check for iconv support if using the new RDN access functions:
+   if test ${ac_cv_func_gnutls_x509_dn_get_rdn_ava}X${ac_cv_header_iconv_h} = yesXyes; then
+      AC_CHECK_FUNCS(iconv)
+   fi
+
+   if test x${ac_cv_func_gnutls_sign_callback_set} = xyes; then
+      if test "$with_pakchois" != "no"; then
+         # PKCS#11... ho!
+         NE_PKG_CONFIG(NE_PK11, pakchois,
+           [AC_MSG_NOTICE(using pakchois for PKCS11 support)
+            AC_DEFINE(HAVE_PAKCHOIS, 1, [Define if pakchois library supported])
+            CPPFLAGS="$CPPFLAGS ${NE_PK11_CFLAGS}"
+            NEON_LIBS="${NEON_LIBS} ${NE_PK11_LIBS}"],
+           [AC_MSG_NOTICE(pakchois library not found; no PKCS11 support)])
+      fi
+   fi
+
    ;;
 *) # Default to off; only create crypto-enabled binaries if requested.
    NE_DISABLE_SUPPORT(SSL, [SSL support is not enabled])
@@ -1086,11 +1138,13 @@ yes|no) AC_MSG_ERROR([--with-libs must be passed a directory argument]) ;;
      ne_add_CPPFLAGS="$ne_add_CPPFLAGS -I${dir}/include"
      ne_add_LDFLAGS="$ne_add_LDFLAGS -L${dir}/lib"
      ne_add_PATH="${ne_add_PATH}${dir}/bin:"
+     PKG_CONFIG_PATH=${PKG_CONFIG_PATH}${PKG_CONFIG_PATH+:}${dir}/lib/pkgconfig
    done
    IFS=$ne_save_IFS
    CPPFLAGS="${ne_add_CPPFLAGS} $CPPFLAGS"
    LDFLAGS="${ne_add_LDFLAGS} $LDFLAGS"
-   PATH=${ne_add_PATH}$PATH ;;
+   PATH=${ne_add_PATH}$PATH 
+   export PKG_CONFIG_PATH ;;
 esac])])
 
 AC_DEFUN([NEON_I18N], [

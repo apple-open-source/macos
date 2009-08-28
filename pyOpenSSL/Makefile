@@ -28,10 +28,10 @@ endif
 #
 
 AEP	       = YES
-AEP_ProjVers   = $(Project)-0.6
+AEP_ProjVers   = $(Project)-0.7
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = 
+AEP_Patches    = CVSid.patch PyObject.patch unused.patch
 
 extract_source::
 ifeq ($(AEP),YES)

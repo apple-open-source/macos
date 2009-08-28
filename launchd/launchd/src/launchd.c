@@ -18,7 +18,7 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 
-static const char *const __rcs_file_version__ = "$Revision: 23748 $";
+static const char *const __rcs_file_version__ = "$Revision: 23925 $";
 
 #include "config.h"
 #include "launchd.h"
@@ -44,6 +44,8 @@ static const char *const __rcs_file_version__ = "$Revision: 23748 $";
 #include <sys/mount.h>
 #include <sys/kern_event.h>
 #include <sys/reboot.h>
+#include <sys/socket.h>
+#include <sys/syscall.h>
 #include <net/if.h>
 #include <netinet/in.h>
 #include <netinet/in_var.h>
@@ -67,14 +69,19 @@ static const char *const __rcs_file_version__ = "$Revision: 23748 $";
 #include <setjmp.h>
 #include <spawn.h>
 #include <sched.h>
-#if TARGET_OS_EMBEDDED
 #include <pthread.h>
+#include <util.h>
+
+#if HAVE_LIBAUDITD
+#include <bsm/auditd_lib.h>
 #endif
 
 #include "bootstrap.h"
 #include "vproc.h"
+#include "vproc_priv.h"
 #include "vproc_internal.h"
 #include "launch.h"
+#include "launch_internal.h"
 
 #include "launchd_runtime.h"
 #include "launchd_core_logic.h"
@@ -82,8 +89,6 @@ static const char *const __rcs_file_version__ = "$Revision: 23748 $";
 
 #define LAUNCHD_CONF ".launchd.conf"
 #define SECURITY_LIB "/System/Library/Frameworks/Security.framework/Versions/A/Security"
-#define SHUTDOWN_LOG_DIR "/var/log/shutdown"
-
 
 extern char **environ;
 
@@ -98,23 +103,24 @@ static bool get_network_state(void);
 static void monitor_networking_state(void);
 static void fatal_signal_handler(int sig, siginfo_t *si, void *uap);
 static void handle_pid1_crashes_separately(void);
-static void prep_shutdown_log_dir(void);
+static void do_pid1_crash_diagnosis_mode(void);
+static int basic_fork(void);
+static bool do_pid1_crash_diagnosis_mode2(void);
 
-#if TARGET_OS_EMBEDDED
 static void *update_thread(void *nothing);
-#endif
 
-static bool re_exec_in_single_user_mode = false;
+static bool re_exec_in_single_user_mode;
 static void *crash_addr;
 static pid_t crash_pid;
 
-#if TARGET_OS_EMBEDDED
-static unsigned int g_sync_frequency = 30;
-#endif
-
-static bool shutdown_in_progress = false;
-bool debug_shutdown_hangs = false;
-bool network_up = false;
+bool shutdown_in_progress;
+bool fake_shutdown_in_progress;
+bool network_up;
+char g_username[128] = "__Uninitialized__";
+char g_my_label[128] = "__Uninitialized__";
+char g_launchd_database_dir[PATH_MAX];
+FILE *g_console = NULL;
+int32_t g_sync_frequency = 30;
 
 int
 main(int argc, char *const *argv)
@@ -125,6 +131,17 @@ main(int argc, char *const *argv)
 	testfd_or_openfd(STDIN_FILENO, _PATH_DEVNULL, O_RDONLY);
 	testfd_or_openfd(STDOUT_FILENO, _PATH_DEVNULL, O_WRONLY);
 	testfd_or_openfd(STDERR_FILENO, _PATH_DEVNULL, O_WRONLY);
+
+	if (pid1_magic && g_use_gmalloc) {
+		if (!getenv("DYLD_INSERT_LIBRARIES")) {
+			setenv("DYLD_INSERT_LIBRARIES", "/usr/lib/libgmalloc.dylib", 1);
+			setenv("MALLOC_STRICT_SIZE", "1", 1);
+			execv(argv[0], argv);
+		} else {
+			unsetenv("DYLD_INSERT_LIBRARIES");
+			unsetenv("MALLOC_STRICT_SIZE");
+		}
+	}
 
 	while ((ch = getopt(argc, argv, "s")) != -1) {
 		switch (ch) {
@@ -143,37 +160,85 @@ main(int argc, char *const *argv)
 
 	launchd_runtime_init();
 
+	if( pid1_magic ) {
+		int cfd = -1;
+		if( launchd_assumes((cfd = open(_PATH_CONSOLE, O_WRONLY | O_NOCTTY)) != -1) ) {
+			_fd(cfd);
+			if( !launchd_assumes((g_console = fdopen(cfd, "w")) != NULL) ) {
+				close(cfd);
+			}
+		}
+	}
+
 	if (NULL == getenv("PATH")) {
 		setenv("PATH", _PATH_STDPATH, 1);
 	}
 
-	if (getpid() == 1) {
+	if (pid1_magic) {
 		pid1_magic_init();
 	} else {
 		ipc_server_init();
+		
+		runtime_log_push();
+		
+		struct passwd *pwent = getpwuid(getuid());
+		if( pwent ) {
+			strlcpy(g_username, pwent->pw_name, sizeof(g_username) - 1);
+		}
+
+		snprintf(g_my_label, sizeof(g_my_label), "com.apple.launchd.peruser.%u", getuid());
+		
+		auditinfo_addr_t auinfo;
+		if( launchd_assumes(getaudit_addr(&auinfo, sizeof(auinfo)) != -1) ) {
+			g_audit_session = auinfo.ai_asid;
+			runtime_syslog(LOG_DEBUG, "Our audit session ID is %i", g_audit_session);
+		}
+		
+		g_audit_session_port = _audit_session_self();
+		snprintf(g_launchd_database_dir, sizeof(g_launchd_database_dir), LAUNCHD_DB_PREFIX "/com.apple.launchd.peruser.%u", getuid());
+		runtime_syslog(LOG_DEBUG, "Per-user launchd for UID %u (%s) has begun.", getuid(), g_username);
 	}
 
-#if TARGET_OS_EMBEDDED
-	pthread_attr_t attr;
-	pthread_attr_init(&attr);
-	pthread_attr_setstacksize(&attr, PTHREAD_STACK_MIN);
-	
-	if( getpid() == 1 ) {
-		/* Start the update thread -- rdar://problem/5039559&6153301 */
-		pthread_t t = NULL;
-		int err = pthread_create(&t, &attr, update_thread, NULL);
-		launchd_assumes(err == 0);
+	if( pid1_magic ) {
+		runtime_syslog(LOG_NOTICE | LOG_CONSOLE, "*** launchd[1] has started up. ***");
+		if( g_use_gmalloc ) {
+			runtime_syslog(LOG_NOTICE | LOG_CONSOLE, "*** Using libgmalloc ***");
+		}
+
+		if( g_verbose_boot ) {
+			runtime_syslog(LOG_NOTICE | LOG_CONSOLE, "*** Verbose boot, will log to /dev/console. ***");
+		}
+
+		if( g_shutdown_debugging ) {
+			runtime_syslog(LOG_NOTICE | LOG_CONSOLE, "*** Shutdown debugging is enabled. ***");
+		}
+
+		/* PID 1 doesn't have a flat namespace. */
+		g_flat_mach_namespace = false;
 	}
-#endif	
-	
+
 	monitor_networking_state();
 
-	if (getpid() == 1) {
+	if (pid1_magic) {
 		handle_pid1_crashes_separately();
+	} else {
+	#if !TARGET_OS_EMBEDDED
+		/* prime shared memory before the 'bootstrap_port' global is set to zero */
+		_vproc_transaction_begin();
+		_vproc_transaction_end();
+	#endif
+	}
+
+	if( pid1_magic ) {
+		/* Start the update thread -- rdar://problem/5039559&6153301 */
+		pthread_t t = NULL;
+		int err = pthread_create(&t, NULL, update_thread, NULL);
+		launchd_assumes(err == 0);
+		launchd_assumes(pthread_detach(t) == 0);
 	}
 
 	jobmgr_init(sflag);
-
+	
 	launchd_runtime_init2();
 
 	launchd_runtime();
@@ -194,12 +259,119 @@ handle_pid1_crashes_separately(void)
 	launchd_assumes(sigaction(SIGSEGV, &fsa, NULL) != -1);
 }
 
+void *update_thread(void *nothing __attribute__((unused)))
+{
+	while( g_sync_frequency ) {
+		sync();
+		sleep(g_sync_frequency);
+	}
+	
+	runtime_syslog(LOG_DEBUG, "Update thread exiting.");
+	return NULL;
+}
+
 #define PID1_CRASH_LOGFILE "/var/log/launchd-pid1.crash"
 
 /* This hack forces the dynamic linker to resolve these symbols ASAP */
 static __attribute__((unused)) typeof(sync) *__junk_dyld_trick1 = sync;
 static __attribute__((unused)) typeof(sleep) *__junk_dyld_trick2 = sleep;
 static __attribute__((unused)) typeof(reboot) *__junk_dyld_trick3 = reboot;
+
+void
+do_pid1_crash_diagnosis_mode(void)
+{
+	if( g_wsp ) {
+		kill(g_wsp, SIGKILL);
+		sleep(3);
+		g_wsp = 0;
+	}
+
+	while( g_shutdown_debugging && !do_pid1_crash_diagnosis_mode2() ) {
+		sleep(1);
+	}
+}
+
+int
+basic_fork(void)
+{
+	int wstatus = 0;
+	pid_t p;
+	
+	switch ((p = fork())) {
+		case -1:
+			runtime_syslog(LOG_ERR | LOG_CONSOLE, "Can't fork PID 1 copy for crash debugging: %m");
+			return p;
+		case 0:
+			return p;
+		default:
+		#if 0
+			/* If we attach with the debugger, the kernel reparenting could 
+			 * cause this to return prematurely.
+			 */
+			waitpid(p, &wstatus, 0);
+		#else
+			sleep(UINT_MAX);
+		#endif
+			if (WIFEXITED(wstatus)) {
+				if (WEXITSTATUS(wstatus) == EXIT_SUCCESS) {
+					return 1;
+				} else {
+					fprintf(stdout, "PID 1 copy: exit status: %d\n", WEXITSTATUS(wstatus));
+				}
+			} else {
+				fprintf(stdout, "PID 1 copy: %s\n", strsignal(WTERMSIG(wstatus)));
+			}
+			return 1;
+	}
+	
+	return -1;
+}
+
+bool
+do_pid1_crash_diagnosis_mode2(void)
+{
+	if( basic_fork() == 0 ) {
+		/* Neuter our bootstrap port so that the shell doesn't try talking to us while
+		 * we're blocked waiting on it.
+		 */
+		if( g_console ) {
+			fflush(g_console);
+		}
+		task_set_bootstrap_port(mach_task_self(), MACH_PORT_NULL);
+		if( basic_fork() != 0 ) {
+			if( g_console ) {
+				fflush(g_console);
+			}
+			return true;
+		}
+	} else {
+		return true;
+	}
+	
+	int fd;
+	revoke(_PATH_CONSOLE);
+	if ((fd = open(_PATH_CONSOLE, O_RDWR)) == -1) {
+		_exit(2);
+	}
+	if (login_tty(fd) == -1) {
+		_exit(3);
+	}
+	setenv("TERM", "vt100", 1);
+	fprintf(stdout, "\n");
+	fprintf(stdout, "Entering launchd PID 1 debugging mode...\n");
+	fprintf(stdout, "The PID 1 launchd has crashed. It has fork(2)ed itself for debugging.\n");
+	fprintf(stdout, "To debug the main thread of PID 1:\n");
+	fprintf(stdout, "    gdb attach %d\n", getppid());
+	fprintf(stdout, "To exit this shell and shut down:\n");
+	fprintf(stdout, "    kill -9 1\n");
+	fprintf(stdout, "A sample of PID 1 has been written to %s\n", PID1_CRASH_LOGFILE);
+	fprintf(stdout, "\n");
+	fflush(stdout);
+	
+	execl(_PATH_BSHELL, "-sh", NULL);
+	syslog(LOG_ERR, "can't exec %s for PID 1 crash debugging: %m", _PATH_BSHELL);
+	_exit(EXIT_FAILURE);
+}
 
 void
 fatal_signal_handler(int sig, siginfo_t *si, void *uap __attribute__((unused)))
@@ -211,7 +383,7 @@ fatal_signal_handler(int sig, siginfo_t *si, void *uap __attribute__((unused)))
 
 	crash_addr = si->si_addr;
 	crash_pid = si->si_pid;
-
+	
 	unlink(PID1_CRASH_LOGFILE);
 
 	switch ((sample_p = vfork())) {
@@ -225,6 +397,8 @@ fatal_signal_handler(int sig, siginfo_t *si, void *uap __attribute__((unused)))
 	case -1:
 		break;
 	}
+
+	do_pid1_crash_diagnosis_mode();
 
 	switch (sig) {
 	default:
@@ -249,9 +423,58 @@ pid1_magic_init(void)
 	launchd_assumes(setsid() != -1);
 	launchd_assumes(chdir("/") != -1);
 	launchd_assumes(setlogin("root") != -1);
-	launchd_assumes(mount("fdesc", "/dev", MNT_UNION, NULL) != -1);
+	
+	strcpy(g_my_label, "com.apple.launchd");
+
+#if !TARGET_OS_EMBEDDED	
+	auditinfo_addr_t auinfo = {
+		.ai_termid = { .at_type = AU_IPv4 },
+		.ai_asid = AU_ASSIGN_ASID,
+		.ai_auid = AU_DEFAUDITID,
+		.ai_flags = sessionIsRoot,
+	};
+	
+	if( !launchd_assumes(setaudit_addr(&auinfo, sizeof(auinfo)) != -1) ) {
+		runtime_syslog(LOG_WARNING | LOG_CONSOLE, "Could not set audit session: %s.", strerror(errno));
+		_exit(EXIT_FAILURE);
+	}
+
+	if( launchd_assumes(getaudit_addr(&auinfo, sizeof(auinfo)) != -1) ) {
+		g_audit_session = auinfo.ai_asid;
+		runtime_syslog(LOG_DEBUG, "Our audit session ID is %i", g_audit_session);
+	}
+
+	g_audit_session_port = _audit_session_self();
+#endif
+	
+	strcpy(g_launchd_database_dir, LAUNCHD_DB_PREFIX "/com.apple.launchd");
 }
 
+char *
+launchd_data_base_path(int db_type)
+{
+	static char result[PATH_MAX];
+	static int last_db_type = -1;
+	
+	if( db_type == last_db_type ) {
+		return result;
+	}
+	
+	switch( db_type ) {
+		case LAUNCHD_DB_TYPE_OVERRIDES	:
+			snprintf(result, sizeof(result), "%s/%s", g_launchd_database_dir, "overrides.plist");
+			last_db_type = db_type;
+			break;
+		case LAUNCHD_DB_TYPE_JOBCACHE	:
+			snprintf(result, sizeof(result), "%s/%s", g_launchd_database_dir, "jobcache.launchdata");
+			last_db_type = db_type;
+			break;
+		default							:
+			break;
+	}
+	
+	return result;
+}
 
 int
 _fd(int fd)
@@ -263,46 +486,40 @@ _fd(int fd)
 }
 
 void
-prep_shutdown_log_dir(void)
-{
-	launchd_assumes(mkdir(SHUTDOWN_LOG_DIR, S_IRWXU) != -1 || errno == EEXIST);
-}
-
-#if TARGET_OS_EMBEDDED
-void *
-update_thread(void *nothing __attribute__((unused)))
-{
-	while( g_sync_frequency ) {
-		sync();
-		sleep(g_sync_frequency);
-	}
-	
-	return NULL;
-}
-#endif
-
-void
 launchd_shutdown(void)
 {
-	struct stat sb;
+	int64_t now;
 
 	if (shutdown_in_progress) {
 		return;
 	}
 
+	runtime_ktrace0(RTKT_LAUNCHD_EXITING);
+
 	shutdown_in_progress = true;
 
-	if (getpid() == 1 && stat("/var/db/debugShutdownHangs", &sb) != -1) {
+	if( pid1_magic || g_log_per_user_shutdown ) {
 		/*
 		 * When this changes to a more sustainable API, update this:
 		 * http://howto.apple.com/db.cgi?Debugging_Apps_Non-Responsive_At_Shutdown
 		 */
 		runtime_setlogmask(LOG_UPTO(LOG_DEBUG));
-		prep_shutdown_log_dir();
-		debug_shutdown_hangs = true;
 	}
 
+	runtime_log_push();
+
+	now = runtime_get_wall_time();
+
+	char *term_who = pid1_magic ? "System shutdown" : "Per-user launchd termination for ";
+	runtime_syslog(LOG_INFO, "%s%s began", term_who, pid1_magic ? "" : g_username);
+
 	launchd_assert(jobmgr_shutdown(root_jobmgr) != NULL);
+
+#if HAVE_LIBAUDITD
+	if( pid1_magic ) {
+		launchd_assumes(audit_quick_stop() == 0);
+	}
+#endif
 }
 
 void
@@ -418,7 +635,7 @@ pfsystem_callback(void *obj __attribute__((unused)), struct kevent *kev)
 	bool new_networking_state;
 	char buf[1024];
 
-	launchd_assumes(read(kev->ident, &buf, sizeof(buf)) != -1);
+	launchd_assumes(read((int)kev->ident, &buf, sizeof(buf)) != -1);
 
 	new_networking_state = get_network_state();
 
@@ -435,6 +652,8 @@ _log_launchd_bug(const char *rcs_rev, const char *path, unsigned int line, const
 	char buf[100];
 	const char *file = strrchr(path, '/');
 	char *rcs_rev_tmp = strchr(rcs_rev, ' ');
+
+	runtime_ktrace1(RTKT_LAUNCHD_BUG);
 
 	if (!file) {
 		file = path;

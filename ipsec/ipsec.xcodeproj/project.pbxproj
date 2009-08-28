@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 42;
+	objectVersion = 45;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -11,6 +11,7 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = 25D3DAB8098952B20025F703 /* Build configuration list for PBXAggregateTarget "IPSec (Aggregate)" */;
 			buildPhases = (
+				72265DD80F818ED700730A7D /* CopyFiles */,
 			);
 			dependencies = (
 				25D3DDE30989AFDE0025F703 /* PBXTargetDependency */,
@@ -21,6 +22,21 @@
 			);
 			name = "IPSec (Aggregate)";
 			productName = "IPSec (Aggregate)";
+		};
+		812530AA0D3FE994006BDF4F /* IPSec Embedded (Aggregate) */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 812530B50D3FE994006BDF4F /* Build configuration list for PBXAggregateTarget "IPSec Embedded (Aggregate)" */;
+			buildPhases = (
+			);
+			dependencies = (
+				812531110D3FEA28006BDF4F /* PBXTargetDependency */,
+				81DDFDD90D622C4E00C5CB87 /* PBXTargetDependency */,
+				8125312C0D3FEA44006BDF4F /* PBXTargetDependency */,
+				81DDFDDB0D622C5100C5CB87 /* PBXTargetDependency */,
+				81DDFDF10D627DE300C5CB87 /* PBXTargetDependency */,
+			);
+			name = "IPSec Embedded (Aggregate)";
+			productName = "IPSec (Aggregate) Embedded";
 		};
 /* End PBXAggregateTarget section */
 
@@ -59,9 +75,6 @@
 		258CF2D40A191A5000166B38 /* plainrsa-gen.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 25F258FB0988657000D15623 /* plainrsa-gen.8 */; };
 		258CF2E10A191A9200166B38 /* racoon.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 25F259090988657000D15623 /* racoon.8 */; };
 		258CF2E40A191AD500166B38 /* racoon.conf.5 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 25F2590A0988657000D15623 /* racoon.conf.5 */; };
-		258CF2E60A191B1800166B38 /* racoon.conf in CopyFiles */ = {isa = PBXBuildFile; fileRef = 25F2589A098864D700D15623 /* racoon.conf */; };
-		258CF2FB0A191B4F00166B38 /* anonymous.conf in CopyFiles */ = {isa = PBXBuildFile; fileRef = 25F25898098864D700D15623 /* anonymous.conf */; };
-		258CF2FC0A191B5400166B38 /* psk.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 25F25899098864D700D15623 /* psk.txt */; };
 		25BC48740A0BC7B000A181A0 /* eaytest.c in Sources */ = {isa = PBXBuildFile; fileRef = 25BC48730A0BC7B000A181A0 /* eaytest.c */; };
 		25BE7E0109E5D3F4009B6B84 /* libipsec.A.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 2537A1A809E4864800D0ECDA /* libipsec.A.dylib */; };
 		25BE7E1209E5D550009B6B84 /* libssl.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 25EAE84709D879700042CC7F /* libssl.dylib */; };
@@ -93,12 +106,8 @@
 		25DE2DE90A8BD40E0010A46D /* vpn_control.c in Sources */ = {isa = PBXBuildFile; fileRef = 25DE2DE60A8BD40E0010A46D /* vpn_control.c */; };
 		25E08C9E09D9E681001A11CF /* prsa_par.y in Sources */ = {isa = PBXBuildFile; fileRef = 2589CBA809D8B727002DC960 /* prsa_par.y */; };
 		25E08C9F09D9E682001A11CF /* prsa_tok.l in Sources */ = {isa = PBXBuildFile; fileRef = 2589CBAA09D8B727002DC960 /* prsa_tok.l */; };
-		25EAE83209D875790042CC7F /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 25EAE83109D875790042CC7F /* Security.framework */; };
-		25EAE83809D875BF0042CC7F /* DirectoryService.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 25EAE83709D875BF0042CC7F /* DirectoryService.framework */; };
 		25EAE84809D879700042CC7F /* libssl.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 25EAE84709D879700042CC7F /* libssl.dylib */; };
 		25EAE84B09D879DE0042CC7F /* libcrypto.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 25EAE84A09D879DE0042CC7F /* libcrypto.dylib */; };
-		25EAE87209D87A160042CC7F /* libgssapi_krb5.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 25EAE87109D87A160042CC7F /* libgssapi_krb5.dylib */; };
-		25EAE87409D87A390042CC7F /* libpam.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 25EAE87309D87A390042CC7F /* libpam.dylib */; };
 		25EAE87709D87A770042CC7F /* libiconv.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 25EAE87609D87A770042CC7F /* libiconv.dylib */; };
 		25EAE8C109D87B080042CC7F /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 25EAE8C009D87B080042CC7F /* CoreFoundation.framework */; };
 		25EAE8C609D87B990042CC7F /* pfkey.c in Sources */ = {isa = PBXBuildFile; fileRef = 25D949A209A6AAD700CA0F24 /* pfkey.c */; };
@@ -115,7 +124,6 @@
 		25F2592A0988657000D15623 /* backupsa.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258B10988657000D15623 /* backupsa.c */; };
 		25F2592B0988657000D15623 /* cfparse.y in Sources */ = {isa = PBXBuildFile; fileRef = 25F258B40988657000D15623 /* cfparse.y */; };
 		25F2592C0988657000D15623 /* cftoken.l in Sources */ = {isa = PBXBuildFile; fileRef = 25F258B60988657000D15623 /* cftoken.l */; };
-		25F2592D0988657000D15623 /* crypto_cssm.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258B70988657000D15623 /* crypto_cssm.c */; };
 		25F2592E0988657000D15623 /* crypto_openssl.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258B90988657000D15623 /* crypto_openssl.c */; };
 		25F2592F0988657000D15623 /* dnssec.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258BE0988657000D15623 /* dnssec.c */; };
 		25F259310988657000D15623 /* evt.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258C20988657000D15623 /* evt.c */; };
@@ -137,7 +145,6 @@
 		25F259460988657000D15623 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258ED0988657000D15623 /* main.c */; };
 		25F259470988657000D15623 /* misc.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258EE0988657000D15623 /* misc.c */; };
 		25F259490988657000D15623 /* oakley.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258F30988657000D15623 /* oakley.c */; };
-		25F2594A0988657000D15623 /* open_dir.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258F50988657000D15623 /* open_dir.c */; };
 		25F2594C0988657000D15623 /* pfkey_racoon.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258F80988657000D15623 /* pfkey_racoon.c */; };
 		25F2594F0988657000D15623 /* plog.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258FD0988657000D15623 /* plog.c */; };
 		25F259500988657000D15623 /* policy.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258FF0988657000D15623 /* policy.c */; };
@@ -154,8 +161,129 @@
 		25F259610988657000D15623 /* throttle.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F259210988657000D15623 /* throttle.c */; };
 		25F259620988657000D15623 /* vendorid.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F259240988657000D15623 /* vendorid.c */; };
 		25F259630988657000D15623 /* vmbuf.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F259260988657000D15623 /* vmbuf.c */; };
+		72265DDC0F818F9300730A7D /* ipsec.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72265DDB0F818F9300730A7D /* ipsec.plist */; };
+		72B433770E3677D800D67508 /* com.apple.racoon.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 724F99500E3672FD00C56897 /* com.apple.racoon.plist */; };
+		812530C00D3FE9DC006BDF4F /* rijndael-alg-fst.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258A10988651000D15623 /* rijndael-alg-fst.c */; };
+		812530C10D3FE9DC006BDF4F /* rijndael-api-fst.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258A30988651000D15623 /* rijndael-api-fst.c */; };
+		812530C20D3FE9DC006BDF4F /* admin.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258AC0988657000D15623 /* admin.c */; };
+		812530C30D3FE9DC006BDF4F /* algorithm.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258AE0988657000D15623 /* algorithm.c */; };
+		812530C40D3FE9DC006BDF4F /* backupsa.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258B10988657000D15623 /* backupsa.c */; };
+		812530C50D3FE9DC006BDF4F /* cfparse.y in Sources */ = {isa = PBXBuildFile; fileRef = 25F258B40988657000D15623 /* cfparse.y */; };
+		812530C60D3FE9DC006BDF4F /* cftoken.l in Sources */ = {isa = PBXBuildFile; fileRef = 25F258B60988657000D15623 /* cftoken.l */; };
+		812530C70D3FE9DC006BDF4F /* crypto_openssl.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258B90988657000D15623 /* crypto_openssl.c */; };
+		812530C80D3FE9DC006BDF4F /* dnssec.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258BE0988657000D15623 /* dnssec.c */; };
+		812530C90D3FE9DC006BDF4F /* evt.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258C20988657000D15623 /* evt.c */; };
+		812530CA0D3FE9DC006BDF4F /* genlist.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258C50988657000D15623 /* genlist.c */; };
+		812530CB0D3FE9DC006BDF4F /* getcertsbyname.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258C70988657000D15623 /* getcertsbyname.c */; };
+		812530CC0D3FE9DC006BDF4F /* grabmyaddr.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258C90988657000D15623 /* grabmyaddr.c */; };
+		812530CD0D3FE9DC006BDF4F /* gssapi.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258CB0988657000D15623 /* gssapi.c */; };
+		812530CE0D3FE9DC006BDF4F /* handler.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258CD0988657000D15623 /* handler.c */; };
+		812530CF0D3FE9DC006BDF4F /* ipsec_doi.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258CF0988657000D15623 /* ipsec_doi.c */; };
+		812530D00D3FE9DC006BDF4F /* isakmp_agg.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258D10988657000D15623 /* isakmp_agg.c */; };
+		812530D10D3FE9DC006BDF4F /* isakmp_base.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258D30988657000D15623 /* isakmp_base.c */; };
+		812530D20D3FE9DC006BDF4F /* isakmp_ident.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258D90988657000D15623 /* isakmp_ident.c */; };
+		812530D30D3FE9DC006BDF4F /* isakmp_inf.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258DB0988657000D15623 /* isakmp_inf.c */; };
+		812530D40D3FE9DC006BDF4F /* isakmp_newg.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258DD0988657000D15623 /* isakmp_newg.c */; };
+		812530D50D3FE9DC006BDF4F /* isakmp_quick.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258DF0988657000D15623 /* isakmp_quick.c */; };
+		812530D60D3FE9DC006BDF4F /* isakmp.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258E60988657000D15623 /* isakmp.c */; };
+		812530D70D3FE9DC006BDF4F /* localconf.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258E90988657000D15623 /* localconf.c */; };
+		812530D80D3FE9DC006BDF4F /* logger.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258EB0988657000D15623 /* logger.c */; };
+		812530D90D3FE9DC006BDF4F /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258ED0988657000D15623 /* main.c */; };
+		812530DA0D3FE9DC006BDF4F /* misc.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258EE0988657000D15623 /* misc.c */; };
+		812530DB0D3FE9DC006BDF4F /* oakley.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258F30988657000D15623 /* oakley.c */; };
+		812530DC0D3FE9DC006BDF4F /* pfkey_racoon.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258F80988657000D15623 /* pfkey_racoon.c */; };
+		812530DD0D3FE9DC006BDF4F /* plog.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258FD0988657000D15623 /* plog.c */; };
+		812530DE0D3FE9DC006BDF4F /* policy.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258FF0988657000D15623 /* policy.c */; };
+		812530DF0D3FE9DC006BDF4F /* privsep.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F259010988657000D15623 /* privsep.c */; };
+		812530E00D3FE9DC006BDF4F /* proposal.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F259030988657000D15623 /* proposal.c */; };
+		812530E10D3FE9DC006BDF4F /* remoteconf.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F2590E0988657000D15623 /* remoteconf.c */; };
+		812530E20D3FE9DC006BDF4F /* safefile.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F259120988657000D15623 /* safefile.c */; };
+		812530E30D3FE9DC006BDF4F /* sainfo.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F259140988657000D15623 /* sainfo.c */; };
+		812530E40D3FE9DC006BDF4F /* schedule.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F259160988657000D15623 /* schedule.c */; };
+		812530E50D3FE9DC006BDF4F /* session.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F259180988657000D15623 /* session.c */; };
+		812530E60D3FE9DC006BDF4F /* sockmisc.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F2591A0988657000D15623 /* sockmisc.c */; };
+		812530E70D3FE9DC006BDF4F /* str2val.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F2591D0988657000D15623 /* str2val.c */; };
+		812530E80D3FE9DC006BDF4F /* strnames.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F2591F0988657000D15623 /* strnames.c */; };
+		812530E90D3FE9DC006BDF4F /* throttle.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F259210988657000D15623 /* throttle.c */; };
+		812530EA0D3FE9DC006BDF4F /* vendorid.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F259240988657000D15623 /* vendorid.c */; };
+		812530EB0D3FE9DC006BDF4F /* vmbuf.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F259260988657000D15623 /* vmbuf.c */; };
+		812530EC0D3FE9DC006BDF4F /* nattraversal.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258F00988657000D15623 /* nattraversal.c */; };
+		812530ED0D3FE9DC006BDF4F /* pfkey.c in Sources */ = {isa = PBXBuildFile; fileRef = 25D949A209A6AAD700CA0F24 /* pfkey.c */; };
+		812530EE0D3FE9DC006BDF4F /* rsalist.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F259100988657000D15623 /* rsalist.c */; };
+		812530EF0D3FE9DC006BDF4F /* isakmp_cfg.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258D50988657000D15623 /* isakmp_cfg.c */; };
+		812530F00D3FE9DC006BDF4F /* isakmp_unity.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258E10988657000D15623 /* isakmp_unity.c */; };
+		812530F10D3FE9DC006BDF4F /* isakmp_xauth.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258E40988657000D15623 /* isakmp_xauth.c */; };
+		812530F20D3FE9DC006BDF4F /* vpn_control.c in Sources */ = {isa = PBXBuildFile; fileRef = 25DE2DE60A8BD40E0010A46D /* vpn_control.c */; };
+		812530F30D3FE9DC006BDF4F /* vpn.c in Sources */ = {isa = PBXBuildFile; fileRef = 81CA08910CE3BC870055C0AF /* vpn.c */; };
+		812530F80D3FE9DC006BDF4F /* libiconv.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 25EAE87609D87A770042CC7F /* libiconv.dylib */; };
+		812530F90D3FE9DC006BDF4F /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 25EAE8C009D87B080042CC7F /* CoreFoundation.framework */; };
+		812530FC0D3FE9DC006BDF4F /* racoon.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 25F259090988657000D15623 /* racoon.8 */; };
+		812530FE0D3FE9DC006BDF4F /* racoon.conf.5 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 25F2590A0988657000D15623 /* racoon.conf.5 */; };
+		812531160D3FEA33006BDF4F /* racoonctl.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F2590C0988657000D15623 /* racoonctl.c */; };
+		812531170D3FEA33006BDF4F /* str2val.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F2591D0988657000D15623 /* str2val.c */; };
+		812531180D3FEA33006BDF4F /* kmpstat.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258E80988657000D15623 /* kmpstat.c */; };
+		812531190D3FEA33006BDF4F /* vmbuf.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F259260988657000D15623 /* vmbuf.c */; };
+		8125311A0D3FEA33006BDF4F /* sockmisc.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F2591A0988657000D15623 /* sockmisc.c */; };
+		8125311B0D3FEA33006BDF4F /* misc.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258EE0988657000D15623 /* misc.c */; };
+		8125311C0D3FEA33006BDF4F /* pfkey_dump.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F777ED09ABE58400C99783 /* pfkey_dump.c */; };
+		8125311D0D3FEA33006BDF4F /* key_debug.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F777B909ABE3E100C99783 /* key_debug.c */; };
+		8125311E0D3FEA33006BDF4F /* pfkey.c in Sources */ = {isa = PBXBuildFile; fileRef = 25D949A209A6AAD700CA0F24 /* pfkey.c */; };
+		812531220D3FEA33006BDF4F /* racoonctl.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 25F2590B0988657000D15623 /* racoonctl.8 */; };
+		812A64ED0D4AA082004CB7EB /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 812A64EC0D4AA082004CB7EB /* Security.framework */; };
+		8167917B0D650BAA006B523F /* racoon.conf in CopyFiles */ = {isa = PBXBuildFile; fileRef = 8187103A0D5BE18800C7B441 /* racoon.conf */; };
+		8176A6B90D45661700BC5251 /* libldap.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 8176A6B80D45661700BC5251 /* libldap.dylib */; };
+		817FFC4E0D6134A7004A8DD8 /* libipsec.A.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 2537A1A809E4864800D0ECDA /* libipsec.A.dylib */; };
+		817FFC4F0D6134AD004A8DD8 /* rsaparse.o in Frameworks */ = {isa = PBXBuildFile; fileRef = 25E08C9A09D9E64A001A11CF /* rsaparse.o */; };
+		817FFC5A0D613729004A8DD8 /* libipsec.A.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 2537A1A809E4864800D0ECDA /* libipsec.A.dylib */; };
+		818710410D5BE22B00C7B441 /* psk.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 8187103D0D5BE1CF00C7B441 /* psk.txt */; };
+		818710420D5BE22F00C7B441 /* racoon.conf in CopyFiles */ = {isa = PBXBuildFile; fileRef = 8187103B0D5BE1B400C7B441 /* racoon.conf */; };
+		818710510D5BE29300C7B441 /* psk.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 8187103D0D5BE1CF00C7B441 /* psk.txt */; };
+		818710530D5BE2B500C7B441 /* anonymous.conf in CopyFiles */ = {isa = PBXBuildFile; fileRef = 8187103C0D5BE1CF00C7B441 /* anonymous.conf */; };
+		81C325A80D46A36900E65EB7 /* crypto_cssm.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258B70988657000D15623 /* crypto_cssm.c */; };
+		81C386AA0D451EC300975D5E /* crypto_cssm.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258B70988657000D15623 /* crypto_cssm.c */; };
+		81C387560D45208700975D5E /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 25EAE83109D875790042CC7F /* Security.framework */; };
+		81C387570D45208700975D5E /* DirectoryService.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 25EAE83709D875BF0042CC7F /* DirectoryService.framework */; };
+		81C3877A0D4524E700975D5E /* libpam.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 25EAE87309D87A390042CC7F /* libpam.dylib */; };
+		81C387890D4524F600975D5E /* libgssapi_krb5.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 25EAE87109D87A160042CC7F /* libgssapi_krb5.dylib */; };
+		81C387EC0D45268300975D5E /* open_dir.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258F50988657000D15623 /* open_dir.c */; };
+		81C964590DA2CBEF00257BC8 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 81C964580DA2CBEF00257BC8 /* SystemConfiguration.framework */; };
+		81C9645E0DA2CC2D00257BC8 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 81C9645D0DA2CC2D00257BC8 /* SystemConfiguration.framework */; };
+		81C9645F0DA2CC2D00257BC8 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 81C9645D0DA2CC2D00257BC8 /* SystemConfiguration.framework */; };
+		81CA08920CE3BC870055C0AF /* vpn.c in Sources */ = {isa = PBXBuildFile; fileRef = 81CA08910CE3BC870055C0AF /* vpn.c */; };
+		81DDFD9B0D622C1700C5CB87 /* parse.y in Sources */ = {isa = PBXBuildFile; fileRef = 25F258870988648C00D15623 /* parse.y */; };
+		81DDFD9C0D622C1700C5CB87 /* pfkey_dump.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F777ED09ABE58400C99783 /* pfkey_dump.c */; };
+		81DDFD9D0D622C1700C5CB87 /* key_debug.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F777B909ABE3E100C99783 /* key_debug.c */; };
+		81DDFD9E0D622C1700C5CB87 /* pfkey.c in Sources */ = {isa = PBXBuildFile; fileRef = 25D949A209A6AAD700CA0F24 /* pfkey.c */; };
+		81DDFD9F0D622C1700C5CB87 /* setkey.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F2588A0988648C00D15623 /* setkey.c */; };
+		81DDFDA00D622C1700C5CB87 /* token.l in Sources */ = {isa = PBXBuildFile; fileRef = 25F2588D0988648C00D15623 /* token.l */; };
+		81DDFDA20D622C1700C5CB87 /* libipsec.A.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 2537A1A809E4864800D0ECDA /* libipsec.A.dylib */; };
+		81DDFDA40D622C1700C5CB87 /* setkey.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 25F258890988648C00D15623 /* setkey.8 */; };
+		81DDFDBA0D622C2700C5CB87 /* config.h in Headers */ = {isa = PBXBuildFile; fileRef = 25D9499F09A6AAD700CA0F24 /* config.h */; };
+		81DDFDBB0D622C2700C5CB87 /* ipsec_strerror.h in Headers */ = {isa = PBXBuildFile; fileRef = 252DF9570989B4EE00E5B678 /* ipsec_strerror.h */; };
+		81DDFDBD0D622C2700C5CB87 /* ipsec_dump_policy.c in Sources */ = {isa = PBXBuildFile; fileRef = 252DF9520989B4EE00E5B678 /* ipsec_dump_policy.c */; };
+		81DDFDBE0D622C2700C5CB87 /* ipsec_get_policylen.c in Sources */ = {isa = PBXBuildFile; fileRef = 252DF9530989B4EE00E5B678 /* ipsec_get_policylen.c */; };
+		81DDFDBF0D622C2700C5CB87 /* ipsec_strerror.c in Sources */ = {isa = PBXBuildFile; fileRef = 252DF9560989B4EE00E5B678 /* ipsec_strerror.c */; };
+		81DDFDC00D622C2700C5CB87 /* policy_parse.y in Sources */ = {isa = PBXBuildFile; fileRef = 252DF95E0989B4EE00E5B678 /* policy_parse.y */; };
+		81DDFDC10D622C2700C5CB87 /* policy_token.l in Sources */ = {isa = PBXBuildFile; fileRef = 252DF9600989B4EE00E5B678 /* policy_token.l */; };
+		81DDFDC40D622C2700C5CB87 /* ipsec_set_policy.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 252DF9540989B4EE00E5B678 /* ipsec_set_policy.3 */; };
+		81DDFDC50D622C2700C5CB87 /* ipsec_strerror.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 252DF9550989B4EE00E5B678 /* ipsec_strerror.3 */; };
+		81DDFDC60D622C2700C5CB87 /* ipsec_get_policylen.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 81EDB0680B5D8D8900840BC7 /* ipsec_get_policylen.3 */; };
+		81DDFDC70D622C2700C5CB87 /* ipsec_dump_policy.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 81EDB0670B5D8D7000840BC7 /* ipsec_dump_policy.3 */; };
+		81DDFDD00D622C3500C5CB87 /* prsa_par.y in Sources */ = {isa = PBXBuildFile; fileRef = 2589CBA809D8B727002DC960 /* prsa_par.y */; };
+		81DDFDD10D622C3500C5CB87 /* prsa_tok.l in Sources */ = {isa = PBXBuildFile; fileRef = 2589CBAA09D8B727002DC960 /* prsa_tok.l */; };
 		81EDB0690B5D8D9600840BC7 /* ipsec_get_policylen.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 81EDB0680B5D8D8900840BC7 /* ipsec_get_policylen.3 */; };
 		81EDB06A0B5D8D9A00840BC7 /* ipsec_dump_policy.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 81EDB0670B5D8D7000840BC7 /* ipsec_dump_policy.3 */; };
+		834072A90EDCC5AC00B6CCE8 /* com.apple.racoon.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 724F99500E3672FD00C56897 /* com.apple.racoon.plist */; };
+		8D5B16750E5F7F4E00E72675 /* libresolv.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 8D5B16230E5F7E9300E72675 /* libresolv.dylib */; };
+		8D5B167D0E5F7F9F00E72675 /* libresolv.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 8D5B16230E5F7E9300E72675 /* libresolv.dylib */; };
+		BA5B6F2A0EC19F40003774E7 /* ipsecConfigTracer.c in Sources */ = {isa = PBXBuildFile; fileRef = BA5B6F280EC19F40003774E7 /* ipsecConfigTracer.c */; };
+		BA5B6F2B0EC19F40003774E7 /* ipsecSessionTracer.c in Sources */ = {isa = PBXBuildFile; fileRef = BA5B6F290EC19F40003774E7 /* ipsecSessionTracer.c */; };
+		BA5B6F2C0EC19F40003774E7 /* ipsecConfigTracer.c in Sources */ = {isa = PBXBuildFile; fileRef = BA5B6F280EC19F40003774E7 /* ipsecConfigTracer.c */; };
+		BA5B6F2D0EC19F40003774E7 /* ipsecSessionTracer.c in Sources */ = {isa = PBXBuildFile; fileRef = BA5B6F290EC19F40003774E7 /* ipsecSessionTracer.c */; };
+		BA5B6F310EC19F80003774E7 /* ipsecPolicyTracer.c in Sources */ = {isa = PBXBuildFile; fileRef = BA5B6F300EC19F80003774E7 /* ipsecPolicyTracer.c */; };
+		BA5B6F320EC19F80003774E7 /* ipsecPolicyTracer.c in Sources */ = {isa = PBXBuildFile; fileRef = BA5B6F300EC19F80003774E7 /* ipsecPolicyTracer.c */; };
+		BA6F109B0EA1DEC200546773 /* ike_session.c in Sources */ = {isa = PBXBuildFile; fileRef = BA6F109A0EA1DEC200546773 /* ike_session.c */; };
+		BA6F109C0EA1DEC200546773 /* ike_session.c in Sources */ = {isa = PBXBuildFile; fileRef = BA6F109A0EA1DEC200546773 /* ike_session.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -250,6 +378,62 @@
 			remoteGlobalIDString = 25E08C9909D9E64A001A11CF;
 			remoteInfo = rsaparse;
 		};
+		812531100D3FEA28006BDF4F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 23D2D790087071FC00C51098 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 812530BA0D3FE9DC006BDF4F;
+			remoteInfo = "racoon arm";
+		};
+		8125312B0D3FEA44006BDF4F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 23D2D790087071FC00C51098 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 812531120D3FEA33006BDF4F;
+			remoteInfo = "racoonctl arm";
+		};
+		81DDFDD80D622C4E00C5CB87 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 23D2D790087071FC00C51098 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 81DDFDB80D622C2700C5CB87;
+			remoteInfo = "libipsec Embedded";
+		};
+		81DDFDDA0D622C5100C5CB87 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 23D2D790087071FC00C51098 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 81DDFDCE0D622C3500C5CB87;
+			remoteInfo = "rsaparse Embedded";
+		};
+		81DDFDDE0D622D1700C5CB87 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 23D2D790087071FC00C51098 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 81DDFDB80D622C2700C5CB87;
+			remoteInfo = "libipsec Embedded";
+		};
+		81DDFDE00D622D2A00C5CB87 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 23D2D790087071FC00C51098 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 81DDFDCE0D622C3500C5CB87;
+			remoteInfo = "rsaparse Embedded";
+		};
+		81DDFDE30D622D8C00C5CB87 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 23D2D790087071FC00C51098 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 81DDFDB80D622C2700C5CB87;
+			remoteInfo = "libipsec Embedded";
+		};
+		81DDFDF00D627DE300C5CB87 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 23D2D790087071FC00C51098 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 81DDFD970D622C1700C5CB87;
+			remoteInfo = "setkey Embedded";
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -309,31 +493,134 @@
 		258CF2F80A191B3900166B38 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = /usr/share/man/man5;
-			dstSubfolderSpec = 0;
+			dstPath = usr/share/man/man5;
+			dstSubfolderSpec = 16;
 			files = (
 				258CF2E40A191AD500166B38 /* racoon.conf.5 in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		258CF2F90A191B3900166B38 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /private/etc/racoon;
-			dstSubfolderSpec = 0;
-			files = (
-				258CF2FC0A191B5400166B38 /* psk.txt in CopyFiles */,
-				258CF2E60A191B1800166B38 /* racoon.conf in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		258CF2FA0A191B3900166B38 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
+			dstPath = /private/etc/racoon;
+			dstSubfolderSpec = 0;
+			files = (
+				818710410D5BE22B00C7B441 /* psk.txt in CopyFiles */,
+				818710420D5BE22F00C7B441 /* racoon.conf in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		72265DD80F818ED700730A7D /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/local/OpenSourceVersions/;
+			dstSubfolderSpec = 0;
+			files = (
+				72265DDC0F818F9300730A7D /* ipsec.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		724A38A20E3676FB00F6B25F /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/LaunchDaemons;
+			dstSubfolderSpec = 0;
+			files = (
+				72B433770E3677D800D67508 /* com.apple.racoon.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		725F453B0E36A15C005BB55C /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/LaunchDaemons;
+			dstSubfolderSpec = 0;
+			files = (
+				834072A90EDCC5AC00B6CCE8 /* com.apple.racoon.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		812530FB0D3FE9DC006BDF4F /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				812530FC0D3FE9DC006BDF4F /* racoon.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		812530FD0D3FE9DC006BDF4F /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man5;
+			dstSubfolderSpec = 0;
+			files = (
+				812530FE0D3FE9DC006BDF4F /* racoon.conf.5 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		812530FF0D3FE9DC006BDF4F /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
 			dstPath = /private/etc/racoon/remote;
 			dstSubfolderSpec = 0;
 			files = (
-				258CF2FB0A191B4F00166B38 /* anonymous.conf in CopyFiles */,
+				818710530D5BE2B500C7B441 /* anonymous.conf in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		812531020D3FE9DC006BDF4F /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /private/etc/racoon;
+			dstSubfolderSpec = 0;
+			files = (
+				818710510D5BE29300C7B441 /* psk.txt in CopyFiles */,
+				8167917B0D650BAA006B523F /* racoon.conf in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		812531210D3FEA33006BDF4F /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				812531220D3FEA33006BDF4F /* racoonctl.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		81DDFDA30D622C1700C5CB87 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				81DDFDA40D622C1700C5CB87 /* setkey.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		81DDFDC30D622C2700C5CB87 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man3;
+			dstSubfolderSpec = 0;
+			files = (
+				81DDFDC40D622C2700C5CB87 /* ipsec_set_policy.3 in CopyFiles */,
+				81DDFDC50D622C2700C5CB87 /* ipsec_strerror.3 in CopyFiles */,
+				81DDFDC60D622C2700C5CB87 /* ipsec_get_policylen.3 in CopyFiles */,
+				81DDFDC70D622C2700C5CB87 /* ipsec_dump_policy.3 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		834072BB0EDCC5C400B6CCE8 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/LaunchDaemons;
+			dstSubfolderSpec = 0;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -386,9 +673,6 @@
 		25F25895098864AB00D15623 /* sample-policy01.cf */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "sample-policy01.cf"; sourceTree = "<group>"; };
 		25F25896098864AB00D15623 /* sample-policy02.cf */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "sample-policy02.cf"; sourceTree = "<group>"; };
 		25F25897098864AB00D15623 /* sample.cf */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = sample.cf; sourceTree = "<group>"; };
-		25F25898098864D700D15623 /* anonymous.conf */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = anonymous.conf; sourceTree = "<group>"; };
-		25F25899098864D700D15623 /* psk.txt */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = psk.txt; sourceTree = "<group>"; };
-		25F2589A098864D700D15623 /* racoon.conf */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = racoon.conf; sourceTree = "<group>"; };
 		25F2589B098864F500D15623 /* FAQ */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = FAQ; sourceTree = "<group>"; };
 		25F2589C098864F500D15623 /* README.certificate */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = README.certificate; sourceTree = "<group>"; };
 		25F2589D098864F500D15623 /* README.gssapi */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = README.gssapi; sourceTree = "<group>"; };
@@ -520,8 +804,37 @@
 		25F259270988657000D15623 /* vmbuf.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = vmbuf.h; sourceTree = "<group>"; };
 		25F777B909ABE3E100C99783 /* key_debug.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = key_debug.c; path = Common/key_debug.c; sourceTree = "<group>"; };
 		25F777ED09ABE58400C99783 /* pfkey_dump.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = pfkey_dump.c; path = Common/pfkey_dump.c; sourceTree = "<group>"; };
+		72265DDB0F818F9300730A7D /* ipsec.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = ipsec.plist; sourceTree = "<group>"; };
+		724F99500E3672FD00C56897 /* com.apple.racoon.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.racoon.plist; sourceTree = "<group>"; };
+		8125310A0D3FE9DC006BDF4F /* racoon */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = racoon; sourceTree = BUILT_PRODUCTS_DIR; };
+		812531290D3FEA33006BDF4F /* racoonctl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = racoonctl; sourceTree = BUILT_PRODUCTS_DIR; };
+		812A64EC0D4AA082004CB7EB /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = SDKs/Purple/System/Library/Frameworks/Security.framework; sourceTree = DEVELOPER_DIR; };
+		8176A6B80D45661700BC5251 /* libldap.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libldap.dylib; path = /usr/lib/libldap.dylib; sourceTree = "<absolute>"; };
+		81856B700D6B8BC5001DAE21 /* algorithm_types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = algorithm_types.h; sourceTree = "<group>"; };
+		8187103A0D5BE18800C7B441 /* racoon.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = racoon.conf; path = Sample/Embedded/racoon.conf; sourceTree = "<group>"; };
+		8187103B0D5BE1B400C7B441 /* racoon.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = racoon.conf; path = Sample/racoon.conf; sourceTree = "<group>"; };
+		8187103C0D5BE1CF00C7B441 /* anonymous.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = anonymous.conf; path = Sample/anonymous.conf; sourceTree = "<group>"; };
+		8187103D0D5BE1CF00C7B441 /* psk.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = psk.txt; path = Sample/psk.txt; sourceTree = "<group>"; };
+		81C964580DA2CBEF00257BC8 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS2.0.Internal.sdk/System/Library/Frameworks/SystemConfiguration.framework; sourceTree = DEVELOPER_DIR; };
+		81C9645D0DA2CC2D00257BC8 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = /System/Library/Frameworks/SystemConfiguration.framework; sourceTree = "<absolute>"; };
+		81CA08910CE3BC870055C0AF /* vpn.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = vpn.c; sourceTree = "<group>"; };
+		81DDFDAA0D622C1700C5CB87 /* setkey */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = setkey; sourceTree = BUILT_PRODUCTS_DIR; };
+		81DDFDCD0D622C2700C5CB87 /* libipsec.A.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libipsec.A.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		81DDFDD70D622C3500C5CB87 /* rsaparse.o */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.objfile"; includeInIndex = 0; path = rsaparse.o; sourceTree = BUILT_PRODUCTS_DIR; };
 		81EDB0670B5D8D7000840BC7 /* ipsec_dump_policy.3 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = ipsec_dump_policy.3; path = libipsec/ipsec_dump_policy.3; sourceTree = "<group>"; };
 		81EDB0680B5D8D8900840BC7 /* ipsec_get_policylen.3 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = ipsec_get_policylen.3; path = libipsec/ipsec_get_policylen.3; sourceTree = "<group>"; };
+		8D5B16230E5F7E9300E72675 /* libresolv.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libresolv.dylib; path = /usr/lib/libresolv.dylib; sourceTree = "<absolute>"; };
+		BA5B6F280EC19F40003774E7 /* ipsecConfigTracer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ipsecConfigTracer.c; sourceTree = "<group>"; };
+		BA5B6F290EC19F40003774E7 /* ipsecSessionTracer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ipsecSessionTracer.c; sourceTree = "<group>"; };
+		BA5B6F300EC19F80003774E7 /* ipsecPolicyTracer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ipsecPolicyTracer.c; sourceTree = "<group>"; };
+		BA5B6F350EC1A03C003774E7 /* ipsecMessageTracer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ipsecMessageTracer.h; path = Common/ipsecMessageTracer.h; sourceTree = "<group>"; };
+		BA5B6F360EC1A03C003774E7 /* ipsecConfigTracer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ipsecConfigTracer.h; sourceTree = "<group>"; };
+		BA5B6F370EC1A03C003774E7 /* ipsecSessionTracer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ipsecSessionTracer.h; sourceTree = "<group>"; };
+		BA5B6F380EC1A03C003774E7 /* ipsecPolicyTracer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ipsecPolicyTracer.h; sourceTree = "<group>"; };
+		BA5B6F4F0EC1A136003774E7 /* vpn.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = vpn.h; sourceTree = "<group>"; };
+		BA6F10940EA1D67700546773 /* ike_session.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ike_session.h; sourceTree = "<group>"; };
+		BA6F109A0EA1DEC200546773 /* ike_session.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ike_session.c; sourceTree = "<group>"; };
+		C172BD980E6369BE0030F8EB /* AspenSDK.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = AspenSDK.xcconfig; path = AppleInternal/XcodeConfig/AspenSDK.xcconfig; sourceTree = DEVELOPER_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -579,16 +892,19 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				81C387570D45208700975D5E /* DirectoryService.framework in Frameworks */,
+				81C387560D45208700975D5E /* Security.framework in Frameworks */,
+				25EAE8C109D87B080042CC7F /* CoreFoundation.framework in Frameworks */,
+				8D5B16750E5F7F4E00E72675 /* libresolv.dylib in Frameworks */,
 				2537A1C709E49D0600D0ECDA /* libipsec.A.dylib in Frameworks */,
-				25EAE83209D875790042CC7F /* Security.framework in Frameworks */,
-				25EAE83809D875BF0042CC7F /* DirectoryService.framework in Frameworks */,
 				25EAE84809D879700042CC7F /* libssl.dylib in Frameworks */,
 				25EAE84B09D879DE0042CC7F /* libcrypto.dylib in Frameworks */,
-				25EAE87209D87A160042CC7F /* libgssapi_krb5.dylib in Frameworks */,
-				25EAE87409D87A390042CC7F /* libpam.dylib in Frameworks */,
+				81C387890D4524F600975D5E /* libgssapi_krb5.dylib in Frameworks */,
+				81C3877A0D4524E700975D5E /* libpam.dylib in Frameworks */,
 				25EAE87709D87A770042CC7F /* libiconv.dylib in Frameworks */,
-				25EAE8C109D87B080042CC7F /* CoreFoundation.framework in Frameworks */,
 				25DC9ED709DB170800C89F86 /* rsaparse.o in Frameworks */,
+				8176A6B90D45661700BC5251 /* libldap.dylib in Frameworks */,
+				81C9645F0DA2CC2D00257BC8 /* SystemConfiguration.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -608,12 +924,59 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		812530F40D3FE9DC006BDF4F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				817FFC4F0D6134AD004A8DD8 /* rsaparse.o in Frameworks */,
+				8D5B167D0E5F7F9F00E72675 /* libresolv.dylib in Frameworks */,
+				817FFC4E0D6134A7004A8DD8 /* libipsec.A.dylib in Frameworks */,
+				812530F80D3FE9DC006BDF4F /* libiconv.dylib in Frameworks */,
+				812530F90D3FE9DC006BDF4F /* CoreFoundation.framework in Frameworks */,
+				812A64ED0D4AA082004CB7EB /* Security.framework in Frameworks */,
+				81C964590DA2CBEF00257BC8 /* SystemConfiguration.framework in Frameworks */,
+				81C9645E0DA2CC2D00257BC8 /* SystemConfiguration.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8125311F0D3FEA33006BDF4F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				817FFC5A0D613729004A8DD8 /* libipsec.A.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		81DDFDA10D622C1700C5CB87 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				81DDFDA20D622C1700C5CB87 /* libipsec.A.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		81DDFDC20D622C2700C5CB87 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		81DDFDD20D622C3500C5CB87 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		23D2D78C087071FC00C51098 = {
 			isa = PBXGroup;
 			children = (
+				72265DDB0F818F9300730A7D /* ipsec.plist */,
+				C172BD980E6369BE0030F8EB /* AspenSDK.xcconfig */,
 				25E5E82D0981A61900F2834C /* ipsec-tools */,
 				2589CB5409D8AE95002DC960 /* Libraries */,
 				25D3DB4C098998230025F703 /* Frameworks */,
@@ -633,6 +996,11 @@
 				254347B609DCB839007943DE /* test-policy */,
 				254347C509DCBA07007943DE /* test-pfkey */,
 				2537A1A809E4864800D0ECDA /* libipsec.A.dylib */,
+				8125310A0D3FE9DC006BDF4F /* racoon */,
+				812531290D3FEA33006BDF4F /* racoonctl */,
+				81DDFDAA0D622C1700C5CB87 /* setkey */,
+				81DDFDCD0D622C2700C5CB87 /* libipsec.A.dylib */,
+				81DDFDD70D622C3500C5CB87 /* rsaparse.o */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -640,6 +1008,8 @@
 		2589CB5409D8AE95002DC960 /* Libraries */ = {
 			isa = PBXGroup;
 			children = (
+				8176A6B80D45661700BC5251 /* libldap.dylib */,
+				8D5B16230E5F7E9300E72675 /* libresolv.dylib */,
 				25EAE87609D87A770042CC7F /* libiconv.dylib */,
 				25EAE87309D87A390042CC7F /* libpam.dylib */,
 				25EAE87109D87A160042CC7F /* libgssapi_krb5.dylib */,
@@ -670,6 +1040,9 @@
 		25D3DB4C098998230025F703 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				81C964580DA2CBEF00257BC8 /* SystemConfiguration.framework */,
+				81C9645D0DA2CC2D00257BC8 /* SystemConfiguration.framework */,
+				812A64EC0D4AA082004CB7EB /* Security.framework */,
 				25EAE83109D875790042CC7F /* Security.framework */,
 				25EAE83709D875BF0042CC7F /* DirectoryService.framework */,
 				25EAE8C009D87B080042CC7F /* CoreFoundation.framework */,
@@ -680,6 +1053,7 @@
 		25D9497C09A6AA7600CA0F24 /* Common */ = {
 			isa = PBXGroup;
 			children = (
+				BA5B6F350EC1A03C003774E7 /* ipsecMessageTracer.h */,
 				25F777ED09ABE58400C99783 /* pfkey_dump.c */,
 				25F777B909ABE3E100C99783 /* key_debug.c */,
 				25D9499F09A6AAD700CA0F24 /* config.h */,
@@ -703,6 +1077,8 @@
 		25F257FF0987FB0E00D15623 /* setkey */ = {
 			isa = PBXGroup;
 			children = (
+				BA5B6F380EC1A03C003774E7 /* ipsecPolicyTracer.h */,
+				BA5B6F300EC19F80003774E7 /* ipsecPolicyTracer.c */,
 				254347C709DCBA1B007943DE /* test-pfkey.c */,
 				25F258840988648C00D15623 /* extern.h */,
 				25F258870988648C00D15623 /* parse.y */,
@@ -719,12 +1095,19 @@
 		25F258000987FB1600D15623 /* racoon */ = {
 			isa = PBXGroup;
 			children = (
+				BA5B6F280EC19F40003774E7 /* ipsecConfigTracer.c */,
+				BA5B6F360EC1A03C003774E7 /* ipsecConfigTracer.h */,
+				BA5B6F290EC19F40003774E7 /* ipsecSessionTracer.c */,
+				BA5B6F370EC1A03C003774E7 /* ipsecSessionTracer.h */,
+				BA6F109A0EA1DEC200546773 /* ike_session.c */,
+				BA6F10940EA1D67700546773 /* ike_session.h */,
 				2589CBA809D8B727002DC960 /* prsa_par.y */,
 				2589CBAA09D8B727002DC960 /* prsa_tok.l */,
 				25F258AB0988657000D15623 /* admin_var.h */,
 				25F258AC0988657000D15623 /* admin.c */,
 				25F258AD0988657000D15623 /* admin.h */,
 				25F258AE0988657000D15623 /* algorithm.c */,
+				81856B700D6B8BC5001DAE21 /* algorithm_types.h */,
 				25F258AF0988657000D15623 /* algorithm.h */,
 				25F258B00988657000D15623 /* arc4random.h */,
 				25F258B10988657000D15623 /* backupsa.c */,
@@ -733,6 +1116,7 @@
 				25F258B40988657000D15623 /* cfparse.y */,
 				25F258B50988657000D15623 /* cftoken_proto.h */,
 				25F258B60988657000D15623 /* cftoken.l */,
+				724F99500E3672FD00C56897 /* com.apple.racoon.plist */,
 				25F258B70988657000D15623 /* crypto_cssm.c */,
 				25F258B80988657000D15623 /* crypto_cssm.h */,
 				25F258B90988657000D15623 /* crypto_openssl.c */,
@@ -843,7 +1227,9 @@
 				25DE2DE50A8BD40E0010A46D /* vpn_control_var.h */,
 				25DE2DE60A8BD40E0010A46D /* vpn_control.c */,
 				25DE2DE70A8BD40E0010A46D /* vpn_control.h */,
-				25F2584E0988620300D15623 /* Sample */,
+				81CA08910CE3BC870055C0AF /* vpn.c */,
+				BA5B6F4F0EC1A136003774E7 /* vpn.h */,
+				818710380D5BE15400C7B441 /* Sample */,
 				25F2584D098861F500D15623 /* Documents */,
 				25F2584C098861ED00D15623 /* Crypto */,
 			);
@@ -885,14 +1271,23 @@
 			path = Documents;
 			sourceTree = "<group>";
 		};
-		25F2584E0988620300D15623 /* Sample */ = {
+		818710380D5BE15400C7B441 /* Sample */ = {
 			isa = PBXGroup;
 			children = (
-				25F25898098864D700D15623 /* anonymous.conf */,
-				25F25899098864D700D15623 /* psk.txt */,
-				25F2589A098864D700D15623 /* racoon.conf */,
+				8187103C0D5BE1CF00C7B441 /* anonymous.conf */,
+				8187103D0D5BE1CF00C7B441 /* psk.txt */,
+				8187103B0D5BE1B400C7B441 /* racoon.conf */,
+				818710390D5BE16600C7B441 /* Embedded */,
 			);
-			path = Sample;
+			name = Sample;
+			sourceTree = "<group>";
+		};
+		818710390D5BE16600C7B441 /* Embedded */ = {
+			isa = PBXGroup;
+			children = (
+				8187103A0D5BE18800C7B441 /* racoon.conf */,
+			);
+			name = Embedded;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -904,6 +1299,15 @@
 			files = (
 				2537A1B109E4867100D0ECDA /* config.h in Headers */,
 				2537A1B809E4867900D0ECDA /* ipsec_strerror.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		81DDFDB90D622C2700C5CB87 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				81DDFDBA0D622C2700C5CB87 /* config.h in Headers */,
+				81DDFDBB0D622C2700C5CB87 /* ipsec_strerror.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1022,8 +1426,8 @@
 				25F258020987FBFA00D15623 /* Sources */,
 				25F258030987FBFA00D15623 /* Frameworks */,
 				258CF2E20A191AB000166B38 /* CopyFiles */,
+				724A38A20E3676FB00F6B25F /* CopyFiles */,
 				258CF2F80A191B3900166B38 /* CopyFiles */,
-				258CF2F90A191B3900166B38 /* CopyFiles */,
 				258CF2FA0A191B3900166B38 /* CopyFiles */,
 				258CF31B0A1941A200166B38 /* ShellScript */,
 			);
@@ -1076,13 +1480,110 @@
 			productReference = 25F2580F0987FC3400D15623 /* racoonctl */;
 			productType = "com.apple.product-type.tool";
 		};
+		812530BA0D3FE9DC006BDF4F /* racoon Embedded */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 812531050D3FE9DC006BDF4F /* Build configuration list for PBXNativeTarget "racoon Embedded" */;
+			buildPhases = (
+				812530BF0D3FE9DC006BDF4F /* Sources */,
+				812530F40D3FE9DC006BDF4F /* Frameworks */,
+				812530FB0D3FE9DC006BDF4F /* CopyFiles */,
+				812530FD0D3FE9DC006BDF4F /* CopyFiles */,
+				812530FF0D3FE9DC006BDF4F /* CopyFiles */,
+				812531020D3FE9DC006BDF4F /* CopyFiles */,
+				725F453B0E36A15C005BB55C /* CopyFiles */,
+				812531040D3FE9DC006BDF4F /* ShellScript */,
+				834072BB0EDCC5C400B6CCE8 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				81DDFDDF0D622D1700C5CB87 /* PBXTargetDependency */,
+				81DDFDE10D622D2A00C5CB87 /* PBXTargetDependency */,
+			);
+			name = "racoon Embedded";
+			productName = racoon;
+			productReference = 8125310A0D3FE9DC006BDF4F /* racoon */;
+			productType = "com.apple.product-type.tool";
+		};
+		812531120D3FEA33006BDF4F /* racoonctl Embedded */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 812531240D3FEA33006BDF4F /* Build configuration list for PBXNativeTarget "racoonctl Embedded" */;
+			buildPhases = (
+				812531150D3FEA33006BDF4F /* Sources */,
+				8125311F0D3FEA33006BDF4F /* Frameworks */,
+				812531210D3FEA33006BDF4F /* CopyFiles */,
+				812531230D3FEA33006BDF4F /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "racoonctl Embedded";
+			productName = racoonctl;
+			productReference = 812531290D3FEA33006BDF4F /* racoonctl */;
+			productType = "com.apple.product-type.tool";
+		};
+		81DDFD970D622C1700C5CB87 /* setkey Embedded */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 81DDFDA60D622C1700C5CB87 /* Build configuration list for PBXNativeTarget "setkey Embedded" */;
+			buildPhases = (
+				81DDFD9A0D622C1700C5CB87 /* Sources */,
+				81DDFDA10D622C1700C5CB87 /* Frameworks */,
+				81DDFDA30D622C1700C5CB87 /* CopyFiles */,
+				81DDFDA50D622C1700C5CB87 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				81DDFDE40D622D8C00C5CB87 /* PBXTargetDependency */,
+			);
+			name = "setkey Embedded";
+			productName = setkey;
+			productReference = 81DDFDAA0D622C1700C5CB87 /* setkey */;
+			productType = "com.apple.product-type.tool";
+		};
+		81DDFDB80D622C2700C5CB87 /* libipsec Embedded */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 81DDFDC90D622C2700C5CB87 /* Build configuration list for PBXNativeTarget "libipsec Embedded" */;
+			buildPhases = (
+				81DDFDB90D622C2700C5CB87 /* Headers */,
+				81DDFDBC0D622C2700C5CB87 /* Sources */,
+				81DDFDC20D622C2700C5CB87 /* Frameworks */,
+				81DDFDC30D622C2700C5CB87 /* CopyFiles */,
+				81DDFDC80D622C2700C5CB87 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "libipsec Embedded";
+			productName = libipsec;
+			productReference = 81DDFDCD0D622C2700C5CB87 /* libipsec.A.dylib */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+		81DDFDCE0D622C3500C5CB87 /* rsaparse Embedded */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 81DDFDD30D622C3500C5CB87 /* Build configuration list for PBXNativeTarget "rsaparse Embedded" */;
+			buildPhases = (
+				81DDFDCF0D622C3500C5CB87 /* Sources */,
+				81DDFDD20D622C3500C5CB87 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "rsaparse Embedded";
+			productName = rsaparse;
+			productReference = 81DDFDD70D622C3500C5CB87 /* rsaparse.o */;
+			productType = "com.apple.product-type.objfile";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
 		23D2D790087071FC00C51098 /* Project object */ = {
 			isa = PBXProject;
 			buildConfigurationList = 25D3DACC098952B20025F703 /* Build configuration list for PBXProject "ipsec" */;
-			compatibilityVersion = "Xcode 2.4";
+			compatibilityVersion = "Xcode 3.0";
 			hasScannedForEncodings = 0;
 			mainGroup = 23D2D78C087071FC00C51098;
 			productRefGroup = 23D2D79C087074CC00C51098 /* Products */;
@@ -1099,6 +1600,12 @@
 				254347B509DCB839007943DE /* test-policy */,
 				254347C409DCBA07007943DE /* test-pfkey */,
 				2537A1A709E4864800D0ECDA /* libipsec */,
+				812530AA0D3FE994006BDF4F /* IPSec Embedded (Aggregate) */,
+				812530BA0D3FE9DC006BDF4F /* racoon Embedded */,
+				812531120D3FEA33006BDF4F /* racoonctl Embedded */,
+				81DDFD970D622C1700C5CB87 /* setkey Embedded */,
+				81DDFDB80D622C2700C5CB87 /* libipsec Embedded */,
+				81DDFDCE0D622C3500C5CB87 /* rsaparse Embedded */,
 			);
 		};
 /* End PBXProject section */
@@ -1157,6 +1664,58 @@
 			shellScript = "/bin/chmod 444 $DSTROOT/usr/share/man/man8/plainrsa-gen.8";
 		};
 		258CF3240A1943DE00166B38 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "/bin/chmod 444 $DSTROOT/usr/share/man/man3/ipsec_set_policy.3\n/bin/chmod 444 $DSTROOT/usr/share/man/man3/ipsec_strerror.3\n/bin/ln -s libipsec.A.dylib $DSTROOT/usr/lib/libipsec.dylib\n";
+		};
+		812531040D3FE9DC006BDF4F /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "/bin/chmod 600 $DSTROOT/private/etc/racoon/psk.txt\n/bin/chmod 644 $DSTROOT/private/etc/racoon/racoon.conf\n/bin/chmod 600 $DSTROOT/private/etc/racoon/remote/anonymous.conf\n/bin/chmod 444 $DSTROOT/usr/share/man/man5/racoon.conf.5\n/bin/chmod 444 $DSTROOT/usr/share/man/man8/racoon.8\n";
+		};
+		812531230D3FEA33006BDF4F /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "/bin/chmod 444 $DSTROOT/usr/share/man/man8/racoonctl.8";
+		};
+		81DDFDA50D622C1700C5CB87 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "/bin/chmod 444 $DSTROOT/usr/share/man/man8/setkey.8";
+		};
+		81DDFDC80D622C2700C5CB87 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
 			files = (
@@ -1254,7 +1813,7 @@
 				25F2592A0988657000D15623 /* backupsa.c in Sources */,
 				25F2592B0988657000D15623 /* cfparse.y in Sources */,
 				25F2592C0988657000D15623 /* cftoken.l in Sources */,
-				25F2592D0988657000D15623 /* crypto_cssm.c in Sources */,
+				81C386AA0D451EC300975D5E /* crypto_cssm.c in Sources */,
 				25F2592E0988657000D15623 /* crypto_openssl.c in Sources */,
 				25F2592F0988657000D15623 /* dnssec.c in Sources */,
 				25F259310988657000D15623 /* evt.c in Sources */,
@@ -1276,7 +1835,7 @@
 				25F259460988657000D15623 /* main.c in Sources */,
 				25F259470988657000D15623 /* misc.c in Sources */,
 				25F259490988657000D15623 /* oakley.c in Sources */,
-				25F2594A0988657000D15623 /* open_dir.c in Sources */,
+				81C387EC0D45268300975D5E /* open_dir.c in Sources */,
 				25F2594C0988657000D15623 /* pfkey_racoon.c in Sources */,
 				25F2594F0988657000D15623 /* plog.c in Sources */,
 				25F259500988657000D15623 /* policy.c in Sources */,
@@ -1300,6 +1859,10 @@
 				25DC9ED509DB16F800C89F86 /* isakmp_unity.c in Sources */,
 				25DC9ED609DB16FA00C89F86 /* isakmp_xauth.c in Sources */,
 				25DE2DE90A8BD40E0010A46D /* vpn_control.c in Sources */,
+				81CA08920CE3BC870055C0AF /* vpn.c in Sources */,
+				BA6F109B0EA1DEC200546773 /* ike_session.c in Sources */,
+				BA5B6F2A0EC19F40003774E7 /* ipsecConfigTracer.c in Sources */,
+				BA5B6F2B0EC19F40003774E7 /* ipsecSessionTracer.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1313,6 +1876,7 @@
 				25ECCDA209AD479A00883CA3 /* pfkey.c in Sources */,
 				25F258910988648C00D15623 /* setkey.c in Sources */,
 				25F258940988648C00D15623 /* token.l in Sources */,
+				BA5B6F310EC19F80003774E7 /* ipsecPolicyTracer.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1329,6 +1893,120 @@
 				2543476409DCB396007943DE /* pfkey_dump.c in Sources */,
 				2543476709DCB400007943DE /* key_debug.c in Sources */,
 				2543476909DCB420007943DE /* pfkey.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		812530BF0D3FE9DC006BDF4F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				812530C00D3FE9DC006BDF4F /* rijndael-alg-fst.c in Sources */,
+				812530C10D3FE9DC006BDF4F /* rijndael-api-fst.c in Sources */,
+				812530C20D3FE9DC006BDF4F /* admin.c in Sources */,
+				812530C30D3FE9DC006BDF4F /* algorithm.c in Sources */,
+				812530C40D3FE9DC006BDF4F /* backupsa.c in Sources */,
+				812530C50D3FE9DC006BDF4F /* cfparse.y in Sources */,
+				812530C60D3FE9DC006BDF4F /* cftoken.l in Sources */,
+				81C325A80D46A36900E65EB7 /* crypto_cssm.c in Sources */,
+				812530C70D3FE9DC006BDF4F /* crypto_openssl.c in Sources */,
+				812530C80D3FE9DC006BDF4F /* dnssec.c in Sources */,
+				812530C90D3FE9DC006BDF4F /* evt.c in Sources */,
+				812530CA0D3FE9DC006BDF4F /* genlist.c in Sources */,
+				812530CB0D3FE9DC006BDF4F /* getcertsbyname.c in Sources */,
+				812530CC0D3FE9DC006BDF4F /* grabmyaddr.c in Sources */,
+				812530CD0D3FE9DC006BDF4F /* gssapi.c in Sources */,
+				812530CE0D3FE9DC006BDF4F /* handler.c in Sources */,
+				812530CF0D3FE9DC006BDF4F /* ipsec_doi.c in Sources */,
+				812530D00D3FE9DC006BDF4F /* isakmp_agg.c in Sources */,
+				812530D10D3FE9DC006BDF4F /* isakmp_base.c in Sources */,
+				812530D20D3FE9DC006BDF4F /* isakmp_ident.c in Sources */,
+				812530D30D3FE9DC006BDF4F /* isakmp_inf.c in Sources */,
+				812530D40D3FE9DC006BDF4F /* isakmp_newg.c in Sources */,
+				812530D50D3FE9DC006BDF4F /* isakmp_quick.c in Sources */,
+				812530D60D3FE9DC006BDF4F /* isakmp.c in Sources */,
+				812530D70D3FE9DC006BDF4F /* localconf.c in Sources */,
+				812530D80D3FE9DC006BDF4F /* logger.c in Sources */,
+				812530D90D3FE9DC006BDF4F /* main.c in Sources */,
+				812530DA0D3FE9DC006BDF4F /* misc.c in Sources */,
+				812530DB0D3FE9DC006BDF4F /* oakley.c in Sources */,
+				812530DC0D3FE9DC006BDF4F /* pfkey_racoon.c in Sources */,
+				812530DD0D3FE9DC006BDF4F /* plog.c in Sources */,
+				812530DE0D3FE9DC006BDF4F /* policy.c in Sources */,
+				812530DF0D3FE9DC006BDF4F /* privsep.c in Sources */,
+				812530E00D3FE9DC006BDF4F /* proposal.c in Sources */,
+				812530E10D3FE9DC006BDF4F /* remoteconf.c in Sources */,
+				812530E20D3FE9DC006BDF4F /* safefile.c in Sources */,
+				812530E30D3FE9DC006BDF4F /* sainfo.c in Sources */,
+				812530E40D3FE9DC006BDF4F /* schedule.c in Sources */,
+				812530E50D3FE9DC006BDF4F /* session.c in Sources */,
+				812530E60D3FE9DC006BDF4F /* sockmisc.c in Sources */,
+				812530E70D3FE9DC006BDF4F /* str2val.c in Sources */,
+				812530E80D3FE9DC006BDF4F /* strnames.c in Sources */,
+				812530E90D3FE9DC006BDF4F /* throttle.c in Sources */,
+				812530EA0D3FE9DC006BDF4F /* vendorid.c in Sources */,
+				812530EB0D3FE9DC006BDF4F /* vmbuf.c in Sources */,
+				812530EC0D3FE9DC006BDF4F /* nattraversal.c in Sources */,
+				812530ED0D3FE9DC006BDF4F /* pfkey.c in Sources */,
+				812530EE0D3FE9DC006BDF4F /* rsalist.c in Sources */,
+				812530EF0D3FE9DC006BDF4F /* isakmp_cfg.c in Sources */,
+				812530F00D3FE9DC006BDF4F /* isakmp_unity.c in Sources */,
+				812530F10D3FE9DC006BDF4F /* isakmp_xauth.c in Sources */,
+				812530F20D3FE9DC006BDF4F /* vpn_control.c in Sources */,
+				812530F30D3FE9DC006BDF4F /* vpn.c in Sources */,
+				BA6F109C0EA1DEC200546773 /* ike_session.c in Sources */,
+				BA5B6F2C0EC19F40003774E7 /* ipsecConfigTracer.c in Sources */,
+				BA5B6F2D0EC19F40003774E7 /* ipsecSessionTracer.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		812531150D3FEA33006BDF4F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				812531160D3FEA33006BDF4F /* racoonctl.c in Sources */,
+				812531170D3FEA33006BDF4F /* str2val.c in Sources */,
+				812531180D3FEA33006BDF4F /* kmpstat.c in Sources */,
+				812531190D3FEA33006BDF4F /* vmbuf.c in Sources */,
+				8125311A0D3FEA33006BDF4F /* sockmisc.c in Sources */,
+				8125311B0D3FEA33006BDF4F /* misc.c in Sources */,
+				8125311C0D3FEA33006BDF4F /* pfkey_dump.c in Sources */,
+				8125311D0D3FEA33006BDF4F /* key_debug.c in Sources */,
+				8125311E0D3FEA33006BDF4F /* pfkey.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		81DDFD9A0D622C1700C5CB87 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				81DDFD9B0D622C1700C5CB87 /* parse.y in Sources */,
+				81DDFD9C0D622C1700C5CB87 /* pfkey_dump.c in Sources */,
+				81DDFD9D0D622C1700C5CB87 /* key_debug.c in Sources */,
+				81DDFD9E0D622C1700C5CB87 /* pfkey.c in Sources */,
+				81DDFD9F0D622C1700C5CB87 /* setkey.c in Sources */,
+				81DDFDA00D622C1700C5CB87 /* token.l in Sources */,
+				BA5B6F320EC19F80003774E7 /* ipsecPolicyTracer.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		81DDFDBC0D622C2700C5CB87 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				81DDFDBD0D622C2700C5CB87 /* ipsec_dump_policy.c in Sources */,
+				81DDFDBE0D622C2700C5CB87 /* ipsec_get_policylen.c in Sources */,
+				81DDFDBF0D622C2700C5CB87 /* ipsec_strerror.c in Sources */,
+				81DDFDC00D622C2700C5CB87 /* policy_parse.y in Sources */,
+				81DDFDC10D622C2700C5CB87 /* policy_token.l in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		81DDFDCF0D622C3500C5CB87 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				81DDFDD00D622C3500C5CB87 /* prsa_par.y in Sources */,
+				81DDFDD10D622C3500C5CB87 /* prsa_tok.l in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1400,6 +2078,46 @@
 			target = 25E08C9909D9E64A001A11CF /* rsaparse */;
 			targetProxy = 25E08CE909D9F0A2001A11CF /* PBXContainerItemProxy */;
 		};
+		812531110D3FEA28006BDF4F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 812530BA0D3FE9DC006BDF4F /* racoon Embedded */;
+			targetProxy = 812531100D3FEA28006BDF4F /* PBXContainerItemProxy */;
+		};
+		8125312C0D3FEA44006BDF4F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 812531120D3FEA33006BDF4F /* racoonctl Embedded */;
+			targetProxy = 8125312B0D3FEA44006BDF4F /* PBXContainerItemProxy */;
+		};
+		81DDFDD90D622C4E00C5CB87 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 81DDFDB80D622C2700C5CB87 /* libipsec Embedded */;
+			targetProxy = 81DDFDD80D622C4E00C5CB87 /* PBXContainerItemProxy */;
+		};
+		81DDFDDB0D622C5100C5CB87 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 81DDFDCE0D622C3500C5CB87 /* rsaparse Embedded */;
+			targetProxy = 81DDFDDA0D622C5100C5CB87 /* PBXContainerItemProxy */;
+		};
+		81DDFDDF0D622D1700C5CB87 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 81DDFDB80D622C2700C5CB87 /* libipsec Embedded */;
+			targetProxy = 81DDFDDE0D622D1700C5CB87 /* PBXContainerItemProxy */;
+		};
+		81DDFDE10D622D2A00C5CB87 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 81DDFDCE0D622C3500C5CB87 /* rsaparse Embedded */;
+			targetProxy = 81DDFDE00D622D2A00C5CB87 /* PBXContainerItemProxy */;
+		};
+		81DDFDE40D622D8C00C5CB87 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 81DDFDB80D622C2700C5CB87 /* libipsec Embedded */;
+			targetProxy = 81DDFDE30D622D8C00C5CB87 /* PBXContainerItemProxy */;
+		};
+		81DDFDF10D627DE300C5CB87 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 81DDFD970D622C1700C5CB87 /* setkey Embedded */;
+			targetProxy = 81DDFDF00D627DE300C5CB87 /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
@@ -1463,7 +2181,7 @@
 				DYLIB_CURRENT_VERSION = 300;
 				EXECUTABLE_PREFIX = lib;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"HAVE_CONFIG_H=1",
@@ -1493,6 +2211,7 @@
 				ALTERNATE_MODE = "";
 				ALTERNATE_OWNER = "$(inherited)";
 				ARCHS = (
+					armv6,
 					i386,
 					ppc,
 					ppc64,
@@ -1519,7 +2238,7 @@
 				LEXFLAGS = "$(LEXFLAGS) -P__libipsec";
 				PREBINDING = NO;
 				PRODUCT_NAME = ipsec.A;
-				VALID_ARCHS = "ppc64 i386 x86_64 ppc";
+				VALID_ARCHS = "armv6 ppc64 i386 x86_64 ppc";
 				YACCFLAGS = "$(YACCFLAGS) -d -p__libipsec";
 				ZERO_LINK = YES;
 			};
@@ -1533,7 +2252,7 @@
 					i386,
 				);
 				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_MODEL_TUNING = G5;
@@ -1549,7 +2268,7 @@
 				PREBINDING = NO;
 				PRODUCT_NAME = "plainrsa-gen";
 				SKIP_INSTALL = YES;
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "x86_64 i386 ppc";
 				ZERO_LINK = NO;
 			};
 			name = Development;
@@ -1563,7 +2282,7 @@
 				);
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"HAVE_CONFIG_H=1",
@@ -1572,11 +2291,11 @@
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
 				INSTALL_OWNER = root;
-				INSTALL_PATH = /use/sbin;
+				INSTALL_PATH = /usr/sbin;
 				PREBINDING = NO;
 				PRODUCT_NAME = "plainrsa-gen";
 				STRIP_INSTALLED_PRODUCT = YES;
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "x86_64 i386 ppc";
 				ZERO_LINK = NO;
 			};
 			name = Deployment;
@@ -1601,7 +2320,7 @@
 				PREBINDING = NO;
 				PRODUCT_NAME = "plainrsa-gen";
 				STRIP_INSTALLED_PRODUCT = YES;
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "x86_64 i386 ppc";
 				ZERO_LINK = NO;
 			};
 			name = Default;
@@ -1631,7 +2350,7 @@
 				PREBINDING = NO;
 				PRODUCT_NAME = eaytest;
 				SKIP_INSTALL = YES;
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "x86_64 i386 ppc";
 				ZERO_LINK = NO;
 			};
 			name = Development;
@@ -1660,7 +2379,7 @@
 				PRODUCT_NAME = eaytest;
 				SKIP_INSTALL = YES;
 				STRIP_INSTALLED_PRODUCT = YES;
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "x86_64 i386 ppc";
 				ZERO_LINK = NO;
 			};
 			name = Deployment;
@@ -1688,7 +2407,7 @@
 				PRODUCT_NAME = eaytest;
 				SKIP_INSTALL = YES;
 				STRIP_INSTALLED_PRODUCT = YES;
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "x86_64 i386 ppc";
 				ZERO_LINK = NO;
 			};
 			name = Default;
@@ -1715,7 +2434,7 @@
 				PREBINDING = NO;
 				PRODUCT_NAME = "test-policy";
 				SKIP_INSTALL = YES;
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "x86_64 i386 ppc";
 				ZERO_LINK = NO;
 			};
 			name = Development;
@@ -1741,7 +2460,7 @@
 				PRODUCT_NAME = "test-policy";
 				SKIP_INSTALL = YES;
 				STRIP_INSTALLED_PRODUCT = YES;
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "x86_64 i386 ppc";
 				ZERO_LINK = NO;
 			};
 			name = Deployment;
@@ -1765,7 +2484,7 @@
 				PRODUCT_NAME = "test-policy";
 				SKIP_INSTALL = YES;
 				STRIP_INSTALLED_PRODUCT = YES;
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "x86_64 i386 ppc";
 				ZERO_LINK = NO;
 			};
 			name = Default;
@@ -1789,7 +2508,7 @@
 				PREBINDING = NO;
 				PRODUCT_NAME = "test-pfkey";
 				SKIP_INSTALL = YES;
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "x86_64 i386 ppc";
 				ZERO_LINK = NO;
 			};
 			name = Development;
@@ -1812,7 +2531,7 @@
 				PRODUCT_NAME = "test-pfkey";
 				SKIP_INSTALL = YES;
 				STRIP_INSTALLED_PRODUCT = YES;
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "x86_64 i386 ppc";
 				ZERO_LINK = NO;
 			};
 			name = Deployment;
@@ -1833,7 +2552,7 @@
 				PRODUCT_NAME = "test-pfkey";
 				SKIP_INSTALL = YES;
 				STRIP_INSTALLED_PRODUCT = YES;
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "x86_64 i386 ppc";
 				ZERO_LINK = NO;
 			};
 			name = Default;
@@ -1847,6 +2566,8 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = "IPSec (Aggregate)";
 				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = NO;
+				VALID_ARCHS = "ppc64 ppc7400 ppc970 i386 x86_64 ppc";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -1858,12 +2579,13 @@
 		25D3DABA098952B20025F703 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
+				COPY_PHASE_STRIP = NO;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = "IPSec (Aggregate)";
 				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = NO;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -1875,11 +2597,13 @@
 		25D3DABB098952B20025F703 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COPY_PHASE_STRIP = NO;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = "IPSec (Aggregate)";
 				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = NO;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -1924,7 +2648,7 @@
 					"$(OTHER_CFLAGS_QUOTED_3)",
 				);
 				OTHER_CFLAGS_QUOTED_1 = "-DSYSCONFDIR=\\\"/etc/racoon\\\"";
-				OTHER_CFLAGS_QUOTED_2 = "-DADMINPORTDIR=\\\"/etc/racoon\\\"";
+				OTHER_CFLAGS_QUOTED_2 = "-DADMINPORTDIR=\\\"/var/run\\\"";
 				OTHER_CFLAGS_QUOTED_3 = "-DPATHRACOON=\\\"/usr/sbin/racoon\\\"";
 				OTHER_CPLUSPLUSFLAGS = "$(OTHER_CFLAGS)";
 				OTHER_LDFLAGS = "";
@@ -1933,7 +2657,7 @@
 				PRODUCT_NAME = racoon;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "x86_64 i386 ppc";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -1956,7 +2680,7 @@
 				);
 				COPY_PHASE_STRIP = NO;
 				DSTROOT = "/tmp/$(PROJECT_NAME).dst";
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "";
@@ -1979,7 +2703,7 @@
 					"$(OTHER_CFLAGS_QUOTED_3)",
 				);
 				OTHER_CFLAGS_QUOTED_1 = "-DSYSCONFDIR=\\\"/etc/racoon\\\"";
-				OTHER_CFLAGS_QUOTED_2 = "-DADMINPORTDIR=\\\"/etc/racoon\\\"";
+				OTHER_CFLAGS_QUOTED_2 = "-DADMINPORTDIR=\\\"/var/run\\\"";
 				OTHER_CFLAGS_QUOTED_3 = "-DPATHRACOON=\\\"/usr/sbin/racoon\\\"";
 				OTHER_CPLUSPLUSFLAGS = "$(OTHER_CFLAGS)";
 				OTHER_LDFLAGS = "";
@@ -1987,7 +2711,7 @@
 				PREBINDING = NO;
 				PRODUCT_NAME = racoon;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "x86_64 i386 ppc";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -2009,7 +2733,7 @@
 				);
 				COPY_PHASE_STRIP = NO;
 				DSTROOT = "/tmp/$(PROJECT_NAME).dst";
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "";
@@ -2032,7 +2756,7 @@
 					"$(OTHER_CFLAGS_QUOTED_3)",
 				);
 				OTHER_CFLAGS_QUOTED_1 = "-DSYSCONFDIR=\\\"/etc/racoon\\\"";
-				OTHER_CFLAGS_QUOTED_2 = "-DADMINPORTDIR=\\\"/etc/racoon\\\"";
+				OTHER_CFLAGS_QUOTED_2 = "-DADMINPORTDIR=\\\"/var/run\\\"";
 				OTHER_CFLAGS_QUOTED_3 = "-DPATHRACOON=\\\"/usr/sbin/racoon\\\"";
 				OTHER_CPLUSPLUSFLAGS = "$(OTHER_CFLAGS)";
 				OTHER_LDFLAGS = "";
@@ -2040,7 +2764,7 @@
 				PREBINDING = NO;
 				PRODUCT_NAME = racoon;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "x86_64 i386 ppc";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -2058,7 +2782,7 @@
 					i386,
 				);
 				COPY_PHASE_STRIP = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"HAVE_CONFIG_H=1\nHAVE_CONFIG_H=1",
@@ -2082,7 +2806,7 @@
 				PRODUCT_NAME = setkey;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "armv6 i386 ppc x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -2100,7 +2824,7 @@
 					i386,
 				);
 				COPY_PHASE_STRIP = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"HAVE_CONFIG_H=1\nHAVE_CONFIG_H=1",
@@ -2125,7 +2849,7 @@
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = NO;
 				STRIP_INSTALLED_PRODUCT = YES;
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "armv6 i386 ppc x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -2138,10 +2862,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = (
-					ppc,
 					i386,
+					ppc,
+					armv6,
 				);
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"HAVE_CONFIG_H=1\nHAVE_CONFIG_H=1",
@@ -2165,7 +2890,7 @@
 				PRODUCT_NAME = setkey;
 				SECTORDER_FLAGS = "";
 				STRIP_INSTALLED_PRODUCT = YES;
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "armv6 i386 ppc x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -2199,14 +2924,14 @@
 				INSTALL_MODE_FLAG = 555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = "-DADMINPORTDIR=\\\"/etc/racoon\\\"";
+				OTHER_CFLAGS = "-DADMINPORTDIR=\\\"/var/run\\\"";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PREBINDING = NO;
 				PRODUCT_NAME = racoonctl;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "x86_64 i386 ppc";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -2226,7 +2951,7 @@
 					i386,
 				);
 				COPY_PHASE_STRIP = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"HAVE_CONFIG_H=1",
@@ -2240,14 +2965,14 @@
 				INSTALL_MODE_FLAG = 555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = "-DADMINPORTDIR=\\\"/etc/racoon\\\"";
+				OTHER_CFLAGS = "-DADMINPORTDIR=\\\"/var/run\\\"";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PREBINDING = NO;
 				PRODUCT_NAME = racoonctl;
 				SECTORDER_FLAGS = "";
 				STRIP_INSTALLED_PRODUCT = YES;
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "x86_64 i386 ppc";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -2266,7 +2991,7 @@
 					ppc,
 					i386,
 				);
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"HAVE_CONFIG_H=1",
@@ -2280,14 +3005,14 @@
 				INSTALL_MODE_FLAG = 555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = "-DADMINPORTDIR=\\\"/etc/racoon\\\"";
+				OTHER_CFLAGS = "-DADMINPORTDIR=\\\"/var/run\\\"";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PREBINDING = NO;
 				PRODUCT_NAME = racoonctl;
 				SECTORDER_FLAGS = "";
 				STRIP_INSTALLED_PRODUCT = YES;
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "x86_64 i386 ppc";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -2299,8 +3024,13 @@
 		25D3DACD098952B20025F703 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ADDITIONAL_SDKS = "";
 				ARCHS = (
+					armv6,
 					i386,
+					ppc64,
+					arm,
+					x86_64,
 					ppc,
 				);
 			};
@@ -2309,8 +3039,13 @@
 		25D3DACE098952B20025F703 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ADDITIONAL_SDKS = "";
 				ARCHS = (
+					armv6,
 					i386,
+					ppc64,
+					arm,
+					x86_64,
 					ppc,
 				);
 			};
@@ -2319,8 +3054,13 @@
 		25D3DACF098952B20025F703 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ADDITIONAL_SDKS = "";
 				ARCHS = (
+					armv6,
 					i386,
+					ppc64,
+					arm,
+					x86_64,
 					ppc,
 				);
 			};
@@ -2342,7 +3082,8 @@
 				LEXFLAGS = "$(LEXFLAGS) -Pprsa";
 				PREBINDING = NO;
 				PRODUCT_NAME = rsaparse;
-				VALID_ARCHS = "i386 ppc";
+				SKIP_INSTALL = NO;
+				VALID_ARCHS = "i386 ppc x86_64 armv6";
 				YACCFLAGS = "$(YACCFLAGS) -pprsa";
 			};
 			name = Development;
@@ -2362,7 +3103,8 @@
 				LEXFLAGS = "$(LEXFLAGS) -Pprsa";
 				PREBINDING = NO;
 				PRODUCT_NAME = rsaparse;
-				VALID_ARCHS = "i386 ppc";
+				SKIP_INSTALL = NO;
+				VALID_ARCHS = "i386 ppc x86_64 armv6";
 				YACCFLAGS = "$(YACCFLAGS) -pprsa";
 				ZERO_LINK = NO;
 			};
@@ -2372,8 +3114,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = (
-					ppc,
 					i386,
+					ppc,
+					armv6,
 				);
 				COPY_PHASE_STRIP = NO;
 				GCC_MODEL_TUNING = G5;
@@ -2381,7 +3124,613 @@
 				LEXFLAGS = "$(LEXFLAGS) -Pprsa";
 				PREBINDING = NO;
 				PRODUCT_NAME = rsaparse;
-				VALID_ARCHS = "i386 ppc";
+				SKIP_INSTALL = NO;
+				VALID_ARCHS = "i386 ppc x86_64 armv6";
+				YACCFLAGS = "$(YACCFLAGS) -pprsa";
+			};
+			name = Default;
+		};
+		812530B60D3FE994006BDF4F /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ADDITIONAL_SDKS = "";
+				COPY_PHASE_STRIP = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "IPSec Embedded (Aggregate)";
+				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = NO;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Development;
+		};
+		812530B70D3FE994006BDF4F /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ADDITIONAL_SDKS = "";
+				COPY_PHASE_STRIP = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "IPSec Embedded (Aggregate)";
+				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = NO;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Deployment;
+		};
+		812530B90D3FE994006BDF4F /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ADDITIONAL_SDKS = "";
+				COPY_PHASE_STRIP = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "IPSec Embedded (Aggregate)";
+				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = NO;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		812531060D3FE9DC006BDF4F /* Development */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C172BD980E6369BE0030F8EB /* AspenSDK.xcconfig */;
+			buildSettings = {
+				ALTERNATE_GROUP = "$(inherited)";
+				ALTERNATE_MODE = "$(inherited)";
+				ALTERNATE_OWNER = "$(inherited)";
+				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/entitlements.plist";
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\\\"$(SDKROOT)/System/Library/Frameworks\\\"",
+					"\\\"$(DEVELOPER_DIR)/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS2.0.Internal.sdk/System/Library/Frameworks\\\"",
+				);
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"HAVE_CONFIG_H=1",
+					"$(GCC_PREPROCESSOR_DEFINITIONS)",
+				);
+				HEADER_SEARCH_PATHS = (
+					../Common,
+					Crypto,
+					/tmp/ipsec.dst/usr/include,
+				);
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				LEXFLAGS = "";
+				OTHER_CFLAGS = (
+					"$(OTHER_CFLAGS_QUOTED_1)",
+					"$(OTHER_CFLAGS_QUOTED_2)",
+					"$(OTHER_CFLAGS_QUOTED_3)",
+				);
+				OTHER_CFLAGS_QUOTED_1 = "-DSYSCONFDIR=\\\"/etc/racoon\\\"";
+				OTHER_CFLAGS_QUOTED_2 = "-DADMINPORTDIR=\\\"/var/run\\\"";
+				OTHER_CFLAGS_QUOTED_3 = "-DPATHRACOON=\\\"/usr/sbin/racoon\\\"";
+				OTHER_CPLUSPLUSFLAGS = "$(OTHER_CFLAGS)";
+				OTHER_LDFLAGS = "-lcrypto";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = racoon;
+				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = YES;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				YACCFLAGS = "$(YACCFLAGS) -d";
+				YACC_GENERATE_DEBUGGING_DIRECTIVES = NO;
+			};
+			name = Development;
+		};
+		812531070D3FE9DC006BDF4F /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C172BD980E6369BE0030F8EB /* AspenSDK.xcconfig */;
+			buildSettings = {
+				ALTERNATE_GROUP = "$(inherited)";
+				ALTERNATE_MODE = "$(inherited)";
+				ALTERNATE_OWNER = "$(inherited)";
+				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/entitlements.plist";
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DSTROOT = "/tmp/$(PROJECT_NAME).dst";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\\\"$(SDKROOT)/System/Library/Frameworks\\\"",
+					"\\\"$(DEVELOPER_DIR)/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS2.0.Internal.sdk/System/Library/Frameworks\\\"",
+				);
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"HAVE_CONFIG_H=1",
+					"$(GCC_PREPROCESSOR_DEFINITIONS)",
+				);
+				HEADER_SEARCH_PATHS = (
+					../Common,
+					Crypto,
+					/tmp/ipsec.dst/usr/include,
+				);
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = (
+					"$(OTHER_CFLAGS_QUOTED_1)",
+					"$(OTHER_CFLAGS_QUOTED_2)",
+					"$(OTHER_CFLAGS_QUOTED_3)",
+				);
+				OTHER_CFLAGS_QUOTED_1 = "-DSYSCONFDIR=\\\"/etc/racoon\\\"";
+				OTHER_CFLAGS_QUOTED_2 = "-DADMINPORTDIR=\\\"/var/run\\\"";
+				OTHER_CFLAGS_QUOTED_3 = "-DPATHRACOON=\\\"/usr/sbin/racoon\\\"";
+				OTHER_CPLUSPLUSFLAGS = "$(OTHER_CFLAGS)";
+				OTHER_LDFLAGS = "-lcrypto";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = racoon;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				YACCFLAGS = "$(YACCFLAGS) -d";
+			};
+			name = Deployment;
+		};
+		812531090D3FE9DC006BDF4F /* Default */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C172BD980E6369BE0030F8EB /* AspenSDK.xcconfig */;
+			buildSettings = {
+				ALTERNATE_GROUP = "$(inherited)";
+				ALTERNATE_MODE = "$(inherited)";
+				ALTERNATE_OWNER = "$(inherited)";
+				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/entitlements.plist";
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DSTROOT = "/tmp/$(PROJECT_NAME).dst";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\\\"$(SDKROOT)/System/Library/Frameworks\\\"",
+					"\\\"$(DEVELOPER_DIR)/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS2.0.Internal.sdk/System/Library/Frameworks\\\"",
+				);
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"HAVE_CONFIG_H=1",
+					"$(GCC_PREPROCESSOR_DEFINITIONS)",
+				);
+				HEADER_SEARCH_PATHS = (
+					../Common,
+					Crypto,
+					/tmp/ipsec.dst/usr/include,
+				);
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = (
+					"$(OTHER_CFLAGS_QUOTED_1)",
+					"$(OTHER_CFLAGS_QUOTED_2)",
+					"$(OTHER_CFLAGS_QUOTED_3)",
+				);
+				OTHER_CFLAGS_QUOTED_1 = "-DSYSCONFDIR=\\\"/etc/racoon\\\"";
+				OTHER_CFLAGS_QUOTED_2 = "-DADMINPORTDIR=\\\"/var/run\\\"";
+				OTHER_CFLAGS_QUOTED_3 = "-DPATHRACOON=\\\"/usr/sbin/racoon\\\"";
+				OTHER_CPLUSPLUSFLAGS = "$(OTHER_CFLAGS)";
+				OTHER_LDFLAGS = "-lcrypto";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = racoon;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				YACCFLAGS = "$(YACCFLAGS) -d";
+			};
+			name = Default;
+		};
+		812531250D3FEA33006BDF4F /* Development */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C172BD980E6369BE0030F8EB /* AspenSDK.xcconfig */;
+			buildSettings = {
+				ALTERNATE_GROUP = "$(inherited)";
+				ALTERNATE_MODE = "$(inherited)";
+				ALTERNATE_OWNER = "$(inherited)";
+				COPY_PHASE_STRIP = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"HAVE_CONFIG_H=1",
+					"$(GCC_PREPROCESSOR_DEFINITIONS)",
+				);
+				HEADER_SEARCH_PATHS = (
+					"$(DSTROOT)/usr/include",
+					"$(inherited)",
+				);
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = "-DADMINPORTDIR=\\\"/tmp/racoon\\\"";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = racoonctl;
+				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = YES;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Development;
+		};
+		812531260D3FEA33006BDF4F /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C172BD980E6369BE0030F8EB /* AspenSDK.xcconfig */;
+			buildSettings = {
+				ALTERNATE_GROUP = "$(inherited)";
+				ALTERNATE_MODE = "$(inherited)";
+				ALTERNATE_OWNER = "$(inherited)";
+				COPY_PHASE_STRIP = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"HAVE_CONFIG_H=1",
+					"$(GCC_PREPROCESSOR_DEFINITIONS)",
+				);
+				HEADER_SEARCH_PATHS = (
+					"$(DSTROOT)/usr/include",
+					"$(inherited)",
+				);
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = "-DADMINPORTDIR=\\\"/tmp/racoon\\\"";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = racoonctl;
+				SECTORDER_FLAGS = "";
+				STRIP_INSTALLED_PRODUCT = YES;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Deployment;
+		};
+		812531280D3FEA33006BDF4F /* Default */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C172BD980E6369BE0030F8EB /* AspenSDK.xcconfig */;
+			buildSettings = {
+				ALTERNATE_GROUP = "$(inherited)";
+				ALTERNATE_MODE = "$(inherited)";
+				ALTERNATE_OWNER = "$(inherited)";
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"HAVE_CONFIG_H=1",
+					"$(GCC_PREPROCESSOR_DEFINITIONS)",
+				);
+				HEADER_SEARCH_PATHS = (
+					"$(DSTROOT)/usr/include",
+					"$(inherited)",
+				);
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = "-DADMINPORTDIR=\\\"/tmp/racoon\\\"";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = racoonctl;
+				SECTORDER_FLAGS = "";
+				STRIP_INSTALLED_PRODUCT = YES;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		81DDFDA70D622C1700C5CB87 /* Development */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C172BD980E6369BE0030F8EB /* AspenSDK.xcconfig */;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"HAVE_CONFIG_H=1\nHAVE_CONFIG_H=1",
+					"$(GCC_PREPROCESSOR_DEFINITIONS)",
+				);
+				HEADER_SEARCH_PATHS = (
+					"$(DSTROOT)/usr/include",
+					../Common,
+				);
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				LIBRARY_SEARCH_PATHS = "";
+				MACH_O_TYPE = mh_execute;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRELINK_LIBS = "";
+				PRODUCT_NAME = setkey;
+				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = YES;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				YACCFLAGS = "";
+			};
+			name = Development;
+		};
+		81DDFDA80D622C1700C5CB87 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C172BD980E6369BE0030F8EB /* AspenSDK.xcconfig */;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"HAVE_CONFIG_H=1\nHAVE_CONFIG_H=1",
+					"$(GCC_PREPROCESSOR_DEFINITIONS)",
+				);
+				HEADER_SEARCH_PATHS = (
+					"$(DSTROOT)/usr/include",
+					../Common,
+				);
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				LIBRARY_SEARCH_PATHS = "";
+				MACH_O_TYPE = mh_execute;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRELINK_LIBS = "";
+				PRODUCT_NAME = setkey;
+				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = NO;
+				STRIP_INSTALLED_PRODUCT = YES;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Deployment;
+		};
+		81DDFDA90D622C1700C5CB87 /* Default */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C172BD980E6369BE0030F8EB /* AspenSDK.xcconfig */;
+			buildSettings = {
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"HAVE_CONFIG_H=1\nHAVE_CONFIG_H=1",
+					"$(GCC_PREPROCESSOR_DEFINITIONS)",
+				);
+				HEADER_SEARCH_PATHS = (
+					"$(DSTROOT)/usr/include",
+					../Common,
+				);
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				LIBRARY_SEARCH_PATHS = "";
+				MACH_O_TYPE = mh_execute;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRELINK_LIBS = "";
+				PRODUCT_NAME = setkey;
+				SECTORDER_FLAGS = "";
+				STRIP_INSTALLED_PRODUCT = YES;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		81DDFDCA0D622C2700C5CB87 /* Development */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C172BD980E6369BE0030F8EB /* AspenSDK.xcconfig */;
+			buildSettings = {
+				ALTERNATE_GROUP = "$(inherited)";
+				ALTERNATE_MODE = "";
+				ALTERNATE_OWNER = "$(inherited)";
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = "$(CURRENT_PROJECT_VERSION)";
+				DYLIB_CURRENT_VERSION = 300;
+				EXECUTABLE_PREFIX = lib;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"HAVE_CONFIG_H=1",
+					"$(GCC_PREPROCESSOR_DEFINITIONS)",
+				);
+				HEADER_SEARCH_PATHS = (
+					../Common,
+					"$(HEADER_SEARCH_PATHS)",
+				);
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/lib;
+				LEXFLAGS = "$(LEXFLAGS) -P__libipsec";
+				PREBINDING = NO;
+				PRODUCT_NAME = ipsec.A;
+				SKIP_INSTALL = YES;
+				YACCFLAGS = "$(YACCFLAGS) -d -p__libipsec";
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		81DDFDCB0D622C2700C5CB87 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C172BD980E6369BE0030F8EB /* AspenSDK.xcconfig */;
+			buildSettings = {
+				ALTERNATE_GROUP = "$(inherited)";
+				ALTERNATE_MODE = "";
+				ALTERNATE_OWNER = "$(inherited)";
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = "$(CURRENT_PROJECT_VERSION)";
+				DYLIB_CURRENT_VERSION = 300;
+				EXECUTABLE_PREFIX = lib;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"HAVE_CONFIG_H=1",
+					"$(GCC_PREPROCESSOR_DEFINITIONS)",
+				);
+				HEADER_SEARCH_PATHS = (
+					../Common,
+					"$(HEADER_SEARCH_PATHS)",
+				);
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/lib;
+				LEXFLAGS = "$(LEXFLAGS) -P__libipsec";
+				PREBINDING = NO;
+				PRODUCT_NAME = ipsec.A;
+				YACCFLAGS = "$(YACCFLAGS) -d -p__libipsec";
+				ZERO_LINK = YES;
+			};
+			name = Deployment;
+		};
+		81DDFDCC0D622C2700C5CB87 /* Default */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C172BD980E6369BE0030F8EB /* AspenSDK.xcconfig */;
+			buildSettings = {
+				ALTERNATE_GROUP = "$(inherited)";
+				ALTERNATE_MODE = "";
+				ALTERNATE_OWNER = "$(inherited)";
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = "$(CURRENT_PROJECT_VERSION)";
+				DYLIB_CURRENT_VERSION = 300;
+				EXECUTABLE_PREFIX = lib;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"HAVE_CONFIG_H=1",
+					"$(GCC_PREPROCESSOR_DEFINITIONS)",
+				);
+				HEADER_SEARCH_PATHS = (
+					../Common,
+					"$(HEADER_SEARCH_PATHS)",
+				);
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/lib;
+				LEXFLAGS = "$(LEXFLAGS) -P__libipsec";
+				PREBINDING = NO;
+				PRODUCT_NAME = ipsec.A;
+				YACCFLAGS = "$(YACCFLAGS) -d -p__libipsec";
+				ZERO_LINK = YES;
+			};
+			name = Default;
+		};
+		81DDFDD40D622C3500C5CB87 /* Development */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C172BD980E6369BE0030F8EB /* AspenSDK.xcconfig */;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = "";
+				LEXFLAGS = "$(LEXFLAGS) -Pprsa";
+				PREBINDING = NO;
+				PRODUCT_NAME = rsaparse;
+				SKIP_INSTALL = NO;
+				YACCFLAGS = "$(YACCFLAGS) -pprsa";
+			};
+			name = Development;
+		};
+		81DDFDD50D622C3500C5CB87 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C172BD980E6369BE0030F8EB /* AspenSDK.xcconfig */;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = "";
+				LEXFLAGS = "$(LEXFLAGS) -Pprsa";
+				PREBINDING = NO;
+				PRODUCT_NAME = rsaparse;
+				SKIP_INSTALL = NO;
+				YACCFLAGS = "$(YACCFLAGS) -pprsa";
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		81DDFDD60D622C3500C5CB87 /* Default */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C172BD980E6369BE0030F8EB /* AspenSDK.xcconfig */;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = "";
+				LEXFLAGS = "$(LEXFLAGS) -Pprsa";
+				PREBINDING = NO;
+				PRODUCT_NAME = rsaparse;
+				SKIP_INSTALL = NO;
 				YACCFLAGS = "$(YACCFLAGS) -pprsa";
 			};
 			name = Default;
@@ -2397,7 +3746,7 @@
 				2537A1AC09E4866800D0ECDA /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Deployment;
 		};
 		2543478609DCB494007943DE /* Build configuration list for PBXNativeTarget "plainrsa-gen" */ = {
 			isa = XCConfigurationList;
@@ -2407,7 +3756,7 @@
 				2543478909DCB494007943DE /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Deployment;
 		};
 		2543479909DCB596007943DE /* Build configuration list for PBXNativeTarget "eaytest" */ = {
 			isa = XCConfigurationList;
@@ -2417,7 +3766,7 @@
 				2543479C09DCB596007943DE /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Deployment;
 		};
 		254347BD09DCB851007943DE /* Build configuration list for PBXNativeTarget "test-policy" */ = {
 			isa = XCConfigurationList;
@@ -2427,7 +3776,7 @@
 				254347C009DCB851007943DE /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Deployment;
 		};
 		254347C909DCBA1B007943DE /* Build configuration list for PBXNativeTarget "test-pfkey" */ = {
 			isa = XCConfigurationList;
@@ -2437,7 +3786,7 @@
 				254347CC09DCBA1B007943DE /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Deployment;
 		};
 		25D3DAB8098952B20025F703 /* Build configuration list for PBXAggregateTarget "IPSec (Aggregate)" */ = {
 			isa = XCConfigurationList;
@@ -2447,7 +3796,7 @@
 				25D3DABB098952B20025F703 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Deployment;
 		};
 		25D3DABC098952B20025F703 /* Build configuration list for PBXNativeTarget "racoon" */ = {
 			isa = XCConfigurationList;
@@ -2457,7 +3806,7 @@
 				25D3DABF098952B20025F703 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Deployment;
 		};
 		25D3DAC0098952B20025F703 /* Build configuration list for PBXNativeTarget "setkey" */ = {
 			isa = XCConfigurationList;
@@ -2467,7 +3816,7 @@
 				25D3DAC3098952B20025F703 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Deployment;
 		};
 		25D3DAC4098952B20025F703 /* Build configuration list for PBXNativeTarget "racoonctl" */ = {
 			isa = XCConfigurationList;
@@ -2477,7 +3826,7 @@
 				25D3DAC7098952B20025F703 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Deployment;
 		};
 		25D3DACC098952B20025F703 /* Build configuration list for PBXProject "ipsec" */ = {
 			isa = XCConfigurationList;
@@ -2487,7 +3836,7 @@
 				25D3DACF098952B20025F703 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Deployment;
 		};
 		25E08CA209D9E6A4001A11CF /* Build configuration list for PBXNativeTarget "rsaparse" */ = {
 			isa = XCConfigurationList;
@@ -2497,7 +3846,67 @@
 				25E08CA509D9E6A4001A11CF /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Deployment;
+		};
+		812530B50D3FE994006BDF4F /* Build configuration list for PBXAggregateTarget "IPSec Embedded (Aggregate)" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				812530B60D3FE994006BDF4F /* Development */,
+				812530B70D3FE994006BDF4F /* Deployment */,
+				812530B90D3FE994006BDF4F /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		812531050D3FE9DC006BDF4F /* Build configuration list for PBXNativeTarget "racoon Embedded" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				812531060D3FE9DC006BDF4F /* Development */,
+				812531070D3FE9DC006BDF4F /* Deployment */,
+				812531090D3FE9DC006BDF4F /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		812531240D3FEA33006BDF4F /* Build configuration list for PBXNativeTarget "racoonctl Embedded" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				812531250D3FEA33006BDF4F /* Development */,
+				812531260D3FEA33006BDF4F /* Deployment */,
+				812531280D3FEA33006BDF4F /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		81DDFDA60D622C1700C5CB87 /* Build configuration list for PBXNativeTarget "setkey Embedded" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				81DDFDA70D622C1700C5CB87 /* Development */,
+				81DDFDA80D622C1700C5CB87 /* Deployment */,
+				81DDFDA90D622C1700C5CB87 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		81DDFDC90D622C2700C5CB87 /* Build configuration list for PBXNativeTarget "libipsec Embedded" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				81DDFDCA0D622C2700C5CB87 /* Development */,
+				81DDFDCB0D622C2700C5CB87 /* Deployment */,
+				81DDFDCC0D622C2700C5CB87 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		81DDFDD30D622C3500C5CB87 /* Build configuration list for PBXNativeTarget "rsaparse Embedded" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				81DDFDD40D622C3500C5CB87 /* Development */,
+				81DDFDD50D622C3500C5CB87 /* Deployment */,
+				81DDFDD60D622C3500C5CB87 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
 		};
 /* End XCConfigurationList section */
 	};

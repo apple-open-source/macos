@@ -1069,8 +1069,28 @@ create_async_signal_handler (sig_handler_func * proc, gdb_client_data client_dat
 void
 mark_async_signal_handler (async_signal_handler * async_handler_ptr)
 {
+  /* APPLE LOCAL: I have a few automatic crash traces crashing here with
+     a NULL handler pointer.  So far as I can tell by code inspection, that
+     should not be possible.  The traces unfortunately don't show the caller,
+     so I'm adding this internal error which we do a backtrace on, so maybe
+     we'll get some hint as to what's going on.  */
+
+  if (async_handler_ptr == NULL)
+    internal_error (__FILE__, __LINE__, "Called mark_async_signal_handler with null handler.");
+
   ((async_signal_handler *) async_handler_ptr)->ready = 1;
   async_handler_ready = 1;
+}
+
+/* APPLE LOCAL: The pattern used in remote.c to handle the sigint & sigint_twice
+   events requires calling create_async_signal_handler in the first & second signal
+   handlers.  But all they really want to do is make sure they've cleared the "ready"
+   flag in the async_signal_handler.  So I've added this so we could replace a malloc
+   with just setting this flag.  */
+void
+unmark_async_signal_handler (async_signal_handler * async_handler_ptr)
+{
+  async_handler_ptr->ready = 0;
 }
 
 /* Call all the handlers that are ready. */

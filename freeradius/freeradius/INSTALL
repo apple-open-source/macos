@@ -3,7 +3,7 @@
   Ignore this file if you have a pre-installed binary package.
 
 
-1a. SIMPLE INSTALLATION
+2. SIMPLE INSTALLATION
 
   If you do not need to modify the default configuration, then take
 the following steps to build and install the server:
@@ -13,22 +13,58 @@ the following steps to build and install the server:
 	$ make
 	$ make install
 
-  Note that as of 1.0.0, the location of the dictionary files has
-changed, to /usr/local/share/freeradius/dictionary.  Please ensure
-that /etc/raddb/dictionary is THE SAME as ./raddb/dictionary.  If not,
-you will have to copy it over by hand;
+  The first time after installation, you should run the server as
+"root".  This will cause the server to create the certificates it
+needs for EAP.
 
-	 $ cp ./raddb/dictionary /etc/raddb/dictionary
+	$ radiusd -X
 
-  If you see errors like 'invalid keyword "ATTRIB_NMC"', then you
-should update the main dictionary file as described above.
-
-  Once the main dictionary file has been updated, and the server has
-been verified to work, all of the other (old) dictionary files in
-/etc/raddb may be deleted.
+  Once that is done, the server can be run from an unpriviledged user
+account.
 
 
-1b. CUSTOM INSTALLATION
+3. UPGRADING
+
+  The installation process will not over-write your existing
+configuration files.  It will, however, warn you about the files it
+did not install.
+
+  For users upgrading from 1.x to 2.0, we STRONGLY recommend that 2.0
+be installed in a different location than the existing 1.x
+installation.  Any local policies can then be migrated gradually to
+the new 2.0 configuration.  While we have put a lot of time into
+ensuring that 2.0 is mostly backwards compatible with 1.x, it is not
+COMPLETELY backwards compatible.  There are differences that mean it
+is simpler and safer to migrate your configurations.
+
+  If you are upgrading an existing installation, please be aware that
+at least one default virtual server SHOULD be used.  If you don't need
+virtual servers, your configuration can remain mostly unchanged.
+
+  If you do need virtual servers, we recommend creating a default one
+by editing radiusd.conf, and wrapping all of the authorize,
+authenticate, etc. sections in one server block, as follows:
+
+...
+  server {	# line to add
+	authorize {
+		...
+	}
+	authenticate {
+		...
+	}
+	accounting {
+		...
+	}
+	...
+	post-proxy {
+		...
+	}
+  }  		# matching line to add
+...
+
+
+4. CUSTOM INSTALLATION
 
   FreeRADIUS has autoconf support. This means you have to run
 ./configure, and then run make.  To see which configuration options
@@ -50,17 +86,20 @@ following list is a selection from the available flags:
   --with-edir             Compile with support for Novell eDirectory
                               integration.
 
-  Now type "make". The binaries will be compiled.
+  The "make install" stage will install the binaries, the 'man' pages,
+and MAY install the configuration files.  If you have not installed a
+RADIUS server before, then the configuration files for FreeRADIUS will
+be installed.  If you already have a RADIUS server installed, then
 
-  Then do "make install". That will install the binaries, the 'man'
-pages, and MAY install the configuration files.  If you have not
-installed a RADIUS server before, then the configuration files for
-FreeRADIUS will be installed.  If you already have a RADIUS server
-installed, then FreeRADIUS WILL NOT over-write your current
-configuration.  It will warn you about the files it could not install.
+	** FreeRADIUS WILL NOT over-write your current configuration. **
+
+  The "make install" process will warn you about the files it could
+not install.
 
   If you DO see a warning message about files that could not be
-installed, then you should manually 'diff' the files.  There MAY be
+installed, the it is YOUR RESPONSIBILITY to ensure that the new server
+is using the new configuration files, and not the old configuration
+files.  You may need to manually 'diff' the files.  There MAY be
 changes in the dictionary files which are REQUIRED for a new version
 of the software.  These files will NOT be installed over your current
 configuration, so you MUST verify and install any problem files by
@@ -68,7 +107,7 @@ hand.
 
   It is EXTREMELY helpful to read the output of both 'configure',
 'make', and 'make install'.  If a particular module you expected to be
-installed was NOT installed, then the output of the
+installed was not installed, then the output of the
 'configure;make;make install' sequence will tell you why that module
 was not installed.  Please do NOT post questions to the FreeRADIUS
 users list without carefully reading the output of this process.
@@ -77,7 +116,7 @@ users list without carefully reading the output of this process.
 2. RUNNING THE SERVER
 
   If the server builds and installs, but doesn't run correctly, then
-you may use debugging mode to figure out the problem. 
+you may use debugging mode (radiusd -X) to figure out the problem. 
 
   This is your BEST HOPE for understanding the problem.  Read ALL of
 the messages which are printed to the screen, the answer to your
@@ -90,9 +129,11 @@ the server will tell you exactly what it's doing, and why.  You should
 then compare its behaviour to what you intended, and edit the
 configuration files as appropriate.
 
-  If you don't use debugging mode, then you will look dumb when you
-ask questions on the 'freeradius-users' list, and the answer to your
-question was contained in the debug messages you posted to the list.
+  If you don't use debugging mode, and ask questions on the mailing
+list, then the responses will all tell you to use debugging mode.  The
+server prints out a lot of information in this mode, including
+suggestions for fixes to common problems.  Look for "WARNING" in the
+output, and read the related messages.
 
    Since the main developers of FreeRADIUS use debugging mode to track
 down their configuration problems with the server, it's a good idea
@@ -123,6 +164,10 @@ the server received the request, and responded to it.
 Please read the ENTIRE file carefully, as many configuration options
 are only documented in comments in the file.
 
-  Configuring and running the server MAY be complicated.  Please read
-the documentation in the doc/ directory for further information.  If
-you have any issues, the FAQ is also a good place to check.
+  Configuring and running the server MAY be complicated.  Many modules
+have "man" pages.  See "man rlm_pap", or "man rlm_*" for information.
+Please read the documentation in the doc/ directory.  The comments in
+the configuration files also contain a lot of documentation.
+
+  If you have any additional issues, the FAQ is also a good place to
+check.

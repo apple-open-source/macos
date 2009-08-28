@@ -2,8 +2,8 @@
 
   inits.c -
 
-  $Author: shyouhei $
-  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+  $Author: knu $
+  $Date: 2008-04-09 20:13:04 +0900 (Wed, 09 Apr 2008) $
   created at: Tue Dec 28 16:01:58 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -18,6 +18,7 @@ void Init_Binding _((void));
 void Init_Comparable _((void));
 void Init_Dir _((void));
 void Init_Enumerable _((void));
+void Init_Enumerator _((void));
 void Init_Exception _((void));
 void Init_syserr _((void));
 void Init_eval _((void));
@@ -80,6 +81,7 @@ rb_call_inits()
     Init_Binding();
     Init_Math();
     Init_GC();
+    Init_Enumerator();
     Init_marshal();
     Init_version();
     Init_DTracer();

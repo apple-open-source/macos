@@ -1,8 +1,8 @@
 /*
  * ntfs_page.c - NTFS kernel page operations.
  *
- * Copyright (c) 2006, 2007 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006, 2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2008 Anton Altaparmakov.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2008 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -74,6 +74,11 @@
  *	UPL_NORDAHEAD	- Do not perform any speculative read-ahead.
  *	IO_PASSIVE	- This is background i/o so do not throttle other i/o.
  *
+ * Inside the ntfs driver we have the need to perform pageins whilst the inode
+ * is locked for writing (@ni->lock) thus we cheat and set UPL_NESTED_PAGEOUT
+ * in @flags when this is the case.  We make sure to clear it in @flags before
+ * calling into the cluster layer so we do not accidentally cause confusion.
+ *
  * For encrypted attributes we abort for now as we do not support them yet.
  *
  * For non-resident, non-compressed attributes we use cluster_pagein_ext()
@@ -98,10 +103,13 @@
  *
  * Adapted from cluster_pagein_ext().
  *
- * Note: Caller must hold an iocount reference on the vnode of @ni.
+ * Locking: - Caller must hold an iocount reference on the vnode of @ni.
+ *	    - Caller must not hold @ni->lock or if it is held it must be for
+ *	      reading unless UPL_NESTED_PAGEOUT is set in @flags in which case
+ *	      the caller must hold @ni->lock for reading or writing.
  */
 int ntfs_pagein(ntfs_inode *ni, s64 attr_ofs, unsigned size, upl_t upl,
-		vm_offset_t upl_ofs, int flags)
+		upl_offset_t upl_ofs, int flags)
 {
 	s64 attr_size;
 	u8 *kaddr;
@@ -110,6 +118,9 @@ int ntfs_pagein(ntfs_inode *ni, s64 attr_ofs, unsigned size, upl_t upl,
 	int err;
 	BOOL locked = FALSE;
 
+	/* Ensure this is never called for $MFT/$DATA and $MFTMirr/$DATA. */
+	if (ni == ni->vol->mft_ni || ni == ni->vol->mftmirr_ni)
+		panic("%s(): Called for $MFT or $MFTMirr.\n", __FUNCTION__);
 	ntfs_debug("Entering for mft_no 0x%llx, offset 0x%llx, size 0x%x, "
 			"pagein flags 0x%x, page list offset 0x%llx.",
 			(unsigned long long)ni->mft_no,
@@ -132,22 +143,33 @@ int ntfs_pagein(ntfs_inode *ni, s64 attr_ofs, unsigned size, upl_t upl,
 	}
 	/*
 	 * Protect against changes in initialized_size and thus against
-	 * truncation also.
+	 * truncation also unless UPL_NESTED_PAGEOUT is set in which case the
+	 * caller has already taken @ni->lock for exclusive access.  We simply
+	 * leave @locked to be FALSE in this case so we do not try to drop the
+	 * lock later on.
+	 *
+	 * If UPL_NESTED_PAGEOUT is set we clear it in @flags to ensure we do
+	 * not cause confusion in the cluster layer or the VM.
 	 */
-	locked = TRUE;
-	lck_rw_lock_shared(&ni->lock);
+	if (flags & UPL_NESTED_PAGEOUT)
+		flags &= ~UPL_NESTED_PAGEOUT;
+	else {
+		locked = TRUE;
+		lck_rw_lock_shared(&ni->lock);
+	}
+	/* Do not allow messing with the inode once it has been deleted. */
+	if (NInoDeleted(ni)) {
+		/* Remove the inode from the name cache. */
+		cache_purge(ni->vn);
+		err = ENOENT;
+		goto err;
+	}
 retry_pagein:
 	/*
-	 * TODO: This check may no longer be necessary now that we lock against
-	 * changes in initialized size and thus truncation...  Revisit this
-	 * issue when the write code has been written and remove the check if
-	 * appropriate simply using ubc_getsize(vn); without the size_lock.
+	 * We guarantee that the size in the ubc will be smaller or equal to
+	 * the size in the ntfs inode thus no need to check @ni->data_size.
 	 */
-	lck_spin_lock(&ni->size_lock);
 	attr_size = ubc_getsize(ni->vn);
-	if (attr_size > ni->data_size)
-		attr_size = ni->data_size;
-	lck_spin_unlock(&ni->size_lock);
 	/*
 	 * Only $DATA attributes can be encrypted/compressed.  Index root can
 	 * have the flags set but this means to create compressed/encrypted
@@ -189,7 +211,8 @@ retry_pagein:
 		else
 			ntfs_error(ni->vol->mp, "Failed (cluster_pagein_ext(), "
 					"error %d).", err);
-		lck_rw_unlock_shared(&ni->lock);
+		if (locked)
+			lck_rw_unlock_shared(&ni->lock);
 		return err;
 	}
 compressed:
@@ -245,8 +268,12 @@ compressed:
 		ntfs_inode *raw_ni;
 		int ioflags;
 
-		/* Get the raw inode. */
-		err = ntfs_raw_inode_get(ni, &raw_ni);
+		/*
+		 * Get the raw inode.  We take the inode lock shared to protect
+		 * against concurrent writers as the compressed data is invalid
+		 * whilst a write is in progress.
+		 */
+		err = ntfs_raw_inode_get(ni, LCK_RW_TYPE_SHARED, &raw_ni);
 		if (err)
 			ntfs_error(ni->vol->mp, "Failed to get raw inode "
 					"(error %d).", err);
@@ -267,6 +294,7 @@ compressed:
 				ntfs_error(ni->vol->mp,
 						"ntfs_read_compressed() "
 						"failed (error %d).", err);
+			lck_rw_unlock_shared(&raw_ni->lock);
 			(void)vnode_put(raw_ni->vn);
 		}
 	}
@@ -287,26 +315,21 @@ compressed:
 				"ntfs_resident_attr_read()" :
 				"ntfs_read_compressed()");
 	} else /* if (err) */ {
-		if (!NInoNonResident(ni)) {
-			/*
-			 * If the attribute was converted to non-resident under
-			 * our nose, retry the pagein.
-			 *
-			 * TODO: This may no longer be possible to happen now
-			 * that we lock against changes in initialized size and
-			 * thus truncation...  Revisit this issue when the
-			 * write code has been written and remove the check +
-			 * goto if appropriate.
-			 */
-			if (err == EAGAIN)
-				goto retry_pagein;
-		}
+		/*
+		 * If the attribute was converted to non-resident under our
+		 * nose, retry the pagein.
+		 *
+		 * TODO: This may no longer be possible to happen now that we
+		 * lock against changes in initialized size and thus
+		 * truncation...  Revisit this issue when the write code has
+		 * been written and remove the check + goto if appropriate.
+		 */
+		if (err == EAGAIN)
+			goto retry_pagein;
 err:
 		if (!(flags & UPL_NOCOMMIT)) {
 			int upl_flags = UPL_ABORT_FREE_ON_EMPTY;
-			if (err == ENOMEM)
-				upl_flags |= UPL_ABORT_RESTART;
-			else
+			if (err != ENOMEM)
 				upl_flags |= UPL_ABORT_ERROR;
 			ubc_upl_abort_range(upl, upl_ofs, size, upl_flags);
 		}
@@ -318,33 +341,46 @@ err:
 }
 
 /**
- * ntfs_page_map - map a page of a vnode into memory
+ * ntfs_page_map_ext - map a page of a vnode into memory
  * @ni:		ntfs inode of which to map a page
  * @ofs:	byte offset into @ni of which to map a page
  * @upl:	destination page list for the page
  * @pl:		destination array of pages containing the page itself
  * @kaddr:	destination pointer for the address of the mapped page contents
+ * @uptodate:	if true return an uptodate page and if false return it as is
  * @rw:		if true we intend to modify the page and if false we do not
  *
  * Map the page corresponding to byte offset @ofs into the ntfs inode @ni into
  * memory and return the page list in @upl, the array of pages containing the
  * page in @pl and the address of the mapped page contents in @kaddr.
  *
+ * If @uptodate is true the page is returned uptodate, i.e. if the page is
+ * currently not valid, it will be brought uptodate via a call to ntfs_pagein()
+ * before it is returned.  And if @uptodate is false, the page is just returned
+ * ignoring its state.  This means the page may or may not be uptodate.
+ *
  * The caller must set @rw to true if the page is going to be modified and to
  * false otherwise.
  *
  * Note: @ofs must be page aligned.
  *
- * Note: Caller must hold an iocount reference on the vnode of @ni.
+ * Locking: - Caller must hold an iocount reference on the vnode of @ni.
+ *	    - Caller must hold @ni->lock for reading or writing.
+ *
+ * Return 0 on success and errno on error in which case *@upl is set to NULL.
  */
-errno_t ntfs_page_map(ntfs_inode *ni, s64 ofs, upl_t *upl,
-		upl_page_info_array_t *pl, u8 **kaddr, const BOOL rw)
+errno_t ntfs_page_map_ext(ntfs_inode *ni, s64 ofs, upl_t *upl,
+		upl_page_info_array_t *pl, u8 **kaddr, const BOOL uptodate,
+		const BOOL rw)
 {
 	s64 size;
 	kern_return_t kerr;
 	int abort_flags;
 	errno_t err;
 
+	/* Ensure this is never called for $MFT/$DATA and $MFTMirr/$DATA. */
+	if (ni == ni->vol->mft_ni || ni == ni->vol->mftmirr_ni)
+		panic("%s(): Called for $MFT or $MFTMirr.\n", __FUNCTION__);
 	ntfs_debug("Entering for inode 0x%llx, offset 0x%llx, rw is %s.",
 			(unsigned long long)ni->mft_no,
 			(unsigned long long)ofs,
@@ -362,7 +398,8 @@ errno_t ntfs_page_map(ntfs_inode *ni, s64 ofs, upl_t *upl,
 				"the attribute (0x%llx).",
 				(unsigned long long)ofs,
 				(unsigned long long)size);
-		return EINVAL;
+		err = EINVAL;
+		goto err;
 	}
 	/* Create a page list for the wanted page. */
 	kerr = ubc_create_upl(ni->vn, ofs, PAGE_SIZE, upl, pl, UPL_SET_LITE |
@@ -373,11 +410,14 @@ errno_t ntfs_page_map(ntfs_inode *ni, s64 ofs, upl_t *upl,
 	/*
 	 * If the page is not valid, need to read it in from the vnode now thus
 	 * making it valid.
+	 *
+	 * We set UPL_NESTED_PAGEOUT to let ntfs_pagein() know that we already
+	 * have the inode locked (@ni->lock is held by the caller).
 	 */
-	if (!upl_valid_page(*pl, 0)) {
+	if (uptodate && !upl_valid_page(*pl, 0)) {
 		ntfs_debug("Reading page as it was not valid.");
-		err = ntfs_pagein(ni, ofs, PAGE_SIZE, *upl, 0,
-				UPL_IOSYNC | UPL_NOCOMMIT);
+		err = ntfs_pagein(ni, ofs, PAGE_SIZE, *upl, 0, UPL_IOSYNC |
+				UPL_NOCOMMIT | UPL_NESTED_PAGEOUT);
 		if (err) {
 			ntfs_error(ni->vol->mp, "Failed to read page (error "
 					"%d).", err);
@@ -399,6 +439,8 @@ pagein_err:
 			(vnode_isnocache(ni->vn) && !upl_dirty_page(*pl, 0)))
 		abort_flags |= UPL_ABORT_DUMP_PAGES;
 	ubc_upl_abort_range(*upl, 0, PAGE_SIZE, abort_flags);
+err:
+	*upl = NULL;
 	return err;
 }
 
@@ -418,7 +460,7 @@ pagein_err:
  * If @mark_dirty is TRUE, tell the vm to mark the page dirty when releasing
  * the page.
  *
- * Note: Caller must hold an iocount reference on the vnode of @ni.
+ * Locking: Caller must hold an iocount reference on the vnode of @ni.
  */
 void ntfs_page_unmap(ntfs_inode *ni, upl_t upl, upl_page_info_array_t pl,
 		const BOOL mark_dirty)
@@ -458,14 +500,8 @@ void ntfs_page_unmap(ntfs_inode *ni, upl_t upl, upl_page_info_array_t pl,
 				UPL_COMMIT_INACTIVATE;
 		if (!was_valid && !mark_dirty)
 			commit_flags |= UPL_COMMIT_CLEAR_DIRTY;
-		else if (was_dirty || mark_dirty) {
+		else if (was_dirty || mark_dirty)
 			commit_flags |= UPL_COMMIT_SET_DIRTY;
-			/*
-			 * Record the fact that there are dirty pages belonging
-			 * to this inode.
-			 */
-			NInoSetDirtyData(ni);
-		}
 		ubc_upl_commit_range(upl, 0, PAGE_SIZE, commit_flags);
 		ntfs_debug("Done (committed page).");
 	} else {
@@ -473,4 +509,39 @@ void ntfs_page_unmap(ntfs_inode *ni, upl_t upl, upl_page_info_array_t pl,
 				UPL_ABORT_FREE_ON_EMPTY);
 		ntfs_debug("Done (dumped page).");
 	}
+}
+
+/**
+ * ntfs_page_dump - discard a page belonging to a vnode from memory
+ * @ni:		ntfs inode to which the page belongs
+ * @upl:	page list of the page
+ * @pl:		array of pages containing the page itself
+ *
+ * Unmap the page belonging to the ntfs inode @ni from memory throwing it away.
+ * Note that if the page is dirty all changes to the page will be lost as it
+ * will be discarded so use this function with extreme caution.
+ *
+ * The page is described by the page list @upl, the array of pages containing
+ * the page @pl and the address of the mapped page contents @kaddr.
+ *
+ * Locking: Caller must hold an iocount reference on the vnode of @ni.
+ */
+void ntfs_page_dump(ntfs_inode *ni, upl_t upl,
+		upl_page_info_array_t pl __unused)
+{
+	kern_return_t kerr;
+
+	ntfs_debug("Entering for inode 0x%llx, page is %svalid, %sdirty.",
+			(unsigned long long)ni->mft_no,
+			upl_valid_page(pl, 0) ? "" : "not ",
+			upl_dirty_page(pl, 0) ? "" : "not ");
+	/* Unmap the page from the kernel's address space. */
+	kerr = ubc_upl_unmap(upl);
+	if (kerr != KERN_SUCCESS)
+		ntfs_warning(ni->vol->mp, "ubc_upl_unmap() failed (error %d).",
+				(int)kerr);
+	/* Dump the page. */
+	ubc_upl_abort_range(upl, 0, PAGE_SIZE, UPL_ABORT_DUMP_PAGES |
+			UPL_ABORT_FREE_ON_EMPTY);
+	ntfs_debug("Done.");
 }

@@ -22,9 +22,9 @@
 #ifndef NE_ALLOC_H
 #define NE_ALLOC_H
 
-#ifdef WIN32
 #include <stdlib.h>
-#else
+
+#ifndef WIN32
 #include <sys/types.h>
 #endif
 
@@ -45,7 +45,7 @@ void ne_oom_callback(ne_oom_callback_fn callback);
  * operating system does not use optimistic memory allocation. */
 void *ne_malloc(size_t size) ne_attribute_malloc;
 void *ne_calloc(size_t size) ne_attribute_malloc;
-void *ne_realloc(void *ptr, size_t s) ne_attribute_malloc;
+void *ne_realloc(void *ptr, size_t s);
 char *ne_strdup(const char *s) ne_attribute_malloc;
 char *ne_strndup(const char *s, size_t n) ne_attribute_malloc;
 #define ne_free free

@@ -53,7 +53,7 @@ OSStatus SecCertificateRequestCreate(
 	Required(policy);
 	*certRequest = (new CertificateRequest(*policy, certificateType, requestType,
 		privateKeyItemRef, publicKeyItemRef, attributeList))->handle();
-	END_SECAPI2("SecCertificateRequestCreate")
+	END_SECAPI
 }
 
 
@@ -65,7 +65,7 @@ OSStatus SecCertificateRequestSubmit(
 
 	CertificateRequest::required(certRequest)->submit(estimatedTime);
 
-	END_SECAPI2("SecCertificateRequestSubmit")
+	END_SECAPI
 }
 
 
@@ -78,7 +78,7 @@ OSStatus SecCertificateRequestGetType(
 	Required(requestType);
 	*requestType = CertificateRequest::required(certRequestRef)->reqType();
 
-	END_SECAPI2("SecCertificateRequestGetType")
+	END_SECAPI
 }
 
 OSStatus SecCertificateRequestGetResult(
@@ -155,7 +155,7 @@ OSStatus SecCertificateRequestGetResult(
 		}
 		CFRelease(outItems);
 	}	
-	END_SECAPI2("SecCertificateRequestGetResult")
+	END_SECAPI
 }
 
 OSStatus SecCertificateFindRequest(
@@ -173,7 +173,7 @@ OSStatus SecCertificateFindRequest(
 	Required(policy);
 	*certRequest = (new CertificateRequest(*policy, certificateType, requestType,
 		privateKeyItemRef, publicKeyItemRef, attributeList, false))->handle();
-	END_SECAPI2("SecCertificateFindRequest")
+	END_SECAPI
 }
 
 
@@ -186,5 +186,5 @@ OSStatus SecCertificateRequestGetData(
 	Required(data);
 	CertificateRequest::required(certRequestRef)->getReturnData(CssmData::overlay(*data));
 
-	END_SECAPI2("SecCertificateRequestGetData")
+	END_SECAPI
 }

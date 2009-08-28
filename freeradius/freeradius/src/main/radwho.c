@@ -1,9 +1,10 @@
+/*@-skipposixheaders@*/
 /*
  * radwho.c	Show who is logged in on the terminal servers.
  *		Can also be installed as fingerd on the UNIX
  *		machine RADIUS runs on.
  *
- * Version:	$Id: radwho.c,v 1.44.2.3.2.1 2005/12/14 18:32:02 nbk Exp $
+ * Version:	$Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -17,32 +18,26 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2000  The FreeRADIUS server project
+ * Copyright 2000,2006  The FreeRADIUS server project
  * Copyright 2000  Alan DeKok <aland@ox.org>
  */
 
-static const char rcsid[] =
-"$Id: radwho.c,v 1.44.2.3.2.1 2005/12/14 18:32:02 nbk Exp $";
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include "autoconf.h"
-#include "libradius.h"
+#include <freeradius-devel/radiusd.h>
+#include <freeradius-devel/sysutmp.h>
+#include <freeradius-devel/radutmp.h>
 
-#include <stdlib.h>
-#include <string.h>
+#ifdef HAVE_PWD_H
 #include <pwd.h>
-#include <sys/stat.h>
-#include <sys/utsname.h>
-#include <ctype.h>
-#ifdef HAVE_NETINET_IN_H
-#include <netinet/in.h>
 #endif
 
-#include "sysutmp.h"
-#include "radutmp.h"
-#include "radiusd.h"
-#include "conffile.h"
+#include <sys/stat.h>
+
+#include <ctype.h>
 
 /*
  *	FIXME: put in header file.
@@ -54,14 +49,14 @@ static const char rcsid[] =
  *	Header above output and format.
  */
 static const char *hdr1 =
-"Login      Name              What  TTY  When      From      Location";
-static const char *rfmt1 = "%-10.10s %-17.17s %-5.5s %s%-3d %-9.9s %-9.9s %-.19s%s";
+"Login      Name              What  TTY  When      From            Location";
+static const char *rfmt1 = "%-10.10s %-17.17s %-5.5s %s%-3u %-9.9s %-15.15s %-.19s%s";
 static const char *rfmt1r = "%s,%s,%s,%s%u,%s,%s,%s%s";
 
 static const char *hdr2 =
-"Login      Port    What      When          From       Location";
-static const char *rfmt2 = "%-10.10s %s%-5d  %-6.6s %-13.13s %-10.10s %-.28s%s";
-static const char *rfmt2r = "%s,%s%d,%s,%s,%s,%s%s";
+"Login      Port    What      When          From            Location";
+static const char *rfmt2 = "%-10.10s %s%-5u  %-6.6s %-13.13s %-15.15s %-.28s%s";
+static const char *rfmt2r = "%s,%s%u,%s,%s,%s,%s%s";
 
 static const char *eol = "\n";
 static int showname = -1;
@@ -72,18 +67,24 @@ const char *progname = "radwho";
 const char *radlog_dir = NULL;
 const char *radutmp_file = NULL;
 
-char *radius_dir = NULL;
+const char *radius_dir = NULL;
 const char *radacct_dir = NULL;
 const char *radlib_dir = NULL;
 uint32_t myip = INADDR_ANY;
 int log_stripped_names;
 
-radlog_dest_t radlog_dest = RADLOG_STDOUT;
-
 /*
  *	Global, for log.c to use.
  */
 struct main_config_t mainconfig;
+char *request_log_file = NULL;
+char *debug_log_file = NULL;
+int radius_xlat(char *out, int outlen, const char *fmt,
+		REQUEST *request, RADIUS_ESCAPE_STRING func)
+{
+	*out = 0;
+	return 0;
+}
 
 struct radutmp_config_t {
   char *radutmp_fn;
@@ -105,7 +106,7 @@ static FILE *safe_popen(const char *cmd, const char *mode)
 	/*
 	 *	Change all suspect characters into a space.
 	 */
-	strncpy(buf, cmd, sizeof(buf));
+	strlcpy(buf, cmd, sizeof(buf));
 	buf[sizeof(buf) - 1] = 0;
 	for (p = buf; *p; p++) {
 		if (isalnum((int) *p))
@@ -119,7 +120,7 @@ static FILE *safe_popen(const char *cmd, const char *mode)
 
 /*
  *	Print a file from FINGER_DIR. If the file is executable,
- *	execute it instead. Return 0 if succesfull.
+ *	execute it instead. Return 0 if successful.
  */
 static int ffile(const char *arg)
 {
@@ -185,6 +186,7 @@ static void sys_finger(const char *l)
  */
 static char *fullname(char *username)
 {
+#ifdef HAVE_PWD_Hx
 	struct passwd *pwd;
 	char *s;
 
@@ -192,6 +194,8 @@ static char *fullname(char *username)
 		if ((s = strchr(pwd->pw_gecos, ',')) != NULL) *s = 0;
 		return pwd->pw_gecos;
 	}
+#endif
+
 	return username;
 }
 
@@ -226,10 +230,10 @@ static char *dotime(time_t t)
 	char *s = ctime(&t);
 
 	if (showname) {
-		strncpy(s + 4, s + 11, 5);
+		strlcpy(s + 4, s + 11, 6);
 		s[9] = 0;
 	} else {
-		strncpy(s + 4, s + 8, 8);
+		strlcpy(s + 4, s + 8, 9);
 		s[12] = 0;
 	}
 
@@ -242,9 +246,14 @@ static char *dotime(time_t t)
  */
 static const char *hostname(char *buf, size_t buflen, uint32_t ipaddr)
 {
+	/*
+	 *	WTF is this code for?
+	 */
 	if (ipaddr == 0 || ipaddr == (uint32_t)-1 || ipaddr == (uint32_t)-2)
 		return "";
-	return ip_hostname(buf, buflen, ipaddr);
+
+	return inet_ntop(AF_INET, &ipaddr, buf, buflen);
+
 }
 
 
@@ -326,8 +335,7 @@ int main(int argc, char **argv)
 			showname = 0;
 			break;
 		case 'N':
-			nas_ip_address = ip_addr(optarg);
-			if (nas_ip_address == INADDR_NONE) {
+			if (inet_pton(AF_INET, optarg, &nas_ip_address) < 0) {
 				usage(1);
 			}
 			break;
@@ -386,19 +394,20 @@ int main(int argc, char **argv)
 
 		printf("Acct-Status-Type = Accounting-Off\n");
 		printf("NAS-IP-Address = %s\n",
-		       ip_hostname(buffer, sizeof(buffer), nas_ip_address));
+		       hostname(buffer, sizeof(buffer), nas_ip_address));
 		printf("Acct-Delay-Time = 0\n");
 		exit(0);	/* don't bother printing anything else */
 	}
-	
+
 	/*
 	 *	Initialize mainconfig
 	 */
 	memset(&mainconfig, 0, sizeof(mainconfig));
+	mainconfig.radlog_dest = RADLOG_STDOUT;
 
         /* Read radiusd.conf */
 	snprintf(buffer, sizeof(buffer), "%.200s/radiusd.conf", radius_dir);
-	maincs = conf_read(NULL, 0, buffer, NULL);
+	maincs = cf_file_read(buffer);
 	if (!maincs) {
 		fprintf(stderr, "%s: Error reading radiusd.conf.\n", argv[0]);
 		exit(1);
@@ -502,10 +511,10 @@ int main(int argc, char **argv)
 		if (nas_ip_address != INADDR_NONE) {
 			if (rt.nas_address != nas_ip_address) continue;
 		}
-		
+
 		memcpy(session_id, rt.session_id, sizeof(rt.session_id));
 		session_id[sizeof(rt.session_id)] = 0;
-		
+
 		if (!rawoutput && rt.nas_port > (showname ? 999 : 99999)) {
 			portind = ">";
 			portno = (showname ? 999 : 99999);
@@ -521,19 +530,19 @@ int main(int argc, char **argv)
 			memcpy(nasname, rt.login, sizeof(rt.login));
 			nasname[sizeof(rt.login)] = '\0';
 
-			librad_safeprint(nasname, -1, buffer,
+			fr_print_string(nasname, 0, buffer,
 					 sizeof(buffer));
 			printf("User-Name = \"%s\"\n", buffer);
 
-			librad_safeprint(session_id, -1, buffer,
+			fr_print_string(session_id, 0, buffer,
 					 sizeof(buffer));
 			printf("Acct-Session-Id = \"%s\"\n", buffer);
 
 			if (zap) printf("Acct-Status-Type = Stop\n");
 
 			printf("NAS-IP-Address = %s\n",
-			       ip_hostname(buffer, sizeof(buffer),
-					   rt.nas_address));
+			       hostname(buffer, sizeof(buffer),
+					rt.nas_address));
 			printf("NAS-Port = %u\n", rt.nas_port);
 
 			switch (rt.proto) {
@@ -551,10 +560,10 @@ int main(int argc, char **argv)
 			}
 			if (rt.framed_address != INADDR_NONE) {
 				printf("Framed-IP-Address = %s\n",
-				       ip_hostname(buffer, sizeof(buffer),
-						   rt.framed_address));
+				       hostname(buffer, sizeof(buffer),
+						rt.framed_address));
 			}
-			
+
 			/*
 			 *	Some sanity checks on the time
 			 */
@@ -568,8 +577,8 @@ int main(int argc, char **argv)
 				memcpy(nasname, rt.caller_id,
 				       sizeof(rt.caller_id));
 				nasname[sizeof(rt.caller_id)] = '\0';
-				
-				librad_safeprint(nasname, -1, buffer,
+
+				fr_print_string(nasname, 0, buffer,
 						 sizeof(buffer));
 				printf("Calling-Station-Id = \"%s\"\n", buffer);
 			}
@@ -589,7 +598,7 @@ int main(int argc, char **argv)
 			       proto(rt.proto, rt.porttype),
 			       portind, portno,
 			       dotime(rt.time),
-			       ip_hostname(nasname, sizeof(nasname), rt.nas_address),
+			       hostname(nasname, sizeof(nasname), rt.nas_address),
 			       hostname(othername, sizeof(othername), rt.framed_address), eol);
 		} else {
 			printf((rawoutput == 0? rfmt2: rfmt2r),
@@ -597,7 +606,7 @@ int main(int argc, char **argv)
 			       portind, portno,
 			       proto(rt.proto, rt.porttype),
 			       dotime(rt.time),
-			       ip_hostname(nasname, sizeof(nasname), rt.nas_address),
+			       hostname(nasname, sizeof(nasname), rt.nas_address),
 			       hostname(othername, sizeof(othername), rt.framed_address),
 			       eol);
 		}

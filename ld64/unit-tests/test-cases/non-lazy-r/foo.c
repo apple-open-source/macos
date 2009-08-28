@@ -10,3 +10,8 @@ extern int other;
 
 int getother() { return other; }
 
+
+extern int tent;
+
+int gettent() { return tent; }
+

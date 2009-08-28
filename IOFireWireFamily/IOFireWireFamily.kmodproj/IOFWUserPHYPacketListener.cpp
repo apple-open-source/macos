@@ -43,7 +43,7 @@ IOFWUserPHYPacketListener::withUserClient( IOFireWireUserClient * inUserClient, 
 {
 	IOFWUserPHYPacketListener*	result	= NULL;
 	
-	result = new IOFWUserPHYPacketListener;
+	result = OSTypeAlloc( IOFWUserPHYPacketListener );
 	if( result && !result->initWithUserClient( inUserClient, queue_count ) )
 	{
 		result->release();
@@ -401,7 +401,7 @@ IOFWUserPHYPacketListener::PHYRxElement * IOFWUserPHYPacketListener::allocateEle
 		element->prev = NULL;
 		element->state = kFreeState;
 		
-		DebugLog( "IOFWUserPHYPacketListener::allocateElement - element = 0x%08lx\n", (UInt32)element );
+		DebugLog( "IOFWUserPHYPacketListener::allocateElement - element = %p\n", element );
 	}
 	
 	return element;
@@ -473,7 +473,7 @@ IOFWUserPHYPacketListener::PHYRxElement * IOFWUserPHYPacketListener::allocateDat
 			element->prev = NULL;
 			element->state = kFreeState;
 			
-			DebugLog( "IOFWUserPHYPacketListener::allocateDataElement - element = 0x%08lx\n", (UInt32)element );
+			DebugLog( "IOFWUserPHYPacketListener::allocateDataElement - element = %p\n", element );
 		}
 		else
 		{
@@ -491,7 +491,7 @@ IOFWUserPHYPacketListener::PHYRxElement * IOFWUserPHYPacketListener::allocateDat
 
 void IOFWUserPHYPacketListener::deallocateElement( PHYRxElement * element )
 {	
-	DebugLog( "IOFWUserPHYPacketListener::deallocateElement - element = 0x%08lx\n", (UInt32)element );
+	DebugLog( "IOFWUserPHYPacketListener::deallocateElement - element = %p\n", element );
 	
 	element->next = NULL;
 	element->prev = fFreeListTail;
@@ -577,7 +577,7 @@ void IOFWUserPHYPacketListener::destroyAllElements( void )
 
 void IOFWUserPHYPacketListener::addElementToPendingList( PHYRxElement * element )
 {
-	DebugLog( "IOFWUserPHYPacketListener::addElementToPendingList - element = 0x%08lx\n", (UInt32)element );
+	DebugLog( "IOFWUserPHYPacketListener::addElementToPendingList - element = %p\n", element );
 	
 	// pending should only be entered from the free state
 	
@@ -613,7 +613,7 @@ void IOFWUserPHYPacketListener::addElementToPendingList( PHYRxElement * element 
 
 void IOFWUserPHYPacketListener::removeElementFromPendingList( PHYRxElement * element )
 {
-	DebugLog( "IOFWUserPHYPacketListener::removeElementFromPendingList - element = 0x%08lx\n", (UInt32)element );
+	DebugLog( "IOFWUserPHYPacketListener::removeElementFromPendingList - element = %p\n", element );
 
 	// element on the pending list should not be in the free state
 	

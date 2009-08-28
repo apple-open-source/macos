@@ -1,4 +1,5 @@
 #!perl -w
+$|=1;
 
 use strict;
 
@@ -7,12 +8,12 @@ use DBI;
 use Test::More;
 
 BEGIN {
-	if ($DBI::PurePerl) {
-		plan skip_all => 'profiling not supported for DBI::PurePerl';
-	}
-	else {
-		plan tests => 33;
-	}
+    if ($DBI::PurePerl) {
+        plan skip_all => 'profiling not supported for DBI::PurePerl';
+    }
+    else {
+        plan tests => 31;
+    }
 }
 
 BEGIN {
@@ -26,12 +27,11 @@ my $dbh = DBI->connect("dbi:ExampleP:", '', '',
                        { RaiseError=>1, Profile=>"6/DBI::ProfileDumper" });
 isa_ok( $dbh, 'DBI::db', 'Created connection' );
 
-# do a little work
-foreach (1,2,3) {
+# do a little work, but enough to ensure we don't get 0's on systems with low res timers
+foreach (1..6) {
   $dbh->do("set dummy=$_");
   my $sth = $dbh->prepare($sql);
-  isa_ok( $sth, 'DBI::st', 'Created handle' );
-  for my $loop (1..20) {  
+  for my $loop (1..50) {  
     $sth->execute(".");
     $sth->fetchrow_hashref;
     $sth->finish;
@@ -46,10 +46,12 @@ undef $dbh;
 ok(-s "dbi.prof", "Profile written to disk, non-zero size" );
 
 # load up
-my $prof = DBI::ProfileData->new( Filter => sub {
-    my ($path_ref, $data_ref) = @_;
-    $path_ref->[0] =~ s/set dummy=\d/set dummy=N/;
-});
+my $prof = DBI::ProfileData->new(
+    Filter => sub {
+        my ($path_ref, $data_ref) = @_;
+        $path_ref->[0] =~ s/set dummy=\d/set dummy=N/;
+    },
+);
 isa_ok( $prof, 'DBI::ProfileData' );
 cmp_ok( $prof->count, '>=', 3, 'At least 3 profile data items' );
 
@@ -115,18 +117,19 @@ foreach (1,2,3) {
   $sth3->fetchrow_hashref;
   $sth3->finish;
 }
+$dbh->disconnect;
 undef $dbh;
 
 # load dbi.prof
-$prof = DBI::ProfileData->new();
+$prof = DBI::ProfileData->new( DeleteFiles => 1 );
 isa_ok( $prof, 'DBI::ProfileData' );
+
+ok(not(-e "dbi.prof"), "file should be deleted when DeleteFiles set" );
+
 
 # make sure the keys didn't get garbled
 $Data = $prof->Data;
 ok(exists $Data->{$sql2});
 ok(exists $Data->{$sql3});
-
-# cleanup
-# unlink("dbi.prof"); # now done by 'make clean'
 
 1;

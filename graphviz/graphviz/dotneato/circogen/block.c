@@ -11,7 +11,7 @@
 
 #include	<assert.h>
 #include <circular.h>
-#include	"block.h"
+#include	"graphviz_block.h"
 
 void
 initBlocklist(blocklist_t* bl)

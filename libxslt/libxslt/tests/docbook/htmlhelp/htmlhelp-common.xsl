@@ -4,7 +4,7 @@
                 version="1.0">
 
 <!-- ********************************************************************
-     $Id: htmlhelp-common.xsl,v 1.1 2001/06/23 17:06:42 veillard Exp $
+     $Id$
      ******************************************************************** 
 
      This file is used by htmlhelp.xsl if you want to generate source

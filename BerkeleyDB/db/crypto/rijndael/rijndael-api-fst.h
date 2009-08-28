@@ -1,5 +1,5 @@
 /*
- * $Id: rijndael-api-fst.h,v 1.2 2004/03/30 01:21:23 jtownsen Exp $
+ * $Id: rijndael-api-fst.h,v 12.0 2004/11/17 03:43:17 bostic Exp $
  */
 /**
  * rijndael-api-fst.h

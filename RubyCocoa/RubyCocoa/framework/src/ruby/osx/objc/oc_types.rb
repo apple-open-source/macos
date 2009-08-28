@@ -1,4 +1,4 @@
-# Copyright (c) 2006-2007, The RubyCocoa Project.
+# Copyright (c) 2006-2008, The RubyCocoa Project.
 # Copyright (c) 2001-2006, FUJIMOTO Hisakuni.
 # All Rights Reserved.
 #
@@ -65,9 +65,27 @@ end
 class OSX::NSPoint
   def in?(rect); OSX::NSPointInRect(self, rect); end
   alias_method :inRect?, :in?
+  def +(v)
+    if v.is_a?(OSX::NSSize)
+      OSX::NSPoint.new(x + v.width, y + v.height)
+    else
+      raise ArgumentException, "parameter should be NSSize"
+    end
+  end
+  def -(v)
+    if v.is_a?(OSX::NSSize)
+      OSX::NSPoint.new(x - v.width, y - v.height)
+    else
+      raise ArgumentException, "parameter should be NSSize"
+    end
+  end
   def inspect; "#<#{self.class} x=#{x}, y=#{y}>"; end
 end
 
 class OSX::NSSize
+  def /(v); OSX::NSSize.new(width / v, height / v); end
+  def *(v); OSX::NSSize.new(width * v, height * v); end
+  def +(v); OSX::NSSize.new(width + v, height + v); end
+  def -(v); OSX::NSSize.new(width - v, height - v); end
   def inspect; "#<#{self.class} width=#{width}, height=#{height}>"; end
 end

@@ -98,5 +98,5 @@ NT-Password, it may be achieved by calling mschap module in
 authorization section after module which does actual authorization).
 
 
-$Date: 2006/01/27 16:59:30 $
+$Date$
 by 3APA3A <3APA3A@SECURITY.NNOV.RU>

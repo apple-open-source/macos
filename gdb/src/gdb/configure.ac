@@ -59,9 +59,16 @@ dnl APPLE LOCAL end mmap() always works right on Darwin.  Take our word for it.
 
 dnl APPLE LOCAL if we have mach_exc.def, use the 64 bit exceptions.
 case "$host" in
+  arm-apple-*)
+    # No 64 bit exceptions for Apple ARM
+    AC_MSG_CHECKING([whether we can use 64 bit mach exceptions])
+    MACH_EXC_SERVER_PREFACE=
+    AC_MSG_RESULT((disabled!) no)
+    AC_SUBST(MACH_EXC_SERVER_PREFACE)
+    ;;
   *-apple-darwin* | *-apple-maocsx*)
     AC_MSG_CHECKING([whether we can use 64 bit mach exceptions])
-    if test -r "/usr/include/mach/mach_exc.defs"; then
+    if test -r "$SDKROOT/usr/include/mach/mach_exc.defs"; then
       AC_DEFINE(HAVE_64_BIT_MACH_EXCEPTIONS, 1, [Define to 1 if you have 64 bit mach exceptions.])
       MACH_EXC_SERVER_PREFACE='mach_'
       AC_MSG_RESULT(yes)
@@ -77,6 +84,10 @@ dnl APPLE LOCAL check for posix_spawn and the "arch" program.  Note we don't
 dnl trust the "arch" program if the posix_spawn headers aren't present, since
 dnl Tiger has an "arch" but it only echos the current system architecture.
 case "$host" in
+  arm-apple-*)
+    # We need to turn off arch for exec for now as it doesn't support launching
+    # a specified architecture in a universal mach file.
+    ;;
   *-apple-darwin* | *-apple-macosx*)
     AC_MSG_CHECKING([whether posix_spawn supports SETEXEC])
     AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
@@ -84,17 +95,33 @@ case "$host" in
 [[int foo = POSIX_SPAWN_SETEXEC;]])],
       gdb_cv_posix_spawn=yes,
       gdb_cv_posix_spawn=no)
+    AC_MSG_RESULT($gdb_cv_posix_spawn)
+
     if test $gdb_cv_posix_spawn = yes; then
       AC_DEFINE(USE_POSIX_SPAWN,1,[Define to 1 to use posix_spawn instead of execvp.])
+
+      AC_ARG_ENABLE(arch-for-exec,
+      	[AC_HELP_STRING([--disable-arch-for-exec],[disable use of arch for exec])],
+      	[case $enableval in
+          yes | no) 
+            enable_arch_exec="$enableval" ;;
+          *)
+            AC_MSG_ERROR([bad value '$enableval' for --disable-arch-for-exec]) ;;
+      	esac],
+      	[enable_arch_exec=yes])
+  
       AC_MSG_CHECKING([whether we should use arch for exec])
-      if test -r "/usr/bin/arch"; then
-        AC_DEFINE(USE_ARCH_FOR_EXEC, 1, [Define to 1 to use the arch program instead of exec.])
-        AC_MSG_RESULT(yes)
+      if test x"$enable_arch_exec" = xyes; then
+        if test -r "/usr/bin/arch"; then
+          AC_DEFINE(USE_ARCH_FOR_EXEC, 1, [Define to 1 to use the arch program instead of exec.])
+          AC_MSG_RESULT(yes)
+        else
+          AC_MSG_RESULT(no)
+        fi
       else
-        AC_MSG_RESULT(no)
+        AC_MSG_RESULT((disabled) no)
       fi
     fi
-    AC_MSG_RESULT($gdb_cv_posix_spawn)
 ;;
 esac
 
@@ -129,6 +156,28 @@ case "$host" in
     	fi
     	AC_MSG_RESULT($gdb_cv_stack_logging_32)
 	fi
+;;
+esac
+
+dnl APPLE LOCAL check for task_get_state.
+case "$host" in
+  *-apple-darwin* | *-apple-macosx*)
+    AC_MSG_CHECKING([whether task_set_state is available])
+    AC_LINK_IFELSE([AC_LANG_PROGRAM(
+[[#include <mach/mach.h>]
+ [#include <mach/task.h>]],
+[[task_t task;]
+ [thread_state_flavor_t flavor;]
+ [thread_state_t new_state;]
+ [mach_msg_type_number_t new_stateCnt;]
+ [task_set_state (task, flavor, new_state, new_stateCnt);]])],
+      gdb_cv_task_set_state=yes,
+      gdb_cv_task_set_state=no)
+    if test $gdb_cv_task_set_state = yes; then
+      AC_DEFINE(HAVE_TASK_SET_STATE,1,[Define to 1 to use task_set_state.])
+    fi
+    AC_MSG_RESULT($gdb_cv_task_set_state)
+
 ;;
 esac
 
@@ -807,42 +856,70 @@ esac
 
 case "$host" in
   *-apple-darwin* | *-apple-macos*)
-  AC_MSG_CHECKING([for Carbon framework])
-  if test -d /System/Library/Frameworks/Carbon.framework
-  then
-    CARBON_LIBS="-framework Carbon"
-    AC_MSG_RESULT(yes)
-  else
-    AC_MSG_RESULT(no)
-  fi
-  ;;
+    AC_ARG_ENABLE(carbon-framework,
+    [AC_HELP_STRING([--disable-carbon-framework],[disable Carbon framework use even when available])],
+    [case $enableval in
+      yes | no) 
+        enable_carbon_framework="$enableval" ;;
+      *)
+        AC_MSG_ERROR([bad value '$enableval' for --disable-carbon-framework]) ;;
+    esac],
+    [enable_carbon_framework=no])
+
+    AC_MSG_CHECKING([for Carbon framework])
+    if test x"$enable_carbon_framework" = xyes; then
+      if test -d "$SDKROOT/System/Library/Frameworks/Carbon.framework"
+      then
+        AC_DEFINE(USE_CARBON_FRAMEWORK, 1, [Define if Carbon framework is available and we should use it.])
+        CARBON_LIBS="-framework Carbon"
+        AC_MSG_RESULT(yes)
+      else
+        AC_MSG_RESULT(no)
+      fi
+    else
+      AC_MSG_RESULT((disabled) no)
+    fi
+    ;;
 esac
+
 AC_SUBST(CARBON_LIBS)
 
 case "$host" in
+  arm-apple-*)
+  # We won't be using DebugSymbols.framework to locate dSYM files for ARM yet.
+  ;;
   *-apple-darwin* | *-apple-macos*)
-  AC_MSG_CHECKING([for DebugSymbols framework])
-  if test -d /System/Library/PrivateFrameworks/DebugSymbols.framework
-  then
-	AC_DEFINE(HAVE_DEBUG_SYMBOLS_FRAMEWORK, 1, [Define if DebugSymbols framework is present.])
-    DEBUG_SYMBOLS_LIBS="-F/System/Library/PrivateFrameworks -framework DebugSymbols"
-    AC_MSG_RESULT(yes)
-  else
-    AC_MSG_RESULT(no)
-  fi
+    AC_ARG_ENABLE(debug-symbols-framework,
+    [AC_HELP_STRING([--disable-debug-symbols-framework],[disable DebugSymbols framework use even when available])],
+    [case $enableval in
+      yes | no) 
+        enable_debug_symbols_framework="$enableval" ;;
+      *)
+        AC_MSG_ERROR([bad value '$enableval' for --disable-debug-symbols-framework]) ;;
+    esac],
+    [enable_debug_symbols_framework=yes])
+
+    AC_MSG_CHECKING([for DebugSymbols framework])
+    if test x"$enable_debug_symbols_framework" = xyes; then
+      if test -d "$SDKROOT/System/Library/PrivateFrameworks/DebugSymbols.framework"
+      then
+        AC_DEFINE(USE_DEBUG_SYMBOLS_FRAMEWORK, 1, [Define if DebugSymbols framework is available and we should use it.])
+        DEBUG_SYMBOLS_LIBS="-F/System/Library/PrivateFrameworks -framework DebugSymbols"
+        AC_MSG_RESULT(yes)
+      else
+        AC_MSG_RESULT(no)
+      fi
+    else
+      AC_MSG_RESULT((disabled) no)
+    fi
   ;;
 esac
-AC_SUBST(DEBUG_SYMBOLS_LIBS)
 
-# APPLE LOCAL: Use the pre-conformant headers/functions so we stand a 
-# better chance of running on older systems.
-UNIX03_UGH_CFLAGS=-D__DARWIN_UNIX03=0
-AC_SUBST(UNIX03_UGH_CFLAGS)
+AC_SUBST(DEBUG_SYMBOLS_LIBS)
 
 # APPLE LOCAL: Enable MIG checking for macosx/macosx.defs.
 MIG_CHECKING=-D__MigTypeCheck=1
 AC_SUBST(MIG_CHECKING)
-
 # APPLE LOCAL end
 
 # APPLE LOCAL: See if we have the i386 debug register structs, i.e.
@@ -851,6 +928,11 @@ AC_SUBST(MIG_CHECKING)
 
 AC_CHECK_TYPES(x86_debug_state32_t, [], [],
                [#include <mach/mach_types.h>])
+
+AC_CHECK_TYPES(thread_identifier_info_data_t, [], [],
+               [#include <mach/thread_info.h>])
+
+AC_CHECK_FUNCS(pthread_setname_np)
 
 if test "$ac_cv_header_sys_procfs_h" = yes; then
   BFD_HAVE_SYS_PROCFS_TYPE(pstatus_t)

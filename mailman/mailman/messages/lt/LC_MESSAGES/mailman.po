@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: Mailman 2.1\n"
-"POT-Creation-Date: Fri Sep  1 20:44:49 2006\n"
+"POT-Creation-Date: Sun Jan 11 08:28:57 2009\n"
 "PO-Revision-Date: 2002-12-26 09:07+0200\n"
 "Last-Translator: Mantas Kriauciunas <mantas@akl.lt>\n"
 "Language-Team: Lithuanian <info@akl.lt>\n"
@@ -22,153 +22,153 @@ msgstr "Negalima"
 msgid " %(size)i bytes "
 msgstr "%(size)i baitø"
 
-#: Mailman/Archiver/HyperArch.py:284 Mailman/Archiver/HyperArch.py:287
-#: Mailman/Archiver/HyperArch.py:415 Mailman/Archiver/HyperArch.py:467
-#: Mailman/Archiver/HyperArch.py:575 Mailman/Archiver/HyperArch.py:1049
-#: Mailman/Archiver/HyperArch.py:1178
+#: Mailman/Archiver/HyperArch.py:289 Mailman/Archiver/HyperArch.py:292
+#: Mailman/Archiver/HyperArch.py:420 Mailman/Archiver/HyperArch.py:474
+#: Mailman/Archiver/HyperArch.py:583 Mailman/Archiver/HyperArch.py:1057
+#: Mailman/Archiver/HyperArch.py:1186
 #, fuzzy
 msgid " at "
 msgstr " at "
 
-#: Mailman/Archiver/HyperArch.py:496
+#: Mailman/Archiver/HyperArch.py:503
 msgid "Previous message:"
 msgstr "Ankstesnë þinutë:"
 
-#: Mailman/Archiver/HyperArch.py:518
+#: Mailman/Archiver/HyperArch.py:525
 msgid "Next message:"
 msgstr "Tolesnë þinutë:"
 
-#: Mailman/Archiver/HyperArch.py:690 Mailman/Archiver/HyperArch.py:726
+#: Mailman/Archiver/HyperArch.py:698 Mailman/Archiver/HyperArch.py:734
 msgid "thread"
 msgstr "gija"
 
-#: Mailman/Archiver/HyperArch.py:691 Mailman/Archiver/HyperArch.py:727
+#: Mailman/Archiver/HyperArch.py:699 Mailman/Archiver/HyperArch.py:735
 msgid "subject"
 msgstr "tema"
 
-#: Mailman/Archiver/HyperArch.py:692 Mailman/Archiver/HyperArch.py:728
+#: Mailman/Archiver/HyperArch.py:700 Mailman/Archiver/HyperArch.py:736
 msgid "author"
 msgstr "autorius"
 
-#: Mailman/Archiver/HyperArch.py:693 Mailman/Archiver/HyperArch.py:729
+#: Mailman/Archiver/HyperArch.py:701 Mailman/Archiver/HyperArch.py:737
 msgid "date"
 msgstr "data"
 
-#: Mailman/Archiver/HyperArch.py:765
+#: Mailman/Archiver/HyperArch.py:773
 #, fuzzy
 msgid "<P>Currently, there are no archives. </P>"
 msgstr "<P>Ðiuo metu archyvø nëra. </P>"
 
-#: Mailman/Archiver/HyperArch.py:803
+#: Mailman/Archiver/HyperArch.py:811
 #, fuzzy
 msgid "Gzip'd Text%(sz)s"
 msgstr "Gzip'd Text%(sz)s"
 
-#: Mailman/Archiver/HyperArch.py:808
+#: Mailman/Archiver/HyperArch.py:816
 #, fuzzy
 msgid "Text%(sz)s"
 msgstr "Text%(sz)s"
 
-#: Mailman/Archiver/HyperArch.py:898
+#: Mailman/Archiver/HyperArch.py:906
 #, fuzzy
 msgid "figuring article archives\n"
 msgstr "nustatant straipsniø archyvus\n"
 
-#: Mailman/Archiver/HyperArch.py:908
+#: Mailman/Archiver/HyperArch.py:916
 msgid "April"
 msgstr "Balandis"
 
-#: Mailman/Archiver/HyperArch.py:908
+#: Mailman/Archiver/HyperArch.py:916
 msgid "February"
 msgstr "Vasaris"
 
-#: Mailman/Archiver/HyperArch.py:908
+#: Mailman/Archiver/HyperArch.py:916
 msgid "January"
 msgstr "Sausis"
 
-#: Mailman/Archiver/HyperArch.py:908
+#: Mailman/Archiver/HyperArch.py:916
 msgid "March"
 msgstr "Kovas"
 
-#: Mailman/Archiver/HyperArch.py:909
+#: Mailman/Archiver/HyperArch.py:917
 msgid "August"
 msgstr "Rugpjûtis"
 
-#: Mailman/Archiver/HyperArch.py:909
+#: Mailman/Archiver/HyperArch.py:917
 msgid "July"
 msgstr "Liepa"
 
-#: Mailman/Archiver/HyperArch.py:909
+#: Mailman/Archiver/HyperArch.py:917
 msgid "June"
 msgstr "Birþelis"
 
-#: Mailman/Archiver/HyperArch.py:909 Mailman/i18n.py:103
+#: Mailman/Archiver/HyperArch.py:917 Mailman/i18n.py:103
 msgid "May"
 msgstr "Geguþë"
 
-#: Mailman/Archiver/HyperArch.py:910
+#: Mailman/Archiver/HyperArch.py:918
 msgid "December"
 msgstr "Gruodis"
 
-#: Mailman/Archiver/HyperArch.py:910
+#: Mailman/Archiver/HyperArch.py:918
 msgid "November"
 msgstr "Lapkritis"
 
-#: Mailman/Archiver/HyperArch.py:910
+#: Mailman/Archiver/HyperArch.py:918
 msgid "October"
 msgstr "Spalis"
 
-#: Mailman/Archiver/HyperArch.py:910
+#: Mailman/Archiver/HyperArch.py:918
 msgid "September"
 msgstr "Rugsëjis"
 
-#: Mailman/Archiver/HyperArch.py:918
+#: Mailman/Archiver/HyperArch.py:926
 msgid "First"
 msgstr "Pirmas"
 
-#: Mailman/Archiver/HyperArch.py:918
+#: Mailman/Archiver/HyperArch.py:926
 msgid "Fourth"
 msgstr "Ketvirtas"
 
-#: Mailman/Archiver/HyperArch.py:918
+#: Mailman/Archiver/HyperArch.py:926
 msgid "Second"
 msgstr "Antras"
 
-#: Mailman/Archiver/HyperArch.py:918
+#: Mailman/Archiver/HyperArch.py:926
 msgid "Third"
 msgstr "Treèias"
 
-#: Mailman/Archiver/HyperArch.py:920
+#: Mailman/Archiver/HyperArch.py:928
 #, fuzzy
 msgid "%(ord)s quarter %(year)i"
 msgstr "%(ord)s quarter %(year)i"
 
-#: Mailman/Archiver/HyperArch.py:927
+#: Mailman/Archiver/HyperArch.py:935
 #, fuzzy
 msgid "%(month)s %(year)i"
 msgstr "%(month)s %(year)i"
 
-#: Mailman/Archiver/HyperArch.py:932
+#: Mailman/Archiver/HyperArch.py:940
 #, fuzzy
 msgid "The Week Of Monday %(day)i %(month)s %(year)i"
 msgstr "Pirmadienio savaitë %(day)i %(month)s %(year)i"
 
-#: Mailman/Archiver/HyperArch.py:936
+#: Mailman/Archiver/HyperArch.py:944
 #, fuzzy
 msgid "%(day)i %(month)s %(year)i"
 msgstr "%(day)i %(month)s %(year)i"
 
-#: Mailman/Archiver/HyperArch.py:1036
+#: Mailman/Archiver/HyperArch.py:1044
 #, fuzzy
 msgid "Computing threaded index\n"
 msgstr "Skaièiuojamas indeksas gijomis\n"
 
-#: Mailman/Archiver/HyperArch.py:1301
+#: Mailman/Archiver/HyperArch.py:1309
 #, fuzzy
 msgid "Updating HTML for article %(seq)s"
 msgstr "Atnaujinamas straipsniø HTML "
 
-#: Mailman/Archiver/HyperArch.py:1308
+#: Mailman/Archiver/HyperArch.py:1316
 #, fuzzy
 msgid "article file %(filename)s is missing!"
 msgstr "praleistas straipsniø failas %s !"
@@ -219,33 +219,33 @@ msgstr "Jûsø"
 msgid "by the list administrator"
 msgstr "forumo administratoriaus"
 
-#: Mailman/Bouncer.py:47 Mailman/Bouncer.py:247
+#: Mailman/Bouncer.py:47 Mailman/Bouncer.py:255
 #: Mailman/Commands/cmd_set.py:182
 msgid "for unknown reasons"
 msgstr "dël neþinomø prieþasèiø"
 
-#: Mailman/Bouncer.py:194
+#: Mailman/Bouncer.py:202
 msgid "disabled"
 msgstr "uþdrausta"
 
-#: Mailman/Bouncer.py:199
+#: Mailman/Bouncer.py:207
 #, fuzzy
 msgid "Bounce action notification"
 msgstr "Bounce action notification"
 
-#: Mailman/Bouncer.py:254
+#: Mailman/Bouncer.py:262
 #, fuzzy
 msgid " The last bounce received from you was dated %(date)s"
 msgstr " The last bounce received from you was dated %(date)s"
 
-#: Mailman/Bouncer.py:279 Mailman/Deliverer.py:143
-#: Mailman/Handlers/Acknowledge.py:44 Mailman/Handlers/CookHeaders.py:285
+#: Mailman/Bouncer.py:290 Mailman/Deliverer.py:143
+#: Mailman/Handlers/Acknowledge.py:44 Mailman/Handlers/CookHeaders.py:286
 #: Mailman/Handlers/Hold.py:215 Mailman/Handlers/ToDigest.py:235
 #: Mailman/ListAdmin.py:223
 msgid "(no subject)"
 msgstr "(nenurodyta tema)"
 
-#: Mailman/Bouncer.py:283
+#: Mailman/Bouncer.py:294
 #, fuzzy
 msgid "[No bounce details are available]"
 msgstr "[No bounce details are available]"
@@ -258,7 +258,7 @@ msgstr "Priþiûrëtojas"
 msgid "Administrator"
 msgstr "administratoriaus"
 
-#: Mailman/Cgi/admin.py:75 Mailman/Cgi/admindb.py:90 Mailman/Cgi/confirm.py:62
+#: Mailman/Cgi/admin.py:74 Mailman/Cgi/admindb.py:90 Mailman/Cgi/confirm.py:62
 #: Mailman/Cgi/edithtml.py:70 Mailman/Cgi/listinfo.py:51
 #: Mailman/Cgi/options.py:78 Mailman/Cgi/private.py:108
 #: Mailman/Cgi/rmlist.py:64 Mailman/Cgi/roster.py:57
@@ -266,12 +266,12 @@ msgstr "administratoriaus"
 msgid "No such list <em>%(safelistname)s</em>"
 msgstr "Nëra forumo <em>%(safelistname)s</em>"
 
-#: Mailman/Cgi/admin.py:90 Mailman/Cgi/admindb.py:106
+#: Mailman/Cgi/admin.py:89 Mailman/Cgi/admindb.py:106
 #: Mailman/Cgi/edithtml.py:88 Mailman/Cgi/private.py:133
 msgid "Authorization failed."
 msgstr "Nesëkminga registracija"
 
-#: Mailman/Cgi/admin.py:180
+#: Mailman/Cgi/admin.py:179
 #, fuzzy
 msgid ""
 "You have turned off delivery of both digest and\n"
@@ -286,12 +286,12 @@ msgstr ""
 "                kitaip negalësite pasinaudoti\n"
 "                forumu."
 
-#: Mailman/Cgi/admin.py:184 Mailman/Cgi/admin.py:190 Mailman/Cgi/admin.py:195
-#: Mailman/Cgi/admin.py:1438 Mailman/Gui/GUIBase.py:191
+#: Mailman/Cgi/admin.py:183 Mailman/Cgi/admin.py:189 Mailman/Cgi/admin.py:194
+#: Mailman/Cgi/admin.py:1440 Mailman/Gui/GUIBase.py:204
 msgid "Warning: "
 msgstr "Perspëjimas: "
 
-#: Mailman/Cgi/admin.py:188
+#: Mailman/Cgi/admin.py:187
 #, fuzzy
 msgid ""
 "You have digest members, but digests are turned\n"
@@ -300,7 +300,7 @@ msgstr ""
 "Jûs iðjungëte grupuotø laiðkø siuntimà, taèiau yra\n"
 "                juos uþsisakiusiø asmenø, kurie nebegaus laiðkø."
 
-#: Mailman/Cgi/admin.py:193
+#: Mailman/Cgi/admin.py:192
 #, fuzzy
 msgid ""
 "You have regular list members but non-digestified mail is\n"
@@ -311,21 +311,21 @@ msgstr ""
 "                taèiau Jûs iðjungëte negrupuotø laiðkø siuntimà.\n"
 "                Ðie asmenys negaus laiðkø kol neiðtaisysite to."
 
-#: Mailman/Cgi/admin.py:217
+#: Mailman/Cgi/admin.py:216
 #, fuzzy
 msgid "%(hostname)s mailing lists - Admin Links"
 msgstr "%(hostname)s forumø priþiûrëtojo nuorodos"
 
-#: Mailman/Cgi/admin.py:247 Mailman/Cgi/listinfo.py:100
+#: Mailman/Cgi/admin.py:246 Mailman/Cgi/listinfo.py:100
 msgid "Welcome!"
 msgstr "Kvieèiame!"
 
-#: Mailman/Cgi/admin.py:250 Mailman/Cgi/listinfo.py:103
+#: Mailman/Cgi/admin.py:249 Mailman/Cgi/listinfo.py:103
 #, fuzzy
 msgid "Mailman"
 msgstr "Mailman"
 
-#: Mailman/Cgi/admin.py:254
+#: Mailman/Cgi/admin.py:253
 #, fuzzy
 msgid ""
 "<p>There currently are no publicly-advertised %(mailmanlink)s\n"
@@ -334,7 +334,7 @@ msgstr ""
 "<p>There currently are no publicly-advertised %(mailmanlink)s\n"
 "            mailing lists on %(hostname)s."
 
-#: Mailman/Cgi/admin.py:260
+#: Mailman/Cgi/admin.py:259
 #, fuzzy
 msgid ""
 "<p>Below is the collection of publicly-advertised\n"
@@ -346,12 +346,12 @@ msgstr ""
 "            Spustelkite forumo pavadinimà, jei norite atversti to forumo "
 "nustatymus."
 
-#: Mailman/Cgi/admin.py:267
+#: Mailman/Cgi/admin.py:266
 #, fuzzy
 msgid "right "
 msgstr "deðinë "
 
-#: Mailman/Cgi/admin.py:269
+#: Mailman/Cgi/admin.py:268
 #, fuzzy
 msgid ""
 "To visit the administrators configuration page for an\n"
@@ -372,28 +372,26 @@ msgstr ""
 "\n"
 "        <p>General list information can be found at "
 
-#: Mailman/Cgi/admin.py:276
+#: Mailman/Cgi/admin.py:275
 #, fuzzy
 msgid "the mailing list overview page"
 msgstr "the mailing list overview page"
 
-#: Mailman/Cgi/admin.py:278
+#: Mailman/Cgi/admin.py:277
 #, fuzzy
 msgid "<p>(Send questions and comments to "
 msgstr "<p>(Send questions and comments to "
 
-#: Mailman/Cgi/admin.py:288 Mailman/Cgi/listinfo.py:135
-#: cron/.svn/text-base/mailpasswds.svn-base:216 cron/mailpasswds:216
+#: Mailman/Cgi/admin.py:287 Mailman/Cgi/listinfo.py:135 cron/mailpasswds:216
 msgid "List"
 msgstr "Sàraðas"
 
-#: Mailman/Cgi/admin.py:289 Mailman/Cgi/admin.py:555
+#: Mailman/Cgi/admin.py:288 Mailman/Cgi/admin.py:555
 #: Mailman/Cgi/listinfo.py:136
 msgid "Description"
 msgstr "Apraðas"
 
-#: Mailman/Cgi/admin.py:295 Mailman/Cgi/listinfo.py:142
-#: bin/.svn/text-base/list_lists.svn-base:116 bin/list_lists:116
+#: Mailman/Cgi/admin.py:294 Mailman/Cgi/listinfo.py:142 bin/list_lists:116
 msgid "[no description available]"
 msgstr "[nerastas apraðas]"
 
@@ -570,7 +568,7 @@ msgstr "Topic name:"
 msgid "Regexp:"
 msgstr "Regexp:"
 
-#: Mailman/Cgi/admin.py:706 Mailman/Cgi/options.py:1029
+#: Mailman/Cgi/admin.py:706 Mailman/Cgi/options.py:1042
 msgid "Description:"
 msgstr "Apraðas:"
 
@@ -594,37 +592,37 @@ msgstr ""
 msgid "Spam Filter Regexp:"
 msgstr ""
 
-#: Mailman/Cgi/admin.py:762 Mailman/Cgi/admindb.py:302
-#: Mailman/Cgi/admindb.py:361 Mailman/Cgi/admindb.py:404
-#: Mailman/Cgi/admindb.py:638
+#: Mailman/Cgi/admin.py:762 Mailman/Cgi/admindb.py:303
+#: Mailman/Cgi/admindb.py:362 Mailman/Cgi/admindb.py:407
+#: Mailman/Cgi/admindb.py:637
 msgid "Defer"
 msgstr ""
 
-#: Mailman/Cgi/admin.py:762 Mailman/Cgi/admindb.py:304
-#: Mailman/Cgi/admindb.py:363 Mailman/Cgi/admindb.py:404
-#: Mailman/Cgi/admindb.py:638 Mailman/Gui/ContentFilter.py:37
-#: Mailman/Gui/Privacy.py:216 Mailman/Gui/Privacy.py:290
+#: Mailman/Cgi/admin.py:762 Mailman/Cgi/admindb.py:305
+#: Mailman/Cgi/admindb.py:364 Mailman/Cgi/admindb.py:407
+#: Mailman/Cgi/admindb.py:637 Mailman/Gui/ContentFilter.py:37
+#: Mailman/Gui/Privacy.py:216 Mailman/Gui/Privacy.py:297
 msgid "Reject"
 msgstr "Atmesti"
 
 #: Mailman/Cgi/admin.py:762 Mailman/Gui/Privacy.py:216
-#: Mailman/Gui/Privacy.py:290
+#: Mailman/Gui/Privacy.py:297
 msgid "Hold"
 msgstr ""
 
-#: Mailman/Cgi/admin.py:763 Mailman/Cgi/admindb.py:305
-#: Mailman/Cgi/admindb.py:364 Mailman/Cgi/admindb.py:404
-#: Mailman/Cgi/admindb.py:638 Mailman/Gui/ContentFilter.py:37
-#: Mailman/Gui/Privacy.py:216 Mailman/Gui/Privacy.py:290
+#: Mailman/Cgi/admin.py:763 Mailman/Cgi/admindb.py:306
+#: Mailman/Cgi/admindb.py:365 Mailman/Cgi/admindb.py:407
+#: Mailman/Cgi/admindb.py:637 Mailman/Gui/ContentFilter.py:37
+#: Mailman/Gui/Privacy.py:216 Mailman/Gui/Privacy.py:297
 msgid "Discard"
 msgstr "Atsisakyti"
 
-#: Mailman/Cgi/admin.py:763 Mailman/Cgi/admindb.py:404
-#: Mailman/Gui/Privacy.py:290
+#: Mailman/Cgi/admin.py:763 Mailman/Cgi/admindb.py:407
+#: Mailman/Gui/Privacy.py:297
 msgid "Accept"
 msgstr "Priimti"
 
-#: Mailman/Cgi/admin.py:766 Mailman/Cgi/admindb.py:644
+#: Mailman/Cgi/admin.py:766 Mailman/Cgi/admindb.py:643
 msgid "Action:"
 msgstr "Veiksmas:"
 
@@ -671,30 +669,30 @@ msgstr "Bendri atnaujinimai"
 msgid "Membership List"
 msgstr "Nariø sàraðas"
 
-#: Mailman/Cgi/admin.py:856
+#: Mailman/Cgi/admin.py:857
 msgid "(help)"
 msgstr "(pagalba)"
 
-#: Mailman/Cgi/admin.py:857
+#: Mailman/Cgi/admin.py:858
 #, fuzzy
 msgid "Find member %(link)s:"
 msgstr "Rasti dalyvá %(link)s:"
 
-#: Mailman/Cgi/admin.py:860
+#: Mailman/Cgi/admin.py:861
 msgid "Search..."
 msgstr "Ieðkoti..."
 
-#: Mailman/Cgi/admin.py:877
+#: Mailman/Cgi/admin.py:878
 #, fuzzy
 msgid "Bad regular expression: "
 msgstr "Bad regular expression: "
 
-#: Mailman/Cgi/admin.py:933
+#: Mailman/Cgi/admin.py:932
 #, fuzzy
 msgid "%(allcnt)s members total, %(membercnt)s shown"
 msgstr "%(allcnt)s members total, %(membercnt)s shown"
 
-#: Mailman/Cgi/admin.py:936
+#: Mailman/Cgi/admin.py:935
 #, fuzzy
 msgid "%(allcnt)s members total"
 msgstr "%(allcnt)s members total"
@@ -772,11 +770,11 @@ msgstr "A"
 msgid "B"
 msgstr "B"
 
-#: Mailman/Cgi/admin.py:1051
+#: Mailman/Cgi/admin.py:1052
 msgid "<b>unsub</b> -- Click on this to unsubscribe the member."
 msgstr "<b>unsub</b> -- Paspauskite èia, jei norite iðbraukti dalyvá."
 
-#: Mailman/Cgi/admin.py:1053
+#: Mailman/Cgi/admin.py:1054
 #, fuzzy
 msgid ""
 "<b>mod</b> -- The user's personal moderation flag.  If this is\n"
@@ -787,7 +785,7 @@ msgstr ""
 "        set, postings from them will be moderated, otherwise they will be\n"
 "        approved."
 
-#: Mailman/Cgi/admin.py:1057
+#: Mailman/Cgi/admin.py:1058
 #, fuzzy
 msgid ""
 "<b>hide</b> -- Is the member's address concealed on\n"
@@ -796,7 +794,7 @@ msgstr ""
 "<b>paslëpti</b> -- ar dalyvio adresas iðbrauktas\n"
 "        ið dlyviø sàraðo?"
 
-#: Mailman/Cgi/admin.py:1059
+#: Mailman/Cgi/admin.py:1060
 #, fuzzy
 msgid ""
 "<b>nomail</b> -- Is delivery to the member disabled?  If so, an\n"
@@ -831,7 +829,7 @@ msgstr ""
 "                    in older versions of Mailman.\n"
 "            </ul>"
 
-#: Mailman/Cgi/admin.py:1074
+#: Mailman/Cgi/admin.py:1075
 #, fuzzy
 msgid ""
 "<b>ack</b> -- Does the member get acknowledgements of their\n"
@@ -840,7 +838,7 @@ msgstr ""
 "<b>ack</b> -- Ar dalyviams praneðta apie jø laiðkus?\n"
 "        (acknowledgements)"
 
-#: Mailman/Cgi/admin.py:1077
+#: Mailman/Cgi/admin.py:1078
 #, fuzzy
 msgid ""
 "<b>not metoo</b> -- Does the member want to avoid copies of their\n"
@@ -849,7 +847,7 @@ msgstr ""
 "<b>not metoo</b> -- Ar jis nori iðvengti savo laiðkø kopijø gavimo?\n"
 "        "
 
-#: Mailman/Cgi/admin.py:1080
+#: Mailman/Cgi/admin.py:1081
 #, fuzzy
 msgid ""
 "<b>nodupes</b> -- Does the member want to avoid duplicates of the\n"
@@ -858,7 +856,7 @@ msgstr ""
 "<b>nodupes</b> -- Ar jis nori iðvengti laiðkø dubliavimosi?\n"
 "        "
 
-#: Mailman/Cgi/admin.py:1083
+#: Mailman/Cgi/admin.py:1084
 #, fuzzy
 msgid ""
 "<b>digest</b> -- Does the member get messages in digests?\n"
@@ -867,7 +865,7 @@ msgstr ""
 "<b>digest</b> -- Ar jis gauna rinkinius?\n"
 "        (pavieniai laiðkai kitu atveju)"
 
-#: Mailman/Cgi/admin.py:1086
+#: Mailman/Cgi/admin.py:1087
 #, fuzzy
 msgid ""
 "<b>plain</b> -- If getting digests, does the member get plain\n"
@@ -876,22 +874,22 @@ msgstr ""
 "<b>plain</b> -- Jei gauna rinkinius, ar jie yra vientiso teksto?\n"
 "        (MIME kitu atveju)"
 
-#: Mailman/Cgi/admin.py:1088
+#: Mailman/Cgi/admin.py:1089
 #, fuzzy
 msgid "<b>language</b> -- Language preferred by the user"
 msgstr "<b>kalba</b> -- vartotojo pageidaujama kalba"
 
-#: Mailman/Cgi/admin.py:1102
+#: Mailman/Cgi/admin.py:1103
 #, fuzzy
 msgid "Click here to hide the legend for this table."
 msgstr "Spustelkite èia, jei norite paslëpti ðios lentelës paaiðkinimus."
 
-#: Mailman/Cgi/admin.py:1106
+#: Mailman/Cgi/admin.py:1107
 #, fuzzy
 msgid "Click here to include the legend for this table."
 msgstr "Spustelkite èia, jei norite parodyti ðios lentelës paaiðkinimus."
 
-#: Mailman/Cgi/admin.py:1113
+#: Mailman/Cgi/admin.py:1114
 #, fuzzy
 msgid ""
 "<p><em>To view more members, click on the appropriate\n"
@@ -900,32 +898,32 @@ msgstr ""
 "<p><em>To view more members, click on the appropriate\n"
 "        range listed below:</em>"
 
-#: Mailman/Cgi/admin.py:1122
+#: Mailman/Cgi/admin.py:1123
 #, fuzzy
 msgid "from %(start)s to %(end)s"
 msgstr "%(start)s - %(end)s"
 
-#: Mailman/Cgi/admin.py:1135
+#: Mailman/Cgi/admin.py:1136
 #, fuzzy
 msgid "Subscribe these users now or invite them?"
 msgstr "Uþsakyti ðiems vartotojams forumà ar pakviesti juos?"
 
-#: Mailman/Cgi/admin.py:1137
+#: Mailman/Cgi/admin.py:1138
 msgid "Invite"
 msgstr "Pakviesti"
 
-#: Mailman/Cgi/admin.py:1137 Mailman/Cgi/listinfo.py:178
+#: Mailman/Cgi/admin.py:1138 Mailman/Cgi/listinfo.py:178
 msgid "Subscribe"
 msgstr "Uþsakyti"
 
-#: Mailman/Cgi/admin.py:1143
+#: Mailman/Cgi/admin.py:1144
 msgid "Send welcome messages to new subscribees?"
 msgstr "Ar siøsti pasisveikinimus uþsisakiusiems forumà?"
 
-#: Mailman/Cgi/admin.py:1145 Mailman/Cgi/admin.py:1154
-#: Mailman/Cgi/admin.py:1187 Mailman/Cgi/admin.py:1195
-#: Mailman/Cgi/confirm.py:290 Mailman/Cgi/create.py:354
-#: Mailman/Cgi/create.py:389 Mailman/Cgi/create.py:427
+#: Mailman/Cgi/admin.py:1146 Mailman/Cgi/admin.py:1155
+#: Mailman/Cgi/admin.py:1188 Mailman/Cgi/admin.py:1196
+#: Mailman/Cgi/confirm.py:290 Mailman/Cgi/create.py:352
+#: Mailman/Cgi/create.py:387 Mailman/Cgi/create.py:425
 #: Mailman/Cgi/rmlist.py:228 Mailman/Gui/Archive.py:33
 #: Mailman/Gui/Autoresponse.py:54 Mailman/Gui/Autoresponse.py:62
 #: Mailman/Gui/Autoresponse.py:71 Mailman/Gui/Bounce.py:77
@@ -933,26 +931,26 @@ msgstr "Ar siøsti pasisveikinimus uþsisakiusiems forumà?"
 #: Mailman/Gui/Bounce.py:155 Mailman/Gui/ContentFilter.py:74
 #: Mailman/Gui/ContentFilter.py:116 Mailman/Gui/ContentFilter.py:120
 #: Mailman/Gui/Digest.py:46 Mailman/Gui/Digest.py:62 Mailman/Gui/Digest.py:84
-#: Mailman/Gui/Digest.py:89 Mailman/Gui/General.py:154
-#: Mailman/Gui/General.py:160 Mailman/Gui/General.py:238
-#: Mailman/Gui/General.py:265 Mailman/Gui/General.py:292
-#: Mailman/Gui/General.py:303 Mailman/Gui/General.py:306
-#: Mailman/Gui/General.py:316 Mailman/Gui/General.py:321
-#: Mailman/Gui/General.py:327 Mailman/Gui/General.py:347
-#: Mailman/Gui/General.py:375 Mailman/Gui/General.py:398
-#: Mailman/Gui/NonDigest.py:44 Mailman/Gui/NonDigest.py:52
-#: Mailman/Gui/NonDigest.py:139 Mailman/Gui/Privacy.py:110
+#: Mailman/Gui/Digest.py:89 Mailman/Gui/General.py:156
+#: Mailman/Gui/General.py:162 Mailman/Gui/General.py:240
+#: Mailman/Gui/General.py:267 Mailman/Gui/General.py:294
+#: Mailman/Gui/General.py:305 Mailman/Gui/General.py:308
+#: Mailman/Gui/General.py:318 Mailman/Gui/General.py:323
+#: Mailman/Gui/General.py:329 Mailman/Gui/General.py:349
+#: Mailman/Gui/General.py:381 Mailman/Gui/General.py:404
+#: Mailman/Gui/NonDigest.py:45 Mailman/Gui/NonDigest.py:53
+#: Mailman/Gui/NonDigest.py:140 Mailman/Gui/Privacy.py:110
 #: Mailman/Gui/Privacy.py:116 Mailman/Gui/Privacy.py:149
-#: Mailman/Gui/Privacy.py:197 Mailman/Gui/Privacy.py:305
-#: Mailman/Gui/Privacy.py:324 Mailman/Gui/Usenet.py:52
+#: Mailman/Gui/Privacy.py:197 Mailman/Gui/Privacy.py:312
+#: Mailman/Gui/Privacy.py:331 Mailman/Gui/Usenet.py:52
 #: Mailman/Gui/Usenet.py:56 Mailman/Gui/Usenet.py:93 Mailman/Gui/Usenet.py:105
 msgid "No"
 msgstr "Ne"
 
-#: Mailman/Cgi/admin.py:1145 Mailman/Cgi/admin.py:1154
-#: Mailman/Cgi/admin.py:1187 Mailman/Cgi/admin.py:1195
-#: Mailman/Cgi/confirm.py:290 Mailman/Cgi/create.py:354
-#: Mailman/Cgi/create.py:389 Mailman/Cgi/create.py:427
+#: Mailman/Cgi/admin.py:1146 Mailman/Cgi/admin.py:1155
+#: Mailman/Cgi/admin.py:1188 Mailman/Cgi/admin.py:1196
+#: Mailman/Cgi/confirm.py:290 Mailman/Cgi/create.py:352
+#: Mailman/Cgi/create.py:387 Mailman/Cgi/create.py:425
 #: Mailman/Cgi/rmlist.py:228 Mailman/Gui/Archive.py:33
 #: Mailman/Gui/Autoresponse.py:54 Mailman/Gui/Autoresponse.py:62
 #: Mailman/Gui/Bounce.py:77 Mailman/Gui/Bounce.py:120
@@ -960,35 +958,35 @@ msgstr "Ne"
 #: Mailman/Gui/ContentFilter.py:74 Mailman/Gui/ContentFilter.py:116
 #: Mailman/Gui/ContentFilter.py:120 Mailman/Gui/Digest.py:46
 #: Mailman/Gui/Digest.py:62 Mailman/Gui/Digest.py:84 Mailman/Gui/Digest.py:89
-#: Mailman/Gui/General.py:154 Mailman/Gui/General.py:160
-#: Mailman/Gui/General.py:238 Mailman/Gui/General.py:265
-#: Mailman/Gui/General.py:292 Mailman/Gui/General.py:303
-#: Mailman/Gui/General.py:306 Mailman/Gui/General.py:316
-#: Mailman/Gui/General.py:321 Mailman/Gui/General.py:327
-#: Mailman/Gui/General.py:347 Mailman/Gui/General.py:375
-#: Mailman/Gui/General.py:398 Mailman/Gui/NonDigest.py:44
-#: Mailman/Gui/NonDigest.py:52 Mailman/Gui/NonDigest.py:139
+#: Mailman/Gui/General.py:156 Mailman/Gui/General.py:162
+#: Mailman/Gui/General.py:240 Mailman/Gui/General.py:267
+#: Mailman/Gui/General.py:294 Mailman/Gui/General.py:305
+#: Mailman/Gui/General.py:308 Mailman/Gui/General.py:318
+#: Mailman/Gui/General.py:323 Mailman/Gui/General.py:329
+#: Mailman/Gui/General.py:349 Mailman/Gui/General.py:381
+#: Mailman/Gui/General.py:404 Mailman/Gui/NonDigest.py:45
+#: Mailman/Gui/NonDigest.py:53 Mailman/Gui/NonDigest.py:140
 #: Mailman/Gui/Privacy.py:110 Mailman/Gui/Privacy.py:116
 #: Mailman/Gui/Privacy.py:149 Mailman/Gui/Privacy.py:197
-#: Mailman/Gui/Privacy.py:305 Mailman/Gui/Privacy.py:324
+#: Mailman/Gui/Privacy.py:312 Mailman/Gui/Privacy.py:331
 #: Mailman/Gui/Usenet.py:52 Mailman/Gui/Usenet.py:56 Mailman/Gui/Usenet.py:93
 #: Mailman/Gui/Usenet.py:105
 msgid "Yes"
 msgstr "Taip"
 
-#: Mailman/Cgi/admin.py:1152
+#: Mailman/Cgi/admin.py:1153
 msgid "Send notifications of new subscriptions to the list owner?"
 msgstr "Ar praneðti apie uþsisakymà forumo savininkui?"
 
-#: Mailman/Cgi/admin.py:1160 Mailman/Cgi/admin.py:1201
+#: Mailman/Cgi/admin.py:1161 Mailman/Cgi/admin.py:1202
 msgid "Enter one address per line below..."
 msgstr "Áveskite po vienà adresà á eilutæ..."
 
-#: Mailman/Cgi/admin.py:1165 Mailman/Cgi/admin.py:1206
+#: Mailman/Cgi/admin.py:1166 Mailman/Cgi/admin.py:1207
 msgid "...or specify a file to upload:"
 msgstr "...arba nurodykite failà ákëlimui:"
 
-#: Mailman/Cgi/admin.py:1170
+#: Mailman/Cgi/admin.py:1171
 msgid ""
 "Below, enter additional text to be added to the\n"
 "    top of your invitation or the subscription notification.  Include at "
@@ -999,19 +997,19 @@ msgstr ""
 "    arba praneðimo apie átraukimà á forumà pradþioje\n"
 "    Praleiskite bent vienà tuðèià eilutæ pabaigoje..."
 
-#: Mailman/Cgi/admin.py:1185
+#: Mailman/Cgi/admin.py:1186
 msgid "Send unsubscription acknowledgement to the user?"
 msgstr "Ar praneðti apie atsisisakymà forumo savininkui?"
 
-#: Mailman/Cgi/admin.py:1193
+#: Mailman/Cgi/admin.py:1194
 msgid "Send notifications to the list owner?"
 msgstr "Ar praneðti forumo savininkui?"
 
-#: Mailman/Cgi/admin.py:1215
+#: Mailman/Cgi/admin.py:1216
 msgid "Change list ownership passwords"
 msgstr "Pakesiti forumo sàvininko slaptaþodþius"
 
-#: Mailman/Cgi/admin.py:1218
+#: Mailman/Cgi/admin.py:1219
 #, fuzzy
 msgid ""
 "The <em>list administrators</em> are the people who have ultimate control "
@@ -1048,101 +1046,102 @@ msgstr ""
 "and also provide the email addresses of the list moderators in the\n"
 "<a href=\"%(adminurl)s/general\">general options section</a>."
 
-#: Mailman/Cgi/admin.py:1237
+#: Mailman/Cgi/admin.py:1238
 msgid "Enter new administrator password:"
 msgstr "Áveskite naujà administratoriaus slaptaþodá:"
 
-#: Mailman/Cgi/admin.py:1239
+#: Mailman/Cgi/admin.py:1240
 #, fuzzy
 msgid "Confirm administrator password:"
 msgstr "Patvirtinkite administratoriaus slaptaþodá:"
 
-#: Mailman/Cgi/admin.py:1244
+#: Mailman/Cgi/admin.py:1245
 msgid "Enter new moderator password:"
 msgstr "Áveskite naujà moderatoriaus slaptaþodá:"
 
-#: Mailman/Cgi/admin.py:1246
+#: Mailman/Cgi/admin.py:1247
 msgid "Confirm moderator password:"
 msgstr "Patvirtinkite moderatoriaus slaptaþodá:"
 
-#: Mailman/Cgi/admin.py:1256
+#: Mailman/Cgi/admin.py:1257
 msgid "Submit Your Changes"
 msgstr "Patvirtinti Jûsø pakeitimus"
 
-#: Mailman/Cgi/admin.py:1279
+#: Mailman/Cgi/admin.py:1280
 msgid "Moderator passwords did not match"
 msgstr "Neatitinka moderatoriaus slaptaþodis"
 
-#: Mailman/Cgi/admin.py:1289
+#: Mailman/Cgi/admin.py:1290
 #, fuzzy
 msgid "Administrator passwords did not match"
 msgstr "Neatitinka administratoriaus slaptaþodis"
 
-#: Mailman/Cgi/admin.py:1339
+#: Mailman/Cgi/admin.py:1340
 msgid "Already a member"
 msgstr "Jau dalyvis"
 
-#: Mailman/Cgi/admin.py:1342
+#: Mailman/Cgi/admin.py:1343
 #, fuzzy
 msgid "&lt;blank line&gt;"
 msgstr "&lt;tuðèia eilutë&gt;"
 
-#: Mailman/Cgi/admin.py:1343 Mailman/Cgi/admin.py:1346
+#: Mailman/Cgi/admin.py:1344 Mailman/Cgi/admin.py:1347
 msgid "Bad/Invalid email address"
 msgstr "Neteisingas el. paðto adresas"
 
-#: Mailman/Cgi/admin.py:1349
+#: Mailman/Cgi/admin.py:1350
 #, fuzzy
 msgid "Hostile address (illegal characters)"
 msgstr "Hostile address (illegal characters)"
 
-#: Mailman/Cgi/admin.py:1352
+#: Mailman/Cgi/admin.py:1353 bin/add_members:140 bin/clone_member:136
+#: bin/sync_members:264
 msgid "Banned address (matched %(pattern)s)"
 msgstr ""
 
-#: Mailman/Cgi/admin.py:1358
+#: Mailman/Cgi/admin.py:1359
 msgid "Successfully invited:"
 msgstr "Sëkmingai pakviesti:"
 
-#: Mailman/Cgi/admin.py:1360
+#: Mailman/Cgi/admin.py:1361
 msgid "Successfully subscribed:"
 msgstr "Sëkmingai uþsisakë"
 
-#: Mailman/Cgi/admin.py:1365
+#: Mailman/Cgi/admin.py:1366
 msgid "Error inviting:"
 msgstr "Nesëkmingai kviesti:"
 
-#: Mailman/Cgi/admin.py:1367
+#: Mailman/Cgi/admin.py:1368
 msgid "Error subscribing:"
 msgstr "Nesëkmingai uþsisakinëjo:"
 
-#: Mailman/Cgi/admin.py:1396
+#: Mailman/Cgi/admin.py:1397
 msgid "Successfully Unsubscribed:"
 msgstr "Sëkmingai atsisakë:"
 
-#: Mailman/Cgi/admin.py:1401
+#: Mailman/Cgi/admin.py:1402
 msgid "Cannot unsubscribe non-members:"
 msgstr "Ne nariai neturi ko atsisakyti:"
 
-#: Mailman/Cgi/admin.py:1413
+#: Mailman/Cgi/admin.py:1414
 #, fuzzy
 msgid "Bad moderation flag value"
 msgstr "Bad moderation flag value"
 
-#: Mailman/Cgi/admin.py:1434
+#: Mailman/Cgi/admin.py:1436
 msgid "Not subscribed"
 msgstr "Neuþsisakæs"
 
-#: Mailman/Cgi/admin.py:1437
+#: Mailman/Cgi/admin.py:1439
 #, fuzzy
 msgid "Ignoring changes to deleted member: %(user)s"
 msgstr "Ignoring changes to deleted member: %(user)s"
 
-#: Mailman/Cgi/admin.py:1477
+#: Mailman/Cgi/admin.py:1479
 msgid "Successfully Removed:"
 msgstr "Sëkmingai paðalinti:"
 
-#: Mailman/Cgi/admin.py:1481
+#: Mailman/Cgi/admin.py:1483
 msgid "Error Unsubscribing:"
 msgstr "Klaida atsisakant:"
 
@@ -1175,125 +1174,130 @@ msgstr "Iðsami administratvimo db instrukcija"
 msgid "Administrative requests for mailing list:"
 msgstr "Priþiûrëtojo prisijungimas forumui:"
 
-#: Mailman/Cgi/admindb.py:192 Mailman/Cgi/admindb.py:247
+#: Mailman/Cgi/admindb.py:192 Mailman/Cgi/admindb.py:248
 msgid "Submit All Data"
 msgstr "Pristatyti visus duomenis"
 
-#: Mailman/Cgi/admindb.py:197 Mailman/Cgi/admindb.py:245
+#: Mailman/Cgi/admindb.py:198 Mailman/Cgi/admindb.py:246
 msgid "Discard all messages marked <em>Defer</em>"
 msgstr ""
 
-#: Mailman/Cgi/admindb.py:211
+#: Mailman/Cgi/admindb.py:212
 #, fuzzy
 msgid "all of %(esender)s's held messages."
 msgstr "all of %(esender)s's held messages."
 
-#: Mailman/Cgi/admindb.py:216
+#: Mailman/Cgi/admindb.py:217
 #, fuzzy
 msgid "a single held message."
 msgstr "a single held message."
 
-#: Mailman/Cgi/admindb.py:221
+#: Mailman/Cgi/admindb.py:222
 #, fuzzy
 msgid "all held messages."
 msgstr "all held messages."
 
-#: Mailman/Cgi/admindb.py:262
+#: Mailman/Cgi/admindb.py:263
 #, fuzzy
 msgid "Mailman Administrative Database Error"
 msgstr "Mailman Administrative Database Error"
 
-#: Mailman/Cgi/admindb.py:267
+#: Mailman/Cgi/admindb.py:268
 #, fuzzy
 msgid "list of available mailing lists."
 msgstr "list of available mailing lists."
 
-#: Mailman/Cgi/admindb.py:268
+#: Mailman/Cgi/admindb.py:269
 #, fuzzy
 msgid "You must specify a list name.  Here is the %(link)s"
 msgstr "You must specify a list name.  Here is the %(link)s"
 
-#: Mailman/Cgi/admindb.py:281
+#: Mailman/Cgi/admindb.py:282
 #, fuzzy
 msgid "Subscription Requests"
 msgstr "Uþsisakymo Praðymas"
 
-#: Mailman/Cgi/admindb.py:283
+#: Mailman/Cgi/admindb.py:284
 #, fuzzy
 msgid "Address/name"
 msgstr "Address/name"
 
-#: Mailman/Cgi/admindb.py:284 Mailman/Cgi/admindb.py:335
+#: Mailman/Cgi/admindb.py:285 Mailman/Cgi/admindb.py:336
 msgid "Your decision"
 msgstr "Tavo sprendimas"
 
-#: Mailman/Cgi/admindb.py:285 Mailman/Cgi/admindb.py:336
+#: Mailman/Cgi/admindb.py:286 Mailman/Cgi/admindb.py:337
 msgid "Reason for refusal"
 msgstr "Atmetimo prieþastis"
 
-#: Mailman/Cgi/admindb.py:303 Mailman/Cgi/admindb.py:362
-#: Mailman/Cgi/admindb.py:638
+#: Mailman/Cgi/admindb.py:304 Mailman/Cgi/admindb.py:363
+#: Mailman/Cgi/admindb.py:637
 msgid "Approve"
 msgstr ""
 
-#: Mailman/Cgi/admindb.py:313
+#: Mailman/Cgi/admindb.py:314
 msgid "Permanently ban from this list"
 msgstr ""
 
-#: Mailman/Cgi/admindb.py:334
+#: Mailman/Cgi/admindb.py:335
 msgid "User address/name"
 msgstr "Vartotojo duomenys"
 
-#: Mailman/Cgi/admindb.py:374
+#: Mailman/Cgi/admindb.py:375
 msgid "Unsubscription Requests"
 msgstr "Atsisakymo praðymas"
 
-#: Mailman/Cgi/admindb.py:397 Mailman/Cgi/admindb.py:621
+#: Mailman/Cgi/admindb.py:387
+#, fuzzy
+msgid "Held Messages"
+msgstr "all held messages."
+
+#: Mailman/Cgi/admindb.py:400 Mailman/Cgi/admindb.py:620
 msgid "From:"
 msgstr "Nuo:"
 
-#: Mailman/Cgi/admindb.py:400
+#: Mailman/Cgi/admindb.py:403
 msgid "Action to take on all these held messages:"
 msgstr "Veiksmai, atliekami su visomis ðiomis þinutëmis"
 
-#: Mailman/Cgi/admindb.py:412
+#: Mailman/Cgi/admindb.py:415
 msgid "Preserve messages for the site administrator"
 msgstr "Iðsaugoti þinutæ administratoriui"
 
-#: Mailman/Cgi/admindb.py:418
+#: Mailman/Cgi/admindb.py:421
 msgid "Forward messages (individually) to:"
 msgstr "Persiøsti þinutæ (asmeniðkai) kam:"
 
-#: Mailman/Cgi/admindb.py:436
+#: Mailman/Cgi/admindb.py:439
 msgid "Clear this member's <em>moderate</em> flag"
 msgstr "Paðalinti ðio dalyvio þymæ <em>moderate</em>"
 
-#: Mailman/Cgi/admindb.py:440
+#: Mailman/Cgi/admindb.py:443
 msgid "<em>The sender is now a member of this list</em>"
 msgstr ""
 
-#: Mailman/Cgi/admindb.py:449
+#: Mailman/Cgi/admindb.py:452
 #, fuzzy
 msgid "Add <b>%(esender)s</b> to one of these sender filters:"
 msgstr "Pridëti <b>%(esender)s</b> á siuntëjø filtrà"
 
-#: Mailman/Cgi/admindb.py:454
+#: Mailman/Cgi/admindb.py:457
 msgid "Accepts"
 msgstr "Priimtieji"
 
-#: Mailman/Cgi/admindb.py:454
+#: Mailman/Cgi/admindb.py:457
 msgid "Discards"
 msgstr "Atsisakyta"
 
-#: Mailman/Cgi/admindb.py:454
+#: Mailman/Cgi/admindb.py:457
 msgid "Holds"
 msgstr "Iðlaikyta"
 
-#: Mailman/Cgi/admindb.py:454
+#: Mailman/Cgi/admindb.py:457
 msgid "Rejects"
 msgstr "Atmesta"
 
-#: Mailman/Cgi/admindb.py:463
+#: Mailman/Cgi/admindb.py:466
 msgid ""
 "Ban <b>%(esender)s</b> from ever subscribing to this\n"
 "                    mailing list"
@@ -1301,7 +1305,7 @@ msgstr ""
 "Iðmesti <b>%(esender)s</b> ið ðio\n"
 "\t\tforumo"
 
-#: Mailman/Cgi/admindb.py:468
+#: Mailman/Cgi/admindb.py:471
 msgid ""
 "Click on the message number to view the individual\n"
 "            message, or you can "
@@ -1309,93 +1313,85 @@ msgstr ""
 "Spustelkite laiðko numerá, jei norite já perþiûrëti,\n"
 "\t\tarba galite "
 
-#: Mailman/Cgi/admindb.py:470
+#: Mailman/Cgi/admindb.py:473
 msgid "view all messages from %(esender)s"
 msgstr "Parodyti þinutes, kurias iðsiuntë %(esender)s"
 
-#: Mailman/Cgi/admindb.py:492 Mailman/Cgi/admindb.py:624
+#: Mailman/Cgi/admindb.py:495 Mailman/Cgi/admindb.py:623
 msgid "Subject:"
 msgstr "Tema:"
 
-#: Mailman/Cgi/admindb.py:495
+#: Mailman/Cgi/admindb.py:498
 msgid " bytes"
 msgstr " baitai(-ø)"
 
-#: Mailman/Cgi/admindb.py:495
+#: Mailman/Cgi/admindb.py:498
 msgid "Size:"
 msgstr "Dydis:"
 
-#: Mailman/Cgi/admindb.py:499 Mailman/Handlers/Scrubber.py:207
-#: Mailman/Handlers/Scrubber.py:304 Mailman/Handlers/Scrubber.py:305
+#: Mailman/Cgi/admindb.py:502 Mailman/Handlers/Scrubber.py:221
+#: Mailman/Handlers/Scrubber.py:318 Mailman/Handlers/Scrubber.py:320
 msgid "not available"
 msgstr "Negalima"
 
-#: Mailman/Cgi/admindb.py:500 Mailman/Cgi/admindb.py:627
+#: Mailman/Cgi/admindb.py:503 Mailman/Cgi/admindb.py:626
 msgid "Reason:"
 msgstr "Prieþastis:"
 
-#: Mailman/Cgi/admindb.py:504 Mailman/Cgi/admindb.py:631
+#: Mailman/Cgi/admindb.py:507 Mailman/Cgi/admindb.py:630
 msgid "Received:"
 msgstr "Gautas:"
 
-#: Mailman/Cgi/admindb.py:562
+#: Mailman/Cgi/admindb.py:561
 msgid "Posting Held for Approval"
 msgstr ""
 
-#: Mailman/Cgi/admindb.py:564
+#: Mailman/Cgi/admindb.py:563
 msgid " (%(count)d of %(total)d)"
 msgstr ""
 
-#: Mailman/Cgi/admindb.py:575
+#: Mailman/Cgi/admindb.py:574
 msgid "<em>Message with id #%(id)d was lost."
 msgstr "<em>Prarasta þinutë id #%(id)d."
 
-#: Mailman/Cgi/admindb.py:584
+#: Mailman/Cgi/admindb.py:583
 msgid "<em>Message with id #%(id)d is corrupted."
 msgstr "<em>Pagadinta þinutë #%(id)d."
 
-#: Mailman/Cgi/admindb.py:648
+#: Mailman/Cgi/admindb.py:647
 msgid "Preserve message for site administrator"
 msgstr "Iðsaugoti þinutæ administratoriui"
 
-#: Mailman/Cgi/admindb.py:652
+#: Mailman/Cgi/admindb.py:651
 msgid "Additionally, forward this message to: "
 msgstr ""
 
-#: Mailman/Cgi/admindb.py:656
+#: Mailman/Cgi/admindb.py:655 Mailman/Cgi/admindb.py:713
+#: Mailman/Cgi/admindb.py:773
 msgid "[No explanation given]"
 msgstr "[Nenurodyta prieþastis]"
 
-#: Mailman/Cgi/admindb.py:658
+#: Mailman/Cgi/admindb.py:657
 msgid "If you reject this post,<br>please explain (optional):"
 msgstr ""
 
-#: Mailman/Cgi/admindb.py:664
+#: Mailman/Cgi/admindb.py:663
 msgid "Message Headers:"
 msgstr "Þinuèiø antraðtes:"
 
-#: Mailman/Cgi/admindb.py:669
+#: Mailman/Cgi/admindb.py:668
 msgid "Message Excerpt:"
 msgstr ""
 
-#: Mailman/Cgi/admindb.py:709 Mailman/Deliverer.py:141
-msgid "No reason given"
-msgstr "Nenurodyta prieþastis"
-
-#: Mailman/Cgi/admindb.py:771 Mailman/ListAdmin.py:296
-#: Mailman/ListAdmin.py:414
-msgid "[No reason given]"
-msgstr "[Nenurodyta prieþastis]"
-
-#: Mailman/Cgi/admindb.py:803
+#: Mailman/Cgi/admindb.py:805
 msgid "Database Updated..."
 msgstr "Duomenø bazë atnaujinta..."
 
-#: Mailman/Cgi/admindb.py:806
+#: Mailman/Cgi/admindb.py:808
 msgid " is already a member"
 msgstr "forumo dalyvis nuo seniau"
 
-#: Mailman/Cgi/admindb.py:809
+#: Mailman/Cgi/admindb.py:811
 msgid "%(addr)s is banned (matched: %(patt)s)"
 msgstr ""
 
@@ -1571,7 +1567,7 @@ msgstr ""
 "\t\t"
 
 #: Mailman/Cgi/confirm.py:369 Mailman/Cgi/confirm.py:434
-#: Mailman/Cgi/confirm.py:523 Mailman/Cgi/confirm.py:752
+#: Mailman/Cgi/confirm.py:523 Mailman/Cgi/confirm.py:758
 msgid ""
 "Invalid confirmation string.  It is\n"
 "            possible that you are attempting to confirm a request for an\n"
@@ -1644,7 +1640,7 @@ msgstr ""
 msgid "Confirm unsubscription request"
 msgstr "Patvirtinkite atsisakymo praðymà"
 
-#: Mailman/Cgi/confirm.py:470 Mailman/Cgi/confirm.py:566
+#: Mailman/Cgi/confirm.py:470 Mailman/Cgi/confirm.py:572
 msgid "<em>Not available</em>"
 msgstr ""
 
@@ -1666,12 +1662,12 @@ msgid ""
 "    request."
 msgstr ""
 
-#: Mailman/Cgi/confirm.py:489 Mailman/Cgi/options.py:746
-#: Mailman/Cgi/options.py:887 Mailman/Cgi/options.py:897
+#: Mailman/Cgi/confirm.py:489 Mailman/Cgi/options.py:756
+#: Mailman/Cgi/options.py:900 Mailman/Cgi/options.py:910
 msgid "Unsubscribe"
 msgstr "Atsisakyti"
 
-#: Mailman/Cgi/confirm.py:490 Mailman/Cgi/confirm.py:595
+#: Mailman/Cgi/confirm.py:490 Mailman/Cgi/confirm.py:601
 msgid "Cancel and discard"
 msgstr ""
 
@@ -1686,11 +1682,23 @@ msgid ""
 "            please contact the list owners at %(owneraddr)s."
 msgstr ""
 
-#: Mailman/Cgi/confirm.py:535
+#: Mailman/Cgi/confirm.py:534
+#, fuzzy
+msgid ""
+"%(newaddr)s is already a member of\n"
+"            the %(realname)s list.  It is possible that you are attempting\n"
+"            to confirm a request for an address that has already been\n"
+"            subscribed."
+msgstr ""
+"Neteisinga patvirtinimo eilutë. \n"
+"\t\tGali bûti, kas Jûs bandëte patvirtinti\n"
+"\t\tjau atsisakiusio forumo adreso praðymà."
+
+#: Mailman/Cgi/confirm.py:541
 msgid "Change of address request confirmed"
 msgstr ""
 
-#: Mailman/Cgi/confirm.py:539
+#: Mailman/Cgi/confirm.py:545
 msgid ""
 "            You have successfully changed your address on the %(listname)s\n"
 "            mailing list from <b>%(oldaddr)s</b> to <b>%(newaddr)s</b>.  "
@@ -1699,15 +1707,15 @@ msgid ""
 "            login page</a>."
 msgstr ""
 
-#: Mailman/Cgi/confirm.py:551
+#: Mailman/Cgi/confirm.py:557
 msgid "Confirm change of address request"
 msgstr ""
 
-#: Mailman/Cgi/confirm.py:570
+#: Mailman/Cgi/confirm.py:576
 msgid "globally"
 msgstr ""
 
-#: Mailman/Cgi/confirm.py:573
+#: Mailman/Cgi/confirm.py:579
 msgid ""
 "Your confirmation is required in order to complete the\n"
 "    change of address request for the mailing list <em>%(listname)s</em>.  "
@@ -1731,25 +1739,25 @@ msgid ""
 "    request."
 msgstr ""
 
-#: Mailman/Cgi/confirm.py:594
+#: Mailman/Cgi/confirm.py:600
 msgid "Change address"
 msgstr "Keisti adresà"
 
-#: Mailman/Cgi/confirm.py:603 Mailman/Cgi/confirm.py:717
+#: Mailman/Cgi/confirm.py:609 Mailman/Cgi/confirm.py:723
 msgid "Continue awaiting approval"
 msgstr "Atstatyti narystæ forume."
 
-#: Mailman/Cgi/confirm.py:611
+#: Mailman/Cgi/confirm.py:617
 msgid ""
 "Okay, the list moderator will still have the\n"
 "    opportunity to approve or reject this message."
 msgstr ""
 
-#: Mailman/Cgi/confirm.py:637
+#: Mailman/Cgi/confirm.py:643
 msgid "Sender discarded message via web."
 msgstr ""
 
-#: Mailman/Cgi/confirm.py:639
+#: Mailman/Cgi/confirm.py:645
 msgid ""
 "The held message with the Subject:\n"
 "            header <em>%(subject)s</em> could not be found.  The most "
@@ -1760,28 +1768,28 @@ msgid ""
 "            time."
 msgstr ""
 
-#: Mailman/Cgi/confirm.py:647
+#: Mailman/Cgi/confirm.py:653
 msgid "Posted message canceled"
 msgstr ""
 
-#: Mailman/Cgi/confirm.py:650
+#: Mailman/Cgi/confirm.py:656
 msgid ""
 "            You have successfully canceled the posting of your message with\n"
 "            the Subject: header <em>%(subject)s</em> to the mailing list\n"
 "            %(listname)s."
 msgstr ""
 
-#: Mailman/Cgi/confirm.py:661
+#: Mailman/Cgi/confirm.py:667
 msgid "Cancel held message posting"
 msgstr ""
 
-#: Mailman/Cgi/confirm.py:686
+#: Mailman/Cgi/confirm.py:692
 msgid ""
 "The held message you were referred to has\n"
 "        already been handled by the list administrator."
 msgstr ""
 
-#: Mailman/Cgi/confirm.py:700
+#: Mailman/Cgi/confirm.py:706
 msgid ""
 "Your confirmation is required in order to cancel the\n"
 "    posting of your message to the mailing list <em>%(listname)s</em>:\n"
@@ -1797,11 +1805,11 @@ msgid ""
 "    allow the list moderator to approve or reject the message."
 msgstr ""
 
-#: Mailman/Cgi/confirm.py:716
+#: Mailman/Cgi/confirm.py:722
 msgid "Cancel posting"
 msgstr ""
 
-#: Mailman/Cgi/confirm.py:728
+#: Mailman/Cgi/confirm.py:734
 msgid ""
 "You have canceled the re-enabling of your membership.  If\n"
 "    we continue to receive bounces from your address, it could be deleted "
@@ -1809,11 +1817,11 @@ msgid ""
 "    this mailing list."
 msgstr ""
 
-#: Mailman/Cgi/confirm.py:758
+#: Mailman/Cgi/confirm.py:764
 msgid "Membership re-enabled."
 msgstr ""
 
-#: Mailman/Cgi/confirm.py:762
+#: Mailman/Cgi/confirm.py:768
 msgid ""
 "            You have successfully re-enabled your membership in the\n"
 "            %(listname)s mailing list.  You can now <a\n"
@@ -1821,22 +1829,22 @@ msgid ""
 "            "
 msgstr ""
 
-#: Mailman/Cgi/confirm.py:774
+#: Mailman/Cgi/confirm.py:780
 msgid "Re-enable mailing list membership"
 msgstr ""
 
-#: Mailman/Cgi/confirm.py:791
+#: Mailman/Cgi/confirm.py:797
 msgid ""
 "We're sorry, but you have already been unsubscribed\n"
 "        from this mailing list.  To re-subscribe, please visit the\n"
 "        <a href=\"%(listinfourl)s\">list information page</a>."
 msgstr ""
 
-#: Mailman/Cgi/confirm.py:806
+#: Mailman/Cgi/confirm.py:812
 msgid "<em>not available</em>"
 msgstr "<em>negalima</em>"
 
-#: Mailman/Cgi/confirm.py:810
+#: Mailman/Cgi/confirm.py:816
 msgid ""
 "Your membership in the %(realname)s mailing list is\n"
 "    currently disabled due to excessive bounces.  Your confirmation is\n"
@@ -1858,11 +1866,11 @@ msgid ""
 "    "
 msgstr ""
 
-#: Mailman/Cgi/confirm.py:830
+#: Mailman/Cgi/confirm.py:836
 msgid "Re-enable membership"
 msgstr ""
 
-#: Mailman/Cgi/confirm.py:831
+#: Mailman/Cgi/confirm.py:837
 msgid "Cancel"
 msgstr "Nutraukti"
 
@@ -1928,65 +1936,61 @@ msgstr "Jûs neturite teisës kurti naujus forumus"
 msgid "Unknown virtual host: %(safehostname)s"
 msgstr "Neþinomas forumas: %(listname)s"
 
-#: Mailman/Cgi/create.py:200 bin/.svn/text-base/newlist.svn-base:202
-#: bin/newlist:202
+#: Mailman/Cgi/create.py:199 bin/newlist:206
 msgid "Bad owner email address: %(s)s"
 msgstr "Blogas savininko adresas: %(s)s"
 
-#: Mailman/Cgi/create.py:205 bin/.svn/text-base/newlist.svn-base:170
-#: bin/.svn/text-base/newlist.svn-base:204 bin/newlist:170 bin/newlist:204
+#: Mailman/Cgi/create.py:204 bin/newlist:170 bin/newlist:208
 msgid "List already exists: %(listname)s"
 msgstr "Forumas %(listname)s jau sukurtas anksèiau"
 
-#: Mailman/Cgi/create.py:214 bin/.svn/text-base/newlist.svn-base:200
-#: bin/newlist:200
+#: Mailman/Cgi/create.py:212 bin/newlist:204
 msgid "Illegal list name: %(s)s"
 msgstr "Blogas forumo pavadinimas: %(s)s"
 
-#: Mailman/Cgi/create.py:219
+#: Mailman/Cgi/create.py:217
 msgid ""
 "Some unknown error occurred while creating the list.\n"
 "                Please contact the site administrator for assistance."
 msgstr ""
 
-#: Mailman/Cgi/create.py:256 bin/.svn/text-base/newlist.svn-base:245
-#: bin/newlist:245
+#: Mailman/Cgi/create.py:254 bin/newlist:249
 msgid "Your new mailing list: %(listname)s"
 msgstr "Naujas Jûsø forumas: %(listname)s"
 
-#: Mailman/Cgi/create.py:265
+#: Mailman/Cgi/create.py:263
 msgid "Mailing list creation results"
 msgstr "Forumo sukûrimo rezultatai"
 
-#: Mailman/Cgi/create.py:271
+#: Mailman/Cgi/create.py:269
 msgid ""
 "You have successfully created the mailing list\n"
 "    <b>%(listname)s</b> and notification has been sent to the list owner\n"
 "    <b>%(owner)s</b>.  You can now:"
 msgstr ""
 
-#: Mailman/Cgi/create.py:275
+#: Mailman/Cgi/create.py:273
 msgid "Visit the list's info page"
 msgstr "Aplankykite forumo informacijos puslapá"
 
-#: Mailman/Cgi/create.py:276
+#: Mailman/Cgi/create.py:274
 msgid "Visit the list's admin page"
 msgstr "Aplankykite forumo prieþiûros puslapá"
 
-#: Mailman/Cgi/create.py:277
+#: Mailman/Cgi/create.py:275
 msgid "Create another list"
 msgstr "Sukurti kità forumà"
 
-#: Mailman/Cgi/create.py:295
+#: Mailman/Cgi/create.py:293
 msgid "Create a %(hostname)s Mailing List"
 msgstr "Sukurti forumà %(hostname)s"
 
-#: Mailman/Cgi/create.py:304 Mailman/Cgi/rmlist.py:199
-#: Mailman/Gui/Bounce.py:187 Mailman/htmlformat.py:340
+#: Mailman/Cgi/create.py:302 Mailman/Cgi/rmlist.py:199
+#: Mailman/Gui/Bounce.py:187 Mailman/htmlformat.py:343
 msgid "Error: "
 msgstr "Klaida: "
 
-#: Mailman/Cgi/create.py:306
+#: Mailman/Cgi/create.py:304
 msgid ""
 "You can create a new mailing list by entering the\n"
 "    relevant information into the form below.  The name of the mailing list\n"
@@ -2012,35 +2016,35 @@ msgid ""
 "    "
 msgstr ""
 
-#: Mailman/Cgi/create.py:332
+#: Mailman/Cgi/create.py:330
 msgid "List Identity"
 msgstr "Forumas"
 
-#: Mailman/Cgi/create.py:337
+#: Mailman/Cgi/create.py:335
 msgid "Name of list:"
 msgstr "Forumo pavadinimas:"
 
-#: Mailman/Cgi/create.py:344
+#: Mailman/Cgi/create.py:342
 msgid "Initial list owner address:"
 msgstr "Pradinis forumo savininko adresas"
 
-#: Mailman/Cgi/create.py:353
+#: Mailman/Cgi/create.py:351
 msgid "Auto-generate initial list password?"
 msgstr ""
 
-#: Mailman/Cgi/create.py:361
+#: Mailman/Cgi/create.py:359
 msgid "Initial list password:"
 msgstr ""
 
-#: Mailman/Cgi/create.py:367
+#: Mailman/Cgi/create.py:365
 msgid "Confirm initial password:"
 msgstr ""
 
-#: Mailman/Cgi/create.py:382
+#: Mailman/Cgi/create.py:380
 msgid "List Characteristics"
 msgstr "Forumo Savybës"
 
-#: Mailman/Cgi/create.py:386
+#: Mailman/Cgi/create.py:384
 msgid ""
 "Should new members be quarantined before they\n"
 "    are allowed to post unmoderated to this list?  Answer <em>Yes</em> to "
@@ -2048,26 +2052,26 @@ msgid ""
 "    new member postings for moderator approval by default."
 msgstr ""
 
-#: Mailman/Cgi/create.py:415
+#: Mailman/Cgi/create.py:413
 msgid ""
 "Initial list of supported languages.  <p>Note that if you do not\n"
 "        select at least one initial language, the list will use the server\n"
 "        default language of %(deflang)s"
 msgstr ""
 
-#: Mailman/Cgi/create.py:426
+#: Mailman/Cgi/create.py:424
 msgid "Send \"list created\" email to list owner?"
 msgstr ""
 
-#: Mailman/Cgi/create.py:435
+#: Mailman/Cgi/create.py:433
 msgid "List creator's (authentication) password:"
 msgstr "Forumo kûrëjo slaptaþodis:"
 
-#: Mailman/Cgi/create.py:440
+#: Mailman/Cgi/create.py:438
 msgid "Create List"
 msgstr "Sukurti Forumà"
 
-#: Mailman/Cgi/create.py:441
+#: Mailman/Cgi/create.py:439
 msgid "Clear Form"
 msgstr ""
 
@@ -2131,7 +2135,29 @@ msgstr "HTML negali bûti tuðèias."
 msgid "HTML Unchanged."
 msgstr "HTML nepakeistas."
 
-#: Mailman/Cgi/edithtml.py:178
+#: Mailman/Cgi/edithtml.py:164
+msgid ""
+"The page you saved contains suspicious HTML that could\n"
+"potentially expose your users to cross-site scripting attacks.  This change\n"
+"has therefore been rejected.  If you still want to make these changes, you\n"
+"must have shell access to your Mailman server.\n"
+"             "
+msgstr ""
+
+#: Mailman/Cgi/edithtml.py:169
+msgid "See "
+msgstr ""
+
+#: Mailman/Cgi/edithtml.py:172
+msgid "FAQ 4.48."
+msgstr ""
+
+#: Mailman/Cgi/edithtml.py:173
+#, fuzzy
+msgid "Page Unchanged."
+msgstr "HTML nepakeistas."
+
+#: Mailman/Cgi/edithtml.py:191
 msgid "HTML successfully updated."
 msgstr "HTML sëkmingai atnaujintas."
 
@@ -2192,8 +2218,8 @@ msgstr ""
 msgid "Edit Options"
 msgstr "Keisti nustatymus"
 
-#: Mailman/Cgi/listinfo.py:197 Mailman/Cgi/options.py:853
-#: Mailman/Cgi/roster.py:109
+#: Mailman/Cgi/listinfo.py:197 Mailman/Cgi/options.py:865
+#: Mailman/Cgi/roster.py:114
 msgid "View this page in"
 msgstr "þiûrëti ðá puslapá"
 
@@ -2205,21 +2231,21 @@ msgstr "CFI skripto klaida"
 msgid "Invalid options to CGI script."
 msgstr ""
 
-#: Mailman/Cgi/options.py:105
+#: Mailman/Cgi/options.py:107
 msgid "No address given"
 msgstr "Neávestas adresas"
 
-#: Mailman/Cgi/options.py:117
+#: Mailman/Cgi/options.py:119
 #, fuzzy
 msgid "Illegal Email Address: %(safeuser)s"
 msgstr "Neteisingas adresas"
 
-#: Mailman/Cgi/options.py:124 Mailman/Cgi/options.py:188
-#: Mailman/Cgi/options.py:210
+#: Mailman/Cgi/options.py:126 Mailman/Cgi/options.py:190
+#: Mailman/Cgi/options.py:212
 msgid "No such member: %(safeuser)s."
 msgstr "Nëra tokio vartotojo: %(safeuser)s."
 
-#: Mailman/Cgi/options.py:174
+#: Mailman/Cgi/options.py:176
 #, fuzzy
 msgid ""
 "Your unsubscription request has been\n"
@@ -2228,57 +2254,57 @@ msgstr ""
 "Jûsø prisijungimo praðymas buvo persiøstas forumo administratoriui\n"
 "á %(listowner)s."
 
-#: Mailman/Cgi/options.py:179 Mailman/Cgi/options.py:193
+#: Mailman/Cgi/options.py:181 Mailman/Cgi/options.py:195
 msgid "The confirmation email has been sent."
 msgstr "Jums iðsiøstas patvirtinimas."
 
-#: Mailman/Cgi/options.py:204 Mailman/Cgi/options.py:216
-#: Mailman/Cgi/options.py:271
+#: Mailman/Cgi/options.py:206 Mailman/Cgi/options.py:218
+#: Mailman/Cgi/options.py:273
 msgid "A reminder of your password has been emailed to you."
 msgstr "Jums iðsiøstas slaptaþodþio priminimas."
 
-#: Mailman/Cgi/options.py:245
+#: Mailman/Cgi/options.py:247
 msgid "Authentication failed."
 msgstr "Nesëkmingas prisijungimas."
 
-#: Mailman/Cgi/options.py:278
+#: Mailman/Cgi/options.py:280
 msgid ""
 "The list administrator may not view the other\n"
 "            subscriptions for this user."
 msgstr ""
 
-#: Mailman/Cgi/options.py:279 Mailman/Cgi/options.py:322
-#: Mailman/Cgi/options.py:442 Mailman/Cgi/options.py:658
+#: Mailman/Cgi/options.py:281 Mailman/Cgi/options.py:324
+#: Mailman/Cgi/options.py:452 Mailman/Cgi/options.py:668
 msgid "Note: "
 msgstr ""
 
-#: Mailman/Cgi/options.py:284
+#: Mailman/Cgi/options.py:286
 #, fuzzy
 msgid "List subscriptions for %(safeuser)s on %(hostname)s"
 msgstr "Iðvardinti %(user)s uþsisakymus serveryje %(hostname)s"
 
-#: Mailman/Cgi/options.py:287
+#: Mailman/Cgi/options.py:289
 msgid ""
 "Click on a link to visit your options page for the\n"
 "        requested mailing list."
 msgstr ""
 
-#: Mailman/Cgi/options.py:319
+#: Mailman/Cgi/options.py:321
 msgid ""
 "The list administrator may not change the names\n"
 "            or addresses for this user's other subscriptions.  However, the\n"
 "            subscription for this mailing list has been changed."
 msgstr ""
 
-#: Mailman/Cgi/options.py:342
+#: Mailman/Cgi/options.py:344
 msgid "Addresses did not match!"
 msgstr ""
 
-#: Mailman/Cgi/options.py:347
+#: Mailman/Cgi/options.py:349
 msgid "You are already using that email address"
 msgstr ""
 
-#: Mailman/Cgi/options.py:359
+#: Mailman/Cgi/options.py:361
 msgid ""
 "The new address you requested %(newaddr)s is already a member of the\n"
 "%(listname)s mailing list, however you have also requested a global change "
@@ -2287,73 +2313,79 @@ msgid ""
 "%(safeuser)s will be changed. "
 msgstr ""
 
-#: Mailman/Cgi/options.py:368
+#: Mailman/Cgi/options.py:370
 msgid "The new address is already a member: %(newaddr)s"
 msgstr "Naujasis adresas %(newaddr)s jau forumo dalyvis"
 
-#: Mailman/Cgi/options.py:374
+#: Mailman/Cgi/options.py:376
 msgid "Addresses may not be blank"
 msgstr "Negalima praleisti adreso"
 
-#: Mailman/Cgi/options.py:388
+#: Mailman/Cgi/options.py:390
 msgid "A confirmation message has been sent to %(newaddr)s. "
 msgstr "%(newaddr)s iðsiøstas patvirtinimo laiðkas."
 
-#: Mailman/Cgi/options.py:397
+#: Mailman/Cgi/options.py:399
 msgid "Bad email address provided"
 msgstr "Neteisingas adresas"
 
-#: Mailman/Cgi/options.py:399
+#: Mailman/Cgi/options.py:401
 msgid "Illegal email address provided"
 msgstr "Neteisingas adresas"
 
-#: Mailman/Cgi/options.py:401
+#: Mailman/Cgi/options.py:403
 msgid "%(newaddr)s is already a member of the list."
 msgstr "%(newaddr)s ðio forumo dalyvis nuo anksèiau."
 
-#: Mailman/Cgi/options.py:404
+#: Mailman/Cgi/options.py:406
 msgid ""
 "%(newaddr)s is banned from this list.  If you\n"
 "                      think this restriction is erroneous, please contact\n"
 "                      the list owners at %(owneraddr)s."
 msgstr ""
 
-#: Mailman/Cgi/options.py:415
+#: Mailman/Cgi/options.py:417
 msgid "Member name successfully changed. "
 msgstr "Dalyvio vardas sëkmingai pakeistas. "
 
-#: Mailman/Cgi/options.py:426
+#: Mailman/Cgi/options.py:427
+msgid ""
+"The list administrator may not change the\n"
+"                    password for a user."
+msgstr ""
+
+#: Mailman/Cgi/options.py:436
 msgid "Passwords may not be blank"
 msgstr "Slaptaþodis negali bûti tuðèias"
 
-#: Mailman/Cgi/options.py:431
+#: Mailman/Cgi/options.py:441
 msgid "Passwords did not match!"
 msgstr "Slaptaþodþiai nesutampa!"
 
-#: Mailman/Cgi/options.py:439
+#: Mailman/Cgi/options.py:449
 msgid ""
 "The list administrator may not change the\n"
 "            password for this user's other subscriptions.  However, the\n"
 "            password for this mailing list has been changed."
 msgstr ""
 
-#: Mailman/Cgi/options.py:456 Mailman/Commands/cmd_password.py:83
+#: Mailman/Cgi/options.py:466 Mailman/Commands/cmd_password.py:83
 #: Mailman/Commands/cmd_password.py:109
 msgid "Password successfully changed."
 msgstr "Slaptaþodis sëkmingai pakeistas."
 
-#: Mailman/Cgi/options.py:465
+#: Mailman/Cgi/options.py:475
 msgid ""
 "You must confirm your unsubscription request by turning\n"
 "                on the checkbox below the <em>Unsubscribe</em> button.  You\n"
 "                have not been unsubscribed!"
 msgstr ""
 
-#: Mailman/Cgi/options.py:497
+#: Mailman/Cgi/options.py:507
 msgid "Unsubscription results"
 msgstr "Atsisakymo rezultatai"
 
-#: Mailman/Cgi/options.py:501
+#: Mailman/Cgi/options.py:511
 msgid ""
 "Your unsubscription request has been received and\n"
 "            forwarded on to the list moderators for approval.  You will\n"
@@ -2361,7 +2393,7 @@ msgid ""
 "            decision."
 msgstr ""
 
-#: Mailman/Cgi/options.py:506
+#: Mailman/Cgi/options.py:516
 msgid ""
 "You have been successfully unsubscribed from the\n"
 "            mailing list %(fqdn_listname)s.  If you were receiving digest\n"
@@ -2371,7 +2403,7 @@ msgid ""
 "            %(owneraddr)s."
 msgstr ""
 
-#: Mailman/Cgi/options.py:655
+#: Mailman/Cgi/options.py:665
 msgid ""
 "The list administrator may not change the\n"
 "                options for this user's other subscriptions.  However the\n"
@@ -2379,7 +2411,7 @@ msgid ""
 "                changed."
 msgstr ""
 
-#: Mailman/Cgi/options.py:665
+#: Mailman/Cgi/options.py:675
 msgid ""
 "The list administrator has disabled digest delivery for\n"
 "            this list, so your delivery option has not been set.  However "
@@ -2387,7 +2419,7 @@ msgid ""
 "            other options have been set successfully."
 msgstr ""
 
-#: Mailman/Cgi/options.py:669
+#: Mailman/Cgi/options.py:679
 msgid ""
 "The list administrator has disabled non-digest delivery\n"
 "            for this list, so your delivery option has not been set.  "
@@ -2395,83 +2427,83 @@ msgid ""
 "            your other options have been set successfully."
 msgstr ""
 
-#: Mailman/Cgi/options.py:673
+#: Mailman/Cgi/options.py:683
 msgid "You have successfully set your options."
 msgstr "Sëkmingai áraðëte nustatymus."
 
-#: Mailman/Cgi/options.py:676
+#: Mailman/Cgi/options.py:686
 msgid "You may get one last digest."
 msgstr "Gausite vienà paskutiná rinkiná."
 
-#: Mailman/Cgi/options.py:748
+#: Mailman/Cgi/options.py:758
 msgid "<em>Yes, I really want to unsubscribe</em>"
 msgstr "<em>Taip, að tikrai noriu atsisakyti</em>"
 
-#: Mailman/Cgi/options.py:752
+#: Mailman/Cgi/options.py:762
 msgid "Change My Password"
 msgstr "Pakeiskite mano slaptaþodá"
 
-#: Mailman/Cgi/options.py:755
+#: Mailman/Cgi/options.py:765
 msgid "List my other subscriptions"
 msgstr "Parodyti kitus mano uþsisakytus forumus"
 
-#: Mailman/Cgi/options.py:761
+#: Mailman/Cgi/options.py:771
 msgid "Email My Password To Me"
 msgstr "Iðsiøskite man mano slaptaþodá"
 
-#: Mailman/Cgi/options.py:763
+#: Mailman/Cgi/options.py:773
 msgid "password"
 msgstr "Slaptaþodis"
 
-#: Mailman/Cgi/options.py:765
+#: Mailman/Cgi/options.py:775
 msgid "Log out"
 msgstr "Atsijungti"
 
-#: Mailman/Cgi/options.py:767
+#: Mailman/Cgi/options.py:777
 msgid "Submit My Changes"
 msgstr "Patvirtinti mano pakeitimus"
 
-#: Mailman/Cgi/options.py:779
+#: Mailman/Cgi/options.py:789
 msgid "days"
 msgstr "dienø"
 
-#: Mailman/Cgi/options.py:781
+#: Mailman/Cgi/options.py:791
 msgid "day"
 msgstr "diena"
 
-#: Mailman/Cgi/options.py:782
+#: Mailman/Cgi/options.py:792
 msgid "%(days)d %(units)s"
 msgstr ""
 
-#: Mailman/Cgi/options.py:788
+#: Mailman/Cgi/options.py:798
 msgid "Change My Address and Name"
 msgstr "Pakeisti Mano Adresà ir Vardà"
 
-#: Mailman/Cgi/options.py:812
+#: Mailman/Cgi/options.py:824
 msgid "<em>No topics defined</em>"
 msgstr ""
 
-#: Mailman/Cgi/options.py:820
+#: Mailman/Cgi/options.py:832
 msgid ""
 "\n"
 "You are subscribed to this list with the case-preserved address\n"
 "<em>%(cpuser)s</em>."
 msgstr ""
 
-#: Mailman/Cgi/options.py:834
+#: Mailman/Cgi/options.py:846
 msgid "%(realname)s list: member options login page"
 msgstr "Forumo %(realname)s dalyviø nustatymo puslapio prisijungimas"
 
-#: Mailman/Cgi/options.py:835
+#: Mailman/Cgi/options.py:847
 msgid "email address and "
 msgstr " el. paðto adresas ir "
 
-#: Mailman/Cgi/options.py:838
+#: Mailman/Cgi/options.py:850
 #, fuzzy
 msgid "%(realname)s list: member options for user %(safeuser)s"
 msgstr "Forumo %(realname)s dalyvio %(user)s nustatymai"
 
-#: Mailman/Cgi/options.py:863
+#: Mailman/Cgi/options.py:876
 msgid ""
 "In order to change your membership option, you must\n"
 "    first log in by giving your %(extra)smembership password in the section\n"
@@ -2502,19 +2534,19 @@ msgstr ""
 "    iðsaugoti.\n"
 "    "
 
-#: Mailman/Cgi/options.py:877
+#: Mailman/Cgi/options.py:890
 msgid "Email address:"
 msgstr " El. paðto adresas:"
 
-#: Mailman/Cgi/options.py:881
+#: Mailman/Cgi/options.py:894
 msgid "Password:"
 msgstr " Slaptaþodis:"
 
-#: Mailman/Cgi/options.py:883
+#: Mailman/Cgi/options.py:896
 msgid "Log in"
 msgstr " Prisijungti"
 
-#: Mailman/Cgi/options.py:891
+#: Mailman/Cgi/options.py:904
 msgid ""
 "By clicking on the <em>Unsubscribe</em> button, a\n"
 "    confirmation message will be emailed to you.  This message will have a\n"
@@ -2530,11 +2562,11 @@ msgstr ""
 "    galite patvirtinti ir laiðku; þr. instrukcijas patvirtinimo\n"
 "    laiðke)."
 
-#: Mailman/Cgi/options.py:899
+#: Mailman/Cgi/options.py:912
 msgid "Password reminder"
 msgstr " Slaptaþodþio priminimas"
 
-#: Mailman/Cgi/options.py:903
+#: Mailman/Cgi/options.py:916
 msgid ""
 "By clicking on the <em>Remind</em> button, your\n"
 "    password will be emailed to you."
@@ -2542,27 +2574,27 @@ msgstr ""
 "Spustelkite mygtukà <em>Priminti</em> \n"
 "\t\tir Jums bus iðsiøstas Jûsø slaptaþodis."
 
-#: Mailman/Cgi/options.py:906
+#: Mailman/Cgi/options.py:919
 msgid "Remind"
 msgstr "Priminti"
 
-#: Mailman/Cgi/options.py:1006
+#: Mailman/Cgi/options.py:1019
 msgid "<missing>"
 msgstr ""
 
-#: Mailman/Cgi/options.py:1017
+#: Mailman/Cgi/options.py:1030
 msgid "Requested topic is not valid: %(topicname)s"
 msgstr ""
 
-#: Mailman/Cgi/options.py:1022
+#: Mailman/Cgi/options.py:1035
 msgid "Topic filter details"
 msgstr ""
 
-#: Mailman/Cgi/options.py:1025
+#: Mailman/Cgi/options.py:1038
 msgid "Name:"
 msgstr "Vardas:"
 
-#: Mailman/Cgi/options.py:1027
+#: Mailman/Cgi/options.py:1040
 msgid "Pattern (as regexp):"
 msgstr "Fragmentas (regexp):"
 
@@ -2659,11 +2691,11 @@ msgstr ""
 msgid "Invalid options to CGI script"
 msgstr ""
 
-#: Mailman/Cgi/roster.py:97
+#: Mailman/Cgi/roster.py:102
 msgid "%(realname)s roster authentication failed."
 msgstr ""
 
-#: Mailman/Cgi/roster.py:125 Mailman/Cgi/roster.py:126
+#: Mailman/Cgi/roster.py:130 Mailman/Cgi/roster.py:131
 #: Mailman/Cgi/subscribe.py:49 Mailman/Cgi/subscribe.py:60
 msgid "Error"
 msgstr "Klaida"
@@ -2796,7 +2828,7 @@ msgstr ""
 
 #: Mailman/Commands/cmd_confirm.py:41 Mailman/Commands/cmd_lists.py:40
 #: Mailman/Commands/cmd_set.py:133 Mailman/Commands/cmd_subscribe.py:69
-#: Mailman/Commands/cmd_unsubscribe.py:52 Mailman/Commands/cmd_who.py:65
+#: Mailman/Commands/cmd_unsubscribe.py:52 Mailman/Commands/cmd_who.py:67
 msgid "Usage:"
 msgstr "Naudojimas:"
 
@@ -3268,18 +3300,18 @@ msgstr ""
 msgid "Bad digest specifier: %(arg)s"
 msgstr "Nurodyti neteisingi rinkiniai: %(arg)s"
 
-#: Mailman/Commands/cmd_subscribe.py:84
+#: Mailman/Commands/cmd_subscribe.py:92
 msgid "No valid address found to subscribe"
 msgstr "Uþsakyme nerastas galiojantis el. paðto adresas"
 
-#: Mailman/Commands/cmd_subscribe.py:105
+#: Mailman/Commands/cmd_subscribe.py:113
 msgid ""
 "The email address you supplied is banned from this mailing list.\n"
 "If you think this restriction is erroneous, please contact the list\n"
 "owners at %(listowner)s."
 msgstr ""
 
-#: Mailman/Commands/cmd_subscribe.py:111
+#: Mailman/Commands/cmd_subscribe.py:119
 msgid ""
 "Mailman won't accept the given email address as a valid address.\n"
 "(E.g. it must have an @ in it.)"
@@ -3287,7 +3319,7 @@ msgstr ""
 "Toks el. paðto adresas neatrodo teisingas.\n"
 "\t"
 
-#: Mailman/Commands/cmd_subscribe.py:116
+#: Mailman/Commands/cmd_subscribe.py:124
 #, fuzzy
 msgid ""
 "Your subscription is not allowed because\n"
@@ -3296,19 +3328,19 @@ msgstr ""
 "Uþsisakymas neleistas, kadangi\n"
 "\tel. paðto adresas yra nesaugus."
 
-#: Mailman/Commands/cmd_subscribe.py:121
+#: Mailman/Commands/cmd_subscribe.py:129
 msgid "You are already subscribed!"
 msgstr "Jûs jau esate uþsisakæs!"
 
-#: Mailman/Commands/cmd_subscribe.py:125
+#: Mailman/Commands/cmd_subscribe.py:133
 msgid "No one can subscribe to the digest of this list!"
 msgstr "Niekas negali uþsisakyti ðio forumo rinkiniø!"
 
-#: Mailman/Commands/cmd_subscribe.py:128
+#: Mailman/Commands/cmd_subscribe.py:136
 msgid "This list only supports digest subscriptions!"
 msgstr "Ðis forumas laidþia tik rinkiniø uþsakymus!"
 
-#: Mailman/Commands/cmd_subscribe.py:134
+#: Mailman/Commands/cmd_subscribe.py:142
 msgid ""
 "Your subscription request has been forwarded to the list administrator\n"
 "at %(listowner)s for review."
@@ -3316,7 +3348,7 @@ msgstr ""
 "Jûsø prisijungimo praðymas buvo persiøstas forumo administratoriui\n"
 "á %(listowner)s."
 
-#: Mailman/Commands/cmd_subscribe.py:139
+#: Mailman/Commands/cmd_subscribe.py:147
 msgid "Subscription request succeeded."
 msgstr "Sëkmingas uþsakymo praðymas."
 
@@ -3353,26 +3385,30 @@ msgstr ""
 msgid "Unsubscription request succeeded."
 msgstr ""
 
-#: Mailman/Commands/cmd_who.py:29
+#: Mailman/Commands/cmd_who.py:27
 msgid ""
 "\n"
 "    who\n"
-"        See everyone who is on this mailing list.\n"
+"        See the non-hidden members of this mailing list.\n"
+"    who password\n"
+"        See everyone who is on this mailing list. The password is the\n"
+"        list's admin or moderator password.\n"
 msgstr ""
 
-#: Mailman/Commands/cmd_who.py:34
+#: Mailman/Commands/cmd_who.py:35
 msgid ""
 "\n"
 "    who password [address=<address>]\n"
-"        See everyone who is on this mailing list.  The roster is limited to\n"
-"        list members only, and you must supply your membership password to\n"
-"        retrieve it.  If you're posting from an address other than your\n"
-"        membership address, specify your membership address with\n"
+"        See the non-hidden members of this mailing list.  The roster is\n"
+"        limited to list members only, and you must supply your membership\n"
+"        password to retrieve it.  If you're posting from an address other\n"
+"        than your membership address, specify your membership address with\n"
 "        `address=<address>' (no brackets around the email address, and no\n"
-"        quotes!)\n"
+"        quotes!). If you provide the list's admin or moderator password,\n"
+"        hidden members will be included.\n"
 msgstr ""
 
-#: Mailman/Commands/cmd_who.py:44
+#: Mailman/Commands/cmd_who.py:46
 msgid ""
 "\n"
 "    who password\n"
@@ -3381,157 +3417,171 @@ msgid ""
 "        admin or moderator password to retrieve the roster.\n"
 msgstr ""
 
-#: Mailman/Commands/cmd_who.py:110
+#: Mailman/Commands/cmd_who.py:128
 msgid "You are not allowed to retrieve the list membership."
 msgstr ""
 
-#: Mailman/Commands/cmd_who.py:116
+#: Mailman/Commands/cmd_who.py:134
 msgid "This list has no members."
 msgstr ""
 
-#: Mailman/Commands/cmd_who.py:129
+#: Mailman/Commands/cmd_who.py:148
 msgid "Non-digest (regular) members:"
 msgstr ""
 
-#: Mailman/Commands/cmd_who.py:132
+#: Mailman/Commands/cmd_who.py:151
 msgid "Digest members:"
 msgstr ""
 
-#: Mailman/Defaults.py:1324
+#: Mailman/Defaults.py:1376
 msgid "Arabic"
 msgstr ""
 
-#: Mailman/Defaults.py:1325
+#: Mailman/Defaults.py:1377
 #, fuzzy
 msgid "Catalan"
 msgstr "Italø"
 
-#: Mailman/Defaults.py:1326
+#: Mailman/Defaults.py:1378
 msgid "Czech"
 msgstr "Èekø"
 
-#: Mailman/Defaults.py:1327
+#: Mailman/Defaults.py:1379
 #, fuzzy
 msgid "Danish"
 msgstr "Suomiø"
 
-#: Mailman/Defaults.py:1328
+#: Mailman/Defaults.py:1380
 msgid "German"
 msgstr "Vokieèiø"
 
-#: Mailman/Defaults.py:1329
+#: Mailman/Defaults.py:1381
 msgid "English (USA)"
 msgstr "Anglø (JAV)"
 
-#: Mailman/Defaults.py:1330
+#: Mailman/Defaults.py:1382
 msgid "Spanish (Spain)"
 msgstr "Ispanø (Ispanija)"
 
-#: Mailman/Defaults.py:1331
+#: Mailman/Defaults.py:1383
 msgid "Estonian"
 msgstr "Estø"
 
-#: Mailman/Defaults.py:1332
+#: Mailman/Defaults.py:1384
 msgid "Euskara"
 msgstr ""
 
-#: Mailman/Defaults.py:1333
+#: Mailman/Defaults.py:1385
 msgid "Finnish"
 msgstr "Suomiø"
 
-#: Mailman/Defaults.py:1334
+#: Mailman/Defaults.py:1386
 msgid "French"
 msgstr "Prancûzø"
 
-#: Mailman/Defaults.py:1335
+#: Mailman/Defaults.py:1387
+#, fuzzy
+msgid "Galician"
+msgstr "Italø"
+
+#: Mailman/Defaults.py:1388
+msgid "Hebrew"
+msgstr ""
+
+#: Mailman/Defaults.py:1389
 msgid "Croatian"
 msgstr ""
 
-#: Mailman/Defaults.py:1336
+#: Mailman/Defaults.py:1390
 msgid "Hungarian"
 msgstr "Vengrø"
 
-#: Mailman/Defaults.py:1337
+#: Mailman/Defaults.py:1391
 msgid "Interlingua"
 msgstr ""
 
-#: Mailman/Defaults.py:1338
+#: Mailman/Defaults.py:1392
 msgid "Italian"
 msgstr "Italø"
 
-#: Mailman/Defaults.py:1339
+#: Mailman/Defaults.py:1393
 msgid "Japanese"
 msgstr "Japonø"
 
-#: Mailman/Defaults.py:1340
+#: Mailman/Defaults.py:1394
 msgid "Korean"
 msgstr "Korëjieèiø"
 
-#: Mailman/Defaults.py:1341
+#: Mailman/Defaults.py:1395
 msgid "Lithuanian"
 msgstr "Lietuviø"
 
-#: Mailman/Defaults.py:1342
+#: Mailman/Defaults.py:1396
 msgid "Dutch"
 msgstr "Olandø"
 
-#: Mailman/Defaults.py:1343
+#: Mailman/Defaults.py:1397
 msgid "Norwegian"
 msgstr "Norvegø"
 
-#: Mailman/Defaults.py:1344
+#: Mailman/Defaults.py:1398
 msgid "Polish"
 msgstr ""
 
-#: Mailman/Defaults.py:1345
+#: Mailman/Defaults.py:1399
 #, fuzzy
 msgid "Portuguese"
 msgstr "Portugalø (Brazilija)"
 
-#: Mailman/Defaults.py:1346
+#: Mailman/Defaults.py:1400
 msgid "Portuguese (Brazil)"
 msgstr "Portugalø (Brazilija)"
 
-#: Mailman/Defaults.py:1347
+#: Mailman/Defaults.py:1401
 #, fuzzy
 msgid "Romanian"
 msgstr "Estø"
 
-#: Mailman/Defaults.py:1348
+#: Mailman/Defaults.py:1402
 msgid "Russian"
 msgstr "Rusø"
 
-#: Mailman/Defaults.py:1349
+#: Mailman/Defaults.py:1403
 #, fuzzy
-msgid "Serbian"
+msgid "Slovak"
 msgstr "Vokieèiø"
 
-#: Mailman/Defaults.py:1350
+#: Mailman/Defaults.py:1404
 #, fuzzy
 msgid "Slovenian"
 msgstr "Vokieèiø"
 
-#: Mailman/Defaults.py:1351
+#: Mailman/Defaults.py:1405
+#, fuzzy
+msgid "Serbian"
+msgstr "Vokieèiø"
+
+#: Mailman/Defaults.py:1406
 msgid "Swedish"
 msgstr "Ðvedø"
 
-#: Mailman/Defaults.py:1352
+#: Mailman/Defaults.py:1407
 msgid "Turkish"
 msgstr ""
 
-#: Mailman/Defaults.py:1353
+#: Mailman/Defaults.py:1408
 msgid "Ukrainian"
 msgstr ""
 
-#: Mailman/Defaults.py:1354
+#: Mailman/Defaults.py:1409
 msgid "Vietnamese"
 msgstr ""
 
-#: Mailman/Defaults.py:1355
+#: Mailman/Defaults.py:1410
 msgid "Chinese (China)"
 msgstr ""
 
-#: Mailman/Defaults.py:1356
+#: Mailman/Defaults.py:1411
 msgid "Chinese (Taiwan)"
 msgstr ""
 
@@ -3557,6 +3607,10 @@ msgstr "Atsijungëte nuo forumo %(realname)s"
 #: Mailman/Deliverer.py:113
 msgid "%(listfullname)s mailing list reminder"
 msgstr "Forumo %(listfullname)s priminimas"
+
+#: Mailman/Deliverer.py:141
+msgid "No reason given"
+msgstr "Nenurodyta prieþastis"
 
 #: Mailman/Deliverer.py:165 Mailman/Deliverer.py:184
 msgid "Hostile subscription attempt detected"
@@ -3584,11 +3638,11 @@ msgstr ""
 msgid "%(listname)s mailing list probe message"
 msgstr "Forumo %(listfullname)s priminimas"
 
-#: Mailman/Errors.py:114
+#: Mailman/Errors.py:113
 msgid "For some unknown reason"
 msgstr "Dël nenustatytø prieþasèiø"
 
-#: Mailman/Errors.py:120 Mailman/Errors.py:143
+#: Mailman/Errors.py:119 Mailman/Errors.py:142
 msgid "Your message was rejected"
 msgstr "Jûsø laiðkas atmestas"
 
@@ -3841,7 +3895,7 @@ msgid ""
 "             Is Disabled</em> warnings.  This value must be an integer."
 msgstr ""
 
-#: Mailman/Gui/Bounce.py:117 Mailman/Gui/General.py:263
+#: Mailman/Gui/Bounce.py:117 Mailman/Gui/General.py:265
 msgid "Notifications"
 msgstr "Praneðimai"
 
@@ -4192,15 +4246,15 @@ msgstr ""
 msgid "There was no digest to send."
 msgstr ""
 
-#: Mailman/Gui/GUIBase.py:156
+#: Mailman/Gui/GUIBase.py:169
 msgid "Invalid value for variable: %(property)s"
 msgstr ""
 
-#: Mailman/Gui/GUIBase.py:160
+#: Mailman/Gui/GUIBase.py:173
 msgid "Bad email address for option %(property)s: %(val)s"
 msgstr ""
 
-#: Mailman/Gui/GUIBase.py:186
+#: Mailman/Gui/GUIBase.py:199
 msgid ""
 "The following illegal substitution variables were\n"
 "                found in the <code>%(property)s</code> string:\n"
@@ -4210,7 +4264,7 @@ msgid ""
 "                problem."
 msgstr ""
 
-#: Mailman/Gui/GUIBase.py:200
+#: Mailman/Gui/GUIBase.py:213
 msgid ""
 "Your <code>%(property)s</code> string appeared to\n"
 "                    have some correctable problems in its new value.\n"
@@ -4219,42 +4273,42 @@ msgid ""
 "                    "
 msgstr ""
 
-#: Mailman/Gui/General.py:34
+#: Mailman/Gui/General.py:36
 #, fuzzy
 msgid "General Options"
 msgstr "Bendros parinktys"
 
-#: Mailman/Gui/General.py:48
+#: Mailman/Gui/General.py:50
 msgid "Conceal the member's address"
 msgstr ""
 
-#: Mailman/Gui/General.py:49
+#: Mailman/Gui/General.py:51
 msgid "Acknowledge the member's posting"
 msgstr ""
 
-#: Mailman/Gui/General.py:50
+#: Mailman/Gui/General.py:52
 msgid "Do not send a copy of a member's own post"
 msgstr ""
 
-#: Mailman/Gui/General.py:52
+#: Mailman/Gui/General.py:54
 msgid "Filter out duplicate messages to list members (if possible)"
 msgstr ""
 
-#: Mailman/Gui/General.py:59
+#: Mailman/Gui/General.py:61
 msgid ""
 "Fundamental list characteristics, including descriptive\n"
 "            info and basic behaviors."
 msgstr ""
 
-#: Mailman/Gui/General.py:62
+#: Mailman/Gui/General.py:64
 msgid "General list personality"
 msgstr ""
 
-#: Mailman/Gui/General.py:65
+#: Mailman/Gui/General.py:67
 msgid "The public name of this list (make case-changes only)."
 msgstr ""
 
-#: Mailman/Gui/General.py:66
+#: Mailman/Gui/General.py:68
 msgid ""
 "The capitalization of this name can be changed to make it\n"
 "             presentable in polite company as a proper noun, or to make an\n"
@@ -4267,13 +4321,13 @@ msgid ""
 "             almost everything else :-)"
 msgstr ""
 
-#: Mailman/Gui/General.py:75
+#: Mailman/Gui/General.py:77
 msgid ""
 "The list administrator email addresses.  Multiple\n"
 "             administrator addresses, each on separate line is okay."
 msgstr ""
 
-#: Mailman/Gui/General.py:78
+#: Mailman/Gui/General.py:80
 #, fuzzy
 msgid ""
 "There are two ownership roles associated with each mailing\n"
@@ -4318,13 +4372,13 @@ msgstr ""
 "and also provide the email addresses of the list moderators in the\n"
 "<a href=\"%(adminurl)s/general\">general options section</a>."
 
-#: Mailman/Gui/General.py:99
+#: Mailman/Gui/General.py:101
 msgid ""
 "The list moderator email addresses.  Multiple\n"
 "             moderator addresses, each on separate line is okay."
 msgstr ""
 
-#: Mailman/Gui/General.py:102
+#: Mailman/Gui/General.py:104
 msgid ""
 "There are two ownership roles associated with each mailing\n"
 "             list.  The <em>list administrators</em> are the people who "
@@ -4351,11 +4405,11 @@ msgid ""
 "             specifies the list moderators."
 msgstr ""
 
-#: Mailman/Gui/General.py:123
+#: Mailman/Gui/General.py:125
 msgid "A terse phrase identifying this list."
 msgstr ""
 
-#: Mailman/Gui/General.py:125
+#: Mailman/Gui/General.py:127
 msgid ""
 "This description is used when the mailing list is listed with\n"
 "                other mailing lists, or in headers, and so forth.  It "
@@ -4365,7 +4419,7 @@ msgid ""
 "                the list is."
 msgstr ""
 
-#: Mailman/Gui/General.py:131
+#: Mailman/Gui/General.py:133
 msgid ""
 "An introductory description - a few paragraphs - about the\n"
 "             list.  It will be included, as html, at the top of the "
@@ -4374,7 +4428,7 @@ msgid ""
 "             for more info."
 msgstr ""
 
-#: Mailman/Gui/General.py:135
+#: Mailman/Gui/General.py:137
 msgid ""
 "The text will be treated as html <em>except</em> that\n"
 "             newlines will be translated to &lt;br&gt; - so you can use "
@@ -4387,11 +4441,11 @@ msgid ""
 "             display of the entire listinfo page."
 msgstr ""
 
-#: Mailman/Gui/General.py:143
+#: Mailman/Gui/General.py:145
 msgid "Prefix for subject line of list postings."
 msgstr ""
 
-#: Mailman/Gui/General.py:144
+#: Mailman/Gui/General.py:146
 msgid ""
 "This text will be prepended to subject lines of messages\n"
 "             posted to the list, to distinguish mailing list messages in\n"
@@ -4406,17 +4460,17 @@ msgid ""
 "             "
 msgstr ""
 
-#: Mailman/Gui/General.py:155
+#: Mailman/Gui/General.py:157
 msgid ""
 "Hide the sender of a message, replacing it with the list\n"
 "             address (Removes From, Sender and Reply-To fields)"
 msgstr ""
 
-#: Mailman/Gui/General.py:158
+#: Mailman/Gui/General.py:160
 msgid "<tt>Reply-To:</tt> header munging"
 msgstr ""
 
-#: Mailman/Gui/General.py:161
+#: Mailman/Gui/General.py:163
 msgid ""
 "Should any existing <tt>Reply-To:</tt> header found in the\n"
 "             original message be stripped?  If so, this will be done\n"
@@ -4424,19 +4478,19 @@ msgid ""
 "             added by Mailman or not."
 msgstr ""
 
-#: Mailman/Gui/General.py:167
+#: Mailman/Gui/General.py:169
 msgid "Explicit address"
 msgstr ""
 
-#: Mailman/Gui/General.py:167
+#: Mailman/Gui/General.py:169
 msgid "Poster"
 msgstr ""
 
-#: Mailman/Gui/General.py:167
+#: Mailman/Gui/General.py:169
 msgid "This list"
 msgstr ""
 
-#: Mailman/Gui/General.py:168
+#: Mailman/Gui/General.py:170
 msgid ""
 "Where are replies to list messages directed?\n"
 "             <tt>Poster</tt> is <em>strongly</em> recommended for most "
@@ -4444,7 +4498,7 @@ msgid ""
 "             lists."
 msgstr ""
 
-#: Mailman/Gui/General.py:173
+#: Mailman/Gui/General.py:175
 msgid ""
 "This option controls what Mailman does to the\n"
 "             <tt>Reply-To:</tt> header in messages flowing through this\n"
@@ -4486,11 +4540,11 @@ msgid ""
 "             list."
 msgstr ""
 
-#: Mailman/Gui/General.py:205
+#: Mailman/Gui/General.py:207
 msgid "Explicit <tt>Reply-To:</tt> header."
 msgstr ""
 
-#: Mailman/Gui/General.py:207
+#: Mailman/Gui/General.py:209
 msgid ""
 "This is the address set in the <tt>Reply-To:</tt> header\n"
 "             when the <a\n"
@@ -4530,17 +4584,17 @@ msgid ""
 "             <tt>Reply-To:</tt> header, it will not be changed."
 msgstr ""
 
-#: Mailman/Gui/General.py:236
+#: Mailman/Gui/General.py:238
 msgid "Umbrella list settings"
 msgstr ""
 
-#: Mailman/Gui/General.py:239
+#: Mailman/Gui/General.py:241
 msgid ""
 "Send password reminders to, eg, \"-owner\" address instead of\n"
 "             directly to user."
 msgstr ""
 
-#: Mailman/Gui/General.py:242
+#: Mailman/Gui/General.py:244
 msgid ""
 "Set this to yes when this list is intended to cascade only\n"
 "             to other mailing lists.  When set, meta notices like\n"
@@ -4550,14 +4604,14 @@ msgid ""
 "             account name."
 msgstr ""
 
-#: Mailman/Gui/General.py:250
+#: Mailman/Gui/General.py:252
 msgid ""
 "Suffix for use when this list is an umbrella for other\n"
 "             lists, according to setting of previous \"umbrella_list\"\n"
 "             setting."
 msgstr ""
 
-#: Mailman/Gui/General.py:254
+#: Mailman/Gui/General.py:256
 msgid ""
 "When \"umbrella_list\" is set to indicate that this list has\n"
 "             other mailing lists as members, then administrative notices "
@@ -4572,11 +4626,11 @@ msgid ""
 "             is \"No\"."
 msgstr ""
 
-#: Mailman/Gui/General.py:266
+#: Mailman/Gui/General.py:268
 msgid "Send monthly password reminders?"
 msgstr ""
 
-#: Mailman/Gui/General.py:268
+#: Mailman/Gui/General.py:270
 msgid ""
 "Turn this on if you want password reminders to be sent once\n"
 "             per month to your members.  Note that members may disable "
@@ -4587,13 +4641,13 @@ msgstr ""
 "\t\tbûtø siunèiami jø slaptaþodþiø priminimai.\n"
 "\t\t(Nariai gali atsisakyti to savo asmeniniuose nustatymuose.)"
 
-#: Mailman/Gui/General.py:273
+#: Mailman/Gui/General.py:275
 msgid ""
 "List-specific text prepended to new-subscriber welcome\n"
 "             message"
 msgstr ""
 
-#: Mailman/Gui/General.py:276
+#: Mailman/Gui/General.py:278
 msgid ""
 "This value, if any, will be added to the front of the\n"
 "             new-subscriber welcome message.  The rest of the welcome "
@@ -4616,11 +4670,11 @@ msgid ""
 "             </ul>"
 msgstr ""
 
-#: Mailman/Gui/General.py:293
+#: Mailman/Gui/General.py:295
 msgid "Send welcome message to newly subscribed members?"
 msgstr "Ar siøsti pasveikinimus naujai uþsisakiusiems?"
 
-#: Mailman/Gui/General.py:294
+#: Mailman/Gui/General.py:296
 msgid ""
 "Turn this off only if you plan on subscribing people manually\n"
 "             and don't want them to know that you did so.  This option is "
@@ -4630,23 +4684,23 @@ msgid ""
 "             list manager to Mailman."
 msgstr ""
 
-#: Mailman/Gui/General.py:300
+#: Mailman/Gui/General.py:302
 msgid ""
 "Text sent to people leaving the list.  If empty, no special\n"
 "             text will be added to the unsubscribe message."
 msgstr ""
 
-#: Mailman/Gui/General.py:304
+#: Mailman/Gui/General.py:306
 msgid "Send goodbye message to members when they are unsubscribed?"
 msgstr "Ar siøsti atsisveikinimus atsisakiusiems?"
 
-#: Mailman/Gui/General.py:307
+#: Mailman/Gui/General.py:309
 msgid ""
 "Should the list moderators get immediate notice of new\n"
 "             requests, as well as daily notices about collected ones?"
 msgstr ""
 
-#: Mailman/Gui/General.py:310
+#: Mailman/Gui/General.py:312
 msgid ""
 "List moderators (and list administrators) are sent daily\n"
 "             reminders of requests pending approval, like subscriptions to "
@@ -4657,7 +4711,7 @@ msgid ""
 "             immediately on the arrival of new requests as well."
 msgstr ""
 
-#: Mailman/Gui/General.py:317
+#: Mailman/Gui/General.py:319
 msgid ""
 "Should administrator get notices of subscribes and\n"
 "             unsubscribes?"
@@ -4665,20 +4719,20 @@ msgstr ""
 "Ar turi bûti praneðama administratoriui apie\n"
 "\t\tuþsisakymus ir atsisakymus?"
 
-#: Mailman/Gui/General.py:322
+#: Mailman/Gui/General.py:324
 msgid "Send mail to poster when their posting is held for approval?"
 msgstr ""
 
-#: Mailman/Gui/General.py:325
+#: Mailman/Gui/General.py:327
 msgid "Additional settings"
 msgstr ""
 
-#: Mailman/Gui/General.py:328
+#: Mailman/Gui/General.py:330
 #, fuzzy
 msgid "Emergency moderation of all list traffic."
 msgstr "Emergency moderation of all list traffic:"
 
-#: Mailman/Gui/General.py:329
+#: Mailman/Gui/General.py:331
 msgid ""
 "When this option is enabled, all list traffic is emergency\n"
 "             moderated, i.e. held for moderation.  Turn this option on when\n"
@@ -4687,25 +4741,25 @@ msgid ""
 "             period."
 msgstr ""
 
-#: Mailman/Gui/General.py:341
+#: Mailman/Gui/General.py:343
 msgid ""
 "Default options for new members joining this list.<input\n"
 "             type=\"hidden\" name=\"new_member_options\" value=\"ignore\">"
 msgstr ""
 
-#: Mailman/Gui/General.py:344
+#: Mailman/Gui/General.py:346
 msgid ""
 "When a new member is subscribed to this list, their initial\n"
 "             set of options is taken from the this variable's setting."
 msgstr ""
 
-#: Mailman/Gui/General.py:348
+#: Mailman/Gui/General.py:350
 msgid ""
 "(Administrivia filter) Check postings and intercept ones\n"
 "             that seem to be administrative requests?"
 msgstr ""
 
-#: Mailman/Gui/General.py:351
+#: Mailman/Gui/General.py:353
 msgid ""
 "Administrivia tests will check postings to see whether it's\n"
 "             really meant as an administrative request (like subscribe,\n"
@@ -4715,17 +4769,23 @@ msgid ""
 "             in the process."
 msgstr ""
 
-#: Mailman/Gui/General.py:358
+#: Mailman/Gui/General.py:360
 msgid ""
 "Maximum length in kilobytes (KB) of a message body.  Use 0\n"
 "             for no limit."
 msgstr ""
 
-#: Mailman/Gui/General.py:362
+#: Mailman/Gui/General.py:364
+msgid ""
+"Maximum number of members to show on one page of the\n"
+"             Membership List."
+msgstr ""
+
+#: Mailman/Gui/General.py:368
 msgid "Host name this list prefers for email."
 msgstr ""
 
-#: Mailman/Gui/General.py:364
+#: Mailman/Gui/General.py:370
 msgid ""
 "The \"host_name\" is the preferred name for email to\n"
 "             mailman-related addresses on this host, and generally should "
@@ -4737,7 +4797,7 @@ msgid ""
 "             multiple addresses."
 msgstr ""
 
-#: Mailman/Gui/General.py:376
+#: Mailman/Gui/General.py:382
 msgid ""
 "Should messages from this mailing list include the\n"
 "                 <a href=\"http://www.faqs.org/rfcs/rfc2369.html\">RFC 2369</"
@@ -4746,7 +4806,7 @@ msgid ""
 "                 recommended."
 msgstr ""
 
-#: Mailman/Gui/General.py:381
+#: Mailman/Gui/General.py:387
 msgid ""
 "RFC 2369 defines a set of List-* headers that are\n"
 "                 normally added to every message sent to the list "
@@ -4770,11 +4830,11 @@ msgid ""
 "                 these headers may eventually go away)."
 msgstr ""
 
-#: Mailman/Gui/General.py:399
+#: Mailman/Gui/General.py:405
 msgid "Should postings include the <tt>List-Post:</tt> header?"
 msgstr ""
 
-#: Mailman/Gui/General.py:400
+#: Mailman/Gui/General.py:406
 msgid ""
 "The <tt>List-Post:</tt> header is one of the headers\n"
 "             recommended by\n"
@@ -4792,20 +4852,40 @@ msgid ""
 "             headers.)"
 msgstr ""
 
-#: Mailman/Gui/General.py:415
+#: Mailman/Gui/General.py:421
 msgid ""
 "Discard held messages older than this number of days.\n"
 "            Use 0 for no automatic discarding."
 msgstr ""
 
-#: Mailman/Gui/General.py:425
+#: Mailman/Gui/General.py:431
 msgid ""
 "<b>real_name</b> attribute not\n"
 "            changed!  It must differ from the list's name by case\n"
 "            only."
 msgstr ""
 
-#: Mailman/Gui/General.py:455
+#: Mailman/Gui/General.py:448
+msgid ""
+"The <b>info</b> attribute you saved\n"
+"contains suspicious HTML that could potentially expose your users to cross-"
+"site\n"
+"scripting attacks.  This change has therefore been rejected.  If you still "
+"want\n"
+"to make these changes, you must have shell access to your Mailman server.\n"
+"This change can be made with bin/withlist or with bin/config_list by "
+"setting\n"
+"mlist.info.\n"
+"                        "
+msgstr ""
+
+#: Mailman/Gui/General.py:459
+msgid ""
+"<b>admin_member_chunksize</b> attribute not\n"
+"            changed!  It must be an integer > 0."
+msgstr ""
+
+#: Mailman/Gui/General.py:469
 msgid ""
 "You cannot add a Reply-To: to an explicit\n"
 "            address if that address is blank.  Resetting these values."
@@ -4912,25 +4992,25 @@ msgstr "Bendras&nbsp;Uþsakymas"
 msgid "Mass&nbsp;Removal"
 msgstr "Bendras&nbsp;Iðbraukimas"
 
-#: Mailman/Gui/NonDigest.py:34
+#: Mailman/Gui/NonDigest.py:35
 msgid "Non-digest&nbsp;options"
 msgstr ""
 
-#: Mailman/Gui/NonDigest.py:42
+#: Mailman/Gui/NonDigest.py:43
 msgid "Policies concerning immediately delivered list traffic."
 msgstr ""
 
-#: Mailman/Gui/NonDigest.py:45
+#: Mailman/Gui/NonDigest.py:46
 msgid ""
 "Can subscribers choose to receive mail immediately, rather\n"
 "             than in batched digests?"
 msgstr ""
 
-#: Mailman/Gui/NonDigest.py:52
+#: Mailman/Gui/NonDigest.py:53
 msgid "Full Personalization"
 msgstr ""
 
-#: Mailman/Gui/NonDigest.py:54
+#: Mailman/Gui/NonDigest.py:55
 msgid ""
 "Should Mailman personalize each non-digest delivery?\n"
 "                 This is often useful for announce-only lists, but <a\n"
@@ -4940,7 +5020,7 @@ msgid ""
 "                 issues."
 msgstr ""
 
-#: Mailman/Gui/NonDigest.py:60
+#: Mailman/Gui/NonDigest.py:61
 msgid ""
 "Normally, Mailman sends the regular delivery messages to\n"
 "                 the mail server in batches.  This is much more efficent\n"
@@ -4998,7 +5078,7 @@ msgid ""
 "                 "
 msgstr ""
 
-#: Mailman/Gui/NonDigest.py:109
+#: Mailman/Gui/NonDigest.py:110
 msgid ""
 "When <a href=\"?VARHELP=nondigest/personalize\">personalization</a> is "
 "enabled\n"
@@ -5017,36 +5097,72 @@ msgid ""
 "</ul>\n"
 msgstr ""
 
-#: Mailman/Gui/NonDigest.py:128
+#: Mailman/Gui/NonDigest.py:129
 msgid "Header added to mail sent to regular list members"
 msgstr ""
 
-#: Mailman/Gui/NonDigest.py:129
+#: Mailman/Gui/NonDigest.py:130
 msgid ""
 "Text prepended to the top of every immediately-delivery\n"
 "             message. "
 msgstr ""
 
-#: Mailman/Gui/NonDigest.py:133
+#: Mailman/Gui/NonDigest.py:134
 msgid "Footer added to mail sent to regular list members"
 msgstr ""
 
-#: Mailman/Gui/NonDigest.py:134
+#: Mailman/Gui/NonDigest.py:135
 msgid ""
 "Text appended to the bottom of every immediately-delivery\n"
 "             message. "
 msgstr ""
 
-#: Mailman/Gui/NonDigest.py:140
+#: Mailman/Gui/NonDigest.py:141
 msgid "Scrub attachments of regular delivery message?"
 msgstr ""
 
-#: Mailman/Gui/NonDigest.py:141
+#: Mailman/Gui/NonDigest.py:142
 msgid ""
 "When you scrub attachments, they are stored in archive\n"
 "             area and links are made in the message so that the member can\n"
 "             access via web browser. If you want the attachments totally\n"
 "             disappear, you can use content filter options."
+msgstr ""
+
+#: Mailman/Gui/NonDigest.py:149
+msgid "Sibling lists"
+msgstr ""
+
+#: Mailman/Gui/NonDigest.py:152
+msgid ""
+"Other mailing lists on this site whose members are\n"
+"             excluded from the regular (non-digest) delivery if those\n"
+"             list addresses appear in a To: or Cc: header."
+msgstr ""
+
+#: Mailman/Gui/NonDigest.py:155
+msgid ""
+"The list addresses should be written in full mail address\n"
+"             format (e.g. mailman@example.com). Do not specify this list\n"
+"             address mutually in the exclude list configuration page of the\n"
+"             other list, or members of both lists won't get any message.\n"
+"             Note also that the site administrator may prohibit cross "
+"domain\n"
+"             siblings."
+msgstr ""
+
+#: Mailman/Gui/NonDigest.py:163
+msgid ""
+"Other mailing lists on this site whose members are\n"
+"             included in the regular (non-digest) delivery if those\n"
+"             list addresses don't appear in a To: or Cc: header."
+msgstr ""
+
+#: Mailman/Gui/NonDigest.py:166
+msgid ""
+"The list addresses should be written in full mail address\n"
+"             format (e.g. mailman@example.com). Note also that the site\n"
+"             administrator may prohibit cross domain siblings."
 msgstr ""
 
 #: Mailman/Gui/Passwords.py:27
@@ -5238,8 +5354,7 @@ msgstr ""
 #: Mailman/Gui/Privacy.py:162
 msgid ""
 "When a message is posted to the list, a series of\n"
-"            moderation steps are take to decide whether the a moderator "
-"must\n"
+"            moderation steps are taken to decide whether a moderator must\n"
 "            first approve the message or not.  This section contains the\n"
 "            controls for moderation of both member and non-member postings.\n"
 "\n"
@@ -5266,7 +5381,7 @@ msgid ""
 "\n"
 "            <p>In the text boxes below, add one address per line; start the\n"
 "            line with a ^ character to designate a <a href=\n"
-"            \"http://www.python.org/doc/current/lib/module-re.html\"\n"
+"            \"http://docs.python.org/library/re.html\"\n"
 "            >Python regular expression</a>.  When entering backslashes, do "
 "so\n"
 "            as if you were using Python raw strings (i.e. you generally "
@@ -5351,21 +5466,24 @@ msgid ""
 "             automatically accepted."
 msgstr ""
 
-#: Mailman/Gui/Privacy.py:244
+#: Mailman/Gui/Privacy.py:248
 msgid ""
 "Postings from any of these non-members will be automatically\n"
 "             accepted with no further moderation applied.  Add member\n"
 "             addresses one per line; start the line with a ^ character to\n"
-"             designate a regular expression match."
+"             designate a regular expression match.  A line consisting of\n"
+"             the @ character followed by a list name specifies another\n"
+"             Mailman list in this installation, all of whose member\n"
+"             addresses will be accepted for this list."
 msgstr ""
 
-#: Mailman/Gui/Privacy.py:250
+#: Mailman/Gui/Privacy.py:257
 msgid ""
 "List of non-member addresses whose postings will be\n"
 "             immediately held for moderation."
 msgstr ""
 
-#: Mailman/Gui/Privacy.py:253
+#: Mailman/Gui/Privacy.py:260
 msgid ""
 "Postings from any of these non-members will be immediately\n"
 "             and automatically held for moderation by the list moderators.\n"
@@ -5377,13 +5495,13 @@ msgid ""
 "             expression match."
 msgstr ""
 
-#: Mailman/Gui/Privacy.py:261
+#: Mailman/Gui/Privacy.py:268
 msgid ""
 "List of non-member addresses whose postings will be\n"
 "             automatically rejected."
 msgstr ""
 
-#: Mailman/Gui/Privacy.py:264
+#: Mailman/Gui/Privacy.py:271
 msgid ""
 "Postings from any of these non-members will be automatically\n"
 "             rejected.  In other words, their messages will be bounced back "
@@ -5399,13 +5517,13 @@ msgid ""
 "             character to designate a regular expression match."
 msgstr ""
 
-#: Mailman/Gui/Privacy.py:276
+#: Mailman/Gui/Privacy.py:283
 msgid ""
 "List of non-member addresses whose postings will be\n"
 "             automatically discarded."
 msgstr ""
 
-#: Mailman/Gui/Privacy.py:279
+#: Mailman/Gui/Privacy.py:286
 msgid ""
 "Postings from any of these non-members will be automatically\n"
 "             discarded.  That is, the message will be thrown away with no\n"
@@ -5420,13 +5538,13 @@ msgid ""
 "             character to designate a regular expression match."
 msgstr ""
 
-#: Mailman/Gui/Privacy.py:291
+#: Mailman/Gui/Privacy.py:298
 msgid ""
 "Action to take for postings from non-members for which no\n"
 "             explicit action is defined."
 msgstr ""
 
-#: Mailman/Gui/Privacy.py:294
+#: Mailman/Gui/Privacy.py:301
 msgid ""
 "When a post from a non-member is received, the message's\n"
 "             sender is matched against the list of explicitly\n"
@@ -5442,13 +5560,13 @@ msgid ""
 "             is taken."
 msgstr ""
 
-#: Mailman/Gui/Privacy.py:306
+#: Mailman/Gui/Privacy.py:313
 msgid ""
 "Should messages from non-members, which are automatically\n"
 "             discarded, be forwarded to the list moderator?"
 msgstr ""
 
-#: Mailman/Gui/Privacy.py:310
+#: Mailman/Gui/Privacy.py:317
 msgid ""
 "Text to include in any rejection notice to be sent to\n"
 "             non-members who post to this list. This notice can include\n"
@@ -5456,23 +5574,23 @@ msgid ""
 "             internally crafted default message."
 msgstr ""
 
-#: Mailman/Gui/Privacy.py:318
+#: Mailman/Gui/Privacy.py:325
 msgid ""
 "This section allows you to configure various filters based on\n"
 "            the recipient of the message."
 msgstr ""
 
-#: Mailman/Gui/Privacy.py:321
+#: Mailman/Gui/Privacy.py:328
 msgid "Recipient filters"
 msgstr ""
 
-#: Mailman/Gui/Privacy.py:325
+#: Mailman/Gui/Privacy.py:332
 msgid ""
 "Must posts have list named in destination (to, cc) field\n"
 "             (or be among the acceptable alias names, specified below)?"
 msgstr ""
 
-#: Mailman/Gui/Privacy.py:328
+#: Mailman/Gui/Privacy.py:335
 msgid ""
 "Many (in fact, most) spams do not explicitly name their\n"
 "             myriad destinations in the explicit destination addresses - in\n"
@@ -5493,13 +5611,13 @@ msgid ""
 "             </ol>"
 msgstr ""
 
-#: Mailman/Gui/Privacy.py:346
+#: Mailman/Gui/Privacy.py:353
 msgid ""
 "Alias names (regexps) which qualify as explicit to or cc\n"
 "             destination names for this list."
 msgstr ""
 
-#: Mailman/Gui/Privacy.py:349
+#: Mailman/Gui/Privacy.py:356
 msgid ""
 "Alternate addresses that are acceptable when\n"
 "             `require_explicit_destination' is enabled.  This option takes "
@@ -5524,17 +5642,17 @@ msgid ""
 "             recipient address."
 msgstr ""
 
-#: Mailman/Gui/Privacy.py:367
+#: Mailman/Gui/Privacy.py:374
 msgid "Ceiling on acceptable number of recipients for a posting."
 msgstr ""
 
-#: Mailman/Gui/Privacy.py:369
+#: Mailman/Gui/Privacy.py:376
 msgid ""
 "If a posting has this number, or more, of recipients, it is\n"
 "             held for admin approval.  Use 0 for no ceiling."
 msgstr ""
 
-#: Mailman/Gui/Privacy.py:374
+#: Mailman/Gui/Privacy.py:381
 msgid ""
 "This section allows you to configure various anti-spam\n"
 "            filters posting filters, which can help reduce the amount of "
@@ -5543,15 +5661,15 @@ msgid ""
 "            "
 msgstr ""
 
-#: Mailman/Gui/Privacy.py:379
+#: Mailman/Gui/Privacy.py:386
 msgid "Header filters"
 msgstr ""
 
-#: Mailman/Gui/Privacy.py:382
+#: Mailman/Gui/Privacy.py:389
 msgid "Filter rules to match against the headers of a message."
 msgstr ""
 
-#: Mailman/Gui/Privacy.py:384
+#: Mailman/Gui/Privacy.py:391
 msgid ""
 "Each header filter rule has two parts, a list of regular\n"
 "             expressions, one per line, and an action to take.  Mailman\n"
@@ -5574,15 +5692,15 @@ msgid ""
 "             types or file name extensions."
 msgstr ""
 
-#: Mailman/Gui/Privacy.py:401
+#: Mailman/Gui/Privacy.py:408
 msgid "Legacy anti-spam filters"
 msgstr ""
 
-#: Mailman/Gui/Privacy.py:404
+#: Mailman/Gui/Privacy.py:411
 msgid "Hold posts with header value matching a specified regexp."
 msgstr ""
 
-#: Mailman/Gui/Privacy.py:405
+#: Mailman/Gui/Privacy.py:412
 msgid ""
 "Use this option to prohibit posts according to specific\n"
 "             header values.  The target value is a regular-expression for\n"
@@ -5602,13 +5720,13 @@ msgid ""
 "             bracketing it."
 msgstr ""
 
-#: Mailman/Gui/Privacy.py:485
+#: Mailman/Gui/Privacy.py:492
 msgid ""
 "Header filter rules require a pattern.\n"
 "                Incomplete filter rules will be ignored."
 msgstr ""
 
-#: Mailman/Gui/Privacy.py:493
+#: Mailman/Gui/Privacy.py:500
 msgid ""
 "The header filter rule pattern\n"
 "                '%(safepattern)s' is not a legal regular expression.  This\n"
@@ -5639,8 +5757,7 @@ msgstr ""
 msgid ""
 "The topic filter categorizes each incoming email message\n"
 "             according to <a\n"
-"            href=\"http://www.python.org/doc/current/lib/module-re.html"
-"\">regular\n"
+"            href=\"http://docs.python.org/library/re.html\">regular\n"
 "             expression filters</a> you specify below.  If the message's\n"
 "             <code>Subject:</code> or <code>Keywords:</code> header contains "
 "a\n"
@@ -5879,45 +5996,45 @@ msgstr " (bûtinas patvirtinimas)"
 msgid "Overview of all %(hostname)s mailing lists"
 msgstr "%(hostname)s forumø sàraðas"
 
-#: Mailman/HTMLFormatter.py:81
+#: Mailman/HTMLFormatter.py:77
 msgid "<em>(1 private member not shown)</em>"
 msgstr ""
 
-#: Mailman/HTMLFormatter.py:83
+#: Mailman/HTMLFormatter.py:79
 msgid "<em>(%(num_concealed)d private members not shown)</em>"
 msgstr ""
 
-#: Mailman/HTMLFormatter.py:139
+#: Mailman/HTMLFormatter.py:135
 msgid "; it was disabled by you"
 msgstr ""
 
-#: Mailman/HTMLFormatter.py:141
+#: Mailman/HTMLFormatter.py:137
 msgid "; it was disabled by the list administrator"
 msgstr ""
 
-#: Mailman/HTMLFormatter.py:145
+#: Mailman/HTMLFormatter.py:141
 msgid ""
 "; it was disabled due to excessive bounces.  The\n"
 "            last bounce was received on %(date)s"
 msgstr ""
 
-#: Mailman/HTMLFormatter.py:148
+#: Mailman/HTMLFormatter.py:144
 msgid "; it was disabled for unknown reasons"
 msgstr ""
 
-#: Mailman/HTMLFormatter.py:150
+#: Mailman/HTMLFormatter.py:146
 msgid "Note: your list delivery is currently disabled%(reason)s."
 msgstr ""
 
-#: Mailman/HTMLFormatter.py:153
+#: Mailman/HTMLFormatter.py:149
 msgid "Mail delivery"
 msgstr ""
 
-#: Mailman/HTMLFormatter.py:155 Mailman/HTMLFormatter.py:300
+#: Mailman/HTMLFormatter.py:151 Mailman/HTMLFormatter.py:296
 msgid "the list administrator"
 msgstr "forumo priþiûrëtojas"
 
-#: Mailman/HTMLFormatter.py:156
+#: Mailman/HTMLFormatter.py:152
 msgid ""
 "<p>%(note)s\n"
 "\n"
@@ -5928,7 +6045,7 @@ msgid ""
 "            questions or need assistance."
 msgstr ""
 
-#: Mailman/HTMLFormatter.py:168
+#: Mailman/HTMLFormatter.py:164
 msgid ""
 "<p>We have received some recent bounces from your\n"
 "            address.  Your current <em>bounce score</em> is %(score)s out of "
@@ -5940,13 +6057,13 @@ msgid ""
 "            the problems are corrected soon."
 msgstr ""
 
-#: Mailman/HTMLFormatter.py:180
+#: Mailman/HTMLFormatter.py:176
 msgid ""
 "(Note - you are subscribing to a list of mailing lists, so the %(type)s "
 "notice will be sent to the admin address for your membership, %(addr)s.)<p>"
 msgstr ""
 
-#: Mailman/HTMLFormatter.py:190
+#: Mailman/HTMLFormatter.py:186
 msgid ""
 "You will be sent email requesting confirmation, to\n"
 "            prevent others from gratuitously subscribing you."
@@ -5955,18 +6072,18 @@ msgstr ""
 "\t\tturësite patvirtinti uþsisakymà. Taip norime apsaugoti Jus nuo nepraðytø "
 "uþsakymø."
 
-#: Mailman/HTMLFormatter.py:193
+#: Mailman/HTMLFormatter.py:189
 msgid ""
 "This is a closed list, which means your subscription\n"
 "            will be held for approval.  You will be notified of the list\n"
 "            moderator's decision by email."
 msgstr ""
 
-#: Mailman/HTMLFormatter.py:196 Mailman/HTMLFormatter.py:203
+#: Mailman/HTMLFormatter.py:192 Mailman/HTMLFormatter.py:199
 msgid "also "
 msgstr "taip pat"
 
-#: Mailman/HTMLFormatter.py:198
+#: Mailman/HTMLFormatter.py:194
 msgid ""
 "You will be sent email requesting confirmation, to\n"
 "            prevent others from gratuitously subscribing you.  Once\n"
@@ -5976,7 +6093,7 @@ msgid ""
 "            decision by email."
 msgstr ""
 
-#: Mailman/HTMLFormatter.py:207
+#: Mailman/HTMLFormatter.py:203
 msgid ""
 "This is %(also)sa private list, which means that the\n"
 "            list of members is not available to non-members."
@@ -5984,25 +6101,25 @@ msgstr ""
 "Ðis forumas %(also)s  privatus, tai reiðkia, kad tik jo nariai\n"
 "\t\tgali pamatyti jo nariø sàraðà."
 
-#: Mailman/HTMLFormatter.py:210
+#: Mailman/HTMLFormatter.py:206
 msgid ""
 "This is %(also)sa hidden list, which means that the\n"
 "            list of members is available only to the list administrator."
 msgstr ""
 
-#: Mailman/HTMLFormatter.py:213
+#: Mailman/HTMLFormatter.py:209
 msgid ""
 "This is %(also)sa public list, which means that the\n"
 "            list of members list is available to everyone."
 msgstr ""
 
-#: Mailman/HTMLFormatter.py:216
+#: Mailman/HTMLFormatter.py:212
 msgid ""
 " (but we obscure the addresses so they are not\n"
 "                easily recognizable by spammers)."
 msgstr ""
 
-#: Mailman/HTMLFormatter.py:221
+#: Mailman/HTMLFormatter.py:217
 msgid ""
 "<p>(Note that this is an umbrella list, intended to\n"
 "            have only other mailing lists as members.  Among other things,\n"
@@ -6014,11 +6131,11 @@ msgstr ""
 "\t\tTai reiðkia, kad Jûsø praðymas bus persiøstas\n"
 "\t\t'%(sfx)s' dël Jûsø adreso.)"
 
-#: Mailman/HTMLFormatter.py:250
+#: Mailman/HTMLFormatter.py:246
 msgid "<b><i>either</i></b> "
 msgstr "<b><i>arba</i></b>"
 
-#: Mailman/HTMLFormatter.py:255
+#: Mailman/HTMLFormatter.py:251
 msgid ""
 "To unsubscribe from %(realname)s, get a password reminder,\n"
 "        or change your subscription options %(either)senter your "
@@ -6032,11 +6149,11 @@ msgstr ""
 "\t\tel. paðto adresà, kuriuo jungiatës prie forumo.\n"
 "\t\t<p><center> "
 
-#: Mailman/HTMLFormatter.py:262
+#: Mailman/HTMLFormatter.py:258
 msgid "Unsubscribe or edit options"
 msgstr "Atsisakyti arba pakeisti nustatymus"
 
-#: Mailman/HTMLFormatter.py:266
+#: Mailman/HTMLFormatter.py:262
 msgid ""
 "<p>... <b><i>or</i></b> select your entry from\n"
 "                      the subscribers list (see above)."
@@ -6044,7 +6161,7 @@ msgstr ""
 "<p>... <b><i>arba</i></b> pasirinkite savo áraðà ið\n"
 "\t\tforumo dalyviø sàraðo (þr. þemiau)."
 
-#: Mailman/HTMLFormatter.py:268
+#: Mailman/HTMLFormatter.py:264
 msgid ""
 " If you leave the field blank, you will be prompted for\n"
 "        your email address"
@@ -6052,7 +6169,7 @@ msgstr ""
 " Jei paliksite ðá laukà neuþpildytà, sistema papraðys Jûsø ávesti\n"
 "\t\tel. paðto adresà"
 
-#: Mailman/HTMLFormatter.py:276
+#: Mailman/HTMLFormatter.py:272
 #, fuzzy
 msgid ""
 "(<i>%(which)s is only available to the list\n"
@@ -6061,7 +6178,7 @@ msgstr ""
 "<i>(%(which)s yra prieinamas tik forumo nariams.)</i>\n"
 "\t"
 
-#: Mailman/HTMLFormatter.py:280
+#: Mailman/HTMLFormatter.py:276
 #, fuzzy
 msgid ""
 "(<i>%(which)s is only available to the list\n"
@@ -6070,57 +6187,57 @@ msgstr ""
 "<i>(%(which)s yra prieinamas tik forumo nariams.)</i>\n"
 "\t"
 
-#: Mailman/HTMLFormatter.py:290
+#: Mailman/HTMLFormatter.py:286
 msgid "Click here for the list of "
 msgstr "Spustelkite èia jei norite sàraðo "
 
-#: Mailman/HTMLFormatter.py:292
+#: Mailman/HTMLFormatter.py:288
 msgid " subscribers: "
 msgstr " uþsisakiusieji:"
 
-#: Mailman/HTMLFormatter.py:294
+#: Mailman/HTMLFormatter.py:290
 msgid "Visit Subscriber list"
 msgstr "Aplankyti Dalyviø Sàraðà"
 
-#: Mailman/HTMLFormatter.py:297
+#: Mailman/HTMLFormatter.py:293
 msgid "members"
 msgstr "dalyviai"
 
-#: Mailman/HTMLFormatter.py:298
+#: Mailman/HTMLFormatter.py:294
 msgid "Address:"
 msgstr "Adresas:"
 
-#: Mailman/HTMLFormatter.py:301
+#: Mailman/HTMLFormatter.py:297
 msgid "Admin address:"
 msgstr "Administratoriaus adresas:"
 
-#: Mailman/HTMLFormatter.py:304
+#: Mailman/HTMLFormatter.py:300
 #, fuzzy
 msgid "The subscribers list"
 msgstr "uþsisakiusiøjø sàraðas"
 
-#: Mailman/HTMLFormatter.py:306
+#: Mailman/HTMLFormatter.py:302
 msgid " <p>Enter your "
 msgstr " <p>Áveskite Jûsø "
 
-#: Mailman/HTMLFormatter.py:308
+#: Mailman/HTMLFormatter.py:304
 msgid " and password to visit  the subscribers list: <p><center> "
 msgstr " ir slaptaþodá jei norite pamatyti uþsisakiusiøjø sàraðà: <p><ceter> "
 
-#: Mailman/HTMLFormatter.py:313
+#: Mailman/HTMLFormatter.py:309
 msgid "Password: "
 msgstr "Slaptaþodis: "
 
-#: Mailman/HTMLFormatter.py:317
+#: Mailman/HTMLFormatter.py:313
 msgid "Visit Subscriber List"
 msgstr "Aplankyti Dalyviø Sàraðà"
 
-#: Mailman/HTMLFormatter.py:351
+#: Mailman/HTMLFormatter.py:347
 msgid "Once a month, your password will be emailed to you as a reminder."
 msgstr ""
 "<br>Kartà á mënesá el. paðto laiðku Jums bus primenamss Jûsø slaptaþodis."
 
-#: Mailman/HTMLFormatter.py:397
+#: Mailman/HTMLFormatter.py:393
 msgid "The current archive"
 msgstr ""
 
@@ -6128,7 +6245,7 @@ msgstr ""
 msgid "%(realname)s post acknowledgement"
 msgstr ""
 
-#: Mailman/Handlers/CalcRecips.py:68
+#: Mailman/Handlers/CalcRecips.py:78
 msgid ""
 "Your urgent message to the %(realname)s mailing list was not authorized for\n"
 "delivery.  The original message as received by Mailman is attached.\n"
@@ -6279,7 +6396,7 @@ msgstr ""
 msgid "Content filtered message notification"
 msgstr ""
 
-#: Mailman/Handlers/Moderate.py:142
+#: Mailman/Handlers/Moderate.py:162
 msgid ""
 "You are not allowed to post to this mailing list, and your message has been\n"
 "automatically rejected.  If you think that your messages are being rejected "
@@ -6287,11 +6404,11 @@ msgid ""
 "error, contact the mailing list owner at %(listowner)s."
 msgstr ""
 
-#: Mailman/Handlers/Moderate.py:158
+#: Mailman/Handlers/Moderate.py:178
 msgid "Auto-discard notification"
 msgstr ""
 
-#: Mailman/Handlers/Moderate.py:161
+#: Mailman/Handlers/Moderate.py:181
 msgid "The attached message has been automatically discarded."
 msgstr ""
 
@@ -6304,60 +6421,60 @@ msgstr "You are not a member of the %(listname)s mailing list"
 msgid "The Mailman Replybot"
 msgstr ""
 
-#: Mailman/Handlers/Scrubber.py:209
+#: Mailman/Handlers/Scrubber.py:223
 msgid ""
 "An embedded and charset-unspecified text was scrubbed...\n"
 "Name: %(filename)s\n"
-"Url: %(url)s\n"
+"URL: %(url)s\n"
 msgstr ""
 
-#: Mailman/Handlers/Scrubber.py:219
+#: Mailman/Handlers/Scrubber.py:233
 msgid "HTML attachment scrubbed and removed"
 msgstr ""
 
-#: Mailman/Handlers/Scrubber.py:235 Mailman/Handlers/Scrubber.py:260
+#: Mailman/Handlers/Scrubber.py:249 Mailman/Handlers/Scrubber.py:274
 msgid ""
 "An HTML attachment was scrubbed...\n"
 "URL: %(url)s\n"
 msgstr ""
 
-#: Mailman/Handlers/Scrubber.py:272
+#: Mailman/Handlers/Scrubber.py:286
 msgid "no subject"
 msgstr "be temos"
 
-#: Mailman/Handlers/Scrubber.py:273
+#: Mailman/Handlers/Scrubber.py:287
 msgid "no date"
 msgstr "be datos"
 
-#: Mailman/Handlers/Scrubber.py:274
+#: Mailman/Handlers/Scrubber.py:288
 msgid "unknown sender"
 msgstr "neþinomas siuntëjas"
 
-#: Mailman/Handlers/Scrubber.py:276
+#: Mailman/Handlers/Scrubber.py:290
 msgid ""
 "An embedded message was scrubbed...\n"
 "From: %(who)s\n"
 "Subject: %(subject)s\n"
 "Date: %(date)s\n"
 "Size: %(size)s\n"
-"Url: %(url)s\n"
+"URL: %(url)s\n"
 msgstr ""
 
-#: Mailman/Handlers/Scrubber.py:307
+#: Mailman/Handlers/Scrubber.py:322
 msgid ""
 "A non-text attachment was scrubbed...\n"
 "Name: %(filename)s\n"
 "Type: %(ctype)s\n"
 "Size: %(size)d bytes\n"
 "Desc: %(desc)s\n"
-"Url : %(url)s\n"
+"URL: %(url)s\n"
 msgstr ""
 
-#: Mailman/Handlers/Scrubber.py:342
+#: Mailman/Handlers/Scrubber.py:358
 msgid "Skipped content of type %(partctype)s\n"
 msgstr ""
 
-#: Mailman/Handlers/Scrubber.py:382
+#: Mailman/Handlers/Scrubber.py:399
 msgid "-------------- next part --------------\n"
 msgstr ""
 
@@ -6365,7 +6482,7 @@ msgstr ""
 msgid "The message headers matched a filter rule"
 msgstr ""
 
-#: Mailman/Handlers/SpamDetect.py:132
+#: Mailman/Handlers/SpamDetect.py:135
 msgid "Message rejected by filter rule match"
 msgstr ""
 
@@ -6408,6 +6525,10 @@ msgstr ""
 #: Mailman/ListAdmin.py:295
 msgid "Posting of your message titled \"%(subject)s\""
 msgstr ""
+
+#: Mailman/ListAdmin.py:296 Mailman/ListAdmin.py:414
+msgid "[No reason given]"
+msgstr "[Nenurodyta prieþastis]"
 
 #: Mailman/ListAdmin.py:334
 msgid "Forward of moderated message"
@@ -6488,43 +6609,32 @@ msgstr ""
 msgid "Mailing list removal request for list %(listname)s"
 msgstr "Forumo %(listname)s paðalinimo praðymas"
 
-#: Mailman/MTA/Postfix.py:306
+#: Mailman/MTA/Postfix.py:311
 msgid "checking permissions on %(file)s"
 msgstr "failo %(file)s leidimø patikrinimas"
 
-#: Mailman/MTA/Postfix.py:316
+#: Mailman/MTA/Postfix.py:321
 msgid "%(file)s permissions must be 066x (got %(octmode)s)"
 msgstr "%(file)s teisës turi bûti 066x (yra %(octmode)s)"
 
-#: Mailman/MTA/Postfix.py:318 Mailman/MTA/Postfix.py:345
-#: Mailman/MTA/Postfix.py:356 bin/.svn/text-base/check_perms.svn-base:123
-#: bin/.svn/text-base/check_perms.svn-base:145
-#: bin/.svn/text-base/check_perms.svn-base:155
-#: bin/.svn/text-base/check_perms.svn-base:166
-#: bin/.svn/text-base/check_perms.svn-base:191
-#: bin/.svn/text-base/check_perms.svn-base:208
-#: bin/.svn/text-base/check_perms.svn-base:234
-#: bin/.svn/text-base/check_perms.svn-base:257
-#: bin/.svn/text-base/check_perms.svn-base:276
-#: bin/.svn/text-base/check_perms.svn-base:290
-#: bin/.svn/text-base/check_perms.svn-base:310
-#: bin/.svn/text-base/check_perms.svn-base:347 bin/check_perms:123
-#: bin/check_perms:145 bin/check_perms:155 bin/check_perms:166
-#: bin/check_perms:191 bin/check_perms:208 bin/check_perms:234
-#: bin/check_perms:257 bin/check_perms:276 bin/check_perms:290
-#: bin/check_perms:310 bin/check_perms:347
+#: Mailman/MTA/Postfix.py:323 Mailman/MTA/Postfix.py:350
+#: Mailman/MTA/Postfix.py:361 bin/check_perms:125 bin/check_perms:153
+#: bin/check_perms:163 bin/check_perms:174 bin/check_perms:199
+#: bin/check_perms:216 bin/check_perms:242 bin/check_perms:265
+#: bin/check_perms:284 bin/check_perms:298 bin/check_perms:318
+#: bin/check_perms:356
 msgid "(fixing)"
 msgstr "(taisymas)"
 
-#: Mailman/MTA/Postfix.py:334
+#: Mailman/MTA/Postfix.py:339
 msgid "checking ownership of %(dbfile)s"
 msgstr "%(dbfile)s nuosavybës patikrinimas"
 
-#: Mailman/MTA/Postfix.py:342
+#: Mailman/MTA/Postfix.py:347
 msgid "%(dbfile)s owned by %(owner)s (must be owned by %(user)s"
 msgstr "%(dbfile)s sàvininkas yra %(owner)s (turi bûti %(user)s"
 
-#: Mailman/MTA/Postfix.py:354
+#: Mailman/MTA/Postfix.py:359
 #, fuzzy
 msgid "%(dbfile)s permissions must be 066x (got %(octmode)s)"
 msgstr "%(file)s teisës turi bûti 066x (yra %(octmode)s)"
@@ -6539,36 +6649,35 @@ msgstr "You are not a member of the %(listname)s mailing list"
 msgid "Your confirmation is required to leave the %(listname)s mailing list"
 msgstr "You are not a member of the %(listname)s mailing list"
 
-#: Mailman/MailList.py:880 Mailman/MailList.py:1292
+#: Mailman/MailList.py:889 Mailman/MailList.py:1311
 msgid " from %(remote)s"
 msgstr " nuo %(remote)s"
 
-#: Mailman/MailList.py:913
+#: Mailman/MailList.py:922
 msgid "subscriptions to %(realname)s require moderator approval"
 msgstr "forumo %(realname)s uþsisakymui bûtinas priþiûrëtojo patvirtinimas"
 
-#: Mailman/MailList.py:982 bin/.svn/text-base/add_members.svn-base:242
-#: bin/add_members:242
+#: Mailman/MailList.py:991 bin/add_members:245
 msgid "%(realname)s subscription notification"
 msgstr "%(realname)s uþsisakymo patvirtinimas"
 
-#: Mailman/MailList.py:1001
+#: Mailman/MailList.py:1010
 msgid "unsubscriptions require moderator approval"
 msgstr "atsisakymui bûtinas priþiûrëtojo patvirtinimas"
 
-#: Mailman/MailList.py:1021
+#: Mailman/MailList.py:1030
 msgid "%(realname)s unsubscribe notification"
 msgstr "%(realname)s atsisakymo patvirtinimas"
 
-#: Mailman/MailList.py:1201
+#: Mailman/MailList.py:1220
 msgid "subscriptions to %(name)s require administrator approval"
 msgstr ""
 
-#: Mailman/MailList.py:1464
+#: Mailman/MailList.py:1483
 msgid "Last autoresponse notification for today"
 msgstr ""
 
-#: Mailman/Queue/BounceRunner.py:310
+#: Mailman/Queue/BounceRunner.py:341
 msgid ""
 "The attached message was received as a bounce, but either the bounce format\n"
 "was not recognized, or no member addresses could be extracted from it.  "
@@ -6582,7 +6691,7 @@ msgid ""
 "\n"
 msgstr ""
 
-#: Mailman/Queue/BounceRunner.py:320
+#: Mailman/Queue/BounceRunner.py:351
 msgid "Uncaught bounce notification"
 msgstr ""
 
@@ -6638,15 +6747,15 @@ msgstr ""
 msgid "The results of your email commands"
 msgstr "El. paðtu pasiøstø komandø rezultatai"
 
-#: Mailman/htmlformat.py:636
+#: Mailman/htmlformat.py:639
 msgid "Delivered by Mailman<br>version %(version)s"
 msgstr ""
 
-#: Mailman/htmlformat.py:637
+#: Mailman/htmlformat.py:640
 msgid "Python Powered"
 msgstr ""
 
-#: Mailman/htmlformat.py:638
+#: Mailman/htmlformat.py:641
 msgid "Gnu's Not Unix"
 msgstr ""
 
@@ -6731,7 +6840,7 @@ msgid ""
 "%(wday)s %(mon)s %(day)2i %(hh)02i:%(mm)02i:%(ss)02i %(tzname)s %(year)04i"
 msgstr ""
 
-#: bin/.svn/text-base/add_members.svn-base:26 bin/add_members:26
+#: bin/add_members:26
 msgid ""
 "Add members to a list from the command line.\n"
 "\n"
@@ -6776,64 +6885,50 @@ msgid ""
 "files can be `-'.\n"
 msgstr ""
 
-#: bin/.svn/text-base/add_members.svn-base:137 bin/add_members:137
+#: bin/add_members:137
 msgid "Already a member: %(member)s"
 msgstr ""
 
-#: bin/.svn/text-base/add_members.svn-base:140 bin/add_members:140
+#: bin/add_members:143
 msgid "Bad/Invalid email address: blank line"
 msgstr ""
 
-#: bin/.svn/text-base/add_members.svn-base:142 bin/add_members:142
+#: bin/add_members:145
 msgid "Bad/Invalid email address: %(member)s"
 msgstr ""
 
-#: bin/.svn/text-base/add_members.svn-base:144 bin/add_members:144
+#: bin/add_members:147
 msgid "Hostile address (illegal characters): %(member)s"
 msgstr ""
 
-#: bin/.svn/text-base/add_members.svn-base:146 bin/add_members:146
+#: bin/add_members:149
 msgid "Subscribed: %(member)s"
 msgstr "Uþsisakë: %(member)s"
 
-#: bin/.svn/text-base/add_members.svn-base:191 bin/add_members:191
+#: bin/add_members:194
 msgid "Bad argument to -w/--welcome-msg: %(arg)s"
 msgstr ""
 
-#: bin/.svn/text-base/add_members.svn-base:198 bin/add_members:198
+#: bin/add_members:201
 msgid "Bad argument to -a/--admin-notify: %(arg)s"
 msgstr ""
 
-#: bin/.svn/text-base/add_members.svn-base:204 bin/add_members:204
+#: bin/add_members:207
 msgid "Cannot read both digest and normal members from standard input."
 msgstr ""
 
-#: bin/.svn/text-base/add_members.svn-base:210
-#: bin/.svn/text-base/config_list.svn-base:109
-#: bin/.svn/text-base/find_member.svn-base:97
-#: bin/.svn/text-base/inject.svn-base:90
-#: bin/.svn/text-base/list_admins.svn-base:89
-#: bin/.svn/text-base/list_members.svn-base:232
-#: bin/.svn/text-base/sync_members.svn-base:222 bin/add_members:210
-#: bin/config_list:109 bin/find_member:97 bin/inject:90 bin/list_admins:89
-#: bin/list_members:232 bin/sync_members:222
-#: cron/.svn/text-base/bumpdigests.svn-base:86 cron/bumpdigests:86
+#: bin/add_members:213 bin/config_list:109 bin/export.py:271
+#: bin/find_member:97 bin/inject:91 bin/list_admins:90 bin/list_members:232
+#: bin/sync_members:222 cron/bumpdigests:86
 msgid "No such list: %(listname)s"
 msgstr "Nëra tokio forumo: %(listname)s"
 
-#: bin/.svn/text-base/add_members.svn-base:230
-#: bin/.svn/text-base/change_pw.svn-base:158
-#: bin/.svn/text-base/check_db.svn-base:114
-#: bin/.svn/text-base/discard.svn-base:83
-#: bin/.svn/text-base/sync_members.svn-base:244
-#: bin/.svn/text-base/update.svn-base:564 bin/add_members:230
-#: bin/change_pw:158 bin/check_db:114 bin/discard:83 bin/sync_members:244
-#: bin/update:564 cron/.svn/text-base/bumpdigests.svn-base:78
-#: cron/bumpdigests:78
+#: bin/add_members:233 bin/change_pw:158 bin/check_db:114 bin/discard:83
+#: bin/sync_members:244 bin/update:574 cron/bumpdigests:78
 msgid "Nothing to do."
 msgstr ""
 
-#: bin/.svn/text-base/arch.svn-base:19 bin/arch:19
+#: bin/arch:19
 msgid ""
 "Rebuild a list's archive.\n"
 "\n"
@@ -6882,24 +6977,21 @@ msgid ""
 "<mbox> is optional.  If it is missing, it is calculated.\n"
 msgstr ""
 
-#: bin/.svn/text-base/arch.svn-base:125 bin/arch:125
+#: bin/arch:125
 msgid "listname is required"
 msgstr ""
 
-#: bin/.svn/text-base/arch.svn-base:143
-#: bin/.svn/text-base/change_pw.svn-base:106
-#: bin/.svn/text-base/config_list.svn-base:256 bin/arch:143 bin/change_pw:106
-#: bin/config_list:256
+#: bin/arch:143 bin/change_pw:106 bin/config_list:256
 msgid ""
 "No such list \"%(listname)s\"\n"
 "%(e)s"
 msgstr ""
 
-#: bin/.svn/text-base/arch.svn-base:183 bin/arch:183
+#: bin/arch:168
 msgid "Cannot open mbox file %(mbox)s: %(msg)s"
 msgstr ""
 
-#: bin/.svn/text-base/b4b5-archfix.svn-base:19 bin/b4b5-archfix:19
+#: bin/b4b5-archfix:19
 msgid ""
 "Fix the MM2.1b4 archives.\n"
 "\n"
@@ -6920,7 +7012,7 @@ msgid ""
 "You will need to run `bin/check_perms -f' after running this script.\n"
 msgstr ""
 
-#: bin/.svn/text-base/change_pw.svn-base:19 bin/change_pw:19
+#: bin/change_pw:20
 msgid ""
 "Change a list's password.\n"
 "\n"
@@ -6976,23 +7068,23 @@ msgid ""
 "        Print this help message and exit.\n"
 msgstr ""
 
-#: bin/.svn/text-base/change_pw.svn-base:144 bin/change_pw:144
+#: bin/change_pw:144
 msgid "Bad arguments: %(strargs)s"
 msgstr ""
 
-#: bin/.svn/text-base/change_pw.svn-base:148 bin/change_pw:148
+#: bin/change_pw:148
 msgid "Empty list passwords are not allowed"
 msgstr ""
 
-#: bin/.svn/text-base/change_pw.svn-base:180 bin/change_pw:180
+#: bin/change_pw:180
 msgid "New %(listname)s password: %(notifypassword)s"
 msgstr ""
 
-#: bin/.svn/text-base/change_pw.svn-base:189 bin/change_pw:189
+#: bin/change_pw:189
 msgid "Your new %(listname)s list password"
 msgstr ""
 
-#: bin/.svn/text-base/change_pw.svn-base:190 bin/change_pw:190
+#: bin/change_pw:190
 msgid ""
 "The site administrator at %(hostname)s has changed the password for your\n"
 "mailing list %(listname)s.  It is now\n"
@@ -7008,7 +7100,7 @@ msgid ""
 "    %(adminurl)s\n"
 msgstr ""
 
-#: bin/.svn/text-base/check_db.svn-base:19 bin/check_db:19
+#: bin/check_db:19
 msgid ""
 "Check a list's config database file for integrity.\n"
 "\n"
@@ -7044,19 +7136,19 @@ msgid ""
 "        Print this text and exit.\n"
 msgstr ""
 
-#: bin/.svn/text-base/check_db.svn-base:119 bin/check_db:119
+#: bin/check_db:119
 msgid "No list named:"
 msgstr ""
 
-#: bin/.svn/text-base/check_db.svn-base:128 bin/check_db:128
+#: bin/check_db:128
 msgid "List:"
 msgstr ""
 
-#: bin/.svn/text-base/check_db.svn-base:148 bin/check_db:148
+#: bin/check_db:148
 msgid "   %(file)s: okay"
 msgstr ""
 
-#: bin/.svn/text-base/check_perms.svn-base:19 bin/check_perms:19
+#: bin/check_perms:20
 msgid ""
 "Check the permissions for the Mailman installation.\n"
 "\n"
@@ -7067,47 +7159,47 @@ msgid ""
 "permission problems found.  With -v be verbose.\n"
 msgstr ""
 
-#: bin/.svn/text-base/check_perms.svn-base:108 bin/check_perms:108
+#: bin/check_perms:110
 msgid "    checking gid and mode for %(path)s"
 msgstr ""
 
-#: bin/.svn/text-base/check_perms.svn-base:120 bin/check_perms:120
+#: bin/check_perms:122
 msgid "%(path)s bad group (has: %(groupname)s, expected %(MAILMAN_GROUP)s)"
 msgstr ""
 
-#: bin/.svn/text-base/check_perms.svn-base:143 bin/check_perms:143
+#: bin/check_perms:151
 msgid "directory permissions must be %(octperms)s: %(path)s"
 msgstr ""
 
-#: bin/.svn/text-base/check_perms.svn-base:152 bin/check_perms:152
+#: bin/check_perms:160
 msgid "source perms must be %(octperms)s: %(path)s"
 msgstr ""
 
-#: bin/.svn/text-base/check_perms.svn-base:163 bin/check_perms:163
+#: bin/check_perms:171
 msgid "article db files must be %(octperms)s: %(path)s"
 msgstr ""
 
-#: bin/.svn/text-base/check_perms.svn-base:175 bin/check_perms:175
+#: bin/check_perms:183
 msgid "checking mode for %(prefix)s"
 msgstr ""
 
-#: bin/.svn/text-base/check_perms.svn-base:185 bin/check_perms:185
+#: bin/check_perms:193
 msgid "WARNING: directory does not exist: %(d)s"
 msgstr ""
 
-#: bin/.svn/text-base/check_perms.svn-base:189 bin/check_perms:189
+#: bin/check_perms:197
 msgid "directory must be at least 02775: %(d)s"
 msgstr ""
 
-#: bin/.svn/text-base/check_perms.svn-base:201 bin/check_perms:201
+#: bin/check_perms:209
 msgid "checking perms on %(private)s"
 msgstr ""
 
-#: bin/.svn/text-base/check_perms.svn-base:206 bin/check_perms:206
+#: bin/check_perms:214
 msgid "%(private)s must not be other-readable"
 msgstr ""
 
-#: bin/.svn/text-base/check_perms.svn-base:215 bin/check_perms:215
+#: bin/check_perms:223
 msgid ""
 "Warning: Private archive directory is other-executable (o+x).\n"
 "         This could allow other users on your system to read private "
@@ -7116,67 +7208,67 @@ msgid ""
 "         installation manual on how to fix this."
 msgstr ""
 
-#: bin/.svn/text-base/check_perms.svn-base:232 bin/check_perms:232
+#: bin/check_perms:240
 msgid "mbox file must be at least 0660:"
 msgstr ""
 
-#: bin/.svn/text-base/check_perms.svn-base:255 bin/check_perms:255
+#: bin/check_perms:263
 msgid "%(dbdir)s \"other\" perms must be 000"
 msgstr ""
 
-#: bin/.svn/text-base/check_perms.svn-base:265 bin/check_perms:265
+#: bin/check_perms:273
 msgid "checking cgi-bin permissions"
 msgstr ""
 
-#: bin/.svn/text-base/check_perms.svn-base:270 bin/check_perms:270
+#: bin/check_perms:278
 msgid "    checking set-gid for %(path)s"
 msgstr ""
 
-#: bin/.svn/text-base/check_perms.svn-base:274 bin/check_perms:274
+#: bin/check_perms:282
 msgid "%(path)s must be set-gid"
 msgstr ""
 
-#: bin/.svn/text-base/check_perms.svn-base:284 bin/check_perms:284
+#: bin/check_perms:292
 msgid "checking set-gid for %(wrapper)s"
 msgstr ""
 
-#: bin/.svn/text-base/check_perms.svn-base:288 bin/check_perms:288
+#: bin/check_perms:296
 msgid "%(wrapper)s must be set-gid"
 msgstr ""
 
-#: bin/.svn/text-base/check_perms.svn-base:298 bin/check_perms:298
+#: bin/check_perms:306
 msgid "checking permissions on %(pwfile)s"
 msgstr ""
 
-#: bin/.svn/text-base/check_perms.svn-base:307 bin/check_perms:307
+#: bin/check_perms:315
 msgid "%(pwfile)s permissions must be exactly 0640 (got %(octmode)s)"
 msgstr ""
 
-#: bin/.svn/text-base/check_perms.svn-base:331 bin/check_perms:331
+#: bin/check_perms:340
 msgid "checking permissions on list data"
 msgstr ""
 
-#: bin/.svn/text-base/check_perms.svn-base:337 bin/check_perms:337
+#: bin/check_perms:346
 msgid "    checking permissions on: %(path)s"
 msgstr ""
 
-#: bin/.svn/text-base/check_perms.svn-base:345 bin/check_perms:345
+#: bin/check_perms:354
 msgid "file permissions must be at least 660: %(path)s"
 msgstr ""
 
-#: bin/.svn/text-base/check_perms.svn-base:390 bin/check_perms:390
+#: bin/check_perms:399
 msgid "No problems found"
 msgstr ""
 
-#: bin/.svn/text-base/check_perms.svn-base:392 bin/check_perms:392
+#: bin/check_perms:401
 msgid "Problems found:"
 msgstr ""
 
-#: bin/.svn/text-base/check_perms.svn-base:393 bin/check_perms:393
+#: bin/check_perms:402
 msgid "Re-run as %(MAILMAN_USER)s (or root) with -f flag to fix"
 msgstr ""
 
-#: bin/.svn/text-base/cleanarch.svn-base:20 bin/cleanarch:20
+#: bin/cleanarch:20
 msgid ""
 "Clean up an .mbox archive file.\n"
 "\n"
@@ -7210,19 +7302,19 @@ msgid ""
 "        Print this message and exit\n"
 msgstr ""
 
-#: bin/.svn/text-base/cleanarch.svn-base:83 bin/cleanarch:83
+#: bin/cleanarch:83
 msgid "Unix-From line changed: %(lineno)d"
 msgstr ""
 
-#: bin/.svn/text-base/cleanarch.svn-base:111 bin/cleanarch:111
+#: bin/cleanarch:111
 msgid "Bad status number: %(arg)s"
 msgstr ""
 
-#: bin/.svn/text-base/cleanarch.svn-base:167 bin/cleanarch:167
+#: bin/cleanarch:167
 msgid "%(messages)d messages found"
 msgstr ""
 
-#: bin/.svn/text-base/clone_member.svn-base:19 bin/clone_member:19
+#: bin/clone_member:19
 msgid ""
 "Clone a member address.\n"
 "\n"
@@ -7280,49 +7372,49 @@ msgid ""
 "\n"
 msgstr ""
 
-#: bin/.svn/text-base/clone_member.svn-base:94 bin/clone_member:94
+#: bin/clone_member:94
 msgid "processing mailing list:"
 msgstr "apdorojamas forumas:"
 
-#: bin/.svn/text-base/clone_member.svn-base:101 bin/clone_member:101
+#: bin/clone_member:101
 msgid "    scanning list owners:"
 msgstr ""
 
-#: bin/.svn/text-base/clone_member.svn-base:119 bin/clone_member:119
+#: bin/clone_member:119
 msgid "    new list owners:"
 msgstr ""
 
-#: bin/.svn/text-base/clone_member.svn-base:121 bin/clone_member:121
+#: bin/clone_member:121
 msgid "(no change)"
 msgstr ""
 
-#: bin/.svn/text-base/clone_member.svn-base:130 bin/clone_member:130
+#: bin/clone_member:130
 msgid "    address not found:"
 msgstr ""
 
-#: bin/.svn/text-base/clone_member.svn-base:139 bin/clone_member:139
+#: bin/clone_member:145
 msgid "    clone address added:"
 msgstr ""
 
-#: bin/.svn/text-base/clone_member.svn-base:142 bin/clone_member:142
+#: bin/clone_member:148
 msgid "    clone address is already a member:"
 msgstr ""
 
-#: bin/.svn/text-base/clone_member.svn-base:145 bin/clone_member:145
+#: bin/clone_member:151
 msgid "    original address removed:"
 msgstr ""
 
-#: bin/.svn/text-base/clone_member.svn-base:196 bin/clone_member:196
+#: bin/clone_member:202
 msgid "Not a valid email address: %(toaddr)s"
 msgstr ""
 
-#: bin/.svn/text-base/clone_member.svn-base:209 bin/clone_member:209
+#: bin/clone_member:215
 msgid ""
 "Error opening list \"%(listname)s\", skipping.\n"
 "%(e)s"
 msgstr ""
 
-#: bin/.svn/text-base/config_list.svn-base:20 bin/config_list:20
+#: bin/config_list:20
 msgid ""
 "Configure a list from a text file description.\n"
 "\n"
@@ -7376,7 +7468,7 @@ msgid ""
 "\n"
 msgstr ""
 
-#: bin/.svn/text-base/config_list.svn-base:117 bin/config_list:117
+#: bin/config_list:117
 msgid ""
 "# -*- python -*-\n"
 "# -*- coding: %(charset)s -*-\n"
@@ -7384,47 +7476,47 @@ msgid ""
 "## captured on %(when)s\n"
 msgstr ""
 
-#: bin/.svn/text-base/config_list.svn-base:143 bin/config_list:143
+#: bin/config_list:143
 msgid "options"
 msgstr ""
 
-#: bin/.svn/text-base/config_list.svn-base:202 bin/config_list:202
+#: bin/config_list:202
 msgid "legal values are:"
 msgstr ""
 
-#: bin/.svn/text-base/config_list.svn-base:269 bin/config_list:269
+#: bin/config_list:269
 msgid "attribute \"%(k)s\" ignored"
 msgstr ""
 
-#: bin/.svn/text-base/config_list.svn-base:272 bin/config_list:272
+#: bin/config_list:272
 msgid "attribute \"%(k)s\" changed"
 msgstr ""
 
-#: bin/.svn/text-base/config_list.svn-base:278 bin/config_list:278
+#: bin/config_list:278
 msgid "Non-standard property restored: %(k)s"
 msgstr ""
 
-#: bin/.svn/text-base/config_list.svn-base:286 bin/config_list:286
+#: bin/config_list:286
 msgid "Invalid value for property: %(k)s"
 msgstr ""
 
-#: bin/.svn/text-base/config_list.svn-base:288 bin/config_list:288
+#: bin/config_list:288
 msgid "Bad email address for option %(k)s: %(v)s"
 msgstr ""
 
-#: bin/.svn/text-base/config_list.svn-base:345 bin/config_list:345
+#: bin/config_list:345
 msgid "Only one of -i or -o is allowed"
 msgstr ""
 
-#: bin/.svn/text-base/config_list.svn-base:347 bin/config_list:347
+#: bin/config_list:347
 msgid "One of -i or -o is required"
 msgstr ""
 
-#: bin/.svn/text-base/config_list.svn-base:351 bin/config_list:351
+#: bin/config_list:351
 msgid "List name is required"
 msgstr ""
 
-#: bin/.svn/text-base/convert.py.svn-base:19 bin/convert.py:19
+#: bin/convert.py:19
 msgid ""
 "Convert a list's interpolation strings from %-strings to $-strings.\n"
 "\n"
@@ -7433,20 +7525,15 @@ msgid ""
 "% bin/withlist -l -r convert <mylist>\n"
 msgstr ""
 
-#: bin/.svn/text-base/convert.py.svn-base:38
-#: bin/.svn/text-base/fix_url.py.svn-base:85 bin/convert.py:38
-#: bin/fix_url.py:85
+#: bin/convert.py:38 bin/fix_url.py:85
 msgid "Saving list"
 msgstr ""
 
-#: bin/.svn/text-base/convert.py.svn-base:44
-#: bin/.svn/text-base/fix_url.py.svn-base:51
-#: bin/.svn/text-base/reset_pw.py.svn-base:57 bin/convert.py:44
-#: bin/fix_url.py:51 bin/reset_pw.py:57
+#: bin/convert.py:44 bin/fix_url.py:51 bin/reset_pw.py:57
 msgid "%%%"
 msgstr ""
 
-#: bin/.svn/text-base/discard.svn-base:19 bin/discard:19
+#: bin/discard:19
 msgid ""
 "Discard held messages.\n"
 "\n"
@@ -7461,21 +7548,21 @@ msgid ""
 "        Don't print status messages.\n"
 msgstr ""
 
-#: bin/.svn/text-base/discard.svn-base:94 bin/discard:94
+#: bin/discard:94
 #, fuzzy
 msgid "Ignoring non-held message: %(f)s"
 msgstr "Ignoring changes to deleted member: %(user)s"
 
-#: bin/.svn/text-base/discard.svn-base:100 bin/discard:100
+#: bin/discard:100
 msgid "Ignoring held msg w/bad id: %(f)s"
 msgstr ""
 
-#: bin/.svn/text-base/discard.svn-base:112 bin/discard:112
+#: bin/discard:112
 #, fuzzy
 msgid "Discarded held msg #%(id)s for list %(listname)s"
 msgstr "Uþsisakyti %(listname)s"
 
-#: bin/.svn/text-base/dumpdb.svn-base:19 bin/dumpdb:19
+#: bin/dumpdb:19
 msgid ""
 "Dump the contents of any Mailman `database' file.\n"
 "\n"
@@ -7512,31 +7599,78 @@ msgid ""
 "-- or if the file ends in neither suffix -- use the -p or -m flags.\n"
 msgstr ""
 
-#: bin/.svn/text-base/dumpdb.svn-base:106 bin/dumpdb:106
+#: bin/dumpdb:105
 msgid "No filename given."
 msgstr ""
 
-#: bin/.svn/text-base/dumpdb.svn-base:109 bin/dumpdb:109
+#: bin/dumpdb:108
 msgid "Bad arguments: %(pargs)s"
 msgstr ""
 
-#: bin/.svn/text-base/dumpdb.svn-base:119 bin/dumpdb:119
+#: bin/dumpdb:118
 msgid "Please specify either -p or -m."
 msgstr ""
 
-#: bin/.svn/text-base/dumpdb.svn-base:136 bin/dumpdb:136
-msgid "[----- start pickle file -----]"
+#: bin/dumpdb:133
+msgid "[----- start %(typename)s file -----]"
 msgstr ""
 
-#: bin/.svn/text-base/dumpdb.svn-base:142 bin/dumpdb:142
-msgid "[----- end pickle file -----]"
+#: bin/dumpdb:139
+msgid "[----- end %(typename)s file -----]"
 msgstr ""
 
-#: bin/.svn/text-base/dumpdb.svn-base:145 bin/dumpdb:145
+#: bin/dumpdb:142
 msgid "<----- start object %(cnt)s ----->"
 msgstr ""
 
-#: bin/.svn/text-base/find_member.svn-base:19 bin/find_member:19
+#: bin/export.py:20
+msgid "Export an XML representation of a mailing list."
+msgstr ""
+
+#: bin/export.py:319
+msgid ""
+"%%prog [options]\n"
+"\n"
+"Export the configuration and members of a mailing list in XML format."
+msgstr ""
+
+#: bin/export.py:325
+msgid ""
+"Output XML to FILENAME.  If not given, or if FILENAME is '-', standard out "
+"is\n"
+"used."
+msgstr ""
+
+#: bin/export.py:329
+msgid ""
+"Specify the RFC 2307 style hashing scheme for passwords included in the\n"
+"output.  Use -P to get a list of supported schemes, which are\n"
+"case-insensitive."
+msgstr ""
+
+#: bin/export.py:334
+msgid ""
+"List the supported password hashing schemes and exit.  The scheme labels "
+"are\n"
+"case-insensitive."
+msgstr ""
+
+#: bin/export.py:339
+msgid ""
+"The list to include in the output.  If not given, then all mailing lists "
+"are\n"
+"included in the XML output.  Multiple -l flags may be given."
+msgstr ""
+
+#: bin/export.py:345
+msgid "Unexpected arguments"
+msgstr ""
+
+#: bin/export.py:351
+msgid "Invalid password scheme"
+msgstr ""
+
+#: bin/find_member:19
 msgid ""
 "Find all lists that a member's address is on.\n"
 "\n"
@@ -7573,30 +7707,30 @@ msgid ""
 "Complete\n"
 "specifications are at:\n"
 "\n"
-"http://www.python.org/doc/current/lib/module-re.html\n"
+"http://docs.python.org/library/re.html\n"
 "\n"
 "Address matches are case-insensitive, but case-preserved addresses are\n"
 "displayed.\n"
 "\n"
 msgstr ""
 
-#: bin/.svn/text-base/find_member.svn-base:159 bin/find_member:159
+#: bin/find_member:159
 msgid "Search regular expression required"
 msgstr ""
 
-#: bin/.svn/text-base/find_member.svn-base:164 bin/find_member:164
+#: bin/find_member:164
 msgid "No lists to search"
 msgstr ""
 
-#: bin/.svn/text-base/find_member.svn-base:173 bin/find_member:173
+#: bin/find_member:173
 msgid "found in:"
 msgstr ""
 
-#: bin/.svn/text-base/find_member.svn-base:179 bin/find_member:179
+#: bin/find_member:179
 msgid "(as owner)"
 msgstr ""
 
-#: bin/.svn/text-base/fix_url.py.svn-base:19 bin/fix_url.py:19
+#: bin/fix_url.py:19
 msgid ""
 "Reset a list's web_page_url attribute to the default setting.\n"
 "\n"
@@ -7622,15 +7756,15 @@ msgid ""
 "If run standalone, it prints this help text and exits.\n"
 msgstr ""
 
-#: bin/.svn/text-base/fix_url.py.svn-base:80 bin/fix_url.py:80
+#: bin/fix_url.py:80
 msgid "Setting web_page_url to: %(web_page_url)s"
 msgstr ""
 
-#: bin/.svn/text-base/fix_url.py.svn-base:83 bin/fix_url.py:83
+#: bin/fix_url.py:83
 msgid "Setting host_name to: %(mailhost)s"
 msgstr ""
 
-#: bin/.svn/text-base/genaliases.svn-base:19 bin/genaliases:19
+#: bin/genaliases:19
 msgid ""
 "Regenerate Mailman specific aliases from scratch.\n"
 "\n"
@@ -7650,7 +7784,7 @@ msgid ""
 "        Print this message and exit.\n"
 msgstr ""
 
-#: bin/.svn/text-base/inject.svn-base:19 bin/inject:19
+#: bin/inject:20
 msgid ""
 "Inject a message from a file into Mailman's incoming queue.\n"
 "\n"
@@ -7677,15 +7811,15 @@ msgid ""
 "standard input is used.\n"
 msgstr ""
 
-#: bin/.svn/text-base/inject.svn-base:83 bin/inject:83
+#: bin/inject:84
 msgid "Bad queue directory: %(qdir)s"
 msgstr ""
 
-#: bin/.svn/text-base/inject.svn-base:88 bin/inject:88
+#: bin/inject:89
 msgid "A list name is required"
 msgstr ""
 
-#: bin/.svn/text-base/list_admins.svn-base:19 bin/list_admins:19
+#: bin/list_admins:20
 msgid ""
 "List all the owners of a mailing list.\n"
 "\n"
@@ -7710,11 +7844,11 @@ msgid ""
 "have more than one named list on the command line.\n"
 msgstr ""
 
-#: bin/.svn/text-base/list_admins.svn-base:96 bin/list_admins:96
+#: bin/list_admins:97
 msgid "List: %(listname)s, \tOwners: %(owners)s"
 msgstr ""
 
-#: bin/.svn/text-base/list_lists.svn-base:19 bin/list_lists:19
+#: bin/list_lists:19
 msgid ""
 "List all mailing lists.\n"
 "\n"
@@ -7739,15 +7873,15 @@ msgid ""
 "\n"
 msgstr ""
 
-#: bin/.svn/text-base/list_lists.svn-base:105 bin/list_lists:105
+#: bin/list_lists:105
 msgid "No matching mailing lists found"
 msgstr ""
 
-#: bin/.svn/text-base/list_lists.svn-base:109 bin/list_lists:109
+#: bin/list_lists:109
 msgid "matching mailing lists found:"
 msgstr ""
 
-#: bin/.svn/text-base/list_members.svn-base:19 bin/list_members:19
+#: bin/list_members:19
 msgid ""
 "List all the members of a mailing list.\n"
 "\n"
@@ -7806,19 +7940,19 @@ msgid ""
 "status.\n"
 msgstr ""
 
-#: bin/.svn/text-base/list_members.svn-base:191 bin/list_members:191
+#: bin/list_members:191
 msgid "Bad --nomail option: %(why)s"
 msgstr ""
 
-#: bin/.svn/text-base/list_members.svn-base:202 bin/list_members:202
+#: bin/list_members:202
 msgid "Bad --digest option: %(kind)s"
 msgstr ""
 
-#: bin/.svn/text-base/list_members.svn-base:224 bin/list_members:224
+#: bin/list_members:224
 msgid "Could not open file for writing:"
 msgstr ""
 
-#: bin/.svn/text-base/list_owners.svn-base:19 bin/list_owners:19
+#: bin/list_owners:20
 msgid ""
 "List the owners of a mailing list, or all mailing lists.\n"
 "\n"
@@ -7844,7 +7978,7 @@ msgid ""
 "        all the lists will be displayed.\n"
 msgstr ""
 
-#: bin/.svn/text-base/mailmanctl.svn-base:20 bin/mailmanctl:20
+#: bin/mailmanctl:20
 msgid ""
 "Primary start-up and shutdown script for Mailman's qrunner daemon.\n"
 "\n"
@@ -7939,37 +8073,37 @@ msgid ""
 "              next time a message is written to them\n"
 msgstr ""
 
-#: bin/.svn/text-base/mailmanctl.svn-base:152 bin/mailmanctl:152
+#: bin/mailmanctl:152
 msgid "PID unreadable in: %(pidfile)s"
 msgstr ""
 
-#: bin/.svn/text-base/mailmanctl.svn-base:154 bin/mailmanctl:154
+#: bin/mailmanctl:154
 msgid "Is qrunner even running?"
 msgstr ""
 
-#: bin/.svn/text-base/mailmanctl.svn-base:160 bin/mailmanctl:160
+#: bin/mailmanctl:160
 msgid "No child with pid: %(pid)s"
 msgstr ""
 
-#: bin/.svn/text-base/mailmanctl.svn-base:162 bin/mailmanctl:162
+#: bin/mailmanctl:162
 msgid "Stale pid file removed."
 msgstr ""
 
-#: bin/.svn/text-base/mailmanctl.svn-base:220 bin/mailmanctl:220
+#: bin/mailmanctl:220
 msgid ""
 "The master qrunner lock could not be acquired because it appears as if "
 "another\n"
 "master qrunner is already running.\n"
 msgstr ""
 
-#: bin/.svn/text-base/mailmanctl.svn-base:226 bin/mailmanctl:226
+#: bin/mailmanctl:226
 msgid ""
 "The master qrunner lock could not be acquired.  It appears as though there "
 "is\n"
 "a stale master qrunner lock.  Try re-running mailmanctl with the -s flag.\n"
 msgstr ""
 
-#: bin/.svn/text-base/mailmanctl.svn-base:232 bin/mailmanctl:232
+#: bin/mailmanctl:232
 msgid ""
 "The master qrunner lock could not be acquired, because it appears as if "
 "some\n"
@@ -7984,44 +8118,43 @@ msgid ""
 "Exiting."
 msgstr ""
 
-#: bin/.svn/text-base/mailmanctl.svn-base:279 bin/mailmanctl:279
-#: cron/.svn/text-base/mailpasswds.svn-base:119 cron/mailpasswds:119
+#: bin/mailmanctl:279 cron/mailpasswds:119
 msgid "Site list is missing: %(sitelistname)s"
 msgstr "Trûksta %(sitelistname)s adresø sàraðo"
 
-#: bin/.svn/text-base/mailmanctl.svn-base:304 bin/mailmanctl:304
+#: bin/mailmanctl:304
 msgid "Run this program as root or as the %(name)s user, or use -u."
 msgstr ""
 
-#: bin/.svn/text-base/mailmanctl.svn-base:335 bin/mailmanctl:335
+#: bin/mailmanctl:335
 msgid "No command given."
 msgstr ""
 
-#: bin/.svn/text-base/mailmanctl.svn-base:338 bin/mailmanctl:338
+#: bin/mailmanctl:338
 msgid "Bad command: %(command)s"
 msgstr ""
 
-#: bin/.svn/text-base/mailmanctl.svn-base:343 bin/mailmanctl:343
+#: bin/mailmanctl:343
 msgid "Warning!  You may encounter permission problems."
 msgstr ""
 
-#: bin/.svn/text-base/mailmanctl.svn-base:352 bin/mailmanctl:352
+#: bin/mailmanctl:352
 msgid "Shutting down Mailman's master qrunner"
 msgstr ""
 
-#: bin/.svn/text-base/mailmanctl.svn-base:359 bin/mailmanctl:359
+#: bin/mailmanctl:359
 msgid "Restarting Mailman's master qrunner"
 msgstr ""
 
-#: bin/.svn/text-base/mailmanctl.svn-base:363 bin/mailmanctl:363
+#: bin/mailmanctl:363
 msgid "Re-opening all log files"
 msgstr ""
 
-#: bin/.svn/text-base/mailmanctl.svn-base:399 bin/mailmanctl:399
+#: bin/mailmanctl:399
 msgid "Starting Mailman's master qrunner."
 msgstr ""
 
-#: bin/.svn/text-base/mmsitepass.svn-base:19 bin/mmsitepass:19
+#: bin/mmsitepass:19
 msgid ""
 "Set the site password, prompting from the terminal.\n"
 "\n"
@@ -8046,39 +8179,39 @@ msgid ""
 "If password is not given on the command line, it will be prompted for.\n"
 msgstr ""
 
-#: bin/.svn/text-base/mmsitepass.svn-base:73 bin/mmsitepass:73
+#: bin/mmsitepass:73
 msgid "site"
 msgstr ""
 
-#: bin/.svn/text-base/mmsitepass.svn-base:80 bin/mmsitepass:80
+#: bin/mmsitepass:80
 msgid "list creator"
 msgstr ""
 
-#: bin/.svn/text-base/mmsitepass.svn-base:86 bin/mmsitepass:86
+#: bin/mmsitepass:86
 msgid "New %(pwdesc)s password: "
 msgstr ""
 
-#: bin/.svn/text-base/mmsitepass.svn-base:87 bin/mmsitepass:87
+#: bin/mmsitepass:87
 msgid "Again to confirm password: "
 msgstr ""
 
-#: bin/.svn/text-base/mmsitepass.svn-base:89 bin/mmsitepass:89
+#: bin/mmsitepass:89
 msgid "Passwords do not match; no changes made."
 msgstr ""
 
-#: bin/.svn/text-base/mmsitepass.svn-base:92 bin/mmsitepass:92
+#: bin/mmsitepass:92
 msgid "Interrupted..."
 msgstr ""
 
-#: bin/.svn/text-base/mmsitepass.svn-base:98 bin/mmsitepass:98
+#: bin/mmsitepass:98
 msgid "Password changed."
 msgstr "Slaptaþodis pakeistas"
 
-#: bin/.svn/text-base/mmsitepass.svn-base:100 bin/mmsitepass:100
+#: bin/mmsitepass:100
 msgid "Password change failed."
 msgstr ""
 
-#: bin/.svn/text-base/msgfmt.py.svn-base:5 bin/msgfmt.py:5
+#: bin/msgfmt.py:5
 msgid ""
 "Generate binary message catalog from textual translation description.\n"
 "\n"
@@ -8106,15 +8239,15 @@ msgid ""
 "        Display version information and exit.\n"
 msgstr ""
 
-#: bin/.svn/text-base/msgfmt.py.svn-base:49 bin/msgfmt.py:49
+#: bin/msgfmt.py:49
 msgid "Add a non-fuzzy translation to the dictionary."
 msgstr ""
 
-#: bin/.svn/text-base/msgfmt.py.svn-base:57 bin/msgfmt.py:57
+#: bin/msgfmt.py:57
 msgid "Return the generated output."
 msgstr ""
 
-#: bin/.svn/text-base/newlist.svn-base:19 bin/newlist:19
+#: bin/newlist:20
 msgid ""
 "Create a new, unpopulated mailing list.\n"
 "\n"
@@ -8201,31 +8334,31 @@ msgid ""
 "Note that listnames are forced to lowercase.\n"
 msgstr ""
 
-#: bin/.svn/text-base/newlist.svn-base:150 bin/newlist:150
+#: bin/newlist:150
 msgid "Unknown language: %(lang)s"
 msgstr ""
 
-#: bin/.svn/text-base/newlist.svn-base:155 bin/newlist:155
+#: bin/newlist:155
 msgid "Enter the name of the list: "
 msgstr "Áveskite forumo pavadinimà: "
 
-#: bin/.svn/text-base/newlist.svn-base:176 bin/newlist:176
+#: bin/newlist:176
 msgid "Enter the email of the person running the list: "
 msgstr "Ávesite formo kûrëjo el. paðto adresà: "
 
-#: bin/.svn/text-base/newlist.svn-base:181 bin/newlist:181
+#: bin/newlist:181
 msgid "Initial %(listname)s password: "
 msgstr ""
 
-#: bin/.svn/text-base/newlist.svn-base:185 bin/newlist:185
+#: bin/newlist:185
 msgid "The list password cannot be empty"
 msgstr ""
 
-#: bin/.svn/text-base/newlist.svn-base:225 bin/newlist:225
+#: bin/newlist:229
 msgid "Hit enter to notify %(listname)s owner..."
 msgstr ""
 
-#: bin/.svn/text-base/qrunner.svn-base:20 bin/qrunner:20
+#: bin/qrunner:20
 msgid ""
 "Run one or more qrunners, once or repeatedly.\n"
 "\n"
@@ -8292,19 +8425,19 @@ msgid ""
 "operation.  It is only useful for debugging if it is run separately.\n"
 msgstr ""
 
-#: bin/.svn/text-base/qrunner.svn-base:178 bin/qrunner:178
+#: bin/qrunner:178
 msgid "%(name)s runs the %(runnername)s qrunner"
 msgstr ""
 
-#: bin/.svn/text-base/qrunner.svn-base:179 bin/qrunner:179
+#: bin/qrunner:179
 msgid "All runs all the above qrunners"
 msgstr ""
 
-#: bin/.svn/text-base/qrunner.svn-base:215 bin/qrunner:215
+#: bin/qrunner:215
 msgid "No runner name given."
 msgstr ""
 
-#: bin/.svn/text-base/rb-archfix.svn-base:21 bin/rb-archfix:21
+#: bin/rb-archfix:21
 msgid ""
 "Reduce disk space usage for Pipermail archives.\n"
 "\n"
@@ -8336,7 +8469,7 @@ msgid ""
 "This script is provided for convenience purposes only.  It isn't supported.\n"
 msgstr ""
 
-#: bin/.svn/text-base/remove_members.svn-base:20 bin/remove_members:20
+#: bin/remove_members:20
 msgid ""
 "Remove members from a list.\n"
 "\n"
@@ -8381,23 +8514,23 @@ msgid ""
 "    addr1 ... are additional addresses to remove.\n"
 msgstr ""
 
-#: bin/.svn/text-base/remove_members.svn-base:156 bin/remove_members:156
+#: bin/remove_members:156
 msgid "Could not open file for reading: %(filename)s."
 msgstr ""
 
-#: bin/.svn/text-base/remove_members.svn-base:163 bin/remove_members:163
+#: bin/remove_members:163
 msgid "Error opening list %(listname)s... skipping."
 msgstr ""
 
-#: bin/.svn/text-base/remove_members.svn-base:173 bin/remove_members:173
+#: bin/remove_members:173
 msgid "No such member: %(addr)s"
 msgstr ""
 
-#: bin/.svn/text-base/remove_members.svn-base:178 bin/remove_members:178
+#: bin/remove_members:178
 msgid "User `%(addr)s' removed from list: %(listname)s."
 msgstr "Vartotojas '%(addr)s' iðbrauktas ið forumo: %(listname)s."
 
-#: bin/.svn/text-base/reset_pw.py.svn-base:21 bin/reset_pw.py:21
+#: bin/reset_pw.py:21
 msgid ""
 "Reset the passwords for members of a mailing list.\n"
 "\n"
@@ -8417,16 +8550,16 @@ msgid ""
 "        Print what the script is doing.\n"
 msgstr ""
 
-#: bin/.svn/text-base/reset_pw.py.svn-base:77 bin/reset_pw.py:77
+#: bin/reset_pw.py:77
 #, fuzzy
 msgid "Changing passwords for list: %(listname)s"
 msgstr "Forumo %(listname)s paðalinimo praðymas"
 
-#: bin/.svn/text-base/reset_pw.py.svn-base:83 bin/reset_pw.py:83
+#: bin/reset_pw.py:83
 msgid "New password for member %(member)40s: %(randompw)s"
 msgstr ""
 
-#: bin/.svn/text-base/rmlist.svn-base:19 bin/rmlist:19
+#: bin/rmlist:19
 msgid ""
 "Remove the components of a mailing list with impunity - beware!\n"
 "\n"
@@ -8448,47 +8581,44 @@ msgid ""
 "\n"
 msgstr ""
 
-#: bin/.svn/text-base/rmlist.svn-base:72 bin/.svn/text-base/rmlist.svn-base:75
 #: bin/rmlist:72 bin/rmlist:75
 msgid "Removing %(msg)s"
 msgstr ""
 
-#: bin/.svn/text-base/rmlist.svn-base:80 bin/rmlist:80
+#: bin/rmlist:80
 #, fuzzy
 msgid "%(listname)s %(msg)s not found as %(filename)s"
 msgstr "Forumo pavadinime nereikia nurodti '@': %(listname)s"
 
-#: bin/.svn/text-base/rmlist.svn-base:104 bin/rmlist:104
+#: bin/rmlist:104
 msgid "No such list (or list already deleted): %(listname)s"
 msgstr ""
 
-#: bin/.svn/text-base/rmlist.svn-base:106 bin/rmlist:106
+#: bin/rmlist:106
 msgid "No such list: %(listname)s.  Removing its residual archives."
 msgstr ""
 
-#: bin/.svn/text-base/rmlist.svn-base:110 bin/rmlist:110
+#: bin/rmlist:110
 msgid "Not removing archives.  Reinvoke with -a to remove them."
 msgstr ""
 
-#: bin/.svn/text-base/rmlist.svn-base:124 bin/rmlist:124
+#: bin/rmlist:124
 msgid "list info"
 msgstr ""
 
-#: bin/.svn/text-base/rmlist.svn-base:132 bin/rmlist:132
+#: bin/rmlist:132
 msgid "stale lock file"
 msgstr ""
 
-#: bin/.svn/text-base/rmlist.svn-base:137
-#: bin/.svn/text-base/rmlist.svn-base:139 bin/rmlist:137 bin/rmlist:139
+#: bin/rmlist:137 bin/rmlist:139
 msgid "private archives"
 msgstr ""
 
-#: bin/.svn/text-base/rmlist.svn-base:141
-#: bin/.svn/text-base/rmlist.svn-base:143 bin/rmlist:141 bin/rmlist:143
+#: bin/rmlist:141 bin/rmlist:143
 msgid "public archives"
 msgstr "Vieði archyvai"
 
-#: bin/.svn/text-base/show_qfiles.svn-base:20 bin/show_qfiles:20
+#: bin/show_qfiles:20
 msgid ""
 "Show the contents of one or more Mailman queue files.\n"
 "\n"
@@ -8505,7 +8635,7 @@ msgid ""
 "Example: show_qfiles qfiles/shunt/*.pck\n"
 msgstr ""
 
-#: bin/.svn/text-base/sync_members.svn-base:19 bin/sync_members:19
+#: bin/sync_members:19
 msgid ""
 "Synchronize a mailing list's membership with a flat file.\n"
 "\n"
@@ -8574,59 +8704,59 @@ msgid ""
 "        Required.  This specifies the list to synchronize.\n"
 msgstr ""
 
-#: bin/.svn/text-base/sync_members.svn-base:115 bin/sync_members:115
+#: bin/sync_members:115
 msgid "Bad choice: %(yesno)s"
 msgstr ""
 
-#: bin/.svn/text-base/sync_members.svn-base:138 bin/sync_members:138
+#: bin/sync_members:138
 msgid "Dry run mode"
 msgstr ""
 
-#: bin/.svn/text-base/sync_members.svn-base:159 bin/sync_members:159
+#: bin/sync_members:159
 msgid "Only one -f switch allowed"
 msgstr ""
 
-#: bin/.svn/text-base/sync_members.svn-base:163 bin/sync_members:163
+#: bin/sync_members:163
 msgid "No argument to -f given"
 msgstr ""
 
-#: bin/.svn/text-base/sync_members.svn-base:172 bin/sync_members:172
+#: bin/sync_members:172
 msgid "Illegal option: %(opt)s"
 msgstr ""
 
-#: bin/.svn/text-base/sync_members.svn-base:178 bin/sync_members:178
+#: bin/sync_members:178
 msgid "No listname given"
 msgstr ""
 
-#: bin/.svn/text-base/sync_members.svn-base:182 bin/sync_members:182
+#: bin/sync_members:182
 msgid "Must have a listname and a filename"
 msgstr ""
 
-#: bin/.svn/text-base/sync_members.svn-base:191 bin/sync_members:191
+#: bin/sync_members:191
 msgid "Cannot read address file: %(filename)s: %(msg)s"
 msgstr ""
 
-#: bin/.svn/text-base/sync_members.svn-base:203 bin/sync_members:203
+#: bin/sync_members:203
 msgid "Ignore  :  %(addr)30s"
 msgstr ""
 
-#: bin/.svn/text-base/sync_members.svn-base:212 bin/sync_members:212
+#: bin/sync_members:212
 msgid "Invalid :  %(addr)30s"
 msgstr ""
 
-#: bin/.svn/text-base/sync_members.svn-base:215 bin/sync_members:215
+#: bin/sync_members:215
 msgid "You must fix the preceding invalid addresses first."
 msgstr ""
 
-#: bin/.svn/text-base/sync_members.svn-base:260 bin/sync_members:260
+#: bin/sync_members:260
 msgid "Added  : %(s)s"
 msgstr ""
 
-#: bin/.svn/text-base/sync_members.svn-base:278 bin/sync_members:278
+#: bin/sync_members:280
 msgid "Removed: %(s)s"
 msgstr ""
 
-#: bin/.svn/text-base/transcheck.svn-base:18 bin/transcheck:18
+#: bin/transcheck:19
 msgid ""
 "\n"
 "Check a given Mailman translation, making sure that variables and\n"
@@ -8642,27 +8772,27 @@ msgid ""
 "to ask for a brief summary.\n"
 msgstr ""
 
-#: bin/.svn/text-base/transcheck.svn-base:57 bin/transcheck:57
+#: bin/transcheck:58
 msgid "check a translation comparing with the original string"
 msgstr ""
 
-#: bin/.svn/text-base/transcheck.svn-base:67 bin/transcheck:67
+#: bin/transcheck:68
 msgid "scan a string from the original file"
 msgstr ""
 
-#: bin/.svn/text-base/transcheck.svn-base:77 bin/transcheck:77
+#: bin/transcheck:78
 msgid "scan a translated string"
 msgstr ""
 
-#: bin/.svn/text-base/transcheck.svn-base:90 bin/transcheck:90
+#: bin/transcheck:91
 msgid "check for differences between checked in and checked out"
 msgstr ""
 
-#: bin/.svn/text-base/transcheck.svn-base:123 bin/transcheck:123
+#: bin/transcheck:124
 msgid "parse a .po file extracting msgids and msgstrs"
 msgstr ""
 
-#: bin/.svn/text-base/transcheck.svn-base:142 bin/transcheck:142
+#: bin/transcheck:143
 msgid ""
 "States table for the finite-states-machine parser:\n"
 "            0  idle\n"
@@ -8673,17 +8803,17 @@ msgid ""
 "        "
 msgstr ""
 
-#: bin/.svn/text-base/transcheck.svn-base:279 bin/transcheck:279
+#: bin/transcheck:280
 msgid ""
 "check a translated template against the original one\n"
 "       search also <MM-*> tags if html is not zero"
 msgstr ""
 
-#: bin/.svn/text-base/transcheck.svn-base:326 bin/transcheck:326
+#: bin/transcheck:327
 msgid "scan the po file comparing msgids with msgstrs"
 msgstr ""
 
-#: bin/.svn/text-base/unshunt.svn-base:20 bin/unshunt:20
+#: bin/unshunt:20
 msgid ""
 "Move a message from the shunt queue to the original queue.\n"
 "\n"
@@ -8695,16 +8825,18 @@ msgid ""
 "        Print help and exit.\n"
 "\n"
 "Optional `directory' specifies a directory to dequeue from other than\n"
-"qfiles/shunt.\n"
+"qfiles/shunt.  *** Warning ***  Do not unshunt messages that weren't\n"
+"shunted to begin with.  For example, running unshunt on qfiles/out/\n"
+"will result in losing all the messages in that queue.\n"
 msgstr ""
 
-#: bin/.svn/text-base/unshunt.svn-base:83 bin/unshunt:83
+#: bin/unshunt:85
 msgid ""
 "Cannot unshunt message %(filebase)s, skipping:\n"
 "%(e)s"
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:19 bin/update:19
+#: bin/update:19
 msgid ""
 "Perform all necessary upgrades.\n"
 "\n"
@@ -8724,30 +8856,29 @@ msgid ""
 "some previous version.  It knows about versions back to 1.0b4 (?).\n"
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:107 bin/update:107
+#: bin/update:106
 msgid "Fixing language templates: %(listname)s"
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:196
-#: bin/.svn/text-base/update.svn-base:698 bin/update:196 bin/update:698
+#: bin/update:195 bin/update:708
 msgid "WARNING: could not acquire lock for list: %(listname)s"
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:215 bin/update:215
+#: bin/update:214
 msgid "Resetting %(n)s BYBOUNCEs disabled addrs with no bounce info"
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:221 bin/update:221
+#: bin/update:220
 msgid "Updating the held requests database."
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:243 bin/update:243
+#: bin/update:242
 msgid ""
 "For some reason, %(mbox_dir)s exists as a file.  This won't work with\n"
 "b6, so I'm renaming it to %(mbox_dir)s.tmp and proceeding."
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:255 bin/update:255
+#: bin/update:254
 msgid ""
 "\n"
 "%(listname)s has both public and private mbox archives.  Since this list\n"
@@ -8761,7 +8892,7 @@ msgid ""
 "script.\n"
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:270 bin/update:270
+#: bin/update:269
 msgid ""
 "%s has both public and private mbox archives.  Since this list\n"
 "currently uses public archiving, I'm installing the public mbox file\n"
@@ -8774,11 +8905,11 @@ msgid ""
 "script.\n"
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:287 bin/update:287
+#: bin/update:286
 msgid "- updating old private mbox file"
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:295 bin/update:295
+#: bin/update:294
 msgid ""
 "    unknown file in the way, moving\n"
 "        %(o_pri_mbox_file)s\n"
@@ -8786,18 +8917,17 @@ msgid ""
 "        %(newname)s"
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:302
-#: bin/.svn/text-base/update.svn-base:325 bin/update:302 bin/update:325
+#: bin/update:301 bin/update:324
 msgid ""
 "    looks like you have a really recent CVS installation...\n"
 "    you're either one brave soul, or you already ran me"
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:311 bin/update:311
+#: bin/update:310
 msgid "- updating old public mbox file"
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:319 bin/update:319
+#: bin/update:318
 msgid ""
 "    unknown file in the way, moving\n"
 "        %(o_pub_mbox_file)s\n"
@@ -8805,105 +8935,105 @@ msgid ""
 "        %(newname)s"
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:350 bin/update:350
+#: bin/update:356
 msgid "- This list looks like it might have <= b4 list templates around"
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:358 bin/update:358
+#: bin/update:364
 msgid "- moved %(o_tmpl)s to %(n_tmpl)s"
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:360 bin/update:360
+#: bin/update:366
 msgid "- both %(o_tmpl)s and %(n_tmpl)s exist, leaving untouched"
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:363 bin/update:363
+#: bin/update:369
 msgid "- %(o_tmpl)s doesn't exist, leaving untouched"
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:393 bin/update:393
+#: bin/update:399
 msgid "removing directory %(src)s and everything underneath"
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:396 bin/update:396
+#: bin/update:402
 msgid "removing %(src)s"
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:400 bin/update:400
+#: bin/update:406
 msgid "Warning: couldn't remove %(src)s -- %(rest)s"
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:405 bin/update:405
+#: bin/update:411
 msgid "couldn't remove old file %(pyc)s -- %(rest)s"
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:409 bin/update:409
+#: bin/update:415
 msgid "updating old qfiles"
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:448 bin/update:448
+#: bin/update:458
 msgid "Warning!  Not a directory: %(dirpath)s"
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:517 bin/update:517
+#: bin/update:527
 msgid "message is unparsable: %(filebase)s"
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:531 bin/update:531
+#: bin/update:541
 msgid "Warning!  Deleting empty .pck file: %(pckfile)s"
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:550 bin/update:550
+#: bin/update:560
 msgid "Updating Mailman 2.0 pending_subscriptions.db database"
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:561 bin/update:561
+#: bin/update:571
 msgid "Updating Mailman 2.1.4 pending.pck database"
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:585 bin/update:585
+#: bin/update:595
 msgid "Ignoring bad pended data: %(key)s: %(val)s"
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:601 bin/update:601
+#: bin/update:611
 msgid "WARNING: Ignoring duplicate pending ID: %(id)s."
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:654 bin/update:654
+#: bin/update:664
 msgid "getting rid of old source files"
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:664 bin/update:664
+#: bin/update:674
 msgid "no lists == nothing to do, exiting"
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:671 bin/update:671
+#: bin/update:681
 msgid ""
 "fixing all the perms on your old html archives to work with b6\n"
 "If your archives are big, this could take a minute or two..."
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:676 bin/update:676
+#: bin/update:686
 msgid "done"
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:678 bin/update:678
+#: bin/update:688
 msgid "Updating mailing list: %(listname)s"
 msgstr "Forumo %(listname)s atnaujinimas"
 
-#: bin/.svn/text-base/update.svn-base:681 bin/update:681
+#: bin/update:691
 msgid "Updating Usenet watermarks"
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:686 bin/update:686
+#: bin/update:696
 msgid "- nothing to update here"
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:709 bin/update:709
+#: bin/update:719
 msgid "- usenet watermarks updated and gate_watermarks removed"
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:723 bin/update:723
+#: bin/update:733
 msgid ""
 "\n"
 "\n"
@@ -8926,22 +9056,22 @@ msgid ""
 "\n"
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:780 bin/update:780
+#: bin/update:790
 msgid "No updates are necessary."
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:783 bin/update:783
+#: bin/update:793
 msgid ""
 "Downgrade detected, from version %(hexlversion)s to version %(hextversion)s\n"
 "This is probably not safe.\n"
 "Exiting."
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:788 bin/update:788
+#: bin/update:798
 msgid "Upgrading from version %(hexlversion)s to %(hextversion)s"
 msgstr ""
 
-#: bin/.svn/text-base/update.svn-base:797 bin/update:797
+#: bin/update:807
 msgid ""
 "\n"
 "ERROR:\n"
@@ -8957,15 +9087,15 @@ msgid ""
 "details.\n"
 msgstr ""
 
-#: bin/.svn/text-base/version.svn-base:19 bin/version:19
+#: bin/version:19
 msgid "Print the Mailman version.\n"
 msgstr ""
 
-#: bin/.svn/text-base/version.svn-base:26 bin/version:26
+#: bin/version:26
 msgid "Using Mailman version:"
 msgstr ""
 
-#: bin/.svn/text-base/withlist.svn-base:19 bin/withlist:19
+#: bin/withlist:20
 msgid ""
 "General framework for interacting with a mailing list object.\n"
 "\n"
@@ -9082,7 +9212,7 @@ msgid ""
 " %% bin/withlist -l -r changepw mylist somebody@somewhere.org foobar\n"
 msgstr ""
 
-#: bin/.svn/text-base/withlist.svn-base:163 bin/withlist:163
+#: bin/withlist:164
 msgid ""
 "Unlock a locked list, but do not implicitly Save() it.\n"
 "\n"
@@ -9093,51 +9223,51 @@ msgid ""
 "    "
 msgstr ""
 
-#: bin/.svn/text-base/withlist.svn-base:174 bin/withlist:174
+#: bin/withlist:175
 msgid "Unlocking (but not saving) list: %(listname)s"
 msgstr ""
 
-#: bin/.svn/text-base/withlist.svn-base:178 bin/withlist:178
+#: bin/withlist:179
 msgid "Finalizing"
 msgstr ""
 
-#: bin/.svn/text-base/withlist.svn-base:187 bin/withlist:187
+#: bin/withlist:188
 msgid "Loading list %(listname)s"
 msgstr ""
 
-#: bin/.svn/text-base/withlist.svn-base:189 bin/withlist:189
+#: bin/withlist:190
 msgid "(locked)"
 msgstr ""
 
-#: bin/.svn/text-base/withlist.svn-base:191 bin/withlist:191
+#: bin/withlist:192
 msgid "(unlocked)"
 msgstr ""
 
-#: bin/.svn/text-base/withlist.svn-base:196 bin/withlist:196
+#: bin/withlist:197
 msgid "Unknown list: %(listname)s"
 msgstr "Neþinomas forumas: %(listname)s"
 
-#: bin/.svn/text-base/withlist.svn-base:236 bin/withlist:236
+#: bin/withlist:237
 msgid "No list name supplied."
 msgstr "Neávestas forumo pavadinimas."
 
-#: bin/.svn/text-base/withlist.svn-base:245 bin/withlist:245
+#: bin/withlist:246
 msgid "--all requires --run"
 msgstr ""
 
-#: bin/.svn/text-base/withlist.svn-base:265 bin/withlist:265
+#: bin/withlist:266
 msgid "Importing %(module)s..."
 msgstr ""
 
-#: bin/.svn/text-base/withlist.svn-base:268 bin/withlist:268
+#: bin/withlist:270
 msgid "Running %(module)s.%(callable)s()..."
 msgstr ""
 
-#: bin/.svn/text-base/withlist.svn-base:289 bin/withlist:289
+#: bin/withlist:291
 msgid "The variable `m' is the %(listname)s MailList instance"
 msgstr ""
 
-#: cron/.svn/text-base/bumpdigests.svn-base:19 cron/bumpdigests:19
+#: cron/bumpdigests:19
 msgid ""
 "Increment the digest volume number and reset the digest number to one.\n"
 "\n"
@@ -9153,7 +9283,7 @@ msgid ""
 "all lists are bumped.\n"
 msgstr ""
 
-#: cron/.svn/text-base/checkdbs.svn-base:19 cron/checkdbs:19
+#: cron/checkdbs:19
 msgid ""
 "Check for pending admin requests and mail the list owners if necessary.\n"
 "\n"
@@ -9165,38 +9295,59 @@ msgid ""
 "        Print this message and exit.\n"
 msgstr ""
 
-#: cron/.svn/text-base/checkdbs.svn-base:107 cron/checkdbs:107
+#: cron/checkdbs:107
 msgid ""
 "Notice: %(discarded)d old request(s) automatically expired.\n"
 "\n"
 msgstr ""
 
-#: cron/.svn/text-base/checkdbs.svn-base:120 cron/checkdbs:120
+#: cron/checkdbs:120
 msgid "%(count)d %(realname)s moderator request(s) waiting"
 msgstr ""
 
-#: cron/.svn/text-base/checkdbs.svn-base:123 cron/checkdbs:123
+#: cron/checkdbs:123
 msgid "%(realname)s moderator request check result"
 msgstr ""
 
-#: cron/.svn/text-base/checkdbs.svn-base:143 cron/checkdbs:143
+#: cron/checkdbs:143
 msgid "Pending subscriptions:"
 msgstr "Praðomi uþsisakymai:"
 
-#: cron/.svn/text-base/checkdbs.svn-base:154 cron/checkdbs:154
+#: cron/checkdbs:154
 msgid ""
 "\n"
 "Pending posts:"
 msgstr ""
 
-#: cron/.svn/text-base/checkdbs.svn-base:161 cron/checkdbs:161
+#: cron/checkdbs:161
 msgid ""
 "From: %(sender)s on %(date)s\n"
 "Subject: %(subject)s\n"
 "Cause: %(reason)s"
 msgstr ""
 
-#: cron/.svn/text-base/disabled.svn-base:19 cron/disabled:19
+#: cron/cull_bad_shunt:20
+msgid ""
+"Cull bad and shunt queues, recommended once per day.\n"
+"\n"
+"This script goes through the 'bad' and 'shunt' queue directories and,\n"
+"if mm_cfg.BAD_SHUNT_STALE_AFTER is > 0, it removes all files more than\n"
+"that many seconds old.\n"
+"\n"
+"If mm_cfg.BAD_SHUNT_ARCHIVE_DIRECTORY is a writable directory, the old\n"
+"files are moved there. Otherwise they are deleted.\n"
+"\n"
+"Only regular files immediately subordinate to the 'bad' and 'shunt'\n"
+"directories are processed. Anything else is skipped.\n"
+"\n"
+"Usage: %(PROGRAM)s [options]\n"
+"\n"
+"Options:\n"
+"    -h / --help\n"
+"        Print this message and exit.\n"
+msgstr ""
+
+#: cron/disabled:20
 msgid ""
 "Process disabled members, recommended once per day.\n"
 "\n"
@@ -9246,11 +9397,11 @@ msgid ""
 "        Process only the given list, otherwise do all lists.\n"
 msgstr ""
 
-#: cron/.svn/text-base/disabled.svn-base:144 cron/disabled:144
+#: cron/disabled:145
 msgid "[disabled by periodic sweep and cull, no message available]"
 msgstr ""
 
-#: cron/.svn/text-base/gate_news.svn-base:19 cron/gate_news:19
+#: cron/gate_news:19
 msgid ""
 "Poll the NNTP servers for messages to be gatewayed to mailing lists.\n"
 "\n"
@@ -9264,7 +9415,7 @@ msgid ""
 "\n"
 msgstr ""
 
-#: cron/.svn/text-base/mailpasswds.svn-base:19 cron/mailpasswds:19
+#: cron/mailpasswds:19
 msgid ""
 "Send password reminders for all lists to all users.\n"
 "\n"
@@ -9291,15 +9442,15 @@ msgid ""
 "        Print this message and exit.\n"
 msgstr ""
 
-#: cron/.svn/text-base/mailpasswds.svn-base:216 cron/mailpasswds:216
+#: cron/mailpasswds:216
 msgid "Password // URL"
 msgstr "Slaptaþodis // URL"
 
-#: cron/.svn/text-base/mailpasswds.svn-base:222 cron/mailpasswds:222
+#: cron/mailpasswds:222
 msgid "%(host)s mailing list memberships reminder"
 msgstr "priminimai %(host)s forumø nariams"
 
-#: cron/.svn/text-base/nightly_gzip.svn-base:19 cron/nightly_gzip:19
+#: cron/nightly_gzip:19
 msgid ""
 "Re-generate the Pipermail gzip'd archive flat files.\n"
 "\n"
@@ -9325,7 +9476,7 @@ msgid ""
 "\n"
 msgstr ""
 
-#: cron/.svn/text-base/senddigests.svn-base:19 cron/senddigests:19
+#: cron/senddigests:20
 msgid ""
 "Dispatch digests for lists w/pending messages and digest_send_periodic set.\n"
 "\n"

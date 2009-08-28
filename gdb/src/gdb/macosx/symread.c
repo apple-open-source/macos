@@ -232,7 +232,7 @@ sym_parse_type (struct objfile *objfile,
 
         type = alloc_type (objfile);
 
-        TYPE_LENGTH (type) = TARGET_INT_BIT / HOST_CHAR_BIT;
+        TYPE_LENGTH_ASSIGN (type) = TARGET_INT_BIT / HOST_CHAR_BIT;
         TYPE_CODE (type) = TYPE_CODE_ENUM;
         TYPE_NFIELDS (type) = nelem;
         TYPE_FIELDS (type) =
@@ -259,7 +259,7 @@ sym_parse_type (struct objfile *objfile,
 
             TYPE_FIELD_TYPE (type, i) = target;
             TYPE_FIELD_NAME (type, i) = targname;
-            TYPE_FIELD_BITPOS (type, i) = value;
+            TYPE_FIELD_BITPOS_ASSIGN (type, i) = value;
             TYPE_FIELD_BITSIZE (type, i) = 0;
           }
 
@@ -325,7 +325,7 @@ sym_parse_type (struct objfile *objfile,
         TYPE_FIELDS (type) =
           (struct field *) TYPE_ALLOC (type, nrec * sizeof (struct field));
         TYPE_NFIELDS (type) = nrec;
-        TYPE_LENGTH (type) = 0;
+        TYPE_LENGTH_ASSIGN (type) = 0;
 
         for (i = 0; i < nrec; i++)
           {
@@ -352,9 +352,9 @@ sym_parse_type (struct objfile *objfile,
 
             TYPE_FIELD_TYPE (type, i) = target;
             TYPE_FIELD_NAME (type, i) = targname;
-            TYPE_FIELD_BITPOS (type, i) = TARGET_CHAR_BIT * eloff;
+            TYPE_FIELD_BITPOS_ASSIGN (type, i) = TARGET_CHAR_BIT * eloff;
             TYPE_FIELD_BITSIZE (type, i) = 0;
-            TYPE_LENGTH (type) = eloff + TYPE_LENGTH (target);
+            TYPE_LENGTH_ASSIGN (type) = eloff + TYPE_LENGTH (target);
           }
 
         break;
@@ -992,7 +992,7 @@ sym_read_functions (struct objfile *objfile,
       ftype = alloc_type (objfile);
 
       TYPE_TARGET_TYPE (ftype) = builtin_type_error;
-      TYPE_LENGTH (ftype) = 1;
+      TYPE_LENGTH_ASSIGN (ftype) = 1;
       TYPE_CODE (ftype) = TYPE_CODE_FUNC;
 
       fblock =
@@ -1066,7 +1066,6 @@ sym_symfile_init (struct objfile *objfile)
   memset (objfile->deprecated_sym_private, 0, sizeof (struct sym_symfile_info));
 
   objfile->flags |= OBJF_REORDERED;
-  init_entry_point_info (objfile);
 }
 
 static void

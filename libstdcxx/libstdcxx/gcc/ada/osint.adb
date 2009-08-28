@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -32,12 +32,12 @@ with Opt;      use Opt;
 with Output;   use Output;
 with Sdefault; use Sdefault;
 with Table;
+with Targparm; use Targparm;
 
 with System.Case_Util; use System.Case_Util;
 
 with Unchecked_Conversion;
 
-with GNAT.OS_Lib; use GNAT.OS_Lib;
 with GNAT.HTable;
 
 package body Osint is
@@ -77,7 +77,7 @@ package body Osint is
    function Append_Suffix_To_File_Name
      (Name   : Name_Id;
       Suffix : String) return Name_Id;
-   --  Appends Suffix to Name and returns the new name.
+   --  Appends Suffix to Name and returns the new name
 
    function OS_Time_To_GNAT_Time (T : OS_Time) return Time_Stamp_Type;
    --  Convert OS format time to GNAT format time stamp
@@ -116,7 +116,7 @@ package body Osint is
    --  full file name if file found, or No_File if not found.
 
    function C_String_Length (S : Address) return Integer;
-   --  Returns length of a C string. Returns zero for a null address.
+   --  Returns length of a C string. Returns zero for a null address
 
    function To_Path_String_Access
      (Path_Addr : Address;
@@ -201,7 +201,7 @@ package body Osint is
    --  time stamp.
 
    File_Cache_Enabled : Boolean := False;
-   --  Set to true if you want the enable the file data caching mechanism.
+   --  Set to true if you want the enable the file data caching mechanism
 
    type File_Hash_Num is range 0 .. 1020;
 
@@ -314,7 +314,7 @@ package body Osint is
          --  For the call to Close
 
       begin
-         --  Construct a C compatible character string buffer.
+         --  Construct a C compatible character string buffer
 
          Buffer (1 .. Buffer'Last - 1) := Path_File_Name.all;
          Buffer (Buffer'Last) := ASCII.NUL;
@@ -409,6 +409,20 @@ package body Osint is
       --  environment variable. Get this value, extract the directory names
       --  and store in the tables.
 
+      --  Check for eventual project path file env vars
+
+      Path_File_Name := Getenv (Project_Include_Path_File);
+
+      if Path_File_Name'Length > 0 then
+         Get_Dirs_From_File (Additional_Source_Dir => True);
+      end if;
+
+      Path_File_Name := Getenv (Project_Objects_Path_File);
+
+      if Path_File_Name'Length > 0 then
+         Get_Dirs_From_File (Additional_Source_Dir => False);
+      end if;
+
       --  On VMS, don't expand the logical name (e.g. environment variable),
       --  just put it into Unix (e.g. canonical) format. System services
       --  will handle the expansion as part of the file processing.
@@ -443,21 +457,7 @@ package body Osint is
          end loop;
       end loop;
 
-      --  Check for eventual project path file env vars
-
-      Path_File_Name := Getenv (Project_Include_Path_File);
-
-      if Path_File_Name'Length > 0 then
-         Get_Dirs_From_File (Additional_Source_Dir => True);
-      end if;
-
-      Path_File_Name := Getenv (Project_Objects_Path_File);
-
-      if Path_File_Name'Length > 0 then
-         Get_Dirs_From_File (Additional_Source_Dir => False);
-      end if;
-
-      --  For the compiler, if --RTS= was apecified, add the runtime
+      --  For the compiler, if --RTS= was specified, add the runtime
       --  directories.
 
       if RTS_Src_Path_Name /= null and then
@@ -1414,7 +1414,7 @@ package body Osint is
    -- Is_Readonly_Library --
    -------------------------
 
-   function Is_Readonly_Library (File : in File_Name_Type) return Boolean is
+   function Is_Readonly_Library (File : File_Name_Type) return Boolean is
    begin
       Get_Name_String (File);
 
@@ -1777,9 +1777,9 @@ package body Osint is
       Get_Name_String (N);
       Name_Len := Name_Len - ALI_Suffix'Length - 1;
 
-      for J in Object_Suffix'Range loop
+      for J in Target_Object_Suffix'Range loop
          Name_Len := Name_Len + 1;
-         Name_Buffer (Name_Len) := Object_Suffix (J);
+         Name_Buffer (Name_Len) := Target_Object_Suffix (J);
       end loop;
 
       return Name_Enter;
@@ -2293,7 +2293,7 @@ package body Osint is
       Library (3 + Name'Length)                 := '-';
       Library (4 + Name'Length .. Library'Last) := Library_Version;
 
-      if Hostparm.OpenVMS then
+      if OpenVMS_On_Target then
          for K in Library'First + 2 .. Library'Last loop
             if Library (K) = '.' or else Library (K) = '-' then
                Library (K) := '_';
@@ -2799,13 +2799,6 @@ begin
    begin
       Identifier_Character_Set := Get_Default_Identifier_Character_Set;
       Maximum_File_Name_Length := Get_Maximum_File_Name_Length;
-
-      --  On VMS, '~' is not allowed in file names. Change the multi unit
-      --  index character to '$'.
-
-      if Hostparm.OpenVMS then
-         Multi_Unit_Index_Character := '$';
-      end if;
 
       --  Following should be removed by having above function return
       --  Integer'Last as indication of no maximum instead of -1 ???

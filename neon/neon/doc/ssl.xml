@@ -5,7 +5,7 @@
  <para>This section gives an introduction to SSL.  The text is
  inspired by <xref linkend="bib.ssltls"/>.</para>
 
- <para>&neon; supports the use of HTTP over SSL<footnote><para>The
+ <para>&neon; supports the use of HTTP over SSL<footnote id="foot.ssl.term"><para>The
 term <quote>SSL</quote> is used throughout this section to refer in
 general to both the SSL protocol developed by Netscape and its
 successor TLS, as adopted by the IETF.</para></footnote> to implement

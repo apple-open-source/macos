@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2002-2007 Apple Inc.  All rights reserved.
+ * Copyright (c) 2002-2008 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
@@ -54,19 +54,19 @@
  */
 
 #ifndef lint
-static const char rcsid[] =
-  "$FreeBSD$";
-#endif /* not lint */
+static const char rcsid[] = "$FreeBSD$";
+#endif				/* not lint */
 
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <search.h>
 #include <rpc/rpc.h>
 #include <syslog.h>
 #include <vis.h>
-#include <netdb.h>	/* for getaddrinfo()		*/
+#include <netdb.h>		/* for getaddrinfo()		 */
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -85,71 +85,64 @@ static const char rcsid[] =
  * Notes: Will syslog(3) to warn of corrupt hostname.
  */
 
-int sm_check_hostname(struct svc_req *req, char *arg)
+int 
+sm_check_hostname(struct svc_req * req, char *arg)
 {
-  int len, dstlen, ret;
-  struct sockaddr_in *claddr;
-  char *dst;
+	int len, dstlen, ret;
+	struct sockaddr_in *claddr;
+	char *dst;
 
-  len = strlen(arg);
-  dstlen = (4 * len) + 1;
-  dst = malloc(dstlen);
-  claddr = svc_getcaller(req->rq_xprt);
-  ret = 1;
+	len = strlen(arg);
+	dstlen = (4 * len) + 1;
+	dst = malloc(dstlen);
+	claddr = svc_getcaller(req->rq_xprt);
+	ret = 1;
 
-  if (claddr == NULL || dst == NULL)
-  {
-    ret = 0;
-  }
-  else if (strvis(dst, arg, VIS_WHITE) != len)
-  {
-    syslog(LOG_ERR,
-	"sm_stat: client %s hostname %s contained invalid characters.",
-	inet_ntoa(claddr->sin_addr),
-	dst);
-    ret = 0;
-  }
-  free(dst);
-  return (ret);
+	if (claddr == NULL || dst == NULL) {
+		ret = 0;
+	} else if (strvis(dst, arg, VIS_WHITE) != len) {
+		log(LOG_ERR,
+		    "sm_stat: client %s hostname %s contained invalid characters.",
+		    inet_ntoa(claddr->sin_addr), dst);
+		ret = 0;
+	}
+	free(dst);
+	return (ret);
 }
 
-/*  sm_stat_1 --------------------------------------------------------------- */
+/* sm_stat_1 --------------------------------------------------------------- */
 /*
    Purpose:	RPC call to enquire if a host can be monitored
    Returns:	TRUE for any hostname that can be looked up to give
 		an address.
 */
 
-struct sm_stat_res *sm_stat_1_svc(sm_name *arg, struct svc_req *req)
+struct sm_stat_res *
+sm_stat_1_svc(sm_name * arg, struct svc_req * req)
 {
-  static sm_stat_res res;
-  struct addrinfo *ai;
-  struct sockaddr_in *claddr;
-  static int err;
+	static sm_stat_res res;
+	struct addrinfo *ai;
+	struct sockaddr_in *claddr;
+	static int err;
 
-  err = 1;
-  if ((err = sm_check_hostname(req, arg->mon_name)) == 0)
-  {
-    res.res_stat = stat_fail;
-  }
-  if (err != 0)
-  {
-    if (debug)
-	    syslog(LOG_DEBUG, "stat called for host %s", arg->mon_name);
-    if (getaddrinfo(arg->mon_name, NULL, NULL, &ai) == 0) {
-	    res.res_stat = stat_succ;
-	    freeaddrinfo(ai);
-    }
-    else
-    {
-      claddr = svc_getcaller(req->rq_xprt);
-      syslog(LOG_ERR, "invalid hostname to sm_stat from %s: %s",
-	  inet_ntoa(claddr->sin_addr), arg->mon_name);
-      res.res_stat = stat_fail;
-    }
-  }
-  res.state = status_info->ourState;
-  return (&res);
+	err = 1;
+	if ((err = sm_check_hostname(req, arg->mon_name)) == 0) {
+		res.res_stat = stat_fail;
+	}
+	if (err != 0) {
+		DEBUG(1, "stat called for host %s", arg->mon_name);
+		if (getaddrinfo(arg->mon_name, NULL, NULL, &ai) == 0) {
+			res.res_stat = stat_succ;
+			freeaddrinfo(ai);
+		} else {
+			claddr = svc_getcaller(req->rq_xprt);
+			log(LOG_ERR, "invalid hostname to sm_stat from %s: %s",
+			    inet_ntoa(claddr->sin_addr), arg->mon_name);
+			res.res_stat = stat_fail;
+		}
+	}
+	res.state = ntohl(status_info->fh_state);
+	return (&res);
 }
 
 /* sm_mon_1 ---------------------------------------------------------------- */
@@ -161,64 +154,56 @@ struct sm_stat_res *sm_stat_1_svc(sm_name *arg, struct svc_req *req)
 		valid (as judged by getaddrinfo())
 */
 
-struct sm_stat_res *sm_mon_1_svc(mon *arg, struct svc_req *req)
+struct sm_stat_res *
+sm_mon_1_svc(mon * arg, struct svc_req * req)
 {
-  static sm_stat_res res;
-  HostInfo *hp;
-  static int err;
-  MonList *lp;
-  struct addrinfo *ai;
+	static sm_stat_res res;
+	MonitoredHost *mhp;
+	Notify *np;
+	struct addrinfo *ai;
+	int namelen;
 
-  if ((err = sm_check_hostname(req, arg->mon_id.mon_name)) == 0)
-  {
-    res.res_stat = stat_fail;
-  }
+	res.res_stat = stat_fail;	/* Assume fail until set otherwise      */
 
-  if (err != 0)
-  {
-    if (debug)
-    {
-      syslog(LOG_DEBUG, "monitor request for host %s", arg->mon_id.mon_name);
-      syslog(LOG_DEBUG, "recall host: %s prog: %d ver: %d proc: %d",
-      arg->mon_id.mon_name,
-      arg->mon_id.my_id.my_prog, arg->mon_id.my_id.my_vers,
-      arg->mon_id.my_id.my_proc);
-    }
-    res.res_stat = stat_fail;  /* Assume fail until set otherwise      */
-    res.state = status_info->ourState;
-  
-    /* Find existing host entry, or create one if not found            */
-    /* If find_host() fails, it will have logged the error already.    */
-    if (getaddrinfo(arg->mon_id.mon_name, NULL, NULL, &ai) != 0)
-    {
-      syslog(LOG_ERR, "Invalid hostname to sm_mon: %s", arg->mon_id.mon_name);
-      return (&res);
-    }
-    freeaddrinfo(ai);
-    if ((hp = find_host(arg->mon_id.mon_name, TRUE)))
-    {
-      lp = (MonList *)malloc(sizeof(MonList));
-      if (!lp)
-      {
-        syslog(LOG_ERR, "Out of memory");
-      }
-      else
-      {
-        strncpy(lp->notifyHost, arg->mon_id.my_id.my_name, SM_MAXSTRLEN);
-        lp->notifyProg = arg->mon_id.my_id.my_prog;
-        lp->notifyVers = arg->mon_id.my_id.my_vers;
-        lp->notifyProc = arg->mon_id.my_id.my_proc;
-        memcpy(lp->notifyData, arg->priv, sizeof(lp->notifyData));
+	if (sm_check_hostname(req, arg->mon_id.mon_name) == 0)
+		return (&res);
 
-        lp->next = hp->monList;
-        hp->monList = lp;
-        sync_file();
+	DEBUG(1, "monitor request for host %s", arg->mon_id.mon_name);
+	DEBUG(1, "recall host: %s prog: %d ver: %d proc: %d",
+	      arg->mon_id.my_id.my_name, arg->mon_id.my_id.my_prog,
+	      arg->mon_id.my_id.my_vers, arg->mon_id.my_id.my_proc);
+	res.state = ntohl(status_info->fh_state);
 
-        res.res_stat = stat_succ;      /* Report success                       */
-      }
-    }
-  }
-  return (&res);
+	/* Find existing host entry, or create one if not found            */
+	/* If find_host() fails, it will have logged the error already.    */
+	if (getaddrinfo(arg->mon_id.mon_name, NULL, NULL, &ai) != 0) {
+		log(LOG_ERR, "Invalid hostname to sm_mon: %s", arg->mon_id.mon_name);
+		return (&res);
+	}
+	freeaddrinfo(ai);
+
+	namelen = strlen(arg->mon_id.my_id.my_name);
+	np = malloc(sizeof(Notify) + namelen);
+	if (!np) {
+		log(LOG_ERR, "Out of memory");
+		return (&res);
+	}
+	mhp = find_host(arg->mon_id.mon_name, TRUE);
+	if (!mhp) {
+		free(np);
+		return (&res);
+	}
+	strncpy(np->n_host, arg->mon_id.my_id.my_name, namelen+1);
+	np->n_prog = arg->mon_id.my_id.my_prog;
+	np->n_vers = arg->mon_id.my_id.my_vers;
+	np->n_proc = arg->mon_id.my_id.my_proc;
+	memcpy(np->n_data, arg->priv, sizeof(np->n_data));
+
+	np->n_next = mhp->mh_notify_list;
+	mhp->mh_notify_list = np;
+
+	res.res_stat = stat_succ;	/* Report success                       */
+	return (&res);
 }
 
 /* do_unmon ---------------------------------------------------------------- */
@@ -230,34 +215,42 @@ struct sm_stat_res *sm_mon_1_svc(mon *arg, struct svc_req *req)
 		request, all are removed.
 */
 
-static int do_unmon(HostInfo *hp, my_id *idp)
+static int 
+do_unmon(MonitoredHost * mhp, my_id * idp)
 {
-  MonList *lp, *next;
-  MonList *last = NULL;
-  int result = FALSE;
+	Notify *np, *next, *last = NULL;
+	int result = FALSE;
 
-  lp = hp->monList;
-  while (lp)
-  {
-    if (!strncasecmp(idp->my_name, lp->notifyHost, SM_MAXSTRLEN)
-      && (idp->my_prog == lp->notifyProg) && (idp->my_proc == lp->notifyProc)
-      && (idp->my_vers == lp->notifyVers))
-    {
-      /* found one.  Unhook from chain and free.		*/
-      next = lp->next;
-      if (last) last->next = next;
-      else hp->monList = next;
-      free(lp);
-      lp = next;
-      result = TRUE;
-    }
-    else
-    {
-      last = lp;
-      lp = lp->next;
-    }
-  }
-  return (result);
+	np = mhp->mh_notify_list;
+	if (!np)
+		return (result);
+
+	while (np) {
+		if (!strncasecmp(idp->my_name, np->n_host, SM_MAXSTRLEN)
+		    && (idp->my_prog == np->n_prog) && (idp->my_proc == np->n_proc)
+		    && (idp->my_vers == np->n_vers)) {
+			/* found one.  Unhook from chain and free.		 */
+			next = np->n_next;
+			if (last)
+				last->n_next = next;
+			else
+				mhp->mh_notify_list = next;
+			free(np);
+			np = next;
+			result = TRUE;
+		} else {
+			last = np;
+			np = np->n_next;
+		}
+	}
+	if (result && !mhp->mh_notify_list) {
+		HostInfo *hip = HOSTINFO(mhp->mh_hostinfo_offset);
+		hip->hi_monitored = 0;
+		sync_file();
+		tdelete(mhp, &mhroot, mhcmp);
+		free(mhp);
+	}
+	return (result);
 }
 
 /* sm_unmon_1 -------------------------------------------------------------- */
@@ -268,34 +261,28 @@ static int do_unmon(HostInfo *hp, my_id *idp)
 		earlier call to sm_mon_1
 */
 
-struct sm_stat *sm_unmon_1_svc(mon_id *arg, struct svc_req *req __unused)
+struct sm_stat *
+sm_unmon_1_svc(mon_id * arg, struct svc_req * req __unused)
 {
-  static sm_stat res;
-  HostInfo *hp;
+	static sm_stat res;
+	MonitoredHost *mhp;
 
-  if (debug)
-  {
-    syslog(LOG_DEBUG, "un-monitor request for host %s", arg->mon_name);
-    syslog(LOG_DEBUG, "recall host: %s prog: %d ver: %d proc: %d",
-      arg->mon_name,
-      arg->my_id.my_prog, arg->my_id.my_vers, arg->my_id.my_proc);
-  }
+	DEBUG(1, "un-monitor request for host %s", arg->mon_name);
+	DEBUG(1, "recall host: %s prog: %d ver: %d proc: %d", arg->my_id.my_name,
+	      arg->my_id.my_prog, arg->my_id.my_vers, arg->my_id.my_proc);
 
-  if ((hp = find_host(arg->mon_name, FALSE)))
-  {
-    if (do_unmon(hp, &arg->my_id)) sync_file();
-    else
-    {
-      syslog(LOG_ERR, "unmon request from %s, no matching monitor",
-	arg->my_id.my_name);
-    }
-  }
-  else syslog(LOG_ERR, "unmon request from %s for unknown host %s",
-    arg->my_id.my_name, arg->mon_name);
+	if ((mhp = find_host(arg->mon_name, FALSE))) {
+		if (!do_unmon(mhp, &arg->my_id))
+			log(LOG_ERR, "unmon request from %s, no matching monitor",
+			    arg->my_id.my_name);
+	} else {
+		log(LOG_ERR, "unmon request from %s for unknown host %s",
+		    arg->my_id.my_name, arg->mon_name);
+	}
 
-  res.state = status_info->ourState;
+	res.state = ntohl(status_info->fh_state);
 
-  return (&res);
+	return (&res);
 }
 
 /* sm_unmon_all_1 ---------------------------------------------------------- */
@@ -304,29 +291,43 @@ struct sm_stat *sm_unmon_1_svc(mon_id *arg, struct svc_req *req __unused)
    Returns:	Local machine's status number
    Notes:	Releases all monitor requests (if any) from the specified
 		host and program number.
+
+		Ideally we would do a twalk()/tdelete(), but paranoia
+		about the (current and future) safety of performing
+		tdelete() during a twalk() has driven this alternative
+		implementation.
 */
 
-struct sm_stat *sm_unmon_all_1_svc(my_id *arg, struct svc_req *req __unused)
+struct sm_stat *
+sm_unmon_all_1_svc(my_id * arg, struct svc_req * req __unused)
 {
-  static sm_stat res;
-  HostInfo *hp;
-  int i;
+	static sm_stat res;
+	HostInfo *hip;
+	MonitoredHost mhtmp, **mhpp;
+	off_t off;
+	uint i;
 
-  if (debug)
-  {
-    syslog(LOG_DEBUG, "unmon_all for host: %s prog: %d ver: %d proc: %d",
-      arg->my_name, arg->my_prog, arg->my_vers, arg->my_proc);
-  }
+	DEBUG(1, "unmon_all for host: %s prog: %d ver: %d proc: %d",
+	      arg->my_name, arg->my_prog, arg->my_vers, arg->my_proc);
 
-  for (i = status_info->noOfHosts, hp = status_info->hosts; i; i--, hp++)
-  {
-    do_unmon(hp, arg);
-  }
-  sync_file();
+	bzero(&mhtmp, sizeof(mhtmp));
 
-  res.state = status_info->ourState;
+	off = sizeof(FileHeader);
+	for (i = 0; i < ntohl(status_info->fh_reccnt); i++) {
+		hip = HOSTINFO(off);
+		off += ntohs(hip->hi_len);
+		if (hip->hi_monitored) {
+			/* find the MonitoredHost and try to do the unmon */
+			mhtmp.mh_name = hip->hi_name;
+			mhpp = tfind(&mhtmp, &mhroot, mhcmp);
+			if (mhpp)
+				do_unmon(*mhpp, arg);
+		}
+	}
 
-  return (&res);
+	res.state = ntohl(status_info->fh_state);
+
+	return (&res);
 }
 
 /* sm_simu_crash_1 --------------------------------------------------------- */
@@ -343,41 +344,61 @@ struct sm_stat *sm_unmon_all_1_svc(my_id *arg, struct svc_req *req __unused)
 		and inform all hosts on the monitor list.
 */
 
-void *sm_simu_crash_1_svc(void *v __unused, struct svc_req *req __unused)
+void *
+sm_simu_crash_1_svc(void *v __unused, struct svc_req * req)
 {
-  static char dummy;
-  int work_to_do = FALSE;
-  HostInfo *hp;
-  int i;
+	static char dummy;
+	int need_notify = FALSE;
+	HostInfo *hip;
+	off_t off;
+	uint i;
 
-  if (debug) syslog(LOG_DEBUG, "simu_crash called!!");
+	if (!config.simu_crash_allowed) {
+		struct sockaddr_in *claddr;
+		struct hostent *he;
+		char *hname = NULL;
 
-  /* Simulate crash by setting notify-required flag on all monitored	*/
-  /* hosts, and incrementing our status number.  fork a process and	*/
-  /* call notify_hosts() to do the notifications.			*/
+		if ((claddr = svc_getcaller(req->rq_xprt))) {
+			he = gethostbyaddr((char *) &claddr->sin_addr, sizeof(claddr->sin_addr), AF_INET);
+			if (he)
+				hname = he->h_name;
+			else
+				hname = inet_ntoa(claddr->sin_addr);
+		}
+		log(LOG_WARNING, "simu_crash call from %s denied!", hname);
+		return (&dummy);
+	}
 
-  for (i = status_info->noOfHosts, hp = status_info->hosts; i ; i--, hp++)
-  {
-    if (hp->monList)
-    {
-      work_to_do = TRUE;
-      hp->notifyReqd = TRUE;
-    }
-  }
-  status_info->ourState += 2;	/* always even numbers if not crashed	*/
+	log(LOG_WARNING, "simu_crash called!!");
 
-  if (work_to_do) {
-    pid_t pid = fork();
-    if (pid == -1)
-    {
-      syslog(LOG_ERR, "Unable to fork notify process - %s", strerror(errno));
-      return (NULL);		/* no answer, the client will retry */
-    }
-    if (pid) return (&dummy);	/* Parent returns			*/
-    notify_hosts();
-  }
+	/* Simulate crash by setting notify-required flag on all monitored	 */
+	/* hosts, and incrementing our status number.  fork a process and	 */
+	/* call notify_hosts() to do the notifications.			 */
 
-  return (&dummy);
+	off = sizeof(FileHeader);
+	for (i = 0; i < ntohl(status_info->fh_reccnt); i++) {
+		hip = HOSTINFO(off);
+		if (hip->hi_monitored)
+			hip->hi_notify = htons(1);
+		if (hip->hi_notify)
+			need_notify = TRUE;
+		off += ntohs(hip->hi_len);
+	}
+	/* always odd numbers if not crashed	 */
+	status_info->fh_state = htonl(ntohl(status_info->fh_state) + 2);
+
+	if (need_notify && !get_statd_notify_pid()) {
+		/*
+	         * It looks like there are notifications that need to be made, but that the
+	         * statd.notify service isn't running.  Let's try to start it up.
+	         */
+		log(LOG_INFO, "need to start statd notify");
+		if (statd_notify_is_loaded())
+			statd_notify_start();
+		else
+			statd_notify_load();
+	}
+	return (&dummy);
 }
 
 /* sm_notify_1 ------------------------------------------------------------- */
@@ -396,84 +417,82 @@ void *sm_simu_crash_1_svc(void *v __unused, struct svc_req *req __unused)
 		that modify the list.
 */
 
-void *sm_notify_1_svc(stat_chge *arg, struct svc_req *req __unused)
+void *
+sm_notify_1_svc(stat_chge * arg, struct svc_req * req)
 {
-  struct timeval timeout = { 20, 0 };	/* 20 secs timeout		*/
-  CLIENT *cli;
-  static char dummy; 
-  sm_status tx_arg;		/* arg sent to callback procedure	*/
-  MonList *lp;
-  HostInfo *hp;
-  pid_t pid;
+	struct timeval timeout = {20, 0};	/* 20 secs timeout		 */
+	CLIENT *cli;
+	static char dummy;
+	char proto[] = "udp", empty[] = "";
+	sm_status tx_arg;	/* arg sent to callback procedure	 */
+	MonitoredHost *mhp;
+	Notify *np;
+	HostInfo *hip;
+	pid_t pid;
 
-  if (debug) syslog(LOG_DEBUG, "notify from host %s, new state %d",
-    arg->mon_name, arg->state);
+	DEBUG(1, "notify from host %s, new state %d", arg->mon_name, arg->state);
 
-  hp = find_host(arg->mon_name, FALSE);
-  if (!hp)
-  {
-    /*
-     * Hmmm... We've never heard of this host.
-     * It's possible the host just didn't give us the right hostname.
-     * Let's try the IP address the request came from and any hostnames it has.
-     */
-    struct sockaddr_in *claddr;
-    if ((claddr = svc_getcaller(req->rq_xprt))) {
-      struct hostent *he;
-      he = gethostbyaddr((char*)&claddr->sin_addr, sizeof(claddr->sin_addr), AF_INET);
-      if (he) {
-        char **np = he->h_aliases;
-        hp = find_host(he->h_name, FALSE);
-        while (!hp && *np) {
-          hp = find_host(*np, FALSE);
-          if (!hp)
-            np++;
-        }
-      }
-      if (hp)
-        syslog(LOG_DEBUG, "Notification from host %s found as %s",
-          arg->mon_name, hp->hostname);
-    }
-    if (!hp) {
-      /* Never heard of this host - why is it notifying us?		*/
-      syslog(LOG_DEBUG, "Unsolicited notification from host %s", arg->mon_name);
-      return (&dummy);
-    }
-  }
-  lp = hp->monList;
-  if (!lp) return (&dummy);	/* We know this host, but have no	*/
-				/* outstanding requests.		*/
-  pid = fork();
-  if (pid == -1)
-  {
-    syslog(LOG_ERR, "Unable to fork notify process - %s", strerror(errno));
-    return (NULL);		/* no answer, the client will retry */
-  }
-  if (pid) return (&dummy);	/* Parent returns			*/
+	mhp = find_host(arg->mon_name, FALSE);
+	if (!mhp) {
+		/*
+	         * Hmmm... We've never heard of this host.
+	         * It's possible the host just didn't give us the right hostname.
+	         * Let's try the IP address the request came from and any hostnames it has.
+	         */
+		struct sockaddr_in *claddr;
+		if ((claddr = svc_getcaller(req->rq_xprt))) {
+			struct hostent *he;
+			he = gethostbyaddr((char *) &claddr->sin_addr, sizeof(claddr->sin_addr), AF_INET);
+			if (he) {
+				char **npp = he->h_aliases;
+				/* make sure host name isn't > SM_MAXSTRLEN */
+				if (strlen(he->h_name) <= SM_MAXSTRLEN)
+					mhp = find_host(he->h_name, FALSE);
+				while (!mhp && *npp) {
+					if (strlen(*npp) <= SM_MAXSTRLEN)
+						mhp = find_host(*npp, FALSE);
+					if (!mhp)
+						npp++;
+				}
+			}
+			if (mhp)
+				DEBUG(1, "Notification from host %s found as %s",
+				      arg->mon_name, HOSTINFO(mhp->mh_hostinfo_offset)->hi_name);
+		}
+		if (!mhp) {
+			/* Never heard of this host - why is it notifying us?		 */
+			DEBUG(1, "Unsolicited notification from host %s", arg->mon_name);
+			return (&dummy);
+		}
+	}
+	hip = HOSTINFO(mhp->mh_hostinfo_offset);
+	np = mhp->mh_notify_list;
+	if (!np) /* We know this host, but have no outstanding requests. */
+		return (&dummy);
+	pid = fork();
+	if (pid == -1) {
+		log(LOG_ERR, "Unable to fork notify process - %s", strerror(errno));
+		return (NULL);	/* no answer, the client will retry */
+	}
+	if (pid)
+		return (&dummy); /* Parent returns */
 
-  while (lp)
-  {
-    tx_arg.mon_name = hp->hostname;
-    tx_arg.state = arg->state;
-    memcpy(tx_arg.priv, lp->notifyData, sizeof(tx_arg.priv));
-    cli = clnt_create(lp->notifyHost, lp->notifyProg, lp->notifyVers, "udp");
-    if (!cli)
-    {
-      syslog(LOG_ERR, "Failed to contact host %s%s", lp->notifyHost,
-        clnt_spcreateerror(""));
-    }
-    else
-    {
-      if (clnt_call(cli, lp->notifyProc, (xdrproc_t)xdr_sm_status, &tx_arg, (xdrproc_t)xdr_void,
-	      &dummy, timeout) != RPC_SUCCESS)
-      {
-        syslog(LOG_ERR, "Failed to call rpc.statd client at host %s",
-	  lp->notifyHost);
-      }
-      clnt_destroy(cli);
-    }
-    lp = lp->next;
-  }
+	while (np) {
+		tx_arg.mon_name = hip->hi_name;
+		tx_arg.state = arg->state;
+		memcpy(tx_arg.priv, np->n_data, sizeof(tx_arg.priv));
+		cli = clnt_create(np->n_host, np->n_prog, np->n_vers, proto);
+		if (!cli) {
+			log(LOG_ERR, "Failed to contact host %s%s", np->n_host, clnt_spcreateerror(empty));
+		} else {
+			if (clnt_call(cli, np->n_proc, (xdrproc_t) xdr_sm_status, &tx_arg, (xdrproc_t) xdr_void,
+				      &dummy, timeout) != RPC_SUCCESS) {
+				log(LOG_ERR, "Failed to call rpc.statd client at host %s", np->n_host);
+			}
+			clnt_destroy(cli);
+		}
+		np = np->n_next;
+	}
 
-  exit (0);	/* Child quits	*/
+	exit(0);		/* Child quits	 */
 }

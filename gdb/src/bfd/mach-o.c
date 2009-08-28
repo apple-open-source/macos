@@ -475,7 +475,14 @@ bfd_mach_o_convert_architecture (bfd_mach_o_cpu_type mtype,
     case BFD_MACH_O_CPU_TYPE_MIPS: *type = bfd_arch_mips; break;
     case BFD_MACH_O_CPU_TYPE_MC98000: *type = bfd_arch_m98k; break;
     case BFD_MACH_O_CPU_TYPE_HPPA: *type = bfd_arch_hppa; break;
-    case BFD_MACH_O_CPU_TYPE_ARM: *type = bfd_arch_arm; break;
+    case BFD_MACH_O_CPU_TYPE_ARM: 
+      *type = bfd_arch_arm;
+      if (msubtype == BFD_MACH_O_CPU_SUBTYPE_ARM_4T)
+	*subtype = bfd_mach_arm_4T;
+      else if (msubtype == BFD_MACH_O_CPU_SUBTYPE_ARM_6)
+	*subtype = bfd_mach_arm_6;
+
+      break;
     case BFD_MACH_O_CPU_TYPE_MC88000: *type = bfd_arch_m88k; break;
     case BFD_MACH_O_CPU_TYPE_SPARC:
       *type = bfd_arch_sparc; 
@@ -903,6 +910,10 @@ bfd_mach_o_write_contents (bfd *abfd)
 	case BFD_MACH_O_LC_PREBOUND_DYLIB:
 	case BFD_MACH_O_LC_ROUTINES:
 	case BFD_MACH_O_LC_SUB_FRAMEWORK:
+	case BFD_MACH_O_LC_LAZY_LOAD_DYLIB:
+	case BFD_MACH_O_LC_ENCRYPTION_INFO:
+	case BFD_MACH_O_LC_DYLD_INFO:
+	case BFD_MACH_O_LC_DYLD_INFO_ONLY:
 	  break;
 	default:
 	  fprintf (stderr,
@@ -1030,12 +1041,25 @@ bfd_mach_o_make_bfd_section (bfd *abfd, bfd_mach_o_section *section)
   bfdsec->alignment_power = section->align;
   bfdsec->segment_mark = 0;
 
-  if (section->flags & (BFD_MACH_O_S_ZEROFILL | BFD_MACH_O_S_GB_ZEROFILL))
-    bfdsec->flags = SEC_ALLOC;
-  else if (section->flags & BFD_MACH_O_S_ATTR_DEBUG || strcmp (section->segname, "__DWARF") == 0)
-    bfdsec->flags = SEC_HAS_CONTENTS;
+  if ((section->flags & BFD_MACH_O_SECTION_TYPE_MASK) == BFD_MACH_O_S_ZEROFILL 
+      || (section->flags & BFD_MACH_O_SECTION_TYPE_MASK) == BFD_MACH_O_S_GB_ZEROFILL)
+    {
+      bfdsec->flags = SEC_ALLOC;
+    }
+  else if ((section->flags & BFD_MACH_O_SECTION_TYPE_MASK) == BFD_MACH_O_S_ATTR_DEBUG 
+           || strcmp (section->segname, "__DWARF") == 0)
+    {
+      bfdsec->flags = SEC_HAS_CONTENTS;
+    }
   else
-    bfdsec->flags = SEC_HAS_CONTENTS | SEC_LOAD | SEC_ALLOC | SEC_CODE;
+    {
+      bfdsec->flags = SEC_HAS_CONTENTS | SEC_LOAD | SEC_ALLOC | SEC_CODE;
+    }
+
+  /* The __TEXT.__text segment is always readonly. */
+  if (strcmp (section->segname, "__TEXT") == 0
+      && (section->sectname[0] == '\0' || strcmp (section->sectname, "__text") == 0))
+    bfdsec->flags |= SEC_READONLY;
 
   return bfdsec;
 }
@@ -1105,6 +1129,35 @@ bfd_mach_o_scan_read_section_64 (bfd *abfd,
 
   return 0;
 }
+
+#define ARM_THREAD_STATE_STR	"ARM_THREAD_STATE"
+#define ARM_VFP_STATE_STR	"ARM_VFP_STATE"
+#define ARM_EXCEPTION_STATE_STR	"ARM_EXCEPTION_STATE"
+
+static const char *
+bfd_mach_o_arm_flavour_string (unsigned int flavour)
+{
+  switch ((int) flavour)
+    {
+    case BFD_MACH_O_ARM_THREAD_STATE: return ARM_THREAD_STATE_STR;
+    case BFD_MACH_O_ARM_VFP_STATE: return ARM_VFP_STATE_STR;
+    case BFD_MACH_O_ARM_EXCEPTION_STATE: return ARM_EXCEPTION_STATE_STR;
+    default: return "UNKNOWN";
+    }
+}
+
+static unsigned int
+bfd_mach_o_arm_flavour_from_string(const char* s)
+{
+  if (strcmp(s, ARM_THREAD_STATE_STR) == 0)
+    return BFD_MACH_O_ARM_THREAD_STATE;
+  else if (strcmp(s, ARM_VFP_STATE_STR) == 0)
+    return BFD_MACH_O_ARM_VFP_STATE;
+  else if (strcmp(s, ARM_EXCEPTION_STATE_STR) == 0)
+    return BFD_MACH_O_ARM_EXCEPTION_STATE;
+  return 0;
+}
+
 
 static int
 bfd_mach_o_scan_read_section (bfd *abfd,
@@ -1323,6 +1376,11 @@ bfd_mach_o_scan_read_dysymtab_symbol (bfd *abfd,
       return -1;
     }
   symindex = bfd_h_get_32 (abfd, buf);
+  /* Strip off the INDIRECT_SYMBOL_LOCAL and INDIRECT_SYMBOL_ABS flags, if
+     they were present.  */
+  symindex = symindex & 
+               ((unsigned long) ~(INDIRECT_SYMBOL_LOCAL | INDIRECT_SYMBOL_ABS));
+
 
   return bfd_mach_o_scan_read_symtab_symbol (abfd, sym, s, symindex);
 }
@@ -1431,6 +1489,9 @@ bfd_mach_o_flavour_from_string(unsigned long cputype, const char* s)
 	case BFD_MACH_O_CPU_TYPE_I386:
 	case BFD_MACH_O_CPU_TYPE_X86_64:
 	  flavour = bfd_mach_o_i386_flavour_from_string (s);
+	  break;
+	case BFD_MACH_O_CPU_TYPE_ARM:
+	  flavour = bfd_mach_o_arm_flavour_from_string (s);
 	  break;
 	default:
 	  break;
@@ -1639,6 +1700,9 @@ bfd_mach_o_scan_read_thread (bfd *abfd, bfd_mach_o_load_command *command)
 	case BFD_MACH_O_CPU_TYPE_I386:
 	case BFD_MACH_O_CPU_TYPE_X86_64:
 	  flavourstr = bfd_mach_o_i386_flavour_string (cmd->flavours[i].flavour);
+	  break;
+	case BFD_MACH_O_CPU_TYPE_ARM:
+	  flavourstr = bfd_mach_o_arm_flavour_string (cmd->flavours[i].flavour);
 	  break;
 	default:
 	  flavourstr = "UNKNOWN_ARCHITECTURE";
@@ -2083,6 +2147,20 @@ bfd_mach_o_scan_read_command (bfd *abfd, bfd_mach_o_load_command *command)
     case BFD_MACH_O_LC_RPATH:
     case BFD_MACH_O_LC_CODE_SIGNATURE:
     case BFD_MACH_O_LC_SEGMENT_SPLIT_INFO:
+    case BFD_MACH_O_LC_LAZY_LOAD_DYLIB:
+    case BFD_MACH_O_LC_DYLD_INFO:
+    case BFD_MACH_O_LC_DYLD_INFO_ONLY:
+      break;
+    case BFD_MACH_O_LC_ENCRYPTION_INFO:
+      {
+	char cryptid_buf[4];
+
+	bfd_seek (abfd, command->offset + 16, SEEK_SET);
+	if (bfd_bread ((PTR) cryptid_buf, 4, abfd) != 4)
+	  return -1;
+	
+	abfd->tdata.mach_o_data->encrypted = (bfd_h_get_32 (abfd, cryptid_buf));
+      }
       break;
     default:
       fprintf (stderr, "unable to read unknown load command 0x%lx\n",
@@ -2141,6 +2219,14 @@ bfd_mach_o_scan_start_address (bfd *abfd)
   bfd_mach_o_thread_command *cmd = NULL;
   unsigned long i;
 
+  /* dyld for instance DOES have LC_UNIXTHREAD commands - the kernel
+     needs this to load dyld and let it go - which in turn loads the
+     binary...  But this isn't what we mean by the start address.  
+     You can't have a start address if you aren't an executable...  */
+
+  if (mdata->header.filetype != BFD_MACH_O_MH_EXECUTE)
+    return 0;
+
   for (i = 0; i < mdata->header.ncmds; i++)
     {
       if ((mdata->commands[i].type == BFD_MACH_O_LC_THREAD) ||
@@ -2195,6 +2281,19 @@ bfd_mach_o_scan_start_address (bfd *abfd)
 
           abfd->start_address = bfd_h_get_64 (abfd, buf);
         }
+      else if ((mdata->header.cputype == BFD_MACH_O_CPU_TYPE_ARM)
+               && (cmd->flavours[i].flavour == BFD_MACH_O_ARM_THREAD_STATE))
+        {
+          unsigned char buf[8];
+	  
+          bfd_seek (abfd, cmd->flavours[i].offset + 60, SEEK_SET);
+	  
+          if (bfd_bread (buf, 4, abfd) != 4)
+            return -1;
+	  
+          abfd->start_address = bfd_h_get_32 (abfd, buf);
+        }
+      
       /* APPLE LOCAL begin x86_64 */
       else if ((mdata->header.cputype == BFD_MACH_O_CPU_TYPE_X86_64)
                && (cmd->flavours[i].flavour == BFD_MACH_O_x86_THREAD_STATE64))
@@ -2230,6 +2329,7 @@ bfd_mach_o_scan (bfd *abfd,
 
   mdata->header = *header;
   mdata->symbols = NULL;
+  mdata->scanning_load_cmds = 1;
 
   abfd->flags = (abfd->xvec->object_flags
 		 | (abfd->flags & (BFD_IN_MEMORY | BFD_IO_FUNCS)));
@@ -2250,9 +2350,12 @@ bfd_mach_o_scan (bfd *abfd,
 
   if (header->ncmds != 0)
     {
+      /* Use zalloc so we set all the "type" fields to 0 - we use that
+        to indicate that we have not read the command data for that
+        command in yet.  */
       mdata->commands =
 	((bfd_mach_o_load_command *)
-	 bfd_alloc (abfd, header->ncmds * sizeof (bfd_mach_o_load_command)));
+	 bfd_zalloc (abfd, header->ncmds * sizeof (bfd_mach_o_load_command)));
       if (mdata->commands == NULL)
 	return -1;
 
@@ -2284,6 +2387,7 @@ bfd_mach_o_scan (bfd *abfd,
     }
 
   bfd_mach_o_flatten_sections (abfd);
+  mdata->scanning_load_cmds = 0;
 
   return 0;
 }
@@ -2313,6 +2417,7 @@ bfd_mach_o_mkobject (bfd *abfd)
   mdata->nsects = 0;
   mdata->sections = NULL;
   mdata->ibfd = NULL;
+  mdata->encrypted = 0;
 
   return TRUE;
 }
@@ -2412,6 +2517,23 @@ bfd_mach_o_core_p (bfd *abfd)
   if (preserve.marker != NULL)
     bfd_preserve_restore (abfd, &preserve);
   return NULL;
+}
+
+/* APPLE LOCAL: Return 1 if the bfd is a stub library -- that is, it has had
+   its text stripped away and will cause gdb all sorts of problems if it tries
+   to read it.  */
+
+int
+bfd_mach_o_stub_library (bfd *abfd)
+{
+  bfd_mach_o_header header;
+  if (bfd_mach_o_read_header (abfd, &header) != 0)
+    return 0;
+
+  if (header.filetype == BFD_MACH_O_MH_DYLIB_STUB)
+    return 1;
+
+  return 0;
 }
 
 typedef struct mach_o_fat_archentry
@@ -2648,6 +2770,8 @@ bfd_mach_o_stack_addr (enum bfd_mach_o_cpu_type type)
       return 0xc0000000;
     case BFD_MACH_O_CPU_TYPE_I386:
       return 0xc0000000;
+    case BFD_MACH_O_CPU_TYPE_ARM:
+      return 0x40000000;
     case BFD_MACH_O_CPU_TYPE_SPARC:
       return 0xf0000000;
     case BFD_MACH_O_CPU_TYPE_I860:
@@ -2806,10 +2930,12 @@ bfd_mach_o_core_file_failing_signal (bfd *abfd ATTRIBUTE_UNUSED)
 }
 
 bfd_boolean
-bfd_mach_o_core_file_matches_executable_p (bfd *core_bfd ATTRIBUTE_UNUSED,
-					   bfd *exec_bfd ATTRIBUTE_UNUSED)
+bfd_mach_o_core_file_matches_executable_p (bfd *core_bfd, bfd *exec_bfd)
 {
-  return TRUE;
+  if (core_bfd->tdata.mach_o_data->header.cputype == exec_bfd->tdata.mach_o_data->header.cputype)
+    return TRUE;
+  else
+    return FALSE;
 }
 
 bfd_boolean        
@@ -2833,6 +2959,19 @@ bfd_mach_o_get_uuid (bfd *abfd, unsigned char *buf, unsigned long buf_len)
 	}
     }
   return FALSE;
+}
+
+/* Return TRUE if ABFD is an encrypted binary.  In this case, gdb
+   won't want to look at the contents of the binary on disk, but 
+   rather read it from memory.  */
+
+bfd_boolean
+bfd_mach_o_encrypted_binary (bfd *abfd)
+{
+  if (abfd->tdata.mach_o_data->encrypted == 0)
+    return FALSE;
+  else
+    return TRUE;
 }
 
 /* Add free_cached_info functions so we can actually close the

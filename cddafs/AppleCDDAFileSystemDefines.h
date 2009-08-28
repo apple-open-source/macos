@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -114,9 +114,9 @@ enum
 };
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	FinderInfo flags and structures
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 enum
 {
@@ -207,12 +207,12 @@ enum
 };
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	SubQTOCInfo - 	Structure which describes the SubQTOCInfo defined in
-//					¥ MMC-2 NCITS T10/1228D SCSI MultiMedia Commands Version 2
+//					MMC-2 NCITS T10/1228D SCSI MultiMedia Commands Version 2
 //					  rev 9.F April 1, 1999, p. 215				
-//					¥ ATAPI SFF-8020 rev 1.2 Feb 24, 1994, p. 149
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//					ATAPI SFF-8020 rev 1.2 Feb 24, 1994, p. 149
+//-----------------------------------------------------------------------------
 
 
 struct SubQTOCInfo
@@ -264,12 +264,12 @@ typedef struct SubQTOCInfo SubQTOCInfo;
 typedef struct SubQTOCInfo * SubQTOCInfoPtr;
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	QTOCDataFormat10 - 	Structure which describes the QTOCDataFormat10 defined in
-//					¥ MMC-2 NCITS T10/1228D SCSI MultiMedia Commands Version 2
+//					MMC-2 NCITS T10/1228D SCSI MultiMedia Commands Version 2
 //					  rev 9.F April 1, 1999, p. 215				
-//					¥ ATAPI SFF-8020 rev 1.2 Feb 24, 1994, p. 149
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//					ATAPI SFF-8020 rev 1.2 Feb 24, 1994, p. 149
+//-----------------------------------------------------------------------------
 
 
 struct QTOCDataFormat10
@@ -283,48 +283,40 @@ typedef struct QTOCDataFormat10 QTOCDataFormat10;
 typedef struct QTOCDataFormat10 * QTOCDataFormat10Ptr;
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	AppleCDDAArguments - 	These are the arguments passed to the filesystem
 //							at mount time
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 struct AppleCDDAArguments
 {
 #ifndef KERNEL
-	char *		device;			// Name of special device mounted from (/dev/disk#)
+	char *			device;
 #endif
-    UInt8		numTracks;		// Number of audio tracks
-	UInt32		nameDataSize;	// Size of buffer
-	char *		nameData;		// Buffer for track names and album name
-	UInt32		xmlFileSize;	// Size of XML plist-style buffer/file
-	UInt8 *		xmlData;		// Pointer to XML data
-	UInt32		fileType;		// Type in FOUR_CHAR_CODE
-	UInt32		fileCreator;	// Creator in FOUR_CHAR_CODE
-};
+    UInt32			numTracks;		// Number of audio tracks
+	user_addr_t		nameData;		// Buffer for track names and album name
+	UInt32			nameDataSize;	// Size of buffer
+	user_addr_t		xmlData;		// Pointer to XML data
+	UInt32			xmlFileSize;	// Size of XML plist-style buffer/file
+	UInt32			fileType;		// Type in FOUR_CHAR_CODE
+	UInt32			fileCreator;	// Creator in FOUR_CHAR_CODE
+} __attribute__((packed));
 typedef struct AppleCDDAArguments AppleCDDAArguments;
+
+
+
+#define kMaxNameSize			257
+#define kMaxTrackCount			99
+#define kMaxNameDataSize		((kMaxNameSize * kMaxTrackCount) + PAGE_SIZE)
+
+#define kMaxXMLDataSize			PAGE_SIZE * 10	// 40K = Arbitrary size. Definitely shouldn't be bigger than this...
+
 
 #if KERNEL
 
-// LP64 version of AppleCDDAArguments.  Pointers and longs are variant sizes
-// in an LP64 environment.
-// WARNING - keep in sync with AppleCDDAArguments.
-struct UserAppleCDDAArguments
-{
-    UInt8		numTracks;		// Number of audio tracks
-	UInt32		nameDataSize;	// Size of buffer
-	user_addr_t	nameData;		// Buffer for track names and album name
-	UInt32		xmlFileSize;	// Size of XML plist-style buffer/file
-	user_addr_t	xmlData;		// Pointer to XML data
-	UInt32		fileType;		// Type in FOUR_CHAR_CODE
-	UInt32		fileCreator;	// Creator in FOUR_CHAR_CODE
-};
-typedef struct UserAppleCDDAArguments UserAppleCDDAArguments;
-typedef struct UserAppleCDDAArguments * UserAppleCDDAArgumentsPtr;
-
-
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	AppleCDDANodeInfo - 	Structure used to store node information
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 
 struct AppleCDDANodeInfo
@@ -341,9 +333,9 @@ typedef struct AppleCDDANodeInfo AppleCDDANodeInfo;
 typedef struct AppleCDDANodeInfo * AppleCDDANodeInfoPtr;
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	AppleCDDAMount - 	Private Mount data
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 
 struct AppleCDDAMount
@@ -370,10 +362,10 @@ typedef struct AppleCDDAMount AppleCDDAMount;
 typedef struct AppleCDDAMount * AppleCDDAMountPtr;
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	AppleCDDADirectoryNode - Structure which describes everything about
 //							 one of our directory nodes
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 
 struct AppleCDDADirectoryNode
@@ -385,10 +377,10 @@ typedef struct AppleCDDADirectoryNode AppleCDDADirectoryNode;
 typedef struct AppleCDDADirectoryNode * AppleCDDADirectoryNodePtr;
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	AppleCDDAFileNode - 	Structure which describes everything about one of
 //							our track nodes
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 
 struct AppleCDDAFileNode
@@ -400,9 +392,9 @@ typedef struct AppleCDDAFileNode AppleCDDAFileNode;
 typedef struct AppleCDDAFileNode * AppleCDDAFileNodePtr;
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	AppleCDDAXMLFileNode - 	Used to handle the ".TOC.plist" file
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 
 struct AppleCDDAXMLFileNode
@@ -414,10 +406,10 @@ typedef struct AppleCDDAXMLFileNode AppleCDDAXMLFileNode;
 typedef struct AppleCDDAXMLFileNode * AppleCDDAXMLFileNodePtr;
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	AppleCDDANode - 	Structure which describes everything about one of
 //						our nodes
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 
 struct AppleCDDANode
@@ -437,9 +429,9 @@ typedef struct AppleCDDANode AppleCDDANode;
 typedef struct AppleCDDANode * AppleCDDANodePtr;
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Conversion Macros
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 #define VFSTOCDDA(mp)				((AppleCDDAMountPtr)(vfs_fsprivate(mp)))
 #define	VTOCDDA(vp) 				((AppleCDDANodePtr)(vnode_fsnode(vp)))

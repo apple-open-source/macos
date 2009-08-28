@@ -33,6 +33,8 @@
 
 #include "kern_fns.h"
 
+#if defined(__i386__) || defined(__ppc__)
+
 new_handler __new_handler;
 
 new_handler
@@ -42,4 +44,5 @@ std::set_new_handler (new_handler handler)
   __new_handler = handler;
   return prev_handler;
 }
+#endif /* defined(__i386__) || defined(__ppc__) */
 

@@ -1,21 +1,199 @@
-2005-04-20  Release Manager
+2007-07-19  Release Manager
 
-	* GCC 4.0.0 released.
+	* GCC 4.2.1 released.
 
-2005-03-11  James A. Morrison  <phython@gcc.gnu.org>
+2007-05-13  Release Manager
 
-	Backport recent patches to mainline:
-	2005-03-06  James A. Morrison  <phython@gcc.gnu.org>
+	* GCC 4.2.0 released.
+
+2007-02-26  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* treelang.texi: Standardize title page, remove version number
+	from copyright page.
+
+2006-10-10  Brooks Moses  <bmoses@stanford.edu>
+
+	* Make-lang.in: Added "treelang.pdf" target support.
+
+2006-07-28  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* Make-lang.in: Use $(HEADER_H) instead of header.h in dependencies.
+
+2006-06-17  Karl Berry  <karl@gnu.org>
+
+	* treelang.texi (@dircategory): Use "Software development"
+	instead of "Programming", following the Free Software Directory.
+
+2006-06-06  Mike Stump  <mrs@apple.com>
+
+	* Make-lang.in: Rename to gcc_htmldir to build_htmldir to avoid
+	installing during build.
+
+2006-05-23  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* Make-lang.in: Rename htmldir to gcc_htmldir.
+
+2006-05-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR driver/26885
+	* Make-lang.in (gtreelang$(exeext)): Replace gcc.o with
+	$(GCC_OBJS).
+
+2006-05-14  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* Make-lang.in (treelang/treetree.o): Add dependency on
+	$(TARGET_H).
+
+2006-04-22  Matthias Klose  <doko@debian.org>
+
+	* Make-lang.in (treelang.check): Don't set and pass TRANSFORM.
+
+2006-03-29  Carlos O'Donell  <caros@codesourcery.com>
+
+	* Make-lang.in: Rename docdir to gcc_docdir.
+
+2006-02-20 Rafael ¡vila de EspÌndola <rafael.espindola@gmail.com>
+
+	* Make-lang.in (.phony): Remove TREELANG.
+	(TREELANG): Remove.
+
+2006-01-21  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* spec.c (lang_specific_driver): Update copyright notice date.
+
+2006-01-16  Rafael ¡vila de EspÌndola <rafael.espindola@gmail.com>
+
+	* spec.c (lang_specific_spec_functions): Remove.
+
+2005-12-28  Rafael ¡vila de EspÌndola  <rafael.espindola@gmail.com>
+
+	* Make-lang.in (treelang.distdir): Remove.
+
+2005-12-07  Rafael ¡vila de EspÌndola  <rafael.espindola@gmail.com>
+
+	* Make-lang.in (treelang.all.build, treelang.install-normal): Remove.
+
+2005-12-07  Rafael ¡vila de EspÌndola  <rafael.espindola@gmail.com>
+
+	* Make-lang.in: Remove all dependencies on s-gtype.
+
+2005-12-05  Richard Guenther  <rguenther@suse.de>
+
+	* treetree.c (tree_code_if_start, tree_code_create_variable,
+	tree_code_generate_return, tree_code_get_expression,
+	tree_code_add_parameter): Use fold_convert where appropriate.
+
+2005-11-07  James A. Morrison  <phython@gcc.gnu.org>
+
+	PR treelang/24066
+	* treetree.c (LANG_HOOKS_ATTRIBUTE_TABLE): Set to
+	treelang_attribute_table.
+	(handle_attribute): New function.
+	(treelang_attribute_table): New attribute table.
+
+2005-09-23  Rafael √Åvila de Esp√≠ndola  <rafael.espindola@gmail.com>
+
+	* parse.y : Changed pointer declaration from "type* var" to "type *var"
+	Removed trailing space.  Wrap long lines.
+
+2005-09-23  Rafael √Åvila de Esp√≠ndola  <rafael.espindola@gmail.com>
+
+	* parse.y :  Fixed two compile warnings in "error" and "warning"
+	invocations.  Removed trailing periods in messages.  Decapitalized the
+	first word of each.
+
+2005-08-07  James A. Morrison  <phython@gcc.gnu.org>
+
+	* tree-convert.c (convert): Use fold_build1 instead of
+	fold (build1.
+
+2005-08-06  James A. Morrison  <phython@gcc.gnu.org>
+
+	PR treelang/23072
+	* Make-lang.in: Remove old testing cruft.
+
+2005-06-25  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* all files: Update FSF address in copyright headers.
+
+2005-06-15  James A. Morrison  <phython@gcc.gnu.org>
+
+	* parse.y (function_invocation): Reverse parameter list.
+	* treetree.c (tree_code_get_expression): Don't reverse parameter list.
+
+2005-06-12  Rafael ?vila de Esp?ndola   <rafael.espindola@gmail.com>
+
+	* treetree.c (tree_code_get_expression): Call build_function_call_expr
+	to build function calls.
+
+2005-05-31  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* treelang/lex.l, treelang/parse.y: Don't include errors.h and
+	include toplev.h.
+	* treelang/Make-lang.in: Updates dependencies.
+
+2005-05-02  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR treelang/21345
+	* parse.y (parameters_opt): Add semicolon at the end.
+
+2005-04-29  Tom Tromey  <tromey@redhat.com>
+
+	* treetree.c (poplevel): Updated for change to build_block.
+
+2005-04-23  DJ Delorie  <dj@redhat.com>
+
+	* parse.y: Adjust warning() callers.
+
+2005-04-11  Richard Sandiford  <rsandifo@redhat.com>
+
+	* lang.opt: Refer to the GCC internals documentation instead of c.opt.
+
+2005-04-01  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR treelang/20604
+	* lang-spec.c: Simplify @treelang to what the other
+	languages do.
+
+2005-04-01  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* treelang/treelang.texi: Fix typos.
+	* treelang/treetree.c: Fix comment typos.
+
+2005-03-23  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* treetree.c (LANG_HOOKS_TRUTHVALUE_CONVERSION,
+	tree_lang_truthvalue_conversion): Remove.
+	* tree-convert.c: Don't call truthvalue_conversion.
+
+2005-03-22  James A. Morrison  <phython@gcc.gnu.org>
+
+	* treetree.c (tree_code_if_start): Use fold_buildN.
+	(tree_code_create_variable): Likewise.
+	(tree_code_generate_return): Likewise.
+	(tree_code_get_expression): Likewise.
+	(tree_code_add_parameter): Likewise.
+
+2005-03-22  James A. Morrison  <phython@gcc.gnu.org>
+
+	* treelang.h (struct parameter_part): Skip WHERE_TO_PUT_VAR_TREE
+	during GC.
+
+2005-03-15  Zack Weinberg  <zack@codesourcery.com>
+
+	* Make-lang.in (TEXI_TREELANG_FILES): Add gcc-vers.texi.
+
+2005-03-06  James A. Morrison  <phython@gcc.gnu.org>
 
 	PR other/20326
 	* Make-lang.in (gtreelang, treelang/spec.o): New targets.
 	* spec.c: New file.
 
-	2005-02-27  Kazu Hirata  <kazu@cs.umass.edu>
+2005-02-27  Kazu Hirata  <kazu@cs.umass.edu>
 
 	* treelang.texi: Fix a typo.
 
-	2005-02-26  James A. Morrison  <phython@gcc.gnu.org>
+2005-02-26  James A. Morrison  <phython@gcc.gnu.org>
 
 	* parse.y (function_invocation, variable-ref, make_plus_expression):
 	Pass location to tree_code_get_expression.
@@ -25,7 +203,7 @@
 	* treetree.h (tree_code_get_expression): Take the location of the
 	expression as an argument.
 
-	2005-02-26  James A. Morrison  <phython@gcc.gnu.org>
+2005-02-26  James A. Morrison  <phython@gcc.gnu.org>
 
 	* treelang.texi: Treelang does have warnings.
 	* treetree.c (tree_code_create_function_prototype): Don't set
@@ -37,18 +215,18 @@
 	(tree_code_get_expression): Set TREE_USED for variable references
 	and function calls.
 
-	2005-02-26  James A. Morrison  <phython@gcc.gnu.org>
+2005-02-26  James A. Morrison  <phython@gcc.gnu.org>
 
 	* parse.y: Do comparisons as the type of the first expression.
 	* treetree.c (tree_code_get_integer_value): Build integer constants
 	with the proper type.
 
-	2005-02-26  James A. Morrison  <phython@gcc.gnu.org>
+2005-02-26  James A. Morrison  <phython@gcc.gnu.org>
 
 	* Make-lang.in: Remove commented out code.
 	* lang-specs.h: Always pass -dumpbase to tree1.
 
-	2005-02-25  James A. Morrrison  <phython@gcc.gnu.org>
+2005-02-25  James A. Morrrison  <phython@gcc.gnu.org>
 
 	* treelang.texi: Remove extra contribution notice.
 	Split up some run-on sentences.  Document function parameters
@@ -56,7 +234,7 @@
 	Mention literals are only signed if they are preceded by a unary
 	plus or minus.  Clarify interoperability with C.
 
-	2005-02-25  James A. Morrison  <phython@gcc.gnu.org>
+2005-02-25  James A. Morrison  <phython@gcc.gnu.org>
 
 	* treelang.texi: Fix whitespacing.
 
@@ -68,7 +246,7 @@
 	rest_of_decl_compilation on static variables.
 	(pushdecl): Put DECL_EXPRs into the current BIND_EXPR for automatic
 	variables.
-	
+
 2005-02-24  James A. Morrison  <phython@gcc.gnu.org>
 
 	PR other/19897

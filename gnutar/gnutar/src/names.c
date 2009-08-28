@@ -1,7 +1,7 @@
 /* Various processing of names.
 
    Copyright (C) 1988, 1992, 1994, 1996, 1997, 1998, 1999, 2000, 2001,
-   2003, 2004 Free Software Foundation, Inc.
+   2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -15,7 +15,7 @@
 
    You should have received a copy of the GNU General Public License along
    with this program; if not, write to the Free Software Foundation, Inc.,
-   59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 #include <system.h>
 
@@ -66,7 +66,7 @@ uid_to_uname (uid_t uid, char **uname)
 
   if (uid != 0 && uid == cached_no_such_uid)
     {
-      *uname = strdup ("");
+      *uname = xstrdup ("");
       return;
     }
 
@@ -81,11 +81,11 @@ uid_to_uname (uid_t uid, char **uname)
       else
 	{
 	  cached_no_such_uid = uid;
-	  *uname = strdup ("");
+	  *uname = xstrdup ("");
 	  return;
 	}
     }
-  *uname = strdup (cached_uname);
+  *uname = xstrdup (cached_uname);
 }
 
 /* Given GID, find the corresponding GNAME.  */
@@ -96,7 +96,7 @@ gid_to_gname (gid_t gid, char **gname)
 
   if (gid != 0 && gid == cached_no_such_gid)
     {
-      *gname = strdup ("");
+      *gname = xstrdup ("");
       return;
     }
 
@@ -111,11 +111,11 @@ gid_to_gname (gid_t gid, char **gname)
       else
 	{
 	  cached_no_such_gid = gid;
-	  *gname = strdup ("");
+	  *gname = xstrdup ("");
 	  return;
 	}
     }
-  *gname = strdup (cached_gname);
+  *gname = xstrdup (cached_gname);
 }
 
 /* Given UNAME, set the corresponding UID and return 1, or else, return 0.  */
@@ -183,48 +183,89 @@ gname_to_gid (char const *gname, gid_t *gidp)
 
 static struct name *namelist;	/* first name in list, if any */
 static struct name **nametail = &namelist;	/* end of name list */
-static const char **name_array;	/* store an array of names */
-static int allocated_names;	/* how big is the array? */
-static int names;		/* how many entries does it have? */
-static int name_index;		/* how many of the entries have we scanned? */
 
-/* Initialize structures.  */
-void
-init_names (void)
+/* File name arguments are processed in two stages: first a 
+   name_array (see below) is filled, then the names from it
+   are moved into the namelist.
+
+   This awkward process is needed only to implement --same-order option,
+   which is meant to help process large archives on machines with
+   limited memory.  With this option on, namelist contains at most one
+   entry, which diminishes the memory consumption.
+   
+   However, I very much doubt if we still need this -- Sergey */
+
+/* A name_array element contains entries of three types: */
+
+#define NELT_NAME  0   /* File name */
+#define NELT_CHDIR 1   /* Change directory request */
+#define NELT_FMASK 2   /* Change fnmatch options request */
+
+struct name_elt        /* A name_array element. */
 {
-  allocated_names = 10;
-  name_array = xmalloc (sizeof (const char *) * allocated_names);
-  names = 0;
-}
+  char type;           /* Element type, see NELT_* constants above */
+  union
+  {
+    const char *name;  /* File or directory name */
+    int matching_flags;/* fnmatch options if type == NELT_FMASK */ 
+  } v;
+};
 
-/* Add NAME at end of name_array, reallocating it as necessary.  */
-void
-name_add (const char *name)
+static struct name_elt *name_array;  /* store an array of names */
+static size_t allocated_names;	 /* how big is the array? */
+static size_t names;		 /* how many entries does it have? */
+static size_t name_index;	 /* how many of the entries have we scanned? */
+
+/* Check the size of name_array, reallocating it as necessary.  */
+static void
+check_name_alloc ()
 {
   if (names == allocated_names)
     {
-      allocated_names *= 2;
-      name_array =
-	xrealloc (name_array, sizeof (const char *) * allocated_names);
+      if (allocated_names == 0)
+	allocated_names = 10; /* Set initial allocation */
+      name_array = x2nrealloc (name_array, &allocated_names,
+			       sizeof (name_array[0]));
     }
-  name_array[names++] = name;
 }
+
+/* Add to name_array the file NAME with fnmatch options MATCHING_FLAGS */
+void
+name_add_name (const char *name, int matching_flags)
+{
+  static int prev_flags = 0; /* FIXME: Or EXCLUDE_ANCHORED? */
+  struct name_elt *ep;
+
+  check_name_alloc ();
+  ep = &name_array[names++];
+  if (prev_flags != matching_flags)
+    {
+      ep->type = NELT_FMASK;
+      ep->v.matching_flags = matching_flags;
+      prev_flags = matching_flags;
+      check_name_alloc ();
+      ep = &name_array[names++];
+    }
+  ep->type = NELT_NAME;
+  ep->v.name = name;
+}
+
+/* Add to name_array a chdir request for the directory NAME */
+void
+name_add_dir (const char *name)
+{
+  struct name_elt *ep;
+  check_name_alloc ();
+  ep = &name_array[names++];
+  ep->type = NELT_CHDIR;
+  ep->v.name = name;
+}  
+
 
 /* Names from external name file.  */
 
-static FILE *name_file;		/* file to read names from */
 static char *name_buffer;	/* buffer to hold the current file name */
 static size_t name_buffer_length; /* allocated length of name_buffer */
-
-/* FIXME: I should better check more closely.  It seems at first glance that
-   is_pattern is only used when reading a file, and ignored for all
-   command line arguments.  */
-
-static inline int
-is_pattern (const char *string)
-{
-  return strchr (string, '*') || strchr (string, '[') || strchr (string, '?');
-}
 
 /* Set up to gather file names for tar.  They can either come from a
    file or were saved from decoding arguments.  */
@@ -233,17 +274,6 @@ name_init (void)
 {
   name_buffer = xmalloc (NAME_FIELD_SIZE + 2);
   name_buffer_length = NAME_FIELD_SIZE;
-
-  if (files_from_option)
-    {
-      if (!strcmp (files_from_option, "-"))
-	{
-	  request_stdin ("-T");
-	  name_file = stdin;
-	}
-      else if (name_file = fopen (files_from_option, "r"), !name_file)
-	open_fatal (files_from_option);
-    }
 }
 
 void
@@ -253,95 +283,55 @@ name_term (void)
   free (name_array);
 }
 
-/* Read the next filename from name_file and null-terminate it.  Put
-   it into name_buffer, reallocating and adjusting name_buffer_length
-   if necessary.  Return 0 at end of file, 1 otherwise.  */
-static int
-read_name_from_file (void)
-{
-  int character;
-  size_t counter = 0;
+static int matching_flags; /* exclude_fnmatch options */
 
-  /* FIXME: getc may be called even if character was EOF the last time here.  */
-
-  /* FIXME: This + 2 allocation might serve no purpose.  */
-
-  while (character = getc (name_file),
-	 character != EOF && character != filename_terminator)
-    {
-      if (counter == name_buffer_length)
-	{
-	  if (name_buffer_length * 2 < name_buffer_length)
-	    xalloc_die ();
-	  name_buffer_length *= 2;
-	  name_buffer = xrealloc (name_buffer, name_buffer_length + 2);
-	}
-      name_buffer[counter++] = character;
-    }
-
-  if (counter == 0 && character == EOF)
-    return 0;
-
-  if (counter == name_buffer_length)
-    {
-      if (name_buffer_length * 2 < name_buffer_length)
-	xalloc_die ();
-      name_buffer_length *= 2;
-      name_buffer = xrealloc (name_buffer, name_buffer_length + 2);
-    }
-  name_buffer[counter] = '\0';
-
-  return 1;
-}
-
-/* Get the next name from ARGV or the file of names.  Result is in
+/* Get the next NELT_NAME element from name_array.  Result is in
    static storage and can't be relied upon across two calls.
 
-   If CHANGE_DIRS is true, treat a filename of the form "-C" as
-   meaning that the next filename is the name of a directory to change
-   to.  If filename_terminator is NUL, CHANGE_DIRS is effectively
-   always false.  */
-char *
-name_next (int change_dirs)
+   If CHANGE_DIRS is true, treat any entries of type NELT_CHDIR as
+   the request to change to the given directory.  If filename_terminator
+   is NUL, CHANGE_DIRS is effectively always false.
+
+   Entries of type NELT_FMASK cause updates of the matching_flags
+   value. */
+struct name_elt *
+name_next_elt (int change_dirs)
 {
+  static struct name_elt entry;
   const char *source;
   char *cursor;
-  int chdir_flag = 0;
 
   if (filename_terminator == '\0')
     change_dirs = 0;
 
-  while (1)
+  while (name_index != names)
     {
-      /* Get a name, either from file or from saved arguments.  */
-
-      if (name_index == names)
+      struct name_elt *ep;
+      size_t source_len;
+      
+      ep = &name_array[name_index++];
+      if (ep->type == NELT_FMASK)
 	{
-	  if (! name_file)
-	    break;
-	  if (! read_name_from_file ())
-	    break;
+	  matching_flags = ep->v.matching_flags;
+	  continue;
 	}
-      else
+      
+      source = ep->v.name;
+      source_len = strlen (source);
+      if (name_buffer_length < source_len)
 	{
-	  size_t source_len;
-	  source = name_array[name_index++];
-	  source_len = strlen (source);
-	  if (name_buffer_length < source_len)
+	  do
 	    {
-	      do
-		{
-		  name_buffer_length *= 2;
-		  if (! name_buffer_length)
-		    xalloc_die ();
-		}
-	      while (name_buffer_length < source_len);
-
-	      free (name_buffer);
-	      name_buffer = xmalloc (name_buffer_length + 2);
+	      name_buffer_length *= 2;
+	      if (! name_buffer_length)
+		xalloc_die ();
 	    }
-	  strcpy (name_buffer, source);
+	  while (name_buffer_length < source_len);
+
+	  free (name_buffer);
+	  name_buffer = xmalloc (name_buffer_length + 2);
 	}
+      strcpy (name_buffer, source);
 
       /* Zap trailing slashes.  */
 
@@ -349,38 +339,31 @@ name_next (int change_dirs)
       while (cursor > name_buffer && ISSLASH (*cursor))
 	*cursor-- = '\0';
 
-      if (chdir_flag)
+      if (change_dirs && ep->type == NELT_CHDIR)
 	{
 	  if (chdir (name_buffer) < 0)
 	    chdir_fatal (name_buffer);
-	  chdir_flag = 0;
 	}
-      else if (change_dirs && strcmp (name_buffer, "-C") == 0)
-	chdir_flag = 1;
       else
 	{
-	  unquote_string (name_buffer);
+	  if (unquote_option)
+	    unquote_string (name_buffer);
 	  if (incremental_option)
 	    register_individual_file (name_buffer);
-	  return name_buffer;
+	  entry.type = ep->type;
+	  entry.v.name = name_buffer;
+	  return &entry;
 	}
     }
 
-  /* No more names in file.  */
-
-  if (name_file && chdir_flag)
-    FATAL_ERROR ((0, 0, _("Missing file name after -C")));
-
-  return 0;
+  return NULL;
 }
 
-/* Close the name file, if any.  */
-void
-name_close (void)
+const char *
+name_next (int change_dirs)
 {
-  if (name_file && name_file != stdin)
-    if (fclose (name_file) != 0)
-      close_error (name_buffer);
+  struct name_elt *nelt = name_next_elt (change_dirs);
+  return nelt ? nelt->v.name : NULL;
 }
 
 /* Gather names in a list for scanning.  Could hash them later if we
@@ -400,7 +383,7 @@ name_gather (void)
   static struct name *buffer;
   static size_t allocated_size;
 
-  char const *name;
+  struct name_elt *ep;
 
   if (same_order_option)
     {
@@ -413,19 +396,15 @@ name_gather (void)
 	  /* FIXME: This memset is overkill, and ugly...  */
 	  memset (buffer, 0, allocated_size);
 	}
+      
+      while ((ep = name_next_elt (0)) && ep->type == NELT_CHDIR)
+	change_dir = chdir_arg (xstrdup (ep->v.name));
 
-      while ((name = name_next (0)) && strcmp (name, "-C") == 0)
-	{
-	  char const *dir = name_next (0);
-	  if (! dir)
-	    FATAL_ERROR ((0, 0, _("Missing file name after -C")));
-	  change_dir = chdir_arg (xstrdup (dir));
-	}
-
-      if (name)
+      if (ep)
 	{
 	  size_t needed_size;
-	  buffer->length = strlen (name);
+	  
+	  buffer->length = strlen (ep->v.name);
 	  needed_size = offsetof (struct name, name) + buffer->length + 1;
 	  if (allocated_size < needed_size)
 	    {
@@ -440,10 +419,11 @@ name_gather (void)
 	      buffer = xrealloc (buffer, allocated_size);
 	    }
 	  buffer->change_dir = change_dir;
-	  strcpy (buffer->name, name);
+	  strcpy (buffer->name, ep->v.name);
 	  buffer->next = 0;
 	  buffer->found_count = 0;
-
+	  buffer->matching_flags = matching_flags;
+	  
 	  namelist = buffer;
 	  nametail = &namelist->next;
 	}
@@ -458,15 +438,11 @@ name_gather (void)
       for (;;)
 	{
 	  int change_dir0 = change_dir;
-	  while ((name = name_next (0)) && strcmp (name, "-C") == 0)
-	    {
-	      char const *dir = name_next (0);
-	      if (! dir)
-		FATAL_ERROR ((0, 0, _("Missing file name after -C")));
-	      change_dir = chdir_arg (xstrdup (dir));
-	    }
-	  if (name)
-	    addname (name, change_dir);
+	  while ((ep = name_next_elt (0)) && ep->type == NELT_CHDIR)
+	    change_dir = chdir_arg (xstrdup (ep->v.name));
+
+	  if (ep)
+	    addname (ep->v.name, change_dir);
 	  else
 	    {
 	      if (change_dir != change_dir0)
@@ -485,34 +461,16 @@ addname (char const *string, int change_dir)
   struct name *name = xmalloc (offsetof (struct name, name) + length + 1);
 
   if (string)
-    {
-      name->fake = 0;
-      strcpy (name->name, string);
-    }
+    strcpy (name->name, string);
   else
-    {
-      name->fake = 1;
+    name->name[0] = 0;
 
-      /* FIXME: This initialization (and the byte of memory that it
-	 initializes) is probably not needed, but we are currently in
-	 bug-fix mode so we'll leave it in for now.  */
-      name->name[0] = 0;
-    }
-
-  name->next = 0;
+  name->next = NULL;
   name->length = length;
   name->found_count = 0;
-  name->regexp = 0;		/* assume not a regular expression */
-  name->firstch = 1;		/* assume first char is literal */
+  name->matching_flags = matching_flags;
   name->change_dir = change_dir;
-  name->dir_contents = 0;
-
-  if (string && is_pattern (string))
-    {
-      name->regexp = 1;
-      if (string[0] == '*' || string[0] == '[' || string[0] == '?')
-	name->firstch = 0;
-    }
+  name->dir_contents = NULL;
 
   *nametail = name;
   nametail = &name->next;
@@ -528,26 +486,17 @@ namelist_match (char const *file_name, size_t length)
 
   for (p = namelist; p; p = p->next)
     {
-      /* If first chars don't match, quick skip.  */
-
-      if (p->firstch && p->name[0] != file_name[0])
-	continue;
-
-      if (p->regexp
-	  ? fnmatch (p->name, file_name, recursion_option) == 0
-	  : (p->length <= length
-	     && (file_name[p->length] == '\0'
-		 || (ISSLASH (file_name[p->length]) && recursion_option))
-	     && memcmp (file_name, p->name, p->length) == 0))
+      if (p->name[0]
+	  && exclude_fnmatch (p->name, file_name, p->matching_flags))
 	return p;
     }
 
-  return 0;
+  return NULL;
 }
 
 /* Return true if and only if name FILE_NAME (from an archive) matches any
    name from the namelist.  */
-int
+bool
 name_match (const char *file_name)
 {
   size_t length = strlen (file_name);
@@ -557,14 +506,14 @@ name_match (const char *file_name)
       struct name *cursor = namelist;
 
       if (!cursor)
-	return ! files_from_option;
-
-      if (cursor->fake)
+	return true;
+      
+      if (cursor->name[0] == 0)
 	{
 	  chdir_do (cursor->change_dir);
 	  namelist = 0;
 	  nametail = &namelist;
-	  return ! files_from_option;
+	  return true;
 	}
 
       cursor = namelist_match (file_name, length);
@@ -594,10 +543,10 @@ name_match (const char *file_name)
 	{
 	  name_gather ();	/* read one more */
 	  if (namelist->found_count)
-	    return 0;
+	    return false;
 	}
       else
-	return 0;
+	return false;
     }
 }
 
@@ -616,17 +565,43 @@ all_names_found (struct tar_stat_info *p)
   struct name const *cursor;
   size_t len;
 
+  if (test_label_option)
+    return true;
   if (!p->file_name || occurrence_option == 0 || p->had_trailing_slash)
     return false;
   len = strlen (p->file_name);
   for (cursor = namelist; cursor; cursor = cursor->next)
     {
-      if (cursor->regexp
-	  || (!WASFOUND(cursor) && !cursor->fake)
+      if ((cursor->name[0] && !WASFOUND (cursor))
 	  || (len >= cursor->length && ISSLASH (p->file_name[cursor->length])))
 	return false;
     }
   return true;
+}
+
+static inline int
+is_pattern (const char *string)
+{
+  return strchr (string, '*') || strchr (string, '[') || strchr (string, '?');
+}
+
+static void
+regex_usage_warning (const char *name)
+{
+  static int warned_once = 0;
+
+  if (warn_regex_usage && is_pattern (name))
+    {
+      warned_once = 1;
+      WARN ((0, 0,
+	     /* TRANSLATORS: The following three msgids form a single sentence.
+	      */
+	     _("Pattern matching characters used in file names. Please,")));
+      WARN ((0, 0,
+	     _("use --wildcards to enable pattern matching, or --no-wildcards to")));
+      WARN ((0, 0,
+	     _("suppress this warning.")));
+    }
 }
 
 /* Print the names of things in the namelist that were not matched.  */
@@ -636,14 +611,15 @@ names_notfound (void)
   struct name const *cursor;
 
   for (cursor = namelist; cursor; cursor = cursor->next)
-    if (!WASFOUND(cursor) && !cursor->fake)
+    if (!WASFOUND (cursor) && cursor->name[0])
       {
+	regex_usage_warning (cursor->name);
 	if (cursor->found_count == 0)
 	  ERROR ((0, 0, _("%s: Not found in archive"),
 		  quotearg_colon (cursor->name)));
 	else
 	  ERROR ((0, 0, _("%s: Required occurrence not found in archive"),
-		  quotearg_colon (cursor->name)));
+		  quotearg_colon (cursor->name)));  
       }
 
   /* Don't bother freeing the name list; we're about to exit.  */
@@ -652,11 +628,14 @@ names_notfound (void)
 
   if (same_order_option)
     {
-      char *name;
+      const char *name;
 
       while ((name = name_next (1)) != NULL)
-	ERROR ((0, 0, _("%s: Not found in archive"),
-		quotearg_colon (name)));
+	{
+	  regex_usage_warning (name);
+	  ERROR ((0, 0, _("%s: Not found in archive"),
+		  quotearg_colon (name)));
+	}
     }
 }
 
@@ -784,6 +763,8 @@ add_hierarchy_to_namelist (struct name *name, dev_t device)
 	  string_length = strlen (string);
 	  if (*string == 'D')
 	    {
+	      struct name *np;
+
 	      if (allocated_length <= name_length + string_length)
 		{
 		  do
@@ -797,8 +778,8 @@ add_hierarchy_to_namelist (struct name *name, dev_t device)
 		  namebuf = xrealloc (namebuf, allocated_length + 1);
 		}
 	      strcpy (namebuf + name_length, string + 1);
-	      add_hierarchy_to_namelist (addname (namebuf, change_dir),
-					 device);
+	      np = addname (namebuf, change_dir);
+	      add_hierarchy_to_namelist (np, device);
 	    }
 	}
 
@@ -831,10 +812,12 @@ collect_and_sort_names (void)
       next_name = name->next;
       if (name->found_count || name->dir_contents)
 	continue;
-      if (name->regexp)		/* FIXME: just skip regexps for now */
+      if (name->matching_flags & EXCLUDE_WILDCARDS)
+	/* NOTE: EXCLUDE_ANCHORED is not relevant here */
+	/* FIXME: just skip regexps for now */
 	continue;
       chdir_do (name->change_dir);
-      if (name->fake)
+      if (name->name[0] == 0)
 	continue;
 
       if (deref_stat (dereference_option, name->name, &statbuf) != 0)
@@ -856,12 +839,21 @@ collect_and_sort_names (void)
 
   for (name = namelist; name; name = name->next)
     name->found_count = 0;
+
+  if (listed_incremental_option)
+    {
+      for (name = namelist; name && name->name[0] == 0; name++)
+	;
+      if (name)
+	name->dir_contents = append_incremental_renames (name->dir_contents);
+    }
 }
 
-/* This is like name_match, except that it returns a pointer to the
-   name it matched, and doesn't set FOUND in structure.  The caller
-   will have to do that if it wants to.  Oh, and if the namelist is
-   empty, it returns null, unlike name_match, which returns TRUE.  */
+/* This is like name_match, except that
+    1. It returns a pointer to the name it matched, and doesn't set FOUND
+    in structure. The caller will have to do that if it wants to.
+    2. If the namelist is empty, it returns null, unlike name_match, which
+    returns TRUE. */
 struct name *
 name_scan (const char *file_name)
 {
@@ -899,7 +891,8 @@ name_from_list (void)
 {
   if (!gnu_list_name)
     gnu_list_name = namelist;
-  while (gnu_list_name && (gnu_list_name->found_count || gnu_list_name->fake))
+  while (gnu_list_name
+	 && (gnu_list_name->found_count || gnu_list_name->name[0] == 0))
     gnu_list_name = gnu_list_name->next;
   if (gnu_list_name)
     {
@@ -921,7 +914,7 @@ blank_name_list (void)
 }
 
 /* Yield a newly allocated file name consisting of FILE_NAME concatenated to
-   NAME, with an intervening slash if FILE_NAME does not already end in one.  */
+   NAME, with an intervening slash if FILE_NAME does not already end in one. */
 char *
 new_name (const char *file_name, const char *name)
 {
@@ -939,78 +932,7 @@ new_name (const char *file_name, const char *name)
 bool
 excluded_name (char const *name)
 {
-  return excluded_filename (excluded, name + FILE_SYSTEM_PREFIX_LEN (name));
-}
-
-/* Hash tables of strings.  */
-
-/* Calculate the hash of a string.  */
-static unsigned
-hash_string_hasher (void const *name, unsigned n_buckets)
-{
-  return hash_string (name, n_buckets);
-}
-
-/* Compare two strings for equality.  */
-static bool
-hash_string_compare (void const *name1, void const *name2)
-{
-  return strcmp (name1, name2) == 0;
-}
-
-/* Return zero if TABLE contains a LEN-character long prefix of STRING,
-   otherwise, insert a newly allocated copy of this prefix to TABLE and
-   return 1.  If RETURN_PREFIX is not NULL, point it to the allocated
-   copy. */
-static bool
-hash_string_insert_prefix (Hash_table **table, char const *string, size_t len,
-                          const char **return_prefix)
-{
-  Hash_table *t = *table;
-  char *s;
-  char *e;
-
-  if (len)
-    {
-      s = xmalloc (len + 1);
-      memcpy (s, string, len);
-      s[len] = 0;
-    }
-  else
-    s = xstrdup (string);
-
-  if (! ((t
-	  || (*table = t = hash_initialize (0, 0, hash_string_hasher,
-					    hash_string_compare, 0)))
-	 && (e = hash_insert (t, s))))
-    xalloc_die ();
-
-  if (e == s)
-    {
-      if (return_prefix)
-       *return_prefix = s;
-      return 1;
-    }
-  else
-    {
-      free (s);
-      return 0;
-    }
-}
-
-/* Return zero if TABLE contains a copy of STRING; otherwise, insert a
-   copy of STRING to TABLE and return 1.  */
-bool
-hash_string_insert (Hash_table **table, char const *string)
-{
-  return hash_string_insert_prefix (table, string, 0, NULL);
-}
-
-/* Return 1 if TABLE contains STRING.  */
-static bool
-hash_string_lookup (Hash_table const *table, char const *string)
-{
-  return table && hash_lookup (table, string);
+  return excluded_file_name (excluded, name + FILE_SYSTEM_PREFIX_LEN (name));
 }
 
 /* Names to avoid dumping.  */
@@ -1054,90 +976,6 @@ is_individual_file (char const *name)
 
 
 
-static Hash_table *prefix_table[2];
-
-/* Return true if file names of some members in the archive were stripped off
-   their leading components. We could have used
-        return prefix_table[0] || prefix_table[1]
-   but the following seems to be safer: */
-bool
-removed_prefixes_p (void)
-{
-  return (prefix_table[0] && hash_get_n_entries (prefix_table[0]) != 0)
-         || (prefix_table[1] && hash_get_n_entries (prefix_table[1]) != 0);
-}
-
-/* Return a safer suffix of FILE_NAME, or "." if it has no safer
-   suffix.  Check for fully specified file names and other atrocities.
-   Warn the user if we do not return NAME.  If LINK_TARGET is 1,
-   FILE_NAME is the target of a hard link, not a member name.  */
-
-char *
-safer_name_suffix (char const *file_name, bool link_target)
-{
-  char const *p;
-
-  if (absolute_names_option)
-    p = file_name;
-  else
-    {
-      /* Skip file system prefixes, leading file name components that contain
-	 "..", and leading slashes.  */
-
-      size_t prefix_len = FILE_SYSTEM_PREFIX_LEN (file_name);
-
-      for (p = file_name + prefix_len; *p; )
-	{
-          if (p[0] == '.' && p[1] == '.' && (ISSLASH (p[2]) || !p[2]))
-	    prefix_len = p + 2 - file_name;
-
-	  do
-	    {
-	      char c = *p++;
-	      if (ISSLASH (c))
-		break;
-	    }
-	  while (*p);
-	}
-
-      for (p = file_name + prefix_len; ISSLASH (*p); p++)
-	continue;
-      prefix_len = p - file_name;
-
-      if (prefix_len)
-	{
-         const char *prefix;
-         if (hash_string_insert_prefix (&prefix_table[link_target], file_name,
-                                        prefix_len, &prefix))
-	    {
-	      static char const *const diagnostic[] =
-	      {
-		N_("Removing leading `%s' from member names"),
-		N_("Removing leading `%s' from hard link targets")
-	      };
-	      WARN ((0, 0, _(diagnostic[link_target]), prefix));
-	    }
-	}
-    }
-
-  if (! *p)
-    {
-      if (p == file_name)
-	{
-	  static char const *const diagnostic[] =
-	  {
-	    N_("Substituting `.' for empty member name"),
-	    N_("Substituting `.' for empty hard link target")
-	  };
-	  WARN ((0, 0, "%s", _(diagnostic[link_target])));
-	}
-
-      p = ".";
-    }
-
-  return (char *) p;
-}
-
 /* Return the size of the prefix of FILE_NAME that is removed after
    stripping NUM leading file name components.  NUM must be
    positive.  */

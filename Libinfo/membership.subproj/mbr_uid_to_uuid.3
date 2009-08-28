@@ -62,9 +62,15 @@ daemon.
 .Fn mbr_uid_to_uuid
 takes a uid and looks up the associated user account.
 It provides the the uuid for that user as an output parameter.
+Note that this routine will succeed and return a fabricated uuid if the input user uid does not exist.
+.Fn getpwuid
+should be used to test for the existence of a uid.
 .Pp
 .Fn mbr_gid_to_uuid
 similarly gets the uuid associated with a group.
+Note that this routine will succeed and return a fabricated uuid if the input group gid does not exist.
+.Fn getgrgid
+should be used to test for the existence of a gid.
 .Pp
 .Fn mbr_uuid_to_id
 takes a uuid that refers to a user or group and fetches the corresponding uid or gid.
@@ -94,6 +100,11 @@ These functions return 0 on success, or EIO if communications with the
 .Xr DirectoryService 8
 daemon fails.
 ENOENT is returned if the mapping can not be performed.
+.Pp
+.Fn mbr_gid_to_uuid
+and
+.Fn mbr_uid_to_uuid
+return 0 (success), even if the user/group does not exist.
 .Sh SEE ALSO
 .Xr getpwuid 3 ,
 .Xr getgrgid 3 ,

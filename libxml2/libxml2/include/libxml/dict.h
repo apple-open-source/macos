@@ -44,6 +44,10 @@ XMLPUBFUN const xmlChar * XMLCALL
 		                         const xmlChar *name,
 		                         int len);
 XMLPUBFUN const xmlChar * XMLCALL		
+			xmlDictExists	(xmlDictPtr dict,
+		                         const xmlChar *name,
+		                         int len);
+XMLPUBFUN const xmlChar * XMLCALL		
 			xmlDictQLookup	(xmlDictPtr dict,
 		                         const xmlChar *prefix,
 		                         const xmlChar *name);
@@ -52,6 +56,13 @@ XMLPUBFUN int XMLCALL
 					 const xmlChar *str);
 XMLPUBFUN int XMLCALL			
 			xmlDictSize	(xmlDictPtr dict);
+
+/*
+ * Cleanup function
+ */
+XMLPUBFUN void XMLCALL
+                        xmlDictCleanup  (void);
+
 #ifdef __cplusplus
 }
 #endif

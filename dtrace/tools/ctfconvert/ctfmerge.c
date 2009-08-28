@@ -2,9 +2,8 @@
  * CDDL HEADER START
  *
  * The contents of this file are subject to the terms of the
- * Common Development and Distribution License, Version 1.0 only
- * (the "License").  You may not use this file except in compliance
- * with the License.
+ * Common Development and Distribution License (the "License").
+ * You may not use this file except in compliance with the License.
  *
  * You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
  * or http://www.opensolaris.org/os/licensing.
@@ -20,11 +19,11 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2004 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)ctfmerge.c	1.16	05/06/08 SMI"
+#pragma ident	"@(#)ctfmerge.c	1.19	08/06/20 SMI"
 
 /*
  * Given several files containing CTF data, merge and uniquify that data into
@@ -227,6 +226,10 @@ static char *outfile = NULL;
 static char *tmpname = NULL;
 static int dynsym;
 int debug_level = DEBUG_LEVEL;
+#if !defined(__APPLE__)
+static size_t maxpgsize = 0x400000;
+#endif /* __APPLE__ */
+
 
 void
 usage(void)
@@ -250,7 +253,7 @@ static void
 bigheap(void)
 {
 	size_t big, *size;
-	int sizes, i;
+	int sizes;
 	struct memcntl_mha mha;
 
 	/*
@@ -259,12 +262,16 @@ bigheap(void)
 	if ((sizes = getpagesizes(NULL, 0)) == -1)
 		return;
 
-	if ((size = alloca(sizeof (size_t) * sizes)) == NULL)
+	if (sizes == 1 || (size = alloca(sizeof (size_t) * sizes)) == NULL)
 		return;
 
-	if (getpagesizes(size, sizes) == -1 || sizes == 1)
+	if (getpagesizes(size, sizes) == -1)
 		return;
 
+	while (size[sizes - 1] > maxpgsize)
+		sizes--;
+
+	/* set big to the largest allowed page size */
 	big = size[sizes - 1];
 	if (big & (big - 1)) {
 		/*
@@ -281,21 +288,14 @@ bigheap(void)
 		return;
 
 	/*
-	 * Finally, set our heap to use the largest page size for which the
-	 * MC_HAT_ADVISE doesn't return EAGAIN.
+	 * set the preferred page size for the heap
 	 */
 	mha.mha_cmd = MHA_MAPSIZE_BSSBRK;
 	mha.mha_flags = 0;
+	mha.mha_pagesize = big;
 
-	for (i = sizes - 1; i >= 0; i--) {
-		mha.mha_pagesize = size[i];
-
-		if (memcntl(NULL, 0, MC_HAT_ADVISE, (caddr_t)&mha, 0, 0) != -1)
-			break;
-
-		if (errno != EAGAIN)
-			break;
-	}
+	(void) memcntl(NULL, 0, MC_HAT_ADVISE, (caddr_t)&mha, 0, 0);
+}
 }
 #else
 static void
@@ -671,6 +671,7 @@ wq_init(workqueue_t *wq, int nfiles)
 	wq->wq_wip = xcalloc(sizeof (wip_t) * nslots);
 	wq->wq_nwipslots = nslots;
 	wq->wq_nthreads = MIN(sysconf(_SC_NPROCESSORS_ONLN) * 3 / 2, nslots);
+	wq->wq_thread = xmalloc(sizeof (pthread_t) * wq->wq_nthreads);
 
 	if (getenv("CTFMERGE_INPUT_THROTTLE"))
 		throttle = atoi(getenv("CTFMERGE_INPUT_THROTTLE"));
@@ -716,7 +717,6 @@ wq_init(workqueue_t *wq, int nfiles)
 static void
 start_threads(workqueue_t *wq)
 {
-	pthread_t thrid;
 	sigset_t sets;
 	int i;
 
@@ -727,14 +727,24 @@ start_threads(workqueue_t *wq)
 	pthread_sigmask(SIG_BLOCK, &sets, NULL);
 
 	for (i = 0; i < wq->wq_nthreads; i++) {
-		pthread_create(&thrid, NULL, (void *(*)(void *))worker_thread,
-		    wq);
+		pthread_create(&wq->wq_thread[i], NULL,
+		    (void *(*)(void *))worker_thread, wq);
 	}
 
 	sigset(SIGINT, handle_sig);
 	sigset(SIGQUIT, handle_sig);
 	sigset(SIGTERM, handle_sig);
 	pthread_sigmask(SIG_UNBLOCK, &sets, NULL);
+}
+
+static void
+join_threads(workqueue_t *wq)
+{
+	int i;
+
+	for (i = 0; i < wq->wq_nthreads; i++) {
+		pthread_join(wq->wq_thread[i], NULL);
+	}
 }
 
 static int
@@ -746,10 +756,18 @@ strcompare(const void *p1, const void *p2)
 	return (strcmp(s1, s2));
 }
 
+/*
+ * Core work queue structure; passed to worker threads on thread creation
+ * as the main point of coordination.  Allocate as a static structure; we
+ * could have put this into a local variable in main, but passing a pointer
+ * into your stack to another thread is fragile at best and leads to some
+ * hard-to-debug failure modes.
+ */
+static workqueue_t wq;
+
 int
 main(int argc, char **argv)
 {
-	workqueue_t wq;
 	tdata_t *mstrtd, *savetd;
 	char *uniqfile = NULL, *uniqlabel = NULL;
 	char *withfile = NULL;
@@ -910,8 +928,16 @@ main(int argc, char **argv)
 	 * don't need to specify labels.
 	 */
 	if (read_ctf(ifiles, nifiles, NULL, merge_ctf_cb,
-	    &wq, require_ctf) == 0)
+	    &wq, require_ctf) == 0) {
+		/*
+		 * If we're verifying that C files have CTF, it's safe to
+		 * assume that in this case, we're building only from assembly
+		 * inputs.
+		 */
+		if (require_ctf)
+			exit(0);
 		terminate("No ctf sections found to merge\n");
+	}
 
 	pthread_mutex_lock(&wq.wq_queue_lock);
 	wq.wq_nomorefiles = 1;
@@ -922,6 +948,8 @@ main(int argc, char **argv)
 	while (wq.wq_alldone == 0)
 		pthread_cond_wait(&wq.wq_alldone_cv, &wq.wq_queue_lock);
 	pthread_mutex_unlock(&wq.wq_queue_lock);
+
+	join_threads(&wq);
 
 	/*
 	 * All requested files have been merged, with the resulting tree in

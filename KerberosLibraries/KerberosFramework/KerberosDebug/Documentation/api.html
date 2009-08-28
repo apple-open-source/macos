@@ -1,0 +1,83 @@
+<!-- #bbinclude "header.txt"
+  #PAGETITLE#="KerberosDebug API"
+  #BASEHREF#="" 
+-->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN"
+			"http://www.w3.org/TR/REC-html40/loose.dtd">
+<HTML>
+<HEAD> 
+	<BASE HREF="http://web.mit.edu/macdev/KfM/KerberosFramework/KerberosDebug/Documentation/api.html">
+  	<META NAME="keywords" CONTENT="#KEYWORDS#">
+	<META NAME="description" CONTENT="#DESCRIPTION#">
+	<TITLE>KerberosDebug API</TITLE> 
+	<STYLE TYPE="text/css">
+		@import url(../../../Common/Documentation/templates/site.css);
+	</STYLE>
+</HEAD>
+<BODY>
+
+<DIV ID="menu">
+<IMG SRC="../../../Common/Documentation/graphics/Kerberos.jpg" ALT="Kerberos for Macintosh Logo">
+<HR>
+<P><A HREF="../../../Common/Documentation/index.html">Home</A></P>
+<P><A HREF="http://web.mit.edu/kerberos/">MIT Kerberos</A></P>
+<P><A HREF="http://web.mit.edu/ist/">MIT IS&amp;T</A></P>
+<HR>
+<P><A HREF="../../../Common/Documentation/news.html">News</A></P>
+<P><A HREF="../../../Common/Documentation/documentation.html">Documentation</A></P>
+<P><A HREF="../../../Common/Documentation/developer.html">Developer Resources</A></P>
+<P><A HREF="../../../Common/Documentation/license.html">License</A></P>
+<HR>
+<P><A HREF="../../../Common/Documentation/download.html">Download</A></P>
+<P><A HREF="../../../Common/Documentation/support.html">Support</A></P>
+<P><A HREF="../../../Common/Documentation/contact.html">Contact Us</A></P>
+</DIV>
+<DIV ID="body">
+<!-- end bbinclude -->
+<TABLE BORDER=0 CELLSPACING=4>
+    <TR> 
+      <TD><IMG SRC="../../../Common/Documentation/graphics/ThreeHeadsAndKey.gif"></TD>
+      <TD><B><FONT SIZE="+3">Kerberos Errors API</FONT></B></TD>
+    </TR>
+</TABLE>
+<BLOCKQUOTE>
+
+<B><FONT SIZE="+2">Functions:</FONT></B>
+<BLOCKQUOTE>
+
+<PRE><CODE>int ddebug (void);</CODE></PRE>
+
+<P><CODE>ddebug()</CODE> returns whether or not debugging is enabled.  Use
+this function when you want to perform some computationally expensive operation
+for debugging purposes only.</P>
+
+<HR>
+
+<PRE><CODE>void dprintf (const char *format, ...);</CODE></PRE>
+
+<P> <CODE>dprintf()</CODE> prints out a formatted error string.  Uses the same 
+format syntax as the <CODE>printf()</CODE> family of functions. </P>
+
+<HR>
+
+<PRE><CODE>void dprintmem (const void *inBuffer, size_t inLength);</CODE></PRE>
+
+<P> <CODE>dprintmem()</CODE> prints a block of memory in hexadecimal and ASCII
+formats.  Useful for debugging networking code. </P>
+
+</BLOCKQUOTE>
+</BLOCKQUOTE>
+<!-- #bbinclude "footer.txt" -->
+</DIV>
+<DIV ID="footer">
+	<P>
+		Copyright 2007 Massachusetts Institute of Technology.<BR>
+		Last updated on $Date: 2007-08-27 16:27:32 -0400 (Mon, 27 Aug 2007) $ <BR> 
+		Last modified by $Author: lxs $ 
+	</P>
+</DIV>
+<!-- Begin MIT-use only web reporting counter -->
+	<IMG SRC="http://counter.mit.edu/tally" WIDTH=1 HEIGHT=1 ALT="">
+<!-- End MIT-use only web reporting counter -->
+</BODY></HTML>
+<!-- end bbinclude -->

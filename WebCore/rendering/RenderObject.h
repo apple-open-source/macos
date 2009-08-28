@@ -48,6 +48,7 @@ class RenderInline;
 class RenderBlock;
 class RenderFlow;
 class RenderLayer;
+class RenderTheme;
 class TransformState;
 class VisiblePosition;
 
@@ -136,6 +137,8 @@ public:
     // marked as anonymous in the constructor.
     RenderObject(Node*);
     virtual ~RenderObject();
+
+    RenderTheme* theme() const;
 
     virtual const char* renderName() const = 0;
 
@@ -273,6 +276,7 @@ public:
     virtual bool isTextControl() const { return false; }
     virtual bool isTextArea() const { return false; }
     virtual bool isTextField() const { return false; }
+    virtual bool isVideo() const { return false; }
     virtual bool isWidget() const { return false; }
 
     bool isRoot() const { return document()->documentElement() == m_node; }
@@ -378,7 +382,7 @@ public:
     // The pseudo element style can be cached or uncached.  Use the cached method if the pseudo element doesn't respect
     // any pseudo classes (and therefore has no concept of changing state).
     RenderStyle* getCachedPseudoStyle(PseudoId, RenderStyle* parentStyle = 0) const;
-    PassRefPtr<RenderStyle> getUncachedPseudoStyle(PseudoId, RenderStyle* parentStyle = 0) const;
+    PassRefPtr<RenderStyle> getUncachedPseudoStyle(PseudoId, RenderStyle* parentStyle = 0, RenderStyle* ownStyle = 0) const;
     
     virtual void updateDragState(bool dragOn);
 
@@ -532,15 +536,12 @@ public:
 
     // Return the offset from the container() renderer (excluding transforms)
     virtual IntSize offsetFromContainer(RenderObject*) const;
-
-    virtual void absoluteRectsForRange(Vector<IntRect>&, unsigned startOffset = 0, unsigned endOffset = UINT_MAX, bool useSelectionHeight = false);
     
     virtual void absoluteRects(Vector<IntRect>&, int, int) { }
     // FIXME: useTransforms should go away eventually
     IntRect absoluteBoundingBoxRect(bool useTransforms = false);
 
     // Build an array of quads in absolute coords for line boxes
-    virtual void absoluteQuadsForRange(Vector<FloatQuad>&, unsigned startOffset = 0, unsigned endOffset = UINT_MAX, bool useSelectionHeight = false);
     virtual void absoluteQuads(Vector<FloatQuad>&) { }
 
     // the rect that will be painted if this object is passed as the paintingRoot
@@ -552,7 +553,11 @@ public:
     RenderStyle* style() const { return m_style.get(); }
     RenderStyle* firstLineStyle() const { return document()->usesFirstLineRules() ? firstLineStyleSlowCase() : style(); }
     RenderStyle* style(bool firstLine) const { return firstLine ? firstLineStyle() : style(); }
-    
+
+    // Used only by Element::pseudoStyleCacheIsInvalid to get a first line style based off of a
+    // given new style, without accessing the cache.
+    PassRefPtr<RenderStyle> uncachedFirstLineStyle(RenderStyle*) const;
+
     // Anonymous blocks that are part of of a continuation chain will return their inline continuation's outline style instead.
     // This is typically only relevant when repainting.
     virtual RenderStyle* outlineStyleForRepaint() const { return style(); }
@@ -958,12 +963,14 @@ inline void RenderObject::markContainingBlocksForLayout(bool scheduleRelayout, R
         last->scheduleRelayout();
 }
 
-inline void makeMatrixRenderable(TransformationMatrix& matrix)
+inline void makeMatrixRenderable(TransformationMatrix& matrix, bool has3DRendering)
 {
 #if !ENABLE(3D_RENDERING)
+    UNUSED_PARAM(has3DRendering);
     matrix.makeAffine();
 #else
-    UNUSED_PARAM(matrix);
+    if (!has3DRendering)
+        matrix.makeAffine();
 #endif
 }
 

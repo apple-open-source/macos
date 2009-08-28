@@ -1,5 +1,3 @@
-.\"	$NetBSD: nohup.1,v 1.6 1997/10/19 10:23:25 lukem Exp $
-.\"
 .\" Copyright (c) 1989, 1990, 1993
 .\"	The Regents of the University of California.  All rights reserved.
 .\"
@@ -35,36 +33,45 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)nohup.1	8.1 (Berkeley) 6/6/93
+.\" $FreeBSD: src/usr.bin/nohup/nohup.1,v 1.13 2005/01/17 07:44:27 ru Exp $
 .\"
-.Dd June 6, 1993
+.Dd July 19, 2001
 .Dt NOHUP 1
 .Os
 .Sh NAME
 .Nm nohup
-.Nd invoke a command immune to hangups
+.Nd invoke a utility immune to hangups
 .Sh SYNOPSIS
 .Nm
+.Op Fl Fl
 .Ar utility
-.Op Ar arg ...
+.Op Ar arguments
 .Sh DESCRIPTION
 The
 .Nm
 utility invokes
-.Ar command
-with
-its arguments
+.Ar utility
+with its
+.Ar arguments
 and at this time sets the signal
 .Dv SIGHUP
-to be ignored. 
+to be ignored.
 If the standard output is a terminal, the standard output is
 appended to the file
 .Pa nohup.out
 in the current directory.
 If standard error is a terminal, it is directed to the same place
 as the standard output.
+.Pp
+Some shells may provide a builtin
+.Nm
+command which is similar or identical to this utility.
+Consult the
+.Xr builtin 1
+manual page.
 .Sh ENVIRONMENT
-The following variable is utilized by
-.Nm .
+The following variables are utilized by
+.Nm :
 .Bl -tag -width flag
 .It Ev HOME
 If the output file
@@ -74,32 +81,44 @@ cannot be created in the current directory, the
 utility uses the directory named by
 .Ev HOME
 to create the file.
+.It Ev PATH
+Used to locate the requested
+.Ar utility
+if the name contains no
+.Ql /
+characters.
 .El
-.Sh DIAGNOSTICS
+.Sh EXIT STATUS
 The
 .Nm
-utility shall exit with one of the following values:
-.Bl -tag -width Ds 
+utility exits with one of the following values:
+.Bl -tag -width Ds
 .It 126
 The
 .Ar utility
-was found but could not be invoked.
+was found, but could not be invoked.
 .It 127
 The
 .Ar utility
-could not be found or an error occurred in 
+could not be found or an error occurred in
 .Nm .
 .El
 .Pp
-Otherwise, the exit status of 
+Otherwise, the exit status of
 .Nm
-shall be that of 
+will be that of
 .Ar utility .
 .Sh SEE ALSO
+.Xr builtin 1 ,
+.Xr csh 1 ,
 .Xr signal 3
 .Sh STANDARDS
 The
 .Nm
-command is expected to be
+utility is expected to be
 .St -p1003.2
 compatible.
+.Sh BUGS
+Two or more instances of
+.Nm
+can append to the same file, which makes for a confusing output.

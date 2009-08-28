@@ -20,6 +20,9 @@
  * @APPLE_LICENSE_HEADER_END@
  */
  
+ 
+#import "FWTracepoints.h"
+ 
 // the controls 
 
 #define FWLOGGING 0
@@ -75,24 +78,24 @@
 #	define DebugLog(x...)			DoDebugLog( x ) ;
 #	define DebugLogCond( x, y... ) 	{ if (x) DebugLog ( y ) ; }
 #else
-#	define DebugLog(x...)
-#	define DebugLogCond( x, y... )
+#	define DebugLog(x...)			do {} while (0)
+#	define DebugLogCond( x, y... )	do {} while (0)
 #endif
 
 #define TIMEIT( doit, description ) \
 { \
 	AbsoluteTime start, end; \
-	clock_get_uptime( & start ); \
+	IOFWGetAbsoluteTime( & start ); \
 	{ \
 		doit ;\
 	}\
-	clock_get_uptime( & end ); \
+	IOFWGetAbsoluteTime( & end ); \
 	SUB_ABSOLUTETIME( & end, & start ) ;\
 	UInt64 nanos ;\
 	absolutetime_to_nanoseconds( end, & nanos ) ;\
 	DebugLog("%s duration %llu us\n", "" description, nanos/1000) ;\
 }
 
-#define InfoLog(x...) {}
+#define InfoLog(x...) do {} while (0)
 
 

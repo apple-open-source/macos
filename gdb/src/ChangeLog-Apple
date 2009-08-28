@@ -1,3 +1,17 @@
+2008-05-23  Jason Molenda  (jmolenda@apple.com)
+
+	* configure.in (host_configargs): Add --disable-werror to configure
+	options.  -Werror is causing deprecation warnings for stat64() and
+	it's easier than adding -Wno-error=deprecated-declarations to
+	cflags.
+	* configure: Regenerated.
+
+2007-09-14  Greg Clayton (gclayton@apple.com)
+
+	* configure.in: Added configure features --disable-carbon-framework,
+	--disable-debug-symbols-framework, and --disable-arch-for-exec.
+	* configure: Regenerated.
+
 2007-01-23  Jason Molenda  (jmolenda@apple.com)
 
 	* configure: Regenerated with autoconf-2.61.

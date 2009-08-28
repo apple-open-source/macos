@@ -1,5 +1,5 @@
 /*
- * "$Id: form-tree.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: form-tree.c 6649 2007-07-11 21:46:42Z mike $"
  *
  *   CUPS form document tree routines for the Common UNIX Printing
  *   System (CUPS).
@@ -611,5 +611,5 @@ parse_element(tree_t *t,		/* I - Current tree node */
 
 
 /*
- * End of "$Id: form-tree.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: form-tree.c 6649 2007-07-11 21:46:42Z mike $".
  */

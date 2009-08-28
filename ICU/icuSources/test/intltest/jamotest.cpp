@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2003, International Business Machines Corporation and
+ * Copyright (c) 1997-2008, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************
 ************************************************************************
@@ -16,27 +16,27 @@
 #include "jamotest.h"
 #include "unicode/utypes.h"
 #include "unicode/translit.h"
-#include "rbt.h"
 #include "cpdtrans.h"
 
 // SEP is the disambiguation separator used by Latin-Jamo and Jamo-Latin
-#define SEP "'"
+#define SEP "-"
 
 JamoTest::JamoTest()
 {
+    UParseError parseError;
     UErrorCode status = U_ZERO_ERROR;
-    NAME_JAMO = new RuleBasedTransliterator("Name-Jamo",
-                                            JAMO_NAMES_RULES,
-                                            UTRANS_FORWARD, status);
+    NAME_JAMO = Transliterator::createFromRules("Name-Jamo",
+                                            UnicodeString(JAMO_NAMES_RULES, -1, US_INV),
+                                            UTRANS_FORWARD, parseError, status);
 
     if (U_FAILURE(status)) {
         delete NAME_JAMO;
         NAME_JAMO = NULL;
     }
     status = U_ZERO_ERROR;
-    JAMO_NAME = new RuleBasedTransliterator("Jamo-Name",
-                                            JAMO_NAMES_RULES,
-                                            UTRANS_REVERSE, status);
+    JAMO_NAME = Transliterator::createFromRules("Jamo-Name",
+                                            UnicodeString(JAMO_NAMES_RULES, -1, US_INV),
+                                            UTRANS_REVERSE, parseError, status);
     if (U_FAILURE(status)) {
         delete JAMO_NAME;
         JAMO_NAME = NULL;
@@ -88,22 +88,41 @@ JamoTest::TestJamo() {
         
         // Column 3 is expected value of L2.  If the expected
         // value of L2 is L1, then L2 is NULL.
+
+                // add tests for the update to fix problems where it didn't follow the standard
+                // see also http://www.unicode.org/cldr/data/charts/transforms/Latin-Hangul.html
+                "gach", "(Gi)(A)(Cf)", NULL,
+                "geumhui", "(Gi)(EU)(Mf)(Hi)(YI)", NULL,
+                "choe", "(Ci)(OE)", NULL,
+                "wo", "(IEUNG)(WEO)", NULL,
+                "Wonpil", "(IEUNG)(WEO)(Nf)(Pi)(I)(L)", "wonpil",
+                "GIPPEUM", "(Gi)(I)(BB)(EU)(Mf)", "gippeum",
+                "EUTTEUM", "(IEUNG)(EU)(DD)(EU)(Mf)", "eutteum",
+                "KKOTNAE", "(GGi)(O)(Tf)(Ni)(AE)", "kkotnae",
+                "gaga", "(Gi)(A)(Gi)(A)", NULL,
+                "gag-a", "(Gi)(A)(Gf)(IEUNG)(A)", NULL,
+                "gak-ka", "(Gi)(A)(Kf)(Ki)(A)", NULL,
+                "gakka", "(Gi)(A)(GGi)(A)", NULL,
+                "gakk-a", "(Gi)(A)(GGf)(IEUNG)(A)", NULL,
+                "gakkka", "(Gi)(A)(GGf)(Ki)(A)", NULL,
+                "gak-kka", "(Gi)(A)(Kf)(GGi)(A)", NULL,
+
         "bab", "(Bi)(A)(Bf)", NULL,
-        "babb", "(Bi)(A)(Bf)(Bi)(EU)", "bab" SEP "beu",
-        "babbba", "(Bi)(A)(Bf)(BB)(A)", NULL,
-        "bagg", "(Bi)(A)(GGf)", NULL,
-        "baggga", "(Bi)(A)(GGf)(Gi)(A)", NULL,
-        "bag" SEP "gga", "(Bi)(A)(Gf)(GGi)(A)", NULL,
+        "babb", "(Bi)(A)(Bf)(Bi)(EU)", "babbeu",
+        "babbba", "(Bi)(A)(Bf)(Bi)(EU)(Bi)(A)", "babbeuba",
+        "bagg", "(Bi)(A)(Gf)(Gi)(EU)", "baggeu",
+        "baggga", "(Bi)(A)(Gf)(Gi)(EU)(Gi)(A)", "baggeuga",
+        //"bag" SEP "gga", "(Bi)(A)(Gf)" SEP "(Gi)(EU)(Gi)(A)", "bag" SEP "geuga",
         "kabsa", "(Ki)(A)(Bf)(Si)(A)", NULL,
         "kabska", "(Ki)(A)(BS)(Ki)(A)", NULL,
         "gabsbka", "(Gi)(A)(BS)(Bi)(EU)(Ki)(A)", "gabsbeuka", // not (Kf)
-        "gga", "(GGi)(A)", NULL,
+        "gga", "(Gi)(EU)(Gi)(A)", "geuga",
         "bsa", "(Bi)(EU)(Si)(A)", "beusa",
-        "agg", "(IEUNG)(A)(GGf)", NULL,
-        "agga", "(IEUNG)(A)(GGi)(A)", NULL,
-        "la", "(R)(A)", "ra",
+        "agg", "(IEUNG)(A)(Gf)(Gi)(EU)", "aggeu",
+        "agga", "(IEUNG)(A)(Gf)(Gi)(A)", NULL,
+        "la", "(R)(A)", NULL,
         "bs", "(Bi)(EU)(Sf)", "beus",
-        "kalgga", "(Ki)(A)(L)(GGi)(A)", NULL,
+        "kalgga", "(Ki)(A)(L)(Gi)(EU)(Gi)(A)", "kalgeuga",
         
         // 'r' in a final position is treated like 'l'
         "karka", "(Ki)(A)(L)(Ki)(A)", "kalka",
@@ -135,6 +154,7 @@ void JamoTest::TestPiecemeal(void) {
     UnicodeString hangul; hangul.append((UChar)0xBC0F);
     UnicodeString jamo = nameToJamo("(Mi)(I)(Cf)");
     UnicodeString latin("mic");
+    UnicodeString latin2("mich");
 
     Transliterator *t = NULL;
     UErrorCode status = U_ZERO_ERROR;
@@ -168,7 +188,7 @@ void JamoTest::TestPiecemeal(void) {
         errln("FAIL: createInstance failed");
         return;
     }
-    expect(*t, jamo, latin);
+    expect(*t, jamo, latin2);
     delete t;
 
     t = Transliterator::createInstance("Hangul-Latin", UTRANS_FORWARD, status);
@@ -176,7 +196,7 @@ void JamoTest::TestPiecemeal(void) {
         errln("FAIL: createInstance failed");
         return;
     }
-    expect(*t, hangul, latin);
+    expect(*t, hangul, latin2);
     delete t;
 
     t = Transliterator::createInstance("Latin-Hangul", UTRANS_FORWARD, status);
@@ -215,7 +235,7 @@ void JamoTest::TestPiecemeal(void) {
 void
 JamoTest::TestRealText() {
     // Test text taken from the Unicode web site
-     static const char* WHAT_IS_UNICODE[] = {
+     static const char* const WHAT_IS_UNICODE[] = {
       "\\uc720\\ub2c8\\ucf54\\ub4dc\\uc5d0", "\\ub300\\ud574", "?",
 
       "\\uc5b4\\ub5a4", "\\ud50c\\ub7ab\\ud3fc,", "\\uc5b4\\ub5a4",
@@ -295,8 +315,12 @@ JamoTest::TestRealText() {
       "\\ubd80\\ubd84\\uc744", "\\ucc28\\uc9c0\\ud558\\uace0", "\\uc788\\uc2b5\\ub2c8\\ub2e4.",
 
       "\\uc720\\ub2c8\\ucf54\\ub4dc\\ub97c",
-      "\\ud074\\ub77c\\uc774\\uc5b8\\ud2b8-\\uc11c\\ubc84", "\\ub610\\ub294",
-      "\\ub2e4\\uc911-\\uc5f0\\uacb0", "\\uc751\\uc6a9", "\\ud504\\ub85c\\uadf8\\ub7a8\\uacfc",
+      // Replaced a hyphen with a space to make the test case work with CLDR1.5  
+      //"\\ud074\\ub77c\\uc774\\uc5b8\\ud2b8-\\uc11c\\ubc84", "\\ub610\\ub294",
+      "\\ud074\\ub77c\\uc774\\uc5b8\\ud2b8 \\uc11c\\ubc84", "\\ub610\\ub294",
+      // Replaced a hyphen with a space.
+      //"\\ub2e4\\uc911-\\uc5f0\\uacb0", "\\uc751\\uc6a9", "\\ud504\\ub85c\\uadf8\\ub7a8\\uacfc",
+      "\\ub2e4\\uc911 \\uc5f0\\uacb0", "\\uc751\\uc6a9", "\\ud504\\ub85c\\uadf8\\ub7a8\\uacfc",
       "\\uc6f9", "\\uc0ac\\uc774\\ud2b8\\uc5d0", "\\ud1b5\\ud569\\ud558\\uba74",
       "\\ub808\\uac70\\uc2dc", "\\ubb38\\uc790", "\\uc138\\ud2b8", "\\uc0ac\\uc6a9\\uc5d0",
       "\\uc788\\uc5b4\\uc11c", "\\uc0c1\\ub2f9\\ud55c", "\\ube44\\uc6a9", "\\uc808\\uac10",
@@ -376,7 +400,7 @@ JamoTest::TestRealText() {
     int32_t i;
     for (i=0; i < WHAT_IS_UNICODE_length; ++i) {
         ++total;
-        UnicodeString hangul = WHAT_IS_UNICODE[i];
+        UnicodeString hangul = UnicodeString(WHAT_IS_UNICODE[i], -1, US_INV);
         hangul = hangul.unescape(); // Parse backslash-u escapes
         UnicodeString hangulX = hangul;
         rt.transliterate(hangulX);

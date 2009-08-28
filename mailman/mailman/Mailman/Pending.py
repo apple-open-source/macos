@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2008 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -17,13 +17,13 @@
 """Track pending actions which require confirmation."""
 
 import os
-import sha
 import time
 import errno
 import random
 import cPickle
 
 from Mailman import mm_cfg
+from Mailman.Utils import sha_new
 
 # Types of pending records
 SUBSCRIPTION = 'S'
@@ -72,7 +72,7 @@ class Pending:
         while True:
             now = time.time()
             x = random.random() + now % 1.0 + time.clock() % 1.0
-            cookie = sha.new(repr(x)).hexdigest()
+            cookie = sha_new(repr(x)).hexdigest()
             # We'll never get a duplicate, but we'll be anal about checking
             # anyway.
             if not db.has_key(cookie):

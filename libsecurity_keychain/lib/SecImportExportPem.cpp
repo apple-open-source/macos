@@ -140,7 +140,9 @@ static const PemHeader PemHeaders[] =
 	{ PEM_STRING_DH_PUBLIC, kSecItemTypePublicKey, kSecFormatOpenSSL, CSSM_ALGID_DH },
 	{ PEM_STRING_DH_PRIVATE, kSecItemTypePrivateKey, kSecFormatOpenSSL, CSSM_ALGID_DH },
 	{ PEM_STRING_PKCS12, kSecItemTypeAggregate, kSecFormatPKCS12, NOALG },
-	{ PEM_STRING_SESSION, kSecItemTypeSessionKey, kSecFormatRawKey, NOALG }
+	{ PEM_STRING_SESSION, kSecItemTypeSessionKey, kSecFormatRawKey, NOALG },
+	{ PEM_STRING_ECDSA_PUBLIC, kSecItemTypePublicKey, kSecFormatOpenSSL, CSSM_ALGID_ECDSA },
+	{ PEM_STRING_ECDSA_PRIVATE, kSecItemTypePrivateKey, kSecFormatOpenSSL, CSSM_ALGID_ECDSA }
 };
 #define NUM_PEM_HEADERS (sizeof(PemHeaders) / sizeof(PemHeader))
 
@@ -209,9 +211,6 @@ static OSStatus impExpImportSinglePEM(
 			format   = ph->format;
 			itemType = ph->itemType;
 			keyAlg   = ph->keyAlg;
-			SecImpInferDbg("impExpImportSinglePEM inferred form %s type %s alg %lu",
-				impExpExtFormatStr(format), impExpExtItemTypeStr(itemType), 
-				(unsigned long)keyAlg);
 			break;
 		}
 		

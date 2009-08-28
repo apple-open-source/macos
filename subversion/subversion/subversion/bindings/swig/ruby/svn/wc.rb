@@ -22,18 +22,19 @@ module Svn
       alias_method "_#{target}", target
     end
     @@alias_targets = nil
-    
+
     module_function
     def locked?(path)
       Wc.locked(path)
     end
 
-    def ensure_adm(path, uuid, url, repos, revision)
-      Wc.ensure_adm2(path, uuid, url, repos, revision)
+    def ensure_adm(*args)
+      AdmAccess.ensure(*args)
     end
 
-    def parse_externals_description(parent_dir, desc)
-      Wc.parse_externals_description2(parent_dir, desc)
+    # For backward compatibility
+    def parse_externals_description(*args)
+      ExternalsDescription.parse(*args)
     end
 
     def actual_target(path)
@@ -43,11 +44,11 @@ module Svn
     def normal_prop?(name)
       Wc.is_normal_prop(name)
     end
-    
+
     def wc_prop?(name)
       Wc.is_wc_prop(name)
     end
-    
+
     def entry_prop?(name)
       Wc.is_entry_prop(name)
     end
@@ -59,27 +60,48 @@ module Svn
     def default_ignores(config)
       Wc.get_default_ignores(config)
     end
-    
+
     def cleanup(path, diff3_cmd=nil, cancel_func=nil)
       Wc.cleanup2(path, diff3_cmd, cancel_func)
+    end
+
+    def ignore?(path, patterns)
+      Wc.match_ignore_list(path, patterns)
+    end
+
+    module ExternalsDescription
+      module_function
+      def parse(parent_dir, desc, canonicalize_url=true)
+        Wc.parse_externals_description3(parent_dir, desc, canonicalize_url)
+      end
+    end
+
+    class ExternalItem
+      class << self
+        undef new
+      end
     end
 
     AdmAccess = SWIG::TYPE_p_svn_wc_adm_access_t
     class AdmAccess
       class << self
-        def open(associated, path, write_lock,
-                 depth, cancel_func=nil, &block)
+        def ensure(path, uuid, url, repos, revision, depth=nil)
+          Wc.ensure_adm3(path, uuid, url, repos, revision, depth)
+        end
+
+        def open(associated, path, write_lock=true,
+                 depth=-1, cancel_func=nil, &block)
           _open(:adm_open3, associated, path, write_lock,
                 depth, cancel_func, &block)
         end
 
-        def probe_open(associated, path, write_lock, depth,
+        def probe_open(associated, path, write_lock=true, depth=-1,
                        cancel_func=nil, &block)
           _open(:adm_probe_open3, associated, path, write_lock,
                 depth, cancel_func, &block)
         end
 
-        def open_anchor(path, write_lock, depth,
+        def open_anchor(path, write_lock=true, depth=-1,
                         cancel_func=nil, &block)
           _open(:adm_open_anchor, path, write_lock, depth,
                 cancel_func, &block)
@@ -87,19 +109,22 @@ module Svn
 
         private
         def _open(name, *args, &block)
-          adm = Wc.__send__(name, *args, &block)
-          
+          results = Wc.__send__(name, *args, &block)
+          adm, *rest = results
+
           if block_given?
             begin
-              yield adm
+              yield *results
             ensure
               adm.close
             end
           else
-            adm
+            results
           end
         end
       end
+
+      attr_accessor :traversal_info
 
       def open(*args, &block)
         self.class.open(self, *args, &block)
@@ -112,7 +137,7 @@ module Svn
       def retrieve(path)
         Wc.adm_retrieve(self, path)
       end
-        
+
       def probe_retrieve(path)
         Wc.adm_probe_retrieve(self, path)
       end
@@ -140,13 +165,13 @@ module Svn
       def text_modified?(filename, force=false)
         Wc.text_modified_p(filename, force, self)
       end
-      
+
       def props_modified?(path)
         Wc.props_modified_p(path, self)
       end
 
       def entry(path, show_hidden=false)
-        Wc.entry(path, self, show_hidden, Svn::Core::Pool.new)
+        Entry.new(path, self, show_hidden, Svn::Core::Pool.new)
       end
 
       def read_entries(show_hidden=false)
@@ -157,8 +182,10 @@ module Svn
         Wc.get_ancestry(path, self)
       end
 
-      def walk_entries(path, callbacks, show_hidden=false, cancel_func=nil)
-        Wc.walk_entries2(path, self, callbacks, show_hidden, cancel_func)
+      def walk_entries(path, callbacks, show_hidden=false, cancel_func=nil,
+                       depth=nil)
+        Wc.walk_entries3(path, self, callbacks, depth, show_hidden,
+                         cancel_func)
       end
 
       def mark_missing_deleted(path)
@@ -168,7 +195,7 @@ module Svn
       def maybe_set_repos_root(path, repos)
         Wc.maybe_set_repos_root(self, path, repos)
       end
-      
+
       def status(path)
         Wc.status2(path, self)
       end
@@ -176,6 +203,7 @@ module Svn
       def status_editor(target, config, recurse=true,
                         get_all=true, no_ignore=true,
                         cancel_func=nil, traversal_info=nil)
+        traversal_info ||= _traversal_info
         status_func = Proc.new do |path, status|
           yield(path, status)
         end
@@ -195,8 +223,8 @@ module Svn
         Wc.copy2(src, self, dst_basename, cancel_func, notify_func)
       end
 
-      def delete(path, cancel_func=nil, notify_func=nil)
-        Wc.delete2(path, self, cancel_func, notify_func)
+      def delete(path, cancel_func=nil, notify_func=nil, keep_local=false)
+        Wc.delete3(path, self, cancel_func, notify_func, keep_local)
       end
 
       def add(path, copyfrom_url=nil, copyfrom_rev=0,
@@ -239,18 +267,20 @@ module Svn
 
       def process_committed(path, new_revnum, rev_date=nil, rev_author=nil,
                             wcprop_changes=[], recurse=true,
-                            remove_lock=true, digest=nil)
-        Wc.process_committed3(path, self, recurse,
+                            remove_lock=true, digest=nil,
+                            remove_changelist=false)
+        Wc.process_committed4(path, self, recurse,
                               new_revnum, rev_date,
                               rev_author, wcprop_changes,
-                              remove_lock, digest)
+                              remove_lock, remove_changelist, digest)
       end
 
       def crawl_revisions(path, reporter, restore_files=true,
-                          recurse=true, use_commit_times=true,
+                          depth=nil, use_commit_times=true,
                           notify_func=nil, traversal_info=nil)
-        Wc.crawl_revisions2(path, self, reporter, reporter.baton,
-                            restore_files, recurse, use_commit_times,
+        traversal_info ||= _traversal_info
+        Wc.crawl_revisions3(path, self, reporter, reporter.baton,
+                            restore_files, depth, use_commit_times,
                             notify_func, traversal_info)
       end
 
@@ -258,25 +288,121 @@ module Svn
         Wc.is_wc_root(path, self)
       end
 
-      def update_editor(target, use_commit_times=true, recurse=true,
-                        diff3_cmd=nil, notify_func=nil, cancel_func=nil,
-                        traversal_info=nil)
-        editor, editor_baton = Wc.get_update_editor2(target, self,
-                                                     use_commit_times, recurse,
-                                                     notify_func, cancel_func,
-                                                     diff3_cmd, traversal_info)
+      def update_editor(target, target_revision=nil, use_commit_times=nil,
+                        depth=nil, allow_unver_obstruction=nil, diff3_cmd=nil,
+                        notify_func=nil, cancel_func=nil, traversal_info=nil,
+                        preserved_exts=nil)
+        update_editor2(:target => target,
+                       :target_revision => target_revision,
+                       :use_commit_times => use_commit_times,
+                       :depth => depth,
+                       :allow_unver_obstruction => allow_unver_obstruction,
+                       :diff3_cmd => diff3_cmd,
+                       :notify_func => notify_func,
+                       :cancel_func => cancel_func,
+                       :traversal_info => traversal_info,
+                       :preserved_exts => preserved_exts )
+      end
+
+      UPDATE_EDITOR2_REQUIRED_ARGUMENTS_KEYS = [:target]
+      def update_editor2(arguments={})
+        arguments = arguments.reject {|k, v| v.nil?}
+        optional_arguments_defaults = {
+            :target_revision => nil,
+            :use_commit_times => true,
+            :depth => nil,
+            :depth_is_sticky => false,
+            :allow_unver_obstruction => false,
+            :diff3_cmd => nil,
+            :notify_func => nil,
+            :cancel_func => nil,
+            :conflict_func => nil,
+            :traversal_info => _traversal_info,
+            :preserved_exts => []
+          }
+
+        arguments = optional_arguments_defaults.merge(arguments)
+        Util.validate_options(arguments,
+                              optional_arguments_defaults.keys,
+                              UPDATE_EDITOR2_REQUIRED_ARGUMENTS_KEYS)
+
+        # TODO(rb support fetch_fun): implement support for the fetch_func
+        # callback.
+        arguments[:fetch_func] = nil
+
+        results = Wc.get_update_editor3(arguments[:target_revision], self,
+                                        arguments[:target],
+                                        arguments[:use_commit_times],
+                                        arguments[:depth],
+                                        arguments[:depth_is_sticky],
+                                        arguments[:allow_unver_obstruction],
+                                        arguments[:notify_func],
+                                        arguments[:cancel_func],
+                                        arguments[:conflict_func],
+                                        arguments[:fetch_func],
+                                        arguments[:diff3_cmd],
+                                        arguments[:preserved_exts],
+                                        arguments[:traversal_info])
+        target_revision_address, editor, editor_baton = results
+        editor.__send__(:target_revision_address=, target_revision_address)
         editor.baton = editor_baton
         editor
       end
 
-      def switch_editor(target, switch_url, use_commit_times=true,
-                        recurse=true, diff3_cmd=nil, notify_func=nil,
-                        cancel_func=nil, traversal_info=nil)
-        editor, editor_baton = Wc.get_update_editor2(target, switch_url,
-                                                     self, use_commit_times,
-                                                     recurse, notify_func,
-                                                     cancel_func, diff3_cmd,
-                                                     traversal_info)
+      def switch_editor(target, switch_url, target_revision=nil,
+                        use_commit_times=nil, depth=nil,
+                        allow_unver_obstruction=nil, diff3_cmd=nil,
+                        notify_func=nil, cancel_func=nil, traversal_info=nil,
+                        preserved_exts=nil)
+        switch_editor2(:target => target,
+                       :switch_url => switch_url,
+                       :target_revision => target_revision,
+                       :use_commit_times => use_commit_times,
+                       :depth => depth,
+                       :allow_unver_obstruction => allow_unver_obstruction,
+                       :diff3_cmd => diff3_cmd,
+                       :notify_func => notify_func,
+                       :cancel_func => cancel_func,
+                       :traversal_info => traversal_info,
+                       :preserved_exts => preserved_exts )
+       end
+
+      SWITCH_EDITOR2_REQUIRED_ARGUMENTS_KEYS = [:target, :switch_url]
+      def switch_editor2(arguments={})
+        arguments = arguments.reject {|k, v| v.nil?}
+        optional_arguments_defaults = {
+          :target_revision => nil,
+          :use_commit_times => true,
+          :depth => nil,
+          :depth_is_sticky => false,
+          :allow_unver_obstruction => false,
+          :diff3_cmd => nil,
+          :notify_func => nil,
+          :cancel_func => nil,
+          :conflict_func => nil,
+          :traversal_info => _traversal_info,
+          :preserved_exts => []
+        }
+        arguments = optional_arguments_defaults.merge(arguments)
+        Util.validate_options(arguments,
+                              optional_arguments_defaults.keys,
+                              SWITCH_EDITOR2_REQUIRED_ARGUMENTS_KEYS)
+
+        results = Wc.get_switch_editor3(arguments[:target_revision], self,
+                                        arguments[:target],
+                                        arguments[:switch_url],
+                                        arguments[:use_commit_times],
+                                        arguments[:depth],
+                                        arguments[:depth_is_sticky],
+                                        arguments[:allow_unver_obstruction],
+                                        arguments[:notify_func],
+                                        arguments[:cancel_func],
+                                        arguments[:conflict_func],
+                                        arguments[:diff3_cmd],
+                                        arguments[:preserved_exts],
+                                        arguments[:traversal_info])
+        target_revision_address, editor, editor_baton = results
+        editor.__send__(:target_revision_address=, target_revision_address)
         editor.baton = editor_baton
         editor
       end
@@ -293,18 +419,33 @@ module Svn
         Wc.prop_set2(name, value, path, self, skip_checks)
       end
 
-      def diff_editor(target, callbacks, recurse=true,
+      def diff_editor(target, callbacks, depth=nil,
                       ignore_ancestry=true, use_text_base=false,
                       reverse_order=false, cancel_func=nil)
-        editor, editor_baton = Wc.get_diff_editor3(target, self, callbacks,
-                                                   recurse, ignore_ancestry,
+        callbacks_wrapper = DiffCallbacksWrapper.new(callbacks)
+        args = [target, callbacks_wrapper, depth, ignore_ancestry,
+                use_text_base, reverse_order, cancel_func]
+        diff_editor2(*args)
+      end
+
+      def diff_editor2(target, callbacks, depth=nil,
+                       ignore_ancestry=true, use_text_base=false,
+                       reverse_order=false, cancel_func=nil, changelists=nil)
+        editor, editor_baton = Wc.get_diff_editor4(self, target, callbacks,
+                                                   depth, ignore_ancestry,
                                                    use_text_base, reverse_order,
-                                                   cancel_func)
+                                                   cancel_func, changelists)
         editor.baton = editor_baton
         editor
       end
 
       def diff(target, callbacks, recurse=true, ignore_ancestry=true)
+        callbacks_wrapper = DiffCallbacksWrapper.new(callbacks)
+        args = [target, callbacks_wrapper, recurse, ignore_ancestry]
+        diff2(*args)
+      end
+
+      def diff2(target, callbacks, recurse=true, ignore_ancestry=true)
         Wc.diff3(self, target, callbacks, recurse, ignore_ancestry)
       end
 
@@ -332,8 +473,15 @@ module Svn
                            base_merge, dry_run)
       end
 
-      def relocate(path, from, to, recurse=true, validator=nil)
-        Wc.relocate2(path, self, from, to, recurse, validator)
+      def relocate(path, from, to, recurse=true, old_validator=nil, &validator)
+        if validator.nil? and !old_validator.nil?
+          validator = Proc.new do |uuid, url, root_url|
+            old_validator.call(uuid,
+                               root_url ? root_url : url,
+                               root_url ? true : false)
+          end
+        end
+        Wc.relocate3(path, self, from, to, recurse, validator)
       end
 
       def revert(path, recurse=true, use_commit_times=true,
@@ -343,7 +491,19 @@ module Svn
       end
 
       def translated_file(src, versioned_file, flags)
+        temp = Wc.translated_file2(src, versioned_file, self, flags)
+        temp.close
+        path = temp.path
+        path.instance_variable_set("@__temp__", temp)
+        path
+      end
+
+      def translated_file2(src, versioned_file, flags)
         Wc.translated_file2(src, versioned_file, self, flags)
+      end
+
+      def translated_stream(path, versioned_file, flags)
+        Wc.translated_stream(path, versioned_file, self, flags)
       end
 
       def transmit_text_deltas(path, editor, file_baton, fulltext=false)
@@ -371,30 +531,59 @@ module Svn
       def remove_lock(path)
         Wc.remove_lock(path, self)
       end
-    end
 
-    TraversalInfo = SWIG::TYPE_p_svn_wc_traversal_info_t
-    
-    class TraversalInfo
-      class << self
-        def new
-          Wc.init_traversal_info
-        end
+      def set_changelist(path, changelist_name, cancel_func=nil,
+                         notify_func=nil)
+        Wc.set_changelist(path, changelist_name, self, cancel_func,
+                          notify_func)
       end
 
+      private
+      def _traversal_info
+        @traversal_info ||= nil
+      end
+    end
+
+    class DiffCallbacksWrapper
+      def initialize(original)
+        @original = original
+      end
+
+      def file_changed(access, path, tmpfile1, tmpfile2, rev1,
+                       rev2, mimetype1, mimetype2,
+                       prop_changes, original_props)
+        prop_changes = Util.hash_to_prop_array(prop_changes)
+        @original.file_changed(access, path, tmpfile1, tmpfile2, rev1,
+                               rev2, mimetype1, mimetype2,
+                               prop_changes, original_props)
+      end
+
+      def file_added(access, path, tmpfile1, tmpfile2, rev1,
+                     rev2, mimetype1, mimetype2,
+                     prop_changes, original_props)
+        prop_changes = Util.hash_to_prop_array(prop_changes)
+        @original.file_added(access, path, tmpfile1, tmpfile2, rev1,
+                             rev2, mimetype1, mimetype2,
+                             prop_changes, original_props)
+      end
+
+      def dir_props_changed(access, path, prop_changes, original_props)
+        prop_changes = Util.hash_to_prop_array(prop_changes)
+        @original.dir_props_changed(access, path, prop_changes, original_props)
+      end
+
+      def method_missing(method, *args, &block)
+        @original.__send__(method, *args, &block)
+      end
+    end
+
+    class TraversalInfo
       def edited_externals
         Wc.edited_externals(self)
       end
     end
 
     class Entry
-
-      class << self
-        def new(path, adm_access, show_hidden)
-          Wc.entry(path, adm_access, show_hidden)
-        end
-      end
-      
       def dup
         Wc.entry_dup(self, Svn::Core::Pool.new)
       end
@@ -410,11 +599,11 @@ module Svn
       def text_conflicted?(dir_path)
         conflicted(dir_path)[0]
       end
-      
+
       def prop_conflicted?(dir_path)
         conflicted(dir_path)[1]
       end
-      
+
       def dir?
         kind == Core::NODE_DIR
       end
@@ -431,12 +620,12 @@ module Svn
         schedule == SCHEDULE_NORMAL
       end
     end
-    
+
     class Status2
       def dup
         Wc.dup_status2(self, Core::Pool.new)
       end
-      
+
       def text_added?
         text_status == STATUS_ADDED
       end
@@ -447,16 +636,10 @@ module Svn
     end
 
     class Notify
-      class << self
-        def new(path, action)
-          Wc.create_notify(path, action)
-        end
-      end
-
       def dup
         Wc.dup_notify(self, Core::Pool.new)
       end
-      
+
       def commit_added?
         action == NOTIFY_COMMIT_ADDED
       end
@@ -483,11 +666,23 @@ module Svn
     end
 
     class RevisionStatus
-      class << self
-        undef new
-        def new(wc_path, trail_url, committed, cancel_func=nil)
-          Wc.revision_status(wc_path, trail_url, committed, cancel_func)
-        end
+      alias _initialize initialize
+      def initialize(wc_path, trail_url, committed, cancel_func=nil)
+        _initialize(wc_path, trail_url, committed, cancel_func)
+      end
+    end
+
+    class CommittedQueue
+      def push(access, path, recurse=true, wcprop_changes={}, remove_lock=true,
+               remove_changelist=false, digest=nil)
+        Wc.queue_committed(self, path, access, recurse, wcprop_changes,
+                           remove_lock, remove_changelist, digest)
+        self
+      end
+
+      def process(access, new_rev, rev_date=nil, rev_author=nil)
+        rev_date = rev_date.to_svn_format if rev_date.is_a?(Time)
+        Wc.process_committed_queue(self, access, new_rev, rev_date, rev_author)
       end
     end
   end

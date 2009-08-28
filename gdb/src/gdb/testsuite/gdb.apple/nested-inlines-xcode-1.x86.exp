@@ -78,7 +78,14 @@ mi_gdb_test "120-file-fix-file-is-grooved" "120\\^done,supported=\"1\",details=\
 
 mi_gdb_test "121-break-insert -l -1 -f  -s $binfile \"$srcfile:12\"" "121\\^done,bkpt=\{number=\"1\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\"$hex\",func=\"main\",file=\".*$srcfile\",line=\"12\",shlib=\"$binfile\",times=\"0\"\}" "Set breakpoint at main"
 
-mi_gdb_test "123-exec-run" ".*running.*"  "Exec run"
+# mi_gdb_test "123-exec-run" ".*running"  "Exec run"
+
+send_gdb "123-exec-run\n"
+gdb_expect {
+    -re  ".*running\[\r\n]$gdb_prompt (\r\n=shlibs-added.*)*" {
+    pass "Exec run"
+    }
+}
 
 gdb_expect { -re ".*stopped.*$gdb_prompt" { pass "Stopped at first breakpoint" }
   -re "$gdb_prompt $" {
@@ -147,7 +154,7 @@ mi_gdb_test "146-var-evaluate-expression \"var6\"" "146\\^done,value=\"<value te
 
 mi_gdb_test "90-stack-select-frame 0" "90\\^done"  "Select stack frame 0"
 
-mi_gdb_test "148-data-read-memory -- 0x00000000 x 1 1 100" "148\\^done,addr=\"$hex\",nr-bytes=\"0\",total-bytes=\"100\",next-row=\"$hex\",prev-row=\"$hex\",next-page=\"$hex\",prev-page=\"$hex\",memory=\\\[\{addr=\"$hex\",data=\\\[\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\"\\\]\}\\\]"  "data-read-memory"
+# mi_gdb_test "148-data-read-memory -- 0x00000000 x 1 1 100" "148\\^done,addr=\"$hex\",nr-bytes=\"0\",total-bytes=\"100\",next-row=\"$hex\",prev-row=\"$hex\",next-page=\"$hex\",prev-page=\"$hex\",memory=\\\[\{addr=\"$hex\",data=\\\[\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\"\\\]\}\\\]"  "data-read-memory"
 
 mi_gdb_test "149-exec-next" "149\\^running.*149\\\*stopped,reason=\"end-stepping-range\",thread-id=\"1\"" "exec next"
 

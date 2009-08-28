@@ -1,0 +1,147 @@
+#!/usr/bin/env tclsh
+# $Id: link-checker.xotcl,v 1.5 2006/09/27 08:12:39 neumann Exp $
+#  -gn july 2000
+package require XOTcl; namespace import -force xotcl::*
+
+@ @File {
+  description {
+    A simple link checking program that checks in parallel 
+    pages of a site.
+    <p>
+    Options:<p>
+    <table>
+    <tr><td>-url <td>Start-URL</td></tr>
+    <tr><td>-foreign <td> 0 or 1, specifies, whether foreign links of 
+                        local pages should be checked (default 1)</td></tr>
+    <tr><td>-local    <td> A string match pattern to decide
+                     which url should be treated as local
+                     e.g.  -local *wu-wien.ac.at/*
+                     Per default the locality filter ist set
+                     to the name of the host followed by '/*'</td></tr>
+    <tr><td>-restrict <td> 0 or 1,  sets the locality filter to the subtree
+                     implied by the URL</td></tr>
+    <tr><td>-verbose <td> 0 or 1 or 2,  verbosity level (default 0)</td></tr>
+    </table>
+  }
+}
+
+if {$tcl_version<8.2} {
+  puts stderr "This script requires Tcl 8.2 or newer"
+  exit -1
+}
+
+set opt(-url) http://localhost:8000/
+set opt(-url) http://nm.wu-wien.ac.at/Lehre/
+set opt(-verbose) 0; # 0, 1 (show check), or 2 (show ignore)
+set opt(-foreign) 1; # 0, 1 (check foreign links on local pages)
+set opt(-restrict) 0; # 0, 1 
+
+## per default, lc checks the 
+array set opt $argv
+if {$opt(-restrict)} {
+  regexp {://(.*)$} $opt(-url) _ opt(-local)
+  set opt(-local) [string trimright $opt(-local) /]*
+  puts stderr "locality filter set to '$opt(-local)'"
+}
+if {![info exists opt(-local)]} {
+  regexp {http://([^/:]+)} $opt(-url) _ opt(-local)
+  append opt(-local) /*
+  puts stderr "locality filter set to '$opt(-local)'"
+}
+
+#package require xotcl::package; package verbose 1
+package require xotcl::comm::httpAccess
+package require xotcl::trace
+
+proc printError {m} {}
+
+Class Checker -superclass ParallelSink \
+    -parameter {verbose foreign local}
+Checker array set ref {A HREF IMG SRC}
+Checker set ref_re {[[:space:]]*=[[:space:]]*([[:graph:]]+)}
+Checker instproc report {msg {level 1}} {
+  my instvar verbose
+  if {$verbose>$level} {puts stderr $msg}
+  return 0
+}
+Checker instproc isLocal {url} {
+  my instvar local
+  string match *://$local $url
+}
+Checker instproc isToCheck {url request methodvar} {
+  my instvar foreign
+  upvar $methodvar method
+  if {![regexp -nocase {http://([^/:]+)} $url _ host]} {
+    return [my report "ignored, no http: $url"]
+  }
+  set method GET
+  if {![my isLocal $url]} {
+    if {$foreign} {
+      #puts stderr "parenturl: [$request set parentUrl] -> [my isLocal [$request set parentUrl]]"
+      if {[$request info vars parentUrl] ne "" &&
+	  ![my isLocal [$request set parentUrl]]} {
+	return [my report "ignored, nor local: $url"]
+      } else {
+	set method HEAD
+      }
+    } else {
+      return [my report "ignored, nor local: $url"]
+    }
+  }
+  if {[regexp -nocase {[.](gif|jpg|ps|pdf|gz)$} $url]} {
+    set method HEAD
+    #return [my report "ignored due to extension: $url"]
+  }
+  return 1
+}
+Checker instproc checkLink {request link} {
+  set resolved [resolve $link [$request set url]]
+  if {[my isToCheck $resolved $request method]} {
+    my instvar checked
+    if {![info exists checked($resolved)]} {
+      my report "checking .......... $resolved" 0
+      set checked($resolved) 1
+      my scheduleRequest $method $resolved [$request set url]
+    } else {
+      #puts stderr "already checked $resolved"
+    }
+  }
+}
+Checker instproc checkText {request} {
+  if {![my isLocal [$request set url]]} return
+  [self class] instvar ref ref_re
+  set content [$request getContent]
+  set start 0
+  while {[regexp -nocase -indices -start $start -- \
+	      {<(A|IMG)([^>]*?)} $content a b c]} {
+    set elem [string toupper \
+		  [string range $content [lindex $b 0] [lindex $b 1]]]
+    set attribs [string range $content [lindex $c 0] [lindex $c 1]]
+    #regsub -all {[\n ]+} $attribs " " attribs
+    if {[regexp -nocase $ref($elem)$ref_re $attribs _ i]} {
+      my checkLink $request [string trim $i '\"]
+    }
+    set start [lindex $c 1]
+  }
+}
+Checker instproc endCb r {
+  #showObj $r
+  switch [$r set contentType] {
+    text/html {my checkText $r}
+  }
+  next
+}
+Checker instproc cancelCb r {
+  #$r showVars
+  puts stderr "ERROR in page [$r set parentUrl]"
+  puts stderr "      Link:         [$r set url]"
+  puts stderr "      cause         [$r set errormsg]\n"
+  next
+}
+
+Checker csink \
+    -verbose $opt(-verbose) -foreign $opt(-foreign) -local $opt(-local) \
+    -sinkClass MemorySink -httpVersion 1.0 -maxsimultaneous 30 
+csink requests $opt(-url) 
+puts stderr "sumbytes: [csink set sumbytes] requests: [csink set numrequests]"
+csink destroy

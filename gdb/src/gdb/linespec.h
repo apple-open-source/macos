@@ -35,5 +35,4 @@ extern struct symtabs_and_lines
 extern int allow_objc_selectors_flag;
 extern void reset_allow_objc_selectors_flag (PTR dummy);
 /* APPLE LOCAL end selectors in line specs */
-
 #endif /* defined (LINESPEC_H) */

@@ -32,14 +32,13 @@
 
 #if ENABLE(DATABASE)
 
-#include "v8_binding.h"
-#include "v8_custom.h"
-#include "v8_proxy.h"
-
 #include "Database.h"
 #include "SQLValue.h"
+#include "V8Binding.h"
+#include "V8CustomBinding.h"
 #include "V8CustomSQLStatementCallback.h"
 #include "V8CustomSQLStatementErrorCallback.h"
+#include "V8Proxy.h"
 #include <wtf/Vector.h>
 
 using namespace WTF;
@@ -51,18 +50,18 @@ CALLBACK_FUNC_DECL(SQLTransactionExecuteSql)
     INC_STATS("DOM.SQLTransaction.executeSql()");
 
     if (args.Length() == 0) {
-        V8Proxy::ThrowError(V8Proxy::SYNTAX_ERROR, "SQL statement is required.");
+        V8Proxy::throwError(V8Proxy::SyntaxError, "SQL statement is required.");
         return v8::Undefined();
     }
 
-    String statement = ToWebCoreString(args[0]);
+    String statement = toWebCoreString(args[0]);
 
     Vector<SQLValue> sqlValues;
 
     if (args.Length() > 1) {
         // FIXME: Make this work for v8::Arrayish objects, as well
         if (!args[1]->IsArray()) {
-            V8Proxy::ThrowError(V8Proxy::TYPE_ERROR, "Statement arguments must be an v8::Array.");
+            V8Proxy::throwError(V8Proxy::TypeError, "Statement arguments must be an v8::Array.");
             return v8::Undefined();
         }
 
@@ -76,18 +75,18 @@ CALLBACK_FUNC_DECL(SQLTransactionExecuteSql)
             else if (value->IsNumber())
                 sqlValues.append(SQLValue(value->NumberValue()));
             else
-                sqlValues.append(SQLValue(ToWebCoreString(value)));
+                sqlValues.append(SQLValue(toWebCoreString(value)));
         }
     }
 
-    SQLTransaction* transaction = V8Proxy::ToNativeObject<SQLTransaction>(V8ClassIndex::SQLTRANSACTION, args.Holder());
+    SQLTransaction* transaction = V8DOMWrapper::convertToNativeObject<SQLTransaction>(V8ClassIndex::SQLTRANSACTION, args.Holder());
 
     Frame* frame = V8Proxy::retrieveFrame();
 
     RefPtr<SQLStatementCallback> callback;
     if (args.Length() > 2) {
         if (!args[2]->IsObject()) {
-            V8Proxy::ThrowError(V8Proxy::TYPE_ERROR, "Statement callback must be of valid type.");
+            V8Proxy::throwError(V8Proxy::TypeError, "Statement callback must be of valid type.");
             return v8::Undefined();
         }
 
@@ -98,7 +97,7 @@ CALLBACK_FUNC_DECL(SQLTransactionExecuteSql)
     RefPtr<SQLStatementErrorCallback> errorCallback;
     if (args.Length() > 3) {
         if (!args[2]->IsObject()) {
-            V8Proxy::ThrowError(V8Proxy::TYPE_ERROR, "Statement error callback must be of valid type.");
+            V8Proxy::throwError(V8Proxy::TypeError, "Statement error callback must be of valid type.");
             return v8::Undefined();
         }
 
@@ -108,7 +107,7 @@ CALLBACK_FUNC_DECL(SQLTransactionExecuteSql)
 
     ExceptionCode ec = 0;
     transaction->executeSQL(statement, sqlValues, callback, errorCallback, ec);
-    V8Proxy::SetDOMException(ec);
+    V8Proxy::setDOMException(ec);
 
     return v8::Undefined();
 }

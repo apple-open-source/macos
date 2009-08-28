@@ -1,0 +1,11 @@
+--- src/ftpd.c.orig	2008-06-18 14:55:05.000000000 -0700
++++ src/ftpd.c	2008-06-18 14:56:04.000000000 -0700
+@@ -1215,7 +1215,7 @@
+ 					    "Local resource failure: realloc");
+ 				groups = ng;
+ 			} while (getgrouplist(pw->pw_name, pw->pw_gid,
+-						groups, &gsize) == -1);
++						(int*)groups, &gsize) == -1);
+ 			found = 0;
+ 			for (i = 0; i < gsize; i++) {
+ 				struct group *g;

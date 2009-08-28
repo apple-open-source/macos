@@ -146,28 +146,28 @@ Attachment::~Attachment()
 void *Attachment::upcallMalloc(CSSM_HANDLE handle, uint32 size)
 {
     BEGIN_API
-    return findHandle<Attachment>(handle).malloc(size);
+    return HandleObject::find<Attachment>(handle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE).malloc(size);
     END_API1(NULL)
 }
 
 void Attachment::upcallFree(CSSM_HANDLE handle, void *mem)
 {
     BEGIN_API
-    return findHandle<Attachment>(handle).free(mem);
+    return HandleObject::find<Attachment>(handle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE).free(mem);
     END_API0
 }
 
 void *Attachment::upcallRealloc(CSSM_HANDLE handle, void *mem, uint32 size)
 {
     BEGIN_API
-    return findHandle<Attachment>(handle).realloc(mem, size);
+    return HandleObject::find<Attachment>(handle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE).realloc(mem, size);
     END_API1(NULL)
 }
 
 void *Attachment::upcallCalloc(CSSM_HANDLE handle, uint32 num, uint32 size)
 {
     BEGIN_API
-    return findHandle<Attachment>(handle).calloc(num, size);
+    return HandleObject::find<Attachment>(handle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE).calloc(num, size);
     END_API1(NULL)
 }
 
@@ -175,7 +175,7 @@ CSSM_RETURN Attachment::upcallCcToHandle(CSSM_CC_HANDLE handle,
                                          CSSM_MODULE_HANDLE *modHandle)
 {
     BEGIN_API
-    Required(modHandle) = findHandle<HandleContext>(handle).attachment.handle();
+    Required(modHandle) = HandleObject::find<HandleContext>(handle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE).attachment.handle();
     END_API(CSP)
 }
 
@@ -191,7 +191,7 @@ CSSM_RETURN Attachment::upcallGetModuleInfo(CSSM_MODULE_HANDLE handle,
                                             uint32 NumFunctions)
 {
     BEGIN_API
-    Attachment &attachment = findHandle<Attachment>(handle);
+    Attachment &attachment = HandleObject::find<Attachment>(handle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE);
     Required(guid) = attachment.myGuid();
     Required(version) = attachment.mVersion;
     Required(subserviceId) = attachment.mSubserviceId;

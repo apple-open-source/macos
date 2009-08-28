@@ -1,0 +1,84 @@
+# -*- Mode: tcl -*-
+# $Id: actiweb.test,v 1.9 2006/09/27 08:12:40 neumann Exp $
+# regression test for actiweb examples
+#if {[set ::tcl_platform(platform)] == "windows"} {
+#  lappend auto_path .
+#}
+package require XOTcl; namespace import -force ::xotcl::*
+set pkgDir [file dirname [info script]]/..
+lappend auto_path $pkgDir
+package require xotcl::test
+#package require xotcl::package; package verbose 1
+package require xotcl::comm::httpAccess
+#package require xotcl::trace
+
+set tclsh [info nameofexecutable]
+set dir [file dir [info script]]
+set actiwebApps $dir/../apps/actiweb
+
+# remove persitent vars to get reproducible behavior
+catch [file delete -force receiver]
+proc terminate {} {
+  catch [file delete -force receiver]
+  exit
+}
+
+puts "$tclsh ${actiwebApps}/Counter.xotcl"
+puts "------------------------------------ $tclsh ${actiwebApps}/Counter.xotcl -pkgdir $pkgDir"
+set PIPE1 [open "| $tclsh ${actiwebApps}/Counter.xotcl -pkgdir $pkgDir"]
+set PIPE2 [open "| $tclsh ${actiwebApps}/Counter2.xotcl -pkgdir $pkgDir"]
+set PIPE3 [open "| $tclsh ${actiwebApps}/Counter3.xotcl -pkgdir $pkgDir"]
+set PIPE4 [open "| $tclsh ${actiwebApps}/Counter4.xotcl -pkgdir $pkgDir"]
+set PIPE5 [open "| $tclsh ${actiwebApps}/MC.xotcl -pkgdir $pkgDir"]
+
+proc printError msg {puts stderr !!!$msg!!!}
+
+Class T -superclass Test -parameter {
+  {count 1}
+  {errorReport {
+    puts "\tcontent-length: \[r0::sink set contentLength\]\n\
+          \tstatus-code: \[\[r0 set token\] set responseCode\]"
+  }}}
+
+
+T new -msg "Trying Counter.xotcl ... " \
+    -setResult {regexp {^<HTML>The value in counter-1.html is now: 0} [r0::sink set d]} \
+    -cmd [list SimpleRequest r0 -url http://localhost:8090/counter-1.html]
+T new -msg "terminate Counter" -setResult {set x 1} \
+    -cmd [list SimpleRequest r0 -url http://localhost:8090/receiver::exit] \
+    -post {catch {close $::PIPE1}}
+
+T new -msg "Trying Counter2.xotcl ... " \
+    -setResult {r0 getContentLength} \
+    -expected 238 \
+    -cmd [list SimpleRequest r0 -url http://localhost:8091/web-c1]
+T new -msg "terminate Counter1" -setResult {set x 1}  \
+    -cmd [list SimpleRequest r0 -url http://localhost:8091/receiver::exit] \
+    -post {catch {close $::PIPE2}}
+
+T new -msg "Trying Counter3.xotcl  ... " \
+    -setResult {r0 getContentLength} \
+    -expected 122 \
+    -cmd [list SimpleRequest r0 -url http://localhost:8093/c1]
+T new -msg "terminate Counter3" -setResult {set x 1}  \
+    -cmd [list SimpleRequest r0 -url http://localhost:8093/receiver::exit] \
+    -post {catch {close $::PIPE3}}
+
+T new -msg "Trying Counter4.xotcl (a) ... " \
+    -setResult {r0 getContentLength} \
+    -expected 126 \
+    -cmd [list SimpleRequest r0 -url http://localhost:8094/wc1]
+T new -msg "terminate Counter4" -setResult {set x 1} \
+    -cmd [list SimpleRequest r0 -url http://localhost:8094/receiver::exit] \
+    -post {catch {close $::PIPE4}}
+
+T new -msg "Trying MC.xotcl ... " \
+    -setResult {r0 getContentLength} \
+    -expected 1767 \
+    -cmd [list SimpleRequest r0 -url http://localhost:8092/Gustaf.html ]
+T new -msg "terminate MC" -setResult {set x 1} \
+    -cmd [list SimpleRequest r0 -url http://localhost:8092/receiver::exit] \
+    -post {catch {close $::PIPE5}; exit}
+
+after 4000 {Test run}
+catch {vwait forever}

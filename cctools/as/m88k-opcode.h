@@ -60,7 +60,7 @@ struct m88k_opcode {
    char           *name;
    struct opspec  op[3];
 #ifdef NeXT_MOD
-   long		  delay_slot;
+   int32_t	  delay_slot;
 #endif
 };
 

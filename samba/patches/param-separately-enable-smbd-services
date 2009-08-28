@@ -11,7 +11,7 @@ Index: samba/source/param/loadparm.c
  	char **AuthMethods;
  	BOOL paranoid_server_security;
  	int maxdisksize;
-@@ -860,6 +862,8 @@ static struct parm_struct parm_table[] =
+@@ -870,6 +872,8 @@ static struct parm_struct parm_table[] =
  	{N_("Security Options"), P_SEP, P_SEPARATOR}, 
  
  	{"security", P_ENUM, P_GLOBAL, &Globals.security, NULL, enum_security, FLAG_BASIC | FLAG_ADVANCED | FLAG_WIZARD}, 
@@ -20,7 +20,7 @@ Index: samba/source/param/loadparm.c
  	{"auth methods", P_LIST, P_GLOBAL, &Globals.AuthMethods, NULL, NULL, FLAG_ADVANCED}, 
  	{"encrypt passwords", P_BOOL, P_GLOBAL, &Globals.bEncryptPasswords, NULL, NULL, FLAG_BASIC | FLAG_ADVANCED | FLAG_WIZARD}, 
  	{"update encrypted", P_BOOL, P_GLOBAL, &Globals.bUpdateEncrypt, NULL, NULL, FLAG_ADVANCED}, 
-@@ -1512,6 +1516,8 @@ static void init_globals(BOOL first_time
+@@ -1528,6 +1532,8 @@ static void init_globals(BOOL first_time
  	Globals.maxprotocol = PROTOCOL_NT1;
  	Globals.minprotocol = PROTOCOL_CORE;
  	Globals.security = SEC_USER;
@@ -29,7 +29,7 @@ Index: samba/source/param/loadparm.c
  	Globals.paranoid_server_security = True;
  	Globals.bEncryptPasswords = True;
  	Globals.bUpdateEncrypt = False;
-@@ -2012,6 +2018,8 @@ FN_GLOBAL_INTEGER(lp_deadtime, &Globals.
+@@ -2033,6 +2039,8 @@ FN_GLOBAL_INTEGER(lp_deadtime, &Globals.
  FN_GLOBAL_INTEGER(lp_maxprotocol, &Globals.maxprotocol)
  FN_GLOBAL_INTEGER(lp_minprotocol, &Globals.minprotocol)
  FN_GLOBAL_INTEGER(lp_security, &Globals.security)
@@ -38,7 +38,7 @@ Index: samba/source/param/loadparm.c
  FN_GLOBAL_LIST(lp_auth_methods, &Globals.AuthMethods)
  FN_GLOBAL_BOOL(lp_paranoid_server_security, &Globals.paranoid_server_security)
  FN_GLOBAL_INTEGER(lp_maxdisksize, &Globals.maxdisksize)
-@@ -4092,7 +4100,19 @@ static void dump_copy_map(BOOL *pcopymap
+@@ -4123,7 +4131,19 @@ static void dump_copy_map(BOOL *pcopymap
  
  BOOL lp_snum_ok(int iService)
  {
@@ -59,7 +59,7 @@ Index: samba/source/param/loadparm.c
  }
  
  /***************************************************************************
-@@ -5585,8 +5605,9 @@ static void set_default_server_announce_
+@@ -5616,8 +5636,9 @@ static void set_default_server_announce_
  	/* note that the flag should be set only if we have a 
  	   printer service but nmbd doesn't actually load the 
  	   services so we can't tell   --jerry */

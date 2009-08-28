@@ -1,6 +1,6 @@
 /* Front-end tree definitions for GNU compiler.
    Copyright (C) 1989, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -16,12 +16,13 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_TREE_H
 #define GCC_TREE_H
 
+#include "hashtab.h"
 #include "machmode.h"
 #include "input.h"
 #include "statistics.h"
@@ -39,6 +40,9 @@ enum tree_code {
 };
 
 #undef DEFTREECODE
+
+extern unsigned char tree_contains_struct[256][64];
+#define CODE_CONTAINS_STRUCT(CODE, STRUCT) (tree_contains_struct[(CODE)][(STRUCT)])
 
 /* Number of language-independent tree codes.  */
 #define NUM_TREE_CODES ((int) LAST_AND_UNUSED_TREE_CODE)
@@ -97,15 +101,22 @@ extern const enum tree_code_class tree_code_type[];
 #define DECL_P(CODE)\
         (TREE_CODE_CLASS (TREE_CODE (CODE)) == tcc_declaration)
 
-/* APPLE LOCAL begin mainline 4.2 2006-05-09 */
+/* Nonzero if CODE represents a memory tag.  */
+
+#define MTAG_P(CODE) \
+  (TREE_CODE (CODE) == STRUCT_FIELD_TAG		\
+   || TREE_CODE (CODE) == NAME_MEMORY_TAG	\
+   || TREE_CODE (CODE) == SYMBOL_MEMORY_TAG)
+
+
 /* Nonzero if DECL represents a VAR_DECL or FUNCTION_DECL.  */
 
 #define VAR_OR_FUNCTION_DECL_P(DECL)\
   (TREE_CODE (DECL) == VAR_DECL || TREE_CODE (DECL) == FUNCTION_DECL)
-/* APPLE LOCAL end mainline 4.2 2006-05-09 */
 
 /* Nonzero if CODE represents a INDIRECT_REF.  Keep these checks in
    ascending code order.  */
+
 #define INDIRECT_REF_P(CODE)\
   (TREE_CODE (CODE) == INDIRECT_REF \
    || TREE_CODE (CODE) == ALIGN_INDIRECT_REF \
@@ -141,10 +152,6 @@ extern const enum tree_code_class tree_code_type[];
 #define EXPRESSION_CLASS_P(CODE)\
 	(TREE_CODE_CLASS (TREE_CODE (CODE)) == tcc_expression)
 
-/* Returns nonzero iff CLASS is not the tree code of a type.  */
-
-#define IS_NON_TYPE_CODE_CLASS(CLASS) ((CLASS) != tcc_type)
-
 /* Returns nonzero iff CODE represents a type or declaration.  */
 
 #define IS_TYPE_OR_DECL_P(CODE)\
@@ -160,6 +167,20 @@ extern const enum tree_code_class tree_code_type[];
 
 #define EXPR_P(NODE) IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (NODE)))
 
+/* Returns nonzero iff NODE is an OpenMP directive.  */
+
+#define OMP_DIRECTIVE_P(NODE)				\
+    (TREE_CODE (NODE) == OMP_PARALLEL			\
+     || TREE_CODE (NODE) == OMP_FOR			\
+     || TREE_CODE (NODE) == OMP_SECTIONS		\
+     || TREE_CODE (NODE) == OMP_SINGLE			\
+     || TREE_CODE (NODE) == OMP_SECTION			\
+     || TREE_CODE (NODE) == OMP_MASTER			\
+     || TREE_CODE (NODE) == OMP_ORDERED			\
+     || TREE_CODE (NODE) == OMP_CRITICAL		\
+     || TREE_CODE (NODE) == OMP_RETURN			\
+     || TREE_CODE (NODE) == OMP_CONTINUE)
+
 /* Number of argument-words in each kind of tree-node.  */
 
 extern const unsigned char tree_code_length[];
@@ -169,8 +190,10 @@ extern const unsigned char tree_code_length[];
 
 extern const char *const tree_code_name[];
 
-/* A garbage collected vector of trees.  */
-DEF_VEC_GC_P(tree);
+/* A vectors of trees.  */
+DEF_VEC_P(tree);
+DEF_VEC_ALLOC_P(tree,gc);
+DEF_VEC_ALLOC_P(tree,heap);
 
 
 /* Classify which part of the compiler has defined a given builtin function.
@@ -234,9 +257,72 @@ extern const char * built_in_names[(int) END_BUILTINS];
 
 #define BUILTIN_ROOT_P(FN) (BUILTIN_SQRT_P (FN) || BUILTIN_CBRT_P (FN))
 
+#define CASE_FLT_FN(FN) case FN: case FN##F: case FN##L
+#define CASE_INT_FN(FN) case FN: case FN##L: case FN##LL
+
 /* An array of _DECL trees for the above.  */
 extern GTY(()) tree built_in_decls[(int) END_BUILTINS];
 extern GTY(()) tree implicit_built_in_decls[(int) END_BUILTINS];
+
+/* In an OMP_CLAUSE node.  */
+
+/* Number of operands and names for each clause.  */
+extern unsigned const char omp_clause_num_ops[];
+extern const char * const omp_clause_code_name[];
+
+/* Clause codes.  Do not reorder, as this is used to index into the tables
+   omp_clause_num_ops and omp_clause_code_name.  */
+enum omp_clause_code
+{
+  /* Clause zero is special-cased inside the parser
+     (c_parser_omp_variable_list).  */
+  OMP_CLAUSE_ERROR = 0,
+
+  /* OpenMP clause: private (variable_list).  */
+  OMP_CLAUSE_PRIVATE,
+
+  /* OpenMP clause: shared (variable_list).  */
+  OMP_CLAUSE_SHARED,
+
+  /* OpenMP clause: firstprivate (variable_list).  */
+  OMP_CLAUSE_FIRSTPRIVATE,
+
+  /* OpenMP clause: lastprivate (variable_list).  */
+  OMP_CLAUSE_LASTPRIVATE,
+
+  /* OpenMP clause: reduction (operator:variable_list).
+     OMP_CLAUSE_REDUCTION_CODE: The tree_code of the operator.
+     Operand 1: OMP_CLAUSE_REDUCTION_INIT: Stmt-list to initialize the var.
+     Operand 2: OMP_CLAUSE_REDUCTION_MERGE: Stmt-list to merge private var
+                into the shared one.
+     Operand 3: OMP_CLAUSE_REDUCTION_PLACEHOLDER: A dummy VAR_DECL
+                placeholder used in OMP_CLAUSE_REDUCTION_MERGE.  */
+  OMP_CLAUSE_REDUCTION,
+
+  /* OpenMP clause: copyin (variable_list).  */
+  OMP_CLAUSE_COPYIN,
+
+  /* OpenMP clause: copyprivate (variable_list).  */
+  OMP_CLAUSE_COPYPRIVATE,
+
+  /* OpenMP clause: if (scalar-expression).  */
+  OMP_CLAUSE_IF,
+
+  /* OpenMP clause: num_threads (integer-expression).  */
+  OMP_CLAUSE_NUM_THREADS,
+
+  /* OpenMP clause: schedule.  */
+  OMP_CLAUSE_SCHEDULE,
+
+  /* OpenMP clause: nowait.  */
+  OMP_CLAUSE_NOWAIT,
+
+  /* OpenMP clause: ordered.  */
+  OMP_CLAUSE_ORDERED,
+
+  /* OpenMP clause: default.  */
+  OMP_CLAUSE_DEFAULT
+};
 
 /* The definition of tree nodes fills the next several pages.  */
 
@@ -311,6 +397,7 @@ struct tree_common GTY(())
 	   In a STMT_EXPR, it means we want the result of the enclosed
 	   expression.
        CALL_EXPR_TAILCALL in CALL_EXPR
+       CASE_LOW_SEEN in CASE_LABEL_EXPR
 
    static_flag:
 
@@ -329,12 +416,12 @@ struct tree_common GTY(())
        EH_FILTER_MUST_NOT_THROW in EH_FILTER_EXPR
        TYPE_REF_CAN_ALIAS_ALL in
            POINTER_TYPE, REFERENCE_TYPE
+       CASE_HIGH_SEEN in CASE_LABEL_EXPR
 
    public_flag:
 
        TREE_OVERFLOW in
            INTEGER_CST, REAL_CST, COMPLEX_CST, VECTOR_CST
-	   ??? and other expressions?
        TREE_PUBLIC in
            VAR_DECL or FUNCTION_DECL or IDENTIFIER_NODE
        ASM_VOLATILE_P in
@@ -343,15 +430,25 @@ struct tree_common GTY(())
           ..._TYPE
        SAVE_EXPR_RESOLVED_P in
 	  SAVE_EXPR
+       OMP_CLAUSE_LASTPRIVATE_FIRSTPRIVATE in
+	  OMP_CLAUSE_LASTPRIVATE
+       OMP_CLAUSE_PRIVATE_DEBUG in
+	  OMP_CLAUSE_PRIVATE
 
    private_flag:
 
        TREE_PRIVATE in
            ..._DECL
-       CALL_EXPR_HAS_RETURN_SLOT_ADDR in
+       CALL_EXPR_RETURN_SLOT_OPT in
            CALL_EXPR
        DECL_BY_REFERENCE in
            PARM_DECL, RESULT_DECL
+       OMP_RETURN_NOWAIT in
+	   OMP_RETURN
+       OMP_SECTION_LAST in
+	   OMP_SECTION
+       OMP_PARALLEL_COMBINED in
+	   OMP_PARALLEL
 
    protected_flag:
 
@@ -432,6 +529,9 @@ struct tree_common GTY(())
 	APPLE LOCAL C* property (Radar 4436866)
 	   CALL_EXPR
 
+	IDENTIFIER_TRANSPARENT_ALIAS in
+	   IDENTIFIER_NODE
+
    APPLE LOCAL begin "unavailable" attribute (Radar 2809697)
    unavailable_flag:
 
@@ -453,6 +553,13 @@ struct tree_common GTY(())
        TREE_NO_WARNING in
            ... any expr or decl node
 */
+#undef DEFTREESTRUCT
+#define DEFTREESTRUCT(ENUM, NAME) ENUM,
+enum tree_node_structure_enum {
+#include "treestruct.def"
+  LAST_TS_ENUM
+};
+#undef DEFTREESTRUCT
 
 /* Define accessors for the fields that all tree nodes have
    (though some fields are not used for all kinds of nodes).  */
@@ -463,7 +570,7 @@ struct tree_common GTY(())
 #define TREE_SET_CODE(NODE, VALUE) ((NODE)->common.code = (VALUE))
 
 /* When checking is enabled, errors will be generated if a tree node
-   is accessed incorrectly. The macros abort with a fatal error.  */
+   is accessed incorrectly. The macros die with a fatal error.  */
 #if defined ENABLE_TREE_CHECKING && (GCC_VERSION >= 2007)
 
 #define TREE_CHECK(T, CODE) __extension__				\
@@ -556,11 +663,46 @@ struct tree_common GTY(())
 			     (CODE1), (CODE2), (CODE3), (CODE4), (CODE5), 0);\
     __t; })
 
+#define CONTAINS_STRUCT_CHECK(T, STRUCT) __extension__			\
+({  const tree __t = (T);						\
+  if (tree_contains_struct[TREE_CODE(__t)][(STRUCT)] != 1)		\
+      tree_contains_struct_check_failed (__t, (STRUCT), __FILE__, __LINE__,	\
+			       __FUNCTION__);				\
+    __t; })
+
 #define TREE_CLASS_CHECK(T, CLASS) __extension__			\
 ({  const tree __t = (T);						\
     if (TREE_CODE_CLASS (TREE_CODE(__t)) != (CLASS))			\
       tree_class_check_failed (__t, (CLASS), __FILE__, __LINE__,	\
 			       __FUNCTION__);				\
+    __t; })
+
+#define TREE_RANGE_CHECK(T, CODE1, CODE2) __extension__			\
+({  const tree __t = (T);						\
+    if (TREE_CODE (__t) < (CODE1) || TREE_CODE (__t) > (CODE2))		\
+      tree_range_check_failed (__t, __FILE__, __LINE__, __FUNCTION__,	\
+			       (CODE1), (CODE2));			\
+    __t; })
+
+#define OMP_CLAUSE_SUBCODE_CHECK(T, CODE) __extension__			\
+({  const tree __t = (T);						\
+    if (TREE_CODE (__t) != OMP_CLAUSE)					\
+      tree_check_failed (__t, __FILE__, __LINE__, __FUNCTION__,  	\
+			 OMP_CLAUSE, 0);				\
+    if (__t->omp_clause.code != (CODE))					\
+      omp_clause_check_failed (__t, __FILE__, __LINE__, __FUNCTION__, 	\
+			       (CODE));					\
+    __t; })
+
+#define OMP_CLAUSE_RANGE_CHECK(T, CODE1, CODE2) __extension__		\
+({  const tree __t = (T);						\
+    if (TREE_CODE (__t) != OMP_CLAUSE)					\
+      tree_check_failed (__t, __FILE__, __LINE__, __FUNCTION__,  	\
+			 OMP_CLAUSE, 0);				\
+    if ((int) __t->omp_clause.code < (int) (CODE1)			\
+        || (int) __t->omp_clause.code > (int) (CODE2))			\
+      omp_clause_range_check_failed (__t, __FILE__, __LINE__,		\
+				     __FUNCTION__, (CODE1), (CODE2));	\
     __t; })
 
 /* These checks have to be special cased.  */
@@ -575,10 +717,9 @@ struct tree_common GTY(())
 /* These checks have to be special cased.  */
 #define NON_TYPE_CHECK(T) __extension__					\
 ({  const tree __t = (T);						\
-    char const __c = TREE_CODE_CLASS (TREE_CODE (__t));			\
-    if (!IS_NON_TYPE_CODE_CLASS (__c))					\
-      tree_class_check_failed (__t, tcc_type, __FILE__, __LINE__,	\
-			       __FUNCTION__);				\
+    if (TYPE_P (__t))							\
+      tree_not_class_check_failed (__t, tcc_type, __FILE__, __LINE__,	\
+				   __FUNCTION__);			\
     __t; })
 
 #define TREE_VEC_ELT_CHECK(T, I) __extension__				\
@@ -602,6 +743,17 @@ struct tree_common GTY(())
       phi_node_elt_check_failed (__i, __t->phi.num_args,		\
 				 __FILE__, __LINE__, __FUNCTION__);	\
     &__t->phi.a[__i]; }))
+
+#define OMP_CLAUSE_ELT_CHECK(t, i) __extension__			\
+(*({const tree __t = t;							\
+    const int __i = (i);						\
+    if (TREE_CODE (__t) != OMP_CLAUSE)					\
+      tree_check_failed (__t, __FILE__, __LINE__, __FUNCTION__,  	\
+			 OMP_CLAUSE, 0);				\
+    if (__i < 0 || __i >= omp_clause_num_ops [__t->omp_clause.code])	\
+      omp_clause_operand_check_failed (__i, __t, __FILE__, __LINE__,	\
+	                               __FUNCTION__);			\
+    &__t->omp_clause.ops[__i]; }))
 
 /* Special checks for TREE_OPERANDs.  */
 #define TREE_OPERAND_CHECK(T, I) __extension__				\
@@ -633,12 +785,24 @@ struct tree_common GTY(())
 				 __FILE__, __LINE__, __FUNCTION__);	\
     &__t->exp.operands[__i]; }))
 
+extern void tree_contains_struct_check_failed (const tree,
+					       const enum tree_node_structure_enum,
+					       const char *, int, const char *)
+  ATTRIBUTE_NORETURN;
+
 extern void tree_check_failed (const tree, const char *, int, const char *,
 			       ...) ATTRIBUTE_NORETURN;
 extern void tree_not_check_failed (const tree, const char *, int, const char *,
 				   ...) ATTRIBUTE_NORETURN;
 extern void tree_class_check_failed (const tree, const enum tree_code_class,
 				     const char *, int, const char *)
+    ATTRIBUTE_NORETURN;
+extern void tree_range_check_failed (const tree, const char *, int,
+				     const char *, enum tree_code,
+				     enum tree_code);
+extern void tree_not_class_check_failed (const tree,
+					 const enum tree_code_class,
+					 const char *, int, const char *)
     ATTRIBUTE_NORETURN;
 extern void tree_vec_elt_check_failed (int, int, const char *,
 				       int, const char *)
@@ -649,9 +813,20 @@ extern void phi_node_elt_check_failed (int, int, const char *,
 extern void tree_operand_check_failed (int, enum tree_code,
 				       const char *, int, const char *)
     ATTRIBUTE_NORETURN;
+extern void omp_clause_check_failed (const tree, const char *, int,
+				     const char *, enum omp_clause_code)
+    ATTRIBUTE_NORETURN;
+extern void omp_clause_operand_check_failed (int, tree, const char *,
+				             int, const char *)
+    ATTRIBUTE_NORETURN;
+extern void omp_clause_range_check_failed (const tree, const char *, int,
+			       const char *, enum omp_clause_code,
+			       enum omp_clause_code)
+    ATTRIBUTE_NORETURN;
 
 #else /* not ENABLE_TREE_CHECKING, or not gcc */
 
+#define CONTAINS_STRUCT_CHECK(T, ENUM)          (T)
 #define TREE_CHECK(T, CODE)			(T)
 #define TREE_NOT_CHECK(T, CODE)			(T)
 #define TREE_CHECK2(T, CODE1, CODE2)		(T)
@@ -663,6 +838,7 @@ extern void tree_operand_check_failed (int, enum tree_code,
 #define TREE_CHECK5(T, CODE1, CODE2, CODE3, CODE4, CODE5) (T)
 #define TREE_NOT_CHECK5(T, CODE1, CODE2, CODE3, CODE4, CODE5) (T)
 #define TREE_CLASS_CHECK(T, CODE)		(T)
+#define TREE_RANGE_CHECK(T, CODE1, CODE2)	(T)
 #define EXPR_CHECK(T)				(T)
 #define NON_TYPE_CHECK(T)			(T)
 #define TREE_VEC_ELT_CHECK(T, I)		((T)->vec.a[I])
@@ -670,19 +846,28 @@ extern void tree_operand_check_failed (int, enum tree_code,
 #define TREE_OPERAND_CHECK_CODE(T, CODE, I)	((T)->exp.operands[I])
 #define TREE_RTL_OPERAND_CHECK(T, CODE, I)  (*(rtx *) &((T)->exp.operands[I]))
 #define PHI_NODE_ELT_CHECK(T, i)	((T)->phi.a[i])
+#define OMP_CLAUSE_ELT_CHECK(T, i)	        ((T)->omp_clause.ops[i])
+#define OMP_CLAUSE_RANGE_CHECK(T, CODE1, CODE2)	(T)
+#define OMP_CLAUSE_SUBCODE_CHECK(T, CODE)	(T)
 
 #endif
 
-#define TREE_BLOCK(NODE)		((NODE)->exp.block)
+#define TREE_BLOCK(NODE)		(EXPR_CHECK (NODE)->exp.block)
 
 #include "tree-check.h"
 
 #define TYPE_CHECK(T)		TREE_CLASS_CHECK (T, tcc_type)
-#define DECL_CHECK(T)		TREE_CLASS_CHECK (T, tcc_declaration)
+#define DECL_MINIMAL_CHECK(T)   CONTAINS_STRUCT_CHECK (T, TS_DECL_MINIMAL)
+#define TREE_MEMORY_TAG_CHECK(T)       CONTAINS_STRUCT_CHECK (T, TS_MEMORY_TAG)
+#define DECL_COMMON_CHECK(T)    CONTAINS_STRUCT_CHECK (T, TS_DECL_COMMON)
+#define DECL_WRTL_CHECK(T)      CONTAINS_STRUCT_CHECK (T, TS_DECL_WRTL)
+#define DECL_WITH_VIS_CHECK(T)  CONTAINS_STRUCT_CHECK (T, TS_DECL_WITH_VIS)
+#define DECL_NON_COMMON_CHECK(T) CONTAINS_STRUCT_CHECK (T, TS_DECL_NON_COMMON)
 #define CST_CHECK(T)		TREE_CLASS_CHECK (T, tcc_constant)
 #define STMT_CHECK(T)		TREE_CLASS_CHECK (T, tcc_statement)
 #define FUNC_OR_METHOD_CHECK(T)	TREE_CHECK2 (T, FUNCTION_TYPE, METHOD_TYPE)
-#define PTR_OR_REF_CHECK(T)	TREE_CHECK2 (T, POINTER_TYPE, REFERENCE_TYPE)
+/* APPLE LOCAL blocks 5862465 */
+#define PTR_OR_REF_CHECK(T)	TREE_CHECK3 (T, POINTER_TYPE, REFERENCE_TYPE, BLOCK_POINTER_TYPE)
 
 #define RECORD_OR_UNION_CHECK(T)	\
   TREE_CHECK3 (T, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE)
@@ -690,8 +875,7 @@ extern void tree_operand_check_failed (int, enum tree_code,
   TREE_NOT_CHECK3 (T, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE)
 
 #define NUMERICAL_TYPE_CHECK(T)					\
-  TREE_CHECK5 (T, INTEGER_TYPE, ENUMERAL_TYPE, BOOLEAN_TYPE,	\
-	       CHAR_TYPE, REAL_TYPE)
+  TREE_CHECK4 (T, INTEGER_TYPE, ENUMERAL_TYPE, BOOLEAN_TYPE, REAL_TYPE)
 
 /* In all nodes that are expressions, this is the data type of the expression.
    In POINTER_TYPE nodes, this is the type that the pointer points to.
@@ -743,17 +927,6 @@ extern void tree_operand_check_failed (int, enum tree_code,
 	     == TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (EXP, 0))))) \
     (EXP) = TREE_OPERAND (EXP, 0)
 
-/* Like STRIP_NOPS, but don't alter the TREE_TYPE main variant either.  */
-
-#define STRIP_MAIN_TYPE_NOPS(EXP)					\
-  while ((TREE_CODE (EXP) == NOP_EXPR					\
-	  || TREE_CODE (EXP) == CONVERT_EXPR				\
-	  || TREE_CODE (EXP) == NON_LVALUE_EXPR)			\
-	 && TREE_OPERAND (EXP, 0) != error_mark_node			\
-	 && (TYPE_MAIN_VARIANT (TREE_TYPE (EXP))			\
-	     == TYPE_MAIN_VARIANT (TREE_TYPE (TREE_OPERAND (EXP, 0)))))	\
-    (EXP) = TREE_OPERAND (EXP, 0)
-
 /* Like STRIP_NOPS, but don't alter the TREE_TYPE either.  */
 
 #define STRIP_TYPE_NOPS(EXP) \
@@ -774,12 +947,11 @@ extern void tree_operand_check_failed (int, enum tree_code,
 
 /* Nonzero if TYPE represents an integral type.  Note that we do not
    include COMPLEX types here.  Keep these checks in ascending code
-   order. */
+   order.  */
 
 #define INTEGRAL_TYPE_P(TYPE)  \
   (TREE_CODE (TYPE) == ENUMERAL_TYPE  \
    || TREE_CODE (TYPE) == BOOLEAN_TYPE \
-   || TREE_CODE (TYPE) == CHAR_TYPE \
    || TREE_CODE (TYPE) == INTEGER_TYPE)
 
 /* Nonzero if TYPE represents a scalar floating-point type.  */
@@ -808,6 +980,11 @@ extern void tree_operand_check_failed (int, enum tree_code,
         || TREE_CODE (TYPE) == VECTOR_TYPE)	\
        && SCALAR_FLOAT_TYPE_P (TREE_TYPE (TYPE))))
 
+/* Nonzero if TYPE represents a decimal floating-point type.  */
+#define DECIMAL_FLOAT_TYPE_P(TYPE)		\
+  (SCALAR_FLOAT_TYPE_P (TYPE)			\
+   && DECIMAL_FLOAT_MODE_P (TYPE_MODE (TYPE)))
+
 /* Nonzero if TYPE represents an aggregate (multi-component) type.
    Keep these checks in ascending code order.  */
 
@@ -819,8 +996,12 @@ extern void tree_operand_check_failed (int, enum tree_code,
    (It should be renamed to INDIRECT_TYPE_P.)  Keep these checks in
    ascending code order.  */
 
+/* APPLE LOCAL begin blocks 5862465 */
 #define POINTER_TYPE_P(TYPE) \
-  (TREE_CODE (TYPE) == POINTER_TYPE || TREE_CODE (TYPE) == REFERENCE_TYPE)
+  (TREE_CODE (TYPE) == POINTER_TYPE \
+   || TREE_CODE (TYPE) == REFERENCE_TYPE \
+   || TREE_CODE (TYPE) == BLOCK_POINTER_TYPE)
+/* APPLE LOCAL end blocks 5862465 */
 
 /* Nonzero if this type is a complete type.  */
 #define COMPLETE_TYPE_P(NODE) (TYPE_SIZE (NODE) != NULL_TREE)
@@ -861,11 +1042,10 @@ extern void tree_operand_check_failed (int, enum tree_code,
    call optimizations.  */
 #define CALL_EXPR_TAILCALL(NODE) (CALL_EXPR_CHECK(NODE)->common.addressable_flag)
 
-/* APPLE LOCAL begin C* property (Radar 4436866) */
-/* Set on a CALL_EXPR if it is for call to a getter function represented by an
-   objective-c property declaration. */
-#define CALL_EXPR_OBJC_PROPERTY_GETTER(NODE) (CALL_EXPR_CHECK(NODE)->common.deprecated_flag)
-/* APPLE LOCAL end C* property (Radar 4436866) */
+/* Used as a temporary field on a CASE_LABEL_EXPR to indicate that the
+   CASE_LOW operand has been processed.  */
+#define CASE_LOW_SEEN(NODE) \
+  (CASE_LABEL_EXPR_CHECK (NODE)->common.addressable_flag)
 
 /* In a VAR_DECL, nonzero means allocate static storage.
    In a FUNCTION_DECL, nonzero if function has been defined.
@@ -879,6 +1059,11 @@ extern void tree_operand_check_failed (int, enum tree_code,
    should only be executed if an exception is thrown, not on normal exit
    of its scope.  */
 #define CLEANUP_EH_ONLY(NODE) ((NODE)->common.static_flag)
+
+/* Used as a temporary field on a CASE_LABEL_EXPR to indicate that the
+   CASE_HIGH operand has been processed.  */
+#define CASE_HIGH_SEEN(NODE) \
+  (CASE_LABEL_EXPR_CHECK (NODE)->common.static_flag)
 
 /* In an expr node (usually a conversion) this means the node was made
    implicitly and should not lead to any sort of warning.  In a decl node,
@@ -906,20 +1091,18 @@ extern void tree_operand_check_failed (int, enum tree_code,
 /* In an INTEGER_CST, REAL_CST, COMPLEX_CST, or VECTOR_CST, this means
    there was an overflow in folding, and no warning has been issued
    for this subexpression.  TREE_OVERFLOW implies TREE_CONSTANT_OVERFLOW,
-   but not vice versa.
+   but not vice versa.  */
 
-   ??? Apparently, lots of code assumes this is defined in all
-   expressions.  */
-#define TREE_OVERFLOW(NODE) ((NODE)->common.public_flag)
+#define TREE_OVERFLOW(NODE) (CST_CHECK (NODE)->common.public_flag)
 /* APPLE LOCAL begin mainline */
 
 /* TREE_OVERFLOW can only be true for EXPR of CONSTANT_CLASS_P.  */
 
 #define TREE_OVERFLOW_P(EXPR) \
- (CONSTANT_CLASS_P (EXPR) && TREE_OVERFLOW (EXPR))
+  (CONSTANT_CLASS_P (EXPR) && TREE_OVERFLOW (EXPR))
 /* APPLE LOCAL end mainline */
 
-/* In a VAR_DECL or FUNCTION_DECL,
+/* In a VAR_DECL, FUNCTION_DECL, NAMESPACE_DECL or TYPE_DECL,
    nonzero means name is to be accessible from outside this module.
    In an IDENTIFIER_NODE, nonzero means an external declaration
    accessible from outside this module was previously seen
@@ -952,6 +1135,9 @@ extern void tree_operand_check_failed (int, enum tree_code,
    its address should be of type `volatile WHATEVER *'.
    In other words, the declared item is volatile qualified.
    This is used in _DECL nodes and _REF nodes.
+   On a FUNCTION_DECL node, this means the function does not
+   return normally.  This is the same effect as setting
+   the attribute noreturn on the function in C.
 
    In a ..._TYPE node, means this type is volatile-qualified.
    But use TYPE_VOLATILE instead of this macro when the node is a type,
@@ -988,7 +1174,7 @@ extern void tree_operand_check_failed (int, enum tree_code,
 #define TYPE_SIZES_GIMPLIFIED(NODE) (TYPE_CHECK (NODE)->common.constant_flag)
 
 /* In a decl (most significantly a FIELD_DECL), means an unsigned field.  */
-#define DECL_UNSIGNED(NODE) (DECL_CHECK (NODE)->common.unsigned_flag)
+#define DECL_UNSIGNED(NODE) (DECL_COMMON_CHECK (NODE)->common.unsigned_flag)
 
 /* In a BIT_FIELD_REF, means the bitfield is to be interpreted as unsigned.  */
 #define BIT_FIELD_REF_UNSIGNED(NODE) \
@@ -996,9 +1182,6 @@ extern void tree_operand_check_failed (int, enum tree_code,
 
 /* In integral and pointer types, means an unsigned type.  */
 #define TYPE_UNSIGNED(NODE) (TYPE_CHECK (NODE)->common.unsigned_flag)
-
-#define TYPE_TRAP_SIGNED(NODE) \
-  (flag_trapv && ! TYPE_UNSIGNED (NODE))
 
 /* Nonzero in a VAR_DECL means assembler code has been written.
    Nonzero in a FUNCTION_DECL means that the function has been compiled.
@@ -1014,7 +1197,7 @@ extern void tree_operand_check_failed (int, enum tree_code,
 /* Nonzero in a _DECL if the name is used in its scope.
    Nonzero in an expr node means inhibit warning if value is unused.
    In IDENTIFIER_NODEs, this means that some extern decl for this name
-   was used.  
+   was used.
    In a BLOCK, this means that the block contains variables that are used.  */
 #define TREE_USED(NODE) ((NODE)->common.used_flag)
 
@@ -1022,24 +1205,17 @@ extern void tree_operand_check_failed (int, enum tree_code,
    an exception.  In a CALL_EXPR, nonzero means the call cannot throw.  */
 #define TREE_NOTHROW(NODE) ((NODE)->common.nothrow_flag)
 
-/* In a CALL_EXPR, means that the address of the return slot is part of the
-   argument list.  */
-#define CALL_EXPR_HAS_RETURN_SLOT_ADDR(NODE) ((NODE)->common.private_flag)
+/* In a CALL_EXPR, means that it's safe to use the target of the call
+   expansion as the return slot for a call that returns in memory.  */
+#define CALL_EXPR_RETURN_SLOT_OPT(NODE) ((NODE)->common.private_flag)
 
 /* In a RESULT_DECL or PARM_DECL, means that it is passed by invisible
    reference (and the TREE_TYPE is a pointer to the true type).  */
-#define DECL_BY_REFERENCE(NODE) (DECL_CHECK (NODE)->common.private_flag)
+#define DECL_BY_REFERENCE(NODE) (DECL_COMMON_CHECK (NODE)->common.private_flag)
 
 /* In a CALL_EXPR, means that the call is the jump from a thunk to the
    thunked-to function.  */
-#define CALL_FROM_THUNK_P(NODE) ((NODE)->common.protected_flag)
-
-/* APPLE LOCAL begin ARM strings in code */
-/* In a STRING_CST, means that the string was encountered while copying an
-   inline function body, which means it is not safe to generate code for
-   it on the stack (since all copies must share the same string).  */
-#define TREE_STRING_INLINED(NODE) (STRING_CST_CHECK (NODE)->common.protected_flag)
-/* APPLE LOCAL end ARM strings in code */
+#define CALL_FROM_THUNK_P(NODE) (CALL_EXPR_CHECK (NODE)->common.protected_flag)
 
 /* In a type, nonzero means that all objects of the type are guaranteed by the
    language or front-end to be properly aligned, so we can indicate that a MEM
@@ -1058,15 +1234,21 @@ extern void tree_operand_check_failed (int, enum tree_code,
    In a BLOCK node, this is BLOCK_HANDLER_BLOCK.  */
 #define TREE_PROTECTED(NODE) ((NODE)->common.protected_flag)
 
-/* Nonzero in an IDENTIFIER_NODE if the use of the name is defined as a
+/* Nonzero in a _DECL if the use of the name is defined as a
    deprecated feature by __attribute__((deprecated)).  */
-#define TREE_DEPRECATED(NODE) ((NODE)->common.deprecated_flag)
+#define TREE_DEPRECATED(NODE) \
+  ((NODE)->common.deprecated_flag)
 
 /* APPLE LOCAL begin "unavailable" attribute (Radar 2809697) */
 /* Nonzero in a IDENTIFIER_NODE if the use of the name is defined as a
    unavailable feature by __attribute__((unavailable)).  */
 #define TREE_UNAVAILABLE(NODE) ((NODE)->common.unavailable_flag)
 /* APPLE LOCAL end "unavailable" attribute (Radar 2809697) */
+
+/* Nonzero in an IDENTIFIER_NODE if the name is a local alias, whose
+   uses are to be substituted for uses of the TREE_CHAINed identifier.  */
+#define IDENTIFIER_TRANSPARENT_ALIAS(NODE) \
+  (IDENTIFIER_NODE_CHECK (NODE)->common.deprecated_flag)
 
 /* Value of expression is function invariant.  A strict subset of
    TREE_CONSTANT, such an expression is constant over any one function
@@ -1108,13 +1290,7 @@ extern void tree_operand_check_failed (int, enum tree_code,
 struct tree_int_cst GTY(())
 {
   struct tree_common common;
-  /* A sub-struct is necessary here because the function `const_hash'
-     wants to scan both words as a unit and taking the address of the
-     sub-struct yields the properly inclusive bounded pointer.  */
-  struct tree_int_cst_lowhi {
-    unsigned HOST_WIDE_INT low;
-    HOST_WIDE_INT high;
-  } int_cst;
+  double_int int_cst;
 };
 
 /* In a REAL_CST node.  struct real_value is an opaque entity, with
@@ -1212,6 +1388,57 @@ struct tree_vec GTY(())
   tree GTY ((length ("TREE_VEC_LENGTH ((tree)&%h)"))) a[1];
 };
 
+/* In a CONSTRUCTOR node.  */
+#define CONSTRUCTOR_ELTS(NODE) (CONSTRUCTOR_CHECK (NODE)->constructor.elts)
+
+/* Iterate through the vector V of CONSTRUCTOR_ELT elements, yielding the
+   value of each element (stored within VAL). IX must be a scratch variable
+   of unsigned integer type.  */
+#define FOR_EACH_CONSTRUCTOR_VALUE(V, IX, VAL) \
+  for (IX = 0; (IX >= VEC_length (constructor_elt, V)) \
+	       ? false \
+	       : ((VAL = VEC_index (constructor_elt, V, IX)->value), \
+	       true); \
+       (IX)++)
+
+/* Iterate through the vector V of CONSTRUCTOR_ELT elements, yielding both
+   the value of each element (stored within VAL) and its index (stored
+   within INDEX). IX must be a scratch variable of unsigned integer type.  */
+#define FOR_EACH_CONSTRUCTOR_ELT(V, IX, INDEX, VAL) \
+  for (IX = 0; (IX >= VEC_length (constructor_elt, V)) \
+	       ? false \
+	       : ((VAL = VEC_index (constructor_elt, V, IX)->value), \
+		  (INDEX = VEC_index (constructor_elt, V, IX)->index), \
+	       true); \
+       (IX)++)
+
+/* Append a new constructor element to V, with the specified INDEX and VAL.  */
+#define CONSTRUCTOR_APPEND_ELT(V, INDEX, VALUE) \
+  do { \
+    constructor_elt *_ce___ = VEC_safe_push (constructor_elt, gc, V, NULL); \
+    _ce___->index = INDEX; \
+    _ce___->value = VALUE; \
+  } while (0)
+
+/* A single element of a CONSTRUCTOR. VALUE holds the actual value of the
+   element. INDEX can optionally design the position of VALUE: in arrays,
+   it is the index where VALUE has to be placed; in structures, it is the
+   FIELD_DECL of the member.  */
+typedef struct constructor_elt_d GTY(())
+{
+  tree index;
+  tree value;
+} constructor_elt;
+
+DEF_VEC_O(constructor_elt);
+DEF_VEC_ALLOC_O(constructor_elt,gc);
+
+struct tree_constructor GTY(())
+{
+  struct tree_common common;
+  VEC(constructor_elt,gc) *elts;
+};
+
 /* Define fields and accessors for some nodes that represent expressions.  */
 
 /* Nonzero if NODE is an empty statement (NOP_EXPR <0>).  */
@@ -1219,16 +1446,9 @@ struct tree_vec GTY(())
 				 && VOID_TYPE_P (TREE_TYPE (NODE)) \
 				 && integer_zerop (TREE_OPERAND (NODE, 0)))
 
-/* In a CONSTRUCTOR node.  */
-#define CONSTRUCTOR_ELTS(NODE) TREE_OPERAND_CHECK_CODE (NODE, CONSTRUCTOR, 0)
-
 /* In ordinary expression nodes.  */
 #define TREE_OPERAND(NODE, I) TREE_OPERAND_CHECK (NODE, I)
 #define TREE_COMPLEXITY(NODE) (EXPR_CHECK (NODE)->exp.complexity)
-
-/* In INDIRECT_REF, ALIGN_INDIRECT_REF, MISALIGNED_INDIRECT_REF.  */
-#define REF_ORIGINAL(NODE) TREE_CHAIN (TREE_CHECK3 (NODE, 	\
-	INDIRECT_REF, ALIGN_INDIRECT_REF, MISALIGNED_INDIRECT_REF))
 
 /* In a LOOP_EXPR node.  */
 #define LOOP_EXPR_BODY(NODE) TREE_OPERAND_CHECK_CODE (NODE, LOOP_EXPR, 0)
@@ -1295,6 +1515,15 @@ struct tree_vec GTY(())
 #define CASE_HIGH(NODE)         	TREE_OPERAND (CASE_LABEL_EXPR_CHECK (NODE), 1)
 #define CASE_LABEL(NODE)		TREE_OPERAND (CASE_LABEL_EXPR_CHECK (NODE), 2)
 
+/* The operands of a TARGET_MEM_REF.  */
+#define TMR_SYMBOL(NODE) (TREE_OPERAND (TARGET_MEM_REF_CHECK (NODE), 0))
+#define TMR_BASE(NODE) (TREE_OPERAND (TARGET_MEM_REF_CHECK (NODE), 1))
+#define TMR_INDEX(NODE) (TREE_OPERAND (TARGET_MEM_REF_CHECK (NODE), 2))
+#define TMR_STEP(NODE) (TREE_OPERAND (TARGET_MEM_REF_CHECK (NODE), 3))
+#define TMR_OFFSET(NODE) (TREE_OPERAND (TARGET_MEM_REF_CHECK (NODE), 4))
+#define TMR_ORIGINAL(NODE) (TREE_OPERAND (TARGET_MEM_REF_CHECK (NODE), 5))
+#define TMR_TAG(NODE) (TREE_OPERAND (TARGET_MEM_REF_CHECK (NODE), 6))
+
 /* The operands of a BIND_EXPR.  */
 #define BIND_EXPR_VARS(NODE) (TREE_OPERAND (BIND_EXPR_CHECK (NODE), 0))
 #define BIND_EXPR_BODY(NODE) (TREE_OPERAND (BIND_EXPR_CHECK (NODE), 1))
@@ -1346,6 +1575,116 @@ struct tree_vec GTY(())
 #define OBJ_TYPE_REF_OBJECT(NODE) TREE_OPERAND (OBJ_TYPE_REF_CHECK (NODE), 1)
 #define OBJ_TYPE_REF_TOKEN(NODE)  TREE_OPERAND (OBJ_TYPE_REF_CHECK (NODE), 2)
 
+/* ASSERT_EXPR accessors.  */
+#define ASSERT_EXPR_VAR(NODE)	TREE_OPERAND (ASSERT_EXPR_CHECK (NODE), 0)
+#define ASSERT_EXPR_COND(NODE)	TREE_OPERAND (ASSERT_EXPR_CHECK (NODE), 1)
+
+/* OpenMP directive and clause accessors.  */
+
+#define OMP_BODY(NODE) \
+  TREE_OPERAND (TREE_RANGE_CHECK (NODE, OMP_PARALLEL, OMP_CRITICAL), 0)
+#define OMP_CLAUSES(NODE) \
+  TREE_OPERAND (TREE_RANGE_CHECK (NODE, OMP_PARALLEL, OMP_SINGLE), 1)
+
+#define OMP_PARALLEL_BODY(NODE)    TREE_OPERAND (OMP_PARALLEL_CHECK (NODE), 0)
+#define OMP_PARALLEL_CLAUSES(NODE) TREE_OPERAND (OMP_PARALLEL_CHECK (NODE), 1)
+#define OMP_PARALLEL_FN(NODE) TREE_OPERAND (OMP_PARALLEL_CHECK (NODE), 2)
+#define OMP_PARALLEL_DATA_ARG(NODE) TREE_OPERAND (OMP_PARALLEL_CHECK (NODE), 3)
+
+#define OMP_FOR_BODY(NODE)	   TREE_OPERAND (OMP_FOR_CHECK (NODE), 0)
+#define OMP_FOR_CLAUSES(NODE)	   TREE_OPERAND (OMP_FOR_CHECK (NODE), 1)
+#define OMP_FOR_INIT(NODE)	   TREE_OPERAND (OMP_FOR_CHECK (NODE), 2)
+#define OMP_FOR_COND(NODE)	   TREE_OPERAND (OMP_FOR_CHECK (NODE), 3)
+#define OMP_FOR_INCR(NODE)	   TREE_OPERAND (OMP_FOR_CHECK (NODE), 4)
+#define OMP_FOR_PRE_BODY(NODE)	   TREE_OPERAND (OMP_FOR_CHECK (NODE), 5)
+
+#define OMP_SECTIONS_BODY(NODE)    TREE_OPERAND (OMP_SECTIONS_CHECK (NODE), 0)
+#define OMP_SECTIONS_CLAUSES(NODE) TREE_OPERAND (OMP_SECTIONS_CHECK (NODE), 1)
+
+#define OMP_SECTION_BODY(NODE)	   TREE_OPERAND (OMP_SECTION_CHECK (NODE), 0)
+
+#define OMP_SINGLE_BODY(NODE)	   TREE_OPERAND (OMP_SINGLE_CHECK (NODE), 0)
+#define OMP_SINGLE_CLAUSES(NODE)   TREE_OPERAND (OMP_SINGLE_CHECK (NODE), 1)
+
+#define OMP_MASTER_BODY(NODE)	   TREE_OPERAND (OMP_MASTER_CHECK (NODE), 0)
+
+#define OMP_ORDERED_BODY(NODE)	   TREE_OPERAND (OMP_ORDERED_CHECK (NODE), 0)
+
+#define OMP_CRITICAL_BODY(NODE)    TREE_OPERAND (OMP_CRITICAL_CHECK (NODE), 0)
+#define OMP_CRITICAL_NAME(NODE)    TREE_OPERAND (OMP_CRITICAL_CHECK (NODE), 1)
+
+#define OMP_CLAUSE_CHAIN(NODE)     TREE_CHAIN (OMP_CLAUSE_CHECK (NODE))
+#define OMP_CLAUSE_DECL(NODE)      					\
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_RANGE_CHECK (OMP_CLAUSE_CHECK (NODE),	\
+					      OMP_CLAUSE_PRIVATE,	\
+	                                      OMP_CLAUSE_COPYPRIVATE), 0)
+
+/* True on an OMP_SECTION statement that was the last lexical member.
+   This status is meaningful in the implementation of lastprivate.  */
+#define OMP_SECTION_LAST(NODE) \
+  TREE_PRIVATE (OMP_SECTION_CHECK (NODE))
+
+/* True on an OMP_RETURN statement if the return does not require a
+   thread synchronization via some sort of barrier.  The exact barrier
+   that would otherwise be emitted is dependent on the OMP statement
+   with which this return is associated.  */
+#define OMP_RETURN_NOWAIT(NODE) \
+  TREE_PRIVATE (OMP_RETURN_CHECK (NODE))
+
+/* True on an OMP_PARALLEL statement if it represents an explicit
+   combined parallel work-sharing constructs.  */
+#define OMP_PARALLEL_COMBINED(NODE) \
+  TREE_PRIVATE (OMP_PARALLEL_CHECK (NODE))
+
+/* True on a PRIVATE clause if its decl is kept around for debugging
+   information only and its DECL_VALUE_EXPR is supposed to point
+   to what it has been remapped to.  */
+#define OMP_CLAUSE_PRIVATE_DEBUG(NODE) \
+  TREE_PUBLIC (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_PRIVATE))
+
+/* True on a LASTPRIVATE clause if a FIRSTPRIVATE clause for the same
+   decl is present in the chain.  */
+#define OMP_CLAUSE_LASTPRIVATE_FIRSTPRIVATE(NODE) \
+  TREE_PUBLIC (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_LASTPRIVATE))
+
+#define OMP_CLAUSE_IF_EXPR(NODE) \
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_IF), 0)
+#define OMP_CLAUSE_NUM_THREADS_EXPR(NODE) \
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_NUM_THREADS),0)
+#define OMP_CLAUSE_SCHEDULE_CHUNK_EXPR(NODE) \
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_SCHEDULE), 0)
+
+#define OMP_CLAUSE_REDUCTION_CODE(NODE)	\
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_REDUCTION)->omp_clause.subcode.reduction_code)
+#define OMP_CLAUSE_REDUCTION_INIT(NODE) \
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_REDUCTION), 1)
+#define OMP_CLAUSE_REDUCTION_MERGE(NODE) \
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_REDUCTION), 2)
+#define OMP_CLAUSE_REDUCTION_PLACEHOLDER(NODE) \
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_REDUCTION), 3)
+
+enum omp_clause_schedule_kind
+{
+  OMP_CLAUSE_SCHEDULE_STATIC,
+  OMP_CLAUSE_SCHEDULE_DYNAMIC,
+  OMP_CLAUSE_SCHEDULE_GUIDED,
+  OMP_CLAUSE_SCHEDULE_RUNTIME
+};
+
+#define OMP_CLAUSE_SCHEDULE_KIND(NODE) \
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_SCHEDULE)->omp_clause.subcode.schedule_kind)
+
+enum omp_clause_default_kind
+{
+  OMP_CLAUSE_DEFAULT_UNSPECIFIED,
+  OMP_CLAUSE_DEFAULT_SHARED,
+  OMP_CLAUSE_DEFAULT_NONE,
+  OMP_CLAUSE_DEFAULT_PRIVATE
+};
+
+#define OMP_CLAUSE_DEFAULT_KIND(NODE) \
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_DEFAULT)->omp_clause.subcode.default_kind)
+
 struct tree_exp GTY(())
 {
   struct tree_common common;
@@ -1392,13 +1731,24 @@ struct tree_exp GTY(())
 #define SSA_NAME_VALUE(N) \
    SSA_NAME_CHECK (N)->ssa_name.value_handle
 
-/* Auxiliary pass-specific data.  */
-#define SSA_NAME_AUX(N) \
-   SSA_NAME_CHECK (N)->ssa_name.aux
-
 #ifndef _TREE_FLOW_H
 struct ptr_info_def;
 #endif
+
+
+
+/* Immediate use linking structure.  This structure is used for maintaining
+   a doubly linked list of uses of an SSA_NAME.  */
+typedef struct ssa_use_operand_d GTY(())
+{
+  struct ssa_use_operand_d* GTY((skip(""))) prev;
+  struct ssa_use_operand_d* GTY((skip(""))) next;
+  tree GTY((skip(""))) stmt;
+  tree *GTY((skip(""))) use;
+} ssa_use_operand_t;
+
+/* Return the immediate_use information for an SSA_NAME. */
+#define SSA_NAME_IMM_USE_NODE(NODE) SSA_NAME_CHECK (NODE)->ssa_name.imm_uses
 
 struct tree_ssa_name GTY(())
 {
@@ -1420,11 +1770,18 @@ struct tree_ssa_name GTY(())
      as well.  */
   tree value_handle;
 
-  /* Auxiliary information stored with the ssa name.  */
-  PTR GTY((skip)) aux;
+  /* Immediate uses list for this SSA_NAME.  */
+  struct ssa_use_operand_d imm_uses;
 };
 
 /* In a PHI_NODE node.  */
+
+/* These 2 macros should be considered off limits for use by developers.  If
+   you wish to access the use or def fields of a PHI_NODE in the SSA
+   optimizers, use the accessor macros found in tree-ssa-operands.h.
+   These two macros are to be used only by those accessor macros, and other
+   select places where we *absolutely* must take the address of the tree.  */
+
 #define PHI_RESULT_TREE(NODE)		PHI_NODE_CHECK (NODE)->phi.result
 #define PHI_ARG_DEF_TREE(NODE, I)	PHI_NODE_ELT_CHECK (NODE, I).def
 
@@ -1433,23 +1790,19 @@ struct tree_ssa_name GTY(())
    the link to the next PHI is in PHI_CHAIN.  */
 #define PHI_CHAIN(NODE)		TREE_CHAIN (PHI_NODE_CHECK (NODE))
 
-/* Nonzero if the PHI node was rewritten by a previous pass through the
-   SSA renamer.  */
-#define PHI_REWRITTEN(NODE)		PHI_NODE_CHECK (NODE)->phi.rewritten
 #define PHI_NUM_ARGS(NODE)		PHI_NODE_CHECK (NODE)->phi.num_args
 #define PHI_ARG_CAPACITY(NODE)		PHI_NODE_CHECK (NODE)->phi.capacity
 #define PHI_ARG_ELT(NODE, I)		PHI_NODE_ELT_CHECK (NODE, I)
 #define PHI_ARG_EDGE(NODE, I) 		(EDGE_PRED (PHI_BB ((NODE)), (I)))
-#define PHI_ARG_NONZERO(NODE, I) 	PHI_NODE_ELT_CHECK (NODE, I).nonzero
 #define PHI_BB(NODE)			PHI_NODE_CHECK (NODE)->phi.bb
-#define PHI_DF(NODE)			PHI_NODE_CHECK (NODE)->phi.df
-
-struct edge_def;
+#define PHI_ARG_IMM_USE_NODE(NODE, I)	PHI_NODE_ELT_CHECK (NODE, I).imm_use
 
 struct phi_arg_d GTY(())
 {
+  /* imm_use MUST be the first element in struct because we do some
+     pointer arithmetic with it.  See phi_arg_index_from_use.  */
+  struct ssa_use_operand_d imm_use;
   tree def;
-  bool nonzero;
 };
 
 struct tree_phi_node GTY(())
@@ -1459,17 +1812,36 @@ struct tree_phi_node GTY(())
   int num_args;
   int capacity;
 
-  /* Nonzero if the PHI node was rewritten by a previous pass through the
-     SSA renamer.  */
-  int rewritten;
-
   /* Basic block to that the phi node belongs.  */
   struct basic_block_def *bb;
 
-  /* Dataflow information.  */
-  struct dataflow_d *df;
-
+  /* Arguments of the PHI node.  These are maintained in the same
+     order as predecessor edge vector BB->PREDS.  */
   struct phi_arg_d GTY ((length ("((tree)&%h)->phi.num_args"))) a[1];
+};
+
+#define OMP_CLAUSE_CODE(NODE)					\
+	(OMP_CLAUSE_CHECK (NODE))->omp_clause.code
+
+#define OMP_CLAUSE_SET_CODE(NODE, CODE)				\
+	((OMP_CLAUSE_CHECK (NODE))->omp_clause.code = (CODE))
+
+#define OMP_CLAUSE_CODE(NODE)					\
+	(OMP_CLAUSE_CHECK (NODE))->omp_clause.code
+
+#define OMP_CLAUSE_OPERAND(NODE, I)				\
+	OMP_CLAUSE_ELT_CHECK (NODE, I)
+
+struct tree_omp_clause GTY(())
+{
+  struct tree_common common;
+  enum omp_clause_code code;
+  union omp_clause_subcode {
+    enum omp_clause_default_kind  default_kind;
+    enum omp_clause_schedule_kind schedule_kind;
+    enum tree_code                reduction_code;
+  } GTY ((skip)) subcode;
+  tree GTY ((length ("omp_clause_num_ops[OMP_CLAUSE_CODE ((tree)&%h)]"))) ops[1];
 };
 
 
@@ -1520,6 +1892,12 @@ struct varray_head_tag;
 #define BLOCK_FRAGMENT_ORIGIN(NODE) (BLOCK_CHECK (NODE)->block.fragment_origin)
 #define BLOCK_FRAGMENT_CHAIN(NODE) (BLOCK_CHECK (NODE)->block.fragment_chain)
 
+/* For an inlined function, this gives the location where it was called
+   from.  This is only set in the top level block, which corresponds to the
+   inlined function scope.  This is used in the debug output routines.  */
+
+#define BLOCK_SOURCE_LOCATION(NODE) (BLOCK_CHECK (NODE)->block.locus)
+
 struct tree_block GTY(())
 {
   struct tree_common common;
@@ -1534,6 +1912,7 @@ struct tree_block GTY(())
   tree abstract_origin;
   tree fragment_origin;
   tree fragment_chain;
+  location_t locus;
 };
 
 /* Define fields and accessors for nodes representing data types.  */
@@ -1687,7 +2066,7 @@ struct tree_block GTY(())
 
 /* If set in an ARRAY_TYPE, indicates a string type (for languages
    that distinguish string from array of char).
-   If set in a SET_TYPE, indicates a bitstring type.  */
+   If set in a INTEGER_TYPE, indicates a character type.  */
 #define TYPE_STRING_FLAG(NODE) (TYPE_CHECK (NODE)->type.string_flag)
 
 /* If non-NULL, this is an upper bound of the size (in bytes) of an
@@ -1698,7 +2077,12 @@ struct tree_block GTY(())
 
 /* For a VECTOR_TYPE, this is the number of sub-parts of the vector.  */
 #define TYPE_VECTOR_SUBPARTS(VECTOR_TYPE) \
-  (VECTOR_TYPE_CHECK (VECTOR_TYPE)->type.precision)
+  (((unsigned HOST_WIDE_INT) 1) \
+   << VECTOR_TYPE_CHECK (VECTOR_TYPE)->type.precision)
+
+/* Set precision to n when we have 2^n sub-parts of the vector.  */
+#define SET_TYPE_VECTOR_SUBPARTS(VECTOR_TYPE, X) \
+  (VECTOR_TYPE_CHECK (VECTOR_TYPE)->type.precision = exact_log2 (X))
 
 /* Indicates that objects of this type must be initialized by calling a
    function when they are created.  */
@@ -1725,6 +2109,17 @@ struct tree_block GTY(())
 #define TYPE_CONTAINS_PLACEHOLDER_INTERNAL(NODE) \
   (TYPE_CHECK (NODE)->type.contains_placeholder_bits)
 
+/* APPLE LOCAL begin radar 5811943 - Fix type of pointers to blocks  */
+/* Indicates that the struct type is a block struct, rather than
+   a 'normal' struct, i.e. one of its fields is a function that can
+   be called.  This uses the existing bit-field lang_flag_2 in the
+   struct tree_type, rather than creating a new bit field, as 
+   lang_flag_2 is currently unused and we don't want to increase the 
+   size of trees if we can avoid it.  */
+#define TYPE_BLOCK_IMPL_STRUCT(NODE) \
+  (TYPE_CHECK (NODE)->type.lang_flag_2)
+/* APPLE LOCAL end radar 5811943 - Fix type of pointers to Blocks  */
+
 struct die_struct;
 
 struct tree_type GTY(())
@@ -1749,6 +2144,14 @@ struct tree_type GTY(())
 
   unsigned lang_flag_0 : 1;
   unsigned lang_flag_1 : 1;
+  /* APPLE LOCAL begin radar 5811943 - Fix type of pointers to Blocks  */
+  /* Since it is currently completely unused, and in the interest of
+     not making trees any bigger than they already are, lang_flag_2
+     in the tree_type struct will be used to indicate that a struct is a 
+     block struct.  The macro used for these purposes is 
+     TYPE_BLOCK_IMPL_STRUCT, rather than TYPE_LANG_FLAG_2, in order to make 
+     its uses in the code more clear.  */
+  /* APPLE LOCAL end radar 5811943 - Fix type of pointers to Blocks  */
   unsigned lang_flag_2 : 1;
   unsigned lang_flag_3 : 1;
   unsigned lang_flag_4 : 1;
@@ -1888,46 +2291,627 @@ struct tree_binfo GTY (())
   tree vtable;
   tree virtuals;
   tree vptr_field;
-  VEC(tree) *base_accesses;
+  VEC(tree,gc) *base_accesses;
   tree inheritance;
 
   tree vtt_subvtt;
   tree vtt_vptr;
 
-  VEC(tree) base_binfos;
+  VEC(tree,none) base_binfos;
 };
 
 
 /* Define fields and accessors for nodes representing declared names.  */
 
 /* Nonzero if DECL represents a variable for the SSA passes.  */
-#define SSA_VAR_P(DECL) \
-	(TREE_CODE (DECL) == VAR_DECL	\
-	 || TREE_CODE (DECL) == PARM_DECL \
-	 || TREE_CODE (DECL) == RESULT_DECL \
-	 || (TREE_CODE (DECL) == SSA_NAME \
-	     && (TREE_CODE (SSA_NAME_VAR (DECL)) == VAR_DECL \
-		 || TREE_CODE (SSA_NAME_VAR (DECL)) == PARM_DECL \
-		 || TREE_CODE (SSA_NAME_VAR (DECL)) == RESULT_DECL)))
+#define SSA_VAR_P(DECL)							\
+	(TREE_CODE (DECL) == VAR_DECL					\
+	 || TREE_CODE (DECL) == PARM_DECL				\
+	 || TREE_CODE (DECL) == RESULT_DECL				\
+	 || MTAG_P (DECL)						\
+	 || (TREE_CODE (DECL) == SSA_NAME				\
+	     && (TREE_CODE (SSA_NAME_VAR (DECL)) == VAR_DECL		\
+		 || TREE_CODE (SSA_NAME_VAR (DECL)) == PARM_DECL	\
+		 || TREE_CODE (SSA_NAME_VAR (DECL)) == RESULT_DECL	\
+		 || MTAG_P (SSA_NAME_VAR (DECL)))))
+
+
+
+
+/* Enumerate visibility settings.  */
+#ifndef SYMBOL_VISIBILITY_DEFINED
+#define SYMBOL_VISIBILITY_DEFINED
+enum symbol_visibility
+{
+  VISIBILITY_DEFAULT,
+  VISIBILITY_PROTECTED,
+  VISIBILITY_HIDDEN,
+  VISIBILITY_INTERNAL
+};
+#endif
+
+struct function;
+
 
 /* This is the name of the object as written by the user.
    It is an IDENTIFIER_NODE.  */
-#define DECL_NAME(NODE) (DECL_CHECK (NODE)->decl.name)
+#define DECL_NAME(NODE) (DECL_MINIMAL_CHECK (NODE)->decl_minimal.name)
+
+/* Every ..._DECL node gets a unique number.  */
+#define DECL_UID(NODE) (DECL_MINIMAL_CHECK (NODE)->decl_minimal.uid)
+
+/* These two fields describe where in the source code the declaration
+   was.  If the declaration appears in several places (as for a C
+   function that is declared first and then defined later), this
+   information should refer to the definition.  */
+#define DECL_SOURCE_LOCATION(NODE) (DECL_MINIMAL_CHECK (NODE)->decl_minimal.locus)
+#define DECL_SOURCE_FILE(NODE) LOCATION_FILE (DECL_SOURCE_LOCATION (NODE))
+#define DECL_SOURCE_LINE(NODE) LOCATION_LINE (DECL_SOURCE_LOCATION (NODE))
+#ifdef USE_MAPPED_LOCATION
+#define DECL_IS_BUILTIN(DECL) \
+  (DECL_SOURCE_LOCATION (DECL) <= BUILTINS_LOCATION)
+#else
+#define DECL_IS_BUILTIN(DECL) (DECL_SOURCE_LINE(DECL) == 0)
+#endif
+
+/*  For FIELD_DECLs, this is the RECORD_TYPE, UNION_TYPE, or
+    QUAL_UNION_TYPE node that the field is a member of.  For VAR_DECL,
+    PARM_DECL, FUNCTION_DECL, LABEL_DECL, and CONST_DECL nodes, this
+    points to either the FUNCTION_DECL for the containing function,
+    the RECORD_TYPE or UNION_TYPE for the containing type, or
+    NULL_TREE or a TRANSLATION_UNIT_DECL if the given decl has "file
+    scope".  */
+#define DECL_CONTEXT(NODE) (DECL_MINIMAL_CHECK (NODE)->decl_minimal.context)
+#define DECL_FIELD_CONTEXT(NODE) (FIELD_DECL_CHECK (NODE)->decl_minimal.context)
+struct tree_decl_minimal GTY(())
+{
+  struct tree_common common;
+  location_t locus;
+  unsigned int uid;
+  tree name;
+  tree context;
+};
+
+/* When computing aliasing information, we represent the memory pointed-to
+   by pointers with artificial variables called "memory tags" (MT).  There
+   are two kinds of tags, namely symbol and name:
+
+   Symbol tags (SMT) are used in flow-insensitive alias analysis, they
+   represent all the pointed-to locations and variables pointed-to by
+   the same pointer symbol.  Usually, this set is computed using
+   type-based analysis (i.e., alias set classes), but this may not
+   always be the case.
+
+   Name tags (NMT) are used in flow-sensitive points-to alias
+   analysis, they represent the variables and memory locations
+   pointed-to by a specific SSA_NAME pointer.
+
+   In general, given a pointer P with a symbol tag SMT, the alias set
+   of SMT should be the union of all the alias sets of the NMTs of
+   every SSA_NAME for P.  */
+struct tree_memory_tag GTY(())
+{
+  struct tree_decl_minimal common;
+  unsigned int is_global:1;
+  unsigned int is_used_alone:1;
+  unsigned int old_used_alone:1;
+};
+
+#define MTAG_GLOBAL(NODE) (TREE_MEMORY_TAG_CHECK (NODE)->mtag.is_global)
+
+/* This flag is true if a SMT is used as the V_MAY_DEF or VUSE operand
+   directly, because the access had all of the SMT's aliases pruned
+   from it.  */
+#define SMT_USED_ALONE(NODE) (SYMBOL_MEMORY_TAG_CHECK (NODE)->mtag.is_used_alone)
+
+/* This flag is used to temporarily store the old value of the used alone
+   flag when updating so we know whether to mark the symbol for
+   renaming.  */
+#define SMT_OLD_USED_ALONE(NODE) (SYMBOL_MEMORY_TAG_CHECK (NODE)->mtag.old_used_alone)
+
+struct tree_struct_field_tag GTY(())
+{
+  struct tree_memory_tag common;
+
+  /* Parent variable.  */
+  tree parent_var;
+
+  /* Offset inside structure.  */
+  unsigned HOST_WIDE_INT offset;
+
+  /* Size of the field.  */
+  unsigned HOST_WIDE_INT size;
+
+};
+#define SFT_PARENT_VAR(NODE) (STRUCT_FIELD_TAG_CHECK (NODE)->sft.parent_var)
+#define SFT_OFFSET(NODE) (STRUCT_FIELD_TAG_CHECK (NODE)->sft.offset)
+#define SFT_SIZE(NODE) (STRUCT_FIELD_TAG_CHECK (NODE)->sft.size)
+
+/* For any sort of a ..._DECL node, this points to the original (abstract)
+   decl node which this decl is an instance of, or else it is NULL indicating
+   that this decl is not an instance of some other decl.  For example,
+   in a nested declaration of an inline function, this points back to the
+   definition.  */
+#define DECL_ABSTRACT_ORIGIN(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.abstract_origin)
+
+/* Like DECL_ABSTRACT_ORIGIN, but returns NODE if there's no abstract
+   origin.  This is useful when setting the DECL_ABSTRACT_ORIGIN.  */
+#define DECL_ORIGIN(NODE) \
+  (DECL_ABSTRACT_ORIGIN (NODE) ? DECL_ABSTRACT_ORIGIN (NODE) : (NODE))
+
+/* Nonzero for any sort of ..._DECL node means this decl node represents an
+   inline instance of some original (abstract) decl from an inline function;
+   suppress any warnings about shadowing some other variable.  FUNCTION_DECL
+   nodes can also have their abstract origin set to themselves.  */
+#define DECL_FROM_INLINE(NODE) (DECL_ABSTRACT_ORIGIN (NODE) != NULL_TREE \
+				&& DECL_ABSTRACT_ORIGIN (NODE) != (NODE))
+
+/* In a DECL this is the field where attributes are stored.  */
+#define DECL_ATTRIBUTES(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.attributes)
+
+/* For a FUNCTION_DECL, holds the tree of BINDINGs.
+   For a TRANSLATION_UNIT_DECL, holds the namespace's BLOCK.
+   For a VAR_DECL, holds the initial value.
+   For a PARM_DECL, not used--default
+   values for parameters are encoded in the type of the function,
+   not in the PARM_DECL slot.
+   For a FIELD_DECL, this is used for enumeration values and the C
+   frontend uses it for temporarily storing bitwidth of bitfields.
+
+   ??? Need to figure out some way to check this isn't a PARM_DECL.  */
+#define DECL_INITIAL(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.initial)
+
+/* Holds the size of the datum, in bits, as a tree expression.
+   Need not be constant.  */
+#define DECL_SIZE(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.size)
+/* Likewise for the size in bytes.  */
+#define DECL_SIZE_UNIT(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.size_unit)
+/* Holds the alignment required for the datum, in bits.  */
+/* APPLE LOCAL mainline aligned functions 5933878 */
+#define DECL_ALIGN(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.align)
+/* The alignment of NODE, in bytes.  */
+#define DECL_ALIGN_UNIT(NODE) (DECL_ALIGN (NODE) / BITS_PER_UNIT)
+/* APPLE LOCAL begin for-fsf-4_4 3274130 5295549 */ \
+/* Set if the alignment of this DECL has been set by the user, for
+   example with an 'aligned' attribute.  */
+/* APPLE LOCAL end for-fsf-4_4 3274130 5295549 */ \
+#define DECL_USER_ALIGN(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.user_align)
+/* Holds the machine mode corresponding to the declaration of a variable or
+   field.  Always equal to TYPE_MODE (TREE_TYPE (decl)) except for a
+   FIELD_DECL.  */
+#define DECL_MODE(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.mode)
+
+/* For FUNCTION_DECL, if it is built-in, this identifies which built-in
+   operation it is.  Note, however, that this field is overloaded, with
+   DECL_BUILT_IN_CLASS as the discriminant, so the latter must always be
+   checked before any access to the former.  */
+/* APPLE LOCAL begin mainline aligned functions 5933878 */
+#define DECL_FUNCTION_CODE(NODE) \
+  (FUNCTION_DECL_CHECK (NODE)->function_decl.function_code)
+/* APPLE LOCAL end mainline aligned functions 5933878 */
+
+#define DECL_DEBUG_EXPR_IS_FROM(NODE) \
+  (DECL_COMMON_CHECK (NODE)->decl_common.debug_expr_is_from)
+
+/* Nonzero for a given ..._DECL node means that the name of this node should
+   be ignored for symbolic debug purposes.  */
+#define DECL_IGNORED_P(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.ignored_flag)
+
+/* Nonzero for a given ..._DECL node means that this node represents an
+   "abstract instance" of the given declaration (e.g. in the original
+   declaration of an inline function).  When generating symbolic debugging
+   information, we mustn't try to generate any address information for nodes
+   marked as "abstract instances" because we don't actually generate
+   any code or allocate any data space for such instances.  */
+#define DECL_ABSTRACT(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.abstract_flag)
+
+/* Language-specific decl information.  */
+#define DECL_LANG_SPECIFIC(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.lang_specific)
+
+/* In a VAR_DECL or FUNCTION_DECL, nonzero means external reference:
+   do not allocate storage, and refer to a definition elsewhere.  Note that
+   this does not necessarily imply the entity represented by NODE
+   has no program source-level definition in this translation unit.  For
+   example, for a FUNCTION_DECL, DECL_SAVED_TREE may be non-NULL and
+   DECL_EXTERNAL may be true simultaneously; that can be the case for
+   a C99 "extern inline" function.  */
+#define DECL_EXTERNAL(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.decl_flag_2)
+
+/* In a VAR_DECL for a RECORD_TYPE, sets number for non-init_priority
+   initializations.  */
+#define DEFAULT_INIT_PRIORITY 65535
+#define MAX_INIT_PRIORITY 65535
+#define MAX_RESERVED_INIT_PRIORITY 100
+
+
+/* Nonzero in a ..._DECL means this variable is ref'd from a nested function.
+   For VAR_DECL nodes, PARM_DECL nodes, and FUNCTION_DECL nodes.
+
+   For LABEL_DECL nodes, nonzero if nonlocal gotos to the label are permitted.
+
+   Also set in some languages for variables, etc., outside the normal
+   lexical scope, such as class instance variables.  */
+#define DECL_NONLOCAL(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.nonlocal_flag)
+
+/* Used in VAR_DECLs to indicate that the variable is a vtable.
+   Used in FIELD_DECLs for vtable pointers.
+   Used in FUNCTION_DECLs to indicate that the function is virtual.  */
+#define DECL_VIRTUAL_P(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.virtual_flag)
+
+/* Used to indicate that this DECL represents a compiler-generated entity.  */
+#define DECL_ARTIFICIAL(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.artificial_flag)
+
+/* Additional flags for language-specific uses.  */
+#define DECL_LANG_FLAG_0(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_0)
+#define DECL_LANG_FLAG_1(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_1)
+#define DECL_LANG_FLAG_2(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_2)
+#define DECL_LANG_FLAG_3(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_3)
+#define DECL_LANG_FLAG_4(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_4)
+#define DECL_LANG_FLAG_5(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_5)
+#define DECL_LANG_FLAG_6(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_6)
+#define DECL_LANG_FLAG_7(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_7)
+
+/* Used to indicate an alias set for the memory pointed to by this
+   particular FIELD_DECL, PARM_DECL, or VAR_DECL, which must have
+   pointer (or reference) type.  */
+#define DECL_POINTER_ALIAS_SET(NODE) \
+  (DECL_COMMON_CHECK (NODE)->decl_common.pointer_alias_set)
+
+/* Nonzero if an alias set has been assigned to this declaration.  */
+#define DECL_POINTER_ALIAS_SET_KNOWN_P(NODE) \
+  (DECL_POINTER_ALIAS_SET (NODE) != - 1)
+
+/* Nonzero for a decl which is at file scope.  */
+#define DECL_FILE_SCOPE_P(EXP) 					\
+  (! DECL_CONTEXT (EXP)						\
+   || TREE_CODE (DECL_CONTEXT (EXP)) == TRANSLATION_UNIT_DECL)
+
+/* Nonzero for a decl that is decorated using attribute used.
+   This indicates compiler tools that this decl needs to be preserved.  */
+#define DECL_PRESERVE_P(DECL) \
+  DECL_COMMON_CHECK (DECL)->decl_common.preserve_flag
+
+/* For function local variables of COMPLEX type, indicates that the
+   variable is not aliased, and that all modifications to the variable
+   have been adjusted so that they are killing assignments.  Thus the
+   variable may now be treated as a GIMPLE register, and use real
+   instead of virtual ops in SSA form.  */
+#define DECL_COMPLEX_GIMPLE_REG_P(DECL) \
+  DECL_COMMON_CHECK (DECL)->decl_common.gimple_reg_flag
+
+/* This is true if DECL is call clobbered in the current function.
+   The result of this flag should always be the same as
+   bitmap_bit_p (call_clobbered_vars, DECL_UID (decl)).  */
+#define DECL_CALL_CLOBBERED(DECL) \
+  DECL_COMMON_CHECK (DECL)->decl_common.call_clobbered_flag
+
+struct tree_decl_common GTY(())
+{
+  struct tree_decl_minimal common;
+  tree size;
+
+  ENUM_BITFIELD(machine_mode) mode : 8;
+
+  unsigned nonlocal_flag : 1;
+  unsigned virtual_flag : 1;
+  unsigned ignored_flag : 1;
+  unsigned abstract_flag : 1;
+  unsigned artificial_flag : 1;
+  unsigned user_align : 1;
+  unsigned preserve_flag: 1;
+  unsigned debug_expr_is_from : 1;
+
+  unsigned lang_flag_0 : 1;
+  unsigned lang_flag_1 : 1;
+  unsigned lang_flag_2 : 1;
+  unsigned lang_flag_3 : 1;
+  unsigned lang_flag_4 : 1;
+  unsigned lang_flag_5 : 1;
+  unsigned lang_flag_6 : 1;
+  unsigned lang_flag_7 : 1;
+
+  /* In LABEL_DECL, this is DECL_ERROR_ISSUED.
+     In VAR_DECL and PARM_DECL, this is DECL_REGISTER.  */
+  unsigned decl_flag_0 : 1;
+  /* In FIELD_DECL, this is DECL_PACKED.  */
+  unsigned decl_flag_1 : 1;
+  /* In FIELD_DECL, this is DECL_BIT_FIELD
+     In VAR_DECL and FUNCTION_DECL, this is DECL_EXTERNAL.
+     In TYPE_DECL, this is TYPE_DECL_SUPRESS_DEBUG.  */
+  unsigned decl_flag_2 : 1;
+  /* In FIELD_DECL, this is DECL_NONADDRESSABLE_P
+     In VAR_DECL and PARM_DECL, this is DECL_HAS_VALUE_EXPR.  */
+  unsigned decl_flag_3 : 1;
+  /* Logically, these two would go in a theoretical base shared by var and
+     parm decl. */
+  unsigned gimple_reg_flag : 1;
+  unsigned call_clobbered_flag : 1;
+
+  /* APPLE LOCAL duplicate decls in multiple files. */
+  unsigned duplicate_decl : 1;
+  /* APPLE LOCAL begin CW asm blocks */
+  unsigned iasm_asm_function_flag : 1;
+  unsigned iasm_noreturn_flag : 1;
+  unsigned iasm_dont_promote_to_static : 1;
+  unsigned int iasm_frame_size;
+  /* APPLE LOCAL end CW asm blocks */
+
+  /* APPLE LOCAL begin mainline aligned functions 5933878 */
+  unsigned int align : 24;
+  /* DECL_OFFSET_ALIGN, used only for FIELD_DECLs.  */
+  unsigned int off_align : 8;
+  /* APPLE LOCAL end mainline aligned functions 5933878 */
+
+  tree size_unit;
+  tree initial;
+  tree attributes;
+  tree abstract_origin;
+
+  HOST_WIDE_INT pointer_alias_set;
+  /* Points to a structure whose details depend on the language in use.  */
+  struct lang_decl *lang_specific;
+};
+
+extern tree decl_value_expr_lookup (tree);
+extern void decl_value_expr_insert (tree, tree);
+
+/* In a VAR_DECL or PARM_DECL, the location at which the value may be found,
+   if transformations have made this more complicated than evaluating the
+   decl itself.  This should only be used for debugging; once this field has
+   been set, the decl itself may not legitimately appear in the function.  */
+#define DECL_HAS_VALUE_EXPR_P(NODE) \
+  (TREE_CHECK2 (NODE, VAR_DECL, PARM_DECL)->decl_common.decl_flag_3)
+#define DECL_VALUE_EXPR(NODE) \
+  (decl_value_expr_lookup (DECL_WRTL_CHECK (NODE)))
+#define SET_DECL_VALUE_EXPR(NODE, VAL)			\
+  (decl_value_expr_insert (DECL_WRTL_CHECK (NODE), VAL))
+
+/* Holds the RTL expression for the value of a variable or function.
+   This value can be evaluated lazily for functions, variables with
+   static storage duration, and labels.  */
+#define DECL_RTL(NODE)					\
+  (DECL_WRTL_CHECK (NODE)->decl_with_rtl.rtl		\
+   ? (NODE)->decl_with_rtl.rtl					\
+   : (make_decl_rtl (NODE), (NODE)->decl_with_rtl.rtl))
+
+/* Set the DECL_RTL for NODE to RTL.  */
+#define SET_DECL_RTL(NODE, RTL) set_decl_rtl (NODE, RTL)
+
+/* Returns nonzero if NODE is a tree node that can contain RTL.  */
+#define HAS_RTL_P(NODE) (CODE_CONTAINS_STRUCT (TREE_CODE (NODE), TS_DECL_WRTL))
+
+/* Returns nonzero if the DECL_RTL for NODE has already been set.  */
+#define DECL_RTL_SET_P(NODE)  (HAS_RTL_P (NODE) && DECL_WRTL_CHECK (NODE)->decl_with_rtl.rtl != NULL)
+
+/* Copy the RTL from NODE1 to NODE2.  If the RTL was not set for
+   NODE1, it will not be set for NODE2; this is a lazy copy.  */
+#define COPY_DECL_RTL(NODE1, NODE2) \
+  (DECL_WRTL_CHECK (NODE2)->decl_with_rtl.rtl = DECL_WRTL_CHECK (NODE1)->decl_with_rtl.rtl)
+
+/* The DECL_RTL for NODE, if it is set, or NULL, if it is not set.  */
+#define DECL_RTL_IF_SET(NODE) (DECL_RTL_SET_P (NODE) ? DECL_RTL (NODE) : NULL)
+
+/* In VAR_DECL and PARM_DECL nodes, nonzero means declared `register'.  */
+#define DECL_REGISTER(NODE) (DECL_WRTL_CHECK (NODE)->decl_common.decl_flag_0)
+
+struct tree_decl_with_rtl GTY(())
+{
+  struct tree_decl_common common;
+  rtx rtl;
+};
+
+/* In a FIELD_DECL, this is the field position, counting in bytes, of the
+   DECL_OFFSET_ALIGN-bit-sized word containing the bit closest to the beginning
+   of the structure.  */
+#define DECL_FIELD_OFFSET(NODE) (FIELD_DECL_CHECK (NODE)->field_decl.offset)
+
+/* In a FIELD_DECL, this is the offset, in bits, of the first bit of the
+   field from DECL_FIELD_OFFSET.  This field may be nonzero even for fields
+   that are not bit fields (since DECL_OFFSET_ALIGN may be larger than the
+   natural alignment of the field's type).  */
+#define DECL_FIELD_BIT_OFFSET(NODE) (FIELD_DECL_CHECK (NODE)->field_decl.bit_offset)
+
+/* In a FIELD_DECL, this indicates whether the field was a bit-field and
+   if so, the type that was originally specified for it.
+   TREE_TYPE may have been modified (in finish_struct).  */
+#define DECL_BIT_FIELD_TYPE(NODE) (FIELD_DECL_CHECK (NODE)->field_decl.bit_field_type)
+
+/* For a FIELD_DECL in a QUAL_UNION_TYPE, records the expression, which
+   if nonzero, indicates that the field occupies the type.  */
+#define DECL_QUALIFIER(NODE) (FIELD_DECL_CHECK (NODE)->field_decl.qualifier)
+
+/* For FIELD_DECLs, off_align holds the number of low-order bits of
+   DECL_FIELD_OFFSET which are known to be always zero.
+   DECL_OFFSET_ALIGN thus returns the alignment that DECL_FIELD_OFFSET
+   has.  */
+#define DECL_OFFSET_ALIGN(NODE) \
+  /* APPLE LOCAL mainline aligned functions 5933878 */ \
+  (((unsigned HOST_WIDE_INT)1) << FIELD_DECL_CHECK (NODE)->decl_common.off_align)
+
+/* Specify that DECL_ALIGN(NODE) is a multiple of X.  */
+#define SET_DECL_OFFSET_ALIGN(NODE, X) \
+  /* APPLE LOCAL mainline aligned functions 5933878 */ \
+  (FIELD_DECL_CHECK (NODE)->decl_common.off_align = exact_log2 ((X) & -(X)))
+/* 1 if the alignment for this type was requested by "aligned" attribute,
+   0 if it is the default for this type.  */
+
+/* For FIELD_DECLS, DECL_FCONTEXT is the *first* baseclass in
+   which this FIELD_DECL is defined.  This information is needed when
+   writing debugging information about vfield and vbase decls for C++.  */
+#define DECL_FCONTEXT(NODE) (FIELD_DECL_CHECK (NODE)->field_decl.fcontext)
+
+/* In a FIELD_DECL, indicates this field should be bit-packed.  */
+#define DECL_PACKED(NODE) (FIELD_DECL_CHECK (NODE)->decl_common.decl_flag_1)
+
+/* Nonzero in a FIELD_DECL means it is a bit field, and must be accessed
+   specially.  */
+#define DECL_BIT_FIELD(NODE) (FIELD_DECL_CHECK (NODE)->decl_common.decl_flag_2)
+
+/* Used in a FIELD_DECL to indicate that we cannot form the address of
+   this component.  */
+#define DECL_NONADDRESSABLE_P(NODE) \
+  (FIELD_DECL_CHECK (NODE)->decl_common.decl_flag_3)
+
+struct tree_field_decl GTY(())
+{
+  struct tree_decl_common common;
+
+  tree offset;
+  tree bit_field_type;
+  tree qualifier;
+  tree bit_offset;
+  tree fcontext;
+
+};
+
+/* A numeric unique identifier for a LABEL_DECL.  The UID allocation is
+   dense, unique within any one function, and may be used to index arrays.
+   If the value is -1, then no UID has been assigned.  */
+#define LABEL_DECL_UID(NODE) \
+  (LABEL_DECL_CHECK (NODE)->decl_common.pointer_alias_set)
+
+/* In LABEL_DECL nodes, nonzero means that an error message about
+   jumping into such a binding contour has been printed for this label.  */
+#define DECL_ERROR_ISSUED(NODE) (LABEL_DECL_CHECK (NODE)->decl_common.decl_flag_0)
+
+struct tree_label_decl GTY(())
+{
+  struct tree_decl_with_rtl common;
+  /* Java's verifier has some need to store information about labels,
+     and was using fields that no longer exist on labels.
+     Once the verifier doesn't need these anymore, they should be removed.  */
+  tree java_field_1;
+  tree java_field_2;
+  tree java_field_3;
+  unsigned int java_field_4;
+
+};
+
+struct tree_result_decl GTY(())
+{
+  struct tree_decl_with_rtl common;
+};
+
+struct tree_const_decl GTY(())
+{
+  struct tree_decl_with_rtl common;
+};
+
+/* For a PARM_DECL, records the data type used to pass the argument,
+   which may be different from the type seen in the program.  */
+#define DECL_ARG_TYPE(NODE) (PARM_DECL_CHECK (NODE)->decl_common.initial)
+
+/* For PARM_DECL, holds an RTL for the stack slot or register
+   where the data was actually passed.  */
+#define DECL_INCOMING_RTL(NODE) (PARM_DECL_CHECK (NODE)->parm_decl.incoming_rtl)
+
+struct tree_parm_decl GTY(())
+{
+  struct tree_decl_with_rtl common;
+  rtx incoming_rtl;
+};
+
+
+/* Nonzero in a decl means that the gimplifier has seen (or placed)
+   this variable in a BIND_EXPR.  */
+#define DECL_SEEN_IN_BIND_EXPR_P(NODE) \
+  (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.seen_in_bind_expr)
+
+/* Used to indicate that the linkage status of this DECL is not yet known,
+   so it should not be output now.  */
+#define DECL_DEFER_OUTPUT(NODE) (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.defer_output)
+
+/* APPLE LOCAL duplicate decls in multiple files. */
+#define DECL_DUPLICATE_DECL(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.duplicate_decl)
+
+/* APPLE LOCAL begin CW asm blocks */
+#define DECL_IASM_ASM_FUNCTION(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.iasm_asm_function_flag)
+#define DECL_IASM_NORETURN(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.iasm_noreturn_flag)
+#define DECL_IASM_DONT_PROMOTE_TO_STATIC(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.iasm_dont_promote_to_static)
+#define DECL_IASM_FRAME_SIZE(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.iasm_frame_size)
+/* APPLE LOCAL end CW asm blocks */
+
+/* Nonzero for a given ..._DECL node means that no warnings should be
+   generated just because this node is unused.  */
+#define DECL_IN_SYSTEM_HEADER(NODE) \
+  (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.in_system_header_flag)
+
+  /* Used to indicate that this DECL has weak linkage.  */
+#define DECL_WEAK(NODE) (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.weak_flag)
+
+/* Internal to the gimplifier.  Indicates that the value is a formal
+   temporary controlled by the gimplifier.  */
+#define DECL_GIMPLE_FORMAL_TEMP_P(DECL) \
+  DECL_WITH_VIS_CHECK (DECL)->decl_with_vis.gimple_formal_temp
+
+/* Used to indicate that the DECL is a dllimport.  */
+#define DECL_DLLIMPORT_P(NODE) (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.dllimport_flag)
+
+/* DECL_BASED_ON_RESTRICT_P records whether a VAR_DECL is a temporary
+   based on a variable with a restrict qualified type.  If it is,
+   DECL_RESTRICT_BASE returns the restrict qualified variable on which
+   it is based.  */
+
+#define DECL_BASED_ON_RESTRICT_P(NODE) \
+  (VAR_DECL_CHECK (NODE)->decl_with_vis.based_on_restrict_p)
+#define DECL_GET_RESTRICT_BASE(NODE) \
+  (decl_restrict_base_lookup (VAR_DECL_CHECK (NODE)))
+#define SET_DECL_RESTRICT_BASE(NODE, VAL) \
+  (decl_restrict_base_insert (VAR_DECL_CHECK (NODE), (VAL)))
+
+extern tree decl_restrict_base_lookup (tree);
+extern void decl_restrict_base_insert (tree, tree);
+
+/* Used in a DECL to indicate that, even if it TREE_PUBLIC, it need
+   not be put out unless it is needed in this translation unit.
+   Entities like this are shared across translation units (like weak
+   entities), but are guaranteed to be generated by any translation
+   unit that needs them, and therefore need not be put out anywhere
+   where they are not needed.  DECL_COMDAT is just a hint to the
+   back-end; it is up to front-ends which set this flag to ensure
+   that there will never be any harm, other than bloat, in putting out
+   something which is DECL_COMDAT.  */
+#define DECL_COMDAT(NODE) (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.comdat_flag)
+
+/* A replaceable function is one which may be replaced at link-time
+   with an entirely different definition, provided that the
+   replacement has the same type.  For example, functions declared
+   with __attribute__((weak)) on most systems are replaceable.  
+
+   COMDAT functions are not replaceable, since all definitions of the
+   function must be equivalent.  It is important that COMDAT functions
+   not be treated as replaceable so that use of C++ template
+   instantiations is not penalized.  
+
+   For example, DECL_REPLACEABLE is used to determine whether or not a
+   function (including a template instantiation) which is not
+   explicitly declared "inline" can be inlined.  If the function is
+   DECL_REPLACEABLE then it is not safe to do the inlining, since the
+   implementation chosen at link-time may be different.  However, a
+   function that is not DECL_REPLACEABLE can be inlined, since all
+   versions of the function will be functionally identical.  */
+#define DECL_REPLACEABLE_P(NODE) \
+  (!DECL_COMDAT (NODE) && !targetm.binds_local_p (NODE))
 
 /* The name of the object as the assembler will see it (but before any
    translations made by ASM_OUTPUT_LABELREF).  Often this is the same
    as DECL_NAME.  It is an IDENTIFIER_NODE.  */
 #define DECL_ASSEMBLER_NAME(NODE) decl_assembler_name (NODE)
 
+/* Return true if NODE is a NODE that can contain a DECL_ASSEMBLER_NAME.
+   This is true of all DECL nodes except FIELD_DECL.  */
+#define HAS_DECL_ASSEMBLER_NAME_P(NODE) \
+  (CODE_CONTAINS_STRUCT (TREE_CODE (NODE), TS_DECL_WITH_VIS))
+
 /* Returns nonzero if the DECL_ASSEMBLER_NAME for NODE has been set.  If zero,
    the NODE might still have a DECL_ASSEMBLER_NAME -- it just hasn't been set
    yet.  */
 #define DECL_ASSEMBLER_NAME_SET_P(NODE) \
-  (DECL_CHECK (NODE)->decl.assembler_name != NULL_TREE)
+  (HAS_DECL_ASSEMBLER_NAME_P (NODE) &&  DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.assembler_name != NULL_TREE)
 
 /* Set the DECL_ASSEMBLER_NAME for NODE to NAME.  */
 #define SET_DECL_ASSEMBLER_NAME(NODE, NAME) \
-  (DECL_CHECK (NODE)->decl.assembler_name = (NAME))
+  (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.assembler_name = (NAME))
 
 /* Copy the DECL_ASSEMBLER_NAME from DECL1 to DECL2.  Note that if DECL1's
    DECL_ASSEMBLER_NAME has not yet been set, using this macro will not cause
@@ -1946,126 +2930,146 @@ struct tree_binfo GTY (())
 
 /* Records the section name in a section attribute.  Used to pass
    the name from decl_attributes to make_function_rtl and make_decl_rtl.  */
-#define DECL_SECTION_NAME(NODE) (DECL_CHECK (NODE)->decl.section_name)
+#define DECL_SECTION_NAME(NODE) (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.section_name)
 
-/*  For FIELD_DECLs, this is the RECORD_TYPE, UNION_TYPE, or
-    QUAL_UNION_TYPE node that the field is a member of.  For VAR_DECL,
-    PARM_DECL, FUNCTION_DECL, LABEL_DECL, and CONST_DECL nodes, this
-    points to either the FUNCTION_DECL for the containing function,
-    the RECORD_TYPE or UNION_TYPE for the containing type, or
-    NULL_TREE or a TRANSLATION_UNIT_DECL if the given decl has "file
-    scope".  */
-#define DECL_CONTEXT(NODE) (DECL_CHECK (NODE)->decl.context)
-#define DECL_FIELD_CONTEXT(NODE) (FIELD_DECL_CHECK (NODE)->decl.context)
-/* In a DECL this is the field where attributes are stored.  */
-#define DECL_ATTRIBUTES(NODE) (DECL_CHECK (NODE)->decl.attributes)
-/* In a FIELD_DECL, this is the field position, counting in bytes, of the
-   byte containing the bit closest to the beginning of the structure.  */
-#define DECL_FIELD_OFFSET(NODE) (FIELD_DECL_CHECK (NODE)->decl.arguments)
-/* In a FIELD_DECL, this is the offset, in bits, of the first bit of the
-   field from DECL_FIELD_OFFSET.  */
-#define DECL_FIELD_BIT_OFFSET(NODE) (FIELD_DECL_CHECK (NODE)->decl.u2.t)
-/* In a FIELD_DECL, this indicates whether the field was a bit-field and
-   if so, the type that was originally specified for it.
-   TREE_TYPE may have been modified (in finish_struct).  */
-#define DECL_BIT_FIELD_TYPE(NODE) (FIELD_DECL_CHECK (NODE)->decl.result)
-/* In FUNCTION_DECL, a chain of ..._DECL nodes.
-   VAR_DECL and PARM_DECL reserve the arguments slot for language-specific
-   uses.  */
-#define DECL_ARGUMENTS(NODE) (DECL_CHECK (NODE)->decl.arguments)
+/* APPLE LOCAL begin DECL_ESTIMATED_INSNS */
+/* In a FUNCTION_DECL for which DECL_BUILT_IN does not hold, this is
+   the approximate number of statements in this function.  There is
+   no need for this number to be exact; it is only used in various
+   heuristics regarding optimization.  */
+#define DECL_ESTIMATED_INSNS(NODE) \
+  (FUNCTION_DECL_CHECK (NODE)->function_decl.estimated_insns)
+/* APPLE LOCAL end DECL_ESTIMATED_INSNS */
+
+/* Value of the decls's visibility attribute */
+#define DECL_VISIBILITY(NODE) (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.visibility)
+
+/* Nonzero means that the decl had its visibility specified rather than
+   being inferred.  */
+#define DECL_VISIBILITY_SPECIFIED(NODE) (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.visibility_specified)
+
+/* Used in TREE_PUBLIC decls to indicate that copies of this DECL in
+   multiple translation units should be merged.  */
+#define DECL_ONE_ONLY(NODE) (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.one_only)
+
+struct tree_decl_with_vis GTY(())
+{
+ struct tree_decl_with_rtl common;
+ tree assembler_name;
+ tree section_name;
+
+ /* Belong to VAR_DECL exclusively.  */
+ unsigned defer_output:1;
+ unsigned hard_register:1;
+ unsigned thread_local:1;
+ unsigned common_flag:1;
+ unsigned in_text_section : 1;
+ unsigned gimple_formal_temp : 1;
+ unsigned dllimport_flag : 1;
+ unsigned based_on_restrict_p : 1;
+ /* Used by C++.  Might become a generic decl flag.  */
+ unsigned shadowed_for_var_p : 1;
+
+ /* Don't belong to VAR_DECL exclusively.  */
+ unsigned in_system_header_flag : 1;
+ unsigned weak_flag:1;
+ unsigned seen_in_bind_expr : 1;
+ unsigned comdat_flag : 1;
+ ENUM_BITFIELD(symbol_visibility) visibility : 2;
+ unsigned visibility_specified : 1;
+ /* Belong to FUNCTION_DECL exclusively.  */
+ unsigned one_only : 1;
+ unsigned init_priority_p:1;
+
+ /* Belongs to VAR_DECL exclusively.  */
+ ENUM_BITFIELD(tls_model) tls_model : 3;
+
+ /* APPLE LOCAL begin radar 5732232 - blocks */
+ /* Belong to VAR_DECL exclusively. */
+ unsigned block_decl_byref : 1;
+ unsigned block_decl_copied : 1;
+ /* APPLE LOCAL begin radar 5932809 - copyable byref blocks */
+ unsigned copyable_byref_local_var : 1;
+ unsigned copyable_byref_local_nonpod : 1;
+ /* APPLE LOCAL radar 6172148 */
+ unsigned block_synthesized_function : 1;
+ /* APPLE LOCAL radar 5847976 */
+ unsigned block_weak : 1;
+ /* 5 unused bits. */
+ /* APPLE LOCAL end radar 5932809 - copyable byref blocks */
+ /* APPLE LOCAL end radar 5732232 - blocks */
+};
+
+/* In a VAR_DECL that's static,
+   nonzero if the space is in the text section.  */
+#define DECL_IN_TEXT_SECTION(NODE) (VAR_DECL_CHECK (NODE)->decl_with_vis.in_text_section)
+
+/* Nonzero for a given ..._DECL node means that this node should be
+   put in .common, if possible.  If a DECL_INITIAL is given, and it
+   is not error_mark_node, then the decl cannot be put in .common.  */
+#define DECL_COMMON(NODE) (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.common_flag)
+
+/* In a VAR_DECL, nonzero if the decl is a register variable with
+   an explicit asm specification.  */
+#define DECL_HARD_REGISTER(NODE)  (VAR_DECL_CHECK (NODE)->decl_with_vis.hard_register)
+
+extern tree decl_debug_expr_lookup (tree);
+extern void decl_debug_expr_insert (tree, tree);
+/* For VAR_DECL, this is set to either an expression that it was split
+   from (if DECL_DEBUG_EXPR_IS_FROM is true), otherwise a tree_list of
+   subexpressions that it was split into.  */
+#define DECL_DEBUG_EXPR(NODE) \
+  (decl_debug_expr_lookup (VAR_DECL_CHECK (NODE)))
+
+#define SET_DECL_DEBUG_EXPR(NODE, VAL) \
+  (decl_debug_expr_insert (VAR_DECL_CHECK (NODE), VAL))
+
+
+extern unsigned short decl_init_priority_lookup (tree);
+extern void decl_init_priority_insert (tree, unsigned short);
+
+/* In a non-local VAR_DECL with static storage duration, this is the
+   initialization priority.  If this value is zero, the NODE will be
+   initialized at the DEFAULT_INIT_PRIORITY.  Only used by C++ FE*/
+
+#define DECL_HAS_INIT_PRIORITY_P(NODE) \
+  (VAR_DECL_CHECK (NODE)->decl_with_vis.init_priority_p)
+#define DECL_INIT_PRIORITY(NODE) \
+  (decl_init_priority_lookup (VAR_DECL_CHECK (NODE)))
+#define SET_DECL_INIT_PRIORITY(NODE, VAL) \
+  (decl_init_priority_insert (VAR_DECL_CHECK (NODE), VAL))
+
+/* In a VAR_DECL, the model to use if the data should be allocated from
+   thread-local storage.  */
+#define DECL_TLS_MODEL(NODE) (VAR_DECL_CHECK (NODE)->decl_with_vis.tls_model)
+
+/* APPLE LOCAL begin radar 5732232 - blocks */
+#define BLOCK_DECL_BYREF(NODE) (VAR_DECL_CHECK (NODE)->decl_with_vis.block_decl_byref)
+#define BLOCK_DECL_COPIED(NODE) (VAR_DECL_CHECK (NODE)->decl_with_vis.block_decl_copied)
+/* APPLE LOCAL end radar 5732232 - blocks */
+/* APPLE LOCAL radar 6172148 */
+#define BLOCK_SYNTHESIZED_FUNC(NODE) (FUNCTION_DECL_CHECK (NODE)->decl_with_vis.block_synthesized_function)
+/* APPLE LOCAL begin radar 5932809 - copyable byref blocks */
+#define COPYABLE_BYREF_LOCAL_VAR(NODE) (VAR_DECL_CHECK (NODE)->decl_with_vis.copyable_byref_local_var)
+#define COPYABLE_BYREF_LOCAL_NONPOD(NODE) (VAR_DECL_CHECK (NODE)->decl_with_vis.copyable_byref_local_nonpod)
+/* APPLE LOCAL radar 5847976 */
+#define COPYABLE_WEAK_BLOCK(NODE) (VAR_DECL_CHECK (NODE)->decl_with_vis.block_weak)
+/* APPLE LOCAL end radar 5932809 - copyable byref blocks */
+
+/* In a VAR_DECL, nonzero if the data should be allocated from
+   thread-local storage.  */
+#define DECL_THREAD_LOCAL_P(NODE) \
+  (VAR_DECL_CHECK (NODE)->decl_with_vis.tls_model != TLS_MODEL_NONE)
+
+struct tree_var_decl GTY(())
+{
+  struct tree_decl_with_vis common;
+};
+
+
 /* This field is used to reference anything in decl.result and is meant only
    for use by the garbage collector.  */
-#define DECL_RESULT_FLD(NODE) (DECL_CHECK (NODE)->decl.result)
-/* In FUNCTION_DECL, holds the decl for the return value.  */
-#define DECL_RESULT(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.result)
-/* For a TYPE_DECL, holds the "original" type.  (TREE_TYPE has the copy.) */
-#define DECL_ORIGINAL_TYPE(NODE) (TYPE_DECL_CHECK (NODE)->decl.result)
-/* In PARM_DECL, holds the type as written (perhaps a function or array).  */
-#define DECL_ARG_TYPE_AS_WRITTEN(NODE) (PARM_DECL_CHECK (NODE)->decl.result)
-/* For a FUNCTION_DECL, holds the tree of BINDINGs.
-   For a TRANSLATION_UNIT_DECL, holds the namespace's BLOCK.
-   For a VAR_DECL, holds the initial value.
-   For a PARM_DECL, not used--default
-   values for parameters are encoded in the type of the function,
-   not in the PARM_DECL slot.
-
-   ??? Need to figure out some way to check this isn't a PARM_DECL.  */
-#define DECL_INITIAL(NODE) (DECL_CHECK (NODE)->decl.initial)
-/* For a PARM_DECL, records the data type used to pass the argument,
-   which may be different from the type seen in the program.  */
-#define DECL_ARG_TYPE(NODE) (PARM_DECL_CHECK (NODE)->decl.initial)
-/* For a FIELD_DECL in a QUAL_UNION_TYPE, records the expression, which
-   if nonzero, indicates that the field occupies the type.  */
-#define DECL_QUALIFIER(NODE) (FIELD_DECL_CHECK (NODE)->decl.initial)
-/* These two fields describe where in the source code the declaration
-   was.  If the declaration appears in several places (as for a C
-   function that is declared first and then defined later), this
-   information should refer to the definition.  */
-#define DECL_SOURCE_LOCATION(NODE) (DECL_CHECK (NODE)->decl.locus)
-#define DECL_SOURCE_FILE(NODE) LOCATION_FILE (DECL_SOURCE_LOCATION (NODE))
-#define DECL_SOURCE_LINE(NODE) LOCATION_LINE (DECL_SOURCE_LOCATION (NODE))
-#ifdef USE_MAPPED_LOCATION
-#define DECL_IS_BUILTIN(DECL) \
-  (DECL_SOURCE_LOCATION (DECL) <= BUILTINS_LOCATION)
-#else
-#define DECL_IS_BUILTIN(DECL) (DECL_SOURCE_LINE(DECL) == 0)
-#endif
-/* Holds the size of the datum, in bits, as a tree expression.
-   Need not be constant.  */
-#define DECL_SIZE(NODE) (DECL_CHECK (NODE)->decl.size)
-/* Likewise for the size in bytes.  */
-#define DECL_SIZE_UNIT(NODE) (DECL_CHECK (NODE)->decl.size_unit)
-/* Holds the alignment required for the datum, in bits.  */
-#define DECL_ALIGN(NODE) (DECL_CHECK (NODE)->decl.u1.a.align)
-/* The alignment of NODE, in bytes.  */
-#define DECL_ALIGN_UNIT(NODE) (DECL_ALIGN (NODE) / BITS_PER_UNIT)
-/* For FIELD_DECLs, off_align holds the number of low-order bits of
-   DECL_FIELD_OFFSET which are known to be always zero.
-   DECL_OFFSET_ALIGN thus returns the alignment that DECL_FIELD_OFFSET
-   has.  */
-#define DECL_OFFSET_ALIGN(NODE) \
-  (((unsigned HOST_WIDE_INT)1) << FIELD_DECL_CHECK (NODE)->decl.u1.a.off_align)
-/* Specify that DECL_ALIGN(NODE) is a multiple of X.  */
-#define SET_DECL_OFFSET_ALIGN(NODE, X) \
-  (FIELD_DECL_CHECK (NODE)->decl.u1.a.off_align	= exact_log2 ((X) & -(X)))
-/* 1 if the alignment for this type was requested by "aligned" attribute,
-   0 if it is the default for this type.  */
-#define DECL_USER_ALIGN(NODE) (DECL_CHECK (NODE)->decl.user_align)
-/* Holds the machine mode corresponding to the declaration of a variable or
-   field.  Always equal to TYPE_MODE (TREE_TYPE (decl)) except for a
-   FIELD_DECL.  */
-#define DECL_MODE(NODE) (DECL_CHECK (NODE)->decl.mode)
-/* Holds the RTL expression for the value of a variable or function.
-   This value can be evaluated lazily for functions, variables with
-   static storage duration, and labels.  */
-#define DECL_RTL(NODE)					\
-  (DECL_CHECK (NODE)->decl.rtl				\
-   ? (NODE)->decl.rtl					\
-   : (make_decl_rtl (NODE), (NODE)->decl.rtl))
-/* Set the DECL_RTL for NODE to RTL.  */
-#define SET_DECL_RTL(NODE, RTL) set_decl_rtl (NODE, RTL)
-/* Returns nonzero if the DECL_RTL for NODE has already been set.  */
-#define DECL_RTL_SET_P(NODE)  (DECL_CHECK (NODE)->decl.rtl != NULL)
-/* Copy the RTL from NODE1 to NODE2.  If the RTL was not set for
-   NODE1, it will not be set for NODE2; this is a lazy copy.  */
-#define COPY_DECL_RTL(NODE1, NODE2) \
-  (DECL_CHECK (NODE2)->decl.rtl = DECL_CHECK (NODE1)->decl.rtl)
-/* The DECL_RTL for NODE, if it is set, or NULL, if it is not set.  */
-#define DECL_RTL_IF_SET(NODE) (DECL_RTL_SET_P (NODE) ? DECL_RTL (NODE) : NULL)
-
-/* For PARM_DECL, holds an RTL for the stack slot or register
-   where the data was actually passed.  */
-#define DECL_INCOMING_RTL(NODE) (PARM_DECL_CHECK (NODE)->decl.u2.r)
-
-/* For FUNCTION_DECL, this holds a pointer to a structure ("struct function")
-   that describes the status of this function.  */
-#define DECL_STRUCT_FUNCTION(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.u2.f)
-
-/* For FUNCTION_DECL, if it is built-in, this identifies which built-in
-   operation it is.  Note, however, that this field is overloaded, with
-   DECL_BUILT_IN_CLASS as the discriminant, so the latter must always be
-   checked before any access to the former.  */
-#define DECL_FUNCTION_CODE(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.u1.f)
+#define DECL_RESULT_FLD(NODE) (DECL_NON_COMMON_CHECK (NODE)->decl_non_common.result)
 
 /* The DECL_VINDEX is used for FUNCTION_DECLS in two different ways.
    Before the struct containing the FUNCTION_DECL is laid out,
@@ -2073,431 +3077,160 @@ struct tree_binfo GTY (())
    is the FUNCTION_DECL which this FUNCTION_DECL will replace as a virtual
    function.  When the class is laid out, this pointer is changed
    to an INTEGER_CST node which is suitable for use as an index
-   into the virtual function table.  */
-#define DECL_VINDEX(NODE) (DECL_CHECK (NODE)->decl.vindex)
+   into the virtual function table.
+   C++ also uses this field in namespaces, hence the DECL_NON_COMMON_CHECK.  */
+#define DECL_VINDEX(NODE) (DECL_NON_COMMON_CHECK (NODE)->decl_non_common.vindex)
 
-/* For FIELD_DECLS, DECL_FCONTEXT is the *first* baseclass in
-   which this FIELD_DECL is defined.  This information is needed when
-   writing debugging information about vfield and vbase decls for C++.  */
-#define DECL_FCONTEXT(NODE) (FIELD_DECL_CHECK (NODE)->decl.vindex)
+struct tree_decl_non_common GTY(())
 
-/* For VAR_DECL, this is set to either an expression that it was split
-   from (if DECL_DEBUG_EXPR_IS_FROM is true), otherwise a tree_list of
-   subexpressions that it was split into.  */
-#define DECL_DEBUG_EXPR(NODE) (DECL_CHECK (NODE)->decl.vindex)
+{
+  struct tree_decl_with_vis common;
+  /* C++ uses this in namespaces.  */
+  tree saved_tree;
+  /* C++ uses this in templates.  */
+  tree arguments;
+  /* Almost all FE's use this.  */
+  tree result;
+  /* C++ uses this in namespaces.  */
+  tree vindex;
+};
 
-#define DECL_DEBUG_EXPR_IS_FROM(NODE) \
-  (DECL_CHECK (NODE)->decl.debug_expr_is_from)
+/* In FUNCTION_DECL, holds the decl for the return value.  */
+#define DECL_RESULT(NODE) (FUNCTION_DECL_CHECK (NODE)->decl_non_common.result)
 
-/* Every ..._DECL node gets a unique number.  */
-#define DECL_UID(NODE) (DECL_CHECK (NODE)->decl.uid)
+/* In a FUNCTION_DECL, nonzero if the function cannot be inlined.  */
+#define DECL_UNINLINABLE(NODE) (FUNCTION_DECL_CHECK (NODE)->function_decl.uninlinable)
 
-/* For any sort of a ..._DECL node, this points to the original (abstract)
-   decl node which this decl is an instance of, or else it is NULL indicating
-   that this decl is not an instance of some other decl.  For example,
-   in a nested declaration of an inline function, this points back to the
-   definition.  */
-#define DECL_ABSTRACT_ORIGIN(NODE) (DECL_CHECK (NODE)->decl.abstract_origin)
+/* In a FUNCTION_DECL, the saved representation of the body of the
+   entire function.  */
+#define DECL_SAVED_TREE(NODE) (FUNCTION_DECL_CHECK (NODE)->decl_non_common.saved_tree)
 
-/* Like DECL_ABSTRACT_ORIGIN, but returns NODE if there's no abstract
-   origin.  This is useful when setting the DECL_ABSTRACT_ORIGIN.  */
-#define DECL_ORIGIN(NODE) \
-  (DECL_ABSTRACT_ORIGIN (NODE) ? DECL_ABSTRACT_ORIGIN (NODE) : (NODE))
+/* Nonzero in a FUNCTION_DECL means this function should be treated
+   as if it were a malloc, meaning it returns a pointer that is
+   not an alias.  */
+#define DECL_IS_MALLOC(NODE) (FUNCTION_DECL_CHECK (NODE)->function_decl.malloc_flag)
 
-/* Nonzero for any sort of ..._DECL node means this decl node represents an
-   inline instance of some original (abstract) decl from an inline function;
-   suppress any warnings about shadowing some other variable.  FUNCTION_DECL
-   nodes can also have their abstract origin set to themselves.  */
-#define DECL_FROM_INLINE(NODE) (DECL_ABSTRACT_ORIGIN (NODE) != NULL_TREE \
-				&& DECL_ABSTRACT_ORIGIN (NODE) != (NODE))
+/* Nonzero in a FUNCTION_DECL means this function may return more
+   than once.  */
+#define DECL_IS_RETURNS_TWICE(NODE) \
+  (FUNCTION_DECL_CHECK (NODE)->function_decl.returns_twice_flag)
 
-/* Nonzero if a _DECL means that the name of this decl should be ignored
-   for symbolic debug purposes.  */
-#define DECL_IGNORED_P(NODE) (DECL_CHECK (NODE)->decl.ignored_flag)
+/* Nonzero in a FUNCTION_DECL means this function should be treated
+   as "pure" function (like const function, but may read global memory).  */
+#define DECL_IS_PURE(NODE) (FUNCTION_DECL_CHECK (NODE)->function_decl.pure_flag)
 
-/* Nonzero for a given ..._DECL node means that this node represents an
-   "abstract instance" of the given declaration (e.g. in the original
-   declaration of an inline function).  When generating symbolic debugging
-   information, we mustn't try to generate any address information for nodes
-   marked as "abstract instances" because we don't actually generate
-   any code or allocate any data space for such instances.  */
-#define DECL_ABSTRACT(NODE) (DECL_CHECK (NODE)->decl.abstract_flag)
+/* Nonzero in a FUNCTION_DECL means this function should be treated
+   as "novops" function (function that does not read global memory,
+   but may have arbitrary side effects).  */
+#define DECL_IS_NOVOPS(NODE) (FUNCTION_DECL_CHECK (NODE)->function_decl.novops_flag)
 
-/* Nonzero if a _DECL means that no warnings should be generated just
-   because this decl is unused.  */
-#define DECL_IN_SYSTEM_HEADER(NODE) \
-  (DECL_CHECK (NODE)->decl.in_system_header_flag)
+/* Used in FUNCTION_DECLs to indicate that they should be run automatically
+   at the beginning or end of execution.  */
+#define DECL_STATIC_CONSTRUCTOR(NODE) \
+  (FUNCTION_DECL_CHECK (NODE)->function_decl.static_ctor_flag)
 
-/* Nonzero for a given ..._DECL node means that this node should be
-   put in .common, if possible.  If a DECL_INITIAL is given, and it
-   is not error_mark_node, then the decl cannot be put in .common.  */
-#define DECL_COMMON(NODE) (DECL_CHECK (NODE)->decl.common_flag)
+#define DECL_STATIC_DESTRUCTOR(NODE) \
+(FUNCTION_DECL_CHECK (NODE)->function_decl.static_dtor_flag)
 
-/* Language-specific decl information.  */
-#define DECL_LANG_SPECIFIC(NODE) (DECL_CHECK (NODE)->decl.lang_specific)
+/* Used in FUNCTION_DECLs to indicate that function entry and exit should
+   be instrumented with calls to support routines.  */
+#define DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT(NODE) \
+  (FUNCTION_DECL_CHECK (NODE)->function_decl.no_instrument_function_entry_exit)
 
-/* In a VAR_DECL or FUNCTION_DECL,
-   nonzero means external reference:
-   do not allocate storage, and refer to a definition elsewhere.  */
-#define DECL_EXTERNAL(NODE) (DECL_CHECK (NODE)->decl.external_flag)
-
-/* In a VAR_DECL for a RECORD_TYPE, sets number for non-init_priority
-   initializations.  */
-#define DEFAULT_INIT_PRIORITY 65535
-#define MAX_INIT_PRIORITY 65535
-#define MAX_RESERVED_INIT_PRIORITY 100
-
-/* In a TYPE_DECL
-   nonzero means the detail info about this type is not dumped into stabs.
-   Instead it will generate cross reference ('x') of names.
-   This uses the same flag as DECL_EXTERNAL.  */
-#define TYPE_DECL_SUPPRESS_DEBUG(NODE) \
-  (TYPE_DECL_CHECK (NODE)->decl.external_flag)
-
-/* In VAR_DECL and PARM_DECL nodes, nonzero means declared `register'.  */
-#define DECL_REGISTER(NODE) (DECL_CHECK (NODE)->decl.regdecl_flag)
-
-/* In LABEL_DECL nodes, nonzero means that an error message about
-   jumping into such a binding contour has been printed for this label.  */
-#define DECL_ERROR_ISSUED(NODE) (LABEL_DECL_CHECK (NODE)->decl.regdecl_flag)
-
-/* In a FIELD_DECL, indicates this field should be bit-packed.  */
-#define DECL_PACKED(NODE) (FIELD_DECL_CHECK (NODE)->decl.regdecl_flag)
+/* Used in FUNCTION_DECLs to indicate that limit-stack-* should be
+   disabled in this function.  */
+#define DECL_NO_LIMIT_STACK(NODE) \
+  (FUNCTION_DECL_CHECK (NODE)->function_decl.no_limit_stack)
 
 /* In a FUNCTION_DECL with a nonzero DECL_CONTEXT, indicates that a
    static chain is not needed.  */
 #define DECL_NO_STATIC_CHAIN(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->decl.regdecl_flag)
+  (FUNCTION_DECL_CHECK (NODE)->function_decl.regdecl_flag)
 
-/* Nonzero in a ..._DECL means this variable is ref'd from a nested function.
-   For VAR_DECL nodes, PARM_DECL nodes, and FUNCTION_DECL nodes.
-
-   For LABEL_DECL nodes, nonzero if nonlocal gotos to the label are permitted.
-
-   Also set in some languages for variables, etc., outside the normal
-   lexical scope, such as class instance variables.  */
-#define DECL_NONLOCAL(NODE) (DECL_CHECK (NODE)->decl.nonlocal_flag)
+/* Nonzero for a decl that cgraph has decided should be inlined into
+   at least one call site.  It is not meaningful to look at this
+   directly; always use cgraph_function_possibly_inlined_p.  */
+#define DECL_POSSIBLY_INLINED(DECL) \
+  FUNCTION_DECL_CHECK (DECL)->function_decl.possibly_inlined
 
 /* Nonzero in a FUNCTION_DECL means this function can be substituted
    where it is called.  */
-#define DECL_INLINE(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.inline_flag)
+#define DECL_INLINE(NODE) (FUNCTION_DECL_CHECK (NODE)->function_decl.inline_flag)
 
 /* Nonzero in a FUNCTION_DECL means that this function was declared inline,
    such as via the `inline' keyword in C/C++.  This flag controls the linkage
    semantics of 'inline'; whether or not the function is inlined is
    controlled by DECL_INLINE.  */
 #define DECL_DECLARED_INLINE_P(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->decl.declared_inline_flag)
+  (FUNCTION_DECL_CHECK (NODE)->function_decl.declared_inline_flag)
 
-/* Nonzero in a decl means that the gimplifier has seen (or placed)
-   this variable in a BIND_EXPR.  */
-#define DECL_SEEN_IN_BIND_EXPR_P(NODE) \
-  (DECL_CHECK (NODE)->decl.seen_in_bind_expr)
-
-/* In a VAR_DECL, nonzero if the decl is a register variable with
-   an explicit asm specification.  */
-#define DECL_HARD_REGISTER(NODE)  (VAR_DECL_CHECK (NODE)->decl.inline_flag)
-
-/* Value of the decls's visibility attribute */
-#define DECL_VISIBILITY(NODE) (DECL_CHECK (NODE)->decl.visibility)
-
-/* Nonzero means that the decl had its visibility specified rather than
-   being inferred.  */
-#define DECL_VISIBILITY_SPECIFIED(NODE) (DECL_CHECK (NODE)->decl.visibility_specified)
-
-/* In a FUNCTION_DECL, nonzero if the function cannot be inlined.  */
-#define DECL_UNINLINABLE(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.uninlinable)
-
-/* In a VAR_DECL, nonzero if the data should be allocated from
-   thread-local storage.  */
-#define DECL_THREAD_LOCAL(NODE) (VAR_DECL_CHECK (NODE)->decl.thread_local_flag)
-
-/* In a FUNCTION_DECL, the saved representation of the body of the
-   entire function.  */
-#define DECL_SAVED_TREE(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.saved_tree)
-
-/* In a VAR_DECL or PARM_DECL, the location at which the value may be found,
-   if transformations have made this more complicated than evaluating the
-   decl itself.  This should only be used for debugging; once this field has
-   been set, the decl itself may not legitimately appear in the function.  */
-#define DECL_VALUE_EXPR(NODE) \
-  (TREE_CHECK2 (NODE, VAR_DECL, PARM_DECL)->decl.saved_tree)
-
-/* Nonzero in a FUNCTION_DECL means this function should be treated
-   as if it were a malloc, meaning it returns a pointer that is
-   not an alias.  */
-#define DECL_IS_MALLOC(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.malloc_flag)
-
-/* Nonzero in a FUNCTION_DECL means this function should be treated
-   as "pure" function (like const function, but may read global memory).  */
-#define DECL_IS_PURE(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.pure_flag)
-
-/* Nonzero in a FIELD_DECL means it is a bit field, and must be accessed
-   specially.  */
-#define DECL_BIT_FIELD(NODE) (FIELD_DECL_CHECK (NODE)->decl.bit_field_flag)
-
-/* Unused in FUNCTION_DECL.  */
-
-/* In a VAR_DECL that's static,
-   nonzero if the space is in the text section.  */
-#define DECL_IN_TEXT_SECTION(NODE) (VAR_DECL_CHECK (NODE)->decl.bit_field_flag)
+/* For FUNCTION_DECL, this holds a pointer to a structure ("struct function")
+   that describes the status of this function.  */
+#define DECL_STRUCT_FUNCTION(NODE) (FUNCTION_DECL_CHECK (NODE)->function_decl.f)
 
 /* In a FUNCTION_DECL, nonzero means a built in function.  */
 #define DECL_BUILT_IN(NODE) (DECL_BUILT_IN_CLASS (NODE) != NOT_BUILT_IN)
 
 /* For a builtin function, identify which part of the compiler defined it.  */
 #define DECL_BUILT_IN_CLASS(NODE) \
-   (FUNCTION_DECL_CHECK (NODE)->decl.built_in_class)
+   (FUNCTION_DECL_CHECK (NODE)->function_decl.built_in_class)
 
-/* Used in VAR_DECLs to indicate that the variable is a vtable.
-   Used in FIELD_DECLs for vtable pointers.
-   Used in FUNCTION_DECLs to indicate that the function is virtual.  */
-#define DECL_VIRTUAL_P(NODE) (DECL_CHECK (NODE)->decl.virtual_flag)
+/* In FUNCTION_DECL, a chain of ..._DECL nodes.
+   VAR_DECL and PARM_DECL reserve the arguments slot for language-specific
+   uses.  */
+#define DECL_ARGUMENTS(NODE) (FUNCTION_DECL_CHECK (NODE)->decl_non_common.arguments)
+#define DECL_ARGUMENT_FLD(NODE) (DECL_NON_COMMON_CHECK (NODE)->decl_non_common.arguments)
 
-/* Used to indicate that the linkage status of this DECL is not yet known,
-   so it should not be output now.  */
-#define DECL_DEFER_OUTPUT(NODE) (DECL_CHECK (NODE)->decl.defer_output)
+/* FUNCTION_DECL inherits from DECL_NON_COMMON because of the use of the
+   arguments/result/saved_tree fields by front ends.   It was either inherit
+   FUNCTION_DECL from non_common, or inherit non_common from FUNCTION_DECL,
+   which seemed a bit strange.  */
 
-/* Used in PARM_DECLs whose type are unions to indicate that the
-   argument should be passed in the same way that the first union
-   alternative would be passed.  */
-#define DECL_TRANSPARENT_UNION(NODE) \
-  (PARM_DECL_CHECK (NODE)->decl.transparent_union)
-
-/* Used in FUNCTION_DECLs to indicate that they should be run automatically
-   at the beginning or end of execution.  */
-#define DECL_STATIC_CONSTRUCTOR(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->decl.static_ctor_flag)
-
-#define DECL_STATIC_DESTRUCTOR(NODE) \
-(FUNCTION_DECL_CHECK (NODE)->decl.static_dtor_flag)
-
-/* Used to indicate that this DECL represents a compiler-generated entity.  */
-#define DECL_ARTIFICIAL(NODE) (DECL_CHECK (NODE)->decl.artificial_flag)
-
-/* Used to indicate that this DECL has weak linkage.  */
-#define DECL_WEAK(NODE) (DECL_CHECK (NODE)->decl.weak_flag)
-
-/* APPLE LOCAL duplicate decls in multiple files. */
-#define DECL_DUPLICATE_DECL(NODE) (DECL_CHECK (NODE)->decl.duplicate_decl)
-
-/* APPLE LOCAL begin CW asm blocks */
-#define DECL_IASM_ASM_FUNCTION(NODE) (DECL_CHECK (NODE)->decl.iasm_asm_function_flag)
-#define DECL_IASM_NORETURN(NODE) (DECL_CHECK (NODE)->decl.iasm_noreturn_flag)
-#define DECL_IASM_DONT_PROMOTE_TO_STATIC(NODE) (DECL_CHECK (NODE)->decl.iasm_dont_promote_to_static)
-#define DECL_IASM_FRAME_SIZE(NODE) (DECL_CHECK (NODE)->decl.iasm_frame_size)
-/* APPLE LOCAL end CW asm blocks */
-
-/* Used in TREE_PUBLIC decls to indicate that copies of this DECL in
-   multiple translation units should be merged.  */
-#define DECL_ONE_ONLY(NODE) (DECL_CHECK (NODE)->decl.transparent_union)
-
-/* Used in a DECL to indicate that, even if it TREE_PUBLIC, it need
-   not be put out unless it is needed in this translation unit.
-   Entities like this are shared across translation units (like weak
-   entities), but are guaranteed to be generated by any translation
-   unit that needs them, and therefore need not be put out anywhere
-   where they are not needed.  DECL_COMDAT is just a hint to the
-   back-end; it is up to front-ends which set this flag to ensure
-   that there will never be any harm, other than bloat, in putting out
-   something which is DECL_COMDAT.  */
-#define DECL_COMDAT(NODE) (DECL_CHECK (NODE)->decl.comdat_flag)
-
-/* Used in FUNCTION_DECLs to indicate that function entry and exit should
-   be instrumented with calls to support routines.  */
-#define DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->decl.no_instrument_function_entry_exit)
-
-/* Used in FUNCTION_DECLs to indicate that limit-stack-* should be
-   disabled in this function.  */
-#define DECL_NO_LIMIT_STACK(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->decl.no_limit_stack)
-
-/* Additional flags for language-specific uses.  */
-#define DECL_LANG_FLAG_0(NODE) (DECL_CHECK (NODE)->decl.lang_flag_0)
-#define DECL_LANG_FLAG_1(NODE) (DECL_CHECK (NODE)->decl.lang_flag_1)
-#define DECL_LANG_FLAG_2(NODE) (DECL_CHECK (NODE)->decl.lang_flag_2)
-#define DECL_LANG_FLAG_3(NODE) (DECL_CHECK (NODE)->decl.lang_flag_3)
-#define DECL_LANG_FLAG_4(NODE) (DECL_CHECK (NODE)->decl.lang_flag_4)
-#define DECL_LANG_FLAG_5(NODE) (DECL_CHECK (NODE)->decl.lang_flag_5)
-#define DECL_LANG_FLAG_6(NODE) (DECL_CHECK (NODE)->decl.lang_flag_6)
-#define DECL_LANG_FLAG_7(NODE) (DECL_CHECK (NODE)->decl.lang_flag_7)
-
-/* Used to indicate that the pointer to this DECL cannot be treated as
-   an address constant.  */
-#define DECL_NON_ADDR_CONST_P(NODE) (DECL_CHECK (NODE)->decl.non_addr_const_p)
-
-/* Used in a FIELD_DECL to indicate that we cannot form the address of
-   this component.  */
-#define DECL_NONADDRESSABLE_P(NODE) \
-  (FIELD_DECL_CHECK (NODE)->decl.non_addressable)
-
-/* Used to indicate an alias set for the memory pointed to by this
-   particular FIELD_DECL, PARM_DECL, or VAR_DECL, which must have
-   pointer (or reference) type.  */
-#define DECL_POINTER_ALIAS_SET(NODE) \
-  (DECL_CHECK (NODE)->decl.pointer_alias_set)
-
-
-/* A numeric unique identifier for a LABEL_DECL.  The UID allocation is
-   dense, unique within any one function, and may be used to index arrays.
-   If the value is -1, then no UID has been assigned.  */
-#define LABEL_DECL_UID(NODE) \
-  (LABEL_DECL_CHECK (NODE)->decl.pointer_alias_set)
-
-/* Nonzero if an alias set has been assigned to this declaration.  */
-#define DECL_POINTER_ALIAS_SET_KNOWN_P(NODE) \
-  (DECL_POINTER_ALIAS_SET (NODE) != - 1)
-
-/* Nonzero for a decl which is at file scope.  */
-#define DECL_FILE_SCOPE_P(EXP) 					\
-  (! DECL_CONTEXT (EXP)						\
-   || TREE_CODE (DECL_CONTEXT (EXP)) == TRANSLATION_UNIT_DECL)
-
-/* Nonzero for a decl that cgraph has decided should be inlined into
-   at least one call site.  It is not meaningful to look at this
-   directly; always use cgraph_function_possibly_inlined_p.  */
-#define DECL_POSSIBLY_INLINED(DECL) \
-  FUNCTION_DECL_CHECK (DECL)->decl.possibly_inlined
-
-/* Nonzero for a decl that is decorated using attribute used.
-   This indicates compiler tools that this decl needs to be preserved.  */
-#define DECL_PRESERVE_P(DECL) \
-  DECL_CHECK (DECL)->decl.preserve_flag
-
-/* Internal to the gimplifier.  Indicates that the value is a formal
-   temporary controlled by the gimplifier.  */
-#define DECL_GIMPLE_FORMAL_TEMP_P(DECL) \
-  DECL_CHECK (DECL)->decl.gimple_formal_temp
-
-/* Enumerate visibility settings.  */
-#ifndef SYMBOL_VISIBILITY_DEFINED
-#define SYMBOL_VISIBILITY_DEFINED
-enum symbol_visibility
+struct tree_function_decl GTY(())
 {
-  VISIBILITY_DEFAULT,
-  VISIBILITY_INTERNAL,
-  VISIBILITY_HIDDEN,
-  VISIBILITY_PROTECTED
-};
-#endif
+  struct tree_decl_non_common common;
 
-struct function;
-struct tree_decl GTY(())
-{
-  struct tree_common common;
-  location_t locus;
-  unsigned int uid;
-  tree size;
-  ENUM_BITFIELD(machine_mode) mode : 8;
+  /* APPLE LOCAL begin mainline aligned functions 5933878 */
+  /* In a FUNCTION_DECL for which DECL_BUILT_IN holds, this is
+     DECL_FUNCTION_CODE.  Otherwise unused.  */
+  enum built_in_function function_code;
+  /* APPLE LOCAL end mainline aligned functions 5933878 */
 
-  unsigned external_flag : 1;
-  unsigned nonlocal_flag : 1;
-  unsigned regdecl_flag : 1;
-  unsigned inline_flag : 1;
-  unsigned bit_field_flag : 1;
-  unsigned virtual_flag : 1;
-  unsigned ignored_flag : 1;
-  unsigned abstract_flag : 1;
-
-  unsigned in_system_header_flag : 1;
-  unsigned common_flag : 1;
-  unsigned defer_output : 1;
-  unsigned transparent_union : 1;
   unsigned static_ctor_flag : 1;
   unsigned static_dtor_flag : 1;
-  unsigned artificial_flag : 1;
-  unsigned weak_flag : 1;
-
-  unsigned non_addr_const_p : 1;
-  unsigned no_instrument_function_entry_exit : 1;
-  unsigned comdat_flag : 1;
+  unsigned uninlinable : 1;
+  unsigned possibly_inlined : 1;
+  unsigned novops_flag : 1;
+  unsigned returns_twice_flag : 1;
   unsigned malloc_flag : 1;
-  unsigned no_limit_stack : 1;
-  ENUM_BITFIELD(built_in_class) built_in_class : 2;
   unsigned pure_flag : 1;
 
-  unsigned non_addressable : 1;
-  unsigned user_align : 1;
-  unsigned uninlinable : 1;
-  unsigned thread_local_flag : 1;
   unsigned declared_inline_flag : 1;
-  unsigned seen_in_bind_expr : 1;
-  ENUM_BITFIELD(symbol_visibility) visibility : 2;
-  unsigned visibility_specified : 1;
+  unsigned regdecl_flag : 1;
+  unsigned inline_flag : 1;
+  unsigned no_instrument_function_entry_exit : 1;
+  unsigned no_limit_stack : 1;
+  ENUM_BITFIELD(built_in_class) built_in_class : 2;
 
-  unsigned lang_flag_0 : 1;
-  unsigned lang_flag_1 : 1;
-  unsigned lang_flag_2 : 1;
-  unsigned lang_flag_3 : 1;
-  unsigned lang_flag_4 : 1;
-  unsigned lang_flag_5 : 1;
-  unsigned lang_flag_6 : 1;
-  unsigned lang_flag_7 : 1;
-
-  /* APPLE LOCAL duplicate decls in multiple files. */
-  unsigned duplicate_decl : 1;
-  unsigned possibly_inlined : 1;
-  unsigned preserve_flag: 1;
-  unsigned gimple_formal_temp : 1;
-  unsigned debug_expr_is_from : 1;
-  /* APPLE LOCAL unused bits */
-  /* 9 unused bits.  */
-  /* APPLE LOCAL begin CW asm blocks */
-  unsigned iasm_asm_function_flag : 1;
-  unsigned iasm_noreturn_flag : 1;
-  unsigned iasm_dont_promote_to_static : 1;
-  unsigned int iasm_frame_size;
-  /* APPLE LOCAL end CW asm blocks */
-
-  union tree_decl_u1 {
-    /* In a FUNCTION_DECL for which DECL_BUILT_IN holds, this is
-       DECL_FUNCTION_CODE.  */
-    enum built_in_function f;
-    /* In a FUNCTION_DECL for which DECL_BUILT_IN does not hold, this
-       is used by language-dependent code.  */
-    HOST_WIDE_INT i;
-    /* DECL_ALIGN and DECL_OFFSET_ALIGN.  (These are not used for
-       FUNCTION_DECLs).  */
-    struct tree_decl_u1_a {
-      unsigned int align : 24;
-      unsigned int off_align : 8;
-    } a;
-  } GTY ((skip)) u1;
-
-  tree size_unit;
-  tree name;
-  tree context;
-  tree arguments;	/* Also used for DECL_FIELD_OFFSET */
-  tree result;	/* Also used for DECL_BIT_FIELD_TYPE */
-  tree initial;	/* Also used for DECL_QUALIFIER */
-  tree abstract_origin;
-  tree assembler_name;
-  tree section_name;
-  tree attributes;
-  rtx rtl;	/* RTL representation for object.  */
-
-  /* In FUNCTION_DECL, if it is inline, holds the saved insn chain.
-     In FIELD_DECL, is DECL_FIELD_BIT_OFFSET.
-     In PARM_DECL, holds an RTL for the stack slot
-     of register where the data was actually passed.
-     Used by Chill and Java in LABEL_DECL and by C++ and Java in VAR_DECL.  */
-  union tree_decl_u2 {
-    struct function * GTY ((tag ("FUNCTION_DECL"))) f;
-    rtx GTY ((tag ("PARM_DECL"))) r;
-    tree GTY ((tag ("FIELD_DECL"))) t;
-    int GTY ((tag ("VAR_DECL"))) i;
-  } GTY ((desc ("TREE_CODE((tree) &(%0))"))) u2;
-
-  /* In a FUNCTION_DECL, this is DECL_SAVED_TREE.
-     In a VAR_DECL or PARM_DECL, this is DECL_VALUE_EXPR.  */
-  tree saved_tree;
-  tree vindex;
-  HOST_WIDE_INT pointer_alias_set;
-  /* Points to a structure whose details depend on the language in use.  */
-  struct lang_decl *lang_specific;
+  /* APPLE LOCAL DECL_ESTIMATED_INSNS */
+  HOST_WIDE_INT estimated_insns;
+  struct function *f;
 };
 
+/* For a TYPE_DECL, holds the "original" type.  (TREE_TYPE has the copy.) */
+#define DECL_ORIGINAL_TYPE(NODE) (TYPE_DECL_CHECK (NODE)->decl_non_common.result)
+
+/* In a TYPE_DECL nonzero means the detail info about this type is not dumped
+   into stabs.  Instead it will generate cross reference ('x') of names.
+   This uses the same flag as DECL_EXTERNAL.  */
+#define TYPE_DECL_SUPPRESS_DEBUG(NODE) \
+  (TYPE_DECL_CHECK (NODE)->decl_common.decl_flag_2)
+
+struct tree_type_decl GTY(())
+{
+  struct tree_decl_non_common common;
+
+};
 
 /* A STATEMENT_LIST chains statements together in GENERIC and GIMPLE.
    To reduce overhead, the nodes containing the statements are not trees.
@@ -2532,6 +3265,9 @@ struct tree_statement_list
 #define VALUE_HANDLE_EXPR_SET(NODE)	\
   (VALUE_HANDLE_CHECK (NODE)->value_handle.expr_set)
 
+#define VALUE_HANDLE_VUSES(NODE)        \
+  (VALUE_HANDLE_CHECK (NODE)->value_handle.vuses)
+
 /* Defined and used in tree-ssa-pre.c.  */
 struct value_set;
 
@@ -2546,30 +3282,11 @@ struct tree_value_handle GTY(())
      conveniently dense form starting at 0, so that we can make
      bitmaps of value handles.  */
   unsigned int id;
+
+  /* Set of virtual uses represented by this handle.  */
+  VEC (tree, gc) *vuses;
 };
 
-enum tree_node_structure_enum {
-  TS_COMMON,
-  TS_INT_CST,
-  TS_REAL_CST,
-  TS_VECTOR,
-  TS_STRING,
-  TS_COMPLEX,
-  TS_IDENTIFIER,
-  TS_DECL,
-  TS_TYPE,
-  TS_LIST,
-  TS_VEC,
-  TS_EXP,
-  TS_SSA_NAME,
-  TS_PHI_NODE,
-  TS_BLOCK,
-  TS_BINFO,
-  TS_STATEMENT_LIST,
-  TS_VALUE_HANDLE,
-  LAST_TS_ENUM
-};
-
 /* Define the overall contents of a tree node.
    It may be any of the structures declared above
    for various types of node.  */
@@ -2584,7 +3301,19 @@ union tree_node GTY ((ptr_alias (union lang_tree_node),
   struct tree_string GTY ((tag ("TS_STRING"))) string;
   struct tree_complex GTY ((tag ("TS_COMPLEX"))) complex;
   struct tree_identifier GTY ((tag ("TS_IDENTIFIER"))) identifier;
-  struct tree_decl GTY ((tag ("TS_DECL"))) decl;
+  struct tree_decl_minimal GTY((tag ("TS_DECL_MINIMAL"))) decl_minimal;
+  struct tree_decl_common GTY ((tag ("TS_DECL_COMMON"))) decl_common;
+  struct tree_decl_with_rtl GTY ((tag ("TS_DECL_WRTL"))) decl_with_rtl;
+  struct tree_decl_non_common  GTY ((tag ("TS_DECL_NON_COMMON"))) decl_non_common;
+  struct tree_parm_decl  GTY  ((tag ("TS_PARM_DECL"))) parm_decl;
+  struct tree_decl_with_vis GTY ((tag ("TS_DECL_WITH_VIS"))) decl_with_vis;
+  struct tree_var_decl GTY ((tag ("TS_VAR_DECL"))) var_decl;
+  struct tree_field_decl GTY ((tag ("TS_FIELD_DECL"))) field_decl;
+  struct tree_label_decl GTY ((tag ("TS_LABEL_DECL"))) label_decl;
+  struct tree_result_decl GTY ((tag ("TS_RESULT_DECL"))) result_decl;
+  struct tree_const_decl GTY ((tag ("TS_CONST_DECL"))) const_decl;
+  struct tree_type_decl GTY ((tag ("TS_TYPE_DECL"))) type_decl;
+  struct tree_function_decl GTY ((tag ("TS_FUNCTION_DECL"))) function_decl;
   struct tree_type GTY ((tag ("TS_TYPE"))) type;
   struct tree_list GTY ((tag ("TS_LIST"))) list;
   struct tree_vec GTY ((tag ("TS_VEC"))) vec;
@@ -2595,6 +3324,10 @@ union tree_node GTY ((ptr_alias (union lang_tree_node),
   struct tree_binfo GTY ((tag ("TS_BINFO"))) binfo;
   struct tree_statement_list GTY ((tag ("TS_STATEMENT_LIST"))) stmt_list;
   struct tree_value_handle GTY ((tag ("TS_VALUE_HANDLE"))) value_handle;
+  struct tree_constructor GTY ((tag ("TS_CONSTRUCTOR"))) constructor;
+  struct tree_memory_tag GTY ((tag ("TS_MEMORY_TAG"))) mtag;
+  struct tree_struct_field_tag GTY ((tag ("TS_STRUCT_FIELD_TAG"))) sft;
+  struct tree_omp_clause GTY ((tag ("TS_OMP_CLAUSE"))) omp_clause;
 };
 
 /* Standard named or nameless data types of the C compiler.  */
@@ -2613,6 +3346,10 @@ enum tree_index
   TI_UINTSI_TYPE,
   TI_UINTDI_TYPE,
   TI_UINTTI_TYPE,
+  /* APPLE LOCAL begin mainline bswap */
+  TI_UINT32_TYPE,
+  TI_UINT64_TYPE,
+  /* APPLE LOCAL end mainline bswap */
 
   TI_INTEGER_ZERO,
   TI_INTEGER_ONE,
@@ -2654,8 +3391,17 @@ enum tree_index
   TI_PID_TYPE,
   TI_PTRDIFF_TYPE,
   TI_VA_LIST_TYPE,
+  TI_VA_LIST_GPR_COUNTER_FIELD,
+  TI_VA_LIST_FPR_COUNTER_FIELD,
   TI_BOOLEAN_TYPE,
   TI_FILEPTR_TYPE,
+
+  TI_DFLOAT32_TYPE,
+  TI_DFLOAT64_TYPE,
+  TI_DFLOAT128_TYPE,
+  TI_DFLOAT32_PTR_TYPE,
+  TI_DFLOAT64_PTR_TYPE,
+  TI_DFLOAT128_PTR_TYPE,
 
   TI_VOID_LIST_NODE,
 
@@ -2679,6 +3425,10 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define unsigned_intSI_type_node	global_trees[TI_UINTSI_TYPE]
 #define unsigned_intDI_type_node	global_trees[TI_UINTDI_TYPE]
 #define unsigned_intTI_type_node	global_trees[TI_UINTTI_TYPE]
+/* APPLE LOCAL begin mainline bswap */
+#define uint32_type_node		global_trees[TI_UINT32_TYPE]
+#define uint64_type_node		global_trees[TI_UINT64_TYPE]
+/* APPLE LOCAL end mainline bswap */
 
 #define integer_zero_node		global_trees[TI_INTEGER_ZERO]
 #define integer_one_node		global_trees[TI_INTEGER_ONE]
@@ -2720,12 +3470,22 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define pid_type_node                   global_trees[TI_PID_TYPE]
 #define ptrdiff_type_node		global_trees[TI_PTRDIFF_TYPE]
 #define va_list_type_node		global_trees[TI_VA_LIST_TYPE]
+#define va_list_gpr_counter_field	global_trees[TI_VA_LIST_GPR_COUNTER_FIELD]
+#define va_list_fpr_counter_field	global_trees[TI_VA_LIST_FPR_COUNTER_FIELD]
 /* The C type `FILE *'.  */
 #define fileptr_type_node		global_trees[TI_FILEPTR_TYPE]
 
 #define boolean_type_node		global_trees[TI_BOOLEAN_TYPE]
 #define boolean_false_node		global_trees[TI_BOOLEAN_FALSE]
 #define boolean_true_node		global_trees[TI_BOOLEAN_TRUE]
+
+/* The decimal floating point types. */
+#define dfloat32_type_node              global_trees[TI_DFLOAT32_TYPE]
+#define dfloat64_type_node              global_trees[TI_DFLOAT64_TYPE]
+#define dfloat128_type_node             global_trees[TI_DFLOAT128_TYPE]
+#define dfloat32_ptr_type_node          global_trees[TI_DFLOAT32_PTR_TYPE]
+#define dfloat64_ptr_type_node          global_trees[TI_DFLOAT64_PTR_TYPE]
+#define dfloat128_ptr_type_node         global_trees[TI_DFLOAT128_PTR_TYPE]
 
 /* The node that should be placed at the end of a parameter list to
    indicate that the function does not take a variable number of
@@ -2809,7 +3569,6 @@ enum ptrmemfunc_vbit_where_t
 
 #define NULL_TREE (tree) NULL
 
-extern GTY(()) tree frame_base_decl;
 extern tree decl_assembler_name (tree);
 
 /* Compute the number of bytes occupied by 'node'.  This routine only
@@ -2860,6 +3619,7 @@ extern void init_ssanames (void);
 extern void fini_ssanames (void);
 extern tree make_ssa_name (tree, tree);
 extern tree duplicate_ssa_name (tree, tree);
+extern void duplicate_ssa_name_ptr_info (tree, struct ptr_info_def *);
 extern void release_ssa_name (tree);
 extern void release_defs (tree);
 extern void replace_ssa_name_symbol (tree, tree);
@@ -2867,13 +3627,6 @@ extern void replace_ssa_name_symbol (tree, tree);
 #ifdef GATHER_STATISTICS
 extern void ssanames_print_statistics (void);
 #endif
-
-extern void mark_for_rewrite (tree);
-extern void unmark_all_for_rewrite (void);
-extern bool marked_for_rewrite_p (tree);
-extern bool any_marked_for_rewrite_p (void);
-extern struct bitmap_head_def *marked_ssa_names (void);
-
 
 /* Return the (unique) IDENTIFIER_NODE node for a given name.
    The name is supplied as a char *.  */
@@ -2901,20 +3654,7 @@ extern tree maybe_get_identifier (const char *);
 
 /* Construct various types of nodes.  */
 
-extern tree build (enum tree_code, tree, ...);
 extern tree build_nt (enum tree_code, ...);
-
-#if GCC_VERSION >= 3000 || __STDC_VERSION__ >= 199901L
-/* Use preprocessor trickery to map "build" to "buildN" where N is the
-   expected number of arguments.  This is used for both efficiency (no
-   varargs), and checking (verifying number of passed arguments).  */
-#define build(code, ...) \
-  _buildN1(build, _buildC1(__VA_ARGS__))(code, __VA_ARGS__)
-#define _buildN1(BASE, X)	_buildN2(BASE, X)
-#define _buildN2(BASE, X)	BASE##X
-#define _buildC1(...)		_buildC2(__VA_ARGS__,9,8,7,6,5,4,3,2,1,0,0)
-#define _buildC2(x,a1,a2,a3,a4,a5,a6,a7,a8,a9,c,...) c
-#endif
 
 extern tree build0_stat (enum tree_code, tree MEM_STAT_DECL);
 #define build0(c,t) build0_stat (c,t MEM_STAT_INFO)
@@ -2927,26 +3667,39 @@ extern tree build3_stat (enum tree_code, tree, tree, tree, tree MEM_STAT_DECL);
 extern tree build4_stat (enum tree_code, tree, tree, tree, tree,
 			 tree MEM_STAT_DECL);
 #define build4(c,t1,t2,t3,t4,t5) build4_stat (c,t1,t2,t3,t4,t5 MEM_STAT_INFO)
+extern tree build5_stat (enum tree_code, tree, tree, tree, tree, tree,
+			 tree MEM_STAT_DECL);
+#define build5(c,t1,t2,t3,t4,t5,t6) build5_stat (c,t1,t2,t3,t4,t5,t6 MEM_STAT_INFO)
+extern tree build7_stat (enum tree_code, tree, tree, tree, tree, tree,
+			 tree, tree, tree MEM_STAT_DECL);
+#define build7(c,t1,t2,t3,t4,t5,t6,t7,t8) \
+  build7_stat (c,t1,t2,t3,t4,t5,t6,t7,t8 MEM_STAT_INFO)
 
 extern tree build_int_cst (tree, HOST_WIDE_INT);
 extern tree build_int_cst_type (tree, HOST_WIDE_INT);
 extern tree build_int_cstu (tree, unsigned HOST_WIDE_INT);
 extern tree build_int_cst_wide (tree, unsigned HOST_WIDE_INT, HOST_WIDE_INT);
 extern tree build_vector (tree, tree);
-extern tree build_constructor (tree, tree);
+extern tree build_vector_from_ctor (tree, VEC(constructor_elt,gc) *);
+extern tree build_constructor (tree, VEC(constructor_elt,gc) *);
+extern tree build_constructor_single (tree, tree, tree);
+extern tree build_constructor_from_list (tree, tree);
 extern tree build_real_from_int_cst (tree, tree);
 extern tree build_complex (tree, tree, tree);
+extern tree build_one_cst (tree);
 extern tree build_string (int, const char *);
 extern tree build_tree_list_stat (tree, tree MEM_STAT_DECL);
 #define build_tree_list(t,q) build_tree_list_stat(t,q MEM_STAT_INFO)
 extern tree build_decl_stat (enum tree_code, tree, tree MEM_STAT_DECL);
+extern tree build_fn_decl (const char *, tree);
 #define build_decl(c,t,q) build_decl_stat (c,t,q MEM_STAT_INFO)
-extern tree build_block (tree, tree, tree, tree, tree);
+extern tree build_block (tree, tree, tree, tree);
 #ifndef USE_MAPPED_LOCATION
 extern void annotate_with_file_line (tree, const char *, int);
 extern void annotate_with_locus (tree, location_t);
 #endif
 extern tree build_empty_stmt (void);
+extern tree build_omp_clause (enum omp_clause_code);
 
 /* Construct various nodes representing data types.  */
 
@@ -2959,6 +3712,8 @@ extern void set_sizetype (tree);
 extern void fixup_unsigned_type (tree);
 extern tree build_pointer_type_for_mode (tree, enum machine_mode, bool);
 extern tree build_pointer_type (tree);
+/* APPLE LOCAL radar 5732232 - blocks */
+extern tree build_block_pointer_type (tree);
 extern tree build_reference_type_for_mode (tree, enum machine_mode, bool);
 extern tree build_reference_type (tree);
 extern tree build_vector_type_for_mode (tree, enum machine_mode);
@@ -2973,8 +3728,10 @@ extern tree build_method_type_directly (tree, tree, tree);
 extern tree build_method_type (tree, tree);
 extern tree build_offset_type (tree, tree);
 extern tree build_complex_type (tree);
+extern tree build_resx (int);
 extern tree array_type_nelts (tree);
 extern bool in_array_bounds_p (tree);
+extern bool range_in_array_bounds_p (tree);
 
 extern tree value_member (tree, tree);
 extern tree purpose_member (tree, tree);
@@ -2988,7 +3745,9 @@ extern int host_integerp (tree, int);
 extern HOST_WIDE_INT tree_low_cst (tree, int);
 extern int tree_int_cst_msb (tree);
 extern int tree_int_cst_sgn (tree);
+extern int tree_int_cst_sign_bit (tree);
 extern int tree_expr_nonnegative_p (tree);
+extern int tree_expr_nonnegative_warnv_p (tree, bool *);
 extern bool may_negate_without_overflow_p (tree);
 extern tree get_inner_array_type (tree);
 
@@ -3091,6 +3850,11 @@ extern int is_attribute_p (const char *, tree);
    of the attribute or NULL_TREE if not found.  */
 
 extern tree lookup_attribute (const char *, tree);
+
+/* Remove any instances of attribute ATTR_NAME in LIST and return the
+   modified list.  */
+
+extern tree remove_attribute (const char *, tree);
 
 /* Given two attributes lists, return a list of their union.  */
 
@@ -3236,6 +4000,7 @@ extern tree expr_last (tree);
 extern tree expr_only (tree);
 extern tree size_in_bytes (tree);
 extern HOST_WIDE_INT int_size_in_bytes (tree);
+extern HOST_WIDE_INT max_int_size_in_bytes (tree);
 extern tree bit_position (tree);
 extern HOST_WIDE_INT int_bit_position (tree);
 extern tree byte_position (tree);
@@ -3286,9 +4051,6 @@ extern unsigned int maximum_field_alignment;
 /* and its original value in bytes, specified via -fpack-struct=<value>.  */
 extern unsigned int initial_max_fld_align;
 
-/* If nonzero, the alignment of a bitstring or (power-)set value, in bits.  */
-extern unsigned int set_alignment;
-
 /* Concatenate two lists (chains of TREE_LIST nodes) X and Y
    by making the last node in X point to Y.
    Returns X, except if X is 0 returns Y.  */
@@ -3322,13 +4084,21 @@ extern int fields_length (tree);
 
 extern bool initializer_zerop (tree);
 
-extern void categorize_ctor_elements (tree, HOST_WIDE_INT *, HOST_WIDE_INT *,
-				      HOST_WIDE_INT *, bool *);
-extern HOST_WIDE_INT count_type_elements (tree);
+/* Examine CTOR to discover:
+   * how many scalar fields are set to nonzero values,
+     and place it in *P_NZ_ELTS;
+   * how many scalar fields in total are in CTOR,
+     and place it in *P_ELT_COUNT.
+   * if a type is a union, and the initializer from the constructor
+     is not the largest element in the union, then set *p_must_clear.
 
-/* add_var_to_bind_expr (bind_expr, var) binds var to bind_expr.  */
+   Return whether or not CTOR is a valid static constant initializer, the same
+   as "initializer_constant_valid_p (CTOR, TREE_TYPE (CTOR)) != 0".  */
 
-extern void add_var_to_bind_expr (tree, tree);
+extern bool categorize_ctor_elements (tree, HOST_WIDE_INT *, HOST_WIDE_INT *,
+				      bool *);
+
+extern HOST_WIDE_INT count_type_elements (tree, bool);
 
 /* integer_zerop (tree x) is nonzero if X is an integer constant of value 0.  */
 
@@ -3464,6 +4234,14 @@ extern tree get_inner_reference (tree, HOST_WIDE_INT *, HOST_WIDE_INT *,
 				 tree *, enum machine_mode *, int *, int *,
 				 bool);
 
+/* APPLE LOCAL begin mainline 4.2 5569774 */
+/* Given an expression EXP that may be a COMPONENT_REF or an ARRAY_REF,
+   look for whether EXP or any nested component-refs within EXP is marked
+   as PACKED.  */
+
+extern bool contains_packed_reference (tree exp);
+/* APPLE LOCAL end mainline 4.2 5569774 */
+
 /* Return 1 if T is an expression that get_inner_reference handles.  */
 
 extern int handled_component_p (tree);
@@ -3521,9 +4299,9 @@ extern GTY(()) const char * current_function_func_begin_label;
 /* In tree.c */
 extern unsigned crc32_string (unsigned, const char *);
 extern void clean_symbol_name (char *);
-extern tree get_file_function_name_long (const char *);
-extern tree get_set_constructor_bits (tree, char *, int);
-extern tree get_set_constructor_bytes (tree, unsigned char *, int);
+/* APPLE LOCAL begin mainline 2006-11-01 5125268 */ \
+extern tree get_file_function_name (const char *);
+/* APPLE LOCAL end mainline 2006-11-01 5125268 */ \
 extern tree get_callee_fndecl (tree);
 extern void change_decl_assembler_name (tree, tree);
 extern int type_num_arguments (tree);
@@ -3532,6 +4310,7 @@ extern bool commutative_tree_code (enum tree_code);
 extern tree upper_bound_in_type (tree, tree);
 extern tree lower_bound_in_type (tree, tree);
 extern int operand_equal_for_phi_arg_p (tree, tree);
+extern bool empty_body_p (tree);
 
 /* In stmt.c */
 
@@ -3550,6 +4329,10 @@ extern void using_eh_for_cleanups (void);
 
 /* In fold-const.c */
 
+/* Non-zero if we are folding constants inside an initializer; zero
+   otherwise.  */
+extern int folding_initializer;
+
 /* Fold constants as much as possible in an expression.
    Returns the simplified expression.
    Acts only on the top level of the expression;
@@ -3557,22 +4340,44 @@ extern void using_eh_for_cleanups (void);
    subexpressions are not changed.  */
 
 extern tree fold (tree);
-extern tree fold_initializer (tree);
+extern tree fold_unary (enum tree_code, tree, tree);
+extern tree fold_binary (enum tree_code, tree, tree, tree);
+extern tree fold_ternary (enum tree_code, tree, tree, tree, tree);
+extern tree fold_build1_stat (enum tree_code, tree, tree MEM_STAT_DECL);
+#define fold_build1(c,t1,t2) fold_build1_stat (c, t1, t2 MEM_STAT_INFO)
+extern tree fold_build2_stat (enum tree_code, tree, tree, tree MEM_STAT_DECL);
+#define fold_build2(c,t1,t2,t3) fold_build2_stat (c, t1, t2, t3 MEM_STAT_INFO)
+extern tree fold_build3_stat (enum tree_code, tree, tree, tree, tree MEM_STAT_DECL);
+#define fold_build3(c,t1,t2,t3,t4) fold_build3_stat (c, t1, t2, t3, t4 MEM_STAT_INFO)
+extern tree fold_build1_initializer (enum tree_code, tree, tree);
+extern tree fold_build2_initializer (enum tree_code, tree, tree, tree);
+extern tree fold_build3_initializer (enum tree_code, tree, tree, tree, tree);
 extern tree fold_convert (tree, tree);
 extern tree fold_single_bit_test (enum tree_code, tree, tree, tree);
 extern tree fold_ignored_result (tree);
 extern tree fold_abs_const (tree, tree);
+extern tree fold_indirect_ref_1 (tree, tree);
+extern void fold_defer_overflow_warnings (void);
+extern void fold_undefer_overflow_warnings (bool, tree, int);
+extern void fold_undefer_and_ignore_overflow_warnings (void);
+extern bool fold_deferring_overflow_warnings_p (void);
 
 extern tree force_fit_type (tree, int, bool, bool);
 
-extern int add_double (unsigned HOST_WIDE_INT, HOST_WIDE_INT,
-		       unsigned HOST_WIDE_INT, HOST_WIDE_INT,
-		       unsigned HOST_WIDE_INT *, HOST_WIDE_INT *);
+extern int add_double_with_sign (unsigned HOST_WIDE_INT, HOST_WIDE_INT,
+				 unsigned HOST_WIDE_INT, HOST_WIDE_INT,
+				 unsigned HOST_WIDE_INT *, HOST_WIDE_INT *,
+				 bool);
+#define add_double(l1,h1,l2,h2,lv,hv) \
+  add_double_with_sign (l1, h1, l2, h2, lv, hv, false)
 extern int neg_double (unsigned HOST_WIDE_INT, HOST_WIDE_INT,
 		       unsigned HOST_WIDE_INT *, HOST_WIDE_INT *);
-extern int mul_double (unsigned HOST_WIDE_INT, HOST_WIDE_INT,
-		       unsigned HOST_WIDE_INT, HOST_WIDE_INT,
-		       unsigned HOST_WIDE_INT *, HOST_WIDE_INT *);
+extern int mul_double_with_sign (unsigned HOST_WIDE_INT, HOST_WIDE_INT,
+				 unsigned HOST_WIDE_INT, HOST_WIDE_INT,
+				 unsigned HOST_WIDE_INT *, HOST_WIDE_INT *,
+				 bool);
+#define mul_double(l1,h1,l2,h2,lv,hv) \
+  mul_double_with_sign (l1, h1, l2, h2, lv, hv, false)
 extern void lshift_double (unsigned HOST_WIDE_INT, HOST_WIDE_INT,
 			   HOST_WIDE_INT, unsigned int,
 			   unsigned HOST_WIDE_INT *, HOST_WIDE_INT *, int);
@@ -3603,6 +4408,7 @@ extern int operand_equal_p (tree, tree, unsigned int);
 extern tree omit_one_operand (tree, tree, tree);
 extern tree omit_two_operands (tree, tree, tree, tree);
 extern tree invert_truthvalue (tree);
+extern tree fold_truth_not_expr (tree);
 extern tree fold_unary_to_constant (enum tree_code, tree, tree);
 extern tree fold_binary_to_constant (enum tree_code, tree, tree, tree);
 extern tree fold_read_from_constant_string (tree);
@@ -3615,28 +4421,28 @@ extern tree build_fold_indirect_ref (tree);
 extern tree fold_indirect_ref (tree);
 extern tree constant_boolean_node (int, tree);
 extern tree build_low_bits_mask (tree, unsigned);
-extern tree fold_complex_mult_parts (tree, tree, tree, tree, tree);
-extern tree fold_complex_div_parts (tree, tree, tree, tree, tree,
-				    enum tree_code);
 
 extern bool tree_swap_operands_p (tree, tree, bool);
+extern void swap_tree_operands (tree, tree *, tree *);
 extern enum tree_code swap_tree_comparison (enum tree_code);
 
 extern bool ptr_difference_const (tree, tree, HOST_WIDE_INT *);
+extern enum tree_code invert_tree_comparison (enum tree_code, bool);
+
+extern bool tree_expr_nonzero_p (tree);
+extern bool tree_expr_nonzero_warnv_p (tree, bool *);
 
 /* In builtins.c */
-extern tree fold_builtin (tree, bool);
+extern tree fold_builtin (tree, tree, bool);
 extern tree fold_builtin_fputs (tree, bool, bool, tree);
-extern tree fold_builtin_strcpy (tree, tree);
-extern tree fold_builtin_strncpy (tree, tree);
-/* APPLE LOCAL begin mainline */
+extern tree fold_builtin_strcpy (tree, tree, tree);
+extern tree fold_builtin_strncpy (tree, tree, tree);
 extern tree fold_builtin_memory_chk (tree, tree, tree, bool,
-                                     enum built_in_function);
+				     enum built_in_function);
 extern tree fold_builtin_stxcpy_chk (tree, tree, tree, bool,
-                                     enum built_in_function);
+				     enum built_in_function);
 extern tree fold_builtin_strncpy_chk (tree, tree);
 extern tree fold_builtin_snprintf_chk (tree, tree, enum built_in_function);
-/* APPLE LOCAL end mainline */
 extern bool fold_builtin_next_arg (tree);
 extern enum built_in_function builtin_mathfn_code (tree);
 extern tree build_function_call_expr (tree, tree);
@@ -3645,6 +4451,7 @@ extern tree strip_float_extensions (tree);
 extern tree c_strlen (tree, int);
 extern tree std_gimplify_va_arg_expr (tree, tree, tree *, tree *);
 extern tree build_va_arg_indirect_ref (tree);
+tree build_string_literal (int, const char *);
 
 /* In convert.c */
 extern tree strip_float_extensions (tree);
@@ -3663,7 +4470,7 @@ extern bool variably_modified_type_p (tree, tree);
 extern int tree_log2 (tree);
 extern int tree_floor_log2 (tree);
 extern int simple_cst_equal (tree, tree);
-extern unsigned int iterative_hash_expr (tree, unsigned int);
+extern hashval_t iterative_hash_expr (tree, hashval_t);
 extern int compare_tree_int (tree, unsigned HOST_WIDE_INT);
 extern int type_list_equal (tree, tree);
 extern int chain_member (tree, tree);
@@ -3673,11 +4480,9 @@ extern int simple_cst_list_equal (tree, tree);
 extern void dump_tree_statistics (void);
 extern void expand_function_end (void);
 extern void expand_function_start (tree);
-/* APPLE LOCAL begin mainline */
 extern void stack_protect_prologue (void);
 extern void stack_protect_epilogue (void);
-/* APPLE LOCAL end mainline */
-extern void recompute_tree_invarant_for_addr_expr (tree);
+extern void recompute_tree_invariant_for_addr_expr (tree);
 extern bool is_global_var (tree t);
 extern bool needs_to_live_in_memory (tree);
 extern tree reconstruct_complex_type (tree, tree);
@@ -3693,16 +4498,22 @@ extern tree build_nonstandard_integer_type (unsigned HOST_WIDE_INT, int);
 extern tree build_range_type (tree, tree, tree);
 extern HOST_WIDE_INT int_cst_value (tree);
 extern tree tree_fold_gcd (tree, tree);
-extern tree build_addr (tree);
+extern tree build_addr (tree, tree);
 
 extern bool fields_compatible_p (tree, tree);
 extern tree find_compatible_field (tree, tree);
+
+/* APPLE LOCAL begin weak_import on property 6676828 */
+extern void note_objc_property_decl_context (void);
+extern void note_end_objc_property_decl_context (void);
+extern bool in_objc_property_decl_context (void);
+/* APPLE LOCAL end weak_import on property 6676828 */
 
 /* In function.c */
 extern void expand_main_function (void);
 extern void init_dummy_function_start (void);
 extern void expand_dummy_function_end (void);
-extern void init_function_for_compilation (void);
+extern unsigned int init_function_for_compilation (void);
 extern void allocate_struct_function (tree);
 extern void init_function_start (tree);
 extern bool use_register_for_decl (tree);
@@ -3728,6 +4539,7 @@ extern void print_rtl (FILE *, rtx);
 /* In print-tree.c */
 extern void debug_tree (tree);
 #ifdef BUFSIZ
+extern void dump_addr (FILE*, const char *, void *);
 extern void print_node (FILE *, const char *, tree, int);
 extern void print_node_brief (FILE *, const char *, tree, int);
 extern void indent_to (FILE *, int);
@@ -3738,6 +4550,7 @@ extern bool debug_find_tree (tree, tree);
 /* This is in tree-inline.c since the routine uses
    data structures from the inliner.  */
 extern tree unsave_expr_now (tree);
+extern tree build_duplicate_type (tree);
 
 /* In emit-rtl.c */
 extern rtx emit_line_note (location_t);
@@ -3766,10 +4579,11 @@ extern rtx emit_line_note (location_t);
 /* Nonzero if this is a call to a function that returns with the stack
    pointer depressed.  */
 #define ECF_SP_DEPRESSED	256
-/* Nonzero if this call is known to always return.  */
-#define ECF_ALWAYS_RETURN	512
 /* Create libcall block around the call.  */
-#define ECF_LIBCALL_BLOCK	1024
+#define ECF_LIBCALL_BLOCK	512
+/* Function does not read or write memory (but may have side effects, so
+   it does not necessarily fit ECF_CONST).  */
+#define ECF_NOVOPS		1024
 
 extern int flags_from_decl_or_type (tree);
 extern int call_expr_flags (tree);
@@ -3805,7 +4619,6 @@ extern unsigned int update_alignment_for_field (record_layout_info, tree,
 extern void make_decl_rtl (tree);
 extern void make_decl_one_only (tree);
 extern int supports_one_only (void);
-extern void variable_section (tree, int);
 extern void resolve_unique_section (tree, int, int);
 extern void mark_referenced (tree);
 extern void mark_decl_referenced (tree);
@@ -3826,6 +4639,10 @@ extern tree resolve_asm_operand_names (tree, tree, tree);
 extern void expand_case (tree);
 extern void expand_decl (tree);
 extern void expand_anon_union_decl (tree, tree, tree);
+#ifdef HARD_CONST
+/* Silly ifdef to avoid having all includers depend on hard-reg-set.h.  */
+extern tree tree_overlaps_hard_reg_set (tree, HARD_REG_SET *);
+#endif
 
 /* In gimplify.c.  */
 extern tree create_artificial_label (void);
@@ -3833,10 +4650,8 @@ extern void gimplify_function_tree (tree);
 extern const char *get_name (tree);
 extern tree unshare_expr (tree);
 extern void sort_case_labels (tree);
-
-/* If KIND=='I', return a suitable global initializer (constructor) name.
-   If KIND=='D', return a suitable global clean-up (destructor) name.  */
-extern tree get_file_function_name (int);
+/* APPLE LOCAL begin mainline 2006-11-01 5125268 */ \
+/* APPLE LOCAL end mainline 2006-11-01 5125268 */ \
 
 /* Interface of the DWARF2 unwind info support.  */
 
@@ -3869,11 +4684,9 @@ extern void dwarf2out_return_save (const char *, HOST_WIDE_INT);
 
 extern void dwarf2out_return_reg (const char *, unsigned);
 
-/* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign */
 /* Entry point for saving the first register into the second.  */
 
 extern void dwarf2out_reg_save_reg (const char *, rtx, rtx);
-/* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign */
 
 /* In tree-inline.c  */
 
@@ -3887,99 +4700,6 @@ typedef tree (*walk_tree_fn) (tree *, int *, void *);
 extern tree walk_tree (tree*, walk_tree_fn, void*, struct pointer_set_t*);
 extern tree walk_tree_without_duplicates (tree*, walk_tree_fn, void*);
 
-/* In tree-dump.c */
-
-/* Different tree dump places.  When you add new tree dump places,
-   extend the DUMP_FILES array in tree-dump.c.  */
-enum tree_dump_index
-{
-  TDI_none,			/* No dump */
-  TDI_tu,			/* dump the whole translation unit.  */
-  TDI_class,			/* dump class hierarchy.  */
-  TDI_original,			/* dump each function before optimizing it */
-  TDI_generic,			/* dump each function after genericizing it */
-  TDI_nested,			/* dump each function after unnesting it */
-  TDI_inlined,			/* dump each function after inlining
-				   within it.  */
-  TDI_vcg,			/* create a VCG graph file for each
-				   function's flowgraph.  */
-  TDI_tree_all,                 /* enable all the GENERIC/GIMPLE dumps.  */
-  TDI_rtl_all,                  /* enable all the RTL dumps.  */
-  TDI_ipa_all,                  /* enable all the IPA dumps.  */
-
-  TDI_cgraph,                   /* dump function call graph.  */
-
-  DFI_MIN,                      /* For now, RTL dumps are placed here.  */
-  DFI_sibling = DFI_MIN,
-  DFI_eh,
-  DFI_jump,
-  DFI_cse,
-  DFI_gcse,
-  DFI_loop,
-  DFI_bypass,
-  DFI_cfg,
-  DFI_bp,
-  DFI_vpt,
-  DFI_ce1,
-  DFI_tracer,
-  DFI_loop2,
-  DFI_web,
-  DFI_cse2,
-  DFI_life,
-  DFI_combine,
-  DFI_ce2,
-  DFI_regmove,
-  DFI_sms,
-  DFI_sched,
-  DFI_lreg,
-  DFI_greg,
-  DFI_postreload,
-  DFI_gcse2,
-  DFI_flow2,
-  DFI_peephole2,
-  DFI_ce3,
-  DFI_rnreg,
-  DFI_bbro,
-  DFI_branch_target_load,
-  DFI_sched2,
-  DFI_stack,
-  DFI_vartrack,
-  DFI_mach,
-  DFI_dbr,
-
-  TDI_end
-};
-
-/* Bit masks to control dumping. Not all values are applicable to
-   all dumps. Add new ones at the end. When you define new
-   values, extend the DUMP_OPTIONS array in tree-dump.c */
-#define TDF_ADDRESS	(1 << 0)	/* dump node addresses */
-#define TDF_SLIM	(1 << 1)	/* don't go wild following links */
-#define TDF_RAW  	(1 << 2)	/* don't unparse the function */
-#define TDF_DETAILS	(1 << 3)	/* show more detailed info about
-					   each pass */
-#define TDF_STATS	(1 << 4)	/* dump various statistics about
-					   each pass */
-#define TDF_BLOCKS	(1 << 5)	/* display basic block boundaries */
-#define TDF_VOPS	(1 << 6)	/* display virtual operands */
-#define TDF_LINENO	(1 << 7)	/* display statement line numbers */
-#define TDF_UID		(1 << 8)	/* display decl UIDs */
-
-#define TDF_TREE	(1 << 9)	/* is a tree dump */
-#define TDF_RTL		(1 << 10)	/* is a RTL dump */
-#define TDF_IPA		(1 << 11)	/* is an IPA dump */
-
-typedef struct dump_info *dump_info_p;
-
-extern char *get_dump_file_name (enum tree_dump_index);
-extern int dump_flag (dump_info_p, int, tree);
-extern int dump_enabled_p (enum tree_dump_index);
-extern int dump_initialized_p (enum tree_dump_index);
-extern FILE *dump_begin (enum tree_dump_index, int *);
-extern void dump_end (enum tree_dump_index, FILE *);
-extern void dump_node (tree, int, FILE *);
-extern int dump_switch_p (const char *);
-extern const char *dump_flag_name (enum tree_dump_index);
 /* Assign the RTX to declaration.  */
 
 extern void set_decl_rtl (tree, rtx);
@@ -4003,9 +4723,11 @@ typedef enum
   binfo_kind,
   phi_kind,
   ssa_name_kind,
+  constr_kind,
   x_kind,
   lang_decl,
   lang_type,
+  omp_clause_kind,
   all_kinds
 } tree_node_kind;
 
@@ -4017,20 +4739,48 @@ extern int tree_node_sizes[];
    restricted to creating gimple expressions.  */
 extern bool in_gimple_form;
 
-/* In tree-ssa-threadupdate.c.  */
-extern bool thread_through_all_blocks (void);
-
 /* In tree-gimple.c.  */
 extern tree get_base_address (tree t);
 
 /* In tree-vectorizer.c.  */
 extern void vect_set_verbosity_level (const char *);
 
-/* APPLE LOCAL begin mainline */
+struct tree_map GTY(())
+{
+  unsigned int hash;
+  tree from;
+  tree to;
+};
+
+extern unsigned int tree_map_hash (const void *);
+extern int tree_map_marked_p (const void *);
+extern int tree_map_eq (const void *, const void *);
+
+/* In tree-ssa-address.c.  */
+extern tree tree_mem_ref_addr (tree, tree);
+extern void copy_mem_ref_info (tree, tree);
+
+/* In tree-vrp.c */
+extern bool ssa_name_nonzero_p (tree);
+extern bool ssa_name_nonnegative_p (tree);
+
 /* In tree-object-size.c.  */
 extern void init_object_sizes (void);
 extern void fini_object_sizes (void);
 extern unsigned HOST_WIDE_INT compute_builtin_object_size (tree, int);
 
-/* APPLE LOCAL end mainline */
+/* In expr.c.  */
+extern unsigned HOST_WIDE_INT highest_pow2_factor (tree);
+
+/* APPLE LOCAL begin CW asm blocks */
+extern bool has_alternative_entry_points (void);
+
+extern void note_alternative_entry_points (void);
+/* APPLE LOCAL end CW asm blocks */
+
+/* APPLE LOCAL begin radar 6300081  */
+extern GTY(()) tree generic_block_literal_struct_type;
+
+/* APPLE LOCAL end radar 6300081  */
+
 #endif  /* GCC_TREE_H  */

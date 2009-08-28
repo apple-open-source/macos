@@ -122,7 +122,6 @@ fetch_inferior_registers (int regno)
    GDB_x86_THREAD_STATE constant when built on an older x86 MacOS X 10.4
    system that won't recognize it.  In Leopard this is unnecessary.  */
    
-#ifdef x86_THREAD_STATE64
   if (TARGET_OSABI == GDB_OSABI_UNKNOWN)
     {
       /* Attaching to a process.  Let's figure out what kind it is. */
@@ -154,7 +153,6 @@ fetch_inferior_registers (int regno)
         }
       gdbarch_update_p (info);
     }
-#endif /* x86_THREAD_STATE64 */
 
   if (TARGET_OSABI == GDB_OSABI_DARWIN64)
     {
@@ -196,17 +194,17 @@ fetch_inferior_registers (int regno)
     {
       if ((regno == -1) || IS_GP_REGNUM (regno))
         {
-          gdb_i386_thread_state_t gp_regs;
-          unsigned int gp_count = GDB_i386_THREAD_STATE_COUNT;
+          gdb_x86_thread_state_t gp_regs;
+          unsigned int gp_count = GDB_x86_THREAD_STATE_COUNT;
           kern_return_t ret = thread_get_state
-            (current_thread, GDB_i386_THREAD_STATE, (thread_state_t) & gp_regs,
+            (current_thread, GDB_x86_THREAD_STATE, (thread_state_t) & gp_regs,
              &gp_count);
 	  if (ret != KERN_SUCCESS)
 	    {
 	      printf ("Error calling thread_get_state for GP registers for thread 0x%ulx", current_thread);
 	      MACH_CHECK_ERROR (ret);
 	    }
-          i386_macosx_fetch_gp_registers (&gp_regs);
+          i386_macosx_fetch_gp_registers (&(gp_regs.uts.ts32));
           fetched++;
         }
 
@@ -288,12 +286,14 @@ store_inferior_registers (int regno)
     {
       if ((regno == -1) || IS_GP_REGNUM (regno))
         {
-          gdb_i386_thread_state_t gp_regs;
+          gdb_x86_thread_state_t gp_regs;
           kern_return_t ret;
-          i386_macosx_store_gp_registers (&gp_regs);
-          ret = thread_set_state (current_thread, GDB_i386_THREAD_STATE,
+          gp_regs.tsh.flavor = GDB_x86_THREAD_STATE32;
+          gp_regs.tsh.count = GDB_x86_THREAD_STATE32_COUNT;
+          i386_macosx_store_gp_registers (&(gp_regs.uts.ts32));
+          ret = thread_set_state (current_thread, GDB_x86_THREAD_STATE,
                                   (thread_state_t) & gp_regs,
-                                  GDB_i386_THREAD_STATE_COUNT);
+                                  GDB_x86_THREAD_STATE_COUNT);
           MACH_CHECK_ERROR (ret);
         }
 
@@ -335,81 +335,169 @@ store_inferior_registers (int regno)
 #endif
 
 
+/* This function handles the case of an i386 or an x86_64 inferior.
+   In the i386 case, only the lower 32 bits of the argument VALUE are
+   used.  */
+
 static void
-i386_macosx_dr_set (int regnum, uint32_t value)
+i386_macosx_dr_set (int regnum, uint64_t value)
 {
-#ifndef HAVE_X86_DEBUG_STATE32_T
-  return;
-#else
-  int current_pid;
   thread_t current_thread;
   x86_debug_state_t dr_regs;
-  kern_return_t ret;
   unsigned int dr_count = x86_DEBUG_STATE_COUNT;
+  kern_return_t ret;
+  thread_array_t thread_list;
+  unsigned int nthreads;
+  int i;
 
   gdb_assert (regnum >= 0 && regnum <= DR_CONTROL);
 
-  current_pid = ptid_get_pid (inferior_ptid);
-  current_thread = ptid_get_tid (inferior_ptid);
-
-  dr_regs.dsh.flavor = x86_DEBUG_STATE32;
-  dr_regs.dsh.count = x86_DEBUG_STATE32_COUNT;
-  dr_count = x86_DEBUG_STATE_COUNT;
-  ret = thread_get_state (current_thread, x86_DEBUG_STATE, 
-                          (thread_state_t) &dr_regs, &dr_count);
-
+  /* We have to set the watchpoint value in all the threads.  */
+  ret = task_threads (macosx_status->task, &thread_list, &nthreads);
   if (ret != KERN_SUCCESS)
     {
-      printf_unfiltered ("Error reading debug registers thread 0x%x via thread_get_state\n", (int) current_thread);
+      printf_unfiltered ("Error getting the task threads for task: 0x%x.\n",
+			 (int) macosx_status->task);
       MACH_CHECK_ERROR (ret);
     }
 
-  switch (regnum) 
+  for (i = 0; i < nthreads; i++)
     {
-      case 0:
-        dr_regs.uds.ds32.dr0 = value;
-        break;
-      case 1:
-        dr_regs.uds.ds32.dr1 = value;
-        break;
-      case 2:
-        dr_regs.uds.ds32.dr2 = value;
-        break;
-      case 3:
-        dr_regs.uds.ds32.dr3 = value;
-        break;
-      case 4:
-        dr_regs.uds.ds32.dr4 = value;
-        break;
-      case 5:
-        dr_regs.uds.ds32.dr5 = value;
-        break;
-      case 6:
-        dr_regs.uds.ds32.dr6 = value;
-        break;
-      case 7:
-        dr_regs.uds.ds32.dr7 = value;
-        break;
-    }
+      current_thread = thread_list[i];
 
-  ret = thread_set_state (current_thread, x86_DEBUG_STATE, 
-                          (thread_state_t) &dr_regs, dr_count);
+      if (TARGET_OSABI == GDB_OSABI_DARWIN64)
+        {
+          dr_regs.dsh.flavor = x86_DEBUG_STATE64;
+          dr_regs.dsh.count = x86_DEBUG_STATE64_COUNT;
+          ret = thread_get_state (current_thread, x86_DEBUG_STATE,
+                                  (thread_state_t) &dr_regs, &dr_count);
 
-  if (ret != KERN_SUCCESS)
-    {
-      printf_unfiltered ("Error writing debug registers thread 0x%x via thread_get_state\n", (int) current_thread);
-      MACH_CHECK_ERROR (ret);
+          if (ret != KERN_SUCCESS)
+            {
+              printf_unfiltered ("Error reading debug registers thread 0x%x via thread_get_state\n", (int) current_thread);
+              MACH_CHECK_ERROR (ret);
+            }
+          
+          switch (regnum) 
+            {
+            case 0:
+              dr_regs.uds.ds64.__dr0 = value;
+              break;
+            case 1:
+              dr_regs.uds.ds64.__dr1 = value;
+              break;
+            case 2:
+              dr_regs.uds.ds64.__dr2 = value;
+              break;
+            case 3:
+              dr_regs.uds.ds64.__dr3 = value;
+              break;
+            case 4:
+              dr_regs.uds.ds64.__dr4 = value;
+              break;
+            case 5:
+              dr_regs.uds.ds64.__dr5 = value;
+              break;
+            case 6:
+              dr_regs.uds.ds64.__dr6 = value;
+              break;
+            case 7:
+              dr_regs.uds.ds64.__dr7 = value;
+              break;
+            }
+          
+          ret = thread_set_state (current_thread, x86_DEBUG_STATE,
+                                  (thread_state_t) &dr_regs, dr_count);
+
+          if (ret != KERN_SUCCESS)
+            {
+              printf_unfiltered ("Error writing debug registers thread "
+                                 "0x%x via thread_get_state\n", 
+                                 (int) current_thread);
+              MACH_CHECK_ERROR (ret);
+            }
+        }
+      else
+        {
+          uint32_t val_32 = value & 0xffffffff;
+
+          dr_regs.dsh.flavor = x86_DEBUG_STATE32;
+          dr_regs.dsh.count = x86_DEBUG_STATE32_COUNT;
+          dr_count = x86_DEBUG_STATE_COUNT;
+          ret = thread_get_state (current_thread, x86_DEBUG_STATE, 
+                                  (thread_state_t) &dr_regs, &dr_count);
+          
+          if (ret != KERN_SUCCESS)
+            {
+              printf_unfiltered ("Error reading debug registers thread 0x%x via thread_get_state\n", (int) current_thread);
+              MACH_CHECK_ERROR (ret);
+            }
+          
+          switch (regnum) 
+            {
+            case 0:
+              dr_regs.uds.ds32.__dr0 = val_32;
+              break;
+            case 1:
+              dr_regs.uds.ds32.__dr1 = val_32;
+              break;
+            case 2:
+              dr_regs.uds.ds32.__dr2 = val_32;
+              break;
+            case 3:
+              dr_regs.uds.ds32.__dr3 = val_32;
+              break;
+            case 4:
+              dr_regs.uds.ds32.__dr4 = val_32;
+              break;
+            case 5:
+              dr_regs.uds.ds32.__dr5 = val_32;
+              break;
+            case 6:
+              dr_regs.uds.ds32.__dr6 = val_32;
+              break;
+            case 7:
+              dr_regs.uds.ds32.__dr7 = val_32;
+              break;
+            }
+          
+          ret = thread_set_state (current_thread, x86_DEBUG_STATE, 
+                                  (thread_state_t) &dr_regs, dr_count);
+
+          if (ret != KERN_SUCCESS)
+            {
+              printf_unfiltered ("Error writing debug registers thread "
+                                 "0x%x via thread_get_state\n", 
+                                 (int) current_thread);
+              MACH_CHECK_ERROR (ret);
+            }
+        }
+#if HAVE_TASK_SET_STATE          
+      /* Now call task_set_state with the values of the last thread we
+         set -- gdb doesn't support putting watchpoints on individual threads
+         so it doesn't matter which one we use.  The task_set_state call here
+         will make the kernel set the watchpoints on any newly-created 
+         threads.  */
+
+      ret = task_set_state (macosx_status->task, x86_DEBUG_STATE, 
+                              (thread_state_t) &dr_regs, dr_count);
+      if (ret != KERN_SUCCESS)
+        {
+          printf_unfiltered ("Error writing debug registers task "
+                             "0x%x via thread_set_state\n", 
+                             (int) macosx_status->task);
+          MACH_CHECK_ERROR (ret);
+        }
+#endif
     }
-#endif /* HAVE_X86_DEBUG_STATE32_T */
+  ret = vm_deallocate (mach_task_self (), (vm_address_t) thread_list, 
+			(nthreads * sizeof (int)));
 }
 
 
-static uint32_t
+static uint64_t
 i386_macosx_dr_get (int regnum)
 {
-#ifndef HAVE_X86_DEBUG_STATE32_T
-  return -1;
-#else
   int current_pid;
   thread_t current_thread;
   x86_debug_state_t dr_regs;
@@ -421,41 +509,76 @@ i386_macosx_dr_get (int regnum)
   current_pid = ptid_get_pid (inferior_ptid);
   current_thread = ptid_get_tid (inferior_ptid);
 
-  dr_regs.dsh.flavor = x86_DEBUG_STATE32;
-  dr_regs.dsh.count = x86_DEBUG_STATE32_COUNT;
-  dr_count = x86_DEBUG_STATE_COUNT;
-  ret = thread_get_state (current_thread, x86_DEBUG_STATE, 
-                          (thread_state_t) &dr_regs, &dr_count);
-
-  if (ret != KERN_SUCCESS)
+  if (TARGET_OSABI == GDB_OSABI_DARWIN64)
     {
-      printf_unfiltered ("Error reading debug registers thread 0x%x via thread_get_state\n", (int) current_thread);
-      MACH_CHECK_ERROR (ret);
-    }
+      dr_regs.dsh.flavor = x86_DEBUG_STATE64;
+      dr_regs.dsh.count = x86_DEBUG_STATE64_COUNT;
+      ret = thread_get_state (current_thread, x86_DEBUG_STATE,
+                              (thread_state_t) &dr_regs, &dr_count);
+      if (ret != KERN_SUCCESS)
+        {
+          printf_unfiltered ("Error reading debug registers thread 0x%x via thread_get_state\n", (int) current_thread);
+          MACH_CHECK_ERROR (ret);
+        }
 
-  switch (regnum) 
+      switch (regnum) 
+        {
+          case 0:
+            return dr_regs.uds.ds64.__dr0;
+          case 1:
+            return dr_regs.uds.ds64.__dr1;
+          case 2:
+            return dr_regs.uds.ds64.__dr2;
+          case 3:
+            return dr_regs.uds.ds64.__dr3;
+          case 4:
+            return dr_regs.uds.ds64.__dr4;
+          case 5:
+            return dr_regs.uds.ds64.__dr5;
+          case 6:
+            return dr_regs.uds.ds64.__dr6;
+          case 7:
+            return dr_regs.uds.ds64.__dr7;
+          default:
+            return -1;
+        }
+    }
+  else
     {
-      case 0:
-        return dr_regs.uds.ds32.dr0;
-      case 1:
-        return dr_regs.uds.ds32.dr1;
-      case 2:
-        return dr_regs.uds.ds32.dr2;
-      case 3:
-        return dr_regs.uds.ds32.dr3;
-      case 4:
-        return dr_regs.uds.ds32.dr4;
-      case 5:
-        return dr_regs.uds.ds32.dr5;
-      case 6:
-        return dr_regs.uds.ds32.dr6;
-      case 7:
-        return dr_regs.uds.ds32.dr7;
-      default:
-        return -1;
+      dr_regs.dsh.flavor = x86_DEBUG_STATE32;
+      dr_regs.dsh.count = x86_DEBUG_STATE32_COUNT;
+      dr_count = x86_DEBUG_STATE_COUNT;
+      ret = thread_get_state (current_thread, x86_DEBUG_STATE, 
+                              (thread_state_t) &dr_regs, &dr_count);
+    
+      if (ret != KERN_SUCCESS)
+        {
+          printf_unfiltered ("Error reading debug registers thread 0x%x via thread_get_state\n", (int) current_thread);
+          MACH_CHECK_ERROR (ret);
+        }
+    
+      switch (regnum) 
+        {
+          case 0:
+            return dr_regs.uds.ds32.__dr0;
+          case 1:
+            return dr_regs.uds.ds32.__dr1;
+          case 2:
+            return dr_regs.uds.ds32.__dr2;
+          case 3:
+            return dr_regs.uds.ds32.__dr3;
+          case 4:
+            return dr_regs.uds.ds32.__dr4;
+          case 5:
+            return dr_regs.uds.ds32.__dr5;
+          case 6:
+            return dr_regs.uds.ds32.__dr6;
+          case 7:
+            return dr_regs.uds.ds32.__dr7;
+          default:
+            return -1;
+        }
     }
-
-#endif /* HAVE_X86_DEBUG_STATE32_T */
 }
 
 void
@@ -490,7 +613,8 @@ i386_macosx_dr_get_status (void)
    That seems REALLY whacky...  */
 
 int
-i386_macosx_target_stopped_data_address (struct target_ops *target, CORE_ADDR *addr)
+i386_macosx_target_stopped_data_address (struct target_ops *target, 
+                                         CORE_ADDR *addr)
 {
   return i386_stopped_data_address (addr);
 }

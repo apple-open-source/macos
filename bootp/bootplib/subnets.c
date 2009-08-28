@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -68,8 +68,8 @@ static bool 	S_use_syslog;
 static int 	S_log_level;
 
 /* default lease values */
-#define DEFAULT_LEASE_MIN	((dhcp_lease_t)60 * 60)	/* one hour */
-#define DEFAULT_LEASE_MAX	((dhcp_lease_t)60 * 60 * 24) /* one day */
+#define DEFAULT_LEASE_MIN	((dhcp_lease_time_t)60 * 60)	/* one hour */
+#define DEFAULT_LEASE_MAX	((dhcp_lease_time_t)60 * 60 * 24) /* one day */
 
 struct _SubnetList {
     dynarray_t		list;
@@ -92,8 +92,8 @@ struct _Subnet {
     struct in_addr	net_mask;
     ip_range_t		net_range;
     bool		allocate;	/* TRUE means this is an IP pool */
-    dhcp_lease_t	lease_min;
-    dhcp_lease_t	lease_max;
+    dhcp_lease_time_t	lease_min;
+    dhcp_lease_time_t	lease_max;
     struct in_addr	nextip; 	/* to try to allocate */
     const char *	supernet;
     OptionTLVRef	options;
@@ -827,13 +827,13 @@ SubnetSetLeaseMaxMin(SubnetRef subnet, CFDictionaryRef plist)
     return;
 }
 
-dhcp_lease_t
+dhcp_lease_time_t
 SubnetGetMaxLease(SubnetRef subnet)
 {
     return (subnet->lease_max);
 }
 
-dhcp_lease_t
+dhcp_lease_time_t
 SubnetGetMinLease(SubnetRef subnet)
 {
     return (subnet->lease_min);

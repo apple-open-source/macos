@@ -1,4 +1,4 @@
-/*	$OpenBSD: file_subs.c,v 1.28 2004/11/29 16:23:22 otto Exp $	*/
+/*	$OpenBSD: file_subs.c,v 1.30 2005/11/09 19:59:06 otto Exp $	*/
 /*	$NetBSD: file_subs.c,v 1.4 1995/03/21 09:07:18 cgd Exp $	*/
 
 /*-
@@ -38,7 +38,7 @@
 #if 0
 static const char sccsid[] = "@(#)file_subs.c	8.1 (Berkeley) 5/31/93";
 #else
-static const char rcsid[] __attribute__((__unused__)) = "$OpenBSD: file_subs.c,v 1.28 2004/11/29 16:23:22 otto Exp $";
+static const char rcsid[] = "$OpenBSD: file_subs.c,v 1.30 2005/11/09 19:59:06 otto Exp $";
 #endif
 #endif /* not lint */
 
@@ -123,7 +123,7 @@ file_creat(ARCHD *arcn)
 		 * it cannot fix anything, we will skip the last attempt
 		 */
 		if ((fd = open(path_to_open, O_WRONLY | O_CREAT | O_TRUNC,
-		    file_mode)) >= 0) {
+			       file_mode)) >= 0) {
 			/* clean up the invalid_action */
 			if (pax_invalid_action>0) {
 				record_pax_invalid_action_results(arcn, path_to_open);
@@ -140,7 +140,7 @@ file_creat(ARCHD *arcn)
 			}
 		}
 		/* rc == 2 reserved for -o invalid_action=write */
-		if (nodirs || chk_path(path_to_open,arcn->sb.st_uid,arcn->sb.st_gid, 
+		if (nodirs || chk_path(path_to_open,arcn->sb.st_uid,arcn->sb.st_gid,
 				(rc==2) ? &new_path: NULL) < 0) {
 			syswarn((pax_invalid_action==0), oerrno, "Unable to create %s", arcn->name);
 			fd = -1;
@@ -149,7 +149,7 @@ file_creat(ARCHD *arcn)
 		if (new_path) path_to_open = new_path; /* try again */
 	}
 	if (strcmp(new_path, arcn->name)!=0) { 
-		chdir(cwd);	/* go back to original directory */
+		dochdir(cwd);	/* go back to original directory */
 	}
 	return(fd);
 }
@@ -169,6 +169,7 @@ file_close(ARCHD *arcn, int fd)
 
 	if (fd < 0)
 		return;
+
 	if (close(fd) < 0)
 		syswarn(0, errno, "Unable to close file descriptor on %s",
 		    arcn->name);
@@ -179,7 +180,8 @@ file_close(ARCHD *arcn, int fd)
 	 * modification times.
 	 */
 	if (pids)
-		res = set_ids(arcn->name, arcn->sb.st_uid, arcn->sb.st_gid);
+		res = set_ids(arcn->name, arcn->sb.st_uid,
+		    arcn->sb.st_gid);
 	else
 		res = 1; /* without pids, pax should NOT set s bits */
 
@@ -403,6 +405,7 @@ node_creat(ARCHD *arcn)
 	struct stat sb;
 	char target[MAXPATHLEN];
 	char *nm = arcn->name;
+	int nmlen = arcn->nlen;
 	int len;
 
 	/*
@@ -435,6 +438,7 @@ node_creat(ARCHD *arcn)
 					}
 					target[len] = '\0';
 					nm = target;
+					nmlen = len;
 				}
 			}
 			res = mkdir(nm, file_mode);
@@ -515,7 +519,7 @@ badlink:
 #endif
 		    set_ids(nm, arcn->sb.st_uid, arcn->sb.st_gid));
 	else
-		res = 1; /* without pids, pax should NOT set s bits */
+		res = 1;	/* without pids, pax should NOT set s bits */
 
 	/*
 	 * symlinks are done now.
@@ -565,9 +569,9 @@ badlink:
 			 * we have to force the mode to what was set here,
 			 * since we changed it from the default as created.
 			 */
-			add_dir(nm, &(arcn->sb), 1);
+			add_dir(nm, nmlen, &(arcn->sb), 1);
 		} else if (pmode || patime || pmtime)
-			add_dir(nm, &(arcn->sb), 0);
+			add_dir(nm, nmlen, &(arcn->sb), 0);
 	}
 
 	if (patime || pmtime)
@@ -645,6 +649,7 @@ int
 chk_path(char *name, uid_t st_uid, gid_t st_gid, char ** new_name)
 {
 	char *spt = name;
+	int namelen = strlen(name);
 	struct stat sb;
 	int retval = -1;
 
@@ -707,13 +712,12 @@ chk_path(char *name, uid_t st_uid, gid_t st_gid, char ** new_name)
 		if ((access(name, R_OK | W_OK | X_OK) < 0) &&
 		    (lstat(name, &sb) == 0)) {
 			set_pmode(name, ((sb.st_mode & FILEBITS) | S_IRWXU));
-			add_dir(name, &sb, 1);
+			add_dir(name, namelen, &sb, 1);
 		}
 		*(spt++) = '/';
 		if (new_name==NULL) continue;
 		break;
 	}
-
 	if ((new_name != NULL) && retval==0) {
 		/* save the new path */
 		*(--spt) = '\0';
@@ -727,7 +731,7 @@ chk_path(char *name, uid_t st_uid, gid_t st_gid, char ** new_name)
 			*/
 			*new_name = spt;
 		} else
-			*spt++ = '/';
+			*spt = '/';
 	}
 	return(retval);
 }
@@ -769,7 +773,6 @@ set_ftime(char *fnm, time_t mtime, time_t atime, int frc)
 	/*
 	 * set the times
 	 */
-
 	if (pax_invalid_action_write_cwd) {
 		char cwd_buff[MAXPATHLEN];
 		char * cwd;
@@ -785,6 +788,36 @@ set_ftime(char *fnm, time_t mtime, time_t atime, int frc)
 			syswarn(1, errno, "Access/modification time set failed on: %s",
 			    fnm);
 	}
+	return;
+}
+
+void
+fset_ftime(char *fnm, int fd, time_t mtime, time_t atime, int frc)
+{
+	static struct timeval tv[2] = {{0L, 0L}, {0L, 0L}};
+	struct stat sb;
+
+	tv[0].tv_sec = (long)atime;
+	tv[1].tv_sec = (long)mtime;
+	if (!frc && (!patime || !pmtime)) {
+		/*
+		 * if we are not forcing, only set those times the user wants
+		 * set. We get the current values of the times if we need them.
+		 */
+		if (fstat(fd, &sb) == 0) {
+			if (!patime)
+				tv[0].tv_sec = (long)sb.st_atime;
+			if (!pmtime)
+				tv[1].tv_sec = (long)sb.st_mtime;
+		} else
+			syswarn(0,errno,"Unable to obtain file stats %s", fnm);
+	}
+	/*
+	 * set the times
+	 */
+	if (futimes(fd, tv) < 0)
+		syswarn(1, errno, "Access/modification time set failed on: %s",
+		    fnm);
 	return;
 }
 
@@ -812,8 +845,24 @@ set_ids(char *fnm, uid_t uid, gid_t gid)
 	return(0);
 }
 
+int
+fset_ids(char *fnm, int fd, uid_t uid, gid_t gid)
+{
+	if (fchown(fd, uid, gid) < 0) {
+		/*
+		 * ignore EPERM unless in verbose mode or being run by root.
+		 * if running as pax, POSIX requires a warning.
+		 */
+		if (strcmp(NM_PAX, argv0) == 0 || errno != EPERM || vflag ||
+		    geteuid() == 0)
+			syswarn(1, errno, "Unable to set file uid/gid of %s",
+			    fnm);
+		return(-1);
+	}
+	return(0);
+}
+
 #if !defined(__APPLE__)
-/* Mac OS X doesn't have lchown */
 /*
  * set_lids()
  *	set the uid and gid of a file system node
@@ -837,7 +886,7 @@ set_lids(char *fnm, uid_t uid, gid_t gid)
 	}
 	return(0);
 }
-#endif
+#endif	/* !__APPLE__ */
 
 /*
  * set_pmode()
@@ -849,6 +898,15 @@ set_pmode(char *fnm, mode_t mode)
 {
 	mode &= ABITS;
 	if (chmod(fnm, mode) < 0)
+		syswarn(1, errno, "Could not set permissions on %s", fnm);
+	return;
+}
+
+void
+fset_pmode(char *fnm, int fd, mode_t mode)
+{
+	mode &= ABITS;
+	if (fchmod(fd, mode) < 0)
 		syswarn(1, errno, "Could not set permissions on %s", fnm);
 	return;
 }
@@ -1074,7 +1132,7 @@ set_crc(ARCHD *arcn, int fd)
 	int res;
 	off_t cpcnt = 0L;
 	u_long size;
-	unsigned long crc = 0L;
+	u_int32_t crc = 0;
 	char tbuf[FILEBLK];
 	struct stat sb;
 

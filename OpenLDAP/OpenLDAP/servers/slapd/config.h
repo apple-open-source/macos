@@ -1,8 +1,8 @@
 /* config.h - configuration abstraction structure */
-/* $OpenLDAP: pkg/ldap/servers/slapd/config.h,v 1.2.2.12 2006/01/03 22:16:14 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/config.h,v 1.34.2.11 2008/04/14 18:25:54 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -17,45 +17,50 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include<ac/string.h>
+
+LDAP_BEGIN_DECL
+
 typedef struct ConfigTable {
-	char *name;
-	char *what;
+	const char *name;
+	const char *what;
 	int min_args;
 	int max_args;
 	int length;
 	unsigned int arg_type;
 	void *arg_item;
-	char *attribute;
+	const char *attribute;
 	AttributeDescription *ad;
 	void *notify;
 } ConfigTable;
 
+/* search entries are returned according to this order */
 typedef enum {
 	Cft_Abstract = 0,
 	Cft_Global,
+	Cft_Module,
 	Cft_Schema,
 	Cft_Backend,
 	Cft_Database,
 	Cft_Overlay,
-	Cft_Include,
-	Cft_Module,
 	Cft_Misc	/* backend/overlay defined */
 } ConfigType;
 
 #define ARGS_USERLAND	0x00000fff
-#define ARGS_TYPES	0x000ff000
-#define ARGS_POINTER	0x0003f000
-#define ARGS_NUMERIC	0x0000f000
+
+/* types are enumerated, not a bitmask */
+#define ARGS_TYPES	0x0000f000
 #define ARG_INT		0x00001000
 #define ARG_LONG	0x00002000
-#define ARG_BER_LEN_T	0x00004000
-#define ARG_ON_OFF	0x00008000
-#define ARG_STRING	0x00010000
-#define ARG_BERVAL	0x00020000
-#define ARG_DN		0x00040000
-#define ARG_IGNORED	0x00080000
+#define ARG_BER_LEN_T	0x00003000
+#define ARG_ON_OFF	0x00004000
+#define ARG_STRING	0x00005000
+#define ARG_BERVAL	0x00006000
+#define ARG_DN		0x00007000
+#define ARG_UINT	0x00008000
 
-#define ARGS_SYNTAX	0xfff00000
+#define ARGS_SYNTAX	0xffff0000
+#define ARG_IGNORED	0x00080000
 #define ARG_PRE_BI	0x00100000
 #define ARG_PRE_DB	0x00200000
 #define ARG_DB		0x00400000	/* Only applies to DB */
@@ -94,7 +99,7 @@ typedef int (ConfigCfAdd)(
 	Operation *op, SlapReply *rs, Entry *parent, struct config_args_s *ca );
 
 typedef struct ConfigOCs {
-	char *co_def;
+	const char *co_def;
 	ConfigType co_type;
 	ConfigTable *co_table;
 	ConfigLDAPadd *co_ldadd;
@@ -105,6 +110,11 @@ typedef struct ConfigOCs {
 
 typedef int (ConfigDriver)(struct config_args_s *c);
 
+struct config_reply_s {
+	int err;
+	char msg[SLAP_TEXT_BUFLEN];
+};
+
 typedef struct config_args_s {
 	int argc;
 	char **argv;
@@ -113,13 +123,15 @@ typedef struct config_args_s {
 	char *tline;
 	const char *fname;
 	int lineno;
-	char log[MAXPATHLEN + STRLENOF(": line 18446744073709551615") + 1];
-	char msg[SLAP_TEXT_BUFLEN];
+	char log[MAXPATHLEN + STRLENOF(": line ") + LDAP_PVT_INTTYPE_CHARS(unsigned long)];
+#define cr_msg reply.msg
+	ConfigReply reply;
 	int depth;
 	int valx;	/* multi-valued value index */
 	/* parsed first val for simple cases */
 	union {
 		int v_int;
+		unsigned v_uint;
 		long v_long;
 		ber_len_t v_ber_t;
 		char *v_string;
@@ -136,11 +148,13 @@ typedef struct config_args_s {
 #define SLAP_CONFIG_ADD		0x4000	/* config file add vs LDAP add */
 	int op;
 	int type;	/* ConfigTable.arg_type & ARGS_USERLAND */
+	Operation *ca_op;
 	BackendDB *be;
 	BackendInfo *bi;
 	Entry *ca_entry;	/* entry being modified */
-	void *private;	/* anything */
+	void *ca_private;	/* anything */
 	ConfigDriver *cleanup;
+	ConfigType table;	/* which config table did we come from */
 } ConfigArgs;
 
 /* If lineno is zero, we have an actual LDAP Add request from a client.
@@ -149,6 +163,7 @@ typedef struct config_args_s {
 #define CONFIG_ONLINE_ADD(ca)	(!((ca)->lineno))
 
 #define value_int values.v_int
+#define value_uint values.v_uint
 #define value_long values.v_long
 #define value_ber_t values.v_ber_t
 #define value_string values.v_string
@@ -165,7 +180,7 @@ void init_config_argv( ConfigArgs *c );
 int init_config_attrs(ConfigTable *ct);
 int init_config_ocs( ConfigOCs *ocs );
 int config_parse_vals(ConfigTable *ct, ConfigArgs *c, int valx);
-int config_parse_add(ConfigTable *ct, ConfigArgs *c);
+int config_parse_add(ConfigTable *ct, ConfigArgs *c, int valx);
 int read_config_file(const char *fname, int depth, ConfigArgs *cf,
 	ConfigTable *cft );
 
@@ -182,5 +197,10 @@ int config_shadow( ConfigArgs *c, int flag );
 	assert( ( ( (last) - 1 ) & ARGS_USERLAND ) == ( (last) - 1 ) );
 
 #define	SLAP_X_ORDERED_FMT	"{%d}"
+
+extern slap_verbmasks *slap_ldap_response_code;
+extern int slap_ldap_response_code_register( struct berval *bv, int err );
+
+LDAP_END_DECL
 
 #endif /* CONFIG_H */

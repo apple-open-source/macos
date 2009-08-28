@@ -2,7 +2,7 @@
  *  agentclient.cpp
  *  SecurityAgent
  *
- *  Copyright (c) 2002 Apple Computer, Inc.. All rights reserved.
+ *  Copyright (c) 2002,2008 Apple Inc.. All rights reserved.
  *
  */
 
@@ -143,7 +143,33 @@ Client::~Client()
     teardown();
 }
 
-void Client::setState(PluginState inState)
+
+// start/endTransaction calls stand outside the usual client protocol: they
+// don't participate in the state-management or multiplexing-by-port tangoes.  
+// (These calls could take advantage of activate(), but callers would be 
+// instantiating an entire Client object for the sake of mServerPort.)
+// Conversely, SecurityAgent::Client does not cache transaction state.  
+OSStatus
+Client::startTransaction(Port serverPort)
+{
+    if (!serverPort)
+        return errAuthorizationInternal;
+    kern_return_t ret = sa_request_client_txStart(serverPort);
+    secdebug("agentclient", "Transaction started (port %u)", serverPort.port());
+    return ret;
+}
+
+OSStatus 
+Client::endTransaction(Port serverPort)
+{
+    if (!serverPort)
+        return errAuthorizationInternal;
+    secdebug("agentclient", "Requesting end of transaction (port %u)", serverPort.port());
+    return sa_request_client_txEnd(serverPort);
+}
+
+void 
+Client::setState(PluginState inState)
 {
 	// validate state transition: might be more useful where change is requested if that implies anything to interpreting what to do.
 	// Mutex
@@ -307,8 +333,7 @@ Client::destroy()
 	return errAuthorizationInternal;
 }
 
-// destroy plugin and don't care for how it feels about that.
-// return an error if that didn't work so the entire host can get shot down
+// kill host: do not pass go, do not collect $200
 OSStatus
 Client::terminate()
 {
@@ -483,7 +508,7 @@ kern_return_t sa_reply_server_setResult(mach_port_t instanceReplyPort, Authoriza
 	COPY_IN(AuthorizationItemSet,inHints) ,
 	COPY_IN(AuthorizationItemSet,inContext) )
 {
-	secdebug("agentclient", "got setResult at port %u; result %ld", instanceReplyPort, result);
+	secdebug("agentclient", "got setResult at port %u; result %u", instanceReplyPort, (unsigned int)result);
 
 	// relink internal references according to current place in memory
 	try { SecurityAgent::relocate(inHints, inHintsBase, inHintsLength); }
@@ -515,9 +540,16 @@ kern_return_t sa_reply_server_didDeactivate(mach_port_t instanceReplyPort)
 
 kern_return_t sa_reply_server_reportError(mach_port_t instanceReplyPort, OSStatus status)
 {
-	secdebug("agentclient", "got reportError at port %u; error is %ld", instanceReplyPort, status);
+	secdebug("agentclient", "got reportError at port %u; error is %u", instanceReplyPort, (unsigned int)status);
 	SecurityAgent::Clients::gClients().find(instanceReplyPort).setError(status);
 	return KERN_SUCCESS;
+}
+
+kern_return_t sa_reply_server_didStartTx(mach_port_t replyPort, kern_return_t retval)
+{
+    // no instance ports here: this goes straight to server
+    secdebug("agentclient", "got didStartTx");
+    return retval;
 }
 
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,6 +34,7 @@
 #include <sys/param.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/sysctl.h>
 #include <sys/time.h>
 #include <net/if.h>
@@ -50,28 +51,40 @@
 #include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SCPrivate.h>		// for SCLog(), SCPrint()
 
+#define	HW_MODEL_LEN		64			// Note: must be >= NETBIOS_NAME_LEN (below)
+
+#define	NETBIOS_NAME_LEN	16
+
 #define	SMB_STARTUP_DELAY	60.0
 #define	SMB_DEBOUNCE_DELAY	5.0
-
-/* SPI (from SCNetworkReachability.c) */
-Boolean
-_SC_checkResolverReachabilityByAddress(SCDynamicStoreRef	*storeP,
-				       SCNetworkConnectionFlags	*flags,
-				       Boolean			*haveDNS,
-				       struct sockaddr		*sa);
-
 
 static SCDynamicStoreRef	store		= NULL;
 static CFRunLoopSourceRef	rls		= NULL;
 
 static Boolean			dnsActive	= FALSE;
 static CFMachPortRef		dnsPort		= NULL;
-static CFRunLoopSourceRef	dnsRLS		= NULL;
 static struct timeval		dnsQueryStart;
 
 static CFRunLoopTimerRef	timer		= NULL;
 
 static Boolean			_verbose	= FALSE;
+
+
+static Boolean
+isMacOSXServer()
+{
+	static enum { Unknown, Client, Server }	isServer	= Unknown;
+
+	if (isServer == Unknown) {
+		int		ret;
+		struct stat	statbuf;
+
+		ret = stat("/System/Library/CoreServices/ServerVersion.plist", &statbuf);
+		isServer = (ret == 0) ? Server : Client;
+	}
+
+	return (isServer == Server) ? TRUE : FALSE;
+}
 
 
 static CFAbsoluteTime
@@ -101,34 +114,102 @@ boottime(void)
 static CFStringRef
 copy_default_name(void)
 {
-	CFStringRef		address;
-	SCNetworkInterfaceRef	interface;
-	CFMutableStringRef	name	= NULL;
+	char			*cp;
+	char			hwModel[HW_MODEL_LEN];
+	int			mib[]		= { CTL_HW, HW_MODEL };
+	size_t			n		= sizeof(hwModel);
+	int			ret;
+	CFMutableStringRef	str;
 
-	interface = _SCNetworkInterfaceCreateWithBSDName(NULL, CFSTR("en0"),
-							 kIncludeNoVirtualInterfaces);
-	if (interface == NULL) {
-		goto done;
+	// get HW model name
+	bzero(&hwModel, sizeof(hwModel));
+	ret = sysctl(mib, sizeof(mib) / sizeof(mib[0]), &hwModel, &n, NULL, 0);
+	if (ret != 0) {
+		SCLog(TRUE, LOG_ERR, CFSTR("sysctl() CTL_HW/HW_MODEL failed: %s"), strerror(errno));
+		return NULL;
 	}
 
-	address = SCNetworkInterfaceGetHardwareAddressString(interface);
-	if (address == NULL) {
-		goto done;
+	// truncate name
+	hwModel[NETBIOS_NAME_LEN - 1] = '\0';
+
+	// trim everything after (and including) a comma
+	cp = index(hwModel, ',');
+	if (cp != NULL) {
+		*cp = '\0';
 	}
 
-	name = CFStringCreateMutableCopy(NULL, 0, address);
-	CFStringFindAndReplace(name,
-			       CFSTR(":"),
-			       CFSTR(""),
-			       CFRangeMake(0, CFStringGetLength(name)),
-			       0);
-	CFStringInsert(name, 0, CFSTR("MAC"));
-	CFStringUppercase(name, NULL);
+	// trim any trailing digits
+	n = strlen(hwModel);
+	while (n > 0) {
+		if (!isdigit(hwModel[n - 1])) {
+			break;
+		}
+		hwModel[--n] = '\0';
+	}
 
-    done :
+	// start off with the [trunated] HW model
+	str = CFStringCreateMutable(NULL, 0);
+	CFStringAppendFormat(str, NULL, CFSTR("%s"), hwModel);
 
-	if (interface != NULL) CFRelease(interface);
-	return name;
+	//
+	// if there is room for at least one byte (two hex characters)
+	// of the MAC address than append that to the NetBIOS name.
+	//
+	//    NETBIOS_NAME_LEN	max length
+	//      -1		the last byte is reserved
+	//	-3		"-XX"
+	//
+	if (n < (NETBIOS_NAME_LEN - 1 - 3)) {
+		SCNetworkInterfaceRef	interface;
+
+		interface = _SCNetworkInterfaceCreateWithBSDName(NULL, CFSTR("en0"),
+								 kIncludeNoVirtualInterfaces);
+		if (interface != NULL) {
+			CFMutableStringRef	en0_MAC;
+
+			en0_MAC = (CFMutableStringRef)SCNetworkInterfaceGetHardwareAddressString(interface);
+			if (en0_MAC != NULL) {
+				CFIndex	en0_MAC_len;
+
+				// remove ":" characters from MAC address string
+				en0_MAC = CFStringCreateMutableCopy(NULL, 0, en0_MAC);
+				CFStringFindAndReplace(en0_MAC,
+						       CFSTR(":"),
+						       CFSTR(""),
+						       CFRangeMake(0, CFStringGetLength(en0_MAC)),
+						       0);
+
+				//
+				// compute how may bytes (characters) to append
+				//    ... and limit that number to 6
+				//
+				//    NETBIOS_NAME_LEN	max length
+				//      -1		the last byte is reserved
+				//	-n		"iMac"
+				//      -1		"-"
+				//
+				n = ((NETBIOS_NAME_LEN - 1 - n - 1) / 2) * 2;
+				if (n > 6) {
+					n = 6;
+				}
+
+				// remove what we don't want
+				en0_MAC_len = CFStringGetLength(en0_MAC);
+				if (en0_MAC_len > n) {
+					CFStringDelete(en0_MAC, CFRangeMake(0, en0_MAC_len - n));
+				}
+
+				// append
+				CFStringAppendFormat(str, NULL, CFSTR("-%@"), en0_MAC);
+				CFRelease(en0_MAC);
+			}
+
+			CFRelease(interface);
+		}
+	}
+
+	CFStringUppercase(str, NULL);
+	return str;
 }
 
 
@@ -211,45 +292,47 @@ smb_set_configuration(SCDynamicStoreRef store, CFDictionaryRef dict)
 		goto done;
 	}
 
-	// Server description
-	str = SCDynamicStoreCopyComputerName(store, &macEncoding);
-	update_pref(prefs, CFSTR(kSMBPrefServerDescription), str, &changed);
+	if (!isMacOSXServer()) {
+		// Server description
+		str = SCDynamicStoreCopyComputerName(store, &macEncoding);
+		update_pref(prefs, CFSTR(kSMBPrefServerDescription), str, &changed);
+		
+		// DOS code page
+		if (str != NULL) {
+			if (macEncoding == kCFStringEncodingMacRoman) {
+				CFStringRef	key;
+				CFDictionaryRef	dict;
 
-	// DOS code page
-	if (str != NULL) {
-		if (macEncoding == kCFStringEncodingMacRoman) {
-			CFStringRef	key;
-			CFDictionaryRef	dict;
+				// get region
+				key = SCDynamicStoreKeyCreateComputerName(NULL);
+				dict = SCDynamicStoreCopyValue(store, key);
+				CFRelease(key);
+				if (dict != NULL) {
+					if (isA_CFDictionary(dict)) {
+						CFNumberRef	num;
+						SInt32		val;
 
-			// get region
-			key = SCDynamicStoreKeyCreateComputerName(NULL);
-			dict = SCDynamicStoreCopyValue(store, key);
-			CFRelease(key);
-			if (dict != NULL) {
-				if (isA_CFDictionary(dict)) {
-					CFNumberRef	num;
-					SInt32		val;
-
-					num = CFDictionaryGetValue(dict, kSCPropSystemComputerNameRegion);
-					if (isA_CFNumber(num) &&
-					    CFNumberGetValue(num, kCFNumberSInt32Type, &val)) {
-						macRegion = (uint32_t)val;
+						num = CFDictionaryGetValue(dict, kSCPropSystemComputerNameRegion);
+						if (isA_CFNumber(num) &&
+						    CFNumberGetValue(num, kCFNumberSInt32Type, &val)) {
+							macRegion = (uint32_t)val;
+						}
 					}
+
+					CFRelease(dict);
 				}
-
-				CFRelease(dict);
 			}
-		}
 
+			CFRelease(str);
+		} else {
+			// Important: must have root acccess (eUID==0) to access the config file!
+			__CFStringGetInstallationEncodingAndRegion((uint32_t *)&macEncoding, &macRegion);
+		}
+		_SC_dos_encoding_and_codepage(macEncoding, macRegion, &dosEncoding, &dosCodepage);
+		str = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), dosCodepage);
+		update_pref(prefs, CFSTR(kSMBPrefDOSCodePage), str, &changed);
 		CFRelease(str);
-	} else {
-		// Important: must have root acccess (eUID==0) to access the config file!
-		__CFStringGetInstallationEncodingAndRegion((uint32_t *)&macEncoding, &macRegion);
 	}
-	_SC_dos_encoding_and_codepage(macEncoding, macRegion, &dosEncoding, &dosCodepage);
-	str = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), dosCodepage);
-	update_pref(prefs, CFSTR(kSMBPrefDOSCodePage), str, &changed);
-	CFRelease(str);
 
 	// NetBIOS name
 	str = CFDictionaryGetValue(dict, kSCPropNetSMBNetBIOSName);
@@ -502,29 +585,6 @@ reverseDNSComplete(int32_t status, char *host, char *serv, void *context)
 }
 
 
-static void
-getnameinfo_async_handleCFReply(CFMachPortRef port, void *msg, CFIndex size, void *info)
-{
-	int32_t	status;
-
-	status = getnameinfo_async_handle_reply(msg);
-	if ((status == 0) && dnsActive) {
-		// if request has been re-queued
-		return;
-	}
-
-	if (port == dnsPort) {
-		CFRunLoopSourceInvalidate(dnsRLS);
-		CFRelease(dnsRLS);
-		dnsRLS = NULL;
-		CFRelease(dnsPort);
-		dnsPort = NULL;
-	}
-
-	return;
-}
-
-
 static CFStringRef
 replyMPCopyDescription(const void *info)
 {
@@ -537,11 +597,55 @@ replyMPCopyDescription(const void *info)
 }
 
 
+static void
+getnameinfo_async_handleCFReply(CFMachPortRef port, void *msg, CFIndex size, void *info)
+{
+	mach_port_t	mp	= MACH_PORT_NULL;
+	int32_t		status;
+
+	if (port != dnsPort) {
+		// we've received a callback on the async DNS port but since the
+		// associated CFMachPort doesn't match than the request must have
+		// already been cancelled.
+		SCLog(TRUE, LOG_ERR, CFSTR("getnameinfo_async_handleCFReply(): port != dnsPort"));
+		return;
+	}
+
+	mp = CFMachPortGetPort(port);
+	CFMachPortInvalidate(dnsPort);
+	CFRelease(dnsPort);
+	dnsPort = NULL;
+
+	status = getnameinfo_async_handle_reply(msg);
+	if ((status == 0) && dnsActive && (mp != MACH_PORT_NULL)) {
+		CFMachPortContext	context	= { 0
+						  , (void *)store
+						  , CFRetain
+						  , CFRelease
+						  , replyMPCopyDescription
+		};
+		CFRunLoopSourceRef	rls;
+
+		// if request has been re-queued
+		dnsPort = CFMachPortCreateWithPort(NULL,
+						   mp,
+						   getnameinfo_async_handleCFReply,
+						   &context,
+						   NULL);
+		rls = CFMachPortCreateRunLoopSource(NULL, dnsPort, 0);
+		CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
+		CFRelease(rls);
+	}
+
+	return;
+}
+
+
 static Boolean
 start_dns_query(SCDynamicStoreRef store, CFStringRef address)
 {
 	char				addr[64];
-	SCNetworkConnectionFlags	flags;
+	SCNetworkReachabilityFlags	flags;
 	Boolean				haveDNS;
 	Boolean				ok	= FALSE;
 	struct sockaddr			*sa;
@@ -584,8 +688,8 @@ start_dns_query(SCDynamicStoreRef store, CFStringRef address)
 
 	ok = _SC_checkResolverReachabilityByAddress(&store, &flags, &haveDNS, sa);
 	if (ok) {
-		if (!(flags & kSCNetworkFlagsReachable) ||
-		    (flags & kSCNetworkFlagsConnectionRequired)) {
+		if (!(flags & kSCNetworkReachabilityFlagsReachable) ||
+		    (flags & kSCNetworkReachabilityFlagsConnectionRequired)) {
 			// if not reachable *OR* connection required
 			ok = FALSE;
 		}
@@ -598,12 +702,13 @@ start_dns_query(SCDynamicStoreRef store, CFStringRef address)
 						  , CFRelease
 						  , replyMPCopyDescription
 						  };
-		mach_port_t		port;
 		int32_t			error;
+		mach_port_t		mp;
+		CFRunLoopSourceRef	rls;
 
 		(void) gettimeofday(&dnsQueryStart, NULL);
 
-		error = getnameinfo_async_start(&port,
+		error = getnameinfo_async_start(&mp,
 						sa,
 						sa->sa_len,
 						NI_NAMEREQD,	// flags
@@ -616,12 +721,13 @@ start_dns_query(SCDynamicStoreRef store, CFStringRef address)
 
 		dnsActive = TRUE;
 		dnsPort = CFMachPortCreateWithPort(NULL,
-						   port,
+						   mp,
 						   getnameinfo_async_handleCFReply,
 						   &context,
 						   NULL);
-		dnsRLS = CFMachPortCreateRunLoopSource(NULL, dnsPort, 0);
-		CFRunLoopAddSource(CFRunLoopGetCurrent(), dnsRLS, kCFRunLoopDefaultMode);
+		rls = CFMachPortCreateRunLoopSource(NULL, dnsPort, 0);
+		CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
+		CFRelease(rls);
 	}
 
     done :
@@ -732,13 +838,14 @@ configuration_changed(SCDynamicStoreRef store, CFArrayRef changedKeys, void *inf
 
 	// if active, cancel any in-progress attempt to resolve the primary IP address
 	if (dnsPort != NULL) {
+		mach_port_t	mp	= CFMachPortGetPort(dnsPort);
+
 		/* cancel the outstanding DNS query */
-		getnameinfo_async_cancel(CFMachPortGetPort(dnsPort));
-		CFRunLoopSourceInvalidate(dnsRLS);
-		CFRelease(dnsRLS);
-		dnsRLS = NULL;
+		CFMachPortInvalidate(dnsPort);
 		CFRelease(dnsPort);
 		dnsPort = NULL;
+
+		getnameinfo_async_cancel(mp);
 	}
 
 	// if active, cancel any queued configuration change
@@ -920,7 +1027,7 @@ main(int argc, char **argv)
 
     done :
 
-	smb_update_configuration(NULL, store);
+	smb_update_configuration(NULL, (void *)store);
 
 	CFRelease(store);
 

@@ -35,7 +35,9 @@ static CFArrayRef copyTrustedAppListFromBundle(CFStringRef bundlePath, CFStringR
 CFTypeID SecAccessGetTypeID(void)
 {
 	BEGIN_SECAPI
+	
 	return gTypes().Access.typeID;
+	
 	END_SECAPI1(_kCFRuntimeNotATypeID)
 }
 
@@ -63,7 +65,7 @@ OSStatus SecAccessCreate(CFStringRef descriptor, CFArrayRef trustedList, SecAcce
 		access = new Access(cfString(descriptor));
 	}
 	Required(accessRef) = access->handle();
-	END_SECAPI2("SecAccessCreate")
+	END_SECAPI
 }
 
 
@@ -77,7 +79,7 @@ OSStatus SecAccessCreateFromOwnerAndACL(const CSSM_ACL_OWNER_PROTOTYPE *owner,
 	Required(accessRef);	// preflight
 	SecPointer<Access> access = new Access(Required(owner), aclCount, &Required(acls));
 	*accessRef = access->handle();
-	END_SECAPI2("SecAccessCreateFromOwnerAndACL")
+	END_SECAPI
 }
 
 
@@ -90,7 +92,7 @@ OSStatus SecAccessGetOwnerAndACL(SecAccessRef accessRef,
 	BEGIN_SECAPI
 	Access::required(accessRef)->copyOwnerAndAcl(
 		Required(owner), Required(aclCount), Required(acls));
-	END_SECAPI2("SecAccessGetOwnerAndACL")
+	END_SECAPI
 }
 
 
@@ -101,7 +103,7 @@ OSStatus SecAccessCopyACLList(SecAccessRef accessRef,
 {
 	BEGIN_SECAPI
 	Required(aclList) = Access::required(accessRef)->copySecACLs();
-	END_SECAPI2("SecAccessCopyACLList")
+	END_SECAPI
 }
 
 
@@ -113,7 +115,7 @@ OSStatus SecAccessCopySelectedACLList(SecAccessRef accessRef,
 {
 	BEGIN_SECAPI
 	Required(aclList) = Access::required(accessRef)->copySecACLs(action);
-	END_SECAPI2("SecAccessCopySelectedACLList")
+	END_SECAPI
 }
 
 CFArrayRef copyTrustedAppListFromBundle(CFStringRef bundlePath, CFStringRef trustedAppListFileName)
@@ -130,7 +132,10 @@ CFArrayRef copyTrustedAppListFromBundle(CFStringRef bundlePath, CFStringRef trus
     // Make a CFURLRef from the CFString representation of the bundle’s path.
     bundleURL = CFURLCreateWithFileSystemPath( 
         kCFAllocatorDefault,bundlePath,kCFURLPOSIXPathStyle,true);
-    if (!bundleURL)
+
+	CFRange wholeStrRange;
+    
+	if (!bundleURL)
         goto xit;
         
     // Make a bundle instance using the URLRef.
@@ -140,7 +145,8 @@ CFArrayRef copyTrustedAppListFromBundle(CFStringRef bundlePath, CFStringRef trus
 
 	trustedAppListFileNameWithoutExtension =				
 		CFStringCreateMutableCopy(NULL,CFStringGetLength(trustedAppListFileName),trustedAppListFileName);
-	CFRange wholeStrRange = CFStringFind(trustedAppListFileName,CFSTR(".plist"),0);
+	wholeStrRange = CFStringFind(trustedAppListFileName,CFSTR(".plist"),0);
+	
 	CFStringDelete(trustedAppListFileNameWithoutExtension,wholeStrRange);
 
     // Look for a resource in the bundle by name and type

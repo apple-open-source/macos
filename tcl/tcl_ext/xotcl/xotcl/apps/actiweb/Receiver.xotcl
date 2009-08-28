@@ -1,0 +1,22 @@
+#!/usr/bin/env tclsh
+#if {![info exists ACTIWEB_HOME]} {source ~/actiweb/paths.xotcl}
+package require XOTcl; namespace import -force xotcl::*
+
+package require xotcl::actiweb::htmlPlace
+package require xotcl::actiweb::webDocument
+
+HtmlPlace receiver -port 8087
+
+HtmlDocument hallo.txt -content "************ HALLO *************"
+receiver exportObjs hallo.txt
+hallo.txt exportProcs content
+#hallo.txt attachFile ~/public_html/index.html
+Class CloneableClass -superclass {Agent Class}
+
+FileObjectifier do
+do objectifyTree receiver ~/public_html
+
+#GraphicDirectoryObjectifier gdo
+#gdo objectifyTree receiver ~www/bilder/Einweihung/disk1/
+
+receiver startEventLoop 

@@ -1,4 +1,4 @@
-/*$Header: /src/pub/tcsh/win32/globals.c,v 1.5 2004/07/02 01:26:15 amold Exp $*/
+/*$Header: /p/tcsh/cvsroot/tcsh/win32/globals.c,v 1.8 2006/03/05 08:59:36 amold Exp $*/
 /*-
  * Copyright (c) 1980, 1991 The Regents of the University of California.
  * All rights reserved.
@@ -35,6 +35,9 @@
 #include <windows.h>
 #include <stdlib.h>
 #include <stdio.h>
+#define STRSAFE_LIB
+#define STRSAFE_NO_CCH_FUNCTIONS
+#include <strsafe.h>
 
 extern unsigned long bookend1,bookend2;
 extern char **environ;
@@ -50,7 +53,9 @@ dprintf(char *format, ...)
 	err = GetLastError();
 	{
 		va_start(vl, format);
-		_vsnprintf(putbuf, sizeof(putbuf),format, vl);
+#pragma warning(disable:4995)
+		wvsprintf(putbuf,format, vl);
+#pragma warning(default:4995)
 		va_end(vl);
 		OutputDebugString(putbuf);
 	}
@@ -64,8 +69,8 @@ dprintf(char *format, ...)
  */
 int fork_copy_user_mem(HANDLE hproc) {
 	
-	DWORD bytes,rc;
-	size_t size;
+	SIZE_T bytes,rc;
+	SIZE_T size;
 
 	size =(char*)&bookend2 - (char*)&bookend1;
 	rc =WriteProcessMemory(hproc,&bookend1,&bookend1,
@@ -89,7 +94,7 @@ int fork_copy_user_mem(HANDLE hproc) {
 #include <winnt.h>
 #include <ntport.h>
 
-#define XFER_BUFFER_SIZE 2048
+#define XFER_BUFFER_SIZE 2048/*FIXME: not used AFAICS*/
 
 int is_gui(char *exename) {
 
@@ -166,9 +171,13 @@ int is_9x_gui(char *prog) {
 	char *pathbuf;
 	char *pext;
 	
-	pathbuf=heap_alloc(MAX_PATH);
+	pathbuf=heap_alloc(MAX_PATH+1);
+	if(!pathbuf)
+		return 0;
 
-	progpath=heap_alloc(MAX_PATH<<1);
+	progpath=heap_alloc((MAX_PATH<<1)+1);
+	if(!progpath)
+		return 0;
 
 	if (GetEnvironmentVariable("PATH",pathbuf,MAX_PATH) ==0) {
 		goto failed;

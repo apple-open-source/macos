@@ -9,7 +9,7 @@
 #include <string>
 #include <security_utilities/crc.h>
 
-static const char* kPrefix = "/var/tmp/mds/messages/se_";
+static const char* kPrefix = "/var/db/mds/messages/se_";
 
 using namespace Security;
 

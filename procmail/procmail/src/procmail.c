@@ -14,7 +14,7 @@
  ************************************************************************/
 #ifdef RCS
 static /*const*/char rcsid[]=
- "$Id: procmail.c,v 1.1.1.3 2003/10/14 23:13:23 rbraun Exp $";
+ "$Id: procmail.c,v 1.183 2001/08/31 04:57:36 guenther Exp $";
 #endif
 #include "../patchlevel.h"
 #include "procmail.h"

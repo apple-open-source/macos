@@ -3,16 +3,15 @@
 	ProjectType="Visual C++"
 	Version="[version]"
 	Name="locale"
-	SccProjectName=""
-	SccLocalPath=""
+	ProjectGUID="{18FA6D17-1EE7-43A2-BC2A-C2AF819CEEFB}"
 	Keyword="MakeFileProj">
 	<Platforms>
-		<Platform
-			Name="Win32"/>
-	</Platforms>
+[for platforms]		<Platform
+			Name="[platforms]"/>
+[end]	</Platforms>
 	<Configurations>
-		<Configuration
-			Name="Debug|Win32"
+[for platforms]		<Configuration
+			Name="Debug|[platforms]"
 			ConfigurationType="0"
 			UseOfMFC="0"
 			ATLMinimizesCRunTimeLibraryUsage="FALSE">
@@ -23,7 +22,7 @@
                         />
 		</Configuration>
 		<Configuration
-			Name="Release|Win32"
+			Name="Release|[platforms]"
 			ConfigurationType="0"
 			UseOfMFC="0"
 			ATLMinimizesCRunTimeLibraryUsage="FALSE">
@@ -33,7 +32,7 @@
 				ReBuildCommandLine="cmd /c build_locale.bat Release"
 			/>
 		</Configuration>
-	</Configurations>
+[end]	</Configurations>
 	<Files>
 	</Files>
 	<Globals>

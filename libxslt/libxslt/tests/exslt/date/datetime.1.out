@@ -10,7 +10,7 @@
     week-in-year         : 9
     day-in-year          : 59
     day-in-month         : 28
-    day-of-week-in-month : 5
+    day-of-week-in-month : 4
     day-in-week          : 4
     day-name             : Wednesday
     day-abbreviation     : Wed
@@ -25,7 +25,7 @@
     month-in-year        : 12
     month-name           : December
     month-abbreviation   : Dec
-    week-in-year         : 53
+    week-in-year         : 1
     day-in-year          : 365
     day-in-month         : 31
     day-of-week-in-month : 5
@@ -79,7 +79,7 @@
     month-in-year        : 12
     month-name           : December
     month-abbreviation   : Dec
-    week-in-year         : 53
+    week-in-year         : 1
     day-in-year          : 366
     day-in-month         : 31
     day-of-week-in-month : 5

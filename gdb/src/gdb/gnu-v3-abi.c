@@ -216,7 +216,12 @@ gnuv3_rtti_type (struct value *value,
 
   /* Fetch VALUE's virtual table pointer, and tweak it to point at
      an instance of our imaginary gdb_gnu_v3_abi_vtable structure.  */
-  base_type = check_typedef (TYPE_VPTR_BASETYPE (values_type));
+  /* APPLE LOCAL: Always check the return of TYPE_VPTR_BASETYPE for NULL...  */
+  base_type = TYPE_VPTR_BASETYPE (values_type);
+  if (base_type == NULL)
+    return NULL;
+
+  base_type = check_typedef (base_type);
   if (values_type != base_type)
     {
       value = value_cast (base_type, value);
@@ -301,6 +306,10 @@ gnuv3_virtual_fn_field (struct value **value_p,
        it's the same base class that has our vtable; this is wrong for
        multiple inheritance, but it's better than nothing.  */
     vfn_base = TYPE_VPTR_BASETYPE (type);
+
+  /* APPLE LOCAL: Always check TYPE_VPTR_BASETYPE against NULL.  */
+  if (vfn_base == NULL)
+    error ("Could not find the base type of the virtual table for this class.");
 
   /* This type may have been defined before its virtual function table
      was.  If so, fill in the virtual function table entry for the
@@ -397,7 +406,11 @@ gnuv3_baseclass_offset (struct type *type, int index, const bfd_byte *valaddr,
      start of whichever baseclass it resides in, as a sanity measure - iff
      we have debugging information for that baseclass.  */
 
+  /* APPLE LOCAL: Always check TYPE_VPTR_BASETYPE against NULL.  */
   vbasetype = TYPE_VPTR_BASETYPE (type);
+  if (vbasetype == NULL)
+    return -1;
+
   if (TYPE_VPTR_FIELDNO (vbasetype) < 0)
     fill_in_vptr_fieldno (vbasetype);
 

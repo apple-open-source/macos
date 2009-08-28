@@ -1,4 +1,9 @@
 IFDEF(INCWSLEVEL)(INCWSLEVEL())(STARTDEF())
-def(version)(0)(4.3.4)
-def(date)(0)(April 19, 2006)
+def(version)(0)(4.3.9)
+def(date)(0)(October 30, 2008)
+def(zshenv)(0)(/etc/zshenv)
+def(zprofile)(0)(/etc/zprofile)
+def(zshrc)(0)(/etc/zshrc)
+def(zlogin)(0)(/etc/zlogin)
+def(zlogout)(0)(/etc/zlogout)
 IFDEF(DECWSLEVEL)(DECWSLEVEL())(ENDDEF())\

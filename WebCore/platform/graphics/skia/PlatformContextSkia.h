@@ -115,7 +115,7 @@ public:
     void setLineCap(SkPaint::Cap);
     void setLineJoin(SkPaint::Join);
     void setFillRule(SkPath::FillType);
-    void setPorterDuffMode(SkPorterDuff::Mode);
+    void setXfermodeMode(SkXfermode::Mode);
     void setFillColor(SkColor);
     void setStrokeStyle(WebCore::StrokeStyle);
     void setStrokeColor(SkColor);
@@ -130,6 +130,7 @@ public:
     WebCore::StrokeStyle getStrokeStyle() const;
     float getStrokeThickness() const;
     int getTextDrawingMode() const;
+    float getAlpha() const;
 
     void beginPath();
     void addPath(const SkPath&);

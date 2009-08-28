@@ -1,0 +1,218 @@
+/*
+ * $Id: manpage.css,v 1.1 2004/11/09 23:10:58 patthoyts Exp $
+ * Author: 	Joe English, <jenglish@flightab.com>
+ * Created: 	26 Jun 2000
+ * Description:	CSS stylesheet for TCL man pages
+ */
+
+HTML {
+    background: 	#FFFFFF;
+    color: 		black;
+}
+
+BODY {
+    background: 	#FFFFFF;
+    color:	 	black;
+}
+
+DIV.body {
+    margin-left:	10%;
+    margin-right:	10%;
+}
+DIV.header,DIV.footer {
+    width:		100%;
+    margin-left:	0%;
+    margin-right:	0%;
+}
+
+DIV.body H1,DIV.body H2 {
+    margin-left:	-5%;
+}
+
+/* Navigation material: */
+
+DIV.navbar {
+    width:		100%;
+    margin-top:		5pt;
+    margin-bottom:	5pt;
+    margin-left:	0%;
+    margin-right:	0%;
+    padding-top:  	5pt;
+    padding-bottom:	5pt;
+    background:		#DDDDDD;
+    color:		black;
+    border: 		1px solid black;
+    text-align:		center;
+    font-size:		small;
+    font-family:	sans-serif;
+}
+
+P.navaid {
+    text-align:	center;
+}
+.navaid {
+    font-size:		small;
+    font-family:	sans-serif;
+}
+
+P.notice {
+    text-align: 	center;
+    font-size:		small;
+    font-family:	sans-serif;
+    font-style: 	italic;
+    color: 		red;
+}
+
+A.navaid:link 		{ color: green;		background: transparent; }
+A.navaid:visited	{ color: green;		background: transparent; }
+A.navaid:active 	{ color: yellow;	background: transparent; }
+
+/* For most anchors, we should leave colors up to the user's preferences. */
+/*--
+A:link 		{ color: blue; 		background: transparent; }
+A:visited	{ color: purple;	background: transparent; }
+A:active 	{ color: red;		background: transparent; }
+--*/
+
+H1, H2, H3, H4 {
+    margin-top: 	1em;
+    font-family:	sans-serif;
+    font-size:		large;
+    color:		#005A9C;
+    background: 	transparent;
+    text-align:		left;
+}
+
+H1.title {
+    text-align: center;
+}
+
+UL,OL {
+    margin-right: 0em;
+    margin-top: 3pt;
+    margin-bottom: 3pt;
+}
+UL LI {
+    list-style: disc;
+}
+OL LI {
+    list-style: decimal;
+}
+
+DT {
+	padding-top: 	1ex;
+}
+
+DL.toc {
+    font: 	normal 12pt/16pt sans-serif;
+    margin-left: 10%;
+}
+
+UL.toc,UL.toc UL, UL.toc UL UL {
+    font:	normal 12pt/14pt sans-serif;
+    list-style:	none;
+}
+LI.tocentry,LI.tocheading {
+    list-style: 	none;
+    margin-left: 	0em;
+    text-indent:	0em;
+    padding: 		0em;
+}
+
+.tocheading {
+    font-family:	sans-serif;
+    font-weight:	bold;
+    color:		#005A9C;
+    background: 	transparent;
+}
+
+PRE {
+    display: 		block;
+    font-family:	monospace;
+    white-space:	pre;
+    margin:		0%;
+    padding-top:	0.5ex;
+    padding-bottom:	0.5ex;
+    padding-left:	1ex;
+    padding-right:	1ex;
+    width:		100%;
+}
+PRE.syntax {
+    color: 		black;
+    background: 	#80ffff;
+    border:		1px solid black;
+    font-family:	serif;
+}
+PRE.example {
+    color: 		black;
+    background: 	#f5dcb3;
+    border:		1px solid black;
+}
+
+PRE.sample {
+    color: 		black;
+    background: 	#f5dcb3;
+    border:		1px solid black;
+}
+
+DIV.arglist {
+    border:		1px solid black;
+    width:		100%;
+}
+TH, THEAD TR, TR.heading {
+    color:		#005A9C;
+    background:		#DDDDDD;
+    text-align:	 	center;
+    font-family:	sans-serif;
+    font-weight:	bold;
+}
+TR.syntax {
+    color: 		black;
+    background:		#80ffff;
+}
+TR.desc {
+    color: 		black;
+    background:		#f5dcb3;
+}
+
+/* TR.row[01] are used to get alternately colored table rows. 
+ * Could probably choose better colors here...
+ */
+TR.row0 {
+    color: 		black;
+    background:		#efffef;
+}
+
+TR.row1 {
+    color: 		black;
+    background:		#efefff;
+}
+
+/* Workaround for Netscape bugs:
+ * Netscape doesn't seem to compute table widths properly.
+ * unless they're wrapped inside a DIV.  (Additionally,
+ * it appears to require a non-zero border-width.)
+ */
+DIV.table {
+    border-width:	1px;
+    border-color:	white;
+    width:		100%;
+}
+DIV.menu {	/* Wrapper for TABLE class="menu" */
+    margin-top:		10px;
+    margin-bottom:	10px;
+    border:		thin solid #005A9C;
+    width:		100%;
+    margin-left:	5%;
+}
+
+VAR {
+    font-style: italic;
+}
+
+/* For debugging: highlight unrecognized elements: */
+.unrecognized {
+    color: red; background: green;
+}
+
+/* EOF */

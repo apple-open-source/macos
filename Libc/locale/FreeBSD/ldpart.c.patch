@@ -1,5 +1,5 @@
---- ldpart.c.orig	2004-11-25 11:38:17.000000000 -0800
-+++ ldpart.c	2005-02-13 01:59:35.000000000 -0800
+--- ldpart.c.orig	2008-06-03 18:15:42.000000000 -0700
++++ ldpart.c	2008-06-18 13:23:20.000000000 -0700
 @@ -27,6 +27,8 @@
  #include <sys/cdefs.h>
  __FBSDID("$FreeBSD: src/lib/libc/locale/ldpart.c,v 1.15 2004/04/25 19:56:50 ache Exp $");
@@ -9,7 +9,7 @@
  #include "namespace.h"
  #include <sys/types.h>
  #include <sys/stat.h>
-@@ -44,9 +46,9 @@
+@@ -44,9 +46,9 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/
  
  static int split_lines(char *, const char *);
  
@@ -21,7 +21,7 @@
  		char **locale_buf,
  		const char *category_filename,
  		int locale_buf_size_max,
-@@ -60,20 +62,6 @@
+@@ -60,20 +62,6 @@ __part_load_locale(const char *name,
  	struct stat	st;
  	size_t		namesize, bufsize;
  
@@ -42,7 +42,18 @@
  	/*
  	 * Slurp the locale file into the cache.
  	 */
-@@ -164,3 +152,9 @@
+@@ -115,9 +103,7 @@ __part_load_locale(const char *name,
+ 	num_lines = split_lines(p, plim);
+ 	if (num_lines >= locale_buf_size_max)
+ 		num_lines = locale_buf_size_max;
+-	else if (num_lines >= locale_buf_size_min)
+-		num_lines = locale_buf_size_min;
+-	else {
++	else if (num_lines < locale_buf_size_min) {
+ 		errno = EFTYPE;
+ 		goto bad_lbuf;
+ 	}
+@@ -164,3 +150,9 @@ split_lines(char *p, const char *plim)
  	return (i);
  }
  

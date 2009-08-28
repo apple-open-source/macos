@@ -59,7 +59,7 @@ typedef enum {
 /**
  * xsltDocLoaderFunc:
  * @URI: the URI of the document to load
- * @dict: the dictionnary to use when parsing that document
+ * @dict: the dictionary to use when parsing that document
  * @options: parsing options, a set of xmlParserOption
  * @ctxt: the context, either a stylesheet or a transformation context
  * @type: the xsltLoadType indicating the kind of loading required

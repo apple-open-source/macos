@@ -1,8 +1,13 @@
 /********************************************************************
  * COPYRIGHT:
- * Copyright (c) 2002-2006, International Business Machines Corporation and
+ * Copyright (c) 2002-2008, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
+
+/* z/OS needs this definition for timeval */
+#if !defined(_XOPEN_SOURCE_EXTENDED)
+#define _XOPEN_SOURCE_EXTENDED 1
+#endif
 
 #include "unicode/uperf.h"
 #include "uoptions.h"
@@ -26,11 +31,14 @@ const char UPerfTest::gUsageString[] =
     "\t-e or --encoding     encoding of source files\n"
     "\t-u or --uselen       perform timing analysis on non-null terminated buffer using length\n"
     "\t-f or --file-name    file to be used as input data\n"
-    "\t-p or --passes       Number of passes to be performed. Requires Numeric argument. Cannot be used with --time\n"
+    "\t-p or --passes       Number of passes to be performed. Requires Numeric argument.\n"
+    "\t                     Cannot be used with --time\n"
     "\t-i or --iterations   Number of iterations to be performed. Requires Numeric argument\n"
-    "\t-t or --time         Threshold time for looping until in seconds. Requires Numeric argument.Cannot be used with --iterations\n"
+    "\t-t or --time         Threshold time for looping until in seconds. Requires Numeric argument.\n"
+    "\t                     Cannot be used with --iterations\n"
     "\t-l or --line-mode    The data file should be processed in line mode\n"
-    "\t-b or --bulk-mode    The data file should be processed in file based. Cannot be used with --line-mode\n"
+    "\t-b or --bulk-mode    The data file should be processed in file based.\n"
+    "\t                     Cannot be used with --line-mode\n"
     "\t-L or --locale       Locale for the test\n";
 
 enum
@@ -47,11 +55,12 @@ enum
     TIME,
     LINE_MODE,
     BULK_MODE,
-    LOCALE
+    LOCALE,
+    OPTIONS_COUNT
 };
 
 
-static UOption options[]={
+static UOption options[OPTIONS_COUNT+20]={
     UOPTION_HELP_H,
     UOPTION_HELP_QUESTION_MARK,
     UOPTION_VERBOSE,
@@ -67,32 +76,59 @@ static UOption options[]={
     UOPTION_DEF( "locale",        'L', UOPT_REQUIRES_ARG)
 };
 
-UPerfTest::UPerfTest(int32_t argc, const char* argv[], UErrorCode& status){
-    
-    _argc = argc;
-    _argv = argv;
-    ucharBuf = NULL;
-    encoding = "";
-    uselen = FALSE;
-    fileName = NULL;
-    sourceDir = ".";
-    lines = NULL;
-    numLines = 0;
-    line_mode = TRUE;
-    buffer = NULL;
-    bufferLen = 0;
-    verbose = FALSE;
-    bulk_mode = FALSE;
-    passes = iterations = time = 0;
-    locale = NULL;
-    
+UPerfTest::UPerfTest(int32_t argc, const char* argv[], UErrorCode& status)
+        : _argc(argc), _argv(argv), _addUsage(NULL),
+          ucharBuf(NULL), encoding(""),
+          uselen(FALSE),
+          fileName(NULL), sourceDir("."),
+          lines(NULL), numLines(0), line_mode(TRUE),
+          buffer(NULL), bufferLen(0),
+          verbose(FALSE), bulk_mode(FALSE),
+          passes(1), iterations(0), time(0),
+          locale(NULL) {
+    init(NULL, 0, status);
+}
+
+UPerfTest::UPerfTest(int32_t argc, const char* argv[],
+                     UOption addOptions[], int32_t addOptionsCount,
+                     const char *addUsage,
+                     UErrorCode& status)
+        : _argc(argc), _argv(argv), _addUsage(addUsage),
+          ucharBuf(NULL), encoding(""),
+          uselen(FALSE),
+          fileName(NULL), sourceDir("."),
+          lines(NULL), numLines(0), line_mode(TRUE),
+          buffer(NULL), bufferLen(0),
+          verbose(FALSE), bulk_mode(FALSE),
+          passes(1), iterations(0), time(0),
+          locale(NULL) {
+    init(addOptions, addOptionsCount, status);
+}
+
+void UPerfTest::init(UOption addOptions[], int32_t addOptionsCount,
+                     UErrorCode& status) {
     //initialize the argument list
-    U_MAIN_INIT_ARGS(argc, argv);
+    U_MAIN_INIT_ARGS(_argc, _argv);
+
+    resolvedFileName = NULL;
+
+    // add specific options
+    int32_t optionsCount = OPTIONS_COUNT;
+    if (addOptionsCount > 0) {
+        memcpy(options+optionsCount, addOptions, addOptionsCount*sizeof(UOption));
+        optionsCount += addOptionsCount;
+    }
+
     //parse the arguments
-    _remainingArgc = u_parseArgs(argc, (char**)argv, (int32_t)(sizeof(options)/sizeof(options[0])), options);
+    _remainingArgc = u_parseArgs(_argc, (char**)_argv, optionsCount, options);
+
+    // copy back values for additional options
+    if (addOptionsCount > 0) {
+        memcpy(addOptions, options+OPTIONS_COUNT, addOptionsCount*sizeof(UOption));
+    }
 
     // Now setup the arguments
-    if(argc==1 || options[HELP1].doesOccur || options[HELP2].doesOccur) {
+    if(_argc==1 || options[HELP1].doesOccur || options[HELP2].doesOccur) {
         status = U_ILLEGAL_ARGUMENT_ERROR;
         return;
     }
@@ -122,12 +158,16 @@ UPerfTest::UPerfTest(int32_t argc, const char* argv[], UErrorCode& status){
     }
     if(options[ITERATIONS].doesOccur) {
         iterations = atoi(options[ITERATIONS].value);
-    }
- 
-    if(options[TIME].doesOccur) {
+        if(options[TIME].doesOccur) {
+            status = U_ILLEGAL_ARGUMENT_ERROR;
+            return;
+        }
+    } else if(options[TIME].doesOccur) {
         time = atoi(options[TIME].value);
+    } else {
+        iterations = 1000; // some default
     }
-    
+
     if(options[LINE_MODE].doesOccur) {
         line_mode = TRUE;
         bulk_mode = FALSE;
@@ -139,16 +179,10 @@ UPerfTest::UPerfTest(int32_t argc, const char* argv[], UErrorCode& status){
     }
     
     if(options[LOCALE].doesOccur) {
-      locale = options[LOCALE].value;
-    }
-
-    if(time > 0 && iterations >0){
-        status = U_ILLEGAL_ARGUMENT_ERROR;
-        return;
+        locale = options[LOCALE].value;
     }
 
     int32_t len = 0;
-    resolvedFileName = NULL;
     if(fileName!=NULL){
         //pre-flight
         ucbuf_resolveFileName(sourceDir, fileName, NULL, &len, &status);
@@ -205,6 +239,9 @@ ULine* UPerfTest::getLines(UErrorCode& status){
     return lines;
 }
 const UChar* UPerfTest::getBuffer(int32_t& len, UErrorCode& status){
+    if (U_FAILURE(status)) {
+        return NULL;
+    }
     len = ucbuf_size(ucharBuf);
     buffer =  (UChar*) uprv_malloc(U_SIZEOF_UCHAR * (len+1));
     u_strncpy(buffer,ucbuf_getBuffer(ucharBuf,&bufferLen,&status),len);
@@ -305,6 +342,7 @@ UBool UPerfTest::runTestLoop( char* testname, char* par )
     int32_t loops = 0;
     double t=0;
     int32_t n = 1;
+    long ops;
     do {
         this->runIndexedTest( index, FALSE, name );
         if (!name || (name[0] == 0))
@@ -322,7 +360,8 @@ UBool UPerfTest::runTestLoop( char* testname, char* par )
                 fprintf(stderr,"%s function returned NULL", name);
                 return FALSE;
             }
-            if (testFunction->getOperationsPerIteration() < 1) {
+            ops = testFunction->getOperationsPerIteration();
+            if (ops < 1) {
                 fprintf(stderr, "%s returned an illegal operations/iteration()\n", name);
                 return FALSE;
             }
@@ -360,8 +399,10 @@ UBool UPerfTest::runTestLoop( char* testname, char* par )
                 loops = iterations;
             }
 
+            double min_t=1000000.0, sum_t=0.0;
+            long events = -1;
+
             for(int32_t ps =0; ps < passes; ps++){
-                long events = -1;
                 fprintf(stdout,"= %s begin " ,name);
                 if(verbose==TRUE){
                     if(iterations > 0) {
@@ -377,34 +418,42 @@ UBool UPerfTest::runTestLoop( char* testname, char* par )
                     printf("Performance test failed with error: %s \n", u_errorName(status));
                     break;
                 }
+                sum_t+=t;
+                if(t<min_t) {
+                    min_t=t;
+                }
                 events = testFunction->getEventsPerIteration();
                 //print info only in verbose mode
                 if(verbose==TRUE){
-/*
                     if(events == -1){
-                        fprintf(stdout,"= %s end %f %i %i\n",name , t , loops, testFunction->getOperationsPerIteration());
+                        fprintf(stdout, "= %s end: %f loops: %i operations: %li \n", name, t, (int)loops, ops);
                     }else{
-                        fprintf(stdout,"= %s end %f %i %i %i\n",name , t , loops, testFunction->getOperationsPerIteration(), events);
-                    }
-*/
-                    if(events == -1){
-                        fprintf(stdout, "= %s end: %f loops: %i operations: %li \n", name, t, (int)loops, testFunction->getOperationsPerIteration());
-                    }else{
-                        fprintf(stdout, "= %s end: %f loops: %i operations: %li events: %li\n", name, t, (int)loops, testFunction->getOperationsPerIteration(), events);
+                        fprintf(stdout, "= %s end: %f loops: %i operations: %li events: %li\n", name, t, (int)loops, ops, events);
                     }
                 }else{
-/*
                     if(events == -1){
-                        fprintf(stdout,"= %f %i %i \n", t , loops, testFunction->getOperationsPerIteration());
+                        fprintf(stdout,"= %s end %f %i %li\n", name, t, (int)loops, ops);
                     }else{
-                        fprintf(stdout,"= %f %i %i %i\n", t , loops, testFunction->getOperationsPerIteration(), events);
+                        fprintf(stdout,"= %s end %f %i %li %li\n", name, t, (int)loops, ops, events);
                     }
-*/
-                    if(events == -1){
-                        fprintf(stdout,"= %s end %f %i %li\n", name, t, (int)loops, testFunction->getOperationsPerIteration());
-                    }else{
-                        fprintf(stdout,"= %s end %f %i %li %li\n", name, t, (int)loops, testFunction->getOperationsPerIteration(), events);
-                    }
+                }
+            }
+            if(verbose && U_SUCCESS(status)) {
+                double avg_t = sum_t/passes;
+                if (loops == 0 || ops == 0) {
+                    fprintf(stderr, "%s did not run\n", name);
+                }
+                else if(events == -1) {
+                    fprintf(stdout, "%%= %s avg: %.4g loops: %i avg/op: %.4g ns\n",
+                            name, avg_t, (int)loops, (avg_t*1E9)/(loops*ops));
+                    fprintf(stdout, "_= %s min: %.4g loops: %i min/op: %.4g ns\n",
+                            name, min_t, (int)loops, (min_t*1E9)/(loops*ops));
+                }
+                else {
+                    fprintf(stdout, "%%= %s avg: %.4g loops: %i avg/op: %.4g ns avg/event: %.4g ns\n",
+                            name, avg_t, (int)loops, (avg_t*1E9)/(loops*ops), (avg_t*1E9)/(loops*events));
+                    fprintf(stdout, "_= %s min: %.4g loops: %i min/op: %.4g ns min/event: %.4g ns\n",
+                            name, min_t, (int)loops, (min_t*1E9)/(loops*ops), (min_t*1E9)/(loops*events));
                 }
             }
             delete testFunction;
@@ -421,6 +470,11 @@ UBool UPerfTest::runTestLoop( char* testname, char* par )
 */
 void UPerfTest::usage( void )
 {
+    puts(gUsageString);
+    if (_addUsage != NULL) {
+        puts(_addUsage);
+    }
+
     UBool save_verbose = verbose;
     verbose = TRUE;
     fprintf(stdout,"Test names:\n");

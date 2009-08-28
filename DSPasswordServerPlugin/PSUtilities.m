@@ -28,9 +28,9 @@
 //	* pwsf_GetServerListFromConfig
 // ---------------------------------------------------------------------------
 
-long pwsf_GetServerListFromConfig( CFMutableArrayRef *outServerList, ReplicaFile *inReplicaData )
+int pwsf_GetServerListFromConfig( CFMutableArrayRef *outServerList, ReplicaFile *inReplicaData )
 {
-	long status = 0;
+	int status = 0;
 	CFMutableArrayRef serverArray;
 	
 	if ( outServerList == NULL || inReplicaData == NULL )
@@ -62,16 +62,16 @@ long pwsf_GetServerListFromConfig( CFMutableArrayRef *outServerList, ReplicaFile
 //	* pwsf_GetServerListFromXML
 // ---------------------------------------------------------------------------
 
-long
+int
 pwsf_GetServerListFromXML( ReplicaFile *inReplicaFile, CFMutableArrayRef inOutServerList )
 {
 	CFDictionaryRef serverDict;
 	CFStringRef serverID;
 	CFStringRef ldapServerString = NULL;
-	UInt32 repIndex;
-	UInt32 repCount;
+	unsigned long repIndex;
+	unsigned long repCount;
 	int ipIndex = 0;
-	long status = 0;
+	int status = 0;
 	sPSServerEntry serverEntry;
 	char ldapServerStr[256] = {0};
 	
@@ -227,7 +227,7 @@ PWServerError pwsf_ReadSyncDataFromServerWithCASTKey(
 		
 		// parse the header
 		sscanf( plainDescBuffer + 6, "%d %u %u", dataTypePtr, dataSizePtr, dataLenPtr );
-		if ( *dataTypePtr < kDBTypeLastSyncTime || *dataTypePtr > kDBTypeKerberosPrincipal || *dataLenPtr > *dataSizePtr )
+		if ( !kDBTypeIsValid(*dataTypePtr) || *dataLenPtr > *dataSizePtr )
 			return connectionErr;
 		
 		// make a read and decrypt buffer

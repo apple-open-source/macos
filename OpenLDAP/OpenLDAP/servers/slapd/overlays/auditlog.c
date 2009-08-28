@@ -1,8 +1,8 @@
 /* auditlog.c - log modifications for audit/history purposes */
-/* $OpenLDAP: pkg/ldap/servers/slapd/overlays/auditlog.c,v 1.1.2.6 2006/07/28 13:01:37 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/overlays/auditlog.c,v 1.7.2.7 2008/04/14 21:18:48 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2005-2006 The OpenLDAP Foundation.
+ * Copyright 2005-2008 The OpenLDAP Foundation.
  * Portions copyright 2004-2005 Symas Corporation.
  * All rights reserved.
  *
@@ -29,12 +29,33 @@
 #include <ac/ctype.h>
 
 #include "slap.h"
+#include "config.h"
 #include "ldif.h"
 
 typedef struct auditlog_data {
 	ldap_pvt_thread_mutex_t ad_mutex;
 	char *ad_logfile;
 } auditlog_data;
+
+static ConfigTable auditlogcfg[] = {
+	{ "auditlog", "filename", 2, 2, 0,
+	  ARG_STRING|ARG_OFFSET,
+	  (void *)offsetof(auditlog_data, ad_logfile),
+	  "( OLcfgOvAt:15.1 NAME 'olcAuditlogFile' "
+	  "DESC 'Filename for auditlogging' "
+	  "SYNTAX OMsDirectoryString )", NULL, NULL },
+	{ NULL, NULL, 0, 0, 0, ARG_IGNORED }
+};
+
+static ConfigOCs auditlogocs[] = {
+	{ "( OLcfgOvOc:15.1 "
+	  "NAME 'olcAuditlogConfig' "
+	  "DESC 'Auditlog configuration' "
+	  "SUP olcOverlayConfig "
+	  "MAY ( olcAuditlogFile ) )",
+	  Cft_Overlay, auditlogcfg },
+	{ NULL, 0, NULL }
+};
 
 static int fprint_ldif(FILE *f, char *name, char *val, ber_len_t len) {
 	char *s;
@@ -51,14 +72,14 @@ static int auditlog_response(Operation *op, SlapReply *rs) {
 	FILE *f;
 	Attribute *a;
 	Modifications *m;
-	struct berval *b;
-	char *what, *subop, *suffix, *who = NULL;
-	long stamp = slap_get_time();
+	struct berval *b, *who = NULL;
+	char *what, *suffix;
+	time_t stamp;
 	int i;
 
 	if ( rs->sr_err != LDAP_SUCCESS ) return SLAP_CB_CONTINUE;
 
-	if ( !op->o_bd || !ad->ad_logfile ) return SLAP_CB_CONTINUE;
+	if ( !ad->ad_logfile ) return SLAP_CB_CONTINUE;
 
 /*
 ** add or modify: use modifiersName if present
@@ -71,7 +92,7 @@ static int auditlog_response(Operation *op, SlapReply *rs) {
 			what = "add";
 			for(a = op->ora_e->e_attrs; a; a = a->a_next)
 				if( a->a_desc == slap_schema.si_ad_modifiersName ) {
-					who = a->a_vals[0].bv_val;
+					who = &a->a_vals[0];
 					break;
 				}
 			break;
@@ -81,7 +102,7 @@ static int auditlog_response(Operation *op, SlapReply *rs) {
 				if( m->sml_desc == slap_schema.si_ad_modifiersName &&
 					( m->sml_op == LDAP_MOD_ADD ||
 					m->sml_op == LDAP_MOD_REPLACE )) {
-					who = m->sml_values[0].bv_val;
+					who = &m->sml_values[0];
 					break;
 				}
 			break;
@@ -96,7 +117,7 @@ static int auditlog_response(Operation *op, SlapReply *rs) {
 ** note: this means requestor's dn when modifiersName is null
 */
 	if ( !who )
-		who = op->o_dn.bv_val;
+		who = &op->o_dn;
 
 	ldap_pvt_thread_mutex_lock(&ad->ad_mutex);
 	if((f = fopen(ad->ad_logfile, "a")) == NULL) {
@@ -104,14 +125,21 @@ static int auditlog_response(Operation *op, SlapReply *rs) {
 		return SLAP_CB_CONTINUE;
 	}
 
-	fprintf(f, "# %s %ld %s%s%s\ndn: %s\nchangetype: %s\n",
-		what, stamp, suffix, who ? " " : "", who ? who : "",
+	stamp = slap_get_time();
+	fprintf(f, "# %s %ld %s%s%s\n",
+		what, (long)stamp, suffix, who ? " " : "", who ? who->bv_val : "");
+
+	if ( !BER_BVISEMPTY( &op->o_conn->c_dn ) &&
+		(!who || !dn_match( who, &op->o_conn->c_dn )))
+		fprintf(f, "# realdn: %s\n", op->o_conn->c_dn.bv_val );
+
+	fprintf(f, "dn: %s\nchangetype: %s\n",
 		op->o_req_dn.bv_val, what);
 
 	switch(op->o_tag) {
 	  case LDAP_REQ_ADD:
 		for(a = op->ora_e->e_attrs; a; a = a->a_next)
-		    if(b = a->a_vals)
+		  if((b = a->a_vals) != NULL)
 			for(i = 0; b[i].bv_val; i++)
 				fprint_ldif(f, a->a_desc->ad_cname.bv_val, b[i].bv_val, b[i].bv_len);
 		break;
@@ -128,7 +156,8 @@ static int auditlog_response(Operation *op, SlapReply *rs) {
 					continue;
 			}
 			fprintf(f, "%s: %s\n", what, m->sml_desc->ad_cname.bv_val);
-			if(b = m->sml_values) for(i = 0; b[i].bv_val; i++)
+			if((b = m->sml_values) != NULL)
+			  for(i = 0; b[i].bv_val; i++)
 				fprint_ldif(f, m->sml_desc->ad_cname.bv_val, b[i].bv_val, b[i].bv_len);
 			fprintf(f, "-\n");
 		}
@@ -145,7 +174,7 @@ static int auditlog_response(Operation *op, SlapReply *rs) {
 		break;
 	}
 
-	fprintf(f, "# end %s %ld\n\n", what, stamp);
+	fprintf(f, "# end %s %ld\n\n", what, (long)stamp);
 
 	fclose(f);
 	ldap_pvt_thread_mutex_unlock(&ad->ad_mutex);
@@ -156,7 +185,8 @@ static slap_overinst auditlog;
 
 static int
 auditlog_db_init(
-	BackendDB *be
+	BackendDB *be,
+	ConfigReply *cr
 )
 {
 	slap_overinst *on = (slap_overinst *)be->bd_info;
@@ -169,7 +199,8 @@ auditlog_db_init(
 
 static int
 auditlog_db_close(
-	BackendDB *be
+	BackendDB *be,
+	ConfigReply *cr
 )
 {
 	slap_overinst *on = (slap_overinst *)be->bd_info;
@@ -182,7 +213,8 @@ auditlog_db_close(
 
 static int
 auditlog_db_destroy(
-	BackendDB *be
+	BackendDB *be,
+	ConfigReply *cr
 )
 {
 	slap_overinst *on = (slap_overinst *)be->bd_info;
@@ -193,40 +225,18 @@ auditlog_db_destroy(
 	return 0;
 }
 
-static int
-auditlog_config(
-	BackendDB	*be,
-	const char	*fname,
-	int		lineno,
-	int		argc,
-	char	**argv
-)
-{
-	slap_overinst *on = (slap_overinst *) be->bd_info;
-	auditlog_data *ad = on->on_bi.bi_private;
-
-	/* history log file */
-	if ( strcasecmp( argv[0], "auditlog" ) == 0 ) {
-		if ( argc < 2 ) {
-			Debug( LDAP_DEBUG_ANY,
-	    "%s: line %d: missing filename in \"auditlog <filename>\" line\n",
-			    fname, lineno, 0 );
-				return( 1 );
-		}
-		ad->ad_logfile = ch_strdup( argv[1] );
-		return 0;
-	}
-	return SLAP_CONF_UNKNOWN;
-}
-
 int auditlog_initialize() {
+	int rc;
 
 	auditlog.on_bi.bi_type = "auditlog";
 	auditlog.on_bi.bi_db_init = auditlog_db_init;
-	auditlog.on_bi.bi_db_config = auditlog_config;
 	auditlog.on_bi.bi_db_close = auditlog_db_close;
 	auditlog.on_bi.bi_db_destroy = auditlog_db_destroy;
 	auditlog.on_response = auditlog_response;
+
+	auditlog.on_bi.bi_cf_ocs = auditlogocs;
+	rc = config_register_schema( auditlogcfg, auditlogocs );
+	if ( rc ) return rc;
 
 	return overlay_register(&auditlog);
 }

@@ -81,7 +81,13 @@ is_deeply(
     [ qw(Diamond_D Diamond_B Diamond_E Diamond_C Diamond_A) ],
     '... got the new MRO for Diamond_D');
 
-is(Diamond_D->hello, 'Diamond_C::hello', '... method still resolves with old MRO');
+# Doesn't work with core support, since reinit is not neccesary and the change
+#  takes effect immediately
+SKIP: {
+    skip "This test does not work with a c3-patched perl interpreter", 1
+        if $Class::C3::C3_IN_CORE;
+    is(Diamond_D->hello, 'Diamond_C::hello', '... method still resolves with old MRO');
+}
 
 Class::C3::reinitialize();
 

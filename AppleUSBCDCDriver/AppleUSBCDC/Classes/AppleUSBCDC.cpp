@@ -54,6 +54,7 @@
 #include "AppleUSBCDCCommon.h"
 #include "AppleUSBCDC.h"
 #include "AppleUSBCDCPrivate.h"
+#include "WWANSchemaDefinitions.h"
 
     // Globals
 
@@ -127,6 +128,27 @@ bool AppleUSBCDC::start(IOService *provider)
 		return false;
     }
 
+	// get workloop
+        
+    fWorkLoop = getWorkLoop();
+    if (!fWorkLoop)
+    {
+        ALERT(0, 0, "start - getWorkLoop failed");
+        return false;
+    }
+    
+    fWorkLoop->retain();
+	
+	fCommandGate = IOCommandGate::commandGate(this);
+    if (!fCommandGate)
+    {
+        ALERT(0, 0, "start - getCommandGate failed");
+		fWorkLoop->release();
+        return false;
+    }
+
+    fWorkLoop->addEventSource( fCommandGate );
+
 	// Let's see if we have any configurations to play with
 		
     configs = fpDevice->GetNumConfigurations();
@@ -156,6 +178,21 @@ bool AppleUSBCDC::start(IOService *provider)
     return true;
     	
 }/* end start */
+
+void AppleUSBCDC::free()
+{	
+    if ( fCommandGate )
+    {
+        if ( fWorkLoop )
+        {
+            fWorkLoop->removeEventSource( fCommandGate );
+        }
+        
+        fCommandGate->release();
+        fCommandGate = NULL;
+    }        
+    super::free();	  
+}/* end free */
 
 /****************************************************************************************************/
 //
@@ -836,3 +873,180 @@ IOReturn AppleUSBCDC::message(UInt32 type, IOService *provider, void *argument)
     return kIOReturnUnsupported;
     
 }/* end message */
+
+
+IOCommandGate *AppleUSBCDC::getCommandGate() const
+{
+    return fCommandGate;
+}
+
+
+IOReturn AppleUSBCDC::setProperties( OSObject * properties )
+{
+	IOReturn result = kIOReturnError;
+	IOCommandGate *cg;
+	
+	Log("[AppleUSBCDC::setProperties] >>>\n");
+	
+	cg = getCommandGate();
+	
+	if ( cg != NULL )
+	{
+		result = cg->runAction( setPropertiesAction, (void *)properties );
+	}
+	
+	Log("[AppleUSBCDC::setProperties] <<<\n");
+	
+	return result;
+}
+
+//===========================================================================================================================
+//	setPropertiesAction
+//===========================================================================================================================
+
+IOReturn AppleUSBCDC::setPropertiesAction(	OSObject	*owner, 
+														void		*arg1, 
+														void		*arg2, 
+														void		*arg3, 
+														void		*arg4 )
+{
+	IOReturn result = kIOReturnBadArgument;
+	
+	if ( owner != NULL )
+	{
+		AppleUSBCDC *me = OSDynamicCast( AppleUSBCDC, owner );
+		
+		if ( me != NULL )
+		{
+			result = me->setPropertiesWL( (OSObject *)arg1 );
+		}
+	}
+	
+	return result;
+}
+
+//===========================================================================================================================
+//	setPropertiesWL
+//===========================================================================================================================
+
+IOReturn AppleUSBCDC::setPropertiesWL( OSObject * properties )
+{
+	IOReturn result = kIOReturnBadArgument;
+	OSDictionary *propertyDict;
+	
+	WWAN_DICTIONARY whichDictionary = WWAN_DICTIONARY_UNKNOWN;
+	
+	OSObject *	dynamicKey = NULL;
+	bool		rc = false;
+	
+	propertyDict = OSDynamicCast( OSDictionary, properties );
+
+	if ( propertyDict != NULL )
+	{
+		OSCollectionIterator *propertyIterator;
+		
+		if (dynamicKey = propertyDict->getObject(kWWAN_TYPE))
+			whichDictionary	= WWAN_SET_DYNAMIC_DICTIONARY;
+		else
+			if (dynamicKey = propertyDict->getObject(kWWAN_HW_VERSION))					
+				whichDictionary	= WWAN_SET_HARDWARE_DICTIONARY;
+			else
+				if (dynamicKey = propertyDict->getObject("AccessPointName"))
+					whichDictionary	= WWAN_SET_MODEM_DICTIONARY;
+				else
+					if (dynamicKey = propertyDict->getObject("LCPMTU"))
+					whichDictionary	= WWAN_SET_PPP_DICTIONARY;
+					else
+						if (dynamicKey = propertyDict->getObject(kWWAN_UNIQUIFIER))
+						whichDictionary	= WWAN_SET_MODEM_DICTIONARY;
+					
+		//if we still can't determine which dictionary it is
+		//Iterate to see if it is a property we know about..
+		if (whichDictionary == WWAN_DICTIONARY_UNKNOWN) 
+		{
+		propertyIterator = OSCollectionIterator::withCollection( propertyDict );
+		
+		if ( propertyIterator != NULL )
+		{
+			OSSymbol *key;
+			
+			while( ( key = (OSSymbol *)propertyIterator->getNextObject() ) )
+			{
+				Log("[setPropertiesWL] key: %s \n", key->getCStringNoCopy());
+//				if (dynamicKey)
+//					setProperty(key->getCStringNoCopy(),key);					
+//					setProperty(key->getCStringNoCopy(),propertyDict->getObject(key));					
+					if (key->isEqualTo(kWWAN_SC_SETUP))
+					{
+						rc = fpDevice->setProperty(kWWAN_SC_SETUP,propertyDict->getObject(key));
+						goto exit;
+					}
+					/*
+					if (key->isEqualTo(kWWAN_UNIQUIFIER))
+					{
+						rc = fpDevice->setProperty(kWWAN_UNIQUIFIER,propertyDict->getObject(key));
+						goto exit;
+					}
+					*/
+					
+				}
+			propertyIterator->release();
+		}
+		else
+		{
+			Log("[setPropertiesWL] could not obtain an OSCollectionIterator... \n");
+			result = kIOReturnError;
+		}
+		}
+		else
+		{		
+			switch (whichDictionary)
+			{
+				case WWAN_SET_DYNAMIC_DICTIONARY:
+					rc = fpDevice->setProperty(kWWAN_DynamicDictonary,propertyDict);
+					Log("[setPropertiesWL] setting kWWAN_DynamicDictonary\n");
+
+					break;
+				
+				case WWAN_SET_HARDWARE_DICTIONARY: 	
+				rc = fpDevice->setProperty(kWWAN_HardwareDictionary,propertyDict);
+					Log("[setPropertiesWL] setting kWWAN_HardwareDictionary\n");
+					break;
+							
+				case WWAN_SET_MODEM_DICTIONARY: 	
+					rc = fpDevice->setProperty("DeviceModemOverrides",propertyDict);
+					Log("[setPropertiesWL] setting DeviceModemOverrides\n");
+					break;
+					break;			
+				case WWAN_SET_PPP_DICTIONARY: 
+					rc = fpDevice->setProperty("DevicePPPOverrides",propertyDict);
+					Log("[setPropertiesWL] setting DevicePPPOverrides\n");
+					break;
+
+				case WWAN_DICTIONARY_UNKNOWN: 	
+					Log("AppleWWANSUpport::setPropertiesWL - Unknown Dictionary");
+					
+					break;
+
+				default:
+					Log("AppleWWANSUpport::setPropertiesWL - default Unknown Dictionary");
+					break;
+			}
+		}
+
+				fpDevice->messageClients ( kIOMessageServicePropertyChange );
+				Log("[setPropertiesWL] set kWWAN_HardwareDictionary [%x] pNub mesaging Clients with  kIOMessageServicePropertyChange \n",rc);
+	
+	}
+
+exit:
+	
+	this->messageClients ( kIOMessageServicePropertyChange );
+	fpDevice->messageClients ( kIOMessageServicePropertyChange );
+
+	return kIOReturnSuccess;
+}
+
+
+
+

@@ -1,10 +1,10 @@
 #!/bin/sh
 #
-# "$Id: 5.1-lpadmin.sh 6649 2007-07-11 21:46:42Z mike $"
+# "$Id: 5.1-lpadmin.sh 7494 2008-04-25 18:36:46Z mike $"
 #
 #   Test the lpadmin command.
 #
-#   Copyright 2007 by Apple Inc.
+#   Copyright 2007-2009 by Apple Inc.
 #   Copyright 1997-2005 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -16,8 +16,8 @@
 
 echo "Add Printer Test"
 echo ""
-echo "    lpadmin -p Test3 -v file:/dev/null -E -m deskjet.ppd"
-../systemv/lpadmin -p Test3 -v file:/dev/null -E -m deskjet.ppd 2>&1
+echo "    lpadmin -p Test3 -v file:/dev/null -E -m drv:///sample.drv/deskjet.ppd"
+../systemv/lpadmin -p Test3 -v file:/dev/null -E -m drv:///sample.drv/deskjet.ppd 2>&1
 if test $? != 0; then
 	echo "    FAILED"
 	exit 1
@@ -51,5 +51,5 @@ fi
 echo ""
 
 #
-# End of "$Id: 5.1-lpadmin.sh 6649 2007-07-11 21:46:42Z mike $".
+# End of "$Id: 5.1-lpadmin.sh 7494 2008-04-25 18:36:46Z mike $".
 #

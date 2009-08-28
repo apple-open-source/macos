@@ -179,7 +179,7 @@ OSStatus SecKeychainItemSetExtendedAttribute(
 		inItem->keychain()->add(outItem);
 	}
 	
-	END_SECAPI2("SecKeychainItemSetExtendedAttribute")
+	END_SECAPI
 }
 
 OSStatus SecKeychainItemCopyExtendedAttribute(
@@ -216,7 +216,7 @@ OSStatus SecKeychainItemCopyExtendedAttribute(
 	*attrValue = CFDataCreate(NULL, (const UInt8 *)attrList->attr->data, 
 		attrList->attr->length);
 	ItemImpl::freeAttributesAndData(attrList, NULL);
-	END_SECAPI2("SecKeychainItemCopyExtendedAttribute")
+	END_SECAPI
 }
 
 OSStatus SecKeychainItemCopyAllExtendedAttributes(
@@ -354,5 +354,5 @@ OSStatus SecKeychainItemCopyAllExtendedAttributes(
 		*attrValues = outValues;
 	}
 	
-	END_SECAPI2("SecKeychainItemCopyAllExtendedAttributes")
+	END_SECAPI
 }

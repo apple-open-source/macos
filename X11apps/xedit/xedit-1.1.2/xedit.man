@@ -1,0 +1,451 @@
+.\" $XConsortium: xedit.man,v 1.23 94/04/17 20:43:39 matt Exp $
+.\" Copyright (c) 1994  X Consortium
+.\" 
+.\" Permission is hereby granted, free of charge, to any person obtaining
+.\" a copy of this software and associated documentation files (the
+.\" "Software"), to deal in the Software without restriction, including
+.\" without limitation the rights to use, copy, modify, merge, publish,
+.\" distribute, sublicense, and/or sell copies of the Software, and to
+.\" permit persons to whom the Software is furnished to do so, subject to
+.\" the following conditions:
+.\" 
+.\" The above copyright notice and this permission notice shall be included
+.\" in all copies or substantial portions of the Software.
+.\" 
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+.\" OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+.\" IN NO EVENT SHALL THE X CONSORTIUM BE LIABLE FOR ANY CLAIM, DAMAGES OR
+.\" OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+.\" ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+.\" OTHER DEALINGS IN THE SOFTWARE.
+.\" 
+.\" Except as contained in this notice, the name of the X Consortium shall
+.\" not be used in advertising or otherwise to promote the sale, use or
+.\" other dealings in this Software without prior written authorization
+.\" from the X Consortium.
+.\"
+.\" $XFree86: xc/programs/xedit/xedit.man,v 1.18 2002/10/12 16:06:48 herrb Exp $
+.\"
+.TH XEDIT 1 __vendorversion__
+.SH NAME
+xedit \- simple text editor for X
+.SH SYNTAX
+.B xedit
+[
+.I \-toolkitoption
+\&.\|.\|. ] [
+.I filename
+\&.\|.\|. ]
+.SH DESCRIPTION
+.I Xedit
+provides a window consisting of the following four areas:
+.IP "Commands Section" 25
+A set of commands that allow you to exit \fIxedit\fP, save the file, or
+load a new file into the edit window.
+.IP "Message Window" 25
+Displays \fIxedit\fP messages. In addition, this window can be also used as
+a scratch pad. 
+.IP "Filename Display"
+Displays the name of the file currently being edited, and whether this file
+is \fIRead-Write\fP or \fIRead Only\fP.
+.IP "Edit Window" 25
+Displays the text of the file that you are editing or creating.  
+.SH OPTIONS
+.I Xedit
+accepts all of the standard X Toolkit command line
+options (see
+.IR X (__miscmansuffix__)).
+The order of the command line options is not important.
+.TP 8
+.I filename
+Specifies the file(s) that are to be loaded during start-up. This is the
+file which will be edited. If a file is not specified,
+.I xedit
+lets you load files or create new files after it has started up.
+.SH EDITING
+The Athena Text widget is used for the three sections of this
+application that allow text input.  The characters typed will go to
+the Text widget that has the input focus, or the Text widget that the pointer
+cursor is currently over.
+.PP
+
+The following keystroke combinations are defined:
+.sp
+.nf
+.ta 1.0i 3.0i 4.5i
+Ctrl-a	Beginning Of Line	Meta-b	Backward Word
+Ctrl-b	Backward Character	Meta-f	Forward Word
+Ctrl-d	Delete Next Character	Meta-i	Insert File
+Ctrl-e	End Of Line	Meta-k	Kill To End Of Paragraph
+Ctrl-f	Forward Character	Meta-q	Form Paragraph
+Ctrl-g	Keyboard Reset	Meta-v	Previous Page
+Ctrl-h	Delete Previous Character	Meta-y	Insert Current Selection
+Ctrl-j	Newline And Indent	Meta-z	Scroll One Line Down
+Ctrl-k	Kill To End Of Line	Meta-d	Delete Next Word
+Ctrl-l	Redraw Display	Meta-D	Kill Word
+Ctrl-m	Newline	Meta-h	Delete Previous Word
+Ctrl-n	Next Line	Meta-H	Backward Kill Word
+Ctrl-o	Newline And Backup	Meta-<	Beginning Of File
+Ctrl-p	Previous Line	Meta->	End Of File
+Ctrl-r	Search/Replace Backward	Meta-]	Forward Paragraph
+Ctrl-s	Search/Replace Forward	Meta-[	Backward Paragraph
+Ctrl-t	Transpose Characters
+Ctrl-u [\fInumber\fP]	Multiply by 4 or \fInumber\fP	Meta-Delete	Delete Previous Word
+Ctrl-v	Next Page	Meta-Shift Delete	Kill Previous Word
+Ctrl-w	Kill Selection	Meta-Backspace	Delete Previous Word
+Ctrl-y	Unkill	Meta-Shift Backspace	Kill Previous Word
+Ctrl-z	Scroll One Line Up	Meta-z	Scroll One Line Down
+Ctrl-_	Undo
+Escape	Line Edit Mode
+.sp
+In addition, the pointer may be used to cut and paste text:
+.ta .5i 2.0i
+	Button 1 Down	Start Selection
+	Button 1 Motion	Adjust Selection
+	Button 1 Up	End Selection (cut)
+
+	Button 2 Down	Insert Current Selection (paste)
+
+	Button 3 Down	Extend Current Selection
+	Button 3 Motion	Adjust Selection
+	Button 3 Up	End Selection (cut)
+.fi
+.sp
+
+.SH LINE EDIT MODE
+.I Line edit mode
+enables several shortcut commands for searching and replacing text in a
+xedit buffer.
+.I Line edit mode
+commands have the format:
+.br
+.nf
+
+	[\fIline-number\fP[,\fIline-number\fP]]\fIcommand\fP[\fIparameters\fP]
+
+.fi
+.I Line number
+may be specified as:
+.TP 8
+\&.
+The current text line.
+.TP 8
+$
+The last line of the file.
+.TP 8
+number
+The literal line \fInumber\fP.
+.TP 8
+- or ^
+The previous line. Equivalent to \fI-1\fP.
+.TP 8
+-number or ^number
+The current line minus \fInumber\fP.
+.TP 8
++
+The next line. Equivalent to \fI+1\fP.
+.TP 8
++number
+The current line plus \fInumber\fP.
+.TP 8
+, or %
+From the first to the last line. Equivalent to \fI1,$\fP.
+.TP 8
+;
+From the current to the last line. Equivalent to \fI.,$\fP.
+
+.PP
+.I Command
+may be specified as:
+.TP 8
+s
+Substitute text in the specified lines.
+.TP 8
+/re/
+Search forward for the regular expression pattern \fIre\fP.
+.TP 8
+?re?
+Search backward for the regular expression pattern \fIre\fP.
+
+.PP
+.I Parameters
+may be specified as:
+.TP 8
+/re/
+Works as a parameter to \fIi\fP or as a command.
+.TP 8
+/re/text/
+Search forward for \fIre\fP and substitute by \fItext\fP.
+
+.PP
+.I Options
+may follow or be parameters, known values are:
+.TP 8
+i
+Case insensitive search.
+.TP 8
+g
+\fIGlobal\fP match when replacing text. Unless specified, only the nth,
+that defaults to 1, match will be replaced.
+.TP 8
+c
+\fIConfirm\fP before replacing text.
+.TP 8
+number
+Replace only the occurrence referenced by \fInumber\fP.
+.PP
+
+Commands accept some variations, examples:
+.br
+.nf
+	/pattern/i
+	i/pattern/
+	i/pattern
+.fi
+Search forward for \fIpattern\fP.
+.br
+.nf
+
+	,sc/pattern/text
+	,sc/pattern/text/
+	,s/pattern/text/c
+.fi
+Search the entire buffer and ask confirmation to replace \fIpattern\fP
+with \fItext\fP.
+.br
+.nf
+
+	,s/pattern/text/number
+.fi
+Replace the match \fInumber\fP in the text line. If not specified,
+defaults to the first occurrence.
+
+.PP
+When searching for text, type <Return> to go to the next match.
+When interactively replacing text, type \fIy\fP or \fIY\fP to accept the
+change, and \fIn\fP or \fIN\fP to ignore it and go to the next match.
+
+.SH COMMANDS
+.IP Quit 8
+Quits the current editing session. If any changes have not been saved,
+.I xedit 
+displays a warning message, allowing the user to save them.
+.IP Save 
+If file backups are enabled (see RESOURCES, below)
+.I xedit
+stores a copy of the
+original, unedited file in <prefix>\fIfile\fP<suffix>,
+then overwrites the \fIfile\fP with the contents of the edit window.  The
+filename is retrieved from the Text widget directly to the right of
+the \fILoad\fP button.
+.IP Load
+Loads the file named in the text widget immediately to the right
+of the this button and displays it in the Edit window.
+.SH RESOURCES
+For \fIxedit\fP the available resources are:
+.TP 8
+.B tagsName (\fPClass\fB TagsName)
+Specifies the name of the tags file to search when loading a new file.
+Default value is \fItags\fP.
+.TP 8
+.B loadTags (\fPClass\fB LoadTags)
+Boolean value to enable or disabling searching for tags files.
+Default is \fITrue\fP.
+.TP 8
+.B enableBackups (\fPClass\fB EnableBackups)
+Specifies that, when edits made to an existing file are saved,
+.I xedit
+is to copy the original version of that file to <prefix>\fIfile\fP<suffix>
+before it saves the changes.  The default value for this resource is
+``on,'' stating that backups should be created.
+.TP 8
+.B backupNamePrefix (\fPClass\fB BackupNamePrefix)
+Specifies a string that is to be prepended to the backup filename.  The
+default is that no string shall be prepended.
+.TP 8
+.B backupNameSuffix (\fPClass\fB BackupNameSuffix)
+Specifies a string that is to be appended to the backup filename.  The
+default is to use ``~'' as the suffix.
+.TP 8
+.B positionFormat (\fPClass\fB Format)
+Specifies a format string used to display the cursor position.  This
+string uses printf(3) like notation, where
+.B %l
+prints the line number,
+.B %c
+prints the column number,
+.B %p
+prints the insert position offset, and
+.B %s
+prints the current file size.  It is also allowed to specify field sizes,
+with the notation
+.B %\-?[0\-9]+
+\&.  The default format string is ``L%l'', which shows the character ``L''
+followed by the line number.
+.TP 8
+.B hints (\fPClass\fB Hints)
+Specifies a list of strings, separated by new lines, that will be
+displayed in the bc_label window.
+.TP 8
+.B hintsInterval (\fPClass \fBInterval)
+Specifies the interval in seconds, which the hint string in the bc_label
+window will be changed.
+.TP 8
+.B changedBitmap (\fPClass \fBBitmap)
+Specifies the name of the Bitmap that will be displayed in the fileMenu, when
+the file being edited is changed.
+.TP 8
+.B autoReplace (\fPClass \fBReplace)
+This resource is useful to automatically correct common misspelling errors, but
+can also be used to create simple macros. The format is
+\fI{non-blanks}{blanks}[{string}]\fP. Fields are separeted by newlines.
+Example of use:
+\"
+.br
+.nf
+nto	  not\\n\\
+/macro some long string with \\\\\\n newlines \\\\\\n
+.fi
+\"
+.br
+Will automatically replace the word \fInto\fP by \fInot\fP, and \fI/macro\fP
+by \fIsome long string with
+ newlines
+\fP
+when you type that words.
+.TP 8
+.B ispell.dictionaries (\fPClass \fBispell.Dictionary)
+Specifies a list of dictionary names, separeted by spaces, available to the
+ispell program. The default value is \fI"american americamed+ english"\fP.
+.TP 8
+.B ispell.dictionary (\fPClass \fBispell.Dictionary)
+Specifies the default dictionary to use.
+.TP 8
+.B ispell*<DICTIONARY>.wordChars (\fPClass \fBispell*Chars)
+Specifies a set of characters that can be part of a legal word. The
+\fI<DICTIONARY>\fP field is one of the dictionaries specified in the
+\fIdictionaries\fP resource.
+.TP 8
+.B ispell.ispellCommand (\fPClass \fBispell.CommandLine)
+The path to the ispell program, and possibly, additional arguments. You don't
+need to specify the ``-w'' option, neither the ``-a'' option.
+Refer to the \fIispell\fP(1) manpage for more information on ispell options.
+.TP 8
+.B ispell.formatting (\fPClass \fPispell.TextFormat)
+Specifies which text formatting to use while spell checking the file. The
+available formats are \fItext\fP and \fIhtml\fP.
+.TP 8
+.B ispell*text.skipLines (\fPClass \fBispell*text.Skip)
+Lines starting with one of the characters in this string will not be spell
+checked. This resource is only used in \fItext\fP mode.
+.TP 8
+.B ispell.terseMode (\fPClass \fBispell.Terse)
+When enabled, runs ispell in terse mode, not asking user interaction for words
+generated through compound formation (when using the ispell ``-C'' option), or
+words generated through affix removal. The default value is False.
+.TP 8
+.B ispell.lookCommand (\fPClass \fBispell.CommandLine)
+The path to the program to search for alternate words, and possibly,
+additional arguments. The default program used is \fI/usr/bin/egrep\fP.
+.TP 8
+.B ispell.wordsFile (\fPClass \fBispell.Words)
+The path to the file[s] to search for alternate words. The default file is
+\fI/usr/share/dict/words\fP.
+.TP 8
+.B ispell.guessLabel (\fPClass \fBispell.Status)
+String displayed in the ispell status bar when ispell returns a guess list
+of one or more words. The default value is \fIGuess\fP.
+.TP 8
+.B ispell.missLabel (\fPClass \fBispell.Status)
+String displayed in the ispell status bar when ispell returns a list of one
+or more words to match a misspelled one. The default value is \fIMiss\fP.
+.TP 8
+.B ispell.rootLabel (\fPClass \fBispell.Status)
+String displayed in the ispell status bar when the word is not in the dictionary,
+but it can be formed through a root one. The default value is \fIRoot:\fP, and is
+followed by a space and the root word.
+.TP 8
+.B ispell.noneLabel (\fPClass \fBispell.Status)
+String displayed in the ispell status bar when there is no near misses. The default
+value is \fINone\fP.
+.TP 8
+.B ispell.compoundLabel (\fPClass \fBispell.Status)
+String displayed in the ispell status bar when the word being checked is formed by
+concatenation of two words. The default value is \fICompound\fP.
+.TP 8
+.B ispell.okLabel (\fPClass \fBispell.Status)
+String displayed in the ispell status bar when the checked word is in the dictionary.
+This string is only displayed when using the \fIcheck\fP button in the xedit ispell
+interface. The default value is \fIOk\fP.
+.TP 8
+.B ispell.eofLabel (\fPClass \fBispell.Status)
+The string displayed in the ispell status bar when the end of the file is reached.
+The default value is \fIEnd Of File\fP.
+.TP 8
+.B ispell.repeatLabel (\fPClass \fBispell.Status)
+The string displayed in the ispell status bar when two identical words are found
+together in the file. The default value is \fIRepeat\fP.
+.TP 8
+.B ispell.lookLabel (\fPClass \fBispell.Status)
+The string displayed in the ispell status bar after displaying the results of
+the \fILook\fP command. If no results are found, the value of the
+\fIispell.noneLabel\fP resource is shown.
+.TP 8
+.B ispell.workingLabel (\fPClass \fBispell.Status)
+The string displayed in the ispell status bar while xedit is communicating with
+ispell. The default value is \fI...\fP.
+.SH WIDGETS
+In order to specify resources, it is useful to know the hierarchy of
+the widgets which compose \fIxedit\fR.  In the notation below,
+indentation indicates hierarchical structure.  The widget class name
+is given first, followed by the widget instance name.
+.sp
+.nf
+.ta .5i 1.0i 1.5i 2.0i
+Xedit  xedit
+	Paned  paned
+		Paned  buttons
+			Command  quit
+			Command  save
+			Command  load
+			Text     filename
+		Label  bc_label
+		Text   messageWindow
+		Label  labelWindow
+		Text   editWindow
+.fi
+.sp
+.SH ENVIRONMENT
+.PP
+.TP 20
+.I DISPLAY
+to get the default host and display number.
+.TP 20
+.I XENVIRONMENT
+to get the name of a resource file that overrides the global resources
+stored in the RESOURCE_MANAGER property.
+.SH FILES
+.TP 20
+.I __apploaddir__/Xedit
+specifies required resources
+.SH "SEE ALSO"
+.IR X (__miscmansuffix__),
+.IR xrdb (1),
+.I "Athena Widget Set"
+.SH RESTRICTIONS
+Xedit is not a replacement to Emacs.
+.SH COPYRIGHT
+Copyright 1988, Digital Equipment Corporation.
+.br
+Copyright 1989, X Consortium
+.br
+Copyright 1998, The XFree86 Project
+.br
+See
+.IR X (__miscmansuffix__)
+for a full statement of rights and permissions.
+.SH AUTHORS
+Chris D. Peterson, MIT X Consortium
+.br
+Paulo Cesar Pereira de Andrade, The XFree86 Project

@@ -13,8 +13,8 @@
 
    You should have received a copy of the GNU Lesser General Public
    License along with the GNU C Library; if not, write to the Free
-   Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-   02111-1307 USA.  */
+   Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301 USA.  */
 
 /*
    Copyright (C) 1983 Regents of the University of California.
@@ -52,14 +52,8 @@
  * Rewritten to be reentrant by Ulrich Drepper, 1995
  */
 
-#include "config.h"
-#ifdef HAVE_LIMITS_H
 #include <limits.h>
-#endif
-#include "libiberty.h"
-#ifdef HAVE_STDLIB_H
 #include <stdlib.h>
-#endif
 #include "generate-random.h"
 
 

@@ -1,0 +1,52 @@
+--- lib/python2.6/cgi.py.orig	Mon Jul 28 12:43:46 2003
++++ lib/python2.6/cgi.py	Mon Jul 28 12:45:16 2003
+@@ -1,13 +1,4 @@
+-#! /usr/local/bin/python
+-
+-# NOTE: the above "/usr/local/bin/python" is NOT a mistake.  It is
+-# intentionally NOT "/usr/bin/env python".  On many systems
+-# (e.g. Solaris), /usr/local/bin is not in $PATH as passed to CGI
+-# scripts, and /usr/local/bin is the default directory where Python is
+-# installed, so /usr/bin/env would be unable to find python.  Granted,
+-# binary installations by Linux vendors often install Python in
+-# /usr/bin.  So let those vendors patch cgi.py to match their choice
+-# of installation.
++#! /usr/bin/env python
+ 
+ """Support module for CGI (Common Gateway Interface) scripts.
+ 
+--- Resources/Python.app/Contents/Resources/English.lproj/Documentation/shell.html.orig	Mon Jul 28 12:46:28 2003
++++ Resources/Python.app/Contents/Resources/English.lproj/Documentation/shell.html	Mon Jul 28 12:49:01 2003
+@@ -17,22 +17,7 @@
+ 			</td>
+ 			<td>
+ 				<p>MacPython 2.3 installs a perfectly normal Unix commandline
+-				python interpreter in <tt>/usr/local/bin/python</tt>. As of Mac OS X 10.2, however,
+-				<tt>/usr/local/bin</tt> is not on the search path of your shell. Moreover,
+-				Apple's python 2.2, which lives in <tt>/usr/bin</tt> <em>is</em> on your
+-				search path, so this can lead to confusion.</p>
+-				
+-				<p>If you use <tt>tcsh</tt> you should add the following line
+-				to the file <tt>.login</tt> in your home directory and restart Terminal:
+-				<br>
+-				<tt>setenv PATH /usr/local/bin:$PATH</tt>
+-				</p>
+-				
+-				<p>If you use <tt>bash</tt> or <tt>zsh</tt>
+-				you should add the following line
+-				to the file <tt>.profile</tt> in your home directory and restart Terminal:
+-				<br>
+-				<tt>export PATH=/usr/local/bin:$PATH</tt>
++				python interpreter in <tt>/usr/bin/python</tt>.
+ 				</p>
+ 				
+ 				<h2>GUI scripts</h2>
+@@ -40,7 +25,7 @@
+ 				<p>Due to the way MacOS handles windowing applications you need to run 
+ 				<em>all</em> scripts that use the window manager (be it through
+ 				Carbon, Cocoa, Tkinter, wxPython, PyOpenGL or anything else) with the
+-				<tt>pythonw</tt> interpreter, also installed in <tt>/usr/local/bin</tt>.</p>
++				<tt>pythonw</tt> interpreter, also installed in <tt>/usr/bin</tt>.</p>
+ 				
+ 				<p>Running with <tt>python</tt> results in an inability to bring the
+ 				script to the front, or interacting with it. </p>

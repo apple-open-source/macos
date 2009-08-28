@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -61,7 +61,7 @@
 static int smb_iod_next;
 
 static int  smb_iod_sendall(struct smbiod *iod);
-
+	
 static int smb_iod_check_timeout(struct timespec *starttime, int SecondsTillTimeout)
 {
 	struct timespec waittime, tsnow;
@@ -69,7 +69,7 @@ static int smb_iod_check_timeout(struct timespec *starttime, int SecondsTillTime
 	waittime.tv_sec = SecondsTillTimeout;
 	waittime.tv_nsec = 0;
 	timespecadd(&waittime, starttime);
-	nanotime(&tsnow);
+	nanouptime(&tsnow);
 	if (timespeccmp(&tsnow, &waittime, >))
 		return TRUE;
 	else return FALSE;
@@ -84,7 +84,11 @@ smb_iod_rqprocessed(struct smb_rq *rqp, int error, int flags)
 	rqp->sr_lerror = error;
 	rqp->sr_rpgen++;
 	rqp->sr_state = SMBRQ_NOTIFIED;
-	wakeup(&rqp->sr_state);
+	if (rqp->sr_flags & SMBR_ASYNC) {
+		DBG_ASSERT(rqp->sr_callback);
+		rqp->sr_callback(rqp->sr_callback_args);
+	} else 
+		wakeup(&rqp->sr_state);
 	SMBRQ_SUNLOCK(rqp);
 }
 
@@ -99,8 +103,7 @@ static void smb_iod_softmount_tmeout(struct smbiod *iod)
 	
 	SMB_IOD_RQLOCK(iod);
 	TAILQ_FOREACH(rqp, &iod->iod_rqlist, sr_link) {
-		if ((rqp->sr_share) && (rqp->sr_share->ss_mount) && 
-			(rqp->sr_share->ss_mount->sm_args.altflags & SMBFS_MNT_SOFT)) {
+		if ((rqp->sr_share) && (rqp->sr_share->ss_flags & SMBS_MNT_SOFT)) {
 			SMBDEBUG("Soft Mount timed out! cmd = %x\n", rqp->sr_cmd);
 			smb_iod_rqprocessed(rqp, ETIMEDOUT, 0);
 		}
@@ -145,7 +148,6 @@ smb_iod_closetran(struct smbiod *iod)
 		return;
 	SMB_TRAN_DISCONNECT(vcp);
 	SMB_TRAN_DONE(vcp);
-	vcp->vc_tdata = NULL;
 }
 
 static void
@@ -158,8 +160,8 @@ smb_iod_dead(struct smbiod *iod)
 	smb_iod_invrq(iod);
 	SMB_IOD_RQLOCK(iod);
 	TAILQ_FOREACH(rqp, &iod->iod_rqlist, sr_link) {
-		if (rqp->sr_share && rqp->sr_share->ss_mount)
-			smbfs_dead(rqp->sr_share->ss_mount);
+		if (rqp->sr_share)
+			smbfs_dead(rqp->sr_share);
 	}
 	SMB_IOD_RQUNLOCK(iod);
 }
@@ -210,10 +212,13 @@ static void smb_iod_start_reconnect(struct smbiod *iod)
 	SMB_IOD_RQLOCK(iod);
 	TAILQ_FOREACH(rqp, &iod->iod_rqlist, sr_link) {
 		SMBRQ_SLOCK(rqp);
-		/* Clear any internal request out of the queue */
-		if (rqp->sr_flags & SMBR_INTERNAL) {
+		/* Clear any internal or async request out of the queue */
+		if (rqp->sr_flags & (SMBR_INTERNAL | SMBR_ASYNC)) {
 			SMBRQ_SUNLOCK(rqp);
-			smb_iod_rqprocessed(rqp, ENOTCONN, SMBR_DEAD); 
+			if (rqp->sr_flags & SMBR_ASYNC)
+				smb_iod_rqprocessed(rqp, ETIMEDOUT, 0);
+			else
+				smb_iod_rqprocessed(rqp, ENOTCONN, SMBR_DEAD); 
 		}
 		else {
 			/*
@@ -236,9 +241,9 @@ static void smb_iod_start_reconnect(struct smbiod *iod)
 	/* Now tell all the sessions we are in reconnect mode. */
 	smb_vc_lock(vcp);	/* lock the vc so we can search the list */
 	SMBCO_FOREACH(ssp, VCTOCP(vcp)) {
-		SMBS_ST_LOCK(ssp);
+		lck_mtx_lock(&ssp->ss_stlock);
 		ssp->ss_flags |= SMBS_RECONNECTING;
-		SMBS_ST_UNLOCK(ssp);
+		lck_mtx_unlock(&(ssp)->ss_stlock);
 	}
 	smb_vc_unlock(vcp);
 	/* Ok now we can do the reconnect */
@@ -248,7 +253,7 @@ static void smb_iod_start_reconnect(struct smbiod *iod)
 }
 
 static int
-smb_iod_negotiate(struct smbiod *iod, struct smb_cred *user_scred)
+smb_iod_negotiate(struct smbiod *iod, vfs_context_t user_context)
 {
 	struct smb_vc *vcp = iod->iod_vc;
 	int error;
@@ -279,10 +284,10 @@ smb_iod_negotiate(struct smbiod *iod, struct smb_cred *user_scred)
 		SMBIODEBUG("tbind\n");
 		SMB_TRAN_SETPARAM(vcp, SMBTP_SELECTID, iod);
 		SMB_TRAN_SETPARAM(vcp, SMBTP_UPCALL, smb_iod_sockwakeup);
-		ithrow(SMB_TRAN_CONNECT(vcp, vcp->vc_paddr));
+		ithrow(SMB_TRAN_CONNECT(vcp, vcp->vc_saddr));
 		iod->iod_state = SMBIOD_ST_TRANACTIVE;
 		SMBIODEBUG("tconnect\n");
-		ithrow(smb_smb_negotiate(vcp, &iod->iod_scred, user_scred, FALSE));
+		ithrow(smb_smb_negotiate(vcp, iod->iod_context, user_context, FALSE));
 		iod->iod_state = SMBIOD_ST_NEGOACTIVE;
 		SMBIODEBUG("completed\n");
 		smb_iod_invrq(iod);
@@ -316,7 +321,7 @@ smb_iod_ssnsetup(struct smbiod *iod)
 	error = 0;
 	iod->iod_state = SMBIOD_ST_SSNSETUP;
 	itry {
-		ithrow(smb_smb_ssnsetup(vcp, &iod->iod_scred));
+		ithrow(smb_smb_ssnsetup(vcp, iod->iod_context));
 		iod->iod_state = SMBIOD_ST_VCACTIVE;
 		SMBIODEBUG("completed\n");
 		/* Don't flush the queue if we are in reconnect state. We need to resend those messages. */
@@ -347,7 +352,7 @@ smb_iod_disconnect(struct smbiod *iod)
 
 	SMBIODEBUG("\n");
 	if (iod->iod_state == SMBIOD_ST_VCACTIVE) {
-		smb_smb_ssnclose(vcp, &iod->iod_scred);
+		smb_smb_ssnclose(vcp, iod->iod_context);
 		iod->iod_state = SMBIOD_ST_TRANACTIVE;
 	}
 	vcp->vc_smbuid = SMB_UID_UNKNOWN;
@@ -420,9 +425,8 @@ smb_iod_sendrq(struct smbiod *iod, struct smb_rq *rqp)
 	DBG_ASSERT(error == 0);
 	error = rqp->sr_lerror = (error) ? error : SMB_TRAN_SEND(vcp, m);
 	if (error == 0) {
-		nanotime(&rqp->sr_timesent);
+		nanouptime(&rqp->sr_timesent);
 		iod->iod_lastrqsent = rqp->sr_timesent;
-		rqp->sr_flags |= SMBR_SENT;
 		rqp->sr_state = SMBRQ_SENT;
 		return 0;
 	}
@@ -447,6 +451,7 @@ smb_iod_recvall(struct smbiod *iod)
 	mbuf_t m;
 	u_char *hp;
 	u_short mid;
+	u_int8_t cmd;
 	int error;
 
 	switch (iod->iod_state) {
@@ -486,19 +491,27 @@ smb_iod_recvall(struct smbiod *iod)
 			continue;
 		}
 		mid = SMB_HDRMID(hp);
-		SMBSDEBUG("mid %04x\n", (u_int)mid);
+		cmd = SMB_HDRCMD(hp);
+		SMBSDEBUG("mid %04x cmd = 0x%x\n", (u_int)mid, cmd);
 		SMB_IOD_RQLOCK(iod);
-		nanotime(&iod->iod_lastrecv);
+		nanouptime(&iod->iod_lastrecv);
 		TAILQ_FOREACH(rqp, &iod->iod_rqlist, sr_link) {
-			if (rqp->sr_mid != mid)
+			/* 
+			 * XXX
+			 * We still have some issues here, but this should be good enough for
+			 * Snow Leopard. See <rdar://problem/6607368> for more details. So we
+			 * need to make sure the messages match up, so use the cmd to confirm
+			 * we have the correct message.
+			 * NOTE: SMB2 does not have this issue.
+			 */
+			if ((rqp->sr_mid != mid) || (rqp->sr_cmd != cmd))
 				continue;
 			if (rqp->sr_share) {
 				/* We received a packet on the vc clear the not responsive flag */
 				SMB_IOD_FLAGSLOCK(iod);
 				iod->iod_flags &= ~SMBIOD_VC_NOTRESP;
 				SMB_IOD_FLAGSUNLOCK(iod);
-				if (rqp->sr_share->ss_mount)
-					smbfs_up(rqp->sr_share->ss_mount);
+				smbfs_up(rqp->sr_share);
 			}
 			SMBRQ_SLOCK(rqp);
 			if (rqp->sr_rp.md_top == NULL) {
@@ -517,12 +530,10 @@ smb_iod_recvall(struct smbiod *iod)
 			break;
 		}
 		SMB_IOD_RQUNLOCK(iod);
-		if (rqp == NULL) {
-			int cmd = SMB_HDRCMD(hp);
-
-			if (cmd != SMB_COM_ECHO)
-				SMBERROR("drop resp: mid %d, cmd %d\n",
-					 (u_int)mid, cmd);
+		if (rqp == NULL) {			
+			/* Ignore ECHO and NTNotify dropped messages */
+			if ((cmd != SMB_COM_ECHO) && (cmd != SMB_COM_NT_TRANSACT))
+				SMBWARNING("drop resp: mid %d, cmd %d\n", (u_int)mid, cmd);	
 			mbuf_freem(m);
 		}
 	}
@@ -530,7 +541,7 @@ smb_iod_recvall(struct smbiod *iod)
 	if ((iod->iod_flags & SMBIOD_RECONNECT) != SMBIOD_RECONNECT) {
 		SMB_IOD_RQLOCK(iod);	/* check for interrupts */
 		TAILQ_FOREACH(rqp, &iod->iod_rqlist, sr_link) {
-			if (smb_sigintr(rqp->sr_cred->scr_vfsctx))
+			if (smb_sigintr(rqp->sr_context))
 				rqp->sr_timo = SMBIOD_INTR_TIMO;	/* Wait a little longer before timing out */
 		}
 		SMB_IOD_RQUNLOCK(iod);
@@ -573,7 +584,8 @@ smb_iod_rq_enqueue(struct smb_rq *rqp)
 	struct smbiod *iod = vcp->vc_iod;
 	struct timespec ts;
 
-	if (rqp->sr_cred == &iod->iod_scred) {
+	if (rqp->sr_context == iod->iod_context) {
+		DBG_ASSERT((rqp->sr_flags & SMBR_ASYNC) != SMBR_ASYNC);
 		rqp->sr_flags |= SMBR_INTERNAL;
 		SMB_IOD_RQLOCK(iod);
 		TAILQ_INSERT_HEAD(&iod->iod_rqlist, rqp, sr_link);
@@ -599,8 +611,8 @@ smb_iod_rq_enqueue(struct smb_rq *rqp)
 
 	switch (iod->iod_state) {
 	    case SMBIOD_ST_DEAD:
-		if (rqp->sr_share && rqp->sr_share->ss_mount)
-			smbfs_dead(rqp->sr_share->ss_mount);
+		if (rqp->sr_share)
+			smbfs_dead(rqp->sr_share);
 	    case SMBIOD_ST_NOTCONN:
 		return ENOTCONN;
 	    case SMBIOD_ST_TRANACTIVE:
@@ -609,8 +621,8 @@ smb_iod_rq_enqueue(struct smb_rq *rqp)
 			/* This can happen if we are doing a reconnect */
 	    default:
 		/* If this is not an internal message and we are in reconnect then check for softmount timouts. */
-		if ((!(rqp->sr_flags & SMBR_INTERNAL)) && (iod->iod_flags & SMBIOD_RECONNECT) && (rqp->sr_share->ss_mount) &&
-			(rqp->sr_share->ss_mount->sm_args.altflags & SMBFS_MNT_SOFT)) {
+		if ((!(rqp->sr_flags & SMBR_INTERNAL)) && (iod->iod_flags & SMBIOD_RECONNECT) &&
+			(rqp->sr_share->ss_flags & SMBS_MNT_SOFT)) {
 			if (smb_iod_check_timeout(&iod->reconnectStartTime, SOFTMOUNT_TIMEOUT)) {
 				SMBDEBUG("Soft Mount timed out! cmd = %x\n", rqp->sr_cmd);
 				return ETIMEDOUT;			
@@ -621,14 +633,38 @@ smb_iod_rq_enqueue(struct smb_rq *rqp)
 
 	SMB_IOD_RQLOCK(iod);
 	for (;;) {
+		DBG_ASSERT((vcp->vc_maxmux));
 		if (vcp->vc_maxmux == 0) {
 			SMBERROR("maxmux == 0\n");
-			break;
+			SMB_IOD_RQUNLOCK(iod);
+			smb_iod_dead(iod);			
+			return EPIPE;			
 		}
 		if (iod->iod_muxcnt < vcp->vc_maxmux)
 			break;
 		iod->iod_muxwant++;
 		msleep(&iod->iod_muxwant, SMB_IOD_RQLOCKPTR(iod), PWAIT, "iod-rq-mux", 0);
+	}
+	/* 
+	 * Should be noted here Window 2003 and Samba don't seem to care about going
+	 * over the maxmux count when doing notification messages. XPhome does for sure,
+	 * they will actual break the connection. SMB2 will solve this issue and some
+	 * day I would like to see which server care and which don't. Should we do 
+	 * something special for Samba or Apple, since they don't care?
+	 *
+	 * So for now we never use more than two thirds, if vc_maxmux is less than
+	 * three then don't allow any. Should never happen, but just to be safe.
+	 */
+	if (rqp->sr_flags & SMBR_ASYNC) {
+		if (iod->iod_asynccnt >= ((vcp->vc_maxmux / 3) * 2)) {
+			SMBWARNING("Max out on VC async notify request %d\n", iod->iod_asynccnt);
+			SMB_IOD_RQUNLOCK(iod);
+			return EWOULDBLOCK;			
+		}
+		iod->iod_asynccnt++;
+	} else if (iod->iod_state == SMBIOD_ST_VCACTIVE) {
+		if (vcp->throttle_info)
+			throttle_info_update(vcp->throttle_info, 0);
 	}
 	iod->iod_muxcnt++;
 	TAILQ_INSERT_TAIL(&iod->iod_rqlist, rqp, sr_link);
@@ -656,6 +692,8 @@ smb_iod_removerq(struct smb_rq *rqp)
 		msleep(rqp, SMB_IOD_RQLOCKPTR(iod), PWAIT, "iod-rq-rm", 0);
 	}
 	TAILQ_REMOVE(&iod->iod_rqlist, rqp, sr_link);
+	if (rqp->sr_flags & SMBR_ASYNC)
+		iod->iod_asynccnt--;
 	iod->iod_muxcnt--;
 	if (iod->iod_muxwant) {
 		iod->iod_muxwant--;
@@ -777,12 +815,22 @@ smb_iod_sendall(struct smbiod *iod)
 		/* The circuit is not responsive, if a force unmount is in progress then just time out the message */ 
 		if ((iod->iod_flags & SMBIOD_VC_NOTRESP) && (rqp->sr_share)) {
 			struct smb_share* ssp = rqp->sr_share;
-			if (ssp->ss_mount && ssp->ss_mount->sm_mp && (vfs_isforce(ssp->ss_mount->sm_mp))) {
+			int isforced;			
+			
+			lck_mtx_lock(&ssp->ss_mntlock);
+			/* If we have a ss_mount then we have a sm_mp */
+			isforced = (ssp->ss_mount && (vfs_isforce(ssp->ss_mount->sm_mp)));
+			lck_mtx_unlock(&ssp->ss_mntlock);
+			if (isforced) {
 				smb_iod_rqprocessed(rqp, ETIMEDOUT, 0);
-				continue;
+				continue;				
 			}
 		}
 		if ((iod->iod_flags & SMBIOD_RECONNECT) && (!(rqp->sr_flags & SMBR_INTERNAL))) {
+			if (rqp->sr_flags & SMBR_ASYNC) {
+				smb_iod_rqprocessed(rqp, ETIMEDOUT, 0);
+				continue;							
+			}
 			DBG_ASSERT(rqp->sr_state != SMBRQ_SENT) /* Should never be in the sent state at this point */
 			if (rqp->sr_state == SMBRQ_NOTSENT)
 				rqp->sr_state = SMBRQ_RECONNECT;
@@ -794,6 +842,19 @@ smb_iod_sendall(struct smbiod *iod)
 				if (iod->iod_flags & SMBIOD_RECONNECT)
 					break;		/* Do nothing to do but wait for reconnect to end. */
 				rqp->sr_state = SMBRQ_NOTSENT;
+				/*
+				 * Make sure this is no a bad server. If we reconnect more than
+				 * MAX_SR_RECONNECT_CNT (5) times trying to send this message
+				 * then just give up and kill the mount.
+				 */
+				rqp->sr_reconnect_cnt += 1; 
+				if (rqp->sr_reconnect_cnt > MAX_SR_RECONNECT_CNT) {
+					SMBERROR("Looks like we are in a reconnect loop with  server %s, canceling the reconnect. (cmd = %x)\n", 
+						vcp->vc_srvname, rqp->sr_cmd);
+					iod->iod_state = SMBIOD_ST_DEAD;
+					smb_iod_rqprocessed(rqp, ETIMEDOUT, 0);
+					continue;
+				}				
 				/* Fall through here and send it */
 			case SMBRQ_NOTSENT:
 				rqp->sr_flags |= SMBR_XLOCK;
@@ -807,7 +868,10 @@ smb_iod_sendall(struct smbiod *iod)
 				}
 				break;
 			case SMBRQ_SENT:
-				nanotime(&now);
+				/* if this is an async call then it can't timeout so we are done */
+				if (rqp->sr_flags & SMBR_ASYNC)
+					break;
+				nanouptime(&now);
 				if (rqp->sr_share) {
 					/*
 					 * If its been over SMB_RESP_WAIT_TIMO (60 seconds) since the last time we received a message 
@@ -842,7 +906,7 @@ smb_iod_sendall(struct smbiod *iod)
 				ts.tv_nsec = 0;
 				timespecadd(&ts, &rqp->sr_timesent);
 				if (timespeccmp(&now, &ts, >)) {
-					SMBERROR("Timed out waiting on the response for 0x%x\n", rqp->sr_cmd);
+					SMBERROR("Timed out waiting on the response for 0x%x mid = 0x%x\n", rqp->sr_cmd, rqp->sr_mid);
 					smb_iod_rqprocessed(rqp, ETIMEDOUT, 0);
 				} else if (rqp->sr_cmd != SMB_COM_ECHO) {
 					ts = now;
@@ -869,13 +933,13 @@ smb_iod_sendall(struct smbiod *iod)
 		 * If the UE timeout has passed since last packet i/o, nudge connection with "echo".  If server
 		 * responds iod_lastrecv gets set so we'll avoid bring the connection down.
 		 */
-		nanotime(&ts);
+		nanouptime(&ts);
 		uetimeout.tv_sec = SMBUETIMEOUT;
 		uetimeout.tv_nsec = 0;
 		timespecsub(&ts, &uetimeout);
 		if (timespeccmp(&ts, &iod->iod_lastrecv, >) &&
 		    timespeccmp(&ts, &iod->iod_lastrqsent, >))
-			(void)smb_smb_echo(vcp, &iod->iod_scred, SMBNOREPLYWAIT);
+			(void)smb_smb_echo(vcp, iod->iod_context, SMBNOREPLYWAIT);
 	}
 	return 0;
 }
@@ -895,12 +959,18 @@ smb_tickle(struct smbiod *iod)
 	smb_vc_lock(iod->iod_vc);	/* lock the vc so we can search the list */
 	SMBCO_FOREACH(ssp, VCTOCP(vcp)) {
 		/*
-		 * Make sure nobody deletes the share out from under
-		 * us.
+		 * Since we have the vc lock we know the share can't be freed, but 
+		 * it could be going away (Tree Disconnect is in process). Take a 
+		 * reference so no one else can disconnect it out from underneath 
+		 * us. Skip any shares that are being disconnect, since that is 
+		 * just a waste of time.
 		 */
 		smb_share_ref(ssp);
-		error = smb_smb_checkdir(ssp, NULL, "", 0, &iod->iod_scred);
-		smb_share_rele(ssp, &iod->iod_scred);
+		if (ssp->ss_flags & SMBO_GONE)
+			error = ENOTCONN;	/* This share is being release skip it */
+		else 
+			error = smb_smb_checkdir(ssp, NULL, "", 0, iod->iod_context);
+		smb_share_rele(ssp, iod->iod_context);
 		if (!error)
 			break;
 	}
@@ -915,17 +985,53 @@ static int smb_iod_check_for_active_shares(struct smb_vc *vcp, int NotifyUser)
 	struct smbiod *	iod = vcp->vc_iod;
 	struct smb_share *ssp;
 	int treecnt = 0;
+	int share_has_mount;
 
 	smb_vc_lock(vcp);	/* lock the vc so we can search the list */
 	SMBCO_FOREACH(ssp, VCTOCP(vcp)) {
+		/*
+		 * Since we have the vc lock we know the share can't be freed, but 
+		 * it could be going away (Tree Disconnect is in process). Take a 
+		 * reference so no one else can disconnect it out from underneath 
+		 * us.
+		 */
 		smb_share_ref(ssp);
-		if (ssp->ss_mount && ssp->ss_mount->sm_mp && ((ssp->ss_mount->sm_flags & kInMountSMBFS) != kInMountSMBFS) && 
-			(!vfs_isforce(ssp->ss_mount->sm_mp))) {
-			treecnt++;
-			if (NotifyUser)
-				smbfs_down(ssp->ss_mount);
+		if (ssp->ss_flags & SMBO_GONE) {
+			/* Skip any shares that are being disconnect */
+			smb_share_rele(ssp, iod->iod_context);
 		}
-		smb_share_rele(ssp, &iod->iod_scred);			
+		else if (ssp->ss_flags & SMBS_INMOUNT) {
+			/* Count, but don't notify we are still in the mount process */
+			treecnt++;				
+			smb_share_rele(ssp, iod->iod_context);
+		} else {
+			lck_mtx_lock(&ssp->ss_mntlock);
+			/* If we have a ss_mount then we have a sm_mp */
+			if (ssp->ss_mount && (!vfs_isforce(ssp->ss_mount->sm_mp))) {
+				if ((ssp->ss_flags & SMBS_MNT_SOFT) && (vfs_isunmount(ssp->ss_mount->sm_mp))) {
+					/* 
+					 * Soft mounted and they attempted to unmount it so dont count this one, 
+					 * but still notify the user. They may want to force unmount it.
+					 */
+				}
+				else {
+					/* 
+					 * Still have a mounted so count it and  notify the user that
+					 * sonmething is going wrong.
+					 */
+					treecnt++;				
+				}
+				share_has_mount = TRUE;
+			}
+			else 
+				share_has_mount = FALSE;
+			lck_mtx_unlock(&ssp->ss_mntlock);
+			
+			if (NotifyUser && share_has_mount)
+				smbfs_down(ssp);
+			
+			smb_share_rele(ssp, iod->iod_context);			
+		}
 	}
 	smb_vc_unlock(vcp);
 	return treecnt;			
@@ -985,19 +1091,25 @@ static void smb_iod_reconnect(struct smbiod *iod)
 	int sleepcnt = 0;
 	struct smb_share *ssp = NULL;
 	struct timespec waittime, sleeptime, tsnow;
+	int ii;
 
-	/* Take a reference on this VC so no one can remove it until we are done */
-	smb_vc_ref(iod->iod_vc);
-	vcp = iod->iod_vc;
+	/* See if we can get a reference on this VC */
+	if (smb_vc_reconnect_ref(iod->iod_vc, iod->iod_context)) {
+		/* The vc is either gone or going away */
+		iod->iod_flags &= ~(SMBIOD_RECONNECT | SMBIOD_START_RECONNECT);
+		iod->iod_workflag = 1;
+		SMBERROR("The vc is going aways while we are in reconnect?\n");
+		return;
+	}
 
-	SMBDEBUG(" %s\n", vcp->vc_srvname);
+	SMBDEBUG("STARTING RECONNECT WITH %s\n", vcp->vc_srvname);
 	SMB_TRAN_DISCONNECT(vcp); /* Make sure the connection is close first */
 	iod->iod_state = SMBIOD_ST_CONNECT;
 	/* Start the reconnect timers */
 	sleepcnt = 1;
 	sleeptime.tv_sec = 1;
 	sleeptime.tv_nsec = 0;
-	nanotime(&iod->reconnectStartTime);
+	nanouptime(&iod->reconnectStartTime);
 	waittime.tv_sec = vcp->reconnect_wait_time;	/* The number of seconds to wait on a reconnect */
 	waittime.tv_nsec = 0;
 	timespecadd(&waittime, &iod->reconnectStartTime);
@@ -1006,29 +1118,29 @@ static void smb_iod_reconnect(struct smbiod *iod)
 		/* Check to see if there are any shares to do a reconnect on. */
 		error = smb_iod_nb_intr(vcp);	/* returns either 0 or EINTR */
 		if (! error)
-			error = SMB_TRAN_CONNECT(vcp, vcp->vc_paddr);
-		if (error == EINTR)	/* The connection got canceled because of a forced unmount */
+			error = SMB_TRAN_CONNECT(vcp, vcp->vc_saddr);
+		if (error == EINTR)	{	/* The connection got canceled because of a forced unmount */
+			SMBDEBUG("The reconnection to %s, was canceled\n", vcp->vc_srvname);
 			goto exit;
+		}
 
 		DBG_ASSERT(vcp->vc_tdata != NULL);
 		DBG_ASSERT(error != EISCONN);
 		DBG_ASSERT(error != EINVAL);
-		if (error) {
-			int ii;
-			
+		if (error) {			
 			/* Never sleep longer that 1 second at a time, but we can wait up to 5 seconds between tcp connections. */ 
 			for (ii= 1; ii <= sleepcnt; ii++) {
 				msleep(&iod->iod_flags, 0, PWAIT, "smb_iod_reconnect", &sleeptime);
 				if (smb_iod_nb_intr(vcp) == EINTR) {
 					error = EINTR; /* The connection got canceled because of a forced unmount */ 
+					SMBDEBUG("The reconnection to %s, was canceled\n", vcp->vc_srvname);
 					goto exit;
 				}
 			}
 			/* Never wait more than 5 seconds between connection attempts */
 			if (sleepcnt < SMB_MAX_SLEEP_CNT )
 				sleepcnt++;
-			nanotime(&tsnow);
-			SMBERROR("Retrying connection to %s\n", vcp->vc_srvname);
+			SMBERROR("Retrying connection to %s error = %d\n", vcp->vc_srvname, error);
 		}			
 		/* 
 		 * We went to sleep during the reconnect and we just woke up. Start the 
@@ -1038,37 +1150,72 @@ static void smb_iod_reconnect(struct smbiod *iod)
 		 */
 		if (iod->reconnectStartTime.tv_sec < gWakeTime.tv_sec) {
 			sleepcnt = 1;
-			nanotime(&iod->reconnectStartTime);
+			nanouptime(&iod->reconnectStartTime);
 			waittime.tv_sec = vcp->reconnect_wait_time;	/* The number of seconds to wait on a reconnect */
 			waittime.tv_nsec = 0;
 			timespecadd(&waittime, &iod->reconnectStartTime);
-		}		
-	}while (error && (timespeccmp(&waittime, &tsnow, >)));
+		}
+		/*
+		 * We now do the negotiate message inside the connect loop. This way if
+		 * the negotiate message times out we can keep trying the connection. This
+		 * solves the problem of getting disconnected from a server that is going
+		 * down, but stays up long enough for us to do a tcp connection.
+		 */
+		if (!error) {
+			/* Clear out the outstanding request counter, everything is going to get resent */
+			iod->iod_muxcnt = 0;
+			/* Reset the virtual circuit to a reconnect state */
+			smb_vc_reset(vcp);
+			/* Start the virtual circuit */
+			iod->iod_state = SMBIOD_ST_TRANACTIVE;
+			error = smb_smb_negotiate(vcp, iod->iod_context, NULL, TRUE);
+			if ((error == ENOTCONN) || (error == ETIMEDOUT)) {
+				SMBWARNING("The negotiate timed out to %s trying again: error = %d\n", vcp->vc_srvname, error);
+				SMB_TRAN_DISCONNECT(vcp); /* Make sure the connection is close first */
+				iod->iod_state = SMBIOD_ST_CONNECT;
+			} else if (error) {
+				SMBWARNING("The negotiate failed to %s with an error of %d\n", vcp->vc_srvname, error);
+				break;				
+			} else {
+				SMBDEBUG("The negotiate succeed to %s\n", vcp->vc_srvname);
+				iod->iod_state = SMBIOD_ST_NEGOACTIVE;				
+				/*
+				 * We now do the authentication inside the connect loop. This way if
+				 * the authentication fails because we don't have a Kerberos creditials yet
+				 * or the creditials have expired, then we can keep trying.
+				 */
+				error = smb_iod_ssnsetup(iod);
+				if (error)
+					SMBWARNING("The authentication failed to %s with an error of %d\n", vcp->vc_srvname, error);
+				/* If the error isn't EAGAIN then nothing else to do here, we have success or failure */
+				if (error != EAGAIN)
+					break;
+					
+				/* Try four more times and see if the user has update the Kerberos Creds */
+				for (ii=1; ii < SMB_MAX_SLEEP_CNT; ii++) {
+					msleep(&iod->iod_flags, 0, PWAIT, "smb_iod_reconnect", &sleeptime);
+					error = smb_iod_ssnsetup(iod);
+					if (error)
+						SMBWARNING("Retring authentication count %d failed to %s with an error of %d\n", ii, vcp->vc_srvname, error);
+					if (error != EAGAIN)
+						break;
+				}
+				/* If no error then we are done, otherwise break the connection and try again */
+				if (error == 0)
+					break;
+				
+				SMB_TRAN_DISCONNECT(vcp); /* Make sure the connection is close first */
+				iod->iod_state = SMBIOD_ST_CONNECT;
+				error = EAUTH;
+			}
+		}
+		nanouptime(&tsnow);
+	} while (error && (timespeccmp(&waittime, &tsnow, >)));
 		
 	/* reconnect failed or we timed out, nothing left to do cancel the reconnect */
 	if (error) {
-		SMBDEBUG("connect  error = %d\n", error);
+		SMBWARNING("The connection failed to %s with an error of %d\n", vcp->vc_srvname, error);
 		goto exit;
-	}
-	
-	/* Clear out the outstanding request counter, everything is going to get resent */
-	iod->iod_muxcnt = 0;
-	/* Reset the virtual circuit to a reconnect state */
-	smb_vc_reset(vcp);
-	/* Start the virtual circuit */
-	iod->iod_state = SMBIOD_ST_TRANACTIVE;
-	error = smb_smb_negotiate(vcp, &iod->iod_scred, NULL, TRUE);
-	iod->iod_state = SMBIOD_ST_NEGOACTIVE;
-	if (error) {
-		SMBDEBUG("smb_smb_negotiate  error = %d\n", error);
-		goto exit;				
-	}
-
-	/* Reset the security */
-	error = smb_iod_ssnsetup(iod);
-	if (error) {
-		SMBDEBUG("smb_iod_ssnsetup  error = %d\n", error);
-		goto exit;		
 	}
 	/*
 	 * We now need to reconnect each share. Since the current code only has one share
@@ -1080,23 +1227,46 @@ static void smb_iod_reconnect(struct smbiod *iod)
 	tree_cnt = 0;
 	smb_vc_lock(vcp);	/* lock the vc so we can search the list */
 	SMBCO_FOREACH(ssp, VCTOCP(vcp)) {
+		int share_has_mount;
+		
+		/*
+		 * Since we have the vc lock we know the share can't be freed, but 
+		 * it could be going away (Tree Disconnect is in process). Take a 
+		 * reference so no one else can disconnect it out from underneath 
+		 * us.
+		 */
 		smb_share_ref(ssp);
-		if (ssp->ss_mount && ssp->ss_mount->sm_mp && (!vfs_isforce(ssp->ss_mount->sm_mp))) {
-			int tree_error = smb_smb_treeconnect(ssp, &iod->iod_scred);			
-			if (tree_error == 0) {
-				smbfs_reconnect(ssp->ss_mount);
-				smbfs_up(ssp->ss_mount);
-				tree_cnt++;
-				SMBDEBUG("Reconnected share %s with server %s\n", ssp->ss_name, vcp->vc_srvname);
-			} else 
-			    SMBERROR("Reconnect failed to share %s on server %s error = %d\n", ssp->ss_name, vcp->vc_srvname, tree_error);
+		if (ssp->ss_flags & SMBO_GONE) {
+			/* Skip any shares that are being disconnect */
+			smb_share_rele(ssp, iod->iod_context);
+			continue;
 		}
-		smb_share_rele(ssp, &iod->iod_scred);			
+		lck_mtx_lock(&ssp->ss_mntlock);
+		/* If we have a ss_mount then we have a sm_mp */
+		if (ssp->ss_mount && (!vfs_isforce(ssp->ss_mount->sm_mp)))
+			share_has_mount = TRUE;
+		else 
+			share_has_mount = FALSE;
+		lck_mtx_unlock(&ssp->ss_mntlock);
+			
+		if (share_has_mount) {
+			int tree_error = smb_smb_treeconnect(ssp, iod->iod_context);			
+			if (tree_error == 0) {
+				smbfs_reconnect(ssp);
+				smbfs_up(ssp);
+				tree_cnt++;
+				SMBERROR("Reconnected share %s with server %s\n", ssp->ss_name, vcp->vc_srvname);
+			} else 
+			    SMBERROR("Reconnection failed to share %s on server %s error = %d\n", ssp->ss_name, vcp->vc_srvname, tree_error);
+		}
+		smb_share_rele(ssp, iod->iod_context);			
 	}
 	smb_vc_unlock(vcp);
 	/* If we have no shares on this connect then kill the whole virtual circuit. */
-	if (!tree_cnt)
+	if (!tree_cnt) {
+		SMBWARNING("No mounted volumes in reconnect, closing connection to server %s\n",vcp->vc_srvname);		
 		error = ENOTCONN;
+	}
 
 exit:	
 	/*
@@ -1108,11 +1278,11 @@ exit:
 		smb_vc_lock(vcp);	/* lock the vc so we can search the list */
 		SMBCO_FOREACH(ssp, VCTOCP(vcp)) {
 			smb_share_ref(ssp);
-			SMBS_ST_LOCK(ssp);
+			lck_mtx_lock(&ssp->ss_stlock);
 			ssp->ss_flags &= ~SMBS_RECONNECTING;	/* Turn off reconnecting flag */
-			SMBS_ST_UNLOCK(ssp);
+			lck_mtx_unlock(&ssp->ss_stlock);
 			wakeup(&ssp->ss_flags);	/* Wakeup the volumes. */
-			smb_share_rele(ssp, &iod->iod_scred);			
+			smb_share_rele(ssp, iod->iod_context);			
 		}					
 		smb_vc_unlock(vcp);
 	}
@@ -1123,11 +1293,12 @@ exit:
 	SMB_IOD_FLAGSLOCK(iod);
 	iod->iod_flags &= ~SMBIOD_RECONNECT;
 	SMB_IOD_FLAGSUNLOCK(iod);
-	if (!error)
-		SMBERROR("Reconnected to %s\n", vcp->vc_srvname);		
-	smb_vc_rele(vcp, &iod->iod_scred);	/* We are done release the reference */
-	if (error) {
+	if (error)
 		SMB_TRAN_DISCONNECT(vcp);
+		
+	smb_vc_reconnect_rel(vcp);	/* We are done release the reference */
+	
+	if (error) {
 		if (iod->reconnectStartTime.tv_sec < gWakeTime.tv_sec) {
 			/*
 			 * We went to sleep after the connection, but before the reconnect
@@ -1138,9 +1309,8 @@ exit:
 			iod->iod_state = SMBIOD_ST_RECONNECT;
 			smb_iod_start_reconnect(iod); /* Retry the reconnect */
 		} else {
-			/* We failed tell the user and have the volume unmounted */
+			/* We failed; tell the user and have the volume unmounted */
 			smb_iod_dead(iod);			
-			SMBERROR("The reconnect failed to %s! error = %d\n", vcp->vc_srvname, error);
 		}
 	}
 
@@ -1212,7 +1382,7 @@ smb_iod_main(struct smbiod *iod)
 			free(evp, M_SMBIOD);
 	}
 	if ((iod->iod_state == SMBIOD_ST_VCACTIVE) && ((iod->iod_flags & SMBIOD_RECONNECT) != SMBIOD_RECONNECT)) {
-		nanotime(&tsnow);
+		nanouptime(&tsnow);
 		timespecsub(&tsnow, &iod->iod_pingtimo);
 		if (timespeccmp(&tsnow, &iod->iod_lastrqsent, >))
 			smb_tickle(iod);
@@ -1225,7 +1395,7 @@ smb_iod_main(struct smbiod *iod)
 static void smb_iod_thread(void *arg)
 {
 	struct smbiod *iod = arg;
-	vfs_context_t      vfsctx;
+	vfs_context_t      context;
 
 
 	/* the iod sets the iod_p to kernproc when launching smb_iod_thread in 
@@ -1236,9 +1406,7 @@ static void smb_iod_thread(void *arg)
 	 * from current thread 
 	 */
 	
-	vfsctx = vfs_context_create((vfs_context_t)0);
-
-	smb_scred_init(&iod->iod_scred, vfsctx);
+	context = iod->iod_context = vfs_context_create((vfs_context_t)0);
 
 	SMB_IOD_FLAGSLOCK(iod);
 	iod->iod_flags |= SMBIOD_RUNNING;
@@ -1275,7 +1443,7 @@ static void smb_iod_thread(void *arg)
 			continue;
 		SMBIODEBUG("going to sleep for %d secs %d nsecs\n", iod->iod_sleeptimespec.tv_sec,
 				iod->iod_sleeptimespec.tv_nsec);
-		msleep(&iod->iod_flags, 0, PWAIT, "90idle", &iod->iod_sleeptimespec);
+		msleep(&iod->iod_flags, 0, PWAIT, "iod thread idle", &iod->iod_sleeptimespec);
 	}
 
 	/*
@@ -1286,13 +1454,15 @@ static void smb_iod_thread(void *arg)
 	wakeup(iod);
 	SMB_IOD_FLAGSUNLOCK(iod);
 
-	vfs_context_rele(vfsctx);
+	vfs_context_rele(context);
 }
 
 int
 smb_iod_create(struct smb_vc *vcp)
 {
-	struct smbiod *iod;
+	struct smbiod	*iod;
+	kern_return_t	result;
+	thread_t		thread;
 
 	iod = smb_zmalloc(sizeof(*iod), M_SMBIOD, M_WAITOK);
 	iod->iod_id = smb_iod_next++;
@@ -1302,18 +1472,23 @@ smb_iod_create(struct smb_vc *vcp)
 	iod->iod_sleeptimespec.tv_sec = SMBIOD_SLEEP_TIMO;
 	iod->iod_sleeptimespec.tv_nsec = 0;
 	iod->iod_pingtimo.tv_sec = SMBIOD_PING_TIMO;
-	iod->iod_p = kernproc;
-	nanotime(&iod->iod_lastrqsent);
+	nanouptime(&iod->iod_lastrqsent);
 	vcp->vc_iod = iod;
 	lck_mtx_init(&iod->iod_rqlock, iodrq_lck_group, iodrq_lck_attr);
 	TAILQ_INIT(&iod->iod_rqlist);
 	lck_mtx_init(&iod->iod_evlock, iodev_lck_group, iodev_lck_attr);
 	STAILQ_INIT(&iod->iod_evlist);
-	if (IOCreateThread(smb_iod_thread, iod) == NULL) {
-		SMBERROR("can't start smbiod\n");
+	/* 
+	 * The IOCreateThread routine has been depricated. Just copied
+	 * that code here
+	 */
+	result = kernel_thread_start((thread_continue_t)smb_iod_thread, iod, &thread);
+	if (result != KERN_SUCCESS) {
+		SMBERROR("can't start smbiod result = %d\n", result);
 		free(iod, M_SMBIOD);
-		return (ENOMEM); /* true cause lost in mach interfaces */
+		return (ENOMEM); 
 	}
+	thread_deallocate(thread);
 	return (0);
 }
 

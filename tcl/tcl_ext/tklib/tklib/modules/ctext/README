@@ -1,0 +1,155 @@
+# RCS: @(#) $Id: README,v 1.3 2005/04/07 02:33:30 andreas_kupries Exp $
+
+	o Author
+
+	George Peter Staplin
+
+	See also: Thanks (below)
+
+
+	o Licensing
+
+	BSD style see the LICENSE file
+
+
+	o Installation
+
+	Ctext requires only one file named ctext.tcl.  You
+	can source this file or if you prefer to use
+	"package require ctext" you can use the install.tcl
+	script.  The install script can be run like so:
+	wish8.4 install.tcl
+
+	If you are a developer I highly recommend that you 
+	study the Usage section below.  If you need an 
+	example then see the test files (especialy 
+	ctext_test_interactive.tcl).
+
+
+	o How it Works
+
+	Ctext overloads the text widget and provides
+	new commands, named highlight, copy, paste, cut,
+	append, and edit.  It also provides several
+	commands that allow you to define classes.
+	Each class corresponds to a tag in the widget.
+ 
+
+	o Usage
+	
+	Ctext can be used like so:
+	pack [ctext .t]
+	.t fastinsert end $data
+	.t highlight 1.0 end  
+	
+	The copy, paste, and cut widget commands are frontends
+	for tk_text*, but they don't require giving an argument 
+	for the text widget window.  I have also addded an 
+	append command, which appends the current selection
+	to the existing clipboard text.
+
+	An edit modified command is available that keeps
+	track of whether or not data in the widget has been
+	modified.  .t edit modified would return 0 if the
+	data hasn't been modified.  To set the value after
+	inserting text you can use .t edit modified 0.  It
+	will automatically be set to 1 during
+	insertion/deletion cut/paste etc.
+	
+	During insertion and deletion of text in the widget
+	the tags and highlighting will be automatically
+	updated, unless you specify -highlight 0 during
+	creation or instance configuration of the widget.
+
+	All of the flags that the text widget supports work.  
+	It also supports new flags.  These new flags are:
+
+	-linemap creates a line number list on the left of 
+	the widget.
+
+	-linemapfg changes the foreground of the linemap.
+	The default is the same color as the main text 
+	widget.
+
+	-linemapbg changes the background of the linemap.
+	The default is the same color as the main text 
+	widget.
+
+	-linemap_select_fg changes the selected 
+	line foreground.  The default is black.
+	
+	-linemap_select_bg changes the selected line 
+	background.  The default is yellow.
+
+	-linemap_mark_command calls a procedure or command 
+	with the path of the ctext window, the type which is 
+	either marked or unmarked, and finally the line 
+	number selected.  The proc prototype is: 
+	proc linemark_cmd {win type line}.  See also 
+	ctext_test_interactive.tcl
+
+	-highlight takes a boolean value which defines
+	whether or not to highlight text which is inserted 
+	or deleted.  The default is 1.
+
+	-linemap_markable takes a boolean value which
+	specifies whether or not lines in the linemap
+	are markable with the mouse.  The default is 1.
+	
+	Four highlighting procedures are available for adding 
+	keywords.  Each proc takes a class, color, keyword, 
+	and window argument.  The highlight widget command will 
+	automatically use each class that you add with any of 
+	the three functions.  If you want to change the font 
+	of a class or another attribute you can run a 
+	command like this:
+	.t tag configure $className -font {Helvetica 16}
+	
+	Note that the tag is created when you add a class.
+
+	Normal keywords:
+	ctext::addHighlightClass .t class color [list string1 string2 ...]
+
+	Strings that start with chars like $, for $var:
+	ctext::addHighlightClassWithOnlyCharStart .t class color "\$"
+
+	A series of characters in a string
+	ctext:addHighlightClassForSpecialChars .t class color {[]{}}
+
+	Comments, and other things that need regexp:
+	ctext::addHighlightClassForRegexp .t class color {#\[^\n\]*}
+
+	ctext::clearHighlightClasses clears all of the 
+	highlight classes from the widget specified.  
+	Example: ctext::clearHighlightClasses .t
+
+	To get a list of classes defined for a widget do 
+	something like: ctext::getHighlightClasses .t
+
+	To delete a highlight class do something like:
+	ctext::deleteHighlightClass .t classNameToDelete
+
+	You can update a cursor while ctext highlights a large file
+	by overriding ctext::update.  Simply source ctext.tcl then
+	create your ctext::update proc, and it will be called by
+	ctext.  This allows you to have a progress dialog, or animated
+	cursor.
+
+	If you are using C and want C comments highlighted you can
+	use ctext::enableComments.  You can modify the colors of 
+	C comments by configuring the tag _cComment after enabling with
+	the afformentioned command.  The C comment highlighting is
+	disabled by default.
+
+
+	I have personally tested it with Tcl/Tk 8.4.4 in NetBSD.
+	It should work with all Tcl platforms.
+
+	Please send comments and bugs to the tklib project at
+	tcllib.sf.net
+
+	o Thanks
+
+	Kevin Kenny, Neil Madden, Jeffrey Hobbs, Richard Suchenwirth, 
+	Johan Bengtsson, Mac Cody, Günther, Andreas Sievers, and 
+	Michael Schlenker

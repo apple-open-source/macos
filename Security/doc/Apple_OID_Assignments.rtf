@@ -1,34 +1,29 @@
-{\rtf1\ansi\ansicpg1252\cocoartf949
-{\fonttbl\f0\froman\fcharset0 TimesNewRomanPSMT;\f1\froman\fcharset0 Times-Roman;}
-{\colortbl;\red255\green255\blue255;}
+{\rtf1\ansi\ansicpg1252\cocoartf1015
+{\fonttbl\f0\fswiss\fcharset0 Helvetica;\f1\fnil\fcharset0 HelveticaNeue;\f2\froman\fcharset0 Times-Roman;
+}
+{\colortbl;\red255\green255\blue255;\red255\green0\blue0;}
 {\info
 {\title Apple OID Assignments}
 {\author Doug Mitchell}
-{\*\company Apple Computer, Inc.}}\vieww20400\viewh17580\viewkind0
+{\*\company Apple Computer, Inc.}}\vieww19080\viewh20120\viewkind0
 \deftab720
 \pard\pardeftab720\qc\pardirnatural
 
-\f0\fs24 \cf0 Apple OID Assignments\
-Last Update 21 January 2008 by Richard Murphy\
+\f0\fs26 \cf0 Apple OID Assignments\
+Last Update 30 April 2008 by Richard Murphy\
 \pard\pardeftab720\ql\qnatural\pardirnatural
 \cf0 \
-
-\b 1.0
-\b0  apple ::=  \{ iso(1) member-body(2) US(840) 113635 \}\
+1.0 apple ::=  \{ iso(1) member-body(2) US(840) 113635 \}\
 -- 1 2 840 113635\
 -- Top level Apple OID\
 \
 \pard\pardeftab720\li720\ql\qnatural\pardirnatural
-
-\b \cf0 1.1 
-\b0 appleDataSecurity ::= \{apple 100\}\
+\cf0 1.1 appleDataSecurity ::= \{apple 100\}\
 -- 1 2 840 113635 100\
 -- Apple Data Security arc\
 \
 \pard\pardeftab720\li1440\ql\qnatural\pardirnatural
-
-\b \cf0 1.1.1 
-\b0 appleTrustPolicy ::= \{appleDataSecurity 1\}\
+\cf0 1.1.1 appleTrustPolicy ::= \{appleDataSecurity 1\}\
 -- 1 2 840 113635 100 1\
 -- Apple Certificate Trust Policies\
 \
@@ -86,8 +81,7 @@ appleResourceSignPolicy ::= \{appleTrustPolicy 13\}\
 -- 1 2 840 113635 100 1 13\
 -- Apple Resource Sign Cert Policy\
 \
-
-\f1 applePKINITClientPolicy ::= \{appleTrustPolicy 14\}\
+applePKINITClientPolicy ::= \{appleTrustPolicy 14\}\
 -- 1 2 840 113635 100 1 14\
 -- Apple Kerberos PKINIT Client Cert Policy\
 \
@@ -103,12 +97,9 @@ applePackageSigningPolicy ::= \{appleTrustPolicy 17\}\
 -- 1 2 840 113635 100 1 17\
 -- Apple Package Signing Policy\
 \
-
-\f0 \
+\
 \pard\pardeftab720\li1440\ql\qnatural\pardirnatural
-
-\b \cf0 1.1.2 
-\b0 appleSecurityAlgorithm ::=  \{appleDataSecurity 2\}\
+\cf0 1.1.2 appleSecurityAlgorithm ::=  \{appleDataSecurity 2\}\
 -- 1 2 840 113635 100 2\
 -- Apple Security Algorithms\
 \
@@ -142,16 +133,12 @@ appleECDSA ::= \{ appleSecurityAlgorithm 7\}\
 -- Apple FEE/ECDSA signature\
 \
 \pard\pardeftab720\li1440\ql\qnatural\pardirnatural
-
-\b \cf0 1.1.3 
-\b0 appleDotMacCertificate ::=  \{appleDataSecurity 3\}\
+\cf0 1.1.3 appleDotMacCertificate ::=  \{appleDataSecurity 3\}\
 -- 1 2 840 113635 100 3\
 -- Apple .mac certificate arc\
 \
 \pard\pardeftab720\li2160\ql\qnatural\pardirnatural
-
-\b \cf0 1.1.3.1
-\b0  dotMacCertificateRequest ::= \{ appleDotMacCertificate 1\}\
+\cf0 1.1.3.1 dotMacCertificateRequest ::= \{ appleDotMacCertificate 1\}\
 -- 1 2 840 113635 100 3 1\
 -- Apple .mac certificate request arc\
 \
@@ -192,9 +179,7 @@ dotMacCertReqSign ::= \{ dotMacCertificateRequest 8\}\
 \pard\pardeftab720\ql\qnatural\pardirnatural
 \cf0 \
 \pard\pardeftab720\li2160\ql\qnatural\pardirnatural
-
-\b \cf0 1.1.3.2
-\b0  dotMacCertificateExtension ::= \{ appleDotMacCertificate 2\}\
+\cf0 1.1.3.2 dotMacCertificateExtension ::= \{ appleDotMacCertificate 2\}\
 -- 1 2 840 113635 100 3 2\
 -- Apple .mac certificate extension arc\
 \
@@ -219,9 +204,7 @@ dotMacCertReqSign ::= \{ dotMacCertificateRequest 8\}\
 \pard\pardeftab720\ql\qnatural\pardirnatural
 \cf0 \
 \pard\pardeftab720\li2160\ql\qnatural\pardirnatural
-
-\b \cf0 1.1.3.3 
-\b0 dotMacCertificateRequestValues ::= \{ appleDotMacCertificate 3\}\
+\cf0 1.1.3.3 dotMacCertificateRequestValues ::= \{ appleDotMacCertificate 3\}\
 -- 1 2 840 113635 100 3 3\
 -- Apple .mac certificate request parameter arc\
 \
@@ -294,9 +277,7 @@ dotMacCertReqSign ::= \{ dotMacCertificateRequest 8\}\
 \cf0 \
 \pard\pardeftab720\li1440\ql\qnatural\pardirnatural
 \cf0 \
-
-\b 1.1.4 
-\b0 appleExtendedKeyUsage ::= \{appleDataSecurity 4\}\
+1.1.4 appleExtendedKeyUsage ::= \{appleDataSecurity 4\}\
 -- 1 2 840 113635 100 4\
 -- Apple Extended Key Usage arc\
 \
@@ -314,6 +295,10 @@ dotMacCertReqSign ::= \{ dotMacCertificateRequest 8\}\
 appleSoftwareUpdateSigning ::= \{ appleCodeSigning 2\}\
 -- 1 2 840 113635 100 4 1 2\
 -- Apple Software Update Signing Extended Key Usage\
+\
+	appleSoftwareUpdateTestSigning ::= \{ appleSoftwareUpdateSigning 1\}\
+	-- 1 2 840 113635 100 4 1 2 1\
+	-- Apple Software Update Test Signing Extended Key Usage\
 \
 appleCodeSigningThirdParty ::= \{ appleCodeSigning 3\}\
 -- 1 2 840 113635 100 4 1 3\
@@ -400,9 +385,7 @@ appleIChatEncryption ::= \{ appleExtendedKeyUsage 3\}\
 \pard\pardeftab720\li2160\ql\qnatural\pardirnatural
 \cf0 \
 \pard\pardeftab720\li1440\ql\qnatural\pardirnatural
-
-\b \cf0 1.1.5 
-\b0 appleCertificatePolicies ::= \{appleDataSecurity 5\}\
+\cf0 1.1.5 appleCertificatePolicies ::= \{appleDataSecurity 5\}\
 -- 1 2 840 113635 100 5\
 -- Apple Certificate Policies arc\
 \
@@ -420,11 +403,20 @@ appleIChatEncryption ::= \{ appleExtendedKeyUsage 3\}\
 appleADCCertificatePolicyID ::= \{ appleCertificatePolicies 3\}\
 -- 1 2 840 113635 100 5 3\
 -- ADC Certificate Policy\
+-- unused\
+\
+appleiPhoneOSDeviceCertificiatePolicyMarker::= \{ appleCertificatePolicies 4\}\
+-- 1 2 840 113635 100 5 4\
+-- Markers for iPhone OS Device Certificate Policies, used for external sources to trust iPhone OS devices\
+\
+	appleBBCDeviceCertificatePolicyID ::= \{ appleiPhoneOSDeviceCertificiatePolicyMarker 1 \}\
+	-- 1 2 840 113635 100 5 4 1\
+	-- BBC's Policy\
+\
+	\
 \
 \pard\pardeftab720\li1440\ql\qnatural\pardirnatural
-
-\b \cf0 1.1.6 
-\b0 appleCertificateExtensions ::= \{appleDataSecurity 6\}\
+\cf0 1.1.6 appleCertificateExtensions ::= \{appleDataSecurity 6\}\
 -- 1 2 840 113635 100 6\
 -- Apple Certificate Extensions arc\
 \
@@ -436,18 +428,90 @@ appleADCCertificatePolicyID ::= \{ appleCertificatePolicies 3\}\
 		-- 1 2 840 113635 100 6 1 1\
 		-- Apple Released Code Signature\
 \
-		appleCertificateExtensionADCDeveloperSigning ::= \{ appleCertificateExtensionCodeSigning 2 \}\
+		appleCertificateExtensionWWDRDevelopmentSigning ::= \{ appleCertificateExtensionCodeSigning 2 \}\
 		-- 1 2 840 113635 100 6 1 2\
-		-- Apple Developer Connection Issued Certificates for Code Signing\
+		-- Apple World Wide Developer Relations Certificates for Code Signing during development\
 \
-		appleCertificateExtensionADCAppleSigning ::= \{ appleCertificateExtensionCodeSigning 3 \}\
+		appleCertificateExtensionAppleReleaseSigning ::= \{ appleCertificateExtensionCodeSigning 3 \}\
 		-- 1 2 840 113635 100 6 1 3\
-		-- Apple Developer Connection Apple Certificates for Code Signing\
+		-- Apple World Wide Developer Relations Certificates for Code Signing for General Release through the iTMS\
 \
-\
-\pard\pardeftab720\ql\qnatural\pardirnatural
+			appleCertificateExtensionAppleTestSigning ::= \{ appleCertificateExtensionAppleReleaseSigning 1 \}\
+			-- 1 2 840 113635 100 6 1 3 1\
+			-- Apple World Wide Developer Relations Certificates for Code Signing for Test Release through the iTMS\
+\pard\pardeftab720\ql\qnatural
+\cf0 \
+\pard\pardeftab720\li1440\ql\qnatural\pardirnatural
+\cf0 		appleCertificateExtensionWWDRSubmissionSigning ::= \{ appleCertificateExtensionCodeSigning 4 \}\
+		-- 1 2 840 113635 100 6 1 4\
+\pard\pardeftab720\ql\qnatural
+\cf0 				-- Apple World Wide Developer Relations Certificates for Code Signing GM from developer to Apple\
+\pard\pardeftab720\li1440\ql\qnatural\pardirnatural
 \cf0 \
 \
+	appleCertificateExtensionIntermediateMarker ::= \{ appleCertificateExtensions 2 \}\
+	-- 1 2 840 113635 100 6 2\
+	-- Extension Markers for Apple Intermediate Certificates\
+\
+		appleCertificateExtensionWWDRIntermediate ::= \{ appleCertificateExtensionIntermediateMarker 1 \}\
+		-- 1 2 840 113635 100 6 2 1\
+		-- Marker for the WWDR Intermediate Certificate\
+\
+\pard\pardeftab720\li1440\ql\qnatural\pardirnatural
+\cf2 	
+\f1\fs24 appleCertificateExtensionClientSSL
+\f0\fs26  ::= \{ appleCertificateExtensions 3 \}\
+	-- 1 2 840 113635 100 6 3\
+	-- Extension Markers for Apple SSL Push Service\
+\
+\pard\pardeftab720\ql\qnatural
+
+\f1\fs24 \cf2 				appleCertificateExtensionDevelopmentApplePushServiceClientSSL\'a0::= \{ appleCertificateExtensionClientSSL 1 \}\
+					--\'a01 2 840 113635 100 6 3 1\
+					-- Apple World Wide Developer Relations Client SSL Certificates for Accessing the Development Apple Push Service\
+\
+				appleCertificateExtensionProductionApplePushServiceClientSSL\'a0::= \{ appleCertificateExtensionClientSSL 2 \}\
+					--\'a01 2 840 113635 100 6 3 2\
+					-- Apple World Wide Developer Relations Client SSL Certificates for Accessing the Production Apple Push Service\
+\pard\pardeftab720\li1440\ql\qnatural\pardirnatural
+
+\f0\fs26 \cf0 \
+	appleOtherNameExtensionMarker ::= \{ appleCertificateExtensions 4 \}\
+	-- 1 2 840 113635 100 6 4\
+	-- Extension Markers for Apple Specific SubjectAltName otherNames\
+\
+		appleDeviceVersion ::= \{ appleOtherNameExtensionMarker 1 \}\
+		-- 1 2 840 113635 100 6 4 1\
+		-- Extension Markers for device version string, expects UTF8 to follow in SubjectAltName\
+		\
+		appleOSVersion ::= \{ appleOtherNameExtensionMarker 2 \}\
+		-- 1 2 840 113635 100 6 4 2\
+		-- Extension Markers for OS version string, expects UTF8 to follow in SubjectAltName\
+		\
+\
+\pard\pardeftab720\ql\qnatural
+
+\fs24 \cf0 \
+		1.1.7 appleFairPlayCertificate ::= \'a0\{appleDataSecurity 7\}\
+		-- 1 2 840 113635 100 7\
+		-- Apple FairPlay certificate arc\
+\
+			1.1.7.2 fairplayCertificateExtension ::= \{ appleFairPlayCertificate 1\}\
+			-- 1 2 840 113635 100 7 1\
+			-- Apple FairPlay certificate extension arc\
+\
+\'a0\'a0				fairplayCertExtensionAAA ::= \{ fairplayCertificateExtension 1\}\
+\'a0				\'a0-- 1 2 840 113635 100 7 1 1\
+\'a0				\'a0-- Apple FairPlay certificate extended Application Authentication & Authorization: Policy\
+\
+\pard\pardeftab720\li1440\ql\qnatural\pardirnatural
+
+\fs26 \cf0 \
+\pard\pardeftab720\ql\qnatural\pardirnatural
+\cf0 \
+\pard\pardeftab720\ql\qnatural\pardirnatural
+
+\f2\fs24 \cf0 \
 \
 \pard\pardeftab720\li1440\ql\qnatural\pardirnatural
 \cf0 \
@@ -456,17 +520,22 @@ appleADCCertificatePolicyID ::= \{ appleCertificatePolicies 3\}\
 \b \cf0 \ul \ulc0 Revision History\
 \ulnone \
 \ul    Date   \ulnone 	\ul Change    \
+\pard\pardeftab720\ql\qnatural\pardirnatural
 
-\b0 \ulnone 01/21/08	Added Code Signing Critical Certificate Extensions\
+\b0 \cf0 \ulnone 01/19/09	Adding SSL Push Service Extention Hiearchy\
+04/30/08	appleCertificateExtensionAppleReleaseSigning and appleSoftwareUpdateSigning now have .1 testing subordinates\
+04/08/08	Added Fairplay Arc\
+02/29/08	Fixed Comments for WWDR Phone SDK Cert Extensions\
+02/12/08	Changed Code Signing Critical Certificate Extensions from ADC to WWDR - re-ordered them,\
+		Added the intermediate cert  marker sub-arc\
+01/21/08	Added Code Signing Critical Certificate Extensions\
 04/04/07	Added appleCryptoEnv and appleCryptoQoS ExtendedKeyUse trees
 \b \
 
 \b0 09/14/06	Added dotMacCertReqEncryptedIChat, dotMacCertReqCollaboration\
 08/16/06	Changes AppleCodeSigningPolicy to appleSWUpdateSigningPolicy\
 		Added (new) AppleCodeSigningPolicy\
-		Added 
-\f1 applePackageSigningPolicy
-\f0 \
+		Added applePackageSigningPolicy\
 01/28/05	Added appleCertificatePolicies arc  \
 		Moved dotMacCertPolicyID to appleCertificatePolicies arc\
 01/25/05	Added dotMacCertPolicyID\

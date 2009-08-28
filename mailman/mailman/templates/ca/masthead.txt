@@ -1,18 +1,16 @@
-Envii les submissions de  llista de correu  %(real_name)s a
+Envieu les aportacions de %(real_name)s a la llista de correu a
 	%(got_list_email)s
 
-Per subscriure's o donar-se de baixa via 'World Wide Web', visiti
-
+Per a subscriure-us o cancel·lar subscripcions a través de la web, aneu
+a
 	%(got_listinfo_url)s
-
-o si vol fer-ho via email, envii'n un amb la paraula 'ajuda' en el t�tol o 
-en el cos del missatge a
-
+o bé, si voleu utilitzar el correu electrònic, envieu un missatge amb la
+paraula «help» a l'assumpte o al cos del missatge, adreçat a
 	%(got_request_email)s
 
-Pot accedir a la persona que gestiona la llista a 
-
+Podeu dirigir-vos a la persona encarregada de la gestió de la llista a
 	%(got_owner_email)s
 
-Quan respongui, si us plau, canvii el t�tol de manera que sigui m�s espec�fic que
-"Re: Contents of %(real_name)s digest..."
+En respondre, és recomanable que editeu la línia de l'Assumpte, de
+manera que sigui més específica que "Re: Contents of %(real_name)s
+digest..."

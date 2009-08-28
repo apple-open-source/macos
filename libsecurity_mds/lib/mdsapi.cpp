@@ -54,7 +54,7 @@ static CSSM_RETURN CSSMAPI mds_DataGetFirst(CSSM_DL_DB_HANDLE DLDBHandle,
   BEGIN_API
   MSApiDebug("mds_DataGetFirst");
   StLock<Mutex> _(adbMutex());
-  if (!(Required(ResultsHandle) = findHandle<MDSSession>(DLDBHandle.DLHandle).DataGetFirst(DLDBHandle.DBHandle,
+  if (!(Required(ResultsHandle) = HandleObject::find<MDSSession>(DLDBHandle.DLHandle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE).DataGetFirst(DLDBHandle.DBHandle,
 			CssmQuery::optional(Query),
 			Attributes,
 			CssmData::optional(Data),
@@ -72,7 +72,7 @@ static CSSM_RETURN CSSMAPI mds_DataModify(CSSM_DL_DB_HANDLE DLDBHandle,
 {
   BEGIN_API
   StLock<Mutex> _(adbMutex());
-  findHandle<MDSSession>(DLDBHandle.DLHandle).DataModify(DLDBHandle.DBHandle,
+  HandleObject::find<MDSSession>(DLDBHandle.DLHandle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE).DataModify(DLDBHandle.DBHandle,
 			RecordType,
 			Required(UniqueRecordIdentifier),
 			AttributesToBeModified,
@@ -86,7 +86,7 @@ static CSSM_RETURN CSSMAPI mds_GetDbNameFromHandle(CSSM_DL_DB_HANDLE DLDBHandle,
 {
   BEGIN_API
   StLock<Mutex> _(adbMutex());
-  findHandle<MDSSession>(DLDBHandle.DLHandle).GetDbNameFromHandle(DLDBHandle.DBHandle,
+  HandleObject::find<MDSSession>(DLDBHandle.DLHandle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE).GetDbNameFromHandle(DLDBHandle.DBHandle,
 			DbName);
   END_API(MDS)
 }
@@ -97,7 +97,7 @@ static CSSM_RETURN CSSMAPI mds_DataAbortQuery(CSSM_DL_DB_HANDLE DLDBHandle,
   BEGIN_API
   MSApiDebug("mds_DataAbortQuery");
   StLock<Mutex> _(adbMutex());
-  findHandle<MDSSession>(DLDBHandle.DLHandle).DataAbortQuery(DLDBHandle.DBHandle,
+  HandleObject::find<MDSSession>(DLDBHandle.DLHandle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE).DataAbortQuery(DLDBHandle.DBHandle,
 			ResultsHandle);
   END_API(MDS)
 }
@@ -107,7 +107,7 @@ static CSSM_RETURN CSSMAPI mds_DestroyRelation(CSSM_DL_DB_HANDLE DLDBHandle,
 {
   BEGIN_API
   StLock<Mutex> _(adbMutex());
-  findHandle<MDSSession>(DLDBHandle.DLHandle).DestroyRelation(DLDBHandle.DBHandle,
+  HandleObject::find<MDSSession>(DLDBHandle.DLHandle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE).DestroyRelation(DLDBHandle.DBHandle,
 			RelationID);
   END_API(MDS)
 }
@@ -117,7 +117,7 @@ static CSSM_RETURN CSSMAPI mds_DataDelete(CSSM_DL_DB_HANDLE DLDBHandle,
 {
   BEGIN_API
   StLock<Mutex> _(adbMutex());
-  findHandle<MDSSession>(DLDBHandle.DLHandle).DataDelete(DLDBHandle.DBHandle,
+  HandleObject::find<MDSSession>(DLDBHandle.DLHandle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE).DataDelete(DLDBHandle.DBHandle,
 			Required(UniqueRecordIdentifier));
   END_API(MDS)
 }
@@ -130,7 +130,7 @@ static CSSM_RETURN CSSMAPI mds_DataInsert(CSSM_DL_DB_HANDLE DLDBHandle,
 {
   BEGIN_API
   StLock<Mutex> _(adbMutex());
-  findHandle<MDSSession>(DLDBHandle.DLHandle).DataInsert(DLDBHandle.DBHandle,
+  HandleObject::find<MDSSession>(DLDBHandle.DLHandle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE).DataInsert(DLDBHandle.DBHandle,
 			RecordType,
 			Attributes,
 			CssmData::optional(Data),
@@ -145,7 +145,7 @@ static CSSM_RETURN CSSMAPI mds_DataGetFromUniqueRecordId(CSSM_DL_DB_HANDLE DLDBH
 {
   BEGIN_API
   StLock<Mutex> _(adbMutex());
-  findHandle<MDSSession>(DLDBHandle.DLHandle).DataGetFromUniqueRecordId(DLDBHandle.DBHandle,
+  HandleObject::find<MDSSession>(DLDBHandle.DLHandle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE).DataGetFromUniqueRecordId(DLDBHandle.DBHandle,
 			Required(UniqueRecord),
             Attributes,
 			CssmData::optional(Data));
@@ -162,7 +162,7 @@ static CSSM_RETURN CSSMAPI mds_CreateRelation(CSSM_DL_DB_HANDLE DLDBHandle,
 {
   BEGIN_API
   StLock<Mutex> _(adbMutex());
-  findHandle<MDSSession>(DLDBHandle.DLHandle).CreateRelation(DLDBHandle.DBHandle,
+  HandleObject::find<MDSSession>(DLDBHandle.DLHandle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE).CreateRelation(DLDBHandle.DBHandle,
 			RelationID,
 			RelationName,
 			NumberOfAttributes,
@@ -177,7 +177,7 @@ static CSSM_RETURN CSSMAPI mds_FreeUniqueRecord(CSSM_DL_DB_HANDLE DLDBHandle,
 {
   BEGIN_API
   StLock<Mutex> _(adbMutex());
-  findHandle<MDSSession>(DLDBHandle.DLHandle).FreeUniqueRecord(DLDBHandle.DBHandle,
+  HandleObject::find<MDSSession>(DLDBHandle.DLHandle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE).FreeUniqueRecord(DLDBHandle.DBHandle,
 			Required(UniqueRecord));
   END_API(MDS)
 }
@@ -193,7 +193,7 @@ static CSSM_RETURN CSSMAPI mds_DbOpen(CSSM_DL_HANDLE DLHandle,
   BEGIN_API
   MSApiDebug("mds_DbOpen %s", DbName);
   StLock<Mutex> _(adbMutex());
-  findHandle<MDSSession>(DLHandle).DbOpen(DbName,
+  HandleObject::find<MDSSession>(DLHandle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE).DbOpen(DbName,
 			DbLocation,
 			AccessRequest,
 			AccessCredentials::optional(AccessCred),
@@ -211,7 +211,7 @@ static CSSM_RETURN CSSMAPI mds_DataGetNext(CSSM_DL_DB_HANDLE DLDBHandle,
   BEGIN_API
   MSApiDebug("mds_DataGetNext");
   StLock<Mutex> _(adbMutex());
-  if (!findHandle<MDSSession>(DLDBHandle.DLHandle).DataGetNext(DLDBHandle.DBHandle,
+  if (!HandleObject::find<MDSSession>(DLDBHandle.DLHandle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE).DataGetNext(DLDBHandle.DBHandle,
 			ResultsHandle,
 			Attributes,
 			CssmData::optional(Data),
@@ -224,7 +224,7 @@ static CSSM_RETURN CSSMAPI mds_GetDbNames(CSSM_DL_HANDLE DLHandle,
          CSSM_NAME_LIST_PTR *NameList)
 {
   BEGIN_API
-  findHandle<MDSSession>(DLHandle).GetDbNames(Required(NameList));
+  HandleObject::find<MDSSession>(DLHandle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE).GetDbNames(Required(NameList));
   END_API(MDS)
 }
 
@@ -233,7 +233,7 @@ static CSSM_RETURN CSSMAPI mds_DbClose(CSSM_DL_DB_HANDLE DLDBHandle)
   BEGIN_API
   MSApiDebug("mds_DbClose");
   StLock<Mutex> _(adbMutex());
-  findHandle<MDSSession>(DLDBHandle.DLHandle).DbClose(DLDBHandle.DBHandle);
+  HandleObject::find<MDSSession>(DLDBHandle.DLHandle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE).DbClose(DLDBHandle.DBHandle);
   END_API(MDS)
 }
 
@@ -241,7 +241,7 @@ static CSSM_RETURN CSSMAPI mds_FreeNameList(CSSM_DL_HANDLE DLHandle,
          CSSM_NAME_LIST_PTR NameList)
 {
   BEGIN_API
-  findHandle<MDSSession>(DLHandle).FreeNameList(Required(NameList));
+  HandleObject::find<MDSSession>(DLHandle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE).FreeNameList(Required(NameList));
   END_API(MDS)
 }
 
@@ -283,7 +283,7 @@ CSSM_RETURN CSSMAPI
 MDS_Terminate (MDS_HANDLE inMDSHandle)
 {
     BEGIN_API
-    auto_ptr<MDSSession> aMDSSession (&killHandle<MDSSession> (inMDSHandle));
+    auto_ptr<MDSSession> aMDSSession (&HandleObject::findAndKill<MDSSession> (inMDSHandle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE));
     aMDSSession->terminate (); // Even if terminate throws the MDSSession object will be deleted.
     END_API(MDS)
 }
@@ -292,7 +292,7 @@ CSSM_RETURN CSSMAPI
 MDS_Install (MDS_HANDLE inMDSHandle)
 {
     BEGIN_API
-    findHandle<MDSSession> (inMDSHandle).install ();
+    HandleObject::find<MDSSession> (inMDSHandle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE).install ();
     END_API(MDS)
 }
 
@@ -300,7 +300,7 @@ CSSM_RETURN CSSMAPI
 MDS_Uninstall (MDS_HANDLE inMDSHandle)
 {
     BEGIN_API
-    findHandle<MDSSession> (inMDSHandle).uninstall ();
+    HandleObject::find<MDSSession> (inMDSHandle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE).uninstall ();
     END_API(MDS)
 }
 
@@ -313,7 +313,7 @@ MDS_InstallFile(MDS_HANDLE inMDSHandle, const MDS_InstallDefaults *defaults,
 	const char *bundlePath, const char *subdir, const char *file)	// file(s)
 {
   BEGIN_API
-  findHandle<MDSSession>(inMDSHandle).installFile(defaults, bundlePath, subdir, file);
+  HandleObject::find<MDSSession>(inMDSHandle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE).installFile(defaults, bundlePath, subdir, file);
   END_API(MDS)
 }
 
@@ -324,6 +324,6 @@ CSSM_RETURN CSSMAPI
 MDS_RemoveSubservice(MDS_HANDLE inMDSHandle, const char *guid, uint32 ssid)
 {
   BEGIN_API
-  findHandle<MDSSession>(inMDSHandle).removeSubservice(guid, ssid);
+  HandleObject::find<MDSSession>(inMDSHandle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE).removeSubservice(guid, ssid);
   END_API(MDS)
 }

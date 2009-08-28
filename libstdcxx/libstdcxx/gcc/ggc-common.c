@@ -1,5 +1,5 @@
 /* Simple garbage collection for the GNU compiler.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* Generic garbage collection (GC) functions and data, not specific to
    any particular GC implementation.  */
@@ -244,6 +244,7 @@ struct ptr_data
   gt_handle_reorder reorder_fn;
   size_t size;
   void *new_addr;
+  enum gt_types_enum type;
 };
 
 #define POINTER_HASH(x) (hashval_t)((long)x >> 3)
@@ -252,7 +253,8 @@ struct ptr_data
 
 int
 gt_pch_note_object (void *obj, void *note_ptr_cookie,
-		    gt_note_pointers note_ptr_fn)
+		    gt_note_pointers note_ptr_fn,
+		    enum gt_types_enum type)
 {
   struct ptr_data **slot;
 
@@ -277,6 +279,7 @@ gt_pch_note_object (void *obj, void *note_ptr_cookie,
     (*slot)->size = strlen (obj) + 1;
   else
     (*slot)->size = ggc_get_size (obj);
+  (*slot)->type = type;
   return 1;
 }
 
@@ -330,7 +333,9 @@ call_count (void **slot, void *state_p)
   struct ptr_data *d = (struct ptr_data *)*slot;
   struct traversal_state *state = (struct traversal_state *)state_p;
 
-  ggc_pch_count_object (state->d, d->obj, d->size, d->note_ptr_fn == gt_pch_p_S);
+  ggc_pch_count_object (state->d, d->obj, d->size,
+			d->note_ptr_fn == gt_pch_p_S,
+			d->type);
   state->count++;
   return 1;
 }
@@ -341,7 +346,9 @@ call_alloc (void **slot, void *state_p)
   struct ptr_data *d = (struct ptr_data *)*slot;
   struct traversal_state *state = (struct traversal_state *)state_p;
 
-  d->new_addr = ggc_pch_alloc_object (state->d, d->obj, d->size, d->note_ptr_fn == gt_pch_p_S);
+  d->new_addr = ggc_pch_alloc_object (state->d, d->obj, d->size,
+				      d->note_ptr_fn == gt_pch_p_S,
+				      d->type);
   state->ptrs[state->ptrs_i++] = d;
   return 1;
 }
@@ -461,7 +468,7 @@ gt_pch_save (FILE *f)
       
   ggc_pch_this_base (state.d, mmi.preferred_base);
 
-  state.ptrs = xmalloc (state.count * sizeof (*state.ptrs));
+  state.ptrs = XNEWVEC (struct ptr_data *, state.count);
   state.ptrs_i = 0;
   htab_traverse (saving_htab, call_alloc, &state);
   qsort (state.ptrs, state.count, sizeof (*state.ptrs), compare_ptr_data);
@@ -475,8 +482,6 @@ gt_pch_save (FILE *f)
   /* Write out all the global pointers, after translation.  */
   write_pch_globals (gt_ggc_rtab, &state);
   write_pch_globals (gt_pch_cache_rtab, &state);
-
-  ggc_pch_prepare_write (state.d, state.f);
 
   /* Pad the PCH file so that the mmapped area starts on an allocation
      granularity (usually page) boundary.  */
@@ -495,6 +500,8 @@ gt_pch_save (FILE *f)
   if (mmi.offset != 0
       && fseek (state.f, mmi.offset, SEEK_SET) != 0)
     fatal_error ("can't write padding to PCH file: %m");
+
+  ggc_pch_prepare_write (state.d, state.f);
 
   /* Actually write out the objects.  */
   for (i = 0; i < state.count; i++)
@@ -858,7 +865,7 @@ ggc_record_overhead (size_t allocated, size_t overhead, void *ptr,
 		     const char *name, int line, const char *function)
 {
   struct loc_descriptor *loc = loc_descriptor (name, line, function);
-  struct ptr_hash_entry *p = xmalloc (sizeof (struct ptr_hash_entry));
+  struct ptr_hash_entry *p = XNEW (struct ptr_hash_entry);
   PTR *slot;
 
   p->ptr = ptr;
@@ -899,7 +906,8 @@ ggc_prune_overhead_list (void)
 }
 
 /* Notice that the pointer has been freed.  */
-void ggc_free_overhead (void *ptr)
+void
+ggc_free_overhead (void *ptr)
 {
   PTR *slot = htab_find_slot_with_hash (ptr_hash, ptr, htab_hash_pointer (ptr),
 					NO_INSERT);
@@ -932,7 +940,8 @@ add_statistics (void **slot, void *b)
 
 /* Dump per-site memory statistics.  */
 #endif
-void dump_ggc_loc_statistics (void)
+void
+dump_ggc_loc_statistics (void)
 {
 #ifdef GATHER_STATISTICS
   int nentries = 0;

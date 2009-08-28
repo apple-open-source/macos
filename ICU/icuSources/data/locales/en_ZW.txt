@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2006 International Business Machines
+// * Copyright (C) 2008 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/en_ZW.xml
@@ -13,7 +13,13 @@ en_ZW{
             "Zimbabwean Dollar",
         }
     }
-    Version{"1.36"}
+    NumberPatterns{
+        "#,##0.###",
+        "¤#,##0.00",
+        "#,##0%",
+        "#E0",
+    }
+    Version{"1.49"}
     calendar{
         gregorian{
             DateTimeElements:intvector{
@@ -21,16 +27,30 @@ en_ZW{
                 1,
             }
             DateTimePatterns{
-                "h:mm:ss a",
-                "h:mm:ss a",
+                "h:mm:ss a v",
+                "h:mm:ss a z",
                 "h:mm:ss a",
                 "h:mm a",
                 "EEEE dd MMMM yyyy",
                 "dd MMMM yyyy",
-                "dd MMM,yy",
+                "dd MMM,yyyy",
                 "d/M/yyyy",
                 "{1} {0}",
             }
+        }
+    }
+    zoneStrings{
+        "meta:Africa_Central"{
+            cu:int{1}
+        }
+        "meta:Africa_Eastern"{
+            cu:int{1}
+        }
+        "meta:Africa_Southern"{
+            cu:int{1}
+        }
+        "meta:Africa_Western"{
+            cu:int{1}
         }
     }
 }

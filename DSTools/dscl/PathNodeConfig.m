@@ -25,15 +25,97 @@
  * @header PathNodeConfig
  */
 
+#import <DirectoryService/DirectoryService.h>
+#import <DSObjCWrappers/DSObjCWrappers.h>
+#import <DirectoryServiceCore/CSharedData.h>
 
 #import "PathNodeConfig.h"
 #import "PathRecordTypeConfig.h"
 
+@interface PathNodeConfig (Private)
+
+- (void) _destroyRights;
+
+@end
+
+
+@implementation PathNodeConfig (Private)
+
+- (void)_destroyRights
+{
+	// free _authExternalForm
+	if (_haveRights) {
+		[_node customCall:eDSCustomCallConfigureDestroyAuthRef
+			  withAuthorization:&_authExternalForm];
+	}
+}
+
+@end
+
 @implementation PathNodeConfig
+
+- (id)init
+{
+    [super init];
+    bzero(&_authExternalForm,sizeof(_authExternalForm));
+    return self;
+}
+
+- (id)initWithDir:(DSoDirectory*)inDir path:(NSString*)inPath
+{
+    [super initWithDir:inDir path:inPath];
+    bzero(&_authExternalForm,sizeof(_authExternalForm));
+    return self;
+}
+
+- (id)initWithNode:(DSoNode*)inNode path:(NSString*)inPath
+{
+    [super initWithNode:inNode path:inPath];
+    bzero(&_authExternalForm,sizeof(_authExternalForm));
+    return self;
+}
+
+- (void)dealloc
+{
+	[self _destroyRights];
+    [super dealloc];
+}
+
+- (tDirStatus) authenticateName:(NSString*)inUsername withPassword:(NSString*)inPassword authOnly:(BOOL)inAuthOnly
+{
+	NSAutoreleasePool* pool = [NSAutoreleasePool new];
+	DSoSearchNode* searchNode = [[_node directory] searchNode];
+	DSoUser* user = nil;
+	tDirStatus status = eDSAuthFailed;
+	NSMutableData* outputData = nil;
+	
+	NS_DURING
+	user = [searchNode findUser:inUsername];
+	if (user != nil) {
+		status = [[user node] authenticateName:inUsername withPassword:inPassword authOnly:YES];
+		if (status == eDSNoErr && inAuthOnly == NO) {
+			outputData = [NSMutableData dataWithLength:sizeof(AuthorizationExternalForm)];
+			status = [_node customCall:eDSCustomCallConfigureGetAuthRef
+							 sendItems:[NSArray arrayWithObjects:inUsername,inPassword,nil]
+							outputData:outputData];
+			if (status == eDSNoErr && [outputData length] >= sizeof( AuthorizationExternalForm ) )
+			{
+				[outputData getBytes:&_authExternalForm length:sizeof( AuthorizationExternalForm )];
+				_haveRights = YES;
+			}
+		}
+	}
+	NS_HANDLER
+	NS_ENDHANDLER
+	
+	[pool release];
+	
+    return status;
+}
 
 - (PathItem*) cd:(NSString*)dest
 {
-	PathItem *nextItem = nil;
+	PathRecordTypeConfig *nextItem = nil;
 
     // The following checks are in order of fastest check.
 
@@ -45,7 +127,7 @@
 	
     // If the destination has a fully qualified record type, then use it;
     // else look for existing standard, then native types.
-    else if ([dest hasPrefix:@"dsConfigType"])
+    else if ([dest hasPrefix:@"dsConfigType"] || [dest hasPrefix:@kDSStdRecordTypePrefix])
     {
         nextItem = [[PathRecordTypeConfig alloc] initWithNode:_node recordType:dest];
     }
@@ -75,7 +157,10 @@
 			return nil;
 		}
 	}
+	
+	[nextItem setAuthExternalForm:&_authExternalForm];
 
 	return [nextItem autorelease];
 }
+
 @end

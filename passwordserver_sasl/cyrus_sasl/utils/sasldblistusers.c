@@ -76,7 +76,7 @@ int good_getopt(void *context __attribute__((unused)),
     if (sasldb_path && !strcmp(option, "sasldb_path")) {
 	*result = sasldb_path;
 	if (len)
-	    *len = strlen(sasldb_path);
+	    *len = (unsigned int)strlen(sasldb_path);
 	return SASL_OK;
     }
 

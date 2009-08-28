@@ -43,5 +43,8 @@ test-run-x86_64 test-ppc64:
 test-ppc:
 	${PASS_IFF_ERROR} ${CC} ${CCFLAGS} -DSHRINK=4 test.c --save-temps -o test-${ARCH} 2>/dev/null
 
+test-run-armv6:
+	${PASS_IFF_ERROR} ${CC} ${CCFLAGS} -DSHRINK=4 test.c --save-temps -o test-${ARCH} 2>/dev/null
+
 clean:
 	rm -rf test-* *.o *.s *.i

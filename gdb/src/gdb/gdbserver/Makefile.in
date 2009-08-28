@@ -83,7 +83,11 @@ READLINE_DEP = $$(READLINE_DIR)
 # -I. for config files.
 # -I${srcdir} for our headers.
 # -I$(srcdir)/../regformats for regdef.h.
-INCLUDE_CFLAGS = -I. -I${srcdir} -I$(srcdir)/../regformats -I$(INCLUDE_DIR)
+# APPLE LOCAL: I want to share some of the register definition
+# and mach stuff with regular gdb.  So I am adding another
+# platform include directory to get this stuff.
+PLATFORM_INCLUDE = @GDBSERVER_PLATFORM_INCLUDE@
+INCLUDE_CFLAGS = -I. -I${srcdir} -I$(srcdir)/../regformats $(PLATFORM_INCLUDE) -I$(INCLUDE_DIR)
 
 # M{H,T}_CFLAGS, if defined, has host- and target-dependent CFLAGS
 # from the config/ directory.
@@ -126,7 +130,10 @@ SFILES=	$(srcdir)/gdbreplay.c $(srcdir)/inferiors.c \
 	$(srcdir)/linux-m68k-low.c $(srcdir)/linux-mips-low.c \
 	$(srcdir)/linux-ppc-low.c $(srcdir)/linux-ppc64-low.c \
 	$(srcdir)/linux-s390-low.c \
-	$(srcdir)/linux-sh-low.c $(srcdir)/linux-x86-64-low.c
+	$(srcdir)/linux-sh-low.c $(srcdir)/linux-x86-64-low.c \
+ 	$(srcdir)/macosx-low.c $(srcdir)/macosx-excthread.c \
+ 	$(srcdir)/macosx-ppc-low.c $(srcdir)/macosx-threads.c \
+ 	$(srcdir)/macosx-mutils.c
 
 DEPFILES = @GDBSERVER_DEPFILES@
 
@@ -202,8 +209,8 @@ clean:
 	rm -f *.o ${ADD_FILES} *~
 	rm -f gdbserver gdbreplay core make.log
 	rm -f reg-arm.c reg-i386.c reg-ia64.c reg-m32r.c reg-m68k.c reg-mips.c
-	rm -f reg-ppc.c reg-sh.c reg-x86-64.c reg-i386-linux.c
-	rm -f reg-cris.c reg-crisv32.c
+	rm -f reg-ppc.c reg-sh.c reg-x86-64.c reg-i386-linux.c reg-ppc64.c
+	rm -f reg-cris.c reg-crisv32.c reg-arm-macosx.c 
 
 maintainer-clean realclean distclean: clean
 	rm -f nm.h tm.h xm.h config.status config.h stamp-h config.log
@@ -277,9 +284,22 @@ linux-s390-low.o: linux-s390-low.c $(linux_low_h) $(server_h)
 linux-sh-low.o: linux-sh-low.c $(linux_low_h) $(server_h)
 linux-x86-64-low.o: linux-x86-64-low.c $(linux_low_h) $(server_h)
 
+macosx_low_h = $(srcdir)/macosx-low.h
+macosx_excthread_h = $(srcdir)/macosx-excthread.h
+macosx_threads_h = $(srcdir)/macosx-threads.h
+
+macosx-low.o: macosx-low.c $(macosx_low_h) $(macosx_excthread_h) $(macosx_threads_h)
+macosx-excthread.o: macosx-excthread.c $(macosx_low_h) $(macosx_excthread_h) $(macosx_threads_h)
+macosx-ppc-low.o: macosx-ppc-low.c $(macosx_low_h) $(macosx_excthread_h) $(macosx_threads_h)
+macosx-threads.o: macosx-threads.c $(macosx_low_h) $(macosx_excthread_h) $(macosx_threads_h)
+macosx-mutils.o: macosx-mutils.c $(srcdir)/macosx-mutils.h
+
 reg-arm.o : reg-arm.c $(regdef_h)
 reg-arm.c : $(srcdir)/../regformats/reg-arm.dat $(regdat_sh)
 	sh $(regdat_sh) $(srcdir)/../regformats/reg-arm.dat reg-arm.c
+reg-arm-macosx.o : reg-arm-macosx.c $(regdef_h)
+reg-arm-macosx.c : $(srcdir)/../regformats/reg-arm-macosx.dat $(regdat_sh)
+	sh $(regdat_sh) $(srcdir)/../regformats/reg-arm-macosx.dat reg-arm-macosx.c
 reg-cris.o : reg-cris.c $(regdef_h)
 reg-cris.c : $(srcdir)/../regformats/reg-cris.dat $(regdat_sh)
 	sh $(regdat_sh) $(srcdir)/../regformats/reg-cris.dat reg-cris.c

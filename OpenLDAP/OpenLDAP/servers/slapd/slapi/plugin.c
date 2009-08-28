@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/slapi/plugin.c,v 1.26.2.4 2006/01/03 22:16:25 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/slapi/plugin.c,v 1.43.2.6 2008/06/02 18:00:53 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2002-2006 The OpenLDAP Foundation.
+ * Copyright 2002-2008 The OpenLDAP Foundation.
  * Portions Copyright 1997,2002-2003 IBM Corporation.
  * All rights reserved.
  *
@@ -21,10 +21,11 @@
  */
 
 #include "portable.h"
-#include <ldap_pvt_thread.h>
-#include <slap.h>
-#include <slapi.h>
-#include <lutil.h>
+#include "ldap_pvt_thread.h"
+#include "slap.h"
+#include "config.h"
+#include "slapi.h"
+#include "lutil.h"
 
 /*
  * Note: if ltdl.h is not available, slapi should not be compiled
@@ -598,7 +599,7 @@ slapi_int_call_plugins(
 	rc = slapi_int_get_plugins( be, funcType, &tmpPlugin );
 	if ( rc != LDAP_SUCCESS || tmpPlugin == NULL ) {
 		/* Nothing to do, front-end should ignore. */
-		return 1;
+		return rc;
 	}
 
 	for ( pGetPlugin = tmpPlugin ; *pGetPlugin != NULL; pGetPlugin++ ) {
@@ -645,8 +646,10 @@ slapi_int_read_config(
 
 	/* automatically instantiate overlay if necessary */
 	if ( !slapi_over_is_inst( be ) ) {
-		if ( slapi_over_config( be ) != 0 ) {
-			fprintf( stderr, "Failed to instantiate SLAPI overlay\n");
+		ConfigReply cr = { 0 };
+		if ( slapi_over_config( be, &cr ) != 0 ) {
+			fprintf( stderr, "Failed to instantiate SLAPI overlay: "
+				"err=%d msg=\"%s\"\n", cr.err, cr.msg );
 			return -1;
 		}
 	}
@@ -722,7 +725,11 @@ slapi_int_plugin_unparse(
 		slapi_pblock_get( pp, SLAPI_X_CONFIG_ARGV, &argv );
 		if ( argv == NULL ) /* could be dynamic plugin */
 			continue;
-		idx.bv_len = sprintf( idx.bv_val, "{%d}", i );
+		idx.bv_len = snprintf( idx.bv_val, sizeof( ibuf ), "{%d}", i );
+		if ( idx.bv_len >= sizeof( ibuf ) ) {
+			/* FIXME: just truncating by now */
+			idx.bv_len = sizeof( ibuf ) - 1;
+		}
 		bv.bv_len = idx.bv_len;
 		for (j=1; argv[j]; j++) {
 			bv.bv_len += strlen(argv[j]);

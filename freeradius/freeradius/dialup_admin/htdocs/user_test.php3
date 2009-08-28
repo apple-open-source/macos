@@ -13,7 +13,7 @@ echo <<<EOM
 <meta http-equiv="Content-Type" content="text/html; charset=$config[general_charset]">
 <link rel="stylesheet" href="style.css">
 </head>
-<body bgcolor="#80a040" background="images/greenlines1.gif" link="black" alink="black">
+<body>
 <center>
 <table border=0 width=550 cellpadding=0 cellspacing=0>
 <tr valign=top>
@@ -70,7 +70,7 @@ if ($test_user == 1){
 	$req=file($config[general_auth_request_file]);
 	if ($config[general_ld_library_path] != '')
 		putenv("LD_LIBRARY_PATH=$config[general_ld_library_path]");
-	$comm = $config[general_radclient_bin] . " $server:$port" . ' auth ' . $config[general_radius_server_secret] 
+	$comm = $config[general_radclient_bin] . " $server:$port" . ' auth ' . $config[general_radius_server_secret]
 		. ' >' . $tmp_file;
 	$fp = popen("$comm","w");
 	if ($fp){

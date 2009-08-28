@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2008 Apple Inc.  All rights reserved.
+ * Copyright (c) 1999-2009 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -100,6 +100,12 @@ int bindresvport_sa(int sd, struct sockaddr *sa);
 #include <CoreFoundation/CoreFoundation.h>
 #include <DiskArbitration/DiskArbitration.h>
 
+#ifdef __LP64__
+typedef int		xdr_long_t;
+#else
+typedef long		xdr_long_t;
+#endif
+
 #include "pathnames.h"
 #include "common.h"
 
@@ -148,6 +154,15 @@ struct mountlist {
 };
 
 /*
+ * Structure used to hold a list of names
+ */
+struct namelist {
+	TAILQ_ENTRY(namelist)	nl_next;
+	char			*nl_name;
+};
+TAILQ_HEAD(namelisttqh, namelist);
+
+/*
  * Structure used to hold a list of directories
  */
 struct dirlist {
@@ -170,6 +185,7 @@ struct errlist {
 
 TAILQ_HEAD(expfstqh, expfs);
 TAILQ_HEAD(expdirtqh, expdir);
+TAILQ_HEAD(hosttqh, host);
 
 /*
  * Structure to hold the exports for each exported file system.
@@ -190,7 +206,7 @@ struct expfs {
  */
 struct expdir {
 	TAILQ_ENTRY(expdir)	xd_next;
-	struct host		*xd_hosts;	/* List of hosts this dir exported to */
+	struct hosttqh		xd_hosts;	/* List of hosts this dir exported to */
 	struct expdirtqh	xd_mountdirs;	/* list of mountable sub-directories */
 	int			xd_iflags;	/* internal flags for this structure */
 	int			xd_flags;	/* default export flags */
@@ -199,6 +215,7 @@ struct expdir {
 	int			xd_oflags;	/* old default export flags */
 	struct xucred		xd_ocred;	/* old default export mapped credential */
 	struct nfs_sec		xd_osec;	/* old default security flavors */
+	struct nfs_sec		xd_ssec;	/* security flavors for showmount */
 	char			*xd_dir;	/* pathname of exported directory */
 	struct expidlist 	*xd_xid;	/* corresponding export ID */
 };
@@ -209,15 +226,16 @@ struct expdir {
 
 /* holds a network/mask and name */
 struct netmsk {
-	u_long	nt_net;		/* network address */
-	u_long	nt_mask;	/* network mask */
-	char 	*nt_name;	/* network name */
+	uint32_t	nt_net;		/* network address */
+	uint32_t	nt_mask;	/* network mask */
+	char 		*nt_name;	/* network name */
 };
 
 /* holds either a host or network */
 union grouptypes {
 	struct hostent *gt_hostent;
 	struct netmsk	gt_net;
+	char *		gt_netgroup;
 };
 
 /* host/network list entry */
@@ -225,23 +243,27 @@ struct grouplist {
 	struct grouplist *gr_cache;	/* linked list in cache */
 	struct grouplist *gr_next;	/* linked list in get_exportlist() */
 	int gr_refcnt;			/* #references on this group */
-	int gr_type;			/* type of group */
+	int16_t gr_type;		/* type of group */
+	int16_t gr_flags;		/* group flags */
 	union grouptypes gr_u;		/* the host/network */
 };
 /* Group types */
 #define	GT_NULL		0x0		/* not fully-initialized yet */
-#define	GT_HOST		0x1		/* this is a single host address */
+#define	GT_NETGROUP	0x1		/* this is a netgroup */
 #define	GT_NET		0x2		/* this is a network */
+#define	GT_HOST		0x3		/* this is a single host address */
+/* Group flags */
+#define	GF_SHOW		0x1		/* show this entry in export list */
 
 /*
  * host/network flags list entry
  */
 struct host {
+	TAILQ_ENTRY(host) ht_next;
 	int		 ht_flags;	/* export options for these hosts */
 	struct xucred	 ht_cred;	/* mapped credential for these hosts */
 	struct grouplist *ht_grp;	/* host/network flags applies to */
 	struct nfs_sec	 ht_sec;	/* security flavors for these hosts */
-	struct host	 *ht_next;
 };
 
 struct fhreturn {
@@ -252,17 +274,20 @@ struct fhreturn {
 };
 
 /* Global defs */
+int	add_name(struct namelisttqh *, char *);
+void	free_namelist(struct namelisttqh *);
 int	add_dir(struct dirlist **, char *);
 char *	add_expdir(struct expdir **, char *, int);
 int	add_grp(struct grouplist **, struct grouplist *);
-int	add_host(struct host **, struct host *);
+int	add_host(struct hosttqh *, struct host *);
 void	add_mlist(char *, char *);
 int	check_dirpath(char *);
 int	check_options(int);
 void	clear_export_error(uint32_t);
 int	cmp_secflavs(struct nfs_sec *, struct nfs_sec *);
+void	merge_secflavs(struct nfs_sec *, struct nfs_sec *);
 void	del_mlist(char *, char *);
-int	expdir_search(struct expfs *, char *, u_long, int *, struct nfs_sec *);
+int	expdir_search(struct expfs *, char *, uint32_t, int *, struct nfs_sec *);
 int	do_export(int, struct expfs *, struct expdir *, struct grouplist *, int,
 		struct xucred *, struct nfs_sec *);
 int	do_opt(char **, char **, struct grouplist *, int *,
@@ -270,12 +295,13 @@ int	do_opt(char **, char **, struct grouplist *, int *,
 struct expfs *ex_search(u_char *);
 void	export_error(int, const char *, ...);
 void	export_error_cleanup(struct expfs *);
-struct host *find_group_address_match_in_host_list(struct host *, struct grouplist *);
-struct host *find_host(struct host *, u_long);
+struct host *find_group_address_match_in_host_list(struct hosttqh *, struct grouplist *);
+struct host *find_host(struct hosttqh *, uint32_t);
 void	free_dirlist(struct dirlist *dl);
 void	free_expdir(struct expdir *);
 void	free_expfs(struct expfs *);
 void	free_grp(struct grouplist *);
+void	free_hosts(struct hosttqh *);
 void	free_host(struct host *);
 struct expdir *get_expdir(void);
 struct expfs *get_expfs(void);
@@ -285,7 +311,7 @@ int	get_export_entry(void);
 void	get_mountlist(void);
 int	get_net(char *, struct netmsk *, int);
 int	get_sec_flavors(char *flavorlist, struct nfs_sec *);
-struct grouplist *get_grp(int, union grouptypes *);
+struct grouplist *get_grp(struct grouplist *);
 char *	grp_name(struct grouplist *);
 int	hang_options_setup(struct expdir *, int, struct xucred *, struct grouplist *, struct nfs_sec *, int *);
 void	hang_options_finalize(struct expdir *);
@@ -293,7 +319,7 @@ void	hang_options_cleanup(struct expdir *);
 int	hang_options_mountdir(struct expdir *, char *, int, struct grouplist *, struct nfs_sec *);
 void	mntsrv(struct svc_req *, SVCXPRT *);
 void	nextfield(char **, char **);
-void	out_of_mem(char *);
+void	out_of_mem(const char *);
 int	parsecred(char *, struct xucred *);
 int	put_exlist(struct expdir *, XDR *);
 int	subdir_check(char *, char *);
@@ -317,12 +343,7 @@ struct expidlist * find_export_id(struct uuidlist *, u_int32_t);
 struct expidlist * get_export_id(struct uuidlist *, char *);
 
 void dump_exports(void);
-void sprintf_cred(char *buf, struct xucred *cr);
-
-/* C library */
-int	getnetgrent(char **host, char **user, char **domain);
-void	endnetgrent(void);
-void	setnetgrent(const char *netgroup);
+void snprintf_cred(char *buf, int, struct xucred *cr);
 
 pthread_mutex_t export_mutex;		/* lock for mountd/export globals */
 struct expfstqh xfshead;		/* list of exported file systems */
@@ -354,6 +375,8 @@ int mounttcpsock, mountudpsock;
 #define	OP_FSPATH	0x00000200	/* file system path specified */
 #define	OP_FSUUID	0x00000400	/* file system UUID specified */
 #define	OP_OFFLINE	0x00000800	/* export is offline */
+#define	OP_ONLINE	0x04000000	/* export is online */
+#define	OP_SHOW		0x08000000	/* show this entry in export list */
 #define	OP_MISSING	0x10000000	/* export is missing */
 #define	OP_DEFEXP	0x20000000	/* default export for everyone (else) */
 #define	OP_ADD		0x40000000	/* tag export for potential addition */
@@ -472,6 +495,10 @@ mountd(void)
 	DEBUG(1, "Here we go.");
 
 	/* create mountd service sockets */
+	if (!config.udp && !config.tcp) {
+		log(LOG_WARNING, "No network transport(s) configured.  mountd thread not starting.");
+		return;
+	}
 
 	/* If we are serving UDP, set up the MOUNT/UDP socket. */
 	if (config.udp) {
@@ -597,7 +624,7 @@ mntsrv(struct svc_req *rqstp, SVCXPRT *transp)
 	struct statfs fsb;
 	struct hostent *hp;
 	struct nfs_sec secflavs;
-	u_long saddr;
+	uint32_t saddr;
 	u_short sport;
 	char rpcpath[RPCMNT_PATHLEN + 1], dirpath[MAXPATHLEN], *mhost;
 	int bad = ENOENT, options;
@@ -758,8 +785,8 @@ int
 xdr_fhs(XDR *xdrsp, caddr_t cp)
 {
 	struct fhreturn *fhrp = (struct fhreturn *)cp;
-	long ok = 0, len, auth;
-	u_int32_t i;
+	xdr_long_t ok = 0, len, auth;
+	int32_t i;
 
 	if (!xdr_long(xdrsp, &ok))
 		return (0);
@@ -785,7 +812,7 @@ xdr_fhs(XDR *xdrsp, caddr_t cp)
 		if (!xdr_long(xdrsp, &len))
 			return (0);
 		for (i = 0; i < fhrp->fhr_sec.count; i++) {
-			auth = (long)fhrp->fhr_sec.flavors[i];
+			auth = (xdr_long_t)fhrp->fhr_sec.flavors[i];
 			if (!xdr_long(xdrsp, &auth))
 				return (0);
 		}
@@ -795,7 +822,7 @@ xdr_fhs(XDR *xdrsp, caddr_t cp)
 }
 
 int
-xdr_mlist(XDR *xdrsp, caddr_t cp)
+xdr_mlist(XDR *xdrsp, __unused caddr_t cp)
 {
 	struct mountlist *mlp;
 	int trueval = 1;
@@ -820,14 +847,14 @@ xdr_mlist(XDR *xdrsp, caddr_t cp)
  * Xdr conversion for export list
  */
 int
-xdr_explist(XDR *xdrsp, caddr_t cp)
+xdr_explist(XDR *xdrsp, __unused caddr_t cp)
 {
 	struct expfs *xf;
 	struct expdir *xd;
 	int falseval = 0;
 
-	TAILQ_FOREACH_REVERSE(xf, &xfshead, expfstqh, xf_next) {
-		TAILQ_FOREACH_REVERSE(xd, &xf->xf_dirl, expdirtqh, xd_next) {
+	TAILQ_FOREACH(xf, &xfshead, xf_next) {
+		TAILQ_FOREACH(xd, &xf->xf_dirl, xd_next) {
 			if (put_exlist(xd, xdrsp))
 				goto errout;
 		}
@@ -852,6 +879,11 @@ put_exlist(struct expdir *xd, XDR *xdrsp)
 	int trueval = 1;
 	int falseval = 0;
 	char *strp;
+	char offline_all[] = "<offline>";
+	char offline_some[] = "<offline*>";
+	char everyone[] = "(Everyone)";
+	char abuf[RPCMNT_NAMELEN+1];
+	int offline = 0, auth = 0, i;
 
 	if (!xd)
 		return (0);
@@ -861,25 +893,63 @@ put_exlist(struct expdir *xd, XDR *xdrsp)
 	strp = xd->xd_dir;
 	if (!xdr_string(xdrsp, &strp, RPCMNT_PATHLEN))
 		return (1);
+	if (xd->xd_iflags & OP_OFFLINE) {
+		/* report if export is offline for all or some* hosts */
+		if (!xdr_bool(xdrsp, &trueval))
+			return (1);
+		strp = (xd->xd_iflags & OP_ONLINE) ? offline_some : offline_all;
+		if (!xdr_string(xdrsp, &strp, RPCMNT_NAMELEN))
+			return (1);
+		offline = 1;
+	}
+	if ((xd->xd_ssec.count > 1) || (xd->xd_ssec.flavors[0] != RPCAUTH_SYS)) {
+		/* report non-default auth flavors */
+		if (!xdr_bool(xdrsp, &trueval))
+			return (1);
+		abuf[0] = '\0';
+		strlcpy(abuf, "<", sizeof(abuf));
+		for (i=0; i < xd->xd_ssec.count; i++) {
+			if (xd->xd_ssec.flavors[i] == RPCAUTH_SYS)
+				strlcat(abuf, "sys", sizeof(abuf));
+			else if (xd->xd_ssec.flavors[i] == RPCAUTH_KRB5)
+				strlcat(abuf, "krb5", sizeof(abuf));
+			else if (xd->xd_ssec.flavors[i] == RPCAUTH_KRB5I)
+				strlcat(abuf, "krb5i", sizeof(abuf));
+			else if (xd->xd_ssec.flavors[i] == RPCAUTH_KRB5P)
+				strlcat(abuf, "krb5p", sizeof(abuf));
+			else
+				continue;
+			if (i < xd->xd_ssec.count-1)
+				strlcat(abuf, ":", sizeof(abuf));
+		}
+		strlcat(abuf, ">", sizeof(abuf));
+		strp = abuf;
+		if (!xdr_string(xdrsp, &strp, RPCMNT_NAMELEN))
+			return (1);
+		auth = 1;
+	}
 	if (!(xd->xd_flags & OP_DEFEXP)) {
-		hp = xd->xd_hosts;
-		while (hp) {
+		TAILQ_FOREACH(hp, &xd->xd_hosts, ht_next) {
+			if (!(hp->ht_flags & OP_SHOW))
+				continue;
 			grp = hp->ht_grp;
-			if (grp->gr_type == GT_HOST) {
+			switch (grp->gr_type) {
+			case GT_HOST:
+			case GT_NET:
+			case GT_NETGROUP:
 				if (!xdr_bool(xdrsp, &trueval))
 					return (1);
-				strp = grp->gr_u.gt_hostent->h_name;
-				if (!xdr_string(xdrsp, &strp, RPCMNT_NAMELEN))
-					return (1);
-			} else if (grp->gr_type == GT_NET) {
-				if (!xdr_bool(xdrsp, &trueval))
-					return (1);
-				strp = grp->gr_u.gt_net.nt_name;
+				strp = grp_name(grp);
 				if (!xdr_string(xdrsp, &strp, RPCMNT_NAMELEN))
 					return (1);
 			}
-			hp = hp->ht_next;
 		}
+	} else if (offline || auth) {
+		if (!xdr_bool(xdrsp, &trueval))
+			return (1);
+		strp = everyone;
+		if (!xdr_string(xdrsp, &strp, RPCMNT_NAMELEN))
+			return (1);
 	}
 	if (!xdr_bool(xdrsp, &falseval))
 		return (1);
@@ -1071,8 +1141,8 @@ add_uuid_to_list(const struct statfs *fsb, u_char *dauuid, u_char *uuid)
 		ulpnew->ul_davalid = 1;
 	}
 	bcopy(uuid, ulpnew->ul_uuid, sizeof(ulpnew->ul_uuid));
-	strcpy(ulpnew->ul_mntfromname, fsb->f_mntfromname);
-	strcpy(ulpnew->ul_mntonname, fsb->f_mntonname);
+	strlcpy(ulpnew->ul_mntfromname, fsb->f_mntfromname, sizeof(ulpnew->ul_mntfromname));
+	strlcpy(ulpnew->ul_mntonname, fsb->f_mntonname, sizeof(ulpnew->ul_mntonname));
 
 	/* make sure exported FS ID is unique */
 	xfsid = UUID2FSID(uuid);
@@ -1148,7 +1218,7 @@ get_uuid(const struct statfs *fsb, u_char *uuid)
 			if (davalid)
 				uuidstring(dauuid, buf2);
 			else
-				strcpy(buf2, "------------------------------------");
+				strlcpy(buf2, "------------------------------------", sizeof(buf2));
 			if (ulp->ul_exported) {
 				/*
 				 * Woah!  We already have this file system exported with
@@ -1229,7 +1299,7 @@ get_uuid(const struct statfs *fsb, u_char *uuid)
 		 * sure to grab a copy here before the volume gets
 		 * exported.
 		 */
-		strcpy(ulp->ul_mntfromname, fsb->f_mntfromname);
+		strlcpy(ulp->ul_mntfromname, fsb->f_mntfromname, sizeof(ulp->ul_mntfromname));
 	}
 
 	if (reportuuid)
@@ -1262,7 +1332,8 @@ uuidlist_clearexport(void)
 char *
 uuidstring(u_char *uuid, char *string)
 {
-	sprintf(string, "%02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X",
+	snprintf(string, (16*2)+4+1, /* XXX silly, yes. But at least we're not using sprintf. [sigh] */
+		"%02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X",
 		uuid[0] & 0xff, uuid[1] & 0xff, uuid[2] & 0xff, uuid[3] & 0xff,
 		uuid[4] & 0xff, uuid[5] & 0xff,
 		uuid[6] & 0xff, uuid[7] & 0xff,
@@ -1307,7 +1378,7 @@ uuidlist_save(void)
 		if (ulp->ul_davalid)
 			uuidstring(ulp->ul_dauuid, buf);
 		else
-			strcpy(buf, "------------------------------------");
+			strlcpy(buf, "------------------------------------", sizeof(buf));
 		uuidstring(ulp->ul_uuid, buf2);
 		fprintf(ulfile, "%s %s 0x%08X %s\n", buf, buf2, ulp->ul_fsid, ulp->ul_mntonname);
 		LIST_FOREACH(xid, &ulp->ul_exportids, xid_list) {
@@ -1328,7 +1399,8 @@ uuidlist_restore(void)
 	struct expidlist *xid;
 	char *cp, str[2*MAXPATHLEN];
 	FILE *ulfile;
-	int i, slen, linenum, davalid, uuidchanged;
+	int i, slen, davalid, uuidchanged;
+	uint32_t linenum;
 	struct statfs fsb;
 	u_char dauuid[16];
 	char buf[64], buf2[64];
@@ -1374,7 +1446,7 @@ uuidlist_restore(void)
 			}
 			cp++;
 			slen--;
-			if (slen >= sizeof(xid->xid_path)) {
+			if (slen >= (int)sizeof(xid->xid_path)) {
 				log(LOG_ERR, "export ID path too long at line %d of %s",
 					linenum, _PATH_MOUNTEXPLIST);
 				free(xid);
@@ -1383,7 +1455,7 @@ uuidlist_restore(void)
 			if ((cp[0] == '.') && (cp[1] == '\0'))
 				xid->xid_path[0] = '\0';
 			else
-				strcpy(xid->xid_path, cp);
+				strlcpy(xid->xid_path, cp, sizeof(xid->xid_path));
 			LIST_INSERT_HEAD(&ulp->ul_exportids, xid, xid_list);
 			continue;
 		}
@@ -1401,7 +1473,7 @@ uuidlist_restore(void)
 				cp++;
 		} else {
 			ulp->ul_davalid = 1;
-			for (i=0; i < sizeof(ulp->ul_dauuid); i++, cp+=2) {
+			for (i=0; i < (int)sizeof(ulp->ul_dauuid); i++, cp+=2) {
 				if (*cp == '-')
 					cp++;
 				if (!isxdigit(*cp) || !isxdigit(*(cp+1))) {
@@ -1417,7 +1489,7 @@ uuidlist_restore(void)
 		if (ulp == NULL)
 			continue;
 		cp++;
-		for (i=0; i < sizeof(ulp->ul_uuid); i++, cp+=2) {
+		for (i=0; i < (int)sizeof(ulp->ul_uuid); i++, cp+=2) {
 			if (*cp == '-')
 				cp++;
 			if (!isxdigit(*cp) || !isxdigit(*(cp+1))) {
@@ -1505,7 +1577,7 @@ uuidlist_restore(void)
 			if (davalid)
 				uuidstring(dauuid, buf2);
 			else
-				strcpy(buf2, "------------------------------------");
+				strlcpy(buf2, "------------------------------------", sizeof(buf2));
 			log(LOG_WARNING, "UUID changed for %s, was %s now %s",
 				ulp->ul_mntonname, buf, buf2);
 			free(ulp);
@@ -1551,7 +1623,7 @@ get_export_id(struct uuidlist *ulp, char *path)
 		return (NULL);
 	}
 	bzero(xid, sizeof(*xid));
-	strcpy(xid->xid_path, path);
+	strlcpy(xid->xid_path, path, sizeof(xid->xid_path));
 	xid->xid_id = maxid + 1;
 	while (find_export_id(ulp, xid->xid_id)) {
 		xid->xid_id++;
@@ -1689,9 +1761,9 @@ subdir_check(char *s1, char *s2)
 }
 
 char *line = NULL;
-int linesize = 0;
+uint32_t linesize = 0;
 FILE *exp_file;
-int linenum, entrylines;
+uint32_t linenum, entrylines;
 
 /*
  * Get the export list
@@ -1704,12 +1776,15 @@ get_exportlist(void)
 	struct expdir *xd, *xd2, *xd3;
 	struct expidlist *xid;
 	struct dirlist *dirhead, *dirl, *dirl2;
-	struct host *ht, *ht2, *ht3, **htp, *htfree;
+	struct namelisttqh names, netgroups;
+	struct namelist *nl;
+	struct host *ht, *ht2, *ht3;
+	struct hosttqh htfree;
 	struct statfs fsb;
 	struct xucred anon;
 	struct nfs_sec secflavs;
-	char *cp, *endcp, *word, *hst, *usr, *dom, savedc, *savedcp, *subdir, *mntonname, *word2;
-	int len, dlen, hostcount, badhostcount, exflags, got_nondir, netgrp, cmp;
+	char *cp, *endcp, *name, *word, *hst, *usr, *dom, savedc, *savedcp, *subdir, *mntonname, *word2;
+	int len, dlen, hostcount, badhostcount, exflags, got_nondir, netgrp, cmp, show;
 	char fspath[MAXPATHLEN];
 	u_char uuid[16], fsuuid[16];
 	struct uuidlist *ulp, *bestulp;
@@ -1723,23 +1798,18 @@ get_exportlist(void)
 	 */
 	TAILQ_FOREACH(xf, &xfshead, xf_next) {
 		TAILQ_FOREACH(xd, &xf->xf_dirl, xd_next) {
-			xd->xd_iflags &= ~OP_ADD;
+			xd->xd_iflags &= ~(OP_ADD|OP_OFFLINE|OP_ONLINE);
+			xd->xd_ssec.count = 0;
 			xd->xd_oflags = xd->xd_flags;
 			xd->xd_ocred = xd->xd_cred;
 			xd->xd_osec = xd->xd_sec;
 			xd->xd_flags |= OP_DEL;
-			ht = xd->xd_hosts;
-			while (ht) {
+			TAILQ_FOREACH(ht, &xd->xd_hosts, ht_next)
 				ht->ht_flags |= OP_DEL;
-				ht = ht->ht_next;
-			}
 			TAILQ_FOREACH(xd2, &xd->xd_mountdirs, xd_next) {
 				xd2->xd_flags |= OP_DEL;
-				ht = xd2->xd_hosts;
-				while (ht) {
+				TAILQ_FOREACH(ht, &xd2->xd_hosts, ht_next)
 					ht->ht_flags |= OP_DEL;
-					ht = ht->ht_next;
-				}
 			}
 		}
 	}
@@ -1751,6 +1821,8 @@ get_exportlist(void)
 	}
 	xpaths_complete = 1;
 
+	TAILQ_INIT(&names);
+	TAILQ_INIT(&netgroups);
 	hostnamecount = hostnamegoodcount = 0;
 	export_errors = 0;
 	linenum = 0;
@@ -1793,7 +1865,7 @@ get_exportlist(void)
 
 		/* init default security flavor */
 		bzero(&secflavs, sizeof(secflavs));
-		secflavs.flavors[0] = RPCAUTH_UNIX;
+		secflavs.flavors[0] = RPCAUTH_SYS;
 		secflavs.count = 1;
 
 		/*
@@ -1882,46 +1954,100 @@ get_exportlist(void)
 					export_error_cleanup(xf);
 					goto nextline;
 				}
-				/*
-				 * Get the host or netgroup.
-				 */
-				setnetgrent(cp);
-				netgrp = getnetgrent(&hst, &usr, &dom);
-				do {
-					bzero(&tmpgrp, sizeof(tmpgrp));
+
+				/* add it to the name list */
+				error = add_name(&names, cp);
+				if (error == ENOMEM) {
+					export_error(LOG_ERR, "Can't allocate memory to add host/group: %s", cp);
+					export_error_cleanup(xf);
+					goto nextline;
+				}
+				/* iterate name list until it's empty (first name gets GF_SHOW) */
+				show = 1;
+				while ((nl = TAILQ_FIRST(&names))) {
+					TAILQ_REMOVE(&names, nl, nl_next);
+					name = nl->nl_name;
+					free(nl);
+					/* check if name is a netgroup */
+					setnetgrent(name);
+					netgrp = getnetgrent(&hst, &usr, &dom);
 					if (netgrp) {
-						if (get_host_addresses(hst, &tmpgrp)) {
-							export_error(LOG_WARNING, "couldn't get address for netgroup:host - %s:%s", cp, hst);
-							badhostcount++;
-						} else {
-							DEBUG(3, "got netgroup:host: %s:%s", cp, hst);
-							grp = get_grp(tmpgrp.gr_type, &tmpgrp.gr_u);
-							if (!grp) {
-								export_error(LOG_ERR, "Can't allocate memory to add netgroup:host - %s:%s", cp, hst);
+						DEBUG(3, "got netgroup: %s", name);
+						error = add_name(&netgroups, name);
+						if (error == ENOMEM) {
+							export_error(LOG_ERR, "Can't allocate memory to add host/group: %s", cp);
+							export_error_cleanup(xf);
+							endnetgrent();
+							free(name);
+							goto nextline;
+						}
+						if (show) {
+							/* add an entry for the netgroup (w/GF_SHOW) */
+							DEBUG(3, "add netgroup w/show: %s", name);
+							show = 0;
+							bzero(&tmpgrp, sizeof(tmpgrp));
+							tmpgrp.gr_type = GT_NETGROUP;
+							tmpgrp.gr_flags = GF_SHOW;
+							tmpgrp.gr_u.gt_netgroup = strdup(name);
+							if (!tmpgrp.gr_u.gt_netgroup || !(grp = get_grp(&tmpgrp))) {
+								export_error(LOG_ERR, "Can't allocate memory to add netgroup - %s", name);
+								export_error_cleanup(xf);
+								endnetgrent();
+								free(name);
+								goto nextline;
 							} else if (!add_grp(&tgrp, grp)) {
-								DEBUG(3, "duplicate netgroup:host: %s:%s", cp, hst);
+								DEBUG(3, "duplicate netgroup: %s", name);
 								free_grp(grp);
-							} else {
-								hostcount++;
 							}
 						}
-					} else if (get_host_addresses(cp, &tmpgrp)) {
-						export_error(LOG_WARNING, "couldn't get address for host: %s", cp);
+						if (error == -1) {
+							/* already in the netgroup list, skip it */
+							DEBUG(3, "netgroup already in netgroup list: %s", name);
+							endnetgrent();
+							free(name);
+							continue;
+						}
+						/* enumerate the netgroup, adding each name to the name list */
+						do {
+							DEBUG(3, "add netgroup member: %s", hst);
+							error = add_name(&names, hst);
+							if (error == ENOMEM) {
+								export_error(LOG_ERR, "Can't allocate memory to add netgroup:host - %s", name, hst);
+								export_error_cleanup(xf);
+								endnetgrent();
+								free(name);
+								goto nextline;
+							}
+						} while (getnetgrent(&hst, &usr, &dom));
+						endnetgrent();
+						free(name);
+						continue;
+					}
+					endnetgrent();
+					/* not a netgroup, add a host/net entry */
+					bzero(&tmpgrp, sizeof(tmpgrp));
+					if (get_host_addresses(name, &tmpgrp)) {
+						export_error(LOG_WARNING, "couldn't get address for host: %s", name);
 						badhostcount++;
 					} else {
-						DEBUG(3, "got host: %s", cp);
-						grp = get_grp(tmpgrp.gr_type, &tmpgrp.gr_u);
+						DEBUG(3, "got host: %s", name);
+						if (show) {
+							show = 0;
+							tmpgrp.gr_flags |= GF_SHOW;
+						}
+						grp = get_grp(&tmpgrp);
 						if (!grp) {
-							export_error(LOG_ERR, "Can't allocate memory to add host - %s", cp);
+							export_error(LOG_ERR, "Can't allocate memory to add host - %s", name);
 						} else if (!add_grp(&tgrp, grp)) {
-							DEBUG(3, "duplicate host: %s", cp);
+							DEBUG(3, "duplicate host: %s", name);
 							free_grp(grp);
 						} else {
 							hostcount++;
 						}
 					}
-				} while (netgrp && getnetgrent(&hst, &usr, &dom));
-				endnetgrent();
+					free(name);
+				}
+
 				*endcp = savedc;
 			}
 			cp = endcp;
@@ -1960,7 +2086,8 @@ get_exportlist(void)
 				export_error_cleanup(xf);
 				goto nextline;
 			}
-			tgrp = get_grp(ngrp.gr_type, &ngrp.gr_u);
+			ngrp.gr_flags |= GF_SHOW;
+			tgrp = get_grp(&ngrp);
 			if (!tgrp) {
 				export_error(LOG_ERR, "Can't allocate memory to add network - %s",
 					grp_name(&ngrp));
@@ -2073,7 +2200,7 @@ prepare_offline_export:
 			}
 			bcopy(uuid, xf->xf_uuid, sizeof(uuid));
 			xf->xf_fsid = ulp->ul_fsid;
-			strcpy(xf->xf_fsdir, mntonname);
+			strlcpy(xf->xf_fsdir, mntonname, strlen(mntonname)+1);
 			DEBUG(2, "New expfs uuid=%s", uuidstring(uuid, buf));
 		} else {
 			DEBUG(2, "Found expfs uuid=%s", uuidstring(uuid, buf));
@@ -2199,13 +2326,21 @@ prepare_offline_export:
 
 			/*
 			 * Send list of hosts to do_export for pushing the exports into
-			 * the kernel.
+			 * the kernel (unless checkexports and the export is missing).
 			 */
-			if (checkexports) {
-				DEBUG(1, "exported %s/%s", xf->xf_fsdir, xd->xd_xid->xid_path);
-			} else if (need_export) {
-				if (do_export(NXA_REPLACE, xf, xd, tgrp, exflags, &anon, &secflavs)) {
-					export_error(LOG_ERR, "kernel export registration failed");
+			if (need_export && !(checkexports && (opt_flags & OP_MISSING))) {
+				int expcmd = checkexports ? NXA_CHECK : NXA_REPLACE;
+				if (do_export(expcmd, xf, xd, tgrp, exflags, &anon, &secflavs)) {
+					if ((errno == ENOTSUP) || (errno == EISDIR)) {
+						/* if ENOTSUP report lack of NFS export support */
+						/* if EISDIR report lack of extended readdir support */
+						export_error(LOG_ERR, "kernel export registration failed: "
+							"NFS exporting not supported by fstype \"%s\" (%s)",
+							statfs(xf->xf_fsdir, &fsb) ? "?" : fsb.f_fstypename,
+							(errno == EISDIR) ? "readdir" : "fh");
+					} else {
+						export_error(LOG_ERR, "kernel export registration failed");
+					}
 					hang_options_cleanup(xd);
 					if (cmp)
 						free_expdir(xd);
@@ -2274,6 +2409,10 @@ prepare_offline_export:
 				log(LOG_WARNING, "exports:%d: export entry OK (previous errors cleared)", linenum);
 		}
 nextline:
+		if (!TAILQ_EMPTY(&netgroups))
+			free_namelist(&netgroups);
+		if (!TAILQ_EMPTY(&names))
+			free_namelist(&names);
 		if (dirhead) {
 			free_dirlist(dirhead);
 			dirhead = NULL;
@@ -2288,6 +2427,7 @@ nextline:
 		while (tgrp) {
 			grp = tgrp;
 			tgrp = tgrp->gr_next;
+			grp->gr_flags &= ~GF_SHOW;
 			free_grp(grp);
 		}
 	}
@@ -2317,56 +2457,30 @@ exports_read:
 			 * is not aware of these and they are not registered,
 			 * we merely need to delete the data structures.
 			 */
-			xd2 = TAILQ_FIRST(&xd->xd_mountdirs);
-			while (xd2) {
-				xd3 = TAILQ_NEXT(xd2, xd_next);
-				htp = &xd2->xd_hosts;
-				ht = xd2->xd_hosts;
-				while (ht) {
-					ht2 = ht->ht_next;
+			TAILQ_FOREACH_SAFE(xd2, &xd->xd_mountdirs, xd_next, xd3) {
+				TAILQ_FOREACH_SAFE(ht, &xd2->xd_hosts, ht_next, ht2)
 					if (ht->ht_flags & OP_DEL) {
-						*htp = ht2;
-						ht->ht_next = NULL;
+						TAILQ_REMOVE(&xd2->xd_hosts, ht, ht_next);
 						free_host(ht);
-					} else {
-						htp = &ht->ht_next;
 					}
-					ht = ht2;
-				}
 				if (xd2->xd_flags & OP_DEL)
 					xd2->xd_flags = xd2->xd_oflags = 0;
-				if (!(xd2->xd_flags & OP_DEFEXP) && !xd2->xd_hosts) {
+				if (!(xd2->xd_flags & OP_DEFEXP) && TAILQ_EMPTY(&xd2->xd_hosts)) {
 					/* No more exports here, delete */
 					TAILQ_REMOVE(&xd->xd_mountdirs, xd2, xd_next);
 					free_expdir(xd2);
 				}
-				xd2 = xd3;
 			}
 			/*
 			 * Now scan the xd_hosts list for hosts that are still
 			 * tagged for deletion and move those to the htfree list.
 			 */
-			htfree = NULL;
-			ht = xd->xd_hosts;
-			htp = &xd->xd_hosts;
-			while (ht) {
-				ht2 = ht->ht_next;
+			TAILQ_INIT(&htfree);
+			TAILQ_FOREACH_SAFE(ht, &xd->xd_hosts, ht_next, ht2)
 				if (ht->ht_flags & OP_DEL) {
-					*htp = ht2;
-					ht->ht_next = NULL;
-					/* queue up host for deletion */
-					if (!add_host(&htfree, ht)) {
-						/* shouldn't happen...  */
-						log(LOG_ERR, "failure to queue host for deletion");
-						/* ... but try to recover anyway */
-						ht->ht_next = htfree;
-						htfree = ht;
-					}
-				} else {
-					htp = &ht->ht_next;
+					TAILQ_REMOVE(&xd->xd_hosts, ht, ht_next);
+					TAILQ_INSERT_TAIL(&htfree, ht, ht_next);
 				}
-				ht = ht2;
-			}
 			/*
 			 * Go through htfree and find the groups/addresses
 			 * that are no longer being exported to and place
@@ -2376,12 +2490,9 @@ exports_read:
 			 * deletion from the kernel) will be freed as we go.
 			 */
 			tgrp = NULL;
-			ht = htfree;
-			while (ht) {
-				ht2 = ht->ht_next;
-				ht->ht_next = NULL;
+			TAILQ_FOREACH_SAFE(ht, &htfree, ht_next, ht2) {
 				grp = ht->ht_grp;
-				if (!find_group_address_match_in_host_list(xd->xd_hosts, grp)) {
+				if (!find_group_address_match_in_host_list(&xd->xd_hosts, grp)) {
 					/* no conflicts, so we can safely delete these */
 					/* steal the grp from the host */
 					ht->ht_grp = NULL;
@@ -2393,7 +2504,7 @@ exports_read:
 						tgrp = grp;
 					}
 				} else if (grp->gr_type == GT_HOST) {
-					u_long **a1, **a2, **a3, *atmp;
+					uint32_t **a1, **a2, **a3, *atmp;
 					/*
 					 * Some or all of the addresses are still exported.
 					 * Find any addresses whose exports haven't been replaced.
@@ -2404,14 +2515,14 @@ exports_read:
 					 * delete exports for.  The effect is that addresses which
 					 * are still exported will be "squeezed" out of the array.
 					 */
-					a1 = (u_long **) grp->gr_u.gt_hostent->h_addr_list;
+					a1 = (uint32_t **) grp->gr_u.gt_hostent->h_addr_list;
 					a3 = a1;
 					while (*a1) {
 						/* scan exports host list for GT_HOSTs w/matching address */
-						for (ht3 = xd->xd_hosts; ht3; ht3 = ht3->ht_next) {
+						TAILQ_FOREACH(ht3, &xd->xd_hosts, ht_next) {
 							if (ht3->ht_grp->gr_type != GT_HOST)
 								continue;
-							a2 = (u_long **) ht->ht_grp->gr_u.gt_hostent->h_addr_list;
+							a2 = (uint32_t **) ht->ht_grp->gr_u.gt_hostent->h_addr_list;
 							while (*a2 && (**a1 != **a2))
 								a2++;
 							if (*a2) /* we found a match */
@@ -2428,7 +2539,7 @@ exports_read:
 						}
 						a1++;
 					}
-					if (a3 == (u_long **)grp->gr_u.gt_hostent->h_addr_list) {
+					if (a3 == (uint32_t **)grp->gr_u.gt_hostent->h_addr_list) {
 						/* a3 hasn't moved, so we know that all of */
 						/* the addresses are being exported again */
 						/* so we shouldn't delete any of the exports */
@@ -2451,8 +2562,8 @@ exports_read:
 						}
 					}
 				}
+				TAILQ_REMOVE(&htfree, ht, ht_next);
 				free_host(ht);
-				ht = ht2;
 			}
 			if ((config.verbose >= 3) && tgrp) {
 				struct grouplist *g;
@@ -2464,7 +2575,8 @@ exports_read:
 						(g->gr_type == GT_HOST) ? 
 						inet_ntoa(*(struct in_addr *)*g->gr_u.gt_hostent->h_addr_list) :
 						(g->gr_type == GT_NET) ? 
-						inet_ntoa(*(struct in_addr *)&g->gr_u.gt_net.nt_net) : "???");
+						inet_ntoa(*(struct in_addr *)&g->gr_u.gt_net.nt_net) :
+						(g->gr_type == GT_NETGROUP) ? "" : "???");
 					g = g->gr_cache;
 				}
 			}
@@ -2487,7 +2599,7 @@ exports_read:
 				}
 			}
 			xd3 = TAILQ_NEXT(xd, xd_next);
-			if (!(xd->xd_flags & OP_DEFEXP) && !xd->xd_hosts) {
+			if (!(xd->xd_flags & OP_DEFEXP) && TAILQ_EMPTY(&xd->xd_hosts)) {
 				TAILQ_REMOVE(&xf->xf_dirl, xd, xd_next);
 				free_expdir(xd);
 			} else {
@@ -2575,6 +2687,7 @@ get_expdir(void)
 	if (xd == NULL)
 		return (NULL);
 	memset(xd, 0, sizeof(*xd));
+	TAILQ_INIT(&xd->xd_hosts);
 	TAILQ_INIT(&xd->xd_mountdirs);
 	return (xd);
 }
@@ -2582,14 +2695,17 @@ get_expdir(void)
 /*
  * Return the "name" of the given group
  */
+static char unknown_group[] = "unknown group";
 char *
 grp_name(struct grouplist *grp)
 {
+	if (grp->gr_type == GT_NETGROUP)
+		return (grp->gr_u.gt_netgroup);
 	if (grp->gr_type == GT_NET)
 		return (grp->gr_u.gt_net.nt_name);
 	if (grp->gr_type == GT_HOST)
 		return (grp->gr_u.gt_hostent->h_name);
-	return ("unknown group");
+	return (unknown_group);
 }
 
 /*
@@ -2600,13 +2716,16 @@ grpcmp(struct grouplist *g1, struct grouplist *g2)
 {
 	struct hostent *h1, *h2;
 	struct netmsk *n1, *n2;
-	u_long **a1, **a2;
+	uint32_t **a1, **a2;
 	int rv;
 
 	rv = g1->gr_type - g2->gr_type;
 	if (rv)
 		return (rv);
 	switch (g1->gr_type) {
+	case GT_NETGROUP:
+		rv = strcmp(g1->gr_u.gt_netgroup, g2->gr_u.gt_netgroup);
+		break;
 	case GT_NET:
 		n1 = &g1->gr_u.gt_net;
 		n2 = &g2->gr_u.gt_net;
@@ -2624,8 +2743,8 @@ grpcmp(struct grouplist *g1, struct grouplist *g2)
 		rv = strcmp(h1->h_name, h2->h_name);
 		if (rv)
 			break;
-		a1 = (u_long **)h1->h_addr_list;
-		a2 = (u_long **)h2->h_addr_list;
+		a1 = (uint32_t **)h1->h_addr_list;
+		a2 = (uint32_t **)h2->h_addr_list;
 		while (*a1 && *a2) {
 			rv = **a1 - **a2;
 			if (rv)
@@ -2648,27 +2767,24 @@ grpcmp(struct grouplist *g1, struct grouplist *g2)
  * Return a group in the group cache that matches the given group.
  * If the group isn't yet in the cache, a new group will be allocated,
  * populated with the info from the given group, and added to the cache.
- * In any event, any memory referred to within *gr_u has been either used
- * in a new group cache entry or freed.
+ * In any event, any memory referred to within grptmp->gr_u has been
+ * either used in a new group cache entry or freed.
  */
 struct grouplist *
-get_grp(int gr_type, union grouptypes *gr_u)
+get_grp(struct grouplist *grptmp)
 {
 	struct grouplist *g, *g2;
-	struct grouplist grptmp;
 	char **addrp;
-	int cmp = 1;
-
-	grptmp.gr_type = gr_type;
-	grptmp.gr_u = *gr_u;
+	int cmp = 1, clean_up_gr_u = 1;
 
 	if (config.verbose >= 7) {
 		DEBUG(5, "get_grp: %s %s",
-			grp_name(&grptmp),
-			(gr_type == GT_HOST) ? 
-			inet_ntoa(*(struct in_addr *)*gr_u->gt_hostent->h_addr_list) :
-			(gr_type == GT_NET) ? 
-			inet_ntoa(*(struct in_addr *)&gr_u->gt_net.nt_net) : "???");
+			grp_name(grptmp),
+			(grptmp->gr_type == GT_HOST) ? 
+			inet_ntoa(*(struct in_addr *)*grptmp->gr_u.gt_hostent->h_addr_list) :
+			(grptmp->gr_type == GT_NET) ? 
+			inet_ntoa(*(struct in_addr *)&grptmp->gr_u.gt_net.nt_net) :
+			(grptmp->gr_type == GT_NETGROUP) ? "" : "???");
 		g = grpcache;
 		while (g) {
 			DEBUG(6, "grpcache: 0x%x %d %s %s",
@@ -2676,14 +2792,15 @@ get_grp(int gr_type, union grouptypes *gr_u)
 				(g->gr_type == GT_HOST) ? 
 				inet_ntoa(*(struct in_addr *)*g->gr_u.gt_hostent->h_addr_list) :
 				(g->gr_type == GT_NET) ? 
-				inet_ntoa(*(struct in_addr *)&g->gr_u.gt_net.nt_net) : "???");
+				inet_ntoa(*(struct in_addr *)&g->gr_u.gt_net.nt_net) :
+				(g->gr_type == GT_NETGROUP) ? "" : "???");
 			g = g->gr_cache;
 		}
 	}
 
 	g2 = NULL;
 	g = grpcache;
-	while (g && ((cmp = grpcmp(&grptmp, g)) > 0)) {
+	while (g && ((cmp = grpcmp(grptmp, g)) > 0)) {
 		g2 = g;
 		g = g->gr_cache;
 	}
@@ -2696,7 +2813,9 @@ get_grp(int gr_type, union grouptypes *gr_u)
 				(g->gr_type == GT_HOST) ? 
 				inet_ntoa(*(struct in_addr *)*g->gr_u.gt_hostent->h_addr_list) :
 				(g->gr_type == GT_NET) ? 
-				inet_ntoa(*(struct in_addr *)&g->gr_u.gt_net.nt_net) : "???");
+				inet_ntoa(*(struct in_addr *)&g->gr_u.gt_net.nt_net) :
+				(g->gr_type == GT_NETGROUP) ? "" : "???");
+		g->gr_flags |= grptmp->gr_flags;
 		goto out;
 	}
 
@@ -2705,9 +2824,10 @@ get_grp(int gr_type, union grouptypes *gr_u)
 		goto out;
 	memset(g, 0, sizeof(*g));
 	g->gr_refcnt = 1;
-	g->gr_type = gr_type;
-	g->gr_u = *gr_u; /* memory allocations in *gr_u are now owned by g->gr_u */
-	gr_u = NULL;
+	g->gr_type = grptmp->gr_type;
+	g->gr_flags = grptmp->gr_flags;
+	g->gr_u = grptmp->gr_u; /* memory allocations in *grptmp->gr_u are now owned by g->gr_u */
+	clean_up_gr_u = 0;
 
 	if (g2) {
 		g->gr_cache = g2->gr_cache;
@@ -2723,7 +2843,8 @@ get_grp(int gr_type, union grouptypes *gr_u)
 			(g->gr_type == GT_HOST) ? 
 			inet_ntoa(*(struct in_addr *)*g->gr_u.gt_hostent->h_addr_list) :
 			(g->gr_type == GT_NET) ? 
-			inet_ntoa(*(struct in_addr *)&g->gr_u.gt_net.nt_net) : "???");
+			inet_ntoa(*(struct in_addr *)&g->gr_u.gt_net.nt_net) :
+			(g->gr_type == GT_NETGROUP) ? "" : "???");
 		g2 = grpcache;
 		while (g2) {
 			DEBUG(6, "grpcache: 0x%x %d %s %s",
@@ -2731,30 +2852,35 @@ get_grp(int gr_type, union grouptypes *gr_u)
 				(g2->gr_type == GT_HOST) ? 
 				inet_ntoa(*(struct in_addr *)*g2->gr_u.gt_hostent->h_addr_list) :
 				(g2->gr_type == GT_NET) ? 
-				inet_ntoa(*(struct in_addr *)&g2->gr_u.gt_net.nt_net) : "???");
+				inet_ntoa(*(struct in_addr *)&g2->gr_u.gt_net.nt_net) :
+				(g2->gr_type == GT_NETGROUP) ? "" : "???");
 			g2 = g2->gr_cache;
 		}
 	}
 
 out:
-	if (gr_u) {
-		/* free up the contents of gr_u */
-		switch (gr_type) {
+	if (clean_up_gr_u) {
+		/* free up the contents of grptmp->gr_u */
+		switch (grptmp->gr_type) {
 		case GT_HOST:
-			if (gr_u->gt_hostent) {
-				addrp = gr_u->gt_hostent->h_addr_list;
+			if (grptmp->gr_u.gt_hostent) {
+				addrp = grptmp->gr_u.gt_hostent->h_addr_list;
 				while (addrp && *addrp)
 					free(*addrp++);
-				if (gr_u->gt_hostent->h_addr_list)
-					free(gr_u->gt_hostent->h_addr_list);
-				if (gr_u->gt_hostent->h_name)
-					free(gr_u->gt_hostent->h_name);
-				free(gr_u->gt_hostent);
+				if (grptmp->gr_u.gt_hostent->h_addr_list)
+					free(grptmp->gr_u.gt_hostent->h_addr_list);
+				if (grptmp->gr_u.gt_hostent->h_name)
+					free(grptmp->gr_u.gt_hostent->h_name);
+				free(grptmp->gr_u.gt_hostent);
 			}
 			break;
 		case GT_NET:
-			if (gr_u->gt_net.nt_name)
-				free(gr_u->gt_net.nt_name);
+			if (grptmp->gr_u.gt_net.nt_name)
+				free(grptmp->gr_u.gt_net.nt_name);
+			break;
+		case GT_NETGROUP:
+			if (grptmp->gr_u.gt_netgroup)
+				free(grptmp->gr_u.gt_netgroup);
 			break;
 		}
 	}
@@ -2780,7 +2906,8 @@ free_grp(struct grouplist *grp)
 			(grp->gr_type == GT_HOST) ? 
 			inet_ntoa(*(struct in_addr *)*grp->gr_u.gt_hostent->h_addr_list) :
 			(grp->gr_type == GT_NET) ? 
-			inet_ntoa(*(struct in_addr *)&grp->gr_u.gt_net.nt_net) : "???");
+			inet_ntoa(*(struct in_addr *)&grp->gr_u.gt_net.nt_net) :
+			(grp->gr_type == GT_NETGROUP) ? "" : "???");
 
 	if (grp->gr_refcnt > 0)
 		return;
@@ -2806,6 +2933,9 @@ free_grp(struct grouplist *grp)
 	} else if (grp->gr_type == GT_NET) {
 		if (grp->gr_u.gt_net.nt_name)
 			free(grp->gr_u.gt_net.nt_name);
+	} else if (grp->gr_type == GT_NETGROUP) {
+		if (grp->gr_u.gt_netgroup)
+			free(grp->gr_u.gt_netgroup);
 	}
 	free((caddr_t)grp);
 }
@@ -2825,8 +2955,12 @@ add_grp(struct grouplist **glp, struct grouplist *newg)
 		g2 = g1;
 		g1 = g1->gr_next;
 	}
-	if (!cmp)
+	if (!cmp) {
+		/* already in list, make sure SHOW bit is set */
+		if (newg->gr_flags & GF_SHOW)
+			g1->gr_flags |= GF_SHOW;
 		return (0);
+	}
 	if (g2) {
 		newg->gr_next = g2->gr_next;
 		g2->gr_next = newg;
@@ -2843,26 +2977,24 @@ add_grp(struct grouplist **glp, struct grouplist *newg)
  *  allows "duplicates" if one is tagged for deletion)
  */
 int
-add_host(struct host **hlp, struct host *newht)
+add_host(struct hosttqh *head, struct host *newht)
 {
-	struct host *h1, *h2;
+	struct host *ht;
 	int cmp = 1;
 
-	h2 = NULL;
-	h1 = *hlp;
-	while (h1 && ((cmp = grpcmp(newht->ht_grp, h1->ht_grp)) > 0)) {
-		h2 = h1;
-		h1 = h1->ht_next;
-	}
-	if (!cmp && !(h1->ht_flags & OP_DEL))
+	TAILQ_FOREACH(ht, head, ht_next)
+		if ((cmp = grpcmp(newht->ht_grp, ht->ht_grp)) <= 0)
+			break;
+	if (!cmp && !(ht->ht_flags & OP_DEL)) {
+		/* already in list, make sure SHOW bit is set */
+		if (newht->ht_flags & OP_SHOW)
+			ht->ht_flags |= OP_SHOW;
 		return (0);
-	if (h2) {
-		newht->ht_next = h2->ht_next;
-		h2->ht_next = newht;
-	} else {
-		newht->ht_next = *hlp;
-		*hlp = newht;
 	}
+	if (ht)
+		TAILQ_INSERT_BEFORE(ht, newht, ht_next);
+	else
+		TAILQ_INSERT_TAIL(head, newht, ht_next);
 	return (1);
 }
 
@@ -3073,15 +3205,57 @@ free_dirlist(struct dirlist *dl)
 }
 
 /*
+ * add a name to a namelist
+ *
+ * returns 0 on success, -1 on duplicate, or error
+ */
+int
+add_name(struct namelisttqh *names, char *name)
+{
+	struct namelist *nl;
+
+	TAILQ_FOREACH(nl, names, nl_next)
+		if (!strcmp(nl->nl_name, name))
+			return (-1);
+	nl = malloc(sizeof(*nl));
+	if (!nl)
+		return (ENOMEM);
+	nl->nl_name = strdup(name);
+	if (!nl->nl_name) {
+		free(nl);
+		return (ENOMEM);
+	}
+	TAILQ_INSERT_TAIL(names, nl, nl_next);
+	return (0);
+}
+
+/*
+ * free up all the elements in a namelist
+ */
+void
+free_namelist(struct namelisttqh *names)
+{
+	struct namelist *nl, *nlnext;
+
+	TAILQ_FOREACH_SAFE(nl, names, nl_next, nlnext) {
+		TAILQ_REMOVE(names, nl, nl_next);
+		if (nl->nl_name)
+			free(nl->nl_name);
+		free(nl);
+	}
+}
+
+/*
  * find a host list entry that has the same group
  */
 struct host *
-find_group_match_in_host_list(struct host *ht, struct grouplist *grp)
+find_group_match_in_host_list(struct hosttqh *head, struct grouplist *grp)
 {
-	for (; ht; ht = ht->ht_next) {
+	struct host *ht;
+
+	TAILQ_FOREACH(ht, head, ht_next)
 		if (!grpcmp(grp, ht->ht_grp))
 			break;
-	}
 	return (ht);
 }
 
@@ -3089,22 +3263,22 @@ find_group_match_in_host_list(struct host *ht, struct grouplist *grp)
  * find a host list entry that has the same address
  */
 struct host *
-find_group_address_match_in_host_list(struct host *htlist, struct grouplist *grp)
+find_group_address_match_in_host_list(struct hosttqh *head, struct grouplist *grp)
 {
 	struct host *ht;
 	struct netmsk *n1, *n2;
-	u_long **a1, **a2;
+	uint32_t **a1, **a2;
 
 	switch (grp->gr_type) {
 	case GT_HOST:
-		a1 = (u_long **) grp->gr_u.gt_hostent->h_addr_list;
+		a1 = (uint32_t **) grp->gr_u.gt_hostent->h_addr_list;
 		while (*a1) {
-			for (ht = htlist; ht; ht = ht->ht_next) {
+			TAILQ_FOREACH(ht, head, ht_next) {
 				if (ht->ht_grp->gr_type != GT_HOST)
 					continue;
 				if (ht->ht_flags & OP_DEL)
 					continue;
-				a2 = (u_long **) ht->ht_grp->gr_u.gt_hostent->h_addr_list;
+				a2 = (uint32_t **) ht->ht_grp->gr_u.gt_hostent->h_addr_list;
 				while (*a2) {
 					if (**a1 == **a2)
 						return (ht);
@@ -3116,7 +3290,7 @@ find_group_address_match_in_host_list(struct host *htlist, struct grouplist *grp
 		break;
 	case GT_NET:
 		n1 = &grp->gr_u.gt_net;
-		for (ht = htlist; ht; ht = ht->ht_next) {
+		TAILQ_FOREACH(ht, head, ht_next) {
 			if (ht->ht_grp->gr_type != GT_NET)
 				continue;
 			if (ht->ht_flags & OP_DEL)
@@ -3194,14 +3368,18 @@ hang_options_setup(struct expdir *xd, int opt_flags, struct xucred *cr, struct g
 
 	while (grp) {
 		/* first check for an existing entry for this group */
-		ht = find_group_match_in_host_list(xd->xd_hosts, grp);
+		ht = find_group_match_in_host_list(&xd->xd_hosts, grp);
 		if (ht) {
 			/* found a match... */
 			if ((OP_EXOPTS(ht->ht_flags) == OP_EXOPTS(opt_flags)) &&
 			    (!(opt_flags & (OP_MAPALL|OP_MAPROOT)) || !crcmp(&ht->ht_cred, cr)) &&
 			    (!cmp_secflavs(&ht->ht_sec, secflavs))) {
 				/* options match, OK, it's the same export */
+				if (!(ht->ht_flags & OP_ADD) && !(grp->gr_flags & GF_SHOW))
+					ht->ht_flags &= ~OP_SHOW;
 				ht->ht_flags |= OP_ADD;
+				if (grp->gr_flags & GF_SHOW)
+					ht->ht_flags |= OP_SHOW;
 				grp = grp->gr_next;
 				continue;
 			}
@@ -3215,11 +3393,11 @@ hang_options_setup(struct expdir *xd, int opt_flags, struct xucred *cr, struct g
 			/* go ahead and add a new entry with the new options */
 		}
 		/* also check for an existing entry for any addresses in this group */
-		ht = find_group_address_match_in_host_list(xd->xd_hosts, grp);
+		ht = find_group_address_match_in_host_list(&xd->xd_hosts, grp);
 		if (ht) {
 			/* found a match... */
 			if ((OP_EXOPTS(ht->ht_flags) != OP_EXOPTS(opt_flags)) ||
-			    ((opt_flags & (OP_MAPALL|OP_MAPROOT)) && !crcmp(&ht->ht_cred, cr)) ||
+			    ((opt_flags & (OP_MAPALL|OP_MAPROOT)) && crcmp(&ht->ht_cred, cr)) ||
 			    (cmp_secflavs(&ht->ht_sec, secflavs))) {
 				/* ...with different options */
 				log(LOG_ERR, "conflicting exports for %s, %s", xd->xd_dir, grp_name(grp));
@@ -3242,13 +3420,16 @@ hang_options_setup(struct expdir *xd, int opt_flags, struct xucred *cr, struct g
 		ht->ht_grp = grp;
 		grp->gr_refcnt++;
 		bcopy(secflavs, &ht->ht_sec, sizeof(struct nfs_sec));
+		if (grp->gr_flags & GF_SHOW)
+			ht->ht_flags |= OP_SHOW;
 		if (config.verbose >= 6)
 			DEBUG(4, "grp2host: 0x%x %d %s %s",
 				grp, grp->gr_refcnt, grp_name(grp),
 				(grp->gr_type == GT_HOST) ? 
 				inet_ntoa(*(struct in_addr *)*grp->gr_u.gt_hostent->h_addr_list) :
 				(grp->gr_type == GT_NET) ? 
-				inet_ntoa(*(struct in_addr *)&grp->gr_u.gt_net.nt_net) : "???");
+				inet_ntoa(*(struct in_addr *)&grp->gr_u.gt_net.nt_net) :
+				(grp->gr_type == GT_NETGROUP) ? "" : "???");
 		if (!add_host(&xd->xd_hosts, ht)) {
 			/* This shouldn't happen given the above checks */
 			log(LOG_ERR, "duplicate host in export list: %s", grp_name(grp));
@@ -3273,6 +3454,8 @@ hang_options_finalize(struct expdir *xd)
 	struct expdir *mxd;
 
 	if (xd->xd_flags & OP_ADD) {
+		xd->xd_iflags |= (xd->xd_flags & (OP_OFFLINE|OP_MISSING)) ? OP_OFFLINE : OP_ONLINE;
+		merge_secflavs(&xd->xd_ssec, &xd->xd_sec);
 		xd->xd_flags &= ~(OP_ADD|OP_DEL);
 		/* update old options in case subsequent export fails */
 		xd->xd_oflags = xd->xd_flags;
@@ -3280,10 +3463,12 @@ hang_options_finalize(struct expdir *xd)
 		bcopy(&xd->xd_sec, &xd->xd_osec, sizeof(struct nfs_sec));
 	}
 
-	for (ht = xd->xd_hosts; ht; ht = ht->ht_next) {
+	TAILQ_FOREACH(ht, &xd->xd_hosts, ht_next) {
 		if (!(ht->ht_flags & OP_ADD))
 			continue;
 		ht->ht_flags &= ~(OP_ADD|OP_DEL);
+		xd->xd_iflags |= (ht->ht_flags & (OP_OFFLINE|OP_MISSING)) ? OP_OFFLINE : OP_ONLINE;
+		merge_secflavs(&xd->xd_ssec, &ht->ht_sec);
 	}
 
 	TAILQ_FOREACH(mxd, &xd->xd_mountdirs, xd_next) {
@@ -3297,7 +3482,7 @@ hang_options_finalize(struct expdir *xd)
 void
 hang_options_cleanup(struct expdir *xd)
 {
-	struct host *ht, *ht2, *htnext;
+	struct host *ht, *htnext;
 
 	if (xd->xd_flags & OP_ADD) {
 		xd->xd_flags = xd->xd_oflags;
@@ -3305,21 +3490,15 @@ hang_options_cleanup(struct expdir *xd)
 		bcopy(&xd->xd_osec, &xd->xd_sec, sizeof(struct nfs_sec));
 	}
 
-	for (ht2=NULL, ht=xd->xd_hosts; ht; ht2=ht,ht=htnext) {
-		htnext = ht->ht_next;
+	TAILQ_FOREACH_SAFE(ht, &xd->xd_hosts, ht_next, htnext) {
 		if (!(ht->ht_flags & OP_ADD))
 			continue;
 		if (ht->ht_flags & OP_DEL) {
 			ht->ht_flags &= ~OP_ADD;
 			continue;
 		}
-		if (ht2)
-			ht2->ht_next = ht->ht_next;
-		else
-			xd->xd_hosts = ht->ht_next;
-		ht->ht_next = NULL;
+		TAILQ_REMOVE(&xd->xd_hosts, ht, ht_next);
 		free_host(ht);
-		ht = ht2;
 	}
 
 	/*
@@ -3395,7 +3574,7 @@ hang_options_mountdir(struct expdir *xd, char *dir, int opt_flags, struct groupl
 
 	while (grp) {
 		/* first check for an existing entry for this group */
-		ht = find_group_match_in_host_list(mxd->xd_hosts, grp);
+		ht = find_group_match_in_host_list(&mxd->xd_hosts, grp);
 		if (ht) {
 			/* found a match... */
 			if ((OP_EXOPTS(ht->ht_flags) == OP_EXOPTS(opt_flags)) &&
@@ -3416,7 +3595,7 @@ hang_options_mountdir(struct expdir *xd, char *dir, int opt_flags, struct groupl
 			/* go ahead and add a new entry with the new options */
 		}
 		/* also check for an existing entry for any addresses in this group */
-		ht = find_group_address_match_in_host_list(mxd->xd_hosts, grp);
+		ht = find_group_address_match_in_host_list(&mxd->xd_hosts, grp);
 		if (ht) {
 			/* found a match... */
 			if ((OP_EXOPTS(ht->ht_flags) != OP_EXOPTS(opt_flags)) ||
@@ -3439,16 +3618,19 @@ hang_options_mountdir(struct expdir *xd, char *dir, int opt_flags, struct groupl
 			return(ENOMEM);
 		}
 		ht->ht_flags = opt_flags | OP_ADD;
-		bcopy(secflavs, &ht->ht_sec, sizeof(struct nfs_sec));
 		ht->ht_grp = grp;
 		grp->gr_refcnt++;
+		bcopy(secflavs, &ht->ht_sec, sizeof(struct nfs_sec));
+		if (grp->gr_flags & GF_SHOW)
+			ht->ht_flags |= OP_SHOW;
 		if (config.verbose >= 6)
 			DEBUG(4, "grp2host: 0x%x %d %s %s",
 				grp, grp->gr_refcnt, grp_name(grp),
 				(grp->gr_type == GT_HOST) ? 
 				inet_ntoa(*(struct in_addr *)*grp->gr_u.gt_hostent->h_addr_list) :
 				(grp->gr_type == GT_NET) ? 
-				inet_ntoa(*(struct in_addr *)&grp->gr_u.gt_net.nt_net) : "???");
+				inet_ntoa(*(struct in_addr *)&grp->gr_u.gt_net.nt_net) :
+				(grp->gr_type == GT_NETGROUP) ? "" : "???");
 		if (!add_host(&mxd->xd_hosts, ht)) {
 			/* This shouldn't happen given the above checks */
 			log(LOG_ERR, "Can't add host to mountdir export list: %s", grp_name(grp));
@@ -3474,7 +3656,7 @@ hang_options_mountdir(struct expdir *xd, char *dir, int opt_flags, struct groupl
  * a subdir match on exported directory path with ALLDIRS
  */
 int
-expdir_search(struct expfs *xf, char *dirpath, u_long saddr, int *options, struct nfs_sec *secflavs)
+expdir_search(struct expfs *xf, char *dirpath, uint32_t saddr, int *options, struct nfs_sec *secflavs)
 {
 	struct expdir *xd, *mxd;
 	struct host *hp;
@@ -3495,7 +3677,7 @@ expdir_search(struct expfs *xf, char *dirpath, u_long saddr, int *options, struc
 		/* exact match on exported directory path */
 check_xd_hosts:
 		/* find options for this host */
-		hp = find_host(xd->xd_hosts, saddr);
+		hp = find_host(&xd->xd_hosts, saddr);
 		if (hp && (!chkalldirs || (hp->ht_flags & OP_ALLDIRS))) {
 			DEBUG(2, "expdir_search: %s host %s", dirpath,
 				(chkalldirs ? "alldirs" : "match"));
@@ -3525,7 +3707,7 @@ check_xd_hosts:
 			dirpath, mxd->xd_dir);
 		chkalldirs = (cmp != 0);
 		/* found a match on a mountdir */
-		hp = find_host(mxd->xd_hosts, saddr);
+		hp = find_host(&mxd->xd_hosts, saddr);
 		if (hp && (!chkalldirs || (hp->ht_flags & OP_ALLDIRS))) {
 			DEBUG(2, "expdir_search: %s -> %s subdir host %s",
 				dirpath, mxd->xd_dir, (chkalldirs ? "alldirs" : "match"));
@@ -3552,16 +3734,17 @@ check_xd_hosts:
  * search a host list for a match for the given address
  */
 struct host *
-find_host(struct host *hp, u_long saddr)
+find_host(struct hosttqh *head, uint32_t saddr)
 {
+	struct host *hp;
 	struct grouplist *grp;
-	u_long **addrp;
+	uint32_t **addrp;
 
-	while (hp) {
+	TAILQ_FOREACH(hp, head, ht_next) {
 		grp = hp->ht_grp;
 		switch (grp->gr_type) {
 		case GT_HOST:
-			addrp = (u_long **) grp->gr_u.gt_hostent->h_addr_list;
+			addrp = (uint32_t **) grp->gr_u.gt_hostent->h_addr_list;
 			while (*addrp) {
 				if (**addrp == saddr)
 					return (hp);
@@ -3574,7 +3757,6 @@ find_host(struct host *hp, u_long saddr)
 				return (hp);
 			break;
 		}
-		hp = hp->ht_next;
 	}
 
 	return (NULL);
@@ -3775,7 +3957,7 @@ get_host_addresses(char *cp, struct grouplist *grp)
 	char **addrp, **naddrp;
 	struct hostent t_host;
 	int i;
-	u_long saddr;
+	uint32_t saddr;
 	char *aptr[2];
 
 	if (grp->gr_type != GT_NULL)
@@ -3787,7 +3969,7 @@ get_host_addresses(char *cp, struct grouplist *grp)
 			return (1);
 		}
 		saddr = inet_addr(cp);
-		if (saddr == -1) {
+		if (saddr == INADDR_NONE) {
 			log(LOG_ERR, "Inet_addr failed for %s", cp);
 			hostnamecount++;
 			return (1);
@@ -3797,7 +3979,7 @@ get_host_addresses(char *cp, struct grouplist *grp)
 			hp = &t_host;
 			hp->h_name = cp;
 			hp->h_addrtype = AF_INET;
-			hp->h_length = sizeof (u_long);
+			hp->h_length = sizeof (uint32_t);
 			hp->h_addr_list = aptr;
 			aptr[0] = (char *)&saddr;
 			aptr[1] = (char *)NULL;
@@ -3860,7 +4042,7 @@ free_expdir(struct expdir *xd)
 {
 	struct expdir *xd2;
 
-	free_host(xd->xd_hosts);
+	free_hosts(&xd->xd_hosts);
 	while ((xd2 = TAILQ_FIRST(&xd->xd_mountdirs))) {
 		TAILQ_REMOVE(&xd->xd_mountdirs, xd2, xd_next);
 		free_expdir(xd2);
@@ -3888,19 +4070,27 @@ free_expfs(struct expfs *xf)
 }
 
 /*
- * Free up a list of hosts.
+ * Free up a host.
  */
 void
 free_host(struct host *hp)
 {
-	struct host *hp2;
+	if (hp->ht_grp)
+		free_grp(hp->ht_grp);
+	free(hp);
+}
 
-	while (hp) {
-		hp2 = hp;
-		hp = hp->ht_next;
-		if (hp2->ht_grp)
-			free_grp(hp2->ht_grp);
-		free((caddr_t)hp2);
+/*
+ * Free up a list of hosts.
+ */
+void
+free_hosts(struct hosttqh *head)
+{
+	struct host *hp, *hp2;
+
+	TAILQ_FOREACH_SAFE(hp, head, ht_next, hp2) {
+		TAILQ_REMOVE(head, hp, ht_next);
+		free_host(hp);
 	}
 }
 
@@ -3915,7 +4105,6 @@ get_host(void)
 	hp = malloc(sizeof(struct host));
 	if (hp == NULL)
 		return (NULL);
-	hp->ht_next = NULL;
 	hp->ht_flags = 0;
 	return (hp);
 }
@@ -3924,7 +4113,7 @@ get_host(void)
  * Out of memory, fatal
  */
 void
-out_of_mem(char *msg)
+out_of_mem(const char *msg)
 {
 	log(LOG_ERR, "%s: Out of memory", msg);
 	exit(2);
@@ -3946,12 +4135,12 @@ do_export(
 	struct nfs_export_args nxa;
 	struct nfs_export_net_args *netargs, *na;
 	struct grouplist *grp;
-	u_long **addrp;
+	uint32_t **addrp;
 	struct sockaddr_in *sin, *imask;
-	u_long net;
+	uint32_t net;
 
 	nxa.nxa_flags = expcmd;
-	if (exflags & NX_OFFLINE)
+	if ((exflags & NX_OFFLINE) && (expcmd != NXA_CHECK))
 		nxa.nxa_flags |= NXA_OFFLINE;
 	nxa.nxa_fsid = xf->xf_fsid;
 	nxa.nxa_fspath = xf->xf_fsdir;
@@ -3964,13 +4153,13 @@ do_export(
 	grp = grplist;
 	while (grp) {
 		if (grp->gr_type == GT_HOST) {
-			addrp = (u_long **)grp->gr_u.gt_hostent->h_addr_list;
+			addrp = (uint32_t **)grp->gr_u.gt_hostent->h_addr_list;
 			/* count # addresses given for this host */
 			while (addrp && *addrp) {
 				nxa.nxa_netcount++;
 				addrp++;
 			}
-		} else {
+		} else if (grp->gr_type == GT_NET) {
 			nxa.nxa_netcount++;
 		}
 		grp = grp->gr_next;
@@ -4013,7 +4202,7 @@ do_export(
 	while (grp) {
 		switch (grp->gr_type) {
 		case GT_HOST:
-			addrp = (u_long **)grp->gr_u.gt_hostent->h_addr_list;
+			addrp = (uint32_t **)grp->gr_u.gt_hostent->h_addr_list;
 			/* handle each host address in h_addr_list */
 			while (*addrp) {
 				INIT_NETARG(na);
@@ -4042,6 +4231,8 @@ do_export(
 			sin->sin_addr.s_addr = grp->gr_u.gt_net.nt_net;
 			na++;
 			break;
+		case GT_NETGROUP:
+			break;
 		default:
 			log(LOG_ERR, "Bad grouptype");
 			free(netargs);
@@ -4052,7 +4243,7 @@ do_export(
 	}
 
 	if (nfssvc(NFSSVC_EXPORT, &nxa)) {
-		if ((expcmd != NXA_DELETE) && (errno == EPERM)) {
+		if ((expcmd != NXA_CHECK) && (expcmd != NXA_DELETE) && (errno == EPERM)) {
 			log(LOG_ERR, "Can't change attributes for %s.  See 'exports' man page.",
 				xd->xd_dir);
 			free(netargs);
@@ -4076,14 +4267,14 @@ int
 get_net(char *cp, struct netmsk *net, int maskflg)
 {
 	struct netent *np;
-	long netaddr;
+	uint32_t netaddr;
 	struct in_addr inetaddr, inetaddr2;
 	char *name;
 
 	if (NULL != (np = getnetbyname(cp)))
 		inetaddr = inet_makeaddr(np->n_net, 0);
 	else if (isdigit(*cp)) {
-		if ((netaddr = inet_network(cp)) == -1)
+		if ((netaddr = inet_network(cp)) == INADDR_NONE)
 			return (1);
 		inetaddr = inet_makeaddr(netaddr, 0);
 		/*
@@ -4116,7 +4307,7 @@ get_net(char *cp, struct netmsk *net, int maskflg)
 			log(LOG_ERR, "can't allocate memory for net: %s", cp);
 			return (1);
 		}
-		strcpy(net->nt_name, name);
+		strlcpy(net->nt_name, name, strlen(name)+1);
 		net->nt_net = inetaddr.s_addr;
 		DEBUG(3, "got net: %s", net->nt_name);
 	}
@@ -4198,7 +4389,7 @@ get_sec_flavors(char *flavorlist, struct nfs_sec *sec_flavs)
 int
 cmp_secflavs(struct nfs_sec *sf1, struct nfs_sec *sf2)
 {
-	u_int32_t i;
+	int32_t i;
 
 	if (sf1->count != sf2->count)
 		return 1;
@@ -4206,6 +4397,27 @@ cmp_secflavs(struct nfs_sec *sf1, struct nfs_sec *sf2)
 		if (sf1->flavors[i] != sf2->flavors[i])
 			return 1;
 	return 0;
+}
+
+/*
+ * merge new security flavors into a current set
+ */
+void
+merge_secflavs(struct nfs_sec *cur, struct nfs_sec *new)
+{
+	int32_t i, j;
+
+	for (i = 0; i < new->count; i++) {
+		for (j = 0; j < cur->count; j++)
+			if (new->flavors[i] == cur->flavors[j])
+				break;
+		if (j < cur->count)
+			continue;
+		if (cur->count < NX_MAX_SEC_FLAVORS) {
+			cur->flavors[j] = new->flavors[i];
+			cur->count++;
+		}
+	}
 }
 
 /*
@@ -4276,8 +4488,8 @@ int
 get_export_entry(void)
 {
 	char *p, *cp, *newline;
-	size_t len;
-	int totlen, cont_line;
+	size_t len, totlen;
+	int cont_line;
 
 	if (linenum == 0)
 		linenum = 1;
@@ -4372,7 +4584,7 @@ parsecred(char *namelist, struct xucred *cr)
 		cr->cr_uid = pw->pw_uid;
 		ngroups = NGROUPS + 1;
 		if (getgrouplist(pw->pw_name, pw->pw_gid, groups, &ngroups))
-			log(LOG_WARNING, "Too many groups for %s", pw->pw_name);
+			log(LOG_NOTICE, "Too many groups for %s", pw->pw_name);
 		/* Convert from int's to gid_t's */
 		cr->cr_ngroups = ngroups;
 		for (cnt = 0; cnt < ngroups; cnt++)
@@ -4415,7 +4627,7 @@ parsecred(char *namelist, struct xucred *cr)
 out:
 	if (config.verbose >= 5) {
 		char buf[256];
-		sprintf_cred(buf, cr);
+		snprintf_cred(buf, sizeof(buf), cr);
 		DEBUG(3, "got cred: %s", buf);
 	}
 	if (cr->cr_ngroups < 1) {
@@ -4625,7 +4837,7 @@ check_dirpath(char *dir)
 }
 
 void
-sprintf_cred(char *buf, struct xucred *cr)
+snprintf_cred(char *buf, int buflen, struct xucred *cr)
 {
 	char crbuf2[32];
 	int i;
@@ -4633,25 +4845,25 @@ sprintf_cred(char *buf, struct xucred *cr)
 	buf[0] = '\0';
 	if (!cr)
 		return;
-	sprintf(crbuf2, "%d", cr->cr_uid);
-	strcat(buf, crbuf2);
+	snprintf(crbuf2, sizeof(crbuf2), "%d", cr->cr_uid);
+	strlcat(buf, crbuf2, buflen);
 	for (i=0; i < cr->cr_ngroups; i++) {
-		sprintf(crbuf2, ":%d", cr->cr_groups[i]);
-		strcat(buf, crbuf2);
+		snprintf(crbuf2, sizeof(crbuf2), ":%d", cr->cr_groups[i]);
+		strlcat(buf, crbuf2, buflen);
 	}
 }
 
 void
-sprintf_flags(char *buf, int flags, struct xucred *cr)
+snprintf_flags(char *buf, int buflen, int flags, struct xucred *cr)
 {
 	char crbuf[256];
 
 	if (flags & (OP_MAPALL|OP_MAPROOT))
-		sprintf_cred(crbuf, cr);
+		snprintf_cred(crbuf, sizeof(crbuf), cr);
 	else
 		crbuf[0] = '\0';
 
-	sprintf(buf, "FLAGS: 0x%08x %s%s%s%s%s%s%s%s%s%s%s %s",
+	snprintf(buf, buflen, "FLAGS: 0x%08x %s%s%s%s%s%s%s%s%s%s%s %s",
 		flags,
 		(flags & OP_DEL) ? " DEL" : "",
 		(flags & OP_ADD) ? " ADD" : "",
@@ -4674,45 +4886,44 @@ dump_expdir(struct expfs *xf, struct expdir *xd, int mdir)
 	struct host *ht;
 	struct grouplist *gr;
 	char buf[2048];
-	u_long **a;
+	uint32_t **a;
 
-	sprintf_flags(buf, xd->xd_iflags, NULL);
+	snprintf_flags(buf, sizeof(buf), xd->xd_iflags, NULL);
 	DEBUG(1, "   %s  %s", xd->xd_dir, buf);
 	if (!mdir) {
 		DEBUG(1, "   %s/%s", xf->xf_fsdir, xd->xd_xid->xid_path);
 		DEBUG(1, "   XID: 0x%08x", xd->xd_xid->xid_id);
 	}
-	sprintf_flags(buf, xd->xd_flags, mdir ? NULL : &xd->xd_cred);
+	snprintf_flags(buf, sizeof(buf), xd->xd_flags, mdir ? NULL : &xd->xd_cred);
 	DEBUG(1, "   %s", buf);
 	DEBUG(1, "   HOSTS:");
 
-	for(ht = xd->xd_hosts; ht; ht = ht->ht_next) {
-		sprintf_flags(buf, ht->ht_flags, mdir ? NULL : &ht->ht_cred);
+	TAILQ_FOREACH(ht, &xd->xd_hosts, ht_next) {
+		snprintf_flags(buf, sizeof(buf), ht->ht_flags, mdir ? NULL : &ht->ht_cred);
 		DEBUG(1, "      * %s", buf);
 		gr = ht->ht_grp;
 		if (gr) {
 			switch(gr->gr_type) {
 			case GT_NET:
-				sprintf(buf, "%s %s/", grp_name(gr),
+				snprintf(buf, sizeof(buf), "%s %s/", grp_name(gr),
 					inet_ntoa(*(struct in_addr*)&gr->gr_u.gt_net.nt_net));
-				strcat(buf, inet_ntoa(*(struct in_addr *)&gr->gr_u.gt_net.nt_mask));
+				strlcat(buf, inet_ntoa(*(struct in_addr *)&gr->gr_u.gt_net.nt_mask), sizeof(buf));
 				break;
 			case GT_HOST:
-				a = (u_long **)gr->gr_u.gt_hostent->h_addr_list;
-				sprintf(buf, "%s %s", grp_name(gr), inet_ntoa(*(struct in_addr *)*a));
+				a = (uint32_t **)gr->gr_u.gt_hostent->h_addr_list;
+				snprintf(buf, sizeof(buf), "%s %s", grp_name(gr), inet_ntoa(*(struct in_addr *)*a));
 				a++;
 				while (*a) {
-					if (strlen(buf) > 2000) {
-						strcat(buf, " ...");
+					strlcat(buf, " ", sizeof(buf));
+					if (strlcat(buf, inet_ntoa(*(struct in_addr *)*a), sizeof(buf)) > 2000) {
+						strlcat(buf, " ...", sizeof(buf));
 						break;
 					}
-					strcat(buf, " ");
-					strcat(buf, inet_ntoa(*(struct in_addr *)*a));
 					a++;
 				}
 				break;
 			default:
-				sprintf(buf, "%s", grp_name(gr));
+				snprintf(buf, sizeof(buf), "%s", grp_name(gr));
 				break;
 			}
 			DEBUG(1, "        %s", buf);
@@ -4723,7 +4934,7 @@ dump_expdir(struct expfs *xf, struct expdir *xd, int mdir)
 		return;
 
 	DEBUG(1, "   MOUNTDIRS:");
-	TAILQ_FOREACH_REVERSE(mxd, &xd->xd_mountdirs, expdirtqh, xd_next) {
+	TAILQ_FOREACH(mxd, &xd->xd_mountdirs, xd_next) {
 		dump_expdir(xf, mxd, 1);
 	}
 }
@@ -4738,10 +4949,10 @@ dump_exports(void)
 	if (!config.verbose)
 		return;
 
-	TAILQ_FOREACH_REVERSE(xf, &xfshead, expfstqh, xf_next) {
+	TAILQ_FOREACH(xf, &xfshead, xf_next) {
 		DEBUG(1, "** %s %s (0x%08x)", xf->xf_fsdir,
 			uuidstring(xf->xf_uuid, buf), UUID2FSID(xf->xf_uuid));
-		TAILQ_FOREACH_REVERSE(xd, &xf->xf_dirl, expdirtqh, xd_next) {
+		TAILQ_FOREACH(xd, &xf->xf_dirl, xd_next) {
 			dump_expdir(xf, xd, 0);
 		}
 	}

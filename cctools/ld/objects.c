@@ -722,6 +722,89 @@ unsigned long input_offset)
 }
 
 /*
+ * fine_reloc_arm() returns TRUE if fine relocation entry for the input_offset
+ * in the section specified is for a symbol stub for a defined external symbol 
+ * that is an arm symbol and stub will not be used.  This information is needed
+ * when relocating an arm branch instruction that is targetted to a symbol stub
+ * that ends up going to target the address of an arm symbol. Then in this case
+ * the branch instruction needs to be changed from a blx to a bl instruction.
+ */
+__private_extern__
+enum bool
+fine_reloc_arm(
+struct section_map *map,
+unsigned long input_offset)
+{
+    struct fine_reloc *fine_reloc;
+    struct merged_symbol *merged_symbol;
+
+	fine_reloc = fine_reloc_for_input_offset(map, input_offset);
+	if((map->s->flags & SECTION_TYPE) == S_SYMBOL_STUBS &&
+	    fine_reloc->indirect_defined == TRUE &&
+	    (filetype != MH_DYLIB || multi_module_dylib == FALSE)){
+	    merged_symbol = fine_reloc->merged_symbol;
+	    if(merged_symbol != NULL)
+		return((merged_symbol->nlist.n_desc & N_ARM_THUMB_DEF)
+			!= N_ARM_THUMB_DEF);
+	}
+	return(FALSE);
+}
+
+/*
+ * fine_reloc_thumb() returns TRUE if fine relocation entry for the input_offset
+ * in the section specified is for a symbol stub for a defined external symbol 
+ * that a thumb symbol and stub will not be used.  This information is needed
+ * when relocating an arm branch instruction that is targetted to a symbol stub
+ * that ends up going to target the address of a thumb symbol. Then in this case
+ * the branch instruction needs to be changed to a branch and exchange
+ * instuction.
+ */
+__private_extern__
+enum bool
+fine_reloc_thumb(
+struct section_map *map,
+unsigned long input_offset)
+{
+    struct fine_reloc *fine_reloc;
+    struct merged_symbol *merged_symbol;
+
+	fine_reloc = fine_reloc_for_input_offset(map, input_offset);
+	if((map->s->flags & SECTION_TYPE) == S_SYMBOL_STUBS &&
+	    fine_reloc->indirect_defined == TRUE &&
+	    (filetype != MH_DYLIB || multi_module_dylib == FALSE)){
+	    merged_symbol = fine_reloc->merged_symbol;
+	    if(merged_symbol != NULL)
+		return((merged_symbol->nlist.n_desc & N_ARM_THUMB_DEF)
+			== N_ARM_THUMB_DEF);
+	}
+	return(FALSE);
+}
+
+/*
+ * fine_reloc_local() returns TRUE if fine relocation entry for the input_offset
+ * in the section specified is for a symbol stub for a defined local symbol.
+ */
+__private_extern__
+enum bool
+fine_reloc_local(
+struct section_map *map,
+unsigned long input_offset)
+{
+    struct fine_reloc *fine_reloc;
+    struct merged_symbol *merged_symbol;
+
+	fine_reloc = fine_reloc_for_input_offset(map, input_offset);
+	if((map->s->flags & SECTION_TYPE) == S_SYMBOL_STUBS &&
+	    fine_reloc->indirect_defined == TRUE &&
+	    (filetype != MH_DYLIB || multi_module_dylib == FALSE)){
+	    merged_symbol = fine_reloc->merged_symbol;
+	    if(merged_symbol == NULL)
+		return(TRUE);
+	}
+	return(FALSE);
+}
+
+/*
  * fine_reloc_for_input_offset() returns the fine relocation entry for the
  * specified input offset and the section map.
  */

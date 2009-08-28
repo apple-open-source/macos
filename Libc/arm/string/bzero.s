@@ -22,7 +22,8 @@
  */
 
 #include <mach/machine/asm.h>
-
+#include <architecture/arm/asm_help.h>
+	
 /* 
  * A reasonably well-optimized bzero/memset. Should work equally well on arm11 and arm9 based
  * cores. 
@@ -158,3 +159,4 @@ L_unaligned:
 	bge		L_64ormorealigned
 	b		L_lessthan64aligned
 
+X_LEAF(___bzero, _bzero)

@@ -102,6 +102,7 @@ OSStatus getSigAlg(
 typedef unsigned CU_KeyUsage;
 #define kKeyUseSigning 		0x01 
 #define kKeyUseEncrypting	0x02
+#define kKeyUseDerive		0x04
 
 CU_KeyUsage getKeyUsage(bool isRoot);
 

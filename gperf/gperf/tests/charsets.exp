@@ -1,4 +1,4 @@
-/* C code produced by gperf version 3.0.1 */
+/* C code produced by gperf version 3.0.3 */
 /* Command-line: ../src/gperf -C -E -G -I -t  */
 /* Computed positions: -k'1-11,22,$' */
 
@@ -1805,6 +1805,9 @@ static const struct charset wordlist[] =
 
 #ifdef __GNUC__
 __inline
+#ifdef __GNUC_STDC_INLINE__
+__attribute__ ((__gnu_inline__))
+#endif
 #endif
 const struct charset *
 in_word_set (str, len)

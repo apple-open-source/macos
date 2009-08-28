@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,62 +20,278 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-#import <libc.h>
-#import <stdio.h>
-#import <stdlib.h>
-#import <NSSystemDirectories.h>
+#include <NSSystemDirectories.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/param.h>
+#include <unistd.h>
 
-// Names of directories; index into this with NSSearchPathDirectory - 1
-#define numDirs 15
-static const struct {
-    unsigned char invalidDomainMask;	// Domains in which this dir does not appear
-    unsigned char alternateDomainMask;	// Domains in which this dir uses the alternate domain path
-    const char *dirPath;
-} dirInfo[numDirs] = {
-    {0,   0,   "Applications"},
-    {0,   0,   "Applications/Demos"},
-    {0,   0,   "Developer/Applications"},
-    {0,   0,   "Applications/Utilities"},
-    {0,   0x8, "Library"},                     // Uses alternate form in System domain
-    {0,   0,   "Developer"},
-    {0x9, 0,   "Users"},                       // Not valid in the System and User domains
-    {0,   0x8, "Library/Documentation"},       // Uses alternate form in System domain
-    {0xe, 0,   "Documents"},                   // Only valid in user domain
-    {0x7, 0,   "Library/CoreServices"},        // Only valid in System domain
-    {0xe, 0,   "Documents/Autosaved"},         // Only valid in user domain; not public API yet
-    {0xe, 0,   "Desktop"},                     // Only valid in user domain
-    {0,   0,   "Library/Caches"},  			
-    {0,   0,   "Library/Application Support"},
-    {0xe, 0,   "Downloads"},                   // Only valid in user domain
+#define NSUserDomainIndex	0
+#define NSLocalDomainIndex	1
+#define NSNetworkDomainIndex	2
+#define NSSystemDomainIndex	3
+
+#define numDomains		(NSSystemDomainIndex + 1)
+#define DomainMask		((1 << numDomains) - 1)
+
+#define addNextRoot(x)		(*(x) == '/' || *(x) == 0)
+
+#define Network					"/Network"
+#define System					"/System"
+#define Tilde					"~"
+
+#define NSApplicationDirectoryBase		"/Applications"
+#define NSDemoApplicationDirectoryBase		"/Applications/Demos"
+#define NSDeveloperApplicationDirectoryBase	"/Developer/Applications"
+#define NSAdminApplicationDirectoryBase		"/Applications/Utilities"
+#define NSLibraryDirectoryBase			"/Library"
+#define NSDeveloperDirectoryBase		"/Developer"
+#define NSUserDirectoryBase			"/Users"
+#define NSDocumentationDirectoryBase		"/Library/Documentation"
+#define NSDocumentDirectoryBase			"/Documents"
+#define NSCoreServiceDirectoryBase		"/Library/CoreServices"
+#define NSAutosavedDocumentsDirectoryBase	"/Library/Autosave Information"
+#define NSDesktopDirectoryBase			"/Desktop"
+#define NSCachesDirectoryBase			"/Library/Caches"
+#define NSInputMethodsDirectoryBase		"/Library/Input Methods"
+#define NSMoviesDirectoryBase			"/Movies"
+#define NSMusicDirectoryBase			"/Music"
+#define NSPicturesDirectoryBase			"/Pictures"
+#define NSPrinterDescriptionDirectoryBase	"/Library/Printers/PPDs"
+#define NSSharedPublicDirectoryBase		"/Public"
+#define NSPreferencePanesDirectoryBase		"/Library/PreferencePanes"
+#define NSApplicationSupportDirectoryBase	"/Library/Application Support"
+#define NSDownloadsDirectoryBase		"/Downloads"
+
+static const char * const prefixAll[] = {
+    Tilde,
+    "",
+    Network,
+    ""
+};
+static const char * const prefixAllSystem[] = {
+    Tilde,
+    "",
+    Network,
+    System
+};
+static const char * const prefixNoUserSystem[] = {
+    NULL,
+    "",
+    Network,
+    NULL
+};
+static const char * const prefixNoNetwork[] = {
+    Tilde,
+    "",
+    NULL,
+    System
+};
+static const char * const prefixSystemOnly[] = {
+    NULL,
+    NULL,
+    NULL,
+    System
+};
+static const char * const prefixUserOnly[] = {
+    Tilde,
+    NULL,
+    NULL,
+    NULL
 };
 
-// Unpublicized values for NSSearchPathDirectory
-enum {
-    NSAutosavedDocumentsDirectory = 11
+static const char * const _prefixNetwork4[] = {
+    Network,
+    Network,
+    Network,
+    Network
+};
+static const char * const _prefixNone4[] = {
+    "",
+    "",
+    "",
+    ""
+};
+static const char * const _prefixTilde4[] = {
+    Tilde,
+    Tilde,
+    Tilde,
+    Tilde
+};
+static const char * const * const prefixAllApplicationsDirectory[] = {
+    _prefixTilde4,
+    _prefixNone4,
+    _prefixNetwork4,
+    _prefixNone4
+};
+static const char * const baseAllApplicationsDirectory[] = {
+    NSApplicationDirectoryBase,
+    NSAdminApplicationDirectoryBase,
+    NSDeveloperApplicationDirectoryBase,
+    NSDemoApplicationDirectoryBase
 };
 
-// Ordered list of where to find applications in each domain (the numbers are NSSearchPathDirectory)
-#define numApplicationDirs 4
-static const char applicationDirs[numApplicationDirs] = {1, 4, 3, 2};
-
-// Ordered list of where to find resources in each domain (the numbers are NSSearchPathDirectory)
-#define numLibraryDirs 2
-static const char libraryDirs[numLibraryDirs] = {5, 6};
-
-// Names of domains; index into this log2(domainMask). If the search path ordering is ever changed, then we need an indirection (as the domainMask values cannot be changed).
-#define numDomains 4
-static const struct {
-    char needsRootPrepended;
-    const char *domainPath;
-    const char *alternateDomainPath;
-} domainInfo[numDomains] = {
-    {0, "~",        "~"},
-    {1, "",         ""},
-    {1, "/Network", "/Network"},
-    {1, "",         "/System"}
+static const char * const _prefixNetwork2[] = {
+    Network,
+    Network
+};
+static const char * const _prefixNone2[] = {
+    "",
+    ""
+};
+static const char * const _prefixSystemNone2[] = {
+    System,
+    ""
+};
+static const char * const _prefixTilde2[] = {
+    Tilde,
+    Tilde
+};
+static const char * const * const prefixAllLibrariesDirectory[] = {
+    _prefixTilde2,
+    _prefixNone2,
+    _prefixNetwork2,
+    _prefixSystemNone2
+};
+static const char * const baseAllLibrariesDirectory[] = {
+    NSLibraryDirectoryBase,
+    NSDeveloperDirectoryBase
 };
 
-#define invalidDomains 0x00	// some domains may be invalid on non-Mach systems
+// The dirInfo table drives path creation
+static struct {
+    int pathsPerDomain;
+    const void * const * const prefix;
+    const void * const base;
+} dirInfo[] = {
+    { // NSApplicationDirectory
+	1,
+	(const void * const * const)prefixAll,
+	(const void * const)NSApplicationDirectoryBase
+    },
+    { // NSDemoApplicationDirectory
+	1,
+	(const void * const * const)prefixAll,
+	(const void * const)NSDemoApplicationDirectoryBase
+    },
+    { // NSDeveloperApplicationDirectory
+	1,
+	(const void * const * const)prefixAll,
+	(const void * const)NSDeveloperApplicationDirectoryBase
+    },
+    { // NSAdminApplicationDirectory
+	1,
+	(const void * const * const)prefixAll,
+	(const void * const)NSAdminApplicationDirectoryBase
+    },
+    { // NSLibraryDirectory
+	1,
+	(const void * const * const)prefixAllSystem,
+	(const void * const)NSLibraryDirectoryBase
+    },
+    { // NSDeveloperDirectory
+	1,
+	(const void * const * const)prefixAll,
+	(const void * const)NSDeveloperDirectoryBase
+    },
+    { // NSUserDirectory
+	1,
+	(const void * const * const)prefixNoUserSystem,
+	(const void * const)NSUserDirectoryBase
+    },
+    { // NSDocumentationDirectory
+	1,
+	(const void * const * const)prefixAllSystem,
+	(const void * const)NSDocumentationDirectoryBase
+    },
+    { // NSDocumentDirectory
+	1,
+	(const void * const * const)prefixUserOnly,
+	(const void * const)NSDocumentDirectoryBase
+    },
+    { // NSCoreServiceDirectory
+	1,
+	(const void * const * const)prefixSystemOnly,
+	(const void * const)NSCoreServiceDirectoryBase
+    },
+    { // NSAutosavedInformationDirectory
+	1,
+	(const void * const * const)prefixUserOnly,
+	(const void * const)NSAutosavedDocumentsDirectoryBase
+    },
+    { // NSDesktopDirectory
+	1,
+	(const void * const * const)prefixUserOnly,
+	(const void * const)NSDesktopDirectoryBase
+    },
+    { // NSCachesDirectory
+	1,
+	(const void * const * const)prefixAll,
+	(const void * const)NSCachesDirectoryBase
+    },
+    { // NSApplicationSupportDirectory
+	1,
+	(const void * const * const)prefixAll,
+	(const void * const)NSApplicationSupportDirectoryBase
+    },
+    { // NSDownloadsDirectory
+	1,
+	(const void * const * const)prefixUserOnly,
+	(const void * const)NSDownloadsDirectoryBase
+    },
+    { // NSInputMethodsDirectory
+	1,
+	(const void * const * const)prefixAll,
+	(const void * const)NSInputMethodsDirectoryBase
+    },
+    { // NSMoviesDirectory
+	1,
+	(const void * const * const)prefixUserOnly,
+	(const void * const)NSMoviesDirectoryBase
+    },
+    { // NSMusicDirectory
+	1,
+	(const void * const * const)prefixUserOnly,
+	(const void * const)NSMusicDirectoryBase
+    },
+    { // NSPicturesDirectory
+	1,
+	(const void * const * const)prefixUserOnly,
+	(const void * const)NSPicturesDirectoryBase
+    },
+    { // NSPrinterDescriptionDirectory
+	1,
+	(const void * const * const)prefixSystemOnly,
+	(const void * const)NSPrinterDescriptionDirectoryBase
+    },
+    { // NSSharedPublicDirectory
+	1,
+	(const void * const * const)prefixUserOnly,
+	(const void * const)NSSharedPublicDirectoryBase
+    },
+    { // NSPreferencePanesDirectory
+	1,
+	(const void * const * const)prefixNoNetwork,
+	(const void * const)NSPreferencePanesDirectoryBase
+    },
+    { // NSAllApplicationsDirectory
+	4,
+	(const void * const * const)prefixAllApplicationsDirectory,
+	(const void * const)baseAllApplicationsDirectory
+    },
+    { // NSAllLibrariesDirectory
+	2,
+	(const void * const * const)prefixAllLibrariesDirectory,
+	(const void * const)baseAllLibrariesDirectory
+    }
+};
+
+#define Index(dir)	(((dir) >= NSApplicationDirectory && (dir) <= NSPreferencePanesDirectory) ? ((dir) - 1) : (((dir) >= NSAllApplicationsDirectory && (dir) <= NSAllLibrariesDirectory) ? ((dir) - NSAllApplicationsDirectory + NSPreferencePanesDirectory) : -1))
+
+#define invalidDomains	0x00	// some domains may be invalid on non-Mach systems
+#define ByteMask	0xff
+#define DirShift	24
+#define IndexShift	16
 
 NSSearchPathEnumerationState NSStartSearchPathEnumeration(NSSearchPathDirectory dir, NSSearchPathDomainMask domainMask) {
     // The state is AABBCCCC, where
@@ -83,51 +299,80 @@ NSSearchPathEnumerationState NSStartSearchPathEnumeration(NSSearchPathDirectory 
     // BB is the current state of dirs (if AA < 100, then this is always 0; otherwise it goes up to number of dirs)
     // CCCC is the domains requested
     // the state always contains the next item; if CCCC is 0, then we're done
-    domainMask = domainMask & ((1 << numDomains) - 1) & ~invalidDomains;	// Just leave useful bits in there
-    if (dir != NSAllLibrariesDirectory && dir != NSLibraryDirectory && dir != NSUserDirectory && dir != NSDocumentationDirectory && (domainMask & NSLocalDomainMask) && (domainMask & NSSystemDomainMask)) domainMask = domainMask & ~NSSystemDomainMask;	// Hack to avoid duplication
-    return (((unsigned int)dir) << 24) + ((unsigned int)domainMask);
+    int i;
+
+    if((i = Index(dir)) < 0) {
+	return 0;
+    }
+    domainMask = domainMask & DomainMask & ~invalidDomains;	// Just leave useful bits in there
+
+    // Trim Duplicates - This assumes the compiler generates a single address
+    // for multiple occurrences of the same literal strings.
+    if ((domainMask & (NSLocalDomainMask | NSSystemDomainMask)) == (NSLocalDomainMask | NSSystemDomainMask) && dirInfo[i].prefix[NSLocalDomainIndex] == dirInfo[i].prefix[NSSystemDomainIndex]) {
+	 domainMask &= ~NSSystemDomainMask;
+    }
+
+    return (dir << DirShift) + domainMask;
 }
 
 NSSearchPathEnumerationState NSGetNextSearchPathEnumeration(NSSearchPathEnumerationState state, char *path) {
     static const char *nextRoot = NULL;
-    unsigned dir = (state >> 24) & 0xff;
-    unsigned dirState = (state >> 16) & 0xff;
-    unsigned domainMask = state & 0xffff;
-    unsigned int curDomain;	// The current domain we're at...
-    unsigned int curDir = 0;	// The current dir...
+    int dir = (state >> DirShift) & ByteMask;
+    int domainMask = state & DomainMask;
+    int domain, i, n;
+    const char *prefix, *base;
     
-    do {
-        if (domainMask == 0) return 0; // Looks like we're done
-        for (curDomain = 0; curDomain < numDomains; curDomain++) if ((domainMask & (1 << curDomain))) break;
+    if ((i = Index(dir)) < 0 || (domain = ffs(domainMask)) == 0)
+	return 0;
+    domain--; // adjust to zero-based index
 
-        // Determine directory
-        if (dir < NSAllApplicationsDirectory) {	// One directory per domain, simple...
-            curDir = dir;
-        } else {					// Can return multiple directories for each domain
-            if (dir == NSAllApplicationsDirectory) {
-                curDir = applicationDirs[dirState];
-                if (++dirState == numApplicationDirs) dirState = 0;
-            } else if (dir == NSAllLibrariesDirectory) {
-                curDir = libraryDirs[dirState];
-                if (++dirState == numLibraryDirs) dirState = 0;
-            }
-        }
-        if (dirState == 0) domainMask &= ~(1 << curDomain);	// If necessary, jump to next domain
-    } while ((dirInfo[curDir - 1].invalidDomainMask & (1 << curDomain)));	// If invalid, try again...
-
-    // Get NEXT_ROOT, if necessary.
-    if (domainInfo[curDomain].needsRootPrepended && nextRoot == 0) {
-	if (!issetugid() && (nextRoot = getenv("NEXT_ROOT")) != NULL) {
-	    nextRoot = strdup(nextRoot);
+    if ((n = dirInfo[i].pathsPerDomain) == 1) {
+	const char * const *p = (const char * const *)dirInfo[i].prefix;
+	for (;;) { // loop, skipping over invalid domains (prefix is NULL)
+	    domainMask &= ~(1 << domain);
+	    if ((prefix = p[domain]) != NULL) {
+		break;
+	    }
+	    if ((domain = ffs(domainMask)) == 0) {
+		return 0;
+	    }
+	    domain--; // adjust to zero-based index
 	}
-        if (nextRoot == NULL) {
-            nextRoot = "";
-        }
+	base = (const char *)dirInfo[i].base;
+	state = (dir << DirShift) + domainMask;
+    } else { // multiple paths per domain
+	const char * const **p = (const char * const **)dirInfo[i].prefix;
+	const char * const *b = (const char * const *)dirInfo[i].base;
+	int dirIndex = (state >> IndexShift) & ByteMask;
+
+	if (dirIndex >= n) { // done with the current domain, go to the next
+	    domainMask &= ~(1 << domain);
+	    if ((domain = ffs(domainMask)) == 0) {
+		return 0;
+	    }
+	    domain--; // adjust to zero-based index
+	    dirIndex = 0;
+	}
+	prefix = p[domain][dirIndex];
+	base = b[dirIndex];
+	state = (dir << DirShift) + (++dirIndex << IndexShift) + domainMask;
     }
 
-    snprintf(path, PATH_MAX, "%s%s/%s", domainInfo[curDomain].needsRootPrepended ? nextRoot : "", (dirInfo[curDir - 1].alternateDomainMask & (1 << curDomain)) ? domainInfo[curDomain].alternateDomainPath : domainInfo[curDomain].domainPath, dirInfo[curDir - 1].dirPath);
-        
-    return (dir << 24) + (dirState << 16) + domainMask;
+    if (addNextRoot(prefix)) {
+	if (nextRoot == NULL) { // Get NEXT_ROOT
+	    if (!issetugid() && (nextRoot = getenv("NEXT_ROOT")) != NULL) {
+		nextRoot = strdup(nextRoot);
+	    }
+	    if (nextRoot == NULL) {
+		nextRoot = "";
+	    }
+	}
+	strlcpy(path, nextRoot, PATH_MAX);
+    } else {
+	*path = 0;
+    }
+    strlcat(path, prefix, PATH_MAX);
+    strlcat(path, base, PATH_MAX);
+ 
+    return state;
 }
-
-

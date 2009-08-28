@@ -2,7 +2,7 @@ Index: samba/source/configure.in
 ===================================================================
 --- samba/source/configure.in.orig
 +++ samba/source/configure.in
-@@ -878,6 +878,9 @@ main() {
+@@ -889,6 +889,9 @@ main() {
  #
      *darwin*)
  	AC_DEFINE(BROKEN_UNICODE_COMPOSE_CHARACTERS, 1, [Does this system use unicode compose characters])
@@ -12,7 +12,7 @@ Index: samba/source/configure.in
  
  	# Link smbd against Directory Services. This is a layering violation
  	# that needs to be removed. -- jpeach
-@@ -1623,6 +1626,39 @@ if test x"$samba_stat_hires_notimespec" 
+@@ -1634,6 +1637,39 @@ if test x"$samba_stat_hires_notimespec" 
  	    [whether struct stat has sub-second timestamps without struct timespec])
  fi
  

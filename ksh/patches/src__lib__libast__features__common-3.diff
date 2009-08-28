@@ -1,0 +1,14 @@
+--- src/lib/libast/features/common~	2009-05-10 13:34:54.000000000 -0700
++++ src/lib/libast/features/common	2009-05-10 19:32:09.000000000 -0700
+@@ -265,8 +265,9 @@ tst	- -DN=1 - -DN=2 - -DN=3 - -DN=4 - -D
+ 			}
+ 		}
+ 		printf("#define _ast_intmax_t		_ast_int%d_t\n", m);
+-		if (m == sizeof(long))
+-			printf("#define _ast_intmax_long		1\n");
++		printf("#if sizeof(intmax_t) == sizeof(long)\n"
++		printf("#define _ast_intmax_long		1\n");
++		printf("#endif\n");
+ 		printf("#if __LITTLE_ENDIAN__\n");
+ 		printf("#define _ast_intswap		7\n");
+ 		printf("#elif __BIG_ENDIAN__\n");

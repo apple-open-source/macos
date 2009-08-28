@@ -73,6 +73,15 @@
 #include "pppd.h"
 #include "magic.h"
 
+#ifndef __APPLE__
+#define MAGIC_SRANDOM(seedval)  srandom((int)seedval)
+#define MAGIC_RANDOM()          random()
+#else
+#define NO_DRAND48
+#define MAGIC_SRANDOM(seedval) /* no need to seed arc4random */
+#define MAGIC_RANDOM()         (arc4random() % ((unsigned)RAND_MAX + 1))
+#endif
+
 #ifndef lint
 static const char rcsid[] = RCSID;
 #endif
@@ -130,20 +139,20 @@ random_bytes(unsigned char *buf, int len)
 double
 drand48()
 {
-    return (double)random() / (double)0x7fffffffL; /* 2**31-1 */
+    return (double)MAGIC_RANDOM() / (double)RAND_MAX; /* 2**31-1 */
 }
 
 long
 mrand48()
 {
-    return random();
+    return MAGIC_RANDOM();
 }
 
 void
 srand48(seedval)
 long seedval;
 {
-    srandom((int)seedval);
+    MAGIC_SRANDOM(seedval);
 }
 
 #endif

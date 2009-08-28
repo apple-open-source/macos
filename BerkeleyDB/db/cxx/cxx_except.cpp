@@ -1,67 +1,19 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1997-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1997,2007 Oracle.  All rights reserved.
+ *
+ * $Id: cxx_except.cpp,v 12.12 2007/05/17 15:14:56 bostic Exp $
  */
 
 #include "db_config.h"
 
-#ifndef lint
-static const char revid[] = "$Id: cxx_except.cpp,v 1.2 2004/03/30 01:21:24 jtownsen Exp $";
-#endif /* not lint */
-
-#include <string.h>
-#include <errno.h>
+#include "db_int.h"
 
 #include "db_cxx.h"
 #include "dbinc/cxx_int.h"
 
-// tmpString is used to create strings on the stack
-//
-class tmpString
-{
-public:
-	tmpString(const char *str1,
-		  const char *str2 = 0,
-		  const char *str3 = 0,
-		  const char *str4 = 0,
-		  const char *str5 = 0);
-	~tmpString()                      { delete [] s_; }
-	operator const char *()           { return (s_); }
-
-private:
-	char *s_;
-};
-
-tmpString::tmpString(const char *str1,
-		     const char *str2,
-		     const char *str3,
-		     const char *str4,
-		     const char *str5)
-{
-	size_t len = strlen(str1);
-	if (str2)
-		len += strlen(str2);
-	if (str3)
-		len += strlen(str3);
-	if (str4)
-		len += strlen(str4);
-	if (str5)
-		len += strlen(str5);
-
-	s_ = new char[len+1];
-
-	strcpy(s_, str1);
-	if (str2)
-		strcat(s_, str2);
-	if (str3)
-		strcat(s_, str3);
-	if (str4)
-		strcat(s_, str4);
-	if (str5)
-		strcat(s_, str5);
-}
+static const int MAX_DESCRIPTION_LENGTH = 1024;
 
 // Note: would not be needed if we can inherit from exception
 // It does not appear to be possible to inherit from exception
@@ -80,58 +32,93 @@ static char *dupString(const char *s)
 //                                                                    //
 ////////////////////////////////////////////////////////////////////////
 
-DbException::~DbException()
+DbException::~DbException() throw()
 {
-	if (what_)
-		delete [] what_;
+	delete [] what_;
 }
 
 DbException::DbException(int err)
 :	err_(err)
 ,	env_(0)
 {
-	what_ = dupString(db_strerror(err));
+	describe(0, 0);
 }
 
 DbException::DbException(const char *description)
 :	err_(0)
 ,	env_(0)
 {
-	what_ = dupString(tmpString(description));
+	describe(0, description);
 }
 
-DbException::DbException(const char *prefix, int err)
+DbException::DbException(const char *description, int err)
 :	err_(err)
 ,	env_(0)
 {
-	what_ = dupString(tmpString(prefix, ": ", db_strerror(err)));
+	describe(0, description);
 }
 
-DbException::DbException(const char *prefix1, const char *prefix2, int err)
+DbException::DbException(const char *prefix, const char *description, int err)
 :	err_(err)
 ,	env_(0)
 {
-	what_ = dupString(tmpString(prefix1, ": ", prefix2, ": ",
-	    db_strerror(err)));
+	describe(prefix, description);
 }
 
 DbException::DbException(const DbException &that)
-:	err_(that.err_)
+:	__DB_STD(exception)()
+,	what_(dupString(that.what_))
+,	err_(that.err_)
 ,	env_(0)
 {
-	what_ = dupString(that.what_);
 }
 
 DbException &DbException::operator = (const DbException &that)
 {
 	if (this != &that) {
 		err_ = that.err_;
-		if (what_)
-			delete [] what_;
-		what_ = 0;           // in case new throws exception
+		delete [] what_;
 		what_ = dupString(that.what_);
 	}
 	return (*this);
+}
+
+void DbException::describe(const char *prefix, const char *description)
+{
+	char *msgbuf, *p, *end;
+
+	msgbuf = new char[MAX_DESCRIPTION_LENGTH];
+	p = msgbuf;
+	end = msgbuf + MAX_DESCRIPTION_LENGTH - 1;
+
+	if (prefix != NULL) {
+		strncpy(p, prefix, (p < end) ? end - p: 0);
+		p += strlen(prefix);
+		strncpy(p, ": ", (p < end) ? end - p: 0);
+		p += 2;
+	}
+	if (description != NULL) {
+		strncpy(p, description, (p < end) ? end - p: 0);
+		p += strlen(description);
+		if (err_ != 0) {
+			strncpy(p, ": ", (p < end) ? end - p: 0);
+			p += 2;
+		}
+	}
+	if (err_ != 0) {
+		strncpy(p, db_strerror(err_), (p < end) ? end - p: 0);
+		p += strlen(db_strerror(err_));
+	}
+
+	/*
+	 * If the result was too long, the buffer will not be null-terminated,
+	 * so we need to fix that here before duplicating it.
+	 */
+	if (p >= end)
+		*end = '\0';
+
+	what_ = dupString(msgbuf);
+	delete [] msgbuf;
 }
 
 int DbException::get_errno() const
@@ -139,7 +126,7 @@ int DbException::get_errno() const
 	return (err_);
 }
 
-const char *DbException::what() const
+const char *DbException::what() const throw()
 {
 	return (what_);
 }
@@ -161,31 +148,18 @@ void DbException::set_env(DbEnv *env)
 ////////////////////////////////////////////////////////////////////////
 
 static const char *memory_err_desc = "Dbt not large enough for available data";
-DbMemoryException::~DbMemoryException()
+DbMemoryException::~DbMemoryException() throw()
 {
 }
 
 DbMemoryException::DbMemoryException(Dbt *dbt)
-:	DbException(memory_err_desc, ENOMEM)
+:	DbException(memory_err_desc, DB_BUFFER_SMALL)
 ,	dbt_(dbt)
-{
-}
-
-DbMemoryException::DbMemoryException(const char *description)
-:	DbException(description, ENOMEM)
-,	dbt_(0)
 {
 }
 
 DbMemoryException::DbMemoryException(const char *prefix, Dbt *dbt)
-:	DbException(prefix, memory_err_desc, ENOMEM)
-,	dbt_(dbt)
-{
-}
-
-DbMemoryException::DbMemoryException(const char *prefix1, const char *prefix2,
-    Dbt *dbt)
-:	DbException(prefix1, prefix2, ENOMEM)
+:	DbException(prefix, memory_err_desc, DB_BUFFER_SMALL)
 ,	dbt_(dbt)
 {
 }
@@ -217,7 +191,7 @@ Dbt *DbMemoryException::get_dbt() const
 //                                                                    //
 ////////////////////////////////////////////////////////////////////////
 
-DbDeadlockException::~DbDeadlockException()
+DbDeadlockException::~DbDeadlockException() throw()
 {
 }
 
@@ -245,7 +219,7 @@ DbDeadlockException
 //                                                                    //
 ////////////////////////////////////////////////////////////////////////
 
-DbLockNotGrantedException::~DbLockNotGrantedException()
+DbLockNotGrantedException::~DbLockNotGrantedException() throw()
 {
 	delete lock_;
 }
@@ -258,13 +232,18 @@ DbLockNotGrantedException::DbLockNotGrantedException(const char *prefix,
 ,	op_(op)
 ,	mode_(mode)
 ,	obj_(obj)
+,	lock_(new DbLock(lock))
 ,	index_(index)
 {
-	lock_ = new DbLock(lock);
 }
 
 DbLockNotGrantedException::DbLockNotGrantedException(const char *description)
 :	DbException(description, DB_LOCK_NOTGRANTED)
+,	op_(DB_LOCK_GET)
+,	mode_(DB_LOCK_NG)
+,	obj_(NULL)
+,	lock_(NULL)
+,	index_(0)
 {
 }
 
@@ -275,7 +254,7 @@ DbLockNotGrantedException::DbLockNotGrantedException
 	op_ = that.op_;
 	mode_ = that.mode_;
 	obj_ = that.obj_;
-	lock_ = new DbLock(*that.lock_);
+	lock_ = (that.lock_ != NULL) ? new DbLock(*that.lock_) : NULL;
 	index_ = that.index_;
 }
 
@@ -287,7 +266,7 @@ DbLockNotGrantedException
 		op_ = that.op_;
 		mode_ = that.mode_;
 		obj_ = that.obj_;
-		lock_ = new DbLock(*that.lock_);
+		lock_ = (that.lock_ != NULL) ? new DbLock(*that.lock_) : NULL;
 		index_ = that.index_;
 	}
 	return (*this);
@@ -320,11 +299,40 @@ int DbLockNotGrantedException::get_index() const
 
 ////////////////////////////////////////////////////////////////////////
 //                                                                    //
+//                            DbRepHandleDeadException                //
+//                                                                    //
+////////////////////////////////////////////////////////////////////////
+
+DbRepHandleDeadException::~DbRepHandleDeadException() throw()
+{
+}
+
+DbRepHandleDeadException::DbRepHandleDeadException(const char *description)
+:	DbException(description, DB_REP_HANDLE_DEAD)
+{
+}
+
+DbRepHandleDeadException::DbRepHandleDeadException
+    (const DbRepHandleDeadException &that)
+:	DbException(that)
+{
+}
+
+DbRepHandleDeadException
+&DbRepHandleDeadException::operator =(const DbRepHandleDeadException &that)
+{
+	if (this != &that)
+		DbException::operator=(that);
+	return (*this);
+}
+
+////////////////////////////////////////////////////////////////////////
+//                                                                    //
 //                            DbRunRecoveryException                  //
 //                                                                    //
 ////////////////////////////////////////////////////////////////////////
 
-DbRunRecoveryException::~DbRunRecoveryException()
+DbRunRecoveryException::~DbRunRecoveryException() throw()
 {
 }
 

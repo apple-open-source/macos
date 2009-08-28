@@ -1,23 +1,22 @@
 /*
- * Copyright (c) 1999-2000, 2002-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2000, 2002-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -28,6 +27,7 @@
 #include <sys/mount.h>
 #include <sys/ioctl.h>
 #include <sys/disk.h>
+#include <sys/sysctl.h>
 
 #include <hfs/hfs_mount.h>
 
@@ -65,23 +65,34 @@ char	quick;			/* quick check returns clean, dirty, or failure */
 char	debug;			/* output debugging info */
 char	hotroot;		/* checking root device */
 char 	guiControl; 	/* this app should output info for gui control */
+char	xmlControl;	/* Output XML (plist) messages -- implies guiControl as well */
 char	rebuildCatalogBtree;  /* rebuild catalog btree file */
 char	modeSetting;	/* set the mode when creating "lost+found" directory */
 int		upgrading;		/* upgrading format */
 int		lostAndFoundMode = 0; /* octal mode used when creating "lost+found" directory */
-uint64_t userCacheSize;	/* Cache size provided by the user */
+uint64_t reqCacheSize;;	/* Cache size requested by the caller (may be specified by the user via -c) */
 
 int	fsmodified;		/* 1 => write done to file system */
 int	fsreadfd;		/* file descriptor for reading file system */
 int	fswritefd;		/* file descriptor for writing file system */
 Cache_t fscache;
 
+/*
+ * Variables used to map physical block numbers to file paths
+ */
+#define MAX_BLOCKS	24576
+int gBlkListEntries = 0;
+u_int64_t *gBlockList = NULL;
+int gFoundBlockEntries = 0;
+struct found_blocks *gFoundBlocksList = NULL;
+long gBlockSize = 0;
+static int getblocklist(const char *filepath);
 
 
 static int checkfilesys __P((char * filesys));
-static int setup __P(( char *dev, int *blockDevice_fdPtr, int *canWritePtr ));
+static int setup __P(( char *dev, int *canWritePtr ));
 static void usage __P((void));
-static void getWriteAccess __P(( char *dev, int *blockDevice_fdPtr, int *canWritePtr ));
+static void getWriteAccess __P(( char *dev, int *canWritePtr ));
 extern char *unrawname __P((char *name));
 
 int
@@ -100,24 +111,35 @@ main(argc, argv)
 	else
 		progname = *argv;
 
-	while ((ch = getopt(argc, argv, "c:D:dfglm:npqruy")) != EOF) {
+	while ((ch = getopt(argc, argv, "b:B:c:D:dfglm:npqruyx")) != EOF) {
 		switch (ch) {
+		case 'b':
+			gBlockSize = atoi(optarg);
+			if ((gBlockSize < 512) || (gBlockSize & (gBlockSize-1))) {
+				(void) fprintf(stderr, "%s invalid block size %d\n",
+					progname, gBlockSize);
+				exit(2);
+			}
+			break;
+		case 'B':
+			getblocklist(optarg);
+			break;
 		case 'c':
 			/* Cache size to use in fsck_hfs */
-			userCacheSize = strtoull(optarg, &lastChar, 0);
+			reqCacheSize = strtoull(optarg, &lastChar, 0);
 			if (*lastChar) {
 				switch (tolower(*lastChar)) {
 					case 'g':
-						userCacheSize *= 1024ULL;
+						reqCacheSize *= 1024ULL;
 						/* fall through */
 					case 'm':
-						userCacheSize *= 1024ULL;
+						reqCacheSize *= 1024ULL;
 						/* fall through */
 					case 'k':
-						userCacheSize *= 1024ULL;
+						reqCacheSize *= 1024ULL;
 						break;
 					default:
-						userCacheSize = 0;
+						reqCacheSize = 0;
 						break;
 				};
 			}
@@ -141,6 +163,11 @@ main(argc, argv)
 
 		case 'g':
 			guiControl++;
+			break;
+
+		case 'x':
+			guiControl = 1;
+			xmlControl++;
 			break;
 
 		case 'l':
@@ -192,6 +219,9 @@ main(argc, argv)
 	argc -= optind;
 	argv += optind;
 	
+	if (gBlkListEntries != 0 && gBlockSize == 0)
+		gBlockSize = 512;
+	
 	if (guiControl)
 		debug = 0; /* debugging is for command line only */
 
@@ -228,13 +258,13 @@ checkfilesys(char * filesys)
 	int flags;
 	int result;
 	int chkLev, repLev, logLev;
-	int blockDevice_fd, canWrite;
+	int canWrite;
 	char *unraw, *mntonname;
-	struct statfs *fsinfo;
+	struct statfs64 *fsinfo;
+	fsck_ctx_t context = NULL;
 
 	flags = 0;
 	cdevname = filesys;
-	blockDevice_fd = -1;
 	canWrite = 0;
 	unraw = NULL;
 	mntonname = NULL;
@@ -246,15 +276,45 @@ checkfilesys(char * filesys)
 	//
 	plog(""); 
 
-	if (lflag) {
-		result = getmntinfo(&fsinfo, MNT_NOWAIT);
+	context = fsckCreate();
 
+	if (lflag) {
+		struct stat fs_stat;
+		result = getmntinfo64(&fsinfo, MNT_NOWAIT);
+
+		if (stat(cdevname, &fs_stat) != -1 &&
+			(((fs_stat.st_mode & S_IFMT) == S_IFCHR) ||
+			 ((fs_stat.st_mode & S_IFMT) == S_IFBLK))) {
+			struct stat io_stat;
+
+			if (fstat(fileno(stdin), &io_stat) != -1 &&
+				(fs_stat.st_rdev == io_stat.st_dev)) {
+					plog("ERROR: input redirected from target volume for live verify.\n");
+					return EEXIT;
+			}
+			if (fstat(fileno(stdout), &io_stat) != -1 &&
+				(fs_stat.st_rdev == io_stat.st_dev)) {
+					plog("ERROR:  output redirected to target volume for live verify.\n");
+					return EEXIT;
+			}
+			if (fstat(fileno(stderr), &io_stat) != -1 &&
+				(fs_stat.st_rdev == io_stat.st_dev)) {
+					plog("ERROR:  error output redirected to target volume for live verify.\n");
+					return EEXIT;
+			}
+
+		}
 		while (result--) {
 			unraw = strdup(cdevname);
 			unrawname(unraw);
 			if (unraw != NULL &&
 			    strcmp(unraw, fsinfo[result].f_mntfromname) == 0) {
 				mntonname = strdup(fsinfo[result].f_mntonname);
+				break;
+			}
+			if (unraw) {
+				free(unraw);
+				unraw = NULL;
 			}
 		}
 
@@ -279,7 +339,7 @@ checkfilesys(char * filesys)
 	if (debug && preen)
 		pwarn("starting\n");
 	
-	if (setup( filesys, &blockDevice_fd, &canWrite ) == 0) {
+	if (setup( filesys, &canWrite ) == 0) {
 		if (preen)
 			pfatal("CAN'T CHECK FILE SYSTEM.");
 		result = EEXIT;
@@ -322,11 +382,26 @@ checkfilesys(char * filesys)
 		repLev = kForceRepairs;  // this will force rebuild of catalog B-Tree file
 	}
 		
+	fsckSetVerbosity(context, logLev);
+	/* All of fsck_hfs' output should go thorugh logstring */
+	fsckSetOutput(context, NULL);
+	/* Make sure that all fsckPrint go to the log file */
+	fsckSetWriter(context, &logstring);
+
+	if (guiControl) {
+		if (xmlControl)
+			fsckSetOutputStyle(context, fsckOutputXML);
+		else
+			fsckSetOutputStyle(context, fsckOutputGUI);
+	} else {
+		fsckSetOutputStyle(context, fsckOutputTraditional);
+	}
+
 	/*
 	 * go check HFS volume...
 	 */
-	result = CheckHFS( filesys, fsreadfd, fswritefd, chkLev, repLev, logLev, 
-						guiControl, lostAndFoundMode, canWrite, &fsmodified,
+	result = CheckHFS( filesys, fsreadfd, fswritefd, chkLev, repLev, context,
+						lostAndFoundMode, canWrite, &fsmodified,
 						lflag );
 	if (!hotroot) {
 		ckfini(1);
@@ -349,11 +424,11 @@ checkfilesys(char * filesys)
 			}
 		}
 	} else {
-		struct statfs stfs_buf;
+		struct statfs64 stfs_buf;
 		/*
 		 * Check to see if root is mounted read-write.
 		 */
-		if (statfs("/", &stfs_buf) == 0)
+		if (statfs64("/", &stfs_buf) == 0)
 			flags = stfs_buf.f_flags;
 		else
 			flags = 0;
@@ -398,10 +473,9 @@ ExitThisRoutine:
 	    free(mntonname);
 	}
 
-	if ( blockDevice_fd > 0 ) {
-		close( blockDevice_fd );
-		blockDevice_fd = -1;
-	}
+	if (context)
+		fsckDestroy(context);
+
 	return (result);
 }
 
@@ -409,19 +483,18 @@ ExitThisRoutine:
 /*
  * Setup for I/O to device
  * Return 1 if successful, 0 if unsuccessful.
- * blockDevice_fd - returns fd for block device or -1 if we can't get write access.
  * canWrite - 1 if we can safely write to the raw device or 0 if not.
  */
 static int
-setup( char *dev, int *blockDevice_fdPtr, int *canWritePtr )
+setup( char *dev, int *canWritePtr )
 {
 	struct stat statb;
 	int devBlockSize;
 	uint32_t cacheBlockSize;
 	uint32_t cacheTotalBlocks;
+	int preTouchMem = 0;
 
 	fswritefd = -1;
-	*blockDevice_fdPtr = -1;
 	*canWritePtr = 0;
 	
 	if (stat(dev, &statb) < 0) {
@@ -433,18 +506,13 @@ setup( char *dev, int *blockDevice_fdPtr, int *canWritePtr )
 		if (reply("CONTINUE") == 0)
 			return (0);
 	}
-	if ((fsreadfd = open(dev, O_RDONLY)) < 0) {
-		plog("Can't open %s: %s\n", dev, strerror(errno));
-		return (0);
-	}
-
 	/* attempt to get write access to the block device and if not check if volume is */
 	/* mounted read-only.  */
-	getWriteAccess( dev, blockDevice_fdPtr, canWritePtr );
+	getWriteAccess( dev, canWritePtr );
 	
 	if (preen == 0 && !guiControl)
 		plog("** %s", dev);
-	if (nflag || quick || (fswritefd = open(dev, O_WRONLY)) < 0) {
+	if (nflag || quick || (fswritefd = open(dev, O_RDWR | (hotroot ? 0 : O_EXLOCK))) < 0) {
 		fswritefd = -1;
 		if (preen)
 			pfatal("NO WRITE ACCESS");
@@ -454,20 +522,65 @@ setup( char *dev, int *blockDevice_fdPtr, int *canWritePtr )
 	if (preen == 0 && !guiControl)
 		plog("\n");
 
+	if (fswritefd == -1) {
+		if ((fsreadfd = open(dev, O_RDONLY)) < 0) {
+			plog("Can't open %s: %s\n", dev, strerror(errno));
+			return (0);
+		}
+	} else {
+		fsreadfd = dup(fswritefd);
+		if (fsreadfd < 0) {
+			plog("Can't dup fd for reading on %s: %s\n", dev, strerror(errno));
+			close(fswritefd);
+			return(0);
+		}
+	}
+
+
 	/* Get device block size to initialize cache */
 	if (ioctl(fsreadfd, DKIOCGETBLOCKSIZE, &devBlockSize) < 0) {
 		pfatal ("Can't get device block size\n");
 		return (0);
 	}
 
-	 /* calculate the cache block size and total blocks */
-	if (CalculateCacheSize(userCacheSize, &cacheBlockSize, &cacheTotalBlocks, debug) != 0) {
-		return (0);
-	}
+	 /*
+	  * Calculate the cache block size and total blocks.
+	  *
+	  * If a quick check was requested, we'll only be checking to see if
+	  * the volume was cleanly unmounted or journalled, so we won't need
+	  * a lot of cache.  Since lots of quick checks can be run in parallel
+	  * when a new disk with several partitions comes on line, let's avoid
+	  * the memory usage when we don't need it.
+	  */
+	if (reqCacheSize == 0 && quick == 0) {
+		/*
+		 * Auto-pick the cache size.  The cache code will deal with minimum
+		 * maximum values, so we just need to find out the size of memory, and
+		 * how much of it we'll use.
+		 *
+		 * If we're looking at the root device, and it's not a live verify (lflag),
+		 * then we will use half of physical memory; otherwise, we'll use an eigth.
+		 *
+		 */
+		uint64_t memSize;
+		size_t dsize = sizeof(memSize);
+		int rv;
 
+		rv = sysctlbyname("hw.memsize", &memSize, &dsize, NULL, 0);
+		if (rv == -1) {
+			(void)fplog(stderr, "sysctlbyname failed, not auto-setting cache size\n");
+		} else {
+			int d = (hotroot && !lflag) ? 2 : 8;
+			reqCacheSize = memSize / d;
+		}
+	}
+	
+	CalculateCacheSizes(reqCacheSize, &cacheBlockSize, &cacheTotalBlocks, debug);
+
+	preTouchMem = (hotroot != 0) && (lflag != 0);
 	/* Initialize the cache */
 	if (CacheInit (&fscache, fsreadfd, fswritefd, devBlockSize,
-			cacheBlockSize, cacheTotalBlocks, CacheHashSize) != EOK) {
+			cacheBlockSize, cacheTotalBlocks, CacheHashSize, preTouchMem) != EOK) {
 		pfatal("Can't initialize disk cache\n");
 		return (0);
 	}	
@@ -483,14 +596,15 @@ setup( char *dev, int *blockDevice_fdPtr, int *canWritePtr )
 // the raw device.  Note that this does not protect use from someone upgrading the mount
 // from read-only to read-write.
 
-static void getWriteAccess( char *dev, int *blockDevice_fdPtr, int *canWritePtr )
+static void getWriteAccess( char *dev, int *canWritePtr )
 {
 	int					i;
 	int					myMountsCount;
 	void *				myPtr;
 	char *				myCharPtr;
-	struct statfs *		myBufPtr;
+	struct statfs64 *		myBufPtr;
 	void *				myNamePtr;
+	int				blockDevice_fd = -1;
 
 	myPtr = NULL;
 	myNamePtr = malloc( strlen(dev) + 2 );
@@ -501,31 +615,31 @@ static void getWriteAccess( char *dev, int *blockDevice_fdPtr, int *canWritePtr 
 	if ( (myCharPtr = strrchr( (char *)myNamePtr, '/' )) != 0 ) {
 		if ( myCharPtr[1] == 'r' ) {
 			strcpy( &myCharPtr[1], &myCharPtr[2] );
-			*blockDevice_fdPtr = open( (char *)myNamePtr, O_WRONLY );
+			blockDevice_fd = open( (char *)myNamePtr, O_WRONLY | (hotroot ? 0 : O_EXLOCK) );
 		}
 	}
 	
-	if ( *blockDevice_fdPtr > 0 ) {
+	if ( blockDevice_fd > 0 ) {
 		// we got write access to the block device so we can safely write to raw device
 		*canWritePtr = 1;
 		goto ExitThisRoutine;
 	}
 	
 	// get count of mounts then get the info for each 
-	myMountsCount = getfsstat( NULL, 0, MNT_NOWAIT );
+	myMountsCount = getfsstat64( NULL, 0, MNT_NOWAIT );
 	if ( myMountsCount < 0 )
 		goto ExitThisRoutine;
 
-	myPtr = (void *) malloc( sizeof(struct statfs) * myMountsCount );
+	myPtr = (void *) malloc( sizeof(struct statfs64) * myMountsCount );
 	if ( myPtr == NULL ) 
 		goto ExitThisRoutine;
-	myMountsCount = getfsstat( 	myPtr, 
-								(sizeof(struct statfs) * myMountsCount), 
+	myMountsCount = getfsstat64( 	myPtr, 
+								(int)(sizeof(struct statfs64) * myMountsCount), 
 								MNT_NOWAIT );
 	if ( myMountsCount < 0 )
 		goto ExitThisRoutine;
 
-	myBufPtr = (struct statfs *) myPtr;
+	myBufPtr = (struct statfs64 *) myPtr;
 	for ( i = 0; i < myMountsCount; i++ )
 	{
 		if ( strcmp( myBufPtr->f_mntfromname, myNamePtr ) == 0 ) {
@@ -544,6 +658,10 @@ ExitThisRoutine:
 	if ( myNamePtr != NULL )
 		free( myNamePtr );
 	
+	if (blockDevice_fd != -1) {
+		close(blockDevice_fd);
+	}
+
 	return;
 	
 } /* getWriteAccess */
@@ -552,7 +670,9 @@ ExitThisRoutine:
 static void
 usage()
 {
-	(void) fplog(stderr, "usage: %s [-c [size] dfl m [mode] npqruy] special-device\n", progname);
+	(void) fplog(stderr, "usage: %s [-b [size] B [path] c [size] dfl m [mode] npqruy] special-device\n", progname);
+	(void) fplog(stderr, "  b size = size of physical blocks (in bytes) for -B option\n");
+	(void) fplog(stderr, "  B path = file containing physical block numbers to map to paths\n");
 	(void) fplog(stderr, "  c size = cache size (ex. 512m, 1g)\n");
 	(void) fplog(stderr, "  d = output debugging info\n");
 	(void) fplog(stderr, "  f = force fsck even if clean (preen only) \n");
@@ -566,4 +686,33 @@ usage()
 	(void) fplog(stderr, "  y = assume a yes response \n");
 	
 	exit(1);
+}
+
+
+static int
+getblocklist(const char *filepath)
+{
+	FILE * file;
+	long long block;
+
+	gBlockList = (u_int64_t *) calloc(MAX_BLOCKS, sizeof(u_int64_t));
+
+//	printf("getblocklist: processing blocklist %s...\n", filepath);
+
+	if ((file = fopen(filepath, "r")) == NULL)
+		pfatal("Can't open %s\n", filepath);
+
+	while (fscanf(file, "%lli", &block) > 0) {
+		gBlockList[gBlkListEntries++] = block;
+	//	printf("%lld\n", block);
+	}
+
+	printf("%d blocks to match:\n", gBlkListEntries);
+	
+//	(void) fclose(file);
+
+	if (gBlockSize == 0)
+		gBlockSize = 512;
+	
+	return (0);
 }

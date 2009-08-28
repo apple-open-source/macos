@@ -15,5 +15,13 @@
 		<string>_spotlight</string>
 		<string>spotlight</string>
 	</array>
+	<key>passwd</key>
+	<array>
+		<string>*</string>
+	</array>
+	<key>realname</key>
+	<array>
+		<string>Spotlight</string>
+	</array>
 </dict>
 </plist>

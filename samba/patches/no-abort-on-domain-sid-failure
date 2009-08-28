@@ -1,0 +1,28 @@
+In a PDC configuration, it can take a while for DS to sync up the
+config changes and for the local LDAP node to become available. We
+just exit rather than abort so that we don't generate spurious crash
+reports. Everything will be alright if we just wait a little while.
+
+Index: samba/source/passdb/machine_sid.c
+===================================================================
+--- samba/source/passdb/machine_sid.c.orig
++++ samba/source/passdb/machine_sid.c
+@@ -219,14 +219,16 @@ DOM_SID *get_global_sam_sid(void)
+ 
+ 	if (lp_opendirectory()) {
+ 		if (!(global_sam_sid = opendirectory_sam_sid())) {
+-			smb_panic("Could not generate a machine SID\n");
++			DEBUG(0, ("Could not generate a machine SID\n"));
++			exit(1);
+ 		}
+ 
+ 		return global_sam_sid;
+ 	}
+ 
+ 	if (!(global_sam_sid = pdb_generate_sam_sid())) {
+-		smb_panic("Could not generate a machine SID\n");
++		DEBUG(0, ("Could not generate a machine SID\n"));
++		exit(1);
+ 	}
+ 
+ 	return global_sam_sid;

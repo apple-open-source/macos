@@ -1,0 +1,270 @@
+# $Id: HttpPlace.xotcl,v 1.6 2006/09/27 08:12:40 neumann Exp $
+
+package provide xotcl::actiweb::httpPlace 0.8
+
+package require xotcl::trace
+package require xotcl::actiweb::invoker
+package require xotcl::actiweb::webObject
+package require xotcl::comm::httpd
+package require xotcl::scriptCreation::scriptCreator
+package require xotcl::store::persistence
+package require xotcl::pattern::singleton
+package require xotcl::registry::registry
+package require xotcl::actiweb::agentManagement
+package require xotcl::rdf::tripleRecreator
+
+package require XOTcl
+
+namespace eval ::xotcl::actiweb::httpPlace {
+    namespace import ::xotcl::*
+
+
+    Singleton Place -superclass Invoker -parameter {
+	{exportedObjs ""} 
+	{startingObj ""}
+	{startCommand ""}
+	{root $::env(HOME)/public_html}
+	{port 8086}
+	{redirect [list]}
+	{logdir $::xotcl::logdir} 
+	{host localhost}
+	{allowImmigrationHosts ""}
+	persistenceFile persistenceDir bccFile bccDir dbPackage
+	{startHTTPServer 1}
+    }
+
+    #    Giving a bccFile (and possibly bccDir) as optional parameter means 
+    #    that an identical copy database will be created in that 
+    #    location (e.g. for creating a backup on a second hard drive.
+
+    Place instproc exportObjs args {
+	foreach obj $args {
+	    my lappend exportedObjs [string trimleft $obj :]
+	    puts stderr "*** exporting $obj, self=[self], objs=[my set exportedObjs]"
+	}
+    } 
+    Place instproc isExportedObj obj {
+	expr {[lsearch [my exportedObjs] [string trimleft $obj :]] != -1}
+    }
+    Place instproc default {} {
+	[self]
+    }
+    Place instproc init args {
+	if {[my set startHTTPServer]} {
+	    Httpd [self]::httpd \
+		-port [my port] \
+		-root [my root] \
+		-redirect [my redirect] \
+		-logdir [my logdir] \
+		-httpdWrk Place::HttpdWrk
+	}
+	#
+	# PersistenceMgr object for web entities
+	#
+	##### so ist das nicht toll ... init args sollten anders konfigurierbar sein
+	PersistenceMgr [self]::agentPersistenceMgr -dbPackage multi
+
+	if {[my exists dbPackage]} {
+	    set dbp [my set dbPackage]
+	} else {
+	    set dbp ""
+	}
+
+
+	if {![my exists persistenceDir]} {
+	    my persistenceDir [string trimleft [self] :]
+	}
+	if {![my exists persistenceFile]} {
+	    my persistenceFile persistentObjs-[my port]
+	}
+
+	[self]::agentPersistenceMgr store add $dbp \
+	    -dirName [my persistenceDir] \
+	    -fileName [my persistenceFile]
+
+	if {[my exists bccDir] || [my exists bccFile]} {
+	    if {![my exists bccDir]} {
+		my bccDir [my set persistenceDir]
+	    }
+	    if {![my exists bccFile]} {
+		my bccFile [my persistenceFile]
+	    }
+	    [self]::agentPersistenceMgr store add $dbp \
+		-dirName [my bccDir] \
+		-fileName [my bccFile]
+	}
+
+	AgentMgr create [self]::agentMgr 
+	RDFCreator create [self]::rdfCreator
+
+	#
+	# minimal obj for default behavior of the place -> calls go
+	# to web entities default (customize through a redirecting proc
+	# as in HtmlPlace or changing startingObj)
+	#
+	WebObject create [self]::start
+	my startingObj [self]::start
+	Registry [self]::registry
+	ErrorMgr [self]::error
+
+	ScriptCreator [self]::scriptCreator -dependencyChecking 0
+
+	my exportObjs [self]::start [self]::agentMgr [self]::registry
+	next
+    }
+
+    Place instproc startEventLoop args {
+	if {[llength $args] > 0} {
+	    set startCommand [lindex $args 0]
+	    ::eval $startCommand
+	}
+
+	vwait forever  ;# if we are in xotclsh call the event loop...
+    }
+
+    ###
+    ### Mixin-Classes for Http/Wrk that restricts the usable HTTP methods
+    ###
+    Class RestrictHTTPMethods -parameter {
+	{allowedHTTPMethods "GET PUT HEAD POST CGI"}
+    }
+    RestrictHTTPMethods instproc init args {
+	next
+	my lappend workerMixins RestrictHTTPMethods::Wrk
+    }
+    Class RestrictHTTPMethods::Wrk
+    RestrictHTTPMethods::Wrk instproc respond {} {
+	my instvar method 
+	[my info parent] instvar allowedHTTPMethods
+	if {[lsearch $allowedHTTPMethods $method] != -1} {
+	    return [next]
+	} else {
+	    my log Error "Restricted Method $method called"
+	    my replyCode 405
+	    my replyErrorMsg
+	}
+    }
+
+    Class Place::HttpdWrk -superclass Httpd::Wrk 
+
+    Place::HttpdWrk instproc init args {
+	my set place [Place getInstance] 
+	next
+	#puts "New Http-Worker: [self class]->[self] on [my set place]" 
+    } 
+
+    Place::HttpdWrk instproc parseParams {o m a call} {
+	upvar [self callinglevel] $o obj $m method $a args 
+	### 
+	set decodedCall [url decodeItem $call]
+	#my showMsg decodedCall=$decodedCall
+	if {[regexp {^([^ ]*) ?([^ ]*) ?(.*)$} $decodedCall _ \
+		 obj method args]} {
+	    #foreach a [my set formData] {lappend args [$a set content]}
+	    #puts stderr "Parsed -- Obj: $obj, Method: $method, Args: $args" 
+	    return 1
+	} else {
+	    puts stderr "could not parse <$decodedCall>"
+	    return 0
+	}
+    }
+    Place::HttpdWrk instproc respond-HEAD {} {
+	my respond-GET;  ### sendMsg inhibits content for method HEAD
+    }
+    Place::HttpdWrk instproc respond-GET {} {
+	my instvar fileName resourceName place
+	if {$resourceName eq ""} {
+	    my sendMsg [$place default] text/html  ;# kind of index.html
+	} elseif {[my parseParams obj method arguments $resourceName]} {
+	    if {![my isobject $obj] && [file readable $fileName]} {
+		next      ;# let Httpd handle this
+	    } else {
+		set response [$place invokeCall obj status $method $arguments]
+		#puts stderr "RESPONSE: $response"
+		#
+		# let the object's sending strategy mixin choose 
+		# the appropriate sending mode
+		#
+		# $obj showClass
+		if {[info exists status] && $status >= 300} {
+		    my replyCode $status
+		    my replyErrorMsg $response
+		} else {
+		    #my lappend replyHeaderFields Cache-Control maxage=0
+		    my lappend replyHeaderFields Pragma no-cache
+		    $obj send [self] $response
+		}
+	    }
+	} else {
+	    my set version 1.0
+	    my replyCode 400
+	    my replyErrorMsg [my callError "Could not parse: " $resourceName]
+	}
+    }
+    Place::HttpdWrk instproc respond-POST {} {
+	my instvar resourceName place
+	my respond-GET
+    }
+
+
+    Place::HttpdWrk instproc respond-PUT {} {
+	my instvar resourceName place data
+	#my showCall
+	
+	if {$resourceName ne ""} {
+	    if {[my parseParams obj m a $resourceName]} {
+		set obj [string trimleft $obj :]
+		set AMgr ${place}::agentMgr
+
+		if {[info commands $obj] eq "" &&
+		    ![$AMgr info agents $obj]} {
+		    #puts stderr "Receiving to put --------------------------------$obj  $data"
+		    set AI [$AMgr parseData $obj $data]
+		    #puts stderr "parray --${AI}::agentData------------------------"
+		    #parray ${AI}::agentData
+		    #puts stderr "parray --${AI}::agentData----------------DONE--------"
+		    #$AI showVars
+		    #puts stderr "----[$AI exists agentData(agent:script)]----"
+		    if {[$AI exists agentData(agent:script)]} {
+			set immigrateResult [$AMgr immigrate $AI]
+			#puts stderr "immigrateResult=<$immigrateResult>"
+			my replyCode 200  
+			my sendMsg $immigrateResult text/plain
+		    } else {
+			my set version 1.0
+			my replyCode 400
+			my replyErrorMsg "Migration failed"
+		    }
+		} else {
+		    my set version 1.0
+		    my replyCode 400
+		    my replyErrorMsg "Migration: object name already in use."
+		}
+	    } else {
+		my set version 1.0
+		my replyCode 400 
+		my replyErrorMsg "Migration call must provide object name"
+	    }
+	} else {
+	    # return the own place name -> any client can call the place via
+	    # placename::start !
+	    my sendMsg $place text/plain
+	}
+    }
+
+    namespace export RestrictHTTPMethods Place
+    namespace eval RestrictHTTPMethods {
+	namespace export Wrk
+    }
+    namespace eval Place {
+	namespace export HttpdWrk
+    }
+}
+
+namespace import ::xotcl::actiweb::httpPlace::*
+namespace eval RestrictHTTPMethods {
+    namespace import ::xotcl::actiweb::httpPlace::RestrictHTTPMethods::*
+}
+namespace eval Place {
+    namespace import ::xotcl::actiweb::httpPlace::Place::*
+}

@@ -1,5 +1,7 @@
 Suggestions for improving GNU tar.
 
+* <45BEC0DB.8040903@unix-beratung.de>
+
 * Incorporate fixes from major distributions, e.g., Debian GNU/Linux.
 
 * Add support for restoring file time stamps to sub-second resolution,
@@ -10,24 +12,8 @@ Suggestions for improving GNU tar.
 
 * --append should bail out if the two archives are of different types.
 
-* Add support for GNU private keywords in POSIX 1003.1-2001 headers,
-so that the GNU extensions (--incremental, --label and
---multi-volume) may be used with POSIX archives.
-
 * Add support for a 'pax' command that conforms to POSIX 1003.1-2001.
   This would unify paxutils with tar.
-
-* Remove command-line incompatibilities between GNU tar and UNIX tar
-  as specified by UNIX98.  The main problem is:
-
-     l   GNU tar doesn't cross filesystem boundaries.
-	 UNIX98 tar warns if all links cannot be resolved.
-	   (GNU tar --check-links option)
-
-  Currently tar prints a warning when this option is used. Sometime
-  in the future its semantics will be changed to that of --check-links.
-  In the meanwhile we should announce a phase-in period where "l"
-  changes in semantics.
 
 * Interoperate better with Joerg Schilling's star implementation.
 
@@ -75,8 +61,8 @@ so that the GNU extensions (--incremental, --label and
 
   You should have received a copy of the GNU General Public License
   along with tar; see the file COPYING.  If not, write to
-  the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-  Boston, MA 02111-1307, USA.
+  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+  Boston, MA 02110-1301, USA.
 
 
 Local variables:

@@ -45,8 +45,11 @@ var withIso8859x = false;
 var withZlib = false;
 var withDebug = true;
 var withMemDebug = false;
+var withRunDebug = false;
 var withSchemas = true;
+var withSchematron = true;
 var withRegExps = true;
+var withModules = true;
 var withTree = true;
 var withReader = true;
 var withWriter = true;
@@ -63,6 +66,7 @@ var dirSep = "\\";
 var compiler = "msvc";
 var cruntime = "/MD";
 var dynruntime = true;
+var vcmanifest = false;
 var buildDebug = 0;
 var buildStatic = 0;
 var buildPrefix = ".";
@@ -126,7 +130,9 @@ function usage()
 	txt += "  zlib:       Enable zlib support (" + (withZlib? "yes" : "no")  + ")\n";
 	txt += "  xml_debug:  Enable XML debbugging module (" + (withDebug? "yes" : "no")  + ")\n";
 	txt += "  mem_debug:  Enable memory debugger (" + (withMemDebug? "yes" : "no")  + ")\n";
+	txt += "  run_debug:  Enable memory debugger (" + (withRunDebug? "yes" : "no")  + ")\n";
 	txt += "  regexps:    Enable regular expressions (" + (withRegExps? "yes" : "no") + ")\n";
+	txt += "  modules:    Enable module support (" + (withModules? "yes" : "no") + ")\n";
 	txt += "  tree:       Enable tree api (" + (withTree? "yes" : "no") + ")\n";
 	txt += "  reader:     Enable xmlReader api (" + (withReader? "yes" : "no") + ")\n";
 	txt += "  writer:     Enable xmlWriter api (" + (withWriter? "yes" : "no") + ")\n";
@@ -138,13 +144,16 @@ function usage()
 	txt += "  legacy:     Enable Deprecated api's (" + (withLegacy? "yes" : "no") + ")\n";
 	txt += "  output:     Enable serialization support (" + (withOutput? "yes" : "no") + ")\n";
 	txt += "  schemas:    Enable XML Schema support (" + (withSchemas? "yes" : "no")  + ")\n";
+	txt += "  schematron: Enable Schematron support (" + (withSchematron? "yes" : "no")  + ")\n";
 	txt += "  python:     Build Python bindings (" + (withPython? "yes" : "no")  + ")\n";
 	txt += "\nWin32 build options, default value given in parentheses:\n\n";
 	txt += "  compiler:   Compiler to be used [msvc|mingw|bcb] (" + compiler + ")\n";
 	txt += "  cruntime:   C-runtime compiler option (only msvc) (" + cruntime + ")\n";
 	txt += "  dynruntime: Use the dynamic RTL (only bcb) (" + dynruntime + ")\n";
+	txt += "  vcmanifest: Embed VC manifest (only msvc) (" + (vcmanifest? "yes" : "no") + ")\n";
 	txt += "  debug:      Build unoptimised debug executables (" + (buildDebug? "yes" : "no")  + ")\n";
 	txt += "  static:     Link xmllint statically to libxml2 (" + (buildStatic? "yes" : "no")  + ")\n";
+	txt += "              Note: automatically enabled if cruntime is not /MD or /MDd\n";
 	txt += "  prefix:     Base directory for the installation (" + buildPrefix + ")\n";
 	txt += "  bindir:     Directory where xmllint and friends should be installed\n";
 	txt += "              (" + buildBinPrefix + ")\n";
@@ -231,8 +240,11 @@ function discoverVersion()
 	vf.WriteLine("WITH_ZLIB=" + (withZlib? "1" : "0"));
 	vf.WriteLine("WITH_DEBUG=" + (withDebug? "1" : "0"));
 	vf.WriteLine("WITH_MEM_DEBUG=" + (withMemDebug? "1" : "0"));
+	vf.WriteLine("WITH_RUN_DEBUG=" + (withRunDebug? "1" : "0"));
 	vf.WriteLine("WITH_SCHEMAS=" + (withSchemas? "1" : "0"));
+	vf.WriteLine("WITH_SCHEMATRON=" + (withSchematron? "1" : "0"));
 	vf.WriteLine("WITH_REGEXPS=" + (withRegExps? "1" : "0"));
+	vf.WriteLine("WITH_MODULES=" + (withModules? "1" : "0"));
 	vf.WriteLine("WITH_TREE=" + (withTree? "1" : "0"));
 	vf.WriteLine("WITH_READER=" + (withReader? "1" : "0"));
 	vf.WriteLine("WITH_WRITER=" + (withWriter? "1" : "0"));
@@ -255,13 +267,14 @@ function discoverVersion()
 		vf.WriteLine("INCLUDE=$(INCLUDE);" + buildInclude);
 		vf.WriteLine("LIB=$(LIB);" + buildLib);
 		vf.WriteLine("CRUNTIME=" + cruntime);
+		vf.WriteLine("VCMANIFEST=" + (vcmanifest? "1" : "0"));
 	} else if (compiler == "mingw") {
 		vf.WriteLine("INCLUDE+=;" + buildInclude);
 		vf.WriteLine("LIB+=;" + buildLib);
 	} else if (compiler == "bcb") {
 		vf.WriteLine("INCLUDE=" + buildInclude);
 		vf.WriteLine("LIB=" + buildLib);
-                vf.WriteLine("DYNRUNTIME=" + (dynruntime? "1" : "0"));
+		vf.WriteLine("DYNRUNTIME=" + (dynruntime? "1" : "0"));
 	}
 	vf.Close();
 }
@@ -319,10 +332,18 @@ function configureLibxml()
 			of.WriteLine(s.replace(/\@WITH_DEBUG\@/, withDebug? "1" : "0"));
 		} else if (s.search(/\@WITH_MEM_DEBUG\@/) != -1) {
 			of.WriteLine(s.replace(/\@WITH_MEM_DEBUG\@/, withMemDebug? "1" : "0"));
+		} else if (s.search(/\@WITH_RUN_DEBUG\@/) != -1) {
+			of.WriteLine(s.replace(/\@WITH_RUN_DEBUG\@/, withRunDebug? "1" : "0"));
 		} else if (s.search(/\@WITH_SCHEMAS\@/) != -1) {
 			of.WriteLine(s.replace(/\@WITH_SCHEMAS\@/, withSchemas? "1" : "0"));
+		} else if (s.search(/\@WITH_SCHEMATRON\@/) != -1) {
+			of.WriteLine(s.replace(/\@WITH_SCHEMATRON\@/, withSchematron? "1" : "0"));
 		} else if (s.search(/\@WITH_REGEXPS\@/) != -1) {
 			of.WriteLine(s.replace(/\@WITH_REGEXPS\@/, withRegExps? "1" : "0"));
+		} else if (s.search(/\@WITH_MODULES\@/) != -1) {
+			of.WriteLine(s.replace(/\@WITH_MODULES\@/, withModules? "1" : "0"));
+		} else if (s.search(/\@MODULE_EXTENSION\@/) != -1) {
+			of.WriteLine(s.replace(/\@MODULE_EXTENSION\@/, ".dll"));
 		} else if (s.search(/\@WITH_TREE\@/) != -1) {
 			of.WriteLine(s.replace(/\@WITH_TREE\@/, withTree? "1" : "0"));
 		} else if (s.search(/\@WITH_READER\@/) != -1) {
@@ -456,10 +477,16 @@ for (i = 0; (i < WScript.Arguments.length) && (error == 0); i++) {
 			withDebug = strToBool(arg.substring(opt.length + 1, arg.length));
 		else if (opt == "mem_debug")
 			withMemDebug = strToBool(arg.substring(opt.length + 1, arg.length));
+		else if (opt == "run_debug")
+			withRunDebug = strToBool(arg.substring(opt.length + 1, arg.length));
 		else if (opt == "schemas")
 			withSchemas = strToBool(arg.substring(opt.length + 1, arg.length));
+		else if (opt == "schematron")
+			withSchematron = strToBool(arg.substring(opt.length + 1, arg.length));
 		else if (opt == "regexps")
 			withRegExps = strToBool(arg.substring(opt.length + 1, arg.length));
+		else if (opt == "modules")
+			withModules = strToBool(arg.substring(opt.length + 1, arg.length));
 		else if (opt == "tree")
 			withTree = strToBool(arg.substring(opt.length + 1, arg.length));
 		else if (opt == "reader")
@@ -488,6 +515,8 @@ for (i = 0; (i < WScript.Arguments.length) && (error == 0); i++) {
 			cruntime = arg.substring(opt.length + 1, arg.length);
 		else if (opt == "dynruntime")
 			dynruntime = strToBool(arg.substring(opt.length + 1, arg.length));
+		else if (opt == "vcmanifest")
+			vcmanifest = strToBool(arg.substring(opt.length + 1, arg.length));
 		else if (opt == "debug")
 			buildDebug = strToBool(arg.substring(opt.length + 1, arg.length));
 		else if (opt == "static")
@@ -534,9 +563,15 @@ if (error != 0) {
 	usage();
 	WScript.Quit(error);
 }
+
+// if user choses to link the c-runtime library statically into libxml2
+// with /MT and friends, then we need to enable static linking for xmllint
+if (cruntime == "/MT" || cruntime == "/MTd" ||
+		cruntime == "/ML" || cruntime == "/MLd") {
+	buildStatic = 1;
+}
+
 dirSep = "\\";
-if (compiler == "mingw")
-	dirSep = "/";
 if (buildBinPrefix == "")
 	buildBinPrefix = "$(PREFIX)" + dirSep + "bin";
 if (buildIncPrefix == "")
@@ -617,7 +652,9 @@ txtOut += "  iso8859x support: " + boolToStr(withIso8859x) + "\n";
 txtOut += "      zlib support: " + boolToStr(withZlib) + "\n";
 txtOut += "  Debugging module: " + boolToStr(withDebug) + "\n";
 txtOut += "  Memory debugging: " + boolToStr(withMemDebug) + "\n";
+txtOut += " Runtime debugging: " + boolToStr(withRunDebug) + "\n";
 txtOut += "    Regexp support: " + boolToStr(withRegExps) + "\n";
+txtOut += "    Module support: " + boolToStr(withModules) + "\n";
 txtOut += "      Tree support: " + boolToStr(withTree) + "\n";
 txtOut += "    Reader support: " + boolToStr(withReader) + "\n";
 txtOut += "    Writer support: " + boolToStr(withWriter) + "\n";
@@ -629,14 +666,16 @@ txtOut += "      SAX1 support: " + boolToStr(withSax1) + "\n";
 txtOut += "    Legacy support: " + boolToStr(withLegacy) + "\n";
 txtOut += "    Output support: " + boolToStr(withOutput) + "\n";
 txtOut += "XML Schema support: " + boolToStr(withSchemas) + "\n";
+txtOut += "Schematron support: " + boolToStr(withSchematron) + "\n";
 txtOut += "   Python bindings: " + boolToStr(withPython) + "\n";
 txtOut += "\n";
 txtOut += "Win32 build configuration\n";
 txtOut += "-------------------------\n";
 txtOut += "          Compiler: " + compiler + "\n";
-if (compiler == "msvc")
+if (compiler == "msvc") {
 	txtOut += "  C-Runtime option: " + cruntime + "\n";
-else if (compiler == "bcb")
+	txtOut += "    Embed Manifest: " + boolToStr(vcmanifest) + "\n";
+} else if (compiler == "bcb")
 	txtOut += "   Use dynamic RTL: " + dynruntime + "\n";
 txtOut += "     Debug symbols: " + boolToStr(buildDebug) + "\n";
 txtOut += "    Static xmllint: " + boolToStr(buildStatic) + "\n";

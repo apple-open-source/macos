@@ -1,0 +1,156 @@
+#$Id: package.xotcl,v 1.7 2006/09/27 08:12:40 neumann Exp $
+package provide xotcl::package 0.91
+
+package require xotcl::mixinStrategy
+package require XOTcl
+
+rename package tcl_package
+
+namespace eval ::xotcl::package {
+    namespace import ::xotcl::*
+
+    @ @File {description {
+	Represent Tcl package loading command by an XOTcl
+	object. Enables tracking, tracing, and verbose output
+	of package loading
+    }
+    }
+    @ Object package {
+	description {
+	    Supports all Tcl package options plus present and verbose.
+	}
+    }
+    @ package proc present {args "packageName or -exact packageName"} {
+	description {
+	    Check whether a package is present or not. Similar to Tcl's 
+	    package present, but works with Tcl < 8.3
+	}
+    }
+    @ package proc verbose {v  "1 or 0"} {
+	description {
+	    Toggle verbose output on/off. If on, package prints the locations
+	    from where packages are loaded to the screen. Default is off.
+	}
+    } 
+
+    Object package
+    package set component .
+    package set verbose 0
+    package proc unknown args {
+      #puts stderr "unknown: package $args"
+      namespace eval :: tcl_package $args
+    }
+    package proc verbose value {
+	my set verbose $value
+    }
+    package proc present args {
+	if {$::tcl_version<8.3} {
+	    my instvar loaded
+	    switch -exact -- [lindex $args 0] {
+		-exact  {set pkg [lindex $args 1]}
+		default {set pkg [lindex $args 0]}
+	    }
+	    if {[info exists loaded($pkg)]} {
+		return $loaded($pkg)
+	    } else {
+		error "not found"
+	    }
+	} else {
+	  namespace eval :: tcl_package present $args
+	}
+    }
+
+    package proc require args {
+	my instvar component verbose uses loaded
+	set prevComponent $component
+	if {[catch {set v [eval package present $args]} msg]} {
+	    #puts stderr "we have to load $msg"
+	    switch -exact -- [lindex $args 0] {
+		-exact  {set pkg [lindex $args 1]}
+		default {set pkg [lindex $args 0]}
+	    }
+	    set component $pkg
+	    lappend uses($prevComponent) $component
+	    set v [namespace eval :: tcl_package require $args]
+	    if {$v ne "" && $verbose} {
+		set path [lindex [tcl_package ifneeded $pkg $v] 1]
+		puts "... $pkg $v loaded from '$path'"
+		set loaded($pkg) $v   ;# loaded stuff needed for Tcl 8.0
+	    }
+	}
+	set component $prevComponent
+	return $v
+    }
+
+    Object package::tracker
+    package::tracker set verbose 0
+    package::tracker proc storeEntry {table index} {
+	my instvar verbose $table
+	set ${table}($index) "[package set component] [info script]"
+	if {$verbose} {
+	    puts  "... $table $index loaded from [info script]"
+	}
+    }
+    package::tracker proc dump {} {
+	my instvar class object instproc proc
+	if {[info exist class]}    { parray class }
+	if {[info exist object]}   { parray object }
+	if {[info exist instproc]} { parray instproc }
+	if {[info exist proc]}     { parray proc }
+    }
+    package::tracker proc start {} {
+	::Class  add mixin [self]::M
+	::Object add mixin [self]::M
+    }
+
+    Class package::tracker::M
+    package::tracker::M instproc create {cls args} {
+	set table [string tolower [string trimleft [self] :]]
+	package::tracker storeEntry $table [lindex $args 0]
+	next
+	$cls add mixin [self class]
+    }
+    package::tracker::M instproc instproc args {
+	package::tracker storeEntry instproc [self]->[lindex $args 0]
+	next
+    }
+    package::tracker::M instproc proc args {
+					    package::tracker storeEntry proc [self]->[lindex $args 0]
+					    next
+					}
+
+    #package::tracker set verbose 1
+    #package::tracker start
+    #
+    #Class A
+    #A instproc p args {
+    #    puts A
+    #}
+    #A proc pp args {
+    #    a call 
+    #}
+    #Object o
+    #o proc ppp args {
+    #    another call
+    #}
+    #puts stderr ====================================================
+    #package::tracker dump
+
+    #puts stderr AUTO_PATH=$auto_path.
+
+    namespace export package
+    namespace eval package {
+	namespace export tracker
+	namespace eval tracker {
+	    namespace export M
+	}
+    }
+}
+
+namespace import ::xotcl::package::*
+namespace eval package {
+    namespace import ::xotcl::package::package::*
+    namespace eval tracker {
+	namespace import ::xotcl::package::package::tracker::*
+    }
+}

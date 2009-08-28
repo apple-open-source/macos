@@ -1,14 +1,17 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1998-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1998,2007 Oracle.  All rights reserved.
  *
- *	@(#)db_join.h	11.1 (Sleepycat) 7/25/99
+ * $Id: db_join.h,v 12.7 2007/05/17 15:15:05 bostic Exp $
  */
 
 #ifndef _DB_JOIN_H_
 #define	_DB_JOIN_H_
+
+#if defined(__cplusplus)
+extern "C" {
+#endif
 
 /*
  * Joins use a join cursor that is similar to a regular DB cursor except
@@ -18,7 +21,7 @@
 typedef struct __join_cursor {
 	u_int8_t *j_exhausted;	/* Array of flags; is cursor i exhausted? */
 	DBC	**j_curslist;	/* Array of cursors in the join: constant. */
-	DBC	**j_fdupcurs;	/* Cursors w/ first intances of current dup. */
+	DBC	**j_fdupcurs;	/* Cursors w/ first instances of current dup. */
 	DBC	**j_workcurs;	/* Scratch cursor copies to muck with. */
 	DB	 *j_primary;	/* Primary dbp. */
 	DBT	  j_key;	/* Used to do lookups. */
@@ -28,4 +31,7 @@ typedef struct __join_cursor {
 	u_int32_t flags;
 } JOIN_CURSOR;
 
+#if defined(__cplusplus)
+}
+#endif
 #endif /* !_DB_JOIN_H_ */

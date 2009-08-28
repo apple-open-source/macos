@@ -21,15 +21,14 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
-#include "errors.h"
 #include "varray.h"
 #include "c-tree.h"
 #include "c-common.h"
@@ -70,34 +69,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
     walk back up, we check that they fit our constraints, and copy them
     into temporaries if not.  */
 
-/* Local declarations.  */
-
-enum bc_t { bc_break = 0, bc_continue = 1 };
-
-static struct c_gimplify_ctx
-{
-  /* For handling break and continue.  */
-  tree current_bc_label;
-  tree bc_id[2];
-} *ctxp;
-
-static void
-push_context (void)
-{
-  gcc_assert (!ctxp);
-  ctxp = (struct c_gimplify_ctx *) xcalloc (1, sizeof (struct c_gimplify_ctx));
-  ctxp->bc_id[bc_continue] = get_identifier ("continue");
-  ctxp->bc_id[bc_break] = get_identifier ("break");
-}
-
-static void
-pop_context (void)
-{
-  gcc_assert (ctxp && !ctxp->current_bc_label);
-  free (ctxp);
-  ctxp = NULL;
-}
-
 /* Gimplification of statement trees.  */
 
 /* Convert the tree representation of FNDECL from C frontend trees to
@@ -106,35 +77,33 @@ pop_context (void)
 void
 c_genericize (tree fndecl)
 {
-  FILE *dump_file;
+  FILE *dump_orig;
   int local_dump_flags;
   struct cgraph_node *cgn;
 
   /* Dump the C-specific tree IR.  */
-  dump_file = dump_begin (TDI_original, &local_dump_flags);
-  if (dump_file)
+  dump_orig = dump_begin (TDI_original, &local_dump_flags);
+  if (dump_orig)
     {
-      fprintf (dump_file, "\n;; Function %s",
+      fprintf (dump_orig, "\n;; Function %s",
 	       lang_hooks.decl_printable_name (fndecl, 2));
-      fprintf (dump_file, " (%s)\n",
+      fprintf (dump_orig, " (%s)\n",
 	       IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (fndecl)));
-      fprintf (dump_file, ";; enabled by -%s\n", dump_flag_name (TDI_original));
-      fprintf (dump_file, "\n");
+      fprintf (dump_orig, ";; enabled by -%s\n", dump_flag_name (TDI_original));
+      fprintf (dump_orig, "\n");
 
       if (local_dump_flags & TDF_RAW)
 	dump_node (DECL_SAVED_TREE (fndecl),
-		   TDF_SLIM | local_dump_flags, dump_file);
+		   TDF_SLIM | local_dump_flags, dump_orig);
       else
-	print_c_tree (dump_file, DECL_SAVED_TREE (fndecl));
-      fprintf (dump_file, "\n");
+	print_c_tree (dump_orig, DECL_SAVED_TREE (fndecl));
+      fprintf (dump_orig, "\n");
 
-      dump_end (TDI_original, dump_file);
+      dump_end (TDI_original, dump_orig);
     }
 
   /* Go ahead and gimplify for now.  */
-  push_context ();
   gimplify_function_tree (fndecl);
-  pop_context ();
 
   /* Dump the genericized tree IR.  */
   dump_function (TDI_generic, fndecl);
@@ -203,355 +172,11 @@ c_build_bind_expr (tree block, tree body)
   return bind;
 }
 
-/*  Gimplify an EXPR_STMT node.
-
-    STMT is the statement node.
-
-    PRE_P points to the list where side effects that must happen before
-	STMT should be stored.
-
-    POST_P points to the list where side effects that must happen after
-	STMT should be stored.  */
-
-static enum gimplify_status
-gimplify_expr_stmt (tree *stmt_p)
-{
-  tree stmt = EXPR_STMT_EXPR (*stmt_p);
-
-  if (stmt == error_mark_node)
-    stmt = NULL;
-
-  /* Gimplification of a statement expression will nullify the
-     statement if all its side effects are moved to *PRE_P and *POST_P.
-
-     In this case we will not want to emit the gimplified statement.
-     However, we may still want to emit a warning, so we do that before
-     gimplification.  */
-  if (stmt && (extra_warnings || warn_unused_value))
-    {
-      if (!TREE_SIDE_EFFECTS (stmt))
-	{
-	  if (!IS_EMPTY_STMT (stmt)
-	      && !VOID_TYPE_P (TREE_TYPE (stmt))
-	      && !TREE_NO_WARNING (stmt))
-	    warning ("statement with no effect");
-	}
-      else if (warn_unused_value)
-	warn_if_unused_value (stmt, input_location);
-    }
-
-  if (stmt == NULL_TREE)
-    stmt = alloc_stmt_list ();
-
-  *stmt_p = stmt;
-
-  return GS_OK;
-}
-
-/* APPLE LOCAL begin radar 4547045 */
-/* Pop label (which should be a 'break' label in this case) from the
-   label of break/continue stack. */
-static tree
-objc_pop_label (void)
-{
-  tree label = ctxp->current_bc_label;
-  gcc_assert (label);
-  ctxp->current_bc_label = TREE_CHAIN (label);
-  TREE_CHAIN (label) = NULL_TREE;
-  return label;
-}
-
-/* Push the label on break/continue stack of labels. */
-static void
-objc_push_label (tree label)
-{
-  TREE_CHAIN (label) = ctxp->current_bc_label;
-  ctxp->current_bc_label = label;
-}
-/* APPLE LOCAL end radar 4547045 */
-
-/* Begin a scope which can be exited by a break or continue statement.  BC
-   indicates which.
-
-   Just creates a label and pushes it into the current context.  */
-
-static tree
-begin_bc_block (enum bc_t bc)
-{
-  tree label = create_artificial_label ();
-  DECL_NAME (label) = ctxp->bc_id[bc];
-  TREE_CHAIN (label) = ctxp->current_bc_label;
-  ctxp->current_bc_label = label;
-  return label;
-}
-
-/* Finish a scope which can be exited by a break or continue statement.
-   LABEL was returned from the most recent call to begin_bc_block.  BODY is
-   an expression for the contents of the scope.
-
-   If we saw a break (or continue) in the scope, append a LABEL_EXPR to
-   body.  Otherwise, just forget the label.  */
-
-static tree
-finish_bc_block (tree label, tree body)
-{
-  gcc_assert (label == ctxp->current_bc_label);
-
-  if (TREE_USED (label))
-    {
-      tree t, sl = NULL;
-
-      /* Clear the name so flow can delete the label.  */
-      DECL_NAME (label) = NULL_TREE;
-      t = build1 (LABEL_EXPR, void_type_node, label);
-
-      append_to_statement_list (body, &sl);
-      append_to_statement_list (t, &sl);
-      body = sl;
-    }
-
-  ctxp->current_bc_label = TREE_CHAIN (label);
-  TREE_CHAIN (label) = NULL_TREE;
-  return body;
-}
-
-/* Build a GOTO_EXPR to represent a break or continue statement.  BC
-   indicates which.  */
-
-static tree
-build_bc_goto (enum bc_t bc)
-{
-  tree label;
-  tree target_name = ctxp->bc_id[bc];
-
-  /* Look for the appropriate type of label.  */
-  for (label = ctxp->current_bc_label;
-       label;
-       label = TREE_CHAIN (label))
-    if (DECL_NAME (label) == target_name)
-      break;
-
-  if (label == NULL_TREE)
-    {
-      if (bc == bc_break)
-	error ("break statement not within loop or switch");
-      else
-	error ("continue statement not within loop or switch");
-
-      return NULL_TREE;
-    }
-
-  /* Mark the label used for finish_bc_block.  */
-  TREE_USED (label) = 1;
-  return build1 (GOTO_EXPR, void_type_node, label);
-}
-
-/* Build a generic representation of one of the C loop forms.  COND is the
-   loop condition or NULL_TREE.  BODY is the (possibly compound) statement
-   controlled by the loop.  INCR is the increment expression of a for-loop,
-   or NULL_TREE.  COND_IS_FIRST indicates whether the condition is
-   evaluated before the loop body as in while and for loops, or after the
-   loop body as in do-while loops.  */
-
-/* APPLE LOCAL begin C* language */
-static tree
-gimplify_c_loop (tree cond, tree body, tree incr, bool cond_is_first, 
-		 tree inner_foreach)
-{
-  tree top, entry, exit, cont_block, break_block, stmt_list, t;
-  location_t stmt_locus;
-
-  stmt_locus = input_location;
-  stmt_list = NULL_TREE;
-  entry = NULL_TREE;
-
-  /* APPLE LOCAL begin radar 4547045 */
-  /* Order of label addition to stack is important for objc's foreach-stmt. */
-  /* APPLE LOCAL radar 4667060 */
-  if (inner_foreach == integer_zero_node)
-    {
-      cont_block = begin_bc_block (bc_continue);
-      break_block = begin_bc_block (bc_break);
-    }
-  else
-    {
-      break_block = begin_bc_block (bc_break);
-      cont_block = begin_bc_block (bc_continue);
-    }
-  /* APPLE LOCAL end radar 4547045 */
-
-  /* If condition is zero don't generate a loop construct.  */
-  if (cond && integer_zerop (cond))
-    {
-      top = NULL_TREE;
-      exit = NULL_TREE;
-      if (cond_is_first)
-	{
-	  t = build_bc_goto (bc_break);
-	  append_to_statement_list (t, &stmt_list);
-	}
-    }
-  else
-    {
-      /* If we use a LOOP_EXPR here, we have to feed the whole thing
-	 back through the main gimplifier to lower it.  Given that we
-	 have to gimplify the loop body NOW so that we can resolve
-	 break/continue stmts, seems easier to just expand to gotos.  */
-      top = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
-
-      /* If we have an exit condition, then we build an IF with gotos either
-	 out of the loop, or to the top of it.  If there's no exit condition,
-	 then we just build a jump back to the top.  */
-      exit = build_and_jump (&LABEL_EXPR_LABEL (top));
-      if (cond && !integer_nonzerop (cond))
-	{
-	  /* APPLE LOCAL begin radar 4667060 */
-	  bool outer_foreach_loop = (inner_foreach
-				     && inner_foreach != integer_zero_node);
-	  tree label = NULL_TREE;
-	  if (outer_foreach_loop)
-	    /* New spec. requires that if no match was found; i.e. foreach 
-	       exited with no match, 'elem' be set to nil. So, we use a new 
-	       label for getting out of of the outer while loop and set 
-	       'elem=nill' after this label. */
-	      t = build_and_jump (&label);
-	  else
-	    t = build_bc_goto (bc_break);
-	  exit = build3 (COND_EXPR, void_type_node, cond, exit, t);
-	  exit = fold (exit);
-	  gimplify_stmt (&exit);
-	  if (outer_foreach_loop)
-	    {
-	      /* Label: ; */
-	      t = build1 (LABEL_EXPR, void_type_node, label);
-	      gimplify_stmt (&t);
-	      append_to_statement_list (t, &exit);
-	      /* elem = nil */
-	      t = build (MODIFY_EXPR, void_type_node, inner_foreach,
-		         fold_convert (TREE_TYPE (inner_foreach), 
-				       integer_zero_node));
-	      gimplify_stmt (&t);
-	      append_to_statement_list (t, &exit);
-	    }
-	  /* APPLE LOCAL end radar 4667060 */
-	  if (cond_is_first)
-	    {
-	      if (incr)
-		{
-		  entry = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
-		  t = build_and_jump (&LABEL_EXPR_LABEL (entry));
-		}
-	      else
-		t = build_bc_goto (bc_continue);
-	      append_to_statement_list (t, &stmt_list);
-	    }
-	}
-    }
-
-  /* APPLE LOCAL begin radar 4547045 */
-  /* Pop foreach's inner loop break label so outer loop's
-     break label becomes target of inner loop body's break statements. 
-  */
-  t = NULL_TREE;
-  /* APPLE LOCAL radar 4667060 */
-  if (inner_foreach == integer_zero_node)
-    t = objc_pop_label ();
-  /* APPLE LOCAL end radar 4547045 */
-  gimplify_stmt (&body);
-  gimplify_stmt (&incr);
-
-  body = finish_bc_block (cont_block, body);
-  /* APPLE LOCAL begin radar 4547045 */
-  /* Push back inner loop's own 'break' label so rest
-     of code works seemlessly. */
-  /* APPLE LOCAL radar 4667060 */
-  if (inner_foreach == integer_zero_node)
-    objc_push_label (t);
-  /* APPLE LOCAL end radar 4547045 */
-
-  append_to_statement_list (top, &stmt_list);
-  append_to_statement_list (body, &stmt_list);
-  append_to_statement_list (incr, &stmt_list);
-  append_to_statement_list (entry, &stmt_list);
-  append_to_statement_list (exit, &stmt_list);
-
-  annotate_all_with_locus (&stmt_list, stmt_locus);
-
-  return finish_bc_block (break_block, stmt_list);
-}
-/* APPLE LOCAL end C* language */
-
-/* Gimplify a FOR_STMT node.  Move the stuff in the for-init-stmt into the
-   prequeue and hand off to gimplify_c_loop.  */
-
-static enum gimplify_status
-gimplify_for_stmt (tree *stmt_p, tree *pre_p)
-{
-  tree stmt = *stmt_p;
-
-  if (FOR_INIT_STMT (stmt))
-    gimplify_and_add (FOR_INIT_STMT (stmt), pre_p);
-
-  *stmt_p = gimplify_c_loop (FOR_COND (stmt), FOR_BODY (stmt),
-  			     /* APPLE LOCAL C* language */
-			     FOR_EXPR (stmt), 1, NULL_TREE);
-
-  return GS_ALL_DONE;
-}
-
-/* Gimplify a WHILE_STMT node.  */
-
-static enum gimplify_status
-gimplify_while_stmt (tree *stmt_p)
-{
-  tree stmt = *stmt_p;
-  *stmt_p = gimplify_c_loop (WHILE_COND (stmt), WHILE_BODY (stmt),
-			     /* APPLE LOCAL C* language */
-			     NULL_TREE, 1, NULL_TREE);
-  return GS_ALL_DONE;
-}
-
-/* Gimplify a DO_STMT node.  */
-
-static enum gimplify_status
-gimplify_do_stmt (tree *stmt_p)
-{
-  tree stmt = *stmt_p;
-  *stmt_p = gimplify_c_loop (DO_COND (stmt), DO_BODY (stmt),
-			     /* APPLE LOCAL C* language */
-			     NULL_TREE, 0, DO_FOREACH (stmt));
-  return GS_ALL_DONE;
-}
-
-/* Genericize a SWITCH_STMT by turning it into a SWITCH_EXPR.  */
-
-static enum gimplify_status
-gimplify_switch_stmt (tree *stmt_p)
-{
-  tree stmt = *stmt_p;
-  tree break_block, body;
-  location_t stmt_locus = input_location;
-
-  break_block = begin_bc_block (bc_break);
-
-  body = SWITCH_STMT_BODY (stmt);
-  if (!body)
-    body = build_empty_stmt ();
-
-  *stmt_p = build3 (SWITCH_EXPR, SWITCH_STMT_TYPE (stmt),
-		    SWITCH_STMT_COND (stmt), body, NULL_TREE);
-  SET_EXPR_LOCATION (*stmt_p, stmt_locus);
-  gimplify_stmt (stmt_p);
-
-  *stmt_p = finish_bc_block (break_block, *stmt_p);
-  return GS_ALL_DONE;
-}
-
 /* Gimplification of expression trees.  */
 
-/* Gimplify a C99 compound literal expression.  This just means adding the
-   DECL_EXPR before the current EXPR_STMT and using its anonymous decl
-   instead.  */
+/* Gimplify a C99 compound literal expression.  This just means adding
+   the DECL_EXPR before the current statement and using its anonymous
+   decl instead.  */
 
 static enum gimplify_status
 gimplify_compound_literal_expr (tree *expr_p, tree *pre_p)
@@ -562,7 +187,6 @@ gimplify_compound_literal_expr (tree *expr_p, tree *pre_p)
   /* This decl isn't mentioned in the enclosing block, so add it to the
      list of temps.  FIXME it seems a bit of a kludge to say that
      anonymous artificial vars aren't pushed, but everything else is.  */
-  /* APPLE LOCAL file mainline 4.0.4 08-25-2006 4647057 */
   if (DECL_NAME (decl) == NULL_TREE && !DECL_SEEN_IN_BIND_EXPR_P (decl))
     gimple_add_tmp_var (decl);
 
@@ -592,32 +216,9 @@ c_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p ATTRIBUTE_UNUSED)
 	  && !warn_init_self)
 	TREE_NO_WARNING (DECL_EXPR_DECL (*expr_p)) = 1;
       return GS_UNHANDLED;
-      
+
     case COMPOUND_LITERAL_EXPR:
       return gimplify_compound_literal_expr (expr_p, pre_p);
-
-    case FOR_STMT:
-      return gimplify_for_stmt (expr_p, pre_p);
-
-    case WHILE_STMT:
-      return gimplify_while_stmt (expr_p);
-
-    case DO_STMT:
-      return gimplify_do_stmt (expr_p);
-
-    case SWITCH_STMT:
-      return gimplify_switch_stmt (expr_p);
-
-    case EXPR_STMT:
-      return gimplify_expr_stmt (expr_p);
-
-    case CONTINUE_STMT:
-      *expr_p = build_bc_goto (bc_continue);
-      return GS_ALL_DONE;
-
-    case BREAK_STMT:
-      *expr_p = build_bc_goto (bc_break);
-      return GS_ALL_DONE;
 
     default:
       return GS_UNHANDLED;

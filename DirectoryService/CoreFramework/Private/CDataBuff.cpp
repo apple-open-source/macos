@@ -64,15 +64,15 @@ CDataBuff::~CDataBuff ( void )
 
 void CDataBuff::AppendString ( const char *inStr )
 {
-	UInt32	len	= 0;
+	size_t	len	= 0;
 
 	if ( inStr != nil )
 	{
 		len = ::strlen( inStr );
-		GrowBuff( fLength + len + 1 );
+		GrowBuff( (UInt32) (fLength + len + 1) );
 
 		::strcpy ( &fData[ fLength ], inStr );
-		fLength += len;
+		fLength += (UInt32) len;
 	}
 } // AppendString
 
@@ -258,7 +258,7 @@ SInt32 dsCDataBuffFromAttrTypeAndStringValue( CDataBuff* inOutAttrDataBuff, CDat
 		inOutDataBuff->AppendShort( 1 );
 
 		// Append the attribute value
-		inOutDataBuff->AppendLong( ::strlen( inAttrValue ) );
+		inOutDataBuff->AppendLong( (UInt32) ::strlen( inAttrValue ) );
 		inOutDataBuff->AppendString( inAttrValue );
 
 	}
@@ -317,7 +317,7 @@ SInt32 dsCDataBuffFromAttrTypeAndStringArgValues( CDataBuff* inOutAttrDataBuff, 
 		{
 			numAttrValues++;
 			// Append the attribute value
-			tmpDataBuff->AppendLong( ::strlen( argString ) );
+			tmpDataBuff->AppendLong( (UInt32) ::strlen( argString ) );
 			tmpDataBuff->AppendString( argString );
 
 			argString = va_arg( inAttrValues, char * );
@@ -373,7 +373,7 @@ SInt32 dsCDataBuffFromAttrTypeAndStringValues( CDataBuff* inOutAttrDataBuff, CDa
 		{
 			numAttrValues++;
 			// Append the attribute value
-			tmpDataBuff->AppendLong( ::strlen( argString ) );
+			tmpDataBuff->AppendLong( (UInt32) ::strlen( argString ) );
 			tmpDataBuff->AppendString( argString );
 
 			argString = inAttrValues[numAttrValues];

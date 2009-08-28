@@ -60,11 +60,6 @@
 
 #ifdef I386_USE_GENERIC_WATCHPOINTS
 
-/* Support for 8-byte wide hw watchpoints.  */
-#ifndef TARGET_HAS_DR_LEN_8
-#define TARGET_HAS_DR_LEN_8	0
-#endif
-
 /* Debug registers' indices.  */
 #define DR_NADDR	4	/* The number of debug address registers.  */
 #define DR_STATUS	6	/* Index of debug status register (DR6).  */
@@ -212,6 +207,16 @@ static int i386_handle_nonaligned_watchpoint (i386_wp_op_t what,
 					      CORE_ADDR addr, int len,
 					      enum target_hw_bp_type type);
 
+/* APPLE LOCAL: Instead of using TARGET_HAS_DR_LEN_8 to determine whether
+   this is an i386 or x86_64 gdb, use the current gdbarch setting to determine
+   the current wordsize.  */
+
+static int
+wordsize (void)
+{
+  return TARGET_PTR_BIT / 8;
+}
+
 /* Implementation.  */
 
 /* Clear the reference counts and forget everything we knew about the
@@ -324,7 +329,7 @@ Invalid hardware breakpoint type %d in i386_length_and_rw_bits.\n"),
       case 4:
 	return (DR_LEN_4 | rw);
       case 8:
-        if (TARGET_HAS_DR_LEN_8)
+        if (wordsize () == 8)
  	  return (DR_LEN_8 | rw);
       default:
 	internal_error (__FILE__, __LINE__, _("\
@@ -437,7 +442,7 @@ i386_handle_nonaligned_watchpoint (i386_wp_op_t what, CORE_ADDR addr, int len,
 				   enum target_hw_bp_type type)
 {
   int retval = 0, status = 0;
-  int max_wp_len = TARGET_HAS_DR_LEN_8 ? 8 : 4;
+  int max_wp_len = wordsize ();
 
   static int size_try_array[8][8] =
   {
@@ -510,7 +515,7 @@ i386_insert_watchpoint (CORE_ADDR addr, int len, int type)
 {
   int retval;
 
-  if (((len != 1 && len !=2 && len !=4) && !(TARGET_HAS_DR_LEN_8 && len == 8))
+  if (((len != 1 && len != 2 && len != 4) && !(wordsize () == 8 && len == 8))
       || addr % len != 0)
     retval = i386_handle_nonaligned_watchpoint (WP_INSERT, addr, len, type);
   else
@@ -534,7 +539,7 @@ i386_remove_watchpoint (CORE_ADDR addr, int len, int type)
 {
   int retval;
 
-  if (((len != 1 && len !=2 && len !=4) && !(TARGET_HAS_DR_LEN_8 && len == 8))
+  if (((len != 1 && len != 2 && len != 4) && !(wordsize () == 8 && len == 8))
       || addr % len != 0)
     retval = i386_handle_nonaligned_watchpoint (WP_REMOVE, addr, len, type);
   else
@@ -632,7 +637,7 @@ i386_stopped_by_hwbp (void)
 /* Insert a hardware-assisted breakpoint at address ADDR.  SHADOW is
    unused.  Return 0 on success, EBUSY on failure.  */
 int
-i386_insert_hw_breakpoint (CORE_ADDR addr, void *shadow)
+i386_insert_hw_breakpoint (CORE_ADDR addr, gdb_byte *shadow)
 {
   unsigned len_rw = i386_length_and_rw_bits (1, hw_execute);
   int retval = i386_insert_aligned_watchpoint (addr, len_rw) ? EBUSY : 0;
@@ -647,7 +652,7 @@ i386_insert_hw_breakpoint (CORE_ADDR addr, void *shadow)
    unused.  Return 0 on success, -1 on failure.  */
 
 int
-i386_remove_hw_breakpoint (CORE_ADDR addr, void *shadow)
+i386_remove_hw_breakpoint (CORE_ADDR addr, gdb_byte *shadow)
 {
   unsigned len_rw = i386_length_and_rw_bits (1, hw_execute);
   int retval = i386_remove_aligned_watchpoint (addr, len_rw);

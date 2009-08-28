@@ -31,11 +31,13 @@
 #include <Security/SecIdentity.h>
 #include <Security/CMSEncoder.h>
 #include <Security/CMSPrivate.h>
+#include <Security/CSCommonPriv.h>
 #include <CoreFoundation/CFBundlePriv.h>
 #include "renum.h"
+#include "machorep.h"
 #include <security_utilities/unix++.h>
 #include <security_utilities/unixchild.h>
-#include <security_codesigning/cfmunge.h>
+#include <security_utilities/cfmunge.h>
 
 namespace Security {
 namespace CodeSigning {
@@ -46,9 +48,45 @@ namespace CodeSigning {
 //
 void SecCodeSigner::Signer::sign(SecCSFlags flags)
 {
-	// set up access to the subject Code
 	rep = code->diskRep()->base();
-	
+	this->prepare(flags);
+	if (Universal *fat = state.mNoMachO ? NULL : rep->mainExecutableImage()) {
+		signMachO(fat);
+	} else {
+		signArchitectureAgnostic();
+	}
+}
+
+
+//
+// Remove any existing code signature from code
+//
+void SecCodeSigner::Signer::remove(SecCSFlags flags)
+{
+	// can't remove a detached signature
+	if (state.mDetached)
+		MacOSError::throwMe(errSecCSNotSupported);
+
+	rep = code->diskRep();
+	if (Universal *fat = state.mNoMachO ? NULL : rep->mainExecutableImage()) {
+		// architecture-sensitive removal
+		MachOEditor editor(rep->writer(), *fat, rep->mainExecutablePath());
+		editor.allocate();		// create copy
+		editor.commit();		// commit change
+	} else {
+		// architecture-agnostic removal
+		RefPointer<DiskRep::Writer> writer = rep->writer();
+		writer->remove();
+		writer->flush();
+	}
+}
+
+
+//
+// Contemplate the object-to-be-signed and set up the Signer state accordingly.
+//
+void SecCodeSigner::Signer::prepare(SecCSFlags flags)
+{
 	// get the Info.plist out of the rep for some creative defaulting
 	CFRef<CFDictionaryRef> infoDict;
 	if (CFRef<CFDataRef> infoData = rep->component(cdInfoSlot))
@@ -58,7 +96,7 @@ void SecCodeSigner::Signer::sign(SecCSFlags flags)
 	identifier = state.mIdentifier;
 	if (identifier.empty()) {
 		identifier = rep->recommendedIdentifier();
-		if (identifier.find('.') == string::npos && !state.mIdentifierPrefix.empty())
+		if (identifier.find('.') == string::npos)
 			identifier = state.mIdentifierPrefix + identifier;
 		secdebug("signer", "using default identifier=%s", identifier.c_str());
 	} else
@@ -74,29 +112,32 @@ void SecCodeSigner::Signer::sign(SecCSFlags flags)
 			if (CFTypeRef csflags = CFDictionaryGetValue(infoDict, CFSTR("CSFlags")))
 				if (CFGetTypeID(csflags) == CFNumberGetTypeID()) {
 					cdFlags = cfNumber<uint32_t>(CFNumberRef(csflags));
-					secdebug("signer", "using numeric cdFlags=0x%x from Info.dict", cdFlags);
+					secdebug("signer", "using numeric cdFlags=0x%x from Info.plist", cdFlags);
 				} else if (CFGetTypeID(csflags) == CFStringGetTypeID()) {
-					cdFlags = CodeDirectory::textFlags(cfString(CFStringRef(csflags)));
-					secdebug("signer", "using text cdFlags=0x%x from Info.dict", cdFlags);
+					cdFlags = cdTextFlags(cfString(CFStringRef(csflags)));
+					secdebug("signer", "using text cdFlags=0x%x from Info.plist", cdFlags);
 				} else
 					MacOSError::throwMe(errSecCSBadDictionaryFormat);
 	}
 	if (state.mSigner == SecIdentityRef(kCFNull))	// ad-hoc signing requested...
-		cdFlags |= kSecCodeSignatureAdhoc;	// ... so allow that
+		cdFlags |= kSecCodeSignatureAdhoc;	// ... so note that
 	
 	// prepare the resource directory, if any
 	string rpath = rep->resourcesRootPath();
 	if (!rpath.empty()) {
 		// explicitly given resource rules always win
-		CFCopyRef<CFDictionaryRef> resourceRules(state.mResourceRules);
+		CFCopyRef<CFDictionaryRef> resourceRules = state.mResourceRules;
 		
 		// embedded resource rules come next
-		if (!resourceRules)
-			if (CFTypeRef spec = CFDictionaryGetValue(infoDict, _kCFBundleResourceSpecificationKey))
+		if (!resourceRules && infoDict)
+			if (CFTypeRef spec = CFDictionaryGetValue(infoDict, _kCFBundleResourceSpecificationKey)) {
 				if (CFGetTypeID(spec) == CFStringGetTypeID())
 					if (CFRef<CFDataRef> data = cfLoadFile(rpath + "/" + cfString(CFStringRef(spec))))
-						if (CFRef<CFDictionaryRef> dict = makeCFDictionaryFrom(data))
-							resourceRules = dict;
+						if (CFDictionaryRef dict = makeCFDictionaryFrom(data))
+							resourceRules.take(dict);
+				if (!resourceRules)	// embedded rules present but unacceptable
+					MacOSError::throwMe(errSecCSResourceRulesInvalid);
+			}
 
 		// finally, ask the DiskRep for its default
 		if (!resourceRules)
@@ -104,7 +145,7 @@ void SecCodeSigner::Signer::sign(SecCSFlags flags)
 		
 		// build the resource directory
 		ResourceBuilder resources(rpath, cfget<CFDictionaryRef>(resourceRules, "rules"));
-		rep->adjustResources(resources);
+		rep->adjustResources(resources);	// DiskRep-specific adjustments
 		CFRef<CFDictionaryRef> rdir = resources.build();
 		resourceDirectory.take(CFPropertyListCreateXMLData(NULL, rdir));
 	}
@@ -123,12 +164,6 @@ void SecCodeSigner::Signer::sign(SecCSFlags flags)
 	}
 	
 	pagesize = state.mPageSize ? cfNumber<size_t>(state.mPageSize) : rep->pageSize();
-	
-	if (Universal *fat = state.mNoMachO ? NULL : rep->mainExecutableImage()) {
-		signMachO(fat);
-	} else {
-		signArchitectureAgnostic();
-	}
 }
 
 
@@ -157,6 +192,14 @@ void SecCodeSigner::Signer::signMachO(Universal *fat)
 			populate(arch);
 		populate(arch.cdbuilder, arch, arch.ireqs,
 			arch.source->offset(), arch.source->signingExtent());
+	
+		// add identification blob (made from this architecture) only if we're making a detached signature
+		if (state.mDetached) {
+			CFRef<CFDataRef> identification = MachORep::identificationFor(arch.source.get());
+			arch.add(cdIdentificationSlot, BlobWrapper::alloc(
+				CFDataGetBytePtr(identification), CFDataGetLength(identification)));
+		}
+		
 		// prepare SuperBlob size estimate
 		size_t cdSize = arch.cdbuilder.size();
 		arch.blobSize = arch.size(cdSize, state.mCMSSize, 0);
@@ -203,6 +246,13 @@ void SecCodeSigner::Signer::signArchitectureAgnostic()
 	ireqs(state.mRequirements, rep->defaultRequirements(NULL));
 	populate(*writer);
 	populate(builder, *writer, ireqs, rep->signingBase(), rep->signingLimit());
+	
+	// add identification blob (made from this architecture) only if we're making a detached signature
+	if (state.mDetached) {
+		CFRef<CFDataRef> identification = rep->identification();
+		writer->component(cdIdentificationSlot, identification);
+	}
+	
 	CodeDirectory *cd = builder.build();
 	CFRef<CFDataRef> signature = signCodeDirectory(cd);
 	if (!state.mDryRun) {
@@ -238,36 +288,25 @@ void SecCodeSigner::Signer::populate(CodeDirectory::Builder &builder, DiskRep::W
 	builder.flags(cdFlags);
 	builder.identifier(identifier);
 	
-	for (CodeDirectory::Slot slot = cdSlotMax; slot >= 1; --slot)
-		switch (slot) {
-		case cdRequirementsSlot:
-			if (ireqs) {
-				CFRef<CFDataRef> data = makeCFData(*ireqs);
-				writer.component(cdRequirementsSlot, data);
-				builder.special(slot, data);
-			}
-			break;
-		case cdResourceDirSlot:
-			if (resourceDirectory)
-				builder.special(slot, resourceDirectory);
-			break;
-		case cdApplicationSlot:
+	if (CFDataRef data = rep->component(cdInfoSlot))
+		builder.special(cdInfoSlot, data);
+	if (ireqs) {
+		CFRef<CFDataRef> data = makeCFData(*ireqs);
+		writer.component(cdRequirementsSlot, data);
+		builder.special(cdRequirementsSlot, data);
+	}
+	if (resourceDirectory)
+		builder.special(cdResourceDirSlot, resourceDirectory);
 #if NOT_YET
-			if (state.mApplicationData)
-				builder.special(slot, state.mApplicationData);
+	if (state.mApplicationData)
+		builder.special(cdApplicationSlot, state.mApplicationData);
 #endif
-			break;
-		case cdEntitlementSlot:
-			if (state.mEntitlementData) {
-				writer.component(cdEntitlementSlot, state.mEntitlementData);
-				builder.special(slot, state.mEntitlementData);
-			}
-			break;
-		default:
-			if (CFDataRef data = rep->component(slot))
-				builder.special(slot, data);
-			break;
-		}
+	if (state.mEntitlementData) {
+		writer.component(cdEntitlementSlot, state.mEntitlementData);
+		builder.special(cdEntitlementSlot, state.mEntitlementData);
+	}
+	
+	writer.addDiscretionary(builder);
 }
 
 
@@ -298,6 +337,32 @@ CFDataRef SecCodeSigner::Signer::signCodeDirectory(const CodeDirectory *cd)
 	CFDataRef signature;
 	MacOSError::check(CMSEncoderCopyEncodedContent(cms, &signature));
 	return signature;
+}
+
+
+//
+// Parse a text of the form
+//	flag,...,flag
+// where each flag is the canonical name of a signable CodeDirectory flag.
+// No abbreviations are allowed, and internally set flags are not accepted.
+//
+uint32_t SecCodeSigner::Signer::cdTextFlags(std::string text)
+{
+	uint32_t flags = 0;
+	for (string::size_type comma = text.find(','); ; text = text.substr(comma+1), comma = text.find(',')) {
+		string word = (comma == string::npos) ? text : text.substr(0, comma);
+		const SecCodeDirectoryFlagTable *item;
+		for (item = kSecCodeDirectoryFlagTable; item->name; item++)
+			if (item->signable && word == item->name) {
+				flags |= item->value;
+				break;
+			}
+		if (!item->name)	// not found
+			MacOSError::throwMe(errSecCSInvalidFlags);
+		if (comma == string::npos)	// last word
+			break;
+	}
+	return flags;
 }
 
 

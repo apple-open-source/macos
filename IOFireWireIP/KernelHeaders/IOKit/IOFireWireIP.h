@@ -78,6 +78,7 @@ extern "C"{
 #include "IOFWIPDefinitions.h"
 #include "IOFireWireIPDiagnostics.h"
 
+
 class IOFireWireNub;
 
 typedef UInt32	(*IOTransmitPacket)(mbuf_t m, void *param);
@@ -264,14 +265,11 @@ public:
 	virtual const OSString	*newVendorString() const;
 	virtual const OSString	*newModelString() const;
 	virtual const OSString	*newRevisionString() const;
-	
-	virtual IOReturn		enable(IOKernelDebugger * debugger);
-	virtual IOReturn		disable(IOKernelDebugger * debugger);
-	
+		
 	virtual bool			configureInterface(IONetworkInterface *netif);
 
-    virtual void			receivePackets(void * pkt, UInt32 pkt_len, UInt32 options);
-    static UInt32			outputPacket(mbuf_t m, void * param);
+    virtual void			receivePackets(mbuf_t pkt, UInt32 pkt_len, UInt32 options);
+	virtual UInt32			outputPacket(mbuf_t m, void * param);
 
 	virtual	bool			arpCacheHandler(IP1394_ARP *fwa);
 	virtual UInt32			transmitPacket(mbuf_t m, void * param);
@@ -333,12 +331,12 @@ public:
 	IORecursiveLock *getIPLock() const
 	{return ipLock;};
 
-	inline void IOFireWireIP::closeIPoFWGate()
+	inline void closeIPoFWGate()
 	{
 		IORecursiveLockLock(ipLock);
 	}
 
-	inline void IOFireWireIP::openIPoFWGate()
+	inline void openIPoFWGate()
 	{
 		IORecursiveLockUnlock(ipLock);
 	}
@@ -357,9 +355,10 @@ public:
 		@param target - callback data.
         @param refcon - callback data.
         @param newService - handle to the new IP1394 unit created.
+		@param notifier - handle to the notification request.
         @result bool.
 	*/
-	static bool fwIPUnitAttach(void *target, void *refCon, IOService *newService);
+	static bool fwIPUnitAttach(void *target, void *refCon, IOService *newService, IONotifier * notifier);
 
 	void registerFWIPPrivateHandlers(IOFireWireIPPrivateHandlers *service);
 

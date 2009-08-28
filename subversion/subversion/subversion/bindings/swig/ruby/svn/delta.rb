@@ -1,4 +1,6 @@
 require "English"
+require "forwardable"
+
 require "svn/error"
 require "svn/util"
 require "svn/core"
@@ -17,7 +19,7 @@ module Svn
     module_function
     def svndiff_handler(output, version=nil)
       args = [output, version || 0]
-      handler, handler_baton = Delta.txdelta_to_svndiff2_wrapper(*args)
+      handler, handler_baton = Delta.txdelta_to_svndiff2(*args)
       handler.baton = handler_baton
       handler
     end
@@ -58,7 +60,7 @@ module Svn
     def parse_svndiff(error_on_early_close=true, &handler)
       Delta.txdelta_parse_svndiff(handler, error_on_early_close)
     end
-    
+
     def setup_handler_wrapper(wrapper)
       Proc.new do |window|
         Delta.txdelta_invoke_window_handler_wrapper(wrapper, window)
@@ -119,14 +121,14 @@ module Svn
 
     TextDeltaWindowHandler =
       SWIG::TYPE_p_f_p_svn_txdelta_window_t_p_void__p_svn_error_t
-    
+
     class TextDeltaWindowHandler
       attr_accessor :baton
 
       def call(window)
-        Delta.txdelta_invoke_window_handler(self, window)
+        Delta.txdelta_invoke_window_handler(self, window, @baton)
       end
-      
+
       def send(string_or_stream)
         if string_or_stream.is_a?(TextDeltaStream)
           Delta.txdelta_send_txstream(string_or_stream, self, @baton)
@@ -137,7 +139,7 @@ module Svn
         end
       end
     end
-    
+
     class Editor
 
       %w(set_target_revision open_root delete_entry
@@ -146,21 +148,27 @@ module Svn
          apply_textdelta change_file_prop close_file
          absent_file close_edit abort_edit).each do |name|
         alias_method("_#{name}", name)
-        alias_method("_#{name}=", "#{name}=")
+        undef_method("#{name}=")
       end
 
       attr_accessor :baton
-      
+      attr_writer :target_revision_address
+      private :target_revision_address=
+
+      def target_revision
+        Svn::Delta.swig_rb_delta_editor_get_target_revision(self)
+      end
+
       def set_target_revision(target_revision)
         args = [self, @baton, target_revision]
         Svn::Delta.editor_invoke_set_target_revision(*args)
       end
-      
+
       def open_root(base_revision)
         args = [self, @baton, base_revision]
-        Svn::Delta.editor_invoke_open_root(*args)
+        Svn::Delta.editor_invoke_open_root_wrapper(*args)
       end
-        
+
       def delete_entry(path, revision, parent_baton)
         args = [self, path, revision, parent_baton]
         Svn::Delta.editor_invoke_delete_entry(*args)
@@ -169,12 +177,12 @@ module Svn
       def add_directory(path, parent_baton,
                         copyfrom_path, copyfrom_revision)
         args = [self, path, parent_baton, copyfrom_path, copyfrom_revision]
-        Svn::Delta.editor_invoke_add_directory(*args)
+        Svn::Delta.editor_invoke_add_directory_wrapper(*args)
       end
 
       def open_directory(path, parent_baton, base_revision)
         args = [self, path, parent_baton, base_revision]
-        Svn::Delta.editor_invoke_open_directory(*args)
+        Svn::Delta.editor_invoke_open_directory_wrapper(*args)
       end
 
       def change_dir_prop(dir_baton, name, value)
@@ -195,17 +203,18 @@ module Svn
       def add_file(path, parent_baton,
                    copyfrom_path, copyfrom_revision)
         args = [self, path, parent_baton, copyfrom_path, copyfrom_revision]
-        Svn::Delta.editor_invoke_add_file(*args)
+        Svn::Delta.editor_invoke_add_file_wrapper(*args)
       end
 
       def open_file(path, parent_baton, base_revision)
         args = [self, path, parent_baton, base_revision]
-        Svn::Delta.editor_invoke_open_file(*args)
+        Svn::Delta.editor_invoke_open_file_wrapper(*args)
       end
 
       def apply_textdelta(file_baton, base_checksum)
         args = [self, file_baton, base_checksum]
-        handler, handler_baton = Svn::Delta.editor_invoke_apply_textdelta(*args)
+        handler, handler_baton =
+          Svn::Delta.editor_invoke_apply_textdelta_wrapper(*args)
         handler.baton = handler_baton
         handler
       end
@@ -228,22 +237,26 @@ module Svn
       def close_edit
         args = [self, @baton]
         Svn::Delta.editor_invoke_close_edit(*args)
+      ensure
+        Core::Pool.destroy(self)
       end
 
       def abort_edit
         args = [self, @baton]
         Svn::Delta.editor_invoke_abort_edit(*args)
+      ensure
+        Core::Pool.destroy(self)
       end
     end
-    
+
     class BaseEditor
-      # open_root -> add_directory -> open_directory -> add_file -> open_file 
+      # open_root -> add_directory -> open_directory -> add_file -> open_file
       def set_target_revision(target_revision)
       end
-      
+
       def open_root(base_revision)
       end
-        
+
       def delete_entry(path, revision, parent_baton)
       end
 
@@ -299,49 +312,49 @@ module Svn
                    copyfrom_path, copyfrom_revision)
       end
     end
-    
+
     class ChangedDirsEditor < BaseEditor
       attr_reader :changed_dirs
 
       def initialize
         @changed_dirs = []
       end
-      
+
       def open_root(base_revision)
         [true, '']
       end
-      
+
       def delete_entry(path, revision, parent_baton)
         dir_changed(parent_baton)
       end
-      
+
       def add_directory(path, parent_baton,
                         copyfrom_path, copyfrom_revision)
         dir_changed(parent_baton)
         [true, path]
       end
-      
+
       def open_directory(path, parent_baton, base_revision)
         [true, path]
       end
-      
+
       def change_dir_prop(dir_baton, name, value)
         dir_changed(dir_baton)
       end
-      
+
       def add_file(path, parent_baton,
                    copyfrom_path, copyfrom_revision)
         dir_changed(parent_baton)
       end
-      
+
       def open_file(path, parent_baton, base_revision)
         dir_changed(parent_baton)
       end
-      
+
       def close_edit(baton)
         @changed_dirs.sort!
       end
-      
+
       private
       def dir_changed(baton)
         if baton[0]
@@ -358,7 +371,7 @@ module Svn
       attr_reader :added_files, :added_dirs
       attr_reader :deleted_files, :deleted_dirs
       attr_reader :updated_files, :updated_dirs
-      
+
       def initialize(root, base_root)
         @root = root
         @base_root = base_root
@@ -372,11 +385,11 @@ module Svn
         @updated_files = []
         @updated_dirs = []
       end
-      
+
       def open_root(base_revision)
         [true, '']
       end
-      
+
       def delete_entry(path, revision, parent_baton)
         if @base_root.dir?("/#{path}")
           @deleted_dirs << "#{path}/"
@@ -384,7 +397,7 @@ module Svn
           @deleted_files << path
         end
       end
-      
+
       def add_directory(path, parent_baton,
                         copyfrom_path, copyfrom_revision)
         copyfrom_rev, copyfrom_path = @root.copied_from(path)
@@ -399,11 +412,11 @@ module Svn
         end
         [false, path]
       end
-      
+
       def open_directory(path, parent_baton, base_revision)
         [true, path]
       end
-      
+
       def change_dir_prop(dir_baton, name, value)
         if dir_baton[0]
           @updated_dirs << "#{dir_baton[1]}/"
@@ -411,7 +424,7 @@ module Svn
         end
         dir_baton
       end
-      
+
       def close_directory(dir_baton)
         unless dir_baton[0]
           @in_copied_dir.pop
@@ -430,20 +443,20 @@ module Svn
         end
         [nil, nil, nil]
       end
-      
+
       def open_file(path, parent_baton, base_revision)
         [nil, nil, path]
       end
-      
+
       def apply_textdelta(file_baton, base_checksum)
         file_baton[0] = :update
         nil
       end
-      
+
       def change_file_prop(file_baton, name, value)
         file_baton[1] = :update
       end
-      
+
       def close_file(file_baton, text_checksum)
         text_mod, prop_mod, path = file_baton
         # test the path. it will be nil if we added this file.
@@ -470,6 +483,21 @@ module Svn
         @in_copied_dir.last
       end
     end
-    
+
+    class WrapEditor
+      extend Forwardable
+
+      def_delegators :@wrapped_editor, :set_target_revision, :open_root
+      def_delegators :@wrapped_editor, :delete_entry, :add_directory
+      def_delegators :@wrapped_editor, :open_directory, :change_dir_prop
+      def_delegators :@wrapped_editor, :close_directory, :absent_directory
+      def_delegators :@wrapped_editor, :add_file, :open_file, :apply_textdelta
+      def_delegators :@wrapped_editor, :change_file_prop, :close_file
+      def_delegators :@wrapped_editor, :absent_file, :close_edit, :abort_edit
+
+      def initialize(wrapped_editor)
+        @wrapped_editor = wrapped_editor
+      end
+    end
   end
 end

@@ -13,23 +13,16 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2000  The FreeRADIUS server project
+ * Copyright 2000,2006  The FreeRADIUS server project
  */
 
-#include "autoconf.h"
-#include "libradius.h"
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include "radiusd.h"
-#include "modules.h"
-#include "conffile.h"
-
-static const char rcsid[] = "$Id: rlm_always.c,v 1.12 2004/02/26 19:04:27 aland Exp $";
+#include <freeradius-devel/radiusd.h>
+#include <freeradius-devel/modules.h>
 
 /*
  *	The instance data for rlm_always is the list of fake values we are
@@ -51,7 +44,7 @@ typedef struct rlm_always_t {
  *	to the strdup'd string into 'config.string'.  This gets around
  *	buffer over-flows.
  */
-static CONF_PARSER module_config[] = {
+static const CONF_PARSER module_config[] = {
   { "rcode",      PW_TYPE_STRING_PTR, offsetof(rlm_always_t,rcode_str),
     NULL, "fail" },
   { "simulcount", PW_TYPE_INTEGER,    offsetof(rlm_always_t,simulcount),
@@ -115,8 +108,6 @@ static int always_instantiate(CONF_SECTION *conf, void **instance)
 	 *	Convert the rcode string to an int, and get rid of it
 	 */
 	data->rcode = str2rcode(data->rcode_str);
-	free(data->rcode_str);
-	data->rcode_str = NULL;
 	if (data->rcode == -1) {
 		free(data);
 		return -1;
@@ -161,10 +152,11 @@ static int always_detach(void *instance)
 }
 
 module_t rlm_always = {
+	RLM_MODULE_INIT,
 	"always",
-	RLM_TYPE_THREAD_SAFE,		/* type */
-	NULL,				/* initialization */
+	RLM_TYPE_CHECK_CONFIG_SAFE,   	/* type */
 	always_instantiate,		/* instantiation */
+	always_detach,			/* detach */
 	{
 		always_return,		/* authentication */
 		always_return,		/* authorization */
@@ -175,6 +167,4 @@ module_t rlm_always = {
 		always_return,		/* post-proxy */
 		always_return		/* post-auth */
 	},
-	always_detach,			/* detach */
-	NULL,				/* destroy */
 };

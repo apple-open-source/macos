@@ -64,7 +64,7 @@ void
 get_macosx_deployment_target(
 struct macosx_deployment_target *value)
 {
-    unsigned long ten, major, minor;
+    uint32_t ten, major, minor;
     char *p, *q, *endp;
     char osversion[32];
     size_t osversion_len;
@@ -138,7 +138,7 @@ use_default:
 	value->major = major;
 	value->minor = minor;
 	value->name = allocate(32);
-	sprintf(value->name, "10.%lu.%lu", major, minor);
+	sprintf(value->name, "10.%u.%u", major, minor);
 	goto warn_if_bad_user_values;
 
 bad_system_value:
@@ -146,10 +146,10 @@ bad_system_value:
 	 * As a last resort we set the default to the highest known shipping
 	 * system to date.
 	 */
-	value->major = 5;
+	value->major = 6;
 	value->minor = 0;
-	value->name = allocate(strlen("10.5") + 1);
-	strcpy(value->name, "10.5");
+	value->name = allocate(strlen("10.6") + 1);
+	strcpy(value->name, "10.6");
 	warning("unknown value returned by sysctl() for kern.osrelease: %s "
 		"ignored (using %s)", osversion, value->name);
 	/* fall through to also warn about a possble bad user value */

@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -59,8 +59,10 @@ enum {
     kEAPTypeGenericTokenCard = 6,
     kEAPTypeTLS = 13,
     kEAPTypeCiscoLEAP = 17,
+    kEAPTypeEAPSIM = 18,
     kEAPTypeSRPSHA1 = 19,
     kEAPTypeTTLS = 21,
+    kEAPTypeEAPAKA = 23,
     kEAPTypePEAP = 25,
     kEAPTypeMSCHAPv2 = 26,
     kEAPTypeExtensions = 33,

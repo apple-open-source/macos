@@ -2,7 +2,7 @@
 #	Configuration file for the rlm_attr_filter module.
 #	Please see rlm_attr_filter(5) manpage for more information.
 #
-#	$Id: attrs,v 1.4.8.1.2.1 2006/11/22 17:00:01 aland Exp $
+#	$Id$
 #
 #	This file contains security and configuration information
 #	for each realm. The first field is the realm name and
@@ -117,6 +117,10 @@ DEFAULT
 	Reply-Message =* ANY,
 	Proxy-State =* ANY,
 	EAP-Message =* ANY,
+	Message-Authenticator =* ANY,
+	MS-MPPE-Recv-Key =* ANY,
+	MS-MPPE-Send-Key =* ANY,
+	MS-CHAP-MPPE-Keys =* ANY,
 	State =* ANY,
 	Session-Timeout <= 28800,
 	Idle-Timeout <= 600,

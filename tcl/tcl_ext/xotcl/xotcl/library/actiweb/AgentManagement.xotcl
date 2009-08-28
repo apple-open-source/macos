@@ -1,0 +1,218 @@
+# $Id: AgentManagement.xotcl,v 1.6 2006/09/27 08:12:40 neumann Exp $
+
+package provide xotcl::actiweb::agentManagement 0.8
+
+package require xotcl::rdf::parser
+package require xotcl::rdf::triple
+package require xotcl::actiweb::agent
+
+package require XOTcl
+
+namespace eval ::xotcl::actiweb::agentManagement {
+    namespace import ::xotcl::*
+
+    Class AgentInfo -parameter {
+	{name ""}
+	{changed 1}
+    }
+
+    AgentInfo instproc init args {
+	next
+	#
+	# array providing info on a (migrated) agent
+	#
+	my array set agentData {}
+	RDFTripleDB [self]::db
+	my trace variable agentData w [list [self] changeOccured]
+	my trace variable name w [list [self] changeOccured]
+    }
+
+    AgentInfo instproc getXMLScript {name} {
+	#my showCall
+	set s {<?xml version="1.0"?>
+	    <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+	    xmlns:xotcl="http://www.xotcl.org/agent">
+	    <rdf:Description about="$name">}
+	set s [subst -nobackslashes $s]
+	foreach n [my array name agentData] {
+	    append s "
+    <agent:$n> [my set agentData($n)] </agent:$n>"
+	}
+	append s "  
+  </rdf:Description>
+</rdf:RDF>"
+    }
+
+    AgentInfo instproc changeOccured args {my set changed 1}
+
+    AgentInfo instproc getTriples {} {
+	#my showCall
+	if {[my set changed]} {
+	    # build up the triple-db
+	    [self]::db reset
+	    set place [Place getInstance]
+	    set subject "http://[$place set host]:[$place set port]/[my name]"
+	    foreach n [my array names agentData] {
+		[self]::db add $n $subject [my set agentData($n)]
+	    }
+	}
+	return [[self]::db getTriples]
+    }
+
+    AgentInfo instproc print {} {
+	puts "AGENT-INFO:"
+	puts "Name == [my set name]"
+	foreach a [my array names agentData] {
+	    puts "$a == [my set agentData($a)]"
+	}
+    }
+
+    Class AgentVisitor -superclass NodeTreeVisitor -parameter {
+	{openProperty ""}
+	{agentInfo ""}
+	{rdfNS {[my info parent]::rdfNS}}
+    }
+
+    AgentVisitor instproc fullName {obj n} {
+	set ns [$obj resolveNS]
+	return [$ns getFullName $n]
+    }
+
+    AgentVisitor instproc visit {objName} {
+	#puts stderr "AgentVisitor visit -- $objName"
+	set ai [my set agentInfo]
+	set cl [$objName info class]
+	#puts stderr "AgentVisitor visit -- $objName cl=$cl <[$ai name]>"
+	if {[$ai name] eq ""} {
+	    #### not fixed yet
+	    puts stderr "my fixme (AgentManagement)"
+	    if {$cl eq "::About" &&
+		[string first "::Description" [[$objName info parent] info class]] == 0} {
+		$ai name [$objName set content]
+	    }
+	} else {  
+	    #puts stderr C=<[$objName content]>
+	    #$cl showVars
+	    switch -exact $cl {
+		::RDFProperty {
+		    set c [$objName content]
+		    #$objName showVars
+		    if {[$objName exists pcdata]} {
+			$ai set agentData($c) [lindex [$objName getPCdataList] 0]
+		    } else {
+			#puts stderr "empty PCDATA"
+		    }
+		}
+	    }
+	}
+    }
+
+    AgentVisitor instproc interpretNodeTree node {
+	if {[my set agentInfo] eq "" } {
+	    error "Agent Visitor: no agent info provided."
+	} 
+	$node accept [self]
+    }
+
+    Class AgentMgr -superclass Agent \
+	-parameter {
+	    {acceptedData [list script startcmd senderPlace senderPort senderHost]}
+	}
+
+    AgentMgr instproc init args {
+	next
+	my array set agents {}
+	#
+	# this ns class holds the prefix/Rdf-ns pairs used by this
+	# agent mgr (with default values)
+	#
+	XMLNamespace [self]::rdfNS
+	[self]::rdfNS add agent {http://www.xotcl.org/schema/agent#}
+	[self]::rdfNS add service {http://www.xotcl.org/schema/service#}
+	[self]::rdfNS add xotcl {http://www.xotcl.org/schema/xotcl#}
+	RDFParser [self]::rdfParser 
+	AgentVisitor [self]::agentVisitor
+	
+	#package require xotcl::xml::printVisitor 
+	#PrintVisitor [self]::pv
+    }
+
+    AgentMgr instproc register {name} {
+	set ai [AgentInfo [self]::[my autoname agentInfo]]
+	my set agents($name) $ai
+	$ai name $name
+	return $ai
+    }
+
+    AgentMgr instproc deregister {name} {
+	if {[my info agents $name]} {
+	    # destroy the agents info objects
+	    #my showMsg "calling destroy on [my set agents($name)]"
+	    [my set agents($name)] destroy
+	    # unset the var
+	    my unset agents($name)
+	}
+    }
+
+    AgentMgr instproc info args {
+	if {[lindex $args 0] eq "agents"} {
+	    if {[llength $args] > 1} {
+		return [my exists agents([lindex $args 1])]
+	    } else {
+		return [my array names agents]
+	    }
+	}
+	next
+    }
+
+    #
+    # parses the data of a migration request into a new agent
+    # info object
+    #
+    # name must be stringleft : !!
+    AgentMgr instproc parseData {name data} {
+	set ai [my register $name]
+	next
+
+	[self]::rdfParser reset
+	[self]::rdfParser parse $data
+
+	#puts stderr ===========================================================
+	#[self]::pv interpretAll [self]::rdfParser
+	#puts stderr ===========================================================
+
+	[self]::agentVisitor agentInfo $ai
+	#foreach tn [[self]::rdfParser info children topNode*] {
+	#  [self]::agentVisitor interpretNodeTree $tn
+	#}
+
+	[self]::agentVisitor interpretAll [self]::rdfParser
+	
+	#puts "************** Received Agent:"
+	#$ai print
+	
+	return $ai
+    }
+
+    AgentMgr instproc immigrate {AI} {
+	#set ns [[self]::rdfNS searchPrefix agent]
+	#::eval [$AI set agentData(${ns}script)]
+
+	#puts stderr "immigrate call showVars"
+	#$AI showVars
+	#puts stderr "immigrate showVars done"
+
+	::eval [$AI set agentData(agent:script)]
+	#puts stderr "immigrate persistentVars = '[[$AI name] persistentVars]'"
+	#foreach v [[$AI name] info vars] { $n persistent $v }
+
+	if {[$AI exists agentData(agent:startcmd)]} {
+	    ::after 10 [list [$AI name] [$AI set agentData(agent:startcmd)]]
+	}
+	return ""
+    }
+
+    namespace export AgentInfo AgentVisitor AgentMgr
+}
+
+namespace import ::xotcl::actiweb::agentManagement::*

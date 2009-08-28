@@ -75,7 +75,7 @@ T Requirement::Reader::get()
 {
 	checkSize(sizeof(T));
 	const Endian<const T> *value = mReq->at<Endian<const T> >(mPC);
-	mPC += sizeof(value);
+	mPC += sizeof(T);
 	return *value;
 }
 

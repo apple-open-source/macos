@@ -5,6 +5,8 @@ CFILES = dmesg.c
 MANPAGES = dmesg.8
 MAKEFILE = tool.make
 
-Extra_LD_Flags = -lproc
+Extra_CC_Flags = -Wall -Werror -mdynamic-no-pic
+Extra_LD_Flags = -dead_strip
+Extra_LD_Flags += -lproc
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make

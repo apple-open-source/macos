@@ -187,7 +187,7 @@ static void AVCAsyncCommandCallback( void *refcon, IOReturn result, io_user_refe
 			case kAVCAsyncCommandStateTimeOutBeforeResponse:
 			case kAVCAsyncCommandStateBusReset:
 			case kAVCAsyncCommandStateOutOfMemory:
-			case kAVCAsyncCommandStateCancled:
+			case kAVCAsyncCommandStateCanceled:
 			default:
 				break;
 		};
@@ -1374,7 +1374,7 @@ static IOReturn AVCAsynchronousCommandCancel(void * self, IOFireWireAVCLibAsynch
 									&inArg,
 									1,NULL,&outputCnt);
 		
-		pPrivCmd->pCmd->cmdState = kAVCAsyncCommandStateCancled;
+		pPrivCmd->pCmd->cmdState = kAVCAsyncCommandStateCanceled;
 	}
 	
 	return res;

@@ -70,11 +70,12 @@ enum
 	kErrataUHCISupportsOvercurrent		= (1 << 13),	// UHCI controller supports overcurrent detection
 	kErrataNeedsOvercurrentDebounce		= (1 << 14),	// The overcurrent indicator should be debounced by 10ms
 	kErrataSupportsPortResumeEnable		= (1 << 15),	// UHCI has resume enable bits at config address 0xC4
-	kErrataMCP79SplitIsoch				= (1 << 16),	// MCP79 - split iscoh is a little different
+	kErrataNoCSonSplitIsoch				= (1 << 16),	// MCP79 - split iscoh is a little different
 	kErrataOHCINoGlobalSuspendOnSleep	= (1 << 17),	// when sleeping, do not put the OHCI controller in SUSPEND state. just leave it Operational with suspended downstream ports
 	kErrataMissingPortChangeInt			= (1 << 18),	// sometimes the port change interrupt may be missing
 	kErrataMCP79IgnoreDisconnect		= (1 << 19),	// MCP79 - need to ignore a connect/disconnect on wake
-	kErrataUse32bitEHCI					= (1 << 20)		// MCP79 - EHCI should only run with 32 bit DMA addresses
+	kErrataUse32bitEHCI					= (1 << 20)	,	// MCP79 - EHCI should only run with 32 bit DMA addresses
+	kErrataUHCISupportsResumeDetectOnConnect	= (1 << 21)	// UHCI controller will generate a ResumeDetect interrupt while in Global Suspend if a device is plugged in
 };
 
 enum
@@ -171,12 +172,12 @@ protected:
         IOTimerEventSource	*watchdogUSBTimer;
         bool				_terminating;
         bool				_watchdogTimerActive;
-        bool				_pcCardEjected;
+        bool				_pcCardEjected;						// Obsolete
         UInt32				_busNumber;
         UInt32				_currentSizeOfCommandPool;
         UInt32				_currentSizeOfIsocCommandPool;
         UInt8				_controllerSpeed;					// Controller speed, passed down for splits
-        thread_call_t		_terminatePCCardThread;
+        thread_call_t		_terminatePCCardThread;				// Obsolete
         bool				_addressPending[128];
 		SInt32				_activeIsochTransfers;				// isochronous transfers in the queue
 		IOService			*_provider;							// common name for our provider
@@ -294,6 +295,7 @@ protected:
                                                     
     static void			WatchdogTimer(OSObject *target, IOTimerEventSource *sender);
 
+	// Obsolete
     static void 		TerminatePCCard(OSObject *target);
 
     static IOReturn		ProtectedDevZeroLock(OSObject *target, void* lock, void *, void *, void*);
@@ -1055,7 +1057,8 @@ public:
 	 */
     OSMetaClassDeclareReservedUsed(IOUSBController,  18);
 	virtual IOReturn UIMCreateIsochTransfer(IOUSBIsocCommand *command);
-											
+	
+	// do not use this slot without first checking bug rdar://6022420
     OSMetaClassDeclareReservedUnused(IOUSBController,  19);
     
 protected:

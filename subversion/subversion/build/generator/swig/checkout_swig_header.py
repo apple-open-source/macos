@@ -20,9 +20,9 @@ class Generator(generator.swig.Generator):
 
   def write_makefile_rules(self, makefile):
     """Write makefile rules to checkout files"""
-    script_path = 'build/generator/swig/checkout_swig_header.py'
+    script_path = '$(top_srcdir)/build/generator/swig/checkout_swig_header.py'
     conf = '$(abs_srcdir)/build.conf'
-    makefile.write('CHECKOUT_SWIG = cd $(top_srcdir) && $(PYTHON)' +
+    makefile.write('CHECKOUT_SWIG = cd $(top_builddir) && $(PYTHON)' +
                    ' %s %s $(SWIG)\n\n' % (script_path, conf))
     checkout_locations = []
     for path in self.swig_checkout_files:
@@ -45,20 +45,6 @@ class Generator(generator.swig.Generator):
     else:
       run("%s -o %s -co %s" % (self.swig_path, out, path))
 
-    # Fix generated SWIG files to never use "long long", which is not portable
-    if path == "python/python.swg":
-      python_swg = open(out).read()
-      file = open(out, "w")
-      file.write("""
-      %fragment("SWIG_AsVal_" {long long},"header") {
-      }
-      %fragment("SWIG_Check_" {long long},"header") {
-      }
-      %fragment("SWIG_From_" {long long},"header") {
-      }\n""")
-      file.write(python_swg)
-      file.close()
-
   def _skip_checkout(self, path):
     """Should we skip this checkout?"""
     return (path == "ruby/rubytracking.swg" and self.version() < 103026 or
@@ -71,9 +57,9 @@ class Generator(generator.swig.Generator):
 
 if __name__ == "__main__":
   if len(sys.argv) != 4:
-    print "Usage: %s build.conf swig file.swg"
-    print "Checkout a specific header file from SWIG's library into"
-    print "the Subversion proxy directory."
+    print("Usage: %s build.conf swig file.swg")
+    print("Checkout a specific header file from SWIG's library into")
+    print("the Subversion proxy directory.")
   else:
     gen = Generator(sys.argv[1], sys.argv[2])
     gen.checkout(sys.argv[3])

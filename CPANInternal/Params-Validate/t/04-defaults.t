@@ -1,14 +1,8 @@
-#!/usr/bin/perl -w
-
 use strict;
+use warnings;
 
-BEGIN
-{
-    $ENV{PERL_NO_VALIDATION} = 0;
-    require Params::Validate;
-    Params::Validate->import(':all');
-}
+use File::Spec;
+use lib File::Spec->catdir( 't', 'lib' );
 
-use lib '.', './t';
-
-require 'defaults.pl';
+use PVTests::Defaults;
+PVTests::Defaults::run_tests();

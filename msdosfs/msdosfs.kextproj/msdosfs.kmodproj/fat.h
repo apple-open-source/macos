@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -182,13 +182,13 @@ void msdosfs_fat_uninit(void);
 int  msdosfs_fat_init_vol(struct msdosfsmount *pmp);
 void msdosfs_fat_uninit_vol(struct msdosfsmount *pmp);
 int msdosfs_update_fsinfo(struct msdosfsmount *pmp, int waitfor, vfs_context_t context);
-int pcbmap (struct denode *dep, u_long findcn, u_long numclusters, daddr64_t *bnp, u_long *cnp, u_long *sp);
-int pcbmap_internal(struct denode *dep, u_long findcn, u_long numclusters, daddr64_t *bnp, u_long *cnp, u_long *sp);
-int clusterfree __P((struct msdosfsmount *pmp, u_long cn, u_long *oldcnp));
-int clusteralloc __P((struct msdosfsmount *pmp, u_long start, u_long count, u_long fillwith, u_long *retcluster, u_long *got));
-int fatentry __P((int function, struct msdosfsmount *pmp, u_long cluster, u_long *oldcontents, u_long newcontents));
-int freeclusterchain __P((struct msdosfsmount *pmp, u_long startchain));
-int extendfile __P((struct denode *dep, u_long count));
+int pcbmap (struct denode *dep, uint32_t findcn, uint32_t numclusters, daddr64_t *bnp, uint32_t *cnp, uint32_t *sp);
+int pcbmap_internal(struct denode *dep, uint32_t findcn, uint32_t numclusters, daddr64_t *bnp, uint32_t *cnp, uint32_t *sp);
+int clusterfree __P((struct msdosfsmount *pmp, uint32_t cn, uint32_t *oldcnp));
+int clusteralloc __P((struct msdosfsmount *pmp, uint32_t start, uint32_t count, uint32_t fillwith, uint32_t *retcluster, uint32_t *got));
+int fatentry __P((int function, struct msdosfsmount *pmp, uint32_t cluster, uint32_t *oldcontents, uint32_t newcontents));
+int freeclusterchain __P((struct msdosfsmount *pmp, uint32_t startchain));
+int extendfile __P((struct denode *dep, uint32_t count));
 
 /* [2753891]
  * Routine to mark a FAT16 or FAT32 volume as "clean" or "dirty" by manipulating the upper bit

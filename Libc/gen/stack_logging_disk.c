@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,10 +35,11 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <pthread.h>
+#include <paths.h>
 #include <errno.h>
 #include "stack_logging.h"
 #include "malloc_printf.h"
-#include "_simple.h"		// as included by malloc.c, this defines ASL_LEVEL_INFO
+#include "_simple.h"            // as included by malloc.c, this defines ASL_LEVEL_INFO
 
 #pragma mark -
 #pragma mark Defines
@@ -49,24 +50,28 @@
 #define ASL_LEVEL_INFO stderr
 #endif
 
-#define STACK_LOGGING_THREAD_HASH_SIZE 2048 // must be an even power of two
 #define STACK_LOGGING_MAX_STACK_SIZE 512
 #define STACK_LOGGING_BLOCK_WRITING_SIZE 8192
-#define STACK_LOGGING_NUMBER_RECENT_BACKTRACES 50
-#define STACK_LOGGING_FORCE_FULL_BACKTRACE_EVERY 100
-#define STACK_LOGGING_MAX_THREAD_COLLISIONS 3
-#define STACK_LOGGING_MIN_SAME_FRAMES 3
 #define STACK_LOGGING_MAX_SIMUL_REMOTE_TASKS_INSPECTED 3
-#define STACK_LOGGING_REMOTE_CACHE_DEFAULT_COLLISION_ALLOWANCE 5
-#define STACK_LOGGING_REMOTE_CACHE_DEFAULT_NODE_CAPACITY 1 << 14 // <2mb for 32->32, ~3mb for (32->64 || 64->32), ~4mb for 64->64
-#define STACK_LOGGING_REMOTE_CACHE_COLLISION_GROWTH_RATE 3
-#define STACK_LOGGING_REMOTE_LINKS_PER_BLOCK (1 << 20) // this sets a maximum number of malloc/frees that can be read in to: 1^30;
-							// this means if the .index file is >24gb, remote access will start to fail.
-							// note: at this point, the .stack file will probably be ~56gb on top of that and
-							// it'll also be using around 20 gb of memory in the analyzing process...
-							// all of these are 64-bit stats; the 32-bit analyzing process limits are lower.
-							// in short, if you want to analyze a process making > 1 billion malloc/frees 
-							// (after compaction), bump this number slightly.
+
+#define BACKTRACE_UNIQUING_DEBUG 0
+
+// The expansion factor controls the shifting up of table size. A factor of 1 will double the size upon expanding,
+// 2 will quadruple the size, etc. Maintaining a 66% fill in an ideal table requires the collision allowance to
+// increase by 3 for every quadrupling of the table size (although this the constant applied to insertion
+// performance O(c*n))
+#define EXPAND_FACTOR 2
+#define COLLISION_GROWTH_RATE 3
+
+// For a uniquing table, the useful node size is slots := floor(table_byte_size / (2 * sizeof(mach_vm_address_t)))
+// Some useful numbers for the initial max collision value (desiring 66% fill):
+// 16K-23K slots -> 16 collisions
+// 24K-31K slots -> 17 collisions
+// 32K-47K slots -> 18 collisions
+// 48K-79K slots -> 19 collisions
+// 80K-96K slots -> 20 collisions
+#define INITIAL_MAX_COLLIDE	19
+#define DEFAULT_UNIQUING_PAGE_SIZE 256
 
 #pragma mark -
 #pragma mark Macros
@@ -78,106 +83,74 @@
 #pragma mark -
 #pragma mark Types
 
-#pragma mark - stack_logging_backtrace_event
-typedef struct {
-	int16_t		offset_delta; // may want to expand this one; should always be < 0.
-	uint16_t	num_identical_frames;
-	uint16_t	num_new_hot_frames; // count of backtrace[]
-} stack_logging_backtrace_event;
-
-#pragma mark - stack_logging_index_event
 typedef struct {
 	uintptr_t	argument;
 	uintptr_t	address;
 	uint64_t	offset_and_flags; // top 8 bits are actually the flags!
 } stack_logging_index_event;
 
-#pragma mark - stack_logging_index_event32
 typedef struct {
 	uint32_t	argument;
 	uint32_t	address;
 	uint64_t	offset_and_flags; // top 8 bits are actually the flags!
 } stack_logging_index_event32;
 
-#pragma mark - stack_logging_index_event64
 typedef struct {
 	uint64_t	argument;
 	uint64_t	address;
 	uint64_t	offset_and_flags; // top 8 bits are actually the flags!
 } stack_logging_index_event64;
 
-#pragma mark - thread_backtrace_history
-// for management of previous backtraces (by thread):
+#pragma pack(push,4)
 typedef struct {
-	vm_address_t		thread;
-	uint32_t			hash_pos;
-	uint64_t		logging_index;
-	int64_t			logging_offset;
-	uint32_t		full_backtrace_countdown;
-	uint32_t		backtrace_length;
-	uintptr_t		*backtrace;
-} thread_backtrace_history;
+    uint64_t							numPages; // number of pages of the table
+	uint64_t							numNodes;
+	uint64_t							tableSize;
+	uint64_t							untouchableNodes;
+	mach_vm_address_t					table_address;
+	int32_t								max_collide;
+	// 'table_address' is just an always 64-bit version of the pointer-sized 'table' field to remotely read;
+	// it's important that the offset of 'table_address' in the struct does not change between 32 and 64-bit.
+#if BACKTRACE_UNIQUING_DEBUG
+	uint64_t nodesFull;
+	uint64_t backtracesContained;
+#endif
+	mach_vm_address_t					*table; // allocated using vm_allocate()
+} backtrace_uniquing_table;
+#pragma pack(pop)
 
-#pragma mark - stack_buffer_shared_memory
 // for storing/looking up allocations that haven't yet be written to disk; consistent size across 32/64-bit processes.
 // It's important that these fields don't change alignment due to the architecture because they may be accessed from an
 // analyzing process with a different arch - hence the pragmas.
 #pragma pack(push,4)
 typedef struct {
-	uint64_t		start_index_offset;
-	uint64_t		start_stack_offset;
-	uint32_t		next_free_index_buffer_offset;
-	uint32_t		next_free_stack_buffer_offset;
-	char			index_buffer[STACK_LOGGING_BLOCK_WRITING_SIZE];
-	char			stack_buffer[STACK_LOGGING_BLOCK_WRITING_SIZE];
+	uint64_t			start_index_offset;
+	uint32_t			next_free_index_buffer_offset;
+	mach_vm_address_t	uniquing_table_address;
+	char				index_buffer[STACK_LOGGING_BLOCK_WRITING_SIZE];
+	backtrace_uniquing_table	*uniquing_table;
 } stack_buffer_shared_memory;
 #pragma pack(pop)
 
-#pragma mark - index_ll_node
-// linked-list node in table for allocations of a single address
-typedef struct index_ll_node {
-	struct index_ll_node	*next;
-	uint64_t		index_file_offset;
-} index_ll_node;
-
-#pragma mark - remote_index_node32
-// 32-bit target process address slot in table
-typedef struct {
-	uint32_t		address;
-	index_ll_node		*linked_list;
-	index_ll_node		*last_link;
-} remote_index_node32;
-
-#pragma mark - remote_index_node64
-// 64-bit target process variant
+// target process address -> record table (for __mach_stack_logging_get_frames)
 typedef struct {
 	uint64_t		address;
-	index_ll_node		*linked_list;
-	index_ll_node		*last_link;
-} remote_index_node64;
+	uint64_t		index_file_offset;
+} remote_index_node;
 
-#pragma mark - remote_index_cache
 // for caching index information client-side:
 typedef struct {
 	size_t			cache_size;
 	size_t			cache_node_capacity;
 	uint32_t		collision_allowance;
-	uint64_t		cache_node_count; // Debug only.
-	uint64_t		cache_llnode_count; // Debug only.
-	size_t			in_use_node_size; // sizeof(remote_index_node32) || sizeof(remote_index_node64)
-	void			*table_memory; // this can be malloced; it's on the client side.
-	remote_index_node32	*casted_table32; // represents table memory as 32-bit.
-	remote_index_node64	*casted_table64; // ditto, 64-bit
+	remote_index_node	*table_memory; // this can be malloced; it's on the client side.
 	stack_buffer_shared_memory *shmem; // shared memory
 	stack_buffer_shared_memory snapshot; // memory snapshot of the remote process' shared memory
 	uint32_t		last_pre_written_index_size;
 	uint64_t		last_index_file_offset;
-	index_ll_node		*blocks[1024];
-	uint32_t		current_block;
-	uint32_t		next_block_index;
+	backtrace_uniquing_table uniquing_table; // snapshot of the remote process' uniquing table
 } remote_index_cache;
 
-#pragma mark - remote_task_file_streams
 // for reading stack history information from remote processes:
 typedef struct {
 	task_t			remote_task;
@@ -185,42 +158,39 @@ typedef struct {
 	int32_t			task_is_64_bit;
 	int32_t			in_use_count;
 	FILE			*index_file_stream;
-	FILE			*stack_file_stream;
 	remote_index_cache	*cache;
 } remote_task_file_streams;
 
 #pragma mark -
-#pragma mark Constants
-
-static stack_buffer_shared_memory *pre_write_buffers;
-static char *pre_write_backtrace_event_buffer = NULL;
-static char *pre_write_index_buffer = NULL;
+#pragma mark Constants/Globals
 
 static OSSpinLock stack_logging_lock = OS_SPINLOCK_INIT;
-static uint64_t current_logging_index = 0;
-static int64_t total_offset = 0;
+
+// support for multi-threaded forks
+extern void __stack_logging_fork_prepare();
+extern void __stack_logging_fork_parent();
+extern void __stack_logging_fork_child();
+
+// support for gdb and others checking for stack_logging locks
+__private_extern__ boolean_t __stack_logging_locked();
 
 // single-thread access variables
-static vm_address_t stack_buffer[STACK_LOGGING_NUMBER_RECENT_BACKTRACES][STACK_LOGGING_MAX_STACK_SIZE];
-static thread_backtrace_history thread_buffer[STACK_LOGGING_THREAD_HASH_SIZE];
-static int32_t current_stack_buffer = 0;
+static stack_buffer_shared_memory *pre_write_buffers;
+static vm_address_t *stack_buffer;
 static uintptr_t last_logged_malloc_address = 0;
-static uint32_t last_logged_backtrace_offset_diff = 0;
-static thread_backtrace_history compaction_saved_differencing_history;
 
-// Constants to define stack logging directory and path names.
-// Files will get written to /tmp/stack-logs.<pid>.<progname>.XXXXXX/stack-logs.{index,stacks}
-// The directory is securely created with mkdtemp() and the files inside it just have static names for simplicity.
-static const char *temporary_directory = "/tmp";
-static const char *stack_logging_directory_base_name = "stack-logs.";
-static const char *index_file_name = "stack-logs.index";
-static const char *stack_file_name = "stack-logs.stacks";
+// Constants to define stack logging file path names.
+// Files will get written as /tmp/stack-logs.<pid>.<progname>.XXXXXX.index
+// unless the base directory is specified otherwise with MallocStackLoggingDirectory.
+// In this case, a file /tmp/stack-logs.<pid>.<progname>.XXXXXX.link will also be created.
+static const char *stack_log_file_base_name = "stack-logs.";
+static const char *stack_log_file_suffix = ".index";
+static const char *stack_log_link_suffix = ".link";
 
-static char stack_logs_directory[PATH_MAX];
+static char stack_log_location[PATH_MAX];
+static char stack_log_reference_file[PATH_MAX];
 static char index_file_path[PATH_MAX];
-static char stack_file_path[PATH_MAX];
 static int index_file_descriptor = -1;
-static int stack_file_descriptor = -1;
 
 // for accessing remote log files
 static remote_task_file_streams remote_fds[STACK_LOGGING_MAX_SIMUL_REMOTE_TASKS_INSPECTED];
@@ -229,7 +199,6 @@ static uint32_t remote_task_fd_count = 0;
 static OSSpinLock remote_fd_list_lock = OS_SPINLOCK_INIT;
 
 // activation variables
-
 static int logging_use_compaction = 1; // set this to zero to always disable compaction.
 
 // We set malloc_logger to NULL to disable logging, if we encounter errors
@@ -238,133 +207,326 @@ typedef void (malloc_logger_t)(uint32_t type, uintptr_t arg1, uintptr_t arg2, ui
 extern malloc_logger_t *malloc_logger;
 
 #pragma mark -
-#pragma mark Disk Stack Logging
+#pragma mark In-Memory Backtrace Uniquing
 
-static void delete_log_files(void);		// pre-declare
-
-static void
-append_int(char * filename, pid_t pid)
+static __attribute__((always_inline))
+inline void* 
+allocate_pages(uint64_t memSize)
 {
-	unsigned int value;
-	size_t len;
-	unsigned int i;
-	unsigned int count;
+    mach_vm_address_t allocatedMem = 0ull;
+	if (mach_vm_allocate(mach_task_self(), &allocatedMem, memSize, VM_FLAGS_ANYWHERE | VM_MAKE_TAG(VM_MEMORY_ANALYSIS_TOOL)) != KERN_SUCCESS) {
+		malloc_printf("allocate_pages(): virtual memory exhaused!\n");
+    }
+    return (void*)(uintptr_t)allocatedMem;
+}
+
+static __attribute__((always_inline))
+inline int 
+deallocate_pages(void* memPointer, uint64_t memSize)
+{
+	return mach_vm_deallocate(mach_task_self(), (mach_vm_address_t)(uintptr_t)memPointer, memSize);
+}
+
+static backtrace_uniquing_table* 
+__create_uniquing_table(void)
+{
+	backtrace_uniquing_table *uniquing_table = (backtrace_uniquing_table*)allocate_pages((uint64_t)round_page(sizeof(backtrace_uniquing_table)));
+	if (!uniquing_table) return NULL;
+	bzero(uniquing_table, sizeof(backtrace_uniquing_table));
+	uniquing_table->numPages = DEFAULT_UNIQUING_PAGE_SIZE;
+	uniquing_table->tableSize = uniquing_table->numPages * vm_page_size;
+	uniquing_table->numNodes = ((uniquing_table->tableSize / (sizeof(mach_vm_address_t) * 2)) >> 1) << 1; // make sure it's even.
+	uniquing_table->table = (mach_vm_address_t*)(uintptr_t)allocate_pages(uniquing_table->tableSize);
+	uniquing_table->table_address = (uintptr_t)uniquing_table->table;
+	uniquing_table->max_collide = INITIAL_MAX_COLLIDE;
+	uniquing_table->untouchableNodes = 0;
 	
-	len = strlen(filename);
+#if BACKTRACE_UNIQUING_DEBUG
+	malloc_printf("create_uniquing_table(): creating. size: %lldKB == %lldMB, numnodes: %lld (%lld untouchable)\n", uniquing_table->tableSize >> 10, uniquing_table->tableSize >> 20, uniquing_table->numNodes, uniquing_table->untouchableNodes);
+	malloc_printf("create_uniquing_table(): table: %p; end: %p\n", uniquing_table->table, (void*)((uintptr_t)uniquing_table->table + (uintptr_t)uniquing_table->tableSize));
+#endif
+	return uniquing_table;
+}
+
+static void 
+__expand_uniquing_table(backtrace_uniquing_table *uniquing_table)
+{
+	mach_vm_address_t *oldTable = uniquing_table->table;
+	uint64_t oldsize = uniquing_table->tableSize;
+	uint64_t oldnumnodes = uniquing_table->numNodes;
 	
-	count = 0;
-	value = pid;
-	while (value > 0) {
-		value /= 10;
-		count ++;
+	uniquing_table->numPages = uniquing_table->numPages << EXPAND_FACTOR;
+	uniquing_table->tableSize = uniquing_table->numPages * vm_page_size;
+	uniquing_table->numNodes = ((uniquing_table->tableSize / (sizeof(mach_vm_address_t) * 2)) >> 1) << 1; // make sure it's even.
+	mach_vm_address_t *newTable = (mach_vm_address_t*)(uintptr_t)allocate_pages(uniquing_table->tableSize);
+	
+	uniquing_table->table = newTable;
+	uniquing_table->table_address = (uintptr_t)uniquing_table->table;
+	uniquing_table->max_collide = uniquing_table->max_collide + COLLISION_GROWTH_RATE;
+	
+	if (mach_vm_copy(mach_task_self(), (mach_vm_address_t)(uintptr_t)oldTable, oldsize, (mach_vm_address_t)(uintptr_t)newTable) != KERN_SUCCESS) {
+		malloc_printf("expandUniquingTable(): VMCopyFailed\n");
+	}
+	uniquing_table->untouchableNodes = oldnumnodes;
+	
+#if BACKTRACE_UNIQUING_DEBUG
+	malloc_printf("expandUniquingTable(): expanded from nodes full: %lld of: %lld (~%2d%%); to nodes: %lld (inactive = %lld); unique bts: %lld\n", 
+				  uniquing_table->nodesFull, oldnumnodes, (int)(((uniquing_table->nodesFull * 100.0) / (double)oldnumnodes) + 0.5),
+				  uniquing_table->numNodes, uniquing_table->untouchableNodes, uniquing_table->backtracesContained);
+	malloc_printf("expandUniquingTable(): allocate: %p; end: %p\n", newTable, (void*)((uintptr_t)newTable + (uintptr_t)(uniquing_table->tableSize)));
+	malloc_printf("expandUniquingTable(): deallocate: %p; end: %p\n", oldTable, (void*)((uintptr_t)oldTable + (uintptr_t)oldsize));
+#endif
+	
+	if (deallocate_pages(oldTable, oldsize) != KERN_SUCCESS) {
+		malloc_printf("expandUniquingTable(): mach_vm_deallocate failed. [%p]\n", uniquing_table->table);
+	}
+}
+
+static int 
+__enter_frames_in_table(backtrace_uniquing_table *uniquing_table, uint64_t *foundIndex, mach_vm_address_t *frames, int32_t count)
+{	
+	mach_vm_address_t thisPC;
+	uint64_t hash, uParent = (uint64_t)(-1ll), modulus = (uniquing_table->numNodes-uniquing_table->untouchableNodes-1);
+	int32_t collisions, lcopy = count, returnVal = 1;
+	uint64_t hash_multiplier = ((uniquing_table->numNodes - uniquing_table->untouchableNodes)/(uniquing_table->max_collide*2+1));
+	mach_vm_address_t *node;
+	while (--lcopy >= 0) {
+        thisPC = frames[lcopy];
+		
+		// hash = initialHash(uniquing_table, uParent, thisPC);
+		hash = uniquing_table->untouchableNodes + (((uParent << 4) ^ (thisPC >> 2)) % modulus);
+		collisions = uniquing_table->max_collide;
+		
+		while (collisions--) {
+			node = uniquing_table->table + (hash * 2);
+			
+			if (*node == 0 && node[1] == 0) { 
+				// blank; store this entry!
+				// Note that we need to test for both head[0] and head[1] as (0, -1) is a valid entry
+				node[0] = thisPC;
+				node[1] = uParent;
+				uParent = hash;
+#if BACKTRACE_UNIQUING_DEBUG
+				uniquing_table->nodesFull++;
+				if (lcopy == 0) {
+					uniquing_table->backtracesContained++;
+				}
+#endif
+				break;
+			}
+			if (*node == thisPC && node[1] == uParent) {
+				// hit! retrieve index and go.
+				uParent = hash;
+				break;
+			}
+			
+			hash += collisions * hash_multiplier + 1;
+			
+			if (hash >= uniquing_table->numNodes) {
+				hash -= (uniquing_table->numNodes - uniquing_table->untouchableNodes); // wrap around.
+			}
+		}
+		
+		if (collisions < 0) {
+			returnVal = 0;
+			break;
+		}
+    }
+	
+	if (returnVal) *foundIndex = uParent;
+	
+	return returnVal;
+}
+
+static void 
+__unwind_stack_from_table_index(backtrace_uniquing_table *uniquing_table, uint64_t index_pos, mach_vm_address_t *out_frames_buffer, uint32_t *out_frames_count, uint32_t max_frames)
+{	
+	mach_vm_address_t *node = uniquing_table->table + (index_pos * 2);
+	uint32_t foundFrames = 0;
+	if (index_pos < uniquing_table->numNodes) {
+		while (foundFrames < max_frames) {
+			out_frames_buffer[foundFrames++] = node[0];
+			if (node[1] == (mach_vm_address_t)(-1ll)) break;
+			node = uniquing_table->table + (node[1] * 2);
+		}
 	}
 	
-	filename[len + count] = 0;
+	*out_frames_count = foundFrames;
+}
+
+#pragma mark -
+#pragma mark Disk Stack Logging
+
+static void delete_log_files(void);	// pre-declare
+static int delete_logging_file(char *log_location);
+
+static void
+append_int(char * filename, pid_t pid, size_t maxLength)
+{	
+	size_t len = strlen(filename);
+	
+	uint32_t count = 0;
+	pid_t value = pid;
+	while (value > 0) {
+		value /= 10;
+		count++;
+	}
+	
+	if (len + count >= maxLength) return; // don't modify the string if it would violate maxLength
+	
+	filename[len + count] = '\0';
 	
 	value = pid;
-	for(i = 0 ; i < count ; i ++) {
+	uint32_t i;
+	for (i = 0 ; i < count ; i ++) {
 		filename[len + count - 1 - i] = '0' + value % 10;
 		value /= 10;
 	}
 }
 
-// If successful, returns path to directory that was created.  Otherwise returns NULL.
+// If successful, returns path to log file that was created.  Otherwise returns NULL.
 static char *
-create_log_files(void)
+create_log_file(void)
 {
 	pid_t pid = getpid();
 	const char *progname = getprogname();
-	char path_name[PATH_MAX];
-	char *created_directory = NULL;
+	char *created_log_location = NULL;
 
 	// WARNING! use of snprintf can induce malloc() calls 
-	strlcpy(stack_logs_directory, temporary_directory, PATH_MAX);
-	strlcat(stack_logs_directory, "/", PATH_MAX);
-	strlcat(stack_logs_directory, stack_logging_directory_base_name, PATH_MAX);
-	append_int(stack_logs_directory, pid);
-	if (progname && progname[0] != '\0') {
-		strlcat(stack_logs_directory, ".", PATH_MAX);
-		strlcat(stack_logs_directory, progname, PATH_MAX);
-	}
-	strlcat(stack_logs_directory, ".XXXXXX", PATH_MAX);
-
-	// Securely make temporary directory for the log files, then create the files.
-	if (mkdtemp(stack_logs_directory) == stack_logs_directory) {
-		strlcpy(path_name, stack_logs_directory, PATH_MAX);
-		strlcat(path_name, "/", PATH_MAX);
-		strlcat(path_name, index_file_name, PATH_MAX);
-		strlcpy(index_file_path, path_name, PATH_MAX);
-		index_file_descriptor = open(path_name, O_WRONLY | O_TRUNC | O_CREAT, 0600);
-
-		strlcpy(path_name, stack_logs_directory, PATH_MAX);
-		strlcat(path_name, "/", PATH_MAX);
-		strlcat(path_name, stack_file_name, PATH_MAX);
-		strlcpy(stack_file_path, path_name, PATH_MAX);
-		stack_file_descriptor = open(path_name, O_WRONLY | O_TRUNC | O_CREAT, 0600);
-
-		if (index_file_descriptor == -1 || stack_file_descriptor == -1) {
-			_malloc_printf(ASL_LEVEL_INFO, "unable to create stack log files in directory %s\n", stack_logs_directory);
-			delete_log_files();
-			created_directory = NULL;
-		} else {
-			_malloc_printf(ASL_LEVEL_INFO, "stack logs being written into %s\n", stack_logs_directory);
-			created_directory = stack_logs_directory;
+	bool use_alternate_location = false;
+	char *evn_log_directory = getenv("MallocStackLoggingDirectory");
+	if (evn_log_directory && *evn_log_directory) {
+		use_alternate_location = true;
+		strlcpy(stack_log_location, evn_log_directory, (size_t)PATH_MAX);
+		size_t evn_log_len = strlen(stack_log_location);
+		// add the '/' only if it's not already there.
+		if (evn_log_directory[evn_log_len-1] != '/') {
+			strlcat(stack_log_location, "/", (size_t)PATH_MAX);
 		}
 	} else {
-		_malloc_printf(ASL_LEVEL_INFO, "unable to create stack log directory %s\n", stack_logs_directory);
-		created_directory = NULL;
+		strlcpy(stack_log_location, _PATH_TMP, (size_t)PATH_MAX);	
 	}
-	return created_directory;
+	
+	strlcat(stack_log_location, stack_log_file_base_name, (size_t)PATH_MAX);
+	append_int(stack_log_location, pid, (size_t)PATH_MAX);
+	if (progname && progname[0] != '\0') {
+		strlcat(stack_log_location, ".", (size_t)PATH_MAX);
+		strlcat(stack_log_location, progname, (size_t)PATH_MAX);
+	}
+	if (!use_alternate_location) strlcat(stack_log_location, ".XXXXXX", (size_t)PATH_MAX);
+	strlcat(stack_log_location, stack_log_file_suffix, (size_t)PATH_MAX);
+	
+	// in the case where the user has specified an alternate location, drop a reference file
+	// in /tmp with the suffix 'stack_log_link_suffix' (".link") and save the path of the
+	// stack logging file there.
+	if (use_alternate_location) {
+		strlcpy(stack_log_reference_file, _PATH_TMP, (size_t)PATH_MAX);
+		strlcat(stack_log_reference_file, stack_log_file_base_name, (size_t)PATH_MAX);
+		append_int(stack_log_reference_file, pid, (size_t)PATH_MAX);
+		if (progname && progname[0] != '\0') {
+			strlcat(stack_log_reference_file, ".", (size_t)PATH_MAX);
+			strlcat(stack_log_reference_file, progname, (size_t)PATH_MAX);
+		}
+		strlcat(stack_log_reference_file, ".XXXXXX", (size_t)PATH_MAX);
+		strlcat(stack_log_reference_file, stack_log_link_suffix, (size_t)PATH_MAX);
+		
+		int link_file_descriptor = mkstemps(stack_log_reference_file, (int)strlen(stack_log_link_suffix));
+		if (link_file_descriptor == -1) {
+			_malloc_printf(ASL_LEVEL_INFO, "unable to create stack reference file at %s\n", stack_log_location);
+			return NULL;
+		}
+		ssize_t written = write(link_file_descriptor, stack_log_location, strlen(stack_log_location));
+		if (written < (ssize_t)strlen(stack_log_location)) {
+			_malloc_printf(ASL_LEVEL_INFO, "unable to write to stack reference file at %s\n", stack_log_location);
+			return NULL;
+		}
+		const char *description_string = "\n(This is a reference file to the stack logs at the path above.)\n";
+		write(link_file_descriptor, description_string, strlen(description_string));
+		close(link_file_descriptor);
+	}
+	
+	// Securely create the log file.
+	if ((index_file_descriptor = mkstemps(stack_log_location, (int)strlen(stack_log_file_suffix))) != -1) {
+		_malloc_printf(ASL_LEVEL_INFO, "stack logs being written into %s\n", stack_log_location);
+		created_log_location = stack_log_location;
+	} else {
+		_malloc_printf(ASL_LEVEL_INFO, "unable to create stack logs at %s\n", stack_log_location);
+		if (use_alternate_location) delete_logging_file(stack_log_reference_file);
+		stack_log_reference_file[0] = '\0';
+		stack_log_location[0] = '\0';
+		created_log_location = NULL;
+	}
+	return created_log_location;
+}
+
+// Check to see if the log file is actually a reference to another location
+static int
+log_file_is_reference(char *log_location, char *out_reference_loc_buffer, size_t max_reference_path_size)
+{	
+	if (log_location == NULL || log_location[0] == '\0') return 0;
+	
+	size_t log_len = strlen(log_location);
+	size_t link_suffix_len = strlen(stack_log_link_suffix);
+	if (log_len < link_suffix_len || strncmp(log_location+log_len-link_suffix_len, stack_log_link_suffix, link_suffix_len) != 0) {
+		// not a reference file.
+		return 0;
+	}
+	
+	if (!out_reference_loc_buffer || max_reference_path_size == 0) return 1;
+	
+	FILE *reference_file = fopen(log_location, "r");
+	if (reference_file == NULL) {
+		// if unable to open the file, it may be because another user created it; no need to warn.
+		out_reference_loc_buffer[0] = '\0';
+		return 1;
+	}
+	
+	char *ret = fgets(out_reference_loc_buffer, (int)max_reference_path_size, reference_file);
+	if (!ret) {
+		out_reference_loc_buffer[0] = '\0';
+		_malloc_printf(ASL_LEVEL_INFO, "unable to read from stack logging reference file at %s\n", log_location);
+		return 1;
+	} else {
+		size_t read_line_len = strlen(out_reference_loc_buffer);
+		if (read_line_len >= 1 && out_reference_loc_buffer[read_line_len-1] == '\n') {
+			out_reference_loc_buffer[read_line_len-1] = '\0';
+		}
+	}
+	
+	fclose(reference_file);
+	
+	return 1;
 }
 
 // This function may be called from either the target process when exiting, or from either the the target process or 
 // a stack log analysis process, when reaping orphaned stack log files.
 // Returns -1 if the files exist and they couldn't be removed, returns 0 otherwise.
 static int
-delete_log_files_in_directory(char *logdir)
+delete_logging_file(char *log_location)
 {
-	char path_name[PATH_MAX];
-	int unlink_count = 0;
-	int failure_count = 0;
+	if (log_location == NULL || log_location[0] == '\0') return 0;
+
 	struct stat statbuf;
-
-	if (logdir == NULL || logdir[0] == '\0') return 0;
-
-	strlcpy(path_name, logdir, PATH_MAX);
-	strlcat(path_name, "/", PATH_MAX);
-	strlcat(path_name, index_file_name, PATH_MAX);
-	if (unlink(path_name) == 0) {
-		unlink_count++;
-	} else if (stat(path_name, &statbuf) == 0) {
-		failure_count++;
+	if (unlink(log_location) != 0 && stat(log_location, &statbuf) == 0) {
+		return -1;
 	}
-
-	strlcpy(path_name, logdir, PATH_MAX);
-	strlcat(path_name, "/", PATH_MAX);
-	strlcat(path_name, stack_file_name, PATH_MAX);
-	if (unlink(path_name) == 0) {
-		unlink_count++;
-	} else if (stat(path_name, &statbuf) == 0) {
-		failure_count++;
-	}
-
-	if (rmdir(logdir) == -1) failure_count++;
-
-	return (failure_count > 0) ? -1 : 0;
+	return 0;
 }
 
 // This function will be called from atexit() in the target process.
 static void
 delete_log_files(void)
 {
-	if (stack_logs_directory == NULL || stack_logs_directory[0] == '\0') return;
-
-	if (delete_log_files_in_directory(stack_logs_directory) == 0) {
-		_malloc_printf(ASL_LEVEL_INFO, "stack logs deleted from %s\n", stack_logs_directory);
-		stack_file_path[0] = '\0';
-		index_file_path[0] = '\0';
-	} else {
-		_malloc_printf(ASL_LEVEL_INFO, "unable to delete stack logs from %s\n", stack_logs_directory);
+	if (stack_log_location && stack_log_location[0]) {
+		if (delete_logging_file(stack_log_location) == 0) {
+			_malloc_printf(ASL_LEVEL_INFO, "stack logs deleted from %s\n", stack_log_location);
+			index_file_path[0] = '\0';
+		} else {
+			_malloc_printf(ASL_LEVEL_INFO, "unable to delete stack logs from %s\n", stack_log_location);
+		}
+	}
+	if (stack_log_reference_file && stack_log_reference_file[0]) {
+		delete_logging_file(stack_log_reference_file);
 	}
 }
 
@@ -375,7 +537,7 @@ is_process_running(pid_t pid)
 	size_t size = sizeof(struct kinfo_proc);
 	int mib[] = {CTL_KERN, KERN_PROC, KERN_PROC_PID, pid};
 
-	sysctl(mib, 4, kpt, &size, NULL, 0); // size is either 1 or 0 entries when we ask for a single pid
+	sysctl(mib, 4, kpt, &size, NULL, (size_t)0); // size is either 1 or 0 entries when we ask for a single pid
     
 	return (size==sizeof(struct kinfo_proc));
 }
@@ -394,31 +556,45 @@ reap_orphaned_log_files(bool remove_for_this_pid)
 {
 	DIR *dp;
 	struct dirent *entry;
-	int prefix_length;
 	char prefix_name[PATH_MAX];
 	char pathname[PATH_MAX];
 	pid_t current_pid = getpid();
 
-	if ((dp = opendir(temporary_directory)) == NULL) {
+	if ((dp = opendir(_PATH_TMP)) == NULL) {
 		return;
 	}
 
-	strlcpy(prefix_name, stack_logging_directory_base_name, PATH_MAX);
-	prefix_length = strlen(prefix_name);
+	strlcpy(prefix_name, stack_log_file_base_name, (size_t)PATH_MAX);
+	size_t prefix_length = strlen(prefix_name);
 
 	while ( (entry = readdir(dp)) != NULL ) {
-		if ( entry->d_type == DT_DIR && ( strncmp( entry->d_name, prefix_name, prefix_length) == 0 ) ) {
+		if ( entry->d_type != DT_DIR && entry->d_type != DT_LNK && ( strncmp( entry->d_name, prefix_name, prefix_length) == 0 ) ) {
 			long pid = strtol(&entry->d_name[prefix_length], (char **)NULL, 10);
-			if ( (! is_process_running(pid)) || (remove_for_this_pid && pid == current_pid) ) {
-				strlcpy(pathname, temporary_directory, PATH_MAX);
-				strlcat(pathname, "/", PATH_MAX);
-				strlcat(pathname, entry->d_name, PATH_MAX);
-				if (delete_log_files_in_directory(pathname) == 0) {
-					if (remove_for_this_pid && pid == current_pid) {
-						_malloc_printf(ASL_LEVEL_INFO, "stack logs deleted from %s\n", pathname);
-					} else {
-						_malloc_printf(ASL_LEVEL_INFO, "process %d no longer exists, stack logs deleted from %s\n", pid, pathname);
+			if ( (! is_process_running((pid_t)pid)) || (remove_for_this_pid && (pid_t)pid == current_pid) ) {
+				strlcpy(pathname, _PATH_TMP, (size_t)PATH_MAX);
+				strlcat(pathname, entry->d_name, (size_t)PATH_MAX);
+				char reference_file_buffer[PATH_MAX];
+				bool pathname_is_ref_file = false;
+				if (log_file_is_reference(pathname, reference_file_buffer, (size_t)PATH_MAX) && *reference_file_buffer) {
+					pathname_is_ref_file = true;
+					if (delete_logging_file(reference_file_buffer) == 0) {
+						if (remove_for_this_pid && pid == current_pid) {
+							_malloc_printf(ASL_LEVEL_INFO, "stack logs deleted from %s\n", reference_file_buffer);
+						} else {
+							_malloc_printf(ASL_LEVEL_INFO, "process %ld no longer exists, stack logs deleted from %s\n", pid, reference_file_buffer);
+						}
 					}
+				}
+				if (delete_logging_file(pathname) == 0) {
+					if (remove_for_this_pid && pid == current_pid) {
+						if (!pathname_is_ref_file) _malloc_printf(ASL_LEVEL_INFO, "stack logs deleted from %s\n", pathname);
+					} else {
+						if (!pathname_is_ref_file) _malloc_printf(ASL_LEVEL_INFO, "process %ld no longer exists, stack logs deleted from %s\n", pid, pathname);
+					}
+					char shmem_name_string[PATH_MAX];
+					strlcpy(shmem_name_string, stack_log_file_base_name, (size_t)PATH_MAX);
+					append_int(shmem_name_string, (pid_t)pid, (size_t)PATH_MAX);
+					if (pid != current_pid) shm_unlink(shmem_name_string);
 				}
 			}
 		}
@@ -455,13 +631,9 @@ robust_write(int fd, const void *buf, size_t nbyte) {
 		if (fd == index_file_descriptor) {
 			file_to_reopen = index_file_path;
 			fd_to_reset = &index_file_descriptor;
-		}
-		else if (fd == stack_file_descriptor) {
-			file_to_reopen = stack_file_path;
-			fd_to_reset = &stack_file_descriptor;
 		} else {
 			// We don't know about this file. Return (and abort()).
-			_malloc_printf(ASL_LEVEL_INFO, "Unknown file descriptor (it's neither the index file, nor the stacks file)\n");
+			_malloc_printf(ASL_LEVEL_INFO, "Unknown file descriptor; expecting stack logging index file\n");
 			return -1;
 		}
 
@@ -473,7 +645,7 @@ robust_write(int fd, const void *buf, size_t nbyte) {
 			int fds_to_close[3] = { 0 };
 			while (fd < 3) {
 				if (fd == -1) {
-					_malloc_printf(ASL_LEVEL_INFO, "unable to re-open stack log file %s\n", file_to_reopen);
+					_malloc_printf(ASL_LEVEL_INFO, "unable to re-open stack logging file %s\n", file_to_reopen);
 					delete_log_files();
 					return -1;
 				}
@@ -501,25 +673,13 @@ flush_data(void)
 	char * p;
 	
 	if (index_file_descriptor == -1) {
-		if (create_log_files() == NULL) {
+		if (create_log_file() == NULL) {
 			return;
 		}
 	}
 	
 	// Write the events before the index so that hopefully the events will be on disk if the index refers to them.
-	p = pre_write_backtrace_event_buffer;
-	remaining = (size_t)pre_write_buffers->next_free_stack_buffer_offset;
-	while (remaining > 0) {
-		written = robust_write(stack_file_descriptor, p, remaining);
-		if (written == -1) {
-			_malloc_printf(ASL_LEVEL_INFO, "Unable to write to stack logging file %s (%s)\n", stack_file_path, strerror(errno));
-			disable_stack_logging();
-			return;
-		}
-		p += written;
-		remaining -= written;
-	}
-	p = pre_write_index_buffer;
+	p = pre_write_buffers->index_buffer;
 	remaining = (size_t)pre_write_buffers->next_free_index_buffer_offset;
 	while (remaining > 0) {
 		written = robust_write(index_file_descriptor, p, remaining);
@@ -532,9 +692,8 @@ flush_data(void)
 		remaining -= written;
 	}
 	
-	pre_write_buffers->start_stack_offset += pre_write_buffers->next_free_stack_buffer_offset;
 	pre_write_buffers->start_index_offset += pre_write_buffers->next_free_index_buffer_offset;
-	pre_write_buffers->next_free_index_buffer_offset = pre_write_buffers->next_free_stack_buffer_offset = 0;
+	pre_write_buffers->next_free_index_buffer_offset = 0;
 }
 
 static void
@@ -548,8 +707,8 @@ prepare_to_log_stacks(void)
 		// these buffers to get logs for even the most recent allocations. The remote process will need to pause this process to assure that
 		// the contents of these buffers don't change while being inspected.
 		char shmem_name_string[PATH_MAX];
-		strlcpy(shmem_name_string, stack_logging_directory_base_name, (size_t)PATH_MAX);
-		append_int(shmem_name_string, getpid());
+		strlcpy(shmem_name_string, stack_log_file_base_name, (size_t)PATH_MAX);
+		append_int(shmem_name_string, getpid(), (size_t)PATH_MAX);
 		
 		int shmid = shm_open(shmem_name_string, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
 		if (shmid < 0) {
@@ -571,17 +730,34 @@ prepare_to_log_stacks(void)
 		}
 		
 		// Store and use the buffer offsets in shared memory so that they can be accessed remotely
-		pre_write_buffers->start_index_offset = pre_write_buffers->start_stack_offset = 0ull;
-		pre_write_buffers->next_free_index_buffer_offset = pre_write_buffers->next_free_stack_buffer_offset = 0;
-		pre_write_backtrace_event_buffer = pre_write_buffers->stack_buffer;
-		pre_write_index_buffer = pre_write_buffers->index_buffer;
+		pre_write_buffers->start_index_offset = 0ull;
+		pre_write_buffers->next_free_index_buffer_offset = 0;
+		
+		// create the backtrace uniquing table
+		pre_write_buffers->uniquing_table = __create_uniquing_table();
+		pre_write_buffers->uniquing_table_address = (mach_vm_address_t)(uintptr_t)pre_write_buffers->uniquing_table;
+		if (!pre_write_buffers->uniquing_table) {
+			_malloc_printf(ASL_LEVEL_INFO, "error while allocating stack uniquing table\n");
+			disable_stack_logging();
+			return;
+		}
+		
+		stack_buffer = (vm_address_t*)allocate_pages((uint64_t)round_page(sizeof(vm_address_t) * STACK_LOGGING_MAX_STACK_SIZE));
+		if (!stack_buffer) {
+			_malloc_printf(ASL_LEVEL_INFO, "error while allocating stack trace buffer\n");
+			disable_stack_logging();
+			return;
+		}
 		
 		// malloc() can be called by the following, so these need to be done outside the stack_logging_lock but after the buffers have been set up.
 		atexit(delete_log_files);		// atexit() can call malloc()
 		reap_orphaned_log_files(true);		// this calls opendir() which calls malloc()
 		
-		// this call to flush data ensures that the log files (while possibly empty) exist; analyzing processes will rely on this assumption.
-		flush_data();
+		// this call ensures that the log files exist; analyzing processes will rely on this assumption.
+		if (create_log_file() == NULL) {
+			disable_stack_logging();
+			return;
+		}
 	}
 }
 
@@ -626,81 +802,48 @@ __disk_stack_logging_log_stack(uint32_t type_flags, uintptr_t zone_ptr, uintptr_
 	// lock and enter
 	OSSpinLockLock(&stack_logging_lock);
 	
+	if (!stack_logging_enable_logging) {
+		OSSpinLockUnlock(&stack_logging_lock);
+		return;
+	}
+	
 	// compaction
 	if (last_logged_malloc_address && (type_flags & stack_logging_type_dealloc) && STACK_LOGGING_DISGUISE(ptr_arg) == last_logged_malloc_address) {
 		// *waves hand* the last allocation never occurred
 		pre_write_buffers->next_free_index_buffer_offset -= (uint32_t)sizeof(stack_logging_index_event);
-		pre_write_buffers->next_free_stack_buffer_offset -= last_logged_backtrace_offset_diff;
-		total_offset -= (int64_t)last_logged_backtrace_offset_diff;
 		last_logged_malloc_address = 0ul;
-		
-		// not going to subtract from the current_stack_buffer or current_logging_index indecies; 
-		// there is no intention to restore the previously held stack. the differencing history
-		// must be reset to its previous value, though.
-		thread_buffer[compaction_saved_differencing_history.hash_pos] = compaction_saved_differencing_history;
 		
 		OSSpinLockUnlock(&stack_logging_lock);
 		return;
 	}
-		
-	// locate previous backtrace for this thread
-	short difference = 1;
-	
-	uint32_t collisions = STACK_LOGGING_MAX_THREAD_COLLISIONS;
-	uint32_t hashed_thread = self_thread & (STACK_LOGGING_THREAD_HASH_SIZE-1);
-	while (thread_buffer[hashed_thread].thread && thread_buffer[hashed_thread].thread != self_thread) {
-		if (--collisions == 0) {
-			difference = 0;
-			break;
-		}
-		hashed_thread++;
-	}
-	
+
 	// gather stack
 	uint32_t count;
-	thread_stack_pcs(stack_buffer[current_stack_buffer], STACK_LOGGING_MAX_STACK_SIZE, &count);
-	stack_buffer[current_stack_buffer][count++] = self_thread + 1;		// stuffing thread # in the coldest slot.  Add 1 to match what the old stack logging did.
+	thread_stack_pcs(stack_buffer, STACK_LOGGING_MAX_STACK_SIZE-1, &count); // only gather up to STACK_LOGGING_MAX_STACK_SIZE-1 since we append thread id
+	stack_buffer[count++] = self_thread + 1;		// stuffing thread # in the coldest slot.  Add 1 to match what the old stack logging did.
 	num_hot_to_skip += 2;
 	if (count <= num_hot_to_skip) {
 		// Oops!  Didn't get a valid backtrace from thread_stack_pcs().
 		OSSpinLockUnlock(&stack_logging_lock);
 		return;
-        }
-	
-	// easy access variables
-	thread_backtrace_history *historical = &thread_buffer[hashed_thread];
-	vm_address_t *frames = stack_buffer[current_stack_buffer];
-	
-	// increment as necessary
-	current_logging_index++;
-	current_stack_buffer++;
-	if (current_stack_buffer == STACK_LOGGING_NUMBER_RECENT_BACKTRACES) current_stack_buffer = 0;
-	
-	// difference (if possible)
-	if (historical->logging_index + STACK_LOGGING_NUMBER_RECENT_BACKTRACES <= current_logging_index) difference = 0;
-	else if (historical->full_backtrace_countdown == 0) difference = 0;
-	
-	uint32_t sameness = 0;
-	if (difference) {
-		uint32_t old_count = historical->backtrace_length;
-		int32_t new_count = (int32_t)count;
-		while (old_count-- && new_count-- > (int32_t)num_hot_to_skip) {
-			if (historical->backtrace[old_count] == frames[new_count]) sameness++;
-			else break;
-		}
-		
-		if (sameness < STACK_LOGGING_MIN_SAME_FRAMES) { // failure; pretend nothing was the same
-			difference = 0;
-		}
 	}
-	
-	// create events for byte storage
+		
+	// unique stack in memory
 	count -= num_hot_to_skip;
-	stack_logging_backtrace_event current_event;
-	current_event.num_identical_frames = (difference ? sameness : 0);
-	current_event.num_new_hot_frames = (difference ? count - sameness : count);
-	current_event.offset_delta = (difference ? historical->logging_offset - total_offset : 0);
-	int64_t this_offset_change = sizeof(stack_logging_backtrace_event) + (current_event.num_new_hot_frames * sizeof(uintptr_t));
+#if __LP64__ 
+	mach_vm_address_t *frames = (mach_vm_address_t*)stack_buffer + num_hot_to_skip;
+#else
+	mach_vm_address_t frames[STACK_LOGGING_MAX_STACK_SIZE];
+	uint32_t i;
+	for (i = 0; i < count; i++) {
+		frames[i] = stack_buffer[i+num_hot_to_skip];
+	}
+#endif
+
+	uint64_t uniqueStackIdentifier = (uint64_t)(-1ll);
+	while (!__enter_frames_in_table(pre_write_buffers->uniquing_table, &uniqueStackIdentifier, frames, (int32_t)count)) {
+		__expand_uniquing_table(pre_write_buffers->uniquing_table);
+    }
 	
 	stack_logging_index_event current_index;
 	if (type_flags & stack_logging_type_alloc) {
@@ -708,42 +851,52 @@ __disk_stack_logging_log_stack(uint32_t type_flags, uintptr_t zone_ptr, uintptr_
 		current_index.argument = size;
 		if (logging_use_compaction) {
 			last_logged_malloc_address = current_index.address; // disguised
-			last_logged_backtrace_offset_diff = (uint32_t)this_offset_change;
-			compaction_saved_differencing_history = *historical;
 		}
 	} else {
 		current_index.address = STACK_LOGGING_DISGUISE(ptr_arg);
 		current_index.argument = 0ul;
 		last_logged_malloc_address = 0ul;
 	}
-	current_index.offset_and_flags = STACK_LOGGING_OFFSET_AND_FLAGS(total_offset, type_flags);
-	
-	// prepare for differencing next time
-	historical->backtrace = (uintptr_t*)(frames + num_hot_to_skip);
-	historical->backtrace_length = count;
-	if (difference) historical->full_backtrace_countdown--;
-	else historical->full_backtrace_countdown = STACK_LOGGING_FORCE_FULL_BACKTRACE_EVERY;
-	historical->logging_index = current_logging_index;
-	historical->logging_offset = total_offset;
-	historical->thread = self_thread;
-	historical->hash_pos = hashed_thread;
-	
+	current_index.offset_and_flags = STACK_LOGGING_OFFSET_AND_FLAGS(uniqueStackIdentifier, type_flags);
+
+//	the following line is a good debugging tool for logging each allocation event as it happens.
+//	malloc_printf("{0x%lx, %lld}\n", STACK_LOGGING_DISGUISE(current_index.address), uniqueStackIdentifier);
+		
 	// flush the data buffer to disk if necessary
-	if (pre_write_buffers->next_free_stack_buffer_offset + this_offset_change >= STACK_LOGGING_BLOCK_WRITING_SIZE) {
-		flush_data();
-	} else if (pre_write_buffers->next_free_index_buffer_offset + sizeof(stack_logging_index_event) >= STACK_LOGGING_BLOCK_WRITING_SIZE) {
+	if (pre_write_buffers->next_free_index_buffer_offset + sizeof(stack_logging_index_event) >= STACK_LOGGING_BLOCK_WRITING_SIZE) {
 		flush_data();
 	}
 	
 	// store bytes in buffers
-	memcpy(pre_write_index_buffer+pre_write_buffers->next_free_index_buffer_offset, &current_index, sizeof(stack_logging_index_event));
-	memcpy(pre_write_backtrace_event_buffer+pre_write_buffers->next_free_stack_buffer_offset, &current_event, sizeof(stack_logging_backtrace_event));
-	memcpy(pre_write_backtrace_event_buffer+pre_write_buffers->next_free_stack_buffer_offset+sizeof(stack_logging_backtrace_event), frames+num_hot_to_skip, (size_t)this_offset_change - sizeof(stack_logging_backtrace_event));
+	memcpy(pre_write_buffers->index_buffer+pre_write_buffers->next_free_index_buffer_offset, &current_index, sizeof(stack_logging_index_event));
 	pre_write_buffers->next_free_index_buffer_offset += (uint32_t)sizeof(stack_logging_index_event);
-	pre_write_buffers->next_free_stack_buffer_offset += (uint32_t)this_offset_change;
-	total_offset += this_offset_change;
 	
 	OSSpinLockUnlock(&stack_logging_lock);
+}
+
+void 
+__stack_logging_fork_prepare() {
+	OSSpinLockLock(&stack_logging_lock);
+}
+
+void
+__stack_logging_fork_parent() {
+	OSSpinLockUnlock(&stack_logging_lock);
+}
+
+void
+__stack_logging_fork_child() {
+	malloc_logger = NULL;
+	stack_logging_enable_logging = 0;
+	OSSpinLockUnlock(&stack_logging_lock);
+}
+
+boolean_t
+__stack_logging_locked() 
+{
+	bool acquired_lock = OSSpinLockTry(&stack_logging_lock);
+	if (acquired_lock) OSSpinLockUnlock(&stack_logging_lock);
+	return (acquired_lock ? false : true);
 }
 
 #pragma mark -
@@ -757,7 +910,7 @@ this first one will look through the index, find the "stack_identifier" (i.e. th
 extern kern_return_t __mach_stack_logging_get_frames(task_t task, mach_vm_address_t address, mach_vm_address_t *stack_frames_buffer, uint32_t max_stack_frames, uint32_t *num_frames);
     //  Gets the last allocation record about address
 	
-if !address, will load both index and stack logs and iterate through (expensive)
+if !address, will load index and iterate through (expensive)
 else will load just index, search for stack, and then use third function here to retrieve. (also expensive)
 extern kern_return_t __mach_stack_logging_enumerate_records(task_t task, mach_vm_address_t address, void enumerator(mach_stack_logging_record_t, void *), void *context);
     // Applies enumerator to all records involving address sending context as enumerator's second parameter; if !address, applies enumerator to all records 
@@ -770,63 +923,44 @@ extern kern_return_t __mach_stack_logging_frames_for_uniqued_stack(task_t task, 
 
 #pragma mark - caching
 
-static inline size_t hash_index_32(uint32_t address, size_t max_pos) __attribute__((always_inline));
-static inline size_t hash_index_32(uint32_t address, size_t max_pos) {
-//	return (((OSSwapInt32(address >> 2) << 3) & 0x96AAAA98) ^ (address >> 2)) % (max_pos-1);
-	return (address >> 2) % (max_pos-1); // simplicity rules.
+__attribute__((always_inline)) static inline size_t 
+hash_index(uint64_t address, size_t max_pos) {
+	return (size_t)((address >> 2) % (max_pos-1)); // simplicity rules.
 }
 
-static inline size_t hash_index_64(uint64_t address, size_t max_pos) __attribute__((always_inline));
-static inline size_t hash_index_64(uint64_t address, size_t max_pos) {
-//	return (size_t)((((OSSwapInt64(address >> 3) << 2) & 0x54AA0A0AAA54ull) ^ (address >> 3)) % (max_pos - 1));
-	return (size_t)((address >> 3) % (max_pos-1)); // simplicity rules.
+__attribute__((always_inline)) static inline size_t 
+hash_multiplier(size_t capacity, uint32_t allowed_collisions) {
+	return (capacity/(allowed_collisions*2+1));
 }
 
-static void
-transfer_node_ll32(remote_index_cache *cache, remote_index_node32 *old_node)
-{
-	uint32_t collisions = 0;
-	size_t pos = hash_index_32(old_node->address, cache->cache_node_capacity);
-	do {
-		if (cache->casted_table32[pos].address == old_node->address) { // hit like this shouldn't happen.
-			fprintf(stderr, "impossible collision! two address==address lists! (transfer_node_ll32)\n");
-			break;
-		} else if (cache->casted_table32[pos].address == 0) { // empty
-			cache->casted_table32[pos] = *old_node;
-			break;
-		} else {
-			pos++;
-			if (pos >= cache->cache_node_capacity) pos = 0;
-		}
-		collisions++;
-	} while (collisions <= cache->collision_allowance);
-	
-	if (collisions > cache->collision_allowance) {
-		fprintf(stderr, "reporting bad hash function! disk stack logging reader %lu bit. (transfer_node_ll32)\n", sizeof(void*)*8);
-	}
+__attribute__((always_inline)) static inline size_t 
+next_hash(size_t hash, size_t multiplier, size_t capacity, uint32_t collisions) {
+	hash += multiplier * collisions;
+	if (hash >= capacity) hash -= capacity;
+	return hash;
 }
 
 static void
-transfer_node_ll64(remote_index_cache *cache, remote_index_node64 *old_node)
+transfer_node(remote_index_cache *cache, remote_index_node *old_node)
 {
 	uint32_t collisions = 0;
-	size_t pos = hash_index_64(old_node->address, cache->cache_node_capacity);
+	size_t pos = hash_index(old_node->address, cache->cache_node_capacity);
+	size_t multiplier = hash_multiplier(cache->cache_node_capacity, cache->collision_allowance);
 	do {
-		if (cache->casted_table64[pos].address == old_node->address) { // hit!
-			fprintf(stderr, "impossible collision! two address==address lists! (transfer_node_ll64)\n");
+		if (cache->table_memory[pos].address == old_node->address) { // hit like this shouldn't happen.
+			fprintf(stderr, "impossible collision! two address==address lists! (transfer_node)\n");
 			break;
-		} else if (cache->casted_table64[pos].address == 0) { // empty
-			cache->casted_table64[pos] = *old_node;
+		} else if (cache->table_memory[pos].address == 0) { // empty
+			cache->table_memory[pos] = *old_node;
 			break;
 		} else {
-			pos++;
-			if (pos >= cache->cache_node_capacity) pos = 0;
+			collisions++;
+			pos = next_hash(pos, multiplier, cache->cache_node_capacity, collisions);
 		}
-		collisions++;
 	} while (collisions <= cache->collision_allowance);
 	
 	if (collisions > cache->collision_allowance) {
-		fprintf(stderr, "reporting bad hash function! disk stack logging reader %lu bit. (transfer_node_ll64)\n", sizeof(void*)*8);
+		fprintf(stderr, "reporting bad hash function! disk stack logging reader %lu bit. (transfer_node)\n", sizeof(void*)*8);
 	}
 }
 
@@ -835,126 +969,48 @@ expand_cache(remote_index_cache *cache)
 {
 	// keep old stats
 	size_t old_node_capacity = cache->cache_node_capacity;
-	uint64_t old_node_count = cache->cache_node_count;
-	uint64_t old_llnode_count = cache->cache_llnode_count;
-	void *old_table = cache->table_memory;
+	remote_index_node *old_table = cache->table_memory;
 	
 	// double size
-	cache->cache_size <<= 1;
-	cache->cache_node_capacity <<= 1;
-	cache->collision_allowance += STACK_LOGGING_REMOTE_CACHE_COLLISION_GROWTH_RATE;
-	cache->table_memory = (void*)calloc(cache->cache_node_capacity, cache->in_use_node_size);
-	if (cache->casted_table32) cache->casted_table32 = cache->table_memory;
-	else cache->casted_table64 = cache->table_memory;
-	
+	cache->cache_size <<= 2;
+	cache->cache_node_capacity <<= 2;
+	cache->collision_allowance += 3;
+	cache->table_memory = (void*)calloc(cache->cache_node_capacity, sizeof(remote_index_node));
+		
 	// repopulate (expensive!)
 	size_t i;
-	if (cache->casted_table32) { // if target is 32-bit
-		remote_index_node32 *casted_old_table = (remote_index_node32*)old_table;
-		for (i = 0; i < old_node_capacity; i++) {
-			if (casted_old_table[i].address) {
-				transfer_node_ll32(cache, &casted_old_table[i]);
-			}
+	for (i = 0; i < old_node_capacity; i++) {
+		if (old_table[i].address) {
+			transfer_node(cache, &old_table[i]);
 		}
-	} else {
-		remote_index_node64 *casted_old_table = (remote_index_node64*)old_table;
-		for (i = 0; i < old_node_capacity; i++) {
-			if (casted_old_table[i].address) {
-				transfer_node_ll64(cache, &casted_old_table[i]);
-			}
-		}
-	}
-	
-	cache->cache_node_count = old_node_count;
-	cache->cache_llnode_count = old_llnode_count;
+	}	
 	free(old_table);
 //	printf("cache expanded to %0.2f mb (eff: %3.0f%%, capacity: %lu, nodes: %llu, llnodes: %llu)\n", ((float)(cache->cache_size))/(1 << 20), ((float)(cache->cache_node_count)*100.0)/((float)(cache->cache_node_capacity)), cache->cache_node_capacity, cache->cache_node_count, cache->cache_llnode_count);
 }
 
 static void
-insert_node32(remote_index_cache *cache, uint32_t address, uint64_t index_file_offset)
+insert_node(remote_index_cache *cache, uint64_t address, uint64_t index_file_offset)
 {
 	uint32_t collisions = 0;
-	size_t pos = hash_index_32(address, cache->cache_node_capacity);
-	
-	if (cache->next_block_index >= STACK_LOGGING_REMOTE_LINKS_PER_BLOCK) {
-		cache->next_block_index = 0;
-		cache->current_block++;
-		cache->blocks[cache->current_block] = (index_ll_node*)malloc(STACK_LOGGING_REMOTE_LINKS_PER_BLOCK*sizeof(index_ll_node));
-/*		printf("node buffer added. total nodes: %ul (%u buffers, %0.2f mb)\n", STACK_LOGGING_REMOTE_LINKS_PER_BLOCK*(cache->current_block+1),
-				cache->current_block+1, ((float)(STACK_LOGGING_REMOTE_LINKS_PER_BLOCK*sizeof(index_ll_node)*(cache->current_block+1)))/(1 << 20));
-*/
-	}
-	index_ll_node *new_node = &cache->blocks[cache->current_block][cache->next_block_index++];
-	new_node->index_file_offset = index_file_offset;
-	new_node->next = NULL;
-	
-	bool inserted = false;
-	while (!inserted) {
-		if (cache->casted_table32[pos].address == address) { // hit!
-			cache->casted_table32[pos].last_link->next = new_node; // insert at end
-			cache->casted_table32[pos].last_link = new_node;
-			inserted = true;
-			break;
-		} else if (cache->casted_table32[pos].address == 0) { // empty
-			cache->casted_table32[pos].address = address;
-			cache->casted_table32[pos].linked_list = new_node;
-			cache->casted_table32[pos].last_link = new_node;
-			cache->cache_node_count++;
-			inserted = true;
-			break;
-		} else {
-			pos++;
-			if (pos >= cache->cache_node_capacity) pos = 0;
-		}
-		collisions++;
-		if (collisions > cache->collision_allowance) {
-			expand_cache(cache);
-			pos = hash_index_32(address, cache->cache_node_capacity);
-			collisions = 0;
-		}
-	}
-	
-	cache->cache_llnode_count++;
-	
-}
+	size_t pos = hash_index(address, cache->cache_node_capacity);
+	size_t multiplier = hash_multiplier(cache->cache_node_capacity, cache->collision_allowance);
 
-static void
-insert_node64(remote_index_cache *cache, uint64_t address, uint64_t index_file_offset)
-{
-	uint32_t collisions = 0;
-	size_t pos = hash_index_64(address, cache->cache_node_capacity);
-	
-	if (cache->next_block_index >= STACK_LOGGING_REMOTE_LINKS_PER_BLOCK) {
-		cache->next_block_index = 0;
-		cache->current_block++;
-		cache->blocks[cache->current_block] = (index_ll_node*)malloc(STACK_LOGGING_REMOTE_LINKS_PER_BLOCK*sizeof(index_ll_node));
-	}
-	index_ll_node *new_node = &cache->blocks[cache->current_block][cache->next_block_index++];
-	new_node->index_file_offset = index_file_offset;
-	new_node->next = NULL;
-	
 	bool inserted = false;
 	while (!inserted) {
-		if (cache->casted_table64[pos].address == address) { // hit!
-			cache->casted_table64[pos].last_link->next = new_node; // insert at end
-			cache->casted_table64[pos].last_link = new_node;
+		if (cache->table_memory[pos].address == 0ull || cache->table_memory[pos].address == address) { // hit or empty
+			cache->table_memory[pos].address = address;
+			cache->table_memory[pos].index_file_offset = index_file_offset;
 			inserted = true;
 			break;
-		} else if (cache->casted_table64[pos].address == 0) { // empty
-			cache->casted_table64[pos].address = address;
-			cache->casted_table64[pos].linked_list = new_node;
-			cache->casted_table64[pos].last_link = new_node;
-			inserted = true;
-			break;
-		} else {
-			pos++;
-			if (pos >= cache->cache_node_capacity) pos = 0;
 		}
+		
 		collisions++;
+		pos = next_hash(pos, multiplier, cache->cache_node_capacity, collisions);
+
 		if (collisions > cache->collision_allowance) {
 			expand_cache(cache);
-			pos = hash_index_64(address, cache->cache_node_capacity);
+			pos = hash_index(address, cache->cache_node_capacity);
+			multiplier = hash_multiplier(cache->cache_node_capacity, cache->collision_allowance);
 			collisions = 0;
 		}
 	}
@@ -969,23 +1025,16 @@ update_cache_for_file_streams(remote_task_file_streams *descriptors)
 	// create from scratch if necessary.
 	if (!cache) {
 		descriptors->cache = cache = (remote_index_cache*)calloc((size_t)1, sizeof(remote_index_cache));
-		cache->cache_node_capacity = STACK_LOGGING_REMOTE_CACHE_DEFAULT_NODE_CAPACITY;
-		cache->collision_allowance = STACK_LOGGING_REMOTE_CACHE_DEFAULT_COLLISION_ALLOWANCE;
-		cache->cache_node_count = cache->cache_llnode_count = 0;
+		cache->cache_node_capacity = 1 << 14;
+		cache->collision_allowance = 17;
 		cache->last_index_file_offset = 0;
-		cache->next_block_index = 0;
-		cache->current_block = 0;
-		cache->blocks[0] = (index_ll_node*)malloc(STACK_LOGGING_REMOTE_LINKS_PER_BLOCK*sizeof(index_ll_node));
-		cache->in_use_node_size = (descriptors->task_is_64_bit ? sizeof(remote_index_node64) : sizeof(remote_index_node32));
-		cache->cache_size = cache->cache_node_capacity*cache->in_use_node_size;
-		cache->table_memory = (void*)calloc(cache->cache_node_capacity, cache->in_use_node_size);
-		if (descriptors->task_is_64_bit) cache->casted_table64 = (remote_index_node64*)(cache->table_memory);
-		else cache->casted_table32 = (remote_index_node32*)(cache->table_memory);
+		cache->cache_size = cache->cache_node_capacity*sizeof(remote_index_node);
+		cache->table_memory = (void*)calloc(cache->cache_node_capacity, sizeof(remote_index_node));
 		
 		// now map in the shared memory, if possible
 		char shmem_name_string[PATH_MAX];
-		strlcpy(shmem_name_string, stack_logging_directory_base_name, (size_t)PATH_MAX);
-		append_int(shmem_name_string, descriptors->remote_pid);
+		strlcpy(shmem_name_string, stack_log_file_base_name, (size_t)PATH_MAX);
+		append_int(shmem_name_string, descriptors->remote_pid, (size_t)PATH_MAX);
 		
 		int shmid = shm_open(shmem_name_string, O_RDWR, S_IRUSR | S_IWUSR);
 		if (shmid >= 0) {
@@ -1035,11 +1084,38 @@ update_cache_for_file_streams(remote_task_file_streams *descriptors)
 	}
 	
 	// if a snapshot is necessary, memcpy from remote frozen process' memory 
-	// note: there were two ways to do this Ð spin lock or suspend. suspend allows us to
+	// note: there were two ways to do this â€šÃ„Ã¬ spin lock or suspend. suspend allows us to
 	// analyze processes even if they were artificially suspended. with a lock, there'd be
 	// worry that the target was suspended with the lock taken.
 	if (update_snapshot) {
 		memcpy(&cache->snapshot, cache->shmem, sizeof(stack_buffer_shared_memory));
+		// also need to update our version of the remote uniquing table
+		vm_address_t local_uniquing_address = 0ul;
+		mach_msg_type_number_t local_uniquing_size = 0;
+		mach_vm_size_t desired_size = round_page(sizeof(backtrace_uniquing_table));
+		kern_return_t err;
+		if ((err = mach_vm_read(descriptors->remote_task, cache->shmem->uniquing_table_address, desired_size, &local_uniquing_address, &local_uniquing_size)) != KERN_SUCCESS 
+				|| local_uniquing_size != desired_size) {
+			fprintf(stderr, "error while attempting to mach_vm_read remote stack uniquing table (%d): %s\n", err, mach_error_string(err));
+		} else {
+			// the mach_vm_read was successful, so acquire the uniquing table
+			
+			// need to re-read the table, so deallocate the current memory
+			if (cache->uniquing_table.table) mach_vm_deallocate(mach_task_self(), (mach_vm_address_t)(uintptr_t)(cache->uniquing_table.table), cache->uniquing_table.tableSize);
+		
+			// the following line gathers the uniquing table structure data, but the actual table memory is invalid since it's a pointer from the
+			// remote process. this pointer will be mapped shared in a few lines.
+			cache->uniquing_table = *((backtrace_uniquing_table*)local_uniquing_address);
+			
+			vm_address_t local_table_address = 0ul;
+			mach_msg_type_number_t local_table_size = 0;
+			
+			err = mach_vm_read(descriptors->remote_task, cache->uniquing_table.table_address, cache->uniquing_table.tableSize, &local_table_address, &local_table_size);
+			if (err == KERN_SUCCESS) cache->uniquing_table.table = (mach_vm_address_t*)local_table_address;
+			else cache->uniquing_table.table = NULL;
+			
+			mach_vm_deallocate(mach_task_self(), (mach_vm_address_t)local_uniquing_address, (mach_vm_size_t)local_uniquing_size);
+		}
 	}
 	
 	// resume
@@ -1070,17 +1146,17 @@ update_cache_for_file_streams(remote_task_file_streams *descriptors)
 		}
 		off_t current_index_position = cache->last_index_file_offset;
 		do {
-			number_slots = MIN(delta_indecies - read_this_update, number_slots);
+			number_slots = (size_t)MIN(delta_indecies - read_this_update, number_slots);
 			read_count = fread(bufferSpace, read_size, number_slots, the_index);
 			if (descriptors->task_is_64_bit) {
 				for (i = 0; i < read_count; i++) {
-					insert_node64(cache, STACK_LOGGING_DISGUISE(target_64_index[i].address), (uint64_t)current_index_position);
+					insert_node(cache, STACK_LOGGING_DISGUISE(target_64_index[i].address), (uint64_t)current_index_position);
 					read_this_update++;
 					current_index_position += read_size;
 				}
 			} else {
 				for (i = 0; i < read_count; i++) {
-					insert_node32(cache, STACK_LOGGING_DISGUISE(target_32_index[i].address), (uint64_t)current_index_position);
+					insert_node(cache, (mach_vm_address_t)STACK_LOGGING_DISGUISE(target_32_index[i].address), (uint64_t)current_index_position);
 					read_this_update++;
 					current_index_position += read_size;
 				}
@@ -1101,24 +1177,19 @@ update_cache_for_file_streams(remote_task_file_streams *descriptors)
 		off_t current_index_position = cache->snapshot.start_index_offset;
 		if (descriptors->task_is_64_bit) {
 			for (i = last_snapshot_scan_index; i < free_snapshot_scan_index; i++) {
-				insert_node64(cache, STACK_LOGGING_DISGUISE(target_64_index[i].address), (uint64_t)(current_index_position + (i * read_size))); 
+				insert_node(cache, STACK_LOGGING_DISGUISE(target_64_index[i].address), (uint64_t)(current_index_position + (i * read_size))); 
 			}
 		} else {
 			for (i = last_snapshot_scan_index; i < free_snapshot_scan_index; i++) {
-				insert_node32(cache, STACK_LOGGING_DISGUISE(target_32_index[i].address), (uint64_t)(current_index_position + (i * read_size)));
+				insert_node(cache, (mach_vm_address_t)STACK_LOGGING_DISGUISE(target_32_index[i].address), (uint64_t)(current_index_position + (i * read_size)));
 			}
 		}
 	}
-	
 }
 
 static void
 destroy_cache_for_file_streams(remote_task_file_streams *descriptors)
 {
-	uint32_t i;
-	for (i = 0; i <= descriptors->cache->current_block; i++) {
-		free(descriptors->cache->blocks[i]); // clears the linked list nodes.
-	}
 	if (descriptors->cache->shmem) {
 		munmap(descriptors->cache->shmem, sizeof(stack_buffer_shared_memory));
 	}
@@ -1137,29 +1208,30 @@ open_log_files(pid_t pid, remote_task_file_streams *this_task_streams)
 {
 	DIR *dp;
 	struct dirent *entry;
-	int prefix_length;
 	char prefix_name[PATH_MAX];
 	char pathname[PATH_MAX];
 
 	reap_orphaned_log_files(false);		// reap any left-over log files (for non-existant processes, but not for this analysis process)
 
-	if ((dp = opendir(temporary_directory)) == NULL) {
+	if ((dp = opendir(_PATH_TMP)) == NULL) {
 		return;
 	}
 
 	// It's OK to use snprintf in this routine since it should only be called by the clients
 	// of stack logging, and thus calls to malloc are OK.
-	snprintf(prefix_name, PATH_MAX, "%s%d.", stack_logging_directory_base_name, pid);	// make sure to use "%s%d." rather than just "%s%d" to match the whole pid
-	prefix_length = strlen(prefix_name);
+	snprintf(prefix_name, (size_t)PATH_MAX, "%s%d.", stack_log_file_base_name, pid);	// make sure to use "%s%d." rather than just "%s%d" to match the whole pid
+	size_t prefix_length = strlen(prefix_name);
 
 	while ( (entry = readdir(dp)) != NULL ) {
 		if ( strncmp( entry->d_name, prefix_name, prefix_length) == 0 ) {
-			snprintf(pathname, PATH_MAX, "%s/%s/%s", temporary_directory, entry->d_name, index_file_name);
-			this_task_streams->index_file_stream = fopen(pathname, "r");
-
-			snprintf(pathname, PATH_MAX, "%s/%s/%s", temporary_directory, entry->d_name, stack_file_name);
-			this_task_streams->stack_file_stream = fopen(pathname, "r");
-
+			snprintf(pathname, (size_t)PATH_MAX, "%s%s", _PATH_TMP, entry->d_name);
+			char reference_file[PATH_MAX];
+			if (log_file_is_reference(pathname, reference_file, (size_t)PATH_MAX)) {
+				this_task_streams->index_file_stream = fopen(reference_file, "r");
+			} else {
+				this_task_streams->index_file_stream = fopen(pathname, "r");
+			}
+			
 			break;
 		}
 	}
@@ -1169,6 +1241,8 @@ open_log_files(pid_t pid, remote_task_file_streams *this_task_streams)
 static remote_task_file_streams*
 retain_file_streams_for_task(task_t task)
 {
+	if (task == MACH_PORT_NULL) return NULL;
+	
 	OSSpinLockLock(&remote_fd_list_lock);
 	
 	// see if they're already in use
@@ -1194,7 +1268,6 @@ retain_file_streams_for_task(task_t task)
 			}
 		}
 		fclose(remote_fds[next_remote_task_fd].index_file_stream);
-		fclose(remote_fds[next_remote_task_fd].stack_file_stream);
 		destroy_cache_for_file_streams(&remote_fds[next_remote_task_fd]);
 	}
 	
@@ -1210,9 +1283,8 @@ retain_file_streams_for_task(task_t task)
 	open_log_files(pid, this_task_streams);
 
 	// check if opens failed
-	if (this_task_streams->index_file_stream == NULL || this_task_streams->stack_file_stream == NULL) {
+	if (this_task_streams->index_file_stream == NULL) {
 		if (this_task_streams->index_file_stream) fclose(this_task_streams->index_file_stream);
-		if (this_task_streams->stack_file_stream) fclose(this_task_streams->stack_file_stream);
 		OSSpinLockUnlock(&remote_fd_list_lock);
 		return NULL;
 	}
@@ -1269,36 +1341,24 @@ __mach_stack_logging_get_frames(task_t task, mach_vm_address_t address, mach_vm_
 	update_cache_for_file_streams(remote_fd);
 	
 	uint32_t collisions = 0;
+	size_t hash = hash_index(address, remote_fd->cache->cache_node_capacity);
+	size_t multiplier = hash_multiplier(remote_fd->cache->cache_node_capacity, remote_fd->cache->collision_allowance);
 	uint64_t located_file_position = 0;
-	bool found = false;
-	size_t hash = 0;
-	if (remote_fd->task_is_64_bit) {
-		hash = hash_index_64(address, remote_fd->cache->cache_node_capacity);
-		do {
-			if (remote_fd->cache->casted_table64[hash].address == address) { // hit!
-				located_file_position = remote_fd->cache->casted_table64[hash].last_link->index_file_offset;
-				found = true;
-				break;
-			} else if (remote_fd->cache->casted_table64[hash].address == 0) { // failure!
-				break;
-			}
-			hash++;
-			if (hash >= remote_fd->cache->cache_node_capacity) hash = 0;
-		} while (collisions <= remote_fd->cache->collision_allowance);
-	} else {
-		hash = hash_index_32((uint32_t)address, remote_fd->cache->cache_node_capacity);
-		do {
-			if (remote_fd->cache->casted_table32[hash].address == (uint32_t)address) { // hit!
-				located_file_position = remote_fd->cache->casted_table32[hash].last_link->index_file_offset;
-				found = true;
-				break;
-			} else if (remote_fd->cache->casted_table32[hash].address == 0) { // failure!
-				break;
-			}
-			hash++;
-			if (hash >= remote_fd->cache->cache_node_capacity) hash = 0;
-		} while (collisions <= remote_fd->cache->collision_allowance);
-	}
+	
+	bool found = false;	
+	do {
+		if (remote_fd->cache->table_memory[hash].address == address) { // hit!
+			located_file_position = remote_fd->cache->table_memory[hash].index_file_offset;
+			found = true;
+			break;
+		} else if (remote_fd->cache->table_memory[hash].address == 0ull) { // failure!
+			break;
+		}
+		
+		collisions++;
+		hash = next_hash(hash, multiplier, remote_fd->cache->cache_node_capacity, collisions);
+		
+	} while (collisions <= remote_fd->cache->collision_allowance);
 	
 	if (found) {
 		// prepare for the read; target process could be 32 or 64 bit.
@@ -1362,155 +1422,72 @@ __mach_stack_logging_enumerate_records(task_t task, mach_vm_address_t address, v
 	mach_stack_logging_record_t pass_record;
 	kern_return_t err = KERN_SUCCESS;
 	
-	if (reading_all_addresses) { // just stupidly read the index file from disk
-	
-		// update (read index file once and only once)
-		update_cache_for_file_streams(remote_fd);
-	
-		FILE *the_index = (remote_fd->index_file_stream);
-		
-		// prepare for the read; target process could be 32 or 64 bit.
-		char bufferSpace[2048]; // 2 kb
-		stack_logging_index_event32 *target_32_index = (stack_logging_index_event32*)bufferSpace;
-		stack_logging_index_event64 *target_64_index = (stack_logging_index_event64*)bufferSpace;
-		uint32_t target_addr_32 = (uint32_t)STACK_LOGGING_DISGUISE((uint32_t)address);
-		uint64_t target_addr_64 = STACK_LOGGING_DISGUISE((uint64_t)address);
-		size_t read_size = (remote_fd->task_is_64_bit ? sizeof(stack_logging_index_event64) : sizeof(stack_logging_index_event32));
-		size_t number_slots = (size_t)(2048/read_size);
-		uint64_t total_slots = remote_fd->cache->last_index_file_offset / read_size;
-		
-		// perform the search
-		size_t read_count = 0;
-		int64_t current_file_offset = 0;
-		uint32_t i;
-		do {
-			// at this point, we need to read index events; read them from the file until it's necessary to grab them from the shared memory snapshot
-			// and crop file reading to the point where we last scanned
-			number_slots = (size_t)MIN(number_slots, total_slots);
-			
-			// if out of file to read (as of the time we entered this function), try to use shared memory snapshot
-			if (number_slots == 0) {
-				if (remote_fd->cache->shmem && remote_fd->cache->snapshot.start_index_offset + remote_fd->cache->snapshot.next_free_index_buffer_offset > (uint64_t)current_file_offset) {
-					// use shared memory
-					target_32_index = (stack_logging_index_event32*)remote_fd->cache->snapshot.index_buffer;
-					target_64_index = (stack_logging_index_event64*)remote_fd->cache->snapshot.index_buffer;
-					read_count = (uint32_t)(remote_fd->cache->snapshot.start_index_offset + remote_fd->cache->snapshot.next_free_index_buffer_offset - current_file_offset) / read_size;
-					current_file_offset += read_count * read_size;
-				} else {
-					break;
-				}
-			} else {
-				// get and save index (enumerator could modify)
-				fseeko(the_index, current_file_offset, SEEK_SET);
-				read_count = fread(bufferSpace, read_size, number_slots, the_index);
-				current_file_offset = ftello(the_index);
-				total_slots -= read_count;
-			}
-			
-			if (remote_fd->task_is_64_bit) {
-				for (i = 0; i < read_count; i++) {
-					if (reading_all_addresses || target_64_index[i].address == target_addr_64) {
-						pass_record.address = STACK_LOGGING_DISGUISE(target_64_index[i].address);
-						pass_record.argument = target_64_index[i].argument;
-						pass_record.stack_identifier = STACK_LOGGING_OFFSET(target_64_index[i].offset_and_flags);
-						pass_record.type_flags = STACK_LOGGING_FLAGS(target_64_index[i].offset_and_flags);
-						enumerator(pass_record, context);
-					}
-				}
-			} else {
-				for (i = 0; i < read_count; i++) {
-					if (reading_all_addresses || target_32_index[i].address == target_addr_32) {
-						pass_record.address = STACK_LOGGING_DISGUISE(target_32_index[i].address);
-						pass_record.argument = target_32_index[i].argument;
-						pass_record.stack_identifier = STACK_LOGGING_OFFSET(target_32_index[i].offset_and_flags);
-						pass_record.type_flags = STACK_LOGGING_FLAGS(target_32_index[i].offset_and_flags);
-						enumerator(pass_record, context);
-					}
-				}
-			}
-		} while (read_count);
-	
-	} else { // searching for a single address' history
-		
-		// update (read index file once and only once)
-		update_cache_for_file_streams(remote_fd);
-		
-		// get linked-list of events
-		uint32_t collisions = 0;
-		uint64_t located_file_position = 0;
-		size_t hash = 0;
-		index_ll_node *index_position_linked_list = NULL;
-		if (remote_fd->task_is_64_bit) {
-			hash = hash_index_64(address, remote_fd->cache->cache_node_capacity);
-			do {
-				if (remote_fd->cache->casted_table64[hash].address == address) { // hit!
-					index_position_linked_list = remote_fd->cache->casted_table64[hash].linked_list;
-					break;
-				} else if (remote_fd->cache->casted_table64[hash].address == 0) { // failure!
-					break;
-				}
-				hash++;
-				if (hash >= remote_fd->cache->cache_node_capacity) hash = 0;
-			} while (collisions <= remote_fd->cache->collision_allowance);
-		} else {
-			hash = hash_index_32((uint32_t)address, remote_fd->cache->cache_node_capacity);
-			do {
-				if (remote_fd->cache->casted_table32[hash].address == (uint32_t)address) { // hit!
-					index_position_linked_list = remote_fd->cache->casted_table32[hash].linked_list;
-					break;
-				} else if (remote_fd->cache->casted_table32[hash].address == 0) { // failure!
-					break;
-				}
-				hash++;
-				if (hash >= remote_fd->cache->cache_node_capacity) hash = 0;
-			} while (collisions <= remote_fd->cache->collision_allowance);
-		}
-		
-		// if we got something, run it
-		char bufferSpace[128];
-		size_t read_count = 0;
-		stack_logging_index_event32 *target_32_index = (stack_logging_index_event32*)bufferSpace;
-		stack_logging_index_event64 *target_64_index = (stack_logging_index_event64*)bufferSpace;
-		size_t read_size = (remote_fd->task_is_64_bit ? sizeof(stack_logging_index_event64) : sizeof(stack_logging_index_event32));
-		while (index_position_linked_list) {
-			located_file_position = index_position_linked_list->index_file_offset;
-			
-			if (located_file_position >= remote_fd->cache->snapshot.start_index_offset) {
-				if (remote_fd->cache->shmem && located_file_position >= remote_fd->cache->snapshot.start_index_offset && remote_fd->cache->snapshot.start_index_offset + remote_fd->cache->snapshot.next_free_index_buffer_offset > (uint64_t)located_file_position) {
-					// use shared memory
-					target_32_index = (stack_logging_index_event32*)(remote_fd->cache->snapshot.index_buffer + located_file_position - remote_fd->cache->snapshot.start_index_offset);
-					target_64_index = (stack_logging_index_event64*)target_32_index;
-					read_count = 1;
-				} else {
-					err = KERN_FAILURE;
-					break;
-				}
-			} else {
-				fseeko(remote_fd->index_file_stream, (off_t)located_file_position, SEEK_SET);
-				read_count = fread(bufferSpace, read_size, (size_t)1, remote_fd->index_file_stream);
-				if (!read_count) {
-					err = KERN_FAILURE;
-					break;
-				}
-			}
-			if (remote_fd->task_is_64_bit) {
-				pass_record.address = STACK_LOGGING_DISGUISE(target_64_index[0].address);
-				pass_record.argument = target_64_index[0].argument;
-				pass_record.stack_identifier = STACK_LOGGING_OFFSET(target_64_index[0].offset_and_flags);
-				pass_record.type_flags = STACK_LOGGING_FLAGS(target_64_index[0].offset_and_flags);
-				enumerator(pass_record, context);
-			} else {
-				pass_record.address = STACK_LOGGING_DISGUISE(target_32_index[0].address);
-				pass_record.argument = target_32_index[0].argument;
-				pass_record.stack_identifier = STACK_LOGGING_OFFSET(target_32_index[0].offset_and_flags);
-				pass_record.type_flags = STACK_LOGGING_FLAGS(target_32_index[0].offset_and_flags);
-				enumerator(pass_record, context);
-			}
-			index_position_linked_list = index_position_linked_list->next;
-		}
-		
-	}
+	// update (read index file once and only once)
+	update_cache_for_file_streams(remote_fd);
 
+	FILE *the_index = (remote_fd->index_file_stream);
+	
+	// prepare for the read; target process could be 32 or 64 bit.
+	char bufferSpace[2048]; // 2 kb
+	stack_logging_index_event32 *target_32_index = (stack_logging_index_event32*)bufferSpace;
+	stack_logging_index_event64 *target_64_index = (stack_logging_index_event64*)bufferSpace;
+	uint32_t target_addr_32 = (uint32_t)STACK_LOGGING_DISGUISE((uint32_t)address);
+	uint64_t target_addr_64 = STACK_LOGGING_DISGUISE((uint64_t)address);
+	size_t read_size = (remote_fd->task_is_64_bit ? sizeof(stack_logging_index_event64) : sizeof(stack_logging_index_event32));
+	size_t number_slots = (size_t)(2048/read_size);
+	uint64_t total_slots = remote_fd->cache->last_index_file_offset / read_size;
+	
+	// perform the search
+	size_t read_count = 0;
+	int64_t current_file_offset = 0;
+	uint32_t i;
+	do {
+		// at this point, we need to read index events; read them from the file until it's necessary to grab them from the shared memory snapshot
+		// and crop file reading to the point where we last scanned
+		number_slots = (size_t)MIN(number_slots, total_slots);
+		
+		// if out of file to read (as of the time we entered this function), try to use shared memory snapshot
+		if (number_slots == 0) {
+			if (remote_fd->cache->shmem && remote_fd->cache->snapshot.start_index_offset + remote_fd->cache->snapshot.next_free_index_buffer_offset > (uint64_t)current_file_offset) {
+				// use shared memory
+				target_32_index = (stack_logging_index_event32*)remote_fd->cache->snapshot.index_buffer;
+				target_64_index = (stack_logging_index_event64*)remote_fd->cache->snapshot.index_buffer;
+				read_count = (uint32_t)(remote_fd->cache->snapshot.start_index_offset + remote_fd->cache->snapshot.next_free_index_buffer_offset - current_file_offset) / read_size;
+				current_file_offset += read_count * read_size;
+			} else {
+				break;
+			}
+		} else {
+			// get and save index (enumerator could modify)
+			fseeko(the_index, current_file_offset, SEEK_SET);
+			read_count = fread(bufferSpace, read_size, number_slots, the_index);
+			current_file_offset = ftello(the_index);
+			total_slots -= read_count;
+		}
+		
+		if (remote_fd->task_is_64_bit) {
+			for (i = 0; i < read_count; i++) {
+				if (reading_all_addresses || target_64_index[i].address == target_addr_64) {
+					pass_record.address = STACK_LOGGING_DISGUISE(target_64_index[i].address);
+					pass_record.argument = target_64_index[i].argument;
+					pass_record.stack_identifier = STACK_LOGGING_OFFSET(target_64_index[i].offset_and_flags);
+					pass_record.type_flags = STACK_LOGGING_FLAGS(target_64_index[i].offset_and_flags);
+					enumerator(pass_record, context);
+				}
+			}
+		} else {
+			for (i = 0; i < read_count; i++) {
+				if (reading_all_addresses || target_32_index[i].address == target_addr_32) {
+					pass_record.address = STACK_LOGGING_DISGUISE(target_32_index[i].address);
+					pass_record.argument = target_32_index[i].argument;
+					pass_record.stack_identifier = STACK_LOGGING_OFFSET(target_32_index[i].offset_and_flags);
+					pass_record.type_flags = STACK_LOGGING_FLAGS(target_32_index[i].offset_and_flags);
+					enumerator(pass_record, context);
+				}
+			}
+		}
+	} while (read_count);
+	
 	release_file_streams_for_task(task);
 	return err;
 }
@@ -1520,103 +1497,14 @@ kern_return_t
 __mach_stack_logging_frames_for_uniqued_stack(task_t task, uint64_t stack_identifier, mach_vm_address_t *stack_frames_buffer, uint32_t max_stack_frames, uint32_t *count)
 {
 	remote_task_file_streams *remote_fd = retain_file_streams_for_task(task);
-	if (remote_fd == NULL) {
-		return KERN_FAILURE;
-	}
-	
-	// prepare for initial read
-	FILE *stack_fd;
-	stack_fd = (remote_fd->stack_file_stream);
-	char bytes_buffer[16];
-	stack_logging_backtrace_event *target_stack_event = (stack_logging_backtrace_event*)bytes_buffer;
-	size_t read_size = sizeof(stack_logging_backtrace_event);
-	size_t read_count = 0;
-	off_t reading_offset = (off_t)stack_identifier;
-	
-	// get a temporary spot for the backtrace frames to go and reference the stack space such that the reference
-	// can be later pointed at the shared memory snapshot and data read from there.
-	uint64_t temp_frames_buffer[STACK_LOGGING_MAX_STACK_SIZE];
-	uint64_t *big_frames = (uint64_t*)temp_frames_buffer;
-	uint32_t *small_frames = (uint32_t*)temp_frames_buffer;
-	size_t target_frame_size = (remote_fd->task_is_64_bit ? sizeof(uint64_t) : sizeof(uint32_t));
-	char *snapshot_backtrace_location = NULL;
-	
-	int done = 0;
-	int32_t total_frames = -1;
-	int32_t hot_frames_read = 0;
-	size_t new_hot_frames = 0;
-	int32_t number_needed_hot_frames_in_event;
-	size_t number_hot_frames_to_skip;
-	int32_t i;
-	bool skip_file_read;
-	
-	while (!done) {
-	
-		// not in cache; read record Ð from disk if possible, shared memory snapshot if necessary.
-		if (remote_fd->cache->shmem && reading_offset >= (off_t)(remote_fd->cache->snapshot.start_stack_offset)) {
-			// must read from shared memory; the record isn't on disk yet
-			snapshot_backtrace_location = (remote_fd->cache->snapshot.stack_buffer + (reading_offset - remote_fd->cache->snapshot.start_stack_offset));
-			*target_stack_event = *(stack_logging_backtrace_event*)snapshot_backtrace_location;
-			big_frames = (uint64_t*)(snapshot_backtrace_location + sizeof(stack_logging_backtrace_event));
-			small_frames = (uint32_t*)big_frames;
-			skip_file_read = true;
-		} else {
-			// the record's on disk
-			i = fseeko(stack_fd, reading_offset, SEEK_SET);
-			if (i != 0) break; // unable to seek to the target position
-			read_count = fread(target_stack_event, read_size, (size_t)1, stack_fd);
-			if (read_count == 0) break;
-			
-			big_frames = (uint64_t*)temp_frames_buffer;
-			small_frames = (uint32_t*)temp_frames_buffer;
-			skip_file_read = false;
-		}
-		
-		if (total_frames < 0) {
-			total_frames = target_stack_event->num_new_hot_frames + target_stack_event->num_identical_frames;
-			if (total_frames > (int32_t)max_stack_frames) break; // don't know what to do with this; we'll just KERN_FAILURE.
-		}
-		
-		// do the math to find how many frames to apply from previous event
-		new_hot_frames = target_stack_event->num_new_hot_frames;
-		number_needed_hot_frames_in_event = total_frames - hot_frames_read - target_stack_event->num_identical_frames;
-		number_hot_frames_to_skip = new_hot_frames - number_needed_hot_frames_in_event;
-		
-		// read and apply the important frames of this one
-		if (number_needed_hot_frames_in_event > 0) {
-			if (!skip_file_read) {
-				read_count = fread(temp_frames_buffer, target_frame_size, new_hot_frames, stack_fd);
-				if (read_count < new_hot_frames) break;
-			}
-			
-			if (remote_fd->task_is_64_bit) {
-				for (i = 0; i < number_needed_hot_frames_in_event; i++) {
-					stack_frames_buffer[hot_frames_read++] = big_frames[i+number_hot_frames_to_skip];
-				}
-			} else {
-				for (i = 0; i < number_needed_hot_frames_in_event; i++) {
-					stack_frames_buffer[hot_frames_read++] = small_frames[i+number_hot_frames_to_skip];
-				}
-			}
-		}
-		
-		reading_offset += target_stack_event->offset_delta;
-		
-		if (hot_frames_read == total_frames) done = 1;
-		else if (target_stack_event->offset_delta == 0) {
-			fprintf(stderr, "incomplete stack record (identifier: 0x%qx)\n", reading_offset);
-			break;
-		}   
-	}
+	if (remote_fd == NULL) return KERN_FAILURE;
+
+	__unwind_stack_from_table_index(&remote_fd->cache->uniquing_table, stack_identifier, stack_frames_buffer, count, max_stack_frames);	
 	
 	release_file_streams_for_task(task);
 	
-	if (done) {
-		*count = hot_frames_read; 
-		return KERN_SUCCESS;
-	} else {
-		return KERN_FAILURE;
-	}
+	if (*count) return KERN_SUCCESS;
+	else return KERN_FAILURE;
 }
 
 
@@ -1626,28 +1514,40 @@ __mach_stack_logging_frames_for_uniqued_stack(task_t task, uint64_t stack_identi
 
 #include <sys/wait.h>
 
+int
 main()
 {
   int status;
   int i;
+  size_t total_globals = 0ul;
 
   fprintf(stderr, "master test process is %d\n", getpid());
-  fprintf(stderr, "sizeof stack_buffer: %d\n", sizeof(stack_buffer));
-  fprintf(stderr, "sizeof thread_buffer: %d\n", sizeof(thread_buffer));
-  fprintf(stderr, "sizeof stack_logs_directory: %d\n", sizeof(stack_logs_directory));
-  fprintf(stderr, "sizeof remote_fds: %d\n", sizeof(remote_fds));
-  fprintf(stderr, "address of pre_write_backtrace_event_buffer: %p\n", &pre_write_backtrace_event_buffer);
-  fprintf(stderr, "address of logging_use_compaction: %p\n", &logging_use_compaction);
-  //  fprintf(stderr, "size of all global data:  %d\n", (logging_use_compaction) - (pre_write_backtrace_event_buffer) + sizeof(logging_use_compaction));
+  fprintf(stderr, "sizeof pre_write_buffers: %lu\n", sizeof(pre_write_buffers)); total_globals += sizeof(pre_write_buffers);
+  fprintf(stderr, "sizeof stack_buffer: %lu\n", sizeof(stack_buffer)); total_globals += sizeof(stack_buffer);
+  fprintf(stderr, "sizeof last_logged_malloc_address: %lu\n", sizeof(last_logged_malloc_address)); total_globals += sizeof(last_logged_malloc_address);
+  fprintf(stderr, "sizeof stack_log_file_base_name: %lu\n", sizeof(stack_log_file_base_name)); total_globals += sizeof(stack_log_file_base_name);
+  fprintf(stderr, "sizeof stack_log_file_suffix: %lu\n", sizeof(stack_log_file_suffix)); total_globals += sizeof(stack_log_file_suffix);
+  fprintf(stderr, "sizeof stack_log_link_suffix: %lu\n", sizeof(stack_log_link_suffix)); total_globals += sizeof(stack_log_link_suffix);
+  fprintf(stderr, "sizeof stack_log_location: %lu\n", sizeof(stack_log_location)); total_globals += sizeof(stack_log_location);
+  fprintf(stderr, "sizeof stack_log_reference_file: %lu\n", sizeof(stack_log_reference_file)); total_globals += sizeof(stack_log_reference_file);
+  fprintf(stderr, "sizeof index_file_path: %lu\n", sizeof(index_file_path)); total_globals += sizeof(index_file_path);
+  fprintf(stderr, "sizeof index_file_descriptor: %lu\n", sizeof(index_file_descriptor)); total_globals += sizeof(index_file_descriptor);
+  fprintf(stderr, "sizeof remote_fds: %lu\n", sizeof(remote_fds)); total_globals += sizeof(remote_fds);
+  fprintf(stderr, "sizeof next_remote_task_fd: %lu\n", sizeof(next_remote_task_fd)); total_globals += sizeof(next_remote_task_fd);
+  fprintf(stderr, "sizeof remote_task_fd_count: %lu\n", sizeof(remote_task_fd_count)); total_globals += sizeof(remote_task_fd_count);
+  fprintf(stderr, "sizeof remote_fd_list_lock: %lu\n", sizeof(remote_fd_list_lock)); total_globals += sizeof(remote_fd_list_lock);
+  fprintf(stderr, "sizeof logging_use_compaction: %lu\n", sizeof(logging_use_compaction)); total_globals += sizeof(logging_use_compaction);
 
-  create_log_files();
+  fprintf(stderr, "size of all global data: %lu\n", total_globals);
+
+  create_log_file();
 
   // create a few child processes and exit them cleanly so their logs should get cleaned up
   fprintf(stderr, "\ncreating child processes and exiting cleanly\n");
   for (i = 0; i < 3; i++) {
     if (fork() == 0) {
       fprintf(stderr, "\nin child processes %d\n", getpid());
-      create_log_files();
+      create_log_file();
       fprintf(stderr, "exiting child processes %d\n", getpid());
       exit(1);
     }
@@ -1659,7 +1559,7 @@ main()
   for (i = 0; i < 3; i++) {
     if (fork() == 0) {
       fprintf(stderr, "\nin child processes %d\n", getpid());
-      create_log_files();
+      create_log_file();
       fprintf(stderr, "exiting child processes %d\n", getpid());
       _exit(1);
     }
@@ -1669,6 +1569,7 @@ main()
   // this should reap any remaining logs
   fprintf(stderr, "\nexiting master test process %d\n", getpid());
   delete_log_files();
+  return 0;
 }
 
 #endif

@@ -7,7 +7,7 @@
  * This code was written from scratch by Michael Richardson, and it is
  * dual licensed under both GPL and BSD.
  *
- * Version:     $Id: fips186prf.c,v 1.3.2.1.2.1 2006/05/19 14:19:15 nbk Exp $
+ * Version:     $Id$
  *
  * GPL notice:
  *
@@ -23,7 +23,7 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
  * BSD notice:
  *
@@ -40,10 +40,14 @@
  *    from this software without specific prior written permission.
  *
  * Copyright 2003  Michael Richardson <mcr@sandelman.ottawa.on.ca>
+ * Copyright 2006  The FreeRADIUS server project
  *
  */
 
-#include "autoconf.h"
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
+
+#include <freeradius-devel/autoconf.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -61,7 +65,7 @@
 #include <inttypes.h>
 #endif
 
-#include "sha1.h"
+#include <freeradius-devel/sha1.h>
 
 /*
  * we do it in 8-bit chunks, because we have to keep the numbers
@@ -98,7 +102,7 @@ static void onesixty_add_mod(onesixty *sum, onesixty *a, onesixty *b)
  */
 void fips186_2prf(uint8_t mk[20], uint8_t finalkey[160])
 {
-	SHA1_CTX context;
+	fr_SHA1_CTX context;
 	int j;
 	onesixty xval, xkey, w_0, w_1, sum, one;
 	uint8_t *f;
@@ -130,12 +134,16 @@ void fips186_2prf(uint8_t mk[20], uint8_t finalkey[160])
 		xval = xkey;
 
 		/*   b. w_0 = SHA1(XVAL)  */
-		SHA1Init(&context);
+		fr_SHA1Init(&context);
 
 		memset(zeros, 0, sizeof(zeros));
 		memcpy(zeros, xval.p, 20);
-		SHA1Transform(context.state, zeros);
-		SHA1FinalNoLen(w_0.p, &context);
+#ifndef WITH_OPENSSL_SHA1
+		fr_SHA1Transform(context.state, zeros);
+#else
+		fr_SHA1Transform(&context, zeros);
+#endif
+		fr_SHA1FinalNoLen(w_0.p, &context);
 
 		/*   c. XKEY = (1 + XKEY + w_0) mod 2^160 */
 		onesixty_add_mod(&sum,  &xkey, &w_0);
@@ -145,12 +153,16 @@ void fips186_2prf(uint8_t mk[20], uint8_t finalkey[160])
 		xval = xkey;
 
 		/*   e. w_1 = SHA1(XVAL)  */
-		SHA1Init(&context);
+		fr_SHA1Init(&context);
 
 		memset(zeros, 0, sizeof(zeros));
 		memcpy(zeros, xval.p, 20);
-		SHA1Transform(context.state, zeros);
-		SHA1FinalNoLen(w_1.p, &context);
+#ifndef WITH_OPENSSL_SHA1
+		fr_SHA1Transform(context.state, zeros);
+#else
+		fr_SHA1Transform(&context, zeros);
+#endif
+		fr_SHA1FinalNoLen(w_1.p, &context);
 
 		/*   f. XKEY = (1 + XKEY + w_1) mod 2^160 */
 		onesixty_add_mod(&sum,  &xkey, &w_1);
@@ -259,34 +271,3 @@ main(int argc, char *argv[])
 	printf("\n");
 }
 #endif
-
-
-
-/*
- * $Log: fips186prf.c,v $
- * Revision 1.3.2.1.2.1  2006/05/19 14:19:15  nbk
- * 	Don't use rad_assert in libeap, it's a server-only function.
- *
- * Revision 1.3.2.1  2005/08/24 14:37:52  nbk
- * 	Fix compilation warnings with gcc 4.0
- *
- * 	Patch from Steven Simon <simon.s@apple.com>
- *
- * Revision 1.3  2004/02/26 19:04:30  aland
- * 	perl -i -npe "s/[ \t]+$//g" `find src -name "*.[ch]" -print`
- *
- * 	Whitespace changes only, from a fresh checkout.
- *
- * 	For bug # 13
- *
- * Revision 1.2  2003/11/06 15:37:24  aland
- * 	Update includes to work a little better
- *
- * Revision 1.1  2003/10/29 02:49:19  mcr
- * 	initial commit of eap-sim
- *
- *
- * Local Variables:
- * c-style: bsd
- * End:
- */

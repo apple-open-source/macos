@@ -1,5 +1,5 @@
 ###
-### $Id: FAQ.pm,v 11.2 2001/08/24 22:10:44 timbo Exp $
+### $Id: FAQ.pm 10253 2007-11-15 09:26:16Z timbo $
 ###
 ### DBI Frequently Asked Questions POD
 ###
@@ -18,20 +18,11 @@
 ### commercial products, such as books, magazine articles or CD-ROMs should be
 ### made to Alligator Descartes <I<http://www.symbolstone.org/descarte/contact.html>>.
 ### 
-### $Log: FAQ.pm,v $
-# Revision 11.2  2001/08/24  22:10:44  timbo
-# *** empty log message ***
-#
-# Revision 10.8  2001/05/29  23:25:55  timbo
-# *** empty log message ***
-#
-# Revision 10.7  2001/03/28  14:52:07  timbo
-# Main checkin prior to 1.15 release
-#
 
 package DBI::FAQ;
 
-$VERSION = '0.38';
+our $VERSION = sprintf("1.%06d", q$Revision: 10253 $ =~ /(\d+)/o);
+
 
 =head1 NAME
 
@@ -58,6 +49,8 @@ DBI Frequently Asked Questions v.0.38
 =head1 VERSION
 
 This document is currently at version I<0.38>, as of I<February 8th, 2000>.
+
+That's B<very> old. A newer FAQ can be found at L<http://faq.dbi-support.com/>
 
 =head1 DESCRIPTION
 
@@ -541,10 +534,10 @@ older, non-standard, ActiveState port).
 
 Scripts written with the DBI and DBD::ODBC are faster than Win32::ODBC
 on Win32 and are trivially portable to other supported database types.
-  
+
 The DBI offers optional automatic printing or die()ing on errors which
 makes applications simpler and more robust.
-  
+
 The current DBD::ODBC driver version 0.16 is new and not yet fully stable.
 A new release is due soon [relative to the date of the next TPJ issue :-]
 and will be much improved and offer more ODBC functionality.
@@ -814,7 +807,7 @@ defaultly set to a false value ( thus making overlong BLOB fetches fail ).
 Truncation of BLOB data may not be a big deal in cases where the BLOB
 contains run-length encoded data, but data containing checksums at the end,
 for example, a ZIP file, would be rendered useless.
-  
+
 =head2 5.3 How can I invoke stored procedures with DBI?
 
 The DBI does not define a database-independent way of calling stored procedures.

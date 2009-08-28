@@ -7,12 +7,15 @@
 # Project info
 Project               = iwidgets
 
-Extra_CC_Flags        = -fno-common
+# Fetch info
+Release               = 4.0.2
+TEApotVersion         = 0.0.0.2008.08.22.18.15.00
+TEApotProject         = Iwidgets
+
 Extra_Configure_Flags = $(TEA_Configure_Flags)
 Extra_Environment     = $(TEA_Environment)
-Extra_Install_Flags   = INSTALL_ROOT=$(DSTROOT)
 
-GnuAfterInstall       = install-doc fix-link fix-owner -f Makefile.$(Project)
+GnuAfterInstall       = install-doc fix-link fix-perms -f Makefile.$(Project)
 
 # include TEA Tcl extension build support
 include ../TEA.make
@@ -27,4 +30,4 @@ install-doc:
 fix-link:
 	cd $(DSTROOT)/$(TclExtLibDir) && $(LN) -fsh $(Project)?* $(Project)
 
-.PHONY: $(GnuAfterInstall)
+.PHONY: fix-link

@@ -25,9 +25,13 @@
 #import <Foundation/Foundation.h>
 #import <DSlibinfoMIG.h>
 #import <netdb.h>
+#import <unistd.h>
 #import <pwd.h>
 #import <grp.h>
 #import <fstab.h>
+#import <arpa/inet.h>
+#import <sysexits.h>
+#import <membership.h>
 
 char	*gProgName	= NULL;
 
@@ -211,8 +215,10 @@ void print_hostent( struct hostent *entry )
 		char	**addrPtr;
 		char	*addressName = (entry->h_addrtype == AF_INET ? "ip_address" : "ipv6_address");
 		
-		for ( addrPtr = entry->h_addr_list; (*addrPtr) != NULL; addrPtr++ )
-			printf( "%s: %s\n", addressName, inet_ntop(entry->h_addrtype, (*addrPtr), ipStr, sizeof(ipStr)) );
+		for ( addrPtr = entry->h_addr_list; (*addrPtr) != NULL; addrPtr++ ) {
+			if ( inet_ntop(entry->h_addrtype, (*addrPtr), ipStr, sizeof(ipStr)) )
+				printf( "%s: %s\n", addressName, ipStr );
+		}
 
 		printf( "\n" );
 	}
@@ -251,7 +257,7 @@ int query( char *inQueryCategory, char *inQueryKey, char *inQueryValue )
 					tempFamily = AF_INET;
 				
 				if ( tempFamily != AF_UNSPEC )
-					print_hostent( gethostbyaddr( buffer, 16, tempFamily) );
+					print_hostent( gethostbyaddr( buffer, sizeof(buffer), tempFamily) );
 				else
 					fprintf( stderr, "Invalid address provided\n" );
 			}
@@ -491,7 +497,7 @@ void printFormattedCacheEntry( char *formatString, NSDictionary *inEntry )
 	printf( "\n" );
 }
 
-int cacheDump( char *inCategory, BOOL inBuckets, BOOL inEntries )
+int cacheDump( char *inCategory, BOOL inBuckets, BOOL inEntries, BOOL isAdmin )
 {
 	NSMutableDictionary *cacheInfo		= getCacheState( (inEntries ? @"dsAttrTypeNative:LibinfoCacheDetails" : @"dsAttrTypeNative:LibinfoCacheOverview") );
 	NSArray				*cacheEntries	= [cacheInfo objectForKey: @"Entries"];
@@ -542,6 +548,10 @@ int cacheDump( char *inCategory, BOOL inBuckets, BOOL inEntries )
 			for (NSDictionary *entry in cacheEntries)
 			{
 				if ( theType != nil && [theType caseInsensitiveCompare: [entry objectForKey: @"Type"]] != NSOrderedSame )
+					continue;
+				
+				// skip host entries if not admin
+				if ( [[entry objectForKey: @"Type"] caseInsensitiveCompare: @"Host"] == NSOrderedSame && isAdmin == NO )
 					continue;
 
 				printFormattedCacheEntry( formatString, entry );
@@ -595,11 +605,11 @@ int dumpConfiguration( void )
 {
 	// here we just dump the search policy and some minor details about the cache
 	NSError	*error	= nil;
-	ODNode	*odNode = [ODNode nodeWithSession: [ODSession defaultSession] type: kODTypeAuthenticationSearchNode error: &error];
+	ODNode	*odNode = [ODNode nodeWithSession: [ODSession defaultSession] type: kODNodeTypeAuthentication error: &error];
 	
 	if ( odNode != nil )
 	{
-		NSArray *searchPolicy = [odNode subnodeNames: &error];
+		NSArray *searchPolicy = [odNode subnodeNamesAndReturnError: &error];
 		
 		if ( searchPolicy != nil )
 		{
@@ -612,12 +622,12 @@ int dumpConfiguration( void )
 		}
 		else
 		{
-			fprintf( stderr, "Unable to open Search node to get search policy - %s\n", [error description] );
+			fprintf( stderr, "Unable to open Search node to get search policy - %s\n", [[error description] UTF8String] );
 		}
 	}
 	else
 	{
-		fprintf( stderr, "Unable to open Search node to get search policy - %s\n", [error description] );
+		fprintf( stderr, "Unable to open Search node to get search policy - %s\n", [[error description] UTF8String] );
 	}
 	
 	NSMutableDictionary *cacheInfo = getCacheState( @"dsAttrTypeNative:LibinfoCacheOverview");
@@ -680,12 +690,12 @@ int main( int argc, char *argv[] )
 						    "may go away in the future.\n\n" );
 				}
 				usage();
-				return EINVAL;
+				return EX_USAGE;
 			case 'e':
 				if ( strcmp(optarg, "ntries") != 0 )
 				{
 					usage();
-					return EINVAL;
+					return EX_USAGE;
 				}
 
 				if ( argv[optind] != NULL && argv[optind][0] != '-' )
@@ -699,7 +709,7 @@ int main( int argc, char *argv[] )
 				if ( strcmp(optarg, "uckets") != 0 )
 				{
 					usage();
-					return EINVAL;
+					return EX_USAGE;
 				}
 				bBuckets = YES;
 				break;
@@ -712,12 +722,12 @@ int main( int argc, char *argv[] )
 				else if ( strcmp(optarg, "onfiguration") == 0 )
 					return dumpConfiguration();
 				usage();
-				return EINVAL;
+				return EX_USAGE;
 			case 'f':
 				if ( strcmp(optarg, "lushcache") != 0 )
 				{
 					usage();
-					return EINVAL;
+					return EX_USAGE;
 				}
 				return flushcache();
 			case 'q':
@@ -729,7 +739,7 @@ int main( int argc, char *argv[] )
 				if ( argv[optind] == NULL || argv[optind][0] == '-' )
 				{
 					usage();
-					return EINVAL;
+					return EX_USAGE;
 				}
 				pQueryValue = argv[optind];
 				optind++;
@@ -738,14 +748,14 @@ int main( int argc, char *argv[] )
 				if ( strcmp(optarg, "tatistics") != 0 )
 				{
 					usage();
-					return EINVAL;
+					return EX_USAGE;
 				}
 				return dumpStatistics();
 			case 'h':
 				usage();
 				return 0;
 			case '?':
-				return EINVAL;
+				return EX_USAGE;
 			default:
 				break;
 		}
@@ -753,10 +763,26 @@ int main( int argc, char *argv[] )
 	
 	if ( bQuery == YES )
 		return query( pQueryCategory, pQueryKey, pQueryValue );
-	else if ( bCacheDump == YES )
-		return cacheDump( pCategory, bBuckets, bEntries );
+	else if ( bCacheDump == YES ) {
+		
+		int isAdmin = 0;
+		
+		// require user to be part of admin group to view host lookups
+		if ( (pCategory == NULL || strcasecmp(pCategory, "host") == 0) && geteuid() != 0 ) {
+			uuid_t userUU;
+			
+			mbr_uid_to_uuid( getuid(), userUU );
+			if ( mbr_check_membership_by_id(userUU, 80, &isAdmin) == 0 && isAdmin == 0 && pCategory != NULL ) {
+				// TODO: we could prompt user for username/password of an admin user, but not really necessary
+				printf( "Viewing host entries requires administrator privileges.\n" );
+				return EX_NOPERM;
+			}
+		}
+
+		return cacheDump( pCategory, bBuckets, bEntries, isAdmin );
+	}
 	
 	usage();
 	
-	return EINVAL;
+	return EX_USAGE;
 }

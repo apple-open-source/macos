@@ -1,0 +1,27 @@
+<plist version="1.0">
+<array>
+<dict>
+        <key>OpenSourceProject</key>
+        <string>mu-conference</string>
+        <key>OpenSourceVersion</key>
+        <string>0.8.0</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>https://gna.org/projects/mu-conference/</string>
+        <key>OpenSourceURL</key>
+        <string>http://download.gna.org/mu-conference/mu-conference_0.8.tar.gz</string>
+        <key>OpenSourceSHA1</key>
+        <string>99b9c68a6415eea3b0c8e840b4ec91e9cc48f2cb</string>
+        <key>OpenSourceImportDate</key>
+        <string>2009-03-27</string>
+        <key>OpenSourceModifications</key>
+        <array>
+            <string>apple_patch/pre_configure/mu-conference/src/*.patch</string>
+            <string>apple_patch/pre_configure/mu-conference/src/jcomp/*.patch</string>
+        </array>
+        <key>OpenSourceLicense</key>
+        <string>GPL</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>mu-conference.txt</string>
+</dict>
+</array>
+</plist>

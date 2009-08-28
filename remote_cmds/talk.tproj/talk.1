@@ -32,7 +32,7 @@
 .\"     @(#)talk.1	8.1 (Berkeley) 6/6/93
 .\" $FreeBSD: src/usr.bin/talk/talk.1,v 1.20 2005/02/13 22:25:24 ru Exp $
 .\"
-.Dd July 3, 2004
+.Dd August 21, 2008
 .Dt TALK 1
 .Os
 .Sh NAME
@@ -115,6 +115,15 @@ Permission to talk may be denied or granted by use of the
 .Xr mesg 1
 command.
 At the outset talking is allowed.
+.Sh CONFIGURATION
+The
+.Nm
+utility relies on the
+.Nm talkd
+system daemon.  See
+.Xr talkd 8
+for information about enabling
+.Nm talkd .
 .Sh FILES
 .Bl -tag -width /var/run/utmpx -compact
 .It Pa /etc/hosts

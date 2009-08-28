@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2002-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,7 +24,7 @@
 
 #include "EAPSecurity.h"
 #include <Security/SecureTransport.h>
-
+#include <TargetConditionals.h>
 /* 
  * Return string representation of {SecureTransport,Security}-related OSStatus.
  */
@@ -129,6 +129,11 @@ EAPSecurityErrorString(OSStatus err)
 	/* SecBase.h: */
     case errSecNotAvailable:
 	return "errSecNotAvailable";
+    case errSecDuplicateItem:
+	return "errSecDuplicateItem";
+    case errSecItemNotFound:
+	return "errSecItemNotFound";
+#if ! TARGET_OS_EMBEDDED
     case errSecReadOnly:
 	return "errSecReadOnly";
     case errSecAuthFailed:
@@ -143,10 +148,6 @@ EAPSecurityErrorString(OSStatus err)
 	return "errSecDuplicateCallback";
     case errSecInvalidCallback:
 	return "errSecInvalidCallback";
-    case errSecDuplicateItem:
-	return "errSecDuplicateItem";
-    case errSecItemNotFound:
-	return "errSecItemNotFound";
     case errSecBufferTooSmall:
 	return "errSecBufferTooSmall";
     case errSecDataTooLarge:
@@ -193,6 +194,7 @@ EAPSecurityErrorString(OSStatus err)
 	return "errSecNoAccessForItem";
     case errSecInvalidOwnerEdit:
 	return "errSecInvalidOwnerEdit";
+#endif /* ! TARGET_OS_EMBEDDED */
     default:
 	return "<unknown>";
     }

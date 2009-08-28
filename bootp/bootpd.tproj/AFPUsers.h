@@ -30,6 +30,7 @@
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFDictionary.h>
 #include <OpenDirectory/OpenDirectory.h>
+#include <DirectoryService/DirectoryService.h>
 
 typedef CFMutableDictionaryRef	AFPUserRef;
 

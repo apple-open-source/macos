@@ -2,7 +2,7 @@ name=zsh/main
 link=static
 load=yes
 # load=static should replace use of alwayslink
-functions='Functions/Exceptions/* Functions/Misc/* Functions/MIME/* Functions/Prompts/*'
+functions='Functions/Exceptions/* Functions/Misc/* Functions/MIME/* Functions/Prompts/* Functions/VCS_Info/* Functions/VCS_Info/Backends/*'
 
 nozshdep=1
 alwayslink=1
@@ -31,10 +31,27 @@ sigcount.h: signames.c
 
 init.o: bltinmods.list zshpaths.h zshxmods.h
 
-init.o params.o: version.h
+init.o params.o parse.o: version.h
 
-version.h: $(sdir_top)/Config/version.mk
+# The main shell doesn't currently need zshcurses.h and zshterm.h,
+# but make sure these are built with the headers.
+# If it did need need them they would be in headers at the top instead.
+version.h: $(sdir_top)/Config/version.mk zshcurses.h zshterm.h
 	echo '#define ZSH_VERSION "'$(VERSION)'"' > $@
+
+zshcurses.h: ../config.h
+	@if test x$(ZSH_CURSES_H) != x; then \
+	  echo "#include <$(ZSH_CURSES_H)>" >zshcurses.h; \
+	else \
+	  echo >zshcurses.h; \
+	fi
+
+zshterm.h: ../config.h
+	@if test x$(ZSH_TERM_H) != x; then \
+	  echo "#include <$(ZSH_TERM_H)>" >zshterm.h; \
+	else \
+	  echo >zshterm.h; \
+	fi
 
 zshpaths.h: Makemod $(CONFIG_INCS)
 	@echo '#define MODULE_DIR "'$(MODDIR)'"' > zshpaths.h.tmp

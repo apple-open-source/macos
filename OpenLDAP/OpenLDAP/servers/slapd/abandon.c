@@ -1,8 +1,8 @@
 /* abandon.c - decode and handle an ldap abandon operation */
-/* $OpenLDAP: pkg/ldap/servers/slapd/abandon.c,v 1.45.2.7 2006/01/03 22:16:12 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/abandon.c,v 1.52.2.4 2008/02/11 23:26:43 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,7 +37,8 @@ do_abandon( Operation *op, SlapReply *rs )
 	ber_int_t	id;
 	Operation	*o;
 
-	Debug( LDAP_DEBUG_TRACE, "do_abandon\n", 0, 0, 0 );
+	Debug( LDAP_DEBUG_TRACE, "%s do_abandon\n",
+		op->o_log_prefix, 0, 0 );
 
 	/*
 	 * Parse the abandon request.  It looks like this:
@@ -46,7 +47,8 @@ do_abandon( Operation *op, SlapReply *rs )
 	 */
 
 	if ( ber_scanf( op->o_ber, "i", &id ) == LBER_ERROR ) {
-		Debug( LDAP_DEBUG_ANY, "do_abandon: ber_scanf failed\n", 0, 0 ,0 );
+		Debug( LDAP_DEBUG_ANY, "%s do_abandon: ber_scanf failed\n",
+			op->o_log_prefix, 0, 0 );
 		send_ldap_discon( op, rs, LDAP_PROTOCOL_ERROR, "decoding error" );
 		return SLAPD_DISCONNECT;
 	}
@@ -55,15 +57,17 @@ do_abandon( Operation *op, SlapReply *rs )
 		op->o_log_prefix, (long) id, 0, 0, 0 );
 
 	if( get_ctrls( op, rs, 0 ) != LDAP_SUCCESS ) {
-		Debug( LDAP_DEBUG_ANY, "do_abandon: get_ctrls failed\n", 0, 0 ,0 );
+		Debug( LDAP_DEBUG_ANY, "%s do_abandon: get_ctrls failed\n",
+			op->o_log_prefix, 0, 0 );
 		return rs->sr_err;
 	} 
 
-	Debug( LDAP_DEBUG_ARGS, "do_abandon: id=%ld\n", (long) id, 0 ,0 );
+	Debug( LDAP_DEBUG_ARGS, "%s do_abandon: id=%ld\n",
+		op->o_log_prefix, (long) id, 0 );
 
 	if( id <= 0 ) {
-		Debug( LDAP_DEBUG_ANY,
-			"do_abandon: bad msgid %ld\n", (long) id, 0, 0 );
+		Debug( LDAP_DEBUG_ANY, "%s do_abandon: bad msgid %ld\n",
+			op->o_log_prefix, (long) id, 0 );
 		return LDAP_SUCCESS;
 	}
 
@@ -91,10 +95,10 @@ do_abandon( Operation *op, SlapReply *rs )
 		LDAP_STAILQ_FOREACH( o, &op->o_conn->c_pending_ops, o_next ) {
 			if ( o->o_msgid == id ) {
 				LDAP_STAILQ_REMOVE( &op->o_conn->c_pending_ops,
-					o, slap_op, o_next );
+					o, Operation, o_next );
 				LDAP_STAILQ_NEXT(o, o_next) = NULL;
 				op->o_conn->c_n_ops_pending--;
-				slap_op_free( o );
+				slap_op_free( o, NULL );
 				break;
 			}
 		}
@@ -102,8 +106,9 @@ do_abandon( Operation *op, SlapReply *rs )
 
 	ldap_pvt_thread_mutex_unlock( &op->o_conn->c_mutex );
 
-	Debug( LDAP_DEBUG_TRACE, "do_abandon: op=%ld %sfound\n",
-		(long) id, o ? "" : "not ", 0 );
+	Debug( LDAP_DEBUG_TRACE, "%s do_abandon: op=%ld %sfound\n",
+		op->o_log_prefix,
+		(long) id, o ? "" : "not " );
 	return rs->sr_err;
 }
 

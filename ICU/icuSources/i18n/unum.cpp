@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-*   Copyright (C) 1996-2004, International Business Machines
+*   Copyright (C) 1996-2009, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *******************************************************************************
 * Modification History:
@@ -250,7 +250,7 @@ unum_formatDouble(    const    UNumberFormat*  fmt,
   return res.extract(result, resultLength, *status);
 }
 
-U_DRAFT int32_t U_EXPORT2 
+U_CAPI int32_t U_EXPORT2 
 unum_formatDoubleCurrency(const UNumberFormat* fmt,
                           double number,
                           UChar* currency,
@@ -271,8 +271,13 @@ unum_formatDoubleCurrency(const UNumberFormat* fmt,
     if (pos != 0) {
         fp.setField(pos->field);
     }
-
-    Formattable n(new CurrencyAmount(number, currency, *status));
+    CurrencyAmount *tempCurrAmnt = new CurrencyAmount(number, currency, *status);
+    // Check for null pointer.
+    if (tempCurrAmnt == NULL) {
+        *status = U_MEMORY_ALLOCATION_ERROR;
+        return -1;
+    }
+    Formattable n(tempCurrAmnt);
     ((const NumberFormat*)fmt)->format(n, res, fp, *status);
     
     if (pos != 0) {
@@ -308,13 +313,13 @@ parseRes(Formattable& res,
         ((const NumberFormat*)fmt)->parse(src, res, pp);
     }
     
-    if(parsePos != 0) {
-        if(pp.getErrorIndex() == -1)
-            *parsePos = pp.getIndex();
-        else {
+    if(pp.getErrorIndex() != -1) {
+        *status = U_PARSE_ERROR;
+        if(parsePos != 0) {
             *parsePos = pp.getErrorIndex();
-            *status = U_PARSE_ERROR;
         }
+    } else if(parsePos != 0) {
+        *parsePos = pp.getIndex();
     }
 }
 
@@ -354,7 +359,7 @@ unum_parseDouble(    const   UNumberFormat*  fmt,
     return res.getDouble(*status);
 }
 
-U_DRAFT double U_EXPORT2
+U_CAPI double U_EXPORT2
 unum_parseDoubleCurrency(const UNumberFormat* fmt,
                          const UChar* text,
                          int32_t textLength,
@@ -446,6 +451,9 @@ unum_getAttribute(const UNumberFormat*          fmt,
         
     case UNUM_SECONDARY_GROUPING_SIZE:
         return df->getSecondaryGroupingSize();
+			
+	case UNUM_LENIENT_PARSE:
+		return ! df->isParseStrict();
         
     default:
         /* enums out of sync? unsupported enum? */
@@ -545,6 +553,10 @@ unum_setAttribute(    UNumberFormat*          fmt,
     case UNUM_SECONDARY_GROUPING_SIZE:
         df->setSecondaryGroupingSize(newValue);
         break;
+			
+	case UNUM_LENIENT_PARSE:
+		df->setParseStrict(newValue == 0);
+		break;
         
     default:
         /* Shouldn't get here anyway */

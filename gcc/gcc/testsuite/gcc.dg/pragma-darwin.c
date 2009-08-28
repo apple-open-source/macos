@@ -14,30 +14,27 @@ extern void abort(void);
 
 #pragma options 23  /* { dg-error "malformed '#pragma options'" } */
 #pragma options align  /* { dg-error "malformed '#pragma options'" } */
-/* APPLE LOCAL 64-bit mainline */
 #pragma options align natural /* { dg-error "malformed '#pragma options'" } */
 #pragma options align=45 /* { dg-error "malformed '#pragma options'" } */
 #pragma options align=foo /* { dg-error "malformed '#pragma options align" } */
 
-/* APPLE LOCAL 64-bit mainline */
 #ifndef __LP64__
 #pragma options align=mac68k
 struct s1 { short f1; int f2; };
-/* APPLE LOCAL 64-bit mainline */
 #endif
 #pragma options align=power
 struct s2 { short f1; int f2; };
-/* APPLE LOCAL 64-bit mainline */
 #ifndef __LP64__
 #pragma options align=mac68k
 struct s3 { short f1; int f2; };
-/* APPLE LOCAL 64-bit mainline */
 #endif
 #pragma options align=reset
 struct s4 { short f1; int f2; };
 
-/* APPLE LOCAL 64-bit mainline */
 #pragma options align=natural foo /* { dg-warning "junk at end of '#pragma options'" } */
+/* APPLE LOCAL begin removed align=natural warning */
+/* removed align=natural warning */
+/* APPLE LOCAL end removed align=natural warning */
 
 /* Segment pragmas don't do anything anymore.  */
 
@@ -46,22 +43,18 @@ struct s4 { short f1; int f2; };
 int
 main ()
 {
-  int x, z;  /* { dg-warning "unused variable" } */
+  int x, z;  /* { dg-warning "unused variable 'z'" } */
   #pragma unused (x, y)
 
-/* APPLE LOCAL 64-bit mainline */
 #ifndef __LP64__
   if (sizeof (struct s1) != 6)
     abort ();
-/* APPLE LOCAL 64-bit mainline */
 #endif
   if (sizeof (struct s2) != 8)
     abort ();
-/* APPLE LOCAL 64-bit mainline */
 #ifndef __LP64__
   if (sizeof (struct s3) != 6)
     abort ();
-/* APPLE LOCAL 64-bit mainline */
 #endif
   if (sizeof (struct s4) != 8)
     abort ();

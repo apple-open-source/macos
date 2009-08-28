@@ -9,24 +9,15 @@
 /* Begin PBXBuildFile section */
 		055110CD061A2F89000F34F9 /* keymgr.h in Headers */ = {isa = PBXBuildFile; fileRef = 059768A803D6494200C9149F /* keymgr.h */; };
 		055110D0061A2F89000F34F9 /* keymgr.c in Sources */ = {isa = PBXBuildFile; fileRef = 0597689803D6472D00C9149F /* keymgr.c */; };
+		78E3EF030C0CD1FB0091F819 /* version.c in Sources */ = {isa = PBXBuildFile; fileRef = 78E3EF020C0CD1FB0091F819 /* version.c */; };
 /* End PBXBuildFile section */
-
-/* Begin PBXBuildStyle section */
-		05036BFE03D7612400C9149F /* Deployment */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-/* End PBXBuildStyle section */
 
 /* Begin PBXFileReference section */
 		055110D3061A2F8A000F34F9 /* libkeymgr.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libkeymgr.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		0597689803D6472D00C9149F /* keymgr.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = keymgr.c; sourceTree = "<group>"; };
 		059768A803D6494200C9149F /* keymgr.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = keymgr.h; sourceTree = "<group>"; };
 		05CA34F70433CFDF00C9149F /* basic-eh-app.cc */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = "basic-eh-app.cc"; path = "testcases/basic-eh-app.cc"; sourceTree = "<group>"; };
+		78E3EF020C0CD1FB0091F819 /* version.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = version.c; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -43,6 +34,7 @@
 		0597688C03D6465000C9149F = {
 			isa = PBXGroup;
 			children = (
+				78E3EF020C0CD1FB0091F819 /* version.c */,
 				0597689703D646C100C9149F /* Products */,
 				0597689803D6472D00C9149F /* keymgr.c */,
 				059768A803D6494200C9149F /* keymgr.h */,
@@ -76,34 +68,13 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 05B1F3CB089068690080B6E2 /* Build configuration list for PBXNativeTarget "keymgr" */;
 			buildPhases = (
+				78E12D780C0CCF93001AAE13 /* ShellScript */,
 				055110CC061A2F89000F34F9 /* Headers */,
 				055110CF061A2F89000F34F9 /* Sources */,
 				055110D1061A2F89000F34F9 /* Frameworks */,
 			);
 			buildRules = (
 			);
-			buildSettings = {
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				GCC_CW_ASM_SYNTAX = NO;
-				GCC_ENABLE_PASCAL_STRINGS = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					MACOSX,
-					PART_OF_SYSTEM_FRAMEWORK,
-				);
-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_PATH = /usr/local/lib/system;
-				LIBRARY_STYLE = STATIC;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_LIBTOOL_FLAGS = "";
-				PRODUCT_NAME = keymgr;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc ppc64 i386";
-				WARNING_CFLAGS = "-Wmost";
-			};
 			dependencies = (
 			);
 			name = keymgr;
@@ -118,20 +89,35 @@
 		0597689003D6465000C9149F /* Project object */ = {
 			isa = PBXProject;
 			buildConfigurationList = 05B1F3D7089068690080B6E2 /* Build configuration list for PBXProject "keymgr" */;
-			buildSettings = {
-			};
-			buildStyles = (
-				05036BFE03D7612400C9149F /* Deployment */,
-			);
+			compatibilityVersion = "Xcode 2.4";
 			hasScannedForEncodings = 1;
 			mainGroup = 0597688C03D6465000C9149F;
 			productRefGroup = 0597689703D646C100C9149F /* Products */;
 			projectDirPath = "";
+			projectRoot = "";
 			targets = (
 				055110CB061A2F89000F34F9 /* keymgr */,
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		78E12D780C0CCF93001AAE13 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/version.c",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/Developer/Makefiles/bin/version.pl ${ProjectName} > ${BUILT_PRODUCTS_DIR}/version.c";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		055110CF061A2F89000F34F9 /* Sources */ = {
@@ -139,6 +125,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				055110D0061A2F89000F34F9 /* keymgr.c in Sources */,
+				78E3EF030C0CD1FB0091F819 /* version.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

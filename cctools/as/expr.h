@@ -103,7 +103,12 @@ typedef struct {
      O_constant must be extended into a bignum (i.e., it is not used
      when performing arithmetic on these values).
      FIXME: This field is not set very reliably.  */
-	unsigned int X_unsigned : 1;
+	unsigned int X_unsigned : 1,
+       
+	/* Non-zero if we have the special assembly time constant expression
+     of the difference of two symbols defined in the same section then divided
+     by exactly 2. */
+		     X_sectdiff_divide_by_two : 1;
 } expressionS;
 
 extern segT expression(

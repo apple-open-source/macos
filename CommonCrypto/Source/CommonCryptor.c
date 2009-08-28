@@ -62,6 +62,7 @@ static const CCCryptSpiCallouts *ccSpiCallouts(
 		case kCCAlgorithmDES:
 		case kCCAlgorithm3DES:
 		case kCCAlgorithmCAST:
+		case kCCAlgorithmRC2:
 			return &ccBlockCipherCallouts;
 		case kCCAlgorithmRC4:
 			return &ccRC4Callouts;

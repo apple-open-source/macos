@@ -1,9 +1,9 @@
 /*
- * "$Id: serial.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: serial.c 7647 2008-06-16 17:39:40Z mike $"
  *
  *   Serial port backend for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -185,7 +185,9 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
 
     if ((print_fd = open(argv[6], O_RDONLY)) < 0)
     {
-      perror("ERROR: unable to open print file");
+      _cupsLangPrintf(stderr,
+                      _("ERROR: Unable to open print file \"%s\": %s\n"),
+                      argv[6], strerror(errno));
       return (CUPS_BACKEND_FAILED);
     }
 
@@ -610,7 +612,7 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
 
 	  if (errno != EAGAIN || errno != EINTR)
 	  {
-	    perror("ERROR: Unable to read print data");
+	    _cupsLangPrintError(_("ERROR: Unable to read print data"));
 
             tcsetattr(device_fd, TCSADRAIN, &origopts);
 
@@ -686,7 +688,7 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
 
 	  if (errno != EAGAIN && errno != EINTR && errno != ENOTTY)
 	  {
-	    perror("ERROR: Unable to write print data");
+	    _cupsLangPrintError(_("ERROR: Unable to write print data"));
 
             tcsetattr(device_fd, TCSADRAIN, &origopts);
 
@@ -732,16 +734,18 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
 static void
 list_devices(void)
 {
-#if defined(__hpux) || defined(__sgi) || defined(__sun) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
+#if defined(__hpux) || defined(__sgi) || defined(__sun) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__) || defined(__FreeBSD_kernel__)
   static char	*funky_hex = "0123456789abcdefghijklmnopqrstuvwxyz";
 					/* Funky hex numbering used for some *
 					 * devices                           */
-#endif /* __hpux || __sgi || __sun || __FreeBSD__ || __OpenBSD__ */
+#endif /* __hpux || __sgi || __sun || __FreeBSD__ || __OpenBSD__ || __FreeBSD_kernel__ */
+
 
 #ifdef __linux
   int			i, j;		/* Looping vars */
   int			fd;		/* File descriptor */
   char			device[255];	/* Device filename */
+  char			info[255];	/* Device info/description */
 #  ifdef TIOCGSERIAL
   struct serial_struct	serinfo;	/* serial port info */
 #  endif /* TIOCGSERIAL */
@@ -776,32 +780,35 @@ list_devices(void)
 
       close(fd);
 
+      snprintf(info, sizeof(info),
+	       _cupsLangString(cupsLangDefault(), _("Serial Port #%d")), i + 1);
+
 #  if defined(_ARCH_PPC) || defined(powerpc) || defined(__powerpc)
-      printf("serial serial:%s?baud=230400 \"Unknown\" \"Serial Port #%d\"\n",
-             device, i + 1);
+      printf("serial serial:%s?baud=230400 \"Unknown\" \"%s\"\n", device, info);
 #  else
-      printf("serial serial:%s?baud=115200 \"Unknown\" \"Serial Port #%d\"\n",
-             device, i + 1);
+      printf("serial serial:%s?baud=115200 \"Unknown\" \"%s\"\n", device, info);
 #  endif /* _ARCH_PPC || powerpc || __powerpc */
     }
   }
 
   for (i = 0; i < 16; i ++)
   {
+    snprintf(info, sizeof(info),
+	     _cupsLangString(cupsLangDefault(), _("USB Serial Port #%d")),
+	     i + 1);
+
     sprintf(device, "/dev/usb/ttyUSB%d", i);
     if ((fd = open(device, O_WRONLY | O_NOCTTY | O_NDELAY)) >= 0)
     {
       close(fd);
-      printf("serial serial:%s?baud=230400 \"Unknown\" \"USB Serial Port #%d\"\n",
-             device, i + 1);
+      printf("serial serial:%s?baud=230400 \"Unknown\" \"%s\"\n", device, info);
     }
 
     sprintf(device, "/dev/ttyUSB%d", i);
     if ((fd = open(device, O_WRONLY | O_NOCTTY | O_NDELAY)) >= 0)
     {
       close(fd);
-      printf("serial serial:%s?baud=230400 \"Unknown\" \"USB Serial Port #%d\"\n",
-             device, i + 1);
+      printf("serial serial:%s?baud=230400 \"Unknown\" \"%s\"\n", device, info);
     }
   }
 
@@ -813,9 +820,9 @@ list_devices(void)
       if ((fd = open(device, O_WRONLY | O_NOCTTY | O_NDELAY)) >= 0)
       {
         close(fd);
+
         printf("serial serial:%s?baud=115200 \"Unknown\" "
-	       "\"Equinox ESP %d Port #%d\"\n",
-               device, i, j + 1);
+	       "\"Equinox ESP %d Port #%d\"\n", device, i, j + 1);
       }
     }
   }
@@ -918,8 +925,9 @@ list_devices(void)
 	}
       }
 #elif defined(__sun)
-  int		i, j, n;	/* Looping vars */
-  char		device[255];	/* Device filename */
+  int		i, j, n;		/* Looping vars */
+  char		device[255];		/* Device filename */
+  char		info[255];		/* Device info/description */
 
 
  /*
@@ -929,14 +937,17 @@ list_devices(void)
   for (i = 0; i < 26; i ++)
   {
     sprintf(device, "/dev/cua/%c", 'a' + i);
-    if (access(device, 0) == 0)
+    if (!access(device, 0))
+    {
+      snprintf(info, sizeof(info),
+	       _cupsLangString(cupsLangDefault(), _("Serial Port #%d")), i + 1);
+
 #  ifdef B115200
-      printf("serial serial:%s?baud=115200 \"Unknown\" \"Serial Port #%d\"\n",
-             device, i + 1);
+      printf("serial serial:%s?baud=115200 \"Unknown\" \"%s\"\n", device, info);
 #  else
-      printf("serial serial:%s?baud=38400 \"Unknown\" \"Serial Port #%d\"\n",
-             device, i + 1);
+      printf("serial serial:%s?baud=38400 \"Unknown\" \"%s\"\n", device, info);
 #  endif /* B115200 */
+    }
   }
 
  /*
@@ -1032,10 +1043,11 @@ list_devices(void)
       printf("serial serial:%s?baud=38400 \"Unknown\" \"Serial Port #%d\"\n",
              device, i + 1);
   }
-#elif defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
-  int	i, j;		/* Looping vars */
-  int	fd;		/* File descriptor */
-  char	device[255];	/* Device filename */
+#elif defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__) || defined(__FreeBSD_kernel__)
+  int	i, j;				/* Looping vars */
+  int	fd;				/* File descriptor */
+  char	device[255];			/* Device filename */
+  char	info[255];			/* Device info/description */
 
 
  /*
@@ -1048,8 +1060,11 @@ list_devices(void)
     if ((fd = open(device, O_WRONLY | O_NOCTTY | O_NDELAY)) >= 0)
     {
       close(fd);
-      printf("serial serial:%s?baud=115200 \"Unknown\" \"Standard Serial Port #%d\"\n",
-             device, i + 1);
+
+      snprintf(info, sizeof(info),
+	       _cupsLangString(cupsLangDefault(), _("Serial Port #%d")), i + 1);
+
+      printf("serial serial:%s?baud=115200 \"Unknown\" \"%s\"\n", device, info);
     }
   }
 
@@ -1123,9 +1138,10 @@ list_devices(void)
     }
   }
 #elif defined(__NetBSD__)
-  int	i, j;		/* Looping vars */
-  int	fd;		/* File descriptor */
-  char	device[255];	/* Device filename */
+  int	i, j;				/* Looping vars */
+  int	fd;				/* File descriptor */
+  char	device[255];			/* Device filename */
+  char	info[255];			/* Device info/description */
 
 
  /*
@@ -1138,8 +1154,11 @@ list_devices(void)
     if ((fd = open(device, O_WRONLY | O_NOCTTY | O_NDELAY)) >= 0)
     {
       close(fd);
-      printf("serial serial:%s?baud=115200 \"Unknown\" \"Serial Port #%d\"\n",
-             device, i + 1);
+
+      snprintf(info, sizeof(info),
+	       _cupsLangString(cupsLangDefault(), _("Serial Port #%d")), i + 1);
+
+      printf("serial serial:%s?baud=115200 \"Unknown\" \"%s\"\n", device, info);
     }
   }
 
@@ -1192,38 +1211,51 @@ list_devices(void)
       {
 	CFTypeRef	serialNameAsCFString;
 	CFTypeRef	bsdPathAsCFString;
+	CFTypeRef	hiddenVal;
 	char		serialName[128];
 	char		bsdPath[1024];
 	Boolean		result;
 
 
-	serialNameAsCFString =
-	    IORegistryEntryCreateCFProperty(serialService,
-	                                    CFSTR(kIOTTYDeviceKey),
-					    kCFAllocatorDefault, 0);
-	if (serialNameAsCFString)
+	/* Check if hidden... */
+	hiddenVal = IORegistryEntrySearchCFProperty(serialService, 
+						    kIOServicePlane,
+						    CFSTR("HiddenPort"),
+						    kCFAllocatorDefault,
+						    kIORegistryIterateRecursively | 
+						    kIORegistryIterateParents);
+	if (hiddenVal)
+	  CFRelease(hiddenVal);	/* This interface should not be used */
+	else
 	{
-	  result = CFStringGetCString(serialNameAsCFString, serialName,
-	                              sizeof(serialName),
-				      kCFStringEncodingASCII);
-	  CFRelease(serialNameAsCFString);
-
-	  if (result)
+	  serialNameAsCFString =
+	      IORegistryEntryCreateCFProperty(serialService,
+					      CFSTR(kIOTTYDeviceKey),
+					      kCFAllocatorDefault, 0);
+	  if (serialNameAsCFString)
 	  {
-	    bsdPathAsCFString =
-	        IORegistryEntryCreateCFProperty(serialService,
-		                                CFSTR(kIOCalloutDeviceKey),
-						kCFAllocatorDefault, 0);
-	    if (bsdPathAsCFString)
+	    result = CFStringGetCString(serialNameAsCFString, serialName,
+					sizeof(serialName),
+					kCFStringEncodingASCII);
+	    CFRelease(serialNameAsCFString);
+  
+	    if (result)
 	    {
-	      result = CFStringGetCString(bsdPathAsCFString, bsdPath,
-	                                  sizeof(bsdPath),
-					  kCFStringEncodingASCII);
-	      CFRelease(bsdPathAsCFString);
-
-	      if (result)
-		printf("serial serial:%s?baud=115200 \"Unknown\" \"%s\"\n",
-		       bsdPath, serialName);
+	      bsdPathAsCFString =
+		  IORegistryEntryCreateCFProperty(serialService,
+						  CFSTR(kIOCalloutDeviceKey),
+						  kCFAllocatorDefault, 0);
+	      if (bsdPathAsCFString)
+	      {
+		result = CFStringGetCString(bsdPathAsCFString, bsdPath,
+					    sizeof(bsdPath),
+					    kCFStringEncodingASCII);
+		CFRelease(bsdPathAsCFString);
+  
+		if (result)
+		  printf("serial serial:%s?baud=115200 \"Unknown\" \"%s\"\n",
+			 bsdPath, serialName);
+	      }
 	    }
 	  }
 	}
@@ -1296,5 +1328,5 @@ side_cb(int print_fd,			/* I - Print file */
 
 
 /*
- * End of "$Id: serial.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: serial.c 7647 2008-06-16 17:39:40Z mike $".
  */

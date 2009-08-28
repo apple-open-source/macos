@@ -170,7 +170,7 @@ static int process_footer(ne_decompress *ctx,
 static void set_zlib_error(ne_decompress *ctx, const char *msg, int code)
 {
     if (ctx->zstr.msg)
-        ne_set_error(ctx->session, _("%s: %s"), msg, ctx->zstr.msg);
+        ne_set_error(ctx->session, "%s: %s", msg, ctx->zstr.msg);
     else {
         const char *err;
         switch (code) {

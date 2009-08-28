@@ -22,12 +22,16 @@
 #ifndef MI_PARSE_H
 #define MI_PARSE_H
 
+#include "remote.h"  /* for gdb remote protocol stats */
+
 /* MI parser */
 
 /* Timestamps for current command and last asynchronous command */
 struct mi_timestamp {
     struct timeval wallclock;
     struct rusage rusage;
+    struct remote_stats remotestats; /* gdb remote protocol stats, this cmd */
+    struct remote_stats *saved_remotestats;
 };
 
 enum mi_command_type

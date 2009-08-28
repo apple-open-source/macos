@@ -583,7 +583,7 @@ int     sockaddr_to_hostaddr(const struct sockaddr * sa, SOCKADDR_SIZE salen,
 	    return (EAI_SYSTEM);
     }
     if (portnum != 0) {
-	sprintf(portbuf, "%d", ntohs(SOCK_ADDR_IN_PORT(sa)) & 0xffff);
+	snprintf(portbuf, sizeof portbuf, "%d", ntohs(SOCK_ADDR_IN_PORT(sa)) & 0xffff);
 	if ((len = strlen(portbuf)) >= sizeof(portnum->buf)) {
 	    errno = ENOSPC;
 	    return (EAI_SYSTEM);

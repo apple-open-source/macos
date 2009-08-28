@@ -87,11 +87,11 @@ struct pci_dev
     struct pci_dev *    peer;
     uint32_t            classCode;
     IOPCIAddressSpace   space;
-    IOPCIRange		ranges[kIOPCIRangeCount];
+    IOPCIRange          ranges[kIOPCIRangeCount];
     uint8_t             headerType;
-    uint8_t		isBridge;
-    uint8_t		isHostBridge;
-    uint8_t		supportsHotPlug;
+    uint8_t             isBridge;
+    uint8_t             isHostBridge;
+    uint8_t             supportsHotPlug;
     uint8_t             deviceState;
     uint8_t             secBusNum;  // bridge only
     uint8_t             subBusNum;  // bridge only
@@ -137,8 +137,8 @@ class IOPCIConfigurator : public IOService
 {
     OSDeclareDefaultStructors( IOPCIConfigurator );
 
-    IOOptionBits	    fFlags;
-    IOPCIBridge *	    fRootBridge;
+    IOOptionBits            fFlags;
+    IOPCIBridge *           fRootBridge;
     UInt8                   fCacheLineSize;
     pci_dev_t               fPCIBridgeList[kPCIBridgeMaxCount];
     int                     fPCIBridgeIndex;
@@ -158,7 +158,7 @@ protected:
 #endif
     void    checkPCIConfiguration( void );
     void    pciBridgeScanBus( pci_dev_t bridge, 
-			                  UInt8 busNum, UInt8 * nextBusNum, UInt8 lastBusNum );
+                                          UInt8 busNum, UInt8 * nextBusNum, UInt8 lastBusNum );
     void    pciRangeAppendSubRange( IOPCIRange * headRange, IOPCIRange * newRange );
     void    pciBridgeCheckConfiguration( pci_dev_t bridge );
     void    pciBridgeClipRanges( IOPCIRange * rangeList, 

@@ -42,12 +42,16 @@
 #include "CLDAPv3Plugin.h"
 
 #include <stdlib.h>	// for rand()
+#include <syslog.h>
 
 #include <CoreFoundation/CFPlugIn.h>
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFURL.h>
 
 extern CPluginConfig	   *gPluginConfig;
+extern dsBool				gDSInstallDaemonMode;
+extern dsBool				gDSLocalOnlyMode;
+extern dsBool				gDSDebugMode;
 
 using namespace DSServerPlugin;
 
@@ -146,6 +150,9 @@ SInt32 CServerPlugin::InternalRegisterNode ( const UInt32 inToken, tDataList *in
 				gNodeList->AddNode( pNodeName, pNodeList, kDirNodeType, pPluginPtr, inToken );
 
 				DbgLog( kLogPlugin, "Registered Directory Node %s", pNodeName );
+				
+				if ( gDSInstallDaemonMode == false && gDSLocalOnlyMode == false && gDSDebugMode == false )
+					dsPostNodeEvent();
 			}
 			else
 			{
@@ -266,6 +273,8 @@ SInt32 CServerPlugin::_UnregisterNode ( const UInt32 inToken, tDataList *inNode 
 		}
 		else
 		{
+			if ( gDSInstallDaemonMode == false && gDSLocalOnlyMode == false && gDSDebugMode == false )
+				dsPostNodeEvent();
 			DbgLog( kLogPlugin, "Unregistered node %s", nodePath );
 		}
 		free( nodePath );
@@ -478,6 +487,39 @@ SInt32 CServerPlugin::ProcessURL ( CFURLRef inURLPlugin )
 		if ( plInfo == nil ) throw ( (SInt32)eCFBndleGetInfoDictErr );
 
 		ulVers	= ::CFBundleGetVersionNumber( bdlThis );
+		
+#ifdef __LP64__
+		CFArrayRef cfArchs = CFBundleCopyExecutableArchitectures( bdlThis );
+		bool bSupported = false;
+		
+		if ( NULL != cfArchs )
+		{
+			CFIndex iCount = CFArrayGetCount( cfArchs );
+			for ( int ii = 0; ii < iCount; ii++ )
+			{
+				CFNumberRef number = (CFNumberRef) CFArrayGetValueAtIndex( cfArchs, ii );
+				int tempValue;
+				
+				if ( CFNumberGetValue(number, kCFNumberIntType, &tempValue) == true )
+				{
+					if ( tempValue == kCFBundleExecutableArchitectureX86_64 || tempValue == kCFBundleExecutableArchitecturePPC64 )
+					{
+						bSupported = true;
+						break;
+					}
+				}
+			}
+			
+			DSCFRelease( cfArchs );
+		}
+		
+		if ( bSupported == false )
+		{
+			DbgLog( kLogError, "Unable to load plugin at <%s> because it does not support 64-bit architecture, please contact developer.", path );
+			syslog( LOG_NOTICE, "Unable to load plugin at <%s> because it does not support 64-bit architecture, please contact developer.", path );
+			throw ((SInt32) ePlugInInitError);
+		}
+#endif
 
 		if ( ::CFDictionaryGetValue( plInfo, kCFPlugInTypesKey ) == nil ) throw ( (SInt32)eCFBndleGetInfoDictErr );
 		if ( ::CFDictionaryGetValue( plInfo, kCFPlugInFactoriesKey ) == nil ) throw ( (SInt32)eCFBndleGetInfoDictErr );

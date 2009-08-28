@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-* Copyright (C) 1999-2006, International Business Machines
+* Copyright (C) 1999-2008, International Business Machines
 * Corporation and others. All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -59,7 +59,7 @@ class TransliteratorIDParser;
  * <code>transliterate()</code>.  (However, this does <em>not</em>
  * mean that threads may share transliterators without synchronizing
  * them.  Transliterators are not immutable, so they must be
- * synchronized when shared between threads.)  This1 might seem to
+ * synchronized when shared between threads.)  This might seem to
  * limit the complexity of the transliteration operation.  In
  * practice, subclasses perform complex transliterations by delaying
  * the replacement of text until it is known that no other
@@ -349,7 +349,7 @@ protected:
 
     friend class TransliteratorParser; // for parseID()
     friend class TransliteratorIDParser; // for createBasicInstance()
-	friend class TransliteratorAlias; // for setID()
+    friend class TransliteratorAlias; // for setID()
 
 public:
 
@@ -607,7 +607,7 @@ protected:
      * applying the filter. End user code should call <code>
      * transliterate()</code> instead of this method. Subclass code
      * and wrapping transliterators should call
-	 * <code>filteredTransliterate()</code> instead of this method.<p>
+     * <code>filteredTransliterate()</code> instead of this method.<p>
      *
      * @param text the buffer holding transliterated and
      * untransliterated text
@@ -629,7 +629,7 @@ protected:
                                      UBool incremental) const = 0;
 
 public:
-	/**
+    /**
      * Transliterate a substring of text, as specified by index, taking filters
      * into account.  This method is for subclasses that need to delegate to
      * another transliterator, such as CompoundTransliterator.
@@ -1010,10 +1010,10 @@ public:
      * This can be a compound ID and can include filters and should
      * refer to transliterators that have already been registered with
      * the framework, although this isn't checked.
-     * @draft ICU 3.6
+     * @stable ICU 3.6
      */
      static void U_EXPORT2 registerAlias(const UnicodeString& aliasID,
-                                                                const UnicodeString& realID);
+                                         const UnicodeString& realID);
 
 protected:
 
@@ -1035,10 +1035,10 @@ protected:
      */
     static void _registerInstance(Transliterator* adoptedObj);
 
-	/**
-	 * @internal
-	 */
-	static void _registerAlias(const UnicodeString& aliasID, const UnicodeString& realID);
+    /**
+     * @internal
+     */
+    static void _registerAlias(const UnicodeString& aliasID, const UnicodeString& realID);
 
     /**
      * Register two targets as being inverses of one another.  For
@@ -1266,7 +1266,7 @@ public:
     virtual UClassID getDynamicClassID(void) const = 0;
 
 private:
-    static UBool initializeRegistry(void);
+    static UBool initializeRegistry(UErrorCode &status);
 
 public:
     /**

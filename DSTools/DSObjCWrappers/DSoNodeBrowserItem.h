@@ -38,18 +38,18 @@
 	NSMutableArray* _children;
 }
 
-- (DSoNodeBrowserItem*)initWithName:(NSString*)name directory:(DSoDirectory*)dir;
-- (DSoNodeBrowserItem*)initWithPath:(NSString*)path directory:(DSoDirectory*)dir;
+- (DSoNodeBrowserItem*)initWithName:(NSString*)name directory:(DSoDirectory*)dir DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
+- (DSoNodeBrowserItem*)initWithPath:(NSString*)path directory:(DSoDirectory*)dir DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
-- (NSString*)name;
-- (NSString*)path;
-- (DSoNode*)node;
-- (BOOL)loadedChildren;
-- (BOOL)hasChildren;
-- (NSArray*)children;
-- (NSArray*)registeredChildrenPaths;
-- (DSoNodeBrowserItem*)childWithName:(NSString*)name;
+- (NSString*)name DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
+- (NSString*)path DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
+- (DSoNode*)node DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
+- (BOOL)loadedChildren DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
+- (BOOL)hasChildren DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
+- (NSArray*)children DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
+- (NSArray*)registeredChildrenPaths DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
+- (DSoNodeBrowserItem*)childWithName:(NSString*)name DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
-- (int)compareNames:(DSoNodeBrowserItem*)item;
+- (int)compareNames:(DSoNodeBrowserItem*)item DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 @end

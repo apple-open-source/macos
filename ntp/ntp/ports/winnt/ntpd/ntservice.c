@@ -21,9 +21,11 @@
 #include <stdio.h>
 
 #include <ntp_cmdargs.h>
+#include <ntp_stdlib.h>
 #include "syslog.h"
 #include "ntservice.h"
 #include "clockstuff.h"
+#include "ntp_iocompletionport.h"
 #ifdef DEBUG
 #include <crtdbg.h>
 #endif
@@ -34,9 +36,7 @@ static BOOL foreground = FALSE;
 static char ConsoleTitle[128];
 static int glb_argc;
 static char **glb_argv;
-extern char *Version;
 HANDLE hServDoneEvent = NULL;
-extern HANDLE WaitHandles[3];
 extern volatile int debug;
 extern char *progname;
 
@@ -46,7 +46,7 @@ int ntpdmain(int argc, char *argv[]);
  * Forward declarations
  */
 void ServiceControl(DWORD dwCtrlCode);
-
+void ntservice_exit(void);
 
 void WINAPI service_main( DWORD argc, LPTSTR *argv )
 {
@@ -62,8 +62,8 @@ void WINAPI service_main( DWORD argc, LPTSTR *argv )
  */
 int main( int argc, char *argv[] )
 {
-	int rc,
-	i = 1;
+	int rc;
+	int i = 1;
 
 	/* Save the command line parameters */
 	glb_argc = argc;
@@ -73,6 +73,7 @@ int main( int argc, char *argv[] )
 	while (argv[i]) {
 		if (!_strnicmp(argv[i], "-d", 2) ||
 			!strcmp(argv[i], "-q") ||
+			!strcmp(argv[i], "--help") ||
 			!strcmp(argv[i], "-n")) {
 			foreground = TRUE;
 			break;
@@ -98,8 +99,7 @@ int main( int argc, char *argv[] )
 #ifdef DEBUG
 			fprintf(stderr, "%s: unable to start as service, rc: %i\n\n", progname, rc);
 #endif
-			ntpd_usage();
-			fprintf(stderr, "\nUse -d, -q, or -n to run from the command line.\n");
+			fprintf(stderr, "\nUse -d, -q, --help or -n to run from the command line.\n");
 			exit(rc);
 		}
 	}
@@ -127,11 +127,8 @@ ntservice_init() {
 		strcat(ConsoleTitle, Version);
 		SetConsoleTitle(ConsoleTitle);
 	}
-}
 
-void
-ntservice_shutdown() {
-	UpdateSCM(SERVICE_STOPPED);
+	atexit( ntservice_exit );
 }
 /*
  * Routine to check if this is a service or a foreground program
@@ -146,7 +143,7 @@ ntservice_isservice() {
  * win32API calls
  */
 void
-ntservice_exit(int status)
+ntservice_exit( void )
 {
 
 	if (!foreground) { /* did not become a service, simply exit */
@@ -157,29 +154,34 @@ ntservice_exit(int status)
 		UpdateSCM(SERVICE_STOPPED);
 	}
 	uninit_io_completion_port();
+	Sleep( 200 );  	//##++ 
+
 	reset_winnt_time();
+
+	msyslog(LOG_INFO, "ntservice: The Network Time Protocol Service has stopped.");
 
 # ifdef DEBUG
 	_CrtDumpMemoryLeaks();
 # endif 
-#undef exit	
-	exit(status);
 }
 
 /* 
  * ServiceControl(): Handles requests from the SCM and passes them on
- * to named.
+ * to the service.
  */
 void
 ServiceControl(DWORD dwCtrlCode) {
 	/* Handle the requested control code */
+	HANDLE exitEvent = get_exit_event();
+
 	switch(dwCtrlCode) {
 
 	case SERVICE_CONTROL_SHUTDOWN:
 	case SERVICE_CONTROL_STOP:
 		UpdateSCM(SERVICE_STOP_PENDING);
-		if (WaitHandles[0] != NULL) {
-			SetEvent(WaitHandles[0]);
+		if (exitEvent != NULL) {
+			SetEvent(exitEvent);
+			Sleep( 100 );  //##++
 		}
 		return;
  
@@ -225,7 +227,10 @@ OnConsoleEvent(
 	DWORD dwCtrlType
 	)
 {
+	HANDLE exitEvent = get_exit_event();
+
 	switch (dwCtrlType) {
+#ifdef DEBUG
 		case CTRL_BREAK_EVENT :
 			if (debug > 0) {
 				debug <<= 1;
@@ -238,12 +243,14 @@ OnConsoleEvent(
 			}
 			printf("debug level %d\n", debug);
 		break ;
+#endif
 
 		case CTRL_C_EVENT  :
 		case CTRL_CLOSE_EVENT :
 		case CTRL_SHUTDOWN_EVENT :
-			if (WaitHandles[0] != NULL) {
-				SetEvent(WaitHandles[0]);
+			if (exitEvent != NULL) {
+				SetEvent(exitEvent);
+				Sleep( 100 );  //##++
 			}
 		break;
 

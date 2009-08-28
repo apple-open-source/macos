@@ -1,0 +1,235 @@
+'\"
+'\" Generated from tdomcmd.xml
+'\"
+'\" BEGIN man.macros
+.if t .wh -1.3i ^B
+.nr ^l \n(.l
+.ad b
+.de AP
+.ie !"\\$4"" .TP \\$4
+.el \{\
+.   ie !"\\$2"" .TP \\n()Cu
+.   el          .TP 15
+.\}
+.ta \\n()Au \\n()Bu
+.ie !"\\$3"" \{\
+\&\\$1	\\fI\\$2\\fP	(\\$3)
+.\".b
+.\}
+.el \{\
+.br
+.ie !"\\$2"" \{\
+\&\\$1	\\fI\\$2\\fP
+.\}
+.el \{\
+\&\\fI\\$1\\fP
+.\}
+.\}
+..
+.de AS
+.nr )A 10n
+.if !"\\$1"" .nr )A \\w'\\$1'u+3n
+.nr )B \\n()Au+15n
+.\"
+.if !"\\$2"" .nr )B \\w'\\$2'u+\\n()Au+3n
+.nr )C \\n()Bu+\\w'(in/out)'u+2n
+..
+.AS Tcl_Interp Tcl_CreateInterp in/out
+.de BS
+.br
+.mk ^y
+.nr ^b 1u
+.if n .nf
+.if n .ti 0
+.if n \l'\\n(.lu\(ul'
+.if n .fi
+..
+.de BE
+.nf
+.ti 0
+.mk ^t
+.ie n \l'\\n(^lu\(ul'
+.el \{\
+.\"	Draw four-sided box normally, but don't draw top of
+.\"	box if the box started on an earlier page.
+.ie !\\n(^b-1 \{\
+\h'-1.5n'\L'|\\n(^yu-1v'\l'\\n(^lu+3n\(ul'\L'\\n(^tu+1v-\\n(^yu'\l'|0u-1.5n\(ul'
+.\}
+.el \}\
+\h'-1.5n'\L'|\\n(^yu-1v'\h'\\n(^lu+3n'\L'\\n(^tu+1v-\\n(^yu'\l'|0u-1.5n\(ul'
+.\}
+.\}
+.fi
+.br
+.nr ^b 0
+..
+.de VS
+.if !"\\$2"" .br
+.mk ^Y
+.ie n 'mc \s12\(br\s0
+.el .nr ^v 1u
+..
+.de VE
+.ie n 'mc
+.el \{\
+.ev 2
+.nf
+.ti 0
+.mk ^t
+\h'|\\n(^lu+3n'\L'|\\n(^Yu-1v\(bv'\v'\\n(^tu+1v-\\n(^Yu'\h'-|\\n(^lu+3n'
+.sp -1
+.fi
+.ev
+.\}
+.nr ^v 0
+..
+.de ^B
+.ev 2
+'ti 0
+'nf
+.mk ^t
+.if \\n(^b \{\
+.\"	Draw three-sided box if this is the box's first page,
+.\"	draw two sides but no top otherwise.
+.ie !\\n(^b-1 \h'-1.5n'\L'|\\n(^yu-1v'\l'\\n(^lu+3n\(ul'\L'\\n(^tu+1v-\\n(^yu'\h'|0u'\c
+.el \h'-1.5n'\L'|\\n(^yu-1v'\h'\\n(^lu+3n'\L'\\n(^tu+1v-\\n(^yu'\h'|0u'\c
+.\}
+.if \\n(^v \{\
+.nr ^x \\n(^tu+1v-\\n(^Yu
+\kx\h'-\\nxu'\h'|\\n(^lu+3n'\ky\L'-\\n(^xu'\v'\\n(^xu'\h'|0u'\c
+.\}
+.bp
+'fi
+.ev
+.if \\n(^b \{\
+.mk ^y
+.nr ^b 2
+.\}
+.if \\n(^v \{\
+.mk ^Y
+.\}
+..
+.de DS
+.RS
+.nf
+.sp
+..
+.de DE
+.fi
+.RE
+.sp
+..
+.de SO
+.SH "STANDARD OPTIONS"
+.LP
+.nf
+.ta 5.5c 11c
+.ft B
+..
+.de SE
+.fi
+.ft R
+.LP
+See the \\fBoptions\\fR manual entry for details on the standard options.
+..
+.de OP
+.LP
+.nf
+.ta 4c
+Command-Line Name:	\\fB\\$1\\fR
+Database Name:	\\fB\\$2\\fR
+Database Class:	\\fB\\$3\\fR
+.fi
+.IP
+..
+.de CS
+.RS
+.nf
+.ta .25i .5i .75i 1i
+.if t .ft C
+..
+.de CE
+.fi
+.if t .ft R
+.RE
+..
+.de UL
+\\$1\l'|0\(ul'\\$2
+..
+'\" END man.macros
+.TH tdom n "" Tcl ""
+.BS
+.SH NAME
+tdom \- tdom is an expat parser object extension to create an in-memory
+DOM tree from the input while parsing.
+.SH SYNOPSIS
+.nf
+package require tdom
+
+set parser [expat]
+
+tdom $parser enable
+.fi
+.BE
+.SH DESCRIPTION
+.PP
+\&\fItdom\fR adds the C handler set "tdom" to an tcl expat
+parser obj. This handler set builds an in-memory DOM tree out of the input,
+parsed by the parser. A DOM tree created this way behave exactly like a DOM
+tree created by the "dom" command (see there). In fact, tdom is only
+another interface to the same functionality; it uses the code behind the
+\&\fBdom\fR code for building the DOM tree.
+.TP
+\&\fB\fBtdom\fP \fIparserObj\fB \fBenable\fP
+\&\fR
+.RS
+.PP
+Adds the tdom C handler set to a Tcl expat parser object. Next
+time, the parser parses input, the tdom C handler functions create an in-memory
+DOM tree.
+.RE
+.TP
+\&\fB\fBtdom\fP \fIparserObj\fB \fBgetdoc\fP
+\&\fR
+.RS
+.PP
+Returns the DOM tree as domDoc (see there) object.
+.RE
+.TP
+\&\fB\fBtdom\fP \fIparserObj\fB \fBsetResultEncoding\fP
+\&\fR
+.RS
+.PP
+See the method \fBsetResultEncoding\fR of the
+\&\fBdom\fP command.
+.RE
+.TP
+\&\fB\fBtdom\fP \fIparserObj\fB \fBsetStoreLineColumn\fP ?\fIboolean\fB?
+\&\fR
+.RS
+.PP
+See the method \fBsetStoreLineColumn\fR of the
+\&\fBdom\fP command.
+.RE
+.TP
+\&\fB\fBtdom\fP \fIparserObj\fB \fBremove\fP
+\&\fR
+.RS
+.PP
+Removes the tdom C handler set from the parser
+object.
+.RE
+.TP
+\&\fB\fBtdom\fP \fIparserObj\fB \fBkeepEmpties\fP
+\&\fR
+.RS
+.PP
+See the option \fB-keepEmpties\fR of the \fBdom\fP command.
+.RE
+.TP
+\&\fB\fBtdom\fP \fIparserObj\fB \fBsetExternalEntityResolver\fP \fIscript\fB
+\&\fR
+.SH "SEE ALSO"
+dom, expat
+.SH KEYWORDS
+DOM, SAX, C handler set

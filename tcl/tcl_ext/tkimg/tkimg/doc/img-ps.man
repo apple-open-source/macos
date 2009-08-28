@@ -1,0 +1,97 @@
+[comment {-*- tcl -*- doctools}]
+[vset FORMATNAME ps]
+[vset FORMATFULLNAME {Adobe PostScript Format}]
+
+[include format-header.inc]
+
+This handler provides new additional configuration options. See
+section [sectref {PostScript OPTIONS}] for more detailed explanations.
+
+[para]
+
+Note that this package provides a [const pdf] handler too, i.e. a
+handler for the Adobe Portable Document Format. That handler accepts
+the same options as the [const [vset FORMATNAME]] handler.
+
+[para]
+
+The package delegates the actual conversion of data in PostScript and
+PDF format into a raster image to the [syscmd ghostscript]
+application. It therefore depends upon the presence of said
+application and is non-functional is [syscmd ghostscript] is not
+present.
+
+[para]
+
+All of the above means that in a call like
+
+[list_begin definitions]
+[call [cmd image] [method {create photo}] [opt [arg name]] [opt [arg options]]]
+[list_end]
+
+[list_begin enum]
+[enum]
+Image data in [vset FORMATNAME] and PDF format (options [option -data]
+and [option -file]) is detected automatically.
+
+[enum]
+
+The format names [const [vset FORMATNAME]] and [const pdf] are
+recognized by the option [option -format].
+
+
+In addition the value for the option is treated as list and may
+contain any of the special options listed in section
+
+[sectref {PostScript OPTIONS}].
+
+[list_end]
+
+
+
+[section {PostScript OPTIONS}]
+
+The handler provides two options, both influencing the reading of
+PostScript or PDF images. The handler is [emph not] able to write
+images in PostScript or PDF.
+
+
+[list_begin definitions]
+
+[lst_item "[option -index] [arg n]"]
+
+This option is for reading from PostScript/PDF data containing more
+than one page. When specified it will read the [arg n]'th page in the
+data. The first page is at index [const 0] and will be read by
+default, i.e. when the option is not specified.
+
+[nl]
+
+[emph Note:] This option is not yet implemented.
+
+
+[lst_item "[option -zoom] [arg X] [arg Y]"]
+
+Multiply image size by the given scale factors. If [arg Y] is missing,
+the default is the same as [arg X]. [arg X] and [arg Y] are allowed to
+be in floating point format, but they are rounded to the nearest
+practically possible value. For postscript this means the zoom factors
+should be multiples of 1/72.
+
+
+[list_end]
+
+[section REQUIREMENTS]
+
+The code provided by Img does not perform the interpretation and
+rasterizing of the input by itself but delegates this to the
+[syscmd gs] application. This is the GhostScript implementation
+of PostScript (and PDF).
+
+[para]
+
+If [syscmd gs] is not installed this format handler cannot be used.
+
+[see_also img-intro img-bmp img-gif img-ico img-jpeg img-pcx img-pixmap img-png img-ppm img-ps img-sgi img-sun img-tga img-tiff img-window img-xbm img-xpm]
+[keywords {image handling} tk [vset FORMATNAME] pdf postscript gs ghostscript]
+[manpage_end]

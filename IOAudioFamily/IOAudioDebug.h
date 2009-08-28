@@ -25,11 +25,20 @@
 
 #ifdef DEBUG
 	#define DEBUG_LEVEL 1
-
+	#define DEBUG_USE_FIRELOG 1
+	
+	#ifdef DEBUG_USE_FIRELOG
+	#include <IOKit/firewire/FireLog.h>
+	#define audioDebugIOLog( level, message... ) \
+		do {FireLog(  message ); FireLog("\n");} while (0)
+			
+	#else
 	#include <IOKit/usb/IOUSBLog.h>
-
 	#define audioDebugIOLog( level, message... ) \
 		do {USBLog( level, message );} while (0)
+	#endif
+
+
 
 	#ifdef assert
 		#undef assert

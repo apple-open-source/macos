@@ -474,7 +474,7 @@ if _AC_DO_VAR(ac_try) &&
 else
   ac_cv_prog_[]_AC_LANG_ABBREV[]_c_o=no
 fi
-rm -f conftest*])
+rm -f -r conftest*])
 if test $ac_cv_prog_[]_AC_LANG_ABBREV[]_c_o = no; then
   AC_DEFINE([]_AC_FC[]_NO_MINUS_C_MINUS_O, 1,
             [Define to 1 if your Fortran compiler doesn't accept
@@ -538,7 +538,7 @@ ac_[]_AC_LANG_ABBREV[]_v_output=`eval $ac_link AS_MESSAGE_LOG_FD>&1 2>&1 | grep 
 echo "$ac_[]_AC_LANG_ABBREV[]_v_output" >&AS_MESSAGE_LOG_FD
 _AC_LANG_PREFIX[]FLAGS=$ac_save_FFLAGS
 
-rm -f conftest*
+rm -f -r conftest*
 
 # On HP/UX there is a line like: "LPATH is: /foo:/bar:/baz" where
 # /foo, /bar, and /baz are search directories for the Fortran linker.
@@ -808,7 +808,7 @@ AC_CACHE_CHECK([for dummy main to link with _AC_LANG libraries],
  fi
  AC_LANG_POP(C)dnl
  ac_cv_[]_AC_LANG_ABBREV[]_dummy_main=$ac_cv_fortran_dummy_main
- rm -f conftest*
+ rm -f -r conftest*
  LIBS=$ac_[]_AC_LANG_ABBREV[]_dm_save_LIBS
 ])
 []_AC_FC[]_DUMMY_MAIN=$ac_cv_[]_AC_LANG_ABBREV[]_dummy_main
@@ -877,7 +877,7 @@ AC_CACHE_CHECK([for alternate main to link with _AC_LANG libraries],
  done
  AC_LANG_POP(C)dnl
  ac_cv_[]_AC_LANG_ABBREV[]_main=$ac_cv_fortran_main
- rm -f conftest*
+ rm -f -r conftest*
  LIBS=$ac_[]_AC_LANG_ABBREV[]_m_save_LIBS
 ])
 AC_DEFINE_UNQUOTED([]_AC_FC[]_MAIN, $ac_cv_[]_AC_LANG_ABBREV[]_main,
@@ -989,7 +989,7 @@ AC_CACHE_CHECK([for _AC_LANG name-mangling scheme],
   fi
 
   LIBS=$ac_save_LIBS
-  rm -f cfortran_test* conftest*],
+  rm -f -r cfortran_test* conftest*],
   [AC_MSG_FAILURE([cannot compile a simple Fortran program])])
 ])
 ])# __AC_FC_NAME_MANGLING

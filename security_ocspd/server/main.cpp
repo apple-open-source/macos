@@ -104,7 +104,7 @@ int main(int argc, char **argv)
 	signal (SIGTERM, HandleSigTerm);
 	
 	/* user-specified variables */
-	char *bootStrapName = NULL;
+	const char *bootStrapName = NULL;
 	bool debugMode = false;
 	
 	extern char *optarg;
@@ -147,8 +147,6 @@ int main(int argc, char **argv)
     }
 	#endif //NDEBUG
 
-	Syslog::alert("starting");
-
     /* turn into a properly diabolical daemon unless debugMode is on */
     if (!debugMode) {
 		if (!Daemon::incarnate(false))
@@ -162,9 +160,9 @@ int main(int argc, char **argv)
 	
 	ocspdDebug("ocspd: starting main run loop");
 
-	/* These options copied from securityd - they enable the audit trailer */
 	ServerActivity();
 	TimeoutTimer tt(server);
+	/* These options copied from securityd - they enable the audit trailer */
 	server.setTimer(&tt, Time::Interval(kTimeoutCheckTime));
 	
 	server.run(4096,		// copied from machserver default

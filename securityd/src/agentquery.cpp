@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2004,2008-2009 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,9 +26,12 @@
 //
 #include "agentquery.h"
 #include "authority.h"
+#include "ccaudit_extensions.h"
 
 #include <Security/AuthorizationTags.h>
 #include <Security/AuthorizationTagsPriv.h>
+#include <Security/checkpw.h>
+#include <bsm/audit_uevents.h>      // AUE_ssauthint
 
 //
 // NOSA support functions. This is a test mode where the SecurityAgent
@@ -67,20 +70,112 @@ static void getNoSA(char *buffer, size_t bufferSize, const char *fmt, ...)
 #endif //NOSA
 
 
-using SecurityAgent::Reason;
-using namespace Authorization;
+// SecurityAgentConnection
 
-SecurityAgentQuery::SecurityAgentQuery(const AuthHostType type, Session &session) : mAuthHostType(type), mHostInstance(session.authhost(mAuthHostType)), mConnection(&Server::connection())
+SecurityAgentConnection::SecurityAgentConnection(const AuthHostType type, Session &session) 
+    : mAuthHostType(type), 
+    mHostInstance(session.authhost(mAuthHostType)), 
+    mConnection(&Server::connection()),
+    mAuditToken(Server::connection().auditToken())
 {
 	// this may take a while
 	Server::active().longTermActivity();
+    secdebug("SecurityAgentConnection", "new SecurityAgentConnection(%p)", this);
+}
+
+SecurityAgentConnection::~SecurityAgentConnection()
+{
+    secdebug("SecurityAgentConnection", "SecurityAgentConnection(%p) dying", this);
+	mConnection->useAgent(NULL);
+}
+
+void 
+SecurityAgentConnection::activate()
+{
+    secdebug("SecurityAgentConnection", "activate(%p)", this);
+	mConnection->useAgent(this);
+	try {
+        mPort = mHostInstance->activate();
+        secdebug("SecurityAgentConnection", "%p activated", this);
+	} catch (...) {
+		mConnection->useAgent(NULL);	// guess not
+        secdebug("SecurityAgentConnection", "error activating %p", this);
+		throw;
+	}
+}
+
+void
+SecurityAgentConnection::reconnect()
+{
+    // if !mHostInstance throw()?
+    if (mHostInstance)
+    {
+        Session &session = mHostInstance->session();
+        mHostInstance = session.authhost(mAuthHostType, true);
+        activate();
+    }
+}
+
+void
+SecurityAgentConnection::terminate()
+{
+	activate();
+    
+    // @@@ This happens already in the destructor; presumably we do this to tear things down orderly
+	mConnection->useAgent(NULL);
+}
+
+
+// SecurityAgentTransaction
+
+SecurityAgentTransaction::SecurityAgentTransaction(const AuthHostType type, Session &session, bool startNow) 
+    : SecurityAgentConnection(type, session), 
+    mStarted(false)
+{
+    secdebug("SecurityAgentTransaction", "New SecurityAgentTransaction(%p)", this);
+    activate();     // start agent now, or other SAConnections will kill and spawn new agents
+    if (startNow)
+        start();
+}
+
+SecurityAgentTransaction::~SecurityAgentTransaction()
+{
+    try { end(); } catch(...) {}
+    secdebug("SecurityAgentTransaction", "Destroying %p", this);
+}
+
+void
+SecurityAgentTransaction::start()
+{
+    secdebug("SecurityAgentTransaction", "start(%p)", this);
+    MacOSError::check(SecurityAgentQuery::Client::startTransaction(mPort));
+    mStarted = true;
+    secdebug("SecurityAgentTransaction", "started(%p)", this);
+}
+
+void 
+SecurityAgentTransaction::end()
+{
+    if (started())
+    {
+        MacOSError::check(SecurityAgentQuery::Client::endTransaction(mPort));
+        mStarted = false;
+    }
+    secdebug("SecurityAgentTransaction", "End SecurityAgentTransaction(%p)", this);
+}
+
+using SecurityAgent::Reason;
+using namespace Authorization;
+
+SecurityAgentQuery::SecurityAgentQuery(const AuthHostType type, Session &session) 
+    : SecurityAgentConnection(type, session)
+{
     secdebug("SecurityAgentQuery", "new SecurityAgentQuery(%p)", this);
 }
 
 SecurityAgentQuery::~SecurityAgentQuery()
 {
     secdebug("SecurityAgentQuery", "SecurityAgentQuery(%p) dying", this);
-	mConnection->useAgent(NULL);
 
 #if defined(NOSA)
 	if (getenv("NOSA")) {
@@ -93,17 +188,20 @@ SecurityAgentQuery::~SecurityAgentQuery()
         destroy(); 
 }
 
-void
+void 
 SecurityAgentQuery::activate()
 {
-	mConnection->useAgent(this);
+    SecurityAgentConnection::activate();
+    SecurityAgent::Client::activate(mPort);
+    secdebug("SecurityAgentQuery", "activate(%p)", this);
+}
 
-	try {
-		SecurityAgent::Client::activate(mHostInstance->activate());
-	} catch (...) {
-		mConnection->useAgent(NULL);	// guess not
-		throw;
-	}
+void 
+SecurityAgentQuery::reconnect()
+{
+    SecurityAgentConnection::reconnect();
+    SecurityAgent::Client::activate(mPort);
+    secdebug("SecurityAgentQuery", "reconnect(%p)", this);
 }
 
 void
@@ -150,13 +248,16 @@ SecurityAgentQuery::readChoice()
 }	
 
 void
+SecurityAgentQuery::disconnect()
+{
+    SecurityAgent::Client::destroy();
+}
+    
+void
 SecurityAgentQuery::terminate()
 {
-	activate();
-
-    // @@@ This happens already in the destructor; presumably we do this to tear things down orderly
-	mConnection->useAgent(NULL);
-    
+    // you might think these are called in the wrong order, but you'd be wrong
+    SecurityAgentConnection::terminate();
 	SecurityAgent::Client::terminate();
 }
 
@@ -168,9 +269,7 @@ SecurityAgentQuery::create(const char *pluginId, const char *mechanismId, const 
 	if (status)
 	{
 		secdebug("SecurityAgentQuery", "agent went walkabout, restarting");
-		Session &session = mHostInstance->session();
-		mHostInstance = session.authhost(mAuthHostType, true);
-		activate();
+        reconnect();
 		status = SecurityAgent::Client::create(pluginId, mechanismId, inSessionId);
 	}
 	if (status) MacOSError::throwMe(status);
@@ -618,12 +717,12 @@ Reason QueryGenericPassphrase::query(const char *prompt, bool verify,
 // 
 // Get a DB blob's passphrase--keychain synchronization
 // 
-Reason QueryDBBlobSecret::operator () (DatabaseCryptoCore &dbCore, const DbBlob *secretsBlob)
+Reason QueryDBBlobSecret::operator () (DbHandle *dbHandleArray, uint8 dbHandleArrayCount, DbHandle *dbHandleAuthenticated)
 {
-    return query(dbCore, secretsBlob);
+    return query(dbHandleArray, dbHandleArrayCount, dbHandleAuthenticated);
 }
 
-Reason QueryDBBlobSecret::query(DatabaseCryptoCore &dbCore, const DbBlob *secretsBlob)
+Reason QueryDBBlobSecret::query(DbHandle *dbHandleArray, uint8 dbHandleArrayCount, DbHandle *dbHandleAuthenticated)
 {
     Reason reason = SecurityAgent::noReason;
 	CssmAutoData passphrase(Allocator::standard(Allocator::sensitive));
@@ -637,8 +736,8 @@ Reason QueryDBBlobSecret::query(DatabaseCryptoCore &dbCore, const DbBlob *secret
 		return SecurityAgent::noReason;
     }
 #endif
-	
-    hints.insert(mClientHints.begin(), mClientHints.end());
+
+	hints.insert(mClientHints.begin(), mClientHints.end());
 	
 	create("builtin", "generic-unlock-kcblob", noSecuritySession);
     
@@ -666,22 +765,34 @@ Reason QueryDBBlobSecret::query(DatabaseCryptoCore &dbCore, const DbBlob *secret
 			continue;
 		secretItem->getCssmData(passphrase);
 		
-    } while (reason = accept(passphrase, dbCore, secretsBlob));
+    } while (reason = accept(passphrase, dbHandleArray, dbHandleArrayCount, dbHandleAuthenticated));
 	    
     return reason;
 }
 
 Reason QueryDBBlobSecret::accept(CssmManagedData &passphrase, 
-								 DatabaseCryptoCore &dbCore, 
-								 const DbBlob *secretsBlob)
+								 DbHandle *dbHandlesToAuthenticate, uint8 dbHandleCount, DbHandle *dbHandleAuthenticated)
 {
-	try {
-		dbCore.setup(secretsBlob, passphrase);
-		dbCore.decodeCore(secretsBlob, NULL);
-	} catch (const CommonError &err) {
-		// XXX/gh  Are there errors other than this?  
-		return SecurityAgent::invalidPassphrase;
+	DbHandle *currHdl = dbHandlesToAuthenticate;
+	short index;
+	Boolean authenticated = false;
+	for (index=0; index < dbHandleCount && !authenticated; index++)
+	{
+		try 
+		{
+			RefPointer<KeychainDatabase> dbToUnlock = Server::keychain(*currHdl);
+			dbToUnlock->unlockDb(passphrase);
+			authenticated = true;
+			*dbHandleAuthenticated = *currHdl; // return the DbHandle that 'passphrase' authenticated with.
+		} 
+		catch (const CommonError &err) 
+		{
+			currHdl++; // we failed to authenticate with this one, onto the next one.  
+		}
 	}
+	if ( !authenticated )
+		return SecurityAgent::invalidPassphrase;
+	
 	return SecurityAgent::noReason;
 }
 
@@ -717,3 +828,120 @@ void QueryInvokeMechanism::terminateAgent()
 {
     terminate();
 }
+
+// @@@  no pluggable authentication possible!  
+Reason
+QueryKeychainAuth::operator () (const char *database, const char *description, AclAuthorization action, const char *prompt)
+{
+    Reason reason = SecurityAgent::noReason;
+    AuthItemSet hints, context;
+	AuthValueVector arguments;
+	int retryCount = 0;
+	string username;
+	string password;
+    
+    using CommonCriteria::Securityd::KeychainAuthLogger;
+    KeychainAuthLogger logger(mAuditToken, AUE_ssauthint, database, description);
+	
+#if defined(NOSA)
+    /* XXX/gh  probably not complete; stolen verbatim from rogue-app query */
+    if (getenv("NOSA")) {
+		char answer[maxPassphraseLength+10];
+		
+        string applicationPath;
+        AuthItem *applicationPathItem = mClientHints.find(AGENT_HINT_APPLICATION_PATH);
+		if (applicationPathItem)
+		  applicationPathItem->getString(applicationPath);
+
+		getNoSA(answer, sizeof(answer), "Allow %s to do %d on %s in %s? [yn][g]%s ",
+			applicationPath.c_str(), int(action), (description ? description : "[NULL item]"),
+			(database ? database : "[NULL database]"),
+			mPassphraseCheck ? ":passphrase" : "");
+		// turn passphrase (no ':') into y:passphrase
+		if (mPassphraseCheck && !strchr(answer, ':')) {
+			memmove(answer+2, answer, strlen(answer)+1);
+			memcpy(answer, "y:", 2);
+		}
+
+		allow = answer[0] == 'y';
+		remember = answer[1] == 'g';
+		return SecurityAgent::noReason;
+    }
+#endif
+	
+    hints.insert(mClientHints.begin(), mClientHints.end());
+
+	// put action/operation (sint32) into hints
+	hints.insert(AuthItemRef(AGENT_HINT_ACL_TAG, AuthValueOverlay(sizeof(action), static_cast<sint32*>(&action))));
+
+    hints.insert(AuthItemRef(AGENT_HINT_CUSTOM_PROMPT, AuthValueOverlay(prompt ? strlen(prompt) : 0, const_cast<char*>(prompt))));
+	
+	// item name into hints
+	hints.insert(AuthItemRef(AGENT_HINT_KEYCHAIN_ITEM_NAME, AuthValueOverlay(description ? strlen(description) : 0, const_cast<char*>(description))));
+	
+	// keychain name into hints
+	hints.insert(AuthItemRef(AGENT_HINT_KEYCHAIN_PATH, AuthValueOverlay(database ? strlen(database) : 0, const_cast<char*>(database))));
+	
+    create("builtin", "confirm-access-user-password", noSecuritySession);
+    
+    AuthItem *usernameItem;
+    AuthItem *passwordItem;
+    
+    do {
+
+        AuthItemRef triesHint(AGENT_HINT_TRIES, AuthValueOverlay(sizeof(retryCount), &retryCount));
+        hints.erase(triesHint); hints.insert(triesHint); // replace
+        
+		if (++retryCount > maxTries)
+			reason = SecurityAgent::tooManyTries;
+		
+        if (SecurityAgent::noReason != reason)
+        {
+            if (SecurityAgent::tooManyTries == reason)
+                logger.logFailure(NULL,  CommonCriteria::errTooManyTries);
+            else
+                logger.logFailure();
+        }
+
+        AuthItemRef retryHint(AGENT_HINT_RETRY_REASON, AuthValueOverlay(sizeof(reason), &reason));
+        hints.erase(retryHint); hints.insert(retryHint); // replace
+		
+        setInput(hints, context);
+        try
+        {
+            invoke();
+            checkResult();
+        }
+        catch (...)     // user probably clicked "deny"
+        {
+            logger.logFailure();
+            throw;
+        }
+        usernameItem = outContext().find(AGENT_USERNAME);
+		passwordItem = outContext().find(AGENT_PASSWORD);
+		if (!usernameItem || !passwordItem)
+			continue;
+        usernameItem->getString(username);
+        passwordItem->getString(password);
+    } while (reason = accept(username, password));
+
+    if (SecurityAgent::noReason == reason)
+        logger.logSuccess();
+    // else we logged the denial in the loop
+    
+    return reason;
+}
+
+Reason 
+QueryKeychainAuth::accept(string &username, string &passphrase)
+{
+    const char *user = username.c_str();
+    const char *passwd = passphrase.c_str();
+    int checkpw_status = checkpw(user, passwd);
+    
+    if (checkpw_status != CHECKPW_SUCCESS)
+		return SecurityAgent::invalidPassphrase;
+
+	return SecurityAgent::noReason;
+}
+

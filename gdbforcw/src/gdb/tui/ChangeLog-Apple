@@ -1,7 +1,0 @@
-2002-10-29  Klee Dienes  <kdienes@apple.com>
-
-	* tui.c: Remove malloc.h.
-	* tui-hooks.c (_initialize_tui): Remove tui_init_hook as
-	init_ui_hook (this essentially breaks tui, but prevents a GDB
-	crash until tui is fixed).
-	(target_wait_hook): Pass NULL client_data to target_wait.

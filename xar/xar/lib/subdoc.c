@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Rob Braun
+ * Copyright (c) 2005-2007 Rob Braun
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,7 +28,7 @@
  */
 /*
  * 04-Apr-2005
- * DRI: Rob Braun <bbraun@opendarwin.org>
+ * DRI: Rob Braun <bbraun@synack.net>
  */
 
 #define _FILE_OFFSET_BITS 64
@@ -45,6 +45,9 @@
 
 xar_subdoc_t xar_subdoc_new(xar_t x, const char *name) {
 	xar_subdoc_t ret;
+
+	if( xar_subdoc_find(x, name) )
+		return NULL;
 
 	ret = malloc(sizeof(struct __xar_subdoc_t));
 	if( ! ret )
@@ -85,6 +88,18 @@ xar_subdoc_t xar_subdoc_next(xar_subdoc_t s) {
 
 const char *xar_subdoc_name(xar_subdoc_t s) {
 	return XAR_SUBDOC(s)->name;
+}
+
+xar_subdoc_t xar_subdoc_find(xar_t x, const char *name)
+{
+	xar_subdoc_t i;
+
+	for(i = XAR(x)->subdocs; i; i = XAR_SUBDOC(i)->next) {
+		if( strcmp(name, XAR_SUBDOC(i)->name) == 0 )
+			return i;
+	}
+
+	return NULL;
 }
 
 int32_t xar_subdoc_copyout(xar_subdoc_t s, unsigned char **ret, unsigned int *size) {

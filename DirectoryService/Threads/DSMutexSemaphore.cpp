@@ -152,7 +152,12 @@ void DSMutexSemaphore::Signal( void )
 	int error = pthread_mutex_unlock( &mMutex );
 	if ( error != 0 )
 	{
-		syslog( LOG_CRIT, "DSMutexSemaphore::Signal failed error %d for mutex 0x%08llX", error, (unsigned long long) &mMutex );
+#ifdef __LP64__
+		syslog( LOG_CRIT, "DSMutexSemaphore::Signal failed error %d for mutex 0x%016lX", error, (unsigned long) &mMutex );
+#else
+		syslog( LOG_CRIT, "DSMutexSemaphore::Signal failed error %d for mutex 0x%08lX", error, (unsigned long) &mMutex );
+#endif
+		
 #if defined(DEBUG_LOCKS) || defined(DEBUG_LOCKS_HISTORY)
 		BreakIfDebugging();
 #endif
@@ -160,7 +165,7 @@ void DSMutexSemaphore::Signal( void )
 	else
 	{
 		if ( mLockHistoryInfo->fShouldDTrace )
-			DSLOCKSTAT_MUTEX_RELEASE( (long) &mMutex, (char *) mMutexName, "no file info", 0 );
+			DSLOCKSTAT_MUTEX_RELEASE( (long) &mMutex, mMutexName, "no file info", 0 );
 	}
 }
 
@@ -169,7 +174,12 @@ void DSMutexSemaphore::Wait( void )
 	int error = pthread_mutex_lock( &mMutex );
 	if ( error != 0 )
 	{
-		syslog( LOG_CRIT, "DSMutexSemaphore::Wait failed error %d for mutex 0x%08llX", error, (unsigned long long) &mMutex );
+#ifdef __LP64__
+		syslog( LOG_CRIT, "DSMutexSemaphore::Wait failed error %d for mutex 0x%016lX", error, (unsigned long) &mMutex );
+#else
+		syslog( LOG_CRIT, "DSMutexSemaphore::Wait failed error %d for mutex 0x%08lX", error, (unsigned long) &mMutex );
+#endif
+		
 #if defined(DEBUG_LOCKS) || defined(DEBUG_LOCKS_HISTORY)
 		BreakIfDebugging();
 #endif
@@ -182,7 +192,12 @@ bool DSMutexSemaphore::WaitTry( void )
 	int error = pthread_mutex_trylock( &mMutex );
 	if ( error != EBUSY && error != 0 )
 	{
-		syslog( LOG_CRIT, "DSMutexSemaphore::Wait failed error %d for mutex 0x%08llX", error, (unsigned long long) &mMutex );
+#ifdef __LP64__
+		syslog( LOG_CRIT, "DSMutexSemaphore::Wait failed error %d for mutex 0x%016lX", error, (unsigned long) &mMutex );
+#else
+		syslog( LOG_CRIT, "DSMutexSemaphore::Wait failed error %d for mutex 0x%08lX", error, (unsigned long) &mMutex );
+#endif
+		
 #if defined(DEBUG_LOCKS) || defined(DEBUG_LOCKS_HISTORY)
 		BreakIfDebugging();
 #endif
@@ -210,7 +225,7 @@ bool DSMutexSemaphore::BeingDebugged( void )
     mib[3] = getpid();
 	
     size = sizeof(info);
-    sysctl(mib, sizeof(mib) / sizeof(*mib), &info, &size, NULL, 0);
+    sysctl(mib, (u_int) (sizeof(mib) / sizeof(*mib)), &info, &size, NULL, 0);
 	
     // We're being debugged if the P_TRACED flag is set.
     return ( (info.kp_proc.p_flag & P_TRACED) != 0 );
@@ -257,8 +272,10 @@ void DSMutexSemaphore::LockCleanup( void *value )
 #pragma mark -
 #pragma mark Debug Mutexes
 
-void DSMutexSemaphore::SignalDebug( char *file, int line )
+void DSMutexSemaphore::SignalDebug( const char *file, int line )
 {
+	const char *shortName = NULL;
+	
 	// we clear the owner if it us
 #if defined(DEBUG_LOCKS)
 	OSSpinLockLock( &mLockHistoryInfo->fOSLock );
@@ -269,7 +286,7 @@ void DSMutexSemaphore::SignalDebug( char *file, int line )
 	{
 		if ( DSLOCKSTAT_MUTEX_RELEASE_ENABLED() && mLockHistoryInfo->fShouldDTrace )
 		{
-			char *shortName = rindex( file, '/' );
+			shortName = rindex( file, '/' );
 			if ( shortName == NULL )
 				shortName = file;
 			else 
@@ -287,13 +304,18 @@ void DSMutexSemaphore::SignalDebug( char *file, int line )
 	}
 	else
 	{
-		char *shortName = strrchr( file, '/' );
+		shortName = strrchr( file, '/' );
 		if ( shortName == NULL )
 			shortName = file;
 		else 
 			shortName++;
-		
-		syslog( LOG_CRIT, "DSMutexSemaphore::SignalDebug - Error %d for mutex 0x%08llX - Caller %s:%d", error, (unsigned long long) &mMutex, shortName, line );
+
+#ifdef __LP64__
+		syslog( LOG_CRIT, "DSMutexSemaphore::SignalDebug - Error %d for mutex 0x%016lX - Caller %s:%d", error, (unsigned long) &mMutex, shortName, line );
+#else
+		syslog( LOG_CRIT, "DSMutexSemaphore::SignalDebug - Error %d for mutex 0x%08lX - Caller %s:%d", error, (unsigned long) &mMutex, shortName, line );
+#endif
+
 		BreakIfDebugging();
 	}
 	
@@ -302,18 +324,19 @@ void DSMutexSemaphore::SignalDebug( char *file, int line )
 #endif
 }
 
-void DSMutexSemaphore::WaitDebug( char *file, int line )
+void DSMutexSemaphore::WaitDebug( const char *file, int line )
 {
+	const char *shortName = NULL;
+	
 #if defined(DEBUG_LOCKS_WAITING) && defined(DEBUG_LOCKS)
 	int		error;
 	time_t	lockAttempt = time(NULL);
 	bool	bLogged		= false;
-	
 	while ( (error = pthread_mutex_trylock(&mMutex)) == EBUSY )
 	{
 		if ( bLogged == false && time(NULL) - lockAttempt > 60 )
 		{
-			char *shortName = strrchr( file, '/' );
+			shortName = strrchr( file, '/' );
 			if ( shortName == NULL )
 				shortName = file;
 			else 
@@ -322,8 +345,13 @@ void DSMutexSemaphore::WaitDebug( char *file, int line )
 			OSSpinLockLock( &mLockHistoryInfo->fOSLock );
 			pthread_t thisThread = pthread_self();
 
-			syslog( LOG_CRIT, "Caller 0x%08llX (0x%x) - %s:%d - has been waiting > 60 sec for lock acquisition", 
-				    (unsigned long long) thisThread, pthread_mach_thread_np(thisThread), shortName, line );
+#ifdef __LP64__
+			syslog( LOG_CRIT, "Caller 0x%016lX (0x%x) - %s:%d - has been waiting > 60 sec for lock acquisition", 
+				    (unsigned long) thisThread, pthread_mach_thread_np(thisThread), shortName, line );
+#else
+			syslog( LOG_CRIT, "Caller 0x%08lX (0x%x) - %s:%d - has been waiting > 60 sec for lock acquisition", 
+				    (unsigned long) thisThread, pthread_mach_thread_np(thisThread), shortName, line );
+#endif
 			DumpLockDebug( this );
 			OSSpinLockUnlock( &mLockHistoryInfo->fOSLock );
 			bLogged = true;
@@ -338,7 +366,7 @@ void DSMutexSemaphore::WaitDebug( char *file, int line )
 		// we have our own flag so we don't dtrace certain locks
 		if ( DSLOCKSTAT_MUTEX_ACQUIRE_ENABLED() && mLockHistoryInfo->fShouldDTrace )
 		{
-			char *shortName = rindex( file, '/' );
+			shortName = rindex( file, '/' );
 			if ( shortName == NULL )
 				shortName = file;
 			else 
@@ -349,7 +377,7 @@ void DSMutexSemaphore::WaitDebug( char *file, int line )
 #if defined(DEBUG_LOCKS)
 		OSSpinLockLock( &mLockHistoryInfo->fOSLock );
 
-		char *shortName = strrchr( file, '/' );
+		shortName = strrchr( file, '/' );
 		if ( shortName == NULL )
 			shortName = file;
 		else 
@@ -358,8 +386,13 @@ void DSMutexSemaphore::WaitDebug( char *file, int line )
 		pthread_t thisThread = pthread_self();
 		
 		mLockHistoryInfo->fThreadOwnerCount++;
-		snprintf( mLockHistoryInfo->fCurrHolder, threadHistoryStringLen, "Lock last held - 0x%08llX (0x%x) - Count %d - %s:%d", 
-				  (unsigned long long) thisThread, pthread_mach_thread_np(thisThread), mLockHistoryInfo->fThreadOwnerCount, shortName, line );
+#ifdef __LP64__
+		snprintf( mLockHistoryInfo->fCurrHolder, threadHistoryStringLen, "Lock last held - 0x%016lX (0x%x) - Count %d - %s:%d", 
+				  (unsigned long) thisThread, pthread_mach_thread_np(thisThread), mLockHistoryInfo->fThreadOwnerCount, shortName, line );
+#else
+		snprintf( mLockHistoryInfo->fCurrHolder, threadHistoryStringLen, "Lock last held - 0x%08lX (0x%x) - Count %d - %s:%d", 
+				  (unsigned long) thisThread, pthread_mach_thread_np(thisThread), mLockHistoryInfo->fThreadOwnerCount, shortName, line );
+#endif
 		
 		pthread_setspecific( mLockHistoryInfo->fThreadKey, this );
 		OSSpinLockUnlock( &mLockHistoryInfo->fOSLock );
@@ -367,25 +400,30 @@ void DSMutexSemaphore::WaitDebug( char *file, int line )
 	}
 	else
 	{
-		char *shortName = strrchr( file, '/' );
+		shortName = strrchr( file, '/' );
 		if ( shortName == NULL )
 			shortName = file;
 		else 
 			shortName++;
 		
-		syslog( LOG_CRIT, "DSMutexSemaphore::WaitDebug - Error %d for mutex 0x%08llX - Caller %s:%d", error, (unsigned long long) &mMutex, shortName, line );
+#ifdef __LP64__
+		syslog( LOG_CRIT, "DSMutexSemaphore::WaitDebug - Error %d for mutex 0x%016lX - Caller %s:%d", error, (unsigned long) &mMutex, shortName, line );
+#else
+		syslog( LOG_CRIT, "DSMutexSemaphore::WaitDebug - Error %d for mutex 0x%08lX - Caller %s:%d", error, (unsigned long) &mMutex, shortName, line );
+#endif
 		BreakIfDebugging();
 	}
 }
 
-bool DSMutexSemaphore::WaitTryDebug( char *file, int line )
+bool DSMutexSemaphore::WaitTryDebug( const char *file, int line )
 {
+	const char *shortName = NULL;
 	int error = pthread_mutex_trylock( &mMutex );
 	if ( error == 0 )
 	{
 		if ( DSLOCKSTAT_MUTEX_ACQUIRE_ENABLED() && mLockHistoryInfo->fShouldDTrace )
 		{
-			char *shortName = rindex( file, '/' );
+			shortName = rindex( file, '/' );
 			if ( shortName == NULL )
 				shortName = file;
 			else 
@@ -396,7 +434,7 @@ bool DSMutexSemaphore::WaitTryDebug( char *file, int line )
 #if defined(DEBUG_LOCKS)
 		OSSpinLockLock( &mLockHistoryInfo->fOSLock );
 		
-		char *shortName = strrchr( file, '/' );
+		shortName = strrchr( file, '/' );
 		if ( shortName == NULL )
 			shortName = file;
 		else 
@@ -405,8 +443,13 @@ bool DSMutexSemaphore::WaitTryDebug( char *file, int line )
 		pthread_t thisThread = pthread_self();
 		
 		mLockHistoryInfo->fThreadOwnerCount++;
-		snprintf( mLockHistoryInfo->fCurrHolder, threadHistoryStringLen, "Lock last held - 0x%08llX (0x%x) - Count %d - %s:%d", 
-				 (unsigned long long) thisThread, pthread_mach_thread_np(thisThread), mLockHistoryInfo->fThreadOwnerCount, shortName, line );
+#ifdef __LP64__
+		snprintf( mLockHistoryInfo->fCurrHolder, threadHistoryStringLen, "Lock last held - 0x%016lX (0x%x) - Count %d - %s:%d", 
+				  (unsigned long) thisThread, pthread_mach_thread_np(thisThread), mLockHistoryInfo->fThreadOwnerCount, shortName, line );
+#else
+		snprintf( mLockHistoryInfo->fCurrHolder, threadHistoryStringLen, "Lock last held - 0x%08lX (0x%x) - Count %d - %s:%d", 
+				  (unsigned long) thisThread, pthread_mach_thread_np(thisThread), mLockHistoryInfo->fThreadOwnerCount, shortName, line );
+#endif
 		
 		pthread_setspecific( mLockHistoryInfo->fThreadKey, this );
 		OSSpinLockUnlock( &mLockHistoryInfo->fOSLock );
@@ -414,13 +457,17 @@ bool DSMutexSemaphore::WaitTryDebug( char *file, int line )
 	}
 	else if ( error != EBUSY )
 	{
-		char *shortName = strrchr( file, '/' );
+		shortName = strrchr( file, '/' );
 		if ( shortName == NULL )
 			shortName = file;
 		else 
 			shortName++;
-		
-		syslog( LOG_CRIT, "DSMutexSemaphore::WaitTryDebug - Error %d for mutex 0x%08llX - Caller %s:%d", error, (unsigned long long) &mMutex, shortName, line );
+
+#ifdef __LP64__
+		syslog( LOG_CRIT, "DSMutexSemaphore::WaitTryDebug - Error %d for mutex 0x%016lX - Caller %s:%d", error, (unsigned long) &mMutex, shortName, line );
+#else
+		syslog( LOG_CRIT, "DSMutexSemaphore::WaitTryDebug - Error %d for mutex 0x%08lX - Caller %s:%d", error, (unsigned long) &mMutex, shortName, line );
+#endif
 		BreakIfDebugging();
 	}
 	
@@ -446,14 +493,16 @@ void DSMutexSemaphore::DumpLockDebug( DSMutexSemaphore *inMutex )
 
 #if defined(DEBUG_LOCKS_HISTORY)
 
-void DSMutexSemaphore::SignalDebugHistory( char *file, int line )
+void DSMutexSemaphore::SignalDebugHistory( const char *file, int line )
 {
+	const char *shortName = NULL;
+	
 	OSSpinLockLock( &mLockHistoryInfo->fOSLock );
 	
 	// we clear the owner if it us
     int error = pthread_mutex_unlock( &mMutex );
 
-	char *shortName = strrchr( file, '/' );
+	shortName = strrchr( file, '/' );
 	if ( shortName == NULL )
 		shortName = file;
 	else 
@@ -463,8 +512,13 @@ void DSMutexSemaphore::SignalDebugHistory( char *file, int line )
 	{
 		mLockHistoryInfo->fLockHoldTime[mLockHistoryInfo->fCurrHolderIndex] = time(NULL) - mLockHistoryInfo->fLockTime;
 		mLockHistoryInfo->fCurrHolderIndex = (mLockHistoryInfo->fCurrHolderIndex + 1) % threadHistoryCount;
-		snprintf( mLockHistoryInfo->fLockHistory[mLockHistoryInfo->fCurrHolderIndex], threadHistoryStringLen, "Succeed - Unlock Depth %d - 0x%08llX (0x%x) - %s:%d", (mLockHistoryInfo->fThreadOwnerCount - 1),
-				 (unsigned long long) mLockHistoryInfo->fThreadOwner, pthread_mach_thread_np(mLockHistoryInfo->fThreadOwner), shortName, line );
+#ifdef __LP64__
+		snprintf( mLockHistoryInfo->fLockHistory[mLockHistoryInfo->fCurrHolderIndex], threadHistoryStringLen, "Succeed - Unlock Depth %d - 0x%016lX (0x%x) - %s:%d", (mLockHistoryInfo->fThreadOwnerCount - 1),
+				 (unsigned long) mLockHistoryInfo->fThreadOwner, pthread_mach_thread_np(mLockHistoryInfo->fThreadOwner), shortName, line );
+#else
+		snprintf( mLockHistoryInfo->fLockHistory[mLockHistoryInfo->fCurrHolderIndex], threadHistoryStringLen, "Succeed - Unlock Depth %d - 0x%08lX (0x%x) - %s:%d", (mLockHistoryInfo->fThreadOwnerCount - 1),
+				  (unsigned long) mLockHistoryInfo->fThreadOwner, pthread_mach_thread_np(mLockHistoryInfo->fThreadOwner), shortName, line );
+#endif
 		mLockHistoryInfo->fCurrHolder = mLockHistoryInfo->fLockHistory[mLockHistoryInfo->fCurrHolderIndex];
 
 		if( mLockHistoryInfo->fThreadOwnerCount > 0 )
@@ -478,17 +532,27 @@ void DSMutexSemaphore::SignalDebugHistory( char *file, int line )
 		else
 		{
 			pthread_t thisThread = pthread_self();
-			syslog( LOG_CRIT, "Error %d - Unlocking mutex 0x%08llX - Thread 0x%08llX (0x%x) - Count would go negative count - Caller '%s:%d'", error, 
-				    (unsigned long long) &mMutex, (unsigned long long) thisThread, pthread_mach_thread_np(thisThread), shortName, line );
+#ifdef __LP64__
+			syslog( LOG_CRIT, "Error %d - Unlocking mutex 0x%016lX - Thread 0x%016lX (0x%x) - Count would go negative count - Caller '%s:%d'", error, 
+				    (unsigned long) &mMutex, (unsigned long) thisThread, pthread_mach_thread_np(thisThread), shortName, line );
+#else
+			syslog( LOG_CRIT, "Error %d - Unlocking mutex 0x%08lX - Thread 0x%08lX (0x%x) - Count would go negative count - Caller '%s:%d'", error, 
+				    (unsigned long) &mMutex, (unsigned long) thisThread, pthread_mach_thread_np(thisThread), shortName, line );
+#endif
 			DumpLockHistory( this );
 		}
 	}
 	else
 	{
 		pthread_t thisThread = pthread_self();
-		
-		syslog( LOG_CRIT, "Error %d - Unlocking mutex 0x%08llX - Thread 0x%08llX (0x%x) - Not owned - Caller '%s:%d'", error, 
-			    (unsigned long long) &mMutex, (unsigned long long) thisThread, pthread_mach_thread_np(thisThread), shortName, line );
+
+#ifdef __LP64__
+		syslog( LOG_CRIT, "Error %d - Unlocking mutex 0x%016lX - Thread 0x%016lX (0x%x) - Not owned - Caller '%s:%d'", error, 
+			    (unsigned long) &mMutex, (unsigned long) thisThread, pthread_mach_thread_np(thisThread), shortName, line );
+#else
+		syslog( LOG_CRIT, "Error %d - Unlocking mutex 0x%08lX - Thread 0x%08lX (0x%x) - Not owned - Caller '%s:%d'", error, 
+			    (unsigned long) &mMutex, (unsigned long) thisThread, pthread_mach_thread_np(thisThread), shortName, line );
+#endif
 		
 		DumpLockHistory( this );
 	}
@@ -496,13 +560,14 @@ void DSMutexSemaphore::SignalDebugHistory( char *file, int line )
 	OSSpinLockUnlock( &mLockHistoryInfo->fOSLock );
 }
 
-void DSMutexSemaphore::WaitDebugHistory( char *file, int line )
+void DSMutexSemaphore::WaitDebugHistory( const char *file, int line )
 {
+	const char *shortName = NULL;
 	int error = pthread_mutex_lock( &mMutex );
 
 	OSSpinLockLock( &mLockHistoryInfo->fOSLock );
 	
-	char *shortName = strrchr( file, '/' );
+	shortName = strrchr( file, '/' );
 	if ( shortName != NULL )
 		shortName = file;
 	
@@ -520,28 +585,39 @@ void DSMutexSemaphore::WaitDebugHistory( char *file, int line )
 		mLockHistoryInfo->fThreadOwnerCount++;
 		mLockHistoryInfo->fCurrHolderIndex = (mLockHistoryInfo->fCurrHolderIndex + 1) % threadHistoryCount;
 		
-		snprintf( mLockHistoryInfo->fLockHistory[mLockHistoryInfo->fCurrHolderIndex], threadHistoryStringLen, "Succeed - Lock Depth %d - 0x%08llX (0x%x) - %s:%d", mLockHistoryInfo->fThreadOwnerCount,
-				  (unsigned long long) mLockHistoryInfo->fThreadOwner, pthread_mach_thread_np(mLockHistoryInfo->fThreadOwner), shortName, line );
+#ifdef __LP64__
+		snprintf( mLockHistoryInfo->fLockHistory[mLockHistoryInfo->fCurrHolderIndex], threadHistoryStringLen, "Succeed - Lock Depth %d - 0x%016lX (0x%x) - %s:%d", mLockHistoryInfo->fThreadOwnerCount,
+				  (unsigned long) mLockHistoryInfo->fThreadOwner, pthread_mach_thread_np(mLockHistoryInfo->fThreadOwner), shortName, line );
+#else
+		snprintf( mLockHistoryInfo->fLockHistory[mLockHistoryInfo->fCurrHolderIndex], threadHistoryStringLen, "Succeed - Lock Depth %d - 0x%08lX (0x%x) - %s:%d", mLockHistoryInfo->fThreadOwnerCount,
+				  (unsigned long) mLockHistoryInfo->fThreadOwner, pthread_mach_thread_np(mLockHistoryInfo->fThreadOwner), shortName, line );
+#endif
 		mLockHistoryInfo->fCurrHolder = mLockHistoryInfo->fLockHistory[mLockHistoryInfo->fCurrHolderIndex];
 	}
 	else
 	{
 		// copy this into our threadHistory list, so we have the last few callers, should not impact locks above
-		syslog( LOG_CRIT, "Error %d - Locking mutex - Thread 0x%08llX (0x%x) - Caller '%s:%d'", error, 
-				(unsigned long long) thisThread, pthread_mach_thread_np(thisThread), shortName, line );
+#ifdef __LP64__
+		syslog( LOG_CRIT, "Error %d - Locking mutex - Thread 0x%016lX (0x%x) - Caller '%s:%d'", error, 
+			    (unsigned long) thisThread, pthread_mach_thread_np(thisThread), shortName, line );
+#else
+		syslog( LOG_CRIT, "Error %d - Locking mutex - Thread 0x%08lX (0x%x) - Caller '%s:%d'", error, 
+				(unsigned long) thisThread, pthread_mach_thread_np(thisThread), shortName, line );
+#endif
 		DumpLockHistory( this );
 	}
 
 	OSSpinLockUnlock( &mLockHistoryInfo->fOSLock );
 }
 
-bool DSMutexSemaphore::WaitTryDebugHistory( char *file, int line )
+bool DSMutexSemaphore::WaitTryDebugHistory( const char *file, int line )
 {
+	const char *shortName = NULL;
 	int error = pthread_mutex_trylock( &mMutex );
 	
 	OSSpinLockLock( &mLockHistoryInfo->fOSLock );
 	
-	char *shortName = strrchr( file, '/' );
+	shortName = strrchr( file, '/' );
 	if ( shortName != NULL )
 		shortName = file;
 	
@@ -558,16 +634,26 @@ bool DSMutexSemaphore::WaitTryDebugHistory( char *file, int line )
 		
 		mLockHistoryInfo->fThreadOwnerCount++;
 		mLockHistoryInfo->fCurrHolderIndex = (mLockHistoryInfo->fCurrHolderIndex + 1) % threadHistoryCount;
-		
-		snprintf( mLockHistoryInfo->fLockHistory[mLockHistoryInfo->fCurrHolderIndex], threadHistoryStringLen, "Succeed - Lock Depth %d - 0x%08llX (0x%x) - %s:%d", mLockHistoryInfo->fThreadOwnerCount,
-				 (unsigned long long) mLockHistoryInfo->fThreadOwner, pthread_mach_thread_np(mLockHistoryInfo->fThreadOwner), shortName, line );
+
+#ifdef __LP64__
+		snprintf( mLockHistoryInfo->fLockHistory[mLockHistoryInfo->fCurrHolderIndex], threadHistoryStringLen, "Succeed - Lock Depth %d - 0x%016lX (0x%x) - %s:%d", mLockHistoryInfo->fThreadOwnerCount,
+				  (unsigned long) mLockHistoryInfo->fThreadOwner, pthread_mach_thread_np(mLockHistoryInfo->fThreadOwner), shortName, line );
+#else
+		snprintf( mLockHistoryInfo->fLockHistory[mLockHistoryInfo->fCurrHolderIndex], threadHistoryStringLen, "Succeed - Lock Depth %d - 0x%08lX (0x%x) - %s:%d", mLockHistoryInfo->fThreadOwnerCount,
+				 (unsigned long) mLockHistoryInfo->fThreadOwner, pthread_mach_thread_np(mLockHistoryInfo->fThreadOwner), shortName, line );
+#endif
 		mLockHistoryInfo->fCurrHolder = mLockHistoryInfo->fLockHistory[mLockHistoryInfo->fCurrHolderIndex];
 	}
 	else if ( error != EBUSY )
 	{
 		// copy this into our threadHistory list, so we have the last few callers, should not impact locks above
-		syslog( LOG_CRIT, "Error %d - TryLocking mutex - Thread 0x%08llX (0x%x) - Caller '%s:%d'", error, 
-			   (unsigned long long) thisThread, pthread_mach_thread_np(thisThread), shortName, line );
+#ifdef __LP64__
+		syslog( LOG_CRIT, "Error %d - TryLocking mutex - Thread 0x%016lX (0x%x) - Caller '%s:%d'", error, 
+			    (unsigned long) thisThread, pthread_mach_thread_np(thisThread), shortName, line );
+#else
+		syslog( LOG_CRIT, "Error %d - TryLocking mutex - Thread 0x%08lX (0x%x) - Caller '%s:%d'", error, 
+			   (unsigned long) thisThread, pthread_mach_thread_np(thisThread), shortName, line );
+#endif
 		DumpLockHistory( this );
 	}
 	
@@ -587,11 +673,20 @@ void DSMutexSemaphore::DumpLockHistory( DSMutexSemaphore *inMutex )
 	
 	if ( inMutex->mLockHistoryInfo->fThreadOwner )
 	{
-		syslog( LOG_CRIT, "    Current Holder - Thread 0x%08llX (0x%x) - %s", (unsigned long long) inMutex->mLockHistoryInfo->fThreadOwner, 
+#ifdef __LP64__
+		syslog( LOG_CRIT, "    Current Holder - Thread 0x%016lX (0x%x) - %s", (unsigned long) inMutex->mLockHistoryInfo->fThreadOwner, 
+			    pthread_mach_thread_np(inMutex->mLockHistoryInfo->fThreadOwner), inMutex->mLockHistoryInfo->fCurrHolder );
+#else
+		syslog( LOG_CRIT, "    Current Holder - Thread 0x%08lX (0x%x) - %s", (unsigned long) inMutex->mLockHistoryInfo->fThreadOwner, 
 			   pthread_mach_thread_np(inMutex->mLockHistoryInfo->fThreadOwner), inMutex->mLockHistoryInfo->fCurrHolder );
+#endif
 	}
 	syslog( LOG_CRIT, "    Lock depth - %d", inMutex->mLockHistoryInfo->fThreadOwnerCount );
-	syslog( LOG_CRIT, "    DumpLockHistory - 0x%08llX - Begin\n", (unsigned long long) &inMutex->mMutex );
+#ifdef __LP64__
+	syslog( LOG_CRIT, "    DumpLockHistory - 0x%016lX - Begin\n", (unsigned long) &inMutex->mMutex );
+#else
+	syslog( LOG_CRIT, "    DumpLockHistory - 0x%08lX - Begin\n", (unsigned long) &inMutex->mMutex );
+#endif
 	
 	for ( ii = ((inMutex->mLockHistoryInfo->fCurrHolderIndex + 1) % threadHistoryCount); ii < threadHistoryCount; ii++ )
 	{

@@ -278,7 +278,7 @@ void pwsf_AppendReplicaStatus( ReplicaFile *inReplicaFile, CFDictionaryRef inDic
 }
 
 
--free
+-(void)dealloc
 {
 	[self lock];
 	if ( mReplicaDict != NULL )
@@ -289,7 +289,16 @@ void pwsf_AppendReplicaStatus( ReplicaFile *inReplicaFile, CFDictionaryRef inDic
 		CFRelease( mFlatReplicaArray );
 	[self unlock];
 	
-	return [super free];
+	[super dealloc];
+}
+
+
+// for backward compatibility
+// should be deprecated
+-free
+{
+    [self release];
+    return 0;
 }
 
 
@@ -429,23 +438,23 @@ void pwsf_AppendReplicaStatus( ReplicaFile *inReplicaFile, CFDictionaryRef inDic
 	
 	aDateRef = CFDictionaryGetValue( serverDict, CFSTR(kPWReplicaSyncDateKey) );
 	if ( pwsf_ConvertCFDateToBSDTime(aDateRef, &aTimeStruct) )
-		sEnt->lastSyncDate = timegm(&aTimeStruct);
+		sEnt->lastSyncDate = (uint32_t)timegm(&aTimeStruct);
 	
 	aDateRef = CFDictionaryGetValue( serverDict, CFSTR(kPWReplicaSyncAttemptKey) );
 	if ( pwsf_ConvertCFDateToBSDTime(aDateRef, &aTimeStruct) )
-		sEnt->lastSyncFailedAttempt = timegm(&aTimeStruct);
+		sEnt->lastSyncFailedAttempt = (uint32_t)timegm(&aTimeStruct);
 	
 	aDateRef = CFDictionaryGetValue( serverDict, CFSTR(kPWReplicaIncompletePullKey) );
 	if ( pwsf_ConvertCFDateToBSDTime(aDateRef, &aTimeStruct) )
-		sEnt->pullIncompleteDate = timegm(&aTimeStruct);
+		sEnt->pullIncompleteDate = (uint32_t)timegm(&aTimeStruct);
 	
 	aDateRef = CFDictionaryGetValue( serverDict, CFSTR(kPWReplicaPullDeferred) );
 	if ( pwsf_ConvertCFDateToBSDTime(aDateRef, &aTimeStruct) )
-		sEnt->pullDeferredDate = timegm(&aTimeStruct);
+		sEnt->pullDeferredDate = (uint32_t)timegm(&aTimeStruct);
 	
 	aDateRef = CFDictionaryGetValue( serverDict, CFSTR(kPWReplicaEntryModDateKey) );
 	if ( pwsf_ConvertCFDateToBSDTime(aDateRef, &aTimeStruct) )
-		sEnt->entryModDate = timegm(&aTimeStruct);
+		sEnt->entryModDate = (uint32_t)timegm(&aTimeStruct);
 		
 	CFRelease( ipArray );
 }
@@ -1509,7 +1518,7 @@ void pwsf_AppendReplicaStatus( ReplicaFile *inReplicaFile, CFDictionaryRef inDic
 		{
 			if ( [onDiskReplicaFile isHappy] )
 				[self mergeReplicaList:onDiskReplicaFile];
-			[onDiskReplicaFile free];
+			[onDiskReplicaFile release];
 		}
 	}
 	
@@ -2196,7 +2205,7 @@ void pwsf_AppendReplicaStatus( ReplicaFile *inReplicaFile, CFDictionaryRef inDic
 //	allocateIDRangeOfSize
 //----------------------------------------------------------------------------------------------------
 
--(void)allocateIDRangeOfSize:(unsigned long)count forReplica:(CFStringRef)inReplicaName minID:(unsigned long)inMinID
+-(void)allocateIDRangeOfSize:(UInt32)count forReplica:(CFStringRef)inReplicaName minID:(UInt32)inMinID
 {
 	CFMutableDictionaryRef selfDict;
 	CFStringRef rangeString;
@@ -2235,7 +2244,7 @@ void pwsf_AppendReplicaStatus( ReplicaFile *inReplicaFile, CFDictionaryRef inDic
 }
 
 
--(void)getIDRangeForReplica:(CFStringRef)inReplicaName start:(unsigned long *)outStart end:(unsigned long *)outEnd
+-(void)getIDRangeForReplica:(CFStringRef)inReplicaName start:(UInt32 *)outStart end:(UInt32 *)outEnd
 {
 	CFMutableDictionaryRef replicaDict = [self getReplicaByName:inReplicaName];
 		
@@ -2247,7 +2256,7 @@ void pwsf_AppendReplicaStatus( ReplicaFile *inReplicaFile, CFDictionaryRef inDic
 }
 
 
--(void)getIDRangeStart:(unsigned long *)outStart end:(unsigned long *)outEnd forReplica:(CFDictionaryRef)inReplicaDict
+-(void)getIDRangeStart:(UInt32 *)outStart end:(UInt32 *)outEnd forReplica:(CFDictionaryRef)inReplicaDict
 {
 	CFStringRef rangeString;
 	PWFileEntry passRec;
@@ -2709,12 +2718,12 @@ void pwsf_AppendReplicaStatus( ReplicaFile *inReplicaFile, CFDictionaryRef inDic
 // other
 -(CFStringRef)getNextReplicaName
 {
-	UInt32 repIndex = 0;
-	UInt32 repCount = 0;
+	unsigned long repIndex = 0;
+	unsigned long repCount = 0;
 	CFDictionaryRef curReplica = NULL;
 	CFStringRef curNameString = NULL;
 	CFMutableArrayRef decomArray = NULL;
-	const int replicaNameValuePrefixLen = sizeof(kPWReplicaNameValuePrefix) - 1;
+	const size_t replicaNameValuePrefixLen = sizeof(kPWReplicaNameValuePrefix) - 1;
 	int tempReplicaNumber = 0;
 	int nextReplicaNumber = 1;
 	char replicaNameStr[256];
@@ -2881,12 +2890,13 @@ void pwsf_AppendReplicaStatus( ReplicaFile *inReplicaFile, CFDictionaryRef inDic
 }
 
 
--(void)getIDRangeOfSize:(unsigned long)count after:(const char *)inMyLastID start:(char *)outFirstID end:(char *)outLastID
+-(void)getIDRangeOfSize:(UInt32)count after:(const char *)inMyLastID start:(char *)outFirstID end:(char *)outLastID
 {
 	PWFileEntry passRec, endPassRec;
 	CFDictionaryRef replicaDict;
 	CFStringRef rangeString;
-	UInt32 repIndex, repCount = [self replicaCount];
+	unsigned long repIndex;
+    unsigned long repCount = [self replicaCount];
 	char rangeStr[35];
 	
 	bzero( &passRec, sizeof(PWFileEntry) );
@@ -2964,7 +2974,7 @@ void pwsf_AppendReplicaStatus( ReplicaFile *inReplicaFile, CFDictionaryRef inDic
 {
 	CFMutableDictionaryRef theDict = NULL;
 	CFTypeRef evalCFType;
-	UInt32 repIndex, repCount;
+	unsigned long repIndex, repCount;
 	BOOL found = NO;
 		
 	theDict = (CFMutableDictionaryRef)[self getParent];

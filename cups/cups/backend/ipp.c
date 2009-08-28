@@ -1,9 +1,9 @@
 /*
- * "$Id: ipp.c 7735 2008-07-14 21:25:26Z mike $"
+ * "$Id: ipp.c 7948 2008-09-17 00:04:12Z mike $"
  *
  *   IPP backend for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007-2008 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -34,17 +34,9 @@
  */
 
 #include <cups/http-private.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
+#include "backend-private.h"
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <cups/backend.h>
-#include <cups/cups.h>
-#include <cups/language.h>
-#include <cups/i18n.h>
-#include <cups/string.h>
-#include <signal.h>
 #include <sys/wait.h>
 
 /*
@@ -98,7 +90,8 @@ main(int  argc,				/* I - Number of command-line args */
   int		send_options;		/* Send job options? */
   int		num_options;		/* Number of printer options */
   cups_option_t	*options;		/* Printer options */
-  char		method[255],		/* Method in URI */
+  const char	*device_uri;		/* Device URI */
+  char		scheme[255],		/* Scheme in URI */
 		hostname[1024],		/* Hostname */
 		username[255],		/* Username info */
 		resource[1024],		/* Resource info (printer name) */
@@ -107,6 +100,10 @@ main(int  argc,				/* I - Number of command-line args */
 		*name,			/* Name of option */
 		*value,			/* Value of option */
 		sep;			/* Separator character */
+  int		snmp_fd,		/* SNMP socket */
+		start_count,		/* Page count via SNMP at start */
+		page_count,		/* Page count via SNMP */
+		have_supplies;		/* Printer supports supply levels? */
   int		num_files;		/* Number of files to print */
   char		**files,		/* Files to print */
 		*filename;		/* Pointer to single filename */
@@ -142,10 +139,13 @@ main(int  argc,				/* I - Number of command-line args */
   int		version;		/* IPP version */
   static const char * const pattrs[] =
 		{			/* Printer attributes we want */
+                  "com.apple.print.recoverable-message",
 		  "copies-supported",
 		  "document-format-supported",
 		  "marker-colors",
+		  "marker-high-levels",
 		  "marker-levels",
+		  "marker-low-levels",
 		  "marker-message",
 		  "marker-names",
 		  "marker-types",
@@ -201,8 +201,9 @@ main(int  argc,				/* I - Number of command-line args */
     else
       s = argv[0];
 
-    printf("network %s \"Unknown\" \"Internet Printing Protocol (%s)\"\n",
-           s, s);
+    printf("network %s \"Unknown\" \"%s (%s)\"\n",
+           s, _cupsLangString(cupsLangDefault(),
+	                      _("Internet Printing Protocol")), s);
     return (CUPS_BACKEND_OK);
   }
   else if (argc < 6)
@@ -232,21 +233,17 @@ main(int  argc,				/* I - Number of command-line args */
   * Extract the hostname and printer name from the URI...
   */
 
-  if (httpSeparateURI(HTTP_URI_CODING_ALL, cupsBackendDeviceURI(argv),
-                      method, sizeof(method), username, sizeof(username),
-		      hostname, sizeof(hostname), &port,
-		      resource, sizeof(resource)) < HTTP_URI_OK)
-  {
-    _cupsLangPuts(stderr,
-                  _("ERROR: Missing device URI on command-line and no "
-		    "DEVICE_URI environment variable!\n"));
-    return (CUPS_BACKEND_STOP);
-  }
+  if ((device_uri = cupsBackendDeviceURI(argv)) == NULL)
+    return (CUPS_BACKEND_FAILED);
+
+  httpSeparateURI(HTTP_URI_CODING_ALL, device_uri, scheme, sizeof(scheme),
+                  username, sizeof(username), hostname, sizeof(hostname), &port,
+		  resource, sizeof(resource));
 
   if (!port)
     port = IPP_PORT;			/* Default to port 631 */
 
-  if (!strcmp(method, "https"))
+  if (!strcmp(scheme, "https"))
     cupsSetEncryption(HTTP_ENCRYPT_ALWAYS);
   else
     cupsSetEncryption(HTTP_ENCRYPT_IF_REQUESTED);
@@ -256,7 +253,7 @@ main(int  argc,				/* I - Number of command-line args */
   */
 
   compression = 0;
-  version     = 1;
+  version     = 11;
   waitjob     = 1;
   waitprinter = 1;
   contimeout  = 7 * 24 * 60 * 60;
@@ -353,9 +350,13 @@ main(int  argc,				/* I - Number of command-line args */
       else if (!strcasecmp(name, "version"))
       {
         if (!strcmp(value, "1.0"))
-	  version = 0;
+	  version = 10;
 	else if (!strcmp(value, "1.1"))
-	  version = 1;
+	  version = 11;
+	else if (!strcmp(value, "2.0"))
+	  version = 20;
+	else if (!strcmp(value, "2.1"))
+	  version = 21;
 	else
 	{
 	  _cupsLangPrintf(stderr,
@@ -406,36 +407,51 @@ main(int  argc,				/* I - Number of command-line args */
     * Copy stdin to a temporary file...
     */
 
-    int		fd;			/* File descriptor */
-    cups_file_t	*fp;			/* Temporary file */
-    char	buffer[8192];		/* Buffer for copying */
-    int		bytes;			/* Number of bytes read */
+    int			fd;		/* File descriptor */
+    http_addrlist_t	*addrlist;	/* Address list */
+    off_t		tbytes;		/* Total bytes copied */
 
+
+    fputs("STATE: +connecting-to-device\n", stderr);
+    fprintf(stderr, "DEBUG: Looking up \"%s\"...\n", hostname);
+
+    if ((addrlist = httpAddrGetList(hostname, AF_UNSPEC, "1")) == NULL)
+    {
+      _cupsLangPrintf(stderr, _("ERROR: Unable to locate printer \'%s\'!\n"),
+		      hostname);
+      return (CUPS_BACKEND_STOP);
+    }
+
+    snmp_fd = _cupsSNMPOpen(addrlist->addr.addr.sa_family);
 
     if ((fd = cupsTempFd(tmpfilename, sizeof(tmpfilename))) < 0)
     {
-      perror("ERROR: unable to create temporary file");
+      _cupsLangPrintError(_("ERROR: Unable to create temporary file"));
       return (CUPS_BACKEND_FAILED);
     }
 
-    if ((fp = cupsFileOpenFd(fd, compression ? "w9" : "w")) == NULL)
+    _cupsLangPuts(stderr, _("INFO: Copying print data...\n"));
+
+    tbytes = backendRunLoop(-1, fd, snmp_fd, &(addrlist->addr), 0,
+                            backendNetworkSideCB);
+
+    if (snmp_fd >= 0)
+      _cupsSNMPClose(snmp_fd);
+
+    httpAddrFreeList(addrlist);
+
+    close(fd);
+
+   /*
+    * Don't try printing files less than 2 bytes...
+    */
+
+    if (tbytes <= 1)
     {
-      perror("ERROR: unable to open temporary file");
-      close(fd);
+      _cupsLangPuts(stderr, _("ERROR: Empty print file!\n"));
       unlink(tmpfilename);
       return (CUPS_BACKEND_FAILED);
     }
-
-    while ((bytes = fread(buffer, 1, sizeof(buffer), stdin)) > 0)
-      if (cupsFileWrite(fp, buffer, bytes) < bytes)
-      {
-        perror("ERROR: unable to write to temporary file");
-	cupsFileClose(fp);
-	unlink(tmpfilename);
-	return (CUPS_BACKEND_FAILED);
-      }
-
-    cupsFileClose(fp);
 
    /*
     * Point to the single file from stdin...
@@ -507,8 +523,8 @@ main(int  argc,				/* I - Number of command-line args */
 
   do
   {
-    _cupsLangPrintf(stderr, _("INFO: Connecting to %s on port %d...\n"),
-		    hostname, port);
+    fprintf(stderr, "DEBUG: Connecting to %s:%d\n", hostname, port);
+    _cupsLangPuts(stderr, _("INFO: Connecting to printer...\n"));
 
     if ((http = httpConnectEncrypt(hostname, port, cupsEncryption())) == NULL)
     {
@@ -584,7 +600,7 @@ main(int  argc,				/* I - Number of command-line args */
   }
   while (http == NULL);
 
-  if (job_cancelled)
+  if (job_cancelled || !http)
   {
     if (tmpfilename[0])
       unlink(tmpfilename);
@@ -593,7 +609,7 @@ main(int  argc,				/* I - Number of command-line args */
   }
 
   fputs("STATE: -connecting-to-device\n", stderr);
-  _cupsLangPrintf(stderr, _("INFO: Connected to %s...\n"), hostname);
+  _cupsLangPuts(stderr, _("INFO: Connected to printer...\n"));
 
 #ifdef AF_INET6
   if (http->hostaddr->addr.sa_family == AF_INET6)
@@ -608,12 +624,23 @@ main(int  argc,				/* I - Number of command-line args */
 	      ntohs(http->hostaddr->ipv4.sin_port));
 
  /*
+  * See if the printer supports SNMP...
+  */
+
+  if ((snmp_fd = _cupsSNMPOpen(http->hostaddr->addr.sa_family)) >= 0)
+    have_supplies = !backendSNMPSupplies(snmp_fd, http->hostaddr, &start_count,
+                                         NULL);
+  else
+    have_supplies = start_count = 0;
+
+ /*
   * Build a URI for the printer and fill the standard IPP attributes for
   * an IPP_PRINT_FILE request.  We can't use the URI in argv[0] because it
   * might contain username:password information...
   */
 
-  snprintf(uri, sizeof(uri), "%s://%s:%d%s", method, hostname, port, resource);
+  httpAssembleURI(HTTP_URI_CODING_ALL, uri, sizeof(uri), scheme, NULL, hostname,
+		  port, resource);
 
  /*
   * First validate the destination and see if the device supports multiple
@@ -628,11 +655,18 @@ main(int  argc,				/* I - Number of command-line args */
   do
   {
    /*
+    * Check for side-channel requests...
+    */
+
+    backendCheckSideChannel(snmp_fd, http->hostaddr);
+
+   /*
     * Build the IPP request...
     */
 
     request = ippNewRequest(IPP_GET_PRINTER_ATTRIBUTES);
-    request->request.op.version[1] = version;
+    request->request.op.version[0] = version / 10;
+    request->request.op.version[1] = version % 10;
 
     ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri",
         	 NULL, uri);
@@ -646,6 +680,9 @@ main(int  argc,				/* I - Number of command-line args */
     */
 
     fputs("DEBUG: Getting supported attributes...\n", stderr);
+
+    if (http->version < HTTP_1_1)
+      httpReconnect(http);
 
     if ((supported = cupsDoRequest(http, request, resource)) == NULL)
       ipp_status = cupsLastError();
@@ -678,16 +715,16 @@ main(int  argc,				/* I - Number of command-line args */
 	  delay += 5;
       }
       else if ((ipp_status == IPP_BAD_REQUEST ||
-	        ipp_status == IPP_VERSION_NOT_SUPPORTED) && version == 1)
+	        ipp_status == IPP_VERSION_NOT_SUPPORTED) && version > 10)
       {
        /*
 	* Switch to IPP/1.0...
 	*/
 
-	_cupsLangPuts(stderr,
-	              _("INFO: Printer does not support IPP/1.1, trying "
-		        "IPP/1.0...\n"));
-	version = 0;
+	_cupsLangPrintf(stderr,
+	                _("INFO: Printer does not support IPP/%d.%d, trying "
+		          "IPP/1.0...\n"), version / 10, version % 10);
+	version = 10;
 	httpReconnect(http);
       }
       else if (ipp_status == IPP_NOT_FOUND)
@@ -822,6 +859,12 @@ main(int  argc,				/* I - Number of command-line args */
   while (copies_remaining > 0)
   {
    /*
+    * Check for side-channel requests...
+    */
+
+    backendCheckSideChannel(snmp_fd, http->hostaddr);
+
+   /*
     * Build the IPP request...
     */
 
@@ -833,7 +876,8 @@ main(int  argc,				/* I - Number of command-line args */
     else
       request = ippNewRequest(IPP_PRINT_JOB);
 
-    request->request.op.version[1] = version;
+    request->request.op.version[0] = version / 10;
+    request->request.op.version[1] = version % 10;
 
     ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri",
         	 NULL, uri);
@@ -926,7 +970,7 @@ main(int  argc,				/* I - Number of command-line args */
 	             "document-format", NULL, final_content_type);
     }
 
-    if (copies_sup && version > 0 && send_options)
+    if (copies_sup && version > 10 && send_options)
     {
      /*
       * Only send options if the destination printer supports the copies
@@ -959,6 +1003,9 @@ main(int  argc,				/* I - Number of command-line args */
     * Do the request...
     */
 
+    if (http->version < HTTP_1_1)
+      httpReconnect(http);
+
     if (num_files > 1)
       response = cupsDoRequest(http, request, resource);
     else
@@ -981,21 +1028,39 @@ main(int  argc,				/* I - Number of command-line args */
 	sleep(10);
       }
       else if ((ipp_status == IPP_BAD_REQUEST ||
-	        ipp_status == IPP_VERSION_NOT_SUPPORTED) && version == 1)
+	        ipp_status == IPP_VERSION_NOT_SUPPORTED) && version > 10)
       {
        /*
 	* Switch to IPP/1.0...
 	*/
 
-	_cupsLangPuts(stderr,
-	              _("INFO: Printer does not support IPP/1.1, trying "
-		        "IPP/1.0...\n"));
-	version = 0;
+	_cupsLangPrintf(stderr,
+	                _("INFO: Printer does not support IPP/%d.%d, trying "
+		          "IPP/1.0...\n"), version / 10, version % 10);
+	version = 10;
 	httpReconnect(http);
       }
       else
+      {
+       /*
+	* Update auth-info-required as needed...
+	*/
+
         _cupsLangPrintf(stderr, _("ERROR: Print file was not accepted (%s)!\n"),
 			cupsLastErrorString());
+
+	if (ipp_status == IPP_NOT_AUTHORIZED)
+	{
+	  fprintf(stderr, "DEBUG: WWW-Authenticate=\"%s\"\n",
+		  httpGetField(http, HTTP_FIELD_WWW_AUTHENTICATE));
+
+	  if (!strncmp(httpGetField(http, HTTP_FIELD_WWW_AUTHENTICATE),
+		       "Negotiate", 9))
+	    fputs("ATTR: auth-info-required=negotiate\n", stderr);
+	  else
+	    fputs("ATTR: auth-info-required=username,password\n", stderr);
+	}
+      }
     }
     else if ((job_id_attr = ippFindAttribute(response, "job-id",
                                              IPP_TAG_INTEGER)) == NULL)
@@ -1020,9 +1085,19 @@ main(int  argc,				/* I - Number of command-line args */
     {
       for (i = 0; i < num_files; i ++)
       {
-	request = ippNewRequest(IPP_SEND_DOCUMENT);
+       /*
+	* Check for side-channel requests...
+	*/
 
-	request->request.op.version[1] = version;
+	backendCheckSideChannel(snmp_fd, http->hostaddr);
+
+       /*
+        * Send the next file in the job...
+	*/
+
+	request = ippNewRequest(IPP_SEND_DOCUMENT);
+	request->request.op.version[0] = version / 10;
+	request->request.op.version[1] = version % 10;
 
 	ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri",
         	     NULL, uri);
@@ -1039,6 +1114,9 @@ main(int  argc,				/* I - Number of command-line args */
 
         ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_MIMETYPE,
 	             "document-format", NULL, content_type);
+
+	if (http->version < HTTP_1_1)
+	  httpReconnect(http);
 
         ippDelete(cupsDoFileRequest(http, request, resource, files[i]));
 
@@ -1077,11 +1155,18 @@ main(int  argc,				/* I - Number of command-line args */
     for (delay = 1; !job_cancelled;)
     {
      /*
+      * Check for side-channel requests...
+      */
+
+      backendCheckSideChannel(snmp_fd, http->hostaddr);
+
+     /*
       * Build an IPP_GET_JOB_ATTRIBUTES request...
       */
 
       request = ippNewRequest(IPP_GET_JOB_ATTRIBUTES);
-      request->request.op.version[1] = version;
+      request->request.op.version[0] = version / 10;
+      request->request.op.version[1] = version % 10;
 
       ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri",
         	   NULL, uri);
@@ -1101,7 +1186,7 @@ main(int  argc,				/* I - Number of command-line args */
       * Do the request...
       */
 
-      if (!copies_sup)
+      if (!copies_sup || http->version < HTTP_1_1)
 	httpReconnect(http);
 
       response   = cupsDoRequest(http, request, resource);
@@ -1190,17 +1275,13 @@ main(int  argc,				/* I - Number of command-line args */
   check_printer_state(http, uri, resource, argv[2], version, job_id);
 
  /*
-  * Update auth-info-required as needed...
+  * Collect the final page count as needed...
   */
 
-  if (ipp_status == IPP_NOT_AUTHORIZED)
-  {
-    if (!strncmp(httpGetField(http, HTTP_FIELD_WWW_AUTHENTICATE),
-                 "Negotiate", 9))
-      fputs("ATTR: auth-info-required=negotiate\n", stderr);
-    else
-      fputs("ATTR: auth-info-required=username,password\n", stderr);
-  }
+  if (have_supplies && 
+      !backendSNMPSupplies(snmp_fd, http->hostaddr, &page_count, NULL) &&
+      page_count > start_count)
+    fprintf(stderr, "PAGE: total %d\n", page_count - start_count);
 
  /*
   * Free memory...
@@ -1261,7 +1342,8 @@ cancel_job(http_t     *http,		/* I - HTTP connection */
   _cupsLangPuts(stderr, _("INFO: Canceling print job...\n"));
 
   request = ippNewRequest(IPP_CANCEL_JOB);
-  request->request.op.version[1] = version;
+  request->request.op.version[0] = version / 10;
+  request->request.op.version[1] = version % 10;
 
   ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri",
                NULL, uri);
@@ -1274,6 +1356,9 @@ cancel_job(http_t     *http,		/* I - HTTP connection */
  /*
   * Do the request...
   */
+
+  if (http->version < HTTP_1_1)
+    httpReconnect(http);
 
   ippDelete(cupsDoRequest(http, request, resource));
 
@@ -1300,6 +1385,7 @@ check_printer_state(
 	*response;			/* IPP response */
   static const char * const attrs[] =	/* Attributes we want */
   {
+    "com.apple.print.recoverable-message",
     "marker-colors",
     "marker-levels",
     "marker-message",
@@ -1315,7 +1401,8 @@ check_printer_state(
   */
 
   request = ippNewRequest(IPP_GET_PRINTER_ATTRIBUTES);
-  request->request.op.version[1] = version;
+  request->request.op.version[0] = version / 10;
+  request->request.op.version[1] = version % 10;
 
   ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri",
                NULL, uri);
@@ -1331,6 +1418,9 @@ check_printer_state(
  /*
   * Do the request...
   */
+
+  if (http->version < HTTP_1_1)
+    httpReconnect(http);
 
   if ((response = cupsDoRequest(http, request, resource)) != NULL)
   {
@@ -1535,15 +1625,14 @@ report_printer_state(ipp_t *ipp,	/* I - IPP response */
 {
   int			i;		/* Looping var */
   int			count;		/* Count of reasons shown... */
-  ipp_attribute_t	*psm,		/* printer-state-message */
+  ipp_attribute_t	*caprm,		/* com.apple.print.recoverable-message */
+			*psm,		/* printer-state-message */
 			*reasons,	/* printer-state-reasons */
 			*marker;	/* marker-* attributes */
   const char		*reason;	/* Current reason */
-  const char		*message;	/* Message to show */
-  char			unknown[1024];	/* Unknown message string */
   const char		*prefix;	/* Prefix for STATE: line */
   char			state[1024];	/* State string */
-  cups_lang_t		*language;	/* Current localization */
+  int			saw_caprw;	/* Saw com.apple.print.recoverable-warning state */
 
 
   if ((psm = ippFindAttribute(ipp, "printer-state-message",
@@ -1554,95 +1643,37 @@ report_printer_state(ipp_t *ipp,	/* I - IPP response */
                                   IPP_TAG_KEYWORD)) == NULL)
     return (0);
 
-  state[0] = '\0';
-  prefix   = "STATE: ";
-  language = cupsLangDefault();
+  saw_caprw = 0;
+  state[0]  = '\0';
+  prefix    = "STATE: ";
 
   for (i = 0, count = 0; i < reasons->num_values; i ++)
   {
     reason = reasons->values[i].string.text;
 
-    if (strcmp(reason, "paused"))
+    if (!strcmp(reason, "com.apple.print.recoverable-warning"))
+      saw_caprw = 1;
+    else if (strcmp(reason, "paused"))
     {
       strlcat(state, prefix, sizeof(state));
       strlcat(state, reason, sizeof(state));
 
       prefix  = ",";
     }
-
-    message = "";
-
-    if (!strncmp(reason, "media-needed", 12))
-      message = _("Media tray needs to be filled.");
-    else if (!strncmp(reason, "media-jam", 9))
-      message = _("Media jam!");
-    else if (!strncmp(reason, "moving-to-paused", 16) ||
-             !strncmp(reason, "paused", 6) ||
-	     !strncmp(reason, "shutdown", 8))
-      message = _("Printer off-line.");
-    else if (!strncmp(reason, "toner-low", 9))
-      message = _("Toner low.");
-    else if (!strncmp(reason, "toner-empty", 11))
-      message = _("Out of toner!");
-    else if (!strncmp(reason, "cover-open", 10))
-      message = _("Cover open.");
-    else if (!strncmp(reason, "interlock-open", 14))
-      message = _("Interlock open.");
-    else if (!strncmp(reason, "door-open", 9))
-      message = _("Door open.");
-    else if (!strncmp(reason, "input-tray-missing", 18))
-      message = _("Media tray missing!");
-    else if (!strncmp(reason, "media-low", 9))
-      message = _("Media tray almost empty.");
-    else if (!strncmp(reason, "media-empty", 11))
-      message = _("Media tray empty!");
-    else if (!strncmp(reason, "output-tray-missing", 19))
-      message = _("Output tray missing!");
-    else if (!strncmp(reason, "output-area-almost-full", 23))
-      message = _("Output bin almost full.");
-    else if (!strncmp(reason, "output-area-full", 16))
-      message = _("Output bin full!");
-    else if (!strncmp(reason, "marker-supply-low", 17))
-      message = _("Ink/toner almost empty.");
-    else if (!strncmp(reason, "marker-supply-empty", 19))
-      message = _("Ink/toner empty!");
-    else if (!strncmp(reason, "marker-waste-almost-full", 24))
-      message = _("Ink/toner waste bin almost full.");
-    else if (!strncmp(reason, "marker-waste-full", 17))
-      message = _("Ink/toner waste bin full!");
-    else if (!strncmp(reason, "fuser-over-temp", 15))
-      message = _("Fuser temperature high!");
-    else if (!strncmp(reason, "fuser-under-temp", 16))
-      message = _("Fuser temperature low!");
-    else if (!strncmp(reason, "opc-near-eol", 12))
-      message = _("OPC almost at end-of-life.");
-    else if (!strncmp(reason, "opc-life-over", 13))
-      message = _("OPC at end-of-life!");
-    else if (!strncmp(reason, "developer-low", 13))
-      message = _("Developer almost empty.");
-    else if (!strncmp(reason, "developer-empty", 15))
-      message = _("Developer empty!");
-    else if (strstr(reason, "error") != NULL)
-    {
-      message = unknown;
-
-      snprintf(unknown, sizeof(unknown), _("Unknown printer error (%s)!"),
-               reason);
-    }
-
-    if (message[0])
-    {
-      count ++;
-      if (strstr(reasons->values[i].string.text, "error"))
-        fprintf(stderr, "ERROR: %s\n", _cupsLangString(language, message));
-      else if (strstr(reasons->values[i].string.text, "warning"))
-        fprintf(stderr, "WARNING: %s\n", _cupsLangString(language, message));
-      else
-        fprintf(stderr, "INFO: %s\n", _cupsLangString(language, message));
-    }
   }
 
-  fprintf(stderr, "%s\n", state);
+  if (state[0])
+    fprintf(stderr, "%s\n", state);
+
+ /*
+  * Relay com.apple.print.recoverable-message...
+  */
+
+  if ((caprm = ippFindAttribute(ipp, "com.apple.print.recoverable-message",
+                                IPP_TAG_TEXT)) != NULL)
+    fprintf(stderr, "WARNING: %s: %s\n",
+            saw_caprw ? "recoverable" : "recovered",
+	    caprm->values[0].string.text);
 
  /*
   * Relay the current marker-* attribute values...
@@ -1650,7 +1681,13 @@ report_printer_state(ipp_t *ipp,	/* I - IPP response */
 
   if ((marker = ippFindAttribute(ipp, "marker-colors", IPP_TAG_NAME)) != NULL)
     report_attr(marker);
+  if ((marker = ippFindAttribute(ipp, "marker-high-levels",
+                                 IPP_TAG_INTEGER)) != NULL)
+    report_attr(marker);
   if ((marker = ippFindAttribute(ipp, "marker-levels",
+                                 IPP_TAG_INTEGER)) != NULL)
+    report_attr(marker);
+  if ((marker = ippFindAttribute(ipp, "marker-low-levels",
                                  IPP_TAG_INTEGER)) != NULL)
     report_attr(marker);
   if ((marker = ippFindAttribute(ipp, "marker-message", IPP_TAG_TEXT)) != NULL)
@@ -1719,8 +1756,7 @@ run_pictwps_filter(char       **argv,	/* I - Command-line arguments */
 
   if ((fd = cupsTempFd(pstmpname, sizeof(pstmpname))) < 0)
   {
-    _cupsLangPrintf(stderr, _("ERROR: Unable to create temporary file - %s.\n"),
-		    strerror(errno));
+    _cupsLangPrintError(_("ERROR: Unable to create temporary file"));
     if (ppdfile)
       unlink(ppdfile);
     return (-1);
@@ -1760,8 +1796,7 @@ run_pictwps_filter(char       **argv,	/* I - Command-line arguments */
     * file...
     */
 
-    close(1);
-    dup(fd);
+    dup2(fd, 1);
     close(fd);
 
     if (!getuid())
@@ -1873,5 +1908,5 @@ sigterm_handler(int sig)		/* I - Signal */
 
 
 /*
- * End of "$Id: ipp.c 7735 2008-07-14 21:25:26Z mike $".
+ * End of "$Id: ipp.c 7948 2008-09-17 00:04:12Z mike $".
  */

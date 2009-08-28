@@ -37,11 +37,11 @@
 
 }
 
-- (DSoNodeConfig*) initWithDir:(DSoDirectory*)inDir;
-- (NSArray*) getPluginList;
-- (NSDictionary*)getAttributesAndValuesForPlugin:(NSString*)inPluginName;
-- (BOOL)pluginEnabled:(NSString*)inPluginName;
-- (void)setPlugin:(NSString*)inPluginName enabled:(BOOL)enabled;
-- (void)setPlugin:(NSString*)inPluginName enabled:(BOOL)enabled withAuthorization:(void*)inAuthExtForm;
+- (DSoNodeConfig*) initWithDir:(DSoDirectory*)inDir DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
+- (NSArray*) getPluginList DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
+- (NSDictionary*)getAttributesAndValuesForPlugin:(NSString*)inPluginName DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
+- (BOOL)pluginEnabled:(NSString*)inPluginName DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
+- (void)setPlugin:(NSString*)inPluginName enabled:(BOOL)enabled DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
+- (void)setPlugin:(NSString*)inPluginName enabled:(BOOL)enabled withAuthorization:(void*)inAuthExtForm DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 @end

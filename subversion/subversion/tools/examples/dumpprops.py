@@ -8,6 +8,10 @@
 import sys
 import os
 import getopt
+try:
+  my_getopt = getopt.gnu_getopt
+except AttributeError:
+  my_getopt = getopt.getopt
 import pprint
 
 from svn import fs, core, repos
@@ -33,7 +37,7 @@ def print_props(root, path):
   for key, value in raw_props.items():
     props[key] = str(value)
 
-  print '---', path
+  print('--- %s' % path)
   pprint.pprint(props)
 
 def walk_tree(root, path):
@@ -44,11 +48,11 @@ def walk_tree(root, path):
       walk_tree(root, full)
 
 def usage():
-  print "USAGE: dumpprops.py [-r REV] repos-path [file]"
+  print("USAGE: dumpprops.py [-r REV] repos-path [file]")
   sys.exit(1)
 
 def main():
-  opts, args = getopt.getopt(sys.argv[1:], 'r:')
+  opts, args = my_getopt(sys.argv[1:], 'r:')
   rev = None
   for name, value in opts:
     if name == '-r':

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -36,7 +36,8 @@
 #include <SystemConfiguration/LinkConfiguration.h>
 
 
-/* -------------------- */
+#pragma mark -
+#pragma mark Interface management
 
 
 static CFArrayRef
@@ -75,15 +76,23 @@ _copy_interfaces()
 
 __private_extern__
 SCNetworkInterfaceRef
-_find_interface(char *match)
+_find_interface(int argc, char **argv, int *nArgs)
 {
 	Boolean			allowIndex	= TRUE;
 	CFIndex			i;
+	CFArrayRef		myInterfaces	= interfaces;
 	CFIndex			n;
 	CFStringRef		select_name	= NULL;
 	SCNetworkInterfaceRef	selected	= NULL;
 
-	if (strcasecmp(match, "$child") == 0) {
+	if (argc < 1) {
+		SCPrint(TRUE, stdout, CFSTR("no interface specified\n"));
+		return NULL;
+	}
+
+	if (nArgs != NULL) *nArgs = 1;
+
+	if (strcasecmp(argv[0], "$child") == 0) {
 		if (net_interface == NULL) {
 			SCPrint(TRUE, stdout, CFSTR("interface not selected\n"));
 			goto done;
@@ -95,7 +104,7 @@ _find_interface(char *match)
 		}
 
 		goto done;
-	} else if (strcasecmp(match, "$service") == 0) {
+	} else if (strcasecmp(argv[0], "$service") == 0) {
 		if (net_service == NULL) {
 			SCPrint(TRUE, stdout, CFSTR("service not selected\n"));
 			goto done;
@@ -107,26 +116,77 @@ _find_interface(char *match)
 		}
 
 		goto done;
+#if	!TARGET_OS_IPHONE
+	} else if (strcasecmp(argv[0], "$bond") == 0) {
+		CFStringRef	interfaceType;
+
+		if (net_interface == NULL) {
+			SCPrint(TRUE, stdout, CFSTR("interface not selected\n"));
+			goto done;
+		}
+
+		interfaceType = SCNetworkInterfaceGetInterfaceType(net_interface);
+		if (!CFEqual(interfaceType, kSCNetworkInterfaceTypeBond)) {
+			SCPrint(TRUE, stdout, CFSTR("interface not Bond\n"));
+			goto done;
+		}
+
+		if (argc < 2) {
+			SCPrint(TRUE, stdout, CFSTR("no member interface specified\n"));
+			return NULL;
+		}
+		argv++;
+		argc--;
+		if (nArgs != NULL) *nArgs += 1;
+
+		myInterfaces = SCBondInterfaceGetMemberInterfaces(net_interface);
+		if (myInterfaces == NULL) {
+			SCPrint(TRUE, stdout, CFSTR("no member interfaces\n"));
+			goto done;
+		}
+		allowIndex = FALSE;
+	} else if (strcasecmp(argv[0], "$vlan") == 0) {
+		CFStringRef	interfaceType;
+
+		if (net_interface == NULL) {
+			SCPrint(TRUE, stdout, CFSTR("interface not selected\n"));
+			goto done;
+		}
+
+		interfaceType = SCNetworkInterfaceGetInterfaceType(net_interface);
+		if (!CFEqual(interfaceType, kSCNetworkInterfaceTypeVLAN)) {
+			SCPrint(TRUE, stdout, CFSTR("interface not VLAN\n"));
+			goto done;
+		}
+
+		selected = SCVLANInterfaceGetPhysicalInterface(net_interface);
+		if(selected == NULL) {
+			SCPrint(TRUE, stdout, CFSTR("no physical interface\n"));
+		}
+
+		goto done;
+#endif	// !TARGET_OS_IPHONE
 	}
 
-	if (interfaces == NULL) {
+	if ((myInterfaces == NULL) && (interfaces == NULL)) {
 		interfaces = _copy_interfaces();
 		if (interfaces == NULL) {
 			return NULL;
 		}
+		myInterfaces = interfaces;
 		allowIndex = FALSE;
 	}
 
 	// try to select the interface by its display name
 
-	select_name = CFStringCreateWithCString(NULL, match, kCFStringEncodingUTF8);
+	select_name = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
 
-	n = CFArrayGetCount(interfaces);
+	n = (myInterfaces != NULL) ? CFArrayGetCount(myInterfaces) : 0;
 	for (i = 0; i < n; i++) {
 		SCNetworkInterfaceRef	interface;
 		CFStringRef		interfaceName;
 
-		interface = CFArrayGetValueAtIndex(interfaces, i);
+		interface = CFArrayGetValueAtIndex(myInterfaces, i);
 		interfaceName = SCNetworkInterfaceGetLocalizedDisplayName(interface);
 		if ((interfaceName != NULL) && CFEqual(select_name, interfaceName)) {
 			if (selected == NULL) {
@@ -150,7 +210,7 @@ _find_interface(char *match)
 		SCNetworkInterfaceRef	interface;
 		CFStringRef		bsd_name	= NULL;
 
-		interface = CFArrayGetValueAtIndex(interfaces, i);
+		interface = CFArrayGetValueAtIndex(myInterfaces, i);
 		while ((interface != NULL) && (bsd_name == NULL)) {
 			bsd_name = SCNetworkInterfaceGetBSDName(interface);
 			if (bsd_name == NULL) {
@@ -180,7 +240,7 @@ _find_interface(char *match)
 		SCNetworkInterfaceRef	interface;
 		CFStringRef		interfaceType;
 
-		interface = CFArrayGetValueAtIndex(interfaces, i);
+		interface = CFArrayGetValueAtIndex(myInterfaces, i);
 		interfaceType = SCNetworkInterfaceGetInterfaceType(interface);
 		if (CFEqual(select_name, interfaceType)) {
 			if (selected == NULL) {
@@ -200,7 +260,7 @@ _find_interface(char *match)
 
 	if (allowIndex) {
 		char	*end;
-		char	*str	= match;
+		char	*str	= argv[0];
 		long	val;
 
 		// try to select the interface by its index
@@ -211,7 +271,7 @@ _find_interface(char *match)
 		    ((*end == '\0') || (*end == '.')) &&
 		    (errno == 0)) {
 			if ((val > 0) && (val <= n)) {
-				selected = CFArrayGetValueAtIndex(interfaces, val - 1);
+				selected = CFArrayGetValueAtIndex(myInterfaces, val - 1);
 
 				if (*end == '.') {
 					str = end + 1;
@@ -260,36 +320,39 @@ create_interface(int argc, char **argv)
 	}
 
 	interfaceType = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+	argv++;
+	argc--;
 
+#if	!TARGET_OS_IPHONE
+	if (CFEqual(interfaceType, kSCNetworkInterfaceTypeBond)) {
+		SCPrint(TRUE, stdout, CFSTR("bond creation not yet supported\n"));
+		goto done;
+	}
 	if (CFEqual(interfaceType, kSCNetworkInterfaceTypeVLAN)) {
-// xxxxx
-SCPrint(TRUE, stdout, CFSTR("vlan creation not yet supported\n"));
-goto done;
-	} else if (CFEqual(interfaceType, kSCNetworkInterfaceTypeBond)) {
-// xxxxx
-SCPrint(TRUE, stdout, CFSTR("bond creation not yet supported\n"));
-goto done;
-	} else {
-		if (argc < 2) {
-			if (net_interface == NULL) {
-				SCPrint(TRUE, stdout, CFSTR("no network interface selected\n"));
-				goto done;
-			}
+		SCPrint(TRUE, stdout, CFSTR("vlan creation not yet supported\n"));
+		goto done;
+	}
+#endif	// !TARGET_OS_IPHONE
 
-			interface = net_interface;
-		} else {
-			interface = _find_interface(argv[1]);
-		}
-
-		if (interface == NULL) {
-			return;
-		}
-
-		new_interface = SCNetworkInterfaceCreateWithInterface(interface, interfaceType);
-		if (new_interface == NULL) {
-			SCPrint(TRUE, stdout, CFSTR("%s\n"), SCErrorString(SCError()));
+	if (argc < 1) {
+		if (net_interface == NULL) {
+			SCPrint(TRUE, stdout, CFSTR("no network interface selected\n"));
 			goto done;
 		}
+
+		interface = net_interface;
+	} else {
+		interface = _find_interface(argc, argv, NULL);
+	}
+
+	if (interface == NULL) {
+		goto done;
+	}
+
+	new_interface = SCNetworkInterfaceCreateWithInterface(interface, interfaceType);
+	if (new_interface == NULL) {
+		SCPrint(TRUE, stdout, CFSTR("%s\n"), SCErrorString(SCError()));
+		goto done;
 	}
 
 	if (new_interfaces == NULL) {
@@ -325,8 +388,7 @@ select_interface(int argc, char **argv)
 {
 	SCNetworkInterfaceRef	interface;
 
-	interface = _find_interface(argv[0]);
-
+	interface = _find_interface(argc, argv, NULL);
 	if (interface != NULL) {
 		CFStringRef	interfaceName;
 
@@ -410,7 +472,7 @@ _show_interface(SCNetworkInterfaceRef interface, CFStringRef prefix, Boolean sho
 				}
 			}
 
-			SCPrint(TRUE, stdout, CFSTR("%@  mtu                %c = %ld (%ld < n < %ld)\n"),
+			SCPrint(TRUE, stdout, CFSTR("%@  mtu                %c = %d (%d < n < %d)\n"),
 				prefix,
 				isCurrent,
 				mtu_cur,
@@ -527,6 +589,7 @@ _show_interface(SCNetworkInterfaceRef interface, CFStringRef prefix, Boolean sho
 					}
 					CFRelease(subtype_options);
 				}
+				if (subtypes != NULL) CFRelease(subtypes);
 			}
 		} else {
 			SCPrint(TRUE, stdout, CFSTR("\n"));
@@ -580,6 +643,27 @@ _show_interface(SCNetworkInterfaceRef interface, CFStringRef prefix, Boolean sho
 		}
 
 		CFRelease(effective);
+	}
+
+	if (CFEqual(if_type, kSCNetworkInterfaceTypePPP)) {
+		SCNetworkInterfaceRef	childInterface;
+
+		childInterface = SCNetworkInterfaceGetInterface(interface);
+		if (childInterface != NULL) {
+			CFStringRef	childInterfaceType;
+
+			childInterfaceType = SCNetworkInterfaceGetInterfaceType(childInterface);
+			if (CFEqual(childInterfaceType, kSCNetworkInterfaceTypeL2TP)) {
+				CFDictionaryRef		ipsec_configuration;
+
+				ipsec_configuration = SCNetworkInterfaceGetExtendedConfiguration(interface, kSCEntNetIPSec);
+				if (isA_CFDictionary(ipsec_configuration) &&
+				    (CFDictionaryGetCount(ipsec_configuration) > 0)) {
+					SCPrint(TRUE, stdout, CFSTR("\n%@  per-interface IPSec configuration\n"), prefix);
+					_show_entity(ipsec_configuration, prefix);
+				}
+			}
+		}
 	}
 
 	if (_sc_debug) {
@@ -756,7 +840,11 @@ show_interfaces(int argc, char **argv)
 }
 
 
-/* -------------------- */
+#pragma mark -
+#pragma mark Bond options
+
+
+#if	!TARGET_OS_IPHONE
 
 
 static options bondOptions[] = {
@@ -796,7 +884,11 @@ set_interface_bond(int argc, char **argv, CFMutableDictionaryRef newConfiguratio
 }
 
 
-/* -------------------- */
+#endif	// !TARGET_OS_IPHONE
+
+
+#pragma mark -
+#pragma mark AirPort options
 
 
 static options airportOptions[] = {
@@ -836,7 +928,8 @@ set_interface_airport(int argc, char **argv, CFMutableDictionaryRef newConfigura
 }
 
 
-/* -------------------- */
+#pragma mark -
+#pragma mark Ethernet options
 
 
 static options ethernetOptions[] = {
@@ -876,7 +969,376 @@ set_interface_ethernet(int argc, char **argv, CFMutableDictionaryRef newConfigur
 }
 
 
-/* -------------------- */
+#pragma mark -
+#pragma mark IPSec options
+
+
+static void
+replaceOne(const void *key, const void *value, void *context)
+{
+	CFMutableDictionaryRef	newConfiguration	= (CFMutableDictionaryRef)context;
+
+	CFDictionarySetValue(newConfiguration, key, value);
+	return;
+}
+
+
+static void
+updateInterfaceConfiguration(CFMutableDictionaryRef newConfiguration)
+{
+	CFDictionaryRef	configuration;
+
+	CFDictionaryRemoveAllValues(newConfiguration);
+
+	configuration = SCNetworkInterfaceGetConfiguration(net_interface);
+	if (configuration != NULL) {
+		CFDictionaryApplyFunction(configuration, replaceOne, (void *)newConfiguration);
+	}
+
+	return;
+}
+
+
+static int
+__doIPSecSharedSecret(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+{
+	if (argc < 1) {
+		SCPrint(TRUE, stdout, CFSTR("IPSec shared secret not specified\n"));
+		return -1;
+	}
+
+	if (strlen(argv[0]) > 0) {
+		CFStringRef	encryptionType;
+
+		encryptionType = CFDictionaryGetValue(newConfiguration, kSCPropNetIPSecSharedSecretEncryption);
+		if (encryptionType == NULL) {
+			CFIndex			n;
+			CFMutableDataRef	pw;
+			CFStringRef		str;
+
+			str = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+			n = CFStringGetLength(str);
+			pw = CFDataCreateMutable(NULL, n * sizeof(UniChar));
+			CFDataSetLength(pw, n * sizeof(UniChar));
+			CFStringGetCharacters(str,
+					      CFRangeMake(0, n),
+					      (UniChar *)CFDataGetMutableBytePtr(pw));
+			CFRelease(str);
+
+			CFDictionarySetValue(newConfiguration, key, pw);
+			CFRelease(pw);
+		} else if (CFEqual(encryptionType, kSCValNetIPSecSharedSecretEncryptionKeychain)) {
+			Boolean		ok;
+			CFDataRef	pw;
+			CFStringRef	str;
+
+			str = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+			pw = CFStringCreateExternalRepresentation(NULL, str, kCFStringEncodingUTF8, 0);
+			ok = SCNetworkInterfaceSetPassword(net_interface,
+							   kSCNetworkInterfacePasswordTypeIPSecSharedSecret,
+							   pw,
+							   NULL);
+			CFRelease(pw);
+			CFRelease(str);
+			if (ok) {
+				updateInterfaceConfiguration(newConfiguration);
+			} else {
+				return -1;
+			}
+		} else {
+			SCPrint(TRUE, stdout, CFSTR("IPSec shared secret type \"%@\" not supported\n"), encryptionType);
+			return -1;
+		}
+	} else {
+		CFDictionaryRemoveValue(newConfiguration, key);
+	}
+
+	return 1;
+}
+
+
+static int
+__doIPSecSharedSecretType(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+{
+	if (argc < 1) {
+		SCPrint(TRUE, stdout, CFSTR("IPSec shared secret type mode not specified\n"));
+		return -1;
+	}
+
+	if (strlen(argv[0]) > 0) {
+		if (strcasecmp(argv[0], "keychain") == 0) {
+			CFDictionarySetValue(newConfiguration, key, kSCValNetIPSecSharedSecretEncryptionKeychain);
+		} else {
+			SCPrint(TRUE, stdout, CFSTR("invalid shared secret type\n"));
+			return -1;
+		}
+	} else {
+		CFDictionaryRemoveValue(newConfiguration, key);
+	}
+
+	// encryption type changed, reset shared secret
+	CFDictionaryRemoveValue(newConfiguration, kSCPropNetIPSecSharedSecret);
+
+	return 1;
+}
+
+
+static int
+__doIPSecXAuthPassword(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+{
+	if (argc < 1) {
+		SCPrint(TRUE, stdout, CFSTR("IPSec XAuth password not specified\n"));
+		return -1;
+	}
+
+	if (strlen(argv[0]) > 0) {
+		CFStringRef	encryptionType;
+
+		encryptionType = CFDictionaryGetValue(newConfiguration, kSCPropNetIPSecXAuthPasswordEncryption);
+		if (encryptionType == NULL) {
+			CFIndex			n;
+			CFMutableDataRef	pw;
+			CFStringRef		str;
+
+			str = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+			n = CFStringGetLength(str);
+			pw = CFDataCreateMutable(NULL, n * sizeof(UniChar));
+			CFDataSetLength(pw, n * sizeof(UniChar));
+			CFStringGetCharacters(str,
+					      CFRangeMake(0, n),
+					      (UniChar *)CFDataGetMutableBytePtr(pw));
+			CFRelease(str);
+
+			CFDictionarySetValue(newConfiguration, key, pw);
+			CFRelease(pw);
+		} else if (CFEqual(encryptionType, kSCValNetIPSecXAuthPasswordEncryptionKeychain)) {
+			Boolean		ok;
+			CFDataRef	pw;
+			CFStringRef	str;
+
+			str = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+			pw = CFStringCreateExternalRepresentation(NULL, str, kCFStringEncodingUTF8, 0);
+			ok = SCNetworkInterfaceSetPassword(net_interface,
+							   kSCNetworkInterfacePasswordTypeIPSecXAuth,
+							   pw,
+							   NULL);
+			CFRelease(pw);
+			CFRelease(str);
+			if (ok) {
+				updateInterfaceConfiguration(newConfiguration);
+			} else {
+				return -1;
+			}
+		} else {
+			SCPrint(TRUE, stdout, CFSTR("IPSec XAuthPassword type \"%@\" not supported\n"), encryptionType);
+			return -1;
+		}
+	} else {
+		CFDictionaryRemoveValue(newConfiguration, key);
+	}
+
+	return 1;
+}
+
+
+static int
+__doIPSecXAuthPasswordType(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+{
+	if (argc < 1) {
+		SCPrint(TRUE, stdout, CFSTR("IPSec XAuth password type mode not specified\n"));
+		return -1;
+	}
+
+	if (strlen(argv[0]) > 0) {
+		if (strcasecmp(argv[0], "keychain") == 0) {
+			CFDictionarySetValue(newConfiguration, key, kSCValNetIPSecXAuthPasswordEncryptionKeychain);
+		} else {
+			SCPrint(TRUE, stdout, CFSTR("invalid XAuth password type\n"));
+			return -1;
+		}
+	} else {
+		CFDictionaryRemoveValue(newConfiguration, key);
+	}
+
+	// encryption type changed, reset XAuthPassword
+	CFDictionaryRemoveValue(newConfiguration, kSCPropNetIPSecXAuthPassword);
+
+	return 1;
+}
+
+
+static CFStringRef
+__cleanupDomainName(CFStringRef domain)
+{
+	CFMutableStringRef	newDomain;
+
+	newDomain = CFStringCreateMutableCopy(NULL, 0, domain);
+	CFStringTrimWhitespace(newDomain);
+	CFStringTrim(newDomain, CFSTR("."));
+	if (CFStringGetLength(newDomain) == 0) {
+		CFRelease(newDomain);
+		newDomain = NULL;
+	}
+
+	return newDomain;
+}
+
+
+static int
+__doOnDemandDomains(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+{
+	CFMutableArrayRef	domains;
+
+	if (argc < 1) {
+		SCPrint(TRUE, stdout, CFSTR("OnDemand domain name(s) not specified\n"));
+		return -1;
+	}
+
+	domains = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+
+	if (strlen(argv[0]) > 0) {
+		CFArrayRef	array;
+		CFStringRef	str;
+
+		str = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+		array = CFStringCreateArrayBySeparatingStrings(NULL, str, CFSTR(","));
+		CFRelease(str);
+
+		if (array != NULL) {
+			CFIndex	i;
+			CFIndex	n	= CFArrayGetCount(array);
+
+			for (i = 0; i < n; i++) {
+				CFStringRef	domain;
+
+				domain = __cleanupDomainName(CFArrayGetValueAtIndex(array, i));
+				if (domain != NULL) {
+					CFArrayAppendValue(domains, domain);
+					CFRelease(domain);
+				} else {
+					CFRelease(array);
+					CFRelease(domains);
+					SCPrint(TRUE, stdout, CFSTR("invalid OnDemand domain name\n"));
+					return -1;
+				}
+			}
+			CFRelease(array);
+		}
+	}
+
+	if (CFArrayGetCount(domains) > 0) {
+		CFDictionarySetValue(newConfiguration, key, domains);
+	} else {
+		CFDictionaryRemoveValue(newConfiguration, key);
+	}
+
+	CFRelease(domains);
+	return 1;
+}
+
+
+static options ipsecOnDemandOptions[] = {
+	{ "OnDemandMatchDomainsAlways" , "domain", isOther  , &kSCPropNetIPSecOnDemandMatchDomainsAlways , __doOnDemandDomains, NULL },
+	{   "always"                   , "domain", isOther  , &kSCPropNetIPSecOnDemandMatchDomainsAlways , __doOnDemandDomains, NULL },
+	{ "OnDemandMatchDomainsOnRetry", "domain", isOther  , &kSCPropNetIPSecOnDemandMatchDomainsOnRetry, __doOnDemandDomains, NULL },
+	{   "retry"                    , "domain", isOther  , &kSCPropNetIPSecOnDemandMatchDomainsOnRetry, __doOnDemandDomains, NULL },
+	{ "OnDemandMatchDomainsNever"  , "domain", isOther  , &kSCPropNetIPSecOnDemandMatchDomainsNever  , __doOnDemandDomains, NULL },
+	{   "never"                    , "domain", isOther  , &kSCPropNetIPSecOnDemandMatchDomainsNever  , __doOnDemandDomains, NULL },
+
+	{ "?"                          , NULL    , isHelp , NULL                                       , NULL               ,
+	    "\nOnDemandMatch configuration commands\n\n"
+	    " set interface OnDemandMatch always domain-name[,domain-name]\n"
+	    " set interface OnDemandMatch retry  domain-name[,domain-name]\n"
+	    " set interface OnDemandMatch never  domain-name[,domain-name]\n"
+	}
+};
+#define	N_IPSEC_ONDEMAND_OPTIONS	(sizeof(ipsecOnDemandOptions) / sizeof(ipsecOnDemandOptions[0]))
+
+
+static int
+__doIPSecOnDemandMatch(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+{
+	Boolean	ok;
+
+	if (argc < 1) {
+		SCPrint(TRUE, stdout, CFSTR("set what?\n"));
+		return -1;
+	}
+
+	ok = _process_options(ipsecOnDemandOptions, N_IPSEC_ONDEMAND_OPTIONS, argc, argv, newConfiguration);
+	if (!ok) {
+		goto done;
+	}
+
+    done :
+
+	return argc;
+}
+
+
+static selections ipsecAuthenticationMethodSelections[] = {
+	{ CFSTR("SharedSecret"), &kSCValNetIPSecAuthenticationMethodSharedSecret, 0 },
+	{ CFSTR("Certificate") , &kSCValNetIPSecAuthenticationMethodCertificate , 0 },
+	{ CFSTR("Hybrid")      , &kSCValNetIPSecAuthenticationMethodHybrid      , 0 },
+	{ NULL                 , NULL                                           , 0 }
+};
+
+
+static selections ipsecLocalIdentifierTypeSelections[] = {
+	{ CFSTR("KeyID")       , &kSCValNetIPSecLocalIdentifierTypeKeyID        , 0 },
+	{ NULL                 , NULL                                           , 0 }
+};
+
+
+static options ipsecOptions[] = {
+	{ "AuthenticationMethod"   , NULL, isChooseOne  , &kSCPropNetIPSecAuthenticationMethod   , NULL                      , (void *)ipsecAuthenticationMethodSelections },
+	{ "LocalIdentifier"        , NULL, isString     , &kSCPropNetIPSecLocalIdentifier        , NULL                      , NULL                                        },
+	{   "group"                , NULL, isString     , &kSCPropNetIPSecLocalIdentifier        , NULL                      , NULL                                        },
+	{ "LocalIdentifierType"    , NULL, isChooseOne  , &kSCPropNetIPSecLocalIdentifierType    , NULL                      , (void *)ipsecLocalIdentifierTypeSelections  },
+	{ "RemoteAddress"          , NULL, isString     , &kSCPropNetIPSecRemoteAddress          , NULL                      , NULL                                        },
+	{ "SharedSecret"           , NULL, isOther      , &kSCPropNetIPSecSharedSecret           , __doIPSecSharedSecret     , NULL                                        },
+	{ "SharedSecretEncryption" , NULL, isOther      , &kSCPropNetIPSecSharedSecretEncryption , __doIPSecSharedSecretType , NULL                                        },
+
+	// --- XAuth: ---
+	{ "XAuthEnabled"           , NULL, isBoolean    , &kSCPropNetIPSecXAuthEnabled           , NULL                      , NULL                                        },
+	{ "XAuthName"              , NULL, isString     , &kSCPropNetIPSecXAuthName              , NULL                      , NULL                                        },
+	{ "XAuthPassword"          , NULL, isOther      , &kSCPropNetIPSecXAuthPassword          , __doIPSecXAuthPassword    , NULL                                        },
+	{ "XAuthPasswordEncryption", NULL, isOther      , &kSCPropNetIPSecXAuthPasswordEncryption, __doIPSecXAuthPasswordType, NULL                                        },
+
+	// --- OnDemand: ---
+	{ "OnDemandEnabled"        , NULL, isBoolean    , &kSCPropNetIPSecOnDemandEnabled        , NULL                      , NULL },
+	{ "OnDemandMatch"          , NULL, isOther      , NULL                                   , __doIPSecOnDemandMatch    , NULL },
+
+	{ "?"         , NULL , isHelp     , NULL                            , NULL,
+		"\nIPSec configuration commands\n\n"
+		" set interface [AuthenticationMethod {SharedSecret|Certificate|Hybrid}]\n"
+		" set interface [LocalIdentifier group]\n"
+		" set interface [LocalIdentifierType {KeyID}]\n"
+		" set interface [RemoteAddress name-or-address]\n"
+		" set interface [SharedSecret secret]\n"
+		" set interface [SharedSecretEncryption {Keychain}]\n"
+		" set interface [XAuthEnabled {enable|disable}]\n"
+		" set interface [XAuthPassword password]\n"
+		" set interface [XAuthPasswordEncryption {Keychain}]\n"
+		" set interface [OnDemandEnabled {enable|disable}]\n"
+		" set interface [OnDemandMatch <match-options>]\n"
+	}
+};
+#define	N_IPSEC_OPTIONS	(sizeof(ipsecOptions) / sizeof(ipsecOptions[0]))
+
+
+static Boolean
+set_interface_ipsec(int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+{
+	Boolean		ok;
+
+	ok = _process_options(ipsecOptions, N_IPSEC_OPTIONS, argc, argv, newConfiguration);
+	return ok;
+}
+
+
+#pragma mark -
+#pragma mark FireWire options
 
 
 static options firewireOptions[] = {
@@ -916,7 +1378,8 @@ set_interface_firewire(int argc, char **argv, CFMutableDictionaryRef newConfigur
 }
 
 
-/* -------------------- */
+#pragma mark -
+#pragma mark Modem options
 
 
 static selections modemDialSelections[] = {
@@ -951,7 +1414,7 @@ static options modemOptions[] = {
 	    " set interface [HoldReminder {enable|disable}]\n"
 	    " set interface [HoldReminderTime n]\n"
 	    " set interface [PulseDial {enable|disable}]\n"
-	    " set interface [Speaker {enable|disable}]"
+	    " set interface [Speaker {enable|disable}]\n"
 	}
 };
 #define	N_MODEM_OPTIONS	(sizeof(modemOptions) / sizeof(modemOptions[0]))
@@ -967,7 +1430,8 @@ set_interface_modem(int argc, char **argv, CFMutableDictionaryRef newConfigurati
 }
 
 
-/* -------------------- */
+#pragma mark -
+#pragma mark PPP options
 
 
 static int
@@ -1036,6 +1500,123 @@ __doPPPAuthPWType(CFStringRef key, const char *description, void *info, int argc
 }
 
 
+static options l2tp_ipsecOptions[] = {
+	{ "SharedSecret"          , NULL, isOther      , &kSCPropNetIPSecSharedSecret          , __doIPSecSharedSecret    , NULL                                        },
+	{ "SharedSecretEncryption", NULL, isOther      , &kSCPropNetIPSecSharedSecretEncryption, __doIPSecSharedSecretType, NULL                                        },
+
+	{ "?"         , NULL , isHelp     , NULL                            , NULL,
+		"\nIPSec configuration commands\n\n"
+		" set interface ipsec [SharedSecret secret]\n"
+		" set interface ipsec [SharedSecretEncryption {Keychain}]\n"
+	}
+};
+#define	N_L2TP_IPSEC_OPTIONS	(sizeof(l2tp_ipsecOptions) / sizeof(l2tp_ipsecOptions[0]))
+
+
+static int
+__doPPPIPSec(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newPPPConfiguration)
+{
+	SCNetworkInterfaceRef	childInterface;
+	CFStringRef		childInterfaceType;
+	CFDictionaryRef		configuration;
+	CFMutableDictionaryRef	newConfiguration;
+	Boolean			ok;
+
+	if (argc < 1) {
+		SCPrint(TRUE, stdout, CFSTR("set what?\n"));
+		return -1;
+	}
+
+	childInterface = SCNetworkInterfaceGetInterface(net_interface);
+	if (childInterface == NULL) {
+		SCPrint(TRUE, stdout, CFSTR("this interfaces configuration cannot be changed\n"));
+		return -1;
+	}
+
+	childInterfaceType = SCNetworkInterfaceGetInterfaceType(childInterface);
+	if (!CFEqual(childInterfaceType, kSCNetworkInterfaceTypeL2TP)) {
+		SCPrint(TRUE, stdout, CFSTR("this interfaces configuration cannot be changed\n"));
+		return -1;
+	}
+
+	configuration = SCNetworkInterfaceGetExtendedConfiguration(net_interface, kSCEntNetIPSec);
+	if (configuration == NULL) {
+		newConfiguration = CFDictionaryCreateMutable(NULL,
+							     0,
+							     &kCFTypeDictionaryKeyCallBacks,
+							     &kCFTypeDictionaryValueCallBacks);
+	} else {
+		newConfiguration = CFDictionaryCreateMutableCopy(NULL, 0, configuration);
+		CFDictionaryRemoveValue(newConfiguration, kSCResvInactive);
+	}
+
+	ok = _process_options(l2tp_ipsecOptions, N_L2TP_IPSEC_OPTIONS, argc, argv, newConfiguration);
+	if (!ok) {
+		goto done;
+	}
+
+	if (((configuration == NULL) && (CFDictionaryGetCount(newConfiguration) > 0)) ||
+	    ((configuration != NULL) && !CFEqual(configuration, newConfiguration))) {
+		if (!SCNetworkInterfaceSetExtendedConfiguration(net_interface, kSCEntNetIPSec, newConfiguration)) {
+			if (SCError() == kSCStatusNoKey) {
+				SCPrint(TRUE, stdout, CFSTR("could not update per-service interface configuration\n"));
+			} else {
+				SCPrint(TRUE, stdout, CFSTR("%s\n"), SCErrorString(SCError()));
+			}
+			goto done;
+		}
+
+		_prefs_changed = TRUE;
+	}
+
+    done :
+
+	if (newConfiguration != NULL) CFRelease(newConfiguration);
+	return argc;
+}
+
+
+#ifdef	NOTYET
+static options pppOnDemandOptions[] = {
+	{ "OnDemandMatchDomainsAlways" , "domain", isOther  , &kSCPropNetPPPOnDemandMatchDomainsAlways , __doOnDemandDomains, NULL },
+	{   "always"                   , "domain", isOther  , &kSCPropNetPPPOnDemandMatchDomainsAlways , __doOnDemandDomains, NULL },
+	{ "OnDemandMatchDomainsOnRetry", "domain", isOther  , &kSCPropNetPPPOnDemandMatchDomainsOnRetry, __doOnDemandDomains, NULL },
+	{   "retry"                    , "domain", isOther  , &kSCPropNetPPPOnDemandMatchDomainsOnRetry, __doOnDemandDomains, NULL },
+	{ "OnDemandMatchDomainsNever"  , "domain", isOther  , &kSCPropNetPPPOnDemandMatchDomainsNever  , __doOnDemandDomains, NULL },
+	{   "never"                    , "domain", isOther  , &kSCPropNetPPPOnDemandMatchDomainsNever  , __doOnDemandDomains, NULL },
+
+	{ "?"                          , NULL    , isHelp , NULL                                     , NULL               ,
+	    "\nOnDemandMatch configuration commands\n\n"
+	    " set interface OnDemand always domain-name[,domain-name]\n"
+	    " set interface OnDemand retry  domain-name[,domain-name]\n"
+	    " set interface OnDemand never  domain-name[,domain-name]\n"
+	}
+};
+#define	N_PPP_ONDEMAND_OPTIONS	(sizeof(pppOnDemandOptions) / sizeof(pppOnDemandOptions[0]))
+
+
+static int
+__doPPPOnDemandMatch(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+{
+	Boolean	ok;
+
+	if (argc < 1) {
+		SCPrint(TRUE, stdout, CFSTR("set what?\n"));
+		return -1;
+	}
+
+	ok = _process_options(pppOnDemandOptions, N_PPP_ONDEMAND_OPTIONS, argc, argv, newConfiguration);
+	if (!ok) {
+		goto done;
+	}
+
+    done :
+
+	return argc;
+}
+#endif	// NOTYET
+
+
 static selections authPromptSelections[] = {
 	{ CFSTR("before"), &kSCValNetPPPAuthPromptBefore, 0 },
 	{ CFSTR("after") , &kSCValNetPPPAuthPromptAfter , 0 },
@@ -1054,67 +1635,76 @@ static selections authProtocolSelections[] = {
 
 
 static options pppOptions[] = {
-	{ "ACSP"                      , NULL          , isBoolean        , &kSCPropNetPPPACSPEnabled               , NULL             , NULL                           },
-	{ "ConnectTime"               , "?time"       , isNumber         , &kSCPropNetPPPConnectTime               , NULL             , NULL                           },
-	{ "DialOnDemand"              , NULL          , isBoolean        , &kSCPropNetPPPDialOnDemand              , NULL             , NULL                           },
-	{ "DisconnectOnFastUserSwitch", NULL          , isBoolean        , &kSCPropNetPPPDisconnectOnFastUserSwitch, NULL             , NULL                           },
-	{ "DisconnectOnIdle"          , NULL          , isBoolean        , &kSCPropNetPPPDisconnectOnIdle          , NULL             , NULL                           },
-	{ "DisconnectOnIdleTimer"     , "timeout"     , isNumber         , &kSCPropNetPPPDisconnectOnIdleTimer     , NULL             , NULL                           },
-	{ "DisconnectOnLogout"        , NULL          , isBoolean        , &kSCPropNetPPPDisconnectOnLogout        , NULL             , NULL                           },
-	{ "DisconnectOnSleep"         , NULL          , isBoolean        , &kSCPropNetPPPDisconnectOnSleep         , NULL             , NULL                           },
-	{ "DisconnectTime"            , "?time"       , isNumber         , &kSCPropNetPPPDisconnectTime            , NULL             , NULL                           },
-	{ "IdleReminder"              , NULL          , isBoolean        , &kSCPropNetPPPIdleReminder              , NULL             , NULL                           },
-	{ "IdleReminderTimer"         , "time"        , isNumber         , &kSCPropNetPPPIdleReminderTimer         , NULL             , NULL                           },
-	{ "Logfile"                   , "path"        , isString         , &kSCPropNetPPPLogfile                   , NULL             , NULL                           },
-	{ "Plugins"                   , "plugin"      , isStringArray    , &kSCPropNetPPPPlugins                   , NULL             , NULL                           },
-	{ "RetryConnectTime"          , "time"        , isNumber         , &kSCPropNetPPPRetryConnectTime          , NULL             , NULL                           },
-	{ "SessionTimer"              , "time"        , isNumber         , &kSCPropNetPPPSessionTimer              , NULL             , NULL                           },
-	{ "UseSessionTimer"           , NULL          , isBoolean        , &kSCPropNetPPPUseSessionTimer           , NULL             , NULL                           },
-	{ "VerboseLogging"            , NULL          , isBoolean        , &kSCPropNetPPPVerboseLogging            , NULL             , NULL                           },
+	{ "ACSP"                      , NULL          , isBoolean        , &kSCPropNetPPPACSPEnabled               , NULL                , NULL                           },
+	{ "ConnectTime"               , "?time"       , isNumber         , &kSCPropNetPPPConnectTime               , NULL                , NULL                           },
+	{ "DialOnDemand"              , NULL          , isBoolean        , &kSCPropNetPPPDialOnDemand              , NULL                , NULL                           },
+	{ "DisconnectOnFastUserSwitch", NULL          , isBoolean        , &kSCPropNetPPPDisconnectOnFastUserSwitch, NULL                , NULL                           },
+	{ "DisconnectOnIdle"          , NULL          , isBoolean        , &kSCPropNetPPPDisconnectOnIdle          , NULL                , NULL                           },
+	{ "DisconnectOnIdleTimer"     , "timeout"     , isNumber         , &kSCPropNetPPPDisconnectOnIdleTimer     , NULL                , NULL                           },
+	{ "DisconnectOnLogout"        , NULL          , isBoolean        , &kSCPropNetPPPDisconnectOnLogout        , NULL                , NULL                           },
+	{ "DisconnectOnSleep"         , NULL          , isBoolean        , &kSCPropNetPPPDisconnectOnSleep         , NULL                , NULL                           },
+	{ "DisconnectTime"            , "?time"       , isNumber         , &kSCPropNetPPPDisconnectTime            , NULL                , NULL                           },
+	{ "IdleReminder"              , NULL          , isBoolean        , &kSCPropNetPPPIdleReminder              , NULL                , NULL                           },
+	{ "IdleReminderTimer"         , "time"        , isNumber         , &kSCPropNetPPPIdleReminderTimer         , NULL                , NULL                           },
+	{ "Logfile"                   , "path"        , isString         , &kSCPropNetPPPLogfile                   , NULL                , NULL                           },
+	{ "Plugins"                   , "plugin"      , isStringArray    , &kSCPropNetPPPPlugins                   , NULL                , NULL                           },
+	{ "RetryConnectTime"          , "time"        , isNumber         , &kSCPropNetPPPRetryConnectTime          , NULL                , NULL                           },
+	{ "SessionTimer"              , "time"        , isNumber         , &kSCPropNetPPPSessionTimer              , NULL                , NULL                           },
+	{ "UseSessionTimer"           , NULL          , isBoolean        , &kSCPropNetPPPUseSessionTimer           , NULL                , NULL                           },
+	{ "VerboseLogging"            , NULL          , isBoolean        , &kSCPropNetPPPVerboseLogging            , NULL                , NULL                           },
 
 	// --- Auth: ---
-	{ "AuthEAPPlugins"            , "plugin"      , isStringArray    , &kSCPropNetPPPAuthEAPPlugins            , NULL             , NULL                           },
-	{ "AuthName"                  , "account"     , isString         , &kSCPropNetPPPAuthName                  , NULL             , NULL                           },
-	{   "Account"                 , "account"     , isString         , &kSCPropNetPPPAuthName                  , NULL             , NULL                           },
-	{ "AuthPassword"              , "password"    , isOther          , &kSCPropNetPPPAuthPassword              , __doPPPAuthPW    , NULL                           },
-	{   "Password"                , "password"    , isOther          , &kSCPropNetPPPAuthPassword              , __doPPPAuthPW    , NULL                           },
-	{ "AuthPasswordEncryption"    , "type"        , isOther          , &kSCPropNetPPPAuthPasswordEncryption    , __doPPPAuthPWType, NULL                           },
-	{ "AuthPrompt"                , "before/after", isChooseOne      , &kSCPropNetPPPAuthPrompt                , NULL             , (void *)authPromptSelections   },
-	{ "AuthProtocol"              , "protocol"    , isChooseMultiple , &kSCPropNetPPPAuthProtocol              , NULL             , (void *)authProtocolSelections },
+	{ "AuthEAPPlugins"            , "plugin"      , isStringArray    , &kSCPropNetPPPAuthEAPPlugins            , NULL                , NULL                           },
+	{ "AuthName"                  , "account"     , isString         , &kSCPropNetPPPAuthName                  , NULL                , NULL                           },
+	{   "Account"                 , "account"     , isString         , &kSCPropNetPPPAuthName                  , NULL                , NULL                           },
+	{ "AuthPassword"              , "password"    , isOther          , &kSCPropNetPPPAuthPassword              , __doPPPAuthPW       , NULL                           },
+	{   "Password"                , "password"    , isOther          , &kSCPropNetPPPAuthPassword              , __doPPPAuthPW       , NULL                           },
+	{ "AuthPasswordEncryption"    , "type"        , isOther          , &kSCPropNetPPPAuthPasswordEncryption    , __doPPPAuthPWType   , NULL                           },
+	{ "AuthPrompt"                , "before/after", isChooseOne      , &kSCPropNetPPPAuthPrompt                , NULL                , (void *)authPromptSelections   },
+	{ "AuthProtocol"              , "protocol"    , isChooseMultiple , &kSCPropNetPPPAuthProtocol              , NULL                , (void *)authProtocolSelections },
 
 	// --- Comm: ---
-	{ "CommRemoteAddress"         , "phone#"      , isString         , &kSCPropNetPPPCommRemoteAddress         , NULL             , NULL                           },
-	{ "CommAlternateRemoteAddress", "phone#"      , isString         , &kSCPropNetPPPCommAlternateRemoteAddress, NULL             , NULL                           },
-	{ "CommConnectDelay"          , "time"        , isNumber         , &kSCPropNetPPPCommConnectDelay          , NULL             , NULL                           },
-	{ "CommDisplayTerminalWindow" , NULL          , isBoolean        , &kSCPropNetPPPCommDisplayTerminalWindow , NULL             , NULL                           },
-	{ "CommRedialCount"           , "retry count" , isNumber         , &kSCPropNetPPPCommRedialCount           , NULL             , NULL                           },
-	{ "CommRedialEnabled"         , NULL          , isBoolean        , &kSCPropNetPPPCommRedialEnabled         , NULL             , NULL                           },
-	{ "CommRedialInterval"        , "retry delay" , isNumber         , &kSCPropNetPPPCommRedialInterval        , NULL             , NULL                           },
-	{ "CommTerminalScript"        , "script"      , isString         , &kSCPropNetPPPCommTerminalScript        , NULL             , NULL                           },
-	{ "CommUseTerminalScript"     , NULL          , isBoolean        , &kSCPropNetPPPCommUseTerminalScript     , NULL             , NULL                           },
+	{ "CommRemoteAddress"         , "phone#"      , isString         , &kSCPropNetPPPCommRemoteAddress         , NULL                , NULL                           },
+	{ "CommAlternateRemoteAddress", "phone#"      , isString         , &kSCPropNetPPPCommAlternateRemoteAddress, NULL                , NULL                           },
+	{ "CommConnectDelay"          , "time"        , isNumber         , &kSCPropNetPPPCommConnectDelay          , NULL                , NULL                           },
+	{ "CommDisplayTerminalWindow" , NULL          , isBoolean        , &kSCPropNetPPPCommDisplayTerminalWindow , NULL                , NULL                           },
+	{ "CommRedialCount"           , "retry count" , isNumber         , &kSCPropNetPPPCommRedialCount           , NULL                , NULL                           },
+	{ "CommRedialEnabled"         , NULL          , isBoolean        , &kSCPropNetPPPCommRedialEnabled         , NULL                , NULL                           },
+	{ "CommRedialInterval"        , "retry delay" , isNumber         , &kSCPropNetPPPCommRedialInterval        , NULL                , NULL                           },
+	{ "CommTerminalScript"        , "script"      , isString         , &kSCPropNetPPPCommTerminalScript        , NULL                , NULL                           },
+	{ "CommUseTerminalScript"     , NULL          , isBoolean        , &kSCPropNetPPPCommUseTerminalScript     , NULL                , NULL                           },
 
 	// --- CCP: ---
-	{ "CCPEnabled"                , NULL          , isBoolean        , &kSCPropNetPPPCCPEnabled                , NULL             , NULL                           },
-	{ "CCPMPPE40Enabled"          , NULL          , isBoolean        , &kSCPropNetPPPCCPMPPE40Enabled          , NULL             , NULL                           },
-	{ "CCPMPPE128Enabled"         , NULL          , isBoolean        , &kSCPropNetPPPCCPMPPE128Enabled         , NULL             , NULL                           },
+	{ "CCPEnabled"                , NULL          , isBoolean        , &kSCPropNetPPPCCPEnabled                , NULL                , NULL                           },
+	{ "CCPMPPE40Enabled"          , NULL          , isBoolean        , &kSCPropNetPPPCCPMPPE40Enabled          , NULL                , NULL                           },
+	{ "CCPMPPE128Enabled"         , NULL          , isBoolean        , &kSCPropNetPPPCCPMPPE128Enabled         , NULL                , NULL                           },
 
 	// --- IPCP: ---
-	{ "IPCPCompressionVJ"         , NULL          , isBoolean        , &kSCPropNetPPPIPCPCompressionVJ         , NULL             , NULL                           },
-	{ "IPCPUsePeerDNS"            , NULL          , isBoolean        , &kSCPropNetPPPIPCPUsePeerDNS            , NULL             , NULL                           },
+	{ "IPCPCompressionVJ"         , NULL          , isBoolean        , &kSCPropNetPPPIPCPCompressionVJ         , NULL                , NULL                           },
+	{ "IPCPUsePeerDNS"            , NULL          , isBoolean        , &kSCPropNetPPPIPCPUsePeerDNS            , NULL                , NULL                           },
 
 	// --- LCP: ---
-	{ "LCPEchoEnabled"            , NULL          , isBoolean        , &kSCPropNetPPPLCPEchoEnabled            , NULL             , NULL                           },
-	{ "LCPEchoFailure"            , NULL          , isNumber         , &kSCPropNetPPPLCPEchoFailure            , NULL             , NULL                           },
-	{ "LCPEchoInterval"           , NULL          , isNumber         , &kSCPropNetPPPLCPEchoInterval           , NULL             , NULL                           },
-	{ "LCPCompressionACField"     , NULL          , isBoolean        , &kSCPropNetPPPLCPCompressionACField     , NULL             , NULL                           },
-	{ "LCPCompressionPField"      , NULL          , isBoolean        , &kSCPropNetPPPLCPCompressionPField      , NULL             , NULL                           },
-	{ "LCPMRU"                    , NULL          , isNumber         , &kSCPropNetPPPLCPMRU                    , NULL             , NULL                           },
-	{ "LCPMTU"                    , NULL          , isNumber         , &kSCPropNetPPPLCPMTU                    , NULL             , NULL                           },
-	{ "LCPReceiveACCM"            , NULL          , isNumber         , &kSCPropNetPPPLCPReceiveACCM            , NULL             , NULL                           },
-	{ "LCPTransmitACCM"           , NULL          , isNumber         , &kSCPropNetPPPLCPTransmitACCM           , NULL             , NULL                           },
+	{ "LCPEchoEnabled"            , NULL          , isBoolean        , &kSCPropNetPPPLCPEchoEnabled            , NULL                , NULL                           },
+	{ "LCPEchoFailure"            , NULL          , isNumber         , &kSCPropNetPPPLCPEchoFailure            , NULL                , NULL                           },
+	{ "LCPEchoInterval"           , NULL          , isNumber         , &kSCPropNetPPPLCPEchoInterval           , NULL                , NULL                           },
+	{ "LCPCompressionACField"     , NULL          , isBoolean        , &kSCPropNetPPPLCPCompressionACField     , NULL                , NULL                           },
+	{ "LCPCompressionPField"      , NULL          , isBoolean        , &kSCPropNetPPPLCPCompressionPField      , NULL                , NULL                           },
+	{ "LCPMRU"                    , NULL          , isNumber         , &kSCPropNetPPPLCPMRU                    , NULL                , NULL                           },
+	{ "LCPMTU"                    , NULL          , isNumber         , &kSCPropNetPPPLCPMTU                    , NULL                , NULL                           },
+	{ "LCPReceiveACCM"            , NULL          , isNumber         , &kSCPropNetPPPLCPReceiveACCM            , NULL                , NULL                           },
+	{ "LCPTransmitACCM"           , NULL          , isNumber         , &kSCPropNetPPPLCPTransmitACCM           , NULL                , NULL                           },
+
+	// --- IPSec: ---
+	{ "IPSec"                     , NULL          , isOther          , NULL                                    , __doPPPIPSec        , NULL                           },
+
+#ifdef	NOTYET
+	// --- OnDemand: ---
+	{ "OnDemandEnabled"            , NULL         , isBoolean        , &kSCPropNetPPPOnDemandEnabled           , NULL                , NULL },
+	{ "OnDemandMatch"              , NULL         , isOther          , NULL                                    , __doPPPOnDemandMatch, NULL },
+#endif	// NOTYET
 
 	// --- Help ---
-	{ "?"                         , NULL          , isHelp           , NULL                                    , NULL             ,
+	{ "?"                         , NULL          , isHelp           , NULL                                    , NULL                ,
 	    "\nPPP configuration commands\n\n"
 	    " set interface [Account account]\n"
 	    " set interface [Password password]\n"
@@ -1124,7 +1714,12 @@ static options pppOptions[] = {
 	    " set interface [IdleReminderTimer time-in-seconds]\n"
 	    " set interface [DisconnectOnIdle {enable|disable}]\n"
 	    " set interface [DisconnectOnIdleTimer time-in-seconds]\n"
-	    " set interface [DisconnectOnLogout {enable|disable}]"
+	    " set interface [DisconnectOnLogout {enable|disable}]\n"
+	    " set interface [IPSec <ipsec-options>]\n"
+#ifdef	NOTYET
+	    " set interface [OnDemandEnabled {enable|disable}]\n"
+	    " set interface [OnDemandMatch <match-options>]\n"
+#endif	// NOTYET
 	}
 };
 #define	N_PPP_OPTIONS	(sizeof(pppOptions) / sizeof(pppOptions[0]))
@@ -1140,7 +1735,11 @@ set_interface_ppp(int argc, char **argv, CFMutableDictionaryRef newConfiguration
 }
 
 
-/* -------------------- */
+#pragma mark -
+#pragma mark VLAN options
+
+
+#if	!TARGET_OS_IPHONE
 
 
 static Boolean
@@ -1152,7 +1751,11 @@ SCPrint(TRUE, stdout, CFSTR("vlan interface management not yet supported\n"));
 }
 
 
-/* -------------------- */
+#endif	// !TARGET_OS_IPHONE
+
+
+#pragma mark -
+#pragma mark [more] Interface management
 
 
 __private_extern__
@@ -1175,32 +1778,37 @@ set_interface(int argc, char **argv)
 	}
 
 	configuration = SCNetworkInterfaceGetConfiguration(net_interface);
-	if (configuration == NULL) {
+	if (configuration != NULL) {
+		configuration = CFDictionaryCreateCopy(NULL, configuration);
+		newConfiguration = CFDictionaryCreateMutableCopy(NULL, 0, configuration);
+		CFDictionaryRemoveValue(newConfiguration, kSCResvInactive);
+	} else {
 		newConfiguration = CFDictionaryCreateMutable(NULL,
 							     0,
 							     &kCFTypeDictionaryKeyCallBacks,
 							     &kCFTypeDictionaryValueCallBacks);
-	} else {
-		newConfiguration = CFDictionaryCreateMutableCopy(NULL, 0, configuration);
-		CFDictionaryRemoveValue(newConfiguration, kSCResvInactive);
 	}
 
 	interfaceType = SCNetworkInterfaceGetInterfaceType(net_interface);
 
-	if (CFEqual(interfaceType, kSCNetworkInterfaceTypeBond)) {
-		ok = set_interface_bond(argc, argv, newConfiguration);
-	} else if (CFEqual(interfaceType, kSCNetworkInterfaceTypeEthernet)) {
+	if (CFEqual(interfaceType, kSCNetworkInterfaceTypeEthernet)) {
 		ok = set_interface_ethernet(argc, argv, newConfiguration);
 	} else if (CFEqual(interfaceType, kSCNetworkInterfaceTypeFireWire)) {
 		ok = set_interface_firewire(argc, argv, newConfiguration);
+	} else if (CFEqual(interfaceType, kSCNetworkInterfaceTypeIPSec)) {
+		ok = set_interface_ipsec(argc, argv, newConfiguration);
 	} else if (CFEqual(interfaceType, kSCNetworkInterfaceTypeModem)) {
 		ok = set_interface_modem(argc, argv, newConfiguration);
 	} else if (CFEqual(interfaceType, kSCNetworkInterfaceTypeIEEE80211)) {
 		ok = set_interface_airport(argc, argv, newConfiguration);
 	} else if (CFEqual(interfaceType, kSCNetworkInterfaceTypePPP)) {
 		ok = set_interface_ppp(argc, argv, newConfiguration);
+#if	!TARGET_OS_IPHONE
+	} else if (CFEqual(interfaceType, kSCNetworkInterfaceTypeBond)) {
+		ok = set_interface_bond(argc, argv, newConfiguration);
 	} else if (CFEqual(interfaceType, kSCNetworkInterfaceTypeVLAN)) {
 		ok = set_interface_vlan(argc, argv, newConfiguration);
+#endif	// !TARGET_OS_IPHONE
 	} else {
 		SCPrint(TRUE, stdout, CFSTR("this interfaces configuration cannot be changed\n"));
 	}
@@ -1225,6 +1833,7 @@ set_interface(int argc, char **argv)
 
     done :
 
+	if (configuration != NULL) CFRelease(configuration);
 	if (newConfiguration != NULL) CFRelease(newConfiguration);
 	return;
 }
@@ -1239,8 +1848,8 @@ show_interface(int argc, char **argv)
 {
 	SCNetworkInterfaceRef	interface;
 
-	if (argc == 1) {
-		interface = _find_interface(argv[0]);
+	if (argc >= 1) {
+		interface = _find_interface(argc, argv, NULL);
 	} else {
 		if (net_interface != NULL) {
 			interface = net_interface;

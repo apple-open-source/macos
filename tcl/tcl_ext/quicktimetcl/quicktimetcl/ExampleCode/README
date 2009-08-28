@@ -1,0 +1,9 @@
+
+README for the "Example Code" folder
+
+The Tcl scripts in this folder are supposed to be sourced into a freshly
+started wish application, else it may look weired if other widgets have
+been placed in "." .
+
+
+Enjoy,  Mats 

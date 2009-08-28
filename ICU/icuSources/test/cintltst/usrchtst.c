@@ -1,5 +1,5 @@
 /********************************************************************
- * Copyright (c) 2001-2004 International Business Machines 
+ * Copyright (c) 2001-2008 International Business Machines 
  * Corporation and others. All Rights Reserved.
  ********************************************************************
  * File usrchtst.c
@@ -10,7 +10,7 @@
 
 #include "unicode/utypes.h"
 
-#if !UCONFIG_NO_COLLATION
+#if !UCONFIG_NO_COLLATION && !UCONFIG_NO_BREAK_ITERATION
 
 #include "unicode/usearch.h"
 #include "unicode/ustring.h"
@@ -356,7 +356,7 @@ static UBool assertEqualWithUStringSearch(      UStringSearch *strsrch,
         matchindex = search.offset[count];
     }
     usearch_next(strsrch, &status);
-    if ((uint32_t)usearch_getMatchedStart(strsrch) != USEARCH_DONE ||
+    if (usearch_getMatchedStart(strsrch) != USEARCH_DONE ||
         usearch_getMatchedLength(strsrch) != 0) {
         char *str = toCharString(usearch_getText(strsrch, &textlength));
         log_err("Text: %s\n", str);
@@ -399,7 +399,7 @@ static UBool assertEqualWithUStringSearch(      UStringSearch *strsrch,
         count --;
     }
     usearch_previous(strsrch, &status);
-    if ((uint32_t)usearch_getMatchedStart(strsrch) != USEARCH_DONE ||
+    if (usearch_getMatchedStart(strsrch) != USEARCH_DONE ||
         usearch_getMatchedLength(strsrch) != 0) {
         char *str = toCharString(usearch_getText(strsrch, &textlength));
         log_err("Text: %s\n", str);
@@ -453,28 +453,35 @@ static UBool assertCanonicalEqual(const SearchData search)
     UCollator      *collator = getCollator(search.collator);
     UBreakIterator *breaker  = getBreakIterator(search.breaker);
     UStringSearch  *strsrch; 
+    UBool           result = TRUE;
     
     CHECK_BREAK_BOOL(search.breaker);
     u_unescape(search.text, text, 128);
     u_unescape(search.pattern, pattern, 32);
     ucol_setStrength(collator, search.strength);
+    ucol_setAttribute(collator, UCOL_NORMALIZATION_MODE, UCOL_ON, &status);
     strsrch = usearch_openFromCollator(pattern, -1, text, -1, collator, 
                                        breaker, &status);
     usearch_setAttribute(strsrch, USEARCH_CANONICAL_MATCH, USEARCH_ON,
                          &status);
     if (U_FAILURE(status)) {
         log_err("Error opening string search %s\n", u_errorName(status));
-        return FALSE;
+        result = FALSE;
+        goto bail;
     }   
     
     if (!assertEqualWithUStringSearch(strsrch, search)) {
         ucol_setStrength(collator, UCOL_TERTIARY);
         usearch_close(strsrch);
-        return FALSE;
+        result = FALSE;
+        goto bail;
     }
+
+bail:
+    ucol_setAttribute(collator, UCOL_NORMALIZATION_MODE, UCOL_OFF, &status);
     ucol_setStrength(collator, UCOL_TERTIARY);
     usearch_close(strsrch);
-    return TRUE;
+    return result;
 }
 
 static UBool assertEqualWithAttribute(const SearchData            search, 
@@ -646,16 +653,16 @@ static void TestBreakIterator(void) {
         search   = &(BREAKITERATOREXACT[count + 1]);
         breaker  = getBreakIterator(search->breaker);
         usearch_setBreakIterator(strsrch, breaker, &status);
-        if (U_FAILURE(status) || 
-            usearch_getBreakIterator(strsrch) != breaker) {
+        if (U_FAILURE(status) || usearch_getBreakIterator(strsrch) != breaker) {
             log_err("Error setting break iterator\n");
             usearch_close(strsrch);
             goto ENDTESTBREAKITERATOR;
         }
         usearch_reset(strsrch);
         if (!assertEqualWithUStringSearch(strsrch, *search)) {
-             log_err("Error at test number %d\n", count);
-             goto ENDTESTBREAKITERATOR;
+            log_err("Error at test number %d\n", count);
+            usearch_close(strsrch);
+            goto ENDTESTBREAKITERATOR;
         }
         usearch_close(strsrch);
         count += 2;
@@ -1120,7 +1127,7 @@ static void TestGetSetOffset(void)
             count += 2;
         }
         usearch_next(strsrch, &status);
-        if ((uint32_t)usearch_getMatchedStart(strsrch) != USEARCH_DONE) {
+        if (usearch_getMatchedStart(strsrch) != USEARCH_DONE) {
             char *str = toCharString(usearch_getText(strsrch, &textlength));
             log_err("Text: %s\n", str);
             str = toCharString(usearch_getPattern(strsrch, &textlength));
@@ -1537,6 +1544,59 @@ static void TestIgnorable(void)
     ucol_close(collator);
 }
 
+static void TestDiacriticMatch(void) 
+{
+    UChar          pattern[128];
+    UChar          text[128];
+    UErrorCode     status = U_ZERO_ERROR;
+    UStringSearch *strsrch = NULL;
+    UCollator *coll = NULL;
+    uint32_t       count = 0;
+    SearchData search;
+
+    memset(pattern, 0, 128*sizeof(UChar));
+    memset(text, 0, 128*sizeof(UChar));
+    
+    strsrch = usearch_open(pattern, 1, text, 1, uloc_getDefault(), NULL, &status);
+	if (U_FAILURE(status)) {
+        log_err("Error opening string search %s\n", u_errorName(status));
+        return;
+    }
+       
+    search = DIACRITICMATCH[count];
+    while (search.text != NULL) {
+    	if (search.collator != NULL) {
+    		coll = ucol_openFromShortString(search.collator, FALSE, NULL, &status);
+    	} else {
+            /* Always use "en_US" because some of these tests fail in Danish locales. */
+    		coll = ucol_open("en_US"/*uloc_getDefault()*/, &status);
+    		ucol_setStrength(coll, search.strength);
+    	}
+    	if (U_FAILURE(status)) {
+	        log_err("Error opening string search collator(\"%s\") %s\n", search.collator, u_errorName(status));
+	        return;
+	    }
+    	
+    	usearch_setCollator(strsrch, coll, &status);
+    	if (U_FAILURE(status)) {
+	        log_err("Error setting string search collator %s\n", u_errorName(status));
+	        return;
+	    }
+    
+        u_unescape(search.text, text, 128);
+        u_unescape(search.pattern, pattern, 128);
+        usearch_setText(strsrch, text, -1, &status);
+        usearch_setPattern(strsrch, pattern, -1, &status);
+        if (!assertEqualWithUStringSearch(strsrch, search)) {
+            log_err("Error at test number %d\n", count);
+        }
+        ucol_close(coll);
+        
+        search = DIACRITICMATCH[++count];
+    }
+    usearch_close(strsrch);
+}
+
 static void TestCanonical(void)
 {
     int count = 0;
@@ -1605,20 +1665,19 @@ static void TestBreakIteratorCanonical(void) {
         strsrch = usearch_openFromCollator(pattern, -1, text, -1, collator, 
                                            breaker, &status);
         if(status == U_FILE_ACCESS_ERROR) {
-          log_data_err("Is your data around?\n");
-          return;
+            log_data_err("Is your data around?\n");
+            goto ENDTESTBREAKITERATOR;
         } else if(U_FAILURE(status)) {
-          log_err("Error opening searcher\n");
-          return;
+            log_err("Error opening searcher\n");
+            goto ENDTESTBREAKITERATOR;
         }
         usearch_setAttribute(strsrch, USEARCH_CANONICAL_MATCH, USEARCH_ON, 
                              &status);
         if (U_FAILURE(status) || 
             usearch_getBreakIterator(strsrch) != breaker) {
             log_err("Error setting break iterator\n");
-            if (strsrch != NULL) {
-                usearch_close(strsrch);
-            }
+            usearch_close(strsrch);
+            goto ENDTESTBREAKITERATOR;
         }
         if (!assertEqualWithUStringSearch(strsrch, *search)) {
             ucol_setStrength(collator, UCOL_TERTIARY);
@@ -1628,8 +1687,7 @@ static void TestBreakIteratorCanonical(void) {
         search   = &(BREAKITERATOREXACT[count + 1]);
         breaker  = getBreakIterator(search->breaker);
         usearch_setBreakIterator(strsrch, breaker, &status);
-        if (U_FAILURE(status) || 
-            usearch_getBreakIterator(strsrch) != breaker) {
+        if (U_FAILURE(status) || usearch_getBreakIterator(strsrch) != breaker) {
             log_err("Error setting break iterator\n");
             usearch_close(strsrch);
             goto ENDTESTBREAKITERATOR;
@@ -1638,8 +1696,9 @@ static void TestBreakIteratorCanonical(void) {
         usearch_setAttribute(strsrch, USEARCH_CANONICAL_MATCH, USEARCH_ON, 
                              &status);
         if (!assertEqualWithUStringSearch(strsrch, *search)) {
-             log_err("Error at test number %d\n", count);
-             goto ENDTESTBREAKITERATOR;
+            log_err("Error at test number %d\n", count);
+            usearch_close(strsrch);
+            goto ENDTESTBREAKITERATOR;
         }
         usearch_close(strsrch);
         count += 2;
@@ -1973,6 +2032,7 @@ static void TestGetSetOffsetCanonical(void)
     UChar          text[128];
     UErrorCode     status  = U_ZERO_ERROR;
     UStringSearch *strsrch;
+    UCollator     *collator;
 
     memset(pattern, 0, 32*sizeof(UChar));
     memset(text, 0, 128*sizeof(UChar));
@@ -1980,8 +2040,13 @@ static void TestGetSetOffsetCanonical(void)
     open();
     strsrch = usearch_openFromCollator(pattern, 16, text, 32, EN_US_, NULL, 
                                        &status);
+
+    collator = usearch_getCollator(strsrch);
+    ucol_setAttribute(collator, UCOL_NORMALIZATION_MODE, UCOL_ON, &status);
+
     usearch_setAttribute(strsrch, USEARCH_CANONICAL_MATCH, USEARCH_ON, 
                          &status);
+
     /* testing out of bounds error */
     usearch_setOffset(strsrch, -1, &status);
     if (U_SUCCESS(status)) {
@@ -2020,7 +2085,7 @@ static void TestGetSetOffsetCanonical(void)
                 log_err("Error match found at %d %d\n", 
                         usearch_getMatchedStart(strsrch), 
                         usearch_getMatchedLength(strsrch));
-                return;
+                goto bail;
             }
             matchindex = search.offset[count + 1] == -1 ? -1 : 
                          search.offset[count + 2];
@@ -2029,14 +2094,14 @@ static void TestGetSetOffsetCanonical(void)
                                   &status);
                 if (usearch_getOffset(strsrch) != search.offset[count + 1] + 1) {
                     log_err("Error setting offset\n");
-                    return;
+                    goto bail;
                 }
             }
             
             count += 2;
         }
         usearch_next(strsrch, &status);
-        if ((uint32_t)usearch_getMatchedStart(strsrch) != USEARCH_DONE) {
+        if (usearch_getMatchedStart(strsrch) != USEARCH_DONE) {
             char *str = toCharString(usearch_getText(strsrch, &textlength));
             log_err("Text: %s\n", str);
             str = toCharString(usearch_getPattern(strsrch, &textlength));
@@ -2044,9 +2109,12 @@ static void TestGetSetOffsetCanonical(void)
             log_err("Error match found at %d %d\n", 
                         usearch_getMatchedStart(strsrch), 
                         usearch_getMatchedLength(strsrch));
-            return;
+            goto bail;
         }
     }
+
+bail:
+    ucol_setAttribute(collator, UCOL_NORMALIZATION_MODE, UCOL_OFF, &status);
     usearch_close(strsrch);
     close();
 }
@@ -2141,6 +2209,58 @@ static void TestNumeric(void) {
 
 }
 
+/* This test is for ticket 4038 due to incorrect backward searching when certain patterns have a length > 1 */
+static void TestForwardBackward(void) {
+    UErrorCode status = U_ZERO_ERROR;
+    UCollator *coll = NULL;
+    UStringSearch *search = NULL;
+    UChar usrcstr[32], value[4];
+    int32_t pos= -1;
+    int32_t expectedPos = 9;
+    
+    coll = ucol_open("en_GB", &status);
+    if (U_FAILURE(status)) {
+        log_err("ucol_open failed: %s\n", u_errorName(status));
+        goto exitTestForwardBackward;
+    }
+    ucol_setAttribute(coll, UCOL_STRENGTH, UCOL_PRIMARY, &status);
+    ucol_setAttribute(coll, UCOL_CASE_LEVEL, UCOL_ON, &status);
+    ucol_setAttribute(coll, UCOL_ALTERNATE_HANDLING, UCOL_NON_IGNORABLE, &status);
+    
+    u_uastrcpy(usrcstr, "QBitArray::bitarr_data"); /* text */
+    u_uastrcpy(value, "::");                       /* pattern */
+    
+    search = usearch_openFromCollator(value, 2, usrcstr, 22, coll, NULL, &status);
+    if (U_FAILURE(status)) {
+        log_err("usearch_openFromCollator failed: %s\n", u_errorName(status));
+        goto exitTestForwardBackward;
+    }
+
+    usearch_reset(search);
+    /* forward search */
+    pos = usearch_first(search, &status);
+    if (pos != expectedPos) {
+        log_err("Expected search result: %d; Got instead: %d\n", expectedPos, pos);
+        goto exitTestForwardBackward;
+    }
+    
+    pos = -1;
+    usearch_reset(search);
+    /* backward search */
+    pos = usearch_last(search, &status);
+    if (pos != expectedPos) {
+        log_err("Expected search result: %d; Got instead: %d\n", expectedPos, pos);
+    }
+
+exitTestForwardBackward :
+    if (coll != NULL) {
+        ucol_close(coll);
+    }
+    if (search != NULL) {
+        usearch_close(search);
+    }
+}
+
 void addSearchTest(TestNode** root)
 {
     addTest(root, &TestStart, "tscoll/usrchtst/TestStart");
@@ -2191,6 +2311,8 @@ void addSearchTest(TestNode** root)
                                  "tscoll/usrchtst/TestContractionCanonical");
     addTest(root, &TestEnd, "tscoll/usrchtst/TestEnd");
     addTest(root, &TestNumeric, "tscoll/usrchtst/TestNumeric");
+    addTest(root, &TestDiacriticMatch, "tscoll/usrchtst/TestDiacriticMatch");
+    addTest(root, &TestForwardBackward, "tscoll/usrchtst/TestForwardBackward");
 }
 
 #endif /* #if !UCONFIG_NO_COLLATION */

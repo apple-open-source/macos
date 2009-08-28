@@ -6,7 +6,7 @@ dnl This file is automatically created by autogen.sh; it should not
 dnl be edited by hand!!
 
 m4_define(mca_backtrace_no_config_component_list, [])
-m4_define(mca_backtrace_m4_config_component_list, [darwin, execinfo, printstack, none])
+m4_define(mca_backtrace_m4_config_component_list, [execinfo, printstack, darwin, none])
 m4_define(mca_installdirs_no_config_component_list, [])
 m4_define(mca_installdirs_m4_config_component_list, [env, config])
 m4_define(mca_maffinity_no_config_component_list, [first_use])
@@ -66,7 +66,7 @@ m4_define(mca_io_m4_config_component_list, [romio])
 m4_define(mca_mpool_no_config_component_list, [rdma, sm])
 m4_define(mca_mpool_m4_config_component_list, [])
 m4_define(mca_mtl_no_config_component_list, [])
-m4_define(mca_mtl_m4_config_component_list, [mx, psm])
+m4_define(mca_mtl_m4_config_component_list, [mx, portals, psm])
 m4_define(mca_osc_no_config_component_list, [pt2pt])
 m4_define(mca_osc_m4_config_component_list, [])
 m4_define(mca_pml_no_config_component_list, [cm, ob1])
@@ -645,6 +645,12 @@ dnl m4-configure component:
 dnl    ompi/mca/mtl/mx
 
 AC_CONFIG_FILES([ompi/mca/mtl/mx/Makefile])
+dnl ----------------------------------------------------------------
+
+dnl m4-configure component: 
+dnl    ompi/mca/mtl/portals
+
+AC_CONFIG_FILES([ompi/mca/mtl/portals/Makefile])
 dnl ----------------------------------------------------------------
 
 dnl m4-configure component: 

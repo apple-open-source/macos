@@ -1,8 +1,8 @@
 /* map.c - ldap backend mapping routines */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-meta/map.c,v 1.1.2.11 2006/01/03 22:16:20 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-meta/map.c,v 1.15.2.7 2008/02/11 23:26:47 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -57,6 +57,7 @@
 #include <ac/socket.h>
 
 #include "slap.h"
+#include "lutil.h"
 #include "../back-ldap/back-ldap.h"
 #include "back-meta.h"
 
@@ -90,19 +91,19 @@ ldap_back_map_init ( struct ldapmap *lm, struct ldapmapping **m )
 	assert( m != NULL );
 
 	*m = NULL;
-	
+
 	mapping = (struct ldapmapping *)ch_calloc( 2, 
 			sizeof( struct ldapmapping ) );
 	if ( mapping == NULL ) {
 		return;
 	}
 
-	ber_str2bv( "objectclass", sizeof("objectclass")-1, 1, &mapping->src);
-	ber_dupbv( &mapping->dst, &mapping->src );
-	mapping[1].src = mapping->src;
-	mapping[1].dst = mapping->dst;
+	ber_str2bv( "objectclass", STRLENOF("objectclass"), 1, &mapping[0].src);
+	ber_dupbv( &mapping[0].dst, &mapping[0].src );
+	mapping[1].src = mapping[0].src;
+	mapping[1].dst = mapping[0].dst;
 
-	avl_insert( &lm->map, (caddr_t)mapping, 
+	avl_insert( &lm->map, (caddr_t)&mapping[0], 
 			mapping_cmp, mapping_dup );
 	avl_insert( &lm->remap, (caddr_t)&mapping[1], 
 			mapping_cmp, mapping_dup );
@@ -120,6 +121,7 @@ ldap_back_mapping ( struct ldapmap *map, struct berval *s, struct ldapmapping **
 
 	if ( remap == BACKLDAP_REMAP ) {
 		tree = map->remap;
+
 	} else {
 		tree = map->map;
 	}
@@ -138,6 +140,13 @@ ldap_back_map ( struct ldapmap *map, struct berval *s, struct berval *bv,
 	int remap )
 {
 	struct ldapmapping *mapping;
+
+	/* map->map may be NULL when mapping is configured,
+	 * but map->remap can't */
+	if ( map->remap == NULL ) {
+		*bv = *s;
+		return;
+	}
 
 	BER_BVZERO( bv );
 	( void )ldap_back_mapping( map, s, &mapping, remap );
@@ -250,6 +259,15 @@ map_attr_value(
 			return -1;
 		}
 
+	} else if ( ad->ad_type->sat_equality->smr_usage & SLAP_MR_MUTATION_NORMALIZER ) {
+		if ( ad->ad_type->sat_equality->smr_normalize(
+			(SLAP_MR_DENORMALIZE|SLAP_MR_VALUE_OF_ASSERTION_SYNTAX),
+			NULL, NULL, value, &vtmp, NULL ) )
+		{
+			return -1;
+		}
+		freeval = 1;
+
 	} else if ( ad == slap_schema.si_ad_objectClass || ad == slap_schema.si_ad_structuralObjectClass ) {
 		ldap_back_map( &dc->target->mt_rwmap.rwm_oc, value, &vtmp, remap );
 		if ( BER_BVISNULL( &vtmp ) || BER_BVISEMPTY( &vtmp ) ) {
@@ -297,6 +315,9 @@ ldap_back_int_filter_map_rewrite(
 			ber_bvnone = BER_BVC( "(?=none)" );
 	ber_len_t	len;
 
+	assert( fstr != NULL );
+	BER_BVZERO( fstr );
+
 	if ( f == NULL ) {
 		ber_dupbv( fstr, &ber_bvnone );
 		return LDAP_OTHER;
@@ -315,7 +336,7 @@ ldap_back_int_filter_map_rewrite(
 		fstr->bv_val = malloc( fstr->bv_len + 1 );
 
 		snprintf( fstr->bv_val, fstr->bv_len + 1, "(%s=%s)",
-			atmp.bv_val, vtmp.bv_val );
+			atmp.bv_val, vtmp.bv_len ? vtmp.bv_val : "" );
 
 		ber_memfree( vtmp.bv_val );
 		break;
@@ -332,7 +353,7 @@ ldap_back_int_filter_map_rewrite(
 		fstr->bv_val = malloc( fstr->bv_len + 1 );
 
 		snprintf( fstr->bv_val, fstr->bv_len + 1, "(%s>=%s)",
-			atmp.bv_val, vtmp.bv_val );
+			atmp.bv_val, vtmp.bv_len ? vtmp.bv_val : "" );
 
 		ber_memfree( vtmp.bv_val );
 		break;
@@ -349,7 +370,7 @@ ldap_back_int_filter_map_rewrite(
 		fstr->bv_val = malloc( fstr->bv_len + 1 );
 
 		snprintf( fstr->bv_val, fstr->bv_len + 1, "(%s<=%s)",
-			atmp.bv_val, vtmp.bv_val );
+			atmp.bv_val, vtmp.bv_len ? vtmp.bv_val : "" );
 
 		ber_memfree( vtmp.bv_val );
 		break;
@@ -366,7 +387,7 @@ ldap_back_int_filter_map_rewrite(
 		fstr->bv_val = malloc( fstr->bv_len + 1 );
 
 		snprintf( fstr->bv_val, fstr->bv_len + 1, "(%s~=%s)",
-			atmp.bv_val, vtmp.bv_val );
+			atmp.bv_val, vtmp.bv_len ? vtmp.bv_val : "" );
 
 		ber_memfree( vtmp.bv_val );
 		break;
@@ -396,7 +417,7 @@ ldap_back_int_filter_map_rewrite(
 
 			snprintf( &fstr->bv_val[len - 2], vtmp.bv_len + 3,
 				/* "(attr=" */ "%s*)",
-				vtmp.bv_val );
+				vtmp.bv_len ? vtmp.bv_val : "" );
 
 			ber_memfree( vtmp.bv_val );
 		}
@@ -411,7 +432,7 @@ ldap_back_int_filter_map_rewrite(
 
 				snprintf( &fstr->bv_val[len - 1], vtmp.bv_len + 3,
 					/* "(attr=[init]*[any*]" */ "%s*)",
-					vtmp.bv_val );
+					vtmp.bv_len ? vtmp.bv_val : "" );
 				ber_memfree( vtmp.bv_val );
 			}
 		}
@@ -426,7 +447,7 @@ ldap_back_int_filter_map_rewrite(
 
 			snprintf( &fstr->bv_val[len - 1], vtmp.bv_len + 3,
 				/* "(attr=[init*][any*]" */ "%s)",
-				vtmp.bv_val );
+				vtmp.bv_len ? vtmp.bv_val : "" );
 
 			ber_memfree( vtmp.bv_val );
 		}
@@ -471,7 +492,7 @@ ldap_back_int_filter_map_rewrite(
 			fstr->bv_val = ch_realloc( fstr->bv_val, fstr->bv_len + 1 );
 
 			snprintf( &fstr->bv_val[len-1], vtmp.bv_len + 2, 
-				/*"("*/ "%s)", vtmp.bv_val );
+				/*"("*/ "%s)", vtmp.bv_len ? vtmp.bv_val : "" );
 
 			ch_free( vtmp.bv_val );
 		}
@@ -503,7 +524,7 @@ ldap_back_int_filter_map_rewrite(
 			f->f_mr_dnattrs ? ":dn" : "",
 			!BER_BVISEMPTY( &f->f_mr_rule_text ) ? ":" : "",
 			!BER_BVISEMPTY( &f->f_mr_rule_text ) ? f->f_mr_rule_text.bv_val : "",
-			vtmp.bv_val );
+			vtmp.bv_len ? vtmp.bv_val : "" );
 		ber_memfree( vtmp.bv_val );
 		break;
 
@@ -513,7 +534,7 @@ ldap_back_int_filter_map_rewrite(
 		/* FIXME: treat UNDEFINED as FALSE */
 		case SLAPD_COMPARE_UNDEFINED:
 computed:;
-			if ( dc->target->mt_flags & LDAP_BACK_F_SUPPORT_T_F ) {
+			if ( META_BACK_TGT_T_F( dc->target ) ) {
 				tmp = &ber_bvtf_false;
 				break;
 			}
@@ -521,7 +542,7 @@ computed:;
 			break;
 
 		case LDAP_COMPARE_TRUE:
-			if ( dc->target->mt_flags & LDAP_BACK_F_SUPPORT_T_F ) {
+			if ( META_BACK_TGT_T_F( dc->target ) ) {
 				tmp = &ber_bvtf_true;
 				break;
 			}

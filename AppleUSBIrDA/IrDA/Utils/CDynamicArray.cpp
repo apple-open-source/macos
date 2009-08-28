@@ -111,7 +111,7 @@ CDynamicArray::init(Size elementSize, ArrayIndex chunkSize)
 void
 CDynamicArray::free()
 {
-    XTRACE(kLogFree, (int)this >> 16, (short)this);
+    XTRACE(kLogFree, 0, (short)this);
     
     if (fIterator) {
 	fIterator->DeleteArray();
@@ -120,7 +120,7 @@ CDynamicArray::free()
     
     if (fArrayBlock) {
 	int len = ComputeByteCount(fAllocatedSize);
-	XTRACE(kLogIOFreeBuffer, (int)fArrayBlock >> 16, (short)fArrayBlock);
+	XTRACE(kLogIOFreeBuffer, 0, (short)fArrayBlock);
 	XTRACE(kLogIOFreeSize, len >> 16, (short)len);
 	IOFree( fArrayBlock, len);
 	fArrayBlock = nil;

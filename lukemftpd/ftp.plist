@@ -12,6 +12,7 @@
 	<array>
 		<string>ftpd</string>
 		<string>-l</string>
+		<string>-n</string>
 	</array>
 	<key>inetdCompatibility</key>
 	<dict>

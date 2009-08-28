@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1998-2004,2005 Free Software Foundation, Inc.              *
+ * Copyright (c) 1998-2006,2007 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -33,7 +33,7 @@
  ****************************************************************************/
 
 /*
- * $Id: tic.h,v 1.50 2005/08/20 19:41:40 tom Exp $
+ * $Id: tic.h,v 1.62 2007/08/11 16:12:43 tom Exp $
  *	tic.h - Global variables and structures for the terminfo
  *			compiler.
  */
@@ -76,6 +76,15 @@ extern "C" {
 */
 
 #define MAGIC		0432	/* first two bytes of a compiled entry */
+
+#undef  BYTE
+#define BYTE(p,n)	(unsigned char)((p)[n])
+
+#define IS_NEG1(p)	((BYTE(p,0) == 0377) && (BYTE(p,1) == 0377))
+#define IS_NEG2(p)	((BYTE(p,0) == 0376) && (BYTE(p,1) == 0377))
+#define LOW_MSB(p)	(BYTE(p,0) + 256*BYTE(p,1))
+
+#define IS_TIC_MAGIC(p)	(LOW_MSB(p) == MAGIC)
 
 /*
  * The "maximum" here is misleading; XSI guarantees minimum values, which a
@@ -155,16 +164,6 @@ struct token
 extern NCURSES_EXPORT_VAR(struct token)	_nc_curr_token;
 
 	/*
-	 * List of keynames with their corresponding code.
-	 */
-struct kn {
-	const char *name;
-	int code;
-};
-
-extern NCURSES_EXPORT_VAR(const struct kn) _nc_key_names[];
-
-	/*
 	 * Offsets to string capabilities, with the corresponding functionkey
 	 * codes.
 	 */
@@ -176,11 +175,11 @@ struct tinfo_fkeys {
 #if	BROKEN_LINKER
 
 #define	_nc_tinfo_fkeys	_nc_tinfo_fkeysf()
-extern NCURSES_EXPORT(struct tinfo_fkeys *) _nc_tinfo_fkeysf (void);
+extern NCURSES_EXPORT(const struct tinfo_fkeys *) _nc_tinfo_fkeysf (void);
 
 #else
 
-extern NCURSES_EXPORT_VAR(struct tinfo_fkeys) _nc_tinfo_fkeys[];
+extern NCURSES_EXPORT_VAR(const struct tinfo_fkeys) _nc_tinfo_fkeys[];
 
 #endif
 
@@ -205,14 +204,9 @@ struct alias
 	const char	*source;
 };
 
-extern NCURSES_EXPORT_VAR(const struct name_table_entry * const) _nc_info_hash_table[];
-extern NCURSES_EXPORT_VAR(const struct name_table_entry * const) _nc_cap_hash_table[];
-
-extern NCURSES_EXPORT_VAR(const struct alias) _nc_capalias_table[];
-extern NCURSES_EXPORT_VAR(const struct alias) _nc_infoalias_table[];
-
 extern NCURSES_EXPORT(const struct name_table_entry *) _nc_get_table (bool);
-extern NCURSES_EXPORT(const struct name_table_entry * const *) _nc_get_hash_table (bool);
+extern NCURSES_EXPORT(const short *) _nc_get_hash_table (bool);
+extern NCURSES_EXPORT(const struct alias *) _nc_get_alias_table (bool);
 
 #define NOTFOUND	((struct name_table_entry *) 0)
 
@@ -242,12 +236,15 @@ extern NCURSES_EXPORT(const struct name_table_entry * const *) _nc_get_hash_tabl
 
 /* access.c */
 extern NCURSES_EXPORT(unsigned) _nc_pathlast (const char *);
+extern NCURSES_EXPORT(bool) _nc_is_abs_path (const char *);
+extern NCURSES_EXPORT(bool) _nc_is_dir_path (const char *);
+extern NCURSES_EXPORT(bool) _nc_is_file_path (const char *);
 extern NCURSES_EXPORT(char *) _nc_basename (char *);
 extern NCURSES_EXPORT(char *) _nc_rootname (char *);
 
 /* comp_hash.c: name lookup */
 extern NCURSES_EXPORT(struct name_table_entry const *) _nc_find_entry
-	(const char *, const struct name_table_entry *const *);
+	(const char *, const short *);
 extern NCURSES_EXPORT(struct name_table_entry const *) _nc_find_type_entry
 	(const char *, int, const struct name_table_entry *);
 
@@ -286,6 +283,9 @@ extern NCURSES_EXPORT(int) _nc_trans_string (char *, char *);
 extern NCURSES_EXPORT(char *) _nc_captoinfo (const char *, const char *, int const);
 extern NCURSES_EXPORT(char *) _nc_infotocap (const char *, const char *, int const);
 
+/* home_terminfo.c */
+extern NCURSES_EXPORT(char *) _nc_home_terminfo (void);
+
 /* lib_tparm.c */
 #define NUM_PARM 9
 
@@ -299,8 +299,28 @@ extern NCURSES_EXPORT_VAR(int) _nc_nulls_sent;		/* Add one for every null sent *
 /* comp_main.c: compiler main */
 extern const char * _nc_progname;
 
-/* read_entry.c */
+/* db_iterator.c */
+typedef enum {
+    dbdTIC = 0,
+#if USE_DATABASE
+    dbdEnvOnce,
+    dbdHome,
+    dbdEnvList,
+    dbdCfgList,
+    dbdCfgOnce,
+#endif
+#if USE_TERMCAP
+    dbdEnvOnce2,
+    dbdEnvList2,
+    dbdCfgList2,
+#endif
+    dbdLAST
+} DBDIRS;
+
+extern NCURSES_EXPORT(const char *) _nc_next_db(DBDIRS *, int *);
 extern NCURSES_EXPORT(const char *) _nc_tic_dir (const char *);
+extern NCURSES_EXPORT(void) _nc_first_db(DBDIRS *, int *);
+extern NCURSES_EXPORT(void) _nc_last_db(void);
 
 /* write_entry.c */
 extern NCURSES_EXPORT(int) _nc_tic_written (void);

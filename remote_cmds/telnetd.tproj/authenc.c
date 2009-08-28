@@ -1,26 +1,3 @@
-/*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
 /*-
  * Copyright (c) 1991, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -54,29 +31,30 @@
  * SUCH DAMAGE.
  */
 
+#if 0
 #ifndef lint
-static char sccsid[] = "@(#)authenc.c	8.2 (Berkeley) 5/30/95";
-#endif /* not lint */
+static const char sccsid[] = "@(#)authenc.c	8.2 (Berkeley) 5/30/95";
+#endif
+#endif
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/contrib/telnet/telnetd/authenc.c,v 1.8 2003/05/04 02:54:49 obrien Exp $");
 
 #if	defined(AUTHENTICATION) || defined(ENCRYPTION)
 #include "telnetd.h"
 #include <libtelnet/misc.h>
 
-	int
-net_write(str, len)
-	unsigned char *str;
-	int len;
+int
+net_write(unsigned char *str, int len)
 {
 	if (nfrontp + len < netobuf + BUFSIZ) {
-		memmove((void *)nfrontp, (void *)str, len);
-		nfrontp += len;
+		output_datalen(str, len);
 		return(len);
 	}
 	return(0);
 }
 
-	void
-net_encrypt()
+void
+net_encrypt(void)
 {
 #ifdef	ENCRYPTION
 	char *s = (nclearto > nbackp) ? nclearto : nbackp;
@@ -87,28 +65,23 @@ net_encrypt()
 #endif /* ENCRYPTION */
 }
 
-	int
-telnet_spin()
+int
+telnet_spin(void)
 {
 	ttloop();
 	return(0);
 }
 
-	char *
-telnet_getenv(val)
-	char *val;
+char *
+telnet_getenv(char *val)
 {
-	extern char *getenv();
 	return(getenv(val));
 }
 
-	char *
-telnet_gets(prompt, result, length, echo)
-	char *prompt;
-	char *result;
-	int length;
-	int echo;
+char *
+telnet_gets(const char *prompt __unused, char *result __unused, int length __unused, int echo __unused)
 {
-	return((char *)0);
+	return(NULL);
 }
-#endif	/* defined(AUTHENTICATION) || defined(ENCRYPTION) */
+#endif	/* ENCRYPTION */
+#endif	/* AUTHENTICATION */

@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2005 Joe Orton <joe@manyfish.co.uk>    -*- autoconf -*-
+# Copyright (C) 1998-2005, 2007 Joe Orton <joe@manyfish.co.uk>    -*- autoconf -*-
 #
 # This file is free software; you may copy and/or distribute it with
 # or without modifications, as long as this notice is preserved.
@@ -13,7 +13,7 @@
 
 # This file is part of the neon HTTP/WebDAV client library.
 # See http://www.webdav.org/neon/ for the latest version. 
-# Please send any feedback to <neon@webdav.org>
+# Please send any feedback to <neon@lists.manyfish.co.uk>
 
 # Check for XML parser, supporting libxml 2.x and expat 1.95.x,
 # or a bundled copy of expat.
@@ -35,6 +35,10 @@ AC_CHECK_HEADER(expat.h,
     neon_xml_parser_message="expat"
     NEON_LIBS="$NEON_LIBS -lexpat"
     neon_xml_parser=expat
+    AC_CHECK_TYPE(XML_Size, 
+      [NEON_FORMAT(XML_Size, [#include <expat.h>])],
+      [AC_DEFINE_UNQUOTED([NE_FMT_XML_SIZE], ["d"])],
+      [#include <expat.h>])
   ], [$1])], [$1])
 ])
 
@@ -69,6 +73,8 @@ fi
 
 # mini-expat doesn't pick up config.h
 CPPFLAGS="$CPPFLAGS -DXML_BYTE_ORDER=$ne_xml_border -DXML_DTD -I$1/xmlparse -I$1/xmltok"
+
+AC_DEFINE_UNQUOTED([NE_FMT_XML_SIZE], ["d"])
 
 # Use the bundled expat sources
 AC_LIBOBJ($2/xmltok/xmltok)
@@ -109,6 +115,7 @@ if test "$NEON_NEED_XML_PARSER" = "yes"; then
        # Special case for Subversion
        ne_expdir=`echo $with_expat | sed 's:/libexpat.la$::'`
        AC_DEFINE(HAVE_EXPAT)
+       AC_DEFINE_UNQUOTED([NE_FMT_XML_SIZE], ["d"])
        CPPFLAGS="$CPPFLAGS -I$ne_expdir"
        if test "x${NEON_TARGET}" = "xlibneon.la"; then
          NEON_LTLIBS=$with_expat

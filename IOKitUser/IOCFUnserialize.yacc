@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -70,7 +70,7 @@
 
 #define YYSTYPE object_t *
 #define YYPARSE_PARAM	state
-#define YYLEX_PARAM	state
+#define YYLEX_PARAM	(parser_state_t *)state
 
 // this is the internal struct used to hold objects on parser stack
 // it represents objects both before and after they have been created
@@ -105,10 +105,9 @@ typedef struct parser_state {
 
 #undef yyerror 	
 #define yyerror(s)	IOCFUnserializeerror(STATE, (s))
-static int		IOCFUnserializeerror(parser_state_t *state, char *s);
+static int		IOCFUnserializeerror(parser_state_t *state, const char *s);
 
 static int		yylex(YYSTYPE *lvalp, parser_state_t *state);
-static int		yyparse(void * state);
 
 static object_t 	*newObject(parser_state_t *state);
 static void 		freeObject(parser_state_t *state, object_t *o);
@@ -186,7 +185,7 @@ pairs:	  pair
 	;
 
 pair:	  key object		{ $$ = $1;
-				  $$->key = $$->object;
+				  $$->key = (CFStringRef)$$->object;
 				  $$->object = $2->object;
 				  $$->next = NULL; 
 				  $2->object = 0;
@@ -245,7 +244,7 @@ string:	  STRING
 %%
 
 int
-IOCFUnserializeerror(parser_state_t * state, char *s)  /* Called by yyparse on errors */
+IOCFUnserializeerror(parser_state_t * state, const char *s)  /* Called by yyparse on errors */
 {
     if (state->errorString) {
 	*(state->errorString) = CFStringCreateWithFormat(state->allocator, NULL, 
@@ -262,7 +261,7 @@ IOCFUnserializeerror(parser_state_t * state, char *s)  /* Called by yyparse on e
 #define TAG_START		1
 #define TAG_END			2
 #define TAG_EMPTY		3
-#define TAG_COMMENT		4
+#define TAG_IGNORE		4
 
 #define currentChar()	(state->parseBuffer[state->parseBufferIndex])
 #define nextChar()	(state->parseBuffer[++state->parseBufferIndex])
@@ -291,16 +290,50 @@ getTag(parser_state_t *state,
 	if (c != '<') return TAG_BAD;
         c = nextChar();		// skip '<'
 
-        if (c == '?' || c == '!') {
+
+	// <!TAG   declarations     >
+	// <!--     comments      -->
+        if (c == '!') {
+	    c = nextChar();  
+	    bool isComment = (c == '-') && ((c = nextChar()) != 0) && (c == '-');
+	    if (!isComment && !isAlpha(c)) return TAG_BAD;   // <!1, <!-A, <!eos
+
+	    while (c && (c = nextChar()) != 0) {
+		if (c == '\n') state->lineNumber++;
+		if (isComment) {
+		    if (c != '-') continue;
+		    c = nextChar();
+		    if (c != '-') continue;
+		    c = nextChar();
+		}
+		if (c == '>') {
+		    (void)nextChar();
+		    return TAG_IGNORE;
+		}
+		if (isComment) break;
+	    }
+	    return TAG_BAD;
+	}
+
+	else
+
+	// <? Processing Instructions  ?>
+        if (c == '?') {
                 while ((c = nextChar()) != 0) {
                         if (c == '\n') state->lineNumber++;
+		if (c != '?') continue;
+			c = nextChar();
                         if (c == '>') {
                                 (void)nextChar();
-                                return TAG_COMMENT;
+		    return TAG_IGNORE;
                         }
                 }
+	    return TAG_BAD;
         }
 
+	else
+
+	// </ end tag >    
 	if (c == '/') {
 		c = nextChar();		// skip '/'
 		tagType = TAG_END;
@@ -579,7 +612,7 @@ yylex(YYSTYPE *lvalp, parser_state_t *state)
 
 	tagType = getTag(STATE, tag, &attributeCount, attributes, values);
 	if (tagType == TAG_BAD) return SYNTAX_ERROR;
-	if (tagType == TAG_COMMENT) goto top;
+	if (tagType == TAG_IGNORE) goto top;
 
 	// handle allocation and check for "ID" and "IDREF" tags up front
 	*lvalp = object = newObject(STATE);

@@ -52,7 +52,7 @@
         [RefreshCheckBox setState:NSOnState];
 //enable/disable button        [RefreshButton setEnabled:NO];
     }
-
+    
     if ([[NSUserDefaults standardUserDefaults] boolForKey:@"BusProbeSuspended"] == YES) {
         [SuspendCheckBox setState:NSOnState];
 //enable/disable button        [RefreshButton setEnabled:YES];

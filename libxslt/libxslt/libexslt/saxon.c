@@ -221,6 +221,7 @@ exsltSaxonLineNumberFunction(xmlXPathParserContextPtr ctxt, int nargs) {
 	if ((nodelist == NULL) || (nodelist->nodeNr <= 0)) {
 	    xmlXPathFreeObject(obj);
 	    valuePush(ctxt, xmlXPathNewFloat(-1));
+	    return;
 	}
 	cur = nodelist->nodeTab[0];
 	for (i = 1;i < nodelist->nodeNr;i++) {

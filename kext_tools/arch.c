@@ -29,7 +29,6 @@
 #include <mach-o/arch.h>
 #include <mach-o/fat.h>
 #include <mach-o/loader.h>
-#include <architecture/byte_order.h>
 
 
 /*
@@ -53,27 +52,26 @@ cpusubtype_findbestarch(
     unsigned long archi, nfat_archs;
     struct fat_arch *first_arch, *arch, *found_arch;
 
-    nfat_archs = NXSwapBigLongToHost(fat->nfat_arch);
+    nfat_archs = OSSwapBigToHostInt32(fat->nfat_arch);
     arch = (struct fat_arch *)((char *)fat + sizeof(struct fat_header));
-    if ( (u_int8_t *) fat + size < (u_int8_t *)  &arch[nfat_archs])
+    if ( (u_int8_t *) fat + size < (u_int8_t *)  &arch[nfat_archs]) {
         return NULL;
+    }
 
     first_arch = malloc(nfat_archs * sizeof(struct fat_arch));
     memcpy(first_arch, arch, nfat_archs * sizeof(struct fat_arch));
 	
-    /*
-      * Also convert to host endianness as we go through the list
-     */
+   /* Also convert to host endianness as we go through the list
+    */
     for (archi = 0, arch = first_arch; archi < nfat_archs; archi++, arch++) {
-        arch->cputype = NXSwapBigIntToHost(arch->cputype);
-        arch->cpusubtype = NXSwapBigIntToHost(arch->cpusubtype);
+        arch->cputype = OSSwapBigToHostInt32(arch->cputype);
+        arch->cpusubtype = OSSwapBigToHostInt32(arch->cpusubtype);
      }
 
 	found_arch = NXFindBestFatArch(cputype, cpusubtype, first_arch, nfat_archs);
 
 	free(first_arch);
-	if(found_arch)
-	{
+	if(found_arch) {
 		//found_arch points into the temporary host endian copy that we just freed...
 		//calculate the location in the original array and return that.
 		arch = (struct fat_arch *)((char *)fat + sizeof(struct fat_header));
@@ -82,8 +80,7 @@ cpusubtype_findbestarch(
 	return NULL;
 }
 
-__private_extern__ void
-find_arch(
+void find_arch(
     u_int8_t **dataP,
     off_t *sizeP,
     cpu_type_t cputype,
@@ -119,15 +116,15 @@ find_arch(
     if (is_mh) {
         fat_hdr = &fakeHeader.hdr;
         fakeHeader.hdr.magic = FAT_MAGIC;
-        fakeHeader.hdr.nfat_arch = NXSwapHostLongToBig(1);
-        fakeHeader.arch.offset = NXSwapHostIntToBig(0);
-        fakeHeader.arch.size = NXSwapHostLongToBig((long) filesize);
+        fakeHeader.hdr.nfat_arch = OSSwapHostToBigInt32(1);
+        fakeHeader.arch.offset = OSSwapHostToBigInt32(0);
+        fakeHeader.arch.size = OSSwapHostToBigInt32((long) filesize);
 	if (is_hm) {
-	    fakeHeader.arch.cputype = NXSwapHostLongToLittle(mach_hdr->cputype);
-	    fakeHeader.arch.cpusubtype = NXSwapHostLongToLittle(mach_hdr->cpusubtype);
+	    fakeHeader.arch.cputype = OSSwapHostToLittleInt32(mach_hdr->cputype);
+	    fakeHeader.arch.cpusubtype = OSSwapHostToLittleInt32(mach_hdr->cpusubtype);
 	} else {
-	    fakeHeader.arch.cputype = NXSwapHostIntToBig(mach_hdr->cputype);
-	    fakeHeader.arch.cpusubtype = NXSwapHostIntToBig(mach_hdr->cpusubtype);
+	    fakeHeader.arch.cputype = OSSwapHostToBigInt32(mach_hdr->cputype);
+	    fakeHeader.arch.cpusubtype = OSSwapHostToBigInt32(mach_hdr->cpusubtype);
 	}
     }
 
@@ -139,8 +136,8 @@ find_arch(
 
     /* Return our results. */
     if (best_arch) {
-        if (sizeP) *sizeP = NXSwapBigLongToHost(best_arch->size);
-        if (dataP) *dataP = data_ptr + NXSwapBigLongToHost(best_arch->offset);
+        if (sizeP) *sizeP = OSSwapBigToHostInt32(best_arch->size);
+        if (dataP) *dataP = data_ptr + OSSwapBigToHostInt32(best_arch->offset);
     } else {
         if (sizeP) *sizeP = 0;
         if (dataP) *dataP = 0;

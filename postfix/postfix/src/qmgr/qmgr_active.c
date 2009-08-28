@@ -107,6 +107,10 @@
 #include <rec_type.h>
 #include <qmgr_user.h>
 
+#ifdef __APPLE_OS_X_SERVER__
+#include <dtrace-postfix.h>
+#endif
+
 /* Application-specific. */
 
 #include "qmgr.h"
@@ -130,8 +134,6 @@ static void qmgr_active_corrupt(const char *queue_id)
 	if (errno != ENOENT)
 	    msg_fatal("%s: save corrupt file queue %s id %s: %m",
 		      myname, MAIL_QUEUE_ACTIVE, queue_id);
-	msg_warn("%s: save corrupt file queue %s id %s: %m",
-		 myname, MAIL_QUEUE_ACTIVE, queue_id);
     } else {
 	msg_warn("saving corrupt file \"%s\" from queue \"%s\" to queue \"%s\"",
 		 queue_id, MAIL_QUEUE_ACTIVE, MAIL_QUEUE_CORRUPT);
@@ -531,6 +533,11 @@ static void qmgr_active_done_3_generic(QMGR_MESSAGE *message)
 	} else {
 	    /* Same format as logged by postsuper. */
 	    msg_info("%s: removed", message->queue_id);
+
+#ifdef __APPLE_OS_X_SERVER__
+	    if (POSTFIX_SMTP_DEQUEUE_ENABLED())
+		POSTFIX_SMTP_DEQUEUE(message);
+#endif
 	}
     }
 

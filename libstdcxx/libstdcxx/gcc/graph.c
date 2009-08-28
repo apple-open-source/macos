@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include <config.h>
 #include "system.h"
@@ -247,9 +247,9 @@ print_rtl_graph_with_bb (const char *base, rtx rtx_first)
     {
       enum bb_state { NOT_IN_BB, IN_ONE_BB, IN_MULTIPLE_BB };
       int max_uid = get_max_uid ();
-      int *start = xmalloc (max_uid * sizeof (int));
-      int *end = xmalloc (max_uid * sizeof (int));
-      enum bb_state *in_bb_p = xmalloc (max_uid * sizeof (enum bb_state));
+      int *start = XNEWVEC (int, max_uid);
+      int *end = XNEWVEC (int, max_uid);
+      enum bb_state *in_bb_p = XNEWVEC (enum bb_state, max_uid);
       basic_block bb;
       int i;
 

@@ -33,12 +33,6 @@ extern "C"
 
 #include "IONDRV.h"
 
-enum
-{ 
-    kDate2001March1	= 0xb6c49300,
-    kIOPEFMinROMDate	= kDate2001March1 
-};
-
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 OSDefineMetaClassAndAbstractStructors(IONDRV, OSObject)
@@ -46,6 +40,25 @@ OSDefineMetaClassAndAbstractStructors(IONDRV, OSObject)
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #if __ppc__
+
+enum
+{ 
+    kDate2001March1	= 0xb6c49300,
+    kIOPEFMinROMDate	= kDate2001March1 
+};
+
+class IOPEFContainer : public OSData
+{
+    OSDeclareDefaultStructors(IOPEFContainer)
+
+    OSData * fContainer;
+    OSData * fDescription;
+
+public:
+    static IOPEFContainer * withData(OSData * data, OSData * description);
+    virtual void free( void );
+    virtual bool serialize(OSSerialize *s) const;
+};
 
 #include "IOPEFLoader.h"
 
@@ -56,6 +69,78 @@ static OSArray * gIOPEFContainers;
 
 #define super IONDRV
 OSDefineMetaClassAndStructorsWithInit(IOPEFNDRV, IONDRV, IOPEFNDRV::initialize());
+
+#pragma options align=mac68k
+
+struct CntrlParam {
+    void *                          qLink;
+    short                           qType;
+    short                           ioTrap;
+    void *                          ioCmdAddr;
+    void *                          ioCompletion;
+    short                           ioResult;
+    char *                          ioNamePtr;
+    short                           ioVRefNum;
+    short                           ioCRefNum;
+    short                           csCode;
+    void *                          csParams;
+    short                           csParam[9];
+};
+typedef struct CntrlParam CntrlParam, *CntrlParamPtr;
+#pragma options align=reset
+
+typedef SInt16	DriverRefNum;
+
+enum {
+    kOpenCommand                = 0,
+    kCloseCommand               = 1,
+    kReadCommand                = 2,
+    kWriteCommand               = 3,
+    kControlCommand             = 4,
+    kStatusCommand              = 5,
+    kKillIOCommand              = 6,
+    kInitializeCommand          = 7,                            /* init driver and device*/
+    kFinalizeCommand            = 8,                            /* shutdown driver and device*/
+    kReplaceCommand             = 9,                            /* replace an old driver*/
+    kSupersededCommand          = 10                            /* prepare to be replaced by a new driver*/
+};
+enum {
+    kSynchronousIOCommandKind   = 0x00000001,
+    kAsynchronousIOCommandKind  = 0x00000002,
+    kImmediateIOCommandKind     = 0x00000004
+};
+struct DriverInitInfo {
+	DriverRefNum	refNum;
+	RegEntryID		deviceEntry;
+};
+typedef struct DriverInitInfo DriverInitInfo; 
+
+typedef DriverInitInfo *			DriverInitInfoPtr;
+typedef DriverInitInfo				DriverReplaceInfo;
+typedef DriverInitInfo *			DriverReplaceInfoPtr;
+
+struct DriverFinalInfo {
+	DriverRefNum	refNum;
+	RegEntryID	deviceEntry;
+};
+typedef struct DriverFinalInfo DriverFinalInfo; 
+typedef DriverFinalInfo *			DriverFinalInfoPtr;
+typedef DriverFinalInfo				DriverSupersededInfo;
+typedef DriverFinalInfo *			DriverSupersededInfoPtr;
+
+// Contents are command specific
+union ParamBlockRec;
+typedef union ParamBlockRec ParamBlockRec;
+typedef ParamBlockRec *ParmBlkPtr;
+
+union IOCommandContents {
+	ParmBlkPtr				pb;
+	DriverInitInfoPtr		initialInfo;
+	DriverFinalInfoPtr		finalInfo;
+	DriverReplaceInfoPtr	replaceInfo;
+	DriverSupersededInfoPtr	supersededInfo;
+};
+typedef union IOCommandContents IOCommandContents; 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -79,8 +164,10 @@ IOPEFNDRV * IOPEFNDRV::instantiate( IORegistryEntry * regEntry,
     char * 	name;
     IOByteCount	plen;
     UInt32	createDate;
+#if CREATE_PEF_KMOD
     char	kmodName[KMOD_MAX_NAME * 2];
     char	kmodVers[KMOD_MAX_NAME];
+#endif
 
     inst = new IOPEFNDRV;
 
@@ -118,7 +205,6 @@ IOPEFNDRV * IOPEFNDRV::instantiate( IORegistryEntry * regEntry,
 				    (IOLogicalAddress *) &inst->fDriverDesc);
             if (err)
                 continue;
-
 	    name = (char *) inst->fDriverDesc->driverOSRuntimeInfo.driverName;
 	    plen = name[ 0 ];
 	    if (plen >= sizeof(inst->fDriverDesc->driverOSRuntimeInfo.driverName))
@@ -129,6 +215,8 @@ IOPEFNDRV * IOPEFNDRV::instantiate( IORegistryEntry * regEntry,
 #else
 	    sprintf( inst->fName + plen, "-%08lx", *((UInt32 *) &inst->fDriverDesc->driverType.version));
 #endif
+
+#if CREATE_PEF_KMOD
             name = (char *) inst->fDriverDesc->driverType.nameInfoStr;
             plen = name[ 0 ];
             if (plen >= sizeof(inst->fDriverDesc->driverType.nameInfoStr))
@@ -183,11 +271,13 @@ IOPEFNDRV * IOPEFNDRV::instantiate( IORegistryEntry * regEntry,
 
             if (KERN_SUCCESS != kmod_create_fake_with_address(
                     kmodName, kmodVers,
-                    round_page_32((vm_address_t) container), 
-                    trunc_page_32((vm_size_t) container + containerSize) 
-                        - round_page_32((vm_address_t) container),
+                    round_page((vm_address_t) container), 
+                    trunc_page((vm_size_t) container + containerSize) 
+                        - round_page((vm_address_t) container),
                     &inst->fKModID))
                 inst->fKModID = 0;
+#endif /* CREATE_PEF_KMOD */
+
         }
         while (false);
     }
@@ -202,9 +292,10 @@ IOPEFNDRV * IOPEFNDRV::instantiate( IORegistryEntry * regEntry,
 
 void IOPEFNDRV::free( void )
 {
-
+#if CREATE_PEF_KMOD
     if (fKModID)
         kmod_destroy_fake(fKModID);
+#endif
 
     if (fPEFInst)
         PCodeClose( fPEFInst );
@@ -422,14 +513,4 @@ const char * IOPEFNDRV::driverName( void )
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-#else  /* __ppc__ */
-
-IOPEFNDRV * IOPEFNDRV::fromRegistryEntry( IORegistryEntry * regEntry,
-				       OSData * newData,
-                                       IONDRVUndefinedSymbolHandler handler,
-                                       void * self )
-{
-    return (0);
-}
-
-#endif /* !__ppc__ */
+#endif /* __ppc__ */

@@ -2,13 +2,20 @@ echo Setting up the environment for debugging gdb.\n
 
 set complaints 1
 
-b internal_error
+# APPLE LOCAL: I switched the order of these breakpoints.  For some reason
+# if the FIRST breakpoint succeeds, then you don't error out when the 
+# second one fails.  libSystem got an internal_error function in
+# SnowLeopard, so this was going all the way through in the target 
+# program.  Note, this is in general a REALLY hacky way to make the
+# .gdbinit work only for the gdb you're debugging, and not the inferior.
 
 b info_command
 commands
 	silent
 	return
 end
+
+b internal_error
 
 dir @srcdir@/../libiberty
 dir @srcdir@/../bfd

@@ -1,8 +1,0 @@
-/*! @framework Device Drivers (Kernel/IOKit)
-    @abstract
-    @discussion The I/O Kit library  provides the APIs and support for
-	kernel-resident device drivers. It defines the base class for device
-	drivers (IOService), several helper classes, and the families
-	supporting many types of devices. The header files of the I/O Kit
-	library are packaged in the Kernel framework
- */

@@ -1,12 +1,11 @@
 /*
 **********************************************************************
-*   Copyright (C) 1999-2004, International Business Machines
+*   Copyright (C) 1999-2007, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *
-*   uconv_cnv.h:
-*   defines all the low level conversion functions
-*   T_UnicodeConverter_{to,from}Unicode_$ConversionType
+*   ucnv_cnv.h:
+*   Definitions for converter implementations.
 *
 * Modification History:
 *
@@ -105,6 +104,23 @@ typedef void (*UConverterToUnicode) (UConverterToUnicodeArgs *, UErrorCode *);
 typedef void (*UConverterFromUnicode) (UConverterFromUnicodeArgs *, UErrorCode *);
 
 /*
+ * Converter implementation function for ucnv_convertEx(), for direct conversion
+ * between two charsets without pivoting through UTF-16.
+ * The rules are the same as for UConverterToUnicode and UConverterFromUnicode.
+ * In addition,
+ * - The toUnicode side must behave and keep state exactly like the
+ *   UConverterToUnicode implementation for the same source charset.
+ * - A U_USING_DEFAULT_WARNING can be set to request to temporarily fall back
+ *   to pivoting. When this function is called, the conversion framework makes
+ *   sure that this warning is not set on input.
+ * - Continuing a partial match and flushing the toUnicode replay buffer
+ *   are handled by pivoting, using the toUnicode and fromUnicode functions.
+ */
+typedef void (*UConverterConvert) (UConverterFromUnicodeArgs *pFromUArgs,
+                                   UConverterToUnicodeArgs *pToUArgs,
+                                   UErrorCode *pErrorCode);
+
+/*
  * Converter implementation function for ucnv_getNextUChar().
  * If the function pointer is NULL, then the toUnicode function will be used.
  *
@@ -158,6 +174,19 @@ typedef UConverter * (*UConverterSafeClone) (const UConverter   *cnv,
                                              void               *stackBuffer,
                                              int32_t            *pBufferSize, 
                                              UErrorCode         *status);
+
+/**
+ * Filters for some ucnv_getUnicodeSet() implementation code.
+ */
+typedef enum UConverterSetFilter {
+    UCNV_SET_FILTER_NONE,
+    UCNV_SET_FILTER_DBCS_ONLY,
+    UCNV_SET_FILTER_2022_CN,
+    UCNV_SET_FILTER_SJIS,
+    UCNV_SET_FILTER_GR94DBCS,
+    UCNV_SET_FILTER_HZ,
+    UCNV_SET_FILTER_COUNT
+} UConverterSetFilter;
 
 /**
  * Fills the set of Unicode code points that can be converted by an ICU converter.
@@ -214,6 +243,9 @@ struct UConverterImpl {
     UConverterWriteSub writeSub;
     UConverterSafeClone safeClone;
     UConverterGetUnicodeSet getUnicodeSet;
+
+    UConverterConvert toUTF8;
+    UConverterConvert fromUTF8;
 };
 
 extern const UConverterSharedData

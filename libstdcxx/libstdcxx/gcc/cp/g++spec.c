@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -113,7 +113,7 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
   argv = *in_argv;
   added_libraries = *in_added_libraries;
 
-  args = xcalloc (argc, sizeof (int));
+  args = XCNEWVEC (int, argc);
 
   for (i = 1; i < argc; i++)
     {
@@ -149,19 +149,19 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
 	    saw_verbose_flag = 1;
 	  else if (strncmp (argv[i], "-x", 2) == 0)
 	    {
-	      if (library == 0)
-		{
-		  const char * arg;
-		  if (argv[i][2] != '\0')
-		    arg = argv[i]+2;
-		  else if (argv[i+1] != NULL)
-		    arg = argv[i+1];
-		  else  /* Error condition, message will be printed later.  */
-		    arg = "";
-		  if (strcmp (arg, "c++") == 0
-		      || strcmp (arg, "c++-cpp-output") == 0)
-		    library = 1;
-		}
+	      const char * arg;
+	      if (argv[i][2] != '\0')
+		arg = argv[i]+2;
+	      else if ((argv[i+1]) != NULL)
+		/* We need to swallow arg on next loop.  */
+		quote = arg = argv[i+1];
+  	      else  /* Error condition, message will be printed later.  */
+		arg = "";
+	      if (library == 0
+		  && (strcmp (arg, "c++") == 0
+		      || strcmp (arg, "c++-cpp-output") == 0))
+		library = 1;
+		
 	      saw_speclang = 1;
 	    }
 	  /* Arguments that go directly to the linker might be .o files,
@@ -190,7 +190,7 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
 		 cause a warning.  */
 	      library = -1;
 	    }
-	  else if (strcmp (argv[i], "-static-libgcc") == 0 
+	  else if (strcmp (argv[i], "-static-libgcc") == 0
 		   || strcmp (argv[i], "-static") == 0)
 	    shared_libgcc = 0;
 	  else if (DEFAULT_WORD_SWITCH_TAKES_ARG (&argv[i][1]))
@@ -201,7 +201,7 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
 	}
       else
 	{
-	  int len; 
+	  int len;
 
 	  if (saw_speclang)
 	    {
@@ -213,7 +213,7 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
 	     But not if a specified -x option is currently active.  */
 	  len = strlen (argv[i]);
 	  if (len > 2
-	      && (argv[i][len - 1] == 'c' 
+	      && (argv[i][len - 1] == 'c'
 		  || argv[i][len - 1] == 'i'
 		  || argv[i][len - 1] == 'h')
 	      && argv[i][len - 2] == '.')
@@ -221,7 +221,7 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
 	      args[i] |= LANGSPEC;
 	      added += 2;
 	    }
-	  
+
 	  /* If we don't know that this is a header file, we might
 	     need to be linking in the libraries.  */
 	  if (library == 0)
@@ -252,11 +252,11 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
 
   /* Make sure to have room for the trailing NULL argument.  */
   num_args = argc + added + need_math + shared_libgcc + (library > 0) + 1;
-  arglist = xmalloc (num_args * sizeof (char *));
+  arglist = XNEWVEC (const char *, num_args);
 
   i = 0;
   j = 0;
-  
+
   /* Copy the 0th argument, i.e., the name of the program itself.  */
   arglist[i++] = argv[j++];
 
@@ -343,9 +343,3 @@ int lang_specific_pre_link (void)  /* Not used for C++.  */
 
 /* Number of extra output files that lang_specific_pre_link may generate.  */
 int lang_specific_extra_outfiles = 0;  /* Not used for C++.  */
-
-/* Table of language-specific spec functions.  */ 
-const struct spec_function lang_specific_spec_functions[] =
-{
-  { 0, 0 }
-};

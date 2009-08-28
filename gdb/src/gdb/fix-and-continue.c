@@ -57,11 +57,8 @@
 #include <readline/readline.h>
 #include "osabi.h"
 #include "exceptions.h"
+#include "filenames.h"
 
-#if defined (TARGET_POWERPC)
-#include "ppc-macosx-frameinfo.h"
-#include "ppc-macosx-tdep.h"
-#endif
 #if defined (TARGET_I386)
 #include "i386-tdep.h"
 #endif
@@ -147,7 +144,6 @@ struct fixinfo {
   const char *src_basename;
   const char *bundle_filename;
   const char *bundle_basename;
-  const char *object_filename;
 
   /* The original objfile (original_objfile_filename) and source file
      (canonical_source_filename) that this fixinfo structure represents.
@@ -265,12 +261,6 @@ static void redirect_old_function (struct fixinfo *, struct symbol *, struct sym
 
 CORE_ADDR decode_fix_and_continue_trampoline (CORE_ADDR);
 
-#if defined (TARGET_POWERPC)
-static uint16_t encode_lo16 (CORE_ADDR);
-static uint16_t encode_hi16 (CORE_ADDR);
-static CORE_ADDR decode_hi16_lo16 (uint16_t, uint16_t);
-#endif
-
 static int in_active_func (const char *, struct active_threads *);
 
 static struct active_func *create_current_active_funcs_list (const char *);
@@ -314,13 +304,7 @@ static void mark_previous_fixes_obsolete (struct fixinfo *);
 
 static const char *getbasename (const char *);
 
-static int inferior_is_zerolinked_p (void);
-
-static void tell_zerolink (struct fixinfo *);
-
 static void print_active_functions (struct fixinfo *);
-
-static struct objfile *find_objfile_by_name (const char *);
 
 static struct symtab *find_symtab_by_name (struct objfile *, const char *);
 
@@ -354,7 +338,7 @@ static void
 fix_command (char *args, int from_tty)
 {
   char **argv;
-  char *object_filename, *source_filename, *bundle_filename;
+  char *source_filename, *bundle_filename;
   struct cleanup *cleanups;
   const char *usage = "Usage: fix bundle-filename source-filename [object-filename]";
 
@@ -383,11 +367,10 @@ fix_command (char *args, int from_tty)
       !bundle_filename || strlen (bundle_filename) == 0)
     error ("%s", usage);
 
-  /* Get third argument:  Object file name (only needed for ZeroLink) */
+  /* Ignore the third argument:  Object file name
+     This was needed for ZeroLink suport back when ZeroLink existed.  */
 
-  object_filename = argv[2];
-
-  fix_command_1 (source_filename, bundle_filename, object_filename, NULL);
+  fix_command_1 (source_filename, bundle_filename, NULL);
 
   if (!ui_out_is_mi_like_p (uiout) && from_tty)
     {
@@ -405,7 +388,6 @@ fix_command (char *args, int from_tty)
 void
 fix_command_1 (const char *source_filename,
                const char *bundle_filename,
-               const char *object_filename,
                const char *solib_filename)
 {
   struct fixinfo *cur;
@@ -418,13 +400,6 @@ fix_command_1 (const char *source_filename,
   if (source_filename == NULL || *source_filename == '\0' ||
       bundle_filename == NULL || *bundle_filename == '\0')
     error ("Source or bundle filename not provided.");
-
-  /* object_filename and bundle_filename are needed in certain circumstances;
-     F&C can potentially work without them.  Canonicalize them to NULL if 
-     they're empty. */
-
-  if (object_filename && *object_filename == '\0')
-    object_filename = NULL;
 
   if (bundle_filename && *bundle_filename == '\0')
     bundle_filename = NULL;
@@ -458,13 +433,19 @@ fix_command_1 (const char *source_filename,
   if (bundle_filename == NULL)
     error ("Bundle filename not found.");
   
-  if (object_filename && *object_filename != '\0')
-    object_filename = tilde_expand (object_filename);
-  else
-    object_filename = NULL;
-  
   if (solib_filename)
     {
+      /* Maybe we were passed in just the tail end of the name, e.g.
+           Jabber.FireBundle/Contents/MacOS/Jabber
+         so do a non-exact search through the objfiles before we go
+         realpathing it and such.  */
+      if (!IS_ABSOLUTE_PATH (solib_filename))
+        {
+          struct objfile *o = find_objfile_by_name (solib_filename, 0);
+          if (o && o->name)
+          solib_filename = o->name;
+        }
+
       fn = tilde_expand (solib_filename);
       if (fn)
         {
@@ -487,13 +468,10 @@ fix_command_1 (const char *source_filename,
   if (!file_exists_p (bundle_filename))
     error ("Bundle '%s' not found.", bundle_filename);
 
-  if (object_filename && !file_exists_p (object_filename))
-    error ("Object '%s' not found.", object_filename);
-
   if (solib_filename && !file_exists_p (solib_filename))
     error ("Dylib/executable '%s' not found.", solib_filename);
 
-  if (find_objfile_by_name (bundle_filename))
+  if (find_objfile_by_name (bundle_filename, 1))
     error ("Bundle '%s' has already been loaded.", bundle_filename);
 
   wipe = set_current_language (source_filename);
@@ -505,14 +483,11 @@ fix_command_1 (const char *source_filename,
   cur = get_fixinfo_for_new_request (source_filename);
   cur->bundle_filename = bundle_filename;
   cur->bundle_basename = getbasename (bundle_filename);
-  cur->object_filename = object_filename;
-
-  tell_zerolink (cur);
 
   /* Make sure the original objfile that we're 'fixing'
      has its load level set so debug info is being read in.. */
   if (solib_filename)
-    raise_objfile_load_level (find_objfile_by_name (solib_filename));
+    raise_objfile_load_level (find_objfile_by_name (solib_filename, 1));
 
   find_original_object_file_name (cur);
 
@@ -529,117 +504,6 @@ fix_command_1 (const char *source_filename,
   do_cleanups (wipe);
 }
 
-/* If the inferior process is a zerolinked executible, and the object
-   file that we're about to replace hasn't yet been loaded in, we need
-   to reference a symbol from the file and get ZL to map in the original
-   objfile before we load the fixed version.  */
-
-/* SPI for __zero_link_force_link_object_file() return value: */
-
-enum ZLObjectFileResult {
-  zlObjectFileUnknown	      = 0,
-  zlObjectFileBeingLinked     = 1,
-  zlObjectFileAlreadyLinked   = 2,
-  zlObjectFileJustLinked      = 3,
-};
-
-static void
-tell_zerolink (struct fixinfo *cur)
-{
-  static struct cached_value *cached_zl_force_link_object_file = NULL;
-  struct value **obj_name_vec, **args, *val;
-  const char *obj_name = cur->object_filename;
-  int obj_name_len, i, retval;
-
-  /* Is this source file already been fixed in the past?  */
-  if (cur->fixed_object_files != NULL)
-    return;
-
-  /* Is the inferior using ZeroLink?  */
-  if (!inferior_is_zerolinked_p ())
-    return;
-
-  if (obj_name == NULL)
-    {
-      warning ("Inferior is a ZeroLinked, but no .o file was provided.");
-      return;
-    }
-
-  if (!lookup_minimal_symbol ("__zero_link_force_link_object_file", NULL, NULL))
-    {
-      warning ("Inferior is apparently a ZeroLink app, but "
-               "__zero_link_force_link_object_file not found.");
-      return;
-    }
-
-  if (cached_zl_force_link_object_file == NULL)
-    cached_zl_force_link_object_file = create_cached_function
-                  ("__zero_link_force_link_object_file", builtin_type_int);
-
-  obj_name_len = strlen (obj_name);
-  
-  obj_name_vec = (struct value **) alloca 
-                         (sizeof (struct value *) * (obj_name_len + 2));
-
-  for (i = 0; i < obj_name_len + 1; i++)
-    obj_name_vec[i] = value_from_longest (builtin_type_char, obj_name[i]);
-
-  args = (struct value **) alloca (sizeof (struct value *) * 3);
-  args[0] = value_array (0, obj_name_len, obj_name_vec);
-  args[1] = value_from_longest (builtin_type_int, 0);
-
-  val = call_function_by_hand_expecting_type
-      (lookup_cached_function (cached_zl_force_link_object_file), 
-       builtin_type_int, 1, args, 1);
-  
-  retval = value_as_long (val);
-
-  if (fix_and_continue_debug_flag)
-    switch (retval)
-      {
-        case zlObjectFileUnknown:
-          printf_filtered ("DEBUG: zlObjectFileUnknown result from ZL.\n");
-          break;
-        case zlObjectFileBeingLinked:
-          printf_filtered ("DEBUG: zlObjectFileBeingLinked result from ZL.\n");
-          break;
-        case zlObjectFileAlreadyLinked:
-          printf_filtered ("DEBUG: zlObjectFileAlreadyLinked result from ZL.\n");
-          break;
-        case zlObjectFileJustLinked:
-          printf_filtered ("DEBUG: zlObjectFileJustLinked result from ZL.\n");
-          break;
-        default:
-          printf_filtered ("DEBUG: Got unknown result from ZeroLink!");
-      }
-
-  if (retval == zlObjectFileAlreadyLinked || retval == zlObjectFileJustLinked)
-    return;
-  else if (retval == zlObjectFileUnknown)
-    warning ("ZeroLink says object file '%s' is unknown.", obj_name);
-  else if (retval == zlObjectFileBeingLinked)
-    warning ("ZeroLink says object file '%s' is mid-load.", obj_name);
-  else
-    warning ("Unrecognized result code from ZeroLink for obj file '%s'.", obj_name);
-}
-
-static int 
-inferior_is_zerolinked_p (void)
-{
-  int is_zl_executable = 0;
-
-  if (find_objfile_by_name (
-    "/System/Library/PrivateFrameworks/ZeroLink.framework/Versions/A/ZeroLink"))
-    {
-      is_zl_executable = 1;
-    }
-
-  if (fix_and_continue_debug_flag && is_zl_executable)
-    printf_filtered ("DEBUG: Inferior is a ZeroLink executable.\n");
-
-  return (is_zl_executable);
-}
-
 /* Step through all previously fixed versions of this .o file and
    make sure their msymbols and symbols are marked obsolete.  */
 
@@ -652,7 +516,7 @@ mark_previous_fixes_obsolete (struct fixinfo *cur)
 
   for (fo = cur->fixed_object_files; fo != NULL; fo = fo->next)
     {
-      fo_objfile = find_objfile_by_name (fo->bundle_filename);
+      fo_objfile = find_objfile_by_name (fo->bundle_filename, 1);
       if (fo_objfile == NULL)
         {
           warning ("fixed object file entry for '%s' has a NULL objfile ptr!  "
@@ -778,8 +642,6 @@ free_half_finished_fixinfo (struct fixinfo *f)
     xfree ((char *) f->src_filename);
   if (f->bundle_filename != NULL)
     xfree ((char *) f->bundle_filename);
-  if (f->object_filename != NULL)
-    xfree ((char *) f->object_filename);
   if (f->active_functions != NULL)
     free_active_threads_struct (f->active_functions);
   if (f->original_objfile_filename != NULL)
@@ -849,7 +711,7 @@ get_fixed_file (struct fixinfo *cur)
 
   loaded_ok = load_fixed_objfile (fixedobj->bundle_filename);
 
-  fixedobj_objfile = find_objfile_by_name (fixedobj->bundle_filename);
+  fixedobj_objfile = find_objfile_by_name (fixedobj->bundle_filename, 1);
 
   /* Even if the load_fixed_objfile() eventually failed, gdb may still believe
      a new solib was loaded successfully -- clear that out.  */
@@ -969,7 +831,7 @@ do_final_fix_fixups (struct fixinfo *cur)
   int i;
 
   most_recent_fix_objfile = find_objfile_by_name 
-                                  (cur->most_recent_fix->bundle_filename);
+                                  (cur->most_recent_fix->bundle_filename, 1);
    
   objfiles_to_update = build_list_of_objfiles_to_update (cur);
   cleanups = make_cleanup (xfree, objfiles_to_update);
@@ -1046,7 +908,7 @@ find_new_static_symbols (struct fixinfo *cur,
   struct objfile *most_recent_fix_objfile;
 
   most_recent_fix_objfile = find_objfile_by_name 
-                                  (cur->most_recent_fix->bundle_filename);
+                                  (cur->most_recent_fix->bundle_filename, 1);
 
    for (j = 0; j < indirect_entry_count; j++)
      {
@@ -1124,7 +986,7 @@ find_orig_static_symbols (struct fixinfo *cur,
           continue;
         }
 
-      f_objfile = find_objfile_by_name (f->bundle_filename);
+      f_objfile = find_objfile_by_name (f->bundle_filename, 1);
       f_symtab = find_symtab_by_name (f_objfile, cur->canonical_source_filename);
 
       static_bl = BLOCKVECTOR_BLOCK (BLOCKVECTOR (f_symtab), STATIC_BLOCK);
@@ -1264,7 +1126,7 @@ find_and_parse_nonlazy_ptr_sect (struct fixinfo *cur,
   *indirect_entries = NULL;
   indirect_ptr_section = NULL;
   most_recent_fix_objfile = find_objfile_by_name 
-                               (cur->most_recent_fix->bundle_filename);
+                               (cur->most_recent_fix->bundle_filename, 1);
 
 
   ALL_OBJFILE_OSECTIONS (most_recent_fix_objfile, j)
@@ -1368,7 +1230,7 @@ build_list_of_objfiles_to_update (struct fixinfo *cur)
     {
       if (i == cur->most_recent_fix)
         continue;
-      old_objfiles[j++] = find_objfile_by_name (i->bundle_filename);
+      old_objfiles[j++] = find_objfile_by_name (i->bundle_filename, 1);
     }
   old_objfiles[j] = NULL;
 
@@ -1525,50 +1387,6 @@ do_final_fix_fixups_static_syms (struct block *newstatics,
           }
     }
 }
-
-/* The instructions to put a 32 bit address into a register will
-   sign extend the value of the lower 16 bits.  You put the higher
-   16 bits into the register with an 'addis' instructions so you
-   need to add 1 to the higher 16 bits to arrive at the correct
-   value.  This corresponds to the "hi16()" and "lo16()" address
-   transforms you see in assembly output.   */
-
-#if defined (TARGET_POWERPC)
-static uint16_t 
-encode_lo16 (CORE_ADDR addr) 
-{
-  return addr & 0xffff;
-}
-
-static uint16_t 
-encode_hi16 (CORE_ADDR addr) 
-{
-  uint16_t i;
-  i = addr >> 16;
-
-  /* is bit 15 set? */
-  if (addr & 0x8000)
-    i++;
-
-  return i;
-}
-
-static CORE_ADDR 
-decode_hi16_lo16 (uint16_t hi16, uint16_t lo16)
-{
-  CORE_ADDR addr = 0;
-
-  addr = lo16;
-
-  /* If the high bit of lo16 was set, we need to decrement hi16 by one. */
-  if (lo16 & 0x8000)
-    hi16--;
-
-  addr = addr | ((CORE_ADDR) hi16 << 16);
-
-  return addr;
-}
-#endif /* TARGET_POWERPC */
 
 /* FIXME: This is a copy of objfiles.c:do_free_objfile_cleanup which is static.
    Maybe it shouldn't be. */
@@ -2111,7 +1929,8 @@ sym_is_argument (struct symbol *s)
           SYMBOL_CLASS (s) == LOC_REF_ARG ||
           SYMBOL_CLASS (s) == LOC_REGPARM ||
           SYMBOL_CLASS (s) == LOC_REGPARM_ADDR ||
-          SYMBOL_CLASS (s) == LOC_BASEREG_ARG);
+          SYMBOL_CLASS (s) == LOC_BASEREG_ARG ||
+          SYMBOL_CLASS (s) == LOC_COMPUTED_ARG);
 }
 
 static int
@@ -2119,7 +1938,8 @@ sym_is_local (struct symbol *s)
 {
   return (SYMBOL_CLASS (s) == LOC_LOCAL ||
           SYMBOL_CLASS (s) == LOC_REGISTER ||
-          SYMBOL_CLASS (s) == LOC_BASEREG);
+          SYMBOL_CLASS (s) == LOC_BASEREG ||
+          SYMBOL_CLASS (s) == LOC_COMPUTED);
 }
 
 /* Expand the partial symtabs for the named source file in the given
@@ -2285,35 +2105,6 @@ in_active_func (const char *name, struct active_threads *threads)
   return 0;
 }
 
-/* Record the value of a memory location, and update it with the new value. */
-#if defined (TARGET_POWERPC)
-static void
-updatedatum (struct fixinfo *fixinfo, CORE_ADDR addr, gdb_byte *newval, int size)
-{ 
-  struct fixeddatum * fixeddatum;
-  gdb_byte buf[8];
-  int oldval;
-  target_read_memory (addr, buf, size);
-  oldval = extract_unsigned_integer (buf, size);
-  if (target_write_memory (addr, newval, size))
-    error ("Can't redirect function");
-  fixeddatum = xmalloc (sizeof (struct fixeddatum));
-  fixeddatum->next = NULL;
-  fixeddatum->addr = addr;
-  fixeddatum->size = size;
-  fixeddatum->oldval = oldval;
-  fixeddatum->newval = *newval;
-  if (fixinfo->most_recent_fix->firstdatum == NULL)
-    fixinfo->most_recent_fix->firstdatum = 
-                          fixinfo->most_recent_fix->lastdatum = fixeddatum;
-  else
-    {
-       fixinfo->most_recent_fix->lastdatum->next = fixeddatum;
-       fixinfo->most_recent_fix->lastdatum = fixeddatum;
-    }
-}
-#endif /* TARGET_POWERPC */
-
 /* Redirect a function to its new definition, update the gdb
    symbols so the now-obsolete ones are marked as such.  
    This function assumes that checks have already been made to
@@ -2325,9 +2116,6 @@ static void
 redirect_old_function (struct fixinfo *fixinfo, struct symbol *new_sym, 
                        struct symbol *old_sym, int active)
 {
-#if defined (TARGET_POWERPC)
-  int inst;
-#endif
   CORE_ADDR oldfuncstart, oldfuncend, newfuncstart, fixup_addr;
   struct minimal_symbol *msym;
   struct obsoletedsym *obsoletedsym;
@@ -2350,27 +2138,6 @@ redirect_old_function (struct fixinfo *fixinfo, struct symbol *new_sym,
 
   fixup_addr = oldfuncstart; 
 
-#if defined (TARGET_POWERPC)
-  /* li r12,lo16(newfuncstart) */
-  inst = 0x39800000 | encode_lo16 (newfuncstart);
-  updatedatum (fixinfo, fixup_addr, (gdb_byte *)&inst, 4);
-
-  /* addis r12,r12,hi16(newfuncstart) */
-  inst = 0x3d8c0000 | encode_hi16 (newfuncstart);
-  updatedatum (fixinfo, fixup_addr + 4, (gdb_byte *)&inst, 4);
-
-  /* mtctr r12  - move contents of r12 (newfuncstart) to count register */
-  inst = 0x7d8903a6;
-  updatedatum (fixinfo, fixup_addr + 8, (gdb_byte *)&inst, 4);
-
-  /* bctr - branch unconditionally to count reg, don't update link reg */
-  inst = 0x4e800420;
-  updatedatum (fixinfo, fixup_addr + 12, (gdb_byte *)&inst, 4);
-  
-  /* .long 0 - Illegal instruction for trampoline detection */
-  inst = 0x0;
-  updatedatum (fixinfo, fixup_addr + 16, (gdb_byte *)&inst, 4);
-#endif
 #if defined (TARGET_I386)
   unsigned char buf[6];
   uint32_t relative_offset;
@@ -2378,7 +2145,9 @@ redirect_old_function (struct fixinfo *fixinfo, struct symbol *new_sym,
   buf[0] = 0xe9;  /* jmp <imm32-relative-addr> */
   buf[5] = 0xcc;  /* int 3 */
   relative_offset = (uint32_t) newfuncstart - (oldfuncstart + 5);
-  store_unsigned_integer (buf + 1, TARGET_ADDRESS_BYTES, relative_offset);
+  /* Use '4' instead of TARGET_ADDRESS_BYTES because 0xe9 is a 32-bit 
+     eip/rip relative displacement, not an address.  */
+  store_unsigned_integer (buf + 1, 4, relative_offset);
   target_write_memory (oldfuncstart, buf, 6);
 #endif
 
@@ -2407,46 +2176,13 @@ redirect_old_function (struct fixinfo *fixinfo, struct symbol *new_sym,
 CORE_ADDR
 decode_fix_and_continue_trampoline (CORE_ADDR pc)
 {
-#if defined (TARGET_POWERPC)
-  uint16_t newpc_lo16, newpc_hi16;
-  int buf;
-
-  /* li r12,lo16(destination-address) */
-  buf = read_memory_unsigned_integer (pc, 4);
-  if ((buf & 0x39800000) != 0x39800000)
-    return 0;
-  newpc_lo16 = buf & 0xffff;
-
-  /* addis r12,r12,hi16(destination-address) */
-  buf = read_memory_unsigned_integer (pc + 4, 4);
-  if ((buf & 0x3d8c0000) != 0x3d8c0000)
-    return 0;
-  newpc_hi16 = buf & 0xffff;
-
-  /* mtctr r12 */
-  buf = read_memory_unsigned_integer (pc + 8, 4);
-  if (buf != 0x7d8903a6)
-    return 0;
-
-  /* bctr */
-  buf = read_memory_unsigned_integer (pc + 12, 4);
-  if (buf != 0x4e800420)
-    return 0;
-
-  /* .long 0 */
-  buf = read_memory_unsigned_integer (pc + 16, 4);
-  if (buf != 0x0)
-    return 0;
-
-  return decode_hi16_lo16 (newpc_hi16, newpc_lo16);
-#endif
 #if defined (TARGET_I386)
 
   /* Detect the x86 F&C trampoline sequence.  */
 
-  unsigned char buf[5];
-  uint32_t current_pc, relative_offset;
-  target_read_memory (pc, buf, 5);
+  unsigned char buf[6];
+  uint32_t relative_offset;
+  target_read_memory (pc, buf, 6);
 
   /* jmp <32-bit-relative-addr> */
   if (buf[0] != 0xe9)
@@ -2457,10 +2193,8 @@ decode_fix_and_continue_trampoline (CORE_ADDR pc)
     return 0;
   
   relative_offset = extract_unsigned_integer (buf + 1, 4);
-  current_pc = pc;  /* 64bit x86 unsafe, we're truncating the top 32 bits */
-  current_pc += 5;  /* Offset is from next instruction */
-  return (uint32_t) current_pc + relative_offset;
-
+  pc += 5;  /* the relative offset is computed from next instruction */
+  return pc + relative_offset;
 #endif
 }
 
@@ -2529,38 +2263,12 @@ print_active_functions (struct fixinfo *cur)
 void
 update_picbase_register (struct symbol *new_fun)
 {
-#if defined (TARGET_POWERPC)
-  ppc_function_properties props;
-  CORE_ADDR ret;
-  int pic_base_reg;
-  CORE_ADDR pic_base_value;
-
-  /* APPLE LOCAL begin address ranges  */
-  if (BLOCK_RANGES (SYMBOL_BLOCK_VALUE (new_fun)))
-    internal_error (__FILE__, __LINE__,
-		    _("Cannot redirect function with non-contiguous address ranges."));
-
-  /* APPLE LOCAL end address ranges  */
-
-  ppc_clear_function_properties (&props);
-  ret = ppc_parse_instructions (BLOCK_START (SYMBOL_BLOCK_VALUE (new_fun)),
-                                BLOCK_END (SYMBOL_BLOCK_VALUE (new_fun)),
-                                &props);
-
-  pic_base_reg = props.pic_base_reg;
-  pic_base_value = props.pic_base_address;
-
-  /* FIXME: It is possible to have a function without any PIC base used
-     (an empty stub function, like slurry() is in the current fix-small-c
-     test case), so for now I'll silently do nothing.  This may not be
-     a good choice -- I'm not distinguishing between a function that doesn't
-     have a PIC base and a failure to find the PIC base.  */
-  if (pic_base_reg == 0 || pic_base_value == INVALID_ADDRESS)
-    return;
-
-  write_register (pic_base_reg, pic_base_value);
-#endif
 #if defined (TARGET_I386)
+
+  /* x86_64 doesn't use an instruction sequence to set up a pic base register;
+     it has rip-relative addressing.  */
+  if (gdbarch_lookup_osabi (exec_bfd) == GDB_OSABI_DARWIN64)
+    return;
 
   /* Find & update the x86 PIC base register if one is used. */
 
@@ -2576,27 +2284,6 @@ update_picbase_register (struct symbol *new_fun)
     }
 
 #endif
-}
-
-static struct objfile *
-find_objfile_by_name (const char *name)
-{
-  struct objfile *obj;
-
-  ALL_OBJFILES (obj)
-    if (!strcmp (name, obj->name))
-      return obj;
-
-  /* In a cached symfile case, the objfile 'name' member will be the name
-     of the cached symfile, not the object file.  The objfile's bfd's filename,
-     however, will be the name of the actual object file.  So we'll search
-     those as a back-up.  */
-
-  ALL_OBJFILES (obj)
-    if (obj->obfd && !strcmp (name, obj->obfd->filename))
-      return obj;
-
-  return NULL;
 }
 
 static struct symtab *
@@ -2747,7 +2434,7 @@ find_original_object_file (struct fixinfo *cur)
   if (cur->original_objfile_filename == NULL)
     error ("find_original_object_file() called with an empty filename!");
 
-  return find_objfile_by_name (cur->original_objfile_filename);
+  return find_objfile_by_name (cur->original_objfile_filename, 1);
 }
 
 static struct symtab *
@@ -2798,7 +2485,7 @@ raise_objfile_load_level (struct objfile *obj)
 
   objfile_set_load_state (obj, OBJF_SYM_ALL, 1);
  
-  obj = find_objfile_by_name (name);
+  obj = find_objfile_by_name (name, 1);
   do_cleanups (wipe);
   return (obj);
 }
@@ -2815,10 +2502,20 @@ fix_and_continue_supported (void)
   if (exec_bfd == NULL)
     return -1;
 
-  /* F&C is not supported on ppc64 yet. */
-
+  /* gdb looks mostly correct for x86_64 at this point but we need some
+     fixes from other components before we can enable this.  */
   if (gdbarch_lookup_osabi (exec_bfd) == GDB_OSABI_DARWIN64)
     return 0;
+
+  /* Not supported on ARM, neither remote nor native.  */
+#if defined (TARGET_ARM)
+  return 0;
+#endif
+
+  /* No longer supported on ppc */
+#if defined (TARGET_POWERPC)
+  return 0;
+#endif
 
   return 1;
 }

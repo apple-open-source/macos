@@ -27,6 +27,15 @@
  *  Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved.
  *
  * $Log: IOFireWireLibIsochPort.cpp,v $
+ * Revision 1.58  2009/01/16 02:53:19  collin
+ * and finally put TOT back...
+ *
+ * Revision 1.54  2009/01/15 01:40:02  collin
+ * <rdar://problem/6400981> BRB-VERIFY: 10A222: Trying to record a movie through QT X, getting error message.
+ *
+ * Revision 1.53  2008/05/06 00:14:48  collin
+ * more k64 changes
+ *
  * Revision 1.52  2007/03/14 01:01:14  collin
  * *** empty log message ***
  *
@@ -746,7 +755,7 @@ namespace IOFireWireLib {
 				{
 					bufferTree.GetCoalesceList( mBufferRanges ) ;
 				
-					mBufferAddressRanges = new IOAddressRange[ mBufferRangeCount ] ;
+					mBufferAddressRanges = new FWVirtualAddressRange[ mBufferRangeCount ] ;
 					if ( !mBufferAddressRanges )
 					{
 						error = kIOReturnNoMemory ;
@@ -804,7 +813,7 @@ namespace IOFireWireLib {
 				{
 					bufferTree.GetCoalesceList( mBufferRanges ) ;
 					
-					mBufferAddressRanges = new IOAddressRange[ mBufferRangeCount ] ;
+					mBufferAddressRanges = new FWVirtualAddressRange[ mBufferRangeCount ] ;
 					if ( !mBufferAddressRanges )
 					{
 						error = kIOReturnNoMemory ;
@@ -1134,7 +1143,7 @@ namespace IOFireWireLib {
 		}
 
 		// buffer to hold copy of DCLs in program
-		error = vm_allocate( mach_task_self (), exportBuffer, *exportBytes, true /*anywhere*/ ) ;
+		error = vm_allocate( mach_task_self (), (vm_address_t*)exportBuffer, *exportBytes, true /*anywhere*/ ) ;
 
 		if ( !*exportBuffer && !error )
 		{

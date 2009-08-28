@@ -1,7 +1,7 @@
 /*
  *  driversetup.c
  *
- *  $Id: driversetup.c,v 1.5 2006/01/20 15:58:35 source Exp $
+ *  $Id: driversetup.c,v 1.6 2007/02/02 11:58:14 source Exp $
  *
  *  The iODBC driver manager.
  *
@@ -505,6 +505,10 @@ create_driversetup (HWND hwnd, LPCSTR driver, LPCSTR attrs, BOOL add, BOOL user)
   gtk_window_set_modal (GTK_WINDOW (driversetup), TRUE);
   gtk_window_set_policy (GTK_WINDOW (driversetup), FALSE, FALSE, FALSE);
 
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_widget_show (driversetup);
+#endif
+
   dialog_vbox1 = GTK_DIALOG (driversetup)->vbox;
   gtk_object_set_data (GTK_OBJECT (driversetup), "dialog_vbox1",
       dialog_vbox1);
@@ -541,8 +545,13 @@ create_driversetup (HWND hwnd, LPCSTR driver, LPCSTR attrs, BOOL add, BOOL user)
   gtk_object_set_data_full (GTK_OBJECT (driversetup), "t_keyword", t_keyword,
       (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (t_keyword);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed1), t_keyword, 88, 360);
+  gtk_widget_set_uposition (t_keyword, 88, 360);
+#else
   gtk_fixed_put (GTK_FIXED (fixed1), t_keyword, 88, 352);
   gtk_widget_set_uposition (t_keyword, 88, 352);
+#endif
   gtk_widget_set_usize (t_keyword, 301, 22);
 
   t_value = gtk_entry_new ();
@@ -550,8 +559,13 @@ create_driversetup (HWND hwnd, LPCSTR driver, LPCSTR attrs, BOOL add, BOOL user)
   gtk_object_set_data_full (GTK_OBJECT (driversetup), "t_value", t_value,
       (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (t_value);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed1), t_value, 88, 392);
+  gtk_widget_set_uposition (t_value, 88, 392);
+#else
   gtk_fixed_put (GTK_FIXED (fixed1), t_value, 88, 384);
   gtk_widget_set_uposition (t_value, 88, 384);
+#endif
   gtk_widget_set_usize (t_value, 301, 22);
 
   l_name = gtk_label_new ("Description of the driver : ");
@@ -649,8 +663,13 @@ create_driversetup (HWND hwnd, LPCSTR driver, LPCSTR attrs, BOOL add, BOOL user)
   gtk_object_set_data_full (GTK_OBJECT (driversetup), "l_keyword", l_keyword,
       (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (l_keyword);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed1), l_keyword, 16, 363);
+  gtk_widget_set_uposition (l_keyword, 16, 363);
+#else
   gtk_fixed_put (GTK_FIXED (fixed1), l_keyword, 16, 355);
   gtk_widget_set_uposition (l_keyword, 16, 355);
+#endif
   gtk_widget_set_usize (l_keyword, 69, 16);
   gtk_label_set_justify (GTK_LABEL (l_keyword), GTK_JUSTIFY_LEFT);
 
@@ -659,8 +678,13 @@ create_driversetup (HWND hwnd, LPCSTR driver, LPCSTR attrs, BOOL add, BOOL user)
   gtk_object_set_data_full (GTK_OBJECT (driversetup), "l_valeur", l_valeur,
       (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (l_valeur);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed1), l_valeur, 32, 396);
+  gtk_widget_set_uposition (l_valeur, 32, 396);
+#else
   gtk_fixed_put (GTK_FIXED (fixed1), l_valeur, 32, 388);
   gtk_widget_set_uposition (l_valeur, 32, 388);
+#endif
   gtk_widget_set_usize (l_valeur, 51, 16);
   gtk_label_set_justify (GTK_LABEL (l_valeur), GTK_JUSTIFY_LEFT);
 
@@ -669,8 +693,13 @@ create_driversetup (HWND hwnd, LPCSTR driver, LPCSTR attrs, BOOL add, BOOL user)
   gtk_object_set_data_full (GTK_OBJECT (driversetup), "vbuttonbox1",
       vbuttonbox1, (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (vbuttonbox1);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed1), vbuttonbox1, 400, 357);
+  gtk_widget_set_uposition (vbuttonbox1, 400, 357);
+#else
   gtk_fixed_put (GTK_FIXED (fixed1), vbuttonbox1, 400, 344);
   gtk_widget_set_uposition (vbuttonbox1, 400, 344);
+#endif
   gtk_widget_set_usize (vbuttonbox1, 85, 67);
 
   b_add = gtk_button_new_with_label ("");

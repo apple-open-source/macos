@@ -81,9 +81,6 @@
 /* Define to 1 if you have the `dcgettext' function. */
 #undef HAVE_DCGETTEXT
 
-/* Define if DebugSymbols framework is present. */
-#undef HAVE_DEBUG_SYMBOLS_FRAMEWORK
-
 /* Define to 1 if you have the declaration of `free', and to 0 if you don't.
    */
 #undef HAVE_DECL_FREE
@@ -516,6 +513,12 @@
 /* Define to 1 if the system has the type `x86_debug_state32_t'. */
 #undef HAVE_X86_DEBUG_STATE32_T
 
+/* Define to 1 if the system has the type `thread_identifier_info_data_t'. */
+#undef HAVE_THREAD_IDENTIFIER_INFO_DATA_T
+
+/* Define to 1 if the system has the function pthread_setname_np () */
+#undef HAVE_PTHREAD_SETNAME_NP
+
 /* Define to 1 if your system has the _etext variable. */
 #undef HAVE__ETEXT
 
@@ -610,11 +613,20 @@
 /* Define to 1 to use the arch program instead of exec. */
 #undef USE_ARCH_FOR_EXEC
 
+/* Define if Carbon framework is available and we should use it. */
+#undef USE_CARBON_FRAMEWORK
+
+/* Define if DebugSymbols framework is available and we should use it. */
+#undef USE_DEBUG_SYMBOLS_FRAMEWORK
+
 /* Define to 1 if the regex included in libiberty should be used. */
 #undef USE_INCLUDED_REGEX
 
 /* Define to 1 to use posix_spawn instead of execvp. */
 #undef USE_POSIX_SPAWN
+
+/* Define to 1 to use task_set_state. */
+#undef HAVE_TASK_SET_STATE
 
 /* Define if we should use the Windows API, instead of the POSIX API. On
    Windows, we use the Windows API when building for MinGW, but the POSIX API

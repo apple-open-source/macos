@@ -57,24 +57,24 @@ static void
 dt_proc_bpmatch(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 {
 	dt_bkpt_t *dbp;
-
+	
 	assert(DT_MUTEX_HELD(&dpr->dpr_lock));
-
+	
 	for (dbp = dt_list_next(&dpr->dpr_bps);
-	    dbp != NULL; dbp = dt_list_next(dbp)) {
+	     dbp != NULL; dbp = dt_list_next(dbp)) {
 		if (rd_event_mock_addr(dpr->dpr_proc) == dbp->dbp_addr)
 			break;
 	}
-
+	
 	if (dbp == NULL) {
 		dt_dprintf("pid %d: spurious breakpoint wakeup for %lx\n",
-		    (int)dpr->dpr_pid, rd_event_mock_addr(dpr->dpr_proc));
+			   (int)dpr->dpr_pid, rd_event_mock_addr(dpr->dpr_proc));
 		return;
 	}
-
+	
 	dt_dprintf("pid %d: hit breakpoint at %lx (%lu)\n",
-	    (int)dpr->dpr_pid, (ulong_t)dbp->dbp_addr, ++dbp->dbp_hits);
-
+		   (int)dpr->dpr_pid, (ulong_t)dbp->dbp_addr, ++dbp->dbp_hits);
+	
 	dbp->dbp_func(dtp, dpr, dbp->dbp_data);
 	(void) Pxecbkpt(dpr->dpr_proc, dbp->dbp_instr);
 }
@@ -89,8 +89,8 @@ dt_proc_attach(dt_proc_t *dpr, int exec)
 	rd_err_e err;
 	
 	/* exec == B_FALSE coming from initial call in dt_proc_control()
-	   exec == B_TRUE arises when the target does an exec() */
-	   
+	 exec == B_TRUE arises when the target does an exec() */
+	
 	if ((dpr->dpr_rtld = Prd_agent(dpr->dpr_proc)) != NULL &&
 	    (err = rd_event_enable(dpr->dpr_rtld, B_TRUE)) == RD_OK) {
 		dt_proc_rdwatch(dpr, RD_PREINIT, "RD_PREINIT");
@@ -98,20 +98,20 @@ dt_proc_attach(dt_proc_t *dpr, int exec)
 		dt_proc_rdwatch(dpr, RD_DLACTIVITY, "RD_DLACTIVITY");
 	} else {
 		dt_dprintf("pid %d: failed to enable rtld events: %s\n",
-		    (int)dpr->dpr_pid, dpr->dpr_rtld ? rd_errstr(err) :
-		    "rtld_db agent initialization failed");
+			   (int)dpr->dpr_pid, dpr->dpr_rtld ? rd_errstr(err) :
+			   "rtld_db agent initialization failed");
 	}
-
+	
 	Pupdate_maps(dpr->dpr_proc);
-
+	
 #if 0
 	if (Pxlookup_by_name(dpr->dpr_proc, LM_ID_BASE,
-	    "a.out", "main", &sym, NULL) == 0) {
+			     "a.out", "main", &sym, NULL) == 0) {
 		(void) dt_proc_bpcreate(dpr, (uintptr_t)sym.st_value,
-		    (dt_bkpt_f *)dt_proc_bpmain, "a.out`main");
+					(dt_bkpt_f *)dt_proc_bpmain, "a.out`main");
 	} else {
 		dt_dprintf("pid %d: failed to find a.out`main: %s\n",
-		    (int)dpr->dpr_pid, strerror(errno));
+			   (int)dpr->dpr_pid, strerror(errno));
 	}
 #else
 #warning Need mechanism for stop at a.out`main
@@ -123,104 +123,19 @@ typedef struct dt_proc_control_data {
 	dt_proc_t *dpcd_proc;			/* proccess to control */
 } dt_proc_control_data_t;
 
-/*
- * Main loop for all victim process control threads.  We initialize all the
- * appropriate /proc control mechanisms, and then enter a loop waiting for
- * the process to stop on an event or die.  We process any events by calling
- * appropriate subroutines, and exit when the victim dies or we lose control.
- *
- * The control thread synchronizes the use of dpr_proc with other libdtrace
- * threads using dpr_lock.  We hold the lock for all of our operations except
- * waiting while the process is running: this is accomplished by writing a
- * PCWSTOP directive directly to the underlying /proc/<pid>/ctl file.  If the
- * libdtrace client wishes to exit or abort our wait, SIGCANCEL can be used.
- */
-
-void dt_proc_control_activity_handler(void *arg)
+void *
+dt_proc_control(void *arg)
 {
 	dt_proc_control_data_t *datap = arg;
 	dtrace_hdl_t *dtp = datap->dpcd_hdl;
 	dt_proc_t *dpr = datap->dpcd_proc;
 	dt_proc_hash_t *dph = dpr->dpr_hdl->dt_procs;
 	struct ps_prochandle *P = dpr->dpr_proc;
-
+	
 	int pid = dpr->dpr_pid;
-
+	
 	int notify = B_FALSE;
 	
-	if (!dpr->dpr_quit) {
-		
-		(void) pthread_mutex_lock(&dpr->dpr_lock);
-
-		switch (Pstate(P)) {
-		case PS_STOP:
-			/*
-			 * If the process stops showing one of the events that
-			 * we are tracing, perform the appropriate response.
-			 * Note that we ignore PR_SUSPENDED, PR_CHECKPOINT, and
-			 * PR_JOBCONTROL by design: if one of these conditions
-			 * occurs, we will fall through to Psetrun() but the
-			 * process will remain stopped in the kernel by the
-			 * corresponding mechanism (e.g. job control stop).
-			 */
-
-			dt_proc_bpmatch(dtp, dpr);
-			break;
-			
-		case PS_LOST:
-			dt_dprintf("pid %d: proc lost: %s\n",
-			    pid, strerror(errno));
-
-			dpr->dpr_quit = B_TRUE;
-			notify = B_TRUE;
-			break;
-
-		case PS_UNDEAD:
-			dt_dprintf("pid %d: proc died\n", pid);
-			dpr->dpr_quit = B_TRUE;
-			notify = B_TRUE;
-			break;
-		}
-
-		/* Target resumes execution on return from RPC, so no need for explicit Psetrun(). */	
-
-		(void) pthread_mutex_unlock(&dpr->dpr_lock);
-	}
-	
-	if (dpr->dpr_quit) {
-		/*
-		 * If the control thread detected PS_UNDEAD or PS_LOST, then enqueue
-		 * the dt_proc_t structure on the dt_proc_hash_t notification list.
-		 */
-		if (notify)
-			dt_proc_notify(dtp, dph, dpr, NULL);
-
-		/*
-		 * Destroy and remove any remaining breakpoints, set dpr_done and clear
-		 * dpr_tid to indicate the control thread has exited, and notify any
-		 * waiting thread in dt_proc_destroy() that we have succesfully exited.
-		 */
-		(void) pthread_mutex_lock(&dpr->dpr_lock);
-
-		dt_proc_bpdestroy(dpr, B_TRUE);
-		dpr->dpr_done = B_TRUE;
-		dpr->dpr_tid = 0;
-
-		(void) pthread_cond_broadcast(&dpr->dpr_cv);
-		(void) pthread_mutex_unlock(&dpr->dpr_lock);
-		
-		pthread_exit(NULL);
-	}
-}
-
-void *dt_proc_control(void *arg)
-{
-	dt_proc_control_data_t *datap = arg, my_datap;
-	dt_proc_t *dpr = datap->dpcd_proc;
-	struct ps_prochandle *P = dpr->dpr_proc;
-
-	my_datap = *datap; // Get this data onto *this* thread's stack.
-
 	/*
 	 * We disable the POSIX thread cancellation mechanism so that the
 	 * client program using libdtrace can't accidentally cancel our thread.
@@ -228,20 +143,20 @@ void *dt_proc_control(void *arg)
 	 * of PCWSTOP with EINTR, at which point we will see dpr_quit and exit.
 	 */
 	(void) pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
-
+	
 	/*
 	 * Set up the corresponding process for tracing by libdtrace.  We want
 	 * to be able to catch breakpoints and efficiently single-step over
 	 * them, and we need to enable librtld_db to watch libdl activity.
 	 */
 	(void) pthread_mutex_lock(&dpr->dpr_lock);
-
+	
 	(void) Punsetflags(P, PR_ASYNC);	/* require synchronous mode */
 	(void) Psetflags(P, PR_BPTADJ);		/* always adjust eip on x86 */
 	(void) Punsetflags(P, PR_FORK);		/* do not inherit on fork */
-
+        
 	dt_proc_attach(dpr, B_FALSE);		/* enable rtld breakpoints */
-
+	
 	/*
 	 * If PR_KLC is set, we created the process; otherwise we grabbed it.
 	 * Check for an appropriate stop request and wait for dt_proc_continue.
@@ -253,11 +168,11 @@ void *dt_proc_control(void *arg)
 
 	if (Psetrun(P, 0, 0) == -1) {
 		dt_dprintf("pid %d: failed to set running: %s\n",
-		    (int)dpr->dpr_pid, strerror(errno));
+			   (int)dpr->dpr_pid, strerror(errno));
 	}
-
+		
 	(void) pthread_mutex_unlock(&dpr->dpr_lock);
-
+	
 	/*
 	 * Wait for the process corresponding to this control thread to stop,
 	 * process the event, and then set it running again.  We want to sleep
@@ -267,30 +182,74 @@ void *dt_proc_control(void *arg)
 	 * Once the process stops, we wake up, grab dpr_lock, and then call
 	 * Pwait() (which will return immediately) and do our processing.
 	 */
-	
-	Pactivityserver(P, dt_proc_control_activity_handler, (void *)&my_datap);
+	while (!dpr->dpr_quit) {
+		void *activity = Pdequeue_proc_activity(P);
+		
+		// A NULL activity is used to wakeup the control thread, and force it to check dpr_quit.
+		if (!activity)
+			continue;
 
-	dtrace_hdl_t *dtp = datap->dpcd_hdl;
-	dt_proc_hash_t *dph = dpr->dpr_hdl->dt_procs;
+		(void) pthread_mutex_lock(&dpr->dpr_lock);
+			
+		switch (Pstate(P)) {
+			case PS_STOP:		
+				dt_dprintf("pid %d: proc stopped\n", pid);
+				dt_proc_bpmatch(dtp, dpr);
+				break;
+				
+			case PS_RUN:
+				/*
+				 * On Mac OS X Pstate() maps SSLEEP and SRUN to PS_RUN, and both
+				 * of those states are beholden to DTrace.
+				 */
+				dt_proc_bpmatch(dtp, dpr);
+				break;
+				
+			case PS_LOST:
+				dt_dprintf("pid %d: proc lost\n", pid);
+				dpr->dpr_quit = B_TRUE;
+				notify = B_TRUE;
+				break;
+				
+			case PS_DEAD:
+			case PS_UNDEAD:
+				dt_dprintf("pid %d: proc died\n", pid);
+				dpr->dpr_quit = B_TRUE;
+				notify = B_TRUE;
+				break;
+				
+			default:
+				assert(false);
+				dt_dprintf("pid %d: proc in unrecognized state, resuming\n", pid);
+				break;		
+				
+		}
+		
+		(void) pthread_mutex_unlock(&dpr->dpr_lock);
+		
+		Pdestroy_proc_activity(activity);
+	}
+	
 	/*
 	 * If the control thread detected PS_UNDEAD or PS_LOST, then enqueue
 	 * the dt_proc_t structure on the dt_proc_hash_t notification list.
 	 */
-	dt_proc_notify(dtp, dph, dpr, NULL);
-
+	if (notify)
+		dt_proc_notify(dtp, dph, dpr, NULL);
+	
 	/*
 	 * Destroy and remove any remaining breakpoints, set dpr_done and clear
 	 * dpr_tid to indicate the control thread has exited, and notify any
 	 * waiting thread in dt_proc_destroy() that we have succesfully exited.
 	 */
 	(void) pthread_mutex_lock(&dpr->dpr_lock);
-
+	
 	dt_proc_bpdestroy(dpr, B_TRUE);
 	dpr->dpr_done = B_TRUE;
 	dpr->dpr_tid = 0;
-
+	
 	(void) pthread_cond_broadcast(&dpr->dpr_cv);
 	(void) pthread_mutex_unlock(&dpr->dpr_lock);
-
+	
 	return (NULL);
 }

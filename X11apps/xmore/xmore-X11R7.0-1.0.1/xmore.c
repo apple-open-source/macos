@@ -41,13 +41,6 @@ in this Software without prior written authorization from The Open Group.
 
 #include "xmore.h"
 
-#ifdef USE_XPRINT
-
-#include "printdialog.h"
-#include "print.h"
-
-#endif
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <limits.h>
@@ -60,21 +53,14 @@ in this Software without prior written authorization from The Open Group.
 #define Log(x)   { if (userOptions.verbose) printf x; }
 
 /* Global vars */
-static Widget        printdialog_shell = NULL;
-static Widget        printdialog       = NULL;
 static Widget        toplevel          = NULL;
 static Widget        text              = NULL;
-static char          printJobNameBuffer[PATH_MAX+256];
 static const char   *ProgramName;  /* program name   (from argv[0]) */
 static const char   *viewFileName; /* file to browse (from argv[1]) */
 
 /* prototypes */
 static void quitAction(Widget w,  XEvent *event, String *params, Cardinal *num_params);
 static void quitXtProc(Widget w, XtPointer client_data, XtPointer callData);
-#ifdef USE_XPRINT
-static void printAction(Widget w, XEvent *event, String *params, Cardinal *num_params);
-static void printXtProc(Widget w, XtPointer client_data, XtPointer callData);
-#endif
 
 static XrmOptionDescRec options[] = {
 {
@@ -84,9 +70,6 @@ static XrmOptionDescRec options[] = {
 
 static XtActionsRec actions[] = {
     { "quit",          quitAction      },
-#ifdef USE_XPRINT
-    { "print",         printAction     }
-#endif
 };
 
 /* See xmore.h */
@@ -119,7 +102,6 @@ String fallback_resources[] = {
         "\t<Key>Return:    scroll-one-line-up()\\n\\"
         "\t<Key>J:         scroll-one-line-up()\\n\\"
         "\t<Key>E:         scroll-one-line-up()\\n\\"
-        "\t<Key>p:         print()\\n\\"
         "\t<Key>q:         quit()\\n",
     "*text.baseTranslations: #override \\n\\"
         "\t<Key>space:     next-page()\\n\\"
@@ -130,7 +112,6 @@ String fallback_resources[] = {
         "\t<Key>Return:    scroll-one-line-up()\\n\\"
         "\t<Key>J:         scroll-one-line-up()\\n\\"
         "\t<Key>E:         scroll-one-line-up()\\n\\"
-        "\t<Key>p:         print()\\n\\"
         "\t<Key>q:         quit()\\n",
     NULL,
 };
@@ -147,114 +128,10 @@ quitXtProc(Widget w, XtPointer client_data, XtPointer callData)
     XtCallActionProc(w, "quit", NULL, NULL, 0);
 }
 
-static void
-printshellDestroyXtProc(Widget w, XtPointer client_data, XtPointer callData)
-{
-    XawPrintDialogClosePrinterConnection(printdialog, False);
-}
-
-#ifdef USE_XPRINT
-
-static void
-printOKXtProc(Widget w, XtPointer client_data, XtPointer callData)
-{
-    XawPrintDialogCallbackStruct *pdcs = (XawPrintDialogCallbackStruct *)callData;
-    Cardinal                      n;
-    Arg                           args[2];
-    Widget                        textsource;
-
-    Log(("printOKXtProc: OK.\n"));
-    
-    /* Get TextSource object */
-    n = 0;
-    XtSetArg(args[n], XtNtextSource, &textsource); n++;
-    XtGetValues(text, args, n);
-    
-    Assertion(textsource != NULL, (("printOKXtProc: textsource == NULL.\n")));
-   
-    /* ||printJobNameBuffer| must live as long the print job prints
-     * because it is used for the job title AND the page headers... */
-    sprintf(printJobNameBuffer, "XMore print job %s", viewFileName);
-
-    DoPrintTextSource(ProgramName,
-                      textsource, toplevel,
-                      pdcs->pdpy, pdcs->pcontext, pdcs->colorspace,
-                      printshellDestroyXtProc,
-                      printJobNameBuffer,
-                      pdcs->printToFile?pdcs->printToFileName:NULL);
-
-    XtPopdown(printdialog_shell);
-}
-
-static void
-printCancelXtProc(Widget w, XtPointer client_data, XtPointer callData)
-{
-    Log(("printCancelXtProc: cancel.\n"));
-    XtPopdown(printdialog_shell);
-    
-    Log(("destroying print dialog shell...\n"));
-    XtDestroyWidget(printdialog_shell);
-    printdialog_shell = NULL;
-    printdialog       = NULL;
-    Log(("... done\n"));
-}
-
-static void
-printXtProc(Widget w, XtPointer client_data, XtPointer callData)
-{
-    XtCallActionProc(toplevel, "print", NULL, NULL, 0);
-}
-
-static void
-printAction(Widget w,  XEvent *event, String *params, Cardinal *num_params)
-{
-  Dimension   width, height;
-  Position    x, y;
-  Widget      parent = toplevel;
-  Log(("print!\n"));
-  
-  if (!printdialog) {
-    int n;
-    Arg args[20];
-
-    n = 0;
-    XtSetArg(args[n], XtNallowShellResize, True); n++;
-    printdialog_shell = XtCreatePopupShell("printdialogshell",
-                                           transientShellWidgetClass,
-                                           toplevel, args, n);
-    n = 0;
-    printdialog = XtCreateManagedWidget("printdialog", printDialogWidgetClass,
-                                        printdialog_shell, args, n);
-    XtAddCallback(printdialog, XawNOkCallback,     printOKXtProc,     NULL);
-    XtAddCallback(printdialog, XawNCancelCallback, printCancelXtProc, NULL);
-
-    XtRealizeWidget(printdialog_shell);
-  }
-
-  /* Center dialog */
-  XtVaGetValues(printdialog_shell,
-      XtNwidth,  &width,
-      XtNheight, &height,
-      NULL);
-
-  x = (Position)(XWidthOfScreen( XtScreen(parent)) - width)  / 2;
-  y = (Position)(XHeightOfScreen(XtScreen(parent)) - height) / 3;
-
-  XtVaSetValues(printdialog_shell,
-      XtNx, x,
-      XtNy, y,
-      NULL);
-        
-  XtPopup(printdialog_shell, XtGrabNonexclusive);
-}
-
-#endif
-
 int main( int argc, char *argv[] )
 {
   XtAppContext app;
   Widget       form;
-  Widget       printbutton;
   Widget       quitbutton;
   int          n;
   Arg          args[8];
@@ -292,25 +169,13 @@ int main( int argc, char *argv[] )
   XtSetArg(args[n], XtNfontSet,          userOptions.textfont);    n++;
   text = XtCreateManagedWidget("text", asciiTextWidgetClass, form, args, n);
 
-#ifdef USE_XPRINT
   n = 0;
-  XtSetArg(args[n], XtNfromHoriz,       NULL);            n++;
-  XtSetArg(args[n], XtNfromVert,        text);            n++;
-  XtSetArg(args[n], XtNlabel,           "Print...");      n++;
-  printbutton = XtCreateManagedWidget("print", commandWidgetClass, form, args, n);
-  XtAddCallback(printbutton, XtNcallback, printXtProc, 0);        
-#endif
-  
-  n = 0;
-  XtSetArg(args[n], XtNfromHoriz,       printbutton);            n++;
+  XtSetArg(args[n], XtNfromHoriz,       NULL);                   n++;
   XtSetArg(args[n], XtNfromVert,        text);                   n++;
   XtSetArg(args[n], XtNlabel,           "Quit");      n++;
   quitbutton = XtCreateManagedWidget("quit", commandWidgetClass, form, args, n);
   XtAddCallback(quitbutton, XtNcallback, quitXtProc, 0);
   
-  printdialog_shell = NULL;
-  printdialog       = NULL;
-
   XtRealizeWidget(toplevel);
   
   XtAppMainLoop(app);

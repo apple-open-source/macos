@@ -24,9 +24,10 @@ typedef struct idattr_t {
 	struct berval		idattr_pat;
 	struct berval		idattr_applyto_uuid;
 	struct berval		idattr_applyto_dn;
+	struct berval		idattr_owner_dn;
 	idattr_type_t		idattr_type;
 	ber_tag_t			idattr_ops;
-	int					idattr_applyto;
+	u_int32_t					idattr_applyto;
 	struct berval		idattr_selfattr;
 	AttributeDescription *idattr_selfattrDesc;
 	struct berval		idattr_boolattr;
@@ -34,12 +35,12 @@ typedef struct idattr_t {
 } idattr_t;
 
 typedef struct idattr_id_to_dn_t {
-	int				found;
+	u_int32_t		found;
 	struct berval	target_dn;
 } idattr_id_to_dn_t;
 
 typedef struct idattr_ismember_t {
-	int				found;
+	u_int32_t				found;
 } idattr_ismember_t;
 
 static ObjectClass		*idattr_posixGroup;
@@ -54,6 +55,8 @@ static AttributeDescription	*idattr_owneruuid;
 static AttributeDescription	*idattr_sid;
 static AttributeDescription	*idattr_memberships;
 static AttributeDescription	*idattr_expandedmemberships;
+
+static const char *group_subtree="cn=groups";
 
 static int idattr_dynacl_destroy( void *priv );
 
@@ -399,7 +402,7 @@ idattr_is_member (
 	struct berval* groupDN,
 	AttributeDescription *searchAttr,
 	struct berval* searchID,
-	int * result)
+	u_int32_t * result)
 {
 	Operation nop = *op;
 	AttributeAssertion	ava = { NULL, BER_BVNULL };
@@ -409,7 +412,7 @@ idattr_is_member (
 	idattr_ismember_t ismember =  {0};
 	int rc = 0;
 	
-	target_bd = select_backend(&op->o_req_ndn, 0 , 0);
+	target_bd = select_backend(&op->o_req_ndn, 0);
 	
 	if (!target_bd || !target_bd->be_compare)
 		return LDAP_NOT_SUPPORTED;
@@ -484,7 +487,7 @@ idattr_id_to_dn (
 	idattr_id_to_dn_t dn_result =  {0};
 	int rc = 0;
 	
-	target_bd = select_backend(&op->o_req_ndn, 0 , 0);
+	target_bd = select_backend(&op->o_req_ndn, 0);
 	
 	if (!target_bd || !target_bd->be_search)
 		return LDAP_NOT_SUPPORTED;
@@ -523,7 +526,8 @@ idattr_id_to_dn (
 	rc = nop.o_bd->be_search( &nop, &sreply );
 	Debug(LDAP_DEBUG_ACL, "idattr_id_to_dn be_search[%d]\n", rc, 0, 0);
 	if (dn_result.found)
-		ber_dupbv(resultDN, &dn_result.target_dn );
+		ber_dupbv(resultDN, &dn_result.target_dn);
+		
 	return 0;
 }
 
@@ -607,6 +611,22 @@ idattr_check_isowner (
 					rc = LDAP_SUCCESS;
 					Debug(LDAP_DEBUG_ACL, "idattr_check_isowner by target[%s]\n", target->e_nname.bv_val, 0, 0);
 				}
+
+				// check group membership if applicable
+				if (rc != LDAP_SUCCESS) {
+					u_int32_t isMember = 0;
+					if (BER_BVISNULL(&id->idattr_owner_dn)) {
+						idattr_id_to_dn (op,searchAttr, theAttr->a_nvals, &id->idattr_owner_dn);
+					}
+					if (!BER_BVISNULL(&id->idattr_owner_dn) && strstr(id->idattr_owner_dn.bv_val, group_subtree) != NULL) { 
+						Debug( LDAP_DEBUG_ACL, "idattr_check_isowner: len[%d] idattr_owner_dn[%s] \n", id->idattr_owner_dn.bv_len, id->idattr_owner_dn.bv_val, 0 );
+						idattr_is_member ( op, &id->idattr_owner_dn, idattr_memberships, ownerIDAttr->a_nvals , &isMember); 
+						if (isMember) {
+							Debug( LDAP_DEBUG_ACL, "idattr_check_isowner: user is member of Group (from target)\n", 0, 0, 0 );
+							rc = LDAP_SUCCESS;
+						}									
+					}
+				}
 			}
 		}
 		// check op->o_req_ndn
@@ -630,6 +650,20 @@ idattr_check_isowner (
 					if (entry_rc == LDAP_SUCCESS) {
 						rc = LDAP_SUCCESS;
 						Debug(LDAP_DEBUG_ACL, "idattr_check_isowner by request[%s]\n", op->o_req_ndn.bv_val, 0, 0);
+					}
+
+					// check group membership if applicable
+					u_int32_t isMember = 0;
+					if (BER_BVISNULL(&id->idattr_owner_dn)) {
+						idattr_id_to_dn (op,searchAttr, theAttr->a_nvals, &id->idattr_owner_dn);
+					}
+					if (!BER_BVISNULL(&id->idattr_owner_dn) && strstr(id->idattr_owner_dn.bv_val, group_subtree) != NULL) { 
+						Debug( LDAP_DEBUG_ACL, "idattr_check_isowner: len[%d] id->idattr_owner_dn[%s] \n", id->idattr_owner_dn.bv_len, id->idattr_owner_dn.bv_val, 0 );
+						idattr_is_member ( op, &id->idattr_owner_dn, idattr_memberships, ownerIDAttr->a_nvals , &isMember); 
+						if (isMember) {
+							Debug( LDAP_DEBUG_ACL, "idattr_check_isowner: user is member of Group (by parent)\n", 0, 0, 0 );
+							rc = LDAP_SUCCESS;
+						}									
 					}
 				}
 			}
@@ -786,13 +820,13 @@ idattr_check_applyto (
 		idattr_id_to_dn (op,searchAttr, &(id->idattr_applyto_uuid), &(id->idattr_applyto_dn));
 		Debug( LDAP_DEBUG_ACL, "idattr_dynacl_mask: len[%d] idattr_applyto_dn[%s] \n", id->idattr_applyto_dn.bv_len, id->idattr_applyto_dn.bv_val, 0 );
 	}
-
+ 
 	if (!BER_BVISNULL(&id->idattr_applyto_dn)) {
 		entry_rc = be_entry_get_rw( op, &target->e_nname, NULL , idattr_uuid, 0, &theEntry );
 		
 		if (entry_rc == LDAP_SUCCESS && theEntry) {
 			Attribute *uuidAttr = NULL;
-			int isMember = 0;
+			u_int32_t isMember = 0;
 			
 			uuidAttr = attr_find( theEntry->e_attrs, idattr_uuid);
 			if (uuidAttr) {
@@ -837,7 +871,6 @@ static int idattr_dynacl_unparse_style(idattr_t *id,  char **ace)
 		break;
 	}
 
-	return 0;
 	return 0;
 }
 
@@ -951,7 +984,7 @@ static int idattr_dynacl_unparse(
 {
 	idattr_t		*id = (idattr_t *)priv;
 	char		*ptr = NULL, *start = NULL;
-	int len = 0;
+	size_t len = 0;
 	bv->bv_len = MAX_ACE_LEN;
 	bv->bv_val = ch_calloc( 1, bv->bv_len + 1 );
 
@@ -991,7 +1024,7 @@ exit_on_error:
 static int
 idattr_dynacl_mask(
 	void			*priv,
-	struct slap_op		*op,
+	Operation		*op,
 	Entry			*target,
 	AttributeDescription	*desc,
 	struct berval		*val,
@@ -1001,8 +1034,7 @@ idattr_dynacl_mask(
 	slap_access_t		*deny )
 {
 	idattr_t		*id = (idattr_t *)priv;
-	Entry		*group = NULL,
-			*user = NULL;
+	Entry   *user = NULL;
 	int		rc = LDAP_INSUFFICIENT_ACCESS;
 	int		user_rc = LDAP_INSUFFICIENT_ACCESS;
 	int		target_rc = LDAP_INSUFFICIENT_ACCESS;
@@ -1027,7 +1059,7 @@ idattr_dynacl_mask(
 	}
 
 	if (!op->o_conn->c_authz.c_sai_krb5_auth_data_provisioned) {
-		user_be = op->o_bd = select_backend( &op->o_ndn, 0, 0 );
+		user_be = op->o_bd = select_backend( &op->o_ndn, 0);
 		if ( op->o_bd == NULL ) {
 			Debug( LDAP_DEBUG_ACL, "idattr_dynacl_mask: op->o_bd == NULL \n", 0, 0, 0 );
 			op->o_bd = be;
@@ -1118,13 +1150,8 @@ assignaccess:
 	}
 
 cleanup:
-	if ( group != NULL && group != target ) {
-		op->o_bd = group_be;
-		be_entry_release_r( op, group );
-		op->o_bd = be;
-	}
 
-	if ( user != NULL && user != target ) {
+	if ( user != NULL) {
 		op->o_bd = user_be;
 		be_entry_release_r( op, user );
 		op->o_bd = be;
@@ -1143,12 +1170,33 @@ idattr_dynacl_destroy(
 	if ( id != NULL ) {
 		if ( !BER_BVISNULL( &id->idattr_pat ) ) {
 			ber_memfree( id->idattr_pat.bv_val );
+			id->idattr_pat.bv_len = 0;
+			id->idattr_pat.bv_val = NULL;
 		}
 		if ( !BER_BVISNULL( &id->idattr_applyto_dn ) ) {
 			ber_memfree( id->idattr_applyto_dn.bv_val );
+			id->idattr_applyto_dn.bv_len = 0;
+			id->idattr_applyto_dn.bv_val = NULL;
+		}
+		if ( !BER_BVISNULL( &id->idattr_owner_dn ) ) {
+			ber_memfree( id->idattr_owner_dn.bv_val );
+			id->idattr_owner_dn.bv_len = 0;
+			id->idattr_owner_dn.bv_val = NULL;
+		}
+		if ( !BER_BVISNULL( &id->idattr_applyto_uuid ) ) {
+			ber_memfree( id->idattr_applyto_uuid.bv_val );
+			id->idattr_applyto_uuid.bv_len = 0;
+			id->idattr_applyto_uuid.bv_val = NULL;
 		}
 		if ( !BER_BVISNULL( &id->idattr_selfattr ) ) {
 			ber_memfree( id->idattr_selfattr.bv_val );
+			id->idattr_selfattr.bv_len = 0;
+			id->idattr_selfattr.bv_val = NULL;
+		}
+		if ( !BER_BVISNULL( &id->idattr_boolattr ) ) {
+			ber_memfree( id->idattr_boolattr.bv_val );
+			id->idattr_boolattr.bv_len = 0;
+			id->idattr_boolattr.bv_val = NULL;
 		}
 		ch_free( id );
 	}

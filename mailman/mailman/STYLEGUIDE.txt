@@ -10,7 +10,7 @@ This document contains a style guide for Python programming, as used in
 Mailman.  In general, Guido van Rossum's style guide should be taken as a
 basis, as embodied in PEP 8:
 
-    http://www.python.org/peps/pep-0008.html
+    http://www.python.org/dev/peps/pep-0008/
 
 however, my (Barry Warsaw's) personal preferences differ from Guido's in a few
 places.  "When in Rome..." should apply meaning, when coding stuff for Python,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003, 2004, 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003, 2004, 2006, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -187,7 +187,7 @@ __SCDynamicStoreCopyNotifiedKeys	(SCDynamicStoreRef	store,
 int
 __SCDynamicStoreNotifyMachPort		(SCDynamicStoreRef	store,
 					 mach_msg_id_t		msgid,
-					 mach_port_t		*port);
+					 mach_port_t		port);
 
 int
 __SCDynamicStoreNotifyFileDescriptor	(SCDynamicStoreRef	store,
@@ -214,7 +214,7 @@ _removeWatcher				(CFNumberRef		sessionNum,
 					 CFStringRef		watchedKey);
 
 void
-pushNotifications			(void);
+pushNotifications			(FILE			*_configd_trace);
 
 __END_DECLS
 

@@ -86,11 +86,13 @@ static char rcsid[] = "$Id: res_init.c,v 1.8 2003/02/18 17:29:24 majka Exp $";
 #include <sys/time.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <arpa/nameser8_compat.h>
 
 #include <stdio.h>
 #include <ctype.h>
-#include <resolv8_compat.h>
+
+#include "nameser8_compat.h"
+#include "resolv8_compat.h"
+
 #if defined(BSD) && (BSD >= 199103)
 # include <unistd.h>
 # include <stdlib.h>

@@ -160,8 +160,10 @@
       <li><a href="ftp://xmlsoft.org/">FTP</a></li>
       <li><a href="http://www.zlatkovic.com/projects/libxml/">Windows binaries</a></li>
       <li><a href="http://garypennington.net/libxml2/">Solaris binaries</a></li>
-      <li><a href="http://www.zveno.com/open_source/libxml2xslt.html">MacOsX binaries</a></li>
+      <li><a href="http://www.explain.com.au/oss/libxml2xslt.html">MacOsX binaries</a></li>
       <li><a href="http://bugzilla.gnome.org/buglist.cgi?product=libxslt">Bug Tracker</a></li>
+      <li><a href="http://codespeak.net/lxml/">lxml Python bindings</a></li>
+      <li><a href="http://cpan.uwinnipeg.ca/dist/XML-LibXSLT">Perl XSLT bindings</a></li>
       <li><a href="http://www.zend.com/php5/articles/php5-xmlphp.php#Heading17">XSLT with PHP</a></li>
       <li><a href="http://www.mod-xslt2.com/">Apache module</a></li>
       <li><a href="http://sourceforge.net/projects/libxml2-pas/">Pascal bindings</a></li>
@@ -257,7 +259,7 @@ A:link, A:visited, A:active { text-decoration: underline }
           <a href="http://swpat.ffii.org/"><img src="{$logo_base}epatents.png" alt="Action against software patents"/></a>
         </td>
         <td width="180">
-          <a href="http://www.gnome.org/"><img src="{$logo_base}gnome2.png" alt="Gnome2 Logo"/></a>
+          <a href="http://www.gnome.org/"><img src="{$logo_base}gnome2.png" alt="GNOME2 Logo"/></a>
           <a href="http://www.w3.org/Status"><img src="{$logo_base}w3c.png" alt="W3C logo"/></a>
           <a href="http://www.redhat.com"><img src="{$logo_base}redhat.gif" alt="Red Hat Logo"/></a>
           <div align="left">

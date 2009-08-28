@@ -2,9 +2,8 @@
  * CDDL HEADER START
  *
  * The contents of this file are subject to the terms of the
- * Common Development and Distribution License, Version 1.0 only
- * (the "License").  You may not use this file except in compliance
- * with the License.
+ * Common Development and Distribution License (the "License").
+ * You may not use this file except in compliance with the License.
  *
  * You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
  * or http://www.opensolaris.org/os/licensing.
@@ -20,14 +19,14 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2004 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
 #ifndef _PROC_SERVICE_H
 #define	_PROC_SERVICE_H
 
-#pragma ident	"@(#)proc_service.h	1.21	05/06/08 SMI"
+#pragma ident	"@(#)proc_service.h	1.22	06/09/11 SMI"
 
 /*
  *  Description:
@@ -46,6 +45,7 @@ extern "C" {
 #include <sys/auxv.h>
 #include <elf.h>
 #else /* is Apple Mac OS X */
+
 #include <sys/types.h>
 /* NOTHING */ /* In lieu of Solaris <sys/procfs_isa.h> */
 #include "lwp.h" /* In lieu of Solaris <sys/lwp.h> */
@@ -70,7 +70,6 @@ struct ssd {			/* In lieu of Solaris <sys/segments.h> */
 typedef int prgregset_t; /* In lieu of Solaris <sys/sysi86.h> */
 typedef int prfpregset_t; /* In lieu of Solaris <sys/sysi86.h> */
 #endif /* __APPLE__ */
-
 
 typedef unsigned long	psaddr_t;
 
@@ -154,6 +153,7 @@ extern ps_err_e ps_lgetLDT(struct ps_prochandle *, lwpid_t, struct ssd *);
 #endif
 
 extern ps_err_e ps_pauxv(struct ps_prochandle *, const auxv_t **);
+extern ps_err_e ps_pbrandname(struct ps_prochandle *, char *, size_t);
 
 extern ps_err_e ps_kill(struct ps_prochandle *, int sig);
 extern ps_err_e ps_lrolltoaddr(struct ps_prochandle *,

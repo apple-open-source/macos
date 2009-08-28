@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,7 +19,9 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#if !defined(__MINGW32__)
 #include <sys/wait.h>
+#endif
 #include <unistd.h>
 #include <dirent.h>
 #include <errno.h>
@@ -53,7 +55,7 @@
 #if defined(__APPLE__)
 #  define SHELL_CMD  "/bin/sh"
 #  define DYNAMIC_LIB_EXT "dylib"
-#  define MODULE_LIB_EXT  "so"
+#  define MODULE_LIB_EXT  "bundle"
 #  define STATIC_LIB_EXT "a"
 #  define OBJECT_EXT     "o"
 #  define LIBRARIAN      "ar"
@@ -63,7 +65,8 @@
 #  define PIC_FLAG "-fPIC -fno-common"
 #  define SHARED_OPTS "-dynamiclib"
 #  define MODULE_OPTS "-bundle"
-#  define DYNAMIC_LINK_OPTS "-flat_namespace -undefined suppress"
+#  define DYNAMIC_LINK_OPTS "-flat_namespace"
+#  define DYNAMIC_LINK_UNDEFINED "-undefined suppress"
 #  define dynamic_link_version_func darwin_dynamic_link_function
 #  define DYNAMIC_INSTALL_NAME "-install_name"
 #  define DYNAMIC_LINK_NO_INSTALL "-dylib_file"
@@ -145,6 +148,22 @@
 #  define LD_LIBRARY_PATH "LD_LIBRARY_PATH"
 #endif
 
+#if defined(__MINGW32__)
+#  define SHELL_CMD "sh"
+#  define DYNAMIC_LIB_EXT "dll"
+#  define MODULE_LIB_EXT  "dll"
+#  define STATIC_LIB_EXT "a"
+#  define OBJECT_EXT     "o"
+#  define LIBRARIAN      "ar"
+#  define LIBRARIAN_OPTS "cr"
+#  define RANLIB "ranlib"
+#  define LINKER_FLAG_PREFIX "-Wl,"
+#  define SHARED_OPTS "-shared"
+#  define MODULE_OPTS "-shared"
+#  define MKDIR_NO_UMASK
+#  define EXE_EXT ".exe"
+#endif
+
 #ifndef SHELL_CMD
 #error Unsupported platform: Please add defines for SHELL_CMD etc. for your platform.
 #endif
@@ -188,6 +207,12 @@ enum pic_mode_e {
     pic_AVOID,
 };
 
+enum shared_mode_e {
+    share_UNSET,
+    share_STATIC,
+    share_SHARED,
+};
+
 enum lib_type {
     type_UNKNOWN,
     type_DYNAMIC_LIB,
@@ -214,7 +239,7 @@ typedef struct {
 
 typedef struct {
     int silent;
-    int shared;
+    enum shared_mode_e shared;
     int export_all;
     int dry_run;
     enum pic_mode_e pic_mode;
@@ -250,6 +275,7 @@ typedef struct {
     library_opts shared_opts;
 
     const char *version_info;
+    const char *undefined_flag;
 } command_t;
 
 #ifdef RPATH
@@ -296,7 +322,7 @@ static int snprintf( char *str, size_t n, const char *fmt, ... )
 
 void init_count_chars(count_chars *cc)
 {
-    cc->vals = (const char**)malloc(PATH_MAX);
+    cc->vals = (const char**)malloc(PATH_MAX*sizeof(char*));
     cc->num = 0;
 }
 
@@ -313,6 +339,11 @@ void clear_count_chars(count_chars *cc)
 void push_count_chars(count_chars *cc, const char *newval)
 {
     cc->vals[cc->num++] = newval;
+}
+
+void pop_count_chars(count_chars *cc)
+{
+    cc->num--;
 }
 
 void insert_count_chars(count_chars *cc, const char *newval, int position)
@@ -337,7 +368,7 @@ void append_count_chars(count_chars *cc, count_chars *cctoadd)
     }
 }
 
-const char *flatten_count_chars(count_chars *cc)
+const char *flatten_count_chars(count_chars *cc, int space)
 {
     int i, size;
     char *newval;
@@ -346,6 +377,9 @@ const char *flatten_count_chars(count_chars *cc)
     for (i = 0; i < cc->num; i++) {
         if (cc->vals[i]) {
             size += strlen(cc->vals[i]) + 1;
+            if (space) {
+              size++;
+            }
         }
     }
 
@@ -355,7 +389,9 @@ const char *flatten_count_chars(count_chars *cc)
     for (i = 0; i < cc->num; i++) {
         if (cc->vals[i]) {
             strcat(newval, cc->vals[i]);
-            strcat(newval, " ");
+            if (space) {
+                strcat(newval, " ");
+            }
         }
     }
 
@@ -369,9 +405,13 @@ char *shell_esc(const char *str)
     unsigned char *d;
     const unsigned char *s;
 
-    cmd = (char *)malloc(2 * strlen(str) + 1);
+    cmd = (char *)malloc(2 * strlen(str) + 3);
     d = (unsigned char *)cmd;
     s = (const unsigned char *)str;
+
+#ifdef __MINGW32__
+    *d++ = '\"';
+#endif
 
     for (; *s; ++s) {
         if (*s == '"') {
@@ -383,6 +423,10 @@ char *shell_esc(const char *str)
         }
         *d++ = *s;
     }
+
+#ifdef __MINGW32__
+    *d++ = '\"';
+#endif
 
     *d = '\0';
     return cmd;
@@ -403,8 +447,8 @@ int external_spawn(command_t *cmd, const char *file, const char **argv)
     if (cmd->options.dry_run) {
         return 0;
     }
-#ifdef __EMX__
-    return spawnvp(P_WAIT, file, argv);
+#if defined(__EMX__) || defined(__MINGW32__)
+    return spawnvp(P_WAIT, argv[0], argv);
 #else
     {
         pid_t pid;
@@ -440,7 +484,7 @@ int run_command(command_t *cmd_data, count_chars *cc)
 
     append_count_chars(&tmpcc, cc);
 
-    command = shell_esc(flatten_count_chars(&tmpcc));
+    command = shell_esc(flatten_count_chars(&tmpcc, 1));
 
     spawn_args[0] = SHELL_CMD;
     spawn_args[1] = "-c";
@@ -510,7 +554,7 @@ int parse_long_opt(char *arg, command_t *cmd_data)
         if (cmd_data->mode == mLink) {
             cmd_data->output = otDynamicLibraryOnly;
         }
-        cmd_data->options.shared = 1;
+        cmd_data->options.shared = share_SHARED;
     } else if (strcmp(var, "export-all") == 0) {
         cmd_data->options.export_all = 1;
     } else if (strcmp(var, "dry-run") == 0) {
@@ -549,6 +593,14 @@ int parse_short_opt(char *arg, command_t *cmd_data)
         return 1;
     }
 
+    if (strcmp(arg, "shared") == 0) {
+        if (cmd_data->mode == mLink) {
+            cmd_data->output = otDynamicLibraryOnly;
+        }
+        cmd_data->options.shared = share_SHARED;
+        return 1;
+    }
+
     if (strcmp(arg, "Zexe") == 0) {
         return 1;
     }
@@ -568,7 +620,7 @@ int parse_short_opt(char *arg, command_t *cmd_data)
     }
 
     if (strcmp(arg, "static") == 0) {
-        /* Don't respect it for now. */
+        cmd_data->options.shared = share_STATIC;
         return 1;
     }
 
@@ -629,6 +681,20 @@ long safe_strtol(const char *nptr, const char **endptr, int base)
     }
 
     return rv; 
+}
+
+void safe_mkdir(const char *path)
+{
+    mode_t old_umask;
+
+    old_umask = umask(0);
+    umask(old_umask);
+
+#ifdef MKDIR_NO_UMASK
+    mkdir(path);
+#else
+    mkdir(path, ~old_umask);
+#endif
 }
 
 /* version_info is in the form of MAJOR:MINOR:PATCH */
@@ -807,12 +873,14 @@ char *check_library_exists(command_t *cmd, const char *arg, int pathlen,
 
         switch (pass) {
         case 0:
-            if (cmd->options.pic_mode != pic_AVOID || cmd->options.shared) {
+            if (cmd->options.pic_mode != pic_AVOID &&
+                cmd->options.shared != share_STATIC) {
                 strcpy(ext, DYNAMIC_LIB_EXT);
                 *libtype = type_DYNAMIC_LIB;
                 break;
             }
             pass = 1;
+            /* Fall through */
         case 1:
             strcpy(ext, STATIC_LIB_EXT);
             *libtype = type_STATIC_LIB;
@@ -896,6 +964,41 @@ char * load_noinstall_path(const char *arg, int pathlen)
 #endif
 
     return expanded_path;
+}
+
+void add_dynamic_link_opts(command_t *cmd_data, count_chars *args)
+{
+#ifdef DYNAMIC_LINK_OPTS
+    if (cmd_data->options.pic_mode != pic_AVOID) {
+        if (!cmd_data->options.silent) {
+           printf("Adding: %s\n", DYNAMIC_LINK_OPTS);
+        }
+        push_count_chars(args, DYNAMIC_LINK_OPTS);
+        if (cmd_data->undefined_flag) {
+            push_count_chars(args, "-undefined");
+#if defined(__APPLE__)
+            /* -undefined dynamic_lookup is used by the bundled Python in
+             * 10.4, but if we don't set MACOSX_DEPLOYMENT_TARGET to 10.3+,
+             * we'll get a linker error if we pass this flag.
+             */
+            if (strcasecmp(cmd_data->undefined_flag,
+                           "dynamic_lookup") == 0) {
+                insert_count_chars(cmd_data->program_opts,
+                                   "MACOSX_DEPLOYMENT_TARGET=10.3", 0);
+            }
+#endif
+            push_count_chars(args, cmd_data->undefined_flag);
+        }
+        else {
+#ifdef DYNAMIC_LINK_UNDEFINED
+            if (!cmd_data->options.silent) {
+                printf("Adding: %s\n", DYNAMIC_LINK_UNDEFINED);
+            }
+            push_count_chars(args, DYNAMIC_LINK_UNDEFINED);
+#endif
+        }
+    }
+#endif
 }
 
 /* Read the final install location and add it to runtime library search path. */
@@ -1011,8 +1114,8 @@ void add_minus_l(count_chars *cc, const char *arg)
         file = name;
         file = file+4;
         push_count_chars(cc, "-L");
-	push_count_chars(cc, arg);
-	/* we need one argument like -lapr-1 */
+        push_count_chars(cc, arg);
+        /* we need one argument like -lapr-1 */
         newarg = malloc(strlen(file) + 3);
         strcpy(newarg, "-l");
         strcat(newarg, file);
@@ -1033,6 +1136,128 @@ void add_linker_flag_prefix(count_chars *cc, const char *arg)
     strcat(newarg, arg);
     push_count_chars(cc, newarg);
 #endif
+}
+
+/* returns just a file's name without the path */
+const char *jlibtool_basename(const char *fullpath)
+{
+    const char *name = strrchr(fullpath, '/');
+
+    if (name == NULL) {
+        name = strrchr(fullpath, '\\');
+    }
+
+    if (name == NULL) {
+        name = fullpath;
+    } else {
+        name++;
+    }
+
+    return name;
+}
+
+/* returns just a file's name without path or extension */
+const char *nameof(const char *fullpath)
+{
+    const char *name;
+    const char *ext;
+
+    name = jlibtool_basename(fullpath);
+    ext = strrchr(name, '.');
+
+    if (ext) {
+        char *trimmed;
+        trimmed = malloc(ext - name + 1);
+        strncpy(trimmed, name, ext - name);
+        trimmed[ext-name] = 0;
+        return trimmed;
+    }
+
+    return name;
+}
+
+int explode_static_lib(command_t *cmd_data, const char *lib)
+{
+    count_chars tmpdir_cc, libname_cc;
+    const char *tmpdir, *libname;
+    char savewd[PATH_MAX];
+    const char *name;
+    DIR *dir;
+    struct dirent *entry;
+    const char *lib_args[4];
+
+    /* Bah! */
+    if (cmd_data->options.dry_run) {
+        return 0;
+    }
+
+    name = jlibtool_basename(lib);
+
+    init_count_chars(&tmpdir_cc);
+    push_count_chars(&tmpdir_cc, ".libs/");
+    push_count_chars(&tmpdir_cc, name);
+    push_count_chars(&tmpdir_cc, ".exploded/");
+    tmpdir = flatten_count_chars(&tmpdir_cc, 0);
+
+    if (!cmd_data->options.silent) {
+        printf("Making: %s\n", tmpdir);
+    }
+    safe_mkdir(tmpdir);
+
+    push_count_chars(cmd_data->tmp_dirs, tmpdir);
+
+    getcwd(savewd, sizeof(savewd));
+
+    if (chdir(tmpdir) != 0) {
+        if (!cmd_data->options.silent) {
+            printf("Warning: could not explode %s\n", lib);
+        }
+        return 1;
+    }
+
+    if (lib[0] == '/') {
+        libname = lib;
+    }
+    else {
+        init_count_chars(&libname_cc);
+        push_count_chars(&libname_cc, "../../");
+        push_count_chars(&libname_cc, lib);
+        libname = flatten_count_chars(&libname_cc, 0);
+    }
+
+    lib_args[0] = LIBRARIAN;
+    lib_args[1] = "x";
+    lib_args[2] = libname;
+    lib_args[3] = NULL;
+
+    external_spawn(cmd_data, LIBRARIAN, lib_args);
+
+    chdir(savewd);
+    dir = opendir(tmpdir);
+
+    while ((entry = readdir(dir)) != NULL) {
+#if defined(__APPLE__) && defined(RANLIB)
+        /* Apple inserts __.SYMDEF which isn't needed.
+         * Leopard (10.5+) can also add '__.SYMDEF SORTED' which isn't
+         * much fun either.  Just skip them.
+         */
+        if (strstr(entry->d_name, "__.SYMDEF") != NULL) {
+            continue;
+        }
+#endif
+        if (entry->d_name[0] != '.') {
+            push_count_chars(&tmpdir_cc, entry->d_name);
+            name = flatten_count_chars(&tmpdir_cc, 0);
+            if (!cmd_data->options.silent) {
+                printf("Adding: %s\n", name);
+            }
+            push_count_chars(cmd_data->obj_files, name);
+            pop_count_chars(&tmpdir_cc);
+        }
+    }
+
+    closedir(dir);
+    return 0;
 }
 
 int parse_input_file_name(char *arg, command_t *cmd_data)
@@ -1099,11 +1324,19 @@ int parse_input_file_name(char *arg, command_t *cmd_data)
 #ifdef ADD_MINUS_L
             if (libtype == type_DYNAMIC_LIB) {
                  add_minus_l(cmd_data->shared_opts.dependencies, newarg);
+            } else if (cmd_data->output == otLibrary &&
+                       libtype == type_STATIC_LIB) {
+                explode_static_lib(cmd_data, newarg);
             } else {
                  push_count_chars(cmd_data->shared_opts.dependencies, newarg);
             }
 #else
-            push_count_chars(cmd_data->shared_opts.dependencies, newarg);
+            if (cmd_data->output == otLibrary && libtype == type_STATIC_LIB) {
+                explode_static_lib(cmd_data, newarg);
+            }
+            else {
+                push_count_chars(cmd_data->shared_opts.dependencies, newarg);
+            }
 #endif
             if (libtype == type_DYNAMIC_LIB) {
                 if (cmd_data->options.no_install) {
@@ -1197,7 +1430,11 @@ int parse_output_file_name(char *arg, command_t *cmd_data)
         }
     }
 
+#ifdef EXE_EXT
+    if (!ext || strcmp(ext, EXE_EXT) == 0) {
+#else
     if (!ext) {
+#endif
         cmd_data->basename = arg;
         cmd_data->output = otProgram;
 #if defined(_OSD_POSIX)
@@ -1206,7 +1443,9 @@ int parse_output_file_name(char *arg, command_t *cmd_data)
         newarg = (char *)malloc(strlen(arg) + 5);
         strcpy(newarg, arg);
 #ifdef EXE_EXT
+	if (!ext) {
         strcat(newarg, EXE_EXT);
+	}
 #endif
         cmd_data->output_name = newarg;
         return 1;
@@ -1250,34 +1489,6 @@ int parse_output_file_name(char *arg, command_t *cmd_data)
     return 0;
 }
 
-/* returns just a file's name without path or extension */
-char *nameof(char *fullpath)
-{
-    char buffer[1024];
-    char *ext;
-    char *name = strrchr(fullpath, '/');
-
-    if (name == NULL) {
-        name = strrchr(fullpath, '\\');
-    }
-
-    if (name == NULL) {
-        name = fullpath;
-    } else {
-        name++;
-    }
-
-    strcpy(buffer, name);
-    ext = strrchr(buffer, '.');
-
-    if (ext) {
-        *ext = 0;
-        return strdup(buffer);
-    }
-
-    return name;
-}
-
 void parse_args(int argc, char *argv[], command_t *cmd_data)
 {
     int a;
@@ -1304,7 +1515,7 @@ void parse_args(int argc, char *argv[], command_t *cmd_data)
                     argused = parse_output_file_name(arg, cmd_data);
                 } else if (strcmp(arg+1, "MT") == 0) {
                     if (!cmd_data->options.silent) {
-                        printf("Adding: %s", arg);
+                        printf("Adding: %s\n", arg);
                     }
                     push_count_chars(cmd_data->arglist, arg);
                     arg = argv[++a];
@@ -1325,6 +1536,9 @@ void parse_args(int argc, char *argv[], command_t *cmd_data)
                     /* Skip the argument. */
                     ++a;
                     argused = 1;
+                } else if (strcmp(arg+1, "undefined") == 0) {
+                    cmd_data->undefined_flag = argv[++a];
+                    argused = 1;
                 } else if (arg[1] == 'R' && !arg[2]) {
                     /* -R dir Add dir to runtime library search path. */
                     add_runtimedirlib(argv[++a], cmd_data);
@@ -1343,58 +1557,6 @@ void parse_args(int argc, char *argv[], command_t *cmd_data)
         }
     }
 
-}
-
-int explode_static_lib(const char *lib, command_t *cmd_data)
-{
-    char tmpdir[1024];
-    char savewd[1024];
-    char cmd[1024];
-    const char *name;
-    DIR *dir;
-    struct dirent *entry;
-
-    /* Bah! */
-    if (cmd_data->options.dry_run) {
-        return 0;
-    }
-
-    strcpy(tmpdir, lib);
-    strcat(tmpdir, ".exploded");
-
-    mkdir(tmpdir, 0);
-    push_count_chars(cmd_data->tmp_dirs, strdup(tmpdir));
-    getcwd(savewd, sizeof(savewd));
-
-    if (chdir(tmpdir) != 0)
-        return 1;
-
-    strcpy(cmd, LIBRARIAN " x ");
-    name = strrchr(lib, '/');
-
-    if (name) {
-        name++;
-    } else {
-        name = lib;
-    }
-
-    strcat(cmd, "../");
-    strcat(cmd, name);
-    system(cmd);
-    chdir(savewd);
-    dir = opendir(tmpdir);
-
-    while ((entry = readdir(dir)) != NULL) {
-        if (entry->d_name[0] != '.') {
-            strcpy(cmd, tmpdir);
-            strcat(cmd, "/");
-            strcat(cmd, entry->d_name);
-            push_count_chars(cmd_data->arglist, strdup(cmd));
-        }
-    }
-
-    closedir(dir);
-    return 0;
 }
 
 #ifdef GEN_EXPORTS
@@ -1534,11 +1696,7 @@ void link_fixup(command_t *c)
             push_count_chars(c->arglist, c->output_name);
             append_count_chars(c->arglist, c->obj_files);
             append_count_chars(c->arglist, c->shared_opts.dependencies);
-#ifdef DYNAMIC_LINK_OPTS
-            if (c->options.pic_mode != pic_AVOID) {
-                push_count_chars(c->arglist, DYNAMIC_LINK_OPTS);
-            }
-#endif
+            add_dynamic_link_opts(c, c->arglist);
         }
     }
 }
@@ -1635,6 +1793,41 @@ int run_mode(command_t *cmd_data)
             if (rv) {
                 return rv;
             }
+#if defined(__APPLE__) && defined(RANLIB)
+            /* From the Apple libtool(1) manpage on Tiger/10.4:
+             * ----
+             * With  the way libraries used to be created, errors were possible
+             * if the library was modified with ar(1) and  the  table  of
+             * contents  was  not updated  by  rerunning ranlib(1).  Thus the
+             * link editor, ld, warns when the modification date of a library
+             * is more  recent  than  the  creation date  of its table of
+             * contents.  Unfortunately, this means that you get the warning
+             * even if you only copy the library.
+             * ----
+             *
+             * This means that when we install the static archive, we need to
+             * rerun ranlib afterwards.
+             */
+            const char *lib_args[3], *static_lib_name;
+            char *tmp;
+            size_t len1, len2;
+            len1 = strlen(cmd_data->arglist->vals[cmd_data->arglist->num - 1]);
+
+            static_lib_name = jlibtool_basename(cmd_data->static_name.install);
+            len2 = strlen(static_lib_name);
+
+            tmp = malloc(len1 + len2 + 2);
+
+            snprintf(tmp, len1 + len2 + 2, "%s/%s",
+                    cmd_data->arglist->vals[cmd_data->arglist->num - 1],
+                    static_lib_name);
+
+            lib_args[0] = RANLIB;
+            lib_args[1] = tmp;
+            lib_args[2] = NULL;
+            external_spawn(cmd_data, RANLIB, lib_args);
+            free(tmp);
+#endif
             clear_count_chars(cctemp);
         }
         if (cmd_data->shared_name.install) {
@@ -1663,12 +1856,7 @@ int run_mode(command_t *cmd_data)
     case mLink:
         if (!cmd_data->options.dry_run) {
             /* Check first to see if the dir already exists! */
-            mode_t old_umask;
-
-            old_umask = umask(0);
-            umask(old_umask);
-
-            mkdir(".libs", ~old_umask);
+            safe_mkdir(".libs");
         }
 
         if (cmd_data->output == otStaticLibraryOnly ||
@@ -1716,12 +1904,8 @@ int run_mode(command_t *cmd_data)
                 push_count_chars(cmd_data->program_opts, MODULE_OPTS);
 #endif
             }
-#ifdef DYNAMIC_LINK_OPTS
-            if (cmd_data->options.pic_mode != pic_AVOID) {
-                push_count_chars(cmd_data->program_opts,
-                                 DYNAMIC_LINK_OPTS);
-            }
-#endif
+            add_dynamic_link_opts(cmd_data, cmd_data->program_opts);
+
             rv = run_command(cmd_data, cmd_data->shared_opts.normal);
             if (rv) {
                 return rv;
@@ -1779,6 +1963,9 @@ int ensure_fake_uptodate(command_t *cmd_data)
     const char *touch_args[3];
 
     if (cmd_data->mode == mInstall) {
+        return 0;
+    }
+    if (!cmd_data->fake_output_name) {
         return 0;
     }
 

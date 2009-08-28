@@ -1,4 +1,11 @@
 <testcase>
+<info>
+<keywords>
+HTTPS
+HTTP GET
+</keywords>
+</info>
+
 #
 # Server-side
 <reply>
@@ -50,7 +57,7 @@ HTTPS GET, receive no headers only data!
 </strip>
 <protocol>
 GET /306 HTTP/1.1
-Host: 127.0.0.1:%HTTPSPORT
+Host: %HOSTIP:%HTTPSPORT
 Accept: */*
 
 </protocol>

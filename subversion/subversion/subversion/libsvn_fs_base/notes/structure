@@ -372,23 +372,26 @@ change the representation pretty much as we please to optimize
 whatever parameter we care about --- storage size, speed, robustness,
 etc.
 
-Representations never share strings.  Every string is represented by
-exactly one representation; every representation represents exactly
-one string.  This is so we can replace a string with deltified version
-of itself, change the representation referring to it, and know that
-we're not messing up any other reps by doing so.
+Representations never share strings - every string is referred to by
+exactly one representation.  This is so that when we change a
+representation to a different form (e.g. during deltification), we can
+delete the strings containing the old form, and know that we're not
+messing up any other reps by doing so.
 
 
 Further Notes On Deltifying:
 ----------------------------
 
-When a representation is deltified, it is changed in place, along with
-its underlying string.  That is, the node revision referring to that
-representation will not be changed; instead, the same rep key will now
-be associated with different value.  That way, we get reader locking
-for free: if someone is reading a file while Subversion is deltifying
-that file, one of the two sides will get a DB_DEADLOCK and
-svn_fs__retry_txn() will retry.
+When a representation is deltified, it is changed in place.
+New strings are created containing the new delta, the representation
+is changed to refer to the new strings, and the original (usually
+fulltext) string or strings are deleted.
+
+The node revisions referring to that representation will not be
+changed; instead, the same rep key will now be associated with
+different value.  That way, we get reader locking for free: if someone
+is reading a file while Subversion is deltifying that file, one of the
+two sides will get a DB_DEADLOCK and svn_fs__retry_txn() will retry.
 
 ### todo: add a note about cycle-checking here, too.
 
@@ -451,10 +454,11 @@ following forms:
 where:
 
    * ROOT-ID is the node revision ID of the transaction's root
-     directory.
+     directory.  This is of the form 0.0.THIS-TXN-ID.
 
    * BASE-ID is the node revision ID of the root of the transaction's
-     base revision.
+     base revision.  This is of the form 0.0.BASE-TXN-ID - the base
+     transaction is, of course, the transaction of the base revision.
 
    * PROPLIST is a skel giving the revision properties for the
      transaction.
@@ -514,8 +518,17 @@ where:
 
    * PATH is the path that was operated on to enact this change.
 
-   * ID is the node revision ID of the node changed (may be a zero
-     atom, but only in the "reset" kind case).
+   * ID is the node revision ID of the node changed.  The precise
+     meaning varies based on the kind of the change:
+      - "add" or "modify": a new node revision created in the current
+        txn.
+      - "delete": a node revision from a previous txn.
+      - "replace": a replace operation actually acts on two node
+        revisions, one being deleted, one being added.  Only the added
+        node-revision ID is recorded in the `changes' table - this is
+        a design flaw.
+      - "reset": no node revision applies.  A zero atom is used as a
+        placeholder.
 
    * CHANGE-KIND is one of the following:
 
@@ -524,6 +537,9 @@ where:
      - "replace" : PATH/ID was removed, then re-added to the filesystem.
      - "modify"  : PATH/ID was otherwise modified.
      - "reset"   : Ignore any previous changes for PATH/ID in this txn.
+                   This kind is no longer created by Subversion 1.3.0
+                   and later, and can probably be removed at the next
+                   schema bump.
 
    * TEXT-MOD is a bit specifying whether or not the contents of
      this node was modified.
@@ -666,7 +682,8 @@ Merging algorithm:
        must be merged or declared to be in conflict.
   
        If SOURCE-ENTRY and TARGET-ENTRY are both null, that's a
-       double delete; flag a conflict.
+       double delete; if one of them is null, that's a delete versus
+       a modification. In any of these cases, flag a conflict.
   
        If any of the three entries is of type file, declare a conflict.
   
@@ -845,6 +862,9 @@ Berkeley DB tables
                 "uuids" : recno(UUID)
                 "locks" : btree(TOKEN -> LOCK)
           "lock-tokens" : btree(PATH -> TOKEN)
+         "node-origins" : btree(NODE-ID -> ID)
+        "checksum-reps" : btree(SHA1SUM -> REP, "next-key" -> number-36)
+        "miscellaneous" : btree(STRING -> STRING)
 
 Syntactic elements
 ------------------
@@ -909,16 +929,22 @@ Entries lists:
 Node revisions:
 
           NODE-REVISION ::= FILE | DIR ;
-                   FILE ::= (HEADER PROP-KEY DATA-KEY [EDIT-DATA-KEY]) ;
-                    DIR ::= (HEADER PROP-KEY ENTRIES-KEY) ;
-
-                 HEADER ::= (KIND CREATED-PATH [PRED-ID [PRED-COUNT]]) ;
+                   FILE ::= (HEADER PROP-KEY DATA-INFO [EDIT-DATA-KEY]) ;
+                    DIR ::= (HEADER PROP-KEY ENTRIES-KEY) ; 
+                 HEADER ::= (KIND CREATED-PATH 
+                             [PRED-ID [PRED-COUNT 
+                              [HAS-MERGEINFO MERGEINFO-COUNT]]]) ;
                    KIND ::= "file" | "dir" ;
-                PRED-ID ::= NODE-REV-ID ;
-             PRED-COUNT ::= number ;
+                PRED-ID ::= NODE-REV-ID | "";
+             PRED-COUNT ::= number | "" ;
            CREATED-PATH ::= atom ;
                PROP-KEY ::= atom ;
-                REP-KEY ::= atom ;
+              DATA-INFO ::= DATA-KEY | (DATA-KEY DATA-KEY-UNIQID)
+               DATA-KEY ::= atom ;
+        DATA-KEY-UNIQID ::= atom ;
+          EDIT-DATA-KEY ::= atom ;
+          HAS-MERGEINFO ::= "0" | "1" ;
+        MERGEINFO-COUNT ::= number ;
 
 
 Representations:
@@ -934,12 +960,14 @@ Representations:
                  OFFSET ::= number ;
              REP-OFFSET ::= number ;
 
-                 HEADER ::= (KIND TXN [CHECKSUM]) ;
+                 HEADER ::= (KIND TXN [MD5 [SHA1]]) ;
                    KIND ::= "fulltext" | "delta" ;
              
                    SIZE ::= number ;
-               CHECKSUM ::= ("md5" BYTES) ;
-                  BYTES ::= atom ;
+                    MD5 ::= ("md5" MD5SUM) ;
+                   SHA1 ::= ("sha1" SHA1SUM) ;
+                 MD5SUM ::= atom ;
+                SHA1SUM ::= atom ;
 
 
 Strings:
@@ -975,7 +1003,11 @@ Lock tokens:
                (the value is just a lock-token, which is a uuid)
 
 
-        
+Node origins:
+
+                NODE-ID ::= NODE-REV-ID ;
+
+
 Lexical elements
 ----------------
 
@@ -991,7 +1023,6 @@ Numbers:
               hexits-32 ::= /{base16.class}{8}/ ;
               hexits-16 ::= /{base16.class}{4}/ ;
               hexits-48 ::= /{base16.class}{12}/ ;
-
 
 (Note: the following are described in skel.h)
 Skels:
@@ -1019,3 +1050,19 @@ Character classes:
            base16.class ::= [0-9a-f]
            base36.class ::= [a-z0-9]
          anything.class ::= anything at all ;
+
+
+
+Appendix: 'miscellaneous' table contents
+======================================
+
+The 'miscellaneous' table contains string keys mapped to string
+values.  Here is a table of the supported keys, the descriptions of
+their values, and the filesystem format version in which they were
+introduced.
+
+   Fmt   Key                  Value
+   ---   ------------------   ------------------------------------
+    4    forward-delta-rev    Youngest revision in the repository as of
+                              the moment when it was upgraded to support
+                              forward deltas.

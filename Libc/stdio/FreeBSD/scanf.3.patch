@@ -1,5 +1,5 @@
---- scanf.3.orig	2007-04-08 18:49:37.000000000 -0700
-+++ scanf.3	2007-04-08 20:14:03.000000000 -0700
+--- scanf.3.orig	2008-07-30 01:54:48.000000000 -0700
++++ scanf.3	2008-07-30 02:06:07.000000000 -0700
 @@ -40,35 +40,55 @@
  .Dt SCANF 3
  .Os
@@ -104,7 +104,17 @@
  there may be a number of
  .Em flag
  characters, as follows:
-@@ -440,13 +468,10 @@
+@@ -415,7 +443,8 @@
+ in
+ .Xr printf 3 ) ;
+ the next pointer must be a pointer to
+-.Vt void .
++.Vt "void *"
++(or other pointer type).
+ .It Cm n
+ Nothing is expected;
+ instead, the number of characters consumed thus far from the input
+@@ -440,13 +469,10 @@
  causes an immediate return of
  .Dv EOF .
  .Sh RETURN VALUES
@@ -122,7 +132,7 @@
  no conversions were assigned;
  typically this is due to an invalid input character,
  such as an alphabetic character for a
-@@ -463,6 +488,7 @@
+@@ -463,6 +489,7 @@
  .Xr getc 3 ,
  .Xr mbrtowc 3 ,
  .Xr printf 3 ,
@@ -130,7 +140,7 @@
  .Xr strtod 3 ,
  .Xr strtol 3 ,
  .Xr strtoul 3 ,
-@@ -473,7 +499,7 @@
+@@ -473,7 +500,7 @@
  .Fn scanf ,
  .Fn sscanf ,
  .Fn vfscanf ,

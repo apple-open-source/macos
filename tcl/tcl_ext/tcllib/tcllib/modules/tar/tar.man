@@ -1,0 +1,136 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin tar n 0.4]
+[moddesc   {Tar file handling}]
+[titledesc {Tar file creation, extraction & manipulation}]
+[require Tcl 8.4]
+[require tar [opt 0.4]]
+[description]
+
+
+[para]
+
+[list_begin definitions]
+
+[call [cmd ::tar::contents] [arg tarball]]
+
+Returns a list of the files contained in [arg tarball]. The order is not sorted and depends on the order
+files were stored in the archive.
+[para]
+
+[call [cmd ::tar::stat] [arg tarball] [opt file]]
+
+Returns a nested dict containing information on the named [opt file] in [arg tarball],
+or all files if none is specified. The top level are pairs of filename and info. The info is a dict with the keys
+"[const mode] [const uid] [const gid] [const size] [const mtime] [const type] [const linkname] [const uname] [const gname]
+ [const devmajor] [const devminor]
+
+[example {
+% ::tar::stat tarball.tar
+foo.jpg {mode 0644 uid 1000 gid 0 size 7580 mtime 811903867 type file linkname {} uname user gname wheel devmajor 0 devminor 0}
+}]
+
+
+[call [cmd ::tar::untar] [arg tarball] [arg args]]
+
+Extracts [arg tarball]. [arg -file] and [arg -glob] limit the extraction
+to files which exactly match or pattern match the given argument. No error is
+thrown if no files match. Returns a list of filenames extracted and the file
+size. The size will be null for non regular files. Leading path seperators are
+stripped so paths will always be relative.
+
+[list_begin options]
+[opt_def -dir dirName]
+Directory to extract to. Uses [cmd pwd] if none is specified
+[opt_def -file fileName]
+Only extract the file with this name. The name is matched against the complete path
+stored in the archive including directories.
+[opt_def -glob pattern]
+Only extract files patching this glob style pattern. The pattern is matched against the complete path
+stored in the archive.
+[opt_def -nooverwrite]
+Dont overwrite files that already exist
+[opt_def -nomtime]
+Leave the file modification time as the current time instead of setting it to the value in the archive.
+[opt_def -noperms]
+In Unix, leave the file permissions as the current umask instead of setting them to the values in the archive.
+[list_end]
+[para]
+
+[example {
+% foreach {file size} [::tar::untar tarball.tar -glob *.jpg] {
+puts "Extracted $file ($size bytes)"
+}
+}]
+
+[call [cmd ::tar::get] [arg tarball] [arg fileName]]
+
+Returns the contents of [arg fileName] from the [arg tarball]
+[para]
+
+[example {
+% set readme [::tar::get tarball.tar doc/README] {
+% puts $readme
+}
+}]
+
+[call [cmd ::tar::create] [arg tarball] [arg files] [arg args]]
+
+Creates a new tar file containing the [arg files]. [arg files] must be specified
+as a single argument which is a proper list of filenames.
+
+[list_begin options]
+[opt_def -dereference]
+Normally [cmd create] will store links as an actual link pointing at a file that may
+or may not exist in the archive. Specifying this option will cause the actual file point to
+ by the link to be stored instead.
+[list_end]
+[para]
+
+[example {
+% ::tar::create new.tar [glob -nocomplain file*]
+% ::tar::contents new.tar
+file1 file2 file3
+}]
+
+[call [cmd ::tar::add] [arg tarball] [arg files] [arg args]]
+
+Appends [arg files] to the end of the existing [arg tarball]. [arg files] must be specified
+as a single argument which is a proper list of filenames.
+
+[list_begin options]
+[opt_def -dereference]
+Normally [cmd add] will store links as an actual link pointing at a file that may
+or may not exist in the archive. Specifying this option will cause the actual file point to
+ by the link to be stored instead.
+[list_end]
+[para]
+
+[call [cmd ::tar::remove] [arg tarball] [arg files]]
+
+Removes [arg files] from the [arg tarball]. No error will result if the file does not exist in the
+tarball. Directory write permission and free disk space equivalent to at least the size of the tarball
+will be needed.
+
+[example {
+% ::tar::remove new.tar {file2 file3}
+% ::tar::contents new.tar
+file3
+}]
+
+[list_end]
+
+
+[section {BUGS, IDEAS, FEEDBACK}]
+
+This document, and the package it describes, will undoubtedly contain
+bugs and other problems.
+
+Please report such in the category [emph tar] of the
+[uri {http://sourceforge.net/tracker/?group_id=12883} {Tcllib SF Trackers}].
+
+Please also report any ideas for enhancements you may have for either
+package and/or documentation.
+
+
+[keywords tar {tape archive} archive]
+[manpage_end]

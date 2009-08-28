@@ -41,16 +41,6 @@ public:
 	// Return maximum speed and channels supported
 	// (bit n set = chan n supported)
     IOReturn getSupported(IOFWSpeed &maxSpeed, UInt64 &chanSupported);
-
-    // Allocate hardware resources for port
-    virtual IOReturn allocatePort(IOFWSpeed speed, UInt32 chan);
-    virtual IOReturn releasePort();     // Free hardware resources
-    virtual IOReturn start();           // Start port processing packets
-    virtual IOReturn stop();            // Stop processing packets
-    virtual IOReturn notify(IOFWDCLNotificationType 	notificationType,
-							DCLCommand ** 				dclCommandList, 
-							UInt32 						numDCLCommands ) ;
-    
 };
 
 #endif /* _IOKIT_IOFWASYNCSTREAMRECEIVEPORT_H */

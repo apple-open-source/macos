@@ -62,12 +62,14 @@ public:
 template <class T> class SimpleOption : public SmbOption
 {
 public:
-    SimpleOption(const char * optname, const char * param, const T def)
-	: SmbOption(optname), m_param(param), m_value(def) {}
+    SimpleOption(const char * optname, const char * parmname, const T def)
+	: SmbOption(optname), m_param(parmname), m_value(def) {}
     ~SimpleOption() {}
 
     virtual void reset(const Preferences&);
     virtual void emit(SmbConfig&);
+
+    const char * param(void) const {  return m_param; }
 
 private:
     SimpleOption(const SimpleOption&); // nocopy

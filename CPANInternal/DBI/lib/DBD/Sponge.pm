@@ -4,10 +4,11 @@
     require DBI;
     require Carp;
 
-    @EXPORT = qw(); # Do NOT @EXPORT anything.
-    $VERSION = sprintf("%d.%02d", q$Revision: 11.10 $ =~ /(\d+)\.(\d+)/o);
+    our @EXPORT = qw(); # Do NOT @EXPORT anything.
+    our $VERSION = sprintf("12.%06d", q$Revision: 10002 $ =~ /(\d+)/o);
 
-#   $Id: Sponge.pm,v 11.10 2004/01/07 17:38:51 timbo Exp $
+
+#   $Id: Sponge.pm 10002 2007-09-26 21:03:25Z timbo $
 #
 #   Copyright (c) 1994-2003 Tim Bunce Ireland
 #
@@ -52,7 +53,7 @@
     sub prepare {
 	my($dbh, $statement, $attribs) = @_;
 	my $rows = delete $attribs->{'rows'}
-	    or return $dbh->set_err(1,"No rows attribute supplied to prepare");
+	    or return $dbh->set_err($DBI::stderr,"No rows attribute supplied to prepare");
 	my ($outer, $sth) = DBI::_new_sth($dbh, {
 	    'Statement'   => $statement,
 	    'rows'        => $rows,
@@ -68,7 +69,7 @@
 	if ($statement =~ /^\s*insert\b/) {	# very basic, just for testing execute_array()
 	    $sth->{is_insert} = 1;
 	    my $NUM_OF_PARAMS = $attribs->{NUM_OF_PARAMS}
-		or return $dbh->set_err(1,"NUM_OF_PARAMS not specified for INSERT statement");
+		or return $dbh->set_err($DBI::stderr,"NUM_OF_PARAMS not specified for INSERT statement");
 	    $sth->STORE('NUM_OF_PARAMS' => $attribs->{NUM_OF_PARAMS} );
 	}
 	else {	#assume select
@@ -84,7 +85,7 @@
 	    } elsif (my $firstrow = $rows->[0]) {
 		$numFields = scalar @$firstrow;
 	    } else {
-		return $dbh->set_err(1, 'Cannot determine NUM_OF_FIELDS');
+		return $dbh->set_err($DBI::stderr, 'Cannot determine NUM_OF_FIELDS');
 	    }
 	    $sth->STORE('NUM_OF_FIELDS' => $numFields);
 	    $sth->{NAME} = $attribs->{NAME}
@@ -161,6 +162,10 @@
 
     sub execute {
 	my $sth = shift;
+
+        # hack to support ParamValues (when not using bind_param)
+        $sth->{ParamValues} = (@_) ? { map { $_ => $_[$_-1] } 1..@_ } : undef;
+
 	if (my $hook = $sth->{execute_hook}) {
 	    &$hook($sth, @_) or return;
 	}
@@ -169,7 +174,7 @@
 	    my $row;
 	    $row = (@_) ? [ @_ ] : die "bind_param not supported yet" ;
 	    my $NUM_OF_PARAMS = $sth->{NUM_OF_PARAMS};
-	    return $sth->set_err(1, @$row." values bound (@$row) but $NUM_OF_PARAMS expected")
+	    return $sth->set_err($DBI::stderr, @$row." values bound (@$row) but $NUM_OF_PARAMS expected")
 		if @$row != $NUM_OF_PARAMS;
 	    { local $^W; $sth->trace_msg("inserting (@$row)\n"); }
 	    push @{ $sth->{rows} }, $row;

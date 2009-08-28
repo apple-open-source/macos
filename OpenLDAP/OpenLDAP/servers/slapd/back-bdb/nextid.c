@@ -1,8 +1,8 @@
 /* init.c - initialize bdb backend */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/nextid.c,v 1.23.2.3 2006/01/03 22:16:17 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/nextid.c,v 1.26.2.4 2008/02/12 00:34:58 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2006 The OpenLDAP Foundation.
+ * Copyright 2000-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -21,7 +21,7 @@
 
 #include "back-bdb.h"
 
-int bdb_next_id( BackendDB *be, DB_TXN *tid, ID *out )
+int bdb_next_id( BackendDB *be, ID *out )
 {
 	struct bdb_info *bdb = (struct bdb_info *) be->be_private;
 

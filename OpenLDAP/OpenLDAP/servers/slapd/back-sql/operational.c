@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-sql/operational.c,v 1.9.2.5 2006/01/03 22:16:24 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-sql/operational.c,v 1.21.2.5 2008/02/11 23:26:48 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2006 The OpenLDAP Foundation.
+ * Copyright 1999-2008 The OpenLDAP Foundation.
  * Portions Copyright 1999 Dmitry Kovalev.
  * Portions Copyright 2002 Pierangelo Masarati.
  * All rights reserved.
@@ -53,9 +53,9 @@ backsql_operational_entryUUID( backsql_info *bi, backsql_entryID *id )
 		return NULL;
 	}
 
-	a = ch_malloc( sizeof( Attribute ) );
-	a->a_desc = desc;
+	a = attr_alloc( desc );
 
+	a->a_numvals = 1;
 	a->a_vals = (BerVarray) ch_malloc( 2 * sizeof( struct berval ) );
 	a->a_vals[ 0 ] = val;
 	BER_BVZERO( &a->a_vals[ 1 ] );
@@ -63,9 +63,6 @@ backsql_operational_entryUUID( backsql_info *bi, backsql_entryID *id )
 	a->a_nvals = (BerVarray) ch_malloc( 2 * sizeof( struct berval ) );
 	a->a_nvals[ 0 ] = nval;
 	BER_BVZERO( &a->a_nvals[ 1 ] );
-	
-	a->a_next = NULL;
-	a->a_flags = 0;
 
 	return a;
 }
@@ -77,8 +74,8 @@ backsql_operational_entryCSN( Operation *op )
 	struct berval	entryCSN;
 	Attribute	*a;
 
-	a = ch_malloc( sizeof( Attribute ) );
-	a->a_desc = slap_schema.si_ad_entryCSN;
+	a = attr_alloc( slap_schema.si_ad_entryCSN );
+	a->a_numvals = 1;
 	a->a_vals = ch_malloc( 2 * sizeof( struct berval ) );
 	BER_BVZERO( &a->a_vals[ 1 ] );
 
@@ -99,9 +96,6 @@ backsql_operational_entryCSN( Operation *op )
 	ber_dupbv( &a->a_vals[ 0 ], &entryCSN );
 
 	a->a_nvals = a->a_vals;
-
-	a->a_next = NULL;
-	a->a_flags = 0;
 
 	return a;
 }
@@ -197,7 +191,7 @@ backsql_operational(
 
 		*ap = backsql_operational_entryUUID( bi, &bsi.bsi_base_id );
 
-		(void)backsql_free_entryID( op, &bsi.bsi_base_id, 0 );
+		(void)backsql_free_entryID( &bsi.bsi_base_id, 0, op->o_tmpmemctx );
 
 		if ( bsi.bsi_attrs != NULL ) {
 			op->o_tmpfree( bsi.bsi_attrs, op->o_tmpmemctx );

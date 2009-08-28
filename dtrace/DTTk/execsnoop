@@ -78,7 +78,7 @@ opt_zone=0; opt_safe=0; opt_proj=0
 while getopts aAc:ehjsvZ name
 do
 	case $name in
-	a)	opt_time=1; opt_timestr=1; opt_zone=1; opt_proj=1 ;;
+	a)	opt_time=1; opt_timestr=1; opt_zone=0; opt_proj=1 ;;
 	A)	opt_dump=1 ;;
 	c)	opt_cmd=1; command=$OPTARG ;;
 	e)	opt_safe=1 ;;
@@ -156,7 +156,8 @@ fi
   * Print exec event
   */
  /* SOLARIS: syscall::exec:return, syscall::exece:return */
- syscall::execve:return
+ syscall::execve:return,
+ syscall::posix_spawn:return
  /(FILTER == 0) || (OPT_cmd == 1 && COMMAND == strstr(COMMAND, execname)) || (OPT_cmd == 1 && execname == strstr(execname, COMMAND))/ 
  {
 	/* print optional fields */

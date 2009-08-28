@@ -18,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #ifndef CONFIG_DARWIN_H
 #define CONFIG_DARWIN_H
@@ -44,10 +44,14 @@ Boston, MA 02111-1307, USA.  */
 extern int machopic_symbol_defined_p (rtx);
 /* APPLE LOCAL end dynamic-no-pic */
 
-/* APPLE LOCAL begin 3334812 */
+/* APPLE LOCAL begin axe stubs 5571540 */
+extern int darwin_stubs;
+/* APPLE LOCAL end axe stubs 5571540 */
+
+/* APPLE LOCAL begin mainline 2006-11-01 3334812 */
 /* Don't assume anything about the header files.  */
 #define NO_IMPLICIT_EXTERN_C
-/* APPLE LOCAL end 3334812 */
+/* APPLE LOCAL end mainline 2006-11-01 3334812 */
 
 /* Suppress g++ attempt to link in the math library automatically. */
 #define MATH_LIBRARY ""
@@ -95,6 +99,9 @@ extern int machopic_symbol_defined_p (rtx);
 #define WARN_FOUR_CHAR_CONSTANTS 0
 /* APPLE LOCAL end -Wfour-char-constants */
 
+/* True if pragma ms_struct is in effect.  */
+extern GTY(()) int darwin_ms_struct;
+
 /* This table intercepts weirdo options whose names would interfere
    with normal driver conventions, and either translates them into
    standardly-named options, or adds a 'Z' so that they can get to
@@ -111,12 +118,12 @@ extern int machopic_symbol_defined_p (rtx);
    name, that also takes an argument, needs to be modified so the
    prefix is different, otherwise a '*' after the shorter option will
    match with the longer one.
-   
+
    The SUBTARGET_OPTION_TRANSLATE_TABLE macro, which _must_ be defined
    in gcc/config/{i386,rs6000}/darwin.h, should contain any additional
    command-line option translations specific to the particular target
    architecture.  */
-   
+
 #define TARGET_OPTION_TRANSLATE_TABLE \
   { "-all_load", "-Zall_load" },  \
   { "-allowable_client", "-Zallowable_client" },  \
@@ -138,36 +145,35 @@ extern int machopic_symbol_defined_p (rtx);
   { "-segs_read_only_addr", "-Zsegs_read_only_addr" }, \
   { "-segs_read_write_addr", "-Zsegs_read_write_addr" }, \
   { "-seg_addr_table", "-Zseg_addr_table" }, \
-  /* APPLE LOCAL mainline 4.2 3941990 */ \
   { "-seg_addr_table_filename", "-Zfn_seg_addr_table_filename" }, \
   /* APPLE LOCAL mainline */ \
   { "-umbrella", "-Zumbrella" }, \
-  /* APPLE LOCAL mainline */ \
-  { "-fapple-kext", "-fapple-kext -static -Wa,-static" }, \
+  /* APPLE LOCAL kext weak_import 5935650 */ \
+  { "-fapple-kext", "-fapple-kext -static" }, \
   { "-filelist", "-Xlinker -filelist -Xlinker" },  \
-  /* APPLE LOCAL begin mainline */ \
   { "-findirect-virtual-calls", "-fapple-kext" }, \
-  /* APPLE LOCAL end mainline */ \
   { "-flat_namespace", "-Zflat_namespace" },  \
   { "-force_cpusubtype_ALL", "-Zforce_cpusubtype_ALL" },  \
   { "-force_flat_namespace", "-Zforce_flat_namespace" },  \
-  /* APPLE LOCAL mainline */ \
   { "-framework", "-Xlinker -framework -Xlinker" },  \
-  /* APPLE LOCAL mainline */ \
   { "-fterminated-vtables", "-fapple-kext" }, \
   { "-image_base", "-Zimage_base" },  \
   { "-init", "-Zinit" },  \
   { "-install_name", "-Zinstall_name" },  \
-  /* APPLE LOCAL mainline */ \
-  { "-mkernel", "-mkernel -static -Wa,-static" }, \
+  /* APPLE LOCAL kext weak_import 5935650 */ \
+  { "-mkernel", "-mkernel -static" }, \
   { "-multiply_defined_unused", "-Zmultiplydefinedunused" },  \
   { "-multiply_defined", "-Zmultiply_defined" },  \
   { "-multi_module", "-Zmulti_module" },  \
-  { "-static", "-static -Wa,-static" },  \
+  /* APPLE LOCAL begin kext weak_import 5935650 */ \
+  /* Removed -static */ \
+  /* APPLE LOCAL end kext weak_import 5935650 */ \
+  /* APPLE LOCAL mainline */ \
+  { "-shared", "-Zdynamiclib" }, \
   { "-single_module", "-Zsingle_module" },  \
   { "-unexported_symbols_list", "-Zunexported_symbols_list" }, \
-  /* APPLE LOCAL ObjC GC */ \
-  { "-fobjc-gc", "-fobjc-gc -Wno-non-lvalue-assign" }, \
+  /* APPLE LOCAL radar 6269491 */ \
+  /* code removed. */ \
   /* APPLE LOCAL begin constant cfstrings */	\
   { "-fconstant-cfstrings", "-mconstant-cfstrings" }, \
   { "-fno-constant-cfstrings", "-mno-constant-cfstrings" }, \
@@ -179,105 +185,44 @@ extern int machopic_symbol_defined_p (rtx);
   SUBTARGET_OPTION_TRANSLATE_TABLE
 
 /* APPLE LOCAL begin constant cfstrings */
-extern int darwin_constant_cfstrings;
-extern const char *darwin_constant_cfstrings_switch;
-extern int darwin_warn_nonportable_cfstrings;
-extern const char *darwin_warn_nonportable_cfstrings_switch;
-extern int darwin_pascal_strings;
-extern const char *darwin_pascal_strings_switch;
 extern int darwin_running_cxx;
 /* APPLE LOCAL end constant cfstrings */
-
-/* Nonzero if the user has chosen to force sizeof(bool) to be 1
-   by providing the -mone-byte-bool switch.  It would be better
-   to use SUBTARGET_SWITCHES for this instead of SUBTARGET_OPTIONS,
-   but there are no more bits in rs6000 TARGET_SWITCHES.  Note
-   that this switch has no "no-" variant. */
-extern const char *darwin_one_byte_bool;
 
 /* APPLE LOCAL begin pragma reverse_bitfields */
 /* True if pragma reverse_bitfields is in effect. */
 extern GTY(()) int darwin_reverse_bitfields;
 /* APPLE LOCAL end pragma reverse_bitfields */
 
-extern int darwin_fix_and_continue;
-extern const char *darwin_fix_and_continue_switch;
-/* APPLE LOCAL mainline 2005-09-01 3449986 */
-extern const char *darwin_macosx_version_min;
+/* APPLE LOCAL begin ARM 5683689 */
+enum darwin_version_type {
+  DARWIN_VERSION_MACOSX,
+  DARWIN_VERSION_IPHONEOS
+};
+/* APPLE LOCAL end ARM 5683689 */
 
-/* APPLE LOCAL begin AT&T-style stub 4164563 */
-extern int darwin_macho_att_stub;
-extern const char *darwin_macho_att_stub_switch;
+/* APPLE LOCAL AT&T-style stub 4164563 */
 #define MACHOPIC_ATT_STUB (darwin_macho_att_stub)
-/* APPLE LOCAL end AT&T-style stub 4164563 */
-
-#undef SUBTARGET_OPTIONS
-#define SUBTARGET_OPTIONS \
-  {"one-byte-bool", &darwin_one_byte_bool, N_("Set sizeof(bool) to 1"), 0 }, \
-  {"fix-and-continue", &darwin_fix_and_continue_switch,			\
-   N_("Generate code suitable for fast turn around debugging"), 0},	\
-/* APPLE LOCAL begin mainline 2005-09-01 3449986 */			\
-  {"macosx-version-min=", &darwin_macosx_version_min,			\
-   N_("The earliest MacOS X version on which this program will run"),	\
-   0 },									\
-/* APPLE LOCAL end mainline 2005-09-01 3449986 */			\
-  {"no-fix-and-continue", &darwin_fix_and_continue_switch,		\
-/* APPLE LOCAL added comma to this line for subsequent A-L additions */ \
-   N_("Don't generate code suitable for fast turn around debugging"), 0}, \
-  /* APPLE LOCAL begin AT&T-style stub 4164563 */			\
-  {"att-stubs", &darwin_macho_att_stub_switch,				\
-   N_("Generate AT&T-style stubs for Mach-O"), 0},			\
-  {"no-att-stubs", &darwin_macho_att_stub_switch,			\
-   N_("Generate traditional Mach-O stubs"), 0},				\
-  /* APPLE LOCAL end AT&T-style stub 4164563 */				\
- /* APPLE LOCAL begin constant cfstrings */				\
-   {"constant-cfstrings", &darwin_constant_cfstrings_switch,		\
-    N_("Generate compile-time CFString objects"), 0},			\
-   {"no-constant-cfstrings", &darwin_constant_cfstrings_switch, "", 0},	\
-   {"pascal-strings", &darwin_pascal_strings_switch,			\
-    N_("Allow use of Pascal strings"), 0},				\
-   {"no-pascal-strings", &darwin_pascal_strings_switch, "", 0},		\
-   {"warn-nonportable-cfstrings", &darwin_warn_nonportable_cfstrings_switch,		\
-    N_("Warn if constant CFString objects contain non-portable characters"), 0},	\
-   {"no-warn-nonportable-cfstrings", &darwin_warn_nonportable_cfstrings_switch, "", 0}
 
 #define SUBSUBTARGET_OVERRIDE_OPTIONS					\
   do {									\
-    if (darwin_constant_cfstrings_switch)				\
+    /* APPLE LOCAL begin constant cfstrings */				\
+    if (darwin_pascal_strings)						\
       {									\
-	const char *base = darwin_constant_cfstrings_switch;		\
-	while (base[-1] != 'm') base--;					\
-									\
-	if (*darwin_constant_cfstrings_switch != '\0')			\
-	  error ("invalid option `%s'", base);				\
-	darwin_constant_cfstrings = (base[0] != 'n');			\
+	warn_pointer_sign = 1;						\
+	CPP_OPTION (parse_in, pascal_strings) = 1;			\
       }									\
-    if (darwin_warn_nonportable_cfstrings_switch)			\
-      {									\
-	const char *base = darwin_warn_nonportable_cfstrings_switch;	\
-	while (base[-1] != 'm') base--;					\
-									\
-	if (*darwin_warn_nonportable_cfstrings_switch != '\0')		\
-	  error ("invalid option `%s'", base);				\
-	darwin_warn_nonportable_cfstrings = (base[0] != 'n');		\
-      }									\
-    if (darwin_pascal_strings_switch)					\
-      {									\
-	const char *base = darwin_pascal_strings_switch;		\
-	while (base[-1] != 'm') base--;					\
-									\
-	if (*darwin_pascal_strings_switch != '\0')			\
-	  error ("invalid option `%s'", base);				\
-	darwin_pascal_strings = (base[0] != 'n');			\
-	if (darwin_pascal_strings)					\
-	  CPP_OPTION (parse_in, pascal_strings) = 1;			\
-      }									\
+    /* APPLE LOCAL begin ARM 5683689 */					\
+    if (darwin_macosx_version_min && darwin_iphoneos_version_min)	\
+      error ("-mmacosx-version-min not allowed with"			\
+             " -miphoneos-version-min");				\
+    /* APPLE LOCAL end ARM 5683689 */					\
     /* The c_dialect...() macros are not available to us here.  */	\
     darwin_running_cxx = (strstr (lang_hooks.name, "C++") != 0);	\
-    /* APPLE LOCAL mainline */						\
+    /* APPLE LOCAL end constant cfstrings */				\
     darwin_override_options ();						\
   } while (0)
 
+/* APPLE LOCAL begin constant cfstrings */
 #define SUBTARGET_INIT_BUILTINS		\
 do {					\
   darwin_init_cfstring_builtins ();	\
@@ -287,7 +232,6 @@ do {					\
 #define TARGET_EXPAND_TREE_BUILTIN darwin_expand_tree_builtin
 #undef TARGET_CONSTRUCT_OBJC_STRING
 #define TARGET_CONSTRUCT_OBJC_STRING darwin_construct_objc_string
-
 /* APPLE LOCAL end constant cfstrings */
 
 /* These compiler options take n arguments.  */
@@ -317,7 +261,6 @@ do {					\
    !strcmp (STR, "Zsegs_read_only_addr") ? 1 :  \
    !strcmp (STR, "Zsegs_read_write_addr") ? 1 : \
    !strcmp (STR, "Zseg_addr_table") ? 1 :       \
-  /* APPLE LOCAL mainline 4.2 3941990 */ \
    !strcmp (STR, "Zfn_seg_addr_table_filename") ? 1 :\
    !strcmp (STR, "seg1addr") ? 1 :              \
    !strcmp (STR, "segprot") ? 3 :               \
@@ -337,33 +280,31 @@ do {					\
    !strcmp (STR, "dylinker_install_name") ? 1 : \
    0)
 
-/* APPLE LOCAL begin mainline */
-#define SUBTARGET_C_COMMON_OVERRIDE_OPTIONS do {			\
+#define SUBTARGET_C_COMMON_OVERRIDE_OPTIONS do {                        \
     if (flag_mkernel || flag_apple_kext)				\
       {									\
 	if (flag_use_cxa_atexit == 2)					\
 	  flag_use_cxa_atexit = 0;					\
-        /* kexts should always be built without the coalesced sections  \
-           because the kernel loader doesn't grok such sections.  */    \
-	flag_weak = 0;                                                  \
+	/* kexts should always be built without the coalesced sections	\
+	   because the kernel loader doesn't grok such sections.  */	\
+	flag_weak = 0;							\
 	/* No RTTI in kexts.  */					\
 	flag_rtti = 0;							\
+	/* APPLE LOCAL begin 5731065 */					\
+	if (flag_mkernel)						\
+	  flag_no_builtin = 1;						\
+	/* APPLE LOCAL end 5731065 */					\
+	/* APPLE LOCAL xmmintrin.h for kernel 4123064 */					\
+	flag_hosted = 0;						\
       }									\
-} while (0)
-/* APPLE LOCAL end mainline */
+  } while (0)
 
-/* Machine dependent cpp options.  __APPLE_CC__ is defined as the
-   Apple include files expect it to be defined and won't work if it
-   isn't.  */
-
-/* APPLE LOCAL begin mainline 2005-09-01 3449986 */
 /* Machine dependent cpp options.  Don't add more options here, add
    them to darwin_cpp_builtins in darwin-c.c.  */
 
-/* APPLE LOCAL end mainline 2005-09-01 3449986 */
 #undef	CPP_SPEC
-/* APPLE LOCAL -arch */
-#define CPP_SPEC "%{static:%{!dynamic:-D__STATIC__}}%{!static:-D__DYNAMIC__} %{arch}"
+#define CPP_SPEC "%{static:%{!dynamic:-D__STATIC__}}%{!static:-D__DYNAMIC__}" \
+	" %{pthread:-D_REENTRANT}"
 
 /* APPLE LOCAL begin private extern  */
 #undef CC1PLUS_SPEC
@@ -383,21 +324,29 @@ do {					\
 %{!fdump=*:%{!fsyntax-only:%{!precomp:%{!c:%{!M:%{!MM:%{!E:%{!S:\
     %(linker) %l %X %{d} %{s} %{t} %{Z} %{u*} \
     %{A} %{e*} %{m} %{r} %{x} \
-    %{@:-o %f%u.out}%{!@:%{o*}%{!o:-o a.out}} \
-"/* APPLE LOCAL mainline 2006-04-01 4495520 */"\
+    %{o*}%{!o:-o a.out} \
     %{!A:%{!nostdlib:%{!nostartfiles:%S}}} \
+    %{L*} %{fopenmp:%:include(libgomp.spec)%(link_gomp)}   \
 "/* APPLE LOCAL add fcreate-profile */"\
-    %{L*} %(link_libgcc) %o %{fprofile-arcs|fprofile-generate|fcreate-profile:-lgcov} \
+    %(link_libgcc) %o %{fprofile-arcs|fprofile-generate|fcreate-profile|coverage:-lgcov} \
 "/* APPLE LOCAL nested functions 4357979  */"\
     %{fnested-functions: -allow_stack_execute} \
-    %{!nostdlib:%{!nodefaultlibs:%G %L}} \
-"/* APPLE LOCAL begin mainline 4.3 2006-12-20 4370146 4869554 */"\
+"/* APPLE LOCAL prefer -lSystem 6645902 */"\
+    %{!nostdlib:%{!nodefaultlibs:%(link_ssp) %(link_gcc_c_sequence)}} \
+"/* APPLE LOCAL begin mainline 4.3 2006-10-31 4370146 */"\
     %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} %{F*} }}}}}}}}\n\
 %{!fdump=*:%{!fsyntax-only:%{!c:%{!M:%{!MM:%{!E:%{!S:\
+"/* APPLE LOCAL end mainline 4.3 2006-10-31 4370146 */"\
     %{.c|.cc|.C|.cpp|.cp|.c++|.cxx|.CPP|.m|.mm: \
     %{g*:%{!gstabs*:%{!g0: dsymutil %{o*:%*}%{!o:a.out}}}}}}}}}}}}"
-/* APPLE LOCAL end mainline 4.3 2006-12-20 4370146 4869554 */
 /* APPLE LOCAL end mainline */
+
+#ifdef TARGET_SYSTEM_ROOT
+#define LINK_SYSROOT_SPEC \
+  "%{isysroot*:-syslibroot %*;:-syslibroot " TARGET_SYSTEM_ROOT "}"
+#else
+#define LINK_SYSROOT_SPEC "%{isysroot*:-syslibroot %*}"
+#endif
 
 /* Please keep the random linker options in alphabetical order (modulo
    'Z' and 'no' prefixes).  Options that can only go to one of libtool
@@ -406,7 +355,7 @@ do {					\
 /* Note that options taking arguments may appear multiple times on a
    command line with different arguments each time, so put a * after
    their names so all of them get passed.  */
-/* APPLE LOCAL begin no-libtool */
+/* APPLE LOCAL begin mainline */
 #define LINK_SPEC  \
   "%{static}%{!static:-dynamic} \
    %{fgnu-runtime:%:replace-outfile(-lobjc -lobjc-gnu)}\
@@ -450,19 +399,19 @@ do {					\
    %{headerpad_max_install_names*} \
    %{Zimage_base*:-image_base %*} \
    %{Zinit*:-init %*} \
-   "/* APPLE LOCAL begin mainline 2007-02-20 5005743 */"\
-   %{!mmacosx-version-min=*:-macosx_version_min %(darwin_minversion)} \
+   "/* APPLE LOCAL begin ARM 5683689 */"\
+   %{!mmacosx-version-min=*: %{!miphoneos-version-min=*: %(darwin_ld_minversion)}} \
    %{mmacosx-version-min=*:-macosx_version_min %*} \
-   "/* APPLE LOCAL end mainline 2007-02-20 5005743 */"\
+   %{miphoneos-version-min=*:-iphoneos_version_min %*} \
+   "/* APPLE LOCAL end ARM 5683689 */"\
    %{nomultidefs} \
    %{Zmulti_module:-multi_module} %{Zsingle_module:-single_module} \
    %{Zmultiply_defined*:-multiply_defined %*} \
-"/* APPLE LOCAL begin mainline 2006-03-15 3992198 */"\
-   %{!Zmultiply_defined*:%{shared-libgcc: \
-     %:version-compare(< 10.5 mmacosx-version-min= -multiply_defined) \
-     %:version-compare(< 10.5 mmacosx-version-min= suppress)}} \
-"/* APPLE LOCAL end mainline 2006-03-15 3992198 */"\
+   "/* APPLE LOCAL begin deletion 5023884 */" \
+   "/* APPLE LOCAL end deletion 5023884 */" \
    %{Zmultiplydefinedunused*:-multiply_defined_unused %*} \
+   "/* APPLE LOCAL mainline 2007-06-01 5238485 */" \
+   %{fpie:-pie} \
    %{prebind} %{noprebind} %{nofixprebinding} %{prebind_all_twolevel_modules} \
    %{read_only_relocs} \
    %{sectcreate*} %{sectorder*} %{seg1addr*} %{segprot*} \
@@ -470,14 +419,10 @@ do {					\
    %{Zsegs_read_only_addr*:-segs_read_only_addr %*} \
    %{Zsegs_read_write_addr*:-segs_read_write_addr %*} \
    %{Zseg_addr_table*: -seg_addr_table %*} \
-   "/* APPLE LOCAL mainline 4.2 3941990 */" \
    %{Zfn_seg_addr_table_filename*:-seg_addr_table_filename %*} \
    %{sub_library*} %{sub_umbrella*} \
-   "/* APPLE LOCAL mainline 4.1 2005-06-03 */" \
-   "/* APPLE LOCAL ARM 4256246 */" \
-   %{isysroot*:-syslibroot %*;:%:add-sysroot(-syslibroot)} \
+   " LINK_SYSROOT_SPEC " \
    %{twolevel_namespace} %{twolevel_namespace_hints} \
-   "/* APPLE LOCAL mainline */" \
    %{Zumbrella*: -umbrella %*} \
    %{undefined*} \
    %{Zunexported_symbols_list*:-unexported_symbols_list %*} \
@@ -490,17 +435,12 @@ do {					\
    %{sectalign*} %{sectobjectsymbols*} %{segcreate*} %{whyload} \
    %{whatsloaded} %{dylinker_install_name*} \
    %{dylinker} %{Mach} "
-/* APPLE LOCAL end no-libtool */
+/* APPLE LOCAL end mainline */
 
-/* APPLE LOCAL begin mainline 2005-09-01 3449986 */
 /* Machine dependent libraries.  */
 
-/* APPLE LOCAL end mainline 2005-09-01 3449986 */
 #define LIB_SPEC "%{!static:-lSystem}"
-/* APPLE LOCAL begin mainline 2005-09-01 3449986 */
 
-/* APPLE LOCAL end mainline 2005-09-01 3449986 */
-/* APPLE LOCAL begin mainline 2005-11-15 4276161 */
 /* Support -mmacosx-version-min by supplying different (stub) libgcc_s.dylib
    libraries to link against, and by not linking against libgcc_s on
    earlier-than-10.3.9.
@@ -518,67 +458,99 @@ do {					\
 #define REAL_LIBGCC_SPEC						   \
 /* APPLE LOCAL libgcc_static.a  */					   \
    "%{static:-lgcc_static; static-libgcc: -lgcc_eh -lgcc;		   \
-      shared-libgcc|fexceptions:					   \
+      "/* APPLE LOCAL ARM 5683689 5681645 */"				   \
+      miphoneos-version-min=*: %(darwin_iphoneos_libgcc);		   \
+      shared-libgcc|fexceptions|fgnu-runtime:				   \
        %:version-compare(!> 10.5 mmacosx-version-min= -lgcc_s.10.4)	   \
-       %:version-compare(>= 10.5 mmacosx-version-min= -lgcc_s.10.5)	   \
+       "/* APPLE LOCAL link optimizations 6499452 */"			   \
+       %:version-compare(>< 10.5 10.6 mmacosx-version-min= -lgcc_s.10.5)   \
        -lgcc;								   \
       :%:version-compare(>< 10.3.9 10.5 mmacosx-version-min= -lgcc_s.10.4) \
-       %:version-compare(>= 10.5 mmacosx-version-min= -lgcc_s.10.5)	   \
+       "/* APPLE LOCAL link optimizations 6499452 */"			   \
+       %:version-compare(>< 10.5 10.6 mmacosx-version-min= -lgcc_s.10.5)   \
        -lgcc}"
 
-/* APPLE LOCAL end mainline 2005-11-15 4276161 */
-/* APPLE LOCAL begin 4484188 */
 /* We specify crt0.o as -lcrt0.o so that ld will search the library path.
 
    crt3.o provides __cxa_atexit on systems that don't have it.  Since
    it's only used with C++, which requires passing -shared-libgcc, key
    off that to avoid unnecessarily adding a destructor to every
    powerpc program built.  */
-/* APPLE LOCAL begin no-libtool */
-#undef  STARTFILE_SPEC
-#define STARTFILE_SPEC  \
-  "%{Zdynamiclib: %(darwin_dylib1) }   						\
-   %{!Zdynamiclib:%{Zbundle:%{!static:-lbundle1.o}}			\
-     %{!Zbundle:%{pg:%{static:-lgcrt0.o}				\
-                     %{!static:%{object:-lgcrt0.o}			\
-                               %{!object:%{preload:-lgcrt0.o}		\
-                                 %{!preload:-lgcrt1.o %(darwin_crt2)}}}} \
-                %{!pg:%{static:-lcrt0.o}				\
-                      %{!static:%{object:-lcrt0.o}			\
-                                %{!object:%{preload:-lcrt0.o}		\
-                                  %{!preload:%(darwin_crt1) %(darwin_crt2)}}}}}}\
-  %{shared-libgcc:%:version-compare(< 10.5 mmacosx-version-min= crt3.o%s)}"
 
-/* APPLE LOCAL end no-libtool */
-/* APPLE LOCAL end 4484188 */
+/* APPLE LOCAL begin mainline */
+#undef  STARTFILE_SPEC
+#define STARTFILE_SPEC							    \
+  "%{Zdynamiclib: %(darwin_dylib1) }					    \
+   "/* APPLE LOCAL link optimizations 6499452 */"			    \
+   %{!Zdynamiclib:%{Zbundle:%{!static: %(darwin_bundle1)}}		    \
+     %{!Zbundle:%{pg:%{static:-lgcrt0.o}				    \
+                     %{!static:%{object:-lgcrt0.o}			    \
+                               %{!object:%{preload:-lgcrt0.o}		    \
+                                 %{!preload:-lgcrt1.o %(darwin_crt2)}}}}    \
+                %{!pg:%{static:-lcrt0.o}				    \
+                      %{!static:%{object:-lcrt0.o}			    \
+                                %{!object:%{preload:-lcrt0.o}		    \
+                                  %{!preload: %(darwin_crt1)		    \
+					      %(darwin_crt2)}}}}}}	    \
+  %{shared-libgcc:							    \
+    %{!miphoneos-version-min=*:						    \
+      %:version-compare(< 10.5 mmacosx-version-min= crt3.o%s)}}"
+/* APPLE LOCAL end mainline  */
+
 /* The native Darwin linker doesn't necessarily place files in the order
    that they're specified on the link line.  Thus, it is pointless
    to put anything in ENDFILE_SPEC.  */
 /* #define ENDFILE_SPEC "" */
-/* APPLE LOCAL begin crt1 4521370 */
-#define DARWIN_EXTRA_SPECS	\
-  { "darwin_crt1", DARWIN_CRT1_SPEC },					\
-/* APPLE LOCAL begin mainline 2007-02-20 5005743 */ \
-  { "darwin_dylib1", DARWIN_DYLIB1_SPEC },				\
-  { "darwin_minversion", DARWIN_MINVERSION_SPEC },
-/* APPLE LOCAL end mainline 2007-02-20 5005743 */
 
+/* APPLE LOCAL begin mainline */
+#define DARWIN_EXTRA_SPECS						\
+  { "darwin_crt1", DARWIN_CRT1_SPEC },					\
+  { "darwin_dylib1", DARWIN_DYLIB1_SPEC },				\
+  /* APPLE LOCAL link optimizations 6499452 */				\
+  { "darwin_bundle1", DARWIN_BUNDLE1_SPEC },				\
+  { "darwin_minversion", DARWIN_MINVERSION_SPEC },			\
+/* APPLE LOCAL end mainline */						\
+/* APPLE LOCAL begin ARM 5683689 */					\
+  { "darwin_cc1_minversion", DARWIN_CC1_MINVERSION_SPEC },		\
+  { "darwin_ld_minversion", DARWIN_LD_MINVERSION_SPEC },		\
+/* APPLE LOCAL end ARM 5683689 */					\
+/* APPLE LOCAL ARM 5681645 */						\
+  { "darwin_iphoneos_libgcc", DARWIN_IPHONEOS_LIBGCC_SPEC },
+
+/* APPLE LOCAL begin ARM 5683689 */
 #define DARWIN_DYLIB1_SPEC						\
-  "%:version-compare(!> 10.5 mmacosx-version-min= -ldylib1.o)		\
-   %:version-compare(>= 10.5 mmacosx-version-min= -ldylib1.10.5.o)"
+  "%{miphoneos-version-min=*: -ldylib1.o}				\
+   %{!miphoneos-version-min=*:						\
+     %:version-compare(!> 10.5 mmacosx-version-min= -ldylib1.o)		\
+     %:version-compare(>= 10.5 mmacosx-version-min= -ldylib1.10.5.o)}"
+
+/* APPLE LOCAL begin link optimizations 6499452 */
+#define DARWIN_BUNDLE1_SPEC						\
+  "-lbundle1.o"
+/* APPLE LOCAL end link optimizations 6499452 */
 
 #define DARWIN_CRT1_SPEC						\
-  "%:version-compare(!> 10.5 mmacosx-version-min= -lcrt1.o)		\
-   %:version-compare(>= 10.5 mmacosx-version-min= -lcrt1.10.5.o)"
+/* APPLE LOCAL ARM 5823776 iphoneos should use crt1.o */		\
+  "%{miphoneos-version-min=*: -lcrt1.o}					\
+   %{!miphoneos-version-min=*:						\
+     %:version-compare(!> 10.5 mmacosx-version-min= -lcrt1.o)		\
+     %:version-compare(>= 10.5 mmacosx-version-min= -lcrt1.10.5.o)}"
+/* APPLE LOCAL end ARM 5683689 */
 
-/* APPLE LOCAL end crt1 4521370 */
+/* APPLE LOCAL begin prefer -lSystem 6645902 */
+#define LINK_GCC_C_SEQUENCE_SPEC "%G %L"
+/* APPLE LOCAL end prefer -lSystem 6645902 */
+
 /* Default Darwin ASM_SPEC, very simple.  */
+/* APPLE LOCAL begin kext weak_import 5935650 */
 /* APPLE LOCAL begin radar 4161346 */
 #define ASM_SPEC "-arch %(darwin_arch) \
   %{Zforce_cpusubtype_ALL:-force_cpusubtype_ALL} \
-  %{!Zforce_cpusubtype_ALL:%{faltivec:-force_cpusubtype_ALL}}"
+  %{!Zforce_cpusubtype_ALL:%{faltivec:-force_cpusubtype_ALL}} \
+  %{mkernel|static|fapple-kext:%{!Zdynamic:-static}}"
 /* APPLE LOCAL end radar 4161346 */
-/* APPLE LOCAL begin for-fsf-4_3 4370143 */
+/* APPLE LOCAL end kext weak_import 5935650 */
+/* APPLE LOCAL begin mainline 4.3 2006-10-31 4370143 */
 /* We still allow output of STABS.  */
 
 #define DBX_DEBUGGING_INFO 1
@@ -587,8 +559,7 @@ do {					\
 #define DWARF2_DEBUGGING_INFO
 #define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
 
-/* APPLE LOCAL end for-fsf-4_3 4370143 */
-/* APPLE LOCAL begin mainline 2006-03-16 dwarf2 section flags */
+/* APPLE LOCAL end mainline 4.3 2006-10-31 4370143 */
 #define DEBUG_FRAME_SECTION	"__DWARF,__debug_frame,regular,debug"
 #define DEBUG_INFO_SECTION	"__DWARF,__debug_info,regular,debug"
 #define DEBUG_ABBREV_SECTION	"__DWARF,__debug_abbrev,regular,debug"
@@ -600,9 +571,10 @@ do {					\
 /* APPLE LOCAL begin pubtypes, approved for 4.3  4535968 */
 #define DEBUG_PUBTYPES_SECTION  "__DWARF,__debug_pubtypes,regular,debug"
 /* APPLE LOCAL end pubtypes, approved for 4.3 4535968 */
+/* APPLE LOCAL radar 6275985 debug inlined section */
+#define DEBUG_INLINED_SECTION   "__DWARF,__debug_inlined,regular,debug"
 #define DEBUG_STR_SECTION	"__DWARF,__debug_str,regular,debug"
 #define DEBUG_RANGES_SECTION	"__DWARF,__debug_ranges,regular,debug"
-/* APPLE LOCAL end mainline 2006-03-16 dwarf2 section flags */
 
 /* APPLE LOCAL begin gdb only used symbols */
 /* Support option to generate stabs for only used symbols. */
@@ -634,7 +606,7 @@ do {					\
   do {									\
     if (ALIAS)								\
       {									\
-	warning ("alias definitions not supported in Mach-O; ignored");	\
+	warning (0, "alias definitions not supported in Mach-O; ignored");	\
 	break;								\
       }									\
  									\
@@ -657,9 +629,9 @@ do {					\
    links to, so there's no need for weak-ness for that.  */
 #define GTHREAD_USE_WEAK 0
 
-/* The Darwin linker imposes two limitations on common symbols: they 
+/* The Darwin linker imposes two limitations on common symbols: they
    can't have hidden visibility, and they can't appear in dylibs.  As
-   a consequence, we should never use common symbols to represent 
+   a consequence, we should never use common symbols to represent
    vague linkage. */
 #undef USE_COMMON_FOR_ONE_ONLY
 #define USE_COMMON_FOR_ONE_ONLY 0
@@ -669,12 +641,10 @@ do {					\
 #undef TARGET_WEAK_NOT_IN_ARCHIVE_TOC
 #define TARGET_WEAK_NOT_IN_ARCHIVE_TOC 1
 
-/* APPLE LOCAL begin mainline 4.2 2005-12-06 4263752 */
 /* On Darwin, we don't (at the time of writing) have linkonce sections
    with names, so it's safe to make the class data not comdat.  */
 #define TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT hook_bool_void_false
 
-/* APPLE LOCAL end mainline 4.2 2005-12-06 4263752 */
 /* APPLE LOCAL begin mainline 4.3 2006-01-10 4871915 */
 /* For efficiency, on Darwin the RTTI information that is always
    emitted in the standard C++ library should not be COMDAT.  */
@@ -686,19 +656,19 @@ do {					\
 #define TARGET_USES_WEAK_UNWIND_INFO 1
 
 /* We need to use a nonlocal label for the start of an EH frame: the
-   Darwin linker requires that a coalesced section start with a label. */
+   Darwin linker requires that a coalesced section start with a label.
+   Unfortunately, it also requires that 'debug' sections don't contain
+   labels.  */
 #undef FRAME_BEGIN_LABEL
-/* APPLE LOCAL mainline 2006-03-16 dwarf2 4392520 */
 #define FRAME_BEGIN_LABEL (for_eh ? "EH_frame" : "Lframe")
 
-/* Emit a label for the FDE corresponding to DECL.  EMPTY means 
+/* Emit a label for the FDE corresponding to DECL.  EMPTY means
    emit a label for an empty FDE. */
 #define TARGET_ASM_EMIT_UNWIND_LABEL darwin_emit_unwind_label
 
-/* APPLE LOCAL begin mainline */
 /* Emit a label to separate the exception table.  */
 #define TARGET_ASM_EMIT_EXCEPT_TABLE_LABEL darwin_emit_except_table_label
-/* APPLE LOCAL end mainline */
+
 /* Our profiling scheme doesn't LP labels and counter words.  */
 
 #define NO_PROFILE_COUNTERS	1
@@ -746,48 +716,77 @@ do {					\
 #undef OBJC_FLAG_ZEROCOST_EXCEPTIONS
 #define OBJC_FLAG_ZEROCOST_EXCEPTIONS						\
   do {									\
-       if (strverscmp (darwin_macosx_version_min, "10.5") < 0) 		\
+       /* APPLE LOCAL begin ARM 5683689 */				\
+       if (darwin_macosx_version_min					\
+	   && strverscmp (darwin_macosx_version_min, "10.5") < 0)	\
+       /* APPLE LOCAL end ARM 5683689 */				\
 	 error ("Mac OS X version 10.5 or later is needed for zerocost-exceptions"); \
      } while (0)
 /* APPLE LOCAL end radar 5023725 */
 /* APPLE LOCAL begin radar 4862848 */
 #undef OBJC_FLAG_OBJC_ABI
 #define OBJC_FLAG_OBJC_ABI						\
-  do { if (flag_objc_abi > 2)						\
-	 {								\
-	   error ("Unknown objective-c abi flag");			\
-	   flag_objc_abi = 1; /* recover */				\
-	 }								\
+  do { if (flag_objc_abi > 2)                                           \
+         {                                                              \
+           error ("Unknown objective-c abi flag");                      \
+           flag_objc_abi = 1; /* recover */                             \
+         } 								\
        if (flag_objc_abi == -1)						\
-	 flag_objc_abi = TARGET_64BIT ? 2 : 1;				\
-	 /* APPLE LOCAL begin radar 2848255 */				\
-	/* APPLE LOCAL begin radar 5023725 */				\
-	if (flag_objc_abi == 2)						\
-	  flag_objc_zerocost_exceptions = 1;				\
-	if (flag_objc_zerocost_exceptions)				\
+         flag_objc_abi = (flag_next_runtime && TARGET_64BIT) ? 2 : 1;	\
+       /* APPLE LOCAL begin ARM hybrid objc-2.0 */			\
+       if (flag_objc_legacy_dispatch == -1)				\
+	 flag_objc_legacy_dispatch = (flag_objc_abi < 2);		\
+       /* APPLE LOCAL end ARM hybrid objc-2.0 */			\
+         /* APPLE LOCAL begin radar 2848255 */                          \
+        /* APPLE LOCAL begin radar 5023725 */                           \
+        if (flag_objc_abi == 2)                                         \
+          flag_objc_zerocost_exceptions = 1;                            \
+        if (flag_objc_zerocost_exceptions)                              \
+          {                                                             \
+            flag_exceptions = 1;                                        \
+            flag_objc_sjlj_exceptions = 0;                              \
+          }                                                             \
+        /* APPLE LOCAL end radar 5023725 */                             \
+         if (flag_objc_zerocost_exceptions && flag_objc_abi != 2)       \
+           {                                                            \
+             error ("zero-cost exception is available with new abi only");\
+             flag_objc_abi = 2;  /* recover */                          \
+           }                                                            \
+         /* APPLE LOCAL end radar 2848255 */                            \
+	/* APPLE LOCAL begin 5660282 */					\
+	if (darwin_iphoneos_version_min && flag_objc_gc)		\
 	  {								\
-	    flag_exceptions = 1;					\
-	    flag_objc_sjlj_exceptions = 0;				\
+	    warning (0, "-fobjc-gc not supported for iPhone OS; ignoring.");\
+	    flag_objc_gc = 0;						\
 	  }								\
-	/* APPLE LOCAL end radar 5023725 */				\
-	 if (flag_objc_zerocost_exceptions && flag_objc_abi != 2)	\
-	   {								\
-	     error ("zero-cost exception is available with new abi only");\
-	     flag_objc_abi = 2;  /* recover */				\
-	   }								\
-	 /* APPLE LOCAL end radar 2848255 */				\
+	if (darwin_iphoneos_version_min && flag_objc_gc_only)		\
+	  {								\
+	    warning (0, "-fobjc-gc-only not supported for iPhone OS; ignoring.");\
+	    flag_objc_gc_only = 0;					\
+	  }								\
+	/* APPLE LOCAL end 5660282 */					\
   } while (0)
 /* APPLE LOCAL end radar 4862848 */
 
 /* APPLE LOCAL begin radar 4531086 */
 #undef OBJC_WARN_OBJC2_FEATURES
 #define OBJC_WARN_OBJC2_FEATURES(MESSAGE)				\
-/* APPLE LOCAL mainline 2007-02-20 5005743 */ \
-  do { if (strverscmp (darwin_macosx_version_min, "10.5") < 0)		\
-	 warning ("Mac OS X version 10.5 or later is needed for use of %s",	\
-		  MESSAGE);						\
-     } while (0)
+  /* APPLE LOCAL begin ARM 5683689 */					\
+  do {									\
+    if (darwin_macosx_version_min					\
+	&& strverscmp (darwin_macosx_version_min, "10.5") < 0)		\
+  /* APPLE LOCAL end ARM 5683689 */					\
+      warning (0, "Mac OS X version 10.5 or later is needed for use of %s", \
+	       MESSAGE);						\
+  } while (0)
 /* APPLE LOCAL end radar 4531086 */
+
+/* APPLE LOCAL begin radar 6307941 */
+#undef OBJC2_ABI_DISPATCH
+#define OBJC2_ABI_DISPATCH						\
+(darwin_macosx_version_min						\
+ && strverscmp (darwin_macosx_version_min, "10.6") < 0)
+/* APPLE LOCAL end radar 6307941 */
 
 /* The RTTI data (e.g., __ti4name) is common and public (and static),
    but it does need to be referenced via indirect PIC data pointers.
@@ -869,25 +868,23 @@ do {					\
 	     machopic_validate_stub_or_non_lazy_ptr (xname);		     \
 	   else if (len > 14 && !strcmp ("$non_lazy_ptr", xname + len - 13)) \
 	     machopic_validate_stub_or_non_lazy_ptr (xname);		     \
-	   /* APPLE LOCAL begin mainline */		    		     \
 	   else if (len > 15 && !strcmp ("$non_lazy_ptr\"", xname + len - 14)) \
 	     machopic_validate_stub_or_non_lazy_ptr (xname);		     \
 	   if (xname[1] != '"' && name_needs_quotes (&xname[1]))	     \
 	     fprintf (FILE, "\"%s\"", &xname[1]);			     \
 	   else								     \
 	     fputs (&xname[1], FILE); 					     \
-	   /* APPLE LOCAL end mainline */				     \
 	 }								     \
        else if (xname[0] == '+' || xname[0] == '-')			     \
          fprintf (FILE, "\"%s\"", xname);				     \
-       else if (!strncmp (xname, "_OBJC_", 6))				     \
+       /* APPLE LOCAL radar 5202926 */					     \
+       else if (objc_anonymous_local_objc_name (xname))			     \
          fprintf (FILE, "L%s", xname);					     \
        else if (!strncmp (xname, ".objc_class_name_", 17))		     \
 	 fprintf (FILE, "%s", xname);					     \
-	 /* APPLE LOCAL begin mainline */				     \
        else if (xname[0] != '"' && name_needs_quotes (xname))		     \
-	 fprintf (FILE, "\"%s\"", xname);				     \
-	 /* APPLE LOCAL end mainline */					     \
+	 /* APPLE LOCAL 5782111 */					     \
+	 asm_fprintf (FILE, "\"%U%s\"", xname);				     \
        else								     \
          asm_fprintf (FILE, "%U%s", xname);				     \
   } while (0)
@@ -911,12 +908,14 @@ do {					\
 
 /* Ensure correct alignment of bss data.  */
 
-#undef	ASM_OUTPUT_ALIGNED_DECL_LOCAL					
+#undef	ASM_OUTPUT_ALIGNED_DECL_LOCAL
 #define ASM_OUTPUT_ALIGNED_DECL_LOCAL(FILE, DECL, NAME, SIZE, ALIGN)	\
   do {									\
+    unsigned HOST_WIDE_INT _new_size = SIZE;				\
     fputs (".lcomm ", (FILE));						\
     assemble_name ((FILE), (NAME));					\
-    fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED",%u\n", (SIZE),	\
+    if (_new_size == 0) _new_size = 1;					\
+    fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED",%u\n", _new_size,	\
 	     floor_log2 ((ALIGN) / BITS_PER_UNIT));			\
     if ((DECL) && ((TREE_STATIC (DECL)					\
 	 && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))		\
@@ -927,418 +926,28 @@ do {					\
       }									\
   } while (0)
 
-/* APPLE LOCAL begin mainline */
-#undef  ASM_OUTPUT_ALIGNED_COMMON
-#define ASM_OUTPUT_ALIGNED_COMMON(FILE, NAME, SIZE, ALIGN)		\
-  do {									\
-    unsigned HOST_WIDE_INT _new_size = (SIZE);				\
-    fprintf ((FILE), ".comm ");						\
-    assemble_name ((FILE), (NAME));					\
-    if (_new_size == 0) _new_size = 1;					\
-    fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED",%u\n",		\
-	     _new_size, floor_log2 ((ALIGN) / BITS_PER_UNIT));		\
-  } while (0)
-
 /* The maximum alignment which the object file format can support in
    bits.  For Mach-O, this is 2^15 bytes.  */
 
 #undef	MAX_OFILE_ALIGNMENT
 #define MAX_OFILE_ALIGNMENT (0x8000 * 8)
-/* APPLE LOCAL end mainline */
-
-/* Create new Mach-O sections.  */
-
-#undef	SECTION_FUNCTION
-#define SECTION_FUNCTION(FUNCTION, SECTION, DIRECTIVE, OBJC)		\
-extern void FUNCTION (void);						\
-void									\
-FUNCTION (void)								\
-{									\
-  if (in_section != SECTION)						\
-    {									\
-      if (OBJC)								\
-	objc_section_init ();						\
-      if (asm_out_file)							\
-	fputs ("\t" DIRECTIVE "\n", asm_out_file);			\
-      in_section = SECTION;						\
-    }									\
-}									\
-
-/* Darwin uses many types of special sections.  */
-
-#undef	EXTRA_SECTIONS
-#define EXTRA_SECTIONS							\
-  in_text_coal, in_text_unlikely, in_text_unlikely_coal,		\
-  in_const, in_const_data, in_cstring, in_literal4, in_literal8,	\
-  /* APPLE LOCAL x86_64 */						\
-  in_literal16,								\
-  in_const_coal, in_const_data_coal, in_data_coal,			\
-  in_constructor, in_destructor, in_mod_init, in_mod_term,		\
-  in_objc_class, in_objc_meta_class, in_objc_category,			\
-  in_objc_class_vars, in_objc_instance_vars,				\
-  in_objc_cls_meth, in_objc_inst_meth,					\
-  in_objc_cat_cls_meth, in_objc_cat_inst_meth,				\
-  in_objc_selector_refs,						\
-  in_objc_selector_fixup,						\
-  in_objc_symbols, in_objc_module_info,					\
-  in_objc_protocol, in_objc_string_object,				\
-  in_objc_constant_string_object,					\
-  in_objc_image_info,							\
-  in_objc_class_names, in_objc_meth_var_names,				\
-  in_objc_meth_var_types, in_objc_cls_refs,				\
-  /* APPLE LOCAL constant cfstrings */					\
-  in_cfstring_constant_object,						\
-  in_machopic_nl_symbol_ptr,						\
-  in_machopic_lazy_symbol_ptr,						\
-  /* APPLE LOCAL begin dynamic-no-pic */				\
-  in_machopic_lazy_symbol_ptr2,						\
-  in_machopic_lazy_symbol_ptr3,						\
-  /* APPLE LOCAL end dynamic-no-pic */					\
-  in_machopic_symbol_stub,						\
-  in_machopic_symbol_stub1,						\
-  /* APPLE LOCAL ARM pic support */					\
-  in_machopic_symbol_stub4,						\
-  in_machopic_picsymbol_stub,						\
-  in_machopic_picsymbol_stub1,						\
-  /* APPLE LOCAL dynamic-no-pic */					\
-  in_machopic_picsymbol_stub2,						\
-  /* APPLE LOCAL AT&T-style stub 4164563 */				\
-  in_machopic_picsymbol_stub3,						\
-  /* APPLE LOCAL ARM pic support */					\
-  in_machopic_picsymbol_stub4,						\
-  in_darwin_exception, in_darwin_eh_frame,				\
-  /* APPLE LOCAL begin ObjC new abi  */					\
-  in_objc_v2_classlist_section,						\
-  in_objc_v2_message_refs_section,                                      \
-  in_objc_v2_classrefs_section,                                         \
-  in_objc_v2_categorylist_section,					\
-  in_objc_v2_nonlazy_class_section,					\
-  in_objc_v2_nonlazy_category_section,					\
-  in_objc_v2_selector_refs_section,					\
-  in_objc_v2_image_info_section,					\
-  in_objc_v2_protocollist_section,					\
-  in_objc_v2_protocolrefs_section,					\
-  in_objc_v2_super_classrefs_section,					\
-  in_objc_v2_constant_string_object,					\
-  /* APPLE LOCAL end ObjC new abi  */					\
-  /* APPLE LOCAL begin radar 4585769 - Objective-C 1.0 extensions */ 	\
-  in_objc_class_ext_section,						\
-  in_prop_list_section,							\
-  in_objc_protocol_ext_section,						\
-  /* APPLE LOCAL end radar 4585769 - Objective-C 1.0 extensions */    	\
-  num_sections
 
 /* APPLE LOCAL begin AT&T-style stub 4164563 */
 #ifndef MACHOPIC_NL_SYMBOL_PTR_SECTION
 #define MACHOPIC_NL_SYMBOL_PTR_SECTION ".non_lazy_symbol_pointer"
 #endif
-/* APPLE LOCAL end AT&T-style stub 4164563 */				\
+/* APPLE LOCAL end AT&T-style stub 4164563 */
 
-#undef	EXTRA_SECTION_FUNCTIONS
-#define EXTRA_SECTION_FUNCTIONS					\
-static void objc_section_init (void);				\
-SECTION_FUNCTION (text_coal_section,				\
-		  in_text_coal,					\
-		  ".section __TEXT,__textcoal_nt,coalesced,"	\
-		    "pure_instructions", 0)			\
-/* APPLE LOCAL mainline 2005-04-15 <radar 4078608> */           \
-/* SECTION_FUNCTION (text_unlikely_section) removed. */         \
-SECTION_FUNCTION (text_unlikely_coal_section,			\
-		  in_text_unlikely_coal,			\
-		  ".section __TEXT,__text_unlikely_coal,"	\
-		    "coalesced,pure_instructions", 0)		\
-SECTION_FUNCTION (const_section,				\
-                  in_const,					\
-                  ".const", 0)					\
-SECTION_FUNCTION (const_coal_section,				\
-		  in_const_coal,				\
-		  ".section __TEXT,__const_coal,coalesced", 0)	\
-SECTION_FUNCTION (const_data_section,				\
-                  in_const_data,				\
-                  ".const_data", 0)				\
-SECTION_FUNCTION (const_data_coal_section,			\
-                  in_const_data_coal,				\
-                  ".section __DATA,__const_coal,coalesced", 0)	\
-SECTION_FUNCTION (data_coal_section,				\
-                  in_data_coal,					\
-                  ".section __DATA,__datacoal_nt,coalesced", 0)	\
-SECTION_FUNCTION (cstring_section,				\
-		  in_cstring,					\
-		  ".cstring", 0)				\
-SECTION_FUNCTION (literal4_section,				\
-		  in_literal4,					\
-		  ".literal4", 0)				\
-SECTION_FUNCTION (literal8_section,				\
-		  in_literal8,					\
-		  ".literal8", 0)				\
-		 /* APPLE LOCAL begin x86_64 */			\
-SECTION_FUNCTION (literal16_section,				\
-		  in_literal16,					\
-		  ".literal16", 0)				\
-		 /* APPLE LOCAL end x86_64 */			\
-SECTION_FUNCTION (constructor_section,				\
-		  in_constructor,				\
-		  ".constructor", 0)				\
-SECTION_FUNCTION (mod_init_section,				\
-		  in_mod_init,					\
-		  ".mod_init_func", 0)				\
-SECTION_FUNCTION (mod_term_section,				\
-		  in_mod_term,					\
-		  ".mod_term_func", 0)				\
-SECTION_FUNCTION (destructor_section,				\
-		  in_destructor,				\
-		  ".destructor", 0)				\
-SECTION_FUNCTION (objc_class_section,				\
-		  in_objc_class,				\
-		  ".objc_class", 1)				\
-SECTION_FUNCTION (objc_meta_class_section,			\
-		  in_objc_meta_class,				\
-		  ".objc_meta_class", 1)			\
-SECTION_FUNCTION (objc_category_section,			\
-		  in_objc_category,				\
-		".objc_category", 1)				\
-SECTION_FUNCTION (objc_class_vars_section,			\
-		  in_objc_class_vars,				\
-		  ".objc_class_vars", 1)			\
-SECTION_FUNCTION (objc_instance_vars_section,			\
-		  in_objc_instance_vars,			\
-		  ".objc_instance_vars", 1)			\
-SECTION_FUNCTION (objc_cls_meth_section,			\
-		  in_objc_cls_meth,				\
-		  ".objc_cls_meth", 1)				\
-SECTION_FUNCTION (objc_inst_meth_section,			\
-		  in_objc_inst_meth,				\
-		  ".objc_inst_meth", 1)				\
-SECTION_FUNCTION (objc_cat_cls_meth_section,			\
-		  in_objc_cat_cls_meth,				\
-		  ".objc_cat_cls_meth", 1)			\
-SECTION_FUNCTION (objc_cat_inst_meth_section,			\
-		  in_objc_cat_inst_meth,			\
-		  ".objc_cat_inst_meth", 1)			\
-SECTION_FUNCTION (objc_selector_refs_section,			\
-		  in_objc_selector_refs,			\
-		  ".objc_message_refs", 1)			\
-SECTION_FUNCTION (objc_selector_fixup_section,				     \
-		  in_objc_selector_fixup,				     \
-		  ".section __OBJC, __sel_fixup, regular, no_dead_strip", 1) \
-SECTION_FUNCTION (objc_symbols_section,					\
-		  in_objc_symbols,					\
-		  ".objc_symbols", 1)					\
-SECTION_FUNCTION (objc_module_info_section,				\
-		  in_objc_module_info,					\
-		  ".objc_module_info", 1)				\
-SECTION_FUNCTION (objc_protocol_section,				\
-		  in_objc_protocol,					\
-		  ".objc_protocol", 1)					\
-SECTION_FUNCTION (objc_string_object_section,				\
-		  in_objc_string_object,				\
-		  ".objc_string_object", 1)				\
-SECTION_FUNCTION (objc_constant_string_object_section,			\
-		  in_objc_constant_string_object,			\
-		  ".section __OBJC, __cstring_object, regular, "	\
-		    "no_dead_strip", 1)					\
-/* APPLE LOCAL begin constant cfstrings */	\
-/* Unlike constant NSStrings, constant CFStrings do not live */\
-/* in the __OBJC segment since they may also occur in pure C */\
-/* or C++ programs.  */\
-SECTION_FUNCTION (cfstring_constant_object_section,	\
-		  in_cfstring_constant_object,	\
-		  ".section __DATA, __cfstring", 0)	\
-/* APPLE LOCAL end constant cfstrings */	\
-/* Fix-and-Continue image marker.  */					\
-SECTION_FUNCTION (objc_image_info_section,				\
-                  in_objc_image_info,					\
-                  ".section __OBJC, __image_info, regular, "		\
-		    "no_dead_strip", 1)					\
-SECTION_FUNCTION (objc_class_names_section,				\
-		in_objc_class_names,					\
-		".objc_class_names", 1)					\
-SECTION_FUNCTION (objc_meth_var_names_section,				\
-		in_objc_meth_var_names,					\
-		".objc_meth_var_names", 1)				\
-SECTION_FUNCTION (objc_meth_var_types_section,				\
-		in_objc_meth_var_types,					\
-		".objc_meth_var_types", 1)				\
-SECTION_FUNCTION (objc_cls_refs_section,				\
-		in_objc_cls_refs,					\
-		".objc_cls_refs", 1)					\
-\
-SECTION_FUNCTION (machopic_lazy_symbol_ptr_section,			\
-		in_machopic_lazy_symbol_ptr,				\
-		".lazy_symbol_pointer", 0)				\
-/* APPLE LOCAL begin dynamic-no-pic */					\
-SECTION_FUNCTION (machopic_lazy_symbol_ptr2_section,	\
-		in_machopic_lazy_symbol_ptr2,		\
-		".section __DATA, __la_sym_ptr2,lazy_symbol_pointers", 0)      	\
-SECTION_FUNCTION (machopic_lazy_symbol_ptr3_section,	\
-		in_machopic_lazy_symbol_ptr3,		\
-		".section __DATA, __la_sym_ptr3,lazy_symbol_pointers", 0)      	\
-/* APPLE LOCAL end dynamic-no-pic */					\
-/* APPLE LOCAL begin AT&T-style stub 4164563 */				\
-SECTION_FUNCTION (machopic_nl_symbol_ptr_section,			\
-		in_machopic_nl_symbol_ptr,				\
-		MACHOPIC_NL_SYMBOL_PTR_SECTION, 0)	\
-/* APPLE LOCAL end AT&T-style stub 4164563 */				\
-SECTION_FUNCTION (machopic_symbol_stub_section,				\
-		in_machopic_symbol_stub,				\
-		".symbol_stub", 0)					\
-SECTION_FUNCTION (machopic_symbol_stub1_section,			\
-		in_machopic_symbol_stub1,				\
-		".section __TEXT,__symbol_stub1,symbol_stubs,"		\
-		  "pure_instructions,16", 0)				\
-/* APPLE LOCAL begin ARM pic support */					\
-SECTION_FUNCTION (machopic_symbol_stub4_section,			\
-		  in_machopic_symbol_stub4,				\
-		  ".section __TEXT,__symbol_stub4,symbol_stubs,"	\
-		  "none,12", 0)						\
-/* APPLE LOCAL end ARM pic support */					\
-SECTION_FUNCTION (machopic_picsymbol_stub_section,			\
-		in_machopic_picsymbol_stub,				\
-		".picsymbol_stub", 0)					\
-SECTION_FUNCTION (machopic_picsymbol_stub1_section,			\
-		in_machopic_picsymbol_stub1,				\
-		".section __TEXT,__picsymbolstub1,symbol_stubs,"	\
-		  "pure_instructions,32", 0)				\
-/* APPLE LOCAL begin dynamic-no-pic */			\
-SECTION_FUNCTION (machopic_picsymbol_stub2_section,	\
-		in_machopic_picsymbol_stub2,		\
-		".section __TEXT,__picsymbolstub2,symbol_stubs,pure_instructions,25", 0)      		\
-/* APPLE LOCAL end dynamic-no-pic */			\
-/* APPLE LOCAL begin AT&T-style stub 4164563 */				\
-SECTION_FUNCTION (machopic_picsymbol_stub3_section,	\
-		in_machopic_picsymbol_stub3,		\
-		".section __IMPORT,__jump_table,symbol_stubs,self_modifying_code+pure_instructions,5", 0) \
-/* APPLE LOCAL end AT&T-style stub 4164563 */				\
-/* APPLE LOCAL begin ARM pic support */					\
-SECTION_FUNCTION (machopic_picsymbol_stub4_section,			\
-		  in_machopic_picsymbol_stub4,				\
-		  ".section __TEXT,__picsymbolstub4,symbol_stubs,"	\
-		  "none,16", 0)						\
-/* APPLE LOCAL end ARM pic support */					\
-SECTION_FUNCTION (darwin_exception_section,				\
-		in_darwin_exception,					\
-		".section __DATA,__gcc_except_tab", 0)			\
-SECTION_FUNCTION (darwin_eh_frame_section,				\
-		in_darwin_eh_frame,					\
-		".section " EH_FRAME_SECTION_NAME ",__eh_frame"		\
-		  EH_FRAME_SECTION_ATTR, 0)				\
-/* APPLE LOCAL begin ObjC new abi  - radar 47921258 */					\
-SECTION_FUNCTION (objc_v2_classlist_section,				\
-		  in_objc_v2_classlist_section,				\
-		  ".section __DATA, __objc_classlist, regular, no_dead_strip", 1) 	\
-SECTION_FUNCTION (objc_data_section,					\
-		  in_data,						\
-		  ".data", 1) 						\
-SECTION_FUNCTION (objc_v2_message_refs_section,				\
-		  in_objc_v2_message_refs_section,				\
-		  ".section __DATA, __objc_msgrefs, regular, no_dead_strip", 1)	\
-SECTION_FUNCTION (objc_v2_categorylist_section,				\
-		  in_objc_v2_categorylist_section,				\
-		  ".section __DATA, __objc_catlist, regular, no_dead_strip", 1)	\
-SECTION_FUNCTION (objc_v2_classrefs_section,				\
-		  in_objc_v2_classrefs_section,				\
-		  ".section __DATA, __objc_classrefs, regular, no_dead_strip", 1) 	\
-SECTION_FUNCTION (objc_v2_nonlazy_class_section,				\
-		  in_objc_v2_nonlazy_class_section,				\
-		  ".section __DATA, __objc_nlclslist, regular, no_dead_strip", 1) 	\
-SECTION_FUNCTION (objc_v2_nonlazy_category_section,				\
-		  in_objc_v2_nonlazy_category_section,				\
-		  ".section __DATA, __objc_nlcatlist, regular, no_dead_strip", 1) 	\
-SECTION_FUNCTION (objc_v2_selector_refs_section,				\
-		  in_objc_v2_selector_refs_section,				\
-		  ".section __DATA, __objc_selrefs, regular, no_dead_strip", 1) 	\
-SECTION_FUNCTION (objc_v2_image_info_section,				\
-                  in_objc_v2_image_info_section,					\
-                  ".section __DATA, __objc_imageinfo, regular, "		\
-		    "no_dead_strip", 1)					\
-SECTION_FUNCTION (objc_v2_constant_string_object_section,			\
-		  in_objc_v2_constant_string_object,			\
-		  ".section __DATA, __objc_stringobj, regular, "	\
-		    "no_dead_strip", 1)					\
-SECTION_FUNCTION (objc_v2_protocollist_section,				\
-		  in_objc_v2_protocollist_section,				\
-		  ".section __DATA, __objc_protolist, regular, no_dead_strip", 1) 	\
-SECTION_FUNCTION (objc_v2_protocolrefs_section,				\
-		  in_objc_v2_protocolrefs_section,				\
-		  ".section __DATA, __objc_protorefs, regular, no_dead_strip", 1) 	\
-SECTION_FUNCTION (objc_v2_super_classrefs_section,				\
-		  in_objc_v2_super_classrefs_section,				\
-		  ".section __DATA, __objc_superrefs, regular, no_dead_strip", 1) 	\
-/* APPLE LOCAL end ObjC new abi  - radar 47921258 */					\
-/* APPLE LOCAL begin radar 4585769 - Objective-C 1.0 extensions */	\
-SECTION_FUNCTION (objc_class_ext_section,				\
-		  in_objc_class_ext_section,				\
-		  ".section __OBJC, __class_ext, regular, no_dead_strip", 1)  \
-SECTION_FUNCTION (objc_prop_list_section,				\
-		  in_prop_list_section,					\
-		  ".section __OBJC, __property, regular, no_dead_strip", 1)  \
-SECTION_FUNCTION (objc_protocol_ext_section,				\
-		  in_objc_protocol_ext_section,				\
-		  ".section __OBJC, __protocol_ext, regular, no_dead_strip", 1)  \
-/* APPLE LOCAL end radar 4585769 - Objective-C 1.0 extensions */	\
-\
-static void					\
-objc_section_init (void)			\
-{						\
-  static int been_here = 0;			\
-						\
-  if (been_here == 0)				\
-    {						\
-      been_here = 1;				\
-      /* APPLE LOCAL begin radar 4792158 */	\
-      if (flag_objc_abi == 1)			\
-	{					\
-          /* written, cold -> hot */		\
-          objc_cat_cls_meth_section ();         \
-          objc_cat_inst_meth_section ();        \
-          objc_string_object_section ();        \
-          objc_constant_string_object_section ();       \
-          objc_selector_refs_section ();	\
-          objc_selector_fixup_section ();	\
-          objc_cls_refs_section ();             \
-          objc_class_section ();		\
-          objc_meta_class_section ();           \
-          /* shared, hot -> cold */             \
-          objc_cls_meth_section ();		\
-          objc_inst_meth_section ();            \
-          objc_protocol_section ();		\
-          objc_class_names_section ();          \
-          objc_meth_var_types_section ();	\
-          objc_meth_var_names_section ();	\
-          objc_category_section ();		\
-          objc_class_vars_section ();           \
-          objc_instance_vars_section ();	\
-          objc_module_info_section ();          \
-          objc_symbols_section ();		\
-          /* APPLE LOCAL begin radar 4585769 - Objective-C 1.0 extensions */ \
-	  objc_protocol_ext_section ();         \
-	  objc_class_ext_section ();            \
-          objc_prop_list_section ();            \
-          /* APPLE LOCAL end radar 4585769 - Objective-C 1.0 extensions */ \
-	}                                       \
-      /* APPLE LOCAL begin ObjC abi v2 */       \
-      else if (flag_objc_abi == 2)              \
-        {                                       \
-          objc_v2_message_refs_section ();      \
-	  objc_v2_classrefs_section ();		\
-          objc_data_section ();			\
-          objc_v2_classlist_section ();         \
-	  objc_v2_categorylist_section ();	\
-	  objc_v2_selector_refs_section ();     \
-	  objc_v2_nonlazy_class_section ();     \
-	  objc_v2_nonlazy_category_section ();  \
-          objc_v2_protocollist_section ();	\
-	  objc_v2_protocolrefs_section ();	\
-	  objc_v2_super_classrefs_section ();	\
-	  objc_v2_image_info_section ();	\
-          objc_v2_constant_string_object_section ();       \
-	}					\
-      /* APPLE LOCAL end ObjC abi v2 */		\
-      /* APPLE LOCAL end radar 4792158 */	\
-    }						\
-}
-
-#define READONLY_DATA_SECTION const_section
+/* Declare the section variables.  */
+#ifndef USED_FOR_TARGET
+enum darwin_section_enum {
+#define DEF_SECTION(NAME, FLAGS, DIRECTIVE, OBJC) NAME,
+#include "darwin-sections.def"
+#undef DEF_SECTION
+  NUM_DARWIN_SECTIONS
+};
+extern GTY(()) section * darwin_sections[NUM_DARWIN_SECTIONS];
+#endif
 
 #undef	TARGET_ASM_SELECT_SECTION
 #define TARGET_ASM_SELECT_SECTION machopic_select_section
@@ -1350,6 +959,8 @@ objc_section_init (void)			\
 #define TARGET_ASM_UNIQUE_SECTION darwin_unique_section
 #undef  TARGET_ASM_FUNCTION_RODATA_SECTION
 #define TARGET_ASM_FUNCTION_RODATA_SECTION default_no_function_rodata_section
+#undef  TARGET_ASM_RELOC_RW_MASK
+#define TARGET_ASM_RELOC_RW_MASK machopic_reloc_rw_mask
 
 
 #define ASM_DECLARE_UNRESOLVED_REFERENCE(FILE,NAME)			\
@@ -1394,12 +1005,12 @@ objc_section_init (void)			\
 /* Extra attributes for Darwin.  */
 #define SUBTARGET_ATTRIBUTE_TABLE					     \
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */ \
-  /* APPLE LOCAL begin mainline */					     \
   { "apple_kext_compatibility", 0, 0, false, true, false,		     \
     darwin_handle_kext_attribute },					     \
-  /* APPLE LOCAL end mainline */					     \
   /* APPLE LOCAL ObjC GC */						     \
   { "objc_gc", 1, 1, false, true, false, darwin_handle_objc_gc_attribute },  \
+  /* APPLE LOCAL radar 5595352 */					     \
+  { "NSObject", 0, 0, false, true, false, darwin_handle_nsobject_attribute },\
   { "weak_import", 0, 0, true, false, false,				     \
     darwin_handle_weak_import_attribute }
 
@@ -1412,7 +1023,9 @@ objc_section_init (void)			\
 
 /* Set on a symbol with SYMBOL_FLAG_FUNCTION or
    MACHO_SYMBOL_FLAG_VARIABLE to indicate that the function or
-   variable has been defined in this translation unit.  */
+   variable has been defined in this translation unit.
+   When porting Mach-O to new architectures you need to make
+   sure these aren't clobbered by the backend.  */
 
 #define MACHO_SYMBOL_FLAG_VARIABLE (SYMBOL_FLAG_MACH_DEP)
 #define MACHO_SYMBOL_FLAG_DEFINED ((SYMBOL_FLAG_MACH_DEP) << 1)
@@ -1436,14 +1049,14 @@ enum machopic_addr_class {
 
 /* Macros defining the various PIC cases.  */
 
+/* APPLE LOCAL mdynamic-no-pic */
+#define MACHO_DYNAMIC_NO_PIC_P	(TARGET_MACHO_DYNAMIC_NO_PIC)
 /* APPLE LOCAL begin mach-o cleanup */
-#undef MACHO_DYNAMIC_NO_PIC_P
-#define MACHO_DYNAMIC_NO_PIC_P	(TARGET_DYNAMIC_NO_PIC)
 #undef MACHOPIC_INDIRECT
 #define MACHOPIC_INDIRECT	(flag_pic || MACHO_DYNAMIC_NO_PIC_P)
-#define MACHOPIC_JUST_INDIRECT	(flag_pic == 1 || MACHO_DYNAMIC_NO_PIC_P)
+#define MACHOPIC_JUST_INDIRECT	(MACHO_DYNAMIC_NO_PIC_P)
 #undef MACHOPIC_PURE
-#define MACHOPIC_PURE		(flag_pic == 2 && ! MACHO_DYNAMIC_NO_PIC_P)
+#define MACHOPIC_PURE		(flag_pic && ! MACHO_DYNAMIC_NO_PIC_P)
 /* APPLE LOCAL end mach-o cleanup */
 #undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO  darwin_encode_section_info
@@ -1479,36 +1092,40 @@ enum machopic_addr_class {
       }								\
   } while (0)
 
+/* APPLE LOCAL begin ARM 5603763 */
+/* Given a symbol name, remove quotes, prefix it with "L", suffix it
+   with SUFFIX, and re-apply quotes if needed.  */
+
+#define GEN_SUFFIXED_NAME_FOR_SYMBOL(BUF,SYMBOL,SYMBOL_LENGTH,SUFFIX)	\
+  do {									\
+    const char *symbol_ = (SYMBOL);					\
+    char *buffer_ = (BUF);						\
+    if (symbol_[0] == '"')						\
+      {									\
+        strcpy (buffer_, "\"L");					\
+        strcpy (buffer_ + 2, symbol_ + 1);				\
+	strcpy (buffer_ + (SYMBOL_LENGTH), SUFFIX "\"");		\
+      }									\
+    else if (name_needs_quotes (symbol_))				\
+      {									\
+        strcpy (buffer_, "\"L");					\
+        strcpy (buffer_ + 2, symbol_);					\
+	strcpy (buffer_ + (SYMBOL_LENGTH) + 2, SUFFIX "\"");		\
+      }									\
+    else								\
+      {									\
+        strcpy (buffer_, "L");						\
+        strcpy (buffer_ + 1, symbol_);					\
+	strcpy (buffer_ + (SYMBOL_LENGTH) + 1, SUFFIX);			\
+      }									\
+  } while (0)
+
 /* Given a symbol name string, create the lazy pointer version
    of the symbol name.  */
 
 #define GEN_LAZY_PTR_NAME_FOR_SYMBOL(BUF,SYMBOL,SYMBOL_LENGTH)	\
-  do {								\
-    const char *symbol_ = (SYMBOL);                             \
-    char *buffer_ = (BUF);					\
-    if (symbol_[0] == '"')					\
-      {								\
-        strcpy (buffer_, "\"L");				\
-        strcpy (buffer_ + 2, symbol_ + 1);			\
-	strcpy (buffer_ + (SYMBOL_LENGTH), "$lazy_ptr\"");	\
-      }								\
-    else if (name_needs_quotes (symbol_))			\
-      {								\
-        strcpy (buffer_, "\"L");				\
-        strcpy (buffer_ + 2, symbol_);				\
-	strcpy (buffer_ + (SYMBOL_LENGTH) + 2, "$lazy_ptr\"");	\
-      }								\
-    else							\
-      {								\
-        strcpy (buffer_, "L");					\
-        strcpy (buffer_ + 1, symbol_);				\
-	strcpy (buffer_ + (SYMBOL_LENGTH) + 1, "$lazy_ptr");	\
-      }								\
-  } while (0)
-
-#define TARGET_ASM_EXCEPTION_SECTION darwin_exception_section
-
-#define TARGET_ASM_EH_FRAME_SECTION darwin_eh_frame_section
+  GEN_SUFFIXED_NAME_FOR_SYMBOL (BUF, SYMBOL, SYMBOL_LENGTH, "$lazy_ptr")
+/* APPLE LOCAL end ARM 5603763 */
 
 #define EH_FRAME_SECTION_NAME   "__TEXT"
 #define EH_FRAME_SECTION_ATTR ",coalesced,no_toc+strip_static_syms+live_support"
@@ -1518,18 +1135,19 @@ enum machopic_addr_class {
 
 #undef ASM_PREFERRED_EH_DATA_FORMAT
 #define ASM_PREFERRED_EH_DATA_FORMAT(CODE,GLOBAL)  \
-  (((CODE) == 2 && (GLOBAL) == 1) \
+  /* APPLE LOCAL EH __TEXT __gcc_except_tab 5819051 */	      \
+  ((((CODE) == 2 || (CODE) == 0) && (GLOBAL) == 1)	      \
    ? (DW_EH_PE_pcrel | DW_EH_PE_indirect | DW_EH_PE_sdata4) : \
      ((CODE) == 1 || (GLOBAL) == 0) ? DW_EH_PE_pcrel : DW_EH_PE_absptr)
 
 #define ASM_OUTPUT_DWARF_DELTA(FILE,SIZE,LABEL1,LABEL2)  \
   darwin_asm_output_dwarf_delta (FILE, SIZE, LABEL1, LABEL2)
 
-/* APPLE LOCAL begin mainline 2006-03-16 dwarf 4383509 */
 #define ASM_OUTPUT_DWARF_OFFSET(FILE,SIZE,LABEL,BASE)  \
   darwin_asm_output_dwarf_offset (FILE, SIZE, LABEL, BASE)
 
-/* APPLE LOCAL end mainline 2006-03-16 dwarf 4383509 */
+/* APPLE LOCAL 64-bit eric */
+/* remove ASM_MAYBE_OUTPUT_ENCODED_ADDR_RTX */
 
 /* Experimentally, putting jump tables in text is faster on SPEC.
    Also this is needed for correctness for coalesced functions.  */
@@ -1544,30 +1162,31 @@ enum machopic_addr_class {
     /* APPLE LOCAL begin Macintosh alignment 2002-1-22 --ff */  \
     c_register_pragma (0, "pack", darwin_pragma_pack);  \
     /* APPLE LOCAL end Macintosh alignment 2002-1-22 --ff */  \
-    /* APPLE LOCAL begin CALL_ON_LOAD/CALL_ON_UNLOAD pragmas  20020202 --turly  */ \
-    c_register_pragma (0, "CALL_ON_LOAD", darwin_pragma_call_on_load); \
-    c_register_pragma (0, "CALL_ON_UNLOAD", darwin_pragma_call_on_unload); \
-    /* APPLE LOCAL end CALL_ON_LOAD/CALL_ON_UNLOAD pragmas  20020202 --turly  */ \
   } while (0)
 /* APPLE LOCAL end OS pragma hook */
 
 #define TARGET_TERMINATE_DW2_EH_FRAME_INFO false
 
+#define TARGET_ASM_INIT_SECTIONS darwin_init_sections
 #undef TARGET_ASM_NAMED_SECTION
 #define TARGET_ASM_NAMED_SECTION darwin_asm_named_section
 
+/* Handle pragma weak and pragma pack.  */
+#define HANDLE_SYSV_PRAGMA 1
+
+#define HANDLE_PRAGMA_PACK_PUSH_POP 1
+
 #define DARWIN_REGISTER_TARGET_PRAGMAS()			\
   do {								\
-    c_register_pragma (0, "mark", darwin_pragma_ignore);	\
+    /* APPLE LOCAL begin pragma mark 5614511 */			\
+    /* Removed mark.  */					\
+    /* APPLE LOCAL end pragma mark 5614511 */			\
     c_register_pragma (0, "options", darwin_pragma_options);	\
     c_register_pragma (0, "segment", darwin_pragma_ignore);	\
     /* APPLE LOCAL pragma fenv */                               \
     c_register_pragma ("GCC", "fenv", darwin_pragma_fenv);	\
     c_register_pragma (0, "unused", darwin_pragma_unused);	\
-    /* APPLE LOCAL begin mainline */				\
-    c_register_pragma (0, "ms_struct",				\
-			darwin_pragma_ms_struct);		\
-    /* APPLE LOCAL end mainline */				\
+    c_register_pragma (0, "ms_struct", darwin_pragma_ms_struct); \
     /* APPLE LOCAL begin pragma reverse_bitfields */		\
     c_register_pragma (0, "reverse_bitfields",			\
 			darwin_pragma_reverse_bitfields);	\
@@ -1623,7 +1242,7 @@ extern void abort_assembly_and_exit (int status) ATTRIBUTE_NORETURN;
 #define VPTR_INITIALIZER_ADJUSTMENT	8
 #define ADJUST_VTABLE_INDEX(IDX, VTBL)						\
   do {										\
-    if (TARGET_KEXTABI)								\
+    if (TARGET_KEXTABI == 1)								\
       (IDX) = fold (build2 (PLUS_EXPR, TREE_TYPE (IDX), IDX, size_int (2)));	\
   } while (0)
 /* APPLE LOCAL end KEXT double destructor */
@@ -1631,18 +1250,30 @@ extern void abort_assembly_and_exit (int status) ATTRIBUTE_NORETURN;
 /* APPLE LOCAL begin zerofill 20020218 --turly  */
 /* This keeps uninitialized data from bloating the data when -fno-common.
    Radar 2863107.  */
-#define ASM_OUTPUT_ZEROFILL(FILE, NAME, SIZE, ALIGNMENT)		    \
-  do {									    \
-    unsigned HOST_WIDE_INT _new_size = SIZE;		    		    \
-    if (_new_size == 0) _new_size = 1;					    \
-    fputs (".zerofill __DATA, __common, ", (FILE));			    \
-    assemble_name ((FILE), (NAME));					    \
-    fprintf ((FILE), ", " HOST_WIDE_INT_PRINT_DEC, _new_size); 		    \
-    fprintf ((FILE), ", " HOST_WIDE_INT_PRINT_DEC "\n",			    \
-	     (HOST_WIDE_INT) (ALIGNMENT));				    \
-    in_section = no_section;						    \
+#define ASM_OUTPUT_ZEROFILL(FILE, NAME, SECT, SIZE, ALIGNMENT)	\
+  do {								\
+    section *darwin_sect = SECT;				\
+								\
+    unsigned HOST_WIDE_INT _new_size = SIZE;			\
+    if (_new_size == 0) _new_size = 1;				\
+    fputs (".zerofill ", (FILE));				\
+    if (darwin_sect->common.flags & SECTION_NAMED)		\
+      {								\
+	fputs (darwin_sect->named.name, (FILE));		\
+	fputs (", ", (FILE));					\
+      }								\
+    else							\
+      fputs ("__DATA, __common, ", (FILE));			\
+    assemble_name ((FILE), (NAME));				\
+    fprintf ((FILE), ", " HOST_WIDE_INT_PRINT_DEC, _new_size);	\
+    fprintf ((FILE), ", " HOST_WIDE_INT_PRINT_DEC "\n",		\
+	     (HOST_WIDE_INT) (ALIGNMENT));			\
   } while (0)
 /* APPLE LOCAL end zerofill 20020218 --turly  */
+
+/* APPLE LOCAL begin CW asm blocks */
+#define IASM_SPECIAL_LABEL(ID) darwin_iasm_special_label (ID)
+/* APPLE LOCAL end CW asm blocks */
 
 #undef ASM_APP_ON
 #define ASM_APP_ON ""
@@ -1657,23 +1288,13 @@ void darwin_register_objc_includes (const char *, const char *, int);
 void add_framework_path (char *);
 #define TARGET_OPTF add_framework_path
 
-#define TARGET_HAS_F_SETLKW
+#define TARGET_POSIX_IO
 
-/* APPLE LOCAL begin mainline 2005-09-01 3449986 */
 /* All new versions of Darwin have C99 functions.  */
+
 #define TARGET_C99_FUNCTIONS 1
 
-/* APPLE LOCAL end mainline 2005-09-01 3449986 */
 #define WINT_TYPE "int"
-
-/* APPLE LOCAL begin mainline */
-/* For Apple KEXTs, we make the constructors return this to match gcc
-   2.95.  */
-#define TARGET_CXX_CDTOR_RETURNS_THIS (darwin_kextabi_p)
-extern int flag_mkernel;
-extern int flag_apple_kext;
-#define TARGET_KEXTABI flag_apple_kext
-/* APPLE LOCAL end mainline */
 
 /* APPLE LOCAL begin iframework for 4.3 4094959 */
 #define TARGET_HANDLE_C_OPTION(CODE, ARG, VALUE)			\
@@ -1688,38 +1309,103 @@ extern int flag_apple_kext;
     for (i = 0; i < argc; ++i)			\
       {						\
 	if (strcmp (argv[i], "-isysroot") == 0)	\
-	  if (argv[i][9])			\
-	    target_system_root = &argv[i][9];	\
-	  else if (i + 1 < argc)		\
-	    {					\
-	      target_system_root = argv[i+1];	\
-	      ++i;				\
-	    }					\
+	  {					\
+	    if (argv[i][9])			\
+	      target_system_root = &argv[i][9];	\
+	    else if (i + 1 < argc)		\
+	      {					\
+		target_system_root = argv[i+1];	\
+		++i;				\
+	      }					\
+	  }					\
       }						\
   } while (0)
 
 #define SYSROOT_PRIORITY PREFIX_PRIORITY_FIRST
 /* APPLE LOCAL end isysroot 5083137 */
 
-/* APPLE LOCAL begin isysroot 5083137 */
-/* APPLE LOCAL begin 4697325 */
-#ifndef CROSS_DIRECTORY_STRUCTURE
-extern void darwin_default_min_version (int * argc, char *** argv);
-#define GCC_DRIVER_HOST_INITIALIZATION		\
-  do {						\
-    darwin_default_min_version (&argc, &argv);	\
-    GCC_DRIVER_HOST_INITIALIZATION1;		\
-  } while (0)
-#else
-#define GCC_DRIVER_HOST_INITIALIZATION		\
-    GCC_DRIVER_HOST_INITIALIZATION1		\
+/* Every program on darwin links against libSystem which contains the pthread
+   routines, so there's no need to explicitly call out when doing threaded
+   work.  */
 
-#endif /* CROSS_DIRECTORY_STRUCTURE */
-/* APPLE LOCAL end 4697325 */
-/* APPLE LOCAL end isysroot 5083137 */
+#undef GOMP_SELF_SPECS
+#define GOMP_SELF_SPECS ""
+
+/* Darwin can't support anchors until we can cope with the adjustments
+   to size that ASM_DECLARE_OBJECT_NAME and ASM_DECLARE_CONSTANT_NAME
+   when outputting members of an anchor block and the linker can be
+   taught to keep them together or we find some other suitable
+   code-gen technique.  */
+
+#if 0
+#define TARGET_ASM_OUTPUT_ANCHOR darwin_asm_output_anchor
+#else
+#define TARGET_ASM_OUTPUT_ANCHOR NULL
+#endif
+
+/* Attempt to turn on execute permission for the stack.  This may be
+    used by INITIALIZE_TRAMPOLINE of the target needs it (that is,
+    if the target machine can change execute permissions on a page).
+
+    There is no way to query the execute permission of the stack, so
+    we always issue the mprotect() call.
+
+    Unfortunately it is not possible to make this namespace-clean.
+
+    Also note that no errors should be emitted by this code; it is
+    considered dangerous for library calls to send messages to
+    stdout/stderr.  */
+
+#define ENABLE_EXECUTE_STACK                                            \
+extern void __enable_execute_stack (void *);                            \
+void                                                                    \
+__enable_execute_stack (void *addr)                                     \
+{                                                                       \
+   extern int mprotect (void *, size_t, int);                           \
+   extern int getpagesize (void);					\
+   static int size;                                                     \
+   static long mask;                                                    \
+                                                                        \
+   char *page, *end;                                                    \
+                                                                        \
+   if (size == 0)                                                       \
+     {                                                                  \
+       size = getpagesize();						\
+       mask = ~((long) size - 1);                                       \
+     }                                                                  \
+                                                                        \
+   page = (char *) (((long) addr) & mask);                              \
+   end  = (char *) ((((long) (addr + (TARGET_64BIT ? 48 : 40))) & mask) + size); \
+                                                                        \
+   /* 7 == PROT_READ | PROT_WRITE | PROT_EXEC */                        \
+   (void) mprotect (page, end - page, 7);                               \
+}
+
+/* For Apple KEXTs, we make the constructors return this to match gcc
+   2.95.  */
+#define TARGET_CXX_CDTOR_RETURNS_THIS (darwin_kextabi_p)
+extern int flag_mkernel;
+extern int flag_apple_kext;
+#define TARGET_KEXTABI flag_apple_kext
 
 /* APPLE LOCAL begin radar 4985544 - radar 5096648 */
 #define CHECK_FORMAT_CFSTRING(ARG,NUM,ATTR) objc_check_format_cfstring (ARG,NUM,ATTR)
 #define CFSTRING_TYPE_NODE(T) darwin_cfstring_type_node (T)
 /* APPLE LOCAL end radar 4985544 - radar 5096648 */
+/* APPLE LOCAL radar 5195402 */
+#define CFSTRING_TYPE_CHECK(T) objc_check_cfstringref_type (T)
+
+/* APPLE LOCAL begin mainline 2007-06-14 5235474 */
+#ifndef CROSS_DIRECTORY_STRUCTURE
+/* APPLE LOCAL begin ARM 5683689 */
+extern void darwin_default_min_version (int * argc, char *** argv,
+					enum darwin_version_type vers_type);
+#define GCC_DRIVER_HOST_INITIALIZATION \
+  /* APPLE LOCAL isysroot 5083137 */ \
+  GCC_DRIVER_HOST_INITIALIZATION1; \
+  darwin_default_min_version (&argc, &argv, DARWIN_DEFAULT_VERSION_TYPE)
+/* APPLE LOCAL end ARM 5683689 */
+#endif /* CROSS_DIRECTORY_STRUCTURE */
+/* APPLE LOCAL end mainline 2007-06-14 5235474 */
+
 #endif /* CONFIG_DARWIN_H */

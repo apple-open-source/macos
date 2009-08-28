@@ -24,21 +24,8 @@
 #pragma options align=mac68k
 #endif
 
-struct VDConfigurationFeatureListRec
-{
-    OSType *	csConfigFeatureList;
-    ItemCount	csNumConfigFeatures;
-    UInt32	csReserved1;
-    UInt32	csReserved2;
-};
-
-enum { cscGetFeatureList = 39 };
-
 enum
 {
-    kDVIPowerSwitchFeature        = (1 << 0),	/* Used for csConfigFeature*/
-    kDVIPowerSwitchSupportMask    = (1 << 0),	/* Read-only*/
-    kDVIPowerSwitchActiveMask     = (1 << 0),	/* Read/write for csConfigValue*/
     kDVIPowerSwitchPowerOffDelay  = 200		/* ms before power off */
 };
 

@@ -24,83 +24,158 @@ module Svn
       end
     end
 
+    class CommitItem3
+      alias_method :wcprop_changes, :incoming_prop_changes
+      alias_method :wcprop_changes=, :incoming_prop_changes=
+    end
+
+    class CommitItemWrapper
+      def initialize(item)
+        @item = item
+      end
+
+      def incoming_prop_changes
+        if @item.incoming_prop_changes
+          Util.hash_to_prop_array(@item.incoming_prop_changes)
+        else
+          nil
+        end
+      end
+      alias_method :wcprop_changes, :incoming_prop_changes
+
+      def method_missing(method, *args, &block)
+        @item.__send__(method, *args, &block)
+      end
+    end
+
     class Info
       alias url URL
       alias repos_root_url repos_root_URL
+
+      alias _last_changed_date last_changed_date
+      def last_changed_date
+        Time.from_apr_time(_last_changed_date)
+      end
     end
 
-    PropListItem = ProplistItem
-    # Following methods are also available:
-    #
-    # [name]
-    #   Returns an URI for the item concerned with the instance.
-    # [props]
-    #   Returns a Hash of properties, such as
-    #   <tt>{propname1 => propval1, propname2 => propval2, ...}</tt>.
+
+    # For backward compatibility
     class PropListItem
-      alias name node_name
-      alias props prop_hash
+      # Returns an URI for the item concerned with the instance.
+      attr_accessor :name
+
+      # Returns a Hash of properties, such as
+      # <tt>{propname1 => propval1, propname2 => propval2, ...}</tt>.
+      attr_accessor :props
+
+      alias_method :node_name, :name
+      alias_method :prop_hash, :props
+
+      def initialize(name, props)
+        @name = name
+        @props = props
+      end
 
       def method_missing(meth, *args)
-        _props = props
-        if _props.respond_to?(meth)
-          _props.__send__(meth, *args)
+        if @props.respond_to?(meth)
+          @props.__send__(meth, *args)
         else
           super
         end
       end
     end
-    
+
     Context = Ctx
     class Context
-      class << self
-        undef new
-        def new
-          obj = Client.create_context
-          obj.__send__("initialize")
-          obj
+      alias _auth_baton auth_baton
+      alias _auth_baton= auth_baton=
+      remove_method :auth_baton, :auth_baton=
+      private :_auth_baton, :_auth_baton=
+
+      include Core::Authenticatable
+
+      alias _initialize initialize
+      private :_initialize
+      def initialize
+        _initialize
+        self.auth_baton = Core::AuthBaton.new
+        init_callbacks
+        return unless block_given?
+        begin
+          yield(self)
+        ensure
+          destroy
         end
       end
 
-      alias _auth_baton auth_baton
-      attr_reader :auth_baton
-      
-      alias _initialize initialize
-      def initialize
-        @prompts = []
-        @batons = []
-        @providers = []
-        @auth_baton = Svn::Core::AuthBaton.new
-        self.auth_baton = @auth_baton
-        init_callbacks
+      def destroy
+        Svn::Destroyer.destroy(self)
       end
-      undef _initialize
+
+      def auth_baton=(baton)
+        super(baton)
+        self._auth_baton = auth_baton
+      end
 
       def checkout(url, path, revision=nil, peg_rev=nil,
-                   recurse=true, ignore_externals=false)
+                   depth=nil, ignore_externals=false,
+                   allow_unver_obstruction=false)
         revision ||= "HEAD"
-        Client.checkout2(url, path, peg_rev, revision,
-                         recurse, ignore_externals, self)
+        Client.checkout3(url, path, peg_rev, revision, depth,
+                         ignore_externals, allow_unver_obstruction,
+                         self)
       end
       alias co checkout
 
       def mkdir(*paths)
         paths = paths.first if paths.size == 1 and paths.first.is_a?(Array)
-        Client.mkdir2(normalize_path(paths), self)
+        mkdir2(:paths => paths)
       end
 
-      def commit(targets, recurse=true, keep_locks=false)
+      MKDIR_REQUIRED_ARGUMENTS_KEYS = [:paths]
+      def mkdir2(arguments)
+        optional_arguments_defaults = {
+          :make_parents => false,
+          :revprop_table => {},
+        }
+
+        arguments = optional_arguments_defaults.merge(arguments)
+        Util.validate_options(arguments,
+                              optional_arguments_defaults.keys,
+                              MKDIR_REQUIRED_ARGUMENTS_KEYS)
+        Client.mkdir3(normalize_path(arguments[:paths]),
+                      arguments[:make_parents],
+                      arguments[:revprop_table],
+                      self)
+      end
+
+      def mkdir_p(*paths)
+        revprop_table = paths.pop if paths.last.is_a?(Hash)
+        paths = paths.first if paths.size == 1 and paths.first.is_a?(Array)
+        mkdir_p2(:paths => paths, :revprop_table => revprop_table || {})
+      end
+
+      def mkdir_p2(arguments)
+        mkdir2(arguments.update(:make_parents => true))
+      end
+
+      def commit(targets, recurse=true, keep_locks=false,
+                 keep_changelist=false, changelist_name=nil,
+                 revprop_table=nil)
         targets = [targets] unless targets.is_a?(Array)
-        Client.commit3(targets, recurse, keep_locks, self)
+        Client.commit4(targets, recurse, keep_locks, keep_changelist,
+                       changelist_name, revprop_table, self)
       end
       alias ci commit
 
-      def status(path, rev=nil, recurse=true, get_all=false,
+      def status(path, rev=nil, depth_or_recurse=nil, get_all=false,
                  update=true, no_ignore=false,
-                 ignore_externals=false, &status_func)
-        Client.status2(path, rev, status_func,
-                       recurse, get_all, update, no_ignore,
-                       ignore_externals, self)
+                 ignore_externals=false, changelists_names=nil, &status_func)
+        depth = Core::Depth.infinity_or_immediates_from_recurse(depth_or_recurse)
+        changelists_names = [changelists_names] unless changelists_names.is_a?(Array) or changelists_names.nil?
+        Client.status3(path, rev, status_func,
+                       depth, get_all, update, no_ignore,
+                       ignore_externals, changelists_names, self)
       end
       alias st status
 
@@ -108,9 +183,9 @@ module Svn
         Client.add3(path, recurse, force, no_ignore, self)
       end
 
-      def delete(paths, force=false)
+      def delete(paths, force=false, keep_local=false, revprop_table=nil)
         paths = [paths] unless paths.is_a?(Array)
-        Client.delete2(paths, force, self)
+        Client.delete3(paths, force, keep_local, revprop_table, self)
       end
       alias del delete
       alias remove delete
@@ -121,19 +196,23 @@ module Svn
         rm(paths, true)
       end
 
-      def update(paths, rev="HEAD", recurse=true, ignore_externals=false)
+      def update(paths, rev="HEAD", depth=nil, ignore_externals=false,
+                 allow_unver_obstruction=false, depth_is_sticky=false)
         paths_is_array = paths.is_a?(Array)
         paths = [paths] unless paths_is_array
-        result = Client.update2(paths, rev, recurse, ignore_externals, self)
+        result = Client.update3(paths, rev, depth, depth_is_sticky,
+                                ignore_externals, allow_unver_obstruction,
+                                self)
         result = result.first unless paths_is_array
         result
       end
       alias up update
 
-      def import(path, uri, recurse=true, no_ignore=false)
-        Client.import2(path, uri, !recurse, no_ignore, self)
+      def import(path, uri, depth_or_recurse=true, no_ignore=false, revprop_table=nil)
+        depth = Core::Depth.infinity_or_immediates_from_recurse(depth_or_recurse)
+        Client.import3(path, uri, depth, no_ignore, false, revprop_table, self)
       end
-      
+
       def cleanup(dir)
         Client.cleanup(dir, self)
       end
@@ -150,16 +229,38 @@ module Svn
       def resolved(path, recurse=true)
         Client.resolved(path, recurse, self)
       end
-      
-      def propset(name, value, target, recurse=true, force=false)
-        Client.propset2(name, value, target, recurse, force, self)
+
+      RESOLVE_REQUIRED_ARGUMENTS_KEYS = [:path]
+      def resolve(arguments={})
+        arguments = arguments.reject {|k, v| v.nil?}
+        optional_arguments_defaults = {
+          :depth => nil,
+          :conflict_choice => Wc::CONFLICT_CHOOSE_POSTPONE
+        }
+        arguments = optional_arguments_defaults.merge(arguments)
+        Util.validate_options(arguments,
+                              optional_arguments_defaults.keys,
+                              RESOLVE_REQUIRED_ARGUMENTS_KEYS)
+
+        Client.resolve(arguments[:path], arguments[:depth], arguments[:conflict_choice], self)
+      end
+
+      def propset(name, value, target, depth_or_recurse=nil, force=false,
+                  base_revision_for_url=nil, changelists_names=nil,
+                  revprop_table=nil)
+        base_revision_for_url ||= Svn::Core::INVALID_REVNUM
+        depth = Core::Depth.infinity_or_empty_from_recurse(depth_or_recurse)
+        changelists_names = [changelists_names] unless changelists_names.is_a?(Array) or changelists_names.nil?
+        Client.propset3(name, value, target, depth, force,
+                        base_revision_for_url, changelists_names,
+                        revprop_table, self)
       end
       alias prop_set propset
       alias pset propset
       alias ps propset
-      
-      def propdel(name, target, recurse=true, force=false)
-        Client.propset2(name, nil, target, recurse, force, self)
+
+      def propdel(name, *args)
+        propset(name, nil, *args)
       end
       alias prop_del propdel
       alias pdel propdel
@@ -167,63 +268,105 @@ module Svn
 
       # Returns a value of a property, with +name+ attached to +target+,
       # as a Hash such as <tt>{uri1 => value1, uri2 => value2, ...}</tt>.
-      def propget(name, target, rev=nil, peg_rev=nil, recurse=true)
+      def propget(name, target, rev=nil, peg_rev=nil, depth_or_recurse=nil,
+                  changelists_names=nil)
         rev ||= "HEAD"
         peg_rev ||= rev
-        Client.propget2(name, target, rev, peg_rev, recurse, self)
+        depth = Core::Depth.infinity_or_empty_from_recurse(depth_or_recurse)
+        changelists_names = [changelists_names] unless changelists_names.is_a?(Array) or changelists_names.nil?
+        Client.propget3(name, target, peg_rev, rev, depth, changelists_names, self).first
       end
       alias prop_get propget
       alias pget propget
       alias pg propget
 
+      # Obsoleted document.
+      #
       # Returns list of properties attached to +target+ as an Array of
       # Svn::Client::PropListItem.
       # Paths and URIs are available as +target+.
-      def proplist(target, rev=nil, peg_rev=nil, recurse=true)
+      def proplist(target, peg_rev=nil, rev=nil, depth_or_recurse=nil,
+                   changelists_names=nil, &block)
         rev ||= "HEAD"
         peg_rev ||= rev
-        Client.proplist2(target, rev, peg_rev, recurse, self)
+        items = []
+        depth = Core::Depth.infinity_or_empty_from_recurse(depth_or_recurse)
+        receiver = Proc.new do |path, prop_hash|
+          items << PropListItem.new(path, prop_hash)
+          block.call(path, prop_hash) if block
+        end
+        changelists_names = [changelists_names] unless changelists_names.is_a?(Array) or changelists_names.nil?
+        Client.proplist3(target, peg_rev, rev, depth, changelists_names,
+                         receiver, self)
+        items
       end
       alias prop_list proplist
       alias plist proplist
       alias pl proplist
-      
-      def copy(src_path, dst_path, rev=nil)
-        Client.copy3(src_path, rev || "HEAD", dst_path, self)
+
+      def copy(src_paths, dst_path, rev_or_copy_as_child=nil,
+               make_parents=nil, revprop_table=nil)
+        if src_paths.is_a?(Array)
+          copy_as_child = rev_or_copy_as_child
+          if copy_as_child.nil?
+            copy_as_child = src_paths.size == 1 ? false : true
+          end
+          src_paths = src_paths.collect do |path|
+            if path.is_a?(CopySource)
+              path
+            else
+              CopySource.new(path)
+            end
+          end
+        else
+          copy_as_child = false
+          unless src_paths.is_a?(CopySource)
+            src_paths = CopySource.new(src_paths, rev_or_copy_as_child)
+          end
+          src_paths = [src_paths]
+        end
+        Client.copy4(src_paths, dst_path, copy_as_child, make_parents,
+                     revprop_table, self)
       end
       alias cp copy
-      
-      def move(src_path, dst_path, force=false)
-        Client.move4(src_path, dst_path, force, self)
+
+      def move(src_paths, dst_path, force=false, move_as_child=nil,
+               make_parents=nil, revprop_table=nil)
+        src_paths = [src_paths] unless src_paths.is_a?(Array)
+        move_as_child = src_paths.size == 1 ? false : true if move_as_child.nil?
+        Client.move5(src_paths, dst_path, force, move_as_child, make_parents,
+                     revprop_table, self)
       end
       alias mv move
 
-      def mv_f(src_path, dst_path)
-        move(src_path, dst_path, true)
+      def mv_f(src_paths, dst_path, move_as_child=nil)
+        move(src_paths, dst_path, true, move_as_child)
       end
 
       def diff(options, path1, rev1, path2, rev2,
-               out_file, err_file, recurse=true,
+               out_file, err_file, depth=nil,
                ignore_ancestry=false,
                no_diff_deleted=false, force=false,
-               header_encoding=nil)
+               header_encoding=nil, relative_to_dir=nil, changelists=nil)
         header_encoding ||= Core::LOCALE_CHARSET
-        Client.diff3(options, path1, rev1, path2, rev2,
-                     recurse, ignore_ancestry,
+        relative_to_dir &&= Core.path_canonicalize(relative_to_dir)
+        Client.diff4(options, path1, rev1, path2, rev2, relative_to_dir,
+                     depth, ignore_ancestry,
                      no_diff_deleted, force, header_encoding,
-                     out_file, err_file, self)
+                     out_file, err_file, changelists, self)
       end
 
       def diff_peg(options, path, start_rev, end_rev,
                    out_file, err_file, peg_rev=nil,
-                   recurse=true, ignore_ancestry=false,
+                   depth=nil, ignore_ancestry=false,
                    no_diff_deleted=false, force=false,
-                   header_encoding=nil)
+                   header_encoding=nil, relative_to_dir=nil, changelists=nil)
         header_encoding ||= Core::LOCALE_CHARSET
-        Client.diff_peg3(options, path, peg_rev, start_rev, end_rev,
-                         recurse, ignore_ancestry,
+        relative_to_dir &&= Core.path_canonicalize(relative_to_dir)
+        Client.diff_peg4(options, path, peg_rev, start_rev, end_rev,
+                         relative_to_dir, depth, ignore_ancestry,
                          no_diff_deleted, force, header_encoding,
-                         out_file, err_file, self)
+                         out_file, err_file, changelists, self)
       end
 
       # Invokes block once for each item changed between <tt>path1</tt>
@@ -231,36 +374,44 @@ module Svn
       # and returns +nil+.
       # +diff+ is an instance of Svn::Client::DiffSummarize.
       def diff_summarize(path1, rev1, path2, rev2,
-                         recurse=true, ignore_ancestry=true,
+                         depth=nil, ignore_ancestry=true, changelists=nil,
                          &block) # :yields: diff
-        Client.diff_summarize(path1, rev1, path2, rev2,
-                              recurse, ignore_ancestry, block, self)
+        Client.diff_summarize2(path1, rev1, path2, rev2,
+                               depth, ignore_ancestry, changelists, block,
+                               self)
       end
 
       def diff_summarize_peg(path1, rev1, rev2, peg_rev=nil,
-                             recurse=true, ignore_ancestry=true,
+                             depth=nil, ignore_ancestry=true, changelists=nil,
                              &block)
-        Client.diff_summarize_peg(path1, rev1, rev2, peg_rev,
-                                  recurse, ignore_ancestry, block, self)
+        Client.diff_summarize_peg2(path1, rev1, rev2, peg_rev,
+                                   depth, ignore_ancestry, changelists, block,
+                                   self)
       end
 
       def merge(src1, rev1, src2, rev2, target_wcpath,
-                recurse=true, ignore_ancestry=false,
-                force=false, dry_run=false, options=nil)
-        Client.merge2(src1, rev1, src2, rev2, target_wcpath,
-                      recurse, ignore_ancestry, force,
+                depth=nil, ignore_ancestry=false,
+                force=false, dry_run=false, options=nil, record_only=false)
+        Client.merge3(src1, rev1, src2, rev2, target_wcpath,
+                      depth, ignore_ancestry, force, record_only,
                       dry_run, options, self)
       end
 
-      def merge_peg(src, rev1, rev2, target_wcpath,
-                    peg_rev=nil, recurse=true,
-                    ignore_ancestry=false, force=false,
-                    dry_run=false, options=nil)
-        Client.merge_peg2(src, rev1, rev2, peg_rev,
-                          target_wcpath, recurse, ignore_ancestry,
-                          force, dry_run, options, self)
+
+      def merge_peg(src, rev1, rev2, *rest)
+        merge_peg2(src, [[rev1, rev2]], *rest)
       end
-      
+
+      def merge_peg2(src, ranges_to_merge, target_wcpath,
+                     peg_rev=nil, depth=nil,
+                     ignore_ancestry=false, force=false,
+                     dry_run=false, options=nil, record_only=false)
+        peg_rev ||= URI(src).scheme ? 'HEAD' : 'WORKING'
+        Client.merge_peg3(src, ranges_to_merge, peg_rev,
+                          target_wcpath, depth, ignore_ancestry,
+                          force, record_only, dry_run, options, self)
+      end
+
       # Returns a content of +path+ at +rev+ as a String.
       def cat(path, rev="HEAD", peg_rev=nil, output=nil)
         used_string_io = output.nil?
@@ -278,30 +429,33 @@ module Svn
         targets = [targets] unless targets.is_a?(Array)
         Client.lock(targets, comment, steal_lock, self)
       end
-      
+
       def unlock(targets, break_lock=false)
         targets = [targets] unless targets.is_a?(Array)
         Client.unlock(targets, break_lock, self)
       end
 
-      def info(path_or_uri, rev=nil, peg_rev=nil, recurse=false)
+      def info(path_or_uri, rev=nil, peg_rev=nil, depth_or_recurse=false,
+               changelists=nil)
         rev ||= URI(path_or_uri).scheme ? "HEAD" : "BASE"
+        depth = Core::Depth.infinity_or_empty_from_recurse(depth_or_recurse)
         peg_rev ||= rev
         receiver = Proc.new do |path, info|
           yield(path, info)
         end
-        Client.info(path_or_uri, rev, peg_rev, receiver, recurse, self)
+        Client.info2(path_or_uri, rev, peg_rev, receiver, depth, changelists,
+                     self)
       end
 
       # Returns URL for +path+ as a String.
       def url_from_path(path)
         Client.url_from_path(path)
       end
-      
+
       def uuid_from_path(path, adm)
         Client.uuid_from_path(path, adm, self)
       end
-      
+
       # Returns UUID for +url+ as a String.
       def uuid_from_url(url)
         Client.uuid_from_url(url, self)
@@ -310,7 +464,7 @@ module Svn
       def open_ra_session(url)
         Client.open_ra_session(url, self)
       end
-      
+
       # Scans revisions from +start_rev+ to +end_rev+ for each path in
       # +paths+, invokes block once for each revision, and then returns
       # +nil+.
@@ -330,7 +484,6 @@ module Svn
               peg_rev=nil)
         paths = [paths] unless paths.is_a?(Array)
         receiver = Proc.new do |changed_paths, rev, author, date, message|
-          date = Time.from_svn_format(date) if date
           yield(changed_paths, rev, author, date, message)
         end
         Client.log3(paths, peg_rev, start_rev, end_rev, limit,
@@ -366,7 +519,6 @@ module Svn
         peg_rev ||= end_rev
         diff_options ||= Svn::Core::DiffFileOptions.new
         receiver = Proc.new do |line_no, revision, author, date, line|
-          date = Time.from_svn_format(date) if date
           yield(line_no, revision, author, date, line)
         end
         Client.blame3(path_or_uri, peg_rev, start_rev,
@@ -376,7 +528,7 @@ module Svn
       alias praise blame
       alias annotate blame
       alias ann annotate
-      
+
       # Returns a value of a revision property named +name+ for +uri+
       # at +rev+, as a String.
       # Both URLs and paths are available as +uri+.
@@ -385,7 +537,7 @@ module Svn
         value
       end
       alias rp revprop
-      
+
       # Returns a value of a revision property named +name+ for +uri+
       # at +rev+, as an Array such as <tt>[value, rev]</tt>.
       # Both URLs and paths are available as +uri+.
@@ -399,7 +551,7 @@ module Svn
       end
       alias rpget revprop_get
       alias rpg revprop_get
-      
+
       # Sets +value+ as a revision property named +name+ for +uri+ at +rev+.
       # Both URLs and paths are available as +uri+.
       def revprop_set(name, value, uri, rev, force=false)
@@ -407,7 +559,7 @@ module Svn
       end
       alias rpset revprop_set
       alias rps revprop_set
-      
+
       # Deletes a revision property, named +name+, for +uri+ at +rev+.
       # Both URLs and paths are available as +uri+.
       def revprop_del(name, uri, rev, force=false)
@@ -433,11 +585,11 @@ module Svn
 
       def export(from, to, rev=nil, peg_rev=nil,
                  force=false, ignore_externals=false,
-                 recurse=true, native_eol=nil)
-        Client.export3(from, to, rev, peg_rev, force,
-                       ignore_externals, recurse, native_eol, self)
+                 depth=nil, native_eol=nil)
+        Client.export4(from, to, rev, peg_rev, force,
+                       ignore_externals, depth, native_eol, self)
       end
-      
+
       def ls(path_or_uri, rev=nil, peg_rev=nil, recurse=false)
         rev ||= URI(path_or_uri).scheme ? "HEAD" : "BASE"
         peg_rev ||= rev
@@ -449,92 +601,91 @@ module Svn
       # +path+ is a relative path from the +path_or_uri+.
       # +dirent+ is an instance of Svn::Core::Dirent.
       # +abs_path+ is an absolute path for +path_or_uri+ in the repository.
-      def list(path_or_uri, rev, peg_rev=nil, recurse=false,
+      def list(path_or_uri, rev, peg_rev=nil, depth_or_recurse=Core::DEPTH_IMMEDIATES,
                dirent_fields=nil, fetch_locks=true,
                &block) # :yields: path, dirent, lock, abs_path
+        depth = Core::Depth.infinity_or_immediates_from_recurse(depth_or_recurse)
         dirent_fields ||= Core::DIRENT_ALL
-        Client.list(path_or_uri, peg_rev, rev, recurse, dirent_fields,
+        Client.list2(path_or_uri, peg_rev, rev, depth, dirent_fields,
                     fetch_locks, block, self)
       end
 
-      def switch(path, uri, rev=nil, recurse=true)
-        Client.switch(path, uri, rev, recurse, self)
-      end
-      
-      def add_simple_provider
-        add_provider(Core.auth_get_simple_provider)
-      end
+      def switch(path, uri, peg_rev=nil, rev=nil, depth=nil,
+                 ignore_externals=false, allow_unver_obstruction=false,
+                 depth_is_sticky=false)
 
-      if Core.respond_to?(:get_windows_simple_provider)
-        def add_windows_simple_provider
-          add_provider(Core.auth_get_windows_simple_provider)
-        end
-      end
-      
-      if Core.respond_to?(:get_keychain_simple_provider)
-        def add_keychain_simple_provider
-          add_provider(Core.auth_get_keychain_simple_provider)
-        end
-      end
-      
-      def add_username_provider
-        add_provider(Core.auth_get_username_provider)
-      end
-
-      def add_ssl_client_cert_file_provider
-        add_provider(Core.auth_get_ssl_client_cert_file_provider)
-      end
-
-      def add_ssl_client_cert_pw_file_provider
-        add_provider(Core.auth_get_ssl_client_cert_pw_file_provider)
-      end
-
-      def add_ssl_server_trust_file_provider
-        add_provider(Core.auth_get_ssl_server_trust_file_provider)
-      end
-
-      def add_simple_prompt_provider(retry_limit, prompt=Proc.new)
-        args = [retry_limit]
-        klass = Core::AuthCredSimple
-        add_prompt_provider("simple", args, prompt, klass)
-      end
-      
-      def add_username_prompt_provider(retry_limit, prompt=Proc.new)
-        args = [retry_limit]
-        klass = Core::AuthCredUsername
-        add_prompt_provider("username", args, prompt, klass)
-      end
-      
-      def add_ssl_server_trust_prompt_provider(prompt=Proc.new)
-        args = []
-        klass = Core::AuthCredSSLServerTrust
-        add_prompt_provider("ssl_server_trust", args, prompt, klass)
-      end
-      
-      def add_ssl_client_cert_prompt_provider(retry_limit, prompt=Proc.new)
-        args = [retry_limit]
-        klass = Core::AuthCredSSLClientCert
-        add_prompt_provider("ssl_client_cert", args, prompt, klass)
-      end
-      
-      def add_ssl_client_cert_pw_prompt_provider(retry_limit, prompt=Proc.new)
-        args = [retry_limit]
-        klass = Core::AuthCredSSLClientCertPw
-        add_prompt_provider("ssl_client_cert_pw", args, prompt, klass)
+        Client.switch2(path, uri, peg_rev, rev, depth, depth_is_sticky,
+                       ignore_externals, allow_unver_obstruction, self)
       end
 
       def set_log_msg_func(callback=Proc.new)
-        @log_msg_baton = Client.set_log_msg_func2(self, callback)
+        callback_wrapper = Proc.new do |items|
+          items = items.collect do |item|
+            item_wrapper = CommitItemWrapper.new(item)
+          end
+          callback.call(items)
+        end
+        set_log_msg_func2(callback_wrapper)
       end
-      
+
+      def set_log_msg_func2(callback=Proc.new)
+        @log_msg_baton = Client.set_log_msg_func3(self, callback)
+      end
+
       def set_notify_func(callback=Proc.new)
         @notify_baton = Client.set_notify_func2(self, callback)
       end
-      
+
       def set_cancel_func(callback=Proc.new)
         @cancel_baton = Client.set_cancel_func(self, callback)
       end
-      
+
+      def config=(new_config)
+        Client.set_config(self, new_config)
+      end
+
+      def config
+        Client.get_config(self)
+      end
+
+      def merged(path_or_url, peg_revision=nil)
+        info = Client.mergeinfo_get_merged(path_or_url, peg_revision, self)
+        return nil if info.nil?
+        Core::MergeInfo.new(info)
+      end
+
+      def log_merged(path_or_url, peg_revision, merge_source_url,
+                     source_peg_revision, discover_changed_path=true,
+                     interested_revision_prop_names=nil,
+                     &receiver)
+        raise ArgumentError, "Block isn't given" if receiver.nil?
+        Client.mergeinfo_log_merged(path_or_url, peg_revision,
+                                    merge_source_url, source_peg_revision,
+                                    receiver, discover_changed_path,
+                                    interested_revision_prop_names,
+                                    self)
+      end
+
+      def add_to_changelist(changelist_name, paths, depth=nil, changelists_names=nil)
+        paths = [paths] unless paths.is_a?(Array)
+        changelists_names = [changelists_names] unless changelists_names.is_a?(Array) or changelists_names.nil?
+        Client.add_to_changelist(paths, changelist_name, depth, changelists_names, self)
+      end
+
+      def changelists(changelists_names, root_path, depth=nil, &block)
+        lists_contents = Hash.new{|h,k| h[k]=[]}
+        changelists_names = [changelists_names] unless changelists_names.is_a?(Array) or changelists_names.nil?
+        block ||= lambda{|path, changelist| lists_contents[changelist] << path }
+        Client.get_changelists(root_path, changelists_names, depth, block, self)
+        lists_contents
+      end
+
+      def remove_from_changelists(changelists_names, paths, depth=nil)
+        changelists_names = [changelists_names] unless changelists_names.is_a?(Array) or changelists_names.nil?
+        paths = [paths] unless paths.is_a?(Array)
+        Client.remove_from_changelists(paths, depth, changelists_names, self)
+      end
+
       private
       def init_callbacks
         set_log_msg_func(nil)
@@ -548,29 +699,6 @@ module Svn
       %w(notify).each do |type|
         private "#{type}_func2", "#{type}_baton2"
         private "#{type}_func2=", "#{type}_baton2="
-      end
-      
-      def add_prompt_provider(name, args, prompt, cred_class)
-        real_prompt = Proc.new do |*prompt_args|
-          cred = cred_class.new
-          prompt.call(cred, *prompt_args)
-          cred
-        end
-        method_name = "swig_rb_auth_get_#{name}_prompt_provider"
-        baton, pro = Core.__send__(method_name, real_prompt, *args)
-        @batons << baton
-        @prompts << real_prompt
-        add_provider(pro)
-      end
-
-      def add_provider(provider)
-        @providers << provider
-        update_auth_baton
-      end
-
-      def update_auth_baton
-        @auth_baton = Core::AuthBaton.new(@providers, @auth_baton.parameters)
-        self.auth_baton = @auth_baton
       end
 
       def normalize_path(paths)
@@ -629,6 +757,14 @@ module Svn
       # Returns +true+ when the instance is a change made to an unknown node.
       def node_kind_unknown?
         node_kind == Core::NODE_UNKNOWN
+      end
+    end
+
+    class CopySource
+      alias_method :_initialize, :initialize
+      private :_initialize
+      def initialize(path, rev=nil, peg_rev=nil)
+        _initialize(path, rev, peg_rev)
       end
     end
   end

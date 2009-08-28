@@ -397,6 +397,50 @@ struct arch_flag *specific_arch_flag)
 		return(1);
 	    }
 	    break;
+	case CPU_TYPE_ARM:
+	    switch(host_basic_info.cpu_subtype){
+	    case CPU_SUBTYPE_ARM_ALL:
+		if(family_arch_flag != NULL){
+		    family_arch_flag->name = "arm";
+		    family_arch_flag->cpusubtype = CPU_SUBTYPE_ARM_ALL;
+		}
+		if(specific_arch_flag != NULL)
+		    specific_arch_flag->name = "arm";
+		return(1);
+	    case CPU_SUBTYPE_ARM_V4T:
+		if(family_arch_flag != NULL){
+		    family_arch_flag->name = "arm";
+		    family_arch_flag->cpusubtype = CPU_SUBTYPE_ARM_ALL;
+		}
+		if(specific_arch_flag != NULL)
+		    specific_arch_flag->name = "armv4t";
+		return(1);
+	    case CPU_SUBTYPE_ARM_V5TEJ:
+		if(family_arch_flag != NULL){
+		    family_arch_flag->name = "arm";
+		    family_arch_flag->cpusubtype = CPU_SUBTYPE_ARM_ALL;
+		}
+		if(specific_arch_flag != NULL)
+		    specific_arch_flag->name = "armv5";
+		return(1);
+	    case CPU_SUBTYPE_ARM_XSCALE:
+		if(family_arch_flag != NULL){
+		    family_arch_flag->name = "arm";
+		    family_arch_flag->cpusubtype = CPU_SUBTYPE_ARM_ALL;
+		}
+		if(specific_arch_flag != NULL)
+		    specific_arch_flag->name = "xscale";
+		return(1);
+	    case CPU_SUBTYPE_ARM_V6:
+		if(family_arch_flag != NULL){
+		    family_arch_flag->name = "arm";
+		    family_arch_flag->cpusubtype = CPU_SUBTYPE_ARM_ALL;
+		}
+		if(specific_arch_flag != NULL)
+		    specific_arch_flag->name = "armv6";
+		return(1);
+	    }
+	    break;
 	}
 	return(0);
 }

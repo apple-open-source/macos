@@ -509,6 +509,7 @@ struct objfile
 
     /* APPLE LOCAL begin subroutine inlining  */
     struct rb_tree_node *inlined_subroutine_data;
+    struct rb_tree_node *inlined_call_sites;
     /* APPLE LOCAL end subroutine inlining  */
   };
 
@@ -571,6 +572,11 @@ struct objfile
 #define OBJF_SYM_LOCAL (1 << 3)
 #define OBJF_SYM_DEBUG (1 << 4)
 #define OBJF_SYM_ALL (0xff)
+
+#define OBJF_SYM_LEVELS_MASK (0xff)
+#define OBJF_SYM_FLAGS_MASK (0xff00)
+
+#define OBJF_SYM_DONT_CHANGE (1 << 8)
 
 /* The object file that the main symbol table was loaded from (e.g. the
    argument to the "symbol-file" or "file" command).  */
@@ -721,6 +727,9 @@ int objfile_name_set_load_state (char *, int, int);
 extern unsigned get_objfile_registry_num_registrations (void);
 /* APPLE LOCAL end dwarf repository  */
 
+/* APPLE LOCAL */
+struct objfile *find_objfile_by_name (const char *name, int exact);
+
 /* APPLE LOCAL begin fix-and-continue */
 struct symtab *symtab_get_first (struct objfile *, int );
 struct symtab *symtab_get_next (struct symtab *, int );
@@ -788,11 +797,6 @@ struct partial_symtab *psymtab_get_next (struct partial_symtab *, int );
   ALL_OBJFILES (objfile)	 \
     ALL_OBJFILE_PSYMTABS (objfile, p)
 
-/* APPLE LOCAL fix-and-continue */
-#define	ALL_PSYMTABS_INCL_OBSOLETED(objfile, p) \
-  ALL_OBJFILES (objfile)	 \
-    ALL_OBJFILE_PSYMTABS_INCL_OBSOLETED (objfile, p)
-
 /* Traverse all minimal symbols in all objfiles.  */
 
 #define	ALL_MSYMBOLS(objfile, m) \
@@ -845,4 +849,12 @@ CORE_ADDR objfile_bss_section_offset (struct objfile *objfile);
 
 /* APPLE LOCAL END: Use EXECUTABLE_OBJFILE.  */
 
+struct objfile *find_libobjc_objfile ();
+
+/* APPLE LOCAL: recording which objfiles get hit in symbol lookup.  */
+struct objfile_hitlist;
+struct objfile_hitlist *objfile_detach_hitlist(void);
+int objfile_on_hitlist_p (struct objfile_hitlist *, struct objfile *);
+struct cleanup *make_cleanup_objfile_init_clear_hitlist ();
+void objfile_add_to_hitlist (struct objfile *);
 #endif /* !defined (OBJFILES_H) */

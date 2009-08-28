@@ -12,7 +12,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 # G++ testsuite that uses the `dg.exp' driver.
 
@@ -42,6 +42,7 @@ set tests [prune $tests $srcdir/$subdir/tls/*]
 set tests [prune $tests $srcdir/$subdir/vect/*]
 # APPLE LOCAL ss2
 set tests [prune $tests $srcdir/$subdir/ss/*]
+set tests [prune $tests $srcdir/$subdir/gomp/*]
 
 # Main loop.
 dg-runtest $tests "" $DEFAULT_CXXFLAGS

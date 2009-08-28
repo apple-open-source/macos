@@ -35,7 +35,11 @@
 //
 BELPICError::BELPICError(uint16_t sw) : SCardError(sw)
 {
+#if MAX_OS_X_VERSION_MIN_REQUIRED <= MAX_OS_X_VERSION_10_5
 	IFDEBUG(debugDiagnose(this));
+#else
+	SECURITY_EXCEPTION_THROW_OTHER(this, sw, (char *)"BELPIC");
+#endif
 }
 
 BELPICError::~BELPICError() throw ()
@@ -48,6 +52,8 @@ const char *BELPICError::what() const throw ()
 void BELPICError::throwMe(uint16_t sw)
 { throw BELPICError(sw); }
 
+#if MAX_OS_X_VERSION_MIN_REQUIRED <= MAX_OS_X_VERSION_10_5
+
 #if !defined(NDEBUG)
 
 void BELPICError::debugDiagnose(const void *id) const
@@ -58,3 +64,4 @@ void BELPICError::debugDiagnose(const void *id) const
 
 #endif //NDEBUG
 
+#endif // MAX_OS_X_VERSION_MIN_REQUIRED <= MAX_OS_X_VERSION_10_5

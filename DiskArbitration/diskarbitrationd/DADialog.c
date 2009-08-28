@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,18 +33,17 @@
 static const CFStringRef __kDADialogContextDiskKey   = CFSTR( "DADialogDisk" );
 static const CFStringRef __kDADialogContextSourceKey = CFSTR( "DADialogSource" );
 
-static const CFStringRef __kDADialogTextDeviceRemoval       = CFSTR( "The device you removed was not properly put away. Data might have been lost or damaged. Before you unplug your device, you must first select its icon in the Finder and choose Eject from the File menu." );
-static const CFStringRef __kDADialogTextDeviceRemovalHeader = CFSTR( "Device Removal" );
+static const CFStringRef __kDADialogTextDeviceRemoval       = CFSTR( "To eject a disk, select it in the Finder and choose File > Eject. The next time you connect the disk, Mac OS X will attempt to repair any damage to the information on the disk." );
+static const CFStringRef __kDADialogTextDeviceRemovalHeader = CFSTR( "The disk was not ejected properly. If possible, always eject a disk before unplugging it or turning it off." );
 
-static const CFStringRef __kDADialogTextDeviceUnreadable           = CFSTR( "The disk you inserted was not readable by this computer." );
 static const CFStringRef __kDADialogTextDeviceUnreadableEject      = CFSTR( "Eject" );
-static const CFStringRef __kDADialogTextDeviceUnreadableHeader     = CFSTR( "Disk Insertion" );
+static const CFStringRef __kDADialogTextDeviceUnreadableHeader     = CFSTR( "The disk you inserted was not readable by this computer." );
 static const CFStringRef __kDADialogTextDeviceUnreadableIgnore     = CFSTR( "Ignore" );
 static const CFStringRef __kDADialogTextDeviceUnreadableInitialize = CFSTR( "Initialize..." );
 
-static const CFStringRef __kDADialogTextDeviceUnrepairableHeader = CFSTR( "Disk Repair" );
-static const CFStringRef __kDADialogTextDeviceUnrepairablePrefix = CFSTR( "The disk \"" );
-static const CFStringRef __kDADialogTextDeviceUnrepairableSuffix = CFSTR( "\" was not repairable by this computer. It is being made available to you with limited functionality. You must back up your data and reformat the disk as soon as possible." );
+static const CFStringRef __kDADialogTextDeviceUnrepairable             = CFSTR( "You can still open or copy files on the disk, but you can't save changes to files on the disk. Back up the disk and reformat it as soon as you can." );
+static const CFStringRef __kDADialogTextDeviceUnrepairableHeaderPrefix = CFSTR( "Mac OS X can't repair the disk \"" );
+static const CFStringRef __kDADialogTextDeviceUnrepairableHeaderSuffix = CFSTR( ".\"" );
 
 static CFMutableDictionaryRef __gDADialogList                     = NULL;
 static CFRunLoopSourceRef     __gDADialogSourceDeviceRemoval      = NULL;
@@ -202,7 +201,6 @@ void DADialogShowDeviceUnreadable( DADiskRef disk )
             CFUserNotificationRef notification;
 
             CFDictionarySetValue( description, kCFUserNotificationAlertHeaderKey,        __kDADialogTextDeviceUnreadableHeader );
-            CFDictionarySetValue( description, kCFUserNotificationAlertMessageKey,       __kDADialogTextDeviceUnreadable       );
             CFDictionarySetValue( description, kCFUserNotificationDefaultButtonTitleKey, __kDADialogTextDeviceUnreadableEject  );
             CFDictionarySetValue( description, kCFUserNotificationLocalizationURLKey,    gDABundlePath                         );
             CFDictionarySetValue( description, kCFUserNotificationOtherButtonTitleKey,   __kDADialogTextDeviceUnreadableIgnore );
@@ -253,17 +251,25 @@ void DADialogShowDeviceUnrepairable( DADiskRef disk )
 
     if ( context )
     {
-        CFMutableArrayRef message;
+        CFMutableArrayRef header;
 
-        message = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
+        header = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
 
-        if ( message )
+        if ( header )
         {
             CFMutableDictionaryRef description;
+            CFStringRef            name;
 
-            CFArrayAppendValue( message, __kDADialogTextDeviceUnrepairablePrefix );
-            CFArrayAppendValue( message, DADiskGetDescription( disk, kDADiskDescriptionVolumeNameKey ) );
-            CFArrayAppendValue( message, __kDADialogTextDeviceUnrepairableSuffix );
+            name = DADiskGetDescription( disk, kDADiskDescriptionVolumeNameKey );
+
+            if ( name == NULL )
+            {
+                name = CFSTR( "Untitled" );
+            }
+
+            CFArrayAppendValue( header, __kDADialogTextDeviceUnrepairableHeaderPrefix );
+            CFArrayAppendValue( header, name );
+            CFArrayAppendValue( header, __kDADialogTextDeviceUnrepairableHeaderSuffix );
 
             description = CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
 
@@ -271,9 +277,9 @@ void DADialogShowDeviceUnrepairable( DADiskRef disk )
             {
                 CFUserNotificationRef notification;
 
-                CFDictionarySetValue( description, kCFUserNotificationAlertHeaderKey,     __kDADialogTextDeviceUnrepairableHeader );
-                CFDictionarySetValue( description, kCFUserNotificationAlertMessageKey,    message                                 );
-                CFDictionarySetValue( description, kCFUserNotificationLocalizationURLKey, gDABundlePath                           );
+                CFDictionarySetValue( description, kCFUserNotificationAlertHeaderKey,     header                            );
+                CFDictionarySetValue( description, kCFUserNotificationAlertMessageKey,    __kDADialogTextDeviceUnrepairable );
+                CFDictionarySetValue( description, kCFUserNotificationLocalizationURLKey, gDABundlePath                     );
 
                 notification = CFUserNotificationCreate( kCFAllocatorDefault, 60, kCFUserNotificationStopAlertLevel, NULL, description );
 
@@ -300,7 +306,7 @@ void DADialogShowDeviceUnrepairable( DADiskRef disk )
                 CFRelease( description );
             }
 
-            CFRelease( message );
+            CFRelease( header );
         }
 
         CFRelease( context );

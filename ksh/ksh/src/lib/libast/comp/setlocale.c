@@ -1,10 +1,10 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
-*                      by AT&T Knowledge Ventures                      *
+*                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
 *            http://www.opensource.org/licenses/cpl1.0.txt             *
@@ -872,65 +872,66 @@ _ast_setlocale(int category, const char* locale)
 	}
 	if (!ast.locale.serial++)
 		stropt(getenv("LC_OPTIONS"), options, sizeof(*options), setopt, NiL);
-	if (!*locale)
+	if (*locale)
+		p = lcmake(locale);
+	else if (!initialized)
 	{
-		if (!initialized)
+		char*	u;
+		char	tmp[256];
+
+		/*
+		 * initialize from the environment
+		 * precedence determined by X/Open
+		 */
+
+		u = 0;
+		if (!(a = getenv("LC_ALL")) || !*a)
 		{
-			char*	u;
-			char	tmp[256];
-
-			/*
-			 * initialize from the environment
-			 * precedence determined by X/Open
-			 */
-
-			u = 0;
-			if (!(a = getenv("LC_ALL")) || !*a)
-			{
-				for (i = 1; i < AST_LC_COUNT; i++)
-					if ((s = getenv(lc_categories[i].name)) && *s)
-					{
-						if (streq(s, local) && (u || (u = native_locale(locale, tmp, sizeof(tmp)))))
-							s = u;
-						lc_categories[i].prev = lcmake(s);
-					}
-				a = getenv("LANG");
-			}
-			if (a)
-			{
-				if (streq(a, local) && (u || (u = native_locale(locale, tmp, sizeof(tmp)))))
-					a = u;
-				if (composite(a, 1))
-					a = 0;
-			}
-			p = 0;
 			for (i = 1; i < AST_LC_COUNT; i++)
-			{
-				if (!lc_categories[i].prev)
+				if ((s = getenv(lc_categories[i].name)) && *s)
 				{
-					if (!p && !(p = lcmake(a)))
-						break;
-					lc_categories[i].prev = p;
+					if (streq(s, local) && (u || (u = native_locale(locale, tmp, sizeof(tmp)))))
+						s = u;
+					lc_categories[i].prev = lcmake(s);
 				}
-				if (!single(i, lc_categories[i].prev))
-				{
-					while (i--)
-						single(i, NiL);
-					return 0;
-				}
-			}
-			if (ast.locale.set & AST_LC_debug)
-				for (i = 1; i < AST_LC_COUNT; i++)
-					sfprintf(sfstderr, "locale env  %17s %s\n", lc_categories[i].name, locales[i]->name);
-			initialized = 1;
+			a = getenv("LANG");
 		}
+		if (a)
+		{
+			if (streq(a, local) && (u || (u = native_locale(locale, tmp, sizeof(tmp)))))
+				a = u;
+			if (composite(a, 1))
+				a = 0;
+		}
+		p = 0;
+		for (i = 1; i < AST_LC_COUNT; i++)
+		{
+			if (!lc_categories[i].prev)
+			{
+				if (!p && !(p = lcmake(a)))
+					break;
+				lc_categories[i].prev = p;
+			}
+			if (!single(i, lc_categories[i].prev))
+			{
+				while (i--)
+					single(i, NiL);
+				return 0;
+			}
+		}
+		if (ast.locale.set & AST_LC_debug)
+			for (i = 1; i < AST_LC_COUNT; i++)
+				sfprintf(sfstderr, "locale env  %17s %s\n", lc_categories[i].name, locales[i]->name);
+		initialized = 1;
 		goto compose;
 	}
-	else if (category != AST_LC_ALL)
-		return single(category, lcmake(locale));
+	else if (!(p = lc_categories[category].prev))
+		p = lcmake("C");
+	if (category != AST_LC_ALL)
+		return single(category, p);
 	else if (!(i = composite(locale, 0)))
 	{
-		if (!(p = lcmake(locale)))
+		if (!p)
 			return 0;
 		for (i = 1; i < AST_LC_COUNT; i++)
 			if (!single(i, p))

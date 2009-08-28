@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1998-2004,2005 Free Software Foundation, Inc.              *
+ * Copyright (c) 1998-2006,2008 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -36,7 +36,9 @@
 #include <curses.priv.h>
 #include <ctype.h>
 
-MODULE_ID("$Id: lib_addch.c,v 1.95 2005/03/27 16:52:16 tom Exp $")
+MODULE_ID("$Id: lib_addch.c,v 1.113 2008/08/16 19:20:04 tom Exp $")
+
+static const NCURSES_CH_T blankchar = NewChar(BLANK_TEXT);
 
 /*
  * Ugly microtweaking alert.  Everything from here to end of module is
@@ -51,11 +53,11 @@ MODULE_ID("$Id: lib_addch.c,v 1.95 2005/03/27 16:52:16 tom Exp $")
 /* Return bit mask for clearing color pair number if given ch has color */
 #define COLOR_MASK(ch) (~(attr_t)((ch) & A_COLOR ? A_COLOR : 0))
 
-static inline NCURSES_CH_T
+static NCURSES_INLINE NCURSES_CH_T
 render_char(WINDOW *win, NCURSES_CH_T ch)
 /* compute a rendition of the given char correct for the current context */
 {
-    attr_t a = win->_attrs;
+    attr_t a = WINDOW_ATTRS(win);
     int pair = GetPair(ch);
 
     if (ISBLANK(ch)
@@ -89,7 +91,7 @@ render_char(WINDOW *win, NCURSES_CH_T ch)
        ("render_char bkg %s (%d), attrs %s (%d) -> ch %s (%d)",
 	_tracech_t2(1, CHREF(win->_nc_bkgd)),
 	GetPair(win->_nc_bkgd),
-	_traceattr(win->_attrs),
+	_traceattr(WINDOW_ATTRS(win)),
 	GET_WINDOW_PAIR(win),
 	_tracech_t2(3, CHREF(ch)),
 	GetPair(ch)));
@@ -120,6 +122,20 @@ _nc_render(WINDOW *win, NCURSES_CH_T ch)
 #define CHECK_POSITION(win, x, y)	/* nothing */
 #endif
 
+static bool
+newline_forces_scroll(WINDOW *win, NCURSES_SIZE_T * ypos)
+{
+    bool result = FALSE;
+
+    if (*ypos >= win->_regtop && *ypos == win->_regbottom) {
+	*ypos = win->_regbottom;
+	result = TRUE;
+    } else {
+	*ypos += 1;
+    }
+    return result;
+}
+
 /*
  * The _WRAPPED flag is useful only for telling an application that we've just
  * wrapped the cursor.  We don't do anything with this flag except set it when
@@ -133,8 +149,7 @@ static int
 wrap_to_next_line(WINDOW *win)
 {
     win->_flags |= _WRAPPED;
-    if (++win->_cury > win->_regbottom) {
-	win->_cury = win->_regbottom;
+    if (newline_forces_scroll(win, &(win->_cury))) {
 	win->_curx = win->_maxx;
 	if (!win->_scroll)
 	    return (ERR);
@@ -153,7 +168,7 @@ static int waddch_literal(WINDOW *, NCURSES_CH_T);
 static void
 fill_cells(WINDOW *win, int count)
 {
-    NCURSES_CH_T blank = NewChar2(BLANK_TEXT, BLANK_ATTR);
+    NCURSES_CH_T blank = blankchar;
     int save_x = win->_curx;
     int save_y = win->_cury;
 
@@ -195,26 +210,26 @@ _nc_build_wch(WINDOW *win, ARG_CH_T ch)
     WINDOW_EXT(win, addch_y) = y;
 
     init_mb(state);
-    buffer[WINDOW_EXT(win, addch_used)] = CharOf(CHDEREF(ch));
+    buffer[WINDOW_EXT(win, addch_used)] = (char) CharOf(CHDEREF(ch));
     WINDOW_EXT(win, addch_used) += 1;
     buffer[WINDOW_EXT(win, addch_used)] = '\0';
     if ((len = mbrtowc(&result,
 		       buffer,
 		       WINDOW_EXT(win, addch_used), &state)) > 0) {
 	attr_t attrs = AttrOf(CHDEREF(ch));
+	if_EXT_COLORS(int pair = GetPair(CHDEREF(ch)));
 	SetChar(CHDEREF(ch), result, attrs);
+	if_EXT_COLORS(SetPair(CHDEREF(ch), pair));
 	WINDOW_EXT(win, addch_used) = 0;
-    } else {
-	if (len == -1) {
-	    /*
-	     * An error occurred.  We could either discard everything,
-	     * or assume that the error was in the previous input.
-	     * Try the latter.
-	     */
-	    TR(TRACE_VIRTPUT, ("Alert! mbrtowc returns error"));
-	    buffer[0] = CharOf(CHDEREF(ch));
-	    WINDOW_EXT(win, addch_used) = 1;
-	}
+    } else if (len == -1) {
+	/*
+	 * An error occurred.  We could either discard everything,
+	 * or assume that the error was in the previous input.
+	 * Try the latter.
+	 */
+	TR(TRACE_VIRTPUT, ("Alert! mbrtowc returns error"));
+	/* handle this with unctrl() */
+	WINDOW_EXT(win, addch_used) = 0;
     }
     return len;
 }
@@ -222,7 +237,7 @@ _nc_build_wch(WINDOW *win, ARG_CH_T ch)
 
 static
 #if !USE_WIDEC_SUPPORT		/* cannot be inline if it is recursive */
-inline
+NCURSES_INLINE
 #endif
 int
 waddch_literal(WINDOW *win, NCURSES_CH_T ch)
@@ -249,13 +264,16 @@ waddch_literal(WINDOW *win, NCURSES_CH_T ch)
 	if (WINDOW_EXT(win, addch_used) != 0 || !Charable(ch)) {
 	    int len = _nc_build_wch(win, CHREF(ch));
 
-	    if (len > 0) {
+	    if (len >= -1) {
+		/* handle EILSEQ */
 		if (is8bits(CharOf(ch))) {
-		    const char *s = unctrl(CharOf(ch));
+		    const char *s = unctrl((chtype) CharOf(ch));
 		    if (s[1] != 0) {
 			return waddstr(win, s);
 		    }
 		}
+		if (len == -1)
+		    return waddch(win, ' ');
 	    } else {
 		return OK;
 	    }
@@ -272,12 +290,15 @@ waddch_literal(WINDOW *win, NCURSES_CH_T ch)
 	int len = wcwidth(CharOf(ch));
 	int i;
 	int j;
+	wchar_t *chars;
 
 	if (len == 0) {		/* non-spacing */
 	    if ((x > 0 && y >= 0)
-		|| ((y = win->_cury - 1) >= 0 &&
-		    (x = win->_maxx) > 0)) {
-		wchar_t *chars = (win->_line[y].text[x - 1].chars);
+		|| (win->_maxx >= 0 && win->_cury >= 1)) {
+		if (x > 0 && y >= 0)
+		    chars = (win->_line[y].text[x - 1].chars);
+		else
+		    chars = (win->_line[y - 1].text[win->_maxx].chars);
 		for (i = 0; i < CCHARW_MAX; ++i) {
 		    if (chars[i] == 0) {
 			TR(TRACE_VIRTPUT,
@@ -315,7 +336,7 @@ waddch_literal(WINDOW *win, NCURSES_CH_T ch)
 	     * setup though.
 	     */
 	    for (i = 0; i < len; ++i) {
-		if (isWidecBase(win->_line[y].text[i])) {
+		if (isWidecBase(win->_line[y].text[x + i])) {
 		    break;
 		} else if (isWidecExt(win->_line[y].text[x + i])) {
 		    for (j = i; x + j <= win->_maxx; ++j) {
@@ -334,7 +355,9 @@ waddch_literal(WINDOW *win, NCURSES_CH_T ch)
 	    for (i = 0; i < len; ++i) {
 		NCURSES_CH_T value = ch;
 		SetWidecExt(value, i);
-		TR(TRACE_VIRTPUT, ("multicolumn %d:%d", i + 1, len));
+		TR(TRACE_VIRTPUT, ("multicolumn %d:%d (%d,%d)",
+				   i + 1, len,
+				   win->_begy + y, win->_begx + x));
 		line->text[x] = value;
 		CHANGED_CELL(line, x);
 		++x;
@@ -354,8 +377,8 @@ waddch_literal(WINDOW *win, NCURSES_CH_T ch)
   testwrapping:
     );
 
-    TR(TRACE_VIRTPUT, ("cell (%d, %d..%d) = %s",
-		       win->_cury, win->_curx, x - 1,
+    TR(TRACE_VIRTPUT, ("cell (%ld, %ld..%d) = %s",
+		       (long) win->_cury, (long) win->_curx, x - 1,
 		       _tracech_t(CHREF(ch))));
 
     if (x > win->_maxx) {
@@ -365,11 +388,11 @@ waddch_literal(WINDOW *win, NCURSES_CH_T ch)
     return OK;
 }
 
-static inline int
+static NCURSES_INLINE int
 waddch_nosync(WINDOW *win, const NCURSES_CH_T ch)
 /* the workhorse function -- add a character to the given window */
 {
-    int x, y;
+    NCURSES_SIZE_T x, y;
     chtype t = CharOf(ch);
     const char *s = unctrl(t);
 
@@ -412,7 +435,7 @@ waddch_nosync(WINDOW *win, const NCURSES_CH_T ch)
 	 */
 	if ((!win->_scroll && (y == win->_regbottom))
 	    || (x <= win->_maxx)) {
-	    NCURSES_CH_T blank = NewChar2(BLANK_TEXT, BLANK_ATTR);
+	    NCURSES_CH_T blank = blankchar;
 	    AddAttr(blank, AttrOf(ch));
 	    while (win->_curx < x) {
 		if (waddch_literal(win, blank) == ERR)
@@ -422,9 +445,8 @@ waddch_nosync(WINDOW *win, const NCURSES_CH_T ch)
 	} else {
 	    wclrtoeol(win);
 	    win->_flags |= _WRAPPED;
-	    if (++y > win->_regbottom) {
+	    if (newline_forces_scroll(win, &y)) {
 		x = win->_maxx;
-		y--;
 		if (win->_scroll) {
 		    scroll(win);
 		    x = 0;
@@ -436,8 +458,7 @@ waddch_nosync(WINDOW *win, const NCURSES_CH_T ch)
 	break;
     case '\n':
 	wclrtoeol(win);
-	if (++y > win->_regbottom) {
-	    y--;
+	if (newline_forces_scroll(win, &y)) {
 	    if (win->_scroll)
 		scroll(win);
 	    else
@@ -458,6 +479,7 @@ waddch_nosync(WINDOW *win, const NCURSES_CH_T ch)
 	while (*s) {
 	    NCURSES_CH_T sch;
 	    SetChar(sch, *s++, AttrOf(ch));
+	    if_EXT_COLORS(SetPair(sch, GetPair(ch)));
 	    if (waddch_literal(win, sch) == ERR)
 		return ERR;
 	}

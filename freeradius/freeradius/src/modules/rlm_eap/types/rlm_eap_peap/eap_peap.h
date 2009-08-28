@@ -1,7 +1,7 @@
 /*
  * eap_peap.h
  *
- * Version:     $Id: eap_peap.h,v 1.5.4.1 2006/02/06 16:23:55 nbk Exp $
+ * Version:     $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,12 +15,16 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
  * Copyright 2003 Alan DeKok <aland@freeradius.org>
+ * Copyright 2006 The FreeRADIUS server project
  */
 #ifndef _EAP_PEAP_H
 #define _EAP_PEAP_H
+
+#include <freeradius-devel/ident.h>
+RCSIDH(eap_peap_h, "$Id$")
 
 #include "eap_tls.h"
 
@@ -34,11 +38,17 @@ typedef struct peap_tunnel_t {
 	int		copy_request_to_tunnel;
 	int		use_tunneled_reply;
 	int		proxy_tunneled_request_as_eap;
+	const char	*virtual_server;
+	int		session_resumption_state;
 } peap_tunnel_t;
 
 #define PEAP_STATUS_START_PART2 0
 #define PEAP_STATUS_SENT_TLV_SUCCESS 1
 #define PEAP_STATUS_SENT_TLV_FAILURE 2
+
+#define PEAP_RESUMPTION_NO	(0)
+#define PEAP_RESUMPTION_YES	(1)
+#define PEAP_RESUMPTION_MAYBE	(2)
 
 #define EAP_TLV_SUCCESS (1)
 #define EAP_TLV_FAILURE (2)

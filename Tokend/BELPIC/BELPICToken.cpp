@@ -384,18 +384,18 @@ void BELPICToken::changePIN(int pinNum,
 	uint32_t offset = 5;
 
 	apdu[offset++] = 0x20 + oldPinLength;
-	for (uint32_t ix = 0; ix < oldPinLength;)
+	for (uint32_t ix = 0; ix < oldPinLength;ix+=2)
 	{
-		apdu[offset++] = (pinDigit(oldPin[ix++]) << 4) +
-			(ix < oldPinLength ? pinDigit(oldPin[ix++]) : pinDigit('F'));
+		apdu[offset++] = (pinDigit(oldPin[ix]) << 4) +
+			((ix+1) < oldPinLength ? pinDigit(oldPin[ix+1]) : pinDigit('F'));
 	}
 
 	offset = 5 + 8;
 	apdu[offset++] = 0x20 + newPinLength;
-	for (uint32_t ix = 0; ix < newPinLength;)
+	for (uint32_t ix = 0; ix < newPinLength;ix+=2)
 	{
-		apdu[offset++] = (pinDigit(newPin[ix++]) << 4) +
-			(ix < newPinLength ? pinDigit(newPin[ix++]) : pinDigit('F'));
+		apdu[offset++] = (pinDigit(newPin[ix]) << 4) +
+			((ix+1) < newPinLength ? pinDigit(newPin[ix+1]) : pinDigit('F'));
 	}
 
 	unsigned char result[MAX_BUFFER_SIZE];
@@ -459,10 +459,10 @@ void BELPICToken::_verifyPIN(int pinNum, const uint8_t *pin, size_t pinLength)
 	uint32_t offset = 5;
 
 	apdu[offset++] = 0x20 + pinLength;
-	for (uint32_t ix = 0; ix < pinLength;)
+	for (uint32_t ix = 0; ix < pinLength;ix+=2)
 	{
-		apdu[offset++] = (pinDigit(pin[ix++]) << 4) +
-			(ix < pinLength ? pinDigit(pin[ix++]) : pinDigit('F'));
+		apdu[offset++] = (pinDigit(pin[ix]) << 4) +
+			((ix+1) < pinLength ? pinDigit(pin[ix+1]) : pinDigit('F'));
 	}
 #endif
 
@@ -471,6 +471,9 @@ void BELPICToken::_verifyPIN(int pinNum, const uint8_t *pin, size_t pinLength)
 	mPinStatus = exchangeAPDU(apdu, sizeof(apdu), result, resultLength);
 	memset(apdu + 5, 0, 8);
 	BELPICError::check(mPinStatus);
+	// Start a new transaction which we never get rid of until someone calls
+	// unverifyPIN()
+	begin();
 }
 
 void BELPICToken::unverifyPIN(int pinNum)
@@ -484,8 +487,12 @@ void BELPICToken::unverifyPIN(int pinNum)
 uint32 BELPICToken::probe(SecTokendProbeFlags flags,
 	char tokenUid[TOKEND_MAX_UID])
 {
-	uint32 score = Tokend::ISO7816Token::probe(flags, tokenUid);
-
+//	uint32 score = Tokend::ISO7816Token::probe(flags, tokenUid);
+//SCARD_PROTOCOL_T0
+	const SCARD_READERSTATE &readerState = *(*startupReaderInfo)();
+	connect(mSession, readerState.szReader, SCARD_PROTOCOL_T0);
+	uint32 score = 0;
+	
 	bool doDisconnect = false; /*!(flags & kSecTokendProbeKeepToken); */
 
 	try
@@ -612,15 +619,15 @@ void BELPICToken::populate()
 	Tokend::Relation &dataRelation =
 		mSchema->findRelation(CSSM_DL_DB_RECORD_GENERIC);
 
-	RefPointer<Tokend::Record> cert2(new BELPICBinaryFileRecord(kDF_BELPIC,
+	RefPointer<Tokend::Record> cert2(new BELPICCertificateRecord(kDF_BELPIC,
 		kBELPIC_EF_Cert2, "Cert #2 (authentication)"));
-	RefPointer<Tokend::Record> cert3(new BELPICBinaryFileRecord(kDF_BELPIC,
+	RefPointer<Tokend::Record> cert3(new BELPICCertificateRecord(kDF_BELPIC,
 		kBELPIC_EF_Cert3, "Cert #3 (signature)"));
-	RefPointer<Tokend::Record> cert4(new BELPICBinaryFileRecord(kDF_BELPIC,
+	RefPointer<Tokend::Record> cert4(new BELPICCertificateRecord(kDF_BELPIC,
 		kBELPIC_EF_Cert4, "Cert #4 (CA)"));
-	RefPointer<Tokend::Record> cert6(new BELPICBinaryFileRecord(kDF_BELPIC,
+	RefPointer<Tokend::Record> cert6(new BELPICCertificateRecord(kDF_BELPIC,
 		kBELPIC_EF_Cert6, "Cert #6 (root)"));
-	RefPointer<Tokend::Record> cert8(new BELPICBinaryFileRecord(kDF_BELPIC,
+	RefPointer<Tokend::Record> cert8(new BELPICCertificateRecord(kDF_BELPIC,
 		kBELPIC_EF_Cert8, "Cert #8 (RN)"));
 
 	certRelation.insertRecord(cert2);
@@ -642,19 +649,19 @@ void BELPICToken::populate()
 	key3->setAdornment(mSchema->publicKeyHashCoder().certificateKey(),
 		new Tokend::LinkedRecordAdornment(cert3));
 
-	dataRelation.insertRecord(new BELPICBinaryFileRecord(kDF_ID,
+	dataRelation.insertRecord(new BELPICProtectedRecord(kDF_ID,
 		kID_EF_ID_RN, "ID#RN"));
-	dataRelation.insertRecord(new BELPICBinaryFileRecord(kDF_ID,
+	dataRelation.insertRecord(new BELPICProtectedRecord(kDF_ID,
 		kID_EF_SGN_RN, "SGN#RN"));
-	dataRelation.insertRecord(new BELPICBinaryFileRecord(kDF_ID,
+	dataRelation.insertRecord(new BELPICProtectedRecord(kDF_ID,
 		kID_EF_ID_ADDRESS, "ID#Address"));
-	dataRelation.insertRecord(new BELPICBinaryFileRecord(kDF_ID,
+	dataRelation.insertRecord(new BELPICProtectedRecord(kDF_ID,
 		kID_EF_SGN_ADDRESS, "SGN#Address"));
-	dataRelation.insertRecord(new BELPICBinaryFileRecord(kDF_ID,
+	dataRelation.insertRecord(new BELPICProtectedRecord(kDF_ID,
 		kID_EF_ID_PHOTO, "ID#Photo"));
-	dataRelation.insertRecord(new BELPICBinaryFileRecord(kDF_ID,
+	dataRelation.insertRecord(new BELPICProtectedRecord(kDF_ID,
 		kID_EF_PuK7_ID, "PuK#7 ID (CA role ID)"));
-	dataRelation.insertRecord(new BELPICBinaryFileRecord(kDF_ID,
+	dataRelation.insertRecord(new BELPICProtectedRecord(kDF_ID,
 		kID_EF_Preferences, "Preferences"));
 
 	secdebug("populate", "BELPICToken::populate() end");

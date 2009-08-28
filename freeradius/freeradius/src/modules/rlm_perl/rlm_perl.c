@@ -1,7 +1,7 @@
-/*
+ /*
  * rlm_perl.c
  *
- * Version:    $Id: rlm_perl.c,v 1.13.4.8 2007/01/26 09:38:38 aland Exp $
+ * Version:    $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,22 +15,17 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2002  The FreeRADIUS server project
+ * Copyright 2002,2006  The FreeRADIUS server project
  * Copyright 2002  Boian Jordanov <bjordanov@orbitel.bg>
  */
 
-#include "autoconf.h"
-#include "libradius.h"
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include "radiusd.h"
-#include "modules.h"
-#include "conffile.h"
+#include <freeradius-devel/radiusd.h>
+#include <freeradius-devel/modules.h>
 
 #ifdef DEBUG
 #undef DEBUG
@@ -48,42 +43,6 @@
 
 #ifdef __APPLE__
 extern char **environ;
-#endif
-
-static const char rcsid[] = "$Id: rlm_perl.c,v 1.13.4.8 2007/01/26 09:38:38 aland Exp $";
-
-#ifdef USE_ITHREADS
-
-/*
- * Pool of Perl's clones (genetically cloned) ;)
- *
- */
-typedef struct pool_handle {
-	struct pool_handle	*next;
-	struct pool_handle	*prev;
-	enum {busy, idle}	status;
-	unsigned int		request_count;
-	PerlInterpreter	 	*clone;
-	perl_mutex		lock;
-} POOL_HANDLE;
-
-typedef struct PERL_POOL {
-	POOL_HANDLE	*head;
-	POOL_HANDLE	*tail;
-
-	int		current_clones;
-	int		active_clones;
-	int		max_clones;
-	int		start_clones;
-	int		min_spare_clones;
-	int		max_spare_clones;
-	int		max_request_per_clone;
-	int		cleanup_delay;
-	enum {yes,no}	detach;
-	perl_mutex	mutex;
-	time_t		time_when_last_added;
-} PERL_POOL;
-
 #endif
 
 /*
@@ -113,9 +72,6 @@ typedef struct perl_inst {
 	char	*xlat_name;
 	char	*perl_flags;
 	PerlInterpreter *perl;
-#ifdef USE_ITHREADS
-	PERL_POOL	*perl_pool;
-#endif
 } PERL_INST;
 /*
  *	A mapping of configuration file names to internal variables.
@@ -127,7 +83,7 @@ typedef struct perl_inst {
  *	buffer over-flows.
  */
 static const CONF_PARSER module_config[] = {
-	{ "module",  PW_TYPE_STRING_PTR,
+	{ "module",  PW_TYPE_FILENAME,
 	  offsetof(PERL_INST,module), NULL,  "module"},
 	{ "func_authorize", PW_TYPE_STRING_PTR,
 	  offsetof(PERL_INST,func_authorize), NULL, "authorize"},
@@ -165,24 +121,6 @@ static const CONF_PARSER module_config[] = {
 EXTERN_C void boot_DynaLoader(pTHX_ CV* cv);
 
 #ifdef USE_ITHREADS
-/*
- *	We use one perl to clone from it i.e. main boss
- *	We clone it for every instance if we have perl
- *	with -Duseithreads compiled in
- */
-static PerlInterpreter	*interp;
-
-static const CONF_PARSER pool_conf[] = {
-	{ "max_clones", PW_TYPE_INTEGER, offsetof(PERL_POOL, max_clones), NULL,		"32"},
-	{ "start_clones",PW_TYPE_INTEGER, offsetof(PERL_POOL, start_clones), NULL,		"5"},
-	{ "min_spare_clones",PW_TYPE_INTEGER, offsetof(PERL_POOL, min_spare_clones),NULL,	"3"},
-	{ "max_spare_clones",PW_TYPE_INTEGER, offsetof(PERL_POOL,max_spare_clones),NULL,	"3"},
-	{ "cleanup_delay",PW_TYPE_INTEGER, offsetof(PERL_POOL,cleanup_delay),NULL,		"5"},
-	{ "max_request_per_clone",PW_TYPE_INTEGER, offsetof(PERL_POOL,max_request_per_clone),NULL,	"0"},
-	{ NULL, -1, 0, NULL, NULL }		/* end the list */
-};
-
-
 #define dl_librefs "DynaLoader::dl_librefs"
 #define dl_modules "DynaLoader::dl_modules"
 static void rlm_perl_clear_handles(pTHX)
@@ -247,34 +185,11 @@ static void rlm_perl_close_handles(void **handles)
 	}
 
 	for (i=0; handles[i]; i++) {
-		radlog(L_DBG, "close 0x%lx\n", (unsigned long)handles[i]);
+		radlog(L_DBG, "close %p\n", handles[i]);
 		dlclose(handles[i]);
 	}
 
 	free(handles);
-}
-
-static PerlInterpreter *rlm_perl_clone(PerlInterpreter *perl)
-{
-	PerlInterpreter *clone;
-	UV	clone_flags = 0;
-
-	PERL_SET_CONTEXT(perl);
-
-	clone = perl_clone(perl, clone_flags);
-	{
-		dTHXa(clone);
-	}
-#if PERL_REVISION >= 5 && PERL_VERSION <8
-	call_pv("CLONE",0);
-#endif
-	ptr_table_free(PL_ptr_table);
-	PL_ptr_table = NULL;
-
-	PERL_SET_CONTEXT(aTHX);
-    	rlm_perl_clear_handles(aTHX);
-
-	return clone;
 }
 
 static void rlm_perl_destruct(PerlInterpreter *perl)
@@ -319,281 +234,47 @@ static void rlm_destroy_perl(PerlInterpreter *perl)
 	rlm_perl_close_handles(handles);
 }
 
-static void delete_pool_handle(POOL_HANDLE *handle, PERL_INST *inst)
+static pthread_key_t  rlm_perl_key;
+static pthread_once_t rlm_perl_once = PTHREAD_ONCE_INIT;
+
+/* Create Key */
+static void rlm_perl_make_key(void)
 {
-        POOL_HANDLE *prev;
-        POOL_HANDLE *next;
-
-        prev = handle->prev;
-        next = handle->next;
-
-        if (prev == NULL) {
-		inst->perl_pool->head = next;
-        } else {
-                prev->next = next;
-        }
-
-        if (next == NULL) {
-		inst->perl_pool->tail = prev;
-        } else {
-                next->prev = prev;
-        }
-	inst->perl_pool->current_clones--;
-	MUTEX_DESTROY(&handle->lock);
-	free(handle);
+	pthread_key_create(&rlm_perl_key, rlm_destroy_perl);
 }
 
-static void move2tail(POOL_HANDLE *handle, PERL_INST *inst)
+static PerlInterpreter *rlm_perl_clone(PerlInterpreter *perl)
 {
-	POOL_HANDLE *prev;
-	POOL_HANDLE *next;
+	PerlInterpreter *interp;
+	UV clone_flags = 0;
 
-	if (inst->perl_pool->head == NULL) {
+	PERL_SET_CONTEXT(perl);
 
-		handle->prev = NULL;
-		handle->next = NULL;
-		inst->perl_pool->head = handle;
-		inst->perl_pool->tail = handle;
-		return;
+	pthread_once(&rlm_perl_once, rlm_perl_make_key);
+
+	interp = pthread_getspecific(rlm_perl_key);
+	if (interp) return interp;
+
+	interp = perl_clone(perl, clone_flags);
+	{
+		dTHXa(interp);
 	}
+#if PERL_REVISION >= 5 && PERL_VERSION <8
+	call_pv("CLONE",0);
+#endif
+	ptr_table_free(PL_ptr_table);
+	PL_ptr_table = NULL;
 
-	if (inst->perl_pool->tail == handle) {
-		return;
-	}
+	PERL_SET_CONTEXT(aTHX);
+    	rlm_perl_clear_handles(aTHX);
 
-	prev = handle->prev;
-	next = handle->next;
+	pthread_setspecific(rlm_perl_key, interp);
 
-	if ((next != NULL) ||
-			(prev != NULL)) {
-		if (next == NULL) {
-			return;
-		}
+	fprintf(stderr, "GOT CLONE %d %p\n", pthread_self(), interp);
 
-		if (prev == NULL) {
-			inst->perl_pool->head = next;
-			next->prev = NULL;
-
-		} else {
-
-			prev->next = next;
-			next->prev = prev;
-		}
-	}
-
-	handle->next = NULL;
-	prev = inst->perl_pool->tail;
-
-	inst->perl_pool->tail = handle;
-	handle->prev = prev;
-	prev->next = handle;
-}
-
-
-static POOL_HANDLE *pool_grow (PERL_INST *inst) {
-	POOL_HANDLE *handle;
-	time_t	now;
-
-	if (inst->perl_pool->max_clones == inst->perl_pool->current_clones) {
-		return NULL;
-	}
-	if (inst->perl_pool->detach == yes ) {
-		return NULL;
-	}
-
-	handle = (POOL_HANDLE *)rad_malloc(sizeof(POOL_HANDLE));
-
-	if (!handle) {
-		radlog(L_ERR,"Could not find free memory for pool. Aborting");
-		return NULL;
-	}
-
-	handle->prev = NULL;
-	handle->next = NULL;
-	handle->status = idle;
-	handle->clone = rlm_perl_clone(inst->perl);
-	handle->request_count = 0;
-	MUTEX_INIT(&handle->lock);
-	inst->perl_pool->current_clones++;
-	move2tail(handle, inst);
-
-	now = time(NULL);
-	inst->perl_pool->time_when_last_added = now;
-
-	return handle;
-}
-
-static POOL_HANDLE *pool_pop(PERL_INST *inst)
-{
-	POOL_HANDLE	*handle;
-	POOL_HANDLE	*found;
-	POOL_HANDLE	*tmp;
-	/*
-	 * Lock the pool and be fast other thread maybe
-	 * waiting for us to finish
-	 */
-	MUTEX_LOCK(&inst->perl_pool->mutex);
-
-	found = NULL;
-
-	for (handle = inst->perl_pool->head; handle ; handle = tmp) {
-		tmp = handle->next;
-
-		if (handle->status == idle){
-			found = handle;
-			break;
-		}
-	}
-
-	if (found == NULL) {
-		if (inst->perl_pool->current_clones < inst->perl_pool->max_clones ) {
-
-			found = pool_grow(inst);
-
-			if (found == NULL) {
-				radlog(L_ERR,"Cannot grow pool returning");
-				MUTEX_UNLOCK(&inst->perl_pool->mutex);
-				return NULL;
-			}
-		} else {
-			radlog(L_ERR,"rlm_perl:: reached maximum clones %d cannot grow",
-					inst->perl_pool->current_clones);
-			MUTEX_UNLOCK(&inst->perl_pool->mutex);
-			return NULL;
-		}
-	}
-
-	move2tail(found, inst);
-	found->status = busy;
-	MUTEX_LOCK(&found->lock);
-	inst->perl_pool->active_clones++;
-	found->request_count++;
-	/*
-	 * Hurry Up
-	 */
-	MUTEX_UNLOCK(&inst->perl_pool->mutex);
-	radlog(L_DBG,"perl_pool: item 0x%lx asigned new request. Handled so far: %d",
-			(unsigned long) found->clone, found->request_count);
-	return found;
-}
-static int pool_release(POOL_HANDLE *handle, PERL_INST *inst) {
-
-	POOL_HANDLE *tmp, *tmp2;
-	int spare, i, t;
-	time_t	now;
-	/*
-	 * Lock it
-	 */
-	MUTEX_LOCK(&inst->perl_pool->mutex);
-
-	/*
-	 * If detach is set then just release the mutex
-	 */
-	if (inst->perl_pool->detach == yes ) {
-	handle->status = idle;
-		MUTEX_UNLOCK(&handle->lock);
-		MUTEX_UNLOCK(&inst->perl_pool->mutex);
-		return 0;
-	}
-
-	MUTEX_UNLOCK(&handle->lock);
-	handle->status = idle;
-	inst->perl_pool->active_clones--;
-
-	spare = inst->perl_pool->current_clones - inst->perl_pool->active_clones;
-
-	radlog(L_DBG,"perl_pool total/active/spare [%d/%d/%d]"
-			, inst->perl_pool->current_clones, inst->perl_pool->active_clones, spare);
-
-	if (spare < inst->perl_pool->min_spare_clones) {
-		t = inst->perl_pool->min_spare_clones - spare;
-		for (i=0;i<t; i++) {
-			if ((tmp = pool_grow(inst)) == NULL) {
-				MUTEX_UNLOCK(&inst->perl_pool->mutex);
-				return -1;
-			}
-		}
-		MUTEX_UNLOCK(&inst->perl_pool->mutex);
-		return 0;
-	}
-	now = time(NULL);
-	if ((now - inst->perl_pool->time_when_last_added) < inst->perl_pool->cleanup_delay) {
-		MUTEX_UNLOCK(&inst->perl_pool->mutex);
-		return 0;
-	}
-	if (spare > inst->perl_pool->max_spare_clones) {
-		spare -= inst->perl_pool->max_spare_clones;
-		for (tmp = inst->perl_pool->head; (tmp !=NULL ) && (spare > 0) ; tmp = tmp2) {
-			tmp2 = tmp->next;
-
-			if(tmp->status == idle) {
-				rlm_destroy_perl(tmp->clone);
-				delete_pool_handle(tmp,inst);
-				spare--;
-				break;
-			}
-		}
-	}
-	/*
-	 * If the clone have reached max_request_per_clone clean it.
-	 */
-	if (inst->perl_pool->max_request_per_clone > 0 ) {
-			if (handle->request_count > inst->perl_pool->max_request_per_clone) {
-				rlm_destroy_perl(handle->clone);
-				delete_pool_handle(handle,inst);
-		}
-	}
-	/*
-	 * Hurry Up :)
-	 */
-	MUTEX_UNLOCK(&inst->perl_pool->mutex);
-	return 0;
-}
-static int init_pool (CONF_SECTION *conf, PERL_INST *inst) {
-	POOL_HANDLE 	*handle;
-	int t;
-	PERL_POOL	*pool;
-
-	pool = rad_malloc(sizeof(PERL_POOL));
-	memset(pool,0,sizeof(PERL_POOL));
-
-	inst->perl_pool = pool;
-
-	MUTEX_INIT(&pool->mutex);
-
-	/*
-	 * Read The Config
-	 *
-	 */
-
-	cf_section_parse(conf,pool,pool_conf);
-	inst->perl_pool = pool;
-	inst->perl_pool->detach = no;
-
-	for(t = 0;t < inst->perl_pool->start_clones ;t++){
-		if ((handle = pool_grow(inst)) == NULL) {
-			return -1;
-		}
-
-	}
-
-	return 1;
+	return interp;
 }
 #endif
-/*
- *	Do any per-module initialization.  e.g. set up connections
- *	to external databases, read configuration files, set up
- *	dictionary entries, etc.
- *
- *	Try to avoid putting too much stuff in here - it's better to
- *	do it in instantiate() where it is not global.
- *	I use one global interpetator to make things more fastest for
- *	Threading env I clone new perl from this interp.
- */
-static int perl_init(void)
-{
-	return 0;
-}
 
 static void xs_init(pTHX)
 {
@@ -634,14 +315,15 @@ static XS(XS_radiusd_radlog)
 /*
  * The xlat function
  */
-static int perl_xlat(void *instance, REQUEST *request, char *fmt, char * out,
-		     size_t freespace, RADIUS_ESCAPE_STRING func)
+static size_t perl_xlat(void *instance, REQUEST *request, char *fmt, char *out,
+			size_t freespace, RADIUS_ESCAPE_STRING func)
 {
 
 	PERL_INST	*inst= (PERL_INST *) instance;
 	PerlInterpreter *perl;
 	char		params[1024], *ptr, *tmp;
-	int		count, ret=0;
+	int		count;
+	size_t		ret = 0;
 	STRLEN		n_a;
 
 	/*
@@ -651,21 +333,13 @@ static int perl_xlat(void *instance, REQUEST *request, char *fmt, char * out,
 		radlog(L_ERR, "rlm_perl: xlat failed.");
 		return 0;
 	}
-#ifndef USE_ITHREADS
+
+#ifndef WITH_ITHREADS
 	perl = inst->perl;
-#endif
-#ifdef USE_ITHREADS
-	POOL_HANDLE	*handle;
-
-	if ((handle = pool_pop(instance)) == NULL) {
-		return 0;
-	}
-
-	perl = handle->clone;
-
-	radlog(L_DBG,"Found a interpetator 0x%lx",(unsigned long) perl);
+#else
+	perl = rlm_perl_clone(inst->perl);
 	{
-	dTHXa(perl);
+	  dTHXa(perl);
 	}
 #endif
 	PERL_SET_CONTEXT(perl);
@@ -693,7 +367,7 @@ static int perl_xlat(void *instance, REQUEST *request, char *fmt, char * out,
 		POPs ;
 	} else if (count > 0) {
 		tmp = POPp;
-		strNcpy(out,tmp,freespace);
+		strlcpy(out, tmp, freespace);
 		ret = strlen(out);
 
 		radlog(L_DBG,"rlm_perl: Len is %d , out is %s freespace is %d",
@@ -705,9 +379,6 @@ static int perl_xlat(void *instance, REQUEST *request, char *fmt, char * out,
 	LEAVE ;
 
 	}
-#ifdef USE_ITHREADS
-	pool_release(handle, instance);
-#endif
 	return ret;
 }
 /*
@@ -730,12 +401,14 @@ static int perl_instantiate(CONF_SECTION *conf, void **instance)
 	PERL_INST       *inst = (PERL_INST *) instance;
 	HV		*rad_reply_hv;
 	HV		*rad_check_hv;
+	HV		*rad_config_hv;
 	HV		*rad_request_hv;
 	HV		*rad_request_proxy_hv;
 	HV		*rad_request_proxy_reply_hv;
 	AV		*end_AV;
 
-	char *embed[4], *xlat_name;
+	char *embed[4];
+	const char *xlat_name;
 	int exitstatus = 0, argc=0;
 
 	/*
@@ -767,8 +440,6 @@ static int perl_instantiate(CONF_SECTION *conf, void **instance)
 	}
 
 #ifdef USE_ITHREADS
-	inst->perl = interp;
-	
 	if ((inst->perl = perl_alloc()) == NULL) {
 		radlog(L_DBG, "rlm_perl: No memory for allocating new perl !");
 		return (-1);
@@ -812,12 +483,14 @@ static int perl_instantiate(CONF_SECTION *conf, void **instance)
 
 	rad_reply_hv = newHV();
 	rad_check_hv = newHV();
+	rad_config_hv = newHV();
 	rad_request_hv = newHV();
 	rad_request_proxy_hv = newHV();
 	rad_request_proxy_reply_hv = newHV();
 
 	rad_reply_hv = get_hv("RAD_REPLY",1);
         rad_check_hv = get_hv("RAD_CHECK",1);
+	rad_config_hv = get_hv("RAD_CONFIG",1);
         rad_request_hv = get_hv("RAD_REQUEST",1);
 	rad_request_proxy_hv = get_hv("RAD_REQUEST_PROXY",1);
 	rad_request_proxy_reply_hv = get_hv("RAD_REQUEST_PROXY_REPLY",1);
@@ -830,13 +503,6 @@ static int perl_instantiate(CONF_SECTION *conf, void **instance)
 		xlat_register(xlat_name, perl_xlat, inst);
 	}
 
-#ifdef USE_ITHREADS
-	if ((init_pool(conf, inst)) == -1) {
-		radlog(L_ERR,"Couldn't init a pool of perl clones. Exiting");
-		return -1;
-	}
-
-#endif
 	*instance = inst;
 
 	return 0;
@@ -926,6 +592,7 @@ static int get_hv_content(HV *my_hv, VALUE_PAIR **vp)
        I32		key_len, len, i, j;
        int		ret=0;
 
+       *vp = NULL;
        for (i = hv_iterinit(my_hv); i > 0; i--) {
                res_sv = hv_iternextsv(my_hv,&key,&key_len);
                if (SvROK(res_sv) && (SvTYPE(SvRV(res_sv)) == SVt_PVAV)) {
@@ -956,25 +623,21 @@ static int rlmperl_call(void *instance, REQUEST *request, char *function_name)
 
 	HV		*rad_reply_hv;
 	HV		*rad_check_hv;
+	HV		*rad_config_hv;
 	HV		*rad_request_hv;
 	HV		*rad_request_proxy_hv;
 	HV		*rad_request_proxy_reply_hv;
 
 #ifdef USE_ITHREADS
-	POOL_HANDLE	*handle;
+	PerlInterpreter *interp;
 
-	if ((handle = pool_pop(instance)) == NULL) {
-		return RLM_MODULE_FAIL;
-	}
-
-	radlog(L_DBG,"found interpetator at address 0x%lx",(unsigned long) handle->clone);
+	interp = rlm_perl_clone(inst->perl);
 	{
-	dTHXa(handle->clone);
-	PERL_SET_CONTEXT(handle->clone);
+	  dTHXa(interp);
+	  PERL_SET_CONTEXT(interp);
 	}
 #else
 	PERL_SET_CONTEXT(inst->perl);
-	radlog(L_DBG,"Using perl at 0x%lx",(unsigned long) inst->perl);
 #endif
 	{
 	dSP;
@@ -993,6 +656,7 @@ static int rlmperl_call(void *instance, REQUEST *request, char *function_name)
 
 	rad_reply_hv = get_hv("RAD_REPLY",1);
 	rad_check_hv = get_hv("RAD_CHECK",1);
+	rad_config_hv = get_hv("RAD_CONFIG",1);
 	rad_request_hv = get_hv("RAD_REQUEST",1);
 	rad_request_proxy_hv = get_hv("RAD_REQUEST_PROXY",1);
 	rad_request_proxy_reply_hv = get_hv("RAD_REQUEST_PROXY_REPLY",1);
@@ -1001,7 +665,8 @@ static int rlmperl_call(void *instance, REQUEST *request, char *function_name)
 	perl_store_vps(request->reply->vps, rad_reply_hv);
 	perl_store_vps(request->config_items, rad_check_hv);
 	perl_store_vps(request->packet->vps, rad_request_hv);
-	
+	perl_store_vps(request->config_items, rad_config_hv);
+
 	if (request->proxy != NULL) {
 		perl_store_vps(request->proxy->vps, rad_request_proxy_hv);
 	} else {
@@ -1012,10 +677,7 @@ static int rlmperl_call(void *instance, REQUEST *request, char *function_name)
 		perl_store_vps(request->proxy_reply->vps, rad_request_proxy_reply_hv);
 	} else {
 		hv_undef(rad_request_proxy_reply_hv);
-	}	
-	
-	vp = NULL;
-
+	}
 
 	PUSHMARK(SP);
 	/*
@@ -1043,34 +705,57 @@ static int rlmperl_call(void *instance, REQUEST *request, char *function_name)
 			exitstatus = RLM_MODULE_FAIL;
 		}
 	}
-	
+
 
 	PUTBACK;
 	FREETMPS;
 	LEAVE;
 
+	vp = NULL;
+	if ((get_hv_content(rad_request_hv, &vp)) > 0 ) {
+		pairfree(&request->packet->vps);
+		request->packet->vps = vp;
+		vp = NULL;
+
+		/*
+		 *	Update cached copies
+		 */
+		request->username = pairfind(request->packet->vps,
+					     PW_USER_NAME);
+		request->password = pairfind(request->packet->vps,
+					     PW_USER_PASSWORD);
+		if (!request->password)
+			request->password = pairfind(request->packet->vps,
+						     PW_CHAP_PASSWORD);
+	}
 
 	if ((get_hv_content(rad_reply_hv, &vp)) > 0 ) {
-		pairmove(&request->reply->vps, &vp);
-		pairfree(&vp);
+		pairfree(&request->reply->vps);
+		request->reply->vps = vp;
+		vp = NULL;
 	}
 
 	if ((get_hv_content(rad_check_hv, &vp)) > 0 ) {
-		pairmove(&request->config_items, &vp);
-		pairfree(&vp);
+		pairfree(&request->config_items);
+		request->config_items = vp;
+		vp = NULL;
 	}
-	
-	if ((get_hv_content(rad_request_proxy_reply_hv, &vp)) > 0 && request->proxy_reply != NULL) {
-		pairfree(&request->proxy_reply->vps);
-		pairmove(&request->proxy_reply->vps, &vp);
-		pairfree(&vp);
-	}
-	}
-#ifdef USE_ITHREADS
-	pool_release(handle,instance);
-	radlog(L_DBG,"Unreserve perl at address 0x%lx", (unsigned long) handle->clone);
-#endif
 
+	if (request->proxy &&
+	    (get_hv_content(rad_request_proxy_hv, &vp) > 0)) {
+		pairfree(&request->proxy->vps);
+		request->proxy->vps = vp;
+		vp = NULL;
+	}
+
+	if (request->proxy_reply &&
+	    (get_hv_content(rad_request_proxy_reply_hv, &vp) > 0)) {
+		pairfree(&request->proxy_reply->vps);
+		request->proxy_reply->vps = vp;
+		vp = NULL;
+	}
+
+	}
 	return exitstatus;
 }
 
@@ -1111,7 +796,7 @@ static int perl_accounting(void *instance, REQUEST *request)
 	int 		acctstatustype=0;
 
 	if ((pair = pairfind(request->packet->vps, PW_ACCT_STATUS_TYPE)) != NULL) {
-                acctstatustype = pair->lvalue;
+		acctstatustype = pair->vp_integer;
         } else {
                 radlog(L_ERR, "Invalid Accounting Packet");
                 return RLM_MODULE_INVALID;
@@ -1184,26 +869,12 @@ static int perl_post_auth(void *instance, REQUEST *request)
 static int perl_detach(void *instance)
 {
 	PERL_INST	*inst = (PERL_INST *) instance;
-	int 		exitstatus=0,count=0;
+	int 		exitstatus = 0, count = 0;
 
-#ifdef USE_ITHREADS
-	POOL_HANDLE	*handle, *tmp, *tmp2;
-
-	MUTEX_LOCK(&inst->perl_pool->mutex);
-	inst->perl_pool->detach = yes;
-	MUTEX_UNLOCK(&inst->perl_pool->mutex);
-
-	for (handle = inst->perl_pool->head; handle != NULL; handle = handle->next) {
-
-		radlog(L_DBG,"Detach perl 0x%lx", (unsigned long) handle->clone);
-		/*
-		 * Wait until clone becomes idle
-		 */
-		MUTEX_LOCK(&handle->lock);
-
-		/*
-		 * Give a clones chance to run detach function
-		 */
+#if 0
+	/*
+	 *	FIXME: Call this in the destruct function?
+	 */
 		{
 		dTHXa(handle->clone);
 		PERL_SET_CONTEXT(handle->clone);
@@ -1225,26 +896,12 @@ static int perl_detach(void *instance)
 		PUTBACK;
 		FREETMPS;
 		LEAVE;
-		radlog(L_DBG,"detach at 0x%lx returned status %d",
-				(unsigned long) handle->clone, exitstatus);
 		}
 		}
-		MUTEX_UNLOCK(&handle->lock);
-	}
-	/*
-	 * Free handles
-	 */
-
-	for (tmp = inst->perl_pool->head; tmp !=NULL  ; tmp = tmp2) {
-		tmp2 = tmp->next;
-		radlog(L_DBG,"rlm_perl:: Destroy perl");
-		rlm_perl_destruct(tmp->clone);
-		delete_pool_handle(tmp,inst);
-	}
+#endif
 
 	{
 	dTHXa(inst->perl);
-#endif /* USE_ITHREADS */
 	PERL_SET_CONTEXT(inst->perl);
 	{
 	dSP; ENTER; SAVETMPS;
@@ -1263,28 +920,12 @@ static int perl_detach(void *instance)
 	FREETMPS;
 	LEAVE;
 	}
-#ifdef USE_ITHREADS
 	}
-#endif
 
 	xlat_unregister(inst->xlat_name, perl_xlat);
 	free(inst->xlat_name);
 
-	if (inst->func_authorize) free(inst->func_authorize);
-	if (inst->func_authenticate) free(inst->func_authenticate);
-	if (inst->func_accounting) free(inst->func_accounting);
-	if (inst->func_preacct) free(inst->func_preacct);
-	if (inst->func_checksimul) free(inst->func_checksimul);
-	if (inst->func_pre_proxy) free(inst->func_pre_proxy);
-	if (inst->func_post_proxy) free(inst->func_post_proxy);
-	if (inst->func_post_auth) free(inst->func_post_auth);
-	if (inst->func_detach) free(inst->func_detach);
-
 #ifdef USE_ITHREADS
-	free(inst->perl_pool->head);
-	free(inst->perl_pool->tail);
-	MUTEX_DESTROY(&inst->perl_pool->mutex);
-	free(inst->perl_pool);
 	rlm_perl_destruct(inst->perl);
 #else
 	perl_destruct(inst->perl);
@@ -1294,6 +935,8 @@ static int perl_detach(void *instance)
 	free(inst);
 	return exitstatus;
 }
+
+
 /*
  *	The module name should be the only globally exported symbol.
  *	That is, everything else should be 'static'.
@@ -1304,24 +947,23 @@ static int perl_detach(void *instance)
  *	is single-threaded.
  */
 module_t rlm_perl = {
+	RLM_MODULE_INIT,
 	"perl",				/* Name */
 #ifdef USE_ITHREADS
 	RLM_TYPE_THREAD_SAFE,		/* type */
 #else
 	RLM_TYPE_THREAD_UNSAFE,
 #endif
-	perl_init,			/* initialization */
 	perl_instantiate,		/* instantiation */
-	{
-		perl_authenticate,
-		perl_authorize,
-		perl_preacct,
-		perl_accounting,
-		perl_checksimul,      	/* check simul */
-		perl_pre_proxy,	 /* pre-proxy */
-		perl_post_proxy,	/* post-proxy */
-		perl_post_auth	  /* post-auth */
-	},
 	perl_detach,			/* detach */
-	NULL,				/* destroy */
+	{
+		perl_authenticate,	/* authenticate */
+		perl_authorize,		/* authorize */
+		perl_preacct,		/* preacct */
+		perl_accounting,	/* accounting */
+		perl_checksimul,      	/* check simul */
+		perl_pre_proxy,		/* pre-proxy */
+		perl_post_proxy,	/* post-proxy */
+		perl_post_auth		/* post-auth */
+	},
 };

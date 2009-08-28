@@ -1,9 +1,9 @@
 #
-# "$Id: Makefile 7336 2008-02-20 21:04:09Z mike $"
+# "$Id: Makefile 7940 2008-09-16 00:45:16Z mike $"
 #
 #   Template makefile for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 2007 by Apple Inc.
+#   Copyright 2007-2008 by Apple Inc.
 #   Copyright 1993-2007 by Easy Software Products.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -29,6 +29,7 @@ FILES	=	\
 		choose-model.tmpl \
 		choose-serial.tmpl \
 		choose-uri.tmpl \
+		class.tmpl \
 		class-added.tmpl \
 		class-confirm.tmpl \
 		class-deleted.tmpl \
@@ -36,11 +37,13 @@ FILES	=	\
 		class-modified.tmpl \
 		classes.tmpl \
 		classes-header.tmpl \
+		command.tmpl \
 		edit-config.tmpl \
 		error.tmpl \
 		error-op.tmpl \
 		header.tmpl \
 		help-header.tmpl \
+		help-trailer.tmpl \
 		help-printable.tmpl \
 		job-cancel.tmpl \
 		job-hold.tmpl \
@@ -51,7 +54,6 @@ FILES	=	\
 		jobs.tmpl \
 		jobs-header.tmpl \
 		list-available-printers.tmpl \
-		maintenance.tmpl \
 		modify-class.tmpl \
 		modify-printer.tmpl \
 		norestart.tmpl \
@@ -62,6 +64,7 @@ FILES	=	\
 		option-pickone.tmpl \
 		option-trailer.tmpl \
 		pager.tmpl \
+		printer.tmpl \
 		printer-accept.tmpl \
 		printer-added.tmpl \
 		printer-configured.tmpl \
@@ -97,6 +100,20 @@ all:
 
 
 #
+# Make library targets...
+#
+
+libs:
+
+
+#
+# Make unit tests...
+#
+
+unittests:
+
+
+#
 # Clean all config and object files...
 #
 
@@ -111,10 +128,17 @@ depend:
 
 
 #
-# Install files...
+# Install all targets...
 #
 
-install: all $(INSTALL_LANGUAGES)
+install:	all install-data install-headers install-libs install-exec
+
+
+#
+# Install data files...
+#
+
+install-data: $(INSTALL_LANGUAGES)
 	$(INSTALL_DIR) -m 755 $(DATADIR)/templates
 	for file in $(FILES); do \
 		$(INSTALL_DATA) $$file $(DATADIR)/templates; \
@@ -129,6 +153,28 @@ install-languages:
 			done \
 		fi \
 	done
+
+
+
+#
+# Install programs...
+#
+
+install-exec:
+
+
+#
+# Install headers...
+#
+
+install-headers:
+
+
+#
+# Install libraries...
+#
+
+install-libs:
 
 
 #
@@ -151,5 +197,5 @@ uninstall-languages:
 
 
 #
-# End of "$Id: Makefile 7336 2008-02-20 21:04:09Z mike $".
+# End of "$Id: Makefile 7940 2008-09-16 00:45:16Z mike $".
 #

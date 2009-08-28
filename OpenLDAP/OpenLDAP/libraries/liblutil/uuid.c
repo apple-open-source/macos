@@ -1,8 +1,8 @@
 /* uuid.c -- Universally Unique Identifier routines */
-/* $OpenLDAP: pkg/ldap/libraries/liblutil/uuid.c,v 1.25.2.3 2006/01/03 22:16:11 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/liblutil/uuid.c,v 1.28.2.3 2008/02/11 23:26:42 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2006 The OpenLDAP Foundation.
+ * Copyright 2000-2008 The OpenLDAP Foundation.
  * Portions Copyright 2000-2003 Kurt D. Zeilenga.
  * All rights reserved.
  *
@@ -41,6 +41,8 @@
 
 #ifdef HAVE_UUID_TO_STR
 #  include <sys/uuid.h>
+#elif defined( HAVE_UUID_GENERATE )
+#  include <uuid/uuid.h>
 #elif defined( _WIN32 )
 #  include <rpc.h>
 #else
@@ -56,7 +58,7 @@
 #include <lutil.h>
 
 /* not needed for Windows */
-#if !defined(HAVE_UUID_TO_STR) && !defined(_WIN32)
+#if !defined(HAVE_UUID_TO_STR) && !defined(HAVE_UUID_GENERATE) && !defined(_WIN32)
 static unsigned char *
 lutil_eaddr( void )
 {
@@ -251,7 +253,7 @@ mul64ll(unsigned long i1, unsigned long i2)
 
 #endif /* ULONG_MAX >= 64 bits || HAVE_LONG_LONG */
 
-#endif /* !HAVE_UUID_TO_STR && !_WIN32 */
+#endif /* !HAVE_UUID_TO_STR && !HAVE_UUID_GENERATE && !_WIN32 */
 
 /*
 ** All we really care about is an ISO UUID string.  The format of a UUID is:
@@ -298,6 +300,13 @@ lutil_uuidstr( char *buf, size_t len )
 
 	return l;
 
+#elif defined( HAVE_UUID_GENERATE )
+	uuid_t uu;
+
+	uuid_generate( uu );
+	uuid_unparse_lower( uu, buf );
+	return strlen( buf );
+	
 #elif defined( _WIN32 )
 	UUID uuid;
 	unsigned char *uuidstr;
@@ -369,6 +378,47 @@ lutil_uuidstr( char *buf, size_t len )
 
 	return rc < len ? rc : 0;
 #endif
+}
+
+int
+lutil_uuidstr_from_normalized(
+	char		*uuid,
+	size_t		uuidlen,
+	char		*buf,
+	size_t		buflen )
+{
+	unsigned char nibble;
+	int i, d = 0;
+
+	assert( uuid != NULL );
+	assert( buf != NULL );
+
+	if ( uuidlen != 16 ) return -1;
+	if ( buflen < 36 ) return -1;
+
+	for ( i = 0; i < 16; i++ ) {
+		if ( i == 4 || i == 6 || i == 8 || i == 10 ) {
+			buf[(i<<1)+d] = '-';
+			d += 1;
+		}
+
+		nibble = (uuid[i] >> 4) & 0xF;
+		if ( nibble < 10 ) {
+			buf[(i<<1)+d] = nibble + '0';
+		} else {
+			buf[(i<<1)+d] = nibble - 10 + 'a';
+		}
+
+		nibble = (uuid[i]) & 0xF;
+		if ( nibble < 10 ) {
+			buf[(i<<1)+d+1] = nibble + '0';
+		} else {
+			buf[(i<<1)+d+1] = nibble - 10 + 'a';
+		}
+	}
+
+	if ( buflen > 36 ) buf[36] = '\0';
+	return 36;
 }
 
 #ifdef TEST

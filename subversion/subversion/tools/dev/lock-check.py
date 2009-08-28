@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-### Repository lock checker.  Gets and exclusive lock on the provided
+### Repository lock checker.  Gets an exclusive lock on the provided
 ### repository, then runs db_stat to see if the lock counts have been
 ### reset to 0.  If not, prints the timestamp of the run and a message
 ### about accumulation.
@@ -14,6 +14,10 @@ import os.path
 import time
 import fcntl
 import getopt
+try:
+  my_getopt = getopt.gnu_getopt
+except AttributeError:
+  my_getopt = getopt.getopt
 
 def usage_and_exit(retval):
   if retval:
@@ -31,14 +35,14 @@ passed) on REPOS-PATH, then check its lock usage counts.  If there is
 any accumulation present, report that accumulation to stdout.
 """ % (os.path.basename(sys.argv[0])))
   sys.exit(retval)
-  
+
 def main():
   now_time = time.asctime()
   repos_path = None
   nonblocking = 0
 
   # Parse the options.
-  optlist, args = getopt.getopt(sys.argv[1:], "h", ['non-blocking', 'help'])
+  optlist, args = my_getopt(sys.argv[1:], "h", ['non-blocking', 'help'])
   for opt, arg in optlist:
     if opt == '--help' or opt == '-h':
       usage_and_exit(0)

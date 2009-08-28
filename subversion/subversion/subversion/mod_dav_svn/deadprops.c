@@ -16,20 +16,19 @@
  * ====================================================================
  */
 
-
+#include <apr_hash.h>
 
 #include <httpd.h>
 #include <mod_dav.h>
-
-#include <apr_hash.h>
-
-#include "dav_svn.h"
 
 #include "svn_xml.h"
 #include "svn_pools.h"
 #include "svn_dav.h"
 #include "svn_base64.h"
 #include "svn_props.h"
+#include "private/svn_log.h"
+
+#include "dav_svn.h"
 
 
 struct dav_db {
@@ -48,6 +47,7 @@ struct dav_db {
   void *authz_read_baton;
 };
 
+
 struct dav_deadprop_rollback {
   dav_prop_name name;
   svn_string_t value;
@@ -55,15 +55,18 @@ struct dav_deadprop_rollback {
 
 
 /* retrieve the "right" string to use as a repos path */
-static const char *get_repos_path(struct dav_resource_private *info)
+static const char *
+get_repos_path(struct dav_resource_private *info)
 {
   return info->repos_path;
 }
 
 
 /* construct the repos-local name for the given DAV property name */
-static void get_repos_propname(dav_db *db, const dav_prop_name *name,
-                               const char **repos_propname)
+static void
+get_repos_propname(dav_db *db,
+                   const dav_prop_name *name,
+                   const char **repos_propname)
 {
   if (strcmp(name->ns, SVN_DAV_PROP_NS_SVN) == 0)
     {
@@ -83,8 +86,9 @@ static void get_repos_propname(dav_db *db, const dav_prop_name *name,
     }
 }
 
-static dav_error *get_value(dav_db *db, const dav_prop_name *name,
-                            svn_string_t **pvalue)
+
+static dav_error *
+get_value(dav_db *db, const dav_prop_name *name, svn_string_t **pvalue)
 {
   const char *propname;
   svn_error_t *serr;
@@ -117,15 +121,16 @@ static dav_error *get_value(dav_db *db, const dav_prop_name *name,
                             get_repos_path(db->resource->info),
                             propname, db->p);
   if (serr != NULL)
-    return dav_svn_convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
-                               "could not fetch a property",
-                               db->resource->pool);
+    return dav_svn__convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
+                                "could not fetch a property",
+                                db->resource->pool);
 
   return NULL;
 }
 
-static dav_error *save_value(dav_db *db, const dav_prop_name *name,
-                             const svn_string_t *value)
+
+static dav_error *
+save_value(dav_db *db, const dav_prop_name *name, const svn_string_t *value)
 {
   const char *propname;
   svn_error_t *serr;
@@ -156,31 +161,30 @@ static dav_error *save_value(dav_db *db, const dav_prop_name *name,
            not a working resource!  But this is how we currently
            (hackily) allow the svn client to change unversioned rev
            props.  See issue #916. */
-        serr = svn_repos_fs_change_rev_prop2
+        serr = svn_repos_fs_change_rev_prop3
           (db->resource->info->repos->repos,
            db->resource->info->root.rev,
            db->resource->info->repos->username,
-           propname, value,
+           propname, value, TRUE, TRUE,
            db->authz_read_func,
            db->authz_read_baton,
            db->resource->pool);
 
         /* Tell the logging subsystem about the revprop change. */
-        apr_table_set(db->resource->info->r->subprocess_env, "SVN-ACTION",
-                      apr_psprintf(db->resource->pool,
-                                   "revprop-change r%" SVN_REVNUM_T_FMT 
-                                   " '%s'", db->resource->info->root.rev,
-                                   svn_path_uri_encode(propname,
-                                                       db->resource->pool)));
+        dav_svn__operational_log(db->resource->info,
+                                 svn_log__change_rev_prop(
+                                              db->resource->info->root.rev,
+                                              propname,
+                                              db->resource->pool));
       }
   else
     serr = svn_repos_fs_change_node_prop(db->resource->info->root.root,
                                          get_repos_path(db->resource->info),
                                          propname, value, db->resource->pool);
   if (serr != NULL)
-    return dav_svn_convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
-                               NULL,
-                               db->resource->pool);
+    return dav_svn__convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
+                                NULL,
+                                db->resource->pool);
 
   /* a change to the props was made; make sure our cached copy is gone */
   db->props = NULL;
@@ -188,11 +192,15 @@ static dav_error *save_value(dav_db *db, const dav_prop_name *name,
   return NULL;
 }
 
-static dav_error *dav_svn_db_open(apr_pool_t *p, const dav_resource *resource,
-                                  int ro, dav_db **pdb)
+
+static dav_error *
+db_open(apr_pool_t *p,
+        const dav_resource *resource,
+        int ro,
+        dav_db **pdb)
 {
   dav_db *db;
-  dav_svn_authz_read_baton *arb;
+  dav_svn__authz_read_baton *arb;
 
   /* Some resource types do not have deadprop databases. Specifically:
      REGULAR, VERSION, and WORKING resources have them. (SVN does not
@@ -232,7 +240,7 @@ static dav_error *dav_svn_db_open(apr_pool_t *p, const dav_resource *resource,
   arb->r = resource->info->r;
   arb->repos = resource->info->repos;
   db->authz_read_baton = arb;
-  db->authz_read_func = dav_svn_authz_read_func(arb);
+  db->authz_read_func = dav_svn__authz_read_func(arb);
 
   /* ### use RO and node's mutable status to look for an error? */
 
@@ -241,12 +249,16 @@ static dav_error *dav_svn_db_open(apr_pool_t *p, const dav_resource *resource,
   return NULL;
 }
 
-static void dav_svn_db_close(dav_db *db)
+
+static void
+db_close(dav_db *db)
 {
   svn_pool_destroy(db->p);
 }
 
-static dav_error *dav_svn_db_define_namespaces(dav_db *db, dav_xmlns_info *xi)
+
+static dav_error *
+db_define_namespaces(dav_db *db, dav_xmlns_info *xi)
 {
   dav_xmlns_add(xi, "S", SVN_DAV_PROP_NS_SVN);
   dav_xmlns_add(xi, "C", SVN_DAV_PROP_NS_CUSTOM);
@@ -257,10 +269,12 @@ static dav_error *dav_svn_db_define_namespaces(dav_db *db, dav_xmlns_info *xi)
   return NULL;
 }
 
-static dav_error *dav_svn_db_output_value(dav_db *db, 
-                                          const dav_prop_name *name,
-                                          dav_xmlns_info *xi,
-                                          apr_text_header *phdr, int *found)
+static dav_error *
+db_output_value(dav_db *db,
+                const dav_prop_name *name,
+                dav_xmlns_info *xi,
+                apr_text_header *phdr,
+                int *found)
 {
   const char *prefix;
   const char *s;
@@ -298,12 +312,12 @@ static dav_error *dav_svn_db_output_value(dav_db *db,
       if (! svn_xml_is_xml_safe(propval->data, propval->len))
         {
           const svn_string_t *enc_propval
-            = svn_base64_encode_string(propval, pool);
+            = svn_base64_encode_string2(propval, TRUE, pool);
           xml_safe = enc_propval->data;
           encoding = apr_pstrcat(pool, " V:encoding=\"base64\"", NULL);
         }
       else
-        {    
+        {
           svn_stringbuf_t *xmlval = NULL;
           svn_xml_escape_cdata_string(&xmlval, propval, pool);
           xml_safe = xmlval->data;
@@ -315,7 +329,7 @@ static dav_error *dav_svn_db_output_value(dav_db *db,
       /* the value is in our pool which means it has the right lifetime. */
       /* ### at least, per the current mod_dav architecture/API */
       apr_text_append(pool, phdr, xml_safe);
-      
+
       s = apr_psprintf(pool, "</%s%s>" DEBUG_CR, prefix, name->name);
       apr_text_append(pool, phdr, s);
     }
@@ -323,19 +337,22 @@ static dav_error *dav_svn_db_output_value(dav_db *db,
   return NULL;
 }
 
-static dav_error *dav_svn_db_map_namespaces(
-    dav_db *db,
-    const apr_array_header_t *namespaces,
-    dav_namespace_map **mapping)
+
+static dav_error *
+db_map_namespaces(dav_db *db,
+                  const apr_array_header_t *namespaces,
+                  dav_namespace_map **mapping)
 {
   /* we don't need a namespace mapping right now. nothing to do */
-
   return NULL;
 }
 
-static dav_error *dav_svn_db_store(dav_db *db, const dav_prop_name *name,
-                                   const apr_xml_elem *elem,
-                                   dav_namespace_map *mapping)
+
+static dav_error *
+db_store(dav_db *db,
+         const dav_prop_name *name,
+         const apr_xml_elem *elem,
+         dav_namespace_map *mapping)
 {
   const svn_string_t *propval;
   apr_pool_t *pool = db->p;
@@ -349,7 +366,7 @@ static dav_error *dav_svn_db_store(dav_db *db, const dav_prop_name *name,
 
   propval = svn_string_create
     (dav_xml_get_cdata(elem, pool, 0 /* strip_white */), pool);
-  
+
   /* Check for special encodings of the property value. */
   while (attr)
     {
@@ -372,7 +389,9 @@ static dav_error *dav_svn_db_store(dav_db *db, const dav_prop_name *name,
   return save_value(db, name, propval);
 }
 
-static dav_error *dav_svn_db_remove(dav_db *db, const dav_prop_name *name)
+
+static dav_error *
+db_remove(dav_db *db, const dav_prop_name *name)
 {
   svn_error_t *serr;
   const char *propname;
@@ -394,10 +413,10 @@ static dav_error *dav_svn_db_remove(dav_db *db, const dav_prop_name *name)
          not a working resource!  But this is how we currently
          (hackily) allow the svn client to change unversioned rev
          props.  See issue #916. */
-      serr = svn_repos_fs_change_rev_prop2(db->resource->info->repos->repos,
+      serr = svn_repos_fs_change_rev_prop3(db->resource->info->repos->repos,
                                            db->resource->info->root.rev,
                                            db->resource->info->repos->username,
-                                           propname, NULL,
+                                           propname, NULL, TRUE, TRUE,
                                            db->authz_read_func,
                                            db->authz_read_baton,
                                            db->resource->pool);
@@ -406,9 +425,9 @@ static dav_error *dav_svn_db_remove(dav_db *db, const dav_prop_name *name)
                                          get_repos_path(db->resource->info),
                                          propname, NULL, db->resource->pool);
   if (serr != NULL)
-    return dav_svn_convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
-                               "could not remove a property",
-                               db->resource->pool);
+    return dav_svn__convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
+                                "could not remove a property",
+                                db->resource->pool);
 
   /* a change to the props was made; make sure our cached copy is gone */
   db->props = NULL;
@@ -416,7 +435,9 @@ static dav_error *dav_svn_db_remove(dav_db *db, const dav_prop_name *name)
   return NULL;
 }
 
-static int dav_svn_db_exists(dav_db *db, const dav_prop_name *name)
+
+static int
+db_exists(dav_db *db, const dav_prop_name *name)
 {
   const char *propname;
   svn_string_t *propval;
@@ -481,8 +502,13 @@ static void get_name(dav_db *db, dav_prop_name *pname)
     }
 }
 
-static dav_error *dav_svn_db_first_name(dav_db *db, dav_prop_name *pname)
+
+static dav_error *
+db_first_name(dav_db *db, dav_prop_name *pname)
 {
+  /* for operational logging */
+  const char *action = NULL;
+
   /* if we don't have a copy of the properties, then get one */
   if (db->props == NULL)
     {
@@ -492,30 +518,51 @@ static dav_error *dav_svn_db_first_name(dav_db *db, dav_prop_name *pname)
       if (db->resource->baselined)
         {
           if (db->resource->type == DAV_RESOURCE_TYPE_WORKING)
-            serr = svn_fs_txn_proplist(&db->props, 
+            serr = svn_fs_txn_proplist(&db->props,
                                        db->resource->info->root.txn,
                                        db->p);
           else
-            serr = svn_repos_fs_revision_proplist
-              (&db->props,
-               db->resource->info->repos->repos,
-               db->resource->info->root.rev,
-               db->authz_read_func,
-               db->authz_read_baton,
-               db->p);
+            {
+              action = svn_log__rev_proplist(db->resource->info->root.rev,
+                                             db->resource->pool);
+              serr = svn_repos_fs_revision_proplist
+                (&db->props,
+                 db->resource->info->repos->repos,
+                 db->resource->info->root.rev,
+                 db->authz_read_func,
+                 db->authz_read_baton,
+                 db->p);
+            }
         }
       else
         {
-          serr = svn_fs_node_proplist(&db->props, 
+          svn_node_kind_t kind;
+          serr = svn_fs_node_proplist(&db->props,
                                       db->resource->info->root.root,
-                                      get_repos_path(db->resource->info), 
+                                      get_repos_path(db->resource->info),
                                       db->p);
+          if (! serr)
+            serr = svn_fs_check_path(&kind, db->resource->info->root.root,
+                                     get_repos_path(db->resource->info),
+                                     db->p);
+
+          if (! serr)
+            {
+              if (kind == svn_node_dir)
+                action = svn_log__get_dir(db->resource->info->repos_path,
+                                          db->resource->info->root.rev,
+                                          FALSE, TRUE, 0, db->resource->pool);
+              else
+                action = svn_log__get_file(db->resource->info->repos_path,
+                                           db->resource->info->root.rev,
+                                           FALSE, TRUE, db->resource->pool);
+            }
         }
       if (serr != NULL)
-        return dav_svn_convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
-                                   "could not begin sequencing through "
-                                   "properties",
-                                   db->resource->pool);
+        return dav_svn__convert_err(serr, HTTP_INTERNAL_SERVER_ERROR,
+                                    "could not begin sequencing through "
+                                    "properties",
+                                    db->resource->pool);
     }
 
   /* begin the iteration over the hash */
@@ -524,10 +571,16 @@ static dav_error *dav_svn_db_first_name(dav_db *db, dav_prop_name *pname)
   /* fetch the first key */
   get_name(db, pname);
 
+  /* If we have a high-level action to log, do so. */
+  if (action != NULL)
+    dav_svn__operational_log(db->resource->info, action);
+
   return NULL;
 }
 
-static dav_error *dav_svn_db_next_name(dav_db *db, dav_prop_name *pname)
+
+static dav_error *
+db_next_name(dav_db *db, dav_prop_name *pname)
 {
   /* skip to the next hash entry */
   if (db->hi != NULL)
@@ -539,9 +592,11 @@ static dav_error *dav_svn_db_next_name(dav_db *db, dav_prop_name *pname)
   return NULL;
 }
 
-static dav_error *dav_svn_db_get_rollback(dav_db *db, 
-                                          const dav_prop_name *name,
-                                          dav_deadprop_rollback **prollback)
+
+static dav_error *
+db_get_rollback(dav_db *db,
+                const dav_prop_name *name,
+                dav_deadprop_rollback **prollback)
 {
   dav_error *err;
   dav_deadprop_rollback *ddp;
@@ -559,29 +614,30 @@ static dav_error *dav_svn_db_get_rollback(dav_db *db,
   return NULL;
 }
 
-static dav_error *dav_svn_db_apply_rollback(dav_db *db,
-                                            dav_deadprop_rollback *rollback)
+
+static dav_error *
+db_apply_rollback(dav_db *db, dav_deadprop_rollback *rollback)
 {
   if (rollback->value.data == NULL)
     {
-      return dav_svn_db_remove(db, &rollback->name);
+      return db_remove(db, &rollback->name);
     }
-  
+
   return save_value(db, &rollback->name, &rollback->value);
 }
 
 
-const dav_hooks_propdb dav_svn_hooks_propdb = {
-  dav_svn_db_open,
-  dav_svn_db_close,
-  dav_svn_db_define_namespaces,
-  dav_svn_db_output_value,
-  dav_svn_db_map_namespaces,
-  dav_svn_db_store,
-  dav_svn_db_remove,
-  dav_svn_db_exists,
-  dav_svn_db_first_name,
-  dav_svn_db_next_name,
-  dav_svn_db_get_rollback,
-  dav_svn_db_apply_rollback,
+const dav_hooks_propdb dav_svn__hooks_propdb = {
+  db_open,
+  db_close,
+  db_define_namespaces,
+  db_output_value,
+  db_map_namespaces,
+  db_store,
+  db_remove,
+  db_exists,
+  db_first_name,
+  db_next_name,
+  db_get_rollback,
+  db_apply_rollback,
 };

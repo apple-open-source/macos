@@ -8,7 +8,7 @@ dnl python bindings.
 AC_DEFUN(SVN_CHECK_SWIG,
 [
   AC_ARG_WITH(swig,
-              AC_HELP_STRING([--with-swig=PATH],
+              AS_HELP_STRING([--with-swig=PATH],
                              [Try to use 'PATH/bin/swig' to build the
                               swig bindings.  If PATH is not specified,
                               look for a 'swig' binary in your PATH.]),
@@ -75,13 +75,13 @@ AC_DEFUN(SVN_FIND_SWIG,
     #   packages/rpm/rhel-4/subversion.spec
     if test -n "$SWIG_VERSION" &&
        test "$SWIG_VERSION" -ge "103024" &&
-       test "$SWIG_VERSION" -le "103029"; then
+       test "$SWIG_VERSION" -le "103036"; then
       SWIG_SUITABLE=yes
     else
       SWIG_SUITABLE=no
       AC_MSG_WARN([Detected SWIG version $SWIG_VERSION_RAW])
       AC_MSG_WARN([Subversion requires 1.3.24 or later, and is known to work])
-      AC_MSG_WARN([with versions up to 1.3.29])
+      AC_MSG_WARN([with versions up to 1.3.36])
     fi
   fi
  
@@ -102,7 +102,7 @@ AC_DEFUN(SVN_FIND_SWIG,
     AC_CACHE_CHECK([for compiling Python extensions], [ac_cv_python_compile],[
       ac_cv_python_compile="`$PYTHON ${abs_srcdir}/build/get-py-info.py --compile`"
     ])
-    SWIG_PY_COMPILE="$ac_cv_python_compile"
+    SWIG_PY_COMPILE="$ac_cv_python_compile $CFLAGS"
 
     AC_CACHE_CHECK([for linking Python extensions], [ac_cv_python_link],[
       ac_cv_python_link="`$PYTHON ${abs_srcdir}/build/get-py-info.py --link`"
@@ -166,29 +166,71 @@ AC_DEFUN(SVN_FIND_SWIG,
   SWIG_RB_COMPILE="none"
   SWIG_RB_LINK="none"
   if test "$RUBY" != "none"; then
+    rbconfig="$RUBY -rrbconfig -e "
+
+    for var_name in arch archdir CC LDSHARED DLEXT LIBRUBYARG \
+                    rubyhdrdir sitedir sitelibdir sitearchdir libdir
+    do
+      rbconfig_tmp=`$rbconfig "print Config::CONFIG@<:@'$var_name'@:>@"`
+      eval "rbconfig_$var_name=\"$rbconfig_tmp\""
+    done
 
     AC_MSG_NOTICE([Configuring Ruby SWIG binding])
 
     AC_CACHE_CHECK([for Ruby include path], [svn_cv_ruby_includes],[
-    svn_cv_ruby_includes="-I. -I`$RUBY -rrbconfig -e 'print Config::CONFIG.fetch(%q(archdir))'`"
+    if test -d "$rbconfig_rubyhdrdir"; then
+      dnl Ruby >=1.9
+      svn_cv_ruby_includes="-I. -I$rbconfig_rubyhdrdir -I$rbconfig_rubyhdrdir/ruby -I$rbconfig_rubyhdrdir/ruby/backward -I$rbconfig_rubyhdrdir/$rbconfig_arch"
+    else
+      dnl Ruby 1.8
+      svn_cv_ruby_includes="-I. -I$rbconfig_archdir"
+    fi
     ])
     SWIG_RB_INCLUDES="\$(SWIG_INCLUDES) $svn_cv_ruby_includes"
 
     AC_CACHE_CHECK([how to compile Ruby extensions], [svn_cv_ruby_compile],[
-      svn_cv_ruby_compile="`$RUBY -rrbconfig -e 'print Config::CONFIG.fetch(%q(CC)), %q( ), Config::CONFIG.fetch(%q(CFLAGS))'` \$(SWIG_RB_INCLUDES)"
+      # Ruby doesn't like '-ansi', so strip that out of CFLAGS
+      svn_cv_ruby_compile="$rbconfig_CC `echo $CFLAGS | sed -e "s/ -ansi//g"`"
     ])
     SWIG_RB_COMPILE="$svn_cv_ruby_compile"
 
     AC_CACHE_CHECK([how to link Ruby extensions], [svn_cv_ruby_link],[
-      svn_cv_ruby_link="`$RUBY -rrbconfig -e 'print Config::CONFIG.fetch(%q(LDSHARED)).sub(/^\S+/, Config::CONFIG.fetch(%q(CC)) + %q( -shrext .) + Config::CONFIG.fetch(%q(DLEXT)))'`"
+      svn_cv_ruby_link="`$RUBY -e 'ARGV.shift; print ARGV.join(%q( ))' \
+                           $rbconfig_LDSHARED`"
+      svn_cv_ruby_link="$rbconfig_CC $svn_cv_ruby_link"
+      svn_cv_ruby_link="$svn_cv_ruby_link -shrext .$rbconfig_DLEXT"
     ])
     SWIG_RB_LINK="$svn_cv_ruby_link"
 
+    AC_CACHE_CHECK([for linking Ruby libraries], [ac_cv_ruby_libs], [
+      ac_cv_ruby_libs="$rbconfig_LIBRUBYARG"
+    ])
+    SWIG_RB_LIBS="$ac_cv_ruby_libs"
+
+    AC_MSG_CHECKING([for rb_errinfo])
+    old_CFLAGS="$CFLAGS"
+    old_LIBS="$LIBS"
+    CFLAGS="`echo $CFLAGS | sed -e "s/ -ansi//g"` $svn_cv_ruby_includes"
+    LIBS="$SWIG_RB_LIBS"
+    AC_LINK_IFELSE([
+#include <ruby.h>
+int main()
+{rb_errinfo();}], have_rb_errinfo="yes", have_rb_errinfo="no")
+    if test "$have_rb_errinfo" = "yes"; then
+      AC_MSG_RESULT([yes])
+      AC_DEFINE([HAVE_RB_ERRINFO], [1],
+                [Define to 1 if you have the `rb_errinfo' function.])
+    else
+      AC_MSG_RESULT([no])
+    fi
+    CFLAGS="$old_CFLAGS"
+    LIBS="$old_LIBS"
+
     AC_CACHE_VAL([svn_cv_ruby_sitedir],[
-      svn_cv_ruby_sitedir="`$RUBY -rrbconfig -e 'print Config::CONFIG.fetch(%q(sitedir))'`"
+      svn_cv_ruby_sitedir="$rbconfig_sitedir"
     ])
     AC_ARG_WITH([ruby-sitedir],
-    AC_HELP_STRING([--with-ruby-sitedir=SITEDIR],
+    AS_HELP_STRING([--with-ruby-sitedir=SITEDIR],
                                [install Ruby bindings in SITEDIR
                                 (default is same as ruby's one)]),
     [svn_ruby_installdir="$withval"],
@@ -196,14 +238,16 @@ AC_DEFUN(SVN_FIND_SWIG,
 
     AC_MSG_CHECKING([where to install Ruby scripts])
     AC_CACHE_VAL([svn_cv_ruby_sitedir_libsuffix],[
-      svn_cv_ruby_sitedir_libsuffix="`$RUBY -rrbconfig -e 'print Config::CONFIG.fetch(%q(sitelibdir)).sub(/^#{Config::CONFIG.fetch(%q(sitedir))}/, %q())'`"
+      svn_cv_ruby_sitedir_libsuffix="`echo "$rbconfig_sitelibdir" | \
+                                        sed -e "s,^$rbconfig_sitedir,,"`"
     ])
     SWIG_RB_SITE_LIB_DIR="${svn_ruby_installdir}${svn_cv_ruby_sitedir_libsuffix}"
     AC_MSG_RESULT([$SWIG_RB_SITE_LIB_DIR])
 
     AC_MSG_CHECKING([where to install Ruby extensions])
     AC_CACHE_VAL([svn_cv_ruby_sitedir_archsuffix],[
-      svn_cv_ruby_sitedir_archsuffix="`$RUBY -rrbconfig -e 'print Config::CONFIG.fetch(%q(sitearchdir)).sub(/^#{Config::CONFIG.fetch(%q(sitedir))}/, %q())'`"
+      svn_cv_ruby_sitedir_archsuffix="`echo "$rbconfig_sitearchdir" | \
+                                        sed -e "s,^$rbconfig_sitedir,,"`"
     ])
     SWIG_RB_SITE_ARCH_DIR="${svn_ruby_installdir}${svn_cv_ruby_sitedir_archsuffix}"
     AC_MSG_RESULT([$SWIG_RB_SITE_ARCH_DIR])
@@ -213,11 +257,11 @@ AC_DEFUN(SVN_FIND_SWIG,
       svn_cv_ruby_test_verbose="normal"
     ])
     AC_ARG_WITH([ruby-test-verbose],
-    AC_HELP_STRING([--with-ruby-test-verbose=LEVEL],
+    AS_HELP_STRING([--with-ruby-test-verbose=LEVEL],
                                [how to use output level for Ruby bindings tests
                                 (default is normal)]),
     [svn_ruby_test_verbose="$withval"],
-		  [svn_ruby_test_verbose="$svn_cv_ruby_test_verbose"])
+                  [svn_ruby_test_verbose="$svn_cv_ruby_test_verbose"])
       SWIG_RB_TEST_VERBOSE="$svn_ruby_test_verbose"
       AC_MSG_RESULT([$SWIG_RB_TEST_VERBOSE])
   fi
@@ -228,6 +272,7 @@ AC_DEFUN(SVN_FIND_SWIG,
   AC_SUBST(SWIG_PY_LIBS)
   AC_SUBST(SWIG_PL_INCLUDES)
   AC_SUBST(SWIG_RB_LINK)
+  AC_SUBST(SWIG_RB_LIBS)
   AC_SUBST(SWIG_RB_INCLUDES)
   AC_SUBST(SWIG_RB_COMPILE)
   AC_SUBST(SWIG_RB_SITE_LIB_DIR)

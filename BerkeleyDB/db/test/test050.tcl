@@ -1,9 +1,8 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1999-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 1999,2007 Oracle.  All rights reserved.
 #
-# $Id: test050.tcl,v 1.2 2004/03/30 01:24:08 jtownsen Exp $
+# $Id: test050.tcl,v 12.5 2007/05/17 15:15:56 bostic Exp $
 #
 # TEST	test050
 # TEST	Overwrite test of small/big key/data with cursor checks for Recno.

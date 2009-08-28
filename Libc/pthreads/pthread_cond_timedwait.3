@@ -58,6 +58,23 @@ time specified in
 .Fa abstime ,
 and the current thread reacquires the lock on
 .Fa mutex .
+.Pp 
+Values for struct timespec can be obtained by adding the required
+time interval to the  the current time obtained using 
+.Xr gettimeofday 2 .
+.Pp
+.Fa Note 
+that struct timeval and struct timespec use different units to specify
+the time. Hence, the user should always take care to perform the time unit 
+conversions accordingly.
+.Sh EXAMPLE
+.Pp
+   struct timeval tv;
+   struct timespec ts;
+   gettimeofday(&tv, NULL);
+   ts.tv_sec = tv.tv_sec + 0;
+   ts.tv_nsec = 0;
+.Pp
 .Sh RETURN VALUES
 If successful, the
 .Fn pthread_cond_timedwait
@@ -84,7 +101,8 @@ The system time has reached or exceeded the time specified in
 .Xr pthread_cond_destroy 3 ,
 .Xr pthread_cond_init 3 ,
 .Xr pthread_cond_signal 3 ,
-.Xr pthread_cond_wait 3
+.Xr pthread_cond_wait 3 ,
+.Xr gettimeofday 2
 .Sh STANDARDS
 .Fn pthread_cond_timedwait
 conforms to

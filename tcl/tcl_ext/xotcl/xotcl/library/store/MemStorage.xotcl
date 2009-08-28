@@ -1,0 +1,102 @@
+# $Id: MemStorage.xotcl,v 1.6 2006/09/27 08:12:40 neumann Exp $
+
+package provide xotcl::store::mem 0.84
+package require xotcl::store 0.84
+package require XOTcl
+
+namespace eval ::xotcl::store::mem {
+  namespace import ::xotcl::*
+
+  Object ::xotcl::memStoragePool
+  ::xotcl::memStoragePool proc add {filename} {
+    my set memStores($filename) [Object new -childof [self]]
+  }
+  ::xotcl::memStoragePool proc get {filename} {
+    if {[my exists memStores($filename)]} {
+      return [my set memStores($filename)]
+    }
+    return ""
+  }
+  ::xotcl::memStoragePool proc remove {filename} {
+    catch {
+      set store [my set memStores($filename)]
+      $store destroy
+      my unset memStores($filename)
+    }
+  }
+
+  #
+  # a class using an XOTcl Object for memory storage
+  Class Storage=Mem -superclass Storage
+  Storage=Mem instproc init args {
+    my instvar searchID
+    ::set searchID ""
+  }
+  Storage=Mem instproc names  {}   {
+    my instvar store
+    $store array names v
+  }
+  Storage=Mem instproc exists name {
+    my instvar store
+    $store exists v($name)
+  }
+  Storage=Mem instproc unset name  {
+    my instvar store
+    $store unset v($name)
+  }
+  Storage=Mem instproc set args {
+    my instvar store
+    ::set l [llength $args]
+    if {$l == 1} {
+      $store set v([lindex $args 0])
+    } elseif {$l == 2} {
+      $store set v([lindex $args 0]) [lindex $args 1]
+    } else {
+      eval $store set $args
+    }
+  }
+  Storage=Mem instproc close {} {
+    my instvar store
+    ::unset store
+  }
+  Storage=Mem instproc open filename {
+    my instvar store
+    if {[::set store [::xotcl::memStoragePool get $filename]] == ""} {
+      ::set store [::xotcl::memStoragePool add $filename]
+    }
+  }
+  Storage=Mem instproc firstkey {} {
+    my instvar store
+    $store instvar v
+    my instvar searchID
+    if {$searchID ne ""} {
+      array donesearch v $searchID
+    }
+    ::set searchID [array startsearch v]
+    return [array nextelement v $searchID]
+  }
+  Storage=Mem instproc nextkey {} {
+    my instvar store
+    $store instvar v
+    my instvar searchID
+    if {$searchID eq ""} {
+      error "[self class]: firstkey was not invoked on storage search"
+    }
+    
+    ::set elt [array nextelement v $searchID]
+    if {$elt eq ""} {
+      # if array end is reach search is terminated automatically!!
+      ::set searchID ""
+    }
+    return $elt
+  }
+
+  ### warum geht eigentlich folgendes nicht:
+  ##  Object o; o set a::b::c 1
+  ### dann koennte man sich das set und exists schenken...
+
+  namespace export Storage=Mem
+}
+
+namespace import ::xotcl::store::mem::*
+#namespace eval ::xotcl {namespace import ::xotcl::store::mem::*}

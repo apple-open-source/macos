@@ -1,0 +1,200 @@
+--- file_io/unix/dir-32-bit-inode.c.orig	2007-04-17 17:29:51.000000000 -0700
++++ file_io/unix/dir-32-bit-inode.c	2009-01-09 00:56:35.000000000 -0800
+@@ -0,0 +1,14 @@
++/*
++ * We assumes that 64-bit inodes are on by default, so we build the 32-bit
++ * inode (undecorated) variants here (unless the platform only supports
++ * 64-bit inodes, then which we do nothing).
++ */
++
++#undef __DARWIN_64_BIT_INO_T
++#define __DARWIN_64_BIT_INO_T 0
++#include <sys/cdefs.h>
++
++#if __DARWIN_ONLY_64_BIT_INO_T == 0
++#define __DARWIN_APR_BUILDING_32_BIT_INODE
++#include "dir.c"
++#endif /* __DARWIN_ONLY_64_BIT_INO_T == 0 */
+--- file_io/unix/dir.c.orig	2007-04-17 17:29:51.000000000 -0700
++++ file_io/unix/dir.c	2009-01-09 00:56:31.000000000 -0800
+@@ -24,7 +24,10 @@
+ #include <limits.h>
+ #endif
+ 
+-static apr_status_t dir_cleanup(void *thedir)
++#ifdef __DARWIN_APR_BUILDING_32_BIT_INODE
++__private_extern__ apr_status_t dir_cleanup(void *thedir);
++#else /* !__DARWIN_APR_BUILDING_32_BIT_INODE */
++__private_extern__ apr_status_t dir_cleanup(void *thedir)
+ {
+     apr_dir_t *dir = thedir;
+     if (closedir(dir->dirstruct) == 0) {
+@@ -67,6 +70,7 @@
+ 
+     return apr_pstrndup (pool, path, (i < 0) ? 0 : i);
+ }
++#endif /* !__DARWIN_APR_BUILDING_32_BIT_INODE */
+ 
+ apr_status_t apr_dir_open(apr_dir_t **new, const char *dirname, 
+                           apr_pool_t *pool)
+@@ -97,13 +101,18 @@
+     return APR_SUCCESS;
+ }
+ 
++#ifndef __DARWIN_APR_BUILDING_32_BIT_INODE
+ apr_status_t apr_dir_close(apr_dir_t *thedir)
+ {
+     return apr_pool_cleanup_run(thedir->pool, thedir, dir_cleanup);
+ }
++#endif /* !__DARWIN_APR_BUILDING_32_BIT_INODE */
+ 
+ #ifdef DIRENT_TYPE
+-static apr_filetype_e filetype_from_dirent_type(int type)
++#ifdef __DARWIN_APR_BUILDING_32_BIT_INODE
++__private_extern__ apr_filetype_e filetype_from_dirent_type(int type);
++#else /* !__DARWIN_APR_BUILDING_32_BIT_INODE */
++__private_extern__ apr_filetype_e filetype_from_dirent_type(int type)
+ {
+     switch (type) {
+     case DT_REG:
+@@ -128,6 +137,7 @@
+         return APR_UNKFILE;
+     }
+ }
++#endif /* !__DARWIN_APR_BUILDING_32_BIT_INODE */
+ #endif
+ 
+ apr_status_t apr_dir_read(apr_finfo_t *finfo, apr_int32_t wanted,
+@@ -285,6 +295,7 @@
+     return APR_SUCCESS;
+ }
+ 
++#ifndef __DARWIN_APR_BUILDING_32_BIT_INODE
+ apr_status_t apr_dir_make(const char *path, apr_fileperms_t perm, 
+                           apr_pool_t *pool)
+ {
+@@ -356,4 +367,4 @@
+     return APR_SUCCESS;
+ }
+ 
+-  
++#endif /* !__DARWIN_APR_BUILDING_32_BIT_INODE */
+--- file_io/unix/filestat-32-bit-inode.c.orig	2007-10-16 20:35:55.000000000 -0700
++++ file_io/unix/filestat-32-bit-inode.c	2009-01-09 00:59:53.000000000 -0800
+@@ -0,0 +1,14 @@
++/*
++ * We assumes that 64-bit inodes are on by default, so we build the 32-bit
++ * inode (undecorated) variants here (unless the platform only supports
++ * 64-bit inodes, then which we do nothing).
++ */
++
++#undef __DARWIN_64_BIT_INO_T
++#define __DARWIN_64_BIT_INO_T 0
++#include <sys/cdefs.h>
++
++#if __DARWIN_ONLY_64_BIT_INO_T == 0
++#define __DARWIN_APR_BUILDING_32_BIT_INODE
++#include "filestat.c"
++#endif /* __DARWIN_ONLY_64_BIT_INO_T == 0 */
+--- file_io/unix/filestat.c.orig	2007-10-16 20:35:55.000000000 -0700
++++ file_io/unix/filestat.c	2009-01-09 01:08:16.000000000 -0800
+@@ -24,7 +24,10 @@
+ #include <utime.h>
+ #endif
+ 
+-static apr_filetype_e filetype_from_mode(mode_t mode)
++#ifdef __DARWIN_APR_BUILDING_32_BIT_INODE
++__private_extern__ apr_filetype_e filetype_from_mode(mode_t mode);
++#else /* !__DARWIN_APR_BUILDING_32_BIT_INODE */
++__private_extern__ apr_filetype_e filetype_from_mode(mode_t mode)
+ {
+     apr_filetype_e type;
+ 
+@@ -66,6 +69,7 @@
+     }
+     return type;
+ }
++#endif /* __DARWIN_APR_BUILDING_32_BIT_INODE */
+ 
+ static void fill_out_finfo(apr_finfo_t *finfo, struct_stat *info,
+                            apr_int32_t wanted)
+@@ -171,6 +175,7 @@
+     }
+ }
+ 
++#ifndef __DARWIN_APR_BUILDING_32_BIT_INODE
+ APR_DECLARE(apr_status_t) apr_file_perms_set(const char *fname, 
+                                              apr_fileperms_t perms)
+ {
+@@ -279,6 +284,7 @@
+ 
+     return APR_SUCCESS;
+ }
++#endif /* !__DARWIN_APR_BUILDING_32_BIT_INODE */
+ 
+ 
+ APR_DECLARE(apr_status_t) apr_stat(apr_finfo_t *finfo, 
+--- include/apr_file_info.h.orig	2007-10-23 21:40:33.000000000 -0700
++++ include/apr_file_info.h	2009-01-09 00:22:53.000000000 -0800
+@@ -227,7 +227,8 @@
+  *       to verify that what you're looking for is there.
+  */ 
+ APR_DECLARE(apr_status_t) apr_stat(apr_finfo_t *finfo, const char *fname,
+-                                   apr_int32_t wanted, apr_pool_t *pool);
++                                   apr_int32_t wanted, apr_pool_t *pool)
++				   __DARWIN_INODE64(apr_stat);
+ 
+ /** @} */
+ /**
+@@ -243,7 +244,8 @@
+  */                        
+ APR_DECLARE(apr_status_t) apr_dir_open(apr_dir_t **new_dir, 
+                                        const char *dirname, 
+-                                       apr_pool_t *pool);
++                                       apr_pool_t *pool)
++				       __DARWIN_INODE64(apr_dir_open);
+ 
+ /**
+  * close the specified directory. 
+@@ -264,13 +266,15 @@
+  *       to verify that what you're looking for is there.
+  */                        
+ APR_DECLARE(apr_status_t) apr_dir_read(apr_finfo_t *finfo, apr_int32_t wanted,
+-                                       apr_dir_t *thedir);
++                                       apr_dir_t *thedir)
++				       __DARWIN_INODE64(apr_dir_read);
+ 
+ /**
+  * Rewind the directory to the first entry.
+  * @param thedir the directory descriptor to rewind.
+  */                        
+-APR_DECLARE(apr_status_t) apr_dir_rewind(apr_dir_t *thedir);
++APR_DECLARE(apr_status_t) apr_dir_rewind(apr_dir_t *thedir)
++					 __DARWIN_INODE64(apr_dir_rewind);
+ /** @} */
+ 
+ /**
+--- include/apr_file_io.h.orig	2007-11-05 19:13:42.000000000 -0800
++++ include/apr_file_io.h	2009-01-09 00:23:36.000000000 -0800
+@@ -847,7 +847,8 @@
+  */ 
+ APR_DECLARE(apr_status_t) apr_file_info_get(apr_finfo_t *finfo, 
+                                             apr_int32_t wanted,
+-                                            apr_file_t *thefile);
++                                            apr_file_t *thefile)
++					    __DARWIN_INODE64(apr_file_info_get);
+     
+ 
+ /**
+--- include/arch/unix/apr_arch_file_io.h.orig	2007-10-16 20:13:55.000000000 -0700
++++ include/arch/unix/apr_arch_file_io.h	2009-01-09 03:46:05.000000000 -0800
+@@ -167,7 +167,8 @@
+ 
+ apr_status_t apr_file_flush_locked(apr_file_t *thefile);
+ apr_status_t apr_file_info_get_locked(apr_finfo_t *finfo, apr_int32_t wanted,
+-                                      apr_file_t *thefile);
++                                      apr_file_t *thefile)
++				      __DARWIN_INODE64(apr_file_info_get_locked);
+ 
+ 
+ #endif  /* ! FILE_IO_H */

@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 2005 Free Software Foundation, Inc.                        *
+ * Copyright (c) 2005-2006,2007 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -37,7 +37,7 @@
 #include <tic.h>
 #include <term_entry.h>
 
-MODULE_ID("$Id: trim_sgr0.c,v 1.5 2005/07/17 00:13:24 tom Exp $")
+MODULE_ID("$Id: trim_sgr0.c,v 1.8 2007/04/07 17:14:11 tom Exp $")
 
 #undef CUR
 #define CUR tp->
@@ -83,7 +83,7 @@ skip_delay(const char *s)
 {
     if (s[0] == '$' && s[1] == '<') {
 	s += 2;
-	while ((*s != '\0') && (isdigit(*s) || *s == '/'))
+	while (isdigit(UChar(*s)) || *s == '/')
 	    ++s;
 	if (*s == '>')
 	    ++s;
@@ -247,9 +247,7 @@ _nc_trim_sgr0(TERMTYPE *tp)
 	if (!rewrite_sgr(on, enter_alt_charset_mode)
 	    || !rewrite_sgr(off, exit_alt_charset_mode)
 	    || !rewrite_sgr(end, exit_alt_charset_mode)) {
-	    FreeIfNeeded(on);
 	    FreeIfNeeded(off);
-	    FreeIfNeeded(end);
 	} else if (similar_sgr(off, end)
 		   && !similar_sgr(off, on)) {
 	    TR(TRACE_DATABASE, ("adjusting sgr(9:off) : %s", _nc_visbuf(off)));
@@ -315,8 +313,8 @@ _nc_trim_sgr0(TERMTYPE *tp)
 	     */
 	    free(off);
 	}
-	free(end);
-	free(on);
+	FreeIfNeeded(end);
+	FreeIfNeeded(on);
     } else {
 	/*
 	 * Possibly some applications are confused if sgr0 contains rmacs,

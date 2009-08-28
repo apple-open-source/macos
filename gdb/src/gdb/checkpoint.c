@@ -637,11 +637,11 @@ print_checkpoint_info (struct checkpoint *cp)
       printf("[%d/%d] ", tot, blocks);
     }
 
-  printf ("%c%c%c%d: pc=0x%llx",
+  printf ("%c%c%c%d: pc=0x%s",
 	  cp->type,
 	  (current_checkpoint == cp ? '*' : ' '),
 	  (original_latest_checkpoint == cp ? '!' : ' '),
-	  cp->number, pc);
+	  cp->number, paddr_nz (pc));
 
   printf (" (");
   if (cp->lprev)

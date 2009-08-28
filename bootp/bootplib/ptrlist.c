@@ -216,7 +216,7 @@ ptrlist_concat(ptrlist_t * list, ptrlist_t * extra)
 }
 
 
-#ifdef TESTING
+#ifdef TEST_PTRLIST
 int 
 main(int argc, char * argv[])
 {
@@ -252,17 +252,17 @@ main(int argc, char * argv[])
 	void * val;
 	
 	if (ptrlist_remove(&list3, 7, &val)) {
-	    printf("Element at index 7 has value %d\n", val);
+	    printf("Element at index 7 has value %p\n", val);
 	}
 	printf("\nlist3\n");
 	ptrlist_print(&list3);
 	if (ptrlist_remove(&list3, 0, &val)) {
-	    printf("Element at index 0 has value %d\n", val);
+	    printf("Element at index 0 has value %p\n", val);
 	}
 	printf("\nlist3\n");
 	ptrlist_print(&list3);
 	if (ptrlist_remove(&list3, ptrlist_count(&list3) - 1, &val)) {
-	    printf("Element at index %d has value %d\n", 
+	    printf("Element at index %d has value %p\n", 
 		   ptrlist_count(&list3),  val);
 	}
 	printf("\nlist3\n");
@@ -282,4 +282,4 @@ main(int argc, char * argv[])
     exit(0);
     return 0;
 }
-#endif TESTING
+#endif /* TEST_PTRLIST */

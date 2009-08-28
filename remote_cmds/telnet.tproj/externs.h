@@ -31,7 +31,7 @@
  * SUCH DAMAGE.
  *
  *	@(#)externs.h	8.3 (Berkeley) 5/30/95
- *	$FreeBSD: src/crypto/telnet/telnet/externs.h,v 1.4.2.2 2002/04/13 10:59:08 markm Exp $
+ *	$FreeBSD: src/contrib/telnet/telnet/externs.h,v 1.11 2007/07/01 12:08:04 gnn Exp $
  */
 
 #ifndef	BSD
@@ -72,7 +72,11 @@ typedef unsigned char cc_t;
 #include <string.h>
 
 #if defined(IPSEC)
+#ifdef __APPLE__
 #include <netinet6/ipsec.h>
+#else
+#include <netipsec/ipsec.h>
+#endif
 #if defined(IPSEC_POLICY_IPSEC)
 extern char *ipsec_policy_in;
 extern char *ipsec_policy_out;
@@ -127,7 +131,7 @@ extern int
     netdata,		/* Print out network data flow */
     prettydump,		/* Print "netdata" output in user readable format */
     termdata,		/* Print out terminal data flow */
-    debug,		/* Debug level */
+    telnet_debug,	/* Debug level */
     doaddrlookup,	/* do a reverse lookup? */
     clienteof;		/* Client received EOF */
 

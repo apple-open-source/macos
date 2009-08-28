@@ -189,13 +189,7 @@ public:
 							 const CSSM_GUID *ModuleManagerGuid,
 							 const CSSM_GUID *CallerGuid);
 	
-	virtual void DeleteDatabase (const char* dbName,
-								 const CSSM_NET_ADDRESS *dbLocation,
-								 const CSSM_ACCESS_CREDENTIALS *accessCredentials);
 
-	virtual void GetDbNames (CSSM_NAME_LIST_PTR nameList);
-
-	virtual void FreeNameList (CSSM_NAME_LIST_PTR nameList);
 
 	static CSSM_MODULE_FUNCS_PTR gFunctionTablePtr;
 };

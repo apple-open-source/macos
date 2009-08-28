@@ -1,22 +1,24 @@
 #
 # Makefile
 #
-# Version:      $Id: Makefile,v 1.20.4.6 2006/04/12 20:45:20 aland Exp $
+# Version:      $Id$
 #
 
 include ../../Make.inc
 
-SRCS		= crypt.c dict.c filters.c hash.c hmac.c hmacsha1.c \
-		  isaac.c log.c misc.c missing.c md4.c md5.c print.c \
-		  radius.c rbtree.c sha1.c snprintf.c token.c udpfromto.c \
-		  valuepair.c
+SRCS		= dict.c filters.c hash.c hmac.c hmacsha1.c isaac.c log.c \
+		  misc.c missing.c md4.c md5.c print.c radius.c rbtree.c \
+		  sha1.c snprintf.c strlcat.c strlcpy.c token.c udpfromto.c \
+		  valuepair.c fifo.c packet.c event.c getaddrinfo.c vqp.c \
+		  heap.c dhcp.c
 
 LT_OBJS		= $(SRCS:.c=.lo)
 
 INCLUDES	= ../include/radius.h ../include/libradius.h \
-		  ../include/missing.h ../include/autoconf.h
+		  ../include/missing.h ../include/autoconf.h \
+		  ../include/ident.h
 
-CFLAGS		+= -D_LIBRADIUS -I../include
+CFLAGS		+= -D_LIBRADIUS -I$(top_builddir)/src
 
 # if you have problems with things that need SHA1-HMAC, this will
 # dump the key and the input to the hash so you can compare to what
@@ -29,7 +31,7 @@ else
 LINK_MODE	= -static
 endif
 
-TARGET		= $(LIBPREFIX)radius
+TARGET		= $(LIBPREFIX)freeradius-radius
 
 # Define new rule for libtool objects
 %.lo : %.c
@@ -39,7 +41,7 @@ all: $(TARGET).la
 
 $(TARGET).la: $(LT_OBJS)
 	$(LIBTOOL) --mode=link $(CC) -release $(RADIUSD_VERSION) \
-	$(LDFLAGS) $(LINK_MODE) -o $@ -rpath $(libdir) $^ $(LCRYPT)
+	$(LDFLAGS) $(LINK_MODE) -o $@ -rpath $(libdir) $^
 
 $(LT_OBJS): $(INCLUDES)
 

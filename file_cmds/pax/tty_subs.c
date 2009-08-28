@@ -38,7 +38,7 @@
 #if 0
 static const char sccsid[] = "@(#)tty_subs.c	8.2 (Berkeley) 4/18/94";
 #else
-static const char rcsid[] __attribute__((__unused__)) = "$OpenBSD: tty_subs.c,v 1.12 2003/06/02 23:32:09 millert Exp $";
+static const char rcsid[] = "$OpenBSD: tty_subs.c,v 1.12 2003/06/02 23:32:09 millert Exp $";
 #endif
 #endif /* not lint */
 
@@ -101,12 +101,9 @@ void
 tty_prnt(const char *fmt, ...)
 {
 	va_list ap;
-
-	va_start(ap, fmt);
-	if (ttyoutf == NULL) {
-		va_end(ap);
+	if (ttyoutf == NULL)
 		return;
-	}
+	va_start(ap, fmt);
 	(void)vfprintf(ttyoutf, fmt, ap);
 	va_end(ap);
 	(void)fflush(ttyoutf);
@@ -197,6 +194,6 @@ syswarn(int set, int errnum, const char *fmt, ...)
 	 * format and print the errno
 	 */
 	if (errnum > 0)
-		(void)fprintf(stderr, ": %s", strerror(errnum));
+		(void)fprintf(stderr, " <%s>", strerror(errnum));
 	(void)fputc('\n', stderr);
 }

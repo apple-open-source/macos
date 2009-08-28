@@ -35,6 +35,10 @@
 
 #define XMALLOC(TYPE) ((TYPE*) xmalloc (sizeof (TYPE)))
 
+/* APPLE LOCAL: segment binary file downloads
+ * default the binary file chunk size to the max value.  */
+#define DEFAULT_MAX_BINARY_FILE_CHUNK LONG_MAX
+static long  g_max_binary_file_chunk = DEFAULT_MAX_BINARY_FILE_CHUNK;
 
 char *
 skip_spaces (char *chp)
@@ -72,7 +76,6 @@ scan_expression_with_cleanup (char **cmd, const char *def)
 static void
 do_fclose_cleanup (void *arg)
 {
-  FILE *file = arg;
   fclose (arg);
 }
 
@@ -236,7 +239,6 @@ dump_memory_to_file (char *cmd, char *mode, char *file_format)
   void *buf;
   char *lo_exp;
   char *hi_exp;
-  int len;
 
   /* Open the file.  */
   filename = scan_filename_with_cleanup (&cmd, NULL);
@@ -520,53 +522,92 @@ restore_section_callback (bfd *ibfd, asection *isec, void *args)
   return;
 }
 
+/* APPLE LOCAL BEGIN: segment binary file downloads  */
+
 static void
 restore_binary_file (char *filename, struct callback_data *data)
 {
   FILE *file = fopen_with_cleanup (filename, FOPEN_RB);
-  int status;
   gdb_byte *buf;
-  long len;
+  int len, total_file_bytes;
+  int bytes_to_read_from_file;
 
   /* Get the file size for reading.  */
-  if (fseek (file, 0, SEEK_END) == 0)
-    len = ftell (file);
+  if (fseek (file, 0, SEEK_END) == 0) 
+    total_file_bytes = ftell (file);
   else
     perror_with_name (filename);
 
-  if (len <= data->load_start)
+  if (total_file_bytes <= data->load_start)
     error (_("Start address is greater than length of binary file %s."), 
 	   filename);
 
-  /* Chop off "len" if it exceeds the requested load_end addr. */
-  if (data->load_end != 0 && data->load_end < len)
-    len = data->load_end;
-  /* Chop off "len" if the requested load_start addr skips some bytes. */
+  bytes_to_read_from_file = data->load_end;
+  if (bytes_to_read_from_file == 0)
+    bytes_to_read_from_file = total_file_bytes;
   if (data->load_start > 0)
-    len -= data->load_start;
+    bytes_to_read_from_file -= data->load_start;
+
+  if (bytes_to_read_from_file > total_file_bytes)
+    bytes_to_read_from_file = total_file_bytes;
 
   printf_filtered 
-    ("Restoring binary file %s into memory (0x%lx to 0x%lx)\n", 
+    ("Restoring binary file %s into memory (0x%s to 0x%s)\n", 
      filename, 
-     (unsigned long) data->load_start + data->load_offset, 
-     (unsigned long) data->load_start + data->load_offset + len);
+     paddr_nz (data->load_start + data->load_offset),
+     paddr_nz (data->load_start + data->load_offset + bytes_to_read_from_file));
 
   /* Now set the file pos to the requested load start pos.  */
   if (fseek (file, data->load_start, SEEK_SET) != 0)
     perror_with_name (filename);
 
-  /* Now allocate a buffer and read the file contents.  */
+  if (bytes_to_read_from_file > g_max_binary_file_chunk)
+    len = g_max_binary_file_chunk;
+  else
+    len = bytes_to_read_from_file;
+
   buf = xmalloc (len);
   make_cleanup (xfree, buf);
-  if (fread (buf, 1, len, file) != len)
-    perror_with_name (filename);
 
-  /* Now write the buffer into target memory. */
-  len = target_write_memory (data->load_start + data->load_offset, buf, len);
-  if (len != 0)
-    warning (_("restore: memory write failed (%s)."), safe_strerror (len));
-  return;
+  CORE_ADDR addrp = data->load_start + data->load_offset;
+  /* BYTES_TO_READ_FROM_FILE decreases each time through this loop;
+     we read g_max_binary_file_chunk or less bytes at each iteration.  */
+  while (bytes_to_read_from_file > 0)
+    {
+      /* The last chunk we'll be reading -- at this point our LEN buffer
+         is larger than the remaining number of bytes to be read; cap it
+         so we don't read off the end of the file. */
+      if (len > bytes_to_read_from_file)
+        len = bytes_to_read_from_file;
+
+      if (fread (buf, 1, len, file) != len)
+	perror_with_name (filename);
+    
+      int max_errors = 2;
+      while (max_errors > 0)
+        {
+           printf_unfiltered ("Writing 0x%s bytes to 0x%s\n", paddr_nz (len),
+			      paddr_nz (addrp));
+           gdb_flush (gdb_stdout);
+           if (target_write_memory (addrp, buf, len) == 0)
+             {
+               addrp += len;
+               break;
+             }
+           else
+             {
+	       warning ("restore: memory write failed - retrying.");
+               max_errors--;
+             }
+        }
+      if (max_errors == 0)
+        error ("restore: memory write failed.");
+
+      bytes_to_read_from_file -= len;
+    }
 }
+
+/* APPLE LOCAL END: segment binary file downloads  */
 
 static void
 restore_command (char *args, int from_tty)
@@ -673,10 +714,90 @@ binary_append_command (char *cmd, int from_tty)
 
 extern initialize_file_ftype _initialize_cli_dump; /* -Wmissing-prototypes */
 
+/* APPLE LOCAL BEGIN: segment binary file downloads  */
+
+static void
+show_binary_buffer_size (char *args, int from_tty)
+{
+    printf_filtered (_("The restore binary buffer size is %ld (0x%lx).\n"), 
+		     g_max_binary_file_chunk, g_max_binary_file_chunk );
+}
+
+static void
+set_binary_buffer_size (char *args, int from_tty)
+{
+  if (args == NULL) 
+    {
+      printf_filtered (_("Reverting the restore binary buffer size to the default value.\n")); 
+      g_max_binary_file_chunk = DEFAULT_MAX_BINARY_FILE_CHUNK;
+    }
+  else
+    {
+      char *end;
+      long binary_file_chunk = strtol (args, &end, 0);
+      /* Make sure that the new value is larger than the the 
+         minimum max remote packet size so we all remote
+         command packets can still function properly.  */
+      if (end == NULL || *end != '\0')
+        {
+          error (_("Invalid binary buffer size argument '%s'."), args);
+        }
+      else
+	{
+          g_max_binary_file_chunk = binary_file_chunk;
+        }
+    }
+  show_binary_buffer_size (NULL, from_tty);
+}
+
+static void
+set_restore_cmd (char *args, int from_tty)
+{
+}
+
+static void
+show_restore_cmd (char *args, int from_tty)
+{
+  show_binary_buffer_size (args, from_tty);
+}
+
+/* APPLE LOCAL END: segment binary file downloads  */
+
+
 void
 _initialize_cli_dump (void)
 {
   struct cmd_list_element *c;
+
+/* APPLE LOCAL BEGIN: segment binary file downloads  */
+  static struct cmd_list_element *restore_set_cmdlist;
+  static struct cmd_list_element *restore_show_cmdlist;
+
+  add_prefix_cmd ("restore", no_class, set_restore_cmd, 
+		  _("Set restore specific command settings\n"),
+		  &restore_set_cmdlist, "set restore ",
+		  0 /* allow-unknown */, &setlist);
+  add_prefix_cmd ("restore", no_class, show_restore_cmd, 
+		  _("Show current restore specific command settings"),
+		  &restore_show_cmdlist, "show restore ",
+		  0 /* allow-unknown */, &showlist);
+
+  add_cmd ("binary-buffer-size", 
+           no_class, set_binary_buffer_size, _("\
+Set the max binary buffer size to use with the 'restore' command.\n\
+The single optional argument SIZE can be given to specify the size of the\n\
+buffer in bytes. When no argument is given, the default value is restored.\n\
+When a binary file is restored to memory, SIZE bytes will be read from the\n\
+current file position and then written to appropriate target memory address.\n\
+This allows large files to be downloaded to target memory without the risk of\n\
+large allocation failures in gdb."), 
+	   &restore_set_cmdlist);
+  add_cmd ("binary-buffer-size", 
+           no_class, show_binary_buffer_size, 
+	   _("Show the max binary buffer size to use with the 'restore' command."),
+	   &restore_show_cmdlist);
+  /* APPLE LOCAL END: segment binary file downloads  */
+
   add_prefix_cmd ("dump", class_vars, dump_command, _("\
 Dump target code/data to a local file."),
 		  &dump_cmdlist, "dump ",

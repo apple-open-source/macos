@@ -1,11 +1,14 @@
 /*
  * radutmp.h	Definitions for the Radius UTMP file.
  *
- * Version:	$Id: radutmp.h,v 1.4 2003/06/20 17:50:10 phampson Exp $
+ * Version:	$Id$
  */
 
 #ifndef _RADUTMP_H
 #define _RADUTMP_H
+
+#include <freeradius-devel/ident.h>
+RCSIDH(radutmp_h, "$Id$")
 
 /*
  *      Types of connection.

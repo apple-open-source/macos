@@ -12,8 +12,7 @@ module Svn
     Util.set_methods(Ext::Repos, self)
 
 
-    @@alias_targets = %w(create open hotcopy recover
-                         db_logfiles)
+    @@alias_targets = %w(create hotcopy recover db_logfiles)
     class << self
       @@alias_targets.each do |target|
         alias_method "_#{target}", target
@@ -23,30 +22,18 @@ module Svn
       alias_method "_#{target}", target
     end
     @@alias_targets = nil
-    
-    module_function
-    def open(path)
-      repos = _open(path)
-      if block_given?
-        yield repos
-      else
-        repos
-      end
-    end
 
-    def create(path, config={}, fs_config={})
-      _create(path, nil, nil, config, fs_config)
+    module_function
+    def create(path, config={}, fs_config={}, &block)
+      _create(path, nil, nil, config, fs_config, &block)
     end
 
     def hotcopy(src, dest, clean_logs=true)
       _hotcopy(src, dest, clean_logs)
     end
 
-    def recover(path,	nonblocking=false)
-      start_callback = Proc.new do
-        yield
-      end
-      recover2(path, nonblocking, start_callback)
+    def recover(path, nonblocking=false, cancel_func=nil, &start_callback)
+      recover3(path, nonblocking, start_callback, cancel_func)
     end
 
     def db_logfiles(path, only_unused=true)
@@ -56,7 +43,7 @@ module Svn
     def read_authz(file, must_exist=true)
       Repos.authz_read(file, must_exist)
     end
-      
+
     ReposCore = SWIG::TYPE_p_svn_repos_t
     class ReposCore
       class << self
@@ -85,11 +72,11 @@ module Svn
       def fs
         Repos.fs_wrapper(self)
       end
-      
+
       def set_authz_read_func(&block)
         @authz_read_func = block
       end
-      
+
       def report(rev, username, fs_base, target, tgt_path,
                  editor, text_deltas=true, recurse=true,
                  ignore_ancestry=false, authz_read_func=nil)
@@ -103,6 +90,27 @@ module Svn
         setup_report_baton(report_baton)
         if block_given?
           report_baton.set_path("", rev)
+          result = yield(report_baton)
+          report_baton.finish_report unless report_baton.aborted?
+          result
+        else
+          report_baton
+        end
+      end
+
+      def report2(rev, fs_base, target, tgt_path, editor, text_deltas=true,
+                  ignore_ancestry=false, depth=nil, authz_read_func=nil,
+                  send_copyfrom_args=nil)
+        authz_read_func ||= @authz_read_func
+        args = [
+          rev, self, fs_base, target, tgt_path, text_deltas,
+          depth, ignore_ancestry, send_copyfrom_args, editor,
+          authz_read_func,
+        ]
+        report_baton = Repos.begin_report2(*args)
+        setup_report_baton(report_baton)
+        if block_given?
+          report_baton.set_path("", rev, false, nil, depth)
           result = yield(report_baton)
           report_baton.finish_report unless report_baton.aborted?
           result
@@ -133,9 +141,21 @@ module Svn
         editor
       end
 
-      def youngest_rev
+      def commit_editor3(repos_url, base_path, txn=nil, rev_props=nil,
+                         commit_callback=nil, authz_callback=nil)
+        rev_props ||= {}
+        editor, baton = Repos.get_commit_editor5(self, txn, repos_url,
+                                                 base_path, rev_props,
+                                                 commit_callback,
+                                                 authz_callback)
+        editor.baton = baton
+        editor
+      end
+
+      def youngest_revision
         fs.youngest_rev
       end
+      alias_method :youngest_rev, :youngest_revision
 
       def dated_revision(date)
         Repos.dated_revision(self, date.to_apr_time)
@@ -149,7 +169,6 @@ module Svn
         paths = [paths] unless paths.is_a?(Array)
         infos = []
         receiver = Proc.new do |changed_paths, revision, author, date, message|
-          date = Time.parse_svn_format(date) if date
           if block_given?
             yield(changed_paths, revision, author, date, message)
           end
@@ -163,6 +182,20 @@ module Svn
       end
 
       def file_revs(path, start_rev, end_rev, authz_read_func=nil)
+        args = [path, start_rev, end_rev, authz_read_func]
+        if block_given?
+          revs = file_revs2(*args) do |path, rev, rev_props, prop_diffs|
+            yield(path, rev, rev_props, Util.hash_to_prop_array(prop_diffs))
+          end
+        else
+          revs = file_revs2(*args)
+        end
+        revs.collect do |path, rev, rev_props, prop_diffs|
+          [path, rev, rev_props, Util.hash_to_prop_array(prop_diffs)]
+        end
+      end
+
+      def file_revs2(path, start_rev, end_rev, authz_read_func=nil)
         authz_read_func ||= @authz_read_func
         revs = []
         handler = Proc.new do |path, rev, rev_props, prop_diffs|
@@ -178,11 +211,18 @@ module Svn
         Repos.fs_commit_txn(self, txn)
       end
 
-      def transaction_for_commit(author, log, rev=nil)
-        txn = nil
-        args = [self, rev || youngest_rev, author, log]
-        txn = Repos.fs_begin_txn_for_commit(*args)
-        
+      def transaction_for_commit(*args)
+        if args.first.is_a?(Hash)
+          props, rev = args
+        else
+          author, log, rev = args
+          props = {
+            Svn::Core::PROP_REVISION_AUTHOR => author,
+            Svn::Core::PROP_REVISION_LOG => log,
+          }
+        end
+        txn = Repos.fs_begin_txn_for_commit2(self, rev || youngest_rev, props)
+
         if block_given?
           yield(txn)
           commit(txn) if fs.transactions.include?(txn.name)
@@ -192,10 +232,8 @@ module Svn
       end
 
       def transaction_for_update(author, rev=nil)
-        txn = nil
-        args = [self, rev || youngest_rev, author]
-        txn = Repos.fs_begin_txn_for_update(*args)
-        
+        txn = Repos.fs_begin_txn_for_update(self, rev || youngest_rev, author)
+
         if block_given?
           yield(txn)
           txn.abort if fs.transactions.include?(txn.name)
@@ -203,7 +241,7 @@ module Svn
           txn
         end
       end
-      
+
       def commit(txn)
         Repos.fs_commit_txn(self, txn)
       end
@@ -230,23 +268,36 @@ module Svn
         Repos.fs_get_locks(self, path, authz_read_func)
       end
 
-      def set_prop(author, name, new_value, rev=nil, authz_read_func=nil)
+      def set_prop(author, name, new_value, rev=nil, authz_read_func=nil,
+                   use_pre_revprop_change_hook=true,
+                   use_post_revprop_change_hook=true)
         authz_read_func ||= @authz_read_func
         rev ||= youngest_rev
-        Repos.fs_change_rev_prop2(self, rev, author, name,
-                                  new_value, authz_read_func)
+        Repos.fs_change_rev_prop3(self, rev, author, name, new_value,
+                                  use_pre_revprop_change_hook,
+                                  use_post_revprop_change_hook,
+                                  authz_read_func)
       end
 
       def prop(name, rev=nil, authz_read_func=nil)
         authz_read_func ||= @authz_read_func
         rev ||= youngest_rev
-        Repos.fs_revision_prop(self, rev, name, authz_read_func)
+        value = Repos.fs_revision_prop(self, rev, name, authz_read_func)
+        if name == Svn::Core::PROP_REVISION_DATE
+          value = Time.from_svn_format(value)
+        end
+        value
       end
 
       def proplist(rev=nil, authz_read_func=nil)
         authz_read_func ||= @authz_read_func
         rev ||= youngest_rev
-        Repos.fs_revision_proplist(self, rev, authz_read_func)
+        props = Repos.fs_revision_proplist(self, rev, authz_read_func)
+        if props.has_key?(Svn::Core::PROP_REVISION_DATE)
+          props[Svn::Core::PROP_REVISION_DATE] =
+            Time.from_svn_format(props[Svn::Core::PROP_REVISION_DATE])
+        end
+        props
       end
 
       def node_editor(base_root, root)
@@ -265,9 +316,10 @@ module Svn
                        use_deltas, cancel_func)
       end
 
-      def load_fs(dumpstream, feedback_stream, uuid_action,
-                  parent_dir, use_pre_commit_hook=true,
+      def load_fs(dumpstream, feedback_stream=nil, uuid_action=nil,
+                  parent_dir=nil, use_pre_commit_hook=true,
                   use_post_commit_hook=true, &cancel_func)
+        uuid_action ||= Svn::Repos::LOAD_UUID_DEFAULT
         Repos.load_fs2(self, dumpstream, feedback_stream,
                        uuid_action, parent_dir,
                        use_pre_commit_hook, use_post_commit_hook,
@@ -288,11 +340,11 @@ module Svn
         def parser.outstream=(new_stream)
           @outstream = new_stream
         end
-      
+
         def parser.baton=(new_baton)
           @baton = new_baton
         end
-        
+
         def parser.baton
           @baton
         end
@@ -301,62 +353,78 @@ module Svn
         parser.baton = baton
         parser
       end
-    
+
       def delta_tree(root, base_rev)
         base_root = fs.root(base_rev)
         editor = node_editor(base_root, root)
         root.replay(editor)
         editor.baton.node
       end
-      
+
+      def mergeinfo(paths, revision=nil, inherit=nil,
+                    include_descendants=false, &authz_read_func)
+        path = nil
+        unless paths.is_a?(Array)
+          path = paths
+          paths = [path]
+        end
+        revision ||= Svn::Core::INVALID_REVNUM
+        results = Repos.fs_get_mergeinfo(self, paths, revision,
+                                         inherit, include_descendants,
+                                         authz_read_func)
+        results = results[path] if path
+        results
+      end
+
       private
       def setup_report_baton(baton)
         baton.instance_variable_set("@aborted", false)
-        
+
         def baton.aborted?
           @aborted
         end
-        
-        def baton.set_path(path, revision, start_empty=false, lock_token=nil)
-          Repos.set_path2(self, path, revision, start_empty, lock_token)
+
+        def baton.set_path(path, revision, start_empty=false, lock_token=nil,
+                           depth=nil)
+          Repos.set_path3(self, path, revision, depth, start_empty, lock_token)
         end
-        
-        def baton.link_path(path, link_path, revision,
-                            start_empty=false, lock_token=nil)
-          Repos.link_path2(self, path, link_path, revision,
+
+        def baton.link_path(path, link_path, revision, start_empty=false,
+                            lock_token=nil, depth=nil)
+          Repos.link_path3(self, path, link_path, revision, depth,
                            start_empty, lock_token)
         end
-        
+
         def baton.delete_path(path)
           Repos.delete_path(self, path)
         end
-        
+
         def baton.finish_report
           Repos.finish_report(self)
         end
-        
+
         def baton.abort_report
           Repos.abort_report(self)
           @aborted = true
         end
-        
+
       end
     end
-    
-    
+
+
     class Node
-      
+
       alias text_mod? text_mod
       alias prop_mod? prop_mod
-      
+
       def copy?
         Util.copy?(copyfrom_path, copyfrom_rev)
       end
-      
+
       def add?
         action == "A"
       end
-      
+
       def delete?
         action == "D"
       end
@@ -380,7 +448,7 @@ module Svn
       def unknown?
         kind == Core::NODE_UNKNOWN
       end
-      
+
     end
 
     Authz = SWIG::TYPE_p_svn_authz_t
@@ -391,7 +459,7 @@ module Svn
           Repos.authz_read(file, must_exist)
         end
       end
-      
+
       def can_access?(repos_name, path, user, required_access)
         Repos.authz_check_access(self,
                                  repos_name,

@@ -61,18 +61,12 @@ bool IOFWIPAsyncWriteCommand::initAll(IOFireWireIP *networkObject, IOFWIPBusInte
         return false;
 	
     // Create a buffer descriptor that will hold something more than MTU
-    fBuffer = new IOBufferMemoryDescriptor;
+	fBuffer		= IOBufferMemoryDescriptor::inTaskWithOptions( kernel_task, 0, cmdLen, 1 );
     if(fBuffer == NULL)
         return false;
 
-    if(!fBuffer->initWithOptions(kIODirectionOut | kIOMemoryUnshared, cmdLen, 1))
-        return false;
-    
     // Create a Memory descriptor that will hold the buffer descriptor's memory pointer
-    fMem = IOMemoryDescriptor::withAddress((void *)fBuffer->getBytesNoCopy(), cmdLen,
-                                          kIODirectionOut);
-    if(!fMem)
-        return false;
+	fMem = NULL;
 
 	fCursorBuf = (UInt8*)getBufferFromDescriptor();
 
@@ -161,9 +155,7 @@ IOReturn IOFWIPAsyncWriteCommand::reinit(IOFireWireNub *device, UInt32 cmdLen,
     fComplete = completion;
     fRefCon = refcon;
    
-    if(fMem)
-        fSize = cmdLen;
-		
+	fSize = cmdLen;	
     fBytesTransferred = 0;
 
     fDevice = device;
@@ -576,15 +568,17 @@ IOReturn IOFWIPAsyncWriteCommand::initDescriptor(UInt32 length)
 			return kIOFireWireIPNoResources;
 	}
 
-	bool ret = fMem->initWithRanges (fVirtualRange,
-									fIndex,
-									kIODirectionOut,
-									kernel_task,
-									true);
-								
-	if(ret == false)
-		return kIOFireWireIPNoResources;
+	fMem = IOMemoryDescriptor::withAddressRanges(fVirtualRange,
+												  fIndex,
+												  kIODirectionOut,
+												  kernel_task);
 	
+    if(!fMem)
+        return kIOFireWireIPNoResources;
+	
+	fMemDesc = fMem;
+	fMemDesc->prepare();
+
 	return kIOReturnSuccess;
 }
 
@@ -595,11 +589,18 @@ IOReturn IOFWIPAsyncWriteCommand::initDescriptor(UInt32 length)
 */
 void IOFWIPAsyncWriteCommand::resetDescriptor(IOReturn status)
 {
+	if( fMem ){
+		fMem->complete();
+		fMem->release();
+		fMem = NULL;
+		fMemDesc = fMem;
+	}
+	
 	memset(fVirtualRange, 0, sizeof(IOVirtualRange)*MAX_ALLOWED_SEGS);
 	fTailMbuf	= NULL;
 	fCursorBuf	= (UInt8*)getBufferFromDescriptor();
 
-	if( status == kIOReturnSuccess || status == kIOReturnBusy)
+	if( status == kIOReturnSuccess || status == kIOReturnBusy )
 			fIPLocalNode->fIPoFWDiagnostics.fFastRetryBusyAcks += getFastRetryCount();
 
 	fMBufCommand->releaseWithStatus(status);
@@ -734,11 +735,8 @@ bool IOFWIPAsyncStreamTxCommand::initAll(
 		return false;
 
     // Create a buffer descriptor that will hold something more than MTU
-    fBuffer = new IOBufferMemoryDescriptor;
+	fBuffer	= IOBufferMemoryDescriptor::inTaskWithOptions( kernel_task, 0, cmdLen, 1 );
     if(fBuffer == NULL)
-        return false;
-
-    if(!fBuffer->initWithOptions(kIODirectionOut | kIOMemoryUnshared, cmdLen, 1))
         return false;
     
     // Create a Memory descriptor that will hold the buffer descriptor's memory pointer

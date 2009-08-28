@@ -79,9 +79,9 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include "FastMalloc.h"
+#include "TypeTraits.h"
 #include <wtf/Assertions.h>
-#include <wtf/FastMalloc.h>
-#include <wtf/TypeTraits.h>
 
 namespace WTF {
 
@@ -396,5 +396,8 @@ namespace WTF {
 
 
 } // namespace WTF
+
+// Using WTF::FastAllocBase to avoid using FastAllocBase's explicit qualification by WTF::.
+using WTF::FastAllocBase;
 
 #endif // FastAllocBase_h

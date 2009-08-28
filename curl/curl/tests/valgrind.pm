@@ -18,8 +18,10 @@
 # This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
 # KIND, either express or implied.
 #
-# $Id: valgrind.pm,v 1.1 2005/02/10 08:50:33 bagder Exp $
+# $Id: valgrind.pm,v 1.2 2007-10-31 18:32:06 danf Exp $
 ###########################################################################
+
+use File::Basename;
 
 sub valgrindparse {
     my ($srcdir,     # the dir in which the runtests script resides
@@ -44,13 +46,13 @@ sub valgrindparse {
                 my $w = $4;
                 if($w =~ /(.*) \(([^:]*):(\d+)/) {
                     my ($func, $source, $line)=($1, $2, $3);
-
-                    if(-f "$srcdir/../src/$source" ||
-                       -f "$srcdir/../lib/$source") {
+                    my $sourcename = basename($source);
+                    if(-f "$srcdir/../src/$sourcename" ||
+                       -f "$srcdir/../lib/$sourcename") {
                         # this is our source
  #                       print "$func() at $source:$line\n";
                         $us++;
-                    }
+                    } #else {print "Not our source: $func, $source, $line\n";}
                 }
             }
             else {

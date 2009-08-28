@@ -47,3 +47,21 @@ Individual patches for Vim 7.2:
   1521  7.2.020  "kvim" starts the GUI even though KDE is no longer supported
   4806  7.2.021  getting full file name when executing autocmds may be slow
   3823  7.2.022  (extra) cannot run tests with the MingW compiler
+  2062  7.2.023  'cursorcolumn' wrong in a closed fold when display is shifted
+  1452  7.2.024  'history' can be made negative, causes out-of-memory error
+  1470  7.2.025  a CursorHold event that invokes system() is retriggered
+  2969  7.2.026  (after 7.2.010) 'K' uses the rest of the line
+  3235  7.2.027  can use cscope commands in the sandbox, might not be safe
+  1466  7.2.028  confusing error message for missing ()
+  1291  7.2.029  no completion for ":doautoall" like for ":doautocmd"
+  1546  7.2.030  (after 7.2.027) can't compile, ex_oldfiles undefined
+ 39400  7.2.031  file names from viminfo are not available to the user
+  1583  7.2.032  (after 7.2.031) can't compile with EXITFREE defined
+  2270  7.2.033  using "ucs-2le" for two-byte BOM, but text might be "utf-16le"
+  2372  7.2.034  memory leak in spell info when deleting a buffer
+  3522  7.2.035  mismatches for library and Vim alloc/free functions
+  7545  7.2.036  (extra) mismatches for library and Vim alloc/free functions
+  1576  7.2.037  double free with GTK 1 and compiled with EXITFREE
+  2438  7.2.038  overlapping arguments to memcpy()
+  1378  7.2.039  accessing freed memory on exit when EXITFREE is defined
+  1836  7.2.040  ":e ++ff=dos foo" gets "unix" 'ff' when CR before NL missing

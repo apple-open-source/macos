@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2007 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,53 +23,6 @@
 #ifndef __IOKIT_IOACPIINLINEIO_H
 #define __IOKIT_IOACPIINLINEIO_H
 
-#ifdef  __i386__
-
-#define __IN(s, u)                           \
-static inline unsigned u                     \
-in##s(unsigned short port)                   \
-{                                            \
-    unsigned u data;                         \
-    asm volatile (                           \
-        "in" #s " %1, %0"                    \
-        : "=a" (data)                        \
-        : "d" (port));                       \
-    return (data);                           \
-}
-
-#define __OUT(s, u)                          \
-static inline void                           \
-out##s(unsigned short port, unsigned u data) \
-{                                            \
-    asm volatile (                           \
-        "out" #s " %1, %0"                   \
-        :                                    \
-        : "d" (port), "a" (data));           \
-}
-
-#else  /* ! __i386__ */
-
-#define __IN(s, u)                           \
-static inline unsigned u                     \
-in##s(unsigned short port)                   \
-{                                            \
-    return (0);                              \
-}
-
-#define __OUT(s, u)                          \
-static inline void                           \
-out##s(unsigned short port, unsigned u data) \
-{                                            \
-}
-
-#endif /* ! __i386__ */
-
-__IN(b, char)
-__IN(w, short)
-__IN(l, long)
-
-__OUT(b, char)
-__OUT(w, short)
-__OUT(l, long)
+#include <architecture/i386/pio.h>
 
 #endif /* !__IOKIT_IOACPIINLINEIO_H */

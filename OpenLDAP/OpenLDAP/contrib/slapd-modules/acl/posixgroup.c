@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/contrib/slapd-modules/acl/posixgroup.c,v 1.1.2.3 2006/01/03 22:16:02 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/contrib/slapd-modules/acl/posixgroup.c,v 1.3.2.4 2008/02/11 23:26:38 kurt Exp $ */
 /*
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -247,7 +247,7 @@ pg_dynacl_mask(
 		Attribute	*a_uid,
 				*a_member;
 
-		a_uid = attr_find( user->e_attrs, pg_uidNumber);
+		a_uid = attr_find( user->e_attrs, pg_uidNumber );
 		if ( !a_uid || !BER_BVISNULL( &a_uid->a_nvals[ 1 ] ) ) {
 			rc = LDAP_NO_SUCH_ATTRIBUTE;
 
@@ -283,7 +283,7 @@ cleanup:;
 
 	if ( user != NULL && user != target ) {
 		op->o_bd = user_be;
-		be_entry_release_r( op, group );
+		be_entry_release_r( op, user );
 		op->o_bd = be;
 	}
 

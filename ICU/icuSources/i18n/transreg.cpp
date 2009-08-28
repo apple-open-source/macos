@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (c) 2001-2006, International Business Machines
+*   Copyright (c) 2001-2008, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -610,8 +610,14 @@ Transliterator* TransliteratorRegistry::reget(const UnicodeString& ID,
 }
 
 void TransliteratorRegistry::put(Transliterator* adoptedProto,
-                                 UBool visible) {
+                                 UBool visible,
+                                 UErrorCode& ec)
+{
     Entry *entry = new Entry();
+    if (entry == NULL) {
+        ec = U_MEMORY_ALLOCATION_ERROR;
+        return;
+    }
     entry->adoptPrototype(adoptedProto);
     registerEntry(adoptedProto->getID(), entry, visible);
 }
@@ -619,8 +625,13 @@ void TransliteratorRegistry::put(Transliterator* adoptedProto,
 void TransliteratorRegistry::put(const UnicodeString& ID,
                                  Transliterator::Factory factory,
                                  Transliterator::Token context,
-                                 UBool visible) {
+                                 UBool visible,
+                                 UErrorCode& ec) {
     Entry *entry = new Entry();
+    if (entry == NULL) {
+        ec = U_MEMORY_ALLOCATION_ERROR;
+        return;
+    }
     entry->setFactory(factory, context);
     registerEntry(ID, entry, visible);
 }
@@ -629,8 +640,13 @@ void TransliteratorRegistry::put(const UnicodeString& ID,
                                  const UnicodeString& resourceName,
                                  UTransDirection dir,
                                  UBool readonlyResourceAlias,
-                                 UBool visible) {
+                                 UBool visible,
+                                 UErrorCode& ec) {
     Entry *entry = new Entry();
+    if (entry == NULL) {
+        ec = U_MEMORY_ALLOCATION_ERROR;
+        return;
+    }
     entry->entryType = (dir == UTRANS_FORWARD) ? Entry::RULES_FORWARD
         : Entry::RULES_REVERSE;
     if (readonlyResourceAlias) {
@@ -645,16 +661,20 @@ void TransliteratorRegistry::put(const UnicodeString& ID,
 void TransliteratorRegistry::put(const UnicodeString& ID,
                                  const UnicodeString& alias,
                                  UBool readonlyAliasAlias,
-                                 UBool visible) {
+                                 UBool visible,
+                                 UErrorCode& /*ec*/) {
     Entry *entry = new Entry();
-    entry->entryType = Entry::ALIAS;
-    if (readonlyAliasAlias) {
-        entry->stringArg.setTo(TRUE, alias.getBuffer(), -1);
+    // Null pointer check
+    if (entry != NULL) {
+        entry->entryType = Entry::ALIAS;
+        if (readonlyAliasAlias) {
+            entry->stringArg.setTo(TRUE, alias.getBuffer(), -1);
+        }
+        else {
+            entry->stringArg = alias;
+        }
+        registerEntry(ID, entry, visible);
     }
-    else {
-        entry->stringArg = alias;
-    }
-    registerEntry(ID, entry, visible);
 }
 
 void TransliteratorRegistry::remove(const UnicodeString& ID) {
@@ -885,9 +905,12 @@ void TransliteratorRegistry::registerEntry(const UnicodeString& ID,
         registerSTV(source, target, variant);
         if (!availableIDs.contains((void*) &ID)) {
             UnicodeString *newID = (UnicodeString *)ID.clone();
-            // NUL-terminate the ID string
-            newID->getTerminatedBuffer();
-            availableIDs.addElement(newID, status);
+            // Check to make sure newID was created.
+            if (newID != NULL) {
+	            // NUL-terminate the ID string
+	            newID->getTerminatedBuffer();
+	            availableIDs.addElement(newID, status);
+            }
         }
     } else {
         removeSTV(source, target, variant);
@@ -929,10 +952,17 @@ void TransliteratorRegistry::registerSTV(const UnicodeString& source,
     // We add the variant string.  If it is the special "no variant"
     // string, that is, the empty string, we add it at position zero.
     if (!variants->contains((void*) &variant)) {
+    	UnicodeString *tempus; // Used for null pointer check.
         if (variant.length() > 0) {
-            variants->addElement(new UnicodeString(variant), status);
+        	tempus = new UnicodeString(variant);
+        	if (tempus != NULL) {
+        		variants->addElement(tempus, status);
+        	}
         } else {
-            variants->insertElementAt(new UnicodeString(NO_VARIANT), 0, status);
+        	tempus = new UnicodeString(NO_VARIANT) ;
+        	if (tempus != NULL) {
+        		variants->insertElementAt(tempus, 0, status);
+        	}
         }
     }
 }
@@ -1235,7 +1265,12 @@ Transliterator* TransliteratorRegistry::instantiateEntry(const UnicodeString& ID
         return t;
     case Entry::COMPOUND_RBT:
         {
-            UVector* rbts = new UVector(status);
+            UVector* rbts = new UVector(entry->u.dataVector->size(), status);
+            // Check for null pointer
+            if (rbts == NULL) {
+            	status = U_MEMORY_ALLOCATION_ERROR;
+            	return NULL;
+            }
             int32_t passNumber = 1;
             for (int32_t i = 0; U_SUCCESS(status) && i < entry->u.dataVector->size(); i++) {
                 Transliterator* t = new RuleBasedTransliterator(UnicodeString(CompoundTransliterator::PASS_STRING) + (passNumber++),
@@ -1245,8 +1280,10 @@ Transliterator* TransliteratorRegistry::instantiateEntry(const UnicodeString& ID
                 else
                     rbts->addElement(t, status);
             }
-            if (U_FAILURE(status))
+            if (U_FAILURE(status)) {
+                delete rbts;
                 return 0;
+            }
             aliasReturn = new TransliteratorAlias(ID, entry->stringArg, rbts, entry->compoundFilter);
         }
         if (aliasReturn == 0) {

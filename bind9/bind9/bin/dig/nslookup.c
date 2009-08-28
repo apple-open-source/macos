@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: nslookup.c,v 1.101.18.15 2007/08/28 07:19:55 tbox Exp $ */
+/* $Id: nslookup.c,v 1.117 2007/06/18 23:47:17 tbox Exp $ */
 
 #include <config.h>
 

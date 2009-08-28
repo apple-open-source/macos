@@ -27,10 +27,10 @@ cc -o nvram nvram.c -framework CoreFoundation -framework IOKit -Wall
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOKitKeys.h>
 #include <CoreFoundation/CoreFoundation.h>
+#include <err.h>
+#include <mach/mach_error.h>
 
 // Prototypes
-static void Error(char *format, long item);
-static void FatalError(long exitValue, char *format, long item);
 static void UsageMessage(char *message);
 static void ParseFile(char *fileName);
 static void ParseXMLFile(char *fileName);
@@ -66,14 +66,13 @@ int main(int argc, char **argv)
   
   result = IOMasterPort(bootstrap_port, &masterPort);
   if (result != KERN_SUCCESS) {
-    FatalError(-1, "Error (%d) getting the IOMaster port", result);
-    exit(-1);
+    errx(1, "Error getting the IOMaster port: %s",
+        mach_error_string(result));
   }
   
   gOptionsRef = IORegistryEntryFromPath(masterPort, "IODeviceTree:/options");
   if (gOptionsRef == 0) {
-    FatalError(-1, "nvram is not supported on this system.", -1);
-    exit(-1);
+    errx(1, "nvram is not supported on this system");
   }
   
   for (cnt = 1; cnt < argc; cnt++) {
@@ -129,40 +128,13 @@ int main(int argc, char **argv)
   return 0;
 }
 
-
-// Error(format, item)
-//
-//   Print a message on standard error.
-//
-static void Error(char *format, long item)
-{
-  fprintf(stderr, "%s: ", gToolName);
-  fprintf(stderr, format, item);
-  fprintf(stderr, "\n");
-}
-
-
-// FatalError(exitValue, format, item)
-//
-//   Print a message on standard error and exit with value.
-//
-static void FatalError(long exitValue, char *format, long item)
-{
-  fprintf(stderr, "%s: ", gToolName);
-  fprintf(stderr, format, item);
-  fprintf(stderr, "\n");
-  
-  exit(exitValue);
-}
-
-
 // UsageMessage(message)
 //
 //   Print the usage information and exit.
 //
 static void UsageMessage(char *message)
 {
-  Error("(usage: %s)", (long)message);
+  warnx("(usage: %s)", message);
   
   printf("%s [-x] [-p] [-f filename] [-d name] name[=value] ...\n", gToolName);
   printf("\t-x         use XML format for printing or reading variables\n");
@@ -205,6 +177,7 @@ static void ParseFile(char *fileName)
   char name[kMaxNameSize];
   char value[kMaxStringSize];
   FILE *patches;
+  kern_return_t kret;
 
   if (gUseXML) {
     ParseXMLFile(fileName);
@@ -213,15 +186,15 @@ static void ParseFile(char *fileName)
   
   patches = fopen(fileName, "r");
   if (patches == 0) {
-    FatalError(errno, "Couldn't open patch file - '%s'", (long)fileName);
+    err(1, "Couldn't open patch file - '%s'", fileName);
   }
   
   state = kFirstColumn;
   while ((tc = getc(patches)) != EOF) {
     if(ni==(kMaxNameSize-1)) 
-      FatalError(-1,"Name exceeded max length of %d",kMaxNameSize);
+      errx(1, "Name exceeded max length of %d", kMaxNameSize);
     if(vi==(kMaxStringSize-1))
-      FatalError(-1,"Value exceeded max length of %d",kMaxStringSize);
+      errx(1, "Value exceeded max length of %d", kMaxStringSize);
     switch (state) {
     case kFirstColumn :
       ni = 0;
@@ -260,7 +233,7 @@ static void ParseFile(char *fileName)
     case kCollectName :
       if (tc == '\n') {
 	name[ni] = 0;
-	Error("Name must be followed by white space - '%s'", (long)name);
+	warnx("Name must be followed by white space - '%s'", name);
 	state = kFirstColumn;
       } else if (isspace(tc)) {
 	state = kFindValue;
@@ -300,15 +273,16 @@ static void ParseFile(char *fileName)
     if (state == kSetenv) {
       name[ni] = 0;
       value[vi] = 0;
-      if (SetOFVariable(name, value) != KERN_SUCCESS) {
-	FatalError(-1, "Error (-1) setting variable - '%s'", (long)name);
+      if ((kret = SetOFVariable(name, value)) != KERN_SUCCESS) {
+        errx(1, "Error setting variable - '%s': %s", name,
+             mach_error_string(kret));
       }
       state = kFirstColumn;
     }
   }
   
   if (state != kFirstColumn) {
-    FatalError(-1, "Last line ended abruptly", 0);
+    errx(1, "Last line ended abruptly");
   }
 }
 
@@ -329,7 +303,7 @@ static void ParseXMLFile(char *fileName)
 
         filePath = CFStringCreateWithCString(kCFAllocatorDefault, fileName, kCFStringEncodingUTF8);
         if (filePath == NULL) {
-                FatalError(-1, "Could not create file path string", 0);
+          errx(1, "Could not create file path string");
         }
 
         // Create a URL that specifies the file we will create to 
@@ -339,7 +313,7 @@ static void ParseXMLFile(char *fileName)
                                                  kCFURLPOSIXPathStyle,
                                                  false /* not a directory */ );
         if (fileURL == NULL) {
-                FatalError(-1, "Could not create file path URL", 0);
+          errx(1, "Could not create file path URL");
         }
 
         CFRelease(filePath);
@@ -351,7 +325,7 @@ static void ParseXMLFile(char *fileName)
                     NULL,      
                     NULL,
                     &errorCode) || data == NULL ) {
-                FatalError(-1, "Error reading XML file (%d)", errorCode);
+          errx(1, "Error reading XML file (%d)", errorCode);
         }
 
         CFRelease(fileURL);
@@ -364,11 +338,11 @@ static void ParseXMLFile(char *fileName)
         CFRelease(data);
 
         if (plist == NULL) {
-                FatalError(-1, "Error parsing XML file", 0);
+          errx(1, "Error parsing XML file");
         }
 
         if (errorString != NULL) {
-                FatalError(-1, "Error parsing XML file: %s", (long)CFStringGetCStringPtr(errorString, kCFStringEncodingUTF8));
+          errx(1, "Error parsing XML file: %s", CFStringGetCStringPtr(errorString, kCFStringEncodingUTF8));
         }
 
         CFDictionaryApplyFunction(plist, &SetOFVariableFromFile, 0);
@@ -409,12 +383,14 @@ static void SetOrGetOFVariable(char *str)
     
     result = SetOFVariable(name, value);
     if (result != KERN_SUCCESS) {
-      FatalError(-1, "Error (-1) setting variable - '%s'", (long)name);
+      errx(1, "Error setting variable - '%s': %s", name,
+           mach_error_string(result));
     }
   } else {
     result = GetOFVariable(name, &nameRef, &valueRef);
     if (result != KERN_SUCCESS) {
-      FatalError(-1, "Error (-1) getting variable - '%s'", (long)name);
+      errx(1, "Error getting variable - '%s': %s", name,
+           mach_error_string(result));
     }
     
     PrintOFVariable(nameRef, valueRef, 0);
@@ -435,11 +411,11 @@ static kern_return_t GetOFVariable(char *name, CFStringRef *nameRef,
   *nameRef = CFStringCreateWithCString(kCFAllocatorDefault, name,
 				       kCFStringEncodingUTF8);
   if (*nameRef == 0) {
-    FatalError(-1, "Error (-1) creating CFString for key %s", (long)name);
+    errx(1, "Error creating CFString for key %s", name);
   }
   
   *valueRef = IORegistryEntryCreateCFProperty(gOptionsRef, *nameRef, 0, 0);
-  if (*valueRef == 0) return -1;
+  if (*valueRef == 0) return kIOReturnNotFound;
   
   return KERN_SUCCESS;
 }
@@ -454,12 +430,12 @@ static kern_return_t SetOFVariable(char *name, char *value)
   CFStringRef   nameRef;
   CFTypeRef     valueRef;
   CFTypeID      typeID;
-  kern_return_t result;
+  kern_return_t result = KERN_SUCCESS;
   
   nameRef = CFStringCreateWithCString(kCFAllocatorDefault, name,
 				      kCFStringEncodingUTF8);
   if (nameRef == 0) {
-    FatalError(-1, "Error (-1) creating CFString for key %s", (long)name);
+    errx(1, "Error creating CFString for key %s", name);
   }
   
   valueRef = IORegistryEntryCreateCFProperty(gOptionsRef, nameRef, 0, 0);
@@ -469,7 +445,7 @@ static kern_return_t SetOFVariable(char *name, char *value)
     
     valueRef = ConvertValueToCFTypeRef(typeID, value);
     if (valueRef == 0) {
-      FatalError(-1, "Error (-1) creating CFTypeRef for value %s",(long)value);
+      errx(1, "Error creating CFTypeRef for value %s", value);
     }  result = IORegistryEntrySetCFProperty(gOptionsRef, nameRef, valueRef);
   } else {
     while (1) {
@@ -499,7 +475,6 @@ static kern_return_t SetOFVariable(char *name, char *value)
 	if (result == KERN_SUCCESS) break;
       }
       
-      result = -1;
       break;
     }
   }
@@ -532,7 +507,7 @@ static void PrintOFVariables()
   
   result = IORegistryEntryCreateCFProperties(gOptionsRef, &dict, 0, 0);
   if (result != KERN_SUCCESS) {
-    FatalError(-1, "Error (%d) getting the firmware variables", result);
+    errx(1, "Error getting the firmware variables: %s", mach_error_string(result));
   }
 
   if (gUseXML) {
@@ -540,7 +515,7 @@ static void PrintOFVariables()
 
     data = CFPropertyListCreateXMLData( kCFAllocatorDefault, dict );
     if (data == NULL) {
-      FatalError(-1, "Error (%d) converting variables to xml", result);
+      errx(1, "Error converting variables to xml");
     }
 
     fwrite(CFDataGetBytePtr(data), sizeof(UInt8), CFDataGetLength(data), stdout);
@@ -582,7 +557,7 @@ static void PrintOFVariable(const void *key, const void *value, void *context)
   if( nameBuffer && CFStringGetCString(key, nameBuffer, nameLen, kCFStringEncodingUTF8) )
     nameString = nameBuffer;
   else {
-    Error("Error (-1) Unable to convert property name to C string", 0);
+    warnx("Unable to convert property name to C string");
     nameString = "<UNPRINTABLE>";
   }
   
@@ -604,7 +579,7 @@ static void PrintOFVariable(const void *key, const void *value, void *context)
     if ( valueBuffer && CFStringGetCString(value, valueBuffer, valueLen, kCFStringEncodingUTF8) )
       valueString = valueBuffer;
     else {
-      Error("Error (-1) Unable to convert value to C string", 0);
+      warnx("Unable to convert value to C string");
       valueString = "<UNPRINTABLE>";
     }
   } else if (typeID == CFDataGetTypeID()) {
@@ -649,7 +624,7 @@ static void ClearOFVariables(void)
 
     result = IORegistryEntryCreateCFProperties(gOptionsRef, &dict, 0, 0);
     if (result != KERN_SUCCESS) {
-      FatalError(-1, "Error (%d) getting the firmware variables", result);
+      errx(1, "Error getting the firmware variables: %s", mach_error_string(result));
     }
     CFDictionaryApplyFunction(dict, &ClearOFVariable, 0);
 
@@ -662,7 +637,7 @@ static void ClearOFVariable(const void *key, const void *value, void *context)
   result = IORegistryEntrySetCFProperty(gOptionsRef,
                                         CFSTR(kIONVRAMDeletePropertyKey), key);
   if (result != KERN_SUCCESS) {
-    FatalError(-1, "Error (%d) clearing firmware variables", result);
+    errx(1, "Error clearing firmware variables: %s", mach_error_string(result));
   }
 }
 
@@ -723,9 +698,10 @@ static void SetOFVariableFromFile(const void *key, const void *value, void *cont
           if( nameBuffer && CFStringGetCString(key, nameBuffer, nameLen, kCFStringEncodingUTF8) )
                   nameString = nameBuffer;
           else {
-                  Error("Error (-1) Unable to convert property name to C string", 0);
+                  warnx("Unable to convert property name to C string");
                   nameString = "<UNPRINTABLE>";
           }
-          FatalError(-1, "Error (-1) setting variable - '%s'", (long)nameString);
+          errx(1, "Error setting variable - '%s': %s", nameString,
+               mach_error_string(result));
   }
 }

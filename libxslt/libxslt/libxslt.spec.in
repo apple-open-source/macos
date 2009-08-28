@@ -1,4 +1,4 @@
-Summary: Library providing the Gnome XSLT engine
+Summary: Library providing the GNOME XSLT engine
 Name: libxslt
 Version: @VERSION@
 Release: 1
@@ -11,6 +11,7 @@ Requires: libxml2 >= @LIBXML_REQUIRED_VERSION@
 BuildRequires: libxml2-devel >= @LIBXML_REQUIRED_VERSION@
 BuildRequires: python python-devel
 BuildRequires: libxml2-python
+BuildRequires: libgcrypt-devel
 Prefix: %{_prefix}
 Docdir: %{_docdir}
 
@@ -21,10 +22,12 @@ mechanism. To use it you need to have a version of libxml2 >= @LIBXML_REQUIRED_V
 installed. The xsltproc command is a command line interface to the XSLT engine
 
 %package devel
-Summary: Libraries, includes, etc. to embed the Gnome XSLT engine
+Summary: Libraries, includes, etc. to embed the GNOME XSLT engine
 Group: Development/Libraries
-Requires: libxslt = %{version}
-Requires: libxml2-devel >= 2.5.6
+Requires: libxslt = %{version}-%{release}
+Requires: libxml2-devel >= @LIBXML_REQUIRED_VERSION@
+Requires: libgcrypt-devel
+Requires: pkgconfig
 
 %description devel
 This C library allows to transform XML files into other XML files
@@ -35,10 +38,10 @@ installed.
 %package python
 Summary: Python bindings for the libxslt library
 Group: Development/Libraries
-Requires: libxslt = %{version}
+Requires: libxslt = %{version}-%{release}
 Requires: libxml2 >= @LIBXML_REQUIRED_VERSION@
 Requires: libxml2-python >= @LIBXML_REQUIRED_VERSION@
-Requires: %{_libdir}/python%(echo `python -c "import sys; print sys.version[0:3]"`)
+Requires: python
 
 %description python
 The libxslt-python package contains a module that permits applications
@@ -63,6 +66,9 @@ rm -fr %{buildroot}
 
 %makeinstall
 
+rm -fr $RPM_BUILD_ROOT%{_libdir}/*.la \
+       $RPM_BUILD_ROOT%{_libdir}/python*/site-packages/libxsltmod*a
+
 %clean
 rm -fr %{buildroot}
 
@@ -80,6 +86,7 @@ rm -fr %{buildroot}
 %doc doc/EXSLT
 %doc %{_mandir}/man1/xsltproc.1*
 %{_libdir}/lib*.so.*
+%{_libdir}/libxslt-plugins
 %{prefix}/bin/xsltproc
 
 %files devel
@@ -105,7 +112,7 @@ rm -fr %{buildroot}
 %defattr(-, root, root)
 
 %doc AUTHORS ChangeLog.gz NEWS README Copyright FEATURES
-%{_libdir}/python*/site-packages/libxslt.py
+%{_libdir}/python*/site-packages/libxslt.py*
 %{_libdir}/python*/site-packages/libxsltmod*
 %doc python/TODO
 %doc python/libxsltclass.txt
@@ -116,28 +123,3 @@ rm -fr %{buildroot}
 %changelog
 * @RELDATE@ Daniel Veillard <veillard@redhat.com>
 - upstream release @VERSION@ see http://xmlsoft.org/XSLT/news.html
-
-* Sun Nov  2 2003 Daniel Veillard <veillard@redhat.com>
-- cleanup, removal of the deprecated breakpoint library and
-  automated libxml2 dependancy level in the generated spec file.
-
-* Wed Oct 23 2002 Daniel Veillard <veillard@redhat.com>
-- revamped the spec file, cleaned up some rpm building problems
-
-* Wed Sep  4 2002 Daniel Veillard <veillard@redhat.com>
-
-- library paths fixed for x86-64
-
-* Fri Feb  8 2002 Daniel.Veillard <veillard@redhat.com>
-
-- added the python module
-- changed the Licence to MIT
-
-* Sat Nov 10 2001 Daniel.Veillard <daniel@veillard.com>
-
-- cleaned up the specfile
-
-* Mon Jan 22 2001 Daniel.Veillard <daniel@veillard.com>
-
-- created based on libxml2 spec file
-

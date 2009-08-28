@@ -39,7 +39,7 @@ __private_extern__
 int
 execute(
 char **argv,
-long verbose)
+int verbose)
 {
     char *name, **p;
     int forkpid, waitpid, termsig;
@@ -49,7 +49,7 @@ long verbose)
     union wait waitstatus;
 #endif
 
-	name = argv[0];
+    name = argv[0];
 
 	if(verbose){
 	    fprintf(stderr, "+ %s ", name);
@@ -141,7 +141,7 @@ reset_execute_list(void)
 __private_extern__
 int
 execute_list(
-long verbose)
+int verbose)
 {
 	return(execute(runlist.strings, verbose));
 }

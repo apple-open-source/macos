@@ -70,10 +70,9 @@
 #endif
 
 #if ENABLE(DOM_STORAGE)
-#include "LocalStorage.h"
-#include "SessionStorage.h"
 #include "Storage.h"
 #include "StorageArea.h"
+#include "StorageNamespace.h"
 #endif
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
@@ -87,14 +86,25 @@ namespace WebCore {
 
 class PostMessageTimer : public TimerBase {
 public:
-    PostMessageTimer(DOMWindow* window, PassRefPtr<MessageEvent> event, SecurityOrigin* targetOrigin)
+    PostMessageTimer(DOMWindow* window, const String& message, const String& sourceOrigin, PassRefPtr<DOMWindow> source, PassOwnPtr<MessagePortChannel> channel, SecurityOrigin* targetOrigin)
         : m_window(window)
-        , m_event(event)
+        , m_message(message)
+        , m_origin(sourceOrigin)
+        , m_source(source)
+        , m_channel(channel)
         , m_targetOrigin(targetOrigin)
     {
     }
 
-    MessageEvent* event() const { return m_event.get(); }
+    PassRefPtr<MessageEvent> event(ScriptExecutionContext* context)
+    {
+        RefPtr<MessagePort> messagePort;
+        if (m_channel) {
+            messagePort = MessagePort::create(*context);
+            messagePort->entangle(m_channel.release());
+        }
+        return MessageEvent::create(m_message, m_origin, "", m_source, messagePort.release());
+    }
     SecurityOrigin* targetOrigin() const { return m_targetOrigin.get(); }
 
 private:
@@ -104,7 +114,10 @@ private:
     }
 
     RefPtr<DOMWindow> m_window;
-    RefPtr<MessageEvent> m_event;
+    String m_message;
+    String m_origin;
+    RefPtr<DOMWindow> m_source;
+    OwnPtr<MessagePortChannel> m_channel;
     RefPtr<SecurityOrigin> m_targetOrigin;
 };
 
@@ -564,7 +577,7 @@ Storage* DOMWindow::localStorage() const
     if (!settings || !settings->localStorageEnabled())
         return 0;
 
-    LocalStorage* localStorage = page->group().localStorage();
+    StorageNamespace* localStorage = page->group().localStorage();
     RefPtr<StorageArea> storageArea = localStorage ? localStorage->storageArea(document->securityOrigin()) : 0; 
     if (storageArea) {
         page->inspectorController()->didUseDOMStorage(storageArea.get(), true, m_frame);
@@ -591,9 +604,9 @@ void DOMWindow::postMessage(const String& message, MessagePort* messagePort, con
         }
     }
 
-    RefPtr<MessagePort> newMessagePort;
+    OwnPtr<MessagePortChannel> channel;
     if (messagePort)
-        newMessagePort = messagePort->clone(ec);
+        channel = messagePort->disentangle(ec);
     if (ec)
         return;
 
@@ -605,7 +618,7 @@ void DOMWindow::postMessage(const String& message, MessagePort* messagePort, con
     String sourceOrigin = sourceDocument->securityOrigin()->toString();
 
     // Schedule the message.
-    PostMessageTimer* timer = new PostMessageTimer(this, MessageEvent::create(message, sourceOrigin, "", source, newMessagePort), target.get());
+    PostMessageTimer* timer = new PostMessageTimer(this, message, sourceOrigin, source, channel.release(), target.get());
     timer->startOneShot(0);
 }
 
@@ -626,13 +639,8 @@ void DOMWindow::postMessageTimerFired(PostMessageTimer* t)
         }
     }
 
-    MessagePort* messagePort = timer->event()->messagePort();
-    ASSERT(!messagePort || !messagePort->scriptExecutionContext());
-    if (messagePort)
-        messagePort->attachToContext(document());
-
     ExceptionCode ec = 0;
-    dispatchEvent(timer->event(), ec);
+    dispatchEvent(timer->event(document()), ec);
 }
 
 DOMSelection* DOMWindow::getSelection()
@@ -1417,6 +1425,76 @@ void DOMWindow::setOndblclick(PassRefPtr<EventListener> eventListener)
     setAttributeEventListener(eventNames().dblclickEvent, eventListener);
 }
 
+EventListener* DOMWindow::ondrag() const
+{
+    return getAttributeEventListener(eventNames().dragEvent);
+}
+
+void DOMWindow::setOndrag(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().dragEvent, eventListener);
+}
+
+EventListener* DOMWindow::ondragend() const
+{
+    return getAttributeEventListener(eventNames().dragendEvent);
+}
+
+void DOMWindow::setOndragend(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().dragendEvent, eventListener);
+}
+
+EventListener* DOMWindow::ondragenter() const
+{
+    return getAttributeEventListener(eventNames().dragenterEvent);
+}
+
+void DOMWindow::setOndragenter(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().dragenterEvent, eventListener);
+}
+
+EventListener* DOMWindow::ondragleave() const
+{
+    return getAttributeEventListener(eventNames().dragleaveEvent);
+}
+
+void DOMWindow::setOndragleave(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().dragleaveEvent, eventListener);
+}
+
+EventListener* DOMWindow::ondragover() const
+{
+    return getAttributeEventListener(eventNames().dragoverEvent);
+}
+
+void DOMWindow::setOndragover(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().dragoverEvent, eventListener);
+}
+
+EventListener* DOMWindow::ondragstart() const
+{
+    return getAttributeEventListener(eventNames().dragstartEvent);
+}
+
+void DOMWindow::setOndragstart(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().dragstartEvent, eventListener);
+}
+
+EventListener* DOMWindow::ondrop() const
+{
+    return getAttributeEventListener(eventNames().dropEvent);
+}
+
+void DOMWindow::setOndrop(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().dropEvent, eventListener);
+}
+
 EventListener* DOMWindow::onerror() const
 {
     return getAttributeEventListener(eventNames().errorEvent);
@@ -1537,6 +1615,26 @@ void DOMWindow::setOnmousewheel(PassRefPtr<EventListener> eventListener)
     setAttributeEventListener(eventNames().mousewheelEvent, eventListener);
 }
 
+EventListener* DOMWindow::onoffline() const
+{
+    return getAttributeEventListener(eventNames().offlineEvent);
+}
+
+void DOMWindow::setOnoffline(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().offlineEvent, eventListener);
+}
+
+EventListener* DOMWindow::ononline() const
+{
+    return getAttributeEventListener(eventNames().onlineEvent);
+}
+
+void DOMWindow::setOnonline(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().onlineEvent, eventListener);
+}
+
 EventListener* DOMWindow::onreset() const
 {
     return getAttributeEventListener(eventNames().resetEvent);
@@ -1585,6 +1683,16 @@ EventListener* DOMWindow::onselect() const
 void DOMWindow::setOnselect(PassRefPtr<EventListener> eventListener)
 {
     setAttributeEventListener(eventNames().selectEvent, eventListener);
+}
+
+EventListener* DOMWindow::onstorage() const
+{
+    return getAttributeEventListener(eventNames().storageEvent);
+}
+
+void DOMWindow::setOnstorage(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().storageEvent, eventListener);
 }
 
 EventListener* DOMWindow::onsubmit() const
@@ -1655,6 +1763,236 @@ EventListener* DOMWindow::onwebkittransitionend() const
 void DOMWindow::setOnwebkittransitionend(PassRefPtr<EventListener> eventListener)
 {
     setAttributeEventListener(eventNames().webkitTransitionEndEvent, eventListener);
+}
+
+EventListener* DOMWindow::oncanplay() const
+{
+    return getAttributeEventListener(eventNames().canplayEvent);
+}
+
+void DOMWindow::setOncanplay(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().canplayEvent, eventListener);
+}
+
+EventListener* DOMWindow::oncanplaythrough() const
+{
+    return getAttributeEventListener(eventNames().canplaythroughEvent);
+}
+
+void DOMWindow::setOncanplaythrough(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().canplaythroughEvent, eventListener);
+}
+
+EventListener* DOMWindow::ondurationchange() const
+{
+    return getAttributeEventListener(eventNames().durationchangeEvent);
+}
+
+void DOMWindow::setOndurationchange(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().durationchangeEvent, eventListener);
+}
+
+EventListener* DOMWindow::onemptied() const
+{
+    return getAttributeEventListener(eventNames().emptiedEvent);
+}
+
+void DOMWindow::setOnemptied(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().emptiedEvent, eventListener);
+}
+
+EventListener* DOMWindow::onended() const
+{
+    return getAttributeEventListener(eventNames().endedEvent);
+}
+
+void DOMWindow::setOnended(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().endedEvent, eventListener);
+}
+
+EventListener* DOMWindow::onloadeddata() const
+{
+    return getAttributeEventListener(eventNames().loadeddataEvent);
+}
+
+void DOMWindow::setOnloadeddata(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().loadeddataEvent, eventListener);
+}
+
+EventListener* DOMWindow::onloadedmetadata() const
+{
+    return getAttributeEventListener(eventNames().loadedmetadataEvent);
+}
+
+void DOMWindow::setOnloadedmetadata(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().loadedmetadataEvent, eventListener);
+}
+
+EventListener* DOMWindow::onpause() const
+{
+    return getAttributeEventListener(eventNames().pauseEvent);
+}
+
+void DOMWindow::setOnpause(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().pauseEvent, eventListener);
+}
+
+EventListener* DOMWindow::onplay() const
+{
+    return getAttributeEventListener(eventNames().playEvent);
+}
+
+void DOMWindow::setOnplay(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().playEvent, eventListener);
+}
+
+EventListener* DOMWindow::onplaying() const
+{
+    return getAttributeEventListener(eventNames().playingEvent);
+}
+
+void DOMWindow::setOnplaying(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().playingEvent, eventListener);
+}
+
+EventListener* DOMWindow::onratechange() const
+{
+    return getAttributeEventListener(eventNames().ratechangeEvent);
+}
+
+void DOMWindow::setOnratechange(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().ratechangeEvent, eventListener);
+}
+
+EventListener* DOMWindow::onseeked() const
+{
+    return getAttributeEventListener(eventNames().seekedEvent);
+}
+
+void DOMWindow::setOnseeked(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().seekedEvent, eventListener);
+}
+
+EventListener* DOMWindow::onseeking() const
+{
+    return getAttributeEventListener(eventNames().seekingEvent);
+}
+
+void DOMWindow::setOnseeking(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().seekingEvent, eventListener);
+}
+
+EventListener* DOMWindow::ontimeupdate() const
+{
+    return getAttributeEventListener(eventNames().timeupdateEvent);
+}
+
+void DOMWindow::setOntimeupdate(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().timeupdateEvent, eventListener);
+}
+
+EventListener* DOMWindow::onvolumechange() const
+{
+    return getAttributeEventListener(eventNames().volumechangeEvent);
+}
+
+void DOMWindow::setOnvolumechange(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().volumechangeEvent, eventListener);
+}
+
+EventListener* DOMWindow::onwaiting() const
+{
+    return getAttributeEventListener(eventNames().waitingEvent);
+}
+
+void DOMWindow::setOnwaiting(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().waitingEvent, eventListener);
+}
+
+EventListener* DOMWindow::onloadstart() const
+{
+    return getAttributeEventListener(eventNames().loadstartEvent);
+}
+
+void DOMWindow::setOnloadstart(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().loadstartEvent, eventListener);
+}
+
+EventListener* DOMWindow::onprogress() const
+{
+    return getAttributeEventListener(eventNames().progressEvent);
+}
+
+void DOMWindow::setOnprogress(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().progressEvent, eventListener);
+}
+
+EventListener* DOMWindow::onstalled() const
+{
+    return getAttributeEventListener(eventNames().stalledEvent);
+}
+
+void DOMWindow::setOnstalled(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().stalledEvent, eventListener);
+}
+
+EventListener* DOMWindow::onsuspend() const
+{
+    return getAttributeEventListener(eventNames().suspendEvent);
+}
+
+void DOMWindow::setOnsuspend(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().suspendEvent, eventListener);
+}
+
+EventListener* DOMWindow::oninput() const
+{
+    return getAttributeEventListener(eventNames().inputEvent);
+}
+
+void DOMWindow::setOninput(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().inputEvent, eventListener);
+}
+
+EventListener* DOMWindow::onmessage() const
+{
+    return getAttributeEventListener(eventNames().messageEvent);
+}
+
+void DOMWindow::setOnmessage(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().messageEvent, eventListener);
+}
+
+EventListener* DOMWindow::oncontextmenu() const
+{
+    return getAttributeEventListener(eventNames().contextmenuEvent);
+}
+
+void DOMWindow::setOncontextmenu(PassRefPtr<EventListener> eventListener)
+{
+    setAttributeEventListener(eventNames().contextmenuEvent, eventListener);
 }
 
 void DOMWindow::captureEvents()

@@ -1,7 +1,7 @@
 /*
  * rlm_checkval.c
  *
- * Version:	$Id: rlm_checkval.c,v 1.10.4.1 2005/12/13 22:29:59 aland Exp $
+ * Version:	$Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,22 +15,18 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2003  The FreeRADIUS server project
+ * Copyright 2003,2006  The FreeRADIUS server project
  * Copyright 2003  Kostas Kalevras <kkalev@noc.ntua.gr>
  */
 
-#include "autoconf.h"
-#include "libradius.h"
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <freeradius-devel/radiusd.h>
+#include <freeradius-devel/modules.h>
 
-#include "radiusd.h"
-#include "modules.h"
-#include "conffile.h"
 #ifdef HAVE_REGEX_H
 #	include <regex.h>
 #endif
@@ -67,7 +63,7 @@ typedef struct rlm_checkval_t {
  *	to the strdup'd string into 'config.string'.  This gets around
  *	buffer over-flows.
  */
-static CONF_PARSER module_config[] = {
+static const CONF_PARSER module_config[] = {
   { "item-name",  PW_TYPE_STRING_PTR, offsetof(rlm_checkval_t,item_name), NULL,  NULL},
   { "check-name",  PW_TYPE_STRING_PTR, offsetof(rlm_checkval_t,check_name), NULL,  NULL},
   { "data-type",    PW_TYPE_STRING_PTR, offsetof(rlm_checkval_t,data_type),NULL, "integer"},
@@ -78,15 +74,6 @@ static CONF_PARSER module_config[] = {
 
 static int checkval_detach(void *instance)
 {
-	rlm_checkval_t *data = (rlm_checkval_t *) instance;
-
-	if (data->item_name)
-		free((char *)data->item_name);
-	if (data->check_name)
-		free((char *)data->check_name);
-	if (data->data_type)
-		free((char *)data->data_type);
-
 	free(instance);
 	return 0;
 }
@@ -107,7 +94,7 @@ static int checkval_instantiate(CONF_SECTION *conf, void **instance)
 	DICT_ATTR *dattr;
 	ATTR_FLAGS flags;
 
-	static const LRAD_NAME_NUMBER names[] = {
+	static const FR_NAME_NUMBER names[] = {
 		{ "string", PW_TYPE_STRING },
 		{ "integer", PW_TYPE_INTEGER },
 		{ "ipaddr", PW_TYPE_IPADDR },
@@ -190,7 +177,7 @@ static int checkval_instantiate(CONF_SECTION *conf, void **instance)
 	 *	so we don't have to do string comparisons on each
 	 *	packet.
 	 */
-	data->dat_type = lrad_str2int(names, data->data_type, -1);
+	data->dat_type = fr_str2int(names, data->data_type, -1);
 	if (data->dat_type < 0) {
 		radlog(L_ERR, "rlm_checkval: Data type %s in not known",data->data_type);
 		checkval_detach(data);
@@ -227,7 +214,7 @@ static int do_checkval(void *instance, REQUEST *request)
 			ret = RLM_MODULE_NOTFOUND;
 	}
 	if (item_vp)
-		DEBUG2("rlm_checkval: Item Name: %s, Value: %s",data->item_name, item_vp->strvalue);
+		DEBUG2("rlm_checkval: Item Name: %s, Value: %s",data->item_name, item_vp->vp_strvalue);
 	tmp = request->config_items;
 	do{
 		if (!(chk_vp = pairfind(tmp, data->chk_attr))){
@@ -239,10 +226,12 @@ static int do_checkval(void *instance, REQUEST *request)
 		}
 		if (!item_vp)
 			break;
-		DEBUG2("rlm_checkval: Value Name: %s, Value: %s",data->check_name, chk_vp->strvalue);
+		DEBUG2("rlm_checkval: Value Name: %s, Value: %s",data->check_name, chk_vp->vp_strvalue);
 
 		/*
 	 	* Check if item != check
+		*
+		*	FIXME:  !!! Call normal API functions!
 	 	*/
 		found = 1;
 		if (data->dat_type == PW_TYPE_STRING ||
@@ -250,17 +239,20 @@ static int do_checkval(void *instance, REQUEST *request)
 			if (item_vp->length != chk_vp->length)
 				ret = RLM_MODULE_REJECT;
 			else{
-				if (!memcmp(item_vp->strvalue,
-					    chk_vp->strvalue,
+				if (!memcmp(item_vp->vp_strvalue,
+					    chk_vp->vp_strvalue,
 					    (size_t) chk_vp->length))
 					ret = RLM_MODULE_OK;
 				else
 					ret = RLM_MODULE_REJECT;
 			}
-		}
-		else{	/* Integer or Date */
-
-			if (item_vp->lvalue == chk_vp->lvalue)
+		} else if (data->dat_type == PW_TYPE_DATE) {
+			if (item_vp->vp_date == chk_vp->vp_date)
+				ret = RLM_MODULE_OK;
+			else
+				ret = RLM_MODULE_REJECT;
+		} else if (data->dat_type == PW_TYPE_INTEGER) {
+			if (item_vp->vp_integer == chk_vp->vp_integer)
 				ret = RLM_MODULE_OK;
 			else
 				ret = RLM_MODULE_REJECT;
@@ -273,13 +265,13 @@ static int do_checkval(void *instance, REQUEST *request)
 			char err_msg[MAX_STRING_LEN];
 
 			DEBUG("rlm_checkval: Doing regex");
-			err = regcomp(&reg, (char *)chk_vp->strvalue, REG_EXTENDED|REG_NOSUB);
+			err = regcomp(&reg, (char *)chk_vp->vp_strvalue, REG_EXTENDED|REG_NOSUB);
 			if (err){
 				regerror(err, &reg,err_msg, MAX_STRING_LEN);
 				DEBUG("rlm_checkval: regcomp() returned error: %s", err_msg);
 				return RLM_MODULE_FAIL;
 			}
-			if (regexec(&reg, (char *)item_vp->strvalue,0, NULL, 0) == 0)
+			if (regexec(&reg, (char *)item_vp->vp_strvalue,0, NULL, 0) == 0)
 				ret = RLM_MODULE_OK;
 			else
 				ret = RLM_MODULE_REJECT;
@@ -337,10 +329,11 @@ static int checkval_accounting(void *instance, REQUEST *request)
  *	is single-threaded.
  */
 module_t rlm_checkval = {
+	 RLM_MODULE_INIT,
 	"checkval",
 	0,		/* type */
-	NULL,				/* initialization */
 	checkval_instantiate,		/* instantiation */
+	checkval_detach,		/* detach */
 	{
 		NULL,			/* authentication */
 		checkval_authorize, 	/* authorization */
@@ -351,6 +344,4 @@ module_t rlm_checkval = {
 		NULL,		        /* post-proxy */
 		NULL		        /* post-auth */
 	},
-	checkval_detach,		/* detach */
-	NULL,				/* destroy */
 };

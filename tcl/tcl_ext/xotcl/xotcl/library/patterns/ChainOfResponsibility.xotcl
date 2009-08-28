@@ -1,0 +1,53 @@
+# $Id: ChainOfResponsibility.xotcl,v 1.4 2005/09/09 21:09:01 neumann Exp $
+
+package provide xotcl::pattern::chainOfResponsibility 0.9
+package require XOTcl
+
+namespace eval ::xotcl::pattern::chainOfResponsibility {
+    namespace import ::xotcl::*
+
+    Class ChainOfResponsibility -superclass Class
+
+    ChainOfResponsibility instproc chainingFilter args {
+	set cp [self calledproc]
+	set registrationclass [lindex [self filterreg] 0]
+	$registrationclass instvar operations
+	#puts stderr "CHAIN [array names [self regclass]::chainedOperations ]---$cp"
+	if {[$registrationclass exists chainedOperations($cp)]} {
+	    #
+	    # a value is found on the chain, if it differs from the failure value !
+	    #
+	    set failureValue [$registrationclass set chainedOperations($cp)]
+	    set r [my $cp $args]
+	    if {$r == $failureValue} {
+		if {[my exists successor] &&
+		    [set s [my set successor]] != ""} {
+		    #puts stderr "CHAIN: forwarding to $s"
+		    set r [$s $cp $args]
+		}
+	    }
+	    set r ;# return $r
+	} else {
+	    next ;# return [next]
+	}
+    }
+
+    ChainOfResponsibility instproc init args {
+	my instfilter add chainingFilter
+	my parameter {successor}
+	# chained operations hold their value of failure
+	my array set chainedOperations {}
+    }
+
+    ChainOfResponsibility instproc addChainedOperation {name {failureValue ""}} {
+	my set chainedOperations($name) $failureValue
+    }
+
+    ChainOfResponsibility instproc removeChainedOperation {name} {
+	my unset chainedOperations($name)
+    }
+
+    namespace export ChainOfResponsibility
+}
+
+namespace import ::xotcl::pattern::chainOfResponsibility::*

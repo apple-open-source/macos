@@ -1,6 +1,6 @@
-/* APPLE LOCAL file mainline */
 /* Handle C++ scoping ('::') operators in ObjC message receivers gracefully.  */
 /* Author: Ziemowit Laski  <zlaski@apple.com> */
+
 /* { dg-do run } */
 
 /* APPLE LOCAL radar 4894756 */

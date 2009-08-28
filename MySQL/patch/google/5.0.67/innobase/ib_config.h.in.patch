@@ -1,0 +1,12 @@
+--- base5067/innobase/ib_config.h.in	2008-08-04 05:22:51.000000000 -0700
++++ m5067/innobase/ib_config.h.in	2008-09-08 06:53:12.000000000 -0700
+@@ -3,6 +3,9 @@
+ /* Define to 1 if you have the <aio.h> header file. */
+ #undef HAVE_AIO_H
+ 
++/* Define to 1 if compiler provides atomic builtins. */
++#undef HAVE_ATOMIC_BUILTINS
++
+ /* Define to 1 if you have the <dlfcn.h> header file. */
+ #undef HAVE_DLFCN_H
+ 

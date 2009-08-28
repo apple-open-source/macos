@@ -13,11 +13,26 @@
 #define HAVE_STRUCT_SOCKADDR_STORAGE
 #define ISC_PLATFORM_HAVEIPV6
 #define ISC_PLATFORM_HAVEIN6PKTINFO
+#define NO_OPTION_NAME_WARNINGS
+#else
+typedef int socklen_t;	/* VS 6.0 doesn't know about socklen_t */
+#endif
+
+/*
+ * Some types don't exist in VS V6
+ */
+#if _MSC_VER < 1300
+typedef unsigned int	uintptr_t;
 #endif
 
 #define ISC_PLATFORM_NEEDIN6ADDRANY
 #define HAVE_SOCKADDR_IN6
 
+/*
+ * The type of the socklen_t defined for getnameinfo() and getaddrinfo()
+ * is int for VS compilers on Windows but the type is already declared 
+ */
+#define GETSOCKNAME_SOCKLEN_TYPE socklen_t
 /*
  * An attempt to cut down the number of warnings generated during compilation.
  * All of these should be benign to disable.
@@ -25,7 +40,7 @@
 
 #pragma warning(disable: 4100) /* unreferenced formal parameter */
 #pragma warning(disable: 4101) /* unreferenced local variable */
-#pragma warning(disable : 4127)
+#pragma warning(disable: 4127) /* conditional expression is constant */
 
 /*
  * Windows NT Configuration Values
@@ -36,6 +51,8 @@
 #if !defined _WIN32_WINNT || _WIN32_WINNT < 0x0400
 # error Please define _WIN32_WINNT in the project settings/makefile
 #endif
+
+#define __windows__ 1
 /*
  * ANSI C compliance enabled
  */
@@ -63,14 +80,31 @@
 #define _WSPIAPI_H_
 #endif
 
-#define OPEN_BCAST_SOCKET	1 /* for	ntp_io.c */ 													
+#define OPEN_BCAST_SOCKET	1 /* for	ntp_io.c */
+#define TYPEOF_IP_MULTICAST_LOOP BOOL												
+#define SETSOCKOPT_ARG_CAST (const char *)
 #define HAVE_RANDOM 
 #define MAXHOSTNAMELEN 64
 #define AUTOKEY
 
+/*
+ * Multimedia timer enable
+ */
+#define USE_MM_TIMER
+/*
+ * Use 32-bit time definitions
+ * VS 2005 defaults to 64-bit time
+ * Leave commented out for now
+ */
+//#define _USE_32BIT_TIME_T
+
 /* Enable OpenSSL */
 #define OPENSSL 1
 
+/*
+ * Include standard stat information
+ */
+#include <isc/stat.h>
 /*
  * Miscellaneous functions that Microsoft maps
  * to other names
@@ -84,6 +118,28 @@
 #define finite _finite
 #define random      rand
 #define srandom     srand
+#define fdopen	_fdopen
+#define read	_read
+#define open	_open
+#define close	_close
+#define write	_write
+#define strdup  _strdup
+#define stat    _stat       /* struct stat from <sys/stat.h> */
+#define unlink  _unlink
+#define fchmod( _x, _y );
+#define lseek   _lseek
+#define pipe    _pipe
+#define dup2    _dup2
+#define sleep(x) Sleep((DWORD) x * 1000 /* milliseconds */ );
+
+#define pid_t	int		/* PID is an int */
+#define ssize_t	int		/* ssize is an int */
+
+/*
+ * Map the stream to the file number
+ */
+#define STDOUT_FILENO	_fileno(stdout)
+#define STDERR_FILENO	_fileno(stderr)
 
 /*
  * We need to include string.h first before we override strerror
@@ -142,6 +198,13 @@ int NT_set_process_priority(void);	/* Define this function */
 # define HAVE_IO_COMPLETION_PORT
 # define ISC_PLATFORM_NEEDNTOP
 # define ISC_PLATFORM_NEEDPTON
+# define HAVE_VPRINTF
+
+#define HAVE_LIMITS_H   1
+#define HAVE_STRDUP     1
+#define HAVE_STRCHR     1
+#define HAVE_FCNTL_H    1
+
 
 # define NEED_S_CHAR_TYPEDEF
 

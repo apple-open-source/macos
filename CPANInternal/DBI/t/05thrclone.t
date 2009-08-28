@@ -1,4 +1,5 @@
 #!perl -w
+$|=1;
 
 # --- Test DBI support for threads created after the DBI was loaded
 
@@ -10,25 +11,23 @@ use Config qw(%Config);
 use Test::More;
 
 BEGIN {
-    if (!$Config{useithreads} || $] < 5.008) {
-	plan skip_all => "this $^O perl $] not configured to support iThreads";
+    if (!$Config{useithreads} || $] < 5.008001) {
+	plan skip_all => "this $^O perl $] not supported for DBI iThreads";
     }
     die $use_threads_err if $use_threads_err; # need threads
 }
 
 my $threads = 10;
-
-plan tests => 3 + 4 * $threads;
+plan tests => 4 + 4 * $threads;
 
 {
     package threads_sub;
     use base qw(threads);
 }
 
-BEGIN {
-	use_ok('DBI');
-}
+use_ok('DBI');
 
+$DBI::PurePerl = $DBI::PurePerl; # just to silence used only once warning
 $DBI::neat_maxlen = 12345;
 cmp_ok($DBI::neat_maxlen, '==', 12345, '... assignment of neat_maxlen was successful');
 
@@ -58,7 +57,9 @@ sub testing {
 # load up the threads
 
 my @thr;
-push @thr, threads_sub->create( \&testing ) foreach (1..$threads);
+push @thr, threads_sub->create( \&testing )
+    or die "thread->create failed ($!)"
+    foreach (1..$threads);
 
 # join all the threads
 

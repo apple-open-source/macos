@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2006 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2007 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -118,6 +118,9 @@ def process(mlist, msg, msgdata):
             continue
         for pattern in patterns.splitlines():
             if pattern.startswith('#'):
+                continue
+            # ignore 'empty' patterns
+            if not pattern.strip():
                 continue
             if re.search(pattern, headers, re.IGNORECASE|re.MULTILINE):
                 if action == mm_cfg.DISCARD:

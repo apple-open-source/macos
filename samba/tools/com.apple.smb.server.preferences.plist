@@ -9,7 +9,7 @@
 	<string>com.apple.smb.server.preferences</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>/usr/libexec/samba/synchronize-preferences</string>
+		<string>/usr/libexec/samba/smb-sync-preferences</string>
 		<string>--linger</string>
 	</array>
 	<key>TimeOut</key>

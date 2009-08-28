@@ -5,7 +5,9 @@ function reset_config()
 }
 </SCRIPT>
 
-<H2 CLASS="title">サーバ設定ファイル</H2>
+<DIV CLASS="indent">
+
+<H2 CLASS="title">設定ファイルの設定</H2>
 
 <FORM NAME="cups" METHOD="POST" ACTION="/admin/">
 
@@ -13,10 +15,10 @@ function reset_config()
 
 <TEXTAREA NAME="CUPSDCONF" COLS="80" ROWS="25">{CUPSDCONF}</TEXTAREA>
 
-<P><INPUT TYPE="IMAGE" SRC="/images/button-save-changes.gif"
-ALT="変更を保存"> <A
-HREF="javascript:reset_config();"><IMG
-SRC="/images/button-use-default-config.gif" CLASS="button"
-ALT="デフォルトの設定ファイルを使用"></A></P>
+<P><INPUT TYPE="SUBMIT" NAME="SAVECHANGES" VALUE="設定の保存">
+<INPUT TYPE="BUTTON" VALUE="デフォルトの設定ファイルを使用"
+onClick="reset_config();"></P>
 
 </FORM>
+
+</DIV>

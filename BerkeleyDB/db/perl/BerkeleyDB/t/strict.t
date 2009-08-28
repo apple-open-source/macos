@@ -2,15 +2,9 @@
 
 use strict ;
 
-BEGIN {
-    unless(grep /blib/, @INC) {
-        chdir 't' if -d 't';
-        @INC = '../lib' if -d '../lib';
-    }
-}
-
+use lib 't' ;
 use BerkeleyDB; 
-use t::util ;
+use util ;
 
 print "1..44\n";
 
@@ -26,7 +20,7 @@ umask(0);
     my $status ;
 
     ok 1, my $lexD = new LexDir($home);
-    ok 2, my $env = new BerkeleyDB::Env -Home => $home,
+    ok 2, my $env = new BerkeleyDB::Env -Home => $home,@StdErrFile,
                                      -Flags => DB_CREATE|DB_INIT_TXN|
                                                 DB_INIT_MPOOL|DB_INIT_LOCK ;
 					  	
@@ -49,7 +43,7 @@ umask(0);
     my %hash ;
 
     ok 7, my $lexD = new LexDir($home);
-    ok 8, my $env = new BerkeleyDB::Env -Home => $home,
+    ok 8, my $env = new BerkeleyDB::Env -Home => $home,@StdErrFile,
                                      -Flags => DB_CREATE|DB_INIT_TXN|
                                                 DB_INIT_MPOOL|DB_INIT_LOCK ;
 					  	
@@ -73,7 +67,7 @@ umask(0);
     my $status ;
 
     ok 11, my $lexD = new LexDir($home);
-    ok 12, my $env = new BerkeleyDB::Env -Home => $home,
+    ok 12, my $env = new BerkeleyDB::Env -Home => $home,@StdErrFile,
                                      -Flags => DB_CREATE|DB_INIT_TXN|
                                                 DB_INIT_MPOOL|DB_INIT_LOCK ;
 
@@ -100,7 +94,7 @@ umask(0);
     my %hash ;
 
     ok 20, my $lexD = new LexDir($home);
-    ok 21, my $env = new BerkeleyDB::Env -Home => $home,
+    ok 21, my $env = new BerkeleyDB::Env -Home => $home,@StdErrFile,
                                      -Flags => DB_CREATE|DB_INIT_TXN|
                                                 DB_INIT_MPOOL|DB_INIT_LOCK ;
 
@@ -152,7 +146,7 @@ umask(0);
     my $home = 'fred1';
 
     ok 33, my $lexD = new LexDir($home);
-    ok 34, my $env = new BerkeleyDB::Env -Home => $home,
+    ok 34, my $env = new BerkeleyDB::Env -Home => $home,@StdErrFile,
                                      -Flags => DB_CREATE|DB_INIT_TXN|
                                                 DB_INIT_MPOOL|DB_INIT_LOCK ;
     ok 35, my $txn = $env->txn_begin() ;

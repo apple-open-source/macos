@@ -52,7 +52,7 @@ SSLEncodeCertificate(SSLRecord *certificate, SSLContext *ctx)
 	 * (ctx->acceptableDNList) to one of our certs. For now we just send 
 	 * what we have since we don't support multiple certs.
 	 *
-	 * Note this can be called with localCert==0 for client seide in TLS1;
+	 * Note this can be called with localCert==0 for client side in TLS1;
 	 * in that case we send an empty cert msg.
 	 */
     cert = ctx->localCert;
@@ -99,6 +99,9 @@ SSLEncodeCertificate(SSLRecord *certificate, SSLContext *ctx)
 		assert(ctx->clientCertState == kSSLClientCertRequested);
 		assert(ctx->certRequested);
 		ctx->clientCertState = kSSLClientCertSent;
+	}
+	if(certCount == 0) {
+		sslCertDebug("...sending empty cert msg");
 	}
     return noErr;
 }
@@ -218,7 +221,10 @@ SSLEncodeCertificateRequest(SSLRecord *request, SSLContext *ctx)
     {   dnListLen += 2 + dn->derDN.length;
         dn = dn->next;
     }
-    msgLen = 1 + 1 + 2 + dnListLen;
+    msgLen = 1 +	// number of cert types
+			 2 +	// cert types
+			 2 +	// length of DN list
+			 dnListLen;
     
     request->contentType = SSL_RecordTypeHandshake;
 	assert((ctx->negProtocolVersion == SSL_Version_3_0) ||
@@ -231,8 +237,9 @@ SSLEncodeCertificateRequest(SSLRecord *request, SSLContext *ctx)
     *charPtr++ = SSL_HdskCertRequest;
     charPtr = SSLEncodeInt(charPtr, msgLen, 3);
     
-    *charPtr++ = 1;        /* one cert type */
-    *charPtr++ = 1;        /* RSA-sign type */
+    *charPtr++ = 2;        /* two cert types */
+    *charPtr++ = SSLClientAuth_RSASign;
+    *charPtr++ = SSLClientAuth_ECDSASign;
     charPtr = SSLEncodeInt(charPtr, dnListLen, 2);
     dn = ctx->acceptableDNList;
     while (dn)
@@ -245,6 +252,10 @@ SSLEncodeCertificateRequest(SSLRecord *request, SSLContext *ctx)
     assert(charPtr == request->contents.data + request->contents.length);
     return noErr;
 }
+
+#define SSL_ENABLE_ECDSA_SIGN_AUTH			1
+#define SSL_ENABLE_RSA_FIXED_ECDH_AUTH		1
+#define SSL_ENABLE_ECDSA_FIXED_ECDH_AUTH	1
 
 OSStatus
 SSLProcessCertificateRequest(SSLBuffer message, SSLContext *ctx)
@@ -259,10 +270,9 @@ SSLProcessCertificateRequest(SSLBuffer message, SSLContext *ctx)
 	OSStatus		err;	
     
 	/* 
-	 * Cert request only happens in during client authentication, which
-	 * we don't do. We will however take this handshake msg and do 
-	 * nothing with the enclosed DNList. We'll send a client cert
-	 * if we have one but we don't do any DNList compare.
+	 * Cert request only happens in during client authentication.
+	 * We'll send a client cert if we have an appropriate one, but 
+	 * we don't do any DNList compare.
 	 */
     if (message.length < 3) {
     	sslErrorLog("SSLProcessCertificateRequest: length decode error 1\n");
@@ -274,10 +284,68 @@ SSLProcessCertificateRequest(SSLBuffer message, SSLContext *ctx)
     	sslErrorLog("SSLProcessCertificateRequest: length decode error 2\n");
         return errSSLProtocol;
     }
-    for (i = 0; i < typeCount; i++)
-    {   if (*charPtr++ == 1)
-            ctx->x509Requested = 1;
-    }
+	if(typeCount != 0) {
+		/* Store server-specified auth types */
+		if(ctx->clientAuthTypes != NULL) {
+			sslFree(ctx->clientAuthTypes);
+		}
+		ctx->clientAuthTypes = (SSLClientAuthenticationType *)
+			sslMalloc(typeCount * sizeof(SSLClientAuthenticationType));
+		for(i=0; i<typeCount; i++) {
+			sslLogNegotiateDebug("===Server specifies authType %d", (int)(*charPtr));
+			ctx->clientAuthTypes[i] = (SSLClientAuthenticationType)(*charPtr++);
+		}
+		ctx->numAuthTypes = typeCount;
+		
+		/*
+		 * Now see if we have a signing cert that matches one of the 
+		 * allowed auth types. The x509Requested flag indicates "we
+		 * have a cert that we think the server will accept".
+		 */
+		ctx->x509Requested = 0;
+		if(ctx->signingPrivKeyRef != NULL) {
+			CSSM_ALGORITHMS ourKeyAlg = ctx->signingPubKey->KeyHeader.AlgorithmId;
+			for(i=0; i<typeCount; i++) {
+				switch(ctx->clientAuthTypes[i]) {
+					case SSLClientAuth_RSASign:
+						if(ourKeyAlg == CSSM_ALGID_RSA) {
+							ctx->x509Requested = 1;
+							ctx->negAuthType = SSLClientAuth_RSASign;
+						}
+						break;
+					#if SSL_ENABLE_ECDSA_SIGN_AUTH
+					case SSLClientAuth_ECDSASign:
+					#endif
+					#if SSL_ENABLE_ECDSA_FIXED_ECDH_AUTH
+					case SSLClientAuth_ECDSAFixedECDH:
+					#endif
+						if((ourKeyAlg == CSSM_ALGID_ECDSA) &&
+						   (ctx->ourSignerAlg == CSSM_ALGID_ECDSA)) {
+							ctx->x509Requested = 1;
+							ctx->negAuthType = ctx->clientAuthTypes[i];
+						}
+						break;
+					#if SSL_ENABLE_RSA_FIXED_ECDH_AUTH
+					case SSLClientAuth_RSAFixedECDH:
+						/* Odd case, we differ from out signer */
+						if((ourKeyAlg == CSSM_ALGID_ECDSA) &&
+						   (ctx->ourSignerAlg == CSSM_ALGID_RSA)) {
+							ctx->x509Requested = 1;
+							ctx->negAuthType = SSLClientAuth_RSAFixedECDH;
+						}
+						break;
+					#endif
+					default:
+						/* None others supported */
+						break;
+				}
+				if(ctx->x509Requested) {
+					sslLogNegotiateDebug("===CHOOSING authType %d", (int)ctx->negAuthType);
+					break;
+				}
+			}	/* parsing authTypes */
+		}		/* we have a signing key */
+    }			/* nonzero typeCount */
     
 	/* obtain server's DNList */
     dnListLen = SSLDecodeInt(charPtr, 2);
@@ -319,15 +387,18 @@ SSLProcessCertificateRequest(SSLBuffer message, SSLContext *ctx)
 OSStatus
 SSLEncodeCertificateVerify(SSLRecord *certVerify, SSLContext *ctx)
 {   OSStatus        err;
-    UInt8           hashData[36];
+    UInt8           hashData[SSL_MD5_DIGEST_LEN + SSL_SHA1_DIGEST_LEN];
     SSLBuffer       hashDataBuf, shaMsgState, md5MsgState;
     size_t          len;
     size_t		    outputLen;
     const CSSM_KEY	*cssmKey;
+	bool			ecdsaMode = false;
+	size_t			toSignLen = 0;
+	UInt8			*dataToSign = NULL;
 	
     certVerify->contents.data = 0;
     hashDataBuf.data = hashData;
-    hashDataBuf.length = 36;
+    hashDataBuf.length = SSL_MD5_DIGEST_LEN + SSL_SHA1_DIGEST_LEN;
     
     if ((err = CloneHashState(&SSLHashSHA1, &ctx->shaState, &shaMsgState, ctx)) != 0)
         goto fail;
@@ -344,7 +415,25 @@ SSLEncodeCertificateVerify(SSLRecord *certVerify, SSLContext *ctx)
 		sslErrorLog("SSLEncodeCertificateVerify: SecKeyGetCSSMKey err %d\n", (int)err);
 		return err;
 	}
-	len = sslKeyLengthInBytes(cssmKey);
+	switch(ctx->negAuthType) {
+		case SSLClientAuth_RSASign:
+			len = sslKeyLengthInBytes(cssmKey);
+			toSignLen = SSL_MD5_DIGEST_LEN + SSL_SHA1_DIGEST_LEN;
+			dataToSign = hashData;
+			break;
+		case SSLClientAuth_ECDSASign:
+			/* variable signature length due to DER encoding: pick a max length */
+			len = (2 * sslKeyLengthInBytes(cssmKey)) + 20;
+			/* We just sign the SHA1, not MD5 */
+			toSignLen = SSL_SHA1_DIGEST_LEN;
+			dataToSign = hashData + SSL_MD5_DIGEST_LEN;
+			ecdsaMode = true;
+			break;
+		default:
+			/* shouldn't be here */
+			assert(0);
+			return errSSLInternal;
+	}
     
     certVerify->contentType = SSL_RecordTypeHandshake;
 	assert((ctx->negProtocolVersion == SSL_Version_3_0) ||
@@ -353,23 +442,22 @@ SSLEncodeCertificateVerify(SSLRecord *certVerify, SSLContext *ctx)
     if ((err = SSLAllocBuffer(&certVerify->contents, len + 6, ctx)) != 0)
         goto fail;
     
-    certVerify->contents.data[0] = SSL_HdskCertVerify;
-    SSLEncodeInt(certVerify->contents.data+1, len+2, 3);
-    SSLEncodeInt(certVerify->contents.data+4, len, 2);
-
+	/* Sign now to get the actual length */
 	err = sslRawSign(ctx,
 		ctx->signingPrivKeyRef,
-		hashData,						// data to sign 
-		36,								// MD5 size + SHA1 size
+		dataToSign,						// data to sign 
+		toSignLen,						// MD5 size + SHA1 size
 		certVerify->contents.data+6,	// signature destination
 		len,							// we mallocd len+6
 		&outputLen);
 	if(err) {
 		goto fail;
 	}
-    
-    assert(outputLen == len);
-    
+	len = outputLen;
+	certVerify->contents.length = outputLen + 6;
+    certVerify->contents.data[0] = SSL_HdskCertVerify;
+    SSLEncodeInt(certVerify->contents.data+1, len+2, 3);
+    SSLEncodeInt(certVerify->contents.data+4, len, 2);
     err = noErr;
     
 fail:
@@ -382,11 +470,12 @@ fail:
 OSStatus
 SSLProcessCertificateVerify(SSLBuffer message, SSLContext *ctx)
 {   OSStatus        err;
-    UInt8           hashData[36];
+    UInt8           hashData[SSL_MD5_DIGEST_LEN + SSL_SHA1_DIGEST_LEN];
     UInt16          signatureLen;
     SSLBuffer       hashDataBuf, shaMsgState, md5MsgState;
     unsigned int    publicModulusLen;
-    
+ 	size_t			toVfyLen = 0;
+   
     shaMsgState.data = 0;
     md5MsgState.data = 0;
     
@@ -404,21 +493,32 @@ SSLProcessCertificateVerify(SSLBuffer message, SSLContext *ctx)
 	assert(ctx->peerPubKey != NULL);
 	publicModulusLen = sslKeyLengthInBytes(ctx->peerPubKey);
     
+	#if 0
     if (signatureLen != publicModulusLen) {
     	sslErrorLog("SSLProcessCertificateVerify: sig len error 2\n");
         return errSSLProtocol;
     }
+	#endif
+	
     hashDataBuf.data = hashData;
-    hashDataBuf.length = 36;
+    hashDataBuf.length = SSL_MD5_DIGEST_LEN + SSL_SHA1_DIGEST_LEN;
     
     if ((err = CloneHashState(&SSLHashSHA1, &ctx->shaState, &shaMsgState, ctx)) != 0)
         goto fail;
     if ((err = CloneHashState(&SSLHashMD5, &ctx->md5State, &md5MsgState, ctx)) != 0)
         goto fail;
 	assert(ctx->sslTslCalls != NULL);
-    if ((err = ctx->sslTslCalls->computeCertVfyMac(ctx, hashDataBuf, 
-			shaMsgState, md5MsgState)) != 0)
-        goto fail;
+	if(ctx->peerPubKey->KeyHeader.AlgorithmId == CSSM_ALGID_ECDSA) {
+		/* only take SHA1 regardless of SSLv3 or TLSv1 */
+		SSLHashSHA1.final(&shaMsgState, &hashDataBuf);
+		toVfyLen = SSL_SHA1_DIGEST_LEN;
+	}
+	else {
+		if ((err = ctx->sslTslCalls->computeCertVfyMac(ctx, hashDataBuf, 
+				shaMsgState, md5MsgState)) != 0)
+			goto fail;
+		toVfyLen = SSL_MD5_DIGEST_LEN + SSL_SHA1_DIGEST_LEN;
+	}
     
 	/* 
 	 * The CSP does the decrypt & compare for us in one shot
@@ -427,7 +527,7 @@ SSLProcessCertificateVerify(SSLBuffer message, SSLContext *ctx)
 		ctx->peerPubKey,
 		ctx->peerPubKeyCsp,		// FIXME - maybe we just use cspHand?
 		hashData,				// data to verify
-		36,
+		toVfyLen,
 		message.data + 2, 		// signature
 		signatureLen);
 	if(err) {

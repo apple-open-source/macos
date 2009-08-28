@@ -6,7 +6,7 @@
 #
 import sys
 import time
-import posix
+import os
 import string
 import libxml2
 # Memory debug specific
@@ -122,7 +122,7 @@ def usage(name = 'pyxsltproc'):
     print "\t--catalogs : use SGML catalogs from $SGML_CATALOG_FILES"
     print "\t             otherwise XML Catalogs starting from "
     print "\t         file:///etc/xml/catalog are activated by default"
-    print "\t--xinclude : do XInclude processing on document intput"
+    print "\t--xinclude : do XInclude processing on document input"
     print "\t--profile or --norman : dump profiling informations "
     print "\nProject libxslt home page: http://xmlsoft.org/XSLT/"
     print "To report bugs and get help: http://xmlsoft.org/XSLT/bugs.html"
@@ -185,7 +185,7 @@ def main(args = None):
             nonet = 1
         elif args[i] == "-catalogs" or args[i] == "--catalogs":
             try:
-                catalogs = posix.environ['SGML_CATALOG_FILES']
+                catalogs = os.environ['SGML_CATALOG_FILES']
             except:
                 catalogs = None
             if catalogs != none:

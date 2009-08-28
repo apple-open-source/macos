@@ -1,6 +1,6 @@
 // The template and inlines for the -*- C++ -*- valarray class.
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2004
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2004, 2005, 2006, 2007
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -16,7 +16,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -28,11 +28,11 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-// Written by Gabriel Dos Reis <Gabriel.Dos-Reis@DPTMaths.ENS-Cachan.Fr>
-
 /** @file valarray
  *  This is a Standard C++ Library header. 
  */
+
+// Written by Gabriel Dos Reis <Gabriel.Dos-Reis@DPTMaths.ENS-Cachan.Fr>
 
 #ifndef _GLIBCXX_VALARRAY
 #define _GLIBCXX_VALARRAY 1
@@ -47,8 +47,8 @@
 #include <algorithm>
 #include <debug/debug.h>
 
-namespace std
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   template<class _Clos, typename _Tp> 
     class _Expr;
 
@@ -87,13 +87,13 @@ namespace std
   template<class _Tp> class mask_array;     // masked array
   template<class _Tp> class indirect_array; // indirected array
 
-} // namespace std
+_GLIBCXX_END_NAMESPACE
 
 #include <bits/valarray_array.h>
 #include <bits/valarray_before.h>
   
-namespace std
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   /**
    *  @brief  Smart array designed to support numeric processing.
    *
@@ -155,7 +155,7 @@ namespace std
        *  @brief  Assign elements to an array.
        *
        *  Assign elements of array to values in @a v.  Results are undefined
-       *  if @a v is not the same size as this array.
+       *  if @a v does not have the same size as this array.
        *
        *  @param  v  Valarray to get values from.
        */
@@ -174,7 +174,7 @@ namespace std
        *  @brief  Assign elements to an array subset.
        *
        *  Assign elements of array to values in @a sa.  Results are undefined
-       *  if @a sa is not the same size as this array.
+       *  if @a sa does not have the same size as this array.
        *
        *  @param  sa  Array slice to get values from.
        */
@@ -184,7 +184,7 @@ namespace std
        *  @brief  Assign elements to an array subset.
        *
        *  Assign elements of array to values in @a ga.  Results are undefined
-       *  if @a ga is not the same size as this array.
+       *  if @a ga does not have the same size as this array.
        *
        *  @param  ga  Array slice to get values from.
        */
@@ -194,7 +194,7 @@ namespace std
        *  @brief  Assign elements to an array subset.
        *
        *  Assign elements of array to values in @a ma.  Results are undefined
-       *  if @a ma is not the same size as this array.
+       *  if @a ma does not have the same size as this array.
        *
        *  @param  ma  Array slice to get values from.
        */
@@ -204,7 +204,7 @@ namespace std
        *  @brief  Assign elements to an array subset.
        *
        *  Assign elements of array to values in @a ia.  Results are undefined
-       *  if @a ia is not the same size as this array.
+       *  if @a ia does not have the same size as this array.
        *
        *  @param  ia  Array slice to get values from.
        */
@@ -231,8 +231,8 @@ namespace std
        *  @brief  Return an array subset.
        *
        *  Returns a new valarray containing the elements of the array
-       *  indicated by the slice argument.  The new valarray is the size of
-       *  the input slice.  @see slice.
+       *  indicated by the slice argument.  The new valarray has the same size
+       *  as the input slice.  @see slice.
        *
        *  @param  s  The source slice.
        *  @return  New valarray containing elements in @a s.
@@ -243,8 +243,8 @@ namespace std
        *  @brief  Return a reference to an array subset.
        *
        *  Returns a new valarray containing the elements of the array
-       *  indicated by the slice argument.  The new valarray is the size of
-       *  the input slice.  @see slice.
+       *  indicated by the slice argument.  The new valarray has the same size
+       *  as the input slice.  @see slice.
        *
        *  @param  s  The source slice.
        *  @return  New valarray containing elements in @a s.
@@ -266,8 +266,8 @@ namespace std
        *  @brief  Return a reference to an array subset.
        *
        *  Returns a new valarray containing the elements of the array
-       *  indicated by the gslice argument.  The new valarray is
-       *  the size of the input gslice.  @see gslice.
+       *  indicated by the gslice argument.  The new valarray has
+       *  the same size as the input gslice.  @see gslice.
        *
        *  @param  s  The source gslice.
        *  @return  New valarray containing elements in @a s.
@@ -448,8 +448,8 @@ namespace std
        *
        *  A new valarray is constructed as a copy of this array with elements
        *  in shifted positions.  For an element with index i, the new position
-       *  is i - n.  The new valarray is the same size as the current one.
-       *  New elements without a value are set to 0.  Elements whos new
+       *  is i - n.  The new valarray has the same size as the current one.
+       *  New elements without a value are set to 0.  Elements whose new
        *  position is outside the bounds of the array are discarded.
        *
        *  Positive arguments shift toward index 0, discarding elements [0, n).
@@ -465,7 +465,7 @@ namespace std
        *
        *  A new valarray is constructed as a copy of this array with elements
        *  in shifted positions.  For an element with index i, the new position
-       *  is (i - n) % size().  The new valarray is the same size as the
+       *  is (i - n) % size().  The new valarray has the same size as the
        *  current one.  Elements that are shifted beyond the array bounds are
        *  shifted into the other end of the array.  No elements are lost.
        *
@@ -482,7 +482,7 @@ namespace std
        *
        *  Returns a new valarray with elements assigned to the result of
        *  applying func to the corresponding element of this array.  The new
-       *  array is the same size as this one.
+       *  array has the same size as this one.
        *
        *  @param  func  Function of Tp returning Tp to apply.
        *  @return  New valarray with transformed elements.
@@ -494,7 +494,7 @@ namespace std
        *
        *  Returns a new valarray with elements assigned to the result of
        *  applying func to the corresponding element of this array.  The new
-       *  array is the same size as this one.
+       *  array has the same size as this one.
        *
        *  @param  func  Function of const Tp& returning Tp to apply.
        *  @return  New valarray with transformed elements.
@@ -504,7 +504,7 @@ namespace std
       /**
        *  @brief  Resize array.
        *
-       *  Resize this array to be @a size and set all elements to @a c.  All
+       *  Resize this array to @a size and set all elements to @a c.  All
        *  references and iterators are invalidated.
        *
        *  @param  size  New array size.
@@ -535,18 +535,17 @@ namespace std
       return _M_data[__i];
     }
 
-} // std::
+_GLIBCXX_END_NAMESPACE
 
 #include <bits/valarray_after.h>
-
 #include <bits/slice_array.h>
 #include <bits/gslice.h>
 #include <bits/gslice_array.h>
 #include <bits/mask_array.h>
 #include <bits/indirect_array.h>
 
-namespace std
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   template<typename _Tp>
     inline
     valarray<_Tp>::valarray() : _M_size(0), _M_data(0) {}
@@ -584,7 +583,7 @@ namespace std
     valarray<_Tp>::valarray(const slice_array<_Tp>& __sa)
     : _M_size(__sa._M_sz), _M_data(__valarray_get_storage<_Tp>(__sa._M_sz))
     {
-      std::__valarray_copy
+      std::__valarray_copy_construct
 	(__sa._M_array, __sa._M_sz, __sa._M_stride, _Array<_Tp>(_M_data));
     }
 
@@ -594,7 +593,7 @@ namespace std
     : _M_size(__ga._M_index.size()),
       _M_data(__valarray_get_storage<_Tp>(_M_size))
     {
-      std::__valarray_copy
+      std::__valarray_copy_construct
 	(__ga._M_array, _Array<size_t>(__ga._M_index),
 	 _Array<_Tp>(_M_data), _M_size);
     }
@@ -604,7 +603,7 @@ namespace std
     valarray<_Tp>::valarray(const mask_array<_Tp>& __ma)
     : _M_size(__ma._M_sz), _M_data(__valarray_get_storage<_Tp>(__ma._M_sz))
     {
-      std::__valarray_copy
+      std::__valarray_copy_construct
 	(__ma._M_array, __ma._M_mask, _Array<_Tp>(_M_data), _M_size);
     }
 
@@ -613,7 +612,7 @@ namespace std
     valarray<_Tp>::valarray(const indirect_array<_Tp>& __ia)
     : _M_size(__ia._M_sz), _M_data(__valarray_get_storage<_Tp>(__ia._M_sz))
     {
-      std::__valarray_copy
+      std::__valarray_copy_construct
 	(__ia._M_array, __ia._M_index, _Array<_Tp>(_M_data), _M_size);
     }
 
@@ -621,7 +620,7 @@ namespace std
     inline
     valarray<_Tp>::valarray(const _Expr<_Dom, _Tp>& __e)
     : _M_size(__e.size()), _M_data(__valarray_get_storage<_Tp>(_M_size))
-    { std::__valarray_copy(__e, _M_size, _Array<_Tp>(_M_data)); }
+    { std::__valarray_copy_construct(__e, _M_size, _Array<_Tp>(_M_data)); }
 
   template<typename _Tp>
     inline
@@ -779,63 +778,91 @@ namespace std
       return std::__valarray_sum(_M_data, _M_data + _M_size);
     }
 
-  template <class _Tp>
+  template<class _Tp>
      inline valarray<_Tp>
      valarray<_Tp>::shift(int __n) const
      {
-       _Tp* const __a = static_cast<_Tp*>
-         (__builtin_alloca(sizeof(_Tp) * _M_size));
-       if (__n == 0)                          // no shift
-         std::__valarray_copy_construct(_M_data, _M_data + _M_size, __a);
-       else if (__n > 0)         // __n > 0: shift left
-         {                 
-           if (size_t(__n) > _M_size)
-             std::__valarray_default_construct(__a, __a + __n);
-           else
-             {
-               std::__valarray_copy_construct(_M_data + __n,
-					      _M_data + _M_size, __a);
-               std::__valarray_default_construct(__a + _M_size -__n,
-						 __a + _M_size);
-             }
-         }
-       else                        // __n < 0: shift right
-         {                          
-           std::__valarray_copy_construct (_M_data, _M_data + _M_size + __n,
-					   __a - __n);
-           std::__valarray_default_construct(__a, __a - __n);
-         }
-       return valarray<_Tp>(__a, _M_size);
+       valarray<_Tp> __ret;
+
+       if (_M_size == 0)
+	 return __ret;
+
+       _Tp* __restrict__ __tmp_M_data =
+	 std::__valarray_get_storage<_Tp>(_M_size);
+
+       if (__n == 0)
+	 std::__valarray_copy_construct(_M_data,
+					_M_data + _M_size, __tmp_M_data);
+       else if (__n > 0)      // shift left
+	 {
+	   if (size_t(__n) > _M_size)
+	     __n = _M_size;
+
+	   std::__valarray_copy_construct(_M_data + __n,
+					  _M_data + _M_size, __tmp_M_data);
+	   std::__valarray_default_construct(__tmp_M_data + _M_size - __n,
+					     __tmp_M_data + _M_size);
+	 }
+       else                   // shift right
+	 {
+	   if (size_t(-__n) > _M_size)
+	     __n = -_M_size;
+
+	   std::__valarray_copy_construct(_M_data, _M_data + _M_size + __n,
+					  __tmp_M_data - __n);
+	   std::__valarray_default_construct(__tmp_M_data,
+					     __tmp_M_data - __n);
+	 }
+
+       __ret._M_size = _M_size;
+       __ret._M_data = __tmp_M_data;
+       return __ret;
      }
 
-  template <class _Tp>
+  template<class _Tp>
      inline valarray<_Tp>
-     valarray<_Tp>::cshift (int __n) const
+     valarray<_Tp>::cshift(int __n) const
      {
-       _Tp* const __a = static_cast<_Tp*>
-         (__builtin_alloca (sizeof(_Tp) * _M_size));
-       if (__n == 0)               // no cshift
-         std::__valarray_copy_construct(_M_data, _M_data + _M_size, __a);
-       else if (__n > 0)           // cshift left
-         {               
-           std::__valarray_copy_construct(_M_data, _M_data + __n,
-					  __a + _M_size - __n);
-           std::__valarray_copy_construct(_M_data + __n, _M_data + _M_size,
-					  __a);
-         }
-       else                        // cshift right
-         {                       
-           std::__valarray_copy_construct
-             (_M_data + _M_size + __n, _M_data + _M_size, __a);
-           std::__valarray_copy_construct
-             (_M_data, _M_data + _M_size+__n, __a - __n);
-         }
-       return valarray<_Tp>(__a, _M_size);
+       valarray<_Tp> __ret;
+
+       if (_M_size == 0)
+	 return __ret;
+
+       _Tp* __restrict__ __tmp_M_data =
+	 std::__valarray_get_storage<_Tp>(_M_size);
+
+       if (__n == 0)
+	 std::__valarray_copy_construct(_M_data,
+					_M_data + _M_size, __tmp_M_data);
+       else if (__n > 0)      // cshift left
+	 {
+	   if (size_t(__n) > _M_size)
+	     __n = __n % _M_size;
+
+	   std::__valarray_copy_construct(_M_data, _M_data + __n,
+					  __tmp_M_data + _M_size - __n);
+	   std::__valarray_copy_construct(_M_data + __n, _M_data + _M_size,
+					  __tmp_M_data);
+	 }
+       else                   // cshift right
+	 {
+	   if (size_t(-__n) > _M_size)
+	     __n = -(size_t(-__n) % _M_size);
+
+	   std::__valarray_copy_construct(_M_data + _M_size + __n,
+					  _M_data + _M_size, __tmp_M_data);
+	   std::__valarray_copy_construct(_M_data, _M_data + _M_size + __n,
+					  __tmp_M_data - __n);
+	 }
+
+       __ret._M_size = _M_size;
+       __ret._M_data = __tmp_M_data;
+       return __ret;
      }
 
-  template <class _Tp>
+  template<class _Tp>
     inline void
-    valarray<_Tp>::resize (size_t __n, _Tp __c)
+    valarray<_Tp>::resize(size_t __n, _Tp __c)
     {
       // This complication is so to make valarray<valarray<T> > work
       // even though it is not required by the standard.  Nobody should
@@ -1005,6 +1032,8 @@ _DEFINE_BINARY_OPERATOR(>, __greater)
 _DEFINE_BINARY_OPERATOR(<=, __less_equal)
 _DEFINE_BINARY_OPERATOR(>=, __greater_equal)
 
-} // namespace std
+#undef _DEFINE_BINARY_OPERATOR
+
+_GLIBCXX_END_NAMESPACE
 
 #endif /* _GLIBCXX_VALARRAY */

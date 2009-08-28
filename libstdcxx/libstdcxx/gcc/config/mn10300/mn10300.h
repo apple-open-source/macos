@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.
    Matsushita MN10300 series
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Jeff Law (law@cygnus.com).
 
@@ -18,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 #undef ASM_SPEC
@@ -37,50 +37,31 @@ Boston, MA 02111-1307, USA.  */
     {						\
       builtin_define ("__mn10300__");		\
       builtin_define ("__MN10300__");		\
+      builtin_assert ("cpu=mn10300");		\
+      builtin_assert ("machine=mn10300");	\
     }						\
   while (0)
 
 #define CPP_SPEC "%{mam33:-D__AM33__} %{mam33-2:-D__AM33__=2 -D__AM33_2__}"
 
-/* Run-time compilation parameters selecting different hardware subsets.  */
-
-extern int target_flags;
-
 extern GTY(()) int mn10300_unspec_int_label_counter;
 
-/* Macros used in the machine description to test the flags.  */
+enum processor_type {
+  PROCESSOR_MN10300,
+  PROCESSOR_AM33,
+  PROCESSOR_AM33_2
+};
 
-/* Macro to define tables used to set the flags.
-   This is a list in braces of pairs in braces,
-   each pair being { "NAME", VALUE }
-   where VALUE is the bits to set or minus the bits to clear.
-   An empty string NAME is used to identify the default VALUE.  */
+extern enum processor_type mn10300_processor;
 
-/* Generate code to work around mul/mulq bugs on the mn10300.  */
-#define TARGET_MULT_BUG			(target_flags & 0x1)
+#define TARGET_AM33	(mn10300_processor >= PROCESSOR_AM33)
+#define TARGET_AM33_2	(mn10300_processor == PROCESSOR_AM33_2)
 
-/* Generate code for the AM33 processor.  */
-#define TARGET_AM33			(target_flags & 0x2)
-
-/* Generate code for the AM33/2.0 processor.  */
-#define TARGET_AM33_2			(target_flags & 0x4)
-
-#define TARGET_SWITCHES  \
-  {{ "mult-bug",	0x1,  N_("Work around hardware multiply bug")},	\
-   { "no-mult-bug", 	-0x1, N_("Do not work around hardware multiply bug")},\
-   { "am33", 		0x2,  N_("Target the AM33 processor")},	\
-   { "am33", 		-(0x1), ""},\
-   { "no-am33", 	-0x2, ""},	\
-   { "no-crt0",		0,    N_("No default crt0.o") }, \
-   { "am33-2",		0x6,  N_("Target the AM33/2.0 processor")},   \
-   { "am33-2",		-(0x1), ""},\
-   { "no-am33-2",	-0x4,   ""},  \
-   { "relax",		0,    N_("Enable linker relaxations") }, \
-   { "", TARGET_DEFAULT, NULL}}
-
-#ifndef TARGET_DEFAULT
-#define TARGET_DEFAULT 0x1
+#ifndef PROCESSOR_DEFAULT
+#define PROCESSOR_DEFAULT PROCESSOR_MN10300
 #endif
+
+#define OVERRIDE_OPTIONS mn10300_override_options ()
 
 /* Print subsidiary information on the compiler version in use.  */
 
@@ -446,7 +427,7 @@ enum reg_class {
   (!TARGET_AM33 && (MODE == QImode || MODE == HImode) ? DATA_REGS : CLASS)
 
 #define SECONDARY_RELOAD_CLASS(CLASS,MODE,IN) \
-  secondary_reload_class(CLASS,MODE,IN)
+  mn10300_secondary_reload_class(CLASS,MODE,IN)
 
 /* Return the maximum number of consecutive registers
    needed to represent mode MODE in a register of class CLASS.  */
@@ -501,12 +482,12 @@ enum reg_class {
 
 #define STACK_GROWS_DOWNWARD
 
-/* Define this if the nominal address of the stack frame
+/* Define this to nonzero if the nominal address of the stack frame
    is at the high-address end of the local variables;
    that is, each additional local variable allocated
    goes at a more negative offset in the frame.  */
 
-#define FRAME_GROWS_DOWNWARD
+#define FRAME_GROWS_DOWNWARD 1
 
 /* Offset within stack frame to start allocating local variables at.
    If FRAME_GROWS_DOWNWARD, this is the offset to the END of the
@@ -615,8 +596,9 @@ struct cum_arg {int nbytes; };
    otherwise, FUNC is 0.  */
 
 #define FUNCTION_VALUE(VALTYPE, FUNC) \
-  gen_rtx_REG (TYPE_MODE (VALTYPE), POINTER_TYPE_P (VALTYPE) \
-	       ? FIRST_ADDRESS_REGNUM : FIRST_DATA_REGNUM)
+  mn10300_function_value (VALTYPE, FUNC, 0)
+#define FUNCTION_OUTGOING_VALUE(VALTYPE, FUNC) \
+  mn10300_function_value (VALTYPE, FUNC, 1)
 
 /* Define how to find the value returned by a library function
    assuming the value has mode MODE.  */
@@ -1072,11 +1054,6 @@ while (0)
 /* The assembler op to get a word.  */
 
 #define FILE_ASM_OP "\t.file\n"
-
-#define PREDICATE_CODES					\
-  {"const_1f_operand", {CONST_INT, CONST_DOUBLE}},	\
-  {"const_8bit_operand", {CONST_INT}},			\
-  {"call_address_operand", {SYMBOL_REF, REG, UNSPEC}},
 
 typedef struct mn10300_cc_status_mdep
   {

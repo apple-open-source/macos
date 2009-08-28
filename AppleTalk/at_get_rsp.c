@@ -33,14 +33,11 @@
  */
 
 #include <unistd.h>
-
-#include <netat/appletalk.h>
-#include <netat/ddp.h>
-#include <netat/atp.h>
+#include <errno.h>
 
 #include "at_proto.h"
 
-#define RSP_ARRIVED(p) (*((char *)p))
+#define	SET_ERRNO(e) errno = e
 
 int
 atp_getresp (fd,tid,resp)
@@ -48,51 +45,6 @@ atp_getresp (fd,tid,resp)
 	u_short		*tid;
 	at_resp_t 	*resp;
 {
-	int		status, i;
-	u_char		bitmap;
-	struct atpBDS *newbdsp;
-	int newcount;
-	char	   	buff[640];
-
-	/*
-	 * get and check the event byte for response indicator
-	 */
-	while (1) {
-		if ((i=read(fd, buff, 1)) == -1)
-			return -1;
-		if (i == 1) {
-			if (RSP_ARRIVED(buff))
-				break;
-		}
-	}
-
-	newbdsp = (struct atpBDS *)buff;
-	for (i = 0; i < ATP_TRESP_MAX; i++) {
-		UAL_ASSIGN(newbdsp[i].bdsBuffAddr, resp->resp[i].iov_base);
-		UAS_ASSIGN(newbdsp[i].bdsBuffSz, resp->resp[i].iov_len);
-	}
-	if ((status = ntohs(ATPgetrsp(fd, newbdsp))) == -1)
-		return -1;
-
-	/*
-	 * return pertinent info to the caller
-	 */
-	*tid = (u_short)status;
-	bitmap = resp->bitmap;
-	newbdsp = (struct atpBDS *)buff;
-	newcount = UAS_VALUE(newbdsp->bdsBuffSz);
-
-	if (newcount > 0) {
-		resp->bitmap = (1 << newcount) - 1;
-
-		for (i = 0; i < newcount; i++) {
-			if ((bitmap & (1 << i))) {
-				UAL_UAL(((long *)&resp->userdata[i]), newbdsp->bdsUserData);
-				resp->resp[i].iov_len = UAS_VALUE(newbdsp->bdsDataSz);
-			}
-			newbdsp++;
-		}
-	}
-
-	return (0);
+	SET_ERRNO(ENXIO);
+	return (-1);
 }

@@ -1,0 +1,11 @@
+#!/bin/sh
+# copy originals of some files into the designated directory
+
+files='tcl.decls tclDecls.h tclIO.c tclStubInit.c tclStubs.c'
+
+for f in $files
+do
+	cp $f $1/$f.orig
+done
+exit
+

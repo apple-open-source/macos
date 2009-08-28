@@ -234,7 +234,7 @@ bool AppleRAIDConcatMemoryDescriptor::configureForMemoryDescriptor(IOMemoryDescr
     UInt32 byteCount = memoryDescriptor->getLength();
     UInt64 byteEnd = byteStart + byteCount - 1;
 
-    IOLogRW("concat start=%llu end=%llu bytestart=%llu byteCount=%lu\n", mdMemberStart, mdMemberEnd, byteStart, byteCount);
+    IOLogRW("concat start=%llu end=%llu bytestart=%llu byteCount=%u\n", mdMemberStart, mdMemberEnd, byteStart, (uint32_t)byteCount);
 
     assert(mdMemberIndex == activeIndex);
 
@@ -257,29 +257,19 @@ bool AppleRAIDConcatMemoryDescriptor::configureForMemoryDescriptor(IOMemoryDescr
     
     mdMemoryDescriptor = memoryDescriptor;
     
-    _direction = memoryDescriptor->getDirection();
+    _flags = (_flags & ~kIOMemoryDirectionMask) | memoryDescriptor->getDirection();
     
-    IOLogRW("concat mdbytestart=%llu _length=0x%lx\n", byteStart, _length);
+    IOLogRW("concat mdbytestart=%llu _length=0x%x\n", byteStart, (uint32_t)_length);
 
     return true;
 }
 
-IOPhysicalAddress AppleRAIDConcatMemoryDescriptor::getPhysicalSegment(IOByteCount offset, IOByteCount *length)
-{
-    IOByteCount		setOffset = offset + mdMemberOffset;
-    IOPhysicalAddress	physAddress;
-    
-    physAddress = mdMemoryDescriptor->getPhysicalSegment(setOffset, length);
-    
-    return physAddress;
-}
-
-addr64_t AppleRAIDConcatMemoryDescriptor::getPhysicalSegment64(IOByteCount offset, IOByteCount *length)
+addr64_t AppleRAIDConcatMemoryDescriptor::getPhysicalSegment(IOByteCount offset, IOByteCount *length, IOOptionBits options)
 {
     IOByteCount		setOffset = offset + mdMemberOffset;
     addr64_t		physAddress;
     
-    physAddress = mdMemoryDescriptor->getPhysicalSegment64(setOffset, length);
+    physAddress = mdMemoryDescriptor->getPhysicalSegment(setOffset, length, options);
     
     return physAddress;
 }

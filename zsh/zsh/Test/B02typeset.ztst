@@ -18,7 +18,6 @@
 #  Function tracing (typeset -ft)		E02xtrace
 
 # Not yet tested:
-#  Case conversion (-l, -u)
 #  Assorted illegal flag combinations
 
 %prep
@@ -339,6 +338,28 @@
 >'0x0000002B'
 >'-0x000002B'
 
+ setopt cbases
+ integer -Z 10 -i 16 foozi16c
+ for foozi16c in 0x1234 -0x1234; do
+   for (( i = 1; i <= 5; i++ )); do
+       print "'${foozi16c[i,11-i]}'"
+   done
+   print "'${foozi16c[-2]}'"
+ done
+0:Extracting substrings from padded integers
+>'0x00001234'
+>'x0000123'
+>'000012'
+>'0001'
+>'00'
+>'3'
+>'-0x0001234'
+>'0x000123'
+>'x00012'
+>'0001'
+>'00'
+>'3'
+
  typeset -F 3 -Z 10 foozf
  for foozf in 3.14159 -3.14159 4 -4; do
    print "'$foozf'"
@@ -356,8 +377,6 @@
 
  local parentenv=preserved
  fn() {
-  # The first declare works around the "not an identifier" bug with -h
-  declare \! \# \$ \* - \? @ 0
   typeset -h +g -m \*
   unset -m \*
   integer i=9
@@ -379,3 +398,58 @@
 >integer local i
 >local tagged scalar
 >preserved
+
+ export ENVFOO=bar
+ print ENVFOO in environment
+ env | grep '^ENVFOO'
+ print Changing ENVFOO
+ ENVFOO="not bar any more"
+ env | grep '^ENVFOO'
+ unset ENVFOO
+ print ENVFOO no longer in environment
+ env | grep '^ENVFOO'
+1:Adding and removing values to and from the environment
+>ENVFOO in environment
+>ENVFOO=bar
+>Changing ENVFOO
+>ENVFOO=not bar any more
+>ENVFOO no longer in environment
+
+ (export FOOENV=BAR
+ env | grep '^FOOENV'
+ print Exec
+ exec $ZTST_testdir/../Src/zsh -fc '
+ print Unset
+ unset FOOENV
+ env | grep "^FOOENV"')
+1:Can unset environment variables after exec
+>FOOENV=BAR
+>Exec
+>Unset
+
+ local case1=upper
+ typeset -u case1
+ print $case1
+ upper="VALUE OF \$UPPER"
+ print ${(P)case1}
+0:Upper case conversion, does not apply to values used internally
+>UPPER
+>VALUE OF $UPPER
+
+ local case2=LOWER
+ typeset -l case2
+ print $case2
+ LOWER="value of \$lower"
+ print ${(P)case2}
+0:Lower case conversion, does not apply to values used internally
+>lower
+>value of $lower
+
+ typeset -a array
+ array=(foo bar)
+ fn() { typeset -p array nonexistent; }
+ fn
+1:declare -p shouldn't create scoped values
+>typeset -a array
+>array=(foo bar)
+?fn:typeset: no such variable: nonexistent

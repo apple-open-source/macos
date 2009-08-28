@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2006-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -27,14 +27,182 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <string.h>
+#include <TargetConditionals.h>
+#include <CoreFoundation/CFString.h>
+#include <CoreFoundation/CFUUID.h>
+#include <CoreFoundation/CFNumber.h>
+#include "EAPSecurity.h"
+#include "EAPKeychainUtil.h"
+
+static CFStringRef
+EAPCFUUIDStringCreate(CFAllocatorRef alloc)
+{
+    CFUUIDRef 	uuid;
+    CFStringRef	uuid_str;
+
+    uuid = CFUUIDCreate(alloc);
+    uuid_str = CFUUIDCreateString(alloc, uuid);
+    CFRelease(uuid);
+    return (uuid_str);
+}
+
+#if TARGET_OS_EMBEDDED
+#include "myCFUtil.h"
+
+OSStatus
+EAPSecKeychainPasswordItemRemove(SecKeychainRef keychain,
+				 CFStringRef unique_id_str)
+{
+    const void *	keys[] = {
+	kSecClass,
+	kSecAttrService
+    };
+    CFDictionaryRef	query;
+    OSStatus		status;
+
+    const void *	values[] = {
+	kSecClassGenericPassword,
+	unique_id_str
+    };
+
+    query = CFDictionaryCreate(NULL, keys, values,
+			       sizeof(keys) / sizeof(*keys),
+			       &kCFTypeDictionaryKeyCallBacks,
+			       &kCFTypeDictionaryValueCallBacks);
+    status = SecItemDelete(query);
+    CFRelease(query);
+    if (status != noErr) {
+	fprintf(stderr, "SecItemDelete failed: %s (%d)\n", 
+		EAPSecurityErrorString(status), (int)status);
+    }
+    return (status);
+}
+
+OSStatus
+EAPSecKeychainPasswordItemCopy(SecKeychainRef keychain, 
+			       CFStringRef unique_id_str, 
+			       CFDataRef * ret_password)
+{
+    const void *	keys[] = {
+	kSecClass,
+	kSecAttrService,
+	kSecReturnData
+    };
+    CFDictionaryRef	query;
+    CFTypeRef		results;
+    OSStatus		status;
+    const void *	values[] = {
+	kSecClassGenericPassword,
+	unique_id_str,
+	kCFBooleanTrue
+    };
+
+    query = CFDictionaryCreate(NULL, keys, values,
+			       sizeof(keys) / sizeof(*keys),
+			       &kCFTypeDictionaryKeyCallBacks,
+			       &kCFTypeDictionaryValueCallBacks);
+    status = SecItemCopyMatching(query, &results);
+    CFRelease(query);
+    if (status == noErr) {
+	*ret_password = results;
+    }
+    else {
+	*ret_password = NULL;
+    }
+    return (status);
+}
+
+OSStatus
+EAPSecKeychainPasswordItemCreateWithAccess(SecKeychainRef keychain,
+					   SecAccessRef access,
+					   CFStringRef unique_id_str,
+					   CFDataRef label,
+					   CFDataRef description,
+					   CFDataRef user,
+					   CFDataRef password)
+{
+    CFMutableDictionaryRef	attrs;
+    OSStatus			status;
+
+    attrs = CFDictionaryCreateMutable(NULL, 0,
+				      &kCFTypeDictionaryKeyCallBacks,
+				      &kCFTypeDictionaryValueCallBacks);
+    CFDictionarySetValue(attrs, kSecClass, kSecClassGenericPassword);
+    CFDictionarySetValue(attrs, kSecAttrService, unique_id_str);
+    if (label != NULL) {
+	CFDictionarySetValue(attrs, kSecAttrLabel, label);
+    }
+    if (description != NULL) {
+	CFDictionarySetValue(attrs, kSecAttrDescription, description);
+    }
+    if (user != NULL) {
+	CFDictionarySetValue(attrs, kSecAttrAccount, user);
+    }
+    CFDictionarySetValue(attrs, kSecValueData, password);
+    status = SecItemAdd(attrs, NULL);
+    CFRelease(attrs);
+    return (status);
+}
+
+OSStatus
+EAPSecKeychainPasswordItemSet(SecKeychainRef keychain,
+			      CFStringRef unique_id_str,
+			      CFDataRef password)
+{
+    const void *	keys[] = {
+	kSecClass,
+	kSecAttrService,
+	kSecReturnData
+    };
+    CFTypeRef		existing_password = NULL;
+    CFDictionaryRef	query;
+    CFDictionaryRef	pass_dict;
+    OSStatus		status;
+    const void *	values[] = {
+	kSecClassGenericPassword,
+	unique_id_str,
+	kCFBooleanTrue
+    };
+
+    query = CFDictionaryCreate(NULL, keys, values,
+			       sizeof(keys) / sizeof(*keys),
+			       &kCFTypeDictionaryKeyCallBacks,
+			       &kCFTypeDictionaryValueCallBacks);
+    status = SecItemCopyMatching(query, &existing_password);
+    CFRelease(query);
+    if (status != noErr) {
+	goto done;
+    }
+    if (existing_password != NULL
+	&& CFEqual(password, existing_password)) {
+	/* nothing to do */
+	goto done;
+    }
+    query = CFDictionaryCreate(NULL, keys, values,
+			       (sizeof(keys) / sizeof(*keys)) - 1,
+			       &kCFTypeDictionaryKeyCallBacks,
+			       &kCFTypeDictionaryValueCallBacks);
+    pass_dict = CFDictionaryCreate(NULL,
+				   (const void * *)&kSecValueData,
+				   (const void * *)&password,
+				   1,
+				   &kCFTypeDictionaryKeyCallBacks,
+				   &kCFTypeDictionaryValueCallBacks);
+    status = SecItemUpdate(query, pass_dict);
+    CFRelease(query);
+    CFRelease(pass_dict);
+
+ done:
+    my_CFRelease(&existing_password);
+    return (status);
+}
+
+#else /* TARGET_OS_EMBEDDED */
+
 #include <Security/cssmtype.h>
 #include <Security/cssmapple.h>
 #include <Security/SecKeychain.h>
 #include <Security/SecKeychainItem.h>
-#include <CoreFoundation/CFString.h>
-#include <CoreFoundation/CFUUID.h>
-#include "EAPSecurity.h"
-#include "EAPKeychainUtil.h"
 
 OSStatus
 EAPSecKeychainPasswordItemRemove(SecKeychainRef keychain,
@@ -160,51 +328,6 @@ EAPSecKeychainPasswordItemCreateWithAccess(SecKeychainRef keychain,
     return (status);
 }
 
-static CFStringRef
-EAPCFUUIDStringCreate(CFAllocatorRef alloc)
-{
-    CFUUIDRef 	uuid;
-    CFStringRef	uuid_str;
-
-    uuid = CFUUIDCreate(alloc);
-    uuid_str = CFUUIDCreateString(alloc, uuid);
-    CFRelease(uuid);
-    return (uuid_str);
-}
-
-OSStatus
-EAPSecKeychainPasswordItemCreateUniqueWithAccess(SecKeychainRef keychain,
-						 SecAccessRef access,
-						 CFDataRef label,
-						 CFDataRef description,
-						 CFDataRef user,
-						 CFDataRef password,
-						 CFStringRef * ret_unique_id)
-{
-    OSStatus		status;
-    CFStringRef		unique_id_str;
-
-    if (ret_unique_id != NULL) {
-	*ret_unique_id = NULL;
-    }
-    unique_id_str = EAPCFUUIDStringCreate(NULL);
-    status = EAPSecKeychainPasswordItemCreateWithAccess(keychain,
-							access,
-							unique_id_str,
-							label,
-							description,
-							user,
-							password);
-    if (status == noErr
-	&& ret_unique_id != NULL) {
-	*ret_unique_id = unique_id_str;
-    }
-    else {
-	CFRelease(unique_id_str);
-    }
-    return (status);
-}
-
 OSStatus
 EAPSecKeychainPasswordItemSet(SecKeychainRef keychain,
 			      CFStringRef unique_id_str,
@@ -247,9 +370,44 @@ EAPSecKeychainPasswordItemSet(SecKeychainRef keychain,
     CFRelease(item);
     return (status);
 }
+#endif /* TARGET_OS_EMBEDDED */
+
+OSStatus
+EAPSecKeychainPasswordItemCreateUniqueWithAccess(SecKeychainRef keychain,
+						 SecAccessRef access,
+						 CFDataRef label,
+						 CFDataRef description,
+						 CFDataRef user,
+						 CFDataRef password,
+						 CFStringRef * ret_unique_id)
+{
+    OSStatus		status;
+    CFStringRef		unique_id_str;
+
+    if (ret_unique_id != NULL) {
+	*ret_unique_id = NULL;
+    }
+    unique_id_str = EAPCFUUIDStringCreate(NULL);
+    status = EAPSecKeychainPasswordItemCreateWithAccess(keychain,
+							access,
+							unique_id_str,
+							label,
+							description,
+							user,
+							password);
+    if (status == noErr
+	&& ret_unique_id != NULL) {
+	*ret_unique_id = unique_id_str;
+    }
+    else {
+	CFRelease(unique_id_str);
+    }
+    return (status);
+}
 
 #ifdef TEST_EAPKEYCHAINUTIL
 
+#if ! TARGET_OS_EMBEDDED
 /*
  * Create a SecAccessRef with a custom form.
  * Both the owner and the ACL set allow free access to root,
@@ -343,16 +501,26 @@ SecKeychainCopySystemKeychain(SecKeychainRef * ret_keychain)
     return (status);
 }
 
+#endif /* ! TARGET_OS_EMBEDDED */
+
+#if TARGET_OS_EMBEDDED
+#define SYS_OPT			" "
+#else /* TARGET_OS_EMBEDDED */
+#define SYS_OPT			" [system] "
+#define HAS_KEYCHAINS
+#endif /* TARGET_OS_EMBEDDED */
+
 static void 
 usage(const char * progname)
 {
-    fprintf(stderr, "%s [system] create <label> <description> <username> <password>\n",
+    fprintf(stderr, "%s" SYS_OPT 
+	    "create <label> <description> <username> <password>\n",
 	    progname);
     fprintf(stderr, 
-	    "%s [system] set <unique_id> <password>\n",
+	    "%s" SYS_OPT "set <unique_id> <password>\n",
 	    progname);
-    fprintf(stderr, "%s [system] delete <unique_id>\n", progname);
-    fprintf(stderr, "%s [system] get <unique_id>\n", progname);
+    fprintf(stderr, "%s" SYS_OPT "remove <unique_id>\n", progname);
+    fprintf(stderr, "%s" SYS_OPT "get <unique_id>\n", progname);
     exit(1);
 }
 
@@ -371,11 +539,14 @@ main(int argc, const char *argv[])
     SecKeychainRef	keychain = NULL;
     const char *	progname = argv[0];
     OSStatus		status;
+#ifdef HAS_KEYCHAINS
     bool		use_system = FALSE;
+#endif
 
     if (argc < 2) {
 	usage(argv[0]);
     }
+#ifdef HAS_KEYCHAINS
     if (strcmp(argv[1], "system") == 0) {
 	if (argc < 3) {
 	    usage(progname);
@@ -390,6 +561,7 @@ main(int argc, const char *argv[])
 	argc--;
 	argv++;
     }
+#endif HAS_KEYCHAINS
     
     if (strcmp(argv[1], "create") == 0) {
 	if (argc < 6) {
@@ -453,6 +625,7 @@ main(int argc, const char *argv[])
 	  CFDataRef	username;
 	  CFDataRef	password;
 
+#ifdef HAS_KEYCHAINS
 	  if (use_system) {
 	      status = EAPSecAccessCreateWithUid(0, &access);
 	      if (status != noErr) {
@@ -470,6 +643,8 @@ main(int argc, const char *argv[])
 		  exit(2);
 	      }
 	  }
+#endif /* HAS_KEYCHAINS */
+
 	  label = CFDataCreateWithBytesNoCopy(NULL, 
 					      (const UInt8 *)argv[2],
 					      strlen(argv[2]),
@@ -489,19 +664,43 @@ main(int argc, const char *argv[])
 					    (const UInt8 *)argv[5],
 					    strlen(argv[5]),
 					    kCFAllocatorNull);
-	  status 
-	      = EAPSecKeychainPasswordItemCreateUniqueWithAccess(keychain,
-								 access,
-								 label,
-								 description,
-								 username,
-								 password,
-								 &unique_id_str);
-	  if (status != noErr) {
-	      fprintf(stderr, "EAPSecKeychainItemCreateWithAccessfailed,"
-		      " %s (%ld)\n",
-		      EAPSecurityErrorString(status), status);
-	      exit(1);
+	  if (argc > 6) {
+	      unique_id_str
+		  = CFStringCreateWithCStringNoCopy(NULL, 
+						    argv[6],
+						    kCFStringEncodingUTF8,
+						    kCFAllocatorNull);
+	      status 
+		  = EAPSecKeychainPasswordItemCreateWithAccess(keychain,
+							       access,
+							       unique_id_str,
+							       label,
+							       description,
+							       username,
+							       password);
+	      if (status != noErr) {
+		  fprintf(stderr, "EAPSecKeychainItemCreateWithAccessfailed,"
+			  " %s (%ld)\n",
+			  EAPSecurityErrorString(status), status);
+		  exit(1);
+	      }
+	  }
+	  else {
+	      status 
+		  = EAPSecKeychainPasswordItemCreateUniqueWithAccess(keychain,
+								     access,
+								     label,
+								     description,
+								     username,
+								     password,
+								     &unique_id_str);
+	      if (status != noErr) {
+		  fprintf(stderr,
+			  "EAPSecKeychainItemCreateUniqueWithAccessfailed,"
+			  " %s (%ld)\n",
+			  EAPSecurityErrorString(status), status);
+		  exit(1);
+	      }
 	  }
 	  unique_id 
 	      = CFStringCreateExternalRepresentation(NULL,
@@ -568,4 +767,4 @@ main(int argc, const char *argv[])
     return (0);
 }
 
-#endif TEST_EAPKEYCHAINUTIL
+#endif /* TEST_EAPKEYCHAINUTIL */

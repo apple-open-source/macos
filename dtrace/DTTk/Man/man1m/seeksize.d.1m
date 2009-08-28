@@ -11,8 +11,7 @@ This can be used to identify whether processes are accessing the
 disks in a "random" or "sequential" manner. Sequential is often
 desirable, indicated by mostly zero length seeks.
 
-Since this uses DTrace, only the root user or users with the
-dtrace_kernel privilege can run this command.
+Since this uses DTrace, only users with root privileges can run this command.
 .SH EXAMPLES
 .TP
 Sample until Ctrl\-C is hit then print report,

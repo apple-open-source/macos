@@ -22,9 +22,9 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/usr.sbin/periodic/periodic.8,v 1.30 2005/01/18 20:02:40 ru Exp $
+.\" $FreeBSD: src/usr.sbin/periodic/periodic.8,v 1.33 2007/09/07 21:54:45 gabor Exp $
 .\"
-.Dd November 28, 2001
+.Dd August 30, 2007
 .Os
 .Dt PERIODIC 8
 .Sh NAME
@@ -37,7 +37,7 @@
 The
 .Nm
 utility is intended to be called by
-.Xr cron 8
+.Xr launchd 8
 to execute shell scripts
 located in the specified directory.
 .Pp
@@ -48,7 +48,7 @@ Perform the standard daily periodic executable run.
 This usually occurs early in the morning (local time).
 .It Pa weekly
 Perform the standard weekly periodic executable run.
-This usually occurs on Sunday mornings.
+This usually occurs very early on Saturday mornings.
 .It Pa monthly
 Perform the standard monthly periodic executable run.
 This usually occurs on the first day of the month.
@@ -130,6 +130,11 @@ value does not begin with a
 .Ql /
 and is not empty, it is assumed to contain a list of email addresses, and
 the output is mailed to them.
+If
+.Ao Ar basedir Ac Ns Va _show_empty_output
+is set to
+.Dq Li NO ,
+then no mail will be sent if the output was empty.
 .Pp
 If
 .Ao Ar basedir Ac Ns Va _output
@@ -146,12 +151,12 @@ If executables are added which depend upon other path components, each
 executable must be responsible for configuring its own appropriate environment.
 .Sh FILES
 .Bl -tag -width ".Pa /etc/defaults/periodic.conf"
-.It Pa /etc/crontab
+.It Pa /System/Library/LaunchDaemons/com.apple.periodic-*.plist
 the
 .Nm
-utility is typically called via entries in the system default
-.Xr cron 8
-table
+utility is typically called via these
+.Xr launchd 8
+jobs
 .It Pa /etc/periodic
 the top level directory containing
 .Pa daily ,
@@ -177,23 +182,13 @@ configuration
 .Sh EXIT STATUS
 Exit status is 0 on success and 1 if the command fails.
 .Sh EXAMPLES
-The system crontab should have entries for
-.Nm
-similar to the following example:
-.Bd -literal -offset indent
-# do daily/weekly/monthly maintenance
-0      2       *       *       *       root    periodic daily
-0      3       *       *       6       root    periodic weekly
-0      5       1       *       *       root    periodic monthly
-.Ed
-.Pp
 The
 .Pa /etc/defaults/periodic.conf
 system registry will typically have a
 .Va local_periodic
 variable reading:
 .Pp
-.Dl local_periodic="/usr/local/etc/periodic /usr/X11R6/etc/periodic"
+.Dl local_periodic="/usr/local/etc/periodic"
 .Pp
 To log
 .Nm
@@ -225,9 +220,8 @@ Self explanatory.
 .El
 .Sh SEE ALSO
 .Xr sh 1 ,
-.Xr crontab 5 ,
 .Xr periodic.conf 5 ,
-.Xr cron 8 ,
+.Xr launchd 8 ,
 .Xr newsyslog 8
 .Sh HISTORY
 The

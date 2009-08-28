@@ -21,15 +21,15 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1998 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2008 Apple Inc. All rights reserved.
  *
- *	File: sys/ppc/setjmp.s
+ *	File: sys/arm/setjmp.s
  *
  *	Implements sigsetjmp(), setjmp(), _setjmp()
  *
  */
 
-#include "SYS.h"
+#include <architecture/arm/asm_help.h>
 #include "_setjmp.h"
 
 /*
@@ -38,7 +38,7 @@
 
 /*	int sigsetjmp(sigjmp_buf env, int savemask); */
 
-MI_ENTRY_POINT(_sigsetjmp)
+ENTRY_POINT(_sigsetjmp)
 	str	r1, [ r0, #JMP_SIGFLAG ]	// save sigflag
 	tst	r1, #0				// test if r1 is 0
 	beq	L__exit				// if r1 == 0 do _setjmp()
@@ -46,16 +46,16 @@ MI_ENTRY_POINT(_sigsetjmp)
 
 /*	int setjmp(jmp_buf env); */
 
-MI_ENTRY_POINT(_setjmp)
+ENTRY_POINT(_setjmp)
 	str	lr, [ r0, #JMP_lr ]
 	str	r8, [ r0, #JMP_r8 ]
 	mov	r8, r0
 	mov	r0, #1				// get the previous signal mask
 	mov	r1, #0				//
 	add	r2, r8, #JMP_sig		// get address where previous mask needs to be
-	MI_CALL_EXTERNAL(_sigprocmask)		// make a syscall to get mask
+	CALL_EXTERNAL(_sigprocmask)		// make a syscall to get mask
 	mov	r0, r8				// restore jmp_buf ptr
 	ldr	r8, [ r0,  #JMP_r8 ] 
 	ldr	lr, [ r0,  #JMP_lr ] 
 L__exit:
-	MI_BRANCH_EXTERNAL(__setjmp)
+	BRANCH_EXTERNAL(__setjmp)

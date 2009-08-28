@@ -53,7 +53,11 @@ BELPICBinaryFileRecord::~BELPICBinaryFileRecord()
 
 #define BELPIC_MAXSIZE_CERT           4000
 
-Tokend::Attribute *BELPICBinaryFileRecord::getDataAttribute(
+BELPICCertificateRecord::~BELPICCertificateRecord()
+{
+}
+
+Tokend::Attribute *BELPICCertificateRecord::getDataAttribute(
 	Tokend::TokenContext *tokenContext)
 {
 	CssmData data;
@@ -79,6 +83,43 @@ Tokend::Attribute *BELPICBinaryFileRecord::getDataAttribute(
 	return new Tokend::Attribute(data.Data, data.Length);
 }
 
+//
+// BELPICProtectedRecord
+//
+BELPICProtectedRecord::~BELPICProtectedRecord()
+{
+}
+
+Tokend::Attribute *BELPICProtectedRecord::getDataAttribute(Tokend::TokenContext *tokenContext)
+{
+	// no caching
+	CssmData data;
+	BELPICToken &belpicToken = static_cast<BELPICToken &>(*tokenContext);
+	
+	PCSC::Transaction _(belpicToken);
+	belpicToken.select(mDF, mEF);
+	
+	uint8 certificate[BELPIC_MAXSIZE_CERT];
+	size_t certificateLength = sizeof(certificate);
+	belpicToken.readBinary(certificate, certificateLength);
+	data.Data = certificate;
+	data.Length = certificateLength;
+	
+	return new Tokend::Attribute(data.Data, data.Length);
+}
+
+void BELPICProtectedRecord::getAcl(const char *tag, uint32 &count, AclEntryInfo *&acls)
+{
+	if (!mAclEntries) {
+		mAclEntries.allocator(Allocator::standard());
+        // Reading this object's data requires PIN1
+		mAclEntries.add(CssmClient::AclFactory::PinSubject(
+														   mAclEntries.allocator(), 1),
+						AclAuthorizationSet(CSSM_ACL_AUTHORIZATION_DB_READ, 0));
+	}
+	count = mAclEntries.size();
+	acls = mAclEntries.entries();
+}
 
 //
 // BELPICKeyRecord

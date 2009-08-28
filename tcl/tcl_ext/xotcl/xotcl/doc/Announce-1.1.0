@@ -1,0 +1,87 @@
+Announcing XOTcl 1.1.0
+**********************
+
+WHAT IS XOTCL?
+
+  XOTcl is an object-oriented extension of Tcl that was derived from
+  OTcl. In short, XOTcl tries to provide a highly flexible,
+  reflective, component-based, and object-oriented environment. It
+  integrates language support for high level concepts which are not
+  found in other languages, with reasonable performance. It prevails
+  the Tcl programming style and the dynamic/introspective nature of
+  the language, rather than introducing other language's styles and
+  rigidness (such as C++) into Tcl.
+
+
+CHANGES relative to 1.0.2 are:
+
+  - New functionality and improvements:
+
+     * Transitive instmixins (thanks to a suggestion of Neophytos Demetriou):
+       The new version supports a tree of mixins (mixins of mixins);
+       when a mixin-class X has instmixins Y registered, and X is
+       registered as instmixin for a class C, the mixin classes Y are
+       applied to C as well.
+
+     * Conditional mixins (thanks to a suggestion of Neophytos Demetriou):
+       mixins and instmixins can have now guards similar to filters
+       that define when they should be applied
+
+     * New  composition strategy for (filter- and mixin-)guards:
+       when a guard is defined more than once for the same interceptor
+       the most specific guard is used, the others are overridden.
+
+     * Creation of sub-objects via parameter: 
+       XOTcl's parameter method supports now a switch named "-Class"
+       which can be used to create and configure sub-objects (see
+       tutorial for details)
+
+     * New predefined method: __unknown
+       This method is called, whenever XOTcl references a class, 
+       which is not defined yet (e.g.: Class C -superclass UNKNOWNCLASS)
+       This method is used for Zoran's wonderful ttrace package
+       (for aolserver and tcl-Threads)
+
+     * Improved documentation:
+        - extended tutorial (Meta-Classes, Tk, ...)
+        - beautified tutorial (style files, distinction between 
+          literals and placeholders, ...)
+        - fixed hundreds of typos
+
+     * some speed improvements
+
+
+  - fixes:
+ 
+     * New build system:
+        - per default no shells are built
+        - new configure switches eg. --with-xotclsh, -with-actiweb
+          --with-all
+
+     * Fixes for https in connection with some versions of IE
+
+     * Fixed a few issues with purify and mt (many thanks to Zoran!)
+ 
+     * Fixes for proc-scoped variable in connections with mixins
+
+     * Fixed passing of error codes from constructors 
+
+     * various small fixes and code cleanup
+       - with newer versions of autoconf
+       - various fixes for stubs
+       - improved build under windows
+       - starkit compliance (many thanks to MichaelL@frogware.com)
+
+
+ For more details, please consult the ChangeLog    
+
+MORE INFO
+  General and more detailed information about XOTcl and its components
+  can be found at http://www.xotcl.org
+
+
+Best regards,
+
+Gustaf Neumann
+Uwe Zdun
+

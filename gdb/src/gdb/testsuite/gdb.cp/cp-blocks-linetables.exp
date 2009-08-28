@@ -1,0 +1,123 @@
+# Copyright 2003 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+# This file was written by Caroline Tice <ctice@apple.com>
+
+# This test case tests that gcc's linetable information for
+# "blocks" is correct..
+
+if $tracelevel then {
+        strace $tracelevel
+        }
+
+set prms_id 0
+set bug_id 0
+
+if { [skip_cplus_tests] } { continue }
+
+set testfile "cp-blocks-linetables"
+set srcfile ${testfile}.cc
+set objfile ${objdir}/${subdir}/${testfile}.o
+set binfile ${objdir}/${subdir}/${testfile}
+
+if [get_compiler_info ${binfile} c++] {
+    return -1;
+}
+
+set additional_flags "additional_flags= -g -c -mmacosx-version-min=10.6"
+if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${objfile}" object [list {debug c++} $additional_flags]] != "" } {
+     gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
+}
+
+if  { [gdb_compile "${objfile}" "${binfile}" executable {debug c++} ] != "" } {
+     gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
+}
+
+if {$debug_default_format_is_dwarf == 0 } then {
+        return;
+}
+
+# Start with a fresh gdb
+
+gdb_exit
+gdb_start
+gdb_reinitialize_dir $srcdir/$subdir
+gdb_load ${binfile}
+
+# runto_main
+
+# set bp_at_first_block_function   [gdb_get_line_number "Breakpoint for first Blo\
+ck function."]
+# set bp_at_second_block_function  [gdb_get_line_number "Breakpoint for second Bl\
+ock function."]
+
+# gdb_breakpoint $bp_at_first_block_function #  This is breakpoint 2
+# gdb_breakpoint $bp_at_second_block_function # This is breakpoint 3
+
+gdb_test "break __main_block_invoke_1" "Breakpoint 1 at .*" "Set breakpoint at __helper_1"
+gdb_test "break __main_block_invoke_2" "Breakpoint 2 at .*" "Set breakpoint at __helper_2"
+
+gdb_test "run" "Starting program: $binfile *\r\n\Reading symbols for shared libraries \(\[.+\]\)+ done.*Breakpoint 1.*" "continue to breakpoint at first Block function"
+
+# Verifying linear stepping through first block function
+
+gdb_test "next" {.*(\{ enum numbers|\{ __block enum numbers ).*} "First next"
+gdb_test "next" {.*(\{ __block enum numbers |y ).*} "Second next"
+gdb_test "next" {.*(y |if ).*} "Third next"
+gdb_test "next" {.*(if |\}).*} "Fourth next"
+gdb_test "next" {.*(\}|Breakpoint 2, ).*} "Fifth next"
+gdb_test "next" {.*(Breakpoint 2, |if).*} "Sixth next"
+# gdb_test "next" {.*if.*} "Seventh next"
+gdb_test "next" {.*(if|x).*} "Eighth next"
+gdb_test "next" {.*(x|if).*} "Ninth next"
+# gdb_test "next" {.*if.*} "Tenth next"
+# gdb_test "next" {.*(if|return).*} "Eleventh next"
+# gdb_test "next" {.*(return |\}).*} "Twelfth next"
+# gdb_test "next" {.*(\}|test).*} "Thirteenth next"
+# gdb_test "next" {.*(test ).*} "Fourteenth next"
+
+gdb_test "delete 1 2" ".*" "Delete all breakpoints"
+
+gdb_test "break main" "Breakpoint 3 at .*" "Set breakpoint at main"
+
+send_gdb "run\n"
+gdb_expect {
+    -re ".*Start it from the beginning.*y or n. $"\
+	{send_gdb "y\n"
+	    gdb_expect {
+               -re ".*Breakpoint 3, main .*$gdb_prompt $"\
+		   {pass "Break at main"}
+               -re "$gdb_prompt $"\
+		   {fail "Break at main"}
+		timeout {fail "(timeout) Break at main"}
+	    }
+	}
+    -re "$gdb_prompt $"\
+	{fail "rerun for stepping through main"}
+    timeout {fail "(timeout) rerun for stepping through main"}
+}
+
+gdb_test "next" {.*(__block enum numbers x |__block enum numbers y).*} "First next"
+gdb_test "next" {.*(__block enum numbers y |\};).*} "Second next"
+gdb_test "next" {.*(\};|enum numbers res).*} "Third next"
+gdb_test "next" {.*(enum numbers res |if ).*} "Fourth next"
+gdb_test "next" {.*(if |return ).*} "Fifth next"
+gdb_test "next" {.*(return |\}).*} "Sixth next"
+
+# gdb_test "continue" ".*Program exited normally.*" "Finish program"
+
+gdb_exit
+return 0

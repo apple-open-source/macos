@@ -6629,6 +6629,25 @@ error 0 %s: no such system user\n", username);
 	}
     }
 
+#if HAVE_INITGROUPS
+    if (initgroups (pw->pw_name, pw->pw_gid) < 0
+#  ifdef EPERM
+	/* At least on the system I tried, initgroups() only works as root.
+	   But we do still want to report ENOMEM and whatever other
+	   errors initgroups() might dish up.  */
+	&& errno != EPERM
+#  endif
+	)
+    {
+	/* This could be a warning, but I'm not sure I see the point
+	   in doing that instead of an error given that it would happen
+	   on every connection.  We could log it somewhere and not tell
+	   the user.  But at least for now make it an error.  */
+	printf ("error 0 initgroups failed: %s\n", strerror (errno));
+	exit (EXIT_FAILURE);
+    }
+#endif /* HAVE_INITGROUPS */
+
     if (setuid (pw->pw_uid) < 0)
     {
 	/* Note that this means that if run as a non-root user,

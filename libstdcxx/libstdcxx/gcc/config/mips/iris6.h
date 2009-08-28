@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.  IRIX version 6.
    Copyright (C) 1994, 1995, 1996, 1997, 1998, 2000, 2001, 2002, 2003, 2004,
-   2005
+   2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Allow some special handling for IRIX 6.  */
 #undef TARGET_IRIX6
@@ -32,7 +32,7 @@ Boston, MA 02111-1307, USA.  */
    easier to write.  Default to the mips2 ISA for the O32 ABI.  */
 #define DRIVER_SELF_SPECS \
   "%{!mabi=*: -mabi=n32}", \
-  "%{mabi=32: %{!mips*: -mips2}}"
+  "%{mabi=32: %{!mips*: %{!march*: -mips2}}}"
 
 /* Force the generation of dwarf .debug_frame sections even if not
    compiling -g.  This guarantees that we can unwind the stack.  */
@@ -93,13 +93,14 @@ Boston, MA 02111-1307, USA.  */
      -L/usr/lib64} \
    %{!shared:" \
      SUBTARGET_DONT_WARN_UNUSED_SPEC \
-     " %{p:libprof1.a%s}%{pg:libprof1.a%s} -lc " \
+     " %{pthread:-lpthread} %{p:libprof1.a%s}%{pg:libprof1.a%s} -lc " \
      SUBTARGET_WARN_UNUSED_SPEC "}"
 
-/* Avoid getting two warnings for libgcc.a everytime we link.  */
+/* Avoid getting two warnings for libgcc.a everytime we link.  libgcc.a
+   contains references to copysignl, so link with libm to resolve them.  */
 #undef LIBGCC_SPEC
 #define LIBGCC_SPEC \
-  SUBTARGET_DONT_WARN_UNUSED_SPEC " -lgcc " SUBTARGET_WARN_UNUSED_SPEC
+  SUBTARGET_DONT_WARN_UNUSED_SPEC " -lgcc -lm " SUBTARGET_WARN_UNUSED_SPEC
 
 #undef ENDFILE_SPEC
 #define ENDFILE_SPEC \
@@ -112,3 +113,7 @@ Boston, MA 02111-1307, USA.  */
        %{!mips4:/usr/lib64/mips3/crtn.o%s}}}"
 
 #define MIPS_TFMODE_FORMAT mips_extended_format
+
+#undef SUBTARGET_CPP_SPEC
+#define SUBTARGET_CPP_SPEC "%{pthread:-D_REENTRANT}"
+

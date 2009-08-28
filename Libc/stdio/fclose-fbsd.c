@@ -53,6 +53,9 @@ fclose(FILE *fp)
 {
 	int r;
 
+	if (!__sdidinit)
+		__sinit();
+
 	if (fp == NULL) {
 		errno = EFAULT;
 		return (EOF);
@@ -73,7 +76,7 @@ fclose(FILE *fp)
 		FREELB(fp);
 	fp->_file = -1;
 	fp->_r = fp->_w = 0;	/* Mess up if reaccessed. */
-	fp->_flags = 0;		/* Release this FILE for reuse. */
+	__sfprelease(fp);	/* Release this FILE for reuse. */
 	FUNLOCKFILE(fp);
 	return (r);
 }

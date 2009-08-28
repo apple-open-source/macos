@@ -1,8 +1,8 @@
 #! /bin/sh
-# $OpenLDAP: pkg/ldap/tests/scripts/test036-meta-concurrency,v 1.6.2.8 2006/01/03 22:16:29 kurt Exp $
+# $OpenLDAP: pkg/ldap/tests/scripts/test036-meta-concurrency,v 1.17.2.6 2008/07/09 23:51:35 quanah Exp $
 ## This work is part of OpenLDAP Software <http://www.openldap.org/>.
 ##
-## Copyright 1998-2006 The OpenLDAP Foundation.
+## Copyright 1998-2008 The OpenLDAP Foundation.
 ## All rights reserved.
 ##
 ## Redistribution and use in source and binary forms, with or without
@@ -23,16 +23,13 @@ if test $BACKMETA = metano ; then
 	exit 0
 fi
 
-# to be removed some time...
-if test "x$TEST_META" = "xno" ; then
-	echo '### Test disabled by "TEST_META=no"; unset TEST_META to re-enable'
-	echo ""
+if test $BACKLDAP = ldapno ; then 
+	echo "ldap backend not available, test skipped"
 	exit 0
-else
-	echo "### this test is experimental; in case of problems,"
-	echo "### set \"TEST_META=no\" to disable, and report thru"
-	echo "### the Issue Tracking System <http://www.openldap.org/its/>"
-	echo ""
+fi
+
+if test x$TESTLOOPS = x ; then
+	TESTLOOPS=50
 fi
 
 rm -rf $TESTDIR
@@ -56,7 +53,7 @@ if test "$BACKEND" = "bdb" || test "$BACKEND" = "hdb" ; then
 fi
 
 echo "Starting slapd on TCP/IP port $PORT1..."
-. $CONFFILTER $BACKEND $MONITORDB < $CONF > $CONF1
+. $CONFFILTER $BACKEND $MONITORDB < $METACONF1 > $CONF1
 $SLAPD -f $CONF1 -h $URI1 -d $LVL $TIMING > $LOG1 2>&1 &
 PID=$!
 if test $WAIT != 0 ; then
@@ -184,9 +181,18 @@ for f in $TESTDIR/$DATADIR/do_read.* ; do
 	echo "cn=Somewhere,ou=Meta,$METABASEDN" >> $f
 done
 
+# add a bind that resolves to a referral
+for f in $TESTDIR/$DATADIR/do_bind.* ; do
+	echo "cn=Foo,ou=Meta,$METABASEDN" >> $f
+	echo "bar" >> $f
+	echo "" >> $f
+	echo "" >> $f
+done
+
 echo "Using tester for concurrent server access..."
 $SLAPDTESTER -P "$PROGDIR" -d "$TESTDIR/$DATADIR" -h $LOCALHOST -p $PORT3 \
-	-D "cn=Manager,$METABASEDN" -w $PASSWD -l 50 -r 20 -F
+	-D "cn=Manager,$METABASEDN" -w $PASSWD -l $TESTLOOPS -r 20 -FF \
+	-i '!REFERRAL'
 RC=$?
 
 if test $RC != 0 ; then
@@ -220,4 +226,7 @@ if test $? != 0 ; then
 fi
 
 echo ">>>>> Test succeeded"
+
+test $KILLSERVERS != no && wait
+
 exit 0

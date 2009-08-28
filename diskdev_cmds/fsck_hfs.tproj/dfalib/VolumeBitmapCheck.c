@@ -1,22 +1,23 @@
 /*
- * Copyright (c) 2000-2002, 2004-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002, 2004-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -51,8 +52,8 @@ enum {
 };
 
 
-#define kAllBitsSetInWord	0xFFFFFFFFul
-#define kMSBBitSetInWord	0x80000000ul
+#define kAllBitsSetInWord	0xFFFFFFFFu
+#define kMSBBitSetInWord	0x80000000u
 
 enum {
 	kSettingBits		= 1,
@@ -178,7 +179,7 @@ int BitMapCheckEnd(void)
 		int maxdepth = 0;
 
 		BMS_MaxDepth(gBMS_Root, 0, &maxdepth);
-	plog("   %d full segments, %d segment nodes (max depth was %d nodes)\n",
+		plog("   %d full segments, %d segment nodes (max depth was %d nodes)\n",
 		       gFullSegments, gSegmentNodes, maxdepth);
 #endif
 		free(gFullBitmapSegment);
@@ -257,7 +258,7 @@ static int GetSegmentBitmap(UInt32 startBit, UInt32 **buffer, int bitOperation)
 		
 	if (*buffer == NULL) {
 #if _VBC_DEBUG_
-	plog("GetSegmentBitmap: couldn't get a node for block %d, segment %d\n", startBit, segment);
+		plog("GetSegmentBitmap: couldn't get a node for block %d, segment %d\n", startBit, segment);
 #endif
 		return (-1); /* oops */
 	}
@@ -265,22 +266,22 @@ static int GetSegmentBitmap(UInt32 startBit, UInt32 **buffer, int bitOperation)
 #if 0
 	if (segNode) {
 		int i;
-	plog("  segment %d: L=0x%08x, R=0x%08x \n< ",
+		plog("  segment %d: L=0x%08x, R=0x%08x \n< ",
 			(int)segNode->segment, (int)segNode->left, segNode->right);
 		for (i = 0; i < kWordsPerSegment; ++i) {
-		plog("0x%08x ", segNode->bitmap[i]);
+			plog("0x%08x ", segNode->bitmap[i]);
 			if ((i & 0x3) == 0x3)
-			plog("\n  ");
+				plog("\n  ");
 		}
-	plog("\n");
+		plog("\n");
 	}
 
 	if (bitOperation == kSettingBits && *buffer && bcmp(*buffer, gFullBitmapSegment, kBytesPerSegment) == 0) {
-	plog("*** segment %d (start blk %d) is already full!\n", segment, startBit);
+		plog("*** segment %d (start blk %d) is already full!\n", segment, startBit);
 		exit(5);
 	}
 	if (bitOperation == kClearingBits && *buffer && bcmp(*buffer, gEmptyBitmapSegment, kBytesPerSegment) == 0) {
-	plog("*** segment %d (start blk %d) is already empty!\n", segment, startBit);
+		plog("*** segment %d (start blk %d) is already empty!\n", segment, startBit);
 		exit(5);
 	}
 #endif
@@ -316,13 +317,13 @@ void TestSegmentBitmap(UInt32 startBit)
 	if ((segNode = BMS_Lookup(segment)) != NULL) {
 #if 0
 		int i;
-	plog("> ");
+		plog("> ");
 		for (i = 0; i < kWordsPerSegment; ++i) {
-		plog("0x%08x ", segNode->bitmap[i]);
+			plog("0x%08x ", segNode->bitmap[i]);
 			if ((i & 0x3) == 0x3)
-			plog("\n  ");
+				plog("\n  ");
 		}
-	plog("\n");
+		plog("\n");
 #endif
 		if (segment != 0 && bcmp(&segNode->bitmap[0], gFullBitmapSegment, kBytesPerSegment) == 0) {
 			if (BMS_Delete(segment) != NULL) {
@@ -423,7 +424,7 @@ int CaptureBitmapBits(UInt32 startBit, UInt32 bitCount)
 		if (SWAP_BE32(*currentWord) & bitMask) {
 			overlap = true;
 
-		//plog("(1) overlapping file blocks! word: 0x%08x, mask: 0x%08x\n", *currentWord, bitMask);
+			//plog("(1) overlapping file blocks! word: 0x%08x, mask: 0x%08x\n", *currentWord, bitMask);
 		}
 		
 		*currentWord |= SWAP_BE32(bitMask);  /* set the bits in the bitmap */
@@ -455,7 +456,7 @@ int CaptureBitmapBits(UInt32 startBit, UInt32 bitCount)
 		if (SWAP_BE32(*currentWord) & bitMask) {
 			overlap = true;
 
-		//plog("(2) overlapping file blocks! word: 0x%08x, mask: 0x%08x\n", *currentWord, bitMask);
+			//plog("(2) overlapping file blocks! word: 0x%08x, mask: 0x%08x\n", *currentWord, bitMask);
 		}
 		
 		*currentWord |= SWAP_BE32(bitMask);  /* set the bits in the bitmap */
@@ -485,7 +486,7 @@ int CaptureBitmapBits(UInt32 startBit, UInt32 bitCount)
 		if (SWAP_BE32(*currentWord) & bitMask) {
 			overlap = true;
 
-		//plog("(3) overlapping file blocks! word: 0x%08x, mask: 0x%08x\n", *currentWord, bitMask);
+			//plog("(3) overlapping file blocks! word: 0x%08x, mask: 0x%08x\n", *currentWord, bitMask);
 		}
 		
 		*currentWord |= SWAP_BE32(bitMask);  /* set the bits in the bitmap */
@@ -577,7 +578,7 @@ int ReleaseBitmapBits(UInt32 startBit, UInt32 bitCount)
 		if ((SWAP_BE32(*currentWord) & bitMask) != bitMask) {
 			overlap = true;
 
-		//plog("(1) overlapping file blocks! word: 0x%08x, mask: 0x%08x\n", *currentWord, bitMask);
+			//plog("(1) overlapping file blocks! word: 0x%08x, mask: 0x%08x\n", *currentWord, bitMask);
 		}
 		
 		*currentWord &= SWAP_BE32(~bitMask);  /* clear the bits in the bitmap */
@@ -609,7 +610,7 @@ int ReleaseBitmapBits(UInt32 startBit, UInt32 bitCount)
 		if ((SWAP_BE32(*currentWord) & bitMask) != bitMask) {
 			overlap = true;
 
-		//plog("(2) overlapping file blocks! word: 0x%08x, mask: 0x%08x\n", *currentWord, bitMask);
+			//plog("(2) overlapping file blocks! word: 0x%08x, mask: 0x%08x\n", *currentWord, bitMask);
 		}
 		
 		*currentWord &= SWAP_BE32(~bitMask);  /* clear the bits in the bitmap */
@@ -639,7 +640,7 @@ int ReleaseBitmapBits(UInt32 startBit, UInt32 bitCount)
 		if ((SWAP_BE32(*currentWord) & bitMask) != bitMask) {
 			overlap = true;
 
-		//plog("(3) overlapping file blocks! word: 0x%08x, mask: 0x%08x\n", *currentWord, bitMask);
+			//plog("(3) overlapping file blocks! word: 0x%08x, mask: 0x%08x\n", *currentWord, bitMask);
 		}
 		
 		*currentWord &= SWAP_BE32(~bitMask);  /* set the bits in the bitmap */
@@ -741,25 +742,25 @@ int CheckVolumeBitMap(SGlobPtr g, Boolean repair)
 			UInt32 dummy, block_num;
 
 			/plog("  disk buffer + %d\n", (bit & bitsWithinFileBlkMask)/8);
-		plog("start block number for segment = %qu\n", bit);
-		plog("segment %qd\n", bit / kBitsPerSegment);
+			plog("start block number for segment = %qu\n", bit);
+			plog("segment %qd\n", bit / kBitsPerSegment);
 
-		plog("Memory:\n");
+			plog("Memory:\n");
 			for (i = 0; i < kWordsPerSegment; ++i) {
-			plog("0x%08x ", buffer[i]);
+				plog("0x%08x ", buffer[i]);
 				if ((i & 0x7) == 0x7)
-				plog("\n");
+					plog("\n");
 			}
 
 			disk_buffer = (UInt32*) (vbmBlockP + (bit & bitsWithinFileBlkMask)/8);
-		plog("Disk:\n");
+			plog("Disk:\n");
 			for (i = 0; i < kWordsPerSegment; ++i) {
-			plog("0x%08x ", disk_buffer[i]);
+				plog("0x%08x ", disk_buffer[i]);
 				if ((i & 0x7) == 0x7)
-				plog("\n");
+					plog("\n");
 			}
 
-		plog ("\n");
+			plog ("\n");
 			for (i = 0; i < kWordsPerSegment; ++i) {
 				/* Compare each word in the segment */
 				if (buffer[i] != disk_buffer[i]) {
@@ -770,9 +771,9 @@ int CheckVolumeBitMap(SGlobPtr g, Boolean repair)
 						if ((buffer[i] & dummy) != (disk_buffer[i] & dummy)) {
 							block_num = bit + (i * kBitsPerWord) + j;
 							if (buffer[i] & dummy) {
-							plog ("Allocation block %u should be marked used on disk.\n", block_num);
+								plog ("Allocation block %u should be marked used on disk.\n", block_num);
 							} else {
-							plog ("Allocation block %u should be marked free on disk.\n", block_num);
+								plog ("Allocation block %u should be marked free on disk.\n", block_num);
 							}
 						}
 						dummy = dummy >> 1;
@@ -780,7 +781,7 @@ int CheckVolumeBitMap(SGlobPtr g, Boolean repair)
 				}
 			}
 #endif
-			PrintError(g, E_VBMDamaged, 0);
+			fsckPrint(g->context, E_VBMDamaged);
 			g->VIStat = g->VIStat | S_VBM;
 			break; /* stop checking after first miss */
 		}
@@ -1268,7 +1269,7 @@ BMS_PrintTree(BMS_Node * root)
 {
 	if (root) {
 		BMS_PrintTree(root->left);
-	plog("seg %d\n", root->segment);
+		plog("seg %d\n", root->segment);
 		BMS_PrintTree(root->right);
 	}
 }

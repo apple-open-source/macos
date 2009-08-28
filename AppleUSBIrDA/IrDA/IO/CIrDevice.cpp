@@ -75,7 +75,7 @@ EventTraceCauseDesc IrLogEvents[] = {
     
 };
 
-#define XTRACE(x, y, z) IrDALogAdd( x, y, (int)z & 0xffff, IrLogEvents, true )
+#define XTRACE(x, y, z) IrDALogAdd( x, y, (uintptr_t)z & 0xffff, IrLogEvents, true )
 
 #else
 #define XTRACE(x,y,z)((void)0)
@@ -89,7 +89,7 @@ CIrDevice *
 CIrDevice::cIrDevice(TIrGlue *irda, AppleIrDASerial *driver)
 {
     CIrDevice *obj = new CIrDevice;
-    XTRACE(kLogNew, (int)obj >> 16, obj);
+    XTRACE(kLogNew, 0, obj);
     if (obj && !obj->Init(irda, driver)) {
 	obj->release();
 	obj = nil;
@@ -100,14 +100,14 @@ CIrDevice::cIrDevice(TIrGlue *irda, AppleIrDASerial *driver)
 void
 CIrDevice::free(void)
 {
-    XTRACE(kLogFree, (int)this >> 16, this);
+    XTRACE(kLogFree, 0, this);
     super::free();
 }
 
 Boolean
 CIrDevice::Init(TIrGlue *irda, AppleIrDASerial *driver)
 {
-    XTRACE(kLogInit, (int)this >> 16, this);
+    XTRACE(kLogInit, 0, this);
     
     
     fIrDA = nil;
@@ -304,7 +304,7 @@ void CIrDevice::ReadComplete(UInt8 *buffer, UInt32 length)
 	fIrDA->GetLAP()->InputComplete(aField,cField);      // then let LAP know about it (already owns "fGetBuffer")
     }
     else {
-	int review_media_busy_logic;
+	//int review_media_busy_logic;
     //  fMediaBusy = true;                                  // else did we just saw someone else's traffic?
 	Stats_PacketDropped();                              // different counters?
     }
@@ -335,16 +335,16 @@ void CIrDevice::StartTransmit(TIrLAPPutBuffer* outputBuffer, ULong leadInCount)
 	fBofs = leadInCount;
     }
 
-    XTRACE(kLogStartXmitPutBuf, (int)outputBuffer >> 16, outputBuffer);
+    XTRACE(kLogStartXmitPutBuf, 0, outputBuffer);
     
     ctlBuffer  = outputBuffer->GetCtrlBuffer();
-    XTRACE(kLogStartXmitCtlBuf, (int)ctlBuffer >> 16, ctlBuffer);
+    XTRACE(kLogStartXmitCtlBuf, 0, ctlBuffer);
     
     ctlSize    = outputBuffer->GetCtrlSize();
-    XTRACE(kLogStartXmitCtlSize, (int)ctlSize >> 16, ctlSize);
+    XTRACE(kLogStartXmitCtlSize, 0, ctlSize);
     
     dataBuffer = outputBuffer->GetDataBuffer();
-    XTRACE(kLogStartXmitDataBuf, (int)dataBuffer >> 16, dataBuffer);
+    XTRACE(kLogStartXmitDataBuf, 0, dataBuffer);
     
     dataSize   = outputBuffer->GetDataSize();
     XTRACE(kLogStartXmitDataSize, (int)dataSize >> 16, dataSize);

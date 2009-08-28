@@ -1,7 +1,7 @@
 /*
  * tls.c
  *
- * Version:     $Id: tls.c,v 1.1.2.6 2007/04/08 06:12:38 aland Exp $
+ * Version:     $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,11 +15,16 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
  * Copyright 2001  hereUare Communications, Inc. <raghud@hereuare.com>
  * Copyright 2003  Alan DeKok <aland@freeradius.org>
+ * Copyright 2006  The FreeRADIUS server project
  */
+
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
+
 #include "eap_tls.h"
 
 /* record */
@@ -38,8 +43,8 @@ tls_session_t *eaptls_new_session(SSL_CTX *ssl_ctx, int client_cert)
 	client_cert = client_cert; /* -Wunused.  See bug #350 */
 
 	if ((new_tls = SSL_new(ssl_ctx)) == NULL) {
-		radlog(L_ERR, "rlm_eap_tls: Error creating new SSL");
-		radlog(L_ERR, "rlm_eap: SSL error %s", ERR_error_string(ERR_get_error(), NULL));
+		radlog(L_ERR, "SSL: Error creating new SSL: %s",
+		       ERR_error_string(ERR_get_error(), NULL));
 		return NULL;
 	}
 
@@ -49,6 +54,8 @@ tls_session_t *eaptls_new_session(SSL_CTX *ssl_ctx, int client_cert)
 	state = (tls_session_t *)malloc(sizeof(*state));
 	memset(state, 0, sizeof(*state));
 	session_init(state);
+
+	state->ctx = ssl_ctx;
 	state->ssl = new_tls;
 
 	/*
@@ -129,12 +136,12 @@ static int int_ssl_check(SSL *s, int ret, const char *text)
 		 *	being regarded as "dead".
 		 */
 	case SSL_ERROR_SYSCALL:
-		radlog(L_ERR, "rlm_eap_tls: %s failed in a system call (%d), TLS session fails.",
+		radlog(L_ERR, "SSL: %s failed in a system call (%d), TLS session fails.",
 		       text, ret);
 		return 0;
 
 	case SSL_ERROR_SSL:
-		radlog(L_ERR, "rlm_eap_tls: %s failed inside of TLS (%d), TLS session fails.",
+		radlog(L_ERR, "SSL: %s failed inside of TLS (%d), TLS session fails.",
 		       text, ret);
 		return 0;
 
@@ -145,7 +152,7 @@ static int int_ssl_check(SSL *s, int ret, const char *text)
 		 *	them - so "politely inform" the caller that
 		 *	the code needs updating here.
 		 */
-		radlog(L_ERR, "rlm_eap_tls: FATAL SSL error ..... %d\n", e);
+		radlog(L_ERR, "SSL: FATAL SSL error ..... %d\n", e);
 		return 0;
 	}
 
@@ -170,11 +177,16 @@ int tls_handshake_recv(tls_session_t *ssn)
 	int err;
 
 	BIO_write(ssn->into_ssl, ssn->dirty_in.data, ssn->dirty_in.used);
-	err = SSL_read(ssn->ssl, ssn->clean_out.data,
-		       sizeof(ssn->clean_out.data));
+
+	err = SSL_read(ssn->ssl, ssn->clean_out.data + ssn->clean_out.used,
+		       sizeof(ssn->clean_out.data) - ssn->clean_out.used);
 	if (err > 0) {
-		ssn->clean_out.used = err;
-	} else if (!int_ssl_check(ssn->ssl, err, "SSL_read")) {
+		ssn->clean_out.used += err;
+		record_init(&ssn->dirty_in);
+		return 1;
+	}
+
+	if (!int_ssl_check(ssn->ssl, err, "SSL_read")) {
 		return 0;
 	}
 
@@ -195,18 +207,25 @@ int tls_handshake_recv(tls_session_t *ssn)
 		DEBUG2("In SSL Connect mode \n");
 	}
 
-	if (ssn->info.content_type != application_data) {
+	err = BIO_ctrl_pending(ssn->from_ssl);
+	if (err > 0) {
 		err = BIO_read(ssn->from_ssl, ssn->dirty_out.data,
 			       sizeof(ssn->dirty_out.data));
 		if (err > 0) {
 			ssn->dirty_out.used = err;
+
+		} else if (BIO_should_retry(ssn->from_ssl)) {
+			record_init(&ssn->dirty_in);
+			DEBUG2("  tls: Asking for more data in tunnel");
+			return 1;
+
 		} else {
 			int_ssl_check(ssn->ssl, err, "BIO_read");
 			record_init(&ssn->dirty_in);
 			return 0;
 		}
 	} else {
-		DEBUG2("rlm_eap_tls: Application Data");
+		DEBUG2("SSL Application Data");
 		/* Its clean application data, do whatever we want */
 		record_init(&ssn->clean_out);
 	}
@@ -234,7 +253,10 @@ int tls_handshake_send(tls_session_t *ssn)
 	 *	contain the data to send to the client.
 	 */
 	if (ssn->clean_in.used > 0) {
-		SSL_write(ssn->ssl, ssn->clean_in.data, ssn->clean_in.used);
+		int written;
+
+		written = SSL_write(ssn->ssl, ssn->clean_in.data, ssn->clean_in.used);
+		record_minus(&ssn->clean_in, NULL, written);
 
 		/* Get the dirty data from Bio to send it */
 		err = BIO_read(ssn->from_ssl, ssn->dirty_out.data,
@@ -246,7 +268,6 @@ int tls_handshake_send(tls_session_t *ssn)
 		}
 	}
 
-	record_init(&ssn->clean_in);
 	return 1;
 }
 
@@ -270,7 +291,10 @@ void session_init(tls_session_t *ssn)
 }
 
 void session_close(tls_session_t *ssn)
-{
+{	
+	SSL_set_quiet_shutdown(ssn->ssl, 1);
+	SSL_shutdown(ssn->ssl);
+
 	if(ssn->ssl)
 		SSL_free(ssn->ssl);
 #if 0
@@ -366,6 +390,8 @@ void tls_session_information(tls_session_t *tls_session)
 {
 	const char *str_write_p, *str_version, *str_content_type = "";
 	const char *str_details1 = "", *str_details2= "";
+	EAP_HANDLER *handler;
+	REQUEST *request;
 
 	/*
 	 *	Don't print this out in the normal course of
@@ -542,8 +568,19 @@ void tls_session_information(tls_session_t *tls_session)
 		}
 	}
 
-	sprintf(tls_session->info.info_description, "%s %s%s [length %04lx]%s%s\n",
-		str_write_p, str_version, str_content_type,
-		(unsigned long)tls_session->info.record_len, str_details1, str_details2);
-	DEBUG2("  rlm_eap_tls: %s\n", tls_session->info.info_description);
+	snprintf(tls_session->info.info_description, 
+		 sizeof(tls_session->info.info_description),
+		 "%s %s%s [length %04lx]%s%s\n",
+		 str_write_p, str_version, str_content_type,
+		 (unsigned long)tls_session->info.record_len,
+		 str_details1, str_details2);
+
+	handler = (EAP_HANDLER *)SSL_get_ex_data(tls_session->ssl, 0);
+	if (handler) {
+		request = handler->request;
+	} else {
+		request = NULL;
+	}
+
+	RDEBUG2("%s\n", tls_session->info.info_description);
 }

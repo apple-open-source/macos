@@ -27,7 +27,6 @@
 static int	usage(const char *reason);
 static int	start_cache(const char *pfname);
 static int	stop_cache(const char *pfname, int debugging);
-static int	autostop_cache(char *delay);
 static int	merge_playlists(const char *pfname, int argc, char *argv[]);
 static int	print_statistics(struct BC_statistics *ss);
 static void	print_history(struct BC_history_entry *he, int nentries);
@@ -96,12 +95,6 @@ main(int argc, char *argv[])
 		return(truncate_playlist(pfname, argv[1]));
 	}
 
-	/* internal interface */
-	if (!strcmp(argv[0], "autostop")) {
-		if (argc < 2) 
-			return(usage("missing autostop delay"));
-		return(autostop_cache(argv[1]));
-	}
 	if (!strcmp(argv[0], "unload")) {
 		if (BC_unload()) {
 			warnx("could not unload cache");
@@ -186,8 +179,8 @@ start_cache(const char *pfname)
 	 * completes successfully.
 	 */
 	error = unlink(pfname);
-	if (error)
-		warnx("could not unlink playlist %s: %s", pfname, strerror(error));
+	if (error != 0 && errno != ENOENT)
+		warnx("could not unlink playlist %s: %s", pfname, strerror(errno));
 
 	error = BC_start(pc, nentries);
 	if (error != 0)
@@ -333,71 +326,6 @@ nomerge:
 	return(0);
 }
 
-/*
- * Background ourselves and wait for (delay) seconds before calling stop_cache.
- */
-static int
-autostop_cache(char *delay)
-{
-	int	delaysec, debugging, result;
-	char	*cp;
-	time_t	t;
-	
-	/* determine whether we are going to produce debug output */
-	debugging = !access(BC_BOOT_FLAGFILE, F_OK);
-
-	/* open the logfile and attach to standard output/error */
-	if (debugging) {
-		freopen(BC_BOOT_LOGFILE, "w", stdout);
-		freopen(BC_BOOT_LOGFILE, "w", stderr);
-	}
-
-	/* we must run as root */
-	if (geteuid() != 0) {
-		usage("autostop must run as root");
-		return(EPERM);
-	}
-	
-	/* parse the delay */
-	delaysec = (int)strtol(delay, &cp, 0);
-	if ((cp == delay) || (*cp != 0) || (delaysec < 1) || (delaysec > 3600)) {
-		warnx("delay value '%s' can't be parsed", delay);
-		usage("bad delay value");
-		return(EINVAL);
-	}
-
-	/* detach and background ourselves */
-	if (daemon(1/* nochdir */, 0 /* closeall */)) {
-		warn("daemon failed");
-		return(errno);
-	}
-
-	/* reopen the logfile and attach to standard out/error if requested */
-	if (debugging) {
-		freopen(BC_BOOT_LOGFILE, "a", stdout);
-		setlinebuf(stdout);
-		freopen(BC_BOOT_LOGFILE, "a", stderr);
-		setlinebuf(stderr);
-	}
-	
-	/* now sleep for the specified delay */
-	time(&t);
-	warnx("sleeping for %d seconds at %s", delaysec, ctime(&t));
-	while (delaysec > 0) {
-		delaysec = sleep(delaysec);
-	}
-
-	/* and save */
-	result = stop_cache(BC_BOOT_PLAYLIST, debugging);
-
-	/* unload kext */
-	if ((result == 0) && BC_unload())
-		warnx("could not unload kext");
-	
-	time(&t);
-	warnx("autostop finished at %s", ctime(&t));
-	return(result);
-}
 
 /*
  * Merge multiple playlist files.
@@ -478,7 +406,7 @@ print_playlist(const char *pfname, int source)
 {
 	struct BC_playlist_entry *pc, *opc;
 	int nentries, i;
-	long size;
+	u_int64_t size;
 
 	if (pfname == NULL)
 		errx(1, "must specify a playlist file to print");
@@ -502,11 +430,11 @@ print_playlist(const char *pfname, int source)
 	size = 0;
 	for (i = 0; nentries-- > 0; i++, pc++) {
 		if (source) {
-			printf("    {0x%llx, 0x%llx, 0x%x}%s\n",
+			printf("    {0x%llx, 0x%llx, 0x%llx}%s\n",
 			    pc->pce_offset, pc->pce_length, pc->pce_batch,
 			    (nentries > 0) ? "," : "");
 		} else {
-			printf("%-10llu %-5llu %d\n",
+			printf("%-10llu %-5llu %lld\n",
 			    pc->pce_offset, pc->pce_length, pc->pce_batch);
 		}
 		size += pc->pce_length;
@@ -515,7 +443,7 @@ print_playlist(const char *pfname, int source)
 		printf("};\n");
 		printf("static int BC_playlist_blocksize = %d;\n", BC_blocksize);
 	} else {
-		printf("%ld blocks\n", size);
+		printf("%llu blocks\n", size);
 	}
 	free(opc);
 	
@@ -556,7 +484,7 @@ unprint_playlist(const char *pfname)
 		}
 
 		/* read input */
-		got = fscanf(stdin, "%llu %llu %u",
+		got = fscanf(stdin, "%llu %llu %llu",
 		    &(pc + nentries)->pce_offset,
 		    &(pc + nentries)->pce_length,
 		    &(pc + nentries)->pce_batch);
@@ -612,7 +540,7 @@ generate_playlist(const char *pfname, const char *root)
 
 		/* build the path */
 		char path[2048];
-		int path_offset = strlen(root);
+		unsigned int path_offset = (unsigned int) strlen(root);
 		strcpy(path, root);
 		while(path_offset < 2048) {
 			int read = fgetc(stdin);
@@ -718,7 +646,7 @@ truncate_playlist(const char *pfname, char *larg)
 	if (pfname == NULL)
 		errx(1, "must specify a playlist file to truncate");
 
-	length = strtol(larg, &cp, 0);
+	length = (int) strtol(larg, &cp, 0);
 	if ((*cp != 0) || (length < 1))
 		err(1, "bad truncate length '%s'", larg);
 	

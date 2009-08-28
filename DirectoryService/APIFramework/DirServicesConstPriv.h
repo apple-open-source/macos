@@ -112,6 +112,44 @@
 #define		kDSNAttrTrustInformation					"dsAttrTypeStandard:TrustInformation"
 
 /*!
+    @defined kDS1AttrOperatingSystem
+    @abstract   This returns either server or client operating system
+    @discussion Returns one of two values "Mac OS X Server" or "Mac OS X".
+*/
+#define		kDS1AttrOperatingSystem						"dsAttrTypeStandard:OperatingSystem"
+
+/*!
+    @defined kDSNAttrKerberosServices
+    @abstract   This is used to store the principals in host records (i.e., "host", "vnc", etc.)
+    @discussion This is used to store the principals in host records (i.e., "host", "vnc", etc.)
+*/
+#define		kDSNAttrKerberosServices			"dsAttrTypeStandard:KerberosServices"
+
+/*!
+    @defined	kDSNAttrAltSecurityIdentities
+    @abstract   Used to store alternate identities for the record
+    @discussion Used to store alternate identities for the record. Values will have standardized form as
+				specified by Microsoft LDAP schema (1.2.840.113556.1.4.867).
+ 
+ 				Kerberos:user\@REALM
+*/
+#define		kDSNAttrAltSecurityIdentities		"dsAttrTypeStandard:AltSecurityIdentities"
+
+/*!
+    @defined	kDS1AttrHardwareUUID
+    @abstract   Used to store the UUID of the hardware
+    @discussion Used to store the UUID of the hardware
+*/
+#define		kDS1AttrHardwareUUID			"dsAttrTypeStandard:HardwareUUID"
+
+/*!
+	@defined kDS1AttrOperatingSystemVersion
+	@abstract   This returns the version of operating system
+	@discussion Returns the version of the operating system "10.6"
+ */
+#define		kDS1AttrOperatingSystemVersion				"dsAttrTypeStandard:OperatingSystemVersion"
+
+/*!
  * @defined kDSNotifyGlobalRecordUpdatePrefix
  * @discussion Can be used in conjunction with arbitrary types "users", "groups", etc.
  *             Example:  kDSNotifyGlobalRecordUpdatePrefix "users"
@@ -182,5 +220,10 @@
  */
 #define		kDSTagAuthAuthorityKerberosv5Cert				"Kerberosv5Cert"
 
+/*!
+ * @defined kDSStdMachMembershipPortName
+ * @discussion Registered name used with mach_init for DirectoryService Membership MIG server for the DirectoryService daemon.
+ */
+#define		kDSStdMachMembershipPortName	"com.apple.system.DirectoryService.membership_v1"
 
 #endif	// __DirServicesConstPriv_h__

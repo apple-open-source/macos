@@ -1,4 +1,4 @@
-/*
+/*-
  * Copyright (c) 1988, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -31,6 +27,7 @@
  * SUCH DAMAGE.
  */
 
+#if 0
 #ifndef lint
 static char const copyright[] =
 "@(#) Copyright (c) 1988, 1993\n\
@@ -38,12 +35,11 @@ static char const copyright[] =
 #endif /* not lint */
 
 #ifndef lint
-#if 0
 static char sccsid[] = "@(#)hostname.c	8.1 (Berkeley) 5/31/93";
-#endif
 #endif /* not lint */
+#endif
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/bin/hostname/hostname.c,v 1.14 2002/06/30 05:13:53 obrien Exp $");
+__FBSDID("$FreeBSD: src/bin/hostname/hostname.c,v 1.19 2006/12/08 07:47:08 kientzle Exp $");
 
 #include <sys/param.h>
 
@@ -62,8 +58,15 @@ main(int argc, char *argv[])
 	char *p, hostname[MAXHOSTNAMELEN];
 
 	sflag = 0;
-	while ((ch = getopt(argc, argv, "s")) != -1)
+	while ((ch = getopt(argc, argv, "fs")) != -1)
 		switch (ch) {
+		case 'f':
+			/*
+			 * On Linux, "hostname -f" prints FQDN.
+			 * BSD "hostname" always prints FQDN by
+			 * default, so we accept but ignore -f.
+			 */
+			break;
 		case 's':
 			sflag = 1;
 			break;
@@ -97,6 +100,6 @@ void
 usage(void)
 {
 
-	(void)fprintf(stderr, "usage: hostname [-s] [name-of-host]\n");
+	(void)fprintf(stderr, "usage: hostname [-fs] [name-of-host]\n");
 	exit(1);
 }

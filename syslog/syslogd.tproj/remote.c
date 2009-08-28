@@ -783,7 +783,7 @@ remote_init_lockdown(void)
 
 	chmod(SYSLOG_SOCK_PATH, 0666);
 
-	aslevent_addfd(fd, 0, remote_acceptmsg_local, NULL, NULL);
+	aslevent_addfd(SOURCE_SESSION, fd, 0, remote_acceptmsg_local, NULL, NULL);
 	return fd;
 }
 
@@ -853,7 +853,7 @@ remote_init_tcp(int family)
 		return -1;
 	}
 
-	aslevent_addfd(fd, 0, remote_acceptmsg_tcp, NULL, NULL);
+	aslevent_addfd(SOURCE_SESSION, fd, 0, remote_acceptmsg_tcp, NULL, NULL);
 	return fd;
 }
 

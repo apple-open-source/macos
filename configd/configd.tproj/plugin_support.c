@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -84,23 +84,16 @@ __private_extern__
 CFRunLoopRef			plugin_runLoop		= NULL;
 
 
-extern SCDynamicStoreBundleLoadFunction		load_ATconfig;
-extern SCDynamicStoreBundleStopFunction		stop_ATconfig;
 extern SCDynamicStoreBundleLoadFunction		load_IPMonitor;
 extern SCDynamicStoreBundlePrimeFunction	prime_IPMonitor;
 extern SCDynamicStoreBundleLoadFunction		load_InterfaceNamer;
 extern SCDynamicStoreBundleLoadFunction		load_KernelEventMonitor;
 extern SCDynamicStoreBundlePrimeFunction	prime_KernelEventMonitor;
-#ifdef	INCLUDE_KICKER
-extern SCDynamicStoreBundleLoadFunction		load_Kicker;
-#endif	// INCLUDE_KICKER
 extern SCDynamicStoreBundleLoadFunction		load_LinkConfiguration;
 extern SCDynamicStoreBundleLoadFunction		load_PreferencesMonitor;
 extern SCDynamicStoreBundlePrimeFunction	prime_PreferencesMonitor;
-extern SCDynamicStoreBundleStopFunction		stop_PreferencesMonitor;
 extern SCDynamicStoreBundleLoadFunction		load_NetworkIdentification;
 extern SCDynamicStoreBundlePrimeFunction	prime_NetworkIdentification;
-extern SCDynamicStoreBundleStopFunction		stop_NetworkIdentification;
 
 
 typedef struct {
@@ -113,13 +106,6 @@ typedef struct {
 
 
 static const builtin builtin_plugins[] = {
-	{
-		CFSTR("com.apple.SystemConfiguration.ATconfig"),
-		&load_ATconfig,
-		NULL,
-		NULL,
-		&stop_ATconfig
-	},
 	{
 		CFSTR("com.apple.SystemConfiguration.IPMonitor"),
 		&load_IPMonitor,
@@ -141,15 +127,6 @@ static const builtin builtin_plugins[] = {
 		&prime_KernelEventMonitor,
 		NULL
 	},
-#ifdef	INCLUDE_KICKER
-	{
-		CFSTR("com.apple.SystemConfiguration.Kicker"),
-		&load_Kicker,
-		NULL,
-		NULL,
-		NULL
-	},
-#endif	// INCLUDE_KICKER
 	{
 		CFSTR("com.apple.SystemConfiguration.LinkConfiguration"),
 		&load_LinkConfiguration,
@@ -162,14 +139,14 @@ static const builtin builtin_plugins[] = {
 		&load_NetworkIdentification,
 		NULL,
 		&prime_NetworkIdentification,
-		&stop_NetworkIdentification
+		NULL
 	},
 	{
 		CFSTR("com.apple.SystemConfiguration.PreferencesMonitor"),
 		&load_PreferencesMonitor,
 		NULL,
 		&prime_PreferencesMonitor,
-		&stop_PreferencesMonitor
+		NULL
 	}
 };
 
@@ -293,6 +270,97 @@ getBundleSymbol(CFBundleRef bundle, CFStringRef functionName, CFStringRef shortI
 }
 
 
+static const char *
+getBundleDirNameAndPath(CFBundleRef bundle, char *buf, size_t buf_len)
+{
+	char		*cp;
+	int		len;
+	Boolean		ok;
+	CFURLRef	url;
+
+	url = CFBundleCopyBundleURL(bundle);
+	if (url == NULL) {
+		return NULL;
+	}
+
+	ok = CFURLGetFileSystemRepresentation(url, TRUE, (UInt8 *)buf, buf_len);
+	CFRelease(url);
+	if (!ok) {
+		return NULL;
+	}
+
+	cp = strrchr(buf, '/');
+	if (cp != NULL) {
+		cp++;
+	} else {
+		cp = buf;
+	}
+
+	/* check if this directory entry is a valid bundle name */
+	len = strlen(cp);
+	if (len <= (int)sizeof(BUNDLE_DIR_EXTENSION)) {
+		/* if entry name isn't long enough */
+		return NULL;
+	}
+
+	len -= sizeof(BUNDLE_DIR_EXTENSION) - 1;
+	if (strcmp(&cp[len], BUNDLE_DIR_EXTENSION) != 0) {
+		/* if entry name doesn't end with ".bundle" */
+		return NULL;
+	}
+
+	return cp;
+}
+
+
+#pragma mark -
+#pragma mark load
+
+
+static void
+forkBundle_setup(pid_t pid, void *setupContext)
+{
+	if (pid == 0) {
+		// if child
+		unsetenv("__LAUNCHD_FD");
+		setenv("__FORKED_PLUGIN__", "Yes", 1);
+	}
+
+	return;
+}
+
+
+static void
+forkBundle(CFBundleRef bundle, CFStringRef bundleID)
+{
+	char		*argv[]		= { "configd", "-d", "-t", NULL, NULL };
+	const char	*name;
+	char		path[MAXPATHLEN];
+	pid_t		pid;
+
+	// get the bundle's path
+	name = getBundleDirNameAndPath(bundle, path, sizeof(path));
+	if (name == NULL) {
+		SCLog(TRUE, LOG_ERR, CFSTR("skipped %@ (could not determine path)"), bundle);
+		return;
+	}
+
+	// fork and exec configd opting to load only this plugin
+	argv[3] = path;
+	pid = _SCDPluginExecCommand2(NULL, NULL, 0, 0, "/usr/libexec/configd", argv, forkBundle_setup, NULL);
+	if (pid == -1) {
+		SCLog(TRUE, LOG_ERR,
+		      CFSTR("skipped %@ (could not exec child) : %s"),
+		      bundle,
+		      strerror(errno));
+		return;
+	}
+
+	SCLog(TRUE, LOG_NOTICE, CFSTR("forked  %@, pid=%d"), bundleID, pid);
+	return;
+}
+
+
 static void
 loadBundle(const void *value, void *context) {
 	CFStringRef	bundleID;
@@ -304,7 +372,7 @@ loadBundle(const void *value, void *context) {
 	bundleID = CFBundleGetIdentifier(bundleInfo->bundle);
 	if (bundleID == NULL) {
 		// sorry, no bundles without a bundle identifier
-		SCLog(TRUE, LOG_DEBUG, CFSTR("skipped %@ (no bundle ID)"), bundleInfo->bundle);
+		SCLog(TRUE, LOG_NOTICE, CFSTR("skipped %@ (no bundle ID)"), bundleInfo->bundle);
 		return;
 	}
 
@@ -319,13 +387,18 @@ loadBundle(const void *value, void *context) {
 
 	if (bundleExclude) {
 		// sorry, this bundle has been excluded
-		SCLog(TRUE, LOG_DEBUG, CFSTR("skipped %@ (excluded)"), bundleID);
+		SCLog(TRUE, LOG_NOTICE, CFSTR("skipped %@ (excluded)"), bundleID);
 		goto done;
 	}
 
 	if (!bundleInfo->enabled) {
-		// sorry, this bundle has not been enaabled
-		SCLog(TRUE, LOG_DEBUG, CFSTR("skipped %@ (disabled)"), bundleID);
+		// sorry, this bundle has not been enabled
+		SCLog(TRUE, LOG_INFO, CFSTR("skipped %@ (disabled)"), bundleID);
+		goto done;
+	}
+
+	if (_plugins_fork) {
+		forkBundle(bundleInfo->bundle, bundleID);
 		goto done;
 	}
 
@@ -339,7 +412,7 @@ loadBundle(const void *value, void *context) {
 	}
 
 	if (bundleInfo->builtin) {
-		int	i;
+		int		i;
 
 		SCLog(TRUE, LOG_DEBUG, CFSTR("adding  %@"), bundleID);
 
@@ -361,14 +434,22 @@ loadBundle(const void *value, void *context) {
 			goto done;
 		}
 	} else {
+		CFErrorRef	error	= NULL;
+
 		SCLog(TRUE, LOG_DEBUG, CFSTR("loading %@"), bundleID);
 
 #ifdef	DEBUG
 		traceBundle("loading", bundleInfo->bundle);
 #endif	/* DEBUG */
 
-		if (!CFBundleLoadExecutable(bundleInfo->bundle)) {
+		if (!CFBundleLoadExecutableAndReturnError(bundleInfo->bundle, &error)) {
+			CFStringRef	description;
+
+			description = CFErrorCopyDescription(error);
 			SCLog(TRUE, LOG_NOTICE, CFSTR("%@ load failed"), bundleID);
+			SCLog(TRUE, LOG_NOTICE, CFSTR("  %@"), description);
+			CFRelease(description);
+			CFRelease(error);
 			goto done;
 		}
 
@@ -415,15 +496,17 @@ callLoadFunction(const void *value, void *context) {
 }
 
 
+#pragma mark -
+#pragma mark start
+
+
 void
 callStartFunction(const void *value, void *context) {
+	const char	*bundleDirName;
 	bundleInfoRef	bundleInfo	= (bundleInfoRef)value;
-	CFURLRef	bundleURL;
 	char		bundleName[MAXNAMLEN + 1];
 	char		bundlePath[MAXPATHLEN];
-	char		*cp;
 	int		len;
-	Boolean		ok;
 
 	if (!bundleInfo->loaded) {
 		return;
@@ -434,43 +517,20 @@ callStartFunction(const void *value, void *context) {
 		return;
 	}
 
-	bundleURL = CFBundleCopyBundleURL(bundleInfo->bundle);
-	if (bundleURL == NULL) {
+	/* copy the bundle's path */
+	bundleDirName = getBundleDirNameAndPath(bundleInfo->bundle, bundlePath, sizeof(bundlePath));
+	if (bundleDirName == NULL) {
+		// if we have a problem with the bundle's path
 		return;
 	}
 
-	ok = CFURLGetFileSystemRepresentation(bundleURL,
-					      TRUE,
-					      (UInt8 *)&bundlePath,
-					      sizeof(bundlePath));
-	CFRelease(bundleURL);
-	if (!ok) {
+	/* copy (just) the bundle's name */
+	if (strlcpy(bundleName, bundleDirName, sizeof(bundleName)) > sizeof(bundleName)) {
+		// if we have a problem with the bundle's name
 		return;
 	}
-
-	cp = strrchr(bundlePath, '/');
-	if (cp) {
-		cp++;
-	} else {
-		cp = bundlePath;
-	}
-
-	/* check if this directory entry is a valid bundle name */
-	len = strlen(cp);
-	if (len <= (int)sizeof(BUNDLE_DIR_EXTENSION)) {
-		/* if entry name isn't long enough */
-		return;
-	}
-
-	len -= sizeof(BUNDLE_DIR_EXTENSION) - 1;
-	if (strcmp(&cp[len], BUNDLE_DIR_EXTENSION) != 0) {
-		/* if entry name doesn end with ".bundle" */
-		return;
-	}
-
-	/* get (just) the bundle's name */
-	bundleName[0] = '\0';
-	(void) strncat(bundleName, cp, len);
+	len = strlen(bundleName) - (sizeof(BUNDLE_DIR_EXTENSION) - 1);
+	bundleName[len] = '\0';
 
 #ifdef	DEBUG
 	traceBundle("calling start() for", bundleInfo->bundle);
@@ -480,6 +540,10 @@ callStartFunction(const void *value, void *context) {
 
 	return;
 }
+
+
+#pragma mark -
+#pragma mark prime
 
 
 void
@@ -505,6 +569,10 @@ callPrimeFunction(const void *value, void *context) {
 }
 
 
+#pragma mark -
+#pragma mark stop
+
+
 static void
 stopComplete(void *info)
 {
@@ -515,6 +583,10 @@ stopComplete(void *info)
 	SCLog(TRUE, LOG_DEBUG, CFSTR("** %@ complete (%f)"), bundleID, CFAbsoluteTimeGetCurrent());
 
 	stopRls = (CFRunLoopSourceRef)CFDictionaryGetValue(exiting, bundle);
+	if (stopRls == NULL) {
+		return;
+	}
+
 	CFRunLoopSourceInvalidate(stopRls);
 
 	CFDictionaryRemoveValue(exiting, bundle);
@@ -653,6 +725,10 @@ stopBundles()
 }
 
 
+#pragma mark -
+#pragma mark term
+
+
 static CFStringRef
 termRLSCopyDescription(const void *info)
 {
@@ -703,6 +779,10 @@ plugin_term(int *status)
 
 	return TRUE;
 }
+
+
+#pragma mark -
+#pragma mark initialization
 
 
 #ifdef	DEBUG
@@ -898,6 +978,11 @@ plugin_exec(void *arg)
 			     callLoadFunction,
 			     NULL);
 
+	if (nLoaded == 0) {
+		// if no bundles loaded
+		goto done;
+	}
+
 	/*
 	 * If defined, call each bundles start() function.  This function is
 	 * called after the bundle has been loaded and its load() function has
@@ -959,6 +1044,8 @@ plugin_exec(void *arg)
 	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("starting plugin CFRunLoop"));
 	plugin_runLoop = CFRunLoopGetCurrent();
 	CFRunLoopRun();
+
+    done :
 
 	SCLog(_configd_verbose, LOG_INFO, CFSTR("No more work for the \"configd\" plugins"));
 	plugin_runLoop = NULL;

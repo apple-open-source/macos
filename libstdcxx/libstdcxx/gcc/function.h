@@ -16,11 +16,14 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_FUNCTION_H
 #define GCC_FUNCTION_H
+
+#include "tree.h"
+#include "hashtab.h"
 
 struct var_refs_queue GTY(())
 {
@@ -156,6 +159,23 @@ struct expr_status GTY(())
 #define forced_labels (cfun->expr->x_forced_labels)
 #define stack_pointer_delta (cfun->expr->x_stack_pointer_delta)
 
+struct temp_slot;
+typedef struct temp_slot *temp_slot_p;
+
+DEF_VEC_P(temp_slot_p);
+DEF_VEC_ALLOC_P(temp_slot_p,gc);
+
+enum function_frequency {
+  /* This function most likely won't be executed at all.
+     (set only when profile feedback is available).  */
+  FUNCTION_FREQUENCY_UNLIKELY_EXECUTED,
+  /* The default value.  */
+  FUNCTION_FREQUENCY_NORMAL,
+  /* Optimize this function hard
+     (set only when profile feedback is available).  */
+  FUNCTION_FREQUENCY_HOT
+};
+
 /* This structure can save all the important global and static variables
    describing the status of the current function.  */
 
@@ -166,13 +186,8 @@ struct function GTY(())
   struct emit_status *emit;
   struct varasm_status *varasm;
 
-  /* For tree-optimize.c.  */
-
-  /* Saved tree and arguments during tree optimization.  Used later for
-     inlining */
-  tree saved_tree;
-  tree saved_args;
-  tree saved_static_chain_decl;
+  /* The control flow graph for this function.  */
+  struct control_flow_graph *cfg;
 
   /* For function.c.  */
 
@@ -241,7 +256,7 @@ struct function GTY(())
   rtx x_stack_slot_list;
 
   /* Place after which to insert the tail_recursion_label if we need one.  */
-  rtx x_tail_recursion_reentry;
+  rtx x_stack_check_probe_note;
 
   /* Location at which to save the argument pointer if it will need to be
      referenced.  There are two cases where this is done: if nonlocal gotos
@@ -267,23 +282,17 @@ struct function GTY(())
   rtx x_parm_birth_insn;
 
   /* List of all used temporaries allocated, by level.  */
-  struct varray_head_tag * GTY((param_is (struct temp_slot))) x_used_temp_slots;
+  VEC(temp_slot_p,gc) *x_used_temp_slots;
 
   /* List of available temp slots.  */
   struct temp_slot *x_avail_temp_slots;
-
-  /* Current nesting level for temporaries.  */
-  int x_temp_slot_level;
 
   /* This slot is initialized as 0 and is added to
      during the nested function.  */
   struct var_refs_queue *fixup_var_refs_queue;
 
-  /* For integrate.c.  */
-  int inlinable;
-  int no_debugging_symbols;
-  rtvec original_arg_vector;
-  tree original_decl_initial;
+  /* Current nesting level for temporaries.  */
+  int x_temp_slot_level;
 
   /* Highest label number in current function.  */
   int inl_max_label_num;
@@ -302,36 +311,24 @@ struct function GTY(())
 
   /* tm.h can use this to store whatever it likes.  */
   struct machine_function * GTY ((maybe_undef)) machine;
+
   /* The largest alignment of slot allocated on the stack.  */
   unsigned int stack_alignment_needed;
+
   /* Preferred alignment of the end of stack frame.  */
   unsigned int preferred_stack_boundary;
-  /* Set when the call to function itself has been emit.  */
-  bool recursive_call_emit;
-  /* Set when the tail call has been produced.  */
-  bool tail_call_emit;
 
   /* Language-specific code can use this to store whatever it likes.  */
   struct language_function * language;
+
+  /* Used types hash table.  */
+  htab_t GTY ((param_is (union tree_node))) used_types_hash;
 
   /* For reorg.  */
 
   /* If some insns can be deferred to the delay slots of the epilogue, the
      delay list for them is recorded here.  */
   rtx epilogue_delay_list;
-
-  /* How commonly executed the function is.  Initialized during branch
-     probabilities pass.  */
-  enum function_frequency {
-    /* This function most likely won't be executed at all.
-       (set only when profile feedback is available).  */
-    FUNCTION_FREQUENCY_UNLIKELY_EXECUTED,
-    /* The default value.  */
-    FUNCTION_FREQUENCY_NORMAL,
-    /* Optimize this function hard
-       (set only when profile feedback is available).  */
-    FUNCTION_FREQUENCY_HOT
-  } function_frequency;
 
   /* Maximal number of entities in the single jumptable.  Used to estimate
      final flowgraph size.  */
@@ -344,10 +341,28 @@ struct function GTY(())
   location_t function_end_locus;
 
   /* Array mapping insn uids to blocks.  */
-  struct varray_head_tag *ib_boundaries_block;
+  VEC(tree,gc) *ib_boundaries_block;
 
   /* The variables unexpanded so far.  */
   tree unexpanded_var_list;
+
+  /* Assembly labels for the hot and cold text sections, to
+     be used by debugger functions for determining the size of text
+     sections.  */
+
+  const char *hot_section_label;
+  const char *cold_section_label;
+  const char *hot_section_end_label;
+  const char *cold_section_end_label;
+
+  /* String to be used for name of cold text sections, via
+     targetm.asm_out.named_section.  */
+
+  const char *unlikely_text_section_name;
+
+  /* A variable living at the top of the frame that holds a known value.
+     Used for detecting stack clobbers.  */
+  tree stack_protect_guard;
 
   /* Collected bit flags.  */
 
@@ -369,6 +384,10 @@ struct function GTY(())
      either as a subroutine or builtin.  */
   unsigned int calls_alloca : 1;
 
+  /* Nonzero if function being compiled called builtin_return_addr or
+     builtin_frame_address with nonzero count.  */
+  unsigned int accesses_prior_frames : 1;
+
   /* Nonzero if the function calls __builtin_eh_return.  */
   unsigned int calls_eh_return : 1;
 
@@ -379,9 +398,6 @@ struct function GTY(())
   /* Nonzero if function being compiled has nonlocal gotos to parent
      function.  */
   unsigned int has_nonlocal_goto : 1;
-
-  /* Nonzero if function being compiled contains nested functions.  */
-  unsigned int contains_functions : 1;
 
   /* Nonzero if the current function is a thunk, i.e., a lightweight
      function implemented by the output_mi_thunk hook) that just
@@ -395,10 +411,6 @@ struct function GTY(())
      function, however, should be treated as throwing if any of its callees
      can throw.  */
   unsigned int all_throwers_are_sibcalls : 1;
-
-  /* Nonzero if instrumentation calls for function entry and exit should be
-     generated.  */
-  unsigned int instrument_entry_exit : 1;
 
   /* Nonzero if profiling code should be generated.  */
   unsigned int profile : 1;
@@ -430,7 +442,33 @@ struct function GTY(())
 
   /* Nonzero if code to initialize arg_pointer_save_area has been emitted.  */
   unsigned int arg_pointer_save_area_init : 1;
+
+  unsigned int after_inlining : 1;
+
+  /* Set when the call to function itself has been emit.  */
+  unsigned int recursive_call_emit : 1;
+
+  /* Set when the tail call has been produced.  */
+  unsigned int tail_call_emit : 1;
+
+  /* How commonly executed the function is.  Initialized during branch
+     probabilities pass.  */
+  ENUM_BITFIELD (function_frequency) function_frequency : 2;
+
+  /* Number of units of general registers that need saving in stdarg
+     function.  What unit is depends on the backend, either it is number
+     of bytes, or it can be number of registers.  */
+  unsigned int va_list_gpr_size : 8;
+
+  /* Number of units of floating point registers that need saving in stdarg
+     function.  */
+  unsigned int va_list_fpr_size : 8;
 };
+
+/* If va_list_[gf]pr_size is set to this, it means we don't know how
+   many units need to be saved.  */
+#define VA_LIST_MAX_GPR_SIZE	255
+#define VA_LIST_MAX_FPR_SIZE	255
 
 /* The function currently being compiled.  */
 extern GTY(()) struct function *cfun;
@@ -451,8 +489,8 @@ extern int trampolines_created;
 #define current_function_returns_pointer (cfun->returns_pointer)
 #define current_function_calls_setjmp (cfun->calls_setjmp)
 #define current_function_calls_alloca (cfun->calls_alloca)
+#define current_function_accesses_prior_frames (cfun->accesses_prior_frames)
 #define current_function_calls_eh_return (cfun->calls_eh_return)
-#define current_function_contains_functions (cfun->contains_functions)
 #define current_function_is_thunk (cfun->is_thunk)
 #define current_function_args_info (cfun->args_info)
 #define current_function_args_size (cfun->args_size)
@@ -462,7 +500,6 @@ extern int trampolines_created;
 #define current_function_stdarg (cfun->stdarg)
 #define current_function_internal_arg_pointer (cfun->internal_arg_pointer)
 #define current_function_return_rtx (cfun->return_rtx)
-#define current_function_instrument_entry_exit (cfun->instrument_entry_exit)
 #define current_function_profile (cfun->profile)
 #define current_function_funcdef_no (cfun->funcdef_no)
 #define current_function_limit_stack (cfun->limit_stack)
@@ -477,12 +514,11 @@ extern int trampolines_created;
 #define stack_slot_list (cfun->x_stack_slot_list)
 #define parm_birth_insn (cfun->x_parm_birth_insn)
 #define frame_offset (cfun->x_frame_offset)
-#define tail_recursion_reentry (cfun->x_tail_recursion_reentry)
+#define stack_check_probe_note (cfun->x_stack_check_probe_note)
 #define arg_pointer_save_area (cfun->x_arg_pointer_save_area)
 #define used_temp_slots (cfun->x_used_temp_slots)
 #define avail_temp_slots (cfun->x_avail_temp_slots)
 #define temp_slot_level (cfun->x_temp_slot_level)
-#define nonlocal_labels (cfun->x_nonlocal_labels)
 #define nonlocal_goto_handler_labels (cfun->x_nonlocal_goto_handler_labels)
 
 /* Given a function decl for a containing function,
@@ -508,8 +544,11 @@ extern void free_block_changes (void);
    This size counts from zero.  It is not rounded to STACK_BOUNDARY;
    the caller may have to do that.  */
 extern HOST_WIDE_INT get_frame_size (void);
-/* Likewise, but for a different than the current function.  */
-extern HOST_WIDE_INT get_func_frame_size (struct function *);
+
+/* Issue an error message and return TRUE if frame OFFSET overflows in
+   the signed target pointer arithmetics for function FUNC.  Otherwise
+   return FALSE.  */
+extern bool frame_offset_overflow (HOST_WIDE_INT, tree);
 
 /* A pointer to a function to create target specific, per-function
    data structures.  */
@@ -524,19 +563,12 @@ extern void init_varasm_status (struct function *);
 #ifdef RTX_CODE
 extern void diddle_return_value (void (*)(rtx, void*), void*);
 extern void clobber_return_register (void);
-extern void use_return_register (void);
 #endif
 
 extern rtx get_arg_pointer_save_area (struct function *);
 
-extern void init_virtual_regs (struct emit_status *);
-extern void instantiate_virtual_regs (void);
-
 /* Returns the name of the current function.  */
 extern const char *current_function_name (void);
-
-/* Called once, at initialization, to initialize function.c.  */
-extern void init_function_once (void);
 
 extern void do_warn_unused_parameter (tree);
 
@@ -544,5 +576,7 @@ extern bool pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 			       tree, bool);
 extern bool reference_callee_copied (CUMULATIVE_ARGS *, enum machine_mode,
 				     tree, bool);
+
+extern void used_types_insert (tree);
 
 #endif  /* GCC_FUNCTION_H */

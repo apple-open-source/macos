@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -52,8 +52,6 @@
 #include "arch/win32/apr_arch_utf8.h"
 #include <wchar.h>
 
-typedef apr_uint16_t apr_wchar_t;
-
 /* Helper functions for the WinNT ApiW() functions.  APR treats all
  * resource identifiers (files, etc) by their UTF-8 name, to provide 
  * access to all named identifiers.  [UTF-8 completely maps Unicode 
@@ -84,7 +82,9 @@ void *res_name_from_filename(const char *file, int global, apr_pool_t *pool);
 
 #define APR_FILE_MAX MAX_PATH
 
-#define APR_FILE_BUFSIZE 4096
+#define APR_FILE_DEFAULT_BUFSIZE 4096
+/* For backwards-compat */
+#define APR_FILE_BUFSIZE APR_FILE_DEFAULT_BUFSIZE
 
 /* obscure ommissions from msvc's sys/stat.h */
 #ifdef _MSC_VER
@@ -99,8 +99,13 @@ void *res_name_from_filename(const char *file, int global, apr_pool_t *pool);
 #define APR_OPENINFO     0x00100000 /* Open without READ or WRITE access */
 #define APR_OPENLINK     0x00200000 /* Open a link itself, if supported */
 #define APR_READCONTROL  0x00400000 /* Read the file's owner/perms */
-#define APR_WRITECONTROL 0x00800000 /* Modifythe file's owner/perms */
-#define APR_WRITEATTRS   0x01000000 /* Modify the file's attributes */
+#define APR_WRITECONTROL 0x00800000 /* Modify the file's owner/perms */
+/* #define APR_INHERIT   0x01000000 -- Defined in apr_arch_inherit.h! */
+#define APR_STDIN_FLAG   0x02000000 /* Obtained via apr_file_open_stdin() */
+#define APR_STDOUT_FLAG  0x04000000 /* Obtained via apr_file_open_stdout() */
+#define APR_STDERR_FLAG  0x06000000 /* Obtained via apr_file_open_stderr() */
+#define APR_STD_FLAGS    (APR_STDIN_FLAG | APR_STDOUT_FLAG | APR_STDERR_FLAG)
+#define APR_WRITEATTRS   0x08000000 /* Modify the file's attributes */
 
 /* Entries missing from the MSVC 5.0 Win32 SDK:
  */
@@ -173,6 +178,7 @@ struct apr_file_t {
     /* Stuff for buffered mode */
     char *buffer;
     apr_size_t bufpos;         // Read/Write position in buffer
+    apr_size_t bufsize;        // The size of the buffer
     apr_size_t dataRead;       // amount of valid data read into buffer
     int direction;             // buffer being used for 0 = read, 1 = write
     apr_off_t filePtr;         // position in file of handle
@@ -245,34 +251,5 @@ apr_status_t filepath_root_case(char **rootpath, char *root, apr_pool_t *p);
 
 
 apr_status_t file_cleanup(void *);
-
-/**
- * Internal function to create a Win32/NT pipe that respects some async
- * timeout options.
- * @param in new read end of the created pipe
- * @param out new write end of the created pipe
- * @param blocking_mode one of
- * <pre>
- *       APR_FULL_BLOCK
- *       APR_READ_BLOCK
- *       APR_WRITE_BLOCK
- *       APR_FULL_NONBLOCK
- * </pre>
- * @remark It so happens that APR_FULL_BLOCK and APR_FULL_NONBLOCK
- * are common to apr_procattr_io_set() in, out and err modes.
- * Because APR_CHILD_BLOCK and APR_WRITE_BLOCK share the same value,
- * as do APR_PARENT_BLOCK and APR_READ_BLOCK, it's possible to use
- * that value directly for creating the stdout/stderr pipes.  When
- * creating the stdin pipe, the values must be transposed.
- * @see apr_procattr_io_set
- */
-apr_status_t apr_create_nt_pipe(apr_file_t **in, apr_file_t **out, 
-                                apr_int32_t blocking_mode, 
-                                apr_pool_t *p);
-
-/** @see apr_create_nt_pipe */
-#define APR_READ_BLOCK     3
-/** @see apr_create_nt_pipe */
-#define APR_WRITE_BLOCK      4
 
 #endif  /* ! FILE_IO_H */

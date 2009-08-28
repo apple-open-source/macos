@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2007 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2003-2008 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,10 +28,10 @@
 #include "codesigdb.h"
 #include "process.h"
 #include "server.h"
-#include "osxcodewrap.h"
 #include "agentquery.h"
 #include <security_utilities/memutils.h>
 #include <security_utilities/logging.h>
+#include <Security/SecRequirementPriv.h>
 
 
 //
@@ -240,7 +240,7 @@ bool CodeSignatures::verify(Process &process,
 		// The legacy hash is ignored (it's for use by pre-Leopard systems).
 		secdebug("codesign", "CS requirement present; ignoring legacy hashes");
 		Server::active().longTermActivity();
-		switch (IFDEBUG(OSStatus rc =) SecCodeCheckValidity(code, kSecCSDefaultFlags, requirement)) {
+		switch (OSStatus rc = SecCodeCheckValidity(code, kSecCSDefaultFlags, requirement)) {
 		case noErr:
 			secdebug("codesign", "CS verify passed");
 			return true;
@@ -248,7 +248,7 @@ bool CodeSignatures::verify(Process &process,
 			secdebug("codesign", "CS verify against unsigned binary failed");
 			return false;
 		default:
-			secdebug("codesign", "CS verify failed OSStatus=%ld", rc);
+			secdebug("codesign", "CS verify failed OSStatus=%d", int32_t(rc));
 			return false;
 		}
 	}
@@ -361,7 +361,7 @@ OSStatus CodeSignatures::matchSignedClientToLegacyACL(Process &process,
 				return noErr;
 			}
 		default:
-			secdebug("codesign", "validation fails with rc=%ld, rejecting", rc);
+			secdebug("codesign", "validation fails with rc=%d, rejecting", int32_t(rc));
 			return rc;
 		}
 		secdebug("codesign", "does not withstand strict scrutiny; ask the user");
@@ -407,6 +407,8 @@ bool CodeSignatures::verifyLegacy(Process &process, const CssmData &signature, s
 		secdebug("codesign", "exception getting client code hash: fail");
 		return false;
 	}
+	
+#if CONSULT_LEGACY_CODE_EQUIVALENCE_DATABASE
 	
 	// Ah well. Establish mediator objects for database signature links
 	AclIdentity aclIdentity(signature, path);
@@ -496,6 +498,12 @@ bool CodeSignatures::verifyLegacy(Process &process, const CssmData &signature, s
 	mDb.flush();
 	secdebug("codesign", "new linkages established: pass");
 	return true;
+
+#else /* ignore Code Equivalence Database */
+
+	return false;
+
+#endif
 }
 
 

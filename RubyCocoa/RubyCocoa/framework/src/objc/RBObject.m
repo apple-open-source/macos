@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2007, The RubyCocoa Project.
+ * Copyright (c) 2006-2008, The RubyCocoa Project.
  * Copyright (c) 2001-2006, FUJIMOTO Hisakuni.
  * All Rights Reserved.
  *
@@ -55,7 +55,7 @@ static RB_ID sel_to_mid(SEL a_sel)
 
 static RB_ID sel_to_mid_as_setter(SEL a_sel)
 {
-  VALUE str = rb_str_new2(sel_getName(a_sel));
+  volatile VALUE str = rb_str_new2(sel_getName(a_sel));
 
   // if str.sub!(/^set([A-Z][^:]*):$/, '\1=') then
   //   str = str[0].chr.downcase + str[1..-1]
@@ -142,7 +142,7 @@ static int rb_obj_arity_of_method(VALUE rcv, SEL a_sel, BOOL *ok)
 
     RBOBJ_LOG("arg[%d] of type '%s'", i, octstr);
     [an_inv getArgument: ocdata atIndex: (i+2)];
-    f_conv_success = ocdata_to_rbobj(Qfalse, octstr, ocdata, &arg_val, NO);
+    f_conv_success = ocdata_to_rbobj(Qnil, octstr, ocdata, &arg_val, NO);
     if (f_conv_success == NO) {
       arg_val = Qnil;
     }
@@ -154,7 +154,7 @@ static int rb_obj_arity_of_method(VALUE rcv, SEL a_sel, BOOL *ok)
 - (BOOL)stuffForwardResult: (VALUE)result to: (NSInvocation*)an_inv returnedOcid: (id *) returnedOcid
 {
   NSMethodSignature* msig = [an_inv methodSignature];
-  const char* octype_str = encoding_skip_modifiers([msig methodReturnType]);
+  const char* octype_str = encoding_skip_to_first_type([msig methodReturnType]);
   BOOL f_success;
 
   RBOBJ_LOG("stuff forward result of type '%s'", octype_str);
@@ -207,16 +207,16 @@ rbobjRaiseRubyException (void)
   [info setObject: ocdata forKey: @"$!"];
 
   VALUE klass = rb_class_path(CLASS_OF(lasterr));
-  NSString *rbclass = [NSString stringWithUTF8String:STR2CSTR(klass)];
+  NSString *rbclass = [NSString stringWithUTF8String:StringValuePtr(klass)];
 
   VALUE rbmessage = rb_obj_as_string(lasterr);
-  NSString *message = [NSString stringWithUTF8String:STR2CSTR(rbmessage)];
+  NSString *message = [NSString stringWithUTF8String:StringValuePtr(rbmessage)];
 
   NSMutableArray *backtraceArray = [NSMutableArray array];
-  VALUE ary = rb_funcall(ruby_errinfo, rb_intern("backtrace"), 0);
+  volatile VALUE ary = rb_funcall(ruby_errinfo, rb_intern("backtrace"), 0);
   int c;
   for (c=0; c<RARRAY(ary)->len; c++) {
-      const char *path = STR2CSTR(RARRAY(ary)->ptr[c]);
+      const char *path = StringValuePtr(RARRAY(ary)->ptr[c]);
       NSString *nspath = [NSString stringWithUTF8String:path];
       [backtraceArray addObject: nspath];
   }
@@ -275,8 +275,10 @@ VALUE rbobj_call_ruby(id rbobj, SEL selector, VALUE args)
 
   RBOBJ_LOG("calling method %s on Ruby object %p with %d args", rb_id2name(mid), m_rbobj, RARRAY(args)->len);
 
-  if (rb_respond_to(m_rbobj, mid) == 0)
-    rb_raise(rb_eRuntimeError, "Ruby object `%s' doesn't respond to the ObjC selector `%s', the method either doesn't exist or is private", RSTRING(rb_inspect(m_rbobj))->ptr, (char *)selector);
+  if (rb_respond_to(m_rbobj, mid) == 0) {
+    VALUE str = rb_inspect(m_rbobj);
+    rb_raise(rb_eRuntimeError, "Ruby object `%s' doesn't respond to the ObjC selector `%s', the method either doesn't exist or is private", StringValuePtr(str), (char *)selector);
+  }
 
   rb_result = rb_protect(rbobject_protected_apply, (VALUE)stub_args, &err);
   if (err) {
@@ -293,13 +295,15 @@ VALUE rbobj_call_ruby(id rbobj, SEL selector, VALUE args)
 {
   VALUE rb_args;
   VALUE rb_result;
+  VALUE rb_result_inspect;
   id returned_ocid;
 
   RBOBJ_LOG("rbobjForwardInvocation(%@)", an_inv);
   rb_args = [self fetchForwardArgumentsOf: an_inv];
   rb_result = rbobj_call_ruby(self, [an_inv selector], rb_args);
   [self stuffForwardResult: rb_result to: an_inv returnedOcid: &returned_ocid];
-  RBOBJ_LOG("   --> rb_result=%s", STR2CSTR(rb_inspect(rb_result)));
+  rb_result_inspect = rb_inspect(rb_result);
+  RBOBJ_LOG("   --> rb_result=%s", StringValuePtr(rb_result_inspect));
 
   return returned_ocid;
 }
@@ -321,15 +325,17 @@ VALUE rbobj_call_ruby(id rbobj, SEL selector, VALUE args)
 
 - (void) trackRetainReleaseOfRubyObject
 {
+  VALUE str = rb_inspect(m_rbobj);
   RBOBJ_LOG("start tracking retain/release of Ruby object `%s'",  
-    RSTRING(rb_inspect(m_rbobj))->ptr);
+    StringValuePtr(str));
   m_rbobj_retain_release_track = YES;
 }
 
 - (void) retainRubyObject
 {
   if (m_rbobj_retain_release_track && !m_rbobj_retained) {
-    RBOBJ_LOG("retaining Ruby object `%s'", RSTRING(rb_inspect(m_rbobj))->ptr);
+    VALUE str = rb_inspect(m_rbobj);
+    RBOBJ_LOG("retaining Ruby object `%s'", StringValuePtr(str));
     rb_gc_register_address(&m_rbobj);
     m_rbobj_retained = YES;
   }
@@ -338,7 +344,7 @@ VALUE rbobj_call_ruby(id rbobj, SEL selector, VALUE args)
 - (void) releaseRubyObject
 {
   if (m_rbobj_retain_release_track && m_rbobj_retained) {
-    RBOBJ_LOG("releasing Ruby object `%s'", RSTRING(rb_inspect(m_rbobj))->ptr);
+    RBOBJ_LOG("releasing Ruby object `#<%s:%p>'", rb_obj_classname(m_rbobj), m_rbobj);
     rb_gc_unregister_address(&m_rbobj);
     m_rbobj_retained = NO;
   }
@@ -380,7 +386,8 @@ VALUE rbobj_call_ruby(id rbobj, SEL selector, VALUE args)
 
 - (NSString*) _copyDescription
 {
-  return [[[NSString alloc] initWithUTF8String: STR2CSTR(rb_inspect(m_rbobj))] autorelease];
+  VALUE str = rb_inspect(m_rbobj);
+  return [[[NSString alloc] initWithUTF8String: StringValuePtr(str)] autorelease];
 }
 
 - (BOOL)isKindOfClass: (Class)klass
@@ -461,7 +468,8 @@ VALUE rbobj_call_ruby(id rbobj, SEL selector, VALUE args)
       RBOBJ_LOG("\tgenerated dummy method signature");
     }
     else {
-      RBOBJ_LOG("\tcan't generate a dummy method signature because receiver %s doesn't respond to the selector", STR2CSTR(rb_inspect(m_rbobj)));
+      VALUE str = rb_inspect(m_rbobj);
+      RBOBJ_LOG("\tcan't generate a dummy method signature because receiver %s doesn't respond to the selector", StringValuePtr(str));
     }
   }
   RBOBJ_LOG("   --> %@", ret);

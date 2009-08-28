@@ -53,16 +53,11 @@
 #include <sys/errno.h>
 #include <sys/param.h>
 
-#include <netat/appletalk.h>
-#include <netat/nbp.h>
-#include <netat/zip.h>
 
 #include "at_proto.h"
 
 #define	SET_ERRNO(e) errno = e
 
-static int change_embedded_wildcard(at_entity_t *entity);
-static int change_nvestr(at_nvestr_t *nve);
 
 int
 nbp_lookup (entity, buf, max, retry)
@@ -71,69 +66,6 @@ nbp_lookup (entity, buf, max, retry)
 	int		max;
 	at_retry_t	*retry;
 {
-	int		got;
-	at_nvestr_t	this_zone;
-	at_entity_t	l_entity;
-
-	/* Make a copy of the entity param so we can freely modify it. */
-	l_entity = *entity;
-
-	if (l_entity.zone.len == 1 && l_entity.zone.str[0] == '*') {
-		/* looking for the entity in THIS zone.... if this is
-		 * an ethertalk iff, then susbstitute by the
-		 * real zone name
-		 */
-		if (zip_getmyzone(ZIP_DEF_INTERFACE, &this_zone) == -1) {
-			fprintf(stderr,"nbp_lookup: zip_getmyzone failed\n");
-			return (-1);
-		}
-		l_entity.zone = this_zone;
-	}
-
-	if (change_embedded_wildcard(&l_entity) < 0) {
-	    SET_ERRNO(EINVAL);
-	    fprintf(stderr,"nbp_lookup: change_embedded failed\n");
-	    return (-1);
-	}
-
-	if ((got = _nbp_send_(NBP_LKUP, NULL, &l_entity, buf, max, retry)) < 0) {
-		fprintf(stderr,"nbp_lookup: _nbp_send_ failed got=%d\n", got);
-		return (-1);
-	}
-	return (got);
+	SET_ERRNO(ENXIO);
+	return (-1);
 }	
-
-static	int
-change_embedded_wildcard(entity)
-at_entity_t	*entity;
-{
-	if ((entity->object.len > 1) &&
-	    !change_nvestr (&entity -> object))
-	    return (-1);
-	
-	if ((entity->type.len > 1) &&
-	    !change_nvestr (&entity -> type))
-	    return (-1);
-
-	return (0);
-}
-
-static int change_nvestr (nve)
-at_nvestr_t	*nve;
-{
-    u_char		*c;
-    int		one_meta = 0;
-    
-    for (c = nve -> str; c < (nve -> str + nve -> len); c++) {
-	if ((*c == '=' ) || (*c == NBP_SPL_WILDCARD)) {
-	    if (one_meta)
-		return (0);
-	    else {
-		one_meta++;
-		*c = NBP_SPL_WILDCARD;
-	    }
-	}
-    }
-    return (1); 
-}
-

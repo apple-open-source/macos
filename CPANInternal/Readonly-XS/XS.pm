@@ -24,6 +24,7 @@ $VERSION = '1.04';
 require XSLoader;
 XSLoader::load('Readonly::XS', $VERSION);
 
+use Carp;
 
 # It is an error to use this from any module but Readonly.
 # But sooner or later, someone will.
@@ -32,7 +33,7 @@ BEGIN
     no warnings 'uninitialized';
     if ($MAGIC_COOKIE ne "Do NOT use or require Readonly::XS unless you're me.")
     {
-        require Carp;
+        # require Carp;
         Carp::croak "Readonly::XS is not a standalone module. You should not use it directly.";
     }
 }

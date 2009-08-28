@@ -15,18 +15,12 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* HP-UX 11i multibyte and UNIX 98 extensions.  */
 #undef TARGET_HPUX_11_11
 #define TARGET_HPUX_11_11 1
-
-#undef SUBTARGET_OPTIONS
-#define SUBTARGET_OPTIONS						\
-  { "unix=",			&pa_unix_string,			\
-    N_("Specify UNIX standard for predefines and linking.\n"		\
-       "Supported values are 93, 95 and 98."), 0}
 
 #undef STARTFILE_SPEC
 #define STARTFILE_SPEC \

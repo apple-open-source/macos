@@ -1,7 +1,7 @@
 /*
  *  administrator.c
  *
- *  $Id: administrator.c,v 1.12 2006/07/10 13:46:56 source Exp $
+ *  $Id: administrator.c,v 1.13 2007/02/02 11:58:14 source Exp $
  *
  *  The iODBC driver manager.
  *
@@ -967,6 +967,10 @@ create_administrator (HWND hwnd)
   gtk_window_set_modal (GTK_WINDOW (admin), TRUE);
   gtk_window_set_policy (GTK_WINDOW (admin), FALSE, FALSE, FALSE);
 
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_widget_show (admin);
+#endif
+
   dialog_vbox1 = GTK_DIALOG (admin)->vbox;
   gtk_object_set_data (GTK_OBJECT (admin), "dialog_vbox1", dialog_vbox1);
   gtk_widget_show (dialog_vbox1);
@@ -1040,8 +1044,14 @@ create_administrator (HWND hwnd)
       (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (l_usdsn);
   gtk_fixed_put (GTK_FIXED (fixed1), l_usdsn, 8, 8);
+
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_widget_set_uposition (l_usdsn, 12, 35);
+  gtk_widget_set_usize (l_usdsn, 120, 16);
+#else
   gtk_widget_set_uposition (l_usdsn, 8, 8);
   gtk_widget_set_usize (l_usdsn, 112, 16);
+#endif
   gtk_label_set_justify (GTK_LABEL (l_usdsn), GTK_JUSTIFY_LEFT);
 
   frame1 = gtk_frame_new (NULL);
@@ -1049,8 +1059,13 @@ create_administrator (HWND hwnd)
   gtk_object_set_data_full (GTK_OBJECT (admin), "frame1", frame1,
       (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (frame1);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed1), frame1, 8, 295);
+  gtk_widget_set_uposition (frame1, 8, 295);
+#else
   gtk_fixed_put (GTK_FIXED (fixed1), frame1, 8, 264);
   gtk_widget_set_uposition (frame1, 8, 264);
+#endif
   gtk_widget_set_usize (frame1, 546, 64);
 
   table1 = gtk_table_new (1, 2, FALSE);
@@ -1074,10 +1089,17 @@ create_administrator (HWND hwnd)
       (GtkAttachOptions) (0), (GtkAttachOptions) (0), 0, 0);
   gtk_label_set_justify (GTK_LABEL (l_explanation), GTK_JUSTIFY_LEFT);
 
+#if GTK_CHECK_VERSION(2,0,0)
+  style = gtk_widget_get_style (admin);
+  pixmap =
+      gdk_pixmap_create_from_xpm_d (admin->window, &mask,
+      &style->bg[GTK_STATE_NORMAL], (gchar **) odbc4_xpm);
+#else
   style = gtk_widget_get_style (GTK_WIDGET (hwnd));
   pixmap =
       gdk_pixmap_create_from_xpm_d (GTK_WIDGET (hwnd)->window, &mask,
       &style->bg[GTK_STATE_NORMAL], (gchar **) odbc4_xpm);
+#endif
   pixmap1 = gtk_pixmap_new (pixmap, mask);
   gtk_widget_ref (pixmap1);
   gtk_object_set_data_full (GTK_OBJECT (admin), "pixmap1", pixmap1,
@@ -1092,7 +1114,11 @@ create_administrator (HWND hwnd)
       (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (vbuttonbox1);
   gtk_fixed_put (GTK_FIXED (fixed1), vbuttonbox1, 472, 16);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_widget_set_uposition (vbuttonbox1, 472, 52);
+#else
   gtk_widget_set_uposition (vbuttonbox1, 472, 16);
+#endif
   gtk_widget_set_usize (vbuttonbox1, 85, 135);
 
   b_add = gtk_button_new_with_label ("");
@@ -1223,8 +1249,13 @@ create_administrator (HWND hwnd)
       (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (l_sdsn);
   gtk_fixed_put (GTK_FIXED (fixed2), l_sdsn, 8, 8);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_widget_set_uposition (l_sdsn, 12, 35);
+  gtk_widget_set_usize (l_sdsn, 138, 16);
+#else
   gtk_widget_set_uposition (l_sdsn, 8, 8);
   gtk_widget_set_usize (l_sdsn, 130, 16);
+#endif
   gtk_label_set_justify (GTK_LABEL (l_sdsn), GTK_JUSTIFY_LEFT);
 
   frame2 = gtk_frame_new (NULL);
@@ -1232,8 +1263,13 @@ create_administrator (HWND hwnd)
   gtk_object_set_data_full (GTK_OBJECT (admin), "frame2", frame2,
       (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (frame2);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed2), frame2, 8, 295);
+  gtk_widget_set_uposition (frame2, 8, 295);
+#else
   gtk_fixed_put (GTK_FIXED (fixed2), frame2, 8, 264);
   gtk_widget_set_uposition (frame2, 8, 264);
+#endif
   gtk_widget_set_usize (frame2, 546, 64);
 
   table2 = gtk_table_new (1, 2, FALSE);
@@ -1271,7 +1307,11 @@ create_administrator (HWND hwnd)
       (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (vbuttonbox2);
   gtk_fixed_put (GTK_FIXED (fixed2), vbuttonbox2, 472, 16);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_widget_set_uposition (vbuttonbox2, 472, 52);
+#else
   gtk_widget_set_uposition (vbuttonbox2, 472, 16);
+#endif
   gtk_widget_set_usize (vbuttonbox2, 85, 135);
 
   b_add = gtk_button_new_with_label ("");
@@ -1361,8 +1401,13 @@ create_administrator (HWND hwnd)
   gtk_object_set_data_full (GTK_OBJECT (admin), "l_lookin", l_lookin,
      (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (l_lookin);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed3), l_lookin, 16, 44);
+  gtk_widget_set_uposition (l_lookin, 16, 44);
+#else
   gtk_fixed_put (GTK_FIXED (fixed3), l_lookin, 16, 16);
   gtk_widget_set_uposition (l_lookin, 16, 16);
+#endif
   gtk_widget_set_usize (l_lookin, 57, 16);
   gtk_label_set_justify (GTK_LABEL (l_lookin), GTK_JUSTIFY_LEFT);
 
@@ -1371,8 +1416,13 @@ create_administrator (HWND hwnd)
   gtk_object_set_data_full (GTK_OBJECT (admin), "optionmenu1", optionmenu1,
      (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (optionmenu1);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed3), optionmenu1, 72, 40);
+  gtk_widget_set_uposition (optionmenu1, 72, 40);
+#else
   gtk_fixed_put (GTK_FIXED (fixed3), optionmenu1, 72, 16);
   gtk_widget_set_uposition (optionmenu1, 72, 16);
+#endif
   gtk_widget_set_usize (optionmenu1, 392, 24);
   optionmenu1_menu = gtk_menu_new ();
   gtk_option_menu_set_menu (GTK_OPTION_MENU (optionmenu1), optionmenu1_menu);
@@ -1382,8 +1432,13 @@ create_administrator (HWND hwnd)
   gtk_object_set_data_full (GTK_OBJECT (admin), "scrolledwindow3", scrolledwindow3,
      (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (scrolledwindow3);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed3), scrolledwindow3, 8, 74);
+  gtk_widget_set_uposition (scrolledwindow3, 8, 74);
+#else
   gtk_fixed_put (GTK_FIXED (fixed3), scrolledwindow3, 8, 48);
   gtk_widget_set_uposition (scrolledwindow3, 8, 48);
+#endif
   gtk_widget_set_usize (scrolledwindow3, 224, 176);
 
   clist3 = gtk_clist_new (1);
@@ -1409,8 +1464,13 @@ create_administrator (HWND hwnd)
   gtk_object_set_data_full (GTK_OBJECT (admin), "scrolledwindow4", scrolledwindow4,
      (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (scrolledwindow4);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed3), scrolledwindow4, 240, 74);
+  gtk_widget_set_uposition (scrolledwindow4, 240, 74);
+#else
   gtk_fixed_put (GTK_FIXED (fixed3), scrolledwindow4, 240, 48);
   gtk_widget_set_uposition (scrolledwindow4, 240, 48);
+#endif
   gtk_widget_set_usize (scrolledwindow4, 224, 176);
 
   clist4 = gtk_clist_new (1);
@@ -1435,8 +1495,13 @@ create_administrator (HWND hwnd)
   gtk_object_set_data_full (GTK_OBJECT (admin), "t_fileselected", t_fileselected,
      (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (t_fileselected);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed3), t_fileselected, 95, 260);
+  gtk_widget_set_uposition (t_fileselected, 95, 260);
+#else
   gtk_fixed_put (GTK_FIXED (fixed3), t_fileselected, 95, 234);
   gtk_widget_set_uposition (t_fileselected, 95, 234);
+#endif
   gtk_widget_set_usize (t_fileselected, 370, 22);
 
   frame3 = gtk_frame_new (NULL);
@@ -1444,8 +1509,13 @@ create_administrator (HWND hwnd)
   gtk_object_set_data_full (GTK_OBJECT (admin), "frame3", frame3,
      (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (frame3);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed3), frame3, 8, 295);
+  gtk_widget_set_uposition (frame3, 8, 295);
+#else
   gtk_fixed_put (GTK_FIXED (fixed3), frame3, 8, 264);
   gtk_widget_set_uposition (frame3, 8, 264);
+#endif
   gtk_widget_set_usize (frame3, 546, 64);
 
   table3 = gtk_table_new (1, 2, FALSE);
@@ -1482,8 +1552,13 @@ create_administrator (HWND hwnd)
   gtk_object_set_data_full (GTK_OBJECT (admin), "l_selected", l_selected,
      (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (l_selected);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed3), l_selected, 8, 263);
+  gtk_widget_set_uposition (l_selected, 8, 263);
+#else
   gtk_fixed_put (GTK_FIXED (fixed3), l_selected, 8, 237);
   gtk_widget_set_uposition (l_selected, 8, 237);
+#endif
   gtk_widget_set_usize (l_selected, 85, 16);
 
   vbuttonbox3 = gtk_vbutton_box_new ();
@@ -1492,7 +1567,11 @@ create_administrator (HWND hwnd)
      (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (vbuttonbox3);
   gtk_fixed_put (GTK_FIXED (fixed3), vbuttonbox3, 472, 16);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_widget_set_uposition (vbuttonbox3, 472, 52);
+#else
   gtk_widget_set_uposition (vbuttonbox3, 472, 16);
+#endif
   gtk_widget_set_usize (vbuttonbox3, 85, 165);
 
   b_add = gtk_button_new_with_label ("");
@@ -1602,8 +1681,13 @@ create_administrator (HWND hwnd)
   gtk_object_set_data_full (GTK_OBJECT (admin), "scrolledwindow5",
       scrolledwindow5, (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (scrolledwindow5);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed4), scrolledwindow5, 8, 50);
+  gtk_widget_set_uposition (scrolledwindow5, 8, 50);
+#else
   gtk_fixed_put (GTK_FIXED (fixed4), scrolledwindow5, 8, 24);
   gtk_widget_set_uposition (scrolledwindow5, 8, 24);
+#endif
   gtk_widget_set_usize (scrolledwindow5, 536, 200);
 
   clist5 = gtk_clist_new (4);
@@ -1651,8 +1735,13 @@ create_administrator (HWND hwnd)
   gtk_object_set_data_full (GTK_OBJECT (admin), "frame4", frame4,
       (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (frame4);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed4), frame4, 8, 295);
+  gtk_widget_set_uposition (frame4, 8, 295);
+#else
   gtk_fixed_put (GTK_FIXED (fixed4), frame4, 8, 264);
   gtk_widget_set_uposition (frame4, 8, 264);
+#endif
   gtk_widget_set_usize (frame4, 546, 64);
 
   table4 = gtk_table_new (1, 2, FALSE);
@@ -1690,9 +1779,14 @@ create_administrator (HWND hwnd)
   gtk_object_set_data_full (GTK_OBJECT (admin), "l_drivers", l_drivers,
       (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (l_drivers);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed4), l_drivers, 8, 32);
+  gtk_widget_set_uposition (l_drivers, 8, 32);
+#else
   gtk_fixed_put (GTK_FIXED (fixed4), l_drivers, 8, 8);
   gtk_widget_set_uposition (l_drivers, 8, 8);
-  gtk_widget_set_usize (l_drivers, 280, 16);
+#endif
+  gtk_widget_set_usize (l_drivers, 290, 16);
   gtk_label_set_justify (GTK_LABEL (l_drivers), GTK_JUSTIFY_LEFT);
 
   hbuttonbox2 = gtk_hbutton_box_new ();
@@ -1700,8 +1794,13 @@ create_administrator (HWND hwnd)
   gtk_object_set_data_full (GTK_OBJECT (admin), "hbuttonbox2", hbuttonbox2,
       (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (hbuttonbox2);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed4), hbuttonbox2, 16, 256);
+  gtk_widget_set_uposition (hbuttonbox2, 16, 256);
+#else
   gtk_fixed_put (GTK_FIXED (fixed4), hbuttonbox2, 16, 227);
   gtk_widget_set_uposition (hbuttonbox2, 16, 227);
+#endif
   gtk_widget_set_usize (hbuttonbox2, 530, 33);
   gtk_button_box_set_spacing (GTK_BUTTON_BOX (hbuttonbox2), 6);
   gtk_button_box_set_child_size (GTK_BUTTON_BOX (hbuttonbox2), 64, -1);
@@ -1777,8 +1876,13 @@ create_administrator (HWND hwnd)
   gtk_object_set_data_full (GTK_OBJECT (admin), "frame10", frame10,
       (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (frame10);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed5), frame10, 8, 295);
+  gtk_widget_set_uposition (frame10, 8, 295);
+#else
   gtk_fixed_put (GTK_FIXED (fixed5), frame10, 8, 264);
   gtk_widget_set_uposition (frame10, 8, 264);
+#endif
   gtk_widget_set_usize (frame10, 546, 64);
 
   table9 = gtk_table_new (1, 2, FALSE);
@@ -1815,8 +1919,13 @@ create_administrator (HWND hwnd)
   gtk_object_set_data_full (GTK_OBJECT (admin), "frame12", frame12,
       (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (frame12);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed5), frame12, 424, 32);
+  gtk_widget_set_uposition (frame12, 424, 32);
+#else
   gtk_fixed_put (GTK_FIXED (fixed5), frame12, 424, 8);
   gtk_widget_set_uposition (frame12, 424, 8);
+#endif
   gtk_widget_set_usize (frame12, 128, 72);
 
   vbox5 = gtk_vbox_new (TRUE, 6);
@@ -1861,8 +1970,13 @@ create_administrator (HWND hwnd)
   gtk_object_set_data_full (GTK_OBJECT (admin), "frame13", frame13,
       (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (frame13);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed5), frame13, 424, 112);
+  gtk_widget_set_uposition (frame13, 424, 112);
+#else
   gtk_fixed_put (GTK_FIXED (fixed5), frame13, 424, 88);
   gtk_widget_set_uposition (frame13, 424, 88);
+#endif
   gtk_widget_set_usize (frame13, 128, 80);
 
   vbox4 = gtk_vbox_new (TRUE, 0);
@@ -1885,8 +1999,13 @@ create_administrator (HWND hwnd)
   gtk_object_set_data_full (GTK_OBJECT (admin), "alignment1", alignment1,
       (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (alignment1);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed5), alignment1, 8, 32);
+  gtk_widget_set_uposition (alignment1, 8, 32);
+#else
   gtk_fixed_put (GTK_FIXED (fixed5), alignment1, 8, 8);
   gtk_widget_set_uposition (alignment1, 8, 8);
+#endif
   gtk_widget_set_usize (alignment1, 410, 248);
 
   frame11 = gtk_frame_new (" Connection Pooling Timeout ");
@@ -1910,8 +2029,13 @@ create_administrator (HWND hwnd)
   gtk_object_set_data_full (GTK_OBJECT (admin), "l_odbcdrivers",
       l_odbcdrivers, (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (l_odbcdrivers);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed8), l_odbcdrivers, 16, 51);
+  gtk_widget_set_uposition (l_odbcdrivers, 16, 51);
+#else
   gtk_fixed_put (GTK_FIXED (fixed8), l_odbcdrivers, 8, 3);
   gtk_widget_set_uposition (l_odbcdrivers, 8, 3);
+#endif
   gtk_widget_set_usize (l_odbcdrivers, 89, 16);
 
   scrolledwindow7 = gtk_scrolled_window_new (NULL, NULL);
@@ -1919,8 +2043,13 @@ create_administrator (HWND hwnd)
   gtk_object_set_data_full (GTK_OBJECT (admin), "scrolledwindow7",
       scrolledwindow7, (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (scrolledwindow7);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed8), scrolledwindow7, 16, 68);
+  gtk_widget_set_uposition (scrolledwindow7, 16, 68);
+#else
   gtk_fixed_put (GTK_FIXED (fixed8), scrolledwindow7, 8, 24);
   gtk_widget_set_uposition (scrolledwindow7, 8, 24);
+#endif
   gtk_widget_set_usize (scrolledwindow7, 392, 200);
 
   clist7 = gtk_clist_new (3);
@@ -1984,8 +2113,13 @@ create_administrator (HWND hwnd)
   gtk_object_set_data_full (GTK_OBJECT (admin), "frame6", frame6,
       (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (frame6);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed6), frame6, 8, 32);
+  gtk_widget_set_uposition (frame6, 8, 32);
+#else
   gtk_fixed_put (GTK_FIXED (fixed6), frame6, 8, 8);
   gtk_widget_set_uposition (frame6, 8, 8);
+#endif
   gtk_widget_set_usize (frame6, 280, 104);
 
   hbox1 = gtk_hbox_new (TRUE, 0);
@@ -2074,8 +2208,13 @@ create_administrator (HWND hwnd)
   gtk_object_set_data_full (GTK_OBJECT (admin), "frame7", frame7,
       (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (frame7);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed6), frame7, 296, 32);
+  gtk_widget_set_uposition (frame7, 296, 32);
+#else
   gtk_fixed_put (GTK_FIXED (fixed6), frame7, 296, 8);
   gtk_widget_set_uposition (frame7, 296, 8);
+#endif
   gtk_widget_set_usize (frame7, 256, 104);
 
   table6 = gtk_table_new (2, 1, TRUE);
@@ -2115,8 +2254,13 @@ create_administrator (HWND hwnd)
   gtk_object_set_data_full (GTK_OBJECT (admin), "frame8", frame8,
       (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (frame8);
+#if GTK_CHECK_VERSION(2,0,0)
   gtk_fixed_put (GTK_FIXED (fixed6), frame8, 8, 120);
+  gtk_widget_set_uposition (frame8, 8, 144);
+#else
+  gtk_fixed_put (GTK_FIXED (fixed6), frame8, 8, 144);
   gtk_widget_set_uposition (frame8, 8, 120);
+#endif
   gtk_widget_set_usize (frame8, 280, 96);
 
   table7 = gtk_table_new (2, 1, TRUE);
@@ -2156,8 +2300,13 @@ create_administrator (HWND hwnd)
   gtk_object_set_data_full (GTK_OBJECT (admin), "frame5", frame5,
       (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (frame5);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed6), frame5, 8, 295);
+  gtk_widget_set_uposition (frame5, 8, 295);
+#else
   gtk_fixed_put (GTK_FIXED (fixed6), frame5, 8, 264);
   gtk_widget_set_uposition (frame5, 8, 264);
+#endif
   gtk_widget_set_usize (frame5, 546, 64);
 
   table5 = gtk_table_new (1, 2, FALSE);
@@ -2219,8 +2368,13 @@ create_administrator (HWND hwnd)
   gtk_object_set_data_full (GTK_OBJECT (admin), "frame9", frame9,
       (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (frame9);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed7), frame9, 8, 295);
+  gtk_widget_set_uposition (frame9, 8, 295);
+#else
   gtk_fixed_put (GTK_FIXED (fixed7), frame9, 8, 264);
   gtk_widget_set_uposition (frame9, 8, 264);
+#endif
   gtk_widget_set_usize (frame9, 546, 64);
 
   table8 = gtk_table_new (1, 2, FALSE);
@@ -2257,9 +2411,14 @@ create_administrator (HWND hwnd)
   gtk_object_set_data_full (GTK_OBJECT (admin), "l_about", l_about,
       (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (l_about);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed7), l_about, 8, 32);
+  gtk_widget_set_uposition (l_about, 8, 32);
+#else
   gtk_fixed_put (GTK_FIXED (fixed7), l_about, 8, 8);
   gtk_widget_set_uposition (l_about, 8, 8);
-  gtk_widget_set_usize (l_about, 260, 16);
+#endif
+  gtk_widget_set_usize (l_about, 280, 16);
   gtk_label_set_justify (GTK_LABEL (l_about), GTK_JUSTIFY_LEFT);
 
   scrolledwindow6 = gtk_scrolled_window_new (NULL, NULL);
@@ -2267,8 +2426,13 @@ create_administrator (HWND hwnd)
   gtk_object_set_data_full (GTK_OBJECT (admin), "scrolledwindow6",
       scrolledwindow6, (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (scrolledwindow6);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed7), scrolledwindow6, 8, 48);
+  gtk_widget_set_uposition (scrolledwindow6, 8, 48);
+#else
   gtk_fixed_put (GTK_FIXED (fixed7), scrolledwindow6, 8, 24);
   gtk_widget_set_uposition (scrolledwindow6, 8, 24);
+#endif
   gtk_widget_set_usize (scrolledwindow6, 536, 232);
 
   clist6 = gtk_clist_new (5);

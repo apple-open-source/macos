@@ -4,20 +4,19 @@
    <TITLE> %(title)s
    </TITLE>
    <LINK REL="Index" HREF="index.html" >
-   <LINK REL="made" HREF="mailto:%(email_url)s">
+   <LINK REL="made"  HREF="mailto:%(email_url)s?Subject=%(subject_url)s&In-Reply-To=%(in_reply_to_url)s">
    <META NAME="robots" CONTENT="index,nofollow">
    %(encoding)s
    %(prev)s
    %(next)s
  </HEAD>
  <BODY BGCOLOR="#ffffff">
-   <H1>%(subject_html)s
-   </H1>
-    <B>%(author_html)s
-    </B> 
-    <A HREF="mailto:%(email_url)s"
-       TITLE="%(subject_html)s">%(email_html)s
-       </A><BR>
+   <H1>%(subject_html)s</H1>
+    <B>%(author_html)s</B> 
+    <A
+    HREF="mailto:%(email_url)s?Subject=%(subject_url)s&In-Reply-To=%(in_reply_to_url)s"
+           TITLE="%(subject_html)s">%(email_html)s
+                  </A><BR>
     <I>%(datestr_html)s</I>
     <P><UL>
         %(prev_wsubj)s
@@ -45,4 +44,6 @@
               <a href="author.html#%(sequence)s">[ Autor ]</a>
          </LI>
        </UL>
+<hr>
+<a href="%(listurl)s">Mehr Informationen &uuml;ber die Mailingliste %(listname)s</a><br>
 </body></html>

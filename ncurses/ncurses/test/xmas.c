@@ -92,7 +92,7 @@
 /******************************************************************************/
 
 /*
- * $Id: xmas.c,v 1.20 2005/04/16 16:34:38 tom Exp $
+ * $Id: xmas.c,v 1.24 2008/08/03 11:08:59 tom Exp $
  */
 #include <test.priv.h>
 
@@ -131,6 +131,7 @@ static WINDOW *lookdeer3;
 static WINDOW *lookdeer4;
 static WINDOW *w_holiday;
 static WINDOW *w_del_msg;
+static bool *my_pairs;
 
 static int boxit(void);
 static int seas(void);
@@ -153,13 +154,12 @@ static void
 set_color(WINDOW *win, chtype color)
 {
     if (has_colors()) {
-	static bool *pairs;
 	int n = (color + 1);
-	if (pairs == 0)
-	    pairs = (bool *) calloc((unsigned) (COLORS + 1), sizeof(bool));
-	if (!pairs[n]) {
+	if (my_pairs == 0)
+	    my_pairs = typeCalloc(bool, COLORS + 1);
+	if (!my_pairs[n]) {
 	    init_pair(n, color, my_bg);
-	    pairs[n] = TRUE;
+	    my_pairs[n] = TRUE;
 	}
 	wattroff(win, A_COLOR);
 	wattron(win, COLOR_PAIR(n));
@@ -194,12 +194,9 @@ main(int argc GCC_UNUSED, char **argv GCC_UNUSED)
     noecho();
     nonl();
     refresh();
-    signal(SIGINT, done);
-    signal(SIGTERM, done);
-#if !defined	DOS && !defined OS2
-    signal(SIGHUP, done);
-    signal(SIGQUIT, done);
-#endif
+
+    CATCHALL(done);
+
     if (has_colors()) {
 	start_color();
 #if HAVE_USE_DEFAULT_COLORS
@@ -209,44 +206,48 @@ main(int argc GCC_UNUSED, char **argv GCC_UNUSED)
     }
     curs_set(0);
 
-    treescrn = newwin(16, 27, 3, 53);
-    treescrn2 = newwin(16, 27, 3, 53);
-    treescrn3 = newwin(16, 27, 3, 53);
-    treescrn4 = newwin(16, 27, 3, 53);
-    treescrn5 = newwin(16, 27, 3, 53);
-    treescrn6 = newwin(16, 27, 3, 53);
-    treescrn7 = newwin(16, 27, 3, 53);
-    treescrn8 = newwin(16, 27, 3, 53);
+    if ((treescrn = newwin(16, 27, 3, 53)) == 0 ||
+	(treescrn2 = newwin(16, 27, 3, 53)) == 0 ||
+	(treescrn3 = newwin(16, 27, 3, 53)) == 0 ||
+	(treescrn4 = newwin(16, 27, 3, 53)) == 0 ||
+	(treescrn5 = newwin(16, 27, 3, 53)) == 0 ||
+	(treescrn6 = newwin(16, 27, 3, 53)) == 0 ||
+	(treescrn7 = newwin(16, 27, 3, 53)) == 0 ||
+	(treescrn8 = newwin(16, 27, 3, 53)) == 0 ||
 
-    dotdeer0 = newwin(3, 71, 0, 8);
+	(dotdeer0 = newwin(3, 71, 0, 8)) == 0 ||
 
-    stardeer0 = newwin(4, 56, 0, 8);
+	(stardeer0 = newwin(4, 56, 0, 8)) == 0 ||
 
-    lildeer0 = newwin(7, 53, 0, 8);
-    lildeer1 = newwin(2, 4, 0, 0);
-    lildeer2 = newwin(2, 4, 0, 0);
-    lildeer3 = newwin(2, 4, 0, 0);
+	(lildeer0 = newwin(7, 53, 0, 8)) == 0 ||
+	(lildeer1 = newwin(2, 4, 0, 0)) == 0 ||
+	(lildeer2 = newwin(2, 4, 0, 0)) == 0 ||
+	(lildeer3 = newwin(2, 4, 0, 0)) == 0 ||
 
-    middeer0 = newwin(15, 42, 0, 8);
-    middeer1 = newwin(3, 7, 0, 0);
-    middeer2 = newwin(3, 7, 0, 0);
-    middeer3 = newwin(3, 7, 0, 0);
+	(middeer0 = newwin(15, 42, 0, 8)) == 0 ||
+	(middeer1 = newwin(3, 7, 0, 0)) == 0 ||
+	(middeer2 = newwin(3, 7, 0, 0)) == 0 ||
+	(middeer3 = newwin(3, 7, 0, 0)) == 0 ||
 
-    bigdeer0 = newwin(10, 23, 0, 0);
-    bigdeer1 = newwin(10, 23, 0, 0);
-    bigdeer2 = newwin(10, 23, 0, 0);
-    bigdeer3 = newwin(10, 23, 0, 0);
-    bigdeer4 = newwin(10, 23, 0, 0);
+	(bigdeer0 = newwin(10, 23, 0, 0)) == 0 ||
+	(bigdeer1 = newwin(10, 23, 0, 0)) == 0 ||
+	(bigdeer2 = newwin(10, 23, 0, 0)) == 0 ||
+	(bigdeer3 = newwin(10, 23, 0, 0)) == 0 ||
+	(bigdeer4 = newwin(10, 23, 0, 0)) == 0 ||
 
-    lookdeer0 = newwin(10, 25, 0, 0);
-    lookdeer1 = newwin(10, 25, 0, 0);
-    lookdeer2 = newwin(10, 25, 0, 0);
-    lookdeer3 = newwin(10, 25, 0, 0);
-    lookdeer4 = newwin(10, 25, 0, 0);
+	(lookdeer0 = newwin(10, 25, 0, 0)) == 0 ||
+	(lookdeer1 = newwin(10, 25, 0, 0)) == 0 ||
+	(lookdeer2 = newwin(10, 25, 0, 0)) == 0 ||
+	(lookdeer3 = newwin(10, 25, 0, 0)) == 0 ||
+	(lookdeer4 = newwin(10, 25, 0, 0)) == 0 ||
 
-    w_holiday = newwin(1, 26, 3, 27);
+	(w_holiday = newwin(1, 26, 3, 27)) == 0 ||
 
-    w_del_msg = newwin(1, 19, 23, 60);
+	(w_del_msg = newwin(1, 19, 23, 60)) == 0) {
+	endwin();
+	fprintf(stderr, "Cannot create windows - screen too small\n");
+	ExitProgram(EXIT_FAILURE);
+    }
 
     mvwaddstr(w_del_msg, 0, 0, "Hit any key to quit");
 
@@ -1145,15 +1146,17 @@ reindeer(void)
 static RETSIGTYPE
 done(int sig GCC_UNUSED)
 {
-    signal(SIGINT, done);
-    signal(SIGTERM, done);
-#if !defined	DOS && !defined OS2
-    signal(SIGHUP, done);
-    signal(SIGQUIT, done);
-#endif
+    CATCHALL(done);
+
     move(LINES - 1, 0);
     refresh();
     endwin();
     curs_set(1);
+
+#if NO_LEAKS
+    if (my_pairs != 0)
+	free(my_pairs);
+#endif
+
     ExitProgram(EXIT_SUCCESS);
 }

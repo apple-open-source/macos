@@ -150,7 +150,7 @@ void IOFireWireSBP2ORB::release() const
 
 void IOFireWireSBP2ORB::free( void )
 {
-    FWKLOG(( "IOFireWireSBP2ORB<0x%08lx> : free\n", (UInt32)this ));
+    FWKLOG(( "IOFireWireSBP2ORB<%p> : free\n", this ));
 
     removeORB( this );
 
@@ -217,8 +217,8 @@ IOReturn IOFireWireSBP2ORB::allocateORB( UInt32 orbSize )
     {
         status = fORBPseudoAddressSpace->activate();
 		
-		FWKLOG( ( "IOFireWireSBP2ORB<0x%08lx> : created orb at phys: 0x%04lx.%08lx psuedo: 0x%04lx.%08lx of size %d\n", 
-				(UInt32)this, fORBPhysicalAddress.addressHi, fORBPhysicalAddress.addressLo, fORBPseudoAddress.addressHi, fORBPseudoAddress.addressLo, orbSize ) );
+		FWKLOG( ( "IOFireWireSBP2ORB<%p> : created orb at phys: 0x%04lx.%08lx psuedo: 0x%04lx.%08lx of size %d\n", 
+				this, fORBPhysicalAddress.addressHi, fORBPhysicalAddress.addressLo, fORBPseudoAddress.addressHi, fORBPseudoAddress.addressLo, orbSize ) );
     }
 
 //	IOLog( "IOFireWireSBP2ORB::allocateORB - 5 status = 0x%08lx\n", status );
@@ -252,9 +252,96 @@ void IOFireWireSBP2ORB::deallocateORB( void )
 	}
 }
 
-/////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////
 // command execution
 //
+
+// calculateTransferSizeLog
+//
+//
+
+UInt32 IOFireWireSBP2ORB::calculateTransferSizeLog( bool * clipping )
+{
+    //
+    // calculate transfer size
+    //
+
+	UInt32  transferSizeBytes;
+    *clipping = false;
+    transferSizeBytes = 4096; // start at max packet size
+	
+	bool size_override = (fCommandFlags & kFWSBP2CommandMaxPacketSizeOverride);
+	
+	if( !size_override )
+	{
+		// clip by ARMDMAMax for performance
+		UInt32 ARDMAMax = fLogin->getARDMMax();
+		if( (fCommandFlags & kFWSBP2CommandTransferDataFromTarget) &&	// if this is a read
+			(ARDMAMax != 0) )											// and we've got an ARDMA clip
+		{
+			transferSizeBytes = ARDMAMax;
+			*clipping = true;
+		}
+	}
+	
+    // trim by max payload sizes
+    UInt32 loginMaxPayloadSize = fLogin->getMaxPayloadSize();
+    if( loginMaxPayloadSize != 0 && loginMaxPayloadSize < transferSizeBytes )
+        transferSizeBytes = loginMaxPayloadSize;
+
+    if( fMaxPayloadSize != 0 && fMaxPayloadSize < transferSizeBytes )
+        transferSizeBytes = fMaxPayloadSize;
+
+    // find the largest power of two less than or equal to transferSizeBytes/4
+    UInt32 transferSizeLog = 0;
+    while( (transferSizeBytes >= 8) && (transferSizeLog < 15) )
+    {
+        transferSizeBytes >>= 1;
+        transferSizeLog++;
+    }
+
+	if( !size_override )
+	{
+		// trim by maxPackLog
+		UInt32 maxPackLog = fUnit->maxPackLog(!(fCommandFlags & kFWSBP2CommandTransferDataFromTarget));
+		maxPackLog -= 2; // convert to quads
+		if( maxPackLog < transferSizeLog )
+		{
+			*clipping = true;
+			transferSizeLog = maxPackLog;
+		}
+	}
+	else
+	{
+		UInt32 maxPackLog = 7;
+		
+		IOFWSpeed speed = fUnit->FWSpeed();
+		switch( speed )
+		{
+			case kFWSpeed800MBit:
+				maxPackLog = 10;
+				break;
+
+			case kFWSpeed400MBit:
+				maxPackLog = 9;
+				 break;
+
+			case kFWSpeed200MBit:
+				maxPackLog = 8;
+				break;
+
+			default:
+				break;
+		 }
+		 
+		if( maxPackLog < transferSizeLog )
+			transferSizeLog = maxPackLog;		 
+	}
+	
+	
+	return transferSizeLog;
+}
 
 // prepareORBForExecution
 //
@@ -320,79 +407,14 @@ void IOFireWireSBP2ORB::prepareORBForExecution( void )
             // default options is |= 0x0000
             break;
      }
-
-    //
-    // calculate transfer size
-    //
-
-    UInt32 transferSizeBytes = 4096; // start at max packet size
+     
+	 UInt32 transferSizeLog;
+	 bool clipping;
+	 
+	transferSizeLog = calculateTransferSizeLog( &clipping );
 	
-	bool size_override = (fCommandFlags & kFWSBP2CommandMaxPacketSizeOverride);
-	
-	if( !size_override )
-	{
-		// clip by ARMDMAMax for performance
-		UInt32 ARDMAMax = fLogin->getARDMMax();
-		if( (fCommandFlags & kFWSBP2CommandTransferDataFromTarget) &&	// if this is a read
-			(ARDMAMax != 0) )											// and we've got an ARDMA clip
-		{
-			transferSizeBytes = ARDMAMax;
-		}
-	}
-	
-    // trim by max payload sizes
-    UInt32 loginMaxPayloadSize = fLogin->getMaxPayloadSize();
-    if( loginMaxPayloadSize != 0 && loginMaxPayloadSize < transferSizeBytes )
-        transferSizeBytes = loginMaxPayloadSize;
-
-    if( fMaxPayloadSize != 0 && fMaxPayloadSize < transferSizeBytes )
-        transferSizeBytes = fMaxPayloadSize;
-
-    // find the largest power of two less than or equal to transferSizeBytes/4
-    UInt32 transferSizeLog = 0;
-    while( (transferSizeBytes >= 8) && (transferSizeLog < 15) )
-    {
-        transferSizeBytes >>= 1;
-        transferSizeLog++;
-    }
-
-	if( !size_override )
-	{
-		// trim by maxPackLog
-		UInt32 maxPackLog = fUnit->maxPackLog(!(fCommandFlags & kFWSBP2CommandTransferDataFromTarget));
-		maxPackLog -= 2; // convert to quads
-		if( maxPackLog < transferSizeLog )
-			transferSizeLog = maxPackLog;
-	}
-	else
-	{
-		UInt32 maxPackLog = 7;
-		
-		IOFWSpeed speed = fUnit->FWSpeed();
-		switch( speed )
-		{
-			case kFWSpeed800MBit:
-				maxPackLog = 10;
-				break;
-
-			case kFWSpeed400MBit:
-				maxPackLog = 9;
-				 break;
-
-			case kFWSpeed200MBit:
-				maxPackLog = 8;
-				break;
-
-			default:
-				break;
-		 }
-		 
-		if( maxPackLog < transferSizeLog )
-			transferSizeLog = maxPackLog;		 
-	}
-	
-    // set transfer size, actual max is 2 ^ (size + 2) bytes (or 2 ^ size quads)
-    fORBBuffer->options |= OSSwapHostToBigInt16(transferSizeLog << 4);
+	// set transfer size, actual max is 2 ^ (size + 2) bytes (or 2 ^ size quads)
+	fORBBuffer->options |= OSSwapHostToBigInt16(transferSizeLog << 4);
 }
 
 // prepareFastStartPacket
@@ -651,7 +673,7 @@ void IOFireWireSBP2ORB::startTimer( void )
 		{
 			IOReturn ORBtimeoutSubmitStatus;
 			
-			FWKLOG( ( "IOFireWireSBP2ORB<0x%08lx> : set timeout\n", (UInt32)this ) );
+			FWKLOG( ( "IOFireWireSBP2ORB<%p> : set timeout\n", this ) );
 			
 			fTimeoutTimerSet = true;
 			ORBtimeoutSubmitStatus = fTimeoutCommand->submit();
@@ -676,7 +698,7 @@ bool IOFireWireSBP2ORB::isTimerSet( void )
 
 void IOFireWireSBP2ORB::cancelTimer( void )
 {
-    FWKLOG( ( "IOFireWireSBP2ORB<0x%08lx> : cancel timer\n", (UInt32)this ) );
+    FWKLOG( ( "IOFireWireSBP2ORB<%p> : cancel timer\n", this ) );
 	
     // cancel timer
     if( fTimeoutTimerSet )
@@ -705,12 +727,12 @@ void IOFireWireSBP2ORB::orbTimeout( IOReturn status, IOFireWireBus *bus, IOFWBus
 	
     if( status == kIOReturnTimeout )
     {
-        FWKLOG( ( "IOFireWireSBP2ORB<0x%08lx> : orb timeout\n", (UInt32)this ) );
+        FWKLOG( ( "IOFireWireSBP2ORB<%p> : orb timeout\n", this ) );
 		sendTimeoutNotification( this );
     }
     else
     {
-        FWKLOG( ( "IOFireWireSBP2ORB<0x%08lx> : orb timeout cancelled\n", (UInt32)this ) );
+        FWKLOG( ( "IOFireWireSBP2ORB<%p> : orb timeout cancelled\n", this ) );
     }
 }
 
@@ -1081,13 +1103,40 @@ IOReturn IOFireWireSBP2ORB::setCommandBuffersAsRanges(  IOVirtualRange * ranges,
     IOReturn			status = kIOReturnSuccess;
     IOMemoryDescriptor *	memory = NULL;
 
+	if( withCount == 0 )
+	{
+		status = kIOReturnBadArgument;
+	}
+	
+	IOAddressRange * address_ranges = NULL;
     if( status == kIOReturnSuccess )
-    {
-        memory = IOMemoryDescriptor::withRanges( ranges, withCount, withDirection, withTask );
+	{
+		IOAddressRange * address_ranges = IONew( IOAddressRange, withCount );
+		if( address_ranges == NULL )
+		{
+			status = kIOReturnNoMemory;
+		}
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		for( uint32_t i = 0; i < withCount; i++ )
+		{
+			address_ranges[i].address = ranges[i].address;
+			address_ranges[i].length = ranges[i].length;
+		}
+		
+		memory = IOMemoryDescriptor::withAddressRanges( address_ranges, withCount, withDirection, withTask );
         if( !memory )
             status = kIOReturnNoMemory;
     }
     
+	if( address_ranges )
+	{
+		IODelete( address_ranges, IOAddressRange, withCount );
+		address_ranges = NULL;
+	}
+	
     if( status == kIOReturnSuccess )
     {
         status = memory->prepare( withDirection );
@@ -1233,7 +1282,7 @@ IOReturn IOFireWireSBP2ORB::setCommandBuffers( IOMemoryDescriptor * memoryDescri
 
 		if(length != tempLength)
 		{
-        	FWKLOG( ( "IOFireWireSBP2ORB<0x%08lx> : ### buffer length = %d, memDescriptor length = %d ###\n", (UInt32)this, length, tempLength  ) );
+        	FWKLOG( ( "IOFireWireSBP2ORB<%p> : ### buffer length = %d, memDescriptor length = %d ###\n", this, length, tempLength  ) );
         // length = tempLength;
 		}
 #endif
@@ -1245,6 +1294,35 @@ IOReturn IOFireWireSBP2ORB::setCommandBuffers( IOMemoryDescriptor * memoryDescri
     //
 
 	UInt32 		pte = 0;
+	UInt32		maxPageClipSize = kFWSBP2MaxPageClusterSize;
+	UInt32		maxPackLog;
+	bool clipping;
+	
+	maxPackLog = calculateTransferSizeLog( &clipping );
+
+	if( clipping )
+	{
+		switch( maxPackLog )
+		{
+			case 10:
+				maxPageClipSize = 4096;
+				break;
+			
+			case 9:
+				maxPageClipSize = 2048;
+				break;
+				
+			case 8:
+				maxPageClipSize = 1024;
+				break;
+			
+			default:
+				maxPageClipSize = 512;
+				break;
+		}
+				
+	}
+
     
 	if( status == kIOReturnSuccess ) 
 	{    	
@@ -1315,8 +1393,8 @@ IOReturn IOFireWireSBP2ORB::setCommandBuffers( IOMemoryDescriptor * memoryDescri
 
 					// 64k max page table entry, so we do it in chunks
 
-					if( lengthOfSegment > kFWSBP2MaxPageClusterSize )
-						step = kFWSBP2MaxPageClusterSize;
+					if( lengthOfSegment > maxPageClipSize )
+						step = maxPageClipSize;
 					else
 						step = lengthOfSegment;
 	
@@ -1345,9 +1423,9 @@ IOReturn IOFireWireSBP2ORB::setCommandBuffers( IOMemoryDescriptor * memoryDescri
 		
 							fPageTableDescriptor->writeBytes( (pte-1) * sizeof(FWSBP2PTE), &entry, sizeof(FWSBP2PTE) );
 					
-						//	IOLog( "IOFireWireSBP2ORB<0x%08lx> : PTE = %d, size = %d\n", (UInt32)this, pte-1, toMap  );
+						//	IOLog( "IOFireWireSBP2ORB<%p> : PTE = %d, size = %d\n", this, pte-1, toMap  );
 							
-		 //                  FWKLOG( ( "IOFireWireSBP2ORB<0x%08lx> : PTE = %d, size = %d\n", (UInt32)this, pte-1, toMap  ) );
+		 //                  FWKLOG( ( "IOFireWireSBP2ORB<%p> : PTE = %d, size = %d\n", this, pte-1, toMap  ) );
 						}
 						
 						// move to new page table entry and beginning of unmapped memory
@@ -1357,7 +1435,7 @@ IOReturn IOFireWireSBP2ORB::setCommandBuffers( IOMemoryDescriptor * memoryDescri
 				}
 			}
 
-			FWKLOG( ( "IOFireWireSBP2ORB<0x%08lx> : number of required PTE's = %d\n", (UInt32)this, pte ) );
+			FWKLOG( ( "IOFireWireSBP2ORB<%p> : number of required PTE's = %d\n", this, pte ) );
 			
 			if( pte <= ptes_allocated )
 			{

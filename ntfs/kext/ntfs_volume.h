@@ -1,8 +1,8 @@
 /*
  * ntfs_volume.h - Defines for volume structures in the NTFS kernel driver.
  *
- * Copyright (c) 2006, 2007 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006, 2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2008 Anton Altaparmakov.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2008 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -70,7 +70,7 @@ struct _ntfs_volume {
 	mode_t dmask;			/* The mask for directory
 					   permissions. */
 	u8 mft_zone_multiplier;		/* Initial mft zone multiplier. */
-	u8 on_errors;			/* What to do on filesystem errors. */
+	u8 on_errors;			/* What to do on file system errors. */
 	/* NTFS bootsector provided information. */
 	u32 sector_size;		/* in bytes */
 	u32 sector_size_mask;		/* sector_size - 1 */
@@ -81,9 +81,13 @@ struct _ntfs_volume {
 	u32 mft_record_size;		/* in bytes */
 	u32 mft_record_size_mask;	/* mft_record_size - 1 */
 	u8 mft_record_size_shift;	/* log2(mft_record_size) */
-	u32 index_record_size;		/* in bytes */
-	u32 index_record_size_mask;	/* index_record_size - 1 */
-	u8 index_record_size_shift;	/* log2(index_record_size) */
+	u8 blocks_per_index_block;	/* This is used as the default for the
+					   corresponding value in the
+					   $INDEX_ROOT attribute when creating
+					   directory and view indexes. */
+	u32 index_block_size;		/* in bytes */
+	u32 index_block_size_mask;	/* index_block_size - 1 */
+	u8 index_block_size_shift;	/* log2(index_block_size) */
 	LCN mft_lcn;			/* Cluster location of mft data. */
 	LCN mftmirr_lcn;		/* Cluster location of copy of mft. */
 	u64 serial_no;			/* The volume serial number. */
@@ -128,7 +132,10 @@ struct _ntfs_volume {
 					   bitmap. */
 
 	ntfs_inode *mftmirr_ni;		/* The ntfs inode of $MFTMirr. */
-	int mftmirr_size;		/* Size of mft mirror in mft records. */
+	unsigned mftmirr_size;		/* Relevant size of mft mirror in mft
+					   records.  Note this can be smaller
+					   than the actual size of the mft
+					   mirror. */
 
 	ntfs_inode *logfile_ni;		/* The ntfs inode of $LogFile. */
 
@@ -147,23 +154,48 @@ struct _ntfs_volume {
 	u8 major_ver;			/* Ntfs major version of volume. */
 	u8 minor_ver;			/* Ntfs minor version of volume. */
 
+	lck_mtx_t rename_lock;		/* Lock serializing directory tree
+					   reshaping rename operations. */
+
 	ntfs_inode *root_ni;		/* The ntfs inode of the root
 					   directory. */
-
-	ntfs_inode *secure_ni;		/* The ntfs inode of $Secure
-					   (NTFS3.0+ only, otherwise NULL). */
-	ntfs_inode *extend_ni;		/* The ntfs inode of $Extend
-					   (NTFS3.0+ only, otherwise NULL). */
+	/* $Secure stuff is NTFS 3.0+ specific.  Unused/NULL otherwise. */
+	ntfs_inode *secure_ni;		/* The ntfs inode of $Secure. */
+	ntfs_inode *secure_sds_ni;	/* Attribute inode of $Secure/$SDS. */
+	ntfs_inode *secure_sdh_ni;	/* Index inode of $Secure/$SDH. */
+	ntfs_inode *secure_sii_ni;	/* Index inode of $Secure/$SII. */
+	lck_rw_t secure_lock;		/* Lock for serializing accesses to the
+					   $Secure related inodes. */
+	le32 next_security_id;		/* The security_id to use the next time
+					   a new security descriptor is added
+					   to $Secure. */
+	le32 default_dir_security_id;	/* The security_id to use when creating
+					   directories or 0 if not
+					   initialized. */
+	le32 default_file_security_id;	/* The security_id to use when creating
+					   files or 0 if not initialized. */
+	lck_spin_t security_id_lock;	/* Lock for serializing accesses to the
+					   security_id related variables. */
+	/*
+	 * $Extend system directory is located in the root directory with inode
+	 * number FILE_Extend.  (NTFS 3.0+ specific.  Unused/NULL otherwise.)
+	 *
+	 * The below system file inodes all reside in the $Extend system
+	 * directory and do not have fixed inode numbers, i.e. they need to be
+	 * looked up by name in the $Extend directory index.
+	 */
+	ntfs_inode *extend_ni;		/* The ntfs inode of $Extend (NTFS3.0+
+					   only, otherwise NULL). */
+	/* $ObjId stuff is NTFS 3.0+ specific.  Unused/NULL otherwise. */
+	ntfs_inode *objid_ni;		/* The ntfs inode of $ObjId. */
+	ntfs_inode *objid_o_ni;		/* Index inode for $ObjId/$O. */
 	/* $Quota stuff is NTFS3.0+ specific.  Unused/NULL otherwise. */
 	ntfs_inode *quota_ni;		/* The ntfs inode of $Quota. */
-	ntfs_inode *quota_q_ni;		/* Attribute ntfs inode for
-					   $Quota/$Q. */
+	ntfs_inode *quota_q_ni;		/* Index inode for $Quota/$Q. */
 	/* $UsnJrnl stuff is NTFS3.0+ specific.  Unused/NULL otherwise. */
 	ntfs_inode *usnjrnl_ni;		/* The ntfs inode of $UsnJrnl. */
-	ntfs_inode *usnjrnl_max_ni;	/* Attribute ntfs inode for
-					   $UsnJrnl/$Max. */
-	ntfs_inode *usnjrnl_j_ni;	/* Attribute ntfs inode for
-					   $UsnJrnl/$J. */
+	ntfs_inode *usnjrnl_max_ni;	/* Attribute inode for $UsnJrnl/$Max. */
+	ntfs_inode *usnjrnl_j_ni;	/* Attribute inode for $UsnJrnl/$J. */
 };
 
 /*
@@ -171,7 +203,6 @@ struct _ntfs_volume {
  */
 enum {
 	NV_Errors,		/* 1: Volume has errors, prevent remount rw. */
-	NV_ShowSystemFiles,	/* 1: Return system files in ntfs_readdir(). */
 	NV_CaseSensitive,	/* 1: Treat filenames as case sensitive and
 				      create filenames in the POSIX namespace.
 				      Otherwise be case insensitive (but still
@@ -182,6 +213,10 @@ enum {
 	NV_SparseEnabled,	/* 1: May create sparse files. */
 	NV_CompressionEnabled,	/* 1: Compression is enabled on the volume. */
 	NV_ReadOnly,		/* 1: Volume is mounted read-only. */
+	NV_UseSDAttr,		/* 1: Use security descriptor attributes to
+				      store security descriptors instead of
+				      storing them in the common system file
+				      $Secure. */
 };
 
 /*
@@ -206,7 +241,6 @@ static inline void NVolClear##flag(ntfs_volume *vol)			\
 
 /* Define the ntfs volume bitops functions. */
 DEFINE_NVOL_BIT_OPS(Errors)
-DEFINE_NVOL_BIT_OPS(ShowSystemFiles)
 DEFINE_NVOL_BIT_OPS(CaseSensitive)
 DEFINE_NVOL_BIT_OPS(LogFileEmpty)
 DEFINE_NVOL_BIT_OPS(QuotaOutOfDate)
@@ -214,5 +248,6 @@ DEFINE_NVOL_BIT_OPS(UsnJrnlStamped)
 DEFINE_NVOL_BIT_OPS(SparseEnabled)
 DEFINE_NVOL_BIT_OPS(CompressionEnabled)
 DEFINE_NVOL_BIT_OPS(ReadOnly)
+DEFINE_NVOL_BIT_OPS(UseSDAttr)
 
 #endif /* !_OSX_NTFS_VOLUME_H */

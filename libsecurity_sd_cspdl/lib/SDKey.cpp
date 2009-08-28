@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2004,2008 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -265,7 +265,7 @@ SDKey::free(const AccessCredentials *accessCred, CssmKey &ioKey,
 		// @@@ Evaluate accessCred against Db acl.
 		// What should we do with accessCred?  Reauthenticate
 		// mUniqueId->database()?
-		clientSession().deleteRecord(mDatabase, mRecord);
+		clientSession().deleteRecord(ClientSession::toIPCHandle(mDatabase), ClientSession::toIPCHandle(mRecord));
 	}
 
 	if (mKeyHandle != noKey)

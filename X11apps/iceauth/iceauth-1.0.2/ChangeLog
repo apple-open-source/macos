@@ -1,0 +1,277 @@
+commit 5e52eb5d27986490dfad02781a452b8d0650f4b9
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Jul 23 18:23:56 2007 -0700
+
+    Version bump: 1.0.2
+
+commit 4471761150676a8cee5631615bc187019b760161
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Jul 23 17:49:59 2007 -0700
+
+    Change iceauth_CFLAGS to AM_CFLAGS to avoid automake-1.10 warning
+    
+    Makefile.am:27: compiling `iceauth.c' with per-target flags requires `AM_PROG_CC_C_O' in `configure.ac'
+
+commit bc7a27ab2e4e3339b9c2ee3bb90a38662b128448
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri May 18 12:58:23 2007 -0700
+
+    More constification and reduction of rw data in binary
+
+commit 45bb32cecdcf3319ae268f29a3ba1c33378e0acf
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri May 18 12:57:00 2007 -0700
+
+    Debian Bug #25285: iceauth manpage starts with blank screen
+    
+    <http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=25285>
+
+commit bff96f0f863ba98fe5a66110ae0e29ca26336861
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu May 17 14:08:03 2007 -0700
+
+    Constify some static data constants
+
+commit c5e43b03ca7176907dd8d0d0964e0fd0460b9ff5
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu May 17 13:50:05 2007 -0700
+
+    ANSIfy function declarations
+
+commit b2761be7f786fe9fde424b4331479d3ac5082f16
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu May 17 13:23:25 2007 -0700
+
+    Fix some lint warnings
+    
+    (611) warning: assignment of 64-bit integer to 32-bit integer
+    (653) warning: variable argument to strcpy(); make sure it's safe
+    (728) warning: sign extension from 32-bit to 64-bit integer
+
+commit 77cadcef6ea687e7181aa222c47402f34644a6ea
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu May 17 13:02:49 2007 -0700
+
+    Add option to check code with lint/sparse/etc.
+
+commit 2afbb4393b1053fcb2edbec7c92575245efabffe
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu May 17 12:59:51 2007 -0700
+
+    Replace static ChangeLog with disthook to generate from git log
+
+commit 0022cf7baf11bccea0024d0dc8c1ecc37e46ef3d
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed May 16 20:14:10 2007 -0700
+
+    Bug 10739: iceauth dumps core if signal caught before initialization done
+    
+    X.Org Bugzilla #10739 <http://bugs.freedesktop.org/show_bug.cgi?id=10739>
+    
+    Adding a test for NULL filename before calling IceUnlockAuthFile in
+    auth_finalize cleared the crash, but left the lock file behind.
+    Moving the initialization of authfilename to earlier in auth_initialize()
+    allowed the locks to be cleaned up as well.
+
+commit f749d926bd9796badee2efd1ee1da5905d6fd38d
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon May 14 19:04:24 2007 -0700
+
+    Replace copystring() with strdup() calls
+    
+    Also solves Coverity #924: Function copystring:
+      Pointer "src" dereferenced before NULL check
+
+commit 1a142e8b29113bbd9daf21b8371f1572cd0152dd
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon May 14 18:57:31 2007 -0700
+
+    Coverity #1089: Double frees in error cleanup path
+    
+    Double free of pointer "(auth)->auth_data" in call to "free"
+    Double free of pointer "(auth)->protocol_data" in call to "free"
+
+commit 4c1bd3d698bbb2ec4c1f8d3744549ec44c58d1bf
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon May 14 18:47:48 2007 -0700
+
+    renamed: .cvsignore -> .gitignore
+
+commit ca8a9af2c282da78eac601e316d7db553cb411b3
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon May 14 18:47:24 2007 -0700
+
+    Coverity #1039: Using uninitialized value "authdata"
+
+commit 59ccc789fa5d7d34cd81d28f46b6022e92536d6b
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 21 02:29:42 2005 +0000
+
+    Update package version for X11R7 release.
+
+commit d8dd7304386ba1ca8a6fbbcdcc6c4d790599ac91
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon Dec 19 16:22:40 2005 +0000
+
+    Stub COPYING files
+
+commit f3a5ff191dda517c3331760d97549a826ede4266
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:02 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit 589df4ac932d1c5616c12a331ef99c0ac6f75563
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Dec 6 22:48:16 2005 +0000
+
+    Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+commit 7ec4ba15177f055afb6dc9972763c25bfc79cec9
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:15 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit 31a2c7a834076f86bb801de6f7c6ff2a454e3db3
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Nov 28 22:01:37 2005 +0000
+
+    Change *mandir targets to use new *_MAN_DIR variables set by xorg-macros.m4
+        update to fix bug #5167 (Linux prefers *.1x man pages in man1 subdir)
+
+commit de9318f27ce26c5362d71a970738db261277a630
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Mon Nov 21 10:34:55 2005 +0000
+
+    Another pass at .cvsignores for apps.
+
+commit 9b58fd72a610a45eb5a93d04d6b7b883ca3b8faf
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Sun Nov 20 22:08:48 2005 +0000
+
+    Add/improve .cvsignore files for apps.
+
+commit cab89641f369a196d4ad7ad23db8e6dfc2257d01
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sun Nov 20 18:08:14 2005 +0000
+
+    iceauth only depends on xproto headers, not x11 library
+
+commit e4b6fddc688dbb65353f818dd482c1a0dd9575f8
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:47:48 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit 1ded5d399305e930b7e3dcbb5ca48cbf5018faa7
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Oct 17 23:56:19 2005 +0000
+
+    Use @APP_MAN_SUFFIX@ instead of $(APP_MAN_SUFFIX) in macro substitutions to
+        work better with BSD make
+
+commit a0fcb616a2e44353758f3010769b1e975f7944b9
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Oct 14 00:25:41 2005 +0000
+
+    Use sed to fill in variables in man page
+
+commit 973f5b5e29f4ecc43e47799dcd747d67c956edd6
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Aug 1 20:25:27 2005 +0000
+
+    Install man pages to section 1 instead of section m (Patch from Donnie
+        Berkholz)
+
+commit 8f0e8e0af05244c5a10914dc789c97f99e7a2aa3
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:29 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit ee46a1af27aabf3178af70b02d95356d757572d3
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Tue Jul 26 18:58:14 2005 +0000
+
+    Use AC_TYPE_SIGNAL and AC_FUNC_VFORK to replace Imake's SIGNAL_DEFINES and
+    -DHAS_VFORK
+
+commit c911c36dadcb8070fbdf94d7f9eef494e18b5094
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Tue Jul 26 18:55:42 2005 +0000
+
+    Add config.h includes for modularization Use RETSIGTYPE if defined by
+        autoconf in addition to Imake's SIGNALRETURNSINT. Use
+        HAVE_WORKING_VFORK if defined by autoconf in addition to Imake's
+        HAS_VFORK
+
+commit 055e01c0756e6aa8603169dd104cdd2153d2b749
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Wed Jul 20 19:31:48 2005 +0000
+
+    Use a unique token for PKG_CHECK_MODULES. Otherwise, if you use a global
+        configure cache, you cache it, and the cached value is probably wrong.
+
+commit c83a1200d2480ac67d755e4c589b524d1b834a6a
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Jul 16 20:52:25 2005 +0000
+
+    Mark variables modified in signal handlers as volatile (part of Sun bug id
+        4496504)
+
+commit d0bc63cf13e98f686bd371a0ab609018e7fdf8c2
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Tue Jun 28 15:04:15 2005 +0000
+
+    Add build system for iceauth
+
+commit 2562a65de3dfa44006c1f82052814d9b54e00f37
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 19:54:33 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit d8eefa5e8a51e448eecb9ec6be656775be2884cd
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:34:51 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit c560cd34038b23f28862bc890f3aaf161bb64c32
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:12:50 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit d05d91dcd79d5ce8ce548da80ae6e11eb8a4fcc7
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:36:15 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit a833bab02a6cbe19724b6bb4583f4ffaa24a0534
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:23:54 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit a3101452dc6f4ef01c328fad7e18685363937bcf
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:57 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit 511f5a05d0cc763d60b6b39584ea29b287cb801c
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 15:54:52 2003 +0000
+
+    R6.6 is the Xorg base-line

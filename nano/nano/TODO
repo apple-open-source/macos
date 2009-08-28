@@ -35,6 +35,11 @@ For the next version:
   the center line, and M-' (M-") to go to the last line.
 - Allow searching for and replacing newlines.
 - Allow soft wrapping as well as hard wrapping?
+- Detect when we're pasting text, so that we can handle it differently
+  from normal typing?
+- Make pasting text work as fast as it does in Pico.
+- Fix handling of bad/incomplete UTF-8 sequences to display one Unicode
+  FFFD (Replacement Character) per sequence instead of one per byte.
 
 Old requests:
 
@@ -84,4 +89,4 @@ For version 1.0:
 - Unjustify command (^U after ^J) [DONE =-].
 - Username completion (~user) [DONE =-].
 
-$Id: TODO,v 1.64 2006/10/06 16:00:13 dolorous Exp $
+$Id: TODO,v 1.64.2.1 2007/04/23 15:39:01 dolorous Exp $

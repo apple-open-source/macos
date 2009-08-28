@@ -1,17 +1,37 @@
+<DIV CLASS="indent">
+
+<H2 CLASS="title">{op=modify-printer?{printer_name} &auml;ndern:Drucker hinzuf&uuml;gen}</H2>
+
 <FORM METHOD="POST" ACTION="/admin" ENCTYPE="multipart/form-data">
 <INPUT TYPE="HIDDEN" NAME="OP" VALUE="{op}">
-<INPUT TYPE="HIDDEN" NAME="PRINTER_NAME" VALUE="{printer_name}">
-<INPUT TYPE="HIDDEN" NAME="PRINTER_LOCATION" VALUE="{?printer_location}">
-<INPUT TYPE="HIDDEN" NAME="PRINTER_INFO" VALUE="{?printer_info}">
-<INPUT TYPE="HIDDEN" NAME="DEVICE_URI" VALUE="{device_uri}">
+{printer_name?<INPUT TYPE="HIDDEN" NAME="printer_name" VALUE="{printer_name}">:}
 <INPUT TYPE="HIDDEN" NAME="BAUDRATE" VALUE="{?baudrate}">
 <INPUT TYPE="HIDDEN" NAME="BITS" VALUE="{?bits}">
 <INPUT TYPE="HIDDEN" NAME="PARITY" VALUE="{?parity}">
 <INPUT TYPE="HIDDEN" NAME="FLOW" VALUE="{?flow}">
 
-<H2 CLASS="title">Marke/Hersteller f&uuml;r {printer_name}</H2>
-
 <TABLE>
+{op=modify-printer?:<TR>
+<TH CLASS="label">Name:</TH>
+<TD><INPUT TYPE="HIDDEN" NAME="PRINTER_NAME" VALUE="{printer_name}">{printer_name}</TD>
+</TR>}
+<TR>
+<TH CLASS="label">Beschreibung:</TH>
+<TD><INPUT TYPE="HIDDEN" NAME="PRINTER_INFO" VALUE="{printer_info}">{printer_info}</TD>
+</TR>
+<TR>
+<TH CLASS="label">Ort:</TH>
+<TD><INPUT TYPE="HIDDEN" NAME="PRINTER_LOCATION" VALUE="{printer_location}">{printer_location}</TD>
+</TR>
+<TR>
+<TH CLASS="label">Verbindung:</TH>
+<TD><INPUT TYPE="HIDDEN" NAME="DEVICE_URI" VALUE="{device_uri}">{device_uri}</TD>
+</TR>
+<TR>
+<TH CLASS="label">Freigabe:</TH>
+<TD><INPUT TYPE="HIDDEN" NAME="PRINTER_IS_SHARED" VALUE="{?printer_is_shared}">
+Diesen Drucker {?printer_is_shared=?nicht:{?printer_is_shared=0?nicht:}} freigeben</TD>
+</TR>
 <TR>
 <TH CLASS="label">Marke:</TH>
 <TD>
@@ -22,7 +42,7 @@
 </TR>
 <TR>
 <TD></TD>
-<TD><INPUT TYPE="IMAGE" SRC="/images/button-continue.gif" ALT="Fortsetzen"></TD>
+<TD><INPUT TYPE="SUBMIT" VALUE="Weiter"></TD>
 </TR>
 <TR>
 <TD></TD>
@@ -35,8 +55,9 @@ TYPE="FILE" NAME="PPD_FILE"></TD>
 </TR>
 <TR>
 <TD></TD>
-<TD><INPUT TYPE="IMAGE" SRC="/images/button-{op}.gif" ALT="{op=add-printer?Add Printer:Modify Printer}"></TD>
+<TD><INPUT TYPE="SUBMIT" VALUE="{op=add-printer?Drucker hinzuf&uuml;gen:Drucker &auml;ndern}"></TD>
 </TR>
 </TABLE>
 
 </FORM>
+</DIV>

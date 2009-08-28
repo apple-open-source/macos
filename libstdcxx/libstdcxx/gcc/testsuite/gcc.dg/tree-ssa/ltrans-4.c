@@ -1,5 +1,6 @@
 /* { dg-do compile } */ 
-/* { dg-options "-O20 -ftree-loop-linear -fdump-tree-ltrans-all" } */
+/* { dg-options "-O2 -ftree-loop-linear -fdump-tree-ltrans-all" } */
+/* { dg-require-effective-target size32plus } */
 
 double u[1782225];
 int foo(int N, int *res)
@@ -16,3 +17,4 @@ int foo(int N, int *res)
 }
 
 /* { dg-final { scan-tree-dump-times "transformed loop" 1 "ltrans"} } */ 
+/* { dg-final { cleanup-tree-dump "ltrans" } } */

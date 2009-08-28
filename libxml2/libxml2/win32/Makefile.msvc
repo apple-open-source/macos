@@ -29,11 +29,13 @@ XML_SO = $(XML_BASENAME).dll
 XML_IMP = $(XML_BASENAME).lib
 XML_DEF = $(XML_BASENAME).def
 XML_A = $(XML_BASENAME)_a.lib
+XML_A_DLL = $(XML_BASENAME)_a_dll.lib
 
 # Place where we let the compiler put its output.
 BINDIR = bin.msvc
 XML_INTDIR = int.msvc
 XML_INTDIR_A = int.a.msvc
+XML_INTDIR_A_DLL = int.a.dll.msvc
 UTILS_INTDIR = int.utils.msvc
 
 # The preprocessor and its options.
@@ -60,6 +62,7 @@ CFLAGS = $(CFLAGS) /D "HAVE_PTHREAD_H"
 !if "$(WITH_ZLIB)" == "1"
 CFLAGS = $(CFLAGS) /D "HAVE_ZLIB_H"
 !endif
+CFLAGS = $(CFLAGS) /D_CRT_SECURE_NO_DEPRECATE /D_CRT_NONSTDC_NO_DEPRECATE
 
 # The linker and its options.
 LD = link.exe
@@ -67,7 +70,7 @@ LDFLAGS = /nologo /VERSION:$(LIBXML_MAJOR_VERSION).$(LIBXML_MINOR_VERSION)
 LDFLAGS = $(LDFLAGS) /LIBPATH:$(BINDIR) /LIBPATH:$(LIBPREFIX)
 LIBS =
 !if "$(WITH_FTP)" == "1" || "$(WITH_HTTP)" == "1"
-LIBS = $(LIBS) wsock32.lib
+LIBS = $(LIBS) wsock32.lib ws2_32.lib
 !endif 
 !if "$(WITH_ICONV)" == "1"
 !if "$(DEBUG)" == "1"
@@ -88,6 +91,9 @@ LIBS = $(LIBS) zdll.lib
 !endif
 !if "$(WITH_THREADS)" == "posix"
 LIBS = $(LIBS) pthreadVC.lib
+!endif
+!if "$(WITH_MODULES)" == "1"
+LIBS = $(LIBS) kernel32.lib
 !endif
 
 # The archiver and its options.
@@ -127,6 +133,7 @@ XML_OBJS = $(XML_INTDIR)\c14n.obj\
 	$(XML_INTDIR)\relaxng.obj\
 	$(XML_INTDIR)\SAX2.obj\
 	$(XML_INTDIR)\SAX.obj\
+	$(XML_INTDIR)\schematron.obj\
 	$(XML_INTDIR)\threads.obj\
 	$(XML_INTDIR)\tree.obj\
 	$(XML_INTDIR)\uri.obj\
@@ -137,6 +144,7 @@ XML_OBJS = $(XML_INTDIR)\c14n.obj\
 	$(XML_INTDIR)\xmlmemory.obj\
 	$(XML_INTDIR)\xmlreader.obj\
 	$(XML_INTDIR)\xmlregexp.obj\
+	$(XML_INTDIR)\xmlmodule.obj\
 	$(XML_INTDIR)\xmlsave.obj\
 	$(XML_INTDIR)\xmlschemas.obj\
 	$(XML_INTDIR)\xmlschemastypes.obj\
@@ -170,6 +178,7 @@ XML_OBJS_A = $(XML_INTDIR_A)\c14n.obj\
 	$(XML_INTDIR_A)\relaxng.obj\
 	$(XML_INTDIR_A)\SAX2.obj\
 	$(XML_INTDIR_A)\SAX.obj\
+	$(XML_INTDIR_A)\schematron.obj\
 	$(XML_INTDIR_A)\threads.obj\
 	$(XML_INTDIR_A)\tree.obj\
 	$(XML_INTDIR_A)\uri.obj\
@@ -180,6 +189,7 @@ XML_OBJS_A = $(XML_INTDIR_A)\c14n.obj\
 	$(XML_INTDIR_A)\xmlmemory.obj\
 	$(XML_INTDIR_A)\xmlreader.obj\
 	$(XML_INTDIR_A)\xmlregexp.obj\
+	$(XML_INTDIR_A)\xmlmodule.obj\
 	$(XML_INTDIR_A)\xmlsave.obj\
 	$(XML_INTDIR_A)\xmlschemas.obj\
 	$(XML_INTDIR_A)\xmlschemastypes.obj\
@@ -188,6 +198,51 @@ XML_OBJS_A = $(XML_INTDIR_A)\c14n.obj\
 	$(XML_INTDIR_A)\xpath.obj\
 	$(XML_INTDIR_A)\xpointer.obj\
 	$(XML_INTDIR_A)\xmlstring.obj
+
+# Static libxml object files.
+XML_OBJS_A_DLL = $(XML_INTDIR_A_DLL)\c14n.obj\
+	$(XML_INTDIR_A_DLL)\catalog.obj\
+	$(XML_INTDIR_A_DLL)\chvalid.obj\
+	$(XML_INTDIR_A_DLL)\debugXML.obj\
+	$(XML_INTDIR_A_DLL)\dict.obj\
+	$(XML_INTDIR_A_DLL)\DOCBparser.obj\
+	$(XML_INTDIR_A_DLL)\encoding.obj\
+	$(XML_INTDIR_A_DLL)\entities.obj\
+	$(XML_INTDIR_A_DLL)\error.obj\
+	$(XML_INTDIR_A_DLL)\globals.obj\
+	$(XML_INTDIR_A_DLL)\hash.obj\
+	$(XML_INTDIR_A_DLL)\HTMLparser.obj\
+	$(XML_INTDIR_A_DLL)\HTMLtree.obj\
+	$(XML_INTDIR_A_DLL)\legacy.obj\
+	$(XML_INTDIR_A_DLL)\list.obj\
+	$(XML_INTDIR_A_DLL)\nanoftp.obj\
+	$(XML_INTDIR_A_DLL)\nanohttp.obj\
+	$(XML_INTDIR_A_DLL)\parser.obj\
+	$(XML_INTDIR_A_DLL)\parserInternals.obj\
+	$(XML_INTDIR_A_DLL)\pattern.obj\
+	$(XML_INTDIR_A_DLL)\relaxng.obj\
+	$(XML_INTDIR_A_DLL)\SAX2.obj\
+	$(XML_INTDIR_A_DLL)\SAX.obj\
+	$(XML_INTDIR_A_DLL)\schematron.obj\
+	$(XML_INTDIR_A_DLL)\threads.obj\
+	$(XML_INTDIR_A_DLL)\tree.obj\
+	$(XML_INTDIR_A_DLL)\uri.obj\
+	$(XML_INTDIR_A_DLL)\valid.obj\
+	$(XML_INTDIR_A_DLL)\xinclude.obj\
+	$(XML_INTDIR_A_DLL)\xlink.obj\
+	$(XML_INTDIR_A_DLL)\xmlIO.obj\
+	$(XML_INTDIR_A_DLL)\xmlmemory.obj\
+	$(XML_INTDIR_A_DLL)\xmlreader.obj\
+	$(XML_INTDIR_A_DLL)\xmlregexp.obj\
+	$(XML_INTDIR_A_DLL)\xmlmodule.obj\
+	$(XML_INTDIR_A_DLL)\xmlsave.obj\
+	$(XML_INTDIR_A_DLL)\xmlschemas.obj\
+	$(XML_INTDIR_A_DLL)\xmlschemastypes.obj\
+	$(XML_INTDIR_A_DLL)\xmlunicode.obj\
+	$(XML_INTDIR_A_DLL)\xmlwriter.obj\
+	$(XML_INTDIR_A_DLL)\xpath.obj\
+	$(XML_INTDIR_A_DLL)\xpointer.obj\
+	$(XML_INTDIR_A_DLL)\xmlstring.obj
 
 # Xmllint and friends executables.
 UTILS = $(BINDIR)\xmllint.exe\
@@ -199,27 +254,43 @@ UTILS = $(BINDIR)\xmllint.exe\
 	$(BINDIR)\testReader.exe\
 	$(BINDIR)\testRelax.exe\
 	$(BINDIR)\testRegexp.exe\
+	$(BINDIR)\testModule.exe\
 	$(BINDIR)\testSAX.exe\
 	$(BINDIR)\testSchemas.exe\
 	$(BINDIR)\testURI.exe\
-	$(BINDIR)\testXPath.exe
+	$(BINDIR)\testXPath.exe\
+	$(BINDIR)\runtest.exe\
+	$(BINDIR)\runsuite.exe\
+	$(BINDIR)\testapi.exe
+	
 !if "$(WITH_THREADS)" == "yes" || "$(WITH_THREADS)" == "ctls" || "$(WITH_THREADS)" == "native"
 UTILS = $(UTILS) $(BINDIR)\testThreadsWin32.exe
 !else if "$(WITH_THREADS)" == "posix"
 UTILS = $(UTILS) $(BINDIR)\testThreads.exe
 !endif
 
-all : libxml libxmla utils
+!if "$(VCMANIFEST)" == "1"
+_VC_MANIFEST_EMBED_EXE= if exist $@.manifest mt.exe -nologo -manifest $@.manifest -outputresource:$@;1
+_VC_MANIFEST_EMBED_DLL= if exist $@.manifest mt.exe -nologo -manifest $@.manifest -outputresource:$@;2
+!else
+_VC_MANIFEST_EMBED_EXE=
+_VC_MANIFEST_EMBED_DLL=
+!endif
+
+all : libxml libxmla libxmladll utils
 
 libxml : $(BINDIR)\$(XML_SO) 
 
 libxmla : $(BINDIR)\$(XML_A)
+
+libxmladll : $(BINDIR)\$(XML_A_DLL)
 
 utils : $(UTILS)
 
 clean :
 	if exist $(XML_INTDIR) rmdir /S /Q $(XML_INTDIR)
 	if exist $(XML_INTDIR_A) rmdir /S /Q $(XML_INTDIR_A)
+	if exist $(XML_INTDIR_A_DLL) rmdir /S /Q $(XML_INTDIR_A_DLL)
 	if exist $(UTILS_INTDIR) rmdir /S /Q $(UTILS_INTDIR)
 	if exist $(BINDIR) rmdir /S /Q $(BINDIR)
 
@@ -229,7 +300,7 @@ distclean : clean
 
 rebuild : clean all
 
-install : all
+install-libs : all
 	if not exist $(INCPREFIX)\libxml mkdir $(INCPREFIX)\libxml
 	if not exist $(BINPREFIX) mkdir $(BINPREFIX)
 	if not exist $(LIBPREFIX) mkdir $(LIBPREFIX)
@@ -237,27 +308,23 @@ install : all
 	copy $(XML_SRCDIR)\include\libxml\*.h $(INCPREFIX)\libxml
 	copy $(BINDIR)\$(XML_SO) $(SOPREFIX)
 	copy $(BINDIR)\$(XML_A) $(LIBPREFIX)
+	copy $(BINDIR)\$(XML_A_DLL) $(LIBPREFIX)
 	copy $(BINDIR)\$(XML_IMP) $(LIBPREFIX)
+
+install : install-libs 
 	copy $(BINDIR)\*.exe $(BINPREFIX)
 	-copy $(BINDIR)\*.pdb $(BINPREFIX)
 
-install-bindist : all
-	if not exist $(INCPREFIX)\libxml mkdir $(INCPREFIX)\libxml
-	if not exist $(BINPREFIX) mkdir $(BINPREFIX)
-	if not exist $(LIBPREFIX) mkdir $(LIBPREFIX)
-	if not exist $(SOPREFIX) mkdir $(SOPREFIX)
-	copy $(XML_SRCDIR)\include\libxml\*.h $(INCPREFIX)\libxml
-	copy $(BINDIR)\$(XML_SO) $(SOPREFIX)
-	copy $(BINDIR)\$(XML_A) $(LIBPREFIX)
-	copy $(BINDIR)\$(XML_IMP) $(LIBPREFIX)
+install-dist : install-libs 
 	copy $(BINDIR)\xml*.exe $(BINPREFIX)
+	-copy $(BINDIR)\xml*.pdb $(BINPREFIX)
 
 # This is a target for me, to make a binary distribution. Not for the public use,
 # keep your hands off :-)
 BDVERSION = $(LIBXML_MAJOR_VERSION).$(LIBXML_MINOR_VERSION).$(LIBXML_MICRO_VERSION)
 BDPREFIX = $(XML_BASENAME)-$(BDVERSION).win32
 bindist : all
-	$(MAKE) /nologo PREFIX=$(BDPREFIX) SOPREFIX=$(BDPREFIX)\bin install-bindist
+	$(MAKE) /nologo PREFIX=$(BDPREFIX) SOPREFIX=$(BDPREFIX)\bin install-dist
 	cscript //NoLogo configure.js genreadme $(XML_BASENAME) $(BDVERSION) $(BDPREFIX)\readme.txt
 
 
@@ -274,6 +341,10 @@ $(XML_INTDIR) :
 $(XML_INTDIR_A) :
 	if not exist $(XML_INTDIR_A) mkdir $(XML_INTDIR_A)
 
+# Makes the static for dll libxml intermediate directory.
+$(XML_INTDIR_A_DLL) :
+	if not exist $(XML_INTDIR_A_DLL) mkdir $(XML_INTDIR_A_DLL)
+
 # An implicit rule for libxml compilation.
 {$(XML_SRCDIR)}.c{$(XML_INTDIR)}.obj::
 	$(CC) $(CFLAGS) /Fo$(XML_INTDIR)\ /c $<
@@ -282,11 +353,18 @@ $(XML_INTDIR_A) :
 {$(XML_SRCDIR)}.c{$(XML_INTDIR_A)}.obj::
 	$(CC) $(CFLAGS) /D "LIBXML_STATIC" /Fo$(XML_INTDIR_A)\ /c $<
 
+# An implicit rule for static for dll libxml compilation.
+{$(XML_SRCDIR)}.c{$(XML_INTDIR_A_DLL)}.obj::
+	$(CC) $(CFLAGS) /D "LIBXML_STATIC" /D "LIBXML_STATIC_FOR_DLL" /Fo$(XML_INTDIR_A_DLL)\ /c $<
+
 # Compiles libxml source. Uses the implicit rule for commands.
 $(XML_OBJS) : $(XML_INTDIR) 
 
 # Compiles static libxml source. Uses the implicit rule for commands.
 $(XML_OBJS_A) : $(XML_INTDIR_A) 
+
+# Compiles static for dll libxml source. Uses the implicit rule for commands.
+$(XML_OBJS_A_DLL) : $(XML_INTDIR_A_DLL) 
 
 # Creates the export definition file (DEF) for libxml.
 $(XML_INTDIR)\$(XML_DEF) : $(XML_INTDIR) $(XML_DEF).src
@@ -296,6 +374,7 @@ $(XML_INTDIR)\$(XML_DEF) : $(XML_INTDIR) $(XML_DEF).src
 $(BINDIR)\$(XML_SO) : $(BINDIR) $(XML_OBJS) $(XML_INTDIR)\$(XML_DEF)
 	$(LD) $(LDFLAGS) /DLL \
 		/IMPLIB:$(BINDIR)\$(XML_IMP) /OUT:$(BINDIR)\$(XML_SO) $(XML_OBJS) $(LIBS)
+	@$(_VC_MANIFEST_EMBED_DLL)
 
 #$(BINDIR)\$(XML_SO) : $(BINDIR) $(XML_OBJS) $(XML_INTDIR)\$(XML_DEF)
 #	$(LD) $(LDFLAGS) /DLL /DEF:$(XML_INTDIR)\$(XML_DEF) \
@@ -305,6 +384,9 @@ $(BINDIR)\$(XML_SO) : $(BINDIR) $(XML_OBJS) $(XML_INTDIR)\$(XML_DEF)
 $(BINDIR)\$(XML_A) : $(BINDIR) $(XML_OBJS_A)
 	$(AR) $(ARFLAGS) /OUT:$(BINDIR)\$(XML_A) $(XML_OBJS_A)
 
+# Creates the libxml static for dll archive.
+$(BINDIR)\$(XML_A_DLL) : $(BINDIR) $(XML_OBJS_A_DLL)
+	$(AR) $(ARFLAGS) /OUT:$(BINDIR)\$(XML_A_DLL) $(XML_OBJS_A_DLL)
 
 # Makes the utils intermediate directory.
 $(UTILS_INTDIR) :
@@ -315,14 +397,16 @@ $(UTILS_INTDIR) :
 {$(UTILS_SRCDIR)}.c{$(BINDIR)}.exe:
 	$(CC) /D "LIBXML_STATIC" $(CFLAGS) /Fo$(UTILS_INTDIR)\ /c $< 
 	$(LD) $(LDFLAGS) /OUT:$@ $(XML_A) $(LIBS) $(UTILS_INTDIR)\$(<B).obj
+	@$(_VC_MANIFEST_EMBED_EXE)
 !else
 {$(UTILS_SRCDIR)}.c{$(BINDIR)}.exe:
 	$(CC) $(CFLAGS) /Fo$(UTILS_INTDIR)\ /c $< 
 	$(LD) $(LDFLAGS) /OUT:$@ $(XML_IMP) $(LIBS) $(UTILS_INTDIR)\$(<B).obj
+	@$(_VC_MANIFEST_EMBED_EXE)
 !endif
 
 # Builds xmllint and friends. Uses the implicit rule for commands.
-$(UTILS) : $(UTILS_INTDIR) $(BINDIR) libxml libxmla
+$(UTILS) : $(UTILS_INTDIR) $(BINDIR) libxml libxmla libxmladll
 
 # Source dependences should be autogenerated somehow here, but how to
 # do it? I have no clue.

@@ -119,31 +119,31 @@ IOUSBRootHubDevice::InitializeCharacteristics()
 bool
 IOUSBRootHubDevice::start(IOService *provider)
 {
-	IOUSBControllerV3 *	v3Bus = NULL;
-	IOWorkLoop	*		wl;
 	mach_timespec_t				timeSpec;
+	bool						returnValue = false;
 	
 	USBLog(5, "%s[%p]::start", getName(), this);
 
-	_commandGate = IOCommandGate::commandGate(this, NULL);
-	if (!_commandGate)
-		return false;
-	
-	wl = getWorkLoop();
-	
-	if (!wl || (wl->addEventSource(_commandGate) != kIOReturnSuccess))
-	{
-		_commandGate->release();
-		_commandGate = NULL;
-		return false;
-	}
-	
  	timeSpec.tv_sec = 5;
 	timeSpec.tv_nsec = 0;
 	
 	_IORESOURCESENTRY = waitForService(serviceMatching("IOResources"), &timeSpec);
 
-	return super::start(provider);
+	returnValue = super::start(provider);
+	if ( !returnValue)
+	{
+		USBLog(5, "IOUSBRootHubDevice[%p]::start - super returned false", this);
+		return false;
+	}
+	
+	// Make a copy of our superclass' commandGate.  We could just use it, but we need
+	// to keep it around for binary compatibility. Retain it for good measure.
+	
+	_commandGate = IOUSBDevice::_expansionData->_commandGate;
+	_commandGate->retain();
+	
+	USBLog(5, "%s[%p]::start (_commandGate %p)", getName(), this, IOUSBDevice::_expansionData->_commandGate);
+	return returnValue;
 }
 
 
@@ -151,12 +151,13 @@ IOUSBRootHubDevice::start(IOService *provider)
 void
 IOUSBRootHubDevice::stop( IOService *provider )
 {
-    if ( _commandGate )
-    {
-		getWorkLoop()->removeEventSource( _commandGate );
-        _commandGate->release();
-        _commandGate = NULL;
-    }
+	// Since we retain()'d this eariler, we need to release() it.
+	if ( _commandGate )
+	{
+		_commandGate->release();
+		_commandGate = NULL;
+	}
+	
 	super::stop(provider);
 }
 
@@ -199,15 +200,21 @@ IOUSBRootHubDevice::DeviceRequest(IOUSBDevRequest *request, IOUSBCompletion *com
 IOReturn 
 IOUSBRootHubDevice::DeviceRequest(IOUSBDevRequest *request, UInt32 noDataTimeout, UInt32 completionTimeout, IOUSBCompletion *completion)
 {
-	if (!_commandGate)
+	// We have to use IOUSBDevice::_expansionData->_commandGate, instead of the copy of it in _commandGate because this method will be called by 
+	// our super::start() BEFORE we're able to set the _commandGate to IOUSBDevice::_expansionData->_commandGate.
+	
+	if (!IOUSBDevice::_expansionData->_commandGate)
+	{
+		USBLog(5, "IOUSBRootHubDevice[%p]::DeviceRequest - but no IOUSBDevice::_expansionData->_commandGate", this);
 		return kIOReturnNotResponding;
+	}
 		
 	if (_myPolicyMaker && (_myPolicyMaker->getPowerState() == kIOUSBHubPowerStateLowPower))
 	{
 		// this is not usually an issue, but i want to make sure it doesn't become one
 		USBLog(5, "IOUSBRootHubDevice[%p]::DeviceRequest - doing a device request while in low power mode - should be OK", this);
 	}
-	return _commandGate->runAction(GatedDeviceRequest, request, (void*)noDataTimeout, (void*)completionTimeout, completion);
+	return (IOUSBDevice::_expansionData->_commandGate)->runAction(GatedDeviceRequest, request, (void*)noDataTimeout, (void*)completionTimeout, completion);
 }
 
 
@@ -216,6 +223,7 @@ IOUSBRootHubDevice::DeviceRequest(IOUSBDevRequest *request, UInt32 noDataTimeout
 IOReturn 
 IOUSBRootHubDevice::DeviceRequestWorker(IOUSBDevRequest *request, UInt32 noDataTimeout, UInt32 completionTimeout, IOUSBCompletion *completion)
 {
+#pragma unused (noDataTimeout, completionTimeout, completion)
 	IOReturn	err = 0;
     UInt16		theRequest;
     UInt8		dType, dIndex;

@@ -1,10 +1,10 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*           Copyright (c) 1996-2007 AT&T Knowledge Ventures            *
+*          Copyright (c) 1996-2007 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
-*                      by AT&T Knowledge Ventures                      *
+*                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
 *            http://www.opensource.org/licenses/cpl1.0.txt             *
@@ -20,19 +20,24 @@
 #pragma prototyped
 
 /*
- * FIPS 180-1 compliant SHA-1 implementation,
- * by Christophe Devine <devine@cr0.net>;
- * this program is licensed under the GPL.
+ * SHA-1 in C
+ * By Steve Reid <steve@edmweb.com>
+ * 100% Public Domain
+ *
+ * Test Vectors (from FIPS PUB 180-1)
+ * "abc"
+ *   A9993E36 4706816A BA3E2571 7850C26C 9CD0D89D
+ * "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"
+ *   84983E44 1C3BD26E BAAE4AA1 F95129E5 E54670F1
+ * A million repetitions of "a"
+ *   34AA973C D4C4DAA4 F61EEB2B DBAD2731 6534016F
  */
 
 #define sha1_description "FIPS 180-1 SHA-1 secure hash algorithm 1."
-#define sha1_options	"[+(version)?sha1 (FIPS 180-1) 1993-05-11]\
-			 [+(author)?Christophe Devine <devine@cr0.net>]"
+#define sha1_options	"[+(version)?sha1 (FIPS 180-1) 1996-09-26]\
+			 [+(author)?Steve Reid <steve@edmweb.com>]"
 #define sha1_match	"sha1|SHA1|sha-1|SHA-1"
 #define sha1_scale	0
-
-#define uint8		uint8_t
-#define uint32		uint32_t
 
 #define sha1_padding	md5_pad
 
@@ -40,226 +45,209 @@ typedef struct Sha1_s
 {
 	_SUM_PUBLIC_
 	_SUM_PRIVATE_
-	uint32	total[2];
-	uint32	state[5];
-	uint8	buffer[64];
-	uint8	digest[20];
-	uint8	digest_sum[20];
+	uint32_t	count[2];
+	uint32_t	state[5];
+	uint8_t		buffer[64];
+	uint8_t		digest[20];
+	uint8_t		digest_sum[20];
 } Sha1_t;
 
-#define GET_UINT32(n,b,i)                                       \
-{                                                               \
-    (n) = (uint32) ((uint8 *) b)[(i)+3]                         \
-      | (((uint32) ((uint8 *) b)[(i)+2]) <<  8)                 \
-      | (((uint32) ((uint8 *) b)[(i)+1]) << 16)                 \
-      | (((uint32) ((uint8 *) b)[(i)]  ) << 24);                \
-}
+#define rol(value, bits) (((value) << (bits)) | ((value) >> (32 - (bits))))
 
-#define PUT_UINT32(n,b,i)                                       \
-{                                                               \
-    (((uint8 *) b)[(i)+3]) = (uint8) (((n)      ) & 0xFF);      \
-    (((uint8 *) b)[(i)+2]) = (uint8) (((n) >>  8) & 0xFF);      \
-    (((uint8 *) b)[(i)+1]) = (uint8) (((n) >> 16) & 0xFF);      \
-    (((uint8 *) b)[(i)]  ) = (uint8) (((n) >> 24) & 0xFF);      \
+/*
+ * blk0() and blk() perform the initial expand.
+ * I got the idea of expanding during the round function from SSLeay
+ */
+#if _ast_intswap
+# define blk0(i) \
+	(block->l[i] = (rol(block->l[i], 24) & 0xFF00FF00) \
+	 | (rol(block->l[i], 8) & 0x00FF00FF))
+#else
+# define blk0(i) block->l[i]
+#endif
+#define blk(i) \
+	(block->l[i & 15] = rol(block->l[(i + 13) & 15] \
+				^ block->l[(i + 8) & 15] \
+				^ block->l[(i + 2) & 15] \
+				^ block->l[i & 15], 1))
+
+/*
+ * (R0+R1), R2, R3, R4 are the different operations (rounds) used in SHA1
+ */
+#define R0(v,w,x,y,z,i) \
+	z += ((w & (x ^ y)) ^ y) + blk0(i) + 0x5A827999 + rol(v, 5); \
+	w = rol(w, 30);
+#define R1(v,w,x,y,z,i) \
+	z += ((w & (x ^ y)) ^ y) + blk(i) + 0x5A827999 + rol(v, 5); \
+	w = rol(w, 30);
+#define R2(v,w,x,y,z,i) \
+	z += (w ^ x ^ y) + blk(i) + 0x6ED9EBA1 + rol(v, 5); \
+	w = rol(w, 30);
+#define R3(v,w,x,y,z,i) \
+	z += (((w | x) & y) | (w & x)) + blk(i) + 0x8F1BBCDC + rol(v, 5); \
+	w = rol(w, 30);
+#define R4(v,w,x,y,z,i) \
+	z += (w ^ x ^ y) + blk(i) + 0xCA62C1D6 + rol(v, 5); \
+	w = rol(w, 30);
+
+typedef union {
+	unsigned char c[64];
+	unsigned int l[16];
+} CHAR64LONG16;
+
+#ifdef __sparc_v9__
+static void do_R01(uint32_t *a, uint32_t *b, uint32_t *c,
+		   uint32_t *d, uint32_t *e, CHAR64LONG16 *);
+static void do_R2(uint32_t *a, uint32_t *b, uint32_t *c,
+		  uint32_t *d, uint32_t *e, CHAR64LONG16 *);
+static void do_R3(uint32_t *a, uint32_t *b, uint32_t *c,
+		  uint32_t *d, uint32_t *e, CHAR64LONG16 *);
+static void do_R4(uint32_t *a, uint32_t *b, uint32_t *c,
+		  uint32_t *d, uint32_t *e, CHAR64LONG16 *);
+
+#define nR0(v,w,x,y,z,i) R0(*v,*w,*x,*y,*z,i)
+#define nR1(v,w,x,y,z,i) R1(*v,*w,*x,*y,*z,i)
+#define nR2(v,w,x,y,z,i) R2(*v,*w,*x,*y,*z,i)
+#define nR3(v,w,x,y,z,i) R3(*v,*w,*x,*y,*z,i)
+#define nR4(v,w,x,y,z,i) R4(*v,*w,*x,*y,*z,i)
+
+static void
+do_R01(uint32_t *a, uint32_t *b, uint32_t *c, uint32_t *d,
+       uint32_t *e, CHAR64LONG16 *block)
+{
+	nR0(a,b,c,d,e, 0); nR0(e,a,b,c,d, 1); nR0(d,e,a,b,c, 2);
+	nR0(c,d,e,a,b, 3); nR0(b,c,d,e,a, 4); nR0(a,b,c,d,e, 5);
+	nR0(e,a,b,c,d, 6); nR0(d,e,a,b,c, 7); nR0(c,d,e,a,b, 8);
+	nR0(b,c,d,e,a, 9); nR0(a,b,c,d,e,10); nR0(e,a,b,c,d,11);
+	nR0(d,e,a,b,c,12); nR0(c,d,e,a,b,13); nR0(b,c,d,e,a,14);
+	nR0(a,b,c,d,e,15); nR1(e,a,b,c,d,16); nR1(d,e,a,b,c,17);
+	nR1(c,d,e,a,b,18); nR1(b,c,d,e,a,19);
 }
 
 static void
-sha1_process(Sha1_t* sha, uint8 data[64] )
+do_R2(uint32_t *a, uint32_t *b, uint32_t *c, uint32_t *d,
+      uint32_t *e, CHAR64LONG16 *block)
 {
-    uint32 temp, A, B, C, D, E, W[16];
-
-    GET_UINT32( W[0],  data,  0 );
-    GET_UINT32( W[1],  data,  4 );
-    GET_UINT32( W[2],  data,  8 );
-    GET_UINT32( W[3],  data, 12 );
-    GET_UINT32( W[4],  data, 16 );
-    GET_UINT32( W[5],  data, 20 );
-    GET_UINT32( W[6],  data, 24 );
-    GET_UINT32( W[7],  data, 28 );
-    GET_UINT32( W[8],  data, 32 );
-    GET_UINT32( W[9],  data, 36 );
-    GET_UINT32( W[10], data, 40 );
-    GET_UINT32( W[11], data, 44 );
-    GET_UINT32( W[12], data, 48 );
-    GET_UINT32( W[13], data, 52 );
-    GET_UINT32( W[14], data, 56 );
-    GET_UINT32( W[15], data, 60 );
-
-#define S(x,n) ((x << n) | ((x & 0xFFFFFFFF) >> (32 - n)))
-
-#define R(t)                                            \
-(                                                       \
-    temp = W[(t -  3) & 0x0F] ^ W[(t - 8) & 0x0F] ^     \
-           W[(t - 14) & 0x0F] ^ W[ t      & 0x0F],      \
-    ( W[t & 0x0F] = S(temp,1) )                         \
-)
-
-#define P(a,b,c,d,e,x)                                  \
-{                                                       \
-    e += S(a,5) + F(b,c,d) + K + x; b = S(b,30);        \
+	nR2(a,b,c,d,e,20); nR2(e,a,b,c,d,21); nR2(d,e,a,b,c,22);
+	nR2(c,d,e,a,b,23); nR2(b,c,d,e,a,24); nR2(a,b,c,d,e,25);
+	nR2(e,a,b,c,d,26); nR2(d,e,a,b,c,27); nR2(c,d,e,a,b,28);
+	nR2(b,c,d,e,a,29); nR2(a,b,c,d,e,30); nR2(e,a,b,c,d,31);
+	nR2(d,e,a,b,c,32); nR2(c,d,e,a,b,33); nR2(b,c,d,e,a,34);
+	nR2(a,b,c,d,e,35); nR2(e,a,b,c,d,36); nR2(d,e,a,b,c,37);
+	nR2(c,d,e,a,b,38); nR2(b,c,d,e,a,39);
 }
 
-    A = sha->state[0];
-    B = sha->state[1];
-    C = sha->state[2];
-    D = sha->state[3];
-    E = sha->state[4];
+static void
+do_R3(uint32_t *a, uint32_t *b, uint32_t *c, uint32_t *d,
+      uint32_t *e, CHAR64LONG16 *block)
+{
+	nR3(a,b,c,d,e,40); nR3(e,a,b,c,d,41); nR3(d,e,a,b,c,42);
+	nR3(c,d,e,a,b,43); nR3(b,c,d,e,a,44); nR3(a,b,c,d,e,45);
+	nR3(e,a,b,c,d,46); nR3(d,e,a,b,c,47); nR3(c,d,e,a,b,48);
+	nR3(b,c,d,e,a,49); nR3(a,b,c,d,e,50); nR3(e,a,b,c,d,51);
+	nR3(d,e,a,b,c,52); nR3(c,d,e,a,b,53); nR3(b,c,d,e,a,54);
+	nR3(a,b,c,d,e,55); nR3(e,a,b,c,d,56); nR3(d,e,a,b,c,57);
+	nR3(c,d,e,a,b,58); nR3(b,c,d,e,a,59);
+}
 
-#undef	F
+static void
+do_R4(uint32_t *a, uint32_t *b, uint32_t *c, uint32_t *d,
+      uint32_t *e, CHAR64LONG16 *block)
+{
+	nR4(a,b,c,d,e,60); nR4(e,a,b,c,d,61); nR4(d,e,a,b,c,62);
+	nR4(c,d,e,a,b,63); nR4(b,c,d,e,a,64); nR4(a,b,c,d,e,65);
+	nR4(e,a,b,c,d,66); nR4(d,e,a,b,c,67); nR4(c,d,e,a,b,68);
+	nR4(b,c,d,e,a,69); nR4(a,b,c,d,e,70); nR4(e,a,b,c,d,71);
+	nR4(d,e,a,b,c,72); nR4(c,d,e,a,b,73); nR4(b,c,d,e,a,74);
+	nR4(a,b,c,d,e,75); nR4(e,a,b,c,d,76); nR4(d,e,a,b,c,77);
+	nR4(c,d,e,a,b,78); nR4(b,c,d,e,a,79);
+}
+#endif
 
-#define F(x,y,z) (z ^ (x & (y ^ z)))
-#define K 0x5A827999
+/*
+ * Hash a single 512-bit block. This is the core of the algorithm.
+ */
+static void
+sha1_transform(uint32_t state[5], const unsigned char buffer[64]) {
+	uint32_t a, b, c, d, e;
+	CHAR64LONG16 *block;
+	CHAR64LONG16 workspace;
 
-    P( A, B, C, D, E, W[0]  );
-    P( E, A, B, C, D, W[1]  );
-    P( D, E, A, B, C, W[2]  );
-    P( C, D, E, A, B, W[3]  );
-    P( B, C, D, E, A, W[4]  );
-    P( A, B, C, D, E, W[5]  );
-    P( E, A, B, C, D, W[6]  );
-    P( D, E, A, B, C, W[7]  );
-    P( C, D, E, A, B, W[8]  );
-    P( B, C, D, E, A, W[9]  );
-    P( A, B, C, D, E, W[10] );
-    P( E, A, B, C, D, W[11] );
-    P( D, E, A, B, C, W[12] );
-    P( C, D, E, A, B, W[13] );
-    P( B, C, D, E, A, W[14] );
-    P( A, B, C, D, E, W[15] );
-    P( E, A, B, C, D, R(16) );
-    P( D, E, A, B, C, R(17) );
-    P( C, D, E, A, B, R(18) );
-    P( B, C, D, E, A, R(19) );
+	block = &workspace;
+	(void)memcpy(block, buffer, 64);
 
-#undef K
-#undef F
+	/* Copy sha->state[] to working vars */
+	a = state[0];
+	b = state[1];
+	c = state[2];
+	d = state[3];
+	e = state[4];
 
-#define F(x,y,z) (x ^ y ^ z)
-#define K 0x6ED9EBA1
+#ifdef __sparc_v9__
+	do_R01(&a, &b, &c, &d, &e, block);
+	do_R2(&a, &b, &c, &d, &e, block);
+	do_R3(&a, &b, &c, &d, &e, block);
+	do_R4(&a, &b, &c, &d, &e, block);
+#else
+	/* 4 rounds of 20 operations each. Loop unrolled. */
+	R0(a,b,c,d,e, 0); R0(e,a,b,c,d, 1); R0(d,e,a,b,c, 2); R0(c,d,e,a,b, 3);
+	R0(b,c,d,e,a, 4); R0(a,b,c,d,e, 5); R0(e,a,b,c,d, 6); R0(d,e,a,b,c, 7);
+	R0(c,d,e,a,b, 8); R0(b,c,d,e,a, 9); R0(a,b,c,d,e,10); R0(e,a,b,c,d,11);
+	R0(d,e,a,b,c,12); R0(c,d,e,a,b,13); R0(b,c,d,e,a,14); R0(a,b,c,d,e,15);
+	R1(e,a,b,c,d,16); R1(d,e,a,b,c,17); R1(c,d,e,a,b,18); R1(b,c,d,e,a,19);
+	R2(a,b,c,d,e,20); R2(e,a,b,c,d,21); R2(d,e,a,b,c,22); R2(c,d,e,a,b,23);
+	R2(b,c,d,e,a,24); R2(a,b,c,d,e,25); R2(e,a,b,c,d,26); R2(d,e,a,b,c,27);
+	R2(c,d,e,a,b,28); R2(b,c,d,e,a,29); R2(a,b,c,d,e,30); R2(e,a,b,c,d,31);
+	R2(d,e,a,b,c,32); R2(c,d,e,a,b,33); R2(b,c,d,e,a,34); R2(a,b,c,d,e,35);
+	R2(e,a,b,c,d,36); R2(d,e,a,b,c,37); R2(c,d,e,a,b,38); R2(b,c,d,e,a,39);
+	R3(a,b,c,d,e,40); R3(e,a,b,c,d,41); R3(d,e,a,b,c,42); R3(c,d,e,a,b,43);
+	R3(b,c,d,e,a,44); R3(a,b,c,d,e,45); R3(e,a,b,c,d,46); R3(d,e,a,b,c,47);
+	R3(c,d,e,a,b,48); R3(b,c,d,e,a,49); R3(a,b,c,d,e,50); R3(e,a,b,c,d,51);
+	R3(d,e,a,b,c,52); R3(c,d,e,a,b,53); R3(b,c,d,e,a,54); R3(a,b,c,d,e,55);
+	R3(e,a,b,c,d,56); R3(d,e,a,b,c,57); R3(c,d,e,a,b,58); R3(b,c,d,e,a,59);
+	R4(a,b,c,d,e,60); R4(e,a,b,c,d,61); R4(d,e,a,b,c,62); R4(c,d,e,a,b,63);
+	R4(b,c,d,e,a,64); R4(a,b,c,d,e,65); R4(e,a,b,c,d,66); R4(d,e,a,b,c,67);
+	R4(c,d,e,a,b,68); R4(b,c,d,e,a,69); R4(a,b,c,d,e,70); R4(e,a,b,c,d,71);
+	R4(d,e,a,b,c,72); R4(c,d,e,a,b,73); R4(b,c,d,e,a,74); R4(a,b,c,d,e,75);
+	R4(e,a,b,c,d,76); R4(d,e,a,b,c,77); R4(c,d,e,a,b,78); R4(b,c,d,e,a,79);
+#endif
 
-    P( A, B, C, D, E, R(20) );
-    P( E, A, B, C, D, R(21) );
-    P( D, E, A, B, C, R(22) );
-    P( C, D, E, A, B, R(23) );
-    P( B, C, D, E, A, R(24) );
-    P( A, B, C, D, E, R(25) );
-    P( E, A, B, C, D, R(26) );
-    P( D, E, A, B, C, R(27) );
-    P( C, D, E, A, B, R(28) );
-    P( B, C, D, E, A, R(29) );
-    P( A, B, C, D, E, R(30) );
-    P( E, A, B, C, D, R(31) );
-    P( D, E, A, B, C, R(32) );
-    P( C, D, E, A, B, R(33) );
-    P( B, C, D, E, A, R(34) );
-    P( A, B, C, D, E, R(35) );
-    P( E, A, B, C, D, R(36) );
-    P( D, E, A, B, C, R(37) );
-    P( C, D, E, A, B, R(38) );
-    P( B, C, D, E, A, R(39) );
+	/* Add the working vars back into context.state[] */
+	state[0] += a;
+	state[1] += b;
+	state[2] += c;
+	state[3] += d;
+	state[4] += e;
 
-#undef K
-#undef F
-
-#define F(x,y,z) ((x & y) | (z & (x | y)))
-#define K 0x8F1BBCDC
-
-    P( A, B, C, D, E, R(40) );
-    P( E, A, B, C, D, R(41) );
-    P( D, E, A, B, C, R(42) );
-    P( C, D, E, A, B, R(43) );
-    P( B, C, D, E, A, R(44) );
-    P( A, B, C, D, E, R(45) );
-    P( E, A, B, C, D, R(46) );
-    P( D, E, A, B, C, R(47) );
-    P( C, D, E, A, B, R(48) );
-    P( B, C, D, E, A, R(49) );
-    P( A, B, C, D, E, R(50) );
-    P( E, A, B, C, D, R(51) );
-    P( D, E, A, B, C, R(52) );
-    P( C, D, E, A, B, R(53) );
-    P( B, C, D, E, A, R(54) );
-    P( A, B, C, D, E, R(55) );
-    P( E, A, B, C, D, R(56) );
-    P( D, E, A, B, C, R(57) );
-    P( C, D, E, A, B, R(58) );
-    P( B, C, D, E, A, R(59) );
-
-#undef K
-#undef F
-
-#define F(x,y,z) (x ^ y ^ z)
-#define K 0xCA62C1D6
-
-    P( A, B, C, D, E, R(60) );
-    P( E, A, B, C, D, R(61) );
-    P( D, E, A, B, C, R(62) );
-    P( C, D, E, A, B, R(63) );
-    P( B, C, D, E, A, R(64) );
-    P( A, B, C, D, E, R(65) );
-    P( E, A, B, C, D, R(66) );
-    P( D, E, A, B, C, R(67) );
-    P( C, D, E, A, B, R(68) );
-    P( B, C, D, E, A, R(69) );
-    P( A, B, C, D, E, R(70) );
-    P( E, A, B, C, D, R(71) );
-    P( D, E, A, B, C, R(72) );
-    P( C, D, E, A, B, R(73) );
-    P( B, C, D, E, A, R(74) );
-    P( A, B, C, D, E, R(75) );
-    P( E, A, B, C, D, R(76) );
-    P( D, E, A, B, C, R(77) );
-    P( C, D, E, A, B, R(78) );
-    P( B, C, D, E, A, R(79) );
-
-#undef K
-#undef F
-
-    sha->state[0] += A;
-    sha->state[1] += B;
-    sha->state[2] += C;
-    sha->state[3] += D;
-    sha->state[4] += E;
+	/* Wipe variables */
+	a = b = c = d = e = 0;
 }
 
 static int
-sha1_block(register Sum_t* p, const void* s, size_t length)
+sha1_block(register Sum_t* p, const void* s, size_t len)
 {
-    Sha1_t*	sha = (Sha1_t*)p;
-    uint8*	input = (uint8*)s;
-    uint32	left, fill;
+	Sha1_t*		sha = (Sha1_t*)p;
+	uint8_t*	data = (uint8_t*)s;
+	unsigned int	i, j;
 
-    if( ! length ) return 0;
-
-    left = ( sha->total[0] >> 3 ) & 0x3F;
-    fill = 64 - left;
-
-    sha->total[0] += length <<  3;
-    sha->total[1] += length >> 29;
-
-    sha->total[0] &= 0xFFFFFFFF;
-    sha->total[1] += sha->total[0] < length << 3;
-
-    if( left && length >= fill )
-    {
-        memcpy( (void *) (sha->buffer + left), (void *) input, fill );
-        sha1_process( sha, sha->buffer );
-        length -= fill;
-        input  += fill;
-        left = 0;
-    }
-
-    while( length >= 64 )
-    {
-        sha1_process( sha, input );
-        length -= 64;
-        input  += 64;
-    }
-
-    if( length )
-        memcpy( (void *) (sha->buffer + left), (void *) input, length );
-
-    return 0;
+	if (len) {
+		j = sha->count[0];
+		if ((sha->count[0] += len << 3) < j)
+			sha->count[1] += (len >> 29) + 1;
+		j = (j >> 3) & 63;
+		if ((j + len) > 63) {
+			(void)memcpy(&sha->buffer[j], data, (i = 64 - j));
+			sha1_transform(sha->state, sha->buffer);
+			for ( ; i + 63 < len; i += 64)
+				sha1_transform(sha->state, &data[i]);
+			j = 0;
+		} else {
+			i = 0;
+		}
+	
+		(void)memcpy(&sha->buffer[j], &data[i], len - i);
+	}
+	return 0;
 }
 
 static int
@@ -267,7 +255,7 @@ sha1_init(Sum_t* p)
 {
 	register Sha1_t*	sha = (Sha1_t*)p;
 
-	sha->total[0] = sha->total[1] = 0;
+	sha->count[0] = sha->count[1] = 0;
 	sha->state[0] = 0x67452301;
 	sha->state[1] = 0xEFCDAB89;
 	sha->state[2] = 0x98BADCFE;
@@ -291,36 +279,46 @@ sha1_open(const Method_t* method, const char* name)
 	return (Sum_t*)sha;
 }
 
+/*
+ * Add padding and return the message digest.
+ */
+
+static const unsigned char final_200 = 128;
+static const unsigned char final_0 = 0;
+
 static int
 sha1_done(Sum_t* p)
 {
-    Sha1_t*	sha = (Sha1_t*)p;
-    uint32	last, padn;
-    uint8	msglen[8];
+	Sha1_t*	sha = (Sha1_t*)p;
+	unsigned int i;
+	unsigned char finalcount[8];
 
-    PUT_UINT32( sha->total[1], msglen, 0 );
-    PUT_UINT32( sha->total[0], msglen, 4 );
+	for (i = 0; i < 8; i++) {
+		/* Endian independent */
+		finalcount[i] = (unsigned char)
+			((sha->count[(i >= 4 ? 0 : 1)]
+			  >> ((3 - (i & 3)) * 8)) & 255);
+	}
 
-    last = ( sha->total[0] >> 3 ) & 0x3F;
-    padn = ( last < 56 ) ? ( 56 - last ) : ( 120 - last );
+	sha1_block(p, &final_200, 1);
+	while ((sha->count[0] & 504) != 448)
+		sha1_block(p, &final_0, 1);
+	/* The next Update should cause a sha1_transform() */
+	sha1_block(p, finalcount, 8);
 
-    sha1_block( p, sha1_padding, padn );
-    sha1_block( p, msglen, 8 );
-
-    PUT_UINT32( sha->state[0], sha->digest,  0 );
-    PUT_UINT32( sha->state[1], sha->digest,  4 );
-    PUT_UINT32( sha->state[2], sha->digest,  8 );
-    PUT_UINT32( sha->state[3], sha->digest, 12 );
-    PUT_UINT32( sha->state[4], sha->digest, 16 );
-
-    /* accumulate the digests */
-    for (last = 0; last < elementsof(sha->digest); last++)
-	sha->digest_sum[last] ^= sha->digest[last];
-    return 0;
+	for (i = 0; i < elementsof(sha->digest); i++)
+	{
+		sha->digest[i] = (unsigned char)((sha->state[i >> 2] >> ((3 - (i & 3)) * 8)) & 255);
+		sha->digest_sum[i] ^= sha->digest[i];
+	}
+	memset(sha->count, 0, sizeof(sha->count));
+	memset(sha->state, 0, sizeof(sha->state));
+	memset(sha->buffer, 0, sizeof(sha->buffer));
+	return 0;
 }
 
 static int
-sha1_print(Sum_t* p, Sfio_t* sp, register int flags)
+sha1_print(Sum_t* p, Sfio_t* sp, register int flags, size_t scale)
 {
 	register Sha1_t*	sha = (Sha1_t*)p;
 	register unsigned char*	d;

@@ -1,6 +1,6 @@
 // 2001-05-21 Benjamin Kosnik  <bkoz@redhat.com>
 
-// Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2006 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -15,7 +15,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // The ARM simulator does not provide support for "fstat", which
@@ -73,7 +73,7 @@ void test05()
     strmsz_2 = fb_01.sgetn(carray2, strmsz_1 + 5);
     VERIFY( strmsz_1 == strmsz_2 - 5 ); 
     c4 = fb_01.sgetc(); // buffer should have underflowed from above.
-    VERIFY( c4 == 'h' );
+    VERIFY( c4 == 'e' );
     strmsz_1 = fb_01.in_avail();
     VERIFY( strmsz_1 > 0 );
     strmsz_2 = fb_01.sgetn(carray2, strmsz_1 + 5);

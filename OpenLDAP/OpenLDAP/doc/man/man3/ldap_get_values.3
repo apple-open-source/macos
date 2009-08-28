@@ -1,6 +1,6 @@
 .TH LDAP_GET_VALUES 3 "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man3/ldap_get_values.3,v 1.15.2.3 2006/01/03 22:16:04 kurt Exp $
-.\" Copyright 1998-2006 The OpenLDAP Foundation All Rights Reserved.
+.\" $OpenLDAP: pkg/ldap/doc/man/man3/ldap_get_values.3,v 1.17.2.4 2008/02/11 23:26:39 kurt Exp $
+.\" Copyright 1998-2008 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 ldap_get_values, ldap_get_values_len, ldap_count_values \- LDAP attribute value handling routines
@@ -17,32 +17,32 @@ char **ldap_get_values(ld, entry, attr)
 .ft
 LDAP *ld;
 LDAPMessage *entry;
-char *attr
+char *attr;
 .LP
 .ft B
 struct berval **ldap_get_values_len(ld, entry, attr)
 .ft
 LDAP *ld;
 LDAPMessage *entry;
-char *attr
+char *attr;
 .LP
 .ft B
-ldap_count_values(vals)
+int ldap_count_values(vals)
 .ft
 char **vals;
 .LP
 .ft B
-ldap_count_values_len(vals)
+int ldap_count_values_len(vals)
 .ft
 struct berval **vals;
 .LP
 .ft B
-ldap_value_free(vals)
+void ldap_value_free(vals)
 .ft
 char **vals;
 .LP
 .ft B
-ldap_value_free_len(vals)
+void ldap_value_free_len(vals)
 .ft
 struct berval **vals;
 .SH DESCRIPTION
@@ -99,7 +99,4 @@ using the supplied routines.
 .BR ldap_first_attribute (3),
 .BR ldap_error (3)
 .SH ACKNOWLEDGEMENTS
-.B OpenLDAP
-is developed and maintained by The OpenLDAP Project (http://www.openldap.org/).
-.B OpenLDAP
-is derived from University of Michigan LDAP 3.3 Release.  
+.so ../Project

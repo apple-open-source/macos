@@ -209,8 +209,8 @@ interface_status(struct ifinfo *ifinfo)
 
 #define NEXT_SA(ap) (ap) = (struct sockaddr *) \
 	((caddr_t)(ap) + ((ap)->sa_len ? ROUNDUP((ap)->sa_len,\
-						 sizeof(u_long)) :\
-			  			 sizeof(u_long)))
+						 sizeof(uint32_t)) :\
+			  			 sizeof(uint32_t)))
 #define ROUNDUP8(a) (1 + (((a) - 1) | 7))
 
 int

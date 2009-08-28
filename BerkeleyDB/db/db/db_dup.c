@@ -1,26 +1,15 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1996,2007 Oracle.  All rights reserved.
+ *
+ * $Id: db_dup.c,v 12.11 2007/05/17 15:14:56 bostic Exp $
  */
 
 #include "db_config.h"
 
-#ifndef lint
-static const char revid[] = "$Id: db_dup.c,v 1.2 2004/03/30 01:21:24 jtownsen Exp $";
-#endif /* not lint */
-
-#ifndef NO_SYSTEM_INCLUDES
-#include <sys/types.h>
-
-#include <string.h>
-#endif
-
 #include "db_int.h"
 #include "dbinc/db_page.h"
-#include "dbinc/db_shash.h"
-#include "dbinc/lock.h"
 #include "dbinc/mp.h"
 #include "dbinc/db_am.h"
 
@@ -43,6 +32,9 @@ __db_ditem(dbc, pagep, indx, nbytes)
 	u_int8_t *from;
 
 	dbp = dbc->dbp;
+	DB_ASSERT(dbp->dbenv, IS_DIRTY(pagep));
+	DB_ASSERT(dbp->dbenv, indx < NUM_ENT(pagep));
+
 	if (DBC_LOGGING(dbc)) {
 		ldbt.data = P_ENTRY(dbp, pagep, indx);
 		ldbt.size = nbytes;
@@ -69,7 +61,7 @@ __db_ditem(dbc, pagep, indx, nbytes)
 	 * memmove(3), the regions may overlap.
 	 */
 	from = (u_int8_t *)pagep + HOFFSET(pagep);
-	DB_ASSERT((int)inp[indx] - HOFFSET(pagep) >= 0);
+	DB_ASSERT(dbp->dbenv, inp[indx] >= HOFFSET(pagep));
 	memmove(from + nbytes, from, inp[indx] - HOFFSET(pagep));
 	HOFFSET(pagep) += nbytes;
 
@@ -111,8 +103,10 @@ __db_pitem(dbc, pagep, indx, nbytes, hdr, data)
 	u_int8_t *p;
 
 	dbp = dbc->dbp;
+	DB_ASSERT(dbp->dbenv, IS_DIRTY(pagep));
+
 	if (nbytes > P_FREESPACE(dbp, pagep)) {
-		DB_ASSERT(nbytes <= P_FREESPACE(dbp, pagep));
+		DB_ASSERT(dbp->dbenv, nbytes <= P_FREESPACE(dbp, pagep));
 		return (EINVAL);
 	}
 	/*
@@ -141,7 +135,7 @@ __db_pitem(dbc, pagep, indx, nbytes, hdr, data)
 		LSN_NOT_LOGGED(LSN(pagep));
 
 	if (hdr == NULL) {
-		B_TSET(bk.type, B_KEYDATA, 0);
+		B_TSET(bk.type, B_KEYDATA);
 		bk.len = data == NULL ? 0 : data->size;
 
 		thdr.data = &bk;
@@ -164,119 +158,4 @@ __db_pitem(dbc, pagep, indx, nbytes, hdr, data)
 		memcpy(p + hdr->size, data->data, data->size);
 
 	return (0);
-}
-
-/*
- * __db_relink --
- *	Relink around a deleted page.
- *
- * PUBLIC: int __db_relink __P((DBC *, u_int32_t, PAGE *, PAGE **, int));
- */
-int
-__db_relink(dbc, add_rem, pagep, new_next, needlock)
-	DBC *dbc;
-	u_int32_t add_rem;
-	PAGE *pagep, **new_next;
-	int needlock;
-{
-	DB *dbp;
-	PAGE *np, *pp;
-	DB_LOCK npl, ppl;
-	DB_LSN *nlsnp, *plsnp, ret_lsn;
-	DB_MPOOLFILE *mpf;
-	int ret;
-
-	dbp = dbc->dbp;
-	np = pp = NULL;
-	LOCK_INIT(npl);
-	LOCK_INIT(ppl);
-	nlsnp = plsnp = NULL;
-	mpf = dbp->mpf;
-	ret = 0;
-
-	/*
-	 * Retrieve and lock the one/two pages.  For a remove, we may need
-	 * two pages (the before and after).  For an add, we only need one
-	 * because, the split took care of the prev.
-	 */
-	if (pagep->next_pgno != PGNO_INVALID) {
-		if (needlock && (ret = __db_lget(dbc,
-		    0, pagep->next_pgno, DB_LOCK_WRITE, 0, &npl)) != 0)
-			goto err;
-		if ((ret = __memp_fget(mpf, &pagep->next_pgno, 0, &np)) != 0) {
-			ret = __db_pgerr(dbp, pagep->next_pgno, ret);
-			goto err;
-		}
-		nlsnp = &np->lsn;
-	}
-	if (add_rem == DB_REM_PAGE && pagep->prev_pgno != PGNO_INVALID) {
-		if (needlock && (ret = __db_lget(dbc,
-		    0, pagep->prev_pgno, DB_LOCK_WRITE, 0, &ppl)) != 0)
-			goto err;
-		if ((ret = __memp_fget(mpf, &pagep->prev_pgno, 0, &pp)) != 0) {
-			ret = __db_pgerr(dbp, pagep->prev_pgno, ret);
-			goto err;
-		}
-		plsnp = &pp->lsn;
-	}
-
-	/* Log the change. */
-	if (DBC_LOGGING(dbc)) {
-		if ((ret = __db_relink_log(dbp, dbc->txn, &ret_lsn, 0, add_rem,
-		    pagep->pgno, &pagep->lsn, pagep->prev_pgno, plsnp,
-		    pagep->next_pgno, nlsnp)) != 0)
-			goto err;
-	} else
-		LSN_NOT_LOGGED(ret_lsn);
-	if (np != NULL)
-		np->lsn = ret_lsn;
-	if (pp != NULL)
-		pp->lsn = ret_lsn;
-	if (add_rem == DB_REM_PAGE)
-		pagep->lsn = ret_lsn;
-
-	/*
-	 * Modify and release the two pages.
-	 *
-	 * !!!
-	 * The parameter new_next gets set to the page following the page we
-	 * are removing.  If there is no following page, then new_next gets
-	 * set to NULL.
-	 */
-	if (np != NULL) {
-		if (add_rem == DB_ADD_PAGE)
-			np->prev_pgno = pagep->pgno;
-		else
-			np->prev_pgno = pagep->prev_pgno;
-		if (new_next == NULL)
-			ret = __memp_fput(mpf, np, DB_MPOOL_DIRTY);
-		else {
-			*new_next = np;
-			ret = __memp_fset(mpf, np, DB_MPOOL_DIRTY);
-		}
-		if (ret != 0)
-			goto err;
-		if (needlock)
-			(void)__TLPUT(dbc, npl);
-	} else if (new_next != NULL)
-		*new_next = NULL;
-
-	if (pp != NULL) {
-		pp->next_pgno = pagep->next_pgno;
-		if ((ret = __memp_fput(mpf, pp, DB_MPOOL_DIRTY)) != 0)
-			goto err;
-		if (needlock)
-			(void)__TLPUT(dbc, ppl);
-	}
-	return (0);
-
-err:	if (np != NULL)
-		(void)__memp_fput(mpf, np, 0);
-	if (needlock)
-		(void)__TLPUT(dbc, npl);
-	if (pp != NULL)
-		(void)__memp_fput(mpf, pp, 0);
-	if (needlock)
-		(void)__TLPUT(dbc, ppl);
-	return (ret);
 }

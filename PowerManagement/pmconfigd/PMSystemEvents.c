@@ -25,29 +25,14 @@
  * 
  * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
-#include <CoreFoundation/CoreFoundation.h>
-#include <IOKit/IOKitLib.h>
-#include <IOKit/pwr_mgt/IOPMLibPrivate.h>
-#include <IOKit/pwr_mgt/IOPM.h>
-#include <assert.h>
 
+#include "PrivateLib.h"
 #include "PMSystemEvents.h"
 
 #ifndef _PMSystemEvents_h_
 #define _PMSystemEvents_h_
 
 #define kRootDomainThermalStatusKey "Power Status"
-
-static io_registry_entry_t getRootDomain(void)
-{
-    static io_registry_entry_t gRoot = MACH_PORT_NULL;
-
-    if (MACH_PORT_NULL == gRoot)
-        gRoot = IORegistryEntryFromPath( kIOMasterPortDefault, 
-                kIOPowerPlane ":/IOPowerConnection/IOPMrootDomain");
-
-    return gRoot;
-}
     
 __private_extern__ void 
 PMSystemEvents_prime(void)

@@ -1,0 +1,16 @@
+Váš príspevok do konferencie '%(listname)s' s predmetom
+
+    %(subject)s
+
+nebol rozoslaný. Na jeho distribúciu je potrebný súhlas moderátora.
+
+Dôvodom podržania distribúcie príspevku je:
+
+    %(reason)s
+
+Váš príspevok bude rozoslaný do konferencie alebo dostanete správu
+o rozhodnutí moderátora.
+
+Ak príspevok rozoslať nechcete, môžete ho stornovať na stránke:
+
+    %(confirmurl)s

@@ -16,9 +16,14 @@ dnl
 sinclude(build/apr_common.m4)
 sinclude(build/apr_network.m4)
 sinclude(build/apr_threads.m4)
+sinclude(build/apr_win32.m4)
 sinclude(build/apr_hints.m4)
 sinclude(build/libtool.m4)
 sinclude(build/ltsugar.m4)
+sinclude(build/argz.m4)
+sinclude(build/ltoptions.m4)
+sinclude(build/ltversion.m4)
+sinclude(build/lt~obsolete.m4)
 
 dnl Hard-coded inclusion at the tail end of apr_private.h:
 AH_BOTTOM([
@@ -138,10 +143,14 @@ AC_CHECK_PROG(ASCPP, cpp, cpp)
 AC_CHECK_TOOL(AR, ar, ar)
 
 dnl Various OS checks that apparently set required flags
+ifdef([AC_USE_SYSTEM_EXTENSIONS], [
+AC_USE_SYSTEM_EXTENSIONS
+], [
 AC_AIX
-AC_ISC_POSIX
 AC_MINIX
+])
 
+AC_ISC_POSIX
 APR_EBCDIC
 
 dnl this is our library name
@@ -198,7 +207,7 @@ AC_ARG_WITH(libtool, [  --without-libtool       avoid using libtool to link the 
 if test "x$use_libtool" = "xyes"; then
       lt_compile='$(LIBTOOL) $(LTFLAGS) --mode=compile $(COMPILE) -o $@ -c $< && touch $@'
       LT_VERSION="-version-info `$get_version libtool $version_hdr APR`"
-      link="\$(LIBTOOL) \$(LTFLAGS) --mode=link \$(LT_LDFLAGS) \$(COMPILE) ${LT_VERSION} \$(ALL_LDFLAGS) -o \$@"
+      link="\$(LIBTOOL) \$(LTFLAGS) --mode=link \$(LT_LDFLAGS) \$(COMPILE) \$(LT_VERSION) \$(ALL_LDFLAGS) -o \$@"
       so_ext='lo'
       lib_target='-rpath $(libdir) $(OBJECTS)'
       export_lib_target='-rpath \$(libdir) \$(OBJECTS)'
@@ -226,6 +235,7 @@ AC_SUBST(export_lib_target)
 AC_SUBST(shlibpath_var)
 AC_SUBST(LTFLAGS)
 AC_SUBST(LT_LDFLAGS)
+AC_SUBST(LT_VERSION)
 
 dnl ----------------------------- Checks for compiler flags
 nl='
@@ -349,6 +359,57 @@ case "$host:$CC" in
 	;;
 esac
 
+AC_CACHE_CHECK([whether the compiler provides atomic builtins], [ap_cv_atomic_builtins],
+[AC_TRY_RUN([
+int main()
+{
+    unsigned long val = 1010, tmp, *mem = &val;
+
+    if (__sync_fetch_and_add(&val, 1010) != 1010 || val != 2020)
+        return 1;
+
+    tmp = val;
+
+    if (__sync_fetch_and_sub(mem, 1010) != tmp || val != 1010)
+        return 1;
+
+    if (__sync_sub_and_fetch(&val, 1010) != 0 || val != 0)
+        return 1;
+
+    tmp = 3030;
+
+    if (__sync_val_compare_and_swap(mem, 0, tmp) != 0 || val != tmp)
+        return 1;
+
+    if (__sync_lock_test_and_set(&val, 4040) != 3030)
+        return 1;
+
+    mem = &tmp;
+
+    if (__sync_val_compare_and_swap(&mem, &tmp, &val) != &tmp)
+        return 1;
+
+    __sync_synchronize();
+
+    if (mem != &val)
+        return 1;
+
+    return 0;
+}], [ap_cv_atomic_builtins=yes], [ap_cv_atomic_builtins=no], [ap_cv_atomic_builtins=no])])
+
+if test "$ap_cv_atomic_builtins" = "yes"; then
+    AC_DEFINE(HAVE_ATOMIC_BUILTINS, 1, [Define if compiler provides atomic builtins])
+fi
+
+case $host in
+    powerpc-405-*)
+        # The IBM ppc405cr processor has a bugged stwcx instruction.
+        AC_DEFINE(PPC405_ERRATA, 1, [Define on PowerPC 405 where errata 77 applies])
+        ;;
+    *)
+        ;;
+esac
+
 dnl Check the depend program we can use
 APR_CHECK_DEPEND
 
@@ -359,7 +420,7 @@ INSTALL_SUBDIRS="none"
 OBJECTS_PLATFORM='$(OBJECTS_unix)'
 
 case $host in
-   i386-ibm-aix* | *-ibm-aix[1-2].* | *-ibm-aix3.* | *-ibm-aix4.1 | *-ibm-aix4.1.* | *-ibm-aix4.2 | *-ibm-aix4.2.*)
+   i386-ibm-aix* | *-ibm-aix[[1-2]].* | *-ibm-aix3.* | *-ibm-aix4.1 | *-ibm-aix4.1.* | *-ibm-aix4.2 | *-ibm-aix4.2.*)
        OSDIR="aix"
        APR_ADDTO(LDFLAGS,-lld)
        eolstr="\\n"
@@ -403,6 +464,13 @@ case $host in
    *os400)
        OSDIR="as400"
        eolstr="\\n"
+       ;;
+   *mingw*)
+       OSDIR="win32"
+       enable_threads="system_threads"
+       eolstr="\\n"
+       proc_mutex_is_global=1
+       OBJECTS_PLATFORM='$(OBJECTS_win32)'
        ;;
    *cygwin*)
        OSDIR="unix"
@@ -448,7 +516,7 @@ void main(void)
 
     if (sizeof(off64_t) != 8 || sizeof(off_t) != 4)
        exit(1);
-    if ((fd = open("conftest.lfs", O_LARGEFILE|O_CREAT|O_WRONLY)) < 0)
+    if ((fd = open("conftest.lfs", O_LARGEFILE|O_CREAT|O_WRONLY, 0644)) < 0)
        exit(2);
     if (ftruncate64(fd, off) != 0)
        ret = 3;
@@ -487,7 +555,7 @@ esac
 ])
 
 if test $force_generic_atomics = yes; then
-   AC_DEFINE([USE_GENERIC_ATOMICS], 1,
+   AC_DEFINE([USE_ATOMICS_GENERIC], 1,
              [Define if use of generic atomics is requested])
 fi
 
@@ -508,8 +576,8 @@ case $host in
     *linux*)
         os_version=`uname -r | sed -e 's/\(.\)\.\(.\)\.\(.\).*/\1\2\3/'`
         ;;
-    *darwin*)
-        os_version=`uname -r | sed -e 's/\(.\)\.\(.\).*/\1\2/'`
+    *os390)
+        os_version=`uname -r | sed -e 's/\.//g'`
         ;;
     *)
         os_version=OS_VERSION_IS_NOT_SET
@@ -523,12 +591,28 @@ dnl Note: Autoconf will always append LIBS with an extra " " in AC_CHECK_LIB.
 dnl It should check for LIBS being empty and set LIBS equal to the new value 
 dnl without the extra " " in that case, but they didn't do that.  So, we
 dnl end up LIBS="-lm -lcrypt -lnsl  -ldl" which is an annoyance.
-AC_SEARCH_LIBS(gethostbyname, nsl)
-AC_SEARCH_LIBS(gethostname, nsl)
-AC_SEARCH_LIBS(socket, socket)
-AC_SEARCH_LIBS(crypt, crypt ufc)
-AC_CHECK_LIB(truerand, main)
-AC_SEARCH_LIBS(modf, m)
+case $host in
+   *mingw*)
+      dnl APR_ADDTO(LIBS,[-lmsvcrt --lshell32 -ladvapi32 -lws2_32])
+
+      AC_CHECK_LIB(msvcrt, getpid)
+      APR_CHECK_DLL_FUNC(kernel32, SetErrorMode@4)
+      APR_CHECK_DLL_FUNC(advapi32, GetSecurityInfo@32)
+      APR_CHECK_DLL_FUNC(ws2_32, gethostbyname@4)
+      APR_CHECK_DLL_FUNC(shell32, CommandLineToArgvW@8)
+      APR_CHECK_DLL_FUNC(kernel32,[CreateFileMappingA@24],
+         [ac_cv_func_CreateFileMapping=$ac_cv_lib_kernel32_CreateFileMappingA])
+      APR_CHECK_DLL_FUNC(rpcrt4,[UuidCreate@4])
+      ;;
+   *)
+      AC_SEARCH_LIBS(gethostbyname, nsl)
+      AC_SEARCH_LIBS(gethostname, nsl)
+      AC_SEARCH_LIBS(socket, socket)
+      AC_SEARCH_LIBS(crypt, crypt ufc)
+      AC_CHECK_LIB(truerand, main)
+      AC_SEARCH_LIBS(modf, m)
+       ;;
+esac
 
 dnl ----------------------------- Checking for Threads
 echo "${nl}Checking for Threads..."
@@ -583,7 +667,7 @@ else
         APR_CHECK_PTHREAD_ATTR_GETDETACHSTATE_ONE_ARG
         APR_CHECK_PTHREAD_RECURSIVE_MUTEX
         AC_CHECK_FUNCS([pthread_key_delete pthread_rwlock_init \
-                        pthread_attr_setguardsize])
+                        pthread_attr_setguardsize pthread_yield])
 
         if test "$ac_cv_func_pthread_rwlock_init" = "yes"; then
             dnl ----------------------------- Checking for pthread_rwlock_t
@@ -596,12 +680,19 @@ else
                AC_DEFINE(HAVE_PTHREAD_RWLOCKS, 1, [Define if pthread rwlocks are available])
             fi
         fi
+
+        if test "$ac_cv_func_pthread_yield" = "no"; then
+            dnl ----------------------------- Checking for sched_yield
+            AC_CHECK_HEADERS([sched.h])
+            AC_CHECK_FUNCS([sched_yield])
+        fi
     fi
 fi
 
 ac_cv_define_READDIR_IS_THREAD_SAFE=no
 ac_cv_define_GETHOSTBYNAME_IS_THREAD_SAFE=no
 ac_cv_define_GETHOSTBYADDR_IS_THREAD_SAFE=no
+ac_cv_define_GETSERVBYNAME_IS_THREAD_SAFE=no
 if test "$threads" = "1"; then
     echo "APR will use threads"
     AC_CHECK_LIB(c_r, readdir,
@@ -621,7 +712,14 @@ if test "$threads" = "1"; then
         AC_DEFINE(GETHOSTBYADDR_IS_THREAD_SAFE, 1, 
                   [Define if gethostbyaddr is thread safe])
     fi
-    AC_CHECK_FUNCS(gethostbyname_r gethostbyaddr_r)
+    if test "x$apr_getservbyname_is_thread_safe" = "x"; then
+        AC_CHECK_LIB(c_r, getservbyname, apr_getservbyname_is_thread_safe=yes)
+    fi
+    if test "$apr_getservbyname_is_thread_safe" = "yes"; then
+        AC_DEFINE(GETSERVBYNAME_IS_THREAD_SAFE, 1, 
+                  [Define if getservbyname is thread safe])
+    fi
+    AC_CHECK_FUNCS(gethostbyname_r gethostbyaddr_r getservbyname_r)
 else
     echo "APR will be non-threaded"
 fi
@@ -695,11 +793,12 @@ case $host in
 #endif";;
 esac
 
-AC_CHECK_HEADERS([sys/types.h sys/mman.h sys/ipc.h sys/mutex.h sys/shm.h sys/file.h kernel/OS.h os2.h])
+AC_CHECK_HEADERS([sys/types.h sys/mman.h sys/ipc.h sys/mutex.h sys/shm.h sys/file.h kernel/OS.h os2.h windows.h])
 AC_CHECK_FUNCS([mmap munmap shm_open shm_unlink shmget shmat shmdt shmctl \
                 create_area])
+
 APR_CHECK_DEFINE(MAP_ANON, sys/mman.h)
-APR_CHECK_FILE(/dev/zero)
+AC_CHECK_FILE(/dev/zero)
 
 # Not all systems can mmap /dev/zero (such as HP-UX).  Check for that.
 if test "$ac_cv_func_mmap" = "yes" &&
@@ -757,6 +856,10 @@ APR_IFALLYES(header:kernel/OS.h func:create_area,
              [havebeosshm="1"
               APR_DECIDE(USE_SHMEM_BEOS_ANON,
                          [BeOS areas])])
+APR_IFALLYES(header:windows.h func:CreateFileMapping,
+             [havewin32shm="1"
+              APR_DECIDE(USE_SHMEM_WIN32_ANON,
+                         [Windows CreateFileMapping()])])
 case $host in
     *linux* ) 
         # Linux has problems with MM_SHMT_MMANON even though it reports
@@ -803,6 +906,7 @@ havemmapshm="0"
 haveshmget="0"
 havebeosarea="0"
 haveos2shm="0"
+havewin32shm="0"
 APR_BEGIN_DECISION([namebased memory allocation method])
 APR_IFALLYES(header:sys/mman.h func:mmap func:munmap,
              [havemmaptmp="1"
@@ -823,6 +927,9 @@ APR_IFALLYES(header:kernel/OS.h func:create_area,
 APR_IFALLYES(header:os2.h,
              [haveos2shm="1"
               APR_DECIDE(USE_SHMEM_OS2, [OS/2 DosAllocSharedMem()])])
+APR_IFALLYES(header:windows.h,
+             [havewin32shm="1"
+              APR_DECIDE(USE_SHMEM_WIN32, [Windows shared memory])])
 case $host in
     *linux* ) 
         # Linux has problems with MM_SHMT_MMANON even though it reports
@@ -843,6 +950,7 @@ usemmapshm="0"
 useshmget="0"
 usebeosarea="0"
 useos2shm="0"
+usewin32shm="0"
 
 case $ac_decision in
     USE_SHMEM_MMAP_TMP )
@@ -860,10 +968,13 @@ case $ac_decision in
     USE_SHMEM_OS2 )
         useos2shm="1"
         ;;
+    USE_SHMEM_WIN32 )
+        usewin32shm="1"
+        ;;
 esac
 
 # Do we have any shared memory support?
-if test "$usemmaptmp$usemmapshm$usemmapzero$useshmget$usemmapanon$usebeosarea$useos2shm" = "0000000"; then
+if test "$usemmaptmp$usemmapshm$usemmapzero$useshmget$usemmapanon$usebeosarea$useos2shm$usewin32shm" = "00000000"; then
   sharedmem="0"
 else
   sharedmem="1"
@@ -874,16 +985,21 @@ AC_SUBST(usemmapshm)
 AC_SUBST(useshmget)
 AC_SUBST(usebeosarea)
 AC_SUBST(useos2shm)
+AC_SUBST(usewin32shm)
 AC_SUBST(havemmaptmp)
 AC_SUBST(havemmapshm)
 AC_SUBST(haveshmget)
 AC_SUBST(havebeosarea)
 AC_SUBST(haveos2shm)
+AC_SUBST(havewin32shm)
 AC_SUBST(sharedmem)
 
 dnl ----------------------------- Checks for Any required Functions
 dnl Checks for library functions. (N.B. poll is further down)
-AC_CHECK_FUNCS([alloca calloc setsid isinf isnan \
+
+AC_FUNC_ALLOCA
+
+AC_CHECK_FUNCS([calloc setsid isinf isnan \
                 getenv putenv setenv unsetenv \
                 writev getifaddrs utime utimes])
 AC_CHECK_FUNCS(setrlimit, [ have_setrlimit="1" ], [ have_setrlimit="0" ]) 
@@ -966,14 +1082,11 @@ AC_SUBST(mmap)
 AC_SUBST(have_memmove)
 
 APR_CHECK_SIGWAIT_ONE_ARG
-APR_CHECK_DIRENT_INODE
-APR_CHECK_DIRENT_TYPE
 
 dnl ----------------------------- Checks for Any required Headers
 AC_HEADER_STDC
 
 APR_FLAG_HEADERS(
-    alloca.h            \
     ByteOrder.h		\
     conio.h		\
     crypt.h		\
@@ -1011,6 +1124,8 @@ APR_FLAG_HEADERS(
     tpfio.h		\
     unistd.h		\
     unix.h		\
+    windows.h		\
+    winsock2.h		\
     arpa/inet.h		\
     kernel/OS.h		\
     net/errno.h		\
@@ -1020,6 +1135,7 @@ APR_FLAG_HEADERS(
     sys/file.h		\
     sys/ioctl.h         \
     sys/mman.h		\
+    sys/param.h         \
     sys/poll.h		\
     sys/resource.h	\
     sys/select.h	\
@@ -1089,6 +1205,8 @@ AC_SUBST(signalh)
 AC_SUBST(sys_waith)
 AC_SUBST(pthreadh)
 AC_SUBST(semaphoreh)
+AC_SUBST(windowsh)
+AC_SUBST(winsock2h)
 
 # Checking for h_errno in <netdb.h>
 if test "$netdbh" = "1"; then
@@ -1231,32 +1349,111 @@ else
     socklen_t_value="int"
 fi
 
+APR_CHECK_SIZEOF_EXTENDED([#include <sys/types.h>], pid_t, 8)
+
+if test "$ac_cv_sizeof_pid_t" = "$ac_cv_sizeof_short"; then
+    pid_t_fmt='#define APR_PID_T_FMT "hd"'
+elif test "$ac_cv_sizeof_pid_t" = "$ac_cv_sizeof_int"; then
+    pid_t_fmt='#define APR_PID_T_FMT "d"'
+elif test "$ac_cv_sizeof_pid_t" = "$ac_cv_sizeof_long"; then
+    pid_t_fmt='#define APR_PID_T_FMT "ld"'
+elif test "$ac_cv_sizeof_pid_t" = "$ac_cv_sizeof_long_long"; then
+    pid_t_fmt='#define APR_PID_T_FMT APR_INT64_T_FMT'
+else
+    pid_t_fmt='#error Can not determine the proper size for pid_t'
+fi
+
+# Basically, we have tried to figure out the correct format strings
+# for APR types which vary between platforms, but we don't always get
+# it right.
+case $host in
+   s390*linux*)
+       # uniquely, the 31-bit Linux/s390 uses "unsigned long int"
+       # for size_t rather than "unsigned int":
+       size_t_fmt="lu"
+       ssize_t_fmt="ld"
+       ;;
+   *-os2*)
+       size_t_fmt="lu"
+       ;;
+   *-solaris*)
+       if test "$ac_cv_sizeof_long" = "8"; then
+         pid_t_fmt='#define APR_PID_T_FMT "d"'
+       else
+         pid_t_fmt='#define APR_PID_T_FMT "ld"'
+       fi
+       ;;
+   *aix4*|*aix5*)
+       ssize_t_fmt="ld"
+       size_t_fmt="lu"
+       ;;
+    *beos*)
+        ssize_t_fmt="ld"
+        size_t_fmt="ld"
+        ;;
+    *apple-darwin*)
+        osver=`uname -r`
+        case $osver in
+           [[0-7]].*)
+              ssize_t_fmt="d"
+              ;;
+           *)
+              ssize_t_fmt="ld"
+              ;;
+        esac
+        size_t_fmt="lu"
+        ;;
+esac
+
+APR_CHECK_TYPES_COMPATIBLE(ssize_t, int, [ssize_t_fmt="d"])
+APR_CHECK_TYPES_COMPATIBLE(ssize_t, long, [ssize_t_fmt="ld"])
+APR_CHECK_TYPES_COMPATIBLE(size_t, unsigned int, [size_t_fmt="u"])
+APR_CHECK_TYPES_COMPATIBLE(size_t, unsigned long, [size_t_fmt="lu"])
+
 APR_CHECK_SIZEOF_EXTENDED([#include <sys/types.h>], ssize_t, 8)
 
-if test "$ac_cv_sizeof_ssize_t" = "$ac_cv_sizeof_int"; then
-    ssize_t_fmt='#define APR_SSIZE_T_FMT "d"'
+AC_MSG_CHECKING([which format to use for apr_ssize_t])
+if test -n "$ssize_t_fmt"; then
+    AC_MSG_RESULT(%$ssize_t_fmt)
+elif test "$ac_cv_sizeof_ssize_t" = "$ac_cv_sizeof_int"; then
+    ssize_t_fmt="d"
+    AC_MSG_RESULT(%d)
 elif test "$ac_cv_sizeof_ssize_t" = "$ac_cv_sizeof_long"; then
-    ssize_t_fmt='#define APR_SSIZE_T_FMT "ld"'
+    ssize_t_fmt="ld"
+    AC_MSG_RESULT(%ld)
 else
-    ssize_t_fmt='#error Can not determine the proper size for ssize_t'
+    AC_ERROR([could not determine the proper format for apr_ssize_t])
 fi
+
+ssize_t_fmt="#define APR_SSIZE_T_FMT \"$ssize_t_fmt\""
 
 APR_CHECK_SIZEOF_EXTENDED([#include <stddef.h>], size_t, 8)
 
-if test "$ac_cv_sizeof_size_t" = "$ac_cv_sizeof_int"; then
-    size_t_fmt='#define APR_SIZE_T_FMT "d"'
+AC_MSG_CHECKING([which format to use for apr_size_t])
+if test -n "$size_t_fmt"; then
+    AC_MSG_RESULT(%$size_t_fmt)
+elif test "$ac_cv_sizeof_size_t" = "$ac_cv_sizeof_int"; then
+    size_t_fmt="d"
+    AC_MSG_RESULT(%d)
 elif test "$ac_cv_sizeof_size_t" = "$ac_cv_sizeof_long"; then
-    size_t_fmt='#define APR_SIZE_T_FMT "ld"'
+    size_t_fmt="ld"
+    AC_MSG_RESULT(%ld)
 else
-    size_t_fmt='#error Can not determine the proper size for size_t'
+    AC_ERROR([could not determine the proper format for apr_size_t])
 fi
+
+size_t_fmt="#define APR_SIZE_T_FMT \"$size_t_fmt\""
 
 APR_CHECK_SIZEOF_EXTENDED([#include <sys/types.h>], off_t, 8)
 
 if test "${ac_cv_sizeof_off_t}${apr_cv_use_lfs64}" = "4yes"; then
     # Enable LFS
     aprlfs=1
-    AC_CHECK_FUNCS([mmap64 sendfile64 sendfilev64 mkstemp64])
+    AC_CHECK_FUNCS([mmap64 sendfile64 sendfilev64 mkstemp64 readdir64_r])
+elif test "${ac_cv_sizeof_off_t}" != "${ac_cv_sizeof_size_t}"; then
+    # unsure of using -gt above is as portable, can can't forsee where
+    # off_t can legitimately be smaller than size_t
+    aprlfs=1
 else
     aprlfs=0     
 fi
@@ -1299,19 +1496,23 @@ else
 fi
 AC_MSG_RESULT($off_t_value)
 
-APR_CHECK_SIZEOF_EXTENDED([#include <sys/types.h>], pid_t, 8)
-
-if test "$ac_cv_sizeof_pid_t" = "$ac_cv_sizeof_short"; then
-    pid_t_fmt='#define APR_PID_T_FMT "hd"'
-elif test "$ac_cv_sizeof_pid_t" = "$ac_cv_sizeof_int"; then
-    pid_t_fmt='#define APR_PID_T_FMT "d"'
-elif test "$ac_cv_sizeof_pid_t" = "$ac_cv_sizeof_long"; then
-    pid_t_fmt='#define APR_PID_T_FMT "ld"'
-elif test "$ac_cv_sizeof_pid_t" = "$ac_cv_sizeof_long_long"; then
-    pid_t_fmt='#define APR_PID_T_FMT APR_INT64_T_FMT'
-else
-    pid_t_fmt='#error Can not determine the proper size for pid_t'
+# Regardless of whether _LARGEFILE64_SOURCE is used, on 32-bit
+# platforms _FILE_OFFSET_BITS will affect the size of ino_t and hence
+# the build-time ABI may be different from the apparent ABI when using
+# APR with another package which *does* define _FILE_OFFSET_BITS.
+# (Exactly as per the case above with off_t where LFS is *not* used)
+#
+# To be safe, hard-code apr_ino_t as 'unsigned long' iff that is
+# exactly the size of ino_t here; otherwise use ino_t as existing
+# releases did.  To be correct, apr_ino_t should have been made an
+# ino64_t as apr_off_t is off64_t, but this can't be done now without
+# breaking ABI.
+ino_t_value=ino_t
+if test "$ac_cv_sizeof_long" = "4"; then
+    APR_CHECK_TYPES_COMPATIBLE(ino_t, unsigned long, 
+                               ino_t_value="unsigned long")
 fi
+AC_MSG_NOTICE([using $ino_t_value for ino_t])
 
 # Checks for endianness
 AC_C_BIGENDIAN
@@ -1321,36 +1522,13 @@ else
     bigendian=0
 fi
 
-# Basically, we have tried to figure out the correct format strings
-# for APR types which vary between platforms, but we don't always get 
-# it right.  If you find that we don't get it right for your platform, 
-# you can override our decision below.
-case $host in
-   s390*linux*)
-       # uniquely, the 31-bit Linux/s390 uses "unsigned long int"
-       # for size_t rather than "unsigned int":
-       size_t_fmt='#define APR_SIZE_T_FMT "lu"'
-       ssize_t_fmt='#define APR_SSIZE_T_FMT "ld"'
-       ;;
-   *-os2*)
-       size_t_fmt='#define APR_SIZE_T_FMT "lu"'
-       ;;
-   *-solaris*)
-       pid_t_fmt='#define APR_PID_T_FMT "ld"'
-       ;;
-   *aix4*|*aix5*)
-       ssize_t_fmt='#define APR_SSIZE_T_FMT "ld"'
-       size_t_fmt='#define APR_SIZE_T_FMT "ld"'
-       ;;
-    *beos*)
-        ssize_t_fmt='#define APR_SSIZE_T_FMT "ld"'
-        size_t_fmt='#define APR_SIZE_T_FMT "ld"'
-        ;;
-    *apple-darwin*)
-        ssize_t_fmt='#define APR_SSIZE_T_FMT "d"'
-        size_t_fmt='#define APR_SIZE_T_FMT "lu"'
-        ;;
-esac
+APR_CHECK_SIZEOF_EXTENDED([#include <sys/types.h>
+#include <sys/uio.h>],struct iovec,0)
+if test "$ac_cv_sizeof_struct_iovec" = "0"; then
+    have_iovec=0
+else
+    have_iovec=1
+fi
 
 AC_SUBST(voidp_size)
 AC_SUBST(short_value)
@@ -1373,6 +1551,8 @@ AC_SUBST(uint64_literal)
 AC_SUBST(stdint) 
 AC_SUBST(bigendian)
 AC_SUBST(aprlfs)
+AC_SUBST(have_iovec)
+AC_SUBST(ino_t_value)
 
 dnl ----------------------------- Checking for string functions
 AC_CHECK_FUNCS(strnicmp, have_strnicmp="1", have_strnicmp="0")
@@ -1421,11 +1601,26 @@ AC_ARG_ENABLE(dso,
   ], [dsotype=any])
 
 if test "$dsotype" = "any"; then
-    # Darwin:
-    AC_CHECK_FUNC(NSLinkModule, [dsotype=dyld])
     if test "$dsotype" = "any"; then
-      # Original HP-UX:
-      AC_CHECK_LIB(dld, shl_load, [dsotype=shl; APR_ADDTO(LIBS,-ldld)])
+      case $host in
+        *darwin[[0-8]]\.*) 
+          # Original Darwin, not for 9.0!:
+          AC_CHECK_FUNC(NSLinkModule, [dsotype=dyld]);;
+        *-hpux[[1-9]]\.*|*-hpux1[[01]]*)
+          # shl is specific to hpux(?), and is suboptimal for 64 bit builds,
+          # and most unlikely to be the choice of 12.x developers.
+          AC_CHECK_LIB(dld, shl_load, [have_shl=1])
+          if test "$ac_cv_sizeof_voidp$have_shl" = "41"; then
+            dsotype=shl; APR_ADDTO(LIBS,-ldld)
+          fi;;
+        *mingw*|*-os2*)
+          # several 'other's below probably belong up here.  If they always
+          # use a platform implementation and shouldn't test the dlopen/dlfcn
+          # features, then bring them up here.
+          # But if they -should- optionally use dlfcn, and/or need the config
+          # detection of dlopen/dlsym, do not move them up.
+          dsotype=other ;;
+      esac
     fi
     # Normal POSIX:
     if test "$dsotype" = "any"; then
@@ -1449,7 +1644,13 @@ if test "$dsotype" = "any"; then
     # Everything else:
     if test "$dsotype" = "any"; then
         case $host in
-        *os390|*-os2*|*os400|*-aix*) dsotype=other ;;
+        *os390|*os400|*-aix*)
+          # Some -aix5 will use dl, no hassles.  Keep that pattern here.
+          dsotype=other ;;
+        *-hpux*)
+          if test "$have_shl" = "1"; then
+            dsotype=shl; APR_ADDTO(LIBS,-ldld)
+          fi;;
         esac
     fi
 fi
@@ -1488,6 +1689,12 @@ AC_ARG_ENABLE(other-child,
   
 AC_SUBST(oc) 
 
+if test -z "$have_proc_invoked"; then
+  have_proc_invoked="0"
+fi
+
+AC_SUBST(have_proc_invoked)
+
 AC_MSG_CHECKING(for Variable Length Arrays)
 APR_TRY_COMPILE_NO_WARNING([],
 [
@@ -1523,6 +1730,7 @@ echo "${nl}Checking for Locking..."
 
 AC_CHECK_FUNCS(semget semctl flock)
 AC_CHECK_HEADERS(semaphore.h OS.h)
+AC_SEARCH_LIBS(sem_open, rt)
 AC_CHECK_FUNCS(sem_close sem_unlink sem_post sem_wait create_sem)
 
 # Some systems return ENOSYS from sem_open.
@@ -1532,6 +1740,9 @@ AC_TRY_RUN([
 #include <stdlib.h>
 #include <fcntl.h>
 #include <semaphore.h>
+#ifndef SEM_FAILED
+#define SEM_FAILED (-1)
+#endif
 main()
 {
     sem_t *psem;
@@ -1542,6 +1753,11 @@ main()
 	exit(1);
     }
     sem_close(psem);
+    psem = sem_open(sem_name, O_CREAT | O_EXCL, 0644, 1);
+    if (psem != (sem_t *)SEM_FAILED) {
+        sem_close(psem);
+        exit(1);
+    }
     sem_unlink(sem_name);
     exit(0);
 }], [ac_cv_func_sem_open=yes], [ac_cv_func_sem_open=no],
@@ -1674,6 +1890,73 @@ case $ac_decision in
         ;;
 esac
 
+if test $hasfcntlser = "1"; then
+AC_MSG_CHECKING(if fcntl returns EACCES when F_SETLK is already held)
+AC_TRY_RUN([
+#ifdef HAVE_STDLIB_H
+#include <stdlib.h>
+#endif
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+#ifdef HAVE_SYS_STAT_H
+#include <sys/stat.h>
+#endif
+#ifdef HAVE_SYS_WAIT_H
+#include <sys/wait.h>
+#endif
+#if defined(HAVE_UNISTD_H)
+#include <unistd.h>
+#endif
+#include <fcntl.h>
+#include <errno.h>
+
+int fd;
+struct flock proc_mutex_lock_it = {0};
+const char *fname = "conftest.fcntl";
+
+int main()
+{
+    int rc, status;;
+    proc_mutex_lock_it.l_whence = SEEK_SET;   /* from current point */
+    proc_mutex_lock_it.l_type = F_WRLCK;      /* set exclusive/write lock */
+
+    fd = creat(fname, S_IRWXU);
+    unlink(fname);
+
+    if (rc = lockit()) {
+        exit(-1);
+    }
+
+    if (fork()) {
+        wait(&status);
+    }
+    else {
+      return(lockit());
+    }
+
+    close(fd);
+    exit(WEXITSTATUS(status) != EACCES);
+}
+
+int lockit() {
+    int rc;
+    do {
+        rc = fcntl(fd, F_SETLK, &proc_mutex_lock_it);
+    } while ( rc < 0 && errno == EINTR);
+
+    return (rc < 0) ? errno : 0;
+}], [apr_fcntl_tryacquire_eacces=1], [apr_fcntl_tryacquire_eacces=0], [apr_fcntl_tryacquire_eacces=0])
+fi
+
+if test "$apr_fcntl_tryacquire_eacces" = "1"; then
+  AC_DEFINE(FCNTL_TRYACQUIRE_EACCES, 1, [Define if fcntl returns EACCES when F_SETLK is already held])
+  AC_MSG_RESULT(yes)
+else
+  AC_MSG_RESULT(no)
+fi
+
+
 AC_SUBST(hasflockser)
 AC_SUBST(hassysvser)
 AC_SUBST(hasposixser)
@@ -1736,6 +2019,8 @@ fi
 dnl ----------------------------- Checking for /dev/random 
 AC_MSG_CHECKING(for entropy source)
 
+why_no_rand=""
+
 AC_ARG_WITH(egd, 
   [  --with-egd[[=DIR]]        use EGD-compatible socket],
   [ AC_DEFINE(HAVE_EGD, 1, [Define if EGD is supported])
@@ -1757,7 +2042,7 @@ if test "$rand" != "1"; then
   if test "$apr_devrandom" = "yes"; then
     # /dev/random on OpenBSD doesn't provide random data, so
     # prefer /dev/arandom, which does; see random(4).
-    for f in /dev/arandom /dev/random /dev/urandom; do
+    for f in /dev/arandom /dev/urandom /dev/random; do
       if test -r $f; then
         apr_devrandom=$f
         rand=1
@@ -1770,6 +2055,17 @@ if test "$rand" != "1"; then
     else
       AC_ERROR([$apr_devrandom not found or unreadable.])
     fi
+  fi
+
+  if test "$rand" = "1"; then
+    case $host in
+      *os390)
+        if test $os_version -lt 1700; then
+          rand="0"
+          why_no_rand=" ($apr_devrandom unusable on z/OS before V1R7)"
+        fi
+        ;;
+    esac
   fi
 
   if test "$rand" = "1"; then
@@ -1792,7 +2088,7 @@ if test "$rand" != "1"; then
                 AC_MSG_RESULT(truerand)
                 rand="1"
               else
-                AC_MSG_RESULT(not found)
+                AC_MSG_RESULT(not found$why_no_rand)
                 rand="0"
               fi
             fi
@@ -1801,6 +2097,25 @@ if test "$rand" != "1"; then
 fi
 
 AC_SUBST(rand)
+
+dnl ----------------------------- Checking for File Info Support 
+echo "${nl}Checking for File Info Support..."
+AC_CHECK_MEMBERS([struct stat.st_blocks, struct stat.st_atimensec,
+struct stat.st_ctimensec, struct stat.st_mtimensec, struct stat.st_atim.tv_nsec,
+struct stat.st_ctim.tv_nsec, struct stat.st_mtim.tv_nsec,
+struct stat.st_atime_n, struct stat.st_ctime_n, struct stat.st_mtime_n],,,[
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+#ifdef HAVE_SYS_STAT_H
+#include <sys/stat.h>
+#endif
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif])
+
+APR_CHECK_DIRENT_INODE
+APR_CHECK_DIRENT_TYPE
 
 dnl ----------------------------- Checking for UUID Support 
 echo "${nl}Checking for OS UUID Support..."
@@ -1871,17 +2186,12 @@ AC_CHECK_MEMBERS([struct tm.tm_gmtoff, struct tm.__tm_gmtoff],,,[
 
 dnl ----------------------------- Checking for Networking Support 
 echo "${nl}Checking for Networking support..."
-AC_MSG_CHECKING(for in_addr in netinet/in.h)
-AC_TRY_COMPILE([
-#include <sys/types.h>
-#include <netinet/in.h>
-],[
-struct in_addr arg;
-arg.s_addr = htonl(INADDR_ANY);
-], [ have_in_addr="1" 
-msg=yes ] , [ have_in_addr="0"
-msg=no ])
-AC_MSG_RESULT([$msg])
+APR_TYPE_IN_ADDR
+if test "$ac_cv_type_in_addr" = "yes"; then
+  have_in_addr="1"
+else
+  have_in_addr="0"
+fi
 
 AC_MSG_CHECKING([if fd == socket on this platform])
 if test "x$file_as_socket" != "x0" ; then
@@ -1902,6 +2212,11 @@ fi
 # Check the types only if we have gethostbyname_r
 if test "$ac_cv_func_gethostbyname_r" = "yes"; then
     APR_CHECK_GETHOSTBYNAME_R_STYLE
+fi
+
+# Check the types only if we have getservbyname_r
+if test "$ac_cv_func_getservbyname_r" = "yes"; then
+    APR_CHECK_GETSERVBYNAME_R_STYLE
 fi
 
 APR_CHECK_TCP_NODELAY_INHERITED
@@ -2022,6 +2337,14 @@ dnl Check for langinfo support
 AC_CHECK_HEADERS(langinfo.h)
 AC_CHECK_FUNCS(nl_langinfo)
 
+dnl Do we have a Win32-centric Unicode FS?
+
+if test -z "$have_unicode_fs"; then
+  have_unicode_fs="0"
+fi
+
+AC_SUBST(have_unicode_fs)
+
 dnl ----------------------------- Finalize the variables
 
 echo "${nl}Restore user-defined environment settings..."
@@ -2105,6 +2428,15 @@ for i in $APR_SAVE_HEADERS; do
   rm -f $i.save
 done
 chmod +x apr-$APR_MAJOR_VERSION-config
+# for mingw builds, we currently won't allow the unix apr_private.h to exist.
+# instead, we will rely on the manually-crafted win32 apr_private.h instead.
+case $APR_PLATFORM in
+    *-mingw*)
+        rm include/arch/unix/apr_private.h
+        ;;
+    *)
+        ;;
+esac
 ],[
 dnl This section is expanded by configure UNQUOTED so variable 
 dnl references must be backslash-escaped as necessary.
@@ -2112,6 +2444,7 @@ dnl references must be backslash-escaped as necessary.
 # Commands run at the beginning of config.status:
 APR_SAVE_HEADERS="include/apr.h include/arch/unix/apr_private.h"
 APR_MAJOR_VERSION=$APR_MAJOR_VERSION
+APR_PLATFORM=$host
 
 for apri in \${APR_SAVE_HEADERS}; do
   test -r \${apri} && mv \${apri} \${apri}.save

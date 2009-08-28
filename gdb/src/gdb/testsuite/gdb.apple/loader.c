@@ -30,6 +30,7 @@ main ()
 
   dummy_cookie = dlopen (dummy_name, RTLD_NOW);
   tst_function = (int (*) ()) dlsym (dummy_cookie, "dummy_function");
+  printf ("Calling dummy function: %d.\n", tst_function ());
 
   tst_cookie = dlopen (tst_name, RTLD_NOW);
 

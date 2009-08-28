@@ -37,6 +37,7 @@
 		A613B29B0D46AA65007BA726 /* IOPCIDevice.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 03DB1086033AA50A03CA2A5F /* IOPCIDevice.h */; };
 		A613B29D0D46AA65007BA726 /* IOPCIConfigurator.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = A6DD8EEE0937A0EC000A918D /* IOPCIConfigurator.h */; };
 		A613B29E0D46AA65007BA726 /* IOPCIPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = A6DD8EEF0937A0EC000A918D /* IOPCIPrivate.h */; };
+		A637FAF40F2FE2B80008E04C /* IOPCIPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = A6DD8EEF0937A0EC000A918D /* IOPCIPrivate.h */; };
 		A655D6E50E4BB51D00550BCC /* IOPCIDeviceMappedIO.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A655D6E40E4BB51D00550BCC /* IOPCIDeviceMappedIO.cpp */; };
 /* End PBXBuildFile section */
 
@@ -79,12 +80,22 @@
 		};
 		A613B29C0D46AA65007BA726 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
+			buildActionMask = 12;
 			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/PrivateHeaders/IOKit/pci";
 			dstSubfolderSpec = 0;
 			files = (
 				A613B29D0D46AA65007BA726 /* IOPCIConfigurator.h in CopyFiles */,
 				A613B29E0D46AA65007BA726 /* IOPCIPrivate.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A637FAF30F2FE2630008E04C /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/pci";
+			dstSubfolderSpec = 0;
+			files = (
+				A637FAF40F2FE2B80008E04C /* IOPCIPrivate.h in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -255,6 +266,7 @@
 				A613B28F0D46AA65007BA726 /* Headers */,
 				A613B2980D46AA65007BA726 /* CopyFiles */,
 				A613B29C0D46AA65007BA726 /* CopyFiles */,
+				A637FAF30F2FE2630008E04C /* CopyFiles */,
 			);
 			buildRules = (
 			);

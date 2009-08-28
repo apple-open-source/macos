@@ -28,6 +28,8 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #ifndef HPPA_OPCODE_INCLUDED
 #define HPPA_OPCODE_INCLUDED
 
+#include <stdint.h>
+
 #if !defined(__STDC__) && !defined(const)
 #define const
 #endif
@@ -35,8 +37,8 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* bug #41317 .... umeshv@NeXT.com Mon May  2 17:53:29 PDT 1994 */
 /* The masks for 2 bits at 20 */
 
-#define  NO_CACHE_CONTROL_HINT  (unsigned long)0x0UL
-#define  BC_OR_CO_CACHE_CONTROL_HINT  (unsigned long)0x400UL
+#define  NO_CACHE_CONTROL_HINT  (uint32_t)0x0U
+#define  BC_OR_CO_CACHE_CONTROL_HINT  (uint32_t)0x400U
 
 /************************************************************************
  * The parsing characters used in the opcode table are listed in ASCII
@@ -124,8 +126,8 @@ enum delay_type {NONE, NORMAL, CONDITIONAL};
 struct pa_opcode
 {
     const char *name;
-    unsigned long int match;	/* Bits that must be set...  */
-    unsigned long int mask;	/* ... in these bits. */
+    uint32_t match;	/* Bits that must be set...  */
+    uint32_t mask;	/* ... in these bits. */
     char *args;
     /* Nonzero if this is a delayed branch instruction.  */
     char delayed;

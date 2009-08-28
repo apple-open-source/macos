@@ -1,0 +1,9 @@
+Changes
+MANIFEST
+Makefile.PL
+README
+lib/Digest/HMAC.pm
+lib/Digest/HMAC_MD5.pm
+lib/Digest/HMAC_SHA1.pm
+rfc2104.txt
+t/rfc2202.t

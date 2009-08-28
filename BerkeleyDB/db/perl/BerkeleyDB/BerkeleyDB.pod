@@ -44,11 +44,12 @@ BerkeleyDB - Perl extension for Berkeley DB version 2, 3 or 4
   $status = $db->status() ;
   $boolean = $db->byteswapped() ;
   $status = $db->truncate($count) ;
+  $status = $db->compact($start, $stop, $c_data, $flags, $end);
 
-  $bool = BerkeleyDB::cds_available();
-  $lock = $db->cds_lock();
+  $bool = $env->cds_enabled();
   $bool = $db->cds_enabled();
-  $bool = $db->locked();
+  $lock = $db->cds_lock();
+  $lock->cds_unlock();
   
   ($flag, $old_offset, $old_length) = $db->partial_set($offset, $length) ;
   ($flag, $old_offset, $old_length) = $db->partial_clear() ;
@@ -71,6 +72,8 @@ BerkeleyDB - Perl extension for Berkeley DB version 2, 3 or 4
   $hash_ref = $env->txn_stat()
   $status = $env->setmutexlocks()
   $status = $env->set_flags()
+  $status = $env->set_timeout()
+  $status = $env->lsn_reset()
 
   $txn = $env->txn_begin() ;
   $db->Txn($txn);
@@ -80,6 +83,7 @@ BerkeleyDB - Perl extension for Berkeley DB version 2, 3 or 4
   $status = $txn->txn_abort()
   $status = $txn->txn_id()
   $status = $txn->txn_discard()
+  $status = $txn->set_timeout()
 
   $status = $env->set_lg_dir();
   $status = $env->set_lg_bsize();
@@ -128,7 +132,7 @@ particularly relevant.
 The interface to Berkeley DB is implemented with a number of Perl
 classes.
 
-=head1 ENV CLASS
+=head1 The BerkeleyDB::Env Class
 
 The B<BerkeleyDB::Env> class provides an interface to the Berkeley DB
 function B<db_appinit> in Berkeley DB 2.x or B<db_env_create> and
@@ -156,13 +160,14 @@ with the C<Flags> parameter, described below.
              [ -Flags        => number, ]
              [ -SetFlags     => bitmask, ]
              [ -LockDetect   => number, ]
+             [ -SharedMemKey => number, ]
              [ -Verbose      => boolean, ]
              [ -Encrypt      => { Password => "string",
 	                          Flags    => number }, ]
 
-=over 5
-
 All the parameters to the BerkeleyDB::Env constructor are optional.
+
+=over 5
 
 =item -Home
 
@@ -181,12 +186,12 @@ part of an absolute path.
     ...
 
     $db1 = new BerkeleyDB::Hash
-	     -Filename = "fred.db",
+	     -Filename => "fred.db",
 	     -Env => $env
     ...
 
     $db2 = new BerkeleyDB::Hash
-	     -Filename = "/other/joe.db",
+	     -Filename => "/other/joe.db",
 	     -Env => $env
     ...
 
@@ -212,6 +217,17 @@ This option requires Berkeley DB 4.1 or better.
 If present, this parameter sets the size of the environments shared memory
 buffer pool.
 
+=item -SharedMemKey
+
+If present, this parameter sets the base segment ID for the shared memory
+region used by Berkeley DB. 
+
+This option requires Berkeley DB 3.1 or better.
+
+Use C<$env-E<gt>get_shm_key($id)> to find out the base segment ID used
+once the environment is open.
+
+
 =item -Config
 
 This is a variation on the C<-Home> parameter, but it allows finer
@@ -231,8 +247,15 @@ The code below shows an example of how it can be used.
 
 =item -ErrFile
 
-Expects a filenme. Any errors generated internally by Berkeley DB will
-be logged to this file.
+Expects a filename or filenhandle. Any errors generated internally by
+Berkeley DB will be logged to this file. A useful debug setting is to
+open environments with either
+
+    -ErrFile => *STDOUT
+
+or 
+
+    -ErrFile => *STDERR
 
 =item -ErrPrefix
 
@@ -365,6 +388,18 @@ Returns the status of the last BerkeleyDB::Env method.
 Returns a pointer to the underlying DB_ENV data structure that Berkeley
 DB uses.
 
+=item $env->get_shm_key($id)
+
+Writes the base segment ID for the shared memory region used by the
+Berkeley DB environment into C<$id>. Returns 0 on success.
+
+This option requires Berkeley DB 4.2 or better.
+
+Use the C<-SharedMemKey> option when opening the environemt to set the
+base segment ID.
+
+=item $env->set_timeout($timeout, $flags)
+
 =item $env->status()
 
 Returns the status of the last BerkeleyDB::Env method.
@@ -380,7 +415,7 @@ TODO.
   $status = BerkeleyDB::db_remove [OPTIONS]
   $status = BerkeleyDB::db_rename [OPTIONS]
   $status = BerkeleyDB::db_verify [OPTIONS]
-  
+
 =head1 THE DATABASE CLASSES
 
 B<BerkeleyDB> supports the following database formats:
@@ -906,7 +941,7 @@ The code below is a simple example of using a btree database.
     tie %h, 'BerkeleyDB::Btree',
     		-Filename   => $filename,
 	        -Flags      => DB_CREATE
-      or die "Cannot open $filename: $!\n" ;
+      or die "Cannot open $filename: $! $BerkeleyDB::Error\n" ;
 
     # Add a key/value pair to the file
     $h{'Wall'} = 'Larry' ;
@@ -1358,11 +1393,32 @@ database and B<DB_RECNO> for a B<BerkeleyDB::Recno> database. This method
 is typically used when a database has been opened with
 B<BerkeleyDB::Unknown>.
 
+=head2   $bool = $env->cds_enabled();
+
+Returns true if the Berkeley DB environment C<$env> has been opened on
+CDS mode.
+
+=head2   $bool = $db->cds_enabled();
+
+Returns true if the database C<$db> has been opened on CDS mode.
+
 =head2 $lock = $db->cds_lock();
 
-TODO.
+Creates a CDS write lock object C<$lock>.
 
-=item $ref = $db->db_stat()
+It is a fatal error to attempt to create a cds_lock if the Berkeley DB
+environment has not been opened in CDS mode.
+
+=head2 $lock->cds_unlock();
+
+Removes a CDS lock. The destruction of the CDS lock object automatically
+calls this method.
+
+Note that if multiple CDS lock objects are created, the underlying write
+lock will not be released until all CDS lock objects are either explictly
+unlocked with this method, or the CDS lock objects have been destroyed.
+
+=head2 $ref = $db->db_stat()
 
 Returns a reference to an associative array containing information about
 the database. The keys of the associative array correspond directly to the
@@ -1385,6 +1441,52 @@ Returns the status of the last C<$db> method called.
 
 Truncates the datatabase and returns the number or records deleted
 in C<$count>.
+
+=head2  $status = $db->compact($start, $stop, $c_data, $flags, $end);
+
+Compacts the database C<$db>. 
+
+All the parameters are optional - if only want to make use of some of them,
+use C<undef> for those you don't want.  Trailing unusused parameters can be
+omitted. For example, if you only want to use the C<$c_data> parameter to
+set the C<compact_fillpercent>, write you code like this
+
+    my %hash;
+    $hash{compact_fillpercent} = 50;
+    $db->compact(undef, undef, \%hash);
+
+The parameters operate identically to the C equivalent of this method.
+The C<$c_data> needs a bit of explanation - it must be a hash reference.
+The values of the following keys can be set before calling C<compact> and
+will affect the operation of the compaction.
+
+=over 5
+
+=item * compact_fillpercent
+
+=item * compact_timeout
+    
+=back
+
+The following keys, along with associated values, will be created in the
+hash reference if the C<compact> operation was successful.
+
+=over 5
+
+=item * compact_deadlock
+
+=item * compact_levels
+
+=item * compact_pages_free
+
+=item * compact_pages_examine
+
+=item * compact_pages_truncated
+
+=back
+
+You need to be running Berkeley DB 4.4 or better if you wan to make use of
+C<compact>.
 
 =head1 CURSORS
 
@@ -1569,7 +1671,7 @@ deleted, B<c_del> will return B<DB_KEYEMPTY>.
 
 The B<$flags> parameter is not used at present.
 
-=head2 $status = $cursor->c_del($cnt [, $flags])
+=head2 $status = $cursor->c_count($cnt [, $flags])
 
 Stores the number of duplicates at the current cursor position in B<$cnt>.
 
@@ -1579,6 +1681,14 @@ Berkeley DB 3.1 or better.
 =head2  $status = $cursor->status()
 
 Returns the status of the last cursor method as a dual type.
+
+=head2  $status = $cursor->c_pget() ;
+
+TODO
+
+=head2  $status = $cursor->c_close()
+
+Closes the cursor B<$cursor>.
 
 =head2 Cursor Examples
 
@@ -1597,6 +1707,12 @@ TODO
 =head1 TRANSACTIONS
 
 TODO.
+
+=head1 CDS Mode
+
+The Berkeley Db Concurrent Data Store is a lightweight locking mechanism
+that is useful in scenarios where transactions are overkill. See the
+accompanying document .. for details of using this module in CDS mode.
 
 =head1 DBM Filters
 
@@ -1816,7 +1932,7 @@ The official web site for Berkeley DB is F<http://www.sleepycat.com>.
 
 =head1 COPYRIGHT
 
-Copyright (c) 1997-2003 Paul Marquess. All rights reserved. This program
+Copyright (c) 1997-2004 Paul Marquess. All rights reserved. This program
 is free software; you can redistribute it and/or modify it under the
 same terms as Perl itself.
 

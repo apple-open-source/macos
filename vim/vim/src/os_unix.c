@@ -341,12 +341,15 @@ mch_am_i_owner(name)
     return 0;
 }
 
+/*
+ * Write s[len] to the screen.
+ */
     void
 mch_write(s, len)
     char_u	*s;
     int		len;
 {
-    write(1, (char *)s, len);
+    ignored = (int)write(1, (char *)s, len);
     if (p_wd)		/* Unix is too fast, slow down a bit more */
 	RealWaitForChar(read_cmd_fd, p_wd, NULL);
 }
@@ -2931,7 +2934,7 @@ mch_early_init()
      * Ignore any errors.
      */
 #if defined(HAVE_SIGALTSTACK) || defined(HAVE_SIGSTACK)
-    signal_stack = malloc(SIGSTKSZ);
+    signal_stack = (char *)alloc(SIGSTKSZ);
     init_signal_stack();
 #endif
 }
@@ -2962,7 +2965,8 @@ mch_free_mem()
     }
 #  endif
 # endif
-# ifdef FEAT_X11
+    /* Don't close the display for GTK 1, it is done in exit(). */
+# if defined(FEAT_X11) && (!defined(FEAT_GUI_GTK) || defined(HAVE_GTK2))
     if (x11_display != NULL
 #  ifdef FEAT_XCLIPBOARD
 	    && x11_display != xterm_dpy
@@ -3956,9 +3960,9 @@ mch_call_shell(cmd, options)
 		 */
 		if (fd >= 0)
 		{
-		    dup(fd); /* To replace stdin  (file descriptor 0) */
-		    dup(fd); /* To replace stdout (file descriptor 1) */
-		    dup(fd); /* To replace stderr (file descriptor 2) */
+		    ignored = dup(fd); /* To replace stdin  (fd 0) */
+		    ignored = dup(fd); /* To replace stdout (fd 1) */
+		    ignored = dup(fd); /* To replace stderr (fd 2) */
 
 		    /* Don't need this now that we've duplicated it */
 		    close(fd);
@@ -3976,7 +3980,17 @@ mch_call_shell(cmd, options)
 		 * children can be kill()ed.  Don't do this when using pipes,
 		 * because stdin is not a tty, we would lose /dev/tty. */
 		if (p_stmp)
+		{
 		    (void)setsid();
+#  if defined(SIGHUP)
+		    /* When doing "!xterm&" and 'shell' is bash: the shell
+		     * will exit and send SIGHUP to all processes in its
+		     * group, killing the just started process.  Ignore SIGHUP
+		     * to avoid that. (suggested by Simon Schubert)
+		     */
+		    signal(SIGHUP, SIG_IGN);
+#  endif
+		}
 # endif
 # ifdef FEAT_GUI
 		if (pty_slave_fd >= 0)
@@ -4026,13 +4040,13 @@ mch_call_shell(cmd, options)
 
 		    /* set up stdin/stdout/stderr for the child */
 		    close(0);
-		    dup(pty_slave_fd);
+		    ignored = dup(pty_slave_fd);
 		    close(1);
-		    dup(pty_slave_fd);
+		    ignored = dup(pty_slave_fd);
 		    if (gui.in_use)
 		    {
 			close(2);
-			dup(pty_slave_fd);
+			ignored = dup(pty_slave_fd);
 		    }
 
 		    close(pty_slave_fd);    /* has been dupped, close it now */
@@ -4043,13 +4057,13 @@ mch_call_shell(cmd, options)
 		    /* set up stdin for the child */
 		    close(fd_toshell[1]);
 		    close(0);
-		    dup(fd_toshell[0]);
+		    ignored = dup(fd_toshell[0]);
 		    close(fd_toshell[0]);
 
 		    /* set up stdout for the child */
 		    close(fd_fromshell[0]);
 		    close(1);
-		    dup(fd_fromshell[1]);
+		    ignored = dup(fd_fromshell[1]);
 		    close(fd_fromshell[1]);
 
 # ifdef FEAT_GUI
@@ -4057,7 +4071,7 @@ mch_call_shell(cmd, options)
 		    {
 			/* set up stderr for the child */
 			close(2);
-			dup(1);
+			ignored = dup(1);
 		    }
 # endif
 		}
@@ -4188,7 +4202,8 @@ mch_call_shell(cmd, options)
 					    && (lnum !=
 						    curbuf->b_ml.ml_line_count
 						    || curbuf->b_p_eol)))
-				    write(toshell_fd, "\n", (size_t)1);
+				    ignored = write(toshell_fd, "\n",
+								   (size_t)1);
 				++lnum;
 				if (lnum > curbuf->b_op_end.lnum)
 				{
@@ -6844,7 +6859,8 @@ xsmp_close()
     if (xsmp_icefd != -1)
     {
 	SmcCloseConnection(xsmp.smcconn, 0, NULL);
-	vim_free(xsmp.clientid);
+	if (xsmp.clientid != NULL)
+	    free(xsmp.clientid);
 	xsmp.clientid = NULL;
 	xsmp_icefd = -1;
     }

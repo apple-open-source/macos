@@ -48,4 +48,4 @@ typedef struct replace {
 	struct replace	*fow;	/* pointer to next pattern */
 } REPLACE;
 
-int tty_rename(ARCHD *);	/* Used for -o invalid=rename recovery */
+int tty_rename(ARCHD *);	/* used for -o invalid=rename recovery */

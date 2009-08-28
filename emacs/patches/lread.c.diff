@@ -1,0 +1,11 @@
+--- src/lread.c~	2008-04-24 20:27:41.000000000 -0700
++++ src/lread.c	2008-04-24 20:36:06.000000000 -0700
+@@ -1224,7 +1224,7 @@ openp (path, str, suffixes, storeptr, pr
+ 	    }
+ 
+ 	  if (lsuffix != 0)  /* Bug happens on CCI if lsuffix is 0.  */
+-	    strncat (fn, SDATA (XCAR (tail)), lsuffix);
++	    strlcat (fn, SDATA (XCAR (tail)), fn_size);
+ 
+ 	  /* Check that the file exists and is not a directory.  */
+ 	  /* We used to only check for handlers on non-absolute file names:

@@ -3,21 +3,20 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -58,7 +57,7 @@
 #include <sys/param.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
-#include <sys/mtio.h>
+#include "mtio.h"
 #include <sys/stat.h>
 #include <sys/time.h>
 
@@ -379,7 +378,7 @@ again:
 		return;
 	}
 	if (buf[0] != '\n') {
-		(void) strcpy(magtape, buf);
+		(void) strlcpy(magtape, buf, sizeof(magtape));
 		magtape[strlen(magtape) - 1] = '\0';
 	}
 #ifdef RRESTORE
@@ -405,13 +404,13 @@ gethdr:
 		goto again;
 	}
 	if (tmpbuf.c_volume != volno) {
-		fprintf(stderr, "Wrong volume (%ld)\n", tmpbuf.c_volume);
+		fprintf(stderr, "Wrong volume (%d)\n", (int)tmpbuf.c_volume);
 		volno = 0;
 		goto again;
 	}
 	if (tmpbuf.c_date != dumpdate || tmpbuf.c_ddate != dumptime) {
 		fprintf(stderr, "Wrong dump date\n\tgot: %s",
-			ctime(&tmpbuf.c_date));
+			ctime((time_t *)&tmpbuf.c_date));
 		fprintf(stderr, "\twanted: %s", ctime(&dumpdate));
 		volno = 0;
 		goto again;
@@ -425,8 +424,8 @@ gethdr:
  	 * If coming to this volume at random, skip to the beginning
  	 * of the next record.
  	 */
-	dprintf(stdout, "read %ld recs, tape starts with %ld\n", 
-		tpblksread, tmpbuf.c_firstrec);
+	dprintf(stdout, "read %d recs, tape starts with %d\n", 
+		(int)tpblksread, (int)tmpbuf.c_firstrec);
  	if (tmpbuf.c_type == TS_TAPE && (tmpbuf.c_flags & DR_NEWHEADER)) {
  		if (!wantnext) {
  			tpblksread = tmpbuf.c_firstrec;
@@ -513,13 +512,13 @@ setdumpnum()
 void
 printdumpinfo()
 {
-	fprintf(stdout, "Dump   date: %s", ctime(&spcl.c_date));
+	fprintf(stdout, "Dump   date: %s", ctime((time_t *)&spcl.c_date));
 	fprintf(stdout, "Dumped from: %s",
-	    (spcl.c_ddate == 0) ? "the epoch\n" : ctime(&spcl.c_ddate));
+	    (spcl.c_ddate == 0) ? "the epoch\n" : ctime((time_t *)&spcl.c_ddate));
 	if (spcl.c_host[0] == '\0')
 		return;
-	fprintf(stderr, "Level %ld dump of %s on %s:%s\n",
-		spcl.c_level, spcl.c_filesys, spcl.c_host, spcl.c_dev);
+	fprintf(stderr, "Level %d dump of %s on %s:%s\n",
+		(int)spcl.c_level, spcl.c_filesys, spcl.c_host, spcl.c_dev);
 	fprintf(stderr, "Label: %s\n", spcl.c_label);
 }
 
@@ -775,7 +774,7 @@ xtrlnkfile(buf, size)
 		    curfile.name, lnkbuf, buf, pathlen);
 		done(1);
 	}
-	(void) strcat(lnkbuf, buf);
+	(void) strlcat(lnkbuf, buf, sizeof(lnkbuf));
 }
 
 /*
@@ -1161,8 +1160,8 @@ accthdr(header)
 		fprintf(stderr, "Volume header (%s inode format) ",
 		    oldinofmt ? "old" : "new");
  		if (header->c_firstrec)
- 			fprintf(stderr, "begins with record %ld",
- 				header->c_firstrec);
+ 			fprintf(stderr, "begins with record %d",
+ 				(int)header->c_firstrec);
  		fprintf(stderr, "\n");
 		previno = 0x7fffffff;
 		return;

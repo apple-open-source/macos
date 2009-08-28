@@ -9,27 +9,25 @@
 .Nm zdump
 .Nd timezone dumper
 .Sh SYNOPSIS
-.Nm zdump
+.Nm
 .Op Fl -version
 .Op Fl v
-.Op Fl c Ar cutoff_year
-.Op Ar zone_name ...
+.Op Fl c Ar cutoffyear
+.Op Ar zonename ...
 .Sh DESCRIPTION
 The
-.Nm zdump
+.Nm
 utility prints the current time in each
-.Ar zone_name
+.Ar zonename
 named on the command line.
 .Pp
 The following options are available:
 .Bl -tag -width indent
-.\" ===========
-.It Fl c Ar cutoff_year
-Cut off the verbose output near the start of the given year.
-.\" ===========
+.It Fl -version
+Output version information and exit.
 .It Fl v
 For each
-.Ar zone_name
+.Ar zonename
 on the command line,
 print the time at the lowest possible time value,
 the time one day after the lowest possible time value,
@@ -42,9 +40,8 @@ Each line ends with
 if the given time is Daylight Saving Time or
 .Em isdst=0
 otherwise.
-.\" ===========
-.It Fl -version
-Output version information and exit.
+.It Fl c Ar cutoffyear
+Cut off the verbose output near the start of the given year.
 .El
 .Sh "SEE ALSO"
 .Xr ctime 3 ,

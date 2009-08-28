@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,6 +35,7 @@
 #include <asl_mini_memory.h>
 #include <notify.h>
 #include <launch.h>
+#include <libkern/OSAtomic.h>
 
 #define ADDFD_FLAGS_LOCAL 0x00000001
 
@@ -44,11 +45,14 @@
 #define ASL_KEY_READ_UID "ReadUID"
 #define ASL_KEY_READ_GID "ReadGID"
 #define ASL_KEY_EXPIRE_TIME "ASLExpireTime"
-#define ASL_KEY_IGNORE "ASLIgnore"
 #define ASL_KEY_TIME_NSEC "TimeNanoSec"
 #define ASL_KEY_REF_PID "RefPID"
 #define ASL_KEY_REF_PROC "RefProc"
 #define ASL_KEY_SESSION "Session"
+#define ASL_KEY_OPTION "ASLOption"
+
+#define ASL_OPT_IGNORE "ignore"
+#define ASL_OPT_STORE "store"
 
 #define _PATH_PIDFILE		"/var/run/syslog.pid"
 #define _PATH_ASL_IN		"/var/run/asl_input"
@@ -63,34 +67,85 @@
 
 #define KERN_DISASTER_LEVEL 3
 
+#define SOURCE_UNKNOWN      0
+#define SOURCE_INTERNAL     1
+#define SOURCE_ASL_SOCKET   2
+#define SOURCE_BSD_SOCKET   3
+#define SOURCE_UDP_SOCKET   4
+#define SOURCE_KERN         5
+#define SOURCE_ASL_MESSAGE  6
+#define SOURCE_LAUNCHD      7
+
+#define SOURCE_SESSION    100 /* does not generate messages */
+
+#define STORE_FLAGS_FILE_CACHE_SWEEP_REQUESTED 0x00000001
+
+#define RESET_NONE 0
+#define RESET_CONFIG 1
+#define RESET_NETWORK 2
+
 struct global_s
 {
-	int asl_log_filter;
-	int restart;
-	int debug;
+	OSSpinLock lock;
+	int client_count;
 	int disaster_occurred;
+	mach_port_t listen_set;
 	mach_port_t server_port;
+	mach_port_t self_port;
+	mach_port_t dead_session_port;
 	launch_data_t launch_dict;
-	const char *debug_file;
-	int dbtype;
-	int did_store_sweep;
+	uint32_t store_flags;
 	time_t start_time;
-	uint32_t db_file_max;
-	uint32_t db_memory_max;
-	uint32_t db_mini_max;
 	int kfd;
+	int reset;
 	uint64_t bsd_flush_time;
-	uint64_t asl_store_ping_time;
-	uint64_t bsd_max_dup_time;
-	time_t utmp_ttl;
-	time_t fs_ttl;
+	pthread_mutex_t *db_lock;
+	pthread_mutex_t *work_queue_lock;
+	pthread_cond_t work_queue_cond;
+	asl_search_result_t *work_queue;
 	asl_store_t *file_db;
 	asl_memory_t *memory_db;
 	asl_mini_memory_t *mini_db;
 	asl_mini_memory_t *disaster_db;
+
+	/* parameters below are configurable as command-line args or in /etc/asl.conf */
+	int asl_log_filter;
+	int debug;
+	char *debug_file;
+	int dbtype;
+	uint32_t db_file_max;
+	uint32_t db_memory_max;
+	uint32_t db_mini_max;
+	uint32_t mps_limit;
+	uint64_t bsd_max_dup_time;
+	uint64_t asl_store_ping_time;
+	uint64_t mark_time;
+	time_t utmp_ttl;
+	time_t fs_ttl;
 };
 
 extern struct global_s global;
+
+typedef asl_msg_t *(*aslreadfn)(int);
+typedef char *(*aslwritefn)(const char *, int);
+typedef char *(*aslexceptfn)(int);
+typedef int (*aslsendmsgfn)(asl_msg_t *msg, const char *outid);
+
+struct aslevent
+{
+	int source;
+	int fd;
+	unsigned char read:1; 
+	unsigned char write:1; 
+	unsigned char except:1;
+	aslreadfn readfn;
+	aslwritefn writefn;
+	aslexceptfn exceptfn;
+	char *sender;
+	uid_t uid;
+	gid_t gid;
+	TAILQ_ENTRY(aslevent) entries;
+};
 
 struct module_list
 {
@@ -102,11 +157,21 @@ struct module_list
 	TAILQ_ENTRY(module_list) entries;
 };
 
+void config_debug(int enable, const char *path);
+void config_data_store(int type, uint32_t file_max, uint32_t memory_max, uint32_t mini_max);
+void config_timers(uint64_t bsd_max_dup, uint64_t asl_store_ping, uint64_t utmp, uint64_t fs);
+
+char **explode(const char *s, const char *delim);
+void freeList(char **l);
+
 int aslevent_init(void);
 int aslevent_fdsets(fd_set *, fd_set *, fd_set *);
 void aslevent_handleevent(fd_set *, fd_set *, fd_set *);
 void asl_mark(void);
 void asl_archive(void);
+
+void asl_client_count_increment();
+void asl_client_count_decrement();
 
 char *get_line_from_file(FILE *f);
 
@@ -118,22 +183,23 @@ asl_msg_t *asl_msg_from_string(const char *buf);
 int asl_msg_cmp(asl_msg_t *a, asl_msg_t *b);
 time_t asl_parse_time(const char *str);
 
-typedef asl_msg_t *(*aslreadfn)(int);
-typedef char *(*aslwritefn)(const char *, int);
-typedef char *(*aslexceptfn)(int);
-typedef int (*aslsendmsgfn)(asl_msg_t *msg, const char *outid);
-
-int aslevent_addfd(int fd, uint32_t flags, aslreadfn, aslwritefn, aslexceptfn);
+int aslevent_addfd(int source, int fd, uint32_t flags, aslreadfn readfn, aslwritefn writefn, aslexceptfn exceptfn);
 int aslevent_removefd(int fd);
 int aslevent_addmatch(asl_msg_t *query, char *outid);
 
+int asl_check_option(asl_msg_t *msg, const char *opt);
+
 int aslevent_addoutput(aslsendmsgfn, const char *outid);
+
+void asl_enqueue_message(uint32_t source, struct aslevent *e, asl_msg_t *msg);
+asl_msg_t **asl_work_dequeue(uint32_t *count);
+void asl_message_match_and_log(asl_msg_t *msg);
 
 int asl_syslog_faciliy_name_to_num(const char *fac);
 const char *asl_syslog_faciliy_num_to_name(int num);
 asl_msg_t *asl_input_parse(const char *in, int len, char *rhost, int flag);
 
-void db_ping_store(time_t now);
+void db_ping_store(void);
 
 /* message refcount utilities */
 uint32_t asl_msg_type(asl_msg_t *m);

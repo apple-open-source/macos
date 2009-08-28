@@ -45,6 +45,7 @@
 #import "WebTiledLayer.h"
 #import <wtf/CurrentTime.h>
 #import <wtf/UnusedParam.h>
+#import <wtf/RetainPtr.h>
 
 using namespace std;
 
@@ -212,6 +213,15 @@ static NSString* getValueFunctionNameForTransformOperation(TransformOperation::O
 }
 #endif
 
+#if !HAVE_MODERN_QUARTZCORE
+static TransformationMatrix flipTransform()
+{
+    TransformationMatrix flipper;
+    flipper.flipY();
+    return flipper;
+}
+#endif
+
 static CAMediaTimingFunction* getCAMediaTimingFunction(const TimingFunction& timingFunction)
 {
     switch (timingFunction.type()) {
@@ -323,6 +333,10 @@ GraphicsLayerCA::GraphicsLayerCA(GraphicsLayerClient* client)
     BEGIN_BLOCK_OBJC_EXCEPTIONS
     m_layer.adoptNS([[WebLayer alloc] init]);
     [m_layer.get() setLayerOwner:this];
+
+#if !HAVE_MODERN_QUARTZCORE
+    setContentsOrientation(defaultContentsOrientation());
+#endif
 
 #ifndef NDEBUG
     updateDebugIndicators();
@@ -542,9 +556,8 @@ void GraphicsLayerCA::setSize(const FloatSize& size)
 
     if (m_transformLayer) {
         [m_transformLayer.get() setBounds:rect];
-    
-        // the anchor of the contents layer is always at 0.5, 0.5, so the position
-        // is center-relative
+        // The anchor of the contents layer is always at 0.5, 0.5, so the position
+        // is center-relative.
         [m_layer.get() setPosition:centerPoint];
     }
     
@@ -553,6 +566,7 @@ void GraphicsLayerCA::setSize(const FloatSize& size)
         swapFromOrToTiledLayer(needTiledLayer);
     
     [m_layer.get() setBounds:rect];
+    updateContentsTransform();
 
     // Note that we don't resize m_contentsLayer. It's up the caller to do that.
 
@@ -929,6 +943,8 @@ bool GraphicsLayerCA::animateTransform(const TransformValueList& valueList, cons
     if ((hasBigRotation || functionList.size() > 1) && !caValueFunctionSupported())
         return false;
     
+    bool success = true;
+    
     BEGIN_BLOCK_OBJC_EXCEPTIONS
     
     // Rules for animation:
@@ -957,16 +973,16 @@ bool GraphicsLayerCA::animateTransform(const TransformValueList& valueList, cons
         TransformOperation::OperationType opType = isMatrixAnimation ? TransformOperation::MATRIX_3D : functionList[functionIndex];
 
         if (isKeyframe) {
-            NSMutableArray* timesArray = [[NSMutableArray alloc] init];
-            NSMutableArray* valArray = [[NSMutableArray alloc] init];
-            NSMutableArray* tfArray = [[NSMutableArray alloc] init];
+            RetainPtr<NSMutableArray> timesArray(AdoptNS, [[NSMutableArray alloc] init]);
+            RetainPtr<NSMutableArray> valArray(AdoptNS, [[NSMutableArray alloc] init]);
+            RetainPtr<NSMutableArray> tfArray(AdoptNS, [[NSMutableArray alloc] init]);
             
             // Iterate through the keyframes, building arrays for the animation.
             for (Vector<TransformValue>::const_iterator it = valueList.values().begin(); it != valueList.values().end(); ++it) {
                 const TransformValue& curValue = (*it);
                 
                 // fill in the key time and timing function
-                [timesArray addObject:[NSNumber numberWithFloat:curValue.key()]];
+                [timesArray.get() addObject:[NSNumber numberWithFloat:curValue.key()]];
                 
                 const TimingFunction* tf = 0;
                 if (curValue.timingFunction())
@@ -975,47 +991,59 @@ bool GraphicsLayerCA::animateTransform(const TransformValueList& valueList, cons
                     tf = &anim->timingFunction();
                 
                 CAMediaTimingFunction* timingFunction = getCAMediaTimingFunction(tf ? *tf : TimingFunction(LinearTimingFunction));
-                [tfArray addObject:timingFunction];
+                [tfArray.get() addObject:timingFunction];
                 
                 // fill in the function
                 if (isMatrixAnimation) {
                     TransformationMatrix t;
                     curValue.value()->apply(size, t);
+                    
+                    // If any matrix is singular, CA won't animate it correctly. So fall back to software animation
+                    if (!t.isInvertible()) {
+                        success = false;
+                        break;
+                    }
+                    
                     CATransform3D cat;
                     copyTransform(cat, t);
-                    [valArray addObject:[NSValue valueWithCATransform3D:cat]];
+                    [valArray.get() addObject:[NSValue valueWithCATransform3D:cat]];
                 } else
-                    [valArray addObject:getTransformFunctionValue(curValue, functionIndex, size, opType)];
+                    [valArray.get() addObject:getTransformFunctionValue(curValue, functionIndex, size, opType)];
             }
             
-            // We toss the last tfArray value because it has to one shorter than the others.
-            [tfArray removeLastObject];
+            if (success) {
+                // We toss the last tfArray value because it has to be one shorter than the others.
+                [tfArray.get() removeLastObject];
             
-            setKeyframeAnimation(AnimatedPropertyWebkitTransform, opType, functionIndex, timesArray, valArray, tfArray, isTransition, anim, beginTime);
-            
-            [timesArray release];
-            [valArray release];
-            [tfArray release];
+                setKeyframeAnimation(AnimatedPropertyWebkitTransform, opType, functionIndex, timesArray.get(), valArray.get(), tfArray.get(), isTransition, anim, beginTime);
+            }
         } else {
             // Is a transition
-            id fromValue, toValue;
+            id fromValue = 0;
+            id toValue = 0;
             
             if (isMatrixAnimation) {
                 TransformationMatrix fromt, tot;
                 valueList.at(0).value()->apply(size, fromt);
                 valueList.at(1).value()->apply(size, tot);
-                
-                CATransform3D cat;
-                copyTransform(cat, fromt);
-                fromValue = [NSValue valueWithCATransform3D:cat];
-                copyTransform(cat, tot);
-                toValue = [NSValue valueWithCATransform3D:cat];
+
+                // If any matrix is singular, CA won't animate it correctly. So fall back to software animation
+                if (!fromt.isInvertible() || !tot.isInvertible())
+                    success = false;
+                else {
+                    CATransform3D cat;
+                    copyTransform(cat, fromt);
+                    fromValue = [NSValue valueWithCATransform3D:cat];
+                    copyTransform(cat, tot);
+                    toValue = [NSValue valueWithCATransform3D:cat];
+                }
             } else {
                 fromValue = getTransformFunctionValue(valueList.at(0), functionIndex, size, opType);
                 toValue = getTransformFunctionValue(valueList.at(1), functionIndex, size, opType);
             }
             
-            setBasicAnimation(AnimatedPropertyWebkitTransform, opType, functionIndex, fromValue, toValue, isTransition, anim, beginTime);
+            if (success)
+                setBasicAnimation(AnimatedPropertyWebkitTransform, opType, functionIndex, fromValue, toValue, isTransition, anim, beginTime);
         }
         
         if (isMatrixAnimation)
@@ -1023,7 +1051,7 @@ bool GraphicsLayerCA::animateTransform(const TransformValueList& valueList, cons
     }
 
     END_BLOCK_OBJC_EXCEPTIONS
-    return true;
+    return success;
 }
 
 bool GraphicsLayerCA::animateFloat(AnimatedPropertyID property, const FloatValueList& valueList, const Animation* animation, double beginTime)
@@ -1052,14 +1080,14 @@ bool GraphicsLayerCA::animateFloat(AnimatedPropertyID property, const FloatValue
 
     BEGIN_BLOCK_OBJC_EXCEPTIONS
     
-    NSMutableArray* timesArray = [[NSMutableArray alloc] init];
-    NSMutableArray* valArray = [[NSMutableArray alloc] init];
-    NSMutableArray* tfArray = [[NSMutableArray alloc] init];
+    RetainPtr<NSMutableArray> timesArray(AdoptNS, [[NSMutableArray alloc] init]);
+    RetainPtr<NSMutableArray> valArray(AdoptNS, [[NSMutableArray alloc] init]);
+    RetainPtr<NSMutableArray> tfArray(AdoptNS, [[NSMutableArray alloc] init]);
 
     for (unsigned i = 0; i < valueList.values().size(); ++i) {
         const FloatValue& curValue = valueList.values()[i];
-        [timesArray addObject:[NSNumber numberWithFloat:curValue.key()]];
-        [valArray addObject:[NSNumber numberWithFloat:curValue.value()]];
+        [timesArray.get() addObject:[NSNumber numberWithFloat:curValue.key()]];
+        [valArray.get() addObject:[NSNumber numberWithFloat:curValue.value()]];
 
         const TimingFunction* tf = 0;
         if (curValue.timingFunction())
@@ -1068,20 +1096,16 @@ bool GraphicsLayerCA::animateFloat(AnimatedPropertyID property, const FloatValue
             tf = &animation->timingFunction();
 
         CAMediaTimingFunction* timingFunction = getCAMediaTimingFunction(tf ? *tf : TimingFunction());
-        [tfArray addObject:timingFunction];
+        [tfArray.get() addObject:timingFunction];
     }
     
     // We toss the last tfArray value because it has to one shorter than the others.
-    [tfArray removeLastObject];
+    [tfArray.get() removeLastObject];
     
     // Initialize the property to 0.
     [animatedLayer(property) setValue:0 forKeyPath:propertyIdToString(property)];
     // Then set the animation.
-    setKeyframeAnimation(property, TransformOperation::NONE, 0, timesArray, valArray, tfArray, false, animation, beginTime);
-
-    [timesArray release];
-    [valArray release];
-    [tfArray release];
+    setKeyframeAnimation(property, TransformOperation::NONE, 0, timesArray.get(), valArray.get(), tfArray.get(), false, animation, beginTime);
 
     END_BLOCK_OBJC_EXCEPTIONS
     return true;
@@ -1105,8 +1129,18 @@ void GraphicsLayerCA::setContentsToImage(Image* image)
 #if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
             [m_contentsLayer.get() setMinificationFilter:kCAFilterTrilinear];
 #endif
-            CGImageRef theImage = image->nativeImageForCurrentFrame();
-            [m_contentsLayer.get() setContents:(id)theImage];
+            RetainPtr<CGImageRef> theImage(image->nativeImageForCurrentFrame());
+            CGColorSpaceRef colorSpace = CGImageGetColorSpace(theImage.get());
+
+            static CGColorSpaceRef deviceRGB = CGColorSpaceCreateDeviceRGB();
+            if (CFEqual(colorSpace, deviceRGB)) {
+                // CoreGraphics renders images tagged with DeviceRGB using GenericRGB. When we hand such
+                // images to CA we need to tag them similarly so CA rendering matches CG rendering.
+                static CGColorSpaceRef genericRGB = CGColorSpaceCreateWithName(kCGColorSpaceGenericRGB);
+                theImage.adoptCF(CGImageCreateCopyWithColorSpace(theImage.get(), genericRGB));
+            }
+
+            [m_contentsLayer.get() setContents:(id)theImage.get()];
         }
         END_BLOCK_OBJC_EXCEPTIONS
     } else
@@ -1146,6 +1180,39 @@ void GraphicsLayerCA::updateContentsRect()
         [m_contentsLayer.get() setBounds:rect];
         END_BLOCK_OBJC_EXCEPTIONS
     }
+}
+
+void GraphicsLayerCA::setGeometryOrientation(CompositingCoordinatesOrientation orientation)
+{
+    switch (orientation) {
+    case CompositingCoordinatesTopDown:
+#if HAVE_MODERN_QUARTZCORE
+        [m_layer.get() setGeometryFlipped:NO];
+#else
+        setChildrenTransform(TransformationMatrix());
+#endif
+        break;
+        
+    case CompositingCoordinatesBottomUp:
+#if HAVE_MODERN_QUARTZCORE
+        [m_layer.get() setGeometryFlipped:YES];
+#else
+        setChildrenTransform(flipTransform());
+#endif
+        break;
+    }
+}
+
+GraphicsLayerCA::CompositingCoordinatesOrientation GraphicsLayerCA::geometryOrientation() const
+{
+    // CoreAnimation defaults to bottom-up
+    bool layerFlipped;
+#if HAVE_MODERN_QUARTZCORE
+    layerFlipped = [m_layer.get() isGeometryFlipped];
+#else
+    layerFlipped = childrenTransform().m22() == -1;
+#endif
+    return layerFlipped ? CompositingCoordinatesBottomUp : CompositingCoordinatesTopDown;
 }
 
 void GraphicsLayerCA::setBasicAnimation(AnimatedPropertyID property, TransformOperation::OperationType operationType, short index, void* fromVal, void* toVal, bool isTransition, const Animation* transition, double beginTime)
@@ -1435,6 +1502,15 @@ void GraphicsLayerCA::swapFromOrToTiledLayer(bool userTiledLayer)
             [tiledLayer setContentsGravity:@"bottomLeft"];
         else
             [tiledLayer setContentsGravity:@"topLeft"];
+
+#if !HAVE_MODERN_QUARTZCORE
+        // Tiled layer has issues with flipped coordinates.
+        setContentsOrientation(CompositingCoordinatesTopDown);
+#endif
+    } else {
+#if !HAVE_MODERN_QUARTZCORE
+        setContentsOrientation(defaultContentsOrientation());
+#endif
     }
     
     [m_layer.get() setLayerOwner:this];
@@ -1453,6 +1529,7 @@ void GraphicsLayerCA::swapFromOrToTiledLayer(bool userTiledLayer)
 #ifndef NDEBUG
     [m_layer.get() setZPosition:[oldLayer.get() zPosition]];
 #endif
+    updateContentsTransform();
     
 #ifndef NDEBUG
     String name = String::format("CALayer(%p) GraphicsLayer(%p) ", m_layer.get(), this) + m_name;
@@ -1476,6 +1553,31 @@ void GraphicsLayerCA::swapFromOrToTiledLayer(bool userTiledLayer)
 #endif
 }
 
+GraphicsLayer::CompositingCoordinatesOrientation GraphicsLayerCA::defaultContentsOrientation() const
+{
+#if !HAVE_MODERN_QUARTZCORE
+    // Older QuartzCore does not support -geometryFlipped, so we manually flip the root
+    // layer geometry, and then flip the contents of each layer back so that the CTM for CG
+    // is unflipped, allowing it to do the correct font auto-hinting.
+    return CompositingCoordinatesBottomUp;
+#else
+    return CompositingCoordinatesTopDown;
+#endif
+}
+
+void GraphicsLayerCA::updateContentsTransform()
+{
+#if !HAVE_MODERN_QUARTZCORE
+    if (contentsOrientation() == CompositingCoordinatesBottomUp) {
+        CGAffineTransform contentsTransform = CGAffineTransformMakeScale(1, -1);
+        contentsTransform = CGAffineTransformTranslate(contentsTransform, 0, -[m_layer.get() bounds].size.height);
+        [m_layer.get() setContentsTransform:contentsTransform];
+    }
+#else
+    ASSERT(contentsOrientation() == CompositingCoordinatesTopDown);
+#endif
+}
+
 void GraphicsLayerCA::setContentsLayer(WebLayer* contentsLayer)
 {
     if (contentsLayer == m_contentsLayer)
@@ -1491,22 +1593,18 @@ void GraphicsLayerCA::setContentsLayer(WebLayer* contentsLayer)
     if (contentsLayer) {
         // Turn off implicit animations on the inner layer.
         [contentsLayer setStyle:[NSDictionary dictionaryWithObject:nullActionsDictionary() forKey:@"actions"]];
-
         m_contentsLayer.adoptNS([contentsLayer retain]);
 
-        bool needToFlip = GraphicsLayer::compositingCoordinatesOrientation() == GraphicsLayer::CompositingCoordinatesBottomUp;
-        CGPoint anchorPoint = needToFlip ? CGPointMake(0.0f, 1.0f) : CGPointZero;
-
-        // If the layer world is flipped, we need to un-flip the contents layer
-        if (needToFlip) {
+        if (defaultContentsOrientation() == CompositingCoordinatesBottomUp) {
             CATransform3D flipper = {
                 1.0f, 0.0f, 0.0f, 0.0f,
                 0.0f, -1.0f, 0.0f, 0.0f,
                 0.0f, 0.0f, 1.0f, 0.0f,
                 0.0f, 0.0f, 0.0f, 1.0f};
             [m_contentsLayer.get() setTransform:flipper];
-        }
-        [m_contentsLayer.get() setAnchorPoint:anchorPoint];
+            [m_contentsLayer.get() setAnchorPoint:CGPointMake(0.0f, 1.0f)];
+        } else
+            [m_contentsLayer.get() setAnchorPoint:CGPointZero];
 
         // Insert the content layer first. Video elements require this, because they have
         // shadow content that must display in front of the video.

@@ -32,7 +32,6 @@
 #include "Editor.h"
 #include "Element.h"
 #include "EventHandler.h"
-#include "EventNames.h"
 #include "ExceptionCode.h"
 #include "FocusController.h"
 #include "FloatQuad.h"
@@ -70,7 +69,7 @@ SelectionController::SelectionController(Frame* frame, bool isDragCaretControlle
     , m_lastChangeWasHorizontalExtension(false)
     , m_isDragCaretController(isDragCaretController)
     , m_isCaretBlinkingSuspended(false)
-    , m_focused(false)
+    , m_focused(frame && frame->page() && frame->page()->focusController()->focusedFrame() == frame)
 {
 }
 
@@ -203,8 +202,7 @@ void SelectionController::nodeWillBeRemoved(Node *node)
         else
             m_sel.setWithoutValidation(m_sel.end(), m_sel.start());
     // FIXME: This could be more efficient if we had an isNodeInRange function on Ranges.
-    } else if (Range::compareBoundaryPoints(m_sel.start(), Position(node, 0)) == -1 &&
-               Range::compareBoundaryPoints(m_sel.end(), Position(node, 0)) == 1) {
+    } else if (comparePositions(m_sel.start(), Position(node, 0)) == -1 && comparePositions(m_sel.end(), Position(node, 0)) == 1) {
         // If we did nothing here, when this node's renderer was destroyed, the rect that it 
         // occupied would be invalidated, but, selection gaps that change as a result of 
         // the removal wouldn't be invalidated.
@@ -1269,7 +1267,7 @@ void SelectionController::focusedOrActiveStateChanged()
         node->setNeedsStyleRecalc();
         if (RenderObject* renderer = node->renderer())
             if (renderer && renderer->style()->hasAppearance())
-                theme()->stateChanged(renderer, FocusState);
+                renderer->theme()->stateChanged(renderer, FocusState);
     }
 
     // Secure keyboard entry is set by the active frame.
@@ -1289,8 +1287,6 @@ void SelectionController::setFocused(bool flag)
     m_focused = flag;
 
     focusedOrActiveStateChanged();
-
-    m_frame->document()->dispatchWindowEvent(flag ? eventNames().focusEvent : eventNames().blurEvent, false, false);
 }
 
 bool SelectionController::isFocusedAndActive() const

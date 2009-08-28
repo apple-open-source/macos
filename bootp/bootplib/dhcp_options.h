@@ -55,6 +55,11 @@
 #define LEN_OFFSET	1
 #define OPTION_OFFSET	2
 
+typedef struct {
+    char	str[256];
+} dhcpo_err_str_t;
+
+
 /*
  * Module: dhcpoa (dhcp options area)
  *
@@ -76,7 +81,7 @@ struct dhcpoa_s {
     int		oa_last;	/* the offset of the last option added */
     int		oa_prev_last;	/* the offset of the option previous to last */
     int		oa_option_count;/* number of options present */
-    char	oa_err[256];	/* error string */
+    dhcpo_err_str_t oa_err;	/* error string */
     int		oa_reserve; 	/* space to reserve, either 0 or 1 */
 };
 
@@ -158,7 +163,7 @@ boolean_t		dhcpol_add(dhcpol_t * list, void * element);
 void *			dhcpol_element(dhcpol_t * list, int i);
 boolean_t		dhcpol_concat(dhcpol_t * list, dhcpol_t * extra);
 boolean_t		dhcpol_parse_buffer(dhcpol_t * list, void * buffer, 
-					    int length, char * err);
+					    int length, dhcpo_err_str_t * err);
 void *			dhcpol_find(dhcpol_t * list, int tag, int * len_p, 
 				    int * start);
 void *			dhcpol_find_with_length(dhcpol_t * options,
@@ -166,10 +171,10 @@ void *			dhcpol_find_with_length(dhcpol_t * options,
 void *			dhcpol_get(dhcpol_t * list, int tag, int * len_p);
 boolean_t		dhcpol_parse_packet(dhcpol_t * options, 
 					    struct dhcp * pkt, int len,
-					    char * err);
+					    dhcpo_err_str_t * err);
 boolean_t		dhcpol_parse_vendor(dhcpol_t * vendor, 
 					    dhcpol_t * options,
-					    char * err);
+					    dhcpo_err_str_t * err);
 void			dhcpol_print(dhcpol_t * list);
 void			dhcpol_fprint(FILE * f, dhcpol_t * list);
 
@@ -183,10 +188,10 @@ void			dhcpol_fprint(FILE * f, dhcpol_t * list);
 const dhcptype_info_t *	dhcptype_info(dhcptype_t type);
 boolean_t		dhcptype_from_str(const char * str, 
 					  int type, void * buf, int * len_p,
-					  char * err);
-boolean_t		dhcptype_to_str(char * str, const void * opt, 
+					  dhcpo_err_str_t * err);
+boolean_t		dhcptype_to_str(char * str, size_t str_len, const void * opt, 
 					int len, int type, 
-					char * err);
+					dhcpo_err_str_t * err);
 void			dhcptype_print_simple(dhcptype_t type, 
 					      const void * opt, int option_len);
 void			dhcptype_print(dhcptype_t type, const void * option, 
@@ -198,10 +203,10 @@ const char *		dhcptag_name(int tag);
 boolean_t		dhcptag_from_strlist(const char * * slist, 
 					     int num, int tag, void * buf, 
 					     int * len_p, 
-					     char * err);
-boolean_t		dhcptag_to_str(char * tmp, int tag, 
+					     dhcpo_err_str_t * err);
+boolean_t		dhcptag_to_str(char * tmp, size_t tmplen, int tag, 
 				       const void * opt, int len, 
-				       char * err);
+				       dhcpo_err_str_t * err);
 boolean_t		dhcptag_print(const void * vopt);
 
 #endif _S_DHCP_OPTIONS_H

@@ -1,6 +1,0 @@
-LIBRARY_STYLE = STATIC
-STRIP_ON_INSTALL = NO
-BEFORE_INSTALL += debug profile
-override LINK_SUBPROJECTS = NO
-
-# export CCOMPILER = /usr/bin/gcc-X.X

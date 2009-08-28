@@ -111,9 +111,7 @@ orte_pls_base_module_t orte_pls_rsh_module = {
     orte_pls_rsh_finalize
 };
 
-static void set_handler_default(int sig);
-
-enum {
+typedef enum {
     ORTE_PLS_RSH_SHELL_BASH = 0,
     ORTE_PLS_RSH_SHELL_ZSH,
     ORTE_PLS_RSH_SHELL_TCSH,
@@ -121,10 +119,10 @@ enum {
     ORTE_PLS_RSH_SHELL_KSH,
     ORTE_PLS_RSH_SHELL_SH,
     ORTE_PLS_RSH_SHELL_UNKNOWN
-};
+} orte_pls_rsh_shell_t;
 
-typedef int orte_pls_rsh_shell;
-
+/* These strings *must* follow the same order as the enum
+   ORTE_PLS_RSH_SHELL_* */
 static const char * orte_pls_rsh_shell_name[] = {
     "bash",
     "zsh",
@@ -134,6 +132,12 @@ static const char * orte_pls_rsh_shell_name[] = {
     "sh",
     "unknown"
 };
+
+/*
+ * Local functions
+ */
+static void set_handler_default(int sig);
+static orte_pls_rsh_shell_t find_shell(char *shell);
 
 /* local global storage of timing variables */
 static unsigned long  mintime=999999999, miniter, maxtime=0, maxiter;
@@ -149,7 +153,8 @@ static opal_list_t active_daemons;
  * Check the Shell variable on the specified node
  */
 
-static int orte_pls_rsh_probe(orte_mapped_node_t * node, orte_pls_rsh_shell * shell)
+static int orte_pls_rsh_probe(orte_mapped_node_t *node, 
+                              orte_pls_rsh_shell_t *shell)
 {
     char ** argv;
     int argc, rc, nfds, i;
@@ -458,8 +463,7 @@ int orte_pls_rsh_launch(orte_jobid_t jobid)
     int rc;
     sigset_t sigs;
     struct passwd *p;
-    bool remote_sh = false, remote_csh = false; 
-    bool local_sh = false, local_csh = false;
+    orte_pls_rsh_shell_t local_shell, remote_shell;
     char *lib_base = NULL, *bin_base = NULL;
     orte_pls_daemon_info_t *dmn;
 
@@ -565,75 +569,54 @@ int orte_pls_rsh_launch(orte_jobid_t jobid)
     }
 
     /* What is our local shell? */
+    local_shell = ORTE_PLS_RSH_SHELL_UNKNOWN;
     p = getpwuid(getuid());
     if (NULL != p) {
-        int i         = 0;
-        char *sh_name = NULL;
+        param = p->pw_shell;
+        local_shell = find_shell(p->pw_shell);
+    }
+    /* If we didn't find it in getpwuid(), try looking at the $SHELL
+       environment variable (see
+       https://svn.open-mpi.org/trac/ompi/ticket/1060) */
+    if (ORTE_PLS_RSH_SHELL_UNKNOWN == local_shell && 
+        NULL != (param = getenv("SHELL"))) {
+        local_shell = find_shell(param);
+    }
 
-        sh_name = rindex(p->pw_shell, '/');
-        sh_name++;
-        for (i = 0; i < (int)(sizeof (orte_pls_rsh_shell_name)/
-                              sizeof(orte_pls_rsh_shell_name[0])); i++) {
-            if ( 0 == strcmp(sh_name, orte_pls_rsh_shell_name[i]) ) {
-                switch (i) {
-                case ORTE_PLS_RSH_SHELL_SH:  /* fall through */
-                case ORTE_PLS_RSH_SHELL_KSH: /* fall through */
-                case ORTE_PLS_RSH_SHELL_ZSH: /* fall through */
-                case ORTE_PLS_RSH_SHELL_BASH: local_sh = true; break;
-                case ORTE_PLS_RSH_SHELL_TCSH: /* fall through */
-                case ORTE_PLS_RSH_SHELL_CSH:  local_csh = true; break;
-                default:
-                    opal_output(0, "WARNING: local probe returned unhandled shell:%s assuming bash\n",
-                                orte_pls_rsh_shell_name[i]);
-                    remote_sh = true;
-                    break;
-                }
-            }
-        }
-        if ( i == ORTE_PLS_RSH_SHELL_UNKNOWN ) {
-            opal_output(0, "WARNING: local probe returned unhandled shell:%s assuming bash\n",
-                        orte_pls_rsh_shell_name[i]);
-            remote_sh = true;
-        }
-        
-        if (mca_pls_rsh_component.debug) {
-            opal_output(0, "pls:rsh: local csh: %d, local sh: %d\n",
-                        local_csh, local_sh);
-        }
+    if (ORTE_PLS_RSH_SHELL_UNKNOWN == local_shell) {
+        opal_output(0, "WARNING: local probe returned unhandled shell (%s) -- assuming bash\n",
+                    (NULL != param) ? param : "unknown");
+        local_shell = ORTE_PLS_RSH_SHELL_BASH;
+    }
+
+    if (mca_pls_rsh_component.debug) {
+        opal_output(0, "pls:rsh: local shell: %d (%s)",
+                    local_shell, orte_pls_rsh_shell_name[local_shell]);
     }
 
     /* What is our remote shell? */
     if (mca_pls_rsh_component.assume_same_shell) {
-        remote_sh = local_sh;
-        remote_csh = local_csh;
+        remote_shell = local_shell;
         if (mca_pls_rsh_component.debug) {
             opal_output(0, "pls:rsh: assuming same remote shell as local shell");
         }
     } else {
-        orte_pls_rsh_shell shell;
         rmaps_node = (orte_mapped_node_t*)opal_list_get_first(&map->nodes);
-        rc = orte_pls_rsh_probe(rmaps_node, &shell);
+        rc = orte_pls_rsh_probe(rmaps_node, &remote_shell);
 
         if (ORTE_SUCCESS != rc) {
             ORTE_ERROR_LOG(rc);
             return rc;
         }
 
-        switch (shell) {
-        case ORTE_PLS_RSH_SHELL_SH:  /* fall through */
-        case ORTE_PLS_RSH_SHELL_KSH: /* fall through */
-        case ORTE_PLS_RSH_SHELL_BASH: remote_sh = true; break;
-        case ORTE_PLS_RSH_SHELL_TCSH: /* fall through */
-        case ORTE_PLS_RSH_SHELL_CSH:  remote_csh = true; break;
-        default:
-            opal_output(0, "WARNING: rsh probe returned unhandled shell:%s assuming bash\n",
-                        orte_pls_rsh_shell_name[shell]);
-            remote_sh = true;
+        if (ORTE_PLS_RSH_SHELL_UNKNOWN == remote_shell) {
+            opal_output(0, "WARNING: rsh probe returned unhandled shell; assuming bash\n");
+            remote_shell = ORTE_PLS_RSH_SHELL_BASH;
         }
     }
     if (mca_pls_rsh_component.debug) {
-        opal_output(0, "pls:rsh: remote csh: %d, remote sh: %d\n",
-                    remote_csh, remote_sh);
+        opal_output(0, "pls:rsh: remote shell: %d (%s)",
+                    remote_shell, orte_pls_rsh_shell_name[local_shell]);
     }
 
     /*
@@ -644,9 +627,15 @@ int orte_pls_rsh_launch(orte_jobid_t jobid)
     node_name_index1 = argc;
     opal_argv_append(&argc, &argv, "<template>");
 
-    /* Do we need to source .profile on the remote side? */
+    /* Do we need to source .profile on the remote side?
+       - sh: yes (see bash(1))
+       - ksh: yes (see ksh(1))
+       - bash: no (see bash(1))
+       - [t]csh: no (see csh(1) and tcsh(1))
+       - zsh: no (see http://zsh.sourceforge.net/FAQ/zshfaq03.html#l19) */
 
-    if (!(remote_csh || remote_sh)) {
+    if (ORTE_PLS_RSH_SHELL_SH == remote_shell ||
+        ORTE_PLS_RSH_SHELL_KSH == remote_shell) {
         int i;
         tmp = opal_argv_split("( test ! -r ./.profile || . ./.profile;", ' ');
         if (NULL == tmp) {
@@ -716,7 +705,8 @@ int orte_pls_rsh_launch(orte_jobid_t jobid)
     free(param);
 
     local_exec_index_end = argc;
-    if (!(remote_csh || remote_sh)) {
+    if (ORTE_PLS_RSH_SHELL_SH == remote_shell ||
+        ORTE_PLS_RSH_SHELL_KSH == remote_shell) {
         opal_argv_append(&argc, &argv, ")");
     }
     if (mca_pls_rsh_component.debug) {
@@ -731,10 +721,10 @@ int orte_pls_rsh_launch(orte_jobid_t jobid)
     /* Figure out the basenames for the libdir and bindir.  This
        requires some explanation:
 
-       - Use opal_install_dirs.libdir and opal_install_dirs.bindir instead of -D'ing some macros
-         in this directory's Makefile.am because it makes all the
-         dependencies work out correctly.  These are defined in
-         opal/install_dirs.h.
+       - Use opal_install_dirs.libdir and opal_install_dirs.bindir
+         instead of -D'ing some macros in this directory's Makefile.am
+         because it makes all the dependencies work out correctly.
+         These are defined in opal/install_dirs.h.
 
        - After a discussion on the devel-core mailing list, the
          developers decided that we should use the local directory
@@ -846,10 +836,11 @@ int orte_pls_rsh_launch(orte_jobid_t jobid)
                             rmaps_node->nodename);
             }
 
-            /* We don't need to sense an oversubscribed condition and set the sched_yield
-             * for the node as we are only launching the daemons at this time. The daemons
-             * are now smart enough to set the oversubscribed condition themselves when
-             * they launch the local procs.
+            /* We don't need to sense an oversubscribed condition and
+             * set the sched_yield for the node as we are only
+             * launching the daemons at this time. The daemons are now
+             * smart enough to set the oversubscribed condition
+             * themselves when they launch the local procs.
              */
 
             /* Is this a local launch?
@@ -980,7 +971,10 @@ int orte_pls_rsh_launch(orte_jobid_t jobid)
 
                 if (NULL != prefix_dir) {
                     char *opal_prefix = getenv("OPAL_PREFIX");
-                    if (remote_sh) {
+                    if (ORTE_PLS_RSH_SHELL_SH == remote_shell ||
+                        ORTE_PLS_RSH_SHELL_BASH == remote_shell ||
+                        ORTE_PLS_RSH_SHELL_KSH == remote_shell ||
+                        ORTE_PLS_RSH_SHELL_ZSH == remote_shell) {
                         asprintf (&argv[local_exec_index],
                                   "%s%s%s PATH=%s/%s:$PATH ; export PATH ; "
                                   "LD_LIBRARY_PATH=%s/%s:$LD_LIBRARY_PATH ; export LD_LIBRARY_PATH ; "
@@ -992,8 +986,8 @@ int orte_pls_rsh_launch(orte_jobid_t jobid)
                                   prefix_dir, lib_base,
                                   prefix_dir, bin_base,
                                   mca_pls_rsh_component.orted);
-                    }
-                    if (remote_csh) {
+                    } else if (ORTE_PLS_RSH_SHELL_CSH == remote_shell ||
+                               ORTE_PLS_RSH_SHELL_TCSH == remote_shell) {
                         /* [t]csh is a bit more challenging -- we
                            have to check whether LD_LIBRARY_PATH
                            is already set before we try to set it.
@@ -1360,4 +1354,24 @@ static void set_handler_default(int sig)
     sigemptyset(&act.sa_mask);
 
     sigaction(sig, &act, (struct sigaction *)0);
+}
+
+
+static orte_pls_rsh_shell_t find_shell(char *shell) 
+{
+    int i         = 0;
+    char *sh_name = NULL;
+
+    sh_name = rindex(shell, '/');
+    /* skip the '/' */
+    ++sh_name;
+    for (i = 0; i < (int)(sizeof (orte_pls_rsh_shell_name) /
+                          sizeof(orte_pls_rsh_shell_name[0])); ++i) {
+        if (0 == strcmp(sh_name, orte_pls_rsh_shell_name[i])) {
+            return i;
+        }
+    }
+
+    /* We didn't find it */
+    return ORTE_PLS_RSH_SHELL_UNKNOWN;
 }

@@ -1,0 +1,251 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+<link rel="STYLESHEET" href="mailman-install.css" type='text/css' />
+<link rel="first" href="mailman-install.html" title='GNU mailman - installation Manual' />
+<link rel='last' href='about.html' title='About this document...' />
+<link rel='help' href='about.html' title='About this document...' />
+<link rel="next" href="node8.html" />
+<link rel="prev" href="node6.html" />
+<link rel="parent" href="node6.html" />
+<link rel="next" href="node8.html" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name='aesop' content='information' />
+<title>3.1 Run configure</title>
+</head>
+<body>
+<div class="navigation">
+<div id='top-navigation-panel' xml:id='top-navigation-panel'>
+<table align="center" width="100%" cellpadding="0" cellspacing="2">
+<tr>
+<td class='online-navigation'><a rel="prev" title="3 build and install"
+  href="node6.html"><img src='previous.png'
+  border='0' height='32'  alt='Previous Page' width='32' /></a></td>
+<td class='online-navigation'><a rel="parent" title="3 build and install"
+  href="node6.html"><img src='up.png'
+  border='0' height='32'  alt='Up one Level' width='32' /></a></td>
+<td class='online-navigation'><a rel="next" title="3.2 make and install"
+  href="node8.html"><img src='next.png'
+  border='0' height='32'  alt='Next Page' width='32' /></a></td>
+<td align="center" width="100%">GNU Mailman - Installation Manual</td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+</tr></table>
+<div class='online-navigation'>
+<b class="navlabel">Previous:</b>
+<a class="sectref" rel="prev" href="node6.html">3 Build and install</a>
+<b class="navlabel">Up:</b>
+<a class="sectref" rel="parent" href="node6.html">3 Build and install</a>
+<b class="navlabel">Next:</b>
+<a class="sectref" rel="next" href="node8.html">3.2 Make and install</a>
+</div>
+<hr /></div>
+</div>
+<!--End of Navigation Panel-->
+
+<h2><a name="SECTION001310000000000000000">
+3.1 Run <b class="program">configure</b></a>
+</h2>
+
+<p>
+Before you can install Mailman, you must run <b class="program">configure</b> to set
+various installation options your system might need.
+
+<p>
+<div class="note"><b class="label">Note:</b>
+
+Take special note of the <b class="programopt">--with-mail-gid</b> and
+<b class="programopt">--with-cgi-gid</b> options below.  You will probably need to use
+these.
+</div>
+
+<p>
+You should <strong>not</strong> be root while performing the steps in this section.
+Do them under your own login, or whatever account you typically use to install
+software.  You do not need to do these steps as user <code>mailman</code>, but you
+could.  However, make sure that the login used is a member of the
+<code>mailman</code> group as that that group has write permissions to the
+<var>$prefix</var> directory made in the previous step.  You must also have
+permission to create a setgid file in the file system where it resides (NFS
+and other mounts can be configured to inhibit setgid settings).
+
+<p>
+If you've installed other GNU software, you should be familiar with the
+<b class="program">configure</b> script.  Usually you can just <b class="program">cd</b> to the
+directory you unpacked the Mailman source tarball into, and run
+<b class="program">configure</b> with no arguments:
+
+<p>
+<div class="verbatim"><pre>
+  % cd mailman-&lt;version&gt;
+  % ./configure
+  % make install
+</pre></div>
+
+<p>
+The following options allow you to customize your Mailman
+installation.
+
+<p>
+<dl>
+<dt><strong><b class="programopt">--prefix</b>=<var>dir</var></strong></dt>
+<dd>Standard GNU configure option which changes the base directory that
+    Mailman is installed into.  By default <var>$prefix</var> is
+    <span class="file">/usr/local/mailman</span>.  This directory must already exist, and be set
+    up as described in <a href="create-install-dir.html#create-install-dir">2.2</a>.
+
+<p>
+</dd>
+<dt><strong><b class="programopt">--exec-prefix</b>=<var>dir</var></strong></dt>
+<dd>Standard GNU configure option which lets you specify a different
+    installation directory for architecture dependent binaries.
+
+<p>
+</dd>
+<dt><strong><b class="programopt">--with-var-prefix</b>=<var>dir</var></strong></dt>
+<dd>Store mutable data under <var>dir</var> instead of under the <var>$prefix</var> or
+    <var>$exec_prefix</var>.  Examples of such data include the list archives and
+    list settings database.
+
+<p>
+</dd>
+<dt><strong><b class="programopt">--with-python</b>=<span class="file">/path/to/python</span></strong></dt>
+<dd>Specify an alternative Python interpreter to use for the wrapper programs.
+    The default is to use the interpreter found first on your shell's
+    <var>$PATH</var>.
+
+<p>
+</dd>
+<dt><strong><b class="programopt">--with-username</b>=<var>username-or-uid</var></strong></dt>
+<dd>Specify a different username than <code>mailman</code>.  The value of this
+    option can be an integer user id or a user name.  Be sure your
+    <var>$prefix</var> directory is owned by this user.
+
+<p>
+</dd>
+<dt><strong><b class="programopt">--with-groupname</b>=<var>groupname-or-gid</var></strong></dt>
+<dd>Specify a different groupname than <code>mailman</code>.  The value of this
+    option can be an integer group id or a group name.  Be sure your
+    <var>$prefix</var> directory is group-owned by this group.
+
+<p>
+</dd>
+<dt><strong><b class="programopt">--with-mail-gid</b>=<var>group-or-groups</var></strong></dt>
+<dd>Specify an alternative group for running scripts via the mail wrapper.
+    <var>group-or-groups</var> can be a list of one or more integer group ids or
+    symbolic group names.  The first value in the list that resolves to an
+    existing group is used.  By default, the value is the list <code>mailman</code>,
+    <code>other</code>, <code>mail</code>, and <code>daemon</code>.
+
+<p>
+<div class="note"><b class="label">Note:</b>
+
+    This is highly system dependent and you must get this right, because the
+    group id is compiled into the mail wrapper program for added security.  On
+    systems using <b class="program">sendmail</b>, the <span class="file">sendmail.cf</span> configuration
+    file designates the group id of <b class="program">sendmail</b> processes using the
+    <var>DefaultUser</var> option.  (If commented out, it still may be indicating
+    the default...)
+    </div>
+
+<p>
+Check your mail server's documentation and configuration files to find the
+    right value for this switch.
+
+<p>
+</dd>
+<dt><strong><b class="programopt">--with-cgi-gid</b>=<var>group-or-groups</var></strong></dt>
+<dd>Specify an alternative group for running scripts via the CGI wrapper.
+    <var>group-or-groups</var> can be a list of one or more integer group ids or
+    symbolic group names.  The first value in the list that resolves to an
+    existing group is used.  By default, the value is the the list
+    <code>www</code>, <code>www-data</code>, and <code>nobody</code>.
+
+<p>
+<div class="note"><b class="label">Note:</b>
+
+    The proper value for this is dependent on your web server configuration.
+    You must get this right, because the group id is compiled into the CGI
+    wrapper program for added security, and no Mailman CGI scripts will run if
+    this is incorrect.
+    </div>
+
+<p>
+If you're using Apache, check the values for the <var>Group</var> option in
+    your <span class="file">httpd.conf</span> file.
+
+<p>
+</dd>
+<dt><strong><b class="programopt">--with-cgi-ext</b>=<var>extension</var></strong></dt>
+<dd>Specify an extension for cgi-bin programs.  The CGI wrappers placed in
+    <span class="file"><var>$prefix</var>/cgi-bin</span> will have this extension (some web servers
+    require an extension).  <var>extension</var> must include the leading dot.
+
+<p>
+</dd>
+<dt><strong><b class="programopt">--with-mailhost</b>=<var>hostname</var></strong></dt>
+<dd>Specify the fully qualified host name part for outgoing email.  After the
+    installation is complete, this value can be overriden in
+    <span class="file"><var>$prefix</var>/Mailman/mm_cfg.py</span>.
+
+<p>
+</dd>
+<dt><strong><b class="programopt">--with-urlhost</b>=<var>hostname</var></strong></dt>
+<dd>Specify the fully qualified host name part of urls.  After the
+    installation is complete, this value can be overriden in
+    <span class="file"><var>$prefix</var>/Mailman/mm_cfg.py</span>.
+
+<p>
+</dd>
+<dt><strong><b class="programopt">--with-gcc</b>=no</strong></dt>
+<dd>Don't use gcc, even if it is found.  In this case, <b class="program">cc</b> must be
+    found on your <var>$PATH</var>.
+
+<p>
+</dd>
+</dl>
+
+<p>
+
+<div class="navigation">
+<div class='online-navigation'>
+<p></p><hr />
+<table align="center" width="100%" cellpadding="0" cellspacing="2">
+<tr>
+<td class='online-navigation'><a rel="prev" title="3 build and install"
+  href="node6.html"><img src='previous.png'
+  border='0' height='32'  alt='Previous Page' width='32' /></a></td>
+<td class='online-navigation'><a rel="parent" title="3 build and install"
+  href="node6.html"><img src='up.png'
+  border='0' height='32'  alt='Up one Level' width='32' /></a></td>
+<td class='online-navigation'><a rel="next" title="3.2 make and install"
+  href="node8.html"><img src='next.png'
+  border='0' height='32'  alt='Next Page' width='32' /></a></td>
+<td align="center" width="100%">GNU Mailman - Installation Manual</td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+</tr></table>
+<div class='online-navigation'>
+<b class="navlabel">Previous:</b>
+<a class="sectref" rel="prev" href="node6.html">3 Build and install</a>
+<b class="navlabel">Up:</b>
+<a class="sectref" rel="parent" href="node6.html">3 Build and install</a>
+<b class="navlabel">Next:</b>
+<a class="sectref" rel="next" href="node8.html">3.2 Make and install</a>
+</div>
+</div>
+<hr />
+<span class="release-info">Release 2.1, documentation updated on January 11, 2009.</span>
+</div>
+<!--End of Navigation Panel-->
+
+</body>
+</html>

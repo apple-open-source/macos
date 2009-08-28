@@ -1,3 +1,4 @@
+#! /usr/bin/env python
 """Throw email at Mailman as fast as you can.
 
 This is not a unit test, it's a functional test, so you can't run it within

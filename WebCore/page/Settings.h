@@ -163,6 +163,9 @@ namespace WebCore {
         void setNeedsKeyboardEventDisambiguationQuirks(bool);
         bool needsKeyboardEventDisambiguationQuirks() const { return m_needsKeyboardEventDisambiguationQuirks; }
 
+        void setTreatsAnyTextCSSLinkAsStylesheet(bool);
+        bool treatsAnyTextCSSLinkAsStylesheet() const { return m_treatsAnyTextCSSLinkAsStylesheet; }
+
         void setNeedsLeopardMailQuirks(bool);
         bool needsLeopardMailQuirks() const { return m_needsLeopardMailQuirks; }
 
@@ -202,6 +205,9 @@ namespace WebCore {
         void setWebArchiveDebugModeEnabled(bool);
         bool webArchiveDebugModeEnabled() const { return m_webArchiveDebugModeEnabled; }
 
+        void setLocalFileContentSniffingEnabled(bool);
+        bool localFileContentSniffingEnabled() const { return m_localFileContentSniffingEnabled; }
+
         void setLocalStorageDatabasePath(const String&);
         const String& localStorageDatabasePath() const { return m_localStorageDatabasePath; }
         
@@ -237,6 +243,12 @@ namespace WebCore {
         
         void setDownloadableBinaryFontsEnabled(bool);
         bool downloadableBinaryFontsEnabled() const { return m_downloadableBinaryFontsEnabled; }
+
+        void setXSSAuditorEnabled(bool);
+        bool xssAuditorEnabled() const { return m_xssAuditorEnabled; }
+
+        void setAcceleratedCompositingEnabled(bool);
+        bool acceleratedCompositingEnabled() const { return m_acceleratedCompositingEnabled; }
 
     private:
         Page* m_page;
@@ -276,6 +288,7 @@ namespace WebCore {
 #endif
         bool m_needsAdobeFrameReloadingQuirk : 1;
         bool m_needsKeyboardEventDisambiguationQuirks : 1;
+        bool m_treatsAnyTextCSSLinkAsStylesheet : 1;
         bool m_needsLeopardMailQuirks : 1;
         bool m_needsTigerMailQuirks : 1;
         bool m_isDOMPasteAllowed : 1;
@@ -288,6 +301,7 @@ namespace WebCore {
         bool m_needsSiteSpecificQuirks : 1;
         unsigned m_fontRenderingMode : 1;
         bool m_webArchiveDebugModeEnabled : 1;
+        bool m_localFileContentSniffingEnabled : 1;
         bool m_inApplicationChromeMode : 1;
         bool m_offlineWebApplicationCacheEnabled : 1;
         bool m_shouldPaintCustomScrollbars : 1;
@@ -297,6 +311,8 @@ namespace WebCore {
         bool m_allowScriptsToCloseWindows : 1;
         unsigned m_editingBehavior : 1;
         bool m_downloadableBinaryFontsEnabled : 1;
+        bool m_xssAuditorEnabled : 1;
+        bool m_acceleratedCompositingEnabled : 1;
 
 #if USE(SAFARI_THEME)
         static bool gShouldPaintNativeControls;

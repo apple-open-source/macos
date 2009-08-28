@@ -1,10 +1,10 @@
-#ifndef LRAD_TOKEN_H
-#define LRAD_TOKEN_H
+#ifndef FR_TOKEN_H
+#define FR_TOKEN_H
 
 /*
  * token.h	Special tokens.
  *
- * $Id: token.h,v 1.12 2004/02/26 19:04:20 aland Exp $
+ * $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -18,58 +18,62 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2001  The FreeRADIUS server project
+ * Copyright 2001,2006  The FreeRADIUS server project
  */
 
-typedef enum lrad_token_t {
-  T_INVALID = 0,		/* invalid token */
+#include <freeradius-devel/ident.h>
+RCSIDH(token_h, "$Id$")
+
+typedef enum fr_token_t {
+  T_OP_INVALID = 0,		/* invalid token */
   T_EOL,			/* end of line */
   T_LCBRACE,			/* { */
   T_RCBRACE,			/* } */
   T_LBRACE,			/* ( */
-  T_RBRACE,			/* ) */
+  T_RBRACE,			/* ) 		 5 */
   T_COMMA,			/* , */
   T_SEMICOLON,			/* ; */
 
   T_OP_ADD,			/* += */
   T_OP_SUB,			/* -= */
-  T_OP_SET,			/* := */
+  T_OP_SET,			/* := 		10 */
   T_OP_EQ,			/* = */
   T_OP_NE,			/* != */
   T_OP_GE,			/* >= */
   T_OP_GT,			/* > */
-  T_OP_LE,			/* <= */
+  T_OP_LE,			/* <= 		15 */
   T_OP_LT,			/* < */
   T_OP_REG_EQ,			/* =~ */
   T_OP_REG_NE,			/* !~ */
   T_OP_CMP_TRUE,                /* =* */
-  T_OP_CMP_FALSE,               /* !* */
+  T_OP_CMP_FALSE,               /* !* 		20 */
   T_OP_CMP_EQ,			/* == */
   T_HASH,			/* # */
   T_BARE_WORD,			/* bare word */
   T_DOUBLE_QUOTED_STRING,	/* "foo" */
-  T_SINGLE_QUOTED_STRING,	/* 'foo' */
+  T_SINGLE_QUOTED_STRING,	/* 'foo' 	25 */
   T_BACK_QUOTED_STRING,		/* `foo` */
   T_TOKEN_LAST
-} LRAD_TOKEN;
+} FR_TOKEN;
 
 #define T_EQSTART	T_OP_ADD
 #define	T_EQEND		(T_OP_CMP_EQ + 1)
 
-typedef struct LRAD_NAME_NUMBER {
+typedef struct FR_NAME_NUMBER {
 	const char	*name;
 	int		number;
-} LRAD_NAME_NUMBER;
+} FR_NAME_NUMBER;
 
-int lrad_str2int(const LRAD_NAME_NUMBER *table, const char *name, int def);
-const char *lrad_int2str(const LRAD_NAME_NUMBER *table, int number,
+int fr_str2int(const FR_NAME_NUMBER *table, const char *name, int def);
+const char *fr_int2str(const FR_NAME_NUMBER *table, int number,
 			 const char *def);
 
 
-int		getword (char **ptr, char *buf, int buflen);
-int		getbareword (char **ptr, char *buf, int buflen);
-LRAD_TOKEN	gettoken(char **ptr, char *buf, int buflen);
+int		getword (const char **ptr, char *buf, int buflen);
+int		getbareword (const char **ptr, char *buf, int buflen);
+FR_TOKEN	gettoken(const char **ptr, char *buf, int buflen);
+FR_TOKEN	getstring(const char **ptr, char *buf, int buflen);
 
-#endif /* LRAD_TOKEN_H */
+#endif /* FR_TOKEN_H */

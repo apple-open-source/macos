@@ -102,7 +102,7 @@
 
 #define VSTRING_ADDNUM(vp, n) { \
 	VSTRING_SPACE(vp, INT_SPACE); \
-	sprintf(vstring_end(vp), "%d", n); \
+	snprintf(vstring_end(vp), INT_SPACE, "%d", n); \
 	VBUF_SKIP(&vp->vbuf); \
     }
 
@@ -125,6 +125,7 @@ VBUF   *vbuf_print(VBUF *bp, const char *format, va_list ap)
     unsigned long_flag;			/* long or plain integer */
     int     ch;
     char   *s;
+    size_t size;
 
     /*
      * Assume that format strings are short.
@@ -210,9 +211,10 @@ VBUF   *vbuf_print(VBUF *bp, const char *format, va_list ap)
 	    case 's':				/* string-valued argument */
 		s = va_arg(ap, char *);
 		if (prec > 0 || (width > 0 && width > strlen(s))) {
-		    if (VBUF_SPACE(bp, (width > prec ? width : prec) + INT_SPACE))
+		    size = (width > prec ? width : prec) + INT_SPACE;
+		    if (VBUF_SPACE(bp, size))
 			return (bp);
-		    sprintf((char *) bp->ptr, vstring_str(fmt), s);
+		    snprintf((char *) bp->ptr, size, vstring_str(fmt), s);
 		    VBUF_SKIP(bp);
 		} else {
 		    VBUF_STRCAT(bp, s);
@@ -224,29 +226,32 @@ VBUF   *vbuf_print(VBUF *bp, const char *format, va_list ap)
 	    case 'o':
 	    case 'x':
 	    case 'X':
-		if (VBUF_SPACE(bp, (width > prec ? width : prec) + INT_SPACE))
+		size = (width > prec ? width : prec) + INT_SPACE;
+		if (VBUF_SPACE(bp, size))
 		    return (bp);
 		if (long_flag)
-		    sprintf((char *) bp->ptr, vstring_str(fmt), va_arg(ap, long));
+		    snprintf((char *) bp->ptr, size, vstring_str(fmt), va_arg(ap, long));
 		else
-		    sprintf((char *) bp->ptr, vstring_str(fmt), va_arg(ap, int));
+		    snprintf((char *) bp->ptr, size, vstring_str(fmt), va_arg(ap, int));
 		VBUF_SKIP(bp);
 		break;
 	    case 'e':				/* float-valued argument */
 	    case 'f':
 	    case 'g':
-		if (VBUF_SPACE(bp, (width > prec ? width : prec) + DBL_SPACE))
+		size = (width > prec ? width : prec) + DBL_SPACE;
+		if (VBUF_SPACE(bp, size))
 		    return (bp);
-		sprintf((char *) bp->ptr, vstring_str(fmt), va_arg(ap, double));
+		snprintf((char *) bp->ptr, size, vstring_str(fmt), va_arg(ap, double));
 		VBUF_SKIP(bp);
 		break;
 	    case 'm':
 		VBUF_STRCAT(bp, strerror(errno));
 		break;
 	    case 'p':
-		if (VBUF_SPACE(bp, (width > prec ? width : prec) + PTR_SPACE))
+		size = (width > prec ? width : prec) + PTR_SPACE;
+		if (VBUF_SPACE(bp, size))
 		    return (bp);
-		sprintf((char *) bp->ptr, vstring_str(fmt), va_arg(ap, char *));
+		snprintf((char *) bp->ptr, size, vstring_str(fmt), va_arg(ap, char *));
 		VBUF_SKIP(bp);
 		break;
 	    default:				/* anything else is bad */

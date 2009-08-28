@@ -26,10 +26,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <Security/SecKeychain.h>
-#include <Security/SecKeychainSearch.h>
-#include <Security/SecCertificate.h>
-#include <Security/SecCertificatePriv.h>
 #include <Security/oidscert.h>
 #include <Security/cssmapi.h>
 #include <Security/cssmapple.h>

@@ -338,7 +338,7 @@ PLCache_write(PLCache_t * cache, const char * filename)
     PLCacheEntry_t *	scan;
     char		tmp_filename[256];
 
-    sprintf(tmp_filename, "%s-", filename);
+    snprintf(tmp_filename, sizeof(tmp_filename), "%s-", filename);
     file = fopen(tmp_filename, "w");
     if (file == NULL) {
 	perror(tmp_filename);

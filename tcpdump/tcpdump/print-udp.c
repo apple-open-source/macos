@@ -21,7 +21,7 @@
 
 #ifndef lint
 static const char rcsid[] _U_ =
-    "@(#) $Header: /tcpdump/master/tcpdump/print-udp.c,v 1.138.2.1 2007/03/28 07:45:46 hannes Exp $ (LBL)";
+    "@(#) $Header: /tcpdump/master/tcpdump/print-udp.c,v 1.142 2007-08-08 17:20:58 hannes Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -568,7 +568,7 @@ udp_print(register const u_char *bp, u_int length,
 	}
 	udpipaddr_print(ip, sport, dport);
 
-	if (IP_V(ip) == 4 && (vflag > 1) && !fragmented) {
+	if (!Kflag && IP_V(ip) == 4 && (vflag > 1) && !fragmented) {
 		int sum = up->uh_sum;
 		if (sum == 0) {
 			(void)printf("[no cksum] ");
@@ -581,7 +581,7 @@ udp_print(register const u_char *bp, u_int length,
 		}
 	}
 #ifdef INET6
-	if (IP_V(ip) == 6 && ip6->ip6_plen && vflag && !fragmented) {
+	if (!Kflag && IP_V(ip) == 6 && ip6->ip6_plen && vflag && !fragmented) {
 		int sum = up->uh_sum;
 		/* for IPv6, UDP checksum is mandatory */
 		if (TTEST2(cp[0], length)) {
@@ -683,6 +683,16 @@ udp_print(register const u_char *bp, u_int length,
 			bfd_print((const u_char *)(up+1), length, dport);
                 else if (ISPORT(LMP_PORT))
 			lmp_print((const u_char *)(up + 1), length);
+		else if (ISPORT(VQP_PORT))
+			vqp_print((const u_char *)(up + 1), length);
+                else if (ISPORT(SFLOW_PORT))
+                        sflow_print((const u_char *)(up + 1), length);
+	        else if (dport == LWAPP_CONTROL_PORT)
+			lwapp_control_print((const u_char *)(up + 1), length, 1);
+                else if (sport == LWAPP_CONTROL_PORT)
+                        lwapp_control_print((const u_char *)(up + 1), length, 0);
+                else if (ISPORT(LWAPP_DATA_PORT))
+                        lwapp_data_print((const u_char *)(up + 1), length);
                 else if (ISPORT(SIP_PORT))
 			sip_print((const u_char *)(up + 1), length);
                 else if (ISPORT(SYSLOG_PORT))

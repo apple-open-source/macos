@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT:
- * Copyright (c) 2005-2006, International Business Machines Corporation and
+ * Copyright (c) 2005-2008, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 #include "unicode/utypes.h"
@@ -159,34 +159,72 @@ static void TestFractionDigitOverride(void) {
     UNumberFormat *fmt = unum_open(UNUM_CURRENCY, NULL, 0, "hu_HU", NULL, &status);
     UChar buffer[256];
     UChar expectedBuf[256];
-    const char expectedFirst[] = "123,46 Ft";
-    const char expectedSecond[] = "123 Ft";
-    const char expectedThird[] = "123,456 Ft";
+    const char expectedFirst[] = "123\\u00A0Ft";
+    const char expectedSecond[] = "123,46\\u00A0Ft";
+    const char expectedThird[] = "123,456\\u00A0Ft";
     if (U_FAILURE(status)) {
        log_err("Error: unum_open returned %s\n", myErrorName(status));
        return;
     }
     /* Make sure that you can format normal fraction digits. */
     unum_formatDouble(fmt, 123.456, buffer, sizeof(buffer)/sizeof(buffer[0]), NULL, &status);
-    u_charsToUChars(expectedFirst, expectedBuf, strlen(expectedFirst)+1);
+    u_unescape(expectedFirst, expectedBuf, strlen(expectedFirst)+1);
     if (u_strcmp(buffer, expectedBuf) != 0) {
        log_err("Error: unum_formatDouble didn't return %s\n", expectedFirst);
     }
-    /* Make sure that you can format no fraction digits. */
-    unum_setAttribute(fmt, UNUM_FRACTION_DIGITS, 0);
+    /* Make sure that you can format 2 fraction digits. */
+    unum_setAttribute(fmt, UNUM_FRACTION_DIGITS, 2);
     unum_formatDouble(fmt, 123.456, buffer, sizeof(buffer)/sizeof(buffer[0]), NULL, &status);
-    u_charsToUChars(expectedSecond, expectedBuf, strlen(expectedSecond)+1);
+    u_unescape(expectedSecond, expectedBuf, strlen(expectedSecond)+1);
     if (u_strcmp(buffer, expectedBuf) != 0) {
        log_err("Error: unum_formatDouble didn't return %s\n", expectedSecond);
     }
     /* Make sure that you can format more fraction digits. */
     unum_setAttribute(fmt, UNUM_FRACTION_DIGITS, 3);
     unum_formatDouble(fmt, 123.456, buffer, sizeof(buffer)/sizeof(buffer[0]), NULL, &status);
-    u_charsToUChars(expectedThird, expectedBuf, strlen(expectedThird)+1);
+    u_unescape(expectedThird, expectedBuf, strlen(expectedThird)+1);
     if (u_strcmp(buffer, expectedBuf) != 0) {
        log_err("Error: unum_formatDouble didn't return %s\n", expectedThird);
     }
     unum_close(fmt);
+}
+
+static void TestPrefixSuffix(void) {
+    int32_t	pos;
+    UErrorCode status;
+    double result1 = 0.0, result2 = 0.0;
+    UNumberFormat* parser;
+    UChar buffer[4];
+    static const UChar TEST_NUMBER[] = {0x0024,0x0031,0x0032,0x002E,0x0030,0x0030,0}; /* $12.00 */
+    static const UChar NEG_PREFIX[] = {0x005B,0}; /* "[" */
+    static const UChar NEG_SUFFIX[] = {0x005D,0}; /* "]" */
+
+
+	status = U_ZERO_ERROR;
+	parser = unum_open(UNUM_CURRENCY, NULL, -1, "en_US", NULL, &status);
+    if (U_FAILURE(status)) {
+       log_err("Error: unum_open returned %s\n", u_errorName(status));
+       return;
+    }
+
+	pos = 0;
+	status = U_ZERO_ERROR;
+	result1 = unum_parseDoubleCurrency(parser, TEST_NUMBER, -1, &pos, buffer, &status);
+
+	unum_setTextAttribute(parser, UNUM_NEGATIVE_SUFFIX, NEG_SUFFIX, -1, &status);
+	unum_setTextAttribute(parser, UNUM_NEGATIVE_PREFIX, NEG_PREFIX, -1, &status);
+    if (U_FAILURE(status)) {
+       log_err("Error: unum_setTextAttribute returned %s\n", u_errorName(status));
+       return;
+    }
+
+	pos = 0;
+	result2 = unum_parseDoubleCurrency(parser, TEST_NUMBER, -1, &pos, buffer, &status);
+    if (result1 != result2 || U_FAILURE(status)) {
+       log_err("Error: unum_parseDoubleCurrency didn't return the same value for same string %f %f %s\n",
+           result1, result2, u_errorName(status));
+    }
+    unum_close(parser);
 }
 
 void addCurrencyTest(TestNode** root);
@@ -199,6 +237,7 @@ void addCurrencyTest(TestNode** root)
     TESTCASE(TestEnumListReset);
     TESTCASE(TestEnumListCount);
     TESTCASE(TestFractionDigitOverride);
+    TESTCASE(TestPrefixSuffix);
 }
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

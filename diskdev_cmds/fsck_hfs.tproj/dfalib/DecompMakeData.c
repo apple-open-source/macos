@@ -12,7 +12,7 @@
 		Revision 1.2  2002/12/20 01:20:36  lindak
 		Merged PR-2937515-2 into ZZ100
 		Old HFS+ decompositions need to be repaired
-
+		
 		Revision 1.1.4.1  2002/12/16 18:55:22  jcotting
 		integrated code from text group (Peter Edberg) that will correct some
 		illegal names created with obsolete Unicode 2.1.2 decomposition rules
@@ -457,12 +457,12 @@ int main(int argc, char *argv[]) {
 	u_int32_t						replDataCount;
 
 	// print header stuff
-plog("/*\n");
-plog("\tFile:\t\tDecompData.h\n");
-plog("\tContains:\tData tables for use in FixDecomps (CatalogCheck.c)\n");
-plog("\tNote:\t\tThis file is generated automatically by running DecompMakeData\n");
-plog("*/\n");
-plog("#include \"DecompDataEnums.h\"\n\n");
+	plog("/*\n");
+	plog("\tFile:\t\tDecompData.h\n");
+	plog("\tContains:\tData tables for use in FixDecomps (CatalogCheck.c)\n");
+	plog("\tNote:\t\tThis file is generated automatically by running DecompMakeData\n");
+	plog("*/\n");
+	plog("#include \"DecompDataEnums.h\"\n\n");
 
 	// initialize arrays
 	for (entryIndex = 0; entryIndex < kHiFieldEntryCount; entryIndex++) {
@@ -483,13 +483,13 @@ plog("#include \"DecompDataEnums.h\"\n\n");
 		u_int32_t	matchAndReplacementCount, matchAndReplacementIndex;
 		u_int16_t	shiftUChar = classAndReplPtr->uChar + kShiftUniCharOffset;
 		if (shiftUChar >= kShiftUniCharLimit) {
-		plog("Exceeded uChar range for 0x%04X\n", classAndReplPtr->uChar);
+			plog("Exceeded uChar range for 0x%04X\n", classAndReplPtr->uChar);
 			return 1;
 		}
 		entryIndex = shiftUChar >> kLoFieldBitSize;
 		if (rangesIndex[entryIndex] == -1) {
 			if (rangeCount >= kMaxRangeCount) {
-			plog("Exceeded max range count with 0x%04X\n", classAndReplPtr->uChar);
+				plog("Exceeded max range count with 0x%04X\n", classAndReplPtr->uChar);
 				return 1;
 			}
 			rangesKey[rangeCount] = classAndReplPtr->uChar & ~kLoFieldMask;
@@ -516,7 +516,7 @@ plog("#include \"DecompDataEnums.h\"\n\n");
 					break;
 			}
 			if (replDataCount + matchAndReplacementCount >= kMaxReplaceDataCount) {
-			plog("Exceeded max replacement data count with 0x%04X\n", classAndReplPtr->uChar);
+				plog("Exceeded max replacement data count with 0x%04X\n", classAndReplPtr->uChar);
 				return 1;
 			}
 			replRanges[rangeCount - 1][entryIndex] = replDataCount;
@@ -528,59 +528,59 @@ plog("#include \"DecompDataEnums.h\"\n\n");
 	}
 	
 	// print filled-in index
-plog("static const int8_t classAndReplIndex[kHiFieldEntryCount] = {\n");
+	plog("static const int8_t classAndReplIndex[kHiFieldEntryCount] = {\n");
 	for (entryIndex = 0; entryIndex < kHiFieldEntryCount; entryIndex++) {
 		char *	formatPtr = (entryIndex + 1 < kHiFieldEntryCount)? "%2d,\t": "%2d\t";
 		if (entryIndex % kIndexValuesPerLine == 0)			// beginning of line,
-		plog("\t");								//  print tab
-	plog(formatPtr, rangesIndex[entryIndex]);		// print values
+			plog("\t");								//  print tab
+		plog(formatPtr, rangesIndex[entryIndex]);		// print values
 		if ((entryIndex + 1) % kIndexValuesPerLine == 0)		// end of line, print starting UniChar value
-		plog("// uChar 0x%04X-\n", (u_int16_t)(((entryIndex + 1 - kIndexValuesPerLine) << kLoFieldBitSize) - kShiftUniCharOffset) );
+			plog("// uChar 0x%04X-\n", (u_int16_t)(((entryIndex + 1 - kIndexValuesPerLine) << kLoFieldBitSize) - kShiftUniCharOffset) );
 	}
-plog("};\n\n");
+	plog("};\n\n");
 	
 	// print filled in class ranges
-plog("static const u_int8_t combClassRanges[][kLoFieldEntryCount] = {\n", kLoFieldEntryCount);
+	plog("static const u_int8_t combClassRanges[][kLoFieldEntryCount] = {\n", kLoFieldEntryCount);
 	for (rangeIndex = 0; rangeIndex < rangeCount; rangeIndex++) {
-	plog("\t{\t");
+		plog("\t{\t");
 		for (entryIndex = 0; entryIndex < kLoFieldEntryCount; entryIndex++) {
 			char *	formatPtr = (entryIndex + 1 < kLoFieldEntryCount)? "%3d,": "%3d";
-		plog(formatPtr, classRanges[rangeIndex][entryIndex]);	// print values
+			plog(formatPtr, classRanges[rangeIndex][entryIndex]);	// print values
 		}
-	plog("\t},\t// uChar 0x%04X-\n", rangesKey[rangeIndex]);
+		plog("\t},\t// uChar 0x%04X-\n", rangesKey[rangeIndex]);
 	}
-plog("};\n\n");
+	plog("};\n\n");
 
 	// print filled in repl ranges
-plog("static const u_int8_t replaceRanges[][kLoFieldEntryCount] = {\n", kLoFieldEntryCount);
+	plog("static const u_int8_t replaceRanges[][kLoFieldEntryCount] = {\n", kLoFieldEntryCount);
 	for (rangeIndex = 0; rangeIndex < rangeCount; rangeIndex++) {
-	plog("\t{\t");
+		plog("\t{\t");
 		for (entryIndex = 0; entryIndex < kLoFieldEntryCount; entryIndex++) {
 			char *	formatPtr = (entryIndex + 1 < kLoFieldEntryCount)? "%3d,": "%3d";
-		plog(formatPtr, replRanges[rangeIndex][entryIndex]);	// print values
+			plog(formatPtr, replRanges[rangeIndex][entryIndex]);	// print values
 		}
-	plog("\t},\t// uChar 0x%04X-\n", rangesKey[rangeIndex]);
+		plog("\t},\t// uChar 0x%04X-\n", rangesKey[rangeIndex]);
 	}
-plog("};\n\n");
+	plog("};\n\n");
 	
 	// print filled in replacement data
-plog("static const u_int16_t replaceData[] = {\n");
+	plog("static const u_int16_t replaceData[] = {\n");
 	for (entryIndex = 0; entryIndex < replDataCount; entryIndex++) {
 		char *	formatPtr = (entryIndex + 1 < replDataCount)? "0x%04X,\t": "0x%04X\t";
 		if (entryIndex % kReplDataValuesPerLine == 0)			// beginning of line,
-		plog("\t");										//  print tab
-	plog(formatPtr, replacementData[entryIndex]);			// print values
+			plog("\t");										//  print tab
+		plog(formatPtr, replacementData[entryIndex]);			// print values
 		if ((entryIndex + 1) % kReplDataValuesPerLine == 0 || entryIndex + 1 == replDataCount)	// end of line,
-		plog("// index %d-\n", entryIndex & ~(kReplDataValuesPerLine-1) );	// print starting index value
+			plog("// index %d-\n", entryIndex & ~(kReplDataValuesPerLine-1) );	// print starting index value
 	}
-plog("};\n\n");
+	plog("};\n\n");
 
 	// print summary info
-plog("// combClassData:\n");
-plog("// trimmed index: kHiFieldEntryCount(= %d) bytes\n", kHiFieldEntryCount);
-plog("// ranges: 2 * %d ranges * kLoFieldEntryCount(= %d) bytes = %d\n", rangeCount, kLoFieldEntryCount, 2*rangeCount*kLoFieldEntryCount);
-plog("// replData: %d entries * 2 = %d\n", replDataCount, 2*replDataCount);
-plog("// total: %d\n\n", kHiFieldEntryCount + 2*rangeCount*kLoFieldEntryCount + 2*replDataCount);
+	plog("// combClassData:\n");
+	plog("// trimmed index: kHiFieldEntryCount(= %d) bytes\n", kHiFieldEntryCount);
+	plog("// ranges: 2 * %d ranges * kLoFieldEntryCount(= %d) bytes = %d\n", rangeCount, kLoFieldEntryCount, 2*rangeCount*kLoFieldEntryCount);
+	plog("// replData: %d entries * 2 = %d\n", replDataCount, 2*replDataCount);
+	plog("// total: %d\n\n", kHiFieldEntryCount + 2*rangeCount*kLoFieldEntryCount + 2*replDataCount);
 	
 	return 0;
 }

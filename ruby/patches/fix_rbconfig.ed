@@ -1,2 +1,0 @@
-g/LIBRUBYARG_STATIC/s/-static[^"]*//
-w

@@ -147,16 +147,6 @@ DOMWindow* JSDOMWindowShell::impl() const
     return m_window->impl();
 }
 
-void JSDOMWindowShell::disconnectFrame()
-{
-    m_window->disconnectFrame();
-}
-
-void JSDOMWindowShell::clear()
-{
-    m_window->clear();
-}
-
 void* JSDOMWindowShell::operator new(size_t size)
 {
     return JSDOMWindow::commonJSGlobalData()->heap.allocate(size);

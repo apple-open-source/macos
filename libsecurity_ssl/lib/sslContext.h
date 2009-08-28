@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2007 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2000-2009 Apple Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -23,7 +23,7 @@
 
 	Written by:	Doug Mitchell
 
-	Copyright: (c) 1999-2007 Apple Inc., all rights reserved.
+	Copyright: (c) 1999-2009 Apple Inc. All Rights Reserved.
 
 */
 
@@ -177,7 +177,8 @@ struct SSLContext
     SSLCertificate      *localCert;
     SSLCertificate		*encryptCert;
     SSLCertificate      *peerCert;
-    
+    CSSM_ALGORITHMS		ourSignerAlg;	/* algorithm of the signer of localCert */
+	
 	/* 
 	 * The arrays we are given via SSLSetCertificate() and SSLSetEncryptionCertificate().
 	 * We keep them here, refcounted, solely for the associated getters. 
@@ -214,6 +215,22 @@ struct SSLContext
 	CSSM_KEY_PTR		dhPrivate;
 	#endif	/* APPLE_DH */
         
+	/* 
+	 * ECDH support 
+	 *
+	 * ecdhCurves[] is the set of currently configured curves; the number
+	 * of valid curves is ecdhNumCurves.
+	 */
+	SSL_ECDSA_NamedCurve	ecdhCurves[SSL_ECDSA_NUM_CURVES];
+	unsigned				ecdhNumCurves;
+	
+	SSLBuffer				ecdhPeerPublic;		/* peer's public ECDH key as ECPoint */
+	SSL_ECDSA_NamedCurve	ecdhPeerCurve;		/* named curve associated with ecdhPeerPublic or
+												 *    peerPubKey */
+    SSLBuffer				ecdhExchangePublic;	/* Our public key as ECPoint */
+	CSSM_KEY_PTR			ecdhPrivate;		/* our private key */
+	CSSM_CSP_HANDLE			ecdhPrivCspHand;
+	
 	Boolean				allowExpiredCerts;
 	Boolean				allowExpiredRoots;
 	Boolean				enableCertVerify;
@@ -301,6 +318,18 @@ struct SSLContext
 	/* optional switches to enable additional returns from SSLHandshake */
 	Boolean             breakOnServerAuth;
 	Boolean             breakOnCertRequest;
+    Boolean             signalServerAuth;
+    Boolean             signalCertRequest;
+
+	/* true iff ECDSA/ECDH ciphers are configured */
+	Boolean				ecdsaEnable;
+	
+	/* List of server-specified client auth types */
+	unsigned					numAuthTypes;
+	SSLClientAuthenticationType	*clientAuthTypes;
+	
+	/* client auth type actually negotiated */
+	SSLClientAuthenticationType	negAuthType;
 };
 
 #ifdef __cplusplus

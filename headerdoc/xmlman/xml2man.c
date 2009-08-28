@@ -21,6 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <inttypes.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -29,8 +30,13 @@
 #include <libxml/parser.h>
 #include <libxml/tree.h>
 
+#ifdef USE_STRCOMPAT
+#include "strcompat.h"
+#endif
+
 typedef struct usage {
     char *flag;
+    char *longflag;
     char *text;
     char *arg;
     char *desc;
@@ -61,6 +67,8 @@ void parseUsage(xmlNode *node, int pos);
 char *xs(int count);
 int force_write = 0;
 void writeOptionsSub(FILE *fp, xmlNode *description, int lwc);
+
+char *formattext(char *text, int textcontainer);
 
 void strip_dotmxml(char *filename)
 {
@@ -114,7 +122,7 @@ int main(int argc, char *argv[])
 		bufsize *= 2;
 		buf = realloc(buf, bufsize);
 	    }
-	    strcat(&buf[bufpos], line);
+	    strlcat(&buf[bufpos], line, bufsize);
 	    bufpos += len;
 	}
 	dp = xmlParseMemory(buf, bufpos+1);
@@ -150,9 +158,11 @@ int main(int argc, char *argv[])
 
 inline char *malloccat(const char *string1, const char *string2)
 {
-    char *ret = malloc((strlen(string1) + strlen(string2) + 1) * sizeof(char));
-    strcpy(ret, string1);
-    strcat(ret, string2);
+    // char *ret = malloc((strlen(string1) + strlen(string2) + 1) * sizeof(char));
+    // strcpy(ret, string1);
+    // strcat(ret, string2);
+    char *ret = NULL;
+    asprintf(&ret, "%s%s", string1, string2);
     return ret;
 }
 
@@ -220,7 +230,7 @@ void xml2man(xmlNode *root, char *output_filename, int append_section_number)
 	fp = stdout;
     } else {
 	if (append_section_number) {
-	    sprintf(output_filename, "%s.%d", output_filename, section);
+	    snprintf(output_filename, MAXNAMLEN, "%s.%d", output_filename, section);
 	}
 	if (!force_write && ((fp = fopen(output_filename, "r")))) {
 	    fprintf(stderr, "error: file %s exists.\n", output_filename);
@@ -235,9 +245,10 @@ void xml2man(xmlNode *root, char *output_filename, int append_section_number)
 
     /* write preamble */
     fprintf(fp, ".\\\" Automatically generated from mdocxml\n");
-    fprintf(fp, ".Dd %s\n", docdate);
-    fprintf(fp, ".Dt \"%s\" %d\n", doctitle, section);
-    fprintf(fp, ".Os \"%s\" \"%s\"\n", os, osversion);
+    fprintf(fp, ".Dd %s\n", formattext(docdate, 1));
+    fprintf(fp, ".Dt \"%s\" %d\n", formattext(doctitle, 1), section);
+    fprintf(fp, ".Os \"%s\" ", formattext(os, 1));
+    fprintf(fp, "\"%s\"\n", formattext(osversion, 1));
 
     /* write rest of contents */
     writeData(fp, names);
@@ -373,7 +384,7 @@ void dodtguts(FILE *fp, xmlNode *parent, char *initial_add)
 	fprintf(fp, " Nm "); dodtguts(fp, node, ""); add=" Li ";
     } else if (!strcmp((char *)node->name, "text")) {
 	char *ptr;
-	char *x = striplines((char *)node->content);
+	char *x = formattext(striplines((char *)node->content), 1);
 	int found = 0;
 	for (ptr = x; *ptr; ptr++) {
 		if (*ptr != ' ' && *ptr != '\t') {
@@ -439,6 +450,7 @@ void writeData_sub(FILE *fp, xmlNode *node, int state, int textcontainer, int ne
 	    searchnode = lasttextnode(node->children);
 	    if (searchnode) {
 		char *sntext;
+		size_t alloc_len;
 
 		/* Skip leading newlines, then capture any leading
 		   commas or periods. */
@@ -451,10 +463,11 @@ void writeData_sub(FILE *fp, xmlNode *node, int state, int textcontainer, int ne
 
 		if (localdebug) printf("Appending \"%s\" to \"%s\"\n", nexttext, searchnode->content);
 
-		sntext = malloc((strlen((char *)searchnode->content) + strlen(nexttext) + 2) * sizeof(char));
-		strcpy(sntext, (char *)searchnode->content);
+		alloc_len = ((strlen((char *)searchnode->content) + strlen(nexttext) + 2) * sizeof(char));
+		sntext = malloc(alloc_len);
+		strlcpy(sntext, (char *)searchnode->content, alloc_len);
 		// strcat(sntext, " ");
-		strcat(sntext, nexttext);
+		strlcat(sntext, nexttext, alloc_len);
 		if (localdebug) printf("new text \"%s\"\n", sntext);
 
 		free(searchnode->content);
@@ -490,7 +503,7 @@ void writeData_sub(FILE *fp, xmlNode *node, int state, int textcontainer, int ne
 			*pos = '\0';
 		}
 
-		fprintf(fp, " %s", childtext);
+		fprintf(fp, " %s", formattext(childtext, textcontainer));
 		if (tailcontents) fprintf(fp, " %s", tailcontents);
 		tail = " ";
 
@@ -529,7 +542,7 @@ void writeData_sub(FILE *fp, xmlNode *node, int state, int textcontainer, int ne
 	} else {
 		char *tmp = textmatching("text", node->children, 0, "name tag");
 
-		fprintf(fp, ".Nm%s%s\n", (tmp ? " " : ""), (tmp ? tmp : ""));
+		fprintf(fp, ".Nm%s%s\n", (tmp ? " " : ""), formattext(tmp ? tmp : "", textcontainer));
 		if (tmp) { textcontainer = 0; }
 	}
     } else if (!strcmp((char *)node->name, "usage")) {
@@ -614,8 +627,13 @@ void writeData_sub(FILE *fp, xmlNode *node, int state, int textcontainer, int ne
 	}
 	state = kRetval;
 	textcontainer = 1;
-	fprintf(fp, ".Sh %s\n", topicname);
+	fprintf(fp, ".Sh %s\n", formattext(topicname, textcontainer));
 	if (topicnode) xmlFreeNode(topicnode);
+    } else if (!strcmp((char *)node->name, "indent")) {
+	if (localdebug) printf("indent\n");
+	if (textcontainer) {
+		fprintf(fp, "    ");
+	}
     } else if (!strcmp((char *)node->name, "p")) {
 	if (localdebug) printf("p (paragraph)\n");
 	tail = ".Pp\n";
@@ -647,7 +665,7 @@ void writeData_sub(FILE *fp, xmlNode *node, int state, int textcontainer, int ne
 	}
 
 	fprintf(fp, ".Bl -tag -width %s\n", xs(minwidth-1));
-	tail = ".El\n";
+	tail = ".El\n.Pp\n";
     } else if (!strcmp((char *)node->name, "dt")) {
 	if (localdebug) printf("dt\n");
 
@@ -679,11 +697,11 @@ void writeData_sub(FILE *fp, xmlNode *node, int state, int textcontainer, int ne
     } else if (!strcmp((char *)node->name, "ul")) {
 	if (localdebug) printf("ul (list)\n");
 	fprintf(fp, ".Bl -bullet\n");
-	tail = ".El\n";
+	tail = ".El\n.Pp\n";
     } else if (!strcmp((char *)node->name, "ol")) {
 	if (localdebug) printf("ol (list)\n");
 	fprintf(fp, ".Bl -enum\n");
-	tail = ".El\n";
+	tail = ".El\n.Pp\n";
     } else if (!strcmp((char *)node->name, "li")) {
 	if (localdebug) printf("li (list)\n");
 	fprintf(fp, ".It\n");
@@ -710,7 +728,7 @@ void writeData_sub(FILE *fp, xmlNode *node, int state, int textcontainer, int ne
 	if (localdebug) printf("symbol\n");
 	fprintf(fp, ".Sy ");
     } else if (!strcmp((char *)node->name, "url")) {
-	char *childtext = node->children ? (node->children->content ? (char *)node->children->content : "") : "";
+	char *childtext = formattext(node->children ? (node->children->content ? (char *)node->children->content : "") : "", textcontainer);
 	char *nexttext = node->next ? (char *)node->next->content : "";
 	fprintf(fp, "<%s>", childtext);
 	while (nexttext && *nexttext && (*nexttext == '.' || *nexttext == ',')) {
@@ -731,14 +749,15 @@ void writeData_sub(FILE *fp, xmlNode *node, int state, int textcontainer, int ne
 	fprintf(fp, ".Nm ");
     } else if (!strcasecmp((char *)node->name, "br")) {
 	if (localdebug) printf("br (break)\n");
-	fprintf(fp, ".Bd -ragged -offset indent\n.Ed\n");
+	// fprintf(fp, ".Bd -ragged -offset indent\n.Ed\n");
+	fprintf(fp, ".br\n");
     } else if (!strcmp((char *)node->name, "manpage")) {
 	if (localdebug) printf("manpage\n");
 	/* Cross-reference */
 	fprintf(fp, ".Xr ");
 	state = kMan;
 	tail = "\n";
-	textcontainer = 1;
+	textcontainer = 2;
     } else if (!strcmp((char *)node->name, "text")) {
 	if (localdebug) printf("text node\n");
 	if (textcontainer) {
@@ -748,7 +767,7 @@ void writeData_sub(FILE *fp, xmlNode *node, int state, int textcontainer, int ne
 			/* These have already been glued onto the previous
 			   node. */
 			while (stripped_text[0] == '.' || stripped_text[0] == ',') stripped_text++;
-			fprintf(fp, "%s%s", stripped_text, (state == kMan ? "" : "\n"));
+			fprintf(fp, "%s%s", formattext(stripped_text, textcontainer), (state == kMan ? "" : "\n"));
 		}
 	} else {
 		if (localdebug) printf("NOT PRINTING %s\n", node->content);
@@ -774,8 +793,8 @@ void writeData_sub(FILE *fp, xmlNode *node, int state, int textcontainer, int ne
 void write_funcargs(FILE *fp, usage_t cur)
 {
     for (; cur; cur = cur->next) {
-	fprintf(fp, ".It Ar \"%s\"", (cur->arg ? cur->arg : ""));
-	fprintf(fp, "\n%s%s", (cur->desc ? cur->desc : ""), (cur->desc ? "\n" : ""));
+	fprintf(fp, ".It Ar \"%s\"", formattext(cur->arg ? cur->arg : "", 1));
+	fprintf(fp, "\n%s%s", formattext(cur->desc ? cur->desc : "", 1), (cur->desc ? "\n" : ""));
     }
 }
 
@@ -817,11 +836,13 @@ void writeUsage(FILE *fp, xmlNode *description)
 		for (cur = usage_head[pos]; cur; cur = cur->next) {
 			int len;
 			len = 0;
-			if (cur->flag) len += strlen(cur->flag);
-			if (cur->arg) len += strlen(cur->arg);
+			if (cur->flag) len += strlen(cur->flag) + 2;
+			if (cur->longflag) len += strlen(cur->longflag) + 3;
+			if (cur->flag && cur->longflag) len += 4;
+			if (cur->arg) len += strlen(cur->arg) + 1;
 			if (len > lwc) lwc = len;
 		}
-		lwc += 4;
+		if (lwc < 4) lwc = 4;
 	
 		writeUsageSub(fp, 1, usage_head[pos], name_or_empty, "");
 	}
@@ -856,18 +877,28 @@ int writeUsageSub(FILE *fp, int showname, usage_t myusagehead, char *name_or_emp
 			dot = '.';
 		}
 
-		if (cur->flag) {
-			if (first && showname) fprintf(fp, ".Nm%s%s\n", (name_or_empty ? " " : ""), (name_or_empty ? name_or_empty : ""));
+		if (cur->flag || cur->longflag) {
+			uint64_t flaglen = cur->flag ? strlen(cur->flag) : 0;
+			uint64_t longflaglen = cur->longflag ? strlen(cur->longflag) : 0;
+			if (first && showname) fprintf(fp, ".Nm%s%s\n", (name_or_empty ? " " : ""), formattext(name_or_empty ? name_or_empty : "", 1));
 			else if (!first) fprintf(fp, "%s", optional_separator);
-			fprintf(fp, "%c%sFl %s", dot, (cur->optional?"Op ":""), cur->flag);
-
+			if (flaglen) {
+				fprintf(fp, "%c%s%sFl %s", dot, (cur->optional?"Op ":""), longflaglen ? "{ " : "", formattext(cur->flag, 1));
+				dot = ' ';
+			}
+			if (cur->longflag && strlen(cur->longflag)) {
+				fprintf(fp, "%c%s%sFl -%s%s", dot, flaglen ? " | " : "", flaglen ? "" : (cur->optional?"Op ":""), formattext(cur->longflag, 1), flaglen ? " Li }" : "");
+				dot = ' ';
+			}
 			first = 0;
 			optiontag="";
 		}
 		if (cur->arg) {
-			if (first && showname) fprintf(fp, ".Nm%s%s\n", (name_or_empty ? " " : ""), (name_or_empty ? name_or_empty : ""));
-			else if (!first) fprintf(fp, "%s", optional_separator);
-			fprintf(fp, "%c%sAr %s", (cur->flag?' ':dot), (cur->optional?"Op ":""), cur->arg);
+			if (first && showname) {
+				fprintf(fp, "%cNm%s%s\n", dot, (name_or_empty ? " " : ""), formattext(name_or_empty ? name_or_empty : "", 1));
+				dot = ' ';
+			} else if (!first) fprintf(fp, "%s", optional_separator);
+			fprintf(fp, "%c%sAr %s", dot, (cur->optional?"Op ":""), formattext(cur->arg, 1));
 
 			first = 0;
 			optiontag="";
@@ -883,7 +914,7 @@ int writeUsageSub(FILE *fp, int showname, usage_t myusagehead, char *name_or_emp
 			else if (prevwasliteral) fprintf(fp, " Li ");
 			else fprintf(fp, ".Li ");
 			if (!first) fprintf(fp, "%s", optional_separator);
-			fprintf(fp, "%s", cur->text);
+			fprintf(fp, "%s", formattext(cur->text, 1));
 			isliteral = 1;
 			if (notsymbol) {
 				optiontag="\n";
@@ -894,30 +925,30 @@ int writeUsageSub(FILE *fp, int showname, usage_t myusagehead, char *name_or_emp
 		if (cur->optionlist) {
 			// usage_t temppos;
 
-			if (first) { fprintf(fp, ".Nm%s%s\n", (name_or_empty ? " " : ""), (name_or_empty ? name_or_empty : "")); first = 0; }
+			if (first) { fprintf(fp, ".Nm%s%s\n", (name_or_empty ? " " : ""), formattext(name_or_empty ? name_or_empty : "", 1)); first = 0; }
 			else {
 				if (!first) {
-					if (!(cur->flag || cur->arg || cur->text)) {
+					if (!(cur->flag || cur->longflag || cur->arg || cur->text)) {
 						fprintf(fp, "%s", optional_separator);
 					} else fprintf(fp, " ");
 				}
 			}
-			printUsageOptionList(cur, fp, optiontag, (cur->flag || cur->arg) ? " " : " | ");
+			printUsageOptionList(cur, fp, optiontag, (cur->flag || cur->longflag || cur->arg) ? " " : " | ");
 			isliteral = 0;
 		}
 		if (cur->functype) {
 			usage_t arg;
-			fprintf(fp, ".Ft %s\n", cur->functype);
-			fprintf(fp, ".Fn \"%s\" ", cur->funcname);
+			fprintf(fp, ".Ft %s\n", formattext(cur->functype, 1));
+			fprintf(fp, ".Fn \"%s\" ", formattext(cur->funcname, 1));
 			for (arg = cur->funcargs; arg; arg = arg->next) {
-				fprintf(fp, "\"%s\" ", arg->arg);
+				fprintf(fp, "\"%s\" ", formattext(arg->arg, 1));
 			}
 			function = 1;
 			isliteral = 0;
 		} else if (cur->funcargs) {
 			usage_t arg;
 			for (arg = cur->funcargs; arg; arg = arg->next) {
-				fprintf(fp, " %sAr %s", (arg->optional?"Op ":""), arg->arg);
+				fprintf(fp, " %sAr %s", (arg->optional?"Op ":""), formattext(arg->arg, 1));
 			}
 			isliteral = 0;
 		}
@@ -950,14 +981,14 @@ void writeOptionsSub(FILE *fp, xmlNode *description, int lwc) {
 	}
         first=1;
 	for (cur = usage_head[pos]; cur; cur = cur->next) {
-		if (cur->funcargs && !cur->flag) {
+		if (cur->funcargs && !cur->flag && !cur->longflag) {
 			if (first) {
 				if (topfirst) { fprintf(fp, ".Sh PARAMETERS\n"); }
 				first = 0; topfirst = 0;
 			} else {
 				fprintf(fp, ".El\n.Pp\n");
 			}
-			fprintf(fp, "The parameters %s%s%sare as follows:\n",  (name_or_empty ? "for\n.Sy " : ""), (name_or_empty ? name_or_empty : ""), (name_or_empty ? " Li " : ""));
+			fprintf(fp, "The parameters %s%s%sare as follows:\n",  (name_or_empty ? "for\n.Sy " : ""), formattext(name_or_empty ? name_or_empty : "", 1), (name_or_empty ? " Li " : ""));
 			fprintf(fp, ".Bl -tag -width %s\n", xs(lwc));
 
 			write_funcargs(fp, cur->funcargs);
@@ -967,16 +998,17 @@ void writeOptionsSub(FILE *fp, xmlNode *description, int lwc) {
 		if (!cur->desc) continue;
 		if (first) {
 			if (topfirst) { fprintf(fp, ".Sh OPTIONS\n"); }
-			fprintf(fp, "The available options %s%s%sare as follows:\n",  (name_or_empty ? "for\n.Sy " : ""), (name_or_empty ? name_or_empty : ""), (name_or_empty ? " Li " : ""));
+			fprintf(fp, "The available options %s%s%sare as follows:\n",  (name_or_empty ? "for\n.Sy " : ""), formattext(name_or_empty ? name_or_empty : "", 1), (name_or_empty ? " Li " : ""));
 			fprintf(fp, ".Bl -tag -width %s\n", xs(lwc));
 			first = 0; topfirst = 0;
 		}
 		fprintf(fp, ".It");
-		if (cur->flag) { fprintf(fp, " Fl %s", cur->flag); }
+		if (cur->flag) { fprintf(fp, " Fl %s", formattext(cur->flag, 1)); }
+		if (cur->longflag) { fprintf(fp, "%s Fl -%s", cur->flag ? " Li or" : "", formattext(cur->longflag, 1)); }
 		if (cur->arg) {
-			fprintf(fp, " Ar \"%s\"", cur->arg);
+			fprintf(fp, " Ar \"%s\"", formattext(cur->arg, 1));
 		}
-		fprintf(fp, "\n%s\n", cur->desc ? cur->desc : "");
+		fprintf(fp, "\n%s\n", formattext(cur->desc ? cur->desc : "", 1));
 	}
 	if (!first) { fprintf(fp, ".El\n"); }
     }
@@ -997,7 +1029,7 @@ void printUsageOptionList(usage_t cur, FILE *fp, char *starting, char *separator
 
 	// printf("printUsageOptionList (OPTIONTAG: '%s')\n", starting);
 
-	fprintf(fp, "%s", starting);
+	fprintf(fp, "%s", formattext(starting, 1));
 	if (starting[strlen(starting)-1] == '\n') fprintf(fp, ".");
 	if (optional) fprintf(fp, "Op ");
 	// for (temppos = cur->optionlist; temppos; temppos = temppos->next) {
@@ -1053,6 +1085,7 @@ usage_t getflagargs(xmlNode *node)
 	if (!(newnode = malloc(sizeof(struct usage)))) return NULL;
 
 	newnode->flag = NULL;
+	newnode->longflag = NULL;
 	newnode->arg  = textmatching("text", node->children, 0, "flag argument");
 	newnode->desc = NULL;
 	newnode->optional = propval("optional", node->properties);
@@ -1115,7 +1148,7 @@ void parseUsageSub(xmlNode *node, int pos, int drop_first_text)
 		}
 		name = propstring("name", node->properties);
 		if (name) {
-			strcpy(commandnames[i], name);
+			strlcpy(commandnames[i], name, MAXNAMLEN);
 		} else {
 			fprintf(stderr, "WARNING: command has no name\n");
 		}
@@ -1148,6 +1181,7 @@ void parseUsageSub(xmlNode *node, int pos, int drop_first_text)
     if (!strcmp((char *)node->name, "optionlist")) {
 	char *tempstring;
 	flag_or_arg->flag = NULL;
+	flag_or_arg->longflag = NULL;
 	flag_or_arg->optionlist = NULL;
 	flag_or_arg->text  = NULL;
 	flag_or_arg->arg = NULL;
@@ -1175,6 +1209,7 @@ void parseUsageSub(xmlNode *node, int pos, int drop_first_text)
 		istext = 1;
 	}
 	flag_or_arg->flag = NULL;
+	flag_or_arg->longflag = NULL;
 	flag_or_arg->arg = NULL;
 	flag_or_arg->optionlist = NULL;
 	if (istext) {
@@ -1201,6 +1236,7 @@ void parseUsageSub(xmlNode *node, int pos, int drop_first_text)
 	xmlNode *tempnode = nodematching("arg", node->children);
 
 	flag_or_arg->flag = NULL;
+	flag_or_arg->longflag = NULL;
 	flag_or_arg->optionlist = NULL;
 	flag_or_arg->text  = NULL;
 	flag_or_arg->arg  = strdup(striplines(textmatching("text", node->children, 0, "arg tag")));
@@ -1220,7 +1256,11 @@ void parseUsageSub(xmlNode *node, int pos, int drop_first_text)
 	}
     } else if (!strcmp((char *)node->name, "desc")) {
     } else if (!strcmp((char *)node->name, "flag")) {
-	flag_or_arg->flag = textmatching("text", node->children, 0, "flag tag");
+	flag_or_arg->flag = textmatching("text", node->children, 1, "flag tag");
+	flag_or_arg->longflag = textmatching("long", node->children, 1, "long flag tag");
+	if (!flag_or_arg->flag && !flag_or_arg->longflag) {
+		fprintf(stderr, "Invalid or missing contents for flag tag.\n");
+	}
 	flag_or_arg->optionlist = NULL;
 	flag_or_arg->text  = NULL;
 	flag_or_arg->arg = NULL;
@@ -1233,6 +1273,7 @@ void parseUsageSub(xmlNode *node, int pos, int drop_first_text)
     } else if (!strcmp((char *)node->name, "func")) {
 	/* "func" */
 	flag_or_arg->flag = NULL;
+	flag_or_arg->longflag = NULL;
 	flag_or_arg->optionlist = NULL;
 	flag_or_arg->text  = NULL;
 	flag_or_arg->arg  = NULL;
@@ -1251,6 +1292,7 @@ void parseUsageSub(xmlNode *node, int pos, int drop_first_text)
     } else {
 	fprintf(stderr, "UNKNOWN NODE NAME: %s\n", node->name);
 	flag_or_arg->flag = NULL;
+	flag_or_arg->longflag = NULL;
 	flag_or_arg->optionlist = NULL;
 	flag_or_arg->text  = NULL;
 	flag_or_arg->arg = NULL;
@@ -1308,5 +1350,67 @@ char *striplines(char *line)
     // printf("LINE \"%s\" changed to \"%s\"\n", line, ptr);
 
     return ptr;
+}
+
+int checkcurword(char *word, int textcontainer)
+{
+    if (textcontainer == 2) return 0;
+    if (*word == '.') return 1;
+    if (strlen(word) == 1 && (!(word[0] >= '0' && word[0] <= '9'))) return 1;
+    if (strlen(word) == 2 && (!(word[0] >= '0' && word[0] <= '9')) && (!(word[1] >= '1' && word[1] <= '9'))) return 1;
+
+    return 0;
+}
+
+char *formattext(char *text, int textcontainer)
+{
+    static char *result = NULL;
+    char *pos;
+    char *curword;
+    char *temp;
+    int iskey;
+    char *space = "";
+
+    if (result) free(result);
+
+// fprintf(stderr, "TC: %d STRING: %s\n", textcontainer, text);
+
+    asprintf(&result, "");
+    asprintf(&curword, "");
+
+    for (pos = text; *pos; pos++) {
+	iskey = checkcurword(curword, textcontainer);
+	switch (*pos) {
+		case ' ':
+			temp = result;
+			result = NULL;
+			asprintf(&result, "%s%s%s%s", temp, space, iskey ? "\\&" : "", curword);
+			free(temp);
+			free(curword); asprintf(&curword, "");
+			space = " ";
+			break;
+		case '\\':
+			temp = result;
+			result = NULL;
+			asprintf(&result, "%s%s%s%s\\e", temp, space, iskey ? "\\&" : "", curword);
+			free(temp);
+			free(curword); asprintf(&curword, "");
+			space = " ";
+			break;
+		default:
+			temp = curword;
+			curword = NULL;
+			asprintf(&curword, "%s%c", temp, *pos);
+			free(temp);
+	}
+    }
+    iskey = checkcurword(curword, textcontainer);
+    temp = result;
+    result = NULL;
+    asprintf(&result, "%s%s%s%s", temp, space, iskey ? "\\&" : "", curword);
+    free(temp);
+    free(curword);
+
+    return result;
 }
 

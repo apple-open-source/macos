@@ -3,19 +3,20 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -23,10 +24,12 @@
 
 #include <mach/mach.h>
 #include <mach/mach_init.h>
+#include <notify.h>
 
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOCFSerialize.h>
 #include <IOKit/pwr_mgt/IOPM.h>
+#include "IOSystemConfiguration.h"
 #include "IOPMLib.h"
 
 #define arrayCnt(var) (sizeof(var) / sizeof(var[0]))
@@ -132,6 +135,8 @@ IOReturn IOPMSleepSystemWithOptions ( io_connect_t fb, CFDictionaryRef options )
                 CFDataGetLength(serializedOptions), /* inputStructCnt */
                 &rtn, /* outputStruct */
                 &len); /* outputStructCnt */
+
+    CFRelease(serializedOptions);
                 
     if (kIOReturnSuccess != err)
         return err;
@@ -381,3 +386,68 @@ boolean_t IOPMSleepEnabled ( void )
     IOObjectRelease(root);
     return flag;
 }
+
+/**************************************************
+*
+* System Load Advisory
+*
+* Reads system load state out of SCDynamicStore.
+* PM configd plugin maintains state.
+*
+**************************************************/
+
+#define kSLALevelPath       CFSTR("/IOKit/PowerManagement/SystemLoad")
+#define kSLADetailedPath    CFSTR("/IOKit/PowerManagement/SystemLoad/Detailed")
+
+/* IOGetSystemLoadAdvisory
+ * In case of error, or inability to find system load advisory level,
+ * returns kIOSystemLoadAdvisoryLevelOK.
+ */
+IOSystemLoadAdvisoryLevel IOGetSystemLoadAdvisory( void )
+{
+    IOSystemLoadAdvisoryLevel   _gt = kIOSystemLoadAdvisoryLevelOK;
+    int                         notifyToken = 0;
+    int                         status;
+    uint64_t                    newval;
+
+    status = notify_register_check(kIOSystemLoadAdvisoryNotifyName, &notifyToken);
+    if (NOTIFY_STATUS_OK == status)
+    {
+        notify_get_state(notifyToken, &newval);
+        notify_cancel(notifyToken);
+        _gt = (IOSystemLoadAdvisoryLevel)newval;
+    }
+    
+    return _gt;
+}
+
+/* IOCopyLoadAdvisoryLevelDetailed
+ * In case of error, or inability to find system load advisory level,
+ * returns NULL.
+ */
+CFDictionaryRef IOCopySystemLoadAdvisoryDetailed(void)
+{
+    CFDictionaryRef     gtDetailed = NULL;
+    SCDynamicStoreRef   storage = NULL;
+    CFStringRef         gtDetailedKey = SCDynamicStoreKeyCreate(
+                            kCFAllocatorDefault, 
+                            CFSTR("%@%@"),
+                            kSCDynamicStoreDomainState, 
+                            kSLADetailedPath);
+
+    storage = SCDynamicStoreCreate(
+                            kCFAllocatorDefault,
+                            CFSTR("IOKit IOGetSystemLoadAdvisoryDetailed"),
+                            NULL,
+                            NULL);
+
+    if (!storage || !gtDetailedKey) {
+        goto exit;
+    }
+    gtDetailed = isA_CFDictionary(SCDynamicStoreCopyValue(storage, gtDetailedKey));    
+exit:    
+    if (gtDetailedKey) CFRelease(gtDetailedKey);
+    if (storage) CFRelease(storage);    
+    return gtDetailed;
+}
+

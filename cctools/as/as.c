@@ -46,7 +46,11 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "xmalloc.h"
 #include "layout.h"
 #include "write_object.h"
+#include "dwarf2dbg.h"
 #include "stuff/arch.h"
+
+/* Used for --gdwarf2 to generate dwarf2 debug info for assembly source files */
+enum debug_info_type debug_type = DEBUG_NONE;
 
 /* ['x'] TRUE if "-x" seen. */
 char flagseen[128] = { 0 };
@@ -157,7 +161,9 @@ char **envp)
 		continue;
 	    }
 	    if(strcmp(arg, "--gdwarf2") == 0){
-		as_fatal("%s: I don't understand %s flag!", progname, arg);
+		debug_type = DEBUG_DWARF2;
+		*work_argv = NULL; /* NULL means 'not a file-name' */
+		continue;
 	    }
 
 	    /* Keep scanning args looking for flags. */
@@ -217,9 +223,8 @@ char **envp)
 		    break;
 
 		case 'v':
-		    fprintf(stderr,"Apple Computer, Inc. version "
-			    "%s, ", apple_version);
-		    fprintf(stderr, version_string);
+		    fprintf(stderr,"Apple Inc version %s, ", apple_version);
+		    fprintf(stderr, "%s", version_string);
 		    if(*arg && strcmp(arg,"ersion"))
 			as_fatal("Unknown -v option ignored");
 		    while(*arg)
@@ -627,6 +632,66 @@ char **envp)
 				as_fatal("I expected 'sparc' after "
 					 "-arch for this assembler.");
 #endif
+#ifdef ARM
+			    if(strcmp(*work_argv,
+					   "arm") == 0){
+				if(archflag_cpusubtype != -1 &&
+				   archflag_cpusubtype !=
+					CPU_SUBTYPE_ARM_V4T)
+				    as_fatal("can't specify more "
+				       "than one -arch flag ");
+				specific_archflag = *work_argv;
+				archflag_cpusubtype =
+				    CPU_SUBTYPE_ARM_V4T;
+			    }
+			    else if(strcmp(*work_argv,
+					   "armv4t") == 0){
+				if(archflag_cpusubtype != -1 &&
+				   archflag_cpusubtype !=
+					CPU_SUBTYPE_ARM_V4T)
+				    as_fatal("can't specify more "
+				       "than one -arch flag ");
+				specific_archflag = *work_argv;
+				archflag_cpusubtype =
+				    CPU_SUBTYPE_ARM_V4T;
+			    }
+			    else if(strcmp(*work_argv,
+					   "armv5") == 0){
+				if(archflag_cpusubtype != -1 &&
+				   archflag_cpusubtype !=
+					CPU_SUBTYPE_ARM_V5TEJ)
+				    as_fatal("can't specify more "
+				       "than one -arch flag ");
+				specific_archflag = *work_argv;
+				archflag_cpusubtype =
+				    CPU_SUBTYPE_ARM_V5TEJ;
+			    }
+			    else if(strcmp(*work_argv,
+					   "xscale") == 0){
+				if(archflag_cpusubtype != -1 &&
+				   archflag_cpusubtype !=
+					CPU_SUBTYPE_ARM_XSCALE)
+				    as_fatal("can't specify more "
+				       "than one -arch flag ");
+				specific_archflag = *work_argv;
+				archflag_cpusubtype =
+				    CPU_SUBTYPE_ARM_XSCALE;
+			    }
+			    else if(strcmp(*work_argv,
+					   "armv6") == 0){
+				if(archflag_cpusubtype != -1 &&
+				   archflag_cpusubtype !=
+					CPU_SUBTYPE_ARM_V6)
+				    as_fatal("can't specify more "
+				       "than one -arch flag ");
+				specific_archflag = *work_argv;
+				archflag_cpusubtype =
+				    CPU_SUBTYPE_ARM_V6;
+			    }
+			    else
+				as_fatal("I expected 'arm' after "
+					 "-arch for this assembler.");
+#endif
 			}
 			else
 			    as_fatal("I expected an <arch_type> "
@@ -676,9 +741,6 @@ unknown_flag:
 	/*
 	 * Call the initialization routines.
 	 */
-#ifdef OLD_PROJECTBUILDER_INTERFACE
-	check_for_ProjectBuilder();	/* messages.c */
-#endif /* OLD_PROJECTBUILDER_INTERFACE */
 	symbol_begin();			/* symbols.c */
 	sections_begin();		/* sections.c */
 	read_begin();			/* read.c */
@@ -693,6 +755,12 @@ unknown_flag:
 	perform_an_assembly_pass(argc, argv); /* Assemble it. */
 
 	if(seen_at_least_1_file() && bad_error != TRUE){
+	    /*
+	     * If we've been collecting dwarf2 .debug_line info, either for
+	     * assembly debugging or on behalf of the compiler, emit it now.
+	     */
+	    dwarf2_finish();
+
 	    layout_addresses();
 	    write_object(out_file_name);
 	}

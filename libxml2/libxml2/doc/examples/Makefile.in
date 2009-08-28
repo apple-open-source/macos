@@ -32,11 +32,11 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-noinst_PROGRAMS = xpath1$(EXEEXT) parse1$(EXEEXT) parse2$(EXEEXT) \
-	tree1$(EXEEXT) tree2$(EXEEXT) testWriter$(EXEEXT) \
-	reader1$(EXEEXT) reader2$(EXEEXT) reader3$(EXEEXT) \
-	io1$(EXEEXT) parse3$(EXEEXT) parse4$(EXEEXT) io2$(EXEEXT) \
-	xpath2$(EXEEXT) reader4$(EXEEXT)
+noinst_PROGRAMS = xpath2$(EXEEXT) reader1$(EXEEXT) reader4$(EXEEXT) \
+	parse2$(EXEEXT) reader2$(EXEEXT) parse3$(EXEEXT) \
+	reader3$(EXEEXT) tree2$(EXEEXT) parse4$(EXEEXT) io2$(EXEEXT) \
+	testWriter$(EXEEXT) io1$(EXEEXT) xpath1$(EXEEXT) \
+	parse1$(EXEEXT) tree1$(EXEEXT)
 subdir = doc/examples
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -158,6 +158,7 @@ AUTOCONF = @AUTOCONF@
 AUTOHEADER = @AUTOHEADER@
 AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
+BASE_THREAD_LIBS = @BASE_THREAD_LIBS@
 C14N_OBJ = @C14N_OBJ@
 CATALOG_OBJ = @CATALOG_OBJ@
 CC = @CC@
@@ -165,10 +166,6 @@ CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
-CXX = @CXX@
-CXXCPP = @CXXCPP@
-CXXDEPMODE = @CXXDEPMODE@
-CXXFLAGS = @CXXFLAGS@
 CYGPATH_W = @CYGPATH_W@
 CYGWIN_EXTRA_LDFLAGS = @CYGWIN_EXTRA_LDFLAGS@
 CYGWIN_EXTRA_PYTHON_LIBADD = @CYGWIN_EXTRA_PYTHON_LIBADD@
@@ -177,14 +174,14 @@ DEFS = @DEFS@
 DEPDIR = @DEPDIR@
 DLLTOOL = @DLLTOOL@
 DOCB_OBJ = @DOCB_OBJ@
-ECHO = @ECHO@
+DSYMUTIL = @DSYMUTIL@
+DUMPBIN = @DUMPBIN@
 ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 EXEEXT = @EXEEXT@
-F77 = @F77@
-FFLAGS = @FFLAGS@
+FGREP = @FGREP@
 FTP_OBJ = @FTP_OBJ@
 GREP = @GREP@
 HAVE_ISINF = @HAVE_ISINF@
@@ -199,6 +196,7 @@ INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
+LD = @LD@
 LDFLAGS = @LDFLAGS@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
@@ -210,14 +208,21 @@ LIBXML_VERSION = @LIBXML_VERSION@
 LIBXML_VERSION_EXTRA = @LIBXML_VERSION_EXTRA@
 LIBXML_VERSION_INFO = @LIBXML_VERSION_INFO@
 LIBXML_VERSION_NUMBER = @LIBXML_VERSION_NUMBER@
+LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
 MAKEINFO = @MAKEINFO@
 MKDIR_P = @MKDIR_P@
+MODULE_EXTENSION = @MODULE_EXTENSION@
+MODULE_PLATFORM_LIBS = @MODULE_PLATFORM_LIBS@
 MV = @MV@
 M_LIBS = @M_LIBS@
+NM = @NM@
+NMEDIT = @NMEDIT@
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
+OTOOL = @OTOOL@
+OTOOL64 = @OTOOL64@
 PACKAGE = @PACKAGE@
 PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
 PACKAGE_NAME = @PACKAGE_NAME@
@@ -225,7 +230,6 @@ PACKAGE_STRING = @PACKAGE_STRING@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
-PATTERN_TEST = @PATTERN_TEST@
 PERL = @PERL@
 PYTHON = @PYTHON@
 PYTHON_INCLUDES = @PYTHON_INCLUDES@
@@ -238,6 +242,7 @@ RDL_LIBS = @RDL_LIBS@
 READER_TEST = @READER_TEST@
 RELDATE = @RELDATE@
 RM = @RM@
+SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STATIC_BINARIES = @STATIC_BINARIES@
@@ -247,11 +252,14 @@ TEST_C14N = @TEST_C14N@
 TEST_CATALOG = @TEST_CATALOG@
 TEST_DEBUG = @TEST_DEBUG@
 TEST_HTML = @TEST_HTML@
+TEST_MODULES = @TEST_MODULES@
+TEST_PATTERN = @TEST_PATTERN@
 TEST_PHTML = @TEST_PHTML@
 TEST_PUSH = @TEST_PUSH@
 TEST_REGEXPS = @TEST_REGEXPS@
 TEST_SAX = @TEST_SAX@
 TEST_SCHEMAS = @TEST_SCHEMAS@
+TEST_SCHEMATRON = @TEST_SCHEMATRON@
 TEST_THREADS = @TEST_THREADS@
 TEST_VALID = @TEST_VALID@
 TEST_VTIME = @TEST_VTIME@
@@ -263,6 +271,7 @@ THREAD_CFLAGS = @THREAD_CFLAGS@
 THREAD_LIBS = @THREAD_LIBS@
 U = @U@
 VERSION = @VERSION@
+WGET = @WGET@
 WIN32_EXTRA_LDFLAGS = @WIN32_EXTRA_LDFLAGS@
 WIN32_EXTRA_LIBADD = @WIN32_EXTRA_LIBADD@
 WITH_C14N = @WITH_C14N@
@@ -277,6 +286,7 @@ WITH_ICU = @WITH_ICU@
 WITH_ISO8859X = @WITH_ISO8859X@
 WITH_LEGACY = @WITH_LEGACY@
 WITH_MEM_DEBUG = @WITH_MEM_DEBUG@
+WITH_MODULES = @WITH_MODULES@
 WITH_OUTPUT = @WITH_OUTPUT@
 WITH_PATTERN = @WITH_PATTERN@
 WITH_PUSH = @WITH_PUSH@
@@ -285,6 +295,7 @@ WITH_REGEXPS = @WITH_REGEXPS@
 WITH_RUN_DEBUG = @WITH_RUN_DEBUG@
 WITH_SAX1 = @WITH_SAX1@
 WITH_SCHEMAS = @WITH_SCHEMAS@
+WITH_SCHEMATRON = @WITH_SCHEMATRON@
 WITH_THREADS = @WITH_THREADS@
 WITH_TREE = @WITH_TREE@
 WITH_TRIO = @WITH_TRIO@
@@ -293,6 +304,7 @@ WITH_WRITER = @WITH_WRITER@
 WITH_XINCLUDE = @WITH_XINCLUDE@
 WITH_XPATH = @WITH_XPATH@
 WITH_XPTR = @WITH_XPTR@
+WITH_ZLIB = @WITH_ZLIB@
 XINCLUDE_OBJ = @XINCLUDE_OBJ@
 XMLLINT = @XMLLINT@
 XML_CFLAGS = @XML_CFLAGS@
@@ -310,8 +322,7 @@ abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
 abs_top_srcdir = @abs_top_srcdir@
 ac_ct_CC = @ac_ct_CC@
-ac_ct_CXX = @ac_ct_CXX@
-ac_ct_F77 = @ac_ct_F77@
+ac_ct_DUMPBIN = @ac_ct_DUMPBIN@
 am__include = @am__include@
 am__leading_dot = @am__leading_dot@
 am__quote = @am__quote@
@@ -342,6 +353,7 @@ libdir = @libdir@
 libexecdir = @libexecdir@
 localedir = @localedir@
 localstatedir = @localstatedir@
+lt_ECHO = @lt_ECHO@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
 oldincludedir = @oldincludedir@
@@ -362,51 +374,39 @@ top_srcdir = @top_srcdir@
 INCLUDES = -I$(top_builddir)/include -I$(top_srcdir)/include -I@srcdir@/include @THREAD_CFLAGS@ @Z_CFLAGS@
 DEPS = $(top_builddir)/libxml2.la
 LDADDS = @STATIC_BINARIES@ $(top_builddir)/libxml2.la @THREAD_LIBS@ @Z_LIBS@ $(ICONV_LIBS) -lm @WIN32_EXTRA_LIBADD@
-EXTRA_DIST = examples.xsl index.py test1.xml examples.xml test2.xml writer.xml test3.xml tst.xml reader1.res reader3.res tree1.res tree2.res io1.res io2.res xpath1.res xpath2.res reader4.res 
-xpath1_SOURCES = xpath1.c
-xpath1_LDFLAGS = 
-xpath1_DEPENDENCIES = $(DEPS)
-xpath1_LDADD = @RDL_LIBS@ $(LDADDS)
-parse1_SOURCES = parse1.c
-parse1_LDFLAGS = 
-parse1_DEPENDENCIES = $(DEPS)
-parse1_LDADD = @RDL_LIBS@ $(LDADDS)
-parse2_SOURCES = parse2.c
-parse2_LDFLAGS = 
-parse2_DEPENDENCIES = $(DEPS)
-parse2_LDADD = @RDL_LIBS@ $(LDADDS)
-tree1_SOURCES = tree1.c
-tree1_LDFLAGS = 
-tree1_DEPENDENCIES = $(DEPS)
-tree1_LDADD = @RDL_LIBS@ $(LDADDS)
-tree2_SOURCES = tree2.c
-tree2_LDFLAGS = 
-tree2_DEPENDENCIES = $(DEPS)
-tree2_LDADD = @RDL_LIBS@ $(LDADDS)
-testWriter_SOURCES = testWriter.c
-testWriter_LDFLAGS = 
-testWriter_DEPENDENCIES = $(DEPS)
-testWriter_LDADD = @RDL_LIBS@ $(LDADDS)
+EXTRA_DIST = examples.xsl index.py examples.xml writer.xml test3.xml tst.xml test1.xml test2.xml io2.res xpath2.res tree1.res reader4.res io1.res tree2.res reader3.res xpath1.res reader1.res 
+xpath2_SOURCES = xpath2.c
+xpath2_LDFLAGS = 
+xpath2_DEPENDENCIES = $(DEPS)
+xpath2_LDADD = @RDL_LIBS@ $(LDADDS)
 reader1_SOURCES = reader1.c
 reader1_LDFLAGS = 
 reader1_DEPENDENCIES = $(DEPS)
 reader1_LDADD = @RDL_LIBS@ $(LDADDS)
+reader4_SOURCES = reader4.c
+reader4_LDFLAGS = 
+reader4_DEPENDENCIES = $(DEPS)
+reader4_LDADD = @RDL_LIBS@ $(LDADDS)
+parse2_SOURCES = parse2.c
+parse2_LDFLAGS = 
+parse2_DEPENDENCIES = $(DEPS)
+parse2_LDADD = @RDL_LIBS@ $(LDADDS)
 reader2_SOURCES = reader2.c
 reader2_LDFLAGS = 
 reader2_DEPENDENCIES = $(DEPS)
 reader2_LDADD = @RDL_LIBS@ $(LDADDS)
-reader3_SOURCES = reader3.c
-reader3_LDFLAGS = 
-reader3_DEPENDENCIES = $(DEPS)
-reader3_LDADD = @RDL_LIBS@ $(LDADDS)
-io1_SOURCES = io1.c
-io1_LDFLAGS = 
-io1_DEPENDENCIES = $(DEPS)
-io1_LDADD = @RDL_LIBS@ $(LDADDS)
 parse3_SOURCES = parse3.c
 parse3_LDFLAGS = 
 parse3_DEPENDENCIES = $(DEPS)
 parse3_LDADD = @RDL_LIBS@ $(LDADDS)
+reader3_SOURCES = reader3.c
+reader3_LDFLAGS = 
+reader3_DEPENDENCIES = $(DEPS)
+reader3_LDADD = @RDL_LIBS@ $(LDADDS)
+tree2_SOURCES = tree2.c
+tree2_LDFLAGS = 
+tree2_DEPENDENCIES = $(DEPS)
+tree2_LDADD = @RDL_LIBS@ $(LDADDS)
 parse4_SOURCES = parse4.c
 parse4_LDFLAGS = 
 parse4_DEPENDENCIES = $(DEPS)
@@ -415,14 +415,26 @@ io2_SOURCES = io2.c
 io2_LDFLAGS = 
 io2_DEPENDENCIES = $(DEPS)
 io2_LDADD = @RDL_LIBS@ $(LDADDS)
-xpath2_SOURCES = xpath2.c
-xpath2_LDFLAGS = 
-xpath2_DEPENDENCIES = $(DEPS)
-xpath2_LDADD = @RDL_LIBS@ $(LDADDS)
-reader4_SOURCES = reader4.c
-reader4_LDFLAGS = 
-reader4_DEPENDENCIES = $(DEPS)
-reader4_LDADD = @RDL_LIBS@ $(LDADDS)
+testWriter_SOURCES = testWriter.c
+testWriter_LDFLAGS = 
+testWriter_DEPENDENCIES = $(DEPS)
+testWriter_LDADD = @RDL_LIBS@ $(LDADDS)
+io1_SOURCES = io1.c
+io1_LDFLAGS = 
+io1_DEPENDENCIES = $(DEPS)
+io1_LDADD = @RDL_LIBS@ $(LDADDS)
+xpath1_SOURCES = xpath1.c
+xpath1_LDFLAGS = 
+xpath1_DEPENDENCIES = $(DEPS)
+xpath1_LDADD = @RDL_LIBS@ $(LDADDS)
+parse1_SOURCES = parse1.c
+parse1_LDFLAGS = 
+parse1_DEPENDENCIES = $(DEPS)
+parse1_LDADD = @RDL_LIBS@ $(LDADDS)
+tree1_SOURCES = tree1.c
+tree1_LDFLAGS = 
+tree1_DEPENDENCIES = $(DEPS)
+tree1_LDADD = @RDL_LIBS@ $(LDADDS)
 all: all-am
 
 .SUFFIXES:
@@ -749,40 +761,40 @@ install-data-local:
 	-@INSTALL@ -m 0644 $(srcdir)/*.html $(srcdir)/*.c $(srcdir)/*.xml $(srcdir)/*.xsl $(srcdir)/*.res $(DESTDIR)$(HTML_DIR)
 
 valgrind: 
-	$(MAKE) CHECKER='valgrind -q' tests
+	$(MAKE) CHECKER='valgrind' tests
 
 tests: $(noinst_PROGRAMS)
 	@(echo '## examples regression tests')
 	@(echo > .memdump)
-	@($(CHECKER) ././xpath1 test3.xml '//child2' > xpath1.tmp ; diff xpath1.tmp xpath1.res ; rm xpath1.tmp)
-	@(grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" ; exit 0)
-	@($(CHECKER) ./parse1 test1.xml)
-	@(grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" ; exit 0)
-	@($(CHECKER) ./parse2 test2.xml)
-	@(grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" ; exit 0)
-	@($(CHECKER) ./tree1 test2.xml > tree1.tmp ; diff tree1.tmp tree1.res ; rm tree1.tmp)
-	@(grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" ; exit 0)
-	@($(CHECKER) ./tree2 > tree2.tmp ; diff tree2.tmp tree2.res ; rm tree2.tmp)
-	@(grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" ; exit 0)
-	@($(CHECKER) ./testWriter ; for i in 1 2 3 4 ; do diff writer.xml writer$$i.res ; done ; rm writer*.res)
+	@($(CHECKER) ./xpath2 test3.xml '//discarded' discarded > xpath2.tmp ; diff xpath2.tmp xpath2.res ; rm xpath2.tmp)
 	@(grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" ; exit 0)
 	@($(CHECKER) ./reader1 test2.xml > reader1.tmp ; diff reader1.tmp reader1.res ; rm reader1.tmp)
 	@(grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" ; exit 0)
+	@($(CHECKER) ./reader4 test1.xml test2.xml test3.xml > reader4.tmp ; diff reader4.tmp reader4.res ; rm reader4.tmp)
+	@(grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" ; exit 0)
+	@($(CHECKER) ./parse2 test2.xml)
+	@(grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" ; exit 0)
 	@($(CHECKER) ./reader2 test2.xml > reader1.tmp ; diff reader1.tmp reader1.res ; rm reader1.tmp)
+	@(grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" ; exit 0)
+	@($(CHECKER) ./parse3)
 	@(grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" ; exit 0)
 	@($(CHECKER) ./reader3 > reader3.tmp ; diff reader3.tmp reader3.res ; rm reader3.tmp)
 	@(grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" ; exit 0)
-	@($(CHECKER) ./io1 > io1.tmp ; diff io1.tmp io1.res ; rm -f io1.tmp)
-	@(grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" ; exit 0)
-	@($(CHECKER) ./parse3)
+	@($(CHECKER) ./tree2 > tree2.tmp ; diff tree2.tmp tree2.res ; rm tree2.tmp)
 	@(grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" ; exit 0)
 	@($(CHECKER) ./parse4 test3.xml)
 	@(grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" ; exit 0)
 	@($(CHECKER) ./io2 > io2.tmp ; diff io2.tmp io2.res ; rm -f io2.tmp)
 	@(grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" ; exit 0)
-	@($(CHECKER) ./xpath2 test3.xml '//discarded' discarded > xpath2.tmp ; diff xpath2.tmp xpath2.res ; rm xpath2.tmp)
+	@($(CHECKER) ./testWriter ; for i in 1 2 3 4 ; do diff writer.xml writer$$i.res ; done ; rm writer*.res)
 	@(grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" ; exit 0)
-	@($(CHECKER) ./reader4 test1.xml test2.xml test3.xml > reader4.tmp ; diff reader4.tmp reader4.res ; rm reader4.tmp)
+	@($(CHECKER) ./io1 > io1.tmp ; diff io1.tmp io1.res ; rm -f io1.tmp)
+	@(grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" ; exit 0)
+	@($(CHECKER) ././xpath1 test3.xml '//child2' > xpath1.tmp ; diff xpath1.tmp xpath1.res ; rm xpath1.tmp)
+	@(grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" ; exit 0)
+	@($(CHECKER) ./parse1 test1.xml)
+	@(grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" ; exit 0)
+	@($(CHECKER) ./tree1 test2.xml > tree1.tmp ; diff tree1.tmp tree1.res ; rm tree1.tmp)
 	@(grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" ; exit 0)
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

@@ -1,4 +1,3 @@
-/* APPLE LOCAL file mainline */
 /* Contributed by Igor Seleznev <selez@mail.ru>.  */
 /* This used to be broken.  */
 

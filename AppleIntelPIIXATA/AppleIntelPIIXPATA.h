@@ -24,6 +24,7 @@
 #define _APPLEINTELPIIXPATA_H
 
 #include <IOKit/IOFilterInterruptEventSource.h>
+#include <IOKit/IOBufferMemoryDescriptor.h>
 #include <IOKit/pci/IOPCIDevice.h>
 #include <IOKit/ata/IOATATypes.h>
 #include <IOKit/ata/IOPCIATA.h>
@@ -77,10 +78,11 @@ protected:
     UInt16                        _ideConfig;
     bool                          _initTimingRegisters;
 
-	IOACPIPlatformDevice*         _pciACPIDevice;
+	IOACPIPlatformDevice*         	_pciACPIDevice;
 	bool							_drivePowerOn;
 	IONotifier*						_interestNotifier;
-
+	IOBufferMemoryDescriptor*		_prdBuffer;
+	
     /* Interrupt event source action */
     
     static void interruptOccurred( OSObject *               owner,

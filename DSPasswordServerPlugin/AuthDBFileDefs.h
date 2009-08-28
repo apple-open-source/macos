@@ -85,8 +85,12 @@ typedef enum ReplicationRecordType {
 	kDBTypeLastSyncTime,
 	kDBTypeHeader,
 	kDBTypeSlot,
-	kDBTypeKerberosPrincipal
+	kDBTypeKerberosPrincipal,
+	kDBTypeAddressChange
 } ReplicationRecordType;
+#define kDBTypeFirstRecord kDBTypeLastSyncTime
+#define kDBTypeLastRecord  kDBTypeAddressChange
+#define kDBTypeIsValid(t) ( ((t) >= kDBTypeFirstRecord) && ((t) <= kDBTypeLastRecord) )
 
 typedef enum SyncPriority {
 	kSyncPriorityNormal,

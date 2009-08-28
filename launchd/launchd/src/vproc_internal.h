@@ -24,6 +24,8 @@
 #include <sys/queue.h>
 #include <sys/time.h>
 #include <stdarg.h>
+#include <sys/syscall.h>
+#include <bsm/audit.h>
 #include "launch.h"
 #include "bootstrap.h"
 #include "vproc.h"
@@ -32,6 +34,15 @@ typedef char * _internal_string_t;
 typedef char * logmsg_t;
 typedef pid_t * pid_array_t;
 typedef mach_port_t vproc_mig_t;
+
+#define VPROC_SHMEM_EXITING	0x1
+
+struct vproc_shmem_s {
+	int32_t vp_shmem_transaction_cnt;
+	int32_t vp_shmem_standby_cnt;
+	uint32_t vp_shmem_standby_timeout;
+	int32_t vp_shmem_flags;
+};
 
 #ifdef protocol_vproc_MSG_COUNT
 /* HACK */
@@ -45,6 +56,14 @@ typedef mach_port_t vproc_mig_t;
 vproc_err_t _vprocmgr_init(const char *session_type);
 vproc_err_t _vproc_post_fork_ping(void);
 
+#if !TARGET_OS_EMBEDDED
+	#define _audit_session_self(v) (mach_port_t)syscall(SYS_audit_session_self)
+	#define _audit_session_join(s) (au_asid_t)syscall(SYS_audit_session_join, session)
+#else
+	#define _audit_session_self(v) MACH_PORT_NULL
+	#define _audit_session_join(s) 0
+#endif
+
 #define SPAWN_HAS_PATH			0x0001
 #define SPAWN_HAS_WDIR			0x0002
 #define SPAWN_HAS_UMASK			0x0004
@@ -56,36 +75,51 @@ _vproc_grab_subset(mach_port_t bp, mach_port_t *reqport, mach_port_t *rcvright, 
 
 kern_return_t _vprocmgr_getsocket(name_t);
 
-
 struct logmsg_s {
-	STAILQ_ENTRY(logmsg_s) sqe;
-	struct timeval when;
+	union {
+		STAILQ_ENTRY(logmsg_s) sqe;
+		uint64_t __pad;
+	};
+	int64_t when;
 	pid_t from_pid;
 	pid_t about_pid;
 	uid_t sender_uid;
 	gid_t sender_gid;
 	int err_num;
 	int pri;
-	const char *from_name;
-	const char *about_name;
-	const char *session_name;
-	const char *msg;
-	size_t obj_sz;
+	union {
+		const char *from_name;
+		uint64_t from_name_offset;
+	};
+	union {
+		const char *about_name;
+		uint64_t about_name_offset;
+	};
+	union {
+		const char *session_name;
+		uint64_t session_name_offset;
+	};
+	union {
+		const char *msg;
+		uint64_t msg_offset;
+	};
+	uint64_t obj_sz;
 	char data[0];
 };
 
 
-void _vproc_logv(int pri, int err, const char *msg, va_list ap);
 vproc_err_t _vprocmgr_log_forward(mach_port_t mp, void *data, size_t len);
 
 
 kern_return_t
-bootstrap_info(
-		mach_port_t bp,
-		name_array_t *service_names,
-		mach_msg_type_number_t *service_namesCnt,
-		bootstrap_status_array_t *service_active,
-		mach_msg_type_number_t *service_activeCnt);
+bootstrap_info(mach_port_t bp,
+			   name_array_t *service_names,
+			   mach_msg_type_number_t *service_namesCnt,
+			   name_array_t *service_jobs,
+			   mach_msg_type_number_t *service_jobsCnt,
+			   bootstrap_status_array_t *service_active,
+			   mach_msg_type_number_t *service_activeCnt,
+			   uint64_t flags);
 
 #pragma GCC visibility pop
 

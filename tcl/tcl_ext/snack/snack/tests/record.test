@@ -1,0 +1,97 @@
+# Commands covered: sound record/stop
+#
+
+package require -exact snack 2.2
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+test record-1.1 {record command} {
+  set s [snack::sound snd]
+  $s record
+  set flag 0
+  after 2000 {set flag 1}
+  while {$flag == 0} update
+  $s stop
+  set len [$s length]
+  $s destroy
+  expr $len > 0
+} 1
+
+test record-1.2 {record command, with -append} {
+  set s [snack::sound snd]
+  $s record
+  set flag 0
+  after 2000 {set flag 1}
+  while {$flag == 0} update
+  $s stop
+  set len1 [$s length]
+
+  $s record -append 1
+  set flag 0
+  after 2000 {set flag 1}
+  while {$flag == 0} update
+  $s stop
+  set len2 [$s length]
+  $s destroy
+  expr $len2 > $len1
+} 1
+
+test record-2.1 {record command, using default sound device} {
+  set s [snack::sound snd]
+  $s record -device ""
+  set flag 0
+  after 2000 {set flag 1}
+  while {$flag == 0} update
+  $s stop
+  set len [$s length]
+  $s destroy
+  expr $len > 0
+} 1
+
+test record-2.2 {record command, using first sound device} {
+  set s [snack::sound snd]
+  set dev [lindex [snack::audio inputDevices] 0]
+  $s record -device $dev
+  set flag 0
+  after 2000 {set flag 1}
+  while {$flag == 0} update
+  $s stop
+  set len [$s length]
+  $s destroy
+  expr $len > 0
+} 1
+
+test record-3.1 {record command, using unknown sound device} {
+  set s [snack::sound snd]
+  catch {$s record -device junk} msg
+  $s destroy
+  set msg
+} {No such device: junk}
+
+test record-3.2 {record command, missing argument to -device option} {
+  set s [snack::sound snd]
+  catch {$s record -device} msg
+  $s destroy
+  set msg
+} {No argument given for -device option}
+
+test record-3.1 {record command, -file} {
+  set s [snack::sound snd -file snackTest.au]
+  $s record
+  set flag 0
+  after 2000 {set flag 1}
+  while {$flag == 0} update
+  $s stop
+  $s configure -load snackTest.au
+  set len [$s length]
+  $s destroy
+  expr $len > 0
+} 1
+
+# cleanup
+catch {::tcltest::removeFile snackTest.au}
+::tcltest::cleanupTests
+return

@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/modrdn.c,v 1.27.2.2 2006/01/03 22:16:08 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/modrdn.c,v 1.30.2.3 2008/02/11 23:26:41 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -23,22 +23,9 @@
  * without restriction or fee of any kind as long as this notice
  * is preserved.
  */
-/* Portions Copyright (C) The Internet Society (1997)
- * ASN.1 fragments are from RFC 2251; see RFC 2251 for full legal notices.
- */
 
 /* ACKNOWLEDGEMENTS:
  * 	Juan C. Gomez
- */
-
-/*
- * A modify rdn request looks like this:
- *	ModifyRDNRequest ::= SEQUENCE {
- *		entry		DistinguishedName,
- *		newrdn		RelativeDistinguishedName,
- *		deleteoldrdn	BOOLEAN
- *		newSuperior	[0] DistinguishedName	[v3 only]
- *	}
  */
 
 #include "portable.h"
@@ -50,6 +37,17 @@
 #include <ac/time.h>
 
 #include "ldap-int.h"
+
+/*
+ * A modify rdn request looks like this:
+ *	ModifyRDNRequest ::= SEQUENCE {
+ *		entry		DistinguishedName,
+ *		newrdn		RelativeDistinguishedName,
+ *		deleteoldrdn	BOOLEAN
+ *		newSuperior	[0] DistinguishedName	[v3 only]
+ *	}
+ */
+
 
 /*
  * ldap_rename - initiate an ldap extended modifyDN operation.
@@ -219,9 +217,9 @@ ldap_rename_s(
 		return rc;
 	}
 
-	rc = ldap_result( ld, msgid, 1, NULL, &res );
+	rc = ldap_result( ld, msgid, LDAP_MSG_ALL, NULL, &res );
 
-	if( rc == -1 ) {
+	if( rc == -1 || !res ) {
 		return ld->ld_errno;
 	}
 

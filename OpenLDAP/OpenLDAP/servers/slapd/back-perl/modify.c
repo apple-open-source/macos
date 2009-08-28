@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-perl/modify.c,v 1.21.2.2 2006/01/03 22:16:22 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-perl/modify.c,v 1.23.2.4 2008/02/11 23:26:47 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2006 The OpenLDAP Foundation.
+ * Copyright 1999-2008 The OpenLDAP Foundation.
  * Portions Copyright 1999 John C. Quillan.
  * Portions Copyright 2002 myinternet Limited.
  * All rights reserved.
@@ -27,6 +27,9 @@ perl_back_modify(
 	int count;
 	int i;
 
+#if defined(HAVE_WIN32_ASPERL) || defined(USE_ITHREADS)
+	PERL_SET_CONTEXT( PERL_INTERPRETER );
+#endif
 
 	ldap_pvt_thread_mutex_lock( &perl_interpreter_mutex );	
 
@@ -62,6 +65,11 @@ perl_back_modify(
 				i++ )
 			{
 				XPUSHs(sv_2mortal(newSVpv( mods->sm_values[i].bv_val, 0 )));
+			}
+
+			/* Fix delete attrib without value. */
+			if ( i == 0) {
+				XPUSHs(sv_newmortal());
 			}
 		}
 

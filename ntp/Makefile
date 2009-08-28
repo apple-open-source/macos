@@ -6,17 +6,21 @@
 Project           = ntp
 UserType          = Administration
 ToolType          = Services
-Extra_Configure_Flags = --disable-nls --disable-dependency-tracking --with-crypto=openssl
+Extra_Configure_Flags = --disable-nls     \
+	--disable-dependency-tracking     \
+	--with-crypto=openssl             \
+	ac_cv_decl_syscall=no	          \
+	ac_cv_header_netinfo_ni_h=no	  \
+	ac_cv_func_ctty_for_f_setown=yes  \
+	ac_cv_func_mlockall=no		  \
+	ac_cv_func_kvm_open=no		  \
+	ac_cv_header_utmp_h=no		  \
+	ac_cv_func_daemon=no
+
 Extra_Environment = AUTOCONF="$(Sources)/missing autoconf"	\
                     AUTOHEADER="$(Sources)/missing autoheader"	\
-                    ac_cv_decl_syscall=no			\
-                    ac_cv_header_netinfo_ni_h=no		\
-                    ac_cv_func_ctty_for_f_setown=yes            \
-                    ac_cv_func_mlockall=no			\
-		    ac_cv_func_kvm_open=no			\
                     LIBMATH=""
-Extra_CC_Flags    = -mdynamic-no-pic
-Extra_LD_Flags    = -framework IOKit
+Extra_CC_Flags    = -mdynamic-no-pic -D_FORTIFY_SOURCE=2 -Wno-discard-qual -Dint32=int32_t -Du_int32=u_int32_t
 GnuAfterInstall   = install-man-pages rm-tickadj classic-install-path install-sym rm-ntp-wait install-plist install-doc install-sandbox-profile install-launchd-items
 
 # It's a GNU Source project
@@ -36,15 +40,16 @@ MAN8PAGES = man/ntp-keygen.8 \
 # Automatic Extract & Patch
 AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = 4.2.2
+AEP_Version    = 4.2.4p4
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
 #----------------------------------------------------#
 #>>> Update ntp.plist when you change AEP_Patches <<<#
 #----------------------------------------------------#
-AEP_Patches    = NLS_EAP.patch NLS_PR-4237140.patch libmd.patch iokit.patch \
-	PR-4108417.diff ntp_io.c.patch ntpq.c.patch openssl.patch
+AEP_Patches    = ntpq.c.patch ntp_io.c.patch \
+	ntp_io.c-TIMESTAMP_CMSG.patch DNS-config.patch ipv6.patch \
+	instantoff.patch ntpd.c.patch wakesync.patch openssl.patch
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j
@@ -58,12 +63,12 @@ ifeq ($(AEP),YES)
 	$(TAR) -C $(SRCROOT) -$(AEP_ExtractOption)xf $(SRCROOT)/$(AEP_Filename)
 	$(RMDIR) $(SRCROOT)/$(AEP_Project) 
 	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(AEP_Project)
+	$(MV) $(SRCROOT)/$(AEP_Project)/ntpd/ntp_intres.c $(SRCROOT)/$(AEP_Project)/ntpd/ntp_intres.c.orig
+	$(CAT) $(SRCROOT)/getaddrinfo.c $(SRCROOT)/$(AEP_Project)/ntpd/ntp_intres.c.orig > $(SRCROOT)/$(AEP_Project)/ntpd/ntp_intres.c
 	for patchfile in $(AEP_Patches); do \
 	    echo Applying $$patchfile; \
-	    cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile || exit 1; \
+	    cd $(SRCROOT)/$(Project) && patch -p0 -F0 < $(SRCROOT)/patches/$$patchfile || exit 1; \
 	done
-	mv $(SRCROOT)/$(AEP_Project)/ntpd/ntp_intres.c $(SRCROOT)/$(AEP_Project)/ntpd/ntp_intres.c.orig
-	cat $(SRCROOT)/getaddrinfo.c $(SRCROOT)/$(AEP_Project)/ntpd/ntp_intres.c.orig > $(SRCROOT)/$(AEP_Project)/ntpd/ntp_intres.c
 endif
 
 install-man-pages:

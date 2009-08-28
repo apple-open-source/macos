@@ -1,3 +1,3 @@
-%(member)s s'ha subscrit amb èxit a %(listname)s.
+%(member)s s'ha subscrit amb Ã¨xit a %(listname)s.
 
 

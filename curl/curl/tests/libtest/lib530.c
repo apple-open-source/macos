@@ -5,15 +5,23 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: lib530.c,v 1.13 2007-03-10 00:19:05 yangtse Exp $
+ * $Id: lib530.c,v 1.18 2008-09-20 04:26:57 yangtse Exp $
  */
 
 #include "test.h"
 
+#ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
+#endif
+#ifdef HAVE_SYS_STAT_H
 #include <sys/stat.h>
+#endif
+#ifdef HAVE_STRING_H
+#include <string.h>
+#endif
 
 #include "testutil.h"
+#include "memdebug.h"
 
 #define MAIN_LOOP_HANG_TIMEOUT     90 * 1000
 #define MULTI_PERFORM_HANG_TIMEOUT 60 * 1000
@@ -32,6 +40,7 @@ int test(char *URL)
   struct timeval mp_start;
   char ml_timedout = FALSE;
   char mp_timedout = FALSE;
+  char target_url[256];
 
   if (curl_global_init(CURL_GLOBAL_ALL) != CURLE_OK) {
     fprintf(stderr, "curl_global_init() failed\n");
@@ -58,13 +67,15 @@ int test(char *URL)
       curl_global_cleanup();
       return TEST_ERR_MAJOR_BAD + i;
     }
-    curl_easy_setopt(curl[i], CURLOPT_URL, URL);
+    sprintf(target_url, "%s%04i", URL, i + 1);
+    target_url[sizeof(target_url) - 1] = '\0';
+    curl_easy_setopt(curl[i], CURLOPT_URL, target_url);
 
     /* go verbose */
-    curl_easy_setopt(curl[i], CURLOPT_VERBOSE, 1);
+    curl_easy_setopt(curl[i], CURLOPT_VERBOSE, 1L);
 
     /* include headers */
-    curl_easy_setopt(curl[i], CURLOPT_HEADER, 1);
+    curl_easy_setopt(curl[i], CURLOPT_HEADER, 1L);
 
     /* add handle to multi */
     if ((res = (int)curl_multi_add_handle(m, curl[i])) != CURLM_OK) {
@@ -81,7 +92,7 @@ int test(char *URL)
     }
   }
 
-  curl_multi_setopt(m, CURLMOPT_PIPELINING, 1);
+  curl_multi_setopt(m, CURLMOPT_PIPELINING, 1L);
 
   ml_timedout = FALSE;
   ml_start = tutil_tvnow();

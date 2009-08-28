@@ -6,8 +6,7 @@
 #
 # Initial modifications: SKoT McDonald <skot@tomandandy.com> Aug 2001
 #
-# Based on CPPClass by Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2006/03/13 19:27:37 $
+# Last Updated: $Date: 2009/03/30 19:38:51 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -46,7 +45,7 @@ use HeaderDoc::ObjCContainer;
 
 use strict;
 use vars qw($VERSION @ISA);
-$VERSION = '$Revision: 1.2.2.1.2.10 $';
+$HeaderDoc::ObjCProtocol::VERSION = '$Revision: 1.4 $';
 
 ################ Portability ###################################
 my $isMacOS;
@@ -91,12 +90,13 @@ sub getMethodType {
 	} elsif ($declaration =~ /^\s*\+/o) {
 	    $methodType = "intfcm";
 	} else {
-		# my $filename = $HeaderDoc::headerObject->filename();
-		my $filename = $self->filename();
-		my $linenum = $self->linenum();
-		if (!$HeaderDoc::ignore_apiuid_errors) {
-			print "$filename:$linenum: warning: Unable to determine whether declaration is for an instance or class method[class]. '$declaration'\n";
-		}
+		$methodType = HeaderDoc::CPPClass::getMethodType($self, $declaration);
+		## # my $filename = $HeaderDoc::headerObject->filename();
+		## my $filename = $self->filename();
+		## my $linenum = $self->linenum();
+		## if (!$HeaderDoc::ignore_apiuid_errors) {
+			## print STDERR "$filename:$linenum: warning: Unable to determine whether declaration is for an instance or class method[class]. '$declaration'\n";
+		## }
 	}
 	return $methodType;
 }

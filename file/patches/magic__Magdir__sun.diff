@@ -1,6 +1,6 @@
 --- magic/Magdir/sun.orig	2004-08-06 14:23:08.000000000 -0700
 +++ magic/Magdir/sun	2004-08-06 14:37:51.000000000 -0700
-@@ -105,7 +105,7 @@
+@@ -113,7 +113,7 @@
  # Microsoft ICM color profile
  36	string		acspMSFT	Microsoft ICM Color Profile
  # Sun KCMS

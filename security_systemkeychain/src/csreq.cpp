@@ -25,9 +25,9 @@
 // csreq - code requirement munging tool for Code Signing
 //
 #include "cs_utils.h"
-#include <security_codesigning/reqdumper.h>
+#include <Security/CodeSigning.h>
+#include <Security/SecRequirementPriv.h>
 
-using namespace CodeSigning;
 using namespace UnixPlusPlus;
 
 
@@ -43,18 +43,14 @@ static enum {
 	outputBinary
 } outputType = outputCheck;
 
-static enum RequirementType {
-	typeSingle,						// single Requirement
-	typeInternal,					// (internal) Requirements set
-	typeAuto						// auto-sense either
-} reqType = typeAuto;
+static SecCSFlags reqType = kSecCSDefaultFlags;
 
 
 //
 // Local functions
 //
 static void usage();
-static RequirementType type(const char *t);
+static SecCSFlags type(const char *t);
 
 
 //
@@ -117,18 +113,7 @@ int main(int argc, char *argv[])
 		if (requirement == NULL)
 			usage();
 		
-		const BlobCore *req;
-		switch (reqType) {
-		case typeSingle:
-			req = readRequirement<Requirement>(requirement);
-			break;
-		case typeInternal:
-			req = readRequirement<Requirements>(requirement);
-			break;
-		case typeAuto:
-			req = readRequirement<BlobCore>(requirement);
-			break;
-		}
+		CFRef<CFTypeRef> req = readRequirement(requirement, reqType);
 		assert(req);
 		
 		switch (outputType) {
@@ -136,10 +121,28 @@ int main(int argc, char *argv[])
 			note(1, "valid");
 			break;
 		case outputText:
-			puts(CodeSigning::Dumper::dump(req, verbose > 1).c_str());
-			break;
+			{
+				CFRef<CFStringRef> text;
+				MacOSError::check(SecRequirementsCopyString(req, kSecCSDefaultFlags, &text.aref()));
+				string result = cfString(text);
+				if (result.empty())		// empty requirement set
+					result = "/* no requirements in set */\n";
+				else if (result[result.length()-1] != '\n')
+					result += '\n';
+				printf("%s", result.c_str());
+				break;
+			}
 		case outputBinary:
-			AutoFileDesc(output, O_WRONLY | O_TRUNC | O_CREAT).writeAll(*req);
+			{
+				CFRef<CFDataRef> data;
+				if (CFGetTypeID(req) == SecRequirementGetTypeID())
+					MacOSError::check(SecRequirementCopyData(SecRequirementRef(req.get()), kSecCSDefaultFlags, &data.aref()));
+				else if (CFGetTypeID(req) == CFDataGetTypeID())
+					data = CFDataRef(req.get());
+				if (data)
+					AutoFileDesc(output, O_WRONLY | O_TRUNC | O_CREAT).writeAll(CFDataGetBytePtr(data), CFDataGetLength(data));
+				break;
+			}
 			break;
 		}
 		
@@ -159,16 +162,16 @@ static void usage()
 	exit(exitUsage);
 }
 
-static RequirementType type(const char *t)
+static SecCSFlags type(const char *t)
 {
 	if (!strncmp("requirement", t, strlen(t)))
-		return typeSingle;
+		return kSecCSParseRequirement;
 	else if (!strncmp("internal", t, strlen(t)))
-		return typeInternal;
+		return kSecCSParseRequirementSet;
 	else if (!strncmp("group", t, strlen(t)))
-		return typeInternal;
+		return kSecCSParseRequirementSet;
 	else if (!strncmp("auto", t, strlen(t)))
-		return typeAuto;
+		return kSecCSDefaultFlags;
 	else {
 		fprintf(stderr, "%s: invalid type\n", t);
 		usage();

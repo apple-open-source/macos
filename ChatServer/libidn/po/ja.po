@@ -1,0 +1,180 @@
+# Japanese messages for libidn.
+# Copyright (C) 2006 Free Software Foundation, Inc.
+# This file is distributed under the same license as the libidn package.
+# GOTO Masanori <gotom@debian.or.jp>, 2006.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: libidn 0.5.16\n"
+"Report-Msgid-Bugs-To: bug-libidn@gnu.org\n"
+"POT-Creation-Date: 2007-05-31 12:54+0200\n"
+"PO-Revision-Date: 2006-03-21 11:20+0900\n"
+"Last-Translator: GOTO Masanori <gotom@debian.or.jp>\n"
+"Language-Team: Japanese <translation-team-ja@lists.sourceforge.net>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=EUC-JP\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Success"
+msgstr "成功"
+
+msgid "String preparation failed"
+msgstr "文字列準備中で失敗"
+
+msgid "Punycode failed"
+msgstr "Punycode操作中で失敗"
+
+msgid "Non-digit/letter/hyphen in input"
+msgstr "入力中に数値/文字/ハイフン以外が存在"
+
+msgid "Forbidden leading or trailing minus sign (`-')"
+msgstr "先頭または末尾にあるマイナス記号(`-')は許されていません"
+
+msgid "Output would be too large or too small"
+msgstr "出力は大きすぎるか小さすぎる"
+
+msgid "Input does not start with ACE prefix (`xn--')"
+msgstr "入力はACE接頭辞(`xn--')で始まっていません"
+
+msgid "String not idempotent under ToASCII"
+msgstr "ToASCII操作による出力文字列は等しくありません"
+
+msgid "Input already contain ACE prefix (`xn--')"
+msgstr "入力は既にACE接頭辞(`xn--')を含んでいます"
+
+msgid "System iconv failed"
+msgstr "システム関数iconvで失敗"
+
+msgid "Cannot allocate memory"
+msgstr "メモリ確保に失敗"
+
+msgid "System dlopen failed"
+msgstr "システム関数dlopenで失敗"
+
+msgid "Unknown error"
+msgstr "未知のエラー"
+
+msgid "String not idempotent under Unicode NFKC normalization"
+msgstr "UnicodeのNFKC正規化による出力文字列は等しくありません"
+
+msgid "Invalid input"
+msgstr "不正な入力"
+
+msgid "Output would exceed the buffer space provided"
+msgstr "出力は与えられたバッファ空間に収まりません"
+
+msgid "String size limit exceeded"
+msgstr "文字列長の限界を越えました"
+
+msgid "Forbidden unassigned code points in input"
+msgstr "許されていない未割当てのコードポイントが入力にあります"
+
+msgid "Prohibited code points in input"
+msgstr "禁止コードポイントが入力にあります"
+
+msgid "Conflicting bidirectional properties in input"
+msgstr "双方向(bidirectional)性が入力中で衝突しています"
+
+msgid "Malformed bidirectional string"
+msgstr "不正な双方向(bidirectional)文字列"
+
+msgid "Prohibited bidirectional code points in input"
+msgstr "禁止双方向(bidirectional)コードポイントが入力にあります"
+
+msgid "Error in stringprep profile definition"
+msgstr "stringprepプロファイル定義でエラー"
+
+msgid "Flag conflict with profile"
+msgstr "フラグがプロファイルと衝突しています"
+
+msgid "Unknown profile"
+msgstr "未知のプロファイル"
+
+msgid "Unicode normalization failed (internal error)"
+msgstr "Unicode正規化に失敗(内部エラー)"
+
+msgid "Code points prohibited by top-level domain"
+msgstr "トップレベルドメインによって禁止されたコードポイント"
+
+msgid "Missing input"
+msgstr "入力がありません"
+
+msgid "No top-level domain found in input"
+msgstr "トップレベルドメインが入力中に発見できません"
+
+msgid "Only one of -s, -e, -d, -a or -u can be specified."
+msgstr "-s, -e, -d, -a, -uのいずれか1つだけが指定できます."
+
+#, c-format
+msgid "Charset `%s'.\n"
+msgstr "文字セット`%s'.\n"
+
+#, c-format
+msgid ""
+"Type each input string on a line by itself, terminated by a newline "
+"character.\n"
+msgstr "改行文字で終端された入力文字列を1行ずつタイプしてください.\n"
+
+msgid "Input error"
+msgstr "入力エラー"
+
+#, c-format
+msgid "Could not convert from %s to UTF-8."
+msgstr "%sからUTF-8に変換できませんでした."
+
+msgid "Could not convert from UTF-8 to UCS-4."
+msgstr "UTF-8からUCS-4に変換できませんでした."
+
+#, fuzzy, c-format
+msgid "input[%lu] = U+%04x\n"
+msgstr "入力[%d] = U+%04x\n"
+
+#, c-format
+msgid "stringprep_profile: %s"
+msgstr "stringprep_profile: %s"
+
+#, fuzzy, c-format
+msgid "output[%lu] = U+%04x\n"
+msgstr "出力[%d] = U+%04x\n"
+
+#, c-format
+msgid "Could not convert from UTF-8 to %s."
+msgstr "UTF-8から%sに変換できませんでした."
+
+#, c-format
+msgid "punycode_encode: %s"
+msgstr "punycode_encode: %s"
+
+msgid "malloc"
+msgstr "malloc"
+
+#, c-format
+msgid "punycode_decode: %s"
+msgstr "punycode_decode: %s"
+
+msgid "Could not convert from UCS-4 to UTF-8."
+msgstr "UCS-4からUTF-8に変換できませんでした."
+
+#, c-format
+msgid "idna_to_ascii_4z: %s"
+msgstr "idna_to_ascii_4z: %s"
+
+#, c-format
+msgid "idna_to_unicode_8z4z (TLD): %s"
+msgstr "idna_to_unicode_8z4z (TLD): %s"
+
+#, fuzzy, c-format
+msgid "tld[%lu] = U+%04x\n"
+msgstr "tld[%d] = U+%04x\n"
+
+#, fuzzy, c-format
+msgid "tld_check_4z (position %lu): %s"
+msgstr "tld_check_4z (位置 %d): %s"
+
+#, c-format
+msgid "tld_check_4z: %s"
+msgstr "tld_check_4z: %s"
+
+#, c-format
+msgid "idna_to_unicode_8z4z: %s"
+msgstr "idna_to_unicode_8z4z: %s"

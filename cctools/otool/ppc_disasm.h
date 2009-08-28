@@ -26,23 +26,23 @@
 #import <stuff/bool.h>
 #include "stuff/symbol.h"
 
-extern unsigned long ppc_disassemble(
+extern uint32_t ppc_disassemble(
     char *sect,
-    unsigned long left,
-    unsigned long addr,
-    unsigned long sect_addr,
+    uint32_t left,
+    uint32_t addr,
+    uint32_t sect_addr,
     enum byte_sex object_byte_sex,
     struct relocation_info *relocs,
-    unsigned long nrelocs,
+    uint32_t nrelocs,
     struct nlist *symbols,
     struct nlist_64 *symbols64,
-    unsigned long nsymbols,
+    uint32_t nsymbols,
     struct symbol *sorted_symbols,
-    unsigned long nsorted_symbols,
+    uint32_t nsorted_symbols,
     char *strings,
-    unsigned long strings_size,
+    uint32_t strings_size,
     uint32_t *indirect_symbols,
-    unsigned long nindirect_symbols,
+    uint32_t nindirect_symbols,
     struct load_command *load_commands,
     uint32_t ncmds,
     uint32_t sizeofcmds,

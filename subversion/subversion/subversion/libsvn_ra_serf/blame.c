@@ -2,7 +2,7 @@
  * blame.c :  entry point for blame RA functions for ra_serf
  *
  * ====================================================================
- * Copyright (c) 2006 CollabNet.  All rights reserved.
+ * Copyright (c) 2006-2007 CollabNet.  All rights reserved.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution.  The terms
@@ -16,8 +16,6 @@
  * ====================================================================
  */
 
-
-
 #include <apr_uri.h>
 
 #include <expat.h>
@@ -28,15 +26,17 @@
 #include "svn_ra.h"
 #include "svn_dav.h"
 #include "svn_xml.h"
-#include "../libsvn_ra/ra_loader.h"
 #include "svn_config.h"
 #include "svn_delta.h"
 #include "svn_version.h"
 #include "svn_path.h"
 #include "svn_base64.h"
+#include "svn_props.h"
+
 #include "svn_private_config.h"
 
 #include "ra_serf.h"
+#include "../libsvn_ra/ra_loader.h"
 
 
 /*
@@ -49,6 +49,7 @@ typedef enum {
   REV_PROP,
   SET_PROP,
   REMOVE_PROP,
+  MERGED_REVISION,
   TXDELTA,
 } blame_state_e;
 
@@ -85,6 +86,9 @@ typedef struct {
 
   svn_string_t *prop_string;
 
+  /* Merged revision flag */
+  svn_boolean_t merged_revision;
+
 } blame_info_t;
 
 typedef struct {
@@ -100,7 +104,7 @@ typedef struct {
   svn_boolean_t done;
 
   /* blame handler and baton */
-  svn_ra_file_rev_handler_t file_rev;
+  svn_file_rev_handler_t file_rev;
   void *file_rev_baton;
 } blame_context_t;
 
@@ -127,6 +131,7 @@ push_state(svn_ra_serf__xml_parser_t *parser,
       info->prop_diffs = apr_array_make(info->pool, 0, sizeof(svn_prop_t));
 
       info->stream = NULL;
+      info->merged_revision = FALSE;
 
       parser->state->private = info;
     }
@@ -181,8 +186,8 @@ start_blame(svn_ra_serf__xml_parser_t *parser,
       info = push_state(parser, blame_ctx, FILE_REV);
 
       info->path = apr_pstrdup(info->pool,
-                               svn_ra_serf__find_attr(attrs, "path"));
-      info->rev = SVN_STR_TO_REV(svn_ra_serf__find_attr(attrs, "rev"));
+                               svn_xml_get_attr_value("path", attrs));
+      info->rev = SVN_STR_TO_REV(svn_xml_get_attr_value("rev", attrs));
     }
   else if (state == FILE_REV)
     {
@@ -203,11 +208,15 @@ start_blame(svn_ra_serf__xml_parser_t *parser,
         {
           push_state(parser, blame_ctx, REMOVE_PROP);
         }
+      else if (strcmp(name.name, "merged-revision") == 0)
+        {
+          push_state(parser, blame_ctx, MERGED_REVISION);
+        }
       else if (strcmp(name.name, "txdelta") == 0)
         {
           SVN_ERR(blame_ctx->file_rev(blame_ctx->file_rev_baton,
                                       info->path, info->rev,
-                                      info->rev_props,
+                                      info->rev_props, info->merged_revision,
                                       &info->txdelta, &info->txdelta_baton,
                                       info->prop_diffs, info->pool));
 
@@ -226,19 +235,22 @@ start_blame(svn_ra_serf__xml_parser_t *parser,
         case SET_PROP:
         case REMOVE_PROP:
           info->prop_name = apr_pstrdup(info->pool,
-                                        svn_ra_serf__find_attr(attrs, "name"));
+                                        svn_xml_get_attr_value("name", attrs));
           info->prop_attr = NULL;
           info->prop_attr_len = 0;
 
-          enc = svn_ra_serf__find_attr(attrs, "encoding");
+          enc = svn_xml_get_attr_value("encoding", attrs);
           if (enc && strcmp(enc, "base64") == 0)
             {
               info->prop_base64 = TRUE;
             }
-          else 
+          else
             {
               info->prop_base64 = FALSE;
             }
+          break;
+        case MERGED_REVISION:
+            info->merged_revision = TRUE;
           break;
         default:
           break;
@@ -278,7 +290,7 @@ end_blame(svn_ra_serf__xml_parser_t *parser,
         {
           SVN_ERR(blame_ctx->file_rev(blame_ctx->file_rev_baton,
                                       info->path, info->rev,
-                                      info->rev_props,
+                                      info->rev_props, FALSE,
                                       NULL, NULL,
                                       info->prop_diffs, info->pool));
         }
@@ -304,6 +316,11 @@ end_blame(svn_ra_serf__xml_parser_t *parser,
 
       svn_ra_serf__xml_pop_state(parser);
     }
+  else if (state == MERGED_REVISION &&
+           strcmp(name.name, "merged-revision") == 0)
+    {
+      svn_ra_serf__xml_pop_state(parser);
+    }
   else if (state == TXDELTA &&
            strcmp(name.name, "txdelta") == 0)
     {
@@ -324,6 +341,8 @@ cdata_blame(svn_ra_serf__xml_parser_t *parser,
   blame_context_t *blame_ctx = userData;
   blame_state_e state;
   blame_info_t *info;
+
+  UNUSED_CTX(blame_ctx);
 
   state = parser->state->current_state;
   info = parser->state->private;
@@ -347,11 +366,7 @@ cdata_blame(svn_ra_serf__xml_parser_t *parser,
 
             ret_len = len;
 
-            svn_stream_write(info->stream, data, &ret_len);
-            if (ret_len != len)
-              {
-                abort();
-              }
+            SVN_ERR(svn_stream_write(info->stream, data, &ret_len));
           }
         break;
       default:
@@ -366,7 +381,8 @@ svn_ra_serf__get_file_revs(svn_ra_session_t *ra_session,
                            const char *path,
                            svn_revnum_t start,
                            svn_revnum_t end,
-                           svn_ra_file_rev_handler_t rev_handler,
+                           svn_boolean_t include_merged_revisions,
+                           svn_file_rev_handler_t rev_handler,
                            void *rev_handler_baton,
                            apr_pool_t *pool)
 {
@@ -374,9 +390,10 @@ svn_ra_serf__get_file_revs(svn_ra_session_t *ra_session,
   svn_ra_serf__session_t *session = ra_session->priv;
   svn_ra_serf__handler_t *handler;
   svn_ra_serf__xml_parser_t *parser_ctx;
-  serf_bucket_t *buckets, *tmp;
-  apr_hash_t *props;
-  const char *vcc_url, *relative_url, *baseline_url, *basecoll_url, *req_url;
+  serf_bucket_t *buckets;
+  const char *relative_url, *basecoll_url, *req_url;
+  int status_code;
+  svn_error_t *err;
 
   blame_ctx = apr_pcalloc(pool, sizeof(*blame_ctx));
   blame_ctx->pool = pool;
@@ -388,21 +405,10 @@ svn_ra_serf__get_file_revs(svn_ra_session_t *ra_session,
 
   buckets = serf_bucket_aggregate_create(session->bkt_alloc);
 
-  tmp = SERF_BUCKET_SIMPLE_STRING_LEN("<S:file-revs-report xmlns:S=\"",
-                                  sizeof("<S:file-revs-report xmlns:S=\"")-1,
-                                  session->bkt_alloc);
-
-  serf_bucket_aggregate_append(buckets, tmp);
-
-  tmp = SERF_BUCKET_SIMPLE_STRING_LEN(SVN_XML_NAMESPACE,
-                                      sizeof(SVN_XML_NAMESPACE)-1,
-                                      session->bkt_alloc);
-  serf_bucket_aggregate_append(buckets, tmp);
-
-  tmp = SERF_BUCKET_SIMPLE_STRING_LEN("\">",
-                                      sizeof("\">")-1,
-                                      session->bkt_alloc);
-  serf_bucket_aggregate_append(buckets, tmp);
+  svn_ra_serf__add_open_tag_buckets(buckets, session->bkt_alloc,
+                                    "S:file-revs-report",
+                                    "xmlns:S", SVN_XML_NAMESPACE,
+                                    NULL);
 
   svn_ra_serf__add_tag_buckets(buckets,
                                "S:start-revision", apr_ltoa(pool, start),
@@ -412,64 +418,23 @@ svn_ra_serf__get_file_revs(svn_ra_session_t *ra_session,
                                "S:end-revision", apr_ltoa(pool, end),
                                session->bkt_alloc);
 
+  if (include_merged_revisions)
+    {
+      svn_ra_serf__add_tag_buckets(buckets,
+                                   "S:include-merged-revisions", NULL,
+                                   session->bkt_alloc);
+    }
+
   svn_ra_serf__add_tag_buckets(buckets,
                                "S:path", path,
                                session->bkt_alloc);
 
-  tmp = SERF_BUCKET_SIMPLE_STRING_LEN("</S:file-revs-report>",
-                                      sizeof("</S:file-revs-report>")-1,
-                                      session->bkt_alloc);
-  serf_bucket_aggregate_append(buckets, tmp);
+  svn_ra_serf__add_close_tag_buckets(buckets, session->bkt_alloc,
+                                     "S:file-revs-report");
 
-  props = apr_hash_make(pool);
-
-  SVN_ERR(svn_ra_serf__retrieve_props(props, session, session->conns[0],
-                                      session->repos_url.path,
-                                      SVN_INVALID_REVNUM, "0", base_props,
-                                      pool));
-
-  /* Send the request to the baseline URL */
-  vcc_url = svn_ra_serf__get_prop(props, session->repos_url.path,
-                                  "DAV:", "version-controlled-configuration");
-
-  if (!vcc_url)
-    {
-      abort();
-    }
-
-  /* Send the request to the baseline URL */
-  relative_url = svn_ra_serf__get_prop(props, session->repos_url.path,
-                                       SVN_DAV_PROP_NS_DAV,
-                                       "baseline-relative-path");
-
-  if (!relative_url)
-    {
-      abort();
-    }
-
-  SVN_ERR(svn_ra_serf__retrieve_props(props, session, session->conns[0],
-                                      vcc_url, SVN_INVALID_REVNUM, "0",
-                                      checked_in_props, pool));
-
-  baseline_url = svn_ra_serf__get_prop(props, vcc_url, "DAV:", "checked-in");
-
-  if (!baseline_url)
-    {
-      abort();
-    }
-
-  SVN_ERR(svn_ra_serf__retrieve_props(props, session, session->conns[0],
-                                      baseline_url, SVN_INVALID_REVNUM,
-                                      "0", baseline_props, pool));
-
-  basecoll_url = svn_ra_serf__get_prop(props, baseline_url,
-                                       "DAV:", "baseline-collection");
-
-  if (!basecoll_url)
-    {
-      abort();
-    }
-
+  SVN_ERR(svn_ra_serf__get_baseline_info(&basecoll_url, &relative_url,
+                                         session, session->repos_url.path,
+                                         end, NULL, pool));
   req_url = svn_path_url_add_component(basecoll_url, relative_url, pool);
 
   handler = apr_pcalloc(pool, sizeof(*handler));
@@ -489,13 +454,23 @@ svn_ra_serf__get_file_revs(svn_ra_session_t *ra_session,
   parser_ctx->end = end_blame;
   parser_ctx->cdata = cdata_blame;
   parser_ctx->done = &blame_ctx->done;
+  parser_ctx->status_code = &status_code;
 
   handler->response_handler = svn_ra_serf__handle_xml_parser;
   handler->response_baton = parser_ctx;
 
   svn_ra_serf__request_create(handler);
 
-  SVN_ERR(svn_ra_serf__context_run_wait(&blame_ctx->done, session, pool));
+  err = svn_ra_serf__context_run_wait(&blame_ctx->done, session, pool);
 
-  return SVN_NO_ERROR;
+  if (parser_ctx->error)
+    {
+      svn_error_clear(err);
+      err = SVN_NO_ERROR;
+      SVN_ERR(parser_ctx->error);
+    }
+
+  SVN_ERR(svn_ra_serf__error_on_status(status_code, handler->path));
+
+  return err;
 }

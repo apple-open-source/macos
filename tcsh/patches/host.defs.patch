@@ -1,0 +1,16 @@
+diff -up /SourceCache/tcsh/tcsh-62/tcsh/host.defs ./host.defs
+--- /SourceCache/tcsh/tcsh-62/tcsh/host.defs	2006-03-02 10:46:44.000000000 -0800
++++ ./host.defs	2008-09-04 10:30:34.000000000 -0700
+@@ -742,9 +742,11 @@ enddef	:
+ newdef	: defined(__APPLE__) && defined(__MACH__)
+ comment	: OS X
+ vendor	:						: "apple"
+-hosttype: defined(__i386__)				: "intel-pc"
++hosttype: defined(__x86_64__)				: "intel-mac"
++hosttype: defined(__i386__)				: "intel-mac"
+ hosttype: defined(__ppc__)				: "powermac"
+ ostype	:						: "darwin"
++machtype: defined(__x86_64__)				: "x86_64"
+ machtype: defined(__i386__)				: "i386"
+ machtype: defined(__ppc__)				: "powerpc"
+ enddef	:

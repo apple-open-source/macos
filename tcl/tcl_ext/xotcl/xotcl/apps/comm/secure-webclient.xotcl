@@ -1,0 +1,52 @@
+#!/usr/bin/env tclsh
+# $Id: secure-webclient.xotcl,v 1.2 2006/02/18 22:17:32 neumann Exp $
+
+package require XOTcl; namespace import -force xotcl::*
+
+@ @File {
+  description {
+    A sample secure web client that queries an secure web-server.
+    It needs to be adopted with different https URLs for testing...
+  }
+}
+
+#
+package require xotcl::comm::httpAccess
+package require xotcl::comm::ftp
+package require xotcl::trace
+
+#set version 1.1
+set hostport localhost:8086
+set http_server http://localhost:8086/
+set https_server https://localhost:8443/
+
+set slowURL "http://quote.yahoo.com/q?s=^DJI&d=1d"
+set ftpURL "ftp://mohegan.wi-inf.uni-essen.de/welcome.msg"
+
+set secureURL "https://wawog.wi-inf.uni-essen.de/"
+set secureURL "https://test17.wu-wien.ac.at:1234/"           
+
+proc printError msg {puts stderr !!!$msg!!!}
+
+puts "\nTrying to get a secure page ..... <$https_server>"
+SimpleRequest r0 -url $https_server
+puts stderr "\n content = {[r0 getContent]}"
+
+puts -nonewline "\nTrying to load image logo-100.jpg ... (not secure)"
+SimpleRequest r2 -url $http_server/logo-100.jpg
+if {[r2::sink set contentLength] == 1706} {
+    puts "suceeded! Loaded 1706 bytes!"
+} else {
+    puts "failed! Loaded [r2::sink set contentLength] (!= 1706) bytes"
+    exit
+}
+
+puts -nonewline "\nTrying to load image logo-100.jpg secure ... "
+SimpleRequest r1 -url $https_server/logo-100.jpg
+if {[r1::sink set contentLength] == 1706} {
+    puts "suceeded! Loaded 1706 bytes!"
+} else {
+    puts "failed! Loaded [r1::sink set contentLength] (!= 1706) bytes"
+    exit
+}
+exit

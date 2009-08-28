@@ -1,4 +1,4 @@
-info mam static 00000 1994-07-17 make (AT&T Research) 5.2 2007-06-21
+info mam static 00000 1994-07-17 make (AT&T Research) 5.2 2007-10-18
 setv INSTALLROOT ../../..
 setv PACKAGEROOT ../../../../..
 setv AR ar
@@ -1015,11 +1015,22 @@ make dl.c
 done dl.c
 exec - r='-'
 exec - for i in dl.c
-exec - do	if	${CC} -o dl.exe $i -ldl > /dev/null
-exec - 	then	${CC} -o dl.exe $i > /dev/null || {
-exec - 			r='-ldl'
-exec - 			break
-exec - 		}
+exec - do	if	${CC} -c $i > /dev/null
+exec - 	then	g=
+exec - 		for p in dl -
+exec - 		do	case $p in
+exec - 			-)	if	${CC} -o dl.exe $i $g > /dev/null
+exec - 				then	${CC} -o dl.exe $i > /dev/null || {
+exec - 						r="$g"
+exec - 						break 2
+exec - 					}
+exec - 				fi
+exec - 				g=
+exec - 				;;
+exec - 			*)	g="$g -l$p"
+exec - 				;;
+exec - 			esac
+exec - 		done
 exec - 	fi
 exec - done 2>/dev/null
 exec - echo " $r" > dl.req
@@ -1033,11 +1044,22 @@ make iconv.c
 done iconv.c
 exec - r='-'
 exec - for i in iconv.c
-exec - do	if	${CC} -o iconv.exe $i -liconv > /dev/null
-exec - 	then	${CC} -o iconv.exe $i > /dev/null || {
-exec - 			r='-liconv'
-exec - 			break
-exec - 		}
+exec - do	if	${CC} -c $i > /dev/null
+exec - 	then	g=
+exec - 		for p in iconv -
+exec - 		do	case $p in
+exec - 			-)	if	${CC} -o iconv.exe $i $g > /dev/null
+exec - 				then	${CC} -o iconv.exe $i > /dev/null || {
+exec - 						r="$g"
+exec - 						break 2
+exec - 					}
+exec - 				fi
+exec - 				g=
+exec - 				;;
+exec - 			*)	g="$g -l$p"
+exec - 				;;
+exec - 			esac
+exec - 		done
 exec - 	fi
 exec - done 2>/dev/null
 exec - echo " $r" > iconv.req
@@ -1051,11 +1073,22 @@ make intl.c
 done intl.c
 exec - r='-'
 exec - for i in intl.c
-exec - do	if	${CC} -o intl.exe $i -lintl > /dev/null
-exec - 	then	${CC} -o intl.exe $i > /dev/null || {
-exec - 			r='-lintl'
-exec - 			break
-exec - 		}
+exec - do	if	${CC} -c $i > /dev/null
+exec - 	then	g=
+exec - 		for p in intl -
+exec - 		do	case $p in
+exec - 			-)	if	${CC} -o intl.exe $i $g > /dev/null
+exec - 				then	${CC} -o intl.exe $i > /dev/null || {
+exec - 						r="$g"
+exec - 						break 2
+exec - 					}
+exec - 				fi
+exec - 				g=
+exec - 				;;
+exec - 			*)	g="$g -l$p"
+exec - 				;;
+exec - 			esac
+exec - 		done
 exec - 	fi
 exec - done 2>/dev/null
 exec - echo " $r" > intl.req
@@ -1075,17 +1108,30 @@ make m4.c
 done m4.c
 make m5.c
 done m5.c
+make m6.c
+done m6.c
 exec - r='-'
-exec - for i in m.c m2.c m3.c m4.c m5.c
-exec - do	if	${CC} -o m.exe $i -lm > /dev/null
-exec - 	then	${CC} -o m.exe $i > /dev/null || {
-exec - 			r='-lm'
-exec - 			break
-exec - 		}
+exec - for i in m.c m2.c m3.c m4.c m5.c m6.c
+exec - do	if	${CC} -c $i > /dev/null
+exec - 	then	g=
+exec - 		for p in m -
+exec - 		do	case $p in
+exec - 			-)	if	${CC} -o m.exe $i $g > /dev/null
+exec - 				then	${CC} -o m.exe $i > /dev/null || {
+exec - 						r="$g"
+exec - 						break 2
+exec - 					}
+exec - 				fi
+exec - 				g=
+exec - 				;;
+exec - 			*)	g="$g -l$p"
+exec - 				;;
+exec - 			esac
+exec - 		done
 exec - 	fi
 exec - done 2>/dev/null
 exec - echo " $r" > m.req
-exec - rm -f m.exe m m2 m3 m4 m5
+exec - rm -f m.exe m m2 m3 m4 m5 m6
 done m.req generated
 exec - test '' = 'm.req' || ${STDCMP} 2>/dev/null -s m.req ${INSTALLROOT}/lib/lib/m || { ${STDMV} ${INSTALLROOT}/lib/lib/m ${INSTALLROOT}/lib/lib/m.old 2>/dev/null || true; ${STDCP} m.req ${INSTALLROOT}/lib/lib/m  		    		    ;}
 done ${INSTALLROOT}/lib/lib/m generated
@@ -1095,11 +1141,22 @@ make nsl.c
 done nsl.c
 exec - r='-'
 exec - for i in nsl.c
-exec - do	if	${CC} -o nsl.exe $i -lnsl > /dev/null
-exec - 	then	${CC} -o nsl.exe $i > /dev/null || {
-exec - 			r='-lnsl'
-exec - 			break
-exec - 		}
+exec - do	if	${CC} -c $i > /dev/null
+exec - 	then	g=
+exec - 		for p in nsl -
+exec - 		do	case $p in
+exec - 			-)	if	${CC} -o nsl.exe $i $g > /dev/null
+exec - 				then	${CC} -o nsl.exe $i > /dev/null || {
+exec - 						r="$g"
+exec - 						break 2
+exec - 					}
+exec - 				fi
+exec - 				g=
+exec - 				;;
+exec - 			*)	g="$g -l$p"
+exec - 				;;
+exec - 			esac
+exec - 		done
 exec - 	fi
 exec - done 2>/dev/null
 exec - echo " $r" > nsl.req
@@ -1114,11 +1171,22 @@ done socket.c
 prev nsl.c
 exec - r='-'
 exec - for i in socket.c nsl.c
-exec - do	if	${CC} -o socket.exe $i -lsocket > /dev/null
-exec - 	then	${CC} -o socket.exe $i > /dev/null || {
-exec - 			r='-lsocket'
-exec - 			break
-exec - 		}
+exec - do	if	${CC} -c $i > /dev/null
+exec - 	then	g=
+exec - 		for p in socket -
+exec - 		do	case $p in
+exec - 			-)	if	${CC} -o socket.exe $i $g > /dev/null
+exec - 				then	${CC} -o socket.exe $i > /dev/null || {
+exec - 						r="$g"
+exec - 						break 2
+exec - 					}
+exec - 				fi
+exec - 				g=
+exec - 				;;
+exec - 			*)	g="$g -l$p"
+exec - 				;;
+exec - 			esac
+exec - 		done
 exec - 	fi
 exec - done 2>/dev/null
 exec - echo " $r" > socket.req
@@ -1136,11 +1204,22 @@ done ndbm.h dontcare virtual
 done gdbm2.c
 exec - r='-'
 exec - for i in gdbm.c gdbm2.c
-exec - do	if	${CC} -o dbm.exe $i -lgdbm > /dev/null
-exec - 	then	${CC} -o dbm.exe $i > /dev/null || {
-exec - 			r='-lgdbm'
-exec - 			break
-exec - 		}
+exec - do	if	${CC} -c $i > /dev/null
+exec - 	then	g=
+exec - 		for p in gdbm - ndbm - dbm -
+exec - 		do	case $p in
+exec - 			-)	if	${CC} -o dbm.exe $i $g > /dev/null
+exec - 				then	${CC} -o dbm.exe $i > /dev/null || {
+exec - 						r="$g"
+exec - 						break 2
+exec - 					}
+exec - 				fi
+exec - 				g=
+exec - 				;;
+exec - 			*)	g="$g -l$p"
+exec - 				;;
+exec - 			esac
+exec - 		done
 exec - 	fi
 exec - done 2>/dev/null
 exec - echo " $r" > dbm.req

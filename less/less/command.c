@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2005  Mark Nudelman
+ * Copyright (C) 1984-2007  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -23,7 +23,6 @@
 
 extern int erase_char, erase2_char, kill_char;
 extern int sigs;
-extern int quit_at_eof;
 extern int quit_if_one_screen;
 extern int squished;
 extern int hit_eof;
@@ -38,7 +37,7 @@ extern int ignore_eoi;
 extern int secure;
 extern int hshift;
 extern int show_attn;
-extern int more_mode;
+extern int less_is_more;
 extern char *every_first_cmd;
 extern char *curr_altfilename;
 extern char version[];
@@ -55,6 +54,8 @@ extern char *editproto;
 #endif
 extern int screen_trashed;	/* The screen has been overwritten */
 extern int shift_count;
+extern int oldbot;
+extern int forw_prompt;
 extern int file_errors;
 extern int unix2003_compat;
 extern int add_newline;
@@ -69,6 +70,7 @@ static char *shellcmd = NULL;	/* For holding last shell command for "!!" */
 static int mca;			/* The multicharacter command (action) */
 static int search_type;		/* The previous type of search */
 static LINENUM number;		/* The number typed by the user */
+static long fraction;		/* The fractional part of the number */
 static char optchar;
 static int optflag;
 static int optgetname;
@@ -81,7 +83,7 @@ static char pipec;
 static void multi_search();
 
 /*
- * Move the cursor to lower left before executing a command.
+ * Move the cursor to start of prompt line before executing a command.
  * This looks nicer if the command takes a long time before
  * updating the screen.
  */
@@ -89,7 +91,7 @@ static void multi_search();
 cmd_exec()
 {
 	clear_attn();
-	lower_left();
+	clear_bot();
 	flush();
 }
 
@@ -104,6 +106,7 @@ start_mca(action, prompt, mlist, cmdflags)
 	int cmdflags;
 {
 	mca = action;
+	clear_bot();
 	clear_cmd();
 	cmd_putstr(prompt);
 	set_mlist(mlist, cmdflags);
@@ -126,6 +129,7 @@ mca_search()
 	else
 		mca = A_B_SEARCH;
 
+	clear_bot();
 	clear_cmd();
 
 	if (search_type & SRCH_NO_MATCH)
@@ -161,6 +165,7 @@ mca_opt_toggle()
 	dash = (flag == OPT_NO_TOGGLE) ? "_" : "-";
 
 	mca = A_OPT_TOGGLE;
+	clear_bot();
 	clear_cmd();
 	cmd_putstr(dash);
 	if (optgetname)
@@ -304,14 +309,14 @@ mca_char(c)
 		 * Entering digits of a number.
 		 * Terminated by a non-digit.
 		 */
-		if ((c < '0' || c > '9') && 
+		if (!((c >= '0' && c <= '9') || c == '.') && 
 		  editchar(c, EC_PEEK|EC_NOHISTORY|EC_NOCOMPLETE|EC_NORIGHTLEFT) == A_INVALID)
 		{
 			/*
 			 * Not part of the number.
 			 * Treat as a normal command character.
 			 */
-			number = cmd_int();
+			number = cmd_int(&fraction);
 			mca = 0;
 			cmd_accept();
 			return (NO_MCA);
@@ -496,13 +501,13 @@ mca_char(c)
 		switch (c)
 		{
 		case '*':
-			if (more_mode)
+			if (less_is_more)
 				break;
 		case CONTROL('E'): /* ignore END of file */
 			flag = SRCH_PAST_EOF;
 			break;
 		case '@':
-			if (more_mode)
+			if (less_is_more)
 				break;
 		case CONTROL('F'): /* FIRST file */
 			flag = SRCH_FIRST_FILE;
@@ -567,6 +572,21 @@ mca_char(c)
 }
 
 /*
+ * Discard any buffered file data.
+ */
+	static void
+clear_buffers()
+{
+	if (!(ch_getflags() & CH_CANSEEK))
+		return;
+	ch_flush();
+	clr_linenum();
+#if HILITE_SEARCH
+	clr_hilite();
+#endif
+}
+
+/*
  * Make sure the screen is displayed.
  */
 	static void
@@ -589,11 +609,20 @@ make_display()
 			jump_loc(initial_scrpos.pos, initial_scrpos.ln);
 	} else if (screen_trashed)
 	{
-		int save_top_scroll;
-		save_top_scroll = top_scroll;
+		int save_top_scroll = top_scroll;
+		int save_ignore_eoi = ignore_eoi;
 		top_scroll = 1;
+		ignore_eoi = 0;
+		if (screen_trashed == 2)
+		{
+			/* Special case used by ignore_eoi: re-open the input file
+			 * and jump to the end of the file. */
+			reopen_curr_ifile();
+			jump_forw();
+		}
 		repaint();
 		top_scroll = save_top_scroll;
+		ignore_eoi = save_ignore_eoi;
 	}
 }
 
@@ -626,7 +655,7 @@ prompt()
 	 * {{ Relying on "first prompt" to detect a single-screen file
 	 * fails if +G is used, for example. }}
 	 */
-	if ((quit_at_eof == OPT_ONPLUS || quit_if_one_screen) &&
+	if ((get_quit_at_eof() == OPT_ONPLUS || quit_if_one_screen) &&
 	    hit_eof && !(ch_getflags() & CH_HELPFILE) && 
 	    next_ifile(curr_ifile) == NULL_IFILE)
 		{
@@ -641,7 +670,7 @@ prompt()
 	 * If the -e flag is set and we've hit EOF on the last file,
 	 * and the file is squished (shorter than the screen), quit.
 	 */
-	if (quit_at_eof && squished &&
+	if (get_quit_at_eof() && squished &&
 	    next_ifile(curr_ifile) == NULL_IFILE)
 		quit(QUIT_OK);
 #endif
@@ -656,7 +685,20 @@ prompt()
 	/*
 	 * Select the proper prompt and display it.
 	 */
+	/*
+	 * If the previous action was a forward movement, 
+	 * don't clear the bottom line of the display;
+	 * just print the prompt since the forward movement guarantees 
+	 * that we're in the right position to display the prompt.
+	 * Clearing the line could cause a problem: for example, if the last
+	 * line displayed ended at the right screen edge without a newline,
+	 * then clearing would clear the last displayed line rather than
+	 * the prompt line.
+	 */
+	if (!forw_prompt)
+		clear_bot();
 	clear_cmd();
+	forw_prompt = 0;
 	p = pr_string();
 	if (p == NULL || *p == '\0')
 		putchr(':');
@@ -666,6 +708,7 @@ prompt()
 		putstr(p);
 		at_exit();
 	}
+	clear_eol();
 }
 
 /*
@@ -1122,7 +1165,10 @@ commands()
 			ignore_eoi = 1;
 			hit_eof = 0;
 			while (!sigs)
+			{
+				make_display();
 				forward(1, 0, 0);
+			}
 			ignore_eoi = 0;
 			/*
 			 * This gets us back in "F mode" after processing 
@@ -1162,14 +1208,7 @@ commands()
 			 * Flush buffers, then repaint screen.
 			 * Don't flush the buffers on a pipe!
 			 */
-			if (ch_getflags() & CH_CANSEEK)
-			{
-				ch_flush();
-				clr_linenum();
-#if HILITE_SEARCH
-				clr_hilite();
-#endif
-			}
+			clear_buffers();
 			/* FALLTHRU */
 		case A_REPAINT:
 			/*
@@ -1194,11 +1233,17 @@ commands()
 			 * Go to a specified percentage into the file.
 			 */
 			if (number < 0)
+			{
 				number = 0;
+				fraction = 0;
+			}
 			if (number > 100)
+			{
 				number = 100;
+				fraction = 0;
+			}
 			cmd_exec();
-			jump_percent((int) number);
+			jump_percent((int) number, fraction);
 			break;
 
 		case A_GOEND:
@@ -1268,7 +1313,8 @@ commands()
 /*
  * Define abbreviation for a commonly used sequence below.
  */
-#define	DO_SEARCH()	if (number <= 0) number = 1;	\
+#define	DO_SEARCH() \
+			if (number <= 0) number = 1;	\
 			mca_search();			\
 			cmd_exec();			\
 			multi_search((char *)NULL, (int) number);
@@ -1422,7 +1468,7 @@ commands()
 				number = 1;
 			if (edit_next((int) number))
 			{
-				if (quit_at_eof && hit_eof && 
+				if (get_quit_at_eof() && hit_eof && 
 				    !(ch_getflags() & CH_HELPFILE))
 					quit(QUIT_OK);
 				parg.p_string = (number > 1) ? "(N-th) " : "";
@@ -1586,6 +1632,7 @@ commands()
 			if (c == erase_char || c == erase2_char ||
 			    c == kill_char || c == '\n' || c == '\r')
 				break;
+			cmd_exec();
 			gomark(c);
 			break;
 

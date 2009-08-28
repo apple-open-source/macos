@@ -1,9 +1,9 @@
 #
-# "$Id: Makefile 6696 2007-07-19 23:27:49Z mike $"
+# "$Id: Makefile 7871 2008-08-27 21:12:43Z mike $"
 #
 #   Filter makefile for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 2007 by Apple Inc.
+#   Copyright 2007-2009 by Apple Inc.
 #   Copyright 1997-2006 by Easy Software Products.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -18,16 +18,30 @@
 include ../Makedefs
 
 
-FILTERS	=	gziptoany hpgltops texttops pstops $(IMGFILTERS) \
-		rastertolabel rastertoepson rastertohp
-TARGETS	=	$(FILTERS) \
+FILTERS	=	\
+		$(BANNERTOPS) \
+		commandtops \
+		gziptoany \
+		hpgltops \
+		$(TEXTTOPS) \
+		pstops \
+		$(IMGFILTERS) \
+		$(PDFTOPS) \
+		rastertolabel \
+		rastertoepson \
+		rastertohp
+LIBTARGETS =	\
 		$(LIBCUPSIMAGE) \
 		libcupsimage.a \
 		$(LIB32CUPSIMAGE) \
-		$(LIB64CUPSIMAGE) \
+		$(LIB64CUPSIMAGE)
+UNITTARGETS =	\
 		rasterbench \
 		testimage \
 		testraster
+TARGETS	=	\
+		$(LIBTARGETS) \
+		$(FILTERS)
 
 HPGLOBJS =	hpgl-attr.o hpgl-config.o hpgl-main.o hpgl-prolog.o \
 		hpgl-char.o hpgl-input.o hpgl-polygon.o hpgl-vector.o
@@ -39,7 +53,8 @@ IMAGE32OBJS =	$(IMAGEOBJS:.o=.32.o)
 IMAGE64OBJS =	$(IMAGEOBJS:.o=.64.o)
 FORMOBJS =	form-attr.o form-main.o form-ps.o form-text.o form-tree.o
 OBJS	=	$(HPGLOBJS) $(IMAGEOBJS) $(FORMOBJS) \
-		gziptoany.o imagetops.o imagetoraster.o common.o pstops.o \
+		bannertops.o commandtops.o gziptoany.o imagetops.o \
+		imagetoraster.o common.o pdftops.o pstext.o pstops.o \
 		rasterbench.o rastertoepson.o rastertohp.o rastertolabel.o \
 		testimage.o testraster.o textcommon.o texttops.o
 
@@ -52,11 +67,25 @@ all:	$(TARGETS)
 
 
 #
+# Make library targets...
+#
+
+libs:		$(LIBTARGETS)
+
+
+#
+# Make unit tests...
+#
+
+unittests:	$(UNITTARGETS)
+
+
+#
 # Clean all object files...
 #
 
 clean:
-	$(RM) $(OBJS) $(TARGETS)
+	$(RM) $(OBJS) $(TARGETS) $(UNITTARGETS)
 	$(RM) libcupsimage.so libcupsimage.sl libcupsimage.dylib
 	$(RM) -r 32bit 64bit
 
@@ -79,24 +108,27 @@ depend:
 # Install all targets...
 #
 
-install:	all installhdrs $(INSTALLSTATIC) $(INSTALL32) $(INSTALL64)
+install:	all install-data install-headers install-libs install-exec
+
+
+#
+# Install data files...
+#
+
+install-data:
+
+
+#
+# Install programs...
+#
+
+install-exec:
 	$(INSTALL_DIR) -m 755 $(SERVERBIN)/filter
 	for file in $(FILTERS); do \
 		$(INSTALL_BIN) $$file $(SERVERBIN)/filter; \
 	done
 	$(RM) $(SERVERBIN)/filter/rastertodymo
 	$(LN) rastertolabel $(SERVERBIN)/filter/rastertodymo
-	$(INSTALL_DIR) -m 755 $(LIBDIR)
-	$(INSTALL_LIB) $(LIBCUPSIMAGE) $(LIBDIR)
-	-if test $(LIBCUPSIMAGE) = "libcupsimage.so.2" -o $(LIBCUPSIMAGE) = "libcupsimage.sl.2"; then \
-		$(RM) $(LIBDIR)/`basename $(LIBCUPSIMAGE) .2`; \
-		$(LN) $(LIBCUPSIMAGE) $(LIBDIR)/`basename $(LIBCUPSIMAGE) .2`; \
-	fi
-	-if test $(LIBCUPSIMAGE) = "libcupsimage.2.dylib"; then \
-		$(STRIP) -x $(LIBDIR)/$(LIBCUPSIMAGE); \
-		$(RM) $(LIBDIR)/libcupsimage.dylib; \
-		$(LN) $(LIBCUPSIMAGE) $(LIBDIR)/libcupsimage.dylib; \
-	fi
 	if test "x$(SYMROOT)" != "x"; then \
 		$(INSTALL_DIR) $(SYMROOT); \
 		for file in $(TARGETS); do \
@@ -104,15 +136,37 @@ install:	all installhdrs $(INSTALLSTATIC) $(INSTALL32) $(INSTALL64)
 		done \
 	fi
 
-installstatic:
-	$(INSTALL_DIR) -m 755 $(LIBDIR)
-	$(INSTALL_LIB) libcupsimage.a $(LIBDIR);
-	$(RANLIB) $(LIBDIR)/libcupsimage.a;
 
-installhdrs:
+#
+# Install headers...
+#
+
+install-headers:
 	$(INSTALL_DIR) -m 755 $(INCLUDEDIR)/cups
 	$(INSTALL_DATA) image.h $(INCLUDEDIR)/cups
-	$(INSTALL_DATA) raster.h $(INCLUDEDIR)/cups
+
+
+#
+# Install libraries...
+#
+
+install-libs: $(INSTALLSTATIC) $(INSTALL32) $(INSTALL64)
+	$(INSTALL_DIR) -m 755 $(LIBDIR)
+	$(INSTALL_LIB) $(LIBCUPSIMAGE) $(LIBDIR)
+	-if test $(LIBCUPSIMAGE) = "libcupsimage.so.2" -o $(LIBCUPSIMAGE) = "libcupsimage.sl.2"; then \
+		$(RM) $(LIBDIR)/`basename $(LIBCUPSIMAGE) .2`; \
+		$(LN) $(LIBCUPSIMAGE) $(LIBDIR)/`basename $(LIBCUPSIMAGE) .2`; \
+	fi
+	-if test $(LIBCUPSIMAGE) = "libcupsimage.2.dylib"; then \
+		$(RM) $(LIBDIR)/libcupsimage.dylib; \
+		$(LN) $(LIBCUPSIMAGE) $(LIBDIR)/libcupsimage.dylib; \
+	fi
+
+installstatic:
+	$(INSTALL_DIR) -m 755 $(LIBDIR)
+	$(INSTALL_LIB) -m 755 libcupsimage.a $(LIBDIR)
+	$(RANLIB) $(LIBDIR)/libcupsimage.a
+	$(CHMOD) 555 $(LIBDIR)/libcupsimage.a
 
 install32bit:
 	$(INSTALL_DIR) -m 755 $(LIB32DIR)
@@ -146,7 +200,6 @@ uninstall: $(UNINSTALL32) $(UNINSTALL64)
 	$(RM) $(LIBDIR)/libcupsimage.so.2
 	-$(RMDIR) $(LIBDIR)
 	$(RM) $(INCLUDEDIR)/cups/image.h
-	$(RM) $(INCLUDEDIR)/cups/raster.h
 	-$(RMDIR) $(INCLUDEDIR)/cups
 
 uninstall32bit:
@@ -167,8 +220,76 @@ uninstall64bit:
 apihelp:
 	echo Generating CUPS API help files...
 	mxmldoc --section "Programming" --title "Raster API" \
-		--intro api-raster.shtml \
-		raster.h interpret.c raster.c >../doc/help/api-raster.html
+		--css ../doc/cups-printable.css \
+		--header api-raster.header --intro api-raster.shtml \
+		api-raster.xml \
+		../cups/raster.h interpret.c raster.c \
+		>../doc/help/api-raster.html
+	mxmldoc --tokens help/api-raster.html api-raster.xml >../doc/help/api-raster.tokens
+	$(RM) api-raster.xml
+	mxmldoc --section "Programming" \
+		--title "Developing PostScript Printer Drivers" \
+		--css ../doc/cups-printable.css \
+		--header postscript-driver.header \
+		--intro postscript-driver.shtml \
+		>../doc/help/postscript-driver.html
+	mxmldoc --section "Programming" \
+		--title "Introduction to the PPD Compiler" \
+		--css ../doc/cups-printable.css \
+		--header ppd-compiler.header \
+		--intro ppd-compiler.shtml \
+		>../doc/help/ppd-compiler.html
+	mxmldoc --section "Programming" \
+		--title "Developing Raster Printer Drivers" \
+		--css ../doc/cups-printable.css \
+		--header raster-driver.header \
+		--intro raster-driver.shtml \
+		>../doc/help/raster-driver.html
+
+framedhelp:
+	echo Generating CUPS API help files...
+	mxmldoc --section "Programming" --title "Raster API" \
+		--framed ../cups/api-raster \
+		--css ../doc/cups-printable.css \
+		--header api-raster.header --intro api-raster.shtml \
+		../cups/raster.h interpret.c raster.c
+	mxmldoc --section "Programming" \
+		--title "Developing PostScript Printer Drivers" \
+		--framed ../cups/postscript-driver \
+		--css ../doc/cups-printable.css \
+		--header postscript-driver.header \
+		--intro postscript-driver.shtml
+	mxmldoc --section "Programming" \
+		--title "Introduction to the PPD Compiler" \
+		--framed ../cups/ppd-compiler \
+		--css ../doc/cups-printable.css \
+		--header ppd-compiler.header \
+		--intro ppd-compiler.shtml
+	mxmldoc --section "Programming" \
+		--title "Developing Raster Printer Drivers" \
+		--framed ../cups/raster-driver \
+		--css ../doc/cups-printable.css \
+		--header raster-driver.header \
+		--intro raster-driver.shtml
+
+
+#
+# bannertops
+#
+
+bannertops:	bannertops.o pstext.o common.o ../cups/$(LIBCUPS) $(LIBCUPSIMAGE)
+	echo Linking $@...
+	$(CC) $(LDFLAGS) -o $@ bannertops.o pstext.o common.o $(LINKCUPSIMAGE) \
+		$(IMGLIBS) $(LIBS)
+
+
+#
+# commandtops
+#
+
+commandtops:	commandtops.o ../cups/$(LIBCUPS)
+	echo Linking $@...
+	$(CC) $(LDFLAGS) -o $@ commandtops.o $(LIBS)
 
 
 #
@@ -324,6 +445,15 @@ pstops:	pstops.o common.o ../cups/$(LIBCUPS)
 
 
 #
+# pdftops
+#
+
+pdftops:	pdftops.o common.o ../cups/$(LIBCUPS)
+	echo Linking $@...
+	$(CC) $(LDFLAGS) -o $@ pdftops.o common.o $(LIBS)
+
+
+#
 # rastertolabel
 #
 
@@ -356,8 +486,11 @@ rastertohp:	rastertohp.o ../cups/$(LIBCUPS) $(LIBCUPSIMAGE)
 
 testraster:	testraster.o ../cups/libcups.a libcupsimage.a
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o $@ testraster.o libcupsimage.a ../cups/libcups.a \
-		$(IMGLIBS) $(DSOLIBS) $(COMMONLIBS) $(SSLLIBS) $(LIBGSSAPI)
+	$(CC) $(ARCHFLAGS) $(LDFLAGS) -o $@ testraster.o libcupsimage.a \
+		../cups/libcups.a $(IMGLIBS) $(DSOLIBS) $(COMMONLIBS) \
+		$(SSLLIBS) $(DNSSDLIBS) $(LIBGSSAPI)
+	echo Running raster API tests...
+	./testraster
 
 
 #
@@ -387,5 +520,5 @@ include Dependencies
 
 
 #
-# End of "$Id: Makefile 6696 2007-07-19 23:27:49Z mike $".
+# End of "$Id: Makefile 7871 2008-08-27 21:12:43Z mike $".
 #

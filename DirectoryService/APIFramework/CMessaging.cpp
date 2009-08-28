@@ -31,7 +31,7 @@
 #include "CMessaging.h"
 #include "PrivateTypes.h"
 #include "DSMutexSemaphore.h"
-#include "DSEncryptedEndpoint.h"
+#include "DSTCPEndpoint.h"
 
 #include "DirServicesTypes.h"
 #include "DirServicesPriv.h"
@@ -42,7 +42,7 @@
 #ifdef SERVERINTERNAL
 #include "DSCThread.h"
 #include "CHandlers.h"
-#include "CInternalDispatchThread.h"
+#include "CInternalDispatch.h"
 #endif
 
 // Sys
@@ -55,15 +55,16 @@
 #include <syslog.h>		// for syslog()
 #include <ctype.h>		// for isalpha()
 
+extern pid_t gDaemonPID;
+
 //------------------------------------------------------------------------------------
 //	* CMessaging
 //------------------------------------------------------------------------------------
 
-CMessaging::CMessaging ( Boolean inMachEndpoint, UInt32 inTranslateBit )
+CMessaging::CMessaging ( CIPCVirtualClass *endPoint, int inTranslateMode ) : fLock("CMessaging::fLock")
 {
-	bMachEndpoint = inMachEndpoint;
-
-	fLock = new DSMutexSemaphore("CMessaging::fLock");
+	fCommPort = endPoint;
+	fTranslateMode = inTranslateMode;
 
 	fMsgData = (sComData *)::calloc( 1, sizeof( sComData ) + kMaxFixedMsgData );
 	if ( fMsgData != nil )
@@ -71,14 +72,8 @@ CMessaging::CMessaging ( Boolean inMachEndpoint, UInt32 inTranslateBit )
 		fMsgData->fDataSize		= kMaxFixedMsgData;
 		fMsgData->fDataLength	= 0;
 	}
+	
 	fServerVersion = 1; //for internal dispatch and mach
-	fLocalDaemonInUse = false;
-	fTranslateBit = inTranslateBit;
-
-#ifndef SERVERINTERNAL
-	fCommPort		= nil;
-	fTCPEndpoint	= nil;
-#endif	
 } // CMessaging
 
 
@@ -88,199 +83,8 @@ CMessaging::CMessaging ( Boolean inMachEndpoint, UInt32 inTranslateBit )
 
 CMessaging::~CMessaging ( void )
 {
-	if ( fLock != nil )
-	{
-		delete( fLock );
-		fLock = nil;
-	}
-
-	if (fMsgData != nil)
-	{
-		free(fMsgData);
-		fMsgData = nil;
-	}
+	DSFree(fMsgData);
 } // ~CMessaging
-
-
-//--------------------------------------------------------------------------------------------------
-//	* ConfigTCP()
-//--------------------------------------------------------------------------------------------------
-
-SInt32 CMessaging::ConfigTCP (	const char *inRemoteIPAddress,
-								UInt32 inRemotePort )
-{
-	SInt32		result		= eDSNoErr;
-#ifndef SERVERINTERNAL
-	SInt32		siResult	= eDSNoErr;
-
-	// check on the input vars and allow domain to be entered ie. convert it
-	if (inRemoteIPAddress != nil)
-	{
-		if (!DSNetworkUtilities::IsValidAddressString(inRemoteIPAddress,&fRemoteIPAddress))
-		{
-			siResult = DSNetworkUtilities::ResolveToIPAddress(inRemoteIPAddress, &fRemoteIPAddress);
-			if (siResult != eDSNoErr)
-			{
-				result = eDSUnknownHost;
-			}
-		}
-		fRemotePort = inRemotePort;
-	}
-	fServerVersion = 0; //for initial setting with DSProxy
-#endif
-	return( result );
-
-} // ConfigTCP
-
-//------------------------------------------------------------------------------------
-//	* OpenCommPort
-//------------------------------------------------------------------------------------
-
-SInt32 CMessaging::OpenCommPort ( Boolean inLocalDS )
-{
-	SInt32			siStatus	= eDSNoErr;
-#ifndef SERVERINTERNAL
-	siStatus	= eMemoryAllocError;
-
-#ifdef DSDEBUGFW
-	fCommPort = new CClientEndPoint( kDSStdMachDebugPortName );
-#else
-	fLocalDaemonInUse = inLocalDS;
-
-	if (inLocalDS)
-		fCommPort = new CClientEndPoint( kDSStdMachLocalPortName );
-	else
-		fCommPort = new CClientEndPoint( kDSStdMachPortName );
-	
-#endif
-	if ( fCommPort != nil )
-	{
-		siStatus = fCommPort->Initialize();
-	}
-#endif
-	return( siStatus ); 
-} // OpenCommPort
-
-
-//------------------------------------------------------------------------------------
-//	* CloseCommPort
-//------------------------------------------------------------------------------------
-
-SInt32 CMessaging::CloseCommPort ( void )
-{
-	SInt32 result	= eDSNoErr;
-#ifndef SERVERINTERNAL
-	if ( fCommPort != nil )
-	{
-		delete(fCommPort);
-		fCommPort = nil;
-	}
-#endif
-	return( result );
-
-} // CloseCommPort
-
-
-//--------------------------------------------------------------------------------------------------
-//	* OpenTCPEndpoint()
-//--------------------------------------------------------------------------------------------------
-
-SInt32 CMessaging::OpenTCPEndpoint ( void )
-{
-	SInt32 result = eDSNoErr;
-#ifndef SERVERINTERNAL
-	if ( fTCPEndpoint == nil )
-	{
-		fTCPEndpoint = new DSEncryptedEndpoint((UInt32)::time(NULL), kTCPOpenTimeout, kTCPRWTimeout);
-		if ( fTCPEndpoint != nil )
-		{
-				//attempt to connect to a port on a remote machine
-				result = fTCPEndpoint->ConnectTo( fRemoteIPAddress, fRemotePort );
-				if (result == eDSNoErr)
-				{
-					result = ((DSEncryptedEndpoint*)fTCPEndpoint)->ClientNegotiateKey();
-					if (result != eDSNoErr)
-					{
-						fTCPEndpoint->CloseConnection();
-					}
-				}
-		}
-		else
-		{
-			result = eMemoryError;
-		}
-	}
-#endif
-	return( result );
-
-} // OpenTCPEndpoint
-
-
-//------------------------------------------------------------------------------------
-//	* CloseTCPEndpoint
-//------------------------------------------------------------------------------------
-
-SInt32 CMessaging::CloseTCPEndpoint ( void )
-{
-	SInt32 result	= eDSNoErr;
-#ifndef SERVERINTERNAL
-	if ( fTCPEndpoint != nil )
-	{
-		delete(fTCPEndpoint);
-		fTCPEndpoint = nil;
-	}
-#endif
-	return( result );
-
-} // CloseTCPEndpoint
-
-#ifndef SERVERINTERNAL
-//------------------------------------------------------------------------------------
-//	* SendRemoteMessage
-//------------------------------------------------------------------------------------
-
-SInt32 CMessaging::SendRemoteMessage ( void )
-{
-	SInt32		result	= eDSDirSrvcNotOpened;
-
-	if ( fTCPEndpoint == nil )
-	{
-		result = OpenTCPEndpoint();
-	}
-	
-	if ( (fTCPEndpoint != nil) && (fMsgData != nil) )
-	{
-		LOG3( kStdErr, "CMessaging::SendRemoteMessage: before ep send - Correlate the message type: %d with the actual CMessaging class ptr %d and the endpoint class %d.", fMsgData->type.msgt_name, (UInt32)this, (UInt32)fTCPEndpoint );
-		result = fTCPEndpoint->SendServerMessage( fMsgData );
-	}
-
-	return( result );
-
-} // SendRemoteMessage
-
-
-//------------------------------------------------------------------------------------
-//	* SendServerMessage
-//------------------------------------------------------------------------------------
-
-SInt32 CMessaging::SendServerMessage ( void )
-{
-	SInt32		result	= eDSDirSrvcNotOpened;
-
-	if ( fCommPort == nil )
-	{
-		result = OpenCommPort(fLocalDaemonInUse);
-	}
-	
-	if ( (fCommPort != nil) && (fMsgData != nil) )
-	{
-		result = fCommPort->SendServerMessage( fMsgData );
-	}
-
-	return( result );
-
-} // SendServerMessage
-#endif
 
 //------------------------------------------------------------------------------------
 //	* GetReplyMessage
@@ -291,36 +95,7 @@ SInt32 CMessaging::GetReplyMessage ( void )
 #ifdef SERVERINTERNAL
     return eDSNoErr; // reply already got generated during call to SendInlineMessage
 #else
-	SInt32		result	= eDSDirSrvcNotOpened;
-
-	if (bMachEndpoint)
-	{
-		if ( fCommPort == nil )
-		{
-			result = OpenCommPort(fLocalDaemonInUse);
-		}
-		
-		if ( (fCommPort != nil) && (fMsgData != nil) )
-		{
-			result = fCommPort->GetServerReply( &fMsgData );
-		}
-	}
-	else
-	{
-	//TCP listen code
-		if (fTCPEndpoint != nil)
-		{
-			if (fMsgData != nil)
-			{
-				free(fMsgData);
-				fMsgData = nil;
-			}
-			result = fTCPEndpoint->GetServerReply( &fMsgData );
-			LOG3( kStdErr, "CMessaging::GetReplyMessage: after ep reply - Correlate the message type: %d with the actual CMessaging class ptr %d and the endpoint class %d.", fMsgData->type.msgt_name, (UInt32)this, (UInt32)fTCPEndpoint );
-		}
-	}
-
-	return( result );
+	return fCommPort->GetReplyMessage( &fMsgData );
 #endif
 } // GetReplyMessage
 
@@ -337,80 +112,49 @@ SInt32 CMessaging::SendInlineMessage ( UInt32 inMsgType )
 
 	//don't use the GetMsgData method here because of the wrapped #ifdef's?
 	//look at our own thread and then get the msg data block to use for internal dispatch
-	CInternalDispatchThread *thisThread = (CInternalDispatchThread *)DSLThread::GetCurrentThread();
-	if (thisThread != nil)
+	CInternalDispatch *internalDispatch = CInternalDispatch::GetThreadInternalDispatch();
+	if ( internalDispatch != NULL )
 	{
-		if ( IsThreadUsingInternalDispatchBuffering(thisThread->GetSignature()) )
-		{
-			aMsgData = thisThread->GetHandlerInternalMsgData();
-		}
-		else //we are not inside a handler thread
-		{
-			aMsgData = fMsgData;
-		}
+		aMsgData = internalDispatch->GetCurrentMessageBuffer();
 	}
 	else //we are not inside a handler thread
 	{
 		aMsgData = fMsgData;
 	}
+	
 	if (aMsgData == nil) //recursion limit likely hit
 	{
 		return(eDSInvalidContext);
 	}
+	
 	checkMsgData = aMsgData; //used to check if we grew this buffer below
 	
     CRequestHandler handler;
+	
 	aMsgData->type.msgt_name		= inMsgType;
-	aMsgData->type.msgt_size		= 32;
-	aMsgData->type.msgt_number		= 0;
 	aMsgData->type.msgt_translate	= 0;
 	aMsgData->fPID					= 0; // set the pid to 0 so we know it was internal dispatch
+	aMsgData->fMachPort				= 0;
 
-    handler.HandleRequest(&aMsgData);
+    handler.HandleRequest( &aMsgData );
 	
 	//check to see if the msg data grew within the CSrvrMessaging class
 	//if so we need to update where we keep track of it
-	if (checkMsgData != aMsgData)
+	if ( internalDispatch != NULL )
 	{
-		if (thisThread != nil)
-		{
-			if ( IsThreadUsingInternalDispatchBuffering(thisThread->GetSignature()) )
-			{
-				thisThread->UpdateHandlerInternalMsgData(checkMsgData, aMsgData);
-			}
-			else //we are not inside a handler thread
-			{
-				fMsgData = aMsgData;
-			}
-		}
-		else //we are not inside a handler thread
-		{
-			fMsgData = aMsgData;
-		}
+		internalDispatch->SwapCurrentMessageBuffer( checkMsgData, aMsgData );
 	}
+	else //we are not inside a handler thread
+	{
+		fMsgData = aMsgData;
+	}
+
     return eDSNoErr;
 #else
-	SInt32			result	= eDSNoErr;
-
-	if (bMachEndpoint)
-	{
-		fMsgData->type.msgt_name		= inMsgType;
-		fMsgData->type.msgt_size		= 32;
-		fMsgData->type.msgt_number		= 0;
-		fMsgData->type.msgt_translate	= fTranslateBit;
-		
-		result = this->SendServerMessage();
-	}
-	else
-	{
-		fMsgData->type.msgt_name= inMsgType;
-		fMsgData->fPID			= getpid();
-		fMsgData->fMsgID		= ::time( nil );
-
-		result = this->SendRemoteMessage();
-	}
+	fMsgData->type.msgt_name		= inMsgType;
+	fMsgData->type.msgt_translate	= fTranslateMode;
 	
-	return( result );
+	return fCommPort->SendMessage( fMsgData );
 #endif
 } // SendInlineMessage
 
@@ -1113,17 +857,10 @@ bool CMessaging::Grow ( UInt32 inOffset, UInt32 inSize )
 	
 #ifdef SERVERINTERNAL
 			//look at our own thread and then get the msg data block to use for internal dispatch
-			CInternalDispatchThread *ourThread = (CInternalDispatchThread *)DSLThread::GetCurrentThread();
-			if (ourThread != nil)
+			CInternalDispatch *internalDispatch = CInternalDispatch::GetThreadInternalDispatch();
+			if ( internalDispatch != NULL )
 			{
-				if ( IsThreadUsingInternalDispatchBuffering(ourThread->GetSignature()) )
-				{
-					ourThread->UpdateHandlerInternalMsgData(aMsgData, (sComData *)pNewPtr);
-				}
-				else //we are not inside a handler thread
-				{
-					fMsgData = (sComData *)pNewPtr;
-				}
+				internalDispatch->SwapCurrentMessageBuffer(aMsgData, (sComData *)pNewPtr);
 			}
 			else //we are not inside a handler thread
 			{
@@ -1158,33 +895,17 @@ void CMessaging::Lock ( void )
 {
 #ifdef SERVERINTERNAL
 	//look at our own thread and then get the msg data block to use for internal dispatch
-	CInternalDispatchThread *thisThread = (CInternalDispatchThread *)DSLThread::GetCurrentThread();
-	if (thisThread != nil)
+	CInternalDispatch *internalDispatch = CInternalDispatch::GetThreadInternalDispatch();
+	if ( internalDispatch != NULL )
 	{
-		if ( IsThreadUsingInternalDispatchBuffering(thisThread->GetSignature()) )
-		{
-			thisThread->SetHandlerInternalMsgData();
-		}
-		else //we are not inside a handler thread
-		{
-			if ( fLock != nil )
-			{
-				fLock->WaitLock();
-			}
-		}
+		internalDispatch->PushCurrentMessageBuffer();
 	}
 	else //we are not inside a handler thread
 	{
-		if ( fLock != nil )
-		{
-			fLock->WaitLock();
-		}
+		fLock.WaitLock();
 	}
 #else
-	if ( fLock != nil )
-	{
-		fLock->WaitLock();
-	}
+	fLock.WaitLock();
 #endif
 } // Lock
 
@@ -1208,6 +929,7 @@ void CMessaging::ResetMessageBlock( void )
 	}
 } // ResetMessageBlock
 
+
 //------------------------------------------------------------------------------------
 //	* Unlock
 //------------------------------------------------------------------------------------
@@ -1216,36 +938,19 @@ void CMessaging::Unlock ( void )
 {
 #ifdef SERVERINTERNAL
 	//look at our own thread and then get the msg data block to use for internal dispatch
-	CInternalDispatchThread *thisThread = (CInternalDispatchThread *)DSLThread::GetCurrentThread();
-	if (thisThread != nil)
+	CInternalDispatch *internalDispatch = CInternalDispatch::GetThreadInternalDispatch();
+	if (internalDispatch != NULL)
 	{
-		if ( IsThreadUsingInternalDispatchBuffering(thisThread->GetSignature()) )
-		{
-			thisThread->ResetHandlerInternalMsgData();
-		}
-		else //we are not inside a handler thread
-		{
-			if ( fLock != nil )
-			{
-				ResetMessageBlock();
-				fLock->SignalLock();
-			}
-		}
+		internalDispatch->PopCurrentMessageBuffer();
 	}
 	else //we are not inside a handler thread
 	{
-		if ( fLock != nil )
-		{
-			ResetMessageBlock();
-			fLock->SignalLock();
-		}
+		ResetMessageBlock();
+		fLock.SignalLock();
 	}
 #else
-	if ( fLock != nil )
-	{
-		ResetMessageBlock();
-		fLock->SignalLock();
-	}
+	ResetMessageBlock();
+	fLock.SignalLock();
 #endif
 } // Unlock
 
@@ -1289,25 +994,6 @@ void CMessaging::SetServerVersion ( UInt32 inServerVersion )
 } // SetServerVersion
 
 //------------------------------------------------------------------------------------
-//	* GetProxyIPAddress
-//------------------------------------------------------------------------------------
-
-const char* CMessaging::GetProxyIPAddress ( void )
-{
-	const char	   *outIPAddress = nil;
-
-#ifndef SERVERINTERNAL
-	if ( (!bMachEndpoint) && (fTCPEndpoint != nil) )
-	{
-		outIPAddress = fTCPEndpoint->GetReverseAddressString();
-	}
-#endif
-
-	return(outIPAddress);
-} // GetProxyIPAddress
-
-
-//------------------------------------------------------------------------------------
 //	* GetMsgData
 //------------------------------------------------------------------------------------
 
@@ -1317,17 +1003,10 @@ sComData* CMessaging::GetMsgData ( void )
 
 #ifdef SERVERINTERNAL
 	//look at our own thread and then get the msg data block to use for internal dispatch
-	CInternalDispatchThread *thisThread = (CInternalDispatchThread *)DSLThread::GetCurrentThread();
-	if (thisThread != nil)
+	CInternalDispatch *internalDispatch = CInternalDispatch::GetThreadInternalDispatch();
+	if (internalDispatch != NULL)
 	{
-		if ( IsThreadUsingInternalDispatchBuffering(thisThread->GetSignature()) )
-		{
-			aMsgData = thisThread->GetHandlerInternalMsgData();
-		}
-		else //we are not inside a handler thread
-		{
-			aMsgData = fMsgData;
-		}
+		aMsgData = internalDispatch->GetCurrentMessageBuffer();
 	}
 	else //we are not inside a handler thread
 	{

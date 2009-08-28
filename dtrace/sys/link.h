@@ -23,14 +23,14 @@
  *	Copyright (c) 1988 AT&T
  *	  All Rights Reserved
  *
- * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
 #ifndef _SYS_LINK_H
 #define	_SYS_LINK_H
 
-#pragma ident	"@(#)link.h	1.72	06/03/27 SMI"
+#pragma ident	"@(#)link.h	1.80	08/03/18 SMI"
 
 #ifndef	_ASM
 #include <sys/types.h>
@@ -111,18 +111,62 @@ typedef struct {
 #define	DT_RUNPATH	29	/* run-time search path */
 #define	DT_FLAGS	30	/* state flags - see DF_* */
 
-#define	DT_ENCODING		32    /* DT_* encoding rules start after this */
+/*
+ * DT_* encoding rules: The value of each dynamic tag determines the
+ * interpretation of the d_un union. This convention provides for simpler
+ * interpretation of dynamic tags by external tools. A tag whose value
+ * is an even number indicates a dynamic section entry that uses d_ptr.
+ * A tag whose value is an odd number indicates a dynamic section entry
+ * that uses d_val, or that uses neither d_ptr nor d_val.
+ *
+ * There are exceptions to the above rule:
+ *	- Tags with values that are less than DT_ENCODING.
+ *	- Tags with values that fall between DT_LOOS and DT_SUNW_ENCODING
+ *	- Tags with values that fall between DT_HIOS and DT_LOPROC
+ *
+ * Third party tools must handle these exception ranges explicitly
+ * on an item by item basis.
+ */
+#define	DT_ENCODING		32	/* positive tag DT_* encoding rules */
+					/*	start after this */
 #define	DT_PREINIT_ARRAY	32    /* pointer to .preinitarray segment */
 #define	DT_PREINIT_ARRAYSZ	33    /* size of .preinitarray segment */
 
 #define	DT_MAXPOSTAGS		34	/* number of positive tags */
 
+/*
+ * DT_* encoding rules do not apply between DT_LOOS and DT_SUNW_ENCODING
+ */
 #define	DT_LOOS			0x6000000d	/* OS specific range */
 #define	DT_SUNW_AUXILIARY	0x6000000d	/* symbol auxiliary name */
 #define	DT_SUNW_RTLDINF		0x6000000e	/* ld.so.1 info (private) */
 #define	DT_SUNW_FILTER		0x6000000f	/* symbol filter name */
 #define	DT_SUNW_CAP		0x60000010	/* hardware/software */
 						/*	capabilities */
+#define	DT_SUNW_SYMTAB		0x60000011	/* symtab with local fcn */
+						/*	symbols immediately */
+						/*	preceding DT_SYMTAB */
+#define	DT_SUNW_SYMSZ		0x60000012	/* Size of SUNW_SYMTAB table */
+
+/*
+ * DT_* encoding rules apply between DT_SUNW_ENCODING and DT_HIOS
+ */
+#define	DT_SUNW_ENCODING	0x60000013	/* DT_* encoding rules resume */
+						/*	after this */
+#define	DT_SUNW_SORTENT		0x60000013	/* sizeof [SYM|TLS]SORT entrt */
+#define	DT_SUNW_SYMSORT		0x60000014	/* sym indices sorted by addr */
+#define	DT_SUNW_SYMSORTSZ	0x60000015	/* size of SUNW_SYMSORT */
+#define	DT_SUNW_TLSSORT		0x60000016	/* tls sym ndx sort by offset */
+#define	DT_SUNW_TLSSORTSZ	0x60000017	/* size of SUNW_TLSSORT */
+
+#define	DT_SUNW_STRPAD		0x60000019	/* # of unused bytes at the */
+						/*	end of dynstr */
+#define	DT_SUNW_LDMACH		0x6000001b	/* EM_ machine code of linker */
+						/*	that produced object */
+
+/*
+ * DT_* encoding rules do not apply between DT_HIOS and DT_LOPROC
+ */
 #define	DT_HIOS			0x6ffff000
 
 /*
@@ -168,7 +212,8 @@ typedef struct {
  * The following DT_* entries should have been assigned within one of the
  * DT_* ranges, but existed before such ranges had been established.
  */
-#define	DT_VERSYM	0x6ffffff0	/* version symbol table - unused */
+#define	DT_VERSYM	0x6ffffff0	/* version symbol table - unused by */
+					/*	Solaris (see libld/update.c) */
 
 #define	DT_RELACOUNT	0x6ffffff9	/* number of RELATIVE relocations */
 #define	DT_RELCOUNT	0x6ffffffa	/* number of RELATIVE relocations */
@@ -181,6 +226,8 @@ typedef struct {
 /*
  * DT_* entries between DT_HIPROC and DT_LOPROC are reserved for processor
  * specific semantics.
+ *
+ * DT_* encoding rules apply to all tag values larger than DT_LOPROC.
  */
 #define	DT_LOPROC	0x70000000	/* processor specific range */
 #define	DT_AUXILIARY	0x7ffffffd	/* shared library auxiliary name */
@@ -220,7 +267,7 @@ typedef struct {
 #define	DF_1_ORIGIN	0x00000080	/* ORIGIN processing required */
 #define	DF_1_DIRECT	0x00000100	/* direct binding enabled */
 #define	DF_1_TRANS	0x00000200
-#define	DF_1_INTERPOSE	0x00000400	/* object is an 'interposer' */
+#define	DF_1_INTERPOSE	0x00000400	/* object is an interposer */
 #define	DF_1_NODEFLIB	0x00000800	/* ignore default library search path */
 #define	DF_1_NODUMP	0x00001000	/* object can't be dldump(3x)'ed */
 #define	DF_1_CONFALT	0x00002000	/* configuration alternative created */
@@ -234,7 +281,13 @@ typedef struct {
 					/*	symbols via /dev/ksyms */
 #define	DF_1_NOHDR	0x00100000	/* mapfile ?N:1st segment mapping */
 					/*	omits ELF & program headers */
+#define	DF_1_EDITED	0x00200000	/* object has been modified since */
+					/*	being built by 'ld' */
 #define	DF_1_NORELOC	0x00400000	/* internal: unrelocated object */
+#define	DF_1_SYMINTPOSE	0x00800000	/* individual symbol interposers */
+					/*	exist */
+#define	DF_1_GLOBAUDIT	0x01000000	/* establish global auditing */
+#define	DF_1_SINGLETON	0x02000000	/* singleton symbols exist */
 
 /*
  * Values set to DT_FEATURE_1 tag's d_val.
@@ -395,7 +448,7 @@ typedef struct {
 					/*	to object containing defn. */
 #define	SYMINFO_FLG_PASSTHRU	0x0002	/* ignored - see SYMINFO_FLG_FILTER */
 #define	SYMINFO_FLG_COPY	0x0004	/* symbol is a copy-reloc */
-#define	SYMINFO_FLG_LAZYLOAD	0x0008	/* object containing defn should be */
+#define	SYMINFO_FLG_LAZYLOAD	0x0008	/* object containing defn. should be */
 					/*	lazily-loaded */
 #define	SYMINFO_FLG_DIRECTBIND	0x0010	/* ref should be bound directly to */
 					/*	object containing defn. */
@@ -403,6 +456,7 @@ typedef struct {
 					/*	directly bind to this symbol */
 #define	SYMINFO_FLG_FILTER	0x0002	/* symbol ref is associated to a */
 #define	SYMINFO_FLG_AUXILIARY	0x0040	/* 	standard or auxiliary filter */
+#define	SYMINFO_FLG_INTERPOSE	0x0080	/* symbol defines an interposer */
 
 /*
  * Syminfo.si_boundto values.
@@ -476,7 +530,11 @@ typedef enum {
 	RD_NONE = 0,		/* no event */
 	RD_PREINIT,		/* the Initial rendezvous before .init */
 	RD_POSTINIT,		/* the Second rendezvous after .init */
-	RD_DLACTIVITY		/* a dlopen or dlclose has happened */
+	RD_DLACTIVITY,		/* a dlopen or dlclose has happened */
+#if defined(__APPLE__)
+	RD_DYLD_LOST,		/* communication with target dyld was lost */
+	RD_DYLD_EXIT		/* target exited. */
+#endif
 } rd_event_e;
 
 struct r_debug {

@@ -45,7 +45,7 @@ protected:
     bool                fIsCreated;
     uint32_t            fCreatedFlags;
     uint32_t            fCreatedDepth;
-    uint32_t            fQueueRef;
+    uint64_t            fQueueRef;
     
     bool                fQueueEntrySizeChanged;
     

@@ -93,8 +93,7 @@ routine releaseRecord(UCSP_PORTS; in record: IPCRecordHandle);
 routine createDb(UCSP_PORTS; out db: IPCDbHandle; in ident: Data;
     in accessCredentials: Data; in aclEntryPrototype: Data;
     in params: DBParameters);
-routine cloneDbForSync(UCSP_PORTS; in secretsBlob: DbBlob; 
-    in srcDb: IPCDbHandle; in agentData: Data; out newDb: IPCDbHandle);
+skip;
 #if 0
 // should move here from below, next time we break compatibility for another reason
 routine commitDbForSync(UCSP_PORTS; in srcDb: IPCDbHandle; in cloneDb: IPCDbHandle;
@@ -308,10 +307,23 @@ routine setGuest(UCSP_PORTS; in guest: SecGuestRef; in flags: uint32);
 // Code Signing Hosting protocol part 2: proxy services.
 //
 routine createGuest(UCSP_PORTS; in host: SecGuestRef; in status: uint32_t;
-	in path: FilePath; in attributes: Data; in flags: uint32; out guest: SecGuestRef);
+	in path: FilePath; in cdhash: HashData; in attributes: Data; in flags: uint32; out guest: SecGuestRef);
 routine setGuestStatus(UCSP_PORTS; in guest: SecGuestRef;
 	in status: uint32_t; in attributes: Data);
 routine removeGuest(UCSP_PORTS; in host: SecGuestRef; in guest: SecGuestRef);
+
+//
+// Code Signing support calls
+//
+routine helpCheckLoad(UCSP_PORTS; in path: FilePath; in addType: uint32_t);
+
+//
+// Keychain Syncing setup support calls
+//
+routine recodeDbForSync(UCSP_PORTS; in dbToClone: IPCDbHandle; 
+    in srcDb: IPCDbHandle; out newDb: IPCDbHandle);
+routine authenticateDbsForSync(UCSP_PORTS; in ipcDbHandleArray: Data;
+    in agentData: Data; out newDb: IPCDbHandle);
 
 //
 // Allows the client to verify that the server really is root.

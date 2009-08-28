@@ -43,6 +43,10 @@ name of the record to add
 name of the record to delete
 .It Fl t Ar recordtype
 type of the record to add or delete
+.It Fl T Ar grouptype
+type of group to create or modify
+.It Fl L
+maintain ComputerLists in parallel with ComputerGroups
 .It Fl i Ar gid
 gid to add/replace
 .It Fl g Ar guid
@@ -102,7 +106,11 @@ The name of the record to be added to the group specified by groupname. This nam
 .It Fl d Ar recordname
 The name of the record to be deleted from the group specified by groupname. This name is related to the first record found on the authentication search policy when a search is made with this recordname and the given recordtype.
 .It Fl t Ar recordtype
-The type of the record to be added to or deleted from the group specified by groupname. Valid values are user, computer, and group.
+The type of the record to be added to or deleted from the group specified by groupname. Valid values are user, computer, group, or computergroup.
+.It Fl T Ar grouptype
+The type of the group record to be created or modified as specified by groupname. Valid values are group or computergroup.
+.It Fl L
+If used with computergroup will also maintain the computerlist if it exists or create it if a computergroup is created.
 .It Fl i Ar gid
 This is a group id. This will be automatically created if not specified for a create.
 .It Fl g Ar guid

@@ -66,6 +66,7 @@ typedef uint32 DNS_ERROR;
 #define ERROR_DNS_INVALID_MESSAGE	ERROR_DNS(9)
 #define ERROR_DNS_SOCKET_ERROR		ERROR_DNS(10)
 #define ERROR_DNS_UPDATE_FAILED		ERROR_DNS(11)
+#define ERROR_DNS_WRONG_ZONE		ERROR_DNS(12)
 
 /*
  * About to be removed, transitional error

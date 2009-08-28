@@ -26,6 +26,7 @@
 /*	gid_t	var_default_gid;
 /*	char	*var_config_dir;
 /*	char	*var_daemon_dir;
+/*	char	*var_data_dir;
 /*	char	*var_command_dir;
 /*	char	*var_queue_dir;
 /*	int	var_use_limit;
@@ -109,6 +110,7 @@
 /*#endif /* __APPLE_OS_X_SERVER__
 /*	int	var_delay_max_res;
 /*	char	*var_int_filt_classes;
+/*	int	var_cyrus_sasl_authzid;
 /*
 /*	void	mail_params_init()
 /*
@@ -147,6 +149,7 @@
 #include <pwd.h>
 #include <grp.h>
 #include <time.h>
+#include <ctype.h>
 
 #ifdef STRCASECMP_IN_STRINGS_H
 #include <strings.h>
@@ -160,10 +163,13 @@
 #include <valid_hostname.h>
 #include <stringops.h>
 #include <safe.h>
+#include <safe_open.h>
+#include <mymalloc.h>
 #ifdef HAS_DB
 #include <dict_db.h>
 #endif
 #include <inet_proto.h>
+#include <vstring_vstream.h>
 
 /* Global library. */
 
@@ -201,6 +207,7 @@ uid_t   var_default_uid;
 gid_t   var_default_gid;
 char   *var_config_dir;
 char   *var_daemon_dir;
+char   *var_data_dir;
 char   *var_command_dir;
 char   *var_queue_dir;
 int     var_use_limit;
@@ -281,10 +288,12 @@ int     var_verify_neg_cache;
 int     var_oldlog_compat;
 #ifdef __APPLE_OS_X_SERVER__
 bool	var_enable_server_options;
-bool	var_check_for_od_forward;
+bool    var_check_for_od_forward;
+bool	var_use_getpwnam_ext;
 #endif /* __APPLE_OS_X_SERVER__ */
 int     var_delay_max_res;
 char   *var_int_filt_classes;
+int     var_cyrus_sasl_authzid;
 
 const char null_format_string[1] = "";
 
@@ -448,21 +457,63 @@ static void check_overlap(void)
 		  (long) var_sgid_gid);
 }
 
+#ifdef MYORIGIN_FROM_FILE
+
+/* read_param_from_file - read parameter value from file */
+
+static char *read_param_from_file(const char *path)
+{
+    VSTRING *why = vstring_alloc(100);
+    VSTRING *buf = vstring_alloc(100);
+    VSTREAM *fp;
+    char   *bp;
+    char   *result;
+
+    /*
+     * Ugly macros to make complex expressions less unreadable.
+     */
+#define SKIP(start, var, cond) \
+	for (var = start; *var && (cond); var++);
+
+#define TRIM(s) { \
+	char *p; \
+	for (p = (s) + strlen(s); p > (s) && ISSPACE(p[-1]); p--); \
+	*p = 0; \
+    }
+
+    fp = safe_open(path, O_RDONLY, 0, (struct stat *) 0, -1, -1, why);
+    if (fp == 0)
+	msg_fatal("%s: %s", path, vstring_str(why));
+    vstring_get_nonl(buf, fp);
+    if (vstream_ferror(fp))			/* FIX 20070501 */
+	msg_fatal("%s: read error: %m", path);
+    vstream_fclose(fp);
+    SKIP(vstring_str(buf), bp, ISSPACE(*bp));
+    TRIM(bp);
+    result = mystrdup(bp);
+
+    vstring_free(why);
+    vstring_free(buf);
+    return (result);
+}
+
+#endif
+
 /* mail_params_init - configure built-in parameters */
 
 void    mail_params_init()
 {
-    static CONFIG_STR_TABLE first_str_defaults[] = {
+    static const CONFIG_STR_TABLE first_str_defaults[] = {
 	VAR_SYSLOG_FACILITY, DEF_SYSLOG_FACILITY, &var_syslog_facility, 1, 0,
 	VAR_INET_PROTOCOLS, DEF_INET_PROTOCOLS, &var_inet_protocols, 1, 0,
 	0,
     };
-    static CONFIG_STR_FN_TABLE function_str_defaults[] = {
+    static const CONFIG_STR_FN_TABLE function_str_defaults[] = {
 	VAR_MYHOSTNAME, check_myhostname, &var_myhostname, 1, 0,
 	VAR_MYDOMAIN, check_mydomainname, &var_mydomain, 1, 0,
 	0,
     };
-    static CONFIG_STR_TABLE other_str_defaults[] = {
+    static const CONFIG_STR_TABLE other_str_defaults[] = {
 #ifdef __APPLE_OS_X_SERVER__
 	VAR_MYDOMAIN_FALLBACK, DEF_MYDOMAIN_FALLBACK, &var_mydomain_fallback, 1, 0,
 #endif /* __APPLE_OS_X_SERVER__ */
@@ -474,6 +525,7 @@ void    mail_params_init()
 	VAR_MYORIGIN, DEF_MYORIGIN, &var_myorigin, 1, 0,
 	VAR_RELAYHOST, DEF_RELAYHOST, &var_relayhost, 0, 0,
 	VAR_DAEMON_DIR, DEF_DAEMON_DIR, &var_daemon_dir, 1, 0,
+	VAR_DATA_DIR, DEF_DATA_DIR, &var_data_dir, 1, 0,
 	VAR_COMMAND_DIR, DEF_COMMAND_DIR, &var_command_dir, 1, 0,
 	VAR_QUEUE_DIR, DEF_QUEUE_DIR, &var_queue_dir, 1, 0,
 	VAR_PID_DIR, DEF_PID_DIR, &var_pid_dir, 1, 0,
@@ -511,11 +563,11 @@ void    mail_params_init()
 	VAR_INT_FILT_CLASSES, DEF_INT_FILT_CLASSES, &var_int_filt_classes, 0, 0,
 	0,
     };
-    static CONFIG_STR_FN_TABLE function_str_defaults_2[] = {
+    static const CONFIG_STR_FN_TABLE function_str_defaults_2[] = {
 	VAR_MYNETWORKS, mynetworks, &var_mynetworks, 0, 0,
 	0,
     };
-    static CONFIG_INT_TABLE other_int_defaults[] = {
+    static const CONFIG_INT_TABLE other_int_defaults[] = {
 	VAR_MAX_USE, DEF_MAX_USE, &var_use_limit, 1, 0,
 	VAR_DONT_REMOVE, DEF_DONT_REMOVE, &var_dont_remove, 0, 0,
 	VAR_LINE_LIMIT, DEF_LINE_LIMIT, &var_line_limit, 512, 0,
@@ -534,7 +586,7 @@ void    mail_params_init()
 	VAR_DELAY_MAX_RES, DEF_DELAY_MAX_RES, &var_delay_max_res, MIN_DELAY_MAX_RES, MAX_DELAY_MAX_RES,
 	0,
     };
-    static CONFIG_TIME_TABLE time_defaults[] = {
+    static const CONFIG_TIME_TABLE time_defaults[] = {
 	VAR_EVENT_DRAIN, DEF_EVENT_DRAIN, &var_event_drain, 1, 0,
 	VAR_MAX_IDLE, DEF_MAX_IDLE, &var_idle_limit, 1, 0,
 	VAR_IPC_TIMEOUT, DEF_IPC_TIMEOUT, &var_ipc_timeout, 1, 0,
@@ -548,7 +600,7 @@ void    mail_params_init()
 	VAR_IN_FLOW_DELAY, DEF_IN_FLOW_DELAY, &var_in_flow_delay, 0, 10,
 	0,
     };
-    static CONFIG_BOOL_TABLE bool_defaults[] = {
+    static const CONFIG_BOOL_TABLE bool_defaults[] = {
 	VAR_DISABLE_DNS, DEF_DISABLE_DNS, &var_disable_dns,
 	VAR_SOFT_BOUNCE, DEF_SOFT_BOUNCE, &var_soft_bounce,
 	VAR_OWNREQ_SPECIAL, DEF_OWNREQ_SPECIAL, &var_ownreq_special,
@@ -561,9 +613,11 @@ void    mail_params_init()
 	VAR_VERIFY_NEG_CACHE, DEF_VERIFY_NEG_CACHE, &var_verify_neg_cache,
 	VAR_OLDLOG_COMPAT, DEF_OLDLOG_COMPAT, &var_oldlog_compat,
 	VAR_HELPFUL_WARNINGS, DEF_HELPFUL_WARNINGS, &var_helpful_warnings,
+	VAR_CYRUS_SASL_AUTHZID, DEF_CYRUS_SASL_AUTHZID, &var_cyrus_sasl_authzid,
 #ifdef __APPLE_OS_X_SERVER__
 	VAR_ENABLE_SERVER_OPTIONS, DEF_ENABLE_SERVER_OPTIONS, &var_enable_server_options,
 	VAR_CHECK_FOR_OD_FORWARD, DEF_CHECK_FOR_OD_FORWARD, &var_check_for_od_forward,
+	VAR_USE_GETPWNAM_EXT, DEF_USE_GETPWNAM_EXT, &var_use_getpwnam_ext,
 #endif /* __APPLE_OS_X_SERVER__ */
 	0,
     };
@@ -604,8 +658,23 @@ void    mail_params_init()
 
     /*
      * Variables that are needed by almost every program.
+     * 
+     * XXX Reading the myorigin value from file is originally a Debian Linux
+     * feature. This code is not enabled by default because of problems: 1)
+     * it re-implements its own parameter syntax checks, and 2) it does not
+     * implement $name expansions.
      */
     get_mail_conf_str_table(other_str_defaults);
+#ifdef MYORIGIN_FROM_FILE
+    if (*var_myorigin == '/') {
+	char   *origin = read_param_from_file(var_myorigin);
+
+	if (*origin == 0)
+	    msg_fatal("%s file %s is empty", VAR_MYORIGIN, var_myorigin);
+	myfree(var_myorigin);			/* FIX 20070501 */
+	var_myorigin = origin;
+    }
+#endif
     get_mail_conf_int_table(other_int_defaults);
     get_mail_conf_bool_table(bool_defaults);
     get_mail_conf_time_table(time_defaults);

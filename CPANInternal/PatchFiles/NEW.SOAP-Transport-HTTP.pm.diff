@@ -1,0 +1,96 @@
+Index: SOAP-Lite/lib/SOAP/Transport/HTTP.pm
+===================================================================
+--- SOAP-Lite/lib/SOAP/Transport/HTTP.pm        (revision 9315)
++++ SOAP-Lite/lib/SOAP/Transport/HTTP.pm        (working copy)
+@@ -128,7 +128,6 @@
+     $endpoint ||= $self->endpoint;
+ 
+     my $method = 'POST';
+-    $COMPRESS = 'gzip';
+ 
+     $self->options->{is_compress}
+         ||= exists $self->options->{compress_threshold}
+@@ -208,9 +207,8 @@
+ #            $self->http_request->header(Expect => '100-Continue');
+ 
+             # allow compress if present and let server know we could handle it
+-            $self->http_request->header('Accept-Encoding' =>
+-                [$SOAP::Transport::HTTP::Client::COMPRESS])
+-                   if $self->options->{is_compress};
++            $self->http_request->header( 'Accept-Encoding' => [ 'gzip', 'deflate' ] )
++                if $self->options->{is_compress};
+ 
+             $self->http_request->content_encoding($SOAP::Transport::HTTP::Client::COMPRESS)
+                if $compressed;
+@@ -275,15 +273,23 @@
+     $self->{'_cookie_jar'}->extract_cookies($self->http_response) if
+         $self->{'_cookie_jar'};
+ 
+-    my $content =
+-        ($self->http_response->content_encoding || '')
+-            =~ /\b$SOAP::Transport::HTTP::Client::COMPRESS\b/o &&
+-               $self->options->{is_compress}
+-        ? Compress::Zlib::memGunzip($self->http_response->content)
+-        : ($self->http_response->content_encoding || '') =~ /\S/
+-              ? die "Can't understand returned Content-Encoding (@{[$self->http_response->content_encoding]})\n"
+-              : $self->http_response->content;
++    my $content;
++    my $contentEncoding = ( $self->http_response->content_encoding || '' );
++    if ( $self->options->{is_compress} && $contentEncoding =~ /\bgzip\b/ ) {
++        $content = Compress::Zlib::memGunzip( $self->http_response->content );
++    }
++    elsif ( $self->options->{is_compress} && $contentEncoding =~ /\bdeflate\b/ ) {
++        $content = Compress::Zlib::uncompress( $self->http_response->content );
++    }
++    elsif ( $self->options->{is_compress} && $contentEncoding =~ /\S/ ) {
++        die
++            "Can't understand returned Content-Encoding (@{[$self->http_response->content_encoding]})\n";
++    }
++    else {
++        $content = $self->http_response->content;
++    }
+ 
++
+     return $self->http_response->content_type =~ m!^multipart/!i
+         ? join("\n", $self->http_response->headers_as_string, $content)
+         : $content;
+@@ -413,12 +419,24 @@
+         exists $self->options->{compress_threshold}
+             && eval { require Compress::Zlib };
+ 
+-    my $compressed = $self->options->{is_compress}
+-        && grep(/\b($COMPRESS|\*)\b/, $self->request->header('Accept-Encoding'))
+-            && ($self->options->{compress_threshold} || 0) < SOAP::Utils::bytelength $response;
++    my $compressed;
++    if ( $self->options->{is_compress}
++        && ( $self->options->{compress_threshold} || 0 ) < SOAP::Utils::bytelength $response)
++    {
++        foreach my $ce ( split( ',', $self->request->header('Accept-Encoding') ) ) {
++            if ( $ce =~ /\b(gzip|\*)\b/ ) {
++                $response   = Compress::Zlib::memGzip($response);
++                $compressed = 'gzip';
++                last;
++            }
++            elsif ( $ce =~ /\b(deflate|\*)\b/ ) {
++                $response   = Compress::Zlib::compress($response);
++                $compressed = 'deflate';
++                last;
++            }
++        }
++    }
+ 
+-    $response = Compress::Zlib::compress($response) if $compressed;
+-
+     # this next line does not look like a good test to see if something is multipart
+     # perhaps a /content-type:.*multipart\//gi is a better regex?
+     my ($is_multipart) = ($response =~ /content-type:.* boundary="([^\"]*)"/im);
+@@ -427,7 +445,7 @@
+         $code => undef,
+         HTTP::Headers->new(
+             'SOAPServer' => $self->product_tokens,
+-            $compressed ? ('Content-Encoding' => $COMPRESS) : (),
++            $compressed ? ('Content-Encoding' => $compressed) : (),
+             'Content-Type' => join('; ', 'text/xml',
+                !$SOAP::Constants::DO_NOT_USE_CHARSET &&
+                    $encoding ? 'charset=' . lc($encoding) : ()),
+

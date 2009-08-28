@@ -1,10 +1,10 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*           Copyright (c) 1996-2007 AT&T Knowledge Ventures            *
+*          Copyright (c) 1996-2007 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
-*                      by AT&T Knowledge Ventures                      *
+*                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
 *            http://www.opensource.org/licenses/cpl1.0.txt             *
@@ -34,6 +34,7 @@
 #define SUM_SIZE	(1<<0)		/* print size too		*/
 #define SUM_SCALE	(1<<1)		/* traditional size scale	*/
 #define SUM_TOTAL	(1<<2)		/* print totals since sumopen	*/
+#define SUM_LEGACY	(1<<3)		/* legacy field widths		*/
 
 #define _SUM_PUBLIC_	const char*	name;
 
@@ -57,7 +58,7 @@ extern int	suminit(Sum_t*);
 extern int	sumblock(Sum_t*, const void*, size_t);
 extern int	sumdone(Sum_t*);
 extern int	sumdata(Sum_t*, Sumdata_t*);
-extern int	sumprint(Sum_t*, Sfio_t*, int);
+extern int	sumprint(Sum_t*, Sfio_t*, int, size_t);
 extern int	sumusage(Sfio_t*);
 extern int	sumclose(Sum_t*);
 

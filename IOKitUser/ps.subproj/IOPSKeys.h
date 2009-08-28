@@ -3,19 +3,20 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -30,6 +31,54 @@
  */  
 #ifndef _IOPSKEYS_H_
 #define _IOPSKEYS_H_
+
+/*!
+ @define kIOPSPowerAdapterIDKey
+ @astract This key refers to the attached external AC power adapter's ID.
+        The value associated with this key is a CFNumberRef intger.
+ @discussion This key may be present in the dictionary returned from @link IOPSCopyExternalPowerAdapterDetails @/link
+        This key might not be defined for any given power source.
+ */
+#define kIOPSPowerAdapterIDKey          "AdapterID"
+
+/*!
+ @define kIOPSPowerAdapterWattsKey
+ @astract This key refers to the wattage of the external AC power adapter attached to a portable.
+        The value associated with this key is a CFNumberRef integer value, in units of watts.
+ @discussion This key may be present in the dictionary returned from @link IOPSCopyExternalPowerAdapterDetails @/link
+        This key might not be defined for any given power source.
+ */
+#define kIOPSPowerAdapterWattsKey       "Watts"
+
+/*!
+ @define kIOPSPowerAdapterRevisionKey
+ @abstract The power adapter's revision.
+        The value associated with this key is a CFNumberRef integer value
+ @discussion This key may be present in the dictionary returned from @link IOPSCopyExternalPowerAdapterDetails @/link
+        This key might not be defined for any given power source.
+ */
+#define kIOPSPowerAdapterRevisionKey   "AdapterRevision"
+
+/*!
+ @define kIOPSPowerAdapterSerialNumberKey
+ @abstract The power adapter's serial number.
+        The value associated with this key is a CFNumberRef integer value
+ @discussion This key may be present in the dictionary returned from @link IOPSCopyExternalPowerAdapterDetails @/link
+        This key might not be defined for any given power source.
+ */ 
+#define kIOPSPowerAdapterSerialNumberKey    "SerialNumber"
+
+/*!
+ @define kIOPSPowerAdapterFamilyKey
+ @abstract The power adapter's family code.
+        The value associated with this key is a CFNumberRef integer value
+ @discussion This key may be present in the dictionary returned from @link IOPSCopyExternalPowerAdapterDetails @/link
+        This key might not be defined for any given power source.
+ */
+#define kIOPSPowerAdapterFamilyKey          "FamilyCode"
+
+/*!
+ */
 
 /*!
  @define kIOPSUPSManagementClaimed
@@ -311,6 +360,16 @@
 */
 #define kIOPSIsChargedKey                   "Is Charged"
 
+/*!
+    @define kIOPSIsChargedKey
+    @abstract CFDictionary key indicates whether the battery is charged. 
+        A battery must be plugged in to an external power source in order to be fully charged.
+        Note that a battery may validly be plugged in, not charging, and <100% charge.
+        e.g. A battery with capacity >= 95% and not charging, is defined as charged.
+        <br>Implementing this key is REQUIRED
+        <br>Type CFBoolean - kCFBooleanTrue or kCFBooleanFalse
+*/
+#define kIOPSIsChargedKey                   "Is Charged"
 
 /*!
     @define kIOPSIsFinishingChargeKey

@@ -1,19 +1,18 @@
 /*
-*******************************************************************************
-*
-*   Copyright (C) 2003, International Business Machines
-*   Corporation and others.  All Rights Reserved.
-*
-*******************************************************************************
-*
-* File prscmnts.cpp
-*
-* Modification History:
-*
-*   Date          Name        Description
-*   08/22/2003    ram         Creation.
-*******************************************************************************
-*/
+ *******************************************************************************
+ *   Copyright (C) 2003-2007, International Business Machines
+ *   Corporation and others.  All Rights Reserved.
+ *******************************************************************************
+ *
+ * File prscmnts.cpp
+ *
+ * Modification History:
+ *
+ *   Date          Name        Description
+ *   08/22/2003    ram         Creation.
+ *******************************************************************************
+ */
+
 #include "unicode/regex.h"
 #include "unicode/unistr.h"
 #include "unicode/parseerr.h"
@@ -21,13 +20,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+U_NAMESPACE_USE
+
 #if UCONFIG_NO_REGULAR_EXPRESSIONS==0 /* donot compile when RegularExpressions not available */
 
 #define MAX_SPLIT_STRINGS 20
 
 const char *patternStrings[UPC_LIMIT]={
-    "^translate\\s*?(.*)",
-    "^note\\s*?(.*)"
+    "^translate\\s*(.*)",
+    "^note\\s*(.*)"
 };
 
 U_CFUNC int32_t 

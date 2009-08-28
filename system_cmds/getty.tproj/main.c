@@ -111,8 +111,6 @@ char	ttyn[32];
 #define	OBUFSIZ		128
 #define	TABBUFSIZ	512
 
-char	defent[TABBUFSIZ];
-char	tabent[TABBUFSIZ];
 const	char *tname;
 
 char	*env[128];
@@ -214,7 +212,7 @@ main(int argc, char *argv[])
 	limit.rlim_cur = GETTY_TIMEOUT;
 	(void)setrlimit(RLIMIT_CPU, &limit);
 
-	gettable("default", defent);
+	gettable("default");
 	gendefaults();
 	tname = "default";
 	if (argc > 1)
@@ -842,7 +840,7 @@ dogettytab()
 {
 	
 	/* Read the database entry. */
-	gettable(tname, tabent);
+	gettable(tname);
 
 	/*
 	 * Avoid inheriting the parity values from the default entry

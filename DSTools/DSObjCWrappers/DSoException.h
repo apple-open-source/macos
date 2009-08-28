@@ -58,7 +58,7 @@
  * @param reason A String with the reason for the exception.
  * @param status The tDirStatus enumerated DS status value.
  */
-+ (DSoException*) name:(NSString*)name reason:(NSString*)reason status:(tDirStatus)status;
++ (DSoException*) name:(NSString*)name reason:(NSString*)reason status:(tDirStatus)status DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method raiseWithStatus:
@@ -67,26 +67,26 @@
  *		the specified status and no name or reason.
  * @param inStatus The status to use for the excpeption.
  */
-+ (void) raiseWithStatus:(tDirStatus)inStatus;
++ (void) raiseWithStatus:(tDirStatus)inStatus DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method status
  * @abstract Get the DS status number of the DS exception.
  */
-- (tDirStatus) status;
+- (tDirStatus) status DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method statusString
  * @abstract Get the enumerated string representation of the status number.
  * @result An NSString of the value.
  */
-- (NSString*) statusString;
+- (NSString*) statusString DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method statusCString
  * @abstract Get the enumerated string representation of the status number.
  * @result A null terminated c-string of the value.
  */
-- (const char*) statusCString;
+- (const char*) statusCString DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 @end

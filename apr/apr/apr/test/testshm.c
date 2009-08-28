@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -83,7 +83,7 @@ static void test_check_size(abts_case *tc, void *data)
     ABTS_PTR_NOTNULL(tc, shm);
 
     retsize = apr_shm_size_get(shm);
-    ABTS_INT_EQUAL(tc, SHARED_SIZE, retsize);
+    ABTS_SIZE_EQUAL(tc, SHARED_SIZE, retsize);
 
     rv = apr_shm_destroy(shm);
     APR_ASSERT_SUCCESS(tc, "Error destroying shared memory block", rv);
@@ -177,7 +177,7 @@ static void test_named(abts_case *tc, void *data)
     ABTS_PTR_NOTNULL(tc, shm);
 
     retsize = apr_shm_size_get(shm);
-    ABTS_INT_EQUAL(tc, SHARED_SIZE, retsize);
+    ABTS_SIZE_EQUAL(tc, SHARED_SIZE, retsize);
 
     boxes = apr_shm_baseaddr_get(shm);
     ABTS_PTR_NOTNULL(tc, boxes);
@@ -187,7 +187,7 @@ static void test_named(abts_case *tc, void *data)
     APR_ASSERT_SUCCESS(tc, "Couldn't create attr1", rv);
     args[0] = apr_pstrdup(p, "testshmproducer" EXTENSION);
     args[1] = NULL;
-    rv = apr_proc_create(&pidproducer, "./testshmproducer" EXTENSION, args,
+    rv = apr_proc_create(&pidproducer, TESTBINPATH "testshmproducer" EXTENSION, args,
                          NULL, attr1, p);
     APR_ASSERT_SUCCESS(tc, "Couldn't launch producer", rv);
 
@@ -195,7 +195,7 @@ static void test_named(abts_case *tc, void *data)
     ABTS_PTR_NOTNULL(tc, attr2);
     APR_ASSERT_SUCCESS(tc, "Couldn't create attr2", rv);
     args[0] = apr_pstrdup(p, "testshmconsumer" EXTENSION);
-    rv = apr_proc_create(&pidconsumer, "./testshmconsumer" EXTENSION, args, 
+    rv = apr_proc_create(&pidconsumer, TESTBINPATH "testshmconsumer" EXTENSION, args, 
                          NULL, attr2, p);
     APR_ASSERT_SUCCESS(tc, "Couldn't launch consumer", rv);
 
@@ -221,7 +221,7 @@ static void test_named(abts_case *tc, void *data)
 static void test_named_remove(abts_case *tc, void *data)
 {
     apr_status_t rv;
-    apr_shm_t *shm;
+    apr_shm_t *shm, *shm2;
 
     apr_shm_remove(SHARED_FILENAME, p);
 
@@ -233,20 +233,29 @@ static void test_named_remove(abts_case *tc, void *data)
     ABTS_PTR_NOTNULL(tc, shm);
 
     rv = apr_shm_remove(SHARED_FILENAME, p);
-    APR_ASSERT_SUCCESS(tc, "Error removing shared memory block", rv);
-    if (rv != APR_SUCCESS) {
-        return ;
-    }
 
-    rv = apr_shm_create(&shm, SHARED_SIZE, SHARED_FILENAME, p);
-    APR_ASSERT_SUCCESS(tc, "Error allocating shared memory block", rv);
-    if (rv != APR_SUCCESS) {
-        return;
+    /* On platforms which acknowledge the removal of the shared resource,
+     * ensure another of the same name may be created after removal;
+     */
+    if (rv == APR_SUCCESS)
+    {
+      rv = apr_shm_create(&shm2, SHARED_SIZE, SHARED_FILENAME, p);
+      APR_ASSERT_SUCCESS(tc, "Error allocating shared memory block", rv);
+      if (rv != APR_SUCCESS) {
+          return;
+      }
+      ABTS_PTR_NOTNULL(tc, shm2);
+
+      rv = apr_shm_destroy(shm2);
+      APR_ASSERT_SUCCESS(tc, "Error destroying shared memory block", rv);
     }
-    ABTS_PTR_NOTNULL(tc, shm);
 
     rv = apr_shm_destroy(shm);
     APR_ASSERT_SUCCESS(tc, "Error destroying shared memory block", rv);
+
+    /* Now ensure no named resource remains which we may attach to */
+    rv = apr_shm_attach(&shm, SHARED_FILENAME, p);
+    ABTS_TRUE(tc, rv != 0);
 }
 
 #endif

@@ -53,7 +53,8 @@ parseIncomingCerts(
 	CFArrayRef		certs,
 	SSLCertificate	**destCert,		/* &ctx->{localCert,encryptCert} */
 	CSSM_KEY_PTR	*pubKey,		/* &ctx->signingPubKey, etc. */
-	SecKeyRef		*privKeyRef);	/* &ctx->signingPrivKeyRef, etc. */
+	SecKeyRef		*privKeyRef,	/* &ctx->signingPrivKeyRef, etc. */
+	CSSM_ALGORITHMS	*signerAlg);	/* optionally returned */
 	
 #ifdef __cplusplus
 }

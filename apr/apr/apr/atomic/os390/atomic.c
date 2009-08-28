@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -82,6 +82,30 @@ apr_uint32_t apr_atomic_cas32(volatile apr_uint32_t *mem, apr_uint32_t swap,
     return old; /* old is automatically updated from mem on cs failure */
 }
 
+#if APR_SIZEOF_VOIDP == 4
+void *apr_atomic_casptr(volatile void **mem_ptr,
+                        void *swap_ptr,
+                        const void *cmp_ptr)
+{
+     __cs1(&cmp_ptr,     /* automatically updated from mem on __cs1 failure  */
+           mem_ptr,      /* set from swap when __cs1 succeeds                */
+           &swap_ptr);
+     return (void *)cmp_ptr;
+}
+#elif APR_SIZEOF_VOIDP == 8
+void *apr_atomic_casptr(volatile void **mem_ptr,
+                        void *swap_ptr,
+                        const void *cmp_ptr)
+{
+     __csg(&cmp_ptr,     /* automatically updated from mem on __csg failure  */
+           mem_ptr,      /* set from swap when __csg succeeds                */
+           &swap_ptr);  
+     return (void *)cmp_ptr;
+}
+#else
+#error APR_SIZEOF_VOIDP value not supported
+#endif /* APR_SIZEOF_VOIDP */
+
 apr_uint32_t apr_atomic_xchg32(volatile apr_uint32_t *mem, apr_uint32_t val)
 {
     apr_uint32_t old, new_val; 
@@ -94,3 +118,20 @@ apr_uint32_t apr_atomic_xchg32(volatile apr_uint32_t *mem, apr_uint32_t val)
     return old;
 }
 
+APR_DECLARE(void*) apr_atomic_xchgptr(volatile void **mem_ptr, void *new_ptr)
+{
+    void *old_ptr;
+
+    old_ptr = *(void **)mem_ptr; /* old is automatically updated on cs failure */
+#if APR_SIZEOF_VOIDP == 4
+    do {
+    } while (__cs1(&old_ptr, mem_ptr, &new_ptr)); 
+#elif APR_SIZEOF_VOIDP == 8
+    do { 
+    } while (__csg(&old_ptr, mem_ptr, &new_ptr)); 
+#else
+#error APR_SIZEOF_VOIDP value not supported
+#endif /* APR_SIZEOF_VOIDP */
+
+    return old_ptr;
+}

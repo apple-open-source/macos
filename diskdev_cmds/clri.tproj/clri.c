@@ -3,21 +3,20 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -74,7 +73,7 @@
 
 #if     REV_ENDIAN_FS
 #import "ufs_byte_order.h"
-#include <architecture/byte_order.h>
+#include <libkern/OSByteOrder.h>
 #endif  /* REV_ENDIAN_FS */
 
 #if     REV_ENDIAN_FS
@@ -90,7 +89,7 @@ main(argc, argv)
 	register struct dinode *ip;
 	register int fd;
 	struct dinode ibuf[MAXBSIZE / sizeof (struct dinode)];
-	long generation, bsize;
+	int32_t generation, bsize;
 	off_t offset;
 	int inonum;
 #ifdef __APPLE__
@@ -167,13 +166,13 @@ main(argc, argv)
 		/* clear the inode, and bump the generation count. */
 #if     REV_ENDIAN_FS
                 if (rev_endian)
-		    ip->di_gen = NXSwapLong(ip->di_gen);
+		    ip->di_gen = OSSwapInt32(ip->di_gen);
 #endif /* REV_ENDIAN_FS */
 		generation = ip->di_gen + 1;
 		memset(ip, 0, sizeof(*ip));
 #if     REV_ENDIAN_FS
                 if (rev_endian)
-		    generation = NXSwapLong(generation);
+		    generation = OSSwapInt32(generation);
 #endif /* REV_ENDIAN_FS */
 		ip->di_gen = generation;
 

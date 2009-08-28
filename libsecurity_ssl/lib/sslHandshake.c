@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2009 Apple, Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -23,7 +23,7 @@
 
 	Written by:	Doug Mitchell
 
-	Copyright: (c) 1999 by Apple Computer, Inc., all rights reserved.
+	Copyright: (c) 1999-2009 Apple, Inc. All Rights Reserved.
 
 */
 
@@ -126,14 +126,6 @@ SSLProcessHandshakeRecord(SSLRecord rec, SSLContext *ctx)
             return err;
         }
     }
-
-	/* Server offered their certificate and cert verification was
-	 * disabled: give the client the opportunity to verify the
-	 * server's identity by temporarily returning to the caller
-	 */
-	if ((message.type == SSL_HdskCert) && !ctx->enableCertVerify &&
-		(ctx->protocolSide == SSL_ClientSide) && ctx->breakOnServerAuth)
-		return errSSLServerAuthCompleted;
 	
     return noErr;
 }
@@ -186,7 +178,15 @@ SSLProcessHandshakeMessage(SSLHandshakeMsg message, SSLContext *ctx)
 					 */
 					ctx->clientCertState = kSSLClientCertSent;
 				}
-			}
+			} else {
+                /* 
+                 * Schedule return to the caller to verify the server's identity.
+                 * Note that an error during processing will cause early 
+                 * termination of the handshake.
+                 */
+                if (ctx->breakOnServerAuth)
+                    ctx->signalServerAuth = true;
+            }
             break;
         case SSL_HdskCertRequest:
             if (((ctx->state != SSL_HdskStateHelloDone) && 
@@ -194,12 +194,14 @@ SSLProcessHandshakeMessage(SSLHandshakeMsg message, SSLContext *ctx)
                  || ctx->certRequested)
                 goto wrongMessage;
             err = SSLProcessCertificateRequest(message.contents, ctx);
+            if (ctx->breakOnCertRequest)
+                ctx->signalCertRequest = true;
             break;
         case SSL_HdskServerKeyExchange:
        		/* 
-        	 * Since this message is optional, and completely at the
-        	 * server's discretion, we need to be able to handle this
-        	 * in one of two states...
+        	 * Since this message is optional for some key exchange 
+			 * mechanisms, and completely at the server's discretion, 
+			 * we need to be able to handle this in one of two states...
         	 */
         	switch(ctx->state) {
         		case SSL_HdskStateKeyExchange:	/* explicitly waiting for this */
@@ -309,6 +311,8 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
 			ctx->certReceived = 0;
 			ctx->x509Requested = 0;
 			ctx->clientCertState = kSSLClientCertNone;
+			ctx->readCipher.ready = 0;
+			ctx->writeCipher.ready = 0;
             if ((err = SSLPrepareAndQueueMessage(SSLEncodeClientHello, ctx)) != 0)
                 return err;
             SSLChangeHdskState(ctx, SSL_HdskStateServerHello);
@@ -550,6 +554,10 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
                 case SSL_DHE_RSA:
                 case SSL_DHE_RSA_EXPORT:
                 case SSL_Fortezza:
+				case SSL_ECDH_ECDSA:
+				case SSL_ECDHE_ECDSA:
+				case SSL_ECDH_RSA:
+				case SSL_ECDHE_RSA:
                     SSLChangeHdskState(ctx, SSL_HdskStateCert);
                     break;
                 default:
@@ -573,6 +581,8 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
                     case SSL_DH_DSS_EXPORT:
                     case SSL_DH_RSA:
                     case SSL_DH_RSA_EXPORT:
+					case SSL_ECDH_ECDSA:
+					case SSL_ECDH_RSA:
                         SSLChangeHdskState(ctx, SSL_HdskStateHelloDone);
                         break;
                     case SSL_DHE_DSS:
@@ -580,6 +590,8 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
                     case SSL_DHE_RSA:
                     case SSL_DHE_RSA_EXPORT:
                     case SSL_Fortezza:
+					case SSL_ECDHE_ECDSA:
+					case SSL_ECDHE_RSA:
                         SSLChangeHdskState(ctx, SSL_HdskStateKeyExchange);
                         break;
                     default:
@@ -607,24 +619,31 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
             SSLChangeHdskState(ctx, SSL_HdskStateHelloDone);
             break;
         case SSL_HdskServerHelloDone:
-			/* waiting until server has sent hello done, so we can
-			 * send certificate, keyexchange and cert verify message together
+			/* 
+             * Waiting until server has sent hello done to interrupt and allow 
+             * setting client cert, so we can send certificate, keyexchange and 
+             * cert verify message together
 			 */
+            if (ctx->state == SSL_HdskStateClientCert) {
+                /* we're back from client cert req interruption */
+                SSLChangeHdskState(ctx, SSL_HdskServerHelloDone);
+            } else { 
+                if (ctx->signalServerAuth) {
+                    ctx->signalServerAuth = false;
+                    SSLChangeHdskState(ctx, SSL_HdskStateClientCert);
+                    return errSSLServerAuthCompleted;
+                } else if (ctx->signalCertRequest) {
+                    ctx->signalCertRequest = false;
+                    SSLChangeHdskState(ctx, SSL_HdskStateClientCert);
+                    return errSSLClientCertRequested;
+                }
+            }
+            
 			if (ctx->clientCertState == kSSLClientCertRequested) {
 				/* 
 				 * Server wants a client authentication cert - do 
 				 * we have one? 
 				 */
-
-				if (ctx->state == SSL_HdskStateClientCert) {
-					SSLChangeHdskState(ctx, SSL_HdskServerHelloDone);
-				} 
-				else if (ctx->breakOnCertRequest) { 
-					/* allow client to intervene, regardless of whether localCert is set */
-					SSLChangeHdskState(ctx, SSL_HdskStateClientCert);
-					return errSSLClientCertRequested;
-				}
-				
                 if (ctx->localCert != 0 && ctx->x509Requested) {
 					if ((err = SSLPrepareAndQueueMessage(SSLEncodeCertificate,
 							ctx)) != 0) {
@@ -662,9 +681,17 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
                 return err;
 			}
             if (ctx->certSent) {
-                if ((err = SSLPrepareAndQueueMessage(SSLEncodeCertificateVerify, 
-						ctx)) != 0) {
-                    return err;
+				/* Not all client auth mechansims require a cert verify message */
+				switch(ctx->negAuthType) {
+					case SSLClientAuth_RSASign:
+					case SSLClientAuth_ECDSASign:
+						if ((err = SSLPrepareAndQueueMessage(SSLEncodeCertificateVerify, 
+								ctx)) != 0) {
+							return err;
+						}
+						break;
+					default:
+						break;
 				}
 			}
             if ((err = SSLPrepareAndQueueMessage(SSLEncodeChangeCipherSpec, 
@@ -903,7 +930,7 @@ static char *hdskMsgToStr(SSLHandshakeType msg)
 		case SSL_HdskNoCertAlert:
 			return "SSL_HdskNoCertAlert";	
 		default:
-			sprintf(badStr, "Unknown state (%d(d)", msg);
+			sprintf(badStr, "Unknown msg (%d(d))", msg);
 			return badStr;
 	}
 }

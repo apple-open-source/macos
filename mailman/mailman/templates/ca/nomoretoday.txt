@@ -1,9 +1,10 @@
+S'ha rebut un missatge de la vostra adreÃ§a Â«%(sender)sÂ» amb una
+solÂ·licitud de resposta automÃ tica de la llista de correu %(listname)s.
+Avui ja s'han rebut %(num)s missatges com aquest des de la vostra adreÃ§a.
+Per a evitar problemes com ara bucles de correu entre els robots de
+correu, avui no se us enviarÃ  cap mÃ©s resposta de correu.  Torneu-ho a
+intentar demÃ .
 
-Hem rebut un missatge desde la seva adreça `%(sender)s' demanant
-una resposta automàtica de la llista de correu %(listname)s.
-Hem vist %(num)s missatges com aquest de vostè en el dia avuí.
-Per tal d'evitar problemes com mail loops entre els robots email, 
-no li enviarem més respostes avuí. Si us plau, intenti-ho demà una altra vegada.
-
-Si creu que aquest missatge és un error, o bé té alguna pregunta,
-si us plau contacti el propietari de la llista a %(owneremail)s.
+Si creieu que aquest missatge Ã©s un error, o bÃ© si teniu qualsevol
+qualsevol pregunta, contacteu el propietari de la llista a
+%(owneremail)s.

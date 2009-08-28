@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2004  Mark Nudelman
+ * Copyright (C) 1984-2007  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -39,7 +39,7 @@ public char *	progname;
 public int	quitting;
 public int	secure;
 public int	dohelp;
-public int	more_mode = 0;
+public int	less_is_more;
 public int	file_errors = 0;
 public int	unix2003_compat = 0;
 public int	add_newline = 0;
@@ -69,6 +69,8 @@ static char consoleTitle[256];
 
 extern int	missing_cap;
 extern int	know_dumb;
+extern int	quit_if_one_screen;
+extern int	pr_type;
 
 
 /*
@@ -121,35 +123,37 @@ main(argc, argv)
 	GetConsoleTitle(consoleTitle, sizeof(consoleTitle)/sizeof(char));
 #endif /* WIN32 */
 
-	/*
-	 * Process command line arguments and LESS environment arguments.
-	 * Command line arguments override environment arguments.
-	 */
-	if (strcmp(__progname, "more") == 0)
-		more_mode = 1;
-	else
-		unix2003_compat = 0;
-
 	is_tty = isatty(1);
 	get_term();
 	init_cmds();
-	init_prompt();
 	init_charset();
 	init_line();
 	init_cmdhist();
 	init_option();
 
-	if (more_mode) {
+	/*
+	 * If the name of the executable program is "more",
+	 * act like LESS_IS_MORE is set.
+	 */
+	for (s = progname + strlen(progname);  s > progname;  s--)
+	{
+		if (s[-1] == PATHNAME_SEP[0])
+			break;
+	}
+	if (strcmp(s, "more") == 0)
+		less_is_more = 1;
+	else
+		unix2003_compat = 0;
+	init_prompt();
+	if (less_is_more) {
 		if (!unix2003_compat) {
 			scan_option("-E");
 		}
 		scan_option("-m");
 		scan_option("-G");
-		scan_option("-f");
-		s = lgetenv("MORE");
-	} else {
-		s = lgetenv("LESS");
+		scan_option("-X"); /* avoid alternate screen */
 	}
+	s = lgetenv(less_is_more ? "MORE" : "LESS");
 	if (s != NULL)
 		scan_option(save(s));
 
@@ -174,6 +178,9 @@ main(argc, argv)
 		quit(QUIT_OK);
 	}
 
+	if (less_is_more && get_quit_at_eof())
+		quit_if_one_screen = TRUE;
+
 #if EDITOR
 	editor = lgetenv("VISUAL");
 	if (editor == NULL || *editor == '\0')
@@ -192,7 +199,7 @@ main(argc, argv)
 		}
 	}
 #endif
-	if (more_mode) {
+	if (less_is_more) {
 		if (unix2003_compat) {
 			/* If -n option appears, force screen size override */
 			get_term();
@@ -267,7 +274,7 @@ main(argc, argv)
 		quit(QUIT_OK);
 	}
 
-	if (missing_cap && !know_dumb && !more_mode)
+	if (missing_cap && !know_dumb && !less_is_more)
 		error("WARNING: terminal is not fully functional", NULL_PARG);
 	init_mark();
 	open_getchr();

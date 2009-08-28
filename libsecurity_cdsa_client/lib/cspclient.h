@@ -67,8 +67,8 @@ public:
 	Context(const CSP &csp, CSSM_ALGORITHMS alg = CSSM_ALGID_NONE);
 	~Context();
 
-	CSP Context::attachment() const { return parent<CSP>(); }
-	Module Context::module() const { return attachment()->module(); }
+	CSP attachment() const { return parent<CSP>(); }
+	Module module() const { return attachment()->module(); }
 	
 	CSSM_ALGORITHMS algorithm() const { return mAlgorithm; }
 	void algorithm(CSSM_ALGORITHMS alg);

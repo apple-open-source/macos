@@ -1,7 +1,7 @@
 /*
- * © Copyright 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2007 Apple Inc. All rights reserved.
  *
- * IMPORTANT:  This Apple software is supplied to you by Apple Computer, Inc. (“Apple”) in 
+ * IMPORTANT:  This Apple software is supplied to you by Apple Inc. ("Apple") in 
  * consideration of your agreement to the following terms, and your use, installation, 
  * modification or redistribution of this Apple software constitutes acceptance of these
  * terms.  If you do not agree with these terms, please do not use, install, modify or 
@@ -34,17 +34,17 @@
  */
 
 
-//—————————————————————————————————————————————————————————————————————————————
+//-----------------------------------------------------------------------------
 //	Includes
-//—————————————————————————————————————————————————————————————————————————————
+//-----------------------------------------------------------------------------
 
 #include <IOKit/IOKitLib.h>
 #include <IOKit/scsi/SCSITask.h>
 
 
-//—————————————————————————————————————————————————————————————————————————————
+//-----------------------------------------------------------------------------
 //	Prototypes
-//—————————————————————————————————————————————————————————————————————————————
+//-----------------------------------------------------------------------------
 
 // This method is called to reprobe a specific target device specified by
 // targetID on a particular SCSI Domain specified by domainID.

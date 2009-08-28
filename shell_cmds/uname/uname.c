@@ -43,6 +43,9 @@ __RCSID("$NetBSD: uname.c,v 1.10 1998/11/09 13:24:05 kleink Exp $");
 #include <stdlib.h>
 #include <unistd.h>
 #include <err.h>
+#ifdef __APPLE__
+#include <string.h>
+#endif /* __APPLE__ */
 
 #include <sys/sysctl.h>
 #include <sys/utsname.h>
@@ -137,7 +140,9 @@ main(argc, argv)
 		    &len, NULL, 0) < 0)
 			err(EXIT_FAILURE, "sysctl");
 	}
-#else /* __APPLE__ */
+#endif /* !__APPLE__ */
+
+#ifdef __APPLE__
 	/*
 	 * Let's allow the user to override the output of uname via the shell environment.
 	 * This is a useful feature for cross-compiling (eg. during an OS bringup).
@@ -151,7 +156,7 @@ main(argc, argv)
 		s = getenv ("UNAME_VERSION");  if (s) strncpy (u.version,  s, sizeof (u.version));
 		s = getenv ("UNAME_MACHINE");  if (s) strncpy (u.machine,  s, sizeof (u.machine));
 	}
-#endif /* !__APPLE__ */
+#endif /* __APPLE__ */
 
 	if (print_mask & PRINT_SYSNAME) {
 		space++;
@@ -178,10 +183,12 @@ main(argc, argv)
 #ifndef __APPLE__
 		fputs(machine_arch, stdout);
 #else
-#if   defined(__ppc__)
+#if defined(__ppc__) || defined(__ppc64__)
 		fputs("powerpc", stdout);
-#elif defined(__i386__)
+#elif defined (__i386__) || defined(__x86_64__)
 		fputs("i386", stdout);
+#elif defined(__arm__)
+		fputs("arm", stdout);
 #else
 		fputs("unknown", stdout);
 #endif

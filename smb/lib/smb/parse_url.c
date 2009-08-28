@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 - 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2006 - 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -27,7 +27,7 @@
 #include <charsets.h>
 #include <parse_url.h>
 #include <netsmb/smb_conn.h>
-#include <URLMount/URLMount.h>
+#include <NetFS/NetFS.h>
 
 #define CIFS_SCHEME_LEN 5
 #define SMB_SCHEME_LEN 4
@@ -42,11 +42,11 @@ static void LogCFString(CFStringRef theString, const char *debugstr, const char 
 	smb_log_info("%s-line:%d %s = %s", 0, ASL_LEVEL_DEBUG, func, lineNum, debugstr, prntstr);	
 }
 
-#ifdef DEBUG
+#ifdef SMB_DEBUG
 #define DebugLogCFString LogCFString
-#else // DEBUG
+#else // SMB_DEBUG
 #define DebugLogCFString(theString, debugstr, func, lineNum)
-#endif // DEBUG
+#endif // SMB_DEBUG
 
 /*
  * See if this is a cifs or smb scheme
@@ -160,42 +160,26 @@ static CFArrayRef CreateWrkgrpUserArray(CFURLRef url)
  */
 static int SetServerFromURL(struct smb_ctx *ctx, CFURLRef url)
 {
-	int maxlen;
+	CFIndex maxlen;
 	
-	/* The serverDisplayName contains the URL host name or the Bonjour Name */
-	if (ctx->serverDisplayName)
-		CFRelease(ctx->serverDisplayName);
-	ctx->serverDisplayName = CFURLCopyHostName(url);
-	if (ctx->serverDisplayName == NULL)
+	/* The serverNameRef should always contain the URL host name or the Bonjour Name */
+	if (ctx->serverNameRef)
+		CFRelease(ctx->serverNameRef);
+	ctx->serverNameRef = CFURLCopyHostName(url);
+	if (ctx->serverNameRef == NULL)
 		return EINVAL;
-	LogCFString(ctx->serverDisplayName, "Server", __FUNCTION__, __LINE__);
-	/* 
-	 * We always uppercase the server name, needed for NetBIOS names and DNS doesn't care. The old code
-	 * always uppercase so we will to, someday we may only want to do this for NetBIOS names.
-	 *
-	 * CFStringUppercase requires a CFMutableStringRef and CFURLCopyHostName returns CFStringRef. This would 
-	 * require an extra allocate just to uppercase, yuk. So for now just use toupper. 
-	 *
-	 * CFStringUppercase(ctx->serverDisplayName, NULL);
-	 */
+	LogCFString(ctx->serverNameRef, "Server", __FUNCTION__, __LINE__);
 	
-	maxlen = CFStringGetMaximumSizeForEncoding(CFStringGetLength(ctx->serverDisplayName), kCFStringEncodingUTF8) + 1;
-	if (ctx->ct_fullserver)
-		free(ctx->ct_fullserver);
-	ctx->ct_fullserver = malloc(maxlen);
-	if (!ctx->ct_fullserver) {
-		CFRelease(ctx->serverDisplayName);
-		ctx->serverDisplayName = NULL;
+	maxlen = CFStringGetMaximumSizeForEncoding(CFStringGetLength(ctx->serverNameRef), kCFStringEncodingUTF8) + 1;
+	if (ctx->serverName)
+		free(ctx->serverName);
+	ctx->serverName = malloc(maxlen);
+	if (!ctx->serverName) {
+		CFRelease(ctx->serverNameRef);
+		ctx->serverNameRef = NULL;
 		return ENOMEM;
 	}
-	CFStringGetCString(ctx->serverDisplayName, ctx->ct_fullserver, maxlen, kCFStringEncodingUTF8);
-	/* Test here with several system and none complain about the server name not being uppercased */
-#ifdef TIGER_OLD_WAY
-	/* May need to look at this not sure if we can trust this uppercase, since we already escaped out the string */
-	str_upper(ctx->ct_fullserver, ctx->ct_fullserver);
-#endif // TIGER_OLD_WAY
-	/* May want to change this in the future, but this seems the best place for it. */
-	smb_ctx_setserver(ctx, ctx->ct_fullserver);
+	CFStringGetCString(ctx->serverNameRef, ctx->serverName, maxlen, kCFStringEncodingUTF8);
 	return 0;
 }
 
@@ -271,14 +255,14 @@ static CFStringRef SetWorkgroupFromURL(struct smb_ctx *ctx, CFURLRef url)
 		 *
 		 * CFStringUppercase(wrkgrpString, NULL);
 		 */
-		if (CFStringGetLength(wrkgrpString) < SMB_MAXNetBIOSNAMELEN) {
+		if (CFStringGetLength(wrkgrpString) <= SMB_MAXNetBIOSNAMELEN) {
 			/* 
 			 * Radar 4526951: The old parsing code did not use the windows encoding for the workgroup name, but it did 
 			 * for the server name. Not sure why you would do it for one and not the other. So we use the Windows
 			 * encoding here.
 			 */
-			CFStringGetCString(wrkgrpString, ctx->ct_ssn.ioc_domain, SMB_MAXNetBIOSNAMELEN, kCFStringEncodingUTF8);
-			str_upper(ctx->ct_ssn.ioc_domain, ctx->ct_ssn.ioc_domain);
+			CFStringGetCString(wrkgrpString, ctx->ct_setup.ioc_domain, SMB_MAXNetBIOSNAMELEN+1, kCFStringEncodingUTF8);
+			str_upper(ctx->ct_setup.ioc_domain, ctx->ct_setup.ioc_domain);
 		}
 		CFRelease(wrkgrpString);
 	}
@@ -291,22 +275,22 @@ static CFStringRef SetWorkgroupFromURL(struct smb_ctx *ctx, CFURLRef url)
  */
 static int SetUserNameFromURL(struct smb_ctx *ctx, CFURLRef url)
 {
-	CFStringRef username = SetWorkgroupFromURL(ctx, url);
+	CFStringRef userNameRef = SetWorkgroupFromURL(ctx, url);
+	char username[SMB_MAXUSERNAMELEN+1];
 	int error;
 
 	/* No user name in the URL */
-	if (! username)
+	if (! userNameRef)
 		return 0;
-	LogCFString(username, "Username",__FUNCTION__, __LINE__);
+	LogCFString(userNameRef, "Username",__FUNCTION__, __LINE__);
 
-	/* Username is too long return an error */
-	if (CFStringGetLength(username) >= SMB_MAXUSERNAMELEN) {
-		CFRelease(username);
-		return ENAMETOOLONG;
+	/* Conversion failed or the data doesn't fit in the buffer */
+	if (CFStringGetCString(userNameRef, username, SMB_MAXUSERNAMELEN+1, kCFStringEncodingUTF8) == FALSE) {
+		error = ENAMETOOLONG; /* Not sure what else to return. */
+	} else {
+		error = smb_ctx_setuser(ctx, username);		
 	}
-	CFStringGetCString(username, ctx->ct_ssn.ioc_user, SMB_MAXUSERNAMELEN, kCFStringEncodingUTF8);
-	error = smb_ctx_setuser(ctx, ctx->ct_ssn.ioc_user);
-	CFRelease(username);
+	CFRelease(userNameRef);
 	return error;
 }
 
@@ -339,8 +323,7 @@ static int SetPasswordFromURL(struct smb_ctx *ctx, CFURLRef url)
 	 * URL = "//username:password@smb-win2003.apple.com"
 	 * URL = "//username:@smb-win2003.apple.com"
 	 */
-	CFStringGetCString(passwd, ctx->ct_ssn.ioc_password, SMB_MAXPASSWORDLEN, kCFStringEncodingUTF8);
-	strlcpy(ctx->ct_sh.ioc_password, ctx->ct_ssn.ioc_password, SMB_MAXPASSWORDLEN);
+	CFStringGetCString(passwd, ctx->ct_setup.ioc_password, SMB_MAXPASSWORDLEN, kCFStringEncodingUTF8);
 	ctx->ct_flags |= SMBCF_EXPLICITPWD;
 	CFRelease(passwd);
 	return 0;
@@ -403,15 +386,32 @@ static int GetShareAndPathFromURL(CFURLRef url, CFStringRef *out_share, CFString
 		CFRelease(userArray);
 	
 	if (userArrayM) {
-		CFStringRef newshare;	/* Just in case something goes wrong */
+		CFMutableStringRef newshare;	/* Just in case something goes wrong */
 		
-		newshare = CFStringCreateCopy(NULL, (CFStringRef)CFArrayGetValueAtIndex(userArrayM, 0));
-		newshare = CreateStringByReplacingPercentEscapesUTF8(newshare, CFSTR(""));
-		CFArrayRemoveValueAtIndex(userArrayM, 0);
+		newshare = CFStringCreateMutableCopy(NULL, 0, (CFStringRef)CFArrayGetValueAtIndex(userArrayM, 0));
+		if (newshare) {
+			CFStringTrim(newshare, CFSTR("/"));	/* Remove any trailing slashes */
+			newshare = (CFMutableStringRef)CreateStringByReplacingPercentEscapesUTF8((CFStringRef)newshare, CFSTR(""));
+		}
+		CFArrayRemoveValueAtIndex(userArrayM, 0);			
+			/* Now remove any trailing slashes */
 		path = CFStringCreateByCombiningStrings(NULL, userArrayM, CFSTR("/"));
-		path = CreateStringByReplacingPercentEscapesUTF8(path, CFSTR(""));
-		if (path)
-			LogCFString(path, "Path", __FUNCTION__, __LINE__);
+		if (path && (CFStringGetLength(path) == 0)) {
+			CFRelease(path);	/* Empty path remove it */
+			path = NULL;
+		}
+		if (path) {
+			CFMutableStringRef newpath = CFStringCreateMutableCopy(NULL, 0, path);
+			if (newpath) {
+				CFStringTrim(newpath, CFSTR("/")); 	/* Remove any trailing slashes */
+				CFRelease(path);
+				path = newpath;							
+			}
+		}
+		if (path) {
+			path = CreateStringByReplacingPercentEscapesUTF8(path, CFSTR(""));
+			LogCFString(path, "Path", __FUNCTION__, __LINE__);			
+		}
 
 		CFRelease(userArrayM);
 		/* Something went wrong use the original value */
@@ -421,19 +421,20 @@ static int GetShareAndPathFromURL(CFURLRef url, CFStringRef *out_share, CFString
 		}
 	} else
 		share = CreateStringByReplacingPercentEscapesUTF8(share, CFSTR(""));
+
 	/* 
 	 * The above routines will not un-precent escape out slashes. We only allow for the cases
 	 * where the share name is a single slash. Slashes are treated as delemiters in the path name.
 	 * So if the share name has a single 0x2f then make it a slash. This means you can't have
 	 * a share name whos name is 0x2f, not likley to happen.
 	 */
-	if ( kCFCompareEqualTo == CFStringCompare (share, CFSTR("0x2f"), kCFCompareCaseInsensitive) ) {
+	if (share && ( kCFCompareEqualTo == CFStringCompare (share, CFSTR("0x2f"), kCFCompareCaseInsensitive) )) {
 		CFRelease(share);
 		share = CFStringCreateCopy(NULL, CFSTR("/"));		
 	}
 
 	
-	if (CFStringGetLength(share) >= SMB_MAXSHARENAMELEN) {
+	if (share && (CFStringGetLength(share) >= SMB_MAXSHARENAMELEN)) {
 		CFRelease(share);
 		if (path)
 			CFRelease(path);
@@ -460,7 +461,7 @@ static int SetShareAndPathFromURL(struct smb_ctx *ctx, CFURLRef url, int sharety
 {
 	CFStringRef share = NULL;
 	CFStringRef path = NULL;
-	int maxlen;
+	CFIndex maxlen;
 	int error;
 
 	error = GetShareAndPathFromURL(url, &share, &path);
@@ -480,6 +481,10 @@ static int SetShareAndPathFromURL(struct smb_ctx *ctx, CFURLRef url, int sharety
 	if (ctx->ct_origshare)
 		free(ctx->ct_origshare);
 	
+	if (ctx->mountPath)
+		CFRelease(ctx->mountPath);
+	ctx->mountPath = NULL;
+	
 	maxlen = CFStringGetMaximumSizeForEncoding(CFStringGetLength(share), kCFStringEncodingUTF8) + 1;
 	ctx->ct_origshare = malloc(maxlen);
 	if (!ctx->ct_origshare) {
@@ -492,13 +497,7 @@ static int SetShareAndPathFromURL(struct smb_ctx *ctx, CFURLRef url, int sharety
 	ctx->ct_sh.ioc_stype = sharetype;
 	CFRelease(share);
 	
-	if (path) {
-		maxlen = CFStringGetMaximumSizeForEncoding(CFStringGetLength(path), kCFStringEncodingUTF8) + 1;
-		ctx->ct_path = malloc(maxlen);
-		if (ctx->ct_path)
-			CFStringGetCString(path, ctx->ct_path, maxlen, kCFStringEncodingUTF8);
-		CFRelease(path);
-	}
+	ctx->mountPath = path;
 	return 0;
 }
 
@@ -542,20 +541,18 @@ int ParseSMBURL(struct smb_ctx *ctx, int sharetype)
  * Given a c-style string create a CFURL.
  * We always assume these are smb/cifs style URLs.
  */
-int CreateSMBURL(struct smb_ctx *ctx, const char *url)
+CFURLRef CreateSMBURL(const char *url)
 {
+	CFURLRef ct_url = NULL;
 	CFStringRef urlString = CFStringCreateWithCString(NULL, url, kCFStringEncodingUTF8);
 
 	DebugLogCFString(urlString, "urlString ", __FUNCTION__, __LINE__);
 
 	if (urlString) {
-		ctx->ct_url = CFURLCreateWithString(kCFAllocatorDefault, urlString, NULL);
+		ct_url = CFURLCreateWithString(kCFAllocatorDefault, urlString, NULL);
 		CFRelease(urlString);	/* We create it now release it */
 	}
-	if (ctx->ct_url == NULL)
-		return EINVAL;
-	else
-		return 0;
+	return ct_url;
 }
 
 /* 
@@ -589,25 +586,25 @@ int smb_url_to_dictionary(CFURLRef url, CFDictionaryRef *dict)
 	}
 	
 	/*
-	 * SMB can have two different schema's cifs or smb. When we made SMBSchemeLength call at the
-	 * start of this routine it made sure we had one or the other schema. Always default here to
-	 * the SMB schema.
+	 * SMB can have two different scheme's cifs or smb. When we made SMBSchemeLength call at the
+	 * start of this routine it made sure we had one or the other scheme. Always default here to
+	 * the SMB scheme.
 	 */
-	CFDictionarySetValue (mutableDict, kSchemaKey, CFSTR(SMB_SCHEMA_STRING));
+	CFDictionarySetValue (mutableDict, kNetFSSchemeKey, CFSTR(SMB_SCHEME_STRING));
 	
 	Server = CFURLCopyHostName(url);
 	if (! Server)
 		goto ErrorOut; /* Server name is required */		
 	LogCFString(Server, "Server String", __FUNCTION__, __LINE__);
 
-	CFDictionarySetValue (mutableDict, kHostKey, Server);
+	CFDictionarySetValue (mutableDict, kNetFSHostKey, Server);
 	CFRelease(Server);
 	
 	PortNumber = CFURLGetPortNumber(url);
 	if (PortNumber != -1) {
 		CFStringRef tempString = CFStringCreateWithFormat( NULL, NULL, CFSTR( "%d" ), PortNumber );
 		if (tempString) {
-			CFDictionarySetValue (mutableDict, kAlternatePortKey, tempString);
+			CFDictionarySetValue (mutableDict, kNetFSAlternatePortKey, tempString);
 			CFRelease(tempString);
 		}
 	}
@@ -619,7 +616,7 @@ int smb_url_to_dictionary(CFURLRef url, CFDictionaryRef *dict)
 	if ((Username) && (CFStringGetLength(Username) >= SMB_MAXUSERNAMELEN))
 		error = ENAMETOOLONG;
 
-	if ((DomainWrkgrp) && (CFStringGetLength(DomainWrkgrp) >= SMB_MAXNetBIOSNAMELEN))
+	if ((DomainWrkgrp) && (CFStringGetLength(DomainWrkgrp) > SMB_MAXNetBIOSNAMELEN))
 		error = ENAMETOOLONG;
 	
 	if (error)
@@ -640,7 +637,7 @@ int smb_url_to_dictionary(CFURLRef url, CFDictionaryRef *dict)
 
 	if (Username)
 	{
-		CFDictionarySetValue (mutableDict, kUserNameKey, Username);
+		CFDictionarySetValue (mutableDict, kNetFSUserNameKey, Username);
 		CFRelease(Username);				
 	}	
 
@@ -648,7 +645,7 @@ int smb_url_to_dictionary(CFURLRef url, CFDictionaryRef *dict)
 	if (Password) {
 		if (CFStringGetLength(Password) >= SMB_MAXPASSWORDLEN)
 			error = ENAMETOOLONG;
-		CFDictionarySetValue (mutableDict, kPasswordKey, Password);
+		CFDictionarySetValue (mutableDict, kNetFSPasswordKey, Password);
 		CFRelease(Password);		
 	}
 	
@@ -665,21 +662,36 @@ int smb_url_to_dictionary(CFURLRef url, CFDictionaryRef *dict)
 	LogCFString(Path, "Path String", __FUNCTION__, __LINE__);
 
 	if (Share && Path) {
-		CFMutableStringRef tempString = CFStringCreateMutableCopy(NULL, 0, Share);
-		if (tempString) {
-			CFStringAppend(tempString, CFSTR("/"));
-			CFStringAppend(tempString, Path);
-			CFDictionarySetValue (mutableDict, kPathKey, tempString);
-			CFRelease(tempString);		
-			CFRelease(Share);		
-			Share = NULL;
-		} 
+		/* 
+		 * We have a share and path, but there is nothing in the 
+		 * share, then return an error 
+		 */
+	    if (CFStringGetLength(Share) == 0) {
+			CFRelease(Path);
+			CFRelease(Share);
+			Share = Path = NULL;
+			error = EINVAL;
+			smb_log_info("%s: No share name found!", error, ASL_LEVEL_ERR, __FUNCTION__);	
+			goto ErrorOut;
+		}
+		if (CFStringGetLength(Path)) {
+			CFMutableStringRef tempString = CFStringCreateMutableCopy(NULL, 0, Share);
+			if (tempString) {
+				CFStringAppend(tempString, CFSTR("/"));
+				CFStringAppend(tempString, Path);
+				CFDictionarySetValue (mutableDict, kNetFSPathKey, tempString);
+				CFRelease(tempString);		
+				CFRelease(Share);		
+				Share = NULL;
+			} 
+		}
 	}
-	
-	if (Share) {
-		CFDictionarySetValue (mutableDict, kPathKey, Share);
+	/* Ignore any empty share at this point */
+	if (Share && CFStringGetLength(Share))
+		CFDictionarySetValue (mutableDict, kNetFSPathKey, Share);
+
+	if (Share)
 		CFRelease(Share);		
-	}
 	
 	if (Path) 
 		CFRelease(Path);		
@@ -702,7 +714,7 @@ ErrorOut:
  * Given a dictionary create a url string. We assume that the dictionary has any characters that need to
  * be escaped out escaped out.
  */
-static int smb_dictionary_to_urlstring(CFDictionaryRef dict, CFMutableStringRef *urlReturnString, Boolean escapeShare)
+static int smb_dictionary_to_urlstring(CFDictionaryRef dict, CFMutableStringRef *urlReturnString)
 {
 	int error  = 0;
 	CFMutableStringRef urlStringM = NULL;
@@ -722,16 +734,16 @@ static int smb_dictionary_to_urlstring(CFDictionaryRef dict, CFMutableStringRef 
 	}
 	
 	/* Get the server name, required value */
-	Server = CFDictionaryGetValue(dict, kHostKey);
+	Server = CFDictionaryGetValue(dict, kNetFSHostKey);
 	/* %%% IP6 SUPPORT SOME DAY: Do not unescape the '[]', IP6 */
-	Server = CreateStringByAddingPercentEscapesUTF8(Server, CFSTR("[]"), NULL, FALSE);
+	Server = CreateStringByAddingPercentEscapesUTF8(Server, CFSTR("[]"), CFSTR("/@:,?=;&+$"), FALSE);
 	if (Server == NULL) {
 		error = EINVAL;
 		smb_log_info("%s: no server name!", error, ASL_LEVEL_ERR, __FUNCTION__);	
 		goto WeAreDone;
 	}
 	/* Now get all the other parts of the url. */
-	Username = CFDictionaryGetValue(dict, kUserNameKey);
+	Username = CFDictionaryGetValue(dict, kNetFSUserNameKey);
 	/* We have a user name see if they entered a domain also. */
 	if (Username) {
 		CFArrayRef	userArray = NULL;
@@ -749,9 +761,9 @@ static int smb_dictionary_to_urlstring(CFDictionaryRef dict, CFMutableStringRef 
 		}
 	}
 
-	Password = CFDictionaryGetValue(dict, kPasswordKey);
-	Path = CFDictionaryGetValue(dict, kPathKey);
-	PortNumber = CFDictionaryGetValue(dict, kAlternatePortKey);
+	Password = CFDictionaryGetValue(dict, kNetFSPasswordKey);
+	Path = CFDictionaryGetValue(dict, kNetFSPathKey);
+	PortNumber = CFDictionaryGetValue(dict, kNetFSAlternatePortKey);
 
 	/* 
 	 * Percent escape out any URL special characters, for the username, password, Domain/Workgroup,
@@ -762,8 +774,7 @@ static int smb_dictionary_to_urlstring(CFDictionaryRef dict, CFMutableStringRef 
 	DomainWrkgrp = CreateStringByAddingPercentEscapesUTF8(DomainWrkgrp, NULL, CFSTR("@:;/?"), TRUE);
 	Username = CreateStringByAddingPercentEscapesUTF8(Username, NULL, CFSTR("@:;/?"), releaseUsername);
 	Password = CreateStringByAddingPercentEscapesUTF8(Password, NULL, CFSTR("@:;/?"), FALSE);
-	if (escapeShare)
-		Path = CreateStringByAddingPercentEscapesUTF8(Path, NULL, NULL, FALSE);
+	Path = CreateStringByAddingPercentEscapesUTF8(Path, NULL, CFSTR("?#"), FALSE);
 	PortNumber = CreateStringByAddingPercentEscapesUTF8(PortNumber, NULL, NULL, FALSE);
 
 	LogCFString(Username, "Username String", __FUNCTION__, __LINE__);
@@ -815,7 +826,7 @@ WeAreDone:
 		CFRelease(Password);		
 	if (DomainWrkgrp)
 		CFRelease(DomainWrkgrp);		
-	if (Path && escapeShare)
+	if (Path)
 		CFRelease(Path);		
 	if (PortNumber)
 		CFRelease(PortNumber);	
@@ -838,7 +849,7 @@ int smb_dictionary_to_url(CFDictionaryRef dict, CFURLRef *url)
 	int error;
 	CFMutableStringRef urlStringM = NULL;
 	
-	error = smb_dictionary_to_urlstring(dict, &urlStringM, TRUE);
+	error = smb_dictionary_to_urlstring(dict, &urlStringM);
 	/* Ok we have everything we need for the URL now create it. */
 	if ((error == 0) && urlStringM) {
 		*url = CFURLCreateWithString(NULL, urlStringM, NULL);
@@ -866,18 +877,18 @@ static void UpdateDictionaryWithUserAndShare(struct smb_ctx *ctx, CFMutableDicti
 	CFStringRef share = NULL;
 	CFMutableStringRef path = NULL;
 	
-	Username = CFDictionaryGetValue(mutableDict, kUserNameKey);
-	share = CFDictionaryGetValue(mutableDict, kPathKey);
+	Username = CFDictionaryGetValue(mutableDict, kNetFSUserNameKey);
+	share = CFDictionaryGetValue(mutableDict, kNetFSPathKey);
 	
 	/* Everything we need is in the dictionary */
 	if (share && Username) 
 		return;
 	
 	/* Add the user name, if we have one */
-	if (ctx->ct_ssn.ioc_user[0]) {
-		Username = CFStringCreateWithCString(NULL, ctx->ct_ssn.ioc_user, kCFStringEncodingUTF8);
-		if (ctx->ct_ssn.ioc_domain[0])	/* They gave us a domain add it */
-			DomainWrkgrp = CFStringCreateWithCString(NULL, ctx->ct_ssn.ioc_domain, kCFStringEncodingUTF8);
+	if (ctx->ct_setup.ioc_user[0]) {
+		Username = CFStringCreateWithCString(NULL, ctx->ct_setup.ioc_user, kCFStringEncodingUTF8);
+		if (ctx->ct_setup.ioc_domain[0])	/* They gave us a domain add it */
+			DomainWrkgrp = CFStringCreateWithCString(NULL, ctx->ct_setup.ioc_domain, kCFStringEncodingUTF8);
 
 		/* We have a domain name so combined it with the user name. */
 		if (DomainWrkgrp) {
@@ -893,7 +904,7 @@ static void UpdateDictionaryWithUserAndShare(struct smb_ctx *ctx, CFMutableDicti
 		} 
 		if (Username)
 		{
-			CFDictionarySetValue (mutableDict, kUserNameKey, Username);
+			CFDictionarySetValue (mutableDict, kNetFSUserNameKey, Username);
 			CFRelease(Username);				
 		}	
 	}
@@ -908,11 +919,11 @@ static void UpdateDictionaryWithUserAndShare(struct smb_ctx *ctx, CFMutableDicti
 	
 	CFStringAppendCString(path, ctx->ct_origshare, kCFStringEncodingUTF8);
 	/* Add the path if we have one */
-	if (ctx->ct_path) {
+	if (ctx->mountPath) {
 		CFStringAppend(path, CFSTR("/"));
-		CFStringAppendCString(path, ctx->ct_path, kCFStringEncodingUTF8);		
+		CFStringAppend(path, ctx->mountPath);		
 	}
-	CFDictionarySetValue (mutableDict, kPathKey, path);
+	CFDictionarySetValue (mutableDict, kNetFSPathKey, path);
 	CFRelease(path);
 }
 
@@ -953,20 +964,26 @@ void CreateSMBFromName(struct smb_ctx *ctx, char *fromname, int maxlen)
 	}
 	UpdateDictionaryWithUserAndShare(ctx, mutableDict);
 	
-	Password = CFDictionaryGetValue(mutableDict, kPasswordKey);
+	Password = CFDictionaryGetValue(mutableDict, kNetFSPasswordKey);
 	/* 
 	 * If there is a password and its not an empty password then remove it. Never
 	 * show the password in the mount from name.
 	 */
 	if (Password && (CFStringGetLength(Password) > 0)) {
-		CFDictionaryRemoveValue(mutableDict, kPasswordKey);
+		CFDictionaryRemoveValue(mutableDict, kNetFSPasswordKey);
 	}
 	/* Guest access has an empty password. */
 	if (ctx->ct_ssn.ioc_opt & SMBV_GUEST_ACCESS)
-		CFDictionarySetValue (mutableDict, kPasswordKey, CFSTR(""));
+		CFDictionarySetValue (mutableDict, kNetFSPasswordKey, CFSTR(""));
 
-	/* Recreate the URL from our new dictionary */
-	error = smb_dictionary_to_urlstring(mutableDict, &newUrlStringM, FALSE);
+	/* 
+	 * Recreate the URL from our new dictionary. The old code would not escape
+	 * out the share/path, which can cause us issue. Now the from name can look
+	 * pretty goofy, but we will always work with alias. Now this was originally
+	 * done because carbon would use the last part of the mount from name as the
+	 * volume name. We now return the volume name, so this is no longer an issue.
+	 */
+	error = smb_dictionary_to_urlstring(mutableDict, &newUrlStringM);
 	if (error || (newUrlStringM == NULL)) {
 		smb_log_info("Failed parsing dictionary!", error, ASL_LEVEL_DEBUG);
 		goto WeAreDone;	
@@ -983,10 +1000,18 @@ void CreateSMBFromName(struct smb_ctx *ctx, char *fromname, int maxlen)
 	 * At this point the URL is too big to fit in the mount from name. See if
 	 * removing the username will make it fit. 
 	 */
-	CFDictionaryRemoveValue(mutableDict, kUserNameKey);
-	CFDictionaryRemoveValue(mutableDict, kPasswordKey);
+	CFDictionaryRemoveValue(mutableDict, kNetFSUserNameKey);
+	CFDictionaryRemoveValue(mutableDict, kNetFSPasswordKey);
 	
-	error = smb_dictionary_to_urlstring(mutableDict, &newUrlStringM, FALSE);
+	
+	/* 
+	 * Recreate the URL from our new dictionary. The old code would not escape
+	 * out the share/path, which can cause us issue. Now the from name can look
+	 * pretty goofy, but we will always work with alias. Now this was originally
+	 * done because carbon would use the last part of the mount from name as the
+	 * volume name. We now return the volume name, so this is no longer an issue.
+	 */
+	error = smb_dictionary_to_urlstring(mutableDict, &newUrlStringM);
 	if (error || (newUrlStringM == NULL)) {
 		smb_log_info("Removing username failed parsing dictionary!", error, ASL_LEVEL_DEBUG);
 		goto WeAreDone;

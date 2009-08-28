@@ -164,7 +164,7 @@ esac
 # APPLE LOCAL Darwin float format
 
 case "${host}" in
-i[34567]86-*-*)
+i[34567]86-*-* | x86_64-*)
 	gdb_host_float_format="&floatformat_ieee_single_little"
 	gdb_host_double_format="&floatformat_ieee_double_little"
 	gdb_host_long_double_format="&floatformat_i387_ext"
@@ -184,6 +184,16 @@ powerpc*-*-*)
 	gdb_host_double_format="&floatformat_ieee_double_big"
 	gdb_host_long_double_format="&floatformat_ieee_double_big"
 	;;
+arm-*-darwin* | arm-*-macos10*)
+        gdb_host_float_format="&floatformat_ieee_single_little"
+        gdb_host_double_format="&floatformat_ieee_double_little"
+        gdb_host_long_double_format="&floatformat_ieee_double_little"
+        ;;
+arm*-*-*)
+        gdb_host_float_format="&floatformat_ieee_single_big"
+        gdb_host_double_format="&floatformat_ieee_double_big"
+        gdb_host_long_double_format="&floatformat_ieee_double_big"
+        ;;
 *)
 	gdb_host_float_format=0
 	gdb_host_double_format=0

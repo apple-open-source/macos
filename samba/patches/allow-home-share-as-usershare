@@ -60,7 +60,7 @@ Index: samba/source/param/loadparm.c
 ===================================================================
 --- samba/source/param/loadparm.c.orig
 +++ samba/source/param/loadparm.c
-@@ -4332,8 +4332,11 @@ static void set_allowed_client_auth(void
+@@ -4363,8 +4363,11 @@ static void set_allowed_client_auth(void
   get their sorry ass fired.
  ***************************************************************************/
  
@@ -73,7 +73,7 @@ Index: samba/source/param/loadparm.c
  	if (!S_ISREG(psbuf->st_mode)) {
  		DEBUG(0,("check_usershare_stat: file %s owned by uid %u is "
  			"not a regular file\n",
-@@ -4358,6 +4361,22 @@ static BOOL check_usershare_stat(const c
+@@ -4389,6 +4392,22 @@ static BOOL check_usershare_stat(const c
  		return False;
  	}
  
@@ -96,7 +96,7 @@ Index: samba/source/param/loadparm.c
  	return True;
  }
  
-@@ -4568,15 +4587,17 @@ static int process_usershare_file(const 
+@@ -4599,15 +4618,17 @@ static int process_usershare_file(const 
  		return -1;
  	}
  
@@ -116,7 +116,7 @@ Index: samba/source/param/loadparm.c
  
  	if (iService != -1 && ServicePtrs[iService]->usershare_last_mod == lsbuf.st_mtime) {
  		/* Nothing changed - Mark valid and return. */
-@@ -4617,7 +4638,7 @@ static int process_usershare_file(const 
+@@ -4648,7 +4669,7 @@ static int process_usershare_file(const 
  
  	/* This must be a regular file, not a symlink, directory or
  	   other strange filetype. */

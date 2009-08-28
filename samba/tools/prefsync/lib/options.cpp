@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2007,2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,7 +28,7 @@
 #include <getopt.h>
 #include <sys/stat.h>
 
-static const struct option longopts[] =
+static const struct option prefs_longopts[] =
 {
     { "help", no_argument, NULL, 'h' },
     { "verbose", no_argument, NULL, 'v' },
@@ -43,16 +43,27 @@ static const struct option longopts[] =
     { NULL, 0, NULL, 0 }
 };
 
+static const struct option shares_longopts[] =
+{
+    { "help", no_argument, NULL, 'h' },
+    { "verbose", no_argument, NULL, 'v' },
+    { "list-pending", no_argument, NULL, 'p' },
+    { "enable-guest", no_argument, NULL, 'g' },
+
+    { NULL, 0, NULL, 0 }
+};
+
 bool Options::Verbose = false;
 bool Options::Debug = false;
 bool Options::Linger = false;
 bool Options::ForceSync = false;
 bool Options::ForceSuspend = false;
 bool Options::ForceRestart = false;
+bool Options::DefaultGuest = false;
 
 Options::command_type Options::Command = Options::SYNC;
 
-static void print_help(void)
+static void prefs_help(void)
 {
     static const char help[] =
 "Usage: synchronize-preferences [options]\n"
@@ -74,14 +85,27 @@ static void print_help(void)
     std::fprintf(stdout, "%s", help);
 }
 
-void Options::parse(int argc, char * const * argv)
+static void shares_help(void)
+{
+    static const char help[] =
+"Usage: synchronize-shares [options]\n"
+"        --verbose                    print extra debugging messages\n"
+"        --enable-guest               enable guest access by default\n"
+"        --list-pending               print the pending configuration, but\n"
+"                                     do not synchronize\n"
+;
+
+    std::fprintf(stdout, "%s", help);
+}
+
+void Options::parse_prefs(int argc, char * const * argv)
 {
     int c;
 
-    while ((c = ::getopt_long(argc, argv, "", longopts, NULL)) != -1) {
+    while ((c = ::getopt_long(argc, argv, "", prefs_longopts, NULL)) != -1) {
 	switch (c) {
 	case '?': exit(1); break; /* exit non-zero for unregocnised option */
-	case 'h': print_help(); exit(0); break;
+	case 'h': prefs_help(); exit(0); break;
 
 	case 'v': Options::Verbose = true; break;
 	case 'l': Options::Linger = true; break;
@@ -92,6 +116,23 @@ void Options::parse(int argc, char * const * argv)
 	case 'c': Options::Command = Options::CHANGES_PENDING; break;
 	case 'p': Options::Command = Options::LIST_PENDING; break;
 	case 'd': Options::Command = Options::LIST_DEFAULTS; break;
+	}
+    }
+}
+
+void Options::parse_shares(int argc, char * const * argv)
+{
+    int c;
+
+    while ((c = ::getopt_long(argc, argv, "", shares_longopts, NULL)) != -1) {
+	switch (c) {
+	case '?': exit(1); break; /* exit non-zero for unregocnised option */
+	case 'h': shares_help(); exit(0); break;
+
+	case 'v': Options::Verbose = true; break;
+	case 'g': Options::DefaultGuest = true; break;
+
+	case 'p': Options::Command = Options::LIST_PENDING; break;
 	}
     }
 }

@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in
-# Copyright (C) 2002, 2003, 2004 Simon Josefsson.
+# Copyright (C) 2002, 2003, 2004, 2006, 2007 Simon Josefsson.
 #
 # This file is part of GNU Libidn.
 #
@@ -38,8 +38,3 @@ idn_cmd.c idn_cmd.h: idn.ggo
 		test -f idn_cmd.h -a -f idn_cmd.c || \
 		cp $(srcdir)/idn_cmd.h $(srcdir)/idn_cmd.h .
 	perl -pi -e 's/\[FILES\]/\[STRINGS\]/g' idn_cmd.c
-
-# Maintainer targets
-
-indent:
-	indent idn.c

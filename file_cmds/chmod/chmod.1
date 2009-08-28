@@ -335,6 +335,9 @@ In cases where a user and a group exist with the same name, the
 user/group name can be prefixed with "user:" or "group:" in order to
 specify the type of name.
 .Pp
+If the user or group name contains spaces you can use ':' as the delimiter
+between name and permission.
+.Pp
 The following permissions are applicable to all filesystem objects:
 .Bl -tag -width 6n -compact -offset indent
 .It delete
@@ -429,6 +432,13 @@ two entries are combined.
    owner: juser
    1: guest deny read
    2: admin allow write,delete
+ # chmod +a "User 1:allow:read" file
+ # ls -le
+ -rw-r--r--+ 1 juser  wheel  0 Apr 28 14:06 file1
+   owner: juser
+   1: guest deny read
+   2: User 1 allow read
+   3: admin allow write,delete
 .Pp
 The +a mode strives to maintain correct canonical form for the ACL.
                  local deny
@@ -506,6 +516,11 @@ removed. Entries may also be deleted by index using the -a# mode.
 .Pp
 Inheritance is not considered when processing the -a mode; rights and
 entries will be removed regardless of their inherited state.
+.Pp
+If the user or group name contains spaces you can use ':' as the delimiter
+.Pp
+\fBExample\fR
+ # chmod +a "User 1:allow:read" file
 .It \fB=a#\fR
 Individual entries are rewritten using the =a# mode.
 .Pp

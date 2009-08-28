@@ -57,7 +57,7 @@ enum { kDefaultBufferSize = 128 } ;
  * @abstract Initialize with respect to a certain DS process reference.
  * @param inDir The DS object in which to initialize this buffer.
  */
-- (DSoBuffer*)initWithDir:(DSoDirectory*)inDir;
+- (DSoBuffer*)initWithDir:(DSoDirectory*)inDir DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method initWithDir:
@@ -66,19 +66,19 @@ enum { kDefaultBufferSize = 128 } ;
  *		This is the most commonly used initialization method.
  * @param inDir The DS object in which to initialize this buffer.
  */
-- (DSoBuffer*)initWithDir:(DSoDirectory*)inDir bufferSize:(unsigned long)inBufferSize;
+- (DSoBuffer*)initWithDir:(DSoDirectory*)inDir bufferSize:(unsigned long)inBufferSize DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method getBufferSize
  * @abstract Get the maximum size, in bytes, of the buffer.
  */
-- (unsigned long) getBufferSize;
+- (unsigned long) getBufferSize DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method getDataLength
  * @abstract Get the actual length of data used, in bytes.
  */
-- (unsigned long) getDataLength;
+- (unsigned long) getDataLength DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method setData:length:
@@ -88,7 +88,7 @@ enum { kDefaultBufferSize = 128 } ;
  * @param inData A pointer to a character array of data.
  * @param inLength The number of bytes to read from the data pointer.
  */ 
-- (void)setData:(const void*)inData length:(unsigned long)inLength;
+- (void)setData:(const void*)inData length:(unsigned long)inLength DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method appendData:length:
@@ -98,21 +98,21 @@ enum { kDefaultBufferSize = 128 } ;
  * @param inData A pointer to a character array of data.
  * @param inLength The number of bytes to read from the data pointer.
  */ 
-- (void)appendData:(const void*)inData length:(unsigned long)inLength;
+- (void)appendData:(const void*)inData length:(unsigned long)inLength DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method setDataLength:
  * @abstract Set an arbitrary length for the data length.
  * @param inLength The new length to be considered as the length of data.
  */
-- (void)setDataLength:(unsigned long)inLength;
+- (void)setDataLength:(unsigned long)inLength DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method dsDataBuffer
  * @abstract Method for accessing the low-level data type.
  * @result A pointer to the internally wrapped tDataBuffer variable.
  */
-- (tDataBufferPtr)dsDataBuffer;
+- (tDataBufferPtr)dsDataBuffer DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method grow:
@@ -124,7 +124,7 @@ enum { kDefaultBufferSize = 128 } ;
  *		simply as a convenience for checking that the operation
  *		succeeded.  It should generally be ignored.
  */
-- (tDataBufferPtr) grow:(unsigned long)inNewSize;
+- (tDataBufferPtr) grow:(unsigned long)inNewSize DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 
 @end

@@ -8,15 +8,21 @@
   </vendor>
   <product id="libxslt">
     <name>libxslt</name>
-    <version>1.1.11</version>
-    <last-release> Sep 29 2004</last-release>
+    <version>1.1.23</version>
+    <last-release> Apr  8 2008</last-release>
     <info-url>http://xmlsoft.org/XSLT/</info-url>
-    <changes>   - bug fixes: xsl:include problems (William Brack), UTF8 number pattern
-    (William), date-time validation (William), namespace fix (William),
-    various Exslt date fixes (William), error callback fixes, leak with
-    namespaced global variable, attempt to fix a weird problem #153137
-   - improvements: exslt:date-sum tests (Derek Poon)
-   - documentation: second tutorial by Panagiotis Lourida
+    <changes>   - Documentation: fix links for Cygwin DocBook setup (Philippe Bourcier),
+      xsltParseStylesheetDoc doc fix (Jason Viers), fix manpage default
+      maxdepth value 
+   - Bug fixes: python segfault (Daniel Gryniewicz), week-in-year bug fix
+      (Maurice van der Pot), fix python iterator problem (William Brack),
+      avoid garbage collection problems on str:tokenize and str:split
+      and function results (William Brack and Peter Pawlowski) 
+      superfluous re-generation of keys (William Brack), remove superfluous
+      code in xsltExtInitTest (Tony Graham), func:result segfault fix
+      (William Brack), timezone offset problem (Peter Pawlowski),
+   - Portability fixes: old gcrypt support fix (Brent Cowgill), Python
+      portability patch (Stephane Bidoul), VS 2008 fix (Rob Richard) 
 
 </changes>
   </product>

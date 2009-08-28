@@ -35,6 +35,13 @@ command is used to create, check, and display code signatures, as well as
 inquire into the dynamic status of signed code in the system.
 .Pp
 .Nm
+requires exactly one
+.Ar operation
+option to determine what action is to be performed, as well as any number of
+other options to modify its behavior. It can act on any number of objects per invocation,
+but performs the same operation on all of them.
+.Pp
+.Nm
 accepts single-character (classic) options, as well as GNU-style long
 options of the form --name and --name=value. Common options have both
 forms; less frequent and specialized options have only long form.
@@ -47,7 +54,7 @@ Display information about the code at the path(s) given. Increasing levels
 of verbosity produce more output.
 The format is designed to be moderately easy to parse by simple scripts while still
 making sense to human eyes.
-In addition, the -r and --file-list options can be used to retrieve additional information.
+In addition, the -r, --file-list, and --entitlements options can be used to retrieve additional information.
 .It Fl D, -detached Ar filename
 When signing, designates that a detached signature should be written to
 the specified file. The code being signed is not modified and need not be
@@ -59,13 +66,19 @@ When signing, causes
 .Nm
 to replace any existing signature on the path(s) given. Without this option,
 existing signatures will not be replaced, and the signing operation fails.
+.It Fl h, --hosting
+Constructs and prints the hosting chain of a running program. The
+.Ar pid
+arguments must denote running code (pids etc.) With verbose options, this also
+displays the individual dynamic validity status of each element of the hosting chain.
 .It Fl i, -identifier Ar identifier
 During signing, explicitly specify the unique identifier string that is embedded
 in code signatures. If this option is omitted, the identifier is derived from
 either the Info.plist (if present), or the filename of the executable being signed,
 possibly modified by the --prefix option.
+Note that it is a very bad idea to sign multiple programs with the same identifier.
 .It Fl o, -options Ar flag,...
-During signing, specifies a set of option flag to be embedded in the code
+During signing, specifies a set of option flags to be embedded in the code
 signature. The value takes the form of a comma-separated list of names (with
 no spaces). Alternatively, a numeric value can be used to directly
 specify the option mask (CodeDirectory flag word). See OPTION FLAGS below.
@@ -79,6 +92,8 @@ no effect on the sealing of associated data, including resources.
 .It Fl r, -requirements Ar requirements
 During signing, indicates that internal requirements should be embedded in the
 code path(s) as specified. See "specifying requirements" below.
+Defaults will be applied to requirement types that are not explicitly specified;
+if you want to defeat such a default, specify "never" for that type.
 .br
 During display, indicates where to write the code's internal requirements. Use -r-
 to write them to standard output.
@@ -88,7 +103,7 @@ the code requirement specified. If this option is omitted, the code is verified
 only for internal integrity and against its own designated requirement.
 .It Fl s, -sign Ar identity
 Sign the code at the path(s) given using this identity. See SIGNING IDENTITIES below.
-.It Fl v, -verbose [n]
+.It Fl v, -verbose
 Sets (with a numeric value) or increments the verbosity level of output. Without
 the verbose option, no output is produced upon success, in the classic UNIX style.
 If no other options request a different action, the first -v encountered will be
@@ -109,6 +124,22 @@ During signing, performs almost all signing operations, but does not actually
 write the result anywhere. Cryptographic signatures are still generated,
 actually using the given signing identity and triggering any access control
 checks normally, though the resulting signature is then discarded.
+.It Fl -entitlements Ar path
+When signing, take the file at the given
+.Ar path
+and embed its contents in the signature as entitlement data.
+When displaying a signature, extract any entitlement data from the signature
+and write it to the
+.Ar path
+given. Use "-" to write to standard output. If the signature has no entitlement data,
+nothing is written (this is not an error).
+.It Fl -extract-certificates Ar prefix
+When displaying a signature, extract the certificates in the embedded certificate chain
+and write them to individual files. The
+.Ar prefix
+argument is appended with numbers 0, 1, ... to form the filenames, which can be relative
+or absolute. Certificate 0 is the leaf (signing) certificate, and as many files are written
+as there are certificates in the signature. The files are in ASN.1 (DER) form.
 .It Fl -file-list Ar path
 When signing or displaying a signature,
 .Nm
@@ -121,7 +152,7 @@ output.
 Note that the list may be
 somewhat pessimistic - all files not listed are guaranteed to be unchanged by the
 signing process, but some of the listed files may not actually have changed.
-Also note that modification may have been made to extended attributes of these
+Also note that changes may have been made to extended attributes of these
 files.
 .It Fl -ignore-resources
 During static validation, do not validate the contents of the code's resources.
@@ -143,6 +174,13 @@ identifier contains a dot, it is used as-is. Typically,
 this is used to deal with command tools without Info.plists, whose default
 identifier is simply the command's filename; the conventional prefix used
 is com.domain. (note that the final dot needs to be explicit).
+.It Fl -preserve-metadata
+When signing code that is already signed, take the internal requirements and entitlement
+data from the old signature and re-use it for the new signature. If new data is specified
+with the --requirements and --entitlements options, it is taken instead, thereby allowing
+selective replacement. Individual types of internal requirements cannot be overridden this way.
+You still need to specify the -f (--force) option to enable overwriting signatures.
+If the old signature does not contain metadata, this option has no effect.
 .It Fl -resource-rules=filename
 During signing, this option overrides the default rules for collecting bundle
 resources to be sealed into the signature. The argument is the path to a
@@ -160,8 +198,11 @@ given, using the
 .Ar identity
 provided. Internal
 .Ar requirements
-are embedded if requested; if no -r option
-is given, there are no internal requirements. If an
+and
+.Ar entitlements
+are embedded if requested. Internal requirements not specified may be assigned suitable
+default values. Defaulting applies separately to each type of internal requirement.
+If an
 .Ar identifier
 is explicitly given, it is sealed into all
 .Ar path(s) .
@@ -188,13 +229,16 @@ unaltered. If a
 is given, each
 .Ar path
 is also checked against this requirement (but see DIAGNOSTICS below).
+If verbose verification is requested, the program is also checked against its own
+designated requirement, which should never fail for a properly signed program.
 .br
 If a
 .Ar path
 begins with a decimal digit, it is interpreted as the process id of a running
 process in the system, and dynamic validation is performed on that process instead.
-This includes verifying the process's source on disk, but also extends to that
-particular process's dynamic validity state.
+This checks the code's dynamic status and just enough static data to close the
+nominal security envelope. Add at least one level of verbosity to also perform
+a full static check.
 .Pp
 .\" Display/dump
 .\" =============================================================================
@@ -218,6 +262,10 @@ and written to
 specify a dash "-" to write to standard output. If the code does not contain
 an explicit designated requirement, the implied one will be retrieved and written
 out as a source comment.
+If the
+.Ar --entitlements path
+option is given, embedded entitlement data will be extracted likewise and written to
+the file specified.
 .Pp
 .\" Hosting chain
 .\" =============================================================================
@@ -244,7 +292,7 @@ is on the calling user's keychain search list. The identity is located by search
 all such keychains for a certificate whose subject contains the
 .Ar identity
 string given. If there are multiple matches, the invocation fails and no signing
-is performed.
+is performed; however, a full match is preferred over a partial match.
 .br
 If the --keychain argument is used, the identity is only looked-for in the
 specific keychain given. Even in that case, the keychain search list is still
@@ -293,8 +341,6 @@ access to resources if gaining such access would invalidate its identity.
 Marks the code as capable of hosting guest code. You must set this option
 if you want the code to act as a code signing host, controlling subsidiary
 ("guest") code.
-This flag is automatically set if the code's internal requirement (-r option)
-contains a guest requirement.
 .It expires
 Forces any validation of the code to consider expiration of the certificates
 involved. Code signatures generated with this flag will fail to verify once any of
@@ -305,12 +351,14 @@ signature validation to fail, including checks for certificate revocation.
 .Pp
 Note that code can set the hard and kill flags on itself at any time. The signing
 options only affect their initial state. Once set by any means, these flags
-cannot be cleared for the lifetime of the code.
+cannot be cleared for the lifetime of the code. Therefore, specifying such flags
+as signing options guarantees that they will be set whenever the signed code runs.
 .Pp
 If the code being signed has an Info.plist that contains a key named CSFlags,
 the value of that key is taken as the default value for the options. The value
 of CSFlags can be a string in the same form as the --options option, or an
-integer number specifying the absolute numeric value.
+integer number specifying the absolute numeric value. Note however that while you
+can abbreviate flag names on the command lines, you must spell them out in the Info.plist.
 .\".Sh FILES
 .\".Bl -tag -width /Library/Keychains/System.keychain -compact
 .\".It Pa /Library/Keychains/System.keychain
@@ -369,7 +417,10 @@ If you require atomicity of signing stricter than provided by
 The
 .Nm
 command first appeared in Mac OS 10.5.0 (Leopard).
+.Sh BUGS
+Some options only apply to particular operations, and the command ignores them (without complaining)
+if you specify them for an operation for which they have no meaning.
 .Sh NOTES
 .Nm
-has several options that are purposely left undocumented in this manual page because they
+has several operations and options that are purposely left undocumented in this manual page because they
 are either experimental (and subject to change at any time), or unadvised to the unwary.

@@ -107,14 +107,14 @@ int pptp_domain_init(int init_arg)
     int 	ret = KERN_SUCCESS;
     struct domain *pppdomain;
     
-    log(LOGVAL, "PPTP domain init\n");
+    IOLog("PPTP domain init\n");
 
     if (pptp_domain_inited)
         return(KERN_SUCCESS);
 
     pppdomain = pffinddomain(PF_PPP);
     if (!pppdomain) {
-        log(LOGVAL, "PPTP domain init : PF_PPP domain does not exist...\n");
+        IOLog("PPTP domain init : PF_PPP domain does not exist...\n");
         return KERN_FAILURE;
     }
 	
@@ -122,14 +122,14 @@ int pptp_domain_init(int init_arg)
 
     ret = pptp_add(pppdomain);
     if (ret) {
-        log(LOGVAL, "PPTP domain init : can't add proto to PPTP domain, err : %d\n", ret);
+        IOLog("PPTP domain init : can't add proto to PPTP domain, err : %d\n", ret);
         pptp_rfc_dispose();
         goto end;
     }
     
     ret = pptp_rfc_init();
     if (ret) {
-        log(LOGVAL, "PPTP domain init : can't init PPTP protocol RFC, err : %d\n", ret);
+        IOLog("PPTP domain init : can't init PPTP protocol RFC, err : %d\n", ret);
         goto end;
     }
     
@@ -151,7 +151,7 @@ int pptp_domain_terminate(int term_arg)
     int 	ret;
     struct domain *pppdomain;
     
-    log(LOGVAL, "PPTP domain terminate\n");
+    IOLog("PPTP domain terminate\n");
 
     if (!pptp_domain_inited)
         return(KERN_SUCCESS);
@@ -160,33 +160,33 @@ int pptp_domain_terminate(int term_arg)
 	
     ret = pptp_rfc_dispose();
     if (ret) {
-        log(LOGVAL, "PPTP domain is in use and cannot terminate, err : %d\n", ret);
+        IOLog("PPTP domain is in use and cannot terminate, err : %d\n", ret);
         goto end;
     }
 
     ret = pptp_wan_dispose();
     if (ret) {
-        log(LOGVAL, "PPTP domain terminate : pptp_wan_dispose, err : %d\n", ret);
+        IOLog("PPTP domain terminate : pptp_wan_dispose, err : %d\n", ret);
         goto end;
     }
 
     ppp_mppe_dispose();
     if (ret) {
-        log(LOGVAL, "PPTP domain terminate : pptp_mppe_dispose, err : %d\n", ret);
+        IOLog("PPTP domain terminate : pptp_mppe_dispose, err : %d\n", ret);
         goto end;
     }
 
     pppdomain = pffinddomain(PF_PPP);
     if (!pppdomain) {
         // humm.. should not happen
-        log(LOGVAL, "PPTP domain terminate : PF_PPP domain does not exist...\n");
+        IOLog("PPTP domain terminate : PF_PPP domain does not exist...\n");
         ret = KERN_FAILURE;
 		goto end;
     }
     
     ret = pptp_remove(pppdomain);
     if (ret) {
-        log(LOGVAL, "PPTP domain terminate : can't del proto from PPTP domain, err : %d\n", ret);
+        IOLog("PPTP domain terminate : can't del proto from PPTP domain, err : %d\n", ret);
         goto end;
     }
 

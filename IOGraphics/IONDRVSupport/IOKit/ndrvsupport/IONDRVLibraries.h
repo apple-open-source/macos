@@ -40,58 +40,18 @@ enum {
 };
 
 enum {
-    kNVRAMProperty        		= 0x00000020L,            // matches NR
+    kNVRAMProperty        		= 0x00000020,            // matches NR
 };
 
-#ifndef __IONDRV__
-
-enum {
-    kIONDRVOpenCommand                = 128 + 0,
-    kIONDRVCloseCommand               = 128 + 1,
-    kIONDRVReadCommand                = 128 + 2,
-    kIONDRVWriteCommand               = 128 + 3,
-    kIONDRVControlCommand             = 128 + 4,
-    kIONDRVStatusCommand              = 128 + 5,
-    kIONDRVKillIOCommand              = 128 + 6,
-    kIONDRVInitializeCommand          = 128 + 7,		/* init driver and device*/
-    kIONDRVFinalizeCommand            = 128 + 8,		/* shutdown driver and device*/
-    kIONDRVReplaceCommand             = 128 + 9,		/* replace an old driver*/
-    kIONDRVSupersededCommand          = 128 + 10		/* prepare to be replaced by a new driver*/
-};
-enum {
-    kIONDRVSynchronousIOCommandKind   = 0x00000001,
-    kIONDRVAsynchronousIOCommandKind  = 0x00000002,
-    kIONDRVImmediateIOCommandKind     = 0x00000004
-};
-
-struct RegEntryID
-{
-    void * opaque[4];
-};
-typedef struct RegEntryID RegEntryID;
-
-struct IONDRVControlParameters {
-    UInt8	__reservedA[0x1a];
-    UInt16	code;
-    void *	params;
-    UInt8	__reservedB[0x12];
-};
-struct CntrlParam {
-    UInt8	__reservedA[0x1a];
-    short	csCode;
-    short	csParam[11];
-};
-typedef struct CntrlParam CntrlParam;
-#endif /* __IONDRV__ */
-
-typedef RegEntryID *                    RegEntryIDPtr;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-#ifndef __IONDRV__
-IOReturn _IONDRVLibrariesInitialize( void * provider );
-IOReturn _IONDRVLibrariesFinalize( void * provider );
-#endif /* __IONDRV__ */
+#ifndef _IOKIT_IOSERVICE_H
+typedef struct IOService IOService;
+#endif
+
+IOReturn _IONDRVLibrariesInitialize( IOService * provider );
+IOReturn _IONDRVLibrariesFinalize( IOService * provider );
 
 #ifndef kAAPLRegEntryIDKey
 #define kAAPLRegEntryIDKey	"AAPL,RegEntryID"
@@ -266,7 +226,7 @@ enum {
   kRegNoModifiers               = 0x00000000, /* no entry modifiers in place */
   kRegUniversalModifierMask     = 0x0000FFFF, /* mods to all entries */
   kRegNameSpaceModifierMask     = 0x00FF0000, /* mods to all entries within namespace */
-  kRegModifierMask              = (long)0xFF000000 /* mods to just this entry */
+  kRegModifierMask              = (RegModifiers)0xFF000000 /* mods to just this entry */
 };
 
 /* Universal Property Modifiers */
@@ -275,15 +235,14 @@ enum {
   kRegPropertyValueIsSavedToDisk = 0x00000040 /* property is non-volatile (saved on disk) */
 };
 
-typedef long Size;
+typedef size_t Size;
 
-#ifndef __IONDRV__
-typedef struct _RegEntryIter * RegEntryIter;
-typedef struct _RegPropertyIter * RegPropertyIter;
-#else
-typedef class IORegistryIterator * RegEntryIter;
-typedef class OSIterator * RegPropertyIter;
-#endif /* __IONDRV__ */
+#ifndef _IOKIT_IOREGISTRYENTRY_H
+typedef struct IORegistryIterator IORegistryIterator;
+typedef struct OSIterator OSIterator;
+#endif /* _IOKIT_IOREGISTRYENTRY_H */
+typedef IORegistryIterator * RegEntryIter;
+typedef OSIterator * RegPropertyIter;
 
 OSStatus RegistryEntryIDCopy( const RegEntryID * entryID, RegEntryID * to );
 
@@ -547,13 +506,13 @@ enum {
   badCksmErr                    = -69,  /*addr mark checksum didn't check*/
 };
 enum {
-  durationMicrosecond           = -1L,  /* Microseconds are negative*/
-  durationMillisecond           = 1L,   /* Milliseconds are positive*/
-  durationSecond                = 1000L, /* 1000 * durationMillisecond*/
-  durationMinute                = 60000L, /* 60 * durationSecond,*/
-  durationHour                  = 3600000L, /* 60 * durationMinute,*/
-  durationDay                   = 86400000L, /* 24 * durationHour,*/
-  durationNoWait                = 0L,   /* don't block*/
+  durationMicrosecond           = -1,  /* Microseconds are negative*/
+  durationMillisecond           = 1,   /* Milliseconds are positive*/
+  durationSecond                = 1000, /* 1000 * durationMillisecond*/
+  durationMinute                = 60000, /* 60 * durationSecond,*/
+  durationHour                  = 3600000, /* 60 * durationMinute,*/
+  durationDay                   = 86400000, /* 24 * durationHour,*/
+  durationNoWait                = 0,   /* don't block*/
   durationForever               = 0x7FFFFFFF /* no time limit*/
 };
 #ifndef NULL
@@ -570,20 +529,7 @@ enum {
     #define nil NULL
 #endif
 
-typedef ResType VSLGestaltType;
-typedef ResType InterruptServiceType;
-typedef struct ColorSpec                ColorSpec;
-typedef ColorSpec *                     ColorSpecPtr;
-typedef ColorSpec                       CSpecArray[1];
-struct ColorTable {
-  long                ctSeed;                 /*unique identifier for table*/
-  short               ctFlags;                /*high bit: 0 = PixMap; 1 = device*/
-  short               ctSize;                 /*number of entries in CTTable*/
-  CSpecArray          ctTable;                /*array [0..0] of ColorSpec*/
-};
-typedef struct ColorTable               ColorTable;
-typedef ColorTable *                    CTabPtr;
-
+typedef ResType                         VSLGestaltType;
 
 enum {
   clutType                      = 0,    /*0 if lookup table*/
@@ -593,56 +539,13 @@ enum {
 };
 typedef UInt32 *                        UInt32Ptr;
 
-#ifndef _IOKIT_IOFRAMEBUFFER_H
-enum {
-  kHardwareCursorInfoMajorVersion = 0x0001,
-  kHardwareCursorInfoMinorVersion = 0x0000
-};
-struct HardwareCursorDescriptorRec {
-  UInt16              majorVersion;
-  UInt16              minorVersion;
-  UInt32              height;
-  UInt32              width;
-  UInt32              bitDepth;
-  UInt32              maskBitDepth;
-  UInt32              numColors;
-  UInt32Ptr           colorEncodings;
-  UInt32              flags;
-  UInt32              supportedSpecialEncodings;
-  UInt32              specialEncodings[16];
-};
-typedef struct HardwareCursorDescriptorRec HardwareCursorDescriptorRec;
-#else
 typedef struct IOHardwareCursorDescriptor HardwareCursorDescriptorRec;
-#endif
-typedef HardwareCursorDescriptorRec *   HardwareCursorDescriptorPtr;
-
-
-#ifndef _IOKIT_IOFRAMEBUFFER_H
-struct HardwareCursorInfoRec {
-  UInt16              majorVersion;           /* Test tool should check for kHardwareCursorInfoMajorVersion1*/
-  UInt16              minorVersion;           /* Test tool should check for kHardwareCursorInfoMinorVersion1*/
-  UInt32              cursorHeight;
-  UInt32              cursorWidth;
-  CTabPtr	      colorMap;               /* nil or big enough for hardware's max colors*/
-  Ptr                 hardwareCursor;
-  UInt16              cursorHotSpotX;
-  UInt16              cursorHotSpotY;
-  UInt32              reserved[5];            /* Test tool should check for 0s*/
-};
-typedef struct HardwareCursorInfoRec    HardwareCursorInfoRec;
-#else
-typedef struct IOHardwareCursorInfo HardwareCursorInfoRec;
-#endif
-typedef HardwareCursorInfoRec *         HardwareCursorInfoPtr;
-
+typedef HardwareCursorDescriptorRec *     HardwareCursorDescriptorPtr;
+typedef struct IOHardwareCursorInfo	  HardwareCursorInfoRec;
+typedef HardwareCursorInfoRec *           HardwareCursorInfoPtr;
 
 typedef ResType                         InterruptServiceType;
-#ifndef __IONDRV__
-typedef UInt32                          InterruptServiceIDType;
-#else
 typedef struct _VSLService *		InterruptServiceIDType;
-#endif /* __IONDRV__ */
 typedef InterruptServiceIDType *        InterruptServiceIDPtr;
 
 enum {
@@ -665,9 +568,9 @@ VSLGestalt( VSLGestaltType selector, UInt32 * response );
 
 OSStatus 
 VSLSetDisplayConfiguration(RegEntryID * entryID,
-					char *	propertyName,
-					void *	configData,
-					long	configDataSize);
+					RegPropertyName *  propertyName,
+					RegPropertyValue	configData,
+					RegPropertyValueSize configDataSize);
 OSErr
 VSLNewInterruptService(
   RegEntryID *            serviceDevice,
@@ -688,8 +591,8 @@ VSLDoInterruptService(InterruptServiceIDType serviceID);
 Boolean
 VSLPrepareCursorForHardwareCursor(
   void *                        cursorRef,
-  HardwareCursorDescriptorPtr   hardwareDescriptor,
-  HardwareCursorInfoPtr         hwCursorInfo);
+  IOHardwareCursorDescriptor *  hardwareDescriptor,
+  IOHardwareCursorInfo *        hwCursorInfo);
 
 typedef UnsignedWide Nanoseconds;
 enum {
@@ -703,69 +606,9 @@ enum {
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 typedef struct OpaqueIOCommandID*       IOCommandID;
-typedef SInt16	DriverRefNum;
 
 typedef UInt32 IOCommandKind;
 typedef UInt32 IOCommandCode;
-
-#ifndef __IONDRV__
-enum {
-	kSynchronousIOCommandKind	= 0x00000001,
-	kAsynchronousIOCommandKind	= 0x00000002,
-	kImmediateIOCommandKind		= 0x00000004
-};
-enum {
-	kOpenCommand		= 0,
-	kCloseCommand		= 1,
-	kReadCommand		= 2,
-	kWriteCommand		= 3,
-	kControlCommand		= 4,
-	kStatusCommand		= 5,
-	kKillIOCommand		= 6,
-	kInitializeCommand	= 7,		// init driver and device
-	kFinalizeCommand	= 8,		// shutdown driver and device
-	kReplaceCommand		= 9,		// replace an old driver
-	kSupersededCommand	= 10,		// prepare to be replaced by a new driver
-	kSuspendCommand		= 11,		// prepare driver to go to sleep
-	kResumeCommand		= 12		// wake up sleeping driver
-};
-
-struct DriverInitInfo {
-	DriverRefNum	refNum;
-	RegEntryID		deviceEntry;
-};
-typedef struct DriverInitInfo DriverInitInfo; 
-#endif /* __IONDRV__ */
-
-typedef DriverInitInfo *			DriverInitInfoPtr;
-typedef DriverInitInfo				DriverReplaceInfo;
-typedef DriverInitInfo *			DriverReplaceInfoPtr;
-
-struct DriverFinalInfo {
-	DriverRefNum	refNum;
-	RegEntryID	deviceEntry;
-};
-typedef struct DriverFinalInfo DriverFinalInfo; 
-typedef DriverFinalInfo *			DriverFinalInfoPtr;
-typedef DriverFinalInfo				DriverSupersededInfo;
-typedef DriverFinalInfo *			DriverSupersededInfoPtr;
-
-
-
-// Contents are command specific
-union ParamBlockRec;
-typedef union ParamBlockRec ParamBlockRec;
-typedef ParamBlockRec *ParmBlkPtr;
-
-union IOCommandContents {
-	ParmBlkPtr				pb;
-	DriverInitInfoPtr		initialInfo;
-	DriverFinalInfoPtr		finalInfo;
-	DriverReplaceInfoPtr	replaceInfo;
-	DriverSupersededInfoPtr	supersededInfo;
-};
-typedef union IOCommandContents IOCommandContents; 
-
 
 OSErr IOCommandIsComplete( IOCommandID commandID, OSErr result);
 

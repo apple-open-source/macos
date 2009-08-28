@@ -40,6 +40,8 @@
 
 #include "cli/cli-decode.h"
 
+#include "objc-lang.h"
+
 extern void _initialize_maint_cmds (void);
 
 static void maintenance_command (char *, int);
@@ -167,7 +169,7 @@ maintenance_demangle (char *args, int from_tty)
       switch (current_language->la_language)
         {
         case language_objc:
-          demangled = objc_demangle (args);
+          demangled = objc_demangle (args, 0);
           break;
         case language_objcplus:
         case language_cplus:
@@ -725,6 +727,7 @@ maintenance_set_profile_cmd (char *args, int from_tty, struct cmd_list_element *
 struct gdb_timer
 {
   char *name;          /* The name of this timer */
+  int running;         /* Are we running this timer? */
   char *last_mssg;     /* When you start the timer, you register a mssg to */
 		       /* be printed when it is reported.  This is the mssg.  */
   long last_start;     /* This is the clock time when the timer was last started.  */
@@ -744,6 +747,7 @@ struct gdb_timer_stack
 
 static struct gdb_timer *timer_list;
 static struct gdb_timer_stack *timer_stack;
+static char *active_timer_list;
 static int max_timers = 0;
 static int n_timers = 0;
 int maint_use_timers = 0;
@@ -758,9 +762,24 @@ maintenance_interval_display (char *args, int from_tty)
   extern int display_time;
 
   if (args == NULL || *args == '\0')
-    printf_unfiltered (_("\"maintenance interval\" takes a numeric argument.\n"));
-  else
-    maint_use_timers = strtol (args, NULL, 10);
+    printf_unfiltered (_("\"maintenance interval\" takes \"all\", \"off\" or a list of timers.\n"));
+  else if (strcmp (args, "off") == 0)
+    {
+      maint_use_timers = 0;
+      if (active_timer_list != NULL)
+	xfree (active_timer_list);
+      active_timer_list = NULL;
+    }
+  else 
+    {
+      maint_use_timers = 1;
+      if (active_timer_list != NULL)
+	xfree (active_timer_list);
+      if (strcmp (args, "all") == 0)
+	active_timer_list = NULL;
+      else
+	active_timer_list = xstrdup (args);
+    }
 }
 
 /* init_timer makes a new timer with name NAME, and
@@ -894,7 +913,7 @@ stop_report_timer (void *ptr)
    are required to strictly nest.  So be sure you stop your timer in
    the same scope where you start it.  */
 
-struct cleanup *
+static struct cleanup *
 make_cleanup_start_report_timer (int timer_id, char *string)
 {
   struct gdb_timer *timer;
@@ -927,6 +946,12 @@ find_timer (char *name)
   if (maint_use_timers == 0)
     return -1;
 
+  if (active_timer_list != NULL)
+    {
+      if (strstr (name, active_timer_list) == NULL)
+	return -1;
+    }
+
   for (i = 0; i < n_timers; i++)
     {
       if (strcmp (timer_list[i].name, name) == 0)
@@ -948,7 +973,9 @@ start_timer (int *timer_var, char *timer_name, char *this_mssg)
 {
   if (*timer_var == -1)
     *timer_var = find_timer (timer_name);
-  
+  if (*timer_var == -1)
+    return make_cleanup (null_cleanup, 0);
+
   return make_cleanup_start_report_timer (*timer_var, this_mssg);	
 }
 
@@ -958,8 +985,6 @@ start_timer (int *timer_var, char *timer_name, char *this_mssg)
 void
 _initialize_maint_cmds (void)
 {
-  struct cmd_list_element *tmpcmd;
-
   add_prefix_cmd ("maintenance", class_maintenance, maintenance_command, _("\
 Commands for use by GDB maintainers.\n\
 Includes commands to dump specific internal GDB structures in\n\

@@ -2,22 +2,25 @@ Title:	iODBC Driver Manager
 
 Version:	3.52.5
 
-Description:	iODBC (intrinsic Open Database Connectivity) driver manager
-		is compatible with ODBC 2.x specification and performs exactly
-		same jobs of ODBC 2.x driver manager(i.e. driver loading, 
-		Parameters and function sequence checking, driver's function 
-		Invoking, etc.). Any ODBC driver works with ODBC 2.0 driver 
-		Manager will also work with iODBC driver manager and vice versa. 
-		Applications (using ODBC function calls) linked with 
-		iODBC driver manager will be able to simultaneously access 
-		different type of data sources within one process through 
-		suitable iODBC drivers. 
+Description:	iODBC (independent Open Database Connectivity) 
+		driver manager is compatible with ODBC 3.x specification
+		and performs exactly same jobs of ODBC 3.x driver
+		manager (i.e. driver loading, Parameters and function
+		sequence checking, driver's function Invoking, etc.).
+
+		Any ODBC driver that works with ODBC 3.0 driver manager
+		will also work with iODBC driver manager and vice versa.
+
+		Applications (using ODBC function calls) linked with
+		iODBC driver manager will be able to simultaneously
+		access different type of data sources within one process
+		through suitable ODBC drivers.
 		
 Original Author:		Ke Jin <kejin@inprise.com>
 Source Code 
 Enhancement Contributors:	OpenLink Software
 Source Maintainers:		iODBC Maintainer <iodbc@openlinksw.com>
-Web Site:                       http://www.iodbc.org
+Web Site:                       http://www.iodbc.org/
 
 Platforms:	SunOS (Sparc)		4.1.x
 		HP/UX (s700/s800)	9.x, 10.x

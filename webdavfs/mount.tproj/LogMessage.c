@@ -44,7 +44,7 @@ void LogMessage(u_int32_t level, char *format, ...)
     u_int8_t* 	findex;
     int8_t  	c;
     int32_t		intarg;
-    u_int32_t	ulongarg;
+    u_int32_t		uintarg;
     int8_t*		strarg;
 //    float		floatarg;
 	u_int64_t   ulonglongarg;
@@ -85,12 +85,12 @@ void LogMessage(u_int32_t level, char *format, ...)
                         break;
                     case 'X':
                     case 'x':
-                        ulongarg = va_arg(arglist, u_int32_t);
-                        bufPtr += sprintf((char*) bufPtr, "%X", ulongarg);
+                        uintarg = va_arg(arglist, u_int32_t);
+                        bufPtr += sprintf((char*) bufPtr, "%X", uintarg);
                         break;
                     case 'p':
                         pointerarg = va_arg(arglist, void*);
-                        bufPtr += sprintf((char*) bufPtr, "%X", (int) pointerarg);
+                        bufPtr += sprintf((char*) bufPtr, "%p", pointerarg);
                         break;
                     case 'f':
                         ulonglongarg = va_arg(arglist, u_int64_t);

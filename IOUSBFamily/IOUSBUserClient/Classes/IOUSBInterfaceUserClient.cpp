@@ -30,6 +30,7 @@
 #include <IOKit/IOKitKeys.h>
 
 #include "IOUSBInterfaceUserClient.h"
+#import "USBTracepoints.h"
 
 #if DEBUG_LEVEL != 0
 #include <sys/proc.h>
@@ -295,6 +296,8 @@ IOUSBInterfaceUserClientV2::ReqComplete(void *obj, void *param, IOReturn res, UI
 	
     USBLog(7, "IOUSBInterfaceUserClientV2[%p]::ReqComplete, res = 0x%x, req = %08x, remaining = %08x",  me, res, (int)pb->fMax, (int)remaining);
 	
+	USBTrace( kUSBTInterfaceUserClient,  kTPInterfaceUCReqComplete, (uintptr_t)me, res, remaining, pb->fMax );
+
     if(res == kIOReturnSuccess) 
     {
         args[0] = (io_user_reference_t)(pb->fMax - remaining);
@@ -331,6 +334,8 @@ IOUSBInterfaceUserClientV2::IsoReqComplete(void *obj, void *param, IOReturn res,
 	
     USBLog(7, "IOUSBInterfaceUserClientV2[%p]::IsoReqComplete, result = 0x%x, dataMem: %p",  me, res, pb->dataMem);
 	
+	USBTrace( kUSBTInterfaceUserClient,  kTPInterfaceUCIsoReqComplete, (uintptr_t)me, res, (uintptr_t) pb->frameBase, 0 );
+
 	args[0] = (io_user_reference_t) pb->frameBase;
 	if ( pb->countMem )
     	pb->countMem->writeBytes(0, pb->frames, pb->frameLen);
@@ -374,7 +379,11 @@ IOUSBInterfaceUserClientV2::LowLatencyIsoReqComplete(void *obj, void *param, IOR
     if (!me)
 		return;
 	
-    args[0] = (io_user_reference_t) command->GetFrameBase(); 
+	USBLog(7, "%s[%p]::LowLatencyIsoReqComplete, result = 0x%x", me->getName(), me, res);
+	
+	USBTrace( kUSBTInterfaceUserClient,  kTPInterfaceUCLLIsoReqComplete, (uintptr_t)me, res, (uintptr_t) command->GetFrameBase(), 0 );
+
+	args[0] = (io_user_reference_t) command->GetFrameBase(); 
     
     command->GetAsyncReference(&asyncRef);
     
@@ -460,20 +469,6 @@ IOUSBInterfaceUserClientV2::initWithTask(task_t owningTask,void *security_id , U
 	int		owningPID = proc_pid(p);
 	
 	proc_name(owningPID,nbuf,256);
-	
-	OSNumber* pidProp 	= OSNumber::withNumber( proc_pid(p), sizeof(proc_pid(p)) * 8 );
-	if ( pidProp )
-	{
-		setProperty( "Owning PID", pidProp ) ;
-		pidProp->release() ;						// property table takes a reference
-	}
-	
-	OSSymbol* processNameProp	= (OSSymbol *)OSSymbol::withCString(nbuf);
-	if ( processNameProp)
-	{
-		setProperty( "Process Name", processNameProp ) ;
-		processNameProp->release() ;						// property table takes a reference
-	}
 	
 	USBLog(5,"IOUSBInterfaceUserClientV2[%p]::initWithTask  Owning PID is %d, name is %s", this, owningPID, nbuf);
 
@@ -588,7 +583,7 @@ IOReturn IOUSBInterfaceUserClientV2::_open(IOUSBInterfaceUserClientV2 * target, 
 {
 #pragma unused (reference)
 	USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::_open",  target);
-   return target->open((bool)arguments->scalarInput[0]);
+	return target->open((bool)arguments->scalarInput[0]);
 }
 
 IOReturn 
@@ -764,9 +759,10 @@ IOUSBInterfaceUserClientV2::GetFrameNumber(IOUSBGetFrameStruct *data, UInt32 *si
     IncrementOutstandingIO();
     if (fOwner && !isInactive())
     {
-		clock_get_uptime(&data->timeStamp);
+		uint64_t	currentTime = mach_absolute_time();
+		data->timeStamp = * (AbsoluteTime *)&currentTime;
 		data->frame = fOwner->GetDevice()->GetBus()->GetFrameNumber();
-		USBLog(7,"IOUSBInterfaceUserClientV2::GetFrameNumber frame: 0x%qx, timestamp: 0x%qx", data->frame, AbsoluteTime_to_scalar(&data->timeStamp));
+		USBLog(7,"IOUSBInterfaceUserClientV2::GetFrameNumber frame: 0x%qx, timestamp: 0x%qx", data->frame, currentTime);
 		*size = sizeof(IOUSBGetFrameStruct);
     }
     else
@@ -813,12 +809,13 @@ IOUSBInterfaceUserClientV2::GetMicroFrameNumber(IOUSBGetFrameStruct *data, UInt3
     {
 		UInt64	microFrame;
 		
-        clock_get_uptime(&data->timeStamp);
+		uint64_t	currentTime = mach_absolute_time();
+		data->timeStamp = * (AbsoluteTime *)&currentTime;
         microFrame = v2->GetMicroFrameNumber();
 		if ( microFrame != 0)
 		{
 			data->frame = microFrame;
-			USBLog(7,"IOUSBInterfaceUserClientV2::GetMicroFrameNumber frame: 0x%qx, timeStamp 0x%qx", data->frame, AbsoluteTime_to_scalar(&data->timeStamp));
+			USBLog(7,"IOUSBInterfaceUserClientV2::GetMicroFrameNumber frame: 0x%qx, timeStamp 0x%qx", data->frame, currentTime);
 			*size = sizeof(IOUSBGetFrameStruct);
 		}
 		else
@@ -1184,6 +1181,7 @@ IOUSBInterfaceUserClientV2::ReadPipe(UInt8 pipeRef, UInt32 noDataTimeout, UInt32
 		if (completion == NULL)
 		{
 			USBLog(1,"IOUSBInterfaceUserClientV2[%p]::ReadPipe (async) bad arguments (%qd, %qx, %p)",  this, size, buffer, completion); 
+			USBTrace( kUSBTInterfaceUserClient,  kTPInterfaceUCReadPipe, size, (uintptr_t)buffer, (uintptr_t)completion, kIOReturnBadArgument );
 			ret = kIOReturnBadArgument;
 			goto Exit;
 		}
@@ -1199,6 +1197,7 @@ IOUSBInterfaceUserClientV2::ReadPipe(UInt8 pipeRef, UInt32 noDataTimeout, UInt32
 			if (!mem)
 			{
 				USBLog(1,"IOUSBInterfaceUserClientV2[%p]::ReadPipe (async ) IOMemoryDescriptor::withAddressRange returned NULL",  this); 
+				USBTrace( kUSBTInterfaceUserClient,  kTPInterfaceUCReadPipe, (uintptr_t)this, size, (uintptr_t)mem, kIOReturnNoMemory );
 				ret = kIOReturnNoMemory;
 				goto Exit;
 			}
@@ -1429,6 +1428,7 @@ IOUSBInterfaceUserClientV2::WritePipe(UInt8 pipeRef, UInt32 noDataTimeout, UInt3
 		if (completion == NULL )
 		{
 			USBLog(1,"IOUSBInterfaceUserClientV2[%p]::WritePipe (async) bad arguments (%qd, %qx, %p)",  this, size, buffer, completion); 
+			USBTrace( kUSBTInterfaceUserClient,  kTPInterfaceUCWritePipe, size, buffer, (uintptr_t)completion, kIOReturnBadArgument );
 			ret = kIOReturnBadArgument;
 			goto Exit;
 		}
@@ -1443,6 +1443,7 @@ IOUSBInterfaceUserClientV2::WritePipe(UInt8 pipeRef, UInt32 noDataTimeout, UInt3
 			if (!mem)
 			{
 				USBLog(1,"IOUSBInterfaceUserClientV2[%p]::WritePipe (async ) IOMemoryDescriptor::withAddressRange returned NULL",  this); 
+				USBTrace( kUSBTInterfaceUserClient,  kTPInterfaceUCWritePipe, (uintptr_t)this, size, (uintptr_t)mem, kIOReturnNoMemory );
 				ret = kIOReturnNoMemory;
 				goto Exit;
 			}
@@ -1580,6 +1581,7 @@ IOUSBInterfaceUserClientV2::WritePipe(UInt8 pipeRef, UInt32 noDataTimeout, UInt3
 				else
 				{
 					USBLog(1,"IOUSBInterfaceUserClientV2[%p]::WritePipe > (sync > 4K) mem->prepare() returned 0x%x",  this, ret); 
+					USBTrace( kUSBTInterfaceUserClient,  kTPInterfaceUCWritePipe, (uintptr_t)this, ret, 0, 0 );
 				}
 			}
 			else
@@ -1969,7 +1971,8 @@ IOUSBInterfaceUserClientV2::ControlRequestOut(UInt8 pipeRef, UInt8 bmRequestType
     {
 		if (completion == NULL)
 		{
-			USBLog(1,"IOUSBInterfaceUserClientV2[%p]::ControlRequestOut (async) completion is NULL!",  this); 
+			USBLog(1,"IOUSBInterfaceUserClientV2[%p]::ControlRequestOut (async) completion is NULL!",  this);
+			USBTrace( kUSBTInterfaceUserClient,  kTPInterfaceUCControlRequestOut, bmRequestType, bRequest, wValue, kIOReturnBadArgument );
 			ret = kIOReturnBadArgument;
 			goto Exit;
 		}
@@ -1987,6 +1990,7 @@ IOUSBInterfaceUserClientV2::ControlRequestOut(UInt8 pipeRef, UInt8 bmRequestType
 				if (!mem)
 				{
 					USBLog(1,"IOUSBInterfaceUserClientV2[%p]::ControlRequestOut (async ) IOMemoryDescriptor::withAddressRange returned NULL",  this); 
+					USBTrace( kUSBTInterfaceUserClient,  kTPInterfaceUCControlRequestOut, (uintptr_t)this, (uintptr_t)mem, size, kIOReturnNoMemory );
 					ret = kIOReturnNoMemory;
 					goto Exit;
 				}
@@ -2263,6 +2267,7 @@ IOUSBInterfaceUserClientV2::ControlRequestIn(UInt8 pipeRef, UInt8 bmRequestType,
 		if (completion == NULL)
 		{
 			USBLog(1,"IOUSBInterfaceUserClientV2[%p]::ControlRequestIn (async) bad arguments (%qd, %qx, %p)",  this, size, buffer, completion); 
+			USBTrace( kUSBTInterfaceUserClient,  kTPInterfaceUCControlRequestIn, size, (uintptr_t)buffer, (uintptr_t)completion, kIOReturnBadArgument );
 			ret = kIOReturnBadArgument;
 			goto Exit;
 		}
@@ -2280,6 +2285,7 @@ IOUSBInterfaceUserClientV2::ControlRequestIn(UInt8 pipeRef, UInt8 bmRequestType,
 				if (!mem)
 				{
 					USBLog(1,"IOUSBInterfaceUserClientV2[%p]::ControlRequestIn (async ) IOMemoryDescriptor::withAddressRange returned NULL",  this); 
+					USBTrace( kUSBTInterfaceUserClient,  kTPInterfaceUCControlRequestIn, size, (uintptr_t)buffer, (uintptr_t)mem, kIOReturnNoMemory );
 					ret = kIOReturnNoMemory;
 					goto Exit;
 				}
@@ -2600,6 +2606,7 @@ IOUSBInterfaceUserClientV2::DoIsochPipeAsync(IOUSBIsocStructV3 *isocData, io_use
 				if(!dataMem) 
 				{
                     USBLog(1, "IOUSBInterfaceUserClientV2[%p]::DoIsochPipeAsync could not create dataMem descriptor",  this);
+					USBTrace( kUSBTInterfaceUserClient,  kTPInterfaceUCDoIsochPipeAsync, (uintptr_t)this, isocData->fBufSize, kIOReturnNoMemory, 1 );
 					ret = kIOReturnNoMemory;
 					break;
 				}
@@ -2607,6 +2614,7 @@ IOUSBInterfaceUserClientV2::DoIsochPipeAsync(IOUSBIsocStructV3 *isocData, io_use
 				if (ret != kIOReturnSuccess)
                 {
                     USBLog(1, "IOUSBInterfaceUserClientV2[%p]::DoIsochPipeAsync could not prepare dataMem descriptor (0x%x)",  this, ret);
+					USBTrace( kUSBTInterfaceUserClient,  kTPInterfaceUCDoIsochPipeAsync, (uintptr_t)this, isocData->fBufSize, ret, 2 );
 					break;
                 }
 				
@@ -2616,6 +2624,7 @@ IOUSBInterfaceUserClientV2::DoIsochPipeAsync(IOUSBIsocStructV3 *isocData, io_use
 				if(!countMem) 
 				{
                     USBLog(1, "IOUSBInterfaceUserClientV2[%p]::DoIsochPipeAsync could not create countMem descriptor",  this);
+					USBTrace( kUSBTInterfaceUserClient,  kTPInterfaceUCDoIsochPipeAsync, (uintptr_t)this, frameLen, kIOReturnNoMemory, 3 );
 					ret = kIOReturnNoMemory;
 					break;
 				}
@@ -2624,6 +2633,7 @@ IOUSBInterfaceUserClientV2::DoIsochPipeAsync(IOUSBIsocStructV3 *isocData, io_use
                 if (ret != kIOReturnSuccess)
                 {
                     USBLog(1, "IOUSBInterfaceUserClientV2[%p]::DoIsochPipeAsync could not prepare dataMem descriptor (0x%x)",  this, ret);
+					USBTrace( kUSBTInterfaceUserClient,  kTPInterfaceUCDoIsochPipeAsync, (uintptr_t)this, (uintptr_t)countMem, ret, 4 );
                     break;
                 }
                 countMemPrepared = true;
@@ -2885,12 +2895,11 @@ IOUSBInterfaceUserClientV2::DoLowLatencyIsochPipeAsyncGated(OSObject *target, vo
 		return kIOReturnBadArgument;
     }
 	
-	int direction = (int)param3;	
-	return me->DoLowLatencyIsochPipeAsync((IOUSBLowLatencyIsocStructV3 *)param1, (IOUSBLowLatencyIsocCompletion*) param2, (IODirection)direction);
+	return me->DoLowLatencyIsochPipeAsync((IOUSBLowLatencyIsocStructV3 *)param1, (IOUSBLowLatencyIsocCompletion*) param2, (uintptr_t)param3);
 }
 
 IOReturn 
-IOUSBInterfaceUserClientV2::DoLowLatencyIsochPipeAsync(IOUSBLowLatencyIsocStructV3 *isocInfo, IOUSBLowLatencyIsocCompletion *completion, IODirection direction)
+IOUSBInterfaceUserClientV2::DoLowLatencyIsochPipeAsync(IOUSBLowLatencyIsocStructV3 *isocInfo, IOUSBLowLatencyIsocCompletion *completion, uintptr_t direction)
 {
 	IOReturn								ret;
     IOUSBPipe *								pipeObj = NULL;
@@ -2907,7 +2916,7 @@ IOUSBInterfaceUserClientV2::DoLowLatencyIsochPipeAsync(IOUSBLowLatencyIsocStruct
 		if(pipeObj)
 		{
 			do {
-                USBLog(6,"IOUSBInterfaceUserClientV2[%p]::DoLowLatencyIsochPipeAsync: dataBuffer cookie: %d, offset: %d, frameList cookie: %d, offset : %d", this, (uint32_t)isocInfo->fDataBufferCookie, (uint32_t)isocInfo->fDataBufferOffset, (uint32_t)isocInfo->fFrameListBufferCookie, (uint32_t)isocInfo->fFrameListBufferOffset );
+                USBLog(7,"IOUSBInterfaceUserClientV2[%p]::DoLowLatencyIsochPipeAsync: dataBuffer cookie: %d, offset: %d, frameList cookie: %d, offset : %d", this, (uint32_t)isocInfo->fDataBufferCookie, (uint32_t)isocInfo->fDataBufferOffset, (uint32_t)isocInfo->fFrameListBufferCookie, (uint32_t)isocInfo->fFrameListBufferOffset );
                 
 				IOUSBLowLatencyCommand * command = (IOUSBLowLatencyCommand *)completion->parameter;
 
@@ -2922,12 +2931,12 @@ IOUSBInterfaceUserClientV2::DoLowLatencyIsochPipeAsync(IOUSBLowLatencyIsocStruct
 					break;
 				}
                 
-                USBLog(6,"IOUSBInterfaceUserClientV2[%p]::DoLowLatencyIsochPipeAsync: Found data buffer for cookie: %d, descriptor: %p, dataBufferDescriptor: %p, offset : %d", this, (uint32_t)isocInfo->fDataBufferCookie, 
+                USBLog(7,"IOUSBInterfaceUserClientV2[%p]::DoLowLatencyIsochPipeAsync: Found data buffer for cookie: %d, descriptor: %p, dataBufferDescriptor: %p, offset : %d", this, (uint32_t)isocInfo->fDataBufferCookie, 
 				dataBuffer->bufferDescriptor, dataBuffer->dataBufferIOMD,(uint32_t)isocInfo->fDataBufferOffset );
 				
                 // Create a new IOMD that is a subrange of our data buffer memory descriptor, and prepare it
                 //
-				aDescriptor = IOMemoryDescriptor::withSubRange( dataBuffer->bufferDescriptor == NULL ? dataBuffer->dataBufferIOMD : dataBuffer->bufferDescriptor, isocInfo->fDataBufferOffset, isocInfo->fBufSize, direction );
+				aDescriptor = IOSubMemoryDescriptor::withSubRange( dataBuffer->bufferDescriptor == NULL ? dataBuffer->dataBufferIOMD : dataBuffer->bufferDescriptor, isocInfo->fDataBufferOffset, isocInfo->fBufSize, direction );
                 if ( aDescriptor == NULL )
 				{
 					USBLog(3,"IOUSBInterfaceUserClientV2[%p]::DoLowLatencyIsochPipeAsync: Could not create an IOMD:withSubRange", this );
@@ -2955,7 +2964,7 @@ IOUSBInterfaceUserClientV2::DoLowLatencyIsochPipeAsync(IOUSBLowLatencyIsocStruct
 					break;
 				}
                 
-                USBLog(6,"IOUSBInterfaceUserClientV2[%p]::DoLowLatencyIsochPipeAsync: Found frameList buffer for cookie: %d, descriptor: %p, offset : %d", this, (uint32_t)isocInfo->fFrameListBufferCookie, 
+                USBLog(7,"IOUSBInterfaceUserClientV2[%p]::DoLowLatencyIsochPipeAsync: Found frameList buffer for cookie: %d, descriptor: %p, offset : %d", this, (uint32_t)isocInfo->fFrameListBufferCookie, 
 				(void *) frameListDataBuffer->frameListKernelAddress,(uint32_t)isocInfo->fFrameListBufferOffset );
 				
                 // Get our virtual address by looking at the buffer data and adding in the offset that was passed in
@@ -2999,7 +3008,7 @@ IOUSBInterfaceUserClientV2::DoLowLatencyIsochPipeAsync(IOUSBLowLatencyIsocStruct
         }
     }
 	
-    USBLog(6, "-IOUSBInterfaceUserClientV2[%p]::DoLowLatencyIsochPipeAsync",  this);
+    USBLog(7, "-IOUSBInterfaceUserClientV2[%p]::DoLowLatencyIsochPipeAsync",  this);
     return ret;
 }
 
@@ -3039,6 +3048,7 @@ IOUSBInterfaceUserClientV2::LowLatencyPrepareBufferGated(OSObject *target, void 
     if (!me)
     {
 		USBLog(1, "IOUSBInterfaceUserClientV2::LowLatencyPrepareBufferGated - invalid target");
+		// USBTrace( kUSBTInterfaceUserClient,  kTPInterfaceUCChangeOutstandingIO, (uintptr_t)me, direction );
 		return kIOReturnBadArgument;
     }
 	
@@ -3083,6 +3093,7 @@ IOUSBInterfaceUserClientV2::LowLatencyPrepareBuffer(LowLatencyUserBufferInfoV3 *
         if (kernelDataBuffer == NULL )
         {
             USBLog(1,"IOUSBInterfaceUserClientV2%p]::LowLatencyPrepareBuffer  Could not malloc buffer info (size = %ld)!", this, sizeof(IOUSBLowLatencyUserClientBufferInfoV4) );
+			USBTrace( kUSBTInterfaceUserClient,  kTPInterfaceUCLowLatencyPrepareBuffer, (uintptr_t)this, sizeof(IOUSBLowLatencyUserClientBufferInfoV4), kIOReturnNoMemory, 1 );
             return kIOReturnNoMemory;
         }
         
@@ -3135,6 +3146,7 @@ IOUSBInterfaceUserClientV2::LowLatencyPrepareBuffer(LowLatencyUserBufferInfoV3 *
 			if ( dataBufferDescriptor == NULL)
 			{
 				USBLog(1,"IOUSBInterfaceUserClientV2[%p]::LowLatencyPrepareBuffer  Could not create a physically contiguous IOBMD (size %qd)!",  this, (uint64_t)bufferData->bufferSize );
+				USBTrace( kUSBTInterfaceUserClient,  kTPInterfaceUCLowLatencyPrepareBuffer, (uintptr_t)this, bufferData->bufferSize, kIOReturnNoMemory, 2 );
 				ret = kIOReturnNoMemory;
 				goto ErrorExit;
 			}
@@ -3143,6 +3155,7 @@ IOUSBInterfaceUserClientV2::LowLatencyPrepareBuffer(LowLatencyUserBufferInfoV3 *
             if (ret != kIOReturnSuccess)
             {
                 USBLog(1,"IOUSBInterfaceUserClientV2[%p]::LowLatencyPrepareBuffer  Could not prepare the data buffer memory descriptor 0x%x",  this, ret );
+				USBTrace( kUSBTInterfaceUserClient,  kTPInterfaceUCLowLatencyPrepareBuffer, (uintptr_t)this, (uintptr_t)dataBufferDescriptor, ret, 3 );
                 goto ErrorExit;
             }
 			
@@ -3152,6 +3165,7 @@ IOUSBInterfaceUserClientV2::LowLatencyPrepareBuffer(LowLatencyUserBufferInfoV3 *
 			if ( dataBufferMap == NULL )
 			{
                 USBLog(1,"IOUSBInterfaceUserClientV2[%p]::LowLatencyPrepareBuffer  Could not map the data buffer memory descriptor",  this );
+				USBTrace( kUSBTInterfaceUserClient,  kTPInterfaceUCLowLatencyPrepareBuffer, (uintptr_t)this, 0, 0, 4 );
                 goto ErrorExit;
 			}
 			
@@ -3159,6 +3173,7 @@ IOUSBInterfaceUserClientV2::LowLatencyPrepareBuffer(LowLatencyUserBufferInfoV3 *
 			if ( dataBuffer == NULL )
 			{
                 USBLog(1,"IOUSBInterfaceUserClientV2[%p]::LowLatencyPrepareBuffer  Could not get the virtual address of the map",  this );
+				USBTrace( kUSBTInterfaceUserClient,  kTPInterfaceUCLowLatencyPrepareBuffer, (uintptr_t)this, 0, 0, 5 );
                 goto ErrorExit;
 			}
 			
@@ -3185,6 +3200,7 @@ IOUSBInterfaceUserClientV2::LowLatencyPrepareBuffer(LowLatencyUserBufferInfoV3 *
             if(!aDescriptor) 
             {
                 USBLog(1,"IOUSBInterfaceUserClientV2[%p]::LowLatencyPrepareBuffer  Could not create a frame list memory descriptor (addr: 0x%qx, size %d)!", this, bufferData->bufferAddress, (uint32_t)bufferData->bufferSize );
+				USBTrace( kUSBTInterfaceUserClient, kTPInterfaceUCLowLatencyPrepareBuffer,  bufferData->bufferAddress, (uint32_t)bufferData->bufferSize, kIOReturnNoMemory, 8 );
                 ret = kIOReturnNoMemory;
                 goto ErrorExit;
             }
@@ -3193,6 +3209,7 @@ IOUSBInterfaceUserClientV2::LowLatencyPrepareBuffer(LowLatencyUserBufferInfoV3 *
             if (ret != kIOReturnSuccess)
             {
                 USBLog(1,"IOUSBInterfaceUserClientV2[%p]::LowLatencyPrepareBuffer  Could not prepare the frame list memory descriptor (0x%x)",  this, ret );
+				USBTrace( kUSBTInterfaceUserClient,  kTPInterfaceUCLowLatencyPrepareBuffer, kUSBLowLatencyFrameListBuffer, ret, 0, 9 );
                 goto ErrorExit;
             }
             
@@ -3202,6 +3219,7 @@ IOUSBInterfaceUserClientV2::LowLatencyPrepareBuffer(LowLatencyUserBufferInfoV3 *
             if (!frameListMap) 
             {
                 USBLog(1,"IOUSBInterfaceUserClientV2[%p]::LowLatencyPrepareBuffer  Could not map the frame list memory descriptor!",  this );
+				USBTrace( kUSBTInterfaceUserClient,  kTPInterfaceUCLowLatencyPrepareBuffer, kUSBLowLatencyFrameListBuffer, kIOReturnNoMemory, 0, 10 );
                 ret = kIOReturnNoMemory;
                 aDescriptor->complete();
                 goto ErrorExit;
@@ -3547,6 +3565,7 @@ IOUSBInterfaceUserClientV2::DecrementOutstandingIO(void)
 		}
 		return;
     }
+	//USBTrace( kUSBTOutstandingIO, kTPInterfaceUCDecrement , (uintptr_t)this, (int)fOutstandingIO );
     fGate->runAction(ChangeOutstandingIO, (void*)-1);
 }
 
@@ -3559,6 +3578,7 @@ IOUSBInterfaceUserClientV2::IncrementOutstandingIO(void)
 		fOutstandingIO++;
 		return;
     }
+	//USBTrace( kUSBTOutstandingIO, kTPInterfaceUCIncrement , (uintptr_t)this, (int)fOutstandingIO );
     fGate->runAction(ChangeOutstandingIO, (void*)1);
 }
 
@@ -3573,6 +3593,7 @@ IOUSBInterfaceUserClientV2::ChangeOutstandingIO(OSObject *target, void *param1, 
     if (!me)
     {
 		USBLog(1, "IOUSBInterfaceUserClientV2::ChangeOutstandingIO - invalid target");
+		USBTrace( kUSBTInterfaceUserClient,  kTPInterfaceUCChangeOutstandingIO, (uintptr_t)me, direction, 0, 0 );
 		return kIOReturnSuccess;
     }
 	
@@ -3604,6 +3625,8 @@ IOUSBInterfaceUserClientV2::ChangeOutstandingIO(OSObject *target, void *param1, 
 			
 		default:
 			USBLog(1, "IOUSBInterfaceUserClientV2[%p]::ChangeOutstandingIO - invalid direction",  me);
+			USBTrace( kUSBTInterfaceUserClient,  kTPInterfaceUCChangeOutstandingIO, (uintptr_t)me, direction, 0, 1 );
+
     }
     return kIOReturnSuccess;
 }
@@ -4132,7 +4155,7 @@ IOUSBInterfaceUserClientV2::LowLatencyPrepareBuffer(LowLatencyUserBufferInfoV2 *
 }
 
 IOReturn 
-IOUSBInterfaceUserClientV2::DoLowLatencyIsochPipeAsync(IOUSBLowLatencyIsocStructV3 *isocInfo, IOUSBLowLatencyIsocCompletion *completion, uintptr_t direction)
+IOUSBInterfaceUserClientV2::DoLowLatencyIsochPipeAsync(IOUSBLowLatencyIsocStructV3 *isocInfo, IOUSBLowLatencyIsocCompletion *completion, IODirection direction)
 {
 #pragma unused (isocInfo, completion, direction)
 	USBLog(3, "%s[%p]::DoLowLatencyIsochPipeAsync called DEPRECATED version of the method", getName(), this);

@@ -282,7 +282,7 @@ static void *parser_opendir_create(CFXMLParserRef parser, CFXMLNodeRef node, voi
 				element_ptr->dir_data.d_type = DT_REG;
 				element_ptr->dir_data.d_namlen = 0;
 				element_ptr->dir_data.d_name_URI_length = 0;
-				element_ptr->dir_data.d_reclen = sizeof(struct dirent);
+				element_ptr->dir_data.d_reclen = sizeof(struct webdav_dirent);
 				element_ptr->next = NULL;
 
 				if (struct_ptr->head == NULL)
@@ -789,12 +789,12 @@ static void parser_opendir_add(CFXMLParserRef parser, void *parent, void *child,
 
 				/* make sure the complete name will fit in the structure */
 				if ((element_ptr->dir_data.d_name_URI_length + text_ptr->size) <=
-					(sizeof(element_ptr->dir_data.d_name) - 1))
+					((unsigned int)sizeof(element_ptr->dir_data.d_name) - 1))
 				{
 					bcopy(text_ptr->name,
 						&element_ptr->dir_data.d_name[element_ptr->dir_data.d_name_URI_length],
 						text_ptr->size);
-					element_ptr->dir_data.d_name_URI_length += text_ptr->size;
+					element_ptr->dir_data.d_name_URI_length += (uint32_t)text_ptr->size;
 				}
 				else
 				{
@@ -857,7 +857,7 @@ static void parser_stat_add(CFXMLParserRef parser, void *parent, void *child, vo
 	 * If the parent reflects one of our properties than the child must
 	 * be the text pointer with the data we want
 	 */
-	switch ((int)parent)
+	switch ((uintptr_t)parent)
 	{
 		case WEBDAV_STAT_LENGTH:
 			/* the text pointer is the length in bytes so put it in the stat buffer */
@@ -923,7 +923,7 @@ static void parser_statfs_add(CFXMLParserRef parser, void *parent, void *child, 
 	 * If the parent reflects one of our properties than the child must
 	 * be the text pointer with the data we want
 	 */
-	switch ((int)parent)
+	switch ((uintptr_t)parent)
 	{
 		case WEBDAV_STATFS_QUOTA_AVAILABLE_BYTES:
 			/* the text pointer is the data so put it in the quotas buffer */
@@ -1010,7 +1010,7 @@ static void parser_cachevalidators_add(CFXMLParserRef parser, void *parent, void
 	 * If the parent reflects one of our properties than the child must
 	 * be the text pointer with the data we want
 	 */
-	switch ((int)parent)
+	switch ((uintptr_t)parent)
 	{
 		case WEBDAV_CACHEVALIDATORS_MODDATE:
 			/* the text pointer is the date so translate it and get it into last_modified */
@@ -1239,7 +1239,7 @@ int parse_opendir(
 	CFXMLParserRef parser;
 	int error;
 	ssize_t size;
-	struct dirent dir_data[2];
+	struct webdav_dirent dir_data[2];
 	CFIndex parentPathLength;
 	
 	error = 0;
@@ -1268,21 +1268,21 @@ int parse_opendir(
 		bzero(dir_data, sizeof(dir_data));
 
 		dir_data[0].d_ino = parent_node->fileid;
-		dir_data[0].d_reclen = sizeof(struct dirent);
+		dir_data[0].d_reclen = sizeof(struct webdav_dirent);
 		dir_data[0].d_type = DT_DIR;
 		dir_data[0].d_namlen = 1;
 		dir_data[0].d_name[0] = '.';
 
 		dir_data[1].d_ino =
 			(dir_data[0].d_ino == WEBDAV_ROOTFILEID) ? WEBDAV_ROOTPARENTFILEID : parent_node->parent->fileid;
-		dir_data[1].d_reclen = sizeof(struct dirent);
+		dir_data[1].d_reclen = sizeof(struct webdav_dirent);
 		dir_data[1].d_type = DT_DIR;
 		dir_data[1].d_namlen = 2;
 		dir_data[1].d_name[0] = '.';
 		dir_data[1].d_name[1] = '.';
 
-		size = write(parent_node->file_fd, dir_data, sizeof(struct dirent) * 2);
-		require(size == (sizeof(struct dirent) * 2), write_dot_dotdot);
+		size = write(parent_node->file_fd, dir_data, sizeof(struct webdav_dirent) * 2);
+		require(size == (sizeof(struct webdav_dirent) * 2), write_dot_dotdot);
 	}
 
 	/*
@@ -1318,7 +1318,7 @@ int parse_opendir(
 		{
 			/* this is a child */
 			struct node_entry *element_node;
-			int name_len;
+			size_t name_len;
 			
 			name_len = strlen(namebuffer);
 			
@@ -1645,7 +1645,7 @@ int parse_statfs(const UInt8 *xmlp, CFIndex xmlp_len, struct statfs *statfsbuf)
 	{
 		uint64_t total_bytes;
 		uint64_t total_blocks;
-		long bsize;
+		uint32_t bsize;
 		
 		/* calculate the total bytes (available + used) */
 		total_bytes = quotas.quota_available_bytes + quotas.quota_used_bytes;
@@ -1664,8 +1664,13 @@ int parse_statfs(const UInt8 *xmlp, CFIndex xmlp_len, struct statfs *statfsbuf)
 			
 			/* stuff the results into statfsbuf */ 
 			statfsbuf->f_bsize = bsize;
+#ifdef __LP64__
 			statfsbuf->f_blocks = total_blocks;
 			statfsbuf->f_bavail = statfsbuf->f_bfree = quotas.quota_available_bytes / bsize;
+#else
+			statfsbuf->f_blocks = (long)total_blocks;
+			statfsbuf->f_bavail = statfsbuf->f_bfree = (long)(quotas.quota_available_bytes / bsize);
+#endif
 		}
 		/* else we were handed values we cannot represent so leave statfsbuf zeroed (no quota support for this file system) */
 	}
@@ -1674,16 +1679,24 @@ int parse_statfs(const UInt8 *xmlp, CFIndex xmlp_len, struct statfs *statfsbuf)
 		/* use the deprecated quota and quotaused if they were returned */
 		if ( (quotas.quota != 0) && (quotas.quota > quotas.quotaused) )
 		{
+#ifdef __LP64__
 			statfsbuf->f_bavail = statfsbuf->f_bfree = (quotas.quota - quotas.quotaused);
+#else
+			statfsbuf->f_bavail = statfsbuf->f_bfree = (long)(quotas.quota - quotas.quotaused);
+#endif
 		}
 		else
 		{
 			statfsbuf->f_bavail = statfsbuf->f_bfree = 0;
 		}
+#ifdef __LP64__
 		statfsbuf->f_blocks = quotas.quota;
+#else
+		statfsbuf->f_blocks = (long)quotas.quota;
+#endif
 		statfsbuf->f_bsize = S_BLKSIZE;
 	}
-	
+
 	statfsbuf->f_iosize = WEBDAV_IOSIZE;
 
 	return ( 0 );

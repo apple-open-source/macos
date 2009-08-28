@@ -30,10 +30,10 @@ in this Software without prior written authorization from The Open Group.
 
 #include <X11/Xdefs.h>
 
-extern Status LockSession(char *session_name, Bool write_id);
-extern void UnlockSession(char* session_name);
-extern char * GetLockId(char *session_name);
-extern Bool CheckSessionLocked(char *session_name, Bool get_id, char **id_ret);
-extern void UnableToLockSession(char *session_name);
+extern Status LockSession(const char *session_name, Bool write_id);
+extern void UnlockSession(const char* session_name);
+extern char * GetLockId(const char *session_name);
+extern Bool CheckSessionLocked(const char *session_name, Bool get_id, char **id_ret);
+extern void UnableToLockSession(const char *session_name);
 
 #endif

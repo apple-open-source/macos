@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,9 +39,6 @@
 #include <IOKit/storage/IOCDMedia.h>
 #include <IOKit/storage/IODVDMedia.h>
 ///w:start
-#include <libgen.h>
-#include <mach-o/dyld.h>
-
 static kern_return_t          __gDiskArbStatus                      = KERN_SUCCESS;
 static Boolean                __gDiskArbStatusLock                  = FALSE;
 ///w:stop
@@ -64,7 +61,6 @@ __private_extern__ DAReturn _DAAuthorize( DASessionRef session, DADiskRef disk, 
 
 __private_extern__ DADiskRef    _DADiskCreateFromVolumePath( CFAllocatorRef allocator, DASessionRef session, CFURLRef path );
 __private_extern__ char *       _DADiskGetID( DADiskRef disk );
-__private_extern__ DASessionRef _DADiskGetSession( DADiskRef disk );
 __private_extern__ mach_port_t  _DADiskGetSessionID( DADiskRef disk );
 
 __private_extern__ void _DARegisterCallback( DASessionRef    session,
@@ -80,6 +76,7 @@ __private_extern__ void _DARegisterCallback( DASessionRef    session,
 __private_extern__ void             _DASessionCallback( CFMachPortRef port, void * message, CFIndex messageSize, void * info );
 __private_extern__ AuthorizationRef _DASessionGetAuthorization( DASessionRef session );
 __private_extern__ mach_port_t      _DASessionGetClientPort( DASessionRef session );
+__private_extern__ void             _DASessionScheduleWithRunLoop( DASessionRef session );
 
 static unsigned __DiskArbCopyDiskDescriptionAppearanceTime( DADiskRef disk )
 {
@@ -1478,9 +1475,6 @@ static void __DiskArbDiskUnmountCallback( DADiskRef disk, DADissenterRef dissent
             __DiskArbCallback_UnmountPostNotification( __DiskArbGetDiskID( disk ), 0, 0 );
         }
 
-///w:start
-if ( strcmp( basename( ( char * ) _dyld_get_image_name( 0 ) ), "SystemUIServer" ) )
-///w:stop
         if ( ( ( ( int ) context ) & kDiskArbUnmountAndEjectFlag ) )
         {
             DADiskEject( disk, kDADiskEjectOptionDefault, __DiskArbDiskEjectCallback, ( void * ) kDiskArbUnmountAndEjectFlag );
@@ -1842,6 +1836,11 @@ kern_return_t DiskArbInit( void )
     if ( __gDiskArbSession == NULL )
     {
         __gDiskArbSession = DASessionCreate( kCFAllocatorDefault );
+
+        if ( __gDiskArbSession )
+        {
+            _DASessionScheduleWithRunLoop( __gDiskArbSession );
+        }
     }
 
     return __gDiskArbSession ? BOOTSTRAP_SUCCESS : BOOTSTRAP_UNKNOWN_SERVICE;
@@ -2242,12 +2241,6 @@ kern_return_t DiskArbStart( mach_port_t * port )
 
     if ( status == KERN_SUCCESS )
     {
-///w:start
-if ( strcmp( basename( ( char * ) _dyld_get_image_name( 0 ) ), "SystemUIServer" ) == 0 )
-{
-    _DASessionGetAuthorization( __gDiskArbSession );
-}
-///w:stop
         DiskArbUpdateClientFlags( );
 
         *port = _DASessionGetClientPort( __gDiskArbSession );
@@ -2357,15 +2350,6 @@ kern_return_t DiskArbUnmountRequest_async_auto( char * disk, unsigned flags )
 ///w:stop
                     DADiskUnmount( whole, options, __DiskArbDiskUnmountCallback, ( void * ) ( flags & kDiskArbUnmountAndEjectFlag ) );
 
-///w:start
-if ( strcmp( basename( ( char * ) _dyld_get_image_name( 0 ) ), "SystemUIServer" ) == 0 )
-{
-    if ( ( flags & kDiskArbUnmountAndEjectFlag ) )
-    {
-        DADiskEject( whole, kDADiskEjectOptionDefault, __DiskArbDiskEjectCallback, ( void * ) kDiskArbUnmountAndEjectFlag );
-    }
-}
-///w:stop
                     status = KERN_SUCCESS;
 ///w:start
                     status = __gDiskArbStatus ? KERN_FAILURE : KERN_SUCCESS;

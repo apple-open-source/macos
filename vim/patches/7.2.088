@@ -1,0 +1,99 @@
+To: vim-dev@vim.org
+Subject: Patch 7.2.088 (extra)
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 7.2.088 (extra)
+Problem:    OpenClipboard() may fail when another application is using the
+	    clipboard.
+Solution:   Retry OpenClipboard() a few times. (Jianrong Yu)
+Files:	    src/os_mswin.c
+
+
+*** ../vim-7.2.087/src/os_mswin.c	Thu Nov 20 17:09:09 2008
+--- src/os_mswin.c	Thu Jan 22 18:38:12 2009
+***************
+*** 1224,1229 ****
+--- 1224,1248 ----
+  #endif /* FEAT_MBYTE */
+  
+  /*
++  * Wait for another process to Close the Clipboard.
++  * Returns TRUE for success.
++  */
++     int
++ vim_open_clipboard()
++ {
++     int delay = 10;
++ 
++     while (!OpenClipboard(NULL))
++     {
++         if (delay > 500)
++             return FALSE;  /* waited too long, give up */
++         Sleep(delay);
++         delay *= 2;	/* wait for 10, 20, 40, 80, etc. msec */
++     }
++     return TRUE;
++ }
++ 
++ /*
+   * Get the current selection and put it in the clipboard register.
+   *
+   * NOTE: Must use GlobalLock/Unlock here to ensure Win32s compatibility.
+***************
+*** 1254,1260 ****
+       * Don't pass GetActiveWindow() as an argument to OpenClipboard() because
+       * then we can't paste back into the same window for some reason - webb.
+       */
+!     if (!OpenClipboard(NULL))
+  	return;
+  
+      /* Check for vim's own clipboard format first.  This only gets the type of
+--- 1273,1279 ----
+       * Don't pass GetActiveWindow() as an argument to OpenClipboard() because
+       * then we can't paste back into the same window for some reason - webb.
+       */
+!     if (!vim_open_clipboard())
+  	return;
+  
+      /* Check for vim's own clipboard format first.  This only gets the type of
+***************
+*** 1562,1568 ****
+       * because then we can't paste back into the same window for some
+       * reason - webb.
+       */
+!     if (OpenClipboard(NULL))
+      {
+  	if (EmptyClipboard())
+  	{
+--- 1581,1587 ----
+       * because then we can't paste back into the same window for some
+       * reason - webb.
+       */
+!     if (vim_open_clipboard())
+      {
+  	if (EmptyClipboard())
+  	{
+*** ../vim-7.2.087/src/version.c	Thu Jan 22 21:31:24 2009
+--- src/version.c	Thu Jan 22 21:47:52 2009
+***************
+*** 678,679 ****
+--- 678,681 ----
+  {   /* Add new patch number below this line */
++ /**/
++     88,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+22. You've already visited all the links at Yahoo and you're halfway through
+    Lycos.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\        download, build and distribute -- http://www.A-A-P.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

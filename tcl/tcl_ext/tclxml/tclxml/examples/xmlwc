@@ -1,0 +1,85 @@
+#!/bin/sh
+# \
+exec tclsh8.3 "$0" "$@"
+
+package require xml
+
+set bytes 0
+set chars 0
+set words 0
+set lines 0
+
+proc cdata {data args} {
+    global bytes chars words lines
+
+    incr bytes [string bytelength $data]
+    incr chars [string length $data]
+    incr lines [regsub -all \n $data {} discard]
+    regsub -all "\[ \t\r\n\]+" [string trim $data] { } data
+    incr words [regsub -all { } $data {} discard]
+
+    return {}
+}
+
+set format {%1$7d%2$8d%3$8d %5$10s}
+
+set input {}
+foreach opt $argv {
+    switch -- $opt {
+	--bytes {
+	    set format {%4$7d}
+	}
+
+	-c -
+	--chars {
+	    set format {%3$7d}
+	}
+
+	-w -
+	--words {
+	    set format {%2$7d}
+	}
+
+	-l -
+	--lines {
+	    set format {%1$7d}
+	}
+
+	-h -
+	--help {
+	    puts stderr "$argv0 \[-clw\] \[--bytes\] \[--chars\] \[--words\] \[--lines\] \[--help\] \[--version\] \[file...\]"
+	    puts stderr "Counts number of bytes, characters, words and lines in an XML document"
+	}
+	--version {
+	    puts stderr "xmlwc version 1.0"
+	}
+
+	default {
+	    lappend input $opt
+	}
+    }
+}
+
+if {![llength $input]} {
+    set p [xml::parser -characterdatacommand cdata]
+    if {[catch {$p parse [read stdin]} err]} {
+	puts stderr $err
+	exit 1
+    }
+} else {
+    foreach in $input {
+	if {[catch {open $in} ch]} {
+	    puts stderr "unable to open file \"$in\""
+	    exit 1
+	}
+	set p [xml::parser -characterdatacommand cdata]
+	if {[catch {$p parse [read $ch]} err]} {
+	    puts stderr $err
+	    exit 1
+	}
+	catch {close $ch}
+    }
+}
+
+puts [format $format $lines $words $chars $bytes $input]
+exit 0

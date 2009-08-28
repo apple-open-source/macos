@@ -1,6 +1,0 @@
-#!/bin/sh
-/usr/sbin/dsconfigldap -a od.apple.com
-/usr/sbin/dsconfigldap -a swldap.apple.com
-/usr/bin/dscl /Search -append / CSPSearchPath /LDAPv3/od.apple.com
-/usr/bin/dscl /Search -append / CSPSearchPath /LDAPv3/swldap.apple.com
-/usr/bin/dscl /Search -create . SearchPolicy CSPSearchPath

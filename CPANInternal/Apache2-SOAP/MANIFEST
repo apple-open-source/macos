@@ -1,0 +1,12 @@
+lib/Apache2/SOAP.pm
+lib/SOAP/Transport/HTTP2.pm
+Makefile.PL
+MANIFEST			This list of files
+META.yml			Module meta-data (added by MakeMaker)
+t/conf/extra.last.conf.in
+t/lib/TestSOAP.pm
+t/lib/TestSOAP/convert.pm
+t/soap/convert.t
+t/TEST.PL
+README
+Changes

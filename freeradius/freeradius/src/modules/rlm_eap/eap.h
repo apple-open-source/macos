@@ -1,7 +1,7 @@
 /*
  * eap.h    Header file containing the interfaces for all EAP types.
  *
- * Version:     $Id: eap.h,v 1.27.4.1 2006/02/06 16:23:50 nbk Exp $
+ * Version:     $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,31 +15,21 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
  * Copyright 2001  hereUare Communications, Inc. <raghud@hereuare.com>
  * Copyright 2003  Alan DeKok <aland@freeradius.org>
+ * Copyright 2006  The FreeRADIUS server project
  */
 #ifndef _EAP_H
 #define _EAP_H
 
-#include "autoconf.h"
+#include <freeradius-devel/ident.h>
+RCSIDH(eap_h, "$Id$")
 
-#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
-#endif
-
-#ifdef HAVE_NETINET_IN_H
-#include <netinet/in.h>
-#endif
-
-#include <string.h>
-#include <stdlib.h>
-
-#include "radiusd.h"
-#include "modules.h"
-
-#include "rad_assert.h"
+#include <freeradius-devel/radiusd.h>
+#include <freeradius-devel/modules.h>
+#include <freeradius-devel/rad_assert.h>
 
 #include "eap_types.h"
 
@@ -102,7 +92,7 @@ typedef enum operation_t {
 typedef struct _eap_handler {
 	struct _eap_handler *prev, *next;
 	uint8_t		state[EAP_STATE_LEN];
-	uint32_t	src_ipaddr;
+	fr_ipaddr_t	src_ipaddr;
 	unsigned int	eap_id;
 	unsigned int	eap_type;
 
@@ -121,6 +111,8 @@ typedef struct _eap_handler {
 	int		status;
 
 	int		stage;
+
+	int		trips;
 } EAP_HANDLER;
 
 /*

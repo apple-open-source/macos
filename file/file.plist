@@ -1,17 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
 	<key>OpenSourceProject</key>
 	<string>file</string>
 	<key>OpenSourceVersion</key>
-	<string>4.17</string>
+	<string>5.00</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string></string>
 	<key>OpenSourceURL</key>
-	<string>ftp://ftp.astron.com/pub/file/file-4.17.tar.gz</string>
+	<string>ftp://ftp.astron.com/pub/file/file-5.00.tar.gz</string>
 	<key>OpenSourceSHA1</key>
-	<string>e03710a3fcb95db6d0ee9cfcdf88c19a5e525ee4</string>
+	<string>e58033dfefa44782aa34155751ce88c86c4c1244</string>
 	<key>OpenSourceImportDate</key>
-	<string>2006-04-11</string>
+	<string>2009-02-04</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>Correct error in sun magic file (2504403).</string>
@@ -19,7 +21,6 @@
 		<string>PPC64 support (3581143).</string>
 		<string>Various minor build fixes.</string>
 		<string>Allow the output of tabs and newlines (3755299).</string>
-		<string>Fix issue with file_printf() and extremely long strings (4649553).</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>

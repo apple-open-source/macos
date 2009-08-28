@@ -36,6 +36,7 @@
 #include "cspdebugging.h"
 #include <security_cdsa_utilities/context.h>
 #include <DH_exchange.h>
+#include "FEEAsymmetricContext.h"
 
 /* minimum legal values */
 #define PBKDF2_MIN_SALT			8		/* bytes */
@@ -314,6 +315,10 @@ void AppleCSPSession::DeriveKey(
 		case CSSM_ALGID_PKCS5_PBKDF1_SHA1:
 		case CSSM_ALGID_PBE_OPENSSL_MD5:
 		case CSSM_ALGID_OPENSSH1:
+		#if CRYPTKIT_CSP_ENABLE
+		case CSSM_ALGID_ECDH:
+		case CSSM_ALGID_ECDH_X963_KDF:
+		#endif
 			break;
 		/* maybe more here, later */
 		default:
@@ -391,6 +396,16 @@ void AppleCSPSession::DeriveKey(
 				Param,
 				keyData);
 			break;
+		#if CRYPTKIT_CSP_ENABLE
+		case CSSM_ALGID_ECDH:
+		case CSSM_ALGID_ECDH_X963_KDF:
+			CryptKit::DeriveKey_ECDH(context,
+				context.algorithm(),
+				Param,
+				keyData,
+				*this);
+			break;
+		#endif
 		/* maybe more here, later */
 		default:
 			assert(0);

@@ -1,30 +1,31 @@
-# Copyright 1999-2006 The OpenLDAP Foundation, All Rights Reserved.
+# $OpenLDAP: pkg/openldap-guide/admin/sasl.sdf,v 1.34.2.7 2008/02/11 23:26:39 kurt Exp $
+# Copyright 1999-2008 The OpenLDAP Foundation, All Rights Reserved.
 # COPYING RESTRICTIONS APPLY, see COPYRIGHT.
 
 H1: Using SASL
 
 OpenLDAP clients and servers are capable of authenticating via the
 {{TERM[expand]SASL}} ({{TERM:SASL}}) framework, which is detailed
-in {{REF:RFC2222}}.   This chapter describes how to make use of
+in {{REF:RFC4422}}.   This chapter describes how to make use of
 SASL in OpenLDAP.
 
 There are several industry standard authentication mechanisms that
 can be used with SASL, including {{TERM:GSSAPI}} for {{TERM:Kerberos}}
-V, DIGEST-MD5, and PLAIN and EXTERNAL for use with {{TERM[expand]TLS}}
-(TLS).
+V, {{TERM:DIGEST-MD5}}, and {{TERM:PLAIN}} and {{TERM:EXTERNAL}}
+for use with {{TERM[expand]TLS}} (TLS).
 
 The standard client tools provided with OpenLDAP Software, such as
 {{ldapsearch}}(1) and {{ldapmodify}}(1), will by default attempt
-to authenticate the user to the {{slapd}}(8) server using SASL.
-Basic authentication service can be set up by the LDAP administrator
-with a few steps, allowing users to be authenticated to the slapd
-server as their LDAP entry.  With a few extra steps, some users and
-services can be allowed to exploit SASL's proxy authorization
-feature, allowing them to authenticate themselves and then switch
-their identity to that of another user or service.
+to authenticate the user to the {{TERM:LDAP}} directory server using
+SASL.  Basic authentication service can be set up by the LDAP
+administrator with a few steps, allowing users to be authenticated
+to the slapd server as their LDAP entry.  With a few extra steps,
+some users and services can be allowed to exploit SASL's proxy
+authorization feature, allowing them to authenticate themselves and
+then switch their identity to that of another user or service.
 
 This chapter assumes you have read {{Cyrus SASL for System
-Administrators}}, provided with the {{PRD:Cyrus}} {{PRD:SASL}}
+Administrators}}, provided with the {{PRD:Cyrus SASL}}
 package (in {{FILE:doc/sysadmin.html}}) and have a working Cyrus
 SASL installation.  You should use the Cyrus SASL {{EX:sample_client}}
 and {{EX:sample_server}} to test your SASL installation before
@@ -56,19 +57,19 @@ document.
 The DIGEST-MD5 mechanism is the mandatory-to-implement authentication
 mechanism for LDAPv3.  Though DIGEST-MD5 is not a strong authentication
 mechanism in comparison with trusted third party authentication
-systems (such as Kerberos or public key systems), it does offer
-significant protections against a number of attacks.  Unlike the
-CRAM-MD5 mechanism, it prevents chosen plaintext attacks.  DIGEST-MD5
-is favored over the use of plaintext password mechanisms.  The
-CRAM-MD5 mechanism is deprecated in favor of DIGEST-MD5.  Use of
-{{SECT:DIGEST-MD5}} is discussed below.
+systems (such as {{TERM:Kerberos}} or public key systems), it does
+offer significant protections against a number of attacks.  Unlike
+the {{TERM:CRAM-MD5}} mechanism, it prevents chosen plaintext
+attacks.  DIGEST-MD5 is favored over the use of plaintext password
+mechanisms.  The CRAM-MD5 mechanism is deprecated in favor of
+DIGEST-MD5.  Use of {{SECT:DIGEST-MD5}} is discussed below.
 
-The GSSAPI mechanism utilizes Kerberos V to provide secure
-authentication services.  The KERBEROS_V4 mechanism is available
-for those using Kerberos IV.  Kerberos is viewed as a secure,
-distributed authentication system suitable for both small and large
-enterprises.  Use of {{SECT:GSSAPI}} and {{SECT:KERBEROS_V4}} are
-discussed below.
+The GSSAPI mechanism utilizes {{TERM:GSS-API}} {{TERM:Kerberos}} V
+to provide secure authentication services.  The KERBEROS_V4 mechanism
+is available for those using Kerberos IV.  Kerberos is viewed as a
+secure, distributed authentication system suitable for both small
+and large enterprises.  Use of {{SECT:GSSAPI}} and {{SECT:KERBEROS_V4}}
+are discussed below.
 
 The EXTERNAL mechanism utilizes authentication services provided
 by lower level network services such as {{TERM:TLS}} (TLS).  When
@@ -85,18 +86,18 @@ document.
 H2: SASL Authentication
 
 Getting basic SASL authentication running involves a few steps.
-The first step configures your slapd server environment so
-that it can communicate with client programs using the security
-system in place at your site. This usually involves setting up a
-service key, a public key, or other form of secret. The second step
-concerns mapping authentication identities to LDAP DN's, which
+The first step configures your slapd server environment so that it
+can communicate with client programs using the security system in
+place at your site. This usually involves setting up a service key,
+a public key, or other form of secret. The second step concerns
+mapping authentication identities to LDAP {{TERM:DN}}'s, which
 depends on how entries are laid out in your directory. An explanation
 of the first step will be given in the next section using Kerberos
 V4 as an example mechanism. The steps necessary for your site's
 authentication mechanism will be similar, but a guide to every
 mechanism available under SASL is beyond the scope of this chapter.
-The second step is described in the section 
-{{SECT:Mapping Authentication Identities}}.
+The second step is described in the section {{SECT:Mapping
+Authentication Identities}}.
 
 
 H3: GSSAPI
@@ -352,7 +353,7 @@ allows zero or more repeats of the immediately preceding character
 or pattern, and terms in parenthesis are remembered for the replacement
 pattern.
 
-The replacement pattern will produce either a DN or URL refering
+The replacement pattern will produce either a DN or URL referring
 to the user.  Anything from the authentication request DN that
 matched a string in parenthesis in the search pattern is stored in
 the variable "$1". That variable "$1" can appear in the replacement
@@ -483,6 +484,10 @@ Note that the explicitly-named realms are handled first, to avoid
 the realm name becoming part of the UID.  Also note the use of scope
 and filters to limit matching to desirable entries.
 
+Note as well that {{EX:authz-regexp}} internal search are subject
+to access controls.  Specifically, the authentication identity
+must have {{EX:auth}} access.
+
 See {{slapd.conf}}(5) for more detailed information.
 
 
@@ -538,7 +543,7 @@ database could then be only allowed by that DN, and in order to
 become that DN, users must first authenticate as one of the persons
 on the list. This allows for better auditing of who made changes
 to the LDAP database.  If people were allowed to authenticate
-directly to the priviliged account, possibly through the {{EX:rootpw}}
+directly to the privileged account, possibly through the {{EX:rootpw}}
 {{slapd.conf}}(5) directive or through a {{EX:userPassword}}
 attribute, then auditing becomes more difficult.
 
@@ -572,7 +577,7 @@ or
 
 In the first form, the <username> is from the same namespace as
 the authentication identities above. It is the user's username as
-it is refered to by the underlying authentication mechanism.
+it is referred to by the underlying authentication mechanism.
 Authorization identities of this form are converted into a DN format
 by the same function that the authentication process used, producing
 an {{authorization request DN}} of the form
@@ -613,7 +618,7 @@ authentication DN entry, and if none of the {{EX:authzTo}} rules
 specify the authorization is permitted, the {{EX:authzFrom}}
 rules in the authorization DN entry are then checked. If neither
 case specifies that the request be honored, the request is denied.
-Since the default behaviour is to deny authorization requests, rules
+Since the default behavior is to deny authorization requests, rules
 only specify that a request be allowed; there are no negative rules
 telling what authorizations to deny.
 
@@ -647,7 +652,7 @@ To help produce more sweeping rules for {{EX:authzFrom}} and
 be DNs with regular expression characters in them. This means a
 source rule like
 
->	authzTo: uid=[^,]*,dc=example,dc=com
+>	authzTo: dn.regex=^uid=[^,]*,dc=example,dc=com$
 
 would allow that authenticated user to authorize to any DN that
 matches the regular expression pattern given. This regular expression
@@ -657,7 +662,7 @@ comparison can be evaluated much faster than an LDAP search for
 Also note that the values in an authorization rule must be one of
 the two forms: an LDAP URL or a DN (with or without regular expression
 characters). Anything that does not begin with "{{EX:ldap://}}" is
-taken as a DN. It is not permissable to enter another authorization
+taken as a DN. It is not permissible to enter another authorization
 identity of the form "{{EX:u:<username>}}" as an authorization rule.
 
 
@@ -675,14 +680,14 @@ should be allowed to perform the proxy authorization.
 By default, processing of proxy authorization rules is disabled.
 The {{EX:authz-policy}} directive must be set in the
 {{slapd.conf}}(5) file to enable authorization. This directive can
-be set to {{EX:none}} for no rules (the default), {{EX:from}} for
-source rules, {{EX:to}} for destination rules, or {{EX:both}} for
+be set to {{EX:none}} for no rules (the default), {{EX:to}} for
+source rules, {{EX:from}} for destination rules, or {{EX:both}} for
 both source and destination rules.
 
-Destination rules are extremely powerful. If ordinary users have
+Source rules are extremely powerful. If ordinary users have
 access to write the {{EX:authzTo}} attribute in their own
 entries, then they can write rules that would allow them to authorize
-as anyone else.  As such, when using destination rules, the
+as anyone else.  As such, when using source rules, the
 {{EX:authzTo}} attribute should be protected with an ACL that
 only allows privileged users to set its values.
 

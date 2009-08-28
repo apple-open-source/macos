@@ -125,14 +125,14 @@ typedef struct PWSReplicaEntry {
 	ReplicaSyncPolicy syncPolicy;
 	ReplicaStatus status;
 	bool allowReplication;
-	unsigned long idRangeBegin;
-	unsigned long idRangeEnd;
+	UInt32 idRangeBegin;
+	UInt32 idRangeEnd;
 	SInt64 lastSyncTID;
-	time_t lastSyncDate;
-	time_t lastSyncFailedAttempt;
-	time_t pullIncompleteDate;
-	time_t pullDeferredDate;
-	time_t entryModDate;
+	uint32_t lastSyncDate;
+	uint32_t lastSyncFailedAttempt;
+	uint32_t pullIncompleteDate;
+	uint32_t pullDeferredDate;
+	uint32_t entryModDate;
 	bool peer;
 } PWSReplicaEntry;
 

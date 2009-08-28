@@ -28,14 +28,14 @@ no_target:
 # Hijack the install stage to extract/patch the source.
 install:
 	@echo "-- Extracting distfiles --"
-	rmdir $(OBJROOT)
+	rm -rf $(OBJROOT)
 	cp -r $(SRCROOT) $(OBJROOT)
 	rm -rf $(OBJROOT)/$(Project)
 	cd $(OBJROOT) && tar $(Extract_Option)xf $(OBJROOT)/$(Tarball)
 	mv $(OBJROOT)/$(Extract_Dir) $(OBJROOT)/$(Project)
 	@echo "-- Applying patches --"
 	$(_v) for patchfile in $(Patch_List); do \
-		cd $(OBJROOT)/$(Project) && patch -p0 < $(OBJROOT)/patches/$$patchfile; \
+		(cd $(OBJROOT)/$(Project) && patch -p0 -F0 < $(OBJROOT)/patches/$$patchfile) || exit 1; \
 	done
 	@echo "-- Done extracting/patching, continuing --"
 	$(MAKE) -C $(OBJROOT) -f Makefile install \

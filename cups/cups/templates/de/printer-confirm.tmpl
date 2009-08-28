@@ -1,7 +1,10 @@
-<P><B>Warnung:</B> Sind Sie sicher, da&szlig; Sie den Drucker
-{printer_name} l&ouml;schen wollen?</P>
+<DIV CLASS="indent">
 
-<P ALIGN="CENTER"><A
-HREF="/admin?op=delete-printer&printer_name={printer_name}&confirm=yes"><IMG
-SRC="/images/button-delete-printer.gif" ALT="Drucker l&ouml;schen"
-CLASS="button"></A></P>
+<H2 CLASS="title">Drucker {printer_name} l&ouml;schen</H2>
+
+<P><B>Warnung:</B> Sind sie sicher sie wollen den Drucker
+{printer_name} l&ouml;schen?</P>
+
+<P ALIGN="CENTER"><FORM ACTION="/admin/" METHOD="POST"><INPUT TYPE="HIDDEN" NAME="OP" VALUE="delete-printer"><INPUT TYPE="HIDDEN" NAME="printer_name" VALUE="{printer_name}"><INPUT TYPE="SUBMIT" NAME="confirm" VALUE="Drucker l&ouml;schen"></FORM></P>
+
+</DIV>

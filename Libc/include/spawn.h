@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2006, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -129,14 +129,15 @@ __BEGIN_DECLS
 
 int	posix_spawnattr_getbinpref_np(const posix_spawnattr_t * __restrict,
 		size_t, cpu_type_t *__restrict, size_t *__restrict);
+int	posix_spawnattr_setauditsessionport_np(posix_spawnattr_t *__restrict,
+		mach_port_t);
 int	posix_spawnattr_setbinpref_np(posix_spawnattr_t * __restrict,
 		size_t, cpu_type_t *__restrict, size_t *__restrict);
-int	posix_spawnattr_setspecialport_np(posix_spawnattr_t *__restrict,
-		mach_port_t, int);
 int	posix_spawnattr_setexceptionports_np(posix_spawnattr_t *__restrict,
 		exception_mask_t, mach_port_t,
 		exception_behavior_t, thread_state_flavor_t);
-
+int	posix_spawnattr_setspecialport_np(posix_spawnattr_t *__restrict,
+		mach_port_t, int);
 __END_DECLS
 
 #endif /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */

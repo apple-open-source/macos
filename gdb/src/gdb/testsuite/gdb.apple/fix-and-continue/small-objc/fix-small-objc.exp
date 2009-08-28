@@ -24,11 +24,6 @@ if $tracelevel then {
         strace $tracelevel
 }
 
-if [target_info exists darwin64] {
-   verbose "Fix and continue not supported for x86-64/ppc64."
-   return
-}
-
 set b1suffix 1
 set b2suffix 2
 set b3suffix 3
@@ -41,19 +36,22 @@ set b4suffix 4
 set prms_id 0
 set bug_id 0
 
-if [istarget "powerpc64-apple-darwin*"] {
-    verbose "Disable Objective-C tests on 64-bit PowerPC."
-    return
-}
-
 set testfile "a.out"
 set binfile ${objdir}/${subdir}/${testfile}
 
 set timeout 30
 
+set arch "i386"
+if [target_info exists darwin64] {
+  set arch "x86_64"
+}
+if [istarget "powerpc-apple-darwin*"] {
+  set arch "ppc"
+}
+
 remote_exec build "sh ${srcdir}/${subdir}/../set-up-objdir.sh ${srcdir}/${subdir} ${objdir}/${subdir}"
 
-remote_exec build "make -C ${objdir}/${subdir} stage1"
+remote_exec build "make ARCH=${arch} -C ${objdir}/${subdir} stage1"
 
 gdb_exit
 gdb_start
@@ -72,7 +70,7 @@ gdb_test "next 6" ".*first_var says: hi v1.*Fix in class-bundlized.o version #2 
 
 # Build a new class.m
 
-gdb_test "shell make -C $objdir/$subdir stage2" ".*gcc.*-freplace-objc-classes.*" "make version 2 of class.m"
+gdb_test "shell make ARCH=${arch} -C $objdir/$subdir stage2" ".*gcc.*-freplace-objc-classes.*" "make version 2 of class.m"
 
 send_gdb "fix $objdir/$subdir/class-bundlized.o$b2suffix $objdir/$subdir/class.m\n"
 gdb_expect {
@@ -94,7 +92,7 @@ gdb_test "n 10" "first_var says: hi v2.*second_var says: hi v2.*third_var says: 
 
 # Build a newer class.m
 
-gdb_test "shell make -C $objdir/$subdir stage3" ".*gcc.*-freplace-objc-classes.*" "make version 3 of class.m"
+gdb_test "shell make ARCH=${arch} -C $objdir/$subdir stage3" ".*gcc.*-freplace-objc-classes.*" "make version 3 of class.m"
 
 send_gdb "fix $objdir/$subdir/class-bundlized.o$b3suffix $objdir/$subdir/class.m\n"
 gdb_expect {

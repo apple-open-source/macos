@@ -424,10 +424,17 @@ first_phase (bfd *abfd, int type, char *src)
 		abfd->tdata.tekhex_data->symbols = new;
 		if (!getsym (sym, &src, &len))
 		  return FALSE;
-		new->symbol.name = bfd_alloc (abfd, (bfd_size_type) len + 1);
-		if (!new->symbol.name)
+                /* APPLE LOCAL: Allocate this space to a char * local var
+                   which we'll copy the contents into and then point 
+                   new->symbol.name at instead of casting away the cosntness
+                   of new->symbol.name and poking at the great compiler warning
+                   beastie.  */
+                char *newname = bfd_alloc (abfd, (bfd_size_type) len + 1);
+                new->symbol.name = NULL;
+		if (!newname)
 		  return FALSE;
-		memcpy ((char *) (new->symbol.name), sym, len + 1);
+		memcpy (newname, sym, len + 1);
+                new->symbol.name = newname;
 		new->symbol.section = section;
 		if (stype <= '4')
 		  new->symbol.flags = (BSF_GLOBAL | BSF_EXPORT);

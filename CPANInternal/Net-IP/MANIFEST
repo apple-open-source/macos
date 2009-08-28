@@ -1,0 +1,14 @@
+Changes
+IP.pm
+MANIFEST
+Makefile.PL
+ipcount
+iptab
+t/ipv4.t
+t/ipv6.t
+t/ExtUtils/TBone.pm
+README
+COPYING
+Net-IP.spec.PL
+
+META.yml                                 Module meta-data (added by MakeMaker)

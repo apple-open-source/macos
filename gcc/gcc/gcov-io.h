@@ -1,6 +1,6 @@
 /* File format for coverage information
    Copyright (C) 1996, 1997, 1998, 2000, 2002,
-   2003, 2004 Free Software Foundation, Inc.
+   2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Bob Manson <manson@cygnus.com>.
    Completely remangled by Nathan Sidwell <nathan@codesourcery.com>.
 
@@ -18,8 +18,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* As a special exception, if you link this library with other files,
    some of which are compiled with GCC, to produce an executable,
@@ -195,7 +195,7 @@ typedef signed gcov_type __attribute__ ((mode (QI)));
 #endif
 
 
-#if defined (TARGET_HAS_F_SETLKW)
+#if defined (TARGET_POSIX_IO)
 #define GCOV_LOCKED 1
 #else
 #define GCOV_LOCKED 0
@@ -214,11 +214,7 @@ typedef HOST_WIDEST_INT gcov_type;
 #include <sys/types.h>
 #endif
 #else /*!IN_GCOV */
-#if LONG_LONG_TYPE_SIZE > 32
-#define GCOV_TYPE_NODE intDI_type_node
-#else
-#define GCOV_TYPE_NODE intSI_type_node
-#endif
+#define GCOV_TYPE_SIZE (LONG_LONG_TYPE_SIZE > 32 ? 64 : 32)
 #endif
 
 #if defined (HOST_HAS_F_SETLKW)
@@ -236,7 +232,7 @@ typedef HOST_WIDEST_INT gcov_type;
    is not also used in a DSO.  */
 #if IN_LIBGCOV
 
-#include "auto-host.h"   /* for HAVE_GAS_HIDDEN */
+#include "tconfig.h"
 
 #define gcov_var __gcov_var
 #define gcov_open __gcov_open
@@ -461,6 +457,11 @@ extern void __gcov_merge_single (gcov_type *, unsigned) ATTRIBUTE_HIDDEN;
    consecutive values.  */
 extern void __gcov_merge_delta (gcov_type *, unsigned) ATTRIBUTE_HIDDEN;
 
+/* The profiler functions.  */
+extern void __gcov_interval_profiler (gcov_type *, gcov_type, int, unsigned); 
+extern void __gcov_pow2_profiler (gcov_type *, gcov_type);
+extern void __gcov_one_value_profiler (gcov_type *, gcov_type);
+
 #ifndef inhibit_libc
 /* The wrappers around some library functions..  */
 extern pid_t __gcov_fork (void);
@@ -563,26 +564,12 @@ GCOV_LINKAGE void gcov_write_length (gcov_position_t /*position*/);
 GCOV_LINKAGE time_t gcov_time (void);
 #endif
 
-/* Make sure the library is used correctly.  */
-#if IN_LIBGCOV
-#if ENABLE_CHECKING
-#define GCOV_CHECK(EXPR) (!(EXPR) ? abort (), 0 : 0)
-#else
-/* Include EXPR, so that unused variable warnings do not occur.  */
-#define GCOV_CHECK(EXPR) ((void)(0 && (EXPR)))
-#endif
-#else
-#define GCOV_CHECK(EXPR) gcc_assert (EXPR)
-#endif
-#define GCOV_CHECK_READING() GCOV_CHECK(gcov_var.mode > 0)
-#define GCOV_CHECK_WRITING() GCOV_CHECK(gcov_var.mode < 0)
-
 /* Save the current position in the gcov file.  */
 
 static inline gcov_position_t
 gcov_position (void)
 {
-  GCOV_CHECK_READING ();
+  gcc_assert (gcov_var.mode > 0);
   return gcov_var.start + gcov_var.offset;
 }
 
@@ -600,7 +587,7 @@ gcov_is_error (void)
 static inline void
 gcov_rewrite (void)
 {
-  GCOV_CHECK_READING ();
+  gcc_assert (gcov_var.mode > 0);
   gcov_var.mode = -1;
   gcov_var.start = 0;
   gcov_var.offset = 0;

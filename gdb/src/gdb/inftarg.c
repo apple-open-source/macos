@@ -41,9 +41,7 @@
 #include "gdb_wait.h"
 #include "inflow.h"
 
-extern struct symtab_and_line *child_enable_exception_callback (enum
-								exception_event_kind,
-								int);
+extern int child_enable_exception_callback (enum exception_event_kind, int);
 /* APPLE LOCAL begin exception catchpoints */
 extern struct symtabs_and_lines *
 child_find_exception_catchpoints (enum exception_event_kind,
@@ -507,10 +505,10 @@ child_find_exception_catchpoints (enum exception_event_kind kind,
 }
 /* APPLE LOCAL end exception catchpoints */
   
-struct symtab_and_line *
+int
 child_enable_exception_callback (enum exception_event_kind kind, int enable)
 {
-  return (struct symtab_and_line *) NULL;
+  return 0;
 }
 #endif
 

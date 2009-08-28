@@ -79,7 +79,7 @@ static int
 valid_target_for_inferior_bfd ()
 {
   return strcmp (current_target.to_shortname, "macos-child") == 0
-      || strcmp (current_target.to_shortname, "remote") == 0 
+      || target_is_remote ()
       || strcmp (current_target.to_shortname, "core-macho") == 0;
 }
 
@@ -95,31 +95,21 @@ bfd_target_is_mach_o (bfd *abfd)
 
 
 size_t
-inferior_read_memory_partial (CORE_ADDR addr, int nbytes, char *mbuf)
+inferior_read_memory_partial (CORE_ADDR addr, int nbytes, gdb_byte *mbuf)
 {
   size_t nbytes_read = 0;
-  int error = 0;
 
   volatile struct gdb_exception except;
 
+  int old_trust_readonly = set_trust_readonly (0);
   TRY_CATCH (except, RETURN_MASK_ERROR)
     {
       /* Read as much memory as we can.  */
-      while (nbytes_read < nbytes)
-	{
-	  int num = target_read_memory_partial (addr + nbytes_read, 
-						mbuf + nbytes_read,
-						nbytes - nbytes_read,
-						&error);
-	  /* If we don't get any data or get an error, break out of the
-	     loop.  */
-	  if (num <= 0)
-	    break;
-	  /* We got some bytes, note what we got and keep trying.  */
-	  nbytes_read += num;
-	}
+      nbytes_read = target_read (&current_target, TARGET_OBJECT_MEMORY, NULL,
+				 mbuf, addr, nbytes);
     }
-    
+  set_trust_readonly (old_trust_readonly);
+
   if (nbytes_read == 0)
     {
       /* Set the bfd error if we didn't get anything.  */
@@ -182,6 +172,12 @@ inferior_read_mach_o (bfd *abfd, void *stream, void *data, file_ptr nbytes, file
     struct mach_o_data_struct *mdata = NULL;
     CHECK_FATAL (bfd_mach_o_valid (abfd));
     mdata = abfd->tdata.mach_o_data;
+    if (mdata->scanning_load_cmds == 1)
+      {
+       bfd_set_error (bfd_error_invalid_target);
+       return 0;
+      }
+
     for (i = 0; i < mdata->header.ncmds; i++)
       {
         struct bfd_mach_o_load_command *cmd = &mdata->commands[i];
@@ -303,6 +299,10 @@ inferior_bfd_generic (const char *name, CORE_ADDR addr, CORE_ADDR offset,
   info.len = len; 
   info.read = 0;
 
+  /* If you change the string "[memory object \"" remember to go
+     change it in macosx-nat-dyld-process.c & macosx-nat-dyld.c
+     where we test for it.  Or:
+     FIXME - make this pattern a variable other code can test against.  */
   if (name != NULL)
     {
       if (len == INVALID_ADDRESS)
@@ -340,7 +340,7 @@ inferior_bfd_generic (const char *name, CORE_ADDR addr, CORE_ADDR offset,
     {
       warning ("Unable to read symbols from %s: %s.", bfd_get_filename (abfd),
                bfd_errmsg (bfd_get_error ()));
-      bfd_close (abfd);
+      close_bfd_or_archive (abfd);
       return NULL;
     }
 

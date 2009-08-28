@@ -1,7 +1,7 @@
 /*
  *  odbc3.c
  *
- *  $Id: odbc3.c,v 1.30 2007/01/05 12:22:39 source Exp $
+ *  $Id: odbc3.c,v 1.32 2007/09/04 06:25:24 source Exp $
  *
  *  ODBC 3.x functions
  *
@@ -1752,8 +1752,11 @@ SQLSetConnectAttr_Internal (
   SQLRETURN retcode = SQL_SUCCESS;
   void * _ValuePtr = NULL;
   SWORD unicode_driver = (penv ? penv->unicode_driver : 0);
-  SQLUINTEGER odbc_ver = ((GENV_t *) con->genv)->odbc_ver;
-  SQLUINTEGER dodbc_ver = ((ENV_t *) con->henv)->dodbc_ver;
+  SQLUINTEGER odbc_ver;
+  SQLUINTEGER dodbc_ver;
+
+  odbc_ver = ((GENV_t *) con->genv)->odbc_ver;
+  dodbc_ver = (penv != SQL_NULL_HENV) ? penv->dodbc_ver : odbc_ver;
 
   if (con->state == en_dbc_needdata)
     {
@@ -1913,8 +1916,11 @@ SQLGetConnectAttr_Internal (
   void * _Value = NULL;
   void * valueOut = ValuePtr;
   SWORD unicode_driver = (penv ? penv->unicode_driver : 0);
-  SQLUINTEGER odbc_ver = ((GENV_t *) con->genv)->odbc_ver;
-  SQLUINTEGER dodbc_ver = ((ENV_t *) con->henv)->dodbc_ver;
+  SQLUINTEGER odbc_ver;
+  SQLUINTEGER dodbc_ver;
+
+  odbc_ver = ((GENV_t *) con->genv)->odbc_ver;
+  dodbc_ver = (penv != SQL_NULL_HENV) ? penv->dodbc_ver : odbc_ver;
 
   if (con->state == en_dbc_needdata)
     {
@@ -2827,8 +2833,11 @@ SQLColAttribute_Internal (
   SQLRETURN retcode = SQL_SUCCESS;
   void * charAttrOut = CharacterAttributePtr;
   void * _charAttr = NULL;
-  SQLUINTEGER odbc_ver = ((GENV_t *) pdbc->genv)->odbc_ver;
-  SQLUINTEGER dodbc_ver = ((ENV_t *) pdbc->henv)->dodbc_ver;
+  SQLUINTEGER odbc_ver;
+  SQLUINTEGER dodbc_ver;
+
+  odbc_ver = ((GENV_t *) pdbc->genv)->odbc_ver;
+  dodbc_ver = (penv != SQL_NULL_HENV) ? penv->dodbc_ver : odbc_ver;
 
   if ((penv->unicode_driver && waMode != 'W') 
       || (!penv->unicode_driver && waMode == 'W'))

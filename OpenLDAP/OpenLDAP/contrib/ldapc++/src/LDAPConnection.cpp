@@ -1,3 +1,4 @@
+// $OpenLDAP: pkg/ldap/contrib/ldapc++/src/LDAPConnection.cpp,v 1.10.4.3 2008/04/14 23:28:11 quanah Exp $
 /*
  * Copyright 2000, OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
@@ -7,7 +8,6 @@
 
 #include "LDAPResult.h"
 #include "LDAPException.h"
-#include "LDAPReferralException.h"
 #include "LDAPUrlList.h"
 
 #include "LDAPConnection.h"
@@ -58,6 +58,40 @@ void LDAPConnection::bind(const string& dn, const string& passwd,
     }
     delete res;
     delete msg;   // memcheck
+}
+
+void LDAPConnection::saslInteractiveBind( const std::string &mech,
+                        int flags,
+                        SaslInteractionHandler *sih,
+                        const LDAPConstraints *cons)
+{
+    DEBUG(LDAP_DEBUG_TRACE,"LDAPConnection::bind" << endl);
+    LDAPMessageQueue* msg=0;
+    LDAPResult* res=0;
+    try{
+        msg = LDAPAsynConnection::saslInteractiveBind(mech, flags, sih, cons);
+        res = (LDAPResult*)msg->getNext();
+    }catch(LDAPException e){
+        delete msg;
+        delete res;
+        throw;
+    }
+    int resCode=res->getResultCode();
+    if(resCode != LDAPResult::SUCCESS) {
+        if(resCode == LDAPResult::REFERRAL){
+            LDAPUrlList urls = res->getReferralUrls();
+            delete res;
+            delete msg;
+            throw LDAPReferralException(urls);
+        }else{
+            string srvMsg = res->getErrMsg();
+            delete res;
+            delete msg;
+            throw LDAPException(resCode, srvMsg);
+        }
+    }
+    delete res;
+    delete msg;
 }
 
 void LDAPConnection::unbind(){

@@ -25,6 +25,9 @@
 
 #include <IOKit/firewire/IOFWSimplePhysicalAddressSpace.h>
 
+/*! @class IOFWSimpleContiguousPhysicalAddressSpace
+*/
+
 class IOFWSimpleContiguousPhysicalAddressSpace : public IOFWSimplePhysicalAddressSpace
 {
 	OSDeclareDefaultStructors( IOFWSimpleContiguousPhysicalAddressSpace )

@@ -86,6 +86,9 @@ protected:
 	size_t mBufferSize;
 	char* mBufferPos;
 	char* mTarget;
+	std::string queryDomainName;
+	std::string queryUserName;
+	bool validQuery;
 
 	typedef std::list<CSSM_DATA> CertList;
 	CertList mCertList;
@@ -95,7 +98,7 @@ protected:
 
 	char* ReadStream (CFURLRef url, size_t &responseLength);
 	void ReadCertificatesFromURL (CFURLRef url);
-
+	bool ValidateQueryString(CSSM_DATA mailAddr);
 public:
 	DotMacQuery (DotMacRelation* relation, const CSSM_QUERY *queryBase);
 	virtual ~DotMacQuery ();

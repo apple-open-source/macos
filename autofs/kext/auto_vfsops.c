@@ -33,7 +33,6 @@
 #include <sys/queue.h>
 #include <sys/systm.h>
 #include <sys/namei.h>
-#include <sys/filedesc.h>
 #include <sys/proc.h>
 #include <sys/kernel.h>
 #include <mach/machine/vm_types.h>
@@ -44,12 +43,13 @@
 #include <sys/errno.h>
 #include <sys/malloc.h>
 #include <sys/attr.h>
-#include <sys/syslog.h>
 #include <sys/sysctl.h>
 #include <sys/conf.h>
 #include <miscfs/devfs/devfs.h>
 #include <kern/locks.h>
 #include <kern/assert.h>
+
+#include <IOKit/IOLib.h>
 
 #include "autofs.h"
 #include "autofs_kern.h"
@@ -59,6 +59,9 @@ static lck_mtx_t *autofs_global_lock;
 lck_mtx_t *autofs_nodeid_lock;
 
 static u_int autofs_mounts;
+
+__private_extern__ int auto_module_start(kmod_info_t *, void *);
+__private_extern__ int auto_module_stop(kmod_info_t *, void *);
 
 /*
  * autofs VFS operations
@@ -82,9 +85,11 @@ static struct vfsops autofs_vfsops = {
 	auto_sync,
 	auto_vget,
 	NULL,			/* auto_fhtovp */
-	NULL,			/* auto_vnodetofh */
+	NULL,			/* auto_vptofh */
 	NULL,			/* auto_init */
-	autofs_sysctl
+	autofs_sysctl,
+	NULL,			/* auto_vfs_setattr */
+	{ NULL, NULL, NULL, NULL, NULL, NULL, NULL }	/* reserved ops */
 };
 
 extern struct vnodeopv_desc autofsfs_vnodeop_opv_desc;
@@ -97,7 +102,8 @@ struct vfs_fsentry autofs_fsentry = {
 	autofs_vnodeop_opv_descs,	/* null terminated;  */
 	0,				/* historic filesystem type number [ unused w. VFS_TBLNOTYPENUM specified ] */
 	MNTTYPE_AUTOFS,			/* filesystem type name */
-	VFS_TBLTHREADSAFE | VFS_TBLNOTYPENUM | VFS_TBL64BITREADY,	/* defines the FS capabilities */
+	VFS_TBLTHREADSAFE | VFS_TBLNOTYPENUM | VFS_TBL64BITREADY | VFS_TBLNATIVEXATTR,
+					/* defines the FS capabilities */
 	{ NULL, NULL }			/* reserved for future use; set this to zero*/
 };
 
@@ -106,7 +112,19 @@ static vfstable_t  auto_vfsconf;
 /*
  * No zones in OS X, so only one autofs_globals structure.
  */
-static struct autofs_globals *fngp;
+static struct autofs_globals *global_fngp;
+
+static struct autofs_globals *
+autofs_zone_get_globals(void)
+{
+	return (global_fngp);
+}
+
+static void
+autofs_zone_set_globals(struct autofs_globals *fngp)
+{
+	global_fngp = fngp;
+}
 
 /*
  * rootfnnodep is allocated here.  Its sole purpose is to provide
@@ -129,7 +147,7 @@ autofs_zone_init(void)
 	MALLOC(fngp, struct autofs_globals *, sizeof (*fngp), M_AUTOFS,
 	    M_WAITOK);
 	if (fngp == NULL) {
-		log(LOG_ERR, "autofs_zone_init: Couldn't create autofs globals structure\n");
+		IOLog("autofs_zone_init: Couldn't create autofs globals structure\n");
 		goto fail;
 	}
 	bzero(fngp, sizeof (*fngp));
@@ -138,14 +156,14 @@ autofs_zone_init(void)
 	 */
 	MALLOC(fnp, fnnode_t *, sizeof(fnnode_t), M_AUTOFS, M_WAITOK);
 	if (fnp == NULL) {
-		log(LOG_ERR, "autofs_zone_init: Couldn't create autofs global fnnode\n");
+		IOLog("autofs_zone_init: Couldn't create autofs global fnnode\n");
 		goto fail;
 	}
 	bzero(fnp, sizeof(*fnp));
 	fnp->fn_namelen = sizeof fnnode_name;
 	MALLOC(fnp->fn_name, char *, fnp->fn_namelen + 1, M_AUTOFS, M_WAITOK);
 	if (fnp->fn_name == NULL) {
-		log(LOG_ERR, "autofs_zone_init: Couldn't create autofs global fnnode name\n");
+		IOLog("autofs_zone_init: Couldn't create autofs global fnnode name\n");
 		goto fail;
 	}
 	bcopy(fnnode_name, fnp->fn_name, sizeof fnnode_name);
@@ -158,12 +176,12 @@ autofs_zone_init(void)
 	fnp->fn_globals = fngp;
 	fnp->fn_lock = lck_mtx_alloc_init(autofs_lck_grp, NULL);
 	if (fnp->fn_lock == NULL) {
-		log(LOG_ERR, "autofs_zone_init: Couldn't create autofs global fnnode mutex\n");
+		IOLog("autofs_zone_init: Couldn't create autofs global fnnode mutex\n");
 		goto fail;
 	}
 	fnp->fn_rwlock = lck_rw_alloc_init(autofs_lck_grp, NULL);
 	if (fnp->fn_rwlock == NULL) {
-		log(LOG_ERR, "autofs_zone_init: Couldn't create autofs global fnnode rwlock\n");
+		IOLog("autofs_zone_init: Couldn't create autofs global fnnode rwlock\n");
 		goto fail;
 	}
 
@@ -173,7 +191,7 @@ autofs_zone_init(void)
 	fngp->fng_unmount_threads_lock = lck_mtx_alloc_init(autofs_lck_grp,
 	    LCK_ATTR_NULL);
 	if (fngp->fng_unmount_threads_lock == NULL) {
-		log(LOG_ERR, "autofs_zone_init: Couldn't create autofs global unmount threads lock\n");
+		IOLog("autofs_zone_init: Couldn't create autofs global unmount threads lock\n");
 		goto fail;
 	}
 	fngp->fng_unmount_threads = 0;
@@ -182,7 +200,7 @@ autofs_zone_init(void)
 	fngp->fng_flush_notification_lock = lck_mtx_alloc_init(autofs_lck_grp,
 	    LCK_ATTR_NULL);
 	if (fngp->fng_flush_notification_lock == NULL) {
-		log(LOG_ERR, "autofs_zone_init: Couldn't create autofs global flush notification lock\n");
+		IOLog("autofs_zone_init: Couldn't create autofs global flush notification lock\n");
 		goto fail;
 	}
 
@@ -192,7 +210,7 @@ autofs_zone_init(void)
 	 */
 	ret = auto_new_thread(auto_do_unmount, fngp);
 	if (ret != KERN_SUCCESS) {
-		log(LOG_ERR, "autofs_zone_init: Couldn't create unmounter thread, status 0x%08x", ret);
+		IOLog("autofs_zone_init: Couldn't create unmounter thread, status 0x%08x", ret);
 		goto fail;
 	}
 	return (fngp);
@@ -255,10 +273,10 @@ static const struct mntopt restropts[] = {
  * Check whether the specified option is set in the specified file
  * system.
  */
-static u_int32_t
+static uint64_t
 optionisset(mount_t mp, const struct mntopt *opt)
 {
-	u_int32_t flags;
+	uint64_t flags;
 	
 	flags = vfs_flags(mp) & opt->m_flag;
 	if (opt->m_inverse)
@@ -282,7 +300,7 @@ static int
 autofs_restrict_opts(mount_t mp, char *buf, size_t maxlen, size_t *curlen)
 {
 	fninfo_t *fnip = vfstofni(mp);
-	int i;
+	u_int i;
 	char *p;
 	size_t len = *curlen - 1;
 
@@ -317,26 +335,30 @@ autofs_restrict_opts(mount_t mp, char *buf, size_t maxlen, size_t *curlen)
 
 /* ARGSUSED */
 static int
-auto_mount(mount_t mp, vnode_t devvp, user_addr_t data, vfs_context_t context)
+auto_mount(mount_t mp, __unused vnode_t devvp, user_addr_t data,
+    vfs_context_t context)
 {
 	int error;
 	size_t len;
-	int argsvers;
+	uint32_t argsvers;
 	struct autofs_args_64 args;
 	fninfo_t *fnip = NULL;
-	vnode_t rootvp = NULL;
+	vnode_t myrootvp = NULL;
 	fnnode_t *rootfnp = NULL;
 	char strbuff[PATH_MAX+1];
 	uint64_t flags;
 #ifdef DEBUG
 	lck_attr_t *lckattr;
 #endif
+	struct autofs_globals *fngp;
 
 	AUTOFS_DPRINT((4, "auto_mount: mp %p devvp %p\n", mp, devvp));
 
 	lck_mtx_lock(autofs_global_lock);
-	if (fngp == NULL)
+	if ((fngp = autofs_zone_get_globals()) == NULL) {
 		fngp = autofs_zone_init();
+		autofs_zone_set_globals(fngp);
+	}
 	lck_mtx_unlock(autofs_global_lock);
 	if (fngp == NULL)
 		return (ENOMEM);
@@ -357,7 +379,7 @@ auto_mount(mount_t mp, vnode_t devvp, user_addr_t data, vfs_context_t context)
 		if (vfs_context_is64bit(context))
 			error = copyin(data, &args, sizeof (args));
 		else {
-			struct autofs_args args32;
+			struct autofs_args_32 args32;
 
 			error = copyin(data, &args32, sizeof (args32));
 			if (error == 0) {
@@ -529,19 +551,19 @@ auto_mount(mount_t mp, vnode_t devvp, user_addr_t data, vfs_context_t context)
 	    NULL, 1, vfs_context_ucred(context), fngp);
 	if (error)
 		goto errout;
-	rootvp = fntovn(rootfnp);
+	myrootvp = fntovn(rootfnp);
 
 	rootfnp->fn_mode = AUTOFS_MODE;
 	rootfnp->fn_parent = rootfnp;
 	/* account for ".." entry (fn_parent) */
 	rootfnp->fn_linkcnt = 1;
-	error = vnode_ref(rootvp);	/* released in auto_unmount */
+	error = vnode_ref(myrootvp);	/* released in auto_unmount */
 	if (error) {
-		vnode_put(rootvp);
-		vnode_recycle(rootvp);
+		vnode_put(myrootvp);
+		vnode_recycle(myrootvp);
 		goto errout;
 	}
-	fnip->fi_rootvp = rootvp;
+	fnip->fi_rootvp = myrootvp;
 
 	/*
 	 * Add to list of top level AUTOFS's if this isn't a trigger
@@ -562,10 +584,10 @@ auto_mount(mount_t mp, vnode_t devvp, user_addr_t data, vfs_context_t context)
 	autofs_mounts++;
 	lck_mtx_unlock(autofs_global_lock);
 
-	vnode_put(rootvp);
+	vnode_put(myrootvp);
 
 	AUTOFS_DPRINT((5, "auto_mount: mp %p root %p fnip %p return %d\n",
-	    mp, rootvp, fnip, error));
+	    mp, myrootvp, fnip, error));
 
 	return (0);
 
@@ -587,13 +609,13 @@ errout:
 	FREE(fnip, sizeof M_AUTOFS);
 
 	AUTOFS_DPRINT((5, "auto_mount: vfs %p root %p fnip %p return %d\n",
-	    (void *)mp, (void *)rootvp, (void *)fnip, error));
+	    (void *)mp, (void *)myrootvp, (void *)fnip, error));
 
 	return (error);
 }
 
 static int
-auto_update_options(struct autofs_update_args_64 *update_argsp)
+auto_update_options(struct autofs_update_args_64 *update_argsp, int pid)
 {
 	mount_t mp;
 	fninfo_t *fnip;
@@ -602,6 +624,7 @@ auto_update_options(struct autofs_update_args_64 *update_argsp)
 	int error;
 	char *opts, *map;
 	size_t optslen, maplen;
+	int was_nobrowse;
 
 	/*
 	 * Update the mount options on this autofs node.
@@ -664,6 +687,7 @@ auto_update_options(struct autofs_update_args_64 *update_argsp)
 	 * to fnip, and update the mount information.
 	 */
 	lck_rw_lock_exclusive(fnip->fi_rwlock);
+	was_nobrowse = auto_nobrowse(fnip->fi_rootvp);
 	FREE(fnip->fi_opts, M_AUTOFS);
 	fnip->fi_opts = opts;
 	fnip->fi_optslen = (int)optslen;
@@ -685,11 +709,25 @@ auto_update_options(struct autofs_update_args_64 *update_argsp)
 
 	/*
 	 * Notify anybody looking at this mount's root directory
-	 * that it might have changed; this remount might have
-	 * been done as the result of a network change, so the
-	 * map backing it might have changed.
+	 * that it might have changed, unless it's a directory
+	 * whose contents reflect only the stuff for which we
+	 * already have vnodes and was that way before the change;
+	 * this remount might have been done as the result of a network
+	 * change, so the map backing it might have changed.  (That
+	 * matters only if we enumerate the map on a readdir, which
+	 * isn't the case for a directory of the sort described above,
+	 * although, if it wasn't a map of that sort before, but is
+	 * one now, that could also change what's displayed, so we
+	 * deliver a notification in that case.)
 	 */
-	AUTO_KNOTE(fnip->fi_rootvp, NOTE_WRITE);
+	if (vnode_ismonitored(fnip->fi_rootvp) &&
+	    (!was_nobrowse || !auto_nobrowse(fnip->fi_rootvp))) {
+		struct vnode_attr vattr;
+
+		vfs_get_notify_attributes(&vattr);
+		auto_get_attributes(fnip->fi_rootvp, &vattr, pid);
+		vnode_notify(fnip->fi_rootvp, VNODE_EVENT_WRITE, &vattr);
+	}
 	return (0);
 }
 
@@ -706,7 +744,7 @@ auto_update_options(struct autofs_update_args_64 *update_argsp)
  * happen until the autofs mount completes.
  */
 int
-auto_start(mount_t mp, int flags, vfs_context_t context)
+auto_start(mount_t mp, __unused int flags, __unused vfs_context_t context)
 {
 	fninfo_t *fnip;
 
@@ -719,7 +757,7 @@ auto_start(mount_t mp, int flags, vfs_context_t context)
 
 /* ARGSUSED */
 static int
-auto_unmount(mount_t mp, int mntflags, vfs_context_t context)
+auto_unmount(mount_t mp, int mntflags, __unused vfs_context_t context)
 {
 	fninfo_t *fnip;
 	vnode_t rvp;
@@ -845,6 +883,7 @@ static int
 auto_root(mount_t mp, vnode_t *vpp, vfs_context_t context)
 {
 	int error;
+	int pid;
 	fninfo_t *fnip;
 	fnnode_t *fnp;
 	struct timeval now;
@@ -863,7 +902,8 @@ auto_root(mount_t mp, vnode_t *vpp, vfs_context_t context)
 	 * our caller gets a vnode with something mounted on it if the mount
 	 * can be done.
 	 */
-	auto_fninfo_lock_shared(fnip, context);
+	pid = vfs_context_pid(context);
+	auto_fninfo_lock_shared(fnip, pid);
 	if ((fnip->fi_flags & (MF_DIRECT|MF_MOUNTING|MF_UNMOUNTING)) == MF_DIRECT &&
 	    !thread_notrigger()) {
 		fnp = vntofn(*vpp);
@@ -920,12 +960,7 @@ auto_root(mount_t mp, vnode_t *vpp, vfs_context_t context)
 			lck_mtx_unlock(fnp->fn_lock);
 			microtime(&now);
 			fnp->fn_ref_time = now.tv_sec;
-			auto_new_mount_thread(fnp, ".", 1, context);
-			/*
-			 * At this point we're simply another thread
-			 * waiting for the mount to finish.
-			 */
-			error = auto_wait4mount(fnp, context);
+			error = auto_do_mount(fnp, ".", 1, context);
 			if (error) {
 				if (error == EAGAIN)
 					goto retry;
@@ -941,7 +976,7 @@ auto_root(mount_t mp, vnode_t *vpp, vfs_context_t context)
 		}
 	}
 unlock:
-	auto_fninfo_unlock_shared(fnip, context);
+	auto_fninfo_unlock_shared(fnip, pid);
 
 done:
 	AUTOFS_DPRINT((5, "auto_root: mp %p, *vpp %p, error %d\n",
@@ -950,14 +985,14 @@ done:
 }
 
 /*
- * Get file system statistics.
+ * Get file system information.
  */
 static int
-auto_vfs_getattr(mount_t mp, struct vfs_attr *vfap, vfs_context_t context)
+auto_vfs_getattr(__unused mount_t mp, struct vfs_attr *vfap,
+    __unused vfs_context_t context)
 {
 	AUTOFS_DPRINT((4, "auto_vfs_getattr %p\n", (void *)mp));
 
-	/* XXX - return capabilities and attributes? */
 	VFSATTR_RETURN(vfap, f_bsize, AUTOFS_BLOCKSIZE);
 	VFSATTR_RETURN(vfap, f_iosize, 512);
 	VFSATTR_RETURN(vfap, f_blocks, 0);
@@ -965,6 +1000,113 @@ auto_vfs_getattr(mount_t mp, struct vfs_attr *vfap, vfs_context_t context)
 	VFSATTR_RETURN(vfap, f_bavail, 0);
 	VFSATTR_RETURN(vfap, f_files, 0);
 	VFSATTR_RETURN(vfap, f_ffree, 0);
+
+	if (VFSATTR_IS_ACTIVE(vfap, f_capabilities)) {
+		/*
+		 * We support symlinks (although you can't create them,
+		 * or anything else), and hard links (to the extent
+		 * that ".." looks like a hard link to the parent).
+		 *
+		 * We're case-sensitive and case-preserving, and
+		 * statfs() doesn't involve any over-the-wire ops,
+		 * so it's fast.
+		 *
+		 * We set the hidden bit on some directories.
+		 */
+		vfap->f_capabilities.capabilities[VOL_CAPABILITIES_FORMAT] =
+			VOL_CAP_FMT_SYMBOLICLINKS |
+			VOL_CAP_FMT_HARDLINKS |
+			VOL_CAP_FMT_NO_ROOT_TIMES |
+			VOL_CAP_FMT_CASE_SENSITIVE |
+			VOL_CAP_FMT_CASE_PRESERVING |
+			VOL_CAP_FMT_FAST_STATFS | 
+			VOL_CAP_FMT_2TB_FILESIZE |
+			VOL_CAP_FMT_HIDDEN_FILES;
+		vfap->f_capabilities.capabilities[VOL_CAPABILITIES_INTERFACES] =
+			VOL_CAP_INT_ATTRLIST;
+		vfap->f_capabilities.capabilities[VOL_CAPABILITIES_RESERVED1] = 0;
+		vfap->f_capabilities.capabilities[VOL_CAPABILITIES_RESERVED2] = 0;
+
+		vfap->f_capabilities.valid[VOL_CAPABILITIES_FORMAT] =
+			VOL_CAP_FMT_PERSISTENTOBJECTIDS |
+			VOL_CAP_FMT_SYMBOLICLINKS |
+			VOL_CAP_FMT_HARDLINKS |
+			VOL_CAP_FMT_JOURNAL |
+			VOL_CAP_FMT_JOURNAL_ACTIVE |
+			VOL_CAP_FMT_NO_ROOT_TIMES |
+			VOL_CAP_FMT_SPARSE_FILES |
+			VOL_CAP_FMT_ZERO_RUNS |
+			VOL_CAP_FMT_CASE_SENSITIVE |
+			VOL_CAP_FMT_CASE_PRESERVING |
+			VOL_CAP_FMT_FAST_STATFS |
+			VOL_CAP_FMT_2TB_FILESIZE |
+			VOL_CAP_FMT_OPENDENYMODES |
+			VOL_CAP_FMT_HIDDEN_FILES |
+			VOL_CAP_FMT_PATH_FROM_ID |
+			VOL_CAP_FMT_NO_VOLUME_SIZES;
+		vfap->f_capabilities.valid[VOL_CAPABILITIES_INTERFACES] =
+			VOL_CAP_INT_SEARCHFS |
+			VOL_CAP_INT_ATTRLIST |
+			VOL_CAP_INT_NFSEXPORT |
+			VOL_CAP_INT_READDIRATTR |
+			VOL_CAP_INT_EXCHANGEDATA |
+			VOL_CAP_INT_COPYFILE |
+			VOL_CAP_INT_ALLOCATE |
+			VOL_CAP_INT_VOL_RENAME |
+			VOL_CAP_INT_ADVLOCK |
+			VOL_CAP_INT_FLOCK |
+			VOL_CAP_INT_EXTENDED_SECURITY |
+			VOL_CAP_INT_USERACCESS |
+			VOL_CAP_INT_MANLOCK |
+			VOL_CAP_INT_EXTENDED_ATTR |
+			VOL_CAP_INT_NAMEDSTREAMS;
+		vfap->f_capabilities.valid[VOL_CAPABILITIES_RESERVED1] = 0;
+		vfap->f_capabilities.valid[VOL_CAPABILITIES_RESERVED2] = 0;
+		VFSATTR_SET_SUPPORTED(vfap, f_capabilities);
+	}
+
+	if (VFSATTR_IS_ACTIVE(vfap, f_attributes)) {
+		vfap->f_attributes.validattr.commonattr =
+			ATTR_CMN_NAME | ATTR_CMN_DEVID | ATTR_CMN_FSID |
+			ATTR_CMN_OBJTYPE | ATTR_CMN_OBJTAG | ATTR_CMN_OBJID |
+			ATTR_CMN_PAROBJID |
+			ATTR_CMN_MODTIME | ATTR_CMN_CHGTIME | ATTR_CMN_ACCTIME |
+			ATTR_CMN_OWNERID | ATTR_CMN_GRPID | ATTR_CMN_ACCESSMASK |
+			ATTR_CMN_FLAGS | ATTR_CMN_USERACCESS | ATTR_CMN_FILEID;
+		vfap->f_attributes.validattr.volattr =
+			ATTR_VOL_MOUNTPOINT | ATTR_VOL_MOUNTFLAGS |
+			ATTR_VOL_MOUNTEDDEVICE | ATTR_VOL_CAPABILITIES |
+			ATTR_VOL_ATTRIBUTES;
+		vfap->f_attributes.validattr.dirattr =
+			ATTR_DIR_LINKCOUNT | ATTR_DIR_MOUNTSTATUS;
+		vfap->f_attributes.validattr.fileattr =
+			ATTR_FILE_LINKCOUNT | ATTR_FILE_TOTALSIZE |
+			ATTR_FILE_IOBLOCKSIZE | ATTR_FILE_DEVTYPE |
+			ATTR_FILE_DATALENGTH;
+		vfap->f_attributes.validattr.forkattr = 0;
+		
+		vfap->f_attributes.nativeattr.commonattr =
+			ATTR_CMN_NAME | ATTR_CMN_DEVID | ATTR_CMN_FSID |
+			ATTR_CMN_OBJTYPE | ATTR_CMN_OBJTAG | ATTR_CMN_OBJID |
+			ATTR_CMN_PAROBJID |
+			ATTR_CMN_MODTIME | ATTR_CMN_CHGTIME | ATTR_CMN_ACCTIME |
+			ATTR_CMN_OWNERID | ATTR_CMN_GRPID | ATTR_CMN_ACCESSMASK |
+			ATTR_CMN_FLAGS | ATTR_CMN_USERACCESS | ATTR_CMN_FILEID;
+		vfap->f_attributes.nativeattr.volattr =
+			ATTR_VOL_OBJCOUNT |
+			ATTR_VOL_MOUNTPOINT | ATTR_VOL_MOUNTFLAGS |
+			ATTR_VOL_MOUNTEDDEVICE | ATTR_VOL_CAPABILITIES |
+			ATTR_VOL_ATTRIBUTES;
+		vfap->f_attributes.nativeattr.dirattr =
+			ATTR_DIR_MOUNTSTATUS;
+		vfap->f_attributes.nativeattr.fileattr =
+			ATTR_FILE_LINKCOUNT | ATTR_FILE_TOTALSIZE |
+			ATTR_FILE_IOBLOCKSIZE | ATTR_FILE_DEVTYPE |
+			ATTR_FILE_DATALENGTH;
+		vfap->f_attributes.nativeattr.forkattr = 0;
+
+		VFSATTR_SET_SUPPORTED(vfap, f_attributes);
+	}
 
 	return (0);
 }
@@ -974,7 +1116,8 @@ auto_vfs_getattr(mount_t mp, struct vfs_attr *vfap, vfs_context_t context)
  * any of the autofs structures, so don't do anything.
  */
 static int
-auto_sync(mount_t mp, int waitfor, vfs_context_t context)
+auto_sync(__unused mount_t mp, __unused int waitfor,
+    __unused vfs_context_t context)
 {
 	return (0);
 }
@@ -984,13 +1127,16 @@ auto_sync(mount_t mp, int waitfor, vfs_context_t context)
  * Currently not supported.
  */
 static int
-auto_vget(mount_t mp, ino64_t ino, vnode_t *vpp, vfs_context_t context)
+auto_vget(__unused mount_t mp, __unused ino64_t ino, __unused vnode_t *vpp,
+    __unused vfs_context_t context)
 {
 	return (ENOTSUP);
 }
 
 static int
-autofs_sysctl(int *name, u_int namelen, user_addr_t oldp, size_t *oldlenp, user_addr_t newp, size_t newlen, vfs_context_t context)
+autofs_sysctl(int *name, u_int namelen, __unused user_addr_t oldp,
+    __unused size_t *oldlenp, __unused user_addr_t newp,
+    __unused size_t newlen, __unused vfs_context_t context)
 {
 	int error;
 #ifdef DEBUG
@@ -1063,7 +1209,7 @@ static struct cdevsw autofs_cdevsw = {
 static int	autofs_major = -1;
 static void	*autofs_devfs;
 
-static pid_t	automounter_pid;
+static int	automounter_pid;
 static lck_rw_t *autofs_automounter_pid_rwlock;
 
 static int
@@ -1094,7 +1240,17 @@ static int
 autofs_ioctl(__unused dev_t dev, u_long cmd, __unused caddr_t data,
     __unused int flag, __unused struct proc *p)
 {
+	struct autofs_globals *fngp;
 	int error;
+
+	lck_mtx_lock(autofs_global_lock);
+	if ((fngp = autofs_zone_get_globals()) == NULL) {
+		fngp = autofs_zone_init();
+		autofs_zone_set_globals(fngp);
+	}
+	lck_mtx_unlock(autofs_global_lock);
+	if (fngp == NULL)
+		return (ENOMEM);
 
 	switch (cmd) {
 
@@ -1181,7 +1337,7 @@ static void	*autofs_nowait_devfs;
  */
 struct nowait_process {
 	LIST_ENTRY(nowait_process) entries;
-	pid_t	pid;			/* PID of the nowait process */
+	int	pid;			/* PID of the nowait process */
 	int	minor;			/* minor device they opened */
 };
 
@@ -1350,7 +1506,7 @@ static lck_mtx_t *autofs_control_isopen_lock;
 
 static int
 auto_control_dev_open(__unused dev_t dev, __unused int oflags,
-    __unused int devtype, struct proc *p)
+    __unused int devtype, __unused struct proc *p)
 {
 	lck_mtx_lock(autofs_control_isopen_lock);
 	if (autofs_control_isopen) {
@@ -1376,16 +1532,26 @@ static int
 auto_control_ioctl(__unused dev_t dev, u_long cmd, caddr_t data,
     __unused int flag, proc_t p)
 {
+	struct autofs_globals *fngp;
 	int error;
-	struct autofs_update_args *update_argsp_32;
+	struct autofs_update_args_32 *update_argsp_32;
 	struct autofs_update_args_64 update_args;
 	mount_t mp;
 	fninfo_t *fnip;
 
+	lck_mtx_lock(autofs_global_lock);
+	if ((fngp = autofs_zone_get_globals()) == NULL) {
+		fngp = autofs_zone_init();
+		autofs_zone_set_globals(fngp);
+	}
+	lck_mtx_unlock(autofs_global_lock);
+	if (fngp == NULL)
+		return (ENOMEM);
+
 	switch (cmd) {
 
-	case AUTOFS_UPDATE_OPTIONS:
-		update_argsp_32 = (struct autofs_update_args *)data;
+	case AUTOFS_UPDATE_OPTIONS_32:
+		update_argsp_32 = (struct autofs_update_args_32 *)data;
 		update_args.fsid = update_argsp_32->fsid;
 		update_args.opts = CAST_USER_ADDR_T(update_argsp_32->opts);
 		update_args.map = CAST_USER_ADDR_T(update_argsp_32->map);
@@ -1393,11 +1559,12 @@ auto_control_ioctl(__unused dev_t dev, u_long cmd, caddr_t data,
 		update_args.mount_to = update_argsp_32->mount_to;
 		update_args.mach_to = update_argsp_32->mach_to;
 		update_args.direct = update_argsp_32->direct;
-		error = auto_update_options(&update_args);
+		error = auto_update_options(&update_args, proc_pid(p));
 		break;
 		
 	case AUTOFS_UPDATE_OPTIONS_64:
-		error = auto_update_options((struct autofs_update_args_64 *)data);
+		error = auto_update_options((struct autofs_update_args_64 *)data,
+		    proc_pid(p));
 		break;
 
 	case AUTOFS_NOTIFYCHANGE:
@@ -1519,7 +1686,7 @@ auto_control_ioctl(__unused dev_t dev, u_long cmd, caddr_t data,
  * Check whether this process is a automounter or an inferior of a automounter.
  */
 int
-auto_is_automounter(pid_t pid)
+auto_is_automounter(int pid)
 {
 	int is_automounter;
 
@@ -1534,7 +1701,7 @@ auto_is_automounter(pid_t pid)
  * Check whether this process is a nowait process.
  */
 int
-auto_is_nowait_process(pid_t pid)
+auto_is_nowait_process(int pid)
 {
 	struct nowait_process *nowait_process;
 
@@ -1553,7 +1720,7 @@ auto_is_nowait_process(pid_t pid)
  * Initialize the filesystem
  */
 __private_extern__ int
-auto_module_start(kmod_info_t *ki, void *data)
+auto_module_start(__unused kmod_info_t *ki, __unused void *data)
 {
 	errno_t error;
 
@@ -1562,32 +1729,32 @@ auto_module_start(kmod_info_t *ki, void *data)
 	 */
 	autofs_lck_grp = lck_grp_alloc_init("autofs", NULL);
 	if (autofs_lck_grp == NULL) {
-		log(LOG_ERR, "auto_module_start: Couldn't create autofs lock group\n");
+		IOLog("auto_module_start: Couldn't create autofs lock group\n");
 		goto fail;
 	}
 	autofs_global_lock = lck_mtx_alloc_init(autofs_lck_grp, LCK_ATTR_NULL);
 	if (autofs_global_lock == NULL) {
-		log(LOG_ERR, "auto_module_start: Couldn't create autofs global lock\n");
+		IOLog("auto_module_start: Couldn't create autofs global lock\n");
 		goto fail;
 	}
 	autofs_nodeid_lock = lck_mtx_alloc_init(autofs_lck_grp, LCK_ATTR_NULL);
 	if (autofs_nodeid_lock == NULL) {
-		log(LOG_ERR, "auto_module_start: Couldn't create autofs node ID lock\n");
+		IOLog("auto_module_start: Couldn't create autofs node ID lock\n");
 		goto fail;
 	}
 	autofs_automounter_pid_rwlock = lck_rw_alloc_init(autofs_lck_grp, NULL);
 	if (autofs_automounter_pid_rwlock == NULL) {
-		log(LOG_ERR, "auto_module_start: Couldn't create autofs automounter pid lock\n");
+		IOLog("auto_module_start: Couldn't create autofs automounter pid lock\n");
 		goto fail;
 	}
 	autofs_nowait_processes_rwlock = lck_rw_alloc_init(autofs_lck_grp, NULL);
 	if (autofs_nowait_processes_rwlock == NULL) {
-		log(LOG_ERR, "auto_module_start: Couldn't create autofs nowait_processes list lock\n");
+		IOLog("auto_module_start: Couldn't create autofs nowait_processes list lock\n");
 		goto fail;
 	}
 	autofs_control_isopen_lock = lck_mtx_alloc_init(autofs_lck_grp, LCK_ATTR_NULL);
 	if (autofs_control_isopen_lock == NULL) {
-		log(LOG_ERR, "auto_module_start: Couldn't create autofs control device lock\n");
+		IOLog("auto_module_start: Couldn't create autofs control device lock\n");
 		goto fail;
 	}
 	
@@ -1596,13 +1763,13 @@ auto_module_start(kmod_info_t *ki, void *data)
 	 */
 	autofs_major = cdevsw_add(-1, &autofs_cdevsw);
 	if (autofs_major == -1) {
-		log(LOG_ERR, "auto_module_start: cdevsw_add failed on autofs device\n");
+		IOLog("auto_module_start: cdevsw_add failed on autofs device\n");
 		goto fail;
 	}
 	autofs_devfs = devfs_make_node(makedev(autofs_major, 0),
 	    DEVFS_CHAR, UID_ROOT, GID_WHEEL, 0600, AUTOFS_DEVICE);
 	if (autofs_devfs == NULL) {
-		log(LOG_ERR, "auto_module_start: devfs_make_node failed on autofs device\n");
+		IOLog("auto_module_start: devfs_make_node failed on autofs device\n");
 		goto fail;
 	}
 	
@@ -1611,14 +1778,14 @@ auto_module_start(kmod_info_t *ki, void *data)
 	 */
 	autofs_nowait_major = cdevsw_add(-1, &autofs_nowait_cdevsw);
 	if (autofs_nowait_major == -1) {
-		log(LOG_ERR, "auto_module_start: cdevsw_add failed on autofs_nowait device\n");
+		IOLog("auto_module_start: cdevsw_add failed on autofs_nowait device\n");
 		goto fail;
 	}
 	autofs_nowait_devfs = devfs_make_node_clone(makedev(autofs_nowait_major, 0),
 	    DEVFS_CHAR, UID_ROOT, GID_WHEEL, 0666, autofs_nowait_dev_clone,
 	    AUTOFS_NOWAIT_DEVICE);
 	if (autofs_nowait_devfs == NULL) {
-		log(LOG_ERR, "auto_module_start: devfs_make_node failed on autofs nowait device\n");
+		IOLog("auto_module_start: devfs_make_node failed on autofs nowait device\n");
 		goto fail;
 	}
 
@@ -1627,13 +1794,13 @@ auto_module_start(kmod_info_t *ki, void *data)
 	 */
 	autofs_control_major = cdevsw_add(-1, &autofs_control_cdevsw);
 	if (autofs_control_major == -1) {
-		log(LOG_ERR, "auto_module_start: cdevsw_add failed on autofs control device\n");
+		IOLog("auto_module_start: cdevsw_add failed on autofs control device\n");
 		goto fail;
 	}
 	autofs_control_devfs = devfs_make_node(makedev(autofs_control_major, 0),
 	    DEVFS_CHAR, UID_ROOT, GID_WHEEL, 0600, AUTOFS_CONTROL_DEVICE);
 	if (autofs_control_devfs == NULL) {
-		log(LOG_ERR, "auto_module_start: devfs_make_node failed on autofs control device\n");
+		IOLog("auto_module_start: devfs_make_node failed on autofs control device\n");
 		goto fail;
 	}
 
@@ -1642,7 +1809,7 @@ auto_module_start(kmod_info_t *ki, void *data)
 	 */
 	error = vfs_fsadd(&autofs_fsentry, &auto_vfsconf);
 	if (error != 0) {
-		log(LOG_ERR, "auto_module_start: Error %d from vfs_fsadd\n",
+		IOLog("auto_module_start: Error %d from vfs_fsadd\n",
 		    error);
 		goto fail;
 	}
@@ -1684,8 +1851,9 @@ fail:
 }
 
 __private_extern__ int
-auto_module_stop(kmod_info_t *ki, void *data)
+auto_module_stop(__unused kmod_info_t *ki, __unused void *data)
 {
+	struct autofs_globals *fngp;
 	int error;
 	
 	lck_mtx_lock(autofs_global_lock);
@@ -1726,6 +1894,7 @@ auto_module_stop(kmod_info_t *ki, void *data)
 	}
 	AUTOFS_DPRINT((10, "auto_module_stop: removing autofs from vfs conf. list...\n"));
 
+	fngp = autofs_zone_get_globals();
 	if (fngp) {
 		assert(fngp->fng_fnnode_count == 1);
 		assert(fngp->fng_unmount_threads == 0);
@@ -1733,7 +1902,7 @@ auto_module_stop(kmod_info_t *ki, void *data)
 
 	error = vfs_fsremove(auto_vfsconf);
 	if (error) {
-		log(LOG_ERR, "auto_module_stop: Error %d from vfs_remove\n",
+		IOLog("auto_module_stop: Error %d from vfs_remove\n",
 		    error);
 		return (KERN_FAILURE);
 	}

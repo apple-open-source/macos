@@ -1,0 +1,489 @@
+# Commands covered:  ::dom::DOMimplementation parse
+#
+# This file contains a collection of tests for one or more of the 
+# TclDOM commands.  Sourcing this file into Tcl runs the tests and
+# generates output for errors.  No output means no errors were found.
+#
+# Copyright (c) 1998-2003 Zveno Pty Ltd.
+#
+# $Id: parse.test,v 1.8 2003/01/26 04:35:15 balls Exp $
+
+package require tcltest ; namespace import -force ::tcltest::*
+source testutils.tcl
+testPackage dom
+
+testConstraint sa [file exists $::tcltest::testsDirectory/sa]
+
+# checkTree --
+#
+#	Checks a DOM tree structure against an expected tree
+#	structure, given as a nested Tcl list.
+#
+# Arguments:
+#	token	DOM node token of document
+#	s	structure given as nested Tcl list
+#
+# Results:
+#	Returns 1 if structure matches, 0 otherwise
+
+proc checkTree {token s} {
+    return 1
+}
+
+proc readUtfOrUnicode {name} {
+    set f [open $name r]
+    fconfigure $f -encoding binary
+    set prefix [read $f 2]
+    seek $f 0 start
+    if {[string equal $prefix \u00ff\u00fe]} {
+	fconfigure $f -encoding identity
+    } else {
+	fconfigure $f -encoding utf-8
+    }
+    set xml [read $f]
+    close $f
+    return $xml
+}	
+
+proc readBinary {name} {
+    set f [open $name r]
+    fconfigure $f -encoding binary
+    set data [read $f]
+    close $f
+    return $data
+}
+
+proc makeUnicode {data} {
+    return [encoding convertfrom identity [encoding convertto unicode $data]]
+}
+
+test parse-1.1 {single element document} -body {
+    set result [::dom::DOMImplementation parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test></Test>}]
+    checkTree $result {
+	{pi xml}
+	{pi DOCTYPE}
+	{element Test {} {}}
+    }
+} -result 1
+test parse-1.2 {nested element document} -body {
+    set result [::dom::DOMImplementation parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test><Nested><Deeper></Deeper></Nested><Nested></Nested></Test>}]
+    checkTree $result {
+	{pi xml}
+	{pi DOCTYPE}
+	{element Test {} {
+	    {element Nested {} {
+		{element Deeper {} {}}
+	    }}
+	    {element Nested {} {}}
+	}
+    }
+	{element Test {} {}}
+    }
+} -result 1
+test parse-1.3 {elements with attributes} -body {
+    set result [::dom::DOMImplementation parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test><Nested depth="1"><Nested depth="2"></Nested></Nested></Test>}]
+    checkTree $result {
+	{pi xml}
+	{pi DOCTYPE}
+	{element Test {} {
+	    {element Nested {depth 1} {
+		{element Nested {depth 2} {}}
+	    }}
+	}
+    }
+}
+} -result 1
+test parse-1.4 {elements with text content} -body {
+    set result [::dom::DOMImplementation parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test><Nested><Deeper>Inside Deeper</Deeper></Nested><Nested>Second Nested</Nested></Test>}]
+    checkTree $result {
+	{pi xml}
+	{pi DOCTYPE}
+	{element Test {} {
+	    {element Nested {} {
+		{element Deeper {} {
+		    {text {Inside Deeper}}
+		}}
+	    }}
+	    {element Nested {} {
+		{text {Second Nested}}
+	    }}
+	}
+    }
+	{element Test {} {}}
+    }
+} -result 1
+
+test parse-1.5 {incremental parse} -constraints {!dom_libxml2} -body {
+    set part1 {<?xml version="1.0"?>}
+    set part2 {<!DOCTYPE Test><Test></Test>}
+    set result1 [catch {::dom::DOMImplementation parse $part1 -final 0} m1]
+    set result2 [catch {::dom::DOMImplementation parse $part2 -final 1} m2]
+    catch {::dom::DOMImplementation destroy $m2}
+    list $result1 $result2
+} -result {0 0}
+
+test parse-1.6 {incremental parse -- parsingComplete flag} -constraints {dom_c} -body {
+    set part1 {<?xml version="1.0"?><Test><A>abc</A><B>def</B>xyz}
+    set part2 {</Test>}
+
+    # parse xml that contains <A>...</A>
+    set doc [::dom::DOMImplementation parse $part1 -final 0]
+    set top [::dom::node cget $doc -firstChild]
+    set child [::dom::node cget $top -firstChild]
+    set textNode [::dom::node cget $child -lastChild]
+    set value [::dom::node cget $child -nodeName]
+
+    # get completion flags for first chunk of xml
+    set flag1 [::dom::node cget $top -parsingComplete]
+    set flag2 [::dom::node cget $child -parsingComplete]
+    set flag3 [::dom::node cget $textNode -parsingComplete]
+
+    # parse rest of xml -- close tag for top node
+    ::dom::DOMImplementation parse $part2 -final 1
+
+    # get completion flags for completely parsed xml
+    set flag4 [::dom::node cget $top -parsingComplete]
+    set flag5 [::dom::node cget $child -parsingComplete]
+    set flag6 [::dom::node cget $textNode -parsingComplete]
+
+    ::dom::DOMImplementation destroy $doc
+    list $flag1 $flag2 $flag3 $flag4 $flag5 $flag6
+} -result {0 1 1 1 1 1}
+
+
+
+test parse-2.1 {expat test suite; tests UTF-16 compliance} -constraints {sa} -body {
+    set compositeResult 0
+    foreach fname [glob $::tcltest::testsDirectory/sa/*.xml] {
+	set xml [readUtfOrUnicode $fname]
+	set result [catch {::dom::DOMImplementation parse $xml} doc]
+	if {$result == 0} {
+	    ::dom::DOMImplementation destroy $doc
+	} else {
+	    if {$compositeResult == 0} {
+		set compositeResult ""
+	    }
+	    lappend compositeResult [file tail $fname]
+	}
+    }
+    set compositeResult 
+} -result {0}
+
+test parse-2.2 {expat test suite with incrmental parsing} -constraints {sa} -body {
+    set compositeResult 0
+    foreach fname [glob $::tcltest::testsDirectory/sa/*.xml] {
+	set xml [readUtfOrUnicode $fname]
+	set xml1 [string range $xml 0 10]
+	set xml2 [string range $xml 11 end]
+	catch {::dom::DOMImplementation parse $xml1 -final 0}
+	set result [catch {::dom::DOMImplementation parse $xml2 -final 1} doc]
+	if {$result == 0} {
+	    ::dom::DOMImplementation destroy $doc
+	} else {
+	    if {$compositeResult == 0} {
+		set compositeResult ""
+	    }
+	    lappend compositeResult [file tail $fname]
+	}
+    }
+    set compositeResult 
+} -result {0}
+
+test parse-2.3 {expat test suite with incremental parsing errors} -constraints {sa} -body {
+    set count 0
+    set passCount 0
+    foreach fname [glob $::tcltest::testsDirectory/sa/*.xml] {
+	set xml [readUtfOrUnicode $fname]
+	set xml1 [string range $xml 0 10]
+	set xml2 [string range $xml 11 end]
+	catch {::dom::DOMImplementation parse $xml1 -final 0}
+	# intentionally bad xml -- all parsing should fail
+	set result [catch {::dom::DOMImplementation parse $xml1 -final 1} doc]
+	if {$result == 0} {
+	    ::dom::DOMImplementation destroy $doc
+	    incr passCount
+	} else {
+	    incr count
+	}
+    }
+    list $count $passCount	
+} -result {119 0}
+
+test parse-2.4 {incremental parsing errors -- error on first parse} -constraints {sa} -body {
+    set count 0
+    set passCount 0
+    foreach fname [glob $::tcltest::testsDirectory/sa/*.xml] {
+	set xml [readUtfOrUnicode $fname]
+	set xml1 [string range $xml 0 10]
+	set xml2 [string range $xml 11 end]
+	set result [catch {::dom::DOMImplementation parse xx${xml1} -final 0}]
+	if {$result == 1} {
+	    incr count
+	    continue
+	}
+	# intentionally bad xml -- all parsing should fail
+	set result [catch {::dom::DOMImplementation parse $xml2 -final 1} doc]
+	if {$result == 0} {
+	    ::dom::DOMImplementation destroy $doc
+	    incr passCount
+	} else {
+	    incr count
+	}
+    }
+    list $count $passCount	
+} -result {119 0}
+
+test parse-3.1 {parse error reporting} -constraints {!dom_libxml2} -body {
+    set result [catch {::dom::DOMImplementation parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test>
+<A>
+<B>
+Here is some text
+</A>
+</B>
+</Test>}} msg]
+	list $result $msg
+} -result {1 {error "mismatched tag" at line 7 character 2; at "A>" within "e text</A>
+</B><"}}
+test parse-3.1 {parse error reporting} -constraints {dom_libxml2} -body {
+    set result [catch {::dom::DOMImplementation parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test>
+<A>
+<B>
+Here is some text
+</A>
+</B>
+</Test>}} msg]
+	list $result $msg
+} -result {1 {Entity: line 7: error: Opening and ending tag mismatch: B and A
+</A>
+   ^
+Entity: line 8: error: Opening and ending tag mismatch: A and B
+</B>
+   ^
+}}
+
+test parse-3.2 {parse error reporting; error at char pos 0} -constraints {!dom_libxml2} -body {
+    set result [catch {::dom::DOMImplementation parse {>?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test>
+<A>
+<B>
+Here is some text
+</B>
+</A>
+</Test>}} msg]
+	list $result $msg
+} -result {1 {error "syntax error" at line 1 character 0}}
+test parse-3.2 {parse error reporting; error at char pos 0} -constraints {dom_libxml2} -body {
+    set result [catch {::dom::DOMImplementation parse {>?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test>
+<A>
+<B>
+Here is some text
+</B>
+</A>
+</Test>}} msg]
+	list $result $msg
+} -result {1 {Entity: line 1: error: Start tag expected, '<' not found
+>?xml version="1.0"?>
+^
+}}
+
+test parse-3.3 {parse error reporting -- error at last char} -constraints {!dom_libxml2} -body {
+    expectError {
+    	::dom::DOMImplementation parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test>
+<A>
+<B>
+Here is some text
+</B>
+</A>
+</Test<}
+} {error "not well-formed*}
+    ok
+} -result {}
+test parse-3.3 {parse error reporting -- error at last char} -constraints {dom_libxml2} -body {
+    expectError {
+    	::dom::DOMImplementation parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test>
+<A>
+<B>
+Here is some text
+</B>
+</A>
+</Test<}
+} {Entity: line 9: error: *}
+    ok
+} -result {}
+
+test parse-3.4 {parse error reporting -- UNICODE source} -constraints {sa} -body {
+    set fname $::tcltest::testsDirectory/sa/049.xml
+    set xml [readBinary $fname]
+    set part1 [string range $xml 0 9]
+    set part2 [string range $xml 10 end]
+    set badXML [encoding convertfrom identity $part1]
+    if {$tcl_platform(byteOrder) == "littleEndian"} {
+	append badXML [makeUnicode "<Z>"]
+    } else {
+	append badXML [makeUnicode "\u3c00\u5a00\u3e00"]
+    }
+    append badXML [encoding convertfrom identity $part2]
+    expectError {
+    	::dom::DOMImplementation parse $badXML
+    } {error "not well-formed*}
+    ok
+} -result {}
+
+test parse-3.5 {parse error reporting, UTF-16 source, error at first char} -constraints {sa} -body {
+    set fname $::tcltest::testsDirectory/sa/049.xml
+    set xml [readBinary $fname]
+    set badXML [encoding convertfrom identity [string range $xml 0 1]]
+    if {$tcl_platform(byteOrder) == "littleEndian"} {
+	append badXML [makeUnicode ">"]
+    } else {
+	append badXML [makeUnicode "\u3e00"]
+    }
+    append badXML [encoding convertfrom identity [string range $xml 2 end]]
+    set result [catch {::dom::DOMImplementation parse $badXML} msg]
+    list $result $msg
+} -result {1 {error "syntax error" at line 1 character 1; at "><!DOCTY"}}
+
+test parse-3.6 {parse error reporting, UTF-16 source, error at last char} -constraints {sa} -body {
+    set fname $::tcltest::testsDirectory/sa/049.xml
+    set xml [readBinary $fname]
+    set badXML [encoding convertfrom identity [string range $xml 0 end-4]]
+    if {$tcl_platform(byteOrder) == "littleEndian"} {
+	append badXML [makeUnicode "Z"]
+    } else {
+	append badXML [makeUnicode "\u5a00"]
+    }
+    set result [catch {::dom::DOMImplementation parse $badXML} msg]
+    list $result $msg
+} -result {1 {error "junk after document element" at line 7 character 12; at "Z" within ">£</doc>Z"}}
+
+test parse-3.8 {parse error reporting, UTF-16 source, error is CR} -constraints {sa} -body {
+    set fname $::tcltest::testsDirectory/sa/049.xml
+    set xml [readBinary $fname]
+    set badXML [encoding convertfrom identity [string range $xml 0 9]]
+    set part2 [string range $xml 10 end]
+    if {$tcl_platform(byteOrder) == "littleEndian"} {
+	append badXML [makeUnicode "\n"]
+    } else {
+	append badXML [makeUnicode "\u0a00"]
+    }
+    append badXML [encoding convertfrom identity $part2]
+    set result [catch {::dom::DOMImplementation parse $badXML} msg]
+    list $result $msg
+} -result {1 {error "syntax error" at line 1 character 1; at "<!DO" within "<!DO
+CTY"}}
+
+test parse-3.9 {parse error reporting; UTF-8 source, error is CR} -constraints {!dom_libxml2} -body {
+    set result [catch {::dom::DOMImplementation parse {<?xml version="1.0"?>
+<!DO
+CTYPE Test>
+<Test>
+<A>
+<B>
+Here is some text
+</B>
+</A>
+</Test>}} msg]
+	list $result $msg
+} -result {1 {error "syntax error" at line 2 character 0; at "<!DO" within "="1.0"?><!DO
+CTY"}}
+test parse-3.9 {parse error reporting; UTF-8 source, error is CR} -constraints {dom_libxml2} -body {
+    set result [catch {::dom::DOMImplementation parse {<?xml version="1.0"?>
+<!DO
+CTYPE Test>
+<Test>
+<A>
+<B>
+Here is some text
+</B>
+</A>
+</Test>}} msg]
+	list $result $msg
+} -result {1 {Entity: line 2: error: xmlParseStartTag: invalid element name
+<!DO
+ ^
+Entity: line 2: error: Extra content at the end of the document
+<!DO
+ ^
+}}
+
+test parse-4.1 {white space trimming} -constraints {!dom_libxml2} -body {
+    set part1 {<?xml version="1.0"?>
+    <Test>
+    <A>  abc  </A>
+    <B>
+    def
+    </B>
+    xyz}
+    set part2 {
+	</Test>}
+
+    # parse xml that contains <A>...</A>
+    set doc [::dom::DOMImplementation parse $part1 -final 0 -trim]
+    # parse rest of xml -- close tag for top node
+    ::dom::DOMImplementation parse $part2 -final 1 -trim
+    set result [::dom::DOMImplementation serialize $doc]
+    ::dom::DOMImplementation destroy $doc
+    set result
+} -result {<?xml version='1.0'?>
+<!DOCTYPE Test>
+<Test><A>  abc  </A><B>
+    def
+    </B>
+    xyz
+	</Test>}
+
+
+#
+# Test processing instruction parsing.
+#
+set piparse_text "<test><?PITGT processing instruction data?></test>"
+test piparse-1.0 {Processing instruction parsing} -body {
+    set doc  [dom::DOMImplementation parse $piparse_text]
+    set root [dom::document cget $doc -documentElement]
+    dom::node cget $root -nodeName
+} -result {test}
+
+test piparse-1.1 {PI present} -body {
+    set children [dom::node children $root]
+    set pinode [lindex $children 0]
+    llength $children
+} -result {1}
+
+test piparse-1.2 {PI right type} -body {
+    dom::node cget $pinode -nodeType
+} -result {processingInstruction}
+
+test piparse-1.3 {PI node name} -body {
+    dom::node cget $pinode -nodeName
+} -result {PITGT}
+
+test piparse-1.4 {PI node value} -body {
+    dom::node cget $pinode -nodeValue
+} -result {processing instruction data}
+
+test piparse-1.5 {PI serialization} -constraints {!dom_libxml2} -body {
+    dom::DOMImplementation serialize $root
+} -result $piparse_text
+
+# cleanup
+::tcltest::cleanupTests
+return

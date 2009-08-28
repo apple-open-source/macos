@@ -180,9 +180,9 @@ __private_extern__ enum bool dead_strip_times;
  * remove_symbols is the names of the symbols from -unexported_symbols_list
  */
 __private_extern__ struct symbol_list *save_symbols;
-__private_extern__ unsigned long nsave_symbols;
+__private_extern__ uint32_t nsave_symbols;
 __private_extern__ struct symbol_list *remove_symbols;
-__private_extern__ unsigned long nremove_symbols;
+__private_extern__ uint32_t nremove_symbols;
 
 /*
  * -executable_path option's argument, executable_path is used to replace
@@ -286,8 +286,8 @@ __private_extern__ char *init_name;
 
 /* The dylib information */
 __private_extern__ char *dylib_install_name;
-__private_extern__ unsigned long dylib_current_version;
-__private_extern__ unsigned long dylib_compatibility_version;
+__private_extern__ uint32_t dylib_current_version;
+__private_extern__ uint32_t dylib_compatibility_version;
 
 /* the umbrella/sub framework information */
 __private_extern__ enum bool sub_framework;

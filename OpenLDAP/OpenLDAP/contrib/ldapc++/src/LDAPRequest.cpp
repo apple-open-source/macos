@@ -1,3 +1,4 @@
+// $OpenLDAP: pkg/ldap/contrib/ldapc++/src/LDAPRequest.cpp,v 1.3.10.3 2008/04/14 23:09:26 quanah Exp $
 /*
  * Copyright 2000, OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
@@ -45,6 +46,36 @@ LDAPRequest::LDAPRequest(LDAPAsynConnection* con,
 LDAPRequest::~LDAPRequest(){
     DEBUG(LDAP_DEBUG_DESTROY,"LDAPRequest::~LDAPRequest()" << endl);
     delete m_cons;
+}
+
+LDAPMsg* LDAPRequest::getNextMessage() const 
+{
+    DEBUG(LDAP_DEBUG_DESTROY,"LDAPRequest::getNextMessage()" << endl);
+    int res;
+    LDAPMessage *msg;
+
+    res=ldap_result(this->m_connection->getSessionHandle(),
+            this->m_msgID,0,0,&msg);
+
+    if (res <= 0){
+        if(msg != 0){
+            ldap_msgfree(msg);
+        }
+        throw  LDAPException(this->m_connection);
+    }else{	
+        LDAPMsg *ret=0;
+        //this can  throw an exception (Decoding Error)
+        ret = LDAPMsg::create(this,msg);
+        ldap_msgfree(msg);
+        return ret;
+    }
+}
+
+LDAPRequest* LDAPRequest::followReferral(LDAPMsg* /*urls*/){
+    DEBUG(LDAP_DEBUG_TRACE,"LDAPBindRequest::followReferral()" << endl);
+    DEBUG(LDAP_DEBUG_TRACE,
+            "ReferralChasing not implemented for this operation" << endl);
+    return 0;
 }
 
 const LDAPConstraints* LDAPRequest::getConstraints() const{

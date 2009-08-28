@@ -88,9 +88,9 @@ static int radius_chap_auth_unknown(char *name, char *ourname, int code, int id,
 			unsigned char *message, int message_space);
 static int radius_ip_allowed_address(u_int32_t addr);
 static void radius_ip_choose(u_int32_t *addr);
-static void radius_ip_up(void *arg, int p);
-static void radius_ip_down(void *arg, int p);
-static void radius_system_inited(void *param, int code);
+static void radius_ip_up(void *arg, uintptr_t p);
+static void radius_ip_down(void *arg, uintptr_t p);
+static void radius_system_inited(void *param, uintptr_t code);
 static int read_keychainsecret(char *service, char *account, char **password);
 
 /* ------------------------------------------------------------------------------------
@@ -270,11 +270,9 @@ void makestr(CFDictionaryRef dict, const void *key, char **value, char *defaultv
 	}
 	else if (defaultval) {
 		len = strlen(defaultval) + 1;
-		if (!str)
+		*value = strdup(defaultval);
+		if (*value == NULL)
 			novm(errorstr);
-
-		strcpy(str, defaultval);
-		*value = str;
 	}
 
 }
@@ -295,7 +293,7 @@ void makeint(CFDictionaryRef dict, const void *key, int *value, int defaultval) 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 static 
-void radius_system_inited(void *param, int code)
+void radius_system_inited(void *param, uintptr_t code)
 {
 	CFStringRef	strRef;
 	CFArrayRef	serversArray, authArray;
@@ -437,15 +435,13 @@ void radius_system_inited(void *param, int code)
 		}
 
 		// build servers array
-		auth_servers[0]->address = malloc(strlen(pri_auth_server) + 1);
+		auth_servers[0]->address = strdup(pri_auth_server);
 		if (!auth_servers[0]->address)
 			novm("Radus: Cannot allocate memory for server address.\n");
-		strcpy(auth_servers[0]->address, pri_auth_server);
 		if (pri_auth_secret) {
-			auth_servers[0]->secret = malloc(strlen(pri_auth_secret) + 1);
+			auth_servers[0]->secret = strdup(pri_auth_secret);
 			if (!auth_servers[0]->secret)
 				novm("Radus: Cannot allocate memory for server secret.\n");
-			strcpy(auth_servers[0]->secret, pri_auth_secret);
 		}
 		auth_servers[0]->port = pri_auth_port;
 		auth_servers[0]->timeout = pri_auth_timeout;
@@ -458,15 +454,13 @@ void radius_system_inited(void *param, int code)
 		installEAP = use_eap_proxy;
 		
 		if (sec_auth_server) {
-			auth_servers[1]->address = malloc(strlen(sec_auth_server) + 1);
+			auth_servers[1]->address = strdup(sec_auth_server);
 			if (!auth_servers[1]->address)
 				novm("Radus: Cannot allocate memory for server address.\n");
-			strcpy(auth_servers[1]->address, sec_auth_server);
 			if (sec_auth_secret) {
-				auth_servers[1]->secret = malloc(strlen(sec_auth_secret) + 1);
+				auth_servers[1]->secret = strdup(sec_auth_secret);
 				if (!auth_servers[1]->secret)
 					novm("Radus: Cannot allocate memory for server secret.\n");
-				strcpy(auth_servers[1]->secret, sec_auth_secret);
 			}
 			auth_servers[1]->port = sec_auth_port;
 			auth_servers[1]->timeout = sec_auth_timeout;
@@ -626,7 +620,7 @@ int radius_authenticate_user(char *user, char *passwd, int type,
 	if (nas_identifier == NULL && nas_ip_address == NULL) {
 		char hostname[256];
 		if (gethostname(hostname, sizeof(hostname)) < 0 )
-			strcpy(hostname, "Apple");
+			strlcpy(hostname, "Apple", sizeof(hostname));
 		hostname[255] = 0;
 		rad_put_string(h, RAD_NAS_IDENTIFIER, hostname);
 	}
@@ -728,6 +722,7 @@ int radius_authenticate_user(char *user, char *passwd, int type,
 										else
 											error("Radius: rad-mschapv2-mppe-send-key:  could not get authenticator!\n");										
 										break;
+										
 									case RAD_MICROSOFT_MS_MPPE_RECV_KEY:
 										len = rad_request_authenticator(h, auth, sizeof(auth));
 										
@@ -926,7 +921,7 @@ radius_ip_choose(u_int32_t* addr)
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 static 
-void radius_ip_up(void *arg, int p)
+void radius_ip_up(void *arg, uintptr_t p)
 {
     // need to implement accounting
 
@@ -935,7 +930,7 @@ void radius_ip_up(void *arg, int p)
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 static
-void radius_ip_down(void *arg, int p)
+void radius_ip_down(void *arg, uintptr_t p)
 {
     // need to implement accounting
 }
@@ -949,7 +944,7 @@ radius_decryptmppekey(char *key, u_int8_t *attr_value, size_t attr_len, char *se
     u_char  plain[32];
     u_char  buf[16];
     MD5_CTX ctx;
-	
+			
     memcpy(plain, attr_value + 2, sizeof(plain)); /* key string */
 
     MD5_Init(&ctx);

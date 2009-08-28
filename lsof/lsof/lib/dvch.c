@@ -37,7 +37,7 @@
 # if	!defined(lint)
 static char copyright[] =
 "@(#) Copyright 1997 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: dvch.c,v 1.15 2005/08/08 19:39:42 abe Exp $";
+static char *rcsid = "$Id: dvch.c,v 1.16 2008/10/21 16:12:36 abe Exp $";
 # endif	/* !defined(lint) */
 
 #include "../lsof.h"
@@ -1409,5 +1409,5 @@ wr2DCfd(b, c)
 	return(0);
 }
 #else	/* !defined(HASDCACHE) */
-static char d1[] = "d"; static char *d2 = d1;
+char dvch_d1[] = "d"; char *dvch_d2 = dvch_d1;
 #endif	/* defined(HASDCACHE) */

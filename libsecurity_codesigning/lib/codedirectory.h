@@ -72,6 +72,13 @@ enum {
 // indices. This enumeration is also used widely in various internal APIs, and as
 // type values in embedded SuperBlobs.
 //
+// How to add a slot code:
+//	1. Add the new name into the primary or virtual slot array at the end (below).
+//	2a. For slots representing existing code pieces, follow the ball for cdInfoSlot.
+//	2b. For slots representing global signature components, follow the ball for cdResourceDirSlot.
+//	2c. For slots representing per-architecture signature components, follow the ball for cdEntitlementSlot.
+// ("Follow the ball" -> Global search for that name and do likewise.)
+//
 enum {
 	//
 	// Primary slot numbers.
@@ -88,12 +95,12 @@ enum {
 	// (add further primary slot numbers here)
 
 	cdSlotCount,						// total number of special slots (+1 for slot 0)
-	cdSlotMax = cdSlotCount - 1,		// highest special slot number
+	cdSlotMax = cdSlotCount - 1,		// highest special slot number (as a positive number)
 	
 	//
 	// Virtual slot numbers.
 	// These values are NOT used in the CodeDirectory hash array. The are used as
-	// internal API identifiers and as types in in-image SuperBlobs.
+	// internal API identifiers and as types in SuperBlobs.
 	// Zero is okay to use here; and we assign that to the CodeDirectory itself so
 	// it shows up first in (properly sorted) SuperBlob indices. The rest of the
 	// numbers is set Far Away so the primary slot set can expand safely.
@@ -101,6 +108,7 @@ enum {
 	//
 	cdCodeDirectorySlot = 0,			// CodeDirectory
 	cdSignatureSlot = 0x10000,			// CMS signature
+	cdIdentificationSlot,				// identification blob
 	// (add further virtual slot numbers here)
 };
 
@@ -130,12 +138,12 @@ enum {
 // an error. (Thus the range of special slots can be extended at will.)
 //
 // HOW TO MANAGE COMPATIBILITY:
-// Each CodeDirectory has a format (compatibility) version. Three constants control
+// Each CodeDirectory has a format (compatibility) version. Two constants control
 // versioning:
 //	* currentVersion is the version used for newly created CodeDirectories.
 //  * compatibilityLimit is the highest version the code will accept as compatible.
 // Test for version < currentVersion to detect old formats that may need special
-// handling. The current code rejects those; add backward cases to checkVersion().
+// handling. The current code rejects those; add backward cases to checkValidity().
 // Break backward compatibility by rejecting versions that are unsuitable.
 // Accept currentVersion < version <= compatibilityLimit as versions newer than
 // those understood by this code but engineered (by newer code) to be backward
@@ -144,8 +152,9 @@ enum {
 // When creating a new version, increment currentVersion. When adding new fixed fields,
 // just append them; the flex fields will shift to make room. To add new flex fields,
 // add a fixed field containing the new field's offset and add suitable computations
-// to the Builder to place the new data (right) before the hash array. Older code will
-// then simply ignore your new fields on load/read.
+// to the Builder to place the new data (right) before the hash array. Remember to check
+// for offset in-range in checkIntegrity(). Older code will then simply ignore your
+// new fields on load/read.
 // Add flag bits to the existing flags field to add features that step outside
 // of the linear versioning stream. Leave the 'spare' fields alone unless you need
 // something extraordinarily weird - they're meant to be the final escape when everything
@@ -170,12 +179,16 @@ public:
 	uint8_t spare1;					// unused (must be zero)
 	uint8_t	pageSize;				// log2(page size in bytes); 0 => infinite
 	Endian<uint32_t> spare2;		// unused (must be zero)
+	Endian<uint32_t> scatterOffset;	// offset of optional scatter vector
 	
 	// works with the version field; see comments above
-	static const uint32_t currentVersion = 0x20001;		// "version 2"
+	static const uint32_t currentVersion = 0x20100;		// "version 2.1"
 	static const uint32_t compatibilityLimit = 0x2F000;	// "version 3 with wiggle room"
 	
-	void checkVersion() const;		// throws if not compatible with this code
+	static const uint32_t earliestVersion = 0x20001;	// earliest supported version
+	static const uint32_t supportsScatter = 0x20100;	// first version to support scatter option
+	
+	void checkIntegrity() const;	// throws if inconsistent or unsupported version
 
 	typedef int Slot;				// slot index (negative for special slots)
 	typedef unsigned int SpecialSlot; // positive special slot index (not for code slots)
@@ -195,6 +208,18 @@ public:
 		return at<unsigned char>(hashOffset) + hashSize * slot;
 	}
 	
+	struct Scatter {
+		Endian<uint32_t> count;			// number of pages; zero for sentinel (only)
+		Endian<uint32_t> base;			// first page number
+		Endian<uint64_t> targetOffset;	// offset in target
+		Endian<uint64_t> spare;			// reserved
+	};
+	Scatter *scatterVector()	// first scatter vector element (NULL if none)
+		{ return (version >= supportsScatter && scatterOffset) ? at<Scatter>(scatterOffset) : NULL; }
+	const Scatter *scatterVector() const
+		{ return (version >= supportsScatter && scatterOffset) ? at<const Scatter>(scatterOffset) : NULL; }
+	
+public:
 	bool validateSlot(const void *data, size_t size, Slot slot) const;
 	bool validateSlot(UnixPlusPlus::FileDesc fd, size_t size, Slot slot) const;
 	bool slotIsPresent(Slot slot) const;
@@ -212,19 +237,6 @@ public:
 	static const char *canonicalSlotName(SpecialSlot slot);
 	static unsigned slotAttributes(SpecialSlot slot);
 	IFDEBUG(static const char * const debugSlotName[]);
-	
-public:
-	//
-	// Canonical text forms for (only) the user-settable flags
-	//
-	struct FlagItem {
-		const char *name;
-		uint32_t value;
-		bool external;
-	};
-	static const FlagItem flagItems[];	// terminated with NULL item
-
-	static uint32_t textFlags(std::string text);
 };
 
 

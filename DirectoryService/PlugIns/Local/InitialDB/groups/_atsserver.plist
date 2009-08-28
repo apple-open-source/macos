@@ -19,5 +19,9 @@
 	<array>
 		<string>*</string>
 	</array>
+	<key>realname</key>
+	<array>
+		<string>ATS Server</string>
+	</array>
 </dict>
 </plist>

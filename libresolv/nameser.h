@@ -56,8 +56,8 @@
 #define _NAMESER_9_H_
 
 #ifdef BIND_8_COMPAT
-#include <arpa/nameser8_compat.h>
-#else
+#include <arpa/nameser_compat.h>
+#endif
 
 #include <sys/param.h>
 #if (!defined(BSD)) || (BSD < 199306)
@@ -584,5 +584,4 @@ int		ns_makecanon __P((const char *, char *, size_t));
 int		ns_samename __P((const char *, const char *));
 __END_DECLS
 
-#endif /* !BIND_8_COMPAT */
 #endif /* !_NAMESER_9_H_ */

@@ -1,0 +1,158 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+<link rel="STYLESHEET" href="mailman-member-es.css" type='text/css' />
+<link rel="first" href="mailman-member-es.html" title='GNU&nbsp;Mailman Manual&nbsp;del&nbsp;Suscriptor&nbsp;de&nbsp;Listas' />
+<link rel='contents' href='contents.html' title="Contents" />
+<link rel='last' href='about.html' title='About this document...' />
+<link rel='help' href='about.html' title='About this document...' />
+<link rel="next" href="node17.html" />
+<link rel="prev" href="node15.html" />
+<link rel="parent" href="node15.html" />
+<link rel="next" href="node17.html" />
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<meta name='aesop' content='information' />
+<title>6.1 ¿Cómo obtengo mi contraseña?</title>
+</head>
+<body>
+<div class="navigation">
+<div id='top-navigation-panel' xml:id='top-navigation-panel'>
+<table align="center" width="100%" cellpadding="0" cellspacing="2">
+<tr>
+<td class='online-navigation'><a rel="prev" title="6 Contraseñas"
+  href="node15.html"><img src='previous.png'
+  border='0' height='32'  alt='Previous Page' width='32' /></a></td>
+<td class='online-navigation'><a rel="parent" title="6 Contraseñas"
+  href="node15.html"><img src='up.png'
+  border='0' height='32'  alt='Up one Level' width='32' /></a></td>
+<td class='online-navigation'><a rel="next" title="6.2 ¿Cómo cambio mi"
+  href="node17.html"><img src='next.png'
+  border='0' height='32'  alt='Next Page' width='32' /></a></td>
+<td align="center" width="100%">GNU&nbsp;Mailman Manual&nbsp;del&nbsp;Suscriptor&nbsp;de&nbsp;Listas</td>
+<td class='online-navigation'><a rel="contents" title="Table of Contents"
+  href="contents.html"><img src='contents.png'
+  border='0' height='32'  alt='Contents' width='32' /></a></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+</tr></table>
+<div class='online-navigation'>
+<b class="navlabel">Previous:</b>
+<a class="sectref" rel="prev" href="node15.html">6 Contraseñas</a>
+<b class="navlabel">Up:</b>
+<a class="sectref" rel="parent" href="node15.html">6 Contraseñas</a>
+<b class="navlabel">Next:</b>
+<a class="sectref" rel="next" href="node17.html">6.2 ¿Cómo cambio mi</a>
+</div>
+<hr /></div>
+</div>
+<!--End of Navigation Panel-->
+
+<h2><a name="SECTION002610000000000000000"></a><a name="sec:getpassword"></a>
+<br>
+6.1 ¿Cómo obtengo mi contraseña?
+</h2>
+Si usted ha olvidado su contraseña y no ha grabado el mensaje de bienvenida o
+cualquier mensaje recordatorio, usted siempre puede obtener un recordatorio a
+través del interfaz web:
+
+<p>
+
+<ol>
+<li>Vaya a la página de información de la lista de la cual usted desea
+	obtener su contraseña (esta probablemente será similar a
+	<a class="url" href="http://SERVIDORWEB/mailman/listinfo/NOMBRELISTA">http://SERVIDORWEB/mailman/listinfo/NOMBRELISTA</a>).
+</li>
+<li>Ubique la sección identificada como ``Suscriptores de NOMBRELISTA''
+	(esta sección usualmente se encuentra cerca de la parte inferior de la
+	página).
+</li>
+<li>Debería haber un botón etiquetado ``Desuscribir o Editar Opciones.''
+	Introduzca su dirección de correo electrónico en el cuadro de texto que se
+	encuentra junto a ese botón y haga clic en él.
+</li>
+<li>Usted debería observar en pantalla una nueva página que tiene una
+	sección identificada como ``Recordatorio de Contraseña''.  Haga clic en el
+	botón ``Recordar'' para hacer que se le envíe su contraseña por correo
+	electrónico.
+</li>
+</ol>
+
+<p>
+Si usted no recibe el recordatorio de contraseña por correo electrónico después
+de hacer esto, asegúrese de haber escrito correctamente su dirección de correo
+electrónico y que la dirección que utilizó está, efectivamente, realmente
+suscrita a la lista.  Por razones de seguridad, Mailman genera la misma página
+de opciones de suscriptor independientemente de si la dirección entrada está o
+no suscrita.  Esto significa que la gente no puede usar esta parte del interfaz
+web para averiguar si alguien está suscrito a la lista, pero también significa
+que es difícil decir si usted solamente cometió un error al teclear.
+
+<p>
+Usted también puede obtener un recordatorio utilizando el interfaz de correo
+electrónico:
+
+<ol>
+<li>Envíe un correo a <span class="email">NOMBRELISTA-request@DOMINIO</span> con la orden
+	<var>password</var>
+
+<p>
+Los comandos pueden aparecer ya sea en el cuerpo o en la línea de asunto
+	del mensaje (mire en la Sección&nbsp;<a href="node10.html#sec:email">3.2</a> mayor información sobre
+	envío de órdenes de correo).
+
+<p>
+Si usted no está enviando correo desde la dirección suscrita, también
+	puede especificar esta dirección enviando la orden
+	<var>password&nbsp;address=<span class="MATH"><IMG
+ WIDTH="16" HEIGHT="31" ALIGN="MIDDLE" BORDER="0"
+ SRC="img3.png"
+ ALT="$&lt;$"></span>DIRECCIÓN<span class="MATH"><IMG
+ WIDTH="16" HEIGHT="31" ALIGN="MIDDLE" BORDER="0"
+ SRC="img4.png"
+ ALT="$&gt;$"></span></var>.
+</li>
+</ol>
+
+<p>
+
+<div class="navigation">
+<div class='online-navigation'>
+<p></p><hr />
+<table align="center" width="100%" cellpadding="0" cellspacing="2">
+<tr>
+<td class='online-navigation'><a rel="prev" title="6 Contraseñas"
+  href="node15.html"><img src='previous.png'
+  border='0' height='32'  alt='Previous Page' width='32' /></a></td>
+<td class='online-navigation'><a rel="parent" title="6 Contraseñas"
+  href="node15.html"><img src='up.png'
+  border='0' height='32'  alt='Up one Level' width='32' /></a></td>
+<td class='online-navigation'><a rel="next" title="6.2 ¿Cómo cambio mi"
+  href="node17.html"><img src='next.png'
+  border='0' height='32'  alt='Next Page' width='32' /></a></td>
+<td align="center" width="100%">GNU&nbsp;Mailman Manual&nbsp;del&nbsp;Suscriptor&nbsp;de&nbsp;Listas</td>
+<td class='online-navigation'><a rel="contents" title="Table of Contents"
+  href="contents.html"><img src='contents.png'
+  border='0' height='32'  alt='Contents' width='32' /></a></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+</tr></table>
+<div class='online-navigation'>
+<b class="navlabel">Previous:</b>
+<a class="sectref" rel="prev" href="node15.html">6 Contraseñas</a>
+<b class="navlabel">Up:</b>
+<a class="sectref" rel="parent" href="node15.html">6 Contraseñas</a>
+<b class="navlabel">Next:</b>
+<a class="sectref" rel="next" href="node17.html">6.2 ¿Cómo cambio mi</a>
+</div>
+</div>
+<hr />
+<span class="release-info">Release 2.1, documentation updated on 11 de enero 2009.</span>
+</div>
+<!--End of Navigation Panel-->
+
+</body>
+</html>

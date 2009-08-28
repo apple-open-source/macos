@@ -33,7 +33,7 @@
 void
 bsdp_print_packet(struct dhcp * pkt, int length, int options_only)
 {
-    char	err[256];
+    dhcpo_err_str_t	err;
     int 	i;
     dhcpol_t	options;
     dhcpol_t	vendor_options;
@@ -43,12 +43,12 @@ bsdp_print_packet(struct dhcp * pkt, int length, int options_only)
     if (options_only == 0) {
 	dhcp_print_packet(pkt, length);
     }
-    if (dhcpol_parse_packet(&options, pkt, length, err) == FALSE) {
-	fprintf(stderr, "packet did not parse, %s\n", err);
+    if (dhcpol_parse_packet(&options, pkt, length, &err) == FALSE) {
+	fprintf(stderr, "packet did not parse, %s\n", err.str);
 	return;
     }
-    if (dhcpol_parse_vendor(&vendor_options, &options, err) == FALSE) {
-	fprintf(stderr, "vendor options did not parse, %s\n", err);
+    if (dhcpol_parse_vendor(&vendor_options, &options, &err) == FALSE) {
+	fprintf(stderr, "vendor options did not parse, %s\n", err.str);
 	goto done;
     }
     printf("BSDP Options count is %d\n", dhcpol_count(&vendor_options));

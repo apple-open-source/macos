@@ -49,6 +49,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/makebuf.c,v 1.4 2002/03/22 21:53:04 obrie
 #include "local.h"
 #include "un-namespace.h"
 
+#define MAXBUFSIZE	(1 << 16)
 #define TTYBUFSIZE	4096
 
 /*
@@ -121,8 +122,7 @@ __swhatbuf(fp, bufsize, couldbetty)
 	 * __sseek is mainly paranoia.)  It is safe to set _blksize
 	 * unconditionally; it will only be used if __SOPT is also set.
 	 */
-	*bufsize = st.st_blksize;
-	fp->_blksize = st.st_blksize;
+	fp->_blksize = *bufsize = st.st_blksize > MAXBUFSIZE ? MAXBUFSIZE : st.st_blksize;
 	return ((st.st_mode & S_IFMT) == S_IFREG && fp->_seek == __sseek ?
 	    __SOPT : __SNPT);
 }

@@ -1,21 +1,12 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1996,2007 Oracle.  All rights reserved.
+ *
+ * $Id: os_region.c,v 12.11 2007/05/17 15:15:46 bostic Exp $
  */
 
 #include "db_config.h"
-
-#ifndef lint
-static const char revid[] = "$Id: os_region.c,v 1.2 2004/03/30 01:23:46 jtownsen Exp $";
-#endif /* not lint */
-
-#ifndef NO_SYSTEM_INCLUDES
-#include <sys/types.h>
-
-#include <string.h>
-#endif
 
 #include "db_int.h"
 
@@ -32,13 +23,25 @@ __os_r_attach(dbenv, infop, rp)
 	REGION *rp;
 {
 	int ret;
-	/* Round off the requested size for the underlying VM. */
+
+	/*
+	 * All regions are created on 8K boundaries out of sheer paranoia,
+	 * so we don't make some underlying VM unhappy. Make sure we don't
+	 * overflow or underflow.
+	 */
+#define	OS_VMPAGESIZE		(8 * 1024)
+#define	OS_VMROUNDOFF(i) {						\
+	if ((i) <							\
+	    (UINT32_MAX - OS_VMPAGESIZE) + 1 || (i) < OS_VMPAGESIZE)	\
+		(i) += OS_VMPAGESIZE - 1;				\
+	(i) -= (i) % OS_VMPAGESIZE;					\
+}
 	OS_VMROUNDOFF(rp->size);
 
 #ifdef DB_REGIONSIZE_MAX
 	/* Some architectures have hard limits on the maximum region size. */
 	if (rp->size > DB_REGIONSIZE_MAX) {
-		__db_err(dbenv, "region size %lu is too large; maximum is %lu",
+		__db_errx(dbenv, "region size %lu is too large; maximum is %lu",
 		    (u_long)rp->size, (u_long)DB_REGIONSIZE_MAX);
 		return (EINVAL);
 	}
@@ -53,7 +56,7 @@ __os_r_attach(dbenv, infop, rp)
 	 * I don't know of any architectures (yet!) where malloc is a problem.
 	 */
 	if (F_ISSET(dbenv, DB_ENV_PRIVATE)) {
-#if defined(MUTEX_NO_MALLOC_LOCKS)
+#if defined(HAVE_MUTEX_HPPA_MSEM_INIT)
 		/*
 		 * !!!
 		 * There exist spinlocks that don't work in malloc memory, e.g.,
@@ -62,28 +65,46 @@ __os_r_attach(dbenv, infop, rp)
 		 * be threaded.
 		 */
 		if (F_ISSET(dbenv, DB_ENV_THREAD)) {
-			__db_err(dbenv, "%s",
+			__db_errx(dbenv, "%s",
     "architecture does not support locks inside process-local (malloc) memory");
-			__db_err(dbenv, "%s",
+			__db_errx(dbenv, "%s",
     "application may not specify both DB_PRIVATE and DB_THREAD");
 			return (EINVAL);
 		}
 #endif
-		if ((ret =
-		    __os_malloc(dbenv, rp->size, &infop->addr)) != 0)
+		if ((ret = __os_malloc(
+		    dbenv, sizeof(REGENV), &infop->addr)) != 0)
 			return (ret);
-#if defined(UMRW) && !defined(DIAGNOSTIC)
-		memset(infop->addr, CLEAR_BYTE, rp->size);
-#endif
-		return (0);
+
+		infop->max_alloc = rp->size;
+	} else {
+		/*
+		 * If the user replaced the map call, call through their
+		 * interface.
+		 */
+		if (DB_GLOBAL(j_map) != NULL && (ret = DB_GLOBAL(j_map)
+		    (infop->name, rp->size, 1, 0, &infop->addr)) != 0)
+			return (ret);
+
+		/* Get some space from the underlying system. */
+		if ((ret = __os_r_sysattach(dbenv, infop, rp)) != 0)
+			return (ret);
 	}
 
-	/* If the user replaced the map call, call through their interface. */
-	if (DB_GLOBAL(j_map) != NULL)
-		return (DB_GLOBAL(j_map)(infop->name,
-		    rp->size, 1, 0, &infop->addr));
+	/*
+	 * We may require alignment the underlying system or heap allocation
+	 * library doesn't supply.  Align the address if necessary, saving
+	 * the original values for restoration when the region is discarded.
+	 */
+	infop->addr_orig = infop->addr;
+	infop->addr = ALIGNP_INC(infop->addr_orig, sizeof(size_t));
 
-	return (__os_r_sysattach(dbenv, infop, rp));
+	rp->size_orig = rp->size;
+	if (infop->addr != infop->addr_orig)
+		rp->size -= (roff_t)
+		    ((u_int8_t *)infop->addr - (u_int8_t *)infop->addr_orig);
+
+	return (0);
 }
 
 /*
@@ -101,6 +122,12 @@ __os_r_detach(dbenv, infop, destroy)
 	REGION *rp;
 
 	rp = infop->rp;
+
+	/* Restore any address/size altered for alignment reasons. */
+	if (infop->addr != infop->addr_orig) {
+		infop->addr = infop->addr_orig;
+		rp->size = rp->size_orig;
+	}
 
 	/* If a region is private, free the memory. */
 	if (F_ISSET(dbenv, DB_ENV_PRIVATE)) {

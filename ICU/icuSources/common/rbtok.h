@@ -1,8 +1,7 @@
 /*
 ***************************************************************************
-*   Copyright (C) 2006 Apple Computer, Inc. All rights reserved.          *
+* Copyright (C) 2006-2008 Apple Inc. All Rights Reserved.                 *
 ***************************************************************************
-
 */
 
 #ifndef RBTOK_H
@@ -79,6 +78,19 @@ public:
      * @internal
      */
     RuleBasedTokenizer(uint8_t *data, UErrorCode &status);
+
+    /**
+     * Constructor from a flattened set of RBBI data in umemory which need not
+     *             be malloced (e.g. it may be a memory-mapped file, etc.).
+       *
+     *             This version does not adopt the memory, and does not
+     *             free it when done.
+     * @internal
+     */
+    enum EDontAdopt {
+        kDontAdopt
+    };
+    RuleBasedTokenizer(const uint8_t *data, enum EDontAdopt dontAdopt, UErrorCode &status);
 
     /**
      * Destructor

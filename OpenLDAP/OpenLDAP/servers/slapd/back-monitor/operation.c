@@ -1,8 +1,8 @@
 /* operation.c - deal with operation subsystem */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/operation.c,v 1.36.2.5 2006/01/03 22:16:21 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/operation.c,v 1.46.2.4 2008/02/11 23:26:47 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2001-2006 The OpenLDAP Foundation.
+ * Copyright 2001-2008 The OpenLDAP Foundation.
  * Portions Copyright 2001-2003 Pierangelo Masarati.
  * All rights reserved.
  *
@@ -34,12 +34,12 @@ struct monitor_ops_t {
 } monitor_op[] = {
 	{ BER_BVC( "cn=Bind" ),		BER_BVNULL },
 	{ BER_BVC( "cn=Unbind" ),	BER_BVNULL },
+	{ BER_BVC( "cn=Search" ),	BER_BVNULL },
+	{ BER_BVC( "cn=Compare" ),	BER_BVNULL },
+	{ BER_BVC( "cn=Modify" ),	BER_BVNULL },
+	{ BER_BVC( "cn=Modrdn" ),	BER_BVNULL },
 	{ BER_BVC( "cn=Add" ),		BER_BVNULL },
 	{ BER_BVC( "cn=Delete" ),	BER_BVNULL },
-	{ BER_BVC( "cn=Modrdn" ),	BER_BVNULL },
-	{ BER_BVC( "cn=Modify" ),	BER_BVNULL },
-	{ BER_BVC( "cn=Compare" ),	BER_BVNULL },
-	{ BER_BVC( "cn=Search" ),	BER_BVNULL },
 	{ BER_BVC( "cn=Abandon" ),	BER_BVNULL },
 	{ BER_BVC( "cn=Extended" ),	BER_BVNULL },
 	{ BER_BVNULL,			BER_BVNULL }
@@ -65,7 +65,6 @@ monitor_subsys_ops_init(
 	
 	Entry		*e_op, **ep;
 	monitor_entry_t	*mp;
-	char		buf[ BACKMONITOR_BUFSIZE ];
 	int 		i;
 	struct berval	bv_zero = BER_BVC( "0" );
 
@@ -97,34 +96,14 @@ monitor_subsys_ops_init(
 	for ( i = 0; i < SLAP_OP_LAST; i++ ) {
 		struct berval	rdn;
 		Entry		*e;
+		struct berval bv;
 
 		/*
 		 * Initiated ops
 		 */
-		snprintf( buf, sizeof( buf ),
-				"dn: %s,%s\n"
-				"objectClass: %s\n"
-				"structuralObjectClass: %s\n"
-				"cn: %s\n"
-				"%s: 0\n"
-				"%s: 0\n"
-				"creatorsName: %s\n"
-				"modifiersName: %s\n"
-				"createTimestamp: %s\n"
-				"modifyTimestamp: %s\n",
-				monitor_op[ i ].rdn.bv_val,
-				ms->mss_dn.bv_val,
-				mi->mi_oc_monitorOperation->soc_cname.bv_val,
-				mi->mi_oc_monitorOperation->soc_cname.bv_val,
-				&monitor_op[ i ].rdn.bv_val[ STRLENOF( "cn=" ) ],
-				mi->mi_ad_monitorOpInitiated->ad_cname.bv_val,
-				mi->mi_ad_monitorOpCompleted->ad_cname.bv_val,
-				mi->mi_creatorsName.bv_val,
-				mi->mi_creatorsName.bv_val,
-				mi->mi_startTime.bv_val,
-				mi->mi_startTime.bv_val );
+		e = monitor_entry_stub( &ms->mss_dn, &ms->mss_ndn, &monitor_op[i].rdn,
+			mi->mi_oc_monitorOperation, mi, NULL, NULL );
 
-		e = str2entry( buf );
 		if ( e == NULL ) {
 			Debug( LDAP_DEBUG_ANY,
 				"monitor_subsys_ops_init: "
@@ -133,7 +112,11 @@ monitor_subsys_ops_init(
 				ms->mss_ndn.bv_val, 0 );
 			return( -1 );
 		}
-	
+
+		BER_BVSTR( &bv, "0" );
+		attr_merge_one( e, mi->mi_ad_monitorOpInitiated, &bv, NULL );
+		attr_merge_one( e, mi->mi_ad_monitorOpCompleted, &bv, NULL );
+
 		/* steal normalized RDN */
 		dnRdn( &e->e_nname, &rdn );
 		ber_dupbv( &monitor_op[ i ].nrdn, &rdn );
@@ -194,6 +177,7 @@ monitor_subsys_ops_update(
 	struct berval		rdn;
 	int 			i;
 	Attribute		*a;
+	slap_counters_t *sc;
 	static struct berval	bv_ops = BER_BVC( "cn=operations" );
 
 	assert( mi != NULL );
@@ -205,21 +189,35 @@ monitor_subsys_ops_update(
 		ldap_pvt_mp_init( nInitiated );
 		ldap_pvt_mp_init( nCompleted );
 
-		ldap_pvt_thread_mutex_lock( &slap_counters.sc_ops_mutex );
+		ldap_pvt_thread_mutex_lock( &slap_counters.sc_mutex );
 		for ( i = 0; i < SLAP_OP_LAST; i++ ) {
 			ldap_pvt_mp_add( nInitiated, slap_counters.sc_ops_initiated_[ i ] );
 			ldap_pvt_mp_add( nCompleted, slap_counters.sc_ops_completed_[ i ] );
 		}
-		ldap_pvt_thread_mutex_unlock( &slap_counters.sc_ops_mutex );
+		for ( sc = slap_counters.sc_next; sc; sc = sc->sc_next ) {
+			ldap_pvt_thread_mutex_lock( &sc->sc_mutex );
+			for ( i = 0; i < SLAP_OP_LAST; i++ ) {
+				ldap_pvt_mp_add( nInitiated, sc->sc_ops_initiated_[ i ] );
+				ldap_pvt_mp_add( nCompleted, sc->sc_ops_completed_[ i ] );
+			}
+			ldap_pvt_thread_mutex_unlock( &sc->sc_mutex );
+		}
+		ldap_pvt_thread_mutex_unlock( &slap_counters.sc_mutex );
 		
 	} else {
 		for ( i = 0; i < SLAP_OP_LAST; i++ ) {
 			if ( dn_match( &rdn, &monitor_op[ i ].nrdn ) )
 			{
-				ldap_pvt_thread_mutex_lock( &slap_counters.sc_ops_mutex );
+				ldap_pvt_thread_mutex_lock( &slap_counters.sc_mutex );
 				ldap_pvt_mp_init_set( nInitiated, slap_counters.sc_ops_initiated_[ i ] );
 				ldap_pvt_mp_init_set( nCompleted, slap_counters.sc_ops_completed_[ i ] );
-				ldap_pvt_thread_mutex_unlock( &slap_counters.sc_ops_mutex );
+				for ( sc = slap_counters.sc_next; sc; sc = sc->sc_next ) {
+					ldap_pvt_thread_mutex_lock( &sc->sc_mutex );
+					ldap_pvt_mp_add( nInitiated, sc->sc_ops_initiated_[ i ] );
+					ldap_pvt_mp_add( nCompleted, sc->sc_ops_completed_[ i ] );
+					ldap_pvt_thread_mutex_unlock( &sc->sc_mutex );
+				}
+				ldap_pvt_thread_mutex_unlock( &slap_counters.sc_mutex );
 				break;
 			}
 		}

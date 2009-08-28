@@ -1,20 +1,11 @@
---- configure.orig	2006-10-27 00:23:38.000000000 -0700
-+++ configure	2006-11-06 17:23:29.000000000 -0800
-@@ -8889,7 +8889,7 @@
-       link_all_deplibs=yes
-     if test "$GCC" = yes ; then
-     	output_verbose_link_cmd='echo'
--        archive_cmds='$CC -dynamiclib $allow_undefined_flag -o $lib $libobjs $deplibs $compiler_flags -install_name $rpath/$soname $verstring'
-+        archive_cmds='$CC $RC_CFLAGS -dynamiclib $allow_undefined_flag -o $lib $libobjs $deplibs $compiler_flags -install_name $rpath/$soname $verstring'
-       module_cmds='$CC $allow_undefined_flag -o $lib -bundle $libobjs $deplibs$compiler_flags'
-       # Don't fix this by using the ld -exported_symbols_list flag, it doesn't exist in older darwin lds
-       archive_expsym_cmds='sed -e "s,#.*,," -e "s,^[    ]*,," -e "s,^\(..*\),_&," < $export_symbols > $output_objdir/${libname}-symbols.expsym~$CC -dynamiclib $allow_undefined_flag -o $lib $libobjs $deplibs $compiler_flags -install_name $rpath/$soname $verstring~nmedit -s $output_objdir/${libname}-symbols.expsym ${lib}'
-@@ -24311,7 +24311,7 @@
-     LDFLAGS="$LDFLAGS $GSSAPI_LIB_DIR -lgss"
-   elif test -z "$GSSAPI_LIB_DIR"; then
-      if test -f "$GSSAPI_ROOT/bin/krb5-config"; then
--        gss_ldflags=`$GSSAPI_ROOT/bin/krb5-config --libs gssapi`
-+        gss_ldflags=`$GSSAPI_ROOT/bin/krb5-config --libs gssapi | sed 's/-l/-Wl,-weak&/g'`
- 	LDFLAGS="$LDFLAGS $gss_ldflags"
-      elif test "$GSSAPI_ROOT" != "yes"; then
-         LDFLAGS="$LDFLAGS -L$GSSAPI_ROOT/lib$libsuff -lgssapi"
+--- configure.orig	2009-01-19 12:20:35.000000000 -0800
++++ configure	2009-01-19 12:20:41.000000000 -0800
+@@ -12728,7 +12728,7 @@
+   esac
+   if test "$_lt_dar_can_shared" = "yes"; then
+     output_verbose_link_cmd=echo
+-    archive_cmds="\$CC -dynamiclib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags -install_name \$rpath/\$soname \$verstring $_lt_dar_single_mod${_lt_dsymutil}"
++    archive_cmds="\$CC \$RC_CFLAGS -dynamiclib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags -install_name \$rpath/\$soname \$verstring $_lt_dar_single_mod${_lt_dsymutil}"
+     module_cmds="\$CC \$allow_undefined_flag -o \$lib -bundle \$libobjs \$deplibs \$compiler_flags${_lt_dsymutil}"
+     archive_expsym_cmds="sed 's,^,_,' < \$export_symbols > \$output_objdir/\${libname}-symbols.expsym~\$CC -dynamiclib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags -install_name \$rpath/\$soname \$verstring ${_lt_dar_single_mod}${_lt_dar_export_syms}${_lt_dsymutil}"
+     module_expsym_cmds="sed -e 's,^,_,' < \$export_symbols > \$output_objdir/\${libname}-symbols.expsym~\$CC \$allow_undefined_flag -o \$lib -bundle \$libobjs \$deplibs \$compiler_flags${_lt_dar_export_syms}${_lt_dsymutil}"

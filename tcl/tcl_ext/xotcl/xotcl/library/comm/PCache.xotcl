@@ -1,0 +1,259 @@
+# -*- Tcl -*- $Id: PCache.xotcl,v 1.9 2007/08/14 16:38:26 neumann Exp $
+# Persistent Cache object, using gdbm
+
+# Configuration:
+# The persistent cache is kept in a directory which is determined by
+# the following three rules.
+#
+# 1) the global variable "CACHE_DIR", which has to be set,
+#    before this file is loaded
+# 2) If "CACHE_DIR" is not set, the global variable "homedir"
+#    is checked, which is assumed to be the home directory
+#    of the Cineast browser
+# 3) As a last resource the tmp directory is used as the cache directory
+#
+# Additionally, the cache directory can be specified after loading of this
+# file (before the first open) through the instance variable "dir"
+# in the object persistentCache.
+
+package provide xotcl::comm::pcache 0.9
+#package require xotcl::package
+
+package require XOTcl
+
+namespace eval ::xotcl::comm::pcache {
+    namespace import ::xotcl::*
+
+    variable CACHE_DIR
+    variable homeDir
+
+    if {![info exists CACHE_DIR]} {
+	if {![info exists homeDir]} {
+	    set homeDir [::xotcl::tmpdir]
+	}
+	set CACHE_DIR $homeDir/cache2
+    }
+
+    Object persistentCache
+    persistentCache set dir $CACHE_DIR
+    persistentCache proc flush { {cmd {}} } {
+	my instvar DBID
+	if {[info exists DBID]} { $DBID close }
+	if {{} ne $cmd } {
+	    if {[catch {eval $cmd} err]} {puts stderr err=$err}
+	}
+	my open  ;# UZ: wenn hier das self weggenommen wird, crashed das lintFilter
+	#open  ;# UZ: wenn hier das self weggenommen wird, crashed das lintFilter
+
+    }
+    # the open method for the first invocation
+    persistentCache proc open {} {
+	my instvar dir DBID 
+	package require xotcl::store
+	set DBID [Storage someNewChildStore]
+	if {![file isdirectory $dir]} {
+	    # if the cache directory does not exist, create it..
+	    file mkdir $dir
+	}
+	# the open method for later invocations, doing the real work
+	my proc open {} {
+	    my instvar dir DBID
+	    $DBID open $dir/index
+	}
+	# invoke the method
+	open
+    }
+    persistentCache proc clear {} {
+	my instvar cacheFileName contentType meta entry validated dir
+	my flush [list eval file delete -force  $dir/index \
+		      [glob -nocomplain $dir/\[0-9\]*::*]]
+	foreach var {cacheFileName contentType meta entry validated} {
+	    catch {unset $var}
+	}
+    }
+    persistentCache proc clearEntry {url} {
+	my instvar DBID cacheFileName contentType meta entry validated
+	my inCache $url
+	if {[info exists cacheFileName($url)]} {
+	    my flush [list eval file delete -force $cacheFileName($url)]
+	    foreach var {cacheFileName contentType meta entry validated} {
+		my showMsg "unset ${var}($url)"
+		catch {unset ${var}($url)}
+	    }
+	    catch {$DBID unset $url}
+	}
+    }
+    persistentCache proc lazyFlush {} {
+	my instvar flushPending
+	if {[info exists flushPending]} { after cancel $flushPending }
+	set flushPending [after 100 [self] flush]
+    }
+    persistentCache proc newEntry {url access doCache name} {
+	my instvar cacheFileName contentType meta dir
+	if {$name ne ""} {
+	    #$access set caching 0
+	    return $name
+	} elseif {$doCache} {
+	    set cacheFileName($url) $dir/[pid]-$access
+	    set contentType($url)   [$access set contentType]
+	    set meta($url)          [$access set meta]
+	    return $cacheFileName($url)
+	} else {
+	    # we use the Memory cache only for non-persistent cache entries
+	    # which are deleted when the program terminates
+	    set fileName $dir/v[pid]-$access
+	    MemoryCache + $url $fileName
+	    return $fileName
+	}
+    }
+    persistentCache proc entryDone {url} {
+	my instvar entry cacheFileName contentType DBID meta
+	if {![info exists DBID]} { open }
+	$DBID set $url [list \
+			    cacheFileName $cacheFileName($url) \
+			    contentType   $contentType($url)   \
+			    meta          $meta($url)          ]
+	my lazyFlush
+	#my showMsg "size=[file size $cacheFileName($url)]"
+	set entry($url) 1
+	my set validated($url) 1
+    }
+    persistentCache proc inCache {url} {
+	my instvar entry
+	if {[info exists entry($url)]} {
+	    set result 1
+	} else {
+	    my instvar cacheFileName contentType meta DBID
+	    if {![info exists DBID]} { open }
+	    set result [$DBID set $url]
+	    my lazyFlush
+	    if {$result ne ""} {
+		set entry($url) 1
+		array set r $result
+		set cacheFileName($url) $r(cacheFileName)
+		set contentType($url)   $r(contentType)
+		set meta($url)          $r(meta)
+		set result 1
+	    } else {
+		set result 0
+	    }
+	}
+	return $result
+    }
+    persistentCache proc validated {url} {
+	my set validated($url) 1
+    }
+    persistentCache proc invalidate {url} {
+	if {[my exists validated($url)]} {
+	    my unset validated($url)
+	}
+    }
+    persistentCache proc isValidated {url} {
+	if {[my exists validated($url)]} {
+	    return 1
+	}
+	return 0
+    }
+    persistentCache proc ifModifiedHeader {url ifModVar} {
+	set result 0
+	if {[my inCache $url]} {
+	    #puts stderr inCache:$url
+	    upvar [self callinglevel] $ifModVar ifModifiedHeader
+	    my instvar meta
+	    array set m $meta($url)
+	    if {[info exists m(last-modified)]} {
+		set ifModifiedHeader [list If-Modified-Since $m(last-modified)]
+		set result 1
+	    }
+	} else {
+	    #puts stderr "url=$url is not in cache"
+	}
+	return $result
+    }
+    persistentCache proc dump {} {
+	my instvar DBID
+	puts stderr DUMP:
+	foreach k [$DBID names] {
+	    puts stderr $k
+	    puts stderr "    [$DBID set $k]"
+	}
+    }
+    persistentCache proc cacheFileName {url} {
+	my instvar cacheFileName
+	return $cacheFileName($url)
+    }
+    persistentCache proc contentType {url} {
+	my instvar contentType
+	return $contentType($url)
+    }
+    persistentCache proc meta {url} {
+	my instvar meta
+	return $meta($url)
+    }
+    persistentCache proc destroy {} {
+	#my showCall
+	next
+    }
+    #persistentCache flush
+
+
+
+    ########################################################### Cache
+    Object MemoryCache
+    MemoryCache proc query {url entry} {
+	my instvar cache
+	if {[info exists cache($url)]} {
+	    upvar [self callinglevel] $entry e
+	    #puts stderr "-->[self] [self proc] finds: $url"
+	    set e $cache($url)
+	    return 1
+	}
+	return 0
+    }
+    MemoryCache proc + {url entry} {
+	#puts stderr "-->[self class]:[self] [self proc] $url"
+	my set cache($url) $entry
+    }
+    MemoryCache proc - {url} {
+	#puts stderr "-->[self class]:[self] [self proc] $url"
+	catch {my unset cache($url)}
+    }
+    MemoryCache proc destroy {} {
+	my instvar cache
+	foreach url [array names cache] {
+	    set f $cache($url)
+	    if {[regexp ^/ $f]} {
+		#my showMsg "trying to remove $f [file exists $f]"
+		file delete -force $f
+	    }
+	}
+	next
+    }
+
+
+    Object instproc allInstances {} {
+	# Diese Methode ermittelt rekursiv alle direkten und indirekten
+	# Instanzen einer Klasse
+	::set inst [my info instances]
+	foreach s [my info subclass] {
+	    foreach i [$s allInstances] { ::lappend inst $i }
+	}
+	return $inst
+    }
+
+    # onExit is automatically called when wafe terminates
+    proc onExit {} {
+	#puts stderr "allinstances of Access: [Access allInstances]"
+	#foreach i [Access allInstances] {
+	#  if {[info command $i] eq ""} continue
+	#  $i destroy
+	#}
+	#MemoryCache clear
+	persistentCache flush
+	#Trace statReport
+    }
+
+    namespace export persistentCache MemoryCache
+}
+
+namespace import ::xotcl::comm::pcache::*

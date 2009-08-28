@@ -59,7 +59,7 @@ cc -I. -DPRIVATE -D__APPLE_PRIVATE -O -o sc_usage sc_usage.c -lncurses
 #include <errno.h>
 #include <mach/mach_time.h>
 #include <err.h>
-
+#include <libutil.h>
 
 /* Number of lines of header information on the standard screen */
 #define	HEADER_LINES	5
@@ -218,6 +218,8 @@ void quit(char *);
 int argtopid(char *);
 int argtoi(int, char*, char*, int);
 
+void get_bufinfo(kbufinfo_t *);
+
 
 /*
  *  signal handlers
@@ -291,11 +293,11 @@ void print_time(char *p, unsigned int useconds, unsigned int seconds)
 	hours = minutes / 60;
 
 	if (minutes < 100) { // up to 100 minutes
-		sprintf(p, "%2ld:%02ld.%03ld", minutes, (unsigned long)(seconds % 60),
+		sprintf(p, "%02ld:%02ld.%03ld", minutes, (unsigned long)(seconds % 60),
 			(unsigned long)usec_to_1000ths(useconds));
 	}
 	else if (hours < 100) { // up to 100 hours
-		sprintf(p, "%2ld:%02ld:%02ld ", hours, (minutes % 60),
+		sprintf(p, "%02ld:%02ld:%02ld ", hours, (minutes % 60),
 				(unsigned long)(seconds % 60));
 	}
 	else {
@@ -324,6 +326,11 @@ main(argc, argv)
 	      exit(1);
 	}
 
+        if (0 != reexec_to_match_kernel()) {
+		fprintf(stderr, "Could not re-execute: %d\n", errno);
+		exit(1);
+	}
+	
 	/* get our name */
 	if (argc > 0) {
 		if ((myname = rindex(argv[0], '/')) == 0) {
@@ -448,8 +455,6 @@ main(argc, argv)
 	        topn = 1024;
 		COLS = 80;
 	}
-	if ((my_buffer = malloc(SAMPLE_SIZE * sizeof(kd_buf))) == (char *)0)
-	    quit("can't allocate memory for tracing info\n");
 
 	set_remove();
 	set_numbufs(SAMPLE_SIZE);
@@ -464,6 +469,12 @@ main(argc, argv)
 	        delay = 1;
 	if ((sort_now = 10 / delay) < 2)
 	        sort_now = 2;
+
+	get_bufinfo(&bufinfo);	
+
+	my_buffer = malloc(bufinfo.nkdbufs * sizeof(kd_buf));
+	if(my_buffer == (char *) 0)
+		quit("can't allocate memory for tracing info\n");
 
 	(void)sort_scalls();
 	(void)screen_update();
@@ -549,11 +560,6 @@ print_row(struct sc_entry *se, int no_wtime) {
 		}
 	}
 	sprintf(&tbuf[clen], "\n");
-
-	if (tbuf[COLS-2] != '\n') {
-	        tbuf[COLS-1] = '\n';
-		tbuf[COLS] = 0;
-	}
 	if (no_screen_refresh)
 	        printf("%s", tbuf);
 	else
@@ -628,11 +634,6 @@ void screen_update()
 	clen = 78 - 8;
 
 	sprintf(&tbuf[clen], "%-8.8s\n", &(ctime(&curr_time)[11]));
-
-	if (tbuf[COLS-2] != '\n') {
-	        tbuf[COLS-1] = '\n';
-		tbuf[COLS] = 0;
-	}
 	if (no_screen_refresh)
 	        printf("%s", tbuf);
 	else
@@ -652,11 +653,6 @@ void screen_update()
 	clen = strlen(tbuf);
 	sprintf(&tbuf[clen], "                    %3ld:%02ld:%02ld\n", 
 		(long)hours, (long)(minutes % 60), (long)(elapsed_secs % 60));
-
-	if (tbuf[COLS-2] != '\n') {
-	        tbuf[COLS-1] = '\n';
-		tbuf[COLS] = 0;
-	}
 	if (no_screen_refresh)
 	        printf("%s", tbuf);
 	else
@@ -664,22 +660,13 @@ void screen_update()
 
 
 
-	sprintf(tbuf, "\nTYPE                            NUMBER        CPU_TIME   WAIT_TIME\n");
-
-	if (tbuf[COLS-2] != '\n') {
-	        tbuf[COLS-1] = '\n';
-		tbuf[COLS] = 0;
-	}
+	sprintf(tbuf, "\nTYPE                           NUMBER        CPU_TIME   WAIT_TIME\n");
 	if (no_screen_refresh)
 	        printf("%s", tbuf);
 	else
 	        printw(tbuf);
 
 	sprintf(tbuf, "------------------------------------------------------------------------------\n");
-	if (tbuf[COLS-2] != '\n') {
-	        tbuf[COLS-1] = '\n';
-		tbuf[COLS] = 0;
-	}
 	if (no_screen_refresh)
 	        printf("%s", tbuf);
 	else
@@ -706,11 +693,6 @@ void screen_update()
 		clen += strlen(&tbuf[clen]);
 	}
         sprintf(&tbuf[clen], "\n");
-
-	if (tbuf[COLS-2] != '\n') {
-	        tbuf[COLS-1] = '\n';
-		tbuf[COLS] = 0;
-	}
 	if (no_screen_refresh)
 	        printf("%s", tbuf);
 	else
@@ -737,11 +719,6 @@ void screen_update()
 		clen += strlen(&tbuf[clen]);
 	}
         sprintf(&tbuf[clen], "\n");
-
-	if (tbuf[COLS-2] != '\n') {
-	        tbuf[COLS-1] = '\n';
-		tbuf[COLS] = 0;
-	}
 	if (no_screen_refresh)
 	        printf("%s", tbuf);
 	else
@@ -754,12 +731,8 @@ void screen_update()
 
 	print_time(&tbuf[clen], (unsigned long)(utime_usecs), utime_secs);
 	clen += strlen(&tbuf[clen]);
-        sprintf(&tbuf[clen], "\n");
-
-	if (tbuf[COLS-2] != '\n') {
-	        tbuf[COLS-1] = '\n';
-		tbuf[COLS] = 0;
-	}
+        
+	sprintf(&tbuf[clen], "\n");
 	if (no_screen_refresh)
 	        printf("%s", tbuf);
 	else
@@ -809,31 +782,24 @@ void screen_update()
 		print_row(&sc_tab[n], 0);
 		rows++;
 	}
-	if (no_screen_refresh == 0) {
-	        sprintf(tbuf, "\n");
 
+
+	sprintf(tbuf, "\n");
+	if (no_screen_refresh == 0) {
 	        while (rows++ < max_rows)
 		        printw(tbuf);
 	} else
-	        printf("\n");
+	        printf("%s", tbuf);
 
 	if (num_of_threads) {
 	        sprintf(tbuf, "\nCURRENT_TYPE              LAST_PATHNAME_WAITED_FOR     CUR_WAIT_TIME THRD# PRI\n");
-
-		if (tbuf[COLS-2] != '\n') {
-		        tbuf[COLS-1] = '\n';
-			tbuf[COLS] = 0;
-		}
+		
 		if (no_screen_refresh)
 		        printf("%s", tbuf);
 		else
 		        printw(tbuf);
 
 	        sprintf(tbuf, "------------------------------------------------------------------------------\n");
-		if (tbuf[COLS-2] != '\n') {
-		        tbuf[COLS-1] = '\n';
-			tbuf[COLS] = 0;
-		}
 		if (no_screen_refresh)
 		        printf("%s", tbuf);
 		else
@@ -874,11 +840,11 @@ void screen_update()
 		p = (char *)ti->pathname;
 
 		plen = strlen(p);
-		if (plen > 34)
-		  plen -= 34;
+		if (plen > 26)
+		  plen -= 26;
 		else
 		  plen = 0;
-		sprintf(&tbuf[clen], "   %-34.34s ", &p[plen]);
+		sprintf(&tbuf[clen], "   %-26.26s   ", &p[plen]);
 
 		clen += strlen(&tbuf[clen]);
 
@@ -889,12 +855,7 @@ void screen_update()
 
 		print_time(&tbuf[clen], time_usecs, time_secs);
 		clen += strlen(&tbuf[clen]);
-		sprintf(&tbuf[clen], "  %2d %3d\n", i, ti->curpri);
-
-		if (tbuf[COLS-2] != '\n') {
-		        tbuf[COLS-1] = '\n';
-			tbuf[COLS] = 0;
-		}
+		sprintf(&tbuf[clen], "    %2d    %3d\n", i, ti->curpri);
 		if (no_screen_refresh)
 		        printf("%s", tbuf);
 		else
@@ -988,11 +949,7 @@ sc_tab_init(char *codefile) {
 		printf("Failed to open code description file %s\n", codefile);
 		exit(1);
 	}
-
-	n = fscanf(fp, "%d\n", &cnt);
-	if (n != 1)
-	        return;
-
+	
 	/* Count Mach message MSG_ codes */
 	for (msgcode_cnt=0;;) {
 	        n = fscanf(fp, "%x%55s\n", &code, &name[0]);
@@ -1000,7 +957,7 @@ sc_tab_init(char *codefile) {
 		  break;
 		if (strncmp ("MSG_", &name[0], 4) == 0)
 		  msgcode_cnt++;
-		if (strcmp("USER_TEST", &name[0]) == 0)
+		if (strcmp("TRACE_LAST_WRAPPER", &name[0]) == 0)
 		        break;
 	}
 
@@ -1026,12 +983,7 @@ sc_tab_init(char *codefile) {
 
 
 	rewind(fp);
-
-	n = fscanf(fp, "%d\n", &cnt);
-
-	if (n != 1)
-	        return;
-
+	
 	for (;;) {
 	        n = fscanf(fp, "%x%55s\n", &code, &name[0]);
 
@@ -1087,7 +1039,7 @@ sc_tab_init(char *codefile) {
 			strcpy(&sc_tab[n].name[0], &name[4]);
 			continue;
 		}
-		if (strcmp("USER_TEST", &name[0]) == 0)
+		if (strcmp("TRACE_LAST_WRAPPER", &name[0]) == 0)
 		        break;
 	}
 	strcpy(&faults[1].name[0], "zero_fill");
@@ -1326,7 +1278,7 @@ set_remove()
 	    set_remove_flag = 0;
 
 	    if (errno == EBUSY)
-		quit("the trace facility is currently in use...\n          fs_usage, sc_usage, and latency use this feature.\n\n");
+		quit("The trace facility is currently in use...\n          Note: fs_usage, sc_usage, and latency use this feature.\n\n");
 	    else
 	        quit("trace facility failure, KERN_KDREMOVE\n");
 	  }
@@ -1367,21 +1319,25 @@ sample_sc()
 	int i, count;
 	int secs;
 	int find_msgcode();
-	
-        /* Get kernel buffer information */
-	get_bufinfo(&bufinfo);
+
+	int reenable;
+
 #ifdef OLD_KDEBUG
 	set_enable(0);
 #endif
+	get_bufinfo(&bufinfo);
+
 	needed = bufinfo.nkdbufs * sizeof(kd_buf);
 	mib[0] = CTL_KERN;
 	mib[1] = KERN_KDEBUG;
-	mib[2] = KERN_KDREADTR;		
-	mib[3] = 0;
-	mib[4] = 0;
-	mib[5] = 0;		/* no flags */
-	if (sysctl(mib, 3, my_buffer, &needed, NULL, 0) < 0)
-	        quit("trace facility failure, KERN_KDREADTR\n");
+	mib[2] = KERN_KDREADTR;     
+	mib[3] = 0; 
+	mib[4] = 0; 
+	mib[5] = 0;
+        
+	if (sysctl(mib, 3, my_buffer, &needed, NULL, 0) < 0) 
+		quit("trace facility failure, KERN_KDREADTR\n");
+
 	count = needed;
 
 	if (bufinfo.flags & KDBG_WRAPPED) {
@@ -1394,6 +1350,7 @@ sample_sc()
 		}
 		num_of_threads = 0;
 	}
+
 #ifdef OLD_KDEBUG
 	set_remove();
 	set_init();
@@ -1747,9 +1704,17 @@ quit(char *s)
 	if (set_remove_flag)
 	        set_remove();
 
+	if (no_screen_refresh == 0) { 
+		/* clear for new display */
+		erase();
+		move(0, 0);
+		refresh();
+		endwin();
+	}
+
         printf("sc_usage: ");
 	if (s)
-		printf("%s ", s);
+		printf("%s", s);
 
 	exit(1);
 }

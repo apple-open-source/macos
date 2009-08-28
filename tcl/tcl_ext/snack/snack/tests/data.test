@@ -1,0 +1,127 @@
+# Commands covered: sound data/append
+#
+
+package require -exact snack 2.2
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+test data-1.1 {data command, read sound from binary variable} {
+  if [catch {set fd [open ex1.wav]} res] {
+    return $res
+  }
+  fconfigure $fd -translation binary
+  if {$::tcl_version > 8.0} {
+    fconfigure $fd -encoding binary
+  }
+  set data [read $fd]
+  
+  set s [snack::sound snd]
+  $s data $data
+
+  set res [$s info]
+  $s destroy
+  set res
+} {15820 16000 14264 -8288 Lin16 1 WAV 44}
+
+test data-1.2 {data command, read sound from binary string} {
+  set s [snack::sound snd]
+  $s data "\x00\x00\xFF\x00\x00\x00" -byteorder littleEndian
+  set res [$s info]
+  $s destroy
+  set res
+} {3 16000 255 0 Lin16 1 RAW 0}
+
+test data-2.1 {data command, write sound to binary variable} {
+  set s [snack::sound snd -load ex1.wav]
+  set var [$s data -start 5000 -end 5001 -fileformat raw -byteorder bigEndian]
+  binary scan $var S out
+  $s destroy
+  set out
+} 7443
+
+test data-3.1 {data command, append binary variable} {
+  if [catch {set fd [open ex1.wav]} res] {
+    return $res
+  }
+  fconfigure $fd -translation binary
+  if {$::tcl_version > 8.0} {
+    fconfigure $fd -encoding binary
+  }
+  set data [read $fd]
+  set s [snack::sound snd]
+  $s length 1000
+  $s append $data
+  set res [list [$s sample 999] [$s sample 6000] [$s sample 11000]]
+  $s destroy
+  set res
+} {0 7443 779}
+
+test data-4.1 {append command, append binary string} {
+  set s [snack::sound snd]
+  $s append "\x00\x00\x40\x00\x00\x00" -byteorder littleEndian
+  set res [$s info]
+  $s destroy
+  set res
+} {3 16000 64 0 Lin16 1 RAW 0}
+
+test data-4.2 {append command, append binary string} {
+  set s [snack::sound snd]
+  $s append "\x00\x00\x00\x40\x00\x00" -byteorder littleEndian
+  set res [$s info]
+  $s destroy
+  set res
+} {3 16000 16384 0 Lin16 1 RAW 0}
+
+test data-4.3 {append command, append binary string} {
+  set s [snack::sound snd]
+  $s append "\xff\xc0\x00\x40\x00\x00" -byteorder bigendian
+  set res [$s info]
+  $s destroy
+  set res
+} {3 16000 64 -64 Lin16 1 RAW 0}
+
+test data-4.4 {append command, append binary string} {
+  set s [snack::sound snd]
+  $s append "\xc0\xff\x40\x00\x00\x00" -byteorder littleendian
+  set res [$s info]
+  $s destroy
+  set res
+} {3 16000 64 -64 Lin16 1 RAW 0}
+
+test data-4.5 {append command, append binary string} {
+  set s [snack::sound snd]
+  $s append "\xff\xc0\x00\x40\x00\x00" -guessproperties yes
+  set res [$s info]
+  $s destroy
+  set res
+} {3 16000 64 -64 Lin16 1 RAW 0}
+
+test data-4.6 {append command, append binary string} {
+  set s [snack::sound snd]
+  $s append "\xc0\xff\x40\x00\x00\x00" -guessproperties yes
+  set res [$s info]
+  $s destroy
+  set res
+} {3 16000 64 -64 Lin16 1 RAW 0}
+
+test data-4.7 {append command, missing arg} {
+  set s [snack::sound snd]
+  catch {$s append} res
+  $s destroy
+  set res
+} {wrong # args: should be "snd append variable"}
+
+test data-5.1 {data command, initial data byte is '-'} {
+  set s [snack::sound snd]
+  $s data "-\x00" -byteorder littleEndian
+  set res [$s info]
+  $s destroy
+  set res
+} {1 16000 45 45 Lin16 1 RAW 0}
+
+# cleanup
+::tcltest::cleanupTests
+return

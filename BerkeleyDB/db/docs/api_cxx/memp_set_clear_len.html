@@ -1,23 +1,21 @@
-<!--$Id: memp_set_clear_len.html,v 1.2 2004/03/30 01:21:57 jtownsen Exp $-->
-<!--Copyright 1997-2003 by Sleepycat Software, Inc.-->
-<!--All rights reserved.-->
+<!--$Id: memp_set_clear_len.so,v 10.18 2005/11/30 19:46:21 bostic Exp $-->
+<!--Copyright (c) 1997,2007 Oracle.  All rights reserved.-->
 <!--See the file LICENSE for redistribution information.-->
 <html>
 <head>
 <title>Berkeley DB: DbMpoolFile::set_clear_len</title>
 <meta name="description" content="Berkeley DB: An embedded database programmatic toolkit.">
-<meta name="keywords" content="embedded,database,programmatic,toolkit,b+tree,btree,hash,hashing,transaction,transactions,locking,logging,access method,access methods,Java,C,C++">
+<meta name="keywords" content="embedded,database,programmatic,toolkit,btree,hash,hashing,transaction,transactions,locking,logging,access method,access methods,Java,C,C++">
 </head>
 <body bgcolor=white>
-<a name="2"><!--meow--></a>
 <table width="100%"><tr valign=top>
 <td>
 <h3>DbMpoolFile::set_clear_len</h3>
 </td>
 <td align=right>
-<a href="../api_cxx/api_index.html"><img src="../images/api.gif" alt="API"></a>
-<a href="../ref/toc.html"><img src="../images/ref.gif" alt="Ref"></a>
-</td></tr></table>
+<a href="../api_cxx/api_core.html"><img src="../images/api.gif" alt="API"></a>
+<a href="../ref/toc.html"><img src="../images/ref.gif" alt="Ref"></a></td>
+</tr></table>
 <hr size=1 noshade>
 <tt>
 <h3><pre>
@@ -31,12 +29,11 @@ DbMpoolFile::get_clear_len(u_int32_t *lenp);
 </pre></h3>
 <hr size=1 noshade>
 <h3>Description: DbMpoolFile::set_clear_len</h3>
-<a name="3"><!--meow--></a>
 <p>The DbMpoolFile::set_clear_len method sets the number of initial bytes in a
 page that should be set to nul when the page is created as a result of
 the <a href="../api_cxx/memp_fget.html#DB_MPOOL_CREATE">DB_MPOOL_CREATE</a> or <a href="../api_cxx/memp_fget.html#DB_MPOOL_NEW">DB_MPOOL_NEW</a> flags being
-specified to <a href="../api_cxx/memp_fget.html">DbMpoolFile::get</a>.  If no value is specified, or <b>len</b>
-is 0, the entire page is cleared.</p>
+specified to <a href="../api_cxx/memp_fget.html">DbMpoolFile::get</a>.  If no clear length is specified, the
+entire page is cleared when it is created.</p>
 <p>The DbMpoolFile::set_clear_len method configures a file in the memory pool, not only
 operations performed using the specified <a href="../api_cxx/mempfile_class.html">DbMpoolFile</a> handle.</p>
 <p>The DbMpoolFile::set_clear_len method may not be called after the <a href="../api_cxx/memp_fopen.html">DbMpoolFile::open</a> method is
@@ -52,9 +49,8 @@ or throws an exception that encapsulates a non-zero error value on
 failure, and returns 0 on success.
 </p>
 <h3>Parameters</h3>
-<p><dl compact>
-<p><dt><b>len</b><dd>
-The <b>len</b> parameter is the number of initial bytes in a page that
+<dl compact>
+<dt><b>len</b><dd>The <b>len</b> parameter is the number of initial bytes in a page that
 should be set to nul when the page is created.  A value of 0 results in
 the entire page being set to nul bytes.
 </dl>
@@ -69,9 +65,8 @@ or throws an exception that encapsulates a non-zero error value on
 failure, and returns 0 on success.
 </p>
 <h3>Parameters</h3>
-<p><dl compact>
-<p><dt><b>lenp</b><dd>
-The DbMpoolFile::get_clear_len method returns  the
+<dl compact>
+<dt><b>lenp</b><dd>The DbMpoolFile::get_clear_len method returns  the
 bytes to be cleared in <b>lenp</b>.
 </dl>
 <hr size=1 noshade>
@@ -81,8 +76,8 @@ bytes to be cleared in <b>lenp</b>.
 <a href="../api_cxx/memp_list.html">Memory Pools and Related Methods</a>
 </tt>
 <table width="100%"><tr><td><br></td><td align=right>
-<a href="../api_cxx/api_index.html"><img src="../images/api.gif" alt="API"></a><a href="../ref/toc.html"><img src="../images/ref.gif" alt="Ref"></a>
+<a href="../api_cxx/api_core.html"><img src="../images/api.gif" alt="API"></a><a href="../ref/toc.html"><img src="../images/ref.gif" alt="Ref"></a>
 </td></tr></table>
-<p><font size=1><a href="../sleepycat/legal.html">Copyright (c) 1996-2003</a> <a href="http://www.sleepycat.com">Sleepycat Software, Inc.</a> - All rights reserved.</font>
+<p><font size=1>Copyright (c) 1996,2007 Oracle.  All rights reserved.</font>
 </body>
 </html>

@@ -35,6 +35,7 @@
 #include <securityd_client/ucspNotify.h>
 
 namespace Security {
+namespace SecurityServer {
 
 
 // stock leading argument profile used by (almost) all calls
@@ -105,7 +106,7 @@ public:
 	DatabaseAccessCredentials(const AccessCredentials *creds, Allocator &alloc);
 
 private:
-	void mapKeySample(CSSM_CSP_HANDLE &cspHandle, CssmKey &key);
+	void mapKeySample(CssmData &cspHandleData, CssmKey &key);
 };
 
 
@@ -129,6 +130,7 @@ private:
 };
 
 
+} // namespace SecurityServer
 } // namespace Security
 
 #endif //_H_SSTRANSIT

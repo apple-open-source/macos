@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2006, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2008, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -20,13 +20,13 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: tftp.h,v 1.2 2006/01/09 13:17:14 bagder Exp $
+ * $Id: tftp.h,v 1.5 2008-10-23 14:34:08 yangtse Exp $
  ***************************************************************************/
 
-/* This file is a rewrite/clone of the arpa/telnet.h file for systems without
+/* This file is a rewrite/clone of the arpa/tftp.h file for systems without
    it. */
 
-#define	SEGSIZE 512 /* data segment size */
+#define SEGSIZE 512 /* data segment size */
 
 #ifndef __GNUC__
 #define __attribute__(x)
@@ -45,12 +45,6 @@ struct tftphdr {
 #define th_stuff th_block
 #define th_code  th_block
 #define th_msg   th_data
-
-#define RRQ   1
-#define WRQ   2
-#define DATA  3
-#define ACK   4
-#define ERROR 5
 
 #define EUNDEF    0
 #define ENOTFOUND 1

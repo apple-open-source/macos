@@ -85,7 +85,7 @@ struct objc_class_str
   {
     struct stoken stoken;
     struct type *type;
-    int class;
+    CORE_ADDR class;
   };
 
 

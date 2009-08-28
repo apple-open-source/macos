@@ -1,0 +1,375 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+
+<HTML>
+
+<HEAD>
+
+<META http-equiv="content-type"  CONTENT="text/html; charset=macintosh">
+<title>Handling AppleEvents and coercions</title>
+<LINK HREF="tclae.css" REL="stylesheet" TYPE="text/css">
+
+</HEAD>
+
+<body>
+
+<div class="index">
+<!-- #DOCINDEX TYPE="UL" DEPTH="2" -->
+
+<ul>
+    <li><a href="#AECoercionHandler">Handling AppleEvent Descriptor
+    Coercions</a>
+
+    <ul>
+        <li><a href="#tclAE::installCo">tclAE::installCoercionHandler</a>
+        <li><a href="#tclAE::getCoerci">tclAE::getCoercionHandler</a>
+        <li><a href="#tclAE::removeCoe">tclAE::removeCoercionHandler</a>
+    </ul>
+    
+    <li><a href="#AppleEventHandler">Handling AppleEvents</a>
+
+    <ul>
+        <li><a href="#tclAE::installEv">tclAE::installEventHandler</a>
+        <li><a href="#tclAE::getEventH">tclAE::getEventHandler</a>
+        <li><a href="#tclAE::removeEve">tclAE::removeEventHandler</a>
+    </ul>
+    
+    <li><a href="#PathConversion">Path Conversion</a>
+
+    <ul>
+        <li><a href="#tclAE::getHFSPath">tclAE::getHFSPath</a>
+        <li><a href="#tclAE::getPOSIXPath">tclAE::getPOSIXPath</a>
+    </ul>
+    
+</ul>
+
+<!-- /#DOCINDEX -->
+</div>
+
+<P>
+This page describes TclÆ calls for handling received AppleEvents and 
+AppleEvent descriptor type coercion requests. For information on the 
+associated ToolBox calls and data types, see <A 
+HREF="http://developer.apple.com/techpubs/mac/IAC/IAC-2.html">INSIDE 
+MACINTOSH: Interapplication Communication</A>.
+</P>
+
+<HR>
+
+<H1><A NAME="AECoercionHandler">Handling AppleEvent Descriptor Coercions</A></H1>
+
+<div class="definition">
+<H2><A NAME="tclAE::installCo"><CODE>tclAE::installCoercionHandler</CODE></A></H2>
+
+<P>
+Tcl wrapper for ToolBox AEInstallCoercionHandler call.
+</P>
+
+<H3>Synopsis</H3>
+
+<CODE>
+tclAE::installCoercionHandler 
+<VAR><A HREF="tclAEglossary.html#fromType">fromType</A></VAR> 
+<VAR><A HREF="tclAEglossary.html#toType">toType</A></VAR> 
+<VAR><A HREF="tclAEglossary.html#coercionHandlerP">coercionHandlerProc</A></VAR>
+</CODE>
+
+<H3>Result</H3>
+
+<P>
+None.
+</P>
+
+<H3>Description</H3>
+
+<P>
+This call allows Tcl procs to act as <CODE><A 
+HREF="tclAEglossary.html#AEDesc">AEDesc</A></CODE> coercion handlers.
+</P>
+</div>
+
+<div class="definition">
+<H2><A NAME="tclAE::getCoerci"><CODE>tclAE::getCoercionHandler</CODE></A></H2>
+
+<P>
+Tcl wrapper for ToolBox <CODE>AEGetCoercionHandler</CODE> call.
+</P>
+
+<H3>Synopsis</H3>
+
+<CODE>
+tclAE::getCoercionHandler 
+<VAR><A HREF="tclAEglossary.html#fromType">fromType</A></VAR> 
+<VAR><A HREF="tclAEglossary.html#toType">toType</A></VAR> 
+</CODE>
+
+<H3>Result</H3>
+
+<P>
+Name of Tcl coercion <CODE>proc</CODE>.
+</P>
+
+<H3>Description</H3>
+
+<P>
+The TclÆ coercion hash table is searched for the <CODE>proc</CODE> mapped 
+by <CODE><VAR><A HREF="tclAEglossary.html#fromType">fromType</A></VAR></CODE> 
+and <CODE><VAR><A HREF="tclAEglossary.html#toType">toType</A></VAR></CODE>.
+</P>
+
+<P>
+If the AEM has a registered coercion handler that is not a Tcl 
+<CODE>proc</CODE>, the Result will be empty, but no error is thrown.
+<STRONG>Tell me how you want this to work!!!</STRONG>
+</P>
+
+<P>
+Throws <CODE>OSErr -1717</CODE> (<CODE>errAEHandlerNotFound</CODE>) if 
+there is no entry in the coercion hash table.
+</P>
+</div>
+
+<div class="definition">
+<H2><A NAME="tclAE::removeCoe"><CODE>tclAE::removeCoercionHandler</CODE></A></H2>
+
+<P>
+Tcl wrapper for ToolBox <CODE>AERemoveCoercionHandler</CODE> call.
+</P>
+
+<H3>Synopsis</H3>
+
+<CODE>
+tclAE::getCoercionHandler 
+<VAR><A HREF="tclAEglossary.html#fromType">fromType</A></VAR> 
+<VAR><A HREF="tclAEglossary.html#toType">toType</A></VAR> 
+<VAR><A HREF="tclAEglossary.html#coercionHandlerProc">coercionHandlerProc</A></VAR>
+</CODE>
+
+<H3>Result</H3>
+
+<P>
+None.
+</P>
+
+<H3>Description</H3>
+
+<P>
+The TclÆ coercion hash table is searched for the <CODE>proc</CODE> mapped 
+by <CODE><VAR><A HREF="tclAEglossary.html#fromType">fromType</A></VAR></CODE> 
+and <CODE><VAR><A HREF="tclAEglossary.html#toType">toType</A></VAR></CODE> and 
+matched with <CODE><VAR><A 
+HREF="tclAEglossary.html#coercionHandlerProc">coercionHandlerProc</A></VAR></CODE>. 
+Although the <CODE><VAR><A 
+HREF="tclAEglossary.html#fromType">fromType</A></VAR></CODE> and <CODE><VAR><A 
+HREF="tclAEglossary.html#toType">toType</A></VAR></CODE> parameters would be 
+sufficient to identify the handler to be removed, providing the 
+<CODE><VAR><A 
+HREF="tclAEglossary.html#coercionHandlerProc">coercionHandlerProc</A></VAR></CODE> 
+parameter is a safeguard to ensure that you remove the correct handler.
+</P>
+
+<P>
+Throws <CODE>OSErr -1717</CODE> (<CODE>errAEHandlerNotFound</CODE>) if 
+there is no matching entry in the TclÆ’s coercion hash table.
+</P>
+</div>
+
+<H1><A NAME="AppleEventHandler">Handling AppleEvents</A></H1>
+
+<div class="definition">
+<H2><A NAME="tclAE::installEv"><CODE>tclAE::installEventHandler</CODE></A></H2>
+
+<P>
+Tcl wrapper for ToolBox <CODE>AEInstallEventHandler</CODE> call.
+</P>
+
+<H3>Synopsis</H3>
+
+<CODE>
+tclAE::installEventHandler 
+<VAR><A HREF="tclAEglossary.html#aeclass">aeclass</A></VAR> 
+<VAR><A HREF="tclAEglossary.html#aeeventID">aeeventID</A></VAR> 
+<VAR><A HREF="tclAEglossary.html#eventHandlerProc">eventHandlerProc</A></VAR>
+</CODE>
+
+<H3>Result</H3>
+
+<P>
+None.
+</P>
+
+<H3>Description</H3>
+
+<P>
+This call allows a Tcl <CODE>proc</CODE> to act as an AppleEvent handler.
+</P>
+</div>
+
+<div class="definition">
+<H2><A NAME="tclAE::getEventH"><CODE>tclAE::getEventHandler</CODE></A></H2>
+
+<P>
+Tcl wrapper for ToolBox <CODE>AEGetEventHandler</CODE> call.
+</P>
+
+<H3>Synopsis</H3>
+
+<CODE>
+tclAE::getEventHandler 
+<VAR><A HREF="tclAEglossary.html#aeclass">aeclass</A></VAR> 
+<VAR><A HREF="tclAEglossary.html#aeeventID">aeeventID</A></VAR> 
+</CODE>
+
+<H3>Result</H3>
+
+<P>
+Name of Tcl AppleEvent handler <CODE>proc</CODE>.
+</P>
+
+<H3>Description</H3>
+
+<P>
+The TclÆ event handler hash table is searched for the <CODE>proc</CODE> 
+mapped by <CODE><VAR><A 
+HREF="tclAEglossary.html#aeclass">aeclass</A></VAR></CODE> and <CODE><VAR><A 
+HREF="tclAEglossary.html#aeeventID">aeeventID</A></VAR></CODE>.
+</P>
+
+<P>
+If the AEM has an event handler that is not a Tcl <CODE>proc</CODE>, the 
+Result will be empty, but no error is thrown.
+<STRONG>Tell me how you want this to work!!!</STRONG>
+</P>
+
+<P>
+Throws <CODE>OSErr -1717</CODE> (<CODE>errAEHandlerNotFound</CODE>) if 
+there is no entry in the event handler hash table.
+</P>
+</div>
+
+<div class="definition">
+<H2><A NAME="tclAE::removeEve"><CODE>tclAE::removeEventHandler</CODE></A></H2>
+
+<P>
+Tcl wrapper for ToolBox AEGetEventHandler call.
+</P>
+
+<H3>Synopsis</H3>
+
+<CODE>
+tclAE::getCoercionHandler 
+<VAR><A HREF="tclAEglossary.html#aeclass">aeclass</A></VAR> 
+<VAR><A HREF="tclAEglossary.html#aeeventID">aeeventID</A></VAR> 
+<VAR><A HREF="tclAEglossary.html#eventHandlerProc">eventHandlerProc</A></VAR>
+</CODE>
+
+<H3>Result</H3>
+
+<P>
+None.
+</P>
+
+<H3>Description</H3>
+
+<P>
+The TclÆ event handler hash table is searched for the <CODE>proc</CODE> 
+mapped by this <CODE><VAR><A 
+HREF="tclAEglossary.html#aeclass">aeclass</A></VAR></CODE> and <CODE><VAR><A 
+HREF="tclAEglossary.html#aeeventID">aeeventID</A></VAR></CODE> and matched 
+with <CODE><VAR><A 
+HREF="tclAEglossary.html#eventHandlerProc">eventHandlerProc</A></VAR></CODE>. 
+Although the <CODE><VAR><A 
+HREF="tclAEglossary.html#aeclass">aeclass</A></VAR></CODE> and <CODE><VAR><A 
+HREF="tclAEglossary.html#aeeventID">aeeventID</A></VAR></CODE> parameters 
+would be sufficient to identify the handler to be removed, providing the 
+<CODE><VAR><A 
+HREF="tclAEglossary.html#eventHandlerProc">eventHandlerProc</A></VAR></CODE> 
+parameter is a safeguard to ensure that you remove the correct handler.
+</P>
+
+<P>
+Throws <CODE>OSErr -1717</CODE> (<CODE>errAEHandlerNotFound</CODE>) if 
+there is no matching entry in the coercion hash table.
+</P>
+</div>
+
+<H1><A NAME="PathConversion">Path Conversion</A></H1>
+
+<div class="definition">
+<H2><A NAME="tclAE::getHFSPath"><CODE>tclAE::getHFSPath</CODE></A></H2>
+
+<P>
+Convert POSIX path to HFS path
+</P>
+
+<H3>Synopsis</H3>
+
+<CODE>
+tclAE::getHFSPath 
+<VAR>/some/posix/path</VAR> 
+</CODE>
+
+<H3>Result</H3>
+
+<P>
+HFS path
+</P>
+
+<H3>Description</H3>
+
+<P>
+This call converts a POSIX path to an HFS path
+</P>
+</div>
+
+<div class="definition">
+<H2><A NAME="tclAE::getPOSIXPath"><CODE>tclAE::getPOSIXPath</CODE></A></H2>
+
+<P>
+Convert HFS path to POSIX path
+</P>
+
+<H3>Synopsis</H3>
+
+<CODE>
+tclAE::getPOSIXPath 
+<VAR>some:hfs:path</VAR> 
+</CODE>
+
+<H3>Result</H3>
+
+<P>
+POSIX path
+</P>
+
+<H3>Description</H3>
+
+<P>
+This call converts an HFS path to a POSIX path
+</P>
+</div>
+
+<hr>
+
+<P>
+Copyright © 1999–2007 Jonathan E. Guyer<BR>
+All rights reserved.
+</P>
+
+<p>
+<!-- #LASTMODIFIED TEXT="Last modified" FORM="LONG,WEEKDAY,TIME,SECONDS"-->
+Last modified Tuesday, July 10, 2007 8:54:09 AM
+<!-- /#LASTMODIFIED -->
+</p>
+
+<p>
+<a href="http://jigsaw.w3.org/css-validator/"><img 
+style="border:0;width:88px;height:31px" 
+src="http://jigsaw.w3.org/css-validator/images/vcss" alt="Valid CSS!"></a> 
+<a href="http://validator.w3.org/check/referer"><img border="0" 
+src="http://www.w3.org/Icons/valid-html40" alt="Valid HTML 4.0!" 
+height="31" width="88"></a>
+</p>
+
+</BODY>
+
+</HTML>

@@ -61,6 +61,8 @@
 #include <machine/spl.h>
 #include <kern/clock.h>
 
+#include <IOKit/IOLib.h>
+
 #include <net/if_types.h>
 #include <net/if.h>
 #include <netinet/in.h>
@@ -332,7 +334,7 @@ mppe_comp_alloc(unsigned char *options, int opt_len)
 
     if ((opt_len > (CILEN_MPPE + MPPE_MAX_KEY_LEN))
        || options[0] != CI_MPPE || options[1] != CILEN_MPPE) {
-	    log(LOG_DEBUG, "compress rejected: opt_len=%u,o[0]=%x,o[1]=%x\n",
+	    IOLog("compress rejected: opt_len=%u,o[0]=%x,o[1]=%x\n",
 		opt_len,options[0],options[1]);
 	    return NULL;
     }
@@ -362,7 +364,7 @@ mppe_comp_init(void *arg, unsigned char *options, int opt_len, int unit,
 
     if (opt_len != CILEN_MPPE
        || options[0] != CI_MPPE || options[1] != CILEN_MPPE) {
-    	log(LOG_DEBUG, "mppe compress rejected: opt_len=%u,o[0]=%x,o[1]=%x\n",
+    	IOLog("mppe compress rejected: opt_len=%u,o[0]=%x,o[1]=%x\n",
 	    opt_len, options[0], options[1]);
 	return 0;
     }
@@ -373,7 +375,7 @@ mppe_comp_init(void *arg, unsigned char *options, int opt_len, int unit,
     else if (mppe_opts & MPPE_OPT_128)
 	state->keylen = 16;
     else {
-	log(LOG_DEBUG, "mppe compress rejected, unknown key length\n");
+	IOLog("mppe compress rejected, unknown key length\n");
 	return 0;
     }
 
@@ -447,11 +449,16 @@ mppe_compress(void *arg, mbuf_t *m)
         isize += mbuf_len(m1);
 
     if (mbuf_getpacket(MBUF_WAITOK, &m1) != 0) {
-	log(LOG_DEBUG, "mppe_compress: no mbuf available\n");
+	IOLog("mppe_compress: no mbuf available\n");
         return COMP_NOTDONE;
     }
 
     /* fist transform mbuf into linear data buffer */
+	if (isize > sizeof(ppp_mppe_tmp)) {
+		IOLog("%s: packet too big\n",__FUNCTION__);
+        return COMP_NOTDONE;
+	}
+
     mbuf_copydata(*m, 0, isize, ppp_mppe_tmp);
 
 #ifdef DEBUG
@@ -517,12 +524,16 @@ mppe_decompress(void *arg, mbuf_t *m)
         
     if (isize <= 2) {
 	if (state->debug) {
-	    log(LOG_DEBUG, "mppe_decompress%d: short packet (len=%d)\n",
+	    IOLog("mppe_decompress%d: short packet (len=%d)\n",
 		state->unit, isize);
 	}
 	return DECOMP_ERROR;
     }
-
+	if (isize > sizeof(ppp_mppe_tmp)) {
+		IOLog("%s: packet too big\n",__FUNCTION__);
+        return COMP_NOTDONE;
+	}
+		
     /* fist transform mbuf into linear data buffer */
     mbuf_copydata(*m, 0, isize, ppp_mppe_tmp);
 
@@ -540,7 +551,7 @@ mppe_decompress(void *arg, mbuf_t *m)
 
     if (seq != state->ccount) {
 	if (state->debug) {
-	    log(LOG_DEBUG, "mppe_decompress%d: bad seq # %d, expected %d\n",
+	    IOLog("mppe_decompress%d: bad seq # %d, expected %d\n",
 		   state->unit, seq, state->ccount);
 	}
 
@@ -555,7 +566,7 @@ mppe_decompress(void *arg, mbuf_t *m)
      */
 
     if(!(MPPE_BITS(ppp_mppe_tmp) & MPPE_BIT_ENCRYPTED)) {
-        log(LOG_DEBUG, "ERROR: not an encrypted packet");
+        IOLog("ERROR: not an encrypted packet");
         mppe_synchronize_key(state);
 	return DECOMP_ERROR;
     } else {
@@ -564,7 +575,7 @@ mppe_decompress(void *arg, mbuf_t *m)
 	mppe_update_count(state);
 
         if (mbuf_getpacket(MBUF_WAITOK, &m1) != 0) {
-            log(LOG_DEBUG, "mppe_decompress: no mbuf available\n");
+            IOLog("mppe_decompress: no mbuf available\n");
             return DECOMP_ERROR;
         }
         

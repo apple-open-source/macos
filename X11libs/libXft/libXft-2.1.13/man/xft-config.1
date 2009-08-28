@@ -1,0 +1,120 @@
+.\" Copyright 2005 Branden Robinson
+.\"
+.\" Permission is hereby granted, free of charge, to any person obtaining a copy
+.\" of this document (the "Document"), to deal in the Document without
+.\" restriction, including without limitation the rights to use, copy, modify,
+.\" merge, publish, distribute, sublicense, and/or sell copies of the Document,
+.\" and to permit persons to whom the Document is furnished to do so, subject to
+.\" the following conditions:
+.\"
+.\" The above copyright notice and this permission notice shall be included in
+.\" all copies or substantial portions of the Document.
+.\"
+.\" THE DOCUMENT IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+.\" IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+.\" FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+.\" THE AUTHOR(S) OR COPYRIGHT HOLDER(S) BE LIABLE FOR ANY CLAIM, DAMAGES OR
+.\" OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+.\" ARISING FROM, OUT OF OR IN CONNECTION WITH THE DOCUMENT OR THE USE OR OTHER
+.\" DEALINGS IN THE DOCUMENT.
+.TH xft-config 1 "Version 2.1.13" "Xft"
+.SH NAME
+xft\-config \- report Xft version, compiler, linker, and/or installation \
+directory information
+.SH SYNOPSIS
+.B xft\-config
+{
+.BR \-\-exec\-prefix [ =\fIlocal_prefix\fR ]
+|
+.BR \-\-prefix [ =\fIlocal_prefix\fR ]
+|
+.B \-\-cflags
+|
+.B \-\-libs
+} ...
+.PP
+.B xft\-config \-\-version
+.SH DESCRIPTION
+.B xft\-config
+reports information of interest to users and developers about the installed
+version of the X FreeType library,
+.BR Xft (3).
+Depending on how it is invoked,
+.B xft\-config
+reports the installed version of Xft, the compiler and linker flags
+that are required to successfully compile and link C (or C-compatible) code
+that uses the library, and/or the directories used by the GNU Autotools to
+install its files.
+Note that if the system's installed version of Xft came from an OS vendor
+or other third party, the actual location of its files may differ from
+those reported by
+.BR xft\-config .
+The system adminstrator can also relocate Xft's files.
+.PP
+If invoked without any arguments,
+.B xft\-config
+will print a usage message on standard error and exit.
+.SH OPTIONS
+.TP
+.B \-\-cflags
+Report the compiler flags that are required to compile code that uses Xft
+symbols.
+.TP
+.BR \-\-exec\-prefix [ =\fIlocal_prefix\fR ]
+If specified without the parameter
+.IR local_prefix ,
+report the file specification prefix that Xft uses for installation of
+executable files.
+If
+.I local_prefix
+is specified, it is used instead of the file specification prefix used for
+installation of executable files by Xft and the value of the option
+argument specified with
+.BR \-\-prefix ,
+if any, when compile and linker flags are reported (with
+.B \-\-cflags
+and
+.BR \-\-libs ,
+respectively).
+.TP
+.B \-\-libs
+Report the linker flags that are required to link code that uses Xft
+symbols.
+.TP
+.BR \-\-prefix [ =\fIlocal_prefix\fR ]
+If specified without the parameter
+.IR local_prefix ,
+report the file specification prefix that Xft uses for installation of
+files.
+If
+.I local_prefix
+is specified, it is used instead of the file specification prefix used for
+installation of files by Xft when compile and linker flags are reported
+(with
+.B \-\-cflags
+and
+.BR \-\-libs ,
+respectively); also see
+.BR \-\-exec\-prefix .
+.TP
+.B \-\-version
+Report the version of the Xft library installed on the system and exit.
+.SH OPERANDS
+.B xft\-config
+does not recognize any non-option arguments.
+At least one option must be specified.
+.SH "EXIT STATUS"
+.TP
+0
+Information was successfully reported.
+.TP
+1
+.B xft\-config
+was invoked with invalid arguments, or no arguments at all.
+.SH AUTHOR
+.B xft\-config
+was written by Keith Packard.
+This manual page was written by Branden Robinson.
+.SH "SEE ALSO"
+.BR Xft (3)
+.\" vim:set et tw=80

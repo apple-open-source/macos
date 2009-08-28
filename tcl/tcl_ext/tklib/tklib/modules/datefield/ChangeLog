@@ -1,0 +1,22 @@
+2007-10-10  Andreas Kuprie  <andreask@activestate.com>
+
+	* datefield.tcl: Updated to automatically use tile/ttdk when
+	* datefield.man: available. Version updated to 0.2
+	* pkgIndex.tcl:
+
+2005-11-10  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tklib 0.4.1 ========================
+	* 
+
+2005-11-02  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tklib 0.4 ========================
+	* 
+
+2002-02-25  Keith Vetter <keith@ebook.gemstar.com>
+
+	* datefield.tcl: initial 0.1 implementation 
+	* datefield.n: initial 0.1 implementation 

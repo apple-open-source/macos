@@ -40,7 +40,7 @@
 
 #define IS_LINK(st_mode)	(((st_mode) & S_IFMT) == S_IFLNK)
 
-void main(int argc, char ** argv) {
+int main(int argc, char ** argv) {
    int i;
    char sourceDirBuf[MAXPATHLEN], *sourceDir = NULL, *destDir;
    char source[MAXPATHLEN], dest[MAXPATHLEN];

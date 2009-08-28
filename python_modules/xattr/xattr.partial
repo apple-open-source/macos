@@ -1,0 +1,23 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>xattr</string>
+        <key>OpenSourceVersion</key>
+        <string>0.5</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://undefined.org/python/#xattr</string>
+        <key>OpenSourceURL</key>
+        <string>https://svn.red-bean.com/bob/xattr/releases/xattr-0.5/</string>
+        <key>OpenSourceImportDate</key>
+        <string>2007-06-01</string>
+        <key>OpenSourceLicense</key>
+        <string>PSFL</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>python_modules.txt</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>improve error handling</string>
+		<string>replaced xattr script with improved version</string>
+		<string>hex output for binary with -l</string>
+		<string>hex input for -w with -x flag</string>
+	</array>	
+</dict>

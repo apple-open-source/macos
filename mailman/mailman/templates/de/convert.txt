@@ -21,7 +21,7 @@ Funktionen ist
     %(listinfo_url)s
 
 4) Sollten Sie keinen Web-Zugriff haben, dann können Sie all diese
-Funktionen auch per Email nützen: Senden sie ein Mail an %(requestaddr)s mit
+Funktionen auch per E-Mail nützen: Senden sie ein Mail an %(requestaddr)s mit
 nur dem Wort "help" (ohne Anführungszeichen) im Betreff oder im
 Nachrichtentext. In der automatisch generierten Antwort erhalten Sie dann
 weitere Instruktionen.

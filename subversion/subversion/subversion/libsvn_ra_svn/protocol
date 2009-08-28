@@ -25,9 +25,10 @@ is possible to parse an item without knowing its type in advance.
 Lists are not constrained to contain items of the same type.  Lists
 can be used for tuples, optional tuples, or arrays.  A tuple is a list
 expected to contain a fixed number of items, generally of differing
-types.  An optional value is a list containing either zero or a fixed
-number of items.  An array is a list containing zero or more items of
-the same type.
+types.  An optional tuple is a list containing either zero or a fixed
+number of items (thus "optional" here does not refer to the list's
+presence or absence, but to the presence or absence of its contents).
+An array is a list containing zero or more items of the same type.
 
 Words are used for enumerated protocol values, while strings are used
 for text or binary data of interest to the Subversion client or
@@ -36,21 +37,31 @@ server.  Words are case-sensitive.
 For convenience, this specification will define prototypes for data
 items using a syntax like:
 
-  example: ( literal [ rev:number ] ( data:string ... ) )
+  example: ( literal ( data:string ... ) )
 
 A simple word such as "literal", with no colon, denotes a literal
-word.  A choice of words may be given in braces with "|" separating
-the choices.  "name:type" specifies a parameter with the given type.
+word.  A choice of words may be given with "|" separating the choices.
+"name:type" specifies a parameter with the given type.
+
 A type is "word", "number", "string", "list", or the name of another
-prototype.  Brackets denote an optional tuple.  Parentheses denote a
-tuple, unless the parentheses contain ellipses, in which case the
-parentheses denote an array containing zero or more elements matching
-the prototype preceding the ellipses.  If a tuple has an optional part
-after the fixed part, a '?' marks places where the tuple is allowed to
-end.  The following tuple could contain one, three, or four or more
-items:
+prototype.  Parentheses denote a tuple, unless the parentheses contain
+ellipses, in which case the parentheses denote an array containing
+zero or more elements matching the prototype preceding the ellipses.
+
+If a tuple has an optional part after the fixed part, a '?' marks
+places where the tuple is allowed to end.  The following tuple could
+contain one, three, or four or more items:
 
   example: ( fixed:string ? opt1:number opt2:string ? opt3:number )
+
+Brackets denote an optional tuple; they are equivalent to parentheses
+and a leading '?'.  For example, this:
+
+  example: ( literal (? rev:number ) ( data:string ... ) )
+
+can be written more compactly like this:
+
+  example: ( literal [ rev:number ] ( data:string ... ) )
 
 For extensibility, implementations must treat a list as matching a
 prototype's tuple even if the list contains extra elements.  The extra
@@ -98,11 +109,15 @@ If the client does not support a protocol version within the specified
 range, it closes the connection.  Otherwise, the client responds to
 the greeting with an item matching the prototype:
 
-  response: ( version:number ( cap:word ... ) url:string )
+  response: ( version:number ( cap:word ... ) url:string
+              ? ra-client:string ( ? client:string ) )
 
 version gives the protocol version selected by the client.  The cap
 values give a list of client capabilities (see section 2.1).  url
-gives the URL the client is accessing.
+gives the URL the client is accessing.  ra-client is a string
+identifying the RA implementation, e.g. "SVN/1.6.0" or "SVNKit 1.1.4".
+client is the string returned by svn_ra_callbacks2_t.get_client_string;
+that callback may not be implemented, so this is optional.
 
 Upon receiving the client's response to the greeting, the server sends
 an authentication request, which is a command response whose arguments
@@ -151,25 +166,39 @@ is "svn".
 After a successful authentication exchange, the server sends a command
 response whose parameters match the prototype:
 
-  repos-info: ( uuid:string repos-url:string )
+  repos-info: ( uuid:string repos-url:string ( cap:word ... ) )
 
-uuid gives the universal unique identifier of the repository, and
-repos-url gives the URL of the repository's root directory.  The
-client can now begin sending commands from the main command set.
+uuid gives the universal unique identifier of the repository,
+repos-url gives the URL of the repository's root directory, and the
+cap values list the repository capabilities (that is, capabilities
+that require both server and repository support before the server can
+claim them as capabilities, e.g., SVN_RA_SVN_CAP_MERGEINFO).
+
+The client can now begin sending commands from the main command set.
 
 2.1 Capabilities
 
-The following capabilities are currently defined:
+The following capabilities are currently defined (S indicates a server
+capability and C indicates a client capability):
 
-  edit-pipeline     If both the client and server present this
-                    capability, edit operations will use pipelining.
-                    See section 3.1.2.
-  svndiff1          If both the client and server support svndiff version
-                    1, this will be used as the on-the-wire format for svndiff
-                    instead of svndiff version 0.
-  absent-entries    If the remote end announces support for this capability,
-                    it will accept the absent-dir and absent-file editor
-                    commands.
+[CS] edit-pipeline     Every released version of Subversion since 1.0
+                       announces the edit-pipeline capability; starting
+                       in Subversion 1.5, both client and server
+                       *require* the other side to announce edit-pipeline.
+[CS] svndiff1          If both the client and server support svndiff version
+                       1, this will be used as the on-the-wire format for 
+                       svndiff instead of svndiff version 0.
+[CS] absent-entries    If the remote end announces support for this capability,
+                       it will accept the absent-dir and absent-file editor
+                       commands.
+[S]  commit-revprops   If the server presents this capability, it supports the 
+                       rev-props parameter of the commit command.
+                       See section 3.1.1.
+[S]  mergeinfo         If the server presents this capability, it supports the 
+                       get-mergeinfo command.  See section 3.1.1.
+[S]  depth             If the server presents this capability, it understands
+                       requested operational depth (see section 3.1.1) and
+                       per-path ambient depth (see section 3.1.3).
 
 3. Commands
 -----------
@@ -190,7 +219,7 @@ responds.
 Here are some miscellaneous prototypes used by the command sets:
 
   proplist:  ( ( name:string value:string ) ... )
-  propdelta: ( ( name: string [ value:string ] ) ... )
+  propdelta: ( ( name:string [ value:string ] ) ... )
   node-kind: none|file|dir|unknown
   bool:      true|false
   lockdesc:  ( path:string token:string owner:string [ comment:string ]
@@ -242,7 +271,7 @@ second place for auth-request point as noted below.
 
   commit
     params:   ( logmsg:string ? ( ( lock-path:string lock-token:string ) ... )
-                keep-locks:bool )
+                keep-locks:bool ? rev-props:proplist )
     response: ( )
     Upon receiving response, client switches to editor command set.
     Upon successful completion of edit, server sends auth-request.
@@ -281,8 +310,16 @@ second place for auth-request point as noted below.
                 [ last-author:string ] )
     New in svn 1.2.  If path is non-existent, an empty response is returned.
 
+  get-mergeinfo
+    params:   ( ( path:string ... ) [ rev:number ] inherit:word 
+                descendents:bool)
+    response: ( ( ( path:string merge-info:string ) ... ) )
+    New in svn 1.5.  If no paths are specified, an empty response is
+    returned.  If rev is not specified, the youngest revision is used.
+
   update
-    params:   ( [ rev:number ] target:string recurse:bool )
+    params:   ( [ rev:number ] target:string recurse:bool
+                ? depth:word send_copyfrom_param:bool )
     Client switches to report command set.
     Upon finish-report, server sends auth-request.
     After auth exchange completes, server switches to editor command set.
@@ -290,7 +327,8 @@ second place for auth-request point as noted below.
     response: ( )
 
   switch
-    params:   ( [ rev:number ] target:string recurse:bool url:string )
+    params:   ( [ rev:number ] target:string recurse:bool url:string
+                ? depth:word)
     Client switches to report command set.
     Upon finish-report, server sends auth-request.
     After auth exchange completes, server switches to editor command set.
@@ -298,7 +336,7 @@ second place for auth-request point as noted below.
     response: ( )
 
   status
-    params:   ( target:string recurse:bool )
+    params:   ( target:string recurse:bool ? [ rev:number ] ? depth:word )
     Client switches to report command set.
     Upon finish-report, server sends auth-request.
     After auth exchange completes, server switches to editor command set.
@@ -307,7 +345,7 @@ second place for auth-request point as noted below.
 
   diff
     params:   ( [ rev:number ] target:string recurse:bool ignore-ancestry:bool
-                url:string ? text-deltas:bool )
+                url:string ? text-deltas:bool ? depth:word )
     Client switches to report command set.
     Upon finish-report, server sends auth-request.
     After auth exchange completes, server switches to editor command set.
@@ -317,13 +355,21 @@ second place for auth-request point as noted below.
   log
     params:   ( ( target-path:string ... ) [ start-rev:number ]
                 [ end-rev:number ] changed-paths:bool strict-node:bool
-                ? limit:number )
+                ? limit:number
+                ? include-merged-revisions:bool
+                all-revprops | revprops
+                ? ( revprop:string ... ) )
     Before sending response, server sends log entries, ending with "done".
+    If a client does not want to specify a limit, it should send 0 as the
+    limit parameter.  rev-props excludes author, date, and log; they are
+    sent separately for backwards-compatibility.
     log-entry: ( ( change:changed-path-entry ... ) rev:number
-                 [ author:string ] [ date:string ] [ message:string ] )
+                 [ author:string ] [ date:string ] [ message:string ]
+                 ? has-children:bool invalid-revnum:bool
+                 revprop-count:number rev-props:proplist )
              | done
     changed-path-entry: ( path:string A|D|R|M [ copy-path:string ]
-                          [ copy-rev:number ] )
+                          [ copy-rev:number ] [ node-kind:string ] )
     response: ( )
 
   get-locations
@@ -332,11 +378,18 @@ second place for auth-request point as noted below.
     location-entry: ( rev:number abs-path:number ) | done
     response: ( )
 
-  get-file-revs
+  get-location-segments
     params:   ( path:string [ start-rev:number ] [ end-rev:number ] )
+    Before sending response, server sends location entries, ending with "done".
+    location-entry: ( range-start:number range-end:number [ abs-path:string ] ) | done
+    response: ( )
+
+  get-file-revs
+    params:   ( path:string [ start-rev:number ] [ end-rev:number ]
+                ? include-merged-revisions:bool )
     Before sending response, server sends file-rev entries, ending with "done".
     file-rev: ( path:string rev:number rev-props:proplist
-                file-props:propdelta )
+                file-props:propdelta ? merged-revision:bool )
               | done
     After each file-rev, the file delta is sent as one or more strings,
     terminated by the empty string.  If there is no delta, server just sends
@@ -349,7 +402,7 @@ second place for auth-request point as noted below.
     response:  ( lock:lockdesc )
 
   lock-many
-    params:    ( [ comment:string ] steal-lock:bool ( (path:string
+    params:    ( [ comment:string ] steal-lock:bool ( ( path:string
                  [ current-rev:number ] ) ... ) )
     Before sending response, server sends lock cmd status and descriptions,
     ending with "done".
@@ -382,24 +435,33 @@ second place for auth-request point as noted below.
     After edit completes, server sends response.
     response   ( )
 
+  replay-range
+    params:    ( start-rev:number end-rev:number low-water-mark:number 
+                 send-deltas:bool )
+    After auth exchange completes, server sends each revision
+    from start-rev to end-rev, alternating between sending 'revprops' 
+    entries and sending the revision in the editor command set.
+    After all revisions are complete, server sends response.
+    revprops:  ( revprops:word props:proplist )
+      (revprops here is the literal word "revprops".)
+    response   ( )
+
+  get-deleted-rev
+    params:   ( path:string peg-rev:number end-rev:number )
+    response: ( deleted-rev:number )
+
 3.1.2. Editor Command Set
 
-If edit pipelining is negotiated (see section 2.1), than an edit
-operation produces only one response, at close-edit or abort-edit
-time.  However, the consumer may write an error response at any time
-during the edit in order to terminate the edit operation early; the
-driver must notice that input is waiting on the connection, read the
-error, and send an abort-edit operation.  After an error is returned,
-the consumer must read and discard editing operations until the
-abort-edit.  In order to prevent TCP deadlock, the consumer must use
-non-blocking I/O to send an early error response; if writing blocks,
-the consumer must read and discard edit operations until writing
-unblocks or it reads an abort-edit.
-
-If edit pipelining is not negotiated, then the target-rev, open-root,
-delete-entry, add-dir, open-dir, close-dir, and close-file operations
-produce empty responses.  Errors produced other operations are
-reported by the enclosing close-dir or close-file operation.
+An edit operation produces only one response, at close-edit or
+abort-edit time.  However, the consumer may write an error response at
+any time during the edit in order to terminate the edit operation
+early; the driver must notice that input is waiting on the connection,
+read the error, and send an abort-edit operation.  After an error is
+returned, the consumer must read and discard editing operations until
+the abort-edit.  In order to prevent TCP deadlock, the consumer must
+use non-blocking I/O to send an early error response; if writing
+blocks, the consumer must read and discard edit operations until
+writing unblocks or it reads an abort-edit.
 
   target-rev
     params:   ( rev:number )
@@ -435,13 +497,11 @@ reported by the enclosing close-dir or close-file operation.
 
   apply-textdelta
     params:   ( file-token:string [ base-checksum:string ] )
-    If edit-pipelining is not negotiated, after sending command,
-     client sends svndiff data as strings, terminated by an empty string.
 
-  textdelta-chunk (only used if edit-pipeline is negotiated)
+  textdelta-chunk
     params: ( file-token:string chunk:string )
 
-  textdelta-end (only used if edit-pipeline is negotiated)
+  textdelta-end
     params: ( file-token:string )
 
   change-file-prop
@@ -473,14 +533,15 @@ by the command which invoked the report (following an abort-edit
 call).  Errors resulting from an abort-report call are ignored.
 
   set-path:
-    params: ( path:string rev:number start-empty:bool ? [ lock-token:string ] )
+    params: ( path:string rev:number start-empty:bool
+              ? [ lock-token:string ] ? depth:word )
 
   delete-path:
     params: ( path:string )
 
   link-path:
     params: ( path:string url:string rev:number start-empty:bool 
-              ? [ lock-token:string ] )
+              ? [ lock-token:string ] ? depth:word )
 
   finish-report:
     params: ( )
@@ -489,6 +550,7 @@ call).  Errors resulting from an abort-report call are ignored.
     params: ( )
 
 4. Extensibility
+----------------
 
 This protocol may be extended in three ways, in decreasing order of
 desirability:
@@ -501,3 +563,36 @@ desirability:
 
   * The protocol version may be bumped.  Clients and servers can then
     choose to any range of protocol versions.
+
+4.1. Extending existing commands
+
+Extending an existing command is normally done by indicating that its
+tuple is allowed to end where it currently ends, for backwards
+compatibility, and then tacking on a new, possibly optional, item.
+
+For example, diff was extended to include a new mandatory text-deltas
+parameter like this:
+
+  /* OLD */ diff:
+    params:   ( [ rev:number ] target:string recurse:bool ignore-ancestry:bool
+                url:string )
+  /* NEW */ diff:
+    params:   ( [ rev:number ] target:string recurse:bool ignore-ancestry:bool
+                url:string ? text-deltas:bool )
+
+The "?" says that the tuple is allowed to end here, because an old
+client or server wouldn't know to send the new item.
+
+For optional parameters, a slightly different approach must be used.
+set-path was extended to include lock-tokens like this:
+
+  /* OLD */ set-path:
+    params: ( path:string rev:number start-empty:bool )
+
+  /* NEW */ set-path:
+    params: ( path:string rev:number start-empty:bool ? [ lock-token:string ] )
+
+The new item appears in brackets because, even in the new protocol,
+the lock-token is still optional.  However, if there's no lock-token
+to send, an empty tuple must still be transmitted so that future
+extensions to this command remain possible.

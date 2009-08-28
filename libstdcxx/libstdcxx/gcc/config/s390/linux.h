@@ -1,5 +1,6 @@
 /* Definitions for Linux for S/390.
-   Copyright (C) 1999, 2000, 2001, 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2004, 2005, 2006
+   Free Software Foundation, Inc.
    Contributed by Hartmut Penner (hpenner@de.ibm.com) and
                   Ulrich Weigand (uweigand@de.ibm.com).
 
@@ -17,8 +18,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef _LINUX_H
 #define _LINUX_H
@@ -54,11 +55,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
   do						\
     {						\
       LINUX_TARGET_OS_CPP_BUILTINS();		\
-      if (flag_pic)				\
-        {					\
-          builtin_define ("__PIC__");		\
-          builtin_define ("__pic__");		\
-        }					\
     }						\
   while (0)
 
@@ -77,6 +73,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define MULTILIB_DEFAULTS { "m31" }
 #endif
 
+#define GLIBC_DYNAMIC_LINKER32 "/lib/ld.so.1"
+#define GLIBC_DYNAMIC_LINKER64 "/lib/ld64.so.1"
+
 #undef  LINK_SPEC
 #define LINK_SPEC \
   "%{m31:-m elf_s390}%{m64:-m elf64_s390} \
@@ -86,12 +85,22 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
       %{!static: \
 	%{rdynamic:-export-dynamic} \
 	%{!dynamic-linker: \
-          %{m31:-dynamic-linker /lib/ld.so.1} \
-          %{m64:-dynamic-linker /lib/ld64.so.1}}}}"
+          %{m31:-dynamic-linker " LINUX_DYNAMIC_LINKER32 "} \
+          %{m64:-dynamic-linker " LINUX_DYNAMIC_LINKER64 "}}}}"
 
+#define CPP_SPEC "%{posix:-D_POSIX_SOURCE} %{pthread:-D_REENTRANT}"
 
 #define TARGET_ASM_FILE_END file_end_indicate_exec_stack
 
 #define MD_UNWIND_SUPPORT "config/s390/linux-unwind.h"
+
+#ifdef TARGET_LIBC_PROVIDES_SSP
+/* s390 glibc provides __stack_chk_guard in 0x14(tp),
+   s390x glibc provides it at 0x28(tp).  */
+#define TARGET_THREAD_SSP_OFFSET        (TARGET_64BIT ? 0x28 : 0x14)
+#endif
+
+/* Define if long doubles should be mangled as 'g'.  */
+#define TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
 
 #endif

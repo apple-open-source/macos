@@ -25,7 +25,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. 
+   Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA. 
 */
 
 /* This file provides some definitions shared by cp-demangle.c and
@@ -148,14 +148,14 @@ cplus_demangle_builtin_types[D_BUILTIN_TYPE_COUNT];
 
 CP_STATIC_IF_GLIBCPP_V3
 struct demangle_component *
-cplus_demangle_mangled_name PARAMS ((struct d_info *, int));
+cplus_demangle_mangled_name (struct d_info *, int);
 
 CP_STATIC_IF_GLIBCPP_V3
 struct demangle_component *
-cplus_demangle_type PARAMS ((struct d_info *));
+cplus_demangle_type (struct d_info *);
 
 extern void
-cplus_demangle_init_info PARAMS ((const char *, int, size_t, struct d_info *));
+cplus_demangle_init_info (const char *, int, size_t, struct d_info *);
 
 /* cp-demangle.c needs to define this a little differently */
 #undef CP_STATIC_IF_GLIBCPP_V3

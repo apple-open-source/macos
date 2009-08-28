@@ -1,7 +1,7 @@
 # Makefile for GNU tar sources.
 
-# Copyright (C) 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2003 Free
-# Software Foundation, Inc.
+# Copyright (C) 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2003, 2006
+# Free Software Foundation, Inc.
 
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -15,8 +15,8 @@
 
 ## You should have received a copy of the GNU General Public License
 ## along with this program; if not, write to the Free Software
-## Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-## 02111-1307, USA.
+## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+## 02110-1301, USA.
 
 bin_PROGRAMS = tar
 
@@ -30,18 +30,16 @@ tar_SOURCES = \
  xheader.c\
  incremen.c\
  list.c\
- mangle.c\
  misc.c\
  names.c\
  sparse.c\
  system.c\
  tar.c\
+ transform.c\
  update.c\
  utf8.c
 
-INCLUDES = -I$(top_srcdir)/lib -I../ -I../lib 
-
-tar.o: ../lib/localedir.h
+INCLUDES = -I$(top_srcdir)/lib -I../ -I../lib
 
 LDADD = ../lib/libtar.a $(LIBINTL) $(LIBICONV)
 

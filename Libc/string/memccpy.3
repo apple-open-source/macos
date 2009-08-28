@@ -69,6 +69,9 @@ is returned.
 Otherwise,
 .Fa n
 bytes are copied, and a NULL pointer is returned.
+.Pp
+The source and destination strings should not overlap, as the
+behavior is undefined.
 .Sh SEE ALSO
 .Xr bcopy 3 ,
 .Xr memcpy 3 ,

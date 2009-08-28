@@ -66,9 +66,9 @@ nltype *
 nllookup(
 uint64_t address)
 {
-    long low;
-    long middle;
-    long high;
+    int32_t low;
+    int32_t middle;
+    int32_t high;
 
 #ifdef DEBUG
     int probes;
@@ -83,7 +83,7 @@ uint64_t address)
 	    if(nl[middle].value <= address && nl[middle+1].value > address){
 #ifdef DEBUG
 		if(debug & LOOKUPDEBUG){
-		    printf("[nllookup] %d (%lu) probes\n", probes, nname-1);
+		    printf("[nllookup] %d (%u) probes\n", probes, nname-1);
 		}
 #endif
 		return(&nl[middle]);

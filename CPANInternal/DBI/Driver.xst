@@ -1,4 +1,4 @@
-#  $Id: Driver.xst,v 11.14 2003/08/22 21:23:39 timbo Exp $
+#  $Id: Driver.xst 10378 2007-12-06 10:48:17Z timbo $
 #  Copyright (c) 1997-2002  Tim Bunce  Ireland
 #  Copyright (c) 2002       Jonathan Leffler
 #
@@ -111,7 +111,9 @@ selectall_arrayref(...)
 		(DBD_ATTRIB_TRUE(attr,"Slice",5,tmp_svp) || DBD_ATTRIB_TRUE(attr,"Columns",7,tmp_svp))
 	) {
 	    /* fallback to perl implementation */
-	    ST(0) = dbixst_bounce_method("DBD::~DRIVER~::db::SUPER::selectall_arrayref", items);
+	    SV *tmp =dbixst_bounce_method("DBD::~DRIVER~::db::SUPER::selectall_arrayref", items);
+	    SPAGAIN;
+	    ST(0) = tmp;
 	    XSRETURN(1);
 	}
     }
@@ -121,8 +123,11 @@ selectall_arrayref(...)
     }
     else {
 	sth = dbixst_bounce_method("prepare", 3);
+        SPAGAIN; SP -= items; /* because stack might have been realloc'd */
 	if (!SvROK(sth))
 	    XSRETURN_UNDEF;
+        /* switch to inner handle */
+        sth = mg_find(SvRV(sth),'P')->mg_obj;
     }
     imp_sth = (imp_sth_t*)(DBIh_COM(sth));
     /* --- bind_param --- */
@@ -157,9 +162,12 @@ selectrow_arrayref(...)
     else {
 	/* --- prepare --- */
 	sth = dbixst_bounce_method("prepare", 3);
+        SPAGAIN; SP -= items; /* because stack might have been realloc'd */
 	if (!SvROK(sth)) {
 	    if (is_selectrow_array) { XSRETURN_EMPTY; } else { XSRETURN_UNDEF; }
 	}
+        /* switch to inner handle */
+        sth = mg_find(SvRV(sth),'P')->mg_obj;
     }
     imp_sth = (imp_sth_t*)(DBIh_COM(sth));
     /* --- bind_param --- */
@@ -271,11 +279,6 @@ disconnect(dbh)
     if ( !DBIc_ACTIVE(imp_dbh) ) {
 	XSRETURN_YES;
     }
-    /* pre-disconnect checks and tidy-ups */
-    if (DBIc_CACHED_KIDS(imp_dbh)) {
-	SvREFCNT_dec(DBIc_CACHED_KIDS(imp_dbh));      /* cast them to the winds	*/
-	DBIc_CACHED_KIDS(imp_dbh) = Nullhv;
-    }
     /* Check for disconnect() being called whilst refs to cursors	*/
     /* still exists. This possibly needs some more thought.		*/
     if (DBIc_ACTIVE_KIDS(imp_dbh) && DBIc_WARN(imp_dbh) && !dirty) {
@@ -320,6 +323,7 @@ void
 DESTROY(dbh)
     SV *	dbh
     PPCODE:
+    /* keep in sync with default DESTROY in DBI.xs */
     D_imp_dbh(dbh);
     ST(0) = &sv_yes;
     if (!DBIc_IMPSET(imp_dbh)) {	/* was never fully set up	*/
@@ -330,27 +334,29 @@ DESTROY(dbh)
 		    SvPV(dbh,lna));
     }
     else {
-	/* pre-disconnect checks and tidy-ups */
-	if (DBIc_CACHED_KIDS(imp_dbh)) {
-	    SvREFCNT_dec(DBIc_CACHED_KIDS(imp_dbh));  /* cast them to the winds	*/
-	    DBIc_CACHED_KIDS(imp_dbh) = Nullhv;
-	}
         if (DBIc_IADESTROY(imp_dbh)) {		  /* want's ineffective destroy	*/
             DBIc_ACTIVE_off(imp_dbh);
 	    if (DBIc_DBISTATE(imp_dbh)->debug)
 		 PerlIO_printf(DBIc_LOGPIO(imp_dbh), "         DESTROY %s skipped due to InactiveDestroy\n", SvPV_nolen(dbh));
         }
 	if (DBIc_ACTIVE(imp_dbh)) {
-	    /* The application has not explicitly disconnected. That's bad.	*/
-	    /* To ensure integrity we *must* issue a rollback. This will be	*/
-	    /* harmless	if the application has issued a commit. If it hasn't	*/
-	    /* then it'll ensure integrity. Consider a Ctrl-C killing perl	*/
-	    /* between two statements that must be executed as a transaction.	*/
-	    /* Perl will call DESTROY on the dbh and, if we don't rollback,	*/
-	    /* the server may automatically commit! Bham! Corrupt database!	*/
 	    if (!DBIc_has(imp_dbh,DBIcf_AutoCommit)) {
+		/* Application is using transactions and hasn't explicitly disconnected.
+		    Some databases will automatically commit on graceful disconnect.
+		    Since we're about to gracefully disconnect as part of the DESTROY
+		    we want to be sure we're not about to implicitly commit changes
+		    that are incomplete and should be rolled back. (The DESTROY may
+		    be due to a RaiseError, for example.) So we rollback here.
+		    This will be harmless if the application has issued a commit,
+		    XXX Could add an attribute flag to indicate that the driver
+		    doesn't have this problem. Patches welcome.
+		    XXX or could just move the DBIc_is(imp_dbh, DBIcf_Executed) test
+		    to cover the rollback as well. That just needs sanity checking
+		    that DBIcf_Executed is set by any/all possible way to execute a
+		    statement that might start a transaction.
+		*/
 		if (DBIc_WARN(imp_dbh)
-		&&  DBIc_is(imp_dbh, DBIcf_Executed)
+		&&  DBIc_is(imp_dbh, DBIcf_Executed) /* has not just called commit/rollback */
 		&& (!dirty || DBIc_DBISTATE(imp_dbh)->debug >= 3)
 		)
 		     warn("Issuing rollback() for database handle being DESTROY'd without explicit disconnect()");
@@ -376,9 +382,13 @@ take_imp_data(h)
      * would be &sv_undef for error or an SV holding the imp_data.
      */
     SV *sv = dbd_take_imp_data(h, imp_xxh, NULL);
-    ST(0) = (SvOK(sv) && !SvTRUE(sv))
-	? dbixst_bounce_method("DBD::~DRIVER~::db::SUPER::take_imp_data", items)
-	: sv_2mortal(sv);
+    if (SvOK(sv) && !SvTRUE(sv)) {
+	SV *tmp = dbixst_bounce_method("DBD::~DRIVER~::db::SUPER::take_imp_data", items);
+	SPAGAIN;
+	ST(0) = tmp;
+    } else {
+	ST(0) = sv_2mortal(sv);
+    }
 
 #endif
 
@@ -626,7 +636,9 @@ fetchall_arrayref(sth, slice=&PL_sv_undef, batch_row_count=&PL_sv_undef)
     SV *	batch_row_count
     CODE:
     if (SvOK(slice)) {  /* fallback to perl implementation */
-        ST(0) = dbixst_bounce_method("DBD::~DRIVER~::st::SUPER::fetchall_arrayref", 3);
+	SV *tmp = dbixst_bounce_method("DBD::~DRIVER~::st::SUPER::fetchall_arrayref", 3);
+	SPAGAIN;
+        ST(0) = tmp;
     }
     else {
 	ST(0) = dbdxst_fetchall_arrayref(sth, slice, batch_row_count);
@@ -711,6 +723,7 @@ void
 DESTROY(sth)
     SV *	sth
     PPCODE:
+    /* keep in sync with default DESTROY in DBI.xs */
     D_imp_sth(sth);
     ST(0) = &sv_yes;
     if (!DBIc_IMPSET(imp_sth)) {	/* was never fully set up	*/

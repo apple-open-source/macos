@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -36,9 +36,9 @@
 */
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Includes
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 // General IOKit includes
 #include <IOKit/IOService.h>
@@ -55,9 +55,9 @@
 #include <IOKit/scsi/SCSICmds_REQUEST_SENSE_Defs.h>
 #include <IOKit/scsi/SCSIPort.h>
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Constants
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 
 #define kIOPropertySCSIDeviceFeaturesKey			"SCSI Device Features"
@@ -76,7 +76,7 @@
 // feature and are used for requesting negotiation and reporting negotiation
 // results between the controller and the device.
 
-// When the DoesHBASupportSCSIParallelFeature member routine of the controller 
+// When the DoesHBASupportSCSIParallelFeature() member routine of the controller 
 // child class is called, it will return true if the HBA that it controls 
 // supports the specified SCSIParallelFeature or false if it does not.
 typedef enum SCSIParallelFeature
@@ -85,16 +85,16 @@ typedef enum SCSIParallelFeature
 	// as Wide32 has been obsoleted by the SPI-3 specification.
 	kSCSIParallelFeature_WideDataTransfer 					= 0,
 	
-	// The selector for support of Synchronous Data Transfers
+	// The selector for support of Synchronous Data Transfers.
 	kSCSIParallelFeature_SynchronousDataTransfer 			= 1,
 	
-	// The selector for support of Quick Arbitration and Selection (QAS)
+	// The selector for support of Quick Arbitration and Selection (QAS).
 	kSCSIParallelFeature_QuickArbitrationAndSelection 		= 2,
 	
 	// The selector for support of Double Transition (DT) data transfers.
 	kSCSIParallelFeature_DoubleTransitionDataTransfers 		= 3,
 	
-	// The selector for SPI Information Unit (IU) transfers
+	// The selector for SPI Information Unit (IU) transfers.
 	kSCSIParallelFeature_InformationUnitTransfers 			= 4,
 	
 	// Since the Feature selectors are zero base, this will always have the 
@@ -185,10 +185,14 @@ class IOSCSIParallelInterfaceDevice;
 typedef OSObject *	SCSIParallelTaskIdentifier;
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Class Declarations
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
+/*! @class IOSCSIParallelInterfaceController
+	@abstract Class that represents a SCSI Host Bus Adapter.
+	@discussion Class that represents a SCSI Host Bus Adapter.
+*/
 class IOSCSIParallelInterfaceController : public IOService
 {
 	
@@ -259,7 +263,7 @@ public:
 		for a specified target and controller task identifier
 		@param theTarget is the Target that the task .
 		@param theIdentifier is the controller task identifier set using the SCSI
-		Parallel Task's SetControllerTaskIdentifier method.
+		Parallel Task's SetControllerTaskIdentifier() method.
 		@result returns a valid SCSIParallelTaskIdentifier or NULL if none 
 		found.
 	*/
@@ -417,7 +421,7 @@ protected:
 		@function CreateTargetForID
 		@abstract Method to perform device creation.
 		@discussion	For HBA child classes that report true to the 
-		DoesHBAPerformDeviceManagement method, the child class will be 
+		DoesHBAPerformDeviceManagement() method, the child class will be 
 		responsible for all device management by using these methods;
 		otherwise, the superclass will be responsible for all device management.
 		This method must be used to perform SCSI Parallel Device creation and 
@@ -432,7 +436,7 @@ protected:
 		@function CreateTargetForID
 		@abstract Method to perform device creation.
 		@discussion	For HBA child classes that report true to the
-		DoesHBAPerformDeviceManagement method, the child class will be
+		DoesHBAPerformDeviceManagement() method, the child class will be
 		responsible for all device management by using these methods;
 		otherwise, the superclass will be responsible for all device management.
 		This method must be used to perform SCSI Parallel Device creation and
@@ -449,9 +453,6 @@ protected:
 				<IOKit/storage/IOStorageProtocolCharacteristics.h> and the values
 				associated with these keys must be of the proper type/size,
 				or the target creation will not succeed.
-		NB: Correct FibreChannel multipathing requires the kIOPropertyFibreChannelNodeWorldWideNameKey
-		property be passed in and this method used to create the target device. The other keys
-		are optional upon creation and may be added later using SetTargetProperty().
 		@result returns true if successful.
 	*/
 	
@@ -462,7 +463,7 @@ protected:
 		@function DestroyTargetForID
 		@abstract Method to perform device destruction.
 		@discussion	For HBA child classes that report true to the 
-		DoesHBAPerformDeviceManagement method, the child class will be 
+		DoesHBAPerformDeviceManagement() method, the child class will be 
 		responsible for all device management by using these methods; otherwise, 
 		the superclass will be responsible for all device management.
 		This method must be used to perform SCSI Parallel Device destruction and
@@ -554,8 +555,8 @@ protected:
 	
 	void	RemoveHBAProperty ( const char * key );
 	
-	// These methods will not be called before the InitializeController call,
-	// and will not be called after the TerminateController call.  But in the
+	// These methods will not be called before the InitializeController() call,
+	// and will not be called after the TerminateController() call.  But in the
 	// interval between those calls, they shall report the correct requested
 	// information. They are implemented as seperate pure virtual methods
 	// instead of a selector driven method because the HBA child class is
@@ -636,8 +637,8 @@ protected:
   	/*!
 		@function InitializeController
 		@abstract  Called to initialize the controller
-		@discussion It is guaranteed that the InitializeController will only be 
-		called once per instantiation.  The InitializeController methods allows 
+		@discussion It is guaranteed that the InitializeController() will only be 
+		called once per instantiation.  The InitializeController() methods allows 
 		the subclass driver to do all the necessary initialization required by 
 		the hardware before it is able to accept requests to execute. All 
 		necessary allocation of resources should be made during this method 
@@ -650,10 +651,10 @@ protected:
   	/*!
 		@function TerminateController
 		@abstract  Called to terminate the controller
-		@discussion It is guaranteed that the TerminateController will only be 
-		called once and only after the InitializeController method and only if 
-		true was returned in response to the InitializeController method.
-		The TerminateController method allows the subclass to release all 
+		@discussion It is guaranteed that the TerminateController() will only be 
+		called once and only after the InitializeController() method and only if 
+		true was returned in response to the InitializeController() method.
+		The TerminateController() method allows the subclass to release all 
 		resources that were acquired for operation of the hardware and shutdown 
 		all hardware services.
 		This is the last method of the subclass that will be called before the 		
@@ -778,7 +779,7 @@ protected:
 	/*!
 		@function CompleteParallelTask
 		@abstract Parallel Task Completion
-		@discussion The HBA specific sublcass inherits the CompleteParallelTask 
+		@discussion The HBA specific sublcass inherits the CompleteParallelTask() 
 		method which shall be called when the HBA has completed the processing 
 		of a parallel task.
 		@param parallelTask A valid SCSIParallelTaskIdentifier.
@@ -1068,6 +1069,13 @@ protected:
 	/*!
 		@function GetDMACommand
 		@abstract Method to retrieve a pointer to an IODMACommand from the request.
+		@discussion For devices utilizing DMA, the IODMACommand object should be 
+		obtained via GetDMACommand(). The subclass is responsible for calling prepare()
+		on the IODMACommand object using the proper offset obtained via GetDataBufferOffset()
+		and correct size obtained via GetRequestedDataTransferCount(). The subclass
+		is further responsible for calling complete() on the IODMACommand object once
+		all DMA operations have finished.
+		NB: Subclasses should not call IODMACommand::setMemoryDescriptor().
 		@param parallelTask A valid SCSIParallelTaskIdentifier.
 		@result returns pointer to an IODMACommand which is used in conjunction
 		with the task.

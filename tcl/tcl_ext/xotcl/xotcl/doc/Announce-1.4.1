@@ -1,0 +1,207 @@
+Announcing XOTcl 1.5.0
+*************************
+
+Hi everybody. I am pleased to announce the availability of XOTcl 1.5.0.
+Major changes relative to 1.4.0 are:
+
+    * Improved Functionality
+
+       + The C-level implementation of XOTcl create now the basic
+           classes ::xotcl::Object and ::xotcl::Class completely without
+           any methods. All predefined methods are now registered 
+           from the initialization script-code (predefined.xotcl) 
+           via the new command
+ 
+             ::xotcl::alias <class>|<obj> <methodname> \
+                      ?-objscope? ?-per-object? <cmdname>
+
+            which is used for registering predefined Tcl commands
+            as methods. These aliases are like zero cost forwarders,
+            since they lookup the function pointer from the commands
+            and used these in the methods. 
+
+           This change makes it possible to register the same command
+           on different classes (with maybe different names), such that
+           for example the predefined set method of ::xotcl::Object 
+           can be replaced with a different method and the set method
+           can be registered on some other classes (maybe some
+           application classes). This change makes it as well quite 
+           easy to use the XOTcl framework to develop some other 
+           object oriented frameworks.
+
+       + slots
+        TODO documentation of slots
+	TODO remove 
+	TODO optimize via parametercmd
+	TODO parametercmd with 3+ args
+	TODO info parameter deprecated
+
+	A slot is a meta-object that manages property-changes of
+	objects. A property is either an attribute or a role of an relation.
+	In a nutshell, a slot has among other attributes 
+	  - a  name (which it used to access it), 
+	  - a domain (object or class on which it can be used) , and
+          - can be multivalued or not
+        We distinguish between system slots (predefined slots like
+        class, superclass, mixin, instmixin, filter, instfilter) and 
+        application slots (e.g.   attributes of classes).
+
+        System Slots
+        ========
+
+       System slots are predefined slots defining e.g. some relations
+       between classes, or between objects and classes. 
+
+	The predefined system slots are:
+	- superclass: every class in XOTcl has one or more superclasses.
+           The name of this slot is "superclass", the domain is "::xotcl::Class",
+           the slot is multivalued.  One object might have multiple superclasses.
+        - class: every object has a class; therefore, the domain of the slot
+           is "::xotcl::Class", the property is not multivalued.
+	- mixin: every object in XOTcl can have one or more mixin classes.
+	   The name of this slot is "mixin", the domain is "::xotcl::Object", the slot is
+	   multivalued.
+	 - instmixin: same as above, but the domain is "::xotcl::Class"
+         - filter, instfilter: similar to "mixin" and "instmixin"
+
+        Every slot can be used set and query the property from its domain.
+        The syntax for setting values is
+           <object> <property> newValue
+           <object> <property> replace newValue
+	 and for getting its values is
+           set x [<object> <property>]
+TODO "mixin set" -> "mixin assign"
+TODO "mixin set" -> "mixin replace"
+TODO "mixin set" -> "mixin reset"
+TODO "mixin delete" -> "mixin remove"
+         where the first form is in both cases the short form of the second one.
+         Every multivalued slot has as well a method "add" and "remove"
+
+         Examples for using the system slot "mixin"
+
+            Object o; Class M; class N
+            o mixin ::M        ;# replacing the per-object mixins of o with M
+            o mixin reset ::M     ;# same as before
+            o mixin add ::N        ;# add N to the front of the mixin list
+            o mixin delete ::M   ;# delete M from the mixin list
+            puts [o mixin]         ;# query the current mixin list
+         
+        Every system slot (e.g. superclass) has the exact same interface.
+
+
+        Attribute Slots
+        =========
+
+        Attribute slots are used to manage the setting and querying 
+        of instance variables. We define now a person with three
+        attributes,"name", "salary" and "projects". 
+   
+           Class Person -slots {
+             Attribute name
+             Attribute salary -default 0
+             Attribute projects -default {} -multivalued true
+           }
+
+      These attributes might have a default value or they might be 
+      multivalued. When an instance of class Person is created, the
+      slot names can be used for specifying values for the slots.
+
+           Person p1 -name "Joe"	
+
+      Object p1 has three instance variables, namely "name", 
+      "salary" and "projects". Since slot "projects" is multivalued,
+      we can add values the "add" subcommand.
+
+          Project project1 -name XOTcl \
+	       -description "A highly flexible OO scripting language"
+
+          p1 projects add ::project1
+          p1 projects add some-other-value
+
+      The value of the instance variable "project" of Person p1 
+      is now the list "some-other-value ::project1"
+
+
+     Type Checking
+     =========
+
+     Attribute slots can have types assigned which are tested
+     whenever the instance variable is altered.  The slot "salary"
+     is defined as integer whereas "projects" is defined to 
+     be a list of instances of the class Project (a list, since
+     "projects" is defined as multivalued).
+
+           Class Person -slots {
+             Attribute name
+             Attribute salary -default 0 -type integer
+             Attribute projects -default {} -multivalued true -type ::Project
+           }
+
+           Person p2 -name "Sue"	-salary 1000
+
+     The slot types are checked via Tcl  variable traces. This means
+     that the values are enforced now matter how the variables
+     are accessed. The checks are performed in the following 
+     two commands, and they will throw an error in the second 
+     command, since "1100x" is not an integer.
+           
+         p2 incr salary 100
+         p2 append salary x
+     
+      similarly the second command below will through
+      an error, since some-other-value is not an instance
+      of ::Project.
+
+          p2 projects add ::project1
+          p2 projects add some-other-value     
+     
+     When a check throws an error, the instance variables 
+     are reset to the previous value. To restore the original
+     value, an associative array "__oldvalue()" is kept as 
+     instance variable in the object.
+
+     In general, checking of variables can be turned off globally
+     by "::xotcl::Slot instmixin add ::xotcl::Slot::Nocheck".
+     It can be turned off selectively for each slot via
+     a per-object-mixin; if attributes are subclassed, 
+     it is possible to register the "Nocheck" mixin on a
+     subclass of Attribute. 
+   
+   procsearch returns for forwarders now "forward" or "instforward",
+   for parametercmds now "parametercmd" or "instparametercmd"
+   and for other commands "cmd" and "instcmd"
+
+info slots
+TODO slow -superclass
+TODO king of the bongo
+
+       + improved forwarding ... expr           earlybinding
+           %argclindex
+
+       + improved serializer
+           - handling of slot dependencies
+           -
+           -
+
+     * Improved code quality: 
+       + fixed a bug with nonpositional arguments, some 
+           positional arguments and "args"
+       + fixed a bug in nonpositional arguments when called without 
+           arguments
+       + improved error messages in connection with nonpositional arguments
+       + more regression tests added
+
+ For more details about the changes, please consult the ChangeLog and
+ documentation.
+
+MORE INFO
+  General and more detailed information about XOTcl and its components
+  can be found at http://www.xotcl.org
+
+
+Best regards,
+
+Gustaf Neumann
+Uwe Zdun
+
+

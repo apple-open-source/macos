@@ -1,0 +1,23 @@
+Vy alebo niekto iný vyžiadal priponienku hesla pre Vašu účasť na
+konferencii %(fqdn_lname)s. Heslo potrebujete na úpravu Vaších
+osobných nastavení (napr. zmena spôsobu doručovania pošty) a na
+odhlásenie sa z konferencie.
+
+Ste prihlásený pod adresou: %(user)s
+
+Vaše heslo do konferencie %(listname)s je: %(password)s
+
+Zmeny Vaších osobných nastavení môžete urobiť na stránke:
+
+    %(options_url)s
+
+Tieto zmeny sú možné aj prostredníctvom e-mailu. Zašlite na
+adresu:
+
+    %(requestaddr)s
+
+správu s textom "help" v predmete (Subject:) alebo tele
+správy. Automatická odpoveď bude obsahovať ďalšie vysvetlivky.
+
+Otázky alebo dotazy adresujte správcovi konferencie %(listname)s
+na adresu %(owneraddr)s.

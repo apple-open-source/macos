@@ -74,7 +74,16 @@ MetaRecord::MetaRecord(CSSM_DB_RECORDTYPE inRelationID,
 
 MetaRecord::~MetaRecord()
 {
-	for_each_delete(mAttributeVector.begin(), mAttributeVector.end());
+	// for_each_delete(mAttributeVector.begin(), mAttributeVector.end());
+	AttributeVector::iterator it = mAttributeVector.begin();
+	while (it != mAttributeVector.end())
+	{
+		MetaAttribute* mat = *it++;
+		if (mat != NULL)
+		{
+			delete mat;
+		}
+	}
 }
 
 void
@@ -287,6 +296,41 @@ MetaRecord::unpackRecord(const ReadSection &inReadSection,
 			}
 		}
 	}
+	catch (CssmError e)
+	{
+		if (e.osStatus() != CSSMERR_DL_DATABASE_CORRUPT)
+		{
+			// clear all pointers so that nothing dangles back to the user
+			if (inoutData)
+			{
+				inoutData->Data = NULL;
+			}
+			
+			if (inoutAttributes)
+			{
+				unsigned i;
+				for (i = 0; i < inoutAttributes->NumberOfAttributes; ++i)
+				{
+					CSSM_DB_ATTRIBUTE_DATA& data = inoutAttributes->AttributeData[i];
+					
+					unsigned j;
+					for (j = 0; j < data.NumberOfValues; ++j)
+					{
+						data.Value[j].Data = NULL;
+					}
+					
+					data.Value = NULL;
+					
+					if (data.Info.AttributeNameFormat == CSSM_DB_ATTRIBUTE_NAME_AS_STRING)
+					{
+						data.Info.Label.AttributeName = NULL;
+					}
+				}
+			}
+		}
+		
+		throw;
+	}
 	catch (...)
 	{
 		// clear all pointers so that nothing dangles back to the user
@@ -308,14 +352,19 @@ MetaRecord::unpackRecord(const ReadSection &inReadSection,
 					data.Value[j].Data = NULL;
 				}
 				
+				data.Value = NULL;
+				
 				if (data.Info.AttributeNameFormat == CSSM_DB_ATTRIBUTE_NAME_AS_STRING)
 				{
 					data.Info.Label.AttributeName = NULL;
 				}
 			}
 		}
+		
+		throw;
 	}
 	
+
 	// Don't free anything the trackingAllocator allocated when it is destructed.
 	anAllocator.commit();
 }

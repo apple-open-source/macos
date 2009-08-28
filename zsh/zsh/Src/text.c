@@ -33,6 +33,14 @@
 static char *tptr, *tbuf, *tlim;
 static int tsiz, tindent, tnewlins, tjob;
 
+static void
+dec_tindent(void)
+{
+    DPUTS(tindent == 0, "attempting to decrement tindent below zero");
+    if (tindent > 0)
+	tindent--;
+}
+
 /* add a character to the text buffer */
 
 /**/
@@ -110,7 +118,7 @@ taddnl(void)
 
 /**/
 mod_export char *
-getpermtext(Eprog prog, Wordcode c)
+getpermtext(Eprog prog, Wordcode c, int start_indent)
 {
     struct estate s;
 
@@ -123,11 +131,11 @@ getpermtext(Eprog prog, Wordcode c)
     s.pc = c;
     s.strs = prog->strs;
 
+    tindent = start_indent;
     tnewlins = 1;
     tbuf = (char *)zalloc(tsiz = 32);
     tptr = tbuf;
     tlim = tbuf + tsiz;
-    tindent = 1;
     tjob = 0;
     if (prog->len)
 	gettext2(&s);
@@ -155,11 +163,11 @@ getjobtext(Eprog prog, Wordcode c)
     s.pc = c;
     s.strs = prog->strs;
 
+    tindent = 0;
     tnewlins = 0;
     tbuf = NULL;
     tptr = jbuf;
     tlim = tptr + JOBTEXTSIZE - 1;
-    tindent = 1;
     tjob = 1;
     gettext2(&s);
     *tptr = '\0';
@@ -354,7 +362,7 @@ gettext2(Estate state)
 		state->pc++;
 	    } else {
 		state->pc = s->u._subsh.end;
-		tindent--;
+		dec_tindent();
 		taddnl();
 		taddstr(")");
 		stack = 1;
@@ -371,7 +379,7 @@ gettext2(Estate state)
 		state->pc++;
 	    } else {
 		state->pc = s->u._subsh.end;
-		tindent--;
+		dec_tindent();
 		taddnl();
 		taddstr("}");
 		stack = 1;
@@ -387,7 +395,7 @@ gettext2(Estate state)
 		} else
 		    stack = 1;
 	    } else {
-		tindent--;
+		dec_tindent();
 		stack = 1;
 	    }
 	    break;
@@ -414,7 +422,7 @@ gettext2(Estate state)
 	    } else {
 		state->strs = s->u._funcdef.strs;
 		state->pc = s->u._funcdef.end;
-		tindent--;
+		dec_tindent();
 		taddnl();
 		taddstr("}");
 		stack = 1;
@@ -444,7 +452,7 @@ gettext2(Estate state)
 		taddnl();
 		tpush(code, 1);
 	    } else {
-		tindent--;
+		dec_tindent();
 		taddnl();
 		taddstr("done");
 		stack = 1;
@@ -462,7 +470,7 @@ gettext2(Estate state)
 		taddnl();
 		tpush(code, 1);
 	    } else {
-		tindent--;
+		dec_tindent();
 		taddnl();
 		taddstr("done");
 		stack = 1;
@@ -475,14 +483,14 @@ gettext2(Estate state)
 		tindent++;
 		tpush(code, 0);
 	    } else if (!s->pop) {
-		tindent--;
+		dec_tindent();
 		taddnl();
 		taddstr("do");
 		tindent++;
 		taddnl();
 		s->pop = 1;
 	    } else {
-		tindent--;
+		dec_tindent();
 		taddnl();
 		taddstr("done");
 		stack = 1;
@@ -498,7 +506,7 @@ gettext2(Estate state)
 		taddnl();
 		tpush(code, 1);
 	    } else {
-		tindent--;
+		dec_tindent();
 		taddnl();
 		taddstr("done");
 		stack = 1;
@@ -536,7 +544,7 @@ gettext2(Estate state)
 		    n->pop = (state->pc - 2 + WC_CASE_SKIP(code) >= end);
 		}
 	    } else if (state->pc < s->u._case.end) {
-		tindent--;
+		dec_tindent();
 		switch (WC_CASE_TYPE(code)) {
 		case WC_CASE_OR:
 		    taddstr(" ;;");
@@ -564,7 +572,7 @@ gettext2(Estate state)
 		s->pop = ((state->pc - 2 + WC_CASE_SKIP(code)) >=
 			  s->u._case.end);
 	    } else {
-		tindent--;
+		dec_tindent();
 		switch (WC_CASE_TYPE(code)) {
 		case WC_CASE_OR:
 		    taddstr(" ;;");
@@ -578,7 +586,7 @@ gettext2(Estate state)
 		    taddstr(";|");
 		    break;
 		}
-		tindent--;
+		dec_tindent();
 		if (tnewlins)
 		    taddnl();
 		else
@@ -601,14 +609,14 @@ gettext2(Estate state)
 	    } else if (s->pop) {
 		stack = 1;
 	    } else if (s->u._if.cond) {
-		tindent--;
+		dec_tindent();
 		taddnl();
 		taddstr("then");
 		tindent++;
 		taddnl();
 		s->u._if.cond = 0;
 	    } else if (state->pc < s->u._if.end) {
-		tindent--;
+		dec_tindent();
 		taddnl();
 		code = *state->pc++;
 		if (WC_IF_TYPE(code) == WC_IF_ELIF) {
@@ -622,7 +630,7 @@ gettext2(Estate state)
 		}
 	    } else {
 		s->pop = 1;
-		tindent--;
+		dec_tindent();
 		taddnl();
 		taddstr("fi");
 		stack = 1;
@@ -632,7 +640,7 @@ gettext2(Estate state)
 	    {
 		static char *c1[] = {
 		    "=", "!=", "<", ">", "-nt", "-ot", "-ef", "-eq",
-		    "-ne", "-lt", "-gt", "-le", "-ge"
+		    "-ne", "-lt", "-gt", "-le", "-ge", "=~"
 		};
 
 		int ctype;
@@ -716,7 +724,7 @@ gettext2(Estate state)
 			}
 			break;
 		    default:
-			if (ctype <= COND_GE) {
+			if (ctype < COND_MOD) {
 			    /* Binary test: `a = b' etc. */
 			    taddstr(ecgetstr(state, EC_NODUP, NULL));
 			    taddstr(" ");
@@ -724,7 +732,8 @@ gettext2(Estate state)
 			    taddstr(" ");
 			    taddstr(ecgetstr(state, EC_NODUP, NULL));
 			    if (ctype == COND_STREQ ||
-				ctype == COND_STRNEQ)
+				ctype == COND_STRNEQ ||
+				ctype == COND_REGEX)
 				state->pc++;
 			} else {
 			    /* Unary test: `-f foo' etc. */ 
@@ -760,14 +769,14 @@ gettext2(Estate state)
 		n->u._subsh.end = state->pc + WC_CURSH_SKIP(state->pc[-1]);
 	    } else if (!s->pop) {
 		state->pc = s->u._subsh.end;
-		tindent--;
+		dec_tindent();
 		taddnl();
 		taddstr("} always {");
 		tindent++;
 		taddnl();
 		s->pop = 1;
 	    } else {
-		tindent--;
+		dec_tindent();
 		taddnl();
 		taddstr("}");
 		stack = 1;
@@ -822,17 +831,22 @@ getredirs(LinkList redirs)
 	    taddstr(fstr[f->type]);
 	    if (f->type != REDIR_MERGEIN && f->type != REDIR_MERGEOUT)
 		taddchr(' ');
-	    if (f->type == REDIR_HERESTR && !has_token(f->name)) {
+	    if (f->type == REDIR_HERESTR &&
+		(f->flags & REDIRF_FROM_HEREDOC)) {
 		/*
 		 * Strings that came from here-documents are converted
 		 * to here strings without quotation, so add that
-		 * now.  If tokens are already present taddstr()
-		 * will do the right thing (anyway, adding more
-		 * quotes certainly isn't right in that case).
+		 * now.  If tokens are present we need to do double quoting.
 		 */
-		taddchr('\'');
-		taddstr(quotestring(f->name, NULL, QT_SINGLE));
-		taddchr('\'');
+		if (!has_token(f->name)) {
+		    taddchr('\'');
+		    taddstr(quotestring(f->name, NULL, QT_SINGLE));
+		    taddchr('\'');
+		} else {
+		    taddchr('"');
+		    taddstr(quotestring(f->name, NULL, QT_DOUBLE));
+		    taddchr('"');
+		}
 	    } else
 		taddstr(f->name);
 	    taddchr(' ');

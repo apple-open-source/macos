@@ -13,7 +13,7 @@
 .\" IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
 .\" WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
 .\"
-.Dd September 21, 2000
+.Dd May 29, 2008
 .Dt TRACEROUTE 8
 .Os BSD 4.3
 .Sh NAME
@@ -21,7 +21,8 @@
 .Nd print the route packets take to network host
 .Sh SYNOPSIS
 .Nm traceroute
-.Op Fl dFISdNnrvx
+.Op Fl adeFISdNnrvx
+.Op Fl A Ar as_server
 .Op Fl f Ar first_ttl
 .Op Fl g Ar gateway
 .Op Fl i Ar iface
@@ -41,7 +42,7 @@ The Internet is a large and complex aggregation of
 network hardware, connected together by gateways.
 Tracking the route one's packets follow (or finding the miscreant
 gateway that's discarding your packets) can be difficult.
-.Nm Traceroute
+.Nm 
 utilizes the IP protocol `time to live' field and attempts to elicit an
 .Tn ICMP
 .Dv TIME_EXCEEDED
@@ -55,12 +56,32 @@ name.
 .Pp
 Other options are:
 .Bl -tag -width Ds
+.It Fl a
+Turn on AS# lookups for each hop encountered.
+.It Fl A Ar as_server
+Turn  on  AS#  lookups  and  use the given server instead of the
+default.
+.It Fl d
+Enable socket level debugging.
+.It Fl D
+When an ICMP response to our probe datagram is received,
+print the differences between the transmitted packet and
+the packet quoted by the ICMP response.
+A key showing the location of fields within the transmitted packet is printed,
+followed by the original packet in hex,
+followed by the quoted packet in hex.
+Bytes that are unchanged in the quoted packet are shown as underscores.
+Note,
+the IP checksum and the TTL of the quoted packet are not expected to match.
+By default, only one probe per hop is sent with this option.
+.It Fl e
+Firewall evasion mode.
+Use fixed destination ports for UDP and TCP probes.
+The destination port does NOT increment with each packet sent.
 .It Fl f Ar first_ttl
 Set the initial time-to-live used in the first outgoing probe packet.
 .It Fl F
 Set the "don't fragment" bit.
-.It Fl d
-Enable socket level debugging.
 .It Fl g Ar gateway
 Specify a loose source route gateway (8 maximum).
 .It Fl i Ar iface
@@ -85,8 +106,6 @@ packets.  The default is
 hops (the same default used for 
 .Tn TCP
 connections).
-.It Fl N
-Disables the increment of the destination port (see -p). Useful for using tcpdump through firewalls.  
 .It Fl n
 Print hop addresses numerically rather than symbolically and numerically
 (saves a nameserver address-to-name lookup for each gateway found on the
@@ -102,7 +121,7 @@ are:
 and 
 .Tn ICMP
 Other protocols may also be specified (either by name or by number), though
-.Nm traceroute
+.Nm 
 does not implement any special knowledge of their packet formats. This
 option is useful for determining which router along a path may be
 blocking packets based on IP protocol number. But see BUGS below.
@@ -114,7 +133,7 @@ and
 sets the base
 .Ar port
 number used in probes (default is 33434).
-.Nm Traceroute
+.Nm 
 hopes that nothing is listening on
 .Tn UDP
 ports
@@ -185,7 +204,9 @@ are listed.
 .It Fl w
 Set the time (in seconds) to wait for a response to a probe (default 5 sec.).
 .It Fl x
-Toggle IP checksums. Normally, this prevents traceroute from calculating
+Toggle IP checksums. Normally, this prevents 
+.Nm
+from calculating
 IP checksums. In some cases, the operating system can overwrite parts of
 the outgoing packet but not recalculate the checksum (so in some cases
 the default is to not calculate checksums and using
@@ -341,7 +362,7 @@ aren't sent for
 until we probe with a ttl that's at least twice the path
 length.  I.e., rip is really only 7 hops away.  A reply that
 returns with a ttl of 1 is a clue this problem exists.
-.Nm Traceroute
+.Nm
 prints a "!" after the time if the ttl is <= 1.
 Since vendors ship a lot of obsolete
 .Pf ( Tn DEC Ns \'s
@@ -360,8 +381,22 @@ or
 (host, network or protocol unreachable),
 .Sy !S
 (source route failed),
-.Sy !F
+.B !F\-<pmtu>
 (fragmentation needed \- the RFC1191 Path MTU Discovery value is displayed),
+.Sy !U
+or
+.Sy !W
+(destination network/host unknown),
+.Sy !I
+(source host is isolated),
+.Sy !A
+(communication with destination network administratively prohibited),
+.Sy !Z
+(communication with destination host administratively prohibited),
+.Sy !Q
+(for this ToS the destination network is unreachable),
+.Sy !T
+(for this ToS the destination host is unreachable),
 .Sy !X
 (communication administratively prohibited),
 .Sy !V
@@ -371,15 +406,15 @@ or
 .Sy !<num>
 (ICMP unreachable code <num>).
 These are defined by RFC1812 (which supersedes RFC1716).
-If almost all the probes result in some kind of unreachable,
-.Nm traceroute
+If almost all the probes result in some kind of unreachable, 
+.Nm
 will give up and exit.
 .Pp
 This program is intended for use in network testing, measurement
 and management.
 It should be used primarily for manual fault isolation.
 Because of the load it could impose on the network, it is unwise to use
-.Nm traceroute
+.Nm
 during normal operations or from automated scripts.
 .Sh AUTHOR
 Implemented by Van Jacobson from a suggestion by Steve Deering.  Debugged
@@ -397,3 +432,7 @@ In the TCP case,
 .Nm
 should listen for a RST from the destination host (or an intermediate
 router that's filtering packets), but this is not implemented yet.
+.Pp
+The AS number capability reports information that may sometimes be
+inaccurate due to discrepancies between the contents of the
+routing database server and the current state of the Internet.

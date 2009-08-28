@@ -79,7 +79,7 @@ struct ppp_link {
     int			(*lk_output)		/* output function */
                             (struct ppp_link *link, mbuf_t m);
     int			(*lk_ioctl)		/* control function */
-                            (struct ppp_link *link, u_int32_t cmd, void *data);    
+                            (struct ppp_link *link, u_long cmd, void *data);    
 
     /* statistics and state information, updated by the link driver */
     u_int32_t		lk_reserved0;		/* reserved for future use */

@@ -2,7 +2,7 @@
    Register Transfer Expressions (rtx's) that make up the
    Register Transfer Language (rtl) used in the Back End of the GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1994, 1995, 1997, 1998, 1999, 2000, 2004,
-   2005
+   2005, 2006
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -19,8 +19,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 /* Expression definitions and descriptions for all targets are in this file.
@@ -92,6 +92,11 @@ DEF_RTL_EXPR(EXPR_LIST, "expr_list", "ee", RTX_EXTRA)
 /* a linked list of instructions.
    The insns are represented in print by their uids.  */
 DEF_RTL_EXPR(INSN_LIST, "insn_list", "ue", RTX_EXTRA)
+
+/* a linked list of dependencies. 
+   The insns are represented in print by their uids. 
+   Operand 2 is the status of a dependence (see sched-int.h for more).  */
+DEF_RTL_EXPR(DEPS_LIST, "deps_list", "uei", RTX_EXTRA)
 
 /* SEQUENCE appears in the result of a `gen_...' function
    for a DEFINE_EXPAND that wants to make several insns.
@@ -389,9 +394,8 @@ DEF_RTL_EXPR(CONCAT, "concat", "ee", RTX_OBJ)
 DEF_RTL_EXPR(MEM, "mem", "e0", RTX_OBJ)
 
 /* Reference to an assembler label in the code for this function.
-   The operand is a CODE_LABEL found in the insn chain.
-   The unprinted field 1 is used in flow.c for the LABEL_NEXTREF.  */
-DEF_RTL_EXPR(LABEL_REF, "label_ref", "u0", RTX_CONST_OBJ)
+   The operand is a CODE_LABEL found in the insn chain.  */
+DEF_RTL_EXPR(LABEL_REF, "label_ref", "u", RTX_CONST_OBJ)
 
 /* Reference to a named label: 
    Operand 0: label name
@@ -638,6 +642,12 @@ DEF_RTL_EXPR(US_PLUS, "us_plus", "ee", RTX_COMM_ARITH)
 /* Operand 0 minus operand 1, with signed saturation.  */
 DEF_RTL_EXPR(SS_MINUS, "ss_minus", "ee", RTX_BIN_ARITH)
 
+/* Negation with signed saturation.  */
+DEF_RTL_EXPR(SS_NEG, "ss_neg", "e", RTX_UNARY)
+
+/* Shift left with signed saturation.  */
+DEF_RTL_EXPR(SS_ASHIFT, "ss_ashift", "ee", RTX_BIN_ARITH)
+
 /* Operand 0 minus operand 1, with unsigned saturation.  */
 DEF_RTL_EXPR(US_MINUS, "us_minus", "ee", RTX_BIN_ARITH)
 
@@ -727,8 +737,13 @@ DEF_RTL_EXPR(MATCH_PAR_DUP, "match_par_dup", "iE", RTX_MATCH)
 
 /* Appears only in define_predicate/define_special_predicate
    expressions.  Evaluates true only if the operand has an RTX code
-   from the set given by the argument (a comma-separated list).  */
-DEF_RTL_EXPR(MATCH_CODE, "match_code", "s", RTX_MATCH)
+   from the set given by the argument (a comma-separated list).  If the
+   second argument is present and nonempty, it is a sequence of digits
+   and/or letters which indicates the subexpression to test, using the
+   same syntax as genextract/genrecog's location strings: 0-9 for
+   XEXP (op, n), a-z for XVECEXP (op, 0, n); each character applies to
+   the result of the one before it.  */
+DEF_RTL_EXPR(MATCH_CODE, "match_code", "ss", RTX_MATCH)
 
 /* Appears only in define_predicate/define_special_predicate
     expressions.  The argument is a C expression to be injected at this
@@ -868,6 +883,61 @@ DEF_RTL_EXPR(DEFINE_COND_EXEC, "define_cond_exec", "Ess", RTX_EXTRA)
       match_test expression.  */
 DEF_RTL_EXPR(DEFINE_PREDICATE, "define_predicate", "ses", RTX_EXTRA)
 DEF_RTL_EXPR(DEFINE_SPECIAL_PREDICATE, "define_special_predicate", "ses", RTX_EXTRA)
+
+/* Definition of a register operand constraint.  This simply maps the
+   constraint string to a register class.
+
+   Operand:
+   0: The name of the constraint (often, but not always, a single letter).
+   1: A C expression which evaluates to the appropriate register class for
+      this constraint.  If this is not just a constant, it should look only
+      at -m switches and the like.
+   2: A docstring for this constraint, in Texinfo syntax; not currently
+      used, in future will be incorporated into the manual's list of
+      machine-specific operand constraints.  */
+DEF_RTL_EXPR(DEFINE_REGISTER_CONSTRAINT, "define_register_constraint", "sss", RTX_EXTRA)
+
+/* Definition of a non-register operand constraint.  These look at the
+   operand and decide whether it fits the constraint.
+
+   DEFINE_CONSTRAINT gets no special treatment if it fails to match.
+   It is appropriate for constant-only constraints, and most others.
+
+   DEFINE_MEMORY_CONSTRAINT tells reload that this constraint can be made
+   to match, if it doesn't already, by converting the operand to the form
+   (mem (reg X)) where X is a base register.  It is suitable for constraints
+   that describe a subset of all memory references.
+
+   DEFINE_ADDRESS_CONSTRAINT tells reload that this constraint can be made
+   to match, if it doesn't already, by converting the operand to the form
+   (reg X) where X is a base register.  It is suitable for constraints that
+   describe a subset of all address references.
+
+   When in doubt, use plain DEFINE_CONSTRAINT.  
+
+   Operand:
+   0: The name of the constraint (often, but not always, a single letter).
+   1: A docstring for this constraint, in Texinfo syntax; not currently
+      used, in future will be incorporated into the manual's list of
+      machine-specific operand constraints.
+   2: A boolean expression which computes whether or not the constraint
+      matches.  It should follow the same rules as a define_predicate
+      expression, including the bit about specifying the set of RTX codes
+      that could possibly match.  MATCH_TEST subexpressions may make use of
+      these variables:
+        `op'    - the RTL object defining the operand.
+        `mode'  - the mode of `op'.
+	`ival'  - INTVAL(op), if op is a CONST_INT.
+        `hval'  - CONST_DOUBLE_HIGH(op), if op is an integer CONST_DOUBLE.
+        `lval'  - CONST_DOUBLE_LOW(op), if op is an integer CONST_DOUBLE.
+        `rval'  - CONST_DOUBLE_REAL_VALUE(op), if op is a floating-point
+                  CONST_DOUBLE.
+      Do not use ival/hval/lval/rval if op is not the appropriate kind of
+      RTL object.  */
+DEF_RTL_EXPR(DEFINE_CONSTRAINT, "define_constraint", "sse", RTX_EXTRA)
+DEF_RTL_EXPR(DEFINE_MEMORY_CONSTRAINT, "define_memory_constraint", "sse", RTX_EXTRA)
+DEF_RTL_EXPR(DEFINE_ADDRESS_CONSTRAINT, "define_address_constraint", "sse", RTX_EXTRA)
+   
 
 /* Constructions for CPU pipeline description described by NDFAs.  */
 

@@ -604,7 +604,7 @@
 				data1 = USBToHostLong(* (uint32_t *) &pExtensionUnitDesc->guidFormat[0]);
 				data2 = USBToHostWord(* (UInt16 *) &pExtensionUnitDesc->guidFormat[4]);
 				data3 = USBToHostWord(* (UInt16 *) &pExtensionUnitDesc->guidFormat[6]);
-				uuidLO = NXSwapBigLongLongToHost(* (UInt64 *) &pExtensionUnitDesc->guidFormat[8]);
+				uuidLO = OSSwapBigToHostInt64(* (UInt64 *) &pExtensionUnitDesc->guidFormat[8]);
 				
 				
 				sprintf((char *)buf, 	"%8.8x-%4.4x-%4.4x-%4.4x-%12.12qx", data1, data2, data3, 
@@ -1014,7 +1014,7 @@
 				data1 = USBToHostLong(* (uint32_t *) &pUncompressedFormatDesc->guidFormat[0]);
 				data2 = USBToHostWord(* (UInt16 *) &pUncompressedFormatDesc->guidFormat[4]);
 				data3 = USBToHostWord(* (UInt16 *) &pUncompressedFormatDesc->guidFormat[6]);
-				uuidLO = NXSwapBigLongLongToHost(* (UInt64 *) &pUncompressedFormatDesc->guidFormat[8]);
+				uuidLO = OSSwapBigToHostInt64(* (UInt64 *) &pUncompressedFormatDesc->guidFormat[8]);
 				
 				
 				sprintf((char *)buf, 	"%8.8x-%4.4x-%4.4x-%4.4x-%12.12qx", data1, data2, data3, 

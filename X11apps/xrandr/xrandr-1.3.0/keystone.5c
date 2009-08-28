@@ -1,0 +1,555 @@
+/*
+ * Copyright © 2008 Keith Packard
+ *
+ * Permission to use, copy, modify, distribute, and sell this software and its
+ * documentation for any purpose is hereby granted without fee, provided that
+ * the above copyright notice appear in all copies and that both that copyright
+ * notice and this permission notice appear in supporting documentation, and
+ * that the name of the copyright holders not be used in advertising or
+ * publicity pertaining to distribution of the software without specific,
+ * written prior permission.  The copyright holders make no representations
+ * about the suitability of this software for any purpose.  It is provided "as
+ * is" without express or implied warranty.
+ *
+ * THE COPYRIGHT HOLDERS DISCLAIM ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
+ * INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+ * EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+ * CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE,
+ * DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+ * TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
+ * OF THIS SOFTWARE.
+ */
+
+autoload Process;
+autoload Nichrome;
+autoload Nichrome::Box;
+autoload Nichrome::Label;
+autoload Nichrome::Button;
+
+extend namespace Nichrome {
+    public namespace Quad {
+	public typedef quad_t;
+	public typedef widget_t + struct {
+	    point_t[4]	    p;
+	    real	    line_width;
+	    real	    corner_diameter;
+	    rgba_color_t    line_color;
+	    rgba_color_t    corner_color;
+	    bool	    down;
+	    bool	    started;
+	    int		    active;
+	    void(&quad_t)   callback;
+	} quad_t;
+
+	protected void outline (cairo_t cr, &quad_t quad) {
+	    for (int i = 0; i < dim (quad.p); i++) {
+		arc (cr, quad.p[i].x, quad.p[i].y,
+		     quad.corner_diameter / 2, 0, 2 * pi);
+		close_path (cr);
+	    }
+	}
+
+	void text_at (cairo_t cr, point_t p, string text) {
+	    text_extents_t  e = text_extents (cr, text);
+	    p.x = p.x - e.width / 2 - e.x_bearing;
+	    p.y = p.y - e.height / 2 - e.y_bearing;
+	    move_to (cr, p.x, p.y);
+	    show_text (cr, text);
+	}
+
+	protected void draw (cairo_t cr, &quad_t quad) {
+	    if (!quad.started) {
+		quad.p[2].x = quad.p[1].x = quad.geometry.width;
+		quad.p[3].y = quad.p[2].y = quad.geometry.height;
+		quad.started = true;
+	    }
+	    rectangle (cr, 0, 0, quad.geometry.width, quad.geometry.height);
+	    set_source_rgba (cr, 0, 0, 0, .25);
+	    fill (cr);
+	    for (int i = 0; i < dim (quad.p); i++)
+		line_to (cr, quad.p[i].x, quad.p[i].y);
+	    close_path (cr);
+	    set_line_width (cr, quad.line_width);
+	    set_source_rgba (cr, quad.line_color.red, quad.line_color.green,
+			     quad.line_color.blue, quad.line_color.alpha);
+	    set_line_join (cr, line_join_t.ROUND);
+	    stroke (cr);
+	    set_source_rgba (cr, quad.corner_color.red, quad.corner_color.green,
+			     quad.corner_color.blue, quad.corner_color.alpha);
+	    outline (cr, &quad);
+	    fill (cr);
+	    set_source_rgba (cr, 1, 1, 1, 1);
+	    for (int i = 0; i < dim (quad.p); i++)
+		text_at (cr, quad.p[i], sprintf ("%d", i));
+	}
+
+	int nearest (&quad_t quad, point_t p) {
+	    real    best_dist2 = 0;
+	    int	    best = 0;
+
+	    for (int i = 0; i < dim (quad.p); i++) {
+		real dist2 = ((p.x - quad.p[i].x) ** 2 +
+			      (p.y - quad.p[i].y) ** 2);
+		if (i == 0 || dist2 < best_dist2) {
+		    best_dist2 = dist2;
+		    best = i;
+		}
+	    }
+	    return best;
+	}
+
+	protected void button (&quad_t quad, &button_event_t event) {
+	    enum switch (event.type) {
+	    case press:
+		quad.down = true;
+		quad.active = nearest (&quad, event);
+		break;
+	    case release:
+		quad.down = false;
+		break;
+	    default:
+		break;
+	    }
+	}
+
+	protected void motion (&quad_t quad, &motion_event_t motion) {
+	    if (quad.down) {
+		motion.x = max (0, min (quad.geometry.width, motion.x));
+		motion.y = max (0, min (quad.geometry.height, motion.y));
+		quad.p[quad.active].x = motion.x;
+		quad.p[quad.active].y = motion.y;
+		quad.callback (&quad);
+		Widget::reoutline (&quad);
+		Widget::redraw (&quad);
+	    }
+	}
+
+	protected void configure (&quad_t quad,
+				  rect_t geometry)
+	{
+	    if (quad.geometry.width > 0 && quad.geometry.height > 0)
+	    {
+		real    x_scale = geometry.width / quad.geometry.width;
+		real    y_scale = geometry.height / quad.geometry.height;
+		for (int i = 0; i< 4; i++) {
+		    quad.p[i].x *= x_scale;
+		    quad.p[i].y *= y_scale;
+		}
+	    }
+	    Widget::configure (&quad, geometry);
+	    quad.callback (&quad);
+	}
+	
+	protected void init (&quad_t quad,
+			     &nichrome_t nichrome,
+			     void (&quad_t) callback) {
+	    Widget::init (&nichrome, &quad);
+	    quad.outline = outline;
+	    quad.draw = draw;
+	    quad.button = button;
+	    quad.motion = motion;
+	    quad.configure = configure;
+	    quad.p = (point_t[4]) {
+		{ x = 0, y = 0 } ...
+	    };
+	    quad.line_color = (rgba_color_t) {
+		red = 1, green = 0, blue = 0, alpha = .5
+	    };
+	    quad.line_width = 10;
+	    quad.corner_color = (rgba_color_t) {
+		red = 0, green = 0, blue = 1, alpha = 0.75
+	    };
+	    quad.corner_diameter = 20;
+	    quad.down = false;
+	    quad.active = -1;
+	    quad.callback = callback;
+	    quad.started = false;
+	}
+
+	protected *quad_t new (&nichrome_t nichrome, void(&quad_t) callback) {
+	    quad_t  quad;
+
+	    init (&quad, &nichrome, callback);
+	    return &quad;
+	}
+    }
+}
+import Nichrome;
+import Nichrome::Box;
+import Nichrome::Label;
+import Nichrome::Button;
+import Nichrome::Quad;
+
+import Cairo;
+typedef real[3,3]   m_t;
+typedef point_t[4]  q_t;
+
+/*
+ * Ok, given an source quad and a dest rectangle, compute
+ * a transform that maps the rectangle to q. That's easier
+ * as the rectangle has some nice simple properties. Invert
+ * the matrix to find the opposite mapping
+ *
+ *  q0    q1
+ *
+ *  q3    q2
+ *
+ *  | m00 m01 m02 |
+ *  | m10 m11 m12 |
+ *  | m20 m21 m22 |
+ *
+ *  m [ 0 0 1 ] = q[0]
+ *
+ * Set m22 to 1, and solve:
+ *
+ *  |     m02       ,     m12       , 1 | = | q0x, q0y, 1 |
+ *
+ *  | m00 * w + q0x   m10 * w + q0y     |
+ *  | ------------- , ------------- , 1 | = | q1x, q1y, 1 |
+ *  |  m20 * w + 1     m20 * w + 1      |
+
+ *   m00*w + q0x = q1x*(m20*w + 1)
+ *   m00 = m20*q1x + (q1x - q0x) / w;
+ *
+ *   m10*w + q0y = q1y*(m20*w + 1)
+ *   m10 = m20*q1y + (q1y - q0y) / w;
+ *
+ *   m01*h + q0x = q3x*(m21*h + 1)
+ *   m01 = m21*q3x + (q3x - q0x) / h;
+ *
+ *   m11*h + q0y = q3y*(m21*h + 1)
+ *   m11 = m21*q3y + (q3y - q0y) / h
+ *
+ *   m00*w +                 m01*h +                 q0x = q2x*(m20*w + m21*h + 1)
+ *
+ *   m20*q1x*w + q1x - q0x + m21*q3x*h + q3x - q0x + q0x = m20*q2x*w + m21*q2x*h + q2x
+ *
+ *   m20*q1x*w - m20*q2x*w = m21*q2x*h - m21*q3x*h + q2x - q1x + q0x - q3x + q0x - q0x
+ *
+ *   m20*(q1x - q2x)*w     = m21*(q2x - q3x)*h     + q2x - q1x - q3x + q0x
+ *
+ *
+ *   m10*w +                 m11*h +                 q0y = q2y*(m20*w + m21*h + 1)
+ *
+ *   m20*q1y*w + q1y - q0y + m21*q3y*h + q3y - q0y + q0y = m20*q2y*w + m21*q2y*h + q2y
+ *
+ *   m20*q1y*w - m20*q2y*w = m21*q2y*h - m21*q3y*h + q2y - q1y + q0y - q3y + q0y - q0y
+ *
+ *   m20*(q1y - q2y)*w     = m21*(q2y - q3y)*h     + q2y - q1y - q3y + q0y
+ *
+ *
+ *   m20*(q1x - q2x)*(q1y - q2y)*w     = m21*(q2x - q3x)*(q1y - q2y)*h     + (q2x - q1x - q3x + q0x)*(q1y - q2y)
+ *
+ *   m20*(q1y - q2y)*(q1x - q2x)*w     = m21*(q2y - q3y)*(q1x - q2x)*h     + (q2y - q1y - q3y + q0y)*(q1x - q2x)
+ *
+ *   0                                 = m21*((q2x - q3x)*(q1y - q2y) - (q2y - q3y)*(q1x - q2x))*h + (stuff)
+ *                                     = m21 * a + b;
+ *
+ *   m21 = -(stuff) / (other stuff)
+ *
+ *   m20 = f(m21)
+ *
+ *  m00 = f(m20)
+ *  m10 = f(m20)
+ *
+ *  m01 = f(m21)
+ *  m11 = f(m21)
+ *
+ * done.
+ */
+m_t solve (q_t q, real w, real h)
+{
+    real    q0x = q[0].x, q0y = q[0].y;
+    real    q1x = q[1].x, q1y = q[1].y;
+    real    q2x = q[2].x, q2y = q[2].y;
+    real    q3x = q[3].x, q3y = q[3].y;
+    real    m00, m01, m02;
+    real    m10, m11, m12;
+    real    m20, m21, m22;
+
+    m02 = q0x;
+    m12 = q0y;
+    m22 = 1;
+
+    real    a = ((q2x - q3x)*(q1y - q2y) - (q2y - q3y)*(q1x - q2x)) * h;
+    real    b = (q2x - q1x - q3x + q0x) * (q1y - q2y) - (q2y - q1y - q3y + q0y) * (q1x - q2x);
+    m21 = - b / a;
+
+    if (q1x != q2x)
+	m20 = (m21 * (q2x - q3x) * h + q2x - q1x - q3x + q0x) / ((q1x - q2x) * w);
+    else
+	m20 = (m21 * (q2y - q3y) * h + q2y - q1y - q3y + q0y) / ((q1y - q2y) * w);
+
+    m00 = m20 * q1x + (q1x - q0x) / w;
+    m10 = m20 * q1y + (q1y - q0y) / w;
+
+    m01 = m21 * q3x + (q3x - q0x) / h;
+    m11 = m21 * q3y + (q3y - q0y) / h;
+
+    return (m_t) {
+	{ m00, m01, m02 },
+	{ m10, m11, m12 },
+	{ m20, m21, m22 } };
+}
+
+m_t
+invert (m_t m)
+{
+    real  det;
+    int	    i, j;
+    m_t	r;
+
+    static int[3]	a = { 2, 2, 1 };
+    static int[3]	b = { 1, 0, 0 };
+
+    det = 0;
+    for (i = 0; i < 3; i++) {
+	real	p;
+	int	ai = a[i];
+	int	bi = b[i];
+	p = m[i,0] * (m[ai,2] * m[bi,1] - m[ai,1] * m[bi,2]);
+	if (i == 1)
+	    p = -p;
+	det += p;
+    }
+    det = 1/det;
+    for (j = 0; j < 3; j++) {
+	for (i = 0; i < 3; i++) {
+	    real  p;
+	    int	    ai = a[i];
+	    int	    aj = a[j];
+	    int	    bi = b[i];
+	    int	    bj = b[j];
+
+	    p = m[ai,aj] * m[bi,bj] - m[ai,bj] * m[bi,aj];
+	    if (((i + j) & 1) != 0)
+		p = -p;
+	    r[j,i] = det * p;
+	}
+    }
+    return r;
+}
+
+m_t
+rescale (m_t m, real limit)
+{
+    real    max = 0;
+    for (int j = 0; j < 3; j++)
+	for (int i = 0; i < 3; i++)
+	    if ((real v = abs (m[j,i])) > max)
+		max = v;
+    real scale = limit / max;
+    for (int j = 0; j < 3; j++)
+	for (int i = 0; i < 3; i++)
+	    m[j,i] *= scale;
+    return m;
+    
+}
+
+string
+m_print (m_t m)
+{
+    /*
+    return sprintf ("%.8f,%.8f,%.8f,%.8f,%.8f,%.8f,%.8f,%.8f,%.8f",
+		    m[0,0],m[0,1],m[0,2],
+		    m[1,0],m[1,1],m[1,2],
+		    m[2,0],m[2,1],m[2,2]);
+     */
+    return sprintf ("%v,%v,%v,%v,%v,%v,%v,%v,%v",
+		    m[0,0],m[0,1],m[0,2],
+		    m[1,0],m[1,1],m[1,2],
+		    m[2,0],m[2,1],m[2,2]);
+}
+
+int
+fixed (real x)
+{
+    return floor (x * 65536 + 0.5) & 0xffffffff;
+}
+
+void
+m_print_fix (m_t m)
+{
+    for (int i = 0; i < 3; i++)
+    {
+	printf (" { 0x%08x, 0x%08x, 0x%08x },\n",
+		fixed (m[i,0]), fixed (m[i,1]), fixed (m[i,2]));
+    }
+}
+
+string
+m_row (m_t m, int row)
+{
+    return sprintf ("%10.5f %10.5f %10.5f",
+		    m[row,0],m[row,1],m[row,2]);
+}
+
+Cairo::point_t[*] scale(Cairo::point_t[*] p, real w, real h)
+{
+    for (int i = 0; i < dim (p); i++) {
+	p[i].x *= w;
+	p[i].y *= h;
+    }
+    return p;
+}
+
+typedef struct {
+    string  name;
+    rect_t  geometry;
+} output_t;
+
+autoload Process;
+
+
+output_t[*] get_outputs () {
+    output_t[...]   outputs = {};
+    twixt (file randr = Process::popen (Process::popen_direction.read,
+					false, "xrandr", "xrandr");
+	   File::close (randr))
+    {
+	while (!File::end (randr)) {
+	    string[*] words = String::wordsplit (File::fgets (randr), " ");
+	    if (dim (words) >= 3 && words[1] == "connected" &&
+		File::sscanf (words[2], "%dx%d+%d+%d", 
+			&(int width), &(int height), 
+			&(int x), &(int y)) == 4)
+	    {
+		outputs[dim(outputs)] = (output_t) {
+		    name = words[0],
+		    geometry = { 
+			x = x, y = y, width = width, height = height 
+		    }
+		};
+	    }
+	}
+    }
+    return outputs;
+}
+
+void main ()
+{
+    m_t	m = { { 1, 0, 0 }, { 0, 1, 0 }, { 0, 0, 1 } }, m_i, m_r;
+    bool m_available = true;
+    output_t[*]	outputs = get_outputs ();
+    output_t	target_output;
+
+    if (dim (outputs) == 0) {
+	File::fprintf (stderr, "%s: No enabled outputs\n", argv[0]);
+	exit (1);
+    }
+    
+    if (dim (argv) > 1) {
+	int i;
+	for (i = 0; i < dim (outputs); i++)
+	    if (argv[1] == outputs[i].name) {
+		target_output = outputs[i];
+		break;
+	    }
+	if (i == dim (outputs)) {
+	    File::fprintf (stderr, "%s: no enabled output \"%s\"\n",
+			   argv[0], argv[1]);
+	    exit (1);
+	}
+    }
+    else
+	target_output = outputs[0];
+	
+    real target_width = target_output.geometry.width;
+    real target_height = target_output.geometry.height;
+    
+    real screen_width = 0;
+    real screen_height = 0;
+
+    for (int i = 0; i < dim (outputs); i++)
+    {
+	screen_width = max (screen_width, 
+			    outputs[i].geometry.x +
+			    outputs[i].geometry.width);
+	screen_height = max (screen_height, 
+			    outputs[i].geometry.y +
+			    outputs[i].geometry.height);
+    }
+
+    &nichrome_t	nichrome = Nichrome::new ("Keystone Correction", 400, 350);
+
+    (*label_t)[3]	label;
+    &label_t	space = Label::new (&nichrome, "");
+    for (int i = 0; i < 3; i++) {
+	label[i] = Label::new (&nichrome, "matrix");
+	label[i]->font = "sans-9";
+    }
+
+    void callback (&quad_t quad) {
+	real	w = quad.geometry.width;
+	real	h = quad.geometry.height;
+	string[3]	text;
+	try {
+	    m = solve (scale (quad.p, target_width / w, target_height / h),
+		       target_width, target_height);
+	    m_i = invert (m);
+	    m_r = rescale (m_i, 16384);
+	    for (int i = 0; i < 3; i++)
+		text[i] = m_row (m_i,i);
+	    m_available = true;
+	} catch divide_by_zero (real a, real b) {
+	    text = (string[3]) { "no solution", "" ... };
+	    m_available = false;
+	}
+	for (int i = 0; i < 3; i++)
+	    Label::relabel (label[i], text[i]);
+    }
+    &quad_t	quad = Quad::new (&nichrome, callback);
+
+    void doit_func (&widget_t widget, bool state)
+    {
+	if (m_available)
+	{
+	    Process::system ("xrandr",
+			     "xrandr",
+			     "--fb",
+			     sprintf ("%dx%d", screen_width, screen_height),
+			     "--output",
+			     target_output.name,
+			     "--transform",
+			     m_print (m_r));
+	}
+    }
+
+    &button_t	doit = Button::new (&nichrome, "doit", doit_func);
+    
+    void show_func (&widget_t widget, bool state)
+    {
+	if (m_available)
+	{
+	    printf ("normal:  %s\n", m_print (m));
+	    printf ("inverse: %s\n", m_print (m_i));
+	    printf ("scaled:  %s\n", m_print (m_r));
+	    printf ("fixed:\n");
+	    m_print_fix (m_i);
+	}
+    }
+    
+    &button_t	show = Button::new (&nichrome, "show", show_func);
+    &button_t	quit = Button::new (&nichrome, "quit",
+				     void func (&widget_t w, bool state) {
+					w.nichrome.running = false;
+				     });
+
+    &box_t	hbox = Box::new (Box::dir_t.horizontal,
+				 Box::widget_item (&doit, 0),
+				 Box::widget_item (&show, 0),
+				 
+				 Box::widget_item (&quit, 0),
+				 Box::glue_item (1));
+    &box_t	box = Box::new (Box::dir_t.vertical,
+				Box::box_item (&hbox),
+				Box::widget_item (label[0], 0),
+				Box::widget_item (label[1], 0),
+				Box::widget_item (label[2], 0),
+				Box::widget_item (&space, 0),
+				Box::widget_item (&quad, 1));
+    Nichrome::set_box (&nichrome, &box);
+    Nichrome::main_loop (&nichrome);
+}
+
+main ();

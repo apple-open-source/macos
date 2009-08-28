@@ -8,8 +8,8 @@ use DBICTest;
 
 my $schema = DBICTest->init_schema();
 
-eval 'require JSON';
-plan skip_all => 'Install JSON to run this test' if ($@);
+eval 'require JSON::Any';
+plan skip_all => 'Install JSON::Any to run this test' if ($@);
 
 eval 'require Text::CSV_XS';
 if ($@) {
@@ -19,26 +19,31 @@ if ($@) {
 
 plan tests => 5;
 
-# double quotes round the arguments and single-quote within to make sure the
-# tests run on windows as well
+# the script supports double quotes round the arguments and single-quote within
+# to make sure it runs on windows as well, but only if JSON::Any picks the right module
+
+
 
 my $employees = $schema->resultset('Employee');
-my $cmd = qq|$^X script/dbicadmin --schema=DBICTest::Schema --class=Employee --tlibs --connect="['dbi:SQLite:dbname=t/var/DBIxClass.db','','']" --force --tlibs|;
+my @cmd = ($^X, qw|script/dbicadmin --quiet --schema=DBICTest::Schema --class=Employee --tlibs|, q|--connect=["dbi:SQLite:dbname=t/var/DBIxClass.db","","",{"AutoCommit":1}]|, qw|--force --tlibs|);
 
-`$cmd --op=insert --set="{name:'Matt'}"`;
+system(@cmd, qw|--op=insert --set={"name":"Matt"}|);
 ok( ($employees->count()==1), 'insert count' );
 
 my $employee = $employees->find(1);
 ok( ($employee->name() eq 'Matt'), 'insert valid' );
 
-`$cmd --op=update --set="{name:'Trout'}"`;
+system(@cmd, qw|--op=update --set={"name":"Trout"}|);
 $employee = $employees->find(1);
 ok( ($employee->name() eq 'Trout'), 'update' );
 
-`$cmd --op=insert --set="{name:'Aran'}"`;
-my $data = `$cmd --op=select --attrs="{order_by:'name'}"`;
+system(@cmd, qw|--op=insert --set={"name":"Aran"}|);
+
+open(my $fh, "-|", @cmd, qw|--op=select --attrs={"order_by":"name"}|) or die $!;
+my $data = do { local $/; <$fh> };
+close($fh);
 ok( ($data=~/Aran.*Trout/s), 'select with attrs' );
 
-`$cmd --op=delete --where="{name:'Trout'}"`;
+system(@cmd, qw|--op=delete --where={"name":"Trout"}|);
 ok( ($employees->count()==1), 'delete' );
 

@@ -1,3 +1,23 @@
+2009-01-13  Jason Molenda  (jmolenda@apple.com)
+
+	* libiberty.h (basename): Update prototype.
+
+2008-12-05  Jim Ingham  <jingham@apple.com>
+
+	elf/dwarf2.h: Add definitions for DW_AT_APPLE_major_runtime_vers
+	and DW_AT_APPLE_runtime_class.
+	
+2008-06-27  Jason Molenda  (jmolenda@apple.com)
+
+	* dis-asm.h: Update to FSF gdb sources from 2007-07-02.
+	* floatformat.h: Ditto.
+	* opcode/arm.h: Ditto.
+
+2008-03-27  Jason Molenda  (jmolenda@apple.com)
+
+	* demangle.h: Imported the version circa 2007-05-08 from the
+	FSF cvs repository.
+
 2007-03-21  Caroline Tice  <ctice@apple.com>
 
 	* elf/dwarf2.h: (enum dwarf_location_atom): Add DW_OP_APPLE_uninit.

@@ -3,10 +3,10 @@
 /* Test -falign-loops-max-skip */
 /* { dg-options "-O3 -falign-loops=16 -falign-loops-max-skip=11" } */
 
+float j;
 void foo()
 {
   int i;
-  float j;
   for (i=0; i<1000; i++)
     j = 123*456;
 }

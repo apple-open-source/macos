@@ -1,0 +1,24 @@
+<plist version="1.0">
+<array>
+<dict>
+        <key>OpenSourceProject</key>
+        <string>Proxy65</string>
+        <key>OpenSourceVersion</key>
+        <string>1.1.1</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://code.google.com/p/proxy65/</string>
+        <key>OpenSourceURL</key>
+        <string>http://proxy65.googlecode.com/files/Proxy65-1.1.1.tar.gz</string>
+        <key>OpenSourceSHA1</key>
+        <string>e4deb0f90d5ef11d1201200458793e18144dd906</string>
+        <key>OpenSourceImportDate</key>
+        <string>2008-05-16</string>
+        <key>OpenSourceModifications</key>
+        <array/>
+        <key>OpenSourceLicense</key>
+        <string>MIT</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>proxy65.txt</string>
+</dict>
+</array>
+</plist>

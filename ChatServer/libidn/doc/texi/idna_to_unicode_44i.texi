@@ -1,3 +1,5 @@
+@subheading idna_to_unicode_44i
+@anchor{idna_to_unicode_44i}
 @deftypefun {int} {idna_to_unicode_44i} (const uint32_t * @var{in}, size_t @var{inlen}, uint32_t * @var{out}, size_t * @var{outlen}, int @var{flags})
 @var{in}: input array with unicode code points.
 

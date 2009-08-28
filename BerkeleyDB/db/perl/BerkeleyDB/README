@@ -1,12 +1,12 @@
-                                   BerkeleyDB
+                                BerkeleyDB
 
-                                  Version 0.25
+                               Version 0.32
 
-                                 28th Sept 2003
+                              10h July 2007
 
-	Copyright (c) 1997-2003 Paul Marquess. All rights reserved. This
-	program is free software; you can redistribute it and/or modify
-	it under the same terms as Perl itself.
+     Copyright (c) 1997-2007 Paul Marquess. All rights reserved. This
+      program is free software; you can redistribute it and/or modify
+                  it under the same terms as Perl itself.
 
 
 DESCRIPTION
@@ -58,8 +58,11 @@ be relatively straightforward.
 
 Step 1 : If you are running Solaris 2.5, 2.7 or HP-UX 10 read either
          the Solaris Notes or HP-UX Notes sections below.
-	 If you are running Linux please read the Linux Notes section
+         If you are running Linux please read the Linux Notes section
          before proceeding.
+         If you are running FreeBSD read the FreeBSD Notes section
+         below.
+
 
 Step 2 : Edit the file config.in to suit you local installation.
          Instructions are given in the file.
@@ -386,6 +389,39 @@ The solution is to use a local drive. Berkeley DB doesn't support
 network drives.
 
 
+Berkeley DB library configured to support only DB_PRIVATE environments
+----------------------------------------------------------------------
+
+BerkeleyDB seems to have built correctly, but you get a series of errors
+like this when you run the test harness:
+
+  t/btree........ok 27/244
+  # : Berkeley DB library configured to support only DB_PRIVATE environments
+  t/btree........ok 177/244
+  # : Berkeley DB library configured to support only DB_PRIVATE environments
+  t/btree........NOK 178Can't call method "txn_begin" on an undefined value at t/btree.t line 638.
+  t/btree........dubious
+          Test returned status 2 (wstat 512, 0x200)
+  Scalar found where operator expected at (eval 153) line 1, near "'int'  $__val"
+        (Missing operator before   $__val?)
+  DIED. FAILED tests 28, 178-244
+          Failed 68/244 tests, 72.13% okay
+
+
+Some versions of Redhat Linux, and possibly some other Linux
+distributions, include a seriously restricted build of the
+Berkeley DB library that is incompatible with this module. See
+https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=91933 for an
+exhaustive discussion on the reasons for this.
+
+
+Solution:
+
+You will have to build a private copy of the Berkeley DB library and
+use it when building this Perl module.
+
+
+
 Linux Notes
 -----------
 
@@ -528,6 +564,33 @@ following steps should do the trick:
         "libdb= libdb.a" to "libdb= libdb.sl".
 
   3: Build and install the Berkeley DB distribution as usual.
+
+
+FreeBSD Notes
+-------------
+
+On FreeBSD 4.x through 6.x, the default db.h is for version 1. The build
+will fail with an error similar to:
+
+BerkeleyDB.xs:74: #error db.h is from Berkeley DB 1.x - need at least
+Berkeley DB 2.6.4
+
+Later versions of Berkeley DB are usually installed from ports.
+The available versions can be found by running a find(1) command:
+
+    %  find /usr/local/include -name 'db.h'
+    /usr/local/include/db3/db.h
+    /usr/local/include/db4/db.h
+    /usr/local/include/db41/db.h
+    /usr/local/include/db42/db.h
+    /usr/local/include/db43/db.h
+
+The desired version of the library must be specified on the command line or
+via the config.in file. Make sure both values point to the same version:
+
+    INCLUDE = /usr/local/include/db43
+    LIB     = /usr/local/lib/db43
+
 
 
 

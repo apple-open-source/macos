@@ -1,6 +1,6 @@
 AC_PREREQ([2.53])
 AC_INIT(otp_rlm.c)
-AC_REVISION($Revision: 1.1.2.6 $)
+AC_REVISION($Revision$)
 AC_DEFUN(modname,[rlm_otp])
 
 otp_cflags=

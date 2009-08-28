@@ -323,6 +323,17 @@ bool tsIsGoodCfNum(CFNumberRef cfn, SInt32 *num = NULL)
 	}
 }
 
+TrustSettings::TrustSettings(SecTrustSettingsDomain domain)
+		: mPropList(NULL), 
+		  mTrustDict(NULL),
+		  mDictVersion(0),
+		  mDomain(domain),
+		  mDirty(false)
+{
+}
+
+
+
 #pragma mark --- Public methods ---
 
 /* 
@@ -335,16 +346,14 @@ bool tsIsGoodCfNum(CFNumberRef cfn, SInt32 *num = NULL)
  * needed for cert evaluation are discarded. This is for TrustSettings
  * that will be cached in memory long-term. 
  */
-TrustSettings::TrustSettings(
+OSStatus TrustSettings::CreateTrustSettings(
 	SecTrustSettingsDomain	domain,
 	bool					create,
-	bool					trim)
-		: mPropList(NULL), 
-		  mTrustDict(NULL),
-		  mDictVersion(0),
-		  mDomain(domain),
-		  mDirty(false)
+	bool					trim,
+	TrustSettings*&			ts)
 {
+	TrustSettings* t = new TrustSettings(domain);
+
 	Allocator &alloc = Allocator::standard();
 	CSSM_DATA fileData = {0, NULL};
 	OSStatus ortn = noErr;
@@ -377,41 +386,42 @@ TrustSettings::TrustSettings(
 			}
 			break;
 		default:
-			MacOSError::throwMe(paramErr);
+			delete t;
+			return paramErr;
 	}
 	if(ortn) {
 		if(create) {
 			trustSettingsDbg("TrustSettings: creating new record for domain %d",
 				(int)domain);
-			mPropList = tsInitialDict();
-			mDirty = true;
+			t->mPropList = tsInitialDict();
+			t->mDirty = true;
 		}
 		else {
 			trustSettingsDbg("TrustSettings: record not found for domain %d",
 				(int)domain);
-			MacOSError::throwMe(ortn);
+			delete t;
+			return ortn;
 		}
 	}
 	else {
 		CFRef<CFDataRef> propList(CFDataCreate(NULL, fileData.Data, fileData.Length));
-		initFromData(propList);
+		t->initFromData(propList);
 		alloc.free(fileData.Data);
 	}
-	validatePropList(trim);
+	t->validatePropList(trim);
+	
+	ts = t;
+	return noErr;
 }
 
 /* 
  * Create from external data, obtained by createExternal().
  * If externalData is NULL, we'll create an empty mTrustDict.
  */
-TrustSettings::TrustSettings(
+OSStatus TrustSettings::CreateTrustSettings(
 	SecTrustSettingsDomain				domain,
-	CFDataRef							externalData)
-		: mPropList(NULL), 
-		  mTrustDict(NULL),
-		  mDictVersion(0),
-		  mDomain(domain),
-		  mDirty(false)
+	CFDataRef							externalData,
+	TrustSettings*&						ts)
 {
 	switch(domain) {
 		case kSecTrustSettingsDomainUser:
@@ -420,16 +430,22 @@ TrustSettings::TrustSettings(
 			break;
 		case kSecTrustSettingsDomainSystem:		/* no can do, that implies writing to it */
 		default:
-			MacOSError::throwMe(paramErr);
+			return paramErr;
 	}
+
+	TrustSettings* t = new TrustSettings(domain);
+
 	if(externalData != NULL) {
-		initFromData(externalData);
+		t->initFromData(externalData);
 	}
 	else {
-		mPropList = tsInitialDict();
+		t->mPropList = tsInitialDict();
 	}
-	validatePropList(TRIM_NO);		/* never trim this */
-	mDirty = true;
+	t->validatePropList(TRIM_NO);		/* never trim this */
+	t->mDirty = true;
+	
+	ts = t;
+	return noErr;
 }
 
 
@@ -1071,6 +1087,11 @@ CFDictionaryRef TrustSettings::findDictionaryForCert(
 	SecCertificateRef	certRef)
 {
 	CFRef<CFStringRef> certHashStr(SecTrustSettingsCertHashStrFromCert(certRef));
+	if (certHashStr.get() == NULL)
+	{
+		return NULL;
+	}
+	
 	return findDictionaryForCertHash(static_cast<CFStringRef>(certHashStr));
 }
 

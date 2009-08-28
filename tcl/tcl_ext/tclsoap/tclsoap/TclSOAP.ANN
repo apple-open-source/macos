@@ -1,0 +1,41 @@
+Announcing a SOAP and XML-RPC binding for Tcl 8.3              -*- text -*-
+
+TclSOAP is a Tcl binding to SOAP and XML-RPC remote procedure calls. Client
+RPC calls are used just like Tcl internal procedures and Tcl procedures can
+be exported via HTTP using the SOAP::CGI package. For instance,
+the XMethods getTemp method can be called from Tcl using:
+
+% set temp [getTemp 90810]
+41.0
+
+The Tcl SOAP package is written entirely in Tcl and depends upon the
+TclDOM package written by Steve Ball of www.zveno.com.
+
+For more information go to 
+   http://tclsoap.sourceforge.net/
+and the package is at
+  http://sourceforge.net/projects/tclsoap
+or you can examine the CVS repository at
+  http://cvs.tclsoap.sourceforge.net/tclsoap/cvsroot
+
+This Tcl SOAP package has been tested with Tcl 8.3 on Linux, OpenBSD and
+Windows (98 and 2000) using TclXML 1.2 and TclDOM 1.6 and TclXML 2.0 and 
+TclDOM 2.0.
+
+Links
+-----
+
+TclSOAP  -  http://tclsoap.sourceforge.net/
+TclXML   -  ftp://ftp.zveno.com/TclXML/TclXML-1.2.tar.gz
+            http://tclxml/sourceforge.net/
+TclDOM   -  ftp://ftp.zveno.com/TclDOM/TclDOM-1.6.tar.gz
+            http://tclxml.sourceforge.net/
+XMethods -  http://www.xmethods.net/
+
+License
+-------
+
+This software is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+or FITNESS FOR A PARTICULAR PURPOSE.  See the accompanying file `LICENSE'
+for more details.

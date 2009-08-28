@@ -22,6 +22,13 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+
+//================================================================================================
+//
+//   Headers
+//
+//================================================================================================
+//
 extern "C" {
 #include <kern/clock.h>
 }
@@ -34,7 +41,15 @@ extern "C" {
 
 #include "AppleUSBOHCI.h"
 
-/* Convert USBLog to use kprintf debugging */
+//================================================================================================
+//
+//   Local Definitions
+//
+//================================================================================================
+//
+#define super IOUSBControllerV3
+#define _rootHubTransactionWasAborted	_v3ExpansionData->_rootHubTransactionWasAborted
+
 #ifndef APPLEOHCIROOTHUB_USE_KPRINTF
 	#define APPLEOHCIROOTHUB_USE_KPRINTF 0
 #endif
@@ -44,24 +59,16 @@ extern "C" {
 	#undef USBError
 	void kprintf(const char *format, ...)
 	__attribute__((format(printf, 1, 2)));
-	#define USBLog( LEVEL, FORMAT, ARGS... )  if ((LEVEL) <= 5) { kprintf( FORMAT "\n", ## ARGS ) ; }
+	#define USBLog( LEVEL, FORMAT, ARGS... )  if ((LEVEL) <= APPLEOHCIROOTHUB_USE_KPRINTF) { kprintf( FORMAT "\n", ## ARGS ) ; }
 	#define USBError( LEVEL, FORMAT, ARGS... )  { kprintf( FORMAT "\n", ## ARGS ) ; }
 #endif
 
-#define DEBUGGING_LEVEL 0	// 1 = low; 2 = high; 3 = extreme
 
-#define super IOUSBControllerV3
+// ========================================================================
+#pragma mark Public root hub methods
+// ========================================================================
 
 
-enum {
-	kPrdRootHubApple	= 0x8005,	/* Apple ASIC root hub*/
-	kOHCIRootHubPollingInterval = 32	// Polling interval in ms
-};
-
-/*
- * Root hub methods
- */
-// FIXME  Should this routine go in the device?
 IOReturn AppleUSBOHCI::GetRootHubDeviceDescriptor(IOUSBDeviceDescriptor *desc)
 {
     IOUSBDeviceDescriptor newDesc =
@@ -75,7 +82,7 @@ IOReturn AppleUSBOHCI::GetRootHubDeviceDescriptor(IOUSBDeviceDescriptor *desc)
         8,										// UInt8 maxPacketSize;
         HostToUSBWord(kAppleVendorID),			// UInt16 vendor:  Use the Apple Vendor ID from USB-IF
         HostToUSBWord(kPrdRootHubApple),		// UInt16 product:  All our root hubs are the same
-        HostToUSBWord(0x0190),					// UInt16 bcdDevice
+        HostToUSBWord(0x0200),					// UInt16 bcdDevice
         2,										// UInt8 manuIdx;
         1,										// UInt8 prodIdx;
         0,										// UInt8 serialIdx;
@@ -85,11 +92,6 @@ IOReturn AppleUSBOHCI::GetRootHubDeviceDescriptor(IOUSBDeviceDescriptor *desc)
     if (!desc)
         return(kIOReturnNoMemory);
 
-	// If we have an NVDA errata to ignore disconnects, then set the bcdDevice to 0x0279
-	if (_errataBits & kErrataMCP79IgnoreDisconnect)
-	{
-		newDesc.bcdDevice = HostToUSBWord(0x0279);
-	}
 
     bcopy(&newDesc, desc, newDesc.bLength);
 
@@ -182,7 +184,7 @@ IOReturn AppleUSBOHCI::GetRootHubConfDescriptor(OSData *desc)
     {
         sizeof(IOUSBConfigurationDescriptor),							//UInt8 length;
         kUSBConfDesc,													//UInt8 descriptorType;
-        USB_CONSTANT16(sizeof(IOUSBConfigurationDescriptor) +
+        HostToUSBWord(sizeof(IOUSBConfigurationDescriptor) +
                        sizeof(IOUSBInterfaceDescriptor) +
                        sizeof(IOUSBEndpointDescriptor)),				//UInt16 totalLength;
         1,																//UInt8 numInterfaces;
@@ -210,8 +212,8 @@ IOReturn AppleUSBOHCI::GetRootHubConfDescriptor(OSData *desc)
         kUSBEndpointDesc,												//UInt8 descriptorType;
         0x81,															//UInt8  endpointAddress; In, 1
         kUSBInterrupt,													//UInt8 attributes;
-        USB_CONSTANT16(8),												//UInt16 maxPacketSize;
-        32,																//UInt8 interval;
+        HostToUSBWord(8),												//UInt16 maxPacketSize;
+        kUSBRootHubPollingRate,											//UInt8 interval;
     };
 
     if (!desc)
@@ -229,9 +231,9 @@ IOReturn AppleUSBOHCI::GetRootHubConfDescriptor(OSData *desc)
     return(kIOReturnSuccess);
 }
 
-IOReturn AppleUSBOHCI::SetRootHubDescriptor(OSData * /*buffer*/)
+IOReturn AppleUSBOHCI::SetRootHubDescriptor(OSData * buffer)
 {
-
+#pragma unused (buffer)
     return(kIOReturnSuccess);
 }
 
@@ -363,6 +365,7 @@ IOReturn
 AppleUSBOHCI::ClearRootHubPortFeature(UInt16 wValue, UInt16 wIndex)
 {
     UInt16	port = wIndex-1;
+	bool	renableRHSCInterrupt = false;
 
     switch(wValue)
     {
@@ -383,36 +386,55 @@ AppleUSBOHCI::ClearRootHubPortFeature(UInt16 wValue, UInt16 wIndex)
         // ****** Change features *******
         case kUSBHubPortConnectionChangeFeature :
             OHCIRootHubResetChangeConnection(port);
+			renableRHSCInterrupt = true;
             break;
 
         case kUSBHubPortEnableChangeFeature :
             OHCIRootHubResetEnableChange(port);
-            break;
+ 			renableRHSCInterrupt = true;
+           break;
 
         case kUSBHubPortSuspendChangeFeature :
             OHCIRootHubResetSuspendChange(port);
+			renableRHSCInterrupt = true;
             break;
 
         case kUSBHubPortOverCurrentChangeFeature :
             OHCIRootHubResetOverCurrentChange(port);
+			renableRHSCInterrupt = true;
             break;
 
         case kUSBHubPortResetChangeFeature :
             OHCIRootHubResetResetChange(port);
-            break;
+ 			renableRHSCInterrupt = true;
+           break;
 
         default:
             USBLog(3,"AppleUSBOHCI[%p]::ClearRootHubPortFeature - Unknown feature (%d)", this, wValue);
             break;
     }
+	
+	if ( renableRHSCInterrupt && _needToReEnableRHSCInterrupt)
+	{
+		UInt32	interrupts;
+		
+		USBLog(3,"AppleUSBOHCI[%p]::ClearRootHubPortFeature - renabling RHSC interrupt due to clear feature %d", this, wValue);
+
+		// ReEnable the interrupt
+		_needToReEnableRHSCInterrupt = false;
+		_pOHCIRegisters->hcInterruptEnable = HostToUSBLong (kOHCIHcInterrupt_MIE | kOHCIHcInterrupt_RHSC);
+		IOSync();
+	}
+	
     return(kIOReturnSuccess);
 }
 
 
 
 IOReturn 
-AppleUSBOHCI::GetRootHubPortState(UInt8 */*state*/, UInt16 /*port*/)
+AppleUSBOHCI::GetRootHubPortState(UInt8 *state, UInt16 port)
 {
+#pragma unused(state, port)
     USBLog(3,"AppleUSBOHCI[%p]::GetRootHubPortState - UNIMPLEMENTED", this);
     return(kIOReturnSuccess);
 }
@@ -427,7 +449,166 @@ AppleUSBOHCI::SetHubAddress(UInt16 wValue)
     return (kIOReturnSuccess);
 }
 
+IOReturn 
+AppleUSBOHCI::GetRootHubStringDescriptor(UInt8	index, OSData *desc)
+{
+	
+    // The following strings are in Unicode format
+    //
+    UInt8 productName[] = {
+		0,			// Length Byte
+		kUSBStringDesc,	// Descriptor type
+		0x4F, 0x00, // "O"
+		0x48, 0x00, // "H"
+		0x43, 0x00, // "C"
+		0x49, 0x00, // "I"
+		0x20, 0x00,	// " "
+		0x52, 0x00,	// "R"
+		0x6F, 0x00,	// "o"
+		0x6f, 0x00,	// "o"
+		0x74, 0x00,	// "t"
+		0x20, 0x00,	// " "
+		0x48, 0x00,	// "H"
+		0x75, 0x00,	// "u"
+		0x62, 0x00,	// "b"
+		0x20, 0x00,	// " "
+		0x53, 0x00, // "S"
+		0x69, 0x00,	// "i"
+		0x6d, 0x00,	// "m"
+		0x75, 0x00,	// "u"
+		0x6c, 0x00,	// "l"
+		0x61, 0x00,	// "a"
+		0x74, 0x00,	// "t"
+		0x69, 0x00,	// "i"
+		0x6f, 0x00,	// "o"
+		0x6e, 0x00,	// "n"
+	};
+	
+    UInt8 vendorName[] = {
+		0,			// Length Byte
+		kUSBStringDesc,	// Descriptor type
+		0x41, 0x00,	// "A"
+		0x70, 0x00,	// "p"
+		0x70, 0x00,	// "p"
+		0x6c, 0x00,	// "l"
+		0x65, 0x00,	// "e"
+		0x20, 0x00,	// " "
+		0x49, 0x00,	// "I"
+		0x6e, 0x00,	// "n"
+		0x63, 0x00,	// "c"
+		0x2e, 0x00	// "."
+	};
+	
+    // According to our device descriptor, index 1 is product, index 2 is Manufacturer
+    //
+    if ( index > 2 )
+        return kIOReturnBadArgument;
+	
+    // Set the length of our strings
+    //
+    vendorName[0] = sizeof(vendorName);
+    productName[0] = sizeof(productName);
+    
+    if ( index == 1 )
+    {
+        if (!desc)
+            return kIOReturnNoMemory;
+		
+        if (!desc->appendBytes(&productName,  productName[0]))
+            return kIOReturnNoMemory;
+    }
+    
+    if ( index == 2 )
+    {
+        if (!desc)
+            return kIOReturnNoMemory;
+		
+        if (!desc->appendBytes(&vendorName,  vendorName[0]))
+            return kIOReturnNoMemory;
+    }
+    
+    return kIOReturnSuccess;
+}
 
+// obsolete method
+void
+AppleUSBOHCI::UIMRootHubStatusChange( bool abort )
+{
+	USBLog(1, "AppleUSBOHCI[%p]::UIMRootHubStatusChange - calling obsolete method UIMRootHubStatusChange(bool)", this);
+}
+
+
+
+/*
+ * UIMRootHubStatusChange
+ *
+ * This method gets called during a 32 ms timer task to see if there is anything that needs to be reported
+ * to the root hub driver.
+ */
+void 
+AppleUSBOHCI::UIMRootHubStatusChange(void)
+{
+    UInt32 									tempStatus = 0xFFFF, hubStatus, portStatus, statusBit;
+    UInt16 									statusChangedBitmap;							// local copy of status changed bitmap
+    unsigned int      						index, port, move;
+    UInt32									descriptorA;
+    
+    /*
+     * Encode the status change bitmap.  The format of the bitmap:
+     * bit0 = hub status changed
+     * bit1 = port 1 status changed
+     * bit2 = port 2 status changed
+     * ...
+     * See USB 1.0 spec section 11.8.3 for more info.
+     */
+	
+    statusChangedBitmap = 0;
+    statusBit = 1;								// really bit 0 (which is the hub bit)
+	
+    if ( _controllerAvailable && !_wakingFromHibernation && (GetRootHubStatus((IOUSBHubStatus *)&tempStatus) == kIOReturnSuccess) )
+    {
+        // GetRootHubStatus does NOT swap bits, so we need to do it here
+        //
+		hubStatus = USBToHostLong( tempStatus );
+   		//USBLog(6, "AppleUSBOHCI[%p]::UIMRootHubStatusChange - RHStatus: %p", this, (void*) hubStatus);
+		if ((hubStatus & kOHCIHcRhStatus_Change ) != 0)
+        {
+            statusChangedBitmap |= statusBit;
+        }
+		
+		
+        for (port = 1; port <= _rootHubNumPorts; port++)
+        {
+            statusBit <<= 1;    // Next bit
+			
+            GetRootHubPortStatus((IOUSBHubPortStatus *)&tempStatus, port);
+			
+            // GetRootHubPortStatus does NOT swap bits, so we need to do it here
+            //
+			portStatus = USBToHostLong( tempStatus);
+  			//USBLog(6, "AppleUSBOHCI[%p]::UIMRootHubStatusChange - Port(%d) Status: %p", this, port, (void*) portStatus);
+			if ((portStatus & kOHCIHcRhPortStatus_Change) != 0)
+            {
+                statusChangedBitmap |= statusBit;
+            }
+        }
+    }
+	else
+	{
+		USBLog(6, "AppleUSBOHCI[%p]::UIMRootHubStatusChange - didn't go into checking for bits", this);
+	}
+	
+	if (statusChangedBitmap)
+	{
+		USBLog(5, "AppleUSBOHCI[%p]::UIMRootHubStatusChange - reporting status of %p", this, (void*)statusChangedBitmap);
+	}
+	
+    _rootHubStatusChangedBitmap = statusChangedBitmap;
+}
+
+// ========================================================================
+#pragma mark Internal root hub methods
+// ========================================================================
 
 void 
 AppleUSBOHCI::OHCIRootHubPower(bool on)
@@ -715,76 +896,6 @@ AppleUSBOHCI::OHCIRootHubPortPower(UInt16	port, bool	on)
 }
 
 
-// obsolete method
-void
-AppleUSBOHCI::UIMRootHubStatusChange( bool abort )
-{
-	USBLog(1, "AppleUSBOHCI[%p]::UIMRootHubStatusChange - calling obsolete method UIMRootHubStatusChange(bool)", this);
-}
-
-
-
-/*
- * UIMRootHubStatusChange
- *
- * This method gets called during a 32 ms timer task to see if there is anything that needs to be reported
- * to the root hub driver.
- */
-void 
-AppleUSBOHCI::UIMRootHubStatusChange(void)
-{
-    UInt32 									tempStatus, hubStatus, portStatus, statusBit;
-    UInt16 									statusChangedBitmap;							// local copy of status changed bitmap
-    unsigned int      						index, port, move;
-    UInt32									descriptorA;
-    
-    /*
-     * Encode the status change bitmap.  The format of the bitmap:
-     * bit0 = hub status changed
-     * bit1 = port 1 status changed
-     * bit2 = port 2 status changed
-     * ...
-     * See USB 1.0 spec section 11.8.3 for more info.
-     */
-
-    statusChangedBitmap = 0;
-    statusBit = 1;								// really bit 0 (which is the hub bit)
-
-    if ( _controllerAvailable && !_wakingFromHibernation && !_pcCardEjected && (GetRootHubStatus((IOUSBHubStatus *)&tempStatus) == kIOReturnSuccess) )
-    {
-        // GetRootHubStatus does NOT swap bits, so we need to do it here
-        //
-        hubStatus = USBToHostLong( tempStatus );
-        if ((hubStatus & kOHCIHcRhStatus_Change ) != 0)
-        {
-            statusChangedBitmap |= statusBit;
-        }
-
-
-        for (port = 1; port <= _rootHubNumPorts; port++)
-        {
-            statusBit <<= 1;    // Next bit
-
-            GetRootHubPortStatus((IOUSBHubPortStatus *)&tempStatus, port);
-
-            // GetRootHubPortStatus does NOT swap bits, so we need to do it here
-            //
-            portStatus = USBToHostLong( tempStatus);
-            if ((portStatus & kOHCIHcRhPortStatus_Change) != 0)
-            {
-                statusChangedBitmap |= statusBit;
-            }
-        }
-    }
-	if (statusChangedBitmap)
-	{
-		USBLog(5, "AppleUSBOHCI[%p]::UIMRootHubStatusChange - reporting status of %p", this, (void*)statusChangedBitmap);
-	}
-    _rootHubStatusChangedBitmap = statusChangedBitmap;
-}
-
-
-
 IOReturn 
 AppleUSBOHCI::SimulateControlEDCreate (UInt16 maxPacketSize)
 {
@@ -833,93 +944,22 @@ AppleUSBOHCI::SimulateEDClearStall (short endpointNumber, short direction)
 AbsoluteTime	
 AppleUSBOHCI::LastRootHubPortStatusChanged( bool resetTime )
 {
+	uint64_t		currentTime;
+	
     if ( resetTime )
-        clock_get_uptime(&_lastRootHubStatusChanged);
-        
+	{
+		currentTime = mach_absolute_time();
+		_lastRootHubStatusChanged = *(AbsoluteTime*) &currentTime;
+	}
+	
     return _lastRootHubStatusChanged;
 }
 
+// ========================================================================
+#pragma mark Used binary compatibilty slots
+// ========================================================================
 
 
 OSMetaClassDefineReservedUsed(IOUSBController,  14);
 
-IOReturn 
-AppleUSBOHCI::GetRootHubStringDescriptor(UInt8	index, OSData *desc)
-{
 
-    // The following strings are in Unicode format
-    //
-    UInt8 productName[] = {
-                            0,			// Length Byte
-                            kUSBStringDesc,	// Descriptor type
-                            0x4F, 0x00, // "O"
-                            0x48, 0x00, // "H"
-                            0x43, 0x00, // "C"
-                            0x49, 0x00, // "I"
-                            0x20, 0x00,	// " "
-                            0x52, 0x00,	// "R"
-                            0x6F, 0x00,	// "o"
-                            0x6f, 0x00,	// "o"
-                            0x74, 0x00,	// "t"
-                            0x20, 0x00,	// " "
-                            0x48, 0x00,	// "H"
-                            0x75, 0x00,	// "u"
-                            0x62, 0x00,	// "b"
-                            0x20, 0x00,	// " "
-                            0x53, 0x00, // "S"
-                            0x69, 0x00,	// "i"
-                            0x6d, 0x00,	// "m"
-                            0x75, 0x00,	// "u"
-                            0x6c, 0x00,	// "l"
-                            0x61, 0x00,	// "a"
-                            0x74, 0x00,	// "t"
-                            0x69, 0x00,	// "i"
-                            0x6f, 0x00,	// "o"
-                            0x6e, 0x00,	// "n"
-                           };
-                            
-    UInt8 vendorName[] = {
-                            0,			// Length Byte
-                            kUSBStringDesc,	// Descriptor type
-                            0x41, 0x00,	// "A"
-                            0x70, 0x00,	// "p"
-                            0x70, 0x00,	// "p"
-                            0x6c, 0x00,	// "l"
-                            0x65, 0x00,	// "e"
-                            0x20, 0x00,	// " "
-                            0x49, 0x00,	// "I"
-                            0x6e, 0x00,	// "n"
-                            0x63, 0x00,	// "c"
-                            0x2e, 0x00	// "."
-                            };
-                            
-    // According to our device descriptor, index 1 is product, index 2 is Manufacturer
-    //
-    if ( index > 2 )
-        return kIOReturnBadArgument;
-        
-    // Set the length of our strings
-    //
-    vendorName[0] = sizeof(vendorName);
-    productName[0] = sizeof(productName);
-    
-    if ( index == 1 )
-    {
-        if (!desc)
-            return kIOReturnNoMemory;
-
-        if (!desc->appendBytes(&productName,  productName[0]))
-            return kIOReturnNoMemory;
-    }
-    
-    if ( index == 2 )
-    {
-        if (!desc)
-            return kIOReturnNoMemory;
-
-        if (!desc->appendBytes(&vendorName,  vendorName[0]))
-            return kIOReturnNoMemory;
-    }
-    
-    return kIOReturnSuccess;
-}

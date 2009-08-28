@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2005, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,11 +24,9 @@
 #ifndef _SCPREFERENCESPATHKEY_H
 #define _SCPREFERENCESPATHKEY_H
 
-#include <AvailabilityMacros.h>
+#include <Availability.h>
 #include <sys/cdefs.h>
 #include <CoreFoundation/CoreFoundation.h>
-
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
 
 /*!
 	@header SCPreferencesPathKey
@@ -50,7 +48,7 @@ SCPreferencesPathKeyCreate			(
 						CFAllocatorRef	allocator,
 						CFStringRef	fmt,
 						...
-						)				AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+						)				__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0);
 
 /*!
 	@function SCPreferencesPathKeyCreateNetworkServices
@@ -58,7 +56,7 @@ SCPreferencesPathKeyCreate			(
 CFStringRef
 SCPreferencesPathKeyCreateNetworkServices	(
 						CFAllocatorRef	allocator
-						)				AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+						)				__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0);
 
 /*!
 	@function SCPreferencesPathKeyCreateNetworkServiceEntity
@@ -68,7 +66,7 @@ SCPreferencesPathKeyCreateNetworkServiceEntity	(
 						CFAllocatorRef	allocator,
 						CFStringRef	service,
 						CFStringRef	entity
-						)				AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+						)				__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0);
 
 /*!
 	@function SCPreferencesPathKeyCreateSets
@@ -76,7 +74,7 @@ SCPreferencesPathKeyCreateNetworkServiceEntity	(
 CFStringRef
 SCPreferencesPathKeyCreateSets			(
 						CFAllocatorRef	allocator
-						)				AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+						)				__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0);
 
 /*!
 	@function SCPreferencesPathKeyCreateSet
@@ -85,7 +83,7 @@ CFStringRef
 SCPreferencesPathKeyCreateSet			(
 						CFAllocatorRef	allocator,
 						CFStringRef	set
-						)				AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+						)				__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0);
 
 /*!
 	@function SCPreferencesPathKeyCreateSetNetworkInterfaceEntity
@@ -96,7 +94,7 @@ SCPreferencesPathKeyCreateSetNetworkInterfaceEntity(
 						   CFStringRef	set,
 						   CFStringRef	ifname,
 						   CFStringRef	entity
-						   )				AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+						   )				__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0);
 
 /*!
 	@function SCPreferencesPathKeyCreateSetNetworkGlobalEntity
@@ -106,7 +104,7 @@ SCPreferencesPathKeyCreateSetNetworkGlobalEntity(
 						CFAllocatorRef	allocator,
 						CFStringRef	set,
 						CFStringRef	entity
-						)				AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+						)				__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0);
 
 /*!
 	@function SCPreferencesPathKeyCreateSetNetworkService
@@ -116,7 +114,7 @@ SCPreferencesPathKeyCreateSetNetworkService     (
 						CFAllocatorRef	allocator,
 						CFStringRef	set,
 						CFStringRef	service
-						)				AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+						)				__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0);
 
 /*!
 	@function SCPreferencesPathKeyCreateSetNetworkServiceEntity
@@ -127,10 +125,8 @@ SCPreferencesPathKeyCreateSetNetworkServiceEntity(
 						 CFStringRef	set,
 						 CFStringRef	service,
 						 CFStringRef	entity
-						 )				AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+						 )				__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0);
 
 __END_DECLS
-
-#endif	/* MAC_OS_X_VERSION_MAX_ALLOWED >= 1040 */
 
 #endif /* _SCPREFERENCESPATHKEY_H */

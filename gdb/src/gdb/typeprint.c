@@ -179,8 +179,16 @@ whatis_exp (char *exp, int show)
             }
         }
       else if (TYPE_CODE (type) == TYPE_CODE_CLASS)
-  real_type = value_rtti_type (val, &full, &top, &using_enc);
+	real_type = value_rtti_type (val, &full, &top, &using_enc);
     }
+  /* APPLE LOCAL: If this is a closure pointer, get its real type.  */
+  if (!real_type) 
+    {
+      real_type = get_closure_dynamic_type (val);
+      if (real_type)
+	full = 1;
+    }
+    
 
   printf_filtered ("type = ");
 

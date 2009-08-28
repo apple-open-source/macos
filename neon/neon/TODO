@@ -2,25 +2,13 @@
 To Do List for neon                                      -*- text -*-
 ===================
 
-Please submit feature requests to <mailto:neon@webdav.org>
+Please submit feature requests to <neon@lists.manyfish.co.uk>
 
 For one-point-oh
 ----------------
 
-40. XML body acceptance callback should check Content-Type. Should
-    also pass encoding to expat if one is given (how about libxml?).
-    Recent mod_dav's return XML bodies in 424 responses which need
-    parsing properly.
-
-44. Finer-grained connection status feedback, i.e., "Sent Request",
-    "Got response status-line"... "Reading response body"
-
 Longer term
 -----------
-
-2. Add proper domain support to authentication code. (requires full
-   URI parsing support). Need to tell the auth layer the server
-   details.
 
 6. PUT with ranges... ne_put_range
 
@@ -44,9 +32,4 @@ Longer term
 
 50. opendir/readdir/closedir-esque interface for PROPFIND depth 1, 
     a la EZDAV. (cadaver has it already)
-
-66. Useful for subversion/ra_dav:
-
-    - a hook which runs *after* the response headers are read,
-      but *before* the response body is read
 

@@ -8,19 +8,19 @@
 ** Function: hmac_sha1
 */
 
-#include "autoconf.h"
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include <string.h>
-#include <sys/types.h>
-#include "libradius.h"
-#include "sha1.h"
+#include <freeradius-devel/libradius.h>
+#include <freeradius-devel/sha1.h>
+
 
 /*
-unsigned char*  text;                pointer to data stream
+uint8_t*  text;                pointer to data stream
 int             text_len;            length of data stream
-unsigned char*  key;                 pointer to authentication key
+uint8_t*  key;                 pointer to authentication key
 int             key_len;             length of authentication key
-unsigned char*  digest;              caller digest to be filled in
+uint8_t*  digest;              caller digest to be filled in
 */
 
 #ifdef HMAC_SHA1_DATA_PROBLEMS
@@ -28,27 +28,27 @@ unsigned int sha1_data_problems = 0;
 #endif
 
 void
-lrad_hmac_sha1(const unsigned char *text, int text_len,
-	       const unsigned char *key, int key_len,
-	       unsigned char *digest)
+fr_hmac_sha1(const uint8_t *text, int text_len,
+	       const uint8_t *key, int key_len,
+	       uint8_t *digest)
 {
-        SHA1_CTX context;
-        unsigned char k_ipad[65];    /* inner padding -
+        fr_SHA1_CTX context;
+        uint8_t k_ipad[65];    /* inner padding -
                                       * key XORd with ipad
                                       */
-        unsigned char k_opad[65];    /* outer padding -
+        uint8_t k_opad[65];    /* outer padding -
                                       * key XORd with opad
                                       */
-        unsigned char tk[20];
+        uint8_t tk[20];
         int i;
         /* if key is longer than 64 bytes reset it to key=SHA1(key) */
         if (key_len > 64) {
 
-                SHA1_CTX      tctx;
+                fr_SHA1_CTX      tctx;
 
-                SHA1Init(&tctx);
-                SHA1Update(&tctx, key, key_len);
-                SHA1Final(tk, &tctx);
+                fr_SHA1Init(&tctx);
+                fr_SHA1Update(&tctx, key, key_len);
+                fr_SHA1Final(tk, &tctx);
 
                 key = tk;
                 key_len = 20;
@@ -119,20 +119,20 @@ lrad_hmac_sha1(const unsigned char *text, int text_len,
         /*
          * perform inner SHA1
          */
-        SHA1Init(&context);                   /* init context for 1st
+        fr_SHA1Init(&context);                   /* init context for 1st
                                               * pass */
-        SHA1Update(&context, k_ipad, 64);      /* start with inner pad */
-        SHA1Update(&context, text, text_len); /* then text of datagram */
-        SHA1Final(digest, &context);          /* finish up 1st pass */
+        fr_SHA1Update(&context, k_ipad, 64);      /* start with inner pad */
+        fr_SHA1Update(&context, text, text_len); /* then text of datagram */
+        fr_SHA1Final(digest, &context);          /* finish up 1st pass */
         /*
          * perform outer MD5
          */
-        SHA1Init(&context);                   /* init context for 2nd
+        fr_SHA1Init(&context);                   /* init context for 2nd
                                               * pass */
-        SHA1Update(&context, k_opad, 64);     /* start with outer pad */
-        SHA1Update(&context, digest, 20);     /* then results of 1st
+        fr_SHA1Update(&context, k_opad, 64);     /* start with outer pad */
+        fr_SHA1Update(&context, digest, 20);     /* then results of 1st
                                               * hash */
-        SHA1Final(digest, &context);          /* finish up 2nd pass */
+        fr_SHA1Final(digest, &context);          /* finish up 2nd pass */
 
 #ifdef HMAC_SHA1_DATA_PROBLEMS
 	if(sha1_data_problems)
@@ -161,7 +161,7 @@ Test Vectors (Trailing '\0' of a character string not included in test):
   key =         "Jefe"
   data =        "what do ya want for nothing?"
   data_len =    28 bytes
-  digest =
+  digest =	effcdf6ae5eb2fa2d27416d5f184df9c259a7c79
 
   key =         0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 
@@ -177,17 +177,16 @@ Test Vectors (Trailing '\0' of a character string not included in test):
 
 #ifdef TESTING
 /*
- *  cc -DTESTING -I ../include/ hmac.c md5.c -o hmac
+ *  cc -DTESTING -I ../include/ hmac.c sha1.c -o hmac
  *
  *  ./hmac Jefe "what do ya want for nothing?"
  */
 
-#include <stdio.h>
 #include <stdlib.h>
 
 int main(int argc, char **argv)
 {
-  unsigned char digest[20];
+  uint8_t digest[20];
   char *key;
   int key_len;
   char *text;
@@ -200,7 +199,7 @@ int main(int argc, char **argv)
   text = argv[2];
   text_len = strlen(text);
 
-  lrad_hmac_sha1(text, text_len, key, key_len, digest);
+  fr_hmac_sha1(text, text_len, key, key_len, digest);
 
   for (i = 0; i < 20; i++) {
     printf("%02x", digest[i]);

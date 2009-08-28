@@ -5,12 +5,14 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: lib517.c,v 1.3 2006-10-25 09:20:44 yangtse Exp $
+ * $Id: lib517.c,v 1.6 2008-09-20 04:26:57 yangtse Exp $
  */
 
 #include "test.h"
 
-const char *dates[]={
+#include "memdebug.h"
+
+static const char *dates[]={
   "Sun, 06 Nov 1994 08:49:37 GMT",
   "Sunday, 06-Nov-94 08:49:37 GMT",
   "Sun Nov  6 08:49:37 1994",
@@ -33,6 +35,8 @@ const char *dates[]={
   "Sat, 11 Sep 2004 21:32:11 +0200",
   "20040912 15:05:58 -0700",
   "20040911 +0200",
+  "Thu, 01-Jan-1970 00:59:59 GMT",
+  "Thu, 01-Jan-1970 01:00:00 GMT",
 /*  "2094 Nov 6", See ../data/test517 for details */
   NULL
 };

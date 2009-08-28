@@ -1,11 +1,11 @@
-Es necessita la seva autoritzaci� per a una petici� de baixa
-de la llista de correu:
+Cal la vostra autorització per a l'aprovació d'una sol·licitud de
+cancel·lació de subscripció:
 
-    By:   %(username)s
-    From: %(listname)s@%(hostname)s
+    Per a: %(username)s
+    De:    %(listname)s@%(hostname)s
 
-Si ho creu convenient, visiti:
+Aneu a l'adreça següent quan us sigui convenient:
 
     %(admindb_url)s
 
-per poder processar la petici�.
+per a processar la sol·licitud.

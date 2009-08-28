@@ -37,6 +37,14 @@ if($target eq 'clean') {
 }
 
 if($target eq 'install') {
+# Must create local aclocal dir or aclocal fails
+    $ACLOCAL_LOCALDIR="$ENV{DSTROOT}$prefix/share/aclocal";
+    system "mkdir -p $ACLOCAL_LOCALDIR";
+        
+# The following is required to make aclocal find our .m4 macros
+    $ENV{ACLOCAL}="aclocal -I $ACLOCAL_LOCALDIR -I $prefix/share/aclocal";
+    $ENV{LIBTOOLIZE}="/usr/bin/glibtoolize";
+        
     print "Install phase: \n";
     print "SRCROOT = $ENV{SRCROOT}\n";
     print "DSTROOT = $ENV{DSTROOT}\n";
@@ -73,11 +81,15 @@ if($target eq 'install') {
     }
 
     foreach $arch (split(/ /,$ENV{RC_ARCHS})) {
-        $arch_flags_all .= "-arch $arch ";
-        $arch_flags_32 .= "-arch $arch " unless $arch =~ /64/;
+        $arch_flags_lib .= "-arch $arch ";
+        if($ENV{MACOSFORGE_RELEASE} eq "YES") {
+            $arch_flags_exec .= " -arch $arch " unless $arch =~ /64/;
+        } else {
+            $arch_flags_exec .= " -arch $arch " unless $arch =~ /ppc/;
+        }
     }
 
-    set_arch_32();
+    set_arch_exec();
 
     build("font-util");
     build("encodings");
@@ -106,9 +118,10 @@ sub build {
     sys_print("find . -depth 1 -type f -print | xargs -I foo cp -pv foo $ENV{OBJROOT}/$module");
 
     chdir("$ENV{OBJROOT}/$full_path");
+    sys_print("autoreconf -fvi");
 
     print "Configuring...\n";
-    $conf_flags=" --prefix=$prefix --disable-static --disable-dependency-tracking --disable-nls  ";
+    $conf_flags=" --prefix=$prefix --disable-static --disable-dependency-tracking --disable-nls  --mandir=$prefix/share/man ";
 
     $conf_flags_path=$ENV{OBJROOT}."/$module/conf_flags";
     $post_config_path=$ENV{OBJROOT}."/$module/post-config";
@@ -138,14 +151,14 @@ sub get_workdir {
     die "Unable to determine workdir";
 }
 
-sub set_arch_32 {
-    $ENV{CFLAGS}="-I$ENV{DSTROOT}$prefix/include -D__DEBUG__ -g3 -pipe $arch_flags_32 -D_FORTIFY_SOURCE=2 -Wall -Wformat-security";
-    $ENV{LDFLAGS}="-pipe $arch_flags_32";
+sub set_arch_exec {
+    $ENV{CFLAGS}="-I$ENV{DSTROOT}$prefix/include -D__DEBUG__ -ggdb3 -Os -pipe $arch_flags_exec -D_FORTIFY_SOURCE=2 -Wall -Wformat-security";
+    $ENV{LDFLAGS}="-pipe $arch_flags_exec";
 }
 
-sub set_arch_all {
-    $ENV{CFLAGS}="-I$ENV{DSTROOT}$prefix/include -D__DEBUG__ -g3 -pipe $arch_flags_all -D_FORTIFY_SOURCE=2 -Wall -Wformat-security";
-    $ENV{LDFLAGS}="-pipe $arch_flags_all";
+sub set_arch_lib {
+    $ENV{CFLAGS}="-I$ENV{DSTROOT}$prefix/include -D__DEBUG__ -ggdb3 -Os -pipe $arch_flags_lib -D_FORTIFY_SOURCE=2 -Wall -Wformat-security";
+    $ENV{LDFLAGS}="-pipe $arch_flags_lib";
 }
 
 sub sys_print {

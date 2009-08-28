@@ -136,11 +136,11 @@ public:
                                                     const char *inUserName,
                                                     const char *inPasswd,
 													const char *inMethod,
-                                                    char *inUserName,
+                                                    const char *inUserName,
                                                     const char *inOther,
 													const char *inRecordType,
 													char *outResult );
-	tDirStatus			DoNodeNativeAuth		( tDirNodeReference inNode, const char *inName, char *inPasswd );
+	tDirStatus			DoNodeNativeAuth		( tDirNodeReference inNode, const char *inName, const char *inPasswd );
 	
 	long				GetHashTypes			( char **outHashTypesStr, bool inExcludeLMHash = false );
 	long				SetHashTypes			( const char *inName, char *inPasswd, int arg1, int argc, char * const *argv );
@@ -156,7 +156,7 @@ protected:
 	tDirStatus	DoGetRecordList			( tDirNodeReference inNodeRef,
 											const char *inRecName,
 											const char *inRecType,
-											char *inAttrType,
+											const char *inAttrType,
 											tDirPatternMatch inMatchType,
 											char **outAuthAuthority,
 											char **outNodeName );

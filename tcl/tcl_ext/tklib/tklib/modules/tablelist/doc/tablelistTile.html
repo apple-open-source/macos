@@ -1,0 +1,198 @@
+<html>
+<head>
+  <title>Interactive Tablelist Cell Editing Using tile Widgets</title>
+
+  <meta name="Author" content="Csaba Nemethi">
+  <meta name="Keywords" content="tablelist, editing, tile">
+</head>
+
+<body bgcolor="#FFFFFF">
+  <div align="center">
+    <h1>Interactive Tablelist Cell Editing Using tile Widgets</h1>
+
+    <h3>by</h3>
+
+    <h2>Csaba Nemethi</h2>
+
+    <address>
+      <a href="mailto:csaba.nemethi@t-online.de">csaba.nemethi@t-online.de</a>
+    </address>
+  </div>
+
+  <hr>
+
+  <h2><a name="contents"></a>Contents</h2>
+
+  <ul>
+    <li><a href="#overview">Overview</a></li>
+
+    <li><a href="#entry">Interactive Cell Editing Using the tile entry
+    Widget</a></li>
+
+    <li><a href="#combobox">Interactive Cell Editing Using the tile combobox
+    Widget</a></li>
+
+    <li><a href="#checkbutton">Interactive Cell Editing Using the tile
+    checkbutton Widget</a></li>
+  </ul>
+
+  <div align="center">
+    <p><a href="index.html">Start page</a></p>
+  </div>
+
+  <hr>
+
+  <h2><a name="overview"></a>Overview</h2>
+
+  <p>The tile theme engine is a compiled library extension for Tcl/Tk version
+  8.4 or higher.&nbsp; Beginning with Tk 8.5a6, tile is integrated into the Tk
+  core.&nbsp; For earlier Tk versions it can be downloaded from the address</p>
+
+  <blockquote>
+    <address>
+      <a href=
+      "http://sourceforge.net/projects/tktable/">http://sourceforge.net/projects/tktable/</a>
+    </address>
+  </blockquote>
+
+  <p>Tablelist supports interactive cell editing with the aid of the tile
+  entry, combobox, and checkbutton widgets, accessed as
+  <code><b>ttk::entry</b></code>, <code><b>ttk::combobox</b></code>, and
+  <code><b>ttk::checkbutton</b></code>, respectively.&nbsp; The version of the
+  tile package must be 0.6 or higher.&nbsp; Due to the rapidly growing
+  strategic importance of the tile library, these widgets are automatically
+  registered for cell editing, hence the only action needed for using one of
+  them for editing the cells of a given column is as follows:</p>
+
+  <p>Use the tablelist widget's <code><b><a href=
+  "tablelistWidget.html#columnconfigure">columnconfigure</a></b></code>
+  subcommand to set the given column's <code><b><a href=
+  "tablelistWidget.html#col_editable">-editable</a></b></code> option to true
+  and its <code><b><a href=
+  "tablelistWidget.html#col_editwindow">-editwindow</a></b></code> option to
+  <code><b>ttk::entry</b></code>, <code><b>ttk::combobox</b></code>, or
+  <code><b>ttk::checkbutton</b></code>, respectively.&nbsp; (These options are
+  supported at cell level, too, with the aid of the <code><b><a href=
+  "tablelistWidget.html#cellconfigure">cellconfigure</a></b></code>
+  subcommand.)</p>
+
+  <p>One known limitation of the currently available tile versions is that
+  the&nbsp; <code><b>style theme use</b></code>&nbsp; command can only be used
+  to set the current theme, but not to retrieve it.&nbsp; For this reason,
+  Tablelist makes use of the variable <code><b>ttk::currentTheme</b></code> or
+  <code><b>tile::currentTheme</b></code> (depending on the tile version), which
+  is set by the <code><b>ttk::setTheme</b></code> or
+  <code><b>tile::setTheme</b></code> procedure.&nbsp; From this it follows that
+  the tile widgets used for interactive cell editing will only be managed as
+  expected if the platform-specific default theme is either left unchanged or
+  replaced with another theme by invoking the procedure
+  <code><b>ttk::currentTheme</b></code> or <code><b>tile::setTheme</b></code>,
+  depending on the current tile version.&nbsp; (See also the <code><b><a href=
+  "tablelistThemes.html#setTheme">tablelist::setTheme</a></b></code>
+  command.)</p>
+
+  <div align="center">
+    <p><a href="#contents">Contents</a>&nbsp;&nbsp;&nbsp;&nbsp; <a href=
+    "index.html">Start page</a></p>
+  </div>
+
+  <hr>
+
+  <h2><a name="entry"></a>Interactive Cell Editing Using the tile entry
+  Widget</h2>
+
+  <dl>
+    <dt><b>DESCRIPTION</b></dt>
+
+    <dd>
+      The temporary embedded tile entry widget used for interactive cell
+      editing will be created with an explicitly set value for its
+      <code><b>-style</b></code> option.&nbsp; Apart from its theme-specific
+      appearance, it behaves just like its Tk core counterpart.
+
+      <p>If an application uses the tile entry widget for interactive cell
+      editing and also the Wcb package (even if not for that widget), then the
+      version of Wcb must be 3.1 or higher (because earlier Wcb releases didn't
+      support any tile widgets).</p>
+    </dd>
+
+    <dt><b>KEYWORDS</b></dt>
+
+    <dd>tablelist, editing, tile, entry</dd>
+  </dl>
+
+  <div align="center">
+    <p><a href="#contents">Contents</a>&nbsp;&nbsp;&nbsp;&nbsp; <a href=
+    "index.html">Start page</a></p>
+  </div>
+
+  <hr>
+
+  <h2><a name="combobox"></a>Interactive Cell Editing Using the tile combobox
+  Widget</h2>
+
+  <dl>
+    <dt><b>DESCRIPTION</b></dt>
+
+    <dd>
+      The temporary embedded tile combobox widget used for interactive cell
+      editing will be created with an explicitly set value for its
+      <code><b>-style</b></code> option and with its <code><b>-state</b></code>
+      option set to <code><b>normal</b></code>, which makes the widget
+      editable.&nbsp; You can use the script corresponding to the
+      <code><b><a href=
+      "tablelistWidget.html#editstartcommand">-editstartcommand</a></b></code>
+      tablelist configuration option to set the state of the combobox to
+      <code><b>readonly</b></code> or define validations for it, as well as for
+      populating its listbox component (with the aid of the combobox widget's
+      <code><b>-values</b></code> option).
+
+      <p>If an application uses the tile combobox widget for interactive cell
+      editing and also the Wcb package (even if not for that widget), then the
+      version of Wcb must be 3.1 or higher (because earlier Wcb releases didn't
+      support any tile widgets).</p>
+    </dd>
+
+    <dt><b>KEYWORDS</b></dt>
+
+    <dd>tablelist, editing, tile, combobox</dd>
+  </dl>
+
+  <div align="center">
+    <p><a href="#contents">Contents</a>&nbsp;&nbsp;&nbsp;&nbsp; <a href=
+    "index.html">Start page</a></p>
+  </div>
+
+  <hr>
+
+  <h2><a name="checkbutton"></a>Interactive Cell Editing Using the tile
+  checkbutton Widget.</h2>
+
+  <dl>
+    <dt><b>DESCRIPTION</b></dt>
+
+    <dd>The temporary embedded tile checkbutton widget used for interactive
+    cell editing will be created with explicitly set values for its
+    <code><b>-style</b></code> and <code><b>-variable</b></code> options.&nbsp;
+    You can use the script corresponding to the <code><b><a href=
+    "tablelistWidget.html#editstartcommand">-editstartcommand</a></b></code>
+    tablelist configuration option to set any other configuration options, like
+    <code><b>-offvalue</b></code> and <code><b>-onvalue</b></code>, according
+    to the <i>internal</i> values of the cells.&nbsp; Since the default values
+    of the <code><b>-offvalue</b></code> and <code><b>-onvalue</b></code> tile
+    checkbutton options are <code>0</code> and <code>1</code>, you don't need
+    to change these options if the cells have the same internal values
+    <code>0</code> and <code>1</code>.</dd>
+
+    <dt><br>
+    <b>KEYWORDS</b></dt>
+
+    <dd>tablelist, editing, tile, checkbutton</dd>
+  </dl>
+
+  <div align="center">
+    <p><a href="#contents">Contents</a>&nbsp;&nbsp;&nbsp;&nbsp; <a href=
+    "index.html">Start page</a></p>
+  </div>
+</body>
+</html>

@@ -1,6 +1,7 @@
 /* lt__private.h -- internal apis for libltdl
-   Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
-   Originally by Gary V. Vaughan  <gary@gnu.org>
+
+   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Written by Gary V. Vaughan, 2004
 
    NOTE: The canonical source of this file is maintained with the
    GNU Libtool package.  Report bugs to bug-libtool@gnu.org.
@@ -12,19 +13,19 @@ version 2 of the License, or (at your option) any later version.
 
 As a special exception to the GNU Lesser General Public License,
 if you distribute this file as part of a program or library that
-is built using GNU libtool, you may include it under the same
-distribution terms that you use for the rest of that program.
+is built using GNU libtool, you may include this file under the
+same distribution terms that you use for the rest of that program.
 
-This library is distributed in the hope that it will be useful,
+GNU Libltdl is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-Lesser General Public License for more details.
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Lesser General Public License for more details.
 
 You should have received a copy of the GNU Lesser General Public
-License along with this library; if not, write to the Free Software
-Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301  USA
-
+License along with GNU Libltdl; see the file COPYING.LIB.  If not, a
+copy con be downloaded from http://www.gnu.org/licenses/lgpl.html,
+or obtained by writing to the Free Software Foundation, Inc.,
+51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 */
 
 #if !defined(LT__PRIVATE_H)
@@ -40,20 +41,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 #include <ctype.h>
 #include <assert.h>
 #include <errno.h>
+#include <string.h>
 
 #if defined(HAVE_UNISTD_H)
 #  include <unistd.h>
-#endif
-
-#if defined(HAVE_STRING_H)
-#  include <string.h>
-#else
-#  if defined(HAVE_STRINGS_H)
-#    include <strings.h>
-#  endif
-#endif
-#if defined(HAVE_MEMORY_H)
-#  include <memory.h>
 #endif
 
 /* Import internal interfaces...  */
@@ -69,10 +60,17 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 #  include <dmalloc.h>
 #endif
 
-#if defined(DLL_EXPORT)
-#  define LT_GLOBAL_DATA	__declspec(dllexport)
-#else
-#  define LT_GLOBAL_DATA
+/* DLL building support on win32 hosts;  mostly to workaround their
+   ridiculous implementation of data symbol exporting. */
+#ifndef LT_GLOBAL_DATA
+# if defined(__WINDOWS__) || defined(__CYGWIN__)
+#  if defined(DLL_EXPORT)	/* defined by libtool (if required) */
+#   define LT_GLOBAL_DATA	__declspec(dllexport)
+#  endif
+# endif
+# ifndef LT_GLOBAL_DATA
+#  define LT_GLOBAL_DATA	/* static linking or !__WINDOWS__ */
+# endif
 #endif
 
 #ifndef __attribute__
@@ -123,7 +121,16 @@ struct lt__handle {
   int			flags;		/* various boolean stats */
 };
 
+typedef struct lt__advise lt__advise;
 
+struct lt__advise {
+  unsigned int	try_ext:1;	/* try system library extensions.  */
+  unsigned int	is_resident:1;	/* module can't be unloaded. */
+  unsigned int	is_symglobal:1;	/* module symbols can satisfy
+				   subsequently loaded modules.  */
+  unsigned int	is_symlocal:1;	/* module symbols are only available
+				   locally. */
+};
 
 /* --- ERROR HANDLING --- */
 

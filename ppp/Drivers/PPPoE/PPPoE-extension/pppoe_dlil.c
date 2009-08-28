@@ -39,7 +39,6 @@
 #include "pppoe_rfc.h"
 #include "pppoe_dlil.h"
 
-extern struct ifnet* ifbyfamily(u_long family, short unit);
 
 /* -----------------------------------------------------------------------------
 Definitions
@@ -63,7 +62,7 @@ static errno_t pppoe_dlil_pre_output(ifnet_t ifp, protocol_family_t protocol,
 static void pppoe_dlil_event(ifnet_t ifp, protocol_family_t protocol,
 								  const struct kev_msg *event);
 static errno_t pppoe_dlil_ioctl(ifnet_t ifp, protocol_family_t protocol,
-									 u_int32_t command, void* argument);
+									 u_long command, void* argument);
 static void pppoe_dlil_detaching(u_int16_t unit);
 
 
@@ -122,13 +121,13 @@ int pppoe_dlil_attach(u_short unit, ifnet_t *ifpp)
 
     MALLOC(pppoeif, struct pppoe_if *, sizeof(struct pppoe_if), M_TEMP, M_WAITOK);
     if (!pppoeif) {
-        log(LOGVAL, "pppoe_dlil_attach : Can't allocate attachment structure\n");
+        IOLog("pppoe_dlil_attach : Can't allocate attachment structure\n");
         return 1;
     }
-	sprintf(ifname, "en%d", unit);
+	snprintf(ifname, sizeof(ifname), "en%d", unit);
 	
     if (ifnet_find_by_name(ifname, &ifp)) {
-        log(LOGVAL, "pppoe_dlil_attach : Can't find interface unit %d\n", unit);
+        IOLog("pppoe_dlil_attach : Can't find interface unit %d\n", unit);
         return 1;
     }
 
@@ -153,7 +152,7 @@ int pppoe_dlil_attach(u_short unit, ifnet_t *ifpp)
 	ret = ifnet_attach_protocol(ifp, PF_PPP, &reg);
     if (ret) {
 		lck_mtx_lock(ppp_domain_mutex);
-        log(LOGVAL, "pppoe_dlil_attach: error = 0x%x\n", ret);
+        IOLog("pppoe_dlil_attach: error = 0x%x\n", ret);
 		ifnet_release(ifp);
         FREE(pppoeif, M_TEMP);
         return ret;
@@ -226,7 +225,7 @@ errno_t pppoe_dlil_pre_output(ifnet_t ifp, protocol_family_t protocol,
 
     struct ether_header 	*eh;
 
-    //log(LOGVAL, "pppenet_pre_output, ifp = 0x%x\n", ifp);
+    //IOLog("pppenet_pre_output, ifp = %p\n", ifp);
 
     // fill in expected type and dst from previously set dst_netaddr
     // looks complicated to me
@@ -235,7 +234,7 @@ errno_t pppoe_dlil_pre_output(ifnet_t ifp, protocol_family_t protocol,
     bcopy(eh->ether_dhost, link_layer_dest, sizeof(eh->ether_dhost));
     *(u_int16_t *)frame_type = eh->ether_type;
 
-    //log(LOGVAL, "pppoe_dlil_pre_output ifname %s%d, addr = 0x%x:%x:%x:%x:%x:%x, frame_type = 0x%lx\n", ifnet_name(ifp), ifnet_unit(ifp), link_layer_dest[0], link_layer_dest[1],
+    //IOLog("pppoe_dlil_pre_output ifname %s%d, addr = 0x%x:%x:%x:%x:%x:%x, frame_type = 0x%lx\n", ifnet_name(ifp), ifnet_unit(ifp), link_layer_dest[0], link_layer_dest[1],
     //    link_layer_dest[2], link_layer_dest[3], link_layer_dest[4], link_layer_dest[5], *(u_int16_t *)frame_type);
 
     return 0;
@@ -266,10 +265,10 @@ void pppoe_dlil_event(ifnet_t ifp, protocol_family_t protocol,
 pppoe specific ioctl, nothing defined
 ----------------------------------------------------------------------------- */
 errno_t pppoe_dlil_ioctl(ifnet_t ifp, protocol_family_t protocol,
-									 u_int32_t command, void* argument)
+									 u_long command, void* argument)
 {
     
-    //log(LOGVAL, "pppoe_dlil_ioctl, ifp = %s%n\n", ifnet_name(ifp), ifnet_unit(ifp));
+    //IOLog("pppoe_dlil_ioctl, ifp = %s%n\n", ifnet_name(ifp), ifnet_unit(ifp));
     return 0;
 }
 
@@ -286,13 +285,13 @@ errno_t pppoe_dlil_input(ifnet_t ifp, protocol_family_t protocol,
     //unsigned char *data;
     struct ether_header *eh = (struct ether_header *)header;
 
-    //log(LOGVAL, "pppenet_input, ifp = %s%d\n", ifp->if_name, ifp->if_unit);
-    //log(LOGVAL, "pppenet_input: enet_header dst : %x:%x:%x:%x:%x:%x - src %x:%x:%x:%x:%x:%x - type - %4x\n",
+    //IOLog("pppenet_input, ifp = %s%d\n", ifp->if_name, ifp->if_unit);
+    //IOLog("pppenet_input: enet_header dst : %x:%x:%x:%x:%x:%x - src %x:%x:%x:%x:%x:%x - type - %4x\n",
         //p[0],p[1],p[2],p[3],p[4],p[5],p[6],p[7],p[8],p[9],p[10],p[11],ntohs(*(u_int16_t *)&p[12]));
 
 
     //data = mtod(m, unsigned char *);
-    //log(LOGVAL, "pppenet_input: data 0x %x %x %x %x %x %x\n",
+    //IOLog("pppenet_input: data 0x %x %x %x %x %x %x\n",
     //    data[0],data[1],data[2],data[3],data[4],data[5]);
 
     // only the ifp discriminate client at this point

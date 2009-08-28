@@ -1,0 +1,239 @@
+######################################################################
+#
+# XOTclExpat Makefile for Visual C++
+#
+######################################################################
+
+# Be sure to adapt the "configs.vc" file in the toplevel directory
+# to your system settings.
+!include "..\..\..\win\configs.vc"
+
+BINROOT		= .
+ROOT		= ..
+NAMEPREFIX	= lib
+NAME		= xotclexpat
+XOTCL_DIR	= ..\..\..
+GENERICDIR	= .
+WINDIR		= .
+
+######################################################################
+
+!if $(DEBUG)
+TMPNAME		= Debug
+DBGX		= d
+!else
+TMPNAME		= Release
+DBGX		=
+!endif
+
+TMP_DIR		= $(BINROOT)\$(TMPNAME)
+OUT_DIR		= $(TMP_DIR)
+
+!if $(STATIC_BUILD)
+OUTNAME		= $(NAMEPREFIX)$(NAME)$(XOTCL_VERSION)$(DBGX)
+TARGET		= "$(OUT_DIR)\$(OUTNAME).lib"
+!else
+OUTNAME		= $(NAMEPREFIX)$(NAME)$(XOTCL_VERSION)$(DBGX)
+IMPLIB		= "$(OUT_DIR)\$(OUTNAME).lib"
+TARGET		= "$(OUT_DIR)\$(OUTNAME).dll"
+!endif
+
+TCLSTUBLIB	= "$(TCLROOT)\win\Release\tclstub$(TCL_VERSION).lib"
+TCLIMPLIB	= "$(TCLROOT)\win\$(OUT_DIR)\tcl$(TCL_VERSION)$(DBGX).lib"
+TCLSH		= "$(TCLROOT)\win\$(OUT_DIR)\tclsh$(TCL_VERSION)$(DBGX).exe"
+
+XOTCLSTUBLIB	= "$(XOTCL_DIR)\win\Release\libxotclstub$(XOTCL_VERSION).lib"
+XOTCLIMPLIB	= "$(XOTCL_DIR)\win\$(OUT_DIR)\libxotcl$(XOTCL_VERSION)$(DBGX).lib"
+
+LIB_INSTALL_DIR		= $(INSTALLDIR)\lib
+BIN_INSTALL_DIR		= $(INSTALLDIR)\bin
+SCRIPT_INSTALL_DIR	= $(INSTALLDIR)\lib\xotcl$(XOTCL_VERSION)
+INCLUDE_INSTALL_DIR	= $(INSTALLDIR)\include
+
+OBJS = $(TMP_DIR)\xmltok.obj \
+	$(TMP_DIR)\xmlrole.obj \
+	$(TMP_DIR)\xmlwf.obj \
+	$(TMP_DIR)\codepage.obj \
+	$(TMP_DIR)\xmlparse.obj \
+	$(TMP_DIR)\hashtable.obj \
+	$(TMP_DIR)\win32filemap.obj \
+	$(TMP_DIR)\tclexpat.obj \
+!if $(STATIC_BUILD) == 0
+	$(TMP_DIR)\dllEntryPoint.obj
+!endif
+
+######################################################################
+# Link flags
+######################################################################
+
+!if $(DEBUG)
+ldebug = -debug:full -debugtype:cv -pdb:none
+!else
+ldebug = -release -opt:ref
+!endif
+
+# declarations common to all linker options
+lcommon = -nologo -link50compat -machine:$(MACHINE)
+
+LFLAGS = $(lcommon) -subsystem:windows -dll
+
+!if $(USE_TCL_STUBS) == 0
+LLIBS	= $(TCLIMPLIB) $(XOTCLIMPLIB)
+!else
+### should be:
+### LLIBS	= $(TCLSTUBLIB) $(XOTCLSTUBLIB) when xotcl stub lib is mature
+### LLIBS	= $(TCLSTUBLIB) $(XOTCLIMPLIB)
+LLIBS	= $(TCLSTUBLIB) $(XOTCLSTUBLIB)
+!endif
+
+######################################################################
+# Compile flags
+######################################################################
+
+!IF $(DEBUG) == 0
+!IF "$(MACHINE)" == "ALPHA"
+# MSVC on Alpha doesn't understand -Ot
+cdebug = -O2i
+!ELSE
+cdebug = -Ox
+!ENDIF
+!ELSE
+!if $(MSDEV_VER) < 6
+cdebug = -Zi -Od -WX
+!else
+cdebug = -ZI -Od -WX
+!endif
+!ENDIF
+
+!if $(STATIC_BUILD)
+cdll	=
+!else
+cdll	= -GD
+!endif
+
+# declarations common to all compiler options
+ccommon = -nologo -c -W3 -YX \
+
+
+!if $(STATIC_BUILD) && $(NOMSVCRT)
+crt	= -MT$(DBGX)
+!else
+crt	= -MD$(DBGX)
+!endif
+
+INCLUDES	= -I"$(TCLROOT)\generic" -I"$(XOTCL_DIR)\generic" -I"."
+
+DEFINES	= -DBUILD_$(NAME) -DTCL_THREADS=1 \
+			-DXOLIBPKG=$(INST_XOLIBPKG) \
+			-DXOTCLVERSION=$(XOTCLVERSION) \
+			-DPACKAGE_VERSION=$(XOTCLVERSION) \
+			-DVERSION=$(XOTCLVERSION) \
+			-DXOTCLPATCHLEVEL=$(XOTCLPATCHLEVEL) \
+			-D__WIN32__ -DVISUAL_CC
+
+EXE_CFLAGS	= $(ccommon) $(cdebug) $(crt) $(cdll) $(INCLUDES) $(DEFINES)
+
+!if $(USE_TCL_STUBS)
+#CFLAGS	= $(EXE_CFLAGS) -DUSE_TCL_STUBS
+CFLAGS	= $(EXE_CFLAGS) -DUSE_TCL_STUBS -DUSE_XOTCL_STUBS
+!else
+CFLAGS	= $(EXE_CFLAGS)
+!endif
+
+######################################################################
+# Project specific targets
+######################################################################
+
+all : libs
+
+libs : setup $(TARGET)
+	copy $(TARGET) ..
+
+setup :
+	@$(vcvars) > nul
+	@if not exist $(TMP_DIR)\nul mkdir $(TMP_DIR) &\
+		echo Created directory '$(TMP_DIR)'
+	@if not exist $(OUT_DIR)\nul mkdir $(OUT_DIR) &\
+		echo Created directory '$(OUT_DIR)'
+
+$(TARGET) : $(OBJS)
+!if $(STATIC_BUILD)
+	$(lib32) -nologo -machine:$(MACHINE) -out:$@ @<<
+!else
+	$(link32) $(LFLAGS) -base:@$(XOTCL_DIR)\win\dllBase.txt,$@ -out:$@ $(LLIBS) @<<
+!endif
+		$(OBJS)
+<<
+
+
+install : all
+	if not exist "$(INSTALLDIR)" mkdir "$(INSTALLDIR)"
+	if not exist "$(BIN_INSTALL_DIR)" mkdir "$(BIN_INSTALL_DIR)"
+	if not exist "$(LIB_INSTALL_DIR)" mkdir "$(LIB_INSTALL_DIR)"
+	if not exist "$(SCRIPT_INSTALL_DIR)" mkdir "$(SCRIPT_INSTALL_DIR)"
+	if not exist "$(INCLUDE_INSTALL_DIR)" mkdir "$(INCLUDE_INSTALL_DIR)"
+	copy $(TARGET) "$(SCRIPT_INSTALL_DIR)"
+
+######################################################################
+# Inference rules.  Use batch-mode when supported.
+######################################################################
+
+!if $(_NMAKE_VER) < 162
+{$(WINDIR)}.c{$(TMP_DIR)}.obj :
+!else
+{$(WINDIR)}.c{$(TMP_DIR)}.obj ::
+!endif
+	$(cc32) -DDLL_BUILD $(CFLAGS) -Fo$(TMP_DIR)\ @<<
+$<
+<<
+
+!if $(_NMAKE_VER) < 162
+{$(GENERICDIR)}.c{$(TMP_DIR)}.obj :
+!else
+{$(GENERICDIR)}.c{$(TMP_DIR)}.obj ::
+!endif
+	$(cc32) -DDLL_BUILD $(CFLAGS) -Fo$(TMP_DIR)\ @<<
+$<
+<<
+
+#$(TMP_DIR)\xmltok.obj : expat\xmltok\xmltok.c
+#	$(cc32) -DDLL_BUILD $(CFLAGS) -Fo$@ $?
+#$(TMP_DIR)\xmlrole.obj : expat\xmltok\xmlrole.c
+#	$(cc32) -DDLL_BUILD $(CFLAGS) -Fo$@ $?
+#$(TMP_DIR)\xmlwf.obj : expat\xmlwf\xmlwf.c
+#	$(cc32) -DDLL_BUILD $(CFLAGS) -Fo$@ $?
+#$(TMP_DIR)\readfilemap.obj : expat\xmlwf\readfilemap.c
+#	$(cc32) -DDLL_BUILD $(CFLAGS) -Fo$@ $?
+#$(TMP_DIR)\codepage.obj : expat\xmlwf\codepage.c
+#	$(cc32) -DDLL_BUILD $(CFLAGS) -Fo$@ $?
+#$(TMP_DIR)\xmlparse.obj : expat\xmlparse\xmlparse.c
+#	$(cc32) -DDLL_BUILD $(CFLAGS) -Fo$@ $?
+#$(TMP_DIR)\hashtable.obj : expat\xmlparse\hashtable.c
+#	$(cc32) -DDLL_BUILD $(CFLAGS) -Fo$@ $?
+
+#{$(RCDIR)}.rc{$(TMP_DIR)}.res :
+#	$(rc32) -fo $@ -DDEBUG=$(DEBUG) $(XOTCL_VERSION_DEFINES) $(XOTCL_INCLUDES) $(TCL_INCLUDES) $(XOTCL_DEFINES) $<
+
+######################################################################
+# Clean up
+######################################################################
+
+tidy :
+	-del $(TMP_DIR)\*.pch
+	-del $(TMP_DIR)\*.obj
+	-del $(TMP_DIR)\*.res
+	-del .\*.pch
+	-del .\*.pdb
+
+clean : tidy
+	-del $(OUT_DIR)\*.exp
+	-del $(OUT_DIR)\*.lib
+	-del $(OUT_DIR)\*.dll
+	-del ..\*.exp
+	-del ..\*.lib
+	-del ..\*.dll
+
+distclean : clean
+	-rmdir $(OUT_DIR)
+	-rmdir $(TMP_DIR)
+

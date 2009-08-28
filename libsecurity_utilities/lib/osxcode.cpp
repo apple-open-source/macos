@@ -34,24 +34,6 @@ namespace Security {
 
 
 //
-// Use prefix encoding for externalizing OSXCode objects
-//
-OSXCode *OSXCode::decode(const char *extForm)
-{
-	if (!extForm || !extForm[0] || extForm[1] != ':')
-		return NULL;
-	switch (extForm[0]) {
-	case 't':
-		return new ExecutableTool(extForm+2);
-	case 'b':
-		return new Bundle(extForm+2);
-	default:
-		return NULL;
-	}
-}
-
-
-//
 // Produce an OSXCode for the currently running application.
 //
 // Note that we don't build the CFBundleRef here; we defer this to when we
@@ -63,6 +45,12 @@ OSXCode *OSXCode::decode(const char *extForm)
 //
 RefPointer<OSXCode> OSXCode::main()
 {
+	// return a code signing-aware OSXCode subclass if possible
+	CFRef<SecCodeRef> me;
+	if (SecCodeCopySelf(kSecCSDefaultFlags, &me.aref()))
+		return new OSXCodeWrap(me);
+
+	// otherwise, follow the legacy path precisely - no point in messing with this, is there?
 	Boolean isRealBundle;
 	string path = cfString(_CFBundleCopyMainBundleExecutableURL(&isRealBundle), true);
 	if (isRealBundle) {
@@ -74,6 +62,14 @@ RefPointer<OSXCode> OSXCode::main()
 		secdebug("bundle", "OSXCode::main(%s) not recognized as bundle (treating as tool)", cpath);
 	}
 	return new ExecutableTool(path.c_str());
+}
+
+
+SecStaticCodeRef OSXCode::codeRef() const
+{
+	SecStaticCodeRef code;
+	MacOSError::check(SecStaticCodeCreateWithPath(CFTempURL(this->canonicalPath()), kSecCSDefaultFlags, &code));
+	return code;
 }
 
 
@@ -104,11 +100,6 @@ RefPointer<OSXCode> OSXCode::at(const char *path)
 //
 // Executable Tools
 //
-string ExecutableTool::encode() const
-{
-	return "t:" + mPath;
-}
-
 string ExecutableTool::canonicalPath() const
 {
 	return path();
@@ -176,11 +167,6 @@ CFTypeRef Bundle::infoPlistItem(const char *name) const
 }
 
 
-string Bundle::encode() const
-{
-	return "b:" + mPath;
-}
-
 void *Bundle::lookupSymbol(const char *name)
 {
     CFRef<CFStringRef> cfName(CFStringCreateWithCString(NULL, name,
@@ -235,6 +221,34 @@ void LoadableBundle::unload()
 bool LoadableBundle::isLoaded() const
 {
 	return CFBundleIsExecutableLoaded(cfBundle());
+}
+
+
+//
+// OSXCodeWrap
+//	
+string OSXCodeWrap::canonicalPath() const
+{
+	CFURLRef path;
+	MacOSError::check(SecCodeCopyPath(mCode, kSecCSDefaultFlags, &path));
+	return cfString(path, true);
+}
+
+
+//
+// The executable path is a bit annoying to get, but not quite
+// annoying enough to cache the result.
+//
+string OSXCodeWrap::executablePath() const
+{
+	CFRef<CFDictionaryRef> info;
+	MacOSError::check(SecCodeCopySigningInformation(mCode, kSecCSDefaultFlags, &info.aref()));
+	return cfString(CFURLRef(CFDictionaryGetValue(info, kSecCodeInfoMainExecutable)));
+}
+
+SecStaticCodeRef OSXCodeWrap::codeRef() const
+{
+	return mCode.retain();
 }
 
 

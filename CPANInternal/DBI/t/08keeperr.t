@@ -36,7 +36,7 @@ sub execute {
     my $sth = shift;
     # we localize an attribute here to check that the correpoding STORE
     # at scope exit doesn't clear any recorded error
-    local $sth->{CompatMode} = 0;
+    local $sth->{Warn} = 0;
     my $rv = $sth->SUPER::execute(@_);
     return $rv;
 }
@@ -62,15 +62,15 @@ sub test_select {
 }
 
 my $err1 = test_select( My::DBI->connect(@con_info) );
-Test::More::like($err1, qr/^DBD::(ExampleP|Multiplex)::db selectrow_arrayref failed: opendir/, '... checking error');
+Test::More::like($err1, qr/^DBD::(ExampleP|Multiplex|Gofer)::db selectrow_arrayref failed: opendir/, '... checking error');
 
 my $err2 = test_select( DBI->connect(@con_info) );
-Test::More::like($err2, qr/^DBD::(ExampleP|Multiplex)::db selectrow_arrayref failed: opendir/, '... checking error');
+Test::More::like($err2, qr/^DBD::(ExampleP|Multiplex|Gofer)::db selectrow_arrayref failed: opendir/, '... checking error');
 
 package main;
 
 ## ----------------------------------------------------------------------------
-# test HandleSetErr
+print "Test HandleSetErr\n";
 
 my $dbh = DBI->connect(@con_info);
 isa_ok($dbh, "DBI::db");
@@ -84,7 +84,7 @@ my %warn = ( failed => 0, warning => 0 );
 my @handlewarn = (0,0,0);
 $SIG{__WARN__} = sub {
     my $msg = shift;
-    if ($msg =~ /^DBD::ExampleP::\S+\s+(\S+)\s+(\w+)/) {
+    if ($msg =~ /^DBD::\w+::\S+\s+(\S+)\s+(\w+)/) {
         ++$warn{$2};
         $msg =~ s/\n/\\n/g;
         print "warn: '$msg'\n";
@@ -260,6 +260,8 @@ ok(!defined $ret[0],         '... the first value is undefined');
 cmp_ok($dbh->err, '==', 99,  '... $dbh->err is 99');
 is($dbh->errstr, "errstr99", '... $dbh->errstr is as we expected');
 is($dbh->state,  "OV123",    '... $dbh->state is as we expected');
+
+$dbh->disconnect;
 
 1;
 # end

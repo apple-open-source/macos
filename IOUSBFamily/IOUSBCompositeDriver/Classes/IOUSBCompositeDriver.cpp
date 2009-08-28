@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright © 1998-2009 Apple Inc.  All rights reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -30,6 +30,7 @@
 //================================================================================================
 //
 #include <IOKit/usb/IOUSBCompositeDriver.h>
+#include "USBTracepoints.h"
 
 //================================================================================================
 //
@@ -53,6 +54,20 @@ OSDefineMetaClassAndStructors(AppleUSBComposite, IOUSBCompositeDriver)
 //================================================================================================
 //
 #define super IOService
+
+/* Convert USBLog to use kprintf debugging */
+#ifndef IOUSBCOMPOSITEDRIVER_USE_KPRINTF
+#define IOUSBCOMPOSITEDRIVER_USE_KPRINTF 0
+#endif
+
+#if IOUSBCOMPOSITEDRIVER_USE_KPRINTF
+#undef USBLog
+#undef USBError
+void kprintf(const char *format, ...)
+__attribute__((format(printf, 1, 2)));
+#define USBLog( LEVEL, FORMAT, ARGS... )  if ((LEVEL) <= IOUSBCOMPOSITEDRIVER_USE_KPRINTF) { kprintf( FORMAT "\n", ## ARGS ) ; }
+#define USBError( LEVEL, FORMAT, ARGS... )  { kprintf( FORMAT "\n", ## ARGS ) ; }
+#endif
 
 //================================================================================================
 //
@@ -254,6 +269,7 @@ IOUSBCompositeDriver::ConfigureDevice()
             if (!cdTemp)
             {
 				USBLog(1, "%s[%p](%s)::ConfigureDevice GetFullConfigDescriptor(%d) returned NULL, retrying", getName(), this, fDevice->getName(), i );
+				USBTrace( kUSBTCompositeDriver, kTPCompositeDriverConfigureDevice , (uintptr_t)this, i, 0, 1 );
 				IOSleep( 300 );
 				cdTemp = fDevice->GetFullConfigurationDescriptor(i);
 				if ( !cdTemp )
@@ -303,6 +319,7 @@ IOUSBCompositeDriver::ConfigureDevice()
         if (!cd)
         {
             USBLog(1, "%s[%p](%s) GetFullConfigDescriptor(0) returned NULL, retrying", getName(), this, fDevice->getName() );
+			USBTrace( kUSBTCompositeDriver, kTPCompositeDriverConfigureDevice , (uintptr_t)this, 0, 0, 2 );
             IOSleep( 300 );
             cd = fDevice->GetFullConfigurationDescriptor(0);
             if ( !cd )

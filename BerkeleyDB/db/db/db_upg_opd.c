@@ -1,21 +1,12 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1996,2007 Oracle.  All rights reserved.
+ *
+ * $Id: db_upg_opd.c,v 12.9 2007/05/17 15:14:57 bostic Exp $
  */
 
 #include "db_config.h"
-
-#ifndef lint
-static const char revid[] = "$Id: db_upg_opd.c,v 1.2 2004/03/30 01:21:24 jtownsen Exp $";
-#endif /* not lint */
-
-#ifndef NO_SYSTEM_INCLUDES
-#include <sys/types.h>
-
-#include <string.h>
-#endif
 
 #include "db_int.h"
 #include "dbinc/db_page.h"
@@ -26,16 +17,16 @@ static int __db_build_ri __P((DB *, DB_FH *, PAGE *, PAGE *, u_int32_t, int *));
 static int __db_up_ovref __P((DB *, DB_FH *, db_pgno_t));
 
 #define	GET_PAGE(dbp, fhp, pgno, page) {				\
-	if ((ret = __os_seek(dbp->dbenv,				\
-	    fhp, (dbp)->pgsize, pgno, 0, 0, DB_OS_SEEK_SET)) != 0)	\
+	if ((ret = __os_seek(						\
+	    dbp->dbenv, fhp, pgno, (dbp)->pgsize, 0)) != 0)		\
 		goto err;						\
 	if ((ret = __os_read(dbp->dbenv,				\
 	    fhp, page, (dbp)->pgsize, &n)) != 0)			\
 		goto err;						\
 }
 #define	PUT_PAGE(dbp, fhp, pgno, page) {				\
-	if ((ret = __os_seek(dbp->dbenv,				\
-	    fhp, (dbp)->pgsize, pgno, 0, 0, DB_OS_SEEK_SET)) != 0)	\
+	if ((ret = __os_seek(						\
+	    dbp->dbenv, fhp, pgno, (dbp)->pgsize, 0)) != 0)		\
 		goto err;						\
 	if ((ret = __os_write(dbp->dbenv,				\
 	    fhp, page, (dbp)->pgsize, &n)) != 0)			\
@@ -102,26 +93,26 @@ __db_31_offdup(dbp, real_name, fhp, sorted, pgnop)
 	}
 
 	/* If we only have a single page, it's easy. */
-	if (cur_cnt > 1) {
-		/*
-		 * pgno_cur is the list of pages we just converted.  We're
-		 * going to walk that list, but we'll need to create a new
-		 * list while we do so.
-		 */
-		if ((ret = __os_malloc(dbp->dbenv,
-		    cur_cnt * sizeof(db_pgno_t), &pgno_next)) != 0)
-			goto err;
+	if (cur_cnt <= 1)
+		goto done;
 
-		/* Figure out where we can start allocating new pages. */
-		if ((ret = __db_lastpgno(dbp, real_name, fhp, &pgno_last)) != 0)
-			goto err;
+	/*
+	 * pgno_cur is the list of pages we just converted.  We're
+	 * going to walk that list, but we'll need to create a new
+	 * list while we do so.
+	 */
+	if ((ret = __os_malloc(dbp->dbenv,
+	    cur_cnt * sizeof(db_pgno_t), &pgno_next)) != 0)
+		goto err;
 
-		/* Allocate room for an internal page. */
-		if ((ret = __os_malloc(dbp->dbenv,
-		    dbp->pgsize, &ipage)) != 0)
-			goto err;
-		PGNO(ipage) = PGNO_INVALID;
-	}
+	/* Figure out where we can start allocating new pages. */
+	if ((ret = __db_lastpgno(dbp, real_name, fhp, &pgno_last)) != 0)
+		goto err;
+
+	/* Allocate room for an internal page. */
+	if ((ret = __os_malloc(dbp->dbenv, dbp->pgsize, &ipage)) != 0)
+		goto err;
+	PGNO(ipage) = PGNO_INVALID;
 
 	/*
 	 * Repeatedly walk the list of pages, building internal pages, until
@@ -181,7 +172,7 @@ __db_31_offdup(dbp, real_name, fhp, sorted, pgnop)
 		pgno_next = tmp;
 	}
 
-	*pgnop = pgno_cur[0];
+done:	*pgnop = pgno_cur[0];
 
 err:	if (pgno_cur != NULL)
 		__os_free(dbp->dbenv, pgno_cur);
@@ -226,7 +217,7 @@ __db_build_bi(dbp, fhp, ipage, page, indx, nomemp)
 		p = P_ENTRY(dbp, ipage, indx);
 
 		bi.len = child_bi->len;
-		B_TSET(bi.type, child_bi->type, 0);
+		B_TSET(bi.type, child_bi->type);
 		bi.pgno = PGNO(page);
 		bi.nrecs = __bam_total(dbp, page);
 		memcpy(p, &bi, SSZA(BINTERNAL, data));
@@ -253,7 +244,7 @@ __db_build_bi(dbp, fhp, ipage, page, indx, nomemp)
 			p = P_ENTRY(dbp, ipage, indx);
 
 			bi.len = child_bk->len;
-			B_TSET(bi.type, child_bk->type, 0);
+			B_TSET(bi.type, child_bk->type);
 			bi.pgno = PGNO(page);
 			bi.nrecs = __bam_total(dbp, page);
 			memcpy(p, &bi, SSZA(BINTERNAL, data));
@@ -271,7 +262,7 @@ __db_build_bi(dbp, fhp, ipage, page, indx, nomemp)
 			p = P_ENTRY(dbp, ipage, indx);
 
 			bi.len = BOVERFLOW_SIZE;
-			B_TSET(bi.type, child_bk->type, 0);
+			B_TSET(bi.type, child_bk->type);
 			bi.pgno = PGNO(page);
 			bi.nrecs = __bam_total(dbp, page);
 			memcpy(p, &bi, SSZA(BINTERNAL, data));

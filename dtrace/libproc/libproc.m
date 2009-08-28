@@ -1,14 +1,28 @@
-/* vim: set noet ts=4 sw=4: */
-//
-//  libproc.m
-//  dtrace
-//
-//  Created by James McIlree on 10/9/06.
-//  Copyright 2006 Apple Computer, Inc. All rights reserved.
-//
+/*
+ * Copyright (c) 2006-2008 Apple Computer, Inc.  All Rights Reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_LICENSE_HEADER_END@
+ */
 
-#import <Symbolication/Symbolication.h>
-#import <Symbolication/SymbolicationPrivate.h>
+#include <CoreSymbolication/CoreSymbolication.h>
+#include <CoreSymbolication/CoreSymbolicationPrivate.h>
 
 #import <mach/mach.h>
 #include <mach/mach_error.h>
@@ -29,66 +43,11 @@
 #import "libproc_apple.h"
 
 #import <spawn.h>
-
-#include "dtrace_dyld_types.h"
-#include "dtrace_dyldServer.h"
-#include "notifyServer.h"
+#import <pthread.h>
 
 #include <crt_externs.h>
 
 extern int _dtrace_mangled;
-
-/*
- * This is a helper category, used by symbolOwnerForName. It needs to do
- * partial matches against symbol owner names, and does not want to fault
- * in every symbol owner to do so. We add a category to do things as lazily
- * as possible. NOTE!!! This contains deep inner secrets about the workings
- * of Symbolication.framework, and can easily break.
- */
-
-@interface VMUSymbolicator (ViolationOfGoodSenseAndEncapsulation)
-
-// Copied from VMUSymbolicator (Internal)
-- (VMUSymbolOwner*)faultLazySymbolOwnerAtIndex:(NSInteger)index;
-
-@end
-
-@interface VMUSymbolicator (DTrace)
-
-- (NSArray*)symbolOwnersForPrefix:(NSString*)prefix;
-
-@end
-
-@implementation VMUSymbolicator (DTrace)
-
-- (NSArray*)symbolOwnersForPrefix:(NSString*)prefix
-{    
-	NSMutableArray* owners = [NSMutableArray array];
-	
-	@synchronized(self) {
-		NSInteger i, count = [_symbolOwners count];
-		for (i=0; i<count; i++) {
-			VMUSymbolOwner* owner = [_symbolOwners objectAtIndex:i];
-			
-			// Only fault in owners that match. 
-			if ([owner isLazy]) {
-				VMULazySymbolOwner* lazyOwner = (VMULazySymbolOwner*)owner;
-				if ([[lazyOwner name] hasPrefix:prefix]) {
-					owner = [self faultLazySymbolOwnerAtIndex:i];
-				} else
-				continue; // Must not proceed if this is lazy and not faulted.
-			}
-			
-			if ([[owner name] hasPrefix:prefix]) {
-				[owners addObject:owner];
-			}
-		}
-	}
-	
-	return owners;
-}
-
-@end
 
 /*
  * This is a helper method, it does extended lookups following roughly these rules
@@ -97,114 +56,187 @@ extern int _dtrace_mangled;
  * 2. An exact basename match: "libc.so.1"
  * 3. An initial basename match up to a '.' suffix: "libc.so" or "libc"
  * 4. The literal string "a.out" is an alias for the executable mapping
- *
- * You must have an autorelease pool when calling this method.
  */
-VMUSymbolOwner* symbolOwnerForName(VMUSymbolicator* symbolicator, NSString* name) {        
-        // Check for a.out specifically
-        if ([name isEqualToString:@"a.out"]) {
-                NSArray* owners = [symbolicator symbolOwnersWithFlags:VMUSymbolOwnerIsAOut];
-                NSCAssert([owners count] == 1, @"Should only be one a.out per symbolicator");
-                return [owners objectAtIndex:0];
-        }
-        
-        // Skip the path based lookup for now.
+CSSymbolOwnerRef symbolOwnerForName(CSSymbolicatorRef symbolicator, const char* name) {        
+	// Check for a.out specifically
+	if (strcmp(name, "a.out") == 0) {
+		__block CSSymbolOwnerRef owner = kCSNull;
+		if (CSSymbolicatorForeachSymbolOwnerWithFlagsAtTime(symbolicator, kCSSymbolOwnerIsAOut, kCSNow, ^(CSSymbolOwnerRef t) { owner = t; }) == 1) {
+			return owner;
+		}
+		
+		return kCSNull;
+	}
 
-        // Try exact name match
-	NSArray* owners = [symbolicator symbolOwnersForName:name];
-	if ([owners count] > 0) {
-		// Underspecified names (more than one match) are legal, just take the first
-		return [owners objectAtIndex:0];
-        }
-        
-        // Strip off extensions. We know there are no direct matches now.
-	for (VMUSymbolOwner* candidate in [symbolicator symbolOwnersForPrefix:name]) {
-		NSString* candidate_name = [candidate name];
-		NSRange range;
-		do {
-			range = [candidate_name rangeOfString:@"." options:NSBackwardsSearch];
-			if (range.location != NSNotFound) {
-				candidate_name = [candidate_name substringToIndex:range.location];
-				if ([candidate_name isEqualToString:name]) {
-					return candidate;
+	// Try path based matching. Multile matches are legal, take the first.
+	__block CSSymbolOwnerRef owner = kCSNull;
+	if (CSSymbolicatorForeachSymbolOwnerWithPathAtTime(symbolicator, name, kCSNow, ^(CSSymbolOwnerRef t) { if (CSIsNull(owner)) owner = t; }) > 0)
+		return owner;
+	
+	// Try name based matching. Multiple matches are legal, take the first.
+	if (CSSymbolicatorForeachSymbolOwnerWithNameAtTime(symbolicator, name, kCSNow, ^(CSSymbolOwnerRef t) { if (CSIsNull(owner)) owner = t; }) > 0)
+		return owner;
+	        
+	// Strip off extensions. We know there are no direct matches now.
+	size_t nameLength = strlen(name);
+	CSSymbolicatorForeachSymbolOwnerAtTime(symbolicator, kCSNow, ^(CSSymbolOwnerRef candidate) {
+		// We check CSIsNull to skip remaining work after finding a match.
+		if (CSIsNull(owner)) {
+			const char* candidateName = CSSymbolOwnerGetName(candidate);
+			size_t candidateNameLength = strlen(candidateName);
+			
+			// We're going to cheat a bit.
+			//
+			// A match at this point will always be a prefix match. I.E. libSystem match against libSystem.B.dylib
+			// We make the following assertions
+			// 1) For a match to be possible, the candidate must always be longer than the search name
+			// 2) The match must always begin at the root of the candidate name
+			// 3) The next character in the candidate must be a '.'
+			if (nameLength < candidateNameLength) {
+				if (strstr(candidateName, name) == candidateName) {
+					if (candidateName[nameLength] == '.') {
+						// Its a match!
+						owner = candidate;
+					}
 				}
 			}
-		} while (range.location != NSNotFound);		
-	}
-        
-        return nil;
+		}
+	});
+	
+	return owner;
 }
 
 #define APPLE_PCREATE_BAD_SYMBOLICATOR 0x0F000001
+#define APPLE_PCREATE_BAD_ARCHITECTURE 0x0F000002
+
+//
+// Helper function so that Pcreate & Pgrab can use the same code.
+//
+// NOTE!
+//
+// We're doing something really hideous here.
+//
+// For each target process, there are *two* threads created. A dtrace control thread, and a CoreSymbolication
+// dyld listener thread. The listener thread does not directly call into dtrace. The reason is that the thread
+// calling into dtrace sometimes gets put to sleep. If dtrace decides to release/deallocate due to a notice
+// from the listener thread, it deadlocks waiting for the listener to acknowledge that it has shut down.
+static struct ps_prochandle* createProcAndSymbolicator(pid_t pid, task_t task, int* perr, bool should_queue_proc_activity_notices) {	
+	// The symbolicator block captures proc, and actually uses it before completing.
+	// We allocate and initialize it first.
+	struct ps_prochandle* proc = calloc(sizeof(struct ps_prochandle), 1);
+	proc->current_symbol_owner_generation = 1; // MUST start with generation of 1 or higher.	
+	proc->status.pr_pid = pid;
+			
+	(void) pthread_mutex_init(&proc->proc_activity_queue_mutex, NULL);
+	(void) pthread_cond_init(&proc->proc_activity_queue_cond, NULL);
+	
+	// Only enable this if we're going to generate events...
+	if (should_queue_proc_activity_notices)
+		proc->proc_activity_queue_enabled = true;
+	
+	CSSymbolicatorRef symbolicator = CSSymbolicatorCreateWithTaskFlagsAndNotification(task, kCSSymbolicatorTrackDyldActivity, ^(uint32_t notification_type, CSNotificationData data) {
+		switch (notification_type) {
+			case kCSNotificationPing:
+				dt_dprintf("pid %d: kCSNotificationPing (value: %d)\n", CSSymbolicatorGetPid(data.symbolicator), data.u.ping.value);
+				// We're faking a "POSTINIT" breakpoint here.
+				if (should_queue_proc_activity_notices)
+					Pcreate_async_proc_activity(proc, RD_POSTINIT);
+				break;
+				
+			case kCSNotificationInitialized:
+				dt_dprintf("pid %d: kCSNotificationInitialized\n", CSSymbolicatorGetPid(data.symbolicator));
+				// We're faking a "PREINIT" breakpoint here.
+				if (should_queue_proc_activity_notices)
+					Pcreate_async_proc_activity(proc, RD_PREINIT);
+				break;
+				
+			case kCSNotificationDyldLoad:
+				dt_dprintf("pid %d: kCSNotificationDyldLoad %s\n", CSSymbolicatorGetPid(data.symbolicator), CSSymbolOwnerGetPath(data.u.dyldLoad.symbolOwner));
+				if (should_queue_proc_activity_notices)
+					Pcreate_sync_proc_activity(proc, RD_DLACTIVITY);
+				break;
+				
+			case kCSNotificationDyldUnload:
+				dt_dprintf("pid %d: kCSNotificationDyldUnload %s\n", CSSymbolicatorGetPid(data.symbolicator), CSSymbolOwnerGetPath(data.u.dyldLoad.symbolOwner));
+				break;
+				
+			case kCSNotificationTimeout:
+				dt_dprintf("pid %d: kCSNotificationTimeout\n", CSSymbolicatorGetPid(data.symbolicator));
+				if (should_queue_proc_activity_notices)
+					Pcreate_async_proc_activity(proc, RD_DYLD_LOST);
+				break;
+				
+			case kCSNotificationTaskExit:
+				dt_dprintf("pid %d: kCSNotificationTaskExit\n", CSSymbolicatorGetPid(data.symbolicator));
+				if (should_queue_proc_activity_notices)
+					Pcreate_async_proc_activity(proc, RD_DYLD_EXIT);
+				break;
+				
+			case kCSNotificationFini:
+				dt_dprintf("pid %d: kCSNotificationFini\n", CSSymbolicatorGetPid(data.symbolicator));
+				break;
+				
+			default:
+				dt_dprintf("pid %d: 0x%x UNHANDLED notification from CoreSymbolication\n", CSSymbolicatorGetPid(data.symbolicator), notification_type);
+		}
+	});
+	if (!CSIsNull(symbolicator)) {
+		proc->symbolicator = symbolicator; // Starts with a retain count of 1
+		proc->status.pr_dmodel = CSArchitectureIs64Bit(CSSymbolicatorGetArchitecture(symbolicator)) ? PR_MODEL_LP64 : PR_MODEL_ILP32;
+	} else {
+		free(proc);
+		proc = NULL;
+		*perr = APPLE_PCREATE_BAD_SYMBOLICATOR;
+	}
+	
+	return proc;
+}
 
 struct ps_prochandle *
 Pcreate(const char *file,	/* executable file name */
         char *const *argv,	/* argument vector */
-        int *perr,		/* pointer to error return code */
-        char *path,		/* if non-null, holds exec path name on return */
-        size_t len)		/* size of the path buffer */
+        int *perr,		    /* pointer to error return code */
+        char *path,		    /* if non-null, holds exec path name on return */
+        size_t len, 	    /* size of the path buffer */
+        cpu_type_t arch)    /* architecture to launch */
 {		
 	struct ps_prochandle* proc = NULL;
+        
+	int pid;
+	posix_spawnattr_t attr;
+	task_t task;
 	
-	NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
+	*perr = posix_spawnattr_init(&attr);
+	if (0 != *perr) goto destroy_attr;
 	
-	@try {
-		int pid;
-		posix_spawnattr_t attr;
-		task_t task;
-
-		*perr = posix_spawnattr_init(&attr);
+	if (arch != CPU_TYPE_ANY) {
+		*perr = posix_spawnattr_setbinpref_np(&attr, 1, &arch, NULL);
 		if (0 != *perr) goto destroy_attr;
-		
-		*perr = posix_spawnattr_setflags(&attr, POSIX_SPAWN_START_SUSPENDED);
-		if (0 != *perr) goto destroy_attr;
-		
-		setenv("DYLD_INSERT_LIBRARIES", "/usr/lib/dtrace/libdtrace_dyld.dylib", 1);
-		
-		*perr = posix_spawnp(&pid, file, NULL, &attr, argv, *_NSGetEnviron());
-
-		unsetenv("DYLD_INSERT_LIBRARIES"); /* children must not have this present in their env */
-
-destroy_attr:
-		posix_spawnattr_destroy(&attr);
-		
-		if (0 == *perr) {
-			*perr = task_for_pid(mach_task_self(), pid, &task);
-			if (*perr == KERN_SUCCESS) {
-				VMUSymbolicator* symbolicator = [VMUSymbolicator symbolicatorForTask:task];
-				
-				if (symbolicator) {
-					proc = calloc(sizeof(struct ps_prochandle), 1);
-					
-					proc->task = task;
-					
-					proc->symbolicator = [symbolicator retain];
-					proc->prev_symbolicator = nil;
-									
-					proc->prmap_dictionary = [[NSMutableDictionary alloc] init];
-					
-					proc->status.pr_flags = 0;
-					proc->status.pr_pid = pid;
-					proc->status.pr_dmodel = [[symbolicator architecture] is64Bit] ? PR_MODEL_LP64 : PR_MODEL_ILP32;
-				} else {
-					*perr = APPLE_PCREATE_BAD_SYMBOLICATOR;
-				}
-			} else
-				*perr = -(*perr); // Make room for mach errors
-		}
-	} @catch (NSException* e) {
-		// Silently drop any exceptions generated. So far it seems that they are happening when
-		// we attempt to symbolicate a process that is exiting.
-		
-		// Free any allocated resources
-		if (proc) {
-			Prelease(proc, PRELEASE_CLEAR);
-			proc = NULL;
-		}
 	}
 	
-	[pool drain];
+	*perr = posix_spawnattr_setflags(&attr, POSIX_SPAWN_START_SUSPENDED);
+	if (0 != *perr) goto destroy_attr;
+		
+	setenv("DYLD_INSERT_LIBRARIES", "/usr/lib/dtrace/libdtrace_dyld.dylib", 1);
 	
+	*perr = posix_spawnp(&pid, file, NULL, &attr, argv, *_NSGetEnviron());
+	
+	unsetenv("DYLD_INSERT_LIBRARIES"); /* children must not have this present in their env */
+		
+destroy_attr:
+	posix_spawnattr_destroy(&attr);
+	
+	if (0 == *perr) {
+		*perr = task_for_pid(mach_task_self(), pid, &task);
+		if (*perr == KERN_SUCCESS) {
+			proc = createProcAndSymbolicator(pid, task, perr, true);
+		} else {
+			*perr = -(*perr); // Make room for mach errors
+		}
+	} else if (*perr == EBADARCH) {
+		*perr = APPLE_PCREATE_BAD_ARCHITECTURE;
+	}
+        
 	return proc;
 }
 
@@ -241,6 +273,9 @@ Pcreate_error(int error)
 		case APPLE_PCREATE_BAD_SYMBOLICATOR:
 			str = "Could not create symbolicator for task";
 			break;
+		case APPLE_PCREATE_BAD_ARCHITECTURE:
+			str = "requested architecture missing from executable";
+			break;
 		default:
 			if (error < 0)
 				str = mach_error_string(-error);
@@ -248,9 +283,9 @@ Pcreate_error(int error)
 				str = "unknown error";
 			break;
 	}
-    
-    return (str);
- }
+	
+	return (str);
+}
 
 
 /*
@@ -277,69 +312,37 @@ Pcreate_error(int error)
 #define APPLE_PGRAB_UNSUPPORTED_FLAGS 0x0F0F0F0F
 
 struct ps_prochandle *Pgrab(pid_t pid, int flags, int *perr) {
-        struct ps_prochandle* proc = NULL;
-                
-        if (flags & PGRAB_RDONLY || (0 == flags)) {
-                NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
-                
-                @try {
-                        task_t task;
-                        
-                        *perr = task_for_pid(mach_task_self(), pid, &task);
-                        if (*perr == KERN_SUCCESS) {
-				if (0 == (flags & PGRAB_RDONLY))
-					(void)task_suspend(task);
-                                VMUSymbolicator* symbolicator = [VMUSymbolicator symbolicatorForTask:task];
-                                
-                                if (symbolicator) {
-                                        proc = calloc(sizeof(struct ps_prochandle), 1);
-                                        
-                                        proc->task = task;
-                                        
-                                        proc->symbolicator = [symbolicator retain];
-										proc->prev_symbolicator = nil;
-                                       
-                                        proc->prmap_dictionary = [[NSMutableDictionary alloc] init];
-                                        
-                                        proc->status.pr_flags = 0;
-                                        proc->status.pr_pid = pid;
-                                        proc->status.pr_dmodel = [[symbolicator architecture] is64Bit] ? PR_MODEL_LP64 : PR_MODEL_ILP32;
-                                } else {
-                                        *perr = APPLE_PGRAB_BAD_SYMBOLICATOR;
-                                }
-						}
-                } @catch (NSException* e) {
-                        // Silently drop any exceptions generated. So far it seems that they are happening when
-                        // we attempt to symbolicate a process that is exiting.
-                        
-                        // Free any allocated resources
-                        if (proc) {
-                                Prelease(proc, PRELEASE_CLEAR);
-                                proc = NULL;
-                        }
-                }
-                
-                [pool drain];
-        } else {
-                *perr = APPLE_PGRAB_UNSUPPORTED_FLAGS;
-        }
-        
-        return proc;
+	struct ps_prochandle* proc = NULL;
+	
+	if (flags & PGRAB_RDONLY || (0 == flags)) {	
+		task_t task;
+		*perr = task_for_pid(mach_task_self(), pid, &task);
+		if (*perr == KERN_SUCCESS) {
+			if (0 == (flags & PGRAB_RDONLY))
+				(void)task_suspend(task);
+			
+			proc = createProcAndSymbolicator(pid, task, perr, (flags & PGRAB_RDONLY) ? false : true);
+		}
+	} else {
+		*perr = APPLE_PGRAB_UNSUPPORTED_FLAGS;
+	}
+	
+	return proc;
 }
 
 const char *Pgrab_error(int err) {
-    const char* str;
-    
-    switch (err) {
-        case APPLE_PGRAB_BAD_SYMBOLICATOR:
-            str = "Pgrab could not create symbolicator for pid";
-        case APPLE_PGRAB_UNSUPPORTED_FLAGS:
-            str = "Pgrab was called with unsupported flags";
-        default:
-				str = mach_error_string(err);
-    }
-    
-    return str;
+	const char* str;
+	
+	switch (err) {
+		case APPLE_PGRAB_BAD_SYMBOLICATOR:
+			str = "Pgrab could not create symbolicator for pid";
+		case APPLE_PGRAB_UNSUPPORTED_FLAGS:
+			str = "Pgrab was called with unsupported flags";
+		default:
+			str = mach_error_string(err);
+	}
+	
+	return str;
 }
 
 /*
@@ -355,39 +358,36 @@ const char *Pgrab_error(int err) {
  *
  * We're ignoring most flags for now. They will eventually need to be honored.
  */
-void Prelease(struct ps_prochandle *P, int flags) {
-        NSCAssert(P != NULL, @"Should be a valid ps_prochandle");
-        
-        NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
-		
-		if (0 == flags) {
-			if (P->status.pr_flags & PR_KLC)
-				(void)kill(P->status.pr_pid, SIGKILL);
-		} else if (flags & PRELEASE_KILL) {
+void Prelease(struct ps_prochandle *P, int flags) {        
+	if (0 == flags) {
+		if (P->status.pr_flags & PR_KLC)
 			(void)kill(P->status.pr_pid, SIGKILL);
-		} else if (flags & PRELEASE_HANG)
-			(void)kill(P->status.pr_pid, SIGSTOP);
-        
-        // Time to free resources.
-        
-        mach_port_deallocate(mach_task_self(), P->task);
-        P->task = MACH_PORT_NULL;
-        
-		if (P->symbolicator && (P->symbolicator != P->prev_symbolicator))
-			[P->symbolicator release];
-        P->symbolicator = nil;
-			
-		if (P->prev_symbolicator)
-			[P->prev_symbolicator release];
-		P->prev_symbolicator = nil;
-			        
-        // The dictionary contains NSData objects, which will free their backing store automagically
-        [P->prmap_dictionary release];
-        P->prmap_dictionary = nil;
-        
-        [pool drain];
-        
-        free(P);
+	} else if (flags & PRELEASE_KILL) {
+		(void)kill(P->status.pr_pid, SIGKILL);
+	} else if (flags & PRELEASE_HANG)
+		(void)kill(P->status.pr_pid, SIGSTOP);
+
+	// Shouldn't be leaking events. Do this before releasing the symbolicator,
+	// so the dyld activity thread isn't blocked waiting on an event.
+	pthread_mutex_lock(&P->proc_activity_queue_mutex);
+	// Prevent any new events from being queue'd
+	P->proc_activity_queue_enabled = false;
+	// Destroy any existing events.
+	struct ps_proc_activity_event* temp = P->proc_activity_queue;
+	while (temp != NULL) {
+		struct ps_proc_activity_event* next = temp->next;
+		Pdestroy_proc_activity(temp);
+		temp = next;
+	}
+	pthread_mutex_unlock(&P->proc_activity_queue_mutex);
+	
+	// We don't have to check for kCSNull...
+	CSRelease(P->symbolicator);
+	
+	(void) pthread_mutex_destroy(&P->proc_activity_queue_mutex);
+	(void) pthread_cond_destroy(&P->proc_activity_queue_cond);
+
+	free(P);
 }
 
 /*
@@ -422,27 +422,27 @@ int	Pxecbkpt(struct ps_prochandle *P, ulong_t instr) {
 
 int Psetflags(struct ps_prochandle *P, long flags) {
 	P->status.pr_flags |= flags;
-    return 0;
+	return 0;
 }
 
 int Punsetflags(struct ps_prochandle *P, long flags) {
 	P->status.pr_flags &= ~flags;
-    return 0;
+	return 0;
 }
 
 int pr_open(struct ps_prochandle *P, const char *foo, int bar, mode_t baz) {
-    NSLog(@"libProc.a UNIMPLEMENTED: pr_open()");
-    return 0;
+	NSLog(@"libProc.a UNIMPLEMENTED: pr_open()");
+	return 0;
 }
 
 int pr_close(struct ps_prochandle *P, int foo) {
-    NSLog(@"libProc.a UNIMPLEMENTED: pr_close");
-    return 0;
+	NSLog(@"libProc.a UNIMPLEMENTED: pr_close");
+	return 0;
 }
 
 int pr_ioctl(struct ps_prochandle *P, int foo, int bar, void *baz, size_t blah) {
-    NSLog(@"libProc.a UNIMPLEMENTED: pr_ioctl");
-    return 0;
+	NSLog(@"libProc.a UNIMPLEMENTED: pr_ioctl");
+	return 0;
 }
 
 /*
@@ -461,66 +461,58 @@ int pr_ioctl(struct ps_prochandle *P, int foo, int bar, void *baz, size_t blah) 
  * prs_lmid is set.
  */
 int Pxlookup_by_name(
- 	struct ps_prochandle *P,
- 	Lmid_t lmid,			/* link map to match, or -1 (PR_LMID_EVERY) for any */
- 	const char *oname,		/* load object name */
- 	const char *sname,		/* symbol name */
- 	GElf_Sym *symp,			/* returned symbol table entry */
- 	prsyminfo_t *sip)		/* returned symbol info */
+		     struct ps_prochandle *P,
+		     Lmid_t lmid,		/* link map to match, or -1 (PR_LMID_EVERY) for any */
+		     const char *oname,		/* load object name */
+		     const char *sname,		/* symbol name */
+		     GElf_Sym *symp,		/* returned symbol table entry */
+		     prsyminfo_t *sip)		/* returned symbol info */
 {
-        int err = -1;
-    
-        NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
+	int err = -1;
         
-        VMUSymbol* symbol = nil;
+	__block CSSymbolRef symbol = kCSNull;
+	if (oname != NULL) {
+		CSSymbolOwnerRef owner = symbolOwnerForName(P->symbolicator, oname);
+		if (_dtrace_mangled) {
+			CSSymbolOwnerForeachSymbolWithMangledName(owner, sname, ^(CSSymbolRef s) { if (CSIsNull(symbol)) symbol = s; });
+		} else {
+			CSSymbolOwnerForeachSymbolWithName(owner, sname, ^(CSSymbolRef s) { if (CSIsNull(symbol)) symbol = s; });
+		}
+	} else {
+		if (_dtrace_mangled) {
+			CSSymbolicatorForeachSymbolWithMangledNameAtTime(P->symbolicator, sname, kCSNow, ^(CSSymbolRef s) { if (CSIsNull(symbol)) symbol = s; });
+		} else {
+			CSSymbolicatorForeachSymbolWithNameAtTime(P->symbolicator, sname, kCSNow, ^(CSSymbolRef s) { if (CSIsNull(symbol)) symbol = s; });
+		}
+	}
+		
+	// Filter out symbols we do not want to instrument
+	if (!CSIsNull(symbol)) {
+		if (CSSymbolIsDyldStub(symbol)) symbol = kCSNull;
+		if (!CSSymbolIsFunction(symbol)) symbol = kCSNull;
+		if (CSSymbolOwnerIsCommpage(CSSymbolGetSymbolOwner(symbol))) symbol = kCSNull; // <rdar://problem/4877551>
+	}
+	
+	if (!CSIsNull(symbol)) {
+		err = 0;
+		
+		if (symp) {
+			CSRange addressRange = CSSymbolGetRange(symbol);
+			
+			symp->st_name = 0;
+			symp->st_info = GELF_ST_INFO((STB_GLOBAL), (STT_FUNC));
+			symp->st_other = 0;
+			symp->st_shndx = SHN_MACHO;
+			symp->st_value = addressRange.location;
+			symp->st_size = addressRange.length;
+		}
+		
+		if (sip) {
+			sip->prs_lmid = LM_ID_BASE;
+		}
+	}
         
-        if (oname != NULL) {
-                VMUSymbolOwner* owner = symbolOwnerForName(P->symbolicator, [NSString stringWithUTF8String:oname]);
-                NSArray* symbols = NULL;
-                if (_dtrace_mangled) {
-                        symbols = [owner symbolsForMangledName:[NSString stringWithUTF8String:sname]];
-                } else {
-                        symbols = [owner symbolsForName:[NSString stringWithUTF8String:sname]];
-                }
-                if ([symbols count] > 0) 
-                        symbol = [symbols objectAtIndex:0]; // Just take the first one...
-        } else {
-                NSArray* symbols = NULL;
-                if (_dtrace_mangled) {
-                        symbols = [P->symbolicator symbolsForMangledName:[NSString stringWithUTF8String:sname]];
-                } else {
-                        symbols = [P->symbolicator symbolsForName:[NSString stringWithUTF8String:sname]];
-                }
-                if ([symbols count] > 0) 
-                        symbol = [symbols objectAtIndex:0]; // Just take the first one...
-        }
-        
-        // Filter out symbols we do not want to instrument
-        if ([symbol isDyldStub]) symbol = nil;
-        if (![symbol isFunction]) symbol = nil;
-        if ([[symbol owner] isCommpage]) symbol = nil; // <rdar://problem/4877551>
-    
-        if (symbol)
-                err = 0;
-        
-        if (symbol && symp) {
-                VMURange addressRange = [symbol addressRange];
-                                
-                symp->st_name = 0;
-                symp->st_info = GELF_ST_INFO((STB_GLOBAL), (STT_FUNC));
-                symp->st_other = 0;
-                symp->st_shndx = SHN_MACHO;
-                symp->st_value = addressRange.location;
-                symp->st_size = addressRange.length;
-        }
-
-        if (symbol && sip) {
-                sip->prs_lmid = LM_ID_BASE;
-        }
-        
-        [pool drain];
-        
-        return err;
+	return err;
 }
 
 
@@ -544,79 +536,71 @@ int Pxlookup_by_name(
 int
 Pxlookup_by_addr(
                  struct ps_prochandle *P,
-                 uint64_t addr,			/* process address being sought */
+                 mach_vm_address_t addr,			/* process address being sought */
                  char *sym_name_buffer,		/* buffer for the symbol name */
                  size_t bufsize,		/* size of sym_name_buffer */
                  GElf_Sym *symbolp,		/* returned symbol table entry */
                  prsyminfo_t *sip)		/* returned symbol info (used only by plockstat) */
 {
-    int err = -1;
-
-    NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
-
-    VMUSymbol* symbol = [P->symbolicator symbolForAddress:addr];
-
-    // See comments in Ppltdest()
-    // Filter out symbols we do not want to instrument
-    // if ([symbol isDyldStub]) symbol = nil;
-    // if (![symbol isFunction]) symbol = nil;
-
-    if (symbol) {
-        if (_dtrace_mangled) {
-            const char *mangledName = [[symbol mangledName] UTF8String];
-            if (strlen(mangledName) >= 3 &&
-                mangledName[0] == '_' &&
-                mangledName[1] == '_' &&
-                mangledName[2] == 'Z') {
-                // mangled name - use it
-                strncpy(sym_name_buffer, mangledName, bufsize);
-            } else {
-                strncpy(sym_name_buffer, [[symbol name] UTF8String], bufsize);
-            }
-        } else
-            strncpy(sym_name_buffer, [[symbol name] UTF8String], bufsize);
-        err = 0;
-
-        if (symbolp) {
-            VMURange addressRange = [symbol addressRange];
-
-            symbolp->st_name = 0;
-            symbolp->st_info = GELF_ST_INFO((STB_GLOBAL), (STT_FUNC));
-            symbolp->st_other = 0;
-            symbolp->st_shndx = SHN_MACHO;
-            symbolp->st_value = addressRange.location;
-            symbolp->st_size = addressRange.length;
-        }
-
-        if (sip) {
-            VMUSymbolOwner* owner = [symbol owner];
-            sip->prs_name = (bufsize == 0 ? NULL : sym_name_buffer);
-
-            if (owner) {
-                sip->prs_object = [[owner name] UTF8String];
-            } else {
-                sip->prs_object = NULL;
-            }
-
-            // APPLE: The following fields set by Solaris code are not used by
-            // plockstat, hence we don't return them.
-            //sip->prs_id = (symp == sym1p) ? i1 : i2;
-            //sip->prs_table = (symp == sym1p) ? PR_SYMTAB : PR_DYNSYM;
-
-            // FIXME:!!!
-            //sip->prs_lmid = (fptr->file_lo == NULL) ? LM_ID_BASE : fptr->file_lo->rl_lmident;
-            sip->prs_lmid = LM_ID_BASE;
-        }
-    }
-
-    [pool drain];
-
-    return err;
+	int err = -1;
+        
+	CSSymbolRef symbol = CSSymbolicatorGetSymbolWithAddressAtTime(P->symbolicator, (mach_vm_address_t)addr, kCSNow);
+	
+	// See comments in Ppltdest()
+	// Filter out symbols we do not want to instrument
+	// if ([symbol isDyldStub]) symbol = nil;
+	// if (![symbol isFunction]) symbol = nil;
+	
+	if (!CSIsNull(symbol)) {
+		if (_dtrace_mangled) {
+			const char *mangledName = CSSymbolGetMangledName(symbol);
+			if (strlen(mangledName) >= 3 &&
+			    mangledName[0] == '_' &&
+			    mangledName[1] == '_' &&
+			    mangledName[2] == 'Z') {
+				// mangled name - use it
+				strncpy(sym_name_buffer, mangledName, bufsize);
+			} else {
+				strncpy(sym_name_buffer, CSSymbolGetName(symbol), bufsize);
+			}
+		} else
+			strncpy(sym_name_buffer, CSSymbolGetName(symbol), bufsize);
+		err = 0;
+		
+		if (symbolp) {
+			CSRange addressRange = CSSymbolGetRange(symbol);
+			
+			symbolp->st_name = 0;
+			symbolp->st_info = GELF_ST_INFO((STB_GLOBAL), (STT_FUNC));
+			symbolp->st_other = 0;
+			symbolp->st_shndx = SHN_MACHO;
+			symbolp->st_value = addressRange.location;
+			symbolp->st_size = addressRange.length;
+		}
+		
+		if (sip) {
+			CSSymbolOwnerRef owner = CSSymbolGetSymbolOwner(symbol);
+			sip->prs_name = (bufsize == 0 ? NULL : sym_name_buffer);
+			
+			sip->prs_object = CSSymbolOwnerGetName(owner);
+			
+			// APPLE: The following fields set by Solaris code are not used by
+			// plockstat, hence we don't return them.
+			//sip->prs_id = (symp == sym1p) ? i1 : i2;
+			//sip->prs_table = (symp == sym1p) ? PR_SYMTAB : PR_DYNSYM;
+			
+			// FIXME:!!!
+			//sip->prs_lmid = (fptr->file_lo == NULL) ? LM_ID_BASE : fptr->file_lo->rl_lmident;
+			sip->prs_lmid = LM_ID_BASE;
+		}
+	}
+        
+	return err;
 }
 
 
-int Plookup_by_addr(struct ps_prochandle *P, uint64_t addr, char *buf, size_t size, GElf_Sym *symp) {
-  return Pxlookup_by_addr(P, addr, buf, size, symp, NULL);
+int Plookup_by_addr(struct ps_prochandle *P, mach_vm_address_t addr, char *buf, size_t size, GElf_Sym *symp) {
+	return Pxlookup_by_addr(P, addr, buf, size, symp, NULL);
 }
 
 /*
@@ -628,94 +612,77 @@ int Psetrun(struct ps_prochandle *P,
 	    int sig,	/* Ignored in OS X. Nominally supposed to be the signal passed to the target process */
 	    int flags	/* Ignored in OS X. PRSTEP|PRSABORT|PRSTOP|PRCSIG|PRCFAULT */)
 {
-	return (int)task_resume(P->task);
+	/* If PR_KLC is set, we created the process with posix_spawn(); otherwise we grabbed it with task_suspend. */
+	if (P->status.pr_flags & PR_KLC)
+		return kill(P->status.pr_pid, SIGCONT); // Advances BSD p_stat from SSTOP to SRUN
+	else
+		return (int)task_resume(CSSymbolicatorGetTask(P->symbolicator));
 }
 
-ssize_t Pread(struct ps_prochandle *P, void *buf, size_t nbyte, uint64_t address) {
-        vm_offset_t mapped_address;
-        mach_msg_type_number_t mapped_size;
-        ssize_t bytes_read = 0;
-        
-        kern_return_t err = mach_vm_read(P->task, (mach_vm_address_t)address, (mach_vm_size_t)nbyte, &mapped_address, &mapped_size);
-        if (! err) {
-                bytes_read = nbyte;
-                memcpy(buf, (void*)mapped_address, nbyte);
-                vm_deallocate(mach_task_self(), (vm_address_t)mapped_address, (vm_size_t)mapped_size);
-        }  
-        
-        return bytes_read;
+ssize_t Pread(struct ps_prochandle *P, void *buf, size_t nbyte, mach_vm_address_t address) {
+	vm_offset_t mapped_address;
+	mach_msg_type_number_t mapped_size;
+	ssize_t bytes_read = 0;
+	
+	kern_return_t err = mach_vm_read(CSSymbolicatorGetTask(P->symbolicator), (mach_vm_address_t)address, (mach_vm_size_t)nbyte, &mapped_address, &mapped_size);
+	if (! err) {
+		bytes_read = nbyte;
+		memcpy(buf, (void*)mapped_address, nbyte);
+		vm_deallocate(mach_task_self(), (vm_address_t)mapped_address, (vm_size_t)mapped_size);
+	}  
+	
+	return bytes_read;
 }
 
 int Pobject_iter(struct ps_prochandle *P, proc_map_f *func, void *cd) {
-        int err = 0;
-        
-        NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
-        
-        for (VMUSymbolOwner* owner in [P->symbolicator symbolOwners]) {
-                if ([owner isCommpage]) continue; // <rdar://problem/4877551>
-	
-                prmap_t map;
-                const char* name = [[owner name] UTF8String];
-                
-				if (P->prev_symbolicator) {
-					int found = 0;
-					for (VMUSymbolOwner* prev_owner in [P->prev_symbolicator symbolOwners]) {
-						const char* prev_name = [[prev_owner name] UTF8String];
-						
-						if (0 == strcmp(prev_name, name)) {
-							found = 1;
-							break;
-						}
-					}
-					if (found)
-						continue;
-				}
-				
-                map.pr_vaddr = [[[owner regions] objectAtIndex:0] addressRange].location;
-                map.pr_mflags = MA_READ;
-                
-                if ((err = func(cd, &map, name)) != 0)
-                        break;
-        }
-        
-        [pool drain];
-        
-        return err;
-}
-
-const prmap_t *Paddr_to_map(struct ps_prochandle *P, uint64_t addr) {
-	const prmap_t* map = NULL;
-                
-        NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
-        
-        VMUSymbolOwner* owner = [P->symbolicator symbolOwnerForAddress:addr];
-	
-        // <rdar://problem/4877551>
-        if (owner && ![owner isCommpage]) {
-                // Now we try a lookup
-                NSData* data = [P->prmap_dictionary objectForKey:owner];
-                
-                if (!data) {
-                        prmap_t temp;
-                        
-                        temp.pr_vaddr = [[[owner regions] objectAtIndex:0] addressRange].location;                        
-                        temp.pr_mflags = MA_READ; // Anything we get from a symbolicator is readable
-                        
-                        data = [NSData dataWithBytes:&temp length:sizeof(temp)];
-                        
-                        [P->prmap_dictionary setObject:data forKey:owner];
-                }
+	__block int err = 0;
+        	
+	CSSymbolicatorForeachSymbolOwnerAtTime(P->symbolicator, kCSNow, ^(CSSymbolOwnerRef owner) {
 		
-                map = [data bytes];
-        }
+		// We work through "generations of symbol owners. At any given point, we only want to
+		// look at what has changed since the last processing attempt. Dyld may load library after
+		// library with the same load timestamp. So we mark the symbol owners with a "generation"
+		// and only look at those that are unmarked, or are the current generation.
+		uintptr_t generation = CSSymbolOwnerGetTransientUserData(owner);		
+		if (generation == 0 || generation == P->current_symbol_owner_generation) {
+			if (generation == 0)
+				CSSymbolOwnerSetTransientUserData(owner, P->current_symbol_owner_generation);
+						
+			if (err) return; // skip everything after error
+			if (CSSymbolOwnerIsCommpage(owner)) return; // <rdar://problem/4877551>
+			
+			prmap_t map;
+			const char* name = CSSymbolOwnerGetName(owner);
+			map.pr_vaddr = CSSymbolOwnerGetBaseAddress(owner);
+			map.pr_mflags = MA_READ;
+			
+			err = func(cd, &map, name);
+		}
+	});
 	
-	[pool drain];
-        
-        return map;	
+	return err;
 }
 
-const prmap_t *Pname_to_map(struct ps_prochandle *P, const char *name) {
-    return (Plmid_to_map(P, PR_LMID_EVERY, name));
+// The solaris version of XYZ_to_map() didn't require the prmap_t* map argument.
+// They relied on their backing store to allocate and manage the prmap_t's. We don't
+// have an equivalent, and these are cheaper to fill in on the fly than to store.
+
+const prmap_t *Paddr_to_map(struct ps_prochandle *P, mach_vm_address_t addr, prmap_t* map) {        
+	CSSymbolOwnerRef owner = CSSymbolicatorGetSymbolOwnerWithAddressAtTime(P->symbolicator, addr, kCSNow);
+	
+	// <rdar://problem/4877551>
+	if (!CSIsNull(owner) && !CSSymbolOwnerIsCommpage(owner)) {	
+		map->pr_vaddr = CSSymbolOwnerGetBaseAddress(owner);                        
+		map->pr_mflags = MA_READ; // Anything we get from a symbolicator is readable
+		
+		return map;
+	}
+	
+	return NULL;	
+}
+
+const prmap_t *Pname_to_map(struct ps_prochandle *P, const char *name, prmap_t* map) {
+	return (Plmid_to_map(P, PR_LMID_EVERY, name, map));
 }
 
 /*
@@ -742,48 +709,25 @@ const prmap_t *Pname_to_map(struct ps_prochandle *P, const char *name) {
  * It appears there are only 3 uses of this currently. A check for ld.so (dtrace fails against static exe's),
  * and a test for a.out'ness. dtrace looks up the map for a.out, and the map for the module, and makes sure
  * they share the same v_addr.
- *
- * To avoid faulting in all symbol owners to create an array of prmap_t, we keep a dictionary of NSData's,
- * keyed by symbol owner. We key by symbol owner because prmaps can also be looked up by address.
  */
 
-const prmap_t *Plmid_to_map(struct ps_prochandle *P, Lmid_t ignored, const char *cname) {
-        const prmap_t* map = NULL;
+const prmap_t *Plmid_to_map(struct ps_prochandle *P, Lmid_t ignored, const char *cname, prmap_t* map) {    
+	// Need to handle some special case defines
+	if (cname == PR_OBJ_LDSO) 
+		cname = "dyld";
+	
+	CSSymbolOwnerRef owner = symbolOwnerForName(P->symbolicator, cname);
+	// CSSymbolOwnerRef owner = CSSymbolicatorGetSymbolOwnerWithNameAtTime(P->symbolicator, cname, kCSNow);
+	
+	// <rdar://problem/4877551>
+	if (!CSIsNull(owner) && !CSSymbolOwnerIsCommpage(owner)) {	    
+		map->pr_vaddr = CSSymbolOwnerGetBaseAddress(owner);
+		map->pr_mflags = MA_READ; // Anything we get from a symbolicator is readable
+		
+		return map;
+	}
         
-        // Need to handle some special case defines
-        if (cname == PR_OBJ_LDSO) 
-                cname = "dyld";
-        else if (cname == PR_OBJ_EXEC)
-                cname = "a.out";
-        
-        NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
-        
-        NSString* name = [NSString stringWithUTF8String:cname];
-
-        VMUSymbolOwner* owner = symbolOwnerForName(P->symbolicator, name);
-  
-        // <rdar://problem/4877551>
-        if (owner && ![owner isCommpage]) {
-                // Now we try a lookup
-                NSData* data = [P->prmap_dictionary objectForKey:owner];
-                
-                if (!data) {
-                        prmap_t temp;
-                        
-                        temp.pr_vaddr = [[[owner regions] objectAtIndex:0] addressRange].location;                        
-                        temp.pr_mflags = MA_READ; // Anything we get from a symbolicator is readable
-                        
-                        data = [NSData dataWithBytes:&temp length:sizeof(temp)];
-                        
-                        [P->prmap_dictionary setObject:data forKey:owner];
-                }
-                 
-                map = [data bytes];
-        }
-        
-        [pool drain];
-        
-        return map;
+	return NULL;
 }
 
 /*
@@ -791,24 +735,15 @@ const prmap_t *Plmid_to_map(struct ps_prochandle *P, Lmid_t ignored, const char 
  * mapped object (file), as provided by the dynamic linker.
  * Return NULL on failure (no underlying shared library).
  */
-char *Pobjname(struct ps_prochandle *P, uint64_t addr, char *buffer, size_t bufsize) {
-        char *err = NULL;
-        
-        NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
-
-        VMUSymbolOwner* owner = [P->symbolicator symbolOwnerForAddress:addr];
-        
-        if (owner) {
-                strncpy(buffer, [[owner name] UTF8String], bufsize);
-                err = buffer;
-        }
-        
-        [pool drain];
-        
-        // ALWAYS! make certain buffer is null terminated
-        buffer[bufsize-1] = 0;
-        
-        return err;
+char *Pobjname(struct ps_prochandle *P, mach_vm_address_t addr, char *buffer, size_t bufsize) {    
+	CSSymbolOwnerRef owner = CSSymbolicatorGetSymbolOwnerWithAddressAtTime(P->symbolicator, addr, kCSNow);
+	if (!CSIsNull(owner)) {
+		strncpy(buffer, CSSymbolOwnerGetPath(owner), bufsize);
+		buffer[bufsize-1] = 0; // Make certain buffer is NULL terminated.
+		return buffer;
+	}
+	buffer[0] = 0;
+	return NULL;
 }
 
 /*
@@ -820,90 +755,88 @@ char *Pobjname(struct ps_prochandle *P, uint64_t addr, char *buffer, size_t bufs
  *
  * We are treating everything as being in the base map, so no work is needed.
  */
-int Plmid(struct ps_prochandle *P, uint64_t addr, Lmid_t *lmidp) {
-        *lmidp = LM_ID_BASE;
-        return 0;
+int Plmid(struct ps_prochandle *P, mach_vm_address_t addr, Lmid_t *lmidp) {
+	*lmidp = LM_ID_BASE;
+	return 0;
 }
-
-// A helper category to crack "-[Class method]" into "Class" "-method"
-@interface VMUSymbol (dtrace)
-- (NSString*)dtraceClassName;
-- (NSString*)dtraceMethodName;
-@end
-
-@implementation VMUSymbol (dtrace)
-
-//
-// FIX ME!!
-//
-// These methods are horribly inefficient.
-- (NSString*)dtraceClassName
-{
-        NSString* temp = (_name) ? _name : _mangledName;
-        NSAssert([self isObjcMethod], @"Only valid for objc methods");
-        NSAssert(([temp hasPrefix:@"-["] || [temp hasPrefix:@"+["]) && [temp hasSuffix:@"]"], @"Not objc method name!");
-        NSRange r = [temp rangeOfString:@" "];
-        return [temp substringWithRange:NSMakeRange(2, r.location - 2)];
-}
-
-- (NSString*)dtraceMethodName
-{
-        NSString* temp = (_name) ? _name : _mangledName;
-        NSAssert([self isObjcMethod], @"Only valid for objc methods");
-        NSAssert(([temp hasPrefix:@"-["] || [temp hasPrefix:@"+["]) && [temp hasSuffix:@"]"], @"Not objc method name!");    
-        NSRange r = [temp rangeOfString:@" "];
-        r.location++;
-        return [NSString stringWithFormat:@"%c%@", (char)[temp characterAtIndex:0], [temp substringWithRange:NSMakeRange(r.location, ([temp length] - 1) - r.location)]];
-}
-
-@end
 
 /*
  * This is an Apple only proc method. It is used by the objc provider,
  * to iterate all classes and methods.
  */
-
 int Pobjc_method_iter(struct ps_prochandle *P, proc_objc_f *func, void *cd) {
-        int err = 0;
-        
-        NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
-
-        for (VMUSymbolOwner* owner in [P->symbolicator symbolOwners]) {
-                for (VMUSymbol* symbol in [owner symbols]) {
-                        if ([symbol isObjcMethod]) {
-                                GElf_Sym gelf_sym;
-                                VMURange addressRange = [symbol addressRange];
-                                
-                                gelf_sym.st_name = 0;
-                                gelf_sym.st_info = GELF_ST_INFO((STB_GLOBAL), (STT_FUNC));
-                                gelf_sym.st_other = 0;
-                                gelf_sym.st_shndx = SHN_MACHO;
-                                gelf_sym.st_value = addressRange.location;
-                                gelf_sym.st_size = addressRange.length;
-                                
-                                NSString* class_name = [symbol dtraceClassName];
-                                NSString* method_name = [symbol dtraceMethodName];
-                                
-                                if ((err = func(cd, &gelf_sym, [class_name UTF8String], [method_name UTF8String])) != 0)
-                                        break;
-                                
-                        }
-                }
-                
-                /* We need to propagate errors from the inner loop */
-                if (err != 0)
-                        break;
-        }
-        
-        [pool drain];
-        
-        return err;
+	__block int err = 0;
+	CSSymbolicatorForeachSymbolOwnerAtTime(P->symbolicator, kCSNow, ^(CSSymbolOwnerRef owner) {
+		// We work through "generations of symbol owners. At any given point, we only want to
+		// look at what has changed since the last processing attempt. Dyld may load library after
+		// library with the same load timestamp. So we mark the symbol owners with a "generation"
+		// and only look at those that are unmarked, or are the current generation.
+		uintptr_t generation = CSSymbolOwnerGetTransientUserData(owner);		
+		if (generation == 0 || generation == P->current_symbol_owner_generation) {
+			if (generation == 0)
+				CSSymbolOwnerSetTransientUserData(owner, P->current_symbol_owner_generation);
+								
+			if (err) return; // Have to bail out on error condition
+			
+			CSSymbolOwnerForeachSymbol(owner, ^(CSSymbolRef symbol) {
+				
+				if (err) return; // Have to bail out on error condition
+				
+				if (CSSymbolIsObjcMethod(symbol)) {
+					GElf_Sym gelf_sym;
+					CSRange addressRange = CSSymbolGetRange(symbol);
+					
+					gelf_sym.st_name = 0;
+					gelf_sym.st_info = GELF_ST_INFO((STB_GLOBAL), (STT_FUNC));
+					gelf_sym.st_other = 0;
+					gelf_sym.st_shndx = SHN_MACHO;
+					gelf_sym.st_value = addressRange.location;
+					gelf_sym.st_size = addressRange.length;
+					
+					const char* symbolName = CSSymbolGetName(symbol);				
+					size_t symbolNameLength = strlen(symbolName);
+					
+					// First find the split point
+					size_t split_index = 0;
+					while (symbolName[split_index] != ' ' && symbolName[split_index] != 0)
+						split_index++;
+					
+					if (split_index < symbolNameLength) {
+						// We know the combined length will be +1 byte for an extra NULL, and -3 for  no '[', ']', or ' '
+						char backingStore[256];
+						char* className = (symbolNameLength < sizeof(backingStore)) ? backingStore : malloc(symbolNameLength);
+						
+						// Class name range is [2, split_index)
+						size_t classNameLength = &symbolName[split_index] - &symbolName[2];
+						strncpy(className, &symbolName[2], classNameLength);
+						
+						// method name range is [split_index+1, length-1)
+						char* methodName = &className[classNameLength];
+						*methodName++ = 0; // Null terminate the className string;
+						*methodName++ = symbolName[0]; // Apply the -/+ instance/class modifier.
+						size_t methodNameLength = &symbolName[symbolNameLength] - &symbolName[split_index+1] - 1;
+						strncpy(methodName, &symbolName[split_index+1], methodNameLength);
+						methodName[methodNameLength] = 0; // Null terminate!
+						methodName -= 1; // Move back to cover the modifier.
+						
+						err = func(cd, &gelf_sym, className, methodName);
+						
+						// Free any memory we had to allocate
+						if (className != backingStore)
+							free(className);					
+					}
+				}
+			});
+		}
+	});
+	
+	return err;
 }
 
 /*
  * APPLE NOTE: 
  *
- * object_name == VMUSymbolOwner
+ * object_name == CSSymbolOwner name
  * which == PR_SYMTAB || PR_DYNSYM 
  * mask == BIND_ANY | TYPE_FUNC (Binding type and func vs data?)
  * cd = caller data, pass through
@@ -915,100 +848,81 @@ int Pobjc_method_iter(struct ps_prochandle *P, proc_objc_f *func, void *cd) {
  */
 
 int Psymbol_iter_by_addr(struct ps_prochandle *P, const char *object_name, int which, int mask, proc_sym_f *func, void *cd) {
-	int err = 0;
-
+	__block int err = 0;
+	
 	if (which != PR_SYMTAB)
 		return err;
-
-	NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
-
-	NSString* name = [NSString stringWithUTF8String:object_name];
-
-	VMUSymbolOwner* owner = symbolOwnerForName(P->symbolicator, name);
-
-	if (owner && ![owner isCommpage]) { // <rdar://problem/4877551>
-		for (VMUSymbol* symbol in [owner symbols]) {
-
-			if ([symbol isDyldStub]) // We never instrument dyld stubs
-				continue;
-
-			if ((mask & TYPE_FUNC) && ![symbol isFunction])
-				continue;
-
-			GElf_Sym gelf_sym;
-			VMURange addressRange = [symbol addressRange];
-
-			gelf_sym.st_name = 0;
-			gelf_sym.st_info = GELF_ST_INFO((STB_GLOBAL), (STT_FUNC));
-			gelf_sym.st_other = 0;
-			gelf_sym.st_shndx = SHN_MACHO;
-			gelf_sym.st_value = addressRange.location;
-			gelf_sym.st_size = addressRange.length;
-
-			const char *mangledName = [[symbol mangledName] UTF8String];
-			if (_dtrace_mangled &&
-			    strlen(mangledName) >= 3 &&
-			    mangledName[0] == '_' &&
-			    mangledName[1] == '_' &&
-			    mangledName[2] == 'Z') {
-				// mangled name - use it
-				err = func(cd, &gelf_sym, mangledName);
-			} else {
-				err = func(cd, &gelf_sym, [[symbol name] UTF8String]);
-			}
-			if (err != 0)
-				break;
+        
+	CSSymbolOwnerRef owner = symbolOwnerForName(P->symbolicator, object_name);
+			
+	// <rdar://problem/4877551>
+	if (!CSIsNull(owner) && !CSSymbolOwnerIsCommpage(owner)) {
+		// We work through "generations of symbol owners. At any given point, we only want to
+		// look at what has changed since the last processing attempt. Dyld may load library after
+		// library with the same load timestamp. So we mark the symbol owners with a "generation"
+		// and only look at those that are unmarked, or are the current generation.
+		uintptr_t generation = CSSymbolOwnerGetTransientUserData(owner);		
+		if (generation == 0 || generation == P->current_symbol_owner_generation) {
+			if (generation == 0)
+				CSSymbolOwnerSetTransientUserData(owner, P->current_symbol_owner_generation);			
+		
+			CSSymbolOwnerForeachSymbol(owner, ^(CSSymbolRef symbol) {
+				if (err)
+					return; // Bail out on error.
+				
+				if (CSSymbolIsDyldStub(symbol)) // We never instrument dyld stubs
+					return;
+				
+				if ((mask & TYPE_FUNC) && !CSSymbolIsFunction(symbol))
+					return;
+				
+				GElf_Sym gelf_sym;
+				CSRange addressRange = CSSymbolGetRange(symbol);
+				
+				gelf_sym.st_name = 0;
+				gelf_sym.st_info = GELF_ST_INFO((STB_GLOBAL), (STT_FUNC));
+				gelf_sym.st_other = 0;
+				gelf_sym.st_shndx = SHN_MACHO;
+				gelf_sym.st_value = addressRange.location;
+				gelf_sym.st_size = addressRange.length;
+				
+				const char *mangledName;
+				if (_dtrace_mangled &&
+				    (mangledName = CSSymbolGetMangledName(symbol)) &&
+				    strlen(mangledName) >= 3 &&
+				    mangledName[0] == '_' &&
+				    mangledName[1] == '_' &&
+				    mangledName[2] == 'Z') {
+					// mangled name - use it
+					err = func(cd, &gelf_sym, mangledName);
+				} else {
+					err = func(cd, &gelf_sym, CSSymbolGetName(symbol));
+				}
+			});
 		}
 	} else {
 		// We must fail if the owner cannot be found
 		err = -1;
 	}
-
-	[pool drain];
-
+        
 	return err;
 }
 
 void Pupdate_maps(struct ps_prochandle *P) {
-	Pupdate_syms( P );
 }
 
-void Pmothball_syms(struct ps_prochandle *P) {
-	if (P->prev_symbolicator)
-		[P->prev_symbolicator release];
-	
-	P->prev_symbolicator = P->symbolicator;
+//
+// This method is called after dtrace has handled dyld activity.
+// It should "checkpoint" the timestamp of the most recently processed library.
+// Following invocations to "iter_by_xyz()" should only process libraries newer
+// than the checkpoint time.
+//
+void Pcheckpoint_syms(struct ps_prochandle *P) {
+	// In future iterations of the symbolicator, we will only process symbol owners older than what we have already seen.
+	P->current_symbol_owner_generation++;
 }
-	
-void Pupdate_syms(struct ps_prochandle *P) {	
-	NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
-	
-	if (P->symbolicator && (P->symbolicator != P->prev_symbolicator))
-		[P->symbolicator release];
-	
-	P->symbolicator = nil;
-	
-	// The dictionary contains NSData objects, which will free their backing store automagically
-	[P->prmap_dictionary release];
-	P->prmap_dictionary = nil;
-	
-	@try {
-#if !defined(REVERT_PR_5048245)
-		VMUSymbolicator* symbolicator = [VMUSymbolicator symbolicatorForTask:(P->task)];
-#else
-#warning REVERT_PR_5048245
-		VMUSymbolicator* symbolicator = [VMUSymbolicator symbolicatorForPid:(P->status.pr_pid)];
-#endif
 
-		if (symbolicator) {
-			P->symbolicator = [symbolicator retain];
-			P->prmap_dictionary = [[NSMutableDictionary alloc] init];
-		}
-	} @catch (NSException* e) {
-		Prelease(P, PRELEASE_CLEAR);
-	}
-	
-	[pool drain];
+void Pupdate_syms(struct ps_prochandle *P) {    
 }
 
 /*
@@ -1032,178 +946,130 @@ void Pupdate_syms(struct ps_prochandle *P) {
  * Because dt_pid.c calls this method just before lookups, we're going to overload
  * it to also screen out !functions.
  */
-const char *Ppltdest(struct ps_prochandle *P, uint64_t addr) {
-        const char* err = NULL;
-        
-        NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
-        
-        VMUSymbol* symbol = [P->symbolicator symbolForAddress:addr];
-        
+const char *Ppltdest(struct ps_prochandle *P, mach_vm_address_t addr) {
+	const char* err = NULL;
+	
+	CSSymbolRef symbol = CSSymbolicatorGetSymbolWithAddressAtTime(P->symbolicator, addr, kCSNow);
+	
 	// Do not allow dyld stubs, !functions, or commpage entries (<rdar://problem/4877551>)
-        if (symbol && ([symbol isDyldStub] || (![symbol isFunction]) || [[symbol owner] isCommpage]))
-                err = "Ppltdest is not implemented";
-        
-        [pool drain];
-        
-        return err;
+	if (!CSIsNull(symbol) && (CSSymbolIsDyldStub(symbol) || !CSSymbolIsFunction(symbol) || CSSymbolOwnerIsCommpage(CSSymbolGetSymbolOwner(symbol))))
+		err = "Ppltdest is not implemented";
+	
+	return err;
 }
 
-//
-// Pactivityserver() implements a mach server that fields reports of dyld image activity
-// in the client spawned by Pcreate() represented by the ps_prochandle P.
-//
-union MaxMsgSize {
-	union __RequestUnion__dt_dyld_dtrace_dyld_subsystem req;
-	union __ReplyUnion__dt_dyld_dtrace_dyld_subsystem rep; 
-};
-
-#define MAX_BOOTSTRAP_NAME_CHARS 32 /* _DTRACE_DYLD_BOOTSTRAP_NAME with pid digits tacked on. */
-
 rd_agent_t *Prd_agent(struct ps_prochandle *P) {
-	kern_return_t kr;
-	mach_port_t dt_dyld_port, notify_service, oldNotifyPort, pset;
-	char bsname[MAX_BOOTSTRAP_NAME_CHARS];
-	
-	(void) snprintf(bsname, sizeof(bsname), "%s_%d", _DTRACE_DYLD_BOOTSTRAP_NAME, P->status.pr_pid);
-	
-	/* If we've been started already by a previous call here. */
-	kr = bootstrap_check_in(bootstrap_port, bsname, &dt_dyld_port);
-	if (kr == KERN_SUCCESS) {
-		fprintf(stderr, "Revisting bootstrap_check_in() for %s (!)\n", bsname);
-		return (rd_agent_t *)P;
-	}
-
-	/* First call here. Establish RPC service that dyld can use for rendezvous. */
-	dt_dyld_port = (mach_port_t)P; // Encode ps_prochandle value "P" into port name.
-	kr = mach_port_allocate_name(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, dt_dyld_port);
-	if (kr != KERN_SUCCESS) {
-		fprintf(stderr, "mach_port_allocate(dt_dyld_port): %s\n", mach_error_string(kr));
-		return NULL;
-	}
-
-	kr = mach_port_insert_right(mach_task_self(), dt_dyld_port, dt_dyld_port, MACH_MSG_TYPE_MAKE_SEND);
-	if (kr != KERN_SUCCESS) {
-		fprintf(stderr, "mach_port_insert_right(dt_dyld_port): %s\n", mach_error_string(kr));
-		return NULL;
-	}
-
-	kr = bootstrap_register(bootstrap_port, bsname, dt_dyld_port);
-	if (kr != KERN_SUCCESS) {
-		fprintf(stderr, "bootstrap_register(dt_dyld_port): %s\n", mach_error_string(kr));
-		return NULL;
-	}
-
-	notify_service = 1 + (mach_port_t)P; // Encode ps_prochandle value "P" into notify port name.
-	kr = mach_port_allocate_name(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, notify_service);
-	if (kr != KERN_SUCCESS) {
-		fprintf(stderr, "mach_port_allocate(notify_service): %s\n", mach_error_string(kr));
-		return NULL;
-	}
-
-	oldNotifyPort = MACH_PORT_NULL;
-	kr = mach_port_request_notification(mach_task_self(),
-					    P->task,
-					    MACH_NOTIFY_DEAD_NAME,
-					    1,
-					    notify_service,
-					    MACH_MSG_TYPE_MAKE_SEND_ONCE,
-					    &oldNotifyPort);
-	if (kr != KERN_SUCCESS) {
-		fprintf(stderr, "mach_port_request_notification(notify_service): %s\n", mach_error_string(kr));
-	} else if (MACH_PORT_NULL != oldNotifyPort) {
-		(void)mach_port_deallocate(mach_task_self(), oldNotifyPort);
-	}
-	
-	
-	kr = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_PORT_SET, &pset);
-	if (kr != KERN_SUCCESS) {
-		fprintf(stderr, "mach_port_allocate(pset): %s\n", mach_error_string(kr));
-		return NULL;
-	}
-
-	(void)mach_port_move_member(mach_task_self(), dt_dyld_port, pset);
-	(void)mach_port_move_member(mach_task_self(), notify_service, pset);
-
-	P->dtrace_dyld_port = pset;
 	return (rd_agent_t *)P; // rd_agent_t is type punned onto ps_proc_handle (see below).
 }
 
-void Prd_agent_shutdown(struct ps_prochandle *P)
+void Penqueue_proc_activity(struct ps_prochandle* P, struct ps_proc_activity_event* activity)
 {
-	// Called from main thread. 
-	// Want to break out from mach_msg_server() looping on a dt_proc_control thread.
-	(void)mach_port_destroy(mach_task_self(), P->dtrace_dyld_port);
-}
-
-kern_return_t do_mach_notify_no_senders(
-	mach_port_t notify,
-	mach_port_name_t name)
-{
-	return KERN_FAILURE;
-}
-
-kern_return_t do_mach_notify_send_once(
-	mach_port_t notify)
-{
-	return KERN_FAILURE;
-}
-
-kern_return_t do_mach_notify_port_deleted(
-	mach_port_t notify,
-	mach_port_name_t name)
-{
-	return KERN_FAILURE;
-}
-
-kern_return_t do_mach_notify_port_destroyed(
-	mach_port_t notify,
-	mach_port_name_t name)
-{
-	return KERN_FAILURE;
-}
-
-kern_return_t do_mach_notify_dead_name(
-	mach_port_t notify,
-	mach_port_name_t name)
-{
-	struct ps_prochandle *P = (struct ps_prochandle *)(notify - 1);
+	pthread_mutex_lock(&P->proc_activity_queue_mutex);
 	
-	if (P->activity_handler_func && P->activity_handler_arg)
-		P->activity_handler_func(P->activity_handler_arg);
-	return KERN_SUCCESS;
-}
-
-kern_return_t
-dt_dyld_report_activity(mach_port_t activity_port, rd_event_msg_t rdm)
-{
-	struct ps_prochandle *P = (struct ps_prochandle *)activity_port;
-	
-	P->activity_handler_rdm = rdm;
-	if (P->activity_handler_func && P->activity_handler_arg)
-		P->activity_handler_func(P->activity_handler_arg);
-
-	return KERN_SUCCESS;
-}
-
-static boolean_t dtrace_dyld_demux(mach_msg_header_t *request, mach_msg_header_t *reply) {
-
-	if (MACH_MSGH_BITS_LOCAL(request->msgh_bits) == MACH_MSG_TYPE_PORT_SEND_ONCE) {
-		return notify_server(request, reply);
+	if (P->proc_activity_queue_enabled) {
+		// Events are processed in order. Add the new activity to the end.
+		if (P->proc_activity_queue) {
+			struct ps_proc_activity_event* temp = P->proc_activity_queue;
+			while (temp->next != NULL) {
+				temp = temp->next;
+			}
+			temp->next = activity;
+		} else {
+			P->proc_activity_queue = activity;
+		}
 	} else {
-		return dtrace_dyld_server(request, reply);
+		// The queue is disabled. destroy the events.
+		Pdestroy_proc_activity(activity);
 	}
-	/* NOTREACHED */
+	
+	pthread_mutex_unlock(&P->proc_activity_queue_mutex);
+	pthread_cond_broadcast(&P->proc_activity_queue_cond);	
 }
 
-void Pactivityserver(struct ps_prochandle *P, Phandler_func_t f, void *arg)
+void Pcreate_async_proc_activity(struct ps_prochandle* P, rd_event_e type)
 {
-	mach_msg_size_t mxmsgsz = sizeof(union MaxMsgSize) + MAX_TRAILER_SIZE;
-	kern_return_t kr;
+	struct ps_proc_activity_event* activity = malloc(sizeof(struct ps_proc_activity_event));
+	
+	activity->rd_event.type = type;
+	activity->rd_event.u.state = RD_CONSISTENT;
+	activity->synchronous = false;
+	activity->destroyed = false;
+	activity->next = NULL;
+	
+	Penqueue_proc_activity(P, activity);	
+}
 
-	P->activity_handler_func = f;
-	P->activity_handler_arg = arg;
+void Pcreate_sync_proc_activity(struct ps_prochandle* P, rd_event_e type)
+{
+	// Sync proc activity can use stack allocation.
+	struct ps_proc_activity_event activity;
+	
+	activity.rd_event.type = type;
+	activity.rd_event.u.state = RD_CONSISTENT;
+	activity.synchronous = true;
+	activity.destroyed = false;
+	activity.next = NULL;
+	
+	pthread_mutex_init(&activity.synchronous_mutex, NULL);
+	pthread_cond_init(&activity.synchronous_cond, NULL);
+	
+	Penqueue_proc_activity(P, &activity);	
 
-	kr = mach_msg_server(dtrace_dyld_demux, mxmsgsz, P->dtrace_dyld_port, 0);
+	// Now wait for the activity to be processed.
+	pthread_mutex_lock(&activity.synchronous_mutex);
+	while (!activity.destroyed) {
+		pthread_cond_wait(&activity.synchronous_cond, &activity.synchronous_mutex);
+	}
+	pthread_mutex_unlock(&activity.synchronous_mutex);
+
+	pthread_mutex_destroy(&activity.synchronous_mutex);
+	pthread_cond_destroy(&activity.synchronous_cond);
+	
+	return;
+}
+
+void* Pdequeue_proc_activity(struct ps_prochandle* P)
+{
+	struct ps_proc_activity_event* ret = NULL;
+	
+	pthread_mutex_lock(&P->proc_activity_queue_mutex);
+	
+	while (P->proc_activity_queue_enabled && !P->proc_activity_queue)
+		pthread_cond_wait(&P->proc_activity_queue_cond, &P->proc_activity_queue_mutex);
+
+	// Did we get anything?
+	if (ret = P->proc_activity_queue) {
+		P->proc_activity_queue = ret->next;
+		P->rd_event = ret->rd_event;		
+	}
+	
+	pthread_mutex_unlock(&P->proc_activity_queue_mutex);
+	
+	// RD_NONE is used to wakeup the control thread.
+	// Return NULL to indicate that.
+	if (ret && (ret->rd_event.type == RD_NONE)) {
+		Pdestroy_proc_activity((void*)ret);
+		ret = NULL;
+	}
+	
+	return ret;	
+}
+
+void Pdestroy_proc_activity(void* opaque)
+{
+	if (opaque) {
+		struct ps_proc_activity_event* activity = (struct ps_proc_activity_event*)opaque;
+		
+		// sync events own their memory, we just notify them.
+		if (activity->synchronous) {
+			pthread_mutex_lock(&activity->synchronous_mutex);
+			activity->destroyed = true;
+			pthread_mutex_unlock(&activity->synchronous_mutex);
+			pthread_cond_broadcast(&activity->synchronous_cond);
+		} else {
+			free(activity);
+		}
+	}
 }
 
 //
@@ -1216,7 +1082,7 @@ void Pactivityserver(struct ps_prochandle *P, Phandler_func_t f, void *arg)
 rd_err_e rd_event_getmsg(rd_agent_t *oo7, rd_event_msg_t *rdm) {
 	struct ps_prochandle *P = (struct ps_prochandle *)oo7;
 	
-	*rdm = P->activity_handler_rdm;
+	*rdm = P->rd_event;
 	return RD_OK;
 }
 
@@ -1225,7 +1091,7 @@ rd_err_e rd_event_getmsg(rd_agent_t *oo7, rd_event_msg_t *rdm) {
 //
 psaddr_t rd_event_mock_addr(struct ps_prochandle *P)
 {
-	return (psaddr_t)(P->activity_handler_rdm.type);
+	return (psaddr_t)(P->rd_event.type);
 }
 
 rd_err_e rd_event_enable(rd_agent_t *oo7, int onoff) {
@@ -1265,16 +1131,23 @@ char *rd_errstr(rd_err_e err) {
 extern int proc_pidinfo(int pid, int flavor, uint64_t arg,  void *buffer, int buffersize);
 
 int Pstate(struct ps_prochandle *P) {
-        int retval = 0;
-        struct proc_bsdinfo pbsd;
-        
-		retval = proc_pidinfo(P->status.pr_pid, PROC_PIDTBSDINFO, (uint64_t)0, &pbsd, sizeof(struct proc_bsdinfo));
-        if (retval == -1) {
-			return -1;
-		} else if (retval == 0) {
-			return PS_LOST;
-		} else {
-			switch(pbsd.pbi_status) {
+	int retval = 0;
+	struct proc_bsdinfo pbsd;
+	
+	// Overloaded usage. If we received an explicity LOST/EXIT, dont querry proc_pidinfo
+	if (P->rd_event.type == RD_DYLD_LOST)
+		return PS_LOST;
+	
+	if (P->rd_event.type == RD_DYLD_EXIT)
+		return PS_UNDEAD;
+	
+	retval = proc_pidinfo(P->status.pr_pid, PROC_PIDTBSDINFO, (uint64_t)0, &pbsd, sizeof(struct proc_bsdinfo));
+	if (retval == -1) {
+		return -1;
+	} else if (retval == 0) {
+		return PS_LOST;
+	} else {
+		switch(pbsd.pbi_status) {
 			case SIDL:
 				return PS_IDLE;
 			case SRUN:
@@ -1284,22 +1157,14 @@ int Pstate(struct ps_prochandle *P) {
 			case SZOMB:
 				return PS_UNDEAD;
 			case SSLEEP:
+				return PS_RUN;
 			default:
 				return -1;
-			}
-        }
-		/* NOTREACHED */
+		}
+	}
+	/* NOTREACHED */
 }
 
 const pstatus_t *Pstatus(struct ps_prochandle *P) {
-    return &P->status;
-}
-
-//
-// Unsorted below here.
-//
-
-int Pctlfd(struct ps_prochandle *ignore) {
-    NSLog(@"libProc.a UNIMPLEMENTED: Pctlfd()");
-    return 0;
+	return &P->status;
 }

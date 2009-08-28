@@ -46,7 +46,7 @@ extern "C" {
 #include "AppleUSBUHCI.h"
 #include "AppleUHCItdMemoryBlock.h"
 #include "AppleUHCIqhMemoryBlock.h"
-
+#include "USBTracepoints.h"
 
 #define super IOUSBControllerV3
 
@@ -345,6 +345,7 @@ AppleUSBUHCI::UIMInitialize(IOService * provider)
 {
     IOReturn		status;
 	int				i;
+	uint64_t		tempTime;
     
     USBLog(7, "+AppleUSBUHCI[%p]::UIMInitialize", this);
     
@@ -383,8 +384,9 @@ AppleUSBUHCI::UIMInitialize(IOService * provider)
 		_expansionData->_isochMaxBusStall = 10000;						// we need a requireMaxBusStall of 10 microseconds for UHCI
 		
 		
-        clock_get_uptime(&_lastTime);
-        
+		tempTime = mach_absolute_time();
+		_lastTime = *(AbsoluteTime*)&tempTime;
+       
         SetVendorInfo();
 		
         SetDeviceName();
@@ -519,9 +521,11 @@ AppleUSBUHCI::message( UInt32 type, IOService * provider,  void * argument )
 
 		nub->retain();
 		USBLog(1, "AppleUSBUHCI[%p]::message - got kIOUSBMessageExpressCardCantWake from driver %s[%p] argument is %s[%p]", this, provider->getName(), provider, nub->getName(), nub);
+		USBTrace( kUSBTUHCI, kTPUHCIMessage, (uintptr_t)this, (uintptr_t)provider, (uintptr_t)nub, 1 );
 		if (parentHub == _rootHubDevice)
 		{
 			USBLog(1, "AppleUSBUHCI[%p]::message - device is attached to my root hub (port %d)!!", this, (int)_ExpressCardPort);
+			USBTrace( kUSBTUHCI,  kTPUHCIMessage, (uintptr_t)this, (uintptr_t)_ExpressCardPort, 0, 2 );
 			_badExpressCardAttached = true;
 		}
 		nub->release();
@@ -684,6 +688,7 @@ AppleUSBUHCI::GetFrameNumber(void)
 		if (_myPowerState < kUSBPowerStateOn)
 		{
 			USBLog(1, "AppleUSBUHCI[%p]::GetFrameNumber called but controller is halted",  this);
+			USBTrace( kUSBTUHCI,  kTPUHCIGetFrameNumber, (uintptr_t)this, _myPowerState, kUSBPowerStateOn, 0);
 		}
 		return 0;
 	}
@@ -1051,6 +1056,7 @@ AppleUSBUHCI::scavengeIsochTransactions(void)
 		if (pEP->onReversedList)
 		{
 			USBLog(1, "AppleUSBUHCI[%p]::scavengeIsocTransactions - EP (%p) still had %d TDs on the reversed list!!", this, pEP, (uint32_t)pEP->onReversedList);
+			USBTrace( kUSBTUHCI,  kTPUHCIScavengeIsocTransactions, (uintptr_t)this, (uintptr_t)pEP, pEP->onReversedList, 0);
 		}
 		ReturnIsochDoneQueue(pEP);
 		AddIsochFramesToSchedule(pEP);
@@ -1067,10 +1073,11 @@ AppleUSBUHCI::scavengeAnIsochTD(AppleUHCIIsochTransferDescriptor *pTD)
 {
     IOUSBControllerIsochEndpoint*			pEP;
     IOReturn								ret;
-    AbsoluteTime							timeStamp;
+	uint64_t								currentTime;
 	
     pEP = pTD->_pEndpoint;
-    clock_get_uptime(&timeStamp);
+	currentTime = mach_absolute_time();
+
     if(pEP == NULL)
     {
 		USBError(1, "AppleUSBUHCI[%p]::scavengeAnIsochTD - could not find endpoint associated with iTD (%p)", this, pTD->_pEndpoint);
@@ -1078,7 +1085,7 @@ AppleUSBUHCI::scavengeAnIsochTD(AppleUHCIIsochTransferDescriptor *pTD)
     else
     {	
 		if (!pTD->_lowLatency)
-			ret = pTD->UpdateFrameList(timeStamp);		// TODO - accumulate the return values
+			ret = pTD->UpdateFrameList(*(AbsoluteTime*)&currentTime);		// TODO - accumulate the return values
 		
 		if (pTD->frStatus)
 		{
@@ -1213,6 +1220,7 @@ AppleUSBUHCI::scavengeQueueHeads(IOUSBControllerListElement *pLE)
 					if ((qTD->direction == kUSBOut) || !actLength)
 					{
 						USBLog(1, "AppleUSBUHCI[%p]::scavengeQueueHeads - releasing CBI buffer (%p) - direction (%s) - actLen (%d)", this, qTD->alignBuffer, qTD->direction == kUSBOut ? "OUT" : "IN", actLength);
+						USBTrace( kUSBTUHCI,  kTPUHCIScavengeQueueHeads, (uintptr_t)qTD->alignBuffer, qTD->direction, actLength, 1);
 						ReleaseCBIAlignmentBuffer(qTD->alignBuffer);
 						qTD->alignBuffer = NULL;
 					}
@@ -1229,6 +1237,7 @@ AppleUSBUHCI::scavengeQueueHeads(IOUSBControllerListElement *pLE)
 							if (dmaCommand && (dmaCommand->getMemoryDescriptor()))
 							{
 								USBLog(1, "AppleUSBUHCI[%p]::scavengeQueueHeads - IN transaction - storing UHCIAlignmentBuffer (%p) into dmaCommand (%p) to be copied later - actLegth (%d)", this, qTD->alignBuffer, dmaCommand, actLength);
+								USBTrace( kUSBTUHCI,  kTPUHCIScavengeQueueHeads, (uintptr_t)qTD->alignBuffer, (uintptr_t)dmaCommand, actLength, 2 );
 								qTD->alignBuffer->actCount = actLength;
 								queue_enter(&dmaCommand->_alignment_buffers, qTD->alignBuffer, UHCIAlignmentBuffer *, chain);
 								qTD->alignBuffer = NULL;
@@ -1334,6 +1343,7 @@ AppleUSBUHCI::scavengeQueueHeads(IOUSBControllerListElement *pLE)
     if(leCount > 1000)
     {
 		USBLog(1, "AppleUSBUHCI[%p]::scavengeQueueHeads looks like bad ed queue (%d)", this, (int)leCount);
+		USBTrace( kUSBTUHCI,  kTPUHCIScavengeQueueHeads, (uintptr_t)this, leCount, 0, 0);
     }
     
     return kIOReturnSuccess;
@@ -1656,6 +1666,7 @@ AppleUSBUHCI::AllocateQH(UInt16 functionNumber, UInt16 endpointNumber, UInt8 dir
 		if (!memBlock)
 		{
 			USBLog(1, "AppleUSBUHCI[%p]::AllocateQH - unable to allocate a new memory block!",  this);
+			USBTrace( kUSBTUHCI,  kTPUHCIAllocateQH, functionNumber, endpointNumber, direction, type);
 			return NULL;
 		}
 		// link it in to my list of ED memory blocks
@@ -1670,6 +1681,7 @@ AppleUSBUHCI::AllocateQH(UInt16 functionNumber, UInt16 endpointNumber, UInt8 dir
 			if (!freeQH)
 			{
 				USBLog(1, "AppleUSBUHCI[%p]::AllocateED - hmm. ran out of EDs in a memory block",  this);
+				USBTrace( kUSBTUHCI,  kTPUHCIAllocateQH, (uintptr_t)this, i, numQHs, 1 );
 				freeQH = _pFreeQH;
 				break;
 			}

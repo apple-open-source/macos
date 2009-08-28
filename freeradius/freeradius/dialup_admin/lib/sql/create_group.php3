@@ -12,6 +12,7 @@ if ($config[sql_use_operators] == 'true'){
 	$passwd_op = ",':='";
 }
 $da_abort=0;
+$op_val2 = '';
 $link = @da_sql_pconnect($config);
 if ($link){
 	$Members = preg_split("/[\n\s]+/",$members,-1,PREG_SPLIT_NO_EMPTY);
@@ -57,6 +58,7 @@ if ($link){
 			$op_name = $attrmap["$key"] . '_op';
 			$op_val = $$op_name;
 			if ($op_val != ''){
+				$op_val = da_sql_escape_string($op_val);
 				if (check_operator($op_val,$type) == -1){
 					echo "<b>Invalid operator ($op_val) for attribute $key</b><br>\n";
 					coninue;
@@ -71,8 +73,8 @@ if ($link){
 			if (!$res || !@da_sql_affected_rows($link,$res,$config))
 				echo "<b>Query failed for attribute $key: " . da_sql_error($link,$config) . "</b><br>\n";
 		}
+		echo "<b>Group created successfully</b><br>\n";
 	}
-	echo "<b>Group created successfully</b><br>\n";
 }
 else
 	echo "<b>Could not connect to SQL database</b><br>\n";

@@ -1,9 +1,8 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1999-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 1999,2007 Oracle.  All rights reserved.
 #
-# $Id: sdbtest002.tcl,v 1.2 2004/03/30 01:24:08 jtownsen Exp $
+# $Id: sdbtest002.tcl,v 12.6 2007/05/17 15:15:56 bostic Exp $
 #
 # TEST	sdbtest002
 # TEST	Tests multiple access methods in one subdb access by multiple
@@ -43,8 +42,7 @@ proc sdbtest002 { {nentries 10000} } {
 	set methods \
 	    [list "-rbtree" "-recno" "-btree" "-btree" "-recno" "-rbtree"]
 	cleanup $testdir NULL
-	puts "\tSubdbtest002.a: create subdbs of different access methods:"
-	puts "\t\t$methods"
+	puts "\tSubdbtest002.a: create subdbs of different methods: $methods"
 	set psize 4096
 	set nsubdbs [llength $methods]
 	set duplist ""
@@ -92,11 +90,6 @@ proc sdbtest002 { {nentries 10000} } {
 		error_check_good db_open [is_valid_db $db] TRUE
 		dump_file $db $txn $t1 $checkfunc
 		error_check_good db_close [$db close] 0
-		#
-		# This is just so that t2 is there and empty
-		# since we are only appending below.
-		#
-		exec > $t2
 
 		# Now compare the keys to see if they match the dictionary (or ints)
 		if { [is_record_based $method] == 1 } {

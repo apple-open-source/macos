@@ -180,7 +180,7 @@ print(PR *pr, u_char *bp)
 		}
 		break;
 	case F_P:
-		(void)printf(pr->fmt, isprint(*bp) ? *bp : '.');
+		(void)printf(pr->fmt, isprint(*bp) && isascii(*bp) ? *bp : '.');
 		break;
 	case F_STR:
 		(void)printf(pr->fmt, (char *)bp);

@@ -4,7 +4,7 @@
 #		NOTE: This top-level Makefile must not
 #		use GNU-make extensions. The lower ones can.
 #
-# Version:	$Id: Makefile,v 1.44.2.2.2.3 2006/06/23 04:31:58 fcusack Exp $
+# Version:	$Id$
 #
 
 include Make.inc
@@ -20,6 +20,10 @@ all:
 clean:
 	@$(MAKE) $(MFLAGS) WHAT_TO_MAKE=$@ common
 	@rm -f *~
+
+.PHONY: tests
+tests:
+	@$(MAKE) -C src/tests tests
 
 #
 # The $(R) is a magic variable not defined anywhere in this source.
@@ -63,6 +67,27 @@ install:
 	done
 	$(LIBTOOL) --finish $(R)$(libdir)
 
+ifneq ($(RADMIN),)
+ifneq ($(RGROUP),)
+.PHONY: install-chown
+install-chown:
+	chown -R $(RADMIN)   $(R)$(raddbdir)
+	chgrp -R $(RGROUP)   $(R)$(raddbdir)
+	chmod u=rwx,g=rx,o=  `find $(R)$(raddbdir) -type d -print`
+	chmod u=rw,g=r,o=    `find $(R)$(raddbdir) -type f -print`
+	chown -R $(RADMIN)   $(R)$(logdir)
+	chgrp -R $(RGROUP)   $(R)$(logdir)
+	find $(R)$(logdir) -type d -exec chmod u=rwx,g=rwx,o= {} \;
+	find $(R)$(logdir) -type d -exec chmod g+s {} \;
+	find $(R)$(logdir) -type f -exec chmod u=rw,g=rw,o= {} \;
+	chown -R $(RADMIN)   $(R)$(RUNDIR)
+	chgrp -R $(RGROUP)   $(R)$(RUNDIR)
+	find $(R)$(RUNDIR) -type d -exec chmod u=rwx,g=rwx,o= {} \;
+	find $(R)$(RUNDIR) -type d -exec chmod g+s {} \;
+	find $(R)$(RUNDIR) -type f -exec chmod u=rw,g=rw,o= {} \;
+endif
+endif
+
 common:
 	@for dir in $(SUBDIRS); do \
 		echo "Making $(WHAT_TO_MAKE) in $$dir..."; \
@@ -93,8 +118,8 @@ configure: configure.in aclocal.m4
 	$(AUTOCONF)
 
 # autoheader might not change autoconf.h.in, so touch a stamp file
-src/include/autoconf.h.in: src/include/stamp-h.in acconfig.h
-src/include/stamp-h.in: configure.in acconfig.h
+src/include/autoconf.h.in: src/include/stamp-h.in
+src/include/stamp-h.in: configure.in
 	$(AUTOHEADER)
 	echo timestamp > src/include/stamp-h.in
 
@@ -107,5 +132,74 @@ config.status: configure
 
 configure.in:
 
+.PHONY: check-includes
+check-includes:
+	scripts/min-includes.pl `find . -name "*.c" -print`
+
 TAGS:
 	etags `find src -type f -name '*.[ch]' -print`
+
+#
+#  Make test certificates.
+#
+.PHONY: certs
+certs:
+	@cd raddb/certs && $(MAKE)
+
+######################################################################
+#
+#  Make a release.
+#
+#  Note that "Make.inc" has to be updated with the release number
+#  BEFORE running this command!
+#
+######################################################################
+freeradius-server-$(RADIUSD_VERSION).tar.gz: .git
+	git archive --format=tar --prefix=freeradius-server-$(RADIUSD_VERSION)/ stable | gzip > $@
+
+freeradius-server-$(RADIUSD_VERSION).tar.gz.sig: freeradius-server-$(RADIUSD_VERSION).tar.gz
+	gpg --default-key aland@freeradius.org -b $<
+
+freeradius-server-$(RADIUSD_VERSION).tar.bz2: .git
+	git archive --format=tar --prefix=freeradius-server-$(RADIUSD_VERSION)/ stable | bzip2 > $@
+
+freeradius-server-$(RADIUSD_VERSION).tar.bz2.sig: freeradius-server-$(RADIUSD_VERSION).tar.bz2
+	gpg --default-key aland@freeradius.org -b $<
+
+# high-level targets
+.PHONY: dist-check
+dist-check: redhat/freeradius.spec suse/freeradius.spec debian/changelog
+	@if [ `grep ^Version: redhat/freeradius.spec | sed 's/.*://;s/ //'` != "$(RADIUSD_VERSION)" ]; then \
+		echo redhat/freeradius.spec 'Version' needs to be updated; \
+		exit 1; \
+	fi
+	@if [ `grep ^Version: suse/freeradius.spec | sed 's/.*://;s/ //'` != "$(RADIUSD_VERSION)" ]; then \
+		echo suse/freeradius.spec 'Version' needs to be updated; \
+		exit 1; \
+	fi
+	@if [ `head -n 1 debian/changelog | sed 's/.*(//;s/-0).*//;s/-1).*//;'`  != "$(RADIUSD_VERSION)" ]; then \
+		echo debian/changelog needs to be updated; \
+		exit 1; \
+	fi
+
+dist: dist-check freeradius-server-$(RADIUSD_VERSION).tar.gz freeradius-server-$(RADIUSD_VERSION).tar.bz2
+
+dist-sign: freeradius-server-$(RADIUSD_VERSION).tar.gz.sig freeradius-server-$(RADIUSD_VERSION).tar.bz2.sig
+
+dist-publish: freeradius-server-$(RADIUSD_VERSION).tar.gz.sig freeradius-server-$(RADIUSD_VERSION).tar.gz freeradius-server-$(RADIUSD_VERSION).tar.gz.sig freeradius-server-$(RADIUSD_VERSION).tar.bz2 freeradius-server-$(RADIUSD_VERSION).tar.gz.sig freeradius-server-$(RADIUSD_VERSION).tar.bz2.sig
+	scp $^ freeradius.org@ns5.freeradius.org:public_ftp
+	scp $^ freeradius.org@www.tr.freeradius.org:public_ftp
+
+#
+#  Note that we do NOT do the tagging here!  We just print out what
+#  to do!
+#
+dist-tag: freeradius-server-$(RADIUSD_VERSION).tar.gz freeradius-server-$(RADIUSD_VERSION).tar.bz2
+	@echo "git tag release_`echo $(RADIUSD_VERSION) | tr .- __`"
+
+#
+#	Build a debian package
+#
+.PHONY: deb
+deb:
+	fakeroot dpkg-buildpackage -b -uc

@@ -1,9 +1,8 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 2001-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 2001,2007 Oracle.  All rights reserved.
 #
-# $Id: si002.tcl,v 1.2 2004/03/30 01:24:08 jtownsen Exp $
+# $Id: si002.tcl,v 12.13 2007/06/18 14:50:03 carol Exp $
 #
 # TEST	si002
 # TEST	Basic cursor-based secondary index put/delete test
@@ -24,29 +23,56 @@ proc si002 { methods {nentries 200} {tnum "002"} args } {
 	set pargs [convert_args $pmethod $args]
 	set pomethod [convert_method $pmethod]
 
+	# Renumbering recno databases can't be used as primaries.
+	if { [is_rrecno $pmethod] == 1 } {
+		puts "Skipping si$tnum for method $pmethod"
+		return
+	}
+
 	# Method/args for all the secondaries.  If only one method
-	# was specified, assume the same method and a standard N
-	# secondaries.
+	# was specified, assume the same method (for btree or hash)
+	# and a standard number of secondaries.  If primary is not
+	# btree or hash, force secondaries to be one btree, one hash.
 	set methods [lrange $methods 1 end]
 	if { [llength $methods] == 0 } {
 		for { set i 0 } { $i < $nsecondaries } { incr i } {
-			lappend methods $pmethod
+			if { [is_btree $pmethod] || [is_hash $pmethod] } {
+				lappend methods $pmethod
+			} else {
+				if { [expr $i % 2] == 0 } {
+					lappend methods "-btree"
+				} else {
+					lappend methods "-hash"
+				}
+			}
 		}
 	}
 
 	set argses [convert_argses $methods $args]
 	set omethods [convert_methods $methods]
 
-	puts "Si$tnum ($pmethod/$methods) $nentries equal key/data pairs"
-	env_cleanup $testdir
+	# If we are given an env, use it.  Otherwise, open one.
+	set eindex [lsearch -exact $args "-env"]
+	if { $eindex == -1 } {
+		env_cleanup $testdir
+		set env [berkdb_env -create -home $testdir]
+		error_check_good env_open [is_valid_env $env] TRUE
+	} else {
+		incr eindex
+		set env [lindex $args $eindex]
+		set envflags [$env get_open_flags]
+		if { [lsearch -exact $envflags "-thread"] != -1 } {
+			puts "Skipping si$tnum for threaded env"
+			return
+		}
+		set testdir [get_home $env]
+	}
+
+	puts "si$tnum \{\[ list $pmethod $methods \]\} $nentries"
+	cleanup $testdir $env
 
 	set pname "primary$tnum.db"
 	set snamebase "secondary$tnum"
-
-	# Open an environment
-	# XXX if one is not supplied!
-	set env [berkdb_env -create -home $testdir]
-	error_check_good env_open [is_valid_env $env] TRUE
 
 	# Open the primary.
 	set pdb [eval {berkdb_open -create -env} $env $pomethod $pargs $pname]
@@ -64,11 +90,14 @@ proc si002 { methods {nentries 200} {tnum "002"} args } {
 		lappend sdbs $sdb
 	}
 
-	puts "\tSi$tnum.a: Cursor put (-keyfirst/-keylast) loop"
 	set did [open $dict]
+
+	# Populate with a cursor, exercising keyfirst/keylast.
+	puts "\tSi$tnum.a: Cursor put (-keyfirst/-keylast) loop"
 	set pdbc [$pdb cursor]
 	error_check_good pdb_cursor [is_valid_cursor $pdbc $pdb] TRUE
 	for { set n 0 } { [gets $did str] != -1 && $n < $nentries } { incr n } {
+
 		if { [is_record_based $pmethod] == 1 } {
 			set key [expr $n + 1]
 			set datum $str
@@ -76,6 +105,7 @@ proc si002 { methods {nentries 200} {tnum "002"} args } {
 			set key $str
 			gets $did datum
 		}
+
 		set ns($key) $n
 		set keys($n) $key
 		set data($n) [pad_data $pmethod $datum]
@@ -90,8 +120,9 @@ proc si002 { methods {nentries 200} {tnum "002"} args } {
 		    {$key [chop_data $pmethod $datum]}]
 		error_check_good put($n) $ret 0
 	}
-	close $did
 	error_check_good pdbc_close [$pdbc close] 0
+
+	close $did
 	check_secondaries $pdb $sdbs $nentries keys data "Si$tnum.a"
 
 	puts "\tSi$tnum.b: Cursor put overwrite (-current) loop"
@@ -171,5 +202,9 @@ proc si002 { methods {nentries 200} {tnum "002"} args } {
 		error_check_good secondary_close [$sdb close] 0
 	}
 	error_check_good primary_close [$pdb close] 0
-	error_check_good env_close [$env close] 0
+
+	# Close the env if it was created within this test.
+	if { $eindex == -1 } {
+		error_check_good env_close [$env close] 0
+	}
 }

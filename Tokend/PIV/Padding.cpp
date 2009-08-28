@@ -83,6 +83,7 @@ void Padding::apply(byte_string &data, size_t keySize, CSSM_PADDING padding, CSS
 	if(headerLength > 0) {
 		data.insert(data.begin(), header, header + headerLength);
 	}
+	int markerByteLocation;
 	// Calculate and apply padding
 	switch (padding) {
 	case CSSM_PADDING_NONE:
@@ -93,7 +94,7 @@ void Padding::apply(byte_string &data, size_t keySize, CSSM_PADDING padding, CSS
 		// Pad using PKCS1 v1.5 signature padding ( 00 01 FF FF.. 00 | M)
 		if(data.size() + 11 > keySize)
 			CssmError::throwMe(CSSMERR_CSP_BLOCK_SIZE_MISMATCH);
-		int markerByteLocation = keySize - data.size() - 1;
+		markerByteLocation = keySize - data.size() - 1;
 		data.insert(data.begin(), keySize - data.size(), 0xFF);
 		data[0] = 0;
 		data[1] = 1;

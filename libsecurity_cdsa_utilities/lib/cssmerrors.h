@@ -58,9 +58,6 @@ public:
 	//
 	static CSSM_RETURN cssmError(CSSM_RETURN error, CSSM_RETURN base);
 	static CSSM_RETURN cssmError(const CommonError &error, CSSM_RETURN base);
-
-private:
-	IFDEBUG(void debugDiagnose(const void *id) const);
 };
 
 

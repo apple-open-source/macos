@@ -45,11 +45,11 @@
 #define Sleep_Time  20
 
 #if DEBUG
-    #define IOLogIt(A,B,ASCI,STRING)    IOLog( "AppleIrDA: %8x %8x " STRING "\n", (unsigned int)(A), (unsigned int)(B) )
+    #define IOLogIt(A,B,ASCI,STRING)    IOLog( "AppleIrDA: %p %p " STRING "\n", (void *)(A), (void *)(B) )
     #if USE_ELG
-	#define ELG(A,B,ASCI,STRING)    EvLog( (UInt32)(A), (UInt32)(B), (UInt32)(ASCI), STRING )
+	#define ELG(A,B,ASCI,STRING)    EvLog( (void *)(A), (void *)(B), (void *)(ASCI), STRING )
     #else /* not USE_ELG */
-	#define ELG(A,B,ASCI,STRING)    {IOLog( "AppleIrDA: %8x %8x " STRING "\n", (unsigned int)(A), (unsigned int)(B) );IOSleep(Sleep_Time);}
+	#define ELG(A,B,ASCI,STRING)    {IOLog( "AppleIrDA: %p %p " STRING "\n", (void *)(A), (void *)(B) );IOSleep(Sleep_Time);}
     #endif /* USE_ELG */
     #if LOG_DATA
 	#define LogData(D, C, b)    DEVLogData((UInt8)D, (UInt32)C, (char *)b)

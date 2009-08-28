@@ -468,6 +468,7 @@ to the detailed description below for a complete description\&.
  \-4, \-\-ipv4                  prefer IPv4
  \-6, \-\-ipv6                  prefer IPv6
  \-E, \-\-extended-attributes   copy extended attributes, resource forks
+     \-\-cache                 disable fcntl(F_NOCACHE)
      \-\-version               print version number
 (\-h) \-\-help                  show this help (see below for \-h comment)
 .fi 
@@ -2071,6 +2072,9 @@ for checksum seed\&.
 Apple specific option to copy
 extended attributes, resource forks, and ACLs\&.  Requires at least
 Mac OS X 10\&.4 or suitably patched rsync\&.
+.IP "\fB--cache\fP"
+Apple specific option to enable filesystem caching of rsync file i/o
+Otherwise fcntl(F_NOCACHE) is used to limit memory growth.
 .IP 
 .PP 
 .SH "DAEMON OPTIONS"
@@ -3003,6 +3007,7 @@ default \&.cvsignore file\&.
 
 .PP 
 \fBrsyncd\&.conf\fP(5)
+\fBfcntl\fP(2)
 .PP 
 .SH "BUGS"
 

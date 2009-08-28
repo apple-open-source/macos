@@ -93,6 +93,14 @@ case "${target}" in
 			srv_linux_usrregs=yes
 			srv_linux_thread_db=yes
 			;;
+  powerpc-*-darwin*)  srv_regobj=reg-ppc64.o
+			srv_tgtobj="macosx-low.o macosx-excthread.o macosx-ppc-low.o macosx-threads.o macosx-mutils.o"
+			srv_platform_include="-I\$(srcdir)/../macosx"
+			;;
+  arm-*-darwin*)  srv_regobj=reg-arm-macosx.o
+			srv_tgtobj="macosx-low.o macosx-excthread.o macosx-arm-low.o macosx-threads.o macosx-mutils.o"
+			srv_platform_include="-I\$(srcdir)/../macosx"
+			;;
   *)			echo "Error: target not supported by gdbserver."
 			exit 1
 			;;

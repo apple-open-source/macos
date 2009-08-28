@@ -34,7 +34,8 @@ The options are as follows:
 Create a keychain and establish it in the system as the primary system keychain whose unlocking is
 automatically handled by the system. The new keychain is empty. If the optional password argument
 is given, the keychain can be also be unlocked with that; otherwise, the keychain has no password
-and can only be unlocked by the system.
+and can only be unlocked by the system.  The optional password option is generally used for testing
+purposes, and using it is not recommended.
 .It Fl s
 Extract the master secret from source keychain(s) and install them in a destination keychain to allow unlocking.
 .It Fl t

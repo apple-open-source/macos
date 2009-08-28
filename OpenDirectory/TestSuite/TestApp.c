@@ -1,11 +1,12 @@
 #include <stdint.h>
 #include <OpenDirectory/OpenDirectory.h>
+#include <DirectoryService/DirectoryService.h>
 #include <unistd.h>
 #include <pthread.h>
 
 uint32_t    gTestCase       = 0;
-Boolean     gLogErrors      = FALSE;
-Boolean     gVerbose        = FALSE;
+bool     gLogErrors      = false;
+bool     gVerbose        = false;
 char        *gLogPath       = NULL;
 char        *gAdminAccount  = NULL;
 char        *gAdminPassword = NULL;
@@ -43,10 +44,10 @@ void parseOptions( int argc, char *argv[] )
         switch (ch)
         {
             case 'v':
-                gVerbose = TRUE;
+                gVerbose = true;
                 break;
             case 'e':
-                gLogErrors = TRUE;
+                gLogErrors = true;
                 break;
             case 'l':
                 gLogPath = optarg;
@@ -123,6 +124,248 @@ void searchCallback( ODContextRef inContext, CFMutableArrayRef inResults, CFErro
     }
 }
 
+bool doTestMembership( ODNodeRef inNodeRef, ODRecordType inGroupType, ODRecordType inMemberType )
+{
+    CFErrorRef  error           = NULL;
+    ODRecordRef testmember      = NULL;
+    ODRecordRef testcontainer   = NULL;
+    bool        bReturn         = false;
+    
+    CFArrayRef emptyValue = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
+    
+    bool (^testFailure)( bool, const char *, CFErrorRef *) = ^( bool bSuccess, const char *testCase, CFErrorRef *inError )
+    {
+        bool bFailed = true;
+        
+        CFErrorRef theError = (*inError);
+        if ( theError != NULL ) {
+            if ( bSuccess == false ) {
+                printf( "%s - FAIL", testCase );
+            }
+            else {
+                printf( "%s - FAIL (error but status says success)", testCase );
+            }
+            
+            CFStringRef errorDesc = CFErrorCopyDescription( theError );
+            const char *errorStr = "no error details";
+            char buffer[512];
+            
+            if ( errorDesc != NULL ) {
+                CFStringGetCString( errorDesc, buffer, sizeof(buffer), kCFStringEncodingUTF8 );
+                errorStr = buffer;
+            }
+            
+            printf( " - (%d) - %s\n", (int) CFErrorGetCode(theError), errorStr );
+        }
+        else {
+            if ( bSuccess == false ) {
+                printf( "%s - FAIL - failed but no Error\n", testCase );
+            }
+            else {
+                printf( "%s - SUCCESS\n", testCase );
+                bFailed = false;
+            }
+        }
+        
+        return bFailed;
+    };
+    
+    char groupType[64];
+    char memberType[64];
+    
+    CFStringGetCString( inGroupType, groupType, sizeof(groupType), kCFStringEncodingUTF8 );
+
+    if ( inMemberType != NULL ) {
+        CFStringGetCString( inMemberType, memberType, sizeof(memberType), kCFStringEncodingUTF8 );
+
+        printf( "\n-- Container '%s' - Member '%s'\n", groupType, memberType );
+
+        testmember = ODNodeCreateRecord( inNodeRef, inMemberType, CFSTR("testmember"), NULL, &error );
+        if ( testFailure(testmember != NULL, "ODNodeCreateRecord 'testmember'", &error) == true ) {
+            goto fail;
+        }
+    }
+    else {
+        printf( "\n-- Container '%s' - Member 'NULL'\n", groupType );
+    }
+    
+    testcontainer = ODNodeCreateRecord( inNodeRef, inGroupType, CFSTR("testcontainer"), NULL, &error );
+    if ( testFailure(testcontainer != NULL, "ODNodeCreateRecord 'testcontainer'", &error) == true ) {
+        goto fail;
+    }
+    
+    if ( inMemberType == NULL )
+    {
+        if ( ODRecordAddMember(testcontainer, NULL, &error) == true ) {
+            printf( "ODRecordAddMember (add NULL member) - FAIL (succeeded)\n" );
+        }
+        else {
+            printf( "ODRecordAddMember (add NULL member) - SUCCESS (got error)\n" );
+        }
+        goto finish;
+    }
+    
+    bool (^badMixture)( void ) = ^(void) {
+        if ( (inGroupType == kODRecordTypeGroups && (inMemberType == kODRecordTypeUsers || inMemberType == kODRecordTypeGroups)) ||
+             (inGroupType == kODRecordTypeComputerGroups && (inMemberType == kODRecordTypeComputers || inMemberType == kODRecordTypeComputerGroups)) ||
+             (inGroupType == kODRecordTypeComputerLists && (inMemberType == kODRecordTypeComputers || inMemberType == kODRecordTypeComputerLists)) )
+        {
+            return (bool) false;
+        }
+        
+        return (bool) true;
+    };
+    
+    bool (^addMember)(const char *) = ^(const char *testCase) {
+        char errorStr[256];
+        CFErrorRef localErr = NULL;
+        
+        snprintf( errorStr, sizeof(errorStr), "ODRecordAddMember (%s)", testCase );
+        
+        if ( ODRecordAddMember(testcontainer, testmember, &localErr) == false )
+        {
+            // need to check types, may expected failure
+            if ( badMixture() == false )
+            {
+                if ( testFailure(false, errorStr, &localErr) == true ) {
+                    return (bool) false;
+                }
+            }
+            else {
+                printf( "%s - SUCCESS (got error)\n", errorStr );
+                CFRelease( localErr );
+                localErr = NULL;
+            }
+        }
+        else {
+            printf( "%s - SUCCESS\n", errorStr );            
+        }
+        
+        return (bool) true;
+    };
+    
+    //
+    // add member with valid UUID
+    if ( addMember("has UUID") == false ) goto fail;
+    
+    //
+    // add member without UUID nor UID
+    if ( testFailure(ODRecordSetValue(testmember, kODAttributeTypeGUID, emptyValue, &error), 
+                     "ODRecordSetValue testmember (remove GUID)", &error) == true )
+    {
+        goto fail;
+    }
+    
+    // can only do this test if we are users cause group-in-group requires UUID or GID
+    if ( inMemberType == kODRecordTypeUsers && addMember("no UUID nor UID/GID, if applicable") == false ) goto fail;
+    
+    ODAttributeType idAttr = NULL;
+    
+    if ( inMemberType == kODRecordTypeUsers ) {
+        idAttr = kODAttributeTypeUniqueID;
+    }
+    else if ( inMemberType == kODRecordTypeGroups ) {
+        idAttr = kODAttributeTypePrimaryGroupID;
+    }
+    
+    if ( idAttr != NULL )
+    {
+        //
+        // set ID so we have a synthetic UUID
+        if ( testFailure(ODRecordSetValue(testmember, idAttr, CFSTR("199"), &error), 
+                         "ODRecordSetValue testmember (set UID)", &error) == true )
+        {
+            goto fail;
+        }
+        
+        if ( addMember("synthetic UUID") == false ) goto fail;
+    }
+    
+    ODAttributeType mbrAttrib   = NULL;
+    ODAttributeType clearAttrib = NULL;
+
+    if ( inMemberType == kODRecordTypeUsers || inMemberType == kODRecordTypeComputers ) {
+        if ( inGroupType == kODRecordTypeComputerLists ) mbrAttrib = kODAttributeTypeComputers;
+        else mbrAttrib = kODAttributeTypeGroupMembers;
+    }
+    else if ( inMemberType == kODRecordTypeGroups || inMemberType == kODRecordTypeComputerGroups ) {
+        mbrAttrib = kODAttributeTypeNestedGroups;
+    }
+    else if ( inMemberType == kODRecordTypeComputerLists ) {
+        mbrAttrib = kODAttributeTypeGroup;
+    }
+    else {
+        goto finish;
+    }
+    
+    if ( testFailure(ODRecordSetValue(testmember, kODAttributeTypeGUID, CFSTR("12345678-1234-1234-123456789011"), &error), 
+                     "ODRecordSetValue testmember (put a UUID back)", &error) == true )
+    {
+        goto fail;
+    }    
+    
+    // now add to fake GUIDs
+    CFTypeRef values[] = { CFSTR("12345678-1234-1234-123456789012"), CFSTR("12345678-1234-1234-123456789013"), CFSTR("12345678-1234-1234-123456789014") };
+    CFArrayRef cfGUIDList = CFArrayCreate( kCFAllocatorDefault, values, sizeof(values) / sizeof(CFTypeRef), &kCFTypeArrayCallBacks );
+    if ( testFailure(ODRecordSetValue(testcontainer, mbrAttrib, cfGUIDList, &error), 
+                     "ODRecordSetValue testcontainer (adding fake values)", &error) == true )
+    {
+        goto fail;
+    }
+    
+    if ( inGroupType == kODRecordTypeGroups && 
+         inMemberType == kODRecordTypeUsers && 
+         testFailure(ODRecordSetValue(testcontainer, kODAttributeTypeGroupMembership, emptyValue, &error), 
+                     "ODRecordSetValue testcontainer (removing name list)", &error) == true )
+    {
+        goto fail;
+    }
+    
+    if ( addMember("adding member (missing legacy membership, if applicable)") == false ) goto fail;
+    else if ( badMixture() == true ){
+        printf( "Stopping test because incompatible mix to do addition validation\n" );
+        goto finish;
+    }
+    
+    
+    CFArrayRef groupMembers = ODRecordCopyValues( testcontainer, mbrAttrib, &error );
+    if ( testFailure(groupMembers != NULL, "ODRecordCopyValues testcontainer", &error) == true ) {
+        goto fail;
+    }
+    
+    // should have 4 members now
+    CFIndex count = CFArrayGetCount( groupMembers );
+    printf( "ODRecordCopyValues testcontainer (expected 4 got %d) - %s\n", (int) count, (count == 4 ? "SUCCESS" : "FAIL") );
+    if ( count != 4 ) {
+        goto fail;
+    }
+    
+    if ( addMember("adding member (twice)") == false ) goto fail;
+    
+    groupMembers = ODRecordCopyValues( testcontainer, mbrAttrib, &error );
+    if ( testFailure(groupMembers != NULL, "ODRecordCopyValues testcontainer", &error) == true ) {
+        goto fail;
+    }
+    
+    // should still have 4 members
+    count = CFArrayGetCount( groupMembers );
+    printf( "ODRecordCopyValues testcontainer (expected 4 got %d) - %s\n", (int) count, (count == 4 ? "SUCCESS" : "FAIL") );
+    if ( count != 4 ) goto fail;
+    
+    // TODO: do we need to care about the name membership count?
+    
+finish:
+    
+    bReturn = true;
+    
+fail:
+    
+    ODRecordDelete( testmember, NULL );
+    ODRecordDelete( testcontainer, NULL );
+    
+    return bReturn;
+};
+
 void *doTest( void *inData )
 {
     ODSessionRef        cfRef               = NULL;
@@ -136,10 +379,10 @@ void *doTest( void *inData )
     CFErrorRef          cfError;
     ODNodeRef           cfNodeRef           = NULL;
     ODNodeRef           cfLocalNodeRef      = (ODNodeRef) inData;
-    CFStringRef         cfRecordName        = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR("TestCFFramework%d"), (int) pthread_self() );
-    CFStringRef         cfGroupName         = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR("TestGroup%d"), (int) pthread_self() );
-    CFStringRef         cfAddRecordName     = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR("TestAddRecord%d"), (int) pthread_self() );
-    CFStringRef         cfAddRecordAlias    = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR("TestAddRecordAlias%d"), (int) pthread_self() );
+    CFStringRef         cfRecordName        = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR("TestCFFramework%ld"), (long) pthread_self() );
+    CFStringRef         cfGroupName         = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR("TestGroup%ld"), (long) pthread_self() );
+    CFStringRef         cfAddRecordName     = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR("TestAddRecord%ld"), (long) pthread_self() );
+    CFStringRef         cfAddRecordAlias    = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR("TestAddRecordAlias%ld"), (long) pthread_self() );
     
     if( NULL != gProxyHost )
     {
@@ -192,7 +435,7 @@ void *doTest( void *inData )
             cfRef = NULL;
         }
         
-        cfNodeRef = ODNodeCreateWithNodeType( kCFAllocatorDefault, kODSessionDefault, kODTypeAuthenticationSearchNode, NULL );
+        cfNodeRef = ODNodeCreateWithNodeType( kCFAllocatorDefault, kODSessionDefault, kODNodeTypeAuthentication, &cfError );
         if( NULL != cfNodeRef )
         {
             printf( "ODNodeCreate - PASS\n" );
@@ -205,7 +448,7 @@ void *doTest( void *inData )
                 CFArrayRef  cfUnreachable = ODNodeCopyUnreachableSubnodeNames( cfNodeRef, NULL );
                 if ( cfUnreachable != NULL )
                 {
-                    printf( "ODNodeCopyUnreachableSubnodeNames - FAIL - returned %d\n", CFArrayGetCount(cfUnreachable) );
+                    printf( "ODNodeCopyUnreachableSubnodeNames - FAIL - returned %d\n", (int) CFArrayGetCount(cfUnreachable) );
                     
                     CFRelease( cfUnreachable );
                     cfUnreachable = NULL;
@@ -228,9 +471,10 @@ void *doTest( void *inData )
         }
         else
         {
-            printf( "ODNodeCreate - FAIL\n" );
+            printf( "ODNodeCreateWithNodeType with kODTypeAuthenticationSearchNode - FAIL (%d)\n", (int) CFErrorGetCode(cfError) );
+            CFRelease( cfError );
         }
-
+        
         cfNodeRef = ODNodeCreateWithName( kCFAllocatorDefault, kODSessionDefault, CFSTR("/LDAPv3/od.apple.com"), &cfError );
         if( NULL != cfNodeRef )
         {
@@ -253,11 +497,11 @@ void *doTest( void *inData )
         }
         else
         {
-            printf( "ODNodeCreateWithName with /LDAPv3/od.apple.com - FAIL (%d)\n", CFErrorGetCode(cfError) );
+            printf( "ODNodeCreateWithName with /LDAPv3/od.apple.com - FAIL (%d)\n", (int) CFErrorGetCode(cfError) );
             CFRelease( cfError );
         }
         
-        cfLocalNodeRef = ODNodeCreateWithNodeType( kCFAllocatorDefault, kODSessionDefault, kODTypeLocalNode, NULL );
+        cfLocalNodeRef = ODNodeCreateWithNodeType( kCFAllocatorDefault, kODSessionDefault, kODNodeTypeLocalNodes, &cfError );
         if( NULL != cfLocalNodeRef )
         {
             CFTypeRef   cfValues[] = { cfAdminAccount };
@@ -272,7 +516,7 @@ void *doTest( void *inData )
             {
                 printf( "ODQueryCreateWithNode - PASS\n" );
 
-                cfResults = ODQueryCopyResults( cfQuery, FALSE, NULL );
+                cfResults = ODQueryCopyResults( cfQuery, false, NULL );
                 
                 if( NULL != cfResults )
                 {
@@ -280,7 +524,7 @@ void *doTest( void *inData )
                     
                     if( CFArrayGetCount( cfResults ) != 0 ) 
                     {
-                        printf( "ODQueryCopyResults returned results (%d) - PASS\n", CFArrayGetCount(cfResults) );
+                        printf( "ODQueryCopyResults returned results (%d) - PASS\n", (int) CFArrayGetCount(cfResults) );
                     }
                     else
                     {
@@ -317,7 +561,7 @@ void *doTest( void *inData )
                     printf( "ODNodeCopyUserPolicy - FAIL\n" );
                 }
                 
-                if( ODRecordVerifyPassword(cfRecord, cfAdminPassword, NULL) == TRUE )
+                if( ODRecordVerifyPassword(cfRecord, cfAdminPassword, NULL) == true )
                 {
                     printf( "ODNodeVerifyCredentials - PASS\n" );
                 }
@@ -361,28 +605,6 @@ void *doTest( void *inData )
                 else
                 {
                     printf( "ODRecordCopyAttribute - FAIL\n" );
-                }
-                
-                ODRecordRef cfGroup = ODNodeCopyRecord( cfLocalNodeRef, CFSTR(kDSStdRecordTypeGroups), CFSTR("admin"), NULL, NULL );
-                if( NULL != cfGroup )
-                {
-                    printf( "ODNodeCopyRecord (admin) - PASS\n" );
-                    
-                    if( ODRecordContainsMember( cfGroup, cfRecord, NULL ) == TRUE )
-                    {
-                        printf( "ODRecordContainsMember - PASS\n" );
-                    }
-                    else
-                    {
-                        printf( "ODRecordContainsMember - FAIL\n" );
-                    }
-                    
-                    CFRelease( cfGroup );
-                    cfGroup = NULL;
-                }
-                else
-                {
-                    printf( "ODNodeCopyRecord (admin) - FAIL\n" );
                 }
                 
 #warning needs ODNodeAuthenticateExtended
@@ -479,13 +701,13 @@ void *doTest( void *inData )
                     else
                     {
                         CFIndex errCode = CFErrorGetCode( cfError );
-                        if( errCode == -14135 )
+                        if( errCode == kODErrorRecordAlreadyExists )
                         {
                             printf( "ODNodeCreateRecord (create duplicate) - PASS\n" );
                         }
                         else
                         {
-                            printf( "ODNodeCreateRecord (create duplicate) - FAIL (%d)\n", errCode );
+                            printf( "ODNodeCreateRecord (create duplicate) - FAIL (%d)\n", (int) errCode );
                             CFRelease( cfError );
                         }
                     }
@@ -496,7 +718,7 @@ void *doTest( void *inData )
                     }
                     else
                     {
-                        printf( "ODRecordDelete - FAIL (%d)\n", CFErrorGetCode(cfError) );
+                        printf( "ODRecordDelete - FAIL (%d)\n", (int) CFErrorGetCode(cfError) );
                     }
                     
                     CFRelease( cfRecord );
@@ -549,7 +771,7 @@ void *doTest( void *inData )
                         }
                         else
                         {
-                            printf( "ODNodeSetPassword - FAIL (%d)\n", CFErrorGetCode(cfError) );
+                            printf( "ODNodeSetPassword - FAIL (%d)\n", (int) CFErrorGetCode(cfError) );
                             CFRelease( cfError );
                         }
                         
@@ -559,25 +781,19 @@ void *doTest( void *inData )
                         }
                         else
                         {
-                            printf( "ODNodeChangePassword - FAIL (%d)\n", CFErrorGetCode(cfError) );
+                            printf( "ODNodeChangePassword - FAIL (%d)\n", (int) CFErrorGetCode(cfError) );
                             CFRelease( cfError );
                         }
                         
-                        CFStringRef cfNewValue  = CFSTR("Test street");
-                        CFArrayRef  cfNewValues = CFArrayCreate( kCFAllocatorDefault, (const void **) &cfNewValue, 1, &kCFTypeArrayCallBacks );
-                        
-                        if( ODRecordSetValues( cfRecord, CFSTR(kDSNAttrState), cfNewValues, &cfError ) )
+                        if( ODRecordSetValue( cfRecord, CFSTR(kDSNAttrState), CFSTR("Test street"), &cfError ) )
                         {
                             printf( "ODRecordSetValueOrValues - PASS\n" );
                         }
                         else
                         {
-                            printf( "ODRecordSetValueOrValues - FAIL (%d)\n", CFErrorGetCode(cfError) );
+                            printf( "ODRecordSetValueOrValues - FAIL (%d)\n", (int) CFErrorGetCode(cfError) );
                             CFRelease( cfError );
                         }
-                        
-                        CFRelease( cfNewValues );
-                        cfNewValues = NULL;
                         
                         if( ODRecordAddValue( cfRecord, CFSTR(kDSNAttrState), CFSTR("Test street 2"), &cfError ) )
                         {
@@ -585,7 +801,7 @@ void *doTest( void *inData )
                         }
                         else
                         {
-                            printf( "ODRecordAddValue - FAIL (%d)\n", CFErrorGetCode(cfError) );
+                            printf( "ODRecordAddValue - FAIL (%d)\n", (int) CFErrorGetCode(cfError) );
                             CFRelease( cfError );
                         }
                         
@@ -595,22 +811,22 @@ void *doTest( void *inData )
                         }
                         else
                         {
-                            printf( "ODRecordRemoveValue - FAIL (%d)\n", CFErrorGetCode(cfError) );
+                            printf( "ODRecordRemoveValue - FAIL (%d)\n", (int) CFErrorGetCode(cfError) );
                         }
                         
                         CFArrayRef  cfArray = CFArrayCreate( kCFAllocatorDefault, NULL, 0, &kCFTypeArrayCallBacks );
-                        if( ODRecordSetValues(cfRecord, CFSTR(kDSNAttrState), cfArray, &cfError) )
+                        if( ODRecordSetValue(cfRecord, CFSTR(kDSNAttrState), cfArray, &cfError) )
                         {
-                            printf( "ODRecordSetValues (remove attribute) - PASS\n" );
+                            printf( "ODRecordSetValue (remove attribute) - PASS\n" );
                             
                             CFArrayRef cfValues = ODRecordCopyValues( cfRecord, CFSTR(kDSNAttrState), NULL );
                             if( NULL == cfValues || CFArrayGetCount(cfValues) == 0 )
                             {
-                                printf( "ODRecordSetValues (attrib gone) - PASS\n" );
+                                printf( "ODRecordSetValue (attrib gone) - PASS\n" );
                             }
                             else
                             {
-                                printf( "ODRecordSetValues (attrib gone) - FAIL\n" );
+                                printf( "ODRecordSetValue (attrib gone) - FAIL\n" );
                             }
                             
                             if( NULL != cfValues )
@@ -618,41 +834,10 @@ void *doTest( void *inData )
                         }
                         else
                         {
-                            printf( "ODRecordSetValues (deleting attrib) - FAIL (%d)\n", CFErrorGetCode(cfError) );
+                            printf( "ODRecordSetValue (deleting attrib) - FAIL (%d)\n", (int) CFErrorGetCode(cfError) );
                         }
                         
                         CFRelease( cfArray );
-                        
-                        // Try adding this record to group admin
-                        ODRecordRef    cfGroupRef = NULL;
-                        
-                        cfGroupRef = ODNodeCreateRecord( cfLocalNodeRef, CFSTR(kDSStdRecordTypeGroups), cfGroupName, NULL, NULL );
-                        if( NULL != cfGroupRef )
-                        {
-                            if( ODRecordAddMember( cfGroupRef, cfRecord, &cfError ) )
-                            {
-                                printf( "ODRecordAddMember - PASS\n" );
-                                
-                                if( ODRecordRemoveMember(cfGroupRef, cfRecord, &cfError) )
-                                {
-                                    printf( "ODRecordRemoveMember - PASS\n" );
-                                }
-                                else
-                                {
-                                    printf( "ODRecordRemoveMember - FAIL (%d)\n", CFErrorGetCode(cfError) );
-                                    CFRelease( cfError );
-                                }
-                            }
-                            else
-                            {
-                                printf( "ODRecordAddRecordToGroup - FAIL (%d)\n", CFErrorGetCode(cfError) );
-                                CFRelease( cfError );
-                            }
-                            
-                            ODRecordDelete( cfGroupRef, NULL );
-                            CFRelease( cfGroupRef );
-                            cfGroupRef = NULL;
-                        }
                         
                         ODRecordDelete( cfRecord, NULL );
                     }
@@ -666,24 +851,85 @@ void *doTest( void *inData )
                 }
                 else
                 {
-                    printf( "ODNodeCreateRecord (with attributes) - FAIL (%d)\n", CFErrorGetCode(cfError) );
+                    printf( "ODNodeCreateRecord (with attributes) - FAIL (%d)\n", (int) CFErrorGetCode(cfError) );
                     CFRelease( cfError );
                 }
                 
                 CFRelease( cfAttributes );
                 cfAttributes = NULL;
+  
+                // test various combinations
+                ODRecordType groupTypes[] = { kODRecordTypeConfiguration, kODRecordTypeUsers, kODRecordTypeGroups, kODRecordTypeComputerGroups, kODRecordTypeComputerLists };
+                ODRecordType userTypes[] = { NULL, kODRecordTypeUsers, kODRecordTypeComputers, kODRecordTypeGroups,
+                                             kODRecordTypeComputerGroups, kODRecordTypeComputerLists, kODRecordTypeConfiguration };
+                
+                int groupX;
+                int userX;
+                bool bSuccess = true;
+                for ( groupX = 0; bSuccess == true && groupX < (sizeof(groupTypes) / sizeof(ODRecordType)); groupX++ )
+                {
+                    for ( userX = 0; bSuccess == true && userX < (sizeof(userTypes) / sizeof(ODRecordType)); userX++ )
+                    {
+                        bSuccess = doTestMembership( cfLocalNodeRef, groupTypes[groupX], userTypes[userX] );
+                    }
+                }
+                
+                if ( bSuccess == false ) return NULL;
+
+                // now test membership checks
+                ODRecordRef cfGroup = ODNodeCopyRecord( cfLocalNodeRef, kODRecordTypeGroups, CFSTR("admin"), NULL, NULL );
+                if( NULL != cfGroup )
+                {
+                    printf( "\n--Test Memberships\n" );
+                    printf( "ODNodeCopyRecord (admin) - PASS\n" );
+                    
+                    cfRecord = ODNodeCopyRecord( cfLocalNodeRef, kODRecordTypeUsers, cfAdminAccount, NULL, NULL );
+                    
+                    if ( ODRecordContainsMember( cfGroup, cfRecord, NULL ) == true )
+                    {
+                        printf( "ODRecordContainsMember - PASS\n" );
+                    }
+                    else
+                    {
+                        printf( "ODRecordContainsMember - FAIL\n" );
+                    }
+                    
+                    // test failure - group in user
+                    if ( ODRecordContainsMember(cfRecord, cfGroup, NULL) == false ) {
+                        printf( "ODRecordContainsMember (group is member of user (failure)) - PASS (got error)\n" );
+                    }
+                    else {
+                        printf( "ODRecordContainsMember (group is member of user (failure)) - FAIL (no error)\n" );
+                    }
+                    
+                    // test failure - group in group
+                    if ( ODRecordContainsMember(cfRecord, cfGroup, NULL) == false ) {
+                        printf( "ODRecordContainsMember (group is member of group (failure)) - PASS (got error)\n" );
+                    }
+                    else {
+                        printf( "ODRecordContainsMember (group is member of group (failure)) - FAIL (no error)\n" );
+                    }
+                    
+                    CFRelease( cfGroup );
+                    cfGroup = NULL;
+                }
+                else
+                {
+                    printf( "ODNodeCopyRecord (admin) - FAIL\n" );
+                }
             }
             else
             {
                 printf( "ODNodeSetCredentials - FAIL\n" );
             }
-            
+
             CFRelease( cfLocalNodeRef );
             cfLocalNodeRef = NULL;
         }
         else
         {
-            printf( "ODNodeCreateWithNodeType with kODTypeLocalNode - FAIL\n" );
+            printf( "ODNodeCreateWithNodeType with kODTypeLocalNode - FAIL (%d)\n", (int) CFErrorGetCode(cfError) );
+            CFRelease( cfError );
         }
     }
     
@@ -702,7 +948,7 @@ int main( int argc, char *argv[] )
     argc -= optind;
     argv += optind;    
     
-    ODNodeRef   cfLocalNodeRef = ODNodeCreateWithNodeType( kCFAllocatorDefault, kODSessionDefault, kODTypeLocalNode, NULL );
+    ODNodeRef   cfLocalNodeRef = ODNodeCreateWithNodeType( kCFAllocatorDefault, kODSessionDefault, kODNodeTypeLocalNodes, NULL );
 
     if ( gCopies > 0 ) {
         

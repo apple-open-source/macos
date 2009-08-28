@@ -33,8 +33,8 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.
+   Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.
 
    In other words, you are welcome to use, share and improve this program.
    You are forbidden to forbid anyone else to use, share and improve
@@ -124,7 +124,6 @@ struct language_function GTY(())
   char junk; /* dummy field to ensure struct is not empty */
 };
 
-static tree tree_lang_truthvalue_conversion (tree expr);
 static bool tree_mark_addressable (tree exp);
 static tree tree_lang_type_for_size (unsigned precision, int unsignedp);
 static tree tree_lang_type_for_mode (enum machine_mode mode, int unsignedp);
@@ -140,8 +139,10 @@ static tree* getstmtlist (void);
 
 /* Langhooks.  */
 static tree builtin_function (const char *name, tree type, int function_code,
-		  enum built_in_class class, const char *library_name,
-		  tree attrs);
+			      enum built_in_class class,
+			      const char *library_name,
+			      tree attrs);
+extern const struct attribute_spec treelang_attribute_table[];
 static tree getdecls (void);
 static int global_bindings_p (void);
 static void insert_block (tree);
@@ -153,8 +154,6 @@ static void treelang_expand_function (tree fndecl);
    end).  These are not really very language-dependent, i.e.
    treelang, C, Mercury, etc. can all use almost the same definitions.  */
 
-#undef LANG_HOOKS_TRUTHVALUE_CONVERSION
-#define LANG_HOOKS_TRUTHVALUE_CONVERSION tree_lang_truthvalue_conversion
 #undef LANG_HOOKS_MARK_ADDRESSABLE
 #define LANG_HOOKS_MARK_ADDRESSABLE tree_mark_addressable
 #undef LANG_HOOKS_SIGNED_TYPE
@@ -169,6 +168,8 @@ static void treelang_expand_function (tree fndecl);
 #define LANG_HOOKS_TYPE_FOR_SIZE tree_lang_type_for_size
 #undef LANG_HOOKS_PARSE_FILE
 #define LANG_HOOKS_PARSE_FILE treelang_parse_file
+#undef LANG_HOOKS_ATTRIBUTE_TABLE
+#define LANG_HOOKS_ATTRIBUTE_TABLE treelang_attribute_table
 
 #undef LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION
 #define LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION treelang_expand_function
@@ -257,9 +258,8 @@ void
 tree_code_if_start (tree exp, location_t loc)
 {
   tree cond_exp, cond;
-  cond_exp = fold (build2 (NE_EXPR, boolean_type_node, exp,
-			   fold (build1 (CONVERT_EXPR, TREE_TYPE (exp),
-					 integer_zero_node))));
+  cond_exp = fold_build2 (NE_EXPR, boolean_type_node, exp,
+			  build_int_cst (TREE_TYPE (exp), 0));
   SET_EXPR_LOCATION (cond_exp, loc);
   cond = build3 (COND_EXPR, void_type_node, cond_exp, NULL_TREE,
                  NULL_TREE);
@@ -525,7 +525,7 @@ tree_code_create_variable (unsigned int storage_class,
 
   /* 3a. Initialization.  */
   if (init)
-    DECL_INITIAL (var_decl) = fold (build1 (CONVERT_EXPR, var_type, init));
+    DECL_INITIAL (var_decl) = fold_convert (var_type, init);
   else
     DECL_INITIAL (var_decl) = NULL_TREE;
 
@@ -583,9 +583,9 @@ tree_code_generate_return (tree type, tree exp)
 
   if (exp && TREE_TYPE (TREE_TYPE (current_function_decl)) != void_type_node)
     {
-      setret = fold (build2 (MODIFY_EXPR, type, 
-                             DECL_RESULT (current_function_decl),
-                             fold (build1 (CONVERT_EXPR, type, exp))));
+      setret = fold_build2 (MODIFY_EXPR, type, 
+                            DECL_RESULT (current_function_decl),
+                            fold_convert (type, exp));
       TREE_SIDE_EFFECTS (setret) = 1;
       TREE_USED (setret) = 1;
       setret = build1 (RETURN_EXPR, type, setret);
@@ -645,7 +645,7 @@ tree_code_get_integer_value (unsigned char* chars, unsigned int length)
 			     val & 0xffffffff, (val >> 32) & 0xffffffff);
 }
 
-/* Return the tree for an expresssion, type EXP_TYPE (see treetree.h)
+/* Return the tree for an expression, type EXP_TYPE (see treetree.h)
    with tree type TYPE and with operands1 OP1, OP2 (maybe), OP3 (maybe).  */
 tree
 tree_code_get_expression (unsigned int exp_type,
@@ -661,9 +661,8 @@ tree_code_get_expression (unsigned int exp_type,
     case EXP_ASSIGN:
       gcc_assert (op1 && op2);
       operator = MODIFY_EXPR;
-      ret1 = fold (build2 (operator, void_type_node, op1,
-                           fold (build1 (CONVERT_EXPR, TREE_TYPE (op1),
-					 op2))));
+      ret1 = fold_build2 (operator, void_type_node, op1,
+                          fold_convert (TREE_TYPE (op1), op2));
 
       break;
 
@@ -682,9 +681,9 @@ tree_code_get_expression (unsigned int exp_type,
     /* Expand a binary expression.  Ensure the operands are the right type.  */
     binary_expression:
       gcc_assert (op1 && op2);
-      ret1  =  fold (build2 (operator, type,
-                       fold (build1 (CONVERT_EXPR, type, op1)),
-                       fold (build1 (CONVERT_EXPR, type, op2))));
+      ret1  =  fold_build2 (operator, type,
+			    fold_convert (type, op1),
+			    fold_convert (type, op2));
       break;
 
       /* Reference to a variable.  This is dead easy, just return the
@@ -697,18 +696,14 @@ tree_code_get_expression (unsigned int exp_type,
       if (type == TREE_TYPE (op1))
         ret1 = build1 (NOP_EXPR, type, op1);
       else
-        ret1 = fold (build1 (CONVERT_EXPR, type, op1));
+        ret1 = fold_convert (type, op1);
       break;
 
     case EXP_FUNCTION_INVOCATION:
       gcc_assert (op1);
-      {
-        tree fun_ptr;
-	TREE_USED (op1) = 1;
-        fun_ptr = fold (build1 (ADDR_EXPR,
-                                build_pointer_type (TREE_TYPE (op1)), op1));
-        ret1 = build3 (CALL_EXPR, type, fun_ptr, nreverse (op2), NULL_TREE);
-      }
+      gcc_assert(TREE_TYPE (TREE_TYPE (op1)) == type);
+      TREE_USED (op1) = 1;
+      ret1 = build_function_call_expr(op1, op2);
       break;
 
     default:
@@ -738,8 +733,8 @@ tree_code_add_parameter (tree list, tree proto_exp, tree exp)
 {
   tree new_exp;
   new_exp = tree_cons (NULL_TREE,
-                       fold (build1 (CONVERT_EXPR, TREE_TYPE (proto_exp),
-				     exp)), NULL_TREE);
+                       fold_convert (TREE_TYPE (proto_exp),
+				     exp), NULL_TREE);
   if (!list)
     return new_exp;
   return chainon (new_exp, list);
@@ -780,13 +775,6 @@ dt (tree t)
 /* This variable keeps a table for types for each precision so that we only 
    allocate each of them once. Signed and unsigned types are kept separate.  */
 static GTY(()) tree signed_and_unsigned_types[MAX_BITS_PER_WORD + 1][2];
-
-/* XXX is this definition OK? */
-static tree
-tree_lang_truthvalue_conversion (tree expr)
-{
-  return expr;
-}
 
 /* Mark EXP saying that we need to be able to take the
    address of it; it should not be allocated in a register.
@@ -985,7 +973,7 @@ getstmtlist (void)
 static void
 pushlevel (int ignore ATTRIBUTE_UNUSED)
 {
-  struct binding_level *newlevel = xmalloc (sizeof (struct binding_level));
+  struct binding_level *newlevel = XNEW (struct binding_level);
 
   *newlevel = clear_binding_level;
 
@@ -1014,7 +1002,7 @@ pushlevel (int ignore ATTRIBUTE_UNUSED)
 static tree
 poplevel (int keep, int reverse, int functionbody)
 {
-  /* Points to a BLOCK tree node. This is the BLOCK node construted for the
+  /* Points to a BLOCK tree node. This is the BLOCK node constructed for the
      binding level that we are about to exit and which is returned by this
      routine.  */
   tree block_node = NULL_TREE;
@@ -1024,7 +1012,7 @@ poplevel (int keep, int reverse, int functionbody)
 
   /* Reverse the list of *_DECL nodes if desired.  Note that the ..._DECL
      nodes chained through the `names' field of current_binding_level are in
-     reverse order except for PARM_DECL node, which are explicitely stored in
+     reverse order except for PARM_DECL node, which are explicitly stored in
      the right order.  */
   decl_chain = (reverse) ? nreverse (current_binding_level->names)
 			 : current_binding_level->names;
@@ -1033,7 +1021,7 @@ poplevel (int keep, int reverse, int functionbody)
      binding level is a function body, or if there are any nested blocks then
      create a BLOCK node to record them for the life of this function.  */
   if (keep || functionbody)
-    block_node = build_block (keep ? decl_chain : 0, 0, subblock_chain, 0, 0);
+    block_node = build_block (keep ? decl_chain : 0, subblock_chain, 0, 0);
 
   /* Record the BLOCK node just built as the subblock its enclosing scope.  */
   for (subblock_node = subblock_chain; subblock_node;
@@ -1113,7 +1101,7 @@ pushdecl (tree decl)
   TREE_CHAIN (decl) = current_binding_level->names;
   current_binding_level->names = decl;
 
-  /* For the declartion of a type, set its name if it is not already set. */
+  /* For the declaration of a type, set its name if it is not already set. */
 
   if (TREE_CODE (decl) == TYPE_DECL
       && TYPE_NAME (TREE_TYPE (decl)) == 0)
@@ -1208,6 +1196,33 @@ treelang_init_decl_processing (void)
 
   pedantic_lvalues = pedantic;
 }
+
+static tree
+handle_attribute (tree *node, tree name, tree ARG_UNUSED (args),
+		  int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) == FUNCTION_DECL)
+    {
+      if (strcmp (IDENTIFIER_POINTER (name), "const") == 0)
+	TREE_READONLY (*node) = 1;
+      if (strcmp (IDENTIFIER_POINTER (name), "nothrow") == 0)
+	TREE_NOTHROW (*node) = 1;
+    }
+  else
+    {
+      warning (OPT_Wattributes, "%qD attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+const struct attribute_spec treelang_attribute_table[] =
+{
+  { "const", 0, 0, true, false, false, handle_attribute },
+  { "nothrow", 0, 0, true, false, false, handle_attribute },
+  { NULL, 0, 0, false, false, false, NULL },
+};
 
 /* Return a definition for a builtin function named NAME and whose data type
    is TYPE.  TYPE should be a function type with argument types.

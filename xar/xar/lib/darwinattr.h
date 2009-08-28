@@ -37,7 +37,7 @@
 
 #ifndef _XAR_DARWINATTR_H_
 #define _XAR_DARWINATTR_H_
-int32_t xar_underbar_check(xar_t x, xar_file_t f, const char* file);
+xar_file_t xar_underbar_check(xar_t x, xar_file_t f, const char* file);
 int32_t xar_darwinattr_archive(xar_t x, xar_file_t f, const char* file, const char *buffer, size_t len);
 int32_t xar_darwinattr_extract(xar_t x, xar_file_t f, const char* file,	char *buffer, size_t len);
 #endif /* _XAR_DARWINATTR_H_ */

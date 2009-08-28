@@ -1,0 +1,149 @@
+# json.test - Copyright (C) 2006 ActiveState Software Inc.
+#
+# Tests for the Tcllib json package
+#
+# -------------------------------------------------------------------------
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+# -------------------------------------------------------------------------
+# RCS: @(#) $Id: json.test,v 1.5 2007/12/06 00:35:22 andreas_kupries Exp $
+
+# -------------------------------------------------------------------------
+
+source [file join \
+	[file dirname [file dirname [file join [pwd] [info script]]]] \
+	devtools testutilities.tcl]
+
+testsNeedTcl     [expr {[catch {package require dict}] ? "8.5" : "8.4"}]
+testsNeedTcltest 1.0
+
+testing {
+    useLocal json.tcl json
+}
+
+catch {unset JSON}
+catch {unset TCL}
+
+set JSON(array) {[
+      {
+         "precision": "zip",
+         "Latitude":  37.7668,
+         "Longitude": -122.3959,
+         "Address":   "",
+         "City":      "SAN FRANCISCO",
+         "State":     "CA",
+         "Zip":       "94107",
+         "Country":   "US"
+      },
+      {
+         "precision": "zip",
+         "Latitude":  37.371991,
+         "Longitude": -122.026020,
+         "Address":   "",
+         "City":      "SUNNYVALE",
+         "State":     "CA",
+         "Zip":       "94085",
+         "Country":   "US"
+      }
+     ]}
+set TCL(array) {{precision zip Latitude 37.7668 Longitude -122.3959 Address {} City {SAN FRANCISCO} State CA Zip 94107 Country US} {precision zip Latitude 37.371991 Longitude -122.026020 Address {} City SUNNYVALE State CA Zip 94085 Country US}}
+
+set JSON(glossary) {{
+    "glossary": {
+        "title": "example glossary",
+        "mixlist": ["a \"\" str", -0.09, null, "", {"member":true}],
+        "GlossDiv": {
+            "title": "S",
+            "GlossList": [{
+                "ID": "SGML",
+                "GlossTerm": "Standard \\\" Language",
+                "Acronym": "SGML\\",
+                "Abbrev": "ISO 8879:1986",
+                "GlossDef":
+                "A meta-markup language, used ...",
+                "GlossSeeAlso": ["GML", "XML", "markup"]}]}}
+}}
+set TCL(glossary) {glossary {title {example glossary} mixlist {{a "" str} -0.09 null {} {member true}} GlossDiv {title S GlossList {{ID SGML GlossTerm {Standard \" Language} Acronym SGML\\ Abbrev {ISO 8879:1986} GlossDef {A meta-markup language, used ...} GlossSeeAlso {GML XML markup}}}}}}
+
+set JSON(menu) {{"menu": {
+    "id": "file",
+    "value": "File:",
+    "unival": "\u6021:",
+    "popup": {
+        "menuitem": [
+                     {"value": "Open", "onclick": "OpenDoc()"},
+                     {"value": "Close", "onclick": "CloseDoc()"}
+                    ]
+    }
+}
+}}
+set TCL(menu) [list menu [list id file value File: unival \u6021: popup {menuitem {{value Open onclick OpenDoc()} {value Close onclick CloseDoc()}}}]]
+
+set JSON(widget) {{"widget": {
+    "debug": "on",
+    "window": {
+        "title":"Sample Widget",
+        "name": "main_window",
+        "width": 500,
+        "height": 500},
+    "text": {
+        "data": "Click Here",
+        "size": 36,
+        "style": "bold",
+        "name": null,
+        "hOffset":250,
+        "vOffset": 100,
+        "alignment": "center",
+        "onMouseUp": "sun1.opacity = (sun1.opacity / 100) * 90;"
+    }
+}
+}}
+set TCL(widget) {widget {debug on window {title {Sample Widget} name main_window width 500 height 500} text {data {Click Here} size 36 style bold name null hOffset 250 vOffset 100 alignment center onMouseUp {sun1.opacity = (sun1.opacity / 100) * 90;}}}}
+
+set JSON(menu2) {{"menu": {
+    "header": "Viewer",
+    "items": [
+              {"id": "Open"},
+              {"id": "OpenNew", "label": "Open New"},
+              null,
+              {"id": "ZoomIn", "label": "Zoom In"},
+              {"id": "ZoomOut", "label": "Zoom Out"},
+              null,
+              {"id": "Help"},
+              {"id": "About", "label": "About Viewer..."}
+             ]
+}
+}}
+set TCL(menu2) {menu {header Viewer items {{id Open} {id OpenNew label {Open New}} null {id ZoomIn label {Zoom In}} {id ZoomOut label {Zoom Out}} null {id Help} {id About label {About Viewer...}}}}}
+
+set JSON(emptyList) {[]}
+set TCL(emptyList) {}
+
+set JSON(emptyList2) {{"menu": []}}
+set TCL(emptyList2) {menu {}}
+
+set JSON(emptyList3) {["menu", []]}
+set TCL(emptyList3) {menu {}}
+
+set JSON(emptyList4) {[[]]}
+set TCL(emptyList4) {{}}
+
+# -------------------------------------------------------------------------
+# Tests
+# -------------------------------------------------------------------------
+
+set i 0
+foreach name [array names JSON] {
+    test json-1.[incr i] "test JSON $name" \
+        "set res \[json::json2dict \$JSON($name)\]" $TCL($name)
+}
+
+# -------------------------------------------------------------------------
+catch {unset JSON}
+catch {unset TCL}
+testsuiteCleanup
+
+# Local Variables:
+#  mode: tcl
+#  indent-tabs-mode: nil
+# End:

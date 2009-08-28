@@ -97,7 +97,7 @@ Forward declarations
 ----------------------------------------------------------------------------- */
 
 static int	l2tp_wan_output(struct ppp_link *link, mbuf_t m);
-static int 	l2tp_wan_ioctl(struct ppp_link *link, u_int32_t cmd, void *data);
+static int 	l2tp_wan_ioctl(struct ppp_link *link, u_long cmd, void *data);
 
 /* -----------------------------------------------------------------------------
 Globals
@@ -182,13 +182,13 @@ int l2tp_wan_attach(void *rfc, struct ppp_link **link)
 
     ret = ppp_link_attach((struct ppp_link *)wan);
     if (ret) {
-        log(LOGVAL, "L2TP_wan_attach, error = %d, (ld = 0x%x)\n", ret, wan);
+        IOLog("L2TP_wan_attach, error = %d, (ld = %p)\n", ret, wan);
         TAILQ_REMOVE(&l2tp_wan_head, wan, next);
         FREE(wan, M_TEMP);
         return ret;
     }
     
-    //log(LOGVAL, "L2TP_wan_attach, link index = %d, (ld = 0x%x)\n", lk->lk_index, lk);
+    //IOLog("L2TP_wan_attach, link index = %d, (ld = %p)\n", lk->lk_index, lk);
 
     *link = lk;
     
@@ -260,14 +260,14 @@ void l2tp_wan_xmit_ok(struct ppp_link *link)
 /* -----------------------------------------------------------------------------
 Process an ioctl request to the ppp interface
 ----------------------------------------------------------------------------- */
-int l2tp_wan_ioctl(struct ppp_link *link, u_int32_t cmd, void *data)
+int l2tp_wan_ioctl(struct ppp_link *link, u_long cmd, void *data)
 {
     //struct l2tp_wan 	*wan = (struct l2tp_wan *)link;;
     int error = 0;
 	
 	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
     
-    //LOGDBG(ifp, (LOGVAL, "l2tp_wan_ioctl, cmd = 0x%x\n", cmd));
+    //LOGDBG(ifp, ("l2tp_wan_ioctl, cmd = 0x%x\n", cmd));
 
     switch (cmd) {
         default:

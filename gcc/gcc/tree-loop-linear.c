@@ -16,15 +16,14 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "errors.h"
 #include "ggc.h"
 #include "tree.h"
 #include "target.h"
@@ -42,7 +41,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-data-ref.h"
 #include "tree-scalar-evolution.h"
 #include "tree-pass.h"
-#include "varray.h"
 #include "lambda.h"
 
 /* Linear loop transforms include any composition of interchange,
@@ -91,52 +89,51 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 */
 
 static void
-gather_interchange_stats (varray_type dependence_relations, 
-			  varray_type datarefs,
+gather_interchange_stats (VEC (ddr_p, heap) *dependence_relations,
+			  VEC (data_reference_p, heap) *datarefs,
 			  struct loop *loop,
 			  struct loop *first_loop,
 			  unsigned int *dependence_steps, 
 			  unsigned int *nb_deps_not_carried_by_loop, 
 			  unsigned int *access_strides)
 {
-  unsigned int i;
+  unsigned int i, j;
+  struct data_dependence_relation *ddr;
+  struct data_reference *dr;
 
   *dependence_steps = 0;
   *nb_deps_not_carried_by_loop = 0;
   *access_strides = 0;
 
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (dependence_relations); i++)
+  for (i = 0; VEC_iterate (ddr_p, dependence_relations, i, ddr); i++)
     {
-      int dist;
-      struct data_dependence_relation *ddr = 
-	(struct data_dependence_relation *) 
-	VARRAY_GENERIC_PTR (dependence_relations, i);
-
       /* If we don't know anything about this dependence, or the distance
 	 vector is NULL, or there is no dependence, then there is no reuse of
 	 data.  */
-
-      if (DDR_DIST_VECT (ddr) == NULL
-	  || DDR_ARE_DEPENDENT (ddr) == chrec_dont_know
-	  || DDR_ARE_DEPENDENT (ddr) == chrec_known)
+      if (DDR_ARE_DEPENDENT (ddr) == chrec_dont_know
+	  || DDR_ARE_DEPENDENT (ddr) == chrec_known
+	  || DDR_NUM_DIST_VECTS (ddr) == 0)
 	continue;
-      
 
-      
-      dist = DDR_DIST_VECT (ddr)[loop->depth - first_loop->depth];
-      if (dist == 0)
-	(*nb_deps_not_carried_by_loop) += 1;
-      else if (dist < 0)
-	(*dependence_steps) += -dist;
-      else
-	(*dependence_steps) += dist;
+      for (j = 0; j < DDR_NUM_DIST_VECTS (ddr); j++)
+	{
+	  int dist = DDR_DIST_VECT (ddr, j)[loop->depth - first_loop->depth];
+
+	  if (dist == 0)
+	    (*nb_deps_not_carried_by_loop) += 1;
+
+	  else if (dist < 0)
+	    (*dependence_steps) += -dist;
+
+	  else
+	    (*dependence_steps) += dist;
+	}
     }
 
   /* Compute the access strides.  */
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (datarefs); i++)
+  for (i = 0; VEC_iterate (data_reference_p, datarefs, i, dr); i++)
     {
       unsigned int it;
-      struct data_reference *dr = VARRAY_GENERIC_PTR (datarefs, i);
       tree stmt = DR_STMT (dr);
       struct loop *stmt_loop = loop_containing_stmt (stmt);
       struct loop *inner_loop = first_loop->inner;
@@ -170,8 +167,8 @@ gather_interchange_stats (varray_type dependence_relations,
 static lambda_trans_matrix
 try_interchange_loops (lambda_trans_matrix trans, 
 		       unsigned int depth,		       
-		       varray_type dependence_relations,
-		       varray_type datarefs, 
+		       VEC (ddr_p, heap) *dependence_relations,
+		       VEC (data_reference_p, heap) *datarefs,
 		       struct loop *first_loop)
 {
   struct loop *loop_i;
@@ -181,10 +178,12 @@ try_interchange_loops (lambda_trans_matrix trans,
   unsigned int nb_deps_not_carried_by_i, nb_deps_not_carried_by_j;
   struct data_dependence_relation *ddr;
 
+  if (VEC_length (ddr_p, dependence_relations) == 0)
+    return trans;
+
   /* When there is an unknown relation in the dependence_relations, we
      know that it is no worth looking at this loop nest: give up.  */
-  ddr = (struct data_dependence_relation *) 
-    VARRAY_GENERIC_PTR (dependence_relations, 0);
+  ddr = VEC_index (ddr_p, dependence_relations, 0);
   if (ddr == NULL || DDR_ARE_DEPENDENT (ddr) == chrec_dont_know)
     return trans;
   
@@ -242,22 +241,21 @@ try_interchange_loops (lambda_trans_matrix trans,
 void
 linear_transform_loops (struct loops *loops)
 {
+  bool modified = false;
   unsigned int i;
+  VEC(tree,heap) *oldivs = NULL;
+  VEC(tree,heap) *invariants = NULL;
   
-  compute_immediate_uses (TDFA_USE_OPS | TDFA_USE_VOPS, NULL);
   for (i = 1; i < loops->num; i++)
     {
       unsigned int depth = 0;
-      varray_type datarefs;
-      varray_type dependence_relations;
+      VEC (ddr_p, heap) *dependence_relations;
+      VEC (data_reference_p, heap) *datarefs;
       struct loop *loop_nest = loops->parray[i];
       struct loop *temp;
-      VEC (tree) *oldivs = NULL;
-      VEC (tree) *invariants = NULL;
       lambda_loopnest before, after;
       lambda_trans_matrix trans;
       bool problem = false;
-      bool need_perfect_nest = false;
       /* If it's not a loop nest, we don't want it.
          We also don't handle sibling loops properly, 
          which are loops of the following form:
@@ -267,19 +265,20 @@ linear_transform_loops (struct loops *loops)
                {
 	        ...
                }
-           for (j = 0; j < 50; j++)
+             for (j = 0; j < 50; j++)
                {
                 ...
                }
            } */
-      if (!loop_nest->inner)
+      if (!loop_nest || !loop_nest->inner || !loop_nest->single_exit)
 	continue;
+      VEC_truncate (tree, oldivs, 0);
+      VEC_truncate (tree, invariants, 0);
       depth = 1;
       for (temp = loop_nest->inner; temp; temp = temp->inner)
 	{
-	  flow_loop_scan (temp, LOOP_ALL);
 	  /* If we have a sibling loop or multiple exit edges, jump ship.  */
-	  if (temp->next || temp->num_exits != 1)
+	  if (temp->next || !temp->single_exit)
 	    {
 	      problem = true;
 	      break;
@@ -291,40 +290,17 @@ linear_transform_loops (struct loops *loops)
 
       /* Analyze data references and dependence relations using scev.  */      
  
-      VARRAY_GENERIC_PTR_INIT (datarefs, 10, "datarefs");
-      VARRAY_GENERIC_PTR_INIT (dependence_relations, 10,
-			       "dependence_relations");
-      
-  
-      compute_data_dependences_for_loop (depth, loop_nest,
-					 &datarefs, &dependence_relations);
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	{
-	  unsigned int j;
-	  for (j = 0; j < VARRAY_ACTIVE_SIZE (dependence_relations); j++)
-	    {
-	      struct data_dependence_relation *ddr = 
-		(struct data_dependence_relation *) 
-		VARRAY_GENERIC_PTR (dependence_relations, j);
+      datarefs = VEC_alloc (data_reference_p, heap, 10);
+      dependence_relations = VEC_alloc (ddr_p, heap, 10 * 10);
+      compute_data_dependences_for_loop (loop_nest, true, &datarefs,
+					 &dependence_relations);
 
-	      if (DDR_ARE_DEPENDENT (ddr) == NULL_TREE)
-		{
-		  fprintf (dump_file, "DISTANCE_V (");
-		  print_lambda_vector (dump_file, DDR_DIST_VECT (ddr), 
-				       DDR_SIZE_VECT (ddr));
-		  fprintf (dump_file, ")\n");
-		  fprintf (dump_file, "DIRECTION_V (");
-		  print_lambda_vector (dump_file, DDR_DIR_VECT (ddr), 
-				       DDR_SIZE_VECT (ddr));
-		  fprintf (dump_file, ")\n");
-		}
-	    }
-	  fprintf (dump_file, "\n\n");
-	}
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	dump_ddrs (dump_file, dependence_relations);
+
       /* Build the transformation matrix.  */
       trans = lambda_trans_matrix_new (depth, depth);
       lambda_matrix_id (LTM_MATRIX (trans), depth);
-
       trans = try_interchange_loops (trans, depth, dependence_relations,
 				     datarefs, loop_nest);
 
@@ -332,7 +308,7 @@ linear_transform_loops (struct loops *loops)
 	{
 	  if (dump_file)
 	   fprintf (dump_file, "Won't transform loop. Optimal transform is the identity transform\n");
-	  continue;
+	  goto free_and_continue;
 	}
 
       /* Check whether the transformation is legal.  */
@@ -340,17 +316,15 @@ linear_transform_loops (struct loops *loops)
 	{
 	  if (dump_file)
 	    fprintf (dump_file, "Can't transform loop, transform is illegal:\n");
-	  continue;
+	  goto free_and_continue;
 	}
-      if (!perfect_nest_p (loop_nest))
-	need_perfect_nest = true;
-      before = gcc_loopnest_to_lambda_loopnest (loops,
-						loop_nest, &oldivs, 
-						&invariants,
-						need_perfect_nest);
+
+      before = gcc_loopnest_to_lambda_loopnest (loops, loop_nest, &oldivs,
+						&invariants);
+
       if (!before)
-	continue;
-            
+	goto free_and_continue;
+
       if (dump_file)
 	{
 	  fprintf (dump_file, "Before:\n");
@@ -358,25 +332,29 @@ linear_transform_loops (struct loops *loops)
 	}
   
       after = lambda_loopnest_transform (before, trans);
+
       if (dump_file)
 	{
 	  fprintf (dump_file, "After:\n");
 	  print_lambda_loopnest (dump_file, after, 'u');
 	}
+
       lambda_loopnest_to_gcc_loopnest (loop_nest, oldivs, invariants,
 				       after, trans);
+      modified = true;
+
       if (dump_file)
 	fprintf (dump_file, "Successfully transformed loop.\n");
-      oldivs = NULL;
-      invariants = NULL;
+
+    free_and_continue:
       free_dependence_relations (dependence_relations);
       free_data_refs (datarefs);
     }
-  free_df ();
+
+  VEC_free (tree, heap, oldivs);
+  VEC_free (tree, heap, invariants);
   scev_reset ();
-  rewrite_into_ssa (false);
-  rewrite_into_loop_closed_ssa ();
-#ifdef ENABLE_CHECKING
-  verify_loop_closed_ssa ();
-#endif
+
+  if (modified)
+    rewrite_into_loop_closed_ssa (NULL, TODO_update_ssa_full_phi);
 }

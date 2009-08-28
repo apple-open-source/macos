@@ -62,6 +62,8 @@ struct ppp_link_event_data {
 
 #ifdef KERNEL
 
+#include <IOKit/IOLib.h>
+
 int ppp_domain_init();
 int ppp_domain_dispose();
 int ppp_proto_add();
@@ -74,28 +76,26 @@ SYSCTL_DECL(_net_ppp);
 
 /* Logs facilities */
 
-#define LOGVAL 		(LOG_DEBUG|LOG_RAS)
-#define LOG(text) 	log(LOGVAL, text)
 #define LOGDBG(ifp, text) \
     if (ifnet_flags(ifp) & IFF_DEBUG) {	\
-        log text; 		\
+        IOLog text; 		\
     }
 
 #define LOGRETURN(err, ret, text) \
     if (err) {			\
-        log(LOGVAL, text, err); \
+        IOLog(text, err); \
         return ret;		\
     }
 	
 #define LOGGOTOFAIL(err, text) \
     if (err) {			\
-        log(LOGVAL, text, err); \
+        IOLog(text, err); \
         goto fail;		\
     }
 
 #define LOGNULLFAIL(ret, text) \
     if (ret == 0) {			\
-        log(LOGVAL, text); \
+        IOLog(text); \
         goto fail;		\
     }
 
@@ -103,11 +103,11 @@ SYSCTL_DECL(_net_ppp);
 #define LOGMBUF(text, m)   {		\
     short i;				\
     char *p = mtod((m), u_char *);	\
-    log(LOGVAL, text);			\
-    log(LOGVAL, " : 0x ");		\
+    IOLog(text);			\
+    IOLog(" : 0x ");		\
     for (i = 0; i < (m)->m_len; i++)	\
-       log(LOGVAL, "%x ", p[i]);	\
-    log(LOGVAL, "\n");			\
+       IOLog("%x ", p[i]);	\
+    IOLog("\n");			\
 }
 #else
 #define LOGMBUF(text, m)

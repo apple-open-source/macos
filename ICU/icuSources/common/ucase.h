@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2004-2006, International Business Machines
+*   Copyright (C) 2004-2008, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -44,6 +44,9 @@ ucase_close(UCaseProps *csp);
 U_CAPI const UCaseProps * U_EXPORT2
 ucase_getSingleton(UErrorCode *pErrorCode);
 
+#define UCASE_HARDCODE_DATA 1
+
+#if !UCASE_HARDCODE_DATA
 /**
  * Get a singleton dummy object, one that works with no real data.
  * This can be used when the real data is not available.
@@ -51,6 +54,7 @@ ucase_getSingleton(UErrorCode *pErrorCode);
  */
 U_CAPI const UCaseProps * U_EXPORT2
 ucase_getDummy(UErrorCode *pErrorCode);
+#endif
 
 
 U_CAPI int32_t U_EXPORT2
@@ -58,7 +62,7 @@ ucase_swap(const UDataSwapper *ds,
            const void *inData, int32_t length, void *outData,
            UErrorCode *pErrorCode);
 
-U_CAPI void U_EXPORT2
+U_CFUNC void U_EXPORT2
 ucase_addPropertyStarts(const UCaseProps *csp, const USetAdder *sa, UErrorCode *pErrorCode);
 
 /**
@@ -68,6 +72,15 @@ ucase_addPropertyStarts(const UCaseProps *csp, const USetAdder *sa, UErrorCode *
  */
 U_CFUNC int32_t
 ucase_getCaseLocale(const char *locale, int32_t *locCache);
+
+/* Casing locale types for ucase_getCaseLocale */
+enum {
+    UCASE_LOC_UNKNOWN,
+    UCASE_LOC_ROOT,
+    UCASE_LOC_TURKISH,
+    UCASE_LOC_LITHUANIAN,
+    UCASE_LOC_DUTCH
+};
 
 /**
  * Bit mask for getting just the options from a string compare options word
@@ -108,7 +121,7 @@ ucase_fold(const UCaseProps *csp, UChar32 c, uint32_t options);
  * - for sharp s include ss
  * - for k include the Kelvin sign
  */
-U_CAPI void U_EXPORT2
+U_CFUNC void U_EXPORT2
 ucase_addCaseClosure(const UCaseProps *csp, UChar32 c, const USetAdder *sa);
 
 /**
@@ -123,7 +136,7 @@ ucase_addCaseClosure(const UCaseProps *csp, UChar32 c, const USetAdder *sa);
  *
  * @return TRUE if the string was found
  */
-U_CAPI UBool U_EXPORT2
+U_CFUNC UBool U_EXPORT2
 ucase_addStringCaseClosure(const UCaseProps *csp, const UChar *s, int32_t length, const USetAdder *sa);
 
 /** @return UCASE_NONE, UCASE_LOWER, UCASE_UPPER, UCASE_TITLE */
@@ -240,6 +253,20 @@ ucase_toFullFolding(const UCaseProps *csp, UChar32 c,
 
 U_CFUNC int32_t U_EXPORT2
 ucase_hasBinaryProperty(UChar32 c, UProperty which);
+
+
+U_CDECL_BEGIN
+
+/**
+ * @internal
+ */
+typedef int32_t U_CALLCONV
+UCaseMapFull(const UCaseProps *csp, UChar32 c,
+             UCaseContextIterator *iter, void *context,
+             const UChar **pString,
+             const char *locale, int32_t *locCache);
+
+U_CDECL_END
 
 /* file definitions --------------------------------------------------------- */
 

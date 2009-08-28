@@ -17,6 +17,7 @@ SMB_PIDDIR := $(RUNDIR)
 SMB_MANDIR := $(MANDIR)
 SMB_PAMDIR := $(USRLIBDIR)/pam
 SMB_LIBEXEC := $(LIBEXECDIR)/samba
+CUPS_BACKEND := $(LIBEXECDIR)/cups/backend
 
 # This contains warnings that are valid for both C and C++ code.
 SANE_GCC_WARNINGS := \
@@ -31,9 +32,16 @@ Extra_CC_Flags  += \
 	$(SANE_GCC_WARNINGS) \
 	-Wstrict-prototypes \
 	-F/System/Library/PrivateFrameworks \
-	-DWINBINDD_SOCKET_DIR=\\\"$(SMB_LOCKDIR)/winbindd_public\\\" \
+	-D_FORTIFY_SOURCE=2 \
+	-fstack-protector \
 	-DWITH_OPENDIRECTORY \
 	-DWITH_MEMBERD -DUSES_KEYCHAIN -DWITH_SACL
+
+# The tools build doesn't go through the same levels of quoting
+# that the Samba buld does, so this definition isn't valid in both
+# contexts.
+Extra_Samba_Flags := \
+	-DWINBINDD_SOCKET_DIR=\\\"$(SMB_LOCKDIR)/winbindd_public\\\"
 
 NCPU := $(shell sysctl hw.ncpu | awk -F: '{print $$2}' )
 NPROCS := $(shell expr $(NCPU) '*' 2)
@@ -42,7 +50,7 @@ LDAP_MODULES := pdb_ldap,idmap_ldap
 IDMAP_MODULES := idmap_rid,idmap_ad,idmap_odsam
 PDB_MODULES := pdb_odsam
 AUTH_MODULES := auth_unix,auth_winbind,auth_server,auth_domain,auth_ods
-VFS_MODULES := vfs_recycle,vfs_audit,vfs_extd_audit,vfs_full_audit,vfs_readonly,vfs_expand_msdfs,vfs_shadow_copy,vfs_darwin_streams,vfs_darwinacl,vfs_cacheprime,vfs_commit,vfs_catia,vfs_prealloc
+VFS_MODULES := vfs_recycle,vfs_audit,vfs_extd_audit,vfs_full_audit,vfs_readonly,vfs_expand_msdfs,vfs_shadow_copy,vfs_darwin_streams,vfs_darwinacl,vfs_cacheprime,vfs_commit,vfs_catia,vfs_prealloc,vfs_notify_kqueue
 
 SHARED_MODULES := $(LDAP_MODULES),$(IDMAP_MODULES),$(AUTH_MODULES),$(VFS_MODULES),$(PDB_MODULES)
 
@@ -63,7 +71,6 @@ Extra_Configure_Flags := \
 		--with-libiconv="$(USRDIR)"				\
 		--with-sendfile-support					\
 		--without-readline					\
-		--disable-pie 						\
 		--without-libsmbclient					\
 		--with-winbind						\
 		--with-pam						\

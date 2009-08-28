@@ -136,3 +136,6 @@ CC_Optimize = -O
 remove-header-link:
 	rm "$(DSTROOT)/System/Library/Frameworks/AppleTalk.framework/Headers"
 
+after_install:
+	chmod -h go-w "$(DSTROOT)/System/Library/Frameworks/AppleTalk.framework/AppleTalk" \
+		"$(DSTROOT)/System/Library/Frameworks/AppleTalk.framework/Resources"

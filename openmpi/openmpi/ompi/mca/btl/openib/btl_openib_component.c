@@ -51,8 +51,11 @@
 #include "ompi/datatype/convertor.h" 
 #include "ompi/mca/mpool/mpool.h" 
 #include <infiniband/verbs.h> 
+#include <infiniband/driver.h>
 #include <errno.h> 
 #include <string.h>   /* for strerror()*/ 
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include "ompi/mca/pml/base/pml_base_module_exchange.h"
 
@@ -159,6 +162,27 @@ static int btl_openib_component_close(void)
     return OMPI_SUCCESS;
 }
 
+
+static bool check_basics(void)
+{
+    int rc;
+    char *file;
+    struct stat s;
+
+    /* Check to see if $sysfsdir/class/infiniband/ exists */
+    asprintf(&file, "%s/class/infiniband", ibv_get_sysfs_path());
+    if (NULL == file) {
+        return false;
+    }
+    rc = stat(file, &s);
+    free(file);
+    if (0 != rc || !S_ISDIR(s.st_mode)) {
+        return false;
+    }
+
+    /* It exists and is a directory -- good enough */
+    return true;
+}
 
 /*
  *  Register OPENIB  port information. The MCA framework
@@ -376,8 +400,11 @@ static int init_one_port(opal_list_t *btl_list, mca_btl_openib_hca_t *hca,
                     openib_btl->super.btl_bandwidth = 8000;
                     break;
                 default: 
-                    /* Who knows? */
-                    return OMPI_ERR_VALUE_OUT_OF_BOUNDS;
+                    /* Who knows?  Declare this port unreachable (do
+                       *not* return ERR_VALUE_OF_OUT_OF_BOUNDS; that
+                       is reserved for when we exceed the number of
+                       allowable BTLs). */
+                    return OMPI_ERR_UNREACH;
                 }
                 switch (ib_port_attr->active_width) {
                 case 1:
@@ -397,8 +424,11 @@ static int init_one_port(opal_list_t *btl_list, mca_btl_openib_hca_t *hca,
                     openib_btl->super.btl_bandwidth *= 12;
                     break;
                 default:
-                    /* Who knows? */
-                    return OMPI_ERR_VALUE_OUT_OF_BOUNDS;
+                    /* Who knows?  Declare this port unreachable (do
+                       *not* return ERR_VALUE_OF_OUT_OF_BOUNDS; that
+                       is reserved for when we exceed the number of
+                       allowable BTLs). */
+                    return OMPI_ERR_UNREACH;
                 }
             }
             opal_list_append(btl_list, (opal_list_item_t*) ib_selected);
@@ -548,9 +578,13 @@ static int init_one_hca(opal_list_t *btl_list, struct ibv_device* ib_dev)
             }
             else {
                 uint16_t pkey,j;
-                for (j=0; j < hca->ib_dev_attr.max_pkeys; j++) {
-                    ibv_query_pkey(hca->ib_dev_context, i, j, &pkey);
-                    pkey=ntohs(pkey);
+                for (j = 0; j < hca->ib_dev_attr.max_pkeys; j++) {
+                    if(ibv_query_pkey(hca->ib_dev_context, i, j, &pkey)){ 
+                        BTL_ERROR(("error getting pkey for index %d, device %s " 
+                                    "port number %d errno says %s", 
+                                    j, ibv_get_device_name(ib_dev), i, strerror(errno))); 
+                    }
+                    pkey = ntohs(pkey) & MCA_BTL_IB_PKEY_MASK;
                     if(pkey == mca_btl_openib_component.ib_pkey_val){
                         ret = init_one_port(btl_list, hca, i, j, &ib_port_attr);
                         break;
@@ -610,6 +644,15 @@ btl_openib_component_init(int *num_btl_modules,
     *num_btl_modules = 0;
     num_devs = 0; 
 
+    /* Per https://svn.open-mpi.org/trac/ompi/ticket/1305, check to
+       see if $sysfsdir/class/infiniband exists.  If it does not,
+       assume that the RDMA hardware drivers are not loaded, and
+       therefore we don't want OpenFabrics verbs support in this OMPI
+       job.  No need to print a warning. */
+    if (!check_basics()) {
+        return NULL;
+    }
+    
     /* openib BTL does not currently support progress threads, so
        disable the component if they were requested */
     if (enable_progress_threads) {
@@ -1185,7 +1228,7 @@ static int btl_openib_component_progress(void)
 
             if(MCA_BTL_OPENIB_RDMA_FRAG_LOCAL(frag)) {
                 uint32_t size;
-                opal_atomic_rmb();
+                opal_atomic_mb();
                 if(endpoint->nbo) {
                     BTL_OPENIB_FOOTER_NTOH((*frag->ftr));
                 }

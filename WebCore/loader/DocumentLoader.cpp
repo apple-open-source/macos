@@ -279,7 +279,7 @@ void DocumentLoader::mainReceivedError(const ResourceError& error, bool isComple
 // one document at a time, but one document may have many related resources. 
 // stopLoading will stop all loads initiated by the data source, 
 // but not loads initiated by child frames' data sources -- that's the WebFrame's job.
-void DocumentLoader::stopLoading()
+void DocumentLoader::stopLoading(DatabasePolicy databasePolicy)
 {
     // In some rare cases, calling FrameLoader::stopLoading could set m_loading to false.
     // (This can happen when there's a single XMLHttpRequest currently loading and stopLoading causes it
@@ -292,7 +292,7 @@ void DocumentLoader::stopLoading()
         Document* doc = m_frame->document();
         
         if (loading || doc->parsing())
-            m_frame->loader()->stopLoading(false);
+            m_frame->loader()->stopLoading(false, databasePolicy);
     }
 
     // Always cancel multipart loaders
@@ -883,7 +883,7 @@ bool DocumentLoader::shouldLoadResourceFromApplicationCache(const ResourceReques
     if (!ApplicationCache::requestIsHTTPOrHTTPSGet(request))
         return false;
 
-    // If the resource's URL is an master entry, the manifest, an explicit entry, a fallback entry, or a dynamic entry
+    // If the resource's URL is an master entry, the manifest, an explicit entry, or a fallback entry
     // in the application cache, then get the resource from the cache (instead of fetching it).
     resource = cache->resourceForURL(request.url());
 

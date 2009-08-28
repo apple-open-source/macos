@@ -5,6 +5,7 @@
 # Works with mysql and postgresql
 #
 use POSIX;
+use File::Temp;
 
 $conf=shift||'/usr/local/dialup_admin/conf/admin.conf';
 $back_days = 35;
@@ -26,20 +27,26 @@ while(<CONF>){
 close CONF;
 
 die "sql_command directive is not set in admin.conf\n" if ($sqlcmd eq '');
-die "Could not find sql binary. Please make sure that the \$sqlcmd variable points to the right location\n" if (! -x $sqlcmd);
+die "sql command '$sqlcmd' not found or does not seem to be executable\n" if (! -x $sqlcmd);
 
-$sql_password = (!$sql_password) ? '' : "-p$sql_password";
+if ($sql_type eq 'mysql'){
+	$sql_password = (!$sql_password) ? '' : "-p$sql_password";
+}
+$sql_password =~ s/(\W)/\\$1/g;
 
 ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime;
 $date = POSIX::strftime("%Y-%m-%d %T",$sec,$min,$hour,($mday - $back_days),$mon,$year,$wday,$yday,$isdst);
 print "$date\n";
+if (POSIX::strftime("%Y-%m-%d %T",localtime) eq $date){
+	die "Could not set correct back date.\n";
+}
 
 $query = "DELETE FROM $sql_accounting_table WHERE AcctStopTime IS NULL AND AcctStartTime < '$date';";
 print "$query\n";
-open TMP, ">/tmp/clean_radacct.query"
-        or die "Could not open tmp file\n";
-print TMP $query;
-close TMP;
-$command = "$sqlcmd -h$sql_server -u$sql_username $sql_password $sql_database </tmp/clean_radacct.query" if ($sql_type eq 'mysql');
-$command = "$sqlcmd  -U $sql_username -f /tmp/clean_radacct.query $sql_database" if ($sql_type eq 'pg');
+my ($fh, $tmp_filename) = tempfile() or die "Could not open tmp file\n";
+print $fh $query;
+close $fh;
+$command = "$sqlcmd -h$sql_server -u$sql_username $sql_password $sql_database < $tmp_filename" if ($sql_type eq 'mysql');
+$command = "$sqlcmd  -U $sql_username -f  $tmp_filename $sql_database" if ($sql_type eq 'pg');
+$command = "$sqlcmd '$sql_server' '$sql_port' '' '$sql_username' '$sql_password' < $tmp_filename" if ($sql_type eq 'sqlrelay');
 `$command`;

@@ -130,7 +130,7 @@ static int lookupIDOnVolID(uint32_t volid, uint32_t fileID, char * out) {
 
     while(dirID != 2) {
         char *nameptr;
-        int namelen;
+        size_t namelen;
         sprintf(volpath, "/.vol/%u/%u", volid, dirID);
         alist.bitmapcount = 5;
         alist.commonattr = ATTR_CMN_NAME | ATTR_CMN_FSID | ATTR_CMN_OBJID | ATTR_CMN_PAROBJID;

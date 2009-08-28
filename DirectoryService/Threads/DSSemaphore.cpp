@@ -33,7 +33,7 @@ struct sLockHistoryInfo
 {
 	OSSpinLock		fOSLock;
 	pthread_key_t	fThreadKey;
-	char			*fFile;
+	const char      *fFile;
 	int32_t			fLine;
 };
 #endif
@@ -79,7 +79,7 @@ DSSemaphore::~DSSemaphore( void )
 	pthread_mutex_destroy( &mMutex );
 }
 
-void DSSemaphore::WaitDebug( char *file, int line )
+void DSSemaphore::WaitDebug( const char *file, int line )
 {
 	int error = pthread_mutex_lock( &mMutex );
 	if ( error != 0 )
@@ -98,7 +98,7 @@ void DSSemaphore::WaitDebug( char *file, int line )
 #endif
 }
 
-bool DSSemaphore::WaitTryDebug( char *file, int line )
+bool DSSemaphore::WaitTryDebug( const char *file, int line )
 {
 	int error = pthread_mutex_trylock( &mMutex );
 	if ( error == 0 )
@@ -113,7 +113,7 @@ bool DSSemaphore::WaitTryDebug( char *file, int line )
 	return (error == 0);
 }
 
-void DSSemaphore::SignalDebug( char *file, int line )
+void DSSemaphore::SignalDebug( const char *file, int line )
 {
 #if defined(DEBUG_LOCKS) || defined(DEBUG_LOCKS_HISTORY)
 	OSSpinLockLock( &mLockHistoryInfo->fOSLock );

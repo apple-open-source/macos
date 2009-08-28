@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2009-04-16</string>
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>openbsm.txt</string>
+		<key>OpenSourceProject</key>
+		<string>openbsm</string>
+		<key>OpenSourceSHA1</key>
+		<string>00937d4511e316395d9ac147fee1f44490d4a8c5</string>
+		<key>OpenSourceURL</key>
+		<string>http://www.trustedbsd.org/downloads/openbsm-1.1.tgz</string>
+		<key>OpenSourceVersion</key>
+		<string>1.1</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.trustedbsd.org</string>
+	</dict>
+</array>
+</plist>

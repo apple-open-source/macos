@@ -1,5 +1,7 @@
 use Test::More;
 
-eval { require Test::Kwalitee; Test::Kwalitee->import() };
-
-plan( skip_all => 'Test::Kwalitee not installed' ) if $@;
+eval { require Test::Kwalitee; die "Not maintainer" unless -f 'MANIFEST.SKIP' };
+if($@) {
+    plan( skip_all => $@ );
+}
+Test::Kwalitee->import(); 

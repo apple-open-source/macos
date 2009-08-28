@@ -1,0 +1,14 @@
+--- pyobjc-core/Lib/objc/_pythonify.py	2007-11-01 06:04:34.000000000 -0700
++++ pyobjc-core/Lib/objc/_pythonify.py	2009-03-12 12:14:49.000000000 -0700
+@@ -82,8 +82,10 @@
+             return OC_PythonLong(obj, obj.longLongValue())
+         elif tp in 'QL':
+             return OC_PythonLong(obj, obj.unsignedLongLongValue())
+-        else:
++        elif tp == 'd':
+             return OC_PythonFloat(obj, obj.doubleValue())
++        else:
++            return OC_PythonFloat(obj, obj.floatValue())
+     else:
+         return OC_PythonInt(obj, obj.longValue())
+ 

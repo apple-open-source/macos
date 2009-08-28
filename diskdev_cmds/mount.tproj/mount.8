@@ -63,9 +63,9 @@ If either
 .Ar special
 or
 .Ar node
-are not provided, the appropriate information is taken from the
-.Xr fstab 5
-file.
+are not provided, the appropriate information is obtained via the
+.Xr getfsent 3
+library routines.
 .Pp
 The system maintains a list of currently mounted file systems.
 If no arguments are given to
@@ -75,12 +75,14 @@ this list is printed.
 The options are as follows:
 .Bl -tag -width indent
 .It Fl a
-All the filesystems described in
-.Xr fstab 5
+All the filesystems listed via
+.Xr getfsent 3
 are mounted.
-Exceptions are those marked as ``noauto'' or are excluded by the
+Exceptions are those marked as ``noauto;'' excluded by the
 .Fl t
-flag (see below).
+flag (see below); entries that are neither ``ro,'' ``rw,'' or
+``rq;'' ``nfs'' entries that also have ``net'' as an option; and
+already-mounted ``nfs'' entries.
 .It Fl d
 Causes everything to be done except for the actual system call.
 This option is useful in conjunction with the
@@ -160,6 +162,9 @@ Do not update the file access time when reading from a file.
 This option is useful on file systems where there are large numbers of files
 and performance is more critical than updating the file access time (which
 is rarely ever important).
+.It nobrowse
+This option indicates that the mount point should not be visible
+via the GUI (i.e., appear on the Desktop as a separate volume).
 .El
 .Pp
 Any additional options specific to a filesystem type that is not
@@ -182,7 +187,6 @@ to execute the equivalent of:
 /sbin/mount_hfs -o nosuid -w -m 755 /dev/disk2s9 /tmp
 .Ed
 .It Fl r
-The file system is to be mounted read-only.
 Mount the file system read-only (even the super-user may not write it).
 The same as the
 .Dq rdonly
@@ -242,8 +246,8 @@ files on the filesystem are currently open for writing unless the
 flag is also specified.
 The set of options is determined by first extracting the options
 for the file system from the
-.Xr fstab
-table,
+filesystem table (see
+.Xr getfsent 3 )
 then applying any options specified by the
 .Fl o
 argument,
@@ -255,20 +259,15 @@ option.
 .It Fl v
 Verbose mode.
 .It Fl w
-The file system object is to be read and write.
+Mount the file system read-write.
 .Pp
 The options specific to NFS filesystems are described in the
 .Xr mount_nfs 8
 manual page.
 .El
-.Sh FILES
-.Bl -tag -width /etc/fstab -compact
-.It Pa /etc/fstab
-file system table
-.El
 .Sh SEE ALSO
 .Xr mount 2 ,
-.Xr fstab 5 ,
+.Xr getfsent 3 ,
 .Xr mount_afp 8 ,
 .Xr mount_cd9660 8 ,
 .Xr mount_cddafs 8 ,

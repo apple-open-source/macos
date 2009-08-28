@@ -24,7 +24,7 @@
 #include "FlatFileNode.h"
 #include "BaseDirectoryPlugin.h"
 #include "CLog.h"
-#include "cache.h"
+#include "CCache.h"
 #include "CCachePlugin.h"
 #include "crypt-md5.h"
 #include <pthread.h>
@@ -39,10 +39,6 @@
 #include <vector>
 using std::vector;
 
-#define kSQLBeginTransactionCmd		"BEGIN TRANSACTION"
-#define kSQLEndTransactionCmd		"END TRANSACTION"
-#define kSQLCommit					"COMMIT"
-
 #define kSQLInsertFileLine			"INSERT INTO '%s' ('filelineno','line') VALUES (?,?);"
 
 #define kSQLInsertTimestamp			"REPLACE INTO 'FileTimestamps' ('filetime','file') VALUES (%d,\"%s\");"
@@ -53,7 +49,6 @@ using std::vector;
 
 const char *kDatabaseDirectory		= "/var/db/DirectoryService";
 const char *kFlatFileNameDB			= "/var/db/DirectoryService/flatfile.db";
-const char *kFlatFileNameDBJournal	= "/var/db/DirectoryService/flatfile.db-journal";
 
 struct sSearchState
 {
@@ -72,9 +67,8 @@ extern CCachePlugin		*gCacheNode;
 
 FlatFileConfigDataMap	FlatFileNode::fFFRecordTypeTable;
 DSMutexSemaphore		FlatFileNode::fFlatFileLock("FlatFileNode::fFlatFileLock");
-DSMutexSemaphore		FlatFileNode::fSQLDatabaseLock("FlatFileNode::fSQLDatabaseLock");
 pthread_mutex_t			FlatFileNode::fWatchFilesLock			= PTHREAD_MUTEX_INITIALIZER;
-sqlite3					*FlatFileNode::fSQLDatabase				= NULL;
+SQLiteHelper			*FlatFileNode::fDatabaseHelper			= NULL;
 bool					FlatFileNode::fProperShutdown			= false;
 bool					FlatFileNode::fSafeBoot					= false;
 int						FlatFileNode::fKqueue					= 0;
@@ -83,9 +77,8 @@ static bool				gUseSQLIndex							= true;
 extern dsBool			gDSInstallDaemonMode;
 extern dsBool			gDSLocalOnlyMode;
 extern dsBool			gProperShutdown;
+extern dsBool			gDSDebugMode;
 extern dsBool			gSafeBoot;
-
-extern bool IntegrityCheckDB( sqlite3 *inDatabase );
 
 FlatFileNode::FlatFileNode( CFStringRef inNodeName, uid_t inUID, uid_t inEffectiveUID ) : BDPIVirtualNode( inNodeName, inUID, inEffectiveUID )
 {
@@ -93,9 +86,9 @@ FlatFileNode::FlatFileNode( CFStringRef inNodeName, uid_t inUID, uid_t inEffecti
 
 	fFlatFileLock.WaitLock();
 	
-	if ( gDSInstallDaemonMode == false && gDSLocalOnlyMode == false && gUseSQLIndex == true )
+	if ( gDSInstallDaemonMode == false && gDSLocalOnlyMode == false && gUseSQLIndex == true && gDSDebugMode == false )
 	{
-		if ( fSQLDatabase == NULL )
+		if ( fDatabaseHelper == NULL )
 		{
 			fProperShutdown = gProperShutdown;
 			fSafeBoot = gSafeBoot;
@@ -385,7 +378,9 @@ void FlatFileNode::FileChangeNotification( CFFileDescriptorRef cfFD, CFOptionFla
 		// this is a one-shot event, let's just close the event FD
 		pthread_mutex_lock( &fWatchFilesLock );
 
-		close( mapping->fKeventFD );
+		if ( mapping->fKeventFD != -1 ) {
+			close( mapping->fKeventFD );
+		}
 		mapping->fKeventFD = -1;
 		mapping->fTimeChecked.tv_sec = 0;	// set time stamp to 0 so we re-read
 		
@@ -400,10 +395,11 @@ void FlatFileNode::FileChangeNotification( CFFileDescriptorRef cfFD, CFOptionFla
 			if ( mapping->fCacheType == CACHE_ENTRY_TYPE_GROUP || mapping->fCacheType == CACHE_ENTRY_TYPE_USER )
 			{
 				DbgLog( kLogPlugin, "FlatFileNode::FileChangeNotification %s - flushing membership cache", mapping->fFileName );
-				Mbrd_ProcessResetCache();
+				dsFlushMembershipCache();
 			}
 			
-			gCacheNode->EmptyCacheEntryType( mapping->fCacheType );
+			if ( gCacheNode != NULL )
+				gCacheNode->EmptyCacheEntryType( mapping->fCacheType );
 			
 			DbgLog( kLogPlugin, "FlatFileNode::FileChangeNotification %s - flushed cache type %d", mapping->fFileName, mapping->fCacheType );
 		}
@@ -471,8 +467,19 @@ SInt32 FlatFileNode::InternalSearchRecords( sBDPISearchRecordsContext *inContext
 			continue;
 		}
 		
-		stateInfo->fMapping = iter->second;
+		sFileMapping *mapping = iter->second;
+		stateInfo->fMapping = mapping;
 		stateInfo->fHostSearch = ( strcmp( stateInfo->fMapping->fRecordType, kDSStdRecordTypeHosts) == 0 );
+
+		// see if it is supported attribute if we aren't looking for all records
+		if ( stateInfo->fSearchAll == false ) {
+			CFArrayRef cfSuppAttr = mapping->fSuppAttribsCF;
+			if ( CFArrayContainsValue(cfSuppAttr, CFRangeMake(0, CFArrayGetCount(cfSuppAttr)), inContext->fAttributeType) == false ) {
+				inContext->fRecTypeIndex++;
+				siResult = eDSNoStdMappingAvailable;
+				continue;
+			}
+		}
 		
 		// check the timestamp of the files
 		CheckTimeStamp( stateInfo->fMapping );
@@ -515,7 +522,9 @@ SInt32 FlatFileNode::InternalSearchRecords( sBDPISearchRecordsContext *inContext
 		if ( stateInfo->fSearchContext == NULL )
 		{
 			munmap( stateInfo->fFileData, stateInfo->fFileMapSize );
-			close( stateInfo->fFileFD );
+			if ( stateInfo->fFileFD != -1 ) {
+				close( stateInfo->fFileFD );
+			}
 			stateInfo->fFileMapSize = 0;
 			stateInfo->fFileFD = -1;
 			stateInfo->fFileData = NULL;
@@ -535,19 +544,12 @@ SInt32 FlatFileNode::FetchMatchingRecords( sBDPISearchRecordsContext *inContext,
 {
 	// here we search the DB to find the match if we have an index for it
 	sSearchState	*stateInfo	= (sSearchState *) inContext->fStateInfo;
+	bool			bIsIndexed	= false;
 
 	// first build our querys string, we only search things we have indexed (this is intentional)
 	CFArrayRef	cfIndexedAttribs = stateInfo->fMapping->fAttributesCF;
-
-	bool bIsIndexed;
-	if ( cfIndexedAttribs == NULL )
-	{
-		bIsIndexed = false;
-	}
-	else
-	{
+	if ( cfIndexedAttribs != NULL )
 		bIsIndexed = CFArrayContainsValue( cfIndexedAttribs, CFRangeMake(0, CFArrayGetCount(cfIndexedAttribs)), inContext->fAttributeType );
-	}
 	
 	// if we are install daemon or not indexed we have to go to the file directly to find the answer
 	// and this isn't a host lookup (they go to the files directly due to complexities of the file)
@@ -583,9 +585,9 @@ SInt32 FlatFileNode::FetchMatchingRecords( sBDPISearchRecordsContext *inContext,
 
 			sqlite3_stmt	*pStmt		= NULL;
 			
-			fSQLDatabaseLock.WaitLock();
+			fDatabaseHelper->LockDatabase();
 			
-			int status = sqlite3_prepare( fSQLDatabase, query, -1, &pStmt, NULL );
+			int status = fDatabaseHelper->Prepare( query, -1, &pStmt );
 			if ( status == SQLITE_OK )
 			{
 				// it's either CFDataRef or it's CFStringRef
@@ -608,7 +610,7 @@ SInt32 FlatFileNode::FetchMatchingRecords( sBDPISearchRecordsContext *inContext,
 			{
 				do
 				{
-					status = sqlite3_step( pStmt );
+					status = fDatabaseHelper->Step( pStmt );
 					if ( status == SQLITE_ROW )
 					{
 						if ( sqlite3_column_type(pStmt, 0) == SQLITE_INTEGER )
@@ -618,7 +620,7 @@ SInt32 FlatFileNode::FetchMatchingRecords( sBDPISearchRecordsContext *inContext,
 					}
 				} while (status == SQLITE_ROW);
 
-				status = sqlite3_finalize( pStmt );
+				status = fDatabaseHelper->Finalize( pStmt );
 			}
 			
 			uint lineCount = filelineno.size();
@@ -631,12 +633,12 @@ SInt32 FlatFileNode::FetchMatchingRecords( sBDPISearchRecordsContext *inContext,
 				
 				snprintf( query, sizeof(query), "SELECT line FROM \"%s\" WHERE filelineno=\"%d\";", stateInfo->fMapping->fFileName, filelineno[zz] );
 				
-				status = sqlite3_prepare( fSQLDatabase, query, -1, &pStmt, NULL );
+				status = fDatabaseHelper->Prepare( query, -1, &pStmt );
 				if ( status == SQLITE_OK )
 				{
 					do
 					{
-						status = sqlite3_step( pStmt );
+						status = fDatabaseHelper->Step( pStmt );
 						if ( status == SQLITE_ROW )
 						{
 							if ( sqlite3_column_type(pStmt, 0) == SQLITE_TEXT )
@@ -667,16 +669,16 @@ SInt32 FlatFileNode::FetchMatchingRecords( sBDPISearchRecordsContext *inContext,
 						}
 					} while (status == SQLITE_ROW);
 					
-					status = sqlite3_finalize( pStmt );
+					status = fDatabaseHelper->Finalize( pStmt );
 				}
 			}
 			
-			fSQLDatabaseLock.SignalLock();
+			fDatabaseHelper->UnlockDatabase();
 		}
 		
 		DSFreeString( pTemp );
 	}
-
+	
 	// host searches are special, we have to parse the entire file and return a consolidated answer since entries are by IP not by name
 	if ( stateInfo->fFileData != NULL && stateInfo->fHostSearch == true )
 	{
@@ -932,19 +934,19 @@ void FlatFileNode::FreeSearchState( void *inState )
     
     if ( theState->fSearchContext != NULL )
     {
-        DbgLog( kLogPlugin, "FlatFileNode::FreeSearchState - called with fSearchContext != NULL - SearchRecords is in progress" );
+        DbgLog( kLogDebug, "FlatFileNode::FreeSearchState - called with fSearchContext != NULL - SearchRecords is in progress" );
         theState->fSearchContext = NULL;
     }
 	
 	if ( theState->fStmt != NULL )
 	{
-		sqlite3_finalize( theState->fStmt );
+		fDatabaseHelper->Finalize( theState->fStmt );
         theState->fStmt = NULL;
 	}
 	
 	if ( theState->fFileData != NULL )
 	{
-        DbgLog( kLogPlugin, "FlatFileNode::FreeSearchState - called with fFileData != NULL - SearchRecords is in progress" );
+        DbgLog( kLogDebug, "FlatFileNode::FreeSearchState - called with fFileData != NULL - SearchRecords is in progress" );
 		munmap( theState->fFileData, theState->fFileMapSize );
         theState->fFileData = NULL;
         theState->fFileMapSize = 0;
@@ -968,10 +970,10 @@ void FlatFileNode::OpenOrCreateDatabase( void )
 {
 	// we throw out the db on every launch, it's quick to create
 	struct stat fileStat;
-	bool		bRecreate	= false;
 	mode_t		dirPrivs	= S_IRWXU | S_IRWXG;
 	
-	fSQLDatabaseLock.WaitLock();
+	if ( fDatabaseHelper == NULL )
+		fDatabaseHelper = new SQLiteHelper( kFlatFileNameDB, 100600 );
 	
 	// see if path exists
 	if ( lstat(kDatabaseDirectory, &fileStat) == 0 )
@@ -994,49 +996,22 @@ void FlatFileNode::OpenOrCreateDatabase( void )
 		return;
 	}
 	
-	if ( lstat(kFlatFileNameDB, &fileStat) != 0 || fileStat.st_size == 0 || fSafeBoot == true || fProperShutdown == false )
+	fDatabaseHelper->LockDatabase();
+	
+	if ( fSafeBoot == true || fProperShutdown == false )
 	{
-		unlink( kFlatFileNameDB );
-		unlink( kFlatFileNameDBJournal );
-		bRecreate = true;
+		DbgLog( kLogInfo, "FlatFileNode::OpenOrCreateDatabase - Removing database due to '%s'", (fSafeBoot ? "Safe-boot mode" : "Improper shutdown") );
+		fDatabaseHelper->RemoveDatabase();
 
 		// we clear the flag so we don't get into a loop
 		fProperShutdown = true; 
 		fSafeBoot = false;
 	}
 	
-retry:
-	
-	if ( sqlite3_open(kFlatFileNameDB, &fSQLDatabase) == SQLITE_OK )
+	if ( fDatabaseHelper->OpenDatabase(true) == true )
 	{
-		// let's check integrity, if we aren't recreating
-		if ( bRecreate == false ) {
-			
-			// let's change the default cache for the DB to 50 x 1.5k = 75k
-			sqlExecSync( "PRAGMA cache_size = 50" );
-			
-			if ( IntegrityCheckDB(fSQLDatabase) == false ) {
-				DbgLog( kLogCritical, "FlatFileNode::OpenOrCreateDatabase - index failed integrity check - rebuilding" );
-				sqlite3_close( fSQLDatabase );
-				fSQLDatabase = NULL;
-				
-				unlink( kFlatFileNameDB );
-				unlink( kFlatFileNameDBJournal );
-				
-				bRecreate = true;
-				
-				goto retry;
-			}
-			else {
-				SrvrLog( kLogApplication, "BSD Plugin - index passed integrity check" );
-			}
-		}
-		
-		// let's change the default cache for the DB to 500 x 1.5k = 750k
-		sqlExecSync( "PRAGMA cache_size = 500" );
-
-		if ( bRecreate )
-			sqlExecSync( kSQLCreateTimestampTable );
+		// due to possible cases where table was not created, let's try to create it, it won't hurt if it exists
+		fDatabaseHelper->ExecSync( kSQLCreateTimestampTable );
 		
 		GetDatabaseTimestamps();
 		
@@ -1052,7 +1027,7 @@ retry:
 		}
 	}
 	
-	fSQLDatabaseLock.SignalLock();
+	fDatabaseHelper->UnlockDatabase();
 }
 		
 void FlatFileNode::CreateTableForRecordMap( sFileMapping *inFileType )
@@ -1092,15 +1067,15 @@ void FlatFileNode::CreateTableForRecordMap( sFileMapping *inFileType )
 	snprintf( table2cmd, sizeof(table2cmd), "CREATE TABLE '%s' ('filelineno' INTEGER, 'line' TEXT);", inFileType->fFileName );
 	snprintf( indexcmd, sizeof(indexcmd), "CREATE INDEX '%s.index' on '%s' ('filelineno');", inFileType->fFileName, inFileType->fFileName );
 	
-	fSQLDatabaseLock.WaitLock();
+	// Begin transaction locks the DB, but we want this entire operation locked
+	fDatabaseHelper->LockDatabase();
 
-	sqlExecSync( kSQLBeginTransactionCmd );
-	sqlExecSync( sqlCommand );
-	sqlExecSync( index );
-	sqlExecSync( table2cmd );
-	sqlExecSync( indexcmd );
-	sqlExecSync( kSQLEndTransactionCmd );
-	sqlExecSync( kSQLCommit );
+	fDatabaseHelper->BeginTransaction();
+	fDatabaseHelper->ExecSync( sqlCommand );
+	fDatabaseHelper->ExecSync( index );
+	fDatabaseHelper->ExecSync( table2cmd );
+	fDatabaseHelper->ExecSync( indexcmd );
+	fDatabaseHelper->EndTransaction();
 
 	// no go parse the file and insert the entries
 	struct stat fileStat;
@@ -1108,7 +1083,7 @@ void FlatFileNode::CreateTableForRecordMap( sFileMapping *inFileType )
 	{
 		char	command[1024];
 		
-		sqlExecSync( kSQLBeginTransactionCmd );
+		fDatabaseHelper->BeginTransaction();
 
 		FILE	*fd = fopen( inFileType->fFileName, "r" );
 		if ( fd != NULL )
@@ -1132,7 +1107,7 @@ void FlatFileNode::CreateTableForRecordMap( sFileMapping *inFileType )
 					snprintf( command, sizeof(command), kSQLInsertFileLine, inFileType->fFileName );
 
 					// there's a table with the filename
-					int status = sqlite3_prepare( fSQLDatabase, command, -1, &pStmt, NULL );	
+					int status = fDatabaseHelper->Prepare( command, -1, &pStmt );	
 					if ( status == SQLITE_OK )
 					{
 						// "INSERT INTO '%s' ('filelineno','line') VALUES (?,?);"
@@ -1142,15 +1117,15 @@ void FlatFileNode::CreateTableForRecordMap( sFileMapping *inFileType )
 							status = sqlite3_bind_text( pStmt, 2, lnResult, lineLen, SQLITE_TRANSIENT );
 							if ( status == SQLITE_OK )
 							{
-								sqlite3_step( pStmt );
+								fDatabaseHelper->Step( pStmt );
 							}
 						}
 						
-						sqlite3_finalize( pStmt );
+						fDatabaseHelper->Finalize( pStmt );
 					}
 					
 					// so let's use our parser to add the line to the database
-					inFileType->fParseCallback( fSQLDatabase, false, iLineCount, lnResult, NULL );
+					inFileType->fParseCallback( fDatabaseHelper, false, iLineCount, lnResult, NULL );
 				}
 				
 				iLineCount++;
@@ -1160,13 +1135,12 @@ void FlatFileNode::CreateTableForRecordMap( sFileMapping *inFileType )
 		}
 		
 		snprintf( command, sizeof(command), kSQLInsertTimestamp, (int) fileStat.st_mtimespec.tv_sec, inFileType->fFileName );
-		sqlExecSync( command );
+		fDatabaseHelper->ExecSync( command );
 		
-		sqlExecSync( kSQLEndTransactionCmd );
-		sqlExecSync( kSQLCommit );
+		fDatabaseHelper->EndTransaction();
 	}
 
-	fSQLDatabaseLock.SignalLock();
+	fDatabaseHelper->UnlockDatabase();
 
 	DSCFRelease( cfIndex );
 	DSCFRelease( cfCommand );
@@ -1179,32 +1153,32 @@ void FlatFileNode::CheckTimeStamp( sFileMapping *inFileType )
 	char		command[512];
 	struct stat	fileStat	= { 0 };
 	
-	if ( inFileType->fFileName == NULL )
+	if ( inFileType->fFileName == NULL || fDatabaseHelper == NULL )
 		return;
 	
-	fSQLDatabaseLock.WaitLock();
+	fDatabaseHelper->LockDatabase();
 	
 	int statErr = stat( inFileType->fFileName, &fileStat );
-	if ( fSQLDatabase != NULL && (statErr != 0 || fileStat.st_mtimespec.tv_sec != inFileType->fTimeChecked.tv_sec) )
+	if ( statErr != 0 || fileStat.st_mtimespec.tv_sec != inFileType->fTimeChecked.tv_sec )
 	{
 		// drop the table so we don't find results since the file is gone or has changed
 		snprintf( command, sizeof(command), "DROP TABLE IF EXISTS '%s';", inFileType->fRecordType );
-		sqlExecSync( command );
+		fDatabaseHelper->ExecSync( command );
 		
 		// drop the table so we don't find results since the file is gone or has changed
 		snprintf( command, sizeof(command), "DROP TABLE IF EXISTS '%s';", inFileType->fFileName );
-		sqlExecSync( command );
+		fDatabaseHelper->ExecSync( command );
 		
 		snprintf( command, sizeof(command), "DROP INDEX '%s.index';", inFileType->fFileName );
-		sqlExecSync( command );
+		fDatabaseHelper->ExecSync( command );
 
 		snprintf( command, sizeof(command), "DROP INDEX '%s.index';", inFileType->fRecordType );
-		sqlExecSync( command );
+		fDatabaseHelper->ExecSync( command );
 
 		// if we didn't error doing the stat, then the file must have changed, update it
 		if ( statErr == 0 )
 		{
-			DbgLog( kLogPlugin, "FlatFileNode::CheckTimeStamp rebuilding table for %s", inFileType->fFileName );
+			DbgLog( kLogPlugin, "FlatFileNode::CheckTimeStamp rebuilding index for %s", inFileType->fFileName );
 			CreateTableForRecordMap( inFileType );
 			
 			inFileType->fTimeChecked.tv_sec = fileStat.st_mtimespec.tv_sec;
@@ -1213,7 +1187,7 @@ void FlatFileNode::CheckTimeStamp( sFileMapping *inFileType )
 		}
 	}
 
-	fSQLDatabaseLock.SignalLock();
+	fDatabaseHelper->UnlockDatabase();
 }
 
 void FlatFileNode::GetDatabaseTimestamps( void )
@@ -1229,15 +1203,15 @@ void FlatFileNode::GetDatabaseTimestamps( void )
 		
 		sqlite3_stmt	*pStmt	= NULL;
 		
-		fSQLDatabaseLock.WaitLock();
+		fDatabaseHelper->LockDatabase();
 
-		int status = sqlite3_prepare( fSQLDatabase, kSQLGetTimestamp, -1, &pStmt, NULL );
+		int status = fDatabaseHelper->Prepare( kSQLGetTimestamp, -1, &pStmt );
 		if ( status == SQLITE_OK )
 		{
 			status = sqlite3_bind_text( pStmt, 1, mapIter->second->fFileName, strlen(mapIter->second->fFileName), SQLITE_TRANSIENT );
 			if ( status == SQLITE_OK )
 			{
-				status = sqlite3_step( pStmt );
+				status = fDatabaseHelper->Step( pStmt );
 				if ( status == SQLITE_ROW )
 				{
 					if ( sqlite3_column_type(pStmt, 0) == SQLITE_INTEGER )
@@ -1249,10 +1223,10 @@ void FlatFileNode::GetDatabaseTimestamps( void )
 				}
 			}
 			
-			status = sqlite3_finalize( pStmt );
+			status = fDatabaseHelper->Finalize( pStmt );
 		}
 
-		fSQLDatabaseLock.SignalLock();
+		fDatabaseHelper->UnlockDatabase();
 		
 		++mapIter;
 	}
@@ -1264,44 +1238,84 @@ void FlatFileNode::BuildTableMap( void )
 	
 	if ( fFFRecordTypeTable.empty() )
 	{
-		InsertFileMapping( kDSStdRecordTypeUsers, "/etc/passwd", CACHE_ENTRY_TYPE_USER, parse_user, kDSNAttrRecordName, kDS1AttrUniqueID, 
-						   kDS1AttrPrimaryGroupID, kDS1AttrDistinguishedName, NULL );
+		CFStringRef userSuppAttr[] = { CFSTR(kDSNAttrRecordName), CFSTR(kDS1AttrPassword), CFSTR(kDS1AttrUniqueID), CFSTR(kDS1AttrPrimaryGroupID),
+									   CFSTR(kDS1AttrChange), CFSTR(kDS1AttrExpire), CFSTR(kDS1AttrDistinguishedName), CFSTR(kDSNAttrBuilding), 
+									   CFSTR(kDSNAttrPhoneNumber), CFSTR(kDSNAttrHomePhoneNumber), CFSTR(kDS1AttrNFSHomeDirectory), 
+									   CFSTR(kDS1AttrUserShell) };
+		InsertFileMapping( kDSStdRecordTypeUsers, "/etc/passwd", CACHE_ENTRY_TYPE_USER, parse_user,
+						   userSuppAttr, sizeof(userSuppAttr) / sizeof(CFStringRef), 
+						   kDSNAttrRecordName, kDS1AttrUniqueID, kDS1AttrPrimaryGroupID, kDS1AttrDistinguishedName, NULL );
 		
-		InsertFileMapping( kDSStdRecordTypeGroups, "/etc/group", CACHE_ENTRY_TYPE_GROUP, parse_group, kDSNAttrRecordName, kDS1AttrPrimaryGroupID, 
-						   kDSNAttrGroupMembership, NULL );
+		CFStringRef groupSuppAttr[] = { CFSTR(kDSNAttrRecordName), CFSTR(kDS1AttrPassword), CFSTR(kDS1AttrPrimaryGroupID), CFSTR(kDSNAttrGroupMembership) };
+		InsertFileMapping( kDSStdRecordTypeGroups, "/etc/group", CACHE_ENTRY_TYPE_GROUP, parse_group, 
+						   groupSuppAttr, sizeof(groupSuppAttr) / sizeof(CFStringRef), 
+						   kDSNAttrRecordName, kDS1AttrPrimaryGroupID, kDSNAttrGroupMembership, NULL );
 		
-		InsertFileMapping( kDSStdRecordTypeAliases, "/etc/aliases", CACHE_ENTRY_TYPE_ALIAS, parse_alias, kDSNAttrRecordName, NULL );
-		
-		InsertFileMapping( kDSStdRecordTypeBootp, "/etc/bootptab", 0, parse_bootp, kDSNAttrRecordName, kDS1AttrENetAddress,
-						   kDSNAttrIPAddress, NULL );
-		
-		InsertFileMapping( kDSStdRecordTypeEthernets, "/etc/ethers", CACHE_ENTRY_TYPE_COMPUTER, parse_ethernet, kDS1AttrENetAddress,
+		CFStringRef aliasSuppAttr[] = { CFSTR(kDSNAttrRecordName), CFSTR("dsAttrTypeNative:members"), CFSTR(kDS1AttrComment) };
+		InsertFileMapping( kDSStdRecordTypeAliases, "/etc/aliases", CACHE_ENTRY_TYPE_ALIAS, parse_alias, 
+						   aliasSuppAttr, sizeof(aliasSuppAttr) / sizeof(CFStringRef),
 						   kDSNAttrRecordName, NULL );
 		
-		InsertFileMapping( kDSStdRecordTypeHosts, "/etc/hosts", CACHE_ENTRY_TYPE_HOST, parse_host, kDSNAttrIPAddress, kDSNAttrIPv6Address,
+		CFStringRef bootpSuppAttr[] = { CFSTR(kDSNAttrRecordName), CFSTR(kDS1AttrENetAddress), CFSTR(kDSNAttrIPAddress) };
+		InsertFileMapping( kDSStdRecordTypeBootp, "/etc/bootptab", 0, parse_bootp,
+						   bootpSuppAttr, sizeof(bootpSuppAttr) / sizeof(CFStringRef), 
+						   kDSNAttrRecordName, kDS1AttrENetAddress, kDSNAttrIPAddress, NULL );
+		
+		CFStringRef etherSuppAttr[] = { CFSTR(kDSNAttrRecordName), CFSTR(kDS1AttrENetAddress) };
+		InsertFileMapping( kDSStdRecordTypeEthernets, "/etc/ethers", CACHE_ENTRY_TYPE_COMPUTER, parse_ethernet,
+						   etherSuppAttr, sizeof(etherSuppAttr) / sizeof(CFStringRef),
+						   kDS1AttrENetAddress, kDSNAttrRecordName, NULL );
+		
+		CFStringRef hostSuppAttr[] = { CFSTR(kDSNAttrRecordName), CFSTR(kDSNAttrIPAddress), CFSTR(kDSNAttrIPv6Address), CFSTR(kDS1AttrComment) };
+		InsertFileMapping( kDSStdRecordTypeHosts, "/etc/hosts", CACHE_ENTRY_TYPE_HOST, parse_host, 
+						   hostSuppAttr, sizeof(hostSuppAttr) / sizeof(CFStringRef),
+						   kDSNAttrIPAddress, kDSNAttrIPv6Address, kDSNAttrRecordName, NULL );
+		
+		CFStringRef mountSuppAttr[] = { CFSTR(kDSNAttrRecordName), CFSTR(kDS1AttrVFSLinkDir), CFSTR(kDS1AttrVFSType), CFSTR(kDSNAttrVFSOpts),
+										CFSTR(kDS1AttrVFSDumpFreq), CFSTR(kDS1AttrVFSPassNo) };
+		InsertFileMapping( kDSStdRecordTypeMounts, "/etc/fstab", CACHE_ENTRY_TYPE_MOUNT, parse_mount, 
+						   mountSuppAttr, sizeof(mountSuppAttr) / sizeof(CFStringRef),
 						   kDSNAttrRecordName, NULL );
 		
-		InsertFileMapping( kDSStdRecordTypeMounts, "/etc/fstab", CACHE_ENTRY_TYPE_MOUNT, parse_mount, kDSNAttrRecordName, NULL );
+		CFStringRef netGrpSuppAttr[] = { CFSTR(kDSNAttrRecordName), CFSTR("dsAttrTypeNative:triplet") };
+		InsertFileMapping( kDSStdRecordTypeNetGroups, "/etc/netgroup", CACHE_ENTRY_TYPE_GROUP, parse_netgroup,
+						   netGrpSuppAttr, sizeof(netGrpSuppAttr) / sizeof(CFStringRef),
+						   kDSNAttrRecordName, NULL );
 		
-		InsertFileMapping( kDSStdRecordTypeNetGroups, "/etc/netgroup", CACHE_ENTRY_TYPE_GROUP, parse_netgroup, kDSNAttrRecordName, NULL );
+		CFStringRef netSuppAttr[] = { CFSTR(kDSNAttrRecordName), CFSTR("dsAttrTypeNative:address"), CFSTR(kDS1AttrComment) };
+		InsertFileMapping( kDSStdRecordTypeNetworks, "/etc/networks", CACHE_ENTRY_TYPE_NETWORK, parse_network,
+						   netSuppAttr, sizeof(netSuppAttr) / sizeof(CFStringRef),
+						   kDSNAttrRecordName, "dsAttrTypeNative:address", NULL );
 		
-		InsertFileMapping( kDSStdRecordTypeNetworks, "/etc/networks", CACHE_ENTRY_TYPE_NETWORK, parse_network, kDSNAttrRecordName, 
-						   "dsAttrTypeNative:address", NULL );
+		CFStringRef printSuppAttr[] = { CFSTR(kDSNAttrRecordName) };
+		InsertFileMapping( kDSStdRecordTypePrinters, "/etc/printcap", 0, parse_printer,
+						   printSuppAttr, sizeof(printSuppAttr) / sizeof(CFStringRef),
+						   kDSNAttrRecordName, NULL );
 		
-		InsertFileMapping( kDSStdRecordTypePrinters, "/etc/printcap", 0, parse_printer, kDSNAttrRecordName, NULL );
+		CFStringRef protSuppAttr[] = { CFSTR(kDSNAttrRecordName), CFSTR("dsAttrTypeNative:number"), CFSTR(kDS1AttrComment) };
+		InsertFileMapping( kDSStdRecordTypeProtocols, "/etc/protocols", CACHE_ENTRY_TYPE_PROTOCOL, parse_protocol, 
+						   protSuppAttr, sizeof(protSuppAttr) / sizeof(CFStringRef),
+						   kDSNAttrRecordName, "dsAttrTypeNative:number", NULL );
 		
-		InsertFileMapping( kDSStdRecordTypeProtocols, "/etc/protocols", CACHE_ENTRY_TYPE_PROTOCOL, parse_protocol, kDSNAttrRecordName,
-						   "dsAttrTypeNative:number", NULL );
+		CFStringRef rpcSuppAttr[] = { CFSTR(kDSNAttrRecordName), CFSTR("dsAttrTypeNative:number"), CFSTR(kDS1AttrComment) };
+		InsertFileMapping( kDSStdRecordTypeRPC, "/etc/rpc", CACHE_ENTRY_TYPE_RPC, parse_rpc, 
+						   rpcSuppAttr, sizeof(rpcSuppAttr) / sizeof(CFStringRef),
+						   kDSNAttrRecordName, "dsAttrTypeNative:number", NULL );
 		
-		InsertFileMapping( kDSStdRecordTypeRPC, "/etc/rpc", CACHE_ENTRY_TYPE_RPC, parse_rpc, kDSNAttrRecordName, "dsAttrTypeNative:number", NULL );
+		CFStringRef srvSuppAttr[] = { CFSTR(kDSNAttrRecordName), CFSTR("dsAttrTypeNative:PortAndProtocol"), CFSTR(kDS1AttrPort), 
+									CFSTR(kDSNAttrProtocols), CFSTR(kDS1AttrComment) };
+		InsertFileMapping( kDSStdRecordTypeServices, "/etc/services", CACHE_ENTRY_TYPE_SERVICE, parse_service,
+						   srvSuppAttr, sizeof(srvSuppAttr) / sizeof(CFStringRef),
+						   kDSNAttrRecordName, "dsAttrTypeNative:PortAndProtocol", kDS1AttrPort, NULL );
 		
-		InsertFileMapping( kDSStdRecordTypeServices, "/etc/services", CACHE_ENTRY_TYPE_SERVICE, parse_service, kDSNAttrRecordName, 
-						   "dsAttrTypeNative:PortAndProtocol", kDS1AttrPort, NULL );
-		
-		InsertFileMapping( kDSStdRecordTypeAutomountMap, NULL, CACHE_ENTRY_TYPE_MOUNT, parse_automounts, kDSNAttrRecordName, 
-						   NULL );
-		InsertFileMapping( kDSStdRecordTypeAutomount, NULL, CACHE_ENTRY_TYPE_MOUNT, parse_automounts, kDSNAttrRecordName,
-						   NULL );
+		// this is just a holder cause flat files doesn't use directly
+		CFStringRef autoSuppAttr[] = { CFSTR(kDSNAttrRecordName), CFSTR(kDSNAttrAutomountInformation) };
+		InsertFileMapping( kDSStdRecordTypeAutomountMap, NULL, CACHE_ENTRY_TYPE_MOUNT, parse_automounts,
+						   autoSuppAttr, sizeof(autoSuppAttr) / sizeof(CFStringRef),
+						   kDSNAttrRecordName, NULL );
+		InsertFileMapping( kDSStdRecordTypeAutomount, NULL, CACHE_ENTRY_TYPE_MOUNT, parse_automounts, 
+						   autoSuppAttr, sizeof(autoSuppAttr) / sizeof(CFStringRef),
+						   kDSNAttrRecordName, NULL );
 		
 		WatchFiles();
 	}
@@ -1309,14 +1323,15 @@ void FlatFileNode::BuildTableMap( void )
 	fFlatFileLock.SignalLock();
 }
 
-void FlatFileNode::InsertFileMapping( const char *inRecordType, const char *inFileName, int inCacheType, ParseCallback inCallback, ... )
+void FlatFileNode::InsertFileMapping( const char *inRecordType, const char *inFileName, int inCacheType, ParseCallback inCallback, 
+									  CFStringRef inSuppAttr[], CFIndex inSuppAttrCnt, ... )
 {
 	va_list				args;
 	int					iCount	= 0;
 	sFileMapping		*newMap = (sFileMapping *) calloc( 1, sizeof(sFileMapping) );
 	
 	// first count attributes
-	va_start( args, inCallback );
+	va_start( args, inSuppAttrCnt );
 	while (va_arg( args, char * ) != NULL)
 		iCount++;
 
@@ -1325,6 +1340,7 @@ void FlatFileNode::InsertFileMapping( const char *inRecordType, const char *inFi
 	newMap->fRecordType = inRecordType;
 	newMap->fRecordTypeCF = CFStringCreateWithCStringNoCopy( kCFAllocatorDefault, inRecordType, kCFStringEncodingUTF8, kCFAllocatorNull );
 	newMap->fFileName = inFileName;
+	newMap->fSuppAttribsCF = CFArrayCreate( kCFAllocatorDefault, (CFTypeRef *)inSuppAttr, inSuppAttrCnt, &kCFTypeArrayCallBacks );
 	newMap->fAttributes = (const char **) calloc( iCount+1, sizeof(const char *) );
 	newMap->fAttributesCF = cfArray;
 	newMap->fParseCallback = inCallback;
@@ -1332,7 +1348,7 @@ void FlatFileNode::InsertFileMapping( const char *inRecordType, const char *inFi
 	newMap->fCacheType = inCacheType;
 
 	iCount = 0;
-	va_start( args, inCallback );
+	va_start( args, inSuppAttrCnt );
 	char *attrib = va_arg( args, char * );
 	
 	do
@@ -1348,21 +1364,6 @@ void FlatFileNode::InsertFileMapping( const char *inRecordType, const char *inFi
 	} while( attrib != NULL );
 	
 	fFFRecordTypeTable[inRecordType] = newMap;
-}
-
-int FlatFileNode::sqlExecSync( const char *command )
-{
-	int				status;
-	sqlite3_stmt	*pStmt;
-	
-	status = sqlite3_prepare( fSQLDatabase, command, -1, &pStmt, NULL );	
-	if ( status == SQLITE_OK )
-	{
-		status = sqlite3_step( pStmt );
-		status = sqlite3_finalize( pStmt );
-	}
-	
-	return status;
 }
 
 int FlatFileNode::sqlExecSyncInsert( const char *command, int count, ... )
@@ -1381,9 +1382,9 @@ int FlatFileNode::sqlExecSyncInsert( const char *command, int count, ... )
 	for ( int ii = 0; ii < count; ii++ )
 		va_arg( args, const char * );
 	
-	fSQLDatabaseLock.WaitLock();
+	fDatabaseHelper->LockDatabase();
 	
-	int status = sqlite3_prepare( fSQLDatabase, tempCmd, -1, &pStmt, NULL );
+	int status = fDatabaseHelper->Prepare( tempCmd, -1, &pStmt );
 	if ( status == SQLITE_OK )
 	{
 		int			lineNo		= va_arg( args, int );
@@ -1399,12 +1400,12 @@ int FlatFileNode::sqlExecSyncInsert( const char *command, int count, ... )
 		}
 		
 		if ( status == SQLITE_OK )
-			status = sqlite3_step( pStmt );
+			status = fDatabaseHelper->Step( pStmt );
 		
-		status = sqlite3_finalize( pStmt );
+		status = fDatabaseHelper->Finalize( pStmt );
 	}
 
-	fSQLDatabaseLock.SignalLock();
+	fDatabaseHelper->UnlockDatabase();
 
 	va_end( args );
 	
@@ -1517,7 +1518,7 @@ void FlatFileNode::AddAttributeToRecord( CFMutableDictionaryRef inRecord, CFStri
 	}
 }
 
-static int tokenize_line_extended( char ***outTokens, char *inTokenString, char *inData )
+static int tokenize_line_extended( char ***outTokens, const char *inTokenString, char *inData )
 {
 	int		iMax			= 10;
     int     iTokenMax       = iMax - 1;  // Save room at end for NULL
@@ -1560,7 +1561,7 @@ static int tokenize_line_extended( char ***outTokens, char *inTokenString, char 
 	return iCount;
 }
 
-static int tokenize_line( char **inTokens, char *inTokenString, int iMax, char *inData, bool bSkipDuplicates = true )
+static int tokenize_line( char **inTokens, const char *inTokenString, int iMax, char *inData, bool bSkipDuplicates = true )
 {
 	int         iCount			= 0;
     const int   iTokenMax       = iMax - 1;  // save room at end for NULL.
@@ -1609,7 +1610,7 @@ static int tokenize_line( char **inTokens, char *inTokenString, int iMax, char *
 	return iCount;
 }
 
-CFMutableDictionaryRef FlatFileNode::parse_user( sqlite3 *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName )
+CFMutableDictionaryRef FlatFileNode::parse_user( SQLiteHelper *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName )
 {
 	if ( inData == NULL )
 		return NULL;
@@ -1679,7 +1680,7 @@ CFMutableDictionaryRef FlatFileNode::parse_user( sqlite3 *inDatabase, bool inGen
 	return cfRecord;
 }
 
-CFMutableDictionaryRef FlatFileNode::parse_group( sqlite3 *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName )
+CFMutableDictionaryRef FlatFileNode::parse_group( SQLiteHelper *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName )
 {
 	if ( inData == NULL )
 		return NULL;
@@ -1736,7 +1737,7 @@ CFMutableDictionaryRef FlatFileNode::parse_group( sqlite3 *inDatabase, bool inGe
 	return cfRecord;
 }
 
-CFMutableDictionaryRef FlatFileNode::parse_host( sqlite3 *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName )
+CFMutableDictionaryRef FlatFileNode::parse_host( SQLiteHelper *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName )
 {
 	if ( inData == NULL )
 		return NULL;
@@ -1813,7 +1814,7 @@ CFMutableDictionaryRef FlatFileNode::parse_host( sqlite3 *inDatabase, bool inGen
 	return cfRecord;
 }
 
-CFMutableDictionaryRef FlatFileNode::parse_network( sqlite3 *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName )
+CFMutableDictionaryRef FlatFileNode::parse_network( SQLiteHelper *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName )
 {
 	if ( inData == NULL )
 		return NULL;
@@ -1868,7 +1869,7 @@ CFMutableDictionaryRef FlatFileNode::parse_network( sqlite3 *inDatabase, bool in
 	return cfRecord;
 }
 
-CFMutableDictionaryRef FlatFileNode::parse_service( sqlite3 *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName )
+CFMutableDictionaryRef FlatFileNode::parse_service( SQLiteHelper *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName )
 {
 	if ( inData == NULL )
 		return NULL;
@@ -1922,9 +1923,12 @@ CFMutableDictionaryRef FlatFileNode::parse_service( sqlite3 *inDatabase, bool in
 	// if we have a database, insert the entry into the table
 	if ( inDatabase != NULL )
 	{
-		sqlExecSyncInsert( "INSERT INTO '" kDSStdRecordTypeServices "' ('%s','%s','%s','%s') VALUES (?,?,?,?);", 4,
-						   kLineNoRowName, kDSNAttrRecordName, "dsAttrTypeNative:PortAndProtocol", kDS1AttrPort,
-						   inLineNumber, tokens[0], portAndProt, tokens[1], NULL );
+		for (int ii = 1; ii < iCount; ii++ )
+		{
+			sqlExecSyncInsert( "INSERT INTO '" kDSStdRecordTypeServices "' ('%s','%s','%s','%s') VALUES (?,?,?,?);", 4,
+							   kLineNoRowName, kDSNAttrRecordName, "dsAttrTypeNative:PortAndProtocol", kDS1AttrPort,
+							   inLineNumber, (ii > 1 ? tokens[ii] : tokens[0]), portAndProt, tokens[1], NULL );
+		}
 	}
 	
 failure:
@@ -1935,7 +1939,7 @@ failure:
 	return cfRecord;
 }
 
-CFMutableDictionaryRef FlatFileNode::parse_protocol( sqlite3 *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName )
+CFMutableDictionaryRef FlatFileNode::parse_protocol( SQLiteHelper *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName )
 {
 	if ( inData == NULL )
 		return NULL;
@@ -1991,7 +1995,7 @@ CFMutableDictionaryRef FlatFileNode::parse_protocol( sqlite3 *inDatabase, bool i
 	return cfRecord;
 }
 
-CFMutableDictionaryRef FlatFileNode::parse_rpc( sqlite3 *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName )
+CFMutableDictionaryRef FlatFileNode::parse_rpc( SQLiteHelper *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName )
 {
 	if ( inData == NULL )
 		return NULL;
@@ -2046,7 +2050,7 @@ CFMutableDictionaryRef FlatFileNode::parse_rpc( sqlite3 *inDatabase, bool inGenD
 	return cfRecord;
 }
 
-CFMutableDictionaryRef FlatFileNode::parse_mount( sqlite3 *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName )
+CFMutableDictionaryRef FlatFileNode::parse_mount( SQLiteHelper *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName )
 {
 	if ( inData == NULL )
 		return NULL;
@@ -2056,7 +2060,7 @@ CFMutableDictionaryRef FlatFileNode::parse_mount( sqlite3 *inDatabase, bool inGe
 	int         iCount              = tokenize_line( tokens, " \t", MAX_TOKENS, inData );
 	
 	// if we don't have enough tokens or we have + sign for NIS
-	if ( iCount < 6 || tokens[0][0] == '+' )
+	if ( iCount < 4 || tokens[0][0] == '+' )
 	{
 		return NULL;
 	}
@@ -2082,8 +2086,10 @@ CFMutableDictionaryRef FlatFileNode::parse_mount( sqlite3 *inDatabase, bool inGe
 			
 			DSFree( vfsopts );
 			
-			AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrVFSDumpFreq), tokens[4] );
-			AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrVFSPassNo), tokens[5] );
+			if ( iCount > 4 )
+				AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrVFSDumpFreq), tokens[4] );
+			if ( iCount > 5 )
+				AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrVFSPassNo), tokens[5] );
 
 			DSFreeString( pVFSOpts );
 		}
@@ -2100,7 +2106,7 @@ CFMutableDictionaryRef FlatFileNode::parse_mount( sqlite3 *inDatabase, bool inGe
 	return cfRecord;
 }
 
-CFMutableDictionaryRef FlatFileNode::parse_printer( sqlite3 *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName )
+CFMutableDictionaryRef FlatFileNode::parse_printer( SQLiteHelper *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName )
 {
 //	CFMutableDictionaryRef itemRef = FlatFileNode::parse_pb(inData, ':');
 //	
@@ -2110,7 +2116,7 @@ CFMutableDictionaryRef FlatFileNode::parse_printer( sqlite3 *inDatabase, bool in
 	return NULL;
 }
 
-CFMutableDictionaryRef FlatFileNode::parse_bootp( sqlite3 *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName )
+CFMutableDictionaryRef FlatFileNode::parse_bootp( SQLiteHelper *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName )
 {
 //	CFMutableDictionaryRef itemRef = FlatFileNode::parse_pb(inData, ':');
 //	
@@ -2143,7 +2149,7 @@ CFMutableDictionaryRef FlatFileNode::parse_bootp( sqlite3 *inDatabase, bool inGe
 	return NULL;
 }
 
-CFMutableDictionaryRef FlatFileNode::parse_alias( sqlite3 *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName )
+CFMutableDictionaryRef FlatFileNode::parse_alias( SQLiteHelper *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName )
 {
 	if ( inData == NULL )
 		return NULL;
@@ -2194,7 +2200,7 @@ CFMutableDictionaryRef FlatFileNode::parse_alias( sqlite3 *inDatabase, bool inGe
 	return cfRecord;
 }
 
-CFMutableDictionaryRef FlatFileNode::parse_ethernet( sqlite3 *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName )
+CFMutableDictionaryRef FlatFileNode::parse_ethernet( SQLiteHelper *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName )
 {
 	if ( inData == NULL )
 		return NULL;
@@ -2231,7 +2237,7 @@ CFMutableDictionaryRef FlatFileNode::parse_ethernet( sqlite3 *inDatabase, bool i
 	return cfRecord;
 }
 
-CFMutableDictionaryRef FlatFileNode::parse_netgroup( sqlite3 *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName )
+CFMutableDictionaryRef FlatFileNode::parse_netgroup( SQLiteHelper *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName )
 {
 	if ( inData == NULL )
 		return NULL;
@@ -2274,7 +2280,7 @@ CFMutableDictionaryRef FlatFileNode::parse_netgroup( sqlite3 *inDatabase, bool i
 	return cfRecord;
 }
 
-CFMutableDictionaryRef FlatFileNode::parse_automounts( sqlite3 *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName ) 
+CFMutableDictionaryRef FlatFileNode::parse_automounts( SQLiteHelper *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName ) 
 { 
 	if ( inData == NULL )
 		return NULL;

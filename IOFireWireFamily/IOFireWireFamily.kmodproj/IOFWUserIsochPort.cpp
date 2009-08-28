@@ -409,13 +409,11 @@ IOFWUserLocalIsochPort::initWithUserDCLProgram (
 	IOMemoryDescriptor * bufferDesc = NULL ;
 	if ( ! error )
 	{
+		IOByteCount length = 0 ;
+		for ( unsigned index = 0; index < params->bufferRangeCount; ++index )
 		{
-			IOByteCount length = 0 ;
-			for ( unsigned index = 0; index < params->bufferRangeCount; ++index )
-			{
-				length += bufferRanges[ index ].length ;
-			}			
-		}
+			length += bufferRanges[ index ].length ;
+		}			
 	
 		bufferDesc = IOMemoryDescriptor::withAddressRanges (	bufferRanges, params->bufferRangeCount, kIODirectionOutIn, 
 															fUserClient->getOwningTask() ) ;
@@ -429,7 +427,9 @@ IOFWUserLocalIsochPort::initWithUserDCLProgram (
 			// IOLog( "IOFWUserLocalIsochPort::initWithUserDCLProgram - checkMemoryInRange status 0x%08lx\n", checkMemoryInRange( bufferDesc, 0x000000001FFFFFFF ) );
 		
 			error = bufferDesc->prepare( kIODirectionPrepareToPhys32 ) ;
-				
+			
+			FWTrace( kFWTIsoch, kTPIsochPortUserInitWithUserDCLProgram, (uintptr_t)(fUserClient->getOwner()->getController()->getLink()), error, length, 0 );
+			
 			// IOLog( "IOFWUserLocalIsochPort::initWithUserDCLProgram - prep 32 checkMemoryInRange status 0x%08lx\n", checkMemoryInRange( bufferDesc, 0x000000001FFFFFFF ) );
 			
 		}
@@ -998,9 +998,9 @@ IOFWUserLocalIsochPort::modifyJumpDCL ( UInt32 inJumpDCLCompilerData, UInt32 inL
 	// be sure opcodes exist
 	if ( inJumpDCLCompilerData > fProgramCount || inLabelDCLCompilerData > fProgramCount )
 	{
-		DebugLog( "IOFWUserLocalIsochPort::modifyJumpDCL: DCL index (inJumpDCLCompilerData=%lu, inLabelDCLCompilerData=%lu) past end of lookup table (length=%u)\n", 
-				inJumpDCLCompilerData,
-				inLabelDCLCompilerData,
+		DebugLog( "IOFWUserLocalIsochPort::modifyJumpDCL: DCL index (inJumpDCLCompilerData=%u, inLabelDCLCompilerData=%u) past end of lookup table (length=%u)\n", 
+				(uint32_t)inJumpDCLCompilerData,
+				(uint32_t)inLabelDCLCompilerData,
 				fProgramCount ) ;
 		return kIOReturnBadArgument ;
 	}
@@ -1124,7 +1124,7 @@ IOFWUserLocalIsochPort::convertToKernelDCL (UserExportDCLCallProc *pUserExportDC
 	debugThing->asyncRef = asyncRef ;
 	debugThing->port = this ;
 #else
-	dcl->procData			= (UInt32) asyncRef ;
+	dcl->procData			= (DCLCallProcDataType) asyncRef ;
 #endif
 		
 	return kIOReturnSuccess ;
@@ -1275,7 +1275,7 @@ IOFWUserLocalIsochPort::userNotify (
 		default:
 		{
 			error = kIOReturnBadArgument ;
-			DebugLog("unsupported notification type 0x%08lx\n", notificationType) ;
+			DebugLog("unsupported notification type 0x%08x\n", (uint32_t)notificationType) ;
 			break ;
 		}
 	}

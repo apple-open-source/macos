@@ -1,3 +1,30 @@
+/****************************************************************************
+ * Copyright (c) 1998-2007,2008 Free Software Foundation, Inc.              *
+ *                                                                          *
+ * Permission is hereby granted, free of charge, to any person obtaining a  *
+ * copy of this software and associated documentation files (the            *
+ * "Software"), to deal in the Software without restriction, including      *
+ * without limitation the rights to use, copy, modify, merge, publish,      *
+ * distribute, distribute with modifications, sublicense, and/or sell       *
+ * copies of the Software, and to permit persons to whom the Software is    *
+ * furnished to do so, subject to the following conditions:                 *
+ *                                                                          *
+ * The above copyright notice and this permission notice shall be included  *
+ * in all copies or substantial portions of the Software.                   *
+ *                                                                          *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+ * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+ * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+ * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+ * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+ *                                                                          *
+ * Except as contained in this notice, the name(s) of the above copyright   *
+ * holders shall not be used in advertising or otherwise to promote the     *
+ * sale, use or other dealings in this Software without prior written       *
+ * authorization.                                                           *
+ ****************************************************************************/
 /*
  * view.c -- a silly little viewer program
  *
@@ -23,7 +50,7 @@
  * scroll operation worked, and the refresh() code only had to do a
  * partial repaint.
  *
- * $Id: view.c,v 1.62 2005/05/28 21:40:25 tom Exp $
+ * $Id: view.c,v 1.69 2008/09/06 22:10:50 tom Exp $
  */
 
 #include <test.priv.h>
@@ -51,6 +78,23 @@
 #include <sys/stream.h>
 #include <sys/ptem.h>
 #endif
+
+#if USE_WIDEC_SUPPORT
+#if HAVE_MBTOWC && HAVE_MBLEN
+#define reset_mbytes(state) mblen(NULL, 0), mbtowc(NULL, NULL, 0)
+#define count_mbytes(buffer,length,state) mblen(buffer,length)
+#define check_mbytes(wch,buffer,length,state) \
+	(int) mbtowc(&wch, buffer, length)
+#define state_unused
+#elif HAVE_MBRTOWC && HAVE_MBRLEN
+#define reset_mbytes(state) init_mb(state)
+#define count_mbytes(buffer,length,state) mbrlen(buffer,length,&state)
+#define check_mbytes(wch,buffer,length,state) \
+	(int) mbrtowc(&wch, buffer, length, &state)
+#else
+make an error
+#endif
+#endif				/* USE_WIDEC_SUPPORT */
 
 static RETSIGTYPE finish(int sig) GCC_NORETURN;
 static void show_all(const char *tag);
@@ -131,17 +175,19 @@ ch_dup(char *src)
     wchar_t wstr[CCHARW_MAX + 1];
     wchar_t wch;
     int l = 0;
-    mbstate_t state;
     size_t rc;
     int width;
+#ifndef state_unused
+    mbstate_t state;
 #endif
+#endif /* USE_WIDEC_SUPPORT */
 
 #if USE_WIDEC_SUPPORT
-    memset(&state, 0, sizeof(state));
+    reset_mbytes(state);
 #endif
     for (j = k = 0; j < len; j++) {
 #if USE_WIDEC_SUPPORT
-	rc = mbrtowc(&wch, src + j, len - j, &state);
+	rc = check_mbytes(wch, src + j, len - j, state);
 	if (rc == (size_t) -1 || rc == (size_t) -2)
 	    break;
 	j += rc - 1;
@@ -202,18 +248,17 @@ main(int argc, char *argv[])
     (void) signal(SIGINT, finish);	/* arrange interrupts to terminate */
 #endif
 
-    while ((i = getopt(argc, argv, "cin:rtT:")) != EOF) {
+    while ((i = getopt(argc, argv, "cin:rtT:")) != -1) {
 	switch (i) {
 	case 'c':
 	    try_color = TRUE;
 	    break;
 	case 'i':
-	    signal(SIGINT, SIG_IGN);
-	    signal(SIGQUIT, SIG_IGN);
-	    signal(SIGTERM, SIG_IGN);
+	    CATCHALL(SIG_IGN);
 	    break;
 	case 'n':
-	    if ((MAXLINES = atoi(optarg)) < 1)
+	    if ((MAXLINES = atoi(optarg)) < 1 ||
+		(MAXLINES + 2) <= 1)
 		usage();
 	    break;
 #if CAN_RESIZE
@@ -349,7 +394,7 @@ main(int argc, char *argv[])
 		    lptr++;
 		else
 		    break;
-	    wscrl(stdscr, lptr - olptr);
+	    scrl(lptr - olptr);
 	    break;
 
 	case KEY_UP:
@@ -360,7 +405,7 @@ main(int argc, char *argv[])
 		    lptr--;
 		else
 		    break;
-	    wscrl(stdscr, lptr - olptr);
+	    scrl(lptr - olptr);
 	    break;
 
 	case 'h':
@@ -483,10 +528,12 @@ show_all(const char *tag)
     time_t this_time;
 
 #if CAN_RESIZE
-    sprintf(temp, "%s (%3dx%3d) col %d ", tag, LINES, COLS, shift);
+    sprintf(temp, "%.20s (%3dx%3d) col %d ", tag, LINES, COLS, shift);
     i = strlen(temp);
-    sprintf(temp + i, "view %.*s", (int) (sizeof(temp) - 7 - i), fname);
+    if ((i + 7) < (int) sizeof(temp))
+	sprintf(temp + i, "view %.*s", (int) (sizeof(temp) - 7 - i), fname);
 #else
+    (void) tag;
     sprintf(temp, "view %.*s", (int) sizeof(temp) - 7, fname);
 #endif
     move(0, 0);

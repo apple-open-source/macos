@@ -429,14 +429,23 @@ public:
         return branchPtr(cond, left, scratchRegister);
     }
 
-    DataLabelPtr storePtrWithPatch(Address address)
+    DataLabelPtr storePtrWithPatch(ImmPtr initialValue, ImplicitAddress address)
     {
-        DataLabelPtr label = moveWithPatch(ImmPtr(0), scratchRegister);
+        DataLabelPtr label = moveWithPatch(initialValue, scratchRegister);
         storePtr(scratchRegister, address);
         return label;
     }
 
+    Label loadPtrWithPatchToLEA(Address address, RegisterID dest)
+    {
+        Label label(this);
+        loadPtr(address, dest);
+        return label;
+    }
+
     bool supportsFloatingPoint() const { return true; }
+    // See comment on MacroAssemblerARMv7::supportsFloatingPointTruncate()
+    bool supportsFloatingPointTruncate() const { return true; }
 };
 
 } // namespace JSC

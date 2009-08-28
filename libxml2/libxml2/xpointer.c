@@ -2412,7 +2412,7 @@ xmlXPtrAdvanceChar(xmlNodePtr *node, int *indx, int bytes) {
 	if (pos + bytes >= len) {
 	    bytes -= (len - pos);
 	    cur = xmlXPtrAdvanceNode(cur, NULL);
-	    cur = 0;
+	    pos = 0;
 	} else if (pos + bytes < len) {
 	    pos += bytes;
 	    *node = cur;
@@ -2759,8 +2759,8 @@ xmlXPtrGetEndPoint(xmlXPathObjectPtr obj, xmlNodePtr *node, int *indx) {
  */
 void
 xmlXPtrStringRangeFunction(xmlXPathParserContextPtr ctxt, int nargs) {
-    int i, startindex, endindex, fendindex;
-    xmlNodePtr start, end, fend;
+    int i, startindex, endindex = 0, fendindex;
+    xmlNodePtr start, end = 0, fend;
     xmlXPathObjectPtr set;
     xmlLocationSetPtr oldset;
     xmlLocationSetPtr newset;
@@ -2997,6 +2997,7 @@ xmlXPtrEvalRangePredicate(xmlXPathParserContextPtr ctxt) {
     SKIP_BLANKS;
 }
 
-#else
+#define bottom_xpointer
+#include "elfgcchack.h"
 #endif
 

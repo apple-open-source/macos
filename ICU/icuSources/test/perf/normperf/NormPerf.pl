@@ -1,31 +1,31 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 #  ********************************************************************
-#  * COPYRIGHT:
-#  * Copyright (c) 2002, International Business Machines Corporation and
-#  * others. All Rights Reserved.
+#  * Copyright (c) 2002-2008, International Business Machines
+#  * Corporation and others. All Rights Reserved.
 #  ********************************************************************
 
-use strict;
+#use strict;
+
+require "../perldriver/Common.pl";
 
 use lib '../perldriver';
 
 use PerfFramework;
 
-
 my $options = {
-	       "title"=>"Normalization performance: ICU vs. Win",
-	       "headers"=>"Win ICU",
+	       "title"=>"Normalization performance: ICU ".$ICULatestVersion." vs. Win",
+	       "headers"=>"Win ICU".$ICULatestVersion,
 	       "operationIs"=>"code point",
 	       "passes"=>"10",
 	       "time"=>"5",
 	       #"outputType"=>"HTML",
-	       "dataDir"=>"c:/src/perf/data",
-	       "outputDir"=>"../results"
+	       "dataDir"=>$CollationDataPath,
+           "outputDir"=>"../results"
 	      };
 
 # programs
 # tests will be done for all the programs. Results will be stored and connected
-my $p = "normperf.exe -b -u";
+my $p = $ICUPathLatest."/normperf/Release/normperf.exe -b -u";
 
 my $tests = { 
 	     "NFC_NFD_Text",  ["$p TestWin_NFC_NFD_Text"  ,  "$p TestICU_NFC_NFD_Text" ],

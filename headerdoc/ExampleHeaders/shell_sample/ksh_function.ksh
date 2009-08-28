@@ -1,13 +1,13 @@
 #!/bin/ksh
 
-#/*! @function formatmessage
+#/*! @function formatmessage_ksh
 #    @abstract formats a message in a dumb way
 #    @param $1 The last word of the message
 #    @param $2 The next-to-last word of the message
 #    @param $3+ The rest of the message
 #*/
 
-function formatmessage()
+function formatmessage_ksh()
 {
 	LW=$1
 	NLW=$2

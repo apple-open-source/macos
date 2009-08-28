@@ -1,11 +1,11 @@
 /*
- * "$Id: dir.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: dir.c 7279 2008-01-31 01:50:44Z mike $"
  *
  *   Public directory routines for the Common UNIX Printing System (CUPS).
  *
  *   This set of APIs abstracts enumeration of directory entries.
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2005 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -73,17 +73,19 @@ _cups_dir_time(FILETIME ft)		/* I - File time */
   * between them...
   */
 
-  val = ft.dwLowDateTime + (ft.dwHighDateTime << 32);
+  val = ft.dwLowDateTime + ((ULONGLONG)ft.dwHighDateTime << 32);
   return ((time_t)(val / 10000000 - 11644732800));
 }
 
 
 /*
  * 'cupsDirClose()' - Close a directory.
+ *
+ * @since CUPS 1.2/Mac OS X 10.5@
  */
 
 void
-cupsDirClose(cups_dir_t *dp)		/* I - Directory */
+cupsDirClose(cups_dir_t *dp)		/* I - Directory pointer */
 {
  /*
   * Range check input...
@@ -109,9 +111,11 @@ cupsDirClose(cups_dir_t *dp)		/* I - Directory */
 
 /*
  * 'cupsDirOpen()' - Open a directory.
+ *
+ * @since CUPS 1.2/Mac OS X 10.5@
  */
 
-cups_dir_t *				/* O - Directory */
+cups_dir_t *				/* O - Directory pointer or @code NULL@ if the directory could not be opened. */
 cupsDirOpen(const char *directory)	/* I - Directory name */
 {
   cups_dir_t	*dp;			/* Directory */
@@ -150,10 +154,12 @@ cupsDirOpen(const char *directory)	/* I - Directory name */
 
 /*
  * 'cupsDirRead()' - Read the next directory entry.
+ *
+ * @since CUPS 1.2/Mac OS X 10.5@
  */
 
-cups_dentry_t *			/* O - Directory entry */
-cupsDirRead(cups_dir_t *dp)		/* I - Directory */
+cups_dentry_t *				/* O - Directory entry or @code NULL@ if there are no more */
+cupsDirRead(cups_dir_t *dp)		/* I - Directory pointer */
 {
   WIN32_FIND_DATA	entry;		/* Directory entry data */
 
@@ -208,10 +214,12 @@ cupsDirRead(cups_dir_t *dp)		/* I - Directory */
 
 /*
  * 'cupsDirRewind()' - Rewind to the start of the directory.
+ *
+ * @since CUPS 1.2/Mac OS X 10.5@
  */
 
 void
-cupsDirRewind(cups_dir_t *dp)		/* I - Directory */
+cupsDirRewind(cups_dir_t *dp)		/* I - Directory pointer */
 {
  /*
   * Range check input...
@@ -256,12 +264,14 @@ struct _cups_dir_s			/**** Directory data structure ****/
 
 /*
  * 'cupsDirClose()' - Close a directory.
+ *
+ * @since CUPS 1.2/Mac OS X 10.5@
  */
 
 void
-cupsDirClose(cups_dir_t *dp)		/* I - Directory */
+cupsDirClose(cups_dir_t *dp)		/* I - Directory pointer */
 {
-  DEBUG_printf(("cupsDirClose(dp=%p)\n", dp));
+  DEBUG_printf(("cupsDirClose(dp=%p)", dp));
 
  /*
   * Range check input...
@@ -281,15 +291,17 @@ cupsDirClose(cups_dir_t *dp)		/* I - Directory */
 
 /*
  * 'cupsDirOpen()' - Open a directory.
+ *
+ * @since CUPS 1.2/Mac OS X 10.5@
  */
 
-cups_dir_t *				/* O - Directory */
+cups_dir_t *				/* O - Directory pointer or @code NULL@ if the directory could not be opened. */
 cupsDirOpen(const char *directory)	/* I - Directory name */
 {
   cups_dir_t	*dp;			/* Directory */
 
 
-  DEBUG_printf(("cupsDirOpen(directory=\"%s\")\n", directory));
+  DEBUG_printf(("cupsDirOpen(directory=\"%s\")", directory));
 
  /*
   * Range check input...
@@ -333,10 +345,12 @@ cupsDirOpen(const char *directory)	/* I - Directory name */
 
 /*
  * 'cupsDirRead()' - Read the next directory entry.
+ *
+ * @since CUPS 1.2/Mac OS X 10.5@
  */
 
-cups_dentry_t *				/* O - Directory entry */
-cupsDirRead(cups_dir_t *dp)		/* I - Directory */
+cups_dentry_t *				/* O - Directory entry or @code NULL@ when there are no more */
+cupsDirRead(cups_dir_t *dp)		/* I - Directory pointer */
 {
   struct dirent	*entry;			/* Pointer to entry */
   char		filename[1024];		/* Full filename */
@@ -346,7 +360,7 @@ cupsDirRead(cups_dir_t *dp)		/* I - Directory */
 #  endif /* HAVE_PTHREAD_H */
 
 
-  DEBUG_printf(("cupsDirRead(dp=%p)\n", dp));
+  DEBUG_printf(("2cupsDirRead(dp=%p)", dp));
 
  /*
   * Range check input...
@@ -368,17 +382,18 @@ cupsDirRead(cups_dir_t *dp)		/* I - Directory */
 
     if (readdir_r(dp->dir, (struct dirent *)buffer, &entry))
     {
-      DEBUG_printf(("    readdir_r() failed - %s\n", strerror(errno)));
+      DEBUG_printf(("3cupsDirRead: readdir_r() failed - %s\n", strerror(errno)));
       return (NULL);
     }
 
     if (!entry)
     {
-      DEBUG_puts("    readdir_r() returned a NULL pointer!");
+      DEBUG_puts("3cupsDirRead: readdir_r() returned a NULL pointer!");
       return (NULL);
     }
 
-    DEBUG_printf(("    readdir_r() returned \"%s\"...\n", entry->d_name));
+    DEBUG_printf(("4cupsDirRead: readdir_r() returned \"%s\"...",
+                  entry->d_name));
 
 #  else
    /*
@@ -387,11 +402,11 @@ cupsDirRead(cups_dir_t *dp)		/* I - Directory */
 
     if ((entry = readdir(dp->dir)) == NULL)
     {
-      DEBUG_puts("    readdir() returned a NULL pointer!");
+      DEBUG_puts("3cupsDirRead: readdir() returned a NULL pointer!");
       return (NULL);
     }
 
-    DEBUG_printf(("    readdir() returned \"%s\"...\n", entry->d_name));
+    DEBUG_printf(("4cupsDirRead: readdir() returned \"%s\"...", entry->d_name));
 
 #  endif /* HAVE_PTHREAD_H */
 
@@ -412,7 +427,7 @@ cupsDirRead(cups_dir_t *dp)		/* I - Directory */
 
     if (stat(filename, &(dp->entry.fileinfo)))
     {
-      DEBUG_printf(("    stat() failed for \"%s\" - %s...\n", filename,
+      DEBUG_printf(("3cupsDirRead: stat() failed for \"%s\" - %s...", filename,
                     strerror(errno)));
       continue;
     }
@@ -428,12 +443,14 @@ cupsDirRead(cups_dir_t *dp)		/* I - Directory */
 
 /*
  * 'cupsDirRewind()' - Rewind to the start of the directory.
+ *
+ * @since CUPS 1.2/Mac OS X 10.5@
  */
 
 void
-cupsDirRewind(cups_dir_t *dp)		/* I - Directory */
+cupsDirRewind(cups_dir_t *dp)		/* I - Directory pointer */
 {
-  DEBUG_printf(("cupsDirRewind(dp=%p)\n", dp));
+  DEBUG_printf(("cupsDirRewind(dp=%p)", dp));
 
  /*
   * Range check input...
@@ -453,5 +470,5 @@ cupsDirRewind(cups_dir_t *dp)		/* I - Directory */
 #endif /* WIN32 */
 
 /*
- * End of "$Id: dir.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: dir.c 7279 2008-01-31 01:50:44Z mike $".
  */

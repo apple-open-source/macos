@@ -1,6 +1,8 @@
+// { dg-require-namedlocale "" }
+
 // 2004-02-09  Petur Runolfsson  <peturr02@ru.is>
 
-// Copyright (C) 2004 Free Software Foundation
+// Copyright (C) 2004, 2005 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -15,7 +17,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // 22.1.1.5 locale static members [lib.locale.statics]
@@ -30,8 +32,8 @@ void test01()
   using namespace std;
   bool test __attribute__((unused)) = true;
 
-  const locale loc_is = __gnu_test::try_named_locale("is_IS");
-  const locale loc_en = __gnu_test::try_named_locale("en_US");
+  const locale loc_is = locale("is_IS");
+  const locale loc_en = locale("en_US");
 
   const locale loc(loc_is, loc_en, locale::monetary);
 

@@ -564,6 +564,8 @@ extern struct block *get_frame_block (struct frame_info *,
 
 extern struct block *get_selected_block (CORE_ADDR *addr_in_block);
 
+/* APPLE LOCAL radar 6545149  */
+extern struct symbol *get_frame_function_inlined (struct frame_info *);
 extern struct symbol *get_frame_function (struct frame_info *);
 
 extern CORE_ADDR get_pc_function_start (CORE_ADDR);

@@ -1,14 +1,17 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1996,2007 Oracle.  All rights reserved.
  *
- * $Id: crypto.h,v 1.2 2004/03/30 01:21:28 jtownsen Exp $
+ * $Id: crypto.h,v 12.7 2007/05/17 15:15:05 bostic Exp $
  */
 
 #ifndef	_DB_CRYPTO_H_
 #define	_DB_CRYPTO_H_
+
+#if defined(__cplusplus)
+extern "C" {
+#endif
 
 /*
  * !!!
@@ -56,7 +59,7 @@ struct __db_cipher {
 
 /*
  * Shared ciphering structure
- * No DB_MUTEX needed because all information is read-only after creation.
+ * No mutex needed because all information is read-only after creation.
  */
 typedef struct __cipher {
 	roff_t		passwd;		/* Offset to shared passwd */
@@ -75,4 +78,8 @@ typedef struct __aes_cipher {
 
 #include "dbinc_auto/crypto_ext.h"
 #endif /* HAVE_CRYPTO */
+
+#if defined(__cplusplus)
+}
+#endif
 #endif /* !_DB_CRYPTO_H_ */

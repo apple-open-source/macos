@@ -42,7 +42,7 @@
 
 typedef tDirStatus (*AuthAuthorityHandlerProc) (	tDirNodeReference inNodeRef,
                                                     CDSLocalAuthParams &inParams,
-                                                    CFMutableDictionaryRef* inOutContinueData,
+                                                    tContextData *inOutContinueData,
                                                     tDataBufferPtr inAuthData,
                                                     tDataBufferPtr outAuthData,
                                                     bool inAuthOnly,
@@ -66,33 +66,33 @@ typedef HashAuthFailedMap::iterator		HashAuthFailedMapI;
 class CDSLocalAuthHelper
 {
 	public:
-		static tDirStatus		CopyUserNameFromAuthBuffer( tDataBufferPtr inAuthData, unsigned long inUserNameIndex,
+		static tDirStatus		CopyUserNameFromAuthBuffer( tDataBufferPtr inAuthData, UInt32 inUserNameIndex,
 									CFStringRef *outUserName );
 		static bool				AuthAuthoritiesHaveTag( CFStringRef inRecordName, CFArrayRef inAuthAuthorities,
 									CFStringRef inTag );
 		static tDirStatus		DoKerberosAuth( tDirNodeReference inNodeRef, CDSLocalAuthParams &inPB,
-									CFMutableDictionaryRef* inOutContinueDataDict, tDataBufferPtr inAuthData,
+									tContextData *inOutContinueData, tDataBufferPtr inAuthData,
 									tDataBufferPtr outAuthData, bool inAuthOnly, bool isSecondary,
 									CAuthAuthority &inAuthAuthorityList, const char* inGUIDString, bool inAuthedUserIsAdmin, 
 									CFMutableDictionaryRef inMutableRecordDict, unsigned int inHashList,
 									CDSLocalPlugin* inPlugin, CDSLocalPluginNode* inNode, CFStringRef inAuthedUserName,
 									uid_t inUID, uid_t inEffectiveUID, CFStringRef inNativeRecType );
 		static tDirStatus		DoKerberosCertAuth( tDirNodeReference inNodeRef, CDSLocalAuthParams &inPB,
-									CFMutableDictionaryRef* inOutContinueDataDict, tDataBufferPtr inAuthData,
+									tContextData *inOutContinueData, tDataBufferPtr inAuthData,
 									tDataBufferPtr outAuthData, bool inAuthOnly, bool isSecondary,
 									CAuthAuthority &inAuthAuthorityList, const char* inGUIDString, bool inAuthedUserIsAdmin, 
 									CFMutableDictionaryRef inMutableRecordDict, unsigned int inHashList,
 									CDSLocalPlugin* inPlugin, CDSLocalPluginNode* inNode, CFStringRef inAuthedUserName,
 									uid_t inUID, uid_t inEffectiveUID, CFStringRef inNativeRecType );
 		static tDirStatus		DoShadowHashAuth( tDirNodeReference inNodeRef, CDSLocalAuthParams &inPB,
-									CFMutableDictionaryRef* inOutContinueDataDict, tDataBufferPtr inAuthData,
+									tContextData *inOutContinueData, tDataBufferPtr inAuthData,
 									tDataBufferPtr outAuthData, bool inAuthOnly, bool isSecondary,
 									CAuthAuthority &inAuthAuthorityList, const char* inGUIDString, bool inAuthedUserIsAdmin, 
 									CFMutableDictionaryRef inMutableRecordDict, unsigned int inHashList,
 									CDSLocalPlugin* inPlugin, CDSLocalPluginNode* inNode, CFStringRef inAuthedUserName,
 									uid_t inUID, uid_t inEffectiveUID, CFStringRef inNativeRecType );
 		static tDirStatus		DoShadowHashAuth( tDirNodeReference inNodeRef, CDSLocalAuthParams &inPB,
-									CFMutableDictionaryRef* inOutContinueDataDict, tDataBufferPtr inAuthData,
+									tContextData *inOutContinueData, tDataBufferPtr inAuthData,
 									tDataBufferPtr outAuthData, bool inAuthOnly, bool isSecondary,
 									CAuthAuthority &inAuthAuthorityList, const char* inGUIDString, bool inAuthedUserIsAdmin, 
 									CFMutableDictionaryRef inMutableRecordDict, unsigned int inHashList,
@@ -100,49 +100,49 @@ class CDSLocalAuthHelper
 									uid_t inUID, uid_t inEffectiveUID, CFStringRef inNativeRecType,
 									bool inOKToChangeAuthAuthorities );
 		static tDirStatus		DoBasicAuth( tDirNodeReference inNodeRef, CDSLocalAuthParams &inPB,
-									CFMutableDictionaryRef* inOutContinueDataDict, tDataBufferPtr inAuthData,
+									tContextData *inOutContinueData, tDataBufferPtr inAuthData,
 									tDataBufferPtr outAuthData, bool inAuthOnly, bool isSecondary,
 									CAuthAuthority &inAuthAuthorityList, const char* inGUIDString, bool inAuthedUserIsAdmin, 
 									CFMutableDictionaryRef inMutableRecordDict, unsigned int inHashList,
 									CDSLocalPlugin* inPlugin, CDSLocalPluginNode* inNode, CFStringRef inAuthedUserName,
 									uid_t inUID, uid_t inEffectiveUID, CFStringRef inNativeRecType );
 		static tDirStatus		DoPasswordServerAuth( tDirNodeReference inNodeRef, CDSLocalAuthParams &inPB,
-									CFMutableDictionaryRef* inOutContinueDataDict, tDataBufferPtr inAuthData,
+									tContextData *inOutContinueData, tDataBufferPtr inAuthData,
 									tDataBufferPtr outAuthData, bool inAuthOnly, bool isSecondary,
 									CAuthAuthority &inAuthAuthorityList, const char* inGUIDString, bool inAuthedUserIsAdmin, 
 									CFMutableDictionaryRef inMutableRecordDict, unsigned int inHashList,
 									CDSLocalPlugin* inPlugin, CDSLocalPluginNode* inNode, CFStringRef inAuthedUserName,
 									uid_t inUID, uid_t inEffectiveUID, CFStringRef inNativeRecType );
 		static tDirStatus		DoDisabledAuth( tDirNodeReference inNodeRef, CDSLocalAuthParams &inPB,
-									CFMutableDictionaryRef* inOutContinueDataDict, tDataBufferPtr inAuthData,
+									tContextData *inOutContinueData, tDataBufferPtr inAuthData,
 									tDataBufferPtr outAuthData, bool inAuthOnly, bool isSecondary,
 									CAuthAuthority &inAuthAuthorityList, const char* inGUIDString, bool inAuthedUserIsAdmin, 
 									CFMutableDictionaryRef inMutableRecordDict, unsigned int inHashList,
 									CDSLocalPlugin* inPlugin, CDSLocalPluginNode* inNode, CFStringRef inAuthedUserName,
 									uid_t inUID, uid_t inEffectiveUID, CFStringRef inNativeRecType );
 		static tDirStatus		DoLocalCachedUserAuth( tDirNodeReference inNodeRef, CDSLocalAuthParams &inPB,
-									CFMutableDictionaryRef* inOutContinueDataDict, tDataBufferPtr inAuthData,
+									tContextData *inOutContinueData, tDataBufferPtr inAuthData,
 									tDataBufferPtr outAuthData, bool inAuthOnly, bool isSecondary,
 									CAuthAuthority &inAuthAuthorityList, const char* inGUIDString, bool inAuthedUserIsAdmin, 
 									CFMutableDictionaryRef inMutableRecordDict, unsigned int inHashList,
 									CDSLocalPlugin* inPlugin, CDSLocalPluginNode* inNode, CFStringRef inAuthedUserName,
 									uid_t inUID, uid_t inEffectiveUID, CFStringRef inNativeRecType );
 		static tDirStatus		DoNodeNativeAuth( tDirNodeReference inNodeRef, CDSLocalAuthParams &inPB,
-									CFMutableDictionaryRef* inOutContinueDataDict, tDataBufferPtr inAuthData,
+									tContextData *inOutContinueData, tDataBufferPtr inAuthData,
 									tDataBufferPtr outAuthData, bool inAuthOnly, bool isSecondary,
 									const char* inAuthAuthorityData, const char* inGUIDString, bool inAuthedUserIsAdmin, 
 									CFMutableDictionaryRef inMutableRecordDict, unsigned int inHashList,
 									CDSLocalPlugin* inPlugin, CDSLocalPluginNode* inNode, CFStringRef inAuthedUserName,
 									uid_t inUID, uid_t inEffectiveUID, CFStringRef inNativeRecType );
 		static tDirStatus		DoUnixCryptAuth( tDirNodeReference inNodeRef, CDSLocalAuthParams &inPB,
-									CFMutableDictionaryRef* inOutContinueDataDict, tDataBufferPtr inAuthData,
+									tContextData *inOutContinueData, tDataBufferPtr inAuthData,
 									tDataBufferPtr outAuthData, bool inAuthOnly, bool isSecondary,
-									const char* inAuthAuthorityData, const char* inGUIDString, bool inAuthedUserIsAdmin, 
+									CAuthAuthority &inAuthAuthorityList, const char* inGUIDString, bool inAuthedUserIsAdmin, 
 									CFMutableDictionaryRef inMutableRecordDict, unsigned int inHashList,
 									CDSLocalPlugin* inPlugin, CDSLocalPluginNode* inNode, CFStringRef inAuthedUserName,
 									uid_t inUID, uid_t inEffectiveUID, CFStringRef inNativeRecType );
 		static tDirStatus		DoSetPassword( tDirNodeReference inNodeRef, CDSLocalAuthParams &inPB,
-									CFMutableDictionaryRef* inOutContinueDataDict, tDataBufferPtr inAuthData,
+									tContextData *inOutContinueData, tDataBufferPtr inAuthData,
 									tDataBufferPtr outAuthData, bool inAuthOnly, bool isSecondary,
 									CAuthAuthority &inAuthAuthorityList,
 									const char* inAuthAuthorityData, const char* inGUIDString, bool inAuthedUserIsAdmin, 
@@ -150,7 +150,7 @@ class CDSLocalAuthHelper
 									CDSLocalPlugin* inPlugin, CDSLocalPluginNode* inNode, CFStringRef inAuthedUserName,
 									uid_t inUID, uid_t inEffectiveUID, CFStringRef inNativeRecType );
 		static tDirStatus		DoSetPasswordAsRoot( tDirNodeReference inNodeRef, CDSLocalAuthParams &inPB,
-									CFMutableDictionaryRef* inOutContinueDataDict, tDataBufferPtr inAuthData,
+									tContextData *inOutContinueData, tDataBufferPtr inAuthData,
 									tDataBufferPtr outAuthData, bool inAuthOnly, bool isSecondary,
 									CAuthAuthority &inAuthAuthorityList,
 									const char* inAuthAuthorityData, const char* inGUIDString, bool inAuthedUserIsAdmin, 
@@ -158,7 +158,7 @@ class CDSLocalAuthHelper
 									CDSLocalPlugin* inPlugin, CDSLocalPluginNode* inNode, CFStringRef inAuthedUserName,
 									uid_t inUID, uid_t inEffectiveUID, CFStringRef inNativeRecType );
 		static tDirStatus		DoChangePassword( tDirNodeReference inNodeRef, CDSLocalAuthParams &inPB,
-									CFMutableDictionaryRef* inOutContinueDataDict, tDataBufferPtr inAuthData,
+									tContextData *inOutContinueData, tDataBufferPtr inAuthData,
 									tDataBufferPtr outAuthData, bool inAuthOnly, bool isSecondary,
 									const char* inAuthAuthorityData, const char* inGUIDString, bool inAuthedUserIsAdmin, 
 									CFMutableDictionaryRef inMutableRecordDict, unsigned int inHashList,
@@ -203,10 +203,10 @@ class CDSLocalAuthHelper
 									uid_t inEffectiveUID, PWGlobalAccessFeatures *inGAccess,
 									PWGlobalMoreAccessFeatures *inGMoreAccess );
 		static void				GenerateShadowHashes( bool inServerOS, const char *inPassword, long inPasswordLen,
-									int inAdditionalHashList, const unsigned char *inSHA1Salt, unsigned char *outHashes,
-									unsigned long *outHashTotalLength );
+									UInt32 inAdditionalHashList, const unsigned char *inSHA1Salt, unsigned char *outHashes,
+									UInt32 *outHashTotalLength );
 		static tDirStatus		UnobfuscateRecoverablePassword( unsigned char *inData, unsigned char **outPassword,
-									unsigned long *outPasswordLength );
+									UInt32 *outPasswordLength );
 		static tDirStatus		MSCHAPv2( const unsigned char *inC16, const unsigned char *inPeerC16,
 									const unsigned char *inNTLMDigest, const char *inSambaName,
 									const unsigned char *inOurHash, char *outMSCHAP2Response );
@@ -215,7 +215,7 @@ class CDSLocalAuthHelper
 		static void				hmac_md5_import( HMAC_MD5_CTX *hmac, HMAC_MD5_STATE *state );
 		static void				hmac_md5_final( unsigned char digest[HMAC_MD5_SIZE], HMAC_MD5_CTX *hmac );
 		static tDirStatus		Verify_APOP( const char *userstr, const unsigned char *inPassword,
-									unsigned long inPasswordLen, const char *challenge, const char *response );
+									UInt32 inPasswordLen, const char *challenge, const char *response );
 		static tDirStatus		PasswordOkForPolicies( const char *inSpaceDelimitedPolicies,
 									PWGlobalAccessFeatures *inGAccess, const char *inUsername, const char *inPassword );
 		static tDirStatus		TestPolicies( const char *inSpaceDelimitedPolicies, PWGlobalAccessFeatures *inGAccess,
@@ -230,7 +230,7 @@ class CDSLocalAuthHelper
 		
 		/* Leopard Migration: ShadowHash -> ShadowHash + Kerberosv5 */
 		static tDirStatus		MigrateAddKerberos( tDirNodeReference inNodeRef, CDSLocalAuthParams &inParams,
-									CFMutableDictionaryRef *inOutContinueDataDict, tDataBufferPtr inAuthData,
+									tContextData *inOutContinueData, tDataBufferPtr inAuthData,
 									tDataBufferPtr outAuthData, bool inAuthOnly, bool isSecondary,
 									CAuthAuthority &inAuthAuthorityList, const char* inGUIDString, bool inAuthedUserIsAdmin, 
 									CFMutableDictionaryRef inMutableRecordDict, unsigned int inHashList,
@@ -243,7 +243,7 @@ class CDSLocalAuthHelper
 									const char *inAuthorityData );
 		static tDirStatus		LocalCachedUserReachable(
 									tDirNodeReference inNodeRef,
-									CFMutableDictionaryRef* inOutContinueDataDict,
+									tContextData *inOutContinueData,
 									tDataBufferPtr inAuthData,
 									tDataBufferPtr outAuthData,
 									bool inAuthOnly,
@@ -267,7 +267,7 @@ class CDSLocalAuthHelper
 		static tDirStatus		DoLocalCachedUserAuthPhase2(
 									tDirNodeReference inNodeRef,
 									CDSLocalAuthParams &inPB,
-									CFMutableDictionaryRef* inOutContinueDataDict,
+									tContextData *inOutContinueData,
 									tDataBufferPtr inAuthData,
 									tDataBufferPtr outAuthData,
 									bool inAuthOnly,

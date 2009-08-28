@@ -511,6 +511,8 @@ bool AppleUSBCDCECMControl::start(IOService *provider)
         ALERT(0, 0, "start - allocateResources failed");
         return false;
     }
+	
+	fControlInterface->retain();
 
 #if 0    
     if (!initForPM(provider))
@@ -572,7 +574,6 @@ bool AppleUSBCDCECMControl::configureECM()
     
     XTRACE(this, 0, 0, "configureECM");
     
-    fControlInterface->retain();
     fCommInterfaceNumber = fControlInterface->GetInterfaceNumber();
     XTRACE(this, 0, fCommInterfaceNumber, "configureECM - Comm interface number.");
     	
@@ -610,7 +611,7 @@ bool AppleUSBCDCECMControl::getFunctionalDescriptors()
     UnionFunctionalDescriptor		*UNNFDesc;
     UInt8				serString;
     char 				ascii_mac[14];
-    int 				i;
+    UInt16 				i;
        
     XTRACE(this, 0, 0, "getFunctionalDescriptors");
         
@@ -1487,10 +1488,10 @@ IOReturn AppleUSBCDCECMControl::setPowerState(unsigned long powerStateOrdinal, I
 			}
         }
     
-        return IOPMNoErr;
+        return IOPMAckImplied;
     }
     
-    return IOPMNoSuchState;
+    return IOPMAckImplied;
     
 }/* end setPowerState */
 #endif

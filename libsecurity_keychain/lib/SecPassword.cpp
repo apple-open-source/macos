@@ -35,7 +35,6 @@ SecPasswordGetTypeID(void)
 {
 	BEGIN_SECAPI
     
-	secdebug("passwditem", "SecPasswordGetTypeID()");
 	return gTypes().PasswordImpl.typeID;
     
 	END_SECAPI1(_kCFRuntimeNotATypeID)
@@ -47,7 +46,6 @@ SecGenericPasswordCreate(SecKeychainAttributeList *searchAttrList, SecKeychainAt
     BEGIN_SECAPI
     KCThrowParamErrIf_( (itemRef == NULL) );
     KCThrowParamErrIf_( (searchAttrList == NULL) ^ (itemAttrList == NULL) ); // Both or neither
-    secdebug("passworditem", "SecPasswordCreate(%p, %p)", searchAttrList, itemAttrList);
     
     Password passwordItem(kSecGenericPasswordItemClass, searchAttrList, itemAttrList);
     if (itemRef)
@@ -61,7 +59,7 @@ SecPasswordSetInitialAccess(SecPasswordRef itemRef, SecAccessRef accessRef)
 {
 	BEGIN_SECAPI
 	PasswordImpl::required(itemRef)->setAccess(Access::required(accessRef));
-	END_SECAPI2("SecPasswordSetInitialAccess")
+	END_SECAPI
 }
 
 OSStatus
@@ -98,8 +96,6 @@ SecPasswordAction(SecPasswordRef itemRef, CFTypeRef message, UInt32 flags, UInt3
                 messageData = messageBuffer.get();
         }
     }
-    
-    secdebug("SecPassword", "SecPasswordGet(%p, %p)", length, data);
     
     if (passwordRef->useKeychain() && !(flags & kSecPasswordNew) && !(flags & kSecPasswordFail))
     {

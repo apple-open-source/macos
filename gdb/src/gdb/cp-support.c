@@ -110,7 +110,6 @@ mangled_name_to_comp (const char *mangled_name, int options,
 {
   struct demangle_component *ret;
   char *demangled_name;
-  int len;
 
   /* If it looks like a v3 mangled name, then try to go directly
      to trees.  */
@@ -294,7 +293,6 @@ method_name_from_physname (const char *physname)
   void *storage;
   char *demangled_name = NULL, *ret;
   struct demangle_component *ret_comp;
-  int done;
 
   ret_comp = mangled_name_to_comp (physname, DMGL_ANSI, &storage,
 				   &demangled_name);
@@ -326,7 +324,6 @@ cp_func_name (const char *full_name)
   void *storage;
   char *ret;
   struct demangle_component *ret_comp;
-  int done;
 
   // APPLE LOCAL: test for NULL full_name to not crash
   if (!full_name)

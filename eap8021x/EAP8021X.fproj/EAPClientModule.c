@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -60,6 +60,7 @@ typedef struct {
     EAPClientPluginFuncPublishProperties *	publish_properties;
     EAPClientPluginFuncPacketDump *		packet_dump;
     EAPClientPluginFuncUserName *		user_name;
+    EAPClientPluginFuncCopyIdentity *		copy_identity;
 } EAPClientInfo, *EAPClientInfoRef;
 
 struct EAPClientModule_s {
@@ -69,7 +70,8 @@ struct EAPClientModule_s {
     EAPClientInfoRef			info;
 };
 
-static TAILQ_HEAD(EAPClientModuleHead, EAPClientModule_s)	S_head;
+static TAILQ_HEAD(EAPClientModuleHead, EAPClientModule_s) S_head 
+     = TAILQ_HEAD_INITIALIZER(S_head);
 static struct EAPClientModuleHead * S_EAPClientModuleHead_p = &S_head;
 
 EAPClientModuleRef
@@ -142,7 +144,6 @@ EAPClientModuleInit(void)
 	return;
     }
     first = TRUE;
-    TAILQ_INIT(S_EAPClientModuleHead_p);
     return;
 }
 
@@ -217,6 +218,8 @@ EAPClientModuleAddBuiltinModule(EAPClientPluginFuncIntrospect * func)
 	(*func)(kEAPClientPluginFuncNamePacketDump);
     info->user_name = (EAPClientPluginFuncUserName *)
 	(*func)(kEAPClientPluginFuncNameUserName);
+    info->copy_identity = (EAPClientPluginFuncCopyIdentity *)
+	(*func)(kEAPClientPluginFuncNameCopyIdentity);
     status = EAPClientModuleValidatePlugin(info);
     if (status != kEAPClientModuleStatusOK) {
 	goto failed;
@@ -400,4 +403,15 @@ EAPClientModulePluginUserName(EAPClientModuleRef module,
     return (*user_name)(properties);
 }
 
+CFStringRef
+EAPClientModulePluginCopyIdentity(EAPClientModuleRef module,
+				  EAPClientPluginDataRef plugin)
+{
+    EAPClientPluginFuncCopyIdentity *	identity;
 
+    identity = module->info->copy_identity;
+    if (identity == NULL) {
+	return (NULL);
+    }
+    return (*identity)(plugin);
+}

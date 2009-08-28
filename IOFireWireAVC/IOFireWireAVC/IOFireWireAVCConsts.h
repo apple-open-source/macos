@@ -253,7 +253,7 @@ typedef enum
 	kAVCAsyncCommandStateTimeOutBeforeResponse,
 	kAVCAsyncCommandStateBusReset,
 	kAVCAsyncCommandStateOutOfMemory,
-	kAVCAsyncCommandStateCancled
+	kAVCAsyncCommandStateCanceled
 } IOFWAVCAsyncCommandState;
 
 #endif // _IOKIT_IOFIREWIREAVCCONSTS_H

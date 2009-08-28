@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1998-2004,2005 Free Software Foundation, Inc.              *
+ * Copyright (c) 1998-2007,2008 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -73,6 +73,7 @@
  * SUCH DAMAGE.
  */
 
+#define USE_LIBTINFO
 #define __INTERNAL_CAPS_VISIBLE	/* we need to see has_hardware_tabs */
 #include <progs.priv.h>
 
@@ -88,9 +89,12 @@
 char *ttyname(int fd);
 #endif
 
-/* this is just to stifle a missing-prototype warning */
-#ifdef linux
-# include <sys/ioctl.h>
+#if HAVE_SIZECHANGE
+# if !defined(sun) || !TERMIOS
+#  if HAVE_SYS_IOCTL_H
+#   include <sys/ioctl.h>
+#  endif
+# endif
 #endif
 
 #if NEED_PTEM_H
@@ -103,7 +107,27 @@ char *ttyname(int fd);
 #include <dump_entry.h>
 #include <transform.h>
 
-MODULE_ID("$Id: tset.c,v 1.60 2005/09/25 00:43:52 tom Exp $")
+MODULE_ID("$Id: tset.c,v 1.76 2008/10/11 19:26:19 tom Exp $")
+
+/*
+ * SCO defines TIOCGSIZE and the corresponding struct.  Other systems (SunOS,
+ * Solaris, IRIX) define TIOCGWINSZ and struct winsize.
+ */
+#ifdef TIOCGSIZE
+# define IOCTL_GET_WINSIZE TIOCGSIZE
+# define IOCTL_SET_WINSIZE TIOCSSIZE
+# define STRUCT_WINSIZE struct ttysize
+# define WINSIZE_ROWS(n) n.ts_lines
+# define WINSIZE_COLS(n) n.ts_cols
+#else
+# ifdef TIOCGWINSZ
+#  define IOCTL_GET_WINSIZE TIOCGWINSZ
+#  define IOCTL_SET_WINSIZE TIOCSWINSZ
+#  define STRUCT_WINSIZE struct winsize
+#  define WINSIZE_ROWS(n) n.ws_row
+#  define WINSIZE_COLS(n) n.ws_col
+# endif
+#endif
 
 extern char **environ;
 
@@ -167,7 +191,7 @@ failed(const char *msg)
     char temp[BUFSIZ];
     unsigned len = strlen(_nc_progname) + 2;
 
-    if (len < sizeof(temp) - 12) {
+    if ((int) len < (int) sizeof(temp) - 12) {
 	strcpy(temp, _nc_progname);
 	strcat(temp, ": ");
     } else {
@@ -439,11 +463,15 @@ add_mapping(const char *port, char *arg)
 	mapp->conditional = ~mapp->conditional & (EQ | GT | LT);
 
     /* If user specified a port with an option flag, set it. */
-  done:if (port) {
-	if (mapp->porttype)
-	  badmopt:err("illegal -m option format: %s", copy);
+  done:
+    if (port) {
+	if (mapp->porttype) {
+	  badmopt:
+	    err("illegal -m option format: %s", copy);
+	}
 	mapp->porttype = port;
     }
+    free(copy);
 #ifdef MAPDEBUG
     (void) printf("port: %s\n", mapp->porttype ? mapp->porttype : "ANY");
     (void) printf("type: %s\n", mapp->type);
@@ -585,7 +613,7 @@ get_termcap_entry(char *userarg)
      * real entry from /etc/termcap.  This prevents us from being fooled
      * by out of date stuff in the environment.
      */
-  found:if ((p = getenv("TERMCAP")) != 0 && *p != '/') {
+  found:if ((p = getenv("TERMCAP")) != 0 && !_nc_is_abs_path(p)) {
 	/* 'unsetenv("TERMCAP")' is not portable.
 	 * The 'environ' array is better.
 	 */
@@ -686,7 +714,15 @@ get_termcap_entry(char *userarg)
 #define CSUSP	CTRL('Z')
 #endif
 
-#define	CHK(val, dft)	((int)val <= 0 ? dft : val)
+#if defined(_POSIX_VDISABLE)
+#define DISABLED(val)   (((_POSIX_VDISABLE != -1) \
+		       && ((val) == _POSIX_VDISABLE)) \
+		      || ((val) <= 0))
+#else
+#define DISABLED(val)   ((int)(val) <= 0)
+#endif
+
+#define CHK(val, dft)   (DISABLED(val) ? dft : val)
 
 static bool set_tabs(void);
 
@@ -769,7 +805,22 @@ reset_mode(void)
 		      | OFDEL
 #endif
 #ifdef NLDLY
-		      | NLDLY | CRDLY | TABDLY | BSDLY | VTDLY | FFDLY
+		      | NLDLY
+#endif
+#ifdef CRDLY
+		      | CRDLY
+#endif
+#ifdef TABDLY
+		      | TABDLY
+#endif
+#ifdef BSDLY
+		      | BSDLY
+#endif
+#ifdef VTDLY
+		      | VTDLY
+#endif
+#ifdef FFDLY
+		      | FFDLY
 #endif
 	);
 
@@ -838,14 +889,14 @@ static void
 set_control_chars(void)
 {
 #ifdef TERMIOS
-    if (mode.c_cc[VERASE] == 0 || terasechar >= 0)
-	mode.c_cc[VERASE] = terasechar >= 0 ? terasechar : default_erase();
+    if (DISABLED(mode.c_cc[VERASE]) || terasechar >= 0)
+	mode.c_cc[VERASE] = (terasechar >= 0) ? terasechar : default_erase();
 
-    if (mode.c_cc[VINTR] == 0 || intrchar >= 0)
-	mode.c_cc[VINTR] = intrchar >= 0 ? intrchar : CINTR;
+    if (DISABLED(mode.c_cc[VINTR]) || intrchar >= 0)
+	mode.c_cc[VINTR] = (intrchar >= 0) ? intrchar : CINTR;
 
-    if (mode.c_cc[VKILL] == 0 || tkillchar >= 0)
-	mode.c_cc[VKILL] = tkillchar >= 0 ? tkillchar : CKILL;
+    if (DISABLED(mode.c_cc[VKILL]) || tkillchar >= 0)
+	mode.c_cc[VKILL] = (tkillchar >= 0) ? tkillchar : CKILL;
 #endif
 }
 
@@ -970,7 +1021,7 @@ set_init(void)
  * Return TRUE if we set any tab stops, FALSE if not.
  */
 static bool
-set_tabs()
+set_tabs(void)
 {
     if (set_tab && clear_all_tabs) {
 	int c;
@@ -1020,11 +1071,13 @@ report(const char *name, int which, unsigned def)
 
     (void) fprintf(stderr, "%s %s ", name, older == newer ? "is" : "set to");
 
+    if (DISABLED(newer))
+	(void) fprintf(stderr, "undef.\n");
     /*
      * Check 'delete' before 'backspace', since the key_backspace value
      * is ambiguous.
      */
-    if (newer == 0177)
+    else if (newer == 0177)
 	(void) fprintf(stderr, "delete.\n");
     else if ((p = key_backspace) != 0
 	     && newer == (unsigned char) p[0]
@@ -1102,24 +1155,21 @@ usage(void)
 static char
 arg_to_char(void)
 {
-    return (optarg[0] == '^' && optarg[1] != '\0')
-	? ((optarg[1] == '?') ? '\177' : CTRL(optarg[1]))
-	: optarg[0];
+    return (char) ((optarg[0] == '^' && optarg[1] != '\0')
+		   ? ((optarg[1] == '?') ? '\177' : CTRL(optarg[1]))
+		   : optarg[0]);
 }
 
 int
 main(int argc, char **argv)
 {
-#if defined(TIOCGWINSZ) && defined(TIOCSWINSZ)
-    struct winsize win;
-#endif
     int ch, noinit, noset, quiet, Sflag, sflag, showterm;
     const char *p;
     const char *ttype;
 
     obsolete(argv);
     noinit = noset = quiet = Sflag = sflag = showterm = 0;
-    while ((ch = getopt(argc, argv, "a:cd:e:Ii:k:m:np:qQSrsVw")) != EOF) {
+    while ((ch = getopt(argc, argv, "a:cd:e:Ii:k:m:np:qQSrsVw")) != -1) {
 	switch (ch) {
 	case 'c':		/* set control-chars */
 	    opt_c = TRUE;
@@ -1167,7 +1217,7 @@ main(int argc, char **argv)
 	    break;
 	case 'V':		/* print curses-version */
 	    puts(curses_version());
-	    return EXIT_SUCCESS;
+	    ExitProgram(EXIT_SUCCESS);
 	case 'w':		/* set window-size */
 	    opt_w = TRUE;
 	    break;
@@ -1192,9 +1242,9 @@ main(int argc, char **argv)
     can_restore = TRUE;
     original = oldmode = mode;
 #ifdef TERMIOS
-    ospeed = cfgetospeed(&mode);
+    ospeed = (NCURSES_OSPEED) cfgetospeed(&mode);
 #else
-    ospeed = mode.sg_ospeed;
+    ospeed = (NCURSES_OSPEED) mode.sg_ospeed;
 #endif
 
     if (!strcmp(_nc_progname, PROG_RESET)) {
@@ -1208,15 +1258,17 @@ main(int argc, char **argv)
 	tcolumns = columns;
 	tlines = lines;
 
-#if defined(TIOCGWINSZ) && defined(TIOCSWINSZ)
+#if HAVE_SIZECHANGE
 	if (opt_w) {
-	    /* Set window size */
-	    (void) ioctl(STDERR_FILENO, TIOCGWINSZ, &win);
-	    if (win.ws_row == 0 && win.ws_col == 0 &&
+	    STRUCT_WINSIZE win;
+	    /* Set window size if not set already */
+	    (void) ioctl(STDERR_FILENO, IOCTL_GET_WINSIZE, &win);
+	    if (WINSIZE_ROWS(win) == 0 &&
+		WINSIZE_COLS(win) == 0 &&
 		tlines > 0 && tcolumns > 0) {
-		win.ws_row = tlines;
-		win.ws_col = tcolumns;
-		(void) ioctl(STDERR_FILENO, TIOCSWINSZ, &win);
+		WINSIZE_ROWS(win) = tlines;
+		WINSIZE_COLS(win) = tcolumns;
+		(void) ioctl(STDERR_FILENO, IOCTL_SET_WINSIZE, &win);
 	    }
 	}
 #endif
@@ -1260,18 +1312,20 @@ main(int argc, char **argv)
 
     if (sflag) {
 	int len;
+	char *var;
+	char *leaf;
 	/*
 	 * Figure out what shell we're using.  A hack, we look for an
 	 * environmental variable SHELL ending in "csh".
 	 */
-	if ((p = getenv("SHELL")) != 0
-	    && (len = strlen(p)) >= 3
-	    && !strcmp(p + len - 3, "csh"))
+	if ((var = getenv("SHELL")) != 0
+	    && ((len = (int) strlen(leaf = _nc_basename(var))) >= 3)
+	    && !strcmp(leaf + len - 3, "csh"))
 	    p = "set noglob;\nsetenv TERM %s;\nunset noglob;\n";
 	else
 	    p = "TERM=%s;\n";
 	(void) printf(p, ttype);
     }
 
-    return EXIT_SUCCESS;
+    ExitProgram(EXIT_SUCCESS);
 }

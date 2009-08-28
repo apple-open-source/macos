@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -96,84 +96,40 @@ _notifyviasignal(mach_port_t	server,
 	serverSessionRef		mySession  = getSession(server);
 	pid_t				pid;
 	kern_return_t			status;
-	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)mySession->store;
-#ifdef	NOTYET
-	mach_port_t			oldNotify;
-#endif	/* NOTYET */
-
-	status = pid_for_task(task, &pid);
-	if (status != KERN_SUCCESS) {
-		*sc_status = kSCStatusFailed;		/* could not determine pid for task */
-		return KERN_SUCCESS;
-	}
+	SCDynamicStorePrivateRef	storePrivate;
 
 	if (mySession == NULL) {
-		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
+		/* sorry, you must have an open session to play */
+		*sc_status = kSCStatusNoStoreSession;
+		if (task != TASK_NULL) {
+			(void) mach_port_deallocate(mach_task_self(), task);
+		}
+		return KERN_SUCCESS;
+	}
+	storePrivate = (SCDynamicStorePrivateRef)mySession->store;
+
+	if (task != TASK_NULL) {
+		status = pid_for_task(task, &pid);
+		if (status != KERN_SUCCESS) {
+			/* could not determine pid for task */
+			*sc_status = kSCStatusFailed;
+			(void) mach_port_deallocate(mach_task_self(), task);
+			return KERN_SUCCESS;
+		}
+	} else {
+		/* sorry, you must specify a valid task */
+		*sc_status = kSCStatusInvalidArgument;
 		return KERN_SUCCESS;
 	}
 
 	*sc_status = __SCDynamicStoreNotifySignal(mySession->store, pid, sig);
 	if (*sc_status != kSCStatusOK) {
-		if (task != TASK_NULL) {
-			(void) mach_port_destroy(mach_task_self(), task);
-		}
+		__MACH_PORT_DEBUG(TRUE, "*** _notifyviasignal __SCDynamicStoreNotifySignal failed: releasing task)", task);
+		(void) mach_port_deallocate(mach_task_self(), task);
 		return KERN_SUCCESS;
 	}
 
-#ifdef	DEBUG
-	{	mach_port_type_t	pt;
-
-		status = mach_port_type(mach_task_self(), task, &pt);
-		if (status == MACH_MSG_SUCCESS) {
-			char	rights[8], *rp = &rights[0];
-
-			if (pt & MACH_PORT_TYPE_SEND)
-				*rp++ = 'S';
-			if (pt & MACH_PORT_TYPE_RECEIVE)
-				*rp++ = 'R';
-			if (pt & MACH_PORT_TYPE_SEND_ONCE)
-				*rp++ = 'O';
-			if (pt & MACH_PORT_TYPE_PORT_SET)
-				*rp++ = 'P';
-			if (pt & MACH_PORT_TYPE_DEAD_NAME)
-				*rp++ = 'D';
-			*rp = '\0';
-
-			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Task %d, port rights = %s"), task, rights);
-		}
-	}
-#endif	/* DEBUG */
-
-#ifdef	NOTYET
-	/* Request a notification when/if the client dies */
-	status = mach_port_request_notification(mach_task_self(),
-						task,
-						MACH_NOTIFY_DEAD_NAME,
-						1,
-						task,
-						MACH_MSG_TYPE_MAKE_SEND_ONCE,
-						&oldNotify);
-	if (status != KERN_SUCCESS) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("_notifyviasignal mach_port_request_notification() failed: %s"), mach_error_string(status));
-		*sc_status = kSCStatusFailed;
-		return KERN_SUCCESS;
-	}
-
-#ifdef	NOTYET_DEBUG
-	if (oldNotify != MACH_PORT_NULL) {
-		SCLog(TRUE, LOG_ERR, CFSTR("_notifyviasignal(): why is oldNotify != MACH_PORT_NULL?"));
-	}
-#endif	/* NOTYET_DEBUG */
-
-	// add task notification port to the server's port set
-	status = mach_port_move_member(mach_task_self(), task, server_ports);
-	if (status != KERN_SUCCESS) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("_notifyviasignal mach_port_move_member() failed: %s"), mach_error_string(status));
-		*sc_status = kSCStatusFailed;
-		return KERN_SUCCESS;
-	}
-#endif	/* NOTYET */
-
+	__MACH_PORT_DEBUG(TRUE, "*** _notifyviasignal", task);
 	storePrivate->notifyStatus     = Using_NotifierInformViaSignal;
 	storePrivate->notifySignal     = sig;
 	storePrivate->notifySignalTask = task;

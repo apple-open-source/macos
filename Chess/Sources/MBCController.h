@@ -15,9 +15,6 @@
 	Change History (most recent first):
 
 		$Log: MBCController.h,v $
-		Revision 1.23.2.1  2007/03/31 03:47:35  neerache
-		Make document/save system work without UI changes <rdar://problem/4186113>
-		
 		Revision 1.23  2007/03/02 07:40:45  neerache
 		Revise document handling & saving <rdar://problems/3776337&4186113>
 		
@@ -157,7 +154,6 @@
 - (IBAction) openGame:(id)sender;
 - (IBAction) saveGame:(id)sender;
 - (IBAction) saveGameAs:(id)sender;
-- (IBAction) saveMoves:(id)sender;
 - (IBAction) updateVoices:(id)sender;
 
 #if HAS_FLOATING_BOARD

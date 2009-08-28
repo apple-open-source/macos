@@ -67,22 +67,22 @@ static char *load_cache_hint[] = {"", ",co", "??", "??"};
 
 	    
 static void print_immediate(
-    unsigned long value, 
-    unsigned long pc,
+    uint32_t value, 
+    uint32_t pc,
     struct relocation_info *relocs,
-    unsigned long nrelocs,
+    uint32_t nrelocs,
     struct nlist *symbols,
-    unsigned long nsymbols,
+    uint32_t nsymbols,
     struct symbol *sorted_symbols,
-    unsigned long nsorted_symbols,
+    uint32_t nsorted_symbols,
     char *strings,
-    unsigned long strings_size,
+    uint32_t strings_size,
     enum bool verbose);
 
-static unsigned long get_reloc(
-    unsigned long pc,
+static uint32_t get_reloc(
+    uint32_t pc,
     struct relocation_info *relocs,
-    unsigned long nrelocs);
+    uint32_t nrelocs);
 
 
 /*
@@ -105,50 +105,50 @@ int fmt)
 	    printf("%%fr%d",reg5);
 }
 
-unsigned long
+uint32_t
 hppa_disassemble(
 char *sect,
-unsigned long left,
-unsigned long addr,
-unsigned long sect_addr,
+uint32_t left,
+uint32_t addr,
+uint32_t sect_addr,
 enum byte_sex object_byte_sex,
 struct relocation_info *relocs,
-unsigned long nrelocs,
+uint32_t nrelocs,
 struct nlist *symbols,
-unsigned long nsymbols,
+uint32_t nsymbols,
 struct symbol *sorted_symbols,
-unsigned long nsorted_symbols,
+uint32_t nsorted_symbols,
 char *strings,
-unsigned long strings_size,
+uint32_t strings_size,
 enum bool verbose)
 {
     enum byte_sex host_byte_sex;
     enum bool swapped;
-    unsigned long opcode;
+    uint32_t opcode;
     unsigned int i, num, do_completers;
     char *format, c;
     int jbsr;
-    unsigned long sect_offset;
+    uint32_t sect_offset;
     
 	jbsr = 0;
 	sect_offset = addr - sect_addr;
 	host_byte_sex = get_host_byte_sex();
 	swapped = host_byte_sex != object_byte_sex;
 
-	if(left < sizeof(unsigned long)){
+	if(left < sizeof(uint32_t)){
 	   if(left != 0){
 		memcpy(&opcode, sect, left);
 		if(swapped)
-		    opcode = SWAP_LONG(opcode);
+		    opcode = SWAP_INT(opcode);
 		printf(".long\t0x%08x\n", (unsigned int)opcode);
 	   }
 	   printf("(end of section)\n");
 	   return(left);
 	}
 
-	memcpy(&opcode, sect, sizeof(unsigned long));
+	memcpy(&opcode, sect, sizeof(uint32_t));
 	if(swapped)
-	    opcode = SWAP_LONG(opcode);
+	    opcode = SWAP_INT(opcode);
 	
 	/* special-case for jbsr */
 	if ( ((opcode & 0xfc00e000) == 0xe8000000) && 
@@ -173,12 +173,12 @@ enum bool verbose)
 	      do_completers=0;
 	      }
 	    switch (c) {
-	      case 'x' : printf("%%r%lu",GET_FIELD(opcode, 11, 15)); break;
-	      case 'b' : printf("%%r%lu",GET_FIELD(opcode, 6, 10)); break;
-	      case 't' : printf("%%r%lu",GET_FIELD(opcode, 27, 31)); break;
+	      case 'x' : printf("%%r%u",GET_FIELD(opcode, 11, 15)); break;
+	      case 'b' : printf("%%r%u",GET_FIELD(opcode, 6, 10)); break;
+	      case 't' : printf("%%r%u",GET_FIELD(opcode, 27, 31)); break;
 	      case 'B' : if ((num = GET_FIELD(opcode, 16, 17)))
 	                   printf(" %u,",num);
-			 printf("%%r%lu",GET_FIELD(opcode, 6, 10));
+			 printf("%%r%u",GET_FIELD(opcode, 6, 10));
 			 break;
 	      case 'n' : if (opcode & 2) printf(",n");
 			 break;
@@ -187,7 +187,7 @@ enum bool verbose)
 			   break;
 	      case 'Z' : if (GET_FIELD(opcode, 26, 26)) printf(",m");
 	                 break;
-	      case 'S' : printf("%%sr%lu",assemble_3(GET_FIELD(opcode,16,18)));
+	      case 'S' : printf("%%sr%u",assemble_3(GET_FIELD(opcode,16,18)));
 	                 break;
 	      case '?' :
 	      case '<' : printf("%s",comp_conds[GET_FIELD(opcode,16,18)<<1]);
@@ -249,17 +249,17 @@ enum bool verbose)
 	      case 'p'   : num = 31 - GET_FIELD(opcode, 22, 26);
 	      		   printf("%d",num);
 			   break;
-	      case 'P'   : printf("%ld",GET_FIELD(opcode, 22, 26));
+	      case 'P'   : printf("%d",GET_FIELD(opcode, 22, 26));
 			   break;
-	      case 'Q'   : printf("%ld",GET_FIELD(opcode, 6, 10));
+	      case 'Q'   : printf("%d",GET_FIELD(opcode, 6, 10));
 			   break;
-	      case 'R'   : printf("%ld",GET_FIELD(opcode, 11, 15));
+	      case 'R'   : printf("%d",GET_FIELD(opcode, 11, 15));
 			   break;
-	      case 'r'   : printf("%ld",GET_FIELD(opcode, 27, 31));
+	      case 'r'   : printf("%d",GET_FIELD(opcode, 27, 31));
 			   break;
 	      case 'M'   : printf("%s",fp_conds[GET_FIELD(opcode, 27, 31)]);
 	                   break;
-	      case 'u'   : printf("%ld",GET_FIELD(opcode,23,25));
+	      case 'u'   : printf("%d",GET_FIELD(opcode,23,25));
 	                   break;
 	      case 'F'   : if (GET_FIELD(opcode,0,5)==0x0C)
 	                     num = GET_FIELD(opcode, 19, 20);
@@ -270,20 +270,20 @@ enum bool verbose)
 			   break;
 	      case 'H'   : printf("%s",fp_fmts[1-GET_FIELD(opcode, 26, 26)]);
 			   break;
-	      case 'v'   : printf("%%fr%ld",GET_FIELD(opcode,27,31));
+	      case 'v'   : printf("%%fr%d",GET_FIELD(opcode,27,31));
 	                   if (GET_FIELD(opcode,25,25)) printf("r");
 	                   break;
-	      case 'E'   : printf("%%fr%ld",GET_FIELD(opcode,6,10));
+	      case 'E'   : printf("%%fr%d",GET_FIELD(opcode,6,10));
 	                   if (GET_FIELD(opcode,24,24)) printf("r");
 	                   break;
-	      case 'X'   : printf("%%fr%ld",GET_FIELD(opcode,11,15));
+	      case 'X'   : printf("%%fr%d",GET_FIELD(opcode,11,15));
 	      		   if ((GET_FIELD(opcode,0,5)==0x0E) &&
 			       (GET_FIELD(opcode,19,19))!=0) printf("r");
 			   break;
 	      case 'V'   : num=low_sign_ext(GET_FIELD(opcode,27,31),5);
 	      		   printf("0x%x",num);
 			   break;
-	      case 'f'   : printf("%ld",GET_FIELD(opcode, 23, 25));
+	      case 'f'   : printf("%d",GET_FIELD(opcode, 23, 25));
 	      		   break;
 	      case '4'   : print_multiple_fpreg(GET_FIELD(opcode,6,10),
 					       GET_FIELD(opcode,26,26));
@@ -300,7 +300,7 @@ enum bool verbose)
 	      case '8'   : print_multiple_fpreg(GET_FIELD(opcode,27,31),
 					       GET_FIELD(opcode,26,26));
 			   break;
-	      case 'o'   : printf("%ld",GET_FIELD(opcode,6,20));
+	      case 'o'   : printf("%d",GET_FIELD(opcode,6,20));
 	                   break;
 	      case 'O'   : num = (GET_FIELD(opcode, 6,20) << 5) |
 			          GET_FIELD(opcode, 27, 31);
@@ -310,17 +310,17 @@ enum bool verbose)
 	                                  stbys_m_cmplts[GET_FIELD(opcode,26,26)],
                                     store_cache_hint[GET_FIELD(opcode,20,21)]);
 			   break;
-	      case 'D'   : printf("%ld",GET_FIELD(opcode,6,31));
+	      case 'D'   : printf("%d",GET_FIELD(opcode,6,31));
 	      		   break;
-	      case 'A'   : printf("%ld",GET_FIELD(opcode,6,18));
+	      case 'A'   : printf("%d",GET_FIELD(opcode,6,18));
 	      		   break;
-	      case '2'   : printf("%ld",(GET_FIELD(opcode,6,22) << 5) |
+	      case '2'   : printf("%d",(GET_FIELD(opcode,6,22) << 5) |
 			                GET_FIELD(opcode,27,31));
 	      		   break;
-	      case '1'   : printf("%ld",(GET_FIELD(opcode,11,20) << 5) |
+	      case '1'   : printf("%d",(GET_FIELD(opcode,11,20) << 5) |
 			                GET_FIELD(opcode,27,31));
 	      		   break;
-	      case '0'   : printf("%ld",(GET_FIELD(opcode,16,20) << 5) |
+	      case '0'   : printf("%d",(GET_FIELD(opcode,16,20) << 5) |
 			                GET_FIELD(opcode,27,31));
 	      		   break;
 	      case '@'   : print_immediate(sect_addr, sect_offset, relocs, nrelocs,
@@ -360,22 +360,22 @@ enum bool verbose)
 static
 void
 print_immediate(
-unsigned long value, 
-unsigned long pc,
+uint32_t value, 
+uint32_t pc,
 struct relocation_info *relocs,
-unsigned long nrelocs,
+uint32_t nrelocs,
 struct nlist *symbols,
-unsigned long nsymbols,
+uint32_t nsymbols,
 struct symbol *sorted_symbols,
-unsigned long nsorted_symbols,
+uint32_t nsorted_symbols,
 char *strings,
-unsigned long strings_size,
+uint32_t strings_size,
 enum bool verbose)
 {
-    long reloc_found, offset;
-    unsigned long i, r_address, r_symbolnum, r_type, r_extern,
+    int32_t reloc_found, offset;
+    uint32_t i, r_address, r_symbolnum, r_type, r_extern,
 		  r_value, r_scattered, pair_r_type, pair_r_value;
-    unsigned long other_half;
+    uint32_t other_half;
     const char *name, *add, *sub;
     struct relocation_info *rp, *pairp;
     struct scattered_relocation_info *srp;
@@ -413,7 +413,7 @@ enum bool verbose)
 		}
 		if(r_type == HPPA_RELOC_PAIR){
 		    fprintf(stderr, "Stray HPPA_RELOC_PAIR relocation entry "
-			    "%lu\n", i);
+			    "%u\n", i);
 		    continue;
 		}
 		if(r_address == pc){
@@ -438,7 +438,7 @@ enum bool verbose)
 			    }
 			    if(pair_r_type != HPPA_RELOC_PAIR){
 				fprintf(stderr, "No HPPA_RELOC_PAIR relocation "
-					"entry after entry %lu\n", i);
+					"entry after entry %u\n", i);
 				continue;
 			    }
 			}
@@ -466,7 +466,7 @@ enum bool verbose)
 			    i++;
 			else
 			    fprintf(stderr, "No HPPA_RELOC_PAIR relocation "
-				    "entry after entry %lu\n", i);
+				    "entry after entry %u\n", i);
 		    }
 		}
 	    }
@@ -474,7 +474,7 @@ enum bool verbose)
 
 	if(reloc_found && r_extern == 1){
 	    if(symbols[r_symbolnum].n_un.n_strx < 0 ||
-	       (unsigned long)symbols[r_symbolnum].n_un.n_strx >= strings_size)
+	       (uint32_t)symbols[r_symbolnum].n_un.n_strx >= strings_size)
 		name = "bad string offset";
 	    else
 		name = strings + symbols[r_symbolnum].n_un.n_strx;
@@ -616,15 +616,15 @@ enum bool verbose)
  * the relocs and give the r_type for the particular address.
  */
 static
-unsigned long
+uint32_t
 get_reloc(
-unsigned long pc,
+uint32_t pc,
 struct relocation_info *relocs,
-unsigned long nrelocs)
+uint32_t nrelocs)
 {
-    unsigned long i;
+    uint32_t i;
     struct relocation_info *rp;
-    unsigned long r_type, r_address;
+    uint32_t r_type, r_address;
   
 	for(i = 0; i < nrelocs; i++){
 	    rp = &relocs[i];

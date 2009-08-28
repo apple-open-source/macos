@@ -1,0 +1,208 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+<link rel="STYLESHEET" href="mailman-member-es.css" type='text/css' />
+<link rel="first" href="mailman-member-es.html" title='GNU&nbsp;Mailman Manual&nbsp;del&nbsp;Suscriptor&nbsp;de&nbsp;Listas' />
+<link rel='contents' href='contents.html' title="Contents" />
+<link rel='last' href='about.html' title='About this document...' />
+<link rel='help' href='about.html' title='About this document...' />
+<link rel="prev" href="node24.html" />
+<link rel="parent" href="node19.html" />
+<link rel="next" href="node26.html" />
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<meta name='aesop' content='information' />
+<title>7.6 Parece que no estoy recibiendo correo de las listas. ¿Qué debería hacer?</title>
+</head>
+<body>
+<div class="navigation">
+<div id='top-navigation-panel' xml:id='top-navigation-panel'>
+<table align="center" width="100%" cellpadding="0" cellspacing="2">
+<tr>
+<td class='online-navigation'><a rel="prev" title="7.5 ¿Cómo puedo hacer"
+  href="node24.html"><img src='previous.png'
+  border='0' height='32'  alt='Previous Page' width='32' /></a></td>
+<td class='online-navigation'><a rel="parent" title="7 cambiando la entrega"
+  href="node19.html"><img src='up.png'
+  border='0' height='32'  alt='Up one Level' width='32' /></a></td>
+<td class='online-navigation'><a rel="next" title="8 Envíos agrupados"
+  href="node26.html"><img src='next.png'
+  border='0' height='32'  alt='Next Page' width='32' /></a></td>
+<td align="center" width="100%">GNU&nbsp;Mailman Manual&nbsp;del&nbsp;Suscriptor&nbsp;de&nbsp;Listas</td>
+<td class='online-navigation'><a rel="contents" title="Table of Contents"
+  href="contents.html"><img src='contents.png'
+  border='0' height='32'  alt='Contents' width='32' /></a></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+</tr></table>
+<div class='online-navigation'>
+<b class="navlabel">Previous:</b>
+<a class="sectref" rel="prev" href="node24.html">7.5 ¿Cómo puedo hacer</a>
+<b class="navlabel">Up:</b>
+<a class="sectref" rel="parent" href="node19.html">7 Cambiando la entrega</a>
+<b class="navlabel">Next:</b>
+<a class="sectref" rel="next" href="node26.html">8 Envíos agrupados</a>
+</div>
+<hr /></div>
+</div>
+<!--End of Navigation Panel-->
+
+<h2><a name="SECTION002760000000000000000">
+7.6 Parece que no estoy recibiendo correo de las listas. ¿Qué debería
+	hacer?</a>
+</h2>
+
+<p>
+Hay pocas razones comunes para que esto ocurra:
+
+<ul>
+<li>Durante un cierto lapso de tiempo nadie ha enviado correo a la
+	lista o listas en las cuales usted está suscrito.
+
+<p>
+Para revisar si este es el caso, intente accediendo a los archivos de
+	la lista (asumiendo que la lista tiene archivos).  Si la lista no
+	tiene archivos, puede preguntar a otro suscriptor (mire en la
+	Sección&nbsp;<a href="node9.html#sec:web">3.1</a> la ayuda para encontrar los archivos de una
+	lista).
+
+<p>
+<b>Nota: </b>Generalmente se considera descortés envíar mensajes de prueba a
+	la lista entera.  Si usted siente la necesidad de probar que la lista
+	está trabajando y por alguna razón usted no puede simplemente redactar
+	un mensaje regular a la lista, es menos perturbador solicitar un
+	mensaje de ayuda a la dirección administrativa de la lista
+	(NOMBRELISTA-request@DOMINIO) para mirar si trabaja, o contactar al
+	administrador de la lista para preguntarle si la lista está operando
+	normalmente.
+
+<p>
+</li>
+<li>Su dirección de correo está causando mensajes devueltos y por
+	ello el software de la lista le ha deshabilitado la entrega de correo
+	(temporalmente).
+
+<p>
+Si su proveedor de correo ``devuelve'' demasiados mensajes (es decir,
+	si le dice a Mailman que el mensaje no se pudo enviar), Mailman 
+	eventualmente ya no intenta enviarle correo.  Esta característica
+	permite a Mailman manipular con gusto direcciones que ya no existen
+	(por ejemplo, cuando un suscriptor encuentra un nuevo servicio de
+	Internet y olvida darse de baja de la dirección antigüa), así como
+	también direcciones que están temporalmente fuera de servicio (por
+	ejemplo, cuando el suscriptor ha utilizado todo el espacio asignado de
+	su cuenta de correo, o cuando el proveedor de correo del suscriptor
+	está experimentando dificultades).
+
+<p>
+Aún si usted no está enterado de cualquier dificultad con su proveedor
+	de correo, es una buena idea revisar esto.  Algunos proveedores
+	populares de correo basado en web y servidores de Internet no son tan
+	confiables como uno podría asumir, ni tampoco lo es el Internet como
+	un todo.  Usted también puede desear enviarse usted mismo un mensaje
+	de prueba desde otra cuenta o pedirle a un amigo que le envíe un
+	mensaje de prueba para asegurarse que su dirección suscrita está
+	trabajando.
+
+<p>
+Para revisar si esta puede ser la razón por la cual usted no está
+	recibiendo mensajes, ingrese a su página de opciones (consulte en la
+	Sección&nbsp;<a href="node9.html#sec:web">3.1</a> más detalles de cómo hacer esto) y mire sus
+	opciones.  Si se ha desactivado su suscripción o si Mailman ha
+	recibido mensajes devueltos provenientes de su dirección de correo,
+	usted encontrará un gran mensaje en la parte superior de esta página.
+
+<p>
+Para reactivar la entrega de correo, ubique una opción identificada
+	como ``Entrega del correo'' y seleccione ``Habilitar'' para iniciar
+	de nuevo a recibir el correo.  Para deshacerse de su puntaje de
+	mensajes devueltos, usted puede desactivar y luego volver a activar
+	la entrega.  Más instrucciones sobre la desactivación o activación
+	de la entrega del correo se encuentran en la Sección&nbsp;<a href="node20.html#sec:nomail">7.1</a>.
+
+<p>
+<b>Nota: </b>Aún si usted no estuviera inhabilitado en el momento en que
+	revisa, usted podría estar recibiendo mensajes devueltos y no haber
+	alcanzado el límite para que su suscripción se desactive.  Usted puede
+	necesitar revisar de nuevo.
+
+<p>
+</li>
+<li>Hay un retardo o interrupción en las redes existentes entre
+	usted y el servidor de listas.
+
+<p>
+Por mucho que nos gustaría, Internet no es 100% confiable ni siempre
+	es rápida.  Algunas veces los mensajes simplemente demoran mucho
+	tiempo en llegar.  Trate de ser paciente, especialmente si el servidor
+	está alejado (en términos de redes, no geográficamente, aunque a
+	menudo lo uno implica lo otro) de su proveedor de servicio de
+	Internet.
+
+<p>
+Para revisar si esta podría ser la causa de su problema, usted puede
+	probar realizando un ping al servidor de la lista o trazar la ruta
+	entre usted y él (las instrucciones de cómo hacer esto varía de una
+	plataforma a otra, así que usted puede desear usar un motor de
+	búsqueda para encontrar aquellas más apropiadas para usted).
+
+<p>
+</li>
+<li>El servidor de correo o Mailman podrían no estar funcionando
+	correctamente.  Esto puede ocurrir si el sistema está sobrecargado con
+	virus o spam y el sistema de correo que aloja Mailman tiene problemas
+	al procesarlos.
+
+<p>
+Para revisar si este es el caso, pruebe utilizando el interfaz web de
+	la lista y trate de enviar un mensaje a
+	<span class="email">NOMBRELISTA-request@DOMINIO</span> con la orden ``<var>help</var>'' (sin
+	las comillas) en la línea de <span class="mailheader">Asunto:</span>.  Si nada de esto
+	funciona después de un razonable lapso de tiempo, ese puede ser el
+	problema.  Usted puede desear contactar al administrador de la lista
+	o al administrador del sitio.
+</li>
+</ul>
+
+<p>
+
+<div class="navigation">
+<div class='online-navigation'>
+<p></p><hr />
+<table align="center" width="100%" cellpadding="0" cellspacing="2">
+<tr>
+<td class='online-navigation'><a rel="prev" title="7.5 ¿Cómo puedo hacer"
+  href="node24.html"><img src='previous.png'
+  border='0' height='32'  alt='Previous Page' width='32' /></a></td>
+<td class='online-navigation'><a rel="parent" title="7 cambiando la entrega"
+  href="node19.html"><img src='up.png'
+  border='0' height='32'  alt='Up one Level' width='32' /></a></td>
+<td class='online-navigation'><a rel="next" title="8 Envíos agrupados"
+  href="node26.html"><img src='next.png'
+  border='0' height='32'  alt='Next Page' width='32' /></a></td>
+<td align="center" width="100%">GNU&nbsp;Mailman Manual&nbsp;del&nbsp;Suscriptor&nbsp;de&nbsp;Listas</td>
+<td class='online-navigation'><a rel="contents" title="Table of Contents"
+  href="contents.html"><img src='contents.png'
+  border='0' height='32'  alt='Contents' width='32' /></a></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+</tr></table>
+<div class='online-navigation'>
+<b class="navlabel">Previous:</b>
+<a class="sectref" rel="prev" href="node24.html">7.5 ¿Cómo puedo hacer</a>
+<b class="navlabel">Up:</b>
+<a class="sectref" rel="parent" href="node19.html">7 Cambiando la entrega</a>
+<b class="navlabel">Next:</b>
+<a class="sectref" rel="next" href="node26.html">8 Envíos agrupados</a>
+</div>
+</div>
+<hr />
+<span class="release-info">Release 2.1, documentation updated on 11 de enero 2009.</span>
+</div>
+<!--End of Navigation Panel-->
+
+</body>
+</html>

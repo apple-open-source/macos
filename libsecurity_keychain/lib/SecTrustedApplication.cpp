@@ -55,7 +55,7 @@ SecTrustedApplicationCreateFromPath(const char *path, SecTrustedApplicationRef *
 	SecPointer<TrustedApplication> app =
 		path ? new TrustedApplication(path) : new TrustedApplication;
 	Required(appRef) = app->handle();
-	END_SECAPI2("SecTrustedApplicationCreateFromPath")
+	END_SECAPI
 }
 
 OSStatus SecTrustedApplicationCopyData(SecTrustedApplicationRef appRef,
@@ -64,7 +64,7 @@ OSStatus SecTrustedApplicationCopyData(SecTrustedApplicationRef appRef,
 	BEGIN_SECAPI
 	const char *path = TrustedApplication::required(appRef)->path();
 	Required(dataRef) = CFDataCreate(NULL, (const UInt8 *)path, strlen(path) + 1);
-	END_SECAPI2("SecTrustedApplicationCopyData")
+	END_SECAPI
 }
 
 OSStatus SecTrustedApplicationSetData(SecTrustedApplicationRef appRef,
@@ -73,7 +73,7 @@ OSStatus SecTrustedApplicationSetData(SecTrustedApplicationRef appRef,
 	BEGIN_SECAPI
 	secdebug("UNIMP", "legacy SecTrustedApplicationSetData not re-implemented");
 //	TrustedApplication::required(appRef)->data(cfData(dataRef));
-	END_SECAPI2("SecTrustedApplicationSetData")
+	END_SECAPI
 }
 
 
@@ -84,7 +84,7 @@ SecTrustedApplicationValidateWithPath(SecTrustedApplicationRef appRef, const cha
 	TrustedApplication &app = *TrustedApplication::required(appRef);
 	if (!app.verifyToDisk(path))
 		return CSSMERR_CSP_VERIFY_FAILED;
-	END_SECAPI2("SecTrustedApplicationValidateWithPath")
+	END_SECAPI
 }
 
 
@@ -98,7 +98,7 @@ OSStatus SecTrustedApplicationCopyExternalRepresentation(
 	BEGIN_SECAPI
 	TrustedApplication &app = *TrustedApplication::required(appRef);
 	Required(externalRef) = app.externalForm();
-	END_SECAPI2("SecTrustedApplicationCopyExternalRepresentation")
+	END_SECAPI
 }
 
 OSStatus SecTrustedApplicationCreateWithExternalRepresentation(
@@ -107,7 +107,7 @@ OSStatus SecTrustedApplicationCreateWithExternalRepresentation(
 {
 	BEGIN_SECAPI
 	Required(appRef) = (new TrustedApplication(externalRef))->handle();
-	END_SECAPI2("SecTrustedApplicationCreateWithExternalRepresentation")
+	END_SECAPI
 }
 
 
@@ -123,7 +123,7 @@ SecTrustedApplicationMakeEquivalent(SecTrustedApplicationRef oldRef,
 	TrustedApplication *newApp = TrustedApplication::required(newRef);
 	ss.addCodeEquivalence(oldApp->legacyHash(), newApp->legacyHash(), oldApp->path(),
 		flags & kSecApplicationFlagSystemwide);
-	END_SECAPI2("SecTrustedApplicationMakeEquivalent")
+	END_SECAPI
 }
 
 OSStatus
@@ -136,7 +136,7 @@ SecTrustedApplicationRemoveEquivalence(SecTrustedApplicationRef appRef, UInt32 f
 	TrustedApplication *app = TrustedApplication::required(appRef);
 	ss.removeCodeEquivalence(app->legacyHash(), app->path(),
 		flags & kSecApplicationFlagSystemwide);
-	END_SECAPI2("SecTrustedApplicationRemoveEquivalence")
+	END_SECAPI
 }
 
 
@@ -158,9 +158,12 @@ SecTrustedApplicationIsUpdateCandidate(const char *installroot, const char *path
 		
 	// look up in database
 	static ModuleNexus<PathDatabase> paths;
+	static ModuleNexus<RecursiveMutex> mutex;
+	StLock<Mutex>_(mutex());
+	
 	if (!paths()[path])
 		return CSSMERR_DL_RECORD_NOT_FOUND;	// whatever
-    END_SECAPI2("SecTrustedApplicationIsUpdateCandidate")
+    END_SECAPI
 }
 
 
@@ -175,7 +178,7 @@ SecTrustedApplicationUseAlternateSystem(const char *systemRoot)
 	Required(systemRoot);
 	SecurityServer::ClientSession ss(Allocator::standard(), Allocator::standard());
 	ss.setAlternateSystemRoot(systemRoot);
-	END_SECAPI2("SecTrustedApplicationUseAlternateSystem")
+	END_SECAPI
 }
 
 
@@ -194,7 +197,7 @@ OSStatus SecTrustedApplicationCreateFromRequirement(const char *description,
 		description = "csreq://";	// default to "generic requirement"
 	SecPointer<TrustedApplication> app = new TrustedApplication(description, requirement);
 	Required(appRef) = app->handle();	
-	END_SECAPI2("SecTrustedApplicationCreateFromRequirement")
+	END_SECAPI
 }
 
 OSStatus SecTrustedApplicationCopyRequirement(SecTrustedApplicationRef appRef,
@@ -204,7 +207,7 @@ OSStatus SecTrustedApplicationCopyRequirement(SecTrustedApplicationRef appRef,
 	Required(requirement) = TrustedApplication::required(appRef)->requirement();
 	if (*requirement)
 		CFRetain(*requirement);
-	END_SECAPI2("SecTrustedApplicationCopyRequirement")
+	END_SECAPI
 }
 
 
@@ -229,5 +232,5 @@ OSStatus SecTrustedApplicationCreateApplicationGroup(const char *groupName,
 	SecPointer<TrustedApplication> app = new TrustedApplication(description, req);
 	Required(appRef) = app->handle();
 
-	END_SECAPI2("SecTrustedApplicationCreateApplicationGroup")
+	END_SECAPI
 }

@@ -21,17 +21,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <string.h>
-#if KERNEL
-#include <libsa/mkext.h>
-#include <libsa/stdlib.h>
-#else
-#include <Kernel/libsa/mkext.h>
 #include <stdlib.h>
-#endif KERNEL
 
-
-__private_extern__ u_int32_t
-local_adler32(u_int8_t *buffer, int32_t length)
+/*******************************************************************************
+*******************************************************************************/
+u_int32_t local_adler32(u_int8_t * buffer, int32_t length)
 {
     int32_t cnt;
     u_int32_t  result, lowHalf, highHalf;
@@ -92,18 +86,22 @@ struct encode_state {
 };
 
 
-__private_extern__ int
-decompress_lzss(u_int8_t *dst, u_int8_t *src, u_int32_t srclen)
+/*******************************************************************************
+*******************************************************************************/
+int decompress_lzss(
+    u_int8_t       * dst,
+    u_int32_t        dstlen,
+    u_int8_t       * src,
+    u_int32_t        srclen)
 {
     /* ring buffer of size N, with extra F-1 bytes to aid string comparison */
     u_int8_t text_buf[N + F - 1];
-    u_int8_t *dststart = dst;
-    u_int8_t *srcend = src + srclen;
+    u_int8_t * dststart = dst;
+    const u_int8_t * srcend = src + srclen;
     int  i, j, k, r, c;
     unsigned int flags;
     
     dst = dststart;
-    srcend = src + srclen;
     for (i = 0; i < N - F; i++)
         text_buf[i] = ' ';
     r = N - F;
@@ -134,8 +132,6 @@ decompress_lzss(u_int8_t *dst, u_int8_t *src, u_int32_t srclen)
     
     return dst - dststart;
 }
-
-#if !KERNEL
 
 /*
  * initialize state, mostly the trees
@@ -251,19 +247,27 @@ static void delete_node(struct encode_state *sp, int p)
     sp->parent[p] = NIL;
 }
 
-__private_extern__ u_int8_t *
-compress_lzss(u_int8_t *dst, u_int32_t dstlen, u_int8_t *src, u_int32_t srcLen)
+/*******************************************************************************
+*******************************************************************************/
+u_int8_t * compress_lzss(
+    u_int8_t       * dst,
+    u_int32_t        dstlen,
+    u_int8_t       * src,
+    u_int32_t        srclen)
 {
+    u_int8_t * result = NULL;
     /* Encoding state, mostly tree but some current match stuff */
     struct encode_state *sp;
 
     int  i, c, len, r, s, last_match_length, code_buf_ptr;
     u_int8_t code_buf[17], mask;
-    u_int8_t *srcend = src + srcLen;
+    u_int8_t * srcend = src + srclen;
     u_int8_t *dstend = dst + dstlen;
 
     /* initialize trees */
     sp = (struct encode_state *) malloc(sizeof(*sp));
+    if (!sp) goto finish;
+
     init_state(sp);
 
     /*
@@ -282,7 +286,7 @@ compress_lzss(u_int8_t *dst, u_int32_t dstlen, u_int8_t *src, u_int32_t srcLen)
     for (len = 0; len < F && src < srcend; len++)
         sp->text_buf[r + len] = *src++;  
     if (!len)
-        return (void *) 0;  /* text of size zero */
+        goto finish;
 
     /*
      * Insert the F strings, each of which begins with one or more
@@ -318,7 +322,7 @@ compress_lzss(u_int8_t *dst, u_int32_t dstlen, u_int8_t *src, u_int32_t srcLen)
                 if (dst < dstend)
                     *dst++ = code_buf[i]; 
                 else
-                    return (void *) 0;
+                    goto finish;
             code_buf[0] = 0;
             code_buf_ptr = mask = 1;
         }
@@ -359,11 +363,13 @@ compress_lzss(u_int8_t *dst, u_int32_t dstlen, u_int8_t *src, u_int32_t srcLen)
             if (dst < dstend)
                 *dst++ = code_buf[i]; 
             else
-                return (void *) 0;
+                goto finish;
     }
+
+    result = dst;
+
+finish:
+    if (sp) free(sp);
 
     return dst;
 }
-
-#endif /* !KERNEL */
-

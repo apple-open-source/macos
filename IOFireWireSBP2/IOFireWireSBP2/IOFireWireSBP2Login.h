@@ -245,6 +245,7 @@ class IOFireWireSBP2Login : public OSObject
 
 	friend class IOFireWireSBP2ORB;
 	friend class IOFireWireSBP2LUN;
+	friend class IOFireWireSBP2UserClient;
 	
 protected:
 

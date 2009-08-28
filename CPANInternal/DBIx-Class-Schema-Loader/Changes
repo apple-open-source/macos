@@ -1,8 +1,81 @@
 Revision history for Perl extension DBIx::Class::Schema::Loader
 
+0.04005 Sat Apr 05, 2008
+        - Fix DB2 support
+        - Add support for load_namespaces-style class layout
+        - Fix test skip count for main skip_rels block
+        - Fix auto-inc column creation for the Oracle tests
+
+0.04004 Thu Nov 15, 2007
+        - Fix Win32 test skip counts for good (RT #30568, Kenichi Ishigaki)
+        - Default Oracle db_schema to db username (patch
+          from Johannes Plunien)
+
+0.04003 Wed Oct 4, 2007
+        - Prevent users from running Kwalitee test automatically
+        - Fix extra whitespace being added to output on
+          regeneration (from ilmari)
+
+0.04002 Tue Jul 24, 2007
+        - rescan method now returns the actual list of new tables
+          loaded (previously, the return value wasn't taking
+          constraint/exclude into account, even though the meat
+          of the operation was).
+        - Hid the Oracle module so that search.cpan.org will stop
+          ignoring this package, temporary fix until perms are
+          sorted out
+        - Fix Win32 test skip counts (RT #27715, Alexandr Ciornii)
+        - Fix a small output quoting bug (RT #28073, Tokuhiro Matsuno)
+
+0.04001 Tue Jun 26, 2007
+        - Deprecated dump_overwrite.  The changed behavior from
+          0.03xxx was confusing.
+        - Added new option really_erase_my_files, which does what
+          dump_overwrite did in 0.04000, which is not what it did
+          in 0.03xxx.
+
+0.04000 Thu Jun 7, 2007
+        - Added some env vars for controlling the Makefile.PL feature
+          questions, to make automation easier.
+
+0.03999_02 Tue May 22, 2007
+        - Converted to Module::Install
+
+0.03012 Tue May 22, 2007
+        - Relationship names for multiple multi-col rels between
+          the same table fixed by ilmari
+        - Fix from Marc Espie for CREATE TABLE 'foo' for SQLite
+        - skip ^sqlite_ tables in SQLite (thanks chromatic)
+
+0.03999_01 Sat Apr 14 19:57:40 GMT 2007
+        - Added *experimental* Oracle support from work done
+          by Tsunoda Kazuya some months ago.  Not well tested.
+        - Added "rescan" schema (and loader) method, which picks
+          up newly created tables at runtime
+        - Made dump_to_dir / dump_overwrite much more intelligent
+          (they now preserve customizations by default)
+        - Added support for DBI's new standard "statistics_info"
+          method to gather unique key info (only supported by
+          DBD::Pg trunk afaik)
+        - columns_info_for imported from DBIx::Class
+        - relationships are now on by default, use skip_relationships
+          to disable them
+        - Removed previously deprecated methods/options
+        - Added $VERSION to all packages in this dist
+
+0.03011 Sat Apr 14 19:03:07 UTC 2007
+        - fix case-sensitivity in UNIQUE parsing for SQLite
+
+0.03010 Thu Mar 29 12:36:19 UTC 2007
+        - Workaround for new incompatible changes in DBD::mysql's "tables"
+          method, which was causing us to find no tables w/ DBD::mysql
+          4.002+
+        - Fixed quoting problem in _table_columns (could cause crash when 
+          dumping/doing a static create) (from ash)
+
 0.03009 Wed Nov 15 14:03:37 UTC 2006
-	- fix for rt.cpan.org #22425 (use File::Spec where appropriate)
-	- use full instead of short classnames in relationships (from victori)
+        - fix for rt.cpan.org #22425 (use File::Spec where appropriate)
+        - use full instead of short classnames in relationships (from victori)
 
 0.03008 Fri Oct 20 18:08:20 UTC 2006
         - fix for rt.cpan.org #21084 (dump_overwrite pathological output recursion)
@@ -105,7 +178,7 @@ Revision history for Perl extension DBIx::Class::Schema::Loader
 
 0.02007 Wed Mar 22 06:03:53 UTC 2006
         - Backported Class::C3::reinitialize changes from -refactor
-	  branch, resulting in significantly reduced load time
+          branch, resulting in significantly reduced load time
 
 0.02006 Fri Mar 17 04:55:55 UTC 2006
         - Fix long-standing table/col-name case bugs
@@ -132,8 +205,8 @@ Revision history for Perl extension DBIx::Class::Schema::Loader
 
 0.02005 Mon Feb 27 23:53:17 UTC 2006
         - Move the external file loading to after everything else
-	  loader does, in case people want to define, override, or
-	  build on top of the rels.
+          loader does, in case people want to define, override, or
+          build on top of the rels.
 
 0.02004 Mon Feb 27 23:53:17 UTC 2006
         - Minor fix to debugging message for loading external files

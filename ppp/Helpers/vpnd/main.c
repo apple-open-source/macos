@@ -41,7 +41,6 @@
 #include <fcntl.h>
 #include <syslog.h>
 #include <netdb.h>
-#include <utmp.h>
 #include <paths.h>
 #include <sys/queue.h>
 		
@@ -121,7 +120,7 @@ int main (int argc, char *argv[])
     params = (struct vpn_params*)malloc(sizeof (struct vpn_params));
     if (params == 0)
         exit(EXIT_FATAL_ERROR);
-    bzero(params, sizeof(params));
+    bzero(params, sizeof(*params));
 
     // Close all non-standard file descriptors.
     close_file_descriptors();
@@ -272,7 +271,7 @@ static int spawn(struct vpn_params *params)
     
         switch (pidChild = fork ()) {
             case 0:		// in child
-                execve(PATH_VPND, args, (char *)0);		// launch it
+                execve(PATH_VPND, args, NULL);		// launch it
                 break;
             case -1:		// error
                 vpnlog(LOG_ERR, "Attempt to fork new vpnd failed\n") ;
@@ -377,8 +376,8 @@ static void write_pid_file(struct vpn_params *params)
     if (params->serverSubTypeRef)
 		CFStringGetCString(params->serverSubTypeRef, subtype, OPT_STR_LEN, kCFStringEncodingUTF8);
     if (subtype[0])
-        strcat(pid_path, subtype);
-    strcat(pid_path, ".pid");
+        strlcat(pid_path, subtype, sizeof(pid_path));
+    strlcat(pid_path, ".pid", sizeof(pid_path));
 
     if ((pidfile = fopen(pid_path, "w")) != NULL) {
 	fprintf(pidfile, "%d\n", getpid());
@@ -398,7 +397,7 @@ static void delete_pid_file(void)
 // ----------------------------------------------------------------------------
 //	Log File Functions
 // ----------------------------------------------------------------------------
-static char *log_time_string(time_t inNow, char *inTimeString)
+static char *log_time_string(time_t inNow, char *inTimeString, int maxLen)
 {
     struct tm *tmTime;
     
@@ -407,7 +406,7 @@ static char *log_time_string(time_t inNow, char *inTimeString)
     
     tmTime = localtime(&inNow);
 
-    sprintf(inTimeString, "%04d-%02d-%02d %02d:%02d:%02d %s",
+    snprintf(inTimeString, maxLen, "%04d-%02d-%02d %02d:%02d:%02d %s",
                             tmTime->tm_year + 1900, tmTime->tm_mon + 1, tmTime->tm_mday,
                             tmTime->tm_hour, tmTime->tm_min, tmTime->tm_sec,
                             tmTime->tm_zone);
@@ -441,7 +440,7 @@ static void create_log_file(char *inLogPath)
         // Always add time stamp and field ID
         fprintf(logfile, "#Start-Date: %s\n"
                                         "#Fields: date time s-comment\n",
-                                        log_time_string(time(NULL), theTime));
+                                        log_time_string(time(NULL), theTime, sizeof(theTime)));
         fflush(logfile);
     }
 }
@@ -456,7 +455,7 @@ static void close_log_file(void)
     if (!logfile)
         return;
 
-    fprintf (logfile, "#End-Date: %s\n", log_time_string(time(NULL), the_time)) ;
+    fprintf (logfile, "#End-Date: %s\n", log_time_string(time(NULL), the_time, sizeof(the_time))) ;
     fclose(logfile) ;
 }
 
@@ -472,8 +471,6 @@ void vpnlog(int nSyslogPriority, char *format_str, ...)
 
     if (!params->debug && LOG_PRI(nSyslogPriority) == LOG_DEBUG)
         return;
-        
-    va_start(args, format_str);
 
     tNow = time(NULL);
     tmTime = localtime(&tNow);
@@ -482,26 +479,33 @@ void vpnlog(int nSyslogPriority, char *format_str, ...)
     //if (!(nSyslogPriority & LOG_FACMASK))
     //    nSyslogPriority |= LOG_DAEMON;
 
-    sprintf(theTime, "%04d-%02d-%02d %02d:%02d:%02d %s\t",
-                            tmTime->tm_year + 1900, tmTime->tm_mon + 1, tmTime->tm_mday,
-                            tmTime->tm_hour, tmTime->tm_min, tmTime->tm_sec,
-                            tmTime->tm_zone);
+    snprintf(theTime, sizeof(theTime), "%04d-%02d-%02d %02d:%02d:%02d %s\t",
+             tmTime->tm_year + 1900, tmTime->tm_mon + 1, tmTime->tm_mday,
+             tmTime->tm_hour, tmTime->tm_min, tmTime->tm_sec,
+             tmTime->tm_zone);
 
     if (logfile) {
+        va_start(args, format_str);
         fputs(theTime, logfile);
         vfprintf(logfile, format_str, args); 
         fflush(logfile);
-    };
+        va_end(args);
+    }
     
-	vsyslog(nSyslogPriority, format_str, args);
-
+    va_start(args, format_str);
+    vsyslog(nSyslogPriority, format_str, args);
+    va_end(args);
+    
     // Log to stderr if the socket is valid
     //	AND ( we're debugging OR this is a high priority message)
     if (stdio_is_valid && (params->debug || (LOG_PRI(nSyslogPriority) >= LOG_WARNING))) {
+        va_start(args, format_str);
         fputs(theTime, stderr);
         vfprintf(stderr, format_str, args);
         fflush(stderr);
+        va_end(args);
     }
+
 }
 
 //-----------------------------------------------------------------------------
@@ -709,7 +713,7 @@ int update_prefs(void)
 
     // save current parameters and clear params struct
     *old_params = *params;
-	bzero(params, sizeof(params));
+	bzero(params, sizeof(*params));
 	params->debug = old_params->debug;
 	params->server_id = old_params->server_id;
 	params->daemonize = old_params->daemonize;

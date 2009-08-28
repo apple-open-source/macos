@@ -45,7 +45,7 @@ THIS SOFTWARE.
 
  int
 #ifdef KR_headers
-strtopdd(s, sp, dd) CONST char *s; char **sp; double *dd; locale_t loc;
+strtopdd(s, sp, dd, loc) CONST char *s; char **sp; double *dd; locale_t loc;
 #else
 strtopdd(CONST char *s, char **sp, double *dd, locale_t loc)
 #endif
@@ -66,18 +66,12 @@ strtopdd(CONST char *s, char **sp, double *dd, locale_t loc)
 #endif /* __APPLE__ */
 		} U;
 	U *u;
-	FPI *fpi = &fpi0, fpi1;
 #ifdef Honor_FLT_ROUNDS
-	int rounding = Flt_Rounds;
+#include "gdtoa_fltrnds.h"
+#else
+#define fpi &fpi0
 #endif
 
-#ifdef Honor_FLT_ROUNDS
-	if (rounding != fpi0.rounding) {
-		fpi1 = fpi0; /* for thread safety */
-		fpi1.rounding = rounding;
-		fpi = &fpi1;
-		}
-#endif /* Honor_FLT_ROUNDS */
 	rv = strtodg(s, sp, fpi, &exp, bits, loc);
 	u = (U*)dd;
 	switch(rv & STRTOG_Retmask) {
@@ -227,6 +221,7 @@ strtopdd(CONST char *s, char **sp, double *dd, locale_t loc)
 		u->L[0] = u->L[2] = d_QNAN0;
 		u->L[1] = u->L[3] = d_QNAN1;
 #endif /* __APPLE__ */
+		break;
 #ifdef __APPLE__
 	 case STRTOG_NaNbits:
 		u->L[0] = d_QNAN0 | ((bits[2] >> 20 | bits[3] << 12) & 0xfffff);

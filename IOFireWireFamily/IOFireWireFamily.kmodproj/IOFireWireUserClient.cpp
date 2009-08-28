@@ -28,8 +28,47 @@
 */
 /*
 	$Log: IOFireWireUserClient.cpp,v $
-	Revision 1.148.2.1  2008/04/02 01:37:22  collin
-	fix snowleopard build failure
+	Revision 1.161  2009/05/08 01:10:34  calderon
+	<rdar://6863576> FireWire tracepoints should be inlined for performance
+	
+	Revision 1.160  2009/03/07 00:37:23  calderon
+	Small change for 6641573 to give more useful debugging info
+	Add Firelog info.plist file
+	
+	Revision 1.159  2009/03/06 18:45:15  calderon
+	<rdar://problem/6641573> Panic in IOFireWireFamily/SL 10A286 when hot-plugging Mackie Onyx 1200F
+	Add FireLog specific plist to work around XCode plist editor bug
+	Bump version
+	
+	Revision 1.158  2008/12/12 04:43:57  collin
+	user space compare swap command fixes
+	
+	Revision 1.157  2008/11/26 23:55:21  collin
+	fix user physical address spaces on K64
+	
+	Revision 1.156  2008/11/20 01:59:12  calderon
+	More tracepoint logging
+	
+	Revision 1.155  2008/11/11 01:12:03  calderon
+	First part of tracepoints logging
+	
+	Revision 1.154  2008/05/07 03:27:59  collin
+	64 bit session ref support
+	
+	Revision 1.153  2008/04/30 03:02:13  collin
+	publicize the exporter
+	
+	Revision 1.152  2008/04/24 00:01:39  collin
+	more K640
+	
+	Revision 1.151  2008/04/11 00:52:37  collin
+	some K64 changes
+	
+	Revision 1.150  2008/04/02 01:42:50  collin
+	fix build failure
+	
+	Revision 1.149  2007/10/16 16:50:21  ayanowit
+	Removed existing "work-in-progress" support for buffer-fill isoch.
 	
 	Revision 1.148  2007/06/21 04:08:44  collin
 	*** empty log message ***
@@ -363,6 +402,7 @@ IOFireWireUserClient::start( IOService * provider )
 	fOwner = (IOFireWireNub *)provider;
 	fOwner->retain();
 	
+	FWTrace( kFWTUserClient, kTPUserClientStart, (uintptr_t)(fOwner->getController()->getLink()), 0, 0, 0 );
 
 	//
 	// init object table
@@ -377,12 +417,7 @@ IOFireWireUserClient::start( IOService * provider )
 
 	bool result = true ;
 
-	fExporter = new IOFWUserObjectExporter ;
-	if ( fExporter && ! fExporter->initWithOwner( this ) ) 
-	{
-		fExporter->release() ;
-		fExporter = NULL ;
-	}
+	fExporter = IOFWUserObjectExporter::createWithOwner( this );
 	
 	if ( ! fExporter )
 		result = false ;
@@ -390,7 +425,7 @@ IOFireWireUserClient::start( IOService * provider )
 #if IOFIREWIREUSERCLIENTDEBUG > 0
 	if (result)
 	{
-		fDebugInfo = new IOFWUserDebugInfo ;
+		fDebugInfo = OSTypeAlloc( IOFWUserDebugInfo );
 		if ( fDebugInfo && ! fDebugInfo->init( *this ) )
 		{
 			fDebugInfo->release() ;
@@ -429,6 +464,12 @@ IOFireWireUserClient::start( IOService * provider )
 void
 IOFireWireUserClient::free()
 {
+	if ( fOwner ) {
+		FWTrace( kFWTUserClient, kTPUserClientFree, (uintptr_t)(fOwner->getController()->getLink()), (uintptr_t)this, 0, 0 );
+	} else {
+		FWTrace( kFWTUserClient, kTPUserClientFree, 0xdeadbeef, (uintptr_t)this, 0, 0 );
+	}
+	
 	DebugLog( "free user client %p\n", this ) ;
 
 #if IOFIREWIREUSERCLIENTDEBUG > 0
@@ -453,6 +494,8 @@ IOFireWireUserClient::free()
 IOReturn
 IOFireWireUserClient::clientClose ()
 {
+	FWTrace( kFWTUserClient, kTPUserClientClientClose, (uintptr_t)(fOwner->getController()->getLink()), 0, 0, 0 );
+	
 	clipMaxRec2K( false );	// Make sure maxRec isn't clipped
 
 	IOReturn	result = userClose() ;
@@ -477,8 +520,15 @@ IOFireWireUserClient::clientClose ()
 IOReturn
 IOFireWireUserClient::clientDied ()
 {
+	if ( fOwner ) {
+		FWTrace( kFWTUserClient, kTPUserClientClientDied, (uintptr_t)(fOwner->getController()->getLink()), 1, 0, 0 );
+	} else {
+		FWTrace( kFWTUserClient, kTPUserClientClientDied, 0xdeadbeef, 1, 0, 0 );
+	}
+	
 	if ( fOwner )
 	{
+		FWTrace( kFWTUserClient, kTPUserClientClientDied, (uintptr_t)(fOwner->getController()->getLink()), 2, 0, 0 );
 		fOwner->getBus()->resetBus() ;
 	}
 
@@ -607,7 +657,7 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
 			break;
 		
 		case kOpenWithSessionRef:
-			result = ((IOFireWireUserClient*) targetObject)->userOpenWithSessionRef((IOService *) arguments->scalarInput[0]);
+			result = ((IOFireWireUserClient*) targetObject)->userOpenWithSessionRef((IOFireWireLib::UserObjectHandle) arguments->scalarInput[0]);
 			break;
 		
 		case kClose:
@@ -1625,9 +1675,13 @@ IOFireWireUserClient::userOpen ()
 	
 	if ( getOwner()->open( this ) )
 	{
-		fSelfOpenCount = 1 ;
-		fOpenClient = this ;
-		error = kIOReturnSuccess ;
+		IOFWUserObjectExporter * exporter = fOwner->getController()->getSessionRefExporter();
+		error = exporter->addObject( this, NULL, &fSessionRef );		
+		if( error == kIOReturnSuccess )
+		{
+			fSelfOpenCount = 1 ;
+			fOpenClient = this ;
+		}
 	}
 	else
 	{
@@ -1639,14 +1693,16 @@ IOFireWireUserClient::userOpen ()
 }
 
 IOReturn
-IOFireWireUserClient::userOpenWithSessionRef ( IOService * sessionRef )
+IOFireWireUserClient::userOpenWithSessionRef ( IOFireWireLib::UserObjectHandle sessionRef )
 {
 	IOReturn	result = kIOReturnSuccess ;
 	
 	if (getOwner ()->isOpen())
 	{
-		IOService*	client = OSDynamicCast(IOService, sessionRef) ;
-	
+		IOFWUserObjectExporter * exporter = fOwner->getController()->getSessionRefExporter();
+		IOService * open_client = (IOService*) exporter->lookupObjectForType( sessionRef, OSTypeID(IOService) );
+		IOService * client = open_client;
+		
 		if (!client)
 			result = kIOReturnBadArgument ;
 		else
@@ -1655,7 +1711,7 @@ IOFireWireUserClient::userOpenWithSessionRef ( IOService * sessionRef )
 			{
 				if (client == getOwner ())
 				{
-					fOpenClient = sessionRef ;	// sessionRef is the originally passed in user object
+					fOpenClient = open_client ;	// sessionRef is the originally passed in user object
 				
 					if ( fOpenClient == this )
 					{
@@ -1667,6 +1723,12 @@ IOFireWireUserClient::userOpenWithSessionRef ( IOService * sessionRef )
 				
 				client = client->getProvider() ;
 			}
+		}
+		
+		if( open_client )
+		{
+			open_client->release();
+			open_client = NULL;
 		}
 	}
 	else
@@ -1695,6 +1757,9 @@ IOFireWireUserClient::userClose ()
 			{
 				if ( --fSelfOpenCount == 0 )
 				{
+					IOFWUserObjectExporter * exporter = fOwner->getController()->getSessionRefExporter();
+					exporter->removeObject( fSessionRef );	
+					fSessionRef = 0;
 					fOwner->close(this) ;
 					fOpenClient = NULL ;
 				}
@@ -1890,10 +1955,10 @@ IOFireWireUserClient::compareSwap( const CompareSwapParams* params, UInt32* oldV
 {
 	IOReturn 							err ;
 	IOFWCompareAndSwapCommand*			cmd ;
-
+	
 	if ( params->size > 2 )
 		return kIOReturnBadArgument ;
-
+	
 	if ( params->isAbs )
 	{
         cmd = this->createCompareAndSwapCommand( params->generation, params->addr, (UInt32*)& params->cmpVal, 
@@ -1930,6 +1995,8 @@ IOFireWireUserClient::compareSwap( const CompareSwapParams* params, UInt32* oldV
 IOReturn 
 IOFireWireUserClient::busReset()
 {
+	FWTrace( kFWTUserClient, kTPUserClientBusReset, (uintptr_t)(getOwner()->getController()->getLink()), fUnsafeResets , 0, 0);
+	
 	if ( fUnsafeResets )
 		return getOwner ()->getController()->getLink()->resetBus();
 
@@ -2003,13 +2070,14 @@ IOFireWireUserClient::getOSStringData (
 		return kIOReturnBadArgument ;
 	}
 	
-	UInt32 len = min( stringLen, string->getLength() ) ;
-
+	IOByteCount len = min( stringLen, string->getLength() ) ;
+	IOByteCount outLen = 0;
 	IOReturn error = copyToUserBuffer (	(IOVirtualAddress) string->getCStringNoCopy(), 
 										stringBuffer, 
 										len, 
-										*outTextLength ) ;
-
+										outLen ) ;
+	*outTextLength = (UInt32)outLen;
+	
 	fExporter->removeObject( stringHandle ) ;
 	string->release() ;
 	
@@ -2063,7 +2131,7 @@ IOFireWireUserClient::localConfigDirectory_Create ( UserObjectHandle* outDir )
 		return kIOReturnNoMemory ;
 	}
 
-	IOReturn error = fExporter->addObject ( *dir, (IOFWUserObjectExporter::CleanupFunction)&IOLocalConfigDirectory::exporterCleanup, *outDir ) ;
+	IOReturn error = fExporter->addObject ( dir, (IOFWUserObjectExporter::CleanupFunction)&IOLocalConfigDirectory::exporterCleanup, outDir ) ;
 	
 	dir->release() ;
 
@@ -2325,7 +2393,7 @@ IOFireWireUserClient::addressSpace_Create (
 	AddressSpaceCreateParams *	params, 
 	UserObjectHandle *			outAddressSpaceHandle )
 {
-	IOFWUserPseudoAddressSpace * addressSpace = new IOFWUserPseudoAddressSpace;
+	IOFWUserPseudoAddressSpace * addressSpace = OSTypeAlloc( IOFWUserPseudoAddressSpace );
 
 	if ( addressSpace && 
 				( params->isInitialUnits ? 
@@ -2337,9 +2405,9 @@ IOFireWireUserClient::addressSpace_Create (
 	IOReturn error = addressSpace->activate() ;
 	
 	if ( !error )
-		error = fExporter->addObject ( * addressSpace, 
+		error = fExporter->addObject ( addressSpace, 
 										&IOFWUserPseudoAddressSpace::exporterCleanup, 
-									   * outAddressSpaceHandle ) ;		// nnn needs cleanup function?
+									   outAddressSpaceHandle ) ;		// nnn needs cleanup function?
 
 	if ( error )
 		addressSpace->deactivate() ;
@@ -2577,7 +2645,7 @@ IOFireWireUserClient::physicalAddressSpace_Create (
 		return error ;
 	}
 	
-	IOFWUserPhysicalAddressSpace *	addrSpace = new IOFWUserPhysicalAddressSpace ;
+	IOFWUserPhysicalAddressSpace *	addrSpace = OSTypeAlloc( IOFWUserPhysicalAddressSpace );
 	if ( addrSpace && !addrSpace->initWithDesc( getOwner()->getController(), mem ) )
 	{
 		addrSpace->release() ;
@@ -2593,9 +2661,9 @@ IOFireWireUserClient::physicalAddressSpace_Create (
 		error = addrSpace->activate() ;
 
 		if ( ! error )
-			error = fExporter->addObject( *addrSpace, 
+			error = fExporter->addObject( addrSpace, 
 										  &IOFWUserPhysicalAddressSpace::exporterCleanup, 
-										  *outAddressSpaceHandle );
+										  outAddressSpaceHandle );
 										 
 		addrSpace->release () ;	// fExporter will retain this
 	}
@@ -2634,7 +2702,7 @@ IOFireWireUserClient::physicalAddressSpace_GetSegments (
 	{
 		segmentCount = min( segmentCount, inSegmentCount ) ;
 	
-		IOPhysicalSegment * segments = new IOPhysicalSegment[ segmentCount ] ;
+		FWPhysicalSegment32 * segments = new FWPhysicalSegment32[ segmentCount ] ;
 		
 		if ( !segments )
 		{
@@ -2649,9 +2717,9 @@ IOFireWireUserClient::physicalAddressSpace_GetSegments (
 		if ( ! error )
 		{
 			IOByteCount bytesCopied ;
-			error = copyToUserBuffer( (IOVirtualAddress)segments, outSegments, sizeof( IOPhysicalSegment ) * segmentCount, bytesCopied ) ;
+			error = copyToUserBuffer( (IOVirtualAddress)segments, outSegments, sizeof( FWPhysicalSegment32 ) * segmentCount, bytesCopied ) ;
 	
-			*outSegmentCount = bytesCopied / sizeof( IOPhysicalSegment ) ;
+			*outSegmentCount = bytesCopied / sizeof( FWPhysicalSegment32 ) ;
 		}
 
 		delete[] segments ;
@@ -2678,7 +2746,7 @@ IOFireWireUserClient::configDirectory_Create ( UserObjectHandle * outDirRef )
 		error = kIOReturnNoMemory ;
 	else
 	{
-		error = fExporter->addObject ( *configDir, NULL, *outDirRef ) ;
+		error = fExporter->addObject ( configDir, NULL, outDirRef ) ;
 		configDir->release () ;
 	}
 	
@@ -2738,7 +2806,7 @@ IOFireWireUserClient::configDirectory_GetKeyValue_UInt32 (
 
 	if ( outString && !error )
 	{
-		error = fExporter->addObject( *outString, NULL, *outTextHandle ) ;
+		error = fExporter->addObject( outString, NULL, outTextHandle ) ;
 		
 		outString->release () ;
 		
@@ -2779,7 +2847,7 @@ IOFireWireUserClient::configDirectory_GetKeyValue_Data (
 	{
 		if ( ! error )
 		{
-			error = fExporter->addObject( *outText, NULL, results->text ) ;
+			error = fExporter->addObject( outText, NULL, &results->text ) ;
 			results->textLength = outText->getLength() ;
 		}
 		
@@ -2790,7 +2858,7 @@ IOFireWireUserClient::configDirectory_GetKeyValue_Data (
 	{
 		if ( ! error )
 		{
-			error = fExporter->addObject( *outData, NULL, results->data ) ;
+			error = fExporter->addObject( outData, NULL, &results->data ) ;
 			results->dataLength = outData->getLength() ;
 		}
 		
@@ -2833,7 +2901,7 @@ IOFireWireUserClient::configDirectory_GetKeyValue_ConfigDirectory(
 		if ( ! error )
 		{
 			*outTextLength = outText->getLength() ;
-			error = fExporter->addObject( *outText, NULL, *outTextHandle ) ;
+			error = fExporter->addObject( outText, NULL, outTextHandle ) ;
 		}
 		
 		outText->release() ;
@@ -2842,7 +2910,7 @@ IOFireWireUserClient::configDirectory_GetKeyValue_ConfigDirectory(
 	if ( outDir )
 	{
 		if ( ! error )
-			error = fExporter->addObject( *outDir, NULL, *outDirHandle ) ;
+			error = fExporter->addObject( outDir, NULL, outDirHandle ) ;
 
 		outDir->release() ;
 	}
@@ -2880,7 +2948,7 @@ IOFireWireUserClient::configDirectory_GetKeyOffset_FWAddress (
 		if ( ! error )
 		{
 			results->length = outText->getLength() ;
-			error = fExporter->addObject( *outText, NULL, results->text ) ;
+			error = fExporter->addObject( outText, NULL, &results->text ) ;
 		}
 		
 		outText->release() ;
@@ -2994,7 +3062,7 @@ IOFireWireUserClient::configDirectory_GetIndexValue_Data (
 	
 	if ( !error && outData )
 	{
-		error = fExporter->addObject( *outData, NULL, *outDataHandle ) ;
+		error = fExporter->addObject( outData, NULL, outDataHandle ) ;
 		*outDataLen = outData->getLength() ;
 		
 		outData->release() ;
@@ -3039,7 +3107,7 @@ IOFireWireUserClient::configDirectory_GetIndexValue_String (
 	{
 		*outTextLength = outText->getLength() ;
 		
-		error = fExporter->addObject( *outText, NULL, *outTextHandle ) ;
+		error = fExporter->addObject( outText, NULL, outTextHandle ) ;
 		
 		outText->release() ;
 	}
@@ -3073,7 +3141,7 @@ IOFireWireUserClient::configDirectory_GetIndexValue_ConfigDirectory (
 	
 	if ( ! error && outDir )
 	{
-		error = fExporter->addObject ( *outDir, NULL, *outDirHandle ) ;
+		error = fExporter->addObject ( outDir, NULL, outDirHandle ) ;
 		outDir->release() ;
 	}
 	
@@ -3184,7 +3252,7 @@ IOFireWireUserClient::configDirectory_GetSubdirectories (
 	if ( outIterator )
 	{
 		if ( ! error )
-			error = fExporter->addObject( *outIterator, NULL, *outIteratorHandle ) ;
+			error = fExporter->addObject( outIterator, NULL, outIteratorHandle ) ;
 
 		outIterator->release () ;
 	}
@@ -3219,7 +3287,7 @@ IOFireWireUserClient::configDirectory_GetKeySubdirectories (
 	if ( outIterator )
 	{
 		if ( ! error )
-			error = fExporter->addObject( *outIterator, NULL, *outIteratorHandle ) ;
+			error = fExporter->addObject( outIterator, NULL, outIteratorHandle ) ;
 		
 		outIterator->release() ;
 	}
@@ -3320,7 +3388,7 @@ IOFireWireUserClient::localIsochPort_Create (
 	LocalIsochPortAllocateParams*	params,
 	UserObjectHandle*				outPortHandle )
 {
-	IOFWUserLocalIsochPort * port = new IOFWUserLocalIsochPort ;
+	IOFWUserLocalIsochPort * port = OSTypeAlloc( IOFWUserLocalIsochPort );
 	if ( port && ! port->initWithUserDCLProgram( params, *this, *getOwner()->getController() ) )
 	{
 		port->release() ;
@@ -3333,9 +3401,9 @@ IOFireWireUserClient::localIsochPort_Create (
 		return kIOReturnError ;
 	}
 
-	IOReturn error = fExporter->addObject( *port,
+	IOReturn error = fExporter->addObject( port,
 			&IOFWUserLocalIsochPort::exporterCleanup, 
-			*outPortHandle ) ;
+			outPortHandle ) ;
 	
 	port->release() ;
 
@@ -3440,14 +3508,14 @@ IOFireWireUserClient::isochChannel_Create (
 	// objects
 
 	IOReturn error = kIOReturnSuccess ;
-	IOFWUserIsochChannel * channel = new IOFWUserIsochChannel ;
+	IOFWUserIsochChannel * channel = OSTypeAlloc( IOFWUserIsochChannel );
 	if ( channel )
 	{
 		if ( channel->init(	getOwner()->getController(), inDoIRM, inPacketSize, inPrefSpeed ) )
 		{
-			fExporter->addObject( *channel, 
+			fExporter->addObject( channel, 
 					(IOFWUserObjectExporter::CleanupFunction) & IOFWUserIsochChannel::s_exporterCleanup, 
-					*outChannelHandle ) ;
+					outChannelHandle ) ;
 		}
 		
 		channel->release() ;	// addObject retains the object
@@ -3510,7 +3578,11 @@ IOFireWireUserClient::setAsyncRef_IsochChannelForceStop(
 
 	if ( !channel )
 	{
+#if __LP64__	
+		DebugLog("IOFireWireUserClient<%p>::setAsyncRef_IsochChannelForceStop() -- invalid channel ref %llx\n", this, (UInt64)channelRef ) ;
+#else
 		DebugLog("IOFireWireUserClient<%p>::setAsyncRef_IsochChannelForceStop() -- invalid channel ref %lx\n", this, (UInt32)channelRef ) ;
+#endif
 		error = kIOReturnBadArgument ;
 	}
 	
@@ -3568,7 +3640,7 @@ IOFireWireUserClient::createAsyncCommand(	OSAsyncReference64 asyncRef,
 	
 	if( status == kIOReturnSuccess )
 	{
-		status = fExporter->addObject( *cmd, NULL, *kernel_ref );
+		status = fExporter->addObject( cmd, NULL, kernel_ref );
 	}
 
 	if( status == kIOReturnSuccess )
@@ -3631,7 +3703,7 @@ IOFireWireUserClient::userAsyncCommand_Submit(
 		else
 		{
 			UserObjectHandle command_ref;
-			error = fExporter->addObject( *cmd, NULL, command_ref );
+			error = fExporter->addObject( cmd, NULL, &command_ref );
 			outResult->kernCommandRef = command_ref;
 		}
 	}
@@ -3665,7 +3737,7 @@ IOFireWireUserClient::createReadCommand(
 	FWDeviceCallback	 		completion,
 	void*					refcon ) const
 {
-	IOFWReadCommand* result = new IOFWReadCommand ;
+	IOFWReadCommand* result = OSTypeAlloc( IOFWReadCommand );
 	if ( result && !result->initAll( getOwner ()->getController(), generation, devAddress, hostMem, completion, refcon ) )
 	{
 		result->release() ;
@@ -3684,7 +3756,7 @@ IOFireWireUserClient::createReadQuadCommand(
 	FWDeviceCallback 		completion,
 	void *					refcon ) const
 {
-	IOFWReadQuadCommand* result = new IOFWReadQuadCommand ;
+	IOFWReadQuadCommand* result = OSTypeAlloc( IOFWReadQuadCommand );
 	if ( result && !result->initAll( getOwner ()->getController(), generation, devAddress, quads, numQuads, completion, refcon ) )
 	{
 		result->release() ;
@@ -3702,7 +3774,7 @@ IOFireWireUserClient::createWriteCommand(
 	FWDeviceCallback 		completion,
 	void*					refcon ) const
 {
-	IOFWWriteCommand* result = new IOFWWriteCommand ;
+	IOFWWriteCommand* result = OSTypeAlloc( IOFWWriteCommand );
 	if ( result && !result->initAll( getOwner ()->getController(), generation, devAddress, hostMem, completion, refcon ) )
 	{
 		result->release() ;
@@ -3721,7 +3793,7 @@ IOFireWireUserClient::createWriteQuadCommand(
 	FWDeviceCallback 		completion,
 	void *					refcon ) const
 {
-	IOFWWriteQuadCommand* result = new IOFWWriteQuadCommand ;
+	IOFWWriteQuadCommand* result = OSTypeAlloc( IOFWWriteQuadCommand );
 	if ( result && !result->initAll( getOwner ()->getController(), generation, devAddress, quads, numQuads, completion, refcon ) )
 	{
 		result->release() ;
@@ -3742,7 +3814,7 @@ IOFireWireUserClient::createCompareAndSwapCommand(
 	FWDeviceCallback 		completion, 
 	void *					refcon ) const
 {
-	IOFWCompareAndSwapCommand* result = new IOFWCompareAndSwapCommand ;
+	IOFWCompareAndSwapCommand* result = OSTypeAlloc( IOFWCompareAndSwapCommand );
 	if ( result && !result->initAll( getOwner ()->getController(), generation, devAddress, cmpVal, newVal, size, completion, refcon ) )
 	{
 		result->release() ;
@@ -3971,14 +4043,6 @@ IOReturn IOFireWireUserClient::message( UInt32 type, IOService * provider, void 
 	return kIOReturnSuccess;
 }
 
-void
-IOFireWireUserClient::s_userBufferFillPacketProc( 
-	IOFWBufferFillIsochPort *   port,
-	IOVirtualRange				packets[],
-	unsigned					packetCount )
-{
-}
-
 IOReturn
 IOFireWireUserClient::getSessionRef( IOFireWireSessionRef * sessionRef )
 {
@@ -3989,7 +4053,7 @@ IOFireWireUserClient::getSessionRef( IOFireWireSessionRef * sessionRef )
 		return kIOReturnNotOpen ;
 	}
 	
-	*sessionRef = (IOFireWireSessionRef)this;
+	*sessionRef = (IOFireWireSessionRef)fSessionRef;
     
 	return error ;
 }
@@ -4085,7 +4149,7 @@ IOFireWireUserClient::asyncStreamListener_Create (
 	FWUserAsyncStreamListenerCreateParams*	params, 
 	UserObjectHandle*						outAsyncStreamListenerHandle )
 {
-	IOFWUserAsyncStreamListener * asyncStreamListener = new IOFWUserAsyncStreamListener;
+	IOFWUserAsyncStreamListener * asyncStreamListener = OSTypeAlloc( IOFWUserAsyncStreamListener );
 
 	if ( asyncStreamListener == NULL )
 		return kIOReturnNoMemory ;
@@ -4096,9 +4160,9 @@ IOFireWireUserClient::asyncStreamListener_Create (
 		return kIOReturnNoMemory ;
 	}
 	
-	IOReturn error = fExporter->addObject ( * asyncStreamListener, 
+	IOReturn error = fExporter->addObject ( asyncStreamListener, 
 									(IOFWUserObjectExporter::CleanupFunction)&IOFWUserAsyncStreamListener::exporterCleanup, 
-									*outAsyncStreamListenerHandle ) ;		// nnn needs cleanup function?
+									outAsyncStreamListenerHandle ) ;		// nnn needs cleanup function?
 
 	if ( error )
 		asyncStreamListener->deactivate() ;
@@ -4330,7 +4394,7 @@ IOFireWireUserClient::irmAllocation_Create(Boolean releaseIRMResourcesOnFree, Us
 		pUserIRMAllocationParams->pUserClient = this;
 	}
 
-	IOFireWireIRMAllocation * irmAllocation = new IOFireWireIRMAllocation;
+	IOFireWireIRMAllocation * irmAllocation = OSTypeAlloc( IOFireWireIRMAllocation );
 	if (!irmAllocation)
 	{
 		delete pUserIRMAllocationParams;
@@ -4344,7 +4408,7 @@ IOFireWireUserClient::irmAllocation_Create(Boolean releaseIRMResourcesOnFree, Us
 		return kIOReturnNoMemory ;
 	}
 	
-	IOReturn error = fExporter->addObject ( * irmAllocation, UserIRMAllocationCleanupFunction, *outIRMAllocationHandle ) ;
+	IOReturn error = fExporter->addObject ( irmAllocation, UserIRMAllocationCleanupFunction, outIRMAllocationHandle ) ;
 	irmAllocation->release() ;
 	
 	return error ;
@@ -4504,7 +4568,7 @@ IOFireWireUserClient::createVectorCommand( UserObjectHandle * kernel_ref )
 	
 	if( status == kIOReturnSuccess )
 	{
-		status = fExporter->addObject( *cmd, NULL, *kernel_ref );
+		status = fExporter->addObject( cmd, NULL, kernel_ref );
 	}
 	
 	if( cmd )
@@ -4535,7 +4599,7 @@ IOFireWireUserClient::createPHYPacketListener( UInt32 queue_count, UserObjectHan
 	
 	if( status == kIOReturnSuccess )
 	{
-		status = fExporter->addObject( *listener, (IOFWUserObjectExporter::CleanupFunction)&IOFWUserPHYPacketListener::exporterCleanup, *kernel_ref );
+		status = fExporter->addObject( listener, (IOFWUserObjectExporter::CleanupFunction)&IOFWUserPHYPacketListener::exporterCleanup, kernel_ref );
 	}
 	
 	if( listener )

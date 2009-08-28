@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2007 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006-2008 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,6 +25,7 @@
 #include <string.h>		/* bzero() */
 #include <stdlib.h>		/* exit() */
 #include <assert.h>		/* assert() */
+#include <stdio.h>		/* XXX/gh  because utilities/debugging.h doesn't */
 #include <security_utilities/debugging.h>
 
 #include "xdr_cssm.h"
@@ -333,8 +334,6 @@ bool_t xdr_CSSM_ACL_OWNER_PROTOTYPE_PTR(XDR *xdrs, CSSM_ACL_OWNER_PROTOTYPE_PTR 
 
 bool_t xdr_CSSM_ACL_ENTRY_INPUT(XDR *xdrs, CSSM_ACL_ENTRY_INPUT *objp)
 {
-    void *cb = (void *)objp->Callback;
-
     if (!xdr_CSSM_ACL_ENTRY_PROTOTYPE(xdrs, &objp->Prototype))
         return (FALSE);
     // XXX/cs not currently using this
@@ -558,13 +557,19 @@ bool_t xdr_CSSM_DB_ATTRIBUTE_DATA(XDR *xdrs, CSSM_DB_ATTRIBUTE_DATA *objp)
     case CSSM_DB_ATTRIBUTE_FORMAT_REAL:
         proc = (xdrproc_t)xdr_CSSM_DATA_FLIPPED;
         break;
-    default:
+		/* XXX/cs unhandled:
+			Note that in case of values being passed from CopyIn, it will be normal
+			for the format to be set to CSSM_DB_ATTRIBUTE_FORMAT_COMPLEX, as that 
+			is the "not-yet-filled-in" value in the CssmDbAttributeInfo constructor 
+			(see Record::addAttributes for where this is called).
+		 */
+	case CSSM_DB_ATTRIBUTE_FORMAT_BIG_NUM:
+	case CSSM_DB_ATTRIBUTE_FORMAT_MULTI_UINT32:
+	case CSSM_DB_ATTRIBUTE_FORMAT_COMPLEX:
+		assert(objp->NumberOfValues == 0);
+		break;
+	default:
         assert(FALSE);
-        /* XXX/cs unhandled:
-            CSSM_DB_ATTRIBUTE_FORMAT_BIG_NUM
-            CSSM_DB_ATTRIBUTE_FORMAT_REAL
-            CSSM_DB_ATTRIBUTE_FORMAT_MULTI_UINT32
-            CSSM_DB_ATTRIBUTE_FORMAT_COMPLEX */
     }
     if (!sec_xdr_array(xdrs, (uint8_t **)&objp->Value, (u_int *)&objp->NumberOfValues, ~0, sizeof(CSSM_DATA), proc))
         return (FALSE);

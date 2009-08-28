@@ -2,9 +2,9 @@ PROJECT    = misc_cmds
 COMPONENTS = calendar leave ncal tsort units
 
 SRCROOT=$(shell pwd)
-OBJROOT=/tmp/$(PROJECT).obj
-SYMROOT=/tmp/$(PROJECT).sym
-DSTROOT=/tmp/$(PROJECT).dst
+OBJROOT?=/tmp/$(PROJECT).obj
+SYMROOT?=/tmp/$(PROJECT).sym
+DSTROOT?=/tmp/$(PROJECT).dst
 
 .PHONY: installsrc install clean installhdrs builddirs
 

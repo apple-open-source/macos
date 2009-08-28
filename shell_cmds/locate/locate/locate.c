@@ -81,6 +81,9 @@ static const char rcsid[] =
 #include <sys/param.h>
 #include <ctype.h>
 #include <err.h>
+#ifdef __APPLE__
+#include <errno.h>
+#endif /* __APPLE__ */
 #include <fnmatch.h>
 #include <locale.h>
 #include <stdio.h>
@@ -246,8 +249,27 @@ search_fopen(db, s)
 			*(s+1) = NULL;
 		}
 	} 
+#ifdef __APPLE__
+	else if ((fp = fopen(db, "r")) == NULL) {
+		if (errno == ENOENT && !strcmp(db, _PATH_FCODES)) {
+			fprintf(stderr, "\n"
+			    "WARNING: The locate database (%s) does not exist.\n"
+			    "To create the database, run the following command:\n"
+			    "\n"
+			    "  sudo launchctl load -w /System/Library/LaunchDaemons/com.apple.locate.plist\n"
+				"\n"
+				"Please be aware that the database can take some time to generate; once\n"
+				"the database has been created, this message will no longer appear.\n"
+			    "\n",
+			    db);
+			exit(1);
+		}
+		err(1,  "`%s'", db);
+	}
+#else /* !__APPLE__ */
 	else if ((fp = fopen(db, "r")) == NULL)
 		err(1,  "`%s'", db);
+#endif /* __APPLE__ */
 
 	/* count only chars or lines */
 	if (f_statistic) {

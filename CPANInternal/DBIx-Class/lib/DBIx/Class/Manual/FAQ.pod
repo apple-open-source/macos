@@ -232,6 +232,25 @@ and not:
  my $interval = "now() - interval '12 hours'";
  ->search({last_attempt => { '<' => \$interval } })
 
+=item .. search with an SQL function on the left hand side?
+
+To use an SQL function on the left hand side of a comparison:
+
+ ->search({}, { where => \'YEAR(date_of_birth)=1979' });
+
+=begin hidden
+
+(When the bind arg ordering bug is fixed, the previous example can be
+replaced with the following.)
+
+ ->search({}, { where => \'YEAR(date_of_birth)=?', bind => [ 1979 ] });
+
+=end hidden
+
+Or, if you have quoting off:
+
+ ->search({ 'YEAR(date_of_birth' => 1979 });
+
 =item .. find more help on constructing searches?
 
 Behind the scenes, DBIx::Class uses L<SQL::Abstract> to help construct
@@ -254,6 +273,48 @@ See the prefetch examples in the L<Cookbook|DBIx::Class::Manual::Cookbook>.
 Call C<get_column> on a L<DBIx::Class::ResultSet>, this returns a
 L<DBIx::Class::ResultSetColumn>, see it's documentation and the
 L<Cookbook|DBIx::Class::Manual::Cookbook> for details.
+
+=item .. fetch a formatted column?
+
+In your table schema class, create a "private" column accessor with:
+
+  __PACKAGE__->add_columns(my_column => { accessor => '_hidden_my_column' });
+
+Then, in the same class, implement a subroutine called "my_column" that
+fetches the real value and does the formatting you want.
+
+See the Cookbook for more details.
+
+=item .. fetch a single (or topmost) row?
+
+Sometimes you many only want a single record back from a search. A quick
+way to get that single row is to first run your search as usual:
+
+  ->search->(undef, { order_by => "id DESC" })
+
+Then call L<DBIx::Class::ResultSet/slice> and ask it only to return 1 row:
+
+  ->slice(0,1)
+
+These two calls can be combined into a single statement:
+
+  ->search->(undef, { order_by => "id DESC" })->slice(0,1)
+
+Why slice instead of L<DBIx::Class::ResultSet/first> or L<DBIx::Class::ResultSet/single>?
+If supported by the database, slice will use LIMIT/OFFSET to hint to the database that we
+really only need one row. This can result in a significant speed improvement.
+
+=item .. refresh a row from storage?
+
+Use L<DBIx::Class::PK/discard_changes>.
+
+  $row->discard_changes
+
+Discarding changes and refreshing from storage are two sides fo the same coin.  When you
+want to discard your local changes, just re-fetch the row from storage.  When you want
+to get a new, fresh copy of the row, just re-fetch the row from storage.
+L<DBIx::Class::PK/discard_changes> does just that by re-fetching the row from storage
+using the row's primary key.
 
 =back
 
@@ -296,6 +357,35 @@ scalar reference:
 
  ->update({ somecolumn => \'othercolumn' })
 
+=item .. store JSON/YAML in a column and have it deflate/inflate automatically?
+
+You can use L<DBIx::Class::InflateColumn> to accomplish YAML/JSON storage transparently.
+
+If you want to use JSON, then in your table schema class, do the following:
+
+ use JSON;
+
+ __PACKAGE__->add_columns(qw/ ... my_column ../)
+ __PACKAGE__->inflate_column('my_column', {
+     inflate => sub { jsonToObj(shift) },
+     deflate => sub { objToJson(shift) },
+ });
+
+For YAML, in your table schema class, do the following:
+
+ use YAML;
+
+ __PACKAGE__->add_columns(qw/ ... my_column ../)
+ __PACKAGE__->inflate_column('my_column', {
+     inflate => sub { YAML::Load(shift) },
+     deflate => sub { YAML::Dump(shift) },
+ });
+
+This technique is an easy way to store supplemental unstructured data in a table. Be
+careful not to overuse this capability, however. If you find yourself depending more
+and more on some data within the inflated column, then it may be time to factor that
+data out.
+
 =back
 
 =head2 Misc
@@ -317,7 +407,7 @@ to work around this issue.
 
 =item See the SQL statements my code is producing?
 
-Turn on debugging! See L<DBIx::Class::Storage::DBI> for details of how
+Turn on debugging! See L<DBIx::Class::Storage> for details of how
 to turn on debugging in the environment, pass your own filehandle to
 save debug to, or create your own callback.
 
@@ -329,6 +419,17 @@ is executed. You can create further resultset refinements by calling
 search again or relationship accessors. The SQL query is only run when
 you ask the resultset for an actual row object.
 
+=item How do I deal with tables that lack a primary key?
+
+If your table lacks a primary key, DBIx::Class can't work out which row
+it should operate on, for example to delete or update.  However, a
+UNIQUE constraint on one or more columns allows DBIx::Class to uniquely
+identify the row, so you can tell L<DBIx::Class::ResultSource> these
+columns act as a primary key, even if they don't from the database's
+point of view:
+
+ $resultset->set_primary_key(@column);
+
 =back
 
 =head2 Notes for CDBI users
@@ -339,6 +440,6 @@ you ask the resultset for an actual row object.
 particular column or group of columns (a-la cdbi Stringfy column
 group, or stringify_self method) ?
 
-See L<Cookbook/Stringification>
+See L<DBIx::Class::Manual::Cookbook/Stringification>
 
 =back

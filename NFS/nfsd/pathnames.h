@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2007 Apple Inc.  All rights reserved.
+ * Copyright (c) 1999-2009 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -71,12 +71,12 @@
 
 #define _PATH_NFSD_PLIST	"/System/Library/LaunchDaemons/com.apple.nfsd.plist"
 #define _PATH_LAUNCHCTL		"/bin/launchctl"
-#define _PATH_SERVICE		"/sbin/service"
 #define _PATH_RQUOTAD		"/usr/libexec/rpc.rquotad"
 
 /* not really pathnames, but... */
 #define _NFSD_SERVICE_LABEL		"com.apple.nfsd"
 #define _LOCKD_SERVICE_LABEL		"com.apple.lockd"
 #define _STATD_NOTIFY_SERVICE_LABEL	"com.apple.statd.notify"
+#define _STATD_SERVICE_LABEL		"com.apple.statd"
 #define _RQUOTAD_SERVICE_LABEL		"com.apple.rquotad"
 

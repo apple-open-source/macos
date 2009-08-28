@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -18,11 +18,6 @@
  * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
- */
-/*
- * Copyright (c) 1999 Apple Computer, Inc.  All rights reserved. 
- *
- * IONetworkData.cpp
  */
 
 #include <IOKit/assert.h>
@@ -550,6 +545,8 @@ IOReturn IONetworkData::write(void *  srcBuffer,
                                 &srcBufferSize,
                                 writeOffset);
         }
+        else
+            ret = kIOReturnSuccess;
     }
     while (0);
 

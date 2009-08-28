@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -25,7 +25,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm.h"
 #include "tree.h"
 #include "rtl.h"
-#include "errors.h"
 #include "varray.h"
 #include "tree-gimple.h"
 #include "tree-inline.h"
@@ -50,17 +49,20 @@ struct lower_data
   /* A TREE_LIST of label and return statements to be moved to the end
      of the function.  */
   tree return_statements;
+
+  /* True if the function calls __builtin_setjmp.  */
+  bool calls_builtin_setjmp;
 };
 
 static void lower_stmt (tree_stmt_iterator *, struct lower_data *);
 static void lower_bind_expr (tree_stmt_iterator *, struct lower_data *);
 static void lower_cond_expr (tree_stmt_iterator *, struct lower_data *);
 static void lower_return_expr (tree_stmt_iterator *, struct lower_data *);
-static bool expand_var_p (tree);
+static void lower_builtin_setjmp (tree_stmt_iterator *);
 
-/* Lowers the body of current_function_decl.  */
+/* Lower the body of current_function_decl.  */
 
-static void
+static unsigned int
 lower_function_body (void)
 {
   struct lower_data data;
@@ -71,12 +73,11 @@ lower_function_body (void)
 
   gcc_assert (TREE_CODE (bind) == BIND_EXPR);
 
+  memset (&data, 0, sizeof (data));
   data.block = DECL_INITIAL (current_function_decl);
   BLOCK_SUBBLOCKS (data.block) = NULL_TREE;
   BLOCK_CHAIN (data.block) = NULL_TREE;
   TREE_ASM_WRITTEN (data.block) = 1;
-
-  data.return_statements = NULL_TREE;
 
   *body_p = alloc_stmt_list ();
   i = tsi_start (*body_p);
@@ -95,7 +96,7 @@ lower_function_body (void)
       && ! (cfun->iasm_asm_function))
   /* APPLE LOCAL end CW asm blocks */
     {
-      x = build (RETURN_EXPR, void_type_node, NULL);
+      x = build1 (RETURN_EXPR, void_type_node, NULL);
       SET_EXPR_LOCATION (x, cfun->function_end_locus);
       tsi_link_after (&i, x, TSI_CONTINUE_LINKING);
     }
@@ -104,7 +105,7 @@ lower_function_body (void)
      at the end of the function.  */
   for (t = data.return_statements ; t ; t = TREE_CHAIN (t))
     {
-      x = build (LABEL_EXPR, void_type_node, TREE_PURPOSE (t));
+      x = build1 (LABEL_EXPR, void_type_node, TREE_PURPOSE (t));
       tsi_link_after (&i, x, TSI_CONTINUE_LINKING);
 
       /* Remove the line number from the representative return statement.
@@ -119,11 +120,41 @@ lower_function_body (void)
       tsi_link_after (&i, x, TSI_CONTINUE_LINKING);
     }
 
+  /* If the function calls __builtin_setjmp, we need to emit the computed
+     goto that will serve as the unique dispatcher for all the receivers.  */
+  if (data.calls_builtin_setjmp)
+    {
+      tree disp_label, disp_var, arg;
+
+      /* Build 'DISP_LABEL:' and insert.  */
+      disp_label = create_artificial_label ();
+      /* This mark will create forward edges from every call site.  */
+      DECL_NONLOCAL (disp_label) = 1;
+      current_function_has_nonlocal_label = 1;
+      x = build1 (LABEL_EXPR, void_type_node, disp_label);
+      tsi_link_after (&i, x, TSI_CONTINUE_LINKING);
+
+      /* Build 'DISP_VAR = __builtin_setjmp_dispatcher (DISP_LABEL);'
+	 and insert.  */
+      disp_var = create_tmp_var (ptr_type_node, "setjmpvar");
+      t = build_addr (disp_label, current_function_decl);
+      arg = tree_cons (NULL, t, NULL);
+      t = implicit_built_in_decls[BUILT_IN_SETJMP_DISPATCHER];
+      t = build_function_call_expr (t,arg);
+      x = build2 (MODIFY_EXPR, void_type_node, disp_var, t);
+
+      /* Build 'goto DISP_VAR;' and insert.  */
+      tsi_link_after (&i, x, TSI_CONTINUE_LINKING);
+      x = build1 (GOTO_EXPR, void_type_node, disp_var);
+      tsi_link_after (&i, x, TSI_CONTINUE_LINKING);
+    }
+
   gcc_assert (data.block == DECL_INITIAL (current_function_decl));
   BLOCK_SUBBLOCKS (data.block)
     = blocks_nreverse (BLOCK_SUBBLOCKS (data.block));
 
   clear_block_marks (data.block);
+  return 0;
 }
 
 struct tree_opt_pass pass_lower_cf = 
@@ -137,18 +168,18 @@ struct tree_opt_pass pass_lower_cf =
   0,					/* tv_id */
   PROP_gimple_any,			/* properties_required */
   PROP_gimple_lcf,			/* properties_provided */
-  PROP_gimple_any,			/* properties_destroyed */
+  0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func,			/* todo_flags_finish */
   0					/* letter */
 };
 
 
-/* Lowers the EXPR.  Unlike gimplification the statements are not relowered
+/* Lower the EXPR.  Unlike gimplification the statements are not relowered
    when they are changed -- if this has to be done, the lowering routine must
    do it explicitly.  DATA is passed through the recursion.  */
 
-void
+static void
 lower_stmt_body (tree expr, struct lower_data *data)
 {
   tree_stmt_iterator tsi;
@@ -157,7 +188,26 @@ lower_stmt_body (tree expr, struct lower_data *data)
     lower_stmt (&tsi, data);
 }
 
-/* Lowers statement TSI.  DATA is passed through the recursion.  */
+
+/* Lower the OpenMP directive statement pointed by TSI.  DATA is
+   passed through the recursion.  */
+
+static void
+lower_omp_directive (tree_stmt_iterator *tsi, struct lower_data *data)
+{
+  tree stmt;
+  
+  stmt = tsi_stmt (*tsi);
+
+  lower_stmt_body (OMP_BODY (stmt), data);
+  tsi_link_before (tsi, stmt, TSI_SAME_STMT);
+  tsi_link_before (tsi, OMP_BODY (stmt), TSI_SAME_STMT);
+  OMP_BODY (stmt) = NULL_TREE;
+  tsi_delink (tsi);
+}
+
+
+/* Lower statement TSI.  DATA is passed through the recursion.  */
 
 static void
 lower_stmt (tree_stmt_iterator *tsi, struct lower_data *data)
@@ -193,26 +243,53 @@ lower_stmt (tree_stmt_iterator *tsi, struct lower_data *data)
       
     case NOP_EXPR:
     case ASM_EXPR:
-    case MODIFY_EXPR:
-    case CALL_EXPR:
     case GOTO_EXPR:
     case LABEL_EXPR:
     case SWITCH_EXPR:
+    case OMP_FOR:
+    case OMP_SECTIONS:
+    case OMP_SECTION:
+    case OMP_SINGLE:
+    case OMP_MASTER:
+    case OMP_ORDERED:
+    case OMP_CRITICAL:
+    case OMP_RETURN:
+    case OMP_CONTINUE:
       break;
 
+    case MODIFY_EXPR:
+      if (TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR)
+	stmt = TREE_OPERAND (stmt, 1);
+      else
+	break;
+      /* FALLTHRU */
+
+    case CALL_EXPR:
+      {
+	tree decl = get_callee_fndecl (stmt);
+	if (decl
+	    && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
+	    && DECL_FUNCTION_CODE (decl) == BUILT_IN_SETJMP)
+	  {
+	    data->calls_builtin_setjmp = true;
+	    lower_builtin_setjmp (tsi);
+	    return;
+	  }
+      }
+      break;
+
+    case OMP_PARALLEL:
+      lower_omp_directive (tsi, data);
+      return;
+
     default:
-#ifdef ENABLE_CHECKING
-      print_node_brief (stderr, "", stmt, 0);
-      internal_error ("unexpected node");
-#endif
-    case COMPOUND_EXPR:
       gcc_unreachable ();
     }
 
   tsi_next (tsi);
 }
 
-/* Lowers a bind_expr TSI.  DATA is passed through the recursion.  */
+/* Lower a bind_expr TSI.  DATA is passed through the recursion.  */
 
 static void
 lower_bind_expr (tree_stmt_iterator *tsi, struct lower_data *data)
@@ -372,13 +449,16 @@ block_may_fallthru (tree block)
     case CALL_EXPR:
       /* Functions that do not return do not fall through.  */
       return (call_expr_flags (stmt) & ECF_NORETURN) == 0;
+    
+    case CLEANUP_POINT_EXPR:
+      return block_may_fallthru (TREE_OPERAND (stmt, 0));
 
     default:
       return true;
     }
 }
 
-/* Lowers a cond_expr TSI.  DATA is passed through the recursion.  */
+/* Lower a cond_expr TSI.  DATA is passed through the recursion.  */
 
 static void
 lower_cond_expr (tree_stmt_iterator *tsi, struct lower_data *data)
@@ -473,6 +553,8 @@ lower_cond_expr (tree_stmt_iterator *tsi, struct lower_data *data)
   tsi_next (tsi);
 }
 
+/* Lower a return_expr TSI.  DATA is passed through the recursion.  */
+
 static void
 lower_return_expr (tree_stmt_iterator *tsi, struct lower_data *data)
 {
@@ -504,110 +586,177 @@ lower_return_expr (tree_stmt_iterator *tsi, struct lower_data *data)
 
   /* Generate a goto statement and remove the return statement.  */
  found:
-  t = build (GOTO_EXPR, void_type_node, label);
+  t = build1 (GOTO_EXPR, void_type_node, label);
   SET_EXPR_LOCUS (t, EXPR_LOCUS (stmt));
   tsi_link_before (tsi, t, TSI_SAME_STMT);
   tsi_delink (tsi);
 }
+
+/* Lower a __builtin_setjmp TSI.
+
+   __builtin_setjmp is passed a pointer to an array of five words (not
+   all will be used on all machines).  It operates similarly to the C
+   library function of the same name, but is more efficient.
+
+   It is lowered into 3 other builtins, namely __builtin_setjmp_setup,
+   __builtin_setjmp_dispatcher and __builtin_setjmp_receiver, but with
+   __builtin_setjmp_dispatcher shared among all the instances; that's
+   why it is only emitted at the end by lower_function_body.
+
+   After full lowering, the body of the function should look like:
+
+    {
+      void * setjmpvar.0;
+      int D.1844;
+      int D.2844;
+
+      [...]
+
+      __builtin_setjmp_setup (&buf, &<D1847>);
+      D.1844 = 0;
+      goto <D1846>;
+      <D1847>:;
+      __builtin_setjmp_receiver (&<D1847>);
+      D.1844 = 1;
+      <D1846>:;
+      if (D.1844 == 0) goto <D1848>; else goto <D1849>;
+
+      [...]
+
+      __builtin_setjmp_setup (&buf, &<D2847>);
+      D.2844 = 0;
+      goto <D2846>;
+      <D2847>:;
+      __builtin_setjmp_receiver (&<D2847>);
+      D.2844 = 1;
+      <D2846>:;
+      if (D.2844 == 0) goto <D2848>; else goto <D2849>;
+
+      [...]
+
+      <D3850>:;
+      return;
+      <D3853>: [non-local];
+      setjmpvar.0 = __builtin_setjmp_dispatcher (&<D3853>);
+      goto setjmpvar.0;
+    }
+
+   The dispatcher block will be both the unique destination of all the
+   abnormal call edges and the unique source of all the abnormal edges
+   to the receivers, thus keeping the complexity explosion localized.  */
+
+static void
+lower_builtin_setjmp (tree_stmt_iterator *tsi)
+{
+  tree stmt = tsi_stmt (*tsi);
+  tree cont_label = create_artificial_label ();
+  tree next_label = create_artificial_label ();
+  tree dest, t, arg;
+
+  /* NEXT_LABEL is the label __builtin_longjmp will jump to.  Its address is
+     passed to both __builtin_setjmp_setup and __builtin_setjmp_receiver.  */
+  FORCED_LABEL (next_label) = 1;
+
+  if (TREE_CODE (stmt) == MODIFY_EXPR)
+    {
+      dest = TREE_OPERAND (stmt, 0);
+      stmt = TREE_OPERAND (stmt, 1);
+    }
+  else
+    dest = NULL_TREE;
+
+  /* Build '__builtin_setjmp_setup (BUF, NEXT_LABEL)' and insert.  */
+  t = build_addr (next_label, current_function_decl);
+  arg = tree_cons (NULL, t, NULL);
+  t = TREE_VALUE (TREE_OPERAND (stmt, 1));
+  arg = tree_cons (NULL, t, arg);
+  t = implicit_built_in_decls[BUILT_IN_SETJMP_SETUP];
+  t = build_function_call_expr (t, arg);
+  SET_EXPR_LOCUS (t, EXPR_LOCUS (stmt));
+  tsi_link_before (tsi, t, TSI_SAME_STMT);
+
+  /* Build 'DEST = 0' and insert.  */
+  if (dest)
+    {
+      t = build2 (MODIFY_EXPR, void_type_node, dest, integer_zero_node);
+      SET_EXPR_LOCUS (t, EXPR_LOCUS (stmt));
+      tsi_link_before (tsi, t, TSI_SAME_STMT);
+    }
+
+  /* Build 'goto CONT_LABEL' and insert.  */
+  t = build1 (GOTO_EXPR, void_type_node, cont_label);
+  tsi_link_before (tsi, t, TSI_SAME_STMT);
+
+  /* Build 'NEXT_LABEL:' and insert.  */
+  t = build1 (LABEL_EXPR, void_type_node, next_label);
+  tsi_link_before (tsi, t, TSI_SAME_STMT);
+
+  /* Build '__builtin_setjmp_receiver (NEXT_LABEL)' and insert.  */
+  t = build_addr (next_label, current_function_decl);
+  arg = tree_cons (NULL, t, NULL);
+  t = implicit_built_in_decls[BUILT_IN_SETJMP_RECEIVER];
+  t = build_function_call_expr (t, arg);
+  SET_EXPR_LOCUS (t, EXPR_LOCUS (stmt));
+  tsi_link_before (tsi, t, TSI_SAME_STMT);
+
+  /* Build 'DEST = 1' and insert.  */
+  if (dest)
+    {
+      t = build2 (MODIFY_EXPR, void_type_node, dest, integer_one_node);
+      SET_EXPR_LOCUS (t, EXPR_LOCUS (stmt));
+      tsi_link_before (tsi, t, TSI_SAME_STMT);
+    }
+
+  /* Build 'CONT_LABEL:' and insert.  */
+  t = build1 (LABEL_EXPR, void_type_node, cont_label);
+  tsi_link_before (tsi, t, TSI_SAME_STMT);
+
+  /* Remove the call to __builtin_setjmp.  */
+  tsi_delink (tsi);
+}
 
 
-/* Record the variables in VARS.  */
+/* Record the variables in VARS into function FN.  */
 
 void
-record_vars (tree vars)
+record_vars_into (tree vars, tree fn)
 {
+  struct function *saved_cfun = cfun;
+
+  if (fn != current_function_decl)
+    cfun = DECL_STRUCT_FUNCTION (fn);
+
   for (; vars; vars = TREE_CHAIN (vars))
     {
       tree var = vars;
 
+      /* BIND_EXPRs contains also function/type/constant declarations
+         we don't need to care about.  */
+      if (TREE_CODE (var) != VAR_DECL)
+	continue;
+
       /* Nothing to do in this case.  */
       if (DECL_EXTERNAL (var))
-	continue;
-      if (TREE_CODE (var) == FUNCTION_DECL)
 	continue;
 
       /* Record the variable.  */
       cfun->unexpanded_var_list = tree_cons (NULL_TREE, var,
 					     cfun->unexpanded_var_list);
     }
+
+  if (fn != current_function_decl)
+    cfun = saved_cfun;
 }
 
-/* Check whether to expand a variable VAR.  */
 
-static bool
-expand_var_p (tree var)
+/* Record the variables in VARS into current_function_decl.  */
+
+void
+record_vars (tree vars)
 {
-  struct var_ann_d *ann;
-
-  if (TREE_CODE (var) != VAR_DECL)
-    return true;
-
-  /* Leave statics and externals alone.  */
-  if (TREE_STATIC (var) || DECL_EXTERNAL (var))
-    return true;
-
-  /* Remove all unused local variables.  */
-  ann = var_ann (var);
-  if (!ann || !ann->used)
-    return false;
-
-  return true;
+  record_vars_into (vars, current_function_decl);
 }
 
-/* Throw away variables that are unused.  */
-
-static void
-remove_useless_vars (void)
-{
-  tree var, *cell;
-  FILE *df = NULL;
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      df = dump_file;
-      fputs ("Discarding as unused:\n", df);
-    }
-
-  for (cell = &cfun->unexpanded_var_list; *cell; )
-    {
-      var = TREE_VALUE (*cell);
-
-      if (!expand_var_p (var))
-	{
-	  if (df)
-	    {
-	      fputs ("  ", df);
-	      print_generic_expr (df, var, dump_flags);
-	      fputc ('\n', df);
-	    }
-
-	  *cell = TREE_CHAIN (*cell);
-	  continue;
-	}
-
-      cell = &TREE_CHAIN (*cell);
-    }
-
-  if (df)
-    fputc ('\n', df);
-}
-
-struct tree_opt_pass pass_remove_useless_vars = 
-{
-  "vars",				/* name */
-  NULL,					/* gate */
-  remove_useless_vars,			/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  0,					/* tv_id */
-  0,					/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_dump_func,			/* todo_flags_finish */
-  0					/* letter */
-};
 
 /* Mark BLOCK used if it has a used variable in it, then recurse over its
    subblocks.  */
@@ -639,10 +788,11 @@ mark_blocks_with_used_vars (tree block)
 
 /* Mark the used attribute on blocks correctly.  */
   
-static void
+static unsigned int
 mark_used_blocks (void)
 {  
   mark_blocks_with_used_vars (DECL_INITIAL (current_function_decl));
+  return 0;
 }
 
 

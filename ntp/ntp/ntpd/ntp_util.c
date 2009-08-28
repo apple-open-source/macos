@@ -37,6 +37,10 @@
 # include <descrip.h>
 #endif /* VMS */
 
+#include <vproc.h>
+#include <sys/mman.h>		/* mmap */
+#include <signal.h>
+
 /*
  * This contains odds and ends.  Right now the only thing you'll find
  * in here is the hourly stats printer and some code to support
@@ -52,7 +56,7 @@ static	char *key_file_name;
  * The name of the drift_comp file and the temporary.
  */
 static	char *stats_drift_file;
-static  int  drift_exists;
+static  int drift_exists;
 static	char *stats_temp_file;
 int stats_write_period = 3600;	/* # of seconds between writes. */
 double stats_write_tolerance = 0;
@@ -80,6 +84,9 @@ static FILEGEN loopstats;
 static FILEGEN clockstats;
 static FILEGEN rawstats;
 static FILEGEN sysstats;
+#ifdef DEBUG_TIMING
+static FILEGEN timingstats;
+#endif
 #ifdef OPENSSL
 static FILEGEN cryptostats;
 #endif /* OPENSSL */
@@ -92,7 +99,7 @@ static FILEGEN cryptostats;
 #include <IOKit/pwr_mgt/IOPMLib.h>
 #include <IOKit/pwr_mgt/IOPM.h>
 
-static io_connect_t getFB() {
+static io_connect_t getFB(void) {
 	static io_connect_t fb;
 	
 	if (!fb) {
@@ -101,7 +108,7 @@ static io_connect_t getFB() {
 	return fb;
 }
 
-static unsigned long energy_saving() {
+static unsigned long energy_saving(void) {
 	IOReturn err;
 	unsigned long min = 99;
 	io_connect_t fb = getFB();
@@ -156,26 +163,33 @@ init_util(void)
 	filegen_register(&statsdir[0], "cryptostats", &cryptostats);
 #endif /* OPENSSL */
 
+#ifdef DEBUG_TIMING
+	filegen_register(&statsdir[0], "timingstats", &timingstats);
+#endif
 }
 
-void
+int
 save_drift_file(
-	int force
 	)
 {
 	FILE *fp;
-	static int skipped;
-	
-	if (!skipped)
-		force = 0;	/* Don't force a write if we never skipped one */
-	if (stats_drift_file != 0 && (force || !drift_exists || !energy_saving())) {
-		skipped = 0;
+	int rc = true;
+	vproc_transaction_t vt;
+	static off_t stats_size = 0;
+	sigset_t sigterm, oset;
+
+	sigemptyset(&sigterm);
+	sigaddset(&sigterm, SIGTERM);
+	sigprocmask(SIG_BLOCK, &sigterm, &oset);
+	vt = vproc_transaction_begin(NULL);
+	if (stats_drift_file != 0 && (!drift_exists || !energy_saving())) {
 		if ((fp = fopen(stats_temp_file, "w")) == NULL) {
 			msyslog(LOG_ERR, "can't open %s: %m",
 			    stats_temp_file);
-			return;
+			rc = false;
+			goto done;
 		}
-		fprintf(fp, "%.3f\n", drift_comp * 1e6);
+		stats_size = fprintf(fp, "%.3f\n", drift_comp * 1e6);
 		(void)fclose(fp);
 		/* atomic */
 #ifdef SYS_WINNT
@@ -185,11 +199,11 @@ save_drift_file(
 #ifndef NO_RENAME
 		(void) rename(stats_temp_file, stats_drift_file);
 #else
-        /* we have no rename NFS of ftp in use*/
+		/* we have no rename NFS of ftp in use*/
 		if ((fp = fopen(stats_drift_file, "w")) == NULL) {
 			msyslog(LOG_ERR, "can't open %s: %m",
 			    stats_drift_file);
-			return;
+			rc = false;
 		}
 
 #endif
@@ -205,8 +219,34 @@ save_drift_file(
 		}
 #endif
 	} else {
-		skipped = 1;
+		/* use mmap */
+		static void *mmap_addr;
+		if (mmap_addr == 0) {
+			int fd = open(stats_drift_file, O_RDWR);
+			if (fd >= 0) {
+				mmap_addr = mmap(0, getpagesize(), PROT_READ|PROT_WRITE, MAP_FILE|MAP_SHARED, fd, 0);
+				if (mmap_addr == MAP_FAILED) {
+					msyslog(LOG_ERR, "can't mmap %s: %m", stats_drift_file);
+					mmap_addr = 0;
+					rc = false;
+				}
+				close(fd);
+			} else {
+				msyslog(LOG_ERR, "can't open %s: %m", stats_drift_file);
+				rc = false;
+			}
+		} else {
+			off_t n = snprintf(mmap_addr, getpagesize(), "%.3f\n", drift_comp * 1e6);
+			if (n != stats_size) {
+				truncate(stats_drift_file, n);
+				stats_size = n;
+			}
+		}
 	}
+done:
+	vproc_transaction_end(NULL, vt);
+	sigprocmask(SIG_SETMASK, &oset, NULL);
+	return rc;
 }
 
 /*
@@ -299,7 +339,8 @@ write_stats(void)
 	    (u_long)(fabs(stats_write_tolerance * drift_comp) * 1e9)) {
 	     return;
 	}
-	prev_drift_comp = drift_comp;
+	if (save_drift_file())
+		prev_drift_comp = drift_comp;
 }
 
 
@@ -309,11 +350,11 @@ write_stats(void)
 void
 stats_config(
 	int item,
-	char *invalue	/* only one type so far */
+	const char *invalue	/* only one type so far */
 	)
 {
 	FILE *fp;
-	char *value;
+	const char *value;
 	int len;
 
 	/*
@@ -391,6 +432,7 @@ stats_config(
 			msyslog(LOG_ERR, "Frequency format error in %s", 
 			    stats_drift_file);
 			old_drift = 1e9;
+			fclose(fp);
 			break;
 		}
 		fclose(fp);
@@ -508,6 +550,7 @@ record_peer_stats(
 		fflush(peerstats.fp);
 	}
 }
+
 /*
  * record_loop_stats - write loop filter statistics to file
  *
@@ -609,9 +652,9 @@ record_raw_stats(
 	now.l_ui %= 86400;
 	if (rawstats.fp != NULL) {
                 fprintf(rawstats.fp, "%lu %s %s %s %s %s %s %s\n",
-		    day, ulfptoa(&now, 3), stoa(srcadr), stoa(dstadr),
-		    ulfptoa(t1, 9), ulfptoa(t2, 9), ulfptoa(t3, 9),
-		    ulfptoa(t4, 9));
+			day, ulfptoa(&now, 3), stoa(srcadr), dstadr ? stoa(dstadr) : "-",
+			ulfptoa(t1, 9), ulfptoa(t2, 9), ulfptoa(t3, 9),
+			ulfptoa(t4, 9));
 		fflush(rawstats.fp);
 	}
 }
@@ -698,13 +741,45 @@ record_crypto_stats(
 }
 #endif /* OPENSSL */
 
+#ifdef DEBUG_TIMING
+/*
+ * record_crypto_stats - write crypto statistics to file
+ *
+ * file format:
+ * day (mjd)
+ * time (s past midnight)
+ * text message
+ */
+void
+record_timing_stats(
+	const char *text
+	)
+{
+	static unsigned int flshcnt;
+	l_fp	now;
+	u_long	day;
 
+	if (!stats_control)
+		return;
+
+	get_systime(&now);
+	filegen_setup(&timingstats, now.l_ui);
+	day = now.l_ui / 86400 + MJD_1900;
+	now.l_ui %= 86400;
+	if (timingstats.fp != NULL) {
+		fprintf(timingstats.fp, "%lu %s %s\n",
+			    day, lfptoa(&now, 3), text);
+		if (++flshcnt % 100 == 0)
+			fflush(timingstats.fp);
+	}
+}
+#endif
 /*
  * getauthkeys - read the authentication keys from the specified file
  */
 void
 getauthkeys(
-	char *keyfile
+	const char *keyfile
 	)
 {
 	int len;
@@ -797,4 +872,44 @@ sock_hash(
 		hashVal += 128;
 
 	return hashVal;
+}
+
+#if notyet
+/*
+ * ntp_exit - document explicitly that ntpd has exited
+ */
+void
+ntp_exit(int retval)
+{
+  msyslog(LOG_ERR, "EXITING with return code %d", retval);
+  exit(retval);
+}
+#endif
+
+#define kMaxUUIDLen 37
+
+/* Did we wake up since last check? Use SL API */
+/* for Leopard could trigger off changes to kern.waketime */
+int awoke(void)
+{
+    static char sleepwakeuuid[kMaxUUIDLen];
+    int rc = 0;
+    io_service_t service = IORegistryEntryFromPath(kIOMasterPortDefault, 
+						   kIOPowerPlane ":/IOPowerConnection/IOPMrootDomain");
+    CFStringRef uuidString = IORegistryEntryCreateCFProperty(
+	    service,
+	    CFSTR(kIOPMSleepWakeUUIDKey),
+	    kCFAllocatorDefault, 0);
+    if (uuidString) {
+	    char newuuid[kMaxUUIDLen];
+	    CFStringGetCString(uuidString, newuuid, sizeof(newuuid), 
+			       kCFStringEncodingUTF8);
+	    rc = strncasecmp(newuuid, sleepwakeuuid, sizeof(newuuid));
+	    if (rc) {
+		    strlcpy(sleepwakeuuid, newuuid, sizeof(sleepwakeuuid));
+	    }
+	    CFRelease(uuidString);
+    }
+    IOObjectRelease(service);
+    return rc;
 }

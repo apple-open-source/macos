@@ -1,6 +1,6 @@
---- setlocale.c.orig	2004-11-25 11:38:19.000000000 -0800
-+++ setlocale.c	2005-04-27 13:37:01.000000000 -0700
-@@ -41,6 +41,8 @@
+--- setlocale.c.orig	2008-01-24 17:13:46.000000000 -0800
++++ setlocale.c	2008-02-17 13:23:02.000000000 -0800
+@@ -41,6 +41,8 @@ static char sccsid[] = "@(#)setlocale.c	
  #include <sys/cdefs.h>
  __FBSDID("$FreeBSD: src/lib/libc/locale/setlocale.c,v 1.50 2004/01/31 19:15:32 ache Exp $");
  
@@ -9,7 +9,7 @@
  #include <sys/types.h>
  #include <sys/stat.h>
  #include <errno.h>
-@@ -56,7 +58,7 @@
+@@ -56,7 +58,7 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/
  #include "lmessages.h"	/* for __messages_load_locale() */
  #include "setlocale.h"
  #include "ldpart.h"
@@ -18,12 +18,14 @@
  
  /*
   * Category names for getenv()
-@@ -99,15 +101,16 @@
+@@ -99,15 +101,18 @@ static char current_locale_string[_LC_LA
  
  static char	*currentlocale(void);
  static char	*loadlocale(int);
 -static const char *__get_locale_env(int);
 +__private_extern__ const char *__get_locale_env(int);
++
++#define	UNLOCK_AND_RETURN(x)	{XL_UNLOCK(&__global_locale); return (x);}
  
  char *
  setlocale(category, locale)
@@ -37,9 +39,71 @@
  
  	if (category < LC_ALL || category >= _LC_LAST) {
  		errno = EINVAL;
-@@ -193,6 +196,9 @@
+@@ -118,6 +123,7 @@ setlocale(category, locale)
+ 		return (category != LC_ALL ?
+ 		    current_categories[category] : currentlocale());
+ 
++	XL_LOCK(&__global_locale);
+ 	/*
+ 	 * Default to the current locale for everything.
+ 	 */
+@@ -133,7 +139,7 @@ setlocale(category, locale)
+ 				env = __get_locale_env(i);
+ 				if (strlen(env) > ENCODING_LEN) {
+ 					errno = EINVAL;
+-					return (NULL);
++					UNLOCK_AND_RETURN (NULL);
+ 				}
+ 				(void)strcpy(new_categories[i], env);
+ 			}
+@@ -141,21 +147,21 @@ setlocale(category, locale)
+ 			env = __get_locale_env(category);
+ 			if (strlen(env) > ENCODING_LEN) {
+ 				errno = EINVAL;
+-				return (NULL);
++				UNLOCK_AND_RETURN (NULL);
+ 			}
+ 			(void)strcpy(new_categories[category], env);
+ 		}
+ 	} else if (category != LC_ALL) {
+ 		if (strlen(locale) > ENCODING_LEN) {
+ 			errno = EINVAL;
+-			return (NULL);
++			UNLOCK_AND_RETURN (NULL);
+ 		}
+ 		(void)strcpy(new_categories[category], locale);
+ 	} else {
+ 		if ((r = strchr(locale, '/')) == NULL) {
+ 			if (strlen(locale) > ENCODING_LEN) {
+ 				errno = EINVAL;
+-				return (NULL);
++				UNLOCK_AND_RETURN (NULL);
+ 			}
+ 			for (i = 1; i < _LC_LAST; ++i)
+ 				(void)strcpy(new_categories[i], locale);
+@@ -164,14 +170,14 @@ setlocale(category, locale)
+ 				;
+ 			if (!r[1]) {
+ 				errno = EINVAL;
+-				return (NULL);	/* Hmm, just slashes... */
++				UNLOCK_AND_RETURN (NULL);	/* Hmm, just slashes... */
+ 			}
+ 			do {
+ 				if (i == _LC_LAST)
+ 					break;  /* Too many slashes... */
+ 				if ((len = r - locale) > ENCODING_LEN) {
+ 					errno = EINVAL;
+-					return (NULL);
++					UNLOCK_AND_RETURN (NULL);
+ 				}
+ 				(void)strlcpy(new_categories[i], locale,
+ 					      len + 1);
+@@ -191,8 +197,11 @@ setlocale(category, locale)
+ 	}
+ 
  	if (category != LC_ALL)
- 		return (loadlocale(category));
+-		return (loadlocale(category));
++		UNLOCK_AND_RETURN (loadlocale(category));
  
 +	save__numeric_fp_cvt = __global_locale.__numeric_fp_cvt;
 +	save__lc_numeric_loc = __global_locale.__lc_numeric_loc;
@@ -47,7 +111,7 @@
  	for (i = 1; i < _LC_LAST; ++i) {
  		(void)strcpy(saved_categories[i], current_categories[i]);
  		if (loadlocale(i) == NULL) {
-@@ -205,10 +211,14 @@
+@@ -205,11 +214,15 @@ setlocale(category, locale)
  					(void)loadlocale(j);
  				}
  			}
@@ -55,14 +119,17 @@
 +			__global_locale.__lc_numeric_loc = save__lc_numeric_loc;
 +			XL_RELEASE(save__lc_numeric_loc);
  			errno = saverr;
- 			return (NULL);
+-			return (NULL);
++			UNLOCK_AND_RETURN (NULL);
  		}
  	}
+-	return (currentlocale());
 +	XL_RELEASE(save__lc_numeric_loc);
- 	return (currentlocale());
++	UNLOCK_AND_RETURN (currentlocale());
  }
  
-@@ -237,7 +247,7 @@
+ static char *
+@@ -237,7 +250,7 @@ loadlocale(category)
  {
  	char *new = new_categories[category];
  	char *old = current_categories[category];
@@ -71,7 +138,7 @@
  	int saved_errno;
  
  	if ((new[0] == '.' &&
-@@ -280,15 +290,26 @@
+@@ -280,15 +293,26 @@ loadlocale(category)
  	if (strcmp(new, old) == 0)
  		return (old);
  
@@ -100,7 +167,7 @@
  __get_locale_env(category)
          int category;
  {
-@@ -315,7 +336,7 @@
+@@ -315,7 +339,7 @@ __get_locale_env(category)
  /*
   * Detect locale storage location and store its value to _PathLocale variable
   */

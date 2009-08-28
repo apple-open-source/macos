@@ -1,14 +1,16 @@
-La vostra petició a %(requestaddr)s:    
+La vostra peticiÃ³ a %(requestaddr)s:
 
-     %(cmd)s
+    %(cmd)s
 
-ha estat reenviada a la persona encarregada de la llista.
+s'ha reenviat a la persona encarregada de la llista.
 
-Això ha passat perquè probablement esteu intentant de subscriure-us a una llista 'tancada'.
+Segurament aixÃ² Ã©s degut al fet que esteu intentant subscriure-us a una
+llista Â«tancadaÂ».
 
-Rebreu un notificació per correu amb la decisió del propietari de la llista sobre la vostra
-petició de subscripció.
+La informaciÃ³ sobre la decisiÃ³ de l'encarregat de la llista en quant a
+la vostra solÂ·licitud de subscripciÃ³ se us enviarÃ  per correu.
 
-Qualsevol pregunta sobre el criteri que segueix el propietari de la llista s'ha de dirigir a:    
+Qualsevol pregunta referent a la polÃ­tica de l'encarregat de la llista
+l'haurÃ­eu d'enviar a:
 
-     %(adminaddr)s
+    %(adminaddr)s

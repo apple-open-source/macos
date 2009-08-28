@@ -1,0 +1,10 @@
+É necesaria a súa autorización para unha solicitude de subscrición á rolda de distribución:
+
+    Solicitante:		%(username)s
+    Rolda:	%(listname)s@%(hostname)s
+
+Cando for posible, acceda ao enderezo seguinte:
+
+    %(admindb_url)s
+	
+para procesar a solicitude.

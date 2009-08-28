@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -27,15 +27,27 @@ APR_DECLARE(const char*) apr_os_default_encoding (apr_pool_t *pool)
 
 APR_DECLARE(const char*) apr_os_locale_encoding (apr_pool_t *pool)
 {
+#ifdef _UNICODE
+    int i;
+#endif
+#if defined(_WIN32_WCE)
+    LCID locale = GetUserDefaultLCID();
+#else
     LCID locale = GetThreadLocale();
+#endif
     int len = GetLocaleInfo(locale, LOCALE_IDEFAULTANSICODEPAGE, NULL, 0);
-    char *cp = apr_palloc(pool, len + 2);
-    if (0 < GetLocaleInfo(locale, LOCALE_IDEFAULTANSICODEPAGE, cp + 2, len))
+    char *cp = apr_palloc(pool, (len * sizeof(TCHAR)) + 2);
+    if (0 < GetLocaleInfo(locale, LOCALE_IDEFAULTANSICODEPAGE, (TCHAR*) (cp + 2), len))
     {
         /* Fix up the returned number to make a valid codepage name of
           the form "CPnnnn". */
         cp[0] = 'C';
         cp[1] = 'P';
+#ifdef _UNICODE
+        for(i = 0; i < len; i++) {
+            cp[i + 2] = (char) ((TCHAR*) (cp + 2))[i];
+        }
+#endif
         return cp;
     }
 

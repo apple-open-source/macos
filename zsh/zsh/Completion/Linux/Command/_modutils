@@ -18,6 +18,8 @@ case "$service" in
       '(-)'{-l,--license}"[display the module's license]" \
       '(-)'{-n,--filename}"[display the module's filename]" \
       '(-)'{-p,--parameters}'[display the typed parameters that a module may support]' \
+      '(-)'{-F,--field}"[display only selected module's information]:module_field:(
+        alias author depends description filename license parm)" \
       '1:module file:->all_modules' && ret=0
   ;;
 
@@ -36,7 +38,7 @@ case "$service" in
       '(-C --config)'{-C,--config}'[specify config file]:config file:_files' \
       "(-r --remove -l --list -t --type -a --all $ign)"{-r,--remove}'[remove module (stacks)]' \
       "(* -l --list -r --remove $ign)"{-l,--list}'[list matching modules]' \
-      "(-c $ign)1:modules:->all_modules" \
+      "(-c $ign)1:modules:->loadable_modules" \
       "(-c -l --list -t --type $ign)*:params:->params" && ret=0
       
       [[ -n $state ]] && (( $+opt_args[-r] )) && state=loaded_modules        
@@ -60,28 +62,50 @@ case "$service" in
 esac 
 
 case "$state" in
-  loaded_modules)
+  loaded_modules|loadable_modules)
     if [[ -r /proc/modules ]]; then
-     modules=(${${(f)"$(</proc/modules)"}%% *})
+     loaded_modules=(${${(f)"$(</proc/modules)"}%% *})
     elif [[ -x /sbin/lsmod ]]; then
-     modules=(${${(f)"$(/sbin/lsmod)"}[2,-1]%% *})
+     loaded_modules=(${${(f)"$(/sbin/lsmod)"}[2,-1]%% *})
     else
      return 1
     fi
-    
-    _wanted modules expl 'loaded module' compadd -a modules && return
-  ;;
+
+    if [[ $state = loaded_modules ]]; then
+        _wanted modules expl 'loaded module' compadd -a loaded_modules && return
+        return ret
+    fi
+  ;&
 
   all_modules)
     modules=( ${${${${(f)"$(_call_program modules ${(M)words[1]##*/}modprobe -l 2>/dev/null)"}:#}##*/}%%.*} )
-    _wanted modules expl module compadd -a modules && return
+
+    if [[ $state = loadable_modules ]]; then
+        modules=( ${modules:#(${(j:|:)~${=loaded_modules//_/-}})} )
+    fi
+
+    _tags files modules
+    while _tags; do
+      _requested files expl "module file"  _files -g '*.ko' && ret=0
+      _requested modules expl module compadd -a modules && ret=0
+    done
   ;;
 
   params)
     if compset -P '*='; then
       _message -e value 'parameter value'
     else
-      _message -e parameter 'module parameter'
+      local params
+      params=( ${${(M)${(f)"$(_call_program module_parameter modinfo "$words[2]" 2>/dev/null)"}:#parm:*}##parm:[[:space:]]##} )
+      if [[ $#params -eq 0 ]]; then
+        _message -e parameter "This modules doesn't have parameters"
+      else
+        typeset -A val_args
+
+        _values -S = -C -w 'module parameter' \
+          ${${${(M)params:#*(:bool|\(bool\))}/:/[}/(bool| \(bool\))/]} \
+          ${^${params:#*(:bool|\(bool\))}/:/[}"]:auto added argument: " && ret=0
+      fi
     fi
   ;;
 esac

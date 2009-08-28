@@ -1,3 +1,5 @@
+$NetBSD: README,v 1.8 2008/09/21 16:35:24 lukem Exp $
+
 WHAT IS TNFTPD?
 ---------------
 
@@ -16,6 +18,7 @@ The enhancements over the standard ftp server in 4.4BSD
 		+ check whether a user would be granted access (-C)
 		+ specify email address for display messages (-e)
 		+ change hostname advertised as (-h, -H)
+		+ don't attempt to translate IP addresses to hostnames (-n)
 		+ specify data port to listen on (-P)
 		+ keep track of the number of users logged in (-q, -Q)
 		+ permanently drop privileges (-r)
@@ -69,7 +72,9 @@ The enhancements over the standard ftp server in 4.4BSD
 	  ftpd(8) flags and support in the invoking inetd(8) program
 	  (such as that in NetBSD).
 
-	* Optional S/Key authentication (if configued with --with-skey).
+	* Optional PAM authentication (if configured with --with-pam).
+
+	* Optional S/Key authentication (if configured with --with-skey).
 
 
 Features present in NetBSD's ftpd but not yet available in tnftpd:

@@ -1,3 +1,5 @@
+@subheading tld_check_4t
+@anchor{tld_check_4t}
 @deftypefun {int} {tld_check_4t} (const uint32_t * @var{in}, size_t @var{inlen}, size_t * @var{errpos}, const Tld_table * @var{tld})
 @var{in}: Array of unicode code points to process. Does not need to be
 zero terminated.

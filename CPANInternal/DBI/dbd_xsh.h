@@ -1,4 +1,4 @@
-/* @(#)$Id: dbd_xsh.h,v 11.3 2003/02/26 17:56:01 timbo Exp $
+/* @(#)$Id: dbd_xsh.h 2488 2006-02-07 22:24:43Z timbo $
  *
  * Copyright 2000-2002 Tim Bunce
  * Copyright 2002      Jonathan Leffler

@@ -5,7 +5,7 @@
            TODO for the XML parser and stuff:
 	   ==================================
 
-      $Id: TODO,v 1.43 2004/09/26 14:42:56 veillard Exp $
+      $Id: TODO,v 1.44 2005/01/07 13:56:19 veillard Exp $
 
     this tend to be outdated :-\ ...
 
@@ -39,7 +39,7 @@ TODO:
 - Stricten the UTF8 conformance (Martin Duerst):
   http://www.w3.org/2001/06/utf-8-test/.
   The bad files are in http://www.w3.org/2001/06/utf-8-wrong/.
-  
+- xml:id normalized value
 
 TODO:
 =====

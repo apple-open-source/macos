@@ -1,5 +1,6 @@
+// $OpenLDAP: pkg/ldap/contrib/ldapc++/src/LDAPResult.cpp,v 1.5.2.3 2008/04/14 23:09:26 quanah Exp $
 /*
- * Copyright 2000, OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 2000-2007, OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -9,6 +10,8 @@
 #include"LDAPAsynConnection.h"
 #include "LDAPRequest.h"
 #include "LDAPException.h"
+
+#include <cstdlib>
 
 using namespace std;
 
@@ -50,6 +53,11 @@ LDAPResult::LDAPResult(const LDAPRequest *req, LDAPMessage *msg) :
         }
     }
 }
+
+LDAPResult::LDAPResult(int type, int resultCode, const std::string &msg) : 
+        LDAPMsg(type,0), m_resCode(resultCode), m_errMsg(msg)
+{}
+
 
 LDAPResult::~LDAPResult(){
     DEBUG(LDAP_DEBUG_DESTROY,"LDAPResult::~LDAPResult()" << endl);

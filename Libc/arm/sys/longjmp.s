@@ -21,15 +21,15 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1998 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2008 Apple Inc. All rights reserved.
  *
- *	File: sys/ppc/longjmp.s
+ *	File: sys/arm/longjmp.s
  *
  *	Implements siglongjmp(), longjmp(), _longjmp() 
  *
  */
 
-#include "SYS.h"
+#include <architecture/arm/asm_help.h>
 #include "_setjmp.h"
 
 /*
@@ -38,7 +38,7 @@
 
 /*	void siglongjmp(sigjmp_buf env, int val); */
 
-MI_ENTRY_POINT(_siglongjmp)
+ENTRY_POINT(_siglongjmp)
 	ldr	r2, [ r0, #JMP_SIGFLAG ]	//  load sigflag
 	tst	r2, #0				// test if zero
 	beq	L__exit				// if zero do _longjmp()
@@ -46,12 +46,12 @@ MI_ENTRY_POINT(_siglongjmp)
 
 /*	void longjmp(jmp_buf env, int val); */
 
-MI_ENTRY_POINT(_longjmp)
+ENTRY_POINT(_longjmp)
 	mov	r6, r0				// preserve args across _sigsetmask
 	mov	r8, r1
 	ldr	r0, [ r0, #JMP_sig ]		// restore the signal mask
-	MI_CALL_EXTERNAL(_sigsetmask)		// make a (deprecated!) syscall to set the mask
+	CALL_EXTERNAL(_sigsetmask)		// make a (deprecated!) syscall to set the mask
 	mov	r1, r8
 	mov	r0, r6
 L__exit:
-	MI_BRANCH_EXTERNAL(__longjmp)
+	BRANCH_EXTERNAL(__longjmp)

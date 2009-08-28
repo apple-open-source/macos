@@ -34,12 +34,12 @@
 
 //files and directories
 #define kDSLDAPPrefsDirPath						"/Library/Preferences/DirectoryService"
-#define kDSLDAPPrefsFilePath					kDSLDAPPrefsDirPath "/DSLDAPv3PlugInConfig.plist"
+#define kDSLDAPPrefsFilePath					kDSLDAPPrefsDirPath "/DSLDAPv3PlugInConfig"
 #define kDSLDAPPrefsTempFilePath				kDSLDAPPrefsDirPath "/DSLDAPv3PlugInConfig.plist.XXXXXXXXXX"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#define kDSNodeEvent							"com.apple.DirectoryService.node.event"
+
+__BEGIN_DECLS
 
 tDataBufferPtr			dsDataBufferAllocatePriv			( UInt32 inBufferSize );
 tDirStatus				dsDataBufferDeallocatePriv			( tDataBufferPtr inDataBufferPtr );
@@ -79,9 +79,16 @@ CFMutableDictionaryRef	dsCreateEventLogDict				( CFStringRef inEventType, const 
 
 int						dsCreatePrefsDirectory				( void );
 CFStringRef				dsCreatePrefsFilename				( const char *inFileNameBase );
+	
+void					dsPostNodeEvent						( void );
+CFArrayRef				dsCopyKerberosServiceList			( void ); // NOTE: this is not in the framework it is only for plugins
 
-#ifdef __cplusplus
-}
-#endif
+void					*dsRetainObject						( void *object, volatile int32_t *refcount );
+bool					dsReleaseObject						( void *object, volatile int32_t *refcount, bool bFree );
+
+tDirStatus				dsGetRecordReferenceInfoInternal	( tRecordReference recordRef, tRecordEntryPtr *recordEntry );
+bool					dsIsRecordDisabledInternal			( tRecordReference recordRef );
+
+__END_DECLS
 
 #endif

@@ -1,3 +1,4 @@
+// $OpenLDAP: pkg/ldap/contrib/ldapc++/src/LDAPConnection.h,v 1.8.4.2 2008/04/14 23:28:11 quanah Exp $
 /*
  * Copyright 2000, OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
@@ -88,6 +89,10 @@ class LDAPConnection : private LDAPAsynConnection {
          */
         void bind(const std::string& dn="", const std::string& passwd="",
                 LDAPConstraints* cons=0);
+        void saslInteractiveBind(const std::string& mech,
+                int flags=0,
+                SaslInteractionHandler *sih=0,
+                const LDAPConstraints *cons=0);
         
         /**
          * Performs the UNBIND-operation on the destination server

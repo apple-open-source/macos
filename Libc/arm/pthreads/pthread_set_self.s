@@ -20,9 +20,19 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
+#include <arm/arch.h>
+#include <mach/arm/syscall_sw.h>
+
         .text
         .align 2
         .globl ___pthread_set_self
 ___pthread_set_self:
+#ifndef _ARM_ARCH_6
 	mov r9, r0
+#endif
+	/* fast trap for thread_set_cthread */
+	mov	r3, #2
+	mov	r12, #0x80000000
+	swi	#SWI_SYSCALL
 	bx	lr

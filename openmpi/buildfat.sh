@@ -21,7 +21,7 @@
 #
 # User-configurable stuff
 #
-OMPI_PREFIX="/usr/"
+OMPI_PREFIX="/usr"
 OMPI_OPTIONS="--disable-mpi-f77 --without-cs-fs -enable-mca-no-build=ras-slurm,pls-slurm,gpr-null,sds-pipe,sds-slurm,pml-cm --mandir=/usr/share/man --sysconfdir=/usr/share NM=\"nm -p\""
 
 #

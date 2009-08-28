@@ -69,6 +69,9 @@
 /* Whether we are running on 64bit linux */
 #undef HAVE_64BIT_LINUX
 
+/* Define to 1 if you have the `accessx_np' function. */
+#undef HAVE_ACCESSX_NP
+
 /* Whether acl_get_perm_np() is available */
 #undef HAVE_ACL_GET_PERM_NP
 
@@ -164,6 +167,9 @@
 
 /* Define to 1 if you have the `atexit' function. */
 #undef HAVE_ATEXIT
+
+/* Define to 1 if you have the `attropen' function. */
+#undef HAVE_ATTROPEN
 
 /* Define to 1 if you have the `attr_get' function. */
 #undef HAVE_ATTR_GET
@@ -600,6 +606,9 @@
 /* Define to 1 if you have the `getgrouplist' function. */
 #undef HAVE_GETGROUPLIST
 
+/* Define to 1 if you have the `getgrouplist_2' function. */
+#undef HAVE_GETGROUPLIST_2
+
 /* Define to 1 if you have the `getmntent' function. */
 #undef HAVE_GETMNTENT
 
@@ -719,6 +728,9 @@
 
 /* Whether kernel has inotify support */
 #undef HAVE_INOTIFY
+
+/* Define to 1 if you have the `inotify_init' function. */
+#undef HAVE_INOTIFY_INIT
 
 /* Whether int16 typedef is included by rpc/rpc.h */
 #undef HAVE_INT16_FROM_RPC_RPC_H
@@ -877,8 +889,14 @@
 /* Define to 1 if you have the `krb5_principal_get_comp_string' function. */
 #undef HAVE_KRB5_PRINCIPAL_GET_COMP_STRING
 
+/* Whether the function krb5_principal_get_realm is defined */
+#undef HAVE_KRB5_PRINCIPAL_GET_REALM
+
 /* Whether krb5_princ_component is available */
 #undef HAVE_KRB5_PRINC_COMPONENT
+
+/* Whether the macro krb5_princ_realm is defined */
+#undef HAVE_KRB5_PRINC_REALM
 
 /* Define to 1 if you have the `krb5_princ_size' function. */
 #undef HAVE_KRB5_PRINC_SIZE
@@ -924,6 +942,9 @@
 
 /* Define to 1 if you have the <lber.h> header file. */
 #undef HAVE_LBER_H
+
+/* Support for LDAP/LBER logging interception */
+#undef HAVE_LBER_LOG_PRINT_FN
 
 /* Define to 1 if you have the `lchown' function. */
 #undef HAVE_LCHOWN
@@ -1300,6 +1321,9 @@
 /* Define to 1 if you have the `printf' function. */
 #undef HAVE_PRINTF
 
+/* Define to 1 if you have the `pthread_setugid_np' function. */
+#undef HAVE_PTHREAD_SETUGID_NP
+
 /* Whether putprpwnam is available */
 #undef HAVE_PUTPRPWNAM
 
@@ -1404,9 +1428,6 @@
 
 /* Define to 1 if you have the <security/pam_modules.h> header file. */
 #undef HAVE_SECURITY_PAM_MODULES_H
-
-/* Define to 1 if you have the <Security/Security.h> header file. */
-#undef HAVE_SECURITY_SECURITY_H
 
 /* Define to 1 if you have the <security/_pam_macros.h> header file. */
 #undef HAVE_SECURITY__PAM_MACROS_H
@@ -1647,6 +1668,9 @@
 
 /* Define to 1 if you have the `strnlen' function. */
 #undef HAVE_STRNLEN
+
+/* Define to 1 if you have the <stropts.h> header file. */
+#undef HAVE_STROPTS_H
 
 /* Define to 1 if you have the `strpbrk' function. */
 #undef HAVE_STRPBRK
@@ -2014,6 +2038,9 @@
 /* Whether the C compiler understands volatile */
 #undef HAVE_VOLATILE
 
+/* Define to 1 if you have the <vproc.h> header file. */
+#undef HAVE_VPROC_H
+
 /* Define to 1 if you have the `vsnprintf' function. */
 #undef HAVE_VSNPRINTF
 
@@ -2364,6 +2391,9 @@
 
 /* Whether getpass should be replaced */
 #undef REPLACE_GETPASS
+
+/* getpass returns <9 chars where getpassphrase returns <265 chars */
+#undef REPLACE_GETPASS_BY_GETPASSPHRASE
 
 /* Whether inet_ntoa should be replaced */
 #undef REPLACE_INET_NTOA
@@ -2934,6 +2964,12 @@
 
 /* Whether to build vfs_netatalk as shared module */
 #undef vfs_netatalk_init
+
+/* Whether to build vfs_notify_fam as shared module */
+#undef vfs_notify_fam_init
+
+/* Whether to build vfs_notify_kqueue as shared module */
+#undef vfs_notify_kqueue_init
 
 /* Whether to build vfs_posixacl as shared module */
 #undef vfs_posixacl_init

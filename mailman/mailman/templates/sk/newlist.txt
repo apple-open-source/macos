@@ -1,0 +1,37 @@
+Bola pre Vás vytvorená konferencia `%(listname)s'.
+Nasledujú základné informácie o Vašej konferencii.
+
+Heslo na správu Vašej konferencie:
+
+    %(password)s
+
+Toto heslo potrebujete na konfiguráciu Vašej konferencie. Je tiež
+potrebné na vybavenie administratívnych požiadaviek, ako napr.
+odsúhlasenie príspevkov, ak je Vaša konferencia moderovaná.
+
+Nastavenia Vašej konferencie môžete upravovať na webovej stránke:
+
+    %(admin_url)s
+
+Webová stránka pre používateľov konferencie:
+
+    %(listinfo_url)s
+
+Tieto webové stránky môžete upraviť cez stránku s nastaveniami
+konferencie. Na úpravu stránok je potrebné ovládať písanie stránok
+v jazyku HTML.
+
+Pre účastníkov konferencie je prístupné aj ovládanie cez e-mail.
+Informácie obdržíte zaslaním správy so slovom `help' v predmete
+(Subject:) alebo tele na adresu:
+
+    %(requestaddr)s
+
+Odhlásenie účastníka: na informačnej stránke konferencie kliknite
+na adresu používateľa alebo ju zadajte v políčku, ako keby ste týmto
+užívateľom boli sám. Do políčka s používateľským heslom uveďte Vaše
+administrátorské heslo Vaše heslo môžete použiť aj na zmenu
+nastavení jednotlivých používateľov, vrátane zmeny formy zasielania
+pošty, vypnutia zasielania pošty atď.
+
+Otázky a dotazy adresujte administrátorovi servera %(siteowner)s.

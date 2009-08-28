@@ -1,0 +1,14 @@
+[vset    compress bz2]
+[include compress/header.inc]
+
+[para]
+
+The command is based on the Burroughs-Wheeler transformation as
+implemented by the
+
+bzip2 compression library ([uri http://sources.redhat.com/bzip2/]).
+
+[include compress/middle.inc]
+
+[keywords Burroughs-Wheeler]
+[include compress/footer.inc]

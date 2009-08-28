@@ -22,6 +22,9 @@
  * headers.
  */
 #include <sys/types.h>
+
+#include <stdint.h>
+
 typedef enum BRLMForkType {kBRLMDataFork = 1, kBRLMResFork= 2} BRLMForkType;
 typedef enum BRLMLockType {kBRLMFree = 0x0000, kBRLMRLock = 0x0001, kBRLMWLock=0x0002} BRLMLockType;
 typedef enum BRLMStatus {
@@ -75,8 +78,8 @@ BRLMStatus BRLMPosixOpen(const u_int8_t* path,
                         int32_t creatPermissions,
                         mode_t mode,
                         BRLMRef* ref,
-                        u_int32_t sessionID,
-						u_int32_t options);
+                        uint32_t sessionID,
+						uint32_t options);
 BRLMStatus BRLMCloseRef(BRLMRef ref);
 BRLMStatus BRLMByteRangeLock(const BRLMRef ref, BRLMLockType type, u_int64_t start, u_int64_t count);
 BRLMStatus BRLMByteRangeUnlock(const BRLMRef ref, BRLMLockType type, u_int64_t start, u_int64_t count);
@@ -86,7 +89,7 @@ BRLMStatus BRLMCanWrite(BRLMRef ref, u_int64_t offset, u_int64_t count);
 int32_t BRLMGetDescriptor(BRLMRef ref);
 int16_t BRLMGetForkRefNum(BRLMRef ref);
 
-BRLMStatus NLMDebug(u_int32_t i);
+BRLMStatus NLMDebug(uint32_t i);
 BRLMStatus BRLMExchange(BRLMRef ref1, BRLMRef ref2);
 
 #undef DEBUGLEVEL
@@ -213,6 +216,17 @@ static void debug_attribute_names(int level, const char * list, size_t total)
 			name += (strlen(name) + 1);
 		}
 	}
+}
+
+/* Return TRUE if we are only opening for attribute access. */
+static BOOL is_attribute_open(const struct files_struct * fsp)
+{
+    BOOL rwopen;
+
+    rwopen = fsp->access_mask & (FILE_READ_DATA | FILE_WRITE_DATA |
+	    GENERIC_READ_ACCESS | GENERIC_WRITE_ACCESS);
+
+    return rwopen ? False : True;
 }
 
 /* Map from a stream name to one of the special xattr names reserved by Apple.
@@ -344,8 +358,8 @@ static ssize_t do_list_xattr(const char * path, int fd,
 	valid = filter_name_list(list, total, exclude_stream_names);
 
 	DEBUG(MODULE_TRACE,
-		("%d bytes of xattr names filtered down to %d bytes\n",
-		 total, valid));
+		("%u bytes of xattr names filtered down to %u bytes\n",
+		 (unsigned)total, (unsigned)valid));
 	return valid;
 }
 
@@ -823,8 +837,7 @@ static ssize_t darwin_pread_xattr(struct darwin_stream_io *sio,
 
 	/* Attempt to read past EOF. */
 	if (sz <= offset) {
-		errno = EINVAL;
-		return -1;
+		return 0;
 	}
 
 	overlap = (offset + count) > sz ? (sz - offset) : count;
@@ -992,7 +1005,8 @@ static int darwin_fstat_rsrc(struct darwin_stream_io *sio,
 
 	DEBUG(MODULE_TRACE,
 		("rsrc st_size=%u, st_blocks=%u, st_ino=%u\n",
-		sbuf->st_size, sbuf->st_blocks, sbuf->st_ino));
+		(unsigned)sbuf->st_size, (unsigned)sbuf->st_blocks,
+		(unsigned)sbuf->st_ino));
 	return 0;
 }
 
@@ -1005,8 +1019,8 @@ static int darwin_fstat_xattr(struct darwin_stream_io *sio,
 
 	DEBUG(MODULE_TRACE,
 		("stream '%s' st_size=%u, st_blocks=%u, st_ino=%u\n",
-		sio->xtra.xattr.sname, sbuf->st_size,
-		sbuf->st_blocks, sbuf->st_ino));
+		sio->xtra.xattr.sname, (unsigned)sbuf->st_size,
+		(unsigned)sbuf->st_blocks, (unsigned)sbuf->st_ino));
 
 	sbuf->st_size = get_xattr_size(NULL, fd, sio->xtra.xattr.sname, 0);
 	if (sbuf->st_size == -1) {
@@ -1040,8 +1054,8 @@ static int darwin_fstat_xattr(struct darwin_stream_io *sio,
 
 	DEBUG(MODULE_TRACE,
 		("stream '%s' st_size=%u, st_blocks=%u, st_ino=%u\n",
-		sio->xtra.xattr.sname, sbuf->st_size,
-		sbuf->st_blocks, sbuf->st_ino));
+		sio->xtra.xattr.sname, (unsigned)sbuf->st_size,
+		(unsigned)sbuf->st_blocks, (unsigned)sbuf->st_ino));
 	return 0;
 }
 
@@ -1273,7 +1287,8 @@ static int darwin_open_rsrc(vfs_handle_struct *handle,
 		return -1;
 	}
 
-	if (lp_parm_bool(SNUM(handle->conn), MODULE_NAME, "brlm", False)) {
+	if (lp_parm_bool(SNUM(handle->conn), MODULE_NAME, "brlm", False) &&
+	    !is_attribute_open(fsp)) {
 		fd = darwin_open_brlm(handle, fullname, fsp,
 			    kBRLMResFork, flags, mode);
 	} else {
@@ -1441,8 +1456,8 @@ static int darwin_sys_open(vfs_handle_struct * handle,
 	/* If it's not a stream, punt it. */
 	if (!(*sname)) {
 		int ret;
-		if (lp_parm_bool(SNUM(handle->conn),
-			    MODULE_NAME, "brlm", False)) {
+		if (lp_parm_bool(SNUM(handle->conn), MODULE_NAME, "brlm", False) &&
+		    !is_attribute_open(fsp)) {
 			ret = darwin_open_brlm(handle, fname, fsp,
 					    kBRLMDataFork, flags, mode);
 		} else {
@@ -1621,9 +1636,9 @@ static BOOL darwin_sys_get_preserved_name(vfs_handle_struct *handle,
 			const char *path, pstring name)
 {
 	struct attrlist attrlist;
-	char attrbuf[sizeof(struct attrreference) + sizeof(u_int32_t) + NAME_MAX + 1];
+	char attrbuf[sizeof(struct attrreference) + sizeof(uint32_t) + NAME_MAX + 1];
 	struct attrreference * data = (struct attrreference *)attrbuf;
-	u_int32_t *nmlen;
+	uint32_t *nmlen;
 	char *preserved_name = NULL;
 	int len, maxlen;
 
@@ -1637,11 +1652,12 @@ static BOOL darwin_sys_get_preserved_name(vfs_handle_struct *handle,
 		return False;
 	}
 	/* Make sure we didn't get something bad */
-	maxlen = data->attr_dataoffset - (sizeof(struct attrreference) +  sizeof(u_int32_t));
-	nmlen = (u_int32_t *)(attrbuf+sizeof(struct attrreference));
+	maxlen = data->attr_dataoffset - (sizeof(struct attrreference) + sizeof(uint32_t));
+	nmlen = (uint32_t *)(attrbuf+sizeof(struct attrreference));
 	/* Should never happen, but just to be safe */
 	if (*nmlen > maxlen) {
-		DEBUG(5, ("name length to large for buffer nmlen = %d  maxlen = %d\n", nmlen, maxlen));
+		DEBUG(5, ("name length to large for buffer nmlen = %d  maxlen = %u\n",
+			    *nmlen, maxlen));
 		return False;
 	}
 	len = *nmlen++;
@@ -1987,7 +2003,7 @@ static int darwin_sys_streaminfo(vfs_handle_struct *handle,
 		}
 
 		DEBUG(MODULE_TRACE, ("stream '%s' is %u bytes\n",
-			    name, (*sizes)[scount]));
+			    name, (unsigned)(*sizes)[scount]));
 
 		++scount;
 	}

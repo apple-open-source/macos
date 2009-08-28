@@ -1,20 +1,19 @@
-Name: xar
-Epoch: 0
-Version: 1.4
-Release: 1
 Summary: The XAR project aims to provide an easily extensible archive format.
-Group: Applications/Archivers
+Name: xar
+Version: 1.6dev
+Release: 0
 License: BSD
-URL: http://www.opendarwin.org/projects/%{name}/
-Source: http://www.opendarwin.org/projects/%{name}/%{name}-%{version}.tar.gz
-BuildRoot: %{_tmppath}/%{name}-%{epoch}-%{version}-%{release}-root
+Group: Applications/Archiving
+URL: http://code.google.com/p/%{name}/
+Source: http://%{name}.googlecode.com/files/%{name}-%{version}.tar.gz
+BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
+%ifos linux
 BuildRequires: libxml2-devel >= 2.6.11
 BuildRequires: openssl-devel
-BuildRequires: bzip2-libs
-BuildRequires: zlib
-Requires: bzip2-libs
-Requires: libxml2-devel >= 2.6.11
-Requires: openssl-devel
+BuildRequires: bzip2-devel
+BuildRequires: zlib-devel
+BuildRequires: /usr/bin/awk
+%endif
 
 %description
 The XAR project aims to provide an easily extensible archive format. Important
@@ -29,8 +28,7 @@ table of content's rich meta-data.
 %package devel
 Summary: Libraries and header files required for xar.
 Group: Development/Libraries
-Provides: lib%{name}.so
-Requires: %{name} = %{epoch}:%{version}-%{release}
+Requires: %{name} = %{version}-%{release}
 
 %description devel
 Libraries and header files required for xar.
@@ -39,28 +37,51 @@ Libraries and header files required for xar.
 %setup -q -n %{name}-%{version}
 
 %build
-%configure
-%{__make}
+%configure --disable-static
+%{__make} %{?_smp_mflags}
 
 %install
 %{__rm} -rf $RPM_BUILD_ROOT
-%makeinstall
+%{__make} install DESTDIR=%{buildroot}
 
 %clean
 %{__rm} -rf $RPM_BUILD_ROOT
+
+%ifos linux
+%post -p /sbin/ldconfig
+
+%postun -p /sbin/ldconfig
+%endif
 
 %files
 %defattr(-,root,root,-)
 %doc LICENSE TODO
 %{_bindir}/%{name}
+%ifnos darwin
+%{_libdir}/lib%{name}.so.*
+%else
+%{_libdir}/lib%{name}.*.dylib
+%endif
+%{_mandir}/man1/xar.1*
 
 %files devel
+%defattr(-,root,root,-)
 %{_includedir}/%{name}/%{name}.h
+%ifnos darwin
 %{_libdir}/lib%{name}.so
-%{_libdir}/lib%{name}.1.so
+%else
+%{_libdir}/lib%{name}.dylib
+%endif
+%exclude %{_libdir}/lib%{name}.la
 
 %changelog
-* Thu Feb 23 2005 Rob Braun <bbraun@opendarwin.org> - 0:1.2-1
+* Wed Sep 12 2007 Anders F Bjorklund <afb@rpm.org> 1.5.1-0
+- fixed spec, made darwin compatible
+- moved non-versioned lib from devel
+
+* Mon May 07 2007 Rob Braun <bbraun@synack.net> 0:1.5-1
+- 1.5
+* Thu Feb 23 2006 Rob Braun <bbraun@opendarwin.org> - 0:1.2-1
 - 1.4
 * Mon Oct 24 2005 Rob Braun <bbraun@opendarwin.org> - 0:1.2-1
 - 1.3

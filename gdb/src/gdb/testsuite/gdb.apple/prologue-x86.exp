@@ -62,23 +62,22 @@ if ![runto_main] then {
 
 gdb_test "set backtrace past-main 1" "" "enable past-main backtracing"
 
-gdb_test "bt" "#0  main \\(argc=$decimal, argv=$hex, envp=$hex\\) at .*prologue-x86.*#1  $hex in _start \\(.* at .*crt.c:$decimal.*#2  $hex in start \\(\\)\[\r\n\]+" "backtrace up to start()"
+gdb_test "bt" "#0  main \\(argc=$decimal, argv=$hex, envp=$hex\\) at .*prologue-x86.*#1  $hex in start \\(\\)\[\r\n\]+" "backtrace up to start()"
 
 gdb_test "set backtrace past-main 0" "" "disable past-main backtracing"
 
 gdb_test "b handler" "Breakpoint $decimal at 0x.*" "set breakpoint on handler"
 gdb_test "b func_under_mov_imm32_reg_in_prologue" "Breakpoint $decimal at 0x.*" "set breakpoint on func_under_mov_imm32_reg_in_prologue"
 gdb_test "b func_under_cmpl_in_prologue" "Breakpoint $decimal at 0x.*" "set breakpoint on func_under_cmpl_in_prologue"
-gdb_test "b func_under_objc_msgForward_pattern" "Breakpoint $decimal at 0x.*" "set breakpoint on func_under_objc_msgForward_pattern"
 
 gdb_test "continue" "Continuing.*Breakpoint $decimal, handler .sig=14. at .*prologue-x86.*" "continue to handler"
-gdb_test "bt" ".*#0  handler \\(sig=14\\) at .*prologue-x86.*#1  <signal handler called>.*#2  $hex in mach_wait_until \\(\\).*#3  $hex in nanosleep \\(\\).*#4  $hex in sleep \\(\\).*#5  $hex in signal_thrower \\(in=52042\\).*#6  $hex in func_over_signal_thrower \\(d=5.2.*" "backtrace in handler"
+gdb_test "bt" ".*#0  handler \\(sig=14\\) at .*prologue-x86.*#1  <signal handler called>.*#2  $hex in __semwait_signal_nocancel \\(\\).*#3  $hex in nanosleep.* \\(\\).*#4  $hex in sleep.* \\(\\).*#5  $hex in signal_thrower \\(in=52042\\).*#6  $hex in func_over_signal_thrower \\(d=5.2.*" "backtrace in handler"
 
 gdb_test "fin" ".*Run till exit from #0  handler.*" "finish from handler to _sigtramp"
-gdb_test "bt" ".*#0  <signal handler called>.*#1  $hex in mach_wait_until \\(\\).*#2  $hex in nanosleep \\(\\).*#3  $hex in sleep \\(\\).*#4  $hex in signal_thrower \\(in=52042\\).*#5  $hex in func_over_signal_thrower \\(d=5.2.*" "backtrace in _sigtramp"
+gdb_test "bt" ".*#0  <signal handler called>.*#1  $hex in __semwait_signal_nocancel \\(\\).*#2  $hex in nanosleep.* \\(\\).*#3  $hex in sleep.* \\(\\).*#4  $hex in signal_thrower \\(in=52042\\).*#5  $hex in func_over_signal_thrower \\(d=5.2.*" "backtrace in _sigtramp"
 
-gdb_test "fin" ".*Run till exit from #0  <signal handler called>.*" "finish from _sigtramp to mach_wait_until"
-gdb_test "bt" ".*#0  $hex in mach_wait_until \\(\\).*#1  $hex in nanosleep \\(\\).*#2  $hex in sleep \\(\\).*#3  $hex in signal_thrower \\(in=52042\\).*#4  $hex in func_over_signal_thrower \\(d=5.2.*" "backtrace in mach_wait_until"
+gdb_test "fin" ".*Run till exit from #0  <signal handler called>.*" "finish from _sigtramp to __semwait_signal_nocancel"
+gdb_test "bt" ".*#0  $hex in __semwait_signal_nocancel \\(\\).*#1  $hex in nanosleep.* \\(\\).*#2  $hex in sleep.* \\(\\).*#3  $hex in signal_thrower \\(in=52042\\).*#4  $hex in func_over_signal_thrower \\(d=5.2.*" "backtrace in mach_wait_until"
 
 
 gdb_test "continue" "Continuing.*Breakpoint $decimal, func_under_mov_imm32_reg_in_prologue .in=157. at .*prologue-x86.*" "continue to func_under_mov_imm32_reg_in_prologue"
@@ -94,12 +93,6 @@ gdb_test "bt" ".*#0  func_under_cmpl_in_prologue \\(in=5\\) at .*pro.*#1  $hex i
 gdb_test "fin" ".*Run till exit from #0  func_under_cmpl_in_prologue.*" "finish from func_under_cmpl_in_prologue to cmpl_in_prologue"
 gdb_test "bt" ".*#0  $hex in cmpl_in_prologue \\(\\) at .*prologue.*#1  $hex in func_over_cmpl_in_prologue .d=5, f=10. at .*prologue.*#2  $hex in main \\(argc=1.*" "backtrace in cmpl_in_prologue"
 
-
-gdb_test "continue" "Continuing.*Breakpoint $decimal, func_under_objc_msgForward_pattern .in=99. at .*prologue-x86.*" "continue to func_under_objc_msgForward_pattern"
-gdb_test "bt" ".*#0  func_under_objc_msgForward_pattern \\(in=99\\) at .*pro.*#1  $hex in objc_msgForward_pattern \\(\\) at .*prologue.*#2  $hex in func_over_objc_msgForward_pattern \\(in=$hex .hummingbirds.*#3  $hex in main \\(argc=1.*" "backtrace in func_under_objc_msgForward_pattern"
-
-gdb_test "fin" ".*Run till exit from #0  func_under_objc_msgForward_pattern.*" "finish from func_under_objc_msgForward_pattern to objc_msgForward_pattern"
-gdb_test "bt" ".*#0  $hex in objc_msgForward_pattern \\(\\) at .*prologue.*#1  $hex in func_over_objc_msgForward_pattern \\(in=$hex .hummingbirds.*#2  $hex in main \\(argc=1.*" "backtrace in objc_msgForward_pattern"
 
 gdb_exit
 return 0

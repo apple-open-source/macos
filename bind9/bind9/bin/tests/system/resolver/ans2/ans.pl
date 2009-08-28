@@ -15,7 +15,7 @@
 # OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 # PERFORMANCE OF THIS SOFTWARE.
 
-# $Id: ans.pl,v 1.7.18.2 2007/12/02 23:46:31 tbox Exp $
+# $Id: ans.pl,v 1.10 2007/09/24 04:13:25 marka Exp $
 
 #
 # Ad hoc name server

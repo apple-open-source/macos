@@ -1,0 +1,315 @@
+commit a9a8778a984e69007d77227969b0103b2a81e4c8
+Author: Julien Cristau <jcristau@debian.org>
+Date:   Sun May 11 00:50:20 2008 +0200
+
+    Bump to 1.0.4
+
+commit b3046750c37837dfe6d2a488361a1c78abdce138
+Author: Juliusz Chroboczek <jch@pps.jussieu.fr>
+Date:   Sun May 11 00:46:52 2008 +0200
+
+    Use va_copy in vsprintf_alloc.
+    This avoids a crash on arches with an interesting implementation of va_list
+    (such as AMD64) but no vasprintf in their libc.
+
+commit a0d110f283e387e9c594d422c5c75cb593def91e
+Author: Julien Cristau <jcristau@debian.org>
+Date:   Sun May 11 00:45:51 2008 +0200
+
+    Add autoconf test for va_copy.
+
+commit e583311c8a73a675fc3396fe24cdafcad53e60e5
+Author: Julien Cristau <jcristau@debian.org>
+Date:   Sun May 11 00:32:05 2008 +0200
+
+    Use autoconf test instead of #ifdef GLIBC for vasprintf.
+
+commit 8e36cc8647b27a4d14cf3f63045410db79fb98a3
+Author: Juliusz Chroboczek <jch@pps.jussieu.fr>
+Date:   Sun May 11 00:30:12 2008 +0200
+
+    Rename *_reliable to *_alloc.
+
+commit 867c33d332abe479ab088f98e01c06800203a3e0
+Author: Juliusz Chroboczek <jch@pps.jussieu.fr>
+Date:   Sun May 11 00:01:38 2008 +0200
+
+    Update copyright date.
+
+commit 4ecd697abe1026eb27e1373bf357ebca2ade4138
+Author: Juliusz Chroboczek <jch@pps.jussieu.fr>
+Date:   Fri May 2 19:24:21 2008 +0200
+
+    Use asprintf on GNU platforms.
+    This fixes fonttosfnt on AMD64 with glibc.  It will still break on
+    non-GNU RISC platforms, because I'm incompetent and cannot use va_copy.
+
+commit 5cb6dcac85b89deea8263e1b7bcb7714e07063ff
+Author: George Williams <gww@silcom.com>
+Date:   Fri May 2 19:14:58 2008 +0200
+
+    Fix handling for non-square pixels.
+
+commit 95a16fb0001abcea6a12b4eb2e1a1d24ab83d5fa
+Author: George Williams <gww@silcom.com>
+Date:   Fri May 2 19:09:09 2008 +0200
+
+    Fix off-by-one entrySel field.
+
+commit bbab34919743990bf87935480092f7644f8f02fc
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Mar 13 13:19:11 2008 -0400
+
+    I’m not sure the PCLT table is needed by the fonts generated here, but
+    use a fixed 16 char string as the initializer for the PCLT Fontname field
+    to silence the warning (or error for some compilers) as reported in bugzilla:
+    
+    http://bugs.freedesktop.org/show_bug.cgi?id=3928
+
+commit 5bf16aed7ba59559a636552811f7267d79a746bb
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Mon Sep 3 05:51:00 2007 -0400
+
+    Add *~ to .gitignore to skip patch/emacs droppings
+
+commit 64474e003376039cf485fa6eb41d241170397ab4
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Aug 10 16:21:44 2007 -0700
+
+    Change fonttosfnt_CFLAGS to AM_CFLAGS to make automake-1.10 happier
+
+commit 0c316fb4aadf26bea5784974cd484483d6322b5c
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Sat Dec 16 01:37:31 2006 +0200
+
+    bump to 1.0.3
+
+commit 0eba2afb80bf17c0a2d2753ff92c1986211d92be
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Wed Dec 6 19:01:27 2006 +0200
+
+    Makefile.am: make ChangeLog hook safer
+    Make ChangeLog hook as safe as possible.
+
+commit 8c2de974ec3df06a547906474ced5ffb4a07a6b5
+Author: Juliusz Chroboczek <jch@pps.jussieu.fr>
+Date:   Tue Oct 31 01:48:49 2006 +0100
+
+    Fix author address in manual page, update COPYING.
+
+commit e734cef9baff470a5e913f2e9ac7e0ce649ea7dc
+Author: Adam Jackson <ajax@benzedrine.nwnk.net>
+Date:   Fri Oct 13 17:30:24 2006 -0400
+
+    Bump to 1.0.2
+
+commit 72caf26ad336b3de9af3e640f939ea2cd0caa42b
+Author: Adam Jackson <ajax@benzedrine.nwnk.net>
+Date:   Thu Oct 12 20:56:01 2006 -0400
+
+    Fix the ChangeLog hook to distcheck.
+
+commit b30bd59af161fc0907d497101f10705c7b575008
+Author: Matthieu Herrb <matthieu@reactor.herrb.com>
+Date:   Sun Jul 16 10:43:55 2006 +0200
+
+    Replace ChangeLog with a auto-generated git-log
+
+commit f5d7f68599f4d2ec86df0910f8c823b8feabc6db
+Author: Matthieu Herrb <matthieu@reactor.herrb.com>
+Date:   Sun Jul 16 10:32:52 2006 +0200
+
+    .cvsignore -> .gitignore
+
+commit b651f24b766c9e76dec8a14c68623f4b7fa68141
+Author: Matthieu Herrb <matthieu@reactor.herrb.com>
+Date:   Sun Jul 16 10:31:26 2006 +0200
+
+    Don't include freetype internal headers.
+
+commit d00a25b26be87fdc06e20b0616f2fa34fe34e0b0
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 21 02:29:42 2005 +0000
+
+    Update package version for X11R7 release.
+
+commit 697369878ec5ce26d0ab88efd2b58129c5a56881
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon Dec 19 16:22:40 2005 +0000
+
+    Stub COPYING files
+
+commit 7aa1cd75f6164d1bf33e11464e7c4edb32f29dd6
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:02 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit 465400df7122f178102fac935ca6138d8a6cfbeb
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Dec 6 22:48:16 2005 +0000
+
+    Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+commit d76c640e4172b32112e527e83458345da3fc715c
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:15 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit 0f9a04d1abab2760d3cb145b0e907c8509c8d3e7
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Nov 28 22:01:36 2005 +0000
+
+    Change *mandir targets to use new *_MAN_DIR variables set by xorg-macros.m4
+        update to fix bug #5167 (Linux prefers *.1x man pages in man1 subdir)
+
+commit 7225a9cdbd7b683d78bca2464d89bbe51fe185cd
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Mon Nov 21 10:34:55 2005 +0000
+
+    Another pass at .cvsignores for apps.
+
+commit bc943ad21ca3c46b48dcec0954ed80129ac3d4ac
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Sun Nov 20 22:08:48 2005 +0000
+
+    Add/improve .cvsignore files for apps.
+
+commit 270074ea7d3194b91cd14c17f750c4965f7ba9fb
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sun Nov 20 18:14:10 2005 +0000
+
+    fonttosfnt only depends on xproto headers, not x11 library
+
+commit 8221726955cf4be32d56b63d95c119d0f5ad3749
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Nov 9 21:09:19 2005 +0000
+
+    Update package version number for X11R7 RC2 release.
+
+commit 26f1c8de351a6c56aafa337b6002a345e835e017
+Author: Kean Johnson <kean@armory.com>
+Date:   Tue Nov 8 06:33:31 2005 +0000
+
+    See ChangeLog entry 2005-11-07 for details.
+
+commit 7827761d51b92f82e457df0c132b52817a5c2783
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:47:48 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit 9d4c03cd1be37e2c300b45b250ed52bcfdda65f2
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Oct 17 23:56:19 2005 +0000
+
+    Use @APP_MAN_SUFFIX@ instead of $(APP_MAN_SUFFIX) in macro substitutions to
+        work better with BSD make
+
+commit 0dfc246519b4e2d4e2dee91835c762b1263c5a90
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Oct 14 00:25:41 2005 +0000
+
+    Use sed to fill in variables in man page
+
+commit 21d2888221fbb156398cb69d12798d2c16f3c8a0
+Author: Matthieu Herrb <matthieu.herrb@laas.fr>
+Date:   Sun Sep 11 12:43:13 2005 +0000
+
+    change the order of option to prevent automake from inserting a line break
+        that causes problems with BSD make later.
+
+commit fcfbfe0f7ddb621b1b0e99fba6b386221fb56263
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Aug 1 20:25:27 2005 +0000
+
+    Install man pages to section 1 instead of section m (Patch from Donnie
+        Berkholz)
+
+commit 257b9388fc234b2f8d515124784ce9e42db6bb0d
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Jul 30 19:32:32 2005 +0000
+
+    Add -D flags to clear more compiler warnings (Stefan Dirsch)
+
+commit 31913e37864f621db1bd6c7e578cad1ade060f84
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:28 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit ed904c57d881eb9bcd09aeb8722fbb55687f3600
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Wed Jul 20 19:31:48 2005 +0000
+
+    Use a unique token for PKG_CHECK_MODULES. Otherwise, if you use a global
+        configure cache, you cache it, and the cached value is probably wrong.
+
+commit b209b9a7f683c10a77ed2e03da79b7ac1abc4844
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Wed Jul 6 19:46:18 2005 +0000
+
+    Build system for fonttosfnt
+
+commit e8571878caa5d35f712e158a45391584da3d5e47
+Author: Egbert Eich <eich@suse.de>
+Date:   Mon May 24 19:06:59 2004 +0000
+
+    Fix build glitches when building modules independently using Imake.
+
+commit 417d53e38e84d63dfa2705f41d46ec1df777a8ad
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 19:54:32 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit 3d00e4afa32385f6926fcd61dfa071f263a773a3
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:34:50 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit 7e303eeeac4b6ffd8b04f8372a7466d59acadbca
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:12:50 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit 8e100bba2b23ab7f91e7635de5e36f82ecbebbee
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:36:15 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit be4a578da6742e6298edae3ec9ba56c331c89ba4
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:23:54 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit 24fddb6f3214189dae072f375403462d5e9f6091
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Dec 19 20:55:44 2003 +0000
+
+    XFree86 4.3.99.902 (RC 2)
+
+commit f570299bb0f2a55e3059d1f4b42cb3d40a92793a
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:29:02 2003 +0000
+
+    XFree86 4.3.99.16 Bring the tree up to date for the Cygwin folks
+
+commit a46389d96c54351cd95614f1e5eae495f51957f0
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:29:02 2003 +0000
+
+    Initial revision

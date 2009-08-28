@@ -1,0 +1,241 @@
+2008-10-26 Arjen Markus  <arjenmarkus@users.sourceforge.net>
+        * plotaxis.tcl: Correct small glitch in drawing the legend (reported by Simon Geard)
+
+2008-05-18 Arjen Markus  <arjenmarkus@users.sourceforge.net>
+        * plotchart.tcl: Remove interpreter alias for right axis in case of resizing)
+        * plotaxis.tcl: Draw entries for right axis in the legend for the left axis
+
+2008-05-16 Arjen Markus  <arjenmarkus@users.sourceforge.net>
+        * plotchart.tcl: Refined check in right axis, remove any leftover information
+                         (problem occurring with resizing - Francis Courtois)
+        * plotaxis.tcl: Corrected mistake with drawing right axis (Francis Courtois)
+        * plotaxis.tcl: Applied patch regarding ticklines with time axes (Nick Matthews)
+
+2008-02-24 Arjen Markus  <arjenmarkus@users.sourceforge.net>
+        * pkgIndex.tcl: Increased version number to 1.5.1, require Tcl/Tk 8.4
+        * plotchart.man: Added plotpack command
+        * plotchart.tcl: Added plotpack command
+        * plotpack.tcl: Added plotpack command
+
+2008-02-22 Arjen Markus  <arjenmarkus@users.sourceforge.net>
+        * pkgIndex.tcl: Increased version number to 1.5, require Tcl/Tk 8.4
+        * plotconfig.tcl: Added this file for configuring the plots
+        * plotchart.tcl: Support for configuration command, also incorporated patch by Michael Baudin
+        * plotaxis.tcl: Support for configuration command
+        * plotpriv.tcl: Support for configuration command and graded bars in a barchart
+        * scaling.tcl: Corrected optional argument to determineScale
+        * plotdemos7.tcl: Added examples of configuring the plots
+        * plotannot.tcl: Graded bars in a barchart
+
+2008-01-25 Arjen Markus  <arjenmarkus@users.sourceforge.net>
+        * pkgIndex.tcl: Corrected version number
+
+2007-09-07 Arjen Markus  <arjenmarkus@users.sourceforge.net>
+        * plotchart.man: Added description of how to handle resizing
+        * plotchart.tcl: Changed from [$w cget -width] to [winfo width $w]
+        * plotpriv.tcl: Ditto
+
+2007-06-19 Arjen Markus  <arjenmarkus@users.sourceforge.net>
+        * plotchart.man: Corrected syntax error
+
+2007-06-16 Arjen Markus  <arjenmarkus@users.sourceforge.net>
+        * plotchart.man: Documented the createTXPlot method (for time-x plots)
+        * plotpriv.tcl: Added the DrawTimeData method and proper support for legends
+                        in barcharts
+        * plotaxis.tcl: Added drawing rectangles in legends
+        * plotdemos1.tcl: Extended the barchart with a legend and added
+                          data to the TX-plot
+
+2007-06-12 Arjen Markus  <arjenmarkus@users.sourceforge.net>
+        * plotchart.man: Documented a tip by Bernhard Wallner (number of
+                         series can be floating-point)
+        * plotaxis.tcl: Corrected a few typos in drawing the legend
+        * plotdemos1.tcl: Apply Bernhard's tip to see the effect
+
+2007-06-02 Arjen Markus  <arjenmarkus@users.sourceforge.net>
+        * plotchart.man: Documentation of background options, 3D ribbon charts
+        * plotchart.tcl: 3D ribbon plot added
+        * plotpriv.tcl: Support for extra background options and filling data series
+        * plotannot.tcl: Image and gradient background options, 3D ribbon charts
+        * plotdemos2.tcl: Demonstration of background options
+        * plotbus.test: Demonstration of 3D ribbon charts
+
+2007-05-28 Arjen Markus  <arjenmarkus@users.sourceforge.net>
+        * plotchart.man: Documentation of rchart subcommand
+        * plotchart.tcl: Support for drawing an R-chart
+        * plotpriv.tcl: Support for drawing an R-chart
+        * plotdemos6.tcl: Demonstration of R-chart
+
+2007-05-27 Arjen Markus  <arjenmarkus@users.sourceforge.net>
+        * plotchart.man: Documentation of dot subcommand
+        * plotchart.tcl: Support for drawing dots
+        * plotpriv.tcl: Support for drawing dots, corrected mistakes in vector drawing
+        * plotdemos6.tcl: Demonstration of dots and vectors
+
+2007-05-26 Arjen Markus  <arjenmarkus@users.sourceforge.net>
+        * plotchart.man: Documentation of right-hand axis, vectors
+        * plotchart.tcl: Support for right-hand axis, vectors
+        * plotpriv.tcl: Support for drawing vectors
+        * plotaxis.tcl: Support for right-hand axis, tickmarks
+        * plot3d.tcl: Draw tickmarks at 3D axes
+        * scaling.tcl: Suppress testing output (time axis)
+
+2007-05-14 Arjen Markus  <arjenmarkus@users.sourceforge.net>
+        * plotchart.tcl: Added an interval and a trend method for XY plots
+        * plotpriv.tcl: Implementation of the interval and trend methods
+        * plotdemo1.tcl: Examples of these methods
+
+2007-05-03 Arjen Markus  <arjenmarkus@users.sourceforge.net>
+        * plotpriv.tcl: Expanded the saveplot method (other file formats
+                        than PostScript via Img)
+
+2007-04-30 Arjen Markus  <arjenmarkus@users.sourceforge.net>
+        * plotchart.tcl: Added radial chart
+        * plotpriv.tcl:  Added routines for radial chart
+        * plotchart.man: Description of radial chart
+        * plotchart.test: Test for such charts
+        * plotdemos4.tcl: New set of demos - 3D bars and radial charts
+        * plotdemos5.tcl: New set of demos - contour plots
+
+2007-04-29 Arjen Markus  <arjenmarkus@users.sourceforge.net>
+        * plotchart.tcl: Added balloon text
+        * plotchart.man: Description of balloon text
+        * plotchart.test: Test for balloon text and Gantt chart
+        * plotannot.tcl: File with procedures for annotations
+
+2007-04-17 Arjen Markus  <arjenmarkus@users.sourceforge.net>
+        * plotchart.tcl: Added 3D barchart
+        * plotchart.man: Description of 3D barchart
+        * plotbusiness.tcl: File with procedures for business-type charts
+
+2007-02-10 Arjen Markus  <arjenmarkus@users.sourceforge.net>
+        * plotchart.man: Description of legend commands
+        * plotchart.tcl: Raised version to 1.2
+        * pkgIndext.tcl: Raised version to 1.2
+
+        * Still to do:
+          - draw integer numbers, if the axis numbers _are_ integer
+          - add a facility for displaying balloon text
+
+2007-02-09 Arjen Markus  <arjenmarkus@users.sourceforge.net>
+        * plotchart.tcl: Added commands for drawing and configuring
+                         the legend
+        * plotaxis.tcl: Actual procedures for legend
+        * plotpriv.tcl: Small change in procedure to plot symbols
+        * plotchart.test: Added commands to test legend
+
+        * Still to do:
+          - document the legend commands
+          - draw integer numbers, if the axis numbers _are_ integer
+          - add a facility for displaying balloon text
+
+2007-02-09  Andreas Kupries  <andreask@activestate.com>
+
+	* plotchart.man: Fixed syntax errors introduced by last checkin,
+	  consistently missing closing brackets. It is strongly
+	  recommended to run a command like './sak.tcl nroff plotchart'
+	  from the tklib toplevel directory before doc changes checking
+	  in.
+
+2007-02-08 Arjen Markus  <arjenmarkus@users.sourceforge.net>
+
+        * plotchart.tcl: Added commands for background colour,
+                         ticklines
+        * plotaxis.tcl: Support for ticklines
+        * plotpriv.tcl: Support for background
+        * plotchart.test: Added commands to test ticklines and
+                          background for several plot types
+        * plotchart.man: Description of the new commands
+
+2006-06-05 Arjen Markus  <arjenmarkus@users.sourceforge.net>
+
+        * plotchart.tcl: Added a histogram procedure
+        * plotpriv.tcl: Added a procedure to draw histogram data
+        * plotchart.test: Added a test for histogram data
+        * plotchart.man: Description for histograms
+
+2006-04-24 Arjen Markus  <arjenmarkus@users.sourceforge.net>
+
+        * plotpriv.tcl: Added support for missing values
+        * plotchart.man: Description added for missing values
+
+2005-11-10  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tklib 0.4.1 ========================
+	*
+
+2005-11-04 Arjen Markus  <arjenmarkus@users.sourceforge.net>
+
+        * Changed file permissions: no execute anymore
+
+2005-11-02  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tklib 0.4 ========================
+	*
+
+2005-10-24  Andreas Kupries <andreask@activestate.com>
+
+	* plotchart.test: Added check for Tcl 8.3, minimum version of Tcl
+	  required by the charts.
+
+	* pkgIndex.tcl: Sync'd the package version with implementation and
+	  documentation.
+
+2005-06-14 Arjen Markus  <arjenmarkus@users.sourceforge.net>
+
+        * plotgantt.tcl: Expanded Gantt charts with one more
+          procedure - drawing "summary" items
+        * Added documentation on Gantt charts
+        * Moved the example to the examples directory
+
+2005-06-13 Arjen Markus  <arjenmarkus@users.sourceforge.net>
+
+        * plotchart.tcl: Added new chart type, Gantt charts
+        * plotgantt.tcl: Procedures for Gantt charts (new file)
+        * No documentation yet
+
+2005-05-10  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* plotchart.man: Fixed trivial syntax error in update.
+
+2005-05-10  Arjen Markus  <arjenmarkus@users.sourceforge.net>
+
+        * plotchart.man: Added documentation of plotfuncont method.
+        * Corrected description for "cool" colour map
+
+2005-04-15  Arjen Markus  <arjenmarkus@users.sourceforge.net>
+
+        * Updated the documentation, changed name (colourmap
+          has become colorMap).
+        * Mark Stucky provided the latest updates of the
+          main procedures
+
+2005-03-11  Arjen Markus  <arjenmarkus@users.sourceforge.net>
+
+        * Solved problem with plotcontour.test (works correctly
+          from sak.tcl now - still requires formalisation)
+
+2005-03-04  Arjen Markus  <arjenmarkus@users.sourceforge.net>
+
+        * Added the contour plotting routines by Mark Stucky
+          (Documentation for 3D contour plot still missing)
+
+2004-09-29  Arjen Markus  <arjenmarkus@users.sourceforge.net>
+
+        * Fixed bug 1035281 - wrong scaling for -1.7 -- 26.8
+          (new test case)
+        * Fixed dependency on -nocomplain flag for unset (plotpriv.tcl)
+          Plotchart should work with Tcl 8.3 now
+
+2004-08-19  Arjen Markus  <arjenmarkus@users.sourceforge.net>
+
+	* Added modifications by Stefan Finzel.
+	* One public procedure added: pixelToIndex (by Stefan Finzel)
+	* Added export of several described (public) procedures that were missing
+
+2004-04-15  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* New module 'plotchart', by Arjen Markus.
+

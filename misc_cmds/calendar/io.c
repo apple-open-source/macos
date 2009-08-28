@@ -44,7 +44,7 @@ static char sccsid[] = "@(#)calendar.c  8.3 (Berkeley) 3/25/94";
 #endif
 
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/usr.bin/calendar/io.c,v 1.19 2002/07/28 13:46:09 jmallett Exp $");
+__FBSDID("$FreeBSD: src/usr.bin/calendar/io.c,v 1.24 2007/12/30 22:04:04 grog Exp $");
 
 #include <sys/types.h>
 #include <sys/param.h>
@@ -61,10 +61,7 @@ __RCSID("$FreeBSD: src/usr.bin/calendar/io.c,v 1.19 2002/07/28 13:46:09 jmallett
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
-#include <sys/uio.h>
 #include <unistd.h>
-
 
 #include "pathnames.h"
 #include "calendar.h"
@@ -88,7 +85,7 @@ struct iovec header[] = {
 
 
 void
-cal()
+cal(void)
 {
 	int printing;
 	char *p;
@@ -99,6 +96,7 @@ cal()
 	int var;
 	static int d_first = -1;
 	char buf[2048 + 1];
+	struct event *events = NULL;
 
 	if ((fp = opencal()) == NULL)
 		return;
@@ -158,25 +156,109 @@ cal()
 				(void)strftime(dbuf, sizeof(dbuf),
 					       d_first ? "%e %b" : "%b %e",
 					       &tm);
-				(void)fprintf(fp, "%s%c%s\n", dbuf,
-				    var ? '*' : ' ', p);
+				events = event_add(events, month, day, dbuf, var, p);
 			}
 		}
 		else if (printing)
-			fprintf(fp, "%s\n", buf);
+			event_continue(events, buf);
 	}
+
+	event_print_all(fp, events);
 	closecal(fp);
 }
 
+/*
+ * Functions to handle buffered calendar events.
+ */
+struct event *
+event_add(struct event *events, int month, int day, char *date, int var, char *txt)
+{
+	struct event *e;
+
+	e = (struct event *)calloc(1, sizeof(struct event));
+	if (e == NULL)
+		errx(1, "event_add: cannot allocate memory");
+	e->month = month;
+	e->day = day;
+	e->var = var;
+	e->date = strdup(date);
+	if (e->date == NULL)
+		errx(1, "event_add: cannot allocate memory");
+	e->text = strdup(txt);
+	if (e->text == NULL)
+		errx(1, "event_add: cannot allocate memory");
+	e->next = events;
+
+	return e;
+}
+
+void
+event_continue(struct event *e, char *txt)
+{
+	char *text;
+
+	text = strdup(e->text);
+	if (text == NULL)
+		errx(1, "event_continue: cannot allocate memory");
+
+	free(e->text);
+	e->text = (char *)malloc(strlen(text) + strlen(txt) + 3);
+	if (e->text == NULL)
+		errx(1, "event_continue: cannot allocate memory");
+	strcpy(e->text, text);
+	strcat(e->text, "\n");
+	strcat(e->text, txt);
+	free(text);
+
+	return;
+}
+
+void
+event_print_all(FILE *fp, struct event *events)
+{
+	struct event *e, *e_next;
+	int daycount = f_dayAfter + f_dayBefore;
+	int daycounter;
+	int day, month;
+
+	for (daycounter = 0; daycounter <= daycount; daycounter++) {
+		day = tp->tm_yday - f_dayBefore + daycounter;
+		if (day < 0) day += yrdays;
+		if (day >= yrdays) day -= yrdays;
+
+		month = 1;
+		while (month <= 12) {
+			if (day <= cumdays[month])
+				break;
+			month++;
+		}
+		month--;
+		day -= cumdays[month];
+
+#ifdef DEBUG
+		fprintf(stderr,"event_print_allmonth: %d, day: %d\n",month,day);
+#endif
+
+		for (e = events; e != NULL; e = e_next ) {
+			e_next = e->next;
+
+			if (month != e->month || day != e->day)
+				continue;
+
+			(void)fprintf(fp, "%s%c%s\n", e->date,
+			    e->var ? '*' : ' ', e->text);
+		}
+	}
+}
+
 int
-getfield(p, endp, flags)
-	char *p, **endp;
-	int *flags;
+getfield(char *p, char **endp, int *flags)
 {
 	int val, var;
 	char *start, savech;
 
-	for (; !isdigit((unsigned char)*p) && !isalpha((unsigned char)*p) && *p != '*'; ++p);
+	for (; !isdigit((unsigned char)*p) && !isalpha((unsigned char)*p)
+               && *p != '*'; ++p);
 	if (*p == '*') {			/* `*' is current month */
 		*flags |= F_ISMONTH;
 		*endp = p+1;
@@ -184,16 +266,17 @@ getfield(p, endp, flags)
 	}
 	if (isdigit((unsigned char)*p)) {
 		val = strtol(p, &p, 10);	/* if 0, it's failure */
-		for (; !isdigit((unsigned char)*p) && !isalpha((unsigned char)*p) && *p != '*'; ++p);
+		for (; !isdigit((unsigned char)*p)
+                       && !isalpha((unsigned char)*p) && *p != '*'; ++p);
 		*endp = p;
 		return (val);
 	}
 	for (start = p; isalpha((unsigned char)*++p););
-	
+
 	/* Sunday-1 */
-	if (*p == '+' || *p == '-') 
+	if (*p == '+' || *p == '-')
 	    for(; isdigit((unsigned char)*++p););
-	    
+
 	savech = *p;
 	*p = '\0';
 
@@ -212,7 +295,7 @@ getfield(p, endp, flags)
 #ifdef DEBUG
 		printf("var: %d\n", var);
 #endif
-	    } 
+	    }
 	}
 
 	/* Easter */
@@ -228,7 +311,8 @@ getfield(p, endp, flags)
 		*p = savech;
 		return (0);
 	}
-	for (*p = savech; !isdigit((unsigned char)*p) && !isalpha((unsigned char)*p) && *p != '*'; ++p);
+	for (*p = savech; !isdigit((unsigned char)*p)
+               && !isalpha((unsigned char)*p) && *p != '*'; ++p);
 	*endp = p;
 	return (val);
 }
@@ -236,7 +320,7 @@ getfield(p, endp, flags)
 char path[MAXPATHLEN];
 
 FILE *
-opencal()
+opencal(void)
 {
 	uid_t uid;
 	size_t i;
@@ -253,7 +337,10 @@ opencal()
 		    if (!freopen(calendarFile, "r", stdin))
 		        return (NULL);
 		} else {
-		        chdir(getenv("HOME"));
+			char *home = getenv("HOME");
+			if (home == NULL || *home == '\0')
+				errx(1, "cannot get home directory");
+			chdir(home);
 			for (found = i = 0; i < sizeof(calendarHomes) /
 			    sizeof(calendarHomes[0]); i++)
 			    if (chdir(calendarHomes[i]) == 0 &&
@@ -262,7 +349,8 @@ opencal()
 				    break;
 			    }
 			if (!found)
-			    errx(1, "no calendar file: ``%s''", calendarFile);
+			    errx(1, "can't open calendar file \"%s\": %s (%d)",
+                                 calendarFile, strerror(errno), errno);
 		}
 	}
 	if (pipe(pdes) < 0)
@@ -294,7 +382,7 @@ opencal()
 		}
 		execl(_PATH_CPP, "cpp", "-P",
 		    "-traditional", "-nostdinc",	/* GCC specific opts */
-		    "-I.", "-I/usr/share/calendar", (char *)NULL);
+		    "-I.", "-I" _PATH_INCLUDE, (char *)NULL);
 		warn(_PATH_CPP);
 		_exit(1);
 	}
@@ -315,8 +403,7 @@ opencal()
 }
 
 void
-closecal(fp)
-	FILE *fp;
+closecal(FILE *fp)
 {
 	uid_t uid;
 	struct stat sbuf;

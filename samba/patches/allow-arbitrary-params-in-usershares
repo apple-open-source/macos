@@ -10,7 +10,7 @@ Index: samba/source/param/loadparm.c
     
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
-@@ -305,6 +306,7 @@ typedef struct {
+@@ -307,6 +308,7 @@ typedef struct {
  	BOOL bASUSupport;
  	BOOL bUsershareOwnerOnly;
  	BOOL bUsershareAllowGuests;
@@ -18,7 +18,7 @@ Index: samba/source/param/loadparm.c
  	int restrict_anonymous;
  	int name_cache_timeout;
  	int client_signing;
-@@ -1233,6 +1235,7 @@ static struct parm_struct parm_table[] =
+@@ -1249,6 +1251,7 @@ static struct parm_struct parm_table[] =
  	{"root postexec", P_STRING, P_LOCAL, &sDefault.szRootPostExec, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE | FLAG_PRINT}, 
  	{"available", P_BOOL, P_LOCAL, &sDefault.bAvailable, NULL, NULL, FLAG_BASIC | FLAG_ADVANCED | FLAG_SHARE | FLAG_PRINT}, 
  	{"usershare allow guests", P_BOOL, P_GLOBAL, &Globals.bUsershareAllowGuests, NULL, NULL, FLAG_ADVANCED},
@@ -26,7 +26,7 @@ Index: samba/source/param/loadparm.c
  	{"usershare max shares", P_INTEGER, P_GLOBAL, &Globals.iUsershareMaxShares, NULL, NULL, FLAG_ADVANCED},
  	{"usershare owner only", P_BOOL, P_GLOBAL, &Globals.bUsershareOwnerOnly, NULL, NULL, FLAG_ADVANCED}, 
  	{"usershare path", P_STRING, P_GLOBAL, &Globals.szUsersharePath, NULL, NULL, FLAG_ADVANCED},
-@@ -1667,6 +1670,8 @@ static void init_globals(BOOL first_time
+@@ -1686,6 +1689,8 @@ static void init_globals(BOOL first_time
  	Globals.bUsershareOwnerOnly = True;
  	/* By default disallow guest access to usershares. */
  	Globals.bUsershareAllowGuests = False;
@@ -35,7 +35,7 @@ Index: samba/source/param/loadparm.c
  }
  
  static TALLOC_CTX *lp_talloc;
-@@ -1922,6 +1927,7 @@ FN_GLOBAL_LIST(lp_usershare_prefix_deny_
+@@ -1943,6 +1948,7 @@ FN_GLOBAL_LIST(lp_usershare_prefix_deny_
  FN_GLOBAL_LIST(lp_eventlog_list, &Globals.szEventLogs)
  
  FN_GLOBAL_BOOL(lp_usershare_allow_guests, &Globals.bUsershareAllowGuests)
@@ -43,7 +43,7 @@ Index: samba/source/param/loadparm.c
  FN_GLOBAL_BOOL(lp_usershare_owner_only, &Globals.bUsershareOwnerOnly)
  FN_GLOBAL_BOOL(lp_disable_netbios, &Globals.bDisableNetbios)
  FN_GLOBAL_BOOL(lp_reset_on_zero_vc, &Globals.bResetOnZeroVC)
-@@ -4381,84 +4387,33 @@ static BOOL check_usershare_stat(const c
+@@ -4412,84 +4418,33 @@ static BOOL check_usershare_stat(const c
  }
  
  /***************************************************************************
@@ -141,7 +141,7 @@ Index: samba/source/param/loadparm.c
  		return USERSHARE_PATH_NOT_ABSOLUTE;
  	}
  
-@@ -4467,12 +4422,12 @@ enum usershare_err parse_usershare_file(
+@@ -4498,12 +4453,12 @@ enum usershare_err parse_usershare_file(
  	if (prefixdenylist) {
  		int i;
  		for ( i=0; prefixdenylist[i]; i++ ) {
@@ -158,7 +158,7 @@ Index: samba/source/param/loadparm.c
  				return USERSHARE_PATH_IS_DENIED;
  			}
  		}
-@@ -4484,16 +4439,16 @@ enum usershare_err parse_usershare_file(
+@@ -4515,16 +4470,16 @@ enum usershare_err parse_usershare_file(
  	if (prefixallowlist) {
  		int i;
  		for ( i=0; prefixallowlist[i]; i++ ) {
@@ -179,7 +179,7 @@ Index: samba/source/param/loadparm.c
  			return USERSHARE_PATH_NOT_ALLOWED;
  		}
          }
-@@ -4502,8 +4457,8 @@ enum usershare_err parse_usershare_file(
+@@ -4533,8 +4488,8 @@ enum usershare_err parse_usershare_file(
  	dp = sys_opendir(sharepath);
  
  	if (!dp) {
@@ -190,7 +190,7 @@ Index: samba/source/param/loadparm.c
  		return USERSHARE_PATH_NOT_DIRECTORY;
  	}
  
-@@ -4511,8 +4466,8 @@ enum usershare_err parse_usershare_file(
+@@ -4542,8 +4497,8 @@ enum usershare_err parse_usershare_file(
  	   this directory. */
  
  	if (sys_stat(sharepath, &sbuf) == -1) {
@@ -201,7 +201,7 @@ Index: samba/source/param/loadparm.c
  		sys_closedir(dp);
  		return USERSHARE_POSIX_ERR;
  	}
-@@ -4520,8 +4475,8 @@ enum usershare_err parse_usershare_file(
+@@ -4551,8 +4506,8 @@ enum usershare_err parse_usershare_file(
  	sys_closedir(dp);
  
  	if (!S_ISDIR(sbuf.st_mode)) {
@@ -212,7 +212,7 @@ Index: samba/source/param/loadparm.c
  		return USERSHARE_PATH_NOT_DIRECTORY;
  	}
  
-@@ -4531,7 +4486,8 @@ enum usershare_err parse_usershare_file(
+@@ -4562,7 +4517,8 @@ enum usershare_err parse_usershare_file(
  
  	if (lp_usershare_owner_only()) {
  		/* root can share anything. */
@@ -222,7 +222,7 @@ Index: samba/source/param/loadparm.c
  			return USERSHARE_PATH_NOT_ALLOWED;
  		}
  	}
-@@ -4539,6 +4495,282 @@ enum usershare_err parse_usershare_file(
+@@ -4570,6 +4526,282 @@ enum usershare_err parse_usershare_file(
  	return USERSHARE_OK;
  }
  
@@ -505,7 +505,7 @@ Index: samba/source/param/loadparm.c
  /***************************************************************************
   Deal with a usershare file.
   Returns:
-@@ -4548,21 +4780,20 @@ enum usershare_err parse_usershare_file(
+@@ -4579,21 +4811,20 @@ enum usershare_err parse_usershare_file(
  	    with permissions to share directory etc.
  ***************************************************************************/
  
@@ -531,7 +531,7 @@ Index: samba/source/param/loadparm.c
  
  	/* Ensure share name doesn't contain invalid characters. */
  	if (!validate_net_name(file_name, INVALID_SHARENAME_CHARS, strlen(file_name))) {
-@@ -4658,16 +4889,6 @@ static int process_usershare_file(const 
+@@ -4689,16 +4920,6 @@ static int process_usershare_file(const 
  		return 1;
  	}
  
@@ -548,7 +548,7 @@ Index: samba/source/param/loadparm.c
  	/* Everything ok - add the service possibly using a template. */
  	if (iService < 0) {
  		const service *sp = &sDefault;
-@@ -4678,24 +4899,50 @@ static int process_usershare_file(const 
+@@ -4709,24 +4930,50 @@ static int process_usershare_file(const 
  		if ((iService = add_a_service(sp, service_name)) < 0) {
  			DEBUG(0, ("process_usershare_file: Failed to add "
  				"new service %s\n", service_name));
@@ -605,7 +605,7 @@ Index: samba/source/param/loadparm.c
  	talloc_destroy(ctx);
  
  	/* If from a template it may be marked invalid. */
-@@ -4704,15 +4951,8 @@ static int process_usershare_file(const 
+@@ -4735,15 +4982,8 @@ static int process_usershare_file(const 
  	/* Set the service as a valid usershare. */
  	ServicePtrs[iService]->usershare = USERSHARE_VALID;
  

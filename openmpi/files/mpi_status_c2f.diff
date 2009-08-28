@@ -1,6 +1,0 @@
-+++ ompi/mpi/man/man3/MPI_Status_c2f.3~	2006-11-09 10:53:42.000000000 -0800
---- ompi/mpi/man/man3/MPI_Status_c2f.3	2007-07-30 17:04:50.000000000 -0700
-@@ -1,2 +1,2 @@
--.so man3/MPI_Status_c2f.3
-+.so man3/MPI_Status_f2c.3
- ' @(#)MPI_Status_c2f.3 1.12 06/03/09

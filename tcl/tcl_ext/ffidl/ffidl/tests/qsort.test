@@ -1,0 +1,91 @@
+#
+# test qsort binding and callback implementation
+#
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import -force ::tcltest::*
+}
+
+package require Ffidl
+package require Ffidlrt
+
+package require Qsort 0.1
+
+testConstraint callback [llength [info commands ::ffidl::callback]]
+
+test ffidl-qsort {ffidl qsort tests} {callback} {
+    set msg {}
+        
+    #
+    # I use these, in error, so often that I should just define them
+    #
+    proc ::ffidl::format {type} { ::ffidl::info format $type }
+    proc ::ffidl::sizeof {type} { ::ffidl::info sizeof $type }
+    
+    #
+    # compare ints given pointers
+    #
+    proc cmp.int {p1 p2} {
+        binary scan [::ffidl::peek $p1 [::ffidl::sizeof int]] [::ffidl::format int] v1
+        binary scan [::ffidl::peek $p2 [::ffidl::sizeof int]] [::ffidl::format int] v2
+        #append msg "cmp.int $p1 $p2 -> $v1 $v2 -> [expr {$v1-$v2}]" "\n"
+        expr {$v1-$v2}
+    }
+    
+    #
+    # define callback
+    #
+    ::ffidl::callback cmp.int {pointer pointer} int
+    
+    #
+    # display a list of ints
+    #
+    proc print.ints {ints} {
+        foreach {i1 i2 i3 i4 i5 i6 i7 i8} $ints {
+            append msg "$i1 $i2 $i3 $i4 $i5 $i6 $i7 $i8" "\n"
+        }
+    }
+    
+    #
+    # construct a binary array of random ints
+    #
+    set n 128
+    for {set i 0} {$i < $n} {incr i} {
+        lappend ints [expr {int(1000*rand())}]
+    }
+    #append msg before "\n"
+    #print.ints $ints
+    set lsorted [lsort -integer $ints]
+    
+    set ints [binary format [::ffidl::format int]* $ints]
+    
+    #
+    # qsort them
+    #
+    qsort ints $n [::ffidl::sizeof int] cmp.int
+    
+    #
+    # convert back to Tcl
+    #
+    binary scan $ints [::ffidl::format int]* ints
+    
+    #
+    # write them out
+    #
+    #append msg after "\n"
+    #print.ints $ints
+    
+    if {[string compare $lsorted $ints] != 0} {
+        append msg "lsorted list:" "\n"
+        print.ints $lsorted
+        append msg "qsorted list:" "\n"
+        print.ints $ints
+    }
+    set msg
+    
+} {}
+
+# cleanup
+::tcltest::cleanupTests
+return

@@ -1,0 +1,187 @@
+<!DOCTYPE article [
+  <!ENTITY version "2.6">
+]>
+<article>
+  <articleinfo>
+    <title>DOM Binding For Tcl</title>
+    <subtitle>TclDOM</subtitle>
+
+    <releaseinfo>$Id: README.xml,v 1.1 2003/03/09 11:14:56 balls Exp $</releaseinfo>
+
+    <revhistory>
+      <revision>
+	<revnumber>&version;</revnumber>
+      </revision>
+    </revhistory>
+
+    <author>
+      <firstname>Steve</firstname>
+      <surname>Ball</surname>
+      <affiliation>
+	<orgname>Zveno Pty Ltd</orgname>
+	<address>
+	  <otheraddr>
+	    <ulink url='http://www.zveno.com/'>www.zveno.com</ulink>
+	  </otheraddr>
+	</address>
+      </affiliation>
+    </author>
+  </articleinfo>
+
+  <para>This package provides a DOM binding for Tcl.  It provides the following implementations:</para>
+
+  <itemizedlist>
+    <listitem>
+      <para>A Tcl-only implementation (slow, but no compilation required),</para>
+    </listitem>
+    <listitem>
+      <para>A C-based implementation based on TclDOMPro (fast),</para>
+    </listitem>
+    <listitem>
+      <para>A wrapper for the <ulink url='http://xmlsoft.org/'>Gnome libxml2 library</ulink> (also fast and compatiable with <ulink url='http://tclxml.sourceforge.net/tclxslt.html'>TclXSLT/libxslt</ulink>).</para>
+    </listitem>
+  </itemizedlist>
+
+  <para>See <ulink url='http://tclxml.sourceforge.net/'>the TclXML website</ulink> for more information on XML support for Tcl.</para>
+
+  <para>Contact <ulink url='mailto:Steve.Ball@zveno.com'>Steve Ball</ulink> for information about this release.</para>
+
+  <section>
+    <title>Installation</title>
+
+    <para>How you install the package depends on which components you require.</para>
+
+    <section>
+      <title>Dependencies</title>
+
+      <para>All in cases, the following packages must be installed before attempting to install TclDOM.</para>
+
+      <variablelist>
+	<varlistentry>
+	  <term>Tcllib</term>
+	  <listitem>
+	    <para><ulink url='http://dev.scriptics.com/software/tcllib/'>http://dev.scriptics.com/software/tcllib/</ulink></para>
+
+	    <para>In order for the Tcl-only parser to resolve external entities, the tcllib package must be installed.</para>
+
+	    <para>Be sure to get a version which includes the <tclpackage>uri</tclpackage> package.  Version 1.2 or better is recommended.</para>
+	    <itemizedlist>
+	      <listitem>
+		<para><ulink url='ftp://prdownloads.sf.net/tcllib/tcllib-1.3.tar.gz'>GZip'd tarball</ulink></para>
+	      </listitem>
+	      <listitem>
+		<para><ulink url='ftp://prdownloads.sf.net/tcllib/tcllib-1.3.zip'>ZIP file</ulink></para>
+	      </listitem>
+	    </itemizedlist>
+	    <para>The latest CVS snapshot may be found at <ulink url='http://sourceforge.net/projects/tcllib'>the SourceForge project page</ulink>.</para>
+	  </listitem>
+	</varlistentry>
+
+	<varlistentry>
+	  <term>TclXML</term>
+	  <listitem>
+	    <para>First install <ulink url='http://tclxml.sourceforge.net/tclxml.html'>TclXML version &version;</ulink>.</para>
+
+	    <note>You must install the same numbered version as this package, ie. &version;.</note>
+	  </listitem>
+	</varlistentry>
+      </variablelist>
+    </section>
+
+    <section>
+      <title>Pure-Tcl Installation</title>
+      <subtitle>no compilation required</subtitle>
+
+      <para>The <filename>install.tcl</filename> script will install the pure-Tcl DOM implementation.  Run it using <application>wish</application>, eg.</para>
+
+      <programlisting>wish install.tcl</programlisting>
+
+      <note>If Tcl/Tk has been configured correctly on your system, you should be able to simply double-click the script</note>
+
+      <para>If the pure-Tcl parser is good enough for you, then read no further.</para>
+    </section>
+
+    <section>
+      <title>Compiled Installation</title>
+
+      <para>If you need the speed of a compiled DOM implementation, then you have three options:</para>
+
+      <itemizedlist>
+	<listitem>
+	  <para>TclDOM/C (a.k.a. TclDOMPro)</para>
+	</listitem>
+	<listitem>
+	  <para>TclDOM/libxml2</para>
+	</listitem>
+	<listitem>
+	  <para>tDOM (different API to TclDOM, but similar functionality)</para>
+	</listitem>
+      </itemizedlist>
+
+      <section>
+	<title>Compiling TclDOM/libxml2</title>
+
+	<section>
+	  <title>Additional Dependencies</title>
+
+	  <para>In order to build TclDOM/libxml2, first install the libxml2 library itself.  Download libxml2 from <ulink url='http://xmlsoft.org/'>the libxml2 website</ulink>.  There are binary distributions available for some platforms.</para>
+	</section>
+
+	<section>
+	  <title>Unix/Linux</title>
+
+	  <para>You must have Tcl/Tk version 8.2 or better installed on your system.  Tcl/Tk 8.3 or better is recommended.</para>
+
+	  <orderedlist>
+	    <listitem>
+	      <para>Unpack the TclDOM distribution and <command>cd</command> into the <filename>tcldom-&version;</filename> directory.</para>
+	    </listitem>
+	    <listitem>
+	      <para>Run the <filename>configure</filename> script, with the <arg>--prefix</arg>, <arg>--exec_prefix</arg> and <arg>--enable-threads</arg> switches (the latter only if Tcl has been built with threads enabled).</para>
+
+	      <para>For example, on my system I have Tcl 8.4 installed in <filename>/usr/local/tcl8.4</filename> so I would use the command:</para>
+
+	      <programlisting>./configure --prefix=/usr/local/tcl8.4 --exec-prefix=/usr/local/tcl8.4 --enable-threads</programlisting>
+	    </listitem>
+	    <listitem>
+	      <programlisting>make</programlisting>
+	    </listitem>
+	    <listitem>
+	      <programlisting>make install</programlisting>
+
+	      <para>You may have to do this as root</para>
+	    </listitem>
+	    <listitem>
+	      <programlisting>cd src-libxml2</programlisting>
+	    </listitem>
+	    <listitem>
+	      <para>Run the <filename>configure</filename> script, with the same values as above for the <arg>--prefix</arg>, <arg>--exec_prefix</arg> and <arg>--enable-threads</arg> switches.</para>
+
+	      <note>If libxml2 was installed in a non-standard location you might have to add the <arg>--with-xml2-include</arg> and <arg>--with-xml-lib</arg> switches.</note>
+
+	      <note>On Windows the iconv library is required too. See <ulink url='http://www.fh-frankfurt.de/~igor/projects/libxml/'>www.fh-frankfurt.de/~igor/projects/libxml/</ulink> for either precompiled binaries, or a link to the sources.  The relevant options are <arg>--with-iconv-include</arg> and <arg>--with-iconv-lib</arg>.</note>
+
+	      <para>For example, on my Linux system I have Tcl 8.4 installed in <filename>/usr/local/tcl8.4</filename> and libxml2 installed in <filename>/usr/local</filename> so I would use the command:</para>
+
+	      <programlisting>./configure --prefix=/usr/local/tcl8.4 --exec-prefix=/usr/local/tcl8.4 --enable-threads --with-xml2-include=/usr/local/include --with-xml2-lib=/usr/local/lib</programlisting>
+	    </listitem>
+	    <listitem>
+	      <programlisting>make</programlisting>
+	    </listitem>
+	    <listitem>
+	      <programlisting>make install</programlisting>
+
+	      <para>You may have to do this as root</para>
+	    </listitem>
+	  </orderedlist>
+	</section>
+      </section>
+    </section>
+  </section>
+
+  <section>
+    <title>Usage</title>
+
+    <para>See reference documentation.</para>
+</section>
+</article>

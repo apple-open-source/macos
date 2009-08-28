@@ -1,6 +1,5 @@
-
 /*
- * Copyright (c) 2001-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,12 +34,18 @@
 #include <CoreFoundation/CFDictionary.h>
 #include <sys/types.h>
 #include <net/if_dl.h>
+#include "EAPClientTypes.h"
+#include "SupplicantTypes.h"
+#include "EAPOLControlTypes.h"
 #include "EAPOLSocket.h"
 
 typedef struct Supplicant_s Supplicant, *SupplicantRef;
 
 SupplicantRef 
-Supplicant_create(int fd, const struct sockaddr_dl * dl_p, bool system_mode);
+Supplicant_create(EAPOLSocketRef sock);
+
+SupplicantRef
+Supplicant_create_with_supplicant(EAPOLSocketRef sock, SupplicantRef main_supp);
 
 void
 Supplicant_free(SupplicantRef * supp_p);
@@ -48,17 +53,29 @@ Supplicant_free(SupplicantRef * supp_p);
 void
 Supplicant_start(SupplicantRef supp);
 
-bool
-Supplicant_attached(SupplicantRef supp);
+void
+Supplicant_set_no_ui(SupplicantRef supp);
 
 void
 Supplicant_set_debug(SupplicantRef supp, bool debug);
 
+void
+Supplicant_link_status_changed(SupplicantRef supp, bool active);
+
+SupplicantState
+Supplicant_get_state(SupplicantRef supp, EAPClientStatus * last_status);
+
 bool
-Supplicant_update_configuration(SupplicantRef supp, 
+Supplicant_control(SupplicantRef supp,
+		   EAPOLClientControlCommand command,
+		   CFDictionaryRef control_dict);
+
+bool
+Supplicant_update_configuration(SupplicantRef supp,
 				CFDictionaryRef config_dict);
 
 void
-Supplicant_set_no_ui(SupplicantRef supp);
+Supplicant_stop(SupplicantRef supp);
+
 #endif _S_SUPPLICANT_H
 

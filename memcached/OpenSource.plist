@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2009-07-08</string>
+	<key>OpenSourceLicense</key>
+	<string>MIT</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>memcached.txt</string>
+	<key>OpenSourceMD5</key>
+	<string>e5a4ee04e517a5cad110f29e4490e4ab</string>
+	<key>OpenSourceModifications</key>
+	<array/>
+	<key>OpenSourceProject</key>
+	<string>memcached</string>
+	<key>OpenSourceURL</key>
+	<string>http://memcached.googlecode.com/files/memcached-1.2.8.tar.gz</string>
+	<key>OpenSourceVersion</key>
+	<string>1.2.8</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://www.danga.com/memcached/</string>
+</dict>
+</plist>

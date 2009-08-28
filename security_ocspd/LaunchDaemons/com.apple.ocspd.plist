@@ -15,5 +15,7 @@
 	<array>
 		<string>/usr/sbin/ocspd</string>
 	</array>
+	<key>EnableTransactions</key>
+	<true/>
 </dict>
 </plist>

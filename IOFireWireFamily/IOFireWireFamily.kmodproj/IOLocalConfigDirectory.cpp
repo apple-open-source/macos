@@ -87,6 +87,11 @@ const UInt32 *IOLocalConfigDirectory::getBase()
         return &fHeader;
 }
 
+IOConfigDirectory *IOLocalConfigDirectory::getSubDir(int start, int type)
+{
+	return NULL;
+}
+
 // lockData
 //
 //
@@ -112,7 +117,7 @@ void IOLocalConfigDirectory::unlockData( void )
 IOLocalConfigDirectory *IOLocalConfigDirectory::create()
 {
     IOLocalConfigDirectory *dir;
-    dir = new IOLocalConfigDirectory;
+    dir = OSTypeAlloc( IOLocalConfigDirectory );
     if(!dir)
         return NULL;
 

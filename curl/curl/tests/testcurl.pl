@@ -6,7 +6,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2007, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 1998 - 2008, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -19,7 +19,7 @@
 # This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
 # KIND, either express or implied.
 #
-# $Id: testcurl.pl,v 1.51 2007-04-01 13:59:50 gknauf Exp $
+# $Id: testcurl.pl,v 1.68 2008-10-02 03:59:25 yangtse Exp $
 ###########################################################################
 
 ###########################
@@ -43,6 +43,7 @@
 # --crosscompile           This is a crosscompile
 # --desc=[desc]            Description of your test system
 # --email=[email]          Set email address to report as
+# --extvercmd=[command]    Command to use for displaying version with cross compiles.
 # --mktarball=[command]    Command to run after completed test
 # --name=[name]            Set name to report as
 # --nocvsup                Don't update from CVS even though it is a CVS tree
@@ -65,10 +66,10 @@ use vars qw($version $fixed $infixed $CURLDIR $CVS $pwd $build $buildlog
             $buildlogname $configurebuild $targetos $confsuffix $binext
             $libext);
 use vars qw($name $email $desc $confopts $runtestopts $setupfile $mktarball
-            $nocvsup $nobuildconf $crosscompile $timestamp);
+            $extvercmd $nocvsup $nobuildconf $crosscompile $timestamp);
 
 # version of this script
-$version='$Revision: 1.51 $';
+$version='$Revision: 1.68 $';
 $fixed=0;
 
 # Determine if we're running from CVS or a canned copy of curl,
@@ -82,6 +83,9 @@ while ($ARGV[0]) {
   }
   elsif ($ARGV[0] =~ /--setup=/) {
     $setupfile = (split(/=/, shift @ARGV))[1];
+  }
+  elsif ($ARGV[0] =~ /--extvercmd=/) {
+    $extvercmd = (split(/=/, shift @ARGV))[1];
   }
   elsif ($ARGV[0] =~ /--mktarball=/) {
     $mktarball = (split(/=/, shift @ARGV))[1];
@@ -270,6 +274,13 @@ if ($fixed < 4) {
     close(F);
 }
 
+# Enable picky compiler warnings unless explicitly disabled
+if (($confopts !~ /--enable-debug/) &&
+    ($confopts !~ /--enable-warnings/) &&
+    ($confopts !~ /--disable-warnings/)) {
+  $confopts .= " --enable-warnings";
+}
+
 my $str1066os = 'o' x 1066;
 
 # Set timestamp to the UTC this script is running. Its value might
@@ -294,7 +305,7 @@ $str1066os = undef;
 
 # Make $pwd to become the path without newline. We'll use that in order to cut
 # off that path from all possible logs and error messages etc.
-$pwd = cwd();
+$pwd = getcwd();
 
 if (-d $CURLDIR) {
   if ($CVS && -d "$CURLDIR/CVS") {
@@ -363,7 +374,7 @@ if ($CVS) {
   while (!cvsup()) {
     $att++;
     logit "failed CVS update attempt number $att.";
-    if ($att > 10) {
+    if ($att > 20) {
       $cvsstat=111;
       last; # get out of the loop
     }
@@ -387,7 +398,7 @@ if ($CVS) {
     unlink "autom4te.cache";
 
     # generate the build files
-    logit "invoke buildconf, but filter off the silly aclocal warnings";
+    logit "invoke buildconf, but filter off aclocal underquoted definition warnings";
     open(F, "./buildconf 2>&1 |") or die;
     open(LOG, ">$buildlog") or die;
     while (<F>) {
@@ -477,16 +488,38 @@ if ($configurebuild) {
     mydie "configure didn't work";
   }
 } else {
+  logit "copying files to build dir ...";
   if (($^O eq 'MSWin32') && ($targetos !~ /netware/)) {
     system("xcopy /s /q ..\\$CURLDIR .");
     system("buildconf.bat");
   }
-  elsif (($^O eq 'linux') || ($targetos =~ /netware/)) {
-    system("cp -afr ../$CURLDIR/* ."); 
-    system("cp -af ../$CURLDIR/Makefile.dist Makefile"); 
+  elsif ($targetos =~ /netware/) {
+    system("cp -afr ../$CURLDIR/* .");
+    system("cp -af ../$CURLDIR/Makefile.dist Makefile");
+    system("$make -i -C lib -f Makefile.netware prebuild");
+    system("$make -i -C src -f Makefile.netware prebuild");
+  }
+  elsif ($^O eq 'linux') {
+    system("cp -afr ../$CURLDIR/* .");
+    system("cp -af ../$CURLDIR/Makefile.dist Makefile");
+    system("cp -af ../$CURLDIR/include/curl/curlbuild.h.dist ./include/curl/curlbuild.h");
     system("$make -i -C lib -f Makefile.$targetos prebuild");
     system("$make -i -C src -f Makefile.$targetos prebuild");
   }
+}
+
+if(-f "./include/curl/curlbuild.h") {
+  logit "display include/curl/curlbuild.h";
+  if(open(F, "<./include/curl/curlbuild.h")) {
+    while(<F>) {
+      my $ll = $_;
+      print $ll if(($ll =~ /^ *# *define/) && ($ll !~ /__CURL_CURLBUILD_H/));
+    }
+    close(F);
+  }
+}
+else {
+  mydie "no curlbuild.h created/found";
 }
 
 logit "display lib/config$confsuffix.h";
@@ -577,14 +610,10 @@ else {
   mydie "curl was not created (curl$binext)";
 }
 
-if ($targetos =~ /netware/) {
-  if (-f '../../curlver') {
-    system('../../curlver');
-  }
-}
-elsif(!$crosscompile) {
-  logit "display curl$binext --version output";
-  open(F, "./src/curl$binext --version|");
+if (!$crosscompile || (($extvercmd ne '') && (-x $extvercmd))) {
+  logit "display curl${binext} --version output";
+  my $cmd = ($extvercmd ne '' ? $extvercmd.' ' : '')."./src/curl${binext} --version|";
+  open(F, $cmd);
   while(<F>) {
       print;
       print LOG;
@@ -628,7 +657,7 @@ if ($configurebuild && !$crosscompile) {
 }
 
 # create a tarball if we got that option.
-if (($mktarball ne '') && (-f $mktarball)) {
+if (($mktarball ne '') && (-x $mktarball)) {
   system($mktarball);
 }
 

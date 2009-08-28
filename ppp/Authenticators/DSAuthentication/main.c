@@ -227,8 +227,8 @@ static int dsauth_chap(char *name, char *ourname, int id,
     u_int32_t					userNameSize = strlen(name);
     u_int32_t					authDataSize;
     int							challenge_len, response_len;
-	CFDictionaryRef				serviceInfo = 0;
-	CFDictionaryRef				eventDetail;
+	CFMutableDictionaryRef		serviceInfo = 0;
+	CFMutableDictionaryRef		eventDetail;
 	CFDictionaryRef				interface;
 	CFStringRef					subtypeRef;
 	CFStringRef					addrRef;
@@ -526,8 +526,10 @@ static void dsauth_set_mppe_keys(tDirReference dirRef, tDirNodeReference userNod
         
 cleanup:
     if (keyaccessPassword) {
-        bzero(keyaccessPassword, keyaccessPasswordSize);	// clear the admin password from memory
+		bzero(keyaccessPassword, keyaccessPasswordSize);	// clear the admin password from memory
+#ifndef TARGET_EMBEDDED_OS
         SecKeychainItemFreeContent(NULL, keyaccessPassword);
+#endif /* TARGET_EMBEDDED_OS */
     }
     if (keyaccessName) {
         free(keyaccessName);
@@ -592,6 +594,7 @@ static void dsauth_get_admin_acct(u_int32_t *acctNameSize, char** acctName, u_in
 //----------------------------------------------------------------------
 static int dsauth_get_admin_password(u_int32_t acctlen, char* acctname, u_int32_t *password_len, char **password)
 {
+#ifndef TARGET_EMBEDDED_OS
     SecKeychainRef	keychain = 0;
     OSStatus		status;
     
@@ -610,6 +613,10 @@ static int dsauth_get_admin_password(u_int32_t acctlen, char* acctname, u_int32_
 		error("DSAuth plugin: Error %d while retrieving key agent password from the system keychain.\n", status);
         return -1;
 	}
+#else
+	error("System Keychain support not available");
+	return -1;
+#endif /* TARGET_EMBEDDED_OS */
 }
     
 //----------------------------------------------------------------------
@@ -621,7 +628,7 @@ static int dsauth_find_user_node(tDirReference dirRef, char *user_name, tDirNode
     
     tDirStatus				dsResult = eDSNoErr;
     tDataListPtr			userPathDataListPtr = 0;
-    unsigned long			searchNodeCount;
+    UInt32					searchNodeCount;
     tAttributeValueEntryPtr	userNodePath = 0;
     tDirNodeReference 		searchNodeRef = 0;
 
@@ -637,7 +644,7 @@ static int dsauth_find_user_node(tDirReference dirRef, char *user_name, tDirNode
         if (dsResult == eDSNoErr && userNodePath != 0) {
             // open the user node and return the node ref
             if (userPathDataListPtr = dsBuildFromPath(dirRef, userNodePath->fAttributeValueData.fBufferData, "/")) {
-                dsResult == dsOpenDirNode(dirRef, userPathDataListPtr, user_node);
+                dsResult = dsOpenDirNode(dirRef, userPathDataListPtr, user_node);
                 dsDataListDeallocate(dirRef, userPathDataListPtr);
             }
             if (dsResult == eDSNoErr)

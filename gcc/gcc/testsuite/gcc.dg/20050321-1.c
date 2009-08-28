@@ -3,7 +3,7 @@
 
 /* { dg-do compile } */
 /* { dg-options "-O2 -fmodulo-sched" } */
-extern void * malloc (long);
+extern void * malloc (__SIZE_TYPE__);
 
 struct s {
     int k;

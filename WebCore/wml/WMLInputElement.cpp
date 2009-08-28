@@ -39,7 +39,6 @@ namespace WebCore {
 
 WMLInputElement::WMLInputElement(const QualifiedName& tagName, Document* doc)
     : WMLFormControlElement(tagName, doc)
-    , m_data(this, this)
     , m_isPasswordField(false)
     , m_isEmptyOk(false)
     , m_numOfCharsAllowedByMask(0)
@@ -70,7 +69,7 @@ bool WMLInputElement::isMouseFocusable() const
 
 void WMLInputElement::dispatchFocusEvent()
 {
-    InputElement::dispatchFocusEvent(m_data, document());
+    InputElement::dispatchFocusEvent(m_data, this, this);
     WMLElement::dispatchFocusEvent();
 }
 
@@ -88,18 +87,18 @@ void WMLInputElement::dispatchBlurEvent()
     if (!nameVariable.isEmpty())
         wmlPageStateForDocument(document())->storeVariable(nameVariable, val); 
 
-    InputElement::dispatchBlurEvent(m_data, document());
+    InputElement::dispatchBlurEvent(m_data, this, this);
     WMLElement::dispatchBlurEvent();
 }
 
 void WMLInputElement::updateFocusAppearance(bool restorePreviousSelection)
 {
-    InputElement::updateFocusAppearance(m_data, document(), restorePreviousSelection);
+    InputElement::updateFocusAppearance(m_data, this, this, restorePreviousSelection);
 }
 
 void WMLInputElement::aboutToUnload()
 {
-    InputElement::aboutToUnload(m_data, document());
+    InputElement::aboutToUnload(this, this);
 }
 
 int WMLInputElement::size() const
@@ -135,7 +134,7 @@ String WMLInputElement::value() const
 
 void WMLInputElement::setValue(const String& value)
 {
-    InputElement::updatePlaceholderVisibility(m_data, document());
+    InputElement::updatePlaceholderVisibility(m_data, this, this);
     setFormControlValueMatchesRenderer(false);
     m_data.setValue(constrainValue(value));
     if (inDocument())
@@ -146,16 +145,16 @@ void WMLInputElement::setValue(const String& value)
 
     unsigned max = m_data.value().length();
     if (document()->focusedNode() == this)
-        InputElement::updateSelectionRange(m_data, max, max);
+        InputElement::updateSelectionRange(this, this, max, max);
     else
         cacheSelection(max, max);
 
-    InputElement::notifyFormStateChanged(m_data, document());
+    InputElement::notifyFormStateChanged(this);
 }
 
 void WMLInputElement::setValueFromRenderer(const String& value)
 {
-    InputElement::setValueFromRenderer(m_data, document(), value);
+    InputElement::setValueFromRenderer(m_data, this, this, value);
 }
 
 bool WMLInputElement::saveFormControlState(String& result) const
@@ -198,9 +197,9 @@ void WMLInputElement::parseMappedAttribute(MappedAttribute* attr)
             setNeedsStyleRecalc();
         setFormControlValueMatchesRenderer(false);
     } else if (attr->name() == HTMLNames::maxlengthAttr)
-        InputElement::parseMaxLengthAttribute(m_data, attr);
+        InputElement::parseMaxLengthAttribute(m_data, this, this, attr);
     else if (attr->name() == HTMLNames::sizeAttr)
-        InputElement::parseSizeAttribute(m_data, attr);
+        InputElement::parseSizeAttribute(m_data, this, attr);
     else if (attr->name() == WMLNames::formatAttr)
         m_formatMask = validateInputMask(parseValueForbiddingVariableReferences(attr->value()));
     else if (attr->name() == WMLNames::emptyokAttr)
@@ -224,25 +223,6 @@ RenderObject* WMLInputElement::createRenderer(RenderArena* arena, RenderStyle*)
 {
     return new (arena) RenderTextControlSingleLine(this);
 }
-
-void WMLInputElement::attach()
-{
-    ASSERT(!attached());
-    WMLElement::attach();
-
-    // The call to updateFromElement() needs to go after the call through
-    // to the base class's attach() because that can sometimes do a close
-    // on the renderer.
-    if (renderer())
-        renderer()->updateFromElement();
-
-    // FIXME: maybe this is not a good place to do this since it is possible 
-    // to cause unexpected several times initialise of <input> if we force the
-    // node to be reattached. But placing it here can ensure the run-webkit-tests
-    // get expected result,i.e. multiple-times initialise is expected when making
-    // layout test for WMLInputElement 
-    init();
-}  
 
 void WMLInputElement::detach()
 {
@@ -315,7 +295,7 @@ void WMLInputElement::defaultEventHandler(Event* evt)
     }
 
     if (evt->isBeforeTextInsertedEvent())
-        InputElement::handleBeforeTextInsertedEvent(m_data, document(), evt);
+        InputElement::handleBeforeTextInsertedEvent(m_data, this, document(), evt);
 
     if (renderer() && (evt->isMouseEvent() || evt->isDragEvent() || evt->isWheelEvent() || evt->type() == eventNames().blurEvent || evt->type() == eventNames().focusEvent))
         static_cast<RenderTextControlSingleLine*>(renderer())->forwardEvent(evt);
@@ -329,7 +309,7 @@ void WMLInputElement::cacheSelection(int start, int end)
 
 String WMLInputElement::constrainValue(const String& proposedValue) const
 {
-    return InputElement::constrainValue(m_data, proposedValue, m_data.maxLength());
+    return InputElement::constrainValue(this, proposedValue, m_data.maxLength());
 }
 
 void WMLInputElement::documentDidBecomeActive()
@@ -360,7 +340,7 @@ void WMLInputElement::didMoveToNewOwnerDocument()
     WMLElement::didMoveToNewOwnerDocument();
 }
 
-void WMLInputElement::init()
+void WMLInputElement::initialize()
 {
     String nameVariable = formControlName();
     String variableValue;

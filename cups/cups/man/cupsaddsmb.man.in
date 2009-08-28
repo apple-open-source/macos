@@ -1,9 +1,9 @@
 .\"
-.\" "$Id: cupsaddsmb.man.in 6729 2007-07-26 00:30:52Z mike $"
+.\" "$Id: cupsaddsmb.man.in 7600 2008-05-20 21:06:23Z mike $"
 .\"
 .\"   cupsaddsmb man page for the Common UNIX Printing System (CUPS).
 .\"
-.\"   Copyright 2007 by Apple Inc.
+.\"   Copyright 2007-2009 by Apple Inc.
 .\"   Copyright 1997-2006 by Easy Software Products.
 .\"
 .\"   These coded instructions, statements, and computer programs are the
@@ -12,7 +12,7 @@
 .\"   which should have been included with this file.  If this file is
 .\"   file is missing or damaged, see the license at "http://www.cups.org/".
 .\"
-.TH cupsaddsmb 8 "Common UNIX Printing System" "25 July 2007" "Apple Inc."
+.TH cupsaddsmb 8 "CUPS" "25 July 2007" "Apple Inc."
 .SH NAME
 cupsaddsmb \- export printers to samba for windows clients
 
@@ -208,7 +208,7 @@ http://localhost:631/help
 http://www.cups.org/windows/
 
 .SH COPYRIGHT
-Copyright 2007 by Apple Inc.
+Copyright 2007-2009 by Apple Inc.
 .\"
-.\" End of "$Id: cupsaddsmb.man.in 6729 2007-07-26 00:30:52Z mike $".
+.\" End of "$Id: cupsaddsmb.man.in 7600 2008-05-20 21:06:23Z mike $".
 .\"

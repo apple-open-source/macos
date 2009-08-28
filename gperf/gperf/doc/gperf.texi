@@ -7,9 +7,9 @@
 
 @c some day we should @include version.texi instead of defining
 @c these values at hand.
-@set UPDATED 12 June 2003
-@set EDITION 3.0.1
-@set VERSION 3.0.1
+@set UPDATED 31 March 2007
+@set EDITION 3.0.3
+@set VERSION 3.0.3
 @c ---------------------
 
 @c remove the black boxes generated in the GPL appendix.
@@ -28,7 +28,7 @@
 This file documents the features of the GNU Perfect Hash Function
 Generator @value{VERSION}.
 
-Copyright @copyright{} 1989-2003 Free Software Foundation, Inc.
+Copyright @copyright{} 1989-2006 Free Software Foundation, Inc.
 
 Permission is granted to make and distribute verbatim copies of this
 manual provided the copyright notice and this permission notice are
@@ -66,7 +66,7 @@ Software Foundation instead of in the original English.
 
 @page
 @vskip 0pt plus 1filll
-Copyright @copyright{} 1989-2003 Free Software Foundation, Inc.
+Copyright @copyright{} 1989-2007 Free Software Foundation, Inc.
 
 
 Permission is granted to make and distribute verbatim copies of
@@ -605,6 +605,13 @@ hash table.  Default name is @samp{wordlist}.  This option permits the
 use of two hash tables in the same file, even when the option @samp{-G}
 (or, equivalently, the @samp{%global-table} declaration) is given.
 
+@item %define length-table-name @var{name}
+@cindex @samp{%define length-table-name}
+Allows you to specify the name for the generated array containing the
+length table.  Default name is @samp{lengthtable}.  This option permits the
+use of two length tables in the same file, even when the option @samp{-G}
+(or, equivalently, the @samp{%global-table} declaration) is given.
+
 @item %switch=@var{count}
 @cindex @samp{%switch}
 Causes the generated C code to use a @code{switch} statement scheme,
@@ -760,7 +767,7 @@ functions
 @cindex hash table
 
 Several options control how the generated C code appears on the standard 
-output.  Two C function are generated.  They are called @code{hash} and 
+output.  Two C functions are generated.  They are called @code{hash} and 
 @code{in_word_set}, although you may modify their names with a command-line 
 option.  Both functions require two arguments, a string, @code{char *} 
 @var{str}, and a length parameter, @code{int} @var{len}.  Their default 
@@ -1080,6 +1087,13 @@ of one more test-and-branch instruction at run time.
 Allows you to specify the name for the generated array containing the
 hash table.  Default name is @samp{wordlist}.  This option permits the
 use of two hash tables in the same file, even when the option @samp{-G}
+(or, equivalently, the @samp{%global-table} declaration) is given.
+
+@itemx --length-table-name=@var{length-table-array-name}
+@cindex Array name
+Allows you to specify the name for the generated array containing the
+length table.  Default name is @samp{lengthtable}.  This option permits the
+use of two length tables in the same file, even when the option @samp{-G}
 (or, equivalently, the @samp{%global-table} declaration) is given.
 
 @item -S @var{total-switch-statements}

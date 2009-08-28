@@ -30,8 +30,8 @@ set testfile "nested-inlines"
 set srcfile ${testfile}.c
 set binfile ${objdir}/${subdir}/${testfile}
 
-if [istarget "i\[3-6\]86-apple-darwin*"] {
-    verbose "Skipping ppc inlining tests."
+if ![istarget "powerpc-apple-darwin*"] {
+    verbose "Skipping PPC-specific inline test."
     return
 }
 
@@ -47,7 +47,12 @@ if {$debug_default_format_is_dwarf == 0 } then {
 mi_delete_breakpoints
 mi_gdb_reinitialize_dir $srcdir/$subdir
 mi_gdb_load ${binfile}
+
 mi_run_to_main
+
+mi_gdb_test "801-break-insert -l -1 nested-inlines.c:72" "801\\^done,bkpt=\{number=\"2\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\"$hex\",func=\"baz\",file=\".*nested-inlines.c\",line=\"72\",shlib=\"$binfile\",times=\"0\"\},bkpt=\{number=\"3\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\"$hex\",func=\".*\",file=\".*nested-inlines.c\",line=\"72\",shlib=\"$binfile\",times=\"0\"\},bkpt=\{number=\"4\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\"$hex\",func=\"foo\",file=\".*nested-inlines.c\",line=\"72\",shlib=\"$binfile\",times=\"0\"\},bkpt=\{number=\"5\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\"$hex\",func=\".*\",file=\".*nested-inlines.c\",line=\"72\",shlib=\"$binfile\",times=\"0\"\}" "Set break at end of baz"
+
+mi_gdb_test "802-break-insert -l -1 nested-inlines.c:50" "802\\^done,bkpt=\{number=\"6\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\"$hex\",func=\".*\",file=\".*nested-inlines.c\",line=\"50\",shlib=\"$binfile\",times=\"0\"\},bkpt=\{number=\"7\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\"$hex\",func=\"foo\",file=\".*nested-inlines.c\",line=\"50\",shlib=\"$binfile\",times=\"0\"\},bkpt=\{number=\"8\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\"$hex\",func=\".*\",file=\".*nested-inlines.c\",line=\"50\",shlib=\"$binfile\",times=\"0\"\}" "Set break at end of bar"
 
 mi_next_to "main" "" "nested-inlines.c" "14"  "Step to first inlined call site"
 
@@ -57,7 +62,7 @@ mi_gdb_test "302-exec-step" "302\\\*stopped,line=\"27\",file=\".*nested-inlines.
 
 mi_gdb_test "303-exec-step" "303\\\*stopped,line=\"43\",file=\".*nested-inlines.c\",reason=\"end-stepping-range\".*" "Step into second inlined function (bar)"
 
-mi_gdb_test "304-exec-step" "304\\\*stopped,line=\"63\",file=\".*nested-inlines.c\",reason=\"end-stepping-range\".*" "Step into third inlined function (baz)"
+mi_gdb_test "304-exec-step" "304\\\*stopped,line=\"62\",file=\".*nested-inlines.c\",reason=\"end-stepping-range\".*" "Step into third inlined function (baz)"
 
 mi_next_to "baz \\\[inlined\\\]" "" "nested-inlines.c" "63"   "stepping through baz (1)"
 
@@ -87,13 +92,15 @@ mi_next_to "baz \\\[inlined\\\]" "" "nested-inlines.c" "68"   "stepping through 
 
 mi_next_to "baz \\\[inlined\\\]" "" "nested-inlines.c" "69"   "stepping through baz (14)"
 
-mi_next_to "baz \\\[inlined\\\]" "" "nested-inlines.c" "68"   "stepping through baz (15)"
+# mi_next_to "baz \\\[inlined\\\]" "" "nested-inlines.c" "68"   "stepping through baz (15)"
 
-mi_next_to "baz \\\[inlined\\\]" "" "nested-inlines.c" "69"   "stepping through baz (16)"
+# mi_next_to "baz \\\[inlined\\\]" "" "nested-inlines.c" "69"   "stepping through baz (16)"
 
-mi_next_to "baz \\\[inlined\\\]" "" "nested-inlines.c" "71"   "stepping through baz (17)"
+# mi_next_to "baz \\\[inlined\\\]" "" "nested-inlines.c" "71"   "stepping through baz (17)"
 
-mi_next_to "baz \\\[inlined\\\]" "" "nested-inlines.c" "72"   "stepping through baz (18)"
+# mi_next_to "baz \\\[inlined\\\]" "" "nested-inlines.c" "72"   "stepping through baz (18)"
+
+mi_continue_to ".*" "baz \\\[inlined\\\]" "" "nested-inlines.c" "72" "Continue to end of baz"
 
 mi_step_to "bar \\\[inlined\\\]" "" "nested-inlines.c" "44" "stepping out of (inlined) baz back to bar"
 
@@ -111,31 +118,33 @@ mi_next_to "bar \\\[inlined\\\]" "" "nested-inlines.c" "46" "stepping through ba
 
 mi_next_to "bar \\\[inlined\\\]" "" "nested-inlines.c" "46" "stepping through bar (6)"
 
-mi_next_to "bar \\\[inlined\\\]" "" "nested-inlines.c" "47" "stepping through bar (7)"
+mi_next_to "bar \\\[inlined\\\]" "" "nested-inlines.c" ".*" "stepping through bar (7)"
 
-mi_next_to "bar \\\[inlined\\\]" "" "nested-inlines.c" "48" "stepping through bar (8)"
+mi_next_to "bar \\\[inlined\\\]" "" "nested-inlines.c" ".*" "stepping through bar (8)"
 
-mi_next_to "bar \\\[inlined\\\]" "" "nested-inlines.c" "46" "stepping through bar (9)"
+mi_next_to "bar \\\[inlined\\\]" "" "nested-inlines.c" ".*" "stepping through bar (9)"
 
-mi_next_to "bar \\\[inlined\\\]" "" "nested-inlines.c" "47" "stepping through bar (10)"
+mi_next_to "bar \\\[inlined\\\]" "" "nested-inlines.c" ".*" "stepping through bar (10)"
 
 mi_next_to "bar \\\[inlined\\\]" "" "nested-inlines.c" "48" "stepping through bar (11)"
 
 mi_next_to "bar \\\[inlined\\\]" "" "nested-inlines.c" "46" "stepping through bar (12)"
 
-mi_next_to "bar \\\[inlined\\\]" "" "nested-inlines.c" "47" "stepping through bar (13)"
+mi_next_to "bar \\\[inlined\\\]" "" "nested-inlines.c" ".*" "stepping through bar (13)"
 
-mi_next_to "bar \\\[inlined\\\]" "" "nested-inlines.c" "48" "stepping through bar (14)"
+mi_next_to "bar \\\[inlined\\\]" "" "nested-inlines.c" ".*" "stepping through bar (14)"
 
-mi_next_to "bar \\\[inlined\\\]" "" "nested-inlines.c" "46" "stepping through bar (15)"
+# mi_next_to "bar \\\[inlined\\\]" "" "nested-inlines.c" "46" "stepping through bar (15)"
 
-mi_next_to "bar \\\[inlined\\\]" "" "nested-inlines.c" "47" "stepping through bar (16)"
+# mi_next_to "bar \\\[inlined\\\]" "" "nested-inlines.c" "47" "stepping through bar (16)"
 
-mi_next_to "bar \\\[inlined\\\]" "" "nested-inlines.c" "48" "stepping through bar (17)"
+# mi_next_to "bar \\\[inlined\\\]" "" "nested-inlines.c" "48" "stepping through bar (17)"
 
-mi_next_to "bar \\\[inlined\\\]" "" "nested-inlines.c" "46" "stepping through bar (18)"
+# mi_next_to "bar \\\[inlined\\\]" "" "nested-inlines.c" "46" "stepping through bar (18)"
 
-mi_next_to "bar \\\[inlined\\\]" "" "nested-inlines.c" "50" "stepping through bar (19)"
+# mi_next_to "bar \\\[inlined\\\]" "" "nested-inlines.c" "50" "stepping through bar (19)"
+
+mi_continue_to ".*" "bar \\\[inlined\\\]" "" "nested-inlines.c" "50" "Continue to end of bar"
 
 mi_step_to "foo \\\[inlined\\\]" "" "nested-inlines.c" "29" "stepping out of (inlined) bar back to foo"
 
@@ -265,7 +274,7 @@ mi_gdb_test "502-exec-step" "502\\\*stopped,line=\"27\",file=\".*nested-inlines.
 
 mi_gdb_test "503-exec-step" "503\\\*stopped,line=\"43\",file=\".*nested-inlines.c\",reason=\"end-stepping-range\".*" "Step into second inlined function (bar)"
 
-mi_gdb_test "504-exec-step" "504\\\*stopped,line=\"63\",file=\".*nested-inlines.c\",reason=\"end-stepping-range\".*" "Step into third inlined function (baz)"
+mi_gdb_test "504-exec-step" "504\\\*stopped,line=\"62\",file=\".*nested-inlines.c\",reason=\"end-stepping-range\".*" "Step into third inlined function (baz)"
 
 mi_finish_to "bar \\\[inlined\\\]" "" "nested-inlines.c" "44" ".*" "12345" "Finish out of inlined function (baz)"
 
@@ -293,7 +302,7 @@ mi_gdb_test "602-exec-step" "602\\\*stopped,line=\"27\",file=\".*nested-inlines.
 
 mi_gdb_test "603-exec-step" "603\\\*stopped,line=\"43\",file=\".*nested-inlines.c\",reason=\"end-stepping-range\".*" "Step into second inlined function (bar)"
 
-mi_gdb_test "604-exec-step" "604\\\*stopped,line=\"63\",file=\".*nested-inlines.c\",reason=\"end-stepping-range\".*" "Step into third inlined function (baz)"
+mi_gdb_test "604-exec-step" "604\\\*stopped,line=\"62\",file=\".*nested-inlines.c\",reason=\"end-stepping-range\".*" "Step into third inlined function (baz)"
 
 mi_next_to "baz \\\[inlined\\\]" "" "nested-inlines.c" "63" "Next in baz"
 
@@ -325,7 +334,7 @@ mi_gdb_test "502-exec-step" "502\\\*stopped,line=\"27\",file=\".*nested-inlines.
 
 mi_gdb_test "503-exec-step" "503\\\*stopped,line=\"43\",file=\".*nested-inlines.c\",reason=\"end-stepping-range\".*" "Step into second inlined function (bar)"
 
-mi_gdb_test "504-exec-step" "504\\\*stopped,line=\"63\",file=\".*nested-inlines.c\",reason=\"end-stepping-range\".*" "Step into third inlined function (baz)"
+mi_gdb_test "504-exec-step" "504\\\*stopped,line=\"62\",file=\".*nested-inlines.c\",reason=\"end-stepping-range\".*" "Step into third inlined function (baz)"
 
 # gdb_test "up" ".*bar.*inlined.*" "up (to  bar)"
 # gdb_test "up" ".*foo.*inlined.*" "up (to foo)"
@@ -356,9 +365,9 @@ mi_next_to "main" "" "nested-inlines.c" "19" "Next in main"
 
 mi_run_to_main
 
-mi_gdb_test "301-break-insert bar" "301\\^done,bkpt=\{number=\"11\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\"$hex\",func=\"bar\",file=\".*nested-inlines.c\",line=\"63\",shlib=\"$binfile\",times=\"0\"\},bkpt=\{number=\"12\",type=\"inlined subroutine breakpoint\",disp=\"keep\",enabled=\"y\",addr=\"$hex\",func=\"foo\",file=\".*nested-inlines.c\",line=\"43\",shlib=\"$binfile\",times=\"0\"\},bkpt=\{number=\"13\",type=\"inlined subroutine breakpoint\",disp=\"keep\",enabled=\"y\",addr=\"$hex\",func=\"main\",file=\".*nested-inlines.c\",line=\"14\",shlib=\"$binfile\",times=\"0\"\}" "Set breakpoint on inlined function (bar)"
+mi_gdb_test "301-break-insert bar" "301\\^done,bkpt=\{number=\"18\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\"$hex\",func=\"bar\",file=\".*nested-inlines.c\",line=\".*\",shlib=\"$binfile\",times=\"0\"\},bkpt=\{number=\"19\",type=\"inlined subroutine breakpoint\",disp=\"keep\",enabled=\"y\",addr=\"$hex\",func=\".*\",file=\".*nested-inlines.c\",line=\".*\",shlib=\"$binfile\",times=\"0\"\},bkpt=\{number=\"20\",type=\"inlined subroutine breakpoint\",disp=\"keep\",enabled=\"y\",addr=\"$hex\",func=\".*\",file=\".*nested-inlines.c\",line=\".*\",shlib=\"$binfile\",times=\"0\"\}" "Set breakpoint on inlined function (bar)"
 
-mi_continue_to "13" "bar \\\[inlined\\\]" "" "nested-inlines.c" "43" "Hit breakpoint on bar"
+mi_continue_to ".*" "bar \\\[inlined\\\]" "" "nested-inlines.c" "43" "Hit breakpoint on bar"
 # mi_gdb_test "302-exec-continue" ".*302\\^running.*302\\\*stopped,reason=\"breakpoint-hit\".*" "Hit breakpoint on bar"
 
 mi_next_to "bar \\\[inlined\\\]" "" "nested-inlines.c" "44" "Step over inlined function (baz)"

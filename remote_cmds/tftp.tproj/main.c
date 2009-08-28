@@ -29,34 +29,41 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1983, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n");
-#if 0
-static char sccsid[] = "@(#)main.c	8.1 (Berkeley) 6/6/93";
-#else
-__RCSID("$NetBSD: main.c,v 1.19 2003/10/02 23:31:52 itojun Exp $");
+static const char copyright[] =
+"@(#) Copyright (c) 1983, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif
-#endif /* not lint */
+
+#if 0
+#ifndef lint
+static char sccsid[] = "@(#)main.c	8.1 (Berkeley) 6/6/93";
+#endif
+#endif
+
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/tftp/main.c,v 1.22 2005/10/19 15:37:42 stefanf Exp $");
 
 /* Many bug fixes are from Jim Guyton <guyton@rand-unix> */
 
 /*
  * TFTP User Program -- Command Interface.
  */
+#include <sys/param.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/file.h>
+#include <sys/param.h>
 
 #include <netinet/in.h>
 
 #include <arpa/inet.h>
-#include "tftp.h"
+#include <arpa/tftp.h>
 
 #include <ctype.h>
 #include <fcntl.h>
 #include <err.h>
-#include <errno.h>
+#include <histedit.h>
 #include <netdb.h>
 #include <setjmp.h>
 #include <signal.h>
@@ -67,8 +74,8 @@ __RCSID("$NetBSD: main.c,v 1.19 2003/10/02 23:31:52 itojun Exp $");
 
 #include "extern.h"
 
+#define	MAXLINE		200
 #define	TIMEOUT		5		/* secs between rexmt's */
-#define	LBUFLEN		200		/* size of input buffer */
 #define MAXSEGSIZE  65464
 struct	sockaddr_storage peeraddr;
 int	f;
@@ -80,54 +87,66 @@ int	def_blksize=SEGSIZE;
 int	blksize=SEGSIZE;
 int	connected;
 char	mode[32];
-char	line[LBUFLEN];
+char	line[MAXLINE];
 int	margc;
-char	*margv[20];
-char	*prompt = "tftp";
+#define	MAX_MARGV	20
+char	*margv[MAX_MARGV];
 jmp_buf	toplevel;
+volatile int txrx_error;
 
-void	get __P((int, char **));
-void	help __P((int, char **));
-void	modecmd __P((int, char **));
-void	put __P((int, char **));
-void	quit __P((int, char **));
-void	setascii __P((int, char **));
-void	setbinary __P((int, char **));
-void	setpeer0 __P((char *, char *));
-void	setpeer __P((int, char **));
-void	setrexmt __P((int, char **));
-void	settimeout __P((int, char **));
-void	settrace __P((int, char **));
-void	setverbose __P((int, char **));
-void	setblksize __P((int, char **));
-void	settsize __P((int, char **));
-void	settimeoutopt __P((int, char **));
-void	status __P((int, char **));
-char	*tail __P((char *));
-int	main __P((int, char *[]));
-void	intr __P((int));
-struct cmd *getcmd __P((char *));
+void	get(int, char **);
+void	help(int, char **);
+void	intr(int);
+void	modecmd(int, char **);
+void	put(int, char **);
+void	quit(int, char **);
+void	setascii(int, char **);
+void	setbinary(int, char **);
+void	setpeer0(char *, const char *);
+void	setpeer(int, char **);
+void	setrexmt(int, char **);
+void	settimeout(int, char **);
+void	settrace(int, char **);
+void	setverbose(int, char **);
+#ifdef __APPLE__
+void	setblksize(int, char **);
+void	settsize(int, char **);
+void	settimeoutopt(int, char **);
+#endif
+void	status(int, char **);
+#ifdef __APPLE__
+char	*tail(char *);
+int	main(int, char *[]);
+void	intr(int);
+struct cmd *getcmd(char *);
+#endif
 
-static __dead void command __P((void));
+static void command(void) __dead2;
+static const char *command_prompt(void);
 
-static void getusage __P((char *));
-static void makeargv __P((void));
-static void putusage __P((char *));
-static void settftpmode __P((char *));
+static void getusage(char *);
+static void makeargv(void);
+static void putusage(char *);
+static void settftpmode(const char *);
+
+char	*tail(char *);
+struct	cmd *getcmd(char *);
 
 #define HELPINDENT (sizeof("connect"))
 
 struct cmd {
-	char	*name;
+	const char	*name;
 	char	*help;
-	void	(*handler) __P((int, char **));
+	void	(*handler)(int, char **);
 };
 
 char	vhelp[] = "toggle verbose mode";
 char	thelp[] = "toggle packet tracing";
+#ifdef __APPLE__
 char	tshelp[] = "toggle extended tsize option";
 char	tohelp[] = "toggle extended timeout option";
 char	blhelp[] = "set an alternative blocksize (def. 512)";
+#endif
 char	chelp[] = "connect to remote tftp";
 char	qhelp[] = "exit tftp";
 char	hhelp[] = "print help information";
@@ -147,17 +166,21 @@ struct cmd cmdtab[] = {
 	{ "get",	rhelp,		get },
 	{ "quit",	qhelp,		quit },
 	{ "verbose",	vhelp,		setverbose },
+#ifdef __APPLE__
 	{ "blksize",	blhelp,		setblksize },
 	{ "tsize",	tshelp,		settsize },
+#endif
 	{ "trace",	thelp,		settrace },
 	{ "status",	sthelp,		status },
 	{ "binary",     bnhelp,         setbinary },
 	{ "ascii",      ashelp,         setascii },
 	{ "rexmt",	xhelp,		setrexmt },
 	{ "timeout",	ihelp,		settimeout },
+#ifdef __APPLE__
 	{ "tout",	tohelp,		settimeoutopt },
+#endif
 	{ "?",		hhelp,		help },
-	{ 0 }
+	{ NULL, NULL, NULL }
 };
 
 int
@@ -191,7 +214,7 @@ main(argc, argv)
 
 	if (argc >= 1) {
 		if (setjmp(toplevel) != 0)
-			exit(0);
+			exit(txrx_error);
 		argc++;
 		argv--;
 		setpeer(argc, argv);
@@ -202,17 +225,17 @@ main(argc, argv)
 	return (0);
 }
 
-char    hostname[100];
+char    hostname[MAXHOSTNAMELEN];
 
 void
 setpeer0(host, port)
 	char *host;
-	char *port;
+	const char *port;
 {
 	struct addrinfo hints, *res0, *res;
 	int error, soopt;
 	struct sockaddr_storage ss;
-	char *cause = "unknown";
+	const char *cause = "unknown";
 
 	if (connected) {
 		close(f);
@@ -296,7 +319,7 @@ setpeer(argc, argv)
 	if (argc < 2) {
 		strcpy(line, "Connect ");
 		printf("(to) ");
-		fgets(&line[strlen(line)], LBUFLEN-strlen(line), stdin);
+		fgets(&line[strlen(line)], sizeof line - strlen(line), stdin);
 		makeargv();
 		argc = margc;
 		argv = margv;
@@ -305,15 +328,15 @@ setpeer(argc, argv)
 		printf("usage: %s [-e] host-name [port]\n", getprogname());
 		return;
 	}
-	if (argc == 2)
-		setpeer0(argv[1], NULL);
-	else
+	if (argc == 3)
 		setpeer0(argv[1], argv[2]);
+	else
+		setpeer0(argv[1], NULL);
 }
 
 struct	modes {
-	char *m_name;
-	char *m_mode;
+	const char *m_name;
+	const char *m_mode;
 } modes[] = {
 	{ "ascii",	"netascii" },
 	{ "netascii",   "netascii" },
@@ -330,7 +353,7 @@ modecmd(argc, argv)
 	char *argv[];
 {
 	struct modes *p;
-	char *sep;
+	const char *sep;
 
 	if (argc < 2) {
 		printf("Using %s mode to transfer files.\n", mode);
@@ -361,17 +384,17 @@ modecmd(argc, argv)
 
 void
 setbinary(argc, argv)
-	int argc;
-	char *argv[];
-{      
+	int argc __unused;
+	char *argv[] __unused;
+{
 
 	settftpmode("octet");
 }
 
 void
 setascii(argc, argv)
-	int argc;
-	char *argv[];
+	int argc __unused;
+	char *argv[] __unused;
 {
 
 	settftpmode("netascii");
@@ -379,7 +402,7 @@ setascii(argc, argv)
 
 static void
 settftpmode(newmode)
-	char *newmode;
+	const char *newmode;
 {
 	strcpy(mode, newmode);
 	if (verbose)
@@ -402,7 +425,7 @@ put(argc, argv)
 	if (argc < 2) {
 		strcpy(line, "send ");
 		printf("(file) ");
-		fgets(&line[strlen(line)], LBUFLEN-strlen(line), stdin);
+		fgets(&line[strlen(line)], sizeof line - strlen(line), stdin);
 		makeargv();
 		argc = margc;
 		argv = margv;
@@ -412,22 +435,22 @@ put(argc, argv)
 		return;
 	}
 	targ = argv[argc - 1];
-	if (strrchr(argv[argc - 1], ':')) {
-		char *cp;
+	if (rindex(argv[argc - 1], ':')) {
+		char *lcp;
 
 		for (n = 1; n < argc - 1; n++)
-			if (strchr(argv[n], ':')) {
+			if (index(argv[n], ':')) {
 				putusage(argv[0]);
 				return;
 			}
-		cp = argv[argc - 1];
-		targ = strrchr(cp, ':');
+		lcp = argv[argc - 1];
+		targ = rindex(lcp, ':');
 		*targ++ = 0;
-		if (cp[0] == '[' && cp[strlen(cp) - 1] == ']') {
-			cp[strlen(cp) - 1] = '\0';
-			cp++;
+		if (lcp[0] == '[' && lcp[strlen(lcp) - 1] == ']') {
+			lcp[strlen(lcp) - 1] = '\0';
+			lcp++;
 		}
-		setpeer0(cp, NULL);
+		setpeer0(lcp, NULL);		
 	}
 	if (!connected) {
 		printf("No target machine specified.\n");
@@ -448,7 +471,7 @@ put(argc, argv)
 	}
 				/* this assumes the target is a directory */
 				/* on a remote unix system.  hmmmm.  */
-	cp = strchr(targ, '\0'); 
+	cp = index(targ, '\0');
 	*cp++ = '/';
 	for (n = 1; n < argc - 1; n++) {
 		strcpy(cp, tail(argv[n]));
@@ -488,7 +511,7 @@ get(argc, argv)
 	if (argc < 2) {
 		strcpy(line, "get ");
 		printf("(files) ");
-		fgets(&line[strlen(line)], LBUFLEN-strlen(line), stdin);
+		fgets(&line[strlen(line)], sizeof line - strlen(line), stdin);
 		makeargv();
 		argc = margc;
 		argv = margv;
@@ -499,24 +522,25 @@ get(argc, argv)
 	}
 	if (!connected) {
 		for (n = 1; n < argc ; n++)
-			if (strrchr(argv[n], ':') == 0) {
+			if (rindex(argv[n], ':') == 0) {
 				getusage(argv[0]);
 				return;
 			}
 	}
 	for (n = 1; n < argc ; n++) {
-		src = strrchr(argv[n], ':');
+		src = rindex(argv[n], ':');
 		if (src == NULL)
 			src = argv[n];
 		else {
-			char *cp;
+			char *lcp;
+
 			*src++ = 0;
-			cp = argv[n];
-			if (cp[0] == '[' && cp[strlen(cp) - 1] == ']') {
-				cp[strlen(cp) - 1] = '\0';
-				cp++;
+			lcp = argv[n];
+			if (lcp[0] == '[' && lcp[strlen(lcp) - 1] == ']') {
+				lcp[strlen(lcp) - 1] = '\0';
+				lcp++;
 			}
-			setpeer0(cp, NULL);
+			setpeer0(lcp, NULL);
 			if (!connected)
 				continue;
 		}
@@ -564,7 +588,7 @@ setblksize(argc, argv)
 	if (argc < 2) {
 		strcpy(line, "blksize ");
 		printf("(blksize) ");
-		fgets(&line[strlen(line)], LBUFLEN-strlen(line), stdin);
+		fgets(&line[strlen(line)], sizeof line - strlen(line), stdin);
 		makeargv();
 		argc = margc;
 		argv = margv;
@@ -593,7 +617,7 @@ setrexmt(argc, argv)
 	if (argc < 2) {
 		strcpy(line, "Rexmt-timeout ");
 		printf("(value) ");
-		fgets(&line[strlen(line)], LBUFLEN-strlen(line), stdin);
+		fgets(&line[strlen(line)], sizeof line - strlen(line), stdin);
 		makeargv();
 		argc = margc;
 		argv = margv;
@@ -621,7 +645,7 @@ settimeout(argc, argv)
 	if (argc < 2) {
 		strcpy(line, "Maximum-timeout ");
 		printf("(value) ");
-		fgets(&line[strlen(line)], LBUFLEN-strlen(line), stdin);
+		fgets(&line[strlen(line)], sizeof line - strlen(line), stdin);
 		makeargv();
 		argc = margc;
 		argv = margv;
@@ -639,8 +663,8 @@ settimeout(argc, argv)
 
 void
 status(argc, argv)
-	int argc;
-	char *argv[];
+	int argc __unused;
+	char *argv[] __unused;
 {
 	if (connected)
 		printf("Connected to %s.\n", hostname);
@@ -654,7 +678,7 @@ status(argc, argv)
 
 void
 intr(dummy)
-	int dummy;
+	int dummy __unused;
 {
 
 	signal(SIGALRM, SIG_IGN);
@@ -667,9 +691,9 @@ tail(filename)
 	char *filename;
 {
 	char *s;
-	
+
 	while (*filename) {
-		s = strrchr(filename, '/');
+		s = rindex(filename, '/');
 		if (s == NULL)
 			break;
 		if (s[1])
@@ -679,24 +703,58 @@ tail(filename)
 	return (filename);
 }
 
+static const char *
+command_prompt()
+{
+
+	return ("tftp> ");
+}
+
 /*
  * Command parser.
  */
-static __dead void
+static void
 command()
 {
+	HistEvent he;
 	struct cmd *c;
+	static EditLine *el;
+	static History *hist;
+	const char *bp;
+	char *cp;
+	int len, num, vrbose;
 
+	vrbose = isatty(0);
+	if (vrbose) {
+		el = el_init("tftp", stdin, stdout, stderr);
+		hist = history_init();
+		history(hist, &he, H_SETSIZE, 100);
+		el_set(el, EL_HIST, history, hist);
+		el_set(el, EL_EDITOR, "emacs");
+		el_set(el, EL_PROMPT, command_prompt);
+		el_set(el, EL_SIGNAL, 1);
+		el_source(el, NULL);
+	}
 	for (;;) {
-		printf("%s> ", prompt);
-		if (fgets(line, LBUFLEN, stdin) == 0) {
-			if (feof(stdin)) {
-				exit(0);
-			} else {
-				continue;
+		if (vrbose) {
+                        if ((bp = el_gets(el, &num)) == NULL || num == 0)
+                                exit(0);
+                        len = (num > MAXLINE) ? MAXLINE : num;
+                        memcpy(line, bp, len);
+                        line[len] = '\0';
+                        history(hist, &he, H_ENTER, bp);
+		} else {
+			if (fgets(line, sizeof line , stdin) == 0) {
+				if (feof(stdin)) {
+					exit(txrx_error);
+				} else {
+					continue;
+				}
 			}
 		}
-		if ((line[0] == 0) || (line[0] == '\n'))
+		if ((cp = strchr(line, '\n')))
+			*cp = '\0';
+		if (line[0] == 0)
 			continue;
 		makeargv();
 		if (margc == 0)
@@ -718,7 +776,7 @@ struct cmd *
 getcmd(name)
 	char *name;
 {
-	char *p, *q;
+	const char *p, *q;
 	struct cmd *c, *found;
 	int nmatches, longest;
 
@@ -753,7 +811,9 @@ makeargv()
 	char **argp = margv;
 
 	margc = 0;
-	for (cp = line; *cp;) {
+	if ((cp = strchr(line, '\n')))
+		*cp = '\0';
+	for (cp = line; margc < MAX_MARGV - 1 && *cp;) {
 		while (isspace((unsigned char)*cp))
 			cp++;
 		if (*cp == '\0')
@@ -771,11 +831,10 @@ makeargv()
 
 void
 quit(argc, argv)
-	int argc;
-	char *argv[];
+	int argc __unused;
+	char *argv[] __unused;
 {
-
-	exit(0);
+	exit(txrx_error);
 }
 
 /*
@@ -809,8 +868,8 @@ help(argc, argv)
 
 void
 settrace(argc, argv)
-	int argc;
-	char **argv;
+	int argc __unused;
+	char **argv __unused;
 {
 	trace = !trace;
 	printf("Packet tracing %s.\n", trace ? "on" : "off");
@@ -818,8 +877,8 @@ settrace(argc, argv)
 
 void
 setverbose(argc, argv)
-	int argc;
-	char **argv;
+	int argc __unused;
+	char **argv __unused;
 {
 	verbose = !verbose;
 	printf("Verbose mode %s.\n", verbose ? "on" : "off");
@@ -827,8 +886,8 @@ setverbose(argc, argv)
 
 void
 settsize(argc, argv)
-	int argc;
-	char **argv;
+	int argc __unused;
+	char **argv __unused;
 {
 	tsize = !tsize;
 	printf("Tsize mode %s.\n", tsize ? "on" : "off");
@@ -836,8 +895,8 @@ settsize(argc, argv)
 
 void
 settimeoutopt(argc, argv)
-	int argc;
-	char **argv;
+	int argc __unused;
+	char **argv __unused;
 {
 	tout = !tout;
 	printf("Timeout option %s.\n", tout ? "on" : "off");

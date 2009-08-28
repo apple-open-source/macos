@@ -1,0 +1,191 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 45;
+	objects = {
+
+/* Begin PBXFileReference section */
+		BC0CEF0B0EEF426A008E80CB /* resurrect-local-assoc.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "resurrect-local-assoc.m"; sourceTree = "<group>"; };
+		BC0CEF0E0EEF448B008E80CB /* resurrect-global-assoc.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "resurrect-global-assoc.m"; sourceTree = "<group>"; };
+		BC12C5900E65F73100CA2FCB /* enumerate_references.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = enumerate_references.m; sourceTree = "<group>"; };
+		BC12C59E0E660B6200CA2FCB /* recoverLocalObjects.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = recoverLocalObjects.m; sourceTree = "<group>"; };
+		BC1D8AF70EAD3852002CC777 /* threadedresurrection.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = threadedresurrection.m; sourceTree = "<group>"; };
+		BC1D8D7D0EAEAD29002CC777 /* slop.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = slop.m; sourceTree = "<group>"; };
+		BC22E6720ECA437F006263C3 /* badpointers.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = badpointers.m; sourceTree = "<group>"; };
+		BC3A14410EBFC97900D7ECFB /* weakstack.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = weakstack.m; sourceTree = "<group>"; };
+		BC6575E10F8D3B0700E7808E /* resurrect-memmove.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "resurrect-memmove.m"; sourceTree = "<group>"; };
+		BC6687830E4CEC1D0069267B /* resurrect_memcpy_ok.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = resurrect_memcpy_ok.m; sourceTree = "<group>"; };
+		BC7750D30EE85CB900E9B027 /* single-threaded-collect.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "single-threaded-collect.m"; sourceTree = "<group>"; };
+		BC7895AE0EF0720B002F9962 /* resurrect-global-ivar.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "resurrect-global-ivar.m"; sourceTree = "<group>"; };
+		BC7895AF0EF07439002F9962 /* resurrect-global-global.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "resurrect-global-global.m"; sourceTree = "<group>"; };
+		BC7895D50EF075D4002F9962 /* resurrect-local-weak.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "resurrect-local-weak.m"; sourceTree = "<group>"; };
+		BC7895E20EF076AB002F9962 /* resurrect-local-atomic.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "resurrect-local-atomic.m"; sourceTree = "<group>"; };
+		BC7895E60EF078A1002F9962 /* resurrect-global-memmove.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "resurrect-global-memmove.m"; sourceTree = "<group>"; };
+		BC8989AF0E4CC1AD00216E0C /* resurrect-local-memmove.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "resurrect-local-memmove.m"; sourceTree = "<group>"; };
+		BCA093340E47BF910091DA41 /* objc_is_finalized.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = objc_is_finalized.m; sourceTree = "<group>"; };
+		BCA177530ECCAD9C009D52EE /* cfdata.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = cfdata.m; sourceTree = "<group>"; };
+		BCA4D1660E4A276F008C5601 /* cfretain.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = cfretain.m; sourceTree = "<group>"; };
+		BCB57A1F0EF344E300C88F73 /* mallocfree.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = mallocfree.m; sourceTree = "<group>"; };
+		BCB628460E4D11B900A00760 /* lookfor.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = lookfor.c; sourceTree = "<group>"; };
+		BCB750580F5346A0001CF790 /* auto_realloc_test.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = auto_realloc_test.m; sourceTree = "<group>"; };
+		BCC526140E7B13AC00B56114 /* weakassign.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = weakassign.m; sourceTree = "<group>"; };
+		BCE1373B0EAFBDA2008E495C /* dump.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = dump.m; sourceTree = "<group>"; };
+		BCE9C7A00E4B9AAB0095B5E4 /* makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = makefile; sourceTree = "<group>"; };
+		BCE9C7AF0E4B9F290095B5E4 /* resurrect-local-ivar.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "resurrect-local-ivar.m"; sourceTree = "<group>"; };
+		BCE9C7B70E4BA5A30095B5E4 /* resurrect-local-global.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "resurrect-local-global.m"; sourceTree = "<group>"; };
+		BCE9C7BC0E4BA6B50095B5E4 /* resurrect-global-weak.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "resurrect-global-weak.m"; sourceTree = "<group>"; };
+		BCE9C7BD0E4BB1660095B5E4 /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
+		BCE9C8170E4BC5A90095B5E4 /* resurrect-global-atomic.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "resurrect-global-atomic.m"; sourceTree = "<group>"; };
+		BCEB6E1B0F6B15C000522132 /* probe.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = probe.m; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		08FB7794FE84155DC02AAC07 /* gctests */ = {
+			isa = PBXGroup;
+			children = (
+				BC6575E10F8D3B0700E7808E /* resurrect-memmove.m */,
+				BCEB6E1B0F6B15C000522132 /* probe.m */,
+				BC0CEF0E0EEF448B008E80CB /* resurrect-global-assoc.m */,
+				BCE9C8170E4BC5A90095B5E4 /* resurrect-global-atomic.m */,
+				BC7895AE0EF0720B002F9962 /* resurrect-global-ivar.m */,
+				BC7895AF0EF07439002F9962 /* resurrect-global-global.m */,
+				BC7895E60EF078A1002F9962 /* resurrect-global-memmove.m */,
+				BCE9C7BC0E4BA6B50095B5E4 /* resurrect-global-weak.m */,
+				BC7895E20EF076AB002F9962 /* resurrect-local-atomic.m */,
+				BC0CEF0B0EEF426A008E80CB /* resurrect-local-assoc.m */,
+				BCE9C7B70E4BA5A30095B5E4 /* resurrect-local-global.m */,
+				BCE9C7AF0E4B9F290095B5E4 /* resurrect-local-ivar.m */,
+				BC8989AF0E4CC1AD00216E0C /* resurrect-local-memmove.m */,
+				BC7895D50EF075D4002F9962 /* resurrect-local-weak.m */,
+				BC6687830E4CEC1D0069267B /* resurrect_memcpy_ok.m */,
+				BC22E6720ECA437F006263C3 /* badpointers.m */,
+				BC12C5900E65F73100CA2FCB /* enumerate_references.m */,
+				BCA177530ECCAD9C009D52EE /* cfdata.m */,
+				BCA093340E47BF910091DA41 /* objc_is_finalized.m */,
+				BCC526140E7B13AC00B56114 /* weakassign.m */,
+				BC1D8D7D0EAEAD29002CC777 /* slop.m */,
+				BC12C59E0E660B6200CA2FCB /* recoverLocalObjects.m */,
+				BC1D8AF70EAD3852002CC777 /* threadedresurrection.m */,
+				BC3A14410EBFC97900D7ECFB /* weakstack.m */,
+				BCA4D1660E4A276F008C5601 /* cfretain.m */,
+				BCB628460E4D11B900A00760 /* lookfor.c */,
+				BC7750D30EE85CB900E9B027 /* single-threaded-collect.m */,
+				BCE9C7A00E4B9AAB0095B5E4 /* makefile */,
+				BCE1373B0EAFBDA2008E495C /* dump.m */,
+				BCE9C7BD0E4BB1660095B5E4 /* main.m */,
+				BCB57A1F0EF344E300C88F73 /* mallocfree.m */,
+				BCB750580F5346A0001CF790 /* auto_realloc_test.m */,
+			);
+			name = gctests;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXLegacyTarget section */
+		D28A88AD04BDD90700651E21 /* gctests */ = {
+			isa = PBXLegacyTarget;
+			buildArgumentsString = "$(ACTION)";
+			buildConfigurationList = 1DEB918F08733D9F0010E9CD /* Build configuration list for PBXLegacyTarget "gctests" */;
+			buildPhases = (
+			);
+			buildToolPath = /usr/bin/make;
+			dependencies = (
+			);
+			name = gctests;
+			passBuildSettingsInEnvironment = 1;
+			productName = gctests;
+		};
+/* End PBXLegacyTarget section */
+
+/* Begin PBXProject section */
+		08FB7793FE84155DC02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 1DEB919308733D9F0010E9CD /* Build configuration list for PBXProject "gctests" */;
+			compatibilityVersion = "Xcode 3.1";
+			hasScannedForEncodings = 1;
+			mainGroup = 08FB7794FE84155DC02AAC07 /* gctests */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				D28A88AD04BDD90700651E21 /* gctests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin XCBuildConfiguration section */
+		1DEB919008733D9F0010E9CD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DEBUGGING_SYMBOLS = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = gctests;
+			};
+			name = Debug;
+		};
+		1DEB919108733D9F0010E9CD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = gctests;
+			};
+			name = Release;
+		};
+		1DEB919408733D9F0010E9CD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PREBINDING = NO;
+				SDKROOT = macosx10.6;
+			};
+			name = Debug;
+		};
+		1DEB919508733D9F0010E9CD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				PREBINDING = NO;
+				SDKROOT = macosx10.6;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1DEB918F08733D9F0010E9CD /* Build configuration list for PBXLegacyTarget "gctests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DEB919008733D9F0010E9CD /* Debug */,
+				1DEB919108733D9F0010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1DEB919308733D9F0010E9CD /* Build configuration list for PBXProject "gctests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DEB919408733D9F0010E9CD /* Debug */,
+				1DEB919508733D9F0010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 08FB7793FE84155DC02AAC07 /* Project object */;
+}

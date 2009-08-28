@@ -1,9 +1,9 @@
 #!/usr/bin/perl -wT
 
-# $HeadURL: http://svn.collab.net/repos/svn/branches/1.4.x/contrib/cgi/mirror_dir_through_svn.cgi $
-# $LastChangedDate: 2003-08-28 18:03:23 +0000 (Thu, 28 Aug 2003) $
-# $LastChangedBy: striker $
-# $LastChangedRevision: 6908 $
+# $HeadURL: http://svn.collab.net/repos/svn/branches/1.6.x/contrib/cgi/mirror_dir_through_svn.cgi $
+# $LastChangedDate: 2008-03-25 14:42:32 +0000 (Tue, 25 Mar 2008) $
+# $LastChangedBy: arfrever $
+# $LastChangedRevision: 30041 $
 
 $| = 1;
 

@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-meta/unbind.c,v 1.11.2.11 2006/02/16 22:21:27 ando Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-meta/unbind.c,v 1.30.2.5 2008/02/11 23:26:47 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2006 The OpenLDAP Foundation.
+ * Copyright 1999-2008 The OpenLDAP Foundation.
  * Portions Copyright 2001-2003 Pierangelo Masarati.
  * Portions Copyright 1999-2003 Howard Chu.
  * All rights reserved.
@@ -51,23 +51,37 @@ meta_back_conn_destroy(
 	mc_curr.mc_conn = conn;
 	
 	ldap_pvt_thread_mutex_lock( &mi->mi_conninfo.lai_mutex );
+#if META_BACK_PRINT_CONNTREE > 0
+	meta_back_print_conntree( mi, ">>> meta_back_conn_destroy" );
+#endif /* META_BACK_PRINT_CONNTREE */
 	while ( ( mc = avl_delete( &mi->mi_conninfo.lai_tree, ( caddr_t )&mc_curr, meta_back_conn_cmp ) ) != NULL )
 	{
 		Debug( LDAP_DEBUG_TRACE,
-			"=>meta_back_conn_destroy: destroying conn %ld\n",
-			LDAP_BACK_PCONN_ID( mc->mc_conn ), 0, 0 );
+			"=>meta_back_conn_destroy: destroying conn %ld "
+			"refcnt=%d flags=0x%08x\n",
+			LDAP_BACK_PCONN_ID( mc ),
+			mc->mc_refcnt, mc->msc_mscflags );
 		
-		assert( mc->mc_refcnt == 0 );
+		if ( mc->mc_refcnt > 0 ) {
+			/* someone else might be accessing the connection;
+			 * mark for deletion */
+			LDAP_BACK_CONN_CACHED_CLEAR( mc );
+			LDAP_BACK_CONN_TAINTED_SET( mc );
 
-		meta_back_conn_free( mc );
+		} else {
+			meta_back_conn_free( mc );
+		}
 	}
+#if META_BACK_PRINT_CONNTREE > 0
+	meta_back_print_conntree( mi, "<<< meta_back_conn_destroy" );
+#endif /* META_BACK_PRINT_CONNTREE */
 	ldap_pvt_thread_mutex_unlock( &mi->mi_conninfo.lai_mutex );
 
 	/*
 	 * Cleanup rewrite session
 	 */
 	for ( i = 0; i < mi->mi_ntargets; ++i ) {
-		rewrite_session_delete( mi->mi_targets[ i ].mt_rwmap.rwm_rw, conn );
+		rewrite_session_delete( mi->mi_targets[ i ]->mt_rwmap.rwm_rw, conn );
 	}
 
 	return 0;

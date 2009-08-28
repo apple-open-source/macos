@@ -13,7 +13,7 @@
  
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 #include <list>
@@ -37,11 +37,11 @@ template<typename T>
     clear_alloc() throw()
     { }
     
-    clear_alloc(clear_alloc const& _wa) throw()
+    clear_alloc(clear_alloc const&) throw() : new_allocator<T>() 
     { }
     
     template<typename T1>
-      clear_alloc(clear_alloc<T1> const& _wa) throw()
+    clear_alloc(clear_alloc<T1> const&) throw()
       { }
 
     virtual ~clear_alloc() throw()

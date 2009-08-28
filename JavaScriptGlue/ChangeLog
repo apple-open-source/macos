@@ -1,3 +1,58 @@
+2009-07-08  Darin Adler  <darin@apple.com>
+
+        Reviewed by Dan Bernstein
+
+        - fix <rdar://problem/6971484> REGRESSION (r30534): "Scrolling Credits"
+          effect does not scroll on iMovie 7.1.4 on Tiger
+
+        In <http://trac.webkit.org/changeset/30534>, the prototype of
+        JSObject::put() which UserObjectImp had been overriding changed, but
+        UserObjectImp wasn't updated, so its override was no longer getting
+        called after that.
+
+        * UserObjectImp.cpp:
+        (UserObjectImp::put): Match the current prototype of JSObject::put().
+        The PutPropertySlot argument is unused.
+        * UserObjectImp.h: Ditto.
+
+2009-06-19  Zoltan Horvath  <hzoltan@inf.u-szeged.hu>
+
+        Reviewed by Darin Adler.
+
+        Add FastAllocBase.h to JavaScriptGlue's ForwardingHeaders/wtf, because it's needed by HashCountedSet.h on MAC.
+
+        * ForwardingHeaders/wtf/FastAllocBase.h: Added.
+
+2009-06-02  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        Remove workaround that was added to address <rdar://problem/5488678> as it no longer affects our Tiger builds.
+
+        * Configurations/Base.xcconfig:
+
+2009-05-25  David Levin  <levin@chromium.org>
+
+        Reviewed by Maciej Stachowiak and Oliver Hunt.
+
+        https://bugs.webkit.org/show_bug.cgi?id=25126
+
+        Added forwarding headers.
+
+        * ForwardingHeaders/wtf/CrossThreadRefCounted.h: Added.
+        * ForwardingHeaders/wtf/OwnFastMallocPtr.h: Added.
+
+2009-05-23  David Kilzer  <ddkilzer@apple.com>
+
+        Part 1 of 2: Bug 25495: Implement PassOwnPtr and replace uses of std::auto_ptr
+
+        <https://bugs.webkit.org/show_bug.cgi?id=25495>
+
+        Reviewed by Oliver Hunt.
+
+        * ForwardingHeaders/wtf/OwnPtrCommon.h: Added.
+        * ForwardingHeaders/wtf/PassOwnPtr.h: Added.
+
 2009-05-14  Mark Rowe  <mrowe@apple.com>
 
         Rubber-stamped by Darin Adler.

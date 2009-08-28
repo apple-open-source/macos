@@ -1,3 +1,17 @@
+2008-09-05  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.c (gdb_show_objc_object): Update call to 
+	target_check_safe_call to pass the appropriate arguments.
+
+2008-03-05  Jason Molenda  (jmolenda@apple.com)
+
+        * Makefile: Define TARGET_POWERPC so the tdep.h file knows which arch
+        we're building for.
+
+2007-11-06  Jim	Ingham	<jingham@apple.com>
+
+	* Makefile: Pass "-arch	ppc" to	the final link ld -r stage.
+
 2006-11-28  Jason Molenda  (jmolenda@apple.com)
 
 	* gdb.c: Remove cvs merge goo added accidentally by Carolyn.

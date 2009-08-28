@@ -6,8 +6,11 @@
  *  Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
  *	$Log: IOFWDCLPool.h,v $
- *	Revision 1.13.6.1  2008/03/03 23:15:13  ayanowit
- *	another fix for gcc-42.
+ *	Revision 1.15  2008/11/14 00:17:12  arulchan
+ *	fix for rdar://5939334
+ *	
+ *	Revision 1.14  2008/03/03 23:31:42  ayanowit
+ *	another gcc-42 fix.
  *	
  *	Revision 1.13  2007/01/26 20:52:31  ayanowit
  *	changes to user-space isoch stuff to support 64-bit apps.
@@ -73,7 +76,9 @@ class IOMemoryDescriptor ;
 class IOMemoryMap ;
 class OSSet;
 
-// not to be subclassed!
+/*! @class IOFWDCLPool
+	@discussion You should never subclass IOFWDCLPool 
+*/
 
 class IOFWDCLPool : public OSObject
 {

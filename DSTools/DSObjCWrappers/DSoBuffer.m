@@ -128,9 +128,9 @@
 
 - (tDataBufferPtr) grow:(unsigned long)inNewSize
 {
-	register unsigned long  ulTemp  = 16 ;
-    register tDataBufferPtr bufNew  = nil;
-    DSRef					dirRef  = [mDir dsDirRef];
+	UInt32			ulTemp  = 16;
+	tDataBufferPtr	bufNew  = nil;
+	DSRef			dirRef  = [mDir dsDirRef];
 
 	if (!inNewSize)
 		inNewSize = kDefaultBufferSize ;

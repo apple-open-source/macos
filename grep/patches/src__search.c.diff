@@ -1,0 +1,53 @@
+diff -up -r /SourceCache/grep/grep-25/grep/src/search.c ./src/search.c
+--- /SourceCache/grep/grep-25/grep/src/search.c	2008-03-24 15:50:59.000000000 -0700
++++ ./src/search.c	2008-09-16 15:42:27.000000000 -0700
+@@ -387,7 +387,10 @@ EGexecute (char const *buf, size_t size,
+ 	      /* Narrow down to the line containing the candidate, and
+ 		 run it through DFA. */
+ 	      end = memchr(beg, eol, buflim - beg);
+-	      end++;
++	      if (end)
++	        end++;
++	      else 
++		end = buflim;
+ #ifdef MBS_SUPPORT
+ 	      if (mb_cur_max > 1 && bytes_left)
+ 		continue;
+@@ -442,7 +445,10 @@ EGexecute (char const *buf, size_t size,
+ #endif /* MBS_SUPPORT */
+ 	      beg += offset;
+ 	      end = memchr (beg, eol, buflim - beg);
+-	      end++;
++	      if (end)
++		end++;
++	      else
++		end = buflim;
+ #ifdef MBS_SUPPORT
+ 	      if (mb_cur_max > 1 && bytes_left)
+ 		continue;
+@@ -1008,8 +1014,10 @@ next_char:;
+   else
+ #endif /* MBS_SUPPORT */
+   end = memchr (beg + len, eol, (buf + size) - (beg + len));
+-
+-  end++;
++  if (end)
++     end++;
++  else
++     end = buf+size;
+   while (buf < beg && beg[-1] != eol)
+     --beg;
+   len = end - beg;
+@@ -1131,7 +1139,10 @@ Pexecute (char const *buf, size_t size, 
+       if (!exact)
+ 	{
+ 	  end = memchr (end, eol, buflim - end);
+-	  end++;
++	  if (end)
++	    end++;
++	  else
++	    end = buflim;
+ 	  while (buf < beg && beg[-1] != eol)
+ 	    --beg;
+ 	}
+Only in ./src: search.c~

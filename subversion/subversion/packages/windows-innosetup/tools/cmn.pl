@@ -14,16 +14,20 @@
 # history and logs, available at http://subversion.tigris.org/.
 # ==============================================================================
 
+##########################################################################
+# INCLUDED LIBRARY FILES
+use File::Basename;
+
 #-------------------------------------------------------------------------------
 # FUNCTION   cmn_IniDir
 # DOES       Returns the directory where the initialization file is. The
-#            dir is application directory of the current user 
+#            dir is application directory of the current user
 sub cmn_IniDir
 {
     my $DirAppData='';
-  
+
     # The registry is the safe way of retrieving the Application data directory,
-    # but we let the environment variable %APPDATA% have the priority. This 
+    # but we let the environment variable %APPDATA% have the priority. This
     # should work on every Win32 platform.
     if ($ENV{'APPDATA'})
       {
@@ -47,12 +51,12 @@ sub cmn_IniDir
 sub cmn_RegGetValue
 {
     use Win32::TieRegistry;
-  
+
     my ($Key, $Value) = @_;
-  
+
     # Replace back slashes with slashes
     $Key =~ s/\\/\//g;
-  
+
     # Do some filtering if the caller includes HKLM in stead of HKEY_LOCAL_MACHINE
     # or the Win32::TieRegistry shortcut LMachine and so on
     $Key =~ s/^HKCC/CConfig/;
@@ -62,7 +66,7 @@ sub cmn_RegGetValue
     $Key =~ s/^HKLM/LMachine/;
     $Key =~ s/^HKPD/PerfData/;
     $Key =~ s/^HKUS/Users/;
-  
+
     $Registry->Delimiter("/");
 
     return $Registry -> {"$Key//$Value"};
@@ -126,6 +130,68 @@ sub cmn_ValuePathfile
     close (FH_ISSFILE);
 
     return $RetVal;
+}
+
+#-------------------------------------------------------------------------
+# FUNCTION   MkDirP
+# DOES       Making a directory. Similar to unix's mkdir -p
+sub MkDirP
+{
+    my $Dir=$_[0];
+    my @SubPaths;
+
+
+
+    if (! -e $Dir)
+      {
+        @SubPaths = split (/\\/, $Dir);
+        my $Dir2Make='';
+        for (@SubPaths)
+          {
+            if ($Dir2Make)
+              {
+                $Dir2Make = "$Dir2Make\\$_";
+              }
+            else
+              {
+                $Dir2Make = $_;
+              }
+
+            if (! -e $Dir2Make)
+              {
+                system ("mkdir $Dir2Make");
+              }
+          }
+      }
+}
+
+#-------------------------------------------------------------------------------
+# FUNCTION PathSetupOut
+# DOES     Finding and returning the current svn.exe path as of
+#          ..\svn_iss_dyn.iss
+sub PathSetupOut
+{
+    my $PathWinIsPack='';
+    my $Pwd='';
+
+    # Get absolute path of the current PWD's parent
+    $PathWinIsPack=getcwd;
+    $Pwd=basename($PathWinIsPack);
+    $PathWinIsPack =~ s/\//\\/g;
+    $PathWinIsPack =~ s/\\$Pwd$//;
+
+    my $SetupOut = "$PathWinIsPack\\" . &cmn_ValuePathfile('path_setup_out');
+
+    #Make the out dir in "$RootSvnBook\src if needed
+    &MkDirP ("$SetupOut") unless (-e "$SetupOut");
+
+#    if ( ! -e "../$SetupOut")
+    if ( ! -e "$SetupOut")
+      {
+        die "ERROR: Could not find $SetupOut in ..\\svn_dynamics.iss\n";
+      }
+
+    return $SetupOut;
 }
 
 1;

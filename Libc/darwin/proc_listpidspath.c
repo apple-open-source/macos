@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2007, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,6 +37,11 @@ typedef struct {
 	int				pids_count;
 	size_t				pids_size;
 
+	// threads
+	uint64_t			*threads;
+	int				thr_count;
+	size_t				thr_size;
+
 	// open file descriptors
 	struct proc_fdinfo		*fds;
 	int				fds_count;
@@ -68,6 +73,10 @@ check_init(const char *path, uint32_t flags)
 	info->pids_count	= 0;
 	info->pids_size		= 0;
 
+	info->threads		= NULL;
+	info->thr_count		= 0;
+	info->thr_size		= 0;
+
 	info->fds		= NULL;
 	info->fds_count		= 0;
 	info->fds_size		= 0;
@@ -96,6 +105,10 @@ check_free(fdOpenInfoRef info)
 {
 	if (info->pids != NULL) {
 		free(info->pids);
+	}
+
+	if (info->threads != NULL) {
+		free(info->threads);
 	}
 
 	if (info->fds != NULL) {
@@ -219,7 +232,6 @@ check_process_text(fdOpenInfoRef info, int pid)
 			return -1;
 		}
 
-		//if (rwpi.prp_vip.vip_path[0])
 		status = check_file(info, &rwpi.prp_vip.vip_vi.vi_stat);
 		if (status != 0) {
 			// if error or match
@@ -279,7 +291,7 @@ check_process_fds(fdOpenInfoRef info, int pid)
 
 		if ((buf_used + sizeof(struct proc_fdinfo)) >= info->fds_size) {
 			// if not enough room in the buffer for an extra fd
-			buf_used = info->fds_size;
+			buf_used = info->fds_size + sizeof(struct proc_fdinfo);
 			continue;
 		}
 
@@ -337,6 +349,101 @@ check_process_fds(fdOpenInfoRef info, int pid)
 
 
 /*
+ * check_process_threads
+ *   check [process] thread working directories
+ *
+ *   in  : pid
+ *   out : -1 if error
+ *          0 if no match
+ *          1 if match
+ */
+static int
+check_process_threads(fdOpenInfoRef info, int pid)
+{
+	int				buf_used;
+	int				status;
+	struct proc_taskallinfo		tai;
+
+	buf_used = proc_pidinfo(pid, PROC_PIDTASKALLINFO, 0, &tai, sizeof(tai));
+	if (buf_used <= 0) {
+		if (errno == ESRCH) {
+			// if the process is gone
+			return 0;
+		}
+		return -1;
+	} else if (buf_used < sizeof(tai)) {
+		// if we didn't get enough information
+		return -1;
+	}
+
+	// check thread info
+	if (tai.pbsd.pbi_flags & PROC_FLAG_THCWD) {
+		int	i;
+
+		// get list of threads
+		buf_used = tai.ptinfo.pti_threadnum * sizeof(uint64_t);
+
+		while (1) {
+			if (buf_used > info->thr_size) {
+				// if we need to allocate [more] space
+				while (buf_used > info->thr_size) {
+					info->thr_size += (sizeof(uint64_t) * 32);
+				}
+
+				if (info->threads == NULL) {
+					info->threads = malloc(info->thr_size);
+				} else {
+					info->threads = reallocf(info->threads, info->thr_size);
+				}
+				if (info->threads == NULL) {
+					return -1;
+				}
+			}
+
+			buf_used = proc_pidinfo(pid, PROC_PIDLISTTHREADS, 0, info->threads, info->thr_size);
+			if (buf_used <= 0) {
+				return -1;
+			}
+
+			if ((buf_used + sizeof(uint64_t)) >= info->thr_size) {
+				// if not enough room in the buffer for an extra thread
+				buf_used = info->thr_size + sizeof(uint64_t);
+				continue;
+			}
+
+			info->thr_count = buf_used / sizeof(uint64_t);
+			break;
+		}
+
+		// iterate through each thread
+		for (i = 0; i < info->thr_count; i++) {
+			uint64_t			thr	= info->threads[i];
+			struct proc_threadwithpathinfo	tpi;
+
+			buf_used = proc_pidinfo(pid, PROC_PIDTHREADPATHINFO, thr, &tpi, sizeof(tpi));
+			if (buf_used <= 0) {
+				if ((errno == ESRCH) || (errno == EINVAL)) {
+					// if the process or thread is gone
+					continue;
+				}
+			} else if (buf_used < sizeof(tai)) {
+				// if we didn't get enough information
+				return -1;
+			}
+
+			status = check_file(info, &tpi.pvip.vip_vi.vi_stat);
+			if (status != 0) {
+				// if error or match
+				return status;
+			}
+		}
+	}
+
+	return 0;
+}
+
+
+/*
  * check_process
  *   check [process] current working and root directories
  *   check [process] text (memory)
@@ -368,6 +475,13 @@ check_process(fdOpenInfoRef info, int pid)
 
 	// check open file descriptors
 	status = check_process_fds(info, pid);
+	if (status != 0) {
+		// if error or match
+		return status;
+	}
+
+	// check per-thread working directories
+	status = check_process_threads(info, pid);
 	if (status != 0) {
 		// if error or match
 		return status;
@@ -411,11 +525,11 @@ proc_listpidspath(uint32_t	type,
 	}
 
 	buffersize -= (buffersize % sizeof(int)); // make whole number of ints
-        if (buffersize < sizeof(int)) {
+	if (buffersize < sizeof(int)) {
 		// if we can't even return a single PID
 		errno = ENOMEM;
 		return -1;
-        }
+	}
 
 	// init
 	info = check_init(path, pathflags);
@@ -453,7 +567,7 @@ proc_listpidspath(uint32_t	type,
 
 		if ((buf_used + sizeof(int)) >= info->pids_size) {
 			// if not enough room in the buffer for an extra pid
-			buf_used = info->pids_size;
+			buf_used = info->pids_size + sizeof(int);
 			continue;
 		}
 

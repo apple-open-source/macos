@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,17 +28,11 @@
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <mach/mach.h>
-
 #include <CoreFoundation/CFDictionary.h>
-
-extern char *	eapolclient_path;
+#include <CoreFoundation/CFString.h>
+#include <TargetConditionals.h>
 
 #include "eapolcontroller_types.h"
-void
-_ControllerInitialize();
-
-void
-_ControllerBegin();
 
 int 
 ControllerCopyStateAndStatus(if_name_t if_name, 
@@ -53,8 +47,16 @@ ControllerStart(if_name_t if_name, uid_t uid, gid_t gid,
 		CFDictionaryRef config_dict, mach_port_t bootstrap);
 
 int
+ControllerStartSystem(if_name_t if_name, uid_t uid, gid_t gid,
+		      CFDictionaryRef options);
+
+int
 ControllerUpdate(if_name_t if_name, uid_t uid, gid_t gid,
 		 CFDictionaryRef config_dict);
+
+int
+ControllerProvideUserInput(if_name_t if_name, uid_t uid, gid_t gid,
+			   CFDictionaryRef user_input_dict);
 
 int
 ControllerRetry(if_name_t if_name, uid_t uid, gid_t gid);
@@ -65,6 +67,12 @@ ControllerStop(if_name_t if_name, uid_t uid, gid_t gid);
 int
 ControllerSetLogLevel(if_name_t if_name, uid_t uid, gid_t gid,
 		      int32_t level);
+
+#if ! TARGET_OS_EMBEDDED
+int 
+ControllerCopyLoginWindowConfiguration(if_name_t if_name, 
+				       CFDictionaryRef * config_data_p);
+#endif /* ! TARGET_OS_EMBEDDED */
 
 int
 ControllerClientAttach(pid_t pid, if_name_t if_name,

@@ -1,41 +1,41 @@
 /*
-******************************************************************************
-* Copyright (C) 1996-2005, International Business Machines Corporation and   *
-* others. All Rights Reserved.                                               *
-******************************************************************************
-*/
+ ******************************************************************************
+ * Copyright (C) 1996-2008, International Business Machines Corporation and   *
+ * others. All Rights Reserved.                                               *
+ ******************************************************************************
+ */
 
 /**
-* File coll.cpp
-*
-* Created by: Helena Shih
-*
-* Modification History:
-*
-*  Date        Name        Description
-*  2/5/97      aliu        Modified createDefault to load collation data from
-*                          binary files when possible.  Added related methods
-*                          createCollationFromFile, chopLocale, createPathName.
-*  2/11/97     aliu        Added methods addToCache, findInCache, which implement
-*                          a Collation cache.  Modified createDefault to look in
-*                          cache first, and also to store newly created Collation
-*                          objects in the cache.  Modified to not use gLocPath.
-*  2/12/97     aliu        Modified to create objects from RuleBasedCollator cache.
-*                          Moved cache out of Collation class.
-*  2/13/97     aliu        Moved several methods out of this class and into
-*                          RuleBasedCollator, with modifications.  Modified
-*                          createDefault() to call new RuleBasedCollator(Locale&)
-*                          constructor.  General clean up and documentation.
-*  2/20/97     helena      Added clone, operator==, operator!=, operator=, and copy
-*                          constructor.
-* 05/06/97     helena      Added memory allocation error detection.
-* 05/08/97     helena      Added createInstance().
-*  6/20/97     helena      Java class name change.
-* 04/23/99     stephen     Removed EDecompositionMode, merged with 
-*                          Normalizer::EMode
-* 11/23/9      srl         Inlining of some critical functions
-* 01/29/01     synwee      Modified into a C++ wrapper calling C APIs (ucol.h)
-*/
+ * File coll.cpp
+ *
+ * Created by: Helena Shih
+ *
+ * Modification History:
+ *
+ *  Date        Name        Description
+ *  2/5/97      aliu        Modified createDefault to load collation data from
+ *                          binary files when possible.  Added related methods
+ *                          createCollationFromFile, chopLocale, createPathName.
+ *  2/11/97     aliu        Added methods addToCache, findInCache, which implement
+ *                          a Collation cache.  Modified createDefault to look in
+ *                          cache first, and also to store newly created Collation
+ *                          objects in the cache.  Modified to not use gLocPath.
+ *  2/12/97     aliu        Modified to create objects from RuleBasedCollator cache.
+ *                          Moved cache out of Collation class.
+ *  2/13/97     aliu        Moved several methods out of this class and into
+ *                          RuleBasedCollator, with modifications.  Modified
+ *                          createDefault() to call new RuleBasedCollator(Locale&)
+ *                          constructor.  General clean up and documentation.
+ *  2/20/97     helena      Added clone, operator==, operator!=, operator=, and copy
+ *                          constructor.
+ * 05/06/97     helena      Added memory allocation error detection.
+ * 05/08/97     helena      Added createInstance().
+ *  6/20/97     helena      Java class name change.
+ * 04/23/99     stephen     Removed EDecompositionMode, merged with 
+ *                          Normalizer::EMode
+ * 11/23/9      srl         Inlining of some critical functions
+ * 01/29/01     synwee      Modified into a C++ wrapper calling C APIs (ucol.h)
+ */
 
 #include "unicode/utypes.h"
 
@@ -44,31 +44,43 @@
 #include "unicode/coll.h"
 #include "unicode/tblcoll.h"
 #include "ucol_imp.h"
+#include "cstring.h"
 #include "cmemory.h"
-#include "mutex.h"
+#include "umutex.h"
 #include "servloc.h"
 #include "ustrenum.h"
+#include "uresimp.h"
 #include "ucln_in.h"
 
-U_NAMESPACE_BEGIN
-#if !UCONFIG_NO_SERVICE
-U_NAMESPACE_END
+static U_NAMESPACE_QUALIFIER Locale* availableLocaleList = NULL;
+static int32_t  availableLocaleListCount;
+static U_NAMESPACE_QUALIFIER ICULocaleService* gService = NULL;
 
-static ICULocaleService* gService = NULL;
 /**
  * Release all static memory held by collator.
  */
 U_CDECL_BEGIN
 static UBool U_CALLCONV collator_cleanup(void) {
+#if !UCONFIG_NO_SERVICE
     if (gService) {
         delete gService;
         gService = NULL;
     }
+#endif
+    if (availableLocaleList) {
+        delete []availableLocaleList;
+        availableLocaleList = NULL;
+    }
+    availableLocaleListCount = 0;
+
     return TRUE;
 }
+
 U_CDECL_END
 
 U_NAMESPACE_BEGIN
+
+#if !UCONFIG_NO_SERVICE
 
 // ------------------------------------------
 //
@@ -165,8 +177,8 @@ public:
             Locale canonicalLocale("");
             Locale currentLocale("");
             
-            result->setLocales(lkey.canonicalLocale(canonicalLocale), 
-                LocaleUtility::initLocaleFromName(*actualReturn, currentLocale));
+            LocaleUtility::initLocaleFromName(*actualReturn, currentLocale);
+            result->setLocales(lkey.canonicalLocale(canonicalLocale), currentLocale, currentLocale);
         }
         return result;
     }
@@ -178,32 +190,26 @@ public:
 
 // -------------------------------------
 
-class ICUCollatorService;
-
 static ICULocaleService* 
 getService(void)
 {
     UBool needInit;
-    {
-        Mutex mutex;
-        needInit = (UBool)(gService == NULL);
-    }
+    UMTX_CHECK(NULL, (UBool)(gService == NULL), needInit);
     if(needInit) {
         ICULocaleService *newservice = new ICUCollatorService();
         if(newservice) {
-            Mutex mutex;
+            umtx_lock(NULL);
             if(gService == NULL) {
                 gService = newservice;
                 newservice = NULL;
             }
+            umtx_unlock(NULL);
         }
         if(newservice) {
             delete newservice;
         }
         else {
-#if !UCONFIG_NO_SERVICE
             ucln_i18n_registerCleanup(UCLN_I18N_COLLATOR, collator_cleanup);
-#endif
         }
     }
     return gService;
@@ -211,11 +217,12 @@ getService(void)
 
 // -------------------------------------
 
-static UBool
+static inline UBool
 hasService(void) 
 {
-    Mutex mutex;
-    return gService != NULL;
+    UBool retVal;
+    UMTX_CHECK(NULL, gService != NULL, retVal);
+    return retVal;
 }
 
 // -------------------------------------
@@ -243,6 +250,57 @@ Collator::createUCollator(const char *loc,
 }
 #endif /* UCONFIG_NO_SERVICE */
 
+static UBool isAvailableLocaleListInitialized(UErrorCode &status) {
+    // for now, there is a hardcoded list, so just walk through that list and set it up.
+    UBool needInit;
+    UMTX_CHECK(NULL, availableLocaleList == NULL, needInit);
+
+    if (needInit) {
+        UResourceBundle *index = NULL;
+        UResourceBundle installed;
+        Locale * temp;
+        int32_t i = 0;
+        int32_t localeCount;
+        
+        ures_initStackObject(&installed);
+        index = ures_openDirect(U_ICUDATA_COLL, "res_index", &status);
+        ures_getByKey(index, "InstalledLocales", &installed, &status);
+        
+        if(U_SUCCESS(status)) {
+            localeCount = ures_getSize(&installed);
+            temp = new Locale[localeCount];
+            
+            if (temp != NULL) {
+                ures_resetIterator(&installed);
+                while(ures_hasNext(&installed)) {
+                    const char *tempKey = NULL;
+                    ures_getNextString(&installed, NULL, &tempKey, &status);
+                    temp[i++] = Locale(tempKey);
+                }
+                
+                umtx_lock(NULL);
+                if (availableLocaleList == NULL)
+                {
+                    availableLocaleList = temp;
+                    availableLocaleListCount = localeCount;
+                    temp = NULL;
+                    ucln_i18n_registerCleanup(UCLN_I18N_COLLATOR, collator_cleanup);
+                } 
+                umtx_unlock(NULL);
+
+                needInit = FALSE;
+                if (temp) {
+                    delete []temp;
+                }
+            }
+
+            ures_close(&installed);
+        }
+        ures_close(index);
+    }
+    return !needInit;
+}
+
 // Collator public methods -----------------------------------------------
 
 Collator* U_EXPORT2 Collator::createInstance(UErrorCode& success) 
@@ -268,7 +326,7 @@ Collator* U_EXPORT2 Collator::createInstance(const Locale& desiredLocale,
         // correctly already, and we don't want to overwrite it. (TODO
         // remove in 3.0) [aliu]
         if (*actualLoc.getName() != 0) {
-            result->setLocales(desiredLocale, actualLoc);
+            result->setLocales(desiredLocale, actualLoc, actualLoc);
         }
         return result;
     }
@@ -291,7 +349,7 @@ Collator* Collator::makeInstance(const Locale&  desiredLocale,
     // non-table-based Collator in some other way, when it sees that it needs 
     // to.
     // The specific caution is this: RuleBasedCollator(Locale&) will ALWAYS 
-    // return a valid collation object, if the system if functioning properly.  
+    // return a valid collation object, if the system is functioning properly.  
     // The reason is that it will fall back, use the default locale, and even 
     // use the built-in default collation rules. THEREFORE, createInstance() 
     // should in general ONLY CALL RuleBasedCollator(Locale&) IF IT KNOWS IN 
@@ -397,7 +455,15 @@ UBool Collator::greater(const UnicodeString& source,
 // array of indefinite lifetime
 const Locale* U_EXPORT2 Collator::getAvailableLocales(int32_t& count) 
 {
-    return Locale::getAvailableLocales(count);
+    UErrorCode status = U_ZERO_ERROR;
+    Locale *result = NULL;
+    count = 0;
+    if (isAvailableLocaleListInitialized(status))
+    {
+        result = availableLocaleList;
+        count = availableLocaleListCount;
+    }
+    return result;
 }
 
 UnicodeString& U_EXPORT2 Collator::getDisplayName(const Locale& objectLocale,
@@ -487,7 +553,7 @@ int32_t U_EXPORT2 Collator::getBound(const uint8_t       *source,
 }
 
 void
-Collator::setLocales(const Locale& /* requestedLocale */, const Locale& /* validLocale */) {
+Collator::setLocales(const Locale& /* requestedLocale */, const Locale& /* validLocale */, const Locale& /*actualLocale*/) {
 }
 
 UnicodeSet *Collator::getTailoredSet(UErrorCode &status) const
@@ -618,15 +684,84 @@ Collator::unregister(URegistryKey key, UErrorCode& status)
     }
     return FALSE;
 }
+#endif /* UCONFIG_NO_SERVICE */
+
+class CollationLocaleListEnumeration : public StringEnumeration {
+private:
+    int32_t index;
+public:
+    static UClassID U_EXPORT2 getStaticClassID(void);
+    virtual UClassID getDynamicClassID(void) const;
+public:
+    CollationLocaleListEnumeration()
+        : index(0)
+    {
+        // The global variables should already be initialized.
+        //isAvailableLocaleListInitialized(status);
+    }
+
+    virtual ~CollationLocaleListEnumeration() {
+    }
+
+    virtual StringEnumeration * clone() const
+    {
+        CollationLocaleListEnumeration *result = new CollationLocaleListEnumeration();
+        if (result) {
+            result->index = index;
+        }
+        return result;
+    }
+
+    virtual int32_t count(UErrorCode &/*status*/) const {
+        return availableLocaleListCount;
+    }
+
+    virtual const char* next(int32_t* resultLength, UErrorCode& /*status*/) {
+        const char* result;
+        if(index < availableLocaleListCount) {
+            result = availableLocaleList[index++].getName();
+            if(resultLength != NULL) {
+                *resultLength = uprv_strlen(result);
+            }
+        } else {
+            if(resultLength != NULL) {
+                *resultLength = 0;
+            }
+            result = NULL;
+        }
+        return result;
+    }
+
+    virtual const UnicodeString* snext(UErrorCode& status) {
+        int32_t resultLength = 0;
+        const char *s = next(&resultLength, status);
+        return setChars(s, resultLength, status);
+    }
+
+    virtual void reset(UErrorCode& /*status*/) {
+        index = 0;
+    }
+};
+
+UOBJECT_DEFINE_RTTI_IMPLEMENTATION(CollationLocaleListEnumeration)
+
 
 // -------------------------------------
 
 StringEnumeration* U_EXPORT2
 Collator::getAvailableLocales(void)
 {
-    return getService()->getAvailableLocales();
-}
+#if !UCONFIG_NO_SERVICE
+    if (hasService()) {
+        return getService()->getAvailableLocales();
+    }
 #endif /* UCONFIG_NO_SERVICE */
+    UErrorCode status = U_ZERO_ERROR;
+    if (isAvailableLocaleListInitialized(status)) {
+        return new CollationLocaleListEnumeration();
+    }
+    return NULL;
+}
 
 StringEnumeration* U_EXPORT2
 Collator::getKeywords(UErrorCode& status) {

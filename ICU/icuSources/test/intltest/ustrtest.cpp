@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2004, International Business Machines Corporation and
+ * Copyright (c) 1997-2008, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -57,6 +57,7 @@ void UnicodeStringTest::runIndexedTest( int32_t index, UBool exec, const char* &
         case 14: name = "TestCountChar32"; if (exec) TestCountChar32(); break;
         case 15: name = "TestStringEnumeration"; if (exec) TestStringEnumeration(); break;
         case 16: name = "TestCharString"; if (exec) TestCharString(); break;
+        case 17: name = "TestNameSpace"; if (exec) TestNameSpace(); break;
 
         default: name = ""; break; //needed to end loop
     }
@@ -224,7 +225,7 @@ UnicodeStringTest::TestBasicManipulation()
         cnv=ucnv_open("ISO-8859-1", &errorCode);
         UnicodeString v(cs, -1, cnv, errorCode);
         ucnv_close(cnv);
-        if(v!=UnicodeString("a\\xe4\\x85").unescape()) {
+        if(v!=CharsToUnicodeString("a\\xe4\\x85")) {
             errln("UnicodeString(const char *, length, cnv, errorCode) does not work with length==-1");
         }
     }
@@ -915,27 +916,27 @@ UnicodeStringTest::TestPrefixAndSuffix()
         errln("endsWith() failed: \"" + test2 + "\" shouldn't be a suffix of \"" + test1 + "\".");
     }
 
-   if (!test1.endsWith(test3)) { 
-     errln("endsWith(test3) failed: \"" + test3 + "\" should be a suffix of \"" + test1 + "\".");
-   }
-   if (!test1.endsWith(test3, 0, INT32_MAX)) {
-     errln("endsWith(test3, 0, INT32_MAX) failed: \"" + test3 + "\" should be a suffix of \"" + test1 + "\".");
-   }
+    if (!test1.endsWith(test3)) { 
+        errln("endsWith(test3) failed: \"" + test3 + "\" should be a suffix of \"" + test1 + "\".");
+    }
+    if (!test1.endsWith(test3, 0, INT32_MAX)) {
+        errln("endsWith(test3, 0, INT32_MAX) failed: \"" + test3 + "\" should be a suffix of \"" + test1 + "\".");
+    }
 
-   if(!test1.endsWith(test3.getBuffer(), test3.length())) {
-     errln("endsWith(test3.getBuffer(), test3.length()) failed: \"" + test3 + "\" should be a suffix of \"" + test1 + "\".");
-   }
-   if(!test1.endsWith(test3.getTerminatedBuffer(), 0, -1)) {
-     errln("endsWith(test3.getTerminatedBuffer(), 0, -1) failed: \"" + test3 + "\" should be a suffix of \"" + test1 + "\".");
-   }
-   
-   if (!test3.startsWith(test4)) {
-     errln("endsWith(test4) failed: \"" + test4 + "\" should be a prefix of \"" + test3 + "\".");
-   }
-   
-   if (test4.startsWith(test3)) {
-     errln("startsWith(test3) failed: \"" + test3 + "\" shouldn't be a prefix of \"" + test4 + "\".");
-   }
+    if(!test1.endsWith(test3.getBuffer(), test3.length())) {
+        errln("endsWith(test3.getBuffer(), test3.length()) failed: \"" + test3 + "\" should be a suffix of \"" + test1 + "\".");
+    }
+    if(!test1.endsWith(test3.getTerminatedBuffer(), 0, -1)) {
+        errln("endsWith(test3.getTerminatedBuffer(), 0, -1) failed: \"" + test3 + "\" should be a suffix of \"" + test1 + "\".");
+    }
+
+    if (!test3.startsWith(test4)) {
+        errln("endsWith(test4) failed: \"" + test4 + "\" should be a prefix of \"" + test3 + "\".");
+    }
+
+    if (test4.startsWith(test3)) {
+        errln("startsWith(test3) failed: \"" + test3 + "\" shouldn't be a prefix of \"" + test4 + "\".");
+    }
 }
 
 void
@@ -1234,7 +1235,7 @@ UnicodeStringTest::TestStackAllocation()
  * Test the unescape() function.
  */
 void UnicodeStringTest::TestUnescape(void) {
-    UnicodeString IN("abc\\u4567 \\n\\r \\U00101234xyz\\x1\\x{5289}\\x1b");
+    UnicodeString IN("abc\\u4567 \\n\\r \\U00101234xyz\\x1\\x{5289}\\x1b", -1, US_INV);
     UnicodeString OUT("abc");
     OUT.append((UChar)0x4567);
     OUT.append(" ");
@@ -1372,6 +1373,18 @@ UnicodeStringTest::TestBogus() {
     }
     if(test3.getBuffer()!=0 || test3.getBuffer(20)!=0 || test3.getTerminatedBuffer()!=0) {
         errln("bogus.getBuffer()!=0");
+    }
+    if (test1.indexOf(test3) != -1) {
+        errln("bogus.indexOf() != -1");
+    }
+    if (test1.lastIndexOf(test3) != -1) {
+        errln("bogus.lastIndexOf() != -1");
+    }
+    if (test1.caseCompare(test3, U_FOLD_CASE_DEFAULT) != 1 || test3.caseCompare(test1, U_FOLD_CASE_DEFAULT) != -1) {
+        errln("caseCompare() doesn't work with bogus strings");
+    }
+    if (test1.compareCodePointOrder(test3) != 1 || test3.compareCodePointOrder(test1) != -1) {
+        errln("compareCodePointOrder() doesn't work with bogus strings");
     }
 
     // verify that non-assignment modifications fail and do not revive a bogus string
@@ -1648,3 +1661,43 @@ UnicodeStringTest::TestCharString() {
     }
 }
 
+/*
+ * Namespace test, to make sure that macros like UNICODE_STRING include the
+ * namespace qualifier.
+ *
+ * Define a (bogus) UnicodeString class in another namespace and check for ambiguity.
+ */
+#if U_HAVE_NAMESPACE
+namespace bogus {
+    class UnicodeString {
+    public:
+        enum EInvariant { kInvariant };
+        UnicodeString() : i(1) {}
+        UnicodeString(UBool /*isTerminated*/, const UChar * /*text*/, int32_t textLength) : i(textLength) {}
+        UnicodeString(const char * /*src*/, int32_t length, enum EInvariant /*inv*/
+) : i(length) {}
+    private:
+        int32_t i;
+    };
+}
+#endif
+
+void
+UnicodeStringTest::TestNameSpace() {
+#if U_HAVE_NAMESPACE
+    // Provoke name collision unless the UnicodeString macros properly
+    // qualify the icu::UnicodeString class.
+    using namespace bogus;
+
+    // Use all UnicodeString macros from unistr.h.
+    icu::UnicodeString s1=icu::UnicodeString("abc", 3, US_INV);
+    icu::UnicodeString s2=UNICODE_STRING("def", 3);
+    icu::UnicodeString s3=UNICODE_STRING_SIMPLE("ghi");
+
+    // Make sure the compiler does not optimize away instantiation of s1, s2, s3.
+    icu::UnicodeString s4=s1+s2+s3;
+    if(s4.length()!=9) {
+        errln("Something wrong with UnicodeString::operator+().");
+    }
+#endif
+}

@@ -1,8 +1,8 @@
 /* search.c */
-/* $OpenLDAP: pkg/ldap/libraries/libldap/filter.c,v 1.27.2.2 2006/01/03 22:16:08 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/filter.c,v 1.29.2.6 2008/02/11 23:26:41 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -15,9 +15,6 @@
  */
 /* Portions Copyright (c) 1990 Regents of the University of Michigan.
  * All rights reserved.
- */
-/* Portions Copyright (C) The Internet Society (1997).
- * ASN.1 fragments are from RFC 2251; see RFC for full legal notices.
  */
 
 #include "portable.h"
@@ -53,7 +50,8 @@ static int put_simple_filter LDAP_P((
 static int put_substring_filter LDAP_P((
 	BerElement *ber,
 	char *type,
-	char *str ));
+	char *str,
+	char *nextstar ));
 
 static int put_filter_list LDAP_P((
 	BerElement *ber,
@@ -334,36 +332,36 @@ ldap_pvt_put_filter( BerElement *ber, const char *str_in )
 	int	parens, balance, escape;
 
 	/*
-	 * A Filter looks like this:
-	 *      Filter ::= CHOICE {
-	 *              and             [0]     SET OF Filter,
-	 *              or              [1]     SET OF Filter,
-	 *              not             [2]     Filter,
-	 *              equalityMatch   [3]     AttributeValueAssertion,
-	 *              substrings      [4]     SubstringFilter,
-	 *              greaterOrEqual  [5]     AttributeValueAssertion,
-	 *              lessOrEqual     [6]     AttributeValueAssertion,
-	 *              present         [7]     AttributeType,
-	 *              approxMatch     [8]     AttributeValueAssertion,
-	 *		extensibleMatch [9]	MatchingRuleAssertion -- LDAPv3
-	 *      }
+	 * A Filter looks like this (RFC 4511 as extended by RFC 4526):
+	 *     Filter ::= CHOICE {
+	 *         and             [0]     SET SIZE (0..MAX) OF filter Filter,
+	 *         or              [1]     SET SIZE (0..MAX) OF filter Filter,
+	 *         not             [2]     Filter,
+	 *         equalityMatch   [3]     AttributeValueAssertion,
+	 *         substrings      [4]     SubstringFilter,
+	 *         greaterOrEqual  [5]     AttributeValueAssertion,
+	 *         lessOrEqual     [6]     AttributeValueAssertion,
+	 *         present         [7]     AttributeDescription,
+	 *         approxMatch     [8]     AttributeValueAssertion,
+	 *         extensibleMatch [9]     MatchingRuleAssertion,
+	 *         ... }
 	 *
-	 *      SubstringFilter ::= SEQUENCE {
-	 *              type               AttributeType,
-	 *              SEQUENCE OF CHOICE {
-	 *                      initial          [0] IA5String,
-	 *                      any              [1] IA5String,
-	 *                      final            [2] IA5String
-	 *              }
-	 *      }
+	 *     SubstringFilter ::= SEQUENCE {
+	 *         type         AttributeDescription,
+	 *         substrings   SEQUENCE SIZE (1..MAX) OF substring CHOICE {
+	 *             initial          [0] AssertionValue, -- only once
+	 *             any              [1] AssertionValue,
+	 *             final            [2] AssertionValue  -- only once
+	 *             }
+	 *         }
 	 *
-	 *	MatchingRuleAssertion ::= SEQUENCE {	-- LDAPv3
-	 *		matchingRule    [1] MatchingRuleId OPTIONAL,
-	 *		type            [2] AttributeDescription OPTIONAL,
-	 *		matchValue      [3] AssertionValue,
-	 *		dnAttributes    [4] BOOLEAN DEFAULT FALSE }
+	 *	   MatchingRuleAssertion ::= SEQUENCE {
+	 *         matchingRule    [1] MatchingRuleId OPTIONAL,
+	 *         type            [2] AttributeDescription OPTIONAL,
+	 *         matchValue      [3] AssertionValue,
+	 *         dnAttributes    [4] BOOLEAN DEFAULT FALSE }
 	 *
-	 * Note: tags in a choice are always explicit
+	 * Note: tags in a CHOICE are always explicit
 	 */
 
 	Debug( LDAP_DEBUG_TRACE, "put_filter: \"%s\"\n", str_in, 0, 0 );
@@ -424,6 +422,10 @@ ldap_pvt_put_filter( BerElement *ber, const char *str_in )
 
 				parens--;
 				break;
+
+			case '(':
+				rc = -1;
+				goto done;
 
 			default:
 				Debug( LDAP_DEBUG_TRACE, "put_filter: simple\n",
@@ -497,9 +499,11 @@ ldap_pvt_put_filter( BerElement *ber, const char *str_in )
 			str = next;
 			break;
 		}
+		if ( !parens )
+			break;
 	}
 
-	rc = parens ? -1 : 0;
+	rc = ( parens || *str ) ? -1 : 0;
 
 done:
 	LDAP_FREE( freeme );
@@ -586,7 +590,7 @@ put_simple_filter(
 		break;
 
 	case ':':
-		/* RFC2254 extensible filters are off the form:
+		/* RFC 4515 extensible filters are off the form:
 		 *		type [:dn] [:rule] := value
 		 * or	[:dn]:rule := value		
 		 */
@@ -690,7 +694,7 @@ put_simple_filter(
 				ftype = LDAP_FILTER_PRESENT;
 
 			} else {
-				rc = put_substring_filter( ber, str, value );
+				rc = put_substring_filter( ber, str, value, nextstar );
 				goto done;
 			}
 		} break;
@@ -717,9 +721,8 @@ done:
 }
 
 static int
-put_substring_filter( BerElement *ber, char *type, char *val )
+put_substring_filter( BerElement *ber, char *type, char *val, char *nextstar )
 {
-	char *nextstar;
 	int gotstar = 0;
 	ber_tag_t	ftype = LDAP_FILTER_SUBSTRINGS;
 
@@ -731,12 +734,13 @@ put_substring_filter( BerElement *ber, char *type, char *val )
 	}
 
 	for( ; *val; val=nextstar ) {
-		nextstar = ldap_pvt_find_wildcard( val );
+		if ( gotstar )
+			nextstar = ldap_pvt_find_wildcard( val );
 
 		if ( nextstar == NULL ) {
 			return -1;
 		}
-		
+
 		if ( *nextstar == '\0' ) {
 			ftype = LDAP_SUBSTRING_FINAL;
 		} else {
@@ -751,7 +755,7 @@ put_substring_filter( BerElement *ber, char *type, char *val )
 		if ( *val != '\0' || ftype == LDAP_SUBSTRING_ANY ) {
 			ber_slen_t len = ldap_pvt_filter_value_unescape( val );
 
-			if ( len < 0  ) {
+			if ( len <= 0  ) {
 				return -1;
 			}
 
@@ -804,6 +808,8 @@ put_vrFilter( BerElement *ber, const char *str_in )
 	 *		matchingRule    [1] MatchingRuleId OPTIONAL,
 	 *		type            [2] AttributeDescription OPTIONAL,
 	 *		matchValue      [3] AssertionValue }
+	 *
+	 * (Source: RFC 3876)
 	 */
 
 	Debug( LDAP_DEBUG_TRACE, "put_vrFilter: \"%s\"\n", str_in, 0, 0 );
@@ -1092,7 +1098,7 @@ put_simple_vrFilter(
 				ftype = LDAP_FILTER_PRESENT;
 
 			} else {
-				rc = put_substring_filter( ber, str, value );
+				rc = put_substring_filter( ber, str, value, nextstar );
 				goto done;
 			}
 		} break;

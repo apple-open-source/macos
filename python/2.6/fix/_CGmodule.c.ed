@@ -1,0 +1,26 @@
+/SyncCGContextOriginWithPort/i
+#ifndef __LP64__
+.
+/^}/a
+#endif /* !__LP64__ */
+.
+/"SyncCGContextOriginWithPort"/i
+#ifndef __LP64__
+.
+/},/a
+#endif /* !__LP64__ */
+.
+w
+/CreateCGContextForPort/i
+#ifndef __LP64__
+.
+/^}/a
+#endif /* !__LP64__ */
+.
+/"CreateCGContextForPort"/i
+#ifndef __LP64__
+.
+/},/a
+#endif /* !__LP64__ */
+.
+w

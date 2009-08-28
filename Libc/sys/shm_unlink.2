@@ -66,9 +66,12 @@ succeeds unless:
 Permission is denied to be remove the object.
 .It Bq Er ENAMETOOLONG
 .Fa name
-exceeded
-.Dv SHM_NAME_MAX
-characters.
+exceeded the name size limit.
+This is currently
+.Dv PSHMNAMLEN
+characters (defined in
+.In sys/posix_shm.h ) ,
+but this may change in the future.
 .It Bq Er ENOENT
 The named object does not exist.
 .El

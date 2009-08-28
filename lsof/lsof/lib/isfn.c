@@ -61,7 +61,7 @@
 # if	!defined(lint)
 static char copyright[] =
 "@(#) Copyright 1997 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: isfn.c,v 1.9 2005/08/08 19:40:18 abe Exp $";
+static char *rcsid = "$Id: isfn.c,v 1.10 2008/10/21 16:12:36 abe Exp $";
 # endif	/* !defined(lint) */
 
 #include "../lsof.h"
@@ -414,5 +414,5 @@ is_file_named(p, cd)
 	return(1);
 }
 #else	/* !defined(USE_LIB_IS_FILE_NAMED) */
-static char d1[] = "d"; static char *d2 = d1;
+char isfn_d1[] = "d"; char *isfn_d2 = isfn_d1;
 #endif	/* defined(USE_LIB_IS_FILE_NAMED) */

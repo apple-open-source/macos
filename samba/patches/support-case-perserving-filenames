@@ -29,3 +29,51 @@ Index: samba/source/smbd/filename.c
  		stat_cache_add(orig_path, name, conn->case_sensitive);
  		DEBUG(5,("conversion finished %s -> %s\n",orig_path, name));
  		*pst = st;
+Index: samba/source/smbd/dir.c
+===================================================================
+--- samba/source/smbd/dir.c.orig
++++ samba/source/smbd/dir.c
+@@ -566,6 +566,25 @@ static const char *dptr_normal_ReadDirNa
+ 	return NULL;
+ }
+ 
++static const char * static_preserved_name(struct dptr_struct * dptr, const char * name)
++{
++	static pstring preserved_name;
++
++	char * fullpath = NULL;
++
++	if (asprintf(&fullpath, "%s/%s", dptr->path, name) == -1) {
++		return name;
++	}
++
++	if (!SMB_VFS_GET_PRESERVED_NAME(dptr->conn, fullpath, preserved_name)) {
++		SAFE_FREE(fullpath);
++		return name;
++	}
++
++	SAFE_FREE(fullpath);
++	return preserved_name;
++}
++
+ /****************************************************************************
+  Return the next visible file name, skipping veto'd and invisible files.
+ ****************************************************************************/
+@@ -606,7 +625,7 @@ const char *dptr_ReadDirName(struct dptr
+ 			/* We need to set the underlying dir_hnd offset to -1 also as
+ 			   this function is usually called with the output from TellDir. */
+ 			dptr->dir_hnd->offset = *poffset = END_OF_DIRECTORY_OFFSET;
+-			return dptr->wcard;
++			return static_preserved_name(dptr, dptr->wcard);
+ 		}
+ 
+ 		pstrcpy(pathreal,dptr->path);
+@@ -617,7 +636,7 @@ const char *dptr_ReadDirName(struct dptr
+ 			/* We need to set the underlying dir_hnd offset to -1 also as
+ 			   this function is usually called with the output from TellDir. */
+ 			dptr->dir_hnd->offset = *poffset = END_OF_DIRECTORY_OFFSET;
+-			return dptr->wcard;
++			return static_preserved_name(dptr, dptr->wcard);
+ 		} else {
+ 			/* If we get any other error than ENOENT or ENOTDIR
+ 			   then the file exists we just can't stat it. */

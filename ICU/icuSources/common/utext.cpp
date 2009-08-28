@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2005-2006, International Business Machines
+*   Copyright (C) 2005-2009, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -24,6 +24,7 @@
 #include "cstring.h"
 #include "uassert.h"
 
+U_NAMESPACE_USE
 
 #define I32_FLAG(bitIndex) ((int32_t)1<<(bitIndex))
 
@@ -35,7 +36,7 @@ utext_access(UText *ut, int64_t index, UBool forward) {
 
 
 
-U_DRAFT UBool U_EXPORT2
+U_CAPI UBool U_EXPORT2
 utext_moveIndex32(UText *ut, int32_t delta) {
     UChar32  c;
     if (delta > 0) {
@@ -75,20 +76,20 @@ utext_moveIndex32(UText *ut, int32_t delta) {
 }
 
 
-U_DRAFT int64_t U_EXPORT2
+U_CAPI int64_t U_EXPORT2
 utext_nativeLength(UText *ut) {
     return ut->pFuncs->nativeLength(ut);
 }
 
 
-U_DRAFT UBool U_EXPORT2
+U_CAPI UBool U_EXPORT2
 utext_isLengthExpensive(const UText *ut) {
     UBool r = (ut->providerProperties & I32_FLAG(UTEXT_PROVIDER_LENGTH_IS_EXPENSIVE)) != 0;
     return r;
 }
 
 
-U_DRAFT int64_t U_EXPORT2
+U_CAPI int64_t U_EXPORT2
 utext_getNativeIndex(const UText *ut) {
     if(ut->chunkOffset <= ut->nativeIndexingLimit) {
         return ut->chunkNativeStart+ut->chunkOffset;
@@ -98,7 +99,7 @@ utext_getNativeIndex(const UText *ut) {
 }
 
 
-U_DRAFT void U_EXPORT2
+U_CAPI void U_EXPORT2
 utext_setNativeIndex(UText *ut, int64_t index) {
     if(index<ut->chunkNativeStart || index>=ut->chunkNativeLimit) {
         // The desired position is outside of the current chunk.
@@ -132,7 +133,7 @@ utext_setNativeIndex(UText *ut, int64_t index) {
 
 
 
-U_DRAFT int64_t U_EXPORT2
+U_CAPI int64_t U_EXPORT2
 utext_getPreviousNativeIndex(UText *ut) {
     //
     //  Fast-path the common case.
@@ -175,7 +176,7 @@ utext_getPreviousNativeIndex(UText *ut) {
 //                    UText iteration position is always on a code point boundary,
 //                    never on the trail half of a surrogate pair.
 //
-U_DRAFT UChar32 U_EXPORT2
+U_CAPI UChar32 U_EXPORT2
 utext_current32(UText *ut) {
     UChar32  c;
     if (ut->chunkOffset==ut->chunkLength) {
@@ -229,7 +230,7 @@ utext_current32(UText *ut) {
 }
 
 
-U_DRAFT UChar32 U_EXPORT2
+U_CAPI UChar32 U_EXPORT2
 utext_char32At(UText *ut, int64_t nativeIndex) {
     UChar32 c = U_SENTINEL;
 
@@ -256,7 +257,7 @@ utext_char32At(UText *ut, int64_t nativeIndex) {
 }
 
 
-U_DRAFT UChar32 U_EXPORT2
+U_CAPI UChar32 U_EXPORT2
 utext_next32(UText *ut) {
     UChar32       c;
 
@@ -296,7 +297,7 @@ utext_next32(UText *ut) {
     }
 
 
-U_DRAFT UChar32 U_EXPORT2
+U_CAPI UChar32 U_EXPORT2
 utext_previous32(UText *ut) {
     UChar32       c;
 
@@ -336,7 +337,7 @@ utext_previous32(UText *ut) {
 
 
 
-U_DRAFT UChar32 U_EXPORT2
+U_CAPI UChar32 U_EXPORT2
 utext_next32From(UText *ut, int64_t index) {
     UChar32       c      = U_SENTINEL;
 
@@ -365,7 +366,7 @@ utext_next32From(UText *ut, int64_t index) {
 }
 
 
-U_DRAFT UChar32 U_EXPORT2
+U_CAPI UChar32 U_EXPORT2
 utext_previous32From(UText *ut, int64_t index) {
     //
     //  Return the character preceding the specified index.
@@ -413,7 +414,7 @@ utext_previous32From(UText *ut, int64_t index) {
 }
 
 
-U_DRAFT int32_t U_EXPORT2
+U_CAPI int32_t U_EXPORT2
 utext_extract(UText *ut,
              int64_t start, int64_t limit,
              UChar *dest, int32_t destCapacity,
@@ -423,7 +424,7 @@ utext_extract(UText *ut,
 
 
 
-U_DRAFT UBool U_EXPORT2
+U_CAPI UBool U_EXPORT2
 utext_equals(const UText *a, const UText *b) {
     if (a==NULL || b==NULL ||
         a->magic != UTEXT_MAGIC ||
@@ -449,7 +450,7 @@ utext_equals(const UText *a, const UText *b) {
     return TRUE;
 }
 
-U_DRAFT UBool U_EXPORT2
+U_CAPI UBool U_EXPORT2
 utext_isWritable(const UText *ut)
 {
     UBool b = (ut->providerProperties & I32_FLAG(UTEXT_PROVIDER_WRITABLE)) != 0;
@@ -457,14 +458,14 @@ utext_isWritable(const UText *ut)
 }
 
 
-U_DRAFT void U_EXPORT2
+U_CAPI void U_EXPORT2
 utext_freeze(UText *ut) {
     // Zero out the WRITABLE flag.
     ut->providerProperties &= ~(I32_FLAG(UTEXT_PROVIDER_WRITABLE));
 }
 
 
-U_DRAFT UBool U_EXPORT2
+U_CAPI UBool U_EXPORT2
 utext_hasMetaData(const UText *ut)
 {
     UBool b = (ut->providerProperties & I32_FLAG(UTEXT_PROVIDER_HAS_META_DATA)) != 0;
@@ -473,7 +474,7 @@ utext_hasMetaData(const UText *ut)
 
 
 
-U_DRAFT int32_t U_EXPORT2
+U_CAPI int32_t U_EXPORT2
 utext_replace(UText *ut,
              int64_t nativeStart, int64_t nativeLimit,
              const UChar *replacementText, int32_t replacementLength,
@@ -490,7 +491,7 @@ utext_replace(UText *ut,
     return i;
 }
 
-U_DRAFT void U_EXPORT2
+U_CAPI void U_EXPORT2
 utext_copy(UText *ut,
           int64_t nativeStart, int64_t nativeLimit,
           int64_t destIndex,
@@ -509,7 +510,7 @@ utext_copy(UText *ut,
 
 
 
-U_DRAFT UText * U_EXPORT2
+U_CAPI UText * U_EXPORT2
 utext_clone(UText *dest, const UText *src, UBool deep, UBool readOnly, UErrorCode *status) {
     UText *result;
     result = src->pFuncs->clone(dest, src, deep, status);
@@ -556,7 +557,7 @@ struct ExtendedUText {
 
 static const UText emptyText = UTEXT_INITIALIZER;
 
-U_DRAFT UText * U_EXPORT2
+U_CAPI UText * U_EXPORT2
 utext_setup(UText *ut, int32_t extraSpace, UErrorCode *status) {
     if (U_FAILURE(*status)) {
         return ut;
@@ -571,14 +572,13 @@ utext_setup(UText *ut, int32_t extraSpace, UErrorCode *status) {
         ut = (UText *)uprv_malloc(spaceRequired);
         if (ut == NULL) {
             *status = U_MEMORY_ALLOCATION_ERROR;
+            return NULL;
         } else {
             *ut = emptyText;
             ut->flags |= UTEXT_HEAP_ALLOCATED;
             if (spaceRequired>0) {
                 ut->extraSize = extraSpace;
                 ut->pExtra    = &((ExtendedUText *)ut)->extension;
-                uprv_memset(ut->pExtra, 0, extraSpace);  // Purify whines about copying untouched extra [buffer]
-                                                         //  space when cloning, so init it now.
             }
         }
     } else {
@@ -610,7 +610,6 @@ utext_setup(UText *ut, int32_t extraSpace, UErrorCode *status) {
             } else {
                 ut->extraSize = extraSpace;
                 ut->flags |= UTEXT_EXTRA_HEAP_ALLOCATED;
-                uprv_memset(ut->pExtra, 0, extraSpace);
             }
         }
     }
@@ -637,12 +636,15 @@ utext_setup(UText *ut, int32_t extraSpace, UErrorCode *status) {
         ut->privB               = 0;
         ut->privC               = 0;
         ut->privP               = NULL;
+        if (ut->pExtra!=NULL && ut->extraSize>0)
+            uprv_memset(ut->pExtra, 0, ut->extraSize);
+
     }
     return ut;
 }
 
 
-U_DRAFT UText * U_EXPORT2
+U_CAPI UText * U_EXPORT2
 utext_close(UText *ut) {
     if (ut==NULL ||
         ut->magic != UTEXT_MAGIC ||
@@ -798,6 +800,7 @@ shallowTextClone(UText * dest, const UText * src, UErrorCode * status) {
     adjustPointer(dest, &dest->p, src);
     adjustPointer(dest, &dest->q, src);
     adjustPointer(dest, &dest->r, src);
+	adjustPointer(dest, (const void **)&dest->chunkContents, src);
 
     return dest;
 }
@@ -1581,7 +1584,7 @@ utf8TextClose(UText *ut) {
 U_CDECL_END
 
 
-static struct UTextFuncs utf8Funcs = 
+static const struct UTextFuncs utf8Funcs = 
 {
     sizeof(UTextFuncs),
     0, 0, 0,             // Reserved alignment padding
@@ -1600,7 +1603,7 @@ static struct UTextFuncs utf8Funcs =
 };
 
 
-U_DRAFT UText * U_EXPORT2
+U_CAPI UText * U_EXPORT2
 utext_openUTF8(UText *ut, const char *s, int64_t length, UErrorCode *status) {
     if(U_FAILURE(*status)) {
         return NULL;
@@ -1982,7 +1985,7 @@ repTextCopy(UText *ut,
     repTextAccess(ut, nativeIterIndex, TRUE);
 }
 
-static struct UTextFuncs repFuncs = 
+static const struct UTextFuncs repFuncs = 
 {
     sizeof(UTextFuncs),
     0, 0, 0,           // Reserved alignment padding
@@ -2001,7 +2004,7 @@ static struct UTextFuncs repFuncs =
 };
 
 
-U_DRAFT UText * U_EXPORT2
+U_CAPI UText * U_EXPORT2
 utext_openReplaceable(UText *ut, Replaceable *rep, UErrorCode *status)
 {
     if(U_FAILURE(*status)) {
@@ -2230,7 +2233,7 @@ unistrTextCopy(UText *ut,
 
 }
 
-static struct UTextFuncs unistrFuncs = 
+static const struct UTextFuncs unistrFuncs = 
 {
     sizeof(UTextFuncs),
     0, 0, 0,             // Reserved alignment padding
@@ -2253,7 +2256,7 @@ static struct UTextFuncs unistrFuncs =
 U_CDECL_END
 
 
-U_DRAFT UText * U_EXPORT2
+U_CAPI UText * U_EXPORT2
 utext_openUnicodeString(UText *ut, UnicodeString *s, UErrorCode *status) {
     // TODO:  use openConstUnicodeString, then add in the differences.
     //
@@ -2275,7 +2278,7 @@ utext_openUnicodeString(UText *ut, UnicodeString *s, UErrorCode *status) {
 
 
 
-U_DRAFT UText * U_EXPORT2
+U_CAPI UText * U_EXPORT2
 utext_openConstUnicodeString(UText *ut, const UnicodeString *s, UErrorCode *status) {
     ut = utext_setup(ut, 0, status);
     //    note:  use the standard (writable) function table for UnicodeString.
@@ -2446,7 +2449,13 @@ ucstrTextAccess(UText *ut, int64_t index, UBool  forward) {
             if (U16_IS_LEAD(str[chunkLimit-1])) {
                 --chunkLimit;
             }
+            // Null-terminated chunk with end still unknown.
+            // Update the chunk length to reflect what has been scanned thus far.
+            // That the full length is still unknown is (still) flagged by
+            //    ut->a being < 0.
             ut->chunkNativeLimit = chunkLimit;
+            ut->nativeIndexingLimit = chunkLimit;
+            ut->chunkLength = chunkLimit;
         }
 
     }
@@ -2541,7 +2550,7 @@ ucstrTextExtract(UText *ut,
     return di;
 }
 
-static struct UTextFuncs ucstrFuncs = 
+static const struct UTextFuncs ucstrFuncs = 
 {
     sizeof(UTextFuncs),
     0, 0, 0,           // Reserved alignment padding
@@ -2562,7 +2571,7 @@ static struct UTextFuncs ucstrFuncs =
 U_CDECL_END
 
 
-U_DRAFT UText * U_EXPORT2
+U_CAPI UText * U_EXPORT2
 utext_openUChars(UText *ut, const UChar *s, int64_t length, UErrorCode *status) {
     if (U_FAILURE(*status)) {
         return NULL;
@@ -2755,7 +2764,7 @@ charIterTextExtract(UText *ut,
     return desti;
 }
 
-static struct UTextFuncs charIterFuncs = 
+static const struct UTextFuncs charIterFuncs = 
 {
     sizeof(UTextFuncs),
     0, 0, 0,             // Reserved alignment padding
@@ -2775,7 +2784,7 @@ static struct UTextFuncs charIterFuncs =
 U_CDECL_END
 
 
-U_DRAFT UText * U_EXPORT2
+U_CAPI UText * U_EXPORT2
 utext_openCharacterIterator(UText *ut, CharacterIterator *ci, UErrorCode *status) {
     if (U_FAILURE(*status)) {
         return NULL;

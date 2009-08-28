@@ -61,36 +61,31 @@ ID specified by the group operand.
 .Pp
 The following options are available:
 .Bl -tag -width indent
-.\" ==========
 .It Fl f
 The force option ignores errors, except for usage errors and doesn't
 query about strange modes (unless the user does not have proper permissions).
-.\" ==========
 .It Fl H
 If the
 .Fl R
 option is specified, symbolic links on the command line are followed.
 (Symbolic links encountered in the tree traversal are not followed).
-.\" ==========
 .It Fl h
 If the file is a symbolic link, the group ID of the link itself is changed
 rather than the file that is pointed to.
-.\" ==========
 .It Fl L
 If the
 .Fl R
 option is specified, all symbolic links are followed.
-.\" ==========
 .It Fl P
 If the
 .Fl R
 option is specified, no symbolic links are followed.
-This is the default.
-.\" ==========
+This is the default. Use
+.Fl h
+to change the group ID of a symbolic link.
 .It Fl R
 Change the group ID for the file hierarchies rooted
 in the files instead of just the files themselves.
-.\" ==========
 .It Fl v
 Cause
 .Nm chgrp

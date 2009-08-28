@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1998 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: usage.c,v 1.26 2007/04/24 16:16:59 abe Exp $";
+static char *rcsid = "$Id: usage.c,v 1.28 2008/10/21 16:21:41 abe Exp $";
 #endif
 
 
@@ -316,7 +316,7 @@ usage(xv, fh, version)
 	    (void) fprintf(stderr, " latest FAQ: %sFAQ\n", LSOF_URL);
 	    (void) fprintf(stderr, " latest man page: %slsof_man\n", LSOF_URL);
 	    (void) fprintf(stderr,
-		" usage: [-?ab%shlnNoOP%sstUvV%s]",
+		" usage: [-?ab%shlnNoOP%s%stUvV%s]",
 
 #if	defined(HASNCACHE)
 		"C",
@@ -329,6 +329,12 @@ usage(xv, fh, version)
 #else	/* !defined(HASPPID) */
 		"",
 #endif	/* defined(HASPPID) */
+
+#if	defined(HASTCPUDPSTATE)
+		"",
+#else	/* !defined(HASTCPUDPSTATE) */
+		"s",
+#endif	/* defined(HASTCPUDPSTATE) */
 
 #if	defined(HASXOPT)
 # if	defined(HASXOPT_ROOT)
@@ -414,14 +420,23 @@ usage(xv, fh, version)
 #endif	/* defined(HASMOPT) || defined(HASMNTSUP) */
 
 	    (void) fprintf(stderr,
-		" [+|-M] [-o [o]]\n [-p s] [+|-r [t]] [-S [t]] [-T [t]]");
+		" [+|-M] [-o [o]] [-p s]\n[+|-r [t]]%s [-S [t]] [-T [t]]",
+
+#if	defined(HASTCPUDPSTATE)
+		" [-s [p:s]]"
+#else	/* !defined(HASTCPUDPSTATE) */
+		""
+#endif	/* defined(HASTCPUDPSTATE) */
+
+		);
 	    (void) fprintf(stderr, " [-u s] [+|-w] [-x [fl]]");
 
 #if	defined(HASZONES)
 	    (void) fprintf(stderr, " [-z [z]]");
 #else	/* !defined(HASZONES) */
 # if	defined(HASSELINUX)
-	    (void) fprintf(stderr, " [-Z [Z]]");
+	    if (CntxStatus)
+		(void) fprintf(stderr, " [-Z [Z]]");
 # endif	/* defined(HASSELINUX) */
 #endif	/* defined(HASZONES) */
 
@@ -440,7 +455,7 @@ usage(xv, fh, version)
 	    (void) fprintf(stderr, "  %-23.23s", "-?|-h list help");
 	    (void) fprintf(stderr, "  %-25.25s", "-a AND selections (OR)");
 	    (void) fprintf(stderr, "  %s\n", "-b avoid kernel blocks");
-	    (void) fprintf(stderr, "  %-23.23s", "-c c  cmd c, /c/[bix]");
+	    (void) fprintf(stderr, "  %-23.23s", "-c c  cmd c ^c /c/[bix]");
 	    (void) snpf(buf, sizeof(buf), "+c w  COMMAND width (%d)", CMDL);
 	    (void) fprintf(stderr, "  %-25.25s", buf);
 
@@ -731,9 +746,33 @@ usage(xv, fh, version)
 #endif	/* defined(HASIPv6) */
 
 		);
+
 	    (void) fprintf(stderr,
-		"  +|-r [t] repeat every t seconds (%d);", RPTTM);
-	    (void) fprintf(stderr, " + until no files, - forever\n");
+		"  +|-r [%s] repeat every t seconds (%d); %s",
+
+#if	defined(HAS_STRFTIME)
+		"t[m<fmt>]",
+#else	/* !defined(has_STRFTIME) */
+		"t",
+#endif	/* defined(HAS_STRFTIME) */
+
+		RPTTM,
+		" + until no files, - forever.\n");
+
+#if	defined(HAS_STRFTIME)
+	    (void) fprintf(stderr,
+		"       An optional suffix to t is m<fmt>; m must separate %s",
+		"t from <fmt> and\n");
+	    (void) fprintf(stderr, "      <fmt> is an strftime(3) format %s",
+		"for the marker line.\n");
+#endif	/* defined(HAS_STRFTIME) */
+
+#if	defined(HASTCPUDPSTATE)
+	    (void) fprintf(stderr,
+		"  -s p:s  exclude(^)|select protocol (p = TCP|UDP) states");
+	    (void) fprintf(stderr, " by name(s).\n");
+#endif	/* defined(HASTCPUDPSTATE) */
+
 	    (void) fprintf(stderr,
 		"  -u s   exclude(^)|select login|UID set s\n");
 	    (void) fprintf(stderr,
@@ -792,7 +831,10 @@ usage(xv, fh, version)
 		    continue;
 #endif	/* !defined(HASZONES) */
  
-#if	!defined(HASSELINUX)
+#if	defined(HASSELINUX)
+		if ((FieldSel[i].id == LSOF_FID_CNTX) && !CntxStatus)
+		    continue;
+#else	/* !defined(HASSELINUX) */
 		if (FieldSel[i].id == LSOF_FID_CNTX)
 		    continue;
 #endif	/* !defined(HASSELINUX) */

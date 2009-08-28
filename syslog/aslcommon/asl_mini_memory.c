@@ -1051,7 +1051,17 @@ asl_mini_memory_match(asl_mini_memory_t *s, aslresponse query, aslresponse *res,
 		}
 	}
 
-	if (i >= s->record_count) return ASL_STATUS_OK;
+	if (i >= s->record_count)
+	{
+		if (qp != NULL)
+		{
+			for (i = 0; i < query->count; i++) asl_mini_memory_record_free(s, qp[i]);
+			free(qp);
+			free(qtype);
+		}
+
+		return ASL_STATUS_OK;
+	}
 
 	start = where;
 

@@ -1,7 +1,7 @@
 /*
  *  sqltypes.h
  *
- *  $Id: sqltypes.h,v 1.20 2006/01/24 15:02:23 source Exp $
+ *  $Id: sqltypes.h,v 1.23 2007/10/07 13:27:13 source Exp $
  *
  *  ODBC typedefs
  *
@@ -397,9 +397,11 @@ typedef unsigned short SQLWCHAR;
 #  if defined(__cplusplus)		|| \
       defined(_WCHAR_T)			|| \
       defined(_WCHAR_T_DEFINED)		|| \
-      defined(_WCHAR_T_DECLARED)        || \
-      defined(_BSD_WCHAR_T_DEFINED_)    || \
-      defined(_BSD_WCHAR_T_)
+      defined(_WCHAR_T_DEFINED_)	|| \
+      defined(_WCHAR_T_DECLARED)	|| \
+      defined(_BSD_WCHAR_T_DEFINED_)	|| \
+      defined(_BSD_WCHAR_T_)		|| \
+      defined(_BSD_CT_RUNE_T_)
 typedef wchar_t SQLWCHAR;
 #  else
 #    error Please make sure your system supports the wchar_t type

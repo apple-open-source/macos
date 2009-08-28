@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2007 Apple Inc. All rights reserved.
+ * Copyright © 2004-2009 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,6 +26,7 @@
 #include <IOKit/usb/IOUSBHubPolicyMaker.h>
 
 #include "AppleUSBUHCI.h"
+#include "USBTracepoints.h"
 
 /* Convert USBLog to use kprintf debugging */
 #ifndef APPLEUHCIROOTHUB_USE_KPRINTF
@@ -43,14 +44,9 @@ __attribute__((format(printf, 1, 2)));
 
 
 
-enum {
-    kPrdRootHubApple	= 0x8005,		/* Apple ASIC root hub*/
-	kUHCIRootHubPollingInterval = 32	// Polling interval in ms
-};
-
-
 #define super IOUSBControllerV3
 #define self this
+#define _rootHubPollingRate32			_v3ExpansionData->_rootHubPollingRate32
 
 // ========================================================================
 #pragma mark Public root hub methods
@@ -171,7 +167,7 @@ AppleUSBUHCI::GetRootHubConfDescriptor(OSData *desc)
         0x81,								//UInt8  endpointAddress; In, 1
         kUSBInterrupt,						//UInt8 attributes;
         HostToUSBWord(8),					//UInt16 maxPacketSize;
-        kUHCIRootHubPollingInterval,		//UInt8 interval;
+        kUSBRootHubPollingRate,				//UInt8 interval;
     };
 
     if (!desc)
@@ -493,7 +489,7 @@ AppleUSBUHCI::UIMRootHubStatusChange(void)
     
     USBLog(7, "%s[%p]::UIMRootHubStatusChange (_controllerAvailable: %d)", getName(), this, _controllerAvailable);
 
-	if (_controllerAvailable && !_wakingFromHibernation && !_pcCardEjected)
+	if (_controllerAvailable && !_wakingFromHibernation)
 	{
 		// For UHCI, we first need to see if we have a pending resume
 		RHCheckStatus();
@@ -517,8 +513,8 @@ AppleUSBUHCI::UIMRootHubStatusChange(void)
 			GetRootHubPortStatus(&portStatus, i);
 			if (portStatus.changeFlags != 0) 
 			{
-				AbsoluteTime	currentTime;
 				UInt64			elapsedTime;
+				uint64_t		currentTime;
 				
 				USBLog(5, "AppleUSBUHCI[%p]::UIMRootHubStatusChange  Port %d hub flags:", this, i);
 				RHDumpHubPortStatus(&portStatus);
@@ -526,9 +522,9 @@ AppleUSBUHCI::UIMRootHubStatusChange(void)
 				bitmap |= bit;
 				
 				// If this port has seen a recovery attempt (see below) already, check to see what the current time is and if it's > than 2 seconds since the port recovery, then 'forget" about it
-				clock_get_uptime(&currentTime);
+				currentTime = mach_absolute_time();
 				SUB_ABSOLUTETIME(&currentTime, &_portRecoveryTime[i-1] );
-				absolutetime_to_nanoseconds(currentTime, &elapsedTime);
+				absolutetime_to_nanoseconds(*(AbsoluteTime *)&currentTime, &elapsedTime);
 				elapsedTime /= 1000000000;									// Convert to seconds from nanoseconds
 				
 				if ( _previousPortRecoveryAttempted[i-1] && (elapsedTime >= kUHCITimeoutForPortRecovery) )
@@ -544,12 +540,20 @@ AppleUSBUHCI::UIMRootHubStatusChange(void)
 				if ( !_previousPortRecoveryAttempted[i-1] )
 				{
 					USBLog(7, "AppleUSBUHCI[%p]::UIMRootHubStatusChange  Port %d had a change: 0x%x", this, i, portStatus.changeFlags);
-					if ( (portStatus.changeFlags & kHubPortEnabled) and (portStatus.statusFlags & kHubPortConnection) and (portStatus.statusFlags & kHubPortPower) and !(portStatus.statusFlags & kHubPortEnabled) )
+					if ( !(portStatus.statusFlags & kHubPortEnabled)				// if we are not presently enabled
+						&& (portStatus.changeFlags & kHubPortEnabled)				// and we were previously enabled
+						&& (portStatus.statusFlags & kHubPortConnection)			// and we are presently connected
+						&& !(portStatus.changeFlags & kHubPortConnection)			// and the connection has not recently changed (i.e. quick disconnect-connect)
+						&& (portStatus.statusFlags & kHubPortPower) )				// and the power is on
 					{
 						// Indicate that we are attempting a recovery
 						_previousPortRecoveryAttempted[i-1] = true;
-						clock_get_uptime(&_portRecoveryTime[i-1]);
+						currentTime = mach_absolute_time();
+						_portRecoveryTime[i-1] = *(AbsoluteTime*)&currentTime;
+						
 						USBLog(1, "AppleUSBUHCI[%p]::UIMRootHubStatusChange  Port %d attempting to enable a disabled port to work around a fickle UHCI controller", this, i);
+						USBTrace( kUSBTUHCI, kTPUHCIRootHubStatusChange, (uintptr_t)this, portStatus.statusFlags, portStatus.changeFlags, i );
+						
 						RHEnablePort(i, true);
 						
 						// Clear the bitmap
@@ -668,6 +672,51 @@ AppleUSBUHCI::GetRootHubStringDescriptor(UInt8	index, OSData *desc)
     return kIOReturnSuccess;
 }
 
+// ========================================================================
+//
+// * RootHubAbortInterruptRead
+// * Abort a queued up read.
+//
+// ========================================================================
+//
+IOReturn
+AppleUSBUHCI::RootHubAbortInterruptRead()
+{
+    int										i;
+	IOUSBRootHubInterruptTransaction		xaction;
+	
+	if ( _errataBits & kErrataUHCISupportsResumeDetectOnConnect )
+	{
+		USBLog(6, "AppleUSBUHCI[%p]::RootHubAbortInterruptRead,  controller supports kErrataUHCISupportsResumeDetectOnConnect", this);
+		return super::RootHubAbortInterruptRead();
+	}
+	
+	// For UHCI controllers that do not generate a resume detect interrupt when we plug something in, we need to throttle down the timer
+	// So that we can save power.  We do that by cancelling the current timer, and then starting a new one with the new timeout.  When we 
+	// then start re-issuing the timer when the device is active, we will need to make sure that we use the usual polling rate
+	
+	USBLog(6, "AppleUSBUHCI[%p]::RootHubAbortInterruptRead, throttling down the timer to %d ms", this, (uint32_t)_rootHubPollingRate32 * 30);
+	
+	// Stop the timer and restart it with a polling rate of 30x (960ms)
+	RootHubStopTimer();
+	
+	// This will set _rootHubPollingRate32 to this new value
+	RootHubStartTimer32(_rootHubPollingRate32 * 30);
+	
+	xaction = _outstandingRHTrans[0];
+	if (xaction.completion.action)
+	{
+		// move all other transactions down the queue
+		for (i = 0; i < (kIOUSBMaxRootHubTransactions-1); i++)
+		{
+			_outstandingRHTrans[i] = _outstandingRHTrans[i+1];
+		}
+		_outstandingRHTrans[kIOUSBMaxRootHubTransactions-1].completion.action = NULL;
+		Complete(xaction.completion, kIOReturnAborted, xaction.bufLen);
+	}
+	return kIOReturnSuccess;
+}
+
 
 // ========================================================================
 #pragma mark Internal root hub methods
@@ -755,7 +804,7 @@ AppleUSBUHCI::RHCheckStatus()
     int						i;
     UInt16					status;
 	
-    /* Read port status registers.
+   /* Read port status registers.
     * Check for resumed ports.
     * If the status changed on either, call the
     * port status changed method.
@@ -826,6 +875,7 @@ AppleUSBUHCI::RHSuspendPort(int port, bool suspended)
 			return kIOReturnSuccess;
 		}
 		USBLog(1, "AppleUSBUHCI[%p]::RHSuspendPort - trying to suspend port (%d) which is being resumed - UNEXPECTED", this, (int)port+1);
+		USBTrace( kUSBTUHCI, kTPUHCIRHSuspendPort, (uintptr_t)this, (int)port+1, 0, 0);
 	}
 	
     cmd = ioRead16(kUHCI_CMD);
@@ -953,6 +1003,8 @@ AppleUSBUHCI::RHHoldPortReset(int port)
     int i;
     
     USBLog(1, "%s[%p]::RHHoldPortReset %d", getName(), this, port);
+	USBTrace( kUSBTUHCI, kTPUHCIRHHoldPortReset, (uintptr_t)this, (int)port, 0, 0);
+	
     port--; // convert 1-based to 0-based.
 
     value = ReadPortStatus(port) & kUHCI_PORTSC_MASK;
@@ -1105,6 +1157,7 @@ AppleUSBUHCI::RHResumePortCompletion(UInt32 port)
 	if (!_rhPortBeingResumed[port-1])
 	{
 		USBLog(1, "AppleUSBUHCI[%p]::RHResumePortCompletion - port %d does not appear to be resuming!", this, (int)port);
+		USBTrace( kUSBTUHCI, kTPUHCIRHResumePortCompletion, (uintptr_t)this, (int)port, 0, kIOReturnInternalError );
 		return kIOReturnInternalError;
 	}
 	
@@ -1126,3 +1179,7 @@ AppleUSBUHCI::RHResumePortCompletion(UInt32 port)
 	_portSuspendChange[port-1] = true;
 	return kIOReturnSuccess;
 }
+
+
+
+

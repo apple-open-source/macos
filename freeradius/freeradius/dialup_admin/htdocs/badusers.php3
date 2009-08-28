@@ -13,7 +13,7 @@ else{
 <meta http-equiv="Content-Type" content="text/html; charset=$config[general_charset]">
 <link rel="stylesheet" href="style.css">
 </head>
-<body bgcolor="#80a040" background="images/greenlines1.gif" link="black" alink="black">
+<body>
 <center>
 <b>Could not include SQL library functions. Aborting</b>
 </body>
@@ -33,7 +33,7 @@ $num = 0;
 $pagesize = ($pagesize) ? $pagesize : 10;
 if (!is_numeric($pagesize) && $pagesize != 'all')
 	$pagesize = 10;
-$limit = ($pagesize == 'all') ? '' : "LIMIT $pagesize";
+$limit = ($pagesize == 'all') ? '' : "$pagesize";
 $selected[$pagesize] = 'selected';
 $login = ($login != '') ? $login : 'anyone';
 $usercheck = ($login == 'anyone') ? "LIKE '%'" : "= '$login'";
@@ -48,7 +48,7 @@ echo <<<EOM
 <meta http-equiv="Content-Type" content="text/html; charset=$config[general_charset]">
 <link rel="stylesheet" href="style.css">
 </head>
-<body bgcolor="#80a040" background="images/greenlines1.gif" link="black" alink="black">
+<body>
 <center>
 <table border=0 width=550 cellpadding=0 cellspacing=0>
 <tr valign=top>
@@ -79,7 +79,7 @@ if ($link){
 		$row = @da_sql_fetch_array($search,$config);
 		if ($row[id] == $row_id){
 			$admin = "$row[admin]";
-			if (($admin != '-' && $HTTP_SERVER_VARS["PHP_AUTH_USER"] == $admin) || $admin == '-'){
+			if (($admin != '-' && $_SERVER["PHP_AUTH_USER"] == $admin) || $admin == '-'){
 				$sql_servers = array();
 				if ($config[sql_extra_servers] != '')
 					$sql_servers = explode(' ',$config[sql_extra_servers]);
@@ -137,7 +137,7 @@ EOM;
 	</tr>
 
 <?php
-$auth_user = $HTTP_SERVER_VARS["PHP_AUTH_USER"];
+$auth_user = $_SERVER["PHP_AUTH_USER"];
 if ($config[general_restrict_badusers_access] == 'yes'){
 	$auth_user = da_sql_escape_string($auth_user);
 	$extra_query = "AND admin == '$auth_user'";
@@ -145,15 +145,17 @@ if ($config[general_restrict_badusers_access] == 'yes'){
 $link = @da_sql_pconnect($config);
 if ($link){
 	$search = @da_sql_query($link,$config,
-	"SELECT * FROM $config[sql_badusers_table]
-	WHERE UserName $usercheck $extra_query AND Date <= '$now_str'
-	AND Date >= '$prev_str' ORDER BY Date $order $limit;");
+	"SELECT " . da_sql_limit($limit,0,$config) . " * FROM $config[sql_badusers_table]
+	WHERE username $usercheck $extra_query AND incidentdate <= '$now_str'
+	AND incidentdate >= '$prev_str' " . da_sql_limit($limit,1,$config) .
+	" ORDER BY incidentdate $order " . da_sql_limit($limit,2,$config) . " ;");
 	if ($search){
 		while( $row = @da_sql_fetch_array($search,$config) ){
 			$num++;
 			$id = $row[id];
-			$user = "$row[userName]";
-			$date = "$row[date]";
+			$user = "$row[username]";
+			$User = urlencode($user);
+			$date = "$row[incidentdate]";
 			$reason = "$row[reason]";
 			$admin = "$row[admin]";
 			if ($admin == $auth_user || $admin == '-')
@@ -167,7 +169,7 @@ if ($link){
 			echo <<<EOM
 			<tr align=center>
 				<td>$num</td>
-				<td><a href="user_admin.php3?login=$user" title="Edit user $user">$user</a></td>
+				<td><a href="user_admin.php3?login=$User" title="Edit user $user">$user</a></td>
 				<td>$date</td>
 				<td>$admin</td>
 				<td>$reason</td>

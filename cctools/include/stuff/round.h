@@ -25,6 +25,8 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+#include <stdint.h>
+
 #if defined(__MWERKS__) && !defined(__private_extern__)
 #define __private_extern__ __declspec(private_extern)
 #endif
@@ -32,6 +34,6 @@
 /*
  * round() rounds v to a multiple of r.
  */
-__private_extern__ unsigned long round(
-    unsigned long v,
-    unsigned long r);
+__private_extern__ uint32_t round(
+    uint32_t v,
+    uint32_t r);

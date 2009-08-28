@@ -38,16 +38,31 @@ bool gServerMode;
 #pragma mark ÑÑÑÑ Constructor/Destructor ÑÑÑÑ
 
 Globals::Globals() :
-apiLock(Mutex::recursive),
 mUI(true)
 {
 }
 
-const AccessCredentials * Globals::credentials() 
+const AccessCredentials * Globals::keychainCredentials() 
 {
-	return (mUI ? mACLFactory.promptCred() : mACLFactory.cancelCred()); 
+	return (mUI ? mACLFactory.unlockCred() : mACLFactory.cancelCred()); 
 }
 
+const AccessCredentials * Globals::smartcardCredentials() 
+{
+	return (mUI ? mACLFactory.promptedPINCred() : mACLFactory.cancelCred()); 
+}
+
+const AccessCredentials * Globals::itemCredentials() 
+{
+	return (mUI ? mACLFactory.promptCred() : mACLFactory.nullCred()); 
+}
+
+const AccessCredentials * Globals::smartcardItemCredentials() 
+{
+	return (mUI ? mACLFactory.promptedPINItemCred() : mACLFactory.cancelCred()); 
+}
+	
+	
 
 }	// namespace KeychainCore
 }	// namespace Security

@@ -1,13 +1,15 @@
 #!/bin/sh
 
-#/*! @function formatmessage
+#/*! @function formatmessage_sh
+#    @discussion This discussion spans
+#                multiple lines.
 #    @abstract formats a message in a dumb way
 #    @param $1 The last word of the message
 #    @param $2 The next-to-last word of the message
 #    @param $3+ The rest of the message
 #*/
 
-formatmessage()
+formatmessage_sh()
 {
 	LW=$1
 	NLW=$2

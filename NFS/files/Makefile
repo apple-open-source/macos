@@ -4,12 +4,10 @@
 
 Project = files
 
-include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
+inplace:
+	@$(MAKE) all SRCROOT=. OBJROOT=. SYMROOT=. DSTROOT=/
 
-SRCROOT ?= .
-OBJROOT ?= .
-SYMROOT ?= .
-DSTROOT ?= .
+include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
 MAN_DIR = $(DSTROOT)/usr/share/man/man5
 

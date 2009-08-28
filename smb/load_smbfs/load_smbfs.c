@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -45,7 +45,7 @@ union MaxMsgSize {
 	union __ReplyUnion__smbfs_load_kext_subsystem rep;
 };
 
-static int LoadKext(char *inKextPath)
+static int LoadKext(const char *inKextPath)
 {
 	pid_t	childPID;
 	int	status = 0;
@@ -55,7 +55,7 @@ static int LoadKext(char *inKextPath)
 
 	if (childPID == 0) {
 		char CFUserTextEncodingEnvSetting[sizeof(CFENVFORMATSTRING) + 20]; /* Extra  bytes for expansion of %X uid field */
-		char *env[] = {CFUserTextEncodingEnvSetting, "", (char *) 0 };
+		const char *env[] = {CFUserTextEncodingEnvSetting, "", NULL };
 	     /* 
 	      * Create a new environment with a definition of __CF_USER_TEXT_ENCODING to work 
 	      * around CF's interest in the user's home directory (which could be networked, 
@@ -77,7 +77,7 @@ static int LoadKext(char *inKextPath)
 		return EIO;
 }
 
-kern_return_t do_load_kext(mach_port_t test_port __attribute__((unused)), string_t kextname, string_t codepage)
+kern_return_t do_load_kext(mach_port_t test_port __attribute__((unused)), string_t kextname)
 {
 	int error = KERN_SUCCESS;
 	struct vfsconf vfc;
@@ -90,9 +90,7 @@ kern_return_t do_load_kext(mach_port_t test_port __attribute__((unused)), string
 	
 	if (strcmp(kextname, SMBFS_VFSNAME) == 0)  {
 		if (getvfsbyname(SMBFS_VFSNAME, &vfc) != 0)
-			error = LoadKext(SMB_KEXT_PATH);			
-		if (!error)
-			error = load_encodings(codepage, "");	/* Some day we may want to support other code page options */
+			error = LoadKext(SMB_KEXT_PATH);
 	} else
 	    error = ENOENT;
 	
@@ -100,13 +98,13 @@ kern_return_t do_load_kext(mach_port_t test_port __attribute__((unused)), string
 	
 }
 
-static mach_port_t checkin_or_register(char *bname)
+static mach_port_t checkin_or_register(const char *bname)
 {
 	kern_return_t kr;
 	mach_port_t mp;
 	
 	/* If we're started by launchd or the old mach_init */
-	kr = bootstrap_check_in(bootstrap_port, bname, &mp);
+	kr = bootstrap_check_in(bootstrap_port, (char *)bname, &mp);
 	if (kr == KERN_SUCCESS)
 		return mp;
 	/* If not then get out */
@@ -116,7 +114,7 @@ static mach_port_t checkin_or_register(char *bname)
 
 int main(void)
 {
-	mach_msg_size_t mxmsgsz = sizeof(union MaxMsgSize) + MAX_TRAILER_SIZE;
+	mach_msg_size_t mxmsgsz = (mach_msg_size_t)(sizeof(union MaxMsgSize) + MAX_TRAILER_SIZE);
 	mach_port_t mp = checkin_or_register(SMBFS_LOAD_KEXT_BOOTSTRAP_NAME);
 	kern_return_t kr;
 	

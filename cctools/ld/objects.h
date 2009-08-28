@@ -342,6 +342,15 @@ __private_extern__ enum bool fine_reloc_offset_in_output_for_output_offset(
 __private_extern__ unsigned long fine_reloc_output_sectnum(
     struct section_map *map,
     unsigned long input_offset);
+__private_extern__ enum bool fine_reloc_arm(
+    struct section_map *map,
+    unsigned long input_offset);
+__private_extern__ enum bool fine_reloc_thumb(
+    struct section_map *map,
+    unsigned long input_offset);
+__private_extern__ enum bool fine_reloc_local(
+    struct section_map *map,
+    unsigned long input_offset);
 __private_extern__ struct fine_reloc *fine_reloc_for_input_offset(
     struct section_map *map,
     unsigned long input_offset);

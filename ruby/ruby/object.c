@@ -3,7 +3,7 @@
   object.c -
 
   $Author: shyouhei $
-  $Date: 2008-06-18 15:21:30 +0900 (Wed, 18 Jun 2008) $
+  $Date: 2008-07-03 20:14:50 +0900 (Thu, 03 Jul 2008) $
   created at: Thu Jul 15 12:01:24 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -320,7 +320,7 @@ VALUE
 rb_any_to_s(obj)
     VALUE obj;
 {
-    char *cname = rb_obj_classname(obj);
+    const char *cname = rb_obj_classname(obj);
     size_t len;
     VALUE str;
 
@@ -347,7 +347,7 @@ inspect_i(id, value, str)
     VALUE str;
 {
     VALUE str2;
-    char *ivname;
+    const char *ivname;
 
     /* need not to show internal data */
     if (CLASS_OF(value) == 0) return ST_CONTINUE;
@@ -403,9 +403,8 @@ rb_obj_inspect(obj)
 	&& ROBJECT(obj)->iv_tbl->num_entries > 0) {
 	VALUE str;
 	size_t len;
-	char *c;
+	const char *c = rb_obj_classname(obj);
 
-	c = rb_obj_classname(obj);
 	if (rb_inspecting_p(obj)) {
 	    len = strlen(c)+10+16+1;
 	    str = rb_str_new(0, len); /* 10:tags 16:addr 1:nul */
@@ -497,6 +496,35 @@ rb_obj_is_kind_of(obj, c)
 	cl = RCLASS(cl)->super;
     }
     return Qfalse;
+}
+
+
+/*
+ *  call-seq:
+ *     obj.tap{|x|...}    => obj
+ *  
+ *  Yields <code>x</code> to the block, and then returns <code>x</code>.
+ *  The primary purpose of this method is to "tap into" a method chain,
+ *  in order to perform operations on intermediate results within the chain.
+ *
+ *	(1..10).tap {
+ *	  |x| puts "original: #{x.inspect}"
+ *	}.to_a.tap {
+ *	  |x| puts "array: #{x.inspect}"
+ *	}.select {|x| x%2==0}.tap {
+ *	  |x| puts "evens: #{x.inspect}"
+ *	}.map {|x| x*x}.tap {
+ *	  |x| puts "squares: #{x.inspect}"
+ *	}
+ *
+ */
+
+VALUE
+rb_obj_tap(obj)
+    VALUE obj;
+{
+    rb_yield(obj);
+    return obj;
 }
 
 
@@ -1138,7 +1166,7 @@ sym_inspect(sym)
     VALUE sym;
 {
     VALUE str;
-    char *name;
+    const char *name;
     ID id = SYM2ID(sym);
 
     name = rb_id2name(id);
@@ -1186,6 +1214,37 @@ sym_to_sym(sym)
     VALUE sym;
 {
     return sym;
+}
+
+
+static VALUE
+sym_call(args, mid)
+    VALUE args, mid;
+{
+    VALUE obj;
+
+    if (RARRAY(args)->len < 1) {
+	rb_raise(rb_eArgError, "no receiver given");
+    }
+    obj = rb_ary_shift(args);
+    return rb_apply(obj, (ID)mid, args);
+}
+
+VALUE rb_proc_new _((VALUE (*)(ANYARGS/* VALUE yieldarg[, VALUE procarg] */), VALUE));
+
+/*
+ * call-seq:
+ *   sym.to_proc
+ *
+ * Returns a _Proc_ object which respond to the given method by _sym_.
+ *
+ *   (1..3).collect(&:to_s)  #=> ["1", "2", "3"]
+ */
+
+static VALUE
+sym_to_proc(VALUE sym)
+{
+    return rb_proc_new(sym_call, (VALUE)SYM2ID(sym));
 }
 
 
@@ -1520,8 +1579,21 @@ rb_class_initialize(argc, argv, klass)
  *  call-seq:
  *     class.allocate()   =>   obj
  *  
- *  Allocates space for a new object of <i>class</i>'s class. The
- *  returned object must be an instance of <i>class</i>.
+ *  Allocates space for a new object of <i>class</i>'s class and does not
+ *  call initialize on the new instance. The returned object must be an
+ *  instance of <i>class</i>.
+ *  
+ *      klass = Class.new do
+ *        def initialize(*args)
+ *          @initialized = true
+ *        end
+ *      
+ *        def initialized?
+ *          @initialized || false
+ *        end
+ *      end
+ *      
+ *      klass.allocate.initialized? #=> false
  *     
  */
 
@@ -2224,6 +2296,19 @@ rb_to_integer(val, method)
 }
 
 VALUE
+rb_check_to_integer(VALUE val, const char *method)
+{
+    VALUE v;
+
+    if (FIXNUM_P(val)) return val;
+    v = convert_type(val, "Integer", method, Qfalse);
+    if (!rb_obj_is_kind_of(v, rb_cInteger)) {
+	return Qnil;
+    }
+    return v;
+}
+
+VALUE
 rb_to_int(val)
     VALUE val;
 {
@@ -2696,6 +2781,7 @@ Init_Object()
     rb_define_method(rb_mKernel, "instance_of?", rb_obj_is_instance_of, 1);
     rb_define_method(rb_mKernel, "kind_of?", rb_obj_is_kind_of, 1);
     rb_define_method(rb_mKernel, "is_a?", rb_obj_is_kind_of, 1);
+    rb_define_method(rb_mKernel, "tap", rb_obj_tap, 0);
 
     rb_define_private_method(rb_mKernel, "singleton_method_added", rb_obj_dummy, 1);
     rb_define_private_method(rb_mKernel, "singleton_method_removed", rb_obj_dummy, 1);
@@ -2737,6 +2823,7 @@ Init_Object()
     rb_define_method(rb_cSymbol, "to_s", sym_to_s, 0);
     rb_define_method(rb_cSymbol, "id2name", sym_to_s, 0);
     rb_define_method(rb_cSymbol, "to_sym", sym_to_sym, 0);
+    rb_define_method(rb_cSymbol, "to_proc", sym_to_proc, 0);
     rb_define_method(rb_cSymbol, "===", rb_obj_equal, 1); 
 
     rb_define_method(rb_cModule, "freeze", rb_mod_freeze, 0);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,9 +35,7 @@ extern "C" {
 #include <stdint.h>
 #include <libkern/OSByteOrder.h>
 
-#pragma options align=mac68k
-#pragma pack(2)
-
+#pragma pack(push,2)
 
 // Number of channels in file
 enum
@@ -133,8 +131,7 @@ void
 BuildCDAIFFHeader ( CDAIFFHeader * header, uint32_t fileSize );
 
 
-#pragma pack()
-#pragma options align=reset
+#pragma pack(pop)
 
 
 #ifdef __cplusplus

@@ -1,6 +1,3 @@
-/*	$OpenBSD: tar.c,v 1.34 2004/10/23 19:34:14 otto Exp $	*/
-/*	$NetBSD: tar.c,v 1.5 1995/03/21 09:07:49 cgd Exp $	*/
-
 /*-
  * Copyright (c) 1992 Keith Muller.
  * Copyright (c) 1992, 1993
@@ -192,7 +189,7 @@ int ext_header_entry       [4*sizeof(o_option_table)/sizeof(O_OPTION_TYPE)],
 
 static size_t expandname(char *, size_t, char **, const char *, size_t);
 static u_long pax_chksm(char *, int);
-char *name_split(char *, int);
+static char *name_split(char *, int);
 static int ul_oct(u_long, char *, int, int);
 #ifndef LONG_OFF_T
 static int uqd_oct(u_quad_t, char *, int, int);
@@ -206,81 +203,6 @@ static gid_t gid_warn;
 /*
  * Routines common to all versions of pax
  */
-
-#if 0
-static int tar_nodir;			/* do not write dirs under old tar */
-char *gnu_name_string;			/* GNU ././@LongLink hackery name */
-char *gnu_link_string;			/* GNU ././@LongLink hackery link */
-
-/*
- * tar_endwr()
- *	add the tar trailer of two null blocks
- * Return:
- *	0 if ok, -1 otherwise (what wr_skip returns)
- */
-
-int
-tar_endwr(void)
-{
-	return(wr_skip((off_t)(NULLCNT*BLKMULT)));
-}
-
-/*
- * tar_endrd()
- *	no cleanup needed here, just return size of trailer (for append)
- * Return:
- *	size of trailer (2 * BLKMULT)
- */
-
-off_t
-tar_endrd(void)
-{
-	return((off_t)(NULLCNT*BLKMULT));
-}
-
-/*
- * tar_trail()
- *	Called to determine if a header block is a valid trailer. We are passed
- *	the block, the in_sync flag (which tells us we are in resync mode;
- *	looking for a valid header), and cnt (which starts at zero) which is
- *	used to count the number of empty blocks we have seen so far.
- * Return:
- *	0 if a valid trailer, -1 if not a valid trailer, or 1 if the block
- *	could never contain a header.
- */
-
-int
-tar_trail(ARCHD *ignore, char *buf, int in_resync, int *cnt)
-{
-	int i;
-
-	/*
-	 * look for all zero, trailer is two consecutive blocks of zero
-	 */
-	for (i = 0; i < BLKMULT; ++i) {
-		if (buf[i] != '\0')
-			break;
-	}
-
-	/*
-	 * if not all zero it is not a trailer, but MIGHT be a header.
-	 */
-	if (i != BLKMULT)
-		return(-1);
-
-	/*
-	 * When given a zero block, we must be careful!
-	 * If we are not in resync mode, check for the trailer. Have to watch
-	 * out that we do not mis-identify file data as the trailer, so we do
-	 * NOT try to id a trailer during resync mode. During resync mode we
-	 * might as well throw this block out since a valid header can NEVER be
-	 * a block of all 0 (we must have a valid file name).
-	 */
-	if (!in_resync && (++*cnt >= NULLCNT))
-		return(0);
-	return(1);
-}
-#endif
 
 /*
  * ul_oct()
@@ -429,50 +351,6 @@ pax_chksm(char *blk, int len)
 		chksm += (u_long)(*pt++ & 0xff);
 	return(chksm);
 }
-
-#if 0
-/*
- * Routines for old BSD style tar (also made portable to sysV tar)
- */
-
-/* pax_id must be derived from ustar, NOT tar */
-/*
- * tar_id()
- *	determine if a block given to us is a valid tar header (and not a USTAR
- *	header). We have to be on the lookout for those pesky blocks of	all
- *	zero's.
- * Return:
- *	0 if a tar header, -1 otherwise
- */
-
-int
-tar_id(char *blk, int size)
-{
-	HD_TAR *hd;
-	HD_USTAR *uhd;
-
-	if (size < BLKMULT)
-		return(-1);
-	hd = (HD_TAR *)blk;
-	uhd = (HD_USTAR *)blk;
-
-	/*
-	 * check for block of zero's first, a simple and fast test, then make
-	 * sure this is not a ustar header by looking for the ustar magic
-	 * cookie. We should use TMAGLEN, but some USTAR archive programs are
-	 * wrong and create archives missing the \0. Last we check the
-	 * checksum. If this is ok we have to assume it is a valid header.
-	 */
-	if (hd->name[0] == '\0')
-		return(-1);
-	if (strncmp(uhd->magic, TMAGIC, TMAGLEN - 1) == 0)
-		return(-1);
-	if (asc_ul(hd->chksum,sizeof(hd->chksum),OCT) != tar_chksm(blk,BLKMULT))
-		return(-1);
-	force_one_volume = 1;
-	return(0);
-}
-#endif
 
 void
 pax_format_list_output(ARCHD *arcn, time_t now, FILE *fp, int term)
@@ -729,338 +607,6 @@ pax_opt(void)
 	return(0);
 }
 
-
-#if 0
-/* pax_rd is derived from ustar_rd NOT tar_rd */
-/*
- * tar_rd()
- *	extract the values out of block already determined to be a tar header.
- *	store the values in the ARCHD parameter.
- * Return:
- *	0
- */
-
-int
-tar_rd(ARCHD *arcn, char *buf)
-{
-	HD_TAR *hd;
-	char *pt;
-
-	/*
-	 * we only get proper sized buffers passed to us
-	 */
-	if (tar_id(buf, BLKMULT) < 0)
-		return(-1);
-	memset(arcn, 0, sizeof(*arcn));
-	arcn->org_name = arcn->name;
-	arcn->sb.st_nlink = 1;
-
-	/*
-	 * copy out the name and values in the stat buffer
-	 */
-	hd = (HD_TAR *)buf;
-	if (hd->linkflag != LONGLINKTYPE && hd->linkflag != LONGNAMETYPE) {
-		arcn->nlen = expandname(arcn->name, sizeof(arcn->name),
-		    &gnu_name_string, hd->name, sizeof(hd->name));
-		arcn->ln_nlen = expandname(arcn->ln_name, sizeof(arcn->ln_name),
-		    &gnu_link_string, hd->linkname, sizeof(hd->linkname));
-	}
-	arcn->sb.st_mode = (mode_t)(asc_ul(hd->mode,sizeof(hd->mode),OCT) &
-	    0xfff);
-	arcn->sb.st_uid = (uid_t)asc_ul(hd->uid, sizeof(hd->uid), OCT);
-	arcn->sb.st_gid = (gid_t)asc_ul(hd->gid, sizeof(hd->gid), OCT);
-#ifdef LONG_OFF_T
-	arcn->sb.st_size = (off_t)asc_ul(hd->size, sizeof(hd->size), OCT);
-#else
-	arcn->sb.st_size = (off_t)asc_uqd(hd->size, sizeof(hd->size), OCT);
-#endif
-	arcn->sb.st_mtime = (time_t)asc_ul(hd->mtime, sizeof(hd->mtime), OCT);
-	arcn->sb.st_ctime = arcn->sb.st_atime = arcn->sb.st_mtime;
-
-	/*
-	 * have to look at the last character, it may be a '/' and that is used
-	 * to encode this as a directory
-	 */
-	pt = &(arcn->name[arcn->nlen - 1]);
-	arcn->pad = 0;
-	arcn->skip = 0;
-	switch (hd->linkflag) {
-	case SYMTYPE:
-		/*
-		 * symbolic link, need to get the link name and set the type in
-		 * the st_mode so -v printing will look correct.
-		 */
-		arcn->type = PAX_SLK;
-		arcn->sb.st_mode |= S_IFLNK;
-		break;
-	case LNKTYPE:
-		/*
-		 * hard link, need to get the link name, set the type in the
-		 * st_mode and st_nlink so -v printing will look better.
-		 */
-		arcn->type = PAX_HLK;
-		arcn->sb.st_nlink = 2;
-
-		/*
-		 * no idea of what type this thing really points at, but
-		 * we set something for printing only.
-		 */
-		arcn->sb.st_mode |= S_IFREG;
-		break;
-	case LONGLINKTYPE:
-	case LONGNAMETYPE:
-		/*
-		 * GNU long link/file; we tag these here and let the
-		 * pax internals deal with it -- too ugly otherwise.
-		 */
-		arcn->type =
-		    hd->linkflag == LONGLINKTYPE ? PAX_GLL : PAX_GLF;
-		arcn->pad = TAR_PAD(arcn->sb.st_size);
-		arcn->skip = arcn->sb.st_size;
-		break;
-	case DIRTYPE:
-		/*
-		 * It is a directory, set the mode for -v printing
-		 */
-		arcn->type = PAX_DIR;
-		arcn->sb.st_mode |= S_IFDIR;
-		arcn->sb.st_nlink = 2;
-		break;
-	case AREGTYPE:
-	case REGTYPE:
-	default:
-		/*
-		 * If we have a trailing / this is a directory and NOT a file.
-		 */
-		arcn->ln_name[0] = '\0';
-		arcn->ln_nlen = 0;
-		if (*pt == '/') {
-			/*
-			 * it is a directory, set the mode for -v printing
-			 */
-			arcn->type = PAX_DIR;
-			arcn->sb.st_mode |= S_IFDIR;
-			arcn->sb.st_nlink = 2;
-		} else {
-			/*
-			 * have a file that will be followed by data. Set the
-			 * skip value to the size field and calculate the size
-			 * of the padding.
-			 */
-			arcn->type = PAX_REG;
-			arcn->sb.st_mode |= S_IFREG;
-			arcn->pad = TAR_PAD(arcn->sb.st_size);
-			arcn->skip = arcn->sb.st_size;
-		}
-		break;
-	}
-
-	/*
-	 * strip off any trailing slash.
-	 */
-	if (*pt == '/') {
-		*pt = '\0';
-		--arcn->nlen;
-	}
-	return(0);
-}
-
-/* pax_wr is derived from ustar_wr NOT tar_wr */
-/*
- * tar_wr()
- *	write a tar header for the file specified in the ARCHD to the archive.
- *	Have to check for file types that cannot be stored and file names that
- *	are too long. Be careful of the term (last arg) to ul_oct, each field
- *	of tar has it own spec for the termination character(s).
- *	ASSUMED: space after header in header block is zero filled
- * Return:
- *	0 if file has data to be written after the header, 1 if file has NO
- *	data to write after the header, -1 if archive write failed
- */
-
-int
-tar_wr(ARCHD *arcn)
-{
-	HD_TAR *hd;
-	int len;
-	char hdblk[sizeof(HD_TAR)];
-
-	/*
-	 * check for those file system types which tar cannot store
-	 */
-	switch (arcn->type) {
-	case PAX_DIR:
-		/*
-		 * user asked that dirs not be written to the archive
-		 */
-		if (tar_nodir)
-			return(1);
-		break;
-	case PAX_CHR:
-		paxwarn(1, "Tar cannot archive a character device %s",
-		    arcn->org_name);
-		return(1);
-	case PAX_BLK:
-		paxwarn(1, "Tar cannot archive a block device %s", arcn->org_name);
-		return(1);
-	case PAX_SCK:
-		paxwarn(1, "Tar cannot archive a socket %s", arcn->org_name);
-		return(1);
-	case PAX_FIF:
-		paxwarn(1, "Tar cannot archive a fifo %s", arcn->org_name);
-		return(1);
-	case PAX_SLK:
-	case PAX_HLK:
-	case PAX_HRG:
-		if (arcn->ln_nlen > sizeof(hd->linkname)) {
-			paxwarn(1,"Link name too long for tar %s", arcn->ln_name);
-			return(1);
-		}
-		break;
-	case PAX_REG:
-	case PAX_CTG:
-	default:
-		break;
-	}
-
-	/*
-	 * check file name len, remember extra char for dirs (the / at the end)
-	 */
-	len = arcn->nlen;
-	if (arcn->type == PAX_DIR)
-		++len;
-	if (len >= sizeof(hd->name)) {
-		paxwarn(1, "File name too long for tar %s", arcn->name);
-		return(1);
-	}
-
-	/*
-	 * Copy the data out of the ARCHD into the tar header based on the type
-	 * of the file. Remember, many tar readers want all fields to be
-	 * padded with zero so we zero the header first.  We then set the
-	 * linkflag field (type), the linkname, the size, and set the padding
-	 * (if any) to be added after the file data (0 for all other types,
-	 * as they only have a header).
-	 */
-	memset(hdblk, 0, sizeof(hdblk));
-	hd = (HD_TAR *)hdblk;
-	strlcpy(hd->name, arcn->name, sizeof(hd->name));
-	arcn->pad = 0;
-
-	if (arcn->type == PAX_DIR) {
-		/*
-		 * directories are the same as files, except have a filename
-		 * that ends with a /, we add the slash here. No data follows
-		 * dirs, so no pad.
-		 */
-		hd->linkflag = AREGTYPE;
-		hd->name[len-1] = '/';
-		if (ul_oct((u_long)0L, hd->size, sizeof(hd->size), 1))
-			goto out;
-	} else if (arcn->type == PAX_SLK) {
-		/*
-		 * no data follows this file, so no pad
-		 */
-		hd->linkflag = SYMTYPE;
-		strlcpy(hd->linkname, arcn->ln_name, sizeof(hd->linkname));
-		if (ul_oct((u_long)0L, hd->size, sizeof(hd->size), 1))
-			goto out;
-	} else if ((arcn->type == PAX_HLK) || (arcn->type == PAX_HRG)) {
-		/*
-		 * no data follows this file, so no pad
-		 */
-		hd->linkflag = LNKTYPE;
-		strlcpy(hd->linkname, arcn->ln_name, sizeof(hd->linkname));
-		if (ul_oct((u_long)0L, hd->size, sizeof(hd->size), 1))
-			goto out;
-	} else {
-		/*
-		 * data follows this file, so set the pad
-		 */
-		hd->linkflag = AREGTYPE;
-#		ifdef LONG_OFF_T
-		if (ul_oct((u_long)arcn->sb.st_size, hd->size,
-		    sizeof(hd->size), 1)) {
-#		else
-		if (uqd_oct((u_quad_t)arcn->sb.st_size, hd->size,
-		    sizeof(hd->size), 1)) {
-#		endif
-			paxwarn(1,"File is too large for tar %s", arcn->org_name);
-			return(1);
-		}
-		arcn->pad = TAR_PAD(arcn->sb.st_size);
-	}
-
-	/*
-	 * copy those fields that are independent of the type
-	 */
-	if (ul_oct((u_long)arcn->sb.st_mode, hd->mode, sizeof(hd->mode), 0) ||
-	    ul_oct((u_long)arcn->sb.st_uid, hd->uid, sizeof(hd->uid), 0) ||
-	    ul_oct((u_long)arcn->sb.st_gid, hd->gid, sizeof(hd->gid), 0) ||
-	    ul_oct((u_long)arcn->sb.st_mtime, hd->mtime, sizeof(hd->mtime), 1))
-		goto out;
-
-	/*
-	 * calculate and add the checksum, then write the header. A return of
-	 * 0 tells the caller to now write the file data, 1 says no data needs
-	 * to be written
-	 */
-	if (ul_oct(tar_chksm(hdblk, sizeof(HD_TAR)), hd->chksum,
-	    sizeof(hd->chksum), 3))
-		goto out;
-	if (wr_rdbuf(hdblk, sizeof(HD_TAR)) < 0)
-		return(-1);
-	if (wr_skip((off_t)(BLKMULT - sizeof(HD_TAR))) < 0)
-		return(-1);
-	if ((arcn->type == PAX_CTG) || (arcn->type == PAX_REG))
-		return(0);
-	return(1);
-
-    out:
-	/*
-	 * header field is out of range
-	 */
-	paxwarn(1, "Tar header field is too small for %s", arcn->org_name);
-	return(1);
-}
-#endif
-
-#if 0
-/*
- * Routines for POSIX ustar
- */
-
-/*
- * ustar_strd()
- *	initialization for ustar read
- * Return:
- *	0 if ok, -1 otherwise
- */
-
-int
-ustar_strd(void)
-{
-	if ((usrtb_start() < 0) || (grptb_start() < 0))
-		return(-1);
-	return(0);
-}
-
-/*
- * ustar_stwr()
- *	initialization for ustar write
- * Return:
- *	0 if ok, -1 otherwise
- */
-
-int
-ustar_stwr(void)
-{
-	if ((uidtb_start() < 0) || (gidtb_start() < 0))
-		return(-1);
-	return(0);
-}
-#endif
-
 int
 expand_extended_headers(ARCHD *arcn, HD_USTAR *hd)
 {
@@ -1252,7 +798,7 @@ expand_extended_headers(ARCHD *arcn, HD_USTAR *hd)
 							current_value, len);
 						if (len != header_len) {
 							/* pad with ? */
-							p[o_option_table[i].header_inx+len+1] = '\0';
+							p[o_option_table[i].header_inx+len] = '\0';
 						}
 					}
 				}
@@ -1366,7 +912,7 @@ pax_rd(ARCHD *arcn, char *buf)
 		}
 	
 		if (hd->typeflag != LONGLINKTYPE && hd->typeflag != LONGNAMETYPE) {
-			arcn->nlen = expandname(dest, sizeof(arcn->name) - cnt,
+			arcn->nlen = cnt + expandname(dest, sizeof(arcn->name) - cnt,
 			    &gnu_name_string, hd->name, sizeof(hd->name));
 			arcn->ln_nlen = expandname(arcn->ln_name, sizeof(arcn->ln_name),
 			    &gnu_link_string, hd->linkname, sizeof(hd->linkname));
@@ -1624,7 +1170,6 @@ generate_pax_ext_header_and_data(ARCHD *arcn, int nfields, int *table,
 	   times might be wanted */
 
 	term_char = 1;
-	records_size = 0;
 	memset(hdblk, 0, sizeof(hdblk));
 	hd = (HD_USTAR *)hdblk;
 	memset(pax_eh_datablk, 0, sizeof(pax_eh_datablk));
@@ -1952,7 +1497,6 @@ pax_wr(ARCHD *arcn)
 	return(1);
 }
 
-#if 0
 /*
  * name_split()
  *	see if the name has to be split for storage in a ustar header. We try
@@ -1986,6 +1530,8 @@ name_split(char *name, int len)
 	 * prefix we can find)
 	 */
 	start = name + len - TNMSZ -1;
+	if ((*start == '/') && (start == name))
+		++start;	/* 101 byte paths with leading '/' are dinged otherwise */
 	while ((*start != '\0') && (*start != '/'))
 		++start;
 
@@ -2011,7 +1557,6 @@ name_split(char *name, int len)
 	 */
 	return(start);
 }
-#endif /* if 0 */
 
 static size_t
 expandname(char *buf, size_t len, char **gnu_name, const char *name, size_t name_len)

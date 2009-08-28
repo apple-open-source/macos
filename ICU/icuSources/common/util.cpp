@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (c) 2001-2006, International Business Machines
+*   Copyright (c) 2001-2008, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -10,6 +10,7 @@
 
 #include "util.h"
 #include "unicode/unimatch.h"
+#include "unicode/uniset.h"
 
 // Define UChar constants using hex for EBCDIC compatibility
 
@@ -61,9 +62,6 @@ UnicodeString& ICU_Utility::appendNumber(UnicodeString& result, int32_t n,
     return result;
 }
 
-static const UChar HEX[16] = {48,49,50,51,52,53,54,55,  // 0-7
-                              56,57,65,66,67,68,69,70}; // 8-9 A-F
-
 /**
  * Return true if the character is NOT printable ASCII.
  */
@@ -82,17 +80,17 @@ UBool ICU_Utility::escapeUnprintable(UnicodeString& result, UChar32 c) {
         result.append(BACKSLASH);
         if (c & ~0xFFFF) {
             result.append(UPPER_U);
-            result.append(HEX[0xF&(c>>28)]);
-            result.append(HEX[0xF&(c>>24)]);
-            result.append(HEX[0xF&(c>>20)]);
-            result.append(HEX[0xF&(c>>16)]);
+            result.append(DIGITS[0xF&(c>>28)]);
+            result.append(DIGITS[0xF&(c>>24)]);
+            result.append(DIGITS[0xF&(c>>20)]);
+            result.append(DIGITS[0xF&(c>>16)]);
         } else {
             result.append(LOWER_U);
         }
-        result.append(HEX[0xF&(c>>12)]);
-        result.append(HEX[0xF&(c>>8)]);
-        result.append(HEX[0xF&(c>>4)]);
-        result.append(HEX[0xF&c]);
+        result.append(DIGITS[0xF&(c>>12)]);
+        result.append(DIGITS[0xF&(c>>8)]);
+        result.append(DIGITS[0xF&(c>>4)]);
+        result.append(DIGITS[0xF&c]);
         return TRUE;
     }
     return FALSE;
@@ -425,6 +423,23 @@ uprv_isRuleWhiteSpace(UChar32 c) {
     return (c >= 0x0009 && c <= 0x2029 &&
             (c <= 0x000D || c == 0x0020 || c == 0x0085 ||
              c == 0x200E || c == 0x200F || c >= 0x2028));
+}
+
+U_CAPI U_NAMESPACE_QUALIFIER UnicodeSet* U_EXPORT2
+uprv_openRuleWhiteSpaceSet(UErrorCode* ec) {
+    if(U_FAILURE(*ec)) {
+        return NULL;
+    }
+    // create a set with the Pattern_White_Space characters,
+    // without a pattern for fewer code dependencies
+    U_NAMESPACE_QUALIFIER UnicodeSet *set=new U_NAMESPACE_QUALIFIER UnicodeSet(9, 0xd);
+    // Check for new failure.
+    if (set == NULL) {
+        *ec = U_MEMORY_ALLOCATION_ERROR;
+        return NULL;
+    }
+    set->UnicodeSet::add(0x20).add(0x85).add(0x200e, 0x200f).add(0x2028, 0x2029);
+    return set;
 }
 
 //eof

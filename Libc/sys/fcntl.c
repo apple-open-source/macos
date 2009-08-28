@@ -55,6 +55,9 @@ fcntl(int fd, int cmd, ...)
 	 case F_LOG2PHYS:
 	 case F_GETPATH:
 	 case F_PATHPKG_CHECK:
+	 case F_OPENFROM:
+	 case F_UNLINKFROM:
+	 case F_ADDSIGS:
 		arg = va_arg(ap, void *);
 		break;
 	 default:

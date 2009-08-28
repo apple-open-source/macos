@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -50,6 +50,7 @@ __private_extern__ const CFStringRef _kDACallbackWatchKey         = CFSTR( "DACa
 
 __private_extern__ const CFStringRef _kDADiskIDKey                = CFSTR( "DADiskID"            );
 
+__private_extern__ const CFStringRef _kDADissenterProcessIDKey    = CFSTR( "DAProcessID"         );
 __private_extern__ const CFStringRef _kDADissenterStatusKey       = CFSTR( "DAStatus"            );
 __private_extern__ const CFStringRef _kDADissenterStatusStringKey = CFSTR( "DAStatusString"      );
 
@@ -164,20 +165,35 @@ __private_extern__ int ___statfs( const char * path, struct statfs * buf, int fl
 
     status = -1;
 
-    mountListCount = getmntinfo( &mountList, flags );
+    mountListCount = getfsstat( NULL, 0, MNT_NOWAIT );
 
-    for ( mountListIndex = 0; mountListIndex < mountListCount; mountListIndex++ )
+    if ( mountListCount > 0 )
     {
-        if ( strcmp( mountList[mountListIndex].f_mntonname, path ) == 0 )
+        mountList = malloc( mountListCount * sizeof( struct statfs ) );
+
+        if ( mountList )
         {
-            status = 0;
+            mountListCount = getfsstat( mountList, mountListCount * sizeof( struct statfs ), flags );
 
-            *buf = mountList[mountListIndex];
-
-            if ( mountList[mountListIndex].f_owner == geteuid( ) )
+            if ( mountListCount > 0 )
             {
-                break;
+                for ( mountListIndex = 0; mountListIndex < mountListCount; mountListIndex++ )
+                {
+                    if ( strcmp( mountList[mountListIndex].f_mntonname, path ) == 0 )
+                    {
+                        status = 0;
+
+                        *buf = mountList[mountListIndex];
+
+                        if ( mountList[mountListIndex].f_owner == geteuid( ) )
+                        {
+                            break;
+                        }
+                    }
+                }
             }
+
+            free( mountList );
         }
     }
 
@@ -201,7 +217,7 @@ __private_extern__ void ___CFArrayRemoveValue( CFMutableArrayRef array, const vo
     }
 }
 
-__private_extern__ vm_address_t ___CFDataCopyBytes( CFDataRef data, vm_size_t * length )
+__private_extern__ vm_address_t ___CFDataCopyBytes( CFDataRef data, mach_msg_type_number_t * length )
 {
     vm_address_t bytes = 0;
 

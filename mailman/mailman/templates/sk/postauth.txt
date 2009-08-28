@@ -1,0 +1,10 @@
+Distribúcia nasledovného príspevku vyžaduje Váš súhlas:
+
+    Konferencia:   %(listname)s@%(hostname)s
+    Od:            %(sender)s
+    Predmet:       %(subject)s
+    Dôvod:         %(reason)s
+
+Príspevok môžete odsúhlasiť alebo odmietnuť na stránke:
+
+    %(admindb_url)s

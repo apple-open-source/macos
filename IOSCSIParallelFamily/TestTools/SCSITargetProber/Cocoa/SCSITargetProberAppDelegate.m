@@ -1,7 +1,7 @@
 /*
- * © Copyright 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2007 Apple Inc. All rights reserved.
  *
- * IMPORTANT:  This Apple software is supplied to you by Apple Computer, Inc. (ÒAppleÓ) in 
+ * IMPORTANT:  This Apple software is supplied to you by Apple Inc. ("Apple") in 
  * consideration of your agreement to the following terms, and your use, installation, 
  * modification or redistribution of this Apple software constitutes acceptance of these
  * terms.  If you do not agree with these terms, please do not use, install, modify or 
@@ -20,7 +20,7 @@
  * including but not limited to any patent rights that may be infringed by your derivative 
  * works or by other works in which the Apple Software may be incorporated.
  * 
- * The Apple Software is provided by Apple on an "AS IS" basis.	 APPLE MAKES NO WARRANTIES, 
+ * The Apple Software is provided by Apple on an "AS IS" basis.  APPLE MAKES NO WARRANTIES, 
  * EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION THE IMPLIED WARRANTIES OF NON-
  * INFRINGEMENT, MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE, REGARDING THE APPLE 
  * SOFTWARE OR ITS USE AND OPERATION ALONE OR IN COMBINATION WITH YOUR PRODUCTS. 
@@ -532,7 +532,7 @@ ErrorExit:
 
 #if 0
 #pragma mark -
-#pragma mark ¥ Static methods
+#pragma mark Static methods
 #pragma mark -
 #endif
 
@@ -565,8 +565,8 @@ domainComparator ( id obj1, id obj2, void * context )
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ ClearIterator - Clears devices from an iterator without performing
-//					  any action
+//	ClearIterator - Clears devices from an iterator without performing
+//					any action
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 static void
@@ -589,13 +589,13 @@ ClearIterator ( io_iterator_t iterator )
 
 #if 0
 #pragma mark -
-#pragma mark ¥ C->Obj-C glue
+#pragma mark C->Obj-C glue
 #pragma mark -
 #endif
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ AppearedNotificationHandler - C->Obj-C glue
+//	AppearedNotificationHandler - C->Obj-C glue
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 static void
@@ -609,7 +609,7 @@ AppearedNotificationHandler ( void * refCon, io_iterator_t iterator )
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ DisappearedNotificationHandler - C->Obj-C glue
+//	DisappearedNotificationHandler - C->Obj-C glue
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 static void

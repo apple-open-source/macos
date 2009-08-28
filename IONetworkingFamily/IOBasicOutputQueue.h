@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -19,29 +19,9 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- * Copyright (c) 1999 Apple Computer, Inc.  All rights reserved. 
- *
- * IOBasicOutputQueue.h
- * 
- * HISTORY
- *
- */
 
 #ifndef _IOBASICOUTPUTQUEUE_H
 #define _IOBASICOUTPUTQUEUE_H
-
-#ifndef __MBUF_TRANSITION_STRIP
-#ifdef __MBUF_TRANSITION_
-# ifndef __MBUF_PROTO
-#  define __MBUF_PROTO mbuf_t
-# endif
-#else
-# ifndef __MBUF_PROTO
-#  define __MBUF_PROTO struct mbuf *
-# endif
-#endif
-#endif
 
 #include <IOKit/IOLocks.h>
 #include <IOKit/network/IOOutputQueue.h>
@@ -189,7 +169,7 @@ public:
     @result Always returns 0. 
 */
 
-    virtual UInt32 enqueue(__MBUF_PROTO m, void * param);
+    virtual UInt32 enqueue(mbuf_t m, void * param);
 
 /*! @function start
     @abstract Starts up the packet flow between the queue and its target.

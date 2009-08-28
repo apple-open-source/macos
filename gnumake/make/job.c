@@ -29,6 +29,9 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.  */
 
 #include <string.h>
 
+#if USE_POSIX_SPAWN
+#include <spawn.h>
+#endif
 /* Default shell to use.  */
 #ifdef WINDOWS32
 #include <windows.h>
@@ -1295,6 +1298,42 @@ start_job_command (struct child *child)
 
 #else  /* !__EMX__ */
 
+#if USE_POSIX_SPAWN
+      posix_spawn_file_actions_t file_actions;
+      posix_spawnattr_t attr;
+      sigset_t nosigs, allsigs;
+      int rc;
+      struct stat stat;
+      short spawn_flags = 0;
+
+      posix_spawn_file_actions_init(&file_actions);
+      if (!(flags & COMMANDS_RECURSE)) {
+	if (job_fds[0] >= 0 && fstat(job_fds[0], &stat)) 
+	  posix_spawn_file_actions_addclose(&file_actions, job_fds[0]);
+	if (job_fds[1] >= 0 && fstat(job_fds[1], &stat))
+	  posix_spawn_file_actions_addclose(&file_actions, job_fds[1]);
+      }
+      if (job_rfd >= 0 && fstat(job_rfd, &stat))
+	posix_spawn_file_actions_addclose(&file_actions, job_rfd);
+      if (!child->good_stdin && fstat(bad_stdin, &stat))
+	posix_spawn_file_actions_adddup2(&file_actions, bad_stdin, 0);
+      posix_spawnattr_init(&attr);
+      sigemptyset(&nosigs);
+      sigfillset(&allsigs);
+      posix_spawnattr_setsigmask(&attr, &nosigs);
+      posix_spawnattr_setsigdefault(&attr, &allsigs);
+      posix_spawnattr_getflags(&attr, &spawn_flags);
+      spawn_flags |= POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK;
+      posix_spawnattr_setflags(&attr, spawn_flags);
+      rc = posix_spawnp(&child->pid, argv[0], &file_actions, &attr, argv, child->environment);
+      environ = parent_environ;
+      posix_spawnattr_destroy(&attr);
+      posix_spawn_file_actions_destroy(&file_actions);
+      if (rc) {
+	error (NILF, _("%s: %s"), argv[0], strerror(rc));
+	rc = posix_spawnp(&child->pid, "/usr/bin/false", NULL, NULL, NULL, NULL);
+      }
+#else  /* !USE_POSIX_SPAWN */
       child->pid = vfork ();
       environ = parent_environ;	/* Restore value child may have clobbered.  */
       if (child->pid == 0)
@@ -1322,6 +1361,7 @@ start_job_command (struct child *child)
 	  perror_with_name ("vfork", "");
 	  goto error;
 	}
+#  endif /* !USE_POSIX_SPAWN */
 # endif  /* !__EMX__ */
 #endif /* !VMS */
     }

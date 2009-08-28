@@ -2,6 +2,7 @@
   Linux DNS client library implementation
   Copyright (C) 2006 Krishna Ganugapati <krishnag@centeris.com>
   Copyright (C) 2006 Gerald Carter <jerry@samba.org>
+  Copyright (C) 2008 Apple, Inc. All rights reserved.
 
      ** NOTE! The following LGPL license applies to the libaddns
      ** library. This does NOT imply that all of Samba is released
@@ -24,6 +25,7 @@
 */
 
 #include "dns.h"
+#include <assert.h>
 
 DNS_ERROR dns_create_query( TALLOC_CTX *mem_ctx, const char *name,
 			    uint16 q_type, uint16 q_class,
@@ -118,6 +120,37 @@ DNS_ERROR dns_create_rrec(TALLOC_CTX *mem_ctx, const char *name,
 
 	*prec = rec;
 	return ERROR_DNS_SUCCESS;
+}
+
+DNS_ERROR dns_create_ptr_record(TALLOC_CTX *mem_ctx,
+			    const char * host,
+			    uint32 ttl, struct in_addr ip,
+			    struct dns_rrec **prec)
+{
+	DNS_ERROR err;
+	char * ptr;
+
+	struct dns_domain_name * name;
+	struct dns_buffer * buf;
+
+	buf = dns_create_buffer(mem_ctx);
+
+	ptr = talloc_asprintf(mem_ctx, "%d.%d.%d.%d.in-addr.arpa.",
+		(ntohl(ip.s_addr) & 0x000000ff),
+		(ntohl(ip.s_addr) & 0x0000ff00) >> 8,
+		(ntohl(ip.s_addr) & 0x00ff0000) >> 16,
+		(ntohl(ip.s_addr) & 0xff000000) >> 24);
+
+	dns_domain_name_from_string(mem_ctx, host, &name);
+	dns_marshall_domain_name(buf, name);
+
+	/* For a PTR record, x.x.x.x.in-addr.arpa is the record name, and the
+	 * canonical hostname is the record data.
+	 */
+	err = dns_create_rrec(mem_ctx, ptr, QTYPE_PTR, DNS_CLASS_IN, ttl,
+				buf->offset, (uint8_t *)buf->data, prec);
+
+	return err;
 }
 
 DNS_ERROR dns_create_a_record(TALLOC_CTX *mem_ctx, const char *host,
@@ -356,8 +389,61 @@ DNS_ERROR dns_create_probe(TALLOC_CTX *mem_ctx, const char *zone,
 	TALLOC_FREE(req);
 	return err;
 }
-			   
-DNS_ERROR dns_create_update_request(TALLOC_CTX *mem_ctx,
+
+/* Create a PTR-record update request. */
+DNS_ERROR dns_create_update_request_ptr(TALLOC_CTX *mem_ctx,
+				    const char *hostname,
+				    const char *zone_name,
+				    const struct in_addr ip,
+				    struct dns_update_request **preq)
+{
+	struct dns_update_request *req;
+	struct dns_rrec *rec;
+	DNS_ERROR err;
+
+	char * ptr_name;
+
+	ptr_name = talloc_asprintf(mem_ctx, "%d.%d.%d.%d.in-addr.arpa.",
+		(ntohl(ip.s_addr) & 0x000000ff),
+		(ntohl(ip.s_addr) & 0x0000ff00) >> 8,
+		(ntohl(ip.s_addr) & 0x00ff0000) >> 16,
+		(ntohl(ip.s_addr) & 0xff000000) >> 24);
+
+	err = dns_create_update(mem_ctx, zone_name, &req);
+	if (!ERR_DNS_IS_OK(err)) return err;
+
+	err = dns_create_rrec(req, zone_name, QTYPE_ANY,
+		DNS_CLASS_ANY, 0, 0, NULL, &rec);
+	if (!ERR_DNS_IS_OK(err)) goto error;
+
+	err = dns_add_rrec(req, rec, &req->num_preqs, &req->preqs);
+	if (!ERR_DNS_IS_OK(err)) goto error;
+
+	/* Delete any PTR records. */
+	err = dns_create_delete_record(req, ptr_name, QTYPE_PTR, DNS_CLASS_ANY,
+				       &rec);
+	if (!ERR_DNS_IS_OK(err)) goto error;
+
+	err = dns_add_rrec(req, rec, &req->num_updates, &req->updates);
+	if (!ERR_DNS_IS_OK(err)) goto error;
+
+	/* Add the corresponding PTR record. */
+	err = dns_create_ptr_record(req, hostname, 3600, ip, &rec);
+	if (!ERR_DNS_IS_OK(err)) goto error;
+
+	err = dns_add_rrec(req, rec, &req->num_updates, &req->updates);
+	if (!ERR_DNS_IS_OK(err)) goto error;
+
+	*preq = req;
+	return ERROR_DNS_SUCCESS;
+
+ error:
+	TALLOC_FREE(req);
+	return err;
+}
+
+/* Create an A-record update request. */
+DNS_ERROR dns_create_update_request_a(TALLOC_CTX *mem_ctx,
 				    const char *domainname,
 				    const char *hostname,
 				    const struct in_addr *ip_addrs,
@@ -398,7 +484,19 @@ DNS_ERROR dns_create_update_request(TALLOC_CTX *mem_ctx,
 	 * .. and add our IPs
 	 */
 
+	/*
+	 * .. and add our IPs
+	 */
+
 	for ( i=0; i<num_addrs; i++ ) {		
+
+		if ((ntohl(ip_addrs[i].s_addr) & (uint32_t)0x7f000000) ==
+		    (uint32_t)0x7f000000) {
+			/* Skip anything in the 127.*.*.* network. */
+			continue;
+		}
+
+		/* Add our A record. */
 		err = dns_create_a_record(req, hostname, 3600, ip_addrs[i], &rec);
 		if (!ERR_DNS_IS_OK(err)) 
 			goto error;

@@ -78,7 +78,7 @@ main()
 
     bzero(&utx, sizeof(utx));
     utx.ut_type = BOOT_TIME;
-    utx.ut_pid = 1; // on behave of launchd
+    utx.ut_pid = 1; // on behalf of launchd
 
     /* get the boot time */
     len = sizeof(struct timeval);

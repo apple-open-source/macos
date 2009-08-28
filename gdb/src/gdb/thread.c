@@ -45,6 +45,10 @@
 /* APPLE LOCAL - subroutine inlining  */
 #include "inlining.h"
 
+#ifdef NM_NEXTSTEP
+#include "macosx-nat-infthread.h"
+#endif
+
 /*#include "lynxos-core.h" */
 
 /* Definition of struct thread_info exported to gdbthread.h */
@@ -281,6 +285,24 @@ do_captured_list_thread_ids (struct ui_out *uiout, void *arg)
 
   do_cleanups (cleanup_chain);
   ui_out_field_int (uiout, "number-of-threads", num);
+
+  cleanup_chain = make_cleanup_ui_out_list_begin_end (uiout, "threads");
+  num = 0;
+
+  for (tp = thread_list; tp; tp = tp->next)
+    {
+      struct cleanup *a_thread_cleanup;
+      a_thread_cleanup = make_cleanup_ui_out_tuple_begin_end (uiout, "thread");
+      num++;
+      ui_out_field_int (uiout, "thread-id", tp->num);
+#ifdef NM_NEXTSTEP
+      macosx_print_thread_details (uiout, tp->ptid);
+#endif
+      do_cleanups (a_thread_cleanup);
+    }
+
+  do_cleanups (cleanup_chain);
+
   return GDB_RC_OK;
 }
 
@@ -336,6 +358,8 @@ load_infrun_state (ptid_t ptid,
     tp->stepping_through_solib_catchpoints;
   *current_line = tp->current_line;
   *current_symtab = tp->current_symtab;
+
+  restore_thread_inlined_call_stack (ptid);
 }
 
 /* Save infrun state for the thread PID.  */
@@ -379,6 +403,8 @@ save_infrun_state (ptid_t ptid,
   tp->stepping_through_solib_catchpoints = stepping_through_solib_catchpoints;
   tp->current_line = current_line;
   tp->current_symtab = current_symtab;
+
+  save_thread_inlined_call_stack (ptid);
 }
 
 /* Return true if TP is an active thread. */
@@ -423,23 +449,102 @@ info_threads_command (char *arg, int from_tty)
   struct frame_info *cur_frame;
   struct frame_id saved_frame_id = get_frame_id (get_selected_frame (NULL));
   char *extra_info;
+  int longest_threadname = 0;
+  int longest_portnum = 0;
+  int threadcount = 0;
 
   prune_threads ();
   target_find_new_threads ();
   current_ptid = inferior_ptid;
+
+  /* APPLE LOCAL: Get the name strings for all the threads, find the longest
+     one.  */
+  for (tp = thread_list; tp; tp = tp->next)
+    {
+      char *t = target_get_thread_name (tp->ptid);
+      if (t)
+        {
+          if (strlen (t) > longest_threadname)
+            longest_threadname = strlen (t);
+        }
+      t = target_get_thread_id_str (tp->ptid);
+      if (t)
+        {
+          if (strlen (t) > longest_portnum)
+            longest_portnum = strlen (t);
+        }
+      threadcount++;
+    }
+
+  /* Limit the thread name to 25 chars max for reasonable one-line printing. */
+  if (longest_threadname > 25)
+    longest_threadname = 25;
+
   for (tp = thread_list; tp; tp = tp->next)
     {
       if (ptid_equal (tp->ptid, current_ptid))
-	printf_filtered ("* ");
+	ui_out_text (uiout, "* ");
       else
-	printf_filtered ("  ");
+	ui_out_text (uiout, "  ");
 
-      printf_filtered ("%d %s", tp->num, target_tid_to_str (tp->ptid));
+      if (threadcount > 100 && tp->num < 100)
+        ui_out_text (uiout, " ");
+      if (threadcount > 10 && tp->num < 10)
+        ui_out_text (uiout, " ");
+        
+      ui_out_field_int (uiout, "threadno", tp->num);
+      ui_out_text (uiout, " ");
+
+      char *tidstr = target_get_thread_id_str (tp->ptid);
+      if (tidstr)
+        {
+          ui_out_field_string (uiout, "target_tid", tidstr);
+          int spacer = strlen (tidstr);
+          while (spacer < longest_portnum)
+            {
+              ui_out_text (uiout, " ");
+              spacer++;
+            }
+          ui_out_text (uiout, " ");
+        }
+
+      /* APPLE LOCAL: Get the thread name string, put quote marks around it,
+         truncate or pad it out to LONGEST_THREADNAME characters, print it.  */
+      char *s = target_get_thread_name (tp->ptid);
+      if (s && s[0] != '\0')
+        {
+          char buf1[128];
+          char buf2[128];
+          if (strlen (s) > longest_threadname)
+              s[longest_threadname] = '\0';
+          strlcpy (buf1, "\"", sizeof (buf1));
+          strlcat (buf1, s, sizeof (buf1));
+          strlcat (buf1, "\"", sizeof (buf1));
+          snprintf (buf2, sizeof (buf2) - 1,"%-*s", 
+                    longest_threadname + 2, buf1);
+          buf2[sizeof (buf2) - 1] = '\0';
+          ui_out_field_string (uiout, "target_thread_name", buf2);
+          ui_out_text (uiout, " ");
+       }
+      else
+       {
+          /* There is at least one thread with a name; this thread has
+             no name so print padding chars.  */
+          if (longest_threadname > 0)
+            {
+              ui_out_text_fmt (uiout, "%-*s", longest_threadname + 2, "");
+              ui_out_text (uiout, " ");
+            }
+       }
 
       extra_info = target_extra_thread_info (tp);
       if (extra_info)
-	printf_filtered (" (%s)", extra_info);
-      puts_filtered ("  ");
+	{
+	  ui_out_text (uiout, " (");
+	  ui_out_field_string (uiout, "extra_info", extra_info);
+	  ui_out_text (uiout, ")");
+          ui_out_text (uiout, " ");
+	}
 
       switch_to_thread (tp->ptid);
       print_stack_frame (get_selected_frame (NULL), 0, LOCATION);
@@ -489,10 +594,17 @@ switch_to_thread (ptid_t ptid)
   if (ptid_equal (ptid, inferior_ptid))
     return;
 
+  /* APPLE LOCAL: If we switch threads, then we need to turn off
+     the cleanups for calling functions on THIS thread.  */
+
+  do_hand_call_cleanups (ALL_CLEANUPS);
+
+  save_thread_inlined_call_stack (inferior_ptid);
   inferior_ptid = ptid;
   flush_cached_frames ();
   registers_changed ();
   stop_pc = read_pc ();
+  restore_thread_inlined_call_stack (inferior_ptid);
   /* APPLE LOCAL begin subroutine inlining  */
   /* If the PC has changed since the last time we updated the
      global_inlined_call_stack data, we need to verify the current
@@ -734,7 +846,15 @@ do_captured_thread_select (struct ui_out *uiout,
 #else
       ui_out_text (uiout, target_pid_to_str (inferior_ptid));
 #endif
-      ui_out_text (uiout, ")]\n");
+      ui_out_text (uiout, ")");
+      char *s = target_get_thread_name (inferior_ptid);
+      if (s && s[0] != '\0')
+        {
+          ui_out_text (uiout, ", \"");
+          ui_out_field_string (uiout, "thread-name", s);
+          ui_out_text (uiout, "\"");
+        }
+      ui_out_text (uiout, "]\n");
 
       /* APPLE LOCAL begin subroutine inlining  */
       /* If we're inside an inlined function, we may have gotten there

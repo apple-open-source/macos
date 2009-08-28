@@ -15,7 +15,7 @@
 @SET_MAKE@
 
 #
-# $Id: Makefile.am,v 1.25 2006-07-26 22:19:42 bagder Exp $
+# $Id: Makefile.am,v 1.29 2009-02-10 12:39:26 bagder Exp $
 #
 srcdir = @srcdir@
 top_srcdir = @top_srcdir@
@@ -42,13 +42,21 @@ host_triplet = @host@
 subdir = docs/libcurl
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/acinclude.m4 \
-	$(top_srcdir)/configure.ac
+am__aclocal_m4_deps = $(top_srcdir)/m4/curl-compilers.m4 \
+	$(top_srcdir)/m4/curl-confopts.m4 \
+	$(top_srcdir)/m4/curl-functions.m4 \
+	$(top_srcdir)/m4/curl-override.m4 \
+	$(top_srcdir)/m4/curl-reentrant.m4 \
+	$(top_srcdir)/m4/curl-system.m4 $(top_srcdir)/m4/libtool.m4 \
+	$(top_srcdir)/m4/ltoptions.m4 $(top_srcdir)/m4/ltsugar.m4 \
+	$(top_srcdir)/m4/ltversion.m4 $(top_srcdir)/m4/lt~obsolete.m4 \
+	$(top_srcdir)/acinclude.m4 $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_HEADER = $(top_builddir)/lib/config.h \
-	$(top_builddir)/src/config.h
+	$(top_builddir)/src/config.h \
+	$(top_builddir)/include/curl/curlbuild.h
 CONFIG_CLEAN_FILES =
 depcomp =
 am__depfiles_maybe =
@@ -68,8 +76,6 @@ AUTOCONF = @AUTOCONF@
 AUTOHEADER = @AUTOHEADER@
 AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
-CABUNDLE_FALSE = @CABUNDLE_FALSE@
-CABUNDLE_TRUE = @CABUNDLE_TRUE@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
@@ -78,34 +84,34 @@ CPPFLAGS = @CPPFLAGS@
 CROSSCOMPILING_FALSE = @CROSSCOMPILING_FALSE@
 CROSSCOMPILING_TRUE = @CROSSCOMPILING_TRUE@
 CURL_CA_BUNDLE = @CURL_CA_BUNDLE@
-CURL_DISABLE_COOKIES = @CURL_DISABLE_COOKIES@
-CURL_DISABLE_CRYPTO_AUTH = @CURL_DISABLE_CRYPTO_AUTH@
 CURL_DISABLE_DICT = @CURL_DISABLE_DICT@
 CURL_DISABLE_FILE = @CURL_DISABLE_FILE@
 CURL_DISABLE_FTP = @CURL_DISABLE_FTP@
 CURL_DISABLE_HTTP = @CURL_DISABLE_HTTP@
 CURL_DISABLE_LDAP = @CURL_DISABLE_LDAP@
+CURL_DISABLE_LDAPS = @CURL_DISABLE_LDAPS@
+CURL_DISABLE_PROXY = @CURL_DISABLE_PROXY@
 CURL_DISABLE_TELNET = @CURL_DISABLE_TELNET@
 CURL_DISABLE_TFTP = @CURL_DISABLE_TFTP@
-CURL_DISABLE_VERBOSE_STRINGS = @CURL_DISABLE_VERBOSE_STRINGS@
-CURL_EXTERN_SYMBOL = @CURL_EXTERN_SYMBOL@
-CURL_HIDDEN_SYMBOLS = @CURL_HIDDEN_SYMBOLS@
 CURL_LIBS = @CURL_LIBS@
 CYGPATH_W = @CYGPATH_W@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
 DLLTOOL = @DLLTOOL@
-ECHO = @ECHO@
+DSYMUTIL = @DSYMUTIL@
+DUMPBIN = @DUMPBIN@
 ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 EXEEXT = @EXEEXT@
+FGREP = @FGREP@
 GREP = @GREP@
 HAVE_ARES = @HAVE_ARES@
 HAVE_LIBZ = @HAVE_LIBZ@
 HAVE_LIBZ_FALSE = @HAVE_LIBZ_FALSE@
 HAVE_LIBZ_TRUE = @HAVE_LIBZ_TRUE@
+HAVE_PK11_CREATEGENERICOBJECT = @HAVE_PK11_CREATEGENERICOBJECT@
 IDN_ENABLED = @IDN_ENABLED@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
@@ -113,11 +119,13 @@ INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 IPV6_ENABLED = @IPV6_ENABLED@
 KRB4_ENABLED = @KRB4_ENABLED@
+LD = @LD@
 LDFLAGS = @LDFLAGS@
 LIBCURL_LIBS = @LIBCURL_LIBS@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
+LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
 MAINT = @MAINT@
@@ -127,17 +135,22 @@ MAKEINFO = @MAKEINFO@
 MANOPT = @MANOPT@
 MIMPURE_FALSE = @MIMPURE_FALSE@
 MIMPURE_TRUE = @MIMPURE_TRUE@
+NM = @NM@
+NMEDIT = @NMEDIT@
 NO_UNDEFINED_FALSE = @NO_UNDEFINED_FALSE@
 NO_UNDEFINED_TRUE = @NO_UNDEFINED_TRUE@
 NROFF = @NROFF@
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
+OTOOL = @OTOOL@
+OTOOL64 = @OTOOL64@
 PACKAGE = @PACKAGE@
 PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
 PACKAGE_NAME = @PACKAGE_NAME@
 PACKAGE_STRING = @PACKAGE_STRING@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_VERSION = @PACKAGE_VERSION@
+PATH = @PATH@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL = @PERL@
 PKGADD_NAME = @PKGADD_NAME@
@@ -150,9 +163,17 @@ REQUIRE_LIB_DEPS = @REQUIRE_LIB_DEPS@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
+SONAME_BUMP_FALSE = @SONAME_BUMP_FALSE@
+SONAME_BUMP_TRUE = @SONAME_BUMP_TRUE@
+SSL_ENABLED = @SSL_ENABLED@
+STATICLIB_FALSE = @STATICLIB_FALSE@
+STATICLIB_TRUE = @STATICLIB_TRUE@
 STRIP = @STRIP@
+SUPPORT_FEATURES = @SUPPORT_FEATURES@
+SUPPORT_PROTOCOLS = @SUPPORT_PROTOCOLS@
 TEST_SERVER_LIBS = @TEST_SERVER_LIBS@
 USE_GNUTLS = @USE_GNUTLS@
+USE_LIBSSH2 = @USE_LIBSSH2@
 USE_MANUAL_FALSE = @USE_MANUAL_FALSE@
 USE_MANUAL_TRUE = @USE_MANUAL_TRUE@
 USE_NSS = @USE_NSS@
@@ -161,6 +182,7 @@ USE_WINDOWS_SSPI = @USE_WINDOWS_SSPI@
 VERSION = @VERSION@
 VERSIONNUM = @VERSIONNUM@
 ac_ct_CC = @ac_ct_CC@
+ac_ct_DUMPBIN = @ac_ct_DUMPBIN@
 am__fastdepCC_FALSE = @am__fastdepCC_FALSE@
 am__fastdepCC_TRUE = @am__fastdepCC_TRUE@
 am__include = @am__include@
@@ -190,8 +212,10 @@ infodir = @infodir@
 install_sh = @install_sh@
 libdir = @libdir@
 libexecdir = @libexecdir@
+libext = @libext@
 localedir = @localedir@
 localstatedir = @localstatedir@
+lt_ECHO = @lt_ECHO@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
 oldincludedir = @oldincludedir@
@@ -219,7 +243,8 @@ man_MANS = curl_easy_cleanup.3 curl_easy_getinfo.3 curl_easy_init.3	 \
  curl_multi_strerror.3 curl_share_strerror.3 curl_global_init_mem.3	 \
  libcurl-tutorial.3 curl_easy_reset.3 curl_easy_escape.3		 \
  curl_easy_unescape.3 curl_multi_setopt.3 curl_multi_socket.3		 \
- curl_multi_timeout.3 curl_formget.3 curl_multi_assign.3
+ curl_multi_timeout.3 curl_formget.3 curl_multi_assign.3		 \
+ curl_easy_pause.3 curl_easy_recv.3 curl_easy_send.3
 
 HTMLPAGES = curl_easy_cleanup.html curl_easy_getinfo.html		  \
  curl_easy_init.html curl_easy_perform.html curl_easy_setopt.html	  \
@@ -237,7 +262,8 @@ HTMLPAGES = curl_easy_cleanup.html curl_easy_getinfo.html		  \
  curl_share_strerror.html curl_global_init_mem.html libcurl-tutorial.html \
  curl_easy_reset.html curl_easy_escape.html curl_easy_unescape.html	  \
  curl_multi_setopt.html curl_multi_socket.html curl_multi_timeout.html	  \
- curl_formget.html curl_multi_assign.html
+ curl_formget.html curl_multi_assign.html curl_easy_pause.html \
+ curl_easy_recv.html curl_easy_send.html
 
 PDFPAGES = curl_easy_cleanup.pdf curl_easy_getinfo.pdf curl_easy_init.pdf \
  curl_easy_perform.pdf curl_easy_setopt.pdf curl_easy_duphandle.pdf	  \
@@ -254,10 +280,13 @@ PDFPAGES = curl_easy_cleanup.pdf curl_easy_getinfo.pdf curl_easy_init.pdf \
  curl_share_strerror.pdf curl_global_init_mem.pdf libcurl-tutorial.pdf	  \
  curl_easy_reset.pdf curl_easy_escape.pdf curl_easy_unescape.pdf	  \
  curl_multi_setopt.pdf curl_multi_socket.pdf curl_multi_timeout.pdf	  \
- curl_formget.pdf curl_multi_assign.pdf
+ curl_formget.pdf curl_multi_assign.pdf curl_easy_pause.pdf \
+ curl_easy_recv.pdf curl_easy_send.pdf
 
 CLEANFILES = $(HTMLPAGES) $(PDFPAGES)
-EXTRA_DIST = $(man_MANS) $(HTMLPAGES) index.html $(PDFPAGES) libcurl.m4
+EXTRA_DIST = $(man_MANS) $(HTMLPAGES) index.html $(PDFPAGES) libcurl.m4 ABI \
+  symbols-in-versions
+
 MAN2HTML = roffit --mandir=. < $< >$@
 SUFFIXES = .3 .html
 all: all-am

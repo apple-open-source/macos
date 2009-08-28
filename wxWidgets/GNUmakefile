@@ -6,7 +6,7 @@
 ##---------------------------------------------------------------------
 PROJECT = wxWidgets
 NAME = wxPython-src
-VERSION = 2.8.4.0
+VERSION = 2.8.8.1
 export CURRENT_VERSION = $(shell echo $(VERSION) | sed 's/\.[^.]*$$//')
 export BASE_VERSION = $(shell echo $(CURRENT_VERSION) | sed 's/\.[^.]*$$//')
 export COMPATIBILITY_VERSION = 2.6
@@ -16,9 +16,19 @@ FAKEBIN = $(OBJROOT)/bin
 WXWIDGETSTOP = $(OBJROOT)/$(PROJECT)
 WXWIDGETSBUILD = $(WXWIDGETSTOP)/darwin
 
+PYTHONPROJECT = python
+VERSIONERDIR = /usr/local/versioner
+PYTHONVERSIONS = $(VERSIONERDIR)/$(PYTHONPROJECT)/versions
+INCOMPATIBLE = 3.0
+DEFAULT := $(shell sed -n '/^DEFAULT = /s///p' $(PYTHONVERSIONS))
+VERSIONS := $(filter-out $(INCOMPATIBLE), $(shell grep '^[0-9]' $(PYTHONVERSIONS)))
+ORDEREDVERS := $(DEFAULT) $(filter-out $(DEFAULT),$(VERSIONS))
+TESTOK := -f $(shell echo $(foreach vers,$(VERSIONS),$(OBJROOT)/$(vers)/.ok) | sed 's/ / -a -f /g')
+
 WXPYTHONPROJECT = wxPython
 WXPYTHONPROJECTVERS = $(WXPYTHONPROJECT)-$(VERSION)
 WXPYTHONBUILD = $(OBJROOT)/$(PROJECT)/$(WXPYTHONPROJECT)
+WXPYTHONDEFAULT = $(OBJROOT)/$(DEFAULT)
 
 DOC = $(DSTROOT)/Developer/Documentation
 DOCPYTHON = $(DOC)/Python
@@ -56,19 +66,6 @@ $(FAKEBIN)/wx-config:
 	cp $(DSTROOT)/usr/bin/wx-config $(FAKEBIN)/wx-config
 	sed 's,XXXDSTROOTXXX,$(DSTROOT),' $(SRCROOT)/fix/wx-config.ed | ed - $(FAKEBIN)/wx-config 
 
-MAKEFILE_IN = \
-	contrib/src/deprecated/Makefile.in \
-	contrib/src/fl/Makefile.in \
-	contrib/src/foldbar/Makefile.in \
-	contrib/src/gizmos/Makefile.in \
-	contrib/src/mmedia/Makefile.in \
-	contrib/src/net/Makefile.in \
-	contrib/src/ogl/Makefile.in \
-	contrib/src/plot/Makefile.in \
-	contrib/src/stc/Makefile.in \
-	contrib/src/svg/Makefile.in \
-	Makefile.in
-
 $(WXWIDGETSBUILD):
 	rsync -a $(SRCROOT)/ $(OBJROOT)
 	@set -x && \
@@ -76,18 +73,18 @@ $(WXWIDGETSBUILD):
 	gnutar xjf $(TARBALL) && \
 	rm -rf $(PROJECT) && \
 	mv $(NAMEVERS) $(PROJECT) && \
+	chmod a-x $(PROJECT)/wxPython/demo/bmp_source/customcontrol.png && \
 	ed - $(PROJECT)/configure < fix/configure.ed && \
 	ed - $(PROJECT)/Makefile.in < fix/Makefile.in.ed && \
-	ed - $(PROJECT)/include/wx/defs.h < fix/defs.h.ed && \
 	ed - $(PROJECT)/include/wx/platform.h < fix/platform.h.ed && \
 	ed - $(PROJECT)/src/mac/carbon/morefilex/MoreFilesX.c < fix/MoreFilesX.ed && \
 	ed - $(PROJECT)/src/mac/carbon/morefilex/MoreFilesX.h < fix/MoreFilesX.ed && \
-	ed - $(PROJECT)/src/unix/dlunix.cpp < fix/dlunix.cpp.ed && \
 	ex - $(PROJECT)/wxPython/config.py < fix/O3.ex && \
 	cp -f fix/anykey.wav $(PROJECT)/wxPython/demo/data/anykey.wav && \
-	for i in $(MAKEFILE_IN); do \
-	    ed - $(PROJECT)/$$i < fix/compatibility_version.ed; \
+	for i in `find $(PROJECT) -name Makefile.in | xargs fgrep -l -e -compatibility_version`; do \
+	    ed - $$i < fix/compatibility_version.ed || exit 1; \
 	done
+	find $(OBJROOT) -type f -perm +111 \( -name '*.h' -o -name '*.cpp' -o -name '*.icns' -o -name '*.png' -o -name '*.txt' \) | xargs chmod -v a-x
 	mkdir $(WXWIDGETSBUILD)
 
 install: $(PROJECT)install $(WXPYTHONPROJECT)install
@@ -108,26 +105,79 @@ $(PROJECT)install: $(WXWIDGETSBUILD)
 	rm -f $(DSTROOT)/Developer/Documentation/wxWidgets/docs/html/wx/wx.cn1
 
 $(WXPYTHONPROJECT)install: $(WXWIDGETSBUILD) $(FAKEBIN)/wx-config
-	$(MAKE) -C $(OBJROOT) -f Makefile.wxPython install \
-	    OBJROOT=$(WXPYTHONBUILD) FAKEBIN=$(FAKEBIN)
+	@set -x && \
+	mv -f '$(WXPYTHONBUILD)' '$(OBJROOT)/$(DEFAULT)' && \
+	for vers in $(filter-out $(DEFAULT),$(VERSIONS)); do \
+	    ditto '$(OBJROOT)/$(DEFAULT)' "$(OBJROOT)/$$vers" || exit 1; \
+	done && \
+	for vers in $(VERSIONS); do \
+	    mkdir -p "$(SYMROOT)/$$vers" && \
+	    mkdir -p "$(OBJROOT)/$$vers/DSTROOT" || exit 1; \
+	    (echo "######## Building $$vers:" `date` '########' > "$(SYMROOT)/$$vers/LOG" 2>&1 && \
+		TOPSRCROOT='$(SRCROOT)' \
+		VERSIONER_PYTHON_VERSION=$$vers \
+		VERSIONER_PYTHON_PREFER_32_BIT=yes \
+		$(MAKE) -C $(OBJROOT) -f Makefile.wxPython install \
+		OBJROOT="$(OBJROOT)/$$vers" FAKEBIN=$(FAKEBIN) \
+		DSTROOT="$(OBJROOT)/$$vers/DSTROOT" \
+		SYMROOT="$(SYMROOT)/$$vers" >> "$(SYMROOT)/$$vers/LOG" 2>&1 && \
+		touch "$(OBJROOT)/$$vers/.ok" && \
+		echo "######## Finished $$vers:" `date` '########' >> "$(SYMROOT)/$$vers/LOG" 2>&1 \
+	    ) & \
+	done && \
+	wait && \
+	for vers in $(VERSIONS); do \
+	    cat $(SYMROOT)/$$vers/LOG && \
+	    rm -f $(SYMROOT)/$$vers/LOG || exit 1; \
+	done && \
+	if [ $(TESTOK) ]; then \
+	    $(MAKE) merge; \
+	else \
+	    echo '#### error detected, not merging'; \
+	    exit 1; \
+	fi
+
+merge: mergebegin mergeversions mergefinish
+
+mergebegin:
+	@echo '####### Merging #######'
+
+# Normally, the versioned DSTROOT directories should each have /usr/include,
+# but setup.py has been hacked to install into "wx-config --prefix"
+# (= $(DSTROOT)/usr).  This means the multiple versions are overwriting each
+# other.  The hack is in wx/build/config.py, but it isn't clear how to get
+# it to do the right thing, so we just leave it for now.
+#MERGEDEFAULT = \
+#    usr
+#mergedefault:
+#	cd $(OBJROOT)/$(DEFAULT)/DSTROOT && rsync -Ra $(MERGEDEFAULT) $(DSTROOT)
+
+MERGEVERSIONS = \
+    System
+mergeversions:
+	@set -x && \
+	for vers in $(VERSIONS); do \
+	    cd $(OBJROOT)/$$vers/DSTROOT && \
+	    rsync -Ra $(MERGEVERSIONS) $(DSTROOT) || exit 1; \
+	done
+
+mergefinish:
 	install -d -g admin -m 0775 $(EXAMPLESWXWIDGETSWXPYTHON)
-	rsync -rlt $(WXPYTHONBUILD)/demo $(WXPYTHONBUILD)/samples $(EXAMPLESWXWIDGETSWXPYTHON)
+	rsync -rlt $(WXPYTHONDEFAULT)/demo $(WXPYTHONDEFAULT)/samples $(EXAMPLESWXWIDGETSWXPYTHON)
 	-chown -R root:admin $(EXAMPLESWXWIDGETSWXPYTHON)
 	-chmod -R g+w $(EXAMPLESWXWIDGETSWXPYTHON)
 	install -d -g admin -m 0775 $(EXAMPLESPYTHON)
 	ln -s ../$(PROJECT)/$(WXPYTHONPROJECT) $(EXAMPLESPYTHONWXPYTHON)
 	install -d -g admin -m 0775 $(DOCWXWIDGETSWXPYTHON)
-	rsync -rlt $(WXPYTHONBUILD)/docs/ $(DOCWXWIDGETSWXPYTHON)
+	rsync -rlt $(WXPYTHONDEFAULT)/docs/ $(DOCWXWIDGETSWXPYTHON)
 	-chown -R root:admin $(DOCWXWIDGETSWXPYTHON)
 	-chmod -R g+w $(DOCWXWIDGETSWXPYTHON)
 	install -d -g admin -m 0775 $(DOCPYTHON)
 	ln -s ../$(PROJECT)/$(WXPYTHONPROJECT) $(DOCPYTHONWXPYTHON)
-	@set -x && \
-	for i in `find $(DSTROOT) -name __init__.py -size 0c`; do \
-	    echo '#' > $$i && \
-	    python -m py_compile $$i; \
+	for i in `find $(EXAMPLESWXWIDGETSWXPYTHON) -name __init__.py -size 0c`; do \
+	    echo $$i && \
+	    echo '#' > $$i || exit 1; \
 	done
-	chmod -x $(DSTROOT)/Developer/Examples/wxWidgets/wxPython/samples/wxPIA_book/Chapter-17/sample-text.txt
 
 .DEFAULT:
 	@$(MAKE) -f Makefile $@

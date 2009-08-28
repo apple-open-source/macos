@@ -1,5 +1,6 @@
 #!perl -w
 # vim:ts=8:sw=4
+$|=1;
 
 use Test::More;
 use DBI;
@@ -17,7 +18,7 @@ eval {
 plan skip_all => "Unable to load required module ($@)"
     unless defined &_utf8_on;
 
-plan tests => 12;
+plan tests => 16;
 
 $dbh = DBI->connect("dbi:Sponge:foo","","", {
         PrintError => 0,
@@ -33,7 +34,17 @@ my $source_rows = [ # data for DBD::Sponge to return via fetch
 
 my($sth, $col0, $col1, $col2, $rows);
 
-$sth = $dbh->prepare("foo", { rows => dclone($source_rows) });
+# set utf8 on one of the columns so we can check it carries through into the
+# keys of fetchrow_hashref
+my @col_names = qw(Col1 Col2 Col3);
+_utf8_on($col_names[1]);
+ok  is_utf8($col_names[1]);
+ok !is_utf8($col_names[0]);
+
+$sth = $dbh->prepare("foo", {
+	rows => dclone($source_rows),
+	NAME => \@col_names,
+});
 
 ok($sth->bind_columns(\($col0, $col1, $col2)) );
 ok($sth->execute(), $DBI::errstr);
@@ -56,6 +67,9 @@ ok !is_utf8($col1);	# utf8 flag should have been reset
 ok $sth->fetch;
 ok !defined $col1;	# null
 ok !is_utf8($col1);	# utf8 flag should have been reset
+
+ok my $hash = $sth->fetchrow_hashref;
+ok 1 == grep { is_utf8($_) } keys %$hash;
 
 $sth->finish;
 

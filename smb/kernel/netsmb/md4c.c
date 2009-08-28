@@ -88,8 +88,7 @@ static unsigned char PADDING[64] = {
 
 /* MD4 initialization. Begins an MD4 operation, writing a new context.
  */
-PRIVSYM void MD4Init (context)
-MD4_CTX *context;                                        /* context */
+void MD4Init (MD4_CTX *context)
 {
   context->count[0] = context->count[1] = 0;
 
@@ -105,10 +104,7 @@ MD4_CTX *context;                                        /* context */
      operation, processing another message block, and updating the
      context.
  */
-PRIVSYM void MD4Update (context, input, inputLen)
-MD4_CTX *context;                                        /* context */
-const unsigned char *input;                                /* input block */
-unsigned int inputLen;                     /* length of input block */
+void MD4Update (MD4_CTX *context, const unsigned char *input, unsigned int inputLen)
 {
   unsigned int i, index, partLen;
 
@@ -140,8 +136,7 @@ unsigned int inputLen;                     /* length of input block */
 }
 
 /* MD4 padding. */
-PRIVSYM void MD4Pad (context)
-MD4_CTX *context;                                        /* context */
+void MD4Pad (MD4_CTX *context)
 {
   unsigned char bits[8];
   unsigned int index, padLen;
@@ -162,9 +157,7 @@ MD4_CTX *context;                                        /* context */
 /* MD4 finalization. Ends an MD4 message-digest operation, writing the
      the message digest and zeroizing the context.
  */
-PRIVSYM void MD4Final (digest, context)
-unsigned char digest[16];                         /* message digest */
-MD4_CTX *context;                                        /* context */
+void MD4Final (unsigned char digest[16], MD4_CTX *context)
 {
   /* Do padding */
   MD4Pad (context);
@@ -254,10 +247,7 @@ const unsigned char block[64];
 /* Encodes input (UINT4) into output (unsigned char). Assumes len is
      a multiple of 4.
  */
-static void Encode (output, input, len)
-unsigned char *output;
-UINT4 *input;
-unsigned int len;
+static void Encode (unsigned char *output, UINT4 *input, unsigned int len)
 {
   unsigned int i, j;
 
@@ -272,11 +262,7 @@ unsigned int len;
 /* Decodes input (unsigned char) into output (UINT4). Assumes len is
      a multiple of 4.
  */
-static void Decode (output, input, len)
-
-UINT4 *output;
-const unsigned char *input;
-unsigned int len;
+static void Decode (UINT4 *output, const unsigned char *input, unsigned int len)
 {
   unsigned int i, j;
 

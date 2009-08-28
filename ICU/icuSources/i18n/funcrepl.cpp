@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (c) 2002-2003, International Business Machines Corporation
+*   Copyright (c) 2002-2008, International Business Machines Corporation
 *   and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -75,7 +75,8 @@ UnicodeReplacer* FunctionReplacer::toReplacer() const {
 int32_t FunctionReplacer::replace(Replaceable& text,
                                   int32_t start,
                                   int32_t limit,
-                                  int32_t& cursor) {
+                                  int32_t& cursor)
+{
 
     // First delegate to subordinate replacer
     int32_t len = replacer->toReplacer()->replace(text, start, limit, cursor);

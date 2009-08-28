@@ -20,6 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#pragma D depends_on library darwin.d
 #pragma D depends_on module mach_kernel
 #pragma D depends_on provider io
 

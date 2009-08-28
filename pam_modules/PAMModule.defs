@@ -24,8 +24,8 @@ ifndef Sources
 Sources = .
 endif
 
-Extra_CC_Flags += -Ddarwin -no-cpp-precomp -Wall -I/usr/include/pam $(RC_CFLAGS)
-Extra_LD_Libraries += -lpam $(RC_CFLAGS)
+Extra_CC_Flags += -Ddarwin -no-cpp-precomp -Wall -Werror -I/usr/include/pam $(foreach arch,$(RC_ARCHS),-arch $(arch))
+Extra_LD_Libraries += -lpam $(foreach arch,$(RC_ARCHS),-arch $(arch))
 
 include $(CoreOSMakefiles)/Standard/Standard.make
 
@@ -33,18 +33,17 @@ ifdef Project
 DSTROOT = /tmp/$(Project)/Release
 endif
 
+PAMModuleVersion = 2
 ifeq ($(ModuleIsBundle),YES)
 PAMModuleExtension = bundle
-PAMModuleWrapper = $(PAMModuleName).$(PAMModuleExtension)
+PAMModuleWrapper = $(PAMModuleName).$(PAMModuleExtension).$(PAMModuleVersion)
 PAMModuleBundle = $(PAMModuleWrapper)/$(PAMModuleName)
 else
 PAMModuleExtension = so
-PAMModuleBundle = $(PAMModuleName).$(PAMModuleExtension)
+PAMModuleBundle = $(PAMModuleName).$(PAMModuleExtension).$(PAMModuleVersion)
 endif
 
-ifndef PAMModuleSources
 PAMModuleSources = $(BuildDirectory)/$(PAMModuleName).c
-endif
 
 ifndef PAMModuleObjects
 PAMModuleObjects = $(PAMModuleSources:.c=.o)
@@ -74,12 +73,3 @@ ifeq ($(ModuleIsBundle),YES)
 	$(_v) (cd $(BuildDirectory) && $(RM) -rf $(PAMModuleWrapper))
 endif
 	$(_v) (cd $(BuildDirectory) && $(RM) $(PAMModuleBundle) $(PAMModuleObjects))
-ifdef LinuxPAMSourceFiles
-	$(_v) (cd $(BuildDirectory) && $(RM) $(PAMModuleSources))
-endif
-
-ifdef LinuxPAMSourceFiles
-$(PAMModuleSources): $(LinuxPAMSourceFiles)
-	$(_v) (cd $(BuildDirectory) && ln -sf $(LinuxPAMSourceFiles) . )
-endif
-

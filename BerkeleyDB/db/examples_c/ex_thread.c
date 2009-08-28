@@ -1,10 +1,9 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1997-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1997,2007 Oracle.  All rights reserved.
  *
- * $Id: ex_thread.c,v 1.2 2004/03/30 01:23:16 jtownsen Exp $
+ * $Id: ex_thread.c,v 12.7 2007/06/13 12:31:31 bostic Exp $
  */
 
 #include <sys/types.h>
@@ -187,8 +186,8 @@ main(argc, argv)
 
 	/* Create reader/writer threads. */
 	for (i = 0; i < nreaders + nwriters; ++i)
-		if ((ret =
-		    pthread_create(&tids[i], NULL, tstart, (void *)i)) != 0)
+		if ((ret = pthread_create(
+		    &tids[i], NULL, tstart, (void *)(uintptr_t)i)) != 0)
 			fatal("pthread_create", ret > 0 ? ret : errno, 1);
 
 	/* Create buffer pool trickle thread. */
@@ -442,10 +441,8 @@ db_init(home)
 		    "%s: db_env_create: %s\n", progname, db_strerror(ret));
 		return (EXIT_FAILURE);
 	}
-	if (punish) {
+	if (punish)
 		(void)dbenv->set_flags(dbenv, DB_YIELDCPU, 1);
-		(void)db_env_set_func_yield(sched_yield);
-	}
 
 	dbenv->set_errfile(dbenv, stderr);
 	dbenv->set_errpfx(dbenv, progname);
@@ -474,7 +471,7 @@ tstart(arg)
 	pthread_t tid;
 	u_int id;
 
-	id = (u_int)arg + 1;
+	id = (uintptr_t)arg + 1;
 
 	tid = pthread_self();
 

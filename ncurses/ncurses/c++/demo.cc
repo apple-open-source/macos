@@ -1,3 +1,32 @@
+// * This makes emacs happy -*-Mode: C++;-*-
+/****************************************************************************
+ * Copyright (c) 1998-2007,2008 Free Software Foundation, Inc.              *
+ *                                                                          *
+ * Permission is hereby granted, free of charge, to any person obtaining a  *
+ * copy of this software and associated documentation files (the            *
+ * "Software"), to deal in the Software without restriction, including      *
+ * without limitation the rights to use, copy, modify, merge, publish,      *
+ * distribute, distribute with modifications, sublicense, and/or sell       *
+ * copies of the Software, and to permit persons to whom the Software is    *
+ * furnished to do so, subject to the following conditions:                 *
+ *                                                                          *
+ * The above copyright notice and this permission notice shall be included  *
+ * in all copies or substantial portions of the Software.                   *
+ *                                                                          *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+ * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+ * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+ * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+ * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+ *                                                                          *
+ * Except as contained in this notice, the name(s) of the above copyright   *
+ * holders shall not be used in advertising or otherwise to promote the     *
+ * sale, use or other dealings in this Software without prior written       *
+ * authorization.                                                           *
+ ****************************************************************************/
+
 /*
  *   Silly demo program for the NCursesPanel class.
  *
@@ -6,7 +35,7 @@
  *   Demo code for NCursesMenu and NCursesForm written by
  *   Juergen Pfeifer
  *
- * $Id: demo.cc,v 1.32 2005/08/13 18:14:44 tom Exp $
+ * $Id: demo.cc,v 1.38 2008/08/04 17:16:57 tom Exp $
  */
 
 #include "internal.h"
@@ -26,30 +55,30 @@ class SillyDemo
   public:
   void run(int sleeptime) {
 
-    NCursesPanel *std = new NCursesPanel();
+    NCursesPanel *mystd = new NCursesPanel();
 
     //  Make a few small demo panels
 
-    NCursesPanel *u = new NCursesPanel(8,20,12,4);
-    NCursesPanel *v = new NCursesPanel(8,20,10,6);
-    NCursesPanel *w = new NCursesPanel(8,20,8,8);
-    NCursesPanel *x = new NCursesPanel(8,20,6,10);
-    NCursesPanel *y = new NCursesPanel(8,20,4,12);
-    NCursesPanel *z = new NCursesPanel(8,30,2,14);
+    NCursesPanel *u = new NCursesPanel(8, 20, 12, 4);
+    NCursesPanel *v = new NCursesPanel(8, 20, 10, 6);
+    NCursesPanel *w = new NCursesPanel(8, 20, 8, 8);
+    NCursesPanel *x = new NCursesPanel(8, 20, 6, 10);
+    NCursesPanel *y = new NCursesPanel(8, 20, 4, 12);
+    NCursesPanel *z = new NCursesPanel(8, 30, 2, 14);
 
     //  Draw something on the main screen, so we can see what happens
     //  when panels get moved or deleted.
 
-    std->box();
-    std->move(std->height()/2,1);
-    std->hline(std->width()-2);
-    std->move(1,std->width()/2);
-    std->vline(std->height()-2);
-    std->addch(0,std->width()/2,ACS_TTEE);
-    std->addch(std->height()-1,std->width()/2,ACS_BTEE);
-    std->addch(std->height()/2,0,ACS_LTEE);
-    std->addch(std->height()/2,std->width()-1,ACS_RTEE);
-    std->addch(std->height()/2,std->width()/2,ACS_PLUS);
+    mystd->box();
+    mystd->move(mystd->height()/2, 1);
+    mystd->hline(mystd->width()-2);
+    mystd->move(1, mystd->width()/2);
+    mystd->vline(mystd->height()-2);
+    mystd->addch(0, mystd->width()/2, ACS_TTEE);
+    mystd->addch(mystd->height()-1, mystd->width()/2, ACS_BTEE);
+    mystd->addch(mystd->height()/2, 0, ACS_LTEE);
+    mystd->addch(mystd->height()/2, mystd->width()-1, ACS_RTEE);
+    mystd->addch(mystd->height()/2, mystd->width()/2, ACS_PLUS);
 
     //  Draw frames with titles around panels so that we can see where
     //  the panels are located.
@@ -69,56 +98,56 @@ class SillyDemo
     }
 
     //  A refresh to any valid panel updates all panels and refreshes
-    //  the screen.  Using std is just convenient - We know it's always
+    //  the screen.  Using mystd is just convenient - We know it's always
     //  valid until the end of the program.
 
-    std->refresh();
+    mystd->refresh();
     sleep(sleeptime);
 
     //  Show what happens when panels are deleted and moved.
 
     sleep(sleeptime);
     delete u;
-    std->refresh();
+    mystd->refresh();
 
     sleep(sleeptime);
     delete z;
-    std->refresh();
+    mystd->refresh();
 
     sleep(sleeptime);
     delete v;
-    std->refresh();
+    mystd->refresh();
 
     // show how it looks when a panel moves
     sleep(sleeptime);
-    y->mvwin(5,30);
-    std->refresh();
+    y->mvwin(5, 30);
+    mystd->refresh();
 
     sleep(sleeptime);
     delete y;
-    std->refresh();
+    mystd->refresh();
 
     // show how it looks when you raise a panel
     sleep(sleeptime);
     w->top();
-    std->refresh();
+    mystd->refresh();
 
     sleep(sleeptime);
     delete w;
-    std->refresh();
+    mystd->refresh();
 
     sleep(sleeptime);
     delete x;
 
-    std->clear();
-    std->refresh();
+    mystd->clear();
+    mystd->refresh();
 
     //  Don't forget to clean up the main screen.  Since this is the
     //  last thing using NCursesWindow, this has the effect of
     //  shutting down ncurses and restoring the terminal state.
 
     sleep(sleeptime);
-    delete std;
+    delete mystd;
   }
 };
 
@@ -218,21 +247,21 @@ public:
 
     F     = new NCursesFormField*[10];
     mft   = new MyFieldType('X');
-    ift   = new Integer_Field(0,1,10);
+    ift   = new Integer_Field(0, 1, 10);
     eft   = new Enumeration_Field(weekdays);
 
-    F[0]  = new Label("Demo Entry Form",0,16);
-    F[1]  = new Label("Weekday Enum",2,1);
-    F[2]  = new Label("Number(1-10)",2,21);
-    F[3]  = new Label("Only 'X'",2,35);
-    F[4]  = new Label("Multiline Field (Dynamic and Scrollable)",5,1);
-    F[5]  = new NCursesFormField(1,18,3,1);
-    F[6]  = new NCursesFormField(1,12,3,21);
-    F[7]  = new NCursesFormField(1,12,3,35);
-    F[8]  = new NCursesFormField(4,46,6,1,2);
+    F[0]  = new Label("Demo Entry Form", 0, 16);
+    F[1]  = new Label("Weekday Enum", 2, 1);
+    F[2]  = new Label("Number(1-10)", 2, 21);
+    F[3]  = new Label("Only 'X'", 2, 35);
+    F[4]  = new Label("Multiline Field (Dynamic and Scrollable)", 5, 1);
+    F[5]  = new NCursesFormField(1, 18, 3, 1);
+    F[6]  = new NCursesFormField(1, 12, 3, 21);
+    F[7]  = new NCursesFormField(1, 12, 3, 35);
+    F[8]  = new NCursesFormField(4, 46, 6, 1, 2);
     F[9]  = new NCursesFormField();
 
-    InitForm(F,TRUE,TRUE);
+    InitForm(F, TRUE, TRUE);
     boldframe();
 
     F[5]->set_fieldtype(*eft);
@@ -282,14 +311,16 @@ public:
     TestForm F;
     Soft_Label_Key_Set* S = new Soft_Label_Key_Set;
     for(int i=1; i <= S->labels(); i++) {
-      char buf[5];
-      ::sprintf(buf,"Frm%02d",i);
+      char buf[8];
+      assert(i < 100);
+      ::sprintf(buf, "Frm%02d", i);
       (*S)[i] = buf;                                      // Text
       (*S)[i] = Soft_Label_Key_Set::Soft_Label_Key::Left; // Justification
     }
     NCursesApplication::getApplication()->push(*S);
     F();
     NCursesApplication::getApplication()->pop();
+    delete S;
     return FALSE;
   }
 };
@@ -307,9 +338,9 @@ public:
     const int PADSIZE  = 200;
     unsigned gridcount = 0;
 
-    NCursesPanel std;
-    NCursesPanel P(std.lines()-2,std.cols()-2,1,1);
-    NCursesFramedPad FP(P,PADSIZE,PADSIZE);
+    NCursesPanel mystd;
+    NCursesPanel P(mystd.lines()-2, mystd.cols()-2, 1, 1);
+    NCursesFramedPad FP(P, PADSIZE, PADSIZE);
 
     for (int i=0; i < PADSIZE; i++) {
       for (int j=0; j < PADSIZE; j++) {
@@ -328,7 +359,7 @@ public:
       }
     }
 
-    P.label("Pad Demo",NULL);
+    P.label("Pad Demo", NULL);
     FP();
     P.clear();
     return FALSE;
@@ -356,9 +387,9 @@ public:
   }
 
   bool action() {
-    NCursesPanel *std = new NCursesPanel();
+    NCursesPanel *mystd = new NCursesPanel();
 
-    NCursesPanel *w = new NCursesPanel(std->lines() - 2, std->cols() - 2, 1, 1);
+    NCursesPanel *w = new NCursesPanel(mystd->lines() - 2, mystd->cols() - 2, 1, 1);
     w->box();
     w->refresh();
 
@@ -382,7 +413,7 @@ public:
 
     delete s;
     delete w;
-    delete std;
+    delete mystd;
     ::noecho();
     return FALSE;
   }
@@ -415,10 +446,10 @@ public:
     I[6] = new QuitItem();
     I[7] = new NCursesMenuItem(); // Terminating empty item
 
-    InitMenu(I,TRUE,TRUE);
+    InitMenu(I, TRUE, TRUE);
 
-    P = new NCursesPanel(1,n_items,LINES-1,1);
-    boldframe("Demo","Silly");
+    P = new NCursesPanel(1, n_items, LINES-1, 1);
+    boldframe("Demo", "Silly");
     P->show();
   }
 
@@ -445,7 +476,7 @@ public:
   virtual void On_Menu_Init()
   {
     NCursesWindow W(::stdscr);
-    P->move(0,0);
+    P->move(0, 0);
     P->clrtoeol();
     for(int i=1; i<=count(); i++)
       P->addch('0' + i);
@@ -455,25 +486,25 @@ public:
 
   virtual void On_Menu_Termination()
   {
-    P->move(0,0);
+    P->move(0, 0);
     P->clrtoeol();
     refresh();
   }
 
   virtual void On_Item_Init(NCursesMenuItem& item)
   {
-    P->move(0,item.index());
+    P->move(0, item.index());
     P->attron(A_REVERSE);
-    P->printw("%1d",1+item.index());
+    P->printw("%1d", 1+item.index());
     P->attroff(A_REVERSE);
     refresh();
   }
 
   virtual void On_Item_Termination(NCursesMenuItem& item)
   {
-    P->move(0,item.index());
+    P->move(0, item.index());
     P->attroff(A_REVERSE);
-    P->printw("%1d",1+item.index());
+    P->printw("%1d", 1+item.index());
     refresh();
   }
 };
@@ -500,8 +531,9 @@ public:
 void TestApplication::init_labels(Soft_Label_Key_Set& S) const
 {
   for(int i=1; i <= S.labels(); i++) {
-    char buf[5];
-    ::sprintf(buf,"Key%02d",i);
+    char buf[8];
+    assert(i < 100);
+    ::sprintf(buf, "Key%02d", i);
     S[i] = buf;                                      // Text
     S[i] = Soft_Label_Key_Set::Soft_Label_Key::Left; // Justification
   }
@@ -513,7 +545,7 @@ void TestApplication::title()
   const int len = ::strlen(titleText);
 
   titleWindow->bkgd(screen_titles());
-  titleWindow->addstr(0,(titleWindow->cols() - len)/2, titleText);
+  titleWindow->addstr(0, (titleWindow->cols() - len)/2, titleText);
   titleWindow->noutrefresh();
 }
 
@@ -528,4 +560,4 @@ int TestApplication::run()
 //
 // -------------------------------------------------------------------------
 //
-static TestApplication Demo;
+static TestApplication *Demo = new TestApplication();

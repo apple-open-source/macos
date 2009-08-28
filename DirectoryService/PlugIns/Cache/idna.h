@@ -25,7 +25,9 @@
 
 __BEGIN_DECLS
 
+#ifdef HANDLE_DNS_LOOKUPS    
 int isLegalUTF8(const uint8_t *src, int length);
 dns_reply_t *idna_dns_lookup(dns_handle_t dns, const char *name, uint32_t dnsclass, uint32_t dnstype, int *minttl);
+#endif
 
 __END_DECLS

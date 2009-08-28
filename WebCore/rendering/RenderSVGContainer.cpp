@@ -84,7 +84,7 @@ void RenderSVGContainer::layout()
 
 bool RenderSVGContainer::selfWillPaint() const
 {
-#if ENABLE(SVG_FILTERS)
+#if ENABLE(FILTERS)
     const SVGRenderStyle* svgStyle = style()->svgStyle();
     SVGResourceFilter* filter = getFilterById(document(), svgStyle->filter());
     if (filter)
@@ -121,7 +121,7 @@ void RenderSVGContainer::paint(PaintInfo& paintInfo, int, int)
         child->paint(childPaintInfo, 0, 0);
 
     if (paintInfo.phase == PaintPhaseForeground)
-        finishRenderSVGContent(this, childPaintInfo, boundingBox, filter, paintInfo.context);
+        finishRenderSVGContent(this, childPaintInfo, filter, paintInfo.context);
 
     childPaintInfo.context->restore();
 

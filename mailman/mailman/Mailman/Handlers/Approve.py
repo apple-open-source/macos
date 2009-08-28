@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2005 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2007 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -65,7 +65,7 @@ def process(mlist, msg, msgdata):
         # XXX I'm not entirely sure why, but it is possible for the payload of
         # the part to be None, and you can't splitlines() on None.
         if part is not None and part.get_payload() is not None:
-            lines = part.get_payload().splitlines()
+            lines = part.get_payload(decode=True).splitlines()
             line = ''
             for lineno, line in zip(range(len(lines)), lines):
                 if line.strip():
@@ -79,7 +79,7 @@ def process(mlist, msg, msgdata):
                     # Now strip the first line from the payload so the
                     # password doesn't leak.
                     del lines[lineno]
-                    part.set_payload(NL.join(lines))
+                    reset_payload(part, NL.join(lines))
                     stripped = True
         if stripped:
             # MAS: Bug 1181161 - Now try all the text parts in case it's
@@ -101,10 +101,9 @@ def process(mlist, msg, msgdata):
             pattern = name + ':(\s|&nbsp;)*' + re.escape(passwd)
             for part in typed_subpart_iterator(msg, 'text'):
                 if part is not None and part.get_payload() is not None:
-                    # Should we decode the payload?
-                    lines = part.get_payload()
+                    lines = part.get_payload(decode=True)
                     if re.search(pattern, lines):
-                        part.set_payload(re.sub(pattern, '', lines))
+                        reset_payload(part, re.sub(pattern, '', lines))
     if passwd is not missing and mlist.Authenticate((mm_cfg.AuthListModerator,
                                                      mm_cfg.AuthListAdmin),
                                                     passwd):
@@ -117,3 +116,20 @@ def process(mlist, msg, msgdata):
     beentheres = [s.strip().lower() for s in msg.get_all('x-beenthere', [])]
     if mlist.GetListEmail().lower() in beentheres:
         raise Errors.LoopError
+
+def reset_payload(part, payload):
+    # Set decoded payload maintaining content-type, format and delsp.
+    # TK: Message with 'charset=' cause trouble. So, instead of
+    #     part.get_content_charset('us-ascii') ...
+    cset = part.get_content_charset() or 'us-ascii'
+    ctype = part.get_content_type()
+    format = part.get_param('format')
+    delsp = part.get_param('delsp')
+    del part['content-transfer-encoding']
+    del part['content-type']
+    part.set_payload(payload, cset)
+    part.set_type(ctype)
+    if format:
+        part.set_param('Format', format)
+    if delsp:
+        part.set_param('DelSp', delsp)

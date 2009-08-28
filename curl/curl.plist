@@ -1,17 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
 	<key>OpenSourceProject</key>
 	<string>curl</string>
 	<key>OpenSourceVersion</key>
-	<string>7.16.3</string>
+	<string>7.19.4</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://curl.haxx.se/</string>
 	<key>OpenSourceURL</key>
-	<string>http://curl.haxx.se/download/curl-7.16.3.tar.bz2</string>
+	<string>http://curl.haxx.se/download/curl-7.19.4.tar.bz2</string>
 	<key>OpenSourceSHA1</key>
-	<string>7aeda5a74da2a68df49669217859101e9d0553f6</string>
+	<string>6b8cb206990cd68d8653cea16a47bd0febd5c50d</string>
 	<key>OpenSourceImportDate</key>
-	<string>2007-06-27</string>
+	<string>2009-03-02</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>Modified configure script to allow universal building.</string>

@@ -1,0 +1,28 @@
+RCS: @(#) $Id: README.releasemgr,v 1.1 2006/07/01 02:43:15 andreas_kupries Exp $
+
+Welcome to the tcllib, the Tcl Standard Library.
+================================================
+
+Introduction
+------------
+
+This README is intended to be a guide to the tools available to a
+
+	Release manager
+
+working on the creation of a release of Tcllib.
+
+Audience
+--------
+
+The intended audience is the release manager of Tcllib, his deputies,
+and anybody else interested in the task.
+
+Basics
+------
+
+< Flesh this out >
+
+	sak.tcl
+
+< Tasks, and how to perform them >

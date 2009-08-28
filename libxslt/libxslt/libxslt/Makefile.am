@@ -59,3 +59,6 @@ EXTRA_DIST = $(man_MANS) trio.h triodef.h
 
 xsltproc: all
 	@(cd ../xsltproc ; $(MAKE))
+
+install-exec-hook:
+	$(mkinstalldirs) "$(DESTDIR)$(libdir)/libxslt-plugins"

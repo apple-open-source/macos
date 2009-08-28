@@ -1,0 +1,207 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+<link rel="STYLESHEET" href="mailman-install.css" type='text/css' />
+<link rel="first" href="mailman-install.html" title='GNU mailman - installation Manual' />
+<link rel='last' href='about.html' title='About this document...' />
+<link rel='help' href='about.html' title='About this document...' />
+<link rel="next" href="postfix-virtual.html" />
+<link rel="prev" href="node12.html" />
+<link rel="parent" href="node12.html" />
+<link rel="next" href="postfix-virtual.html" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name='aesop' content='information' />
+<title>6.1.1 Integrating Postfix and Mailman</title>
+</head>
+<body>
+<div class="navigation">
+<div id='top-navigation-panel' xml:id='top-navigation-panel'>
+<table align="center" width="100%" cellpadding="0" cellspacing="2">
+<tr>
+<td class='online-navigation'><a rel="prev" title="6.1 using the Postfix"
+  href="node12.html"><img src='previous.png'
+  border='0' height='32'  alt='Previous Page' width='32' /></a></td>
+<td class='online-navigation'><a rel="parent" title="6.1 using the Postfix"
+  href="node12.html"><img src='up.png'
+  border='0' height='32'  alt='Up one Level' width='32' /></a></td>
+<td class='online-navigation'><a rel="next" title="6.1.2 virtual domains"
+  href="postfix-virtual.html"><img src='next.png'
+  border='0' height='32'  alt='Next Page' width='32' /></a></td>
+<td align="center" width="100%">GNU Mailman - Installation Manual</td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+</tr></table>
+<div class='online-navigation'>
+<b class="navlabel">Previous:</b>
+<a class="sectref" rel="prev" href="node12.html">6.1 Using the Postfix</a>
+<b class="navlabel">Up:</b>
+<a class="sectref" rel="parent" href="node12.html">6.1 Using the Postfix</a>
+<b class="navlabel">Next:</b>
+<a class="sectref" rel="next" href="postfix-virtual.html">6.1.2 Virtual domains</a>
+</div>
+<hr /></div>
+</div>
+<!--End of Navigation Panel-->
+
+<h3><a name="SECTION001611000000000000000">
+6.1.1 Integrating Postfix and Mailman</a>
+</h3>
+
+<p>
+You can integrate Postfix and Mailman such that when new lists are created, or
+lists are removed, Postfix's alias database will be automatically updated.
+The following are the steps you need to take to make this work.
+
+<p>
+In the description below, we assume that you've installed Mailman in the
+default location, i.e. <span class="file">/usr/local/mailman</span>.  If that's not the case,
+adjust the instructions according to your use of <b class="program">configure</b>'s
+<b class="programopt">--prefix</b> and <b class="programopt">--with-var-prefix</b> options.
+
+<p>
+<div class="note"><b class="label">Note:</b>
+
+If you are using virtual domains and you want Mailman to honor your virtual
+domains, read the <a href="postfix-virtual.html#postfix-virtual">6.1</a> section below first!
+</div>
+
+<p>
+
+<ul>
+<li>Add this to the bottom of the <span class="file"><var>$prefix</var>/Mailman/mm_cfg.py</span>
+      file:
+
+<p>
+<div class="verbatim"><pre>
+        MTA = 'Postfix'
+</pre></div>
+
+<p>
+The MTA variable names a module in the <span class="file">Mailman/MTA</span> directory
+      which contains the mail server-specific functions to be executed when a
+      list is created or removed.
+
+<p>
+</li>
+<li>Look at the <span class="file">Defaults.py</span> file for the variables
+      <var>POSTFIX_ALIAS_CMD</var> and <var>POSTFIX_MAP_CMD</var> command.  Make sure
+      these point to your <b class="program">postalias</b> and <b class="program">postmap</b> programs
+      respectively.  Remember that if you need to make changes, do it in
+      <span class="file">mm_cfg.py</span>.
+
+<p>
+</li>
+<li>Run the <b class="program">bin/genaliases</b> script to initialize your
+      <span class="file">aliases</span> file.
+
+<p>
+<div class="verbatim"><pre>
+        % cd /usr/local/mailman
+        % bin/genaliases
+      </pre></div>
+
+<p>
+Make sure that the owner of the <span class="file">data/aliases</span> and
+      <span class="file">data/aliases.db</span> file is <code>mailman</code>, that the group owner
+      for those files is <code>mailman</code>, or whatever user and group you used
+      in the configure command, and that both files are group writable:
+
+<p>
+<div class="verbatim"><pre>
+        % su
+        % chown mailman:mailman data/aliases*
+        % chmod g+w data/aliases*
+      </pre></div>
+
+<p>
+</li>
+<li>Hack your Postfix's <span class="file">main.cf</span> file to include the following path in
+      your <var>alias_maps</var> variable:
+
+<p>
+<div class="verbatim"><pre>
+          /usr/local/mailman/data/aliases
+</pre></div>
+
+<p>
+Note that there should be no trailing <code>.db</code>.  Do not include this
+      in your <var>alias_database</var> variable.  This is because you do not want
+      Postfix's <b class="program">newaliases</b> command to modify Mailman's
+      <span class="file">aliases.db</span> file, but you do want Postfix to consult
+      <span class="file">aliases.db</span> when looking for local addresses.
+
+<p>
+You probably want to use a <code>hash:</code> style database for this entry.
+      Here's an example:
+
+<p>
+<div class="verbatim"><pre>
+        alias_maps = hash:/etc/postfix/aliases,
+            hash:/usr/local/mailman/data/aliases
+</pre></div>
+
+<p>
+</li>
+<li>When you configure Mailman, use the
+      <b class="programopt">--with-mail-gid=mailman</b> switch; this will be the default
+      if you configured Mailman after adding the <code>mailman</code> owner.
+      Because the owner of the <span class="file">aliases.db</span> file is <code>mailman</code>,
+      Postfix will execute Mailman's wrapper program as uid and gid
+      <code>mailman</code>.
+
+<p>
+</li>
+</ul>
+
+<p>
+That's it!  One caveat: when you add or remove a list, the <span class="file">aliases.db</span>
+file will updated, but it will not automatically run <b class="program">postfix reload</b>.
+This is because you need to be root to run this and suid-root scripts are not
+secure.  The only effect of this is that it will take about a minute for
+Postfix to notice the change to the <span class="file">aliases.db</span> file and update its
+tables.
+
+<p>
+
+<div class="navigation">
+<div class='online-navigation'>
+<p></p><hr />
+<table align="center" width="100%" cellpadding="0" cellspacing="2">
+<tr>
+<td class='online-navigation'><a rel="prev" title="6.1 using the Postfix"
+  href="node12.html"><img src='previous.png'
+  border='0' height='32'  alt='Previous Page' width='32' /></a></td>
+<td class='online-navigation'><a rel="parent" title="6.1 using the Postfix"
+  href="node12.html"><img src='up.png'
+  border='0' height='32'  alt='Up one Level' width='32' /></a></td>
+<td class='online-navigation'><a rel="next" title="6.1.2 virtual domains"
+  href="postfix-virtual.html"><img src='next.png'
+  border='0' height='32'  alt='Next Page' width='32' /></a></td>
+<td align="center" width="100%">GNU Mailman - Installation Manual</td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+</tr></table>
+<div class='online-navigation'>
+<b class="navlabel">Previous:</b>
+<a class="sectref" rel="prev" href="node12.html">6.1 Using the Postfix</a>
+<b class="navlabel">Up:</b>
+<a class="sectref" rel="parent" href="node12.html">6.1 Using the Postfix</a>
+<b class="navlabel">Next:</b>
+<a class="sectref" rel="next" href="postfix-virtual.html">6.1.2 Virtual domains</a>
+</div>
+</div>
+<hr />
+<span class="release-info">Release 2.1, documentation updated on January 11, 2009.</span>
+</div>
+<!--End of Navigation Panel-->
+
+</body>
+</html>

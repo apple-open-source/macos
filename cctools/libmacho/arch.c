@@ -73,6 +73,8 @@ static const NXArchInfo ArchInfoTable[] = {
 	 "PowerPC 64-bit"},
     {"sparc",  CPU_TYPE_SPARC,   CPU_SUBTYPE_SPARC_ALL,	   NX_BigEndian,
 	 "SPARC"},
+    {"arm",    CPU_TYPE_ARM,     CPU_SUBTYPE_ARM_ALL,	   NX_LittleEndian,
+	 "ARM"},
     {"any",    CPU_TYPE_ANY,     CPU_SUBTYPE_MULTIPLE,     NX_UnknownByteOrder,
 	 "Architecture Independent"},
     {"veo",    CPU_TYPE_VEO,	 CPU_SUBTYPE_VEO_ALL,  	   NX_BigEndian,
@@ -124,6 +126,14 @@ static const NXArchInfo ArchInfoTable[] = {
 	 "PowerPC 970" },
     {"ppc970-64",  CPU_TYPE_POWERPC64, CPU_SUBTYPE_POWERPC_970,  NX_BigEndian,
 	 "PowerPC 970 64-bit"},
+    {"armv4t", CPU_TYPE_ARM,     CPU_SUBTYPE_ARM_V4T,	   NX_LittleEndian,
+	 "arm v4t"},
+    {"armv5",  CPU_TYPE_ARM,     CPU_SUBTYPE_ARM_V5TEJ,	   NX_LittleEndian,
+	 "arm v5"},
+    {"xscale", CPU_TYPE_ARM,     CPU_SUBTYPE_ARM_XSCALE,   NX_LittleEndian,
+	 "arm xscale"},
+    {"armv6",  CPU_TYPE_ARM,     CPU_SUBTYPE_ARM_V6,	   NX_LittleEndian,
+	 "arm v6"},
     {"little", CPU_TYPE_ANY,     CPU_SUBTYPE_LITTLE_ENDIAN, NX_LittleEndian,
          "Little Endian"},
     {"big",    CPU_TYPE_ANY,     CPU_SUBTYPE_BIG_ENDIAN,   NX_BigEndian,
@@ -275,8 +285,8 @@ cpu_subtype_t cpusubtype,
 struct fat_arch *fat_archs,
 uint32_t nfat_archs)
 {
-    unsigned long i;
-    long lowest_family, lowest_model, lowest_index;
+    uint32_t i;
+    int32_t lowest_family, lowest_model, lowest_index;
 
 	/*
 	 * Look for the first exact match.
@@ -375,7 +385,7 @@ uint32_t nfat_archs)
 	    /* if no intel cputypes found return NULL */
 	    if(lowest_family == CPU_SUBTYPE_INTEL_FAMILY_MAX + 1)
 		return(NULL);
-	    lowest_model = LONG_MAX;
+	    lowest_model = INT_MAX;
 	    lowest_index = -1;
 	    for(i = 0; i < nfat_archs; i++){
 		if(fat_archs[i].cputype != cputype)
@@ -602,6 +612,33 @@ uint32_t nfat_archs)
 		    return(fat_archs + i);
 	    }
 	    break;
+	case CPU_TYPE_ARM:
+	    {
+		/* 
+		 * ARM is straightforward, since each architecture is backward
+		 * compatible with previous architectures.  So, we just take the
+		 * highest that is less than our target.
+		 */
+		int fat_match_found = 0;
+		uint32_t best_fat_arch = 0;
+		for(i = 0; i < nfat_archs; i++){
+		    if(fat_archs[i].cputype != cputype)
+			continue;
+		    if(fat_archs[i].cpusubtype > cpusubtype)
+			continue;
+		    if(!fat_match_found){
+			fat_match_found = 1;
+			best_fat_arch = i;
+			continue;
+		    }
+		    if(fat_archs[i].cpusubtype >
+		       fat_archs[best_fat_arch].cpusubtype)
+			best_fat_arch = i;
+		}
+		if(fat_match_found)
+		  return fat_archs + best_fat_arch;
+	    }
+	    break;
 	default:
 	    return(NULL);
 	}
@@ -729,6 +766,52 @@ cpu_subtype_t cpusubtype2)
 	    if((cpusubtype2 & ~CPU_SUBTYPE_MASK) != CPU_SUBTYPE_SPARC_ALL)
 			return((cpu_subtype_t)-1);
 	    break; /* logically can't get here */
+
+	case CPU_TYPE_ARM:
+	    /*
+	     * Combinability matrix for ARM:
+	     *            V4T      V5  XSCALE      V6     ALL
+	     *            ~~~      ~~  ~~~~~~      ~~     ~~~
+	     * V4T        V4T      V5  XSCALE      V6     ALL
+	     * V5          V5      V5      --      V6     ALL
+	     * XSCALE  XSCALE      --  XSCALE      --     ALL
+	     * V6         ALL      V6      --      V6     ALL
+	     * ALL        ALL     ALL     ALL     ALL     ALL
+	     */
+	    if((cpusubtype1 & ~CPU_SUBTYPE_MASK) == CPU_SUBTYPE_ARM_ALL)
+		return(cpusubtype2);
+	    if((cpusubtype2 & ~CPU_SUBTYPE_MASK) == CPU_SUBTYPE_ARM_ALL)
+		return(cpusubtype1);
+	    switch((cpusubtype1 & ~CPU_SUBTYPE_MASK)){
+		case CPU_SUBTYPE_ARM_V6:
+		    switch((cpusubtype2 & ~CPU_SUBTYPE_MASK)){
+			case CPU_SUBTYPE_ARM_XSCALE:
+			    return((cpu_subtype_t)-1);
+			default:
+			    return(CPU_SUBTYPE_ARM_V6);
+		    }
+		case CPU_SUBTYPE_ARM_XSCALE:
+		    switch((cpusubtype2 & ~CPU_SUBTYPE_MASK)){
+			case CPU_SUBTYPE_ARM_V6:
+			case CPU_SUBTYPE_ARM_V5TEJ:
+			    return((cpu_subtype_t)-1);
+			default:
+			    return(CPU_SUBTYPE_ARM_XSCALE);
+		    }
+		case CPU_SUBTYPE_ARM_V5TEJ:
+		    switch((cpusubtype2 & ~CPU_SUBTYPE_MASK)){
+			case CPU_SUBTYPE_ARM_XSCALE:
+			    return((cpu_subtype_t)-1);
+			case CPU_SUBTYPE_ARM_V6:
+			    return(CPU_SUBTYPE_ARM_V6);
+			default:
+			    return(CPU_SUBTYPE_ARM_V5TEJ);
+		    }
+		case CPU_SUBTYPE_ARM_V4T:
+		    return((cpusubtype2 & ~CPU_SUBTYPE_MASK));
+		default:
+		    return((cpu_subtype_t)-1);
+	    }
 
 	default:
 	    return((cpu_subtype_t)-1);

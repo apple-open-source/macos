@@ -1,1 +1,0 @@
-../../tk/GNUmakefile

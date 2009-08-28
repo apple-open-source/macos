@@ -2,12 +2,369 @@
 
 DBI::Changes - List of significant changes to the DBI
 
+(As of $Date: 2008-03-24 14:06:48 +0000 (Mon, 24 Mar 2008) $ $Revision: 10994 $)
+
 =cut
+
+Assorted TODO notes:
+
+Protect trace_msg from SIGPIPE?
+prepare(...,{ Err=>\my $isolated_err, ...})
+Move _new_sth to DBI::db::_new_sth (leave alias) and implement in C
+Implement FETCH_many() in C
+Or call _new_child and move to DBI::common?
+Add trace modules that just records the last N trace messages into an array
+and prepends them to any error message.
+Document DBI_PROFILE_FLOCK and LockFile attrib in DBI::ProfileData and DBI::ProfileDumper
+
+Gofo TODOs:
+
+Move post-request cleanup into separate method and enable hooks so
+    it can be done after the response has been sent
+Gofer - allow dbh attrib changes after connect?
+    note them and pass in request as STORE method calls
+    but then gofer server need to reset them to restore dbh to original state
+    Or, change the attr in the connect() call, but that risks
+    bloating the number of cache dbh in the server.
+Gofer request flags for:
+    - return current executor stats as an attribute - handy for tests
+    - will accept streamed resultsets
+Add attr-passthru to prepare()? ie for gofer cache control & ReadOnly
+Terminology for client and server ends
+Document user/passwd issues at the various levels of the gofer stack
+Policy's from pod
+Policy for dbh attr FETCH (ie example_driver_path)
+    or piggyback on skip_connect_check
+    could also remember which attr have been returned to us
+    so not bother FETCHing them (unless pedantic)
+Call method on transport failure so transport can cleanup/reset if it wants
+Gofer: gearman - need to disable coallesing for non-idempotent requests
+
+=head2 Changes in DBI 1.604 (svn rev 10994) 24th March 2008
+
+  Fixed fetchall_arrayref with $max_rows argument broken in 1.603,
+    thanks to Greg Sabino Mullane.
+  Fixed a few harmless compiler warnings on cygwin.
+
+=head2 Changes in DBI 1.603
+
+  Fixed pure-perl fetchall_arrayref with $max_rows argument
+    to not error when fetching after all rows already fetched.
+    (Was fixed for compiled drivers back in DBI 1.31.)
+    Thanks to Mark Overmeer.
+  Fixed C sprintf formats and casts, fixing compiler warnings.
+
+  Changed dbi_profile() to accept a hash of profiles and apply to all.
+  Changed gofer stream transport to improve error reporting.
+  Changed gofer test timeout to avoid spurious failures on slow systems.
+
+  Added options to t/85gofer.t so it's more useful for manual testing.
+
+=head2 Changes in DBI 1.602 (svn rev 10706)  8th February 2008
+
+  Fixed potential coredump if stack reallocated while calling back
+    into perl from XS code. Thanks to John Gardiner Myers.
+  Fixed DBI::Util::CacheMemory->new to not clear the cache.
+  Fixed avg in DBI::Profile as_text() thanks to Abe Ingersoll.
+  Fixed DBD::DBM bug in push_names thanks to J M Davitt.
+  Fixed take_imp_data for some platforms thanks to Jeffrey Klein.
+  Fixed docs tie'ing CacheKids (ie LRU cache) thanks to Peter John Edwards.
+
+  Expanded DBI::DBD docs for driver authors thanks to Martin Evans.
+  Enhanced t/80proxy.t test script.
+  Enhanced t/85gofer.t test script thanks to Stig.
+  Enhanced t/10examp.t test script thanks to David Cantrell.
+  Documented $DBI::stderr as the default value of err for internal errors.
+
+  Gofer changes:
+    track_recent now also keeps track of N most recent errors.
+    The connect method is now also counted in stats.
+
+=head2 Changes in DBI 1.601 (svn rev 10103),  21st October 2007
+
+  Fixed t/05thrclone.t to work with Test::More >= 0.71
+    thanks to Jerry D. Hedden and Michael G Schwern.
+  Fixed DBI for VMS thanks to Peter (Stig) Edwards.
+
+  Added client-side caching to DBD::Gofer. Can use any cache with
+    get($k)/set($k,$v) methods, including all the Cache and Cache::Cache
+    distribution modules plus Cache::Memcached, Cache::FastMmap etc.
+    Works for all transports. Overridable per handle.
+
+  Added DBI::Util::CacheMemory for use with DBD::Gofer caching.
+    It's a very fast and small strict subset of Cache::Memory.
+
+=head2 Changes in DBI 1.59 (svn rev 9874),  23rd August 2007
+
+  Fixed DBI::ProfileData to unescape headers lines read from data file.
+  Fixed DBI::ProfileData to not clobber $_, thanks to Alexey Tourbin.
+  Fixed DBI::SQL::Nano to not clobber $_, thanks to Alexey Tourbin.
+  Fixed DBI::PurePerl to return undef for ChildHandles if weaken not available.
+  Fixed DBD::Proxy disconnect error thanks to Philip Dye.
+  Fixed DBD::Gofer::Transport::Base bug (typo) in timeout code.
+  Fixed DBD::Proxy rows method thanks to Philip Dye.
+  Fixed dbiprof compile errors, thanks to Alexey Tourbin.
+  Fixed t/03handle.t to skip some tests if ChildHandles not available.
+
+  Added check_response_sub to DBI::Gofer::Execute
+
+=head2 Changes in DBI 1.58 (svn rev 9678),  25th June 2007
+
+  Fixed code triggering fatal error in bleadperl, thanks to Steve Hay.
+  Fixed compiler warning thanks to Jerry D. Hedden.
+  Fixed t/40profile.t to use int(dbi_time()) for systems like Cygwin where
+    time() seems to be rounded not truncated from the high resolution time.
+  Removed dump_results() test from t/80proxy.t.
+
+=head2 Changes in DBI 1.57 (svn rev 9639),  13th June 2007
+
+  Note: this release includes a change to the DBI::hash() function which will
+  now produce different values than before *if* your perl was built with 64-bit
+  'int' type (i.e. "perl -V:intsize" says intsize='8').  It's relatively rare
+  for perl to be configured that way, even on 64-bit systems.
+
+  Fixed XS versions of select*_*() methods to call execute()
+    fetch() etc., with inner handle instead of outer.
+  Fixed execute_for_fetch() to not cache errstr values
+    thanks to Bart Degryse.
+  Fixed unused var compiler warning thanks to JDHEDDEN.
+  Fixed t/86gofer_fail tests to be less likely to fail falsely.
+
+  Changed DBI::hash to return 'I32' type instead of 'int' so results are
+    portable/consistent regardless of size of the int type.
+  Corrected timeout example in docs thanks to Egmont Koblinger.
+  Changed t/01basic.t to warn instead of failing when it detects
+    a problem with Math::BigInt (some recent versions had problems).
+
+  Added support for !Time and !Time~N to DBI::Profile Path. See docs.
+  Added extra trace info to connect_cached thanks to Walery Studennikov.
+  Added non-random (deterministic) mode to DBI_GOFER_RANDOM mechanism.
+  Added DBIXS_REVISION macro that drivers can use.
+  Added more docs for private_attribute_info() method.
+
+  DBI::Profile changes:
+    dbi_profile() now returns ref to relevant leaf node.
+    Don't profile DESTROY during global destruction.
+    Added as_node_path_list() and as_text() methods.
+  DBI::ProfileDumper changes:
+    Don't write file if there's no profile data.
+    Uses full natural precision when saving data (was using %.6f)
+    Optimized flush_to_disk().
+    Locks the data file while writing.
+    Enabled filename to be a code ref for dynamic names.
+  DBI::ProfileDumper::Apache changes:
+    Added Quiet=>1 to avoid write to STDERR in flush_to_disk().
+    Added Dir=>... to specify a writable destination directory.
+    Enabled DBI_PROFILE_APACHE_LOG_DIR for mod_perl 1 as well as 2.
+    Added parent pid to default data file name.
+  DBI::ProfileData changes:
+    Added DeleteFiles option to rename & delete files once read.
+    Locks the data files while reading.
+    Added ability to sort by Path elements.
+  dbiprof changes:
+    Added --dumpnodes and --delete options.
+  Added/updated docs for both DBI::ProfileDumper && ::Apache.
+
+=head2 Changes in DBI 1.56 (svn rev 9660),  18th June 2007
+
+  Fixed printf arg warnings thanks to JDHEDDEN.
+  Fixed returning driver-private sth attributes via gofer.   
+
+  Changed pod docs docs to use =head3 instead of =item
+    so now in html you get links to individual methods etc.
+  Changed default gofer retry_limit from 2 to 0.
+  Changed tests to workaround Math::BigInt broken versions.
+  Changed dbi_profile_merge() to dbi_profile_merge_nodes()
+    old name still works as an alias for the new one.
+  Removed old DBI internal sanity check that's no longer valid
+    causing "panic: DESTROY (dbih_clearcom)" when tracing enabled
+
+  Added DBI_GOFER_RANDOM env var that can be use to trigger random
+    failures and delays when executing gofer requests. Designed to help
+    test automatic retry on failures and timeout handling.
+  Added lots more docs to all the DBD::Gofer and DBI::Gofer classes.
+
+=head2 Changes in DBI 1.55 (svn rev 9504),  4th May 2007
+
+  Fixed set_err() so HandleSetErr hook is executed reliably, if set.
+  Fixed accuracy of profiling when perl configured to use long doubles.
+  Fixed 42prof_data.t on fast systems with poor timers thanks to Malcolm Nooning.
+  Fixed potential corruption in selectall_arrayref and selectrow_arrayref
+    for compiled drivers, thanks to Rob Davies.
+    Rebuild your compiled drivers after installing DBI.
+
+  Changed some handle creation code from perl to C code,
+    to reduce handle creation cost by ~20%.
+  Changed internal implementation of the CachedKids attribute
+    so it's a normal handle attribute (and initially undef).
+  Changed connect_cached and prepare_cached to avoid a FETCH method call,
+    and thereby reduced cost by ~5% and ~30% respectively.
+  Changed _set_fbav to not croak when given a wrongly sized array,
+    it now warns and adjusts the row buffer to match.
+  Changed some internals to improve performance with threaded perls.
+  Changed DBD::NullP to be slightly more useful for testing.
+  Changed File::Spec prerequisite to not require a minimum version.
+  Changed tests to work with other DBMs thanks to ZMAN.
+  Changed ex/perl_dbi_nulls_test.pl to be more descriptive.
+
+  Added more functionality to the (undocumented) Callback mechanism.
+    Callbacks can now elect to provide a value to be returned, in which case
+    the method won't be called. A callback for "*" is applied to all methods
+    that don't have their own callback.
+  Added $h->{ReadOnly} attribute.
+  Added support for DBI Profile Path to contain refs to scalars
+    which will be de-ref'd for each profile sample.
+  Added dbilogstrip utility to edit DBI logs for diff'ing (gets installed)
+  Added details for SQLite 3.3 to NULL handling docs thanks to Alex Teslik.
+  Added take_imp_data() to DBI::PurePerl.
+
+  Gofer related changes:
+    Fixed gofer pipeone & stream transports to avoid risk of hanging.
+    Improved error handling and tracing significantly.
+    Added way to generate random 1-in-N failures for methods.
+    Added automatic retry-on-error mechanism to gofer transport base class.
+    Added tests to show automatic retry mechanism works a treat!
+    Added go_retry_hook callback hook so apps can fine-tune retry behaviour.
+    Added header to request and response packets for sanity checking
+      and to enable version skew between client and server.
+    Added forced_single_resultset, max_cached_sth_per_dbh and max_cached_dbh_per_drh
+      to gofer executor config.
+    Driver-private methods installed with install_method are now proxied.
+    No longer does a round-trip to the server for methods it knows
+      have not been overridden by the remote driver.
+    Most significant aspects of gofer behaviour are controlled by policy mechanism.
+    Added policy-controlled caching of results for some methods, such as schema metadata.
+    The connect_cached and prepare_cached methods cache on client and server.
+    The bind_param_array and execute_array methods are now supported.
+    Worked around a DBD::Sybase bind_param bug (which is fixed in DBD::Sybase 1.07)
+    Added goferperf.pl utility (doesn't get installed).
+    Many other assorted Gofer related bug fixes, enhancements and docs.
+    The http and mod_perl transports have been remove to their own distribution.
+    Client and server will need upgrading together for this release.
+
+=head2 Changes in DBI 1.54 (svn rev 9157),  23rd February 2007
+
+  NOTE: This release includes the 'next big thing': DBD::Gofer.
+  Take a look!
+
+  WARNING: This version has some subtle changes in DBI internals.
+  It's possible, though doubtful, that some may affect your code.
+  I recommend some extra testing before using this release.
+  Or perhaps I'm just being over cautious...
+
+  Fixed type_info when called for multiple dbh thanks to Cosimo Streppone.
+  Fixed compile warnings in bleadperl on freebsd-6.1-release
+    and solaris 10g thanks to Philip M. Gollucci.
+  Fixed to compile for perl built with -DNO_MATHOMS thanks to Jerry D. Hedden.
+  Fixed to work for bleadperl (r29544) thanks to Nicholas Clark.
+    Users of Perl >= 5.9.5 will require DBI >= 1.54.
+  Fixed rare error when profiling access to $DBI::err etc tied variables.
+  Fixed DBI::ProfileDumper to not be affected by changes to $/ and $,
+    thanks to Michael Schwern.
+
+  Changed t/40profile.t to skip tests for perl < 5.8.0.
+  Changed setting trace file to no longer write "Trace file set" to new file.
+  Changed 'handle cleared whilst still active' warning for dbh
+    to only be given for dbh that have active sth or are not AutoCommit.
+  Changed take_imp_data to call finish on all Active child sth.
+  Changed DBI::PurePerl trace() method to be more consistent.
+  Changed set_err method to effectively not append to errstr if the new errstr
+    is the same as the current one.
+  Changed handle factory methods, like connect, prepare, and table_info,
+    to copy any error/warn/info state of the handle being returned
+    up into the handle the method was called on.
+  Changed row buffer handling to not alter NUM_OF_FIELDS if it's
+    inconsistent with number of elements in row buffer array.
+  Updated DBI::DBD docs re handling multiple result sets.
+  Updated DBI::DBD docs for driver authors thanks to Ammon Riley
+    and Dean Arnold.
+  Updated column_info docs to note that if a table doesn't exist
+    you get an sth for an empty result set and not an error.
+
+  Added new DBD::Gofer 'stateless proxy' driver and framework,
+    and the DBI test suite is now also executed via DBD::Gofer,
+    and DBD::Gofer+DBI::PurePerl, in addition to DBI::PurePerl.
+  Added ability for trace() to support filehandle argument,
+    including tracing into a string, thanks to Dean Arnold.
+  Added ability for drivers to implement func() method
+    so proxy drivers can proxy the func method itself.
+  Added SQL_BIGINT type code (resolved to the ODBC/JDBC value (-5))
+  Added $h->private_attribute_info method.
+
+=head2 Changes in DBI 1.53 (svn rev 7995),   31st October 2006
+
+  Fixed checks for weaken to work with early 5.8.x versions
+  Fixed DBD::Proxy handling of some methods, including commit and rollback.
+  Fixed t/40profile.t to be more insensitive to long double precision.
+  Fixed t/40profile.t to be insensitive to small negative shifts in time
+    thanks to Jamie McCarthy.
+  Fixed t/40profile.t to skip tests for perl < 5.8.0.
+  Fixed to work with current 'bleadperl' (~5.9.5) thanks to Steve Peters.
+    Users of Perl >= 5.9.5 will require DBI >= 1.53.
+  Fixed to be more robust against drivers not handling multiple result
+    sets properly, thanks to Gisle Aas.
+
+  Added array context support to execute_array and execute_for_fetch
+    methods which returns executed tuples and rows affected.
+  Added Tie::Cache::LRU example to docs thanks to Brandon Black.
+
+=head2 Changes in DBI 1.52 (svn rev 6840),   30th July 2006
+
+  Fixed memory leak (per handle) thanks to Nicholas Clark and Ephraim Dan.
+  Fixed memory leak (16 bytes per sth) thanks to Doru Theodor Petrescu.
+  Fixed execute_for_fetch/execute_array to RaiseError thanks to Martin J. Evans.
+  Fixed for perl 5.9.4. Users of Perl >= 5.9.4 will require DBI >= 1.52.
+
+  Updated DBD::File to 0.35 to match the latest release on CPAN.
+
+  Added $dbh->statistics_info specification thanks to Brandon Black.
+
+  Many changes and additions to profiling:
+    Profile Path can now uses sane strings instead of obscure numbers,
+    can refer to attributes, assorted magical values, and even code refs!
+    Parsing of non-numeric DBI_PROFILE env var values has changed.
+    Changed DBI::Profile docs extensively - many new features.
+    See DBI::Profile docs for more information.
+
+=head2 Changes in DBI 1.51 (svn rev 6475),   6th June 2006
+
+  Fixed $dbh->clone method 'signature' thanks to Jeffrey Klein.
+  Fixed default ping() method to return false if !$dbh->{Active}.
+  Fixed t/40profile.t to be insensitive to long double precision.
+  Fixed for perl 5.8.0's more limited weaken() function.
+  Fixed DBD::Proxy to not alter $@ in disconnect or AUTOLOADd methods.
+  Fixed bind_columns() to use return set_err(...) instead of die()
+    to report incorrect number of parameters, thanks to Ben Thul.
+  Fixed bind_col() to ignore undef as bind location, thanks to David Wheeler.
+  Fixed for perl 5.9.x for non-threaded builds thanks to Nicholas Clark.
+    Users of Perl >= 5.9.x will require DBI >= 1.51.
+  Fixed fetching of rows as hash refs to preserve utf8 on field names
+    from $sth->{NAME} thanks to Alexey Gaidukov.
+  Fixed build on Win32 (dbd_postamble) thanks to David Golden.
+
+  Improved performance for thread-enabled perls thanks to Gisle Aas.
+  Drivers can now use PERL_NO_GET_CONTEXT thanks to Gisle Aas.
+    Driver authors please read the notes in the DBI::DBD docs.
+  Changed DBI::Profile format to always include a percentage,
+    if not exiting then uses time between the first and last DBI call.
+  Changed DBI::ProfileData to be more forgiving of systems with
+    unstable clocks (where time may go backwards occasionally).
+  Clarified the 'Subclassing the DBI' docs.
+  Assorted minor changes to docs from comments on annocpan.org.
+  Changed Makefile.PL to avoid incompatible options for old gcc.
+
+  Added 'fetch array of hash refs' example to selectall_arrayref
+    docs thanks to Tom Schindl.
+  Added docs for $sth->{ParamArrays} thanks to Martin J. Evans.
+  Added reference to $DBI::neat_maxlen in TRACING section of docs.
+  Added ability for DBI::Profile Path to include attributes
+    and a summary of where the code was called from.
 
 =head2 Changes in DBI 1.50 (svn rev 2307),   13 December 2005
 
   Fixed Makefile.PL options for gcc bug introduced in 1.49.
   Fixed handle magic order to keep DBD::Oracle happy.
+  Fixed selectrow_array to return empty list on error.
 
   Changed dbi_profile_merge() to be able to recurse and merge
     sub-trees of profile data.
@@ -51,6 +408,7 @@ DBI::Changes - List of significant changes to the DBI
     I've recoded it in C so there's no significant performance impact.
   Added $h->{Type} docs (returns 'dr', 'db', or 'st')
   Adding trace message in DESTROY if InactiveDestroy enabled.
+  Added %drhs = DBI->installed_drivers();
 
   Ported DBI::ProfileDumper::Apache to mod_perl2 RC5+
     thanks to Philip M. Golluci
@@ -179,7 +537,7 @@ DBI::Changes - List of significant changes to the DBI
   Changed DBI::Profile header to include the date and time.
 
   Added DBI->parse_dsn($dsn) method.
-  Added warning if build directory path contains whitespace.
+  Added warning if build directory path contains white space.
   Added docs for parse_trace_flags() and parse_trace_flag().
   Removed "may change" warnings from the docs for table_info(),
     primary_key_info(), and foreign_key_info() methods.

@@ -1,94 +1,70 @@
-Curl and libcurl 7.16.3
+Curl and libcurl 7.19.4
 
- Public curl release number:               99
- Releases counted from the very beginning: 126
- Available command line options:           118
- Available curl_easy_setopt() options:     141
- Number of public functions in libcurl:    54
- Amount of public web site mirrors:        38
- Number of known libcurl bindings:         35
- Number of contributors:                   554
+ Public curl releases:         110
+ Command line options:         132
+ curl_easy_setopt() options:   163
+ Public functions in libcurl:  58
+ Known libcurl bindings:       38
+ Contributors:                 700
+
+This release includes the following security-related fix:
+
+ o CVE-2009-0037 with the curl advisory here:
+   http://curl.haxx.se/docs/adv_20090303.html
 
 This release includes the following changes:
- 
- o added curl_multi_socket_action()
- o deprecated curl_multi_socket()
- o uses less memory in non-pipelined use cases
- o CURLOPT_HTTP200ALIASES matched transfers assume HTTP 1.0 compliance
- o more than one test harness can run at the same time without conflict
- o SFTP now supports quote commands before a transfer
- o CURLMOPT_MAXCONNECTS added to curl_multi_setopt()
- o upload resume works for file:// URLs
- o asynchronous name resolves now require c-ares 1.4.0 or later
- o added SOCKS test cases
- o CURLOPT_FTP_CREATE_MISSING_DIRS and --ftp-create-dirs now work for SFTP
-   operations as well
+
+ o Added CURLOPT_NOPROXY and the corresponding --noproxy
+ o the OpenSSL-specific code disables TICKET (rfc5077) which is enabled by
+   default in openssl 0.9.8j
+ o Added CURLOPT_TFTP_BLKSIZE
+ o Added CURLOPT_SOCKS5_GSSAPI_SERVICE and CURLOPT_SOCKS5_GSSAPI_NEC - with
+   the corresponding curl options --socks5-gssapi-service and
+   --socks5-gssapi-nec
+ o Improved IPv6 support when built with with c-ares >= 1.6.1
+ o Added CURLPROXY_HTTP_1_0 and --proxy1.0
+ o Added docs/libcurl/symbols-in-versions
+ o Added CURLINFO_CONDITION_UNMET
+ o Added support for Digest and NTLM authentication using GnuTLS
+ o CURLOPT_FTP_CREATE_MISSING_DIRS can now be set to 2 to retry the CWD even
+   when MKD fails
+ o GnuTLS initing moved to curl_global_init()
+ o Added CURLOPT_REDIR_PROTOCOLS and CURLOPT_PROTOCOLS
 
 This release includes the following bugfixes:
 
- o if2up too long interface name memory leak
- o test case 534 started to fail 2007-04-13 due to the existance of a
-   new host on the net with the same silly domain the test was using
-   for a host which was supposed not to exist.
- o test suite SSL certificate works better with newer stunnel
- o internal progress meter update frequency back to once per second
- o avoid some unnecessary calls to function gettimeofday
- o a double-free in the SSL-layer
- o GnuTLS free of NULL credentials
- o NSS-fix for closing down SSL
- o bad warning from configure when gnutls was selected
- o compilation on VMS 64-bit mode
- o SCP/SFTP downloads could hang on the last bytes of a transfer
- o curl_easy_duphandle() crash
- o curl -V / curl_version*() works even when GnuTLS is used on a system without
-   a good random source
- o curl_multi_socket() not "noticing" newly added handles
- o lack of Content-Length and chunked encoding now requires HTTP 1.1 as well
-   to be treated as without response body
- o connection cache growth in multi handles
- o better handling of out of memory conditions
- o overwriting an uploaded file with sftp now truncates it first
- o SFTP quote commands chmod, chown, chgrp can now set a value of 0
- o TFTP connect timouts less than 5 seconds
- o improved curl -w for TFTP transfers
- o memory leak when failed OpenSSL certificate CN field checking
- o memory leak when OpenSSL failed PKCS #12 parsing
- o FPL-SSL when built with NSS
- o out-of-boundary write in Curl_select()
- o -s/--silent can now be used to toggle off the silence again
- o builds fine on 64bit HP-UX
- o multi interface HTTP CONNECT glitch
- o list FTP root directories when login dir is not root
- o no longer slows down when getting very many URLs on the same command line
- o lock share before decreasing dirty counter
- o no-body FTP requests on re-used connections
+ o missing ssh.obj in VS makefiles
+ o FTP ;type=i URLs now work with CURLOPT_PROXY_TRANSFER_MODE in Turkish
+   locale 
+ o realms with quoted quotation marks in HTTP Digest headers
+ o VC9 makefiles are now really included
+ o multi interface memory leak with CURLMOPT_MAXCONNECTS set
+ o CURLINFO_CONTENT_LENGTH_DOWNLOAD size from file:// "transfers" with
+   CURLOPT_NOBODY set true
+ o memory leak on some libz errors for content encodings
+ o NSS-enabled build is repaired
+ o superfluous wait in SFTP downloads removed
+ o FTP with the multi interface no longer kills the control connection as
+   easily on transfer failures
+ o compilation halting when using VS2008 to build a Windows 2000 target
+ o ease creation of libcurl Mac OS X Framework
+ o CURLINFO_CONTENT_LENGTH_DOWNLOAD and CURLINFO_CONTENT_LENGTH_UPLOAD are -1
+   if unknown
+ o Negotiate proxy authentication
+ o CURLOPT_INTERFACE and CURLOPT_LOCALPORT used together
 
 This release includes the following known bugs:
 
  o see docs/KNOWN_BUGS (http://curl.haxx.se/docs/knownbugs.html)
 
-Other curl-related news:
-
- o PycURL 7.16.2.1 was released: http://pycurl.sf.net/
- o TclCurl 7.16.2 was released:
-   http://personal1.iddeo.es/andresgarci/tclcurl/english/
-
-New curl mirrors:
-
- o http://curl.spegulo.be is a new mirror in Belgium
- o http://curl.piotrkosoft.net is a new mirror in Poland
- o http://curl.smudge-it.net is a new mirror in St Louis, MO, USA
- o http://curl.askapache.com is a new mirror in Indiana, USA
-
 This release would not have looked like this without help, code, reports and
 advice from friends like these:
 
- Song Ma, Dan Fandrich, Yang Tse, Jay Austin, Robert Iakobashvil,
- James Housley, Daniel Black, Steve Little, Sonia Subramanian, Peter O'Gorman,
- Frank Hempel, Michael Wallner, Jeff Pohlmeyer, Tobias Rundström,
- Anders Gustafsson, James Bursa, Kristian Gunstone, Feng Tu,
- Andre Guibert de Bruet, Rob Crittenden, Rich Rauenzahn, Tom Regner,
- Dave Vasilevsky, Shmulik Regev, Robson Braga Araujo, Adam Piggott,
- Gerrit Bruchhäuser
+ Lisa Xu, Daniel Fandrich, Craig A West, Alexey Borzov, Sharad Gupta,
+ Peter Sylvester, Chad Monroe, Markus Moeller, Yang Tse, Scott Cantor,
+ Patrick Scott, Hidemoto Nakada, Jocelyn Jaubert, Andre Guibert de Bruet,
+ Kamil Dudka, Patrik Thunstrom, Linus Nielsen Feltzing, Mark Incley,
+ Daniel Johnson, James Cheng, Brian J. Murrell, Senthil Raja Velu,
+ Markus Koetter, David Kierznowski, Michal Marek
 
         Thanks! (and sorry if I forgot to mention someone)

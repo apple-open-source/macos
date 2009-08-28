@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Rob Braun
+ * Copyright (c) 2005-2007 Rob Braun
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,7 +28,7 @@
  */
 /*
  * 03-Apr-2005
- * DRI: Rob Braun <bbraun@opendarwin.org>
+ * DRI: Rob Braun <bbraun@synack.net>
  */
 /*
  * Portions Copyright 2006, Apple Computer, Inc.
@@ -43,5 +43,6 @@
 int32_t xar_stat_archive(xar_t x, xar_file_t f, const char *file, const char *buffer, size_t len);
 int32_t xar_stat_extract(xar_t x, xar_file_t f, const char *file, char *buffer, size_t len);
 int32_t xar_set_perm(xar_t x, xar_file_t f, const char *file, char *buffer, size_t len);
+int32_t xar_flags_extract(xar_t x, xar_file_t f, const char *file, char *buffer, size_t len);
 
 #endif /* _XAR_STAT_H_ */

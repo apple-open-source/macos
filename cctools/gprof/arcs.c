@@ -149,7 +149,7 @@ void)
 {
     nltype	*parentp, **timesortnlp;
     arctype	*arcp;
-    unsigned long index;
+    uint32_t index;
 
 	/*
 	 * initialize various things:
@@ -242,7 +242,7 @@ void)
 	for(index = 0; index < nname; index++){
 	    timesortnlp[index] = &nl[index];
 	}
-	for(index = 1; index <= (unsigned long)ncycle; index++){
+	for(index = 1; index <= (uint32_t)ncycle; index++){
 	    timesortnlp[nname + index - 1] = &cyclenl[index];
 	}
 	qsort(timesortnlp, nname + ncycle, sizeof(nltype *),
@@ -258,7 +258,7 @@ void
 dotime(
 void)
 {
-    unsigned long index;
+    uint32_t index;
 
 	cycletime();
 	for(index = 0; index < nname; index += 1){
@@ -343,7 +343,7 @@ nltype *parentp)
 	    if(debug & PROPDEBUG){
 		printf("[dotime] child \t");
 		printname(childp);
-		printf(" with %f %f %u/%ld\n",
+		printf(" with %f %f %u/%u\n",
 			childp->time, childp->childtime,
 			arcp->arc_count, childp->ncall);
 		printf("[dotime] parent\t");
@@ -484,7 +484,7 @@ void
 doflags(
 void)
 {
-    long index;
+    int32_t index;
     nltype *childp;
     nltype *oldhead;
 

@@ -20,6 +20,12 @@
 # define SET_BINARY(f) (void)0
 #endif
 
+#if defined __STDC__ || defined __cplusplus
+extern struct language * in_word_set (const char *, int);
+#else
+extern struct language * in_word_set ();
+#endif
+
 #define MAX_LEN 80
 
 int

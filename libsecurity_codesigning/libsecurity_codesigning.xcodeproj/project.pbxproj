@@ -7,6 +7,17 @@
 	objects = {
 
 /* Begin PBXAggregateTarget section */
+		C26AC7090DAEB3A7005BFB40 /* DTrace */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = C26AC70D0DAEB3C6005BFB40 /* Build configuration list for PBXAggregateTarget "DTrace" */;
+			buildPhases = (
+				C26AC7080DAEB3A7005BFB40 /* ShellScript */,
+			);
+			dependencies = (
+			);
+			name = DTrace;
+			productName = DTrace;
+		};
 		C2D383B80A23A8C4005C63A2 /* Requirements Language */ = {
 			isa = PBXAggregateTarget;
 			buildConfigurationList = C2D383C00A23A8E3005C63A2 /* Build configuration list for PBXAggregateTarget "Requirements Language" */;
@@ -35,37 +46,46 @@
 
 /* Begin PBXBuildFile section */
 		C2093AA80BB0948000EB8599 /* reqreader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2093AA60BB0948000EB8599 /* reqreader.cpp */; };
-		C2093AA90BB0948000EB8599 /* reqreader.h in Headers */ = {isa = PBXBuildFile; fileRef = C2093AA70BB0948000EB8599 /* reqreader.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C2093AC80BB0967D00EB8599 /* reqreader.h in Headers */ = {isa = PBXBuildFile; fileRef = C2093AA70BB0948000EB8599 /* reqreader.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C21CFC5F0A250D1C006CD5B1 /* reqdumper.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C21CFC5D0A250D1C006CD5B1 /* reqdumper.cpp */; };
 		C21CFC620A250D1C006CD5B1 /* reqdumper.h in Headers */ = {isa = PBXBuildFile; fileRef = C21CFC5E0A250D1C006CD5B1 /* reqdumper.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C21EA3DD0AD2F81300E6E31C /* SecCodeSigner.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C21EA3DB0AD2F81300E6E31C /* SecCodeSigner.cpp */; };
-		C21EA3DE0AD2F81300E6E31C /* SecCodeSigner.h in Headers */ = {isa = PBXBuildFile; fileRef = C21EA3DC0AD2F81300E6E31C /* SecCodeSigner.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		C21EA3E00AD2F81300E6E31C /* SecCodeSigner.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = C21EA3DC0AD2F81300E6E31C /* SecCodeSigner.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		C21EA3E30AD2FA0900E6E31C /* CodeSigner.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C21EA3E10AD2FA0900E6E31C /* CodeSigner.cpp */; };
 		C224635F0B8620F800626F1B /* RequirementParser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D383F00A23A9D3005C63A2 /* RequirementParser.cpp */; };
 		C22463600B8620F800626F1B /* RequirementLexer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D383EE0A23A9D3005C63A2 /* RequirementLexer.cpp */; };
 		C22463610B86210100626F1B /* antlrplugin.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2CC31130B85254F005FA59D /* antlrplugin.cpp */; };
 		C236E3D70AD59446000F5140 /* signer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C236E3D50AD59446000F5140 /* signer.cpp */; };
-		C236E3D80AD59446000F5140 /* signer.h in Headers */ = {isa = PBXBuildFile; fileRef = C236E3D60AD59446000F5140 /* signer.h */; };
 		C236E3DB0AD595C2000F5140 /* signerutils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C236E3D90AD595C2000F5140 /* signerutils.cpp */; };
-		C236E3DC0AD595C2000F5140 /* signerutils.h in Headers */ = {isa = PBXBuildFile; fileRef = C236E3DA0AD595C2000F5140 /* signerutils.h */; };
 		C250F6C30B5EF1910076098F /* SecIntegrity.h in Headers */ = {isa = PBXBuildFile; fileRef = C250F6C20B5EF1910076098F /* SecIntegrity.h */; };
-		C25942440BA7095000877E56 /* foreigndiskrep.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C25942420BA7095000877E56 /* foreigndiskrep.cpp */; };
-		C25942450BA7095000877E56 /* foreigndiskrep.h in Headers */ = {isa = PBXBuildFile; fileRef = C25942430BA7095000877E56 /* foreigndiskrep.h */; };
 		C259DFD60AD6D9BA00C9ACC6 /* sigblob.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C259DFD40AD6D9BA00C9ACC6 /* sigblob.cpp */; };
-		C259DFD70AD6D9BA00C9ACC6 /* sigblob.h in Headers */ = {isa = PBXBuildFile; fileRef = C259DFD50AD6D9BA00C9ACC6 /* sigblob.h */; };
 		C26B45C10B8A9C0A003C0ACA /* ucspc in Frameworks */ = {isa = PBXBuildFile; fileRef = C26B45C00B8A9C00003C0ACA /* ucspc */; };
+		C26FF62D0E5B375A00F640A0 /* SecIntegrityLib.h in Headers */ = {isa = PBXBuildFile; fileRef = C2CC31040B8523AD005FA59D /* SecIntegrityLib.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		C26FF62E0E5B375A00F640A0 /* SecCodeHostLib.h in Headers */ = {isa = PBXBuildFile; fileRef = C2BC1F340B580DA7003EC9DC /* SecCodeHostLib.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		C26FF62F0E5B376B00F640A0 /* CodeSigning.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383180A237F47005C63A2 /* CodeSigning.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C26FF6300E5B376B00F640A0 /* CSCommon.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D3831C0A237F47005C63A2 /* CSCommon.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C26FF6310E5B376B00F640A0 /* CSCommonPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D50CDF0E155A4F0059A195 /* CSCommonPriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		C26FF6320E5B376B00F640A0 /* SecCode.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D3831E0A237F47005C63A2 /* SecCode.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C26FF6330E5B376B00F640A0 /* SecCodePriv.h in Headers */ = {isa = PBXBuildFile; fileRef = C2E8AF240DE25CA7000F6D3B /* SecCodePriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		C26FF6340E5B376B00F640A0 /* SecStaticCode.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383220A237F47005C63A2 /* SecStaticCode.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C26FF6350E5B376B00F640A0 /* SecStaticCodePriv.h in Headers */ = {isa = PBXBuildFile; fileRef = C2E8AF260DE25CA7000F6D3B /* SecStaticCodePriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		C26FF6360E5B376B00F640A0 /* SecRequirement.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383260A237F47005C63A2 /* SecRequirement.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C26FF6370E5B376B00F640A0 /* SecRequirementPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = C2E8AF250DE25CA7000F6D3B /* SecRequirementPriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		C26FF6380E5B376B00F640A0 /* SecCodeSigner.h in Headers */ = {isa = PBXBuildFile; fileRef = C21EA3DC0AD2F81300E6E31C /* SecCodeSigner.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		C26FF6390E5B376B00F640A0 /* SecCodeHost.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383190A237F47005C63A2 /* SecCodeHost.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C26FF63A0E5B376B00F640A0 /* SecIntegrity.h in Headers */ = {isa = PBXBuildFile; fileRef = C250F6C20B5EF1910076098F /* SecIntegrity.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		C28342E60E366E6800E54360 /* csdatabase.h in Headers */ = {isa = PBXBuildFile; fileRef = C28342E50E366E6800E54360 /* csdatabase.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C28342E70E366E6800E54360 /* csdatabase.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C28342E40E366E6800E54360 /* csdatabase.cpp */; };
+		C28342ED0E36719D00E54360 /* detachedrep.h in Headers */ = {isa = PBXBuildFile; fileRef = C28342EC0E36719D00E54360 /* detachedrep.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C28342EE0E36719D00E54360 /* detachedrep.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C28342EB0E36719D00E54360 /* detachedrep.cpp */; };
 		C297DF250B014BB300E94EE0 /* SecCodeSigner.h in Headers */ = {isa = PBXBuildFile; fileRef = C21EA3DC0AD2F81300E6E31C /* SecCodeSigner.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		C2A36B4B0D906C08003412BA /* resources.h in Headers */ = {isa = PBXBuildFile; fileRef = C2E911E10ADEBE3200275CB2 /* resources.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C2A436150F2133B2007A41A6 /* slcrep.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2A436130F2133B2007A41A6 /* slcrep.cpp */; };
+		C2A436160F2133B2007A41A6 /* slcrep.h in Headers */ = {isa = PBXBuildFile; fileRef = C2A436140F2133B2007A41A6 /* slcrep.h */; };
 		C2A487530B7914F400849490 /* SecCodeHostLib.h in Headers */ = {isa = PBXBuildFile; fileRef = C2BC1F340B580DA7003EC9DC /* SecCodeHostLib.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		C2A487540B79150C00849490 /* SecIntegrity.h in Headers */ = {isa = PBXBuildFile; fileRef = C250F6C20B5EF1910076098F /* SecIntegrity.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		C2A487550B79152A00849490 /* SecIntegrity.h in Headers */ = {isa = PBXBuildFile; fileRef = C250F6C20B5EF1910076098F /* SecIntegrity.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		C2A487560B79152A00849490 /* SecCodeHostLib.h in Headers */ = {isa = PBXBuildFile; fileRef = C2BC1F340B580DA7003EC9DC /* SecCodeHostLib.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		C2A752B70B80EAFB004CF655 /* SecIntegrity.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = C250F6C20B5EF1910076098F /* SecIntegrity.h */; };
 		C2A752B80B80EAFB004CF655 /* SecCodeHostLib.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = C2BC1F340B580DA7003EC9DC /* SecCodeHostLib.h */; };
 		C2A976AA0B8A2E36008B4EA0 /* csutilities.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2A976A80B8A2E36008B4EA0 /* csutilities.cpp */; };
-		C2A976AB0B8A2E36008B4EA0 /* csutilities.h in Headers */ = {isa = PBXBuildFile; fileRef = C2A976A90B8A2E36008B4EA0 /* csutilities.h */; };
 		C2BC1F350B580DA7003EC9DC /* SecCodeHostLib.h in Headers */ = {isa = PBXBuildFile; fileRef = C2BC1F340B580DA7003EC9DC /* SecCodeHostLib.h */; };
 		C2BD519C0A9392FD000FE43D /* machorep.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2BD519A0A9392FD000FE43D /* machorep.cpp */; };
 		C2BD519F0A9392FD000FE43D /* machorep.h in Headers */ = {isa = PBXBuildFile; fileRef = C2BD519B0A9392FD000FE43D /* machorep.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -73,37 +93,27 @@
 		C2BD61BD0AC9C77B0057FD3D /* csgeneric.h in Headers */ = {isa = PBXBuildFile; fileRef = C2BD60F90AC863FC0057FD3D /* csgeneric.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C2C1DF140A2E3D7200D1B02B /* requirement.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D383350A237F47005C63A2 /* requirement.cpp */; };
 		C2C1DFBB0A2F80EB00D1B02B /* reqinterp.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2C1DFB90A2F80EB00D1B02B /* reqinterp.cpp */; };
-		C2C1DFBC0A2F80EB00D1B02B /* reqinterp.h in Headers */ = {isa = PBXBuildFile; fileRef = C2C1DFBA0A2F80EB00D1B02B /* reqinterp.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C2C1DFBE0A2F80EB00D1B02B /* reqinterp.h in Headers */ = {isa = PBXBuildFile; fileRef = C2C1DFBA0A2F80EB00D1B02B /* reqinterp.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C2C1DFC30A2F820500D1B02B /* reqmaker.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2C1DFC10A2F820500D1B02B /* reqmaker.cpp */; };
-		C2C1DFC40A2F820500D1B02B /* reqmaker.h in Headers */ = {isa = PBXBuildFile; fileRef = C2C1DFC20A2F820500D1B02B /* reqmaker.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C2C1DFC60A2F820500D1B02B /* reqmaker.h in Headers */ = {isa = PBXBuildFile; fileRef = C2C1DFC20A2F820500D1B02B /* reqmaker.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C2C315D70D9319E800E7AA0C /* csutilities.h in Headers */ = {isa = PBXBuildFile; fileRef = C2A976A90B8A2E36008B4EA0 /* csutilities.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C2C3BC5F0BA1D6FE00E869D1 /* cfmdiskrep.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2C3BC5D0BA1D6FE00E869D1 /* cfmdiskrep.cpp */; };
-		C2C3BC600BA1D6FE00E869D1 /* cfmdiskrep.h in Headers */ = {isa = PBXBuildFile; fileRef = C2C3BC5E0BA1D6FE00E869D1 /* cfmdiskrep.h */; };
 		C2C3BCD30BA1E47E00E869D1 /* singlediskrep.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2C3BCD10BA1E47E00E869D1 /* singlediskrep.cpp */; };
-		C2C3BCD40BA1E47E00E869D1 /* singlediskrep.h in Headers */ = {isa = PBXBuildFile; fileRef = C2C3BCD20BA1E47E00E869D1 /* singlediskrep.h */; };
 		C2C931B40AB8BA1200F83950 /* SecCodeHost.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2C931B30AB8BA1200F83950 /* SecCodeHost.cpp */; };
-		C2C931B50AB8BA8200F83950 /* SecCodeHost.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383190A237F47005C63A2 /* SecCodeHost.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		C2C931B60AB8BAC200F83950 /* SecCodeHost.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = C2D383190A237F47005C63A2 /* SecCodeHost.h */; };
 		C2CC31050B8523AD005FA59D /* SecIntegrityLib.h in Headers */ = {isa = PBXBuildFile; fileRef = C2CC31040B8523AD005FA59D /* SecIntegrityLib.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		C2CC31060B8523F8005FA59D /* SecIntegrityLib.h in Headers */ = {isa = PBXBuildFile; fileRef = C2CC31040B8523AD005FA59D /* SecIntegrityLib.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		C2CC310F0B852424005FA59D /* SecIntegrityLib.c in Sources */ = {isa = PBXBuildFile; fileRef = C2CC310E0B852424005FA59D /* SecIntegrityLib.c */; };
 		C2CC31100B852447005FA59D /* SecIntegrityLib.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = C2CC31040B8523AD005FA59D /* SecIntegrityLib.h */; };
-		C2CCF0310A3F523D0085795A /* macho++.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2CCF02F0A3F523D0085795A /* macho++.cpp */; };
-		C2CCF0340A3F523D0085795A /* macho++.h in Headers */ = {isa = PBXBuildFile; fileRef = C2CCF0300A3F523D0085795A /* macho++.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C2CFB9C70DF8789A003F57E4 /* SecCodeHost.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = C2D383190A237F47005C63A2 /* SecCodeHost.h */; };
+		C2D213870D9844F700E76E7D /* resources.h in Headers */ = {isa = PBXBuildFile; fileRef = C2E911E10ADEBE3200275CB2 /* resources.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C2D3833C0A237F47005C63A2 /* bundlediskrep.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D383120A237F47005C63A2 /* bundlediskrep.cpp */; };
 		C2D3833E0A237F47005C63A2 /* cdbuilder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D383140A237F47005C63A2 /* cdbuilder.cpp */; };
 		C2D383400A237F47005C63A2 /* codedirectory.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D383160A237F47005C63A2 /* codedirectory.cpp */; };
 		C2D383440A237F47005C63A2 /* cs.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D3831A0A237F47005C63A2 /* cs.cpp */; };
-		C2D383460A237F47005C63A2 /* CSCommon.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D3831C0A237F47005C63A2 /* CSCommon.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		C2D383470A237F47005C63A2 /* SecCode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D3831D0A237F47005C63A2 /* SecCode.cpp */; };
-		C2D383480A237F47005C63A2 /* SecCode.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D3831E0A237F47005C63A2 /* SecCode.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		C2D383490A237F47005C63A2 /* cskernel.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D3831F0A237F47005C63A2 /* cskernel.cpp */; };
 		C2D3834B0A237F47005C63A2 /* SecStaticCode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D383210A237F47005C63A2 /* SecStaticCode.cpp */; };
-		C2D3834C0A237F47005C63A2 /* SecStaticCode.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383220A237F47005C63A2 /* SecStaticCode.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		C2D3834D0A237F47005C63A2 /* csprocess.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D383230A237F47005C63A2 /* csprocess.cpp */; };
 		C2D3834F0A237F47005C63A2 /* SecRequirement.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D383250A237F47005C63A2 /* SecRequirement.cpp */; };
-		C2D383500A237F47005C63A2 /* SecRequirement.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383260A237F47005C63A2 /* SecRequirement.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		C2D383510A237F47005C63A2 /* diskrep.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D383270A237F47005C63A2 /* diskrep.cpp */; };
 		C2D383550A237F47005C63A2 /* filediskrep.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D3832B0A237F47005C63A2 /* filediskrep.cpp */; };
 		C2D383570A237F47005C63A2 /* Code.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D3832D0A237F47005C63A2 /* Code.cpp */; };
@@ -111,19 +121,18 @@
 		C2D3835B0A237F47005C63A2 /* StaticCode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D383310A237F47005C63A2 /* StaticCode.cpp */; };
 		C2D3835D0A237F47005C63A2 /* reqparser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D383330A237F47005C63A2 /* reqparser.cpp */; };
 		C2D383610A237F47005C63A2 /* Requirements.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D383370A237F47005C63A2 /* Requirements.cpp */; };
-		C2D383630A237F47005C63A2 /* security_codesigning.exp in Sources */ = {isa = PBXBuildFile; fileRef = C2D383390A237F47005C63A2 /* security_codesigning.exp */; };
 		C2D383670A237F47005C63A2 /* bundlediskrep.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383130A237F47005C63A2 /* bundlediskrep.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C2D383690A237F47005C63A2 /* cdbuilder.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383150A237F47005C63A2 /* cdbuilder.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C2D3836B0A237F47005C63A2 /* codedirectory.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383170A237F47005C63A2 /* codedirectory.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		C2D3836C0A237F47005C63A2 /* CodeSigning.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383180A237F47005C63A2 /* CodeSigning.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		C2D3836D0A237F47005C63A2 /* SecCodeHost.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383190A237F47005C63A2 /* SecCodeHost.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		C2D3836C0A237F47005C63A2 /* CodeSigning.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383180A237F47005C63A2 /* CodeSigning.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C2D3836D0A237F47005C63A2 /* SecCodeHost.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383190A237F47005C63A2 /* SecCodeHost.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C2D3836F0A237F47005C63A2 /* cs.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D3831B0A237F47005C63A2 /* cs.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		C2D383700A237F47005C63A2 /* CSCommon.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D3831C0A237F47005C63A2 /* CSCommon.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		C2D383720A237F47005C63A2 /* SecCode.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D3831E0A237F47005C63A2 /* SecCode.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		C2D383700A237F47005C63A2 /* CSCommon.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D3831C0A237F47005C63A2 /* CSCommon.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C2D383720A237F47005C63A2 /* SecCode.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D3831E0A237F47005C63A2 /* SecCode.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C2D383740A237F47005C63A2 /* cskernel.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383200A237F47005C63A2 /* cskernel.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		C2D383760A237F47005C63A2 /* SecStaticCode.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383220A237F47005C63A2 /* SecStaticCode.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		C2D383760A237F47005C63A2 /* SecStaticCode.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383220A237F47005C63A2 /* SecStaticCode.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C2D383780A237F47005C63A2 /* csprocess.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383240A237F47005C63A2 /* csprocess.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		C2D3837A0A237F47005C63A2 /* SecRequirement.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383260A237F47005C63A2 /* SecRequirement.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		C2D3837A0A237F47005C63A2 /* SecRequirement.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383260A237F47005C63A2 /* SecRequirement.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C2D3837C0A237F47005C63A2 /* diskrep.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383280A237F47005C63A2 /* diskrep.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C2D383800A237F47005C63A2 /* filediskrep.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D3832C0A237F47005C63A2 /* filediskrep.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C2D383820A237F47005C63A2 /* Code.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D3832E0A237F47005C63A2 /* Code.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -138,19 +147,20 @@
 		C2D383920A23803A005C63A2 /* SecCode.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = C2D3831E0A237F47005C63A2 /* SecCode.h */; };
 		C2D383930A23803A005C63A2 /* SecStaticCode.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = C2D383220A237F47005C63A2 /* SecStaticCode.h */; };
 		C2D383940A23803A005C63A2 /* SecRequirement.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = C2D383260A237F47005C63A2 /* SecRequirement.h */; };
-		C2D3839A0A238132005C63A2 /* CodeSigning.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383180A237F47005C63A2 /* CodeSigning.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		C2D3839B0A238150005C63A2 /* CodeSigning.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = C2D383180A237F47005C63A2 /* CodeSigning.h */; };
-		C2D8A07F0AE7F6E300F68F79 /* cfmunge.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D8A07D0AE7F6E300F68F79 /* cfmunge.cpp */; };
-		C2D8A0800AE7F6E300F68F79 /* cfmunge.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D8A07E0AE7F6E300F68F79 /* cfmunge.h */; };
-		C2D8A0980AE7F74500F68F79 /* cfmunge.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D8A07E0AE7F6E300F68F79 /* cfmunge.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C2D50CE10E155ABC0059A195 /* CSCommonPriv.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = C2D50CDF0E155A4F0059A195 /* CSCommonPriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		C2D50CE20E155AE60059A195 /* CSCommonPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D50CDF0E155A4F0059A195 /* CSCommonPriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		C2E2873D0B5D8D80009336A0 /* SecCodeHostLib.c in Sources */ = {isa = PBXBuildFile; fileRef = C2E2873C0B5D8D80009336A0 /* SecCodeHostLib.c */; };
+		C2E8AF2A0DE25D11000F6D3B /* SecCodePriv.h in Headers */ = {isa = PBXBuildFile; fileRef = C2E8AF240DE25CA7000F6D3B /* SecCodePriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		C2E8AF2B0DE25D11000F6D3B /* SecStaticCodePriv.h in Headers */ = {isa = PBXBuildFile; fileRef = C2E8AF260DE25CA7000F6D3B /* SecStaticCodePriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		C2E8AF2C0DE25D11000F6D3B /* SecRequirementPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = C2E8AF250DE25CA7000F6D3B /* SecRequirementPriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		C2E8AF2D0DE25D74000F6D3B /* SecCodePriv.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = C2E8AF240DE25CA7000F6D3B /* SecCodePriv.h */; };
+		C2E8AF2E0DE25D74000F6D3B /* SecStaticCodePriv.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = C2E8AF260DE25CA7000F6D3B /* SecStaticCodePriv.h */; };
+		C2E8AF2F0DE25D74000F6D3B /* SecRequirementPriv.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = C2E8AF250DE25CA7000F6D3B /* SecRequirementPriv.h */; };
 		C2E911E20ADEBE3200275CB2 /* resources.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2E911E00ADEBE3200275CB2 /* resources.cpp */; };
-		C2E911E30ADEBE3200275CB2 /* resources.h in Headers */ = {isa = PBXBuildFile; fileRef = C2E911E10ADEBE3200275CB2 /* resources.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C2EF10100A49BD89005A44BB /* renum.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2EF100E0A49BD89005A44BB /* renum.cpp */; };
-		C2EF10110A49BD89005A44BB /* renum.h in Headers */ = {isa = PBXBuildFile; fileRef = C2EF100F0A49BD89005A44BB /* renum.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C2EF10130A49BD89005A44BB /* renum.h in Headers */ = {isa = PBXBuildFile; fileRef = C2EF100F0A49BD89005A44BB /* renum.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C2F6566E0BCBFB250078779E /* cserror.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2F6566C0BCBFB250078779E /* cserror.cpp */; };
-		C2F6566F0BCBFB250078779E /* cserror.h in Headers */ = {isa = PBXBuildFile; fileRef = C2F6566D0BCBFB250078779E /* cserror.h */; };
 		C2F656930BCBFFF40078779E /* cserror.h in Headers */ = {isa = PBXBuildFile; fileRef = C2F6566D0BCBFB250078779E /* cserror.h */; settings = {ATTRIBUTES = (Public, ); }; };
 /* End PBXBuildFile section */
 
@@ -175,6 +185,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = C2BC1F250B580D3A003EC9DC;
 			remoteInfo = libintegrity;
+		};
+		C26AC70E0DAEB400005BFB40 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C26AC7090DAEB3A7005BFB40;
+			remoteInfo = DTrace;
 		};
 		C2E287400B5D8F97009336A0 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -219,6 +236,12 @@
 			dstPath = SecurityPieces/Headers/Security;
 			dstSubfolderSpec = 16;
 			files = (
+				C2D3839B0A238150005C63A2 /* CodeSigning.h in CopyFiles */,
+				C2D383910A23803A005C63A2 /* CSCommon.h in CopyFiles */,
+				C2D383920A23803A005C63A2 /* SecCode.h in CopyFiles */,
+				C2D383930A23803A005C63A2 /* SecStaticCode.h in CopyFiles */,
+				C2D383940A23803A005C63A2 /* SecRequirement.h in CopyFiles */,
+				C2CFB9C70DF8789A003F57E4 /* SecCodeHost.h in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -228,14 +251,12 @@
 			dstPath = SecurityPieces/PrivateHeaders/Security;
 			dstSubfolderSpec = 16;
 			files = (
+				C2D50CE10E155ABC0059A195 /* CSCommonPriv.h in CopyFiles */,
+				C2E8AF2D0DE25D74000F6D3B /* SecCodePriv.h in CopyFiles */,
+				C2E8AF2E0DE25D74000F6D3B /* SecStaticCodePriv.h in CopyFiles */,
+				C2E8AF2F0DE25D74000F6D3B /* SecRequirementPriv.h in CopyFiles */,
 				C2CC31100B852447005FA59D /* SecIntegrityLib.h in CopyFiles */,
 				C21EA3E00AD2F81300E6E31C /* SecCodeSigner.h in CopyFiles */,
-				C2D3839B0A238150005C63A2 /* CodeSigning.h in CopyFiles */,
-				C2D383910A23803A005C63A2 /* CSCommon.h in CopyFiles */,
-				C2D383920A23803A005C63A2 /* SecCode.h in CopyFiles */,
-				C2D383930A23803A005C63A2 /* SecStaticCode.h in CopyFiles */,
-				C2D383940A23803A005C63A2 /* SecRequirement.h in CopyFiles */,
-				C2C931B60AB8BAC200F83950 /* SecCodeHost.h in CopyFiles */,
 				C2A752B70B80EAFB004CF655 /* SecIntegrity.h in CopyFiles */,
 				C2A752B80B80EAFB004CF655 /* SecCodeHostLib.h in CopyFiles */,
 			);
@@ -245,7 +266,7 @@
 
 /* Begin PBXFileReference section */
 		4C56351E0540A55300DCF0C8 /* security_codesigning.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = security_codesigning.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		4CA1FEBE052A3C8100F22E42 /* security_codesigning */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; path = security_codesigning; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CA1FEBE052A3C8100F22E42 /* security_codesigning */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = security_codesigning; sourceTree = BUILT_PRODUCTS_DIR; };
 		C2093AA60BB0948000EB8599 /* reqreader.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = reqreader.cpp; sourceTree = "<group>"; };
 		C2093AA70BB0948000EB8599 /* reqreader.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = reqreader.h; sourceTree = "<group>"; };
 		C21CFC5D0A250D1C006CD5B1 /* reqdumper.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = reqdumper.cpp; sourceTree = "<group>"; };
@@ -260,13 +281,19 @@
 		C236E3DA0AD595C2000F5140 /* signerutils.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = signerutils.h; sourceTree = "<group>"; };
 		C250F6C20B5EF1910076098F /* SecIntegrity.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecIntegrity.h; sourceTree = "<group>"; };
 		C250F6C60B5EF5B50076098F /* SecIntegrity.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SecIntegrity.cpp; sourceTree = "<group>"; };
-		C25942420BA7095000877E56 /* foreigndiskrep.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = foreigndiskrep.cpp; sourceTree = "<group>"; };
-		C25942430BA7095000877E56 /* foreigndiskrep.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = foreigndiskrep.h; sourceTree = "<group>"; };
 		C259DFD40AD6D9BA00C9ACC6 /* sigblob.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = sigblob.cpp; sourceTree = "<group>"; };
 		C259DFD50AD6D9BA00C9ACC6 /* sigblob.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = sigblob.h; sourceTree = "<group>"; };
+		C26AC6FD0DAEB2C4005BFB40 /* security_codesigning.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; path = security_codesigning.d; sourceTree = "<group>"; };
 		C26B45C00B8A9C00003C0ACA /* ucspc */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = ucspc; sourceTree = "<group>"; };
+		C28342E40E366E6800E54360 /* csdatabase.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = csdatabase.cpp; sourceTree = "<group>"; };
+		C28342E50E366E6800E54360 /* csdatabase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = csdatabase.h; sourceTree = "<group>"; };
+		C28342EB0E36719D00E54360 /* detachedrep.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = detachedrep.cpp; sourceTree = "<group>"; };
+		C28342EC0E36719D00E54360 /* detachedrep.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = detachedrep.h; sourceTree = "<group>"; };
+		C2A436130F2133B2007A41A6 /* slcrep.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = slcrep.cpp; sourceTree = "<group>"; };
+		C2A436140F2133B2007A41A6 /* slcrep.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = slcrep.h; sourceTree = "<group>"; };
 		C2A976A80B8A2E36008B4EA0 /* csutilities.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = csutilities.cpp; sourceTree = "<group>"; };
 		C2A976A90B8A2E36008B4EA0 /* csutilities.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = csutilities.h; sourceTree = "<group>"; };
+		C2B9F1D20D51646600CAB713 /* RequirementKeywords.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RequirementKeywords.h; sourceTree = "<group>"; };
 		C2BC1F260B580D3A003EC9DC /* libintegrity.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libintegrity.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		C2BC1F2F0B580D4B003EC9DC /* libcodehost.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libcodehost.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		C2BC1F340B580DA7003EC9DC /* SecCodeHostLib.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecCodeHostLib.h; sourceTree = "<group>"; };
@@ -283,14 +310,13 @@
 		C2C3BC5E0BA1D6FE00E869D1 /* cfmdiskrep.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cfmdiskrep.h; sourceTree = "<group>"; };
 		C2C3BCD10BA1E47E00E869D1 /* singlediskrep.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = singlediskrep.cpp; sourceTree = "<group>"; };
 		C2C3BCD20BA1E47E00E869D1 /* singlediskrep.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = singlediskrep.h; sourceTree = "<group>"; };
+		C2C4F4EE0E0980C700137848 /* codesigning_dtrace.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = codesigning_dtrace.h; sourceTree = "<group>"; };
 		C2C931B30AB8BA1200F83950 /* SecCodeHost.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SecCodeHost.cpp; sourceTree = "<group>"; };
 		C2CC30A00B8519CC005FA59D /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = CoreFoundation.framework; sourceTree = "<group>"; };
 		C2CC31040B8523AD005FA59D /* SecIntegrityLib.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecIntegrityLib.h; sourceTree = "<group>"; };
 		C2CC310E0B852424005FA59D /* SecIntegrityLib.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = SecIntegrityLib.c; sourceTree = "<group>"; };
 		C2CC31130B85254F005FA59D /* antlrplugin.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = antlrplugin.cpp; path = lib/antlrplugin.cpp; sourceTree = "<group>"; };
 		C2CC31140B85254F005FA59D /* antlrplugin.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = antlrplugin.h; path = lib/antlrplugin.h; sourceTree = "<group>"; };
-		C2CCF02F0A3F523D0085795A /* macho++.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = "macho++.cpp"; sourceTree = "<group>"; };
-		C2CCF0300A3F523D0085795A /* macho++.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = "macho++.h"; sourceTree = "<group>"; };
 		C2D383120A237F47005C63A2 /* bundlediskrep.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = bundlediskrep.cpp; sourceTree = "<group>"; };
 		C2D383130A237F47005C63A2 /* bundlediskrep.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = bundlediskrep.h; sourceTree = "<group>"; };
 		C2D383140A237F47005C63A2 /* cdbuilder.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cdbuilder.cpp; sourceTree = "<group>"; };
@@ -335,9 +361,11 @@
 		C2D383F10A23A9D3005C63A2 /* RequirementParser.hpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.h; path = RequirementParser.hpp; sourceTree = "<group>"; };
 		C2D383F20A23A9D3005C63A2 /* RequirementParserTokenTypes.hpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.h; path = RequirementParserTokenTypes.hpp; sourceTree = "<group>"; };
 		C2D383F30A23A9D3005C63A2 /* RequirementParserTokenTypes.txt */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = RequirementParserTokenTypes.txt; sourceTree = "<group>"; };
-		C2D8A07D0AE7F6E300F68F79 /* cfmunge.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cfmunge.cpp; sourceTree = "<group>"; };
-		C2D8A07E0AE7F6E300F68F79 /* cfmunge.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cfmunge.h; sourceTree = "<group>"; };
+		C2D50CDF0E155A4F0059A195 /* CSCommonPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CSCommonPriv.h; sourceTree = "<group>"; };
 		C2E2873C0B5D8D80009336A0 /* SecCodeHostLib.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = SecCodeHostLib.c; sourceTree = "<group>"; };
+		C2E8AF240DE25CA7000F6D3B /* SecCodePriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecCodePriv.h; sourceTree = "<group>"; };
+		C2E8AF250DE25CA7000F6D3B /* SecRequirementPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecRequirementPriv.h; sourceTree = "<group>"; };
+		C2E8AF260DE25CA7000F6D3B /* SecStaticCodePriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecStaticCodePriv.h; sourceTree = "<group>"; };
 		C2E911E00ADEBE3200275CB2 /* resources.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = resources.cpp; sourceTree = "<group>"; };
 		C2E911E10ADEBE3200275CB2 /* resources.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = resources.h; sourceTree = "<group>"; };
 		C2EF100E0A49BD89005A44BB /* renum.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = renum.cpp; sourceTree = "<group>"; };
@@ -345,32 +373,6 @@
 		C2F6566C0BCBFB250078779E /* cserror.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cserror.cpp; sourceTree = "<group>"; };
 		C2F6566D0BCBFB250078779E /* cserror.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cserror.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
-
-/* Begin PBXFrameworkTarget section */
-		4C56351D0540A55300DCF0C8 /* security_codesigning */ = {
-			isa = PBXFrameworkTarget;
-			buildConfigurationList = C263E67109A2971B000043F1 /* Build configuration list for PBXFrameworkTarget "security_codesigning" */;
-			buildPhases = (
-				4C5635180540A55300DCF0C8 /* Headers */,
-				4CCB00500580097400981D43 /* CopyFiles */,
-				4CCB00510580097600981D43 /* CopyFiles */,
-				4CCB00520580097800981D43 /* CopyFiles */,
-				C26C39D3068368EC00ED5782 /* CopyFiles */,
-			);
-			dependencies = (
-			);
-			name = security_codesigning;
-			productInstallPath = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-			productName = security_codesigning;
-			productReference = 4C56351E0540A55300DCF0C8 /* security_codesigning.framework */;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict/>
-</plist>
-";
-		};
-/* End PBXFrameworkTarget section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		4CA1FEBB052A3C8100F22E42 /* Frameworks */ = {
@@ -409,6 +411,7 @@
 				C2C1DF640A2E45F500D1B02B /* Code Classes */,
 				C2C1DF610A2E459E00D1B02B /* Disk Representations */,
 				C2BC1F370B580DAE003EC9DC /* Static Support */,
+				C26AC6FF0DAEB2D0005BFB40 /* DTrace */,
 				C2CCF0360A3F524B0085795A /* Local Utilities */,
 				C2CC31160B852554005FA59D /* Security Plugins */,
 			);
@@ -448,6 +451,14 @@
 			name = "Signing Operations";
 			sourceTree = "<group>";
 		};
+		C26AC6FF0DAEB2D0005BFB40 /* DTrace */ = {
+			isa = PBXGroup;
+			children = (
+				C26AC6FD0DAEB2C4005BFB40 /* security_codesigning.d */,
+			);
+			name = DTrace;
+			sourceTree = "<group>";
+		};
 		C2A4A43E0B7BABFD004AAC3F /* Pieces */ = {
 			isa = PBXGroup;
 			children = (
@@ -471,11 +482,15 @@
 			children = (
 				C2D383180A237F47005C63A2 /* CodeSigning.h */,
 				C2D3831C0A237F47005C63A2 /* CSCommon.h */,
+				C2D50CDF0E155A4F0059A195 /* CSCommonPriv.h */,
 				C2D3831E0A237F47005C63A2 /* SecCode.h */,
+				C2E8AF240DE25CA7000F6D3B /* SecCodePriv.h */,
 				C2D3831D0A237F47005C63A2 /* SecCode.cpp */,
 				C2D383220A237F47005C63A2 /* SecStaticCode.h */,
+				C2E8AF260DE25CA7000F6D3B /* SecStaticCodePriv.h */,
 				C2D383210A237F47005C63A2 /* SecStaticCode.cpp */,
 				C2D383260A237F47005C63A2 /* SecRequirement.h */,
+				C2E8AF250DE25CA7000F6D3B /* SecRequirementPriv.h */,
 				C2D383250A237F47005C63A2 /* SecRequirement.cpp */,
 				C21EA3DC0AD2F81300E6E31C /* SecCodeSigner.h */,
 				C21EA3DB0AD2F81300E6E31C /* SecCodeSigner.cpp */,
@@ -518,12 +533,14 @@
 				C2D3832F0A237F47005C63A2 /* kerneldiskrep.cpp */,
 				C2C3BC5E0BA1D6FE00E869D1 /* cfmdiskrep.h */,
 				C2C3BC5D0BA1D6FE00E869D1 /* cfmdiskrep.cpp */,
-				C25942430BA7095000877E56 /* foreigndiskrep.h */,
-				C25942420BA7095000877E56 /* foreigndiskrep.cpp */,
 				C2BD519B0A9392FD000FE43D /* machorep.h */,
 				C2BD519A0A9392FD000FE43D /* machorep.cpp */,
+				C2A436140F2133B2007A41A6 /* slcrep.h */,
+				C2A436130F2133B2007A41A6 /* slcrep.cpp */,
 				C2C3BCD20BA1E47E00E869D1 /* singlediskrep.h */,
 				C2C3BCD10BA1E47E00E869D1 /* singlediskrep.cpp */,
+				C28342EC0E36719D00E54360 /* detachedrep.h */,
+				C28342EB0E36719D00E54360 /* detachedrep.cpp */,
 			);
 			name = "Disk Representations";
 			sourceTree = "<group>";
@@ -594,16 +611,14 @@
 		C2CCF0360A3F524B0085795A /* Local Utilities */ = {
 			isa = PBXGroup;
 			children = (
+				C28342E50E366E6800E54360 /* csdatabase.h */,
+				C28342E40E366E6800E54360 /* csdatabase.cpp */,
 				C2F6566D0BCBFB250078779E /* cserror.h */,
 				C2F6566C0BCBFB250078779E /* cserror.cpp */,
 				C2E911E10ADEBE3200275CB2 /* resources.h */,
 				C2E911E00ADEBE3200275CB2 /* resources.cpp */,
 				C259DFD50AD6D9BA00C9ACC6 /* sigblob.h */,
 				C259DFD40AD6D9BA00C9ACC6 /* sigblob.cpp */,
-				C2CCF0300A3F523D0085795A /* macho++.h */,
-				C2CCF02F0A3F523D0085795A /* macho++.cpp */,
-				C2D8A07E0AE7F6E300F68F79 /* cfmunge.h */,
-				C2D8A07D0AE7F6E300F68F79 /* cfmunge.cpp */,
 				C2EF100F0A49BD89005A44BB /* renum.h */,
 				C2EF100E0A49BD89005A44BB /* renum.cpp */,
 				C2A976A90B8A2E36008B4EA0 /* csutilities.h */,
@@ -615,10 +630,12 @@
 		C2D383F90A23A9D9005C63A2 /* cstemp */ = {
 			isa = PBXGroup;
 			children = (
+				C2C4F4EE0E0980C700137848 /* codesigning_dtrace.h */,
 				C2D383EF0A23A9D3005C63A2 /* RequirementLexer.hpp */,
 				C2D383EE0A23A9D3005C63A2 /* RequirementLexer.cpp */,
 				C2D383F10A23A9D3005C63A2 /* RequirementParser.hpp */,
 				C2D383F00A23A9D3005C63A2 /* RequirementParser.cpp */,
+				C2B9F1D20D51646600CAB713 /* RequirementKeywords.h */,
 				C2D383F20A23A9D3005C63A2 /* RequirementParserTokenTypes.hpp */,
 				C2D383F30A23A9D3005C63A2 /* RequirementParserTokenTypes.txt */,
 				C26B45C00B8A9C00003C0ACA /* ucspc */,
@@ -633,12 +650,15 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C2A36B4B0D906C08003412BA /* resources.h in Headers */,
+				C2E8AF2A0DE25D11000F6D3B /* SecCodePriv.h in Headers */,
+				C2E8AF2B0DE25D11000F6D3B /* SecStaticCodePriv.h in Headers */,
+				C2E8AF2C0DE25D11000F6D3B /* SecRequirementPriv.h in Headers */,
+				C2D213870D9844F700E76E7D /* resources.h in Headers */,
+				C2C315D70D9319E800E7AA0C /* csutilities.h in Headers */,
 				C2F656930BCBFFF40078779E /* cserror.h in Headers */,
 				C2A487540B79150C00849490 /* SecIntegrity.h in Headers */,
 				C2A487530B7914F400849490 /* SecCodeHostLib.h in Headers */,
 				C297DF250B014BB300E94EE0 /* SecCodeSigner.h in Headers */,
-				C2D8A0980AE7F74500F68F79 /* cfmunge.h in Headers */,
 				C2D3836F0A237F47005C63A2 /* cs.h in Headers */,
 				C2D383820A237F47005C63A2 /* Code.h in Headers */,
 				C2D383860A237F47005C63A2 /* StaticCode.h in Headers */,
@@ -650,6 +670,7 @@
 				C2D3836C0A237F47005C63A2 /* CodeSigning.h in Headers */,
 				C2D3836D0A237F47005C63A2 /* SecCodeHost.h in Headers */,
 				C2D383700A237F47005C63A2 /* CSCommon.h in Headers */,
+				C2D50CE20E155AE60059A195 /* CSCommonPriv.h in Headers */,
 				C2D383720A237F47005C63A2 /* SecCode.h in Headers */,
 				C2D383740A237F47005C63A2 /* cskernel.h in Headers */,
 				C2D383760A237F47005C63A2 /* SecStaticCode.h in Headers */,
@@ -664,10 +685,11 @@
 				C2093AC80BB0967D00EB8599 /* reqreader.h in Headers */,
 				C2C1DFBE0A2F80EB00D1B02B /* reqinterp.h in Headers */,
 				C2C1DFC60A2F820500D1B02B /* reqmaker.h in Headers */,
-				C2CCF0340A3F523D0085795A /* macho++.h in Headers */,
 				C2EF10130A49BD89005A44BB /* renum.h in Headers */,
 				C2BD519F0A9392FD000FE43D /* machorep.h in Headers */,
 				C2CC31050B8523AD005FA59D /* SecIntegrityLib.h in Headers */,
+				C28342E60E366E6800E54360 /* csdatabase.h in Headers */,
+				C28342ED0E36719D00E54360 /* detachedrep.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -675,30 +697,21 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C2CC31060B8523F8005FA59D /* SecIntegrityLib.h in Headers */,
-				C2A487550B79152A00849490 /* SecIntegrity.h in Headers */,
-				C2A487560B79152A00849490 /* SecCodeHostLib.h in Headers */,
-				C2D3839A0A238132005C63A2 /* CodeSigning.h in Headers */,
-				C2D383460A237F47005C63A2 /* CSCommon.h in Headers */,
-				C2D383480A237F47005C63A2 /* SecCode.h in Headers */,
-				C2D3834C0A237F47005C63A2 /* SecStaticCode.h in Headers */,
-				C2D383500A237F47005C63A2 /* SecRequirement.h in Headers */,
-				C2C931B50AB8BA8200F83950 /* SecCodeHost.h in Headers */,
-				C2C1DFC40A2F820500D1B02B /* reqmaker.h in Headers */,
-				C2093AA90BB0948000EB8599 /* reqreader.h in Headers */,
-				C2C1DFBC0A2F80EB00D1B02B /* reqinterp.h in Headers */,
-				C2EF10110A49BD89005A44BB /* renum.h in Headers */,
-				C21EA3DE0AD2F81300E6E31C /* SecCodeSigner.h in Headers */,
-				C236E3D80AD59446000F5140 /* signer.h in Headers */,
-				C236E3DC0AD595C2000F5140 /* signerutils.h in Headers */,
-				C259DFD70AD6D9BA00C9ACC6 /* sigblob.h in Headers */,
-				C2E911E30ADEBE3200275CB2 /* resources.h in Headers */,
-				C2D8A0800AE7F6E300F68F79 /* cfmunge.h in Headers */,
-				C2A976AB0B8A2E36008B4EA0 /* csutilities.h in Headers */,
-				C2C3BC600BA1D6FE00E869D1 /* cfmdiskrep.h in Headers */,
-				C2C3BCD40BA1E47E00E869D1 /* singlediskrep.h in Headers */,
-				C25942450BA7095000877E56 /* foreigndiskrep.h in Headers */,
-				C2F6566F0BCBFB250078779E /* cserror.h in Headers */,
+				C26FF62F0E5B376B00F640A0 /* CodeSigning.h in Headers */,
+				C26FF6300E5B376B00F640A0 /* CSCommon.h in Headers */,
+				C26FF6310E5B376B00F640A0 /* CSCommonPriv.h in Headers */,
+				C26FF6320E5B376B00F640A0 /* SecCode.h in Headers */,
+				C26FF6330E5B376B00F640A0 /* SecCodePriv.h in Headers */,
+				C26FF6340E5B376B00F640A0 /* SecStaticCode.h in Headers */,
+				C26FF6350E5B376B00F640A0 /* SecStaticCodePriv.h in Headers */,
+				C26FF6360E5B376B00F640A0 /* SecRequirement.h in Headers */,
+				C26FF6370E5B376B00F640A0 /* SecRequirementPriv.h in Headers */,
+				C26FF6380E5B376B00F640A0 /* SecCodeSigner.h in Headers */,
+				C26FF6390E5B376B00F640A0 /* SecCodeHost.h in Headers */,
+				C26FF63A0E5B376B00F640A0 /* SecIntegrity.h in Headers */,
+				C26FF62D0E5B375A00F640A0 /* SecIntegrityLib.h in Headers */,
+				C26FF62E0E5B375A00F640A0 /* SecCodeHostLib.h in Headers */,
+				C2A436160F2133B2007A41A6 /* slcrep.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -720,16 +733,39 @@
 		};
 /* End PBXHeadersBuildPhase section */
 
-/* Begin PBXLibraryTarget section */
+/* Begin PBXNativeTarget section */
+		4C56351D0540A55300DCF0C8 /* security_codesigning */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C263E67109A2971B000043F1 /* Build configuration list for PBXNativeTarget "security_codesigning" */;
+			buildPhases = (
+				4C5635180540A55300DCF0C8 /* Headers */,
+				4CCB00500580097400981D43 /* CopyFiles */,
+				4CCB00510580097600981D43 /* CopyFiles */,
+				4CCB00520580097800981D43 /* CopyFiles */,
+				C26C39D3068368EC00ED5782 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C26AC70F0DAEB400005BFB40 /* PBXTargetDependency */,
+			);
+			name = security_codesigning;
+			productInstallPath = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+			productName = security_codesigning;
+			productReference = 4C56351E0540A55300DCF0C8 /* security_codesigning.framework */;
+			productType = "com.apple.product-type.framework";
+		};
 		4CA1FEBD052A3C8100F22E42 /* libsecurity_codesigning */ = {
-			isa = PBXLibraryTarget;
-			buildConfigurationList = C263E67509A2971B000043F1 /* Build configuration list for PBXLibraryTarget "libsecurity_codesigning" */;
+			isa = PBXNativeTarget;
+			buildConfigurationList = C263E67509A2971B000043F1 /* Build configuration list for PBXNativeTarget "libsecurity_codesigning" */;
 			buildPhases = (
 				4CA1FEB9052A3C8100F22E42 /* Headers */,
 				4CA1FEBA052A3C8100F22E42 /* Sources */,
 				4CA1FEBB052A3C8100F22E42 /* Frameworks */,
 				4C789C16055AF56700B6FC95 /* ShellScript */,
 				4CD0D468055B0D40001715CB /* ShellScript */,
+			);
+			buildRules = (
 			);
 			dependencies = (
 				4C7502910540C69C00056564 /* PBXTargetDependency */,
@@ -738,10 +774,8 @@
 			name = libsecurity_codesigning;
 			productName = libsecurity_codesigning;
 			productReference = 4CA1FEBE052A3C8100F22E42 /* security_codesigning */;
+			productType = "com.apple.product-type.library.static";
 		};
-/* End PBXLibraryTarget section */
-
-/* Begin PBXNativeTarget section */
 		C2BC1F250B580D3A003EC9DC /* libintegrity */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = C2BC1F270B580D3F003EC9DC /* Build configuration list for PBXNativeTarget "libintegrity" */;
@@ -796,6 +830,7 @@
 				C2D383B80A23A8C4005C63A2 /* Requirements Language */,
 				C2BC1F250B580D3A003EC9DC /* libintegrity */,
 				C2BC1F2E0B580D4B003EC9DC /* libcodehost */,
+				C26AC7090DAEB3A7005BFB40 /* DTrace */,
 			);
 		};
 /* End PBXProject section */
@@ -812,7 +847,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tln -fs \"../../../${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework/Versions/A\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework\ndone";
+			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tditto -V \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}${postfix}\" \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\n\tln -fs \"../../../${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework/Versions/A\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework\ndone";
 		};
 		4CD0D468055B0D40001715CB /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -826,6 +861,22 @@
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tcp -p \"${SYMROOT}/${PRODUCT_NAME}${postfix}\" \"${DSTROOT}/usr/local/SecurityPieces/Components/Security/${PRODUCT_NAME}.framework/Versions/A\"\n\tranlib \"${DSTROOT}/usr/local/SecurityPieces/Components/Security/${PRODUCT_NAME}.framework/Versions/A/${PRODUCT_NAME}${postfix}\"\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" \"${DSTROOT}/usr/local/SecurityPieces/Components/Security/${PRODUCT_NAME}.framework\"\ndone";
+		};
+		C26AC7080DAEB3A7005BFB40 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/lib/security_codesigning.d",
+			);
+			outputPaths = (
+				"$(TEMPDIR)/codesigning_dtrace.h",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "mkdir -p $TEMPDIR\n/usr/sbin/dtrace -h -C -s $SRCROOT/lib/security_codesigning.d -o $TEMPDIR/codesigning_dtrace.h\n";
+			showEnvVarsInLog = 0;
 		};
 		C26B45C30B8A9C1A003C0ACA /* Prepare ucspc */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -853,11 +904,12 @@
 				"$(TEMPDIR)/RequirementLexer.hpp",
 				"$(TEMPDIR)/RequirementLexer.cpp",
 				"$(TEMPDIR)/RequirementParser.hpp",
+				"$(TEMPDIR)/RequirementKeywords.h",
 				"$(TEMPDIR)/RequirementParser.cpp",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/bash;
-			shellScript = "antlr=/usr/local/bin/antlr.jar\nDEBUG=\"\"\nmkdir -p $TEMPDIR\nrm -f $TEMPDIR/Requirement{Parser,Lexer}*\njava -cp \"$antlr\" antlr.Tool -o $TEMPDIR $DEBUG requirements.grammar\n";
+			shellScript = "antlr=/usr/local/bin/antlr.jar\nDEBUG=\"\"\nmkdir -p $TEMPDIR\nrm -f $TEMPDIR/Requirement{Parser,Lexer}*\njava -cp \"$antlr\" antlr.Tool -o $TEMPDIR $DEBUG requirements.grammar\nsed -n 's/^.*=\\(\".*\"\\)=.*$/        \\1,/p' $TEMPDIR/RequirementParserTokenTypes.txt >$TEMPDIR/RequirementKeywords.h\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -883,14 +935,12 @@
 				C2D3835D0A237F47005C63A2 /* reqparser.cpp in Sources */,
 				C2C1DF140A2E3D7200D1B02B /* requirement.cpp in Sources */,
 				C2D383610A237F47005C63A2 /* Requirements.cpp in Sources */,
-				C2D383630A237F47005C63A2 /* security_codesigning.exp in Sources */,
 				C21CFC5F0A250D1C006CD5B1 /* reqdumper.cpp in Sources */,
 				C2C1DFBB0A2F80EB00D1B02B /* reqinterp.cpp in Sources */,
 				C2C1DFC30A2F820500D1B02B /* reqmaker.cpp in Sources */,
 				C224635F0B8620F800626F1B /* RequirementParser.cpp in Sources */,
 				C22463600B8620F800626F1B /* RequirementLexer.cpp in Sources */,
 				C22463610B86210100626F1B /* antlrplugin.cpp in Sources */,
-				C2CCF0310A3F523D0085795A /* macho++.cpp in Sources */,
 				C2EF10100A49BD89005A44BB /* renum.cpp in Sources */,
 				C2BD519C0A9392FD000FE43D /* machorep.cpp in Sources */,
 				C2C931B40AB8BA1200F83950 /* SecCodeHost.cpp in Sources */,
@@ -901,13 +951,14 @@
 				C236E3DB0AD595C2000F5140 /* signerutils.cpp in Sources */,
 				C259DFD60AD6D9BA00C9ACC6 /* sigblob.cpp in Sources */,
 				C2E911E20ADEBE3200275CB2 /* resources.cpp in Sources */,
-				C2D8A07F0AE7F6E300F68F79 /* cfmunge.cpp in Sources */,
 				C2A976AA0B8A2E36008B4EA0 /* csutilities.cpp in Sources */,
 				C2C3BC5F0BA1D6FE00E869D1 /* cfmdiskrep.cpp in Sources */,
 				C2C3BCD30BA1E47E00E869D1 /* singlediskrep.cpp in Sources */,
-				C25942440BA7095000877E56 /* foreigndiskrep.cpp in Sources */,
 				C2093AA80BB0948000EB8599 /* reqreader.cpp in Sources */,
 				C2F6566E0BCBFB250078779E /* cserror.cpp in Sources */,
+				C28342E70E366E6800E54360 /* csdatabase.cpp in Sources */,
+				C28342EE0E36719D00E54360 /* detachedrep.cpp in Sources */,
+				C2A436150F2133B2007A41A6 /* slcrep.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -945,6 +996,11 @@
 			target = C2BC1F250B580D3A003EC9DC /* libintegrity */;
 			targetProxy = C250F6C40B5EF4E40076098F /* PBXContainerItemProxy */;
 		};
+		C26AC70F0DAEB400005BFB40 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C26AC7090DAEB3A7005BFB40 /* DTrace */;
+			targetProxy = C26AC70E0DAEB400005BFB40 /* PBXContainerItemProxy */;
+		};
 		C2E287410B5D8F97009336A0 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 4CA1FEBD052A3C8100F22E42 /* libsecurity_codesigning */;
@@ -962,10 +1018,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				INFOPLIST_FILE = "Info-security_codesigning.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Components/Security;
 				PRODUCT_NAME = security_codesigning;
 				WRAPPER_EXTENSION = framework;
@@ -976,8 +1034,10 @@
 		C263E67309A2971B000043F1 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INFOPLIST_FILE = "Info-security_codesigning.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Components/Security;
 				PRODUCT_NAME = security_codesigning;
 				WRAPPER_EXTENSION = framework;
@@ -988,7 +1048,10 @@
 		C263E67409A2971B000043F1 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
+				INFOPLIST_FILE = "Info-security_codesigning.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Components/Security;
 				PRODUCT_NAME = security_codesigning;
 				WRAPPER_EXTENSION = framework;
@@ -999,17 +1062,19 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 36924;
+				CURRENT_PROJECT_VERSION = 36885;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
 				);
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+					"$(TEMPDIR)",
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
 				);
 				LIBRARY_STYLE = "\U0001STATIC";
@@ -1026,12 +1091,12 @@
 				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
-				PRIVATE_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/PrivateHeaders/Security";
+				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/PrivateHeaders/Security;
 				PRODUCT_NAME = security_codesigning;
-				PUBLIC_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/Headers/Security";
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/Headers/Security;
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -1049,15 +1114,17 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 36924;
+				CURRENT_PROJECT_VERSION = 36885;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
 				);
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+					"$(TEMPDIR)",
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
 				);
 				LIBRARY_STYLE = STATIC;
@@ -1074,12 +1141,12 @@
 				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
-				PRIVATE_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/PrivateHeaders/Security";
+				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/PrivateHeaders/Security;
 				PRODUCT_NAME = security_codesigning;
-				PUBLIC_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/Headers/Security";
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/Headers/Security;
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -1097,7 +1164,9 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 36924;
+				CURRENT_PROJECT_VERSION = 36885;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
@@ -1105,6 +1174,7 @@
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+					"$(TEMPDIR)",
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
 				);
 				LIBRARY_STYLE = STATIC;
@@ -1121,12 +1191,12 @@
 				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
-				PRIVATE_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/PrivateHeaders/Security";
+				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/PrivateHeaders/Security;
 				PRODUCT_NAME = security_codesigning;
-				PUBLIC_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/Headers/Security";
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/Headers/Security;
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -1170,13 +1240,39 @@
 			};
 			name = Default;
 		};
+		C26AC70A0DAEB3A8005BFB40 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				PRODUCT_NAME = DTrace;
+			};
+			name = Development;
+		};
+		C26AC70B0DAEB3A8005BFB40 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				PRODUCT_NAME = DTrace;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		C26AC70C0DAEB3A8005BFB40 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = DTrace;
+			};
+			name = Default;
+		};
 		C2BC1F280B580D3F003EC9DC /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /usr/local/lib;
@@ -1192,7 +1288,6 @@
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/lib;
 				PREBINDING = NO;
@@ -1205,7 +1300,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/lib;
 				PREBINDING = NO;
@@ -1220,7 +1314,6 @@
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /usr/local/lib;
@@ -1241,7 +1334,6 @@
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/lib;
 				LIBRARY_SEARCH_PATHS = (
@@ -1259,7 +1351,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/lib;
 				LIBRARY_SEARCH_PATHS = (
@@ -1288,7 +1379,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				PRODUCT_NAME = "Requirements Language";
 				ZERO_LINK = NO;
@@ -1317,7 +1407,6 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = Everything;
 				ZERO_LINK = NO;
 			};
@@ -1333,7 +1422,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		C263E67109A2971B000043F1 /* Build configuration list for PBXFrameworkTarget "security_codesigning" */ = {
+		C263E67109A2971B000043F1 /* Build configuration list for PBXNativeTarget "security_codesigning" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C263E67209A2971B000043F1 /* Development */,
@@ -1343,7 +1432,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
-		C263E67509A2971B000043F1 /* Build configuration list for PBXLibraryTarget "libsecurity_codesigning" */ = {
+		C263E67509A2971B000043F1 /* Build configuration list for PBXNativeTarget "libsecurity_codesigning" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C263E67609A2971B000043F1 /* Development */,
@@ -1359,6 +1448,16 @@
 				C263E67A09A2971B000043F1 /* Development */,
 				C263E67B09A2971B000043F1 /* Deployment */,
 				C263E67C09A2971B000043F1 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		C26AC70D0DAEB3C6005BFB40 /* Build configuration list for PBXAggregateTarget "DTrace" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C26AC70A0DAEB3A8005BFB40 /* Development */,
+				C26AC70B0DAEB3A8005BFB40 /* Deployment */,
+				C26AC70C0DAEB3A8005BFB40 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;

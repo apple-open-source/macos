@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 42;
+	objectVersion = 44;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -16,50 +16,6 @@
 		3E81727707CD1C2000E32E49 /* new_opv.cc in Sources */ = {isa = PBXBuildFile; fileRef = 3E81727107CD1C2000E32E49 /* new_opv.cc */; };
 		3E81727807CD1C2000E32E49 /* new_opvnt.cc in Sources */ = {isa = PBXBuildFile; fileRef = 3E81727207CD1C2000E32E49 /* new_opvnt.cc */; };
 /* End PBXBuildFile section */
-
-/* Begin PBXBuildRule section */
-		3E28A8FC07E2191600FDC362 /* PBXBuildRule */ = {
-			isa = PBXBuildRule;
-			compilerSpec = com.apple.compilers.gcc.4_0;
-			fileType = sourcecode.c;
-			isEditable = 1;
-			outputFiles = (
-			);
-		};
-/* End PBXBuildRule section */
-
-/* Begin PBXBuildStyle section */
-		014CEA520018CE5811CA2923 /* Development */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		014CEA530018CE5811CA2923 /* Deployment */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_CW_ASM_SYNTAX = NO;
-				GCC_ENABLE_ASM_KEYWORD = NO;
-				GCC_ENABLE_CPP_EXCEPTIONS = NO;
-				GCC_ENABLE_CPP_RTTI = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_ENABLE_PASCAL_STRINGS = NO;
-				GCC_OPTIMIZATION_LEVEL = 2;
-				GCC_USE_GCC3_PFE_SUPPORT = NO;
-				GCC_WARN_ALLOW_INCOMPLETE_PROTOCOL = NO;
-				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-/* End PBXBuildStyle section */
 
 /* Begin PBXFileReference section */
 		3E6293E607CD85E1008E6FA2 /* kern_fns.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = kern_fns.h; sourceTree = "<group>"; };
@@ -152,47 +108,7 @@
 				3E1145EA07E25A91006FA3AA /* ShellScript */,
 			);
 			buildRules = (
-				3E28A8FC07E2191600FDC362 /* PBXBuildRule */,
 			);
-			buildSettings = {
-				GCC_CW_ASM_SYNTAX = NO;
-				GCC_ENABLE_ASM_KEYWORD = NO;
-				GCC_ENABLE_CPP_EXCEPTIONS = NO;
-				GCC_ENABLE_CPP_RTTI = NO;
-				GCC_ENABLE_PASCAL_STRINGS = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				INSTALL_PATH = /usr/lib;
-				LIBRARY_STYLE = STATIC;
-				OTHER_CFLAGS = (
-					"-fapple-kext",
-					"-static",
-					"-DLIBCC_KEXT",
-					"-mlong-branch",
-					"-fno-common",
-					"-nostdinc",
-					"-fno-builtin",
-					"-force_cpusubtype_ALL",
-					"-msoft-float",
-					"-DKERNEL",
-					"-DKERNEL_PRIVATE",
-					"-DDRIVER_PRIVATE",
-					"-DAPPLE",
-					"-DNeXT",
-				);
-				OTHER_CPLUSPLUSFLAGS = (
-					"$(OTHER_CFLAGS)",
-					"-fno-exceptions",
-					"-fno-rtti",
-					"-fcheck-new",
-					"-fno-weak",
-				);
-				PREBINDING = NO;
-				PRODUCT_NAME = cpp_kext;
-			};
 			dependencies = (
 			);
 			name = cpp_kext;
@@ -205,16 +121,15 @@
 /* Begin PBXProject section */
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
-			buildConfigurationList = 2D69A830089AAEE500CF0764 /* Build configuration list for PBXProject "Libcpp_kext" */;
-			buildSettings = {
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
 			};
-			buildStyles = (
-				014CEA520018CE5811CA2923 /* Development */,
-				014CEA530018CE5811CA2923 /* Deployment */,
-			);
+			buildConfigurationList = 2D69A830089AAEE500CF0764 /* Build configuration list for PBXProject "Libcpp_kext" */;
+			compatibilityVersion = "Xcode 3.0";
 			hasScannedForEncodings = 1;
 			mainGroup = 08FB7794FE84155DC02AAC07 /* Libcpp_kext */;
 			projectDirPath = "";
+			projectRoot = "";
 			targets = (
 				D2AAC045055464E500DB518D /* cpp_kext */,
 			);
@@ -224,16 +139,16 @@
 /* Begin PBXShellScriptBuildPhase section */
 		3E1145EA07E25A91006FA3AA /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
+			buildActionMask = 12;
 			files = (
 			);
 			inputPaths = (
 			);
 			outputPaths = (
 			);
-			runOnlyForDeploymentPostprocessing = 1;
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "/usr/bin/nmedit -p $DSTROOT/usr/lib/libcpp_kext.a\n";
+			shellScript = "set -x\nset -e\nnmedit -p $BUILT_PRODUCTS_DIR/$FULL_PRODUCT_NAME\nmkdir -p \"$DSTROOT/usr/local/OpenSourceVersions\"\ncp \"Libcpp_kext.plist\" \"$DSTROOT/usr/local/OpenSourceVersions/Libcpp_kext.plist\"\nmkdir -p \"$DSTROOT/usr/local/OpenSourceLicenses\"\ncp COPYING \"$DSTROOT/usr/local/OpenSourceLicenses/Libcpp_kext.txt\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -258,6 +173,7 @@
 		2D69A82D089AAEE500CF0764 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH)";
 				COPY_PHASE_STRIP = NO;
 				GCC_CW_ASM_SYNTAX = NO;
 				GCC_ENABLE_CPP_EXCEPTIONS = NO;
@@ -271,13 +187,9 @@
 				INSTALL_PATH = /usr/lib;
 				LIBRARY_STYLE = STATIC;
 				OTHER_CFLAGS = (
-					"-fapple-kext",
-					"-static",
+					"-mkernel",
 					"-DLIBCC_KEXT",
-					"-mlong-branch",
-					"-fno-common",
 					"-nostdinc",
-					"-fno-builtin",
 					"-force_cpusubtype_ALL",
 					"-msoft-float",
 					"-DKERNEL",
@@ -288,10 +200,7 @@
 				);
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
-					"-fno-exceptions",
-					"-fno-rtti",
 					"-fcheck-new",
-					"-fno-weak",
 				);
 				PREBINDING = NO;
 				PRODUCT_NAME = cpp_kext;
@@ -305,6 +214,11 @@
 		2D69A82E089AAEE500CF0764 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+					x86_64,
+				);
 				COPY_PHASE_STRIP = YES;
 				GCC_CW_ASM_SYNTAX = NO;
 				GCC_ENABLE_CPP_EXCEPTIONS = NO;
@@ -318,13 +232,9 @@
 				INSTALL_PATH = /usr/lib;
 				LIBRARY_STYLE = STATIC;
 				OTHER_CFLAGS = (
-					"-fapple-kext",
-					"-static",
+					"-mkernel",
 					"-DLIBCC_KEXT",
-					"-mlong-branch",
-					"-fno-common",
 					"-nostdinc",
-					"-fno-builtin",
 					"-force_cpusubtype_ALL",
 					"-msoft-float",
 					"-DKERNEL",
@@ -335,10 +245,7 @@
 				);
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
-					"-fno-exceptions",
-					"-fno-rtti",
 					"-fcheck-new",
-					"-fno-weak",
 				);
 				PREBINDING = NO;
 				PRODUCT_NAME = cpp_kext;

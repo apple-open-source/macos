@@ -34,7 +34,6 @@
 #include "CPluginConfig.h"
 #include "CLog.h"
 #include "CNodeList.h"
-#include "CLDAPPlugInPrefs.h"
 #include "DSLDAPUtils.h"
 
 #include <stdio.h>

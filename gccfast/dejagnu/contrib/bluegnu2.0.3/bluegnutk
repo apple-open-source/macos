@@ -1,5 +1,0 @@
-#! /bin/ksh
-#
-
-
-exec itkwish2.2 $0.itcl $*

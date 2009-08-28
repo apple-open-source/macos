@@ -1,8 +1,8 @@
 /* conn.c - deal with connection subsystem */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/conn.c,v 1.56.2.5 2006/01/06 19:03:01 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/conn.c,v 1.72.2.7 2008/02/11 23:26:47 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2001-2006 The OpenLDAP Foundation.
+ * Copyright 2001-2008 The OpenLDAP Foundation.
  * Portions Copyright 2001-2003 Pierangelo Masarati.
  * All rights reserved.
  *
@@ -27,10 +27,6 @@
 #include "slap.h"
 #include "lutil.h"
 #include "back-monitor.h"
-
-#ifndef LDAP_DEVEL
-#define MONITOR_LEGACY_CONN
-#endif
 
 static int
 monitor_subsys_conn_update(
@@ -77,26 +73,57 @@ monitor_subsys_conn_init(
 	ep = &mp->mp_children;
 
 	/*
+	 * Max file descriptors
+	 */
+	BER_BVSTR( &bv, "cn=Max File Descriptors" );
+	e = monitor_entry_stub( &ms->mss_dn, &ms->mss_ndn, &bv,
+		mi->mi_oc_monitorCounterObject, mi, NULL, NULL );
+	
+	if ( e == NULL ) {
+		Debug( LDAP_DEBUG_ANY,
+			"monitor_subsys_conn_init: "
+			"unable to create entry \"%s,%s\"\n",
+			bv.bv_val, ms->mss_ndn.bv_val, 0 );
+		return( -1 );
+	}
+
+	if ( dtblsize ) {
+		bv.bv_val = buf;
+		bv.bv_len = snprintf( buf, sizeof( buf ), "%d", dtblsize );
+
+	} else {
+		BER_BVSTR( &bv, "0" );
+	}
+	attr_merge_one( e, mi->mi_ad_monitorCounter, &bv, &bv );
+	
+	mp = monitor_entrypriv_create();
+	if ( mp == NULL ) {
+		return -1;
+	}
+	e->e_private = ( void * )mp;
+	mp->mp_info = ms;
+	mp->mp_flags = ms->mss_flags \
+		| MONITOR_F_SUB | MONITOR_F_PERSISTENT;
+	mp->mp_flags &= ~MONITOR_F_VOLATILE_CH;
+
+	if ( monitor_cache_add( mi, e ) ) {
+		Debug( LDAP_DEBUG_ANY,
+			"monitor_subsys_conn_init: "
+			"unable to add entry \"cn=Total,%s\"\n",
+			ms->mss_ndn.bv_val, 0, 0 );
+		return( -1 );
+	}
+
+	*ep = e;
+	ep = &mp->mp_next;
+	
+	/*
 	 * Total conns
 	 */
-	snprintf( buf, sizeof( buf ),
-		"dn: cn=Total,%s\n"
-		"objectClass: %s\n"
-		"structuralObjectClass: %s\n"
-		"cn: Total\n"
-		"creatorsName: %s\n"
-		"modifiersName: %s\n"
-		"createTimestamp: %s\n"
-		"modifyTimestamp: %s\n",
-		ms->mss_dn.bv_val,
-		mi->mi_oc_monitorCounterObject->soc_cname.bv_val,
-		mi->mi_oc_monitorCounterObject->soc_cname.bv_val,
-		mi->mi_creatorsName.bv_val,
-		mi->mi_creatorsName.bv_val,
-		mi->mi_startTime.bv_val,
-		mi->mi_startTime.bv_val );
+	BER_BVSTR( &bv, "cn=Total" );
+	e = monitor_entry_stub( &ms->mss_dn, &ms->mss_ndn, &bv,
+		mi->mi_oc_monitorCounterObject, mi, NULL, NULL );
 	
-	e = str2entry( buf );
 	if ( e == NULL ) {
 		Debug( LDAP_DEBUG_ANY,
 			"monitor_subsys_conn_init: "
@@ -105,7 +132,7 @@ monitor_subsys_conn_init(
 		return( -1 );
 	}
 	
-	BER_BVSTR( &bv, "0" );
+	BER_BVSTR( &bv, "-1" );
 	attr_merge_one( e, mi->mi_ad_monitorCounter, &bv, &bv );
 	
 	mp = monitor_entrypriv_create();
@@ -132,24 +159,10 @@ monitor_subsys_conn_init(
 	/*
 	 * Current conns
 	 */
-	snprintf( buf, sizeof( buf ),
-		"dn: cn=Current,%s\n"
-		"objectClass: %s\n"
-		"structuralObjectClass: %s\n"
-		"cn: Current\n"
-		"creatorsName: %s\n"
-		"modifiersName: %s\n"
-		"createTimestamp: %s\n"
-		"modifyTimestamp: %s\n",
-		ms->mss_dn.bv_val,
-		mi->mi_oc_monitorCounterObject->soc_cname.bv_val,
-		mi->mi_oc_monitorCounterObject->soc_cname.bv_val,
-		mi->mi_creatorsName.bv_val,
-		mi->mi_creatorsName.bv_val,
-		mi->mi_startTime.bv_val,
-		mi->mi_startTime.bv_val );
-	
-	e = str2entry( buf );
+	BER_BVSTR( &bv, "cn=Current" );
+	e = monitor_entry_stub( &ms->mss_dn, &ms->mss_ndn, &bv,
+		mi->mi_oc_monitorCounterObject, mi, NULL, NULL );
+
 	if ( e == NULL ) {
 		Debug( LDAP_DEBUG_ANY,
 			"monitor_subsys_conn_init: "
@@ -214,7 +227,8 @@ monitor_subsys_conn_update(
 
 		for ( n = 0, c = connection_first( &connindex );
 				c != NULL;
-				n++, c = connection_next( c, &connindex ) ) {
+				n++, c = connection_next( c, &connindex ) )
+		{
 			/* No Op */ ;
 		}
 		connection_done( c );
@@ -222,7 +236,7 @@ monitor_subsys_conn_update(
 
 	if ( n != -1 ) {
 		Attribute	*a;
-		char		buf[] = "+9223372036854775807L";
+		char		buf[LDAP_PVT_INTTYPE_CHARS(long)];
 		ber_len_t	len;
 
 		a = attr_find( e->e_attrs, mi->mi_ad_monitorCounter );
@@ -252,17 +266,20 @@ conn_create(
 	monitor_subsys_t	*ms )
 {
 	monitor_entry_t *mp;
-	struct tm	*ltm;
+	struct tm	*tm;
 	char		buf[ BACKMONITOR_BUFSIZE ];
 	char		buf2[ LDAP_LUTIL_GENTIME_BUFSIZE ];
 	char		buf3[ LDAP_LUTIL_GENTIME_BUFSIZE ];
 
+	struct berval bv, ctmbv, mtmbv, bv2, bv3;
+	struct berval bv_unknown= BER_BVC("unknown");
+
 	Entry		*e;
 
-	struct tm	*ctm;
+#ifdef HACK_LOCAL_TIME
 	char		ctmbuf[ LDAP_LUTIL_GENTIME_BUFSIZE ];
-	struct tm	*mtm;
 	char		mtmbuf[ LDAP_LUTIL_GENTIME_BUFSIZE ];
+#endif
 #ifdef HAVE_GMTIME_R
 	struct tm	tm_buf;
 #endif /* HAVE_GMTIME_R */
@@ -273,67 +290,69 @@ conn_create(
 #ifndef HAVE_GMTIME_R
 	ldap_pvt_thread_mutex_lock( &gmtime_mutex );
 #endif
+
+#ifdef HAVE_GMTIME_R
+	tm = gmtime_r( &c->c_starttime, &tm_buf );
+#else
+	tm = gmtime( &c->c_starttime );
+#endif
+	bv2.bv_len = lutil_gentime( buf2, sizeof( buf2 ), tm );
+	bv2.bv_val = buf2;
 #ifdef HACK_LOCAL_TIME
 # ifdef HAVE_LOCALTIME_R
-	ctm = localtime_r( &c->c_starttime, &tm_buf );
-	lutil_localtime( ctmbuf, sizeof( ctmbuf ), ctm, -timezone );
-	mtm = localtime_r( &c->c_activitytime, &tm_buf );
-	lutil_localtime( mtmbuf, sizeof( mtmbuf ), mtm, -timezone );
+	tm = localtime_r( &c->c_starttime, &tm_buf );
 # else
-	ctm = localtime( &c->c_starttime );
-	lutil_localtime( ctmbuf, sizeof( ctmbuf ), ctm, -timezone );
-	mtm = localtime( &c->c_activitytime );
-	lutil_localtime( mtmbuf, sizeof( mtmbuf ), mtm, -timezone );
-# endif /* HAVE_LOCALTIME_R */
+	tm = localtime( &c->c_starttime );
+# endif
+	ctmbv.bv_len = lutil_localtime( ctmbuf, sizeof( ctmbuf ), tm, -timezone );
+	ctmbv.bv_val = ctmbuf;
 #else /* !HACK_LOCAL_TIME */
-# ifdef HAVE_GMTIME_R
-	ctm = gmtime_r( &c->c_starttime, &tm_buf );
-	lutil_gentime( ctmbuf, sizeof( ctmbuf ), ctm );
-	mtm = gmtime_r( &c->c_activitytime, &tm_buf );
-	lutil_gentime( mtmbuf, sizeof( mtmbuf ), mtm );
+	ctmbv = bv2;
+#endif
+
+#ifdef HAVE_GMTIME_R
+	tm = gmtime_r( &c->c_activitytime, &tm_buf );
+#else
+	tm = gmtime( &c->c_activitytime );
+#endif
+	bv3.bv_len = lutil_gentime( buf3, sizeof( buf3 ), tm );
+	bv3.bv_val = buf3;
+#ifdef HACK_LOCAL_TIME
+# ifdef HAVE_LOCALTIME_R
+	tm = localtime_r( &c->c_activitytime, &tm_buf );
 # else
-	ctm = gmtime( &c->c_starttime );
-	lutil_gentime( ctmbuf, sizeof( ctmbuf ), ctm );
-	mtm = gmtime( &c->c_activitytime );
-	lutil_gentime( mtmbuf, sizeof( mtmbuf ), mtm );
-# endif /* HAVE_GMTIME_R */
-#endif /* !HACK_LOCAL_TIME */
+	tm = localtime( &c->c_activitytime );
+# endif /* HAVE_LOCALTIME_R */
+	mtmbv.bv_len = lutil_localtime( mtmbuf, sizeof( mtmbuf ), tm, -timezone );
+	mtmbv.bv_val = mtmbuf;
+#else /* !HACK_LOCAL_TIME */
+	mtmbv = bv3;
+#endif
+
 #ifndef HAVE_GMTIME_R
 	ldap_pvt_thread_mutex_unlock( &gmtime_mutex );
 #endif
 
-#ifndef HAVE_GMTIME_R
-	ldap_pvt_thread_mutex_lock( &gmtime_mutex );
-#endif
+	bv.bv_len = snprintf( buf, sizeof( buf ),
+		"cn=Connection %ld", c->c_connid );
+	bv.bv_val = buf;
+	e = monitor_entry_stub( &ms->mss_dn, &ms->mss_ndn, &bv, 
+		mi->mi_oc_monitorConnection, mi, &ctmbv, &mtmbv );
 
-#ifdef HAVE_GMTIME_R
-	ltm = gmtime_r( &c->c_starttime, &tm_buf );
-#else
-	ltm = gmtime( &c->c_starttime );
-#endif
-	lutil_gentime( buf2, sizeof( buf2 ), ltm );
-
-#ifdef HAVE_GMTIME_R
-	ltm = gmtime_r( &c->c_activitytime, &tm_buf );
-#else
-	ltm = gmtime( &c->c_activitytime );
-#endif
-	lutil_gentime( buf3, sizeof( buf3 ), ltm );
-
-#ifndef HAVE_GMTIME_R
-	ldap_pvt_thread_mutex_unlock( &gmtime_mutex );
-#endif /* HAVE_GMTIME_R */
-
-	snprintf( buf, sizeof( buf ),
-		"dn: cn=Connection %ld,%s\n"
-		"objectClass: %s\n"
-		"structuralObjectClass: %s\n"
-		"cn: Connection %ld\n"
+	if ( e == NULL) {
+		Debug( LDAP_DEBUG_ANY,
+			"monitor_subsys_conn_create: "
+			"unable to create entry "
+			"\"cn=Connection %ld,%s\"\n",
+			c->c_connid, 
+			ms->mss_dn.bv_val, 0 );
+		return( -1 );
+	}
 
 #ifdef MONITOR_LEGACY_CONN
-		/* NOTE: this will disappear, as the exploded data
-		 * has been moved to dedicated attributes */
-		"%s: "
+	/* NOTE: this will disappear, as the exploded data
+	 * has been moved to dedicated attributes */
+	bv.bv_len = snprintf( buf, sizeof( buf ),
 			"%ld "
 			": %ld "
 			": %ld/%ld/%ld/%ld "
@@ -345,44 +364,7 @@ conn_create(
 			": %s "
 			": %s "
 			": %s "
-			": %s\n"
-#endif /* MONITOR_LEGACY_CONN */
-
-		"%s: %lu\n"
-		"%s: %ld\n"
-
-		"%s: %ld\n"
-		"%s: %ld\n"
-		"%s: %ld\n"
-		"%s: %ld\n"
-
-		"%s: %ld\n"
-		"%s: %ld\n"
-		"%s: %ld\n"
-
-		"%s: %s%s%s%s%s%s\n"
-
-		"%s: %s\n"
-
-		"%s: %s\n"
-		"%s: %s\n"
-		"%s: %s\n"
-		"%s: %s\n"
-
-		"%s: %s\n"
-		"%s: %s\n"
-
-		"creatorsName: %s\n"
-		"modifiersName: %s\n"
-		"createTimestamp: %s\n"
-		"modifyTimestamp: %s\n",
-		c->c_connid, ms->mss_dn.bv_val,
-		mi->mi_oc_monitorConnection->soc_cname.bv_val,
-		mi->mi_oc_monitorConnection->soc_cname.bv_val,
-		c->c_connid,
-
-#ifdef MONITOR_LEGACY_CONN
-		mi->mi_ad_monitoredInfo->ad_cname.bv_val,
+			": %s",
 			c->c_connid,
 			(long) c->c_protocol,
 			c->c_n_ops_received, c->c_n_ops_executing,
@@ -401,77 +383,76 @@ conn_create(
 			c->c_dn.bv_len ? c->c_dn.bv_val : SLAPD_ANONYMOUS,
 			
 			c->c_listener_url.bv_val,
-			c->c_peer_domain.bv_val,
-			c->c_peer_name.bv_val,
+			BER_BVISNULL( &c->c_peer_domain )
+				? "" : c->c_peer_domain.bv_val,
+			BER_BVISNULL( &c->c_peer_name )
+				? "" : c->c_peer_name.bv_val,
 			c->c_sock_name.bv_val,
 			
 			buf2,
-			buf3,
+			buf3 );
+	attr_merge_normalize_one( e, mi->mi_ad_monitoredInfo, &bv, NULL );
 #endif /* MONITOR_LEGACY_CONN */
 
-		mi->mi_ad_monitorConnectionNumber->ad_cname.bv_val,
-			c->c_connid,
-		mi->mi_ad_monitorConnectionProtocol->ad_cname.bv_val,
-			(long)c->c_protocol,
+	bv.bv_len = snprintf( buf, sizeof( buf ), "%lu", c->c_connid );
+	attr_merge_one( e, mi->mi_ad_monitorConnectionNumber, &bv, NULL );
 
-		mi->mi_ad_monitorConnectionOpsReceived->ad_cname.bv_val,
-			c->c_n_ops_received,
-		mi->mi_ad_monitorConnectionOpsExecuting->ad_cname.bv_val,
-			c->c_n_ops_executing,
-		mi->mi_ad_monitorConnectionOpsPending->ad_cname.bv_val,
-			c->c_n_ops_pending,
-		mi->mi_ad_monitorConnectionOpsCompleted->ad_cname.bv_val,
-			c->c_n_ops_completed,
+	bv.bv_len = snprintf( buf, sizeof( buf ), "%ld", (long) c->c_protocol );
+	attr_merge_one( e, mi->mi_ad_monitorConnectionProtocol, &bv, NULL );
 
-		mi->mi_ad_monitorConnectionGet->ad_cname.bv_val,
-			c->c_n_get,
-		mi->mi_ad_monitorConnectionRead->ad_cname.bv_val,
-			c->c_n_read,
-		mi->mi_ad_monitorConnectionWrite->ad_cname.bv_val,
-			c->c_n_write,
+	bv.bv_len = snprintf( buf, sizeof( buf ), "%ld", c->c_n_ops_received );
+	attr_merge_one( e, mi->mi_ad_monitorConnectionOpsReceived, &bv, NULL );
 
-		mi->mi_ad_monitorConnectionMask->ad_cname.bv_val,
+	bv.bv_len = snprintf( buf, sizeof( buf ), "%ld", c->c_n_ops_executing );
+	attr_merge_one( e, mi->mi_ad_monitorConnectionOpsExecuting, &bv, NULL );
+
+	bv.bv_len = snprintf( buf, sizeof( buf ), "%ld", c->c_n_ops_pending );
+	attr_merge_one( e, mi->mi_ad_monitorConnectionOpsPending, &bv, NULL );
+
+	bv.bv_len = snprintf( buf, sizeof( buf ), "%ld", c->c_n_ops_completed );
+	attr_merge_one( e, mi->mi_ad_monitorConnectionOpsCompleted, &bv, NULL );
+
+	bv.bv_len = snprintf( buf, sizeof( buf ), "%ld", c->c_n_get );
+	attr_merge_one( e, mi->mi_ad_monitorConnectionGet, &bv, NULL );
+
+	bv.bv_len = snprintf( buf, sizeof( buf ), "%ld", c->c_n_read );
+	attr_merge_one( e, mi->mi_ad_monitorConnectionRead, &bv, NULL );
+
+	bv.bv_len = snprintf( buf, sizeof( buf ), "%ld", c->c_n_write );
+	attr_merge_one( e, mi->mi_ad_monitorConnectionWrite, &bv, NULL );
+
+	bv.bv_len = snprintf( buf, sizeof( buf ), "%s%s%s%s%s%s",
 			c->c_currentber ? "r" : "",
 			c->c_writewaiter ? "w" : "",
 			LDAP_STAILQ_EMPTY( &c->c_ops ) ? "" : "x",
 			LDAP_STAILQ_EMPTY( &c->c_pending_ops ) ? "" : "p",
 			connection_state2str( c->c_conn_state ),
-			c->c_sasl_bind_in_progress ? "S" : "",
-		
-		mi->mi_ad_monitorConnectionAuthzDN->ad_cname.bv_val,
-			c->c_dn.bv_len ? c->c_dn.bv_val : SLAPD_ANONYMOUS,
+			c->c_sasl_bind_in_progress ? "S" : "" );
+	attr_merge_one( e, mi->mi_ad_monitorConnectionMask, &bv, NULL );
 
-		/* NOTE: client connections leave the c_peer_* fields NULL */
-		mi->mi_ad_monitorConnectionListener->ad_cname.bv_val,
-			c->c_listener_url.bv_val,
-		mi->mi_ad_monitorConnectionPeerDomain->ad_cname.bv_val,
-			BER_BVISNULL( &c->c_peer_domain ) ? "unknown" : c->c_peer_domain.bv_val,
-		mi->mi_ad_monitorConnectionLocalAddress->ad_cname.bv_val,
-			BER_BVISNULL( &c->c_peer_name ) ? "unknown" : c->c_peer_name.bv_val,
-		mi->mi_ad_monitorConnectionPeerAddress->ad_cname.bv_val,
-			c->c_sock_name.bv_val,
+	attr_merge_one( e, mi->mi_ad_monitorConnectionAuthzDN,
+		&c->c_dn, &c->c_ndn );
 
-		mi->mi_ad_monitorConnectionStartTime->ad_cname.bv_val,
-			buf2,
-		mi->mi_ad_monitorConnectionActivityTime->ad_cname.bv_val,
-			buf3,
+	/* NOTE: client connections leave the c_peer_* fields NULL */
+	assert( !BER_BVISNULL( &c->c_listener_url ) );
+	attr_merge_one( e, mi->mi_ad_monitorConnectionListener,
+		&c->c_listener_url, NULL );
 
-		mi->mi_creatorsName.bv_val,
-		mi->mi_creatorsName.bv_val,
-		ctmbuf,
-		mtmbuf );
-		
-	e = str2entry( buf );
+	attr_merge_one( e, mi->mi_ad_monitorConnectionPeerDomain,
+		BER_BVISNULL( &c->c_peer_domain ) ? &bv_unknown : &c->c_peer_domain,
+		NULL );
 
-	if ( e == NULL) {
-		Debug( LDAP_DEBUG_ANY,
-			"monitor_subsys_conn_create: "
-			"unable to create entry "
-			"\"cn=Connection %ld,%s\" entry\n",
-			c->c_connid, 
-			ms->mss_dn.bv_val, 0 );
-		return( -1 );
-	}
+	attr_merge_one( e, mi->mi_ad_monitorConnectionPeerAddress,
+		BER_BVISNULL( &c->c_peer_name ) ? &bv_unknown : &c->c_peer_name,
+		NULL );
+
+	assert( !BER_BVISNULL( &c->c_sock_name ) );
+	attr_merge_one( e, mi->mi_ad_monitorConnectionLocalAddress,
+		&c->c_sock_name, NULL );
+
+	attr_merge_one( e, mi->mi_ad_monitorConnectionStartTime, &bv2, NULL );
+
+	attr_merge_one( e, mi->mi_ad_monitorConnectionActivityTime, &bv3, NULL );
 
 	mp = monitor_entrypriv_create();
 	if ( mp == NULL ) {
@@ -496,9 +477,6 @@ monitor_subsys_conn_create(
 {
 	monitor_info_t	*mi = ( monitor_info_t * )op->o_bd->be_private;
 
-	Connection		*c;
-	int			connindex;
-	monitor_entry_t 	*mp;
 	int			rc = SLAP_CB_CONTINUE;
 	monitor_subsys_t	*ms;
 
@@ -511,14 +489,18 @@ monitor_subsys_conn_create(
 	*ep = NULL;
 
 	if ( ndn == NULL ) {
-		Entry	*e = NULL,
-			*e_tmp = NULL;
+		Connection	*c;
+		int		connindex;
+		Entry		*e = NULL,
+				*e_tmp = NULL;
 
 		/* create all the children of e_parent */
 		for ( c = connection_first( &connindex );
 				c != NULL;
 				c = connection_next( c, &connindex ) )
 		{
+			monitor_entry_t 	*mp;
+
 			if ( conn_create( mi, c, &e, ms ) != SLAP_CB_CONTINUE
 					|| e == NULL )
 			{
@@ -543,6 +525,8 @@ monitor_subsys_conn_create(
 		*ep = e;
 
 	} else {
+		Connection		*c;
+		int			connindex;
 		unsigned long 		connid;
 		char			*next = NULL;
 		static struct berval	nconn_bv = BER_BVC( "cn=connection " );

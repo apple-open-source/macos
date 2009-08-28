@@ -1,3 +1,4 @@
+// $OpenLDAP: pkg/ldap/contrib/ldapc++/src/LDAPAsynConnection.h,v 1.11.2.4 2008/04/14 23:09:26 quanah Exp $
 /*
  * Copyright 2000, OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
@@ -13,15 +14,15 @@
 #include<ldap.h>
 #include<lber.h>
 
+#include <LDAPEntry.h>
+#include <LDAPException.h>
 #include <LDAPMessageQueue.h>
 #include <LDAPConstraints.h>
 #include <LDAPModification.h>
 #include <LDAPModList.h>
 #include <LDAPUrl.h>
 #include <LDAPUrlList.h>
-
-class LDAPEntry;
-class LDAPAttribute;
+#include <SaslInteractionHandler.h>
 
 //* Main class for an asynchronous LDAP connection 
 /**
@@ -60,9 +61,6 @@ class LDAPAsynConnection{
          * Search
          */
         static const int SEARCH_SUB=2;
-//        static const int SEARCH_SUB=LDAP_SCOPE_SUBTREE;
-//        static const int SEARCH_ONE=LDAP_SCOPE_ONELEVEL;
-//        static const int SEARCH_SUB=LDAP_SCOPE_SUBTREE;
 
         /** Construtor that initializes a connection to a server
          * @param hostname Name (or IP-Adress) of the destination host
@@ -70,8 +68,8 @@ class LDAPAsynConnection{
          * @param cons Default constraints to use with operations over 
          *      this connection
          */
-        LDAPAsynConnection(const std::string& hostname=std::string("localhost"),
-                int port=389, LDAPConstraints *cons=new LDAPConstraints() );
+        LDAPAsynConnection(const std::string& url=std::string("localhost"),
+                int port=0, LDAPConstraints *cons=new LDAPConstraints() );
 
         //* Destructor
         virtual ~LDAPAsynConnection();
@@ -88,6 +86,15 @@ class LDAPAsynConnection{
          * @param port      The Network Port the server is running on
          */
         void init(const std::string& hostname, int port);
+
+        /**
+         * Initializes a connection to a server. 
+         * 
+         * There actually no communication to the server. Just the
+         * object is initialized 
+         * @param uri  The LDAP-Uri for the destination
+         */ 
+        void initialize(const std::string& uri);
 
         /**
          * Start TLS on this connection.  This isn't in the constructor,
@@ -108,7 +115,17 @@ class LDAPAsynConnection{
          * @param dn the distiguished name to bind as
          * @param passwd cleartext password to use
          */
-        LDAPMessageQueue* bind(const std::string& dn="", const std::string& passwd="",
+        LDAPMessageQueue* bind(const std::string& dn="", 
+                const std::string& passwd="",
+                const LDAPConstraints *cons=0);
+
+        LDAPMessageQueue* saslBind(const std::string& mech, 
+                const std::string& cred, 
+                const LDAPConstraints *cons=0);
+
+        LDAPMessageQueue* saslInteractiveBind(const std::string& mech,
+                int flags=0,
+                SaslInteractionHandler *sih=0,
                 const LDAPConstraints *cons=0);
 
         /** Performing a search on a directory tree.
@@ -307,14 +324,9 @@ class LDAPAsynConnection{
         LDAPConstraints *m_constr;
 
         /**
-         * The name of the destination host
+         * The URI of this connection
          */
-        std::string m_host;
-
-        /**
-         * The port the destination server is running on.
-         */
-        int m_port;
+        LDAPUrl m_uri;
 
  protected:
         /**

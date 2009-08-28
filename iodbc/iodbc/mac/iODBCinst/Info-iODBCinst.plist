@@ -19,11 +19,11 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>3.52.5</string>
+	<string>3.52.6</string>
 	<key>CFBundleSignature</key>
 	<string>odbc</string>
 	<key>CFBundleVersion</key>
-	<string>3.52.5</string>
+	<string>3.52.6</string>
 	<key>CSResourcesFileMapped</key>
 	<true/>
 </dict>

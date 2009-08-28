@@ -59,8 +59,7 @@ protected:
     virtual bool configureForMemoryDescriptor(IOMemoryDescriptor *memoryDescriptor, UInt64 byteStart, UInt32 activeIndex) { return false; }
     virtual bool configureForMemoryDescriptor(IOMemoryDescriptor * memoryDescriptor, UInt64 requestStart, UInt64 requestSize, AppleLVMVolume * lv) { return false; }
     
-    virtual IOPhysicalAddress getPhysicalSegment(IOByteCount offset, IOByteCount *length) = 0;
-    virtual void *getVirtualSegment(IOByteCount offset, IOByteCount *length) { return 0; }
+    virtual addr64_t getPhysicalSegment(IOByteCount offset, IOByteCount * length, IOOptionBits options = 0) = 0;
     virtual IOReturn prepare(IODirection forDirection = kIODirectionNone);
     virtual IOReturn complete(IODirection forDirection = kIODirectionNone);
 };

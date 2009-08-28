@@ -12,6 +12,8 @@
  *                         All rights reserved.
  * Copyright (c) 2007      Los Alamos National Security, LLC.  All rights
  *                         reserved. 
+ * Copyright (c) 2007      Cisco, Inc.  All rights reserved.
+ * Copyright (c) 2007      Sun Microsystems, Inc.  All rights reserved.
  * $COPYRIGHT$
  * 
  * Additional copyrights may follow
@@ -63,6 +65,8 @@
 #include "orte/mca/rmgr/rmgr_types.h"
 #include "orte/mca/rmaps/rmaps.h"
 #include "orte/runtime/runtime.h"
+#include "orterun.h"
+#include "orterun.h"
 #include "totalview.h"
 
 /* +++ begin MPICH/TotalView interface definitions */
@@ -76,14 +80,14 @@ struct MPIR_PROCDESC {
     int pid;                /* process pid */
 };
 
-struct MPIR_PROCDESC *MPIR_proctable = NULL;
-int MPIR_proctable_size = 0;
-int MPIR_being_debugged = 0;
-int MPIR_force_to_main = 0;
-volatile int MPIR_debug_state = 0;
-volatile int MPIR_i_am_starter = 0;
-volatile int MPIR_debug_gate = 0;
-volatile int MPIR_acquired_pre_main = 0;
+ORTE_DECLSPEC struct MPIR_PROCDESC *MPIR_proctable = NULL;
+ORTE_DECLSPEC int MPIR_proctable_size = 0;
+ORTE_DECLSPEC int MPIR_being_debugged = 0;
+ORTE_DECLSPEC int MPIR_force_to_main = 0;
+ORTE_DECLSPEC volatile int MPIR_debug_state = 0;
+ORTE_DECLSPEC volatile int MPIR_i_am_starter = 0;
+ORTE_DECLSPEC volatile int MPIR_debug_gate = 0;
+ORTE_DECLSPEC volatile int MPIR_acquired_pre_main = 0;
 
 /* --- end MPICH/TotalView interface definitions */
 
@@ -124,13 +128,16 @@ static void dump(void)
  * look for that debugger in the path.  If we find it, fill in
  * new_argv.
  */
-static int process(char *orig_line, char *basename, int argc, char **argv, 
-                   char ***new_argv) 
+static int process(char *orig_line, char *basename, opal_cmd_line_t *cmd_line,
+                   int argc, char **argv, char ***new_argv) 
 {
     int i;
     char *line, *full_line = strdup(orig_line);
-    char *user_argv, *tmp, **tmp_argv;
+    char *user_argv, *tmp, *tmp2, **tmp_argv, **executable;
     char cwd[PATH_MAX];
+    bool used_num_procs = false;
+    bool fail_single_app = false;
+    bool fail_needed_executable = false;
 
     line = full_line;
     if (NULL == line) {
@@ -148,6 +155,11 @@ static int process(char *orig_line, char *basename, int argc, char **argv,
     if (strlen(line) <= 0) {
         return ORTE_ERROR;
     }
+
+    /* Get the tail of the command line (i.e., the user executable /
+       argv) */
+
+    opal_cmd_line_get_tail(cmd_line, &i, &executable);
 
     /* Remove --debug, --debugger, and -tv from the user command line
        params */
@@ -197,6 +209,48 @@ static int process(char *orig_line, char *basename, int argc, char **argv,
         } else if (0 == strncmp(line + i, "@orterun_args@", 14)) {
             line[i] = '\0';
             asprintf(&tmp, "%s%s%s", line, user_argv, line + i + 14);
+        } else if (0 == strncmp(line + i, "@np@", 4)) {
+            line[i] = '\0';
+            asprintf(&tmp, "%s%d%s", line, orterun_globals.num_procs,
+                     line + i + 4);
+            used_num_procs = true;
+        } else if (0 == strncmp(line + i, "@single_app@", 12)) {
+            line[i] = '\0';
+            /* This token is only a flag; it is not replaced with any
+               alternate text */
+            asprintf(&tmp, "%s%s", line, line + i + 12);
+            tmp2 = opal_argv_join(executable + 1, ' ');
+            if (NULL != strchr(tmp2, ':')) {
+                fail_single_app = true;
+            }
+            free(tmp2);
+        } else if (0 == strncmp(line + i, "@executable@", 12)) {
+            line[i] = '\0';
+            /* If we found the executable, paste it in.  Otherwise,
+               this is a possible error. */
+            if (NULL != executable) {
+                asprintf(&tmp, "%s%s%s", line, executable[0], line + i + 12);
+            } else {
+                fail_needed_executable = true;
+            }
+        } else if (0 == strncmp(line + i, "@executable_argv@", 17)) {
+            line[i] = '\0';
+            /* If we found the tail, paste in the argv.  Otherwise,
+               this is a possible error. */
+            if (NULL != executable) {
+                if (NULL != executable[1]) {
+                    /* Put in the argv */
+                    tmp2 = opal_argv_join(executable + 1, ' ');
+                    asprintf(&tmp, "%s%s%s", line, tmp2, line + i + 17);
+                    free(tmp2);
+                } else {
+                    /* There is no argv; just paste the front and back
+                       together, removing the @token@ */
+                    asprintf(&tmp, "%s%s", line, line + i + 17);
+                }
+            } else {
+                fail_needed_executable = true;
+            }
         }
 
         if (NULL != tmp) {
@@ -217,7 +271,43 @@ static int process(char *orig_line, char *basename, int argc, char **argv,
     tmp = opal_path_findv((*new_argv)[0], X_OK, environ, cwd);
     if (NULL != tmp) {
         free(tmp);
-        return ORTE_SUCCESS;
+
+        /* Ok, we found a good debugger.  Check for some error
+           conditions. */
+
+        /* We do not support launching a debugger that requires the
+           -np value if the user did not specify -np on the command
+           line. */
+        if (used_num_procs && 0 == orterun_globals.num_procs) {
+            opal_show_help("help-orterun.txt", "debugger requires -np",
+                           true, (*new_argv)[0], argv[0], user_argv, 
+                           (*new_argv)[0]);
+            /* Fall through to free / fail, below */
+        } 
+
+        /* Some debuggers do not support launching MPMD */
+        else if (fail_single_app) {
+            opal_show_help("help-orterun.txt", 
+                           "debugger only accepts single app", true,
+                           (*new_argv)[0], (*new_argv)[0]);
+            /* Fall through to free / fail, below */
+        }
+
+        /* Some debuggers do not use orterun/mpirun, and therefore
+           must have an executable to run (e.g., cannot use mpirun's
+           app context file feature). */
+        else if (fail_needed_executable) {
+            opal_show_help("help-orterun.txt", 
+                           "debugger requires executable", true,
+                           (*new_argv)[0], argv[0], (*new_argv)[0], argv[0],
+                           (*new_argv)[0]);
+            /* Fall through to free / fail, below */
+        }
+
+        /* Otherwise, we succeeded.  Return happiness. */
+        else {
+            return ORTE_SUCCESS;
+        }
     }
 
     /* All done -- didn't find it */
@@ -230,7 +320,8 @@ static int process(char *orig_line, char *basename, int argc, char **argv,
 /**
  * Run a user-level debugger
  */
-void orte_run_debugger(char *basename, int argc, char *argv[])
+void orte_run_debugger(char *basename, opal_cmd_line_t *cmd_line,
+                       int argc, char *argv[])
 {
     int i, id;
     char **new_argv = NULL;
@@ -258,7 +349,7 @@ void orte_run_debugger(char *basename, int argc, char *argv[])
     lines = opal_argv_split(value, ':');
     free(value);
     for (i = 0; NULL != lines[i]; ++i) {
-        if (ORTE_SUCCESS == process(lines[i], basename, argc, argv, 
+        if (ORTE_SUCCESS == process(lines[i], basename, cmd_line, argc, argv, 
                                     &new_argv)) {
             break;
         }
@@ -387,7 +478,6 @@ void orte_totalview_init_after_spawn(orte_jobid_t jobid)
 
         /* initialize MPIR_proctable */
 
-        i=0;
         for (item =  opal_list_get_first(&map->nodes);
              item != opal_list_get_end(&map->nodes);
              item =  opal_list_get_next(item)) {
@@ -398,12 +488,20 @@ void orte_totalview_init_after_spawn(orte_jobid_t jobid)
                  item2 = opal_list_get_next(item2)) {
                 proc = (orte_mapped_proc_t*)item2;
                 appctx = map->apps[proc->app_idx];
+                /* store this data in the location whose index
+                 * corresponds to the proc's rank
+                 */
+                i = proc->rank;
                 
                 MPIR_proctable[i].host_name = strdup(node->nodename);
-                MPIR_proctable[i].executable_name =
-                    opal_os_path( false, appctx->cwd, appctx->app, NULL );
+                if ( 0 == strncmp(appctx->app, OPAL_PATH_SEP, 1 )) {
+                   MPIR_proctable[i].executable_name =
+                     opal_os_path( false, appctx->app, NULL );
+                } else {
+                   MPIR_proctable[i].executable_name =
+                     opal_os_path( false, appctx->cwd, appctx->app, NULL );
+                }
                 MPIR_proctable[i].pid = proc->pid;
-                i++;
             }
         }
         OBJ_RELEASE(map);

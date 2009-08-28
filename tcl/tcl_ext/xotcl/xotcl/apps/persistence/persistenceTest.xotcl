@@ -1,0 +1,44 @@
+#!../../src/xotclsh
+package require XOTcl; namespace import -force xotcl::*
+
+package require xotcl::store::persistence
+package require xotcl::mixinStrategy
+
+PersistenceMgr jufpMgr
+PersistenceMgr tclpMgr -dbPackage TclGdbm
+Class PersistenceTest -parameter {{countVar 0} {appendVar ""} pm}
+PersistenceTest instproc init args {
+  my mixinStrategy Persistent=Eager
+  my persistenceMgr [my set pm]
+  my persistent {countVar appendVar}
+  next
+}
+
+PersistenceTest instproc incrCount {} {
+  puts "in [self] countVar now is [my countVar]" 
+  my incr countVar
+}
+PersistenceTest instproc appendV {x} {
+  my append appendVar $x
+  puts "append is: [my appendVar]"
+} 
+
+PersistenceTest instproc test {} {
+  # first we increment a counter:
+  my incrCount
+  # now we 5x append something to appendVar
+  for {set i 0} {$i<5} {incr i} {
+    my appendV a 
+  }
+  # now we list all keys in the database 
+  puts "Variables stored in [my persistenceMgr].db: [[my persistenceMgr] names]"
+  # now we delete append var
+  puts "Deleting append:[[my persistenceMgr] delete [self]::appendVar]"
+  # now we list the keys again 
+  puts "Variables stored in [my persistenceMgr].db: [[my persistenceMgr] names]"
+}
+
+PersistenceTest persistenceJufTest -pm jufpMgr -init -test 
+#PersistenceTest persistenceTclTest -pm tclpMgr -init -test 
+
+#PersistenceTest instproc count 

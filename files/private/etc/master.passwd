@@ -50,4 +50,16 @@ _teamsserver:*:94:94::0:0:TeamsServer:/var/teamsserver:/usr/bin/false
 _update_sharing:*:95:-2::0:0:Update Sharing:/var/empty:/usr/bin/false
 _installer:*:96:-2::0:0:Installer:/var/empty:/usr/bin/false
 _atsserver:*:97:97::0:0:ATS Server:/var/empty:/usr/bin/false
+_ftp:*:98:-2::0:0:FTP Daemon:/var/empty:/usr/bin/false
 _unknown:*:99:99::0:0:Unknown User:/var/empty:/usr/bin/false
+_softwareupdate:*:200:200::0:0:Software Update Service:/var/empty:/usr/bin/false
+_coreaudiod:*:202:202::0:0:Core Audio Daemon:/var/empty:/usr/bin/false
+_screensaver:*:203:203::0:0:Screensaver:/var/empty:/usr/bin/false
+_locationd:*:205:205::0:0:Location Daemon:/var/empty/usr/bin/false
+_carddav:*:206:206::0:0:CardDAV Service:/var/empty/usr/bin/false
+_trustevaluationagent:*:208:208::0:0:Trust Evaluation Agent:/var/empty:/usr/bin/false
+_timezone:*:210:210::0:0:AutoTimeZoneDaemon:/var/empty:/usr/bin/false
+_lda:*:211:211::0:0:Local Delivery Agent:/var/empty:/usr/bin/false
+_cvmsroot:*:212:212::0:0:CVMS Root:/var/empty:/usr/bin/false
+_usbmuxd:*:213:213::0:0:iPhone OS Device Helper:/var/db/lockdown:/usr/bin/false
+_dovecot:*:214:6::0:0:Dovecot Administrator:/var/empty:/usr/bin/false

@@ -1,5 +1,3 @@
-/*	$NetBSD: tftpsubs.c,v 1.8 2003/08/07 11:16:14 agc Exp $	*/
-
 /*
  * Copyright (c) 1983, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -12,7 +10,11 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. Neither the name of the University nor the names of its contributors
+ * 3. All advertising materials mentioning features or use of this software
+ *    must display the following acknowledgement:
+ *	This product includes software developed by the University of
+ *	California, Berkeley and its contributors.
+ * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -30,13 +32,12 @@
  */
 
 #include <sys/cdefs.h>
+
+__FBSDID("$FreeBSD: src/usr.bin/tftp/tftpsubs.c,v 1.6 2005/02/14 17:42:58 stefanf Exp $");
+
 #ifndef lint
-#if 0
-static char sccsid[] = "@(#)tftpsubs.c	8.1 (Berkeley) 6/6/93";
-#else
-__RCSID("$NetBSD: tftpsubs.c,v 1.8 2003/08/07 11:16:14 agc Exp $");
+static const char sccsid[] = "@(#)tftpsubs.c	8.1 (Berkeley) 6/6/93";
 #endif
-#endif /* not lint */
 
 /* Simple minded read-ahead/write-behind subroutines for tftp user and
    server.  Written originally with multiple buffers in mind, but current
@@ -53,17 +54,26 @@ __RCSID("$NetBSD: tftpsubs.c,v 1.8 2003/08/07 11:16:14 agc Exp $");
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <netinet/in.h>
-#include "tftp.h"
+#include <arpa/tftp.h>
 
 #include <stdio.h>
 #include <unistd.h>
 
 #include "tftpsubs.h"
 
+#ifdef __APPLE__
 struct bf {
 	int counter;            /* size of data in buffer, or flag */
 	char buf[MAXPKTSIZE];   /* room for data packet */
 } bfs[2];
+#else
+#define PKTSIZE SEGSIZE+4       /* should be moved to tftp.h */
+
+struct bf {
+	int counter;            /* size of data in buffer, or flag */
+	char buf[PKTSIZE];      /* room for data packet */
+} bfs[2];
+#endif
 
 				/* Values for bf.counter  */
 #define BF_ALLOC -3             /* alloc'd but not yet filled */
@@ -77,19 +87,10 @@ static int current;		/* index of buffer in use */
 int newline = 0;		/* fillbuf: in middle of newline expansion */
 int prevchar = -1;		/* putbuf: previous char (cr check) */
 
-static struct tftphdr *rw_init __P((int));
+static struct tftphdr *rw_init(int);
 
-struct tftphdr *
-w_init()		/* write-behind */
-{
-	return rw_init(0);
-}
-
-struct tftphdr *
-r_init()		/* read-ahead */
-{
-	return rw_init(1);
-}
+struct tftphdr *w_init(void) { return rw_init(0); }         /* write-behind */
+struct tftphdr *r_init(void) { return rw_init(1); }         /* read-ahead */
 
 static struct tftphdr *
 rw_init(x)			/* init for either read-ahead or write-behind */
@@ -103,6 +104,7 @@ rw_init(x)			/* init for either read-ahead or write-behind */
 	nextone = x;                    /* ahead or behind? */
 	return (struct tftphdr *)bfs[0].buf;
 }
+
 
 /* Have emptied current buffer by sending to net and getting ack.
    Free it and return next buffer filled with data.
@@ -211,7 +213,7 @@ write_behind(file, convert)
 	int count;
 	int ct;
 	char *p;
-	int c;				/* current character */
+	int c;                 /* current character */
 	struct bf *b;
 	struct tftphdr *dp;
 
@@ -262,9 +264,8 @@ skipit:
  */
 
 int
-synchnet(f, bsize)
+synchnet(f)
 	int	f;		/* socket to flush */
-	int	bsize;		/* size of buffer to sync */
 {
 	int i, j = 0;
 	char rbuf[PKTSIZE];

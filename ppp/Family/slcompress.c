@@ -462,10 +462,10 @@ sl_uncompress_tcp(bufp, len, type, comp)
 //                        (void) ovbcopy(cp, (caddr_t)((intptr_t)cp &~ 3), len);
 //                cp = (u_char *)((intptr_t)cp &~ 3);
 //        }
-        if ((unsigned long)cp & 3) {
+        if ((uintptr_t)cp & 3) {
             if (len > 0)
-                    (void) ovbcopy(cp, (caddr_t)((unsigned long)cp &~ 3), len);
-            cp = (u_char *)((unsigned long)cp &~ 3);
+                    (void) ovbcopy(cp, (caddr_t)((uintptr_t)cp &~ 3), len);
+            cp = (u_char *)((uintptr_t)cp &~ 3);
         }
         // End APPLE
 	cp -= hlen;

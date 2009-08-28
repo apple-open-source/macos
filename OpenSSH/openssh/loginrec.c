@@ -1456,7 +1456,55 @@ syslogin_write_entry(struct logininfo *li)
  **/
 
 #ifdef USE_LASTLOG
-#ifdef __APPLE_UTMPX__
+
+#if !defined(LASTLOG_WRITE_PUTUTXLINE) || !defined(HAVE_GETLASTLOGXBYNAME)
+/* open the file (using filemode) and seek to the login entry */
+static int
+lastlog_openseek(struct logininfo *li, int *fd, int filemode)
+{
+	off_t offset;
+	char lastlog_file[1024];
+	struct stat st;
+
+	if (stat(LASTLOG_FILE, &st) != 0) {
+		logit("%s: Couldn't stat %s: %s", __func__,
+		    LASTLOG_FILE, strerror(errno));
+		return (0);
+	}
+	if (S_ISDIR(st.st_mode)) {
+		snprintf(lastlog_file, sizeof(lastlog_file), "%s/%s",
+		    LASTLOG_FILE, li->username);
+	} else if (S_ISREG(st.st_mode)) {
+		strlcpy(lastlog_file, LASTLOG_FILE, sizeof(lastlog_file));
+	} else {
+		logit("%s: %.100s is not a file or directory!", __func__,
+		    LASTLOG_FILE);
+		return (0);
+	}
+
+	*fd = open(lastlog_file, filemode, 0600);
+	if (*fd < 0) {
+		debug("%s: Couldn't open %s: %s", __func__,
+		    lastlog_file, strerror(errno));
+		return (0);
+	}
+
+	if (S_ISREG(st.st_mode)) {
+		/* find this uid's offset in the lastlog file */
+		offset = (off_t) ((long)li->uid * sizeof(struct lastlog));
+
+		if (lseek(*fd, offset, SEEK_SET) != offset) {
+			logit("%s: %s->lseek(): %s", __func__,
+			    lastlog_file, strerror(errno));
+			return (0);
+		}
+	}
+
+	return (1);
+}
+#endif /* !LASTLOG_WRITE_PUTUTXLINE || !HAVE_GETLASTLOGXBYNAME */
+
+#ifdef LASTLOG_WRITE_PUTUTXLINE
 int
 lastlog_write_entry(struct logininfo *li)
 {
@@ -1468,7 +1516,43 @@ lastlog_write_entry(struct logininfo *li)
 		return 0;
 	}
 }
+#else /* LASTLOG_WRITE_PUTUTXLINE */
+int
+lastlog_write_entry(struct logininfo *li)
+{
+	struct lastlog last;
+	int fd;
 
+	switch(li->type) {
+	case LTYPE_LOGIN:
+		/* create our struct lastlog */
+		memset(&last, '\0', sizeof(last));
+		line_stripname(last.ll_line, li->line, sizeof(last.ll_line));
+		strlcpy(last.ll_host, li->hostname,
+		    MIN_SIZEOF(last.ll_host, li->hostname));
+		last.ll_time = li->tv_sec;
+	
+		if (!lastlog_openseek(li, &fd, O_RDWR|O_CREAT))
+			return (0);
+	
+		/* write the entry */
+		if (atomicio(vwrite, fd, &last, sizeof(last)) != sizeof(last)) {
+			close(fd);
+			logit("%s: Error writing to %s: %s", __func__,
+			    LASTLOG_FILE, strerror(errno));
+			return (0);
+		}
+	
+		close(fd);
+		return (1);
+	default:
+		logit("%s: Invalid type field", __func__);
+		return (0);
+	}
+}
+#endif /* LASTLOG_WRITE_PUTUTXLINE */
+
+#ifdef HAVE_GETLASTLOGXBYNAME
 int
 lastlog_get_entry(struct logininfo *li)
 {
@@ -1485,134 +1569,7 @@ lastlog_get_entry(struct logininfo *li)
 	li->tv_usec = ll->ll_tv.tv_usec;
 	return (1);
 }
-
-#else /* !__APPLE_UTMPX__ */
-
-#define LL_FILE 1
-#define LL_DIR 2
-#define LL_OTHER 3
-
-static void
-lastlog_construct(struct logininfo *li, struct lastlog *last)
-{
-	/* clear the structure */
-	memset(last, '\0', sizeof(*last));
-
-	line_stripname(last->ll_line, li->line, sizeof(last->ll_line));
-	strlcpy(last->ll_host, li->hostname,
-		MIN_SIZEOF(last->ll_host, li->hostname));
-	last->ll_time = li->tv_sec;
-}
-
-static int
-lastlog_filetype(char *filename)
-{
-	struct stat st;
-
-	if (stat(LASTLOG_FILE, &st) != 0) {
-		logit("%s: Couldn't stat %s: %s", __func__,
-		    LASTLOG_FILE, strerror(errno));
-		return (0);
-	}
-	if (S_ISDIR(st.st_mode))
-		return (LL_DIR);
-	else if (S_ISREG(st.st_mode))
-		return (LL_FILE);
-	else
-		return (LL_OTHER);
-}
-
-
-/* open the file (using filemode) and seek to the login entry */
-static int
-lastlog_openseek(struct logininfo *li, int *fd, int filemode)
-{
-	off_t offset;
-	int type;
-	char lastlog_file[1024];
-
-	type = lastlog_filetype(LASTLOG_FILE);
-	switch (type) {
-	case LL_FILE:
-		strlcpy(lastlog_file, LASTLOG_FILE,
-		    sizeof(lastlog_file));
-		break;
-	case LL_DIR:
-		snprintf(lastlog_file, sizeof(lastlog_file), "%s/%s",
-		    LASTLOG_FILE, li->username);
-		break;
-	default:
-		logit("%s: %.100s is not a file or directory!", __func__,
-		    LASTLOG_FILE);
-		return (0);
-	}
-
-	*fd = open(lastlog_file, filemode, 0600);
-	if (*fd < 0) {
-		debug("%s: Couldn't open %s: %s", __func__,
-		    lastlog_file, strerror(errno));
-		return (0);
-	}
-
-	if (type == LL_FILE) {
-		/* find this uid's offset in the lastlog file */
-		offset = (off_t) ((long)li->uid * sizeof(struct lastlog));
-
-		if (lseek(*fd, offset, SEEK_SET) != offset) {
-			logit("%s: %s->lseek(): %s", __func__,
-			    lastlog_file, strerror(errno));
-			return (0);
-		}
-	}
-
-	return (1);
-}
-
-static int
-lastlog_perform_login(struct logininfo *li)
-{
-	struct lastlog last;
-	int fd;
-
-	/* create our struct lastlog */
-	lastlog_construct(li, &last);
-
-	if (!lastlog_openseek(li, &fd, O_RDWR|O_CREAT))
-		return (0);
-
-	/* write the entry */
-	if (atomicio(vwrite, fd, &last, sizeof(last)) != sizeof(last)) {
-		close(fd);
-		logit("%s: Error writing to %s: %s", __func__,
-		    LASTLOG_FILE, strerror(errno));
-		return (0);
-	}
-
-	close(fd);
-	return (1);
-}
-
-int
-lastlog_write_entry(struct logininfo *li)
-{
-	switch(li->type) {
-	case LTYPE_LOGIN:
-		return (lastlog_perform_login(li));
-	default:
-		logit("%s: Invalid type field", __func__);
-		return (0);
-	}
-}
-
-static void
-lastlog_populate_entry(struct logininfo *li, struct lastlog *last)
-{
-	line_fullname(li->line, last->ll_line, sizeof(li->line));
-	strlcpy(li->hostname, last->ll_host,
-	    MIN_SIZEOF(li->hostname, last->ll_host));
-	li->tv_sec = last->ll_time;
-}
-
+#else /* HAVE_GETLASTLOGXBYNAME */
 int
 lastlog_get_entry(struct logininfo *li)
 {
@@ -1630,7 +1587,10 @@ lastlog_get_entry(struct logininfo *li)
 		memset(&last, '\0', sizeof(last));
 		/* FALLTHRU */
 	case sizeof(last):
-		lastlog_populate_entry(li, &last);
+		line_fullname(li->line, last.ll_line, sizeof(li->line));
+		strlcpy(li->hostname, last.ll_host,
+		    MIN_SIZEOF(li->hostname, last.ll_host));
+		li->tv_sec = last.ll_time;
 		return (1);
 	case -1:
 		error("%s: Error reading from %s: %s", __func__,
@@ -1645,7 +1605,7 @@ lastlog_get_entry(struct logininfo *li)
 	/* NOTREACHED */
 	return (0);
 }
-#endif /* __APPLE_UTMPX__ */
+#endif /* HAVE_GETLASTLOGXBYNAME */
 #endif /* USE_LASTLOG */
 
 #ifdef USE_BTMP

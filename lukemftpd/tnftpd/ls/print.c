@@ -1,4 +1,4 @@
-/*	$NetBSD: print.c,v 1.3 2003/12/15 12:18:43 lukem Exp $	*/
+/*	$NetBSD: print.c,v 1.5 2007/07/23 11:42:17 lukem Exp $	*/
 
 /*
  * Copyright (c) 1989, 1993, 1994
@@ -32,16 +32,16 @@
  * SUCH DAMAGE.
  */
 
-#if	HAVE_TNFTPD_H
+#if defined(HAVE_TNFTPD_H)
 #include "tnftpd.h"
-#else	/* ! HAVE_TNFTPD_H */
+#else /* !defined(HAVE_TNFTPD_H) */
 
 #include <sys/cdefs.h>
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)print.c	8.5 (Berkeley) 7/28/94";
 #else
-__RCSID("$NetBSD: print.c,v 1.3 2003/12/15 12:18:43 lukem Exp $");
+__RCSID("$NetBSD: print.c,v 1.5 2007/07/23 11:42:17 lukem Exp $");
 #endif
 #endif /* not lint */
 
@@ -60,7 +60,7 @@ __RCSID("$NetBSD: print.c,v 1.3 2003/12/15 12:18:43 lukem Exp $");
 #include <tzfile.h>
 #include <unistd.h>
 
-#endif	/* ! HAVE_TNFTPD_H */
+#endif /* !defined(HAVE_TNFTPD_H) */
 
 #include "ls.h"
 #include "extern.h"
@@ -70,7 +70,7 @@ extern int termwidth;
 static int	printaname(FTSENT *, int, int);
 static void	printlink(FTSENT *);
 static void	printtime(time_t);
-static int	printtype(u_int);
+static int	printtype(unsigned int);
 
 static time_t	now;
 
@@ -177,9 +177,11 @@ printcol(DISPLAY *dp)
 	if (dp->entries > lastentries) {
 		lastentries = dp->entries;
 		if ((array =
-		    realloc(array, dp->entries * sizeof(FTSENT *))) == NULL) {
+		    reallocf(array, dp->entries * sizeof(FTSENT *))) == NULL) {
 			warn(NULL);
 			printscol(dp);
+			lastentries = -1;
+			return;
 		}
 	}
 	for (p = dp->list, num = 0; p; p = p->fts_link)
@@ -334,7 +336,7 @@ printtime(time_t ftime)
 }
 
 static int
-printtype(u_int mode)
+printtype(unsigned int mode)
 {
 	switch (mode & S_IFMT) {
 	case S_IFDIR:

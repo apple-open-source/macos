@@ -4,9 +4,7 @@
 # Synopsis: Holds comments pertaining to an ObjC category, as parsed by HeaderDoc
 # from an ObjC header
 #
-#
-# Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2006/03/13 19:27:37 $
+# Last Updated: $Date: 2009/03/30 19:38:51 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -45,7 +43,7 @@ use HeaderDoc::ObjCContainer;
 
 use strict;
 use vars qw($VERSION @ISA);
-$VERSION = '$Revision: 1.3.2.4.2.13 $';
+$HeaderDoc::ObjCCategory::VERSION = '$Revision: 1.6 $';
 
 ################ Portability ###################################
 my $isMacOS;
@@ -79,13 +77,13 @@ sub _initialize {
 
 sub className {
     my $self = shift;
-    my ($className, $categoryName) = &getClassAndCategoryName($self->name(), $self->filename(), $self->linenum());
+    my ($className, $categoryName) = &getClassAndCategoryName($self->name(), $self->fullpath(), $self->linenum());
     return $className;
 }
 
 sub categoryName {
     my $self = shift;
-    my ($className, $categoryName) = &getClassAndCategoryName($self->name(), $self->filename(), $self->linenum());
+    my ($className, $categoryName) = &getClassAndCategoryName($self->name(), $self->fullpath(), $self->linenum());
     return $categoryName;
 }
 
@@ -99,12 +97,13 @@ sub getMethodType {
 	} elsif ($declaration =~ /^\s*\+/o) {
 	    $methodType = "clm";
 	} else {
-		# my $filename = $HeaderDoc::headerObject->filename();
-		my $filename = $self->filename();
-		my $linenum = $self->linenum();
-		if (!$HeaderDoc::ignore_apiuid_errors) {
-			print "$filename:$linenum: warning: Unable to determine whether declaration is for an instance or class method[cat]. '$declaration'\n";
-		}
+		$methodType = HeaderDoc::CPPClass::getMethodType($self, $declaration);
+		## # my $fullpath = $HeaderDoc::headerObject->fullpath();
+		## my $fullpath = $self->fullpath();
+		## my $linenum = $self->linenum();
+		## if (!$HeaderDoc::ignore_apiuid_errors) {
+			## print STDERR "$fullpath:$linenum: warning: Unable to determine whether declaration is for an instance or class method[cat]. '$declaration'\n";
+		## }
 	}
 	return $methodType;
 }
@@ -146,20 +145,20 @@ sub getClassAndCategoryName {
     my $fullName = shift;
     my $className = '';
     my $categoryName = '';
-    my $filename = shift; # $HeaderDoc::headerObject->filename();
+    my $fullpath = shift; # $HeaderDoc::headerObject->fullpath();
     my $linenum = shift; 
 
     if ($fullName =~ /(\w+)\s*(\((.*)\))?/o) {
     	$className = $1;
     	$categoryName =$3;
     	if (!length ($className)) {
-            print "$filename:$linenum: warning: Couldn't determine class name from category name '$fullName'.\n";
+            print STDERR "$fullpath:$linenum: warning: Couldn't determine class name from category name '$fullName'.\n";
     	}
     	if (!length ($categoryName)) {
-            print "$filename:$linenum: warning: Couldn't determine category name from category name '$fullName'.\n";
+            print STDERR "$fullpath:$linenum: warning: Couldn't determine category name from category name '$fullName'.\n";
     	}
     } else {
-        print "$filename:$linenum: warning: Specified category name '$fullName' isn't complete. Expecting a name of the form 'MyClass(CategoryName)'\n";
+        print STDERR "$fullpath:$linenum: warning: Specified category name '$fullName' isn't complete. Expecting a name of the form 'MyClass(CategoryName)'\n";
     }
     return ($className, $categoryName);
 }
@@ -172,11 +171,11 @@ sub printObject {
     my $className = $self->className();
     my $categoryName = $self->categoryName();
  
-    print "------------------------------------\n";
-    print "ObjCCategory\n";
-    print "    associated with class: $className\n";
-    print "    category name: $categoryName\n";
-    print "Inherits from:\n";
+    print STDERR "------------------------------------\n";
+    print STDERR "ObjCCategory\n";
+    print STDERR "    associated with class: $className\n";
+    print STDERR "    category name: $categoryName\n";
+    print STDERR "Inherits from:\n";
     $self->SUPER::printObject();
 }
 

@@ -12,12 +12,5 @@ xmore \- plain text display program for the X Window System
 .ad b
 .SH DESCRIPTION
 xmore is a plain text browser.
-.SH ENVIRONMENT
-.TP 
-\fBXPSERVERLIST\fR 
-\fB${XPSERVERLIST}\fR must be set,
-identifying the available Xprint servers.
-See \fBXprint\fR(__miscmansuffix__)
-for more details.
 .SH "SEE ALSO"
 \fBX11\fR(__miscmansuffix__), \fBxman\fR(__appmansuffix__)

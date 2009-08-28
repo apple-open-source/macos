@@ -6,7 +6,7 @@
  *  Damien Sauveron <damien.sauveron@labri.fr>
  *  Ludoic Rousseau <ludovic.rousseau@free.fr>
  *
- * $Id: winscard_msg_srv.c 2377 2007-02-05 13:13:56Z rousseau $
+ * $Id: winscard_msg_srv.c 2961 2008-05-16 09:12:53Z rousseau $
  */
 
 /**
@@ -61,7 +61,7 @@ extern char ReCheckSerialReaders;
  * @retval -1 Can not establish the connection.
  * @retval -1 Can not set the connection to non-blocking mode.
  */
-static int SHMProcessCommonChannelRequest(PDWORD pdwClientID)
+static int SHMProcessCommonChannelRequest(uint32_t *pdwClientID)
 {
 	socklen_t clnt_len;
 	int new_sock;
@@ -165,16 +165,16 @@ INTERNAL int SHMInitializeCommonSegment(void)
  * @retval -1 Can not set the connection to non-blocking mode.
  * @retval 2 Timeout.
  */
-#if defined(__NetBSD__) || defined(__FreeBSD__) || defined(__OpenBSD__)
+#if defined(__NetBSD__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
 #define DO_TIMEOUT
 #endif
-INTERNAL int SHMProcessEventsServer(PDWORD pdwClientID, int blocktime)
+INTERNAL int32_t SHMProcessEventsServer(uint32_t *pdwClientID, int32_t blocktime)
 {
 	fd_set read_fd;
 	int selret;
 #ifdef DO_TIMEOUT
 	struct timeval tv;
-	 	
+
 	tv.tv_sec = 1;
 	tv.tv_usec = 0;
 #endif
@@ -236,7 +236,8 @@ INTERNAL int SHMProcessEventsServer(PDWORD pdwClientID, int blocktime)
  *
  * Called by \c ContextThread().
  */
-INTERNAL int SHMProcessEventsContext(PDWORD pdwClientID, psharedSegmentMsg msgStruct, int blocktime)
+INTERNAL int32_t SHMProcessEventsContext(uint32_t dwClientID,
+	psharedSegmentMsg msgStruct, int32_t blocktime)
 {
 	fd_set read_fd;
 	int selret, rv;
@@ -246,9 +247,9 @@ INTERNAL int SHMProcessEventsContext(PDWORD pdwClientID, psharedSegmentMsg msgSt
 	tv.tv_usec = 0;
 
 	FD_ZERO(&read_fd);
-	FD_SET(*pdwClientID, &read_fd);
+	FD_SET(dwClientID, &read_fd);
 
-	selret = select(*pdwClientID + 1, &read_fd, (fd_set *) NULL,
+	selret = select(dwClientID + 1, &read_fd, (fd_set *) NULL,
 		(fd_set *) NULL, &tv);
 
 	if (selret < 0)
@@ -266,19 +267,22 @@ INTERNAL int SHMProcessEventsContext(PDWORD pdwClientID, psharedSegmentMsg msgSt
 		return 2;
 	}
 	
-	if (FD_ISSET(*pdwClientID, &read_fd))
+	if (FD_ISSET(dwClientID, &read_fd))
 	{
 		/*
 		 * Return the current handle
 		 */
-		rv = SHMClientReadMessage(msgStruct, *pdwClientID, 0, SHMCommunicationTimeout());
+		/* 
+			The 0 for size below means that SHMClientReadMessage should calculate the size from the
+			message header. The size is not sizeof(*msgStruct)
+		*/
+		rv = SHMClientReadMessage(msgStruct, dwClientID, 0, SHMCommunicationTimeout()); 
 		if (rv == -1)
 		{	/* The client has died */
-			Log2(PCSC_LOG_DEBUG, "Client has disappeared: %d",
-				*pdwClientID);
+			Log2(PCSC_LOG_DEBUG, "Client has disappeared: %d", dwClientID);
 			msgStruct->mtype = CMD_CLIENT_DIED;
 			msgStruct->command = 0;
-			SYS_CloseFile(*pdwClientID);
+			SYS_CloseFile(dwClientID);
 
 			return 0;
 		}
@@ -286,8 +290,7 @@ INTERNAL int SHMProcessEventsContext(PDWORD pdwClientID, psharedSegmentMsg msgSt
 		/*
 		 * Set the identifier handle
 		 */
-		Log2(PCSC_LOG_DEBUG, "correctly processed client: %d",
-			*pdwClientID);
+		Log2(PCSC_LOG_DEBUG, "correctly processed client: %d", dwClientID);
 		return 1;
 	}
 
@@ -296,10 +299,17 @@ INTERNAL int SHMProcessEventsContext(PDWORD pdwClientID, psharedSegmentMsg msgSt
 
 INTERNAL int SHMCommunicationTimeout()
 {
-	int timeOut = PCSCLITE_SERVER_ATTEMPTS;
-#if !defined(NDEBUG)
-//	timeOut = 120 * 1000L;		// 120000 mS == 2 minutes
-//	timeOut = 5 * 1000L;		// 120000 mS == 2 minutes
-#endif
+	/*
+		This is a param to e.g. SHMClientReadMessage, and is a timeout in milliseconds.
+		The constant PCSCLITE_SERVER_ATTEMPTS is very poorly named; it is a time value
+		in milliseconds, not the number of attempts. Some values to use:
+		5		default if PCSCLITE_ENHANCED_MESSAGING not defined
+		200		if PCSCLITE_ENHANCED_MESSAGING is defined
+		12000	might be a good value to set while debugging
+	*/
+	
+	static int baseTimeout = 12000;//PCSCLITE_SERVER_ATTEMPTS;
+	volatile int timeOut = baseTimeout;
+
 	return timeOut;
 }

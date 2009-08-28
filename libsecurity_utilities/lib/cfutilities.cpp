@@ -94,10 +94,17 @@ CFDictionaryRef makeCFDictionary(unsigned count, ...)
 		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 }
 
+CFMutableDictionaryRef makeCFMutableDictionary()
+{
+	if (CFMutableDictionaryRef r = CFDictionaryCreateMutable(NULL, 0,
+		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks))
+		return r;
+	CFError::throwMe();
+}
+
 CFMutableDictionaryRef makeCFMutableDictionary(unsigned count, ...)
 {
-	CFMutableDictionaryRef dict = CFDictionaryCreateMutable(NULL, 0,
-		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	CFMutableDictionaryRef dict = makeCFMutableDictionary();
 	if (count > 0) {
 		va_list args;
 		va_start(args, count);
@@ -109,6 +116,13 @@ CFMutableDictionaryRef makeCFMutableDictionary(unsigned count, ...)
 		va_end(args);
 	}
 	return dict;
+}
+
+CFMutableDictionaryRef makeCFMutableDictionary(CFDictionaryRef dict)
+{
+	if (CFMutableDictionaryRef r = CFDictionaryCreateMutableCopy(NULL, 0, dict))
+		return r;
+	CFError::throwMe();
 }
 
 CFDictionaryRef makeCFDictionaryFrom(CFDataRef data)

@@ -33,13 +33,12 @@
 #include "DirServicesConst.h"
 #include "DirServicesPriv.h"
 #include "CHandlers.h"
-#include "DSTCPListener.h"
-#include "CMsgQueue.h"
 #include "CRefTable.h"
 #include "DSMutexSemaphore.h"
 #include "DSCThread.h"
 #include "CServerPlugin.h"
 #include "CPluginHandler.h"
+#include "CSearchPlugin.h"
 #include "CNodeList.h"
 #include "CLog.h"
 #include "CPluginConfig.h"
@@ -51,6 +50,10 @@
 #include "Mbrd_MembershipResolver.h"
 #include "DSLDAPUtils.h"
 #include "CDSPluginUtils.h"
+#include "DSTCPEndpoint.h"
+#include "DSTCPEndian.h"
+#include "CInternalDispatch.h"
+#include "COSUtils.h"
 
 #include <mach/mach.h>
 #include <mach/notify.h>
@@ -60,15 +63,23 @@
 #include <time.h>								// for time
 #include <bsm/libbsm.h>
 #include <uuid/uuid.h>
+#include <netdb.h>
+#include <sys/socket.h>
+#include <assert.h>
+#include <SystemConfiguration/SCDynamicStore.h>
+#include <dispatch/dispatch.h>
+#include <sys/sysctl.h>	// for struct kinfo_proc and sysctl()
+#include <fcntl.h>
 
 // This is for MIG
 extern "C" {
 	#include "DirectoryServiceMIGServer.h"
 	#include "DSlibinfoMIGServer.h"
 	#include "DSmemberdMIGServer.h"
+	#include "DSlibinfoMIGAsyncReply.h"
 }
 
-extern void LoggingTimerCallBack( CFRunLoopTimerRef timer, void *info );
+dispatch_source_t ServerControl::fTCPListener = NULL;
 
 //power management
 extern void dsPMNotificationHandler ( void *refContext, io_service_t service, natural_t messageType, void *notificationID );
@@ -79,11 +90,10 @@ extern io_connect_t		gPMKernelPort;
 extern void NetworkChangeCallBack(SCDynamicStoreRef aSCDStore, CFArrayRef changedKeys, void *callback_argument);
 extern CFRunLoopRef		gPluginRunLoop;
 
-extern CFAbsoluteTime	gSunsetTime;
-extern dsBool			gLogAPICalls;
-extern dsBool			gDebugLogging;
+extern bool				gLogAPICalls;
+extern bool				gDebugLogging;
 extern dsBool			gDSFWCSBPDebugLogging;
-extern dsBool			gIgnoreSunsetTime;
+extern bool				gIgnoreSunsetTime;
 
 extern	bool			gServerOS;
 extern dsBool			gDSDebugMode;
@@ -91,27 +101,24 @@ extern CCachePlugin	   *gCacheNode;
 extern dsBool			gDSLocalOnlyMode;
 extern dsBool			gDSInstallDaemonMode;
 extern DSEventSemaphore gKickCacheRequests;
-extern mach_port_t		gMachMIGSet;
 
 // ---------------------------------------------------------------------------
 //	* Globals
 //
 // ---------------------------------------------------------------------------
 
-CFRunLoopTimerRef	ServerControl::fNSPCTimerRef = NULL; //Node Search Policy Changed
-CFRunLoopTimerRef	ServerControl::fSPCNTimerRef = NULL; //Search Policy Changed Notify
-
 UInt32					gAPICallCount		= 0;
 UInt32					gLookupAPICallCount	= 0;
 ServerControl		   *gSrvrCntl			= nil;
-CRefTable			   *gRefTable			= nil;
+CRefTable				gRefTable( ServerControl::RefDeallocProc );
 CPlugInList			   *gPlugins			= nil;
-CMsgQueue              *gLibinfoQueue       = nil;
+dispatch_queue_t		gLibinfoQueue		= NULL;
 CPluginConfig		   *gPluginConfig		= nil;
 CNodeList			   *gNodeList			= nil;
 CPluginHandler		   *gPluginHandler		= nil;
 char				   *gDSLocalFilePath	= nil;
 UInt32					gLocalSessionCount	= 0;
+DSSemaphore				gLocalSessionLock("::gLocalSessionLock");
 
 DSMutexSemaphore	   *gTCPHandlerLock			= new DSMutexSemaphore("::gTCPHandlerLock");	//mutex on create and destroy of CHandler threads
 DSMutexSemaphore	   *gPerformanceLoggingLock = new DSMutexSemaphore("::gPerformanceLoggingLock");	//mutex on manipulating performance logging matrix
@@ -120,20 +127,23 @@ DSMutexSemaphore	   *gHashAuthFailedMapLock  = new DSMutexSemaphore("::gHashAuth
 DSMutexSemaphore	   *gHashAuthFailedLocalMapLock = gHashAuthFailedMapLock; //same mutex but different name
 DSMutexSemaphore	   *gMachThreadLock			= new DSMutexSemaphore("::gMachThreadLock");	//mutex on count of mig handler threads
 DSMutexSemaphore	   *gTimerMutex				= new DSMutexSemaphore("::gTimerMutex");		//mutex for creating/deleting timers
-DSMutexSemaphore	   *gLibinfoQueueLock		= new DSMutexSemaphore("::gLibinfoQueueLock");	//mutex for creating Libinfo queues
 
-UInt32					gDaemonPID;
-UInt32					gDaemonIPAddress;
+pid_t					gDaemonPID;
+in_addr_t				gDaemonIPAddress;
 UInt32					gRefCountWarningLimit						= 500;
 UInt32					gDelayFailedLocalAuthReturnsDeltaInSeconds  = 1;
 UInt32					gMaxHandlerThreadCount						= kMaxHandlerThreads;
 dsBool					gToggleDebugging							= false;
-map<mach_port_t, pid_t>	gPIDMachMap;
-char				   *gNIHierarchyTagString   = nil;
-UInt32					gActiveMachThreads							= 0;
-UInt32					gActiveLongRequests							= 0;
 bool					gFirstNetworkUpAtBoot						= false;
 bool					gNetInfoPluginIsLoaded						= false;
+
+dispatch_source_t		gLibinfoDispatchSource						= NULL;
+dispatch_source_t		gAPIDispatchSource							= NULL;
+dispatch_source_t		gMembershipDispatchSource					= NULL;
+
+extern mach_port_t		gLibinfoMachPort;
+extern mach_port_t		gAPIMachPort;
+extern mach_port_t		gMembershipMachPort;
 
 //eDSLookupProcedureNumber MUST be SYNC'ed with lookupProcedures
 const char *lookupProcedures[] =
@@ -197,8 +207,10 @@ const char *lookupProcedures[] =
     "getnetgrent",
     
     // DNS calls
+#ifdef HANDLE_DNS_LOOKUPS    
     "getaddrinfo",
     "getnameinfo",
+#endif
     "gethostbyname",
     "gethostbyaddr",
     "gethostent",
@@ -209,73 +221,21 @@ const char *lookupProcedures[] =
 	"getbootpbyaddr",
 
 	// other calls
+#ifdef HANDLE_DNS_LOOKUPS    
     "dns_proxy",
+#endif
+    "gethostbyname_service",
     "_flushcache",
     "_flushentry",
+    
+    "getpwnam_ext",
+    "getpwnam_initext",
+    "getgrnam_ext",
+    "getgrnam_initext",
 	
     "lastprocnum",
     NULL				// safety in case we get out of sync
 };
-
-__BEGIN_DECLS
-extern int ShouldRegisterWorkstation(void);
-__END_DECLS
-
-void DoPeriodicTask(CFRunLoopTimerRef timer, void *info);
-
-static void NodeSearchPolicyChangeCallback(CFRunLoopTimerRef timer, void *info)
-{
-	if ( info != nil )
-	{
-		((ServerControl *)info)->DoNodeSearchPolicyChange();
-	}
-}// DoSearchPolicyChange
-
-static void SearchPolicyChangedNotifyCallback( CFRunLoopTimerRef timer, void *info )
-{
-	if ( info != nil )
-	{
-		((ServerControl *)info)->DoSearchPolicyChangedNotify();
-	}
-}
-
-static CFStringRef SearchPolicyChangeCopyStringCallback( const void *item )
-{
-	return CFSTR("SearchPolicyChange");
-}
-
-static CFStringRef NotifySearchPolicyChangeCopyStringCallback( const void *item )
-{
-	return CFSTR("NotifySearchPolicyChange");
-}
-
-static CFStringRef PeriodicTaskCopyStringCallback( const void *item )
-{
-	return CFSTR("PeriodicTask");
-}
-
-#pragma mark -
-#pragma mark MIG Support Routines - separate DS, Lookup, and memberd servers
-#pragma mark -
-
-void mig_spawnonceifnecessary( void )
-{
-	// need to lock while checking cause we could get a race condition
-	gMachThreadLock->WaitLock();
-
-	// see if we've reached our limit and if we don't have enought threads to handle requests
-	bool bSpawnThread = ( gActiveMachThreads < gMaxHandlerThreadCount && gActiveLongRequests > gActiveMachThreads );
-
-	gMachThreadLock->SignalLock();
-
-	if( bSpawnThread )
-	{
-		CMigHandlerThread* aMigHandlerThread = new CMigHandlerThread(DSCThread::kTSMigHandlerThread, true);
-		if (aMigHandlerThread != NULL)
-			aMigHandlerThread->StartThread();
-		//we don't keep a handle to the mig handler threads and don't check if they get created
-	}
-}
 
 #pragma mark -
 #pragma mark MIG Call Handler Routines - separate DS, Lookup, and memberd servers
@@ -290,19 +250,12 @@ kern_return_t dsmig_do_checkUsernameAndPassword( mach_port_t server,
 	CRequestHandler handler;
 	char *debugDataTag = NULL;
 	
-	gMachThreadLock->WaitLock();
-	gActiveLongRequests++;
-	gMachThreadLock->SignalLock();
-
-	// we should spawn the thread after we've incremented the number of requests active, otherwise thread will spawn and exit too soon
-	mig_spawnonceifnecessary();
-
 	if ( (gDebugLogging) || (gLogAPICalls) )
 	{
 		pid_t	aPID;
 		audit_token_to_au32( atoken, NULL, NULL, NULL, NULL, NULL, &aPID, NULL, NULL );
 
-		debugDataTag = handler.BuildAPICallDebugDataTag( gDaemonIPAddress, aPID, "checkpw()", "Server" );
+		debugDataTag = handler.BuildAPICallDebugDataTag( NULL, aPID, "checkpw()", "Server" );
 		DbgLog( kLogHandler, "%s : dsmig DAC : Username = %s", debugDataTag, username );
 	}
 
@@ -326,11 +279,11 @@ kern_return_t dsmig_do_checkUsernameAndPassword( mach_port_t server,
 	// BSM Audit
 	if ( bsmEventCode > 0 )
 	{
-		token_t *tok;
+		token_t *tok = NULL;
 		
 		if ( *result == eDSNoErr )
 		{
-			tok = au_to_text( textStr );
+			if ( textStr != NULL ) tok = au_to_text( textStr );
 			audit_write_success( bsmEventCode, tok,
 									auidp,
 									euidp,
@@ -363,31 +316,199 @@ kern_return_t dsmig_do_checkUsernameAndPassword( mach_port_t server,
 		free( debugDataTag );
 	}
 
-	gMachThreadLock->WaitLock();
-	gActiveLongRequests--;
-	gMachThreadLock->SignalLock();
+	return KERN_SUCCESS;
+}
+
+// used to process the mach messages and route to the correct MIG server
+// key difference is, it forces the thread running to be an internal dispatch (not to be confused with libdispatch) thread
+//   which prevents calls to DS APIs from going over mach back to ourselves
+static boolean_t dsmig_demux_internaldispatch( mach_msg_header_t *request, mach_msg_header_t *reply )
+{
+	boolean_t	result;
+	
+	CInternalDispatch::AddCapability();
+	
+	if ( request->msgh_id >= 60000 ) // 60000 are memberd requests
+		result = DSmemberdMIG_server( request, reply );
+	else if ( request->msgh_id >= 50000 ) // 50000 are libinfo requests
+		result = DSlibinfoMIG_server( request, reply );
+	else
+		result = DirectoryServiceMIG_server(request, reply);
+
+	if ( request->msgh_id == MACH_NOTIFY_NO_SENDERS ) {
+		mach_vm_address_t context = NULL;
+		
+		// clean up the mach message port
+		mach_port_get_context( mach_task_self(), request->msgh_local_port, &context );
+		DbgLog( kLogDebug, "dsdispatch_no_senders_notification:: %u", request->msgh_local_port );
+		gRefTable.CleanRefsForMachRefs( request->msgh_local_port );
+		
+		if ( context != 0 ) {
+            dispatch_cancel( (dispatch_source_t) context );
+            dispatch_release( (dispatch_source_t) context );
+		}
+	}
+	
+	return result;
+}
+
+static void
+dsdispatch_process_wentaway( pid_t inProc )
+{
+    DbgLog( kLogNotice, "dsdispatch_process_wentaway:: PID: %d - has exited, exec'd, or closed session", inProc );
+    
+    // no need to keep this daemon going anymore as it launches on demand
+    // create a lazy timer
+    // TODO: need a better on-demand solution, we use hold a mutex while we exit,
+    // clients will recover
+    dispatch_source_t source = dispatch_source_timer_create( DISPATCH_TIMER_ONESHOT, 
+                                                             5ULL * NSEC_PER_SEC,
+                                                             1ULL * NSEC_PER_SEC,
+                                                             NULL,
+                                                             dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT),
+                                                             ^(dispatch_source_t ds) {
+                                                                 // use try lock in case we collide with another timer which gets done on the
+                                                                 // same thread will cause an abort
+                                                                 if ( dispatch_source_get_error(ds, NULL) == 0 && gLocalSessionLock.WaitTryLock() ) {
+                                                                     if ( gLocalSessionCount == 0 ) {
+                                                                         // just stop the runloop it will exit
+                                                                         CFRunLoopStop( CFRunLoopGetMain() );
+                                                                         
+                                                                         // we intentionally don't unlock cause we are going to exit
+                                                                     } else {
+                                                                         gLocalSessionLock.SignalLock();
+                                                                     }
+                                                                 }
+                                                             } );
+    assert( source != NULL );
+}
+
+static dispatch_source_t
+CreateDispatchSourceForMachPort( mach_port_t newServer, size_t maxSize, pid_t inPID, bool bPerClientPort )
+{
+#define MY_MIG_OPTIONS	(MACH_RCV_TIMEOUT | MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_CTX) | \
+                         MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0))
+	
+    dispatch_source_t machSource;
+    dispatch_queue_t machQueue;
+    
+    if ( bPerClientPort == true ) {
+        // we use serial queues for per-client ports to ensure ordered requests
+        machQueue = dispatch_queue_create( "per-client MIG queue", NULL );
+        assert( machQueue != NULL );
+        
+        machSource = dispatch_source_machport_create( newServer,
+                                                      DISPATCH_MACHPORT_RECV,
+                                                      DISPATCH_SOURCE_CREATE_SUSPENDED,
+                                                      machQueue,
+                                                      ^(dispatch_source_t ds) {
+                                                          if ( dispatch_source_get_error(ds, NULL) == 0 ) {
+                                                              mach_msg_server( dsmig_demux_internaldispatch,
+                                                                               maxSize,
+                                                                               newServer,
+                                                                               MY_MIG_OPTIONS );
+                                                          } else {
+                                                              mach_port_mod_refs( mach_task_self(), newServer, MACH_PORT_RIGHT_RECEIVE, -1 );
+                                                          }
+                                                      } );
+        assert( machSource != NULL );
+        
+        mach_port_set_context( mach_task_self(), newServer, (mach_vm_address_t) machSource );
+        
+        // Request no-senders notification so we can tell when client dies
+        mach_port_t	oldTargetOfNotification	= MACH_PORT_NULL;
+        mach_port_request_notification( mach_task_self(), newServer, MACH_NOTIFY_NO_SENDERS, 1, newServer, 
+                                        MACH_MSG_TYPE_MAKE_SEND_ONCE, &oldTargetOfNotification );
+        
+        dispatch_release( machQueue );
+        
+        // we only use the process source in localonly mode to track who is still around
+        if ( gDSLocalOnlyMode == true && inPID > 0 ) {
+            dispatch_source_t procSource = dispatch_source_proc_create( inPID,
+                                                                        DISPATCH_PROC_EXIT | DISPATCH_PROC_EXEC, 
+                                                                        NULL,
+                                                                        dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT),
+                                                                        ^(dispatch_source_t ds) { 
+                                                                            if ( dispatch_source_get_error(ds, NULL) == 0 ) {
+                                                                                dsdispatch_process_wentaway( inPID );
+                                                                                dispatch_cancel( ds );
+                                                                            }
+                                                                            else {
+                                                                                dispatch_release( ds );
+                                                                            }
+                                                                        } );
+            assert( procSource != NULL );
+        }        
+    }
+    else {
+        // our main launchd registered ports are always on the concurrent queue to ensure re-entrancy
+        machQueue = dispatch_get_concurrent_queue( DISPATCH_QUEUE_PRIORITY_DEFAULT );
+        
+        dispatch_group_t migGroup = dispatch_group_create();
+        machSource = dispatch_source_machport_create( newServer,
+                                                      DISPATCH_MACHPORT_RECV,
+                                                      DISPATCH_SOURCE_CREATE_SUSPENDED,
+                                                      machQueue,
+                                                      ^(dispatch_source_t ds) {
+                                                          if ( dispatch_source_get_error(ds, NULL) == 0 ) {
+                                                              dispatch_group_async( migGroup,
+                                                                                    machQueue, 
+                                                                                    ^(void) {
+                                                                                        mach_msg_server( dsmig_demux_internaldispatch,
+                                                                                                         maxSize,
+                                                                                                         newServer,
+                                                                                                         MY_MIG_OPTIONS );
+                                                                                    } );
+                                                          } else {
+                                                              dispatch_group_wait( migGroup, UINT64_MAX );
+                                                              dispatch_release( migGroup );
+                                                              mach_port_mod_refs( mach_task_self(), newServer, MACH_PORT_RIGHT_RECEIVE, -1 );
+                                                          }
+                                                      } );
+        assert( machSource != NULL );
+    }
+	
+    dispatch_resume( machSource );
+    
+	return machSource;
+}
+
+kern_return_t dsmig_do_create_api_session( mach_port_t server, mach_port_t *newServer, audit_token_t *atoken )
+{
+	pid_t	aPID;
+	
+	// let's get the audit data PID
+	audit_token_to_au32( *atoken, NULL, NULL, NULL, NULL, NULL, &aPID, NULL, NULL );
+	mach_port_allocate( mach_task_self(), MACH_PORT_RIGHT_RECEIVE, newServer );
+	
+	CreateDispatchSourceForMachPort( *newServer, kMaxMIGMsg, aPID, true );
+	
+	if ( LoggingEnabled(kLogInfo) == true ) {
+		char *pName = dsGetNameForProcessID( aPID );
+		DbgLog( kLogDebug, "dsdispatch_create_api_session - created new dispatch source for Mach port: %u Client: '%s' PID: %d", 
+			    *newServer, pName, aPID );
+		DSFree( pName );
+	}
 	
 	return KERN_SUCCESS;
 }
 
-kern_return_t dsmig_do_create_api_session( mach_port_t server, mach_port_t *newServer, audit_token_t atoken )
+kern_return_t dsmig_do_close_api_session( mach_port_t server, audit_token_t atoken )
 {
-	mach_port_t		oldTargetOfNotification	= MACH_PORT_NULL;
-	
-	(void) mach_port_allocate( mach_task_self(), MACH_PORT_RIGHT_RECEIVE, newServer );
-	(void) mach_port_move_member( mach_task_self(), *newServer, gMachMIGSet );
-	
-	// Request no-senders notification so we can tell when server dies
-	(void) mach_port_request_notification( mach_task_self(), *newServer, MACH_NOTIFY_NO_SENDERS, 1, *newServer, MACH_MSG_TYPE_MAKE_SEND_ONCE, &oldTargetOfNotification );
+	pid_t	aPID;
 	
 	// let's get the audit data PID
-	pid_t	aPID;
 	audit_token_to_au32( atoken, NULL, NULL, NULL, NULL, NULL, &aPID, NULL, NULL );
-
-	gMachThreadLock->WaitLock();
-	gPIDMachMap[*newServer] = aPID;
-	gMachThreadLock->SignalLock();
-
+	
+	gRefTable.CleanRefsForMachRefs( server );
+	
+	if ( LoggingEnabled(kLogInfo) == true ) {
+		char *pName = dsGetNameForProcessID( aPID );
+		DbgLog( kLogDebug, "dsdispatch_close_api_session - cleaning up for port: %u Client: '%s' PID: %d", 
+			    server, pName, aPID );
+		DSFree( pName );
+	}
+	
 	return KERN_SUCCESS;
 }
 
@@ -413,29 +534,22 @@ kern_return_t dsmig_do_api_call( mach_port_t server,
 	{
 		pComData	= (sComDataPtr) msg_data;
 		uiLength	= msg_dataCnt;
-		dataLength	= pComData->fDataLength;
-		dataSize	= pComData->fDataSize;
-#ifdef __LITTLE_ENDIAN__
-		if (pComData->type.msgt_translate == 1) //need to swap data length if mach msg came from BIG_ENDIAN translator
-		{
-			dataLength	= DSGetLong(&pComData->fDataLength, false);
-			dataSize	= DSGetLong(&pComData->fDataSize, false);
-		}
-#endif
 	}
 	else
 	{
 		pComData	= (sComDataPtr) msg_data_ool;
 		uiLength	= msg_data_oolCnt;
+	}
+
+	if ( pComData->type.msgt_translate == 0 )
+	{
 		dataLength	= pComData->fDataLength;
 		dataSize	= pComData->fDataSize;
-#ifdef __LITTLE_ENDIAN__
-		if (pComData->type.msgt_translate == 1) //need to swap data length if mach msg came from BIG_ENDIAN translator
-		{
-			dataLength	= DSGetLong(&pComData->fDataLength, false);
-			dataSize	= DSGetLong(&pComData->fDataSize, false);
-		}
-#endif
+	}
+	else
+	{
+		dataLength	= DSGetLong( &pComData->fDataLength, kDSSwapNetworkToHostOrder );
+		dataSize	= DSGetLong( &pComData->fDataSize, kDSSwapNetworkToHostOrder );
 	}
 	
 	// lets see if the packet is big enough.. and see if the length matches the msg_data size minus 1
@@ -455,21 +569,14 @@ kern_return_t dsmig_do_api_call( mach_port_t server,
 			
 			bcopy( (void *)pComData, pRequest, uiLength );
 			
-			gMachThreadLock->WaitLock();
-			gActiveLongRequests ++;
-			gMachThreadLock->SignalLock();
-			
-			// spawn a thread request
-			mig_spawnonceifnecessary();
-
-#ifdef __LITTLE_ENDIAN__
-			if (pRequest->type.msgt_translate == 1) //need to swap since mach msg came from BIG_ENDIAN translator
-			{
-				DSMachEndian swapper(pRequest, kDSSwapToHost);
-				swapper.SwapMessage();
+			// need to swap if it wasn't sent in little endian
+			if ( pRequest->type.msgt_translate != 0 ) {
+				SwapMachMessage( pRequest, kDSSwapNetworkToHostOrder );
 			}
-#endif
 
+			// need to populate the port
+			pRequest->fMachPort = server;
+			
 			// let's get the audit data and add it to the sComData
 			audit_token_to_au32( atoken, NULL, (uid_t *)&pRequest->fEffectiveUID, NULL, (uid_t *)&pRequest->fUID, NULL, (pid_t *)&pRequest->fPID, NULL, NULL );
 			
@@ -482,37 +589,27 @@ kern_return_t dsmig_do_api_call( mach_port_t server,
 			
 			if ( (gDebugLogging) || (gLogAPICalls) )
 			{
-				pid_t	aPID;
-				audit_token_to_au32( atoken, NULL, NULL, NULL, NULL, NULL, &aPID, NULL, NULL );
-
 				reqEndTime = dsTimestamp();
 
 				// if the request took more than 2 seconds, log a message
 				double totalTime = (reqEndTime - reqStartTime) / USEC_PER_SEC;
 				if (totalTime > 2.0)
 				{
-					char *debugDataTag = handler.BuildAPICallDebugDataTag( gDaemonIPAddress, aPID, "API", "Server" );
+					char *debugDataTag = handler.BuildAPICallDebugDataTag( NULL, pRequest->fPID, "API", "Server" );
 					DbgLog( kLogHandler, "%s : dsmig DAR : Excessive request time %f seconds", debugDataTag, totalTime );
 					free( debugDataTag );
 				}
 			}
-			
-			gMachThreadLock->WaitLock();
-			gActiveLongRequests --;
-			gMachThreadLock->SignalLock();
 			
 			// set the PID in the return to our PID for RefTable purposes
 			pRequest->fPID = gDaemonPID;
 			
 			UInt32 dataLen = pRequest->fDataLength;
 			
-#ifdef __LITTLE_ENDIAN__
-			if (pRequest->type.msgt_translate == 1) //need to swap since mach msg being sent back to BIG_ENDIAN translator
-			{
-				DSMachEndian swapper(pRequest, kDSSwapToBig);
-				swapper.SwapMessage();
+			// need to swap if it wasn't sent in little endian
+			if ( pRequest->type.msgt_translate != 0 ) {
+				SwapMachMessage( pRequest, kDSSwapHostToNetworkOrder );
 			}
-#endif
 
 			// if it will fit in the fixed buffer, use it otherwise use OOL
 			if( sizeof(sComData) + dataLen <= *reply_msgCnt )
@@ -572,11 +669,6 @@ kern_return_t libinfoDSmig_do_GetProcedureNumber
 
 	// NOTE:  All MIG calls are Endian swapped automatically, nothing required on the client/server side
 	
-	// We won't spawn a thread, but we will increase our count while we do work so that existing thread won't exit
-	gMachThreadLock->WaitLock();
-	gActiveLongRequests ++;
-	gMachThreadLock->SignalLock();
-	
 	if ( (gDebugLogging) || (gLogAPICalls) )
 	{
 		pid_t			aPID;
@@ -584,7 +676,7 @@ kern_return_t libinfoDSmig_do_GetProcedureNumber
 		
 		audit_token_to_au32( atoken, NULL, NULL, NULL, NULL, NULL, &aPID, NULL, NULL );
 		
-		debugDataTag = handler.BuildAPICallDebugDataTag( gDaemonIPAddress, aPID, "libinfo", "Server" );
+		debugDataTag = handler.BuildAPICallDebugDataTag( NULL, aPID, "libinfo", "Server" );
 		DbgLog( kLogHandler, "%s : libinfomig DAC : Procedure Request = %s", debugDataTag, indata );
 	}
 	
@@ -610,10 +702,6 @@ kern_return_t libinfoDSmig_do_GetProcedureNumber
 		free( debugDataTag );
 	}
 	
-	gMachThreadLock->WaitLock();
-	gActiveLongRequests --;
-	gMachThreadLock->SignalLock();
-				
 	return kr;
 }
 
@@ -634,13 +722,7 @@ kern_return_t libinfoDSmig_do_Query(	mach_port_t server,
     pid_t			aPID;
 	
 	// Note: MIG deals with all byte swapping automatically no need to swap int32_t or any other standard integer type
-	gMachThreadLock->WaitLock();
-	gActiveLongRequests ++;
-	gMachThreadLock->SignalLock();
-	
 	// spawn a thread request
-	mig_spawnonceifnecessary();
-
     audit_token_to_au32( atoken, NULL, NULL, NULL, NULL, NULL, &aPID, NULL, NULL );
     
 	if ( (gDebugLogging) || (gLogAPICalls) )
@@ -649,7 +731,7 @@ kern_return_t libinfoDSmig_do_Query(	mach_port_t server,
 
 		if ( bValidProcedure )
 		{
-			debugDataTag = handler.BuildAPICallDebugDataTag( gDaemonIPAddress, aPID, "libinfo", "Server" );
+			debugDataTag = handler.BuildAPICallDebugDataTag( NULL, aPID, "libinfo", "Server" );
 			DbgLog( kLogHandler, "%s : libinfomig DAC : Procedure = %s (%d)", debugDataTag, lookupProcedures[procnumber], procnumber );
             
             if( aPID == (SInt32)gDaemonPID )
@@ -660,21 +742,32 @@ kern_return_t libinfoDSmig_do_Query(	mach_port_t server,
 		}
 		else
 		{
-			debugDataTag = handler.BuildAPICallDebugDataTag( gDaemonIPAddress, aPID, "libinfo", "Server" );
+			debugDataTag = handler.BuildAPICallDebugDataTag( NULL, aPID, "libinfo", "Server" );
 			DbgLog( kLogHandler, "%s : libinfomig DAC : Invalid Procedure = %d", debugDataTag, procnumber );
 		}
 	}
     
     // if the cache node is NULL and (pid != DS or DNS lookup) wait for cache node
+#ifdef HANDLE_DNS_LOOKUPS
     if( gCacheNode == NULL && (aPID != (SInt32)gDaemonPID || (procnumber >= kDSLUgetaddrinfo && procnumber <= kDSLUdns_proxy )) )
     {
         gKickCacheRequests.WaitForEvent(); // wait until cache node is ready
     }
+#endif
 	
 	//pass the data directly into the Cache plugin and only if the SearchNode is initialized
     // or the search node is not initialized and we aren't dispatching to ourselves
 	if ( gCacheNode != NULL && bValidProcedure )
 	{
+		struct stat sb;
+		
+		if ( procnumber == kDSLUflushcache && lstat("/AppleInternal", &sb) == 0 && lstat("/var/db/disableAppleInternal", &sb) == -1 ) {
+			char *pName = dsGetNameForProcessID( aPID );
+			syslog( LOG_ERR, "***Mobility: PID: %d '%s' requested flush of libinfo cache - this could affect sleep/wake/etc.", aPID, 
+				    pName );
+			DSFree( pName );
+		}
+		
         returnedBuf = gCacheNode->ProcessLookupRequest(procnumber, request, requestCnt, aPID);
         if ( (returnedBuf != NULL) && (returnedBuf->databuf != NULL) )
         {
@@ -703,10 +796,6 @@ kern_return_t libinfoDSmig_do_Query(	mach_port_t server,
         kvbuf_free(returnedBuf);
 	}
 
-	gMachThreadLock->WaitLock();
-	gActiveLongRequests --;
-	gMachThreadLock->SignalLock();
-	
 	if ( debugDataTag )
 	{
 		if ( bValidProcedure )
@@ -733,9 +822,9 @@ kern_return_t libinfoDSmig_do_Query_async(	mach_port_t server,
                                             mach_vm_address_t callbackAddr,
                                             audit_token_t atoken )
 {
-    Boolean			bValidProcedure	= ( (procnumber > 0) && (procnumber < (int)kDSLUlastprocnum) ? TRUE : FALSE);
-    char			*debugDataTag	= NULL;
-    sLibinfoRequest		*pLibinfoRequest = NULL;
+    Boolean					bValidProcedure	= ( (procnumber > 0) && (procnumber < (int)kDSLUlastprocnum) ? TRUE : FALSE);
+    char					*debugDataTag	= NULL;
+    __block sLibinfoRequest	*pLibinfoRequest = NULL;
     
     if ( (gDebugLogging) || (gLogAPICalls) )
     {
@@ -746,7 +835,7 @@ kern_return_t libinfoDSmig_do_Query_async(	mach_port_t server,
         
         if ( bValidProcedure )
         {
-            debugDataTag = handler.BuildAPICallDebugDataTag( gDaemonIPAddress, aPID, "libinfo", "Server" );
+            debugDataTag = handler.BuildAPICallDebugDataTag( NULL, aPID, "libinfo", "Server" );
             DbgLog( kLogHandler, "%s : libinfomig DAC : Async Procedure = %s (%d)", debugDataTag, lookupProcedures[procnumber], procnumber );
             
             if( aPID == (pid_t)gDaemonPID )
@@ -757,7 +846,7 @@ kern_return_t libinfoDSmig_do_Query_async(	mach_port_t server,
         }
         else
         {
-            debugDataTag = handler.BuildAPICallDebugDataTag( gDaemonIPAddress, aPID, "libinfo", "Server" );
+            debugDataTag = handler.BuildAPICallDebugDataTag( NULL, aPID, "libinfo", "Server" );
             DbgLog( kLogHandler, "%s : libinfomig DAC : Invalid Async Procedure = %d", debugDataTag, procnumber );
         }
     }
@@ -765,31 +854,94 @@ kern_return_t libinfoDSmig_do_Query_async(	mach_port_t server,
     if( bValidProcedure )
     {
         pLibinfoRequest = new sLibinfoRequest;
-        
-        pLibinfoRequest->fBuffer = (char *) calloc( requestCnt, sizeof(char) );
-        if( pLibinfoRequest->fBuffer != NULL )
-        {
-            pLibinfoRequest->fReplyPort = replyToPort;
-            pLibinfoRequest->fProcedure = procnumber;
-            pLibinfoRequest->fToken = atoken;
-            pLibinfoRequest->fCallbackAddr = callbackAddr;
-            
-            bcopy( request, pLibinfoRequest->fBuffer, requestCnt );
-            pLibinfoRequest->fBufferLen = requestCnt;
-            
-            if( gLibinfoQueue->QueueMessage( pLibinfoRequest ) == false )
-            {
-                // use our lookup mutex here as well
-                gLibinfoQueueLock->WaitLock();
-                gSrvrCntl->StartAHandler( DSCThread::kTSLibinfoQueueThread );
-                gLibinfoQueueLock->SignalLock();
-            }
-        }
-        else
-        {
-            // need to dispose of rights if we aren't going to queue the message
-            mach_port_mod_refs( mach_task_self(), replyToPort, MACH_PORT_RIGHT_SEND_ONCE, -1 );
-        }
+        if ( pLibinfoRequest != NULL )
+		{
+			pLibinfoRequest->fBuffer = (char *) calloc( requestCnt, sizeof(char) );
+			if ( pLibinfoRequest->fBuffer != NULL )
+			{
+				pLibinfoRequest->fReplyPort = replyToPort;
+				pLibinfoRequest->fProcedure = procnumber;
+				pLibinfoRequest->fToken = atoken;
+				pLibinfoRequest->fCallbackAddr = callbackAddr;
+				
+				bcopy( request, pLibinfoRequest->fBuffer, requestCnt );
+				pLibinfoRequest->fBufferLen = requestCnt;
+				
+				void (^theBlock)(void) = ^(void) {
+					char			*debugDataTag = NULL;
+					pid_t			aPID;
+					CRequestHandler handler;
+					
+					audit_token_to_au32( pLibinfoRequest->fToken, NULL, NULL, NULL, NULL, NULL, &aPID, NULL, NULL );
+					
+					if ( (gDebugLogging) || (gLogAPICalls) )
+					{
+						debugDataTag = handler.BuildAPICallDebugDataTag( NULL, aPID, "libinfo", "Server" );
+						DbgLog( kLogHandler, "%s : libinfomig DAC : Async Procedure = %s (%d) : Handle request %X", debugDataTag, lookupProcedures[pLibinfoRequest->fProcedure], pLibinfoRequest->fProcedure, pLibinfoRequest );
+					}                    
+					
+					// now process the request
+					kvbuf_t *pResponse = gCacheNode->ProcessLookupRequest( pLibinfoRequest->fProcedure, pLibinfoRequest->fBuffer, pLibinfoRequest->fBufferLen, aPID );
+					
+					if ( pResponse != NULL )
+					{
+						if( pResponse->datalen <= MAX_MIG_INLINE_DATA )
+						{
+							if ( libinfoDSmig_Response_async( pLibinfoRequest->fReplyPort, pResponse->databuf, pResponse->datalen, 0, 0, pLibinfoRequest->fCallbackAddr ) != MACH_MSG_SUCCESS )
+							{
+								// need to clean up mach port if we got any error, we can't recover
+								mach_port_destroy( mach_task_self(), pLibinfoRequest->fReplyPort );
+							}
+						}
+						else
+						{
+							vm_offset_t data = 0;
+							mach_msg_type_number_t dataCnt = 0;
+							
+							vm_read( mach_task_self(), (vm_address_t) pResponse->databuf, pResponse->datalen, &data, &dataCnt );
+							
+							if ( libinfoDSmig_Response_async( pLibinfoRequest->fReplyPort, (char *)"", 0, data, dataCnt, pLibinfoRequest->fCallbackAddr ) != MACH_MSG_SUCCESS )
+							{
+								// if we get any error, then we need to clean up the vm_dealloc
+								vm_deallocate( mach_task_self(), data, dataCnt );
+								mach_port_destroy( mach_task_self(), pLibinfoRequest->fReplyPort );
+							}
+						}
+					}
+					else
+					{
+						if ( libinfoDSmig_Response_async( pLibinfoRequest->fReplyPort, (char *)"", 0, 0, 0, pLibinfoRequest->fCallbackAddr ) != MACH_MSG_SUCCESS )
+						{
+							// need to clean up mach port if we got any error, we can't recover
+							mach_port_destroy( mach_task_self(), pLibinfoRequest->fReplyPort );
+						}
+					}
+					
+					kvbuf_free( pResponse );
+					pResponse = NULL;
+					
+					if ( debugDataTag )
+					{
+						DbgLog( kLogHandler, "%s : libinfomig DAR : Async Procedure = %s (%d)", debugDataTag, lookupProcedures[pLibinfoRequest->fProcedure], pLibinfoRequest->fProcedure );
+						DSFree( debugDataTag );
+					}
+					
+					DSFree( pLibinfoRequest->fBuffer );
+					DSDelete( pLibinfoRequest );
+				};
+				
+				dispatch_async( gLibinfoQueue, theBlock );
+			}
+			else
+			{
+				DSDelete( pLibinfoRequest );
+			}
+		}
+		
+		// need to dispose of rights if we aren't going to queue the message
+		if ( pLibinfoRequest == NULL ) {
+			mach_port_mod_refs( mach_task_self(), replyToPort, MACH_PORT_RIGHT_SEND_ONCE, -1 );
+		}
     }
     
     if ( debugDataTag )
@@ -830,13 +982,6 @@ kern_return_t memberdDSmig_do_MembershipCall( mach_port_t server, kauth_identity
 	if (needsSwap)
 		Mbrd_SwapRequest(request);
 
-	gMachThreadLock->WaitLock();
-	gActiveLongRequests ++;
-	gMachThreadLock->SignalLock();
-	
-	// spawn a thread request
-	mig_spawnonceifnecessary();
-    
 	if ( (gDebugLogging) || (gLogAPICalls) )
 	{
 		CRequestHandler handler;
@@ -844,12 +989,12 @@ kern_return_t memberdDSmig_do_MembershipCall( mach_port_t server, kauth_identity
 		
 		audit_token_to_au32( *atoken, NULL, NULL, NULL, NULL, NULL, &aPID, NULL, NULL );
 		
-		debugDataTag = handler.BuildAPICallDebugDataTag( gDaemonIPAddress, aPID, "MembershipCall", "Server" );
-		DbgLog( kLogHandler, "%s : mbrmig DAC %s", debugDataTag, (needsSwap ? " : Via Rosetta" : "") );
+		debugDataTag = handler.BuildAPICallDebugDataTag( NULL, aPID, "MembershipCall", "Server" );
+		DbgLog( kLogHandler, "%s : mbr_mig DAC %s", debugDataTag, (needsSwap ? " : Via Rosetta" : "") );
 		
 		if( aPID == (SInt32)gDaemonPID )
 		{
-			DbgLog( kLogHandler, "%s : mbrmig DAC : Dispatching from/to ourself", debugDataTag );
+			DbgLog( kLogHandler, "%s : mbr_mig DAC : Dispatching from/to ourself", debugDataTag );
 		}
 	}
 	
@@ -858,13 +1003,9 @@ kern_return_t memberdDSmig_do_MembershipCall( mach_port_t server, kauth_identity
 	if (needsSwap)
 		Mbrd_SwapRequest(request);
 
-	gMachThreadLock->WaitLock();
-	gActiveLongRequests --;
-	gMachThreadLock->SignalLock();
-	
 	if ( debugDataTag )
 	{
-		DbgLog( kLogHandler, "%s : mbrmig DAR", debugDataTag );
+		DbgLog( kLogHandler, "%s : mbr_mig DAR", debugDataTag );
 		free( debugDataTag );
 	}
 
@@ -889,15 +1030,15 @@ kern_return_t memberdDSmig_do_ClearStats(mach_port_t server, audit_token_t atoke
 		
 		audit_token_to_au32( atoken, NULL, NULL, NULL, NULL, NULL, &aPID, NULL, NULL );
 		
-		debugDataTag = handler.BuildAPICallDebugDataTag( gDaemonIPAddress, aPID, "ClearStats", "Server" );
-		DbgLog( kLogHandler, "%s : mbrmig DAC", debugDataTag );
+		debugDataTag = handler.BuildAPICallDebugDataTag( NULL, aPID, "ClearStats", "Server" );
+		DbgLog( kLogHandler, "%s : mbr_mig DAC", debugDataTag );
 	}
 	
 	Mbrd_ProcessResetStats();
 	
 	if ( debugDataTag )
 	{
-		DbgLog( kLogHandler, "%s : mbrmig DAR", debugDataTag );
+		DbgLog( kLogHandler, "%s : mbr_mig DAR", debugDataTag );
 		free( debugDataTag );
 	}
 	
@@ -916,23 +1057,13 @@ kern_return_t memberdDSmig_do_MapName(mach_port_t server, uint8_t isUser, mstrin
 		
 		audit_token_to_au32( *atoken, NULL, NULL, NULL, NULL, NULL, &aPID, NULL, NULL );
 		
-		debugDataTag = handler.BuildAPICallDebugDataTag( gDaemonIPAddress, aPID, "MapName", "Server" );
-		DbgLog( kLogHandler, "%s : mbrmig DAC : Name = %s : isUser = %d", debugDataTag, name, (int) isUser );
+		debugDataTag = handler.BuildAPICallDebugDataTag( NULL, aPID, "MapName", "Server" );
+		DbgLog( kLogHandler, "%s : mbr_mig DAC : Name = %s : isUser = %d", debugDataTag, name, (int) isUser );
 	}
 	
-	gMachThreadLock->WaitLock();
-	gActiveLongRequests ++;
-	gMachThreadLock->SignalLock();
-	
-	// spawn a thread request
-	mig_spawnonceifnecessary();
-    
-	result = Mbrd_ProcessMapName(isUser, name, guid);
+	// note the length is not required, it's not checked for c-strings
+	result = Mbrd_ProcessMapIdentifier( isUser ? ID_TYPE_USERNAME : ID_TYPE_GROUPNAME, name, -1, guid );
 
-	gMachThreadLock->WaitLock();
-	gActiveLongRequests --;
-	gMachThreadLock->SignalLock();
-	
 	if ( debugDataTag )
 	{
 		if (result == KERN_SUCCESS)
@@ -940,11 +1071,75 @@ kern_return_t memberdDSmig_do_MapName(mach_port_t server, uint8_t isUser, mstrin
 			char	uuid_string[37] = { 0, };
 			
 			uuid_unparse_upper( guid->g_guid, uuid_string );
-			DbgLog( kLogHandler, "%s : mbrmig DAR : Name = %s : GUID = %s", debugDataTag, name, uuid_string );
+			DbgLog( kLogHandler, "%s : mbr_mig DAR : Name = %s : GUID = %s", debugDataTag, name, uuid_string );
 		}
 		else
 		{
-			DbgLog( kLogHandler, "%s : mbrmig DAR : Name = %s : Not found", debugDataTag, name );
+			DbgLog( kLogHandler, "%s : mbr_mig DAR : Name = %s : Not found", debugDataTag, name );
+		}
+		
+		free( debugDataTag );
+	}	
+	
+	return result;
+}
+
+kern_return_t memberdDSmig_do_MapIdentifier(mach_port_t server, int idType, 
+											vm_offset_t identifier, mach_msg_type_number_t identifierCnt,
+											vm_offset_t ooidentifier, mach_msg_type_number_t ooidentifierCnt,
+											guid_t *guid, audit_token_t *atoken)
+{
+	kern_return_t	result;
+	char			*debugDataTag	= NULL;
+	void			*idValue		= (void *) (identifierCnt ? identifier : ooidentifier);
+	size_t			idLength		= (identifierCnt ? : ooidentifierCnt);
+	
+	if ( (gDebugLogging) || (gLogAPICalls) )
+	{
+		CRequestHandler handler;
+		pid_t			aPID;
+		
+		audit_token_to_au32( *atoken, NULL, NULL, NULL, NULL, NULL, &aPID, NULL, NULL );
+		
+		debugDataTag = handler.BuildAPICallDebugDataTag( NULL, aPID, "MapIdentifier", "Server" );
+		
+		switch ( idType ) {
+			case ID_TYPE_UID:
+			case ID_TYPE_GID:
+				DbgLog( kLogHandler, "%s : mbr_mig DAC : ID Type = %d, value = %d", debugDataTag, idType, *((id_t *) idValue) );
+				break;
+				
+			case ID_TYPE_USERNAME:
+			case ID_TYPE_GROUPNAME:
+			case ID_TYPE_X509_DN:
+			case ID_TYPE_KERBEROS:
+				DbgLog( kLogHandler, "%s : mbr_mig DAC : ID Type = %d, value = %s", debugDataTag, idType, idValue );
+				break;
+				
+			case ID_TYPE_GSS_EXPORT_NAME:
+			default:
+				DbgLog( kLogHandler, "%s : mbr_mig DAC : ID Type = %d", debugDataTag, idType );
+				break;
+		}
+	}
+	
+	result = Mbrd_ProcessMapIdentifier( idType, idValue, idLength, guid );
+	
+	if ( debugDataTag )
+	{
+		if (result == KERN_SUCCESS)
+		{
+			if ( (gDebugLogging) || (gLogAPICalls) )
+			{
+				char	uuid_string[37] = { 0, };
+				
+				uuid_unparse_upper( guid->g_guid, uuid_string );
+				DbgLog( kLogHandler, "%s : mbr_mig DAR : GUID = %s", debugDataTag, uuid_string );
+			}
+		}
+		else
+		{
+			DbgLog( kLogHandler, "%s : mbr_mig DAR : Not found", debugDataTag );
 		}
 		
 		free( debugDataTag );
@@ -965,26 +1160,15 @@ kern_return_t memberdDSmig_do_GetGroups(mach_port_t server, uint32_t uid, uint32
 		
 		audit_token_to_au32( *atoken, NULL, NULL, NULL, NULL, NULL, &aPID, NULL, NULL );
 		
-		debugDataTag = handler.BuildAPICallDebugDataTag( gDaemonIPAddress, aPID, "GetGroups", "Server" );
-		DbgLog( kLogHandler, "%s : mbrmig DAC : uid = %u", debugDataTag, uid );
+		debugDataTag = handler.BuildAPICallDebugDataTag( NULL, aPID, "GetGroups", "Server" );
+		DbgLog( kLogHandler, "%s : mbr_mig DAC : uid = %u", debugDataTag, uid );
 	}
 
-	gMachThreadLock->WaitLock();
-	gActiveLongRequests ++;
-	gMachThreadLock->SignalLock();
-	
-	// spawn a thread request
-	mig_spawnonceifnecessary();
-    
 	result = Mbrd_ProcessGetGroups(uid, numGroups, gids);
 
-	gMachThreadLock->WaitLock();
-	gActiveLongRequests --;
-	gMachThreadLock->SignalLock();
-	
 	if ( debugDataTag )
 	{
-		DbgLog( kLogHandler, "%s : mbrmig DAR : Total groups = %u", debugDataTag, (*numGroups) );
+		DbgLog( kLogHandler, "%s : mbr_mig DAR : Total groups = %u", debugDataTag, (*numGroups) );
 		free( debugDataTag );
 	}	
 	
@@ -1004,16 +1188,9 @@ kern_return_t memberdDSmig_do_GetAllGroups(mach_port_t server, uint32_t uid, uin
 		
 		audit_token_to_au32( *atoken, NULL, NULL, NULL, NULL, NULL, &aPID, NULL, NULL );
 		
-		debugDataTag = handler.BuildAPICallDebugDataTag( gDaemonIPAddress, aPID, "GetAllGroups", "Server" );
-		DbgLog( kLogHandler, "%s : mbrmig DAC : uid = %u", debugDataTag, uid );
+		debugDataTag = handler.BuildAPICallDebugDataTag( NULL, aPID, "UserGroup_GetAllGroups", "Server" );
+		DbgLog( kLogHandler, "%s : mbr_mig DAC : uid = %u", debugDataTag, uid );
 	}
-	
-	gMachThreadLock->WaitLock();
-	gActiveLongRequests ++;
-	gMachThreadLock->SignalLock();
-	
-	// spawn a thread request
-	mig_spawnonceifnecessary();
 	
 	GIDList tempList = NULL;
 	
@@ -1033,13 +1210,9 @@ kern_return_t memberdDSmig_do_GetAllGroups(mach_port_t server, uint32_t uid, uin
 		DSFree( tempList );
 	}
 	
-	gMachThreadLock->WaitLock();
-	gActiveLongRequests --;
-	gMachThreadLock->SignalLock();
-	
 	if ( debugDataTag )
 	{
-		DbgLog( kLogHandler, "%s : mbrmig DAR : Total groups = %u", debugDataTag, (*numGroups) );
+		DbgLog( kLogHandler, "%s : mbr_mig DAR : Total groups = %u", debugDataTag, (*numGroups) );
 		free( debugDataTag );
 	}	
 	
@@ -1048,24 +1221,38 @@ kern_return_t memberdDSmig_do_GetAllGroups(mach_port_t server, uint32_t uid, uin
 
 kern_return_t memberdDSmig_do_ClearCache(mach_port_t server, audit_token_t atoken)
 {
-	char	*debugDataTag = NULL;
+	char		*debugDataTag = NULL;
+	struct stat	sb;
 	
-	if ( (gDebugLogging) || (gLogAPICalls) )
+	if ( gDebugLogging == true || 
+		 gLogAPICalls == true || 
+		 (lstat("/AppleInternal", &sb) == 0 && lstat("/var/db/disableAppleInternal", &sb) == -1) )
 	{
-		CRequestHandler handler;
-		pid_t			aPID;
+		pid_t	aPID;
 		
 		audit_token_to_au32( atoken, NULL, NULL, NULL, NULL, NULL, &aPID, NULL, NULL );
 		
-		debugDataTag = handler.BuildAPICallDebugDataTag( gDaemonIPAddress, aPID, "ClearCache", "Server" );
-		DbgLog( kLogHandler, "%s : mbrmig DAC", debugDataTag );
+		if ( gDebugLogging == true || gLogAPICalls == true )
+		{
+			CRequestHandler handler;
+			
+			debugDataTag = handler.BuildAPICallDebugDataTag( NULL, aPID, "ClearCache", "Server" );
+			DbgLog( kLogHandler, "%s : mbr_mig DAC", debugDataTag );
+		}
+		else
+		{
+			char *pName = dsGetNameForProcessID( aPID );
+			syslog( LOG_ERR, "***Mobility: PID: %d '%s' requested flush of membership cache - this could affect sleep/wake/etc.", aPID, 
+				    pName );
+			DSFree( pName );
+		}
 	}
 
 	Mbrd_ProcessResetCache();
 	
 	if ( debugDataTag )
 	{
-		DbgLog( kLogHandler, "%s : mbrmig DAR", debugDataTag );
+		DbgLog( kLogHandler, "%s : mbr_mig DAR", debugDataTag );
 		free( debugDataTag );
 	}		
 
@@ -1083,15 +1270,15 @@ kern_return_t memberdDSmig_do_DumpState(mach_port_t server, audit_token_t atoken
 		
 		audit_token_to_au32( atoken, NULL, NULL, NULL, NULL, NULL, &aPID, NULL, NULL );
 		
-		debugDataTag = handler.BuildAPICallDebugDataTag( gDaemonIPAddress, aPID, "DumpState", "Server" );
-		DbgLog( kLogHandler, "%s : mbrmig DAC", debugDataTag );
+		debugDataTag = handler.BuildAPICallDebugDataTag( NULL, aPID, "DumpState", "Server" );
+		DbgLog( kLogHandler, "%s : mbr_mig DAC", debugDataTag );
 	}
     
 	Mbrd_ProcessDumpState();
 
 	if ( debugDataTag )
 	{
-		DbgLog( kLogHandler, "%s : mbrmig DAR", debugDataTag );
+		DbgLog( kLogHandler, "%s : mbr_mig DAR", debugDataTag );
 		free( debugDataTag );
 	}		
 	
@@ -1113,13 +1300,10 @@ ServerControl::ServerControl ( void )
 	//we use a non valid IP Address of zero for ourselves
 	gDaemonIPAddress	= 0;
 
-	fTCPListener				= nil;
 	fTCPHandlerThreadsCnt		= 0;
-	fLibinfoHandlerThreadCnt    = 0;
 	fSCDStore					= 0;	
 	fPerformanceStatGatheringActive	= false; //default
 	fMemberDaemonFlushCacheRequestCount	= 0;
-	fTCPHandlers				= nil;
 	
 #ifdef BUILD_IN_PERFORMANCE
 	fLastPluginCalled			= 0;
@@ -1164,10 +1348,145 @@ ServerControl::~ServerControl ( void )
 } // ~ServerControl
 
 
-// ---------------------------------------------------------------------------
-//	* StartUpServer ()
-//
-// ---------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
+//	* RefDeallocProc()
+//    used to clean up plug-in specific data for a reference
+// ----------------------------------------------------------------------------
+
+SInt32 ServerControl::RefDeallocProc ( UInt32 inRefNum, eRefType inRefType, CServerPlugin *inPluginPtr )
+{
+	SInt32	dsResult	= eDSNoErr;
+	double	inTime		= 0;
+	double	outTime		= 0;
+	
+	if (inPluginPtr != nil)
+	{
+		// we should call the plug-in to clean up its table
+		sCloseDirNode closeData;
+		closeData.fResult = eDSNoErr;
+		closeData.fInNodeRef = inRefNum;
+		switch (inRefType)
+		{
+			case eRefTypeDirNode:
+				closeData.fType = kCloseDirNode;
+				break;
+				
+			case eRefTypeRecord:
+				closeData.fType = kCloseRecord;
+				break;
+				
+			case eRefTypeAttributeList:
+				closeData.fType = kCloseAttributeList;
+				break;
+				
+			case eRefTypeAttributeValueList:
+				closeData.fType = kCloseAttributeValueList;
+				break;
+				
+			default:
+				closeData.fType = 0;
+				break;
+		}
+		
+		if (closeData.fType != 0)
+		{
+			if (gLogAPICalls)
+			{
+				inTime = dsTimestamp();
+			}
+			inPluginPtr->ProcessRequest( &closeData );
+			dsResult = closeData.fResult;
+			if (gLogAPICalls)
+			{
+				outTime = dsTimestamp();
+				syslog(LOG_CRIT,"Ref table dealloc callback, API Call: %s, PlugIn Used: %s, Result: %d, Duration: %.2f usec",
+					   CRequestHandler::GetCallName( closeData.fType ), inPluginPtr->GetPluginName(), dsResult,
+					   (outTime - inTime));
+			}
+		}
+	}
+	
+	return( dsResult );
+} // RefDeallocProc
+
+static void __StartKernelListener( void )
+{
+	static CRequestHandler handler;
+	
+	dispatch_async( dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT), 
+				    ^(void) {
+						kern_return_t kresult = syscall( SYS_identitysvc, KAUTH_EXTLOOKUP_REGISTER, 0 );
+						if ( kresult == KERN_SUCCESS )
+						{
+							SrvrLog( kLogApplication, "Registered for Kernel identity service requests" );
+
+							do
+							{
+								kauth_identity_extlookup *request = (kauth_identity_extlookup *) calloc( 1, sizeof(kauth_identity_extlookup) );
+							   
+								kresult = syscall( SYS_identitysvc, KAUTH_EXTLOOKUP_WORKER, request );
+								if ( kresult == KERN_SUCCESS )
+								{
+#if 0
+									// 6449641
+									if ( (gDebugLogging) || (gLogAPICalls) ) {
+										char *debugDataTag = handler.BuildAPICallDebugDataTag( NULL, request->el_info_pid, 
+																							   "mbr_syscall", "Server" );
+										DbgLog( kLogAPICalls, "%s : dequeue kauth request %X", debugDataTag, request );
+									}
+#endif
+									
+									dispatch_async( dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_HIGH), 
+												    ^(void) {
+														char *debugDataTag = NULL;
+														
+														if ( (gDebugLogging) || (gLogAPICalls) ) {
+															debugDataTag = handler.BuildAPICallDebugDataTag( NULL, request->el_info_pid, 
+																											 "mbr_syscall", "Server" );
+															DbgLog( kLogAPICalls, "%s : process kauth result %X", debugDataTag, request );
+														}
+														
+														CInternalDispatch::AddCapability();
+														request->el_flags |= kKernelRequest;
+														Mbrd_ProcessLookup( request );
+														request->el_flags &= ~kKernelRequest;
+														
+														kern_return_t result = syscall( SYS_identitysvc, KAUTH_EXTLOOKUP_RESULT, request );
+														if ( debugDataTag != NULL ) {
+															if ( result == KERN_SUCCESS ) {
+																DbgLog( kLogAPICalls, "%s : delivered kauth result %X", debugDataTag, request );
+															}
+															else {
+																DbgLog( kLogAPICalls, "%s : failed to deliver kauth result %X - %d", 
+																	    debugDataTag, request, result );
+															}
+															
+															free( debugDataTag );
+														}
+														
+														free( request );
+													} );
+									request = NULL;
+								}
+								else
+								{
+									syslog( LOG_ERR, "Fatal error %d from KAUTH_EXTLOOKUP_WORKER setup (%d: %s)", kresult, errno, strerror(errno) );
+									DSFree( request );
+								}
+							} while ( kresult == KERN_SUCCESS );
+						}
+						else {
+							syslog( LOG_ERR, "Got error %d trying to register with kernel", kresult );
+						}
+					   
+						syscall( SYS_identitysvc, KAUTH_EXTLOOKUP_DEREGISTER, 0 );
+					} );
+}
+
+void ServerControl::StartKernelListener( void )
+{
+	__StartKernelListener(); // 6453258
+}
 
 SInt32 ServerControl::StartUpServer ( void )
 {
@@ -1181,12 +1500,6 @@ SInt32 ServerControl::StartUpServer ( void )
 			if ( gNodeList == nil ) throw((SInt32)eMemoryAllocError);
 		}
 
-		if ( gRefTable == nil )
-		{
-			gRefTable = new CRefTable( CHandlerThread::RefDeallocProc );
-			if ( gRefTable == nil ) throw( (SInt32)eMemoryAllocError );
-		}
-		
 		// Let's initialize membership globals just in case we get called
 		Mbrd_InitializeGlobals();
 
@@ -1197,10 +1510,6 @@ SInt32 ServerControl::StartUpServer ( void )
 			gPluginConfig->Initialize();
 		}
 		
-		//gMaxHandlerThreadCount may be discovered in the DS plist config file read by gPluginConfig above
-		fTCPHandlers = (CHandlerThread **)calloc(gMaxHandlerThreadCount, sizeof(CHandlerThread *));
-		fLibinfoHandlers = (CHandlerThread **)calloc(gMaxHandlerThreadCount, sizeof(CHandlerThread *));
-		
 		if ( gPlugins == nil )
 		{
 			gPlugins = new CPlugInList();
@@ -1208,46 +1517,47 @@ SInt32 ServerControl::StartUpServer ( void )
 			gPlugins->ReadRecordTypeRestrictions();
 		}
 
-		if ( gLibinfoQueue == nil )
+		if ( gLibinfoQueue == NULL )
 		{
-			gLibinfoQueue = new CMsgQueue();
-			if ( gLibinfoQueue == nil ) throw((SInt32)eMemoryAllocError);
+			gLibinfoQueue = dispatch_queue_create( "async_libinfo", NULL );
 		}
 		
 		CreateDebugPrefFileIfNecessary();
+		
+		bool bOnce = false;
+		if ( lstat("/Library/Preferences/DirectoryService/.DSLogAPIAtStartOnce", &statResult) == 0 ) {
+			bOnce = true;
+			unlink( "/Library/Preferences/DirectoryService/.DSLogAPIAtStartOnce" );
+		}
 
-		if (::stat( "/Library/Preferences/DirectoryService/.DSLogAPIAtStart", &statResult ) == eDSNoErr)
+		if ( bOnce == true || lstat("/Library/Preferences/DirectoryService/.DSLogAPIAtStart", &statResult) == 0)
 		{
-			gSunsetTime		= CFAbsoluteTimeGetCurrent() + 300;
-			CFRunLoopTimerRef timer = CFRunLoopTimerCreate(	kCFAllocatorDefault,
-															gSunsetTime + 1,
-															0,
-															0,
-															0,
-															LoggingTimerCallBack,
-															NULL );
-			
-			// this call this callback does not block the main runloop
-			CFRunLoopAddTimer( CFRunLoopGetMain(), timer, kCFRunLoopDefaultMode );
-			CFRelease( timer );
-			timer = NULL;
-			
-			gLogAPICalls	= true;
-			syslog(LOG_ALERT,"Logging of API Calls turned ON at Startup of DS Daemon.");
-			if (!gDebugLogging)
-			{
-				gDebugLogging	= true;
-				gSrvrCntl->ResetDebugging(); //ignore return status
-				syslog(LOG_ALERT,"Debug Logging turned ON at Startup of DS Daemon.");
+			if ( __sync_bool_compare_and_swap(&gLogAPICalls, false, true) == true ) {
+				ToggleAPILogging( false );
+				syslog( LOG_ALERT, "%s%s", "Logging of API Calls turned ON at Startup of DS Daemon", 
+						(bOnce == true ? " (once)." : ".") );
 			}
 		}
 
-		// let's start the MIG listener
-		CMigHandlerThread *migListener = new CMigHandlerThread( DSCThread::kTSMigHandlerThread, false );
-		if ( migListener == nil ) throw((SInt32)eMemoryAllocError);
-		migListener->StartThread();
+		if ( lstat("/Library/Preferences/DirectoryService/.DSLogDebugAtStartOnce", &statResult) == 0 ) {
+			bOnce = true;
+			unlink( "/Library/Preferences/DirectoryService/.DSLogDebugAtStartOnce" );
+		}
+		else {
+			bOnce = false;
+		}
 		
-		if (!gDSLocalOnlyMode && !gDSInstallDaemonMode)
+		// let's start the MIG listeners
+		if ( lstat("/Library/Preferences/DirectoryService/.DSLogDebugAtStart", &statResult) == 0 )
+		{
+			if ( __sync_bool_compare_and_swap(&gDebugLogging, false, true) == true ) {
+				ResetDebugging(); //ignore return status
+				syslog( LOG_ALERT, "%s%s", "Debug Logging turned ON at Startup of DS Daemon",
+						(bOnce == true ? " (once)." : ".") );
+			}
+		}
+		
+		if (!gDSLocalOnlyMode && !gDSInstallDaemonMode && !gDSDebugMode)
 		{
 			// see if we need TCP too
 			if ( 	(	(::stat( "/Library/Preferences/DirectoryService/.DSTCPListening", &statResult ) == eDSNoErr) ||
@@ -1269,30 +1579,84 @@ SInt32 ServerControl::StartUpServer ( void )
 			gPluginHandler->StartThread();
 		}
 
-		// now it's time to put up our kernel listener thread
-		if (!gDSLocalOnlyMode)
-		{
-			kern_return_t kresult = syscall( SYS_identitysvc, KAUTH_EXTLOOKUP_REGISTER, 0 );
-			if (kresult == 0)
-			{
-				// start the memberd kernel listener
-				CMemberdKernelHandlerThread *aThread = new CMemberdKernelHandlerThread( DSCThread::kTSMemberdKernelHndlrThread );
-				aThread->StartThread();
-			}
-			else
-			{
-				syslog(LOG_CRIT, "Got error %d trying to register with kernel\n", kresult);
-			}
-		}
-
 		result = RegisterForSystemPower();
 		if ( result != eDSNoErr ) throw( result );
 
 		result = (SInt32)RegisterForNetworkChange();
 		if ( result != eDSNoErr ) throw( result );
 		
-		result = SetUpPeriodicTask();
-		if ( result != eDSNoErr ) throw( result );
+		dispatch_source_t source = dispatch_source_timer_create( DISPATCH_TIMER_INTERVAL, 
+																 30ULL * NSEC_PER_SEC,
+																 1ULL * NSEC_PER_SEC,
+																 NULL,
+																 dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT),
+																 ^(dispatch_source_t ds) {
+																	 // we intentionally ignore errors, etc, this is never released or cancelled
+																	 ServerControl::DoPeriodicTask( ds );
+																 } );
+		if ( source == NULL ) result = eMemoryAllocError;
+
+		// let's start the MIG listeners
+		dispatch_queue_t concurrentQueue = dispatch_get_concurrent_queue( DISPATCH_QUEUE_PRIORITY_DEFAULT );
+		dispatch_async( concurrentQueue, 
+                        ^(void) {
+                            // if not localonly mode we wait for the authentication policy before bringing up listeners
+                            if ( gDSLocalOnlyMode == false ) {
+                                gNodeList->WaitForAuthenticationSearchNode();
+                                gNodeList->WaitForLocalNode();
+                                gNodeList->WaitForCacheNode();
+                            }
+                            else {
+                                // for localonly we always wait for the local node since that's all we care about
+                                gNodeList->WaitForLocalNode();
+                            }
+                            
+                            if ( gAPIMachPort != MACH_PORT_NULL ) {
+                                gAPIDispatchSource = CreateDispatchSourceForMachPort( gAPIMachPort, kMaxMIGMsg, 0, false );
+                                SrvrLog( kLogApplication, "Listening for DirectoryService API mach messages" );
+                                DbgLog( kLogDebug, "Created mig source for API calls" );
+                            }
+                            
+                            // if libinfo port or membership port, initialize membership as a safety
+                            // TODO: stop using shared demux routine because API port is the only listener that needs it
+                            if ( gLibinfoMachPort != MACH_PORT_NULL || gMembershipMachPort != MACH_PORT_NULL ) {
+                                CInternalDispatch::AddCapability();
+                                Mbrd_Initialize();
+                            }
+                           
+                            if ( gLibinfoMachPort != MACH_PORT_NULL ) {
+                                gLibinfoDispatchSource = CreateDispatchSourceForMachPort( gLibinfoMachPort, kMaxMIGMsg, 0, false );
+                                SrvrLog( kLogApplication, "Listening for Libinfo API mach messages" );
+                                DbgLog( kLogDebug, "Created mig source for Libinfo calls" );
+                            }
+                           
+                            if ( gMembershipMachPort != MACH_PORT_NULL ) {
+                                // we don't enable kernel listener for localonly or debug mode
+                                // only the official daemon can answer the kernel
+                                if ( gDSLocalOnlyMode == false && gDSDebugMode == false ) {
+                                    StartKernelListener();
+                                }             
+                                
+                                // let's sweep the membership cache every 15 minutes to remove expired entries
+                                // the validation stuff will take care of expired entries if they are touched
+                                // this sweep is to remove stale entries
+                                dispatch_source_t ::mbrSweep = dispatch_source_timer_create( DISPATCH_TIMER_INTERVAL, 
+                                                                                             900ULL * NSEC_PER_SEC,
+                                                                                             15ULL * NSEC_PER_SEC,
+                                                                                             NULL,
+                                                                                             concurrentQueue,
+                                                                                             ^(dispatch_source_t) {
+                                                                                                 // we intentionally ignore errors
+                                                                                                 // this is never released or cancelled
+                                                                                                 Mbrd_SweepCache();
+                                                                                             } );
+                                assert( mbrSweep != NULL );
+                                
+                                gMembershipDispatchSource = CreateDispatchSourceForMachPort( gMembershipMachPort, kMaxMIGMsg, 0, false );
+                                SrvrLog( kLogApplication, "Listening for Membership API mach messages" );
+                                DbgLog( kLogDebug, "Created mig source for Membership calls" );
+                            }
+                        } );
 	}
 
 	catch( SInt32 err )
@@ -1313,7 +1677,6 @@ SInt32 ServerControl::StartUpServer ( void )
 SInt32 ServerControl::ShutDownServer ( void )
 {
 	SInt32				result		= eDSNoErr;
-	UInt32				i			= 0;
 
 	try
 	{
@@ -1324,25 +1687,36 @@ SInt32 ServerControl::ShutDownServer ( void )
 //		result = UnRegisterForSystemPower();
 //		if ( result != eDSNoErr ) throw( result );
 
-		// MigListener is stopped by destroying the port set
-		mach_port_destroy( mach_task_self(), gMachMIGSet );
-		gMachMIGSet = MACH_PORT_NULL;
+		// we just NULL the ports because the source owns the reference
+		gAPIMachPort = MACH_PORT_NULL;
+		gLibinfoMachPort = MACH_PORT_NULL;
+		gMembershipMachPort = MACH_PORT_NULL;
 		
-        gLibinfoQueueLock->WaitLock();
-        for (i = 0; i < gMaxHandlerThreadCount; i++)
-        {
-            if (fLibinfoHandlers[ i ] != nil)
-            {
-                fLibinfoHandlers[ i ]->StopThread();
-                fLibinfoHandlers[ i ] = nil;
-            }
+        if ( gLibinfoDispatchSource ) {
+            dispatch_cancel( gLibinfoDispatchSource );
+            dispatch_release( gLibinfoDispatchSource );
         }
         
-        // this will broadcast to all, and since we stopped the threads, they will all close down
-        gLibinfoQueue->ClearMsgQueue();
-
-        gLibinfoQueueLock->SignalLock();
-
+        if ( gAPIDispatchSource ) {
+            dispatch_cancel( gAPIDispatchSource );
+            dispatch_release( gAPIDispatchSource );
+        }
+        
+        if ( gMembershipDispatchSource ) {
+            dispatch_cancel( gMembershipDispatchSource );
+            dispatch_release( gMembershipDispatchSource );
+        }
+		
+		// we are in a syscall, so we must just deregister and error out from there
+		if ( gDSLocalOnlyMode == false && gDSDebugMode == false) {
+			if ( syscall(SYS_identitysvc, KAUTH_EXTLOOKUP_DEREGISTER, 0) == 0 ) {
+				SrvrLog( kLogApplication, "Deregistered Kernel identity service" );
+			}
+			else {
+				DbgLog( kLogError, "Failed to deregister Kernel identity service" );
+			}
+		}
+		
 		//no need to delete the global objects as this process is going away and
 		//we don't want to create a race condition on the threads dying that
 		//could lead to a crash
@@ -1368,6 +1742,231 @@ SInt32 ServerControl::ShutDownServer ( void )
 
 } // ShutDownServer
 
+struct sProxyHeader {
+	char		tag[kDSTCPEndpointMessageTagSize];
+	uint32_t	payloadLen;
+};	
+
+struct sProxyPacket {
+	sProxyHeader	header;
+	char			payload[];
+};
+
+struct sReadContext
+{
+	uint32_t	bufferSize;
+	uint32_t	bufferLen;
+	union {
+		sProxyPacket	*packet;
+		char			*buffer;
+	} u;
+};
+
+static void __TCPListenerEventCallback( int listenFD )
+{
+	sockaddr_storage	address;
+	socklen_t			aLen		= sizeof( address );
+	char				addr_string[INET6_ADDRSTRLEN];
+
+	int sock = accept( listenFD, (sockaddr *) &address, (socklen_t *)&aLen );
+	if ( sock != -1 )
+	{
+		int	yes	= 1;
+		
+		setsockopt( sock, SOL_SOCKET, SO_KEEPALIVE, &yes, sizeof(yes) );
+		setsockopt( sock, SOL_SOCKET, SO_NOSIGPIPE, &yes, sizeof(yes) );
+		
+		int fcntlFlags = fcntl( sock, F_GETFL, 0 );
+		assert( fcntlFlags != -1 );
+		assert( fcntl(sock, F_SETFL, fcntlFlags | O_NONBLOCK) != -1 );
+
+		sReadContext	*context	= (sReadContext *) calloc( 1, sizeof(sReadContext) );
+		DSTCPEndpoint	*endPoint	= new DSTCPEndpoint( kTCPOpenTimeout, kTCPRWTimeout, sock );
+		in_port_t		tcpPort;
+		
+		switch ( address.ss_family ) {
+			case AF_INET:
+				tcpPort = ((sockaddr_in *) &address)->sin_port;
+				break;
+				
+			case AF_INET6:
+				tcpPort = ((sockaddr_in6 *) &address)->sin6_port;
+				break;
+				
+			default:
+				tcpPort = 0;
+				break;
+		}
+		
+		void (^readBlock)(dispatch_source_t) = ^(dispatch_source_t ds) {
+			
+			long err_code = 0;
+			long err_domain = dispatch_source_get_error( ds, &err_code );
+			switch ( err_domain )
+			{
+				case DISPATCH_ERROR_DOMAIN_NO_ERROR:
+					break;
+				case DISPATCH_ERROR_DOMAIN_POSIX:
+					if ( err_code == ECANCELED )
+						return;
+				default:
+					DbgLog( kLogError, "ServerControl::TCPReadEventCallback - dispatch timer receved error domain %ld error %ld", 
+						   err_domain, err_code );
+			}
+			
+			uint32_t bytesAvail = dispatch_source_get_data( ds );
+			uint32_t newLen = context->bufferLen + bytesAvail;
+			
+			DbgLog( kLogDebug, "ServerControl::TCPReadEventCallback - event %d bytes available", bytesAvail );
+			
+			// assume synchronous transmission
+			// will need adjustment if we ever support more than one in-flight transaction at a time on this socket
+			if ( context->u.buffer == NULL ) {
+				context->bufferSize = (bytesAvail ?: sizeof(sProxyHeader));
+				context->u.buffer = (char *) malloc( context->bufferSize );
+				assert( context->u.buffer != NULL );
+			}
+			else if ( newLen > context->bufferSize ) {
+				uint32_t expectedLen = (context->bufferLen > sizeof(sProxyHeader) ? ntohl(context->u.packet->header.payloadLen) : 0);
+
+				// if the expected length is greater than the bytes avail, let's allocate up front to miniminize allocs
+				if ( expectedLen > newLen ) {
+					newLen = expectedLen;
+				}
+				
+				context->bufferSize = newLen;
+				context->u.buffer = (char *) reallocf( context->u.buffer, context->bufferSize );
+				assert( context->u.buffer != NULL );
+			}
+			
+			uint32_t bytes = read( sock, context->u.buffer + context->bufferLen, context->bufferSize - context->bufferLen );
+			if ( bytes < 0 ) {
+				if ( errno == EAGAIN ) return; // no bytes
+				
+				// got an error
+				DbgLog( kLogError, "ServerControl::TCPReadEventCallback - error %d - releasing the source for socket %d", errno, sock );
+				dispatch_cancel( ds );
+				dispatch_release( ds );
+				return;
+			}
+			
+			if ( bytes == 0 ) {
+				DbgLog( kLogInfo, "ServerControl::TCPReadEventCallback - Disconnect - releasing the source for socket %d", sock );
+				dispatch_cancel( ds );
+				dispatch_release( ds );
+				return;
+			};				
+			
+			context->bufferLen += bytes;
+			
+			// return if we haven't read our header yet
+			if ( context->bufferLen < sizeof(sProxyHeader) ) return;
+			
+			// check our our header tag
+			if ( memcmp(context->u.packet->header.tag, "DSPX", kDSTCPEndpointMessageTagSize) != 0 ) {
+				context->bufferLen = 0;
+				return;
+			};
+			
+			// grab the expected length and byte swap accordingly
+			uint32_t expectedLen = ntohl( context->u.packet->header.payloadLen );
+			if ( expectedLen > 0 && context->bufferLen >= (expectedLen + sizeof(sProxyHeader)) )
+			{
+				char	*payload	= context->u.packet->payload;
+				char	*buffer		= context->u.buffer;
+				
+				context->u.buffer = NULL;
+				context->bufferSize = 0;
+				context->bufferLen = 0;
+
+				dispatch_async( dispatch_get_current_queue(), 
+								^(void) {
+									SInt32	siResult	= eDSNoErr;
+									
+									if ( endPoint->Negotiated() == true )
+									{
+										void	*decryptedData		= NULL;
+										UInt32	decryptedDataLen	= 0;
+										
+										siResult = endPoint->ProcessData( false, 
+																		  payload, expectedLen,
+																		  decryptedData, decryptedDataLen );
+										if ( decryptedData != NULL )
+										{
+											sComProxyData *pProxyData = (sComProxyData *) decryptedData;
+											decryptedData = NULL;
+											
+											if ( pProxyData->type.msgt_translate != 2 ) {
+												SwapProxyMessage( pProxyData, kDSSwapNetworkToHostOrder );
+											}
+											
+											if ( pProxyData->fDataSize <= (decryptedDataLen - sizeof(sComProxyData)) ) {
+												CRequestHandler handler;
+												sComData		*pComData;
+												
+												pComData = endPoint->AllocFromProxyStruct( pProxyData );
+												DSFree( pProxyData );
+												
+												bcopy( &address, &pComData->fIPAddress, address.ss_len );
+												pComData->fSocket = sock;
+												
+												CInternalDispatch::AddCapability();
+												handler.HandleRequest( &pComData );
+												
+												endPoint->SendMessage( pComData );
+												
+												DSFree( pComData );
+											}
+										}
+									}
+									else
+									{
+										siResult = endPoint->ServerNegotiateKey( payload, expectedLen );
+									}
+									
+									free( buffer );
+
+									if ( siResult != eDSNoErr ) {
+										char *status = dsCopyDirStatusName( siResult );
+										DbgLog( kLogError, "ServerControl::TCPReadEventCallback - %s (%d) - releasing the source for socket %d", 
+											   status, siResult, sock );
+										DSFree( status );
+										
+										// release the source here
+										gRefTable.CleanRefsForSocket( sock ); // clean here too to prevent race conditions of new sockets
+										dispatch_release( ds );
+									}
+								} );
+			}
+		};
+
+		char			q_name[64];
+		static int32_t	sReqNum		= 0;
+
+		snprintf( q_name, sizeof(q_name), "request #%d socket #%d", __sync_add_and_fetch(&sReqNum, 1), sock );
+		
+		dispatch_queue_t queue = dispatch_queue_create( q_name, NULL );
+		dispatch_source_attr_t attr = dispatch_source_attr_create();
+		dispatch_source_attr_set_finalizer( attr, 
+										    ^(dispatch_source_t ds) {
+												DSFree( context->u.buffer );
+												free( context );
+												gRefTable.CleanRefsForSocket( dispatch_source_get_descriptor(ds) );
+												delete endPoint; // endPoint closes socket
+											} );
+		
+		dispatch_source_t source = dispatch_source_read_create( sock, attr, queue, readBlock );
+		assert( source != NULL );
+		
+		dispatch_release( attr );
+		dispatch_release( queue );
+	}
+}
+
+void ServerControl::TCPListenerEventCallback( int listenFD )
+{
+	__TCPListenerEventCallback( listenFD ); // 6453258
+}
 
 // ---------------------------------------------------------------------------
 //	* StartTCPListener ()
@@ -1376,28 +1975,61 @@ SInt32 ServerControl::ShutDownServer ( void )
 
 SInt32 ServerControl::StartTCPListener ( UInt32 inPort )
 {
-	SInt32	result	= eDSNoErr;
-
-	try
+	SInt32		result		= eDSNoErr;
+	char		port[16];
+	addrinfo	ai_hints;
+	addrinfo	*my_addr	= NULL;
+	int			sock		= socket( AF_INET, SOCK_STREAM, IPPROTO_TCP );
+	
+	bzero( &ai_hints, sizeof(ai_hints) );
+	ai_hints.ai_flags = AI_PASSIVE;
+	ai_hints.ai_family = PF_INET;
+	ai_hints.ai_socktype = SOCK_STREAM;
+	ai_hints.ai_protocol = IPPROTO_TCP;
+	snprintf( port, sizeof(port), "%d", (int) inPort );
+	
+	if ( getaddrinfo(NULL, port, &ai_hints, &my_addr) == 0 )
 	{
-		fTCPListener = new DSTCPListener(inPort);
-		if ( fTCPListener == nil ) throw((SInt32)eMemoryAllocError);
-
-		//this call could throw
-		fTCPListener->StartThread();
+		if ( bind(sock, my_addr->ai_addr, my_addr->ai_addr->sa_len) == 0 )
+		{
+			if ( listen(sock, 25) == 0 )
+			{
+				DbgLog( kLogInfo, "ServerControl::StartTCPListener - started TCP Listener on port %d", inPort );
+				dispatch_queue_t queue = dispatch_queue_create( "TCP listener", NULL );
+				dispatch_source_attr_t attr = dispatch_source_attr_create();
+				dispatch_source_attr_set_finalizer( attr, 
+												    ^(dispatch_source_t ds) {
+														DbgLog( kLogNotice, "ServerControl::StartTCPListener - exiting listener on socket %d", sock );
+														close( sock );
+													} );
+				dispatch_source_t tempSource = dispatch_source_read_create( sock,
+																		    attr,
+																		    queue,
+																		    ^(dispatch_source_t ds) {
+																				if ( dispatch_source_get_error(ds, NULL) == 0 ) {
+																					__TCPListenerEventCallback(sock);
+																				}
+																			} );
+				dispatch_release( attr );
+				dispatch_release( queue );
+				
+				if ( __sync_bool_compare_and_swap(&ServerControl::fTCPListener, NULL, tempSource) == false ) {
+					dispatch_release( tempSource );
+					tempSource = NULL;
+				}
+			}
+			else
+			{
+				close( sock );
+			}
+		}
+		
+		freeaddrinfo( my_addr );
 	}
-
-	catch( SInt32 err )
-	{
-		result = err;
-		DbgLog( kLogApplication, "File: %s. Line: %d", __FILE__, __LINE__ );
-		DbgLog( kLogApplication, "  Caught exception = %d.", err );
-	}
-
-	return( result );
-
+	
+	return result;
+	
 } // StartTCPListener
-
 
 // ---------------------------------------------------------------------------
 //	* StopTCPListener ()
@@ -1406,148 +2038,19 @@ SInt32 ServerControl::StartTCPListener ( UInt32 inPort )
 
 SInt32 ServerControl::StopTCPListener ( void )
 {
-	SInt32	result	= eDSNoErr;
-
-	try
+	if ( fTCPListener == nil ) return eMemoryAllocError;
+	
+	dispatch_source_t tempSource = fTCPListener;
+	if ( __sync_bool_compare_and_swap(&fTCPListener, tempSource, NULL) == true )
 	{
-		if ( fTCPListener == nil ) throw((SInt32)eMemoryAllocError);
-
-		//this call could throw
-		fTCPListener->StopThread();
+		DbgLog( kLogNotice, "ServerControl::StopTCPListener stopping listener" );
+		dispatch_cancel( tempSource );
+		dispatch_release( tempSource );
 	}
-
-	catch( SInt32 err )
-	{
-		result = err;
-		DbgLog( kLogApplication, "File: %s. Line: %d", __FILE__, __LINE__ );
-		DbgLog( kLogApplication, "  Caught exception = %d.", err );
-	}
-
-	return( result );
-
+	
+	return eDSNoErr;
+	
 } // StopTCPListener
-
-
-// ---------------------------------------------------------------------------
-//	* StartAHandler ()
-//
-// ---------------------------------------------------------------------------
-
-SInt32 ServerControl:: StartAHandler ( const FourCharCode inThreadSignature )
-{
-	volatile	UInt32		iThread;
-				SInt32		result	= eDSNoErr;
-
-	try
-	{
-		// If we have less than the max handlers then we add one
-		//decide from which set of handlers to start one
-
-		if (inThreadSignature == DSCThread::kTSLibinfoQueueThread)
-		{
-			if ( (fLibinfoHandlerThreadCnt >= 0) && (fLibinfoHandlerThreadCnt < gMaxHandlerThreadCount) )
-			{
-				for (iThread = 0; iThread < gMaxHandlerThreadCount; iThread++)
-				{
-					if (fLibinfoHandlers[ iThread ] == nil)
-					{
-						// Start a handler thread
-						fLibinfoHandlers[ iThread ] = new CHandlerThread(DSCThread::kTSLibinfoQueueThread, iThread);
-						if ( fLibinfoHandlers[ iThread ] == nil ) throw((SInt32)eMemoryAllocError);
-                        
-						fLibinfoHandlerThreadCnt++;
-                        
-						//this call could throw
-						fLibinfoHandlers[ iThread ]->StartThread();
-						break;
-					}
-				}
-			}
-		}
-	}
-
-	catch( SInt32 err )
-	{
-		result = err;
-	}
-
-	return( result );
-
-} // StartAHandler
-
-
-//--------------------------------------------------------------------------------------------------
-//	* WakeAHandler()
-//
-//--------------------------------------------------------------------------------------------------
-
-void ServerControl:: WakeAHandler ( const FourCharCode inThreadSignature )
-{
-} // WakeAHandler
-
-
-// ---------------------------------------------------------------------------
-//	* StopAHandler ()
-//
-// ---------------------------------------------------------------------------
-
-SInt32 ServerControl:: StopAHandler ( const FourCharCode inThreadSignature, UInt32 iThread, CHandlerThread *inThread )
-{
-	SInt32			result		= eDSNoErr;
-
-	try
-	{
-//		DbgLog( kLogApplication, "File: %s. Line: %d", __FILE__, __LINE__ );
-//		DbgLog( kLogApplication, "StopAHandler: sig = %d and index = %d", inThreadSignature, iThread );
-		if (inThreadSignature == DSCThread::kTSLibinfoQueueThread)
-		{
-			if ( (iThread >= 0) && (iThread < gMaxHandlerThreadCount) )
-			{
-				if (fLibinfoHandlers[ iThread ] == inThread)
-				{
-					// Remove a handler thread from the list
-					fLibinfoHandlers[ iThread ] = nil;
-                    
-					fLibinfoHandlerThreadCnt--;
-				}
-			}
-		}        
-	}
-
-	catch( SInt32 err )
-	{
-		result = err;
-	}
-
-	return( result );
-
-} // StopAHandler
-
-
-//--------------------------------------------------------------------------------------------------
-//	* SleepAHandler(const FourCharCode inThreadSignature, UInt32 waitTime)
-//
-//--------------------------------------------------------------------------------------------------
-
-void ServerControl:: SleepAHandler ( const FourCharCode inThreadSignature, UInt32 waitTime )
-{
-} // SleepAHandler
-
-
-//--------------------------------------------------------------------------------------------------
-//	* GetHandlerCount(const FourCharCode inThreadSignature)
-//
-//--------------------------------------------------------------------------------------------------
-
-UInt32 ServerControl::GetHandlerCount ( const FourCharCode inThreadSignature )
-{
-	if (inThreadSignature == DSCThread::kTSLibinfoQueueThread)
-	{
-		return fLibinfoHandlerThreadCnt;
-	}
-
-	return 0;
-} // GetHandlerCount
 
 
 // ---------------------------------------------------------------------------
@@ -1719,20 +2222,13 @@ SInt32 ServerControl::HandleSystemWillSleep ( void )
 		while (pPlugin != nil)
 		{
 			pPIInfo = gPlugins->GetPlugInInfo( iterator-1 );
-			if (pPIInfo->fState & kActive) //only notify Active plugins
+			if (pPIInfo != NULL && pPIInfo->fState & kActive) //only notify Active plugins
 			{
 				siResult = eDSNoErr;
 				siResult = pPlugin->ProcessRequest( (void*)&aHeader );
 				if (siResult != eDSNoErr && siResult != eNotHandledByThisNode && siResult != eNotYetImplemented)
 				{
-					if (pPIInfo != nil)
-					{
-						ErrLog( kLogApplication, "SystemWillSleep Notification in %s plugin returned error %d", pPIInfo->fName, siResult );
-					}
-					else
-					{
-						ErrLog( kLogApplication, "SystemWillSleep Notification of unnamed plugin returned error %d", siResult );
-					}
+					ErrLog( kLogApplication, "SystemWillSleep Notification in %s plugin returned error %d", pPIInfo->fName, siResult );
 				}
 			}
 			pPlugin = gPlugins->Next( &iterator );
@@ -1767,20 +2263,13 @@ SInt32 ServerControl::HandleSystemWillPowerOn ( void )
 		while (pPlugin != nil)
 		{
 			pPIInfo = gPlugins->GetPlugInInfo( iterator-1 );
-			if (pPIInfo->fState & kActive) //only notify Active plugins
+			if (pPIInfo != NULL && pPIInfo->fState & kActive) //only notify Active plugins
 			{
 				siResult = eDSNoErr;
 				siResult = pPlugin->ProcessRequest( (void*)&aHeader );
 				if (siResult != eDSNoErr && siResult != eNotHandledByThisNode && siResult != eNotYetImplemented)
 				{
-					if (pPIInfo != nil)
-					{
-						ErrLog( kLogApplication, "WillPowerOn Notification in %s plugin returned error %d", pPIInfo->fName, siResult );
-					}
-					else
-					{
-						ErrLog( kLogApplication, "WillPowerOn Notification of unnamed plugin returned error %d", siResult );
-					}
+					ErrLog( kLogApplication, "WillPowerOn Notification in %s plugin returned error %d", pPIInfo->fName, siResult );
 				}
 			}
 			pPlugin = gPlugins->Next( &iterator );
@@ -1795,7 +2284,7 @@ SInt32 ServerControl::HandleSystemWillPowerOn ( void )
 //
 // ---------------------------------------------------------------------------
 
-SInt32 ServerControl::HandleNetworkTransition ( void )
+void ServerControl::HandleNetworkTransition ( void )
 {
 	SInt32						siResult		= eDSNoErr;
 	UInt32						iterator		= 0;
@@ -1818,7 +2307,7 @@ SInt32 ServerControl::HandleNetworkTransition ( void )
 		while (pPlugin != nil)
 		{
 			pPIInfo = gPlugins->GetPlugInInfo( iterator-1 );
-			if (pPIInfo->fState & kActive) //only notify Active plugins
+			if (pPIInfo != NULL && pPIInfo->fState & kActive) //only notify Active plugins
 			{
 				if ( ::strcmp(pPIInfo->fName,"Search") != 0)
 				{
@@ -1826,14 +2315,7 @@ SInt32 ServerControl::HandleNetworkTransition ( void )
 					siResult = pPlugin->ProcessRequest( (void*)&aHeader );
 					if (siResult != eDSNoErr)
 					{
-						if (pPIInfo != nil)
-						{
-							ErrLog( kLogApplication, "Network transition in %s plugin returned error %d", pPIInfo->fName, siResult );
-						}
-						else
-						{
-							ErrLog( kLogApplication, "Network transition of unnamed plugin returned error %d", siResult );
-						}
+						ErrLog( kLogApplication, "Network transition in %s plugin returned error %d", pPIInfo->fName, siResult );
 					}
 				}
 				else
@@ -1858,205 +2340,43 @@ SInt32 ServerControl::HandleNetworkTransition ( void )
 			ErrLog( kLogApplication, "Network transition in Search returned error %d", siResult );
 		}
 	}
-	
-	return siResult;
+
 } // HandleNetworkTransition
 
-
-// ---------------------------------------------------------------------------
-//	* SetUpPeriodicTask ()
-//
-// ---------------------------------------------------------------------------
-
-SInt32 ServerControl::SetUpPeriodicTask ( void )
+void
+ServerControl::ToggleAPILogging( bool fromSignal )
 {
-	SInt32		siResult	= eDSNoErr;
-	void	   *ptInfo		= nil;
-	
-	CFRunLoopTimerContext c = {0, (void*)ptInfo, NULL, NULL, PeriodicTaskCopyStringCallback};
-	
-	CFRunLoopTimerRef timer = CFRunLoopTimerCreate(	NULL,
-													CFAbsoluteTimeGetCurrent() + 30,
-													30,
-													0,
-													0,
-													DoPeriodicTask,
-													(CFRunLoopTimerContext*)&c);
-		
-	CFRunLoopAddTimer(gPluginRunLoop, timer, kCFRunLoopDefaultMode);
-	if (timer) CFRelease(timer);
-					
-	return siResult;
-} // SetUpPeriodicTask
+	static dispatch_source_t	loggingTimer	= NULL;
+	static pthread_mutex_t		localLock		= PTHREAD_MUTEX_INITIALIZER;
 
-// this is used when only a notify is needed
-void ServerControl::SearchPolicyChangedNotify( void )
-{
-	gTimerMutex->WaitLock();
-	if (gPluginRunLoop != nil)
-	{
-		if( fSPCNTimerRef != NULL )
-		{
-			DbgLog( kLogPlugin, "ServerControl::SearchPolicyChangedNotify invalidating previous timer" );
-			
-			CFRunLoopTimerInvalidate( fSPCNTimerRef );
-			CFRelease( fSPCNTimerRef );
-			fSPCNTimerRef = NULL;
-		}
-		
-		CFRunLoopTimerContext c = {0, (void*)this, NULL, NULL, NotifySearchPolicyChangeCopyStringCallback};
-		
-		fSPCNTimerRef = CFRunLoopTimerCreate(	NULL,
-												CFAbsoluteTimeGetCurrent() + 2,
-												0,
-												0,
-												0,
-												SearchPolicyChangedNotifyCallback,
-												(CFRunLoopTimerContext*)&c);
-		
-		CFRunLoopAddTimer(gPluginRunLoop, fSPCNTimerRef, kCFRunLoopDefaultMode);
+	pthread_mutex_lock( &localLock );
+	if ( loggingTimer != NULL ) {
+		dispatch_cancel( loggingTimer );
+		dispatch_release( loggingTimer );
+		loggingTimer = NULL;
 	}
-	gTimerMutex->SignalLock();
-}
 
-// this does more stuff because things get flushed, etc.
-void ServerControl::NodeSearchPolicyChanged( void )
-{
-	gTimerMutex->WaitLock();
-	if (gPluginRunLoop != nil)
-	{
-		if( fNSPCTimerRef != NULL )
-		{
-			DbgLog( kLogPlugin, "ServerControl::NodeSearchPolicyChanged invalidating previous timer" );
-
-			CFRunLoopTimerInvalidate( fNSPCTimerRef );
-			CFRelease( fNSPCTimerRef );
-			fNSPCTimerRef = NULL;
-		}
-		
-		CFRunLoopTimerContext c = {0, (void*)this, NULL, NULL, SearchPolicyChangeCopyStringCallback};
-	
-		fNSPCTimerRef = CFRunLoopTimerCreate(	NULL,
-												CFAbsoluteTimeGetCurrent() + 2,
-												0,
-												0,
-												0,
-												NodeSearchPolicyChangeCallback,
-												(CFRunLoopTimerContext*)&c);
-	
-		CFRunLoopAddTimer(gPluginRunLoop, fNSPCTimerRef, kCFRunLoopDefaultMode);
+	if ( __sync_bool_compare_and_swap(&gLogAPICalls, false, true) == true ) {
+		loggingTimer = dispatch_source_timer_create( DISPATCH_TIMER_ONESHOT, 
+													 300ULL * NSEC_PER_SEC, 
+													 1 * NSEC_PER_SEC,
+													 NULL,
+													 dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT),
+													 ^(dispatch_source_t ds) {
+														 if ( dispatch_source_get_error(ds, NULL) == 0 && 
+															  gIgnoreSunsetTime == false &&
+															  __sync_bool_compare_and_swap(&gLogAPICalls, true, false) == true )
+														 {
+															 syslog( LOG_CRIT, "Logging of API Calls automatically turned OFF after reaching sunset duration of five minutes." );
+														 }
+													 } );
+		if ( fromSignal == true ) syslog( LOG_ALERT, "Logging of API Calls turned ON after receiving USR2 signal." );
 	}
-	gTimerMutex->SignalLock();
-}
-
-void ServerControl::DoSearchPolicyChangedNotify( void )
-{
-	SCDynamicStoreRef	store		= NULL;
-	
-	DbgLog( kLogApplication, "DoNodeSearchPolicyChange" );
-	
-	store = SCDynamicStoreCreate(NULL, fServiceNameString, NULL, NULL);
-	if (store != NULL)
-	{
-		if ( !SCDynamicStoreSetValue( store, CFSTR(kDSStdNotifySearchPolicyChanged), CFSTR("") ) )
-		{
-			ERRORLOG( kLogApplication, "Could not set the DirectoryService:SearchPolicyChangeToken in System Configuration" );
-		}
-		CFRelease(store);
-		store = NULL;
-	}
-	else
-	{
-		ERRORLOG( kLogApplication, "ServerControl::DoNodeSearchPolicyChange SCDynamicStoreCreate not yet available from System Configuration" );
+	else if ( __sync_bool_compare_and_swap(&gLogAPICalls, true, false) == true ) {
+		if ( fromSignal == true ) syslog( LOG_ALERT, "Logging of API Calls turned OFF after receiving USR2 signal." );
 	}
 	
-	switch( ShouldRegisterWorkstation() )
-	{
-		case -1:
-			WorkstationServiceUnregister();
-			break;
-		case 1:
-			WorkstationServiceRegister();
-			break;
-	}
-}
-
-void ServerControl::DoNodeSearchPolicyChange( void )
-{
-	// flush memberd as well because privs could have changed
-	// notify anyone listening
-	// update kerberos configuration
-	gSrvrCntl->FlushMemberDaemonCache();
-	DoSearchPolicyChangedNotify();
-	LaunchKerberosAutoConfigTool();
-}
-
-void ServerControl::NotifyDirNodeAdded( const char* newNode )
-{
-	SCDynamicStoreRef	store	= NULL;
-
-	if ( newNode != nil )
-	{
-		CFStringRef		newNodeRef = CFStringCreateWithCString( NULL, newNode, kCFStringEncodingUTF8 );
-		
-		if ( newNodeRef == NULL )
-		{
-			ErrLog( kLogApplication, "Could not notify that dir node: (%s) was added due to an encoding problem", newNode );
-		}
-		else
-		{
-			store = SCDynamicStoreCreate(NULL, fServiceNameString, NULL, NULL);
-			if (store != NULL)
-			{
-				if ( !SCDynamicStoreSetValue( store, CFSTR(kDSStdNotifyDirectoryNodeAdded), newNodeRef ) )
-				{
-					ErrLog( kLogApplication, "Could not set the DirectoryService:NotifyDirNodeAdded in System Configuration" );
-				}
-				CFRelease(store);
-				store = NULL;
-			}
-			else
-			{
-				ErrLog( kLogApplication, "ServerControl::NotifyDirNodeAdded SCDynamicStoreCreate not yet available from System Configuration" );
-			}
-			CFRelease( newNodeRef );
-			newNodeRef = NULL;
-		}
-	}
-}
-
-void ServerControl::NotifyDirNodeDeleted( char* oldNode )
-{
-	SCDynamicStoreRef	store	= NULL;
-
-	if ( oldNode != nil )
-	{
-		CFStringRef		oldNodeRef = CFStringCreateWithCString( NULL, oldNode, kCFStringEncodingUTF8 );
-		
-		if ( oldNodeRef == NULL )
-		{
-			ErrLog( kLogApplication, "Could not notify that dir node: (%s) was deleted due to an encoding problem", oldNode );
-		}
-		else
-		{
-			store = SCDynamicStoreCreate(NULL, fServiceNameString, NULL, NULL);
-			if (store != NULL)
-			{
-				if ( !SCDynamicStoreSetValue( store, CFSTR(kDSStdNotifyDirectoryNodeDeleted), oldNodeRef ) )
-				{
-					ErrLog( kLogApplication, "Could not set the DirectoryService:NotifyDirNodeDeleted in System Configuration" );
-				}
-				CFRelease(store);
-				store = NULL;
-			}
-			else
-			{
-				ErrLog( kLogApplication, "ServerControl::NotifyDirNodeDeleted SCDynamicStoreCreate not yet available from System Configuration" );
-			}
-			CFRelease( oldNodeRef );
-			oldNodeRef = NULL;
-		}
-	}
+	pthread_mutex_unlock( &localLock );
 }
 
 #ifdef BUILD_IN_PERFORMANCE
@@ -2218,7 +2538,7 @@ void ServerControl::LogStats( void )
 					sprintf( totTimeStr, "%0.4f days", time );
 				}
 				
-				sprintf( logBuf, "\t%s\t%s\t%ld\t%ld\t%.0f\t%0.f\t%0.f\t%s\t%ld/%ld\t%ld/%ld\t%ld/%ld\t%ld/%ld\t%ld/%ld\n",
+				sprintf( logBuf, "\t%s\t%s\t%d\t%d\t%.0f\t%0.f\t%0.f\t%s\t%d/%d\t%d/%d\t%d/%d\t%d/%d\t%d/%d\n",
 								curPluginStats->pluginName,
 								CRequestHandler::GetCallName(j),
 								curPluginStats->apiStats[j].msgCnt,
@@ -2252,21 +2572,13 @@ void ServerControl::LogStats( void )
 //
 // ---------------------------------------------------------------------------
 
-void DoPeriodicTask(CFRunLoopTimerRef timer, void *info)
+void ServerControl::DoPeriodicTask( dispatch_source_t )
 {
 	SInt32						siResult		= eDSNoErr;
 	UInt32						iterator		= 0;
 	CServerPlugin			   *pPlugin			= nil;
 	CPlugInList::sTableData	   *pPIInfo			= nil;
 	
-	
-	if ( gDSLocalOnlyMode && (gLocalSessionCount == 0) )
-	{
-		//no need to keep this daemon going anymore as it launches on demand
-		SrvrLog( kLogApplication, "Shutting down DirectoryService..." );
-		gSrvrCntl->ShutDownServer();
-		exit(0);
-	}
 	//call thru to each plugin
 	if ( gPlugins != nil )
 	{
@@ -2274,44 +2586,20 @@ void DoPeriodicTask(CFRunLoopTimerRef timer, void *info)
 		while (pPlugin != nil)
 		{
 			pPIInfo = gPlugins->GetPlugInInfo( iterator-1 );
-			if (pPIInfo->fState & kActive) //only pulse the Active plugins
+			if (pPIInfo != NULL && pPIInfo->fState & kActive) //only pulse the Active plugins
 			{
 				siResult = pPlugin->PeriodicTask();
 				if (siResult != eDSNoErr)
 				{
-					if (pPIInfo != nil)
-					{
-							DbgLog( kLogApplication, "Periodic Task in %s plugin returned error %d", pPIInfo->fName, siResult );
-					}
-					else
-					{
-							DbgLog( kLogApplication, "Periodic Task of unnamed plugin returned error %d", siResult );
-					}
+					DbgLog( kLogApplication, "Periodic Task in %s plugin returned error %d", pPIInfo->fName, siResult );
 				}
 			}
 			pPlugin = gPlugins->Next( &iterator );
 		}
 	}
-					
+	
 	return;
 } // DoPeriodicTask
-
-// ---------------------------------------------------------------------------
-//	* FlushMemberDaemonCache ()
-//
-// ---------------------------------------------------------------------------
-
-SInt32 ServerControl::FlushMemberDaemonCache ( void )
-{
-	SInt32 siResult = eDSNoErr;
-	
-	//routine created for potential other additions
-	DbgLog( kLogApplication, "Flushing membership cache" );
-	Mbrd_ProcessResetCache();
-	
-	return(siResult);
-}// FlushMemberDaemonCache
-
 
 void ServerControl::CreateDebugPrefFileIfNecessary( bool bForceCreate )
 {
@@ -2327,7 +2615,6 @@ void ServerControl::CreateDebugPrefFileIfNecessary( bool bForceCreate )
 	{
 		//write a default file and setup debugging
 		SInt32 result = eDSNoErr;
-		gDebugLogging = true;
 		CLog::SetLoggingPriority(keDebugLog, 5);
 		uiDataSize = ::strlen( kDefaultDebugConfig );
 		dataRef = ::CFDataCreate( nil, (const UInt8 *)kDefaultDebugConfig, uiDataSize );
@@ -2371,9 +2658,8 @@ void ServerControl::CreateDebugPrefFileIfNecessary( bool bForceCreate )
 //
 // ---------------------------------------------------------------------------
 
-SInt32 ServerControl::ResetDebugging ( void )
+void ServerControl::ResetDebugging( void )
 {
-	SInt32					siResult	= eDSNoErr;
 	UInt32					uiDataSize	= 0;
 	char				   *pData		= nil;
 	CFile				   *pFile		= nil;
@@ -2393,6 +2679,7 @@ SInt32 ServerControl::ResetDebugging ( void )
 			CLog::StopDebugLog();
 			gDebugLogging = false;
 			syslog(LOG_ALERT,"Debug Logging turned OFF after receiving USR1 signal.");
+			DbgLog( kLogNotice ,"Debug Logging turned OFF after receiving USR1 signal." );
 		}
 		gDSFWCSBPDebugLogging = false;
 	}
@@ -2402,8 +2689,7 @@ SInt32 ServerControl::ResetDebugging ( void )
 		gToggleDebugging = true;
 		
 		// Does the debug config file exist
-		siResult = ::stat( kDSDebugConfigFilePath, &statbuf );
-		if ( siResult == eDSNoErr )
+		if ( stat( kDSDebugConfigFilePath, &statbuf ) == 0 )
 		{
 			// Attempt to get config info from file
 			pFile = new CFile( kDSDebugConfigFilePath );
@@ -2459,6 +2745,7 @@ SInt32 ServerControl::ResetDebugging ( void )
 												CLog::StopDebugLog();
 												gDebugLogging = false;
 												syslog(LOG_ALERT,"Debug Logging turned OFF after receiving USR1 signal.");
+												DbgLog( kLogNotice, "Debug Logging turned OFF after receiving USR1 signal." );
 											}
 											else if (bDebugging)
 											{
@@ -2470,6 +2757,7 @@ SInt32 ServerControl::ResetDebugging ( void )
 													if (priorityValue > 0 && priorityValue < 9) //1-5 is tiered and 6-8 are specific
 													{
 														CLog::SetLoggingPriority(keDebugLog, priorityValue);
+														DbgLog( kLogNotice,"Debug Logging priority %u set.", priorityValue );
 														syslog(LOG_ALERT,"Debug Logging priority %u set.", priorityValue);
 													}
 												}
@@ -2477,12 +2765,14 @@ SInt32 ServerControl::ResetDebugging ( void )
 												{
 													CLog::SetLoggingPriority(keDebugLog, 5);
 													syslog(LOG_ALERT,"Debug Logging default priority 5 set.");
+													DbgLog( kLogNotice, "Debug Logging default priority 5 set." );
 												}
 
 												CLog::StartDebugLog();
 												if (!gDebugLogging)
 												{
 													syslog(LOG_ALERT,"Debug Logging turned ON after receiving USR1 signal.");
+													DbgLog( kLogNotice, "Debug Logging turned ON after receiving USR1 signal." );
 													gDebugLogging = true;
 												}
 											}
@@ -2492,7 +2782,8 @@ SInt32 ServerControl::ResetDebugging ( void )
 									{
 										CLog::StopDebugLog();
 										gDebugLogging = false;
-										syslog(LOG_ALERT,"Debug Logging turned OFF after receiving USR1 signal.");
+										syslog(kLogNotice,"Debug Logging turned OFF after receiving USR1 signal.");
+										DbgLog( kLogNotice, "Debug Logging turned OFF after receiving USR1 signal." );
 									}
 
 									//FW CSBP debug logging boolean
@@ -2530,9 +2821,6 @@ SInt32 ServerControl::ResetDebugging ( void )
 		if (!bFileUsed)
 			CreateDebugPrefFileIfNecessary( true );
 	}
-	
-	return(siResult);
-	
 } // ResetDebugging
 
 

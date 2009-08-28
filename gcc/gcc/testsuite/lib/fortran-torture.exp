@@ -12,7 +12,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 # Please email any bugs, comments, and/or additions to this file to
 # the author.
@@ -34,7 +34,7 @@ if ![info exists TORTURE_OPTIONS] {
 	{ -O0 } { -O1 } { -O2 } \
 	{ -O2 -fomit-frame-pointer -finline-functions } \
 	{ -O2 -fomit-frame-pointer -finline-functions -funroll-loops } \
-	{ -O2 -fomit-frame-pointer -finline-functions -funroll-all-loops } \
+	{ -O2 -fbounds-check } \
 	{ -O2 -fno-repack-arrays } \
 	{ -O3 -g } \
 	{ -Os }]
@@ -54,7 +54,7 @@ proc fortran-torture-compile { src option } {
 
     set output "$tmpdir/[file tail [file rootname $src]].o"
 
-    regsub "^$srcdir/?" $src "" testcase
+    regsub "(?q)$srcdir/" $src "" testcase
 
     # If we couldn't rip $srcdir out of `src' then just do the best we can.
     # The point is to reduce the unnecessary noise in the logs.  Don't strip
@@ -70,20 +70,26 @@ proc fortran-torture-compile { src option } {
     set options ""
     lappend options "additional_flags=-w $option"
 
-    set comp_output [gfortran_target_compile "$src" "$output" object $options];
+    set comp_output [gfortran_target_compile "$src" "$output" object $options]
     
     # See if we got something bad.
     set fatal_signal "*95*: Internal compiler error: program*got fatal signal"
  
     if [string match "$fatal_signal 6" $comp_output] then {
 	gfortran_fail $testcase "Got Signal 6, $option"
-	remote_file build delete $output
+	catch { remote_file build delete $output }
 	return
     }
 
     if [string match "$fatal_signal 11" $comp_output] then {
 	gfortran_fail $testcase "Got Signal 11, $option"
-	remote_file build delete $output
+	catch { remote_file build delete $output }
+	return
+    }
+
+    if [string match "*internal compiler error*" $comp_output] then {
+	gfortran_fail $testcase "$option (internal compiler error)"
+	catch { remote_file build delete $output }
 	return
     }
 
@@ -92,7 +98,7 @@ proc fortran-torture-compile { src option } {
 	warning "$testcase: (with warnings) $option"
 	send_log "$comp_output\n"
 	unresolved "$testcase, $option"
-	remote_file build delete $output
+	catch { remote_file build delete $output }
 	return
     }
 
@@ -103,7 +109,7 @@ proc fortran-torture-compile { src option } {
     set unsupported_message [gfortran_check_unsupported_p $comp_output]
     if { $unsupported_message != "" } {
 	unsupported "$testcase: $unsupported_message"
-	remote_file build delete $output
+	catch { remote_file build delete $output }
 	return
     }
 
@@ -113,12 +119,12 @@ proc fortran-torture-compile { src option } {
     # If any message remains, we fail.
     if ![string match "" $comp_output] then {
 	gfortran_fail $testcase $option
-	remote_file build delete $output
+	catch { remote_file build delete $output }
 	return
     }
 
     gfortran_pass $testcase $option
-    remote_file build delete $output
+    catch { remote_file build delete $output }
 }
 
 
@@ -139,7 +145,7 @@ proc fortran-torture-execute { src } {
     global TORTURE_OPTIONS
 
     # Check for alternate driver.
-    set additional_flags "";
+    set additional_flags ""
     if [file exists [file rootname $src].x] {
 	verbose "Using alternate driver [file rootname [file tail $src]].x" 2
 	set done_p 0
@@ -152,7 +158,7 @@ proc fortran-torture-execute { src } {
     # Setup the options for the testcase run.
     set option_list $TORTURE_OPTIONS
     set executable $tmpdir/[file tail [file rootname $src].x]
-    regsub "^$srcdir/?" $src "" testcase
+    regsub "(?q)$srcdir/" $src "" testcase
 
     # If we couldn't rip $srcdir out of `src' then just do the best we can.
     # The point is to reduce the unnecessary noise in the logs.  Don't strip
@@ -186,22 +192,28 @@ proc fortran-torture-execute { src } {
 	set options ""
 	lappend options "additional_flags=-w $option"
 	if { $additional_flags != "" } {
-	    lappend options "additional_flags=$additional_flags";
+	    lappend options "additional_flags=$additional_flags"
 	}
-	set comp_output [gfortran_target_compile "$src" "$executable" executable $options];
+	set comp_output [gfortran_target_compile "$src" "$executable" executable $options]
 
 	# See if we got something bad.
 	set fatal_signal "*95*: Internal compiler error: program*got fatal signal"
 	
 	if [string match "$fatal_signal 6" $comp_output] then {
 	    gfortran_fail $testcase "Got Signal 6, $option"
-	    remote_file build delete $executable
+	    catch { remote_file build delete $executable }
 	    continue
 	}
 	
 	if [string match "$fatal_signal 11" $comp_output] then {
 	    gfortran_fail $testcase "Got Signal 11, $option"
-	    remote_file build delete $executable
+	    catch { remote_file build delete $executable }
+	    continue
+	}
+
+	if [string match "*internal compiler error*" $comp_output] then {
+	    gfortran_fail $testcase "$option (internal compiler error)"
+	    catch { remote_file build delete $executable }
 	    continue
 	}
 	
@@ -210,7 +222,7 @@ proc fortran-torture-execute { src } {
 	    warning "$testcase: (with warnings) $option"
 	    send_log "$comp_output\n"
 	    unresolved "$testcase, $option"
-	    remote_file build delete $executable
+	    catch { remote_file build delete $executable }
 	    continue
 	}
 	
@@ -262,10 +274,10 @@ proc fortran-torture-execute { src } {
 
 	# Run the testcase, and analyse the output.
 	set result [gfortran_load "$executable" "" ""]
-	set status [lindex $result 0];
-	set output [lindex $result 1];
+	set status [lindex $result 0]
+	set output [lindex $result 1]
         if { $status == "pass" } {
-	    remote_file build delete $executable
+	    catch { remote_file build delete $executable }
         }
 	$status "$testcase execution, $option"
     }
@@ -305,9 +317,9 @@ proc fortran-torture { args } {
     global srcdir subdir
     global compiler_conditional_xfail_data
 
-    set src [lindex $args 0];
+    set src [lindex $args 0]
     if { [llength $args] > 1 } {
-	set options [lindex $args 1];
+	set options [lindex $args 1]
     } else {
 	set options ""
     }

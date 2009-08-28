@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2006 International Business Machines
+// * Copyright (C) 2008 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/sq.xml
@@ -22,6 +22,7 @@ sq{
         AR{"Argjentinë"}
         AT{"Austri"}
         AU{"Australi"}
+        AX{"Ishujt Aland"}
         AZ{"Azerbajxhan"}
         BA{"Bosnja dhe Hercegovina"}
         BE{"Belgjikë"}
@@ -152,6 +153,7 @@ sq{
         TH{"Tajlandë"}
         TJ{"Taxhikistan"}
         TN{"Tunisi"}
+        TO{"Tonga"}
         TR{"Turqi"}
         TT{"Trinidad e Tobago"}
         TW{"Tajvan"}
@@ -166,6 +168,7 @@ sq{
         ZA{"Afrika e Jugut"}
         ZM{"Zambi"}
         ZW{"Zimbabve"}
+        ZZ{"Rajon i panjohur ose i pavlefshëm"}
     }
     Currencies{
         ALL{
@@ -173,7 +176,7 @@ sq{
             "ALL",
         }
         BRL{
-            "BRL",
+            "R$",
             "Real Brazilian",
         }
         CNY{
@@ -185,15 +188,15 @@ sq{
             "Euro",
         }
         GBP{
-            "£",
+            "UK£",
             "Paund Sterlina Britanike",
         }
         INR{
-            "=0#Rs.|1#Re.|1<Rs.",
+            "=0#Rs.|1#Re.|1<Rs." /** (choice)  */,
             "Rupee indiane",
         }
         JPY{
-            "¥",
+            "JP¥",
             "Jeni Japonez",
         }
         RUB{
@@ -201,7 +204,7 @@ sq{
             "Rubla ruse",
         }
         USD{
-            "$",
+            "US$",
             "Dollar amerikan",
         }
     }
@@ -220,6 +223,7 @@ sq{
         ja{"Japanisht"}
         pt{"Portugeze"}
         ru{"Rusisht"}
+        sh{"Serbo-Kroatisht"}
         sq{"shqipe"}
         zh{"Kineze"}
     }
@@ -240,10 +244,18 @@ sq{
         "NaN",
         "+",
     }
+    NumberPatterns{
+        "#,##0.###",
+        "¤#,##0.00",
+        "#,##0%",
+        "#E0",
+    }
     Scripts{
         Latn{"Latine"}
+        Zxxx{"I pashkruar"}
+        Zzzz{"Skript i panjohur ose i pavlefshëm"}
     }
-    Version{"1.55"}
+    Version{"1.69"}
     calendar{
         gregorian{
             AmPmMarkers{
@@ -251,15 +263,35 @@ sq{
                 "MD",
             }
             DateTimePatterns{
+                "h.mm.ss.a v",
                 "h.mm.ss.a z",
-                "h.mm.ss.a z",
-                "h:mm:ss.a",
+                "h.mm.ss.a",
                 "h.mm.a",
                 "EEEE, dd MMMM yyyy",
                 "dd MMMM yyyy",
                 "yyyy-MM-dd",
                 "yy-MM-dd",
                 "{1} {0}",
+            }
+            availableFormats{
+                Hm{"H.mm"}
+                Hms{"H.mm.ss"}
+                M{"L"}
+                MEd{"E, d.M"}
+                MMM{"LLL"}
+                MMMEd{"E d MMM"}
+                MMMMEd{"E d MMMM"}
+                MMMMd{"d MMMM"}
+                MMMd{"d MMM"}
+                Md{"M-d"}
+                d{"d"}
+                ms{"mm:ss"}
+                y{"yyyy"}
+                yM{"M.yyyy"}
+                yMEd{"EEE, d.M.yyyy"}
+                yMMM{"MMM yyyy"}
+                yMMMEd{"d MMM yyyy"}
+                yMMMM{"MMMM yyyy"}
             }
             dayNames{
                 format{
@@ -348,7 +380,54 @@ sq{
                     }
                 }
             }
+            quarters{
+                stand-alone{
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                    }
+                }
+            }
         }
     }
-    localPatternChars{"GanjkHmsSEDFwWxhKzAeugXZvcL"}
+    units{
+        day{
+            one{"{0} ditë"}
+            other{"{0} ditë"}
+        }
+        hour{
+            one{"{0} orë"}
+        }
+        minute{
+            one{"{0} minutë"}
+            other{"{0} minuta"}
+        }
+        month{
+            one{"{0} muaj"}
+        }
+        second{
+            one{"{0} sekondë"}
+            other{"{0} sekonda"}
+        }
+        week{
+            one{"{0} javë"}
+        }
+        year{
+            one{"{0} vit"}
+            other{"{0} vjet"}
+        }
+    }
+    zoneStrings{
+        "meta:Europe_Central"{
+            ls{"Ora qendrore evropiane"}
+        }
+        "meta:Europe_Eastern"{
+            ls{"Ora lindore evropiane"}
+        }
+        "meta:Moscow"{
+            ls{"Ora standarde e Moskës"}
+        }
+    }
 }

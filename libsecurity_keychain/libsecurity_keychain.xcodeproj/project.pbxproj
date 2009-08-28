@@ -153,17 +153,19 @@
 		527067DC070246B300C5D30E /* iToolsTrustedApps.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 527067DB070246B300C5D30E /* iToolsTrustedApps.plist */; };
 		527067DD070246BD00C5D30E /* iToolsTrustedApps.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 527067DB070246B300C5D30E /* iToolsTrustedApps.plist */; };
 		527067DE070246C400C5D30E /* iToolsTrustedApps.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 527067DB070246B300C5D30E /* iToolsTrustedApps.plist */; };
-		BE58D1320F5BC8BD005C363C /* TrustAdditions.h in Headers */ = {isa = PBXBuildFile; fileRef = BEB9BB540F574CC900432F34 /* TrustAdditions.h */; };
-		BEB9BB560F574CC900432F34 /* TrustAdditions.h in Headers */ = {isa = PBXBuildFile; fileRef = BEB9BB540F574CC900432F34 /* TrustAdditions.h */; };
-		BEB9BB570F574CC900432F34 /* TrustAdditions.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BEB9BB550F574CC900432F34 /* TrustAdditions.cpp */; };
-		BEE896E20A61F0BB00BF88A5 /* SecItem.h in Headers */ = {isa = PBXBuildFile; fileRef = BEE896E00A61F0BB00BF88A5 /* SecItem.h */; };
-		BEE896E30A61F0BB00BF88A5 /* SecItemPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = BEE896E10A61F0BB00BF88A5 /* SecItemPriv.h */; };
-		BEE896E40A61F0C900BF88A5 /* SecItem.h in Headers */ = {isa = PBXBuildFile; fileRef = BEE896E00A61F0BB00BF88A5 /* SecItem.h */; };
-		BEE896E50A61F0CD00BF88A5 /* SecItemPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = BEE896E10A61F0BB00BF88A5 /* SecItemPriv.h */; };
+		BE0A2DFB0EB15F340016298C /* SecItem.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = BEE896E00A61F0BB00BF88A5 /* SecItem.h */; };
+		BE0A2DFD0EB15F620016298C /* SecItemPriv.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = BEE896E10A61F0BB00BF88A5 /* SecItemPriv.h */; };
+		BE296DBF0EAC299C00FD22BE /* SecImportExport.c in Sources */ = {isa = PBXBuildFile; fileRef = BE296DBE0EAC299C00FD22BE /* SecImportExport.c */; };
+		BE296DC50EAC2B5600FD22BE /* SecInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = BE296DC40EAC2B5600FD22BE /* SecInternal.h */; };
+		BE50AE670F687AB900D28C54 /* TrustAdditions.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BE50AE650F687AB900D28C54 /* TrustAdditions.cpp */; };
+		BE50AE680F687AB900D28C54 /* TrustAdditions.h in Headers */ = {isa = PBXBuildFile; fileRef = BE50AE660F687AB900D28C54 /* TrustAdditions.h */; };
+		BE50AE690F687AB900D28C54 /* TrustAdditions.h in Headers */ = {isa = PBXBuildFile; fileRef = BE50AE660F687AB900D28C54 /* TrustAdditions.h */; };
+		BEA830070EB17344001CA937 /* SecItemConstants.c in Sources */ = {isa = PBXBuildFile; fileRef = BEE897100A62CDD800BF88A5 /* SecItemConstants.c */; };
+		BEE896E20A61F0BB00BF88A5 /* SecItem.h in Headers */ = {isa = PBXBuildFile; fileRef = BEE896E00A61F0BB00BF88A5 /* SecItem.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		BEE896E30A61F0BB00BF88A5 /* SecItemPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = BEE896E10A61F0BB00BF88A5 /* SecItemPriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		BEE896E40A61F0C900BF88A5 /* SecItem.h in Headers */ = {isa = PBXBuildFile; fileRef = BEE896E00A61F0BB00BF88A5 /* SecItem.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		BEE896E50A61F0CD00BF88A5 /* SecItemPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = BEE896E10A61F0BB00BF88A5 /* SecItemPriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BEE896E70A61F12300BF88A5 /* SecItem.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BEE896E60A61F12300BF88A5 /* SecItem.cpp */; };
-		BEE896E80A61F12300BF88A5 /* SecItem.cpp in CopyFiles */ = {isa = PBXBuildFile; fileRef = BEE896E60A61F12300BF88A5 /* SecItem.cpp */; };
-		BEE897110A62CDD800BF88A5 /* SecItemConstants.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BEE897100A62CDD800BF88A5 /* SecItemConstants.cpp */; };
-		BEE897120A62CDD800BF88A5 /* SecItemConstants.cpp in CopyFiles */ = {isa = PBXBuildFile; fileRef = BEE897100A62CDD800BF88A5 /* SecItemConstants.cpp */; };
 		C26BA9FF072580AE0049AF3C /* UnlockReferralItem.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C26BA9FE072580AE0049AF3C /* UnlockReferralItem.cpp */; };
 		C2975BA00725818400AFECAD /* UnlockReferralItem.h in Headers */ = {isa = PBXBuildFile; fileRef = C2975B9B072580DC00AFECAD /* UnlockReferralItem.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C2AA2BB4052E099D006D0211 /* Access.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2AA2B42052E099D006D0211 /* Access.cpp */; };
@@ -229,8 +231,6 @@
 			files = (
 				4CCB004A0580091300981D43 /* security_keychain.exp in CopyFiles */,
 				527067DC070246B300C5D30E /* iToolsTrustedApps.plist in CopyFiles */,
-				BEE896E80A61F12300BF88A5 /* SecItem.cpp in CopyFiles */,
-				BEE897120A62CDD800BF88A5 /* SecItemConstants.cpp in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -257,6 +257,7 @@
 				4CCBFFB6058002F100981D43 /* SecIdentity.h in CopyFiles */,
 				4CCBFFB1058002F100981D43 /* SecIdentitySearch.h in CopyFiles */,
 				05B063C005DB2B3C006FA9A6 /* SecImportExport.h in CopyFiles */,
+				BE0A2DFB0EB15F340016298C /* SecItem.h in CopyFiles */,
 				4CCBFFAC058002F100981D43 /* SecKey.h in CopyFiles */,
 				4CCBFFA8058002F100981D43 /* SecKeychain.h in CopyFiles */,
 				4CCBFFAD058002F100981D43 /* SecKeychainItem.h in CopyFiles */,
@@ -284,6 +285,7 @@
 				4CCBFFCB058002FF00981D43 /* SecCertificateRequest.h in CopyFiles */,
 				4CCBFFCE058002FF00981D43 /* SecIdentityPriv.h in CopyFiles */,
 				30E17FD7062B0F4C004208EB /* SecIdentitySearchPriv.h in CopyFiles */,
+				BE0A2DFD0EB15F620016298C /* SecItemPriv.h in CopyFiles */,
 				4CCBFFC9058002FF00981D43 /* SecKeychainItemPriv.h in CopyFiles */,
 				05A83C390AAF5A9A00906F28 /* SecKeychainItemExtendedAttributes.h in CopyFiles */,
 				1B11967E062F4C7700F3B659 /* SecKeychainSearchPriv.h in CopyFiles */,
@@ -365,18 +367,20 @@
 		4C21181A058A75B000014C42 /* SecBase.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SecBase.cpp; sourceTree = "<group>"; };
 		4C5635170540A54300DCF0C8 /* security_keychain.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = security_keychain.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C868429058A55A10072F261 /* MacOSErrorStrings.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MacOSErrorStrings.h; sourceTree = "<group>"; };
-		4CA1FEBE052A3C8100F22E42 /* security_keychain */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; path = security_keychain; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CA1FEBE052A3C8100F22E42 /* security_keychain */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = security_keychain; sourceTree = BUILT_PRODUCTS_DIR; };
 		4CCB00430580089000981D43 /* security_keychain.exp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.exports; path = security_keychain.exp; sourceTree = "<group>"; };
 		4CF00660058A51180060AF78 /* SecBasePriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecBasePriv.h; sourceTree = "<group>"; };
 		4CFDC28306CD9C6A007BEE7E /* DynamicDLDBList.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = DynamicDLDBList.cpp; sourceTree = "<group>"; };
 		4CFDC28406CD9C6A007BEE7E /* DynamicDLDBList.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DynamicDLDBList.h; sourceTree = "<group>"; };
-		527067DB070246B300C5D30E /* iToolsTrustedApps.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = iToolsTrustedApps.plist; path = plist/iToolsTrustedApps.plist; sourceTree = SOURCE_ROOT; };
-		BEB9BB540F574CC900432F34 /* TrustAdditions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TrustAdditions.h; sourceTree = "<group>"; };
-		BEB9BB550F574CC900432F34 /* TrustAdditions.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TrustAdditions.cpp; sourceTree = "<group>"; };
+		527067DB070246B300C5D30E /* iToolsTrustedApps.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; name = iToolsTrustedApps.plist; path = plist/iToolsTrustedApps.plist; sourceTree = SOURCE_ROOT; };
+		BE296DBE0EAC299C00FD22BE /* SecImportExport.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SecImportExport.c; sourceTree = "<group>"; };
+		BE296DC40EAC2B5600FD22BE /* SecInternal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecInternal.h; sourceTree = "<group>"; };
+		BE50AE650F687AB900D28C54 /* TrustAdditions.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TrustAdditions.cpp; sourceTree = "<group>"; };
+		BE50AE660F687AB900D28C54 /* TrustAdditions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TrustAdditions.h; sourceTree = "<group>"; };
 		BEE896E00A61F0BB00BF88A5 /* SecItem.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecItem.h; sourceTree = "<group>"; };
 		BEE896E10A61F0BB00BF88A5 /* SecItemPriv.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecItemPriv.h; sourceTree = "<group>"; };
 		BEE896E60A61F12300BF88A5 /* SecItem.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SecItem.cpp; sourceTree = "<group>"; };
-		BEE897100A62CDD800BF88A5 /* SecItemConstants.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SecItemConstants.cpp; sourceTree = "<group>"; };
+		BEE897100A62CDD800BF88A5 /* SecItemConstants.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = SecItemConstants.c; sourceTree = "<group>"; };
 		C26BA9FE072580AE0049AF3C /* UnlockReferralItem.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = UnlockReferralItem.cpp; path = lib/UnlockReferralItem.cpp; sourceTree = SOURCE_ROOT; };
 		C2975B9B072580DC00AFECAD /* UnlockReferralItem.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = UnlockReferralItem.h; path = lib/UnlockReferralItem.h; sourceTree = SOURCE_ROOT; };
 		C2AA2B42052E099D006D0211 /* Access.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = Access.cpp; sourceTree = "<group>"; };
@@ -478,34 +482,6 @@
 		D6E1457C0A632A5A008AA7E8 /* KCEventNotifier.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = KCEventNotifier.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
-/* Begin PBXFrameworkTarget section */
-		4C5635160540A54300DCF0C8 /* security_keychain */ = {
-			isa = PBXFrameworkTarget;
-			buildConfigurationList = C27AD3770987FCDE001272E0 /* Build configuration list for PBXFrameworkTarget "security_keychain" */;
-			buildPhases = (
-				4C5635110540A54300DCF0C8 /* Headers */,
-				4CCBFF940580027500981D43 /* CopyFiles */,
-				4CCBFF950580027700981D43 /* CopyFiles */,
-				4CCBFF960580027A00981D43 /* CopyFiles */,
-				4CCBFF980580027E00981D43 /* CopyFiles */,
-				527067B7070244E700C5D30E /* CopyFiles */,
-				527067C50702459300C5D30E /* CopyFiles */,
-			);
-			dependencies = (
-			);
-			name = security_keychain;
-			productInstallPath = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-			productName = security_keychain;
-			productReference = 4C5635170540A54300DCF0C8 /* security_keychain.framework */;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict/>
-</plist>
-";
-		};
-/* End PBXFrameworkTarget section */
-
 /* Begin PBXFrameworksBuildPhase section */
 		4CA1FEBB052A3C8100F22E42 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
@@ -573,7 +549,7 @@
 				C2AA2B80052E099D006D0211 /* SecCertificateRequest.cpp */,
 				C2AA2B86052E099D006D0211 /* SecIdentity.cpp */,
 				C2AA2B89052E099D006D0211 /* SecIdentitySearch.cpp */,
-				BEE897100A62CDD800BF88A5 /* SecItemConstants.cpp */,
+				BEE897100A62CDD800BF88A5 /* SecItemConstants.c */,
 				BEE896E60A61F12300BF88A5 /* SecItem.cpp */,
 				C2AA2B8B052E099D006D0211 /* SecKey.cpp */,
 				C2AA2B8D052E099D006D0211 /* SecKeychain.cpp */,
@@ -656,11 +632,14 @@
 				D6E1457C0A632A5A008AA7E8 /* KCEventNotifier.h */,
 				C2AA2B64052E099D006D0211 /* KCExceptions.h */,
 				C429431C053B2F8B00470431 /* KCUtilities.cpp */,
-				4C868429058A55A10072F261 /* MacOSErrorStrings.h */,
-				C2AA2BAB052E099D006D0211 /* StorageManager.h */,
 				C429431D053B2F8B00470431 /* KCUtilities.h */,
+				4C868429058A55A10072F261 /* MacOSErrorStrings.h */,
 				C2AA2B6F052E099D006D0211 /* PrimaryKey.cpp */,
 				C2AA2B70052E099D006D0211 /* PrimaryKey.h */,
+				BE296DC40EAC2B5600FD22BE /* SecInternal.h */,
+				C2AA2BAB052E099D006D0211 /* StorageManager.h */,
+				BE50AE650F687AB900D28C54 /* TrustAdditions.cpp */,
+				BE50AE660F687AB900D28C54 /* TrustAdditions.h */,
 				C2AA2BB0052E099D006D0211 /* TrustItem.cpp */,
 				C2AA2BB1052E099D006D0211 /* TrustItem.h */,
 				C2AA2BB2052E099D006D0211 /* TrustStore.cpp */,
@@ -671,8 +650,6 @@
 				058C797B09F56D1400DB7E98 /* TrustSettingsUtils.h */,
 				4CCB00430580089000981D43 /* security_keychain.exp */,
 				C2AA2B55052E099D006D0211 /* generateErrStrings.pl */,
-				BEB9BB540F574CC900432F34 /* TrustAdditions.h */,
-				BEB9BB550F574CC900432F34 /* TrustAdditions.cpp */,
 			);
 			name = Internal;
 			sourceTree = "<group>";
@@ -681,17 +658,18 @@
 			isa = PBXGroup;
 			children = (
 				058AA95805D93B4300F543ED /* SecExport.cpp */,
-				058AA9C905D96FD200F543ED /* SecExternalRep.h */,
 				058AA9CD05D96FE600F543ED /* SecExternalRep.cpp */,
+				058AA9C905D96FD200F543ED /* SecExternalRep.h */,
 				058AA96B05D93CDD00F543ED /* SecImport.cpp */,
+				BE296DBE0EAC299C00FD22BE /* SecImportExport.c */,
 				051A034705D9A68C00E02A64 /* SecImportExportAgg.cpp */,
 				051A034F05D9A69900E02A64 /* SecImportExportAgg.h */,
 				05012D45060B94A000C044CB /* SecImportExportCrypto.cpp */,
 				05012D49060B94B200C044CB /* SecImportExportCrypto.h */,
 				05AE95480AA748570076501C /* SecImportExportOpenSSH.cpp */,
 				05AE95470AA748570076501C /* SecImportExportOpenSSH.h */,
-				058AAA9105D97EAE00F543ED /* SecImportExportPem.h */,
 				051A053205DAC86400E02A64 /* SecImportExportPem.cpp */,
+				058AAA9105D97EAE00F543ED /* SecImportExportPem.h */,
 				056CDA3805FD573B00820BC3 /* SecImportExportPkcs8.cpp */,
 				056CDA8D05FD63C200820BC3 /* SecImportExportPkcs8.h */,
 				054F90AD05E2860E0013C1D1 /* SecImportExportUtils.cpp */,
@@ -780,7 +758,7 @@
 				BEE896E50A61F0CD00BF88A5 /* SecItemPriv.h in Headers */,
 				05A83C370AAF591100906F28 /* SecKeychainItemExtendedAttributes.h in Headers */,
 				05A83C810AAF5D0E00906F28 /* ExtendedAttribute.h in Headers */,
-				BE58D1320F5BC8BD005C363C /* TrustAdditions.h in Headers */,
+				BE50AE690F687AB900D28C54 /* TrustAdditions.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -794,6 +772,7 @@
 				4CF36F690581376700834D11 /* SecCertificate.h in Headers */,
 				4CF36F6C0581376700834D11 /* SecIdentity.h in Headers */,
 				4CF36F670581376700834D11 /* SecIdentitySearch.h in Headers */,
+				BEE896E20A61F0BB00BF88A5 /* SecItem.h in Headers */,
 				4CF36F620581376700834D11 /* SecKey.h in Headers */,
 				4CF36F5E0581376700834D11 /* SecKeychain.h in Headers */,
 				4CF36F630581376700834D11 /* SecKeychainItem.h in Headers */,
@@ -833,20 +812,42 @@
 				058C797D09F56D1400DB7E98 /* TrustSettings.h in Headers */,
 				058C797E09F56D1400DB7E98 /* TrustSettingsSchema.h in Headers */,
 				058C798009F56D1400DB7E98 /* TrustSettingsUtils.h in Headers */,
-				BEE896E20A61F0BB00BF88A5 /* SecItem.h in Headers */,
 				BEE896E30A61F0BB00BF88A5 /* SecItemPriv.h in Headers */,
 				05AE95490AA748570076501C /* SecImportExportOpenSSH.h in Headers */,
 				05A83C380AAF591100906F28 /* SecKeychainItemExtendedAttributes.h in Headers */,
-				BEB9BB560F574CC900432F34 /* TrustAdditions.h in Headers */,
+				BE296DC50EAC2B5600FD22BE /* SecInternal.h in Headers */,
+				BE50AE680F687AB900D28C54 /* TrustAdditions.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXHeadersBuildPhase section */
 
-/* Begin PBXLibraryTarget section */
+/* Begin PBXNativeTarget section */
+		4C5635160540A54300DCF0C8 /* security_keychain */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD3770987FCDE001272E0 /* Build configuration list for PBXNativeTarget "security_keychain" */;
+			buildPhases = (
+				4C5635110540A54300DCF0C8 /* Headers */,
+				4CCBFF940580027500981D43 /* CopyFiles */,
+				4CCBFF950580027700981D43 /* CopyFiles */,
+				4CCBFF960580027A00981D43 /* CopyFiles */,
+				4CCBFF980580027E00981D43 /* CopyFiles */,
+				527067B7070244E700C5D30E /* CopyFiles */,
+				527067C50702459300C5D30E /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = security_keychain;
+			productInstallPath = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+			productName = security_keychain;
+			productReference = 4C5635170540A54300DCF0C8 /* security_keychain.framework */;
+			productType = "com.apple.product-type.framework";
+		};
 		4CA1FEBD052A3C8100F22E42 /* libsecurity_keychain */ = {
-			isa = PBXLibraryTarget;
-			buildConfigurationList = C27AD37C0987FCDE001272E0 /* Build configuration list for PBXLibraryTarget "libsecurity_keychain" */;
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD37C0987FCDE001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_keychain" */;
 			buildPhases = (
 				4CF36F5D0581375900834D11 /* Headers */,
 				4CA1FEBA052A3C8100F22E42 /* Sources */,
@@ -854,14 +855,17 @@
 				4C789C22055AF6EF00B6FC95 /* ShellScript */,
 				4CD0D46F055B0D85001715CB /* ShellScript */,
 			);
+			buildRules = (
+			);
 			dependencies = (
 				4C52AC070540AE1900536F78 /* PBXTargetDependency */,
 			);
 			name = libsecurity_keychain;
 			productName = libsecurity_keychain;
 			productReference = 4CA1FEBE052A3C8100F22E42 /* security_keychain */;
+			productType = "com.apple.product-type.library.static";
 		};
-/* End PBXLibraryTarget section */
+/* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
@@ -892,7 +896,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tln -fs \"../../../${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework/Versions/A\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework\ndone";
+			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tditto -V \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}${postfix}\" \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\n\tln -fs \"../../../${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework/Versions/A\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework\ndone";
 		};
 		4CD0D46F055B0D85001715CB /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -977,11 +981,12 @@
 				058C797C09F56D1400DB7E98 /* TrustSettings.cpp in Sources */,
 				058C797F09F56D1400DB7E98 /* TrustSettingsUtils.cpp in Sources */,
 				BEE896E70A61F12300BF88A5 /* SecItem.cpp in Sources */,
-				BEE897110A62CDD800BF88A5 /* SecItemConstants.cpp in Sources */,
+				BEA830070EB17344001CA937 /* SecItemConstants.c in Sources */,
 				05AE954A0AA748580076501C /* SecImportExportOpenSSH.cpp in Sources */,
 				05A83C800AAF5CEA00906F28 /* ExtendedAttribute.cpp in Sources */,
 				05A83C880AAF5E0A00906F28 /* SecKeychainItemExtendedAttributes.cpp in Sources */,
-				BEB9BB570F574CC900432F34 /* TrustAdditions.cpp in Sources */,
+				BE296DBF0EAC299C00FD22BE /* SecImportExport.c in Sources */,
+				BE50AE670F687AB900D28C54 /* TrustAdditions.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1000,10 +1005,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				INFOPLIST_FILE = "Info-security_keychain.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Components/Security;
 				PRODUCT_NAME = security_keychain;
 				WRAPPER_EXTENSION = framework;
@@ -1014,8 +1021,10 @@
 		C27AD3790987FCDE001272E0 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INFOPLIST_FILE = "Info-security_keychain.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Components/Security;
 				PRODUCT_NAME = security_keychain;
 				WRAPPER_EXTENSION = framework;
@@ -1027,7 +1036,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
+				INFOPLIST_FILE = "Info-security_keychain.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Components/Security;
 				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS)";
 				OTHER_CFLAGS_normal = "$(OTHER_CFLAGS) -O0 -fno-inline";
@@ -1040,7 +1052,10 @@
 		C27AD37B0987FCDE001272E0 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
+				INFOPLIST_FILE = "Info-security_keychain.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Components/Security;
 				PRODUCT_NAME = security_keychain;
 				WRAPPER_EXTENSION = framework;
@@ -1051,13 +1066,14 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 36620;
+				CURRENT_PROJECT_VERSION = 36940;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
 				);
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
@@ -1077,12 +1093,12 @@
 				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
-				PRIVATE_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/PrivateHeaders/Security";
+				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/PrivateHeaders/Security;
 				PRODUCT_NAME = security_keychain;
-				PUBLIC_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/Headers/Security";
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/Headers/Security;
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -1100,12 +1116,13 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 36620;
+				CURRENT_PROJECT_VERSION = 36940;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
 				);
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
@@ -1124,12 +1141,12 @@
 				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
-				PRIVATE_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/PrivateHeaders/Security";
+				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/PrivateHeaders/Security;
 				PRODUCT_NAME = security_keychain;
-				PUBLIC_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/Headers/Security";
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/Headers/Security;
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -1144,7 +1161,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 36620;
+				CURRENT_PROJECT_VERSION = 36940;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
@@ -1167,12 +1186,12 @@
 				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
-				PRIVATE_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/PrivateHeaders/Security";
+				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/PrivateHeaders/Security;
 				PRODUCT_NAME = security_keychain;
-				PUBLIC_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/Headers/Security";
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/Headers/Security;
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -1189,7 +1208,9 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 36620;
+				CURRENT_PROJECT_VERSION = 36940;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
@@ -1212,12 +1233,12 @@
 				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
-				PRIVATE_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/PrivateHeaders/Security";
+				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/PrivateHeaders/Security;
 				PRODUCT_NAME = security_keychain;
-				PUBLIC_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/Headers/Security";
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/Headers/Security;
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -1263,7 +1284,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		C27AD3770987FCDE001272E0 /* Build configuration list for PBXFrameworkTarget "security_keychain" */ = {
+		C27AD3770987FCDE001272E0 /* Build configuration list for PBXNativeTarget "security_keychain" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C27AD3780987FCDE001272E0 /* Development */,
@@ -1274,7 +1295,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
-		C27AD37C0987FCDE001272E0 /* Build configuration list for PBXLibraryTarget "libsecurity_keychain" */ = {
+		C27AD37C0987FCDE001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_keychain" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C27AD37D0987FCDE001272E0 /* Development */,

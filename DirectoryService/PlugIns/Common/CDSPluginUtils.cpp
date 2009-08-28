@@ -83,11 +83,13 @@ void CFDebugLog( SInt32 lType, const char* format, ... )
 {
 	va_list ap;
 	
-	va_start( ap, format );
-	
-	CFDebugLogV( lType, format, ap );
-	
-	va_end( ap );
+	if ( LoggingEnabled(lType) ) {
+		va_start( ap, format );
+		
+		CFDebugLogV( lType, format, ap );
+		
+		va_end( ap );
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -292,7 +294,7 @@ tDirStatus MSCHAPv2ChangePass(
 	tDirStatus			status			= eDSNoErr;
 	int					result			= -1;
     UInt32				pwLen			= 0;
-	UInt32				encodeVal		= -1;
+	int32_t				encodeVal		= -1;
 	CCCryptorStatus		ccStatus		= kCCSuccess;
 	size_t				dataOutMoved	= 0;
     char				pwDataStr[1024];
@@ -322,7 +324,7 @@ tDirStatus MSCHAPv2ChangePass(
 		data[pwLen + 1] = '\0';
 		
 		// get the password in UTF8 encoding
-		sscanf( inEncoding, "%lu", &encodeVal );
+		sscanf( inEncoding, "%u", &encodeVal );
 		if ( encodeVal == 0 && strcmp( inEncoding, "0" ) != 0 )
 			throw( (tDirStatus)eDSInvalidBuffFormat );
 		
@@ -336,19 +338,22 @@ tDirStatus MSCHAPv2ChangePass(
 				break;
 			
 			case 1:
-				// unicode
-				LittleEndianUnicodeToUnicode((u_int16_t *)data, pwLen/2, (u_int16_t *)data);
-				CFStringRef pwString = CFStringCreateWithCharacters( kCFAllocatorDefault, (UniChar *)data, pwLen/2 );
-				if ( pwString != NULL )
-				{
-					result = CFStringGetCString( pwString, pwDataStr, sizeof(pwDataStr), kCFStringEncodingUTF8 );
-					CFRelease( pwString );
-				}
+                {
+                    // unicode
+                    LittleEndianUnicodeToUnicode((u_int16_t *)data, pwLen/2, (u_int16_t *)data);
+                    CFStringRef pwString = CFStringCreateWithCharacters( kCFAllocatorDefault, (UniChar *)data, pwLen/2 );
+                    if ( pwString != NULL )
+                    {
+                        result = CFStringGetCString( pwString, pwDataStr, sizeof(pwDataStr), kCFStringEncodingUTF8 );
+                        CFRelease( pwString );
+                    }
+                }
 				break;
 			
 			default:
 				// code-page
 				result = FALSE;
+                break;
 		}
 	
 		if ( result == FALSE )
@@ -481,38 +486,42 @@ bail:
 	return theRealmStr;
 }
 
+static mach_port_t	kerberosAutoPort	= MACH_PORT_NULL;
+
+static void lookupKerberosAutoconfigPort( void )
+{
+	kern_return_t result = bootstrap_look_up( bootstrap_port, (char *)"com.apple.KerberosAutoConfig", &kerberosAutoPort );
+	if ( result != KERN_SUCCESS ) {
+		syslog( LOG_ALERT, "Error with bootstrap_look_up for com.apple.KerberosAutoConfig - Msg = %s\n", mach_error_string(result) );
+	}
+}
+
 void LaunchKerberosAutoConfigTool( void )
 {
-	SInt32			result			= eDSNoErr;
-	mach_port_t		mach_init_port	= MACH_PORT_NULL;
+	static pthread_once_t	initPort	= PTHREAD_ONCE_INIT;
 	
-	//lookup mach init port to launch Kerberos AutoConfig Tool on demand
-	result = bootstrap_look_up( bootstrap_port, "com.apple.KerberosAutoConfig", &mach_init_port );
-	if ( result != eDSNoErr )
+	pthread_once( &initPort, lookupKerberosAutoconfigPort );
+	
+	if ( kerberosAutoPort != MACH_PORT_NULL )
 	{
-		syslog( LOG_ALERT, "Error with bootstrap_look_up for com.apple.KerberosAutoConfig on mach_init port: %s at: %d: Msg = %s\n", __FILE__, __LINE__, mach_error_string( result ) );
-	}
-	else
-	{
+		// TODO: this can probably be simplified but for now leave as is
 		sIPCMsg aMsg;
 		
 		aMsg.fHeader.msgh_bits			= MACH_MSGH_BITS( MACH_MSG_TYPE_COPY_SEND, MACH_MSG_TYPE_MAKE_SEND );
 		aMsg.fHeader.msgh_size			= sizeof(sIPCMsg) - sizeof( mach_msg_audit_trailer_t );
 		aMsg.fHeader.msgh_id			= 0;
-		aMsg.fHeader.msgh_remote_port	= mach_init_port;
+		aMsg.fHeader.msgh_remote_port	= kerberosAutoPort;
 		aMsg.fHeader.msgh_local_port	= MACH_PORT_NULL;
 		
 		aMsg.fMsgType	= 0;
 		aMsg.fCount		= 1;
-		aMsg.fPort		= MACH_PORT_NULL;
 		aMsg.fPID		= 0;
 		aMsg.fMsgID		= 0;
 		aMsg.fOf		= 1;
-		//tickle the mach init port - should this really be required to start the daemon
-		mach_msg((mach_msg_header_t *)&aMsg, MACH_SEND_MSG | MACH_SEND_TIMEOUT, aMsg.fHeader.msgh_size, 0, MACH_PORT_NULL, 1, MACH_PORT_NULL);
-		//don't retain the mach init port since only using it to launch the Kerberos AutoConfig tool
-		mach_port_destroy(mach_task_self(), mach_init_port);
-		mach_init_port = MACH_PORT_NULL;
+		
+		// tickle the mach init port
+		// TODO: should this really be required to start the daemon
+		mach_msg( (mach_msg_header_t *)&aMsg, MACH_SEND_MSG | MACH_SEND_TIMEOUT, aMsg.fHeader.msgh_size, 0, MACH_PORT_NULL, 1, MACH_PORT_NULL );
 	}
 	
 } // LaunchKerberosAutoConfigTool
@@ -556,12 +565,9 @@ GenerateRandomComputerPassword( void )
 	char			*pCompPassword = (char *) calloc( sizeof(char), iPassLength + 1 );
 	register char	cTemp;
 	
-	// seed random from dev
-	srandomdev();
-	
 	for ( int iLen = 0; iLen < iPassLength; )
 	{
-		cTemp = (char)((random() % (0x7e - 0x21)) + 0x21);
+		cTemp = (char)((arc4random() % (0x7e - 0x21)) + 0x21);
 		
 		// accept printable characters, but no spaces...
 		if ( isprint(cTemp) && !isspace(cTemp) )

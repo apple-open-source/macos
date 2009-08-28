@@ -273,8 +273,8 @@ static int iChatAVHack = 1;
 
 struct ack_data_record     /* used to save changes to ACK/sequence numbers */
 {
-    u_long ack_old;
-    u_long ack_new;
+    __uint32_t ack_old;
+    __uint32_t ack_new;
     int delta;
     int active;
 };
@@ -448,9 +448,11 @@ static u_int StartPointIn(struct in_addr, u_short, int);
 static u_int StartPointOut(struct in_addr, struct in_addr,
                            u_short, u_short, int);
 
-static int SeqDiff(u_long, u_long);
+static int SeqDiff(__uint32_t, __uint32_t);
 
+#ifndef	DEBUG
 static void ShowAliasStats(void);
+#endif
 
 #ifndef NO_FW_PUNCH
 /* Firewall control */
@@ -497,7 +499,7 @@ StartPointOut(struct in_addr src_addr, struct in_addr dst_addr,
 
 
 static int
-SeqDiff(u_long x, u_long y)
+SeqDiff(__uint32_t x, __uint32_t y)
 {
 /* Return the difference between two TCP sequence numbers */
 
@@ -510,6 +512,7 @@ SeqDiff(u_long x, u_long y)
 }
 
 
+#ifndef	DEBUG
 static void
 ShowAliasStats(void)
 {
@@ -538,6 +541,7 @@ ShowAliasStats(void)
       fflush(monitorFile);
    }
 }
+#endif
 
 
 
@@ -2029,7 +2033,7 @@ FindAliasPortOut(struct in_addr src_addr, struct in_addr dst_addr, u_short src_p
 				snprintf(alias_str, sizeof(alias_str), "%s:%u",
 					inet_ntoa(link->alias_addr), ntohs(link->alias_port));
 	
-				printf(" linkTableOut[%d:%d] src= %s dst= %s alias= %s flags= 0x%x linktype= %d ts= %d exp= %d fd= %d",
+				printf(" linkTableOut[%d:%d] src= %s dst= %s alias= %s flags= 0x%x linktype= %d ts= %d exp= %d fd= %d\n",
 					i, icount, src_str, dst_str, alias_str, 
 					link->flags, link->link_type, link->timestamp, link->expire_time, link->sockfd);
 	
@@ -2311,7 +2315,7 @@ packet size was altered is searched.
     int i;
     struct tcphdr *tc;
     int delta, ack_diff_min;
-    u_long ack;
+    __uint32_t ack;
 
     tc = (struct tcphdr *) ((char *) pip + (pip->ip_hl << 2));
     ack      = tc->th_ack;
@@ -2362,7 +2366,7 @@ packet size was altered is searched.
     int i;
     struct tcphdr *tc;
     int delta, seq_diff_min;
-    u_long seq;
+    __uint32_t seq;
 
     tc = (struct tcphdr *) ((char *) pip + (pip->ip_hl << 2));
     seq = tc->th_seq;

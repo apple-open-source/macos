@@ -27,18 +27,18 @@
 	This includes applications, tools, frameworks, plugins,	scripts, and so on.
 	
 	Normally, each SecCode has a specific SecStaticCode that holds its static signing
-	data. Informally, that is the SecStaticCode the SecCode "was made from". There is
-	however no viable link in the other direction - given a SecStaticCode, it is not
-	possible to find, enumerate, or control any SecCode that originated from it.
+	data. Informally, that is the SecStaticCode the SecCode "was made from" (by its host).
+	There is however no viable link in the other direction - given a SecStaticCode,
+	it is not possible to find, enumerate, or control any SecCode that originated from it.
 */
 #ifndef _H_SECSTATICCODE
 #define _H_SECSTATICCODE
 
+#include <Security/CSCommon.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <Security/CSCommon.h>
 
 
 /*!
@@ -55,7 +55,8 @@ CFTypeID SecStaticCodeGetTypeID(void);
 	linked to running code in the system.
 	
 	It is possible to create a SecStaticCode object from an unsigned code object.
-	Most uses of such an object will return the errSecCSUnsigned error.
+	Most uses of such an object will return the errSecCSUnsigned error. However,
+	SecCodeCopyPath and SecCodeCopySigningInformation can be safely applied to such objects.
 
 	@param path A path to a location in the file system. Only file:// URLs are
 	currently supported. For bundles, pass a URL to the root directory of the
@@ -80,6 +81,8 @@ OSStatus SecStaticCodeCreateWithPath(CFURLRef path, SecCSFlags flags, SecStaticC
 	
 	This call is only secure if the code is not subject to concurrent modification,
 	and the outcome is only valid as long as the code is unmodified thereafter.
+	Consider this carefully if the underlying file system has dynamic characteristics,
+	such as a network file system, union mount, FUSE, etc.
 
 	@param staticCode The code object to be validated.
 	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior.
@@ -97,10 +100,10 @@ OSStatus SecStaticCodeCreateWithPath(CFURLRef path, SecCSFlags flags, SecStaticC
 	the staticCode object must satisfy to be considered valid. If NULL, no additional
 	requirements are imposed.
 	@param errors An optional pointer to a CFErrorRef variable. If the call fails
-	(and something other than noErr is returned), and this argument is non-NULL,
+	(something other than noErr is returned), and this argument is non-NULL,
 	a CFErrorRef is stored there further describing the nature and circumstances
 	of the failure. The caller must CFRelease() this error object when done with it.
-	@result If validation passes, noErr. If validation fails, an OSStatus value
+	@result If validation succeeds, noErr. If validation fails, an OSStatus value
 	documented in CSCommon.h or certain other Security framework headers.
 */
 enum {

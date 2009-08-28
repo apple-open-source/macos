@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
-
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Names to predefine in the preprocessor for this target OS.  */
 #undef TARGET_OS_CPP_BUILTINS
@@ -39,7 +39,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
    is added to the compiler.  */
 #define LINK_SPEC \
   "%{assert*} %{R*} %{rpath*} \
-   %{shared:%eThe -shared option is not currently supported for VAX ELF.} \
+   %{shared:%ethe -shared option is not currently supported for VAX ELF} \
    %{!shared: \
      -dc -dp \
      %{!nostdlib: \

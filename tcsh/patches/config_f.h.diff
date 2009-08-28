@@ -1,11 +1,11 @@
---- config_f.h	2005-03-04 05:46:04.000000000 -0800
-+++ config_f.h	2007-06-04 16:08:44.000000000 -0700
-@@ -149,7 +149,7 @@
+--- config_f.h~	2006-08-28 07:53:04.000000000 -0700
++++ config_f.h	2008-01-23 11:12:40.000000000 -0800
+@@ -143,7 +143,7 @@
   *		This can be much slower and no memory statistics will be
   *		provided.
   */
--#if defined(__MACHTEN__) || defined(PURIFY) || defined(MALLOC_TRACE) || defined(_OSD_POSIX) || defined(__MVS__)
-+#if defined(__MACHTEN__) || defined(PURIFY) || defined(MALLOC_TRACE) || defined(_OSD_POSIX) || defined(__MVS__) || defined(__APPLE__)
+-#if defined(__MACHTEN__) || defined(PURIFY) || defined(MALLOC_TRACE) || defined(_OSD_POSIX) || defined(__MVS__) || defined (__linux__)
++#if defined(__MACHTEN__) || defined(PURIFY) || defined(MALLOC_TRACE) || defined(_OSD_POSIX) || defined(__MVS__) || defined (__linux__) || defined(__APPLE__)
  # define SYSMALLOC
  #else
  # undef SYSMALLOC

@@ -3,16 +3,19 @@
                "http://www.oasis-open.org/docbook/xml/4.1.2/docbookx.dtd">
 <refentry id="libidn-tld">
 <refmeta>
-<refentrytitle>tld</refentrytitle>
+<refentrytitle role="top_of_page">tld</refentrytitle>
 <manvolnum>3</manvolnum>
 <refmiscinfo>LIBIDN Library</refmiscinfo>
 </refmeta>
 
 <refnamediv>
-<refname>tld</refname><refpurpose></refpurpose>
+<refname>tld</refname>
+<refpurpose></refpurpose>
+<!--[<xref linkend="desc" endterm="desc.title"/>]-->
 </refnamediv>
 
-<refsynopsisdiv><title>Synopsis</title>
+<refsynopsisdiv role="synopsis">
+<title role="synopsis.title">Synopsis</title>
 
 <synopsis>
 
@@ -64,17 +67,17 @@ const <link linkend="Tld-table">Tld_table</link>* <link linkend="tld-default-tab
 
 
 
-<refsect1>
-<title>Description</title>
+<refsect1 role="desc">
+<title role="desc.title">Description</title>
 <para>
 
 </para>
 </refsect1>
 
-<refsect1>
-<title>Details</title>
+<refsect1 role="details">
+<title role="details.title">Details</title>
 <refsect2>
-<title><anchor id="Tld-table-element"/>struct Tld_table_element</title>
+<title><anchor id="Tld-table-element" role="struct"/>struct Tld_table_element</title>
 <indexterm><primary>Tld_table_element</primary></indexterm><programlisting>struct Tld_table_element {
     uint32_t start;		/* Start of range. */
     uint32_t end;		/* End of range, end == start if single. */
@@ -84,7 +87,7 @@ const <link linkend="Tld-table">Tld_table</link>* <link linkend="tld-default-tab
 
 </para></refsect2>
 <refsect2>
-<title><anchor id="Tld-table"/>struct Tld_table</title>
+<title><anchor id="Tld-table" role="struct"/>struct Tld_table</title>
 <indexterm><primary>Tld_table</primary></indexterm><programlisting>struct Tld_table {
     const char *name;		/* TLD name, e.g., "no". */
     const char *version;	/* Version string from TLD file. */
@@ -96,7 +99,7 @@ const <link linkend="Tld-table">Tld_table</link>* <link linkend="tld-default-tab
 
 </para></refsect2>
 <refsect2>
-<title><anchor id="Tld-rc"/>enum Tld_rc</title>
+<title><anchor id="Tld-rc" role="enum"/>enum Tld_rc</title>
 <indexterm><primary>Tld_rc</primary></indexterm><programlisting>  typedef enum
   {
     TLD_SUCCESS = 0,
@@ -116,46 +119,46 @@ The value 0 is guaranteed to always correspond to success.</para>
 
 </para><variablelist role="enum">
 <varlistentry>
-<term><literal>TLD_SUCCESS</literal></term>
+<term><anchor id="TLD-SUCCESS:CAPS" role="constant"/><literal>TLD_SUCCESS</literal></term>
 <listitem><simpara> Successful operation.  This value is guaranteed to
   always be zero, the remaining ones are only guaranteed to hold
   non-zero values, for logical comparison purposes.
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>TLD_INVALID</literal></term>
+<term><anchor id="TLD-INVALID:CAPS" role="constant"/><literal>TLD_INVALID</literal></term>
 <listitem><simpara> Invalid character found.
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>TLD_NODATA</literal></term>
+<term><anchor id="TLD-NODATA:CAPS" role="constant"/><literal>TLD_NODATA</literal></term>
 <listitem><simpara> No input data was provided.
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>TLD_MALLOC_ERROR</literal></term>
+<term><anchor id="TLD-MALLOC-ERROR:CAPS" role="constant"/><literal>TLD_MALLOC_ERROR</literal></term>
 <listitem><simpara> Error during memory allocation.
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>TLD_ICONV_ERROR</literal></term>
+<term><anchor id="TLD-ICONV-ERROR:CAPS" role="constant"/><literal>TLD_ICONV_ERROR</literal></term>
 <listitem><simpara> Error during iconv string conversion.
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>TLD_NO_TLD</literal></term>
+<term><anchor id="TLD-NO-TLD:CAPS" role="constant"/><literal>TLD_NO_TLD</literal></term>
 <listitem><simpara> No top-level domain found in domain string.
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>TLD_NOTLD</literal></term>
+<term><anchor id="TLD-NOTLD:CAPS" role="constant"/><literal>TLD_NOTLD</literal></term>
 <listitem><simpara>
 
 </simpara></listitem>
 </varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="tld-strerror"/>tld_strerror ()</title>
+<title><anchor id="tld-strerror" role="function"/>tld_strerror ()</title>
 <indexterm><primary>tld_strerror</primary></indexterm><programlisting>const <link linkend="char">char</link>* tld_strerror                    (<link linkend="Tld-rc">Tld_rc</link> rc);</programlisting>
 <para>
 Convert a return code integer to a text string.  This string can be
@@ -181,7 +184,7 @@ containing a description of the error with the return code <parameter>rc</parame
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="tld-get-4"/>tld_get_4 ()</title>
+<title><anchor id="tld-get-4" role="function"/>tld_get_4 ()</title>
 <indexterm><primary>tld_get_4</primary></indexterm><programlisting><link linkend="int">int</link>         tld_get_4                       (const <link linkend="uint32-t">uint32_t</link> *in,
                                              <link linkend="size-t">size_t</link> inlen,
                                              <link linkend="char">char</link> **out);</programlisting>
@@ -201,12 +204,12 @@ string in <parameter>out</parameter>.</para>
 <varlistentry><term><parameter>out</parameter>&nbsp;:</term>
 <listitem><simpara> Zero terminated ascii result string pointer.
 </simpara></listitem></varlistentry>
-<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Return <literal>TLD_SUCCESS</literal> on success, or the corresponding
+<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Return <link linkend="TLD-SUCCESS:CAPS"><literal>TLD_SUCCESS</literal></link> on success, or the corresponding
   <link linkend="Tld-rc"><type>Tld_rc</type></link> error code otherwise.
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="tld-get-4z"/>tld_get_4z ()</title>
+<title><anchor id="tld-get-4z" role="function"/>tld_get_4z ()</title>
 <indexterm><primary>tld_get_4z</primary></indexterm><programlisting><link linkend="int">int</link>         tld_get_4z                      (const <link linkend="uint32-t">uint32_t</link> *in,
                                              <link linkend="char">char</link> **out);</programlisting>
 <para>
@@ -221,12 +224,12 @@ string in <parameter>out</parameter>.</para>
 <varlistentry><term><parameter>out</parameter>&nbsp;:</term>
 <listitem><simpara> Zero terminated ascii result string pointer.
 </simpara></listitem></varlistentry>
-<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Return <literal>TLD_SUCCESS</literal> on success, or the corresponding
+<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Return <link linkend="TLD-SUCCESS:CAPS"><literal>TLD_SUCCESS</literal></link> on success, or the corresponding
   <link linkend="Tld-rc"><type>Tld_rc</type></link> error code otherwise.
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="tld-get-z"/>tld_get_z ()</title>
+<title><anchor id="tld-get-z" role="function"/>tld_get_z ()</title>
 <indexterm><primary>tld_get_z</primary></indexterm><programlisting><link linkend="int">int</link>         tld_get_z                       (const <link linkend="char">char</link> *in,
                                              <link linkend="char">char</link> **out);</programlisting>
 <para>
@@ -242,12 +245,12 @@ any ASCII compatible character encoding.</para>
 <varlistentry><term><parameter>out</parameter>&nbsp;:</term>
 <listitem><simpara> Zero terminated ascii result string pointer.
 </simpara></listitem></varlistentry>
-<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Return <literal>TLD_SUCCESS</literal> on success, or the corresponding
+<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Return <link linkend="TLD-SUCCESS:CAPS"><literal>TLD_SUCCESS</literal></link> on success, or the corresponding
   <link linkend="Tld-rc"><type>Tld_rc</type></link> error code otherwise.
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="tld-get-table"/>tld_get_table ()</title>
+<title><anchor id="tld-get-table" role="function"/>tld_get_table ()</title>
 <indexterm><primary>tld_get_table</primary></indexterm><programlisting>const <link linkend="Tld-table">Tld_table</link>* tld_get_table              (const <link linkend="char">char</link> *tld,
                                              const <link linkend="Tld-table">Tld_table</link> **tables);</programlisting>
 <para>
@@ -264,11 +267,11 @@ TLD table array.</para>
   TLDs.
 </simpara></listitem></varlistentry>
 <varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Return structure corresponding to TLD <parameter>tld</parameter> by going
-  thru <parameter>tables</parameter>, or return <literal>NULL</literal> if no such structure is found.
+  thru <parameter>tables</parameter>, or return <link linkend="NULL:CAPS"><literal>NULL</literal></link> if no such structure is found.
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="tld-default-table"/>tld_default_table ()</title>
+<title><anchor id="tld-default-table" role="function"/>tld_default_table ()</title>
 <indexterm><primary>tld_default_table</primary></indexterm><programlisting>const <link linkend="Tld-table">Tld_table</link>* tld_default_table          (const <link linkend="char">char</link> *tld,
                                              const <link linkend="Tld-table">Tld_table</link> **overrides);</programlisting>
 <para>
@@ -282,16 +285,16 @@ possibly overrided by the (optional) supplied tables.</para>
 </simpara></listitem></varlistentry>
 <varlistentry><term><parameter>overrides</parameter>&nbsp;:</term>
 <listitem><simpara> Additional zero terminated array of <link linkend="Tld-table"><type>Tld_table</type></link>
-  info-structures for TLDs, or <literal>NULL</literal> to only use library deault
+  info-structures for TLDs, or <link linkend="NULL:CAPS"><literal>NULL</literal></link> to only use library deault
   tables.
 </simpara></listitem></varlistentry>
 <varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Return structure corresponding to TLD <parameter>tld_str</parameter>, first
-  looking through <parameter>overrides</parameter> then thru built-in list, or <literal>NULL</literal> if
+  looking through <parameter>overrides</parameter> then thru built-in list, or <link linkend="NULL:CAPS"><literal>NULL</literal></link> if
   no such structure found.
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="tld-check-4t"/>tld_check_4t ()</title>
+<title><anchor id="tld-check-4t" role="function"/>tld_check_4t ()</title>
 <indexterm><primary>tld_check_4t</primary></indexterm><programlisting><link linkend="int">int</link>         tld_check_4t                    (const <link linkend="uint32-t">uint32_t</link> *in,
                                              <link linkend="size-t">size_t</link> inlen,
                                              <link linkend="size-t">size_t</link> *errpos,
@@ -318,14 +321,14 @@ the case in <parameter>errpos</parameter>.</para>
 <listitem><simpara> A <link linkend="Tld-table"><type>Tld_table</type></link> data structure representing the restrictions for
   which the input should be tested.
 </simpara></listitem></varlistentry>
-<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns the <link linkend="Tld-rc"><type>Tld_rc</type></link> value <literal>TLD_SUCCESS</literal> if all code
-  points are valid or when <parameter>tld</parameter> is null, <literal>TLD_INVALID</literal> if a
+<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns the <link linkend="Tld-rc"><type>Tld_rc</type></link> value <link linkend="TLD-SUCCESS:CAPS"><literal>TLD_SUCCESS</literal></link> if all code
+  points are valid or when <parameter>tld</parameter> is null, <link linkend="TLD-INVALID:CAPS"><literal>TLD_INVALID</literal></link> if a
   character is not allowed, or additional error codes on general
   failure conditions.
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="tld-check-4tz"/>tld_check_4tz ()</title>
+<title><anchor id="tld-check-4tz" role="function"/>tld_check_4tz ()</title>
 <indexterm><primary>tld_check_4tz</primary></indexterm><programlisting><link linkend="int">int</link>         tld_check_4tz                   (const <link linkend="uint32-t">uint32_t</link> *in,
                                              <link linkend="size-t">size_t</link> *errpos,
                                              const <link linkend="Tld-table">Tld_table</link> *tld);</programlisting>
@@ -347,14 +350,14 @@ the case in <parameter>errpos</parameter>.</para>
 <listitem><simpara> A <link linkend="Tld-table"><type>Tld_table</type></link> data structure representing the restrictions for
   which the input should be tested.
 </simpara></listitem></varlistentry>
-<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns the <link linkend="Tld-rc"><type>Tld_rc</type></link> value <literal>TLD_SUCCESS</literal> if all code
-  points are valid or when <parameter>tld</parameter> is null, <literal>TLD_INVALID</literal> if a
+<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns the <link linkend="Tld-rc"><type>Tld_rc</type></link> value <link linkend="TLD-SUCCESS:CAPS"><literal>TLD_SUCCESS</literal></link> if all code
+  points are valid or when <parameter>tld</parameter> is null, <link linkend="TLD-INVALID:CAPS"><literal>TLD_INVALID</literal></link> if a
   character is not allowed, or additional error codes on general
   failure conditions.
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="tld-check-4"/>tld_check_4 ()</title>
+<title><anchor id="tld-check-4" role="function"/>tld_check_4 ()</title>
 <indexterm><primary>tld_check_4</primary></indexterm><programlisting><link linkend="int">int</link>         tld_check_4                     (const <link linkend="uint32-t">uint32_t</link> *in,
                                              <link linkend="size-t">size_t</link> inlen,
                                              <link linkend="size-t">size_t</link> *errpos,
@@ -365,7 +368,7 @@ allowed by the information in <parameter>overrides</parameter> or by the built-i
 restriction data. When data for the same TLD is available both
 internally and in <parameter>overrides</parameter>, the information in <parameter>overrides</parameter> takes
 precedence. If several entries for a specific TLD are found, the
-first one is used.  If <parameter>overrides</parameter> is <literal>NULL</literal>, only the built-in
+first one is used.  If <parameter>overrides</parameter> is <link linkend="NULL:CAPS"><literal>NULL</literal></link>, only the built-in
 information is used.  The position of the first offending character
 is returned in <parameter>errpos</parameter>.</para>
 <para>
@@ -385,14 +388,14 @@ is returned in <parameter>errpos</parameter>.</para>
 <listitem><simpara> A <link linkend="Tld-table"><type>Tld_table</type></link> array of additional domain restriction
  structures that complement and supersede the built-in information.
 </simpara></listitem></varlistentry>
-<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns the <link linkend="Tld-rc"><type>Tld_rc</type></link> value <literal>TLD_SUCCESS</literal> if all code
-  points are valid or when <parameter>tld</parameter> is null, <literal>TLD_INVALID</literal> if a
+<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns the <link linkend="Tld-rc"><type>Tld_rc</type></link> value <link linkend="TLD-SUCCESS:CAPS"><literal>TLD_SUCCESS</literal></link> if all code
+  points are valid or when <parameter>tld</parameter> is null, <link linkend="TLD-INVALID:CAPS"><literal>TLD_INVALID</literal></link> if a
   character is not allowed, or additional error codes on general
   failure conditions.
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="tld-check-4z"/>tld_check_4z ()</title>
+<title><anchor id="tld-check-4z" role="function"/>tld_check_4z ()</title>
 <indexterm><primary>tld_check_4z</primary></indexterm><programlisting><link linkend="int">int</link>         tld_check_4z                    (const <link linkend="uint32-t">uint32_t</link> *in,
                                              <link linkend="size-t">size_t</link> *errpos,
                                              const <link linkend="Tld-table">Tld_table</link> **overrides);</programlisting>
@@ -402,7 +405,7 @@ allowed by the information in <parameter>overrides</parameter> or by the built-i
 restriction data. When data for the same TLD is available both
 internally and in <parameter>overrides</parameter>, the information in <parameter>overrides</parameter> takes
 precedence. If several entries for a specific TLD are found, the
-first one is used.  If <parameter>overrides</parameter> is <literal>NULL</literal>, only the built-in
+first one is used.  If <parameter>overrides</parameter> is <link linkend="NULL:CAPS"><literal>NULL</literal></link>, only the built-in
 information is used.  The position of the first offending character
 is returned in <parameter>errpos</parameter>.</para>
 <para>
@@ -418,14 +421,14 @@ is returned in <parameter>errpos</parameter>.</para>
 <listitem><simpara> A <link linkend="Tld-table"><type>Tld_table</type></link> array of additional domain restriction
   structures that complement and supersede the built-in information.
 </simpara></listitem></varlistentry>
-<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns the <link linkend="Tld-rc"><type>Tld_rc</type></link> value <literal>TLD_SUCCESS</literal> if all code
-  points are valid or when <parameter>tld</parameter> is null, <literal>TLD_INVALID</literal> if a
+<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns the <link linkend="Tld-rc"><type>Tld_rc</type></link> value <link linkend="TLD-SUCCESS:CAPS"><literal>TLD_SUCCESS</literal></link> if all code
+  points are valid or when <parameter>tld</parameter> is null, <link linkend="TLD-INVALID:CAPS"><literal>TLD_INVALID</literal></link> if a
   character is not allowed, or additional error codes on general
   failure conditions.
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="tld-check-8z"/>tld_check_8z ()</title>
+<title><anchor id="tld-check-8z" role="function"/>tld_check_8z ()</title>
 <indexterm><primary>tld_check_8z</primary></indexterm><programlisting><link linkend="int">int</link>         tld_check_8z                    (const <link linkend="char">char</link> *in,
                                              <link linkend="size-t">size_t</link> *errpos,
                                              const <link linkend="Tld-table">Tld_table</link> **overrides);</programlisting>
@@ -435,7 +438,7 @@ allowed by the information in <parameter>overrides</parameter> or by the built-i
 restriction data. When data for the same TLD is available both
 internally and in <parameter>overrides</parameter>, the information in <parameter>overrides</parameter> takes
 precedence. If several entries for a specific TLD are found, the
-first one is used.  If <parameter>overrides</parameter> is <literal>NULL</literal>, only the built-in
+first one is used.  If <parameter>overrides</parameter> is <link linkend="NULL:CAPS"><literal>NULL</literal></link>, only the built-in
 information is used.  The position of the first offending character
 is returned in <parameter>errpos</parameter>.  Note that the error position refers to the
 decoded character offset rather than the byte position in the
@@ -453,14 +456,14 @@ string.</para>
 <listitem><simpara> A <link linkend="Tld-table"><type>Tld_table</type></link> array of additional domain restriction
   structures that complement and supersede the built-in information.
 </simpara></listitem></varlistentry>
-<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns the <link linkend="Tld-rc"><type>Tld_rc</type></link> value <literal>TLD_SUCCESS</literal> if all
-  characters are valid or when <parameter>tld</parameter> is null, <literal>TLD_INVALID</literal> if a
+<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns the <link linkend="Tld-rc"><type>Tld_rc</type></link> value <link linkend="TLD-SUCCESS:CAPS"><literal>TLD_SUCCESS</literal></link> if all
+  characters are valid or when <parameter>tld</parameter> is null, <link linkend="TLD-INVALID:CAPS"><literal>TLD_INVALID</literal></link> if a
   character is not allowed, or additional error codes on general
   failure conditions.
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="tld-check-lz"/>tld_check_lz ()</title>
+<title><anchor id="tld-check-lz" role="function"/>tld_check_lz ()</title>
 <indexterm><primary>tld_check_lz</primary></indexterm><programlisting><link linkend="int">int</link>         tld_check_lz                    (const <link linkend="char">char</link> *in,
                                              <link linkend="size-t">size_t</link> *errpos,
                                              const <link linkend="Tld-table">Tld_table</link> **overrides);</programlisting>
@@ -470,7 +473,7 @@ allowed by the information in <parameter>overrides</parameter> or by the built-i
 restriction data. When data for the same TLD is available both
 internally and in <parameter>overrides</parameter>, the information in <parameter>overrides</parameter> takes
 precedence. If several entries for a specific TLD are found, the
-first one is used.  If <parameter>overrides</parameter> is <literal>NULL</literal>, only the built-in
+first one is used.  If <parameter>overrides</parameter> is <link linkend="NULL:CAPS"><literal>NULL</literal></link>, only the built-in
 information is used.  The position of the first offending character
 is returned in <parameter>errpos</parameter>.  Note that the error position refers to the
 decoded character offset rather than the byte position in the
@@ -488,8 +491,8 @@ string.</para>
 <listitem><simpara> A <link linkend="Tld-table"><type>Tld_table</type></link> array of additional domain restriction
   structures that complement and supersede the built-in information.
 </simpara></listitem></varlistentry>
-<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns the <link linkend="Tld-rc"><type>Tld_rc</type></link> value <literal>TLD_SUCCESS</literal> if all
-  characters are valid or when <parameter>tld</parameter> is null, <literal>TLD_INVALID</literal> if a
+<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns the <link linkend="Tld-rc"><type>Tld_rc</type></link> value <link linkend="TLD-SUCCESS:CAPS"><literal>TLD_SUCCESS</literal></link> if all
+  characters are valid or when <parameter>tld</parameter> is null, <link linkend="TLD-INVALID:CAPS"><literal>TLD_INVALID</literal></link> if a
   character is not allowed, or additional error codes on general
   failure conditions.
 </simpara></listitem></varlistentry>

@@ -1,0 +1,56 @@
+#!../../src/xotclsh
+# $Id: Counter4.xotcl,v 1.2 2004/07/27 21:39:46 neumann Exp $
+array set opts {-pkgdir .}; array set opts $argv
+lappend auto_path $opts(-pkgdir)
+
+package require XOTcl; namespace import -force xotcl::*
+package require xotcl::actiweb::htmlPlace
+package require xotcl::actiweb::webDocument
+
+### Instantiate an Html place with the name receiver
+HtmlPlace ::receiver -port 8094  -allowExit exit
+
+### Define a class solely for counting
+Class Counter -parameter {{count 1}}
+Counter instproc increment {} {        ;### counter method
+  my incr count
+}
+
+### Define a Counter subclass for persistent counting
+Class PersistentCounter -superclass Counter
+PersistentCounter instproc init args { ;### Constructor
+  next                                 ;### call superclasses' init
+  my mixinStrategy Persistent=Eager
+  my persistenceMgr [Place getInstance]::agentPersistenceMgr
+  my persistent count          ;### make count variable persistent
+}
+
+### Create two persistent counter instances with the names c1 and c2
+PersistentCounter c1 
+PersistentCounter c2
+
+
+### Define a proxy class, that handles HTML decoration
+### HtmlProxy forwards all unknown calls to "realSubject"
+Class HtmlProxyCounter -superclass HtmlProxy
+HtmlProxyCounter instproc init args {    ;### Constructor
+  next
+  my exportProcs increment               ;### export increment method
+}
+HtmlProxyCounter instproc default {} {
+  my instvar realSubject
+  $realSubject instvar count
+  set objName [string trimleft [self] :]
+  return "<HTML>The value in $realSubject is  $count.<p>
+	<A HREF='[my selfAction increment]'>Increment Counter</a><p>
+	<HR>Last Update: [clock format [clock seconds]  -format %m/%d/%y-%H:%M]
+]
+	</HTML>\n"
+}
+
+### Create two proxy instances wc1 und wc2
+HtmlProxyCounter wc1 -realSubject c1
+HtmlProxyCounter wc2 -realSubject c2
+
+### Start event loop and handle connections
+receiver startEventLoop 

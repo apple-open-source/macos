@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2006, International Business Machines Corporation and
+ * Copyright (c) 1997-2008, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -39,7 +39,8 @@ void addDateForRgrTest(TestNode** root)
     addTest(root, &Test4061287, "tsformat/cdtrgtst/Test4061287");
     addTest(root, &Test4073003, "tsformat/cdtrgtst/Test4073003");
     addTest(root, &Test4162071, "tsformat/cdtrgtst/Test4162071");
-    addTest(root, &Test714,   "tsformat/cdtrgtst/Test714");
+    addTest(root, &Test714,     "tsformat/cdtrgtst/Test714");
+    addTest(root, &Test_GEec,   "tsformat/cdtrgtst/Test_GEec"); /* tests for format chars GEec, jitterbugs 5726 6072 6585 */
 }
 
 /**
@@ -202,12 +203,11 @@ void Test4059917()
     UDateFormat* def;
     UChar *myDate;
     UErrorCode status = U_ZERO_ERROR;
-    UChar *pattern;
+    UChar pattern[11];
     UChar tzID[4];
 
     log_verbose("Testing apply pattern and to pattern regressively\n");
     u_uastrcpy(tzID, "PST");
-    pattern=(UChar*)malloc(sizeof(UChar) * 11);
     u_uastrcpy(pattern, "yyyy/MM/dd");
     log_verbose("%s\n", austrdup(pattern) );
     def = udat_open(UDAT_IGNORE,UDAT_IGNORE,NULL,tzID,-1,pattern, u_strlen(pattern),&status);
@@ -232,9 +232,7 @@ void Test4059917()
     u_uastrcpy(myDate, "19700112");
     aux917( def, myDate );
     udat_close(def);    
-    free(pattern);
     free(myDate);
-    
 }
 
 void aux917( UDateFormat *fmt, UChar* str) 
@@ -500,6 +498,88 @@ void Test714(void)
     udat_close(fmt);
 
     ctest_resetTimeZone();
+}
+
+enum { DATE_TEXT_MAX_CHARS = 64 };
+static const UChar zonePST[] = { 0x50,0x53,0x54,0 }; /* "PST" */
+static const UDate july022008 = 1.215e+12; /* 02 July 2008 5:00 AM PDT (approx ICU 4.0 release date :-) */
+static const double dayMillisec = 8.64e+07;
+
+static const UChar dMyGGGPattern[]   = { 0x64,0x64,0x20,0x4D,0x4D,0x4D,0x20,0x79,0x79,0x79,0x79,0x20,0x47,0x47,0x47,0 };           /* "dd MMM yyyy GGG" */
+static const UChar dMyGGGGGPattern[] = { 0x64,0x64,0x20,0x4D,0x4D,0x4D,0x20,0x79,0x79,0x79,0x79,0x20,0x47,0x47,0x47,0x47,0x47,0 }; /* "dd MMM yyyy GGGGG" */
+static const UChar dMyGGGText[]      = { 0x30,0x32,0x20,0x4A,0x75,0x6C,0x20,0x32,0x30,0x30,0x38,0x20,0x41,0x44,0 };                /* "02 Jul 2008 AD" */
+static const UChar dMyGGGGGText[]    = { 0x30,0x32,0x20,0x4A,0x75,0x6C,0x20,0x32,0x30,0x30,0x38,0x20,0x41,0 };                     /* "02 Jul 2008 A" */
+static const UChar edMyPattern[]     = { 0x65,0x20,0x64,0x64,0x20,0x4D,0x4D,0x4D,0x20,0x79,0x79,0x79,0x79,0 };                     /* "e dd MMM yyyy" */
+static const UChar eedMyPattern[]    = { 0x65,0x65,0x20,0x64,0x64,0x20,0x4D,0x4D,0x4D,0x20,0x79,0x79,0x79,0x79,0 };                /* "ee dd MMM yyyy" */
+static const UChar cdMyPattern[]     = { 0x63,0x20,0x64,0x64,0x20,0x4D,0x4D,0x4D,0x20,0x79,0x79,0x79,0x79,0 };                     /* "c dd MMM yyyy" */
+static const UChar ccdMyPattern[]    = { 0x63,0x63,0x20,0x64,0x64,0x20,0x4D,0x4D,0x4D,0x20,0x79,0x79,0x79,0x79,0 };                /* "cc dd MMM yyyy" */
+static const UChar edMyText[]        = { 0x33,0x20,0x30,0x32,0x20,0x4A,0x75,0x6C,0x20,0x32,0x30,0x30,0x38,0 };                     /* "3 02 Jul 2008" */
+static const UChar eedMyText[]       = { 0x30,0x33,0x20,0x30,0x32,0x20,0x4A,0x75,0x6C,0x20,0x32,0x30,0x30,0x38,0 };                /* "03 02 Jul 2008" */
+static const UChar eeedMyPattern[]   = { 0x65,0x65,0x65,0x20,0x64,0x64,0x20,0x4D,0x4D,0x4D,0x20,0x79,0x79,0x79,0x79,0 };           /* "eee dd MMM yyyy" */
+static const UChar EEEdMyPattern[]   = { 0x45,0x45,0x45,0x20,0x64,0x64,0x20,0x4D,0x4D,0x4D,0x20,0x79,0x79,0x79,0x79,0 };           /* "EEE dd MMM yyyy" */
+static const UChar EEdMyPattern[]    = { 0x45,0x45,0x20,0x64,0x64,0x20,0x4D,0x4D,0x4D,0x20,0x79,0x79,0x79,0x79,0 };                /* "EE dd MMM yyyy" */
+static const UChar eeedMyText[]      = { 0x57,0x65,0x64,0x20,0x30,0x32,0x20,0x4A,0x75,0x6C,0x20,0x32,0x30,0x30,0x38,0 };           /* "Wed 02 Jul 2008" */
+static const UChar eeeedMyPattern[]  = { 0x65,0x65,0x65,0x65,0x20,0x64,0x64,0x20,0x4D,0x4D,0x4D,0x20,0x79,0x79,0x79,0x79,0 };      /* "eeee dd MMM yyyy" */
+static const UChar eeeedMyText[]     = { 0x57,0x65,0x64,0x6E,0x65,0x73,0x64,0x61,0x79,0x20,0x30,0x32,0x20,0x4A,0x75,0x6C,0x20,0x32,0x30,0x30,0x38,0 }; /* "Wednesday 02 Jul 2008" */
+static const UChar eeeeedMyPattern[] = { 0x65,0x65,0x65,0x65,0x65,0x20,0x64,0x64,0x20,0x4D,0x4D,0x4D,0x20,0x79,0x79,0x79,0x79,0 }; /* "eeeee dd MMM yyyy" */
+static const UChar eeeeedMyText[]    = { 0x57,0x20,0x30,0x32,0x20,0x4A,0x75,0x6C,0x20,0x32,0x30,0x30,0x38,0 };                     /* "W 02 Jul 2008" */
+static const UChar ewYPattern[]      = { 0x65,0x20,0x77,0x77,0x20,0x59,0x59,0x59,0x59,0 };                					       /* "e ww YYYY" */
+static const UChar cwYPattern[]      = { 0x63,0x20,0x77,0x77,0x20,0x59,0x59,0x59,0x59,0 };                					       /* "c ww YYYY" */
+static const UChar ewYText[]         = { 0x33,0x20,0x32,0x37,0x20,0x32,0x30,0x30,0x38,0 };                					       /* "3 27 2008" */
+
+typedef struct {
+    const UChar * pattern;
+    const UChar * text;
+    const char *  label;
+} DatePatternAndText;
+static const DatePatternAndText datePatternsAndText[] = {
+    { dMyGGGPattern,   dMyGGGText,   "dd MMM yyyy GGG"   },
+    { dMyGGGGGPattern, dMyGGGGGText, "dd MMM yyyy GGGGG" },
+    { edMyPattern,     edMyText,     "e dd MMM yyyy"     },
+    { eedMyPattern,    eedMyText,    "ee dd MMM yyyy"    },
+    { cdMyPattern,     edMyText,     "c dd MMM yyyy"     },
+    { ccdMyPattern,    edMyText,     "cc dd MMM yyyy"    },
+    { eeedMyPattern,   eeedMyText,   "eee dd MMM yyyy"   },
+    { EEEdMyPattern,   eeedMyText,   "EEE dd MMM yyyy"   },
+    { EEdMyPattern,    eeedMyText,   "EE dd MMM yyyy"    },
+    { eeeedMyPattern,  eeeedMyText,  "eeee dd MMM yyyy"  },
+    { eeeeedMyPattern, eeeeedMyText, "eeeee dd MMM yyyy" },
+    { ewYPattern,      ewYText,      "e ww YYYY"         },
+    { cwYPattern,      ewYText,      "c ww YYYY"         },
+    { NULL,            NULL,         NULL                }
+};
+void Test_GEec(void)
+{
+    UErrorCode    status = U_ZERO_ERROR;
+    UDateFormat * dtfmt = udat_open(UDAT_LONG, UDAT_LONG, "en", zonePST, -1, NULL, 0, &status);
+    if ( U_SUCCESS(status) ) {
+        const DatePatternAndText *patTextPtr;
+        for (patTextPtr = datePatternsAndText; patTextPtr->pattern != NULL; ++patTextPtr) {
+            UChar   dmyGnText[DATE_TEXT_MAX_CHARS];
+            int32_t dmyGnTextLen;
+            UDate   dateResult;
+
+            udat_applyPattern(dtfmt, FALSE, patTextPtr->pattern, -1);
+            dmyGnTextLen = udat_format(dtfmt, july022008, dmyGnText, DATE_TEXT_MAX_CHARS, NULL, &status);
+            if ( U_FAILURE(status) ) {
+                log_err("FAIL: udat_format with %s: %s\n", patTextPtr->label, myErrorName(status) );
+                status = U_ZERO_ERROR;
+            } else if ( u_strcmp(dmyGnText, patTextPtr->text) != 0 ) {
+                log_err("FAIL: udat_format with %s: wrong UChar[] result\n", patTextPtr->label );
+            }
+
+            dateResult = udat_parse(dtfmt, patTextPtr->text, -1, NULL, &status); /* no time, dateResult != july022008 by some hours */
+            if ( U_FAILURE(status) ) {
+                log_err("FAIL: udat_parse with %s: %s\n", patTextPtr->label, myErrorName(status) );
+                status = U_ZERO_ERROR;
+            } else if ( july022008 - dateResult > dayMillisec ) {
+                log_err("FAIL: udat_parse with %s: wrong UDate result\n", patTextPtr->label );
+            }
+        }
+        udat_close(dtfmt);
+    } else {
+        log_err("FAIL: udat_open fails: %s\n", myErrorName(status));
+    }
 }
 
 /*INTERNAL FUNCTION USED */

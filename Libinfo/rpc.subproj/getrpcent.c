@@ -66,6 +66,11 @@ static char *rcsid = "$Id: getrpcent.c,v 1.3 2002/02/19 20:36:23 epeyton Exp $";
 #include <string.h>
 #include <rpc/rpc.h>
 
+/* forward */
+void _old_setrpcent(int f);
+struct rpcent *_old_getrpcent();
+void _old_endrpcent();
+
 /*
  * Internet version.
  */
@@ -97,7 +102,7 @@ _rpcdata()
 }
 
 struct rpcent *
-getrpcbynumber(number)
+_old_getrpcbynumber(number)
 #ifdef __LP64__
 	int32_t number;
 #else
@@ -114,8 +119,8 @@ getrpcbynumber(number)
 
 	if (d == 0)
 		return (0);
-	setrpcent(0);
-	while ((p = getrpcent()))
+	_old_setrpcent(0);
+	while ((p = _old_getrpcent()))
 	{
 #ifdef __LP64__
 		if (p->r_number == x) break;
@@ -123,12 +128,12 @@ getrpcbynumber(number)
 		if (p->r_number == number) break;
 #endif
 	}
-	endrpcent();
+	_old_endrpcent();
 	return (p);
 }
 
 struct rpcent *
-getrpcbyname(name)
+_old_getrpcbyname(name)
 #if defined(__APPLE__)
 	const char *name;
 #else
@@ -138,8 +143,8 @@ getrpcbyname(name)
 	struct rpcent *rpc;
 	char **rp;
 
-	setrpcent(0);
-	while ((rpc = getrpcent())) {
+	_old_setrpcent(0);
+	while ((rpc = _old_getrpcent())) {
 		if (strcmp(rpc->r_name, name) == 0)
 			return (rpc);
 		for (rp = rpc->r_aliases; *rp != NULL; rp++) {
@@ -147,12 +152,12 @@ getrpcbyname(name)
 				return (rpc);
 		}
 	}
-	endrpcent();
+	_old_endrpcent();
 	return (NULL);
 }
 
 void
-setrpcent(f)
+_old_setrpcent(f)
 	int f;
 {
 	register struct rpcdata *d = _rpcdata();
@@ -167,7 +172,7 @@ setrpcent(f)
 }
 
 void
-endrpcent()
+_old_endrpcent()
 {
 	register struct rpcdata *d = _rpcdata();
 
@@ -180,7 +185,7 @@ endrpcent()
 }
 
 struct rpcent *
-getrpcent()
+_old_getrpcent()
 {
 	register struct rpcdata *d = _rpcdata();
 
@@ -208,14 +213,14 @@ interpret(val, len)
 	p = d->line;
 	d->line[len] = '\n';
 	if (*p == '#')
-		return (getrpcent());
+		return (_old_getrpcent());
 	cp = strpbrk(p, "#\n");
 	if (cp == NULL)
-		return (getrpcent());
+		return (_old_getrpcent());
 	*cp = '\0';
 	cp = strpbrk(p, " \t");
 	if (cp == NULL)
-		return (getrpcent());
+		return (_old_getrpcent());
 	*cp++ = '\0';
 	/* THIS STUFF IS INTERNET SPECIFIC */
 	d->rpc.r_name = d->line;

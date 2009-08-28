@@ -1,0 +1,11 @@
+--- /tmp/jabberd-2.1.24.1/s2s/router.c	2008-04-27 02:57:31.000000000 -0700
++++ ./jabberd2/s2s/router.c	2009-05-26 13:09:10.000000000 -0700
+@@ -145,7 +145,7 @@ int s2s_router_sx_callback(sx_t s, sx_ev
+                     if(ns >= 0) {
+                         elem = nad_find_elem(nad, 0, ns, "starttls", 1);
+                         if(elem >= 0) {
+-                            if(sx_ssl_client_starttls(s2s->sx_ssl, s, s2s->router_pemfile) == 0) {
++                            if(sx_ssl_client_starttls(s2s->sx_ssl, s, s2s->router_pemfile, s2s->router_private_key_password) == 0) {
+                                 nad_free(nad);
+                                 return 0;
+                             }

@@ -612,7 +612,7 @@ handle_redirect (char *args, size_t len)
     else
     {
 	if (!redirects) redirects = getlist();
-	push_string (redirects, args);
+	push_string (redirects, xstrdup (args));
     }
 
     if (referred_since_last_redirect)

@@ -1,8 +1,8 @@
 /* referral.c - DNS SRV backend referral handler */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-dnssrv/referral.c,v 1.17.2.5 2006/01/03 22:16:17 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-dnssrv/referral.c,v 1.26.2.4 2008/02/11 23:26:46 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2006 The OpenLDAP Foundation.
+ * Copyright 2000-2008 The OpenLDAP Foundation.
  * Portions Copyright 2000-2003 Kurt D. Zeilenga.
  * All rights reserved.
  *
@@ -42,13 +42,11 @@ dnssrv_back_referrals(
 	BerVarray urls = NULL;
 
 	if ( BER_BVISEMPTY( &op->o_req_dn ) ) {
-#ifdef LDAP_DEVEL
 		/* FIXME: need some means to determine whether the database
 		 * is a glue instance */
 		if ( SLAP_GLUE_INSTANCE( op->o_bd ) ) {
 			return LDAP_SUCCESS;
 		}
-#endif /* LDAP_DEVEL */
 
 		rs->sr_text = "DNS SRV operation upon null (empty) DN disallowed";
 		return LDAP_UNWILLING_TO_PERFORM;

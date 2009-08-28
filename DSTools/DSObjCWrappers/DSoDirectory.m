@@ -618,7 +618,7 @@
     DSoBuffer      *step			= nil;
     DSoBuffer      *stepResponse	= nil;
     DSoDataNode    *authMethod		= nil;
-    long int		length			= 0;
+    UInt32			length			= 0;
     tDirStatus		status			= eDSNoErr;
 	NSData		   *userNameData	= nil;
 	NSData		   *passwordData	= nil;
@@ -629,12 +629,12 @@
 
 	userNameData = [inUser dataUsingEncoding:NSUTF8StringEncoding];
     length = [userNameData length];
-    [step setData:&length length:sizeof(long)];
+    [step setData:&length length:sizeof(length)];
     [step appendData:[userNameData bytes] length:length];
 
 	passwordData = [inPassword dataUsingEncoding:NSUTF8StringEncoding];
     length = [passwordData length];
-    [step appendData:&length length:sizeof(long)];
+    [step appendData:&length length:sizeof(length)];
     [step appendData:[passwordData bytes] length:length];
 
     status = dsOpenDirServiceProxy(&mDirRef, [hostName cString], 0, [authMethod dsDataNode], [step dsDataBuffer], [stepResponse dsDataBuffer], NULL);

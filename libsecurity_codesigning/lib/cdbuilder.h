@@ -44,6 +44,7 @@ namespace CodeSigning {
 class CodeDirectory::Builder {
 public:
 	Builder();
+	~Builder();
 	
 	void executable(string path, size_t pagesize, size_t offset, size_t length);
 	void reopen(string path, size_t offset, size_t length);
@@ -51,6 +52,9 @@ public:
 	void special(size_t slot, CFDataRef data);
 	void identifier(const std::string &code) { mIdentifier = code; }
 	void flags(uint32_t f) { mFlags = f; }
+	
+	Scatter *scatter(unsigned count);			// allocate that many scatter elements (w/o sentinel)
+	Scatter *scatter() { return mScatter; }		// return already allocated scatter vector
 	
 	size_t size();								// calculate size
 	CodeDirectory *build();						// build CodeDirectory and return it
@@ -66,6 +70,9 @@ private:
 	
 	size_t mSpecialSlots;						// highest special slot set
 	size_t mCodeSlots;							// number of code pages (slots)
+	
+	Scatter *mScatter;							// scatter vector
+	size_t mScatterSize;						// number of scatter elements allocated (incl. sentinel)
 	
 	CodeDirectory *mDir;						// what we're building
 };

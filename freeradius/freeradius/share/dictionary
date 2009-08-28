@@ -1,6 +1,6 @@
 # -*- text -*-
 #
-# Version $Id: dictionary,v 1.93.2.5.2.10 2007/04/08 14:42:06 aland Exp $
+# Version $Id$
 #
 #	DO NOT EDIT THE FILES IN THIS DIRECTORY
 #
@@ -27,6 +27,8 @@
 #	ifid       - 8 octets in network byte order
 #	ipv6addr   - 16 octets in network byte order
 #	ipv6prefix - 18 octets in network byte order
+#	ether      - 6 octets of hh:hh:hh:hh:hh:hh
+#		     where 'h' is hex digits, upper or lowercase.
 #
 #	FreeRADIUS includes extended data types which are not defined
 #	in the RFC's.  These data types are:
@@ -69,9 +71,11 @@ $INCLUDE dictionary.rfc2869
 $INCLUDE dictionary.rfc3162
 $INCLUDE dictionary.rfc3576
 $INCLUDE dictionary.rfc3580
+$INCLUDE dictionary.rfc4072
 $INCLUDE dictionary.rfc4372
 $INCLUDE dictionary.rfc4675
 $INCLUDE dictionary.rfc4679
+$INCLUDE dictionary.rfc5176
 
 #
 #	Include vendor dictionaries after the standard ones.
@@ -84,9 +88,10 @@ $INCLUDE dictionary.airespace
 $INCLUDE dictionary.alcatel
 $INCLUDE dictionary.alteon
 $INCLUDE dictionary.alvarion
+$INCLUDE dictionary.apc
 $INCLUDE dictionary.aruba
+$INCLUDE dictionary.azaire
 $INCLUDE dictionary.ascend
-$INCLUDE dictionary.asn
 $INCLUDE dictionary.bay
 $INCLUDE dictionary.bintec
 $INCLUDE dictionary.cablelabs
@@ -99,8 +104,10 @@ $INCLUDE dictionary.cisco
 #$INCLUDE dictionary.cisco.vpn3000
 $INCLUDE dictionary.cisco.vpn5000
 $INCLUDE dictionary.cisco.bbsm
+$INCLUDE dictionary.clavister
 $INCLUDE dictionary.colubris
 $INCLUDE dictionary.cosine
+#$INCLUDE dictionary.dhcp
 $INCLUDE dictionary.digium
 $INCLUDE dictionary.epygi
 $INCLUDE dictionary.erx
@@ -111,25 +118,44 @@ $INCLUDE dictionary.fortinet
 $INCLUDE dictionary.foundry
 $INCLUDE dictionary.gandalf
 $INCLUDE dictionary.gemtek
+$INCLUDE dictionary.h3c
+$INCLUDE dictionary.hp
+$INCLUDE dictionary.huawei
 $INCLUDE dictionary.issanni
 $INCLUDE dictionary.itk
 $INCLUDE dictionary.ipunplugged
 $INCLUDE dictionary.juniper
+$INCLUDE dictionary.jradius
 $INCLUDE dictionary.karlnet
+$INCLUDE dictionary.lancom
 $INCLUDE dictionary.livingston
 $INCLUDE dictionary.localweb
 $INCLUDE dictionary.lucent
-$INCLUDE dictionary.hp
+$INCLUDE dictionary.manzara
+$INCLUDE dictionary.merit
 $INCLUDE dictionary.microsoft
 $INCLUDE dictionary.mikrotik
 $INCLUDE dictionary.navini
 $INCLUDE dictionary.netscreen
+$INCLUDE dictionary.networkphysics
+$INCLUDE dictionary.nexans
 $INCLUDE dictionary.ntua
+$INCLUDE dictionary.nokia
+#
+#  Commented out because of attribute conflicts.
+#
+#$INCLUDE dictionary.nokia.conflict
 $INCLUDE dictionary.nomadix
 $INCLUDE dictionary.nortel
+#
+#  Commented out because of attribute conflicts.
+#
+#$INCLUDE dictionary.openser
 $INCLUDE dictionary.packeteer
 $INCLUDE dictionary.patton
 $INCLUDE dictionary.propel
+$INCLUDE dictionary.prosoft
+$INCLUDE dictionary.quiconnect
 $INCLUDE dictionary.quintum
 $INCLUDE dictionary.redback
 $INCLUDE dictionary.redcreek
@@ -137,7 +163,7 @@ $INCLUDE dictionary.riverstone
 $INCLUDE dictionary.roaringpenguin
 $INCLUDE dictionary.shasta
 $INCLUDE dictionary.shiva
-$INCLUDE dictionary.sofaware
+$INCLUDE dictionary.slipstream
 $INCLUDE dictionary.sonicwall
 $INCLUDE dictionary.springtide
 $INCLUDE dictionary.starent
@@ -146,10 +172,13 @@ $INCLUDE dictionary.trapeze
 $INCLUDE dictionary.tropos
 $INCLUDE dictionary.t_systems_nova
 $INCLUDE dictionary.usr
+$INCLUDE dictionary.utstarcom
 $INCLUDE dictionary.valemount
 $INCLUDE dictionary.versanet
+$INCLUDE dictionary.vqp
 $INCLUDE dictionary.waverider
 $INCLUDE dictionary.walabi
+$INCLUDE dictionary.wimax
 $INCLUDE dictionary.wispr
 $INCLUDE dictionary.xedia
 $INCLUDE dictionary.xylan

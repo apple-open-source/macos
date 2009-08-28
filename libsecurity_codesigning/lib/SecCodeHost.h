@@ -41,7 +41,6 @@
 #define _H_SECCODEHOST
 
 #include <Security/CSCommon.h>
-#include <System/sys/codesign.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -91,9 +90,10 @@ extern "C" {
 	of the guest to act as the new guest's host. If host has a dedicated guest,
 	it will be deemed to be be the actual host, recursively.
 	@param status The Code Signing status word for the new guest. These are combinations
-	of the CS_* flags in <sys/codesign.h>. Note that the proxy will enforce the rules for
-	the stickiness of these bits. In particular, if you don't pass the CS_VALID bit during
-	creation, your new guest will be born invalid and will never have a valid identity.
+	of the kSecCodeStatus* flags in <Security/CSCommon.h>. Note that the proxy will enforce
+	the rules for the stickiness of these bits. In particular, if you don't pass the
+	kSecCodeStatusValid bit during creation, your new guest will be born invalid and will
+	never have a valid identity.
 	@param path The canonical path to the guest's code on disk. This is the path you would
 	pass to SecStaticCodeCreateWithPath to make a static code object reference. You must
 	use an absolute path.
@@ -101,6 +101,8 @@ extern "C" {
 	to locate this particular guest among all of the caller's guests. The "canonical"
 	attribute is automatically added for the value of guestRef. If you pass NULL,
 	no other attributes are established for the guest.
+	While any key can be used in the attributes dictionary, the kSecGuestAttribute* constants
+	(in SecCode.h) are conventionally used here.
 	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior, or
 	a combination of the flags defined below for special features.
 	@result Upon success, noErr. Upon error, an OSStatus value documented in
@@ -118,9 +120,16 @@ extern "C" {
 	It is invalid to declare dedicated hosting if other guests have already been
 	introduced for this host, and it is invalid to introduce additional guests
 	for this host after this call.
+	@constant kSecCSGenerateGuestHash Ask the proxy to generate the binary identifier
+	(hash of CodeDirectory) from the copy on disk at the path given. This is not optimal
+	since an attacker with write access may be able to substitute a different copy just
+	in time, but it is convenient. For optimal security, the host should calculate the
+	hash from the loaded in-memory signature of its guest and pass the result as an
+	attribute with key kSecGuestAttributeHash.
 */
 enum {
 	kSecCSDedicatedHost = 1 << 0,
+	kSecCSGenerateGuestHash = 1 << 1,
 };
 
 OSStatus SecHostCreateGuest(SecGuestRef host,
@@ -186,8 +195,8 @@ OSStatus SecHostSelectedGuest(SecCSFlags flags, SecGuestRef *guestRef);
 	on whose behalf this thread will act from now on. This setting will be remembered
 	until it is changed (or the thread terminates).
 	@param status The new Code Signing status word for the guest. The proxy enforces
-	the restrictions on changes to guest status; in particular, the CS_VALID bit can only
-	be cleared, and the CS_HARD and CS_KILL flags can only be set. Pass the previous
+	the restrictions on changes to guest status; in particular, the kSecCodeStatusValid bit can only
+	be cleared, and the kSecCodeStatusHard and kSecCodeStatusKill flags can only be set. Pass the previous
 	guest status to indicate that no change is desired.
 	@param attributes An optional dictionary containing attributes to be used to distinguish
 	this guest from all guests of the caller. If given, it completely replaces the attributes

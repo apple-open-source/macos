@@ -9,7 +9,7 @@
 ###
 # set this to the absolute path (less extn) of compressed dict.
 
-DICTPATH="/usr/local/lib/pw_dict"
+DICTPATH="/usr/share/cracklib/pw_dict"
 
 ###
 # Set this to the path of one or more files continaing wordlists.

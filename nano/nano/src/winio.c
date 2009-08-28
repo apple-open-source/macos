@@ -1,9 +1,9 @@
-/* $Id: winio.c,v 1.576 2006/11/10 20:13:38 dolorous Exp $ */
+/* $Id: winio.c,v 1.582.2.4 2007/04/19 03:15:04 dolorous Exp $ */
 /**************************************************************************
  *   winio.c                                                              *
  *                                                                        *
  *   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004 Chris Allegretta    *
- *   Copyright (C) 2005, 2006 David Lawrence Ramsey                       *
+ *   Copyright (C) 2005, 2006, 2007 David Lawrence Ramsey                 *
  *   This program is free software; you can redistribute it and/or modify *
  *   it under the terms of the GNU General Public License as published by *
  *   the Free Software Foundation; either version 2, or (at your option)  *
@@ -30,8 +30,8 @@
 #include <ctype.h>
 
 static int *key_buffer = NULL;
-	/* The keystroke buffer, containing all the keystrokes we have
-	 * at a given point. */
+	/* The keystroke buffer, containing all the keystrokes we
+	 * haven't handled yet at a given point. */
 static size_t key_buffer_len = 0;
 	/* The length of the keystroke buffer. */
 static int statusblank = 0;
@@ -70,9 +70,9 @@ static bool disable_cursorpos = FALSE;
  * Escape sequence compatibility:
  *
  * We support escape sequences for ANSI, VT100, VT220, VT320, the Linux
- * console, the FreeBSD console, the Mach console, xterm, rxvt, and
- * Eterm.  Among these, there are several conflicts and omissions,
- * outlined as follows:
+ * console, the FreeBSD console, the Mach console, xterm, rxvt, Eterm,
+ * and Terminal.  Among these, there are several conflicts and
+ * omissions, outlined as follows:
  *
  * - Tab on ANSI == PageUp on FreeBSD console; the former is omitted.
  *   (Ctrl-I is also Tab on ANSI, which we already support.)
@@ -484,6 +484,7 @@ int parse_kbinput(WINDOW *win, bool *meta_key, bool *func_key)
 			retval = get_control_kbinput(
 				parse_escape_seq_kbinput(win,
 				*kbinput));
+		    break;
 	    }
     }
 
@@ -557,6 +558,12 @@ int parse_kbinput(WINDOW *win, bool *meta_key, bool *func_key)
 		retval = ERR;
 		break;
 #endif
+#ifdef KEY_CANCEL
+	    /* Slang doesn't support KEY_CANCEL. */
+	    case KEY_CANCEL:
+		retval = NANO_CANCEL_KEY;
+		break;
+#endif
 #ifdef KEY_END
 	    /* HP-UX 10-11 doesn't support KEY_END. */
 	    case KEY_END:
@@ -568,6 +575,12 @@ int parse_kbinput(WINDOW *win, bool *meta_key, bool *func_key)
 	    case KEY_SBEG:	/* Center (5) on numeric keypad with
 				 * NumLock off. */
 		retval = ERR;
+		break;
+#endif
+#ifdef KEY_SCANCEL
+	    /* Slang doesn't support KEY_SCANCEL. */
+	    case KEY_SCANCEL:
+		retval = NANO_CANCEL_KEY;
 		break;
 #endif
 #ifdef KEY_SDC
@@ -662,6 +675,8 @@ int parse_kbinput(WINDOW *win, bool *meta_key, bool *func_key)
     fprintf(stderr, "parse_kbinput(): kbinput = %d, meta_key = %s, func_key = %s, escapes = %d, byte_digits = %d, retval = %d\n", *kbinput, *meta_key ? "TRUE" : "FALSE", *func_key ? "TRUE" : "FALSE", escapes, byte_digits, retval);
 #endif
 
+    free(kbinput);
+
     /* Return the result. */
     return retval;
 }
@@ -678,6 +693,66 @@ int get_escape_seq_kbinput(const int *seq, size_t seq_len)
 	switch (seq[0]) {
 	    case 'O':
 		switch (seq[1]) {
+		    case '1':
+			if (seq_len >= 3) {
+			    switch (seq[2]) {
+				case ';':
+    if (seq_len >= 4) {
+	switch (seq[3]) {
+	    case '2':
+		if (seq_len >= 5) {
+		    switch (seq[4]) {
+			case 'A': /* Esc O 1 ; 2 A == Shift-Up on
+				   * Terminal. */
+			case 'B': /* Esc O 1 ; 2 B == Shift-Down on
+				   * Terminal. */
+			case 'C': /* Esc O 1 ; 2 C == Shift-Right on
+				   * Terminal. */
+			case 'D': /* Esc O 1 ; 2 D == Shift-Left on
+				   * Terminal. */
+			    retval = get_escape_seq_abcd(seq[4]);
+			    break;
+			case 'P': /* Esc O 1 ; 2 P == F13 on
+				   * Terminal. */
+			    retval = KEY_F(13);
+			    break;
+			case 'Q': /* Esc O 1 ; 2 Q == F14 on
+				   * Terminal. */
+			    retval = KEY_F(14);
+			    break;
+			case 'R': /* Esc O 1 ; 2 R == F15 on
+				   * Terminal. */
+			    retval = KEY_F(15);
+			    break;
+			case 'S': /* Esc O 1 ; 2 S == F16 on
+				   * Terminal. */
+			    retval = KEY_F(16);
+			    break;
+		    }
+		}
+		break;
+	    case '5':
+		if (seq_len >= 5) {
+		    switch (seq[4]) {
+			case 'A': /* Esc O 1 ; 5 A == Ctrl-Up on
+				   * Terminal. */
+			case 'B': /* Esc O 1 ; 5 B == Ctrl-Down on
+				   * Terminal. */
+			case 'C': /* Esc O 1 ; 5 C == Ctrl-Right on
+				   * Terminal. */
+			case 'D': /* Esc O 1 ; 5 D == Ctrl-Left on
+				   * Terminal. */
+			    retval = get_escape_seq_abcd(seq[4]);
+			    break;
+		    }
+		}
+		break;
+	}
+    }
+				    break;
+			    }
+			}
+			break;
 		    case '2':
 			if (seq_len >= 3) {
 			    switch (seq[2]) {
@@ -713,10 +788,10 @@ int get_escape_seq_kbinput(const int *seq, size_t seq_len)
 			       * with NumLock off on xterm. */
 			retval = KEY_B2;
 			break;
-		    case 'F': /* Esc O F == End on xterm. */
+		    case 'F': /* Esc O F == End on xterm/Terminal. */
 			retval = NANO_END_KEY;
 			break;
-		    case 'H': /* Esc O H == Home on xterm. */
+		    case 'H': /* Esc O H == Home on xterm/Terminal. */
 			retval = NANO_HOME_KEY;
 			break;
 		    case 'M': /* Esc O M == Enter on numeric keypad with
@@ -766,57 +841,57 @@ int get_escape_seq_kbinput(const int *seq, size_t seq_len)
 			break;
 		    case 'j': /* Esc O j == '*' on numeric keypad with
 			       * NumLock off on VT100/VT220/VT320/xterm/
-			       * rxvt/Eterm. */
+			       * rxvt/Eterm/Terminal. */
 			retval = '*';
 			break;
 		    case 'k': /* Esc O k == '+' on numeric keypad with
 			       * NumLock off on VT100/VT220/VT320/xterm/
-			       * rxvt/Eterm. */
+			       * rxvt/Eterm/Terminal. */
 			retval = '+';
 			break;
 		    case 'l': /* Esc O l == ',' on numeric keypad with
 			       * NumLock off on VT100/VT220/VT320/xterm/
-			       * rxvt/Eterm. */
+			       * rxvt/Eterm/Terminal. */
 			retval = ',';
 			break;
 		    case 'm': /* Esc O m == '-' on numeric keypad with
 			       * NumLock off on VT100/VT220/VT320/xterm/
-			       * rxvt/Eterm. */
+			       * rxvt/Eterm/Terminal. */
 			retval = '-';
 			break;
 		    case 'n': /* Esc O n == Delete (.) on numeric keypad
 			       * with NumLock off on VT100/VT220/VT320/
-			       * xterm/rxvt/Eterm. */
+			       * xterm/rxvt/Eterm/Terminal. */
 			retval = NANO_DELETE_KEY;
 			break;
 		    case 'o': /* Esc O o == '/' on numeric keypad with
 			       * NumLock off on VT100/VT220/VT320/xterm/
-			       * rxvt/Eterm. */
+			       * rxvt/Eterm/Terminal. */
 			retval = '/';
 			break;
 		    case 'p': /* Esc O p == Insert (0) on numeric keypad
 			       * with NumLock off on VT100/VT220/VT320/
-			       * rxvt/Eterm. */
+			       * rxvt/Eterm/Terminal. */
 			retval = NANO_INSERTFILE_KEY;
 			break;
 		    case 'q': /* Esc O q == End (1) on numeric keypad
 			       * with NumLock off on VT100/VT220/VT320/
-			       * rxvt/Eterm. */
+			       * rxvt/Eterm/Terminal. */
 			retval = NANO_END_KEY;
 			break;
 		    case 'r': /* Esc O r == Down (2) on numeric keypad
 			       * with NumLock off on VT100/VT220/VT320/
-			       * rxvt/Eterm. */
+			       * rxvt/Eterm/Terminal. */
 			retval = NANO_NEXTLINE_KEY;
 			break;
 		    case 's': /* Esc O s == PageDown (3) on numeric
 			       * keypad with NumLock off on VT100/VT220/
-			       * VT320/rxvt/Eterm. */
+			       * VT320/rxvt/Eterm/Terminal. */
 			retval = NANO_NEXTPAGE_KEY;
 			break;
 		    case 't': /* Esc O t == Left (4) on numeric keypad
 			       * with NumLock off on VT100/VT220/VT320/
-			       * rxvt/Eterm. */
+			       * rxvt/Eterm/Terminal. */
 			retval = NANO_BACK_KEY;
 			break;
 		    case 'u': /* Esc O u == Center (5) on numeric keypad
@@ -826,22 +901,22 @@ int get_escape_seq_kbinput(const int *seq, size_t seq_len)
 			break;
 		    case 'v': /* Esc O v == Right (6) on numeric keypad
 			       * with NumLock off on VT100/VT220/VT320/
-			       * rxvt/Eterm. */
+			       * rxvt/Eterm/Terminal. */
 			retval = NANO_FORWARD_KEY;
 			break;
 		    case 'w': /* Esc O w == Home (7) on numeric keypad
 			       * with NumLock off on VT100/VT220/VT320/
-			       * rxvt/Eterm. */
+			       * rxvt/Eterm/Terminal. */
 			retval = NANO_HOME_KEY;
 			break;
 		    case 'x': /* Esc O x == Up (8) on numeric keypad
 			       * with NumLock off on VT100/VT220/VT320/
-			       * rxvt/Eterm. */
+			       * rxvt/Eterm/Terminal. */
 			retval = NANO_PREVLINE_KEY;
 			break;
 		    case 'y': /* Esc O y == PageUp (9) on numeric keypad
 			       * with NumLock off on VT100/VT220/VT320/
-			       * rxvt/Eterm. */
+			       * rxvt/Eterm/Terminal. */
 			retval = NANO_PREVPAGE_KEY;
 			break;
 		}
@@ -986,14 +1061,14 @@ int get_escape_seq_kbinput(const int *seq, size_t seq_len)
 				    break;
 				default: /* Esc [ 2 ~ == Insert on
 					  * VT220/VT320/Linux console/
-					  * xterm. */
+					  * xterm/Terminal. */
 				    retval = NANO_INSERTFILE_KEY;
 				    break;
 			    }
 			}
 			break;
 		    case '3': /* Esc [ 3 ~ == Delete on VT220/VT320/
-			       * Linux console/xterm. */
+			       * Linux console/xterm/Terminal. */
 			retval = NANO_DELETE_KEY;
 			break;
 		    case '4': /* Esc [ 4 ~ == End on VT220/VT320/Linux
@@ -1001,13 +1076,13 @@ int get_escape_seq_kbinput(const int *seq, size_t seq_len)
 			retval = NANO_END_KEY;
 			break;
 		    case '5': /* Esc [ 5 ~ == PageUp on VT220/VT320/
-			       * Linux console/xterm; Esc [ 5 ^ ==
-			       * PageUp on Eterm. */
+			       * Linux console/xterm/Terminal;
+			       * Esc [ 5 ^ == PageUp on Eterm. */
 			retval = NANO_PREVPAGE_KEY;
 			break;
 		    case '6': /* Esc [ 6 ~ == PageDown on VT220/VT320/
-			       * Linux console/xterm; Esc [ 6 ^ ==
-			       * PageDown on Eterm. */
+			       * Linux console/xterm/Terminal;
+			        * Esc [ 6 ^ == PageDown on Eterm. */
 			retval = NANO_NEXTPAGE_KEY;
 			break;
 		    case '7': /* Esc [ 7 ~ == Home on rxvt. */
@@ -1024,20 +1099,21 @@ int get_escape_seq_kbinput(const int *seq, size_t seq_len)
 			break;
 		    case 'A': /* Esc [ A == Up on ANSI/VT220/Linux
 			       * console/FreeBSD console/Mach console/
-			       * rxvt/Eterm. */
+			       * rxvt/Eterm/Terminal. */
 		    case 'B': /* Esc [ B == Down on ANSI/VT220/Linux
 			       * console/FreeBSD console/Mach console/
-			       * rxvt/Eterm. */
+			       * rxvt/Eterm/Terminal. */
 		    case 'C': /* Esc [ C == Right on ANSI/VT220/Linux
 			       * console/FreeBSD console/Mach console/
-			       * rxvt/Eterm. */
+			       * rxvt/Eterm/Terminal. */
 		    case 'D': /* Esc [ D == Left on ANSI/VT220/Linux
 			       * console/FreeBSD console/Mach console/
-			       * rxvt/Eterm. */
+			       * rxvt/Eterm/Terminal. */
 			retval = get_escape_seq_abcd(seq[1]);
 			break;
 		    case 'E': /* Esc [ E == Center (5) on numeric keypad
-			       * with NumLock off on FreeBSD console. */
+			       * with NumLock off on FreeBSD console/
+			       * Terminal. */
 			retval = KEY_B2;
 			break;
 		    case 'F': /* Esc [ F == End on FreeBSD
@@ -1441,9 +1517,12 @@ void unparse_kbinput(char *output, size_t output_len)
 	return;
 
     input = (int *)nmalloc(output_len * sizeof(int));
+
     for (i = 0; i < output_len; i++)
 	input[i] = (int)output[i];
+
     unget_input(input, output_len);
+
     free(input);
 }
 
@@ -1477,7 +1556,7 @@ int *get_verbatim_kbinput(WINDOW *win, size_t *kbinput_len)
 /* Read in a stream of all available characters, and return the length
  * of the string in kbinput_len.  Translate the first few characters of
  * the input into the corresponding multibyte value if possible.  After
- * that, leave the input as-is. */ 
+ * that, leave the input as-is. */
 int *parse_verbatim_kbinput(WINDOW *win, size_t *kbinput_len)
 {
     int *kbinput, *retval;
@@ -1533,6 +1612,8 @@ int *parse_verbatim_kbinput(WINDOW *win, size_t *kbinput_len)
 
 	/* Put back the first keystroke. */
 	unget_input(kbinput, 1);
+
+    free(kbinput);
 
     /* Get the complete sequence, and save the characters in it as the
      * result. */
@@ -1735,6 +1816,7 @@ const toggle *get_toggle(int kbinput, bool meta_key)
 void blank_line(WINDOW *win, int y, int x, int n)
 {
     wmove(win, y, x);
+
     for (; n > 0; n--)
 	waddch(win, ' ');
 }
@@ -1758,6 +1840,7 @@ void blank_topbar(void)
 void blank_edit(void)
 {
     int i;
+
     for (i = 0; i < editwinrows; i++)
 	blank_line(edit, i, 0, COLS);
 }
@@ -1911,7 +1994,7 @@ char *display_string(const char *buf, size_t start_col, size_t len, bool
 		    converted[index++] = whitespace[i];
 	    } else
 #endif
-		converted[index++] = ' '; 
+		converted[index++] = ' ';
 	    start_col++;
 	    while (start_col % tabsize != 0) {
 		converted[index++] = ' ';
@@ -1947,7 +2030,7 @@ char *display_string(const char *buf, size_t start_col, size_t len, bool
 		    converted[index++] = whitespace[i];
 	    } else
 #endif
-		converted[index++] = ' '; 
+		converted[index++] = ' ';
 	    start_col++;
 	/* If buf contains a non-control character, interpret it.  If
 	 * buf contains an invalid multibyte non-control character,
@@ -2095,8 +2178,9 @@ void titlebar(const char *path)
     if (!newfie) {
 	size_t lenpt = strlenpt(path), start_col;
 
-	/* Don't set dots to TRUE if we have fewer than 8 columns (i.e.
-	 * 1 column for padding, plus 7 columns for a filename). */
+	/* Don't set dots to TRUE if we have fewer than eight columns
+	 * (i.e. one column for padding, plus seven columns for a
+	 * filename). */
 	dots = (space >= 8 && lenpt >= space);
 
 	if (dots) {
@@ -2513,9 +2597,12 @@ void edit_draw(const filestruct *fileptr, const char *converted, int
 		     * expanded location of the end of the match minus
 		     * the expanded location of the beginning of the
 		     * page. */
-		    paintlen = (end_line != fileptr) ? -1 :
-			actual_x(converted, strnlenpt(fileptr->data,
-			endmatch.rm_eo) - start);
+		    if (end_line != fileptr)
+			paintlen = -1;
+		    else
+			paintlen = actual_x(converted,
+				strnlenpt(fileptr->data,
+				endmatch.rm_eo) - start);
 
 		    mvwaddnstr(edit, line, 0, converted, paintlen);
 
@@ -2639,8 +2726,11 @@ void edit_draw(const filestruct *fileptr, const char *converted, int
 	     * Otherwise, paintlen is the expanded location of the end
 	     * of the mark minus the expanded location of the beginning
 	     * of the mark. */
-	    paintlen = (bot_x >= endpos) ? -1 : strnlenpt(fileptr->data,
-		bot_x) - (x_start + start);
+	    if (bot_x >= endpos)
+		paintlen = -1;
+	    else
+		paintlen = strnlenpt(fileptr->data, bot_x) - (x_start +
+			start);
 
 	    /* If x_start is before the beginning of the page, shift
 	     * paintlen x_start characters to compensate, and put
@@ -3080,7 +3170,7 @@ void do_cursorpos(bool constant)
 	return;
     }
 
-    /* Display the current cursor position on the statusbar, and set 
+    /* Display the current cursor position on the statusbar, and set
      * disable_cursorpos to FALSE. */
     linepct = 100 * openfile->current->lineno /
 	openfile->filebot->lineno;
@@ -3198,7 +3288,7 @@ void do_credits(void)
 	"",
 	"",
 	"(c) 1999, 2000, 2001, 2002, 2003, 2004 Chris Allegretta",
-	"(c) 2005, 2006 David Lawrence Ramsey",
+	"(c) 2005, 2006, 2007 David Lawrence Ramsey",
 	"",
 	"",
 	"",

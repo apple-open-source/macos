@@ -46,6 +46,13 @@ then the
 .Fn pthread_mutex_unlock
 function unlocks
 .Fa mutex .
+.Pp
+Calling
+.Fn pthread_mutex_unlock
+with a
+.Fa mutex
+that the calling thread does not hold will result 
+in undefined behavior.
 .Sh RETURN VALUES
 If successful,
 .Fn pthread_mutex_unlock

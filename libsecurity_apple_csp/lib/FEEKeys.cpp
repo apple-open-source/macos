@@ -62,7 +62,7 @@ CryptKit::FEEBinaryKey::~FEEBinaryKey()
 }
 
 void CryptKit::FEEBinaryKey::generateKeyBlob(
-		Allocator 		&allocator,
+		Allocator			&allocator,
 		CssmData			&blob,
 		CSSM_KEYBLOB_FORMAT	&format,
 		AppleCSPSession		&session,
@@ -71,63 +71,133 @@ void CryptKit::FEEBinaryKey::generateKeyBlob(
 {
 	unsigned char 	*keyBlob;
 	unsigned 		len;
-	feeReturn		frtn;
-	bool			derBlob;
+	feeReturn		frtn = FR_Internal;
 	bool			freeTheKey = false;
 	feePubKey		keyToEncode = mFeeKey;
 	
 	assert(mFeeKey != NULL);
-	switch(format) {
-		/* also case FEE_KEYBLOB_DEFAULT_FORMAT: */
-		case CSSM_KEYBLOB_RAW_FORMAT_NONE:
-			derBlob = true;
-			break;
-		case CSSM_KEYBLOB_RAW_FORMAT_DIGEST:
-		{
-			/* key digest calculation; special case for private keys: cook
-			 * up the associated public key and encode that */
-			if(mKeyHeader.KeyClass == CSSM_KEYCLASS_PRIVATE_KEY) {
-				keyToEncode = feePubKeyAlloc();
-				if(keyToEncode == NULL) {
-					CssmError::throwMe(CSSMERR_CSP_MEMORY_ERROR);
-				}
-				frtn = feePubKeyInitPubKeyFromPriv(mFeeKey, keyToEncode);
-				if(frtn) {
-					feePubKeyFree(keyToEncode);
-					throwCryptKit(frtn, "feePubKeyInitPubKeyFromPriv");
-				}
-				freeTheKey = true;
-			}
-			/* in any case, DER-encode a public key */
-			derBlob = true;
-			break;
+	if((format == CSSM_KEYBLOB_RAW_FORMAT_DIGEST) && 
+	   (mKeyHeader.KeyClass == CSSM_KEYCLASS_PRIVATE_KEY)) {
+		/* key digest calculation; special case for private keys: cook
+		 * up the associated public key and encode that */
+		keyToEncode = feePubKeyAlloc();
+		if(keyToEncode == NULL) {
+			CssmError::throwMe(CSSMERR_CSP_MEMORY_ERROR);
 		}
-		case CSSM_KEYBLOB_RAW_FORMAT_OCTET_STRING:
-			/* native non-DER-encoded blob */
-			derBlob = false;
+		frtn = feePubKeyInitPubKeyFromPriv(mFeeKey, keyToEncode);
+		if(frtn) {
+			feePubKeyFree(keyToEncode);
+			throwCryptKit(frtn, "feePubKeyInitPubKeyFromPriv");
+		}
+		freeTheKey = true;
+	}
+
+	bool badFormat = false;
+	int isPrivate = feePubKeyIsPrivate(keyToEncode);
+	
+	switch(mKeyHeader.AlgorithmId) {
+		case CSSM_ALGID_FEE:
+			if(isPrivate) {
+				/* FEE private key */
+				switch(format) {
+					case CSSM_KEYBLOB_RAW_FORMAT_DIGEST:
+						format = CSSM_KEYBLOB_RAW_FORMAT_NONE;
+						/* and drop thru */
+					case CSSM_KEYBLOB_RAW_FORMAT_NONE:
+						frtn = feePubKeyCreateDERPrivBlob(keyToEncode, &keyBlob, &len);
+						break;
+					case CSSM_KEYBLOB_RAW_FORMAT_OCTET_STRING:
+						frtn = feePubKeyCreatePrivBlob(keyToEncode, &keyBlob, &len);
+						break;
+					default:
+						badFormat = true;
+						break;
+				}
+			}
+			else {
+				/* FEE Public key */
+				switch(format) {
+					case CSSM_KEYBLOB_RAW_FORMAT_DIGEST:
+						format = CSSM_KEYBLOB_RAW_FORMAT_NONE;
+						/* and drop thru */
+					case CSSM_KEYBLOB_RAW_FORMAT_NONE:
+						frtn = feePubKeyCreateDERPubBlob(keyToEncode, &keyBlob, &len);
+						break;
+					case CSSM_KEYBLOB_RAW_FORMAT_OCTET_STRING:
+						frtn = feePubKeyCreatePubBlob(keyToEncode, &keyBlob, &len);
+						break;
+					default:
+						badFormat = true;
+						break;
+				}
+			}
+			/* end of base ALGID_FEE */
+			break;
+			
+		case CSSM_ALGID_ECDSA:
+			if(isPrivate) {
+				/* ECDSA/ECDH private key */
+				switch(format) {
+					case CSSM_KEYBLOB_RAW_FORMAT_PKCS8:
+						/* ECDSA private key: PKCS8 */
+						frtn = feePubKeyCreatePKCS8Blob(keyToEncode, &keyBlob, &len);
+						break;
+					case CSSM_KEYBLOB_RAW_FORMAT_NONE:
+						/* set to default format, drop thru */
+						format = CSSM_KEYBLOB_RAW_FORMAT_OPENSSL;
+					case CSSM_KEYBLOB_RAW_FORMAT_OPENSSL:
+						/* ECDSA private key, SEC1/OpenSSL format */
+						frtn = feePubKeyCreateOpenSSLBlob(keyToEncode, &keyBlob, &len);
+						break;
+					case CSSM_KEYBLOB_RAW_FORMAT_DIGEST:
+						format = CSSM_KEYBLOB_RAW_FORMAT_OCTET_STRING;
+						/* and drop thru */
+					case CSSM_KEYBLOB_RAW_FORMAT_OCTET_STRING:
+						/* raw private key bytes */
+						frtn = feeCreateECDSAPrivBlob(keyToEncode, &keyBlob, &len);
+						break;
+					default:
+						badFormat = true;
+						break;
+				}
+			}
+			else {
+				/* 
+				 * ECDSA public key.
+				 * Note there is no OpenSSL case here, that format is only generated for 
+				 * private keys.  
+				 */
+				switch(format) {
+					case CSSM_KEYBLOB_RAW_FORMAT_NONE:
+						/* set to default format, drop thru */
+						format = CSSM_KEYBLOB_RAW_FORMAT_X509;
+					case CSSM_KEYBLOB_RAW_FORMAT_X509:
+						/* ECDSA, public key, default: X509 */
+						frtn = feePubKeyCreateX509Blob(keyToEncode, &keyBlob, &len);
+						break;
+					case CSSM_KEYBLOB_RAW_FORMAT_DIGEST:
+						format = CSSM_KEYBLOB_RAW_FORMAT_OCTET_STRING;
+						/* and drop thru */
+					case CSSM_KEYBLOB_RAW_FORMAT_OCTET_STRING:
+						/* raw x|y string */
+						frtn = feeCreateECDSAPubBlob(keyToEncode, &keyBlob, &len);
+						break;
+					default:
+						badFormat = true;
+						break;
+				}
+			}
+			/* end of case CSSM_ALGID_ECDSA */
 			break;
 		default:
-			feeKeyDebug("FEEBinaryKey::generateKeyBlob: bad format (%ld)\n", 
-				(long)format);
-			CssmError::throwMe(feePubKeyIsPrivate(mFeeKey) ?
-				CSSMERR_CSP_INVALID_ATTR_PRIVATE_KEY_FORMAT :
-				CSSMERR_CSP_INVALID_ATTR_PUBLIC_KEY_FORMAT);
+			/* not reached */
+			break;
 	}
-	if(feePubKeyIsPrivate(keyToEncode)) {
-		if(derBlob) {
-			frtn = feePubKeyCreateDERPrivBlob(keyToEncode, &keyBlob, &len);
-		}
-		else {
-			frtn = feePubKeyCreatePrivBlob(keyToEncode, &keyBlob, &len);
-		}
-	}
-	else {
-		if(derBlob) {
-			frtn = feePubKeyCreateDERPubBlob(keyToEncode, &keyBlob, &len);
-		}
-		else {
-			frtn = feePubKeyCreatePubBlob(keyToEncode, &keyBlob, &len);
-		}
+	
+	if(badFormat) {
+		CssmError::throwMe(isPrivate ?
+			CSSMERR_CSP_INVALID_ATTR_PRIVATE_KEY_FORMAT :
+			CSSMERR_CSP_INVALID_ATTR_PUBLIC_KEY_FORMAT);
 	}
 	if(frtn) {
 		throwCryptKit(frtn, "feePubKeyCreate*Blob");
@@ -136,8 +206,6 @@ void CryptKit::FEEBinaryKey::generateKeyBlob(
 	memmove(blob.data(), keyBlob, len);
 	blob.length(len);
 	ffree(keyBlob);
-	format = derBlob ? FEE_KEYBLOB_DEFAULT_FORMAT : 
-		CSSM_KEYBLOB_RAW_FORMAT_OCTET_STRING;
 	if(freeTheKey) {
 		/* free the temp pub key we created here */
 		feePubKeyFree(keyToEncode);
@@ -218,6 +286,8 @@ void CryptKit::FEEKeyPairGenContext::generate(
 		seed = &aSeed.get();
 	}
 	
+	CSSM_ALGORITHMS algId = context.algorithm();
+	
 	/* Curve and prime types - optional */
 	feePrimeType primeType = FPT_Default;
 	uint32 uPrimeType = context.getInt(CSSM_ATTRIBUTE_FEE_PRIME_TYPE);
@@ -238,19 +308,32 @@ void CryptKit::FEEKeyPairGenContext::generate(
 			CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_ALG_PARAMS);
 	}
 	feeCurveType curveType = FCT_Default;
-	uint32 uCurveType = context.getInt(CSSM_ATTRIBUTE_FEE_CURVE_TYPE);
-	switch(uCurveType) {
-		case CSSM_FEE_CURVE_TYPE_DEFAULT:
-			break;
-		case CSSM_FEE_CURVE_TYPE_MONTGOMERY:
-			curveType = FCT_Montgomery;
-			break;
-		case CSSM_FEE_CURVE_TYPE_WEIERSTRASS:
-			curveType = FCT_Weierstrass;
+	switch(algId) {
+		case CSSM_ALGID_ECDSA:
+			/* no options */
+			curveType = FCT_ANSI;
 			break;
 		default:
-			/* FIXME - maybe we should be more specific */
-			CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_ALG_PARAMS);
+		{
+			uint32 uCurveType = context.getInt(CSSM_ATTRIBUTE_FEE_CURVE_TYPE);
+			switch(uCurveType) {
+				case CSSM_FEE_CURVE_TYPE_DEFAULT:
+					break;
+				case CSSM_FEE_CURVE_TYPE_MONTGOMERY:
+					curveType = FCT_Montgomery;
+					break;
+				case CSSM_FEE_CURVE_TYPE_WEIERSTRASS:
+					curveType = FCT_Weierstrass;
+					break;
+				case CSSM_FEE_CURVE_TYPE_ANSI_X9_62:
+					curveType = FCT_ANSI;
+					break;
+				default:
+					/* FIXME - maybe we should be more specific */
+					CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_ALG_PARAMS);
+			}
+			break;
+		}
 	}
 	feeReturn frtn = feePubKeyInitFromPrivDataKeyBits( 
 		fPrivBinKey.feeKey(),
@@ -290,6 +373,7 @@ CSPKeyInfoProvider *FEEKeyInfoProvider::provider(
 {
 	switch(cssmKey.algorithm()) {
 		case CSSM_ALGID_FEE:
+		case CSSM_ALGID_ECDSA:
 			break;
 		default:
 			return NULL;
@@ -351,9 +435,12 @@ bool CryptKit::FEEKeyInfoProvider::getHashableBlob(
 {
 	/*
 	 * The optimized case, a raw key in the "proper" format already.
+	 * Currently this is:
+	 * FEE public key in default/NONE form (which happens to be DER)
 	 */
 	assert(mKey.blobType() == CSSM_KEYBLOB_RAW);
-	if((mKey.blobFormat() == CSSM_KEYBLOB_RAW_FORMAT_NONE) &&
+	if((mKey.algorithm() == CSSM_ALGID_FEE) && 
+	   (mKey.blobFormat() == CSSM_KEYBLOB_RAW_FORMAT_NONE) &&
 	   (mKey.keyClass() == CSSM_KEYCLASS_PUBLIC_KEY)) {
 		const CssmData &keyBlob = CssmData::overlay(mKey.KeyData);
 		copyCssmData(keyBlob, blob, allocator);

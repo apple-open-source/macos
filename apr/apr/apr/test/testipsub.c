@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -68,7 +68,7 @@ static void test_bad_input(abts_case *tc, void *data)
 
     for (i = 0; i < (sizeof testcases / sizeof testcases[0]); i++) {
         rv = apr_ipsubnet_create(&ipsub, testcases[i].ipstr, testcases[i].mask, p);
-        ABTS_INT_EQUAL(tc, rv, testcases[i].expected_rv);
+        ABTS_INT_EQUAL(tc, testcases[i].expected_rv, rv);
     }
 }
 
@@ -111,11 +111,13 @@ static void test_interesting_subnets(abts_case *tc, void *data)
         char *in_subnet, *not_in_subnet;
     } testcases[] =
     {
-        {"9.67",              NULL,            APR_INET,  "9.67.113.15",         "10.1.2.3"}
+         {"9.67",             NULL,            APR_INET,  "9.67.113.15",         "10.1.2.3"}
         ,{"9.67.0.0",         "16",            APR_INET,  "9.67.113.15",         "10.1.2.3"}
         ,{"9.67.0.0",         "255.255.0.0",   APR_INET,  "9.67.113.15",         "10.1.2.3"}
         ,{"9.67.113.99",      "16",            APR_INET,  "9.67.113.15",         "10.1.2.3"}
         ,{"9.67.113.99",      "255.255.255.0", APR_INET,  "9.67.113.15",         "10.1.2.3"}
+        ,{"127",              NULL,            APR_INET,  "127.0.0.1",           "10.1.2.3"}
+        ,{"127.0.0.1",        "8",             APR_INET,  "127.0.0.1",           "10.1.2.3"}
 #if APR_HAVE_IPV6
         ,{"fe80::",           "8",             APR_INET6, "fe80::1",             "ff01::1"}
         ,{"ff01::",           "8",             APR_INET6, "ff01::1",             "fe80::1"}
@@ -134,6 +136,8 @@ static void test_interesting_subnets(abts_case *tc, void *data)
         ABTS_TRUE(tc, rv == APR_SUCCESS);
         rv = apr_sockaddr_info_get(&sa, testcases[i].in_subnet, testcases[i].family, 0, 0, p);
         ABTS_TRUE(tc, rv == APR_SUCCESS);
+        ABTS_TRUE(tc, sa != NULL);
+        if (!sa) continue;
         rc = apr_ipsubnet_test(ipsub, sa);
         ABTS_TRUE(tc, rc != 0);
         rv = apr_sockaddr_info_get(&sa, testcases[i].not_in_subnet, testcases[i].family, 0, 0, p);

@@ -54,8 +54,8 @@ extern const char *architecture_pname[];
 
 struct sparc_opcode {
 	const char *name;
-	unsigned long match;	/* Bits that must be set. */
-	unsigned long lose;	/* Bits that must not be set. */
+	uint32_t match;	/* Bits that must be set. */
+	uint32_t lose;	/* Bits that must not be set. */
 	const char *args;
  /* This was called "delayed" in versions before the flags. */
 	char flags;

@@ -1,8 +1,8 @@
 /* bind.c - monitor backend bind routine */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/bind.c,v 1.14.2.3 2006/01/03 22:16:21 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/bind.c,v 1.17.2.3 2008/02/11 23:26:47 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2001-2006 The OpenLDAP Foundation.
+ * Copyright 2001-2008 The OpenLDAP Foundation.
  * Portions Copyright 2001-2003 Pierangelo Masarati.
  * All rights reserved.
  *
@@ -35,11 +35,8 @@ monitor_back_bind( Operation *op, SlapReply *rs )
 {
 	Debug(LDAP_DEBUG_ARGS, "==> monitor_back_bind: dn: %s\n", 
 			op->o_req_dn.bv_val, 0, 0 );
-	
-	if ( op->oq_bind.rb_method == LDAP_AUTH_SIMPLE 
-			&& be_isroot_pw( op ) )
-	{
-		ber_dupbv( &op->oq_bind.rb_edn, be_root_dn( op->o_bd ) );
+
+	if ( be_isroot_pw( op ) ) {
 		return LDAP_SUCCESS;
 	}
 

@@ -7,18 +7,15 @@
 // Subject: GCC Bug..
 // Date: Fri, 6 Nov 1992 10:27:10 -0700
 
-// APPLE LOCAL mainline 2006-10-13 3904173
 class Klasse
 {
 public:
-        // APPLE LOCAL mainline 2006-10-13 3904173
         Klasse(void);           // constructor
         int Shadow(void);       // member function
 private:
         long value;
 };
 
-// APPLE LOCAL mainline 2006-10-13 3904173
 Klasse::Klasse(void)
 {
         value = 0;

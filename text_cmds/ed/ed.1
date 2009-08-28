@@ -146,6 +146,7 @@ Prompt for an encryption key to be used in subsequent reads and writes
 (see the
 .Em x
 command).
+Unsupported on Mac OS X.
 .It Fl p Ar string
 Specify a command prompt.
 This may be toggled on and off with the
@@ -871,9 +872,7 @@ writes.
 If a newline alone is entered as the key, then encryption is
 turned off.
 Otherwise, echoing is disabled while a key is read.
-Encryption/decryption is done using the
-.Xr bdes 1
-algorithm.
+Unsupported on Mac OS X.
 .It Pf (.+1)z n
 Scroll
 .Ar n
@@ -962,7 +961,6 @@ results in an error.
 If the command is entered a second time, it succeeds,
 but any changes to the buffer are lost.
 .Sh SEE ALSO
-.Xr bdes 1 ,
 .Xr sed 1 ,
 .Xr sh 1 ,
 .Xr vi 1 ,

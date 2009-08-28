@@ -45,9 +45,11 @@ enum
 	kIOFWAllPhysicalFilters = 64
 };
 
+// These are used by SetLinkMode, arg1 parameter
 enum
 {
-	kIOFWSetDSLimit = 0
+	kIOFWSetDSLimit = 0,
+	kIOFWSetForceLinkReset = 1
 };
 
 enum
@@ -205,7 +207,6 @@ class IOFireWireLink : public IOService
 		virtual IOFWDCLPool*				createDCLPool ( UInt32 capacity ) ;
 		inline IOWorkLoop *					getIsochWorkloop ()											{ return fIsocWorkloop ; }
 		inline IOWorkLoop *					getWorkloop()											{ return (IOWorkLoop*)fWorkLoop; }
-		virtual IOFWBufferFillIsochPort *   createBufferFillIsochPort () ;
 
 		virtual IOReturn					clipMaxRec2K( bool clipMaxRec ) = 0;
 		virtual IOFWSpeed					getPhySpeed() = 0 ;
@@ -235,10 +236,16 @@ class IOFireWireLink : public IOService
 		void requestBusReset()
 			{ fControl->resetBus(); };
 		
+		virtual IOReturn activateMultiIsochReceiveListener(IOFireWireMultiIsochReceiveListener *pListener) = 0;
+		virtual IOReturn deactivateMultiIsochReceiveListener(IOFireWireMultiIsochReceiveListener *pListener) = 0;
+		virtual void clientDoneWithMultiIsochReceivePacket(IOFireWireMultiIsochReceivePacket *pPacket) = 0;
+		
+		inline void setMultiIsochReceiveListenerActivatedState(IOFireWireMultiIsochReceiveListener *pListener, bool active) {pListener->fActivated = active;};
+
 		virtual void enableAllInterrupts( void ) = 0;
-		
+
 		virtual IOPMPowerState * getPowerStateTable( unsigned long * numberOfStates ) = 0;
-		
+	
 	private:
 	
 		OSMetaClassDeclareReservedUnused(IOFireWireLink, 0);

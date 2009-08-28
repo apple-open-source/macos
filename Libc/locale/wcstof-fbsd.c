@@ -37,6 +37,9 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/wcstof.c,v 1.3 2004/04/07 09:47:56 tjr E
 /*
  * See wcstod() for comments as to the logic used.
  */
+
+extern size_t __wcs_end_offset(const char * __restrict buf, const char * __restrict end, locale_t loc);
+
 float
 wcstof_l(const wchar_t * __restrict nptr, wchar_t ** __restrict endptr,
     locale_t loc)
@@ -76,7 +79,7 @@ wcstof_l(const wchar_t * __restrict nptr, wchar_t ** __restrict endptr,
 	val = strtof_l(buf, &end, loc);
 
 	if (endptr != NULL)
-		*endptr = (end == buf) ? (wchar_t *)nptr0 : ((wchar_t *)first + (end - buf));
+		*endptr = (end == buf) ? (wchar_t *)nptr0 : ((wchar_t *)first + __wcs_end_offset(buf, end, loc));
 
 	_simple_sfree(b);
 

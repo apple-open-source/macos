@@ -116,7 +116,7 @@ sub set_general_info {
 
     my ( $version ) = $infonode->findnodes( "edition" );
     if ( defined $version ) {
-        $infostr .= "=head1 VERSION\n\n" . $version->string_value() . "\n\n";
+        $infostr .= "\n=head1 VERSION\n\n" . $version->string_value() . "\n\n";
     }
 
     my ( $copyright ) = $infonode->findnodes( "copyright" );
@@ -300,9 +300,15 @@ sub dump_pod {
         my ( $ttlabbr ) = $chap->getChildrenByTagName( "titleabbrev" );
         my $str =  $ttlabbr->string_value() . " - ".$title->string_value();
         $self->{OFILE}->print(  "=head1 NAME\n\n$str\n\n" );
+	my ($synopsis) = $chap->findnodes( "sect1[title='Synopsis']" );
         my @funcs = $chap->findnodes( ".//funcsynopsis" );
+	if ($synopsis or scalar @funcs) {
+            $self->{OFILE}->print( "=head1 SYNOPSIS\n\n" )
+	}
+	if ($synopsis) {
+	  $self->dump_pod( $synopsis );
+	}
         if ( scalar @funcs ) {
-            $self->{OFILE}->print( "=head1 SYNOPSIS\n\n" );
             foreach my $s ( @funcs ) {
                 $self->dump_pod( $s );
             }
@@ -333,11 +339,12 @@ sub dump_pod {
         }
         elsif ( $node->nodeName() eq "sect1" ) {
             my ( $title ) = $node->getChildrenByTagName( "title" );
-            my $str = $title->string_value();
-
-            $self->{OFILE}->print( "\n=head1 " . uc($str) );
-            $self->{OFILE}->print( "\n\n" );
-            $self->dump_pod( $node );
+	    my $str = $title->string_value();
+	    unless ($chap->nodeName eq "chapter" and $str eq 'Synopsis') {
+	      $self->{OFILE}->print( "\n=head1 " . uc($str) );
+	      $self->{OFILE}->print( "\n\n" );
+	      $self->dump_pod( $node );
+	    }
         }
         elsif (  $node->nodeName() eq "sect2" ) {
             my ( $title ) = $node->getChildrenByTagName( "title" );
@@ -353,9 +360,8 @@ sub dump_pod {
             my $sp= "  ";
             $self->{OFILE}->print( "\n=over 4\n\n" );
             foreach my $item ( @items ) {
-                my $str = $item->string_value();
-                $str =~ s/^\s*|\s*$//g;
-                $self->{OFILE}->print( "=item * ".$str );
+                $self->{OFILE}->print( "=item *\n\n" );
+		$self->dump_pod( $item );
                 $self->{OFILE}->print( "\n\n" );
             }
             $self->{OFILE}->print( "=back\n\n" );

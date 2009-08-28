@@ -1,13 +1,11 @@
 use strict;
 use warnings;  
 
-use Test::More;
+use Test::More qw(no_plan);
 use lib qw(t/lib);
 use DBICTest;
 
 my $schema = DBICTest->init_schema();
-
-plan tests => 12;
 
 # first page
 my $it = $schema->resultset("CD")->search(
@@ -68,3 +66,19 @@ is( $it->count, 2, "software count on paged rs ok" );
 
 is( $it->next->title, "Generic Manufactured Singles", "software iterator->next ok" );
 
+# test paging with chained searches
+$it = $schema->resultset("CD")->search(
+    {},
+    { rows => 2,
+      page => 2 }
+)->search( undef, { order_by => 'title' } );
+
+is( $it->count, 2, "chained searches paging ok" );
+
+my $p = sub { $schema->resultset("CD")->page(1)->pager->entries_per_page; };
+
+is($p->(), 10, 'default rows is 10');
+
+$schema->default_resultset_attributes({ rows => 5 });
+
+is($p->(), 5, 'default rows is 5');

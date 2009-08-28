@@ -7,7 +7,7 @@
 --                                 B O D Y                                  --
 --                                                                          --
 ------------------------------------------------------------------------------
--- Copyright (c) 2000,2004 Free Software Foundation, Inc.                   --
+-- Copyright (c) 2000-2006,2008 Free Software Foundation, Inc.              --
 --                                                                          --
 -- Permission is hereby granted, free of charge, to any person obtaining a  --
 -- copy of this software and associated documentation files (the            --
@@ -35,8 +35,8 @@
 ------------------------------------------------------------------------------
 --  Author: Eugene V. Melaragno <aldomel@ix.netcom.com> 2000
 --  Version Control
---  $Revision: 1.5 $
---  $Date: 2004/08/21 21:37:00 $
+--  $Revision: 1.7 $
+--  $Date: 2008/07/26 18:47:06 $
 --  Binding Version 01.00
 ------------------------------------------------------------------------------
 with ncurses2.util; use ncurses2.util;
@@ -127,7 +127,6 @@ procedure ncurses2.demo_pad is
       return retval;
    end gettime;
 
-
    --  in C, The behavior of mvhline, mvvline for negative/zero length is
    --  unspecified, though we can rely on negative x/y values to stop the
    --  macro. Except Ada makes Line_Position(-1) = Natural - 1 so forget it.
@@ -152,9 +151,6 @@ procedure ncurses2.demo_pad is
          Vertical_Line (Line_Size => Natural (to - y), Line_Symbol => c);
       end if;
    end do_v_line;
-
-
-
 
    function padgetch (win : Window) return Key_Code is
       c : Key_Code;
@@ -246,7 +242,6 @@ procedure ncurses2.demo_pad is
       end if;
    end panner_v_cleanup;
 
-
    procedure panner (pad    : Window;
                      top_xp : Column_Position;
                      top_yp : Line_Position;
@@ -300,7 +295,6 @@ procedure ncurses2.demo_pad is
             return 0;
          end if;
       end greater;
-
 
       pymax : Line_Position;
       basey : Line_Position := 0;
@@ -358,7 +352,7 @@ procedure ncurses2.demo_pad is
                --  bottom-right corner fixed.
             when Character'Pos ('h') =>
                --  increase-columns: move left edge to left
-               if top_x <= 0 then
+               if top_x = 0 then
                   Beep;
                else
                   panner_v_cleanup (top_y, top_x, porty);
@@ -377,7 +371,7 @@ procedure ncurses2.demo_pad is
                end if;
             when Character'Pos ('k') =>
                --  increase-lines: move top-edge up
-               if top_y <= 0 then
+               if top_y = 0 then
                   Beep;
                else
                   top_y := top_y - 1;
@@ -598,19 +592,21 @@ procedure ncurses2.demo_pad is
 
          Update_Screen;
 
-         if timing then declare
-            s : String (1 .. 7);
-            elapsed : Long_Float;
-         begin
-            after := gettime;
-            elapsed := (Long_Float (after.seconds - before.seconds) +
-                        Long_Float (after.microseconds - before.microseconds)
-                        / 1.0e6);
-            Move_Cursor (Line => Lines - 1, Column => Columns - 20);
-            floatio.Put (s, elapsed, Aft => 3, Exp => 0);
-            Add (Str => s);
-            Refresh;
-         end;
+         if timing then
+            declare
+               s : String (1 .. 7);
+               elapsed : Long_Float;
+            begin
+               after := gettime;
+               elapsed := (Long_Float (after.seconds - before.seconds) +
+                           Long_Float (after.microseconds
+                                     - before.microseconds)
+                           / 1.0e6);
+               Move_Cursor (Line => Lines - 1, Column => Columns - 20);
+               floatio.Put (s, elapsed, Aft => 3, Exp => 0);
+               Add (Str => s);
+               Refresh;
+            end;
          end if;
 
          c := pgetc (pad);

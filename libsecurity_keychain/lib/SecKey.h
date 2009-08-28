@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2002-2009 Apple, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,9 +23,11 @@
 
 /*!
 	@header SecKey
-	The functions provided in SecKey implement a particular type of SecKeychainItem which represents a key.  SecKeys might be stored in a SecKeychain, but can also be used as transient object representing keys.
+	The functions provided in SecKey.h implement and manage a particular
+    type of keychain item that represents a key.  A key can be stored in a
+    keychain, but a key can also be a transient object.
 
-	Most SecKeychainItem* functions will work on an SecKeyRef.
+	You can use a key as a keychain item in most functions.
 */
 
 #ifndef _SECURITY_SECKEY_H_
@@ -33,7 +35,8 @@
 
 #include <Security/SecBase.h>
 #include <Security/cssmtype.h>
-
+#include <CoreFoundation/CFDictionary.h>
+#include <sys/types.h>
 
 #if defined(__cplusplus)
 extern "C" {
@@ -158,6 +161,32 @@ enum
 	kSecCredentialTypeNoUI
 };
 
+/*!
+    @typedef SecPadding
+    @abstract Supported padding types.
+*/
+typedef uint32_t SecPadding;
+enum
+{
+    kSecPaddingNone      = 0,
+    kSecPaddingPKCS1     = 1,
+
+    /* For SecKeyRawSign/SecKeyRawVerify only, data to be signed is an MD2
+       hash; standard ASN.1 padding will be done, as well as PKCS1 padding
+       of the underlying RSA operation. */
+    kSecPaddingPKCS1MD2  = 0x8000,
+
+    /* For SecKeyRawSign/SecKeyRawVerify only, data to be signed is an MD5
+       hash; standard ASN.1 padding will be done, as well as PKCS1 padding
+       of the underlying RSA operation. */
+    kSecPaddingPKCS1MD5  = 0x8001,
+
+    /* For SecKeyRawSign/SecKeyRawVerify only, data to be signed is a SHA1
+       hash; standard ASN.1 padding will be done, as well as PKCS1 padding
+       of the underlying RSA operation. */
+    kSecPaddingPKCS1SHA1 = 0x8002,
+};
+
 
 /*!
 	@function SecKeyGetTypeID
@@ -251,6 +280,16 @@ OSStatus SecKeyGetCredentials(
         CSSM_ACL_AUTHORIZATION_TAG operation,
         SecCredentialType credentialType,
         const CSSM_ACCESS_CREDENTIALS **outCredentials);
+
+/*!
+    @function SecKeyGetBlockSize
+    @abstract Decrypt a block of ciphertext. 
+    @param key The key for which the block length is requested.
+    @result The block length of the key in bytes.
+    @discussion If for example key is an RSA key the value returned by 
+    this function is the size of the modulus.
+ */
+size_t SecKeyGetBlockSize(SecKeyRef key);
 
 
 #if defined(__cplusplus)

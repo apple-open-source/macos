@@ -222,6 +222,12 @@ no_op_reg_to_regnum (int reg)
   return reg;
 }
 
+int
+default_adjust_ehframe_regnum (struct gdbarch *gdbarch, int regnum, int eh_frame_p)
+{
+  return regnum;
+}
+
 void
 default_elf_make_msymbol_special (asymbol *sym, struct minimal_symbol *msym)
 {
@@ -230,6 +236,12 @@ default_elf_make_msymbol_special (asymbol *sym, struct minimal_symbol *msym)
 
 void
 default_coff_make_msymbol_special (int val, struct minimal_symbol *msym)
+{
+  return;
+}
+
+void
+default_dbx_make_msymbol_special (int16_t val, struct minimal_symbol *msym)
 {
   return;
 }

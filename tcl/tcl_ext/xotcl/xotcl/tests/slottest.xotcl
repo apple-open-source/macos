@@ -1,0 +1,618 @@
+# $Id: slottest.xotcl,v 1.5 2007/08/14 16:38:27 neumann Exp $
+package require XOTcl
+namespace import -force xotcl::*
+package require xotcl::test
+
+proc ? {cmd expected} {
+  set t [Test new -cmd $cmd -count 100]
+  $t expected $expected 
+  $t run
+}
+
+proc t {cmd expected {txt ""}} {
+  set t [Test new -cmd $cmd -msg $txt]
+  $t expected $expected 
+  $t run
+}
+
+# what's new:
+#   - slots instances are manager objects for slot values
+#   - generalization of slots to have different kind of domains and managers
+#   - slots for objects and classes (slot parameter 'per-object' true|false, 
+#     when to used on a class object)
+#   - works for mixins/filters/class/superclass (e.g ... superclass add ::M)
+#   - initcmd and valuecmd 
+#     initcmd: is executed when the instance variable is read the first time
+#     valuecmd: is executed whenever the instance variable is read
+#     (implemented via trace; alternate approach for similar behavior
+#     is to define per-object procs for get/assign, see e.g. slots for
+#     class and superclass; slots require methods to be invoked, 
+#     not var references;
+#     otoh, trace are somewhat more fragile and harder to debug)
+#     default, initcmd and valuecmd are to be used mutually exclusively
+#   - valuechangedcmd: executed after the change of an instance variable,
+#     can be used e.g. for validation
+#
+# -gustaf neumann                          21.Jan. 2006
+
+package require xotcl::serializer
+
+#proc ? {cmd expected} {
+#   set r [eval $cmd]		       
+#   if {$r ne $expected} {error "$cmd returned '$r' ne '$expected'"}
+#}
+
+# proc t {cmd {txt ""}} {
+#   set n 1000
+#   #set ms [lindex [time [list time $cmd $n] 10] 0]
+#   set ms [lindex [time [list time $cmd $n] 5] 0]
+#   puts "[format %7.4f [expr {$ms*1.0/$n}]]ms for [format %-30s $cmd] ($txt)"
+# }
+#######################################################
+# testing __initcmds
+set ::hu 0
+proc T1 {var sub op} {c1 set $var t1}
+proc T2 {var sub op} {c1 set $var t2}
+Class C -array set __initcmds {
+  x {set x 1} 
+  y {incr ::hu} 
+  z {my trace add variable z read T1}}
+C create c1
+? {c1 info vars x} x
+? {c1 info vars y} ""
+? {c1 set x} 1
+? {set ::hu} 1
+
+Class D -array set __initcmds {
+  x {set x 2} 
+  z {my trace add variable z read T2}} -superclass C
+D create c1
+? {c1 set x} 2
+? {c1 set z} t2
+? {set ::hu} 2
+
+#######################################################
+# 
+# a small helper
+Object instproc slots cmds {
+  if {![my isobject [self]::slot]} {Object create [self]::slot}
+  namespace eval [self]::slot $cmds
+}
+
+######################
+# system slots
+######################
+
+Class M
+Class O -mixin M
+? {catch {Object o -mixin check1 M}} 1
+? {O mixin} ::M
+Class M2
+O mixin add M2
+? {O mixin} {::M2 ::M}
+O mixin M2
+? {O mixin} ::M2
+O mixin ""
+? {O mixin} ""
+O mixin set M ;# not sure, whether we should keep set here, or use assign or some better term
+? {O mixin} ::M
+? {O mixin ""} ""
+
+# with slots like class etc. we have to option to 
+# a) rename the original command like in the following
+# b) provide a no-op value, such that we define only meta-data in the slot
+# c) define a low-level tcl command like setrelation (or extend it) to handle the setter
+
+# "class" is not multivalued, therefore we should not add (or remove) add/delete 
+# from the set of subcommands...
+? {::xotcl::InfoSlot class} "::xotcl::MetaSlot"
+O o1
+? {o1 class} "::O"
+o1 class Object
+? {o1 class} "::xotcl::Object"
+? {catch {o1 class add M}} 1
+
+
+? {O superclass} "::xotcl::Object"
+Class O2 -superclass O
+
+#t {O2 superclass O} "superclass 1"
+? {O superclass} "::xotcl::Object"
+
+::xotcl::Slot instproc slot {object name property} {
+  switch $property {
+    self {return [self]}
+    domain {return [my domain]}
+  }
+}
+
+? {O superclass slot self} "::xotcl::Class::slot::superclass"
+? {O superclass slot domain} "::xotcl::Class"
+
+
+? {O2 superclass} "::O"
+O2 superclass add M
+? {O2 superclass} "::M ::O"
+O2 superclass delete ::O
+? {O2 superclass} "::M"
+
+
+# the main difference between an Attribute and a Role is that 
+# it references some other objects
+#Class Attribute -superclass ::xotcl::Slot
+Class Role -superclass Attribute -parameter {references}
+
+######################
+# application classes
+######################
+Class Person -slots {
+  Attribute name
+  Attribute age -default 0
+}
+
+Class Article -slots {
+  Attribute title
+  Attribute date
+}
+
+Class publishes -slots {
+  Role written_by -references Person -multivalued true
+  Role has_published -references Paper -multivalued true
+}
+
+Class Project -slots {
+  Attribute name
+  Role manager -references Person
+  Role member -references Person -multivalued true
+}
+
+puts [Person serialize]
+Person slot name default "gustaf"
+? {Person slot name default} gustaf
+Person p1 -name neophytos
+? {p1 name} neophytos
+? {p1 age} 0
+p1 age 123
+? {p1 age} 123
+
+
+Object o1
+o1 set i 0
+::xotcl::alias o1 Incr -objscope ::incr
+t {o1 incr i} 1 "method incr"
+t {o1 Incr i} 1002 "aliased tcl incr"
+t {o1 incr i} 2003 "method incr"
+t {o1 Incr i} 3004 "aliased tcl incr"
+
+::xotcl::alias ::xotcl::Object Set -objscope ::set
+t {o1 set i 1} 1 "method set"
+t {o1 set i} 1 "method set"
+t {o1 Set i 1} 1 "aliased tcl set"
+t {o1 Set i} 1 "aliased tcl set"
+::xotcl::alias o1 Set -objscope ::set
+t {o1 Set i 1} 1 "aliased object tcl set"
+t {o1 Set i} 1 "aliased object tcl set"
+::xotcl::Object instforward SSet -earlybinding -objscope ::set
+t {o1 SSet i 1} 1 "forward earlybinding tcl set"
+t {o1 SSet i} 1 "forward earlybinding tcl set"
+#exit
+
+o1 set z 100
+#o1 forward z o1 [list %argclindex [list set set]] %proc
+#o1 proc get name {my set $name}
+o1 forward get -earlybinding ::xotcl::setinstvar %self %1
+? {o1 get z 101} 101
+? {o1 get z} "101"
+
+t {o1 get z} 101 "get value via new parametercmd get"
+t {o1 get z 124} 124 "set value via new parametercmd get"
+
+
+o1 forward zz -earlybinding ::xotcl::setinstvar %self %proc
+? {o1 zz 123} 123
+? {o1 zz} 123
+
+t {o1 zz} 123 "parametercmd forward earlybinding setinstvar"
+t {o1 zz 124} 124 "parametercmd forward earlybinding setinstvar"
+
+o1 forward z2 -earlybinding -objscope ::set %proc
+t {o1 z2 111} 111 "parametercmd forward earlybinding tcl set"
+t {o1 z2} 111 "parametercmd forward earlybinding tcl set"
+
+o1 forward z3 -objscope ::set %proc
+t {o1 z3 111} 111 "parametercmd forward tcl set"
+t {o1 z3} 111 "parametercmd forward tcl set"
+
+o1 set y 11
+o1 parametercmd y
+t {o1 y} 11 "parametercmd"
+t {o1 y 1} 1 "parametercmd"
+
+#Class C -parameter {a {b 10} {c "Hello World"}}
+#C copy V
+
+#puts [C serialize]
+#puts [V serialize]
+
+#C destroy
+#V v1
+#puts [v1 b]
+
+# ::xotcl::Object instproc param arglist {
+#   foreach arg $arglist {
+#     puts "arg=$arg"
+#     set l [llength $arg]
+#     set name [lindex $arg 0]
+#     if {![my isobject [self]::slot]} {::xotcl::Object create [self]::slot}
+#     if {$l == 1} {
+#       Attribute create [self]::slot::$name
+#     } elseif {$l == 2} {
+#       Attribute create [self]::slot::$name  -default [lindex $arg 1]
+#     } else {
+#       set paramstring [string range $arg [expr {[string length $name]+1}] end]
+#       #puts  stderr "remaining arg = '$paramstring'"
+#       if {[string match {[$\[]*} $paramstring]} {
+# 	#puts stderr "match,     $cl set __defaults($name) $paramstring"
+# 	Attribute create [self]::slot::$name -default $paramstring
+# 	continue
+#       }
+#     }
+#   }
+# }
+
+
+::xotcl::Slot instmixin delete ::xotcl::Slot::Optimizer
+
+Class C1 -parameter {a {b 10} {c "Hello World"}}
+C1 c1 -a 1
+? {c1 a} 1
+? {c1 b} 10
+? {c1 c} "Hello World"
+
+##### is short form of 
+
+
+Class C2 -slots {
+  Attribute a 
+  Attribute b -default 10
+  Attribute c -default "Hello World"
+}
+C2 c2 -a 1
+? {c2 procsearch a} "::C2 instforward a"
+? {c2 a} 1
+? {c2 b} 10
+? {c2 c} "Hello World"
+
+
+t {c2 a} 1 "new indirect parametercmd"
+t {c2 a 1} 1 "new indirect parametercmd"
+
+::xotcl::Slot instmixin add ::xotcl::Slot::Optimizer
+Class C3 -slots {
+  Attribute a 
+  Attribute b -default 10
+  Attribute c -default "Hello World"
+}
+C3 c3 -a 1
+? {c3 procsearch a} "::C3 instparametercmd a"
+? {c3 a} 1
+? {c3 b} 10
+? {c3 c} "Hello World"
+
+t {c3 a} 1 "new indirect parametercmd optimized"
+t {c3 a 1} 1 "new indirect parametercmd optimized"
+
+####### nasty names
+Class create D -slots {
+  Attribute create create -default 1
+}
+D d1
+
+####### gargash 2
+Class create A -parameter {{foo 1}}
+# or
+Class create A -slots {
+  Attribute foo -default 1
+}
+
+A create a1 -foo 234 ;# calls default foo setter
+
+A instproc f1 {} {puts hu}
+A instforward f2 puts hu
+A create a0
+#a0 f1
+a0 proc f3 {} {puts hu}
+a0 forward f4 puts hu
+? {a0 procsearch f1} "::A instproc f1"
+? {a0 procsearch f2} "::A instforward f2"
+? {a0 procsearch f3} "::a0 proc f3"
+? {a0 procsearch f4} "::a0 forward f4"
+? {a0 procsearch set} "::xotcl::Object instcmd set"
+? {A slot foo procsearch assign} "::xotcl::Slot instcmd assign"
+
+# redefine setter for foo of class A
+A slot foo proc assign {domain var val} {
+  # Do something with [self] that isn't valid pre-init
+  puts setter-[self proc]
+  $domain set $var $val
+}
+
+a1 foo ;# calls default foo getter
+a1 foo 123 ;# calls overridden foosetter
+? {a1 foo} 123
+
+
+#puts [A serialize]
+
+###################
+# Application Slots
+#
+
+Class Person -slots {
+  Attribute name
+  Attribute age -default 0
+  Attribute projects -default {} -multivalued true
+}
+
+Person p1 -name "Gustaf"
+? {p1 name} Gustaf
+? {p1 age} 0
+? {p1 projects} {}
+
+Class Project -slots {
+  Attribute name 
+  Attribute description
+}
+  
+Project project1 -name XOTcl -description "A highly flexible OO scripting language"
+
+p1 projects add ::project1
+? {p1 projects} ::project1
+#p1 projects add some-other-value
+#? {p1 projects} "some-other-value ::project1"
+
+::xotcl::Slot instproc check {
+  {-keep_old_value:boolean true} 
+  value predicate type obj var
+} {
+  puts "+++ checking $value with $predicate ==> [expr $predicate]"
+  if {![expr $predicate]} {
+    if {[$obj exists __oldvalue($var)]} {
+      $obj set $var [$obj set __oldvalue($var)]
+    } else {
+      $obj unset $var
+    }
+    error "$value is not of type $type"
+  }
+  if {$keep_old_value} {$obj set __oldvalue($var) $value}
+}
+
+::xotcl::Slot instproc checkall {values predicate type obj var} {
+  foreach value $values {
+    my check -keep_old_value false $value $predicate $type $obj $var
+  }
+  $obj set __oldvalue($var) $value
+}
+    
+Person slots {
+  Attribute projects -default "" -multivalued true -type ::Project
+  Attribute salary -type integer
+}
+
+Person p2 -name "Gustaf"
+p2 projects add ::project1
+? {catch {p2 projects add ::o1}} 1
+p2 salary 100
+? {catch {p2 salary 100.9}} 1
+? {p2 salary} 100
+p2 append salary 9
+? {p2 salary} 1009
+? {catch {p2 append salary b}} 1
+? {p2 salary} 1009
+
+Person slots {
+  Attribute sex -type "my sex" -proc sex {value} {
+    switch -glob $value {
+      m* {my uplevel {$obj set $var m}; return 1}
+      f* {my uplevel {$obj set $var f}; return 1}
+      default {return 0}
+    }
+  }
+}
+Person p3 -sex male
+? {p3 sex} m
+
+set ::hu 0
+Class C -slots {
+  Attribute x -initcmd {incr ::hu; set x 101}
+}
+C c1
+? {c1 info vars} ""
+? {c1 set x} 101
+? {c1 info vars} "x"
+? {set ::hu 1} 1
+
+
+Class Point -parameter {{x 100} {y 300}}
+Class Rectangle -parameter {color}
+
+Rectangle r0 -color pink -contains {
+  Rectangle r1 -color red -contains {
+    Point x1 -x 1 -y 2
+    Point x2 -x 1 -y 2
+  }
+  Rectangle r2 -color green -contains {
+    Point x1
+    Point x2
+  }
+}
+
+? {r0 color} pink
+? {r0 r1 color} red
+? {r0 r1 x1 x} 1
+? {r0 r1 x2 y} 2
+? {r0 r2 color} green
+#puts [r0 serialize]
+
+
+#####
+Class create A -slots {
+  Attribute foo -default 1 -proc assign { domain var value} {
+    if {$value < 0 || $value > 99} {
+      error "$value is not in the range of 0 .. 99"
+    }
+    $domain set $var $value
+  }
+}
+
+A create a1
+? {a1 foo 10} 10
+? {a1 foo 20} 20
+? {a1 foo} 20
+? {catch {a1 foo -1}} 1
+? {catch {a1 foo 100}} 1
+? {catch {a1 foo 99}} 0
+
+set x [Object new -set x 1 -contains {
+  Object new -set x 1.1
+  Object new -set x 1.2 -contains {
+    Object new -set x 1.2.1
+    Object new -set x 1.2.2 -contains {
+      Object new -set x 1.2.2.1
+    }
+    Object new -set x 1.2.3
+  }
+  Object new -set x 1.3
+}]
+
+? {llength [$x info children]} 3
+? {llength [[lindex [lsort [$x info children]] 0] info children]} 0
+? {llength [[lindex [lsort [$x info children]] 1] info children]} 3
+? {llength [[lindex [lsort [$x info children]] 2] info children]} 0
+
+exit
+
+#puts [Person array get __defaults]
+#puts [Person serialize]
+puts [Serializer all]
+eval [Serializer all]
+
+? {p2 salary} 1009
+? {catch {p2 append salary b}} 1
+? {p2 salary} 1009
+#p2 projects add ::o1
+exit
+p1 set x 0
+t {p1 set x} "get instvar value via set"
+t {p1 set x 1} "set instvar value via set"
+
+
+
+Object o1
+proc f {x} {return $x}
+o1 forward myf -earlybinding f
+? {o1 myf abc} abc
+
+rename f ""
+proc f {x} {return 11}
+? {o1 myf abc} 11
+
+Object o2
+o2 proc f {x} {expr {$x*2}}
+o1 forward myf -earlybinding o2 f
+
+? {o1 myf 100} 200
+
+o1 set x 42
+o1 forward x -earlybinding ::xotcl::setinstvar %self %proc
+? [list o1 x] 42
+? [list o1 x 41] 41
+t {o1 x} "get parametercmd via forward (earlybinding)"
+t {o1 x 41} "set parametercmd via forward (earlybinding)"
+
+#obj forward Mixin -default {getter setter} mixin %1  %self
+o1 forward z -default {getter setter} %self
+
+o1 forward myfset -objscope set
+o1 myfset y 102
+? {o1 myfset y} 102
+
+t {o1 myfset y} "get instvar value via forward"
+t {o1 myfset y 122} "set instvar value via forward"
+
+o1 forward myfdset -earlybinding -objscope set
+o1 myfdset y 103
+? {o1 myfdset y} 103
+
+t {o1 myfdset y} "get instvar value via forward -earlybinding"
+t {o1 myfdset y 123} "set instvar value via forward -earlybinding"
+
+::xotcl::alias o1 myset -objscope ::set
+o1 myset x 101
+? {o1 myset x} 101
+
+t {o1 myset x} "get instvar value via set alias"
+t {o1 myset x 123} "set instvar value via set alias"
+
+
+t {p1 age} "slot read"
+Class P -parameter {age {s -setter sets}}
+P instproc sets {var value} {
+  my set $var $value
+}
+P create p2 -age 345 -s 567
+
+t {p2 age} "parametercmd read"
+t {::xotcl::setinstvar p2 age} "via setinstvar"
+t {p2 s} "parameter read with setter"
+
+
+
+
+Slot create Project::fullbudget \
+    -initcmd {$obj set __x 100} \
+    -valuechangedcmd {
+      puts "budget is now [$obj set fullbudget]" 
+      $obj set __x [$obj set fullbudget] 
+    }
+
+Slot create Project::currentbudget -valuecmd {$obj incr __x -1}
+
+Person p2 -name gustaf
+Person p3 -name frido
+Article a1 -title "My life as a saint" -date "1.1.2006"
+publishes new -written_by p1 -has_published a1
+set p [Project new -name icamp -manager p2 -member add p1 -member add p3]
+$p member add X end
+puts [$p member]
+
+? [list $p fullbudget] 100
+? [list $p fullbudget] 100
+? [list $p currentbudget] 99
+? [list $p currentbudget] 98
+? [list $p fullbudget 200] 200
+? [list $p currentbudget] 199
+exit
+
+foreach o [Object allinstances] {
+  if {[$o isclass]} continue
+  if {[$o istype Slot]} continue
+  if {$o eq "::xotcl::relmgr"} continue
+  set string "$o\n"
+  foreach v [$o info vars] {
+    append string "   $v = [$o set $v]\n"
+  }
+  puts $string
+}
+
+puts stderr DONE-[p1 name]-[p1 age]
+
+p3 age 77
+exit
+
+puts [XoXML asXML]
+
+puts ====
+foreach n [XoXML selectNodes {//object[age > 1]}]  {puts [$n asXML]}
+
+exit

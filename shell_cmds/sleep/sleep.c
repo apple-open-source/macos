@@ -1,6 +1,4 @@
-/*	$NetBSD: sleep.c,v 1.15 1998/07/28 11:41:58 mycroft Exp $	*/
-
-/*
+/*-
  * Copyright (c) 1988, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -12,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -33,113 +27,105 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
-#ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1988, 1993, 1994\n\
-	The Regents of the University of California.  All rights reserved.\n");
-#endif /* not lint */
-
-#ifndef lint
 #if 0
-static char sccsid[] = "@(#)sleep.c	8.3 (Berkeley) 4/2/94";
-#else
-__RCSID("$NetBSD: sleep.c,v 1.15 1998/07/28 11:41:58 mycroft Exp $");
-#endif
+#ifndef lint
+static char const copyright[] =
+"@(#) Copyright (c) 1988, 1993, 1994\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
-#include <time.h>
+#ifndef lint
+static char sccsid[] = "@(#)sleep.c	8.3 (Berkeley) 4/2/94";
+#endif /* not lint */
+#endif
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/bin/sleep/sleep.c,v 1.20 2005/08/07 09:11:38 stefanf Exp $");
+
 #include <ctype.h>
-#include <math.h>
-#include <signal.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include <unistd.h>
-#include <locale.h>
+#include <string.h>
 
-void usage __P((void));
-void alarmhandle __P((int));
-int  main __P((int, char *[]));
+void usage(void);
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
-	char *arg, *temp;
-	double val, ival, fval;
-	struct timespec ntime;
-	int fracflag;
-	int ch;
+	struct timespec time_to_sleep;
+	long l;
+	int neg;
+	char *p;
 
-	(void)setlocale(LC_ALL, "");
-
-	(void)signal(SIGALRM, alarmhandle);
-
-	while ((ch = getopt(argc, argv, "")) != -1)
-		switch(ch) {
-		case '?':
-		default:
-			usage();
-		}
-	argc -= optind;
-	argv += optind;
-
-	if (argc != 1)
+	if (argc == 2) {
+	    p = argv[1];
+	} else if (argc == 3 && !strcmp("--", argv[1])) {
+	    // POSIX issue:   "sleep -- 3" should be the same as "sleep 3",
+	    // normally getopt makes this kind of thing work, but sleep has
+	    // no options, so we do it "the easy way"
+	    p = argv[2];
+	} else {
 		usage();
-
-	/*
-	 * Okay, why not just use atof for everything? Why bother
-	 * checking if there is a fraction in use? Because the old
-	 * sleep handled the full range of integers, that's why, and a
-	 * double can't handle a large long. This is fairly useless
-	 * given how large a number a double can hold on most
-	 * machines, but now we won't ever have trouble. If you want
-	 * 1000000000.9 seconds of sleep, well, that's your
-	 * problem. Why use an isdigit() check instead of checking for
-	 * a period? Because doing it this way means locales will be
-	 * handled transparently by the atof code.
-	 */
-	fracflag = 0;
-	arg = *argv;
-	for (temp = arg; *temp != '\0'; temp++)
-		if (!isdigit(*temp))
-			fracflag++;
-
-	if (fracflag) {
-		val = atof(arg);
-		if (val <= 0)
-			exit(0);
-		ival = floor(val);
-		fval = (1000000000 * (val-ival));
-		ntime.tv_sec = ival;
-		ntime.tv_nsec = fval;
-	}
-	else{
-		ntime.tv_sec = atol(arg);
-		if (ntime.tv_sec <= 0)
-			exit(0);
-		ntime.tv_nsec = 0;
+		return(1);
 	}
 
-	(void)nanosleep(&ntime, NULL);
+	/* Skip over leading whitespaces. */
+	while (isspace((unsigned char)*p))
+		++p;
 
-	exit(0);
-	/* NOTREACHED */
+	/* Check for optional `+' or `-' sign. */
+	neg = 0;
+	if (*p == '-') {
+		neg = 1;
+		++p;
+		if (!isdigit((unsigned char)*p) && *p != '.') {
+			usage();
+			return(1);
+		}
+	}
+	else if (*p == '+')
+		++p;
+
+	/* Calculate seconds. */
+	if (isdigit((unsigned char)*p)) {
+		l = strtol(p, &p, 10);
+		if (l > INT_MAX) {
+			/*
+			 * Avoid overflow when `seconds' is huge.  This assumes
+			 * that the maximum value for a time_t is <= INT_MAX.
+			 */
+			l = INT_MAX;
+		}
+	} else
+		l = 0;
+	time_to_sleep.tv_sec = (time_t)l;
+
+	/* Calculate nanoseconds. */
+	time_to_sleep.tv_nsec = 0;
+
+	if (*p == '.') {		/* Decimal point. */
+		l = 100000000L;
+		do {
+			if (isdigit((unsigned char)*++p))
+				time_to_sleep.tv_nsec += (*p - '0') * l;
+			else
+				break;
+			l /= 10;
+		} while (l);
+	}
+
+	if (!neg && (time_to_sleep.tv_sec > 0 || time_to_sleep.tv_nsec > 0))
+		(void)nanosleep(&time_to_sleep, (struct timespec *)NULL);
+
+	return(0);
 }
 
 void
-usage()
+usage(void)
 {
-	(void)fputs("usage: sleep seconds\n", stderr);
-	exit(1);
-	/* NOTREACHED */
-}
+	const char msg[] = "usage: sleep seconds\n";
 
-/* ARGSUSED */
-void
-alarmhandle(i)
-	int i;
-{
-	_exit(0);
-	/* NOTREACHED */
+	write(STDERR_FILENO, msg, sizeof(msg) - 1);
 }

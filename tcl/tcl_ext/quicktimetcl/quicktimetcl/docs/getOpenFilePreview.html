@@ -1,0 +1,47 @@
+<HTML><HEAD><TITLE>QuickTimeTcl Commands - tk_getOpenFilePreview manual page</TITLE></HEAD><BODY>
+<DL>
+<DD><A HREF="getOpenFilePreview.html#M1">NAME</A>
+<DL><DD>tk_getOpenFilePreview - pop up a dialog box for the user to select a QuickTime movie file to open</DL>
+<DD><A HREF="getOpenFilePreview.html#M2">SYNOPSIS</A>
+<DL>
+<DD><B>package require QuickTimeTcl</B> ?<I>version</I>?
+<DD><B>tk_getOpenFilePreview </B>
+</DL>
+<DD><A HREF="getOpenFilePreview.html#M3">DESCRIPTION</A>
+<DL>
+<DD>no options
+</DL>
+<DD><A HREF="getOpenFilePreview.html#M4">SEE ALSO</A>
+<DD><A HREF="getOpenFilePreview.html#M5">KEYWORDS</A>
+</DL><HR>
+<H3><A NAME="M1">NAME</A></H3>
+tk_getOpenFilePreview - pops up a dialog box for the user to select a QuickTime movie file to open.
+<P>
+<P>
+<H3><A NAME="M2">SYNOPSIS</A></H3>
+<B>package require QuickTimeTcl</B> ?<I>version</I>?<BR>
+<B>tk_getOpenFilePreview </B>
+<H3><A NAME="M3">DESCRIPTION</A></H3>
+The procedure <B>tk_getOpenFilePreview</B>  pops up a
+dialog box for the user to select a QuickTime movie file to open. It is similar to the <B>tk_getOpenFile</B> command, but only files that can be opened as QuickTime movies are shown. Moreover, an optional preview helps the user to select the wanted movie. The preview may include sound as well as video or a still image. 
+On the Macintosh, the files shown includes all files whose file type is 'MooV'. It also lists all files that can be translated into a QuickTime movie format using a 
+<I>movie importer</I>.
+The
+<B>tk_getOpenFilePreview</B> command is usually associated with the <B>Open</B>
+command in the <B>File</B> menu. Its purpose is for the user to select an
+existing QuickTime movie file <I>only</I>. 
+<P>
+
+If the user selects a file, <B>tk_getOpenFilePreview</B> returns the full pathname of this file. If the user cancels the operation, the command returns an empty string.
+
+
+<H3><A NAME="M4">SEE ALSO</A></H3>
+<B>tk_getSaveFile</B>, <B>tk_getOpenFile</B>, <B> tk_chooseDirectory</B>,
+<B><A HREF="movie.html">Movie</A></B>, <B><A 
+HREF="seqgrabber.html">seqgrabber</A></B>, and <B><A 
+HREF="info.html">::quicktimetcl::info</A></B>
+<H3><A NAME="M5">KEYWORDS</A></H3>
+<U>file selection dialog</U>,<U>QuickTime</U>
+<HR><PRE>
+<U>Copyright</U> &#169; 2000-2001 Mats Bengtsson
+</BODY></HTML>

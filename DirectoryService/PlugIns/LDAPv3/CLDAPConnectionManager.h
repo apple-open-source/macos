@@ -36,7 +36,8 @@
 
 using namespace std;
 
-typedef struct sLDAPContinueData {
+struct sLDAPContinueData : public CObject<sLDAPContinueData>
+{
     int					fLDAPMsgId;			//LDAP session call handle mainly used for searches
 	tDirNodeReference	fNodeRef;			//node reference associated with this context data
 	CLDAPConnection	   *fLDAPConnection;	//the LDAP connection for this continue data
@@ -51,7 +52,13 @@ typedef struct sLDAPContinueData {
 	void				*fAuthHandlerProc;
 	char				*fAuthAuthorityData;
     tContextData		fPassPlugContinueData;
-} sLDAPContinueData;
+	
+	public:
+		sLDAPContinueData	( void );
+		
+	protected:
+		~sLDAPContinueData	( void );	
+};
 
 class CLDAPv3Configs;
 
@@ -75,6 +82,7 @@ struct sLDAPContextData : public CObject<sLDAPContextData>
 	char				*fPWSUserID;
 	
 	CLDAPConnection		*fLDAPConnection;
+	struct timeval		fAccruedTimeout;
 	
 	public:
 				sLDAPContextData	( CLDAPConnection *inConnection = NULL );
@@ -121,6 +129,8 @@ class CLDAPConnectionManager
 		void				SystemGoingToSleep		( void );
 		void				SystemWillPowerOn		( void );
 
+		void				CheckFailed				( void );
+
 	private:
 		LDAPConnectionMap		fLDAPConnectionMap;
 		LDAPAuthConnectionList	fLDAPAuthConnectionList;
@@ -129,10 +139,7 @@ class CLDAPConnectionManager
 		CFArrayRef				fSupportedSASLMethods;
 	
 	private:
-		void			CheckFailed				( void );
 		void			LaunchCheckFailedThread	( bool bForceCheck );
-	
-		static void		*CheckFailedServers		( void *inInfo );
 };
 
 #endif	// __CLDAPNode_h__

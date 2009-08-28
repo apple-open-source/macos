@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -178,9 +178,9 @@ APR_DECLARE(apr_status_t) apr_dso_sym(apr_dso_handle_sym_t *ressym,
     int status;
 
     errno = 0;
-    status = shl_findsym((shl_t *)&handle->handle, symname, TYPE_PROCEDURE, &symaddr);
+    status = shl_findsym((void *)&handle->handle, symname, TYPE_PROCEDURE, &symaddr);
     if (status == -1 && errno == 0) /* try TYPE_DATA instead */
-        status = shl_findsym((shl_t *)&handle->handle, symname, TYPE_DATA, &symaddr);
+        status = shl_findsym((void *)&handle->handle, symname, TYPE_DATA, &symaddr);
     if (status == -1)
         return APR_ESYMNOTFOUND;
     *ressym = symaddr;

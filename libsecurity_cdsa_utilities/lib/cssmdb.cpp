@@ -248,9 +248,13 @@ void CssmDbAttributeData::deleteValues(Allocator &alloc)
 {
 	// Loop over all values and delete each one.
 	if (values())
+	{
 		for (uint32 n = 0; n < size(); n++)
+		{
 			alloc.free(at(n).data());
+		}
 		alloc.free(values());
+	}
 	NumberOfValues = 0;
 	values() = NULL;
 }

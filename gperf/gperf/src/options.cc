@@ -1,5 +1,5 @@
 /* Handles parsing the Options provided to the user.
-   Copyright (C) 1989-1998, 2000, 2002-2003 Free Software Foundation, Inc.
+   Copyright (C) 1989-1998, 2000, 2002-2004, 2006-2007 Free Software Foundation, Inc.
    Written by Douglas C. Schmidt <schmidt@ics.uci.edu>
    and Bruno Haible <bruno@clisp.org>.
 
@@ -18,7 +18,7 @@
    You should have received a copy of the GNU General Public License
    along with this program; see the file COPYING.
    If not, write to the Free Software Foundation, Inc.,
-   59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 /* Specification. */
 #include "options.h"
@@ -57,6 +57,9 @@ static const char *const DEFAULT_HASH_NAME = "hash";
 
 /* Default name for generated hash table array.  */
 static const char *const DEFAULT_WORDLIST_NAME = "wordlist";
+
+/* Default name for generated length table array.  */
+static const char *const DEFAULT_LENGTHTABLE_NAME = "lengthtable";
 
 /* Default name for string pool.  */
 static const char *const DEFAULT_STRINGPOOL_NAME = "stringpool";
@@ -179,6 +182,10 @@ Options::long_usage (FILE * stream)
            "  -W, --word-array-name=NAME\n"
            "                         Specify name of word list array. Default name is\n"
            "                         'wordlist'.\n");
+  fprintf (stream,
+           "      --length-table-name=NAME\n"
+           "                         Specify name of length table array. Default name is\n"
+           "                         'lengthtable'.\n");
   fprintf (stream,
            "  -S, --switch=COUNT     Causes the generated C code to use a switch\n"
            "                         statement scheme, rather than an array lookup table.\n"
@@ -458,6 +465,7 @@ Options::Options ()
     _class_name (DEFAULT_CLASS_NAME),
     _hash_name (DEFAULT_HASH_NAME),
     _wordlist_name (DEFAULT_WORDLIST_NAME),
+    _lengthtable_name (DEFAULT_LENGTHTABLE_NAME),
     _stringpool_name (DEFAULT_STRINGPOOL_NAME),
     _delimiters (DEFAULT_DELIMITERS),
     _key_positions ()
@@ -495,6 +503,7 @@ Options::~Options ()
                "\nlookup function name = %s"
                "\nhash function name = %s"
                "\nword list name = %s"
+               "\nlength table name = %s"
                "\nstring pool name = %s"
                "\nslot name = %s"
                "\ninitializer suffix = %s"
@@ -525,10 +534,10 @@ Options::~Options ()
                _option_word & NOLENGTH ? "enabled" : "disabled",
                _option_word & RANDOM ? "enabled" : "disabled",
                _option_word & DEBUG ? "enabled" : "disabled",
-               _function_name, _hash_name, _wordlist_name, _stringpool_name,
-               _slot_name, _initializer_suffix, _asso_iterations, _jump,
-               _size_multiple, _initial_asso_value, _delimiters,
-               _total_switches);
+               _function_name, _hash_name, _wordlist_name, _lengthtable_name,
+               _stringpool_name, _slot_name, _initializer_suffix,
+               _asso_iterations, _jump, _size_multiple, _initial_asso_value,
+               _delimiters, _total_switches);
       if (_key_positions.is_useall())
         fprintf (stderr, "all characters are used in the hash function\n");
       else
@@ -633,6 +642,14 @@ Options::set_wordlist_name (const char *name)
     _wordlist_name = name;
 }
 
+/* Sets the length table array name, if not already set.  */
+void
+Options::set_lengthtable_name (const char *name)
+{
+  if (_lengthtable_name == DEFAULT_LENGTHTABLE_NAME)
+    _lengthtable_name = name;
+}
+
 /* Sets the string pool name, if not already set.  */
 void
 Options::set_stringpool_name (const char *name)
@@ -673,6 +690,7 @@ static const struct option long_options[] =
   { "includes", no_argument, NULL, 'I' },
   { "global-table", no_argument, NULL, 'G' },
   { "word-array-name", required_argument, NULL, 'W' },
+  { "length-table-name", required_argument, NULL, CHAR_MAX + 4 },
   { "switch", required_argument, NULL, 'S' },
   { "omit-struct-type", no_argument, NULL, 'T' },
   { "key-positions", required_argument, NULL, 'k' },
@@ -987,7 +1005,7 @@ Options::parse_options (int argc, char *argv[])
 This is free software; see the source for copying conditions.  There is NO\n\
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\
 ",
-                   "1989-1998, 2000-2003");
+                   "1989-1998, 2000-2004, 2006-2007");
           fprintf (stdout, "Written by %s and %s.\n",
                    "Douglas C. Schmidt", "Bruno Haible");
           exit (0);
@@ -1019,6 +1037,11 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\
         case CHAR_MAX + 3:      /* Use NULL instead of "".  */
           {
             _option_word |= NULLSTRINGS;
+            break;
+          }
+        case CHAR_MAX + 4:      /* Sets the name for the length table array.  */
+          {
+            _lengthtable_name = /*getopt*/optarg;
             break;
           }
         default:

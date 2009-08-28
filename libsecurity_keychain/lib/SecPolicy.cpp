@@ -21,6 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <CoreFoundation/CFString.h>
 #include <Security/SecPolicy.h>
 #include <Security/SecPolicyPriv.h>
 #include <security_keychain/Policies.h>
@@ -47,7 +48,7 @@ SecPolicyGetOID(SecPolicyRef policyRef, CSSM_OID* oid)
 {
     BEGIN_SECAPI
     Required(oid) = Policy::required(policyRef)->oid();
-	END_SECAPI2("SecPolicyGetOID")
+	END_SECAPI
 }
 
 
@@ -56,7 +57,7 @@ SecPolicyGetValue(SecPolicyRef policyRef, CSSM_DATA* value)
 {
     BEGIN_SECAPI
     Required(value) = Policy::required(policyRef)->value();
-	END_SECAPI2("SecPolicyGetValue")
+	END_SECAPI
 }
 
 OSStatus
@@ -66,7 +67,7 @@ SecPolicySetValue(SecPolicyRef policyRef, const CSSM_DATA *value)
     Required(value);
     const CssmData newValue(value->Data, value->Length);
 	Policy::required(policyRef)->setValue(newValue);
-	END_SECAPI2("SecPolicySetValue")
+	END_SECAPI
 }
 
 
@@ -75,7 +76,7 @@ SecPolicyGetTPHandle(SecPolicyRef policyRef, CSSM_TP_HANDLE* tpHandle)
 {
     BEGIN_SECAPI
     Required(tpHandle) = Policy::required(policyRef)->tp()->handle();
-	END_SECAPI2("SecPolicyGetTPHandle")
+	END_SECAPI
 }
 
 OSStatus
@@ -98,7 +99,7 @@ SecPolicyCopyAll(CSSM_CERT_TYPE certificateType, CFArrayRef* policies)
 		CFRelease(currPolicies);
 		CFRelease(cursor->handle());
 	}
-	END_SECAPI2("SecPolicyCopyAll")
+	END_SECAPI
 }
 
 OSStatus
@@ -118,3 +119,63 @@ SecPolicyCopy(CSSM_CERT_TYPE certificateType, const CSSM_OID *policyOID, SecPoli
 	CFRelease(srchRef);
 	return ortn;
 }
+
+/* new in 10.6 */
+SecPolicyRef
+SecPolicyCreateBasicX509(void)
+{
+    // return a SecPolicyRef object for the X.509 Basic policy
+    SecPolicyRef policy = nil;
+    SecPolicySearchRef policySearch = nil;
+    OSStatus status = SecPolicySearchCreate(CSSM_CERT_X_509v3, &CSSMOID_APPLE_X509_BASIC, NULL, &policySearch);
+    if (!status) {
+        status = SecPolicySearchCopyNext(policySearch, &policy);
+    }
+	if (policySearch) {
+		CFRelease(policySearch);
+	}
+    return policy;
+}
+
+/* new in 10.6 */
+SecPolicyRef
+SecPolicyCreateSSL(Boolean server, CFStringRef hostname)
+{
+    // return a SecPolicyRef object for the SSL policy, given hostname and client options
+    SecPolicyRef policy = nil;
+    SecPolicySearchRef policySearch = nil;
+    OSStatus status = SecPolicySearchCreate(CSSM_CERT_X_509v3, &CSSMOID_APPLE_TP_SSL, NULL, &policySearch);
+    if (!status) {
+        status = SecPolicySearchCopyNext(policySearch, &policy);
+    }
+    if (!status && policy) {
+        // set options for client-side or server-side policy evaluation
+		char *strbuf = NULL;
+		const char *hostnamestr = NULL;
+		if (hostname) {
+			CFIndex strbuflen = 0;
+			hostnamestr = CFStringGetCStringPtr(hostname, kCFStringEncodingUTF8);
+			if (hostnamestr == NULL) {
+				strbuflen = CFStringGetLength(hostname)*6;
+				strbuf = (char *)malloc(strbuflen+1);
+				if (CFStringGetCString(hostname, strbuf, strbuflen, kCFStringEncodingUTF8)) {
+					hostnamestr = strbuf;
+				}
+			}
+		}
+        uint32 hostnamelen = (hostnamestr) ? strlen(hostnamestr) : 0;
+        uint32 flags = (!server) ? CSSM_APPLE_TP_SSL_CLIENT : 0;
+        CSSM_APPLE_TP_SSL_OPTIONS opts = {CSSM_APPLE_TP_SSL_OPTS_VERSION, hostnamelen, hostnamestr, flags};
+        CSSM_DATA data = {sizeof(opts), (uint8*)&opts};
+        SecPolicySetValue(policy, &data);
+		
+		if (strbuf) {
+			free(strbuf);
+		}
+    }
+	if (policySearch) {
+		CFRelease(policySearch);
+	}
+    return policy;
+}
+

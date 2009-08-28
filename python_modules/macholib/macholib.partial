@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>macholib</string>
+        <key>OpenSourceVersion</key>
+        <string>1.2.1.dev-r432</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://undefined.org/python/#macholib</string>
+        <key>OpenSourceSVN</key>
+        <string>svn export http://svn.red-bean.com/pyobjc/trunk/pyobjc/macholib</string>
+        <key>OpenSourceImportDate</key>
+        <string>2009-01-21</string>
+        <key>OpenSourceLicense</key>
+        <string>MIT</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>python_modules.txt</string>
+</dict>

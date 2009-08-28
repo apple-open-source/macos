@@ -4,7 +4,7 @@
 # SOAP::Lite is free software; you can redistribute it
 # and/or modify it under the same terms as Perl itself.
 #
-# $Id: HTTP.pm,v 1.17 2006/01/27 21:30:38 byrnereese Exp $
+# $Id: HTTP.pm,v 1.19 2006/06/15 18:23:28 byrnereese Exp $
 #
 # ======================================================================
 
@@ -313,13 +313,14 @@ sub handle {
        $content_type !~ m!^multipart/!;
 
   # TODO - Handle the Expect: 100-Continue HTTP/1.1 Header
-  if ($self->request->header("Expect") eq "100-Continue") {
+  if (defined($self->request->header("Expect")) && 
+      ($self->request->header("Expect") eq "100-Continue")) { 
       
   }
 
 
-  # TODO - this should query SOAP::Packager to see what types it supports, I don't
-  #        like how this is hardcoded here.
+  # TODO - this should query SOAP::Packager to see what types it supports, 
+  #        I don't like how this is hardcoded here.
   my $content = $compressed ? 
     Compress::Zlib::uncompress($self->request->content) 
       : $self->request->content;
@@ -519,42 +520,99 @@ sub new {
     $self = $class->SUPER::new(@_);
     SOAP::Trace::objects('()');
   }
-  die "Could not find or load mod_perl"
-      unless (eval "require mod_perl");
-  die "Could not detect your version of mod_perl"
-      if (!defined($mod_perl::VERSION));
-  if ($mod_perl::VERSION < 1.99) {
-      require Apache;
-      require Apache::Constants;
-      Apache::Constants->import('OK');
-      $self->{'MOD_PERL_VERSION'} = 1;
-  } elsif ($mod_perl::VERSION < 3) {
-      require Apache::RequestRec;
-      require Apache::RequestIO;
-      require Apache::Const;
-      Apache::Const->import(-compile => 'OK');
+
+#  die "Could not find or load mod_perl"
+#      unless (eval "require mod_perl");
+#  die "Could not detect your version of mod_perl"
+#      if (!defined($mod_perl::VERSION));
+#  if ($mod_perl::VERSION < 1.99) {
+#      require Apache;
+#      require Apache::Constants;
+#      Apache::Constants->import('OK');
+#      $self->{'MOD_PERL_VERSION'} = 1;
+#  } elsif ($mod_perl::VERSION < 3) {
+#      require Apache2::RequestRec;
+#      require Apache2::RequestIO;
+#      require Apache2::Const;
+#      Apache2::Const->import(-compile => 'OK');
+#      $self->{'MOD_PERL_VERSION'} = 2;
+#  } else {
+#      die "Unsupported version of mod_perl";
+#  }
+
+  # Added this code thanks to JT Justman
+  # This code improves and provides more robust support for
+  # multiple versions of Apache and mod_perl
+  if( defined $ENV{MOD_PERL_API_VERSION} && 
+      $ENV{MOD_PERL_API_VERSION} >= 2) { # mod_perl 2.0
+      require Apache2::RequestRec;
+      require Apache2::RequestIO;
+      require Apache2::Const;
+      require APR::Table;
+      Apache2::Const->import(-compile => 'OK'); 
       $self->{'MOD_PERL_VERSION'} = 2;
-  } else {
-      die "Unsupported version of mod_perl";
-  }
+      $self->{OK} = &Apache2::Const::OK;
+  } else { # mod_perl 1.xx
+      die "Could not find or load mod_perl"
+	  unless (eval "require mod_perl");
+      die "Could not detect your version of mod_perl"
+	  if (!defined($mod_perl::VERSION));
+      if ($mod_perl::VERSION < 1.99) {
+	  require Apache;
+	  require Apache::Constants;
+	  Apache::Constants->import('OK');
+	  $self->{'MOD_PERL_VERSION'} = 1;
+	  $self->{OK} = &Apache::Constants::OK;
+      } else {
+	  require Apache::RequestRec;
+	  require Apache::RequestIO;
+	  require Apache::Const;
+	  Apache::Const->import(-compile => 'OK');
+	  $self->{'MOD_PERL_VERSION'} = 1.99;
+	  $self->{OK} = &Apache::OK;
+      }
+  }  
+  
+
   return $self;
 }
 
 sub handler { 
   my $self = shift->new; 
   my $r = shift;
-  $r = Apache->request if (!$r && $self->{'MOD_PERL_VERSION'} == 1);
 
-  if ($r->header_in('Expect') =~ /\b100-Continue\b/i) {
+# Pre 0.68 code
+#  $r = Apache->request if (!$r && $self->{'MOD_PERL_VERSION'} == 1);
+#  if ($r->header_in('Expect') =~ /\b100-Continue\b/i) {
+#      $r->print("HTTP/1.1 100 Continue\r\n\r\n");
+#  }
+
+  # Begin patch from JT Justman
+  if (!$r) {
+      if ( $self->{'MOD_PERL_VERSION'} < 2 ) { 
+	  $r = Apache->request();
+      } else { 
+	  $r = Apache2::RequestUtil->request();
+      }
+  }
+  
+  my $cont_len;
+  if ( $self->{'MOD_PERL_VERSION'} == 1 ) { 
+      $cont_len = $r->header_in ('Content-length');
+  } else { 
+      $cont_len = $r->headers_in->get('Content-length'); 
+  }
+  if ($r->headers_in->{'Expect'} =~ /\b100-Continue\b/i) {
       $r->print("HTTP/1.1 100 Continue\r\n\r\n");
   }
+  # End patch from JT Justman
 
   $self->request(HTTP::Request->new( 
     $r->method() => $r->uri,
     HTTP::Headers->new($r->headers_in),
     do { 
 	my ($c,$buf); 
-	while ($r->read($buf,$r->header_in('Content-length'))) { 
+	while ($r->read($buf,$cont_len)) { 
 	    $c.=$buf; 
 	} 
 	$c; 
@@ -569,10 +627,25 @@ sub handler {
   # will emulate normal response, but with custom status code 
   # which could also be 500.
   $r->status($self->response->code);
-  $self->response->headers->scan(sub { $r->header_out(@_) });
-  $r->send_http_header(join '; ', $self->response->content_type);
+
+# pre 0.68
+#  $self->response->headers->scan(sub { $r->header_out(@_) });
+#  $r->send_http_header(join '; ', $self->response->content_type);
+#  $r->print($self->response->content);
+#  return $self->{'MOD_PERL_VERSION'} == 2 ? &Apache::OK : &Apache::Constants::OK;
+
+  # Begin JT Justman patch
+  if ( $self->{'MOD_PERL_VERSION'} > 1 ) {
+      $self->response->headers->scan(sub { $r->headers_out->set(@_) });
+      $r->content_type(join '; ', $self->response->content_type);
+  } else {
+      $self->response->headers->scan(sub { $r->header_out(@_) });
+      $r->send_http_header(join '; ', $self->response->content_type);
+  }
   $r->print($self->response->content);
-  return $self->{'MOD_PERL_VERSION'} == 2 ? &Apache::OK : &Apache::Constants::OK;
+  return $self->{OK};
+  # End JT Justman patch
+
 }
 
 sub configure {

@@ -120,13 +120,14 @@ typeset -gA _lastcomp
 # Remember dumpfile.
 if [[ -n $_i_dumpfile ]]; then
   # Explicitly supplied dumpfile.
-  _comp_dumpfile="$_i_dumpfile"
+  typeset -g _comp_dumpfile="$_i_dumpfile"
 else
-  _comp_dumpfile="${ZDOTDIR:-$HOME}/.zcompdump"
+  typeset -g _comp_dumpfile="${ZDOTDIR:-$HOME}/.zcompdump"
 fi
 
 # The standard options set in completion functions.
 
+typeset -ga _comp_options
 _comp_options=(
        bareglobqual
        extendedglob
@@ -138,9 +139,11 @@ _comp_options=(
     NO_allexport
     NO_aliases
     NO_cshnullglob
+    NO_cshjunkiequotes
     NO_errexit
     NO_globsubst
     NO_histsubstpattern
+    NO_ignorebraces
     NO_kshglob
     NO_ksharrays
     NO_kshtypeset
@@ -157,14 +160,17 @@ _comp_options=(
 # have a valid stdin descriptor (zle closes it before calling widgets)
 # and don't get confused by user's ZERR trap handlers.
 
-_comp_setup='setopt localoptions localtraps ${_comp_options[@]};
+typeset -g _comp_setup='setopt localoptions localtraps ${_comp_options[@]};
              local IFS=$'\'\ \\t\\r\\n\\0\''
              exec </dev/null;
-             trap - ZERR'
+             trap - ZERR
+             local -a reply
+             local REPLY'
 
 # These can hold names of functions that are to be called before/after all
 # matches have been generated.
 
+typeset -ga compprefuncs comppostfuncs
 compprefuncs=()
 comppostfuncs=()
 
@@ -271,7 +277,7 @@ compdef() {
         if [[ "$1" = *\=* ]]; then
 	  cmd="${1%%\=*}"
 	  svc="${1#*\=}"
-          func="$_comps[${_services[(R)$svc]:-$svc}]"
+          func="$_comps[${_services[(r)$svc]:-$svc}]"
           [[ -n ${_services[$svc]} ]] &&
               svc=${_services[$svc]}
 	  [[ -z "$func" ]] &&
@@ -417,8 +423,9 @@ if [[ -n "$_i_check" ]]; then
   if ! eval compaudit; then
     if [[ -n "$_i_q" ]]; then
       if [[ "$_i_fail" = ask ]]; then
-        if ! read -q "?Ignore insecure $_i_q and continue [ny]? "; then
-	  print -u2 "run compaudit to see list of insecure $_i_q"
+        if ! read -q \
+"?zsh compinit: insecure $_i_q, run compaudit for list.
+Ignore insecure $_i_q and continue [y] or abort compinit [n]? "; then
 	  print -u2 "$0: initialization aborted"
           unfunction compinit compdef
           unset _comp_dumpfile _comp_secure compprefuncs comppostfuncs \

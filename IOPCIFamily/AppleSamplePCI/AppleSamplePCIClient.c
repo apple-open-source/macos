@@ -19,12 +19,12 @@ void TestSharedMemory( io_connect_t connect );
 
 int main( int argc, char * argv[] )
 {
-    mach_port_t   		masterPort;
-    io_iterator_t 		iter;
-    io_service_t 		service;
-    kern_return_t		kr;
-    CFMutableDictionaryRef	properties;
-    CFStringRef			cfStr;
+    mach_port_t                 masterPort;
+    io_iterator_t               iter;
+    io_service_t                service;
+    kern_return_t               kr;
+    CFMutableDictionaryRef      properties;
+    CFStringRef                 cfStr;
 
     kr = IOMasterPort( MACH_PORT_NULL, &masterPort);
     assert( KERN_SUCCESS == kr );
@@ -47,14 +47,14 @@ int main( int argc, char * argv[] )
         printf("Found a device of class "kAppleSamplePCIClassName": %s\n", path);
 
         // print the value of kIONameMatchedKey property, as an example of 
-	// getting properties from the registry. Property based access
-	// doesn't require a user client connection.
+        // getting properties from the registry. Property based access
+        // doesn't require a user client connection.
 
         // grab a copy of the properties
         kr = IORegistryEntryCreateCFProperties( service, &properties,
                     kCFAllocatorDefault, kNilOptions );
         assert( KERN_SUCCESS == kr );
-	
+        
         cfStr = CFDictionaryGetValue( properties, CFSTR(kIONameMatchedKey) );
         if( cfStr) {
             const char * c = NULL;
@@ -88,14 +88,14 @@ int main( int argc, char * argv[] )
 
 void Test( mach_port_t masterPort, io_service_t service )
 {
-    kern_return_t		kr;
-    io_connect_t		connect;
-    size_t			structureOutputSize;
-    AppleSampleStructForMethod2	 method2Param;
+    kern_return_t               kr;
+    io_connect_t                connect;
+    size_t                      structureOutputSize;
+    AppleSampleStructForMethod2  method2Param;
     AppleSampleResultsForMethod2 method2Results;
-    uint32_t			varStructParam[3] = { 1, 2, 3 };
-    IOByteCount			bigBufferLen;
-    uint32_t *			bigBuffer;
+    uint32_t                    varStructParam[3] = { 1, 2, 3 };
+    IOByteCount                 bigBufferLen;
+    uint32_t *                  bigBuffer;
 
     kr = IOServiceOpen( service, mach_task_self(), kAppleSamplePCIConnectType, &connect );
     assert( KERN_SUCCESS == kr );
@@ -112,10 +112,10 @@ void Test( mach_port_t masterPort, io_service_t service )
                             &varStructParam, &structureOutputSize );
 #else
     kr = IOConnectMethodStructureIStructureO( connect, kAppleSampleMethod1,
-						sizeof(varStructParam),	/* structureInputSize */
-						&structureOutputSize,	/* structureOutputSize */
-						&varStructParam,        /* inputStructure */
-						&varStructParam);       /* ouputStructure */
+                                                sizeof(varStructParam), /* structureInputSize */
+                                                &structureOutputSize,   /* structureOutputSize */
+                                                &varStructParam,        /* inputStructure */
+                                                &varStructParam);       /* ouputStructure */
 #endif
 
     assert( KERN_SUCCESS == kr );
@@ -144,10 +144,10 @@ void Test( mach_port_t masterPort, io_service_t service )
                             &method2Results, &structureOutputSize );
 #else
     kr = IOConnectMethodStructureIStructureO( connect, kAppleSampleMethod2,
-						sizeof(method2Param),	/* structureInputSize */
-						&structureOutputSize,	/* structureOutputSize */
-						&method2Param,          /* inputStructure */
-						&method2Results);       /* ouputStructure */
+                                                sizeof(method2Param),   /* structureInputSize */
+                                                &structureOutputSize,   /* structureOutputSize */
+                                                &method2Param,          /* inputStructure */
+                                                &method2Results);       /* ouputStructure */
 #endif
 
     assert( KERN_SUCCESS == kr );
@@ -159,15 +159,15 @@ void Test( mach_port_t masterPort, io_service_t service )
 
 void TestSharedMemory( io_connect_t connect )
 {
-    kern_return_t		kr;
-    AppleSampleSharedMemory *	shared;
+    kern_return_t               kr;
+    AppleSampleSharedMemory *   shared;
 
 #if __LP64__
-    mach_vm_address_t		addr;
-    mach_vm_size_t		size;
+    mach_vm_address_t           addr;
+    mach_vm_size_t              size;
 #else
-    vm_address_t		addr;
-    vm_size_t		size;
+    vm_address_t                addr;
+    vm_size_t           size;
 #endif
     
     kr = IOConnectMapMemory( connect, kAppleSamplePCIMemoryType1,

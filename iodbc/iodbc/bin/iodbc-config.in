@@ -196,7 +196,7 @@ if test "$echo_libs" = "yes"; then
 	if test "$lib_iodbc" = "yes"; then
 		libs="$libs -liodbc -liodbcinst"
 	fi
-	echo "$libs"
+	echo "-L@libdir@ $libs"
 fi
 if test "$echo_staticlibs" = "yes"; then
 	libs=""

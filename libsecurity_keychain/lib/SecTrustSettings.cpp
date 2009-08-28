@@ -83,14 +83,15 @@ static bool tsUserTrustSettingsDisabled()
 		return tsUserTrustDisable;
 	}
 	tsUserTrustDisable = false;
-	try {
-		Dictionary prefsDict(kSecTrustSettingsPrefsDomain, Dictionary::US_System);
+	
+	Dictionary* dictionary = Dictionary::CreateDictionary(kSecTrustSettingsPrefsDomain, Dictionary::US_System);
+	if (dictionary)
+	{
+		auto_ptr<Dictionary> prefsDict(dictionary);
 		/* this returns false if the pref isn't there, just like we want */
-		tsUserTrustDisable = prefsDict.getBoolValue(kSecTrustSettingsDisableUserTrustSettings);
+		tsUserTrustDisable = prefsDict->getBoolValue(kSecTrustSettingsDisableUserTrustSettings);
 	}
-	catch(...) {
-		/* prefs must not be there */
-	}
+	
 	tsUserTrustDisableValid = true;
 	return tsUserTrustDisable;
 }
@@ -110,13 +111,6 @@ static bool tsUserTrustSettingsDisabled()
  * It's recursive to accomodate CodeSigning's need to do cert verification
  * (while we evaluate app equivalence). 
  */
-class RecursiveMutex : public Mutex
-{
-public:
-	RecursiveMutex() : Mutex(recursive) {}
-	~RecursiveMutex() {}
-};
-
 static ModuleNexus<RecursiveMutex> sutCacheLock;
 
 #define TRUST_SETTINGS_NUM_DOMAINS		3
@@ -182,17 +176,15 @@ static TrustSettings *tsGetGlobalTrustSettings(
 	assert(globalTrustSettings[domain] == NULL);
 	
 	/* try to find one */
+	OSStatus result = noErr;
 	TrustSettings *ts = NULL;
-	try {
-		/* don't create; trim if found */
-		ts = new TrustSettings(domain, CREATE_NO, TRIM_YES);
+	/* don't create; trim if found */
+	result = TrustSettings::CreateTrustSettings(domain, CREATE_NO, TRIM_YES, ts);
+	if(result != noErr && result != errSecNoTrustSettings) {
+		/* gross error */
+		MacOSError::throwMe(result);
 	}
-	catch(const MacOSError &merr) {
-		if(merr.error != errSecNoTrustSettings) {
-			/* gross error */
-			throw;
-		}
-
+	else if (result != noErr) {
 		/* 
 		 * No TrustSettings for this domain, actually a fairly common case. 
 		 * Optimize: don't bother trying this again.
@@ -202,6 +194,7 @@ static TrustSettings *tsGetGlobalTrustSettings(
 		tsRegisterCallback();
 		return NULL;
 	}
+	
 	tsSetGlobalTrustSettings(ts, domain);
 	return ts;
 }
@@ -308,23 +301,28 @@ static OSStatus tsCopyTrustSettings(
 	TS_REQUIRED(cert)
 
 	/* obtain fresh full copy from disk */
-	try {
-		TrustSettings ts(domain, CREATE_NO, TRIM_NO);
-		if(trustSettings) {
-			*trustSettings = ts.copyTrustSettings(cert);
-		}
-		if(modDate) {
-			*modDate = ts.copyModDate(cert);
-		}
-		return noErr;
+	OSStatus result;
+	TrustSettings* ts;
+	
+	result = TrustSettings::CreateTrustSettings(domain, CREATE_NO, TRIM_NO, ts);
+
+	// rather than throw these results, just return them because we are at the top level
+	if (result == errSecNoTrustSettings) {
+		return errSecItemNotFound;
 	}
-	catch(const MacOSError &merr) {
-		if(merr.error == errSecNoTrustSettings) {
-			/* munge this one by convention */
-			MacOSError::throwMe(errSecItemNotFound);
-		}
-		throw;
+	else if (result != noErr) {
+		return result;
 	}
+	
+	auto_ptr<TrustSettings>_(ts); // make sure this gets deleted just in case something throws underneath
+
+	if(trustSettings) {
+		*trustSettings = ts->copyTrustSettings(cert);
+	}
+	if(modDate) {
+		*modDate = ts->copyModDate(cert);
+	}
+
 	END_RCSAPI
 }
 
@@ -459,7 +457,7 @@ OSStatus SecTrustSettingsEvaluateCert(
 	
 	/* ensure a NULL_terminated string */
 	auto_array<char> polStr;
-	if(policyString != NULL) {
+	if(policyString != NULL && policyStringLen > 0) {
 		polStr.allocate(policyStringLen + 1);
 		memmove(polStr.get(), policyString, policyStringLen);
 		if(policyString[policyStringLen - 1] != '\0') {
@@ -644,11 +642,20 @@ OSStatus SecTrustSettingsSetTrustSettingsExternal(
 
 	TS_REQUIRED(settingsOut)
 
-	TrustSettings ts(kSecTrustSettingsDomainMemory, settingsIn);
-	if(certRef != NULL) {
-		ts.setTrustSettings(certRef, trustSettingsDictOrArray);	
+	OSStatus result;
+	TrustSettings* ts;
+	
+	result = TrustSettings::CreateTrustSettings(kSecTrustSettingsDomainMemory, settingsIn, ts);
+	if (result != noErr) {
+		return result;
 	}
-	*settingsOut = ts.createExternal();
+	
+	auto_ptr<TrustSettings>_(ts);
+	
+	if(certRef != NULL) {
+		ts->setTrustSettings(certRef, trustSettingsDictOrArray);	
+	}
+	*settingsOut = ts->createExternal();
 	return noErr;
 
 	END_RCSAPI
@@ -698,9 +705,18 @@ OSStatus SecTrustSettingsSetTrustSettings(
 		return errSecDataNotModifiable;
 	}
 
-	TrustSettings ts(domain, CREATE_YES, TRIM_NO);
-	ts.setTrustSettings(certRef, trustSettingsDictOrArray);
-	ts.flushToDisk();
+	OSStatus result;
+	TrustSettings* ts;
+	
+	result = TrustSettings::CreateTrustSettings(domain, CREATE_YES, TRIM_NO, ts);
+	if (result != noErr) {
+		return result;
+	}
+	
+	auto_ptr<TrustSettings>_(ts);
+
+	ts->setTrustSettings(certRef, trustSettingsDictOrArray);
+	ts->flushToDisk();
 	tsTrustSettingsChanged();
 	return noErr;
 
@@ -719,13 +735,21 @@ OSStatus SecTrustSettingsRemoveTrustSettings(
 		return errSecDataNotModifiable;
 	}
 
-	TrustSettings ts(domain, CREATE_NO, TRIM_NO);
+	OSStatus result;
+	TrustSettings* ts;
+	
+	result = TrustSettings::CreateTrustSettings(domain, CREATE_NO, TRIM_NO, ts);
+	if (result != noErr) {
+		return result;
+	}
 
+	auto_ptr<TrustSettings>_(ts);
+	
 	/* deleteTrustSettings throws if record not found */
 	trustSettingsDbg("SecTrustSettingsRemoveTrustSettings: deleting from domain %d",
 		(int)domain);
-	ts.deleteTrustSettings(cert);
-	ts.flushToDisk();
+	ts->deleteTrustSettings(cert);
+	ts->flushToDisk();
 	tsTrustSettingsChanged();
 	return noErr;
 
@@ -741,7 +765,16 @@ OSStatus SecTrustSettingsCopyCertificates(
 
 	TS_REQUIRED(certArray)
 
-	TrustSettings ts(domain, CREATE_NO, TRIM_NO);
+	OSStatus result;
+	TrustSettings* ts;
+	
+	result = TrustSettings::CreateTrustSettings(domain, CREATE_NO, TRIM_NO, ts);
+	if (result != noErr) {
+		return result;
+	}
+
+	auto_ptr<TrustSettings>_(ts);
+
 	CFMutableArrayRef outArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 
 	/*
@@ -773,7 +806,7 @@ OSStatus SecTrustSettingsCopyCertificates(
 			/* already validated when we created the TrustSettings */
 			break;
 	}
-	ts.findCerts(keychains, outArray);
+	ts->findCerts(keychains, outArray);
 	if(CFArrayGetCount(outArray) == 0) {
 		CFRelease(outArray);
 		return errSecNoTrustSettings;
@@ -794,8 +827,17 @@ OSStatus SecTrustSettingsCreateExternalRepresentation(
 
 	TS_REQUIRED(trustSettings)
 
-	TrustSettings ts(domain, CREATE_NO, TRIM_NO);
-	*trustSettings = ts.createExternal();
+	OSStatus result;
+	TrustSettings* ts;
+	
+	result = TrustSettings::CreateTrustSettings(domain, CREATE_NO, TRIM_NO, ts);
+	if (result != noErr) {
+		return result;
+	}
+
+	auto_ptr<TrustSettings>_(ts);
+
+	*trustSettings = ts->createExternal();
 	return noErr;
 
 	END_RCSAPI
@@ -815,8 +857,17 @@ OSStatus SecTrustSettingsImportExternalRepresentation(
 		return errSecDataNotModifiable;
 	}
 
-	TrustSettings ts(domain, trustSettings);
-	ts.flushToDisk();
+	OSStatus result;
+	TrustSettings* ts;
+	
+	result = TrustSettings::CreateTrustSettings(domain, trustSettings, ts);
+	if (result != noErr) {
+		return result;
+	}
+
+	auto_ptr<TrustSettings>_(ts);
+
+	ts->flushToDisk();
 	tsTrustSettingsChanged();
 	return noErr;
 

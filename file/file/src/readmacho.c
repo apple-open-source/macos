@@ -1,23 +1,22 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -37,6 +36,9 @@
 
 #include "file.h"
 
+/* Silence a compiler warning. */
+FILE_RCSID("")
+
 static void
 print_arch_name_for_file(struct magic_set *ms, cpu_type_t cputype,
 	cpu_subtype_t cpusubtype)
@@ -46,7 +48,7 @@ print_arch_name_for_file(struct magic_set *ms, cpu_type_t cputype,
 	ArchInfoTable = NXGetAllArchInfos();
 
 	for (ai = ArchInfoTable; ai->name != NULL; ai++) {
-		if(ai->cputype == cputype && ai->cpusubtype == (cpusubtype & ~CPU_SUBTYPE_MASK)) {
+		if(ai->cputype == cputype && ai->cpusubtype == (cpu_subtype_t)(cpusubtype & ~CPU_SUBTYPE_MASK)) {
 			file_printf(ms, " (for architecture %s)", ai->name);
 			return;
 		}
@@ -66,7 +68,7 @@ file_trymacho(struct magic_set *ms, int fd, const unsigned char *buf,
 	struct fat_arch *fat_archs;
 	uint32_t arch_size, i;
 	ssize_t tbytes;
-	unsigned char tmpbuf[HOWMANY];
+	unsigned char *tmpbuf;
 
 	if (fstat(fd, &stat_buf) == -1) {
 		return -1;
@@ -119,12 +121,16 @@ file_trymacho(struct magic_set *ms, int fd, const unsigned char *buf,
 			return -1;
 		}
 
-		if ((tbytes = read(fd, tmpbuf, sizeof(tmpbuf))) == -1) {
+		tmpbuf = malloc(HOWMANY + 1);
+		memset(tmpbuf, 0, sizeof(tmpbuf));
+		if ((tbytes = read(fd, tmpbuf, HOWMANY)) == -1) {
 			free(fat_archs);
+			free(tmpbuf);
 			return -1;
 		}
 
-		file_buffer(ms, -1, tmpbuf, (size_t)tbytes);
+		file_buffer(ms, -1, inname, tmpbuf, (size_t)tbytes);
+		free(tmpbuf);
 	}
 
 	free(fat_archs);

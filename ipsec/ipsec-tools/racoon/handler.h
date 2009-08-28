@@ -1,4 +1,6 @@
-/* $Id: handler.h,v 1.11.4.3 2005/05/07 17:26:05 manubsd Exp $ */
+/*	$NetBSD: handler.h,v 1.9 2006/09/09 16:22:09 manu Exp $	*/
+
+/* Id: handler.h,v 1.19 2006/02/25 08:25:12 manubsd Exp */
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -39,6 +41,8 @@
 
 #include "isakmp_var.h"
 #include "oakley.h"
+
+typedef struct ike_session ike_session_t;
 
 /* Phase 1 handler */
 /*
@@ -112,6 +116,7 @@ struct ph1handle {
 
 	int status;			/* status of this SA */
 	int side;			/* INITIATOR or RESPONDER */
+	int started_by_api;		/* connection started by VPNControl API */
 
 	struct sockaddr *remote;	/* remote address to negosiate ph1 */
 	struct sockaddr *local;		/* local address to negosiate ph1 */
@@ -128,15 +133,18 @@ struct ph1handle {
 	u_int8_t etype;			/* Exchange type actually for use */
 	u_int8_t flags;			/* Flags */
 	u_int32_t msgid;		/* message id */
-
+	
+#ifdef ENABLE_NATT
 	struct ph1natt_options *natt_options;	/* Selected NAT-T IKE version */
 	u_int32_t natt_flags;		/* NAT-T related flags */
+#endif
 #ifdef ENABLE_FRAG
 	int frag;			/* IKE phase 1 fragmentation */
 	struct isakmp_frag_item *frag_chain;	/* Received fragments */
 #endif
 
 	struct sched *sce;		/* schedule for expire */
+	struct sched *sce_rekey; /* schedule for rekey */
 
 	struct sched *scr;		/* schedule for resend */
 	int retry_counter;		/* for resend. */
@@ -165,7 +173,7 @@ struct ph1handle {
 	struct genlist *rsa_candidates;	/* possible candidates for peer's RSA key */
 	vchar_t *id;			/* ID minus gen header */
 	vchar_t *id_p;			/* partner's ID minus general header */
-					/* i.e. strut ipsecdoi_id_b*. */
+					/* i.e. struct ipsecdoi_id_b*. */
 	struct isakmp_ivm *ivm;		/* IVs */
 
 	vchar_t *sa;			/* whole SA payload to send/to be sent*/
@@ -191,12 +199,19 @@ struct ph1handle {
 	struct timeval end;
 #endif
 
+#ifdef ENABLE_DPD
 	int		dpd_support;	/* Does remote supports DPD ? */
 	time_t		dpd_lastack;	/* Last ack received */
 	u_int16_t	dpd_seq;		/* DPD seq number to receive */
 	u_int8_t	dpd_fails;		/* number of failures */
+    u_int8_t         peer_sent_ike;
 	struct sched	*dpd_r_u;
+#endif
 
+#ifdef ENABLE_VPNCONTROL_PORT
+	struct sched *ping_sched;	/* for sending pings to keep FW open */
+#endif
+	
 	u_int32_t msgid2;		/* msgid counter for Phase 2 */
 	int ph2cnt;	/* the number which is negotiated by this phase 1 */
 	LIST_HEAD(_ph2ofph1_, ph2handle) ph2tree;
@@ -204,8 +219,16 @@ struct ph1handle {
 	LIST_ENTRY(ph1handle) chain;
 #ifdef ENABLE_HYBRID
 	struct isakmp_cfg_state *mode_cfg;	/* ISAKMP mode config state */
-#endif       
-
+	u_int8_t pended_xauth_id;			/* saved id for reply from vpn control socket */
+	u_int8_t xauth_awaiting_userinput;	/* indicates we are waiting for user input */
+        vchar_t *xauth_awaiting_userinput_msg; /* tracks the last packet that triggered XAUTH */
+#endif
+#ifdef __APPLE__
+	int                    is_rekey:1;
+	int                    is_dying:1;
+	ike_session_t         *parent_session;
+	LIST_ENTRY(ph1handle)  ph1ofsession_chain;
+#endif
 };
 
 /* Phase 2 handler */
@@ -311,7 +334,13 @@ struct ph2handle {
 	struct timeval end;
 #endif
 	struct ph1handle *ph1;	/* back pointer to isakmp status */
-
+#ifdef __APPLE__
+	int                    is_rekey:1;
+	int                    is_dying:1;
+	ike_session_t         *parent_session;
+	LIST_ENTRY(ph2handle)  ph2ofsession_chain;
+#endif
+	
 	LIST_ENTRY(ph2handle) chain;
 	LIST_ENTRY(ph2handle) ph1bind;	/* chain to ph1handle */
 };
@@ -424,12 +453,21 @@ extern struct ph1handle *getph1byaddr __P((struct sockaddr *,
 extern struct ph1handle *getph1byaddrwop __P((struct sockaddr *,
 	struct sockaddr *));
 extern struct ph1handle *getph1bydstaddrwop __P((struct sockaddr *));
+extern int islast_ph1 __P((struct ph1handle *));
+	struct ph1handle *ph1;
+#ifdef ENABLE_HYBRID
+struct ph1handle *getph1bylogin __P((char *));
+int purgeph1bylogin __P((char *));
+#endif
+extern int purgephXbydstaddrwop __P((struct sockaddr *));
+extern void purgephXbyspid __P((u_int32_t, int));
+
 extern vchar_t *dumpph1 __P((void));
 extern struct ph1handle *newph1 __P((void));
 extern void delph1 __P((struct ph1handle *));
 extern int insph1 __P((struct ph1handle *));
 extern void remph1 __P((struct ph1handle *));
-extern void flushph1 __P((void));
+extern void flushph1 __P((int));
 extern void initph1tree __P((void));
 
 extern struct ph2handle *getph2byspidx __P((struct policyindex *));
@@ -447,12 +485,14 @@ extern void initph2 __P((struct ph2handle *));
 extern void delph2 __P((struct ph2handle *));
 extern int insph2 __P((struct ph2handle *));
 extern void remph2 __P((struct ph2handle *));
-extern void flushph2 __P((void));
+extern void flushph2 __P((int));
 extern void deleteallph2 __P((struct sockaddr *, struct sockaddr *, u_int));
+extern void deleteallph1 __P((struct sockaddr *, struct sockaddr *));
 extern void initph2tree __P((void));
 
 extern void bindph12 __P((struct ph1handle *, struct ph2handle *));
 extern void unbindph12 __P((struct ph2handle *));
+extern void rebindph12 __P((struct ph1handle *, struct ph2handle *));
 
 extern struct contacted *getcontacted __P((struct sockaddr *));
 extern int inscontacted __P((struct sockaddr *));
@@ -462,12 +502,16 @@ extern void initctdtree __P((void));
 extern int check_recvdpkt __P((struct sockaddr *,
 	struct sockaddr *, vchar_t *));
 extern int add_recvdpkt __P((struct sockaddr *, struct sockaddr *,
-	vchar_t *, vchar_t *));
+	vchar_t *, vchar_t *, size_t));
 extern void clear_recvdpkt __P((void));
 extern void init_recvdpkt __P((void));
 
 #ifdef ENABLE_HYBRID
 extern int exclude_cfg_addr __P((const struct sockaddr *));
+#endif
+
+#ifdef ENABLE_DPD
+extern int  ph1_force_dpd __P((struct sockaddr *));
 #endif
 
 #endif /* _HANDLER_H */

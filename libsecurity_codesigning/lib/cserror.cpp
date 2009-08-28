@@ -25,7 +25,7 @@
 // cserror.h - extended-diagnostics Code Signing errors
 //
 #include "cs.h"
-#include "cfmunge.h"
+#include <security_utilities/cfmunge.h>
 
 namespace Security {
 namespace CodeSigning {

@@ -68,10 +68,6 @@
 #ifndef _RESOLV_9_H_
 #define	_RESOLV_9_H_
 
-#ifdef BIND_8_COMPAT
-#include <resolv8_compat.h>
-#else
-
 #include <sys/param.h>
 #if (!defined(BSD)) || (BSD < 199306)
 # include <sys/bitypes.h>
@@ -82,8 +78,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <stdio.h>
-#include <arpa/nameser.h>
-
+#include <nameser.h>
 
 /*
  * Revision information.  This is the release date in YYYYMMDD format.
@@ -495,5 +490,4 @@ void		res_setservers __P((res_state, const union res_sockaddr_union *, int));
 int		res_getservers __P((res_state, union res_sockaddr_union *, int));
 __END_DECLS
 
-#endif /* !BIND_8_COMPAT */
 #endif /* !_RESOLV_9_H_ */

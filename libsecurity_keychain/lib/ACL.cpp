@@ -58,7 +58,7 @@ const CSSM_ACL_HANDLE ACL::ownerHandle;
 // Create an ACL object from the result of a CSSM ACL query
 //
 ACL::ACL(Access &acc, const AclEntryInfo &info, Allocator &alloc)
-	: allocator(alloc), access(acc), mState(unchanged), mSubjectForm(NULL)
+	: allocator(alloc), access(acc), mState(unchanged), mSubjectForm(NULL), mMutex(Mutex::recursive)
 {
 	// parse the subject
 	parse(info.proto().subject());
@@ -74,7 +74,7 @@ ACL::ACL(Access &acc, const AclEntryInfo &info, Allocator &alloc)
 }
 
 ACL::ACL(Access &acc, const AclOwnerPrototype &owner, Allocator &alloc)
-	: allocator(alloc), access(acc), mState(unchanged), mSubjectForm(NULL)
+	: allocator(alloc), access(acc), mState(unchanged), mSubjectForm(NULL), mMutex(Mutex::recursive)
 {
 	// parse subject
 	parse(owner.subject());
@@ -96,7 +96,7 @@ ACL::ACL(Access &acc, const AclOwnerPrototype &owner, Allocator &alloc)
 // then change its form to allowAnyForm.
 //
 ACL::ACL(Access &acc, Allocator &alloc)
-	: allocator(alloc), access(acc), mSubjectForm(NULL)
+	: allocator(alloc), access(acc), mSubjectForm(NULL), mMutex(Mutex::recursive)
 {
 	mState = inserted;		// new
 	mForm = allowAllForm;	// everybody
@@ -117,7 +117,7 @@ ACL::ACL(Access &acc, Allocator &alloc)
 //
 ACL::ACL(Access &acc, string description, const CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR &promptSelector,
 		Allocator &alloc)
-	: allocator(alloc), access(acc), mSubjectForm(NULL)
+	: allocator(alloc), access(acc), mSubjectForm(NULL), mMutex(Mutex::recursive)
 {
 	mState = inserted;		// new
 	mForm = appListForm;
@@ -145,8 +145,9 @@ ACL::~ACL()
 //
 // Does this ACL authorize a particular right?
 //
-bool ACL::authorizes(AclAuthorization right) const
+bool ACL::authorizes(AclAuthorization right)
 {
+	StLock<Mutex>_(mMutex);
 	return mAuthorizations.find(right) != mAuthorizations.end()
 		|| mAuthorizations.find(CSSM_ACL_AUTHORIZATION_ANY) != mAuthorizations.end()
 		|| mAuthorizations.empty();
@@ -159,6 +160,7 @@ bool ACL::authorizes(AclAuthorization right) const
 //
 void ACL::addApplication(TrustedApplication *app)
 {
+	StLock<Mutex>_(mMutex);
 	switch (mForm) {
 	case appListForm:	// simple...
 		mAppList.push_back(app);
@@ -183,6 +185,7 @@ void ACL::addApplication(TrustedApplication *app)
 //
 void ACL::modify()
 {
+	StLock<Mutex>_(mMutex);
 	if (mState == unchanged) {
 		secdebug("SecAccess", "ACL %p marked modified", this);
 		mState = modified;
@@ -199,6 +202,7 @@ void ACL::modify()
 //
 void ACL::remove()
 {
+	StLock<Mutex>_(mMutex);
 	mAppList.clear();
 	mForm = invalidForm;
 	mState = deleted;
@@ -211,6 +215,7 @@ void ACL::remove()
 //
 void ACL::copyAclEntry(AclEntryPrototype &proto, Allocator &alloc)
 {
+	StLock<Mutex>_(mMutex);
 	proto.clearPod();	// preset
 	
 	// carefully copy the subject
@@ -228,6 +233,7 @@ void ACL::copyAclEntry(AclEntryPrototype &proto, Allocator &alloc)
 
 void ACL::copyAclOwner(AclOwnerPrototype &proto, Allocator &alloc)
 {
+	StLock<Mutex>_(mMutex);
 	proto.clearPod();
 	
 	makeSubject();
@@ -248,6 +254,7 @@ void ACL::copyAclOwner(AclOwnerPrototype &proto, Allocator &alloc)
 void ACL::setAccess(AclBearer &target, bool update,
 	const AccessCredentials *cred)
 {
+	StLock<Mutex>_(mMutex);
 	// determine what action we need to perform
 	State action = state();
 	if (!update)
@@ -317,6 +324,7 @@ void ACL::setAccess(AclBearer &target, bool update,
 //
 void ACL::parse(const TypedList &subject)
 {
+	StLock<Mutex>_(mMutex);
 	try {
 		switch (subject.type()) {
 		case CSSM_ACL_SUBJECT_TYPE_ANY:
@@ -369,6 +377,7 @@ void ACL::parse(const TypedList &subject)
 
 void ACL::parsePrompt(const TypedList &subject)
 {
+	StLock<Mutex>_(mMutex);
 	assert(subject.length() == 3);
 	mPromptSelector =
 		*subject[1].data().interpretedAs<CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR>(CSSM_ERRCODE_INVALID_ACL_SUBJECT_VALUE);
@@ -381,6 +390,7 @@ void ACL::parsePrompt(const TypedList &subject)
 //
 void ACL::makeSubject()
 {
+	StLock<Mutex>_(mMutex);
 	switch (form()) {
 	case allowAllForm:
 		chunkFree(mSubjectForm, allocator);	// release previous

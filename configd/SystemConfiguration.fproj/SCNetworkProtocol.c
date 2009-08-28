@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -45,12 +45,16 @@ static Boolean		__SCNetworkProtocolEqual		(CFTypeRef cf1, CFTypeRef cf2);
 static CFHashCode	__SCNetworkProtocolHash			(CFTypeRef cf);
 
 
+#if	!TARGET_OS_IPHONE
 const CFStringRef kSCNetworkProtocolTypeAppleTalk       = CFSTR("AppleTalk");
+#endif	// !TARGET_OS_IPHONE
 const CFStringRef kSCNetworkProtocolTypeDNS		= CFSTR("DNS");
 const CFStringRef kSCNetworkProtocolTypeIPv4		= CFSTR("IPv4");
 const CFStringRef kSCNetworkProtocolTypeIPv6		= CFSTR("IPv6");
 const CFStringRef kSCNetworkProtocolTypeProxies		= CFSTR("Proxies");
+#if	!TARGET_OS_IPHONE
 const CFStringRef kSCNetworkProtocolTypeSMB		= CFSTR("SMB");
+#endif	// !TARGET_OS_IPHONE
 
 
 static CFTypeID __kSCNetworkProtocolTypeID	= _kCFRuntimeNotATypeID;
@@ -177,12 +181,16 @@ __SCNetworkProtocolIsValidType(CFStringRef protocolType)
 {
 	int				i;
 	static const CFStringRef	*valid_types[]   = {
+#if	!TARGET_OS_IPHONE
 		&kSCNetworkProtocolTypeAppleTalk,
+#endif	// !TARGET_OS_IPHONE
 		&kSCNetworkProtocolTypeDNS,
 		&kSCNetworkProtocolTypeIPv4,
 		&kSCNetworkProtocolTypeIPv6,
 		&kSCNetworkProtocolTypeProxies,
-		&kSCNetworkProtocolTypeSMB
+#if	!TARGET_OS_IPHONE
+		&kSCNetworkProtocolTypeSMB,
+#endif	// !TARGET_OS_IPHONE
 	};
 
 	for (i = 0; i < sizeof(valid_types)/sizeof(valid_types[0]); i++) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2005-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -75,7 +75,6 @@
 #include "fsutil.h"
 
 static const char *dev = NULL;
-static int hot = 0;		/* DEAD CODE */
 
 extern char *__progname;
 
@@ -85,19 +84,6 @@ void
 setcdevname(const char *cd)
 {
 	dev = cd;
-}
-
-const char *
-cdevname()
-{
-	return dev;
-}
-
-/* DEAD CODE */
-int
-hotroot()
-{
-	return hot;
 }
 
 /*VARARGS*/
@@ -200,93 +186,4 @@ perr(s)
 	const char *s;
 {
 	pfatal("%s (%s)\n", s, strerror(errno));
-}
-
-/* DEAD CODE */
-const char *
-unrawname(name)
-	const char *name;
-{
-	static char unrawbuf[32];
-	const char *dp;
-	struct stat stb;
-
-	if ((dp = strrchr(name, '/')) == 0)
-		return (name);
-	if (stat(name, &stb) < 0)
-		return (name);
-	if (!S_ISCHR(stb.st_mode))
-		return (name);
-	if (dp[1] != 'r')
-		return (name);
-	(void)snprintf(unrawbuf, 32, "%.*s/%s", (int)(dp - name), name, dp + 2);
-	return (unrawbuf);
-}
-
-/* DEAD CODE */
-const char *
-rawname(name)
-	const char *name;
-{
-	static char rawbuf[32];
-	const char *dp;
-
-	if ((dp = strrchr(name, '/')) == 0)
-		return (0);
-	(void)snprintf(rawbuf, 32, "%.*s/r%s", (int)(dp - name), name, dp + 1);
-	return (rawbuf);
-}
-
-/* DEAD CODE */
-const char *
-blockcheck(origname)
-	const char *origname;
-{
-	struct stat stslash, stblock, stchar;
-	const char *newname, *raw;
-	struct fstab *fsp;
-	int retried = 0;
-
-	hot = 0;
-	if (stat("/", &stslash) < 0) {
-		perr("/");
-		printf("Can't stat root\n");
-		return (origname);
-	}
-	newname = origname;
-retry:
-	if (stat(newname, &stblock) < 0) {
-		perr(newname);
-		printf("Can't stat %s\n", newname);
-		return (origname);
-	}
-	if (S_ISBLK(stblock.st_mode)) {
-		if (stslash.st_dev == stblock.st_rdev)
-			hot++;
-		raw = rawname(newname);
-		if (stat(raw, &stchar) < 0) {
-			perr(raw);
-			printf("Can't stat %s\n", raw);
-			return (origname);
-		}
-		if (S_ISCHR(stchar.st_mode)) {
-			return (raw);
-		} else {
-			printf("%s is not a character device\n", raw);
-			return (origname);
-		}
-	} else if (S_ISCHR(stblock.st_mode) && !retried) {
-		newname = unrawname(newname);
-		retried++;
-		goto retry;
-	} else if ((fsp = getfsfile(newname)) != 0 && !retried) {
-		newname = fsp->fs_spec;
-		retried++;
-		goto retry;
-	}
-	/*
-	 * Not a block or character device, just return name and
-	 * let the user decide whether to use it.
-	 */
-	return (origname);
 }

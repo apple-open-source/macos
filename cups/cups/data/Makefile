@@ -1,9 +1,9 @@
 #
-# "$Id: Makefile 7015 2007-10-10 22:00:43Z mike $"
+# "$Id: Makefile 7871 2008-08-27 21:12:43Z mike $"
 #
 #   Datafile makefile for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 2007 by Apple Inc.
+#   Copyright 2007-2008 by Apple Inc.
 #   Copyright 1993-2006 by Easy Software Products.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -73,7 +73,17 @@ CHARSETS =	\
 DATAFILES =	\
 		HPGLprolog \
 		psglyphs \
-		testprint.ps
+		testprint
+
+PPDCFILES =	\
+		epson.h \
+		escp.h \
+		font.defs \
+		hp.h \
+		label.h \
+		media.defs \
+		pcl.h \
+		raster.defs
 
 
 #
@@ -81,6 +91,20 @@ DATAFILES =	\
 #
 
 all:
+
+
+#
+# Make library targets...
+#
+
+libs:
+
+
+#
+# Make unit tests...
+#
+
+unittests:
 
 
 #
@@ -98,10 +122,17 @@ depend:
 
 
 #
-# Install files...
+# Install all targets...
 #
 
-install:	all
+install:	all install-data install-headers install-libs install-exec
+
+
+#
+# Install data files...
+#
+
+install-data:
 	$(INSTALL_DIR) -m 755 $(DATADIR)/banners
 	for file in $(BANNERS); do \
 		$(INSTALL_DATA) $$file $(DATADIR)/banners; \
@@ -111,14 +142,42 @@ install:	all
 		$(INSTALL_DATA) $$file $(DATADIR)/charmaps; \
 	done
 	$(INSTALL_DIR) -m 755 $(DATADIR)/charsets
-	for file in $(CHARSETS); do \
-		$(INSTALL_DATA) $$file $(DATADIR)/charsets; \
-	done
+	if test "x$(BANNERTOPS)" != x -o "x$(TEXTTOPS)" != x; then \
+		for file in $(CHARSETS); do \
+			$(INSTALL_DATA) $$file $(DATADIR)/charsets; \
+		done; \
+	fi
 	$(INSTALL_DIR) -m 755 $(DATADIR)/data
 	for file in $(DATAFILES); do \
 		$(INSTALL_DATA) $$file $(DATADIR)/data; \
 	done
+	$(INSTALL_DIR) -m 755 $(DATADIR)/model
+	$(INSTALL_DIR) -m 755 $(DATADIR)/ppdc
+	for file in $(PPDCFILES); do \
+		$(INSTALL_DATA) $$file $(DATADIR)/ppdc; \
+	done
 	$(INSTALL_DIR) -m 755 $(DATADIR)/profiles
+
+
+#
+# Install programs...
+#
+
+install-exec:
+
+
+#
+# Install headers...
+#
+
+install-headers:
+
+
+#
+# Install libraries...
+#
+
+install-libs:
 
 
 #
@@ -138,7 +197,12 @@ uninstall:
 	for file in $(DATAFILES); do \
 		$(RM) $(DATADIR)/data/$$file; \
 	done
+	for file in $(PPDCFILES); do \
+		$(RM) $(DATADIR)/ppdc/$$file; \
+	done
 	-$(RMDIR) $(DATADIR)/profiles
+	-$(RMDIR) $(DATADIR)/ppdc
+	-$(RMDIR) $(DATADIR)/model
 	-$(RMDIR) $(DATADIR)/data
 	-$(RMDIR) $(DATADIR)/charsets
 	-$(RMDIR) $(DATADIR)/charmaps
@@ -147,5 +211,5 @@ uninstall:
 
 
 #
-# End of "$Id: Makefile 7015 2007-10-10 22:00:43Z mike $".
+# End of "$Id: Makefile 7871 2008-08-27 21:12:43Z mike $".
 #

@@ -48,8 +48,8 @@ module core {
         [ImplementationFunction=windowVisible] boolean isWindowVisible();
         [ImplementationFunction=searchingForNodeInPage] boolean searchingForNode();
 
-        [Custom] void addResourceSourceToFrame(in long long identifier, in Node frame);
-        [Custom] void addSourceToFrame(in DOMString mimeType, in DOMString sourceValue, in Node frame);
+        void addResourceSourceToFrame(in long identifier, in Node frame);
+        boolean addSourceToFrame(in DOMString mimeType, in DOMString sourceValue, in Node frame);
         [Custom] Node getResourceDocumentNode(in long long identifier);
         [Custom] void search(in Node node, in DOMString query);
 #if defined(ENABLE_DATABASE) && ENABLE_DATABASE
@@ -64,10 +64,13 @@ module core {
         [ImplementationFunction=moveWindowBy] void moveByUnrestricted(in float x, in float y);
         void setAttachedWindowHeight(in unsigned long height);
         [Custom] DOMObject wrapCallback(in DOMObject callback);
+        boolean resourceTrackingEnabled();
+        void enableResourceTracking(in boolean always);
+        void disableResourceTracking(in boolean always);
 
 #if defined(ENABLE_JAVASCRIPT_DEBUGGER) && ENABLE_JAVASCRIPT_DEBUGGER
-        void enableDebugger();
-        void disableDebugger();
+        void enableDebuggerFromFrontend(in boolean always);
+        void disableDebugger(in boolean always);
         void pauseInDebugger();
         void resumeDebugger();
         void stepOverStatementInDebugger();
@@ -78,12 +81,12 @@ module core {
         boolean profilerEnabled();
         [ImplementationFunction=startUserInitiatedProfiling] void startProfiling();
         [ImplementationFunction=stopUserInitiatedProfiling] void stopProfiling();
-        void enableProfiler();
-        void disableProfiler();
+        void enableProfiler(in boolean always);
+        void disableProfiler(in boolean always);
         [Custom] DOMObject currentCallFrame();
         void setPauseOnExceptions(in boolean pauseOnExceptions);
-        void addBreakpoint(in unsigned long sourceID, in unsigned long lineNumber);
-        void removeBreakpoint(in unsigned long sourceID, in unsigned long lineNumber);
+        void addBreakpoint(in DOMString sourceID, in unsigned long lineNumber);
+        void removeBreakpoint(in DOMString sourceID, in unsigned long lineNumber);
 
         [Custom] Array profiles();
 #endif

@@ -2,11 +2,13 @@
     @updated 2999-10-10
  */
 
-/*! @class Bar
-    @discussion This is a test class.
+/*! @class This_Does_Not_Contain_Templates
+    @discussion This is a test class.  This tests to make sure that
+        less than and greater than signs in code are not interpreted
+        as template parameters.
     @updated 2003-04-01
 */
-class Bar {
+class This_Does_Not_Contain_Templates {
     public:
     /*! @functiongroup group_1 */
     /*!	@function foo
@@ -49,13 +51,13 @@ private:
 int foovar;
 } ;
 
-/*! @template correlate
+/*! @template This_Does_Contain_Templates
     @templatefield FOO this is the base data type
     @templatefield BAR this is the data type of correlated data
     @discussion This class does basic correlation of two data types
 */
 template <class FOO, BAR>
-class correlate
+class This_Does_Contain_Templates
 {
     public:
 	/*! @function insert

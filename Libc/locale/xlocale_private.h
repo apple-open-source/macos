@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2005, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,6 +32,7 @@
 #include <locale.h>
 #include <libkern/OSAtomic.h>
 #include <pthread.h>
+#include <pthread_spinlock.h>
 #include <limits.h>
 #include "setlocale.h"
 #include "collate.h"
@@ -111,11 +112,6 @@ struct __xlocale_st_time {
 	struct lc_time_T _time_locale;
 };
 
-struct __xlocale_st_localeconv {
-	__STRUCT_COMMON
-	struct lconv __ret;
-};
-
 /* the extended locale structure */
     /* values for __numeric_fp_cvt */
 #define	LC_NUMERIC_FP_UNINITIALIZED	0
@@ -136,6 +132,7 @@ struct _xlocale {
 	__darwin_mbstate_t __mbs_wcsnrtombs;
 	__darwin_mbstate_t __mbs_wcsrtombs;
 	__darwin_mbstate_t __mbs_wctomb;
+	pthread_lock_t __lock;
 /* magic (Here up to the end is copied when duplicating locale_t's) */
 	int64_t __magic;
 /* flags */
@@ -162,7 +159,7 @@ struct _xlocale {
 /* time */
 	struct __xlocale_st_time *__lc_time;
 /* localeconv */
-	struct __xlocale_st_localeconv *__lc_localeconv;
+	struct lconv __lc_localeconv;
 };
 
 #define NORMALIZE_LOCALE(x)	if ((x) == NULL) { \
@@ -171,12 +168,14 @@ struct _xlocale {
 					(x) = &__global_locale; \
 				}
 
-#define	XL_RELEASE(x)	if ((x) && (x)->__free_extra != XPERMANENT && OSAtomicDecrement32Barrier(&(x)->__refcount) <= 0) { \
+#define XL_LOCK(x)	LOCK((x)->__lock);
+#define	XL_RELEASE(x)	if ((x) && (x)->__free_extra != XPERMANENT && OSAtomicDecrement32Barrier(&(x)->__refcount) == 0) { \
 				if ((x)->__free_extra) \
 					(*(x)->__free_extra)((x)); \
 				free((x)); \
 			}
 #define	XL_RETAIN(x)	if ((x) && (x)->__free_extra != XPERMANENT) { OSAtomicIncrement32Barrier(&(x)->__refcount); }
+#define XL_UNLOCK(x)	UNLOCK((x)->__lock);
 
 __private_extern__ struct __xlocale_st_runelocale _DefaultRuneXLocale;
 __private_extern__ struct _xlocale	__global_locale;
@@ -198,7 +197,8 @@ __current_locale(void)
 static inline __attribute__((always_inline)) locale_t
 __locale_ptr(locale_t __loc)
 {
-	return (__loc == LC_GLOBAL_LOCALE ? &__global_locale : __loc);
+	NORMALIZE_LOCALE(__loc);
+	return __loc;
 }
 
 __END_DECLS

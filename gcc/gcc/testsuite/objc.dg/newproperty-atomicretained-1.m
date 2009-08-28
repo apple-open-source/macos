@@ -3,6 +3,7 @@
    with gc-only mode. */
 /* { dg-options "-fobjc-gc-only -fobjc-new-property -mmacosx-version-min=10.5 -framework Foundation" } */
 /* { dg-do run { target *-*-darwin* } } */
+/* { dg-require-effective-target objc_gc } */
 
 #import <Foundation/Foundation.h>
 

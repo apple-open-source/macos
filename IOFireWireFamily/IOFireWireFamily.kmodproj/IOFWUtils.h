@@ -24,6 +24,8 @@ UInt16 FWUpdateCRC16(UInt16 crc16, UInt32 quad);
 UInt32 AddFWCycleTimeToFWCycleTime( UInt32 cycleTime1, UInt32 cycleTime2 );
 UInt32 SubtractFWCycleTimeFromFWCycleTime( UInt32 cycleTime1, UInt32 cycleTime2);
 
+void IOFWGetAbsoluteTime( AbsoluteTime * result );
+	
 #ifdef __cplusplus
 }
 #endif

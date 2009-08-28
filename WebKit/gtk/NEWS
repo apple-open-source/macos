@@ -1,0 +1,198 @@
+=================
+WebKitGTK+ 1.1.10
+=================
+
+What's new in WebKitGTK+ 1.1.10?
+
+  - WebKitNetworkRequest has now GObject properties for its URI and
+    the SoupMessage that backs it up.
+  - Fix AtkText methods get_selection and get_n_selections to not use
+    the global selection but only the selection that belongs to the
+    object being used.
+  - Fix a crasher when emitting the a11y signal 'text-caret-moved' in
+    some situations with debug builds.
+
+================
+WebKitGTK+ 1.1.9
+================
+
+What's new in WebKitGTK+ 1.1.9?
+
+  - Scrolling once again received a lot of love, and many subtle
+    problems and bugs were killed, and we now get correct behavior in
+    acid2; a number of smaller improvements are in the queue.
+  - Accessibility keeps gaining better support. On this release a lot
+    of work was done on the AtkText interface implementation.
+  - WebKitNetworkRequest now carries with it all the information
+    regarding the request, not only the URI. This means you will no
+    longer miss headers such as Referer when passing NetworkRequest
+    objects from a callback to webkit_web_frame_load_request.
+
+================
+WebKitGTK+ 1.1.8
+================
+
+What's new in WebKitGTK+ 1.1.8?
+
+  - We found out that WebKitWebHistoryItems were being kept with a
+    reference count of 2 instead of 1 as they should; nobody should be
+    relying on that, but if you hit reference counting problems with
+    items you were creating yourself, this is for you.
+  - You can now copy images from the web page to the clipboard.
+  - Improvements were made to the Plugin handling code.
+  - Scroll events will now be correctly reported to web applications.
+  - You can now embed arbitrary widgets as if it was a plugin, with
+    the new "create-plugin-widget" signal.
+  - The atk_text_get_text_{at,after,before}_offset methods are now
+    implemented for all boundary types except LINE_AFTER and
+    LINE_BEFORE.
+  - The usual stream of minor fixes and improvements, as always.
+
+================
+WebKitGTK+ 1.1.7
+================
+
+What's new in WebKitGTK+ 1.1.7?
+
+  - This release includes a security fix:
+    SVGList::insertItemBefore would not perform a bounds check on the
+    index it was provided, potentially leading to a buffer overflow.
+  - New frame loading properties supersede various load-* signals, and
+    are also accessible in the WebView, for convenience, making this
+    API saner.
+  - JIT is now supported for X86-64 on Linux, and enabled by default!
+  - A regression on webkit_web_view_load_string has been fixed, making
+    it work correctly again when the document uses encodings which may
+    use more than 1 byte per character.
+  - Yet more work has been done to the ATK support, caret browsing
+    support improvements in particular.
+  - Filenames suggested by the Download functionality now correctly
+    use the filename given by the host, if available.
+  - Build fixes for IA64, and AMD64
+  - gtk-doc support has also improved, and you should now be able to
+    cd WebKit/gtk/docs and type make docs, if you --enable-gtk-doc on
+    configure, as long as you build  with srcdir == builddir.
+  - More crashes and other bugs fixed, and small improvements made
+    under the hood.
+
+================
+WebKitGTK+ 1.1.6
+================
+
+What's new in WebKitGTK+ 1.1.6?
+
+  - Several ATK support additions and fixes got landed, with many
+    roles being now implemented, providing better accessibility.
+  - Caret browsing is now available.
+  - Spelling check has been implemented using Enchant; the API is
+    still lacking, and some of the functionality still needs to be
+    improved, though.
+  - Error reporting is now available, with default error pages, and
+    API that allows the application to override the default behavior;
+    localization of those pages is still not supported, but planned.
+  - More crashes and other bugs fixed.
+
+================
+WebKitGTK+ 1.1.5
+================
+
+What's new in WebKitGTK+ 1.1.5?
+
+  - Added gtk-doc support to the build system. It is not fully
+    integrated yet, so some manual tweaking is still needed.
+  - Minimum required GTK+ version is now 2.10.
+  - Added l10n support with gettext. Translations are stored in
+    WebKit/gtk/po/.
+  - Many improvements to the ATK support. It's good enough to provide
+    a basic user experience with Accerciser now, but we'll keep
+    improving it in further releases.
+  - New printing API that allows applications to control and monitor
+    the printing process, when requested by javascript or started by
+    the user.
+  - Many bugfixes.
+
+================
+WebKitGTK+ 1.1.4
+================
+
+What's new in WebKitGTK+ 1.1.4?
+
+  - WebKitWebView gained uri and title properties, deprecating the
+    usage of the title-changed signal.
+  - Basic functionality for HTML5 media tags has been achieved; there
+    are many unimplented methods, and rough edges still, though.
+  - Font rendering received quite some love, with layouting, and
+    memory handling fixes, and at least one less crash.
+  - A new signal, new-window-policy-decision-requested, has been added
+    to WebKitWebView, that makes it possible for the application to
+    correctly decide what to do when new windows are requested.
+  - A bug that made tooltips for consecutive links not update their
+    location was fixed.
+  - Several improvements were made to the HTTP backend, including
+    making it more robust when talking to servers which send bad
+    Content-Type headers.
+  - WebKitWebView now uses the GtkBinding system to handle key events,
+    which means that the user is now able to customize the keys used
+    for various operations, and that many subtle bugs have been fixed.
+
+================
+WebKitGTK+ 1.1.3
+================
+
+The 1.1.3 release was just a quick bug fix release, because we made a
+mistake in library versioning.
+
+================
+WebKitGTK+ 1.1.2
+================
+
+What's new in WebKitGTK+ 1.1.2?
+
+  - Added support for downloads: a new signal, 'download-requested',
+    will be emitted by WebKit when a dowload is requested. On top of
+    that, the download process has been encapsulated in a new object,
+    WebKitDownload, which allows the user to control it or to start
+    new downloads from the client side.
+  - Added webkit_web_view_get_encoding to get the automatic encoding
+    of the current page.
+  - Added GObject properties for 'encoding' and 'custom-encoding'.
+  - Added 'javascript-profiling-enabled' property to the WebInspector,
+    which allows to enable and disable the profiling functionality.
+  - Added API to create and add history items to WebKit's history.
+  - Improved debugging support with WEBKIT_DEBUG environment
+    variable. Most of the settings will only give useful output for
+    debug builds, but WEBKIT_DEBUG=Network will log all HTTP traffic
+    form libsoup to console. See WebCore/platform/gtk/LoggingGtk.cpp
+    for all the options available.
+  - Lots of bugfixes.
+
+================
+WebKitGTK+ 1.1.1
+================
+
+What's new in WebKitGTK+ 1.1.1?
+
+  - ABI compatibility with 1.0.3 was broken, so you will need to
+    recompile your application against 1.1.1
+  - Support for the CURL backend was dropped, libsoup is the only HTTP
+    backend now.
+  - webkit_get_default_session, to get the SoupSession used internally
+    by WebKit.
+  - 'create-web-view' signal, emitted when the creation of a new
+    window is requested.
+  - 'navigation-policy-decision-requested' signal, emitted when a
+    navigation to another page is requested.
+  - 'mime-type-policy-decision-requested' signal, emitted each time
+    WebKit is about to show a URI with a given MIME type.
+  - Support for the Web Inspector
+    (see http://webkit.org/blog/197/web-inspector-redesign/)
+  - HTTP authentication support, with optional gnome-keyring storage.
+  - New load functions: webkit_web_view_open, webkit_web_view_load_uri
+    and webkit_web_view_load_request. The old
+    webkit_web_view_load_string and webkit_web_view_load_html_string
+    are now deprecated.
+  - webkit_web_view_reload_bypass_cache
+  - webkit_web_view_{get,set}_custom_encoding, to override the
+    encoding of the current page.
+  - Improved stability and lots of bugfixes.
+

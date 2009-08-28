@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -44,6 +44,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "except.h"
 #include "tree.h"
+#include "timevar.h"
+#include "tree-pass.h"
 
 static int reload_cse_noop_set_p (rtx);
 static void reload_cse_simplify (rtx, rtx);
@@ -293,7 +295,7 @@ reload_cse_simplify_set (rtx set, rtx insn)
 		  if (this_val == trunc_int_for_mode (this_val, GET_MODE (src)))
 		    break;
 		default:
-		  abort ();
+		  gcc_unreachable ();
 		}
 	      this_rtx = GEN_INT (this_val);
 	    }
@@ -573,6 +575,7 @@ reload_cse_simplify_operands (rtx insn, rtx testreg)
 		      op_alt_regno[i][j] = regno;
 		    }
 		  j++;
+		  class = (int) NO_REGS;
 		  break;
 		}
 	      p += CONSTRAINT_LEN (c, p);
@@ -605,7 +608,7 @@ reload_cse_simplify_operands (rtx insn, rtx testreg)
 	  int this_nregs = alternative_nregs[alternative_order[j]];
 
 	  if (this_reject < best_reject
-	      || (this_reject == best_reject && this_nregs < best_nregs))
+	      || (this_reject == best_reject && this_nregs > best_nregs))
 	    {
 	      best = j;
 	      best_reject = this_reject;
@@ -728,7 +731,7 @@ reload_combine (void)
      destination.  */
   min_labelno = get_first_label_num ();
   n_labels = max_label_num () - min_labelno;
-  label_live = xmalloc (n_labels * sizeof (HARD_REG_SET));
+  label_live = XNEWVEC (HARD_REG_SET, n_labels);
   CLEAR_HARD_REG_SET (ever_live_at_start);
 
   FOR_EACH_BB_REVERSE (bb)
@@ -739,9 +742,9 @@ reload_combine (void)
 	  HARD_REG_SET live;
 
 	  REG_SET_TO_HARD_REG_SET (live,
-				   bb->global_live_at_start);
+				   bb->il.rtl->global_live_at_start);
 	  compute_use_by_pseudos (&live,
-				  bb->global_live_at_start);
+				  bb->il.rtl->global_live_at_start);
 	  COPY_HARD_REG_SET (LABEL_LIVE (insn), live);
 	  IOR_HARD_REG_SET (ever_live_at_start, live);
 	}
@@ -1068,8 +1071,7 @@ reload_combine_note_use (rtx *xp, rtx insn)
       if (REG_P (SET_DEST (x)))
 	{
 	  /* No spurious CLOBBERs of pseudo registers may remain.  */
-	  if (REGNO (SET_DEST (x)) >= FIRST_PSEUDO_REGISTER)
-	    abort ();
+	  gcc_assert (REGNO (SET_DEST (x)) < FIRST_PSEUDO_REGISTER);
 	  return;
 	}
       break;
@@ -1089,8 +1091,7 @@ reload_combine_note_use (rtx *xp, rtx insn)
 	int nregs;
 
 	/* No spurious USEs of pseudo registers may remain.  */
-	if (regno >= FIRST_PSEUDO_REGISTER)
-	  abort ();
+	gcc_assert (regno < FIRST_PSEUDO_REGISTER);
 
 	nregs = hard_regno_nregs[regno][GET_MODE (x)];
 
@@ -1244,10 +1245,8 @@ reload_cse_move2add (rtx first)
 
 	      if (GET_CODE (src) == CONST_INT && reg_base_reg[regno] < 0)
 		{
-		  rtx new_src =
-		    GEN_INT (trunc_int_for_mode (INTVAL (src)
-						 - reg_offset[regno],
-						 GET_MODE (reg)));
+		  rtx new_src = gen_int_mode (INTVAL (src) - reg_offset[regno],
+					      GET_MODE (reg));
 		  /* (set (reg) (plus (reg) (const_int 0))) is not canonical;
 		     use (set (reg) (reg)) instead.
 		     We don't delete this insn, nor do we convert it into a
@@ -1269,7 +1268,7 @@ reload_cse_move2add (rtx first)
 		      rtx tem = gen_rtx_PLUS (GET_MODE (reg), reg, new_src);
 		      validate_change (insn, &SET_SRC (pat), tem, 0);
 		    }
-		  else
+		  else if (GET_MODE (reg) != BImode)
 		    {
 		      enum machine_mode narrow_mode;
 		      for (narrow_mode = GET_CLASS_NARROWEST_MODE (MODE_INT);
@@ -1285,9 +1284,8 @@ reload_cse_move2add (rtx first)
 			    {
 			      rtx narrow_reg = gen_rtx_REG (narrow_mode,
 							    REGNO (reg));
-			      rtx narrow_src =
-				GEN_INT (trunc_int_for_mode (INTVAL (src),
-							     narrow_mode));
+			      rtx narrow_src = gen_int_mode (INTVAL (src),
+							     narrow_mode);
 			      rtx new_set =
 				gen_rtx_SET (VOIDmode,
 					     gen_rtx_STRICT_LOW_PART (VOIDmode,
@@ -1336,10 +1334,10 @@ reload_cse_move2add (rtx first)
 		      HOST_WIDE_INT base_offset = reg_offset[REGNO (src)];
 		      HOST_WIDE_INT regno_offset = reg_offset[regno];
 		      rtx new_src =
-			GEN_INT (trunc_int_for_mode (added_offset
-						     + base_offset
-						     - regno_offset,
-						     GET_MODE (reg)));
+			gen_int_mode (added_offset
+				      + base_offset
+				      - regno_offset,
+				      GET_MODE (reg));
 		      int success = 0;
 
 		      if (new_src == const0_rtx)
@@ -1566,3 +1564,40 @@ move2add_note_store (rtx dst, rtx set, void *data ATTRIBUTE_UNUSED)
 	reg_set_luid[i] = 0;
     }
 }
+
+static bool
+gate_handle_postreload (void)
+{
+  return (optimize > 0);
+}
+
+
+static unsigned int
+rest_of_handle_postreload (void)
+{
+  /* Do a very simple CSE pass over just the hard registers.  */
+  reload_cse_regs (get_insns ());
+  /* reload_cse_regs can eliminate potentially-trapping MEMs.
+     Remove any EH edges associated with them.  */
+  if (flag_non_call_exceptions)
+    purge_all_dead_edges ();
+  return 0;
+}
+
+struct tree_opt_pass pass_postreload_cse =
+{
+  "postreload",                         /* name */
+  gate_handle_postreload,               /* gate */
+  rest_of_handle_postreload,            /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_RELOAD_CSE_REGS,                   /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
+  'o'                                   /* letter */
+};
+

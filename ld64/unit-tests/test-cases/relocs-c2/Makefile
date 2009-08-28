@@ -34,7 +34,6 @@ include ${TESTROOT}/include/common.makefile
 # Currently for ppc64 the .o's alternate! in content
 #
 
-LD=ld64
 
 run: all
 

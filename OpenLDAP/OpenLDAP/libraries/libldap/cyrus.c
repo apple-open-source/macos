@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/cyrus.c,v 1.112.2.14 2006/05/15 15:26:46 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/cyrus.c,v 1.133.2.8 2008/02/11 23:26:41 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -163,11 +163,11 @@ sb_sasl_setup( Sockbuf_IO_Desc *sbiod, void *arg )
 	ber_pvt_sb_buf_init( &p->buf_out );
 	if ( ber_pvt_sb_grow_buffer( &p->sec_buf_in, SASL_MIN_BUFF_SIZE ) < 0 ) {
 		LBER_FREE( p );
-		errno = ENOMEM;
+		sock_errset(ENOMEM);
 		return -1;
 	}
 	sasl_getprop( p->sasl_context, SASL_MAXOUTBUF,
-		(SASL_CONST void **) &p->sasl_maxbuf );
+		(SASL_CONST void **)(char *) &p->sasl_maxbuf );
 	    
 	sbiod->sbiod_pvt = p;
 
@@ -290,7 +290,7 @@ sb_sasl_read( Sockbuf_IO_Desc *sbiod, void *buf, ber_len_t len)
 	if ( ( p->sec_buf_in.buf_size < (ber_len_t) ret ) && 
 		ber_pvt_sb_grow_buffer( &p->sec_buf_in, ret ) < 0 )
 	{
-		errno = ENOMEM;
+		sock_errset(ENOMEM);
 		return -1;
 	}
 	p->sec_buf_in.buf_end = ret;
@@ -329,7 +329,7 @@ sb_sasl_read( Sockbuf_IO_Desc *sbiod, void *buf, ber_len_t len)
 		ber_log_printf( LDAP_DEBUG_ANY, sbiod->sbiod_sb->sb_debug,
 			"sb_sasl_read: failed to decode packet: %s\n",
 			sasl_errstring( ret, NULL, NULL ) );
-		errno = EIO;
+		sock_errset(EIO);
 		return -1;
 	}
 	
@@ -358,7 +358,7 @@ sb_sasl_write( Sockbuf_IO_Desc *sbiod, void *buf, ber_len_t len)
 
 		/* Still have something left?? */
 		if ( p->buf_out.buf_ptr != p->buf_out.buf_end ) {
-			errno = EAGAIN;
+			sock_errset(EAGAIN);
 			return -1;
 		}
 	}
@@ -385,7 +385,7 @@ sb_sasl_write( Sockbuf_IO_Desc *sbiod, void *buf, ber_len_t len)
 		ber_log_printf( LDAP_DEBUG_ANY, sbiod->sbiod_sb->sb_debug,
 			"sb_sasl_write: failed to encode packet: %s\n",
 			sasl_errstring( ret, NULL, NULL ) );
-		errno = EIO;
+		sock_errset(EIO);
 		return -1;
 	}
 	p->buf_out.buf_end = p->buf_out.buf_size;
@@ -690,9 +690,9 @@ ldap_int_sasl_bind(
 	{
 		char authid[sizeof("gidNumber=4294967295+uidNumber=4294967295,"
 			"cn=peercred,cn=external,cn=auth")];
-		sprintf( authid, "gidNumber=%d+uidNumber=%d,"
+		sprintf( authid, "gidNumber=%u+uidNumber=%u,"
 			"cn=peercred,cn=external,cn=auth",
-			(int) getegid(), (int) geteuid() );
+			getegid(), geteuid() );
 		(void) ldap_int_sasl_external( ld, ld->ld_defconn, authid,
 			LDAP_PVT_SASL_LOCAL_SSF );
 	}
@@ -867,7 +867,7 @@ ldap_int_sasl_bind(
 
 	if( flags != LDAP_SASL_QUIET ) {
 		saslrc = sasl_getprop( ctx, SASL_USERNAME,
-			(SASL_CONST void **) &data );
+			(SASL_CONST void **)(char *) &data );
 		if( saslrc == SASL_OK && data && *data ) {
 			fprintf( stderr, "SASL username: %s\n", data );
 		}
@@ -881,7 +881,7 @@ ldap_int_sasl_bind(
 #endif
 	}
 
-	saslrc = sasl_getprop( ctx, SASL_SSF, (SASL_CONST void **) &ssf );
+	saslrc = sasl_getprop( ctx, SASL_SSF, (SASL_CONST void **)(char *) &ssf );
 	if( saslrc == SASL_OK ) {
 		if( flags != LDAP_SASL_QUIET ) {
 			fprintf( stderr, "SASL SSF: %lu\n",
@@ -889,9 +889,6 @@ ldap_int_sasl_bind(
 		}
 
 		if( ssf && *ssf ) {
-			if( flags != LDAP_SASL_QUIET ) {
-				fprintf( stderr, "SASL installing layers\n" );
-			}
 			if ( ld->ld_defconn->lconn_sasl_sockctx ) {
 				oldctx = ld->ld_defconn->lconn_sasl_sockctx;
 				sasl_dispose( &oldctx );
@@ -899,6 +896,10 @@ ldap_int_sasl_bind(
 			}
 			ldap_pvt_sasl_install( ld->ld_defconn->lconn_sb, ctx );
 			ld->ld_defconn->lconn_sasl_sockctx = ctx;
+
+			if( flags != LDAP_SASL_QUIET ) {
+				fprintf( stderr, "SASL data security layer installed.\n" );
+			}
 		}
 	}
 	ld->ld_defconn->lconn_sasl_authctx = ctx;
@@ -918,6 +919,8 @@ ldap_int_sasl_external(
 	sasl_conn_t *ctx;
 #if SASL_VERSION_MAJOR < 2
 	sasl_external_properties_t extprops;
+#else
+	sasl_ssf_t sasl_ssf = ssf;
 #endif
 
 	ctx = conn->lconn_sasl_authctx;
@@ -927,7 +930,7 @@ ldap_int_sasl_external(
 	}
    
 #if SASL_VERSION_MAJOR >= 2
-	sc = sasl_setprop( ctx, SASL_SSF_EXTERNAL, &ssf );
+	sc = sasl_setprop( ctx, SASL_SSF_EXTERNAL, &sasl_ssf );
 	if ( sc == SASL_OK )
 		sc = sasl_setprop( ctx, SASL_AUTH_EXTERNAL, authid );
 #else
@@ -1177,7 +1180,7 @@ ldap_int_sasl_get_option( LDAP *ld, int option, void *arg )
 			}
 
 			sc = sasl_getprop( ctx, SASL_SSF,
-				(SASL_CONST void **) &ssf );
+				(SASL_CONST void **)(char *) &ssf );
 
 			if ( sc != SASL_OK ) {
 				return -1;
@@ -1218,7 +1221,7 @@ ldap_int_sasl_get_option( LDAP *ld, int option, void *arg )
 int
 ldap_int_sasl_set_option( LDAP *ld, int option, void *arg )
 {
-	if ( ld == NULL )
+	if ( ld == NULL || arg == NULL )
 		return -1;
 
 	switch ( option ) {
@@ -1230,6 +1233,8 @@ ldap_int_sasl_set_option( LDAP *ld, int option, void *arg )
 		int sc;
 #if SASL_VERSION_MAJOR < 2
 		sasl_external_properties_t extprops;
+#else
+		sasl_ssf_t sasl_ssf;
 #endif
 		sasl_conn_t *ctx;
 
@@ -1244,7 +1249,8 @@ ldap_int_sasl_set_option( LDAP *ld, int option, void *arg )
 		}
 
 #if SASL_VERSION_MAJOR >= 2
-		sc = sasl_setprop( ctx, SASL_SSF_EXTERNAL, arg);
+		sasl_ssf = * (ber_len_t *)arg;
+		sc = sasl_setprop( ctx, SASL_SSF_EXTERNAL, &sasl_ssf);
 #else
 		memset(&extprops, 0L, sizeof(extprops));
 
@@ -1307,7 +1313,7 @@ void *ldap_pvt_sasl_mutex_new(void)
 {
 	ldap_pvt_thread_mutex_t *mutex;
 
-	mutex = (ldap_pvt_thread_mutex_t *) LDAP_MALLOC(
+	mutex = (ldap_pvt_thread_mutex_t *) LDAP_CALLOC( 1,
 		sizeof(ldap_pvt_thread_mutex_t) );
 
 	if ( ldap_pvt_thread_mutex_init( mutex ) == 0 ) {

@@ -10,6 +10,10 @@
 	<array>
 		<string>80</string>
 	</array>
+	<key>groupmembers</key>
+	<array>
+		<string>FFFFEEEE-DDDD-CCCC-BBBB-AAAA00000000</string>
+	</array>
 	<key>name</key>
 	<array>
 		<string>admin</string>

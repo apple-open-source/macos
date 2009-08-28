@@ -1,0 +1,2414 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$313|enum
+{
+        kDRBlockSizeAudio                       = 2352,
+        kDRBlockSizeMode1Data           = 2048,
+        kDRBlockSizeMode2Data           = 2332,
+        kDRBlockSizeMode2Form1Data      = 2048,
+        kDRBlockSizeMode2Form2Data      = 2324,
+        kDRBlockSizeDVDData                     = 2048
+};
+$589|/*!
+        @enum           Block Sizes
+        @discussion     Common block sizes for different types of track data.
+        @constant       kDRBlockSizeAudio                       Audio data.
+        @constant       kDRBlockSizeMode1Data           Mode 1 data.
+        @constant       kDRBlockSizeMode2Data           Mode 2 data. Photo CD and CD-i use this.
+        @constant       kDRBlockSizeMode2Form1Data      Mode 2 Form 1 data.
+        @constant       kDRBlockSizeMode2Form2Data      Mode 2 Form 2 data.
+        @constant       kDRBlockSizeDVDData                     DVD data.
+*/
+$0|$15446|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 1
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/nametest_26.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/nametest_26.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => enum
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => -1
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inEnum} => 1
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{inUnion} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 9
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => ;
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 1
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 1
+$parserState->{posstypes} =>  enum
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} =>  enum  {
+             kDRBlockSizeAudio                       = 2352,
+             kDRBlockSizeMode1Data           = 2048,
+             kDRBlockSizeMode2Data           = 2332,
+             kDRBlockSizeMode2Form1Data      = 2048,
+             kDRBlockSizeMode2Form2Data      = 2324,
+         kDRBlockSizeDVDData                     = 2048  
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => 
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{temponlyComments} => 0
+$parserState->{treePopTwo} => 0
+$parserState->{typestring} => enum
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 9
+typelist: enum
+namelist: 
+posstypes:  enum
+value: 
+returntype:  enum  {             kDRBlockSizeAudio                       = 2352,             kDRBlockSizeMode1Data           = 2048,             kDRBlockSizeMode2Data           = 2332,             kDRBlockSizeMode2Form1Data      = 2048,             kDRBlockSizeMode2Form2Data      = 2324,         kDRBlockSizeDVDData                     = 2048  
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+Parsed Param 0 => kDRBlockSizeAudio                       = 2352
+Parsed Param 1 => kDRBlockSizeMode1Data           = 2048
+Parsed Param 2 => kDRBlockSizeMode2Data           = 2332
+Parsed Param 3 => kDRBlockSizeMode2Form1Data      = 2048
+Parsed Param 4 => kDRBlockSizeMode2Form2Data      = 2324
+Parsed Param 5 => kDRBlockSizeDVDData                     = 2048
+-=: DUMP OF PARSE TREE :=-
++---enum
++---[ NEWLINE ]
++---{
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeAudio
+|   +---                       
+|   +---=
+|   +--- 
+|   +---2352
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeMode1Data
+|   +---           
+|   +---=
+|   +--- 
+|   +---2048
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeMode2Data
+|   +---           
+|   +---=
+|   +--- 
+|   +---2332
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeMode2Form1Data
+|   +---      
+|   +---=
+|   +--- 
+|   +---2048
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeMode2Form2Data
+|   +---      
+|   +---=
+|   +--- 
+|   +---2324
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeDVDData
+|   +---                     
+|   +---=
+|   +--- 
+|   +---2048
+|   +---[ NEWLINE ]
+|   +---}
++---;
++--- 
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: nametest 26
+APIUID: //test_ref/doc/header/nametest_26.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::Enum
+    NAME: Block Sizes
+    APIUID: //test_ref/doc/title:tag/BlockSizes
+    ABSTRACT: ""
+    DISCUSSION: "<p>Common block sizes for different types of track data.
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::Enum"
+    MASTERENUM: "1"
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: "Sizes"
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+    PARSED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: kDRBlockSizeAudio
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: kDRBlockSizeMode1Data
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: kDRBlockSizeMode2Data
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: kDRBlockSizeMode2Form1Data
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: kDRBlockSizeMode2Form2Data
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: kDRBlockSizeDVDData
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: Block Sizes (HeaderDoc::Enum)
++---enum
++---[ NEWLINE ]
++---{
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeAudio
+|   +---                       
+|   +---=
+|   +--- 
+|   +---2352
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeMode1Data
+|   +---           
+|   +---=
+|   +--- 
+|   +---2048
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeMode2Data
+|   +---           
+|   +---=
+|   +--- 
+|   +---2332
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeMode2Form1Data
+|   +---      
+|   +---=
+|   +--- 
+|   +---2048
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeMode2Form2Data
+|   +---      
+|   +---=
+|   +--- 
+|   +---2324
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeDVDData
+|   +---                     
+|   +---=
+|   +--- 
+|   +---2048
+|   +---[ NEWLINE ]
+|   +---}
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: Block Sizes (HeaderDoc::Enum)
+	<span class="keyword">enum</span> { 
+	    <!-- a logicalPath="//test_ref/c/econst/kDRBlockSizeAudio //test_ref/c/data/kDRBlockSizeAudio" --><span class="var">kDRBlockSizeAudio</span><!-- /a --> = <span class="number">2352</span>, 
+	    <!-- a logicalPath="//test_ref/c/econst/kDRBlockSizeMode1Data //test_ref/c/data/kDRBlockSizeMode1Data" --><span class="var">kDRBlockSizeMode1Data</span><!-- /a --> = <span class="number">2048</span>, 
+	    <!-- a logicalPath="//test_ref/c/econst/kDRBlockSizeMode2Data //test_ref/c/data/kDRBlockSizeMode2Data" --><span class="var">kDRBlockSizeMode2Data</span><!-- /a --> = <span class="number">2332</span>, 
+	    <!-- a logicalPath="//test_ref/c/econst/kDRBlockSizeMode2Form1Data //test_ref/c/data/kDRBlockSizeMode2Form1Data" --><span class="var">kDRBlockSizeMode2Form1Data</span><!-- /a --> = <span class="number">2048</span>, 
+	    <!-- a logicalPath="//test_ref/c/econst/kDRBlockSizeMode2Form2Data //test_ref/c/data/kDRBlockSizeMode2Form2Data" --><span class="var">kDRBlockSizeMode2Form2Data</span><!-- /a --> = <span class="number">2324</span>, 
+	    <!-- a logicalPath="//test_ref/c/econst/kDRBlockSizeDVDData //test_ref/c/data/kDRBlockSizeDVDData" --><span class="var">kDRBlockSizeDVDData</span><!-- /a --> = <span class="number">2048</span> 
+	};  
+END OF OBJECT
+
+
+
+$15446|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 1
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/nametest_26.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/nametest_26.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => enum
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => -1
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inEnum} => 1
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{inUnion} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 9
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => ;
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 1
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 1
+$parserState->{posstypes} =>  enum
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} =>  enum  {
+             kDRBlockSizeAudio                       = 2352,
+             kDRBlockSizeMode1Data           = 2048,
+             kDRBlockSizeMode2Data           = 2332,
+             kDRBlockSizeMode2Form1Data      = 2048,
+             kDRBlockSizeMode2Form2Data      = 2324,
+         kDRBlockSizeDVDData                     = 2048  
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => 
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{temponlyComments} => 0
+$parserState->{treePopTwo} => 0
+$parserState->{typestring} => enum
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 9
+typelist: enum
+namelist: 
+posstypes:  enum
+value: 
+returntype:  enum  {             kDRBlockSizeAudio                       = 2352,             kDRBlockSizeMode1Data           = 2048,             kDRBlockSizeMode2Data           = 2332,             kDRBlockSizeMode2Form1Data      = 2048,             kDRBlockSizeMode2Form2Data      = 2324,         kDRBlockSizeDVDData                     = 2048  
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+Parsed Param 0 => kDRBlockSizeAudio                       = 2352
+Parsed Param 1 => kDRBlockSizeMode1Data           = 2048
+Parsed Param 2 => kDRBlockSizeMode2Data           = 2332
+Parsed Param 3 => kDRBlockSizeMode2Form1Data      = 2048
+Parsed Param 4 => kDRBlockSizeMode2Form2Data      = 2324
+Parsed Param 5 => kDRBlockSizeDVDData                     = 2048
+-=: DUMP OF PARSE TREE :=-
++---enum
++---[ NEWLINE ]
++---{
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeAudio
+|   +---                       
+|   +---=
+|   +--- 
+|   +---2352
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeMode1Data
+|   +---           
+|   +---=
+|   +--- 
+|   +---2048
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeMode2Data
+|   +---           
+|   +---=
+|   +--- 
+|   +---2332
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeMode2Form1Data
+|   +---      
+|   +---=
+|   +--- 
+|   +---2048
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeMode2Form2Data
+|   +---      
+|   +---=
+|   +--- 
+|   +---2324
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeDVDData
+|   +---                     
+|   +---=
+|   +--- 
+|   +---2048
+|   +---[ NEWLINE ]
+|   +---}
++---;
++--- 
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: nametest 26
+APIUID: //test_ref/doc/header/nametest_26.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::Enum
+    NAME: Block Sizes
+    APIUID: //test_ref/doc/title:tag/BlockSizes
+    ABSTRACT: ""
+    DISCUSSION: "<p>Common block sizes for different types of track data.
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::Enum"
+    MASTERENUM: "1"
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: "Sizes"
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+    PARSED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: kDRBlockSizeAudio
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: kDRBlockSizeMode1Data
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: kDRBlockSizeMode2Data
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: kDRBlockSizeMode2Form1Data
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: kDRBlockSizeMode2Form2Data
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: kDRBlockSizeDVDData
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: Block Sizes (HeaderDoc::Enum)
++---enum
++---[ NEWLINE ]
++---{
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeAudio
+|   +---                       
+|   +---=
+|   +--- 
+|   +---2352
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeMode1Data
+|   +---           
+|   +---=
+|   +--- 
+|   +---2048
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeMode2Data
+|   +---           
+|   +---=
+|   +--- 
+|   +---2332
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeMode2Form1Data
+|   +---      
+|   +---=
+|   +--- 
+|   +---2048
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeMode2Form2Data
+|   +---      
+|   +---=
+|   +--- 
+|   +---2324
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeDVDData
+|   +---                     
+|   +---=
+|   +--- 
+|   +---2048
+|   +---[ NEWLINE ]
+|   +---}
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: Block Sizes (HeaderDoc::Enum)
+	<span class="keyword">enum</span> { 
+	    <!-- a logicalPath="//test_ref/c/econst/kDRBlockSizeAudio //test_ref/c/data/kDRBlockSizeAudio" --><span class="var">kDRBlockSizeAudio</span><!-- /a --> = <span class="number">2352</span>, 
+	    <!-- a logicalPath="//test_ref/c/econst/kDRBlockSizeMode1Data //test_ref/c/data/kDRBlockSizeMode1Data" --><span class="var">kDRBlockSizeMode1Data</span><!-- /a --> = <span class="number">2048</span>, 
+	    <!-- a logicalPath="//test_ref/c/econst/kDRBlockSizeMode2Data //test_ref/c/data/kDRBlockSizeMode2Data" --><span class="var">kDRBlockSizeMode2Data</span><!-- /a --> = <span class="number">2332</span>, 
+	    <!-- a logicalPath="//test_ref/c/econst/kDRBlockSizeMode2Form1Data //test_ref/c/data/kDRBlockSizeMode2Form1Data" --><span class="var">kDRBlockSizeMode2Form1Data</span><!-- /a --> = <span class="number">2048</span>, 
+	    <!-- a logicalPath="//test_ref/c/econst/kDRBlockSizeMode2Form2Data //test_ref/c/data/kDRBlockSizeMode2Form2Data" --><span class="var">kDRBlockSizeMode2Form2Data</span><!-- /a --> = <span class="number">2324</span>, 
+	    <!-- a logicalPath="//test_ref/c/econst/kDRBlockSizeDVDData //test_ref/c/data/kDRBlockSizeDVDData" --><span class="var">kDRBlockSizeDVDData</span><!-- /a --> = <span class="number">2048</span> 
+	};  
+END OF OBJECT
+
+
+
+$111|If this test fails, then multi-word names are not being handled correctly
+for apple_ref purposes or otherwise.
+$39|testsuite/parser_tests/nametest_26.test$1|C$11|nametest 26$15446|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 1
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/nametest_26.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/nametest_26.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => enum
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => -1
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inEnum} => 1
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{inUnion} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 9
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => ;
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 1
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 1
+$parserState->{posstypes} =>  enum
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} =>  enum  {
+             kDRBlockSizeAudio                       = 2352,
+             kDRBlockSizeMode1Data           = 2048,
+             kDRBlockSizeMode2Data           = 2332,
+             kDRBlockSizeMode2Form1Data      = 2048,
+             kDRBlockSizeMode2Form2Data      = 2324,
+         kDRBlockSizeDVDData                     = 2048  
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => 
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{temponlyComments} => 0
+$parserState->{treePopTwo} => 0
+$parserState->{typestring} => enum
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 9
+typelist: enum
+namelist: 
+posstypes:  enum
+value: 
+returntype:  enum  {             kDRBlockSizeAudio                       = 2352,             kDRBlockSizeMode1Data           = 2048,             kDRBlockSizeMode2Data           = 2332,             kDRBlockSizeMode2Form1Data      = 2048,             kDRBlockSizeMode2Form2Data      = 2324,         kDRBlockSizeDVDData                     = 2048  
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+Parsed Param 0 => kDRBlockSizeAudio                       = 2352
+Parsed Param 1 => kDRBlockSizeMode1Data           = 2048
+Parsed Param 2 => kDRBlockSizeMode2Data           = 2332
+Parsed Param 3 => kDRBlockSizeMode2Form1Data      = 2048
+Parsed Param 4 => kDRBlockSizeMode2Form2Data      = 2324
+Parsed Param 5 => kDRBlockSizeDVDData                     = 2048
+-=: DUMP OF PARSE TREE :=-
++---enum
++---[ NEWLINE ]
++---{
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeAudio
+|   +---                       
+|   +---=
+|   +--- 
+|   +---2352
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeMode1Data
+|   +---           
+|   +---=
+|   +--- 
+|   +---2048
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeMode2Data
+|   +---           
+|   +---=
+|   +--- 
+|   +---2332
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeMode2Form1Data
+|   +---      
+|   +---=
+|   +--- 
+|   +---2048
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeMode2Form2Data
+|   +---      
+|   +---=
+|   +--- 
+|   +---2324
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeDVDData
+|   +---                     
+|   +---=
+|   +--- 
+|   +---2048
+|   +---[ NEWLINE ]
+|   +---}
++---;
++--- 
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: nametest 26
+APIUID: //test_ref/doc/header/nametest_26.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::Enum
+    NAME: Block Sizes
+    APIUID: //test_ref/doc/title:tag/BlockSizes
+    ABSTRACT: ""
+    DISCUSSION: "<p>Common block sizes for different types of track data.
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::Enum"
+    MASTERENUM: "1"
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: "Sizes"
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+    PARSED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: kDRBlockSizeAudio
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: kDRBlockSizeMode1Data
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: kDRBlockSizeMode2Data
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: kDRBlockSizeMode2Form1Data
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: kDRBlockSizeMode2Form2Data
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: kDRBlockSizeDVDData
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: Block Sizes (HeaderDoc::Enum)
++---enum
++---[ NEWLINE ]
++---{
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeAudio
+|   +---                       
+|   +---=
+|   +--- 
+|   +---2352
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeMode1Data
+|   +---           
+|   +---=
+|   +--- 
+|   +---2048
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeMode2Data
+|   +---           
+|   +---=
+|   +--- 
+|   +---2332
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeMode2Form1Data
+|   +---      
+|   +---=
+|   +--- 
+|   +---2048
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeMode2Form2Data
+|   +---      
+|   +---=
+|   +--- 
+|   +---2324
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeDVDData
+|   +---                     
+|   +---=
+|   +--- 
+|   +---2048
+|   +---[ NEWLINE ]
+|   +---}
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: Block Sizes (HeaderDoc::Enum)
+	<span class="keyword">enum</span> { 
+	    <!-- a logicalPath="//test_ref/c/econst/kDRBlockSizeAudio //test_ref/c/data/kDRBlockSizeAudio" --><span class="var">kDRBlockSizeAudio</span><!-- /a --> = <span class="number">2352</span>, 
+	    <!-- a logicalPath="//test_ref/c/econst/kDRBlockSizeMode1Data //test_ref/c/data/kDRBlockSizeMode1Data" --><span class="var">kDRBlockSizeMode1Data</span><!-- /a --> = <span class="number">2048</span>, 
+	    <!-- a logicalPath="//test_ref/c/econst/kDRBlockSizeMode2Data //test_ref/c/data/kDRBlockSizeMode2Data" --><span class="var">kDRBlockSizeMode2Data</span><!-- /a --> = <span class="number">2332</span>, 
+	    <!-- a logicalPath="//test_ref/c/econst/kDRBlockSizeMode2Form1Data //test_ref/c/data/kDRBlockSizeMode2Form1Data" --><span class="var">kDRBlockSizeMode2Form1Data</span><!-- /a --> = <span class="number">2048</span>, 
+	    <!-- a logicalPath="//test_ref/c/econst/kDRBlockSizeMode2Form2Data //test_ref/c/data/kDRBlockSizeMode2Form2Data" --><span class="var">kDRBlockSizeMode2Form2Data</span><!-- /a --> = <span class="number">2324</span>, 
+	    <!-- a logicalPath="//test_ref/c/econst/kDRBlockSizeDVDData //test_ref/c/data/kDRBlockSizeDVDData" --><span class="var">kDRBlockSizeDVDData</span><!-- /a --> = <span class="number">2048</span> 
+	};  
+END OF OBJECT
+
+
+
+$15446|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 1
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/nametest_26.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/nametest_26.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => enum
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => -1
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inEnum} => 1
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{inUnion} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 9
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => ;
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 1
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 1
+$parserState->{posstypes} =>  enum
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} =>  enum  {
+             kDRBlockSizeAudio                       = 2352,
+             kDRBlockSizeMode1Data           = 2048,
+             kDRBlockSizeMode2Data           = 2332,
+             kDRBlockSizeMode2Form1Data      = 2048,
+             kDRBlockSizeMode2Form2Data      = 2324,
+         kDRBlockSizeDVDData                     = 2048  
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => 
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{temponlyComments} => 0
+$parserState->{treePopTwo} => 0
+$parserState->{typestring} => enum
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 9
+typelist: enum
+namelist: 
+posstypes:  enum
+value: 
+returntype:  enum  {             kDRBlockSizeAudio                       = 2352,             kDRBlockSizeMode1Data           = 2048,             kDRBlockSizeMode2Data           = 2332,             kDRBlockSizeMode2Form1Data      = 2048,             kDRBlockSizeMode2Form2Data      = 2324,         kDRBlockSizeDVDData                     = 2048  
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+Parsed Param 0 => kDRBlockSizeAudio                       = 2352
+Parsed Param 1 => kDRBlockSizeMode1Data           = 2048
+Parsed Param 2 => kDRBlockSizeMode2Data           = 2332
+Parsed Param 3 => kDRBlockSizeMode2Form1Data      = 2048
+Parsed Param 4 => kDRBlockSizeMode2Form2Data      = 2324
+Parsed Param 5 => kDRBlockSizeDVDData                     = 2048
+-=: DUMP OF PARSE TREE :=-
++---enum
++---[ NEWLINE ]
++---{
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeAudio
+|   +---                       
+|   +---=
+|   +--- 
+|   +---2352
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeMode1Data
+|   +---           
+|   +---=
+|   +--- 
+|   +---2048
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeMode2Data
+|   +---           
+|   +---=
+|   +--- 
+|   +---2332
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeMode2Form1Data
+|   +---      
+|   +---=
+|   +--- 
+|   +---2048
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeMode2Form2Data
+|   +---      
+|   +---=
+|   +--- 
+|   +---2324
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeDVDData
+|   +---                     
+|   +---=
+|   +--- 
+|   +---2048
+|   +---[ NEWLINE ]
+|   +---}
++---;
++--- 
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: nametest 26
+APIUID: //test_ref/doc/header/nametest_26.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::Enum
+    NAME: Block Sizes
+    APIUID: //test_ref/doc/title:tag/BlockSizes
+    ABSTRACT: ""
+    DISCUSSION: "<p>Common block sizes for different types of track data.
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::Enum"
+    MASTERENUM: "1"
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: "Sizes"
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+    PARSED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: kDRBlockSizeAudio
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: kDRBlockSizeMode1Data
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: kDRBlockSizeMode2Data
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: kDRBlockSizeMode2Form1Data
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: kDRBlockSizeMode2Form2Data
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: kDRBlockSizeDVDData
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: Block Sizes (HeaderDoc::Enum)
++---enum
++---[ NEWLINE ]
++---{
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeAudio
+|   +---                       
+|   +---=
+|   +--- 
+|   +---2352
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeMode1Data
+|   +---           
+|   +---=
+|   +--- 
+|   +---2048
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeMode2Data
+|   +---           
+|   +---=
+|   +--- 
+|   +---2332
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeMode2Form1Data
+|   +---      
+|   +---=
+|   +--- 
+|   +---2048
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeMode2Form2Data
+|   +---      
+|   +---=
+|   +--- 
+|   +---2324
+|   +---,
+|   +---[ NEWLINE ]
+|   +---        
+|   +---kDRBlockSizeDVDData
+|   +---                     
+|   +---=
+|   +--- 
+|   +---2048
+|   +---[ NEWLINE ]
+|   +---}
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: Block Sizes (HeaderDoc::Enum)
+	<span class="keyword">enum</span> { 
+	    <!-- a logicalPath="//test_ref/c/econst/kDRBlockSizeAudio //test_ref/c/data/kDRBlockSizeAudio" --><span class="var">kDRBlockSizeAudio</span><!-- /a --> = <span class="number">2352</span>, 
+	    <!-- a logicalPath="//test_ref/c/econst/kDRBlockSizeMode1Data //test_ref/c/data/kDRBlockSizeMode1Data" --><span class="var">kDRBlockSizeMode1Data</span><!-- /a --> = <span class="number">2048</span>, 
+	    <!-- a logicalPath="//test_ref/c/econst/kDRBlockSizeMode2Data //test_ref/c/data/kDRBlockSizeMode2Data" --><span class="var">kDRBlockSizeMode2Data</span><!-- /a --> = <span class="number">2332</span>, 
+	    <!-- a logicalPath="//test_ref/c/econst/kDRBlockSizeMode2Form1Data //test_ref/c/data/kDRBlockSizeMode2Form1Data" --><span class="var">kDRBlockSizeMode2Form1Data</span><!-- /a --> = <span class="number">2048</span>, 
+	    <!-- a logicalPath="//test_ref/c/econst/kDRBlockSizeMode2Form2Data //test_ref/c/data/kDRBlockSizeMode2Form2Data" --><span class="var">kDRBlockSizeMode2Form2Data</span><!-- /a --> = <span class="number">2324</span>, 
+	    <!-- a logicalPath="//test_ref/c/econst/kDRBlockSizeDVDData //test_ref/c/data/kDRBlockSizeDVDData" --><span class="var">kDRBlockSizeDVDData</span><!-- /a --> = <span class="number">2048</span> 
+	};  
+END OF OBJECT
+
+
+
+$1|C$6|parser

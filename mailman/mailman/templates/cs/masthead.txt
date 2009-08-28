@@ -13,4 +13,3 @@ Správce konference mù¾ete nalézt na adrese
 Kdy¾ budete odpovídat na pøíspìvek, zmìòte, prosím, Subject: na 
 nìco rozumnìj¹ího ne¾ je:
 "Re: Contents of %(real_name)s digest..."
-

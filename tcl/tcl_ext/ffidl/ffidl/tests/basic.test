@@ -1,0 +1,179 @@
+#
+# ffidl testing - test ability to
+# define, call, and get sensible
+# values from the routines defined
+# in ffidl_test.c
+# arguments won't have the same values
+#
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import -force ::tcltest::*
+}
+
+package require Ffidl
+package require Ffidlrt
+set lib [::ffidl::find-lib ffidl_test]
+
+test ffidl-basic {ffidl basic tests} {} {
+    set msg ""
+    
+    ::ffidl::callout ffidl_test_signatures {} pointer-utf8 [::ffidl::symbol $lib ffidl_test_signatures]
+    ::ffidl::typedef ffidl_test_struct {signed char} {short} {int} {long} {long long} float double pointer \
+        {unsigned char} {unsigned char} {unsigned char} {unsigned char} {unsigned char} {unsigned char} {unsigned char} {unsigned char}
+    
+    array set types {
+        void void
+        int int
+        float float
+        double double
+        {long double} {long double}
+        {signed char} {signed char}
+        {unsigned char} {unsigned char}
+        {signed short} {short}
+        {unsigned short} {unsigned short}
+        {signed int} {int}
+        {unsigned int} {unsigned}
+        {signed long} {long}
+        {unsigned long} {unsigned long}
+        {signed long long} {long long}
+        {unsigned long long} {unsigned long long}
+        {void *} pointer
+        ffidl_test_struct ffidl_test_struct
+    }
+    
+    if { ! [::ffidl::info have-long-double]} {
+        unset {types(long double)}
+    }
+    if { ! [::ffidl::info have-long-long]} {
+        unset {types(signed long long)}
+        unset {types(long long)}
+        unset {types(unsigned long long)}
+    }
+        
+    foreach sig [split [string trim [ffidl_test_signatures]] \n] {
+        if {[catch {
+            if { ! [regexp {^([a-z_ ]+) (\*?)([a-z0-9_]+)\((.*)\)$} $sig all rtype rptr name args]} {
+                append msg "malformed signature: $sig" "\n"
+                error ""
+            }
+            if {[catch {::ffidl::symbol $lib $name} addr]} {
+                append msg "function is not defined in \"$lib\": \"$name\"\n$addr" "\n"
+                error ""
+            }
+            set argout {}
+            set argsize {}
+            foreach atype [split $args ,] {
+                set atype [string trim $atype]
+                if { ! [info exists types($atype)]} {
+                    append msg "no type map for: $atype" "\n"
+                    error ""
+                }
+                lappend argout $types($atype)
+                lappend argsize [::ffidl::info sizeof $types($atype)]
+            }
+            if {[string length $rptr] != 0} {
+                set rtype "$rtype $rptr"
+            }
+            set rtype [string trim $rtype]
+            if { ! [info exists types($rtype)]} {
+                append msg "no type map for: $rtype" "\n"
+                error ""
+            }
+        }]} {
+            continue
+        }
+        set retout $types($rtype)
+        set retsize [::ffidl::info sizeof $types($rtype)]
+        ::ffidl::callout $name $argout $retout $addr
+        switch -regexp $name {
+            ^ffidl_fill_struct$ {
+                if {[catch {$name} r]} {
+                    append msg "catch {$name} r, sig $sig, error $r" "\n"
+                } else {
+                    binary scan $r [::ffidl::info format ffidl_test_struct] \
+                        v_schar v_sshort v_sint v_slong v_slonglong v_float v_double v_pointer \
+                        v_bytes0 v_bytes1 v_bytes2 v_bytes3 v_bytes4 v_bytes5 v_bytes6 v_bytes7
+                    #append msg "$name: $v_schar $v_sshort $v_sint $v_slong $v_slonglong $v_float $v_double $v_pointer" "\n"
+                    #append msg "	$v_bytes0 $v_bytes1 $v_bytes2 $v_bytes3 $v_bytes4 $v_bytes5 $v_bytes6 $v_bytes7" "\n"
+                    if {$v_schar != 1
+                        || $v_sshort != 2
+                        || $v_sint != 3
+                        || $v_slong != 4
+                        || $v_slonglong != 5
+                        || $v_float != 6
+                        || $v_double != 7
+                        || $v_pointer != 8
+                        || $v_bytes0 != 48
+                        || $v_bytes1 != 49
+                        || $v_bytes2 != 50
+                        || $v_bytes3 != 51
+                        || $v_bytes4 != 52
+                        || $v_bytes5 != 53
+                        || $v_bytes6 != 54
+                        || $v_bytes7 != 0    
+                    } {
+                        append msg "scalar value error in ffidl_fill_struct" "\n"
+                    }
+                }
+            }
+            ^ffidl_struct_to_struct$ {
+                set a [binary format [::ffidl::info format ffidl_test_struct] 1 2 3 4 5 6 7 8 48 49 50 51 52 53 54 0]
+                binary scan $a [::ffidl::info format ffidl_test_struct] \
+                    v_schar v_sshort v_sint v_slong v_slonglong v_float v_double v_pointer \
+                    v_bytes0 v_bytes1 v_bytes2 v_bytes3 v_bytes4 v_bytes5 v_bytes6 v_bytes7
+                #append msg "arg: $v_schar $v_sshort $v_sint $v_slong $v_slonglong $v_float $v_double $v_pointer" "\n"
+                #append msg "	$v_bytes0 $v_bytes1 $v_bytes2 $v_bytes3 $v_bytes4 $v_bytes5 $v_bytes6 $v_bytes7" "\n"
+                if {[catch {$name $a} r]} {
+                    append msg "catch {$name $a} r, sig $sig, error $r" "\n"
+                } else {
+                    binary scan $r [::ffidl::info format ffidl_test_struct] \
+                        v_schar v_sshort v_sint v_slong v_slonglong v_float v_double v_pointer \
+                        v_bytes0 v_bytes1 v_bytes2 v_bytes3 v_bytes4 v_bytes5 v_bytes6 v_bytes7
+                    #append msg "$name: $v_schar $v_sshort $v_sint $v_slong $v_slonglong $v_float $v_double $v_pointer" "\n"
+                    #append msg "	$v_bytes0 $v_bytes1 $v_bytes2 $v_bytes3 $v_bytes4 $v_bytes5 $v_bytes6 $v_bytes7" "\n"
+                    if {$v_schar != 1
+                        || $v_sshort != 2
+                        || $v_sint != 3
+                        || $v_slong != 4
+                        || $v_slonglong != 5
+                        || $v_float != 6
+                        || $v_double != 7
+                        || $v_pointer != 8
+                        || $v_bytes0 != 48
+                        || $v_bytes1 != 49
+                        || $v_bytes2 != 50
+                        || $v_bytes3 != 51
+                        || $v_bytes4 != 52
+                        || $v_bytes5 != 53
+                        || $v_bytes6 != 54
+                        || $v_bytes7 != 0    
+                    } {
+                        append msg "scalar value error in ffidl_struct_to_struct" "\n"
+                    }
+                }
+            }
+            ^ffidl_.*_to_void$ {
+                # numerics to void
+                if {[catch {$name 123} r]} {
+                    append msg "catch {$name 123} r, sig $sig, returned $r" "\n"
+                } elseif {[string compare $r {}] != 0} {
+                    append msg "$name returned $r instead of {}" "\n"
+                }
+            }
+            ^.*$ {
+                # pure numerics
+                if {[catch {$name 123} r]} {
+                    append msg "catch {$name 123} r, sig $sig, returned $r" "\n"
+                } elseif {$r != 123} {
+                    append msg "$name 123, sig $sig, returned $r" "\n"
+                }
+            }
+        }
+    }
+    set msg
+} {}
+
+# cleanup
+::tcltest::cleanupTests
+return

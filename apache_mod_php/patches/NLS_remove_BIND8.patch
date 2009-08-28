@@ -1,7 +1,7 @@
-diff -Naur configure.orig configure
---- configure.orig      2007-05-06 08:05:26.000000000 -0700
-+++ configure   2007-05-06 08:06:05.000000000 -0700
-@@ -3679,10 +3679,6 @@
+diff -Naur php-5.3.0/configure php/configure
+--- php-5.3.0/configure	2009-06-10 11:23:33.000000000 -0700
++++ php/configure	2009-06-16 17:10:25.000000000 -0700
+@@ -3528,10 +3528,6 @@
          CPPFLAGS="$CPPFLAGS -no-cpp-precomp"
        fi
      fi
@@ -12,10 +12,10 @@ diff -Naur configure.orig configure
      php_multiple_shlib_versions_ok=yes
      ;;
    *beos*)
-diff -Naur /tmp/apache_mod_php/php-4.3.8/ext/standard/dns.c ./ext/standard/dns.c
---- /tmp/apache_mod_php/php-4.3.8/ext/standard/dns.c    2003-09-01 15:37:46.000000000 -0700
-+++ ./ext/standard/dns.c        2004-12-14 12:37:22.000000000 -0800
-@@ -55,6 +55,9 @@
+diff -Naur php-5.3.0/ext/standard/dns.c php/ext/standard/dns.c
+--- php-5.3.0RC3/ext/standard/dns.c	2009-05-20 05:44:19.000000000 -0700
++++ php/ext/standard/dns.c	2009-06-16 17:10:25.000000000 -0700
+@@ -43,6 +43,9 @@
  #undef STATUS
  #undef T_UNSPEC
  #endif

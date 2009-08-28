@@ -45,7 +45,7 @@ class SecNssCoder
 {
 public:
 	SecNssCoder(
-		PRUint32 chunkSize = SNC_CHUNKSIZE_DEF);
+		PRSize chunkSize = SNC_CHUNKSIZE_DEF);
 	~SecNssCoder();
 	
 	/*

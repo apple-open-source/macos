@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2006 International Business Machines
+// * Copyright (C) 2008 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/nl.xml
@@ -14,6 +14,7 @@ nl{
     Countries{
         001{"Wereld"}
         002{"Afrika"}
+        003{"Noord-Amerika"}
         005{"Zuid-Amerika"}
         009{"Oceanië"}
         011{"West-Afrika"}
@@ -23,7 +24,7 @@ nl{
         017{"Centraal-Afrika"}
         018{"Zuidelijk Afrika"}
         019{"Amerika"}
-        021{"Noord-Amerika"}
+        021{"Noordelijk Amerika"}
         029{"Caribisch gebied"}
         030{"Oost-Azië"}
         034{"Zuid-Azië"}
@@ -31,7 +32,7 @@ nl{
         039{"Zuid-Europa"}
         053{"Australië en Nieuw-Zeeland"}
         054{"Melanesië"}
-        057{"Micronesië"}
+        057{"Micronesische regio"}
         061{"Polynesië"}
         062{"Zuidelijk Centraal-Azië"}
         142{"Azië"}
@@ -41,9 +42,9 @@ nl{
         151{"Oost-Europa"}
         154{"Noord-Europa"}
         155{"West-Europa"}
+        172{"Gemenebest van Onafhankelijke Staten"}
         419{"Latijns-Amerika en het Caribisch gebied"}
         830{"Kanaaleilanden"}
-        833{"Isle of Man"}
         AD{"Andorra"}
         AE{"Verenigde Arabische Emiraten"}
         AF{"Afghanistan"}
@@ -61,7 +62,7 @@ nl{
         AW{"Aruba"}
         AX{"Alandeilanden"}
         AZ{"Azerbeidzjan"}
-        BA{"Bosnië Herzegovina"}
+        BA{"Bosnië en Herzegovina"}
         BB{"Barbados"}
         BD{"Bangladesh"}
         BE{"België"}
@@ -70,8 +71,9 @@ nl{
         BH{"Bahrein"}
         BI{"Burundi"}
         BJ{"Benin"}
+        BL{"Saint Barthélemy"}
         BM{"Bermuda"}
-        BN{"Brunei Darussalam"}
+        BN{"Brunei"}
         BO{"Bolivia"}
         BR{"Brazilië"}
         BS{"Bahama’s"}
@@ -82,7 +84,7 @@ nl{
         BZ{"Belize"}
         CA{"Canada"}
         CC{"Cocoseilanden"}
-        CD{"Congo, Democratische Republiek"}
+        CD{"Congo-Kinshasa"}
         CF{"Centraal-Afrikaanse Republiek"}
         CG{"Congo"}
         CH{"Zwitserland"}
@@ -108,14 +110,14 @@ nl{
         EC{"Ecuador"}
         EE{"Estland"}
         EG{"Egypte"}
-        EH{"West-Sahara"}
+        EH{"Westelijke Sahara"}
         ER{"Eritrea"}
         ES{"Spanje"}
         ET{"Ethiopië"}
         FI{"Finland"}
         FJ{"Fiji"}
         FK{"Falklandeilanden"}
-        FM{"Micronesia"}
+        FM{"Micronesië"}
         FO{"Faeröer"}
         FR{"Frankrijk"}
         GA{"Gabon"}
@@ -123,6 +125,7 @@ nl{
         GD{"Grenada"}
         GE{"Georgië"}
         GF{"Frans-Guyana"}
+        GG{"Guernsey"}
         GH{"Ghana"}
         GI{"Gibraltar"}
         GL{"Groenland"}
@@ -136,7 +139,7 @@ nl{
         GU{"Guam"}
         GW{"Guinee-Bissau"}
         GY{"Guyana"}
-        HK{"Hongkong S.A.R. van China"}
+        HK{"Hongkong SAR van China"}
         HM{"Heard- en McDonaldeilanden"}
         HN{"Honduras"}
         HR{"Kroatië"}
@@ -145,17 +148,19 @@ nl{
         ID{"Indonesië"}
         IE{"Ierland"}
         IL{"Israël"}
+        IM{"Isle of Man"}
         IN{"India"}
         IO{"Britse Gebieden in de Indische Oceaan"}
         IQ{"Irak"}
         IR{"Iran"}
         IS{"IJsland"}
         IT{"Italië"}
+        JE{"Jersey"}
         JM{"Jamaica"}
         JO{"Jordanië"}
         JP{"Japan"}
         KE{"Kenia"}
-        KG{"Kirgizstan"}
+        KG{"Kirgizië"}
         KH{"Cambodja"}
         KI{"Kiribati"}
         KM{"Comoren"}
@@ -179,13 +184,15 @@ nl{
         MA{"Marokko"}
         MC{"Monaco"}
         MD{"Moldavië"}
+        ME{"Montenegro"}
+        MF{"Sint-Maarten"}
         MG{"Madagaskar"}
         MH{"Marshalleilanden"}
         MK{"Macedonië"}
         ML{"Mali"}
         MM{"Myanmar"}
         MN{"Mongolië"}
-        MO{"Macao S.A.R. van China"}
+        MO{"Macao SAR van China"}
         MP{"Noordelijke Marianeneilanden"}
         MQ{"Martinique"}
         MR{"Mauritanië"}
@@ -226,8 +233,10 @@ nl{
         PY{"Paraguay"}
         QA{"Qatar"}
         QO{"Oceanië (overige)"}
+        QU{"Europese Unie"}
         RE{"Réunion"}
         RO{"Roemenië"}
+        RS{"Servië"}
         RU{"Rusland"}
         RW{"Rwanda"}
         SA{"Saoedi-Arabië"}
@@ -236,7 +245,7 @@ nl{
         SD{"Soedan"}
         SE{"Zweden"}
         SG{"Singapore"}
-        SH{"Saint Helena"}
+        SH{"Sint-Helena"}
         SI{"Slovenië"}
         SJ{"Svalbard en Jan Mayen"}
         SK{"Slowakije"}
@@ -267,7 +276,7 @@ nl{
         TZ{"Tanzania"}
         UA{"Oekraïne"}
         UG{"Oeganda"}
-        UM{"Amerikaanse ondergeschikte afgelegen eilanden"}
+        UM{"Amerikaanse kleinere afgelegen eilanden"}
         US{"Verenigde Staten"}
         UY{"Uruguay"}
         UZ{"Oezbekistan"}
@@ -285,6 +294,7 @@ nl{
         ZA{"Zuid-Afrika"}
         ZM{"Zambia"}
         ZW{"Zimbabwe"}
+        ZZ{"Onbekend of onjuist gebied"}
     }
     Currencies{
         ADP{
@@ -357,6 +367,10 @@ nl{
         }
         AZM{
             "AZM",
+            "Azerbeidzjaanse manat (1993-2006)",
+        }
+        AZN{
+            "AZN",
             "Azerbeidzjaanse manat",
         }
         BAD{
@@ -521,7 +535,7 @@ nl{
         }
         CSD{
             "CSD",
-            "Servische dinar",
+            "Oude Servische dinar",
         }
         CSK{
             "CSK",
@@ -583,6 +597,10 @@ nl{
             "EGP",
             "Egyptisch pond",
         }
+        EQE{
+            "EQE",
+            "Ekwele",
+        }
         ERN{
             "ERN",
             "Eritrese nakfa",
@@ -596,7 +614,7 @@ nl{
             "Spaanse peseta (convertibele account)",
         }
         ESP{
-            "ESP",
+            "₧",
             "Spaanse peseta",
         }
         ETB{
@@ -613,7 +631,7 @@ nl{
         }
         FJD{
             "F$",
-            "Fijische dollar",
+            "Fiji dollar",
         }
         FKP{
             "FKP",
@@ -624,7 +642,7 @@ nl{
             "Franse franc",
         }
         GBP{
-            "£",
+            "GBP",
             "Brits pond sterling",
         }
         GEK{
@@ -637,6 +655,10 @@ nl{
         }
         GHC{
             "GHC",
+            "Ghanese cedi (1979-2007)",
+        }
+        GHS{
+            "GH¢",
             "Ghanese cedi",
         }
         GIP{
@@ -720,7 +742,7 @@ nl{
             "Israëlische nieuwe shekel",
         }
         INR{
-            "=0#Rs.|1#Re.|1<Rs.",
+            "INR",
             "Indiase rupee",
         }
         IQD{
@@ -748,12 +770,12 @@ nl{
             "Jordaanse dinar",
         }
         JPY{
-            "¥",
+            "JP¥",
             "Japanse yen",
         }
         KES{
             "K Sh",
-            "Kenyaanse shilling",
+            "Keniaanse shilling",
         }
         KGS{
             "som",
@@ -806,6 +828,10 @@ nl{
         LSL{
             "M",
             "Lesothaanse loti",
+        }
+        LSM{
+            "LSM",
+            "Maloti",
         }
         LTL{
             "LTL",
@@ -925,6 +951,10 @@ nl{
         }
         MZM{
             "Mt",
+            "Oude Mozambikaanse metical",
+        }
+        MZN{
+            "MTN",
             "Mozambikaanse metical",
         }
         NAD{
@@ -984,7 +1014,7 @@ nl{
             "Papuaanse kina",
         }
         PHP{
-            "PHP",
+            "Php",
             "Filipijnse peso",
         }
         PKR{
@@ -1011,9 +1041,21 @@ nl{
             "QR",
             "Qatarese rial",
         }
+        RHD{
+            "RHD",
+            "Rhodesische dollar",
+        }
         ROL{
             "leu",
+            "Oude Roemeense leu",
+        }
+        RON{
+            "lei",
             "Roemeense leu",
+        }
+        RSD{
+            "RSD",
+            "Servische dinar",
         }
         RUB{
             "RUB",
@@ -1042,6 +1084,10 @@ nl{
         SDD{
             "SDD",
             "Soedanese dinar",
+        }
+        SDG{
+            "SDG",
+            "Soedanese pond",
         }
         SDP{
             "SDP",
@@ -1072,7 +1118,7 @@ nl{
             "Sierraleoonse leone",
         }
         SOS{
-            "So. Sh.",
+            "Sh.",
             "Somalische shilling",
         }
         SRD{
@@ -1168,7 +1214,7 @@ nl{
             "Oegandese shilling",
         }
         USD{
-            "US$",
+            "USD",
             "Amerikaanse dollar",
         }
         USN{
@@ -1178,6 +1224,10 @@ nl{
         USS{
             "USS",
             "Amerikaanse dollar (zelfde dag)",
+        }
+        UYI{
+            "UYI",
+            "Uruguayaanse peso en geïndexeerde eenheden",
         }
         UYP{
             "UYP",
@@ -1194,6 +1244,10 @@ nl{
         VEB{
             "Be",
             "Venezolaanse bolivar",
+        }
+        VEF{
+            "BsF",
+            "Venezolaanse sterke bolivar",
         }
         VND{
             "VND",
@@ -1258,6 +1312,10 @@ nl{
         XOF{
             "XOF",
             "CFA-franc BCEAO",
+        }
+        XPD{
+            "XPD",
+            "Palladium",
         }
         XPF{
             "CFPF",
@@ -1324,6 +1382,42 @@ nl{
             "Zimbabwaanse dollar",
         }
     }
+    CurrencyPlurals{
+        ADP{
+            one{"Andorrese peseta"}
+            other{"Andorrese peseta"}
+        }
+        AED{
+            one{"Verenigde Arabische Emiraten-dirham"}
+            other{"Verenigde Arabische Emiraten-dirham"}
+        }
+        AFA{
+            one{"Afghani (AFA)"}
+            other{"Afghani (AFA)"}
+        }
+        AFN{
+            one{"Afghani"}
+            other{"Afghani"}
+        }
+        ALL{
+            one{"Albanese lek"}
+            other{"Albanese lek"}
+        }
+        TRL{
+            one{"oude Turkse lira"}
+            other{"oude Turkse lira"}
+        }
+        TRY{
+            one{"Turkse lira"}
+            other{"Turkse lira"}
+        }
+        XXX{
+            one{"onbekende/ongeldige munteenheid"}
+        }
+    }
+    CurrencyUnitPatterns{
+        one{"{0} {1}"}
+    }
     ExemplarCharacters{"[a á ä b-e é ë f-i í ï {ij} j-o ó ö p-u ú ü v-z]"}
     Keys{
         calendar{"Kalender"}
@@ -1339,22 +1433,23 @@ nl{
         ady{"Adyghe"}
         ae{"Avestisch"}
         af{"Afrikaans"}
-        afa{"Afro-Aziatisch (overige)"}
+        afa{"Afro-Aziatische taal"}
         afh{"Afrihili"}
         ain{"Ainu"}
         ak{"Akan"}
         akk{"Akkadisch"}
         ale{"Aleut"}
         alg{"Algonkium-talen"}
+        alt{"Zuid-Altaïsch"}
         am{"Amhaars"}
         an{"Aragonees"}
-        ang{"Engels, oud (ca. 450-1100)"}
+        ang{"Oudengels"}
         apa{"Apache-talen"}
         ar{"Arabisch"}
         arc{"Aramees"}
         arn{"Araukaans"}
         arp{"Arapaho"}
-        art{"Kunstmatige talen (overige)"}
+        art{"Kunstmatige taal"}
         arw{"Arawak"}
         as{"Assamees"}
         ast{"Asturisch"}
@@ -1370,11 +1465,11 @@ nl{
         bal{"Baloetsji"}
         ban{"Balinees"}
         bas{"Basa"}
-        bat{"Baltisch (overige)"}
+        bat{"Baltische taal"}
         be{"Wit-Russisch"}
         bej{"Beja"}
         bem{"Bemba"}
-        ber{"Berber (overige)"}
+        ber{"Berbers"}
         bg{"Bulgaars"}
         bh{"Bihari"}
         bho{"Bhojpuri"}
@@ -1384,23 +1479,24 @@ nl{
         bla{"Siksika"}
         bm{"Bambara"}
         bn{"Bengalees"}
-        bnt{"Bantoe (overige)"}
+        bnt{"Bantoe"}
         bo{"Tibetaans"}
         br{"Bretons"}
         bra{"Braj"}
         bs{"Bosnisch"}
-        btk{"Bataks (Indonesië)"}
+        btk{"Batak"}
         bua{"Buriat"}
         bug{"Buginees"}
         byn{"Blin"}
         ca{"Catalaans"}
         cad{"Caddo"}
-        cai{"Midden-Amerikaans Indiaans (overige)"}
+        cai{"Midden-Amerikaans Indiaanse taal"}
         car{"Caribisch"}
-        cau{"Kaukasisch (overige)"}
+        cau{"Kaukasische taal"}
+        cch{"Atsam"}
         ce{"Chechen"}
         ceb{"Cebuano"}
-        cel{"Keltisch (overige)"}
+        cel{"Keltische taal"}
         ch{"Chamorro"}
         chb{"Chibcha"}
         chg{"Chagatai"}
@@ -1414,16 +1510,16 @@ nl{
         cmc{"Chamische talen"}
         co{"Corsicaans"}
         cop{"Koptisch"}
-        cpe{"Creools en Pidgin, op Engels gebaseerd (overige)"}
-        cpf{"Creools en Pidgin, op Frans gebaseerd (overige)"}
-        cpp{"Creools en Pidgin, op Portugees gebaseerd (overige)"}
+        cpe{"Op Engels gebaseerd Creools of Pidgin"}
+        cpf{"Op Frans gebaseerd Creools of Pidgin"}
+        cpp{"Op Portugees gebaseerd Creools of Pidgin"}
         cr{"Cree"}
         crh{"Krim-Tataars"}
-        crp{"Creools en Pidgin (overige)"}
+        crp{"Creools of Pidgin"}
         cs{"Tsjechisch"}
         csb{"Kasjoebisch"}
         cu{"Kerkslavisch"}
-        cus{"Koesjitisch (overige)"}
+        cus{"Koesjitische taal"}
         cv{"Tsjoevasjisch"}
         cy{"Welsh"}
         da{"Deens"}
@@ -1431,28 +1527,36 @@ nl{
         dar{"Dargwa"}
         day{"Dajak"}
         de{"Duits"}
+        de_AT{"Oostenrijks Duits"}
+        de_CH{"Zwitsers Hoogduits"}
         del{"Delaware"}
-        den{"Slave (Athapascan)"}
+        den{"Slave"}
         dgr{"Dogrib"}
         din{"Dinka"}
         doi{"Dogri"}
-        dra{"Dravidisch (overige)"}
+        dra{"Dravidische taal"}
         dsb{"Nedersorbisch"}
         dua{"Duala"}
-        dum{"Nederlands, middel- (ca. 1050-1350)"}
+        dum{"Middelnederlands"}
         dv{"Divehi"}
         dyu{"Dyula"}
         dz{"Dzongkha"}
         ee{"Ewe"}
         efi{"Efik"}
-        egy{"Egyptisch (klassiek)"}
+        egy{"Oudegyptisch"}
         eka{"Ekajuk"}
         el{"Grieks"}
         elx{"Elamitisch"}
         en{"Engels"}
-        enm{"Engels, middel- (1100-1500)"}
+        en_AU{"Australisch Engels"}
+        en_CA{"Canadees Engels"}
+        en_GB{"Brits Engels"}
+        en_US{"Amerikaans Engels"}
+        enm{"Middelengels"}
         eo{"Esperanto"}
         es{"Spaans"}
+        es_419{"Latijns-Amerikaans Spaans"}
+        es_ES{"Iberisch Spaans"}
         et{"Estlands"}
         eu{"Baskisch"}
         ewo{"Ewondo"}
@@ -1461,14 +1565,16 @@ nl{
         fat{"Fanti"}
         ff{"Fulah"}
         fi{"Fins"}
-        fil{"Filipijns"}
-        fiu{"Finoegrische talen (overige)"}
+        fil{"Filippijns"}
+        fiu{"Fins-Oegrische taal"}
         fj{"Fijisch"}
         fo{"Faeröers"}
         fon{"Fon"}
         fr{"Frans"}
-        frm{"Frans, middel- (ca. 1400-1800)"}
-        fro{"Frans, oud- (ca. 842-1400)"}
+        fr_CA{"Canadees Frans"}
+        fr_CH{"Zwitsers Frans"}
+        frm{"Middelfrans"}
+        fro{"Oudfrans"}
         fur{"Friulisch"}
         fy{"Fries"}
         ga{"Iers"}
@@ -1476,18 +1582,19 @@ nl{
         gay{"Gayo"}
         gba{"Gbaya"}
         gd{"Schots Gaelic"}
-        gem{"Germaans (overige)"}
+        gem{"Germaanse taal"}
         gez{"Geez"}
         gil{"Gilbertees"}
         gl{"Galicisch"}
-        gmh{"Duits, middelhoog- (ca. 1050-1500)"}
+        gmh{"Middelhoogduits"}
         gn{"Guarani"}
-        goh{"Duits, oudhoog- (ca. 750-1050)"}
+        goh{"Oudhoogduits"}
         gon{"Gondi"}
         gor{"Gorontalo"}
         got{"Gothisch"}
         grb{"Grebo"}
-        grc{"Grieks, klassiek (tot 1453)"}
+        grc{"Oudgrieks"}
+        gsw{"Zwitsers Duits"}
         gu{"Gujarati"}
         gv{"Manx"}
         gwi{"Gwichʼin"}
@@ -1517,11 +1624,11 @@ nl{
         ijo{"Ijo"}
         ik{"Inupiaq"}
         ilo{"Iloko"}
-        inc{"Indisch (overige)"}
-        ine{"Indo-Europees (overige)"}
+        inc{"Indische taal"}
+        ine{"Indo-Europese taal"}
         inh{"Ingoesj"}
         io{"Ido"}
-        ira{"Iraans (overige)"}
+        ira{"Iraanse taal"}
         iro{"Irokese talen"}
         is{"IJslands"}
         it{"Italiaans"}
@@ -1535,13 +1642,16 @@ nl{
         kaa{"Karakalpaks"}
         kab{"Kabyle"}
         kac{"Kachin"}
+        kaj{"Jju"}
         kam{"Kamba"}
         kar{"Karen"}
         kaw{"Kawi"}
         kbd{"Kabardisch"}
+        kcg{"Tyap"}
+        kfo{"Koro"}
         kg{"Kongo"}
         kha{"Khasi"}
-        khi{"Khoisan (overige)"}
+        khi{"Khoisan-taal"}
         kho{"Khotanees"}
         ki{"Kikuyu"}
         kj{"Kuanyama"}
@@ -1582,7 +1692,7 @@ nl{
         lua{"Luba-Lulua"}
         lui{"Luiseno"}
         lun{"Lunda"}
-        luo{"Luo (Kenia en Tanzania)"}
+        luo{"Luo"}
         lus{"Lushai"}
         lv{"Letlands"}
         mad{"Madurees"}
@@ -1590,20 +1700,20 @@ nl{
         mai{"Maithili"}
         mak{"Makassaars"}
         man{"Mandingo"}
-        map{"Austronesisch (overige)"}
+        map{"Austronesisch"}
         mas{"Masai"}
         mdf{"Moksha"}
         mdr{"Mandar"}
         men{"Mende"}
         mg{"Malagasisch"}
-        mga{"Iers, middel- (900-1200)"}
+        mga{"Middeliers"}
         mh{"Marshallees"}
         mi{"Maori"}
         mic{"Mi'kmaq"}
         min{"Minangkabau"}
         mis{"Diverse talen"}
         mk{"Macedonisch"}
-        mkh{"Mon-Khmer (overige)"}
+        mkh{"Mon-Khmer-taal"}
         ml{"Malayalam"}
         mn{"Mongools"}
         mnc{"Mantsjoe"}
@@ -1628,20 +1738,21 @@ nl{
         nai{"Noord-Amerikaans Indiaans"}
         nap{"Napolitaans"}
         nb{"Noors - Bokmål"}
-        nd{"Ndebele, noord-"}
+        nd{"Noord-Ndbele"}
         nds{"Laagduits"}
         ne{"Nepalees"}
         new{"Newari"}
         ng{"Ndonga"}
         nia{"Nias"}
-        nic{"Niger-Kordofanisch (overige)"}
+        nic{"Niger-Kordofanische taal"}
         niu{"Niueaans"}
         nl{"Nederlands"}
+        nl_BE{"Vlaams"}
         nn{"Noors - Nynorsk"}
         no{"Noors"}
         nog{"Nogai"}
-        non{"Noors, oud-"}
-        nr{"Ndebele, zuid-"}
+        non{"Oudnoors"}
+        nr{"Zuid-Ndbele"}
         nso{"Noord-Sotho"}
         nub{"Nubische talen"}
         nv{"Navajo"}
@@ -1651,48 +1762,50 @@ nl{
         nyn{"Nyankole"}
         nyo{"Nyoro"}
         nzi{"Nzima"}
-        oc{"Langue d’Oc (na 1500)"}
+        oc{"Occitaans"}
         oj{"Ojibwa"}
         om{"Oromo"}
         or{"Oriya"}
         os{"Ossetisch"}
         osa{"Osage"}
-        ota{"Turks, Ottomaans (1500-1928)"}
+        ota{"Ottomaans-Turks"}
         oto{"Otomi-talen"}
         pa{"Punjabi"}
-        paa{"Papoeaas (overige)"}
+        paa{"Papoeataal"}
         pag{"Pangasinan"}
         pal{"Pahlavi"}
         pam{"Pampanga"}
         pap{"Papiamento"}
         pau{"Palauaans"}
-        peo{"Perzisch, oud- (ca. 600-400 v. Chr.)"}
-        phi{"Filippijns (overige)"}
+        peo{"Oudperzisch"}
+        phi{"Filippijnse taal"}
         phn{"Foenicisch"}
         pi{"Pali"}
         pl{"Pools"}
         pon{"Pohnpeiaans"}
         pra{"Prakrit-talen"}
-        pro{"Provençaals, oud- (tot 1500)"}
-        ps{"Pashto"}
+        pro{"Oudprovençaals"}
+        ps{"Pasjtoe"}
         pt{"Portugees"}
+        pt_BR{"Braziliaans Portugees"}
+        pt_PT{"Iberisch Portugees"}
         qu{"Quechua"}
         raj{"Rajasthani"}
         rap{"Rapanui"}
         rar{"Rarotongan"}
-        rm{"Retoromaans"}
+        rm{"Reto-Romaans"}
         rn{"Rundi"}
         ro{"Roemeens"}
-        roa{"Romaans (overige)"}
+        roa{"Romaanse taal"}
         rom{"Romani"}
         root{"Root"}
         ru{"Russisch"}
         rup{"Aromaniaans"}
         rw{"Kinyarwanda"}
-        sa{"Sanskrit"}
+        sa{"Sanskriet"}
         sad{"Sandawe"}
         sah{"Yakut"}
-        sai{"Zuid-Amerikaans Indiaans (overige)"}
+        sai{"Zuid-Amerikaans Indiaanse taal"}
         sal{"Salishan-talen"}
         sam{"Samaritaans-Aramees"}
         sas{"Sasak"}
@@ -1703,22 +1816,22 @@ nl{
         sd{"Sindhi"}
         se{"Noord-Samisch"}
         sel{"Selkup"}
-        sem{"Semitisch (overige)"}
+        sem{"Semitische taal"}
         sg{"Sango"}
-        sga{"Iers, oud- (tot 900)"}
+        sga{"Oudiers"}
         sgn{"Gebarentalen"}
         sh{"Servokroatisch"}
         shn{"Shan"}
         si{"Singalees"}
         sid{"Sidamo"}
         sio{"Siouaanse talen"}
-        sit{"Sino-Tibetaans (overige)"}
+        sit{"Sino-Tibetaanse taal"}
         sk{"Slowaaks"}
         sl{"Sloveens"}
-        sla{"Slavisch (overige)"}
+        sla{"Slavische taal"}
         sm{"Samoaans"}
         sma{"Zuid-Samisch"}
-        smi{"Sami-talen (overige)"}
+        smi{"Sami-taal"}
         smj{"Lule Sami"}
         smn{"Inari Sami"}
         sms{"Skolt Sami"}
@@ -1732,8 +1845,9 @@ nl{
         srn{"Sranantongo"}
         srr{"Serer"}
         ss{"Swati"}
-        st{"Sotho, zuid"}
-        su{"Sundanees"}
+        ssa{"Nilo-Saharaanse taal"}
+        st{"Zuid-Sotho"}
+        su{"Soendanees"}
         suk{"Sukuma"}
         sus{"Soesoe"}
         sux{"Soemerisch"}
@@ -1741,13 +1855,13 @@ nl{
         sw{"Swahili"}
         syr{"Syriac"}
         ta{"Tamil"}
-        tai{"Tai (overige)"}
+        tai{"Tai-taal"}
         te{"Teloegoe"}
         tem{"Timne"}
         ter{"Tereno"}
         tet{"Tetum"}
-        tg{"Tadzjik"}
-        th{"Thai"}
+        tg{"Tadzjieks"}
+        th{"Thais"}
         ti{"Tigrinya"}
         tig{"Tigre"}
         tiv{"Tiv"}
@@ -1758,8 +1872,8 @@ nl{
         tli{"Tlingit"}
         tmh{"Tamashek"}
         tn{"Tswana"}
-        to{"Tonga (Tonga-eilanden)"}
-        tog{"Tonga (Nyasa)"}
+        to{"Tonga"}
+        tog{"Nyasa Tonga"}
         tpi{"Tok Pisin"}
         tr{"Turks"}
         ts{"Tsonga"}
@@ -1767,13 +1881,13 @@ nl{
         tt{"Tataars"}
         tum{"Toemboeka"}
         tup{"Tupi-talen"}
-        tut{"Altaïsch (overige)"}
+        tut{"Altaïsche taal"}
         tvl{"Tuvalu"}
         tw{"Twi"}
         ty{"Tahitisch"}
         tyv{"Tuvinisch"}
         udm{"Udmurt"}
-        ug{"Uighur"}
+        ug{"Oeigoers"}
         uga{"Oegaritisch"}
         uk{"Oekraïens"}
         umb{"Umbundu"}
@@ -1797,12 +1911,14 @@ nl{
         yao{"Yao"}
         yap{"Yapees"}
         yi{"Jiddisch"}
-        yo{"Joruba"}
+        yo{"Yoruba"}
         ypk{"Yupik-talen"}
         za{"Zhuang"}
         zap{"Zapotec"}
         zen{"Zenaga"}
         zh{"Chinees"}
+        zh_Hans{"Vereenvoudigd Chinees"}
+        zh_Hant{"Traditioneel Chinees"}
         znd{"Zande"}
         zu{"Zulu"}
         zun{"Zuni"}
@@ -1824,6 +1940,12 @@ nl{
         "NaN",
         "+",
     }
+    NumberPatterns{
+        "#,##0.###",
+        "¤ #,##0.00;¤ #,##0.00-",
+        "#,##0%",
+        "#E0",
+    }
     Scripts{
         Arab{"Arabisch"}
         Armn{"Armeens"}
@@ -1837,18 +1959,21 @@ nl{
         Bugi{"Buginees"}
         Buhd{"Buhid"}
         Cans{"Verenigde Canadese Aboriginal-symbolen"}
+        Cari{"Carisch"}
+        Cham{"Cham"}
         Cher{"Cherokee"}
         Cirt{"Cirth"}
         Copt{"Koptisch"}
         Cprt{"Cyprisch"}
         Cyrl{"Cyrillisch"}
-        Cyrs{"Cyrillisch (Oudkerkslavische variant)"}
+        Cyrs{"Oudkerkslavisch Cyrillisch"}
         Deva{"Devanagari"}
         Dsrt{"Deseret"}
-        Egyd{"Egyptisch (demotisch)"}
-        Egyh{"Egyptisch (hiëratisch)"}
+        Egyd{"Egyptisch demotisch"}
+        Egyh{"Egyptisch hiëratisch"}
+        Egyp{"Egyptische hiërogliefen"}
         Ethi{"Ethiopisch"}
-        Geok{"Khutsuri (Asomtavruli en Nuskhuri)"}
+        Geok{"Georgisch Khutsuri"}
         Geor{"Georgisch"}
         Glag{"Glagolitisch"}
         Goth{"Gothisch"}
@@ -1865,30 +1990,37 @@ nl{
         Hmng{"Pahawh Hmong"}
         Hrkt{"Katakana of Hiragana"}
         Hung{"Oudhongaars"}
-        Inds{"Indus (Harappan)"}
+        Inds{"Indus"}
         Ital{"Oud-italisch"}
         Java{"Javaans"}
+        Jpan{"Japans"}
         Kali{"Kayah Li"}
         Kana{"Katakana"}
         Khar{"Kharoshthi"}
         Khmr{"Khmer"}
         Knda{"Kannada"}
+        Lana{"Lanna"}
         Laoo{"Lao"}
-        Latf{"Latijn (Fraktur-variant)"}
-        Latg{"Latijn (Gaelic variant)"}
+        Latf{"Gotisch Latijn"}
+        Latg{"Gaelisch Latijn"}
         Latn{"Latijn"}
-        Lepc{"Lepcha (Róng)"}
+        Lepc{"Lepcha"}
         Limb{"Limbu"}
         Lina{"Lineair A"}
         Linb{"Lineair B"}
+        Lyci{"Lycisch"}
+        Lydi{"Lydisch"}
         Mand{"Mandaeans"}
         Maya{"Mayahiërogliefen"}
         Mero{"Meroïtisch"}
         Mlym{"Malayalam"}
         Mong{"Mongools"}
+        Moon{"Moon"}
+        Mtei{"Meitei"}
         Mymr{"Myanmar"}
         Nkoo{"N’Ko"}
         Ogam{"Ogham"}
+        Olck{"Ol Chiki"}
         Orkh{"Orkhon"}
         Orya{"Oriya"}
         Osma{"Osmanya"}
@@ -1904,15 +2036,19 @@ nl{
         Sinh{"Sinhala"}
         Sylo{"Syloti Nagri"}
         Syrc{"Syriac"}
+        Syre{"Estrangelo Aramees"}
+        Syrj{"West-Aramees"}
+        Syrn{"Oost-Aramees"}
         Tagb{"Tagbanwa"}
         Tale{"Tai Le"}
-        Talu{"Tai Lue (nieuw)"}
+        Talu{"Nieuw Tai Lue"}
         Taml{"Tamil"}
         Telu{"Telugu"}
         Teng{"Tengwar"}
-        Tfng{"Tifinagh (Berber)"}
+        Tfng{"Tifinagh"}
         Tglg{"Tagalog"}
         Thaa{"Thaana"}
+        Thai{"Thais"}
         Tibt{"Tibetaans"}
         Ugar{"Ugaritisch"}
         Vaii{"Vai"}
@@ -1929,33 +2065,51 @@ nl{
             buddhist{"Boeddhistische kalender"}
             chinese{"Chinese kalender"}
             gregorian{"Gregoriaanse kalender"}
-            hebrew{"Joodse kalender"}
+            hebrew{"Hebreeuwse kalender"}
+            indian{"Indiase nationale kalender"}
             islamic{"Islamitische kalender"}
             islamic-civil{"Islamitische kalender (cyclisch)"}
             japanese{"Japanse kalender"}
+            roc{"Kalender van de Chinese Republiek"}
         }
         collation{
             big5han{"Traditioneel Chinees"}
-            direct{"Directe volgorde"}
+            direct{"Directe sorteervolgorde"}
             gb2312han{"Vereenvoudigd Chinees"}
-            phonebook{"Telefoonboekvolgorde"}
+            phonebook{"Telefoonboeksorteervolgorde"}
             pinyin{"Pinyinvolgorde"}
-            stroke{"Streekvolgorde"}
-            traditional{"Traditionele volgorde"}
+            stroke{"Streeksorteervolgorde"}
+            traditional{"Traditionele sorteervolgorde"}
         }
     }
     Variants{
-        1901{"Traditionele Duitse ortografie"}
-        1996{"Duitse ortografie van 1996"}
-        NEDIS{"Natisone (dialect)"}
-        POLYTONI{"Polytonaal"}
-        REVISED{"Gewijzigde ortografie"}
+        1901{"Traditionele Duitse spelling"}
+        1996{"Duitse spelling van 1996"}
+        AREVELA{"Oost-Armeens"}
+        AREVMDA{"West-Armeens"}
+        BISKE{"San Giorgio/Bila-dialect"}
+        BOONT{"Boontling"}
+        FONIPA{"Internationaal Fonetisch Alfabet"}
+        FONUPA{"Oeralisch Fonetisch Alfabet"}
+        MONOTON{"Monotonaal"}
+        NEDIS{"Natisone-dialect"}
+        NJIVA{"Gniva/Njiva-dialect"}
+        OSOJS{"Oseacco/Osojane-dialect"}
+        POLYTON{"Polytonaal"}
+        POSIX{"Computer"}
+        REVISED{"Gewijzigde spelling"}
         ROZAJ{"Resiaans"}
         SAAHO{"Saho"}
+        SCOUSE{"Liverpools (Scouse)"}
+        SOLBA{"Stolvizza/Solbica-dialect"}
     }
-    Version{"1.73"}
+    Version{"1.108"}
     calendar{
         gregorian{
+            AmPmMarkers{
+                "AM",
+                "PM",
+            }
             DateTimePatterns{
                 "HH:mm:ss v",
                 "HH:mm:ss z",
@@ -1966,6 +2120,35 @@ nl{
                 "d MMM yyyy",
                 "dd-MM-yy",
                 "{1} {0}",
+            }
+            availableFormats{
+                Hm{"HH:mm"}
+                M{"L"}
+                MEd{"E, d-M"}
+                MMM{"LLL"}
+                MMMEd{"E d MMM"}
+                MMMMEd{"E d MMMM"}
+                MMMMd{"d MMMM"}
+                MMMd{"d-MMM"}
+                MMd{"d-MM"}
+                MMdd{"dd-MM"}
+                Md{"d-M"}
+                d{"d"}
+                mmss{"mm:ss"}
+                ms{"mm:ss"}
+                y{"yyyy"}
+                yM{"M-yyyy"}
+                yMEd{"EEE, d-M-yyyy"}
+                yMMM{"MMM yyyy"}
+                yMMMEd{"EEE, d MMM yyyy"}
+                yMMMM{"MMMM yyyy"}
+                yQ{"Q yyyy"}
+                yQQQ{"QQQ yyyy"}
+                yyMM{"MM-yy"}
+                yyMMM{"MMM yy"}
+                yyQ{"Q yy"}
+                yyQQQQ{"QQQQ yy"}
+                yyyyMMMM{"MMMM yyyy"}
             }
             dayNames{
                 format{
@@ -2005,13 +2188,26 @@ nl{
                     "v. Chr.",
                     "n. Chr.",
                 }
+                wide{
+                    "Voor Christus",
+                    "Anno Domini",
+                }
             }
             fields{
                 day{
                     dn{"Dag"}
+                    relative{
+                        "-1"{"Gisteren"}
+                        "-2"{"Eergisteren"}
+                        "-3"{"Drie dagen geleden"}
+                        "0"{"Vandaag"}
+                        "1"{"Morgen"}
+                        "2"{"Overmorgen"}
+                        "3"{"Over drie dagen"}
+                    }
                 }
                 dayperiod{
-                    dn{"Dagdeel"}
+                    dn{"AM/PM"}
                 }
                 era{
                     dn{"Tijdperk"}
@@ -2028,11 +2224,101 @@ nl{
                 second{
                     dn{"Seconde"}
                 }
+                week{
+                    dn{"Week"}
+                }
                 weekday{
                     dn{"Dag van de week"}
                 }
                 year{
                     dn{"Jaar"}
+                }
+                zone{
+                    dn{"Zone"}
+                }
+            }
+            intervalFormats{
+                M{
+                    M{"M-M"}
+                }
+                MEd{
+                    M{"E dd-MM - E dd-MM"}
+                    d{"E dd-MM - E dd-MM"}
+                }
+                MMM{
+                    M{"MMM-MMM"}
+                }
+                MMMEd{
+                    M{"E d MMM - E d MMM"}
+                    d{"E d - E d MMM"}
+                }
+                MMMM{
+                    M{"LLLL-LLLL"}
+                }
+                MMMd{
+                    M{"d MMM - d MMM"}
+                    d{"d-d MMM"}
+                }
+                Md{
+                    M{"dd-MM - dd-MM"}
+                    d{"dd-MM - dd-MM"}
+                }
+                d{
+                    d{"d-d"}
+                }
+                fallback{"{0} - {1}"}
+                h{
+                    a{"HH-HH"}
+                    h{"HH-HH"}
+                }
+                hm{
+                    a{"HH:mm-HH:mm"}
+                    h{"HH:mm-HH:mm"}
+                    m{"HH:mm-HH:mm"}
+                }
+                hmv{
+                    a{"HH:mm-HH:mm v"}
+                    h{"HH:mm-HH:mm v"}
+                    m{"HH:mm-HH:mm v"}
+                }
+                hv{
+                    a{"HH-HH v"}
+                    h{"HH-HH v"}
+                }
+                y{
+                    y{"y-y"}
+                }
+                yM{
+                    M{"MM-yy - MM-yy"}
+                    y{"MM-yy - MM-yy"}
+                }
+                yMEd{
+                    M{"E dd-MM-yy - E dd-MM-yy"}
+                    d{"E dd-MM-yy - E dd-MM-yy"}
+                    y{"E dd-MM-yy - E dd-MM-yy"}
+                }
+                yMMM{
+                    M{"MMM-MMM yyyy"}
+                    y{"MMM yyyy - MMM yyyy"}
+                }
+                yMMMEd{
+                    M{"E d MMM - E d MMM yyyy"}
+                    d{"E d - E d MMM yyyy"}
+                    y{"E d MMM yyyy - E d MMM yyyy"}
+                }
+                yMMMM{
+                    M{"MM–MM– yyyy"}
+                    y{"MM-yyyy – MM-yyyy"}
+                }
+                yMMMd{
+                    M{"d MMM - d MMM yyyy"}
+                    d{"d-d MMM yyyy"}
+                    y{"d MMM yyyy - d MMM yyyy"}
+                }
+                yMd{
+                    M{"dd-MM-yy - dd-MM-yy"}
+                    d{"dd-MM-yy - dd-MM-yy"}
+                    y{"dd-MM-yy - dd-MM-yy"}
                 }
             }
             monthNames{
@@ -2098,6 +2384,14 @@ nl{
                         "4e kwartaal",
                     }
                 }
+                stand-alone{
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                    }
+                }
             }
         }
         hebrew{
@@ -2147,49 +2441,85 @@ nl{
             }
         }
     }
+    codePatterns{
+        language{"Taal: {0}"}
+        script{"Schrift: {0}"}
+        territory{"Regio: {0}"}
+    }
     delimiters{
         alternateQuotationEnd{"”"}
         alternateQuotationStart{"“"}
         quotationEnd{"’"}
         quotationStart{"‘"}
     }
+    localeDisplayPattern{
+        pattern{"{0} ({1})"}
+        separator{", "}
+    }
     measurementSystemNames{
+        US{"Amerikaans"}
         metric{"Metriek"}
     }
+    units{
+        day{
+            one{"{0} dag"}
+            other{"{0} dagen"}
+        }
+        hour{
+            one{"{0} uur"}
+            other{"{0} uur"}
+        }
+        minute{
+            one{"{0} minuut"}
+            other{"{0} minuten"}
+        }
+        month{
+            one{"{0} maand"}
+            other{"{0} maanden"}
+        }
+        second{
+            one{"{0} seconde"}
+            other{"{0} seconden"}
+        }
+        week{
+            one{"{0} week"}
+            other{"{0} weken"}
+        }
+        year{
+            one{"{0} jaar"}
+            other{"{0} jaar"}
+        }
+    }
     zoneStrings{
-        "Africa:Casablanca"{
-            ec{"Casablanca"}
-            ld{"Greenwich Mean Time"}
-            ls{"Greenwich Mean Time"}
-            sd{"GMT"}
-            ss{"GMT"}
+        "Africa:Addis_Ababa"{
+            ec{"Addis Abeba"}
         }
-        "Africa:Timbuktu"{
-            ec{"Timboektoe"}
+        "Africa:Asmera"{
+            ec{"Asmara"}
         }
-        "America:Anchorage"{
-            ec{"Anchorage"}
-            ld{"Alaska-zomertijd"}
-            ls{"Alaska-standaardtijd"}
+        "Africa:Khartoum"{
+            ec{"Khartoem"}
         }
-        "America:Argentina:ComodRivadavia"{
-            ec{"Comodora Rivadavia"}
+        "Africa:Lome"{
+            ec{"Lomé"}
+        }
+        "Africa:Sao_Tome"{
+            ec{"Sao Tomé"}
         }
         "America:Argentina:Rio_Gallegos"{
             ec{"Río Gallegos"}
         }
+        "America:Asuncion"{
+            ec{"Asunción"}
+        }
         "America:Belem"{
             ec{"Belém"}
         }
+        "America:Bogota"{
+            ec{"Bogotá"}
+        }
         "America:Cancun"{
             ec{"Cancún"}
-        }
-        "America:Chicago"{
-            ec{"Chicago"}
-            ld{"Central-zomertijd"}
-            ls{"Central-standaardtijd"}
-            sd{"CDT"}
-            ss{"CST"}
         }
         "America:Cordoba"{
             ec{"Córdoba"}
@@ -2197,24 +2527,11 @@ nl{
         "America:Cuiaba"{
             ec{"Cuiabá"}
         }
-        "America:Denver"{
-            ec{"Denver"}
-            ld{"Mountain-zomertijd"}
-            ls{"Mountain-standaardtijd"}
-            sd{"MDT"}
-            ss{"MST"}
+        "America:Curacao"{
+            ec{"Curaçao"}
         }
-        "America:Halifax"{
-            ec{"Halifax"}
-            ld{"Atlantic-zomertijd"}
-            ls{"Atlantic-standaardtijd"}
-        }
-        "America:Los_Angeles"{
-            ec{"Los Angeles"}
-            ld{"Pacific-zomertijd"}
-            ls{"Pacific-standaardtijd"}
-            sd{"PDT"}
-            ss{"PST"}
+        "America:El_Salvador"{
+            ec{"Salvador"}
         }
         "America:Maceio"{
             ec{"Maceió"}
@@ -2226,24 +2543,10 @@ nl{
             ec{"Mérida"}
         }
         "America:Mexico_City"{
-            ec{"Mexico Stad"}
+            ec{"Mexico-stad"}
         }
         "America:Montreal"{
             ec{"Montréal"}
-        }
-        "America:New_York"{
-            ec{"New York"}
-            ld{"Eastern-zomertijd"}
-            ls{"Eastern-standaardtijd"}
-            sd{"EDT"}
-            ss{"EST"}
-        }
-        "America:Phoenix"{
-            ec{"Phoenix"}
-            ld{"Mountain-standaardtijd"}
-            ls{"Mountain-standaardtijd"}
-            sd{"MST"}
-            ss{"MST"}
         }
         "America:Porto_Velho"{
             ec{"Pôrto Velho"}
@@ -2253,38 +2556,99 @@ nl{
         }
         "America:St_Johns"{
             ec{"St. Johns"}
-            ld{"Newfoundland-zomertijd"}
-            ls{"Newfoundland-standaardtijd"}
         }
-        "Antarctica:DumontDUrville"{
-            ec{"Dumont d'Urville"}
+        "America:St_Kitts"{
+            ec{"St. Kitts"}
+        }
+        "America:St_Lucia"{
+            ec{"St. Lucia"}
+        }
+        "America:St_Thomas"{
+            ec{"St. Thomas"}
+        }
+        "America:St_Vincent"{
+            ec{"St. Vincent"}
         }
         "Antarctica:South_Pole"{
             ec{"Zuidpool"}
         }
+        "Asia:Almaty"{
+            ec{"Alma-Ata"}
+        }
+        "Asia:Aqtobe"{
+            ec{"Aqtöbe"}
+        }
+        "Asia:Ashgabat"{
+            ec{"Asjchabad"}
+        }
+        "Asia:Bahrain"{
+            ec{"Bahrein"}
+        }
+        "Asia:Baku"{
+            ec{"Bakoe"}
+        }
+        "Asia:Beirut"{
+            ec{"Beiroet"}
+        }
+        "Asia:Bishkek"{
+            ec{"Bisjkek"}
+        }
+        "Asia:Dushanbe"{
+            ec{"Dusjanbe"}
+        }
+        "Asia:Hong_Kong"{
+            ec{"Hongkong"}
+        }
+        "Asia:Irkutsk"{
+            ec{"Irkoetsk"}
+        }
         "Asia:Jerusalem"{
             ec{"Jeruzalem"}
-            ld{"Israëlische zomertijd"}
-            ls{"Israëlische standaardtijd"}
-            sd{"IDT"}
-            ss{"IST"}
+        }
+        "Asia:Kamchatka"{
+            ec{"Kamtsjatka"}
+        }
+        "Asia:Katmandu"{
+            ec{"Kathmandu"}
+        }
+        "Asia:Krasnoyarsk"{
+            ec{"Krasnojarsk"}
+        }
+        "Asia:Kuwait"{
+            ec{"Koeweit"}
+        }
+        "Asia:Manila"{
+            ec{"Manilla"}
+        }
+        "Asia:Riyadh"{
+            ec{"Riyad"}
+        }
+        "Asia:Sakhalin"{
+            ec{"Sachalin"}
         }
         "Asia:Shanghai"{
-            ld{"Chinese standaardtijd"}
-            ls{"Chinese standaardtijd"}
+            ec{"Sjanghai"}
         }
         "Asia:Tashkent"{
             ec{"Tasjkent"}
         }
+        "Asia:Tehran"{
+            ec{"Teheran"}
+        }
         "Asia:Tokyo"{
-            ec{"Tokyo"}
-            ld{"Japanse standaardtijd"}
-            ls{"Japanse standaardtijd"}
-            sd{"JST"}
-            ss{"JST"}
+            ec{"Tokio"}
         }
         "Asia:Ulaanbaatar"{
             ec{"Ulaanbaator"}
+        }
+        "Asia:Yakutsk"{
+            ec{"Jakoetsk"}
+        }
+        "Asia:Yekaterinburg"{
+            ec{"Jekaterinenburg"}
+        }
+        "Asia:Yerevan"{
+            ec{"Erevan"}
         }
         "Atlantic:Azores"{
             ec{"Azoren"}
@@ -2292,12 +2656,41 @@ nl{
         "Atlantic:Canary"{
             ec{"Canarische Eilanden"}
         }
+        "Atlantic:Cape_Verde"{
+            ec{"Kaapverdië"}
+        }
+        "Atlantic:Faeroe"{
+            ec{"Faeröer"}
+        }
+        "Atlantic:South_Georgia"{
+            ec{"Zuid-Georgië"}
+        }
+        "Atlantic:St_Helena"{
+            ec{"Sint-Helena"}
+        }
+        "Etc:Unknown"{
+            ec{"Onbekend"}
+        }
+        "Europe:Athens"{
+            ec{"Athene"}
+        }
+        "Europe:Berlin"{
+            ec{"Berlijn"}
+        }
+        "Europe:Brussels"{
+            ec{"Brussel"}
+        }
         "Europe:Bucharest"{
             ec{"Boekarest"}
-            ld{"Oost-Europese zomertijd"}
-            ls{"Oost-Europese standaardtijd"}
-            sd{"EEST"}
-            ss{"EET"}
+        }
+        "Europe:Budapest"{
+            ec{"Boedapest"}
+        }
+        "Europe:Copenhagen"{
+            ec{"Kopenhagen"}
+        }
+        "Europe:Istanbul"{
+            ec{"Istanboel"}
         }
         "Europe:Lisbon"{
             ec{"Lissabon"}
@@ -2305,25 +2698,928 @@ nl{
         "Europe:London"{
             ec{"Londen"}
         }
+        "Europe:Luxembourg"{
+            ec{"Luxemburg"}
+        }
         "Europe:Moscow"{
             ec{"Moskou"}
         }
         "Europe:Paris"{
             ec{"Parijs"}
-            ld{"Midden-Europese zomertijd"}
-            ls{"Midden-Europese standaardtijd"}
-            sd{"CEST"}
-            ss{"CET"}
+        }
+        "Europe:Tirane"{
+            ec{"Tirana"}
+        }
+        "Europe:Uzhgorod"{
+            ec{"Oezjhorod"}
+        }
+        "Europe:Vienna"{
+            ec{"Wenen"}
+        }
+        "Europe:Warsaw"{
+            ec{"Warschau"}
+        }
+        "Europe:Zaporozhye"{
+            ec{"Zaporizja"}
+        }
+        "Europe:Zurich"{
+            ec{"Zürich"}
+        }
+        "Indian:Christmas"{
+            ec{"Christmaseiland"}
+        }
+        "Indian:Cocos"{
+            ec{"Cocoseilanden"}
+        }
+        "Indian:Mahe"{
+            ec{"Mahé"}
+        }
+        "Indian:Maldives"{
+            ec{"Maldiven"}
+        }
+        "Indian:Reunion"{
+            ec{"Réunion"}
         }
         "Pacific:Easter"{
             ec{"Paaseiland"}
         }
-        "Pacific:Honolulu"{
-            ec{"Honolulu"}
-            ld{"Hawaï-standaardtijd"}
-            ls{"Hawaï-standaardtijd"}
-            sd{"HST"}
-            ss{"HST"}
+        "Pacific:Enderbury"{
+            ec{"Enderbury-eiland"}
         }
+        "Pacific:Galapagos"{
+            ec{"Galápagos"}
+        }
+        "Pacific:Gambier"{
+            ec{"Gambier-eilanden"}
+        }
+        "Pacific:Marquesas"{
+            ec{"Marquesaseilanden"}
+        }
+        "Pacific:Noumea"{
+            ec{"Nouméa"}
+        }
+        "Pacific:Ponape"{
+            ec{"Pohnpei"}
+        }
+        "Pacific:Wake"{
+            ec{"Wake-eiland"}
+        }
+        "meta:Acre"{
+            cu:int{1}
+            ld{"Acre-zomertijd"}
+            ls{"Acre-tijd"}
+        }
+        "meta:Afghanistan"{
+            cu:int{1}
+            ls{"Afghaanse tijd"}
+        }
+        "meta:Africa_Central"{
+            ls{"Centraal-Afrikaanse tijd"}
+        }
+        "meta:Africa_Eastern"{
+            ls{"Oost-Afrikaanse tijd"}
+        }
+        "meta:Africa_Southern"{
+            lg{"Zuid-Afrikaanse tijd"}
+            ls{"Zuid-Afrikaanse standaardtijd"}
+        }
+        "meta:Africa_Western"{
+            ld{"West-Afrikaanse zomertijd"}
+            ls{"West-Afrikaanse tijd"}
+        }
+        "meta:Aktyubinsk"{
+            cu:int{1}
+            ld{"Aktyubinsk-zomertijd"}
+            ls{"Aktyubinsk-tijd"}
+        }
+        "meta:Alaska"{
+            cu:int{1}
+            ld{"Alaska - zomertijd"}
+            lg{"Alaska-tijd"}
+            ls{"Alaska - standaardtijd"}
+        }
+        "meta:Alaska_Hawaii"{
+            cu:int{1}
+            ld{"Alaska-Hawaii-zomertijd"}
+            lg{"Alaska-Hawaii-tijd"}
+            ls{"Alaska-Hawaii-standaardtijd"}
+        }
+        "meta:Almaty"{
+            cu:int{1}
+            ld{"Alma-Ata-zomertijd"}
+            ls{"Alma-Ata-tijd"}
+        }
+        "meta:Amazon"{
+            cu:int{1}
+            ld{"Amazone-zomertijd"}
+            ls{"Amazone-tijd"}
+        }
+        "meta:America_Central"{
+            cu:int{1}
+            ld{"Central-zomertijd"}
+            lg{"Central-tijd"}
+            ls{"Central-standaardtijd"}
+        }
+        "meta:America_Eastern"{
+            cu:int{1}
+            ld{"Eastern-zomertijd"}
+            lg{"Eastern-tijd"}
+            ls{"Eastern-standaardtijd"}
+        }
+        "meta:America_Mountain"{
+            cu:int{1}
+            ld{"Mountain-zomertijd"}
+            lg{"Mountain-tijd"}
+            ls{"Mountain-standaardtijd"}
+        }
+        "meta:America_Pacific"{
+            cu:int{1}
+            ld{"Pacific-zomertijd"}
+            lg{"Pacific-tijd"}
+            ls{"Pacific-standaardtijd"}
+        }
+        "meta:Anadyr"{
+            cu:int{1}
+            ld{"Anadyr-zomertijd"}
+            ls{"Anadyr-tijd"}
+        }
+        "meta:Aqtau"{
+            cu:int{1}
+            ld{"Aqtau-zomertijd"}
+            ls{"Aqtau-tijd"}
+        }
+        "meta:Aqtobe"{
+            cu:int{1}
+            ld{"Aqtöbe-zomertijd"}
+            ls{"Aqtöbe-tijd"}
+            sd{"AQTST (Aqtöbe)"}
+            ss{"AQTT (Aqtöbe)"}
+        }
+        "meta:Arabian"{
+            ld{"Arabische zomertijd"}
+            lg{"Arabische tijd"}
+            ls{"Arabische standaardtijd"}
+            sd{"ADT (Arabisch)"}
+            sg{"AT (Arabisch)"}
+            ss{"AST (Arabisch)"}
+        }
+        "meta:Argentina"{
+            cu:int{1}
+            ld{"Argentijnse zomertijd"}
+            ls{"Argentijnse tijd"}
+        }
+        "meta:Argentina_Western"{
+            cu:int{1}
+            ls{"West-Argentijnse tijd"}
+        }
+        "meta:Armenia"{
+            ld{"Armeense zomertijd"}
+            ls{"Armeense tijd"}
+            sd{"AMST (Armenië)"}
+            ss{"AMT (Armenië)"}
+        }
+        "meta:Ashkhabad"{
+            cu:int{1}
+            ld{"Ashkhabad-zomertijd"}
+            ls{"Ashkhabad-tijd"}
+        }
+        "meta:Atlantic"{
+            cu:int{1}
+            ld{"Atlantic - zomertijd"}
+            lg{"Atlantic-tijd"}
+            ls{"Atlantic - standaardtijd"}
+        }
+        "meta:Australia_Central"{
+            cu:int{1}
+            ld{"Midden-Australische zomertijd"}
+            lg{"Midden-Australische tijd"}
+            ls{"Midden-Australische standaardtijd"}
+        }
+        "meta:Australia_CentralWestern"{
+            cu:int{1}
+            ld{"Midden-Australische westelijke zomertijd"}
+            lg{"Midden-Australische westelijke tijd"}
+            ls{"Midden-Australische westelijke standaardtijd"}
+        }
+        "meta:Australia_Eastern"{
+            cu:int{1}
+            ld{"Oost-Australische zomertijd"}
+            lg{"Oost-Australische tijd"}
+            ls{"Oost-Australische standaardtijd"}
+        }
+        "meta:Australia_Western"{
+            cu:int{1}
+            ld{"West-Australische zomertijd"}
+            lg{"West-Australische tijd"}
+            ls{"West-Australische standaardtijd"}
+        }
+        "meta:Azerbaijan"{
+            cu:int{1}
+            ld{"Azerbeidzjaanse zomertijd"}
+            ls{"Azerbeidzjaanse tijd"}
+        }
+        "meta:Azores"{
+            cu:int{1}
+            ld{"Azoren-zomertijd"}
+            ls{"Azoren-tijd"}
+        }
+        "meta:Baku"{
+            cu:int{1}
+            ld{"Bakoe-zomertijd"}
+            ls{"Bakoe-tijd"}
+        }
+        "meta:Bangladesh"{
+            cu:int{1}
+            ls{"Bengalese tijd"}
+        }
+        "meta:Bering"{
+            cu:int{1}
+            ld{"Bering-zomertijd"}
+            lg{"Bering-tijd"}
+            ls{"Bering-standaardtijd"}
+        }
+        "meta:Bhutan"{
+            cu:int{1}
+            ls{"Bhutaanse tijd"}
+        }
+        "meta:Bolivia"{
+            cu:int{1}
+            ls{"Boliviaanse tijd"}
+        }
+        "meta:Borneo"{
+            cu:int{1}
+            ld{"Borneose zomertijd"}
+            ls{"Borneose tijd"}
+        }
+        "meta:Brasilia"{
+            cu:int{1}
+            ld{"Braziliaanse zomertijd"}
+            ls{"Braziliaanse tijd"}
+        }
+        "meta:Brunei"{
+            cu:int{1}
+            ls{"Bruneise tijd"}
+        }
+        "meta:Cape_Verde"{
+            cu:int{1}
+            ld{"Kaapverdische zomertijd"}
+            ls{"Kaapverdische tijd"}
+        }
+        "meta:Chamorro"{
+            cu:int{1}
+            lg{"Chamorro-tijd"}
+            ls{"Chamorro-standaardtijd"}
+        }
+        "meta:Changbai"{
+            cu:int{1}
+            ls{"Changbai-tijd"}
+        }
+        "meta:Chatham"{
+            cu:int{1}
+            ld{"Chatham-zomertijd"}
+            ls{"Chatham-standaardtijd"}
+        }
+        "meta:Chile"{
+            cu:int{1}
+            ld{"Chileense zomertijd"}
+            ls{"Chileense tijd"}
+        }
+        "meta:China"{
+            cu:int{1}
+            ld{"Chinese zomertijd"}
+            lg{"Chinese tijd"}
+            ls{"Chinese standaardtijd"}
+            sd{"CDT (China)"}
+            sg{"CT (China)"}
+            ss{"CST (China)"}
+        }
+        "meta:Choibalsan"{
+            cu:int{1}
+            ld{"Choibalsan-zomertijd"}
+            ls{"Choibalsan-tijd"}
+        }
+        "meta:Christmas"{
+            cu:int{1}
+            ls{"Christmaseilandse tijd"}
+        }
+        "meta:Cocos"{
+            cu:int{1}
+            ls{"Cocoseilandse tijd"}
+        }
+        "meta:Colombia"{
+            cu:int{1}
+            ld{"Colombiaanse zomertijd"}
+            ls{"Colombiaanse tijd"}
+        }
+        "meta:Cook"{
+            ld{"Cookeilandse halve zomertijd"}
+            ls{"Cookeilandse tijd"}
+        }
+        "meta:Cuba"{
+            cu:int{1}
+            ld{"Cubaanse zomertijd"}
+            lg{"Cubaanse tijd"}
+            ls{"Cubaanse standaardtijd"}
+            sd{"CDT (Cuba)"}
+            ss{"CST (Cuba)"}
+        }
+        "meta:Dacca"{
+            cu:int{1}
+            ls{"Dhaka-tijd"}
+        }
+        "meta:Davis"{
+            cu:int{1}
+            ls{"Davis-tijd"}
+        }
+        "meta:Dominican"{
+            cu:int{1}
+        }
+        "meta:DumontDUrville"{
+            cu:int{1}
+            ls{"Dumont-d'Urville-tijd"}
+        }
+        "meta:Dushanbe"{
+            cu:int{1}
+            ld{"Dushanbe-zomertijd"}
+            ls{"Dushanbe-tijd"}
+        }
+        "meta:Dutch_Guiana"{
+            ls{"Nederlands-Guyaanse tijd"}
+        }
+        "meta:East_Timor"{
+            cu:int{1}
+            ls{"Oost-Timorese tijd"}
+        }
+        "meta:Easter"{
+            cu:int{1}
+            ld{"Paaseilandse zomertijd"}
+            ls{"Paaseilandse tijd"}
+        }
+        "meta:Ecuador"{
+            cu:int{1}
+            ls{"Ecuadoriaanse tijd"}
+        }
+        "meta:Europe_Central"{
+            ld{"Midden-Europese zomertijd"}
+            ls{"Midden-Europese standaardtijd"}
+        }
+        "meta:Europe_Eastern"{
+            ld{"Oost-Europese zomertijd"}
+            ls{"Oost-Europese standaardtijd"}
+        }
+        "meta:Europe_Western"{
+            cu:int{1}
+            ld{"West-Europese zomertijd"}
+            ls{"West-Europese tijd"}
+        }
+        "meta:Falkland"{
+            cu:int{1}
+            ld{"Falklandeilandse zomertijd"}
+            ls{"Falklandeilandse tijd"}
+        }
+        "meta:Fiji"{
+            cu:int{1}
+            ld{"Fijische zomertijd"}
+            ls{"Fijische tijd"}
+        }
+        "meta:French_Guiana"{
+            cu:int{1}
+            ls{"Frans-Guyaanse tijd"}
+        }
+        "meta:French_Southern"{
+            cu:int{1}
+            ls{"Franse zuidelijke en Antarctische tijd"}
+        }
+        "meta:Frunze"{
+            ld{"Frunze-zomertijd"}
+            ls{"Frunze-tijd"}
+        }
+        "meta:GMT"{
+            cu:int{1}
+            ls{"Greenwich Mean Time"}
+        }
+        "meta:Galapagos"{
+            cu:int{1}
+            ls{"Galapagoseilandse tijd"}
+        }
+        "meta:Gambier"{
+            cu:int{1}
+            ls{"Gambiereilandse tijd"}
+        }
+        "meta:Georgia"{
+            cu:int{1}
+            ld{"Georgia-zomertijd"}
+            ls{"Georgia-tijd"}
+        }
+        "meta:Gilbert_Islands"{
+            cu:int{1}
+            ls{"Gilberteilandse tijd"}
+        }
+        "meta:Goose_Bay"{
+            cu:int{1}
+        }
+        "meta:Greenland_Central"{
+            cu:int{1}
+            ld{"Centraal-Groenlandse zomertijd"}
+            ls{"Centraal-Groenlandse tijd"}
+        }
+        "meta:Greenland_Eastern"{
+            cu:int{1}
+            ld{"Oost-Groenlandse zomertijd"}
+            ls{"Oost-Groenlandse tijd"}
+        }
+        "meta:Greenland_Western"{
+            cu:int{1}
+            ld{"West-Groenlandse zomertijd"}
+            ls{"West-Groenlandse tijd"}
+        }
+        "meta:Guam"{
+            ls{"Guamese standaardtijd"}
+            ss{"GST (Guam)"}
+        }
+        "meta:Gulf"{
+            cu:int{1}
+            lg{"Golf-tijd"}
+            ls{"Golf-standaardtijd"}
+        }
+        "meta:Guyana"{
+            cu:int{1}
+            ls{"Guyaanse tijd"}
+        }
+        "meta:Hawaii_Aleutian"{
+            cu:int{1}
+            ls{"Hawaii-Aleoetische standaardtijd"}
+        }
+        "meta:Hong_Kong"{
+            cu:int{1}
+            ld{"Hongkong-zomertijd"}
+            ls{"Hongkong-tijd"}
+        }
+        "meta:Hovd"{
+            cu:int{1}
+            ld{"Hovd-zomertijd"}
+            ls{"Hovd-tijd"}
+        }
+        "meta:India"{
+            cu:int{1}
+            ls{"Indiaase standaardtijd"}
+        }
+        "meta:Indian_Ocean"{
+            cu:int{1}
+            ls{"Indische Oceaan-tijd"}
+        }
+        "meta:Indochina"{
+            cu:int{1}
+            ls{"Indochinese tijd"}
+        }
+        "meta:Indonesia_Central"{
+            cu:int{1}
+            ls{"Centraal-Indonesische tijd"}
+        }
+        "meta:Indonesia_Eastern"{
+            cu:int{1}
+            ls{"Oost-Indonesische tijd"}
+        }
+        "meta:Indonesia_Western"{
+            cu:int{1}
+            ls{"West-Indonesische tijd"}
+        }
+        "meta:Iran"{
+            cu:int{1}
+            ld{"Iraanse zomertijd"}
+            ls{"Iraanse standaardtijd"}
+        }
+        "meta:Irkutsk"{
+            cu:int{1}
+            ld{"Irkoetsk-zomertijd"}
+            ls{"Irkoetsk-tijd"}
+        }
+        "meta:Israel"{
+            cu:int{1}
+            ld{"Israëlische zomertijd"}
+            lg{"Israëlische tijd"}
+            ls{"Israëlische standaardtijd"}
+            ss{"IST (Israël)"}
+        }
+        "meta:Japan"{
+            cu:int{1}
+            ld{"Japanse zomertijd"}
+            lg{"Japanse tijd"}
+            ls{"Japanse standaardtijd"}
+        }
+        "meta:Kamchatka"{
+            cu:int{1}
+            ld{"Petropavlovsk-Kamtsjatski-zomertijd"}
+            ls{"Petropavlovsk-Kamtsjatski-tijd"}
+        }
+        "meta:Karachi"{
+            cu:int{1}
+            ls{"Karachi-tijd"}
+        }
+        "meta:Kashgar"{
+            cu:int{1}
+            ls{"Kashgar-tijd"}
+        }
+        "meta:Kazakhstan_Eastern"{
+            cu:int{1}
+            lg{"Oost-Kazachse tijd"}
+            ls{"Oost-Kazachse standaardtijd"}
+        }
+        "meta:Kazakhstan_Western"{
+            cu:int{1}
+            lg{"West-Kazachse tijd"}
+            ls{"West-Kazachse standaardtijd"}
+        }
+        "meta:Kizilorda"{
+            cu:int{1}
+            ld{"Kizilorda-zomertijd"}
+            ls{"Kizilorda-tijd"}
+        }
+        "meta:Korea"{
+            cu:int{1}
+            ld{"Koreaanse zomertijd"}
+            lg{"Koreaanse tijd"}
+            ls{"Koreaanse standaardtijd"}
+        }
+        "meta:Kosrae"{
+            ls{"Kosraese tijd"}
+        }
+        "meta:Krasnoyarsk"{
+            cu:int{1}
+            ld{"Krasnojarsk-zomertijd"}
+            ls{"Krasnojarsk-tijd"}
+        }
+        "meta:Kuybyshev"{
+            cu:int{1}
+            ld{"Kuybyshev-zomertijd"}
+            lg{"Kuybyshev standaardtijd"}
+            ls{"Kuybyshev-tijd"}
+        }
+        "meta:Kwajalein"{
+            cu:int{1}
+            ls{"Kwajaleinse tijd"}
+        }
+        "meta:Kyrgystan"{
+            cu:int{1}
+            ls{"Kirgizische tijd"}
+        }
+        "meta:Lanka"{
+            cu:int{1}
+            ls{"Lanka-tijd"}
+        }
+        "meta:Line_Islands"{
+            ls{"Line-eilandse tijd"}
+        }
+        "meta:Long_Shu"{
+            cu:int{1}
+            ls{"Long-Shu-tijd"}
+        }
+        "meta:Lord_Howe"{
+            cu:int{1}
+            ld{"Lord Howe-zomertijd"}
+            lg{"Lord Howe-tijd"}
+            ls{"Lord Howe-standaardtijd"}
+        }
+        "meta:Macau"{
+            cu:int{1}
+            ld{"Macause zomertijd"}
+            ls{"Macause tijd"}
+        }
+        "meta:Magadan"{
+            cu:int{1}
+            ld{"Magadan-zomertijd"}
+            ls{"Magadan-tijd"}
+        }
+        "meta:Malaya"{
+            cu:int{1}
+            ls{"Malakka-tijd"}
+        }
+        "meta:Malaysia"{
+            cu:int{1}
+            ls{"Maleisische tijd"}
+        }
+        "meta:Maldives"{
+            cu:int{1}
+            ls{"Maldivische tijd"}
+        }
+        "meta:Marquesas"{
+            cu:int{1}
+            ls{"Marquesaseilandse tijd"}
+        }
+        "meta:Marshall_Islands"{
+            cu:int{1}
+            ls{"Marshalleilandse tijd"}
+        }
+        "meta:Mauritius"{
+            cu:int{1}
+            ls{"Mauritiaanse tijd"}
+        }
+        "meta:Mawson"{
+            cu:int{1}
+            ls{"Mawson-tijd"}
+        }
+        "meta:Mongolia"{
+            cu:int{1}
+            ld{"Ulaanbaatar-zomertijd"}
+            ls{"Ulaanbaatar-tijd"}
+        }
+        "meta:Moscow"{
+            cu:int{1}
+            ld{"Moskou-zomertijd"}
+            lg{"Moskou-tijd"}
+            ls{"Moskou-standaardtijd"}
+        }
+        "meta:Myanmar"{
+            cu:int{1}
+            ls{"Myanmarese tijd"}
+        }
+        "meta:Nauru"{
+            cu:int{1}
+            ls{"Nauruaanse tijd"}
+        }
+        "meta:Nepal"{
+            cu:int{1}
+            ls{"Nepalese tijd"}
+        }
+        "meta:New_Caledonia"{
+            cu:int{1}
+            ld{"Nieuw-Caledonische zomertijd"}
+            ls{"Nieuw-Caledonische tijd"}
+        }
+        "meta:New_Zealand"{
+            cu:int{1}
+            ld{"Nieuw-Zeelandse zomertijd"}
+            lg{"Nieuw-Zeelandse tijd"}
+            ls{"Nieuw-Zeelandse standaardtijd"}
+        }
+        "meta:Newfoundland"{
+            cu:int{1}
+            ld{"Newfoundland-zomertijd"}
+            lg{"Newfoundland-tijd"}
+            ls{"Newfoundland-standaardtijd"}
+        }
+        "meta:Niue"{
+            cu:int{1}
+            ls{"Niuese tijd"}
+        }
+        "meta:Norfolk"{
+            cu:int{1}
+            ls{"Norfolkeilandse tijd"}
+        }
+        "meta:Noronha"{
+            cu:int{1}
+            ld{"Fernando de Noronha-zomertijd"}
+            ls{"Fernando de Noronha-tijd"}
+        }
+        "meta:North_Mariana"{
+            cu:int{1}
+            ls{"Noordelijk Mariaanse tijd"}
+        }
+        "meta:Novosibirsk"{
+            cu:int{1}
+            ld{"Novosibirsk-zomertijd"}
+            ls{"Novosibirsk-tijd"}
+        }
+        "meta:Omsk"{
+            cu:int{1}
+            ld{"Omsk-zomertijd"}
+            ls{"Omsk-tijd"}
+        }
+        "meta:Oral"{
+            cu:int{1}
+        }
+        "meta:Pakistan"{
+            cu:int{1}
+            ld{"Pakistaanse zomertijd"}
+            ls{"Pakistaanse tijd"}
+        }
+        "meta:Palau"{
+            cu:int{1}
+            ls{"Belause tijd"}
+        }
+        "meta:Papua_New_Guinea"{
+            cu:int{1}
+            ls{"Papoea-Nieuw-Guinea-tijd"}
+        }
+        "meta:Paraguay"{
+            cu:int{1}
+            ld{"Paraguayaanse zomertijd"}
+            ls{"Paraguayaanse tijd"}
+        }
+        "meta:Peru"{
+            cu:int{1}
+            ld{"Peruaanse zomertijd"}
+            ls{"Peruaanse tijd"}
+        }
+        "meta:Philippines"{
+            cu:int{1}
+            ld{"Filipijnse zomertijd"}
+            ls{"Filipijnse tijd"}
+        }
+        "meta:Phoenix_Islands"{
+            cu:int{1}
+            ls{"Phoenixeilandse tijd"}
+        }
+        "meta:Pierre_Miquelon"{
+            cu:int{1}
+            ld{"Pierre en Miquelon-zomertijd"}
+            lg{"Pierre en Miquelon-tijd"}
+            ls{"Pierre en Miquelon-standaardtijd"}
+        }
+        "meta:Pitcairn"{
+            cu:int{1}
+            ls{"Pitcairnse tijd"}
+        }
+        "meta:Ponape"{
+            cu:int{1}
+            ls{"Pohnpeise tijd"}
+        }
+        "meta:Qyzylorda"{
+            cu:int{1}
+            ld{"Qyzylorda-zomertijd"}
+            ls{"Qyzylorda-tijd"}
+        }
+        "meta:Reunion"{
+            cu:int{1}
+            ls{"Réunionse tijd"}
+        }
+        "meta:Rothera"{
+            cu:int{1}
+            ls{"Rothera-tijd"}
+        }
+        "meta:Sakhalin"{
+            cu:int{1}
+            ld{"Sachalin-zomertijd"}
+            ls{"Sachalin-tijd"}
+        }
+        "meta:Samara"{
+            cu:int{1}
+            ld{"Samara-zomertijd"}
+            ls{"Samara-tijd"}
+        }
+        "meta:Samarkand"{
+            cu:int{1}
+            ld{"Samarkand-zomertijd"}
+            ls{"Samarkand-tijd"}
+        }
+        "meta:Samoa"{
+            cu:int{1}
+            ls{"Samoaanse standaardtijd"}
+        }
+        "meta:Seychelles"{
+            cu:int{1}
+            ls{"Seychelse tijd"}
+        }
+        "meta:Shevchenko"{
+            cu:int{1}
+            ld{"Shevchenko-zomertijd"}
+            ls{"Shevchenko-tijd"}
+        }
+        "meta:Singapore"{
+            cu:int{1}
+            ls{"Singaporese standaardtijd"}
+        }
+        "meta:Solomon"{
+            cu:int{1}
+            ls{"Solomoneilandse tijd"}
+        }
+        "meta:South_Georgia"{
+            cu:int{1}
+            ls{"Zuid-Georgische tijd"}
+            ss{"GST (Z. Georgië)"}
+        }
+        "meta:Suriname"{
+            cu:int{1}
+            ls{"Surinaamse tijd"}
+        }
+        "meta:Sverdlovsk"{
+            cu:int{1}
+            ld{"Sverdlovsk-zomertijd"}
+            ls{"Sverdlovsk-tijd"}
+        }
+        "meta:Syowa"{
+            cu:int{1}
+            ls{"Syowa-tijd"}
+        }
+        "meta:Tahiti"{
+            cu:int{1}
+            ls{"Tahitiaanse tijd"}
+        }
+        "meta:Tajikistan"{
+            cu:int{1}
+            ls{"Tadzjiekse tijd"}
+        }
+        "meta:Tashkent"{
+            cu:int{1}
+            ld{"Tasjkent-zomertijd"}
+            ls{"Tasjkent-tijd"}
+        }
+        "meta:Tbilisi"{
+            cu:int{1}
+            ld{"Tbilisi-zomertijd"}
+            ls{"Tbilisi-tijd"}
+        }
+        "meta:Tokelau"{
+            cu:int{1}
+            ls{"Tokelause tijd"}
+        }
+        "meta:Tonga"{
+            cu:int{1}
+            ld{"Tongaanse zomertijd"}
+            ls{"Tongaanse tijd"}
+        }
+        "meta:Truk"{
+            cu:int{1}
+            ls{"Chuukse tijd"}
+        }
+        "meta:Turkey"{
+            cu:int{1}
+            ld{"Turkse zomertijd"}
+            ls{"Turkse tijd"}
+        }
+        "meta:Turkmenistan"{
+            cu:int{1}
+            ld{"Turkmeense zomertijd"}
+            ls{"Turkmeense tijd"}
+        }
+        "meta:Tuvalu"{
+            cu:int{1}
+            ls{"Tuvaluaanse tijd"}
+        }
+        "meta:Uralsk"{
+            cu:int{1}
+            ld{"Oral-zomertijd"}
+            ls{"Oral-tijd"}
+        }
+        "meta:Uruguay"{
+            cu:int{1}
+            ld{"Uruguayaanse zomertijd"}
+            ls{"Uruguayaanse tijd"}
+        }
+        "meta:Urumqi"{
+            cu:int{1}
+            ls{"Ürümqi-tijd"}
+        }
+        "meta:Uzbekistan"{
+            cu:int{1}
+            ld{"Oezbeekse zomertijd"}
+            ls{"Oezbeekse tijd"}
+        }
+        "meta:Vanuatu"{
+            cu:int{1}
+            ld{"Vanuatuaanse zomertijd"}
+            ls{"Vanuatuaanse tijd"}
+        }
+        "meta:Venezuela"{
+            cu:int{1}
+            ls{"Venezolaanse tijd"}
+        }
+        "meta:Vladivostok"{
+            cu:int{1}
+            ld{"Vladivostok-zomertijd"}
+            ls{"Vladivostok-tijd"}
+        }
+        "meta:Volgograd"{
+            cu:int{1}
+            ld{"Wolgograd-zomertijd"}
+            ls{"Wolgograd-tijd"}
+        }
+        "meta:Vostok"{
+            cu:int{1}
+            ls{"Vostok-tijd"}
+        }
+        "meta:Wake"{
+            cu:int{1}
+            ls{"Wake-eilandse tijd"}
+        }
+        "meta:Wallis"{
+            cu:int{1}
+            ls{"Wallis en Futunase tijd"}
+        }
+        "meta:Yakutsk"{
+            cu:int{1}
+            ld{"Jakoetsk-zomertijd"}
+            ls{"Jakoetsk-tijd"}
+        }
+        "meta:Yekaterinburg"{
+            cu:int{1}
+            ld{"Jekaterinenburg-zomertijd"}
+            ls{"Jekaterinenburg-tijd"}
+        }
+        "meta:Yerevan"{
+            cu:int{1}
+            ld{"Jerevan-zomertijd"}
+            ls{"Jerevan-tijd"}
+        }
+        "meta:Yukon"{
+            cu:int{1}
+            ld{"Yukon-zomertijd"}
+            lg{"Yukon-tijd"}
+            ls{"Yukon-standaardtijd"}
+        }
+        fallbackFormat{"{1} ({0})"}
+        gmtFormat{"GMT{0}"}
+        hourFormat{"+HH:mm;-HH:mm"}
+        regionFormat{"{0}-tijd"}
     }
 }

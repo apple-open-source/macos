@@ -23,6 +23,28 @@
 
 #include "includes.h"
 
+#ifdef HAVE_VPROC_H
+#include <vproc.h>
+
+static vproc_transaction_t smbd_vproc_trans;
+
+static void smbd_vproc_start(void)
+{
+    smbd_vproc_trans = vproc_transaction_begin(NULL);
+}
+
+static void smbd_vproc_end(void)
+{
+    vproc_transaction_end(NULL, smbd_vproc_trans);
+}
+
+#else
+
+#define smbd_vproc_start()
+#define smbd_vproc_end()
+
+#endif
+
 static_decl_rpc;
 
 static int am_parent = 1;
@@ -31,7 +53,7 @@ static int am_parent = 1;
 int last_message = -1;
 
 /* a useful macro to debug the last message processed */
-#define LAST_MESSAGE() smb_fn_name(last_message)
+#define LAST_MESSAGE() (last_message != -1 ? smb_fn_name(last_message) : "")
 
 extern struct auth_context *negprot_global_auth_context;
 extern pstring user_socket_options;
@@ -364,7 +386,7 @@ static BOOL open_sockets_smbd(enum smb_server_mode server_mode, const char *smb_
 	num_sockets = smbd_sockinit(smb_ports, fd_listenset, &idle_timeout);
 	if (num_sockets == 0) {
 		return False;
-	}
+  	}
 
 	for (i = 0; i < num_sockets; ++i) {
 		FD_SET(fd_listenset[i], &listen_set);
@@ -410,8 +432,15 @@ static BOOL open_sockets_smbd(enum smb_server_mode server_mode, const char *smb_
 		memcpy((char *)&lfds, (char *)&listen_set, 
 		       sizeof(listen_set));
 
+		/* At this point, we know that our state is quiescent. We can
+		 * be SIGKILL'd with relative safety.
+		 */
+		smbd_vproc_end();
+
 		num = sys_select(maxfd+1,&lfds,NULL,NULL,
 			idle_timeout.tv_sec ? &idle_timeout : NULL);
+
+		smbd_vproc_start();
 		
 		if (num == -1 && errno == EINTR) {
 			if (got_sig_term) {
@@ -799,6 +828,8 @@ extern void build_options(BOOL screen);
 	POPT_COMMON_DYNCONFIG
 	POPT_TABLEEND
 	};
+
+	smbd_vproc_start();
 
 	load_case_tables();
 

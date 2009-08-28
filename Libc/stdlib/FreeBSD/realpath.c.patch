@@ -1,6 +1,6 @@
---- realpath.c.orig	2006-09-16 19:12:28.000000000 -0700
-+++ realpath.c	2006-09-16 20:18:25.000000000 -0700
-@@ -35,13 +35,41 @@
+--- realpath.c.orig	2008-04-04 14:39:39.000000000 -0700
++++ realpath.c	2008-04-04 19:59:19.000000000 -0700
+@@ -35,13 +35,41 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/
  #include "namespace.h"
  #include <sys/param.h>
  #include <sys/stat.h>
@@ -42,9 +42,12 @@
  /*
   * char *realpath(const char *path, char resolved[PATH_MAX]);
   *
-@@ -52,24 +80,55 @@
+@@ -50,26 +78,67 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/
+  * in which case the path which caused trouble is left in (resolved).
+  */
  char *
- realpath(const char *path, char resolved[PATH_MAX])
+-realpath(const char *path, char resolved[PATH_MAX])
++realpath(const char *path, char inresolved[PATH_MAX])
  {
 +	struct attrs attrs;
  	struct stat sb;
@@ -60,6 +63,7 @@
 +	static dev_t rootdev;
 +	static int rootdev_inited = 0;
 +	ino_t inode;
++	char *resolved;
  
 +	if (path == NULL) {
 +		errno = EINVAL;
@@ -71,6 +75,15 @@
 +		return (NULL);
 +	}
 +#endif /* __DARWIN_UNIX03 */
++	/*
++	 * Extension to the standard; if inresolved == NULL, allocate memory
++	 * (first on the stack, then use strdup())
++	 */
++	if (!inresolved) {
++	    if ((resolved = alloca(PATH_MAX)) == NULL) return (NULL);
++	} else {
++	    resolved = inresolved;
++	}
 +	if (!rootdev_inited) {
 +		rootdev_inited = 1;
 +		if (stat("/", &sb) < 0) {
@@ -102,7 +115,7 @@
  			strlcpy(resolved, ".", PATH_MAX);
  			return (NULL);
  		}
-@@ -80,6 +139,13 @@
+@@ -80,6 +149,13 @@ realpath(const char *path, char resolved
  		errno = ENAMETOOLONG;
  		return (NULL);
  	}
@@ -116,7 +129,7 @@
  
  	/*
  	 * Iterate over path components in `left'.
-@@ -127,6 +193,13 @@
+@@ -127,6 +203,13 @@ realpath(const char *path, char resolved
  		}
  
  		/*
@@ -130,7 +143,7 @@
  		 * Append the next path component and lstat() it. If
  		 * lstat() fails we still can return successfully if
  		 * there are no more path components left.
-@@ -136,25 +209,87 @@
+@@ -136,25 +219,87 @@ realpath(const char *path, char resolved
  			errno = ENAMETOOLONG;
  			return (NULL);
  		}
@@ -178,7 +191,7 @@
 +				 * that each component of the mountpoint
 +				 * is a directory (and not a symlink)
 +				 */
-+				char temp[MNAMELEN];
++				char temp[sizeof(sfs.f_mntonname)];
 +				char *cp;
 +				int ok = 1;
 +
@@ -221,7 +234,7 @@
  			} else if (resolved_len > 1) {
  				/* Strip the last path component. */
  				resolved[resolved_len - 1] = '\0';
-@@ -184,7 +319,30 @@
+@@ -184,7 +329,30 @@ realpath(const char *path, char resolved
  				}
  			}
  			left_len = strlcpy(left, symlink, sizeof(left));
@@ -252,3 +265,10 @@
  	}
  
  	/*
+@@ -193,5 +361,6 @@ realpath(const char *path, char resolved
+ 	 */
+ 	if (resolved_len > 1 && resolved[resolved_len - 1] == '/')
+ 		resolved[resolved_len - 1] = '\0';
++	if (!inresolved) resolved = strdup(resolved);
+ 	return (resolved);
+ }

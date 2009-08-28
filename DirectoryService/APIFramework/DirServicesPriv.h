@@ -32,6 +32,7 @@
 #include <DirectoryServiceCore/PrivateTypes.h>
 #include <DirectoryService/CDSRefTable.h>
 #include <DirectoryServiceCore/CBuff.h>
+#include <AvailabilityMacros.h>
 
 /*!
  * @defined kDSStdNotifyxxxxx
@@ -50,60 +51,77 @@
 
 tDirStatus	VerifyTDataBuff		(	tDataBuffer	   *inBuff,
 									tDirStatus		inNullErr,
-									tDirStatus		inEmptyErr );
+									tDirStatus		inEmptyErr )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 									
 tDirStatus	VerifyTNodeList		(	tDataList	   *inDataList,
 									tDirStatus		inNullErr,
-									tDirStatus		inEmptyErr );
+									tDirStatus		inEmptyErr )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 									
-UInt32		CalcCRC				(	const char	   *inStr );
+UInt32		CalcCRC				(	const char	   *inStr )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
+
 UInt32		CalcCRCWithLength	(	const void	   *inData,
-													UInt32 inLength );
+													UInt32 inLength )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
-tDirStatus	IsStdBuffer			(	tDataBufferPtr	inOutDataBuff );
+tDirStatus	IsStdBuffer			(	tDataBufferPtr	inOutDataBuff )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
-tDirStatus	IsNodePathStrBuffer	(	tDataBufferPtr	inOutDataBuff );
+tDirStatus	IsNodePathStrBuffer	(	tDataBufferPtr	inOutDataBuff )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
-tDirStatus	IsFWReference		(	UInt32			inRef );
+tDirStatus	IsFWReference		(	UInt32			inRef )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
-tDirStatus	IsRemoteReferenceMap(	UInt32			inRef );
+tDirStatus	IsRemoteReferenceMap(	UInt32			inRef )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 tDirStatus	ExtractRecordEntry	(	tDataBufferPtr				inOutDataBuff,
 									UInt32						inRecordEntryIndex,
 									tAttributeListRef		   *outAttributeListRef,
-									tRecordEntryPtr			   *outRecEntryPtr );
+									tRecordEntryPtr			   *outRecEntryPtr )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 									
 tDirStatus	ExtractAttributeEntry (	tDataBufferPtr				inOutDataBuff,
 									tAttributeListRef			inAttrListRef,
 									UInt32						inAttrInfoIndex,
 									tAttributeValueListRef	   *outAttrValueListRef,
-									tAttributeEntryPtr		   *outAttrInfoPtr );
+									tAttributeEntryPtr		   *outAttrInfoPtr )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 									
 tDirStatus ExtractNextAttributeEntry (	tDataBufferPtr				inOutDataBuff,
 										tAttributeListRef			inAttrListRef,
 										UInt32						inAttrInfoIndex,
 										SInt32					   *inOutOffset,
 										tAttributeValueListRef	   *outAttrValueListRef,
-										tAttributeEntryPtr		   *outAttrInfoPtr );
+										tAttributeEntryPtr		   *outAttrInfoPtr )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 tDirStatus	ExtractAttributeValue (	tDataBufferPtr				inOutDataBuff,
 									tAttributeValueListRef		inAttrValueListRef,
 									UInt32						inAttrValueIndex,
-									tAttributeValueEntryPtr	   *outAttrValue );
+									tAttributeValueEntryPtr	   *outAttrValue )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 tDirStatus ExtractNextAttributeValue (	tDataBufferPtr				inOutDataBuff,
 										tAttributeValueListRef		inAttrValueListRef,
 										UInt32						inAttrValueIndex,
 										SInt32					   *inOutOffset,
-										tAttributeValueEntryPtr	   *outAttrValue );
+										tAttributeValueEntryPtr	   *outAttrValue )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 tDirStatus	ExtractDirNodeName	  (	tDataBufferPtr				inOutDataBuff,
 									UInt32						inDirNodeIndex,
-									tDataListPtr			   *outDataList );
+									tDataListPtr			   *outDataList )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 tDirStatus MakeGDNIFWRef		  (	tDataBufferPtr				inOutDataBuff,
-									tAttributeListRef		   *outAttributeListRef );
+									tAttributeListRef		   *outAttributeListRef )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
-const char *dsGetPluginNamePriv	( UInt32 inNodeRefNum, UInt32 inPID );
+const char *dsGetPluginNamePriv	( UInt32 inNodeRefNum, UInt32 inPID )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 #endif

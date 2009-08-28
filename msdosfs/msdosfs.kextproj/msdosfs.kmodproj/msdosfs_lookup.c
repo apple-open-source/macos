@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -92,6 +92,100 @@
 #endif
 
 /*
+ * Convert a Unicode filename to the equivalent short name.
+ *
+ * Note: This is for use during lookup, not when creating new names.
+ * Therefore, it does not cut out embedded spaces, and does not worry
+ * about mixed case.
+ *
+ * Returns non-zero if the name was successfully converted to a short name.
+ */
+static int unicode_to_dos_lookup(u_int16_t *unicode, size_t unichars, u_char shortname[SHORT_NAME_LEN])
+{
+	size_t i;
+	int j;
+	u_char c = ' ';
+	
+	if (unichars > SHORT_NAME_LEN+1)
+		return 0;
+	
+	/* Fill the short name with spaces, the short name pad character */
+	memset(shortname, ' ', SHORT_NAME_LEN);
+	
+	/* Process the base name, up to the first period */
+	for (i=0; i<unichars && i<8; ++i)
+	{
+		if (unicode[i] == '.')	/* Dot => start extension */
+			break;
+
+		if (unicode[i] == ' ')
+			c = ' ';
+		else
+			c = unicode2dos(unicode[i]);
+		
+		if (c < ' ')
+			return 0;
+		shortname[i] = c;
+	}
+
+	/*
+	 * Fail if last char of base is a space (since dos2unicodefn would trim it),
+	 * or if the base name is empty (the loop above never executed).
+	 */
+	if (c == ' ')
+		return 0;
+	
+	/* Short names cannot start with a space. */
+	if (shortname[0] == ' ')
+		return 0;
+	
+	/* Is the name a base only, no extension? */
+	if (i == unichars)
+		return 1;
+	
+	/* Skip over the dot between base and extension */
+	if (unicode[i] == '.')
+		++i;
+	else
+		return 0;			/* Base name too long */
+	
+	/* Process the extension */
+	for (j=8; j < 11 && i < unichars; ++i, ++j)
+	{
+		if (unicode[i] == '.')	/* No dots in the extension */
+			return 0;
+
+		if (unicode[i] == ' ')
+			c = ' ';
+		else
+			c = unicode2dos(unicode[i]);
+
+		if (c < ' ')
+			return 0;
+		shortname[j] = c;
+	}
+	
+	/* Was the extension too long? */
+	if (i < unichars)
+		return 0;
+
+	/* Was the extension empty? */
+	if (j == 8)
+		return 0;
+
+	/* Fail if last char of extension is a space (since dos2unicodefn would trim it) */
+	if (c == ' ')
+		return 0;
+		
+	/* Do we need to bother with names starting with 0xE5? */
+	if (shortname[0] == 0xE5)
+		shortname[0] = SLOT_E5;
+	
+	return 1;
+}
+
+
+/*
  * msdosfs_lookup_name
  *
  * Search a directory for an entry with a given name.  If found, returns
@@ -104,73 +198,44 @@ __private_extern__ int		/* result is error number */
 msdosfs_lookup_name(
 	struct denode *dep,		/* parent directory */
 	struct componentname *cnp, /* the name to look up */
-	u_long *dirclust,		/* cluster containing short name entry */
-	u_long *diroffset,		/* byte offset from start of directory */
+	uint32_t *dirclust,		/* cluster containing short name entry */
+	uint32_t *diroffset,		/* byte offset from start of directory */
 	struct dosdirentry *direntry,	/* copy of found directory entry */
 	vfs_context_t context)
 {
 	int error;
-	int olddos;			/* Non-zero if short name should be compared */
 	int chksum;			/* checksum of short name entry */
 	struct dosdirentry *dirp;
 	buf_t bp;
 	daddr64_t bn;
 	int frcn;			/* file relative cluster (within parent directory) */
-	u_long cluster;		/* physical cluster containing directory entry */
+	uint32_t cluster;		/* physical cluster containing directory entry */
 	unsigned blkoff;			/* offset within directory block */
 	unsigned diroff;			/* offset from start of directory */
-	u_long blsize;		/* size of one directory block */
+	uint32_t blsize;		/* size of one directory block */
 	u_int16_t ucfn[WIN_MAXLEN];
+	u_char shortname[SHORT_NAME_LEN];
 	size_t unichars;	/* number of UTF-16 characters in original name */
-	u_char dosfilename[12];
-	u_int8_t lower_case;	/* deLowerCase value; not used in this routine */
-
+	int try_short_name;	/* If true, compare short names */
+	
 	dirp = NULL;
 	chksum = -1;
-	olddos = 1;
-	
+		
 	/*
 	 * Decode lookup name into UCS-2 (Unicode)
 	 */
-	error = utf8_decodestr((uint8_t *)cnp->cn_nameptr, cnp->cn_namelen, ucfn, &unichars, sizeof(ucfn), 0, UTF_PRECOMPOSED);
+	error = utf8_decodestr((uint8_t *)cnp->cn_nameptr, cnp->cn_namelen, ucfn, &unichars, sizeof(ucfn), 0, UTF_PRECOMPOSED|UTF_SFM_CONVERSIONS);
 	if (error) 	goto exit;
 	unichars /= 2; /* bytes to chars */
-	
-	switch (unicode2dosfn(ucfn, dosfilename, unichars, 0, &lower_case)) {
-	case 0:
-		/*
-		 * The name is syntactically invalid.  Normally, we'd return EINVAL,
-		 * but ENAMETOOLONG makes it clear that the name is the problem (and
-		 * allows Carbon to return a more meaningful error).
-		 */
-		error = ENAMETOOLONG;
-		goto exit;
-	case 1:
-		/*
-		 * The original name was a valid short name.
-		 * The lower case flags may have been set.
-		 */
-		break;
-	case 2:
-		/*
-		 * Force a long name for things like embedded spaces
-		 * or mixed case.
-		 */
-		break;
-	case 3:
-		/*
-		 * The name had to be mangled and a generation number inserted.
-		 */
-		olddos = 0;
-		break;
-	}
 
-	/* Convert the Mac unicode string to SFM unicode
-	 * We do this after unicode2dosfn to avoid interpreting 0xf0xx 
-	 * unicodes in unicode2dosfn
+	/*
+	 * Try to convert the name to a short name.  Unlike the case of creating
+	 * a new name in the directory, allow embedded spaces and mixed case,
+	 * but do not mangle the short name.  Keep track of whether there is
+	 * a valid short name to look up.
 	 */
-	mac2sfmfn(ucfn, unichars);
-
+	try_short_name = unicode_to_dos_lookup(ucfn, unichars, shortname);
+	
 	/*
 	 * Search the directory pointed at by dep for the name in ucfn.
 	 */
@@ -247,16 +312,22 @@ msdosfs_lookup_name(
 				}
 
 				/*
-				 * If the checksum or name doesn't match, keep looking
+				 * If we get here, we've found a short name entry.
+				 *
+				 * If there was a long name, and it matched, then verify the
+				 * checksum.  If the checksum doesn't match, then compare the
+				 * short name.
 				 */
-				if (chksum != winChksum(dirp->deName)
-				    && (!olddos || bcmp(dosfilename, dirp->deName, SHORT_NAME_LEN))) {
+				if (chksum != winChksum(dirp->deName) &&
+					(!try_short_name || bcmp(shortname, dirp->deName, SHORT_NAME_LEN)))
+				{
+					/* No match.  Forget long name checksum, if any. */
 					chksum = -1;
 					continue;
 				}
 
 				/*
-				 * If we get here, we found it.
+				 * If we get here, we found a matching name.
 				 */
 				if (dirclust)
 					*dirclust = cluster;
@@ -319,9 +390,9 @@ msdosfs_lookup(ap)
 	struct msdosfsmount *pmp;
 	struct denode *pdp;	/* denode of dvp */
 	struct denode *dp;	/* denode of found item */
-	u_long cluster;		/* physical cluster containing directory entry */
-	u_long diroff;		/* offset from start of directory */
-	u_long scn;			/* starting cluster number of found item */
+	uint32_t cluster;		/* physical cluster containing directory entry */
+	uint32_t diroff;		/* offset from start of directory */
+	uint32_t scn;			/* starting cluster number of found item */
 	int isadir;			/* non-zero if found dosdirentry is a directory */
 	struct dosdirentry direntry;
 	
@@ -424,9 +495,9 @@ msdosfs_lookup(ap)
 	 * If we get here, we've found the directory entry.
 	 */
 	isadir = direntry.deAttributes & ATTR_DIRECTORY;
-	scn = getushort(direntry.deStartCluster);
+	scn = getuint16(direntry.deStartCluster);
 	if (FAT32(pmp)) {
-		scn |= getushort(direntry.deHighClust) << 16;
+		scn |= getuint16(direntry.deHighClust) << 16;
 		if (scn == pmp->pm_rootdirblk) {
 			/*
 			 * There should actually be 0 here.
@@ -498,17 +569,17 @@ createde(dep, ddep, depp, cnp, offset, long_count, context)
 	struct denode *ddep;
 	struct denode **depp;
 	struct componentname *cnp;
-	u_long offset;		/* also offset of current entry being written */
-	u_long long_count;	/* also count of entries remaining to write */
+	uint32_t offset;		/* also offset of current entry being written */
+	uint32_t long_count;	/* also count of entries remaining to write */
 	vfs_context_t context;
 {
 	int error;
-	u_long dirclust, diroffset;
+	uint32_t dirclust, diroffset;
 	struct dosdirentry *ndep;
 	struct msdosfsmount *pmp = ddep->de_pmp;
 	struct buf *bp;
 	daddr64_t bn;
-	u_long blsize;
+	uint32_t blsize;
 
 	/*
 	 * If no space left in the directory then allocate another cluster
@@ -571,14 +642,6 @@ createde(dep, ddep, depp, cnp, offset, long_count, context)
 	DE_EXTERNALIZE(ndep, dep);
 
 	/*
-	 * If we're creating an entry for a symlink, then the de_FileSize
-	 * is the length of the symlink's target, not the length of the
-	 * symlink file.  So fix up the length on disk.
-	 */
-	if (dep->de_flag & DE_SYMLINK)
-		putulong(ndep->deFileSize, sizeof(struct symlink));
-	
-	/*
 	 * Now write the Win95 long name
 	 */
 	if (long_count > 0) {
@@ -592,12 +655,10 @@ createde(dep, ddep, depp, cnp, offset, long_count, context)
 		 * NOTE: We should be using a "precompose" flag
 		 */
 		(void) utf8_decodestr((u_int8_t*)cnp->cn_nameptr, cnp->cn_namelen, ucfn,
-					&unichars, sizeof(ucfn), 0, UTF_PRECOMPOSED);
+					&unichars, sizeof(ucfn), 0,
+					UTF_PRECOMPOSED|UTF_SFM_CONVERSIONS);
 		unichars /= 2; /* bytes to chars */
 
-		/* Convert the Mac unicode string to SFM unicode */
-		mac2sfmfn(ucfn, unichars);
-		
 		while (long_count-- > 0) {
 			if (!(offset & pmp->pm_crbomask)) {
 				error = (int)buf_bdwrite(bp);
@@ -659,9 +720,9 @@ dosdirempty(dep, context)
 	struct denode *dep;
 	vfs_context_t context;
 {
-	u_long blsize;
+	uint32_t blsize;
 	int error;
-	u_long cn;
+	uint32_t cn;
 	daddr64_t bn;
 	struct buf *bp;
 	struct msdosfsmount *pmp = dep->de_pmp;
@@ -783,9 +844,9 @@ doscheckpath(source, target, context)
 		}
 		
 		/* Get the cluster number from the ".." entry */
-		scn = getushort(ep->deStartCluster);
+		scn = getuint16(ep->deStartCluster);
 		if (isFAT32)
-			scn |= getushort(ep->deHighClust) << 16;
+			scn |= getuint16(ep->deHighClust) << 16;
 		
 		/*
 		 * When ".." points to the root, the cluster number should be 0.
@@ -817,7 +878,7 @@ doscheckpath(source, target, context)
  */
 __private_extern__ int
 readep(struct msdosfsmount *pmp,
-	u_long dirclust, u_long diroffset,
+	uint32_t dirclust, uint32_t diroffset,
 	struct buf **bpp, struct dosdirentry **epp, vfs_context_t context)
 {
 	int error;
@@ -847,7 +908,7 @@ readep(struct msdosfsmount *pmp,
 	 */
 	if (diroffset % sizeof(struct dosdirentry))
 	{
-		printf("msdosfs: readep: invalid diroffset (%lu)\n", diroffset);
+		printf("msdosfs: readep: invalid diroffset (%u)\n", diroffset);
 		return EIO;
 	}
 	
@@ -867,12 +928,12 @@ readep(struct msdosfsmount *pmp,
 	 */
 	if (blsize == 0)
 	{
-		printf("msdosfs: readep: blsize==0; pm_fatmask=0x%lx, pm_bpcluster=0x%lx, "
-			"pm_BlockSize=0x%x, pm_PhysBlockSize=0x%x, pm_BlocksPerSec=0x%lx, "
-			"pm_cnshift=0x%lx, pm_bnshift=0x%lx, pm_crbomask=0x%lx, "
-			"pm_rootdirblk=0x%lx, pm_rootdirsize=0x%lx, "
-			"pm_label_cluster=0x%lx, pm_label_offset=0x%lx, "
-			"dirclust=0x%lx, diroffset=0x%lx, bn=0x%llx\n",
+		printf("msdosfs: readep: blsize==0; pm_fatmask=0x%x, pm_bpcluster=0x%x, "
+			"pm_BlockSize=0x%x, pm_PhysBlockSize=0x%x, pm_BlocksPerSec=0x%x, "
+			"pm_cnshift=0x%x, pm_bnshift=0x%x, pm_crbomask=0x%x, "
+			"pm_rootdirblk=0x%x, pm_rootdirsize=0x%x, "
+			"pm_label_cluster=0x%x, pm_label_offset=0x%x, "
+			"dirclust=0x%x, diroffset=0x%x, bn=0x%llx\n",
 			pmp->pm_fatmask, pmp->pm_bpcluster,
 			pmp->pm_BlockSize, pmp->pm_PhysBlockSize, pmp->pm_BlocksPerSec,
 			pmp->pm_cnshift, pmp->pm_bnshift, pmp->pm_crbomask,
@@ -910,9 +971,9 @@ removede(struct denode *pdep, uint32_t offset, vfs_context_t context)
     struct dosdirentry *ep;
     struct buf *bp;
     daddr64_t bn;
-    u_long blsize;
+    uint32_t blsize;
     struct msdosfsmount *pmp = pdep->de_pmp;
-	u_long cur_offset;
+	uint32_t cur_offset;
 	
 	cur_offset = offset;
     cur_offset += sizeof(struct dosdirentry);
@@ -975,8 +1036,8 @@ uniqdosname(
 	struct msdosfsmount *pmp = dep->de_pmp;
 	struct dosdirentry *dentp;
 	int gen;
-	u_long blsize;
-	u_long cn;
+	uint32_t blsize;
+	uint32_t cn;
 	daddr64_t bn;
 	struct buf *bp;
 	int error;
@@ -1061,8 +1122,8 @@ findslots(
 	struct denode *dep,
 	struct componentname *cnp,
 	u_int8_t *lower_case,
-	u_long *offset,
-	u_long *long_count,
+	uint32_t *offset,
+	uint32_t *long_count,
 	vfs_context_t context)
 {
 	int error;
@@ -1071,11 +1132,11 @@ findslots(
 	size_t unichars;
 	int wincnt=0;	/* Number of consecutive entries needed for long name + dir entry */
 	int slotcount;	/* Number of consecutive entries found so far */
-	u_long diroff;	/* Byte offset of entry from start of directory */
+	uint32_t diroff;	/* Byte offset of entry from start of directory */
 	unsigned blkoff;	/* Byte offset of entry from start of block */
 	int frcn;	/* File (directory) relative cluster number */
 	daddr64_t bn;	/* Physical disk block number */
-	u_long blsize;	/* Size of directory cluster, in bytes */
+	uint32_t blsize;	/* Size of directory cluster, in bytes */
 	struct dosdirentry *entry;
 	struct msdosfsmount *pmp;
 	struct buf *bp;
@@ -1200,8 +1261,8 @@ __private_extern__ int
 msdosfs_dir_flush(struct denode *dep, int sync)
 {
 	int error;
-	u_long frcn;	/* File (directory) relative cluster number */
-	u_long blsize;	/* Size of directory block */
+	uint32_t frcn;	/* File (directory) relative cluster number */
+	uint32_t blsize;	/* Size of directory block */
 	daddr64_t bn;	/* Device block number */
 	vnode_t devvp = dep->de_pmp->pm_devvp;
 	buf_t bp;
@@ -1250,8 +1311,8 @@ __private_extern__ int
 msdosfs_dir_invalidate(struct denode *dep)
 {
 	int error;
-	u_long frcn;	/* File (directory) relative cluster number */
-	u_long blsize;	/* Size of directory block */
+	uint32_t frcn;	/* File (directory) relative cluster number */
+	uint32_t blsize;	/* Size of directory block */
 	daddr64_t bn;	/* Device block number */
 	vnode_t devvp = dep->de_pmp->pm_devvp;
 

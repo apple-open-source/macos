@@ -1,0 +1,118 @@
+#!/bin/sh
+#
+# This is a small collection of example settings you can use to
+# compile tdom on different platforms. Just uncomment the line(s)
+# you need and run this script with "sh CONFIG".
+#
+# It's best, to leave the tDOM specfic configuration options alone
+# (that is: use the defaults, do nothing).
+# 
+# --enable-tdomalloc
+# Default: off
+# With this option on, a special memory allocator is used, which is
+# optimized for low memory allocation overhead. This allocator works
+# only on 32-bit plattforms. If you build for a 64-bit OS, you _must_
+# disable this (and it's disabled by default).
+# 
+# --enable-dtd
+# Default: on
+# With this option on, the underlying XML parser expat will be build
+# with parsing support of XML DTDs. Leave this option at default. If 
+# you disable this option, then all the SAX handlers related to DTD
+# events won't work any more. It also affects the DOM interface:
+# without DTD support, the fetching of external entities with the
+# -externalentitycommand won't work. With this option off, the test
+# suite will report a lot of failure because of missing features.
+# 
+# --enable-ns
+# Default: on
+# With this option on, the underlying XML parser expat will be build
+# with parsing support of XML namespaces. This affects only the SAX
+# interface; the DOM interface always uses a non XML namespace expat
+# parser behind the scene and does the XML namespace handling by
+# its own.
+# 
+# --enable-unknown
+# Default: off
+# With this option on, tDOM replaces the standard unknown command with
+# its own version. This allows a special shortcut syntax together with
+# the deprecated XPointer methods. It's there for backward 
+# compatibility reasons. It is known, that it cause trouble together
+# with itcl.
+# 
+# --with-aolserver
+# If building tDOM as module for AOLserver, this points to the 
+# directory with the AOLserver source distribution. See below
+# for examples.
+# 
+# --with-tdom
+# Useful (and avaliable) only for building extensions to tDOM (as
+# tnc). Use it to point to the tdomConfig.sh file.
+#
+# 
+#
+# Comment-out next line if building with GCC compiler.
+# CC=gcc; export CC
+#
+#
+# Tcl 8.0.5 on Unix. Uses public Tcl library
+# -------------------------------------------
+# ../configure-tcl8.0.5
+#
+#
+# Tcl 8.1+ on Unix. Uses public Tcl library
+# -------------------------------------------
+# ../configure
+#
+#
+# For 64-bit Unix you've to use --disable-tdomalloc
+# -------------------------------------------------
+# ../configure --disable-tdomalloc
+#
+#
+# AOLserver 3.X. It delivers its own patched Tcl lib.
+# Also, this one builds tdom as AOLserver module.
+# Please do not use "make install" after doing "make".
+# You have to manually adjust AOLserver config file
+# to load tdom module. See README.AOL for more info.
+# Also, you need to modify the "aolsrc" to point to
+# the directory with AOLserver source distribution.
+# ----------------------------------------------------
+# aolsrc="/usr/src/aolserver-3.4"
+# ../configure --enable-threads --disable-tdomalloc \
+#   --with-aolserver=$aolsrc \
+#   --with-tcl=$aolsrc/tcl8.3.4/unix 
+#
+#
+# AOLserver 4.X. It uses public Tcl library.
+# Builds the package as a regular Tcl module
+# but installs it in the AOLserver tree.
+# Just do "make" and "make install". You might
+# want to change the default AOLserver install
+# directory (/usr/local/aolserver). 
+# ----------------------------------------------------
+# ../configure --enable-threads --disable-tdomalloc \
+#   --prefix=/usr/local/aolserver
+#
+# AOLserver 4.X. It uses public Tcl library.
+# Builds the package as a AOLserver module.
+# You will have to manually trim your AOLserver
+# startup script to load it. 
+# Just do "make" and "make install". You might
+# want to change the default AOLserver install
+# directory (/usr/local/aolserver). 
+# ----------------------------------------------------
+# ../configure --enable-threads --disable-tdomalloc \
+#   --with-aolserver=/usr/local/aolserver \
+#   --prefix=/usr/local/aolserver
+#
+#
+# Mac OS X. Uses public Tcl library.
+# --------------------------------------------
+# ../configure \
+#   --mandir=/usr/local/share/man \
+#   --libdir=/Library/Tcl \
+#   --with-tcl=/Library/Frameworks/Tcl.framework \
+#   --with-tclinclude=/Library/Frameworks/Tcl.framework/Headers
+#
+# EOF

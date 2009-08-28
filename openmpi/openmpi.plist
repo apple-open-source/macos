@@ -4,7 +4,7 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2007-07-20</string>
+		<string>2008-10-30</string>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
 		<key>OpenSourceLicenseFile</key>
@@ -12,11 +12,11 @@
 		<key>OpenSourceProject</key>
 		<string>openmpi</string>
 		<key>OpenSourceSHA1</key>
-		<string>b42988c11956116ebba085f8b4972a7873554264</string>
+		<string>140ae223263e20b7bde8ac59b966924ba4a454bb</string>
 		<key>OpenSourceURL</key>
-		<string>http://www.open-mpi.org/software/ompi/v1.2/downloads/openmpi-1.2.3.tar.bz2</string>
+		<string>http://www.open-mpi.org/software/ompi/v1.2/downloads/openmpi-1.2.8.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.2.3</string>
+		<string>1.2.8</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.open-mpi.org</string>
 	</dict>

@@ -29,11 +29,11 @@
 #define RenderTableCol_h
 
 #include "RenderBox.h"
+#include "RenderTable.h"
 
 namespace WebCore {
 
-class RenderTableCol : public RenderBox
-{
+class RenderTableCol : public RenderBox {
 public:
     RenderTableCol(Node*);
 
@@ -54,10 +54,14 @@ public:
     virtual IntRect clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer);
     virtual void imageChanged(WrappedImagePtr, const IntRect* = 0);
 
+    virtual void calcPrefWidths();
+
     int span() const { return m_span; }
     void setSpan(int s) { m_span = s; }
-    
+
 private:
+    RenderTable* table() const;
+
     RenderObjectChildList m_children;
     int m_span;
 };

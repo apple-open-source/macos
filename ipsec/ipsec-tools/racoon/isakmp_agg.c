@@ -1,4 +1,6 @@
-/* $Id: isakmp_agg.c,v 1.20.2.5 2005/11/21 09:46:23 vanhu Exp $ */
+/*	$NetBSD: isakmp_agg.c,v 1.9 2006/09/30 21:49:37 manu Exp $	*/
+
+/* Id: isakmp_agg.c,v 1.28 2006/04/06 16:46:08 manubsd Exp */
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -59,6 +61,10 @@
 #include "schedule.h"
 #include "debug.h"
 
+#ifdef ENABLE_HYBRID
+#include <resolv.h>
+#endif
+
 #include "localconf.h"
 #include "remoteconf.h"
 #include "isakmp_var.h"
@@ -91,6 +97,8 @@
 
 #include "vpn_control.h"
 #include "vpn_control_var.h"
+#include "ipsecSessionTracer.h"
+#include "ipsecMessageTracer.h"
 
 /*
  * begin Aggressive Mode as initiator.
@@ -111,7 +119,7 @@ agg_i1send(iph1, msg)
 {
 	struct payload_list *plist = NULL;
 	int need_cr = 0;
-	vchar_t *cr = NULL, *gsstoken = NULL;
+	vchar_t *cr = NULL; 
 	int error = -1;
 #ifdef ENABLE_NATT
 	vchar_t *vid_natt[MAX_NATT_VID_COUNT] = { NULL };
@@ -125,6 +133,7 @@ agg_i1send(iph1, msg)
 	vchar_t *vid_frag = NULL;
 #endif
 #ifdef HAVE_GSSAPI
+	vchar_t *gsstoken = NULL;
 	int len;
 #endif
 #ifdef ENABLE_DPD
@@ -149,13 +158,19 @@ agg_i1send(iph1, msg)
 	isakmp_newcookie((caddr_t)&iph1->index, iph1->remote, iph1->local);
 
 	/* make ID payload into isakmp status */
-	if (ipsecdoi_setid1(iph1) < 0)
+	if (ipsecdoi_setid1(iph1) < 0) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to set ID");
 		goto end;
+	}
 
 	/* create SA payload for my proposal */
 	iph1->sa = ipsecdoi_setph1proposal(iph1->rmconf->proposal);
-	if (iph1->sa == NULL)
+	if (iph1->sa == NULL) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to set proposal");
 		goto end;
+	}
 
 	/* consistency check of proposals */
 	if (iph1->rmconf->dhgrp == NULL) {
@@ -166,19 +181,30 @@ agg_i1send(iph1, msg)
 
 	/* generate DH public value */
 	if (oakley_dh_generate(iph1->rmconf->dhgrp,
-				&iph1->dhpub, &iph1->dhpriv) < 0)
+						   &iph1->dhpub, &iph1->dhpriv) < 0) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to generate DH");
 		goto end;
+	}
 
 	/* generate NONCE value */
 	iph1->nonce = eay_set_random(iph1->rmconf->nonce_size);
-	if (iph1->nonce == NULL)
+	if (iph1->nonce == NULL) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to generate NONCE");
 		goto end;
+	}
 
 #ifdef ENABLE_HYBRID
 	/* Do we need Xauth VID? */
-	switch (iph1->rmconf->proposal->authmethod) {
-	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_RSA_R:
-	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_DSS_R:
+	switch (RMAUTHMETHOD(iph1)) {
+	case FICTIVE_AUTH_METHOD_XAUTH_PSKEY_I:
+	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_RSA_I:
+	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_DSS_I:
+	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSASIG_I:
+	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_DSSSIG_I:
+	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSAENC_I:
+	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSAREV_I:
 		if ((vid_xauth = set_vendorid(VENDORID_XAUTH)) == NULL)
 			plog(LLV_ERROR, LOCATION, NULL, 
 			     "Xauth vendor ID generation failed\n");
@@ -211,7 +237,7 @@ agg_i1send(iph1, msg)
 		cr = oakley_getcr(iph1);
 		if (cr == NULL) {
 			plog(LLV_ERROR, LOCATION, NULL,
-				"failed to get cr buffer.\n");
+				"failed to get CR");
 			goto end;
 		}
 	}
@@ -219,10 +245,8 @@ agg_i1send(iph1, msg)
 	plog(LLV_DEBUG, LOCATION, NULL, "authmethod is %s\n",
 		s_oakley_attr_method(iph1->rmconf->proposal->authmethod));
 #ifdef HAVE_GSSAPI
-	if (iph1->rmconf->proposal->authmethod ==
-	    OAKLEY_ATTR_AUTH_METHOD_GSSAPI_KRB) {
+	if (RMAUTHMETHOD(iph1) == OAKLEY_ATTR_AUTH_METHOD_GSSAPI_KRB)
 		gssapi_get_itoken(iph1, &len);
-	}
 #endif
 
 	/* set SA payload to propose */
@@ -238,11 +262,10 @@ agg_i1send(iph1, msg)
 	plist = isakmp_plist_append(plist, iph1->id, ISAKMP_NPTYPE_ID);
 
 #ifdef HAVE_GSSAPI
-	if (iph1->rmconf->proposal->authmethod ==
-	    OAKLEY_ATTR_AUTH_METHOD_GSSAPI_KRB) {
+	if (RMAUTHMETHOD(iph1) == OAKLEY_ATTR_AUTH_METHOD_GSSAPI_KRB) {
 		gssapi_get_token_to_send(iph1, &gsstoken);
 		plist = isakmp_plist_append(plist, gsstoken, ISAKMP_NPTYPE_GSS);
-	} else
+	}
 #endif
 	/* create isakmp CR payload */
 	if (need_cr)
@@ -284,18 +307,34 @@ agg_i1send(iph1, msg)
 
 	/* send the packet, add to the schedule to resend */
 	iph1->retry_counter = iph1->rmconf->retry_counter;
-	if (isakmp_ph1resend(iph1) == -1)
+	if (isakmp_ph1resend(iph1) == -1) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to send packet");
 		goto end;
+	}
 
 	iph1->status = PHASE1ST_MSG1SENT;
 
 	error = 0;
 
+	IPSECSESSIONTRACEREVENT(iph1->parent_session,
+							IPSECSESSIONEVENTCODE_IKE_PACKET_TX_SUCC,
+							CONSTSTR("Initiator, Aggressive-Mode message 1"),
+							CONSTSTR(NULL));
+	
 end:
+	if (error) {
+		IPSECSESSIONTRACEREVENT(iph1->parent_session,
+								IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
+								CONSTSTR("Initiator, Aggressive-Mode Message 1"),
+								CONSTSTR("Failed to transmit Aggressive-Mode Message 1"));
+	}
 	if (cr)
 		vfree(cr);
+#ifdef HAVE_GSSAPI
 	if (gsstoken)
 		vfree(gsstoken);
+#endif
 #ifdef ENABLE_FRAG
 	if (vid_frag)
 		vfree(vid_frag);
@@ -304,15 +343,15 @@ end:
 	for (i = 0; i < MAX_NATT_VID_COUNT && vid_natt[i] != NULL; i++)
 		vfree(vid_natt[i]);
 #endif
-#ifdef ENABLE_DPD
-	if (vid_dpd != NULL)
-		vfree(vid_dpd);
-#endif
 #ifdef ENABLE_HYBRID
 	if (vid_xauth != NULL)
 		vfree(vid_xauth);
 	if (vid_unity != NULL)
 		vfree(vid_unity);
+#endif
+#ifdef ENABLE_DPD
+	if (vid_dpd != NULL)
+		vfree(vid_dpd);
 #endif
 
 	return error;
@@ -365,8 +404,11 @@ agg_i2recv(iph1, msg)
 
 	/* validate the type of next payload */
 	pbuf = isakmp_parse(msg);
-	if (pbuf == NULL)
+	if (pbuf == NULL) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to parse msg");
 		goto end;
+	}
 	pa = (struct isakmp_parse_t *)pbuf->v;
 
 	iph1->pl_hash = NULL;
@@ -380,8 +422,11 @@ agg_i2recv(iph1, msg)
 		goto end;
 	}
 
-	if (isakmp_p2ph(&satmp, pa->ptr) < 0)
+	if (isakmp_p2ph(&satmp, pa->ptr) < 0) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to process SA payload");
 		goto end;
+	}
 	pa++;
 
 	for (/*nothing*/;
@@ -390,31 +435,49 @@ agg_i2recv(iph1, msg)
 
 		switch (pa->type) {
 		case ISAKMP_NPTYPE_KE:
-			if (isakmp_p2ph(&iph1->dhpub_p, pa->ptr) < 0)
+			if (isakmp_p2ph(&iph1->dhpub_p, pa->ptr) < 0) {
+				plog(LLV_ERROR, LOCATION, NULL,
+					 "failed to process KE payload");
 				goto end;
+			}
 			break;
 		case ISAKMP_NPTYPE_NONCE:
-			if (isakmp_p2ph(&iph1->nonce_p, pa->ptr) < 0)
+			if (isakmp_p2ph(&iph1->nonce_p, pa->ptr) < 0) {
+				plog(LLV_ERROR, LOCATION, NULL,
+					 "failed to process NONCE payload");
 				goto end;
+			}
 			break;
 		case ISAKMP_NPTYPE_ID:
-			if (isakmp_p2ph(&iph1->id_p, pa->ptr) < 0)
+			if (isakmp_p2ph(&iph1->id_p, pa->ptr) < 0) {
+				plog(LLV_ERROR, LOCATION, NULL,
+					 "failed to process ID payload");
 				goto end;
+			}
 			break;
 		case ISAKMP_NPTYPE_HASH:
 			iph1->pl_hash = (struct isakmp_pl_hash *)pa->ptr;
 			break;
 		case ISAKMP_NPTYPE_CR:
-			if (oakley_savecr(iph1, pa->ptr) < 0)
+			if (oakley_savecr(iph1, pa->ptr) < 0) {
+				plog(LLV_ERROR, LOCATION, NULL,
+					 "failed to process CR payload");
 				goto end;
+			}
 			break;
 		case ISAKMP_NPTYPE_CERT:
-			if (oakley_savecert(iph1, pa->ptr) < 0)
+			if (oakley_savecert(iph1, pa->ptr) < 0) {
+				plog(LLV_ERROR, LOCATION, NULL,
+					 "failed to process CERT payload");
 				goto end;
+			}
 			break;
 		case ISAKMP_NPTYPE_SIG:
-			if (isakmp_p2ph(&iph1->sig_p, pa->ptr) < 0)
+			if (isakmp_p2ph(&iph1->sig_p, pa->ptr) < 0) {
+				plog(LLV_ERROR, LOCATION, NULL,
+					 "failed to process SIG payload");
 				goto end;
+			}
 			break;
 		case ISAKMP_NPTYPE_VID:
 			vid_numeric = check_vendorid(pa->ptr);
@@ -451,8 +514,11 @@ agg_i2recv(iph1, msg)
 			break;
 #ifdef HAVE_GSSAPI
 		case ISAKMP_NPTYPE_GSS:
-			if (isakmp_p2ph(&gsstoken, pa->ptr) < 0)
+			if (isakmp_p2ph(&gsstoken, pa->ptr) < 0) {
+				plog(LLV_ERROR, LOCATION, NULL,
+					 "failed to process GSS payload");
 				goto end;
+			}
 			gssapi_save_received_token(iph1, gsstoken);
 			break;
 #endif
@@ -467,13 +533,19 @@ agg_i2recv(iph1, msg)
 			    pa->type == iph1->natt_options->payload_nat_d) {
 				struct natd_payload *natd;
 				natd = (struct natd_payload *)racoon_malloc(sizeof(*natd));
-				if (!natd)
+				if (!natd) {
+					plog(LLV_ERROR, LOCATION, NULL,
+						 "failed to pre-process NATD payload");
 					goto end;
+				}
 
 				natd->payload = NULL;
 
-				if (isakmp_p2ph (&natd->payload, pa->ptr) < 0)
+				if (isakmp_p2ph (&natd->payload, pa->ptr) < 0) {
+					plog(LLV_ERROR, LOCATION, NULL,
+						 "failed to process NATD payload");
 					goto end;
+				}
 
 				natd->seq = natd_seq++;
 
@@ -564,22 +636,41 @@ agg_i2recv(iph1, msg)
 
 	/* compute sharing secret of DH */
 	if (oakley_dh_compute(iph1->rmconf->dhgrp, iph1->dhpub,
-				iph1->dhpriv, iph1->dhpub_p, &iph1->dhgxy) < 0)
+						  iph1->dhpriv, iph1->dhpub_p, &iph1->dhgxy) < 0) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to compute DH");
 		goto end;
+	}
 
 	/* generate SKEYIDs & IV & final cipher key */
-	if (oakley_skeyid(iph1) < 0)
+	if (oakley_skeyid(iph1) < 0) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to generate SKEYID");
 		goto end;
-	if (oakley_skeyid_dae(iph1) < 0)
+	}
+	if (oakley_skeyid_dae(iph1) < 0) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to generate SKEYID-DAE");
 		goto end;
-	if (oakley_compute_enckey(iph1) < 0)
+	}
+	if (oakley_compute_enckey(iph1) < 0) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to generate ENCKEY");
 		goto end;
-	if (oakley_newiv(iph1) < 0)
+	}
+	if (oakley_newiv(iph1) < 0) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to generate IV");
 		goto end;
+	}
 
 	/* validate authentication value */
 	ptype = oakley_validate_auth(iph1);
 	if (ptype != 0) {
+		IPSECSESSIONTRACEREVENT(iph1->parent_session,
+								IPSECSESSIONEVENTCODE_IKEV1_PH1_AUTH_FAIL,
+								CONSTSTR("Initiator, Aggressive-Mode Message 2"),
+								CONSTSTR("Failed to authenticate, Aggressive-Mode Message 2"));
 		if (ptype == -1) {
 			/* message printed inner oakley_validate_auth() */
 			goto end;
@@ -589,7 +680,11 @@ agg_i2recv(iph1, msg)
 		isakmp_info_send_n1(iph1, ptype, NULL);
 		goto end;
 	}
-
+	IPSECSESSIONTRACEREVENT(iph1->parent_session,
+							IPSECSESSIONEVENTCODE_IKEV1_PH1_AUTH_SUCC,
+							CONSTSTR("Initiator, Aggressive-Mode Message 2"),
+							CONSTSTR(NULL));
+	
 	if (oakley_checkcr(iph1) < 0) {
 		/* Ignore this error in order to be interoperability. */
 		;
@@ -604,7 +699,22 @@ agg_i2recv(iph1, msg)
 
 	error = 0;
 
+	IPSECSESSIONTRACEREVENT(iph1->parent_session,
+							IPSECSESSIONEVENTCODE_IKE_PACKET_RX_SUCC,
+							CONSTSTR("Initiator, Aggressive-Mode message 2"),
+							CONSTSTR(NULL));
+	
 end:
+	if (error) {
+		IPSECSESSIONTRACEREVENT(iph1->parent_session,
+								IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
+								CONSTSTR("Initiator, Aggressive-Mode Message 2"),
+								CONSTSTR("Failure processing Aggressive-Mode Message 2"));
+	}
+#ifdef HAVE_GSSAPI
+	if (gsstoken)
+		vfree(gsstoken);
+#endif
 	if (pbuf)
 		vfree(pbuf);
 	if (satmp)
@@ -642,6 +752,11 @@ agg_i2send(iph1, msg)
 	int need_cert = 0;
 	int error = -1;
 	vchar_t *gsshash = NULL;
+#ifdef ENABLE_NATT
+	vchar_t *natd[2] = { NULL, NULL };
+#endif
+    vchar_t *notp_unity = NULL;
+    vchar_t *notp_ini = NULL;
 
 	/* validity check */
 	if (iph1->status != PHASE1ST_MSG2RECEIVED) {
@@ -655,35 +770,50 @@ agg_i2send(iph1, msg)
 	iph1->hash = oakley_ph1hash_common(iph1, GENERATE);
 	if (iph1->hash == NULL) {
 #ifdef HAVE_GSSAPI
-		if (gssapi_more_tokens(iph1))
+		if (gssapi_more_tokens(iph1) &&
+#ifdef ENABLE_HYBRID
+		    !iph1->rmconf->xauth &&
+#endif
+		    1)
 			isakmp_info_send_n1(iph1,
 			    ISAKMP_NTYPE_INVALID_EXCHANGE_TYPE, NULL);
 #endif
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to generate HASH");
 		goto end;
 	}
 
-	switch (iph1->approval->authmethod) {
+	switch (AUTHMETHOD(iph1)) {
 	case OAKLEY_ATTR_AUTH_METHOD_PSKEY:
 #ifdef ENABLE_HYBRID
-	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_RSA_R:
-	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_DSS_R:
-#endif  
-		/* set HASH payload */
-		plist = isakmp_plist_append(plist, iph1->hash, ISAKMP_NPTYPE_HASH);
-		break;
-	case OAKLEY_ATTR_AUTH_METHOD_DSSSIG:
-	case OAKLEY_ATTR_AUTH_METHOD_RSASIG:
-#ifdef ENABLE_HYBRID
+	case FICTIVE_AUTH_METHOD_XAUTH_PSKEY_I:
 	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_RSA_I:
 	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_DSS_I:
 #endif  
+		/* set HASH payload */
+		plist = isakmp_plist_append(plist, 
+		    iph1->hash, ISAKMP_NPTYPE_HASH);
+		break;
+
+	case OAKLEY_ATTR_AUTH_METHOD_DSSSIG:
+	case OAKLEY_ATTR_AUTH_METHOD_RSASIG:
+#ifdef ENABLE_HYBRID
+	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSASIG_I:
+	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_DSSSIG_I:
+#endif
 		/* XXX if there is CR or not ? */
 
-		if (oakley_getmycert(iph1) < 0)
+		if (oakley_getmycert(iph1) < 0) {
+			plog(LLV_ERROR, LOCATION, NULL,
+				 "failed to get mycert");
 			goto end;
+		}
 
-		if (oakley_getsign(iph1) < 0)
+		if (oakley_getsign(iph1) < 0) {
+			plog(LLV_ERROR, LOCATION, NULL,
+				 "failed to get sign");
 			goto end;
+		}
 
 		if (iph1->cert != NULL && iph1->rmconf->send_cert)
 			need_cert = 1;
@@ -698,13 +828,17 @@ agg_i2send(iph1, msg)
 
 	case OAKLEY_ATTR_AUTH_METHOD_RSAENC:
 	case OAKLEY_ATTR_AUTH_METHOD_RSAREV:
+#ifdef ENABLE_HYBRID
+	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSAENC_I:
+	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSAREV_I:
+#endif
 		break;
 #ifdef HAVE_GSSAPI
 	case OAKLEY_ATTR_AUTH_METHOD_GSSAPI_KRB:
 		gsshash = gssapi_wraphash(iph1);
 		if (gsshash == NULL) {
 			plog(LLV_ERROR, LOCATION, NULL,
-				"failed to wrap hash\n");
+				"failed to get GSS hash\n");
 			isakmp_info_send_n1(iph1,
 				ISAKMP_NTYPE_INVALID_EXCHANGE_TYPE, NULL);
 			goto end;
@@ -713,19 +847,11 @@ agg_i2send(iph1, msg)
 		plist = isakmp_plist_append(plist, gsshash, ISAKMP_NPTYPE_HASH);
 		break;
 #endif
-	default:
-		plog(LLV_ERROR, LOCATION, NULL, "invalid authmethod %d\n",
-			iph1->approval->authmethod);
-		goto end;
-		break;
 	}
 
 #ifdef ENABLE_NATT
 	/* generate NAT-D payloads */
-	if (NATT_AVAILABLE(iph1))
-	{
-		vchar_t *natd[2] = { NULL, NULL };
-
+	if (NATT_AVAILABLE(iph1)) {
 		plog (LLV_INFO, LOCATION, NULL, "Adding remote and local NAT-D payloads.\n");
 		if ((natd[0] = natt_hash_addr (iph1, iph1->remote)) == NULL) {
 			plog(LLV_ERROR, LOCATION, NULL,
@@ -753,18 +879,24 @@ agg_i2send(iph1, msg)
 	}
 #endif
 
-	iph1->sendbuf = isakmp_plist_set_all (&plist, iph1);
 
+	iph1->sendbuf = isakmp_plist_set_all (&plist, iph1);
+	
 #ifdef HAVE_PRINT_ISAKMP_C
 	isakmp_printpacket(iph1->sendbuf, iph1->local, iph1->remote, 0);
 #endif
 
+
 	/* send to responder */
-	if (isakmp_send(iph1, iph1->sendbuf) < 0)
+	if (isakmp_send(iph1, iph1->sendbuf) < 0) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to send packet");
 		goto end;
+	}
 
 	/* the sending message is added to the received-list. */
-	if (add_recvdpkt(iph1->remote, iph1->local, iph1->sendbuf, msg) == -1) {
+	if (add_recvdpkt(iph1->remote, iph1->local, iph1->sendbuf, msg,
+                     PH1_NON_ESP_EXTRA_LEN(iph1)) == -1) {
 		plog(LLV_ERROR , LOCATION, NULL,
 			"failed to add a response packet to the tree.\n");
 		goto end;
@@ -775,9 +907,35 @@ agg_i2send(iph1, msg)
 
 	iph1->status = PHASE1ST_ESTABLISHED;
 
+	IPSECSESSIONTRACEREVENT(iph1->parent_session,
+							IPSECSESSIONEVENTCODE_IKEV1_PH1_INIT_SUCC,
+							CONSTSTR("Initiator, Aggressive-Mode"),
+							CONSTSTR(NULL));
+
 	error = 0;
 
+	IPSECSESSIONTRACEREVENT(iph1->parent_session,
+							IPSECSESSIONEVENTCODE_IKE_PACKET_TX_SUCC,
+							CONSTSTR("Initiator, Aggressive-Mode message 3"),
+							CONSTSTR(NULL));
+
 end:
+	if (error) {
+		IPSECSESSIONTRACEREVENT(iph1->parent_session,
+								IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
+								CONSTSTR("Initiator, Aggressive-Mode Message 3"),
+								CONSTSTR("Failed to transmit Aggressive-Mode Message 3"));
+	}
+#ifdef ENABLE_NATT
+	if (natd[0])
+		vfree(natd[0]);
+	if (natd[1])
+		vfree(natd[1]);
+#endif
+	if (notp_unity)
+		vfree(notp_unity);
+	if (notp_ini)
+		vfree(notp_ini);
 	if (gsshash)
 		vfree(gsshash);
 	return error;
@@ -814,8 +972,11 @@ agg_r1recv(iph1, msg)
 
 	/* validate the type of next payload */
 	pbuf = isakmp_parse(msg);
-	if (pbuf == NULL)
+	if (pbuf == NULL) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to parse msg");
 		goto end;
+	}
 	pa = (struct isakmp_parse_t *)pbuf->v;
 
 	/* SA payload is fixed postion */
@@ -826,8 +987,11 @@ agg_r1recv(iph1, msg)
 			pa->type, ISAKMP_NPTYPE_SA);
 		goto end;
 	}
-	if (isakmp_p2ph(&iph1->sa, pa->ptr) < 0)
+	if (isakmp_p2ph(&iph1->sa, pa->ptr) < 0) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to process SA payload");
 		goto end;
+	}
 	pa++;
 
 	for (/*nothing*/;
@@ -840,16 +1004,25 @@ agg_r1recv(iph1, msg)
 
 		switch (pa->type) {
 		case ISAKMP_NPTYPE_KE:
-			if (isakmp_p2ph(&iph1->dhpub_p, pa->ptr) < 0)
+			if (isakmp_p2ph(&iph1->dhpub_p, pa->ptr) < 0) {
+				plog(LLV_ERROR, LOCATION, NULL,
+					 "failed to process KE payload");
 				goto end;
+			}
 			break;
 		case ISAKMP_NPTYPE_NONCE:
-			if (isakmp_p2ph(&iph1->nonce_p, pa->ptr) < 0)
+			if (isakmp_p2ph(&iph1->nonce_p, pa->ptr) < 0) {
+				plog(LLV_ERROR, LOCATION, NULL,
+					 "failed to process NONCE payload");
 				goto end;
+			}
 			break;
 		case ISAKMP_NPTYPE_ID:
-			if (isakmp_p2ph(&iph1->id_p, pa->ptr) < 0)
+			if (isakmp_p2ph(&iph1->id_p, pa->ptr) < 0) {
+				plog(LLV_ERROR, LOCATION, NULL,
+					 "failed to process ID payload");
 				goto end;
+			}
 			break;
 		case ISAKMP_NPTYPE_VID:
 			vid_numeric = check_vendorid(pa->ptr);
@@ -891,14 +1064,20 @@ agg_r1recv(iph1, msg)
 			break;
 
 		case ISAKMP_NPTYPE_CR:
-			if (oakley_savecr(iph1, pa->ptr) < 0)
+			if (oakley_savecr(iph1, pa->ptr) < 0) {
+				plog(LLV_ERROR, LOCATION, NULL,
+					 "failed to process CR payload");
 				goto end;
+			}
 			break;
 
 #ifdef HAVE_GSSAPI
 		case ISAKMP_NPTYPE_GSS:
-			if (isakmp_p2ph(&gsstoken, pa->ptr) < 0)
+			if (isakmp_p2ph(&gsstoken, pa->ptr) < 0) {
+				plog(LLV_ERROR, LOCATION, NULL,
+					 "failed to process GSS payload");
 				goto end;
+			}
 			gssapi_save_received_token(iph1, gsstoken);
 			break;
 #endif
@@ -950,7 +1129,22 @@ agg_r1recv(iph1, msg)
 
 	error = 0;
 
+	IPSECSESSIONTRACEREVENT(iph1->parent_session,
+							IPSECSESSIONEVENTCODE_IKE_PACKET_RX_SUCC,
+							CONSTSTR("Responder, Aggressive-Mode message 1"),
+							CONSTSTR(NULL));
+	
 end:
+	if (error) {
+		IPSECSESSIONTRACEREVENT(iph1->parent_session,
+								IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
+								CONSTSTR("Responder, Aggressive-Mode Message 1"),
+								CONSTSTR("Failed to process Aggressive-Mode Message 1"));
+	}
+#ifdef HAVE_GSSAPI
+	if (gsstoken)
+		vfree(gsstoken);
+#endif
 	if (pbuf)
 		vfree(pbuf);
 	if (error) {
@@ -982,7 +1176,6 @@ agg_r1send(iph1, msg)
 	int need_cr = 0;
 	int need_cert = 0;
 	vchar_t *cr = NULL;
-	vchar_t *vid = NULL;
 	int error = -1;
 #ifdef ENABLE_HYBRID
 	vchar_t *xauth_vid = NULL;
@@ -995,11 +1188,15 @@ agg_r1send(iph1, msg)
 #ifdef ENABLE_DPD
 	vchar_t *vid_dpd = NULL;
 #endif
+#ifdef ENABLE_FRAG
+	vchar_t *vid_frag = NULL;
+#endif
 
 #ifdef HAVE_GSSAPI
 	int gsslen;
 	vchar_t *gsstoken = NULL, *gsshash = NULL;
 	vchar_t *gss_sa = NULL;
+	int free_gss_sa = 0;
 #endif
 
 	/* validity check */
@@ -1013,37 +1210,60 @@ agg_r1send(iph1, msg)
 	isakmp_newcookie((caddr_t)&iph1->index.r_ck, iph1->remote, iph1->local);
 
 	/* make ID payload into isakmp status */
-	if (ipsecdoi_setid1(iph1) < 0)
+	if (ipsecdoi_setid1(iph1) < 0) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to set ID");
 		goto end;
+	}
 
 	/* generate DH public value */
 	if (oakley_dh_generate(iph1->rmconf->dhgrp,
-				&iph1->dhpub, &iph1->dhpriv) < 0)
+						   &iph1->dhpub, &iph1->dhpriv) < 0) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to generate DH");
 		goto end;
+	}
 
 	/* generate NONCE value */
 	iph1->nonce = eay_set_random(iph1->rmconf->nonce_size);
-	if (iph1->nonce == NULL)
+	if (iph1->nonce == NULL) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to generate NONCE");
 		goto end;
+	}
 
 	/* compute sharing secret of DH */
 	if (oakley_dh_compute(iph1->approval->dhgrp, iph1->dhpub,
-				iph1->dhpriv, iph1->dhpub_p, &iph1->dhgxy) < 0)
+						  iph1->dhpriv, iph1->dhpub_p, &iph1->dhgxy) < 0) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to compute DH");
 		goto end;
+	}
 
 	/* generate SKEYIDs & IV & final cipher key */
-	if (oakley_skeyid(iph1) < 0)
+	if (oakley_skeyid(iph1) < 0) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to generate SKEYID");
 		goto end;
-	if (oakley_skeyid_dae(iph1) < 0)
+	}
+	if (oakley_skeyid_dae(iph1) < 0) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to generate SKEYID-DAE");
 		goto end;
-	if (oakley_compute_enckey(iph1) < 0)
+	}
+	if (oakley_compute_enckey(iph1) < 0) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to generate ENCKEY");
 		goto end;
-	if (oakley_newiv(iph1) < 0)
+	}
+	if (oakley_newiv(iph1) < 0) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to generate IV");
 		goto end;
+	}
 
 #ifdef HAVE_GSSAPI
-	if (iph1->rmconf->proposal->authmethod ==	
-	    OAKLEY_ATTR_AUTH_METHOD_GSSAPI_KRB)
+	if (RMAUTHMETHOD(iph1) == OAKLEY_ATTR_AUTH_METHOD_GSSAPI_KRB)
 		gssapi_get_rtoken(iph1, &gsslen);
 #endif
 
@@ -1056,6 +1276,8 @@ agg_r1send(iph1, msg)
 			isakmp_info_send_n1(iph1,
 			    ISAKMP_NTYPE_INVALID_EXCHANGE_TYPE, NULL);
 #endif
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to generate GSS HASH");
 		goto end;
 	}
 
@@ -1067,7 +1289,7 @@ agg_r1send(iph1, msg)
 		cr = oakley_getcr(iph1);
 		if (cr == NULL) {
 			plog(LLV_ERROR, LOCATION, NULL,
-				"failed to get cr buffer.\n");
+				"failed to get CR.\n");
 			goto end;
 		}
 	}
@@ -1098,9 +1320,23 @@ agg_r1send(iph1, msg)
 	if (iph1->dpd_support && iph1->rmconf->dpd)
 		vid_dpd = set_vendorid(VENDORID_DPD);
 #endif
+#ifdef ENABLE_FRAG
+	if (iph1->frag) {
+		vid_frag = set_vendorid(VENDORID_FRAG);
+		if (vid_frag != NULL)
+			vid_frag = isakmp_frag_addcap(vid_frag,
+			    VENDORID_FRAG_AGG);
+		if (vid_frag == NULL)
+			plog(LLV_ERROR, LOCATION, NULL,
+			    "Frag vendorID construction failed\n");
+	}
+#endif
 
-	switch (iph1->approval->authmethod) {
+	switch (AUTHMETHOD(iph1)) {
 	case OAKLEY_ATTR_AUTH_METHOD_PSKEY:
+#ifdef ENABLE_HYBRID
+	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_PSKEY_R:
+#endif
 		/* set SA payload to reply */
 		plist = isakmp_plist_append(plist, iph1->sa_ret, ISAKMP_NPTYPE_SA);
 
@@ -1114,11 +1350,8 @@ agg_r1send(iph1, msg)
 		plist = isakmp_plist_append(plist, iph1->id, ISAKMP_NPTYPE_ID);
 
 		/* create isakmp HASH payload */
-		plist = isakmp_plist_append(plist, iph1->hash, ISAKMP_NPTYPE_HASH);
-
-		/* append vendor id, if needed */
-		if (vid)
-			plist = isakmp_plist_append(plist, vid, ISAKMP_NPTYPE_VID);
+		plist = isakmp_plist_append(plist, 
+		    iph1->hash, ISAKMP_NPTYPE_HASH);
 
 		/* create isakmp CR payload if needed */
 		if (need_cr)
@@ -1127,16 +1360,24 @@ agg_r1send(iph1, msg)
 	case OAKLEY_ATTR_AUTH_METHOD_DSSSIG:
 	case OAKLEY_ATTR_AUTH_METHOD_RSASIG:
 #ifdef ENABLE_HYBRID
-	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_RSA_I:
-	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_DSS_I:
+	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_RSA_R:
+	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_DSS_R:
+	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSASIG_R:
+	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_DSSSIG_R:
 #endif
 		/* XXX if there is CR or not ? */
 
-		if (oakley_getmycert(iph1) < 0)
+		if (oakley_getmycert(iph1) < 0) {
+			plog(LLV_ERROR, LOCATION, NULL,
+				 "failed to get mycert");
 			goto end;
+		}
 
-		if (oakley_getsign(iph1) < 0)
+		if (oakley_getsign(iph1) < 0) {
+			plog(LLV_ERROR, LOCATION, NULL,
+				 "failed to get sign");
 			goto end;
+		}
 
 		if (iph1->cert != NULL && iph1->rmconf->send_cert)
 			need_cert = 1;
@@ -1160,12 +1401,78 @@ agg_r1send(iph1, msg)
 		/* add SIG payload */
 		plist = isakmp_plist_append(plist, iph1->sig, ISAKMP_NPTYPE_SIG);
 
-		/* append vendor id, if needed */
-		if (vid)
-			plist = isakmp_plist_append(plist, vid, ISAKMP_NPTYPE_VID);
+		/* create isakmp CR payload if needed */
+		if (need_cr)
+			plist = isakmp_plist_append(plist, 
+			    cr, ISAKMP_NPTYPE_CR);
+		break;
+
+	case OAKLEY_ATTR_AUTH_METHOD_RSAENC:
+	case OAKLEY_ATTR_AUTH_METHOD_RSAREV:
+#ifdef ENABLE_HYBRID
+	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSAENC_R:
+	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSAREV_R:
+#endif
+		break;
+#ifdef HAVE_GSSAPI
+	case OAKLEY_ATTR_AUTH_METHOD_GSSAPI_KRB:
+			/* create buffer to send isakmp payload */
+			gsshash = gssapi_wraphash(iph1);
+			if (gsshash == NULL) {
+				plog(LLV_ERROR, LOCATION, NULL,
+					"failed to generate GSS HASH\n");
+				/*
+				 * This is probably due to the GSS 
+				 * roundtrips not being finished yet. 
+				 * Return this error in the hope that 
+				 * a fallback to main mode will be done.
+				 */
+				isakmp_info_send_n1(iph1,
+				    ISAKMP_NTYPE_INVALID_EXCHANGE_TYPE, NULL);
+				goto end;
+			}
+			if (iph1->approval->gssid != NULL)
+				gss_sa = 
+				    ipsecdoi_setph1proposal(iph1->approval);  
+			else
+				gss_sa = iph1->sa_ret;
+
+			if (gss_sa != iph1->sa_ret)
+				free_gss_sa = 1;
+
+			/* set SA payload to reply */
+			plist = isakmp_plist_append(plist, 
+			    gss_sa, ISAKMP_NPTYPE_SA);
+
+			/* create isakmp KE payload */
+			plist = isakmp_plist_append(plist, 
+			    iph1->dhpub, ISAKMP_NPTYPE_KE);
+
+			/* create isakmp NONCE payload */
+			plist = isakmp_plist_append(plist, 
+			    iph1->nonce, ISAKMP_NPTYPE_NONCE);
+
+			/* create isakmp ID payload */
+			plist = isakmp_plist_append(plist, 
+			    iph1->id, ISAKMP_NPTYPE_ID);
+
+			/* create GSS payload */
+			gssapi_get_token_to_send(iph1, &gsstoken);
+			plist = isakmp_plist_append(plist, 
+			    gsstoken, ISAKMP_NPTYPE_GSS);
+
+			/* create isakmp HASH payload */
+			plist = isakmp_plist_append(plist, 
+			    gsshash, ISAKMP_NPTYPE_HASH);
+
+			/* append vendor id, if needed */
+			break;
+#endif
+	}
 
 #ifdef ENABLE_HYBRID
 	if (iph1->mode_cfg->flags & ISAKMP_CFG_VENDORID_XAUTH) {
+		plog (LLV_INFO, LOCATION, NULL, "Adding xauth VID payload.\n");
 		if ((xauth_vid = set_vendorid(VENDORID_XAUTH)) == NULL) {
 			plog(LLV_ERROR, LOCATION, NULL,
 			    "Cannot create Xauth vendor ID\n");
@@ -1186,68 +1493,6 @@ agg_r1send(iph1, msg)
 	}
 #endif
 
-		/* create isakmp CR payload if needed */
-		if (need_cr)
-			plist = isakmp_plist_append(plist, cr, ISAKMP_NPTYPE_CR);
-		break;
-
-	case OAKLEY_ATTR_AUTH_METHOD_RSAENC:
-	case OAKLEY_ATTR_AUTH_METHOD_RSAREV:
-		break;
-#ifdef HAVE_GSSAPI
-	case OAKLEY_ATTR_AUTH_METHOD_GSSAPI_KRB:
-		/* create buffer to send isakmp payload */
-		gsshash = gssapi_wraphash(iph1);
-		if (gsshash == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				"failed to wrap hash\n");
-			/*
-			 * This is probably due to the GSS roundtrips not
-			 * being finished yet. Return this error in
-			 * the hope that a fallback to main mode will
-			 * be done.
-			 */
-			isakmp_info_send_n1(iph1,
-			    ISAKMP_NTYPE_INVALID_EXCHANGE_TYPE, NULL);
-			goto end;
-		}
-		if (iph1->approval->gssid != NULL)
-			gss_sa = ipsecdoi_setph1proposal(iph1->approval);  
-		else
-			gss_sa = iph1->sa_ret;
-
-		/* set SA payload to reply */
-		plist = isakmp_plist_append(plist, gss_sa, ISAKMP_NPTYPE_SA);
-
-		/* create isakmp KE payload */
-		plist = isakmp_plist_append(plist, iph1->dhpub, ISAKMP_NPTYPE_KE);
-
-		/* create isakmp NONCE payload */
-		plist = isakmp_plist_append(plist, iph1->nonce, ISAKMP_NPTYPE_NONCE);
-
-		/* create isakmp ID payload */
-		plist = isakmp_plist_append(plist, iph1->id, ISAKMP_NPTYPE_ID);
-
-		/* create GSS payload */
-		gssapi_get_token_to_send(iph1, &gsstoken);
-		plist = isakmp_plist_append(plist, gsstoken, ISAKMP_NPTYPE_GSS);
-
-		/* create isakmp HASH payload */
-		plist = isakmp_plist_append(plist, gsshash, ISAKMP_NPTYPE_HASH);
-
-		/* append vendor id, if needed */
-		if (vid)
-			plist = isakmp_plist_append(plist, vid, ISAKMP_NPTYPE_VID);
-
-		break;
-#endif
-	default:
-		plog(LLV_ERROR, LOCATION, NULL, "Invalid authmethod %d\n",
-			iph1->approval->authmethod);
-		goto end;
-		break;
-	}
-
 #ifdef ENABLE_NATT
 	/* append NAT-T payloads */
 	if (vid_natt) {
@@ -1267,6 +1512,12 @@ agg_r1send(iph1, msg)
 		}
 	}
 #endif
+
+#ifdef ENABLE_FRAG
+	if (vid_frag)
+		plist = isakmp_plist_append(plist, vid_frag, ISAKMP_NPTYPE_VID);
+#endif
+
 #ifdef ENABLE_DPD
 	if (vid_dpd)
 		plist = isakmp_plist_append(plist, vid_dpd, ISAKMP_NPTYPE_VID);
@@ -1280,11 +1531,15 @@ agg_r1send(iph1, msg)
 
 	/* send the packet, add to the schedule to resend */
 	iph1->retry_counter = iph1->rmconf->retry_counter;
-	if (isakmp_ph1resend(iph1) == -1)
+	if (isakmp_ph1resend(iph1) == -1) {
+		plog(LLV_ERROR , LOCATION, NULL,
+			 "failed to send packet");
 		goto end;
+	}
 
 	/* the sending message is added to the received-list. */
-	if (add_recvdpkt(iph1->remote, iph1->local, iph1->sendbuf, msg) == -1) {
+	if (add_recvdpkt(iph1->remote, iph1->local, iph1->sendbuf, msg,
+                     PH1_NON_ESP_EXTRA_LEN(iph1)) == -1) {
 		plog(LLV_ERROR , LOCATION, NULL,
 			"failed to add a response packet to the tree.\n");
 		goto end;
@@ -1298,11 +1553,20 @@ agg_r1send(iph1, msg)
 
 	error = 0;
 
+	IPSECSESSIONTRACEREVENT(iph1->parent_session,
+							IPSECSESSIONEVENTCODE_IKE_PACKET_TX_SUCC,
+							CONSTSTR("Responder, Aggressive-Mode message 2"),
+							CONSTSTR(NULL));
+	
 end:
+	if (error) {
+		IPSECSESSIONTRACEREVENT(iph1->parent_session,
+								IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
+								CONSTSTR("Responder, Aggressive-Mode Message 2"),
+								CONSTSTR("Failed to process Aggressive-Mode Message 2"));
+	}
 	if (cr)
 		vfree(cr);
-	if (vid)
-		vfree(vid);
 #ifdef ENABLE_HYBRID
 	if (xauth_vid)
 		vfree(xauth_vid);
@@ -1314,12 +1578,24 @@ end:
 		vfree(gsstoken);
 	if (gsshash)
 		vfree(gsshash);
-	if (gss_sa != iph1->sa_ret)
+	if (free_gss_sa)
 		vfree(gss_sa);
+#endif
+#ifdef ENABLE_NATT
+	if (vid_natt)
+		vfree(vid_natt);
+	if (natd[0])
+		vfree(natd[0]);
+	if (natd[1])
+		vfree(natd[1]);
 #endif
 #ifdef ENABLE_DPD
 	if (vid_dpd)
 		vfree(vid_dpd);
+#endif
+#ifdef ENABLE_FRAG
+	if (vid_frag)
+		vfree(vid_frag);
 #endif
 
 	return error;
@@ -1360,15 +1636,21 @@ agg_r2recv(iph1, msg0)
 	if (ISSET(((struct isakmp *)msg0->v)->flags, ISAKMP_FLAG_E)) {
 		msg = oakley_do_decrypt(iph1, msg0,
 					iph1->ivm->iv, iph1->ivm->ive);
-		if (msg == NULL)
+		if (msg == NULL) {
+			plog(LLV_ERROR, LOCATION, NULL,
+				 "failed to decrypt msg");
 			goto end;
+		}
 	} else
 		msg = vdup(msg0);
 
 	/* validate the type of next payload */
 	pbuf = isakmp_parse(msg);
-	if (pbuf == NULL)
+	if (pbuf == NULL) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to parse msg");
 		goto end;
+	}
 
 	iph1->pl_hash = NULL;
 
@@ -1384,12 +1666,18 @@ agg_r2recv(iph1, msg0)
 			(void)check_vendorid(pa->ptr);
 			break;
 		case ISAKMP_NPTYPE_CERT:
-			if (oakley_savecert(iph1, pa->ptr) < 0)
+			if (oakley_savecert(iph1, pa->ptr) < 0) {
+				plog(LLV_ERROR, LOCATION, NULL,
+					 "failed to process CERT payload");
 				goto end;
+			}
 			break;
 		case ISAKMP_NPTYPE_SIG:
-			if (isakmp_p2ph(&iph1->sig_p, pa->ptr) < 0)
+			if (isakmp_p2ph(&iph1->sig_p, pa->ptr) < 0) {
+				plog(LLV_ERROR, LOCATION, NULL,
+					 "failed to process SIG payload");
 				goto end;
+			}
 			break;
 		case ISAKMP_NPTYPE_N:
 			isakmp_check_notify(pa->ptr, iph1);
@@ -1398,17 +1686,17 @@ agg_r2recv(iph1, msg0)
 #ifdef ENABLE_NATT
 		case ISAKMP_NPTYPE_NATD_DRAFT:
 		case ISAKMP_NPTYPE_NATD_RFC:
-#ifdef __APPLE__
-		case ISAKMP_NPTYPE_NATD_BADDRAFT:
-#endif
 			if (NATT_AVAILABLE(iph1) && iph1->natt_options != NULL &&
 				pa->type == iph1->natt_options->payload_nat_d)
 			{
 				vchar_t *natd_received = NULL;
 				int natd_verified;
 				
-				if (isakmp_p2ph (&natd_received, pa->ptr) < 0)
+				if (isakmp_p2ph (&natd_received, pa->ptr) < 0) {
+					plog(LLV_ERROR, LOCATION, NULL,
+						 "failed to process NATD payload");
 					goto end;
+				}
 				
 				if (natd_seq == 0)
 					iph1->natt_flags |= NAT_DETECTED;
@@ -1450,6 +1738,10 @@ agg_r2recv(iph1, msg0)
 	/* validate authentication value */
 	ptype = oakley_validate_auth(iph1);
 	if (ptype != 0) {
+		IPSECSESSIONTRACEREVENT(iph1->parent_session,
+								IPSECSESSIONEVENTCODE_IKEV1_PH1_AUTH_FAIL,
+								CONSTSTR("Responder, Aggressive-Mode Message 3"),
+								CONSTSTR("Failed to authenticate Aggressive-Mode Message 3"));
 		if (ptype == -1) {
 			/* message printed inner oakley_validate_auth() */
 			goto end;
@@ -1459,12 +1751,27 @@ agg_r2recv(iph1, msg0)
 		isakmp_info_send_n1(iph1, ptype, NULL);
 		goto end;
 	}
+	IPSECSESSIONTRACEREVENT(iph1->parent_session,
+							IPSECSESSIONEVENTCODE_IKEV1_PH1_AUTH_SUCC,
+							CONSTSTR("Responder, Aggressive-Mode Message 3"),
+							CONSTSTR(NULL));
 
 	iph1->status = PHASE1ST_MSG2RECEIVED;
 
 	error = 0;
 
+	IPSECSESSIONTRACEREVENT(iph1->parent_session,
+							IPSECSESSIONEVENTCODE_IKE_PACKET_RX_SUCC,
+							CONSTSTR("Responder, Aggressive-Mode message 3"),
+							CONSTSTR(NULL));
+	
 end:
+	if (error) {
+		IPSECSESSIONTRACEREVENT(iph1->parent_session,
+								IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
+								CONSTSTR("Responder, Aggressive-Mode Message 3"),
+								CONSTSTR("Failed to process Aggressive-Mode Message 3"));
+	}
 	if (pbuf)
 		vfree(pbuf);
 	if (msg)
@@ -1507,6 +1814,11 @@ agg_r2send(iph1, msg)
 
 	iph1->status = PHASE1ST_ESTABLISHED;
 
+	IPSECSESSIONTRACEREVENT(iph1->parent_session,
+							IPSECSESSIONEVENTCODE_IKEV1_PH1_RESP_SUCC,
+							CONSTSTR("Responder, Aggressive-Mode"),
+							CONSTSTR(NULL));
+	
 	error = 0;
 
 end:

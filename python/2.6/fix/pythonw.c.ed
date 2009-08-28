@@ -1,0 +1,54 @@
+/^#include/a
+#if defined(__i386__) || defined(__ppc__)
+/*
+ * i386 is the only 32-bit architecture with a corresponding 64-bit
+ * architecture that we are compiling both.  For other 32-bit architecture
+ * (without matching 64-bit architectures), we don't need to bother with
+ * setting the (32-bit) binpref.
+ *
+ * However, for ppc, we should exec the real Python ppc.
+ */
+#include <mach/mach.h>
+#include <spawn.h>
+#endif /* __i386__ || __ppc__ */
+.
+/^$/a
+#if defined(__i386__) || defined(__ppc__)
+#define PREFER3CPULEN	(sizeof(prefer32cpu) / sizeof(cpu_type_t))
+
+extern char **environ;
+
+static cpu_type_t prefer32cpu[] = {
+#ifdef __i386__
+	CPU_TYPE_I386,
+	CPU_TYPE_POWERPC,
+	CPU_TYPE_X86_64,
+	CPU_TYPE_POWERPC64
+#else /* __ppc__ */
+	CPU_TYPE_POWERPC,
+	CPU_TYPE_I386,
+	CPU_TYPE_POWERPC64,
+	CPU_TYPE_X86_64
+#endif /* __i386__ */
+};
+#endif /* __i386__ || __ppc__ */
+
+.
+/argv\[0\] = Python;/c
+#if defined(__i386__) || defined(__ppc__)
+	posix_spawnattr_t attr;
+	int ret;
+	size_t copied;
+
+	if ((ret = posix_spawnattr_init(&attr)) != 0) errc(1, ret, "posix_spawnattr_init");
+	if ((ret = posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETEXEC)) != 0) errc(1, ret, "posix_spawnattr_setflags");
+	if ((ret = posix_spawnattr_setbinpref_np(&attr, PREFER3CPULEN, prefer32cpu, &copied)) != 0) errc(1, ret, "posix_spawnattr_setbinpref_np");
+	if (copied != PREFER3CPULEN) errx(1, "posix_spawnattr_setbinpref_np only copied %d of %d", (int)copied, PREFER3CPULEN);
+	ret = posix_spawn(NULL, Python, NULL, &attr, argv, environ);
+	errc(1, ret, "execv: %s", Python);
+#else /* !__i386__ && !__ppc__ */
+.
+/err(/a
+#endif /* __i386__ || __ppc__ */
+.
+w

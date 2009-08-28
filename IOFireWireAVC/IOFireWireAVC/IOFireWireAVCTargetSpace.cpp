@@ -85,10 +85,10 @@ void AVCSubunitInfo::free()
     //IOLog( "AVCSubunitInfo::free (0x%08X)\n",(int) this);
 
 	if (sourcePlugRecords)
-		delete sourcePlugRecords;
+		delete[] sourcePlugRecords;
 
 	if (destPlugRecords)
-		delete destPlugRecords;
+		delete[] destPlugRecords;
 
 	OSObject::free();
 }

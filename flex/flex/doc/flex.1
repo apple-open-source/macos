@@ -1,11 +1,11 @@
-.TH FLEX "1" "February 2006" "flex 2.5.33" "User Commands"
+.TH FLEX "1" "February 2008" "flex 2.5.35" "User Commands"
 .SH NAME
-flex \- fast lexical analyzer generator
+flex \- the fast lexical analyser generator
 .SH SYNOPSIS
 .B flex
 [\fIOPTIONS\fR] [\fIFILE\fR]...
 .SH DESCRIPTION
-Generates programs that perform pattern-matching on text.
+Generates programs that perform pattern\-matching on text.
 .SS "Table Compression:"
 .TP
 \fB\-Ca\fR, \fB\-\-align\fR
@@ -21,7 +21,7 @@ do not compress tables; use \fB\-f\fR representation
 do not compress tables; use \fB\-F\fR representation
 .TP
 \fB\-Cm\fR, \fB\-\-meta\-ecs\fR
-construct meta-equivalence classes
+construct meta\-equivalence classes
 .TP
 \fB\-Cr\fR, \fB\-\-read\fR
 use read() instead of stdio for scanner input
@@ -40,7 +40,7 @@ default compression (same as \fB\-\-ecs\fR \fB\-\-meta\-ecs\fR)
 enable debug mode in scanner
 .TP
 \fB\-b\fR, \fB\-\-backup\fR
-write backing-up information to lex.backup
+write backing\-up information to lex.backup
 .TP
 \fB\-p\fR, \fB\-\-perf\-report\fR
 write performance report to stderr
@@ -77,10 +77,10 @@ create a C header file in addition to the scanner
 .SS "Scanner behavior:"
 .TP
 \fB\-7\fR, \fB\-\-7bit\fR
-generate 7-bit scanner
+generate 7\-bit scanner
 .TP
 \fB\-8\fR, \fB\-\-8bit\fR
-generate 8-bit scanner
+generate 8\-bit scanner
 .TP
 \fB\-B\fR, \fB\-\-batch\fR
 generate batch scanner (opposite of \fB\-I\fR)
@@ -101,7 +101,7 @@ generate interactive scanner (opposite of \fB\-B\fR)
 track line count in yylineno
 .SS "Generated code:"
 .TP
--+,  \fB\-\-c\fR++
+\-+,  \fB\-\-c\fR++
 generate C++ scanner class
 .TP
 \fB\-Dmacro\fR[=\fIdefn\fR]
@@ -125,7 +125,7 @@ include yylloc support.
 \fB\-\-stdinit\fR
 initialize yyin/yyout to stdin/stdout
 .HP
-\fB\-\-noansi\-definitions\fR old-style function definitions
+\fB\-\-noansi\-definitions\fR old\-style function definitions
 .TP
 \fB\-\-noansi\-prototypes\fR
 empty parameter list in prototypes
@@ -138,12 +138,12 @@ do not generate a particular FUNCTION
 .SS "Miscellaneous:"
 .TP
 \fB\-c\fR
-do-nothing POSIX option
+do\-nothing POSIX option
 .TP
 \fB\-n\fR
-do-nothing POSIX option
+do\-nothing POSIX option
 .HP
--?
+\-?
 .TP
 \fB\-h\fR, \fB\-\-help\fR
 produce this help message

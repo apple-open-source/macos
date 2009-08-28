@@ -1,9 +1,9 @@
 /*
- * "$Id: testmime.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: testmime.c 7670 2008-06-17 22:42:08Z mike $"
  *
  *   MIME test program for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -137,7 +137,7 @@ main(int  argc,				/* I - Number of command-line args */
     puts("MIME database types:");
     for (src = mimeFirstType(mime); src; src = mimeNextType(mime))
     {
-      printf("\t%s/%s:\n", src->super, src->type);
+      printf("\t%s/%s (%d):\n", src->super, src->type, src->priority);
       print_rules(src->rules);
       puts("");
     }
@@ -322,5 +322,5 @@ type_dir(mime_t     *mime,		/* I - MIME database */
 
 
 /*
- * End of "$Id: testmime.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: testmime.c 7670 2008-06-17 22:42:08Z mike $".
  */

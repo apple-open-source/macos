@@ -16,7 +16,10 @@
 - (void) foo7 : (int)x, ... __attribute__ ((__sentinel__(0)));
 - (void) foo8 : (int)x, ... __attribute__ ((__sentinel__("a"))); /* { dg-warning "not an integer constant" "sentinel" } */
 - (void) foo9 : (int)x, ... __attribute__ ((__sentinel__(-1))); /* { dg-warning "less than zero" "sentinel" } */
-- (void) foo10 : (int)x, ... __attribute__ ((__sentinel__(1,3))); /* { dg-error "wrong number of arguments" "sentinel" } */
+/* APPLE LOCAL begin two arg sentinel 5631180 */
+- (void) foo10 : (int)x, ... __attribute__ ((__sentinel__(1,1)));
+- (void) foo11 : (int)x, ... __attribute__ ((__sentinel__(1,1,3))); /* { dg-error "wrong number of arguments" "sentinel" } */
+/* APPLE LOCAL end two arg sentinel 5631180 */
 @end
 
 int main ()
@@ -31,7 +34,7 @@ int main ()
 
   [p foo6:1,2,3,4,5,6,7]; /* { dg-warning "missing sentinel in function call" } */
   [p foo6:1,NULL,3,4,5,6,7]; // OK
-  [p foo7:1];	/* { dg-warning "missing sentinel in function call" } */
+  [p foo7:1];	/* { dg-warning "not enough variable arguments to fit a sentinel" } */
   [p foo7:1, NULL]; // ok
 }
  

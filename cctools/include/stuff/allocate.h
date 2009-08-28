@@ -27,11 +27,11 @@
 /* defined in allocate.c */
 
 __private_extern__ void *allocate(
-    unsigned long size);
+    size_t size);
 
 __private_extern__ void *reallocate(
     void *,
-    unsigned long size);
+    size_t size);
 
 __private_extern__ char *savestr(
     const char *s);

@@ -88,6 +88,11 @@ enum
 };
 
 
+/*!
+ @class IOUSBHIDDriver
+ @abstract Driver that matches to USB HID devices.
+ @discussion This class can be overriden to provide for specific behaviors.
+ */
 class IOUSBHIDDriver : public IOHIDDevice
 {
     OSDeclareDefaultStructors(IOUSBHIDDriver)

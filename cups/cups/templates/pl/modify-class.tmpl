@@ -1,24 +1,21 @@
+<DIV CLASS="indent">
+
+<H2 CLASS="title">Modyfikowanie klasy {printer_name}</H2>
+
 <FORM METHOD="POST" ACTION="/admin">
 <INPUT TYPE="HIDDEN" NAME="OP" VALUE="{op}">
 
-<H2 CLASS="title">Zmodyfikuj klasę {printer_name}</H2>
-
 <TABLE>
 <TR>
-<TH CLASS="label">Nazwa:</TH>
-<TD><INPUT TYPE="HIDDEN" NAME="PRINTER_NAME" VALUE="{printer_name}">
-{printer_name}</TD>
+<TH CLASS="label">Opis:</TH>
+<TD><INPUT TYPE="TEXT" NAME="PRINTER_INFO" VALUE="{?printer_info}" SIZE="40" MAXLENGTH="127"></TD>
 </TR>
 <TR>
 <TH CLASS="label">Położenie:</TH>
 <TD><INPUT TYPE="TEXT" NAME="PRINTER_LOCATION" VALUE="{?printer_location}" SIZE="40" MAXLENGTH="127"></TD>
 </TR>
 <TR>
-<TH CLASS="label">Opis:</TH>
-<TD><INPUT TYPE="TEXT" NAME="PRINTER_INFO" VALUE="{?printer_info}" SIZE="40" MAXLENGTH="127"></TD>
-</TR>
-<TR>
-<TH CLASS="label">Elementy:</TH>
+<TH CLASS="label">Członkowie:</TH>
 <TD>
 <SELECT NAME="MEMBER_URIS" SIZE="10" MULTIPLE>
 {[member_uris]<OPTION VALUE="{member_uris}" {?member_selected}>{member_names}}
@@ -27,8 +24,9 @@
 </TR>
 <TR>
 <TD></TD>
-<TD><INPUT TYPE="IMAGE" SRC="/images/button-modify-class.gif" ALT="Zmodyfikuj klasę"></TD>
+<TD><INPUT TYPE="SUBMIT" VALUE="Zmodyfikuj klasę"></TD>
 </TR>
 </TABLE>
 
 </FORM>
+</DIV>

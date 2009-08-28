@@ -1,35 +1,32 @@
-The mailing list `%(listname)s' has just been created for you.  The
-following is some basic information about your mailing list.
+Lista `%(listname)s' zosta³a utworzona. Oto podstawowe informacje 
+o li¶cie.
 
-Your mailing list password is:
+Has³o zabezpieczaj±ce dostêp do ustawieñ administracyjnych:
 
     %(password)s
 
-You need this password to configure your mailing list.  You also need
-it to handle administrative requests, such as approving mail if you
-choose to run a moderated list.
+Has³o potrzebne jest do skonfigurowania listy oraz zarz±dzania zadaniami
+administracyjnymi (np. zatwierdzaniem subskrypcji b±d¼ moderowaniem listy).
 
-You can configure your mailing list at the following web page:
+Listê mo¿esz skonfigurowaæ pod adresem:
 
     %(admin_url)s
 
-The web page for users of your mailing list is: 
+Strona dla prenumeratorów listy: 
 
     %(listinfo_url)s
 
-You can even customize these web pages from the list configuration
-page.  However, you do need to know HTML to be able to do this.
+Tê stronê mo¿na dostosowaæ z poziomu interfejsu administracyjnego.
+Jednak¿e, w tym celu potrzebna bêdzie znajomo¶æ sk³adni HTML.
 
-There is also an email-based interface for users (not administrators)
-of your list; you can get info about using it by sending a message
-with just the word `help' as subject or in the body, to:
+U¿ytkownicy mog± zarz±dzaæ swoj± prenumerat± za pomoc± poleceñ wysy³anych
+emailem. Napisz na poni¿szy adres umieszczaj±c s³owo 'help' w temacie 
+lub tre¶ci wiadomo¶ci.
 
     %(requestaddr)s
 
-To unsubscribe a user: from the mailing list 'listinfo' web page,
-click on or enter the user's email address as if you were that user.
-Where that user would put in their password to unsubscribe, put in
-your admin password.  You can also use your password to change
-member's options, including digestification, delivery disabling, etc.
+Wypisanie u¿ytkownika: przejd¼ na stronê informacyjn± listy,
+wpisz adres email u¿ytkownika i podaj swoje has³o administracyjne. 
+W podobny sposób mo¿esz równie¿ zmieniæ opcje danego prenumeratora.
 
-Please address all questions to %(siteowner)s.
+W razie pytañ lub w±tpliwo¶ci, pisz na adres %(siteowner)s.

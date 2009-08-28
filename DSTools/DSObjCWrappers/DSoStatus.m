@@ -59,7 +59,15 @@ static DSoStatus *_sharedInstance = nil;
 
 -(NSString*) stringForStatus:(int)value
 {
-	return ([NSString stringWithUTF8String:dsCopyDirStatusName((long)value)]);
+	NSString *returnValue = @"Unknown status code";
+	
+	char *dsError = dsCopyDirStatusName( (SInt32) value );
+	if ( dsError != NULL ) {
+		returnValue = [NSString stringWithUTF8String: dsError];
+		free( dsError );
+	}
+	
+	return returnValue;
 }
 
 -(char*) cStringForStatus:(int)value

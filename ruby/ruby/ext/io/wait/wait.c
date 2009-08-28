@@ -2,8 +2,8 @@
 
   io/wait.c -
 
-  $Author: shyouhei $
-  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+  $Author: nobu $
+  $Date: 2008-04-15 12:35:55 +0900 (Tue, 15 Apr 2008) $
   created at: Tue Aug 28 09:08:06 JST 2001
 
   All the files in this distribution are covered under the Ruby's
@@ -56,7 +56,7 @@ static VALUE
 io_ready_p(io)
     VALUE io;
 {
-    OpenFile *fptr;
+    rb_io_t *fptr;
     FILE *fp;
     ioctl_arg n;
 
@@ -84,7 +84,7 @@ io_wait(argc, argv, io)
     VALUE *argv;
     VALUE io;
 {
-    OpenFile *fptr;
+    rb_io_t *fptr;
     fd_set rd;
     FILE *fp;
     int fd;

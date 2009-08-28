@@ -1,3 +1,5 @@
+@subheading stringprep_locale_charset
+@anchor{stringprep_locale_charset}
 @deftypefun {const char *} {stringprep_locale_charset} ( @var{void})
 
 Find out current locale charset.  The function respect the CHARSET

@@ -1,7 +1,0 @@
-#!../expect -f
-# run a program for a given amount of time
-# i.e. time 20 long_running_program
-
-set timeout [lindex $argv 0]
-eval spawn [lrange $argv 1 end]
-expect

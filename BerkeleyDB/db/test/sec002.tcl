@@ -1,9 +1,8 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1999-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 1999,2007 Oracle.  All rights reserved.
 #
-# $Id: sec002.tcl,v 1.2 2004/03/30 01:24:08 jtownsen Exp $
+# $Id: sec002.tcl,v 12.5 2007/05/17 15:15:56 bostic Exp $
 #
 # TEST	sec002
 # TEST	Test of security interface and catching errors in the
@@ -130,18 +129,20 @@ proc sec002 { } {
 	# Forcing the error which causes DB_RUNRECOVERY to be
 	# returned ends up leaving open files that cannot be removed.
 	if { $is_windows_test == 1 } {
+		cleanup $testdir NULL 1
 		puts "Skipping remainder of test for Windows"
 		return
 	}
 
 	puts "\tSec002.e: Replace root page in encrypted w/ encrypted"
 	set fid1 [open $testfile1 r+]
+	fconfigure $fid1 -translation binary
 	set fid2 [open $testfile2 r+]
+	fconfigure $fid2 -translation binary
 	seek $fid1 $pagesize start
 	seek $fid2 $pagesize start
-	set root1 [read $fid1 $pagesize]
+	fcopy $fid1 $fid2 -size $pagesize
 	close $fid1
-	puts -nonewline $fid2 $root1
 	close $fid2
 
 	set db [berkdb_open_noerr -encryptaes $passwd2 $testfile2]
@@ -156,12 +157,13 @@ proc sec002 { } {
 
 	puts "\tSec002.f: Replace root page in encrypted w/ unencrypted"
 	set fid2 [open $testfile2 r+]
+	fconfigure $fid2 -translation binary
 	set fid4 [open $testfile4 r+]
+	fconfigure $fid4 -translation binary
 	seek $fid2 $pagesize start
 	seek $fid4 $pagesize start
-	set root4 [read $fid4 $pagesize]
+	fcopy $fid4 $fid2 -size $pagesize
 	close $fid4
-	puts -nonewline $fid2 $root4
 	close $fid2
 
 	set db [berkdb_open_noerr -encryptaes $passwd2 $testfile2]

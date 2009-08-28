@@ -18,5 +18,9 @@
 	<array>
 		<string>automountd</string>
 	</array>
+	<key>HopefullyExitsLast</key>
+	<true/>
+	<key>EnableTransactions</key>
+	<true/>
 </dict>
 </plist>

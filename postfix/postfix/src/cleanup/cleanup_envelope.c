@@ -146,15 +146,17 @@ static void cleanup_envelope_process(CLEANUP_STATE *state, int type,
 	return;
     }
 #endif
+
+    /*
+     * XXX We instantiate a MILTERS structure even when the filter count is
+     * zero (for example, all filters are in ACCEPT state, or the SMTP server
+     * sends a dummy MILTERS structure without any filters), otherwise the
+     * cleanup server would apply the non_smtpd_milters setting
+     * inappropriately.
+     */
     if (type == REC_TYPE_MILT_COUNT) {
 	/* Not part of queue file format. */
-	if (state->milters != 0) {
-	    msg_warn("%s: message rejected: too many milter instances",
-		     state->queue_id);
-	    state->errs |= CLEANUP_STAT_BAD;
-	    return;
-	}
-	if ((milter_count = atoi(buf)) > 0)
+	if ((milter_count = atoi(buf)) >= 0)
 	    cleanup_milter_receive(state, milter_count);
 	return;
     }

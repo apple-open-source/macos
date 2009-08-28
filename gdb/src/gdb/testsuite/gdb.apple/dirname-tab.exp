@@ -72,6 +72,9 @@ gdb_expect {
        -re "/Volumes/: No such file or directory.\[\r\n\]+$gdb_prompt $" {
          pass "correct tab completion on directory name 2ndtry"
        }
+       -re "/Volumes/: Unknown error: 0.\[\r\n\]+$gdb_prompt $" {
+         pass "correct tab completion on directory name 2ndtry"
+       }
        -re ".*$gdb_prompt $" {
          fail "correct tab completion on directory name 2ndtry"
        }

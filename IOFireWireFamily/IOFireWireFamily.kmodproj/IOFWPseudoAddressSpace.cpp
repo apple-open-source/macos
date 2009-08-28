@@ -251,7 +251,7 @@ IOFWPseudoAddressSpace *
 IOFWPseudoAddressSpace::simpleRead(IOFireWireBus *control,
                                    FWAddress *addr, UInt32 len, const void *data)
 {
-    IOFWPseudoAddressSpace * me = new IOFWPseudoAddressSpace;
+    IOFWPseudoAddressSpace * me = OSTypeAlloc( IOFWPseudoAddressSpace );
     do 
 	{
         if(!me)
@@ -284,7 +284,7 @@ IOFWPseudoAddressSpace *
 IOFWPseudoAddressSpace::simpleReadFixed(IOFireWireBus *control,
                                    FWAddress addr, UInt32 len, const void *data)
 {
-    IOFWPseudoAddressSpace * me = new IOFWPseudoAddressSpace;
+    IOFWPseudoAddressSpace * me = OSTypeAlloc( IOFWPseudoAddressSpace );
     do 
 	{
         if(!me)
@@ -317,7 +317,7 @@ IOFWPseudoAddressSpace *
 IOFWPseudoAddressSpace::simpleRWFixed(IOFireWireBus *control,
                                       FWAddress addr, UInt32 len, const void *data)
 {
-    IOFWPseudoAddressSpace * me = new IOFWPseudoAddressSpace;
+    IOFWPseudoAddressSpace * me = OSTypeAlloc( IOFWPseudoAddressSpace );
     do 
 	{
         if(!me)
@@ -350,7 +350,7 @@ IOFWPseudoAddressSpace::simpleRWFixed(IOFireWireBus *control,
 IOFWPseudoAddressSpace *IOFWPseudoAddressSpace::simpleRW(IOFireWireBus *control,
                                                          FWAddress *addr, UInt32 len, void *data)
 {
-    IOFWPseudoAddressSpace * me = new IOFWPseudoAddressSpace;
+    IOFWPseudoAddressSpace * me = OSTypeAlloc( IOFWPseudoAddressSpace );
     do 
 	{
         if(!me)
@@ -382,7 +382,7 @@ IOFWPseudoAddressSpace *IOFWPseudoAddressSpace::simpleRW(IOFireWireBus *control,
 IOFWPseudoAddressSpace *IOFWPseudoAddressSpace::simpleRW(IOFireWireBus *control,
 								FWAddress *addr, IOMemoryDescriptor * data)
 {
-    IOFWPseudoAddressSpace * me = new IOFWPseudoAddressSpace;
+    IOFWPseudoAddressSpace * me = OSTypeAlloc( IOFWPseudoAddressSpace );
 	do 
 	{
         if(!me)
@@ -460,7 +460,7 @@ IOFWAddressSpaceAux * IOFWPseudoAddressSpace::createAuxiliary( void )
 {
 	IOFWPseudoAddressSpaceAux * auxiliary;
     
-	auxiliary = new IOFWPseudoAddressSpaceAux;
+	auxiliary = OSTypeAlloc( IOFWPseudoAddressSpaceAux );
 
     if( auxiliary != NULL && !auxiliary->init(this) ) 
 	{

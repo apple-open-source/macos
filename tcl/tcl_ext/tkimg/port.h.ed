@@ -1,8 +1,0 @@
-/HOST_BIGENDIAN/c
-#ifdef __BIG_ENDIAN__
-#define HOST_BIGENDIAN 1
-#else /* !__BIG_ENDIAN__ */
-#define HOST_BIGENDIAN 0
-#endif /* __BIG_ENDIAN__ */
-.
-w

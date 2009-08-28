@@ -1,5 +1,6 @@
 /* Definitions of target machine for GNU compiler for Renesas / SuperH SH.
-   Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2003, 2004
+   Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2003,
+   2004, 2005
    Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com).
    Improved by Jim Wilson (wilson@cygnus.com).
@@ -18,11 +19,24 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #ifndef GCC_SH_PROTOS_H
 #define GCC_SH_PROTOS_H
+
+enum sh_function_kind {
+  /* A function with normal C ABI  */
+  FUNCTION_ORDINARY,
+  /* A special function that guarantees that some otherwise call-clobbered
+     registers are not clobbered.  These can't go through the SH5 resolver,
+     because it only saves argument passing registers.  */
+  SFUNC_GOT,
+  /* A special function that should be linked statically.  These are typically
+     smaller or not much larger than a PLT entry.
+     Some also have a non-standard ABI which precludes dynamic linking.  */
+  SFUNC_STATIC
+};
 
 #ifdef RTX_CODE
 extern rtx sh_fsca_sf2int (void);
@@ -101,6 +115,7 @@ extern int sh_can_redirect_branch (rtx, rtx);
 extern void sh_expand_unop_v2sf (enum rtx_code, rtx, rtx);
 extern void sh_expand_binop_v2sf (enum rtx_code, rtx, rtx, rtx);
 extern int sh_expand_t_scc (enum rtx_code code, rtx target);
+extern rtx sh_gen_truncate (enum machine_mode, rtx, int);
 extern bool sh_vector_mode_supported_p (enum machine_mode);
 #ifdef TREE_CODE
 extern void sh_va_start (tree, rtx);
@@ -117,7 +132,6 @@ extern int sh_need_epilogue (void);
 extern void sh_set_return_address (rtx, rtx);
 extern int initial_elimination_offset (int, int);
 extern int fldi_ok (void);
-extern int sh_pr_n_sets (void);
 extern int sh_hard_regno_rename_ok (unsigned int, unsigned int);
 extern int sh_cfun_interrupt_handler_p (void);
 extern int sh_attr_renesas_p (tree);
@@ -137,15 +151,24 @@ extern void fpscr_set_from_mem (int, HARD_REG_SET);
 extern void sh_pr_interrupt (struct cpp_reader *);
 extern void sh_pr_trapa (struct cpp_reader *);
 extern void sh_pr_nosave_low_regs (struct cpp_reader *);
-extern rtx function_symbol (const char *);
+extern rtx function_symbol (rtx, const char *, enum sh_function_kind);
 extern rtx sh_get_pr_initial_val (void);
 
 extern rtx sh_function_arg (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
 extern void sh_function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
 extern int sh_pass_in_reg_p (CUMULATIVE_ARGS *, enum machine_mode, tree);
 extern void sh_init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx, tree, signed int, enum machine_mode);
-extern const char *sh_pch_valid_p (const void *data_p, size_t sz);
 extern bool sh_promote_prototypes (tree);
+
+extern rtx replace_n_hard_rtx (rtx, rtx *, int , int);
+extern int shmedia_cleanup_truncate (rtx *, void *);
+
+extern int sh_contains_memref_p (rtx);
+extern rtx shmedia_prepare_call_address (rtx fnaddr, int is_sibcall);
+struct secondary_reload_info;
+extern enum reg_class sh_secondary_reload (bool, rtx, enum reg_class,
+					   enum machine_mode,
+					   struct secondary_reload_info *);
 
 #endif /* ! GCC_SH_PROTOS_H */
 

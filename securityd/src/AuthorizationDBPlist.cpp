@@ -109,11 +109,11 @@ void AuthorizationDBPlist::save()
 		return;
 
 	CFIndex configSize = CFDataGetLength(configXML);
-	size_t bytesWritten = write(fd, CFDataGetBytePtr(configXML), configSize);
+	ssize_t bytesWritten = write(fd, CFDataGetBytePtr(configXML), configSize);
 	CFRelease(configXML);
 	
 	if (bytesWritten != configSize) {
-		if (bytesWritten == static_cast<size_t>(-1))
+		if (bytesWritten == -1)
 			Syslog::error("Problem writing rules file \"%s\": (errno=%s)", 
                     tempFile.c_str(), strerror(errno));
 		else
@@ -158,9 +158,9 @@ void AuthorizationDBPlist::load()
 	CFMutableDataRef xmlData = CFDataCreateMutable(NULL, fileSize);
 	CFDataSetLength(xmlData, fileSize);
 	void *buffer = CFDataGetMutableBytePtr(xmlData);
-	size_t bytesRead = read(fd, buffer, fileSize);
+	ssize_t bytesRead = read(fd, buffer, fileSize);
 	if (bytesRead != fileSize) {
-		if (bytesRead == static_cast<size_t>(-1)) {
+		if (bytesRead == -1) {
 			Syslog::error("Problem reading rules file \"%s\": %s", 
                     mFileName.c_str(), strerror(errno));
 			CFRelease(xmlData);
@@ -224,7 +224,10 @@ void AuthorizationDBPlist::parseConfig(CFDictionaryRef config)
 	CFMutableDictionaryRef newRules = NULL;
 
 	if (!config)
+	{
+		Syslog::alert("Failed to parse config, no config");
 		MacOSError::throwMe(errAuthorizationInternal); 
+	}
 
 	if (CFDictionaryContainsKey(config, rulesKey))
 		newRules = reinterpret_cast<CFMutableDictionaryRef>(const_cast<void*>(CFDictionaryGetValue(config, rulesKey)));
@@ -242,12 +245,16 @@ void AuthorizationDBPlist::parseConfig(CFDictionaryRef config)
 		try {
 			CFDictionaryApplyFunction(newRights, parseRule, this);
 		} catch (...) {
+			Syslog::alert("Failed to parse config and apply dictionary function");
 			MacOSError::throwMe(errAuthorizationInternal); // XXX/cs invalid rule file
 		}
 		mConfig = config;
 	}
 	else 
+	{
+		Syslog::alert("Failed to parse config, invalid rule file");
 		MacOSError::throwMe(errAuthorizationInternal); // XXX/cs invalid rule file
+	}
 }
 
 void AuthorizationDBPlist::parseRule(const void *key, const void *value, void *context)
@@ -264,6 +271,11 @@ void AuthorizationDBPlist::addRight(CFStringRef key, CFDictionaryRef definition)
 bool
 AuthorizationDBPlist::validateRule(string inRightName, CFDictionaryRef inRightDefinition) const
 {
+    if (!mConfigRules ||
+        0 == CFDictionaryGetCount(mConfigRules)) {
+        Syslog::error("No rule definitions!");
+        MacOSError::throwMe(errAuthorizationInternal);
+    }
 	try {
 		Rule newRule(inRightName, inRightDefinition, mConfigRules);
 		if (newRule->name() == inRightName)
@@ -278,6 +290,11 @@ AuthorizationDBPlist::validateRule(string inRightName, CFDictionaryRef inRightDe
 CFDictionaryRef
 AuthorizationDBPlist::getRuleDefinition(string &key)
 {
+    if (!mConfigRights ||
+        0 == CFDictionaryGetCount(mConfigRights)) {
+        Syslog::error("No rule definitions!");
+        MacOSError::throwMe(errAuthorizationInternal);
+    }
 	CFStringRef cfKey = makeCFString(key);
     StLock<Mutex> _(mLock);
 	if (CFDictionaryContainsKey(mConfigRights, cfKey)) {
@@ -339,7 +356,10 @@ AuthorizationDBPlist::setRule(const char *inRightName, CFDictionaryRef inRuleDef
 {
 	// if mConfig is now a reasonable guard
 	if (!inRuleDefinition || !mConfigRights)
-		MacOSError::throwMe(errAuthorizationDenied); // errInvalidRule
+	{
+		Syslog::alert("Failed to set rule, no definition or rights");
+		MacOSError::throwMe(errAuthorizationDenied);    // ???/gh  errAuthorizationInternal instead?
+	}
 
 	CFRef<CFStringRef> keyRef(CFStringCreateWithCString(NULL, inRightName, 
                 kCFStringEncodingASCII));
@@ -360,7 +380,10 @@ AuthorizationDBPlist::removeRule(const char *inRightName)
 {
 	// if mConfig is now a reasonable guard
 	if (!mConfigRights)
-		MacOSError::throwMe(errAuthorizationDenied);
+	{
+		Syslog::alert("Failed to remove rule, no rights");
+		MacOSError::throwMe(errAuthorizationDenied);    // ???/gh  errAuthorizationInternal instead?
+	}
 			
 	CFRef<CFStringRef> keyRef(CFStringCreateWithCString(NULL, inRightName, 
                 kCFStringEncodingASCII));

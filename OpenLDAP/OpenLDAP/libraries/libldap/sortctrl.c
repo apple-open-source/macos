@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/sortctrl.c,v 1.12.2.2 2006/01/03 22:16:09 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/sortctrl.c,v 1.19.2.4 2008/02/11 23:26:41 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,9 +26,6 @@
 /* Note: A verbatim copy of version 2.0.1 of the OpenLDAP Public License 
  * can be found in the file "build/LICENSE-2.0.1" in this distribution
  * of OpenLDAP Software.
- */
-/* Portions Copyright (C) The Internet Society (1997)
- * ASN.1 fragments are from RFC 2251; see RFC for full legal notices.
  */
 
 #include "portable.h"
@@ -260,6 +257,120 @@ ldap_free_sort_keylist ( LDAPSortKey **keyList )
 
 
 /* ---------------------------------------------------------------------------
+   ldap_create_sort_control_value
+   
+   Create and encode the value of the server-side sort control.
+   
+   ld          (IN) An LDAP session handle, as obtained from a call to
+					ldap_init().
+
+   keyList     (IN) Points to a null-terminated array of pointers to
+					LDAPSortKey structures, containing a description of
+					each of the sort keys to be used.  The description
+					consists of an attribute name, ascending/descending flag,
+					and an optional matching rule (OID) to use.
+			   
+   value      (OUT) Contains the control value; the bv_val member of the berval structure
+					SHOULD be freed by calling ldap_memfree() when done.
+   
+   
+   Ber encoding
+   
+   SortKeyList ::= SEQUENCE OF SEQUENCE {
+		   attributeType   AttributeDescription,
+		   orderingRule    [0] MatchingRuleId OPTIONAL,
+		   reverseOrder    [1] BOOLEAN DEFAULT FALSE }
+   
+   ---------------------------------------------------------------------------*/
+
+int
+ldap_create_sort_control_value(
+	LDAP *ld,
+	LDAPSortKey **keyList,
+	struct berval *value )
+{
+	int		i;
+	BerElement	*ber = NULL;
+	ber_tag_t	tag;
+
+	assert( ld != NULL );
+	assert( LDAP_VALID( ld ) );
+
+	if ( ld == NULL ) return LDAP_PARAM_ERROR;
+	if ( keyList == NULL || value == NULL ) {
+		ld->ld_errno = LDAP_PARAM_ERROR;
+		return LDAP_PARAM_ERROR;
+	}
+
+	value->bv_val = NULL;
+	value->bv_len = 0;
+
+	ber = ldap_alloc_ber_with_options( ld );
+	if ( ber == NULL) {
+		ld->ld_errno = LDAP_NO_MEMORY;
+		return ld->ld_errno;
+	}
+
+	tag = ber_printf( ber, "{" /*}*/ );
+	if ( tag == LBER_ERROR ) {
+		goto error_return;
+	}
+
+	for ( i = 0; keyList[i] != NULL; i++ ) {
+		tag = ber_printf( ber, "{s" /*}*/, keyList[i]->attributeType );
+		if ( tag == LBER_ERROR ) {
+			goto error_return;
+		}
+
+		if ( keyList[i]->orderingRule != NULL ) {
+			tag = ber_printf( ber, "ts",
+				LDAP_MATCHRULE_IDENTIFIER,
+				keyList[i]->orderingRule );
+
+			if ( tag == LBER_ERROR ) {
+				goto error_return;
+			}
+		}
+
+		if ( keyList[i]->reverseOrder ) {
+			tag = ber_printf( ber, "tb",
+				LDAP_REVERSEORDER_IDENTIFIER,
+				keyList[i]->reverseOrder );
+
+			if ( tag == LBER_ERROR ) {
+				goto error_return;
+			}
+		}
+
+		tag = ber_printf( ber, /*{*/ "N}" );
+		if ( tag == LBER_ERROR ) {
+			goto error_return;
+		}
+	}
+
+	tag = ber_printf( ber, /*{*/ "N}" );
+	if ( tag == LBER_ERROR ) {
+		goto error_return;
+	}
+
+	if ( ber_flatten2( ber, value, 1 ) == -1 ) {
+		ld->ld_errno = LDAP_NO_MEMORY;
+	}
+
+	if ( 0 ) {
+error_return:;
+		ld->ld_errno =  LDAP_ENCODING_ERROR;
+	}
+
+	if ( ber != NULL ) {
+		ber_free( ber, 1 );
+	}
+
+	return ld->ld_errno;
+}
+
+
+/* ---------------------------------------------------------------------------
    ldap_create_sort_control
    
    Create and encode the server-side sort control.
@@ -290,82 +401,136 @@ ldap_free_sort_keylist ( LDAPSortKey **keyList )
    ---------------------------------------------------------------------------*/
 
 int
-ldap_create_sort_control (
+ldap_create_sort_control(
 	LDAP *ld,
 	LDAPSortKey **keyList,
 	int isCritical,
 	LDAPControl **ctrlp )
 {
-	int         i;
-	BerElement  *ber;
-	ber_tag_t tag;
+	struct berval	value;
 
+	assert( ld != NULL );
+	assert( LDAP_VALID( ld ) );
 
-	if ( (ld == NULL) || (keyList == NULL) || (ctrlp == NULL) ) {
+	if ( ld == NULL ) {
+		return LDAP_PARAM_ERROR;
+	}
+
+	if ( ctrlp == NULL ) {
 		ld->ld_errno = LDAP_PARAM_ERROR;
-		return(ld->ld_errno);
+		return ld->ld_errno;
 	}
 
-	if ((ber = ldap_alloc_ber_with_options(ld)) == NULL) {
-		ld->ld_errno = LDAP_NO_MEMORY;
-		return( ld->ld_errno );
-	}
-
-	tag = ber_printf(ber, "{" /*}*/);
-	if (tag == LBER_ERROR) goto exit;
-
-	for (i = 0; keyList[i] != NULL; i++) {
-		tag = ber_printf(ber, "{s" /*}*/, (keyList[i])->attributeType);
-		if (tag == LBER_ERROR) goto exit;
-
-		if ((keyList[i])->orderingRule != NULL) {
-			tag = ber_printf( ber, "ts",
-				LDAP_MATCHRULE_IDENTIFIER,
-				(keyList[i])->orderingRule );
-
-			if( tag == LBER_ERROR ) goto exit;
+	ld->ld_errno = ldap_create_sort_control_value( ld, keyList, &value );
+	if ( ld->ld_errno == LDAP_SUCCESS ) {
+		ld->ld_errno = ldap_control_create( LDAP_CONTROL_SORTREQUEST,
+			isCritical, &value, 0, ctrlp );
+		if ( ld->ld_errno != LDAP_SUCCESS ) {
+			LDAP_FREE( value.bv_val );
 		}
-
-		if ((keyList[i])->reverseOrder) {
-			tag = ber_printf(ber, "tb",
-				LDAP_REVERSEORDER_IDENTIFIER,
-				(keyList[i])->reverseOrder );
-
-			if( tag == LBER_ERROR ) goto exit;
-		}
-
-		tag = ber_printf(ber, /*{*/ "N}");
-		if( tag == LBER_ERROR ) goto exit;
 	}
 
-	tag = ber_printf(ber, /*{*/ "N}");
-	if( tag == LBER_ERROR ) goto exit;
-
-	ld->ld_errno = ldap_create_control( LDAP_CONTROL_SORTREQUEST,
-		ber, isCritical, ctrlp);
-
-	ber_free(ber, 1);
-
-	return(ld->ld_errno);
-
-exit:
-	ber_free(ber, 1);
-	ld->ld_errno =  LDAP_ENCODING_ERROR;
-	return(ld->ld_errno);
+	return ld->ld_errno;
 }
 
 
 /* ---------------------------------------------------------------------------
-   ldap_parse_sort_control
+	 apple specific code
+	 ldap_parse_sort_control - APPLE - WRAPPER method added during upgrade from 2.3.27 to 2.4.11
+	 to support older clients
+	 
+	 Decode the server-side sort control return information.
+	 
+	 ld          (IN) An LDAP session handle, as obtained from a call to
+	 ldap_init().
+	 
+	 ctrls       (IN) The address of a NULL-terminated array of LDAPControl
+	 structures, typically obtained by a call to
+	 ldap_parse_result().
+	 
+	 returnCode (OUT) This result parameter is filled in with the sort control
+	 result code.  This parameter MUST not be NULL.
+	 
+	 attribute  (OUT) If an error occured the server may return a string
+	 indicating the first attribute in the sortkey list
+	 that was in error.  If a string is returned, the memory
+	 should be freed with ldap_memfree.  If this parameter is
+	 NULL, no string is returned.
+	 
+	 
+	 Ber encoding for sort control
+	 
+		 SortResult ::= SEQUENCE {
+			sortResult  ENUMERATED {
+				 success                   (0), -- results are sorted
+				 operationsError           (1), -- server internal failure
+				 timeLimitExceeded         (3), -- timelimit reached before
+				 -- sorting was completed
+				 strongAuthRequired        (8), -- refused to return sorted
+				 -- results via insecure
+				 -- protocol
+				 adminLimitExceeded       (11), -- too many matching entries
+				 -- for the server to sort
+				 noSuchAttribute          (16), -- unrecognized attribute
+				 -- type in sort key
+				 inappropriateMatching    (18), -- unrecognized or inappro-
+				 -- priate matching rule in
+				 -- sort key
+				 insufficientAccessRights (50), -- refused to return sorted
+				 -- results to this client
+				 busy                     (51), -- too busy to process
+				 unwillingToPerform       (53), -- unable to sort
+				 other                    (80)
+			},
+			attributeType [0] AttributeDescription OPTIONAL }
+ ---------------------------------------------------------------------------*/
+
+int
+ldap_parse_sort_control(
+						LDAP           *ld,
+						LDAPControl    **ctrls,
+						unsigned long  *returnCode,
+						char           **attribute )
+{
+	LDAPControl *pControl;
+	int i;
+	
+	if (ld == NULL) {
+		ld->ld_errno = LDAP_PARAM_ERROR;
+		return(ld->ld_errno);
+	}
+	
+	if (ctrls == NULL) {
+		ld->ld_errno =  LDAP_CONTROL_NOT_FOUND;
+		return(ld->ld_errno);
+	}
+	
+	if (attribute) {
+		*attribute = NULL;
+	}
+	
+	/* Search the list of control responses for a sort control. */
+	for (i=0; ctrls[i]; i++) {
+		pControl = ctrls[i];
+		if (!strcmp(LDAP_CONTROL_SORTRESPONSE, pControl->ldctl_oid))
+			return ldap_parse_sortresponse_control(ld,pControl,(ber_int_t *)returnCode, attribute);
+	}
+	
+	/* No sort control was found. */
+	ld->ld_errno = LDAP_CONTROL_NOT_FOUND;
+	return(ld->ld_errno);
+	
+}
+
+/* ---------------------------------------------------------------------------
+   ldap_parse_sortresponse_control
    
    Decode the server-side sort control return information.
 
    ld          (IN) An LDAP session handle, as obtained from a call to
 					ldap_init().
 
-   ctrls       (IN) The address of a NULL-terminated array of LDAPControl
-					structures, typically obtained by a call to
-					ldap_parse_result().
+   ctrl        (IN) The address of the LDAP Control Structure.
 				  
    returnCode (OUT) This result parameter is filled in with the sort control
 					result code.  This parameter MUST not be NULL.
@@ -405,25 +570,25 @@ exit:
    ---------------------------------------------------------------------------*/
 
 int
-ldap_parse_sort_control(
-	LDAP           *ld,
-	LDAPControl    **ctrls,
-	unsigned long  *returnCode,
-	char           **attribute )
+ldap_parse_sortresponse_control(
+	LDAP *ld,
+	LDAPControl *ctrl,
+	ber_int_t *returnCode,
+	char **attribute )
 {
 	BerElement *ber;
-	LDAPControl *pControl;
-	int i;
 	ber_tag_t tag, berTag;
 	ber_len_t berLen;
 
+	assert( ld != NULL );
+	assert( LDAP_VALID( ld ) );
+
 	if (ld == NULL) {
-		ld->ld_errno = LDAP_PARAM_ERROR;
-		return(ld->ld_errno);
+		return LDAP_PARAM_ERROR;
 	}
 
-	if (ctrls == NULL) {
-		ld->ld_errno =  LDAP_CONTROL_NOT_FOUND;
+	if (ctrl == NULL) {
+		ld->ld_errno =  LDAP_PARAM_ERROR;
 		return(ld->ld_errno);
 	}
 
@@ -431,20 +596,14 @@ ldap_parse_sort_control(
 		*attribute = NULL;
 	}
 
-	/* Search the list of control responses for a sort control. */
-	for (i=0; ctrls[i]; i++) {
-		pControl = ctrls[i];
-		if (!strcmp(LDAP_CONTROL_SORTRESPONSE, pControl->ldctl_oid))
-			goto foundSortControl;
+	if ( strcmp(LDAP_CONTROL_SORTRESPONSE, ctrl->ldctl_oid) != 0 ) {
+		/* Not sort result control */
+		ld->ld_errno = LDAP_CONTROL_NOT_FOUND;
+		return(ld->ld_errno);
 	}
 
-	/* No sort control was found. */
-	ld->ld_errno = LDAP_CONTROL_NOT_FOUND;
-	return(ld->ld_errno);
-
-foundSortControl:
 	/* Create a BerElement from the berval returned in the control. */
-	ber = ber_init(&pControl->ldctl_value);
+	ber = ber_init(&ctrl->ldctl_value);
 
 	if (ber == NULL) {
 		ld->ld_errno = LDAP_NO_MEMORY;

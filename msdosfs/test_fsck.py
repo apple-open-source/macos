@@ -10,9 +10,12 @@
 # a new build that has not been installed).
 #
 
+from __future__ import with_statement
+
 import sys
 import os
 import subprocess
+import struct
 from msdosfs import *
 from HexDump import HexDump
 
@@ -87,7 +90,14 @@ def test_fat32(dir, fsck, newfs):
 	#	one cluster directory
 	#	larger directory
 	#
+	test_quick(rdisk, fsck, newfs, newfs_opts)
+	test_bad_args(rdisk, fsck, newfs, newfs_opts)
+	test_maxmem(rdisk, fsck, newfs, newfs_opts)
 	test_empty(rdisk, fsck, newfs, newfs_opts)
+	test_boot_sector(rdisk, fsck, newfs, newfs_opts)
+	test_boot_fat32(rdisk, fsck, newfs, newfs_opts)	# FAT32 only!
+	test_fsinfo(rdisk, fsck, newfs, newfs_opts)	# FAT32 only!
+	fat_too_small(rdisk, fsck, newfs, newfs_opts)
 	orphan_clusters(rdisk, fsck, newfs, newfs_opts)
 	file_excess_clusters(rdisk, fsck, newfs, newfs_opts)
 	file_bad_clusters(rdisk, fsck, newfs, newfs_opts)
@@ -141,8 +151,13 @@ def test_fat16(dir, fsck, newfs):
 	#	one cluster directory
 	#	larger directory
 	#
+	test_quick(rdisk, fsck, newfs, newfs_opts)
+	test_bad_args(rdisk, fsck, newfs, newfs_opts)
+	test_maxmem(rdisk, fsck, newfs, newfs_opts)
 	test_empty(rdisk, fsck, newfs, newfs_opts)
- 	orphan_clusters(rdisk, fsck, newfs, newfs_opts)
+	test_boot_sector(rdisk, fsck, newfs, newfs_opts)
+	fat_too_small(rdisk, fsck, newfs, newfs_opts)
+	orphan_clusters(rdisk, fsck, newfs, newfs_opts)
 	file_excess_clusters(rdisk, fsck, newfs, newfs_opts)
 	file_bad_clusters(rdisk, fsck, newfs, newfs_opts)
 	dir_bad_start(rdisk, fsck, newfs, newfs_opts)
@@ -191,8 +206,13 @@ def test_fat12(dir, fsck, newfs):
 	#	one cluster directory
 	#	larger directory
 	#
+	test_quick(rdisk, fsck, newfs, newfs_opts)
+	test_bad_args(rdisk, fsck, newfs, newfs_opts)
+	test_maxmem(rdisk, fsck, newfs, newfs_opts)
 	test_empty(rdisk, fsck, newfs, newfs_opts)
- 	orphan_clusters(rdisk, fsck, newfs, newfs_opts)
+	test_boot_sector(rdisk, fsck, newfs, newfs_opts)
+	fat_too_small(rdisk, fsck, newfs, newfs_opts)
+	orphan_clusters(rdisk, fsck, newfs, newfs_opts)
 	file_excess_clusters(rdisk, fsck, newfs, newfs_opts)
 	file_bad_clusters(rdisk, fsck, newfs, newfs_opts)
 	dir_bad_start(rdisk, fsck, newfs, newfs_opts)
@@ -819,6 +839,230 @@ def file_4GB_excess_clusters(disk, fsck, newfs, newfs_opts):
 	except LaunchError:
 		pass
 	launch([fsck, '-y', disk])
+	launch([fsck, '-n', disk])
+
+#
+# Test the "-q" ("quick") option which reports whether the "dirty" flag in
+# the FAT has been set.  The dirty flag is only defined for FAT16 and FAT32.
+# For FAT12, we actually do a full verify of the volume and return that the
+# volume is clean if it has no problems, dirty if a problem was detected.
+#
+# NOTE: Assumes newfs_opts[1] is "12", "16" or "32" to indicate which FAT
+# type is being tested.
+#
+def test_quick(disk, fsck, newfs, newfs_opts):
+	assert newfs_opts[1] in ["12", "16", "32"]
+	launch([newfs]+newfs_opts+[disk])
+
+	# Try a quick check of a volume that is clean
+	launch([fsck, '-q', disk])
+		
+	# Make the volume dirty
+	f = file(disk, "r+")
+	v = msdosfs(f)
+	if newfs_opts[1] in ["16", "32"]:
+		if newfs_opts[1] == "16":
+			v.fat[1] &= 0x7FFF
+		else:
+			v.fat[1] &= 0x07FFFFFF
+	else:
+		# Corrupt a FAT12 volume so that it looks dirty.
+		# Allocate some clusters, so there is something to repair.
+		v.allocate(3)
+	v.flush()
+	del v
+	f.close()
+	del f
+	
+	# Quick check a dirty volume
+	try:
+		launch([fsck, '-q', disk])
+	except LaunchError:
+		pass
+	else:
+		raise FailureExpected("Volume not dirty?")
+
+#
+# Test the "-M" (memory limit) option.  This just tests the argument parsing.
+# It does not verify that fsck_msdos actually limits its memory usage.
+#
+def test_maxmem(disk, fsck, newfs, newfs_opts):
+	launch([newfs]+newfs_opts+[disk])
+	launch([fsck, '-M', '1m', disk])
+	launch([fsck, '-M', '900k', disk])
+
+#
+# Test several combinations of bad arguments.
+#
+def test_bad_args(disk, fsck, newfs, newfs_opts):
+	launch([newfs]+newfs_opts+[disk])
+	
+	try:
+		launch([fsck, '-M', 'foo', disk])
+	except LaunchError:
+		pass
+	else:
+		raise FailureExpected("Expected bad argument: -M 1x")
+
+	try:
+		launch([fsck, '-p', '-M', 'foo', disk])
+	except LaunchError:
+		pass
+	else:
+		raise FailureExpected("Expected bad argument: -M 1x")
+
+	try:
+		launch([fsck, '-M', '1x', disk])
+	except LaunchError:
+		pass
+	else:
+		raise FailureExpected("Expected bad argument: -M 1x")
+
+	try:
+		launch([fsck, '-z', disk])
+	except LaunchError:
+		pass
+	else:
+		raise FailureExpected("Expected bad argument: -z")
+
+	try:
+		launch([fsck])
+	except LaunchError:
+		pass
+	else:
+		raise FailureExpected("Expected usage (no disk given)")
+
+#
+# Test several cases of bad values in the boot sector.
+# Assumes testing on a disk with 512 bytes per sector.
+# These are all fatal, so don't try repairing.
+#
+def test_boot_sector(disk, fsck, newfs, newfs_opts):
+	# Corrupt the jump instruction
+	def bad_jump(bytes):
+		return 'H+' + bytes[2:]
+	
+	# Corrupt the sector size (set it to 0x03FF)
+	def bad_sector_size(bytes):
+		return bytes[0:11] + '\xff\x03' + bytes[13:]
+	
+	# Corrupt the sectors per cluster value
+	def bad_sec_per_clust(bytes):
+		return bytes[0:13] + '\x07' + bytes[14:]
+	
+	for func, reason in [(bad_jump,"Bad boot jump"),
+	                     (bad_sector_size, "Bad sector size"),
+	                     (bad_sec_per_clust, "Bad sectors per cluster")]:
+		launch([newfs]+newfs_opts+[disk])
+		with open(disk, "r+") as f:
+			bytes = f.read(512)
+			f.seek(0)
+			bytes = func(bytes)
+			f.write(bytes)
+		try:
+			launch([fsck, '-n', disk])
+		except LaunchError:
+			pass
+		else:
+			raise FailureExpected(reason)
+
+#
+# Test several cases of bad values in the boot sector (FAT32 only).
+# These are all fatal, so don't try repairing.
+#
+def test_boot_fat32(disk, fsck, newfs, newfs_opts):
+	# Non-zero number of root directory entries
+	def bad_root_count(bytes):
+		return bytes[0:17] + '\x00\x02' + bytes[19:]
+	
+	# Non-zero file system version
+	def bad_version(bytes):
+		return bytes[0:42] + '\x00\x01' + bytes[44:]
+	
+	for func, reason in [(bad_root_count,"Bad root entry count"),
+	                     (bad_version, "Bad filesystem version")]:
+		launch([newfs]+newfs_opts+[disk])
+		with open(disk, "r+") as f:
+			bytes = f.read(512)
+			f.seek(0)
+			bytes = func(bytes)
+			f.write(bytes)
+		try:
+			launch([fsck, '-n', disk])
+		except LaunchError:
+			pass
+		else:
+			raise FailureExpected(reason)
+
+#
+# Test several cases of bad values in the boot sector (FAT32 only).
+#
+def test_fsinfo(disk, fsck, newfs, newfs_opts):
+	def bad_leading_sig(bytes):
+		return 'RRAA' + bytes[4:]
+		
+	def bad_sig2(bytes):
+		return bytes[0:484] + 'rraa' + bytes[488:]
+		
+	def bad_trailing_sig(bytes):
+		return bytes[0:508] + '\xff\x00\xaa\x55' + bytes[512:]
+		
+	def bad_free_count(bytes):
+		return bytes[0:488] + '\xfe\xed\xfa\xce' + bytes[492:]
+	
+	# Figure out where the FSInfo sector ended up
+	launch([newfs]+newfs_opts+[disk])
+	with open(disk, "r+") as f:
+		bytes = f.read(512)
+		fsinfo = ord(bytes[48]) + 256 * ord(bytes[49])
+	
+	# Test each of the FSInfo corruptions
+	for func, reason in [(bad_leading_sig, "Bad leading signature"),
+	                     (bad_sig2, "Bad structure signature"),
+	                     (bad_trailing_sig, "Bad trailing signature"),
+	                     (bad_free_count, "Bad free cluster count")]:
+		launch([newfs]+newfs_opts+[disk])
+		with open(disk, "r+") as f:
+			f.seek(fsinfo * 512)
+			bytes = f.read(512)
+			f.seek(fsinfo * 512)
+			bytes = func(bytes)
+			f.write(bytes)
+		launch([fsck, '-y', disk])
+		launch([fsck, '-n', disk])
+
+#
+# Test when the FAT has too few sectors for the number of clusters.
+#
+# NOTE: Relies on the fact that newfs_msdos places a FAT32 root
+# directory in cluster #2 (immediately following the FATs).
+#
+def fat_too_small(disk, fsck, newfs, newfs_opts):
+	launch([newfs]+newfs_opts+[disk])
+	
+	with open(disk, "r+") as f:
+		bytes = f.read(512)
+		numFATs = ord(bytes[16])
+		reserved = ord(bytes[14]) + 256 * ord(bytes[15])
+
+		# Decrement the number of sectors per FAT
+		if bytes[22:24] != '\x00\x00':
+			fat_sectors = struct.unpack("<H", bytes[22:24])[0]
+			bytes = bytes[0:22] + struct.pack("<H", fat_sectors - 1) + bytes[24:]
+		else:
+			fat_sectors = struct.unpack("<I", bytes[36:40])[0]
+			bytes = bytes[0:36] + struct.pack("<I", fat_sectors - 1) + bytes[40:]
+		f.seek(0)
+		f.write(bytes)
+		
+		# Copy the root directory from old location to new location
+		f.seek(512 * (reserved + numFATs * fat_sectors))
+		bytes = f.read(65536)
+		f.seek(512 * (reserved + numFATs * fat_sectors - numFATs))
+		f.write(bytes)
+
+	# NOTE: FAT too small is NOT a fatal error
+	launch([fsck, '-y', disk])	# Need a way to test for expected output
 	launch([fsck, '-n', disk])
 
 #

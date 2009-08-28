@@ -1,27 +1,4 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/*
  * Copyright (c) 1983, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -54,57 +31,63 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__unused static char sccsid[] = "@(#)print.c	8.1 (Berkeley) 6/4/93";
+#if 0
+static char sccsid[] = "@(#)print.c	8.1 (Berkeley) 6/4/93";
+#endif
+static const char rcsid[] =
+  "$FreeBSD: src/libexec/talkd/print.c,v 1.12 2003/04/03 05:13:27 jmallett Exp $";
 #endif /* not lint */
+
+#include <sys/cdefs.h>
 
 /* debug print routines */
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <arpa/inet.h>
 #include <protocols/talkd.h>
-#include <syslog.h>
 #include <stdio.h>
+#include <syslog.h>
 
-static	char *types[] =
+#include "extern.h"
+
+static	const char *types[] =
     { "leave_invite", "look_up", "delete", "announce" };
 #define	NTYPES	(sizeof (types) / sizeof (types[0]))
-static	char *answers[] = 
+static	const char *answers[] =
     { "success", "not_here", "failed", "machine_unknown", "permission_denied",
       "unknown_request", "badversion", "badaddr", "badctladdr" };
 #define	NANSWERS	(sizeof (answers) / sizeof (answers[0]))
 
 void
-print_request(cp, mp)
-	char *cp;
-	register CTL_MSG *mp;
+print_request(const char *cp, CTL_MSG *mp)
 {
-	char tbuf[80], *tp;
-	
+	const char *tp;
+	char tbuf[80];
+
 	if (mp->type > NTYPES) {
-		(void)sprintf(tbuf, "type %d", mp->type);
+		(void)snprintf(tbuf, sizeof(tbuf), "type %d", mp->type);
 		tp = tbuf;
 	} else
 		tp = types[mp->type];
-	syslog(LOG_DEBUG, "%s: %s: id %d, l_user %s, r_user %s, r_tty %s",
-	    cp, tp, mp->id_num, mp->l_name, mp->r_name, mp->r_tty);
+	syslog(LOG_DEBUG, "%s: %s: id %lu, l_user %s, r_user %s, r_tty %s",
+	    cp, tp, (long)mp->id_num, mp->l_name, mp->r_name, mp->r_tty);
 }
 
 void
-print_response(cp, rp)
-	char *cp;
-	register CTL_RESPONSE *rp;
+print_response(const char *cp, CTL_RESPONSE *rp)
 {
-	char tbuf[80], *tp, abuf[80], *ap;
-	
+	const char *tp, *ap;
+	char tbuf[80], abuf[80];
+
 	if (rp->type > NTYPES) {
-		(void)sprintf(tbuf, "type %d", rp->type);
+		(void)snprintf(tbuf, sizeof(tbuf), "type %d", rp->type);
 		tp = tbuf;
 	} else
 		tp = types[rp->type];
 	if (rp->answer > NANSWERS) {
-		(void)sprintf(abuf, "answer %d", rp->answer);
+		(void)snprintf(abuf, sizeof(abuf), "answer %d", rp->answer);
 		ap = abuf;
 	} else
 		ap = answers[rp->answer];

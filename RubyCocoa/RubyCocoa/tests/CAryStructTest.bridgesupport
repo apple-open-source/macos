@@ -1,0 +1,6 @@
+<?xml version='1.0'?>
+<!DOCTYPE signatures SYSTEM "file://localhost/System/Library/DTDs/BridgeSupport.dtd">
+<signatures version='0.9'>
+  <struct name='Ttype1' type='{ttype1=&quot;a&quot;f&quot;b&quot;f}'/>
+  <struct name='Ttype2' type='{ttype2=&quot;a&quot;[2f]}'/>
+</signatures>

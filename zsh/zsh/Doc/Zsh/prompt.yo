@@ -1,8 +1,6 @@
 texinode(Prompt Expansion)(Expansion)(Conditional Expressions)(Top)
 chapter(Prompt Expansion)
-ifzman(\
-sect(Prompt Expansion)
-)\
+sect(Expansion of Prompt Sequences)
 cindex(prompt expansion)
 cindex(expansion, prompt)
 Prompt sequences undergo a special form of expansion.  This type of expansion
@@ -31,9 +29,13 @@ represented as `tt(!!)'.
 pindex(PROMPT_PERCENT, use of)
 If the tt(PROMPT_PERCENT) option is set, certain escape sequences that
 start with `tt(%)' are expanded.
-Some escapes take an optional integer argument, which
+Many escapes are followed by a single character, although some of these
+take an optional integer argument that
 should appear between the `tt(%)' and the next character of the
-sequence.  The following escape sequences are recognized:
+sequence.  More complicated escape sequences are available to provide
+conditional expansion.
+
+sect(Simple Prompt Escapes)
 
 subsect(Special characters)
 startitem()
@@ -111,6 +113,11 @@ The line number currently being executed in the script, sourced file, or
 shell function given by tt(%N).  This is most useful for debugging as part
 of tt($PS4).
 )
+item(tt(%I))(
+The line number currently being executed in the file tt(%x).  This is
+similar to tt(%i), but the line number is always a line number in the
+file where the code was defined, even if the code is a shell function.
+)
 item(tt(%j))(
 The number of jobs.
 )
@@ -123,6 +130,11 @@ currently executing, whichever was started most recently.  If there is
 none, this is equivalent to the parameter tt($0).  An integer may follow
 the `tt(%)' to specify a number of trailing path components to show; zero
 means the full path.  A negative integer specifies leading components.
+)
+item(tt(%x))(
+The name of the file containing the source code currently being
+executed.  This behaves as tt(%N) except that function and eval command
+names are not shown, instead the file where they were defined.
 )
 xitem(tt(%c))
 xitem(tt(%.))
@@ -181,14 +193,51 @@ Start (stop) underline mode.
 item(tt(%S) LPAR()tt(%s)RPAR())(
 Start (stop) standout mode.
 )
+item(tt(%F) LPAR()tt(%f)RPAR())(
+Start (stop) using a different foreground colour, if supported
+by the terminal.  The colour may be specified two ways: either
+as a numeric argument, as normal, or by a sequence in braces
+following the tt(%F), for example tt(%F{red}).  In the latter case
+the values allowed are as described for the tt(fg) tt(zle_highlight)
+attribute;
+ifzman(see em(Character Highlighting) in zmanref(zshzle))\
+ifnzman(noderef(Character Highlighting)).  This means that numeric
+colours are allowed in the second format also.
+)
+item(tt(%K) LPAR()tt(%k)RPAR())(
+Start (stop) using a different bacKground colour.  The syntax is
+identical to that for tt(%F) and tt(%f).
+)
 item(tt(%{)...tt(%}))(
 Include a string as a literal escape sequence.
 The string within the braces should not change the cursor
 position.  Brace pairs can nest.
+
+A positive numeric argument between the tt(%) and the tt({) is treated as
+described for tt(%G) below.
+)
+item(tt(%G))(
+Within a tt(%{)...tt(%}) sequence, include a `glitch': that is, assume
+that a single character width will be output.  This is useful when
+outputting characters that otherwise cannot be correctly handled by the
+shell, such as the alternate character set on some terminals.
+The characters in question can be included within a tt(%{)...tt(%})
+sequence together with the appropriate number of tt(%G) sequences to
+indicate the correct width.  An integer between the `tt(%)' and `tt(G)'
+indicates a character width other than one.  Hence tt(%{)var(seq)tt(%2G%})
+outputs var(seq) and assumes it takes up the width of two standard
+characters.
+
+Multiple uses of tt(%G) accumulate in the obvious fashion; the position
+of the tt(%G) is unimportant.  Negative integers are not handled.
+
+Note that when prompt truncation is in use it is advisable to divide up
+output into single characters within each tt(%{)...tt(%}) group so that
+the correct truncation point can be found.
 )
 enditem()
 
-subsect(Conditional substrings)
+sect(Conditional Substrings in Prompts)
 startitem()
 item(tt(%v))(
 vindex(psvar, use of)
@@ -235,6 +284,8 @@ sitem(tt(S))(True if the tt(SECONDS) parameter is at least var(n).)
 sitem(tt(T))(True if the time in hours is equal to var(n).)
 sitem(tt(t))(True if the time in minutes is equal to var(n).)
 sitem(tt(v))(True if the array tt(psvar) has at least var(n) elements.)
+sitem(tt(V))(True if element var(n) of the array tt(psvar) is set and
+non-empty.)
 sitem(tt(w))(True if the day of the week is equal to var(n) (Sunday = 0).)
 endsitem()
 )

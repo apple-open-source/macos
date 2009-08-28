@@ -6,6 +6,9 @@ CFILES = ypdb.c yplib_host.c yppush.c yppush_err.c yppush_proc.c\
          yppush_svc.c yppush_xdr.c
 MANPAGES = yppush.8
 
-Extra_CC_Flags = -DSYSLOG
+Extra_CC_Flags = -Wall -Werror -fPIE
+Extra_LD_Flags = -dead_strip -pie
+
+Extra_CC_Flags += -DSYSLOG
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make

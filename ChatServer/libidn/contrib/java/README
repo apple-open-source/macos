@@ -1,5 +1,5 @@
 Libidn README -- Notes for the JAVA API proof of concept.
-Copyright (C) 2003 Simon Josefsson
+Copyright (C) 2003, 2004, 2005, 2006, 2007 Simon Josefsson
 See the end for copying conditions.
 
 This directory builds Java *.class files that implement the Libidn

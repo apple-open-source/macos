@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: misc.c,v 1.24 2005/08/08 19:43:41 abe Exp $";
+static char *rcsid = "$Id: misc.c,v 1.26 2008/10/21 16:21:41 abe Exp $";
 #endif
 
 
@@ -133,7 +133,7 @@ build_Nl(d)
 void
 childx()
 {
-	int at, sx;
+	static int at, sx;
 	pid_t wpid;
 
 	if (Cpid > 1) {
@@ -483,6 +483,228 @@ enter_dev_ch(m)
 	if (Lf->dev_ch)
 	   (void) free((FREE_P *)Lf->dev_ch);
 	Lf->dev_ch = mp;
+}
+
+
+/*
+ * enter_IPstate() -- enter a TCP or UDP state
+ */
+
+void
+enter_IPstate(ty, nm, nr)
+	char *ty;			/* type -- TCP or UDP */
+	char *nm;			/* state name (may be NULL) */
+	int nr;				/* state number */
+{
+
+#if	defined(USE_LIB_PRINT_TCPTPI)
+	TcpNstates = nr;
+#else	/* !defined(USE_LIB_PRINT_TCPTPI) */
+
+	int al, i, j, oc, nn, ns, off, tx;
+	char *cp;
+	MALLOC_S len;
+/*
+ * Check the type name and set the type index.
+ */
+	if (!ty) {
+	    (void) fprintf(stderr,
+		"%s: no type specified to enter_IPstate()\n", Pn);
+	    Exit(1);
+	}
+	if (!strcmp(ty, "TCP"))
+	    tx = 0;
+	else if (!strcmp(ty, "UDP"))
+	    tx = 1;
+	else {
+	    (void) fprintf(stderr, "%s: unknown type for enter_IPstate: %s\n",
+		Pn, ty);
+	    Exit(1);
+	}
+/*
+ * If the name argument is NULL, reduce the allocated table to its minimum
+ * size.
+ */
+	if (!nm) {
+	    if (tx) {
+		if (UdpSt) {
+		    if (!UdpNstates) {
+			(void) free((MALLOC_P *)UdpSt);
+			UdpSt = (char **)NULL;
+		    }
+		    if (UdpNstates < UdpStAlloc) {
+			len = (MALLOC_S)(UdpNstates * sizeof(char *));
+			if (!(UdpSt = (char **)realloc((MALLOC_P *)UdpSt, len)))
+			{
+			    (void) fprintf(stderr,
+				"%s: can't reduce UdpSt[]\n", Pn);
+			    Exit(1);
+			}
+		    }
+		    UdpStAlloc = UdpNstates;
+		}
+	    } else {
+		if (TcpSt) {
+		    if (!TcpNstates) {
+			(void) free((MALLOC_P *)TcpSt);
+			TcpSt = (char **)NULL;
+		    }
+		    if (TcpNstates < TcpStAlloc) {
+			len = (MALLOC_S)(TcpNstates * sizeof(char *));
+			if (!(TcpSt = (char **)realloc((MALLOC_P *)TcpSt, len)))
+			{
+			    (void) fprintf(stderr,
+				"%s: can't reduce TcpSt[]\n", Pn);
+			    Exit(1);
+			}
+		    }
+		    TcpStAlloc = TcpNstates;
+		}
+	    }
+	    return;
+	}
+/*
+ * Check the name and number.
+ */
+	if ((len = (size_t)strlen(nm)) < 1) {
+	    (void) fprintf(stderr,
+		"%s: bad %s name (\"%s\"), number=%d\n", Pn, ty, nm, nr);
+	    Exit(1);
+	}
+/*
+ * Make a copy of the name.
+ */
+	if (!(cp = mkstrcpy(nm, (MALLOC_S *)NULL))) {
+	    (void) fprintf(stderr,
+		"%s: enter_IPstate(): no %s space for %s\n",
+		Pn, ty, nm);
+	    Exit(1);
+	}
+/*
+ * Set the necessary offset for using nr as an index.  If it is
+ * a new offset, adjust previous entries.
+ */
+	if ((nr < 0) && ((off = -nr) > (tx ? UdpStOff : TcpStOff))) {
+	    if (tx ? UdpSt : TcpSt) {
+
+	    /*
+	     * A new, larger offset (smaller negative state number) could mean
+	     * a previously allocated state table must be enlarged and its
+	     * previous entries moved.
+	     */
+		oc = off - (tx ? UdpStOff : TcpStOff);
+		al = tx ? UdpStAlloc : TcpStAlloc;
+		ns = tx ? UdpNstates : TcpNstates;
+		if ((nn = ns + oc) >= al) {
+		    while ((nn + 5) > al) {
+			al += TCPUDPALLOC;
+		    }
+		    len = (MALLOC_S)(al * sizeof(char *));
+		    if (tx) {
+			if (!(UdpSt = (char **)realloc((MALLOC_P *)UdpSt, len)))
+			    goto no_IP_space;
+			UdpStAlloc = al;
+		    } else {
+			if (!(TcpSt = (char **)realloc((MALLOC_P *)TcpSt, len)))
+			    goto no_IP_space;
+			TcpStAlloc = al;
+		    }
+		    for (i = 0, j = oc; i < oc; i++, j++) {
+			if (tx) {
+			    if (i < UdpNstates)
+				UdpSt[j] = UdpSt[i];
+			    UdpSt[i] = (char *)NULL;
+			} else {
+			    if (i < TcpNstates)
+				TcpSt[j] = TcpSt[i];
+			    TcpSt[i] = (char *)NULL;
+			}
+		    }
+		    if (tx)
+			UdpNstates += oc;
+		    else
+			TcpNstates += oc;
+		}
+	    }
+	    if (tx)
+		UdpStOff = off;
+	    else
+		TcpStOff = off;
+	}
+/*
+ * Enter name as {Tc|Ud}pSt[nr + {Tc|Ud}pStOff].
+ *
+ * Allocate space, as required.
+ */
+	al = tx ? UdpStAlloc : TcpStAlloc;
+	off = tx ? UdpStOff : TcpStOff;
+	nn = nr + off + 1;
+	if (nn > al) {
+	    i = tx ? UdpNstates : TcpNstates;
+	    while ((nn + 5) > al) {
+		al += TCPUDPALLOC;
+	    }
+	    len = (MALLOC_S)(al * sizeof(char *));
+	    if (tx) {
+		if (UdpSt)
+		    UdpSt = (char **)realloc((MALLOC_P *)UdpSt, len);
+		else
+		    UdpSt = (char **)malloc(len);
+		if (!UdpSt) {
+
+no_IP_space:
+
+		    (void) fprintf(stderr, "%s: no %s state space\n", Pn, ty);
+		    Exit(1);
+		}
+		UdpNstates = nn;
+		UdpStAlloc = al;
+	    } else {
+		if (TcpSt)
+		    TcpSt = (char **)realloc((MALLOC_P *)TcpSt, len);
+		else
+		    TcpSt = (char **)malloc(len);
+		if (!TcpSt)
+		    goto no_IP_space;
+		TcpNstates = nn;
+		TcpStAlloc = al;
+	    }
+	    while (i < al) {
+		if (tx)
+		    UdpSt[i] = (char *)NULL;
+		else
+		    TcpSt[i] = (char *)NULL;
+		i++;
+	    }
+	} else {
+	    if (tx) {
+		if (nn > UdpNstates)
+		    UdpNstates = nn;
+	    } else {
+		if (nn > TcpNstates)
+		    TcpNstates = nn;
+	    }
+	}
+	if (tx) {
+	    if (UdpSt[nr + UdpStOff]) {
+
+dup_IP_state:
+
+		(void) fprintf(stderr,
+		    "%s: duplicate %s state %d (already %s): %s\n",
+		    Pn, ty, nr,
+		    tx ? UdpSt[nr + UdpStOff] : TcpSt[nr + TcpStOff],
+		    nm);
+	 	Exit(1);
+	    }
+	    UdpSt[nr + UdpStOff] = cp;
+	} else {
+	    if (TcpSt[nr + TcpStOff])
+		goto dup_IP_state;
+	    TcpSt[nr + TcpStOff] = cp;
+	}
+#endif	/* defined(USE_LIB_PRINT_TCPTPI) */
+
 }
 
 
@@ -964,9 +1186,10 @@ no_readlink_space:
 	}
 	if (++sx > ss) {
 	    if (!stk)
-		stk = (char **)malloc(sizeof(char *) * sx);
+		stk = (char **)malloc((MALLOC_S)(sizeof(char *) * sx));
 	    else
-		stk = (char **)realloc(stk, sizeof(char *) * sx);
+		stk = (char **)realloc((MALLOC_P *)stk,
+					(MALLOC_S)(sizeof(char *) * sx));
 	    if (!stk)
 		goto no_readlink_space;
 	    ss = sx;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2009 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,6 +37,9 @@
  *
  *  25-mar-99	A.Ramesh at Apple
  *		Ported to MacOS X
+ *  
+ *  22-Jan-09	R.Branche at Apple
+ *  		Changed some fields to 64-bit to alleviate overflows
  ************************************************************************
  */
 
@@ -47,7 +50,7 @@
 
 #include <mach/mach.h>
 
-vm_statistics_data_t	vm_stat, last;
+vm_statistics64_data_t	vm_stat, last;
 natural_t percent;
 int	delay;
 char	*pgmname;
@@ -55,11 +58,13 @@ mach_port_t myHost;
 vm_size_t pageSize = 4096; 	/* set to 4k default */
 
 void usage(void);
-void banner(void);
 void snapshot(void);
-void pstat(char *str, natural_t n);
+void sspstat(char *str, uint64_t n);
+void banner(void);
 void print_stats(void);
-void get_stats(struct vm_statistics *stat);
+void get_stats(vm_statistics64_t stat);
+
+void pstat(uint64_t n, int width);
 
 int
 main(int argc, char *argv[])
@@ -105,52 +110,59 @@ usage(void)
 }
 
 void
-banner(void)
-{
-	get_stats(&vm_stat);
-	printf("Mach Virtual Memory Statistics: ");
-	printf("(page size of %d bytes, cache hits %u%%)\n",
-				pageSize, percent);
-	printf("%6s %6s %4s %4s %8s %8s %8s %8s %8s %8s\n",
-		"free",
-		"active",
-		"inac",
-		"wire",
-		"faults",
-		"copy",
-		"zerofill",
-		"reactive",
-		"pageins",
-		"pageout");
-	bzero(&last, sizeof(last));
-}
-
-void
 snapshot(void)
 {
 
 	get_stats(&vm_stat);
 	printf("Mach Virtual Memory Statistics: (page size of %d bytes)\n",
-				pageSize);
+				(int) (pageSize));
 
-	pstat("Pages free:", vm_stat.free_count);
-	pstat("Pages active:", vm_stat.active_count);
-	pstat("Pages inactive:", vm_stat.inactive_count);
-	pstat("Pages wired down:", vm_stat.wire_count);
-	pstat("\"Translation faults\":", vm_stat.faults);
-	pstat("Pages copy-on-write:", vm_stat.cow_faults);
-	pstat("Pages zero filled:", vm_stat.zero_fill_count);
-	pstat("Pages reactivated:", vm_stat.reactivations);
-	pstat("Pageins:", vm_stat.pageins);
-	pstat("Pageouts:", vm_stat.pageouts);
+	sspstat("Pages free:", (uint64_t) (vm_stat.free_count - vm_stat.speculative_count));
+	sspstat("Pages active:", (uint64_t) (vm_stat.active_count));
+	sspstat("Pages inactive:", (uint64_t) (vm_stat.inactive_count));
+	sspstat("Pages speculative:", (uint64_t) (vm_stat.speculative_count));
+	sspstat("Pages wired down:", (uint64_t) (vm_stat.wire_count));
+	sspstat("\"Translation faults\":", (uint64_t) (vm_stat.faults));
+	sspstat("Pages copy-on-write:", (uint64_t) (vm_stat.cow_faults));
+	sspstat("Pages zero filled:", (uint64_t) (vm_stat.zero_fill_count));
+	sspstat("Pages reactivated:", (uint64_t) (vm_stat.reactivations));
+	sspstat("Pageins:", (uint64_t) (vm_stat.pageins));
+	sspstat("Pageouts:", (uint64_t) (vm_stat.pageouts));
+#if defined(__ppc__) /* vm_statistics are still 32-bit on ppc */
 	printf("Object cache: %u hits of %u lookups (%u%% hit rate)\n",
-			vm_stat.hits, vm_stat.lookups, percent);
+#else
+	printf("Object cache: %llu hits of %llu lookups (%u%% hit rate)\n",
+#endif
+		vm_stat.hits, vm_stat.lookups, percent);
+
 }
 
 void
-pstat(char *str, natural_t n)
+sspstat(char *str, uint64_t n)
 {
-	printf("%-25s %10u.\n", str, n);
+	printf("%-25s %16llu.\n", str, n);
+}
+
+void
+banner(void)
+{
+	get_stats(&vm_stat);
+	printf("Mach Virtual Memory Statistics: ");
+	printf("(page size of %d bytes, cache hits %u%%)\n",
+				(int) (pageSize), percent);
+	printf("%6s %6s %6s %8s %6s %8s %8s %8s %8s %8s %8s\n",
+		"free",
+		"active",
+		"spec",
+		"inactive",
+		"wire",
+		"faults",
+		"copy",
+		"0fill",
+		"reactive",
+		"pageins",
+		"pageout");
+	bzero(&last, sizeof(last));
 }
 
 void
@@ -165,25 +177,55 @@ print_stats(void)
 		count = 0;
 
 	get_stats(&vm_stat);
-	printf("%6u %6u %4u %4u %8u %8u %8u %8u %8u %8u\n",
-		vm_stat.free_count,
-		vm_stat.active_count,
-		vm_stat.inactive_count,
-		vm_stat.wire_count,
-		vm_stat.faults - last.faults,
-		vm_stat.cow_faults - last.cow_faults,
-		vm_stat.zero_fill_count - last.zero_fill_count,
-		vm_stat.reactivations - last.reactivations,
-		vm_stat.pageins - last.pageins,
-		vm_stat.pageouts - last.pageouts);
+	pstat((uint64_t) (vm_stat.free_count - vm_stat.speculative_count), 6);
+	pstat((uint64_t) (vm_stat.active_count), 6);
+	pstat((uint64_t) (vm_stat.speculative_count), 6);
+	pstat((uint64_t) (vm_stat.inactive_count), 8);
+	pstat((uint64_t) (vm_stat.wire_count), 6);
+	pstat((uint64_t) (vm_stat.faults - last.faults), 8);
+	pstat((uint64_t) (vm_stat.cow_faults - last.cow_faults), 8);
+	pstat((uint64_t) (vm_stat.zero_fill_count - last.zero_fill_count), 8);
+	pstat((uint64_t) (vm_stat.reactivations - last.reactivations), 8);
+	pstat((uint64_t) (vm_stat.pageins - last.pageins), 8);
+	pstat((uint64_t) (vm_stat.pageouts - last.pageouts), 8);
+	putchar('\n');
 	last = vm_stat;
 }
 
 void
-get_stats(struct vm_statistics *stat)
+pstat(uint64_t n, int width)
 {
-	unsigned int count = HOST_VM_INFO_COUNT;
-	if (host_statistics(myHost, HOST_VM_INFO, (host_info_t)stat, &count) != KERN_SUCCESS) {
+	char buf[80];
+	if (width >= sizeof(buf)) {
+		width = sizeof(buf) -1;
+	}
+
+	unsigned long long nb = n * (unsigned long long)pageSize;
+
+	/* Now that we have the speculative field, there is really not enough
+	 space, but we were actually overflowing three or four fields before
+	 anyway.  So any field that overflows we drop some insignifigant
+	 digets and slap on the appropriate suffix
+	*/
+	int w = snprintf(buf, sizeof(buf), "%*llu", width, n);
+	if (w > width) {
+		w = snprintf(buf, sizeof(buf), "%*lluK", width -1, n / 1000);
+		if (w > width) {
+			w = snprintf(buf, sizeof(buf), "%*lluM", width -1, n / 1000000);
+			if (w > width) {
+				w = snprintf(buf, sizeof(buf), "%*lluG", width -1, n / 1000000000);
+			}
+		}
+	}
+	fputs(buf, stdout);
+	putchar(' ');
+}
+
+void
+get_stats(vm_statistics64_t stat)
+{
+	unsigned int count = HOST_VM_INFO64_COUNT;
+	if (host_statistics64(myHost, HOST_VM_INFO64, (host_info64_t)stat, &count) != KERN_SUCCESS) {
 		fprintf(stderr, "%s: failed to get statistics.\n", pgmname);
 		exit(EXIT_FAILURE);
 	}

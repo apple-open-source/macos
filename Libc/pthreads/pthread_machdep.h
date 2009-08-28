@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2004, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -58,6 +58,9 @@
 #ifndef __ASSEMBLER__
 
 #include <System/machine/cpu_capabilities.h>
+#ifdef __arm__
+#include <arm/arch.h>
+#endif
 
 /*
 ** Define macros for inline pthread_getspecific() usage.
@@ -80,11 +83,93 @@
 #define __PTK_LIBC_TTYNAME_KEY		11
 #define __PTK_LIBC_LOCALTIME_KEY	12
 #define __PTK_LIBC_GMTIME_KEY		13
+#define __PTK_LIBC_GDTOA_BIGINT_KEY	14
+#define __PTK_LIBC_PARSEFLOAT_KEY	15
 
+/* Keys 20-25 for libdispactch usage */
+#define __PTK_LIBDISPATCH_KEY0		20
+#define __PTK_LIBDISPATCH_KEY1		21
+#define __PTK_LIBDISPATCH_KEY2		22
+#define __PTK_LIBDISPATCH_KEY3		23
+#define __PTK_LIBDISPATCH_KEY4		24
+#define __PTK_LIBDISPATCH_KEY5		25
 
 /* Keys 30-255 for Non Libsystem usage */
+
+/* Keys 30-39 for Graphic frameworks usage */
 #define _PTHREAD_TSD_SLOT_OPENGL	30	/* backwards compat sake */
 #define __PTK_FRAMEWORK_OPENGL_KEY	30
+#define __PTK_FRAMEWORK_GRAPHICS_KEY1	31  
+#define __PTK_FRAMEWORK_GRAPHICS_KEY2	32  
+#define __PTK_FRAMEWORK_GRAPHICS_KEY3	33  
+#define __PTK_FRAMEWORK_GRAPHICS_KEY4	34  
+#define __PTK_FRAMEWORK_GRAPHICS_KEY5	35  
+#define __PTK_FRAMEWORK_GRAPHICS_KEY6	36  
+#define __PTK_FRAMEWORK_GRAPHICS_KEY7	37  
+#define __PTK_FRAMEWORK_GRAPHICS_KEY8	38  
+#define __PTK_FRAMEWORK_GRAPHICS_KEY9	39
+
+/* Keys 40-49 for Objective-C runtime usage */
+#define __PTK_FRAMEWORK_OBJC_KEY0	40  
+#define __PTK_FRAMEWORK_OBJC_KEY1	41
+#define __PTK_FRAMEWORK_OBJC_KEY2  	42
+#define __PTK_FRAMEWORK_OBJC_KEY3  	43
+#define __PTK_FRAMEWORK_OBJC_KEY4  	44
+#define __PTK_FRAMEWORK_OBJC_KEY5  	45
+#define __PTK_FRAMEWORK_OBJC_KEY6  	46
+#define __PTK_FRAMEWORK_OBJC_KEY7  	47
+#define __PTK_FRAMEWORK_OBJC_KEY8	48
+#define __PTK_FRAMEWORK_OBJC_KEY9  	49
+
+/* Keys 50-59 for Core Foundation usage */
+#define __PTK_FRAMEWORK_COREFOUNDATION_KEY0	50
+#define __PTK_FRAMEWORK_COREFOUNDATION_KEY1	51
+#define __PTK_FRAMEWORK_COREFOUNDATION_KEY2	52
+#define __PTK_FRAMEWORK_COREFOUNDATION_KEY3	53
+#define __PTK_FRAMEWORK_COREFOUNDATION_KEY4	54
+#define __PTK_FRAMEWORK_COREFOUNDATION_KEY5	55
+#define __PTK_FRAMEWORK_COREFOUNDATION_KEY6	56
+#define __PTK_FRAMEWORK_COREFOUNDATION_KEY7	57
+#define __PTK_FRAMEWORK_COREFOUNDATION_KEY8	58
+#define __PTK_FRAMEWORK_COREFOUNDATION_KEY9	59
+
+/* Keys 60-69 for Foundation usage */
+#define __PTK_FRAMEWORK_FOUNDATION_KEY0		60
+#define __PTK_FRAMEWORK_FOUNDATION_KEY1		61
+#define __PTK_FRAMEWORK_FOUNDATION_KEY2		62
+#define __PTK_FRAMEWORK_FOUNDATION_KEY3		63
+#define __PTK_FRAMEWORK_FOUNDATION_KEY4		64
+#define __PTK_FRAMEWORK_FOUNDATION_KEY5		65
+#define __PTK_FRAMEWORK_FOUNDATION_KEY6		66
+#define __PTK_FRAMEWORK_FOUNDATION_KEY7		67
+#define __PTK_FRAMEWORK_FOUNDATION_KEY8		68
+#define __PTK_FRAMEWORK_FOUNDATION_KEY9		69
+
+/* Keys 70-79 for Core Animation/QuartzCore usage */
+#define __PTK_FRAMEWORK_QUARTZCORE_KEY0		70
+#define __PTK_FRAMEWORK_QUARTZCORE_KEY1		71
+#define __PTK_FRAMEWORK_QUARTZCORE_KEY2		72
+#define __PTK_FRAMEWORK_QUARTZCORE_KEY3		73
+#define __PTK_FRAMEWORK_QUARTZCORE_KEY4		74
+#define __PTK_FRAMEWORK_QUARTZCORE_KEY5		75
+#define __PTK_FRAMEWORK_QUARTZCORE_KEY6		76
+#define __PTK_FRAMEWORK_QUARTZCORE_KEY7		77
+#define __PTK_FRAMEWORK_QUARTZCORE_KEY8		78
+#define __PTK_FRAMEWORK_QUARTZCORE_KEY9		79
+
+
+/* Keys 80-89 for Garbage Collection */
+#define __PTK_FRAMEWORK_GC_KEY0		80
+#define __PTK_FRAMEWORK_GC_KEY1		81
+#define __PTK_FRAMEWORK_GC_KEY2		82
+#define __PTK_FRAMEWORK_GC_KEY3		83
+#define __PTK_FRAMEWORK_GC_KEY4		84
+#define __PTK_FRAMEWORK_GC_KEY5		85
+#define __PTK_FRAMEWORK_GC_KEY6		86
+#define __PTK_FRAMEWORK_GC_KEY7		87
+#define __PTK_FRAMEWORK_GC_KEY8		88
+#define __PTK_FRAMEWORK_GC_KEY9		89
+
 
 /*
 ** Define macros for inline pthread_getspecific() usage.
@@ -98,6 +183,7 @@ extern "C" {
 #endif
 
 extern void *pthread_getspecific(unsigned long);
+/* setup destructor function for static key as it is not created with pthread_key_create() */
 int       pthread_key_init_np(int, void (*)(void *));
 
 #if defined(__cplusplus)
@@ -116,36 +202,46 @@ _pthread_has_direct_tsd(void)
 	} else {
 		return 0;
 	}
+#elif defined(__arm__) && defined(__thumb__) && defined(_ARM_ARCH_6) && !defined(_ARM_ARCH_7)
+	return 0;
 #else
 	return 1;
 #endif
 }
 	
+/* To be used with static constant keys only */
 inline static void *
-_pthread_getspecific_direct(unsigned long slot)
+_pthread_getspecific_direct(unsigned long slot) 
 {
-	void *ret;
-#if defined(__OPTIMIZE__)
+        void *ret;
 #if defined(__i386__) || defined(__x86_64__)
-	asm volatile("mov %%gs:%P1, %0" : "=r" (ret) : "i" (slot * sizeof(void *) + _PTHREAD_TSD_OFFSET));
-#elif defined(__ppc__)
-	void **__pthread_tsd;
-	asm volatile("mfspr %0, 259" : "=r" (__pthread_tsd));
-	ret = __pthread_tsd[slot + (_PTHREAD_TSD_OFFSET / sizeof(void *))];
-#elif defined(__ppc64__)
-	register void **__pthread_tsd asm ("r13");
-	ret = __pthread_tsd[slot + (_PTHREAD_TSD_OFFSET / sizeof(void *))];
-#elif defined(__arm__)
-	register void **__pthread_tsd asm ("r9");
-	ret = __pthread_tsd[slot + (_PTHREAD_TSD_OFFSET / sizeof(void *))];
+#if defined(__OPTIMIZE__)
+        asm volatile("mov %%gs:%P1, %0" : "=r" (ret) : "i" (slot * sizeof(void *) + _PTHREAD_TSD_OFFSET));
 #else
+        asm("mov %%gs:%P2(,%1,%P3), %0" : "=r" (ret) : "r" (slot), "i" (_PTHREAD_TSD_OFFSET), "i" (sizeof (void *)));
+#endif
+#elif defined(__ppc__) 
+        void **__pthread_tsd;
+        asm volatile("mfspr %0, 259" : "=r" (__pthread_tsd));
+        ret = __pthread_tsd[slot + (_PTHREAD_TSD_OFFSET / sizeof(void *))];
+#elif defined(__ppc64__)
+        register void **__pthread_tsd asm ("r13");
+        ret = __pthread_tsd[slot + (_PTHREAD_TSD_OFFSET / sizeof(void *))];
+#elif defined(__arm__) && defined(_ARM_ARCH_6)
+	void **__pthread_tsd;
+	__asm__ ("mrc p15, 0, %0, c13, c0, 3" : "=r"(__pthread_tsd));
+	ret = __pthread_tsd[slot + (_PTHREAD_TSD_OFFSET / sizeof(void *))];
+#elif defined(__arm__) && !defined(_ARM_ARCH_6)
+        register void **__pthread_tsd asm ("r9");
+        ret = __pthread_tsd[slot + (_PTHREAD_TSD_OFFSET / sizeof(void *))];
+#else     
 #error no pthread_getspecific_direct implementation for this arch
 #endif
-#else /* ! __OPTIMIZATION__ */
-	ret = pthread_getspecific(slot);
-#endif
-	return ret;
+        return ret;
 }
+
+/* To be used with static constant keys only */
+#define _pthread_setspecific_direct(key, val) pthread_setspecific(key, val)
 
 #define LOCK_INIT(l)	((l) = 0)
 #define LOCK_INITIALIZER 0

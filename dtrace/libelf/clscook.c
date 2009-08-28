@@ -2,9 +2,8 @@
  * CDDL HEADER START
  *
  * The contents of this file are subject to the terms of the
- * Common Development and Distribution License, Version 1.0 only
- * (the "License").  You may not use this file except in compliance
- * with the License.
+ * Common Development and Distribution License (the "License").
+ * You may not use this file except in compliance with the License.
  *
  * You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
  * or http://www.opensolaris.org/os/licensing.
@@ -19,16 +18,16 @@
  *
  * CDDL HEADER END
  */
-/*	Copyright (c) 1988 AT&T	*/
-/*	  All Rights Reserved  	*/
-
 
 /*
- * Copyright 2004 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)clscook.c	1.10	05/06/08 SMI"
+/*	Copyright (c) 1988 AT&T	*/
+/*	  All Rights Reserved  	*/
+
+#pragma ident	"@(#)clscook.c	1.11	08/05/31 SMI"
 
 /*
  * This stuff used to live in cook.c, but was moved out to
@@ -36,8 +35,6 @@
  * comment in cook.c for more info.
  */
 
-
-#include "syn.h"
 #include <string.h>
 #include <ar.h>
 #include <stdlib.h>
@@ -64,7 +61,6 @@ xTab[] =
 	{SECT_TEXT, ".text", "non-SEG_TEXT .text" },
 	{SECT_DATA, ".data", "non-SEG_DATA .data" },
 	{SECT_BSS, ".bss", "non-SEG_DATA .bss" },
-	{SEG_LINKEDIT, ".strtab", 0 },
 	{SECT_CTF, ".SUNW_ctf", 0},
 	{"__symbol_table", ".symtab", 0 },
 	{"__debug_info", ".debug_info", 0 },
@@ -82,29 +78,42 @@ xTab[] =
 	{"__debug_varnames", ".debug_varnames", 0  },
 	{"__debug_weaknames", ".debug_weaknames", 0  },
 	{"__debug_macinfo", ".debug_macinfo", 0  },
-	{"__eh_frame", ".eh_frame", 0 }
+	{"__eh_frame", ".eh_frame", 0 },
+	{"__dir_str_table", ".dir_str_table", 0 } /* Directly addressed Mach-o string table. */
 };
 #define SIZE_XTAB (sizeof(xTab)/sizeof(xTab[0]))
 #define	LOADER_H_NAME_LENGTH 16
 
 static 
-const char *transliterate(const char *name, int primary)
+int elf_macho_str_cookie(const char *name, int primary)
 {
 	int j;
-	const char *ret = ".unknown mach-o";
+	int ret = SIZE_XTAB << 1;
 	
 	for (j = 0; j < SIZE_XTAB && name; j++) {
 		if (0 == strncmp(name, xTab[j].MachoName, LOADER_H_NAME_LENGTH)) {
 			if (!primary && xTab[j].SecondaryElfName) 
-				ret = (const char *)xTab[j].SecondaryElfName;
+				ret = (j << 1) + 1;
 			else
-				ret = (const char *)xTab[j].PrimaryElfName;
+				ret = j << 1;
 			break;
 		}
 	}
 	
 	return ret;		
 }
+
+#if	defined(_ELF64) /* Want just one definition, so compile only under -D_ELF64 */
+const char *elf_macho_str_off(size_t off)
+{
+	if (off >= (SIZE_XTAB << 1))
+		return ".unknown mach-o";
+	else if (off & 1)
+		return xTab[off>>1].SecondaryElfName;
+	else
+		return xTab[off>>1].PrimaryElfName;
+}
+#endif
 
 static
 Elf32_Word STTSect(const char *sectname)
@@ -146,6 +155,26 @@ Elf32_Word STTSect(const char *sectname)
 #define	_elf_shdr	_elf64_shdr
 #define	_elf_prepscn	_elf64_prepscn
 
+#if defined(__APPLE__)
+#define _mach_header	mach_header_64
+#define _MH_CIGAM	MH_CIGAM_64
+#define _swap_mh	__swap_mach_header_64
+#define _elf_word	Elf64_Word
+#define _elf_addr	Elf64_Addr
+#define _elf_off	Elf64_Off
+#define _SHN_MACHO	SHN_MACHO_64
+#define _nlist		nlist_64
+#define _addralign	8
+#define _SWAPVAL	SWAP64
+
+#define _LC_SEGMENT	LC_SEGMENT_64
+#define _segcmd		segment_command_64
+#define _sect		section_64
+#define _swapsegcmd	__swap_segment_command_64
+#define _swapsect	__swap_section_64
+
+#endif /* __APPLE__ */
+
 #else  /* Elf32 */
 #define	Snode		Snode32
 #define	ELFCLASS	ELFCLASS32
@@ -162,6 +191,26 @@ Elf32_Word STTSect(const char *sectname)
 #define	_elf_phdr	_elf32_phdr
 #define	_elf_shdr	_elf32_shdr
 #define	_elf_prepscn	_elf32_prepscn
+
+#if defined(__APPLE__)
+#define _mach_header	mach_header
+#define _MH_CIGAM	MH_CIGAM
+#define _swap_mh	__swap_mach_header
+#define _elf_word	Elf32_Word
+#define _elf_addr	Elf32_Addr
+#define _elf_off	Elf32_Off
+#define _SHN_MACHO	SHN_MACHO
+#define _nlist		nlist
+#define _addralign	4
+#define _SWAPVAL	SWAP32
+
+#define _LC_SEGMENT	LC_SEGMENT
+#define _segcmd		segment_command
+#define _sect		section
+#define _swapsegcmd	__swap_segment_command
+#define _swapsect	__swap_section
+
+#endif /* __APPLE__ */
 
 #endif /* _ELF64 */
 
@@ -505,18 +554,16 @@ _elf_shdr(Elf * elf, int inplace)
 	
 #if defined(__APPLE__)
 	if (elf->ed_kind == ELF_K_MACHO) {
-		struct mach_header hdr, *mh = (struct mach_header *)(elf->ed_image);
+		struct _mach_header hdr, *mh = (struct _mach_header *)(elf->ed_image);
 		struct load_command *thisLC = (struct load_command *)(&(mh[1]));
-		int needSwap = (MH_CIGAM == mh->magic);
+		int needSwap = (_MH_CIGAM == mh->magic);
 		int i,j;
 		
 		Shdr *pShdr = (Shdr *)(elf->ed_shdr);
 		Shdr *SectionToShdrMap[scncnt]; /* small stack allocated array */
 		Shdr **pMap = SectionToShdrMap;
 		Shdr *pSymTab = NULL;
-		
-#warning Need Mach-o 64bit variant!	
-	
+			
 		bzero(pShdr, sizeof(Shdr));
 		SectionToShdrMap[0] = pShdr;
 		pMap++; /* By Mach-o convention the n_sect ordinal index is one-based */
@@ -525,7 +572,7 @@ _elf_shdr(Elf * elf, int inplace)
 		if (needSwap) {
 			hdr = *mh;
 			mh = &hdr;
-			__swap_mach_header(mh);
+			_swap_mh(mh);
 		}
 			
 		for (i = 0; i < mh->ncmds; i++) {
@@ -537,96 +584,38 @@ _elf_shdr(Elf * elf, int inplace)
 			}
 				
 			switch(cmd) {
-				case LC_SEGMENT:
+				case _LC_SEGMENT:
 				{
-					struct segment_command seg, *thisSG = (struct segment_command *)thisLC;
-					struct section sect, *section_ptr, *thisSect = (struct section *)(&(thisSG[1]));
+					struct _segcmd seg, *thisSG = (struct _segcmd *)thisLC;
+					struct _sect sect, *section_ptr, *thisSect = (struct _sect *)(&(thisSG[1]));
 
 					if (needSwap) {
 						seg = *thisSG;
 						thisSG = &seg;
-						__swap_segment_command(thisSG);
+						_swapsegcmd(thisSG);
 					}
-									
-					if (0 == strcmp(thisSG->segname, SEG_LINKEDIT)) {
-						pShdr->sh_name = (Elf32_Word)transliterate(SEG_LINKEDIT, 1);
-						pShdr->sh_type = SHT_STRTAB;
-						pShdr->sh_flags = 0;
-						pShdr->sh_addr = (Elf32_Addr)(thisSG->fileoff);
-						pShdr->sh_offset = (Elf32_Off)0;
-						pShdr->sh_size = thisSG->filesize;
-						pShdr->sh_link = SHN_MACHO;
-						pShdr->sh_info = 0;
-						pShdr->sh_addralign = sizeof(char);
-						pShdr->sh_entsize = 0;
-						pShdr++;
-					}
-					else
-					{
-						for (j = 0; j < thisSG->nsects; ++j) {
-							int primary;
-							
-							section_ptr = &thisSect[j];
-							
-							if (needSwap) {
-								sect = *section_ptr;
-								section_ptr = &sect;
-								__swap_section(section_ptr);
-							}
-							
-							primary = (0 == strcmp(thisSG->segname, SEG_TEXT)) ||
-									  (0 == strcmp(thisSG->segname, SEG_DATA));
-
-							pShdr->sh_name = (Elf32_Word)transliterate(section_ptr->sectname, primary);
-							pShdr->sh_type = SHT_UNKNOWN12;
-							pShdr->sh_flags = 0;
-							pShdr->sh_addr = (Elf32_Addr)section_ptr->addr;
-							pShdr->sh_offset = (Elf32_Off)section_ptr->offset;
-							pShdr->sh_size = section_ptr->size;
-							pShdr->sh_link = SHN_MACHO;
-							pShdr->sh_info = STTSect(section_ptr->sectname);
-							pShdr->sh_addralign = section_ptr->align;
-							pShdr->sh_entsize = 0;
-							*pMap = pShdr;
-							pMap++;
-							pShdr++;
-						}
-					}
-					break;
-				}
 					
-				case LC_SEGMENT_64:
-				{
-					struct segment_command_64 seg, *thisSG64 = (struct segment_command_64 *)thisLC;
-					struct section sect, *section_ptr, *thisSect = (struct section *)(&(thisSG64[1]));
-
-					if (needSwap) {
-						seg = *thisSG64;
-						thisSG64 = &seg;
-						__swap_segment_command_64(thisSG64);
-					}
-
-					for (j = 0; j < thisSG64->nsects; ++j) {
+					for (j = 0; j < thisSG->nsects; ++j) {
 						int primary;
 						
-						section_ptr = &thisSect[j];
+						section_ptr = thisSect + j;
 						
 						if (needSwap) {
 							sect = *section_ptr;
 							section_ptr = &sect;
-							__swap_section(section_ptr);
+							_swapsect(section_ptr);
 						}
+						
+						primary = (0 == strcmp(thisSG->segname, SEG_TEXT)) ||
+								  (0 == strcmp(thisSG->segname, SEG_DATA));
 
-						primary = (0 == strcmp(thisSG64->segname, SEG_TEXT)) ||
-								  (0 == strcmp(thisSG64->segname, SEG_DATA));
-
-						pShdr->sh_name = (Elf32_Word)transliterate(section_ptr->sectname, primary);
+						pShdr->sh_name = (_elf_word)elf_macho_str_cookie(section_ptr->sectname, primary);
 						pShdr->sh_type = SHT_UNKNOWN12;
 						pShdr->sh_flags = 0;
-						pShdr->sh_addr = (Elf32_Addr)section_ptr->addr;
-						pShdr->sh_offset = (Elf32_Off)section_ptr->offset;
+						pShdr->sh_addr = (_elf_addr)section_ptr->addr;
+						pShdr->sh_offset = (_elf_off)section_ptr->offset;
 						pShdr->sh_size = section_ptr->size;
-						pShdr->sh_link = SHN_MACHO;
+						pShdr->sh_link = _SHN_MACHO;
 						pShdr->sh_info = STTSect(section_ptr->sectname);
 						pShdr->sh_addralign = section_ptr->align;
 						pShdr->sh_entsize = 0;
@@ -635,10 +624,9 @@ _elf_shdr(Elf * elf, int inplace)
 						pShdr++;
 					}
 					break;
-				}
+				}				
 					
 				case LC_SYMTAB:
-				/* case LC_DSYMTAB: */
 				{
 					struct symtab_command symt, *thisST = (struct symtab_command *)thisLC;
 					
@@ -648,23 +636,34 @@ _elf_shdr(Elf * elf, int inplace)
 						__swap_symtab_command(thisST);
 					}
 
-					pShdr->sh_name = (Elf32_Word)transliterate("__symbol_table", 1);
+					pShdr->sh_name = (_elf_word)elf_macho_str_cookie("__symbol_table", 1);
 					pShdr->sh_type = SHT_STRTAB; /* Must yield ELF_T_BYTE to allow the sh_entsize used below! */
 					pShdr->sh_flags = 0;
-					pShdr->sh_addr = (Elf32_Addr)(thisST->symoff);
-					pShdr->sh_offset = (Elf32_Off)(thisST->symoff);
-					pShdr->sh_size = thisST->nsyms * sizeof (struct nlist);
-					pShdr->sh_link = SHN_MACHO;
+					pShdr->sh_addr = (_elf_addr)(thisST->symoff);
+					pShdr->sh_offset = (_elf_off)(thisST->symoff);
+					pShdr->sh_size = thisST->nsyms * sizeof (struct _nlist);
+					pShdr->sh_link = _SHN_MACHO;
 					pShdr->sh_info = 0;
-					pShdr->sh_addralign = 4;
-					pShdr->sh_entsize = sizeof(struct nlist);
+					pShdr->sh_addralign = _addralign;
+					pShdr->sh_entsize = sizeof(struct _nlist);
 					pSymTab = pShdr;
+					pShdr++;
+
+					pShdr->sh_name = (_elf_word)elf_macho_str_cookie("__dir_str_table", 1);
+					pShdr->sh_type = SHT_STRTAB; /* Must yield ELF_T_BYTE to allow the sh_entsize used below! */
+					pShdr->sh_flags = 0;
+					pShdr->sh_addr = (_elf_addr)(thisST->stroff);
+					pShdr->sh_offset = (_elf_off)(thisST->stroff);
+					pShdr->sh_size = thisST->strsize;
+					pShdr->sh_link = _SHN_MACHO;
+					pShdr->sh_info = 0;
+					pShdr->sh_addralign = 1;
+					pShdr->sh_entsize = 0;
 					pShdr++;
 					break;
 				}
 					
 				default:
-					pShdr->sh_name = (Elf32_Word)".unknown_macho";
 					break;
 			}
 				
@@ -676,8 +675,8 @@ _elf_shdr(Elf * elf, int inplace)
 		src.d_size = fsz;
 		
 		if (NULL != pSymTab) {
-			struct nlist *nsym = (struct nlist *)(elf->ed_image + pSymTab->sh_addr);
-			struct nlist *pEnd = nsym + (pSymTab->sh_size/pSymTab->sh_entsize);
+			struct _nlist *nsym = (struct _nlist *)(elf->ed_image + pSymTab->sh_addr);
+			struct _nlist *pEnd = nsym + (pSymTab->sh_size/pSymTab->sh_entsize);
 			pMap = SectionToShdrMap;
 			
 			if (mprotect((char *)elf->ed_image, elf->ed_imagesz,
@@ -691,7 +690,7 @@ _elf_shdr(Elf * elf, int inplace)
 				if (needSwap) {
 					SWAP32(nsym->n_un.n_strx);
 					SWAP16(nsym->n_desc);
-					SWAP32(nsym->n_value);
+					_SWAPVAL(nsym->n_value);
 				}
 				
 				if (nsym->n_type & N_STAB) { /* Detect C++ methods */

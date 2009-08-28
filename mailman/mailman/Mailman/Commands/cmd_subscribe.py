@@ -1,4 +1,4 @@
-# Copyright (C) 2002-2005 by the Free Software Foundation, Inc.
+# Copyright (C) 2002-2008 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -53,7 +53,7 @@ def process(res, args):
     # Parse the args
     argnum = 0
     for arg in args:
-        if arg.startswith('address='):
+        if arg.lower().startswith('address='):
             address = arg[8:]
         elif argnum == 0:
             password = arg
@@ -70,6 +70,14 @@ def process(res, args):
             res.results.append(gethelp(mlist))
             return STOP
         argnum += 1
+    # Fix the password/digest issue
+    if (digest is None
+            and password and password.lower() in ('digest', 'nodigest')):
+        if password.lower() == 'digest':
+            digest = 1
+        else:
+            digest = 0
+        password = None
     # Fill in empty defaults
     if digest is None:
         digest = mlist.digest_is_default

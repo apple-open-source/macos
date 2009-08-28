@@ -73,7 +73,7 @@ char *progname = NULL;
 /*
  * Ticks per second.
  */
-long hz = 0;
+uint32_t hz = 0;
 
 /*
  * Filename of the a.out file.
@@ -88,14 +88,14 @@ char *gmonname = NULL;
 __private_extern__
 nltype	*nl = NULL;	/* the whole namelist */
 nltype	*npe = NULL;	/* the virtual end of the namelist */
-unsigned long nname = 0;/* the number of function names */
+uint32_t nname = 0;	/* the number of function names */
 
 /*
  * The list of file names and the ranges their pc's cover used for building
  * order files with the -S option.
  */
 struct file *files = NULL;
-unsigned long n_files = 0;
+uint32_t n_files = 0;
 
 /* 
  * namelist entries for cycle headers.
@@ -108,14 +108,14 @@ int	ncycle = 0;		/* number of cycles discovered */
  * The information for the pc sample sets from the gmon.out file.
  */
 struct sample_set *sample_sets = NULL;
-unsigned long nsample_sets = 0;
+uint32_t nsample_sets = 0;
 
 #ifdef __OPENSTEP__
 /*
  * The rld loaded state from the gmon.out file.
  */
 struct rld_loaded_state *grld_loaded_state = NULL;
-unsigned long grld_nloaded_states = 0;
+uint32_t grld_nloaded_states = 0;
 #endif
 
 /*
@@ -149,7 +149,7 @@ enum bool zflag = FALSE;	/* zero time/called functions, too */
 /*
  * The debug value for debugging gprof.
  */
-unsigned long debug = 0;
+uint32_t debug = 0;
 
 /*
  * Things which get -E excluded by default.
@@ -194,7 +194,7 @@ static void read_dyld_state(
     uint32_t nbytes,
     uint32_t magic);
 
-static unsigned long new_sample_set(
+static uint32_t new_sample_set(
     int fd,
     char *filename,
     uint32_t nbytes,
@@ -233,13 +233,13 @@ static void dumpsum(
 static void asgnsamples(
     struct sample_set *s);
 
-static unsigned long min(
-    unsigned long a,
-    unsigned long b);
+static uint64_t min(
+    uint64_t a,
+    uint64_t b);
 
-static unsigned long max(
-    unsigned long a,
-    unsigned long b);
+static uint64_t max(
+    uint64_t a,
+    uint64_t b);
 
 static void alignentries(
     void);
@@ -250,7 +250,7 @@ int argc,
 char **argv,
 char **envp)
 {
-    unsigned long i;
+    uint32_t i;
     char **sp;
     nltype **timesortnlp;
 
@@ -278,7 +278,7 @@ char **envp)
 		debug |= atoi(*argv);
 		debug |= ANYDEBUG;
 #ifdef DEBUG
-		printf("[main] debug = %lu\n", debug);
+		printf("[main] debug = %u\n", debug);
 #else
 		printf("%s: -d ignored\n", progname);
 #endif
@@ -454,7 +454,7 @@ char *filename)
 	     * This is a new format gmon.out file.  After the magic number comes
 	     * any number of pairs of gmon_data structs and some typed data.
 	     */
-	    left = stat.st_size - sizeof(unsigned long);
+	    left = stat.st_size - sizeof(uint32_t);
 	    while(left >= sizeof(struct gmon_data)){
 		if(read(fd, &data, sizeof(struct gmon_data)) !=
 			sizeof(struct gmon_data))
@@ -563,13 +563,13 @@ void
 read_rld_state(
 int fd,
 char *filename,
-unsigned long nbytes)
+uint32_t nbytes)
 {
-    unsigned long i, j, size, size_read, str_size;
+    uint32_t i, j, size, size_read, str_size;
     char *strings;
 
 	size_read = 0;
-	size = sizeof(unsigned long);
+	size = sizeof(uint32_t);
 	if(read(fd, &grld_nloaded_states, size) != size)
 	    system_fatal("malformed gmon.out file: %s (can't read number of "
 			 "rld states)", filename);
@@ -581,13 +581,13 @@ unsigned long nbytes)
 	    fatal("no room for rld states (malloc failed)");
 
 	for(i = 0; i < grld_nloaded_states; i++){
-	    size = sizeof(unsigned long);
+	    size = sizeof(uint32_t);
 	    if(read(fd, &(grld_loaded_state[i].header_addr), size) != size)
 		system_fatal("malformed gmon.out file: %s (can't read header "
 		    "address of rld state %lu)", filename, i);
 	    size_read += size;
 
-	    size = sizeof(unsigned long);
+	    size = sizeof(uint32_t);
 	    if(read(fd, &(grld_loaded_state[i].nobject_filenames), size) != size)
 		system_fatal("malformed gmon.out file: %s (can't read number "
 		    "of object file names of rld state %lu)", filename, i);
@@ -606,7 +606,7 @@ unsigned long nbytes)
 		    "to file names of rld state %lu)", filename, i);
 	    size_read += size;
 
-	    size = sizeof(unsigned long);
+	    size = sizeof(uint32_t);
 	    if(read(fd, &str_size, size) != size)
 		system_fatal("malformed gmon.out file: %s (can't read string "
 		    "size of rld state %lu)", filename, i);
@@ -624,12 +624,12 @@ unsigned long nbytes)
 	    size_read += size;
 
 	    for(j = 0; j < grld_loaded_state[i].nobject_filenames; j++){
-		if((unsigned long)(grld_loaded_state[i].object_filenames[j]) >
+		if((uint32_t)(grld_loaded_state[i].object_filenames[j]) >
 		   str_size)
 		    fatal("malformed gmon.out file: %s (bad offset to object "
 			  "filename %lu of rld state %lu)", filename, j, i);
 		grld_loaded_state[i].object_filenames[j] = strings +
-		    (unsigned long)(grld_loaded_state[i].object_filenames[j]);
+		    (uint32_t)(grld_loaded_state[i].object_filenames[j]);
 	    }
 	    grld_loaded_state[i].object_filenames[j] = NULL;
 	}
@@ -738,7 +738,7 @@ uint32_t magic)
 }
 
 static
-unsigned long
+uint32_t
 new_sample_set(
 int fd,
 char *filename,
@@ -817,7 +817,7 @@ uint32_t magic)
 	else{
 	    if(hz != header.profrate)
 		warning("gmon.out file: %s profrate (%d) does not prevous "
-			"profrate (%ld)\n", filename, header.profrate, hz);
+			"profrate (%u)\n", filename, header.profrate, hz);
 	}
 #endif
 
@@ -1055,7 +1055,7 @@ uint64_t selfpc,
 uint32_t count,
 uint32_t order)
 {
-    unsigned long i;
+    uint32_t i;
     nltype *parentp;
     nltype *childp;
 
@@ -1119,9 +1119,9 @@ void
 dumpsum(
 char *sumfile)
 {
-    unsigned long i, j, magic;
+    uint32_t i, j, magic;
 #ifdef __OPENSTEP__
-    unsigned long strsize;
+    uint32_t strsize;
     struct phdr header;
 #else
     struct gmonhdr header;
@@ -1139,7 +1139,7 @@ char *sumfile)
 	 * Write the magic number.
 	 */
         magic = GMON_MAGIC;
-        if(write(fd, &magic, sizeof(unsigned long)) != sizeof(unsigned long))
+        if(write(fd, &magic, sizeof(uint32_t)) != sizeof(uint32_t))
 	    fatal("can't write magic number to gmon.sum file: %s", sumfile);
 
 #ifdef __OPENSTEP__
@@ -1148,10 +1148,10 @@ char *sumfile)
 	 */
 	if(grld_nloaded_states != 0){
 	    data.type = GMONTYPE_RLD_STATE;
-	    data.size = sizeof(unsigned long) +
-		sizeof(unsigned long) * 3 * grld_nloaded_states;
+	    data.size = sizeof(uint32_t) +
+		sizeof(uint32_t) * 3 * grld_nloaded_states;
 	    for(i = 0; i < grld_nloaded_states; i++){
-		data.size += sizeof(unsigned long) *
+		data.size += sizeof(uint32_t) *
 				 grld_loaded_state[i].nobject_filenames;
 		for(j = 0; j < grld_loaded_state[i].nobject_filenames; j++)
 		    data.size +=
@@ -1162,26 +1162,26 @@ char *sumfile)
 		     sizeof(struct gmon_data))
 		fatal("can't write gmon_data struct to gmon.sum file: %s",
 		      sumfile);
-	    if(write(fd, &grld_nloaded_states, sizeof(unsigned long)) !=
-		     sizeof(unsigned long))
+	    if(write(fd, &grld_nloaded_states, sizeof(uint32_t)) !=
+		     sizeof(uint32_t))
 		fatal("can't write to gmon.sum file: %s", sumfile);
 	    for(i = 0; i < grld_nloaded_states; i++){
 		if(write(fd, &(grld_loaded_state[i].header_addr),
-		         sizeof(unsigned long)) != sizeof(unsigned long))
+		         sizeof(uint32_t)) != sizeof(uint32_t))
 		    fatal("can't write to gmon.sum file: %s", sumfile);
 		if(write(fd, &(grld_loaded_state[i].nobject_filenames),
-		         sizeof(unsigned long)) != sizeof(unsigned long))
+		         sizeof(uint32_t)) != sizeof(uint32_t))
 		    fatal("can't write to gmon.sum file: %s", sumfile);
 		strsize = 0;
 		for(j = 0; j < grld_loaded_state[i].nobject_filenames; j++){
-		    if(write(fd, &strsize, sizeof(unsigned long)) != 
-			     sizeof(unsigned long))
+		    if(write(fd, &strsize, sizeof(uint32_t)) != 
+			     sizeof(uint32_t))
 			fatal("can't write to gmon.sum file: %s", sumfile);
 		    strsize +=
 			strlen(grld_loaded_state[i].object_filenames[j]) + 1;
 		}
-		if(write(fd, &strsize, sizeof(unsigned long)) != 
-			 sizeof(unsigned long))
+		if(write(fd, &strsize, sizeof(uint32_t)) != 
+			 sizeof(uint32_t))
 		    fatal("can't write to gmon.sum file: %s", sumfile);
 		for(j = 0; j < grld_loaded_state[i].nobject_filenames; j++){
 		    strsize =
@@ -1307,10 +1307,10 @@ void
 asgnsamples(
 struct sample_set *s)
 {
-    unsigned long i, j;
+    uint32_t i, j;
     unsigned UNIT ccnt;
     double time;
-    unsigned long pcl, pch, overlap, svalue0, svalue1;
+    uint32_t pcl, pch, overlap, svalue0, svalue1;
 
 	/* read samples and assign to namelist symbols */
 	for(i = 0, j = 1; i < s->nsamples; i++){
@@ -1347,7 +1347,7 @@ struct sample_set *s)
 #ifdef DEBUG
 		    if (debug & SAMPLEDEBUG) {
 			printf("[asgnsamples] (0x%x->0x%x-0x%x) %s gets %f "
-			       "ticks %lu overlap\n",
+			       "ticks %u overlap\n",
 			       (unsigned int)(nl[j].value/sizeof(UNIT)),
 			       (unsigned int)svalue0, (unsigned int)svalue1,
 			       nl[j].name, overlap * time / s->scale, overlap);
@@ -1365,10 +1365,10 @@ struct sample_set *s)
 }
 
 static
-unsigned long
+uint64_t
 min(
-unsigned long a,
-unsigned long b)
+uint64_t a,
+uint64_t b)
 {
     if(a < b)
 	return(a);
@@ -1376,10 +1376,10 @@ unsigned long b)
 }
 
 static
-unsigned long
+uint64_t
 max(
-unsigned long a,
-unsigned long b)
+uint64_t a,
+uint64_t b)
 {
     if(a > b)
 	return(a);
@@ -1399,9 +1399,9 @@ void)
 {
     struct nl *nlp;
 #ifdef vax
-    unsigned long i;
-    unsigned long bucket_of_entry;
-    unsigned long bucket_of_code;
+    uint32_t i;
+    uint32_t bucket_of_entry;
+    uint32_t bucket_of_code;
 #endif /* vax */
 
 	for(nlp = nl; nlp < npe; nlp++){

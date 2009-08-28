@@ -1,4 +1,5 @@
-/*	$NetBSD: extern.h,v 1.8 2006/09/26 06:38:38 lukem Exp $	*/
+/*	$NetBSD: extern.h,v 1.12 2008/09/21 14:23:39 lukem Exp $	*/
+/*	from	NetBSD: extern.h,v 1.58 2008/09/13 03:30:35 lukem Exp	*/
 
 /*-
  * Copyright (c) 1992, 1993
@@ -32,7 +33,7 @@
  */
 
 /*-
- * Copyright (c) 1997-2005 The NetBSD Foundation, Inc.
+ * Copyright (c) 1997-2008 The NetBSD Foundation, Inc.
  * All rights reserved.
  *
  * This code is derived from software contributed to The NetBSD Foundation
@@ -46,13 +47,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *        This product includes software developed by the NetBSD
- *        Foundation, Inc. and its contributors.
- * 4. Neither the name of The NetBSD Foundation nor the names of its
- *    contributors may be used to endorse or promote products derived
- *    from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE NETBSD FOUNDATION, INC. AND CONTRIBUTORS
  * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
@@ -107,7 +101,7 @@
 # define LLTMIN		LONG_MIN
 # define LLTMAX		LONG_MAX
 #else
-#if HAVE_PRINTF_QD
+#if defined(HAVE_PRINTF_QD)
 # define LLF		"%qd"
 # define LLFP(x)	"%" x "qd"
 # define LLT		long long
@@ -147,7 +141,7 @@ void	feat(void);
 void	format_path(char *, const char *);
 int	ftpd_pclose(FILE *);
 FILE   *ftpd_popen(char *[], const char *, int);
-char   *getline(char *, int, FILE *);
+int	getline(char *, int, FILE *);
 void	init_curclass(void);
 void	logxfer(const char *, off_t, const char *, const char *,
 	    const struct timeval *, const char *);
@@ -208,8 +202,8 @@ int	ftpd_logoutx(const char *, int, int);
 #include <netinet/in.h>
 
 #if defined(__NetBSD__)
-# define HAVE_SETPROCTITLE	1
-# define HAVE_SOCKADDR_SA_LEN	1
+# define HAVE_SETPROCTITLE		1
+# define HAVE_STRUCT_SOCKADDR_SA_LEN	1
 #endif
 
 struct sockinet {
@@ -219,12 +213,12 @@ struct sockinet {
 		struct sockaddr_in6 su_sin6;
 #endif
 	} si_su;
-#if !HAVE_SOCKADDR_SA_LEN
+#if !defined(HAVE_STRUCT_SOCKADDR_SA_LEN)
 	int	si_len;
 #endif
 };
 
-#if !HAVE_SOCKADDR_SA_LEN
+#if !defined(HAVE_STRUCT_SOCKADDR_SA_LEN)
 # define su_len		si_len
 #else
 # define su_len		si_su.su_sin.sin_len
@@ -340,7 +334,7 @@ GLOBAL	krb5_context	kcontext;
 GLOBAL	int		logged_in;
 GLOBAL	int		logging;
 GLOBAL	int		pdata;			/* for passive mode */
-#if HAVE_SETPROCTITLE
+#if defined(HAVE_SETPROCTITLE)
 GLOBAL	char		proctitle[BUFSIZ];	/* initial part of title */
 #endif
 GLOBAL	struct passwd  *pw;

@@ -1,9 +1,8 @@
 Z adresu '%(sender)s' otrzymano pro¶bê o automatyczn± odpowied¼ dotycz±c±
-listy dyskusyjnej %(listname)s. Dzisiaj otrzymano ju¿ %(num)s takich
+listy %(listname)s. Dzisiaj otrzymano ju¿ %(num)s takich
 wiadomo¶ci z tego samego adresu. W celu unikniêcia problemów takich jak
-pêtle miêdzy dwoma automatami, dzisiaj nie dostaniesz ju¿ ¿adnej
-automatycznej odpowiedzi. Proszê spróbowaæ jutro.
+pêtle miêdzy dwoma automatami, wysy³anie automatycznych odpowiedzi zosta³o 
+wstrzymane. Proszê spróbowaæ jutro.
 
-Je¶li uwa¿asz, ¿e nie powinienne¶ dostaæ tej wiadomo¶ci, nie rozumiesz jej
-lub masz jakie¶ inne pytania, skontaktuj z opiekunem listy pod adresem
+W razie pytañ b±d¼ w±tpliwo¶ci, skontaktuj z opiekunem listy pod adresem
 %(owneremail)s.

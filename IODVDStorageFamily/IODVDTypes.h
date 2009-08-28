@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -98,14 +98,26 @@ enum
 	kDVDBookTypePlusRDoubleLayer	= 0xE
 };
 
+#ifdef __LP64__
+typedef UInt8	DVDKeyClass;
+enum
+#else /* !__LP64__ */
 enum DVDKeyClass
+#endif /* !__LP64__ */
 {
 	kDVDKeyClassCSS_CPPM_CPRM	= 0x00,
 	kDVDKeyClassRSSA			= 0x01
 };
+#ifndef __LP64__
 typedef enum DVDKeyClass DVDKeyClass;
+#endif /* !__LP64__ */
 
+#ifdef __LP64__
+typedef UInt8	DVDKeyFormat;
+enum
+#else /* !__LP64__ */
 enum DVDKeyFormat
+#endif /* !__LP64__ */
 {
 	kDVDKeyFormatAGID_CSS			= 0x00,
 	kDVDKeyFormatChallengeKey		= 0x01,
@@ -119,9 +131,11 @@ enum DVDKeyFormat
 	kDVDKeyFormatAGID_CPRM			= 0x11,
 	kDVDKeyFormatAGID_Invalidate	= 0x3F
 };	
+#ifndef __LP64__
 typedef enum DVDKeyFormat DVDKeyFormat;
+#endif /* !__LP64__ */
 
-typedef UInt8 	DVDStructureFormat;
+typedef UInt8	DVDStructureFormat;
 enum
 {
 	kDVDStructureFormatPhysicalFormatInfo			= 0x00,

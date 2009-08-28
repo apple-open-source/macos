@@ -114,8 +114,8 @@ struct regs {
  * fpa registers, etc..., if it exists.
  */
 struct fpq {
-	unsigned long *addr;		/* address */
-	unsigned long instr;		/* instruction */
+	unsigned int *addr;		/* address */
+	unsigned int instr;		/* instruction */
 };
 struct	fq {
 	union {				/* FPU inst/addr queue */

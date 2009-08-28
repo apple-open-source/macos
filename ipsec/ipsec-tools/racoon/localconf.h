@@ -32,6 +32,10 @@
 #ifndef _LOCALCONF_H
 #define _LOCALCONF_H
 
+#if !TARGET_OS_EMBEDDED
+#include <vproc.h>
+#endif
+
 /* local configuration */
 
 #define LC_DEFAULT_CF	SYSCONFDIR "/racoon.conf"
@@ -79,6 +83,9 @@ struct vpnctl_socket_elem {
 struct bound_addr {
 	LIST_ENTRY(bound_addr) chain;
 	u_int32_t	address;
+	vchar_t		*user_id;
+	vchar_t		*user_pw;
+	vchar_t		*version;	/* our version string - if present */
 };
 
 struct redirect {
@@ -92,6 +99,7 @@ struct saved_msg_elem {
 	TAILQ_ENTRY(saved_msg_elem) chain;
 	void* msg;
 };
+
 
 struct localconf {
 	char *racoon_conf;		/* configuration filename */
@@ -108,6 +116,7 @@ struct localconf {
 	int sock_vpncontrol;
 	int sock_pfkey;
 	int rtsock;			/* routing socket */
+
 	LIST_HEAD(_vpnctl_socket_elem_, vpnctl_socket_elem) vpnctl_comm_socks;
 	LIST_HEAD(_redirect_, redirect) redirect_addresses;
 	int auto_exit_state;		/* auto exit state */
@@ -118,7 +127,7 @@ struct localconf {
 	int autograbaddr;
 	struct myaddrs *myaddrs;
 
-	char *logfile_param;	/* from command line */
+	char *logfile_param;		/* from command line */
 	char *pathinfo[LC_PATHTYPE_MAX];
 	vchar_t *ident[LC_IDENTTYPE_MAX]; /* base of Identifier payload. */
 
@@ -154,6 +163,9 @@ struct localconf {
 		 */
 
 	int gss_id_enc;			/* GSS ID encoding to use */
+#if !TARGET_OS_EMBEDDED
+	vproc_transaction_t vt;	/* returned by vproc_transaction_begin */
+#endif
 };
 
 extern struct localconf *lcconf;
@@ -162,12 +174,13 @@ extern void initlcconf __P((void));
 extern void flushlcconf __P((void));
 extern vchar_t *getpskbyname __P((vchar_t *));
 extern vchar_t *getpskbyaddr __P((struct sockaddr *));
-#ifdef __APPLE__
+#if defined(__APPLE__) && HAVE_KEYCHAIN
 extern vchar_t *getpskfromkeychain __P((const char *, u_int8_t, int, vchar_t *));
 #endif
 extern void getpathname __P((char *, int, int, const char *));
 extern int sittype2doi __P((int));
 extern int doitype2doi __P((int));
 extern vchar_t *getpsk __P((const char *, const int)); 
+
 
 #endif /* _LOCALCONF_H */

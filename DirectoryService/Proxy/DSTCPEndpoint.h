@@ -35,6 +35,22 @@
 
 #include "DSNetworkUtilities.h"		// for some constants
 #include "SharedConsts.h"
+#include "libCdsaCrypt.h"
+
+#define DH_KEY_SIZE		512		/* size of Diffie-Hellman key in bits */
+#define DERIVE_KEY_SIZE	128		/* size of derived key in bits */
+#define DERIVE_KEY_ALG	CSSM_ALGID_AES
+#define DSTCPAuthTag	'DHN2'
+
+enum eKeyState {
+	eKeyStateSendPublicKey		= 0,
+	eKeyStateGenerateChallenge,
+	eKeyStateAcceptResponse,
+	eKeyStateAcceptClientKey,
+	eKeyStateGenerateResponse,
+	
+	eKeyStateValidKey
+};
 
 // specific to DSTCPEndpoint
 const UInt32	kTCPOpenTimeout			= 120;
@@ -54,7 +70,7 @@ const UInt32 kDSTCPEndpointMessageTagSize	= 4;	//for "DSPX" tag
 // DSTCPEndpoint: implementation of endpoint based on BSD sockets.
 // ----------------------------------------------------------------------------
 
-class DSTCPEndpoint
+class DSTCPEndpoint : public CIPCVirtualClass
 {
 
 public:
@@ -63,7 +79,6 @@ public:
 	enum eExceptions
 	{
 		kConnectionLostWarning	= eDSCannotAccessSession,		// We've lost our connection
-		kAbortedWarning			= 'sok1',		// We've been signaled to abort all actions
 		kTimeoutError			= eDSServerTimeout,		// Connection timed out
 	};
 
@@ -75,89 +90,82 @@ public:
 		kDefaultTimeoutType
     };
 
-				DSTCPEndpoint			( const UInt32 inSessionID,
-										  const UInt32 inOpenTimeOut = kTCPOpenTimeout,
-										  const UInt32 inRdWrTimeOut = kTCPRWTimeout );
+					DSTCPEndpoint		( const UInt32 inOpenTimeOut = kTCPOpenTimeout, const UInt32 inRdWrTimeOut = kTCPRWTimeout, int inSocket = -1 );
+    virtual			~DSTCPEndpoint		( void );
 
-				DSTCPEndpoint			( const DSTCPEndpoint *inEndpoint,
-										  const UInt32 inSessionID );
+	virtual SInt32	SendMessage			( sComData *inMessage );
+	virtual SInt32	GetReplyMessage		( sComData **outMessage );
+	SInt32			ClientNegotiateKey	( void );
+	SInt32			ServerNegotiateKey	( void *dataBuff, UInt32 dataBuffLen );
 
-    virtual	   ~DSTCPEndpoint			( void );
+	SInt32		ProcessData				( bool bEncrypt, void *inBuffer, UInt32 inBufferLen, void *&outBuffer, UInt32 &outBufferLen );
 
 	// Inline accessors.
-	UInt32		GetSessionID			( void )				{ return mLogMsgSessionID; }
 	UInt32		GetReverseAddress		( void ) const			{ return mRemoteHostIPAddr; }
-	UInt32		GetIPAddress			( void ) const			{ return mMyIPAddr; } //never used
 	const char *GetReverseAddressString	( void ) const			{ return mRemoteHostIPString; }
 	int			GetCurrentConnection	( void ) const			{ return mConnectFD; }
+	inline bool	Negotiated				( void )				{ return (fKeyState == eKeyStateValidKey); }
 
-	SInt32		SendClientReply			( void *inMsg );
-	void*		GetClientMessage		( void );
 	SInt32		SyncToMessageBody		( const Boolean inStripLeadZeroes, UInt32 *outBuffLen );
-	SInt32		GetServerReply			( sComData **outMsg );
-	SInt32		SendServerMessage		( void *inMsg );
+	
 	SInt32		SendBuffer				( void *inBuffer, UInt32 inLength );
 	
-	virtual void	EncryptData			( void *inData, const UInt32 inBuffSize, void *&outData, UInt32 &outBuffSize );
-	virtual void	DecryptData			( void *inData, const UInt32 inBuffSize, void *&outData, UInt32 &outBuffSize );
-	UInt32		WriteData				( const void *inData, const UInt32 inSize );
 	Boolean		Connected				( void ) const ;
-    void		Abort					( void );
-	SInt32		ConnectTo ( const UInt32 inIPAddress, const UInt16 inPort ); //for client side
-	void		ListenToPort			( const UInt16 inPort );
-	void		ListenToPortOnAddress	( const UInt16 inPort, const UInt32 inWhichAddr );
-	Boolean		AcceptConnection		( void );
+	SInt32		ConnectTo ( struct addrinfo *inAddrInfo ); //for client side
 	void		CloseConnection			( void );
-	int			CloseListener			( void ); //KW do we need this?
-	void		SetTimeout				( const int inWhichTimeout, const int inSeconds ); //not used now
 	void		GetReverseAddressString	( char *ioBuffer, const int inBufferSize ) const ;
-	UInt32		GetRemoteHostIPAddress	( void );
-	UInt16		GetRemoteHostPort		( void );
+	UInt32		GetRemoteHostIPAddress	( void ) { return mRemoteHostIPAddr; }
+	
+	in_port_t	GetRemoteHostPort		( void ) { return ( ntohs(mRemoteSockAddr.sin_port) ); }
+	sockaddr *	GetRemoteSockAddr		( void ) { return (sockaddr *) &mRemoteSockAddr; }
 
-protected:
-		
 	sComProxyData*  AllocToProxyStruct  ( sComData *inDataMsg );
 	sComData*		AllocFromProxyStruct( sComProxyData *inProxyDataMsg );
-	UInt32		DoTCPRecvFrom			( void *ioBuffer, const UInt32 inBufferSize );
+
+protected:
+	UInt32			DoTCPRecvFrom			( void *ioBuffer, const UInt32 inBufferSize );
 
 private:
 		
 	/**** Instance methods accessible only to class. ****/
-	void		InitBuffers				( void );
 	int			DoTCPOpenSocket			( void );
 	int			SetSocketOption			( const int inSocket, const int inSocketOption);
-	int			DoTCPBind				( void );
-	int			DoTCPListen				( void );
-	int			DoTCPAccept				( void );
 	int			DoTCPCloseSocket		( const int inSockFD );
 
-
 protected:
-	UInt32				mLogMsgSessionID; //set in constructor and never used for anything
-	
 	// network information
-	UInt32				mMyIPAddr;		// in host byte order - set but never used
 	struct sockaddr_in	mMySockAddr;	
 
 	// remote host network information
-	UInt32				mRemoteHostIPAddr;		// in host byte order
+	UInt32				mRemoteHostIPAddr;		// in network order
 	IPAddrStr 			mRemoteHostIPString;	// IP address string
 	struct sockaddr_in	mRemoteSockAddr;
 
-	int					mListenFD;
 	int					mConnectFD;
 		
 	// buffers
 	char			   *mErrorBuffer;
 
 	// states
-	Boolean				mAborting;
 	Boolean				mWeHaveClosed;
 
 	// Timeouts
 	int					mOpenTimeout;	// time out for opening connection
 	int					mRWTimeout;		// time out for reading and writing
 	int					mDefaultTimeout;
+	
+private:
+	CSSM_CSP_HANDLE 	fcspHandle;
+	
+	eKeyState			fKeyState;
+	
+	CSSM_DATA			fParamBlock;
+	CSSM_KEY			fPrivateKey;
+	CSSM_KEY			fPublicKey;
+	CSSM_KEY			fDerivedKey;
+	uint32_t			fChallengeValue;
+	
+	static int32_t		mMessageID;		// this is used to track per-message ID globally for all remote messages
 };
 
 #endif // __DSTCPEndpoint_h__

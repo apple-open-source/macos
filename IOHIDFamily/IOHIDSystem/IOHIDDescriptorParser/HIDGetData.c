@@ -71,7 +71,7 @@
  *
  *------------------------------------------------------------------------------
 */
-OSStatus HIDGetData(void * report, UInt32 iReportLength,
+OSStatus HIDGetData(void * report, ByteCount iReportLength,
 						 UInt32 iStart, UInt32 iSize, SInt32 *piValue,
 						 Boolean bSignExtend)
 {

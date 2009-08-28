@@ -276,10 +276,9 @@ static char
  }
 
 static GElf_Sym *
-gelf_getsym_macho(Elf_Data * data, int ndx, GElf_Sym * sym)
+gelf_getsym_macho(Elf_Data * data, int ndx, GElf_Sym * sym, const char *base)
 {
 	const struct nlist *nsym = (const struct nlist *)(data->d_buf);
-	const char *base = ((char *)nsym) + data->d_size;
 	const char *name;
 	char *tmp;
 	
@@ -295,12 +294,63 @@ gelf_getsym_macho(Elf_Data * data, int ndx, GElf_Sym * sym)
 	if ('_' == name[0])
 		name++; // Lop off omnipresent underscore to match DWARF convention
 
-	sym->st_name = (Elf32_Word)(name - base);
+	sym->st_name = (GElf_Sxword)(name - base);
 	sym->st_value = nsym->n_value;
 	sym->st_size = 0;
 	sym->st_info = GELF_ST_INFO((STB_GLOBAL), (STT_NOTYPE));
 	sym->st_other = 0;
 	sym->st_shndx = SHN_MACHO; /* Mark underlying file as Mach-o */
+	
+	if (nsym->n_type & N_STAB) { /* Detect C++ methods */
+	
+		switch(nsym->n_type) {
+		case N_FUN:
+			sym->st_info = GELF_ST_INFO((STB_GLOBAL), (STT_FUNC));
+			break;
+		case N_GSYM:
+			sym->st_info = GELF_ST_INFO((STB_GLOBAL), (STT_OBJECT));
+			break;
+		default:
+			break;
+		}
+		
+	} else if ((N_ABS | N_EXT) == (nsym->n_type & (N_TYPE | N_EXT)) ||
+		(N_SECT | N_EXT) == (nsym->n_type & (N_TYPE | N_EXT))) {
+
+		sym->st_info = GELF_ST_INFO((STB_GLOBAL), (nsym->n_desc)); 
+	} else if ((N_UNDF | N_EXT) == (nsym->n_type & (N_TYPE | N_EXT)) &&
+				nsym->n_sect == NO_SECT) {
+		sym->st_info = GELF_ST_INFO((STB_GLOBAL), (STT_OBJECT)); /* Common */
+	}
+			
+	return sym;
+}
+
+static GElf_Sym *
+gelf_getsym_macho_64(Elf_Data * data, int ndx, GElf_Sym * sym, const char *base)
+{
+	const struct nlist_64 *nsym = (const struct nlist_64 *)(data->d_buf);
+	const char *name;
+	char *tmp;
+	
+	nsym += ndx;
+	name = base + nsym->n_un.n_strx;
+
+	if (0 == nsym->n_un.n_strx) // iff a null, "", name.
+		name = "null name"; // return NULL;
+
+	if ((tmp = demangleSymbolCString(name)))
+		name = tmp;
+
+	if ('_' == name[0])
+		name++; // Lop off omnipresent underscore to match DWARF convention
+
+	sym->st_name = (GElf_Sxword)(name - base);
+	sym->st_value = nsym->n_value;
+	sym->st_size = 0;
+	sym->st_info = GELF_ST_INFO((STB_GLOBAL), (STT_NOTYPE));
+	sym->st_other = 0;
+	sym->st_shndx = SHN_MACHO_64; /* Mark underlying file as Mach-o */
 	
 	if (nsym->n_type & N_STAB) { /* Detect C++ methods */
 	
@@ -347,7 +397,11 @@ next_sym(const ctf_data_t *cd, const int symidx, const uchar_t matchtype,
 
 #if defined(__APPLE__)
 		if (cd->sh_link == SHN_MACHO) { /* Underlying file is Mach-o */
-			if (gelf_getsym_macho(cd->cd_symdata, i, &sym) == 0)
+			if (gelf_getsym_macho(cd->cd_symdata, i, &sym, (const char *)(cd->cd_strdata->d_buf)) == 0)
+				return (-1);
+		}
+		else if (cd->sh_link == SHN_MACHO_64) { /* Underlying file is Mach-o 64 */
+			if (gelf_getsym_macho_64(cd->cd_symdata, i, &sym, (const char *)(cd->cd_strdata->d_buf)) == 0)
 				return (-1);
 		}
 		else
@@ -1025,9 +1079,6 @@ main(int argc, char *argv[])
 	ctf_header_t *hp;
 	Elf *elf;
 	GElf_Ehdr ehdr;
-#if defined(__APPLE__)
-	Elf_Data tmpData;
-#endif /* __APPLE__ */
 
 	(void) elf_version(EV_CURRENT);
 
@@ -1118,7 +1169,7 @@ skiploop:
 		}
 #else
 		if (gelf_getshdr(ctfscn, &ctfshdr) != NULL &&
-		    ctfshdr.sh_link != 0 && ctfshdr.sh_link != SHN_MACHO) {
+		    ctfshdr.sh_link != 0 && ctfshdr.sh_link != SHN_MACHO && ctfshdr.sh_link != SHN_MACHO_64) {
 			symscn = elf_getscn(elf, ctfshdr.sh_link);
 		} else {
 			symscn = findelfscn(elf, &ehdr, ".symtab");
@@ -1139,13 +1190,27 @@ skiploop:
 				cd.cd_strdata = elf_getdata(symstrscn, NULL);
 #else
 				if (SHN_MACHO == shdr.sh_link) { /* Underlying file is Mach-o */
+					int dir_idx;
 					cd.cd_nsyms = shdr.sh_size / shdr.sh_entsize;
 					cd.cd_symdata = elf_getdata(symscn, NULL);
-					cd.cd_strdata = &tmpData;
-					cd.cd_strdata->d_buf = 
-						((char *)cd.cd_symdata->d_buf) + cd.cd_symdata->d_size;
-					cd.cd_strdata->d_size = INT32_MAX;
+					
+					if ((dir_idx = findelfsecidx(elf, filename, ".dir_str_table")) < 0 ||
+						(symstrscn = elf_getscn(elf, dir_idx)) == NULL ||
+						(cd.cd_strdata = elf_getdata(symstrscn, NULL)) == NULL)
+						terminate("%s: Can't open direct string table\n", filename);
+						
 					cd.sh_link = SHN_MACHO; /* Mark underlying file as Mach-o */
+				} else if (SHN_MACHO_64 == shdr.sh_link) { /* Underlying file is Mach-o 64 */
+					int dir_idx;
+					cd.cd_nsyms = shdr.sh_size / shdr.sh_entsize;
+					cd.cd_symdata = elf_getdata(symscn, NULL);
+					
+					if ((dir_idx = findelfsecidx(elf, filename, ".dir_str_table")) < 0 ||
+						(symstrscn = elf_getscn(elf, dir_idx)) == NULL ||
+						(cd.cd_strdata = elf_getdata(symstrscn, NULL)) == NULL)
+						terminate("%s: Can't open direct string table\n", filename);
+
+					cd.sh_link = SHN_MACHO_64; /* Mark underlying file as Mach-o 64 */
 				} else {
 					symstrscn = elf_getscn(elf, shdr.sh_link);
 

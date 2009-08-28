@@ -168,9 +168,9 @@ md_relax_table[] = {
 };
 
 static void s_even(
-    int value);
+    uintptr_t value);
 static void s_proc(
-    int value);
+    uintptr_t value);
 
 /*
  * These are the machine dependent pseudo-ops.  These are included so
@@ -385,7 +385,7 @@ struct m68k_exp {
 struct m68k_op {
 	char	*error;		/* Couldn't parse it */
 	int	mode;		/* What mode this instruction is in.  */
-	unsigned long int	reg;		/* Base register */
+	uint32_t	reg;		/* Base register */
 	struct m68k_exp *con1;
 	int	ireg;		/* Index register */
 	int	isiz;		/* 0==unspec  1==byte(?)  2==short  3==long  */
@@ -414,7 +414,7 @@ struct m68_it {
 	struct {
 		int fragoff;	/* Where in the current opcode[] the frag ends */
 		symbolS *fadd;
-		long int foff;
+		int32_t foff;
 		int fragty;
 	} fragb[4];
 
@@ -423,7 +423,7 @@ struct m68_it {
 		int	n;
 		symbolS	*add,
 			*sub;
-		long int off;
+		int32_t off;
 		char	wid;
 		char	pcrel;
 	} reloc[5];		/* Five is enough??? */
@@ -482,7 +482,7 @@ static struct m68_it the_ins;		/* the instruction being assembled */
 
 struct m68_incant {
 	char *m_operands;
-	unsigned long m_opcode;
+	uint32_t m_opcode;
 	short m_opnum;
 	short m_codenum;
 #ifdef NeXT_MOD
@@ -818,7 +818,7 @@ char *str,
 struct m68k_op *opP)
 {
 	char	*strend;
-	long	i;
+	int32_t	i;
 
 	if(*str==' ')
 		str++;
@@ -1233,7 +1233,7 @@ char *instring)
 				if(opP->mode!=IMMED)
  					losing++;
 				else {
-					long t;
+					int32_t t;
 
 					t=get_num(opP->con1,80);
 					if(s[1]=='b' && !isbyte(t))
@@ -1399,7 +1399,7 @@ char *instring)
 				if(opP->mode!=IMMED)
 					losing++;
 				else {
-					long t;
+					int32_t t;
 
 					t=get_num(opP->con1,80);
 #ifdef NeXT_MOD	/* feature to try to make expressions absolute */
@@ -1421,7 +1421,7 @@ char *instring)
 				if(opP->mode!=IMMED)
 					losing++;
 				else {
-					long t;
+					int32_t t;
 
 					t=get_num(opP->con1,80);
 					if(t<1 || t>8 || isvar(opP->con1))
@@ -1627,7 +1627,7 @@ char *instring)
 				/* We gotta put out some float */
 				if(seg(opP->con1)!=SEG_BIG) {
 					int_to_gen(nextword);
-					gen_to_words(words,baseo,(long int)outro);
+					gen_to_words(words,baseo,(int32_t)outro);
 					for(wordp=words;baseo--;wordp++)
 						addword(*wordp);
 					break;
@@ -1647,7 +1647,7 @@ char *instring)
 						addword(0);
 					break;
 				}
-				gen_to_words(words,baseo,(long int)outro);
+				gen_to_words(words,baseo,(int32_t)outro);
 				for(wordp=words;baseo--;wordp++)
 					addword(*wordp);
 				break;
@@ -1712,8 +1712,7 @@ char *instring)
 					   opP->con1-> e_exp.X_subtract_symbol->
 					     sy_frag == frag_now &&
 					   strcmp(opP->con1->
-					      e_exp.X_subtract_symbol->
-						  sy_nlist.n_un.n_name,
+					      e_exp.X_subtract_symbol->sy_name,
 						  "L0\001") == 0)
 					   opP->con1-> e_exp.X_subtract_symbol->
 					     sy_nlist.n_value += 2;
@@ -2460,7 +2459,7 @@ char *str)
 {
 	/*			     26, 25, 24, 23-16,  15-8, 0-7 */
 	/* Low order 24 bits encoded fpc,fps,fpi,fp7-fp0,a7-a0,d7-d0 */
-	unsigned long int cur_regs = 0;
+	uint32_t cur_regs = 0;
 	int	reg1,
 		reg2;
 
@@ -2730,7 +2729,7 @@ char *s;
 
 #ifdef NeXT_MOD
 static char *file_030, *file_040;
-static unsigned long line_030, line_040;
+static uint32_t line_030, line_040;
 #endif /* NeXT_MOD */
 
 /* This is the guts of the machine-dependent assembler.  STR points to a
@@ -2811,7 +2810,7 @@ char *str)
 			    as_bad("more than one implementation specific "
 				   "instruction seen and -force_cpusubtype_ALL "
 				   " not specified (first 040 instruction in: "
-				   "%s at line %lu)", file_040, line_040);
+				   "%s at line %u)", file_040, line_040);
 			md_cpusubtype = CPU_SUBTYPE_MC68030_ONLY;
 		    }
 		    break;
@@ -2824,7 +2823,7 @@ char *str)
 			    as_bad("more than one implementation specific "
 				   "instruction seen and -force_cpusubtype_ALL "
 				   "not specified (first 030 instruction in: "
-				   "%s at line %lu)", file_030, line_030);
+				   "%s at line %u)", file_030, line_030);
 			md_cpusubtype = CPU_SUBTYPE_MC68040;
 		    }
 		    break;
@@ -2864,7 +2863,7 @@ char *str)
 		toP=frag_more(2*the_ins.numo);
 		fromP= &the_ins.opcode[0];
 		for(m=the_ins.numo;m;--m) {
-			md_number_to_chars(toP,(long)(*fromP),2);
+			md_number_to_chars(toP,(int32_t)(*fromP),2);
 			toP+=2;
 			fromP++;
 		}
@@ -2926,7 +2925,7 @@ char *str)
 		to_beg_P=toP;
 		shorts_this_frag=0;
 		for(m=wid/2;m;--m) {
-			md_number_to_chars(toP,(long)(*fromP),2);
+			md_number_to_chars(toP,(int32_t)(*fromP),2);
 			toP+=2;
 			fromP++;
 			shorts_this_frag++;
@@ -2961,7 +2960,7 @@ char *str)
 	if(n) {
 		toP=frag_more(n*sizeof(short));
 		while(n--) {
-			md_number_to_chars(toP,(long)(*fromP),2);
+			md_number_to_chars(toP,(int32_t)(*fromP),2);
 			toP+=2;
 			fromP++;
 			shorts_this_frag++;
@@ -3130,7 +3129,7 @@ int *sizeP)
 
 	*sizeP=prec * sizeof(LITTLENUM_TYPE);
 	for(wordP=words;prec--;) {
-		md_number_to_chars(litP,(long)(*wordP++),sizeof(LITTLENUM_TYPE));
+		md_number_to_chars(litP,(int32_t)(*wordP++),sizeof(LITTLENUM_TYPE));
 		litP+=sizeof(LITTLENUM_TYPE);
 	}
 	return "";	/* Someone should teach Dean about null pointers */
@@ -3415,7 +3414,7 @@ int nsect)
 		     */
 		    if((fragP->fr_opcode[1] & 0x3F) != 0x3A)
 			as_bad("Internal error (long PC-relative operand) for "
-			       "insn 0x%04x at 0x%lx", fragP->fr_opcode[0],
+			       "insn 0x%04x at 0x%x", fragP->fr_opcode[0],
 			       fragP->fr_address);
 		    fragP->fr_opcode[1] &= ~0x3F;
 		    fragP->fr_opcode[1] |= 0x39;	/* Mode 7.1 */
@@ -3440,7 +3439,7 @@ int nsect)
 		/* Symbol is still undefined.  Make it long */
 		if((fragP->fr_opcode[1] & 0x3F) != 0x3A)
 		    as_bad("Internal error (long PC-relative operand) for "
-			   "insn 0x%04x at 0x%lx", fragP->fr_opcode[0],
+			   "insn 0x%04x at 0x%x", fragP->fr_opcode[0],
 			   fragP->fr_address);
 		fragP->fr_opcode[1] &= ~0x3F;
 		fragP->fr_opcode[1] |= 0x39;	/* Mode 7.1 */
@@ -3497,8 +3496,8 @@ void
 md_convert_frag(
 fragS *fragP)
 {
-    long disp;
-    long ext;
+    int32_t disp;
+    int32_t ext;
     char *buffer_address;
     int object_address;
 
@@ -3653,7 +3652,7 @@ fragS *fragP)
 	     */
 	    if((fragP->fr_opcode[1] & 0x3F) != 0x3A)
 		as_bad("Internal error (long PC-relative operand) for insn "
-		       "0x%04x at 0x%lx", fragP->fr_opcode[0],
+		       "0x%04x at 0x%x", fragP->fr_opcode[0],
 		       fragP->fr_address);
 	    fragP->fr_opcode[1] &= ~0x3F;
 	    fragP->fr_opcode[1] |= 0x39;	/* Mode 7.1 */
@@ -3675,7 +3674,7 @@ fragS *fragP)
 	}
 
 	if(ext != 0){
-	    md_number_to_chars(buffer_address, (long)disp, (int)ext);
+	    md_number_to_chars(buffer_address, (int32_t)disp, (int)ext);
 	    fragP->fr_fix += ext;
 	}
 }
@@ -3701,7 +3700,7 @@ struct m68k_exp *exp,
 int ok)
 {
 #ifdef TEST2
-	long	l = 0;
+	int32_t	l = 0;
 
 	if(!exp->e_beg)
 		return 0;
@@ -3877,10 +3876,10 @@ void demand_empty_rest_of_line();	/* Hate those extra verbose names */
 static
 void
 s_even(
-int value)
+uintptr_t value)
 {
 	register int power_of_2_alignment;
-	register long int temp_fill;
+	register int32_t temp_fill;
 	char fill;
 
 	/* power of 2 alignment, 2^1 or 2 byte (even) alignment */
@@ -3893,7 +3892,7 @@ int value)
 	 * becomes the section's alignment.
 	 */
 	if(frchain_now->frch_section.align <
-	   (unsigned long)power_of_2_alignment)
+	   (uint32_t)power_of_2_alignment)
 	    frchain_now->frch_section.align = power_of_2_alignment;
 	demand_empty_rest_of_line();
 }
@@ -3901,7 +3900,7 @@ int value)
 static
 void
 s_proc(
-int value)
+uintptr_t value)
 {
 	demand_empty_rest_of_line();
 }

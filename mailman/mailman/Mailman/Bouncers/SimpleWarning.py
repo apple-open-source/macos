@@ -1,17 +1,17 @@
-# Copyright (C) 2001-2006 by the Free Software Foundation, Inc.
+# Copyright (C) 2001-2008 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software 
+# along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 # USA.
 
@@ -36,6 +36,22 @@ patterns = [
     # pop3.pta.lia.net
     (_c('The address to which the message has not yet been delivered is'),
      _c('No action is required on your part'),
+     _c(r'\s*(?P<addr>\S+@\S+)\s*')),
+    # This is from MessageSwitch.  It is a kludge because the text that
+    # identifies it as a warning only comes after the address.  We can't
+    # use ecre, because it really isn't significant, so we fake it.  Once
+    # we see the start, we know it's a warning, and we're going to return
+    # Stop anyway, so we match anything for the address and end.
+    (_c('This is just a warning, you do not need to take any action'),
+     _c('.+'),
+     _c('(?P<addr>.+)')),
+    # Symantec_AntiVirus_for_SMTP_Gateways - see comments for MessageSwitch
+    (_c('Delivery attempts will continue to be made'),
+     _c('.+'),
+     _c('(?P<addr>.+)')),
+    # Googlemail
+    (_c('THIS IS A WARNING MESSAGE ONLY'),
+     _c('Message will be retried'),
      _c(r'\s*(?P<addr>\S+@\S+)\s*')),
     # Next one goes here...
     ]

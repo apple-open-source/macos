@@ -44,10 +44,14 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/system.c,v 1.10 2002/03/22 21:53:10 obri
 #include <stdlib.h>
 #include <stddef.h>
 #include <unistd.h>
+#include <spawn.h>
 #include <paths.h>
 #include <errno.h>
 #include "un-namespace.h"
 #include "libc_private.h"
+
+#include <crt_externs.h>
+#define environ (*_NSGetEnviron())
 
 #if __DARWIN_UNIX03
 #include <pthread.h>
@@ -64,9 +68,12 @@ __system(command)
 	const char *command;
 {
 	pid_t pid, savedpid;
-	int pstat;
+	int pstat, err;
 	struct sigaction ign, intact, quitact;
-	sigset_t newsigblock, oldsigblock;
+	sigset_t newsigblock, oldsigblock, defaultsig;
+	posix_spawnattr_t attr;
+	short flags = POSIX_SPAWN_SETSIGMASK;
+	const char *argv[] = {"sh", "-c", command, NULL};
 
 #if __DARWIN_UNIX03
 	if (__unix_conforming == 0)
@@ -83,6 +90,12 @@ __system(command)
 			return(1);
 	}
 
+	if ((err = posix_spawnattr_init(&attr)) != 0) {
+		errno = err;
+		return -1;
+	}
+	(void)sigemptyset(&defaultsig);
+
 #if __DARWIN_UNIX03
 	pthread_mutex_lock(&__systemfn_mutex);
 #endif /* __DARWIN_UNIX03 */
@@ -94,39 +107,45 @@ __system(command)
 	(void)sigemptyset(&ign.sa_mask);
 	ign.sa_flags = 0;
 	(void)_sigaction(SIGINT, &ign, &intact);
+	if (intact.sa_handler != SIG_IGN) {
+		sigaddset(&defaultsig, SIGINT);
+		flags |= POSIX_SPAWN_SETSIGDEF;
+	}
 	(void)_sigaction(SIGQUIT, &ign, &quitact);
+	if (quitact.sa_handler != SIG_IGN) {
+		sigaddset(&defaultsig, SIGQUIT);
+		flags |= POSIX_SPAWN_SETSIGDEF;
+	}
 	(void)sigemptyset(&newsigblock);
 	(void)sigaddset(&newsigblock, SIGCHLD);
 	(void)_sigprocmask(SIG_BLOCK, &newsigblock, &oldsigblock);
-	switch(pid = fork()) {
-	case -1:			/* error */
-		break;
-	case 0:				/* child */
-		/*
-		 * Restore original signal dispositions and exec the command.
-		 */
-		(void)_sigaction(SIGINT, &intact, NULL);
-		(void)_sigaction(SIGQUIT,  &quitact, NULL);
-		(void)_sigprocmask(SIG_SETMASK, &oldsigblock, NULL);
-#if __DARWIN_UNIX03
-		pthread_mutex_unlock(&__systemfn_mutex);
-#endif /* __DARWIN_UNIX03 */
-		execl(_PATH_BSHELL, "sh", "-c", command, (char *)NULL);
-		_exit(127);
-	default:			/* parent */
+	(void)posix_spawnattr_setsigmask(&attr, &oldsigblock);
+	if (flags & POSIX_SPAWN_SETSIGDEF) {
+		(void)posix_spawnattr_setsigdefault(&attr, &defaultsig);
+	}
+	(void)posix_spawnattr_setflags(&attr, flags);
+
+	err = posix_spawn(&pid, _PATH_BSHELL, NULL, &attr, (char *const *)argv, environ);
+	(void)posix_spawnattr_destroy(&attr);
+	if (err == 0) {
 		savedpid = pid;
 		do {
 			pid = _wait4(savedpid, &pstat, 0, (struct rusage *)0);
 		} while (pid == -1 && errno == EINTR);
-		break;
+		if (pid == -1) pstat = -1;
+	} else if (err == ENOMEM || err == EAGAIN) { /* as if fork failed */
+		pstat = -1;
+	} else {
+		pstat = W_EXITCODE(127, 0); /* couldn't exec shell */
 	}
+
 	(void)_sigaction(SIGINT, &intact, NULL);
 	(void)_sigaction(SIGQUIT,  &quitact, NULL);
 	(void)_sigprocmask(SIG_SETMASK, &oldsigblock, NULL);
 #if __DARWIN_UNIX03
 	pthread_mutex_unlock(&__systemfn_mutex);
 #endif /* __DARWIN_UNIX03 */
-	return(pid == -1 ? -1 : pstat);
+	return(pstat);
 }
 
 __weak_reference(__system, system);

@@ -15,7 +15,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -38,10 +38,11 @@
 #ifndef _FUNCTEXCEPT_H
 #define _FUNCTEXCEPT_H 1
 
+#include <bits/c++config.h>
 #include <exception_defines.h>
 
-namespace std
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   // Helper for exception objects in <except>
   void
   __throw_bad_exception(void) __attribute__((__noreturn__));
@@ -59,35 +60,36 @@ namespace std
 
   // Helpers for exception objects in <stdexcept>
   void
-  __throw_logic_error(const char* __s) __attribute__((__noreturn__));
+  __throw_logic_error(const char*) __attribute__((__noreturn__));
 
   void
-  __throw_domain_error(const char* __s) __attribute__((__noreturn__));
+  __throw_domain_error(const char*) __attribute__((__noreturn__));
 
   void
-  __throw_invalid_argument(const char* __s) __attribute__((__noreturn__));
+  __throw_invalid_argument(const char*) __attribute__((__noreturn__));
 
   void
-  __throw_length_error(const char* __s) __attribute__((__noreturn__));
+  __throw_length_error(const char*) __attribute__((__noreturn__));
 
   void
-  __throw_out_of_range(const char* __s) __attribute__((__noreturn__));
+  __throw_out_of_range(const char*) __attribute__((__noreturn__));
 
   void
-  __throw_runtime_error(const char* __s) __attribute__((__noreturn__));
+  __throw_runtime_error(const char*) __attribute__((__noreturn__));
 
   void
-  __throw_range_error(const char* __s) __attribute__((__noreturn__));
+  __throw_range_error(const char*) __attribute__((__noreturn__));
 
   void
-  __throw_overflow_error(const char* __s) __attribute__((__noreturn__));
+  __throw_overflow_error(const char*) __attribute__((__noreturn__));
 
   void
-  __throw_underflow_error(const char* __s) __attribute__((__noreturn__));
+  __throw_underflow_error(const char*) __attribute__((__noreturn__));
 
   // Helpers for exception objects in basic_ios
   void
-  __throw_ios_failure(const char* __s) __attribute__((__noreturn__));
-} // namespace std
+  __throw_ios_failure(const char*) __attribute__((__noreturn__));
+
+_GLIBCXX_END_NAMESPACE
 
 #endif

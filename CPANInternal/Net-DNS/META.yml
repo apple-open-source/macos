@@ -1,0 +1,16 @@
+# http://module-build.sourceforge.net/META-spec.html
+#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
+name:         Net-DNS
+version:      0.63
+version_from: lib/Net/DNS.pm
+installdirs:  site
+requires:
+    Digest::HMAC_MD5:              1
+    Digest::MD5:                   2.12
+    IO::Socket:                    0
+    MIME::Base64:                  2.11
+    Net::IP:                       1.2
+    Test::More:                    0.18
+
+distribution_type: module
+generated_by: ExtUtils::MakeMaker version 6.30

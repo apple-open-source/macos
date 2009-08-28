@@ -39,7 +39,7 @@ static tDirNodeReference getusernode(struct opendirectory_session *session,
 				    const char *userName)
 {
     tDirStatus			status			= eDSNoErr;
-    unsigned long		returnCount		= 0;
+    UInt32			returnCount		= 0;
     tDataBufferPtr		dataBuffer		= NULL;
     tDataListPtr		searchNodeName		= NULL;
     tDirNodeReference		userNodeRef		= 0;
@@ -55,7 +55,7 @@ static tDirNodeReference getusernode(struct opendirectory_session *session,
     tAttributeEntryPtr		attributeInfo		= NULL;
     tAttributeValueListRef	attributeValueListRef	= 0;
     tAttributeValueEntryPtr	attrValue		= NULL;
-    long			i			= 0;
+    UInt32			i			= 0;
 
     dataBuffer = dsDataBufferAllocate(session->ref, DEFAULT_DS_BUFFER_SIZE);
     if (dataBuffer == NULL) {
@@ -186,8 +186,8 @@ static tDirStatus opendirectory_auth_user(
 			const char *inAuthMethod)
 {
 	tDirStatus 		status			= eDSAuthServerError;
-	unsigned long		curr			= 0;
-	unsigned long		len			= 0;
+	size_t			curr			= 0;
+	UInt32			len			= 0;
 	tDataBufferPtr		authBuff  		= NULL;
 	tDataBufferPtr		stepBuff  		= NULL;
 	tDataNodePtr		authType		= NULL;
@@ -208,25 +208,27 @@ static tDirStatus opendirectory_auth_user(
 	authType = dsDataNodeAllocateString( session->ref,  inAuthMethod);
 	if ( authType != NULL ) {
 		// User Name
-		len = strlen( user );
-		memcpy( &(authBuff->fBufferData[ curr ]), &len, 4 );
-		curr += sizeof( long );
+		len = (UInt32)strlen( user );
+		memcpy( &(authBuff->fBufferData[ curr ]), &len, sizeof(len) );
+		curr += sizeof( len );
 		memcpy( &(authBuff->fBufferData[ curr ]), user, len );
 		curr += len;
 		// C8
 		len = 8;
-		memcpy( &(authBuff->fBufferData[ curr ]), &len, 4 );
-		curr += sizeof (long );
+		memcpy( &(authBuff->fBufferData[ curr ]), &len, sizeof(len) );
+		curr += sizeof (len );
 		memcpy( &(authBuff->fBufferData[ curr ]), challenge, len );
 		curr += len;
 		// P24
 		len = 24;
-		memcpy( &(authBuff->fBufferData[ curr ]), &len, 4 );
-		curr += sizeof (long );
+		memcpy( &(authBuff->fBufferData[ curr ]), &len, sizeof(len) );
+		curr += sizeof (len );
 		memcpy( &(authBuff->fBufferData[ curr ]), password, len );
 		curr += len;
 
-		authBuff->fBufferLength = curr;
+		if (curr > UINT32_MAX)
+		    smb_panic("Looks like fBufferLength overflowed\n");
+		authBuff->fBufferLength = (UInt32)curr;
 
 		status = dsDoDirNodeAuth( userNode, authType, True,
 				authBuff, stepBuff, NULL );
@@ -257,8 +259,8 @@ static tDirStatus opendirectory_ntlmv2_auth_user(
 			"dsAuthMethodStandard:dsAuthNodeNTLMv2";
 
 	tDirStatus 		status		= eDSAuthServerError;
-	unsigned long		curr		= 0;
-	unsigned long		len		= 0;
+	size_t			curr		= 0;
+	UInt32			len		= 0;
 	tDataBufferPtr		authBuff  	= NULL;
 	tDataBufferPtr		stepBuff  	= NULL;
 	tDataNodePtr		authType	= NULL;
@@ -293,37 +295,39 @@ static tDirStatus opendirectory_ntlmv2_auth_user(
 	authType = dsDataNodeAllocateString( session->ref, method );
 	if ( authType != NULL ) {
 		// directory-services name
-		len = strlen( user );
-		memcpy( &(authBuff->fBufferData[ curr ]), &len, 4 );
-		curr += sizeof( long );
+		len = (UInt32)strlen( user );
+		memcpy( &(authBuff->fBufferData[ curr ]), &len, sizeof(len) );
+		curr += sizeof( len );
 		memcpy( &(authBuff->fBufferData[ curr ]), user, len );
 		curr += len;
 		// server challenge
 		len = 8;
-		memcpy( &(authBuff->fBufferData[ curr ]), &len, 4 );
-		curr += sizeof (long );
+		memcpy( &(authBuff->fBufferData[ curr ]), &len, sizeof(len) );
+		curr += sizeof (len );
 		memcpy( &(authBuff->fBufferData[ curr ]), sec_blob->data, len );
 		curr += len;
 		// client "blob" - 16 bytes of client digest + the blob_data
 		len = ntv2_response->length;
-		memcpy( &(authBuff->fBufferData[ curr ]), &len, 4 );
-		curr += sizeof (long );
+		memcpy( &(authBuff->fBufferData[ curr ]), &len, sizeof(len) );
+		curr += sizeof (len );
 		memcpy( &(authBuff->fBufferData[ curr ]), ntv2_response->data, len );
 		curr += len;
 		 // user name used in the digest (usually the same as item #1 in the buffer)
-		len = strlen( user );
-		memcpy( &(authBuff->fBufferData[ curr ]), &len, 4 );
-		curr += sizeof( long );
+		len = (UInt32)strlen( user );
+		memcpy( &(authBuff->fBufferData[ curr ]), &len, sizeof(len) );
+		curr += sizeof( len );
 		memcpy( &(authBuff->fBufferData[ curr ]), user, len );
 		curr += len;
 		// domain
-		len = strlen( domain );
-		memcpy( &(authBuff->fBufferData[ curr ]), &len, 4 );
-		curr += sizeof( long );
+		len = (UInt32)strlen( domain );
+		memcpy( &(authBuff->fBufferData[ curr ]), &len, sizeof(len) );
+		curr += sizeof( len );
 		memcpy( &(authBuff->fBufferData[ curr ]), domain, len );
 		curr += len;
 
-		authBuff->fBufferLength = curr;
+		if (curr > UINT32_MAX)
+		    smb_panic("Looks like fBufferLength overflowed\n");
+		authBuff->fBufferLength = (UInt32)curr;
 
 		status = dsDoDirNodeAuth( userNode, authType, True,
 				authBuff, stepBuff, NULL );

@@ -1,58 +1,63 @@
----
-name: DBIx-Class-Schema-Loader
-version: 0.03009
-author:
-  - 'Brandon Black, C<blblack@gmail.com>'
+--- 
 abstract: Dynamic definition of a DBIx::Class::Schema
+author: 
+  - Brandon Black, C<blblack@gmail.com>
+build_requires: 
+  DBD::SQLite: 1.12
+  DBI: 1.56
+  File::Path: 0
+  Test::More: 0.47
+distribution_type: module
+generated_by: Module::Install version 0.68
 license: perl
-resources:
-  license: http://dev.perl.org/licenses/
-requires:
+meta-spec: 
+  url: http://module-build.sourceforge.net/META-spec-v1.3.html
+  version: 1.3
+name: DBIx-Class-Schema-Loader
+no_index: 
+  directory: 
+    - inc
+    - t
+provides: 
+  DBIx::Class::Schema::Loader: 
+    file: lib/DBIx/Class/Schema/Loader.pm
+    version: 0.04005
+  DBIx::Class::Schema::Loader::Base: 
+    file: lib/DBIx/Class/Schema/Loader/Base.pm
+    version: 0.04005
+  DBIx::Class::Schema::Loader::DBI: 
+    file: lib/DBIx/Class/Schema/Loader/DBI.pm
+    version: 0.04005
+  DBIx::Class::Schema::Loader::DBI::DB2: 
+    file: lib/DBIx/Class/Schema/Loader/DBI/DB2.pm
+    version: 0.04005
+  DBIx::Class::Schema::Loader::DBI::Pg: 
+    file: lib/DBIx/Class/Schema/Loader/DBI/Pg.pm
+    version: 0.04005
+  DBIx::Class::Schema::Loader::DBI::SQLite: 
+    file: lib/DBIx/Class/Schema/Loader/DBI/SQLite.pm
+    version: 0.04005
+  DBIx::Class::Schema::Loader::DBI::Writing: 
+    file: lib/DBIx/Class/Schema/Loader/DBI/Writing.pm
+    version: 0.04005
+  DBIx::Class::Schema::Loader::DBI::mysql: 
+    file: lib/DBIx/Class/Schema/Loader/DBI/mysql.pm
+    version: 0.04005
+  DBIx::Class::Schema::Loader::RelBuilder: 
+    file: lib/DBIx/Class/Schema/Loader/RelBuilder.pm
+    version: 0.04005
+requires: 
   Carp::Clan: 0
-  Class::Accessor: 0.22
-  Class::C3: 0.11
-  Class::Data::Accessor: 0.02
-  DBIx::Class: 0.06003
+  Class::Accessor::Fast: 0.30
+  Class::C3: 0.18
+  Class::Data::Accessor: 0.03
+  Class::Inspector: 0
+  DBIx::Class: 0.07006
   Data::Dump: 1.06
+  Digest::MD5: 2.36
   File::Spec: 0
-  Lingua::EN::Inflect: 1.89
   Lingua::EN::Inflect::Number: 1.1
   Scalar::Util: 0
   Text::Balanced: 0
-  UNIVERSAL::require: 0.1
-build_requires:
-  DBD::SQLite: 1.12
-  DBI: 1.5
-  File::Path: 0
-  Test::More: 0.32
-recommends:
-  Class::Inspector: 0
-  DBD::DB2: 0.78
-  DBD::Pg: 1.49
-  DBD::SQLite: 1.12
-  DBD::mysql: 3.0003
-  DBI: 1.5
-provides:
-  DBIx::Class::Schema::Loader:
-    file: lib/DBIx/Class/Schema/Loader.pm
-    version: 0.03009
-  DBIx::Class::Schema::Loader::Base:
-    file: lib/DBIx/Class/Schema/Loader/Base.pm
-  DBIx::Class::Schema::Loader::DBI:
-    file: lib/DBIx/Class/Schema/Loader/DBI.pm
-  DBIx::Class::Schema::Loader::DBI::DB2:
-    file: lib/DBIx/Class/Schema/Loader/DBI/DB2.pm
-  DBIx::Class::Schema::Loader::DBI::Pg:
-    file: lib/DBIx/Class/Schema/Loader/DBI/Pg.pm
-  DBIx::Class::Schema::Loader::DBI::SQLite:
-    file: lib/DBIx/Class/Schema/Loader/DBI/SQLite.pm
-  DBIx::Class::Schema::Loader::DBI::Writing:
-    file: lib/DBIx/Class/Schema/Loader/DBI/Writing.pm
-  DBIx::Class::Schema::Loader::DBI::mysql:
-    file: lib/DBIx/Class/Schema/Loader/DBI/mysql.pm
-  DBIx::Class::Schema::Loader::RelBuilder:
-    file: lib/DBIx/Class/Schema/Loader/RelBuilder.pm
-generated_by: Module::Build version 0.2805
-meta-spec:
-  url: http://module-build.sourceforge.net/META-spec-v1.2.html
-  version: 1.2
+  UNIVERSAL::require: 0.11
+version: 0.04005

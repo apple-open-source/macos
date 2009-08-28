@@ -1,6 +1,6 @@
 /* Procedure integration for GCC.
    Copyright (C) 1988, 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -45,12 +45,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ggc.h"
 #include "target.h"
 #include "langhooks.h"
+#include "tree-pass.h"
 
 /* Round to the next highest integer that meets the alignment.  */
 #define CEIL_ROUND(VALUE,ALIGN)	(((VALUE) + (ALIGN) - 1) & ~((ALIGN)- 1))
 
 
-/* Private type used by {get/has}_func_hard_reg_initial_val.  */
+/* Private type used by {get/has}_hard_reg_initial_val.  */
 typedef struct initial_value_pair GTY(()) {
   rtx hard_reg;
   rtx pseudo;
@@ -87,79 +88,6 @@ function_attribute_inlinable_p (tree fndecl)
 
   return true;
 }
-
-/* Copy NODE (which must be a DECL).  The DECL originally was in the FROM_FN,
-   but now it will be in the TO_FN.  */
-
-tree
-copy_decl_for_inlining (tree decl, tree from_fn, tree to_fn)
-{
-  tree copy;
-
-  /* Copy the declaration.  */
-  if (TREE_CODE (decl) == PARM_DECL || TREE_CODE (decl) == RESULT_DECL)
-    {
-      tree type = TREE_TYPE (decl);
-
-      /* For a parameter or result, we must make an equivalent VAR_DECL, not a
-	 new PARM_DECL.  */
-      copy = build_decl (VAR_DECL, DECL_NAME (decl), type);
-      TREE_ADDRESSABLE (copy) = TREE_ADDRESSABLE (decl);
-      TREE_READONLY (copy) = TREE_READONLY (decl);
-      TREE_THIS_VOLATILE (copy) = TREE_THIS_VOLATILE (decl);
-    }
-  else
-    {
-      copy = copy_node (decl);
-      /* The COPY is not abstract; it will be generated in TO_FN.  */
-      DECL_ABSTRACT (copy) = 0;
-      lang_hooks.dup_lang_specific_decl (copy);
-
-      /* TREE_ADDRESSABLE isn't used to indicate that a label's
-	 address has been taken; it's for internal bookkeeping in
-	 expand_goto_internal.  */
-      if (TREE_CODE (copy) == LABEL_DECL)
-	{
-	  TREE_ADDRESSABLE (copy) = 0;
-	}
-    }
-
-  /* Don't generate debug information for the copy if we wouldn't have
-     generated it for the copy either.  */
-  DECL_ARTIFICIAL (copy) = DECL_ARTIFICIAL (decl);
-  DECL_IGNORED_P (copy) = DECL_IGNORED_P (decl);
-
-  /* Set the DECL_ABSTRACT_ORIGIN so the debugging routines know what
-     declaration inspired this copy.  */
-  DECL_ABSTRACT_ORIGIN (copy) = DECL_ORIGIN (decl);
-
-  /* The new variable/label has no RTL, yet.  */
-  if (!TREE_STATIC (copy) && !DECL_EXTERNAL (copy))
-    SET_DECL_RTL (copy, NULL_RTX);
-
-  /* These args would always appear unused, if not for this.  */
-  TREE_USED (copy) = 1;
-
-  /* Set the context for the new declaration.  */
-  if (!DECL_CONTEXT (decl))
-    /* Globals stay global.  */
-    ;
-  else if (DECL_CONTEXT (decl) != from_fn)
-    /* Things that weren't in the scope of the function we're inlining
-       from aren't in the scope we're inlining to, either.  */
-    ;
-  else if (TREE_STATIC (decl))
-    /* Function-scoped static variables should stay in the original
-       function.  */
-    ;
-  else
-    /* Ordinary automatic local variables are now in the scope of the
-       new function.  */
-    DECL_CONTEXT (copy) = to_fn;
-
-  return copy;
-}
-
 
 /* Given a pointer to some BLOCK node, if the BLOCK_ABSTRACT_ORIGIN for the
    given BLOCK node is NULL, set the BLOCK_ABSTRACT_ORIGIN for the node so
@@ -293,38 +221,27 @@ get_hard_reg_initial_reg (struct function *fun, rtx reg)
   return NULL_RTX;
 }
 
-static rtx
-has_func_hard_reg_initial_val (struct function *fun, rtx reg)
+/* Make sure that there's a pseudo register of mode MODE that stores the
+   initial value of hard register REGNO.  Return an rtx for such a pseudo.  */
+
+rtx
+get_hard_reg_initial_val (enum machine_mode mode, unsigned int regno)
 {
-  struct initial_value_struct *ivs = fun->hard_reg_initial_vals;
-  int i;
+  struct initial_value_struct *ivs;
+  rtx rv;
 
-  if (ivs == 0)
-    return NULL_RTX;
-
-  for (i = 0; i < ivs->num_entries; i++)
-    if (rtx_equal_p (ivs->entries[i].hard_reg, reg))
-      return ivs->entries[i].pseudo;
-
-  return NULL_RTX;
-}
-
-static rtx
-get_func_hard_reg_initial_val (struct function *fun, rtx reg)
-{
-  struct initial_value_struct *ivs = fun->hard_reg_initial_vals;
-  rtx rv = has_func_hard_reg_initial_val (fun, reg);
-
+  rv = has_hard_reg_initial_val (mode, regno);
   if (rv)
     return rv;
 
+  ivs = cfun->hard_reg_initial_vals;
   if (ivs == 0)
     {
-      fun->hard_reg_initial_vals = ggc_alloc (sizeof (initial_value_struct));
-      ivs = fun->hard_reg_initial_vals;
+      ivs = ggc_alloc (sizeof (initial_value_struct));
       ivs->num_entries = 0;
       ivs->max_entries = 5;
       ivs->entries = ggc_alloc (5 * sizeof (initial_value_pair));
+      cfun->hard_reg_initial_vals = ivs;
     }
 
   if (ivs->num_entries >= ivs->max_entries)
@@ -335,25 +252,33 @@ get_func_hard_reg_initial_val (struct function *fun, rtx reg)
 				  * sizeof (initial_value_pair));
     }
 
-  ivs->entries[ivs->num_entries].hard_reg = reg;
-  ivs->entries[ivs->num_entries].pseudo = gen_reg_rtx (GET_MODE (reg));
+  ivs->entries[ivs->num_entries].hard_reg = gen_rtx_REG (mode, regno);
+  ivs->entries[ivs->num_entries].pseudo = gen_reg_rtx (mode);
 
   return ivs->entries[ivs->num_entries++].pseudo;
 }
 
-rtx
-get_hard_reg_initial_val (enum machine_mode mode, int regno)
-{
-  return get_func_hard_reg_initial_val (cfun, gen_rtx_REG (mode, regno));
-}
+/* See if get_hard_reg_initial_val has been used to create a pseudo
+   for the initial value of hard register REGNO in mode MODE.  Return
+   the associated pseudo if so, otherwise return NULL.  */
 
 rtx
-has_hard_reg_initial_val (enum machine_mode mode, int regno)
+has_hard_reg_initial_val (enum machine_mode mode, unsigned int regno)
 {
-  return has_func_hard_reg_initial_val (cfun, gen_rtx_REG (mode, regno));
+  struct initial_value_struct *ivs;
+  int i;
+
+  ivs = cfun->hard_reg_initial_vals;
+  if (ivs != 0)
+    for (i = 0; i < ivs->num_entries; i++)
+      if (GET_MODE (ivs->entries[i].hard_reg) == mode
+	  && REGNO (ivs->entries[i].hard_reg) == regno)
+	return ivs->entries[i].pseudo;
+
+  return NULL_RTX;
 }
 
-void
+unsigned int
 emit_initial_value_sets (void)
 {
   struct initial_value_struct *ivs = cfun->hard_reg_initial_vals;
@@ -361,7 +286,7 @@ emit_initial_value_sets (void)
   rtx seq;
 
   if (ivs == 0)
-    return;
+    return 0;
 
   start_sequence ();
   for (i = 0; i < ivs->num_entries; i++)
@@ -369,40 +294,76 @@ emit_initial_value_sets (void)
   seq = get_insns ();
   end_sequence ();
 
-  emit_insn_after (seq, entry_of_function ());
+  emit_insn_at_entry (seq);
+  return 0;
 }
+
+struct tree_opt_pass pass_initial_value_sets =
+{
+  "initvals",                           /* name */
+  NULL,                                 /* gate */
+  emit_initial_value_sets,              /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
+  0                                     /* letter */
+};
 
 /* If the backend knows where to allocate pseudos for hard
    register initial values, register these allocations now.  */
 void
 allocate_initial_values (rtx *reg_equiv_memory_loc ATTRIBUTE_UNUSED)
 {
-#ifdef ALLOCATE_INITIAL_VALUE
-  struct initial_value_struct *ivs = cfun->hard_reg_initial_vals;
-  int i;
-
-  if (ivs == 0)
-    return;
-
-  for (i = 0; i < ivs->num_entries; i++)
+  if (targetm.allocate_initial_value)
     {
-      int regno = REGNO (ivs->entries[i].pseudo);
-      rtx x = ALLOCATE_INITIAL_VALUE (ivs->entries[i].hard_reg);
+      struct initial_value_struct *ivs = cfun->hard_reg_initial_vals;
+      int i;
 
-      if (x == NULL_RTX || REG_N_SETS (REGNO (ivs->entries[i].pseudo)) > 1)
-	; /* Do nothing.  */
-      else if (MEM_P (x))
-	reg_equiv_memory_loc[regno] = x;
-      else if (REG_P (x))
+      if (ivs == 0)
+	return;
+
+      for (i = 0; i < ivs->num_entries; i++)
 	{
-	  reg_renumber[regno] = REGNO (x);
-	  /* Poke the regno right into regno_reg_rtx
-	     so that even fixed regs are accepted.  */
-	  REGNO (ivs->entries[i].pseudo) = REGNO (x);
+	  int regno = REGNO (ivs->entries[i].pseudo);
+	  rtx x = targetm.allocate_initial_value (ivs->entries[i].hard_reg);
+  
+	  if (x && REG_N_SETS (REGNO (ivs->entries[i].pseudo)) <= 1)
+	    {
+	      if (MEM_P (x))
+		reg_equiv_memory_loc[regno] = x;
+	      else
+		{
+		  basic_block bb;
+		  int new_regno;
+
+		  gcc_assert (REG_P (x));
+		  new_regno = REGNO (x);
+		  reg_renumber[regno] = new_regno;
+		  /* Poke the regno right into regno_reg_rtx so that even
+		     fixed regs are accepted.  */
+		  REGNO (ivs->entries[i].pseudo) = new_regno;
+		  /* Update global register liveness information.  */
+		  FOR_EACH_BB (bb)
+		    {
+		      struct rtl_bb_info *info = bb->il.rtl;
+
+		      if (REGNO_REG_SET_P(info->global_live_at_start, regno))
+			SET_REGNO_REG_SET (info->global_live_at_start,
+					   new_regno);
+		      if (REGNO_REG_SET_P(info->global_live_at_end, regno))
+			SET_REGNO_REG_SET (info->global_live_at_end,
+					   new_regno);
+		    }
+		}
+	    }
 	}
-      else abort ();
     }
-#endif
 }
 
 #include "gt-integrate.h"

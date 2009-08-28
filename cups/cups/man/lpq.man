@@ -1,9 +1,9 @@
 .\"
-.\" "$Id: lpq.man 7648 2008-06-16 17:41:11Z mike $"
+.\" "$Id: lpq.man 7646 2008-06-16 17:26:20Z mike $"
 .\"
 .\"   lpq man page for the Common UNIX Printing System (CUPS).
 .\"
-.\"   Copyright 2007-2008 by Apple Inc.
+.\"   Copyright 2007-2009 by Apple Inc.
 .\"   Copyright 1997-2006 by Easy Software Products.
 .\"
 .\"   These coded instructions, statements, and computer programs are the
@@ -12,7 +12,7 @@
 .\"   which should have been included with this file.  If this file is
 .\"   file is missing or damaged, see the license at "http://www.cups.org/".
 .\"
-.TH lpq 1 "Common UNIX Printing System" "16 June 2008" "Apple Inc."
+.TH lpq 1 "CUPS" "16 June 2008" "Apple Inc."
 .SH NAME
 lpq \- show printer queue status
 .SH SYNOPSIS
@@ -66,7 +66,7 @@ Requests a more verbose (long) reporting format.
 .br
 http://localhost:631/help
 .SH COPYRIGHT
-Copyright 2007-2008 by Apple Inc.
+Copyright 2007-2009 by Apple Inc.
 .\"
-.\" End of "$Id: lpq.man 7648 2008-06-16 17:41:11Z mike $".
+.\" End of "$Id: lpq.man 7646 2008-06-16 17:26:20Z mike $".
 .\"

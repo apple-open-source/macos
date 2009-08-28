@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/liblber/bprint.c,v 1.55.2.2 2006/01/03 22:16:07 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/liblber/bprint.c,v 1.57.2.3 2008/02/11 23:26:41 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -265,10 +265,10 @@ ber_dump(
 		len = ber_pvt_ber_write(ber);
 	}
 
-	sprintf( buf, "ber_dump: buf=0x%08lx ptr=0x%08lx end=0x%08lx len=%ld\n",
-	    (long) ber->ber_buf,
-		(long) ber->ber_ptr,
-		(long) ber->ber_end,
+	sprintf( buf, "ber_dump: buf=%p ptr=%p end=%p len=%ld\n",
+		ber->ber_buf,
+		ber->ber_ptr,
+		ber->ber_end,
 		(long) len );
 
 	(void) (*ber_pvt_log_print)( buf );
@@ -303,10 +303,10 @@ ber_sos_dump(
 	(*ber_pvt_log_print)( "*** sos dump ***\n" );
 
 	while ( sos != NULL ) {
-		sprintf( buf, "ber_sos_dump: clen %ld first 0x%lx ptr 0x%lx\n",
+		sprintf( buf, "ber_sos_dump: clen %ld first %p ptr %p\n",
 		    (long) sos->sos_clen,
-			(long) sos->sos_first,
-			(long) sos->sos_ptr );
+			sos->sos_first,
+			sos->sos_ptr );
 		(*ber_pvt_log_print)( buf );
 
 		sprintf( buf, "              current len %ld contents:\n",

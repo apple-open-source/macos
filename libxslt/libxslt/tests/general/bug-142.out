@@ -1,13 +1,13 @@
 <?xml version="1.0"?>
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="fr"><body><div id="post6" xml:lang="ja"><h3><a href="2004/01/26/6">&#x4ED6;&#x306E;&#x65E5;&#x672C;&#x8A9E;&#x306E;&#x4F1D;&#x8A00;</a></h3>
-      <p>&#x3053;&#x306E;&#x4F1D;&#x8A00;&#x306F;&#x65E5;&#x672C;&#x8A9E;&#x3067;&#x66F8;&#x3044;&#x3066;&#x3001;&#x7FFB;&#x8A33;&#x304C;&#x3042;&#x308B;&#x3002;<span xml:lang="fr">couhin ?</span></p>
-      <p>Et on a une petite phrase en fran&#xE7;ais.</p>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="fr"><body><div id="post6"><h3><a href="2004/01/26/6">他の日本語の伝言</a></h3>
+      <p>この伝言は日本語で書いて、翻訳がある。<span xml:lang="fr">couhin ?</span></p>
+      <p>Et on a une petite phrase en français.</p>
     </div>
     Test
-  <div id="post4" xml:lang="ja"><h3><a href="2004/01/25/4">&#x65E5;&#x672C;&#x8A9E;&#x306E;&#x4F1D;&#x8A00;</a></h3>
-      <p>&#x3053;&#x306E;&#x4F1D;&#x8A00;&#x306F;&#x65E5;&#x672C;&#x8A9E;&#x3067;&#x66F8;&#x3044;&#x3066;&#x3001;&#x7FFB;&#x8A33;&#x304C;&#x306A;&#x3044;&#x3002;&#x5B9F;&#x306F;&#x5C11;&#x3057;&#x3060;&#x3051;&#x3002;</p>
-      <p>&#x3042;&#x3044;&#x3046;&#x3048;&#x304A;&#x304B;&#x304D;&#x304F;&#x3051;&#x3053;&#x3055;&#x3057;&#x3059;&#x305B;&#x305D;&#x2026;</p>
-    </div><div id="post3" xml:lang="ja"><h3><a href="2005/08/12/3"/></h3></div><div id="post2" xml:lang="ja"><h3><a href="2004/01/25/2">&#x9593;&#x9055;&#x3044;</a></h3>
+  <div id="post4"><h3><a href="2004/01/25/4">日本語の伝言</a></h3>
+      <p>この伝言は日本語で書いて、翻訳がない。実は少しだけ。</p>
+      <p>あいうえおかきくけこさしすせそ…</p>
+    </div><div id="post3"><h3><a href="2005/08/12/3"/></h3></div><div id="post2"><h3><a href="2004/01/25/2">間違い</a></h3>
       <p>Quelques tests d'erreurs :</p>
       <ul>
 	Un paragraphe dans la liste
@@ -15,21 +15,21 @@
 	<li/>
 	<li><span xml:lang="fr"><li>un couac</li></span>,</li>
 	<li><li>un autre</li>,</li>
-	<li>une <span xml:lang="fr">&#x7FFB;&#x8A33;</span> sans xml:lang="ja"</li>
+	<li>une <span xml:lang="fr">翻訳</span> sans xml:lang="ja"</li>
 	<li>20040125</li>
       </ul>
-    </div><div id="post1" xml:lang="ja"><h3><a href="2004/01/25/1">&#x30B5;&#x30F3;&#x30D7;&#x30EB;</a></h3>
-      <p>Ceci est un <span xml:lang="ja">&#x30C6;&#x30B9;&#x30C8;</span>.</p>
+    </div><div id="post1"><h3><a href="2004/01/25/1">サンプル</a></h3>
+      <p>Ceci est un <span xml:lang="ja">テスト</span>.</p>
       <ul>
 	<li>Voici une liste,</li>
-	<li>un splendide test de <a href="http://www.google.com/">lien ext&#xE9;rieur</a>,</li>
+	<li>un splendide test de <a href="http://www.google.com/">lien extérieur</a>,</li>
 	<li>un autre test de lien, mais <a href="glandium.png">interne, cette fois</a>,</li>
-	<li>&#x65E5;&#x672C;&#x8A9E;&#x306E;&#x30A2;&#x30A4;&#x30C6;&#x30E0;&#x3001;</li>
-	<li><a href="http://www.google.com">&#x30EA;&#x30F3;&#x30AF;&#x304C;&#x3042;&#x308B;&#x65E5;&#x672C;&#x8A9E;&#x306E;&#x30A2;&#x30A4;&#x30C6;&#x30E0;&#x3001;</a></li>
+	<li>日本語のアイテム、</li>
+	<li><a href="http://www.google.com">リンクがある日本語のアイテム、</a></li>
 	<li><a href="http://www.google.com">un item lien.</a></li>
-	<li>Un <span xml:lang="ja">&#x30C6;&#x30B9;&#x30C8;</span> d'auto-traduction (le mot est pr&#xE9;sent plus haut dans le post, pas la peine de tout r&#xE9;p&#xE9;ter...</li>
+	<li>Un <span xml:lang="ja">テスト</span> d'auto-traduction (le mot est présent plus haut dans le post, pas la peine de tout répéter...</li>
 	<li>une date en ligne : 20040301 et <ul><li>une liste dans la liste</li></ul></li>
-	<li>un <a href="glandium.png">lien avec du <span xml:lang="ja">&#x65E5;&#x672C;&#x8A9E;</span> dedans</a></li>
+	<li>un <a href="glandium.png">lien avec du <span xml:lang="ja">日本語</span> dedans</a></li>
       </ul>
       <p><a href="http://www.google.com">un paragraphe lien.</a></p>
     </div></body></html>

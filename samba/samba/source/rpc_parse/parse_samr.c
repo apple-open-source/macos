@@ -5182,7 +5182,7 @@ reads or writes a structure.
 void init_samr_q_create_user(SAMR_Q_CREATE_USER * q_u,
 			     POLICY_HND *pol,
 			     const char *name,
-			     uint32 acb_info, uint32 access_mask)
+			     uint32 acb_info, uint32 acct_flags)
 {
 	DEBUG(5, ("samr_init_samr_q_create_user\n"));
 
@@ -5192,7 +5192,7 @@ void init_samr_q_create_user(SAMR_Q_CREATE_USER * q_u,
 	init_uni_hdr(&q_u->hdr_name, &q_u->uni_name);
 
 	q_u->acb_info = acb_info;
-	q_u->access_mask = access_mask;
+	q_u->acct_flags = acct_flags;
 }
 
 /*******************************************************************
@@ -5223,7 +5223,7 @@ BOOL samr_io_q_create_user(const char *desc, SAMR_Q_CREATE_USER * q_u,
 		return False;
 	if(!prs_uint32("acb_info   ", ps, depth, &q_u->acb_info))
 		return False;
-	if(!prs_uint32("access_mask", ps, depth, &q_u->access_mask))
+	if(!prs_uint32("acct_flags", ps, depth, &q_u->acct_flags))
 		return False;
 
 	return True;
@@ -5870,6 +5870,25 @@ void init_sam_user_info23A(SAM_USER_INFO_23 * usr, NTTIME * logon_time,	/* all z
 	}
 }
 
+
+/*************************************************************************
+ init_samr_user_info25P
+ fields_present = ACCT_NT_PWD_SET | ACCT_LM_PWD_SET | ACCT_FLAGS
+*************************************************************************/
+
+void init_sam_user_info25P(SAM_USER_INFO_25 * usr,
+			   uint32 fields_present, uint32 acb_info,
+			   char newpass[532])
+{
+	usr->fields_present = fields_present;
+	ZERO_STRUCT(usr->padding1);
+	ZERO_STRUCT(usr->padding2);
+
+	usr->acb_info = acb_info;
+	memcpy(usr->pass, newpass, sizeof(usr->pass));
+}
+
+
 /*******************************************************************
 reads or writes a structure.
 ********************************************************************/
@@ -6064,8 +6083,25 @@ static BOOL sam_io_user_info25(const char *desc, SAM_USER_INFO_25 * usr, prs_str
 	if(!prs_uint32("fields_present ", ps, depth, &usr->fields_present))
 		return False;
 
-	if(!prs_uint32s(False, "unknown_5      ", ps, depth, usr->unknown_5, 5))
+	if(!prs_uint16("logon_divs    ", ps, depth, &usr->logon_divs))	/* logon divisions per week */
 		return False;
+	if(!prs_align(ps))
+		return False;
+	if(!prs_uint32("ptr_logon_hrs ", ps, depth, &usr->ptr_logon_hrs))
+		return False;
+
+	if(!prs_uint16("bad_password_count     ", ps, depth, &usr->bad_password_count))
+		return False;
+	if(!prs_uint16("logon_count     ", ps, depth, &usr->logon_count))
+		return False;
+
+	if(!prs_uint8s(False, "padding1      ", ps, depth, usr->padding1, sizeof(usr->padding1)))
+		return False;
+	if(!prs_uint8("passmustchange ", ps, depth, &usr->passmustchange))
+		return False;
+	if(!prs_uint8("padding2       ", ps, depth, &usr->padding2))
+		return False;
+
 
 	if(!prs_uint8s(False, "password      ", ps, depth, usr->pass, sizeof(usr->pass)))
 		return False;
@@ -6102,13 +6138,11 @@ static BOOL sam_io_user_info25(const char *desc, SAM_USER_INFO_25 * usr, prs_str
 	if(!smb_io_unistr2("uni_munged_dial ", &usr->uni_munged_dial, usr->hdr_munged_dial.buffer, ps, depth))
 		return False;
 
-#if 0 /* JRA - unknown... */
 	/* ok, this is only guess-work (as usual) */
 	if (usr->ptr_logon_hrs) {
 		if(!sam_io_logon_hrs("logon_hrs", &usr->logon_hrs, ps, depth))
 			return False;
 	} 
-#endif
 
 	return True;
 }

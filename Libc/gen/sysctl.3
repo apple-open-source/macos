@@ -32,7 +32,7 @@
 .\"	@(#)sysctl.3	8.4 (Berkeley) 5/9/95
 .\" $FreeBSD: src/lib/libc/gen/sysctl.3,v 1.63 2004/07/02 23:52:10 ru Exp $
 .\"
-.Dd January 23, 2001
+.Dd October 21, 2008
 .Dt SYSCTL 3
 .Os
 .Sh NAME
@@ -291,6 +291,7 @@ privilege may change the value.
 .It "HW_NCPU	integer	no"
 .It "HW_BYTEORDER	integer	no"
 .It "HW_PHYSMEM	integer	no"
+.It "HW_MEMSIZE	integer	no"
 .It "HW_USERMEM	integer	no"
 .It "HW_PAGESIZE	integer	no"
 .It "HW_FLOATINGPOINT	integer	no"
@@ -309,7 +310,9 @@ The number of cpus.
 .It Li HW_BYTEORDER
 The byteorder (4,321, or 1,234).
 .It Li HW_PHYSMEM
-The bytes of physical memory.
+The bytes of physical memory represented by a 32-bit integer (for backward compatibility). Use HW_MEMSIZE instead.
+.It Li HW_MEMSIZE
+The bytes of physical memory represented by a 64-bit integer.
 .It Li HW_USERMEM
 The bytes of non-kernel memory.
 .It Li HW_PAGESIZE
@@ -727,7 +730,6 @@ privilege may change the value.
 .Bl -column "Second level nameXXXXXX" "struct loadavgXXX" -offset indent
 .It Sy "Second level name	Type	Changeable"
 .It "VM_LOADAVG	struct loadavg	no"
-.It "VM_METER	struct vmtotal	no"
 .It "VM_PAGEOUT_ALGORITHM	integer	yes"
 .It "VM_SWAPPING_ENABLED	integer	maybe"
 .It "VM_V_CACHE_MAX	integer	yes"
@@ -744,10 +746,6 @@ privilege may change the value.
 Return the load average history.
 The returned data consists of a
 .Va struct loadavg .
-.It Li VM_METER
-Return the system wide virtual memory statistics.
-The returned data consists of a
-.Va struct vmtotal .
 .It Li VM_PAGEOUT_ALGORITHM
 0 if the statistics-based page management algorithm is in use
 or 1 if the near-LRU algorithm is in use.

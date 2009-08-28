@@ -6,6 +6,22 @@
 	objectVersion = 42;
 	objects = {
 
+/* Begin PBXAggregateTarget section */
+		60FD678F0D3FF41A000D088D /* IOBDStorageFamily Headers */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 60FD67920D3FF43C000D088D /* Build configuration list for PBXAggregateTarget "IOBDStorageFamily Headers" */;
+			buildPhases = (
+				60FD67B90D3FFB56000D088D /* CopyFiles */,
+				60FD67BA0D3FFB56000D088D /* CopyFiles */,
+				60FD67AD0D3FFAE0000D088D /* ShellScript */,
+			);
+			dependencies = (
+			);
+			name = "IOBDStorageFamily Headers";
+			productName = "IOBDStorageFamily Headers";
+		};
+/* End PBXAggregateTarget section */
+
 /* Begin PBXBuildFile section */
 		60BD236B0736E82C00AC1192 /* IOBDBlockStorageDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 0560FFD6008B977E11CA2AA4 /* IOBDBlockStorageDevice.h */; };
 		60BD236C0736E82C00AC1192 /* IOBDBlockStorageDriver.h in Headers */ = {isa = PBXBuildFile; fileRef = 0560FFD8008B977E11CA2AA4 /* IOBDBlockStorageDriver.h */; };
@@ -20,77 +36,52 @@
 		60BD237A0736E82C00AC1192 /* IOBDBlockStorageDriver.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0560FFD5008B977E11CA2AA4 /* IOBDBlockStorageDriver.cpp */; };
 		60BD237B0736E82C00AC1192 /* IOBDMedia.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0560FFD9008B977E11CA2AA4 /* IOBDMedia.cpp */; };
 		60BD237C0736E82C00AC1192 /* IOBDMediaBSDClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12BF9C9800D8588E03CA2AA4 /* IOBDMediaBSDClient.cpp */; };
-		60BD23880736E82C00AC1192 /* IOBDBlockStorageDevice.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0560FFD6008B977E11CA2AA4 /* IOBDBlockStorageDevice.h */; };
-		60BD23890736E82C00AC1192 /* IOBDBlockStorageDriver.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0560FFD8008B977E11CA2AA4 /* IOBDBlockStorageDriver.h */; };
-		60BD238A0736E82C00AC1192 /* IOBDMedia.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0560FFDA008B977E11CA2AA4 /* IOBDMedia.h */; };
-		60BD238B0736E82C00AC1192 /* IOBDMediaBSDClient.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 12BF9C9900D8588E03CA2AA4 /* IOBDMediaBSDClient.h */; };
-		60BD238C0736E82C00AC1192 /* IOBDTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0560FFDB008B977E11CA2AA4 /* IOBDTypes.h */; };
-		60BD238E0736E82C00AC1192 /* IOBDBlockStorageDevice.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0560FFD6008B977E11CA2AA4 /* IOBDBlockStorageDevice.h */; };
-		60BD238F0736E82C00AC1192 /* IOBDMedia.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0560FFDA008B977E11CA2AA4 /* IOBDMedia.h */; };
-		60BD23900736E82C00AC1192 /* IOBDMediaBSDClient.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 12BF9C9900D8588E03CA2AA4 /* IOBDMediaBSDClient.h */; };
-		60BD23910736E82C00AC1192 /* IOBDTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0560FFDB008B977E11CA2AA4 /* IOBDTypes.h */; };
+		60FD67AE0D3FFAE9000D088D /* IOBDBlockStorageDevice.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0560FFD6008B977E11CA2AA4 /* IOBDBlockStorageDevice.h */; };
+		60FD67AF0D3FFAE9000D088D /* IOBDBlockStorageDriver.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0560FFD8008B977E11CA2AA4 /* IOBDBlockStorageDriver.h */; };
+		60FD67B00D3FFAE9000D088D /* IOBDMedia.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0560FFDA008B977E11CA2AA4 /* IOBDMedia.h */; };
+		60FD67B10D3FFAE9000D088D /* IOBDMediaBSDClient.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 12BF9C9900D8588E03CA2AA4 /* IOBDMediaBSDClient.h */; };
+		60FD67B20D3FFAE9000D088D /* IOBDTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0560FFDB008B977E11CA2AA4 /* IOBDTypes.h */; };
+		60FD67B30D3FFAF6000D088D /* IOBDBlockStorageDevice.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0560FFD6008B977E11CA2AA4 /* IOBDBlockStorageDevice.h */; };
+		60FD67B40D3FFAF6000D088D /* IOBDMedia.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0560FFDA008B977E11CA2AA4 /* IOBDMedia.h */; };
+		60FD67B50D3FFAF6000D088D /* IOBDMediaBSDClient.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 12BF9C9900D8588E03CA2AA4 /* IOBDMediaBSDClient.h */; };
+		60FD67B60D3FFAF6000D088D /* IOBDTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0560FFDB008B977E11CA2AA4 /* IOBDTypes.h */; };
 /* End PBXBuildFile section */
 
-/* Begin PBXBuildStyle section */
-		06AA1265FFB2107B11CA28AA /* Development */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				OPTIMIZATION_CFLAGS = "-O0";
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		06AA1266FFB2107B11CA28AA /* Deployment */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-/* End PBXBuildStyle section */
-
 /* Begin PBXContainerItemProxy section */
-		60BD23950736E82C00AC1192 /* PBXContainerItemProxy */ = {
+		60FD67DC0D3FFF37000D088D /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 60BD23820736E82C00AC1192;
-			remoteInfo = "IOBDStorageFamily Headers (Upgraded)";
+			remoteGlobalIDString = 60FD678F0D3FF41A000D088D;
+			remoteInfo = "IOBDStorageFamily Headers";
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		60BD23870736E82C00AC1192 /* CopyFiles */ = {
+		60FD67B90D3FFB56000D088D /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
 			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/storage";
 			dstSubfolderSpec = 0;
 			files = (
-				60BD23880736E82C00AC1192 /* IOBDBlockStorageDevice.h in CopyFiles */,
-				60BD23890736E82C00AC1192 /* IOBDBlockStorageDriver.h in CopyFiles */,
-				60BD238A0736E82C00AC1192 /* IOBDMedia.h in CopyFiles */,
-				60BD238B0736E82C00AC1192 /* IOBDMediaBSDClient.h in CopyFiles */,
-				60BD238C0736E82C00AC1192 /* IOBDTypes.h in CopyFiles */,
+				60FD67AE0D3FFAE9000D088D /* IOBDBlockStorageDevice.h in CopyFiles */,
+				60FD67AF0D3FFAE9000D088D /* IOBDBlockStorageDriver.h in CopyFiles */,
+				60FD67B00D3FFAE9000D088D /* IOBDMedia.h in CopyFiles */,
+				60FD67B10D3FFAE9000D088D /* IOBDMediaBSDClient.h in CopyFiles */,
+				60FD67B20D3FFAE9000D088D /* IOBDTypes.h in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		60BD238D0736E82C00AC1192 /* CopyFiles */ = {
+		60FD67BA0D3FFB56000D088D /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
 			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/storage";
 			dstSubfolderSpec = 0;
 			files = (
-				60BD238E0736E82C00AC1192 /* IOBDBlockStorageDevice.h in CopyFiles */,
-				60BD238F0736E82C00AC1192 /* IOBDMedia.h in CopyFiles */,
-				60BD23900736E82C00AC1192 /* IOBDMediaBSDClient.h in CopyFiles */,
-				60BD23910736E82C00AC1192 /* IOBDTypes.h in CopyFiles */,
+				60FD67B30D3FFAF6000D088D /* IOBDBlockStorageDevice.h in CopyFiles */,
+				60FD67B40D3FFAF6000D088D /* IOBDMedia.h in CopyFiles */,
+				60FD67B50D3FFAF6000D088D /* IOBDMediaBSDClient.h in CopyFiles */,
+				60FD67B60D3FFAF6000D088D /* IOBDTypes.h in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -113,7 +104,6 @@
 		6058858007382A7900193F37 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = /System/Library/Frameworks/Kernel.framework; sourceTree = "<absolute>"; };
 		60BD23800736E82C00AC1192 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = Info.plist; sourceTree = "<group>"; };
 		60BD23810736E82C00AC1192 /* IOBDStorageFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOBDStorageFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
-		60BD23930736E82C00AC1192 /* IOBDStorageFamily Headers */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "IOBDStorageFamily Headers"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -144,7 +134,6 @@
 			isa = PBXGroup;
 			children = (
 				60BD23810736E82C00AC1192 /* IOBDStorageFamily.kext */,
-				60BD23930736E82C00AC1192 /* IOBDStorageFamily Headers */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -201,30 +190,8 @@
 			);
 			buildRules = (
 			);
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = "";
-				HEADER_SEARCH_PATHS = "";
-				INFOPLIST_FILE = Info.plist;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				KERNEL_MODULE = YES;
-				LIBRARY_SEARCH_PATHS = "";
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.iokit.IOBDStorageFamily;
-				MODULE_VERSION = 1.5;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = IOBDStorageFamily;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-			};
 			dependencies = (
-				60BD23960736E82C00AC1192 /* PBXTargetDependency */,
+				60FD67DD0D3FFF37000D088D /* PBXTargetDependency */,
 			);
 			name = IOBDStorageFamily;
 			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
@@ -232,57 +199,20 @@
 			productReference = 60BD23810736E82C00AC1192 /* IOBDStorageFamily.kext */;
 			productType = "com.apple.product-type.kernel-extension.iokit";
 		};
-		60BD23820736E82C00AC1192 /* IOBDStorageFamily Headers */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 60218F8F095B74720026C3D8 /* Build configuration list for PBXNativeTarget "IOBDStorageFamily Headers" */;
-			buildPhases = (
-				60BD23870736E82C00AC1192 /* CopyFiles */,
-				60BD238D0736E82C00AC1192 /* CopyFiles */,
-				60BD23920736E82C00AC1192 /* ShellScript */,
-			);
-			buildRules = (
-			);
-			buildSettings = {
-				INSTALLHDRS_COPY_PHASE = YES;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = "IOBDStorageFamily Headers";
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			dependencies = (
-			);
-			name = "IOBDStorageFamily Headers";
-			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
-			productName = "IOBDStorageFamily Headers";
-			productReference = 60BD23930736E82C00AC1192 /* IOBDStorageFamily Headers */;
-			productType = "com.apple.product-type.tool";
-		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			buildConfigurationList = 60218F97095B74720026C3D8 /* Build configuration list for PBXProject "IOBDStorageFamily" */;
-			buildSettings = {
-			};
-			buildStyles = (
-				06AA1265FFB2107B11CA28AA /* Development */,
-				06AA1266FFB2107B11CA28AA /* Deployment */,
-			);
+			compatibilityVersion = "Xcode 2.4";
 			hasScannedForEncodings = 1;
 			mainGroup = 089C166AFE841209C02AAC07 /* IOBDStorageFamily */;
 			projectDirPath = "";
+			projectRoot = "";
 			targets = (
 				60BD23670736E82C00AC1192 /* IOBDStorageFamily */,
-				60BD23820736E82C00AC1192 /* IOBDStorageFamily Headers */,
+				60FD678F0D3FF41A000D088D /* IOBDStorageFamily Headers */,
 			);
 		};
 /* End PBXProject section */
@@ -302,10 +232,14 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		60BD23920736E82C00AC1192 /* ShellScript */ = {
+		60FD67AD0D3FFAE0000D088D /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
 			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
@@ -328,10 +262,10 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		60BD23960736E82C00AC1192 /* PBXTargetDependency */ = {
+		60FD67DD0D3FFF37000D088D /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 60BD23820736E82C00AC1192 /* IOBDStorageFamily Headers */;
-			targetProxy = 60BD23950736E82C00AC1192 /* PBXContainerItemProxy */;
+			target = 60FD678F0D3FF41A000D088D /* IOBDStorageFamily Headers */;
+			targetProxy = 60FD67DC0D3FFF37000D088D /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -347,203 +281,93 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
-		60218F90095B74720026C3D8 /* Development */ = {
+		60218F94095B74720026C3D8 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				INSTALLHDRS_COPY_PHASE = YES;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = "IOBDStorageFamily Headers";
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wall";
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		60218F91095B74720026C3D8 /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				INSTALLHDRS_COPY_PHASE = YES;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = "IOBDStorageFamily Headers";
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		60218F92095B74720026C3D8 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				INSTALLHDRS_COPY_PHASE = YES;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = "IOBDStorageFamily Headers";
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Default;
-		};
-		60218F94095B74720026C3D8 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_PREPROCESS = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				KERNEL_MODULE = YES;
-				LIBRARY_SEARCH_PATHS = "";
-				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOBDStorageFamily;
-				MODULE_VERSION = 1.5;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
+				MODULE_VERSION = 1.6;
 				PRODUCT_NAME = IOBDStorageFamily;
-				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;
-				ZERO_LINK = YES;
 			};
-			name = Development;
+			name = Debug;
 		};
-		60218F95095B74720026C3D8 /* Deployment */ = {
+		60218F95095B74720026C3D8 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_PREPROCESS = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				KERNEL_MODULE = YES;
-				LIBRARY_SEARCH_PATHS = "";
-				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOBDStorageFamily;
-				MODULE_VERSION = 1.5;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
+				MODULE_VERSION = 1.6;
 				PRODUCT_NAME = IOBDStorageFamily;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		60218F96095B74720026C3D8 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = "";
-				HEADER_SEARCH_PATHS = "";
-				INFOPLIST_FILE = Info.plist;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				KERNEL_MODULE = YES;
-				LIBRARY_SEARCH_PATHS = "";
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.iokit.IOBDStorageFamily;
-				MODULE_VERSION = 1.5;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = IOBDStorageFamily;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;
 			};
-			name = Default;
+			name = Release;
 		};
-		60218F98095B74720026C3D8 /* Development */ = {
+		60218F98095B74720026C3D8 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 			};
-			name = Development;
+			name = Debug;
 		};
-		60218F99095B74720026C3D8 /* Deployment */ = {
+		60218F99095B74720026C3D8 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 			};
-			name = Deployment;
+			name = Release;
 		};
-		60218F9A095B74720026C3D8 /* Default */ = {
+		60FD67900D3FF41A000D088D /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				INSTALLHDRS_COPY_PHASE = YES;
+				PRODUCT_NAME = "IOBDStorageFamily Headers";
 			};
-			name = Default;
+			name = Debug;
+		};
+		60FD67910D3FF41A000D088D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALLHDRS_COPY_PHASE = YES;
+				PRODUCT_NAME = "IOBDStorageFamily Headers";
+			};
+			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		60218F8F095B74720026C3D8 /* Build configuration list for PBXNativeTarget "IOBDStorageFamily Headers" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				60218F90095B74720026C3D8 /* Development */,
-				60218F91095B74720026C3D8 /* Deployment */,
-				60218F92095B74720026C3D8 /* Default */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
-		};
 		60218F93095B74720026C3D8 /* Build configuration list for PBXNativeTarget "IOBDStorageFamily" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				60218F94095B74720026C3D8 /* Development */,
-				60218F95095B74720026C3D8 /* Deployment */,
-				60218F96095B74720026C3D8 /* Default */,
+				60218F94095B74720026C3D8 /* Debug */,
+				60218F95095B74720026C3D8 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
 		60218F97095B74720026C3D8 /* Build configuration list for PBXProject "IOBDStorageFamily" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				60218F98095B74720026C3D8 /* Development */,
-				60218F99095B74720026C3D8 /* Deployment */,
-				60218F9A095B74720026C3D8 /* Default */,
+				60218F98095B74720026C3D8 /* Debug */,
+				60218F99095B74720026C3D8 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
+		};
+		60FD67920D3FF43C000D088D /* Build configuration list for PBXAggregateTarget "IOBDStorageFamily Headers" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				60FD67900D3FF41A000D088D /* Debug */,
+				60FD67910D3FF41A000D088D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

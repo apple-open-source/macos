@@ -1,0 +1,40 @@
+# $Id: compositeExample.xotcl,v 1.1 2004/05/23 22:50:39 neumann Exp $
+# include the pattern
+source composite.xotcl
+
+Class Graphic
+@ @File {
+  description {
+    Simple Graphics example of the composite pattern taken from the paper 
+    'Filters as a Language Support for Design Patterns in
+    Object-Oriented Scripting Languages'. They demonstrate instfilters,
+    filter chains and filter inheritance.
+  }
+}
+
+
+Graphic instproc draw {} {
+    puts "in--- draw  SELF: [self]   CLASS: [self class]"
+}
+  
+Composite Picture -superclass Graphic
+Class Line -superclass Graphic
+Class Rectangle -superclass Graphic
+
+
+Picture addOperations draw
+#Picture removeOperations draw
+
+Picture aPicture
+Picture aPicture::bPicture
+Line aPicture::aLine
+Rectangle aPicture::aRect
+Line aPicture::bPicture::aLine
+Rectangle aPicture::bPicture::aRect
+Picture aPicture::bPicture::cPicture
+Picture aPicture::bPicture::dPicture
+Line aPicture::bPicture::cPicture::cLine
+
+# draw eines Composites
+puts "DRAW im Composite: aPicture"
+aPicture draw

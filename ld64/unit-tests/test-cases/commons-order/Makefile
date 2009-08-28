@@ -30,7 +30,7 @@ include ${TESTROOT}/include/common.makefile
 #
 
 all:
-	${CC} baz.c -fno-common -c -o baz.o
+	${CC} ${CCFLAGS} baz.c -fno-common -c -o baz.o
 	${CC} ${CCFLAGS} main.c foo.c bar.c baz.o -o main -mmacosx-version-min=10.5
 	nm -j -n main | grep _common > symbol.order
 	${FAIL_IF_ERROR} diff symbol.order expected.order

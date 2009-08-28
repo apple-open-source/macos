@@ -1,8 +1,9 @@
 \input texinfo.tex @c -*-texinfo-*-
 @c %**start of header
 @setfilename flex.info
-@settitle flex: a fast lexical analyzer generator
+@settitle Lexical Analysis With Flex
 @include version.texi
+@set authors Vern Paxson, Will Estes and John Millaway
 @c  "Macro Hooks" index
 @defindex hk
 @c  "Options" index
@@ -17,6 +18,9 @@
 
 The flex manual is placed under the same licensing conditions as the
 rest of flex:
+
+Copyright @copyright{} 2001, 2002, 2003, 2004, 2005, 2006, 2007 The Flex
+Project.
 
 Copyright @copyright{} 1990, 1997 The Regents of the University of California.
 All rights reserved.
@@ -54,18 +58,15 @@ PURPOSE.
 @end copying
 
 @titlepage
-@title Flex, version @value{VERSION}
-@subtitle A fast scanner generator
+@title @value{title}
 @subtitle Edition @value{EDITION}, @value{UPDATED}
-@author Vern Paxson
-@author W. L. Estes
-@author John Millaway
+@author @value{authors}
 @page
 @vskip 0pt plus 1filll
 @insertcopying
 @end titlepage
 @contents
-
+@ifnottex
 @node Top, Copyright, (dir), (dir)
 @top flex
 
@@ -75,6 +76,8 @@ reference sections.
 
 This edition of @cite{The flex Manual} documents @code{flex} version
 @value{VERSION}. It was last updated on @value{UPDATED}.
+
+This manual was written by @value{authors}.
 
 @menu
 * Copyright::                   
@@ -118,7 +121,7 @@ Format of the Input File
 
 Scanner Options
 
-* Options for Specifing Filenames::  
+* Options for Specifying Filenames::  
 * Options Affecting Scanner Behavior::  
 * Code-Level And API Options::  
 * Options for Scanner Speed and Size::  
@@ -158,7 +161,7 @@ Serialized Tables
 FAQ
 
 * When was flex born?::         
-* How do I expand \ escape sequences in C-style quoted strings?::  
+* How do I expand backslash-escape sequences in C-style quoted strings?::  
 * Why do flex scanners call fileno if it is not ANSI compatible?::  
 * Does flex support recursive pattern definitions?::  
 * How do I skip huge chunks of input (tens of megabytes) while using flex?::  
@@ -171,9 +174,9 @@ FAQ
 * Why cant I use fast or full tables with interactive mode?::  
 * How much faster is -F or -f than -C?::  
 * If I have a simple grammar cant I just parse it with flex?::  
-* Why doesnt yyrestart() set the start state back to INITIAL?::  
+* Why doesn't yyrestart() set the start state back to INITIAL?::  
 * How can I match C-style comments?::  
-* The period isnt working the way I expected.::  
+* The period isn't working the way I expected.::  
 * Can I get the flex manual in another format?::  
 * Does there exist a "faster" NDFA->DFA algorithm?::  
 * How does flex compile the DFA so quickly?::  
@@ -191,7 +194,7 @@ FAQ
 * I am trying to port code from AT&T lex that uses yysptr and yysbuf.::  
 * Is there a way to make flex treat NULL like a regular character?::  
 * Whenever flex can not match the input it says "flex scanner jammed".::  
-* Why doesnt flex have non-greedy operators like perl does?::  
+* Why doesn't flex have non-greedy operators like perl does?::  
 * Memory leak - 16386 bytes allocated by malloc.::  
 * How do I track the byte offset for lseek()?::  
 * How do I use my own I/O classes in a C++ scanner?::  
@@ -265,6 +268,7 @@ Appendices
 * Makefiles and Flex::          
 * Bison Bridge::                
 * M4 Dependency::               
+* Common Patterns::               
 
 Indices
 
@@ -277,7 +281,7 @@ Indices
 
 @end detailmenu
 @end menu
-
+@end ifnottex
 @node Copyright, Reporting Bugs, Top, Top
 @chapter Copyright
 
@@ -291,9 +295,9 @@ Indices
 @cindex bugs, reporting
 @cindex reporting bugs
 
-If you have problems with @code{flex} or think you have found a bug,
-please send mail detailing your problem to
-@email{flex-help@@lists.sourceforge.net}. Patches are always welcome.
+If you find a bug in @code{flex}, please report it using
+the SourceForge Bug Tracking facilities which can be found on
+@url{http://sourceforge.net/projects/flex,flex's SourceForge Page}.
 
 @node Introduction, Simple Examples, Reporting Bugs, Top
 @chapter Introduction
@@ -602,7 +606,8 @@ The presence of this section is optional; if it is missing, the second
 @section Comments in the Input
 
 @cindex comments, syntax of
-Flex supports C-style comments, that is, anything between /* and */ is
+Flex supports C-style comments, that is, anything between @samp{/*} and
+@samp{*/} is
 considered a comment. Whenever flex encounters a comment, it copies the
 entire comment verbatim to the generated source code. Comments may
 appear just about anywhere, but with the following exceptions:
@@ -693,6 +698,9 @@ character EXCEPT an uppercase letter.
 any character EXCEPT an uppercase letter or
 a newline
 
+@item [a-z]@{-@}[aeiou]
+the lowercase consonants
+
 @item r*
 zero or more r's, where r is any regular expression
 
@@ -741,6 +749,43 @@ the character with hexadecimal value 2a
 
 @item (r)
 match an @samp{r}; parentheses are used to override precedence (see below)
+
+@item (?r-s:pattern)
+apply option @samp{r} and omit option @samp{s} while interpreting pattern.
+Options may be zero or more of the characters @samp{i}, @samp{s}, or @samp{x}.
+
+@samp{i} means case-insensitive. @samp{-i} means case-sensitive.
+
+@samp{s} alters the meaning of the @samp{.} syntax to match any single byte whatsoever.
+@samp{-s} alters the meaning of @samp{.} to match any byte except @samp{\n}.
+
+@samp{x} ignores comments and whitespace in patterns. Whitespace is ignored unless
+it is backslash-escaped, contained within @samp{""}s, or appears inside a 
+character class.
+
+The following are all valid:
+
+@verbatim
+(?:foo)         same as  (foo)
+(?i:ab7)        same as  ([aA][bB]7)
+(?-i:ab)        same as  (ab)
+(?s:.)          same as  [\x00-\xFF]
+(?-s:.)         same as  [^\n]
+(?ix-s: a . b)  same as  ([Aa][^\n][bB])
+(?x:a  b)       same as  ("ab")
+(?x:a\ b)       same as  ("a b")
+(?x:a" "b)      same as  ("a b")
+(?x:a[ ]b)      same as  ("a b")
+(?x:a
+    /* comment */
+    b
+    c)          same as  (abc)
+@end verbatim
+
+@item (?# comment )
+omit everything within @samp{()}. The first @samp{)}
+character encountered ends the pattern. It is not possible to for the comment
+to contain a @samp{)} character. The comment may span lines.
 
 @cindex concatenation, in patterns
 @item rs
@@ -886,7 +931,10 @@ For example, the following character classes are all equivalent:
 @end verbatim
 @end example
 
-Some notes on patterns are in order.
+A word of caution. Character classes are expanded immediately when seen in the @code{flex} input. 
+This means the character classes are sensitive to the locale in which @code{flex}
+is executed, and the resulting scanner will not be sensitive to the runtime locale.
+This may or may not be desirable.
 
 
 @itemize
@@ -926,6 +974,40 @@ regular expression tools treat negated character classes, but
 unfortunately the inconsistency is historically entrenched.  Matching
 newlines means that a pattern like @samp{[^"]*} can match the entire
 input unless there's another quote in the input.
+
+Flex allows negation of character class expressions by prepending @samp{^} to
+the POSIX character class name.
+
+@example
+@verbatim
+    [:^alnum:] [:^alpha:] [:^blank:]
+    [:^cntrl:] [:^digit:] [:^graph:]
+    [:^lower:] [:^print:] [:^punct:]
+    [:^space:] [:^upper:] [:^xdigit:]
+@end verbatim
+@end example
+
+Flex will issue a warning if the expressions @samp{[:^upper:]} and
+@samp{[:^lower:]} appear in a case-insensitive scanner, since their meaning is
+unclear. The current behavior is to skip them entirely, but this may change
+without notice in future revisions of flex.
+
+@item
+
+The @samp{@{-@}} operator computes the difference of two character classes. For
+example, @samp{[a-c]@{-@}[b-z]} represents all the characters in the class
+@samp{[a-c]} that are not in the class @samp{[b-z]} (which in this case, is
+just the single character @samp{a}). The @samp{@{-@}} operator is left
+associative, so @samp{[abc]@{-@}[b]@{-@}[c]} is the same as @samp{[a]}. Be careful
+not to accidentally create an empty set, which will never match.
+
+@item
+
+The @samp{@{+@}} operator computes the union of two character classes. For
+example, @samp{[a-z]@{+@}[0-9]} is the same as @samp{[a-z0-9]}. This operator
+is useful when preceded by the result of a difference operation, as in,
+@samp{[[:alpha:]]@{-@}[[:lower:]]@{+@}[q]}, which is equivalent to
+@samp{[A-Zq]} in the "C" locale.
 
 @cindex trailing context, limits of
 @cindex ^ as non-special character in patterns
@@ -1112,7 +1194,7 @@ single blank, and throws away whitespace found at the end of a line:
 @cindex actions, embedded C strings
 @cindex C-strings, in actions
 @cindex comments, in actions
-If the action contains a @samp{@}}, then the action spans till the
+If the action contains a @samp{@{}, then the action spans till the
 balancing @samp{@}} is found, and the action may cross multiple lines.
 @code{flex} knows about C strings and comments and won't be fooled by
 braces found within them, but also allows actions to begin with
@@ -1176,7 +1258,7 @@ whenever @samp{frob} is seen:
 @end verbatim
 @end example
 
-Without the @code{REJECT}, any occurences of @samp{frob} in the input
+Without the @code{REJECT}, any occurrences of @samp{frob} in the input
 would not be counted as words, since the scanner normally executes only
 one action per token.  Multiple uses of @code{REJECT} are allowed, each
 one finding the next best choice to the currently active rule.  For
@@ -1206,7 +1288,7 @@ will slow down @emph{all} of the scanner's matching.  Furthermore,
 (@pxref{Scanner Options}).
 
 Note also that unlike the other special actions, @code{REJECT} is a
-@emph{branch}.  code immediately following it in the action will
+@emph{branch}.  Code immediately following it in the action will
 @emph{not} be executed.
 
 @item  yymore()
@@ -1544,7 +1626,7 @@ condition, and
 will be active only when the current start condition is either
 @code{INITIAL}, @code{STRING}, or @code{QUOTE}.
 
-@cindex start conditions, inclusive v.s. exclusive
+@cindex start conditions, inclusive v.s.@: exclusive
 Start conditions are declared in the definitions (first) section of the
 input using unindented lines beginning with either @samp{%s} or
 @samp{%x} followed by a list of names.  The former declares
@@ -1594,7 +1676,7 @@ is equivalent to
 
 Without the @code{<INITIAL,example>} qualifier, the @code{bar} pattern in
 the second example wouldn't be active (i.e., couldn't match) when in
-start condition @code{example}.  If we just used @code{example>} to
+start condition @code{example}.  If we just used @code{<example>} to
 qualify @code{bar}, though, then it would only be active in
 @code{example} and not in @code{INITIAL}, while in the first example
 it's active in both, because in the first example the @code{example}
@@ -2295,7 +2377,7 @@ switch statement and separated using @code{YY_BREAK}, which may be
 redefined.  By default, it is simply a @code{break}, to separate each
 rule's action from the following rule's.  Redefining @code{YY_BREAK}
 allows, for example, C++ users to #define YY_BREAK to do nothing (while
-being very careful that every rule ends with a @code{break}" or a
+being very careful that every rule ends with a @code{break} or a
 @code{return}!) to avoid suffering from unreachable statement warnings
 where because a rule's action ends with @code{return}, the
 @code{YY_BREAK} is inaccessible.
@@ -2408,7 +2490,7 @@ The various @code{flex} options are categorized by function in the following
 menu. If you want to lookup a particular option by name, @xref{Index of Scanner Options}.
 
 @menu
-* Options for Specifing Filenames::  
+* Options for Specifying Filenames::  
 * Options Affecting Scanner Behavior::  
 * Code-Level And API Options::  
 * Options for Scanner Speed and Size::  
@@ -2431,7 +2513,7 @@ specify the following options:
 The first line specifies the general type of scanner we want. The second line
 specifies that we are being careful. The third line asks flex to track line
 numbers. The last line tells flex what to name the files. (The options can be
-specified in any order. We just dividied them.)
+specified in any order. We just divided them.)
 
 @code{flex} also provides a mechanism for controlling options within the
 scanner specification itself, rather than from the flex command-line.
@@ -2474,8 +2556,8 @@ corresponding routine not appearing in the generated scanner:
 (though @code{yy_push_state()} and friends won't appear anyway unless
 you use @code{%option stack)}.
 
-@node Options for Specifing Filenames, Options Affecting Scanner Behavior, Scanner Options, Scanner Options
-@section Options for Specifing Filenames
+@node Options for Specifying Filenames, Options Affecting Scanner Behavior, Scanner Options, Scanner Options
+@section Options for Specifying Filenames
 
 @table @samp
 
@@ -2547,7 +2629,7 @@ the serialized tables match the in-code tables, instead of loading them.
 
 @end table
 
-@node Options Affecting Scanner Behavior, Code-Level And API Options, Options for Specifing Filenames, Scanner Options
+@node Options Affecting Scanner Behavior, Code-Level And API Options, Options for Specifying Filenames, Scanner Options
 @section Options Affecting Scanner Behavior
 
 @table @samp
@@ -2975,9 +3057,9 @@ to find them.
 @anchor{option-yyclass}
 @opindex ---yyclass
 @opindex yyclass
-@item --yyclass, @code{%option yyclass="NAME"}
+@item --yyclass=NAME, @code{%option yyclass="NAME"}
 only applies when generating a C++ scanner (the @samp{--c++} option).  It
-informs @code{flex} that you have derived @code{foo} as a subclass of
+informs @code{flex} that you have derived @code{NAME} as a subclass of
 @code{yyFlexLexer}, so @code{flex} will place your actions in the member
 function @code{foo::yylex()} instead of @code{yyFlexLexer::yylex()}.  It
 also generates a @code{yyFlexLexer::yylex()} member function that emits
@@ -3143,7 +3225,7 @@ the @emph{identifier} rule is present and you then use a hash table or some such
 to detect the keywords, you're better off using
 @samp{--fast}.
 
-This option is equivalent to @samp{-CFr} (see below).  It cannot be used
+This option is equivalent to @samp{-CFr}.  It cannot be used
 with @samp{--c++}.
 
 @end table
@@ -3263,7 +3345,7 @@ those that are on by default.
 @opindex warn
 @item --warn, @code{%option warn}
 warn about certain things. In particular, if the default rule can be
-matched but no defualt rule has been given, the flex will warn you.
+matched but no default rule has been given, the flex will warn you.
 We recommend using this option always.
 
 @end table
@@ -3274,18 +3356,17 @@ We recommend using this option always.
 @table @samp
 @opindex -c
 @item -c
-is a do-nothing option included for POSIX compliance.
+A do-nothing option included for POSIX compliance.
 
 @opindex -h
 @opindex ---help
-generates
 @item -h, -?, --help
 generates a ``help'' summary of @code{flex}'s options to @file{stdout}
 and then exits.
 
 @opindex -n
 @item -n
-is another do-nothing option included only for
+Another do-nothing option included for
 POSIX compliance.
 
 @opindex -V
@@ -3330,7 +3411,7 @@ with the first two all being quite expensive and the last two being
 quite cheap.  Note also that @code{unput()} is implemented as a routine
 call that potentially does quite a bit of work, while @code{yyless()} is
 a quite-cheap macro. So if you are just putting back some excess text
-you scanned, use @code{ss()}.
+you scanned, use @code{yyless()}.
 
 @code{REJECT} should be avoided at all costs when performance is
 important.  It is a particularly expensive option.
@@ -3710,7 +3791,7 @@ returns the current input line number (see @code{%option yylineno)}, or
 @item void set_debug( int flag )
 sets the debugging flag for the scanner, equivalent to assigning to
 @code{yy_flex_debug} (@pxref{Scanner Options}).  Note that you must build
-the scannerusing @code{%option debug} to include debugging information
+the scanner using @code{%option debug} to include debugging information
 in it.
 
 @findex  debug (C++ only)
@@ -4004,14 +4085,20 @@ First, an example of a reentrant scanner:
 @example
 @verbatim
     /* This scanner prints "//" comments. */
-    %option reentrant stack
+
+    %option reentrant stack noyywrap
     %x COMMENT
+
     %%
+
     "//"                 yy_push_state( COMMENT, yyscanner);
     .|\n
+
     <COMMENT>\n          yy_pop_state( yyscanner );
     <COMMENT>[^\n]+      fprintf( yyout, "%s\n", yytext);
+
     %%
+
     int main ( int argc, char * argv[] )
     {
         yyscan_t scanner;
@@ -4062,7 +4149,7 @@ All functions take one additional argument: @code{yyscanner}.
 Notice that the calls to @code{yy_push_state} and @code{yy_pop_state}
 both have an argument, @code{yyscanner} , that is not present in a
 non-reentrant scanner.  Here are the declarations of
-@code{yy_push_state} and @code{yy_pop_state} in the generated scanner:
+@code{yy_push_state} and @code{yy_pop_state} in the reentrant scanner:
 
 @example
 @verbatim
@@ -4128,6 +4215,7 @@ after @code{yylex}, respectively.
 @example
 @verbatim
     int yylex_init ( yyscan_t * ptr_yy_globals ) ;
+    int yylex_init_extra ( YY_EXTRA_TYPE user_defined, yyscan_t * ptr_yy_globals ) ;
     int yylex ( yyscan_t yyscanner ) ;
     int yylex_destroy ( yyscan_t yyscanner ) ;
 @end verbatim
@@ -4135,19 +4223,26 @@ after @code{yylex}, respectively.
 
 The function @code{yylex_init} must be called before calling any other
 function. The argument to @code{yylex_init} is the address of an
-uninitialized pointer to be filled in by @code{flex}. The contents of
-@code{ptr_yy_globals} need not be initialized, since @code{flex} will
-overwrite it anyway. The value stored in @code{ptr_yy_globals} should
-thereafter be passed to @code{yylex()} and @b{yylex_destroy()}.  Flex
+uninitialized pointer to be filled in by @code{yylex_init}, overwriting
+any previous contents. The function @code{yylex_init_extra} may be used
+instead, taking as its first argument a variable of type @code{YY_EXTRA_TYPE}.
+See the section on yyextra, below, for more details.
+
+The value stored in @code{ptr_yy_globals} should
+thereafter be passed to @code{yylex} and @code{yylex_destroy}.  Flex
 does not save the argument passed to @code{yylex_init}, so it is safe to
-pass the address of a local pointer to @code{yylex_init}.  The function
+pass the address of a local pointer to @code{yylex_init} so long as it remains
+in scope for the duration of all calls to the scanner, up to and including
+the call to @code{yylex_destroy}.
+
+The function
 @code{yylex} should be familiar to you by now. The reentrant version
 takes one argument, which is the value returned (via an argument) by
 @code{yylex_init}.  Otherwise, it behaves the same as the non-reentrant
 version of @code{yylex}.
 
-@code{yylex_init} returns 0 (zero) on success, or non-zero on failure,
-in which case, errno is set to one of the following values:
+Both @code{yylex_init} and @code{yylex_init_extra} returns 0 (zero) on success,
+or non-zero on failure, in which case errno is set to one of the following values:
 
 @itemize
 @item ENOMEM
@@ -4243,9 +4338,7 @@ In a non-reentrant scanner, the only way to do this would be through the
 use of global variables.
 @code{Flex} allows you to store arbitrary, ``extra'' data in a scanner.
 This data is accessible through the accessor methods
-@code{yyget_extra}
-and
-@code{yyset_extra}
+@code{yyget_extra} and @code{yyset_extra}
 from outside the scanner, and through the shortcut macro
 @code{yyextra}
 from within the scanner itself. They are defined as follows:
@@ -4261,11 +4354,14 @@ from within the scanner itself. They are defined as follows:
 @end verbatim
 @end example
 
+In addition, an extra form of @code{yylex_init} is provided,
+@code{yylex_init_extra}. This function is provided so that the yyextra value can
+be accessed from within the very first yyalloc, used to allocate
+the scanner itself.
+
 By default, @code{YY_EXTRA_TYPE} is defined as type @code{void *}.  You
-will have to cast @code{yyextra} and the return value from
-@code{yyget_extra} to the appropriate value each time you access the
-extra data.  To avoid casting, you may override the default type by
-defining @code{YY_EXTRA_TYPE} in section 1 of your scanner:
+may redefine this type using @code{%option extra-type="your_type"} in 
+the scanner:
 
 @cindex YY_EXTRA_TYPE, defining your own type
 @example
@@ -4274,9 +4370,9 @@ defining @code{YY_EXTRA_TYPE} in section 1 of your scanner:
     %{
     #include <sys/stat.h>
     #include <unistd.h>
-    #define YY_EXTRA_TYPE  struct stat*
     %}
     %option reentrant
+    %option extra-type="struct stat *"
     %%
 
     __filesize__     printf( "%ld", yyextra->st_size  );
@@ -4286,14 +4382,17 @@ defining @code{YY_EXTRA_TYPE} in section 1 of your scanner:
     {
         yyscan_t scanner;
         struct stat buf;
+        FILE *in;
 
-        yylex_init ( &scanner );
-        yyset_in( fopen(filename,"r"), scanner );
+        in = fopen( filename, "r" );
+        stat( filename, &buf );
 
-        stat( filename, &buf);
-        yyset_extra( &buf, scanner );
-        yylex ( scanner );
+        yylex_init_extra( buf, &scanner );
+        yyset_in( in, scanner );
+        yylex( scanner );
         yylex_destroy( scanner );
+
+        fclose( in );
    }
 @end verbatim
 @end example
@@ -5033,7 +5132,7 @@ any padding.
 Bit flags for this table set. Currently unused.
 
 @item th_version[]
-Flex version in NULL-termninated string format. e.g., @samp{2.5.13a}. This is
+Flex version in NULL-terminated string format. e.g., @samp{2.5.13a}. This is
 the version of flex that was used to create the serialized tables.
 
 @item th_name[]
@@ -5306,7 +5405,7 @@ publish them here.
 
 @menu
 * When was flex born?::         
-* How do I expand \ escape sequences in C-style quoted strings?::  
+* How do I expand backslash-escape sequences in C-style quoted strings?::  
 * Why do flex scanners call fileno if it is not ANSI compatible?::  
 * Does flex support recursive pattern definitions?::  
 * How do I skip huge chunks of input (tens of megabytes) while using flex?::  
@@ -5319,9 +5418,9 @@ publish them here.
 * Why cant I use fast or full tables with interactive mode?::  
 * How much faster is -F or -f than -C?::  
 * If I have a simple grammar cant I just parse it with flex?::  
-* Why doesnt yyrestart() set the start state back to INITIAL?::  
+* Why doesn't yyrestart() set the start state back to INITIAL?::  
 * How can I match C-style comments?::  
-* The period isnt working the way I expected.::  
+* The period isn't working the way I expected.::  
 * Can I get the flex manual in another format?::  
 * Does there exist a "faster" NDFA->DFA algorithm?::  
 * How does flex compile the DFA so quickly?::  
@@ -5339,7 +5438,7 @@ publish them here.
 * I am trying to port code from AT&T lex that uses yysptr and yysbuf.::  
 * Is there a way to make flex treat NULL like a regular character?::  
 * Whenever flex can not match the input it says "flex scanner jammed".::  
-* Why doesnt flex have non-greedy operators like perl does?::  
+* Why doesn't flex have non-greedy operators like perl does?::  
 * Memory leak - 16386 bytes allocated by malloc.::  
 * How do I track the byte offset for lseek()?::  
 * How do I use my own I/O classes in a C++ scanner?::  
@@ -5417,8 +5516,8 @@ the @cite{Software Tools} lex project from Jef Poskanzer in 1982.  At that point
 was written in Ratfor.  Around 1987 or so, Paxson translated it into C, and
 a legend was born :-).
 
-@node How do I expand \ escape sequences in C-style quoted strings?
-@unnumberedsec How do I expand \ escape sequences in C-style quoted strings?
+@node How do I expand backslash-escape sequences in C-style quoted strings?
+@unnumberedsec How do I expand backslash-escape sequences in C-style quoted strings?
 
 A key point when scanning quoted strings is that you cannot (easily) write
 a single rule that will precisely match the string if you allow things
@@ -5615,7 +5714,7 @@ matches in @samp{<INITIAL>}.  Then you could use the following:
 ...
 <A>.|\n  {
 /* Shortest and last rule in <A>, so
-* cascaded REJECT's will eventually
+* cascaded REJECTs will eventually
 * wind up matching this rule.  We want
 * to now switch to the initial state
 * and try matching from there instead.
@@ -5658,7 +5757,7 @@ Is your grammar recursive? That's almost always a sign that you're
 better off using a parser/scanner rather than just trying to use a scanner
 alone.
 
-@node  Why doesnt yyrestart() set the start state back to INITIAL?
+@node  Why doesn't yyrestart() set the start state back to INITIAL?
 @unnumberedsec Why doesn't yyrestart() set the start state back to INITIAL?
 
 There are two reasons.  The first is that there might
@@ -5709,7 +5808,7 @@ Here is one way which allows you to track line information:
 @end verbatim
 @end example
 
-@node  The period isnt working the way I expected.
+@node  The period isn't working the way I expected.
 @unnumberedsec The '.' isn't working the way I expected.
 
 Here are some tips for using @samp{.}:
@@ -5823,13 +5922,13 @@ can add to the beginning of your rules section:
 @example
 @verbatim
 %%
-/* Must be indented! */
-static int did_init = 0;
+    /* Must be indented! */
+    static int did_init = 0;
 
-if ( ! did_init ){
+    if ( ! did_init ){
 do_my_init();
-did_init = 1;
-}
+        did_init = 1;
+    }
 @end verbatim
 @end example
 
@@ -5909,7 +6008,7 @@ From the above though hopefully the idea is clear.
 
 One way to do it is to filter the first pass to a temporary file,
 then process the temporary file on the second pass. You will probably see a
-performance hit, do to all the disk I/O.
+performance hit, due to all the disk I/O.
 
 When you need to look ahead far forward like this, it almost always means
 that the right solution is to build a parse tree of the entire input, then
@@ -5924,7 +6023,7 @@ residing in memory.
 
 One way to assign precedence, is to place the more specific rules first. If
 two rules would match the same input (same sequence of characters) then the
-first rule listed in the @code{flex} input wins. e.g.,
+first rule listed in the @code{flex} input wins, e.g.,
 
 @example
 @verbatim
@@ -5959,7 +6058,7 @@ version of @code{flex}.  The latest release is version @value{VERSION}.
 @node Whenever flex can not match the input it says "flex scanner jammed".
 @unnumberedsec Whenever flex can not match the input it says "flex scanner jammed".
 
-You need to add a rule that matches the otherwise-unmatched text.
+You need to add a rule that matches the otherwise-unmatched text,
 e.g.,
 
 @example
@@ -5974,7 +6073,7 @@ e.g.,
 
 See @code{%option default} for more information.
 
-@node Why doesnt flex have non-greedy operators like perl does?
+@node Why doesn't flex have non-greedy operators like perl does?
 @unnumberedsec Why doesn't flex have non-greedy operators like perl does?
 
 A DFA can do a non-greedy match by stopping
@@ -8055,6 +8154,7 @@ See @ref{Top, , , bison, the GNU Bison Manual}.
 * Makefiles and Flex::          
 * Bison Bridge::                
 * M4 Dependency::               
+* Common Patterns::               
 @end menu
 
 @node Makefiles and Flex, Bison Bridge, Appendices, Appendices
@@ -8073,7 +8173,9 @@ This requires you to carefully plan your Makefile.
 Modern @command{make} programs understand that @file{foo.l} is intended to
 generate @file{lex.yy.c} or @file{foo.c}, and will behave
 accordingly@footnote{GNU @command{make} and GNU @command{automake} are two such
-programs that provide implicit rules for flex-generated scanners.}.  The
+programs that provide implicit rules for flex-generated scanners.}@footnote{GNU @command{automake}
+may generate code to execute flex in lex-compatible mode, or to stdout. If this is not what you want,
+then you should provide an explicit rule in your Makefile.am}.  The
 following Makefile does not explicitly instruct @command{make} how to build
 @file{foo.c} from @file{foo.l}. Instead, it relies on the implicit rules of the
 @command{make} program to build the intermediate file, @file{scan.c}:
@@ -8268,7 +8370,7 @@ As you can see, there really is no magic here. We just use
 @end verbatim
 @end example
 
-@node M4 Dependency, , Bison Bridge, Appendices
+@node M4 Dependency, Common Patterns, Bison Bridge, Appendices
 @section M4 Dependency
 @cindex m4
 The macro processor @code{m4}@footnote{The use of m4 is subject to change in
@@ -8290,12 +8392,149 @@ symbol past m4 unmangled.
 former is not valid in C, except within comments and strings, but the latter is valid in
 code such as @code{x[y[z]]}. The solution is simple. To get the literal string 
 @code{"]]"}, use @code{"]""]"}. To get the array notation @code{x[y[z]]},
-use @code{x[y[z] ]}.
+use @code{x[y[z] ]}. Flex will attempt to detect these sequences in user code, and
+escape them. However, it's best to avoid this complexity where possible, by
+removing such sequences from your code.
 
 @end itemize
 
 @code{m4} is only required at the time you run @code{flex}. The generated
 scanner is ordinary C or C++, and does @emph{not} require @code{m4}.
+
+@node Common Patterns, ,M4 Dependency, Appendices
+@section Common Patterns
+@cindex patterns, common
+
+This appendix provides examples of common regular expressions you might use
+in your scanner.
+
+@menu
+* Numbers::         
+* Identifiers::         
+* Quoted Constructs::       
+* Addresses::       
+@end menu
+
+
+@node Numbers, Identifiers, ,Common Patterns
+@subsection Numbers
+
+@table @asis
+
+@item C99 decimal constant
+@code{([[:digit:]]@{-@}[0])[[:digit:]]*}
+
+@item C99 hexadecimal constant
+@code{0[xX][[:xdigit:]]+}
+
+@item C99 octal constant
+@code{0[0123456]*}
+
+@item C99 floating point constant
+@verbatim
+ {dseq}      ([[:digit:]]+)
+ {dseq_opt}  ([[:digit:]]*)
+ {frac}      (({dseq_opt}"."{dseq})|{dseq}".")
+ {exp}       ([eE][+-]?{dseq})
+ {exp_opt}   ({exp}?)
+ {fsuff}     [flFL]
+ {fsuff_opt} ({fsuff}?)
+ {hpref}     (0[xX])
+ {hdseq}     ([[:xdigit:]]+)
+ {hdseq_opt} ([[:xdigit:]]*)
+ {hfrac}     (({hdseq_opt}"."{hdseq})|({hdseq}"."))
+ {bexp}      ([pP][+-]?{dseq})
+ {dfc}       (({frac}{exp_opt}{fsuff_opt})|({dseq}{exp}{fsuff_opt}))
+ {hfc}       (({hpref}{hfrac}{bexp}{fsuff_opt})|({hpref}{hdseq}{bexp}{fsuff_opt}))
+
+ {c99_floating_point_constant}  ({dfc}|{hfc})
+@end verbatim
+
+See C99 section 6.4.4.2 for the gory details.
+
+@end table
+
+@node Identifiers, Quoted Constructs, Numbers, Common Patterns
+@subsection Identifiers
+
+@table @asis
+
+@item C99 Identifier
+@verbatim
+ucn        ((\\u([[:xdigit:]]{4}))|(\\U([[:xdigit:]]{8})))
+nondigit    [_[:alpha:]]
+c99_id     ([_[:alpha:]]|{ucn})([_[:alnum:]]|{ucn})*
+@end verbatim
+
+Technically, the above pattern does not encompass all possible C99 identifiers, since C99 allows for
+"implementation-defined" characters. In practice, C compilers follow the above pattern, with the
+addition of the @samp{$} character.
+
+@item UTF-8 Encoded Unicode Code Point
+@verbatim
+[\x09\x0A\x0D\x20-\x7E]|[\xC2-\xDF][\x80-\xBF]|\xE0[\xA0-\xBF][\x80-\xBF]|[\xE1-\xEC\xEE\xEF]([\x80-\xBF]{2})|\xED[\x80-\x9F][\x80-\xBF]|\xF0[\x90-\xBF]([\x80-\xBF]{2})|[\xF1-\xF3]([\x80-\xBF]{3})|\xF4[\x80-\x8F]([\x80-\xBF]{2})
+@end verbatim
+
+@end table
+
+@node Quoted Constructs, Addresses, Identifiers, Common Patterns
+@subsection Quoted Constructs
+
+@table @asis
+@item C99 String Literal
+@code{L?\"([^\"\\\n]|(\\['\"?\\abfnrtv])|(\\([0123456]@{1,3@}))|(\\x[[:xdigit:]]+)|(\\u([[:xdigit:]]@{4@}))|(\\U([[:xdigit:]]@{8@})))*\"}
+
+@item C99 Comment
+@code{("/*"([^*]|"*"[^/])*"*/")|("/"(\\\n)*"/"[^\n]*)}
+
+Note that in C99, a @samp{//}-style comment may be split across lines,  and, contrary to popular belief,
+does not include the trailing @samp{\n} character.
+
+A better way to scan @samp{/* */} comments is by line, rather than matching
+possibly huge comments all at once. This will allow you to scan comments of
+unlimited length, as long as line breaks appear at sane intervals. This is also
+more efficient when used with automatic line number processing. @xref{option-yylineno}.
+
+@verbatim
+<INITIAL>{
+    "/*"      BEGIN(COMMENT);
+}
+<COMMENT>{
+    "*/"      BEGIN(0);
+    [^*\n]+   ;
+    "*"[^/]   ;
+    \n        ;
+}
+@end verbatim
+
+@end table
+
+@node Addresses, ,Quoted Constructs, Common Patterns
+@subsection Addresses
+
+@table @asis
+
+@item IPv4 Address
+@code{(([[:digit:]]@{1,3@}".")@{3@}([[:digit:]]@{1,3@}))}
+
+@item IPv6 Address
+@verbatim
+hex4         ([[:xdigit:]]{1,4})
+hexseq       ({hex4}(:{hex4}*))
+hexpart      ({hexseq}|({hexseq}::({hexseq}?))|::{hexseq})
+IPv6address  ({hexpart}(":"{IPv4address})?)
+@end verbatim
+
+See RFC2373 for details.
+
+@item URI
+@code{(([^:/?#]+):)?("//"([^/?#]*))?([^?#]*)(\?([^#]*))?(#(.*))?}
+
+This pattern is nearly useless, since it allows just about any character to
+appear in a URI, including spaces and control characters.  See RFC2396 for
+details.
+
+@end table
 
 
 @node Indices,  , Appendices, Top

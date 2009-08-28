@@ -1,9 +1,8 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1996-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 1996,2007 Oracle.  All rights reserved.
 #
-# $Id: rpc005.tcl,v 1.2 2004/03/30 01:24:08 jtownsen Exp $
+# $Id: rpc005.tcl,v 12.5 2007/05/17 15:15:55 bostic Exp $
 #
 # TEST	rpc005
 # TEST	Test RPC server handle ID sharing
@@ -12,6 +11,7 @@ proc rpc005 { } {
 	global __debug_print
 	global errorInfo
 	global rpc_svc
+	global is_hp_test
 	source ./include.tcl
 
 	puts "Rpc005: RPC server handle sharing"
@@ -37,21 +37,31 @@ proc rpc005 { } {
 		    -server $rpc_server -txn}]
 		error_check_good lock_env:open [is_valid_env $env] TRUE
 
-		puts "\tRpc005.c: Compare identical and different \
-		    configured envs"
-		set env_ident [eval {berkdb_env -home $home \
-		    -server $rpc_server -txn}]
-		error_check_good lock_env:open [is_valid_env $env_ident] TRUE
+		# You can't open two handles on the same env in
+		# HP-UX, so skip this piece.
+		if { $is_hp_test == 1 } {
+			puts "\tRpc005.c: Skipping for HP-UX."
+		} else {
+			puts "\tRpc005.c: Compare identical and different \
+			    configured envs"
+			set env_ident [eval {berkdb_env -home $home \
+			    -server $rpc_server -txn}]
+			error_check_good \
+			    lock_env:open [is_valid_env $env_ident] TRUE
 
-		set env_diff [eval {berkdb_env -home $home \
-		    -server $rpc_server -txn nosync}]
-		error_check_good lock_env:open [is_valid_env $env_diff] TRUE
+			set env_diff [eval {berkdb_env -home $home \
+			    -server $rpc_server -txn nosync}]
+			error_check_good \
+			    lock_env:open [is_valid_env $env_diff] TRUE
 
-		error_check_good ident:id [$env rpcid] [$env_ident rpcid]
-		error_check_bad diff:id [$env rpcid] [$env_diff rpcid]
+			error_check_good \
+			    ident:id [$env rpcid] [$env_ident rpcid]
+			error_check_bad \
+			    diff:id [$env rpcid] [$env_diff rpcid]
 
-		error_check_good envclose [$env_diff close] 0
-		error_check_good envclose [$env_ident close] 0
+			error_check_good envclose [$env_diff close] 0
+			error_check_good envclose [$env_ident close] 0
+		}
 
 		puts "\tRpc005.d: Opening a database"
 		set db [eval {berkdb_open -auto_commit -create -btree \

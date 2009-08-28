@@ -1,0 +1,66 @@
+#!/usr/bin/env tclsh
+# %renumber<^\s*test >%
+
+source [file join [file dir [info script]] initests.tcl]
+
+test 0 {} {
+  package require Mk4tcl
+} $version
+
+set f f1.dat
+test 1 {lots of properties} -body {
+  file delete $f
+  
+  mk::file open db $f
+  for {set i 0} {$i < 250} {incr i} {
+    lappend format i$i:I
+  }
+  mk::view layout db.v $format
+  mk::file commit db
+  equal [mk::view layout db.v] $format
+} -cleanup {mk::file close db}
+file delete $f
+
+set f f2.dat
+test 2 {string/byte/memo property mix} -body {
+  file delete $f
+
+  mk::file open db $f
+  mk::view layout db.a {s:S b:B}
+
+  set a 123456789012345
+  set b $a$a$a$a$a$a$a$a$a$a
+  set c $b$b$b$b$b$b$b$b$b$b
+  set d $c$c$c$c$c$c$c$c$c$c
+  equal [string length $d] 15000
+
+  mk::row append db.a s A$a b A$a
+  mk::row append db.a s A$d b A$d
+  mk::row append db.a
+
+  mk::row append db.a s B$a b B$a
+  mk::row append db.a s B$d b B$d
+  mk::row append db.a
+
+  mk::file close db
+  mk::file open db $f -readonly
+  
+  equal [mk::get db.a!0 b] A$a
+  equal [mk::get db.a!1 b] A$d
+  equal [mk::get db.a!2 b] {}
+
+  equal [mk::get db.a!0 s] A$a
+  equal [mk::get db.a!1 s] A$d
+  equal [mk::get db.a!2 s] {}
+
+  equal [mk::get db.a!3 b] B$a
+  equal [mk::get db.a!4 b] B$d
+  equal [mk::get db.a!5 b] {}
+
+  equal [mk::get db.a!3 s] B$a
+  equal [mk::get db.a!4 s] B$d
+  equal [mk::get db.a!5 s] {}
+} -cleanup {mk::file close db}
+file delete $f
+
+::tcltest::cleanupTests

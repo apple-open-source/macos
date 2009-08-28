@@ -80,11 +80,11 @@ identifierToStringWithBuffer(uint8_t type, const void * identifier, int len,
     if (buf == NULL) {
 	return buf;
     }
-    sprintf(buf, "%x%c", type, SEPARATOR);
+    snprintf(buf, max_encoded_len, "%x%c", type, SEPARATOR);
     for (i = 0; i < len; i++) {
 	char tmp[4];
-	sprintf(tmp, "%s%x", (i > 0) ? ":" : "", idstr[i]);
-	strcat(buf, tmp);
+	snprintf(tmp, sizeof(tmp), "%s%x", (i > 0) ? ":" : "", idstr[i]);
+	strlcat(buf, tmp, max_encoded_len);
     }
     return (buf);
 }

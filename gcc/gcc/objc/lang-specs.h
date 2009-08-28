@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* This is the contribution to the `default_compilers' array in gcc.c for
    objc.  */
@@ -55,4 +55,4 @@ Boston, MA 02111-1307, USA.  */
                         -o %g.s %{!o*:--output-pch=%i.gch}\
                         "/* APPLE LOCAL ss2 */ " \
                         %W{o*:--output-pch=%*} %{fsave-repository=*: \n as %a -o %w%* %g.s %A}%V}}}}}", 0, 0, 0},
-  /* APPLE LOCAL end radar 5082000 */
+/* APPLE LOCAL end radar 5082000 */

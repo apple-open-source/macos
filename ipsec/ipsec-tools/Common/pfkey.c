@@ -2250,6 +2250,8 @@ pfkey_align(msg, mhp)
 		case SADB_EXT_SPIRANGE:
 		case SADB_X_EXT_POLICY:
 		case SADB_X_EXT_SA2:
+        case SADB_EXT_SESSION_ID:
+        case SADB_EXT_SASTAT:
 #ifdef SADB_X_EXT_NAT_T_TYPE
 		case SADB_X_EXT_NAT_T_TYPE:
 		case SADB_X_EXT_NAT_T_SPORT:
@@ -2737,3 +2739,118 @@ pfkey_set_natt_frag(buf, lim, type, l_natt_frag)
 	return(buf + len);
 }
 #endif
+
+static caddr_t
+pfkey_setsadbsession_id (caddr_t   buf,
+                         caddr_t   lim,
+                         u_int64_t session_ids[],
+                         u_int32_t max_session_ids)
+{
+	struct sadb_session_id *p;
+	u_int len;
+
+    if (!max_session_ids)
+        return NULL;
+
+	p = (void *)buf;
+	len = sizeof(*p);
+
+	if (buf + len > lim)
+		return NULL;
+
+	bzero(p, len);
+	p->sadb_session_id_len = PFKEY_UNIT64(len);
+	p->sadb_session_id_exttype = SADB_EXT_SESSION_ID;
+    p->sadb_session_id_v[0] = session_ids[0];
+    if (max_session_ids > 1)
+        p->sadb_session_id_v[1] = session_ids[1];
+
+	return(buf + len);
+}
+
+static caddr_t
+pfkey_setsadbsastats (caddr_t        buf,
+                      caddr_t        lim,
+                      u_int32_t      dir,
+                      struct sastat *stats,
+                      u_int32_t      max_stats)
+{
+    struct sadb_sastat *p;
+	u_int len, list_len;
+
+    if (!stats || !max_stats)
+        return NULL;
+
+	p = (__typeof__(p))buf;
+    list_len = sizeof(*stats) * max_stats;
+	len = sizeof(*p) + PFKEY_ALIGN8(list_len);
+
+	if (buf + len > lim)
+		return NULL;
+
+	bzero(p, len);
+	p->sadb_sastat_len      = PFKEY_UNIT64(len);
+	p->sadb_sastat_exttype  = SADB_EXT_SASTAT;
+    p->sadb_sastat_dir      = dir;
+    p->sadb_sastat_list_len = max_stats;
+    bcopy(stats, p + 1, list_len);
+
+	return(buf + len);
+}
+
+int
+pfkey_send_getsastats (int            so,
+                       u_int32_t      seq,
+                       u_int64_t     *session_ids,
+                       u_int32_t      max_session_ids,
+                       u_int8_t       dir,
+                       struct sastat *stats,
+                       u_int32_t      max_stats)
+{
+	struct sadb_msg *newmsg;
+	caddr_t ep;
+	int list_len, out_len, len;
+	caddr_t p;
+
+    if (!session_ids || !stats || !max_stats) {
+        return -1;
+    }
+
+    list_len = sizeof(*stats) * max_stats;
+    /* create new sadb_msg to send. */
+    out_len = sizeof(struct sadb_msg) + sizeof(struct sadb_session_id) + sizeof(struct sadb_sastat) + PFKEY_ALIGN8(list_len);
+
+    if ((newmsg = CALLOC((size_t)out_len, struct sadb_msg *)) == NULL) {
+        __ipsec_set_strerror(strerror(errno));
+        return -1;
+    }
+    ep = ((caddr_t)(void *)newmsg) + out_len;
+
+    p = pfkey_setsadbmsg((void *)newmsg, ep, SADB_GETSASTAT, (u_int)out_len, SADB_SATYPE_UNSPEC, seq, getpid());
+    if (!p) {
+        free(newmsg);
+        return -1;
+    }
+
+    p = pfkey_setsadbsession_id(p, ep, session_ids, max_session_ids);
+    if (!p) {
+        free(newmsg);
+        return -1;
+    }
+
+    p = pfkey_setsadbsastats(p, ep, dir, stats, max_stats);
+    if (!p) {
+        free(newmsg);
+        return -1;
+    }
+
+    /* send message */
+    len = pfkey_send(so, newmsg, out_len);
+    free(newmsg);
+
+    if (len < 0)
+        return -1;
+
+    __ipsec_errcode = EIPSEC_NO_ERROR;
+    return len;
+}

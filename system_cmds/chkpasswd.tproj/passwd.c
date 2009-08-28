@@ -23,7 +23,8 @@
  */
 #define INFO_FILE 1
 #define INFO_NIS 2
-#define INFO_DIRECTORYSERVICES 3
+#define INFO_OPEN_DIRECTORY 3
+#define INFO_PAM 4
 
 #ifndef __SLICK__
 #define _PASSWD_FILE "/etc/master.passwd"
@@ -44,11 +45,14 @@
 #define _PASSWORD_LEN 8
 #endif
 
+const char* progname = "chkpasswd";
+
 static int literal = 0;
 
 extern int file_check_passwd(char *, char *);
 extern int nis_check_passwd(char *, char *);
-extern int ds_check_passwd(char *, char *);
+extern int od_check_passwd(char *, char *);
+extern int pam_check_passwd(char *);
 
 void
 checkpasswd(char *name, char *old_pw)
@@ -80,73 +84,74 @@ void
 usage()
 {
 	fprintf(stderr, "usage: chkpasswd [-i infosystem] [-l location] [-c] [name]\n");
-	fprintf(stderr, "supported infosystems are:\n");
+	fprintf(stderr, "  infosystem:\n");
 	fprintf(stderr, "    file\n");
-	fprintf(stderr, "    nis\n");
-	fprintf(stderr, "    opendirectory\n");
-	fprintf(stderr, "for file, location may be a file name (%s is the default)\n",
-		_PASSWD_FILE);
-	fprintf(stderr, "for nis, location may be a NIS domainname\n");
-	fprintf(stderr, "for opendirectory, location may be a directory node name\n");
-	fprintf(stderr, "if -c is specified, the password you supply is compared\n");
-	fprintf(stderr, "verbatim without first being crypted\n");
+	fprintf(stderr, "    NIS\n");
+	fprintf(stderr, "    OpenDirectory\n");
+	fprintf(stderr, "  location (for infosystem):\n");
+	fprintf(stderr, "    file           location is path to file (default is %s)\n", _PASSWD_FILE);
+	fprintf(stderr, "    NIS            location is NIS domain name\n");
+	fprintf(stderr, "    OpenDirectory  location is directory node name\n");
+	fprintf(stderr, "  -c: supplied password is compared verbatim without first\n");
+	fprintf(stderr, "      being crypted\n");
 	exit(1);
 }
 
 int
 main(int argc, char *argv[])
 {
-	char *user, *locn;
-	int i, infosystem;
-	struct passwd *pw;
+	char* user = NULL;
+	char* locn = NULL;
+	int infosystem, ch;
 
-	infosystem = INFO_DIRECTORYSERVICES;
-	user = NULL;
-	locn = NULL;
+	infosystem = INFO_PAM;
 
-	for (i = 1; i < argc; i++)
-	{
-		if (!strcmp(argv[i], "-i"))
-		{
-			if (++i >= argc)
-			{
-				fprintf(stderr, "no argument for -i option\n");
+	while ((ch = getopt(argc, argv, "ci:l:")) != -1) {
+		switch(ch) {
+		case 'i':
+			if (!strcasecmp(optarg, "file")) {
+				infosystem = INFO_FILE;
+			} else if (!strcasecmp(optarg, "NIS")) {
+				infosystem = INFO_NIS;
+			} else if (!strcasecmp(optarg, "YP")) {
+				infosystem = INFO_NIS;
+			} else if (!strcasecmp(optarg, "opendirectory")) {
+				infosystem = INFO_OPEN_DIRECTORY;
+			} else if (!strcasecmp(optarg, "PAM")) {
+				infosystem = INFO_PAM;
+			} else {
+				fprintf(stderr, "%s: Unknown info system \'%s\'.\n",
+					progname, optarg);
 				usage();
 			}
-
-			if (!strcmp(argv[i], "File")) infosystem = INFO_FILE;
-			else if (!strcmp(argv[i], "file")) infosystem = INFO_FILE;
-			else if (!strcmp(argv[i], "NIS")) infosystem = INFO_NIS;
-			else if (!strcmp(argv[i], "nis")) infosystem = INFO_NIS;
-			else if (!strcmp(argv[i], "YP")) infosystem = INFO_NIS;
-			else if (!strcmp(argv[i], "yp")) infosystem = INFO_NIS;
-			else if (!strcasecmp(argv[i], "opendirectory")) infosystem = INFO_DIRECTORYSERVICES;
-			else
-			{
-				fprintf(stderr, "unknown info system \"%s\"\n", argv[i]);
-				usage();
-			}
+			break;
+		case 'l':
+			locn = optarg;
+			break;
+		case 'c':
+			literal++;
+			break;
+		case '?':
+		default:
+			usage();
+			break;
 		}
-
-		else if (!strcmp(argv[i], "-l"))
-		{
-			if (++i >= argc)
-			{
-				fprintf(stderr, "no argument for -l option\n");
-				usage();
-			}
-			locn = argv[i];
-		}
-
-		else if (!strcmp(argv[i], "-c")) literal++;
-		else if (user == NULL) user = argv[i];
-		else usage();
+	}
+	argc -= optind;
+	argv += optind;
+		
+	if (argc > 1) {
+		usage();
+	} else if (argc == 1) {
+		user = argv[0];
 	}
 
-	if (user == NULL)
-	{
-		if ((pw = getpwuid(getuid())) == NULL || (user = pw->pw_name) == NULL)
-		{
+	if (user == NULL) {
+		struct passwd* pw = getpwuid(getuid());
+		if (pw != NULL && pw->pw_name != NULL) {
+			user = strdup(pw->pw_name);
+		}
+		if (user == NULL) {
 			fprintf(stderr, "you don't have a login name\n");
 			exit(1);
 		}
@@ -160,8 +165,11 @@ main(int argc, char *argv[])
 		case INFO_NIS:
 			nis_check_passwd(user, locn);
 			break;
-		case INFO_DIRECTORYSERVICES:
-			ds_check_passwd(user, locn);
+		case INFO_OPEN_DIRECTORY:
+			od_check_passwd(user, locn);
+			break;
+		case INFO_PAM:
+			pam_check_passwd(user);
 			break;
 	}
 

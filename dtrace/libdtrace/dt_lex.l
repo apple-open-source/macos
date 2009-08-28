@@ -3,9 +3,8 @@
  * CDDL HEADER START
  *
  * The contents of this file are subject to the terms of the
- * Common Development and Distribution License, Version 1.0 only
- * (the "License").  You may not use this file except in compliance
- * with the License.
+ * Common Development and Distribution License (the "License").
+ * You may not use this file except in compliance with the License.
  *
  * You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
  * or http://www.opensolaris.org/os/licensing.
@@ -20,11 +19,11 @@
  *
  * CDDL HEADER END
  *
- * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)dt_lex.l	1.11	06/01/07 SMI"
+#pragma ident	"@(#)dt_lex.l	1.12	07/11/12 SMI"
 
 #include <string.h>
 #include <stdlib.h>
@@ -88,13 +87,15 @@ static int id_or_type(const char *);
  * S1 - D comments (i.e. skip everything until end of comment)
  * S2 - D program outer scope (probe specifiers and declarations)
  * S3 - D control line parsing (i.e. after ^# is seen but before \n)
+ * S4 - D control line scan (locate control directives only and invoke S3)
  */
 %}
 
-%e 1400		/* maximum nodes */
+%e 1500		/* maximum nodes */
 %p 3700		/* maximum positions */
+%n 600		/* maximum states */
 
-%s S0 S1 S2 S3
+%s S0 S1 S2 S3 S4
 
 RGX_AGG		"@"[a-zA-Z_][0-9a-zA-Z_]*
 /*
@@ -465,11 +466,15 @@ if (yypcb->pcb_token != 0) {
 <S2>{RGX_INTERP}	; /* discard any #! lines */
 
 <S0>{RGX_CTL}	|
-<S2>{RGX_CTL}	{
+<S2>{RGX_CTL}	|
+<S4>{RGX_CTL}	{
 			assert(yypragma == NULL);
 			yypcb->pcb_cstate = (YYSTATE);
 			BEGIN(S3);
 		}
+
+<S4>.		;	/* discard */
+<S4>"\n"	;	/* discard */
 
 <S0>"/"		{
 			int c, tok;
@@ -726,6 +731,9 @@ yybegin(yystate_t state)
 		BEGIN(S0);
 		break;
 	case YYS_DONE:
+		break;
+	case YYS_CONTROL:
+		BEGIN(S4);
 		break;
 	default:
 		xyerror(D_UNKNOWN, "internal error -- bad yystate %d\n", state);

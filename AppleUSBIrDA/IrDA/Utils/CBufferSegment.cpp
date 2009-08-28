@@ -43,7 +43,7 @@ EventTraceCauseDesc TraceEvents[] = {
     {kLogIOFreeBuf,     "CBufferSegment: iofree, buffer="},
     {kLogIOFreeSize,    "CBufferSegment: iofree, size="}
 };
-#define XTRACE(x, y, z) IrDALogAdd( x, y, (int)z & 0xffff, TraceEvents, true )
+#define XTRACE(x, y, z) IrDALogAdd( x, y, (uintptr_t)z & 0xffff, TraceEvents, true )
 #else
 #define XTRACE(x, y, z) ((void) 0)
 #endif
@@ -62,11 +62,11 @@ EventTraceCauseDesc TraceEvents[] = {
 CBufferSegment * CBufferSegment::New(Size len)
 {
 #pragma unused(len)
-    int Fix_Unused_Length;
+    //int Fix_Unused_Length;
 
     CBufferSegment *obj = new CBufferSegment;
     
-    XTRACE(kLogNew, (int)obj >> 16, obj);
+    XTRACE(kLogNew, 0, obj);
     
     if (obj && !obj->Init(nil, kDefaultCBufferSize)) {  // alloc a big buffer
 	obj->release();
@@ -80,8 +80,8 @@ CBufferSegment * CBufferSegment::New(UByte *buffer, Size len)
 {
     CBufferSegment *obj = new CBufferSegment;
     
-    XTRACE(kLogNewWith, (int)obj >> 16, obj);
-    XTRACE(kLogNewWith, (int)buffer >> 16, buffer);
+    XTRACE(kLogNewWith, 0, obj);
+    XTRACE(kLogNewWith, 0, buffer);
     
     if (obj && !obj->Init(buffer, len)) {
 	obj->release();
@@ -109,12 +109,12 @@ CBufferSegment::Delete()
 void
 CBufferSegment::free(void)
 {
-    XTRACE(kLogFree1, (int)this >> 16, this);
-    XTRACE(kLogFree2, (int)fBufBase>>16, fBufBase);
+    XTRACE(kLogFree1, 0, this);
+    XTRACE(kLogFree2, (uintptr_t)fBufBase>>16, fBufBase);
     
     if (fFreeMe && fBufBase) {
 	check(fSize);
-	XTRACE(kLogIOFreeBuf, (int)fBufBase >> 16, fBufBase);
+	XTRACE(kLogIOFreeBuf, 0, fBufBase);
 	XTRACE(kLogIOFreeSize, fSize >> 16, fSize);
 	IOFree(fBufBase, fSize);
 	fBufBase = nil;
@@ -138,7 +138,7 @@ Boolean CBufferSegment::Init(UByte *buffer, Size len)
     
     if (buffer == nil) {            // callers wants us to alloc and free
 	fBufBase = (UByte*)IOMalloc(len);
-	XTRACE(kLogIOAllocBuf, (int)fBufBase >> 16, fBufBase);
+	XTRACE(kLogIOAllocBuf, 0, fBufBase);
 	XTRACE(kLogIOAllocSize, len >> 16, len);
 	require(fBufBase, Fail);
 	fFreeMe = true;
@@ -147,7 +147,7 @@ Boolean CBufferSegment::Init(UByte *buffer, Size len)
 	fFreeMe = false;
     }
     
-    XTRACE(kLogCBInit2, (int)fBufBase>>16, fBufBase);
+    XTRACE(kLogCBInit2, (uintptr_t)fBufBase>>16, fBufBase);
 
     fSize = len;
     fBufEnd = fBufBase + fSize;
@@ -188,9 +188,9 @@ int CBufferSegment::Next()
 //--------------------------------------------------------------------------------
 //      CBufferSegment::Skip
 //--------------------------------------------------------------------------------
-int CBufferSegment::Skip()
+uintptr_t CBufferSegment::Skip()
 {
-    return (fMark >= fEnd) ? EOF : (int) fMark++;
+    return (fMark >= fEnd) ? EOF : (uintptr_t)fMark++;
 
 } // CBufferSegment::Skip
 
@@ -396,7 +396,7 @@ Size CBufferSegment::Seek(Long off, int dir)
 		break;
 	    }
 
-	fMark = (UByte*) UMinMax((ULong) fBase, (ULong) newPos, (ULong) fEnd);
+	fMark = (UByte*) UMinMax((uintptr_t) fBase, (uintptr_t) newPos, (uintptr_t) fEnd);
 	}
 
     return (Size) (fMark - fBase);

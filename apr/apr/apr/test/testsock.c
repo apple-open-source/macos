@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -43,7 +43,7 @@ static void launch_child(abts_case *tc, apr_proc_t *proc, const char *arg1, apr_
     args[0] = "sockchild" EXTENSION;
     args[1] = arg1;
     args[2] = NULL;
-    rv = apr_proc_create(proc, "./sockchild" EXTENSION, args, NULL,
+    rv = apr_proc_create(proc, TESTBINPATH "sockchild" EXTENSION, args, NULL,
                          procattr, p);
     APR_ASSERT_SUCCESS(tc, "Couldn't launch program", rv);
 }
@@ -73,13 +73,33 @@ static void test_addr_info(abts_case *tc, void *data)
     ABTS_STR_EQUAL(tc, "127.0.0.1", sa->hostname);
 }
 
+static void test_serv_by_name(abts_case *tc, void *data)
+{
+    apr_status_t rv;
+    apr_sockaddr_t *sa;
+
+    rv = apr_sockaddr_info_get(&sa, NULL, APR_UNSPEC, 0, 0, p);
+    APR_ASSERT_SUCCESS(tc, "Problem generating sockaddr", rv);
+
+    rv = apr_getservbyname(sa, "ftp");
+    APR_ASSERT_SUCCESS(tc, "Problem getting ftp service", rv);
+    ABTS_INT_EQUAL(tc, 21, sa->port);
+
+    rv = apr_getservbyname(sa, "complete_and_utter_rubbish");
+    APR_ASSERT_SUCCESS(tc, "Problem getting non-existent service", !rv);
+
+    rv = apr_getservbyname(sa, "telnet");
+    APR_ASSERT_SUCCESS(tc, "Problem getting telnet service", rv);
+    ABTS_INT_EQUAL(tc, 23, sa->port);
+}
+
 static apr_socket_t *setup_socket(abts_case *tc)
 {
     apr_status_t rv;
     apr_sockaddr_t *sa;
     apr_socket_t *sock;
 
-    rv = apr_sockaddr_info_get(&sa, NULL, APR_INET, 8021, 0, p);
+    rv = apr_sockaddr_info_get(&sa, "127.0.0.1", APR_INET, 8021, 0, p);
     APR_ASSERT_SUCCESS(tc, "Problem generating sockaddr", rv);
 
     rv = apr_socket_create(&sock, sa->family, SOCK_STREAM, APR_PROTO_TCP, p);
@@ -133,7 +153,7 @@ static void test_send(abts_case *tc, void *data)
     apr_socket_send(sock2, DATASTR, &length);
 
     /* Make sure that the client received the data we sent */
-    ABTS_INT_EQUAL(tc, strlen(DATASTR), wait_child(tc, &proc));
+    ABTS_SIZE_EQUAL(tc, strlen(DATASTR), wait_child(tc, &proc));
 
     rv = apr_socket_close(sock2);
     APR_ASSERT_SUCCESS(tc, "Problem closing connected socket", rv);
@@ -167,7 +187,7 @@ static void test_recv(abts_case *tc, void *data)
 
     /* Make sure that the server received the data we sent */
     ABTS_STR_EQUAL(tc, DATASTR, datastr);
-    ABTS_INT_EQUAL(tc, strlen(datastr), wait_child(tc, &proc));
+    ABTS_SIZE_EQUAL(tc, strlen(datastr), wait_child(tc, &proc));
 
     rv = apr_socket_close(sock2);
     APR_ASSERT_SUCCESS(tc, "Problem closing connected socket", rv);
@@ -207,12 +227,44 @@ static void test_timeout(abts_case *tc, void *data)
     APR_ASSERT_SUCCESS(tc, "Problem closing socket", rv);
 }
 
+static void test_print_addr(abts_case *tc, void *data)
+{
+    apr_sockaddr_t *sa;
+    apr_status_t rv;
+    char *s;
+
+    rv = apr_sockaddr_info_get(&sa, "0.0.0.0", APR_INET, 80, 0, p);
+    APR_ASSERT_SUCCESS(tc, "Problem generating sockaddr", rv);
+
+    s = apr_psprintf(p, "foo %pI bar", sa);
+
+    ABTS_STR_EQUAL(tc, "foo 0.0.0.0:80 bar", s);
+
+#if APR_HAVE_IPV6
+    rv = apr_sockaddr_info_get(&sa, "::ffff:0.0.0.0", APR_INET6, 80, 0, p);
+    APR_ASSERT_SUCCESS(tc, "Problem generating sockaddr", rv);
+    if (rv == APR_SUCCESS)
+        ABTS_TRUE(tc, sa != NULL);
+    if (rv == APR_SUCCESS && sa) {
+        /* sa should now be a v4-mapped IPv6 address. */
+        char buf[128];
+
+        memset(buf, 'z', sizeof buf);
+        
+        APR_ASSERT_SUCCESS(tc, "could not get IP address",
+                           apr_sockaddr_ip_getbuf(buf, 22, sa));
+        
+        ABTS_STR_EQUAL(tc, "0.0.0.0", buf);
+    }
+#endif
+}
+
 static void test_get_addr(abts_case *tc, void *data)
 {
     apr_status_t rv;
     apr_socket_t *ld, *sd, *cd;
     apr_sockaddr_t *sa, *ca;
-    char a[128], b[128];
+    char *a, *b;
 
     ld = setup_socket(tc);
 
@@ -231,12 +283,18 @@ static void test_get_addr(abts_case *tc, void *data)
      * succeed (if the connection can be established synchronously),
      * but if it does, this test cannot proceed.  */
     rv = apr_socket_connect(cd, sa);
+    if (rv == APR_SUCCESS) {
+        apr_socket_close(ld);
+        apr_socket_close(cd);
+        ABTS_NOT_IMPL(tc, "Cannot test if connect completes "
+                      "synchronously");
+        return;
+    }
+
     if (!APR_STATUS_IS_EINPROGRESS(rv)) {
         apr_socket_close(ld);
         apr_socket_close(cd);
         APR_ASSERT_SUCCESS(tc, "connect to listener", rv);
-        ABTS_NOT_IMPL(tc, "Cannot test if connect completes "
-                      "synchronously");
         return;
     }
 
@@ -265,8 +323,8 @@ static void test_get_addr(abts_case *tc, void *data)
     APR_ASSERT_SUCCESS(tc, "get remote address of client socket",
                        apr_socket_addr_get(&ca, APR_REMOTE, cd));
     
-    apr_snprintf(a, sizeof(a), "%pI", sa);
-    apr_snprintf(b, sizeof(b), "%pI", ca);
+    a = apr_psprintf(p, "%pI", sa);
+    b = apr_psprintf(p, "%pI", ca);
 
     ABTS_STR_EQUAL(tc, a, b);
                        
@@ -280,10 +338,12 @@ abts_suite *testsock(abts_suite *suite)
     suite = ADD_SUITE(suite)
 
     abts_run_test(suite, test_addr_info, NULL);
+    abts_run_test(suite, test_serv_by_name, NULL);
     abts_run_test(suite, test_create_bind_listen, NULL);
     abts_run_test(suite, test_send, NULL);
     abts_run_test(suite, test_recv, NULL);
     abts_run_test(suite, test_timeout, NULL);
+    abts_run_test(suite, test_print_addr, NULL);
     abts_run_test(suite, test_get_addr, NULL);
 
     return suite;

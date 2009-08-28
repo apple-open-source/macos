@@ -34,6 +34,8 @@ private:
     bool			fStopping;				// Are we being "stopped"
 //	UInt8			fCDCInterfaceNumber;	// CDC interface number (the first one found)
 	UInt8			fConfig;				// The current Configuration value
+	IOCommandGate	*fCommandGate;
+    IOWorkLoop		*fWorkLoop;
 
 public:
 
@@ -46,8 +48,13 @@ public:
         // IOKit methods
 		
     virtual bool		start(IOService *provider);
+    virtual void		free(void);
     virtual void		stop(IOService *provider);
-    virtual IOReturn 		message(UInt32 type, IOService *provider,  void *argument = 0);
+    virtual IOReturn 	message(UInt32 type, IOService *provider,  void *argument = 0);
+    virtual IOReturn	setProperties( OSObject * properties );
+	static IOReturn		setPropertiesAction( OSObject *owner,void *arg1, void *arg2,void *arg3,void	*arg4 );
+    virtual IOReturn	setPropertiesWL( OSObject * properties );
+    virtual IOCommandGate *getCommandGate() const;
 												
         // CDC Driver Methods
 	

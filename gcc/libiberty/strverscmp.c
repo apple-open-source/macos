@@ -1,4 +1,3 @@
-/* APPLE LOCAL begin mainline 2005-09-01 3449986 */
 /* Compare strings while treating digits characters numerically.
    Copyright (C) 1997, 2002, 2005 Free Software Foundation, Inc.
    This file is part of the libiberty library.
@@ -16,8 +15,8 @@
 
    You should have received a copy of the GNU Lesser General Public
    License along with the GNU C Library; if not, write to the Free
-   Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-   02111-1307 USA.  */
+   Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301 USA.  */
 
 #include "libiberty.h"
 #include "safe-ctype.h"
@@ -156,4 +155,3 @@ strverscmp (const char *s1, const char *s2)
       return state;
     }
 }
-/* APPLE LOCAL end mainline 2005-09-01 3449986 */

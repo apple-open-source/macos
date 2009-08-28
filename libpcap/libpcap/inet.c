@@ -34,7 +34,7 @@
 
 #ifndef lint
 static const char rcsid[] _U_ =
-    "@(#) $Header: /tcpdump/master/libpcap/inet.c,v 1.66.2.2 2006/01/21 10:46:13 guy Exp $ (LBL)";
+    "@(#) $Header: /tcpdump/master/libpcap/inet.c,v 1.75.2.4 2008-04-20 18:19:24 guy Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -135,76 +135,80 @@ add_or_find_if(pcap_if_t **curdev_ret, pcap_if_t **alldevs, const char *name,
 	int this_instance;
 
 	/*
-	 * Can we open this interface for live capture?
-	 *
-	 * We do this check so that interfaces that ae supplied
-	 * by the interface enumeration mechanism we're using
-	 * but that don't support packet capture aren't included
-	 * in the list.  An example of this is loopback interfaces
-	 * on Solaris; we don't just omit loopback interfaces
-	 * becaue you *can* capture on loopback interfaces on some
-	 * OSes.
-	 *
-	 * On OS X, we don't do this check if the device
-	 * name begins with "wlt"; at least some versions
-	 * of OS X offer monitor mode capturing by having
-	 * a separate "monitor mode" device for each wireless
-	 * adapter, rather than by implementing the ioctls
-	 * that {Free,Net,Open,DragonFly}BSD provide.
-	 * Opening that device puts the adapter into monitor
-	 * mode, which, at least for some adapters, causes
-	 * them to deassociate from the network with which
-	 * they're associated.
-	 *
-	 * Instead, we try to open the corresponding "en"
-	 * device (so that we don't end up with, for users
-	 * without sufficient privilege to open capture
-	 * devices, a list of adapters that only includes
-	 * the wlt devices).
-	 */
-#ifdef __APPLE__
-	if (strncmp(name, "wlt", 3) == 0) {
-		char *en_name;
-		size_t en_name_len;
-
-		/*
-		 * Try to allocate a buffer for the "en"
-		 * device's name.
-		 */
-		en_name_len = strlen(name) - 1;
-		en_name = malloc(en_name_len + 1);
-		if (en_name == NULL) {
-			(void)snprintf(errbuf, PCAP_ERRBUF_SIZE,
-			    "malloc: %s", pcap_strerror(errno));
-			return (-1);
-		}
-		strcpy(en_name, "en");
-		strcat(en_name, name + 3);
-		p = pcap_open_live(en_name, 68, 0, 0, errbuf);
-		free(en_name);
-	} else
-#endif /* __APPLE */
-	p = pcap_open_live(name, 68, 0, 0, errbuf);
-	if (p == NULL) {
-		/*
-		 * No.  Don't bother including it.
-		 * Don't treat this as an error, though.
-		 */
-		*curdev_ret = NULL;
-		return (0);
-	}
-	pcap_close(p);
-
-	/*
 	 * Is there already an entry in the list for this interface?
 	 */
 	for (curdev = *alldevs; curdev != NULL; curdev = curdev->next) {
 		if (strcmp(name, curdev->name) == 0)
 			break;	/* yes, we found it */
 	}
+
 	if (curdev == NULL) {
 		/*
 		 * No, we didn't find it.
+		 *
+		 * Can we open this interface for live capture?
+		 *
+		 * We do this check so that interfaces that are
+		 * supplied by the interface enumeration mechanism
+		 * we're using but that don't support packet capture
+		 * aren't included in the list.  Loopback interfaces
+		 * on Solaris are an example of this; we don't just
+		 * omit loopback interfaces on all platforms because
+		 * you *can* capture on loopback interfaces on some
+		 * OSes.
+		 *
+		 * On OS X, we don't do this check if the device
+		 * name begins with "wlt"; at least some versions
+		 * of OS X offer monitor mode capturing by having
+		 * a separate "monitor mode" device for each wireless
+		 * adapter, rather than by implementing the ioctls
+		 * that {Free,Net,Open,DragonFly}BSD provide.
+		 * Opening that device puts the adapter into monitor
+		 * mode, which, at least for some adapters, causes
+		 * them to deassociate from the network with which
+		 * they're associated.
+		 *
+		 * Instead, we try to open the corresponding "en"
+		 * device (so that we don't end up with, for users
+		 * without sufficient privilege to open capture
+		 * devices, a list of adapters that only includes
+		 * the wlt devices).
+		 */
+#ifdef __APPLE__
+		if (strncmp(name, "wlt", 3) == 0) {
+			char *en_name;
+			size_t en_name_len;
+
+			/*
+			 * Try to allocate a buffer for the "en"
+			 * device's name.
+			 */
+			en_name_len = strlen(name) - 1;
+			en_name = malloc(en_name_len + 1);
+			if (en_name == NULL) {
+				(void)snprintf(errbuf, PCAP_ERRBUF_SIZE,
+				    "malloc: %s", pcap_strerror(errno));
+				return (-1);
+			}
+			strcpy(en_name, "en");
+			strcat(en_name, name + 3);
+			p = pcap_open_live(en_name, 68, 0, 0, errbuf);
+			free(en_name);
+		} else
+#endif /* __APPLE */
+		p = pcap_open_live(name, 68, 0, 0, errbuf);
+		if (p == NULL) {
+			/*
+			 * No.  Don't bother including it.
+			 * Don't treat this as an error, though.
+			 */
+			*curdev_ret = NULL;
+			return (0);
+		}
+		pcap_close(p);
+
+		/*
+		 * Yes, we can open it.
 		 * Allocate a new entry.
 		 */
 		curdev = malloc(sizeof(pcap_if_t));
@@ -352,6 +356,40 @@ add_or_find_if(pcap_if_t **curdev_ret, pcap_if_t **alldevs, const char *name,
 	return (0);
 }
 
+/*
+ * XXX - on FreeBSDs that support it, should it get the sysctl named
+ * "dev.{adapter family name}.{adapter unit}.%desc" to get a description
+ * of the adapter?  Note that "dev.an.0.%desc" is "Aironet PC4500/PC4800"
+ * with my Cisco 350 card, so the name isn't entirely descriptive.  The
+ * "dev.an.0.%pnpinfo" has a better description, although one might argue
+ * that the problem is really a driver bug - if it can find out that it's
+ * a Cisco 340 or 350, rather than an old Aironet card, it should use
+ * that in the description.
+ *
+ * Do NetBSD, DragonflyBSD, or OpenBSD support this as well?  OpenBSD
+ * lets you get a description, but it's not generated by the OS, it's
+ * set with another ioctl that ifconfig supports; we use that to get
+ * the description in OpenBSD.
+ *
+ * In OS X, the System Configuration framework can apparently return
+ * names in 10.4 and later; it also appears that freedesktop.org's HAL
+ * offers an "info.product" string, but the HAL specification says
+ * it "should not be used in any UI" and "subsystem/capability
+ * specific properties" should be used instead.  Using that would
+ * require that libpcap applications be linked with the frameworks/
+ * libraries in question, which would be a bit of a pain unless we
+ * offer, for example, a pkg-config:
+ *
+ *	http://pkg-config.freedesktop.org/wiki/
+ *
+ * script, so applications can just use that script to find out what
+ * libraries you need to link with when linking with libpcap.
+ * pkg-config is GPLed; I don't know whether that would prevent its
+ * use with a BSD-licensed library such as libpcap.
+ *
+ * Do any other UN*Xes, or desktop environments support getting a
+ * description?
+ */
 int
 add_addr_to_iflist(pcap_if_t **alldevs, const char *name, u_int flags,
     struct sockaddr *addr, size_t addr_size,
@@ -361,9 +399,32 @@ add_addr_to_iflist(pcap_if_t **alldevs, const char *name, u_int flags,
     char *errbuf)
 {
 	pcap_if_t *curdev;
+	char *description = NULL;
 	pcap_addr_t *curaddr, *prevaddr, *nextaddr;
+#ifdef SIOCGIFDESCR
+	struct ifreq ifrdesc;
+	char ifdescr[IFDESCRSIZE];
+	int s;
+#endif
 
-	if (add_or_find_if(&curdev, alldevs, name, flags, NULL, errbuf) == -1) {
+#ifdef SIOCGIFDESCR
+	/*
+	 * Get the description for the interface.
+	 */
+	memset(&ifrdesc, 0, sizeof ifrdesc);
+	strlcpy(ifrdesc.ifr_name, name, sizeof ifrdesc.ifr_name);
+	ifrdesc.ifr_data = (caddr_t)&ifdescr;
+	s = socket(AF_INET, SOCK_DGRAM, 0);
+	if (s >= 0) {
+		if (ioctl(s, SIOCGIFDESCR, &ifrdesc) == 0 &&
+		    strlen(ifrdesc.ifr_data) != 0)
+			description = ifrdesc.ifr_data;
+		close(s);
+	}
+#endif
+
+	if (add_or_find_if(&curdev, alldevs, name, flags, description,
+	    errbuf) == -1) {
 		/*
 		 * Error - give up.
 		 */
@@ -589,7 +650,7 @@ pcap_lookupnet(device, netp, maskp, errbuf)
 	register char *errbuf;
 {
 	register int fd;
-	register struct sockaddr_in *sin;
+	register struct sockaddr_in *sin4;
 	struct ifreq ifr;
 
 	/*
@@ -603,6 +664,12 @@ pcap_lookupnet(device, netp, maskp, errbuf)
 #endif
 #ifdef HAVE_SEPTEL_API
 	    || strstr(device, "septel") != NULL
+#endif
+#ifdef PCAP_SUPPORT_BT
+	    || strstr(device, "bluetooth") != NULL
+#endif
+#ifdef PCAP_SUPPORT_USB
+	    || strstr(device, "usb") != NULL
 #endif
 	    ) {
 		*netp = *maskp = 0;
@@ -633,8 +700,8 @@ pcap_lookupnet(device, netp, maskp, errbuf)
 		(void)close(fd);
 		return (-1);
 	}
-	sin = (struct sockaddr_in *)&ifr.ifr_addr;
-	*netp = sin->sin_addr.s_addr;
+	sin4 = (struct sockaddr_in *)&ifr.ifr_addr;
+	*netp = sin4->sin_addr.s_addr;
 	if (ioctl(fd, SIOCGIFNETMASK, (char *)&ifr) < 0) {
 		(void)snprintf(errbuf, PCAP_ERRBUF_SIZE,
 		    "SIOCGIFNETMASK: %s: %s", device, pcap_strerror(errno));
@@ -642,7 +709,7 @@ pcap_lookupnet(device, netp, maskp, errbuf)
 		return (-1);
 	}
 	(void)close(fd);
-	*maskp = sin->sin_addr.s_addr;
+	*maskp = sin4->sin_addr.s_addr;
 	if (*maskp == 0) {
 		if (IN_CLASSA(*netp))
 			*maskp = IN_CLASSA_NET;

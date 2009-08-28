@@ -38,6 +38,7 @@
 #include "mi-common.h"
 #include "inlining.h"
 /* APPLE LOCAL end subroutine inlining  */
+#include "gdbthread.h"
 
 struct mi_interp
 {
@@ -181,7 +182,6 @@ mi_interpreter_suspend (void *data)
 static struct gdb_exception
 mi_interpreter_exec (void *data, const char *command)
 {
-  static struct gdb_exception ok;
   char *tmp = alloca (strlen (command) + 1);
   strcpy (tmp, command);
   mi_execute_command_wrapper (tmp);
@@ -279,7 +279,9 @@ mi_cmd_interpreter_exec (char *command, char **argv, int argc)
          and then set it back to 0 when we are done. */
       sync_execution = 1;
       {
-	struct gdb_exception e = interp_exec (interp_to_use, argv[i]);
+	struct gdb_exception e;
+	mi_interp_exec_cmd_did_run = 0;
+	e = interp_exec (interp_to_use, argv[i]);
 	if (e.reason < 0)
 	  {
 	    mi_error_message = xstrdup (e.message);
@@ -319,6 +321,9 @@ mi_cmd_interpreter_exec (char *command, char **argv, int argc)
       ui_out_field_string (uiout, "reason",
 			   async_reason_lookup
 			   (EXEC_ASYNC_END_STEPPING_RANGE));
+
+      ui_out_print_annotation_int (uiout, 0, "thread-id",
+				   pid_to_thread_id (inferior_ptid));
     }
 
   /* APPLE LOCAL end subroutine inlining  */
@@ -455,10 +460,18 @@ mi_insert_notify_hooks (void)
   deprecated_query_hook = mi_interp_query_hook;
   command_line_input_hook = mi_interp_read_one_line_hook;
 
-  stepping_command_hook = mi_interp_stepping_command_hook;
-  continue_command_hook = mi_interp_continue_command_hook;
-  run_command_hook = mi_interp_run_command_hook;
+  if (target_can_async_p ())
+    {
+      stepping_command_hook = mi_interp_stepping_command_hook;
+      continue_command_hook = mi_interp_continue_command_hook;
+    }
+  else
+    {
+      stepping_command_hook = mi_interp_sync_stepping_command_hook;
+      continue_command_hook = mi_interp_sync_continue_command_hook;
+    }
 
+  run_command_hook = mi_interp_run_command_hook;
   hand_call_function_hook = mi_interp_hand_call_function_hook;
 
 }
@@ -483,6 +496,11 @@ mi_remove_notify_hooks ()
   run_command_hook = NULL;
 
   hand_call_function_hook = NULL;
+
+  /* If we ran the target in sync mode, we will have set the
+     annotation printer to "route_through_mi".  Undo that here.  */
+  ui_out_set_annotation_printer (NULL);
+     
 }
 
 int

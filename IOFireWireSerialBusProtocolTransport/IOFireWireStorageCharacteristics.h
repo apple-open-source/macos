@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,6 +20,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 
 #ifndef _IOKIT_IO_FIREWIRE_STORAGE_DEVICE_CHARACTERISTICS_H_
 #define _IOKIT_IO_FIREWIRE_STORAGE_DEVICE_CHARACTERISTICS_H_
@@ -55,8 +56,8 @@ Example:
 */
 
 #define kIOPropertyBridgeCharacteristicsKey		"Bridge Characteristics"
-	#define kIOPropertyBridgeVendorNameKey			"Bridge Vendor Name"
-	#define kIOPropertyBridgeModelNameKey			"Bridge Model Name"
-	#define kIOPropertyBridgeRevisionLevelKey		"Bridge Revision Level"
+#define kIOPropertyBridgeVendorNameKey			"Bridge Vendor Name"
+#define kIOPropertyBridgeModelNameKey			"Bridge Model Name"
+#define kIOPropertyBridgeRevisionLevelKey		"Bridge Revision Level"
 
 #endif	/* _IOKIT_IO_FIREWIRE_STORAGE_DEVICE_CHARACTERISTICS_H_ */

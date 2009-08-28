@@ -1,5 +1,5 @@
 # -------------------------------------------------------------------------- #
-# $Id: Makefile.PL,v 1.1.1.1 2004/05/20 17:55:25 jpetri Exp $
+# $Id: Makefile.PL,v 1.1.1.2 2007/10/10 23:04:13 ahuda Exp $
 # -------------------------------------------------------------------------- #
 # Makefile.PL for XML::LibXML.
 # This file is required to generate a localized Makefile
@@ -15,7 +15,7 @@ my %config;
 
 # -------------------------------------------------------------------------- #
 # -------------------------------------------------------------------------- #
-# common informations go to the top, so they are easier to find
+# common information go to the top, so they are easier to find
 # -------------------------------------------------------------------------- #
 my %INFOS = (
     'NAME'	=> 'XML::LibXML',
@@ -24,10 +24,9 @@ my %INFOS = (
     'ABSTRACT'  => 'Interface to Gnome libxml2 xml parsing and DOM library',
     'PREREQ_PM' => { 'XML::SAX' => '0.11',
                      'XML::NamespaceSupport' => '1.07',
-                     'XML::LibXML::Common' => 0,
+                     'XML::LibXML::Common' => '0.13',
                    },
     'OBJECT'    => '$(O_FILES)', # add the DOM extensions to libxml2
-    'dist'      => { PREOP => "$^X -Iblib/arch -Iblib/lib example/xml2pod.pl" },
             );
 # -------------------------------------------------------------------------- #
 # -------------------------------------------------------------------------- #
@@ -39,10 +38,15 @@ my %INFOS = (
 
 # -------------------------------------------------------------------------- #
 # read extra configurations from the commandline
-while($_ = shift) {
-    my ($key, $val) = split(/=/, $_, 2);
-    $config{$key} = $val;
-}
+my %params;
+@params{qw(DEBUG DEFINE EXTRALIBDIR GDOME INC LIBS SKIP_SAX_INSTALL XMLPREFIX)}=();
+
+@ARGV = grep {
+  my ($key, $val) = split(/=/, $_, 2);
+  if (exists $params{$key}) {
+    $config{$key} = $val; 0
+  } else { 1 }
+} @ARGV;
 
 $extralibdir = $config{EXTRALIBDIR};
 delete $config{EXTRALIBDIR};
@@ -86,22 +90,28 @@ delete $config{SKIP_SAX_INSTALL};
 
 unless ( $is_Win32 ) { # cannot get config in W32
     my @blacklist = (
+		     # format X,Y,Z,is_ok, X,Y,Z is version,
+                     # is_ok applies also to *preceding* versions
                      [2,4,22,0],
-                     [2,4,25,0], # broken xpaths
-                     [2,4,28,1],
-                     [2,4,29,0],
-                     [2,4,30,0],
-                     [2,5,0,1],
+                     [2,4,25,0], # broken XPath
+                     [2,4,28,0], # unsupported, may work fine with earlier XML::LibXML versions
+                     [2,4,29,0], # broken
+                     [2,4,30,0], # broken
+                     [2,5,0,0], # unsupported
                      [2,5,1,0], # all pre 2.5.4 version have broken attr output
                      [2,5,5,0], # tests pass, but known as broken
-                     [2,5,11,1],
-                     [2,6,0,0],
-                     [2,6,2,1],
-                     [2,6,3,0],
+                     [2,5,11,0], # will partially work
+                     [2,6,0,0], # unsupported
                      [2,6,4,0], # schema error
                      [2,6,5,0], # broken xincludes
-                     [2,6,8,1],
-
+		     [2,6,15,0],
+                   # [2,6,16,1], # first version to pass all tests
+                     [2,6,18,1], # up to 2.6.18 all ok
+                     [2,6,19,0], # broken c14n
+                     [2,6,20,0], # broken schemas
+                     [2,6,24,1], # all tests pass
+                     [2,6,25,0], # broken XPath
+                     [2,6,30,1], # tested, works ok
                     );
     my $xml2cfg = "xml2-config";
     my $libprefix = $ENV{XMLPREFIX} || $config{XMLPREFIX};
@@ -122,25 +132,26 @@ unless ( $is_Win32 ) { # cannot get config in W32
 
         if ( $@ ) {
             if ( $@ =~ /^VERSION/ ) {
-                die "The installed version of libxml2 is known not to work.\n\n".
-                    "The installed version was tested and prooved not as stable\n\n".
-                    "  Don't expect XML::LibXML to build or work correctly.\n".
-                    "  Don't report errors!!!\n".
-                    "  Don't send patches!\n\n".
-                    "  Check the README file for more informations and versions\n".
-                    "  that are tested with XML::LibXML\n\n"; 
+                die "The installed version of libxml2 not compatible with XML::LibXML.\n\n".
+                    "You may continue at your own risk, but:\n\n".
+                    "  - don't expect XML::LibXML to build or work correctly!\n".
+                    "  - don't report errors!\n".
+                    "  - don't send patches!\n\n".
+                    "Check the README file for more information on versions\n".
+                    "that are tested with XML::LibXML\n\n"; 
             }
-            if ( $@ =~ /^UNTESTED/ ) {
-                warn <<UNTESTED;
-WARNING!
-The installed version of libxml2 was not tested with this version of XML::LibXML.
+            if ( $@ =~ /^UNTESTED (\S*)/ ) {
+	      warn "Note: libxml2 $1 was not tested with this XML::LibXML version.\n"
+#                 warn <<UNTESTED;
+# WARNING!
+# The installed version of libxml2 was not tested with this version of XML::LibXML.
 
-    XML::LibXML may fail building or some tests may not pass.
-    Expect strange errors and unstable scripts.
+#     XML::LibXML may fail building or some tests may not pass.
+#     Expect strange errors and unstable scripts.
 
-    Check the README file for more informations
-END OF WARNING
-UNTESTED
+#     Check the README file for more informations
+# END OF WARNING
+# UNTESTED
             }
 
             if ( not defined $config{LIBS} and not defined $config{INC} ) {
@@ -197,7 +208,7 @@ GDOME
                 warn "The installed libgdome version is not supported\n";
             }
             elsif ( $@ =~ /^UNTESTED/ ) {
-                warn "The installed libgdome version is not tested, expect problems.\n";
+                warn "The installed libgdome version was not yet tested with XML::LibXML.\n";
                 print "NOTE: You will need to install XML::GDOME to use this feature\n";
             }
         }
@@ -291,7 +302,7 @@ sub MY::manifypods {
     $str .= <<EOF;
 
 docs : pure_all
-\t\@$^X -Iblib/arch -Iblib/lib example/xmllibxmldocs.pl example/libxml.dkb lib/XML/LibXML/
+\t\@$^X -Iblib/arch -Iblib/lib example/xmllibxmldocs.pl docs/libxml.dbk lib/XML/LibXML/
 \t\@$^X -pi.old -e 's/a/a/' Makefile.PL
 \t\@echo "==> YOU MUST NOW RE-RUN $^X Makefile.PL <=="
 \t\@false
@@ -308,8 +319,8 @@ sub MY::install {
      $script .= <<"INSTALL";
 
 install_sax_driver :
-\t\@\$(PERL) -MXML::SAX -e "XML::SAX->add_parser(q(XML::LibXML::SAX::Parser))->save_parsers()"
-\t\@\$(PERL) -MXML::SAX -e "XML::SAX->add_parser(q(XML::LibXML::SAX))->save_parsers()"
+\t\@\$(PERL) -I\$(INSTALLSITELIB) -MXML::SAX -e "XML::SAX->add_parser(q(XML::LibXML::SAX::Parser))->save_parsers()"
+\t\@\$(PERL) -I\$(INSTALLSITELIB) -MXML::SAX -e "XML::SAX->add_parser(q(XML::LibXML::SAX))->save_parsers()"
 
 INSTALL
    } else {
@@ -326,6 +337,20 @@ sub MY::test {
    }
    return $script;
 }
+
+#	echo perl -pi~ -e '$$_=q($(version))."\n" if /#\ VERSION TEMPLATE/ ' $(TO_INST_PM)
+sub MY::postamble {
+  return <<'MAKE_FRAG';
+
+# used to update version numbers in all modules
+version:
+	@version=`grep '\# VERSION TEMPLATE' $(VERSION_FROM)`; \
+	echo "New version line: $$version"; \
+	perl -pi~ -e '$$_=q('"$$version"')."\n" if /#\ VERSION TEMPLATE/ ' $(TO_INST_PM)
+
+MAKE_FRAG
+}
+
 
 # -------------------------------------------------------------------------- #
 
@@ -587,7 +612,7 @@ sub try_libconfig {
         }
         if ( defined $state and $state == 0 ) {
             print "failed\n";
-            die "VERSION $ver";
+            die "VERSION $ver\n";
         }
 
         $config->{LIBS} = backtick("$cfgscript --libs");
@@ -595,10 +620,10 @@ sub try_libconfig {
 
         unless ( defined $state ) {
             print "untested\n";
-            die "UNTESTED $ver";
+            die "UNTESTED $ver\n";
         }
 
-        print "ok\n";
+        print "ok ($ver)\n";
     }
     else {
         print "failed\n";

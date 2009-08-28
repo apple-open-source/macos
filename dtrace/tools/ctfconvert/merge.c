@@ -181,10 +181,10 @@ add_mapping(alist_t *ta, tid_t srcid, tid_t tgtid)
 {
 	debug(3, "Adding mapping %u => %u\n", srcid, tgtid);
 
-	assert(!alist_find(ta, (void *)srcid, NULL));
+	assert(!alist_find(ta, (void *)(uintptr_t)srcid, NULL));
 	assert(srcid != 0 && tgtid != 0);
 
-	alist_add(ta, (void *)srcid, (void *)tgtid);
+	alist_add(ta, (void *)(uintptr_t)srcid, (void *)(uintptr_t)tgtid);
 }
 
 static tid_t
@@ -192,7 +192,7 @@ get_mapping(alist_t *ta, int srcid)
 {
 	long ltgtid;
 
-	if (alist_find(ta, (void *)srcid, (void **)&ltgtid))
+	if (alist_find(ta, (void *)(uintptr_t)srcid, (void **)(uintptr_t)&ltgtid))
 		return ((int)ltgtid);
 	else
 		return (0);

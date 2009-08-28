@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,7 +31,9 @@
 #include <DirectoryService/DirectoryService.h>
 #include <libkern/OSAtomic.h>
 #include <pthread.h>
-#include "CFOpenDirectoryConsts.h"
+#include "CFOpenDirectoryTypes.h"
+#include "CFOpenDirectoryConstants.h"
+#include "CFOpenDirectoryErrors.h"
 #include "CFOpenDirectory.h"
 #include <objc/objc-runtime.h>
 #include <membership.h>
@@ -41,6 +43,11 @@
 #include <pwd.h>
 #include <Kerberos/Kerberos.h>
 #include <DirectoryServiceCore/CSharedData.h>      // for custom call
+#include <CoreFoundation/CFPriv.h>
+#include <sys/stat.h>
+#include <dlfcn.h>
+#include <syslog.h>
+#include <Security/Authorization.h>
 
 #ifndef kDSConfigRecordsType
     #define kDSConfigRecordsType        "dsConfigType::RecordTypes"
@@ -61,8 +68,14 @@ typedef struct
     CFMutableDictionaryRef  _info;
     CFStringRef             _cfProxyPassword;
     tDirReference           _dsRef;
-    Boolean                 _closeRef;
+    bool					_closeRef;
 } _ODSession;
+
+enum {
+    kODNodeFlagCloseRef     = 0x00000001,
+    kODNodeFlagNoSetValues  = 0x00000002,
+    kODNodeFlagRecordBlat   = 0x00000004
+};
 
 typedef struct
 {
@@ -73,8 +86,7 @@ typedef struct
     CFStringRef             _cfNodePassword;    
     _ODSession              *_ODSession;
     tDirNodeReference       _dsNodeRef;
-    Boolean                 _closeRef;
-    int32_t                 _iSupportsSetValues;
+    int32_t                 _flags;
 } _ODNode;
 
 typedef struct
@@ -101,7 +113,7 @@ typedef struct
 {
     CFRuntimeBase           _base;
     pthread_mutex_t         _mutex;
-    pthread_t               _thread;
+    dispatch_queue_t        _queryQueue;
     _ODNode                *_ODNode;
     ODQueryCallback         _callBack;
     CFMutableArrayRef       _results;
@@ -118,11 +130,13 @@ typedef struct
     ODMatchType             _matchType;
     CFErrorRef              _cfError;
     void                    *_userInfo;
-    Boolean                 _bSearchStarted;
-    Boolean                 _bGetRecordList;
-    Boolean                 _bStopSearch;       // used for async stop
+    bool					_bSearchStarted;
+    bool					_bGetRecordList;
+    bool					_bStopSearch;       // used for async stop
     void                    *_predicate;
     void                    *_delegate;
+    void                    *_operationQueue;
+    dispatch_queue_t        _dispatchQueue;
 } _ODQuery;
 
 static CFTypeID     _kODSessionTypeID   = _kCFRuntimeNotATypeID;
@@ -141,7 +155,9 @@ const CFStringRef kODSessionProxyPort       = CFSTR("ProxyPort");
 const CFStringRef kODSessionProxyUsername   = CFSTR("ProxyUsername");
 const CFStringRef kODSessionProxyPassword   = CFSTR("ProxyPassword");
 const CFStringRef kODSessionLocalPath       = CFSTR("LocalPath");
-const CFStringRef kODErrorDomainFramework   = CFSTR("OpenDirectoryFramework");
+const CFStringRef kODErrorDomainFramework   = CFSTR("com.apple.OpenDirectory");
+
+static int gErrorLegacyCodeMode				= 0;
 
 #pragma mark -
 #pragma mark Prototypes
@@ -179,31 +195,31 @@ static tDataBufferPtr _GetDataBufferFromCFType( CFTypeRef inRef );
 static void _AppendRecordsToList( _ODNode *inNode, tDataBufferPtr inDataBuffer, UInt32 inRecCount, CFMutableArrayRef inArrayRef,
                                   CFErrorRef *outError );
 static tDirStatus _Authenticate( ODNodeRef inNodeRef, char *inAuthType, char *inRecordType, CFArrayRef inAuthItems,
-                                 CFArrayRef *outAuthItems, ODContextRef *outContext, Boolean inAuthOnly );
+                                 CFArrayRef *outAuthItems, ODContextRef *outContext, bool inAuthOnly );
 static CFMutableDictionaryRef _GetAttributesFromBuffer( tDirNodeReference inNodeRef, tDataBufferPtr inDataBuffer,
                                                         tAttributeListRef inAttrListRef, UInt32 inCount, CFErrorRef *outError );
 static tDataListPtr _ConvertCFArrayToDataList( CFArrayRef inArray );
 
 // These are internals that do not reset the error state of a call, used for nested usage
-static Boolean _ODRecordSetValues( ODRecordRef inRecordRef, CFStringRef inAttribute, CFArrayRef inValues, CFErrorRef *outError );
+static bool _ODRecordSetValues( ODRecordRef inRecordRef, ODAttributeType inAttribute, CFTypeRef inValues, CFErrorRef *outError );
 static CFDictionaryRef _ODNodeCopyDetails( ODNodeRef inNodeRef, CFArrayRef inAttributeList, CFErrorRef *outError );
 static ODNodeRef _ODNodeCreateCopy( CFAllocatorRef inAllocator, ODNodeRef inNodeRef, CFErrorRef *outError );
 static ODNodeRef _ODNodeCreateWithName( CFAllocatorRef inAllocator, ODSessionRef inSessionRef, CFStringRef inNodeName, CFErrorRef *outError );
 static ODQueryRef _ODQueryCreateWithNode( CFAllocatorRef inAllocator, ODNodeRef inNodeRef, CFTypeRef inRecordTypeOrList, 
-                                          CFStringRef inAttribute, ODMatchType inMatchType, CFTypeRef inQueryValueOrList, 
+                                          ODAttributeType inAttribute, ODMatchType inMatchType, CFTypeRef inQueryValueOrList, 
                                           CFTypeRef inReturnAttributeOrList, CFIndex inMaxValues, CFErrorRef *outError );
 static ODNodeRef _ODNodeCreateWithNodeType( CFAllocatorRef inAllocator, ODSessionRef inSessionRef, ODNodeType inType, CFErrorRef *outError );
 static ODRecordRef _ODNodeCopyRecord( ODNodeRef inNodeRef, CFStringRef inRecordType, CFStringRef inRecordName, CFArrayRef inAttributes, 
                                       CFErrorRef *outError );
-static Boolean _ODNodeSetCredentials( ODNodeRef inNodeRef, CFStringRef inRecordType, CFStringRef inRecordName, CFStringRef inPassword, CFErrorRef *outError );
-static Boolean _ODNodeSetCredentialsExtended( ODNodeRef inNodeRef, CFStringRef inRecordType, CFStringRef inAuthType, 
+static bool _ODNodeSetCredentials( ODNodeRef inNodeRef, CFStringRef inRecordType, CFStringRef inRecordName, CFStringRef inPassword, CFErrorRef *outError );
+static bool _ODNodeSetCredentialsExtended( ODNodeRef inNodeRef, CFStringRef inRecordType, CFStringRef inAuthType, 
                                               CFArrayRef inAuthItems, CFArrayRef *outAuthItems, ODContextRef *outContext,
                                               CFErrorRef *outError );
-static CFArrayRef _ODQueryCopyResults( ODQueryRef inQueryRef, Boolean inPartialResults, CFErrorRef *outError );
-static Boolean _ODRecordAddValue( ODRecordRef inRecordRef, CFStringRef inAttribute, CFTypeRef inValue, CFErrorRef *outError );
-static Boolean _ODRecordChangePassword( ODRecordRef inRecordRef, CFStringRef inOldPassword, CFStringRef inNewPassword, CFErrorRef *outError );
-static Boolean _ODRecordDelete( ODRecordRef inRecordRef, CFErrorRef *outError );
-static CFArrayRef _ODRecordGetValues( ODRecordRef inRecordRef, CFStringRef inAttribute, CFErrorRef *outError );
+static CFArrayRef _ODQueryCopyResults( ODQueryRef inQueryRef, bool inPartialResults, CFErrorRef *outError );
+static bool _ODRecordAddValue( ODRecordRef inRecordRef, ODAttributeType inAttribute, CFTypeRef inValue, CFErrorRef *outError );
+static bool _ODRecordChangePassword( ODRecordRef inRecordRef, CFStringRef inOldPassword, CFStringRef inNewPassword, CFErrorRef *outError );
+static bool _ODRecordDelete( ODRecordRef inRecordRef, CFErrorRef *outError );
+static CFArrayRef _ODRecordGetValues( ODRecordRef inRecordRef, ODAttributeType inAttribute, CFErrorRef *outError );
 
 // utility functions
 static tDirStatus _ReopenDS( _ODSession *inSession );
@@ -212,11 +228,12 @@ static tDirStatus _ReopenRecord( _ODRecord *inRecord );
 static CFStringRef _createRandomPassword( void );
 static tDataListPtr _ConvertCFSetToDataList( CFSetRef inSet );
 static void _VerifyNodeTypeForChange( ODRecordRef inRecord, CFErrorRef *outError );
-static Boolean _wasAttributeFetched( _ODRecord *inRecord, CFStringRef inAttribute );
-static Boolean _ODRecordRemoveMember( ODRecordRef inGroupRef, CFStringRef inMemberName, CFStringRef inMemberUUID, CFErrorRef *outError );
+static bool _wasAttributeFetched( _ODRecord *inRecord, ODAttributeType inAttribute );
 static void _StripAttributesWithTypePrefix( CFMutableSetRef inSet, CFStringRef inPrefix );
 static CFMutableSetRef _minimizeAttributeSet( CFSetRef inSet );
 static CFSetRef _attributeListToSet( CFArrayRef inAttributes );
+
+static CFIndex _ODConvertDSErrorCode( CFIndex inCode );
 
 #pragma mark -
 #pragma mark Inline functions
@@ -311,7 +328,7 @@ static void _OD_signalRunLoop( CFTypeRef obj, CFRunLoopSourceRef rls, CFArrayRef
         rl     = (CFRunLoopRef)CFArrayGetValueAtIndex(rlList, i+1);
         rlMode = CFRunLoopCopyCurrentMode(rl);
         if (rlMode != NULL) {
-            Boolean waiting;
+            bool waiting;
             
             waiting = (CFRunLoopIsWaiting(rl) && CFRunLoopContainsSource(rl, rls, rlMode));
             CFRelease(rlMode);
@@ -328,7 +345,7 @@ static void _OD_signalRunLoop( CFTypeRef obj, CFRunLoopSourceRef rls, CFArrayRef
     return;
 }
 
-static Boolean _OD_isScheduled( CFTypeRef obj, CFRunLoopRef runLoop, CFStringRef runLoopMode, CFMutableArrayRef rlList )
+static bool _OD_isScheduled( CFTypeRef obj, CFRunLoopRef runLoop, CFStringRef runLoopMode, CFMutableArrayRef rlList )
 {
     CFIndex i;
     CFIndex n   = CFArrayGetCount(rlList);
@@ -344,10 +361,10 @@ static Boolean _OD_isScheduled( CFTypeRef obj, CFRunLoopRef runLoop, CFStringRef
         if ((runLoopMode != NULL) && !CFEqual(runLoopMode, CFArrayGetValueAtIndex(rlList, i+2))) {
             continue;
         }
-        return TRUE;
+        return true;
     }
     
-    return FALSE;
+    return false;
 }
 
 static void _OD_schedule(CFTypeRef obj, CFRunLoopRef runLoop, CFStringRef runLoopMode, CFMutableArrayRef rlList)
@@ -357,10 +374,10 @@ static void _OD_schedule(CFTypeRef obj, CFRunLoopRef runLoop, CFStringRef runLoo
     CFArrayAppendValue(rlList, runLoopMode);
 }
 
-static Boolean _OD_unschedule(CFTypeRef obj, CFRunLoopRef runLoop, CFStringRef runLoopMode, CFMutableArrayRef rlList, Boolean all)
+static bool _OD_unschedule(CFTypeRef obj, CFRunLoopRef runLoop, CFStringRef runLoopMode, CFMutableArrayRef rlList, bool all)
 {
     CFIndex i   = 0;
-    Boolean found   = FALSE;
+    bool found   = false;
     CFIndex n   = CFArrayGetCount(rlList);
     
     while (i < n) {
@@ -377,7 +394,7 @@ static Boolean _OD_unschedule(CFTypeRef obj, CFRunLoopRef runLoop, CFStringRef r
             continue;
         }
         
-        found = TRUE;
+        found = true;
         
         CFArrayRemoveValueAtIndex(rlList, i + 2);
         CFArrayRemoveValueAtIndex(rlList, i + 1);
@@ -396,17 +413,19 @@ static Boolean _OD_unschedule(CFTypeRef obj, CFRunLoopRef runLoop, CFStringRef r
 #pragma mark -
 #pragma mark Callbacks
 
-void *doQuery( void *inInfo )
+void performSearch( void *inInfo );
+
+void doQuery( void *inInfo )
 {
     _ODQuery  *pQuery = (_ODQuery *) inInfo;
     
     while( 1 )
     {
-        CFArrayRef   cfArray = ODQueryCopyResults( (ODQueryRef) pQuery, TRUE, &(pQuery->_cfError) );
+        CFArrayRef   cfArray = ODQueryCopyResults( (ODQueryRef) pQuery, true, &(pQuery->_cfError) );
 
         if( NULL == cfArray )
         {
-            pQuery->_bStopSearch = TRUE;
+            pQuery->_bStopSearch = true;
         }
 
         if( NULL != cfArray )
@@ -433,6 +452,11 @@ void *doQuery( void *inInfo )
                     _OD_signalRunLoop( (CFTypeRef) pQuery, pQuery->_runLoopSource, pQuery->_runLoops );
                 }
 
+                if( NULL != pQuery->_dispatchQueue )
+                {
+                    dispatch_async_f(pQuery->_dispatchQueue, pQuery, performSearch);
+                }
+
                 pthread_mutex_unlock( &(pQuery->_mutex) );
             }
             
@@ -444,7 +468,7 @@ void *doQuery( void *inInfo )
         }
         
         pthread_mutex_lock( &(pQuery->_mutex) );
-        if( TRUE == pQuery->_bStopSearch )
+        if( true == pQuery->_bStopSearch )
         {
             if( NULL != pQuery->_runLoopSource )
             {
@@ -452,8 +476,14 @@ void *doQuery( void *inInfo )
                 _OD_signalRunLoop( (CFTypeRef) pQuery, pQuery->_runLoopSource, pQuery->_runLoops );
             }
 
+            if( NULL != pQuery->_dispatchQueue )
+            {
+                dispatch_async_f(pQuery->_dispatchQueue, pQuery, performSearch);
+            }
+
             // we are exiting, need to fix reset the thread ID so we can reschedule if necessary
-            pQuery->_thread = NULL;
+            dispatch_release(pQuery->_queryQueue);
+            pQuery->_queryQueue = NULL;
             pthread_mutex_unlock( &(pQuery->_mutex) );
             break;
         }
@@ -461,8 +491,6 @@ void *doQuery( void *inInfo )
     }
     
     CFRelease( (CFTypeRef) pQuery );
-    
-    return NULL;
 }
 
 void scheduleSearch( void *inInfo, CFRunLoopRef cfRunLoop, CFStringRef cfMode )
@@ -471,16 +499,13 @@ void scheduleSearch( void *inInfo, CFRunLoopRef cfRunLoop, CFStringRef cfMode )
     
     pthread_mutex_lock( &(pQuery->_mutex) );
 
-    if( FALSE == pQuery->_bStopSearch && NULL == pQuery->_thread )
+    if( false == pQuery->_bStopSearch && NULL == pQuery->_queryQueue )
     {
-        pthread_attr_t  attrs;
-        
-        pthread_attr_init( &attrs );
-        pthread_attr_setdetachstate( &attrs, PTHREAD_CREATE_DETACHED );
-        
+        pQuery->_queryQueue = dispatch_queue_create(NULL, NULL);
+
         CFRetain( (CFTypeRef) pQuery );
         
-        pthread_create( &(pQuery->_thread), &attrs, doQuery, inInfo );
+        dispatch_async_f(pQuery->_queryQueue, pQuery, doQuery);
     }
     
     pthread_mutex_unlock( &(pQuery->_mutex) );
@@ -492,7 +517,7 @@ void cancelSearch( void *inInfo, CFRunLoopRef cfRunLoop, CFStringRef cfMode )
 
     pthread_mutex_lock( &(pQuery->_mutex) );
 
-    pQuery->_bStopSearch = TRUE;
+    pQuery->_bStopSearch = true;
 
     pthread_mutex_unlock( &(pQuery->_mutex) );
 }
@@ -521,7 +546,7 @@ void performSearch( void *inInfo )
         }
     }
     
-    if( TRUE == pQuery->_bStopSearch )
+    if( true == pQuery->_bStopSearch )
     {
         if( NULL != pQuery->_callBack )
         {
@@ -689,7 +714,7 @@ void _initSession( _ODSession *inSession )
                                                   0,
                                                   &kCFTypeDictionaryKeyCallBacks,
                                                   &kCFTypeDictionaryValueCallBacks );
-    inSession->_closeRef = TRUE;
+    inSession->_closeRef = true;
 }
 
 void _destroySession( _ODSession *inSession )
@@ -707,7 +732,7 @@ void _destroySession( _ODSession *inSession )
         inSession->_cfProxyPassword = NULL;
     }
     
-    if( 0 != inSession->_dsRef && TRUE == inSession->_closeRef )
+    if( 0 != inSession->_dsRef && true == inSession->_closeRef )
     {
         dsCloseDirService( inSession->_dsRef );
         inSession->_dsRef = 0;
@@ -757,7 +782,7 @@ void _destroyNode( _ODNode *inNode )
         inNode->_ODSession = NULL;
     }
 
-    if( 0 != inNode->_dsNodeRef && TRUE == inNode->_closeRef )
+    if( 0 != inNode->_dsNodeRef && 0 != (inNode->_flags & kODNodeFlagCloseRef) )
     {
         dsCloseDirNode( inNode->_dsNodeRef );
         inNode->_dsNodeRef = 0;
@@ -794,8 +819,7 @@ void _initNode( _ODNode *inNode )
     
     inNode->_info = CFDictionaryCreateMutable( CFGetAllocator((CFTypeRef)inNode), 0, 
                                                &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
-    inNode->_iSupportsSetValues = -1; // if we don't know for sure
-    inNode->_closeRef = TRUE;
+    inNode->_flags |= kODNodeFlagCloseRef;
 }
 
 _ODRecord *_createRecord( CFAllocatorRef inAllocator )
@@ -1018,6 +1042,18 @@ void _destroyQuery( _ODQuery *inQuery )
         CFRelease( (CFTypeRef) (inQuery->_ODNode) );
         inQuery->_ODNode = NULL;
     }
+
+    if( NULL != inQuery->_operationQueue )
+    {
+        CFRelease( (CFTypeRef) (inQuery->_operationQueue) );
+        inQuery->_operationQueue = NULL;
+    }
+
+    if( NULL != inQuery->_dispatchQueue )
+    {
+        dispatch_release( inQuery->_dispatchQueue );
+        inQuery->_dispatchQueue = NULL;
+    }
 }
 
 CFStringRef _describeQuery( _ODQuery *inQuery )
@@ -1049,7 +1085,7 @@ void _initQuery( _ODQuery *inQuery )
 CFStringRef _MapDSErrorToReason( CFErrorRef *outError, tDirStatus dsStatus )
 {
     CFStringRef cfError;
-    const char *pErrorString;
+    char *pErrorString;
 
     // no error, no work
     if( eDSNoErr == dsStatus )
@@ -1059,166 +1095,600 @@ CFStringRef _MapDSErrorToReason( CFErrorRef *outError, tDirStatus dsStatus )
     if( (NULL != outError && NULL != (*outError)) || (NULL == outError) )
         return CFSTR("");
 
+	CFIndex newCode = _ODConvertDSErrorCode( dsStatus );
+	
     // we don't actually set an error string if we don't have an outError (save cycles)
-    switch( dsStatus )
+    switch( newCode )
     {
-        case eDSOpenFailed:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to open session."), NULL, _kODBundleID, NULL );
+		case kODErrorSessionLocalOnlyDaemonInUse:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Session can't be opened to normal daemon because local only references are open."), 
+															  NULL, _kODBundleID, NULL );
+			break;
+
+		case kODErrorSessionNormalDaemonInUse:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Session can't be opened to local only daemon because normal daemon references are open."), 
+															  NULL, _kODBundleID, NULL );
+			break;
+
+		case kODErrorSessionDaemonNotRunning:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Session can't be opened because daemon is not running."), NULL, _kODBundleID, NULL );
+			break;
+
+		case kODErrorSessionDaemonRefused:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Session can't be opened because daemon refused the connection."), NULL, 
+															  _kODBundleID, NULL );
+			break;
+
+		case kODErrorSessionProxyCommunicationError:
+            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Proxy failed due to a communication error."), NULL, _kODBundleID, NULL );
+			break;
+			
+		case kODErrorSessionProxyVersionMismatch:
+            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Proxy failed because the version is not supported by this client."), NULL, 
+															  _kODBundleID, NULL );
+			break;
+			
+		case kODErrorSessionProxyIPUnreachable:
+            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Proxy failed because the host provided is not responding."), NULL, _kODBundleID, NULL );
+			break;
+			
+		case kODErrorSessionProxyUnknownHost:
+            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Proxy failed because an unknown host was provided."), NULL, _kODBundleID, NULL );
+			break;
+			
+		case kODErrorNodeUnknownName:
+            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Node name wasn't found."), NULL, _kODBundleID, NULL );
+			break;
+			
+		case kODErrorNodeUnknownType:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to open node type requested."), NULL, _kODBundleID, NULL );
+			break;
+			
+		case kODErrorNodeConnectionFailed:
+            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Connection failed to the directory server."), NULL, _kODBundleID, NULL );
+			break;
+            
+        case kODErrorNodeUnknownHost:
+            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Could not resolve the address."), NULL, _kODBundleID, NULL );
             break;
-        case eDSOpenNodeFailed:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to open node."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSMaxSessionsOpen:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Maximum sessions reached."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSCannotAccessSession:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to access session."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSNodeNotFound:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Node not found."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSUnknownNodeName:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Node name not found."), NULL, _kODBundleID, NULL );
-            break;
-        case eNotYetImplemented:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Operation not yet implemented."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSServerTimeout:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Server timed out."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSUserUnknown:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unknown user."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSUnrecoverablePassword:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unrecoverable password."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSAuthenticationFailed:
-        case eDSAuthFailed:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Authentication failed."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSBogusServer:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Bogus server."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSOperationFailed:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Operation failed."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSNotAuthorized:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Not authorized."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSContactMaster:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Contact the master."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSServiceUnavailable:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Service unavailable."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSInvalidFilePath:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Invalid file path."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSAuthNewPasswordRequired:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("New password required."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSAuthPasswordExpired:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Password is expired."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSAuthPasswordQualityCheckFailed:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Password does not match complexity requirements."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSAuthAccountDisabled:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Account is disabled."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSAuthAccountExpired:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Account is expired."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSAuthAccountInactive:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Account is inactive."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSAuthPasswordTooShort:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Password is too short."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSAuthPasswordTooLong:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Password is too long."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSAuthPasswordNeedsLetter:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Password needs a letter."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSAuthPasswordNeedsDigit:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Password needs a digit."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSAuthPasswordChangeTooSoon:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Password cannot be changed yet."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSAuthInvalidLogonHours:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Invalid logon hours."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSAuthInvalidComputer:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Invalid computer."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSAuthMasterUnreachable:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Master is unreachable."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSPermissionError:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Permission error."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSReadOnly:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Read only."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSInvalidDomain:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Invalid domain."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSInvalidRecordType:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Invalid record type."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSInvalidAttributeType:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Invalid attribute type."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSInvalidRecordName:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Invalid record name supplied."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSAttributeNotFound:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Attribute was not found."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSRecordAlreadyExists:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Record already exists."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSRecordNotFound:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Record not found."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSAttributeDoesNotExist:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Attribute does not exist."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSRecordTypeDisabled:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Record type is disabled."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSNoStdMappingAvailable:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to map standard attribute to native attribute."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSInvalidNativeMapping:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Invalid attribute mapping."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSSchemaError:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Not allowed by schema."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSAttributeValueNotFound:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Attribute value was not found."), NULL, _kODBundleID, NULL );
-            break;
-        case eDSEmptyAttributeValue:
-            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("An attribute value or values were not supported."), NULL, _kODBundleID, NULL );
-            break;
+			
+		case kODErrorQuerySynchronize:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Previous results are no longer valid because a synchronize call was requested."), NULL, _kODBundleID, NULL );
+			break;
+			
+		case kODErrorQueryInvalidMatchType:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("An invalid search type was provided during the query."), NULL, _kODBundleID, NULL );
+			break;
+
+		case kODErrorQueryUnsupportedMatchType:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("That type of search is not supported by the directory node."), NULL, 
+															  _kODBundleID, NULL );
+			break;
+            
+        case kODErrorQueryTimeout:
+            cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("The query exceeded the maximum time allowed."), NULL, 
+                                                             _kODBundleID, NULL );
+			break;
+
+		case kODErrorRecordReadOnlyNode:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to modify record because the directory node is read only."), 
+															  NULL, _kODBundleID, NULL );
+			break;
+			
+		case kODErrorRecordPermissionError:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Operation was denied because the current credentials do not have the appropriate privileges."), 
+															  NULL, _kODBundleID, NULL );
+			break;
+			
+		case kODErrorRecordParameterError:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("One of the parameters provided was invalid."), NULL, _kODBundleID, NULL );
+			break;
+			
+		case kODErrorRecordInvalidType:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("An invalid record type was provided."), NULL, _kODBundleID, NULL );
+			break;
+			
+		case kODErrorRecordAlreadyExists:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Could not create the record because one already exists with the same name."), 
+															  NULL, _kODBundleID, NULL );
+			break;
+			
+		case kODErrorRecordTypeDisabled:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("The record type provided is not allowed by the node."), NULL, _kODBundleID, NULL );
+			break;
+			
+		case kODErrorRecordAttributeUnknownType:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("An invalid attribute type was provided."), NULL, _kODBundleID, NULL );
+			break;
+			
+		case kODErrorRecordAttributeNotFound:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("The requested attribute could not be found."), NULL, _kODBundleID, NULL );
+			break;
+			
+		case kODErrorRecordAttributeValueSchemaError:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("The attribute value could not be used because it does not meet the requirements of the attribute."), NULL, _kODBundleID, NULL );
+			break;
+			
+		case kODErrorRecordAttributeValueNotFound:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("The requested attribute value could not be found."), NULL, _kODBundleID, NULL );
+			break;
+			
+		case kODErrorCredentialsInvalid:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Credentials could not be verified username or password is invalid."), NULL, 
+															  _kODBundleID, NULL );
+			break;
+
+		case kODErrorCredentialsMethodNotSupported:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Could not verify credentials because directory server does not support the requested authentication method."), 
+															  NULL, _kODBundleID, NULL );
+			break;
+			
+		case kODErrorCredentialsNotAuthorized:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Authentication server refused operation because the current credentials are not authorized for the requested operation."), 
+															  NULL, _kODBundleID, NULL );
+			break;
+			
+		case kODErrorCredentialsParameterError:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Credential operation failed because an invalid parameter was provided."), 
+															  NULL, _kODBundleID, NULL );
+			break;
+			
+		case kODErrorCredentialsOperationFailed:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Authentication server failed to complete the requested operation."), 
+															  NULL, _kODBundleID, NULL );
+			break;
+			
+		case kODErrorCredentialsServerUnreachable:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Authentiation server could not be contacted."), NULL, _kODBundleID, NULL );
+			break;
+			
+		case kODErrorCredentialsServerNotFound:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Authentication server could not be found for the requested operation."), 
+															  NULL, _kODBundleID, NULL );
+			break;
+			
+		case kODErrorCredentialsServerError:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Authentication server encountered an error while attempting the requested operation."), 
+															  NULL, _kODBundleID, NULL );
+			break;
+			
+		case kODErrorCredentialsServerTimeout:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Authentication server timed out while attempting the requested operation."), 
+															  NULL, _kODBundleID, NULL );
+			break;
+		case kODErrorCredentialsContactMaster:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Authentication server refused the operation because it wasn't the master."), 
+															  NULL, _kODBundleID, NULL );
+			break;
+			
+		case kODErrorCredentialsServerCommunicationError:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Authentication server encountered a communication error while attempting the requested operation."), 
+															 NULL, _kODBundleID, NULL );
+			break;
+			
+		case kODErrorCredentialsAccountNotFound:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Credentials failed because authentication server could not find the account."), 
+															  NULL, _kODBundleID, NULL );
+			break;
+			
+		case kODErrorCredentialsAccountDisabled:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Credential verification failed because account is disabled."), NULL, 
+															  _kODBundleID, NULL );
+			break;
+			
+		case kODErrorCredentialsAccountExpired:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Credential verification failed because account is expired."), NULL, 
+															  _kODBundleID, NULL );
+			break;
+			
+		case kODErrorCredentialsAccountInactive:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Credential verification failed because account is inactive."), NULL, 
+															  _kODBundleID, NULL );
+			break;
+			
+		case kODErrorCredentialsPasswordExpired:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Credential verification failed because password has expired."), NULL, 
+															  _kODBundleID, NULL );
+			break;
+
+		case kODErrorCredentialsPasswordChangeRequired:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Password change is required by authentication server."), NULL, _kODBundleID, NULL );
+			break;
+			
+		case kODErrorCredentialsPasswordQualityFailed:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Password change failed because password does not meet minimum quality requirements."), 
+															  NULL, _kODBundleID, NULL );
+			break;
+			
+		case kODErrorCredentialsPasswordTooShort:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Password change failed because password is too short."), NULL, _kODBundleID, NULL );
+			break;
+			
+		case kODErrorCredentialsPasswordTooLong:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Password change failed because password is too long."), NULL, _kODBundleID, NULL );
+			break;
+			
+		case kODErrorCredentialsPasswordNeedsLetter:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Password change failed because password requires a letter."), NULL, _kODBundleID, NULL );
+			break;
+			
+		case kODErrorCredentialsPasswordNeedsDigit:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Password change failed because password requires a number."), NULL, _kODBundleID, NULL );
+			break;
+			
+		case kODErrorCredentialsPasswordChangeTooSoon:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Password change failed because password was changed recently."), NULL, 
+															 _kODBundleID, NULL );
+			break;
+			
+		case kODErrorCredentialsPasswordUnrecoverable:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Credential server can't recover password for verification."), NULL, 
+															  _kODBundleID, NULL );
+			break;
+
+		case kODErrorCredentialsInvalidLogonHours:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Not allowed to log into the computer outside of designated hours."), NULL, 
+															  _kODBundleID, NULL );
+			break;
+			
+		case kODErrorCredentialsInvalidComputer:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Not allowed to log into the computer."), NULL, _kODBundleID, NULL );
+			break;
+			
+		case kODErrorPluginOperationNotSupported:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Operation is not supported by the directory node."), NULL, _kODBundleID, NULL );
+			break;
+
+		case kODErrorPluginError:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("The plugin encountered an error processing request."), NULL, _kODBundleID, NULL );
+			break;
+			
+		case kODErrorDaemonError:
+			cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("The daemon encountered an error processing request."), NULL, _kODBundleID, NULL );
+			break;
+			
         default:
-            pErrorString = dsCopyDirStatusName( dsStatus );
-            if( NULL != pErrorString )
-                cfError = CFStringCreateWithCString( kCFAllocatorDefault, pErrorString, kCFStringEncodingUTF8 );
-            else
-                cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unknown error code."), NULL, _kODBundleID, NULL );
-            break;
+			pErrorString = dsCopyDirStatusName( dsStatus );
+			if ( NULL != pErrorString ) {
+				cfError = CFStringCreateWithCString( kCFAllocatorDefault, pErrorString, kCFStringEncodingUTF8 );
+				free( pErrorString );
+			}
+			else {
+				cfError = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unknown error code."), NULL, _kODBundleID, NULL );
+			}
+			break;
     }
             
     return cfError;
 }
 
+CFIndex _ODConvertDSErrorCode( CFIndex inCode )
+{
+	CFIndex	newCode = inCode;
+	
+	switch ( inCode )
+	{
+		case eDSLocalDSDaemonInUse:
+			newCode = kODErrorSessionLocalOnlyDaemonInUse;
+			break;
+			
+		case eDSNormalDSDaemonInUse:
+			newCode = kODErrorSessionNormalDaemonInUse;
+			break;
+
+		case eDSOpenFailed:
+			newCode = kODErrorSessionDaemonRefused;
+			break;
+
+		case eDSOpenNodeFailed:
+		case eDSNodeNotFound:
+		case eDSUnknownNodeName:
+		case eDSInvalidDomain:
+		case eDSBadTargetDataNode:
+			newCode = kODErrorNodeUnknownName;
+			break;
+
+		case eDSCannotAccessSession:
+		case eDSMaxSessionsOpen:
+			newCode = kODErrorNodeConnectionFailed;
+			break;
+			
+		case eDSReadOnly:
+			newCode = kODErrorRecordReadOnlyNode;
+			break;
+
+		case eDSUnSupportedMatchType:
+			newCode = kODErrorQueryUnsupportedMatchType;
+			break;
+			
+		case eDSNoStdMappingAvailable:
+		case eDSInvalidNativeMapping:
+		case eDSInvalidAttributeType:
+			newCode = kODErrorRecordAttributeUnknownType;
+			break;
+			
+		case eDSAttributeNotFound:
+		case eDSAttributeDoesNotExist:
+			newCode = kODErrorRecordAttributeNotFound;
+			break;
+			
+		case eDSSchemaError:
+			newCode = kODErrorRecordAttributeValueSchemaError;
+			break;
+			
+		case eDSRecordAlreadyExists:
+			newCode = kODErrorRecordAlreadyExists;
+			break;
+
+		case eDSPermissionError:
+			newCode = kODErrorRecordPermissionError;
+			break;
+			
+		case eDSAttributeValueNotFound:
+			newCode = kODErrorRecordAttributeValueNotFound;
+			break;
+			
+		case eServerNotRunning:
+			newCode = kODErrorSessionDaemonNotRunning;
+			break;
+			
+		case eUnknownServerError:
+		case eUnknownAPICall:
+		case eServerError:
+		case eUnknownPlugIn:
+			newCode = kODErrorDaemonError;
+			break;
+			
+		case eDSVersionMismatch:
+		case eDSTCPVersionMismatch:
+			newCode = kODErrorSessionProxyVersionMismatch;
+			break;
+			
+		case eDSTCPSendError:
+		case eDSTCPReceiveError:
+			newCode = kODErrorSessionProxyCommunicationError;
+			break;
+			
+		case eDSIPUnreachable:
+			newCode = kODErrorSessionProxyIPUnreachable;
+			break;
+			
+		case eDSUnknownHost:
+			newCode = kODErrorSessionProxyUnknownHost;
+			break;
+
+		case eDSNullPatternMatch:
+		case eDSEmptyPattern2Match:
+		case eDSUnknownMatchType:
+			newCode = kODErrorQueryInvalidMatchType;
+			break;
+			
+		case eDSNullParameter:
+		case eDSNullDataBuff:
+		case eDSNullRecEntryPtr:
+		case eDSNullRecName:
+		case eDSNullRecNameList:
+		case eDSNullAttribute:
+		case eDSNullAttributeAccess:
+		case eDSNullAttributeValue:
+		case eDSNullAttributeType:
+		case eDSNullAttributeTypeList:
+		case eDSNullAttributeControlPtr:
+		case eDSNullAttributeRequestList:
+		case eDSNullDataList:
+		case eDSNullAutMethod:
+		case eDSNullAuthStepData:
+		case eDSNullAuthStepDataResp:
+		case eDSNullNodeInfoTypeList:
+		case eDSNullNodeNamePattern:
+		case eParameterError:
+		case eDSEmptyParameter:
+		case eDSEmptyBuffer:
+		case eDSNullNodeName:
+		case eDSNullDirNodeTypeList:
+		case eDSEmptyNodeName:
+		case eDSEmptyRecordName:
+		case eDSEmptyRecordNameList:
+		case eDSEmptyRecordEntry:
+		case eDSEmptyAttribute:
+		case eDSEmptyAttributeType:
+		case eDSEmptyAttributeTypeList:
+		case eDSEmptyAttributeValue:
+		case eDSEmptyAttributeRequestList:
+		case eDSEmptyDataList:
+		case eDSEmptyNodeInfoTypeList:
+		case eDSInvalDataList:
+		case eDSAttrListError:
+		case eDSInvalidRecordName:
+			newCode = kODErrorRecordParameterError;
+			break;
+			
+		case eDSEmptyRecordType:
+		case eDSEmptyRecordTypeList:
+		case eDSNullRecType:
+		case eDSNullRecTypeList:
+		case eDSInvalidRecordType:
+			newCode = kODErrorRecordInvalidType;
+			break;
+			
+		case eDSRecordTypeDisabled:
+			newCode = kODErrorRecordTypeDisabled;
+			break;
+			
+		case eNoLongerSupported:
+		case eNotYetImplemented:
+		case eNotHandledByThisNode:
+			newCode = kODErrorPluginOperationNotSupported;
+			break;
+			
+		case eDSAuthFailed:
+		case eDSAuthenticationFailed:
+		case eDSAuthBadPassword:
+			newCode = kODErrorCredentialsInvalid;
+			break;
+			
+		case eDSAuthMethodNotSupported:
+			newCode = kODErrorCredentialsMethodNotSupported;
+			break;
+
+		case eDSAuthNoSuchEntity:
+		case eDSAuthUnknownUser:
+		case eDSAuthInvalidUserName:
+		case eDSInvalidName:
+		case eDSUserUnknown:
+			newCode = kODErrorCredentialsAccountNotFound;
+			break;
+
+		case eDSNotAuthorized:
+			newCode = kODErrorCredentialsNotAuthorized;
+			break;
+			
+		case eDSAuthInBuffFormatError:
+		case eDSAuthParameterError:
+		case eDSAuthContinueDataBad:
+		case eDSEmptyAuthStepDataResp:
+		case eDSEmptyAuthStepData:
+		case eDSEmptyAuthMethod:
+			newCode = kODErrorCredentialsParameterError;
+			break;
+			
+		case eDSOperationFailed:
+			newCode = kODErrorCredentialsOperationFailed;
+			break;
+			
+		case eDSServiceUnavailable:
+			newCode = kODErrorCredentialsServerUnreachable;
+			break;
+			
+		case eDSAuthNoAuthServerFound:
+			newCode = kODErrorCredentialsServerNotFound;
+			break;
+            
+		case eDSBogusServer:
+            newCode = kODErrorNodeUnknownHost;
+            break;
+			
+		case eDSInvalidHandle:
+		case eDSSendFailed:
+		case eDSReceiveFailed:
+		case eDSBadPacket:
+			newCode = kODErrorCredentialsServerCommunicationError;
+			break;
+			
+		case eDSAuthServerError:
+		case eDSInvalidSession:
+		case eDSInvalidTag:
+			newCode = kODErrorCredentialsServerError;
+			break;
+			
+		case eDSServerTimeout:
+		case eDSAuthMasterUnreachable:
+			newCode = kODErrorCredentialsServerTimeout;
+			break;
+			
+		case eDSContactMaster:
+			newCode = kODErrorCredentialsContactMaster;
+			break;
+			
+		case eDSAuthNewPasswordRequired:
+			newCode = kODErrorCredentialsPasswordChangeRequired;
+			break;
+			
+		case eDSAuthPasswordExpired:
+			newCode = kODErrorCredentialsPasswordExpired;
+			break;
+			
+		case eDSAuthPasswordQualityCheckFailed:
+			newCode = kODErrorCredentialsPasswordQualityFailed;
+			break;
+			
+		case eDSAuthAccountDisabled:
+			newCode = kODErrorCredentialsAccountDisabled;
+			break;
+			
+		case eDSAuthAccountExpired:
+			newCode = kODErrorCredentialsAccountExpired;
+			break;
+			
+		case eDSAuthAccountInactive:
+			newCode = kODErrorCredentialsAccountInactive;
+			break;
+			
+		case eDSAuthPasswordTooShort:
+			newCode = kODErrorCredentialsPasswordTooShort;
+			break;
+			
+		case eDSAuthPasswordTooLong:
+			newCode = kODErrorCredentialsPasswordTooLong;
+			break;
+			
+		case eDSAuthPasswordNeedsLetter:
+			newCode = kODErrorCredentialsPasswordNeedsLetter;
+			break;
+			
+		case eDSAuthPasswordNeedsDigit:
+			newCode = kODErrorCredentialsPasswordNeedsDigit;
+			break;
+			
+		case eDSAuthPasswordChangeTooSoon:
+			newCode = kODErrorCredentialsPasswordChangeTooSoon;
+			break;
+			
+		case eDSAuthInvalidLogonHours:
+			newCode = kODErrorCredentialsInvalidLogonHours;
+			break;
+			
+		case eDSAuthInvalidComputer:
+			newCode = kODErrorCredentialsInvalidComputer;
+			break;
+			
+		case eDSAuthCannotRecoverPasswd:
+		case eDSUnrecoverablePassword:
+			newCode = kODErrorCredentialsPasswordUnrecoverable;
+			break;
+            
+        case eDSOperationTimeout:
+            newCode = kODErrorQueryTimeout;
+            break;
+			
+		case eCFMGetFileSysRepErr:
+		case eCFPlugInGetBundleErr:
+		case eCFBndleGetInfoDictErr:
+		case eCFDictGetValueErr:
+		case ePluginHandlerNotLoaded:
+		case eNoPluginsLoaded:
+		case ePluginAlreadyLoaded:
+		case ePluginVersionNotFound:
+		case ePluginNameNotFound:
+		case eNoPluginFactoriesFound:
+		case ePluginConfigAvailNotFound:
+		case ePluginConfigFileNotFound:
+		case ePlugInDataError:
+		case ePlugInNotFound:
+		case ePlugInError:
+		case ePlugInInitError:
+		case ePlugInNotActive:
+		case ePlugInFailedToInitialize:
+		case ePlugInCallTimedOut:
+		case eDSPlugInConfigFileError:
+		case eDSInvalidPlugInConfigData:
+		case eUndefinedError:
+			newCode = kODErrorPluginError;
+			break;
+			
+		default:
+			break;
+	}
+	
+	return newCode;
+}
+
 void _ODErrorSet( CFErrorRef *outError, CFStringRef inDomain, CFIndex inCode, CFStringRef inLocalizedError, CFStringRef inLocalizedReason, 
                   CFStringRef inRecoverySuggestion )
 {
+	if ( gErrorLegacyCodeMode == false )
+		inCode = _ODConvertDSErrorCode( inCode );
+	
     // if we have an error pointer and it hasn't already been set, let's set it.
     if( NULL != outError && NULL == (*outError) )
     {
@@ -1257,12 +1727,186 @@ void _ODErrorSet( CFErrorRef *outError, CFStringRef inDomain, CFIndex inCode, CF
     }
 }
 
+extern void thread_stack_pcs( vm_address_t *buffer, unsigned max, unsigned *num );
+
+CFIndex ODConvertToLegacyErrorCode( CFIndex inCode )
+{
+    if ( inCode <= 0 ) return inCode;
+    
+    switch ( inCode )
+    {
+        case kODErrorSessionLocalOnlyDaemonInUse:
+            return eDSLocalDSDaemonInUse;
+            
+        case kODErrorSessionNormalDaemonInUse:
+            return eDSNormalDSDaemonInUse;
+            
+        case kODErrorSessionDaemonRefused:
+            return eDSOpenFailed;
+            
+        case kODErrorNodeUnknownName:
+            return eDSOpenNodeFailed;
+            
+        case kODErrorNodeConnectionFailed:
+            return eDSCannotAccessSession;
+            
+        case kODErrorNodeUnknownHost: 
+            return eDSBogusServer;
+            
+        case kODErrorRecordReadOnlyNode:
+            return eDSReadOnly;
+            
+        case kODErrorQueryUnsupportedMatchType:
+            return eDSUnSupportedMatchType;
+            
+        case kODErrorRecordAttributeUnknownType:
+            return eDSNoStdMappingAvailable;
+            
+        case kODErrorRecordAttributeNotFound:
+            return eDSAttributeNotFound;
+            
+        case kODErrorRecordAttributeValueSchemaError:
+            return eDSSchemaError;
+            
+        case kODErrorRecordAlreadyExists:
+            return eDSRecordAlreadyExists;
+            
+        case kODErrorRecordPermissionError:
+            return eDSPermissionError;
+            
+        case kODErrorRecordAttributeValueNotFound:
+            return eDSAttributeValueNotFound;
+            
+        case kODErrorSessionDaemonNotRunning:
+            return eServerNotRunning;
+            
+        case kODErrorDaemonError:
+            return eServerError;
+            
+        case kODErrorSessionProxyVersionMismatch:
+            return eDSVersionMismatch;
+            
+        case kODErrorSessionProxyCommunicationError:
+            return eDSTCPSendError;
+            
+        case kODErrorSessionProxyIPUnreachable:
+            return eDSIPUnreachable;
+            
+        case kODErrorSessionProxyUnknownHost:
+            return eDSUnknownHost;
+            
+        case kODErrorQueryInvalidMatchType:
+            return eDSUnknownMatchType;
+            
+        case kODErrorRecordParameterError:
+            return eParameterError;
+            
+        case kODErrorRecordInvalidType:
+            return eDSInvalidRecordType;
+            
+        case kODErrorRecordTypeDisabled:
+            return eDSRecordTypeDisabled;
+            
+        case kODErrorPluginOperationNotSupported:
+            return eNotYetImplemented;
+            
+        case kODErrorCredentialsInvalid:
+            return eDSAuthFailed;
+            
+        case kODErrorCredentialsMethodNotSupported:
+            return eDSAuthMethodNotSupported;
+            
+        case kODErrorCredentialsAccountNotFound:
+            return eDSAuthUnknownUser;
+            
+        case kODErrorCredentialsNotAuthorized:
+            return eDSNotAuthorized;
+            
+        case kODErrorCredentialsParameterError:
+            return eDSAuthParameterError;
+            
+        case kODErrorCredentialsOperationFailed:
+            return eDSOperationFailed;
+            
+        case kODErrorCredentialsServerUnreachable:
+            return eDSServiceUnavailable;
+            
+        case kODErrorCredentialsServerNotFound:
+            return eDSAuthNoAuthServerFound;
+            
+        case kODErrorCredentialsServerCommunicationError:
+            return eDSBadPacket;
+            
+        case kODErrorCredentialsServerError:
+            return eDSInvalidSession;
+            
+        case kODErrorCredentialsServerTimeout:
+            return eDSAuthMasterUnreachable;
+            
+        case kODErrorCredentialsContactMaster:
+            return eDSContactMaster;
+            
+        case kODErrorCredentialsPasswordChangeRequired:
+            return eDSAuthNewPasswordRequired;
+            
+        case kODErrorCredentialsPasswordExpired:
+            return eDSAuthPasswordExpired;
+            
+        case kODErrorCredentialsPasswordQualityFailed:
+            return eDSAuthPasswordQualityCheckFailed;
+            
+        case kODErrorCredentialsAccountDisabled:
+            return eDSAuthAccountDisabled;
+            
+        case kODErrorCredentialsAccountExpired:
+            return eDSAuthAccountExpired;
+            
+        case kODErrorCredentialsAccountInactive:
+            return eDSAuthAccountInactive;
+            
+        case kODErrorCredentialsPasswordTooShort:
+            return eDSAuthPasswordTooShort;
+            
+        case kODErrorCredentialsPasswordTooLong:
+            return eDSAuthPasswordTooLong;
+            
+        case kODErrorCredentialsPasswordNeedsLetter:
+            return eDSAuthPasswordNeedsLetter;
+            
+        case kODErrorCredentialsPasswordNeedsDigit:
+            return eDSAuthPasswordNeedsDigit;
+            
+        case kODErrorCredentialsPasswordChangeTooSoon:
+            return eDSAuthPasswordChangeTooSoon;
+            
+        case kODErrorCredentialsInvalidLogonHours:
+            return eDSAuthInvalidLogonHours;
+            
+        case kODErrorCredentialsInvalidComputer:
+            return eDSAuthInvalidComputer;
+            
+        case kODErrorCredentialsPasswordUnrecoverable:
+            return eDSUnrecoverablePassword;
+            
+        case kODErrorPluginError:
+            return eUndefinedError;
+    }
+    
+    return eUndefinedError;
+}
+
 #pragma mark -
 #pragma mark Bundle ID stuff
 
 static void _ODGetOurBundleID( void )
 {
     _kODBundleID = CFBundleGetBundleWithIdentifier( CFSTR("com.apple.CFOpenDirectory") );
+	
+	// if the executable was not linked in SnowLeopard we need to use legacy error code mode
+	// to prevent breaking Leopard applications
+	if ( _CFExecutableLinkedOnOrAfter(CFSystemVersionSnowLeopard) == false ) {
+        __sync_bool_compare_and_swap( &gErrorLegacyCodeMode, false, true );
+	}
 }
 
 static void _ODGetOurBundleIDOnce( void )
@@ -1300,7 +1944,7 @@ CFTypeID ODQueryGetTypeID( void )
     return _kODQueryTypeID;
 }
 
-void _ODQueryInitWithNode( ODQueryRef inQueryRef, ODNodeRef inNodeRef, CFTypeRef inRecordTypeOrList, CFStringRef inAttribute,
+void _ODQueryInitWithNode( ODQueryRef inQueryRef, ODNodeRef inNodeRef, CFTypeRef inRecordTypeOrList, ODAttributeType inAttribute,
                            ODMatchType inMatchType, CFTypeRef inQueryValueOrList, CFTypeRef inReturnAttributeOrList,
                            CFIndex inMaxValues )
 {
@@ -1338,9 +1982,9 @@ void _ODQueryInitWithNode( ODQueryRef inQueryRef, ODNodeRef inNodeRef, CFTypeRef
     else
         pQuery->_matchType = inMatchType;
     
-    if( NULL == inAttribute || CFStringCompare(inAttribute, CFSTR(kDSNAttrRecordName), kCFCompareCaseInsensitive) == kCFCompareEqualTo )
+    if( NULL == inAttribute || CFStringCompare(inAttribute, kODAttributeTypeRecordName, kCFCompareCaseInsensitive) == kCFCompareEqualTo )
     {
-        pQuery->_bGetRecordList = TRUE;
+        pQuery->_bGetRecordList = true;
     }
     
     if( NULL == inQueryValueOrList )
@@ -1370,10 +2014,10 @@ void _ODQueryInitWithNode( ODQueryRef inQueryRef, ODNodeRef inNodeRef, CFTypeRef
         // if no attributes requested, we only get kDSNAttrMetaNodeLocation since that's all we need for internal
         // purposes
 //        pQuery->_dsRetAttrList = dsBuildListFromStrings( 0, kDSNAttrMetaNodeLocation, NULL );
-//        CFSetAddValue( pQuery->_cfReturnAttribs, CFSTR(kDSNAttrMetaNodeLocation) );
+//        CFSetAddValue( pQuery->_cfReturnAttribs, kODAttributeTypeMetaNodeLocation );
         
         pQuery->_dsRetAttrList = dsBuildListFromStrings( 0, kDSAttributesStandardAll, NULL );
-        CFSetAddValue( pQuery->_cfReturnAttribs, CFSTR(kDSAttributesStandardAll) );
+        CFSetAddValue( pQuery->_cfReturnAttribs, kODAttributeTypeStandardOnly );
     }
     else if( CFGetTypeID(inReturnAttributeOrList) == CFStringGetTypeID() )
     {
@@ -1385,15 +2029,6 @@ void _ODQueryInitWithNode( ODQueryRef inQueryRef, ODNodeRef inNodeRef, CFTypeRef
         
         free( pTempString );
         pTempString = NULL;
-        
-        // only add meta node location if we aren't getting all attributes and not getting standard attributes
-        if( FALSE == CFEqual(inReturnAttributeOrList, CFSTR(kDSAttributesAll)) && 
-            FALSE == CFEqual(inReturnAttributeOrList, CFSTR(kDSAttributesStandardAll)) &&
-            FALSE == CFEqual(inReturnAttributeOrList, CFSTR(kDSNAttrMetaNodeLocation)) )
-        {
-            CFSetAddValue( pQuery->_cfReturnAttribs, CFSTR(kDSNAttrMetaNodeLocation) );
-            dsAppendStringToListAlloc( 0, pQuery->_dsRetAttrList, kDSNAttrMetaNodeLocation );
-        }
     }
     else
     {
@@ -1407,21 +2042,30 @@ void _ODQueryInitWithNode( ODQueryRef inQueryRef, ODNodeRef inNodeRef, CFTypeRef
         }
         
         pQuery->_dsRetAttrList = _ConvertCFArrayToDataList( inReturnAttributeOrList );
-        
-        // only add meta node location if we aren't getting all attributes and not getting standard attributes
-        if( FALSE == CFSetContainsValue(pQuery->_cfReturnAttribs, CFSTR(kDSAttributesAll)) && 
-            FALSE == CFSetContainsValue(pQuery->_cfReturnAttribs, CFSTR(kDSAttributesStandardAll)) &&
-            FALSE == CFSetContainsValue(pQuery->_cfReturnAttribs, CFSTR(kDSNAttrMetaNodeLocation)) )
+    }
+    
+    // if we aren't getting all attributes or all standard attributes
+    if ( false == CFSetContainsValue(pQuery->_cfReturnAttribs, kODAttributeTypeAllAttributes) && 
+         false == CFSetContainsValue(pQuery->_cfReturnAttribs, kODAttributeTypeStandardOnly) )
+    {
+        // if we aren't requesting the node location we need to request that for internal purposes
+        if ( false == CFSetContainsValue(pQuery->_cfReturnAttribs, kODAttributeTypeMetaNodeLocation) )
         {
-            // be sure we fetch the metanode location
             dsAppendStringToListAlloc( 0, pQuery->_dsRetAttrList, kDSNAttrMetaNodeLocation );
-            CFSetAddValue( pQuery->_cfReturnAttribs, CFSTR(kDSNAttrMetaNodeLocation) );
+            CFSetAddValue( pQuery->_cfReturnAttribs, kODAttributeTypeMetaNodeLocation );
+        }
+        
+        // if we aren't requesting the record name we need to request that for internal purposes
+        if ( false == CFSetContainsValue(pQuery->_cfReturnAttribs, kODAttributeTypeRecordName) )
+        {
+            dsAppendStringToListAlloc( 0, pQuery->_dsRetAttrList, kDSNAttrRecordName );
+            CFSetAddValue( pQuery->_cfReturnAttribs, kODAttributeTypeRecordName );
         }
     }
 }
 
 ODQueryRef ODQueryCreateWithNode( CFAllocatorRef inAllocator, ODNodeRef inNodeRef, CFTypeRef inRecordTypeOrList, 
-                                  CFStringRef inAttribute, ODMatchType inMatchType, CFTypeRef inQueryValueOrList, 
+                                  ODAttributeType inAttribute, ODMatchType inMatchType, CFTypeRef inQueryValueOrList, 
                                   CFTypeRef inReturnAttributeOrList, CFIndex inMaxValues, CFErrorRef *outError )
 {
     if( NULL != outError )
@@ -1434,7 +2078,7 @@ ODQueryRef ODQueryCreateWithNode( CFAllocatorRef inAllocator, ODNodeRef inNodeRe
 }
 
 ODQueryRef _ODQueryCreateWithNode( CFAllocatorRef inAllocator, ODNodeRef inNodeRef, CFTypeRef inRecordTypeOrList, 
-                                   CFStringRef inAttribute, ODMatchType inMatchType, CFTypeRef inQueryValueOrList, 
+                                   ODAttributeType inAttribute, ODMatchType inMatchType, CFTypeRef inQueryValueOrList, 
                                    CFTypeRef inReturnAttributeOrList, CFIndex inMaxValues, CFErrorRef *outError )
 {
     if( NULL == inNodeRef )
@@ -1443,7 +2087,7 @@ ODQueryRef _ODQueryCreateWithNode( CFAllocatorRef inAllocator, ODNodeRef inNodeR
         {
             _ODErrorSet( outError, kODErrorDomainFramework, eDSNullParameter, 
                          CFCopyLocalizedStringFromTableInBundle(CFSTR("Attempt to create a query failed."), NULL, _kODBundleID, NULL), 
-                         CFCopyLocalizedStringFromTableInBundle(CFSTR("ODNode was null"), NULL, _kODBundleID, NULL), NULL );
+                         CFCopyLocalizedStringFromTableInBundle(CFSTR("Node was null."), NULL, _kODBundleID, NULL), NULL );
         }
         return NULL;
     }
@@ -1461,7 +2105,7 @@ ODQueryRef _ODQueryCreateWithNode( CFAllocatorRef inAllocator, ODNodeRef inNodeR
         {
             _ODErrorSet( outError, kODErrorDomainFramework, eDSAllocationFailed, 
                          CFCopyLocalizedStringFromTableInBundle(CFSTR("Memory allocation failure."), NULL, _kODBundleID, NULL), 
-                         CFCopyLocalizedStringFromTableInBundle(CFSTR("Unable to allocate ODQuery"), NULL, _kODBundleID, NULL), NULL );
+                         CFCopyLocalizedStringFromTableInBundle(CFSTR("Unable to allocate query."), NULL, _kODBundleID, NULL), NULL );
         }
     }
     
@@ -1469,7 +2113,7 @@ ODQueryRef _ODQueryCreateWithNode( CFAllocatorRef inAllocator, ODNodeRef inNodeR
 }
 
 ODQueryRef ODQueryCreateWithNodeType( CFAllocatorRef inAllocator, ODNodeType inType, CFTypeRef inRecordTypeOrList, 
-                                      CFStringRef inAttribute, ODMatchType inMatchType, CFTypeRef inQueryValueOrList, 
+                                      ODAttributeType inAttribute, ODMatchType inMatchType, CFTypeRef inQueryValueOrList, 
                                       CFTypeRef inReturnAttributeOrList, CFIndex inMaxValues, CFErrorRef *outError )
 {
     if( NULL != outError )
@@ -1492,7 +2136,7 @@ ODQueryRef ODQueryCreateWithNodeType( CFAllocatorRef inAllocator, ODNodeType inT
     return cfSearch;
 }
 
-CFArrayRef ODQueryCopyResults( ODQueryRef inQueryRef, Boolean inPartialResults, CFErrorRef *outError )
+CFArrayRef ODQueryCopyResults( ODQueryRef inQueryRef, bool inPartialResults, CFErrorRef *outError )
 {
     if( NULL != outError )
     {
@@ -1502,14 +2146,14 @@ CFArrayRef ODQueryCopyResults( ODQueryRef inQueryRef, Boolean inPartialResults, 
     return _ODQueryCopyResults( inQueryRef, inPartialResults, outError );
 }
 
-CFArrayRef _ODQueryCopyResults( ODQueryRef inQueryRef, Boolean inPartialResults, CFErrorRef *outError )
+CFArrayRef _ODQueryCopyResults( ODQueryRef inQueryRef, bool inPartialResults, CFErrorRef *outError )
 {
     CFStringRef cfError     = NULL;
     tDirStatus  dsStatus    = eDSNoErr;
     
     if( NULL == inQueryRef )
     {
-        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle(CFSTR("Query reference is missing."), NULL, _kODBundleID, NULL) : CFSTR(""));
+        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle(CFSTR("Missing query reference."), NULL, _kODBundleID, NULL) : CFSTR(""));
         dsStatus = eDSNullParameter;
         goto finish;
     }
@@ -1529,10 +2173,10 @@ CFArrayRef _ODQueryCopyResults( ODQueryRef inQueryRef, Boolean inPartialResults,
     // Grab the search lock first in case Synchronize is called
     pthread_mutex_lock( &(pQuery->_mutex) );
     
-    if( FALSE == pQuery->_bSearchStarted )
+    if( false == pQuery->_bSearchStarted )
     {
         ulRecordCount = pQuery->_maxValues;
-        pQuery->_bSearchStarted = TRUE;
+        pQuery->_bSearchStarted = true;
     }
     else if( 0 == pQuery->_dsContext )
     {
@@ -1564,7 +2208,7 @@ CFArrayRef _ODQueryCopyResults( ODQueryRef inQueryRef, Boolean inPartialResults,
     }
     
     _ODNode     *pODNode    = pQuery->_ODNode;
-    Boolean     bFailedOnce = FALSE;
+    bool     bFailedOnce = false;
     
     _ODNodeLock( pODNode );
     
@@ -1572,23 +2216,23 @@ CFArrayRef _ODQueryCopyResults( ODQueryRef inQueryRef, Boolean inPartialResults,
     {
         do
         {
-            if( TRUE == pQuery->_bGetRecordList )
+            if( true == pQuery->_bGetRecordList )
             {
                 dsStatus = dsGetRecordList( pODNode->_dsNodeRef, dsDataBuffer, pQuery->_dsSearchValues, pQuery->_matchType,
-                                            pQuery->_dsRecTypeList, pQuery->_dsRetAttrList, FALSE, &ulRecordCount, 
+                                            pQuery->_dsRecTypeList, pQuery->_dsRetAttrList, false, &ulRecordCount, 
                                             &(pQuery->_dsContext) );
             }
             else if( NULL != pQuery->_dsSearchValue )
             {
                 dsStatus = dsDoAttributeValueSearchWithData( pODNode->_dsNodeRef, dsDataBuffer, pQuery->_dsRecTypeList,
                                                              pQuery->_dsAttribute, pQuery->_matchType, pQuery->_dsSearchValue, 
-                                                             pQuery->_dsRetAttrList, FALSE, &ulRecordCount, &(pQuery->_dsContext) );
+                                                             pQuery->_dsRetAttrList, false, &ulRecordCount, &(pQuery->_dsContext) );
             }
             else
             {
                 dsStatus = dsDoMultipleAttributeValueSearchWithData( pODNode->_dsNodeRef, dsDataBuffer, pQuery->_dsRecTypeList, 
                                                                      pQuery->_dsAttribute, pQuery->_matchType, pQuery->_dsSearchValues, 
-                                                                     pQuery->_dsRetAttrList, FALSE, &ulRecordCount, &(pQuery->_dsContext) );
+                                                                     pQuery->_dsRetAttrList, false, &ulRecordCount, &(pQuery->_dsContext) );
             }
             
             if( eDSBufferTooSmall == dsStatus )
@@ -1609,7 +2253,7 @@ CFArrayRef _ODQueryCopyResults( ODQueryRef inQueryRef, Boolean inPartialResults,
             }
             
             if( (eDSInvalidNodeRef == dsStatus || eDSInvalidReference == dsStatus || eDSInvalidDirRef == dsStatus || eDSCannotAccessSession == dsStatus || eDSInvalidRefType == dsStatus) && 
-                bFailedOnce == FALSE && (0 == pQuery->_dsContext || FALSE == inPartialResults) )
+                bFailedOnce == false && (0 == pQuery->_dsContext || false == inPartialResults) )
             {
                 dsReleaseContinueData( pODNode->_ODSession->_dsRef, pQuery->_dsContext );
                 pQuery->_dsContext = 0;
@@ -1638,7 +2282,7 @@ CFArrayRef _ODQueryCopyResults( ODQueryRef inQueryRef, Boolean inPartialResults,
                 // remove all the values if we failed and restart the search again
                 CFArrayRemoveAllValues( outResults );
                 
-                bFailedOnce = TRUE;
+                bFailedOnce = true;
             }
         } while( eDSBufferTooSmall == dsStatus );
         
@@ -1647,7 +2291,7 @@ CFArrayRef _ODQueryCopyResults( ODQueryRef inQueryRef, Boolean inPartialResults,
             _AppendRecordsToList( pODNode, dsDataBuffer, ulRecordCount, outResults, outError );
         }
         
-    } while( FALSE == inPartialResults && eDSNoErr == dsStatus && 0 != pQuery->_dsContext );
+    } while( false == inPartialResults && eDSNoErr == dsStatus && 0 != pQuery->_dsContext );
     
     _ODNodeUnlock( pODNode );
     
@@ -1698,7 +2342,7 @@ finish:
         if( NULL != outError && NULL == (*outError) )
         {
             _ODErrorSet( outError, kODErrorDomainFramework, dsStatus, 
-                         CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to retrieve results for query."), NULL, _kODBundleID, NULL ), 
+                         CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to retrieve results for the query."), NULL, _kODBundleID, NULL ), 
                          cfError,
                          NULL );
         }
@@ -1744,8 +2388,8 @@ void ODQuerySynchronize( ODQueryRef inQueryRef )
     }
     
     // now reset stuff
-    pQuery->_bSearchStarted = FALSE;
-    pQuery->_bStopSearch = FALSE;
+    pQuery->_bSearchStarted = false;
+    pQuery->_bStopSearch = false;
     
     if( 0 != pQuery->_dsContext )
     {
@@ -1754,7 +2398,7 @@ void ODQuerySynchronize( ODQueryRef inQueryRef )
     }
     
     // if thread has already finished, need to reschedule
-    if( NULL != pQuery->_runLoopSource )
+    if( NULL != pQuery->_runLoopSource || NULL != pQuery->_dispatchQueue )
     {
         scheduleSearch( pQuery, NULL, NULL );
     }
@@ -1845,6 +2489,42 @@ void _ODQuerySetPredicate( ODQueryRef inQueryRef, void *inPredicate )
         CFRetain( inPredicate );
 }
 
+void _ODQuerySetOperationQueue( ODQueryRef inQueryRef, void *inQueue )
+{
+    if( NULL == inQueryRef )
+        return;
+
+    if( CF_IS_OBJC(_kODQueryTypeID, inQueryRef) )
+    {
+        CF_OBJC_CALL( ODQueryRef, inQueryRef, inQueryRef, "_getODQueryObject" );
+    }        
+
+    _ODQuery *pQuery = (_ODQuery *) inQueryRef;
+
+    if( NULL != pQuery->_operationQueue )
+        CFRelease( pQuery->_operationQueue );
+
+    pQuery->_operationQueue = inQueue; // nothing to do here but set the value
+
+    if( NULL != inQueue )
+        CFRetain( inQueue );
+}
+
+void *_ODQueryGetOperationQueue( ODQueryRef inQueryRef )
+{
+    if( NULL == inQueryRef )
+        return NULL;
+
+    if( CF_IS_OBJC(_kODQueryTypeID, inQueryRef) )
+    {
+        CF_OBJC_CALL( ODQueryRef, inQueryRef, inQueryRef, "_getODQueryObject" );
+    }        
+
+    _ODQuery *pQuery = (_ODQuery *) inQueryRef;
+
+    return pQuery->_operationQueue;
+}
+
 void ODQueryScheduleWithRunLoop( ODQueryRef inQueryRef, CFRunLoopRef inRunLoop, CFStringRef inRunLoopMode )
 {
     if( NULL == inQueryRef )
@@ -1870,7 +2550,7 @@ void ODQueryScheduleWithRunLoop( ODQueryRef inQueryRef, CFRunLoopRef inRunLoop, 
     
     // if we have a source and we aren't already scheduled, let's schedule for this runloop in this mode
     if( NULL != pQuery->_runLoopSource && 
-        _OD_isScheduled(inQueryRef, inRunLoop, inRunLoopMode, pQuery->_runLoops) == FALSE )
+        _OD_isScheduled(inQueryRef, inRunLoop, inRunLoopMode, pQuery->_runLoops) == false )
     {
         CFRunLoopAddSource( inRunLoop, pQuery->_runLoopSource, inRunLoopMode );
         _OD_schedule( inQueryRef, inRunLoop, inRunLoopMode, pQuery->_runLoops );
@@ -1895,7 +2575,7 @@ void ODQueryUnscheduleFromRunLoop( ODQueryRef inQueryRef, CFRunLoopRef inRunLoop
     
     if( NULL != pQuery->_runLoopSource )
     {
-        if ( _OD_unschedule(inQueryRef, inRunLoop, inRunLoopMode, pQuery->_runLoops, FALSE) == TRUE )
+        if ( _OD_unschedule(inQueryRef, inRunLoop, inRunLoopMode, pQuery->_runLoops, false) == true )
             CFRunLoopRemoveSource( inRunLoop, pQuery->_runLoopSource, inRunLoopMode );
         
         if ( CFArrayGetCount(pQuery->_runLoops) == 0 ) {
@@ -1907,6 +2587,30 @@ void ODQueryUnscheduleFromRunLoop( ODQueryRef inQueryRef, CFRunLoopRef inRunLoop
         }
     }
     
+    pthread_mutex_unlock( &(pQuery->_mutex) );
+}
+
+void ODQuerySetDispatchQueue( ODQueryRef inQueryRef, dispatch_queue_t inQueue )
+{
+    if( NULL == inQueryRef )
+        return;
+
+    if( CF_IS_OBJC(_kODQueryTypeID, inQueryRef) )
+    {
+        CF_OBJC_CALL( ODQueryRef, inQueryRef, inQueryRef, "_getODQueryObject" );
+    }        
+    
+    _ODQuery *pQuery = (_ODQuery *) inQueryRef;
+    
+    pthread_mutex_lock( &(pQuery->_mutex) );
+
+    if( NULL != pQuery->_dispatchQueue )
+        dispatch_release(pQuery->_dispatchQueue);
+    pQuery->_dispatchQueue = inQueue;
+    dispatch_retain(pQuery->_dispatchQueue);
+
+    scheduleSearch(pQuery, NULL, NULL);
+
     pthread_mutex_unlock( &(pQuery->_mutex) );
 }
 
@@ -1924,7 +2628,7 @@ CFTypeID ODSessionGetTypeID( void )
     return _kODSessionTypeID;
 }
 
-Boolean _ODSessionInit( ODSessionRef inSession, CFDictionaryRef inOptions, CFErrorRef *outError )
+bool _ODSessionInit( ODSessionRef inSession, CFDictionaryRef inOptions, CFErrorRef *outError )
 {
     tDirStatus  dsStatus    = eDSNoErr;
     _ODSession  *result     = (_ODSession *) inSession;
@@ -1950,7 +2654,7 @@ Boolean _ODSessionInit( ODSessionRef inSession, CFDictionaryRef inOptions, CFErr
             else
             {
                 dsStatus = eDSNullParameter;
-                cfErrorLocalized = CFCopyLocalizedStringFromTableInBundle( CFSTR("Proxy Address was missing."), NULL, _kODBundleID, NULL );
+                cfErrorLocalized = CFCopyLocalizedStringFromTableInBundle( CFSTR("Missing proxy address."), NULL, _kODBundleID, NULL );
             }
             
             cfRef = CFDictionaryGetValue( inOptions, kODSessionProxyPort );
@@ -1977,7 +2681,7 @@ Boolean _ODSessionInit( ODSessionRef inSession, CFDictionaryRef inOptions, CFErr
             else
             {
                 dsStatus = eDSNullParameter;
-                cfErrorLocalized = CFCopyLocalizedStringFromTableInBundle( CFSTR("Proxy username was missing."), NULL, _kODBundleID, NULL );
+                cfErrorLocalized = CFCopyLocalizedStringFromTableInBundle( CFSTR("Missing proxy username."), NULL, _kODBundleID, NULL );
             }
             
             cfRef = CFDictionaryGetValue( inOptions, kODSessionProxyPassword );
@@ -1988,7 +2692,7 @@ Boolean _ODSessionInit( ODSessionRef inSession, CFDictionaryRef inOptions, CFErr
             else
             {
                 dsStatus = eDSNullParameter;
-                cfErrorLocalized = CFCopyLocalizedStringFromTableInBundle( CFSTR("Proxy password was missing."), NULL, _kODBundleID, NULL );
+                cfErrorLocalized = CFCopyLocalizedStringFromTableInBundle( CFSTR("Missing proxy password."), NULL, _kODBundleID, NULL );
             }
         }
         
@@ -2022,11 +2726,11 @@ Boolean _ODSessionInit( ODSessionRef inSession, CFDictionaryRef inOptions, CFErr
                              NULL );
             }
             
-            return FALSE;
+            return false;
         }
     }
     
-    return TRUE;
+    return true;
 }
 
 ODSessionRef ODSessionCreate( CFAllocatorRef inAllocator, CFDictionaryRef inOptions, CFErrorRef *outError )
@@ -2042,7 +2746,7 @@ ODSessionRef ODSessionCreate( CFAllocatorRef inAllocator, CFDictionaryRef inOpti
     result = _createSession( inAllocator );
     if( NULL != result )
     {
-        if( _ODSessionInit( (ODSessionRef) result, inOptions, outError ) == FALSE )
+        if( _ODSessionInit( (ODSessionRef) result, inOptions, outError ) == false )
         {
             CFRelease( (CFTypeRef) result );
             result = NULL;
@@ -2053,7 +2757,7 @@ ODSessionRef ODSessionCreate( CFAllocatorRef inAllocator, CFDictionaryRef inOpti
         if( NULL != outError && NULL == (*outError) )
         {
             _ODErrorSet( outError, kODErrorDomainFramework, eDSAllocationFailed, 
-                         CFCopyLocalizedStringFromTableInBundle(CFSTR("Allocation failed"), NULL, _kODBundleID, NULL), 
+                         CFCopyLocalizedStringFromTableInBundle(CFSTR("Allocation failed."), NULL, _kODBundleID, NULL), 
                          CFCopyLocalizedStringFromTableInBundle(CFSTR("Unable to allocate array for results."), NULL, _kODBundleID, NULL),
                          NULL );
         }
@@ -2062,7 +2766,7 @@ ODSessionRef ODSessionCreate( CFAllocatorRef inAllocator, CFDictionaryRef inOpti
     return (ODSessionRef)result;
 }
 
-ODSessionRef ODSessionCreateWithDSRef( CFAllocatorRef inAllocator, tDirReference inDirRef, Boolean inCloseOnRelease )
+ODSessionRef ODSessionCreateWithDSRef( CFAllocatorRef inAllocator, tDirReference inDirRef, bool inCloseOnRelease )
 {
     if( 0 == inDirRef )
     {
@@ -2127,7 +2831,7 @@ CFArrayRef ODSessionCopyNodeNames( CFAllocatorRef inAllocator, ODSessionRef inSe
     
     if( CF_IS_OBJC(_kODSessionTypeID, inSessionRef) )
     {
-        CF_OBJC_CALL( CFMutableArrayRef, returnValue, inSessionRef, "nodeNames:", outError );
+        CF_OBJC_CALL( CFMutableArrayRef, returnValue, inSessionRef, "nodeNamesAndReturnError:", outError );
         return (NULL != returnValue && CF_USING_COLLECTABLE_MEMORY ? CFRetain(returnValue) : NULL);
     }
     
@@ -2242,7 +2946,7 @@ failed:
             
             if( NULL != cfError )
             {
-                CFStringRef cfDescription = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to open retrieve available node names for session."), NULL, _kODBundleID, NULL );
+                CFStringRef cfDescription = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to retrieve available node names for session."), NULL, _kODBundleID, NULL );
                 _ODErrorSet( outError, kODErrorDomainFramework, dsStatus, cfDescription, cfError, NULL );        
             }
         }
@@ -2265,6 +2969,38 @@ CFTypeID ODNodeGetTypeID( void )
     return _kODNodeTypeID;
 }
 
+static void _checkForRecordBlat( ODNodeRef inNodeRef )
+{
+    CFErrorRef                  localError  = NULL;
+	AuthorizationExternalForm   form        = { { 0 } };
+    CFDataRef                   sendData    = CFDataCreateWithBytesNoCopy( kCFAllocatorDefault, (UInt8 *) &form, sizeof(form), kCFAllocatorNull );
+    CFDataRef                   recvData    = ODNodeCustomCall( inNodeRef, eDSCustomCallExtendedRecordCallsAvailable, sendData, &localError );
+    
+    if ( recvData != NULL ) {
+        if ( localError == NULL ) {
+            _ODNode *node = (_ODNode *) inNodeRef;
+            if ( CFDataGetLength(recvData) > 0 ) {
+                const char *bytes = (const char *) CFDataGetBytePtr( recvData );
+                
+                if ( bytes != NULL && bytes[0] != 0 ) {
+                    node->_flags |= kODNodeFlagRecordBlat;
+                }
+            }
+        }
+        
+        CFRelease( recvData );
+        recvData = NULL;
+    }
+    
+    if ( localError != NULL ) {
+        CFRelease( localError );
+        localError = NULL;
+    }
+    
+    CFRelease( sendData );
+    sendData = NULL;
+}
+
 tDirStatus _ODNodeInitWithType( ODNodeRef inNodeRef, ODSessionRef inSessionRef, ODNodeType inType, CFErrorRef *outError )
 {
     if( NULL != outError )
@@ -2285,6 +3021,9 @@ tDirStatus _ODNodeInitWithType( ODNodeRef inNodeRef, ODSessionRef inSessionRef, 
         result->_nodeType = inType;
         
         dsStatus = _FindDirNode( result, inType, outError );
+        if ( dsStatus == eDSNoErr ) {
+            _checkForRecordBlat( inNodeRef );
+        }
     }
 
     // _MapDSErrorToReason will return a non-NULL value if there is already an error set
@@ -2294,7 +3033,7 @@ tDirStatus _ODNodeInitWithType( ODNodeRef inNodeRef, ODSessionRef inSessionRef, 
     {
         if( NULL != outError && NULL == (*outError) )
         {
-            CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to open Directory node with type %d."), NULL, _kODBundleID, NULL );
+            CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to open Directory node of type %d."), NULL, _kODBundleID, NULL );
             CFStringRef cfDescription = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, cfTemp, inType );
             CFRelease( cfTemp );
             
@@ -2333,14 +3072,14 @@ tDirStatus _ODNodeInitWithName( CFAllocatorRef inAllocator, ODNodeRef inNodeRef,
     {
         result->_ODSession = (_ODSession *) CFRetain( inSessionRef );
         
-        Boolean bFailedOnce = FALSE;
+        bool bFailedOnce = false;
         while( 1 )
         {
             dsStatus = dsOpenDirNode( result->_ODSession->_dsRef, dsNodeName, &result->_dsNodeRef );
-            if( FALSE == bFailedOnce && (eDSInvalidReference == dsStatus || eDSInvalidDirRef == dsStatus || eDSInvalidRefType == dsStatus) )
+            if( false == bFailedOnce && (eDSInvalidReference == dsStatus || eDSInvalidDirRef == dsStatus || eDSInvalidRefType == dsStatus) )
             {
                 dsStatus = _ReopenDS( result->_ODSession );
-                bFailedOnce = TRUE;
+                bFailedOnce = true;
                 continue;
             }
             break;
@@ -2349,6 +3088,7 @@ tDirStatus _ODNodeInitWithName( CFAllocatorRef inAllocator, ODNodeRef inNodeRef,
         if( eDSNoErr == dsStatus )
         {
             CFDictionarySetValue( result->_info, kODNodeNameKey, inNodeName );
+            _checkForRecordBlat( inNodeRef );
         }
     }
     
@@ -2389,7 +3129,7 @@ tDirStatus _ODNodeInitWithName( CFAllocatorRef inAllocator, ODNodeRef inNodeRef,
 
 ODNodeRef ODNodeCreate( CFAllocatorRef inAllocator, ODSessionRef inSessionRef, CFErrorRef *outError )
 {
-    return ODNodeCreateWithNodeType( inAllocator, inSessionRef, kODTypeAuthenticationSearchNode, outError );
+    return ODNodeCreateWithNodeType( inAllocator, inSessionRef, kODNodeTypeAuthentication, outError );
 }
 
 ODNodeRef ODNodeCreateWithNodeType( CFAllocatorRef inAllocator, ODSessionRef inSessionRef, ODNodeType inType, CFErrorRef *outError )
@@ -2442,7 +3182,7 @@ ODNodeRef _ODNodeCreateWithName( CFAllocatorRef inAllocator, ODSessionRef inSess
         {
             _ODErrorSet( outError, kODErrorDomainFramework, eDSNullParameter, 
                          CFCopyLocalizedStringFromTableInBundle(CFSTR("Unable to open Directory node."), NULL, _kODBundleID, NULL), 
-                         CFCopyLocalizedStringFromTableInBundle(CFSTR("Node name is missing."), NULL, _kODBundleID, NULL),
+                         CFCopyLocalizedStringFromTableInBundle(CFSTR("Missing node name."), NULL, _kODBundleID, NULL),
                          NULL );
         }
         return NULL;
@@ -2487,8 +3227,8 @@ ODNodeRef _ODNodeCreateCopy( CFAllocatorRef inAllocator, ODNodeRef inNodeRef, CF
         if( NULL != outError && NULL == (*outError) )
         {
             _ODErrorSet( outError, kODErrorDomainFramework, eDSNullParameter, 
-                         CFCopyLocalizedStringFromTableInBundle(CFSTR("Unable to make copy of node."), NULL, _kODBundleID, NULL), 
-                         CFCopyLocalizedStringFromTableInBundle(CFSTR("Node reference is missing."), NULL, _kODBundleID, NULL),
+                         CFCopyLocalizedStringFromTableInBundle(CFSTR("Unable to make a copy of the node."), NULL, _kODBundleID, NULL), 
+                         CFCopyLocalizedStringFromTableInBundle(CFSTR("Missing node reference."), NULL, _kODBundleID, NULL),
                          NULL );
         }
         return NULL;
@@ -2538,7 +3278,7 @@ ODNodeRef _ODNodeCreateCopy( CFAllocatorRef inAllocator, ODNodeRef inNodeRef, CF
 }
 
 ODNodeRef ODNodeCreateWithDSRef( CFAllocatorRef inAllocator, tDirReference inDirRef, tDirNodeReference inNodeRef, 
-                                 Boolean inCloseOnRelease )
+                                 bool inCloseOnRelease )
 {
     if( 0 == inDirRef || 0 == inNodeRef )
     {
@@ -2562,14 +3302,14 @@ ODNodeRef ODNodeCreateWithDSRef( CFAllocatorRef inAllocator, tDirReference inDir
             dsStatus = eDSAllocationFailed;
         }
         
-        dsStatus = dsGetDirNodeInfo( inNodeRef, dsInfoType, dsDataBuffer, FALSE, &ulCount, &dsAttribList, &dsContext );
+        dsStatus = dsGetDirNodeInfo( inNodeRef, dsInfoType, dsDataBuffer, false, &ulCount, &dsAttribList, &dsContext );
         if( eDSNoErr == dsStatus )
         {
             CFDictionaryRef cfDict = _GetAttributesFromBuffer( inNodeRef, dsDataBuffer, dsAttribList, ulCount, NULL );
             
             if( NULL != cfDict )
             {
-                CFMutableArrayRef   cfPath = (CFMutableArrayRef) CFDictionaryGetValue( cfDict, CFSTR(kDSNAttrNodePath) );
+                CFMutableArrayRef   cfPath = (CFMutableArrayRef) CFDictionaryGetValue( cfDict, kODAttributeTypeNodePath );
                 
                 if( NULL != cfPath )
                 {
@@ -2617,7 +3357,7 @@ ODNodeRef ODNodeCreateWithDSRef( CFAllocatorRef inAllocator, tDirReference inDir
                 // Set the names only if succeeded
                 if( NULL != result )
                 {
-                    result->_closeRef = inCloseOnRelease;
+                    result->_flags = (inCloseOnRelease ? kODNodeFlagCloseRef : 0);
                     result->_ODSession = session;
                     result->_dsNodeRef = inNodeRef;
                     
@@ -2659,7 +3399,7 @@ CFArrayRef ODNodeCopySubnodeNames( ODNodeRef inNodeRef, CFErrorRef *outError )
         {
             _ODErrorSet( outError, kODErrorDomainFramework, eDSNullParameter, 
                          CFCopyLocalizedStringFromTableInBundle(CFSTR("Unable to determine subnodes."), NULL, _kODBundleID, NULL), 
-                         CFCopyLocalizedStringFromTableInBundle(CFSTR("Node reference is missing."), NULL, _kODBundleID, NULL),
+                         CFCopyLocalizedStringFromTableInBundle(CFSTR("Missing node reference."), NULL, _kODBundleID, NULL),
                          NULL );
         }
         return NULL;
@@ -2668,7 +3408,7 @@ CFArrayRef ODNodeCopySubnodeNames( ODNodeRef inNodeRef, CFErrorRef *outError )
     if( CF_IS_OBJC(_kODNodeTypeID, inNodeRef) )
     {
         CFArrayRef  returnValue = NULL;
-        CF_OBJC_CALL( CFArrayRef, returnValue, inNodeRef, "subnodeNames:", outError );
+        CF_OBJC_CALL( CFArrayRef, returnValue, inNodeRef, "subnodeNamesAndReturnError:", outError );
         return (NULL != returnValue && CF_USING_COLLECTABLE_MEMORY ? CFRetain(returnValue) : NULL);
     }        
     
@@ -2711,7 +3451,7 @@ CFArrayRef ODNodeCopyUnreachableSubnodeNames( ODNodeRef inNodeRef, CFErrorRef *o
         {
             _ODErrorSet( outError, kODErrorDomainFramework, eDSNullParameter, 
                          CFCopyLocalizedStringFromTableInBundle(CFSTR("Unable to determine unreachable subnodes."), NULL, _kODBundleID, NULL), 
-                         CFCopyLocalizedStringFromTableInBundle(CFSTR("Node reference is missing."), NULL, _kODBundleID, NULL),
+                         CFCopyLocalizedStringFromTableInBundle(CFSTR("Missing node reference."), NULL, _kODBundleID, NULL),
                          NULL );
         }
         return NULL;
@@ -2720,15 +3460,15 @@ CFArrayRef ODNodeCopyUnreachableSubnodeNames( ODNodeRef inNodeRef, CFErrorRef *o
     if( CF_IS_OBJC(_kODNodeTypeID, inNodeRef) )
     {
         CFArrayRef  returnValue = NULL;
-        CF_OBJC_CALL( CFArrayRef, returnValue, inNodeRef, "unreachableSubnodeNames:", outError );
+        CF_OBJC_CALL( CFArrayRef, returnValue, inNodeRef, "unreachableSubnodeNamesAndReturnError:", outError );
         return (NULL != returnValue && CF_USING_COLLECTABLE_MEMORY ? CFRetain(returnValue) : NULL);
     }            
     
     // if it's the search node, ask it what it thinks is unreachable.
     // prevents a race condition where the search node has yet to open a node
     // that really is available.
-    if( ((_ODNode *)inNodeRef)->_nodeType == kODTypeAuthenticationSearchNode ||
-        ((_ODNode *)inNodeRef)->_nodeType == kODTypeContactSearchNode )
+    if( ((_ODNode *)inNodeRef)->_nodeType == kODNodeTypeAuthentication ||
+        ((_ODNode *)inNodeRef)->_nodeType == kODNodeTypeContacts )
     {
         CFDataRef data = ODNodeCustomCall( inNodeRef, eDSCustomCallSearchSubNodesUnreachable, NULL, outError);
         CFArrayRef returnValue = NULL;
@@ -2777,7 +3517,7 @@ CFArrayRef ODNodeCopyUnreachableSubnodeNames( ODNodeRef inNodeRef, CFErrorRef *o
                 if( NULL != cfNode )
                 {
                     // if it is Active directory, we need to check the GetDirNodeInfo to tell if working
-                    if( TRUE == CFStringHasPrefix(cfNodeName, CFSTR("/Active Directory/")) )
+                    if( true == CFStringHasPrefix(cfNodeName, CFSTR("/Active Directory/")) )
                     {
                         CFStringRef     cfAvailString   = CFSTR("dsAttrTypeStandard:NodeAvailability");
                         CFArrayRef      cfKeys          = CFArrayCreate( kCFAllocatorDefault, (const void **) &cfAvailString,
@@ -2874,7 +3614,7 @@ CFDictionaryRef _ODNodeCopyDetails( ODNodeRef inNodeRef, CFArrayRef inAttributeL
     
     if( NULL == inNodeRef )
     {
-        cfError = (outError != NULL ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Node reference is missing."), NULL, _kODBundleID, NULL ) : CFSTR(""));
+        cfError = (outError != NULL ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Missing node reference."), NULL, _kODBundleID, NULL ) : CFSTR(""));
         dsStatus = eDSNullParameter;
         goto finish;
     }
@@ -2922,11 +3662,11 @@ CFDictionaryRef _ODNodeCopyDetails( ODNodeRef inNodeRef, CFArrayRef inAttributeL
         dsStatus = eDSAllocationFailed;
     }
     
-    Boolean bFailedOnce = FALSE;
+    bool bFailedOnce = false;
     
     do
     {
-        dsStatus = dsGetDirNodeInfo( pODNodeRef->_dsNodeRef, dsInfoType, dsDataBuffer, FALSE, &ulCount, &dsAttribList, &dsContext );
+        dsStatus = dsGetDirNodeInfo( pODNodeRef->_dsNodeRef, dsInfoType, dsDataBuffer, false, &ulCount, &dsAttribList, &dsContext );
         
         if( eDSBufferTooSmall == dsStatus )
         {
@@ -2945,7 +3685,7 @@ CFDictionaryRef _ODNodeCopyDetails( ODNodeRef inNodeRef, CFArrayRef inAttributeL
         }
         
         if( (eDSInvalidNodeRef == dsStatus || eDSInvalidReference == dsStatus || eDSInvalidDirRef == dsStatus || eDSCannotAccessSession == dsStatus || eDSInvalidRefType == dsStatus) && 
-            bFailedOnce == FALSE )
+            bFailedOnce == false )
         {
             if( 0 != dsContext )
             {
@@ -2974,7 +3714,7 @@ CFDictionaryRef _ODNodeCopyDetails( ODNodeRef inNodeRef, CFArrayRef inAttributeL
                 dsStatus = eDSBufferTooSmall;
             }
             
-            bFailedOnce = TRUE;
+            bFailedOnce = true;
         }
         
         if( eDSNoErr == dsStatus )
@@ -3021,13 +3761,13 @@ finish:
             
             if( NULL != cfNodeName )
             {
-                CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to get node details for %@."), NULL, _kODBundleID, "where %@ is a node name like /LDAPv3/127.0.0.1" );
+                CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to obtain node details for %@."), NULL, _kODBundleID, "where %@ is a node name like /LDAPv3/127.0.0.1" );
                 cfDescription = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, cfTemp, cfNodeName );
                 CFRelease( cfTemp );
             }
             else
             {                    
-                cfDescription = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to get node details."), NULL, _kODBundleID, NULL );
+                cfDescription = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to obtain node details."), NULL, _kODBundleID, NULL );
             }
             
             _ODErrorSet( outError, kODErrorDomainFramework, dsStatus, 
@@ -3057,7 +3797,7 @@ CFArrayRef ODNodeCopySupportedRecordTypes( ODNodeRef inNodeRef, CFErrorRef *outE
         {
             _ODErrorSet( outError, kODErrorDomainFramework, eDSNullParameter, 
                          CFCopyLocalizedStringFromTableInBundle(CFSTR("Unable to determine supported record types."), NULL, _kODBundleID, NULL), 
-                         CFCopyLocalizedStringFromTableInBundle(CFSTR("Node reference is missing."), NULL, _kODBundleID, NULL),
+                         CFCopyLocalizedStringFromTableInBundle(CFSTR("Missing node reference."), NULL, _kODBundleID, NULL),
                          NULL );
         }
         return NULL;
@@ -3066,12 +3806,12 @@ CFArrayRef ODNodeCopySupportedRecordTypes( ODNodeRef inNodeRef, CFErrorRef *outE
     if( CF_IS_OBJC(_kODNodeTypeID, inNodeRef) )
     {
         CFArrayRef returnValue = NULL;
-        CF_OBJC_CALL( CFArrayRef, returnValue, inNodeRef, "supportedRecordTypes:", outError );
+        CF_OBJC_CALL( CFArrayRef, returnValue, inNodeRef, "supportedRecordTypesAndReturnError:", outError );
         return (NULL != returnValue && CF_USING_COLLECTABLE_MEMORY ? CFRetain(returnValue) : NULL);
     }
     
     _ODNode             *pODNode        = (_ODNode *) inNodeRef;
-    CFStringRef         cfRecordType    = CFSTR(kDSNAttrRecordType);
+    CFStringRef         cfRecordType    = kODAttributeTypeRecordType;
     CFArrayRef          cfValues        = CFArrayCreate( kCFAllocatorDefault, (const void **) &cfRecordType, 1, &kCFTypeArrayCallBacks );
     CFDictionaryRef     cfNodeInfo      = _ODNodeCopyDetails( inNodeRef, cfValues, outError );
     CFMutableArrayRef   cfResults       = NULL;
@@ -3082,18 +3822,18 @@ CFArrayRef ODNodeCopySupportedRecordTypes( ODNodeRef inNodeRef, CFErrorRef *outE
     {
         // well need to fall to the configuration node instead
         ODNodeRef  cfConfigNode = _ODNodeCreateWithNodeType( kCFAllocatorDefault, (ODSessionRef) (pODNode->_ODSession), 
-                                                             kODTypeConfigNode, NULL );
+                                                             kODNodeTypeConfigure, NULL );
         
         if( NULL != cfConfigNode )
         {
             ODQueryRef cfSearch;
             
-            cfSearch = _ODQueryCreateWithNode( kCFAllocatorDefault, cfConfigNode, CFSTR(kDSConfigRecordsType), CFSTR(kDSNAttrRecordName), 
-                                               kODMatchEqualTo, CFSTR(kDSConfigRecordsAll), CFSTR(kDSAttributesAll), 0, NULL );
+            cfSearch = _ODQueryCreateWithNode( kCFAllocatorDefault, cfConfigNode, CFSTR(kDSConfigRecordsType), kODAttributeTypeRecordName, 
+                                               kODMatchEqualTo, CFSTR(kDSConfigRecordsAll), kODAttributeTypeAllAttributes, 0, NULL );
             
             if( NULL != cfSearch )
             {
-                cfResults = (CFMutableArrayRef) _ODQueryCopyResults( cfSearch, FALSE, NULL );
+                cfResults = (CFMutableArrayRef) _ODQueryCopyResults( cfSearch, false, NULL );
                 
                 CFRelease( cfSearch );
                 cfSearch = NULL;
@@ -3111,7 +3851,7 @@ CFArrayRef ODNodeCopySupportedRecordTypes( ODNodeRef inNodeRef, CFErrorRef *outE
     
     if( NULL != cfNodeInfo )
     {
-        CFArrayRef  cfValues    = (CFArrayRef) CFDictionaryGetValue( cfNodeInfo, CFSTR(kDSNAttrRecordType) );
+        CFArrayRef  cfValues    = (CFArrayRef) CFDictionaryGetValue( cfNodeInfo, kODAttributeTypeRecordType );
         
         if( NULL != cfValues )
         {
@@ -3145,7 +3885,7 @@ CFArrayRef ODNodeCopySupportedAttributes( ODNodeRef inNodeRef, CFStringRef inRec
         {
             _ODErrorSet( outError, kODErrorDomainFramework, eDSNullParameter, 
                          CFCopyLocalizedStringFromTableInBundle(CFSTR("Unable to determine supported attributes."), NULL, _kODBundleID, NULL), 
-                         CFCopyLocalizedStringFromTableInBundle(CFSTR("Node reference is missing."), NULL, _kODBundleID, NULL),
+                         CFCopyLocalizedStringFromTableInBundle(CFSTR("Missing node reference."), NULL, _kODBundleID, NULL),
                          NULL );
         }
         return NULL;
@@ -3160,27 +3900,27 @@ CFArrayRef ODNodeCopySupportedAttributes( ODNodeRef inNodeRef, CFStringRef inRec
     
 #warning need to do the appropriate call for Leopard to determine supported attributes on a record type...
     
-    _ODNode    *pODNode    = (_ODNode *) inNodeRef;
-    CFDictionaryRef         cfNodeInfo  = NULL; // ODNodeCopyDetails( inNodeRef, CFSTR(kDSStdRecordTypeAttributeTypes) );
+    _ODNode         *pODNode    = (_ODNode *) inNodeRef;
+    CFDictionaryRef cfNodeInfo  = NULL; // ODNodeCopyDetails( inNodeRef, CFSTR(kDSStdRecordTypeAttributeTypes) );
     
     _ODNodeLock( pODNode );
     
-    if( NULL == cfNodeInfo || CFDictionaryGetCountOfKey(cfNodeInfo, CFSTR(kDSNAttrRecordType)) == 0 )
+    if( NULL == cfNodeInfo || CFDictionaryGetCountOfKey(cfNodeInfo, kODAttributeTypeRecordType) == 0 )
     {
         // well need to fall to the configuration node instead
         ODNodeRef  cfConfigNode = _ODNodeCreateWithNodeType( kCFAllocatorDefault, (ODSessionRef) (pODNode->_ODSession), 
-                                                             kODTypeConfigNode, NULL );
+                                                             kODNodeTypeConfigure, NULL );
         
         if( NULL != cfConfigNode )
         {
             ODQueryRef cfSearch;
             
-            cfSearch = _ODQueryCreateWithNode( kCFAllocatorDefault, cfConfigNode, CFSTR(kDSConfigAttributesType), CFSTR(kDSNAttrRecordName), 
-                                               kODMatchEqualTo, CFSTR(kDSConfigRecordsAll), CFSTR(kDSAttributesAll), 0, NULL );
+            cfSearch = _ODQueryCreateWithNode( kCFAllocatorDefault, cfConfigNode, CFSTR(kDSConfigAttributesType), kODAttributeTypeRecordName, 
+                                               kODMatchEqualTo, CFSTR(kDSConfigRecordsAll), kODAttributeTypeAllAttributes, 0, NULL );
             
             if( NULL != cfSearch )
             {
-                cfResults = (CFMutableArrayRef) _ODQueryCopyResults( cfSearch, FALSE, NULL );
+                cfResults = (CFMutableArrayRef) _ODQueryCopyResults( cfSearch, false, NULL );
                 
                 CFRelease( cfSearch );
                 cfSearch = NULL;
@@ -3195,7 +3935,7 @@ CFArrayRef ODNodeCopySupportedAttributes( ODNodeRef inNodeRef, CFStringRef inRec
     
     if( NULL != cfNodeInfo )
     {
-        CFArrayRef  cfValues    = (CFArrayRef) CFDictionaryGetValue( cfNodeInfo, CFSTR(kDSNAttrRecordType) );
+        CFArrayRef  cfValues    = (CFArrayRef) CFDictionaryGetValue( cfNodeInfo, kODAttributeTypeRecordType );
         
         if( NULL != cfValues )
         {
@@ -3214,7 +3954,7 @@ CFArrayRef ODNodeCopySupportedAttributes( ODNodeRef inNodeRef, CFStringRef inRec
     return cfResults;
 }
 
-Boolean ODNodeSetCredentials( ODNodeRef inNodeRef, CFStringRef inRecordType, CFStringRef inRecordName, CFStringRef inPassword, CFErrorRef *outError )
+bool ODNodeSetCredentials( ODNodeRef inNodeRef, CFStringRef inRecordType, CFStringRef inRecordName, CFStringRef inPassword, CFErrorRef *outError )
 {
     if( NULL != outError )
     {
@@ -3224,31 +3964,31 @@ Boolean ODNodeSetCredentials( ODNodeRef inNodeRef, CFStringRef inRecordType, CFS
     return _ODNodeSetCredentials( inNodeRef, inRecordType, inRecordName, inPassword, outError );
 }
 
-Boolean _ODNodeSetCredentials( ODNodeRef inNodeRef, CFStringRef inRecordType, CFStringRef inRecordName, CFStringRef inPassword, CFErrorRef *outError )
+bool _ODNodeSetCredentials( ODNodeRef inNodeRef, CFStringRef inRecordType, CFStringRef inRecordName, CFStringRef inPassword, CFErrorRef *outError )
 {
     CFStringRef cfError     = NULL;
     tDirStatus  dsStatus    = eDSAuthFailed;
     
     if( NULL == inNodeRef )
     {
-        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Node reference is missing."), NULL, _kODBundleID, NULL ) : CFSTR(""));
+        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Missing node reference."), NULL, _kODBundleID, NULL ) : CFSTR(""));
         dsStatus = eDSNullParameter;
         goto finish;
     }
     else if( NULL == inRecordName )
     {
-        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Record name is missing."), NULL, _kODBundleID, NULL ) : CFSTR(""));
+        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Missing record name."), NULL, _kODBundleID, NULL ) : CFSTR(""));
         dsStatus = eDSNullParameter;
         goto finish;
     }
     else if( NULL == inPassword )
     {
-        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Password is missing."), NULL, _kODBundleID, NULL ) : CFSTR(""));
+        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Missing password."), NULL, _kODBundleID, NULL ) : CFSTR(""));
         dsStatus = eDSNullParameter;
         goto finish;
     }
 
-    CF_OBJC_FUNCDISPATCH( _kODNodeTypeID, Boolean, inNodeRef, "setCredentialsWithRecordType:recordName:password:error:", inRecordType,
+    CF_OBJC_FUNCDISPATCH( _kODNodeTypeID, bool, inNodeRef, "setCredentialsWithRecordType:recordName:password:error:", inRecordType,
                           inRecordName, inPassword, outError );
     
     _ODNode     *pODNodeRef = (_ODNode *) inNodeRef;
@@ -3258,7 +3998,7 @@ Boolean _ODNodeSetCredentials( ODNodeRef inNodeRef, CFStringRef inRecordType, CF
 
     _ODNodeLock( pODNodeRef );
     
-    dsStatus = _Authenticate( inNodeRef, kDSStdAuthNodeNativeClearTextOK, pRecType, cfAuthItems, NULL, NULL, FALSE );
+    dsStatus = _Authenticate( inNodeRef, kDSStdAuthNodeNativeClearTextOK, pRecType, cfAuthItems, NULL, NULL, false );
     
     _ODNodeUnlock( pODNodeRef );
     
@@ -3303,13 +4043,13 @@ finish:
             {
                 if( NULL != inRecordName )
                 {
-                    CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to set node credentials for %@ with record name %@."), NULL, _kODBundleID, "where %1@ is a node name like /LDAPv3/127.0.0.1 and %2@ is a record name like user1" );
+                    CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to set node credentials for %@ with the record name %@."), NULL, _kODBundleID, "where %1@ is a node name like /LDAPv3/127.0.0.1 and %2@ is a record name like user1" );
                     cfDescription = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, cfTemp, cfNodeName, inRecordName );
                     CFRelease( cfTemp );
                 }
                 else
                 {
-                    CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to set node credentials for %@."), NULL, _kODBundleID, "where %@ is a node name like /LDAPv3/127.0.0.1" );
+                    CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to set node credentials for %@."), NULL, _kODBundleID, "%@ is the name of a domain/node" );
                     cfDescription = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, cfTemp, cfNodeName );
                     CFRelease( cfTemp );
                 }
@@ -3318,7 +4058,7 @@ finish:
             {
                 if( NULL != inRecordName )
                 {
-                    CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to set node credentials with record name %@."), NULL, _kODBundleID, "where %@ is a record name as provided by caller like user1" );
+                    CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to set node credentials with the record name %@."), NULL, _kODBundleID, "where %@ is a record name as provided by caller like user1" );
                     cfDescription = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, cfTemp, inRecordName );
                     CFRelease( cfTemp );
                 }
@@ -3338,13 +4078,13 @@ finish:
             CFRelease( cfError );
         }
 
-        return FALSE;
+        return false;
     }    
     
-    return TRUE;
+    return true;
 }
 
-Boolean ODNodeSetCredentialsExtended( ODNodeRef inNodeRef, CFStringRef inRecordType, CFStringRef inAuthType, 
+bool ODNodeSetCredentialsExtended( ODNodeRef inNodeRef, CFStringRef inRecordType, CFStringRef inAuthType, 
                                       CFArrayRef inAuthItems, CFArrayRef *outAuthItems, ODContextRef *outContext,
                                       CFErrorRef *outError )
 {
@@ -3356,7 +4096,7 @@ Boolean ODNodeSetCredentialsExtended( ODNodeRef inNodeRef, CFStringRef inRecordT
     return _ODNodeSetCredentialsExtended( inNodeRef, inRecordType, inAuthType, inAuthItems, outAuthItems, outContext, outError );
 }
 
-Boolean _ODNodeSetCredentialsExtended( ODNodeRef inNodeRef, CFStringRef inRecordType, CFStringRef inAuthType, 
+bool _ODNodeSetCredentialsExtended( ODNodeRef inNodeRef, CFStringRef inRecordType, CFStringRef inAuthType, 
                                        CFArrayRef inAuthItems, CFArrayRef *outAuthItems, ODContextRef *outContext,
                                        CFErrorRef *outError )
 {
@@ -3365,30 +4105,30 @@ Boolean _ODNodeSetCredentialsExtended( ODNodeRef inNodeRef, CFStringRef inRecord
     
     if( NULL == inNodeRef )
     {
-        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Node reference is missing."), NULL, _kODBundleID, NULL ) : CFSTR(""));
+        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Missing node reference."), NULL, _kODBundleID, NULL ) : CFSTR(""));
         dsStatus = eDSNullParameter;
         goto finish;
     }
     else if( NULL == inRecordType )
     {
-        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Record type is missing."), NULL, _kODBundleID, NULL ) : CFSTR(""));
+        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Missing record type."), NULL, _kODBundleID, NULL ) : CFSTR(""));
         dsStatus = eDSNullParameter;
         goto finish;
     }
     else if( NULL == inAuthType )
     {
-        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Authentication type is missing."), NULL, _kODBundleID, NULL ) : CFSTR(""));
+        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Missing authentication type."), NULL, _kODBundleID, NULL ) : CFSTR(""));
         dsStatus = eDSNullParameter;
         goto finish;
     }
     else if( NULL == inAuthItems )
     {
-        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Authentication item(s) are missing."), NULL, _kODBundleID, NULL ) : CFSTR(""));
+        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("The user name, password, or both are missing."), NULL, _kODBundleID, NULL ) : CFSTR(""));
         dsStatus = eDSNullParameter;
         goto finish;
     }
     
-    CF_OBJC_FUNCDISPATCH( _kODNodeTypeID, Boolean, inNodeRef, "setCredentialsWithRecordType:authenticationType:authenticationItems:continueItems:context:error:",
+    CF_OBJC_FUNCDISPATCH( _kODNodeTypeID, bool, inNodeRef, "setCredentialsWithRecordType:authenticationType:authenticationItems:continueItems:context:error:",
                           inRecordType, inAuthType, inAuthItems, outAuthItems, outContext, outError );
 
     _ODNode     *pODNodeRef = (_ODNode *) inNodeRef;
@@ -3399,7 +4139,7 @@ Boolean _ODNodeSetCredentialsExtended( ODNodeRef inNodeRef, CFStringRef inRecord
     {
         _ODNodeLock( pODNodeRef );
         
-        dsStatus = _Authenticate( inNodeRef, pAuthType, pRecType, inAuthItems, outAuthItems, outContext, FALSE );
+        dsStatus = _Authenticate( inNodeRef, pAuthType, pRecType, inAuthItems, outAuthItems, outContext, false );
         
         _ODNodeUnlock( pODNodeRef );        
         
@@ -3452,16 +4192,16 @@ finish:
             CFRelease( cfError );
         }
 
-        return FALSE;
+        return false;
     }    
     
-    return TRUE;
+    return true;
 }
 
-Boolean _SetCacheForKerberosContext( krb5_context kctx, char *inRealm, KLPrincipal *klUserPrinc, krb5_ccache *kcache )
+bool _SetCacheForKerberosContext( krb5_context kctx, char *inRealm, KLPrincipal *klUserPrinc, krb5_ccache *kcache )
 {
     cc_context_t    ccContext   = NULL;
-    Boolean         bFound      = FALSE;
+    bool         bFound      = false;
     
     if( cc_initialize(&ccContext, ccapi_version_5, NULL, NULL) == ccNoError )
     {
@@ -3472,7 +4212,7 @@ Boolean _SetCacheForKerberosContext( krb5_context kctx, char *inRealm, KLPrincip
             cc_ccache_t ccache;
             cc_string_t ccPrincipal = NULL;
             
-            while( bFound == FALSE && cc_ccache_iterator_next( iterator, &ccache ) == ccNoError )
+            while( bFound == false && cc_ccache_iterator_next( iterator, &ccache ) == ccNoError )
             {
                 if( cc_ccache_get_principal(ccache, cc_credentials_v5, &ccPrincipal) == ccNoError )
                 {
@@ -3493,7 +4233,7 @@ Boolean _SetCacheForKerberosContext( krb5_context kctx, char *inRealm, KLPrincip
                                 {
                                     if( krb5_cc_resolve(kctx, pCacheName->data, kcache) == 0 )
                                     {
-                                        bFound = TRUE;
+                                        bFound = true;
                                     }
                                     
                                     cc_string_release( pCacheName );
@@ -3506,7 +4246,7 @@ Boolean _SetCacheForKerberosContext( krb5_context kctx, char *inRealm, KLPrincip
                         }
                         
                         // only dispose if we didn't find the one we wanted
-                        if( bFound == FALSE )
+                        if( bFound == false )
                         {
                             KLDisposePrincipal( (*klUserPrinc) );
                             (*klUserPrinc) = NULL;
@@ -3526,7 +4266,7 @@ Boolean _SetCacheForKerberosContext( krb5_context kctx, char *inRealm, KLPrincip
     return bFound;
 }
 
-Boolean ODNodeSetCredentialsUsingKerberosCache( ODNodeRef inNodeRef, CFStringRef inCacheName, CFErrorRef *outError )
+bool ODNodeSetCredentialsUsingKerberosCache( ODNodeRef inNodeRef, CFStringRef inCacheName, CFErrorRef *outError )
 {
     CFStringRef cfError     = NULL;
     tDirStatus  dsStatus    = eDSAuthFailed;
@@ -3538,12 +4278,12 @@ Boolean ODNodeSetCredentialsUsingKerberosCache( ODNodeRef inNodeRef, CFStringRef
 
     if( NULL == inNodeRef )
     {
-        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Node reference is missing."), NULL, _kODBundleID, NULL ) : CFSTR(""));
+        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Missing node reference."), NULL, _kODBundleID, NULL ) : CFSTR(""));
         dsStatus = eDSNullParameter;
         goto finish;
     }
     
-    CF_OBJC_FUNCDISPATCH( _kODNodeTypeID, Boolean, inNodeRef, "setCredentialsUsingKerberosCache:error:", inCacheName, outError );
+    CF_OBJC_FUNCDISPATCH( _kODNodeTypeID, bool, inNodeRef, "setCredentialsUsingKerberosCache:error:", inCacheName, outError );
     
     _ODNode             *pODNodeRef     = (_ODNode *) inNodeRef;
     krb5_context        kctx            = NULL;
@@ -3560,14 +4300,14 @@ Boolean ODNodeSetCredentialsUsingKerberosCache( ODNodeRef inNodeRef, CFStringRef
     CFMutableArrayRef   cfAuthItems     = NULL;
     CFArrayRef          cfOutItems      = NULL;
     ODContextRef        cfContext       = NULL;
-    Boolean             bOkToPrompt     = FALSE;
+    bool             bOkToPrompt     = false;
     KLPrincipal         klUserPrinc     = NULL;
     KLPrincipal         klServPrinc     = NULL;
     char                *servName       = NULL;
    
     if( NULL != inCacheName && CFStringCompare(inCacheName, CFSTR("OK_TO_PROMPT"), 0) == kCFCompareEqualTo )
     {
-        bOkToPrompt = TRUE;
+        bOkToPrompt = true;
         inCacheName = NULL;
     }
     
@@ -3581,7 +4321,7 @@ Boolean ODNodeSetCredentialsUsingKerberosCache( ODNodeRef inNodeRef, CFStringRef
     
     _ODNodeLock( pODNodeRef );
     
-    dsStatus = _Authenticate( inNodeRef, kDSStdAuthKerberosTickets, NULL, cfAuthItems, &cfOutItems, &cfContext, FALSE );
+    dsStatus = _Authenticate( inNodeRef, kDSStdAuthKerberosTickets, NULL, cfAuthItems, &cfOutItems, &cfContext, false );
     if( eDSNoErr == dsStatus )
     {
         if ( NULL != cfOutItems && CFArrayGetCount(cfOutItems) > 0 )
@@ -3606,7 +4346,7 @@ Boolean ODNodeSetCredentialsUsingKerberosCache( ODNodeRef inNodeRef, CFStringRef
                 
                 if( inCacheName == NULL )
                 {
-                    Boolean         bFound      = FALSE;
+                    bool         bFound      = false;
                     char            *name       = NULL;
                     char            *instance   = NULL;
                     char            *realm      = NULL;
@@ -3642,7 +4382,7 @@ Boolean ODNodeSetCredentialsUsingKerberosCache( ODNodeRef inNodeRef, CFStringRef
                     klErr = KLCreatePrincipalFromString( servName, kerberosVersion_V5, &klServPrinc );
                     if( klErr != klNoErr )
                     {
-                        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to parse the information from server."), NULL, _kODBundleID, NULL ): CFSTR(""));
+                        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to parse the information from the server."), NULL, _kODBundleID, NULL ): CFSTR(""));
                         dsStatus = eDSAuthMethodNotSupported;
                         goto failed;
                     }
@@ -3652,10 +4392,10 @@ Boolean ODNodeSetCredentialsUsingKerberosCache( ODNodeRef inNodeRef, CFStringRef
                     {
                         
                         bFound = _SetCacheForKerberosContext( kctx, realm, &klUserPrinc, &kcache );
-                        if ( bFound == FALSE )
+                        if ( bFound == false )
                             klErr = klPrincipalDoesNotExistErr;
                         
-                        if ( TRUE == bOkToPrompt )
+                        if ( true == bOkToPrompt )
                         {
                             char *oldName = NULL;
 
@@ -3668,7 +4408,7 @@ Boolean ODNodeSetCredentialsUsingKerberosCache( ODNodeRef inNodeRef, CFStringRef
                                 KLSetKerberosDefaultRealmByName( realm );
                             }
                             
-                            if ( bFound == FALSE )
+                            if ( bFound == false )
                             {
                                 char *cachename = NULL;
                                 
@@ -3701,7 +4441,7 @@ Boolean ODNodeSetCredentialsUsingKerberosCache( ODNodeRef inNodeRef, CFStringRef
                         
                         if ( klNoErr != klErr )
                         {
-                            cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to get Kerberos tickets."), NULL, _kODBundleID, NULL ): CFSTR(""));
+                            cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to obtain Kerberos tickets."), NULL, _kODBundleID, NULL ): CFSTR(""));
                             dsStatus = eDSAuthFailed;
                             goto failed;
                         }
@@ -3727,7 +4467,7 @@ Boolean ODNodeSetCredentialsUsingKerberosCache( ODNodeRef inNodeRef, CFStringRef
                 krbErr = krb5_cc_get_principal( kctx, kcache, &kerb_cred.client );
                 if( 0 != krbErr )
                 {
-                    cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("No principal assigned to cache."), NULL, _kODBundleID, NULL ): CFSTR(""));
+                    cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("No principal is assigned to cache."), NULL, _kODBundleID, NULL ): CFSTR(""));
                     dsStatus = eDSAuthFailed;
                     goto failed;
                 }
@@ -3754,7 +4494,7 @@ Boolean ODNodeSetCredentialsUsingKerberosCache( ODNodeRef inNodeRef, CFStringRef
                     krbErr = krb5_auth_con_setaddrs( kctx, authContext, *addresses, *addresses );
                     if( 0 != krbErr )
                     {
-                        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Failure to set connection addresses."), NULL, _kODBundleID, NULL ): CFSTR(""));
+                        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Failed to set connection addresses."), NULL, _kODBundleID, NULL ): CFSTR(""));
                         dsStatus = eDSAuthFailed;
                         goto failed;
                     }
@@ -3763,7 +4503,7 @@ Boolean ODNodeSetCredentialsUsingKerberosCache( ODNodeRef inNodeRef, CFStringRef
                 krbErr = krb5_get_server_rcache( kctx, krb5_princ_component(kctx, kerb_cred.client, 0), &rcache );
                 if( 0 != krbErr )
                 {
-                    cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Failure to get server replay cache information."), NULL, _kODBundleID, NULL ): CFSTR(""));
+                    cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Failed to obtain server replay cache information."), NULL, _kODBundleID, NULL ): CFSTR(""));
                     dsStatus = eDSAuthFailed;
                     goto failed;
                 }
@@ -3834,11 +4574,11 @@ Boolean ODNodeSetCredentialsUsingKerberosCache( ODNodeRef inNodeRef, CFStringRef
                 CFRelease( cfOutItems );
                 cfOutItems = NULL;
                 
-                dsStatus = _Authenticate( inNodeRef, kDSStdAuthKerberosTickets, NULL, cfAuthItems, &cfOutItems, &cfContext, FALSE );
+                dsStatus = _Authenticate( inNodeRef, kDSStdAuthKerberosTickets, NULL, cfAuthItems, &cfOutItems, &cfContext, false );
             }
             else
             {
-                cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to determine service ticket needed."), NULL, _kODBundleID, NULL ): CFSTR(""));
+                cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to determine service ticket."), NULL, _kODBundleID, NULL ): CFSTR(""));
                 dsStatus = eDSAuthMethodNotSupported;
             }
         }
@@ -3951,26 +4691,42 @@ finish:
                 cfDescription = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to set node credentials."), NULL, _kODBundleID, NULL );
             }
             
-            _ODErrorSet( outError, kODErrorDomainFramework, dsStatus, 
-            cfDescription, 
-            cfError,
-            NULL );
+            _ODErrorSet( outError, kODErrorDomainFramework, dsStatus,  cfDescription,  cfError, NULL );
         }
         else
         {
             CFRelease( cfError );
         }
         
-        return FALSE;
+        return false;
     }    
     
-    return TRUE;
+    return true;
+}
+
+void _ValidateRecordAttributes( const void *key, const void *value, void *context )
+{
+    int *attrbad = (int *)context;
+    if (CFGetTypeID(value) != CFArrayGetTypeID()) {
+        *attrbad = 1;
+    }
+}
+
+void _AppendUniqueRecordNames( const void *name, void *newNames )
+{
+    CFIndex i, count = CFArrayGetCount(newNames);
+    for (i = 0; i < count; i++) {
+        if (CFStringCompare(name, CFArrayGetValueAtIndex(newNames, i), kCFCompareCaseInsensitive) == kCFCompareEqualTo)
+            return;
+    }
+    CFArrayAppendValue(newNames, name);
 }
 
 ODRecordRef ODNodeCreateRecord( ODNodeRef inNodeRef, CFStringRef inRecordType, CFStringRef inRecordName, CFDictionaryRef inAttributes,
                                 CFErrorRef *outError )
 {
     _ODNode     *pODNodeRef     = (_ODNode *) inNodeRef;
+    _ODRecord   *pODRecord      = NULL;
     CFStringRef cfError         = NULL;
     tDirStatus  dsStatus;
 
@@ -3981,23 +4737,35 @@ ODRecordRef ODNodeCreateRecord( ODNodeRef inNodeRef, CFStringRef inRecordType, C
         
     if( NULL == inNodeRef )
     {
-        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Node reference is missing."), NULL, _kODBundleID, NULL ) : CFSTR(""));
+        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Missing node reference."), NULL, _kODBundleID, NULL ) : CFSTR(""));
         dsStatus = eDSNullParameter;
         goto finish;
     }
     else if( NULL == inRecordType )
     {
-        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Record type is missing."), NULL, _kODBundleID, NULL ) : CFSTR(""));
+        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Missing record type."), NULL, _kODBundleID, NULL ) : CFSTR(""));
         dsStatus = eDSNullParameter;
         goto finish;
     }
     else if( NULL == inRecordName )
     {
-        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Record name is missing."), NULL, _kODBundleID, NULL ) : CFSTR(""));
+        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Missing record name."), NULL, _kODBundleID, NULL ) : CFSTR(""));
         dsStatus = eDSNullParameter;
         goto finish;
     }
     
+    /* inAttributes may be null, but it not we need to validate its contents */
+    if( NULL != inAttributes )
+    {
+        int attrbad = 0;
+        CFDictionaryApplyFunction(inAttributes, _ValidateRecordAttributes, &attrbad);
+        if (attrbad) {
+            cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Attribute dictionary values must all be arrays."), NULL, _kODBundleID, NULL ) : CFSTR(""));
+            dsStatus = eDSInvalidAttributeType;
+            goto finish;
+        }
+    }
+
     if( CF_IS_OBJC(_kODNodeTypeID, inNodeRef) )
     {
         ODRecordRef returnValue = NULL;
@@ -4005,8 +4773,8 @@ ODRecordRef ODNodeCreateRecord( ODNodeRef inNodeRef, CFStringRef inRecordType, C
         return (NULL != returnValue && CF_USING_COLLECTABLE_MEMORY ? (ODRecordRef) CFRetain(returnValue) : NULL);
     }    
     
-    if( kODTypeAuthenticationSearchNode == pODNodeRef->_nodeType || kODTypeContactSearchNode == pODNodeRef->_nodeType ||
-        kODTypeNetworkSearchNode == pODNodeRef->_nodeType )
+    if( kODNodeTypeAuthentication == pODNodeRef->_nodeType || kODNodeTypeContacts == pODNodeRef->_nodeType ||
+        kODNodeTypeNetwork == pODNodeRef->_nodeType )
     {
         dsStatus = eNotHandledByThisNode;
         cfError = _MapDSErrorToReason( outError, dsStatus );
@@ -4015,21 +4783,119 @@ ODRecordRef ODNodeCreateRecord( ODNodeRef inNodeRef, CFStringRef inRecordType, C
     
     _ODNodeLock( pODNodeRef );
     
-    _ODRecord           *pODRecord      = NULL;
-    tDataNodePtr        dsRecordType    = _GetDataBufferFromCFType( inRecordType );
-    tDataNodePtr        dsRecordName    = _GetDataBufferFromCFType( inRecordName );
-    tRecordReference    dsRecordRef     = 0;
+    bool                    bRecordBlat     = (0 != (pODNodeRef->_flags & kODNodeFlagRecordBlat));
+    tRecordReference        dsRecordRef     = 0;
+    CFMutableDictionaryRef  cfAttributes    = NULL;
+    CFArrayRef              cfPassword      = NULL;
     
-    do
+    if ( NULL != inAttributes )
     {
-        dsStatus = dsCreateRecordAndOpen( pODNodeRef->_dsNodeRef, dsRecordType, dsRecordName, &dsRecordRef );
-        if( eDSInvalidReference == dsStatus || eDSInvalidDirRef == dsStatus || eDSInvalidNodeRef == dsStatus || eDSInvalidRefType == dsStatus )
+        cfAttributes = CFDictionaryCreateMutableCopy( kCFAllocatorDefault, 0, inAttributes );
+        
+        // remove stuff we don't set in the attribute list
+        CFDictionaryRemoveValue( cfAttributes, kODAttributeTypeRecordType );
+        CFDictionaryRemoveValue( cfAttributes, kODAttributeTypeMetaNodeLocation );
+        
+        // lets set the password
+        cfPassword = CFDictionaryGetValue( cfAttributes, kODAttributeTypePassword );
+        if ( NULL != cfPassword )
         {
-            dsStatus = _ReopenNode( pODNodeRef );
+            if ( CFGetTypeID(cfPassword) != CFArrayGetTypeID() ) {
+                cfPassword = NULL;
+            }
+            else {
+                // need to retain it before we remove it
+                CFRetain( cfPassword );
+            }
+            
+            CFDictionaryRemoveValue( cfAttributes, kODAttributeTypePassword );
         }
-    } while( eDSInvalidReference == dsStatus || eDSInvalidDirRef == dsStatus || eDSInvalidNodeRef == dsStatus || eDSInvalidRefType == dsStatus );
+    }
+
+    if ( true == bRecordBlat && NULL != cfAttributes )
+    {
+        CFArrayRef      names       = (CFArrayRef) CFDictionaryGetValue( cfAttributes, kODAttributeTypeRecordName );
+        CFAllocatorRef  cfAllocator = CFGetAllocator( cfAttributes );
+        
+        if ( NULL == names || 0 == CFArrayGetCount(names) )
+        {
+            // if we don't have a name list there is an empty list
+            CFMutableArrayRef newNames = CFArrayCreateMutable( cfAllocator, 1, &kCFTypeArrayCallBacks );
+            CFArrayAppendValue( newNames, inRecordName );
+            CFDictionarySetValue( cfAttributes, kODAttributeTypeRecordName, newNames );
+            CFRelease( newNames );
+        }
+        else
+        {
+            // otherwise, do some reduction on the list, removing duplicates because LDAP backend doesn't allow dupes
+            CFIndex             count       = CFArrayGetCount( names );
+            CFMutableArrayRef   newNames    = CFArrayCreateMutable( cfAllocator, count, &kCFTypeArrayCallBacks );;
+            
+            // add the supplied record name first
+            CFArrayAppendValue( newNames, inRecordName );
+            CFArrayApplyFunction( names, CFRangeMake(0, count), _AppendUniqueRecordNames, newNames );
+            
+            CFDictionarySetValue( cfAttributes, kODAttributeTypeRecordName, newNames );
+            CFRelease( newNames );
+        }
+        
+        CFTypeRef keys[2] = { CFSTR("Record Type"), CFSTR("Attributes and Values") };
+        CFTypeRef values[2] = { inRecordType, cfAttributes };
+        CFDictionaryRef recordBlatDict = CFDictionaryCreate( kCFAllocatorDefault, keys, values, 2, &kCFTypeDictionaryKeyCallBacks,
+                                                             &kCFTypeDictionaryValueCallBacks );
+        CFDataRef bufferData = CFPropertyListCreateData( kCFAllocatorDefault, recordBlatDict, kCFPropertyListXMLFormat_v1_0, 0, NULL );
+        CFRelease( recordBlatDict );
+        recordBlatDict = NULL;
+        
+        CFErrorRef localError = NULL;
+        CFDataRef receiveData = ODNodeCustomCall( inNodeRef, eDSCustomCallCreateRecordWithAttributes, bufferData, &localError );
+        if ( NULL != receiveData ) {
+            CFRelease( receiveData );
+            receiveData = NULL;
+        }
+        
+        CFRelease( bufferData );
+        bufferData = NULL;
+        
+        if ( localError == NULL ) {
+            dsStatus = eDSNoErr;
+        }
+        else {
+            dsStatus = CFErrorGetCode( localError );
+            if ( outError != NULL ) {
+                *outError = localError;
+            }
+        }
+    }
+    else
+    {
+        tDataNodePtr        dsRecordType    = _GetDataBufferFromCFType( inRecordType );
+        tDataNodePtr        dsRecordName    = _GetDataBufferFromCFType( inRecordName );
+        
+        do
+        {
+            dsStatus = dsCreateRecordAndOpen( pODNodeRef->_dsNodeRef, dsRecordType, dsRecordName, &dsRecordRef );
+            if( eDSInvalidReference == dsStatus || eDSInvalidDirRef == dsStatus || eDSInvalidNodeRef == dsStatus || eDSInvalidRefType == dsStatus )
+            {
+                dsStatus = _ReopenNode( pODNodeRef );
+            }
+        } while( eDSInvalidReference == dsStatus || eDSInvalidDirRef == dsStatus || eDSInvalidNodeRef == dsStatus || eDSInvalidRefType == dsStatus );
+        
+        if( NULL != dsRecordType )
+        {
+            dsDataBufferDeAllocate( 0, dsRecordType );
+            dsRecordType = NULL;
+        }
+        
+        if( NULL != dsRecordName )
+        {
+            dsDataBufferDeAllocate( 0, dsRecordName );
+            dsRecordName = NULL;
+        }
+    }
     
-    if( eDSNoErr == dsStatus )
+    // if no error's we create the actual object
+    if ( eDSNoErr == dsStatus )
     {
         CFAllocatorRef  cfAllocator = CFGetAllocator( inNodeRef );
         
@@ -4040,209 +4906,194 @@ ODRecordRef ODNodeCreateRecord( ODNodeRef inNodeRef, CFStringRef inRecordType, C
         pODRecord->_dsRecordRef = dsRecordRef;
         pODRecord->_cfRecordType = CFStringCreateCopy( cfAllocator, inRecordType );
         pODRecord->_cfRecordName = CFStringCreateCopy( cfAllocator, inRecordName );
-        pODRecord->_cfAttributes = CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, 
-                                                              &kCFTypeDictionaryValueCallBacks );
+        
+        if ( true == bRecordBlat && NULL != cfAttributes ) {
+            CFRetain( cfAttributes );
+            pODRecord->_cfAttributes = cfAttributes;
+        }
+        else {
+            pODRecord->_cfAttributes = CFDictionaryCreateMutable( cfAllocator, 0, &kCFTypeDictionaryKeyCallBacks, 
+                                                                  &kCFTypeDictionaryValueCallBacks );
+        }
         
         CFStringRef cfNodeName  = CFDictionaryGetValue( pODNodeRef->_info, kODNodeNameKey );
         if( NULL != cfNodeName )
         {
-            CFMutableArrayRef   cfNodeLoc = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
+            CFMutableArrayRef   cfNodeLoc = CFArrayCreateMutable( cfAllocator, 0, &kCFTypeArrayCallBacks );
             
             CFArrayAppendValue( cfNodeLoc, cfNodeName );
-            CFDictionarySetValue( pODRecord->_cfAttributes, CFSTR(kDSNAttrMetaNodeLocation), cfNodeLoc );
+            CFDictionarySetValue( pODRecord->_cfAttributes, kODAttributeTypeMetaNodeLocation, cfNodeLoc );
             
             CFRelease( cfNodeLoc );
             cfNodeLoc = NULL;
         }
-        
-        CFUUIDRef   cfUUID  = CFUUIDCreate( kCFAllocatorDefault );
-        if( NULL != cfUUID )
-        {
-            CFStringRef cfUUIDstring    = CFUUIDCreateString( kCFAllocatorDefault, cfUUID );
-            if( NULL != cfUUIDstring )
-            {
-                CFArrayRef  cfValues    = CFArrayCreate( kCFAllocatorDefault, (const void **) &cfUUIDstring, 1, &kCFTypeArrayCallBacks );
-                
-                _ODRecordSetValues( (ODRecordRef) pODRecord, CFSTR(kDS1AttrGeneratedUID), cfValues, NULL );
-                
-                CFRelease( cfValues );
-                cfValues = NULL;
-                
-                CFRelease( cfUUIDstring );
-                cfUUIDstring = NULL;
-            }
-            
-            CFRelease( cfUUID );
-            cfUUID = NULL;
-        }
-    }
-    
-    if( NULL != dsRecordType )
-    {
-        dsDataBufferDeAllocate( 0, dsRecordType );
-        dsRecordType = NULL;
-    }
-    
-    if( NULL != dsRecordName )
-    {
-        dsDataBufferDeAllocate( 0, dsRecordName );
-        dsRecordName = NULL;
-    }
-        
-    if( NULL != pODRecord && NULL != inAttributes )
-    {
-        CFMutableDictionaryRef  cfAttributes    = CFDictionaryCreateMutableCopy( kCFAllocatorDefault, 0, inAttributes );
-        CFArrayRef              cfRecordNames   = (CFArrayRef) CFDictionaryGetValue( cfAttributes, CFSTR(kDSNAttrRecordName) );
-        tDirStatus              dsStatus        = eDSNoErr;
-        
-        // if we successfully created the record, let's set additional names
-        if( NULL != cfRecordNames && CFGetTypeID(cfRecordNames) == CFArrayGetTypeID() )
-        {
-            CFIndex         iCount          = CFArrayGetCount( cfRecordNames );
-            tDataNodePtr    dsAttrType      = dsDataNodeAllocateString( 0, kDSNAttrRecordName );
-            CFStringRef     cfRecordName    = NULL;
-            tDataNodePtr    dsRecordName;
-            CFIndex         ii;
-            
-            for( ii = 0; ii < iCount && eDSNoErr == dsStatus; ii++ )
-            {
-                cfRecordName = CFArrayGetValueAtIndex( cfRecordNames, ii );
 
-                // if we already created the record with the name, just continue
-                if( CFStringCompare( cfRecordName, inRecordName, 0) == kCFCompareEqualTo )
-                    continue;
-
-                dsRecordName = _GetDataBufferFromCFType( cfRecordName );
-
-                do
-                {
-                    dsStatus = dsAddAttributeValue( pODRecord->_dsRecordRef, dsAttrType, dsRecordName );
-                    
-                    if( eDSInvalidReference == dsStatus || eDSInvalidRecordRef == dsStatus || eDSInvalidDirRef == dsStatus || 
-                        eDSInvalidNodeRef == dsStatus || eDSCannotAccessSession == dsStatus || eDSInvalidRefType == dsStatus )
-                    {
-                        dsStatus = _ReopenRecord( pODRecord );
-                    }
-                    
-                } while( eDSInvalidReference == dsStatus || eDSInvalidRecordRef == dsStatus || eDSInvalidDirRef == dsStatus || 
-                         eDSInvalidNodeRef == dsStatus || eDSInvalidRefType == dsStatus );
-                
-                dsDataBufferDeAllocate( 0, dsRecordName );
-                dsRecordName = NULL;
+        // we attempt to add a GUID if possible, but ignore errors if it fails
+        bool addGUID = true;
+        if ( cfAttributes != NULL ) {
+            CFArrayRef attribUUID = (CFArrayRef) CFDictionaryGetValue( cfAttributes, kODAttributeTypeGUID );
+            if ( NULL == attribUUID || 0 == CFArrayGetCount(attribUUID) ) {
+                addGUID = true;
             }
-            
-            dsDataBufferDeAllocate( 0, dsAttrType );
-            dsAttrType = NULL;
-            
-        }
-
-        // remove values we won't set in Attributes
-        CFDictionaryRemoveValue( cfAttributes, CFSTR(kDSNAttrRecordName) );
-        CFDictionaryRemoveValue( cfAttributes, CFSTR(kDSNAttrRecordType) );
-        CFDictionaryRemoveValue( cfAttributes, CFSTR(kDSNAttrMetaNodeLocation) );
-        
-        // lets set the password
-        CFArrayRef cfPassword = CFDictionaryGetValue( cfAttributes, CFSTR(kDS1AttrPassword) );
-        if( NULL != cfPassword )
-        {
-            if( CFGetTypeID(cfPassword) != CFArrayGetTypeID() )
-            {
-                cfPassword = NULL;
+            else {
+                addGUID = false; 
             }
-            else
-            {
-                // need to retain it before we remove it
-                CFRetain( cfPassword );
-            }
-            
-            CFDictionaryRemoveValue( cfAttributes, CFSTR(kDS1AttrPassword) );
         }
         
-        if( eDSNoErr == dsStatus )
+        if ( addGUID )
         {
-            CFIndex     iCount  = CFDictionaryGetCount( cfAttributes );
-            CFStringRef *keys   = (CFStringRef *) calloc( sizeof(CFStringRef), iCount );
-            CFTypeRef   *values = (CFTypeRef *) calloc( sizeof(CFTypeRef), iCount );
-            CFIndex     ii;
-            
-            CFDictionaryGetKeysAndValues( cfAttributes, (const void **) keys, (const void **) values );
-            
-            // attempt to set all values
-            for( ii = 0; ii < iCount; ii++ )
+            CFUUIDRef   cfUUID  = CFUUIDCreate( kCFAllocatorDefault );
+            if( NULL != cfUUID )
             {
-                // we don't do empty arrays during creation
-                if( CFGetTypeID(values[ii]) == CFArrayGetTypeID() && CFArrayGetCount(values[ii]) == 0 )
-                    continue;
+                CFStringRef cfUUIDstring    = CFUUIDCreateString( kCFAllocatorDefault, cfUUID );
+                if( NULL != cfUUIDstring ) {
+                    _ODRecordSetValues( (ODRecordRef) pODRecord, kODAttributeTypeGUID, cfUUIDstring, NULL );
                     
-                // we don't do empty strings during creation
-                if( CFGetTypeID(values[ii]) == CFStringGetTypeID() && CFStringGetLength(values[ii]) == 0 )
-                    continue;
-                    
-                // we don't do empty data during creation
-                if( CFGetTypeID(values[ii]) == CFDataGetTypeID() && CFDataGetLength(values[ii]) == 0 )
-                    continue;
-                    
-                // if we fail, delete the record and release the object
-                if( _ODRecordSetValues( (ODRecordRef) pODRecord, keys[ii], values[ii], outError ) == FALSE )
-                {
-                    _ODRecordDelete( (ODRecordRef) pODRecord, NULL );
-                    CFRelease( (ODRecordRef) pODRecord );
-                    pODRecord = NULL;
-                    break;
+                    CFRelease( cfUUIDstring );
+                    cfUUIDstring = NULL;
                 }
+                
+                CFRelease( cfUUID );
+                cfUUID = NULL;
             }
-            
-            free( keys );
-            keys = NULL;
-            
-            free( values );
-            values = NULL;
         }
         
-        if( NULL != pODRecord )
-        {
-            if( NULL != cfPassword )
+        if ( false == bRecordBlat && cfAttributes != NULL ) {
+            CFArrayRef  cfRecordNames   = (CFArrayRef) CFDictionaryGetValue( cfAttributes, kODAttributeTypeRecordName );
+            
+            // if we successfully created the record, let's set additional names
+            if( NULL != cfRecordNames && CFGetTypeID(cfRecordNames) == CFArrayGetTypeID() )
             {
-                // first lets try setting the password attribute value if we have a value, if that fails, let's change it, assuming it's not the special marker
-                if( 0 != CFArrayGetCount(cfPassword) && _ODRecordSetValues((ODRecordRef) pODRecord, CFSTR(kDS1AttrPassword), cfPassword, outError) == FALSE )
+                CFIndex         iCount          = CFArrayGetCount( cfRecordNames );
+                tDataNodePtr    dsAttrType      = dsDataNodeAllocateString( 0, kDSNAttrRecordName );
+                CFStringRef     cfRecordName    = NULL;
+                tDataNodePtr    dsRecordName;
+                CFIndex         ii;
+                
+                for( ii = 0; ii < iCount && eDSNoErr == dsStatus; ii++ )
                 {
-                    CFStringRef cfTempPassword = CFArrayGetValueAtIndex( cfPassword, 0 );
+                    cfRecordName = CFArrayGetValueAtIndex( cfRecordNames, ii );
                     
-                    // if someone isn't passing the Marker "********", try to change the password
-                    if( CFStringCompare(CFSTR(kDSValueNonCryptPasswordMarker), cfTempPassword, 0) != kCFCompareEqualTo &&
-                        _ODRecordChangePassword((ODRecordRef) pODRecord, NULL, cfTempPassword, outError) == FALSE )
+                    // if we already created the record with the name, just continue
+                    if( CFStringCompare( cfRecordName, inRecordName, 0) == kCFCompareEqualTo )
+                        continue;
+                    
+                    dsRecordName = _GetDataBufferFromCFType( cfRecordName );
+                    
+                    do
+                    {
+                        dsStatus = dsAddAttributeValue( pODRecord->_dsRecordRef, dsAttrType, dsRecordName );
+                        
+                        if( eDSInvalidReference == dsStatus || eDSInvalidRecordRef == dsStatus || eDSInvalidDirRef == dsStatus || 
+                           eDSInvalidNodeRef == dsStatus || eDSCannotAccessSession == dsStatus || eDSInvalidRefType == dsStatus )
+                        {
+                            dsStatus = _ReopenRecord( pODRecord );
+                        }
+                        
+                    } while( eDSInvalidReference == dsStatus || eDSInvalidRecordRef == dsStatus || eDSInvalidDirRef == dsStatus || 
+                            eDSInvalidNodeRef == dsStatus || eDSInvalidRefType == dsStatus );
+                    
+                    dsDataBufferDeAllocate( 0, dsRecordName );
+                    dsRecordName = NULL;
+                }
+                
+                dsDataBufferDeAllocate( 0, dsAttrType );
+                dsAttrType = NULL;
+            }
+            
+            // remove values we won't set in Attributes
+            CFDictionaryRemoveValue( cfAttributes, kODAttributeTypeRecordName );
+            
+            if ( eDSNoErr == dsStatus )
+            {
+                CFIndex     iCount  = CFDictionaryGetCount( cfAttributes );
+                CFStringRef *keys   = (CFStringRef *) calloc( sizeof(CFStringRef), iCount );
+                CFTypeRef   *values = (CFTypeRef *) calloc( sizeof(CFTypeRef), iCount );
+                CFIndex     ii;
+                
+                CFDictionaryGetKeysAndValues( cfAttributes, (const void **) keys, (const void **) values );
+                
+                // attempt to set all values
+                for( ii = 0; ii < iCount; ii++ )
+                {
+                    // we don't do empty arrays during creation
+                    if( CFGetTypeID(values[ii]) == CFArrayGetTypeID() && CFArrayGetCount(values[ii]) == 0 )
+                        continue;
+                    
+                    // we don't do empty strings during creation
+                    if( CFGetTypeID(values[ii]) == CFStringGetTypeID() && CFStringGetLength(values[ii]) == 0 )
+                        continue;
+                    
+                    // we don't do empty data during creation
+                    if( CFGetTypeID(values[ii]) == CFDataGetTypeID() && CFDataGetLength(values[ii]) == 0 )
+                        continue;
+                    
+                    // if we fail, delete the record and release the object
+                    if( _ODRecordSetValues( (ODRecordRef) pODRecord, keys[ii], values[ii], outError ) == false )
                     {
                         _ODRecordDelete( (ODRecordRef) pODRecord, NULL );
                         CFRelease( (ODRecordRef) pODRecord );
                         pODRecord = NULL;
+                        break;
                     }
                 }
                 
-                CFRelease( cfPassword );
-                cfPassword = NULL;
-            }
-            else if( CFStringCompare(inRecordType, CFSTR(kDSStdRecordTypeUsers), 0) == kCFCompareEqualTo )
-            {
-                CFStringRef cfRandomPassword = _createRandomPassword();
+                free( keys );
+                keys = NULL;
                 
-                if( NULL != cfRandomPassword )
+                free( values );
+                values = NULL;
+            }
+            else
+            {
+                _ODRecordDelete( (ODRecordRef) pODRecord, NULL );
+                CFRelease( (ODRecordRef) pODRecord );
+                pODRecord = NULL;
+            }
+        }
+
+        if ( NULL != cfPassword )
+        {
+            // first lets try setting the password attribute value if we have a value, if that fails, let's change it, assuming it's not the special marker
+            if ( 0 != CFArrayGetCount(cfPassword) && _ODRecordSetValues((ODRecordRef) pODRecord, kODAttributeTypePassword, cfPassword, outError) == false )
+            {
+                CFStringRef cfTempPassword = CFArrayGetValueAtIndex( cfPassword, 0 );
+                
+                // if someone isn't passing the Marker "********", try to change the password
+                if ( CFStringCompare(CFSTR(kDSValueNonCryptPasswordMarker), cfTempPassword, 0) != kCFCompareEqualTo &&
+                    _ODRecordChangePassword((ODRecordRef) pODRecord, NULL, cfTempPassword, outError) == false )
                 {
-                    _ODRecordChangePassword( (ODRecordRef) pODRecord, NULL, cfRandomPassword, NULL );
-                    
-                    CFRelease( cfRandomPassword );
-                    cfRandomPassword = NULL;
+                    _ODRecordDelete( (ODRecordRef) pODRecord, NULL );
+                    CFRelease( (ODRecordRef) pODRecord );
+                    pODRecord = NULL;
                 }
+            }
+            
+            CFRelease( cfPassword );
+            cfPassword = NULL;
+        }
+        else if ( CFStringCompare(inRecordType, kODRecordTypeUsers, 0) == kCFCompareEqualTo )
+        {
+            CFStringRef cfRandomPassword = _createRandomPassword();
+            
+            if( NULL != cfRandomPassword )
+            {
+                _ODRecordChangePassword( (ODRecordRef) pODRecord, NULL, cfRandomPassword, NULL );
+                
+                CFRelease( cfRandomPassword );
+                cfRandomPassword = NULL;
             }
         }
         
-        CFRelease( cfAttributes );
-        cfAttributes = NULL;
-    }
-
-    if( NULL != pODRecord )
-    {
         // no need to lock, no one has the record pointer but this routine, flush all the changes
-        dsFlushRecord( pODRecord->_dsRecordRef );
+        if ( NULL != pODRecord && 0 != pODRecord->_dsRecordRef ) {
+            dsFlushRecord( pODRecord->_dsRecordRef );
+        }
+        
+        if ( cfAttributes ) {
+            CFRelease( cfAttributes );
+            cfAttributes = NULL;
+        }
     }
 
     _ODNodeUnlock( pODNodeRef );
@@ -4279,14 +5130,14 @@ finish:
             {                    
                 if( NULL != inRecordName )
                 {
-                    CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to create record %@ in node."), NULL, _kODBundleID, "where %@ is a record name like user1" );
+                    CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to create record %@ in the node."), NULL, _kODBundleID, "where %@ is a record name like user1" );
                     cfDescription = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, cfTemp, inRecordName );
                     CFRelease( cfTemp );
                 }
                 else
                 {
-                    CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to create a record in node."), NULL, _kODBundleID, NULL );
-                    cfDescription = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, cfTemp );
+                    CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to create a record in the node."), NULL, _kODBundleID, NULL );
+                    cfDescription = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR("%@"), cfTemp );
                     CFRelease( cfTemp );                    
                 }
             }
@@ -4322,19 +5173,19 @@ ODRecordRef _ODNodeCopyRecord( ODNodeRef inNodeRef, CFStringRef inRecordType, CF
     
     if( NULL == inNodeRef )
     {
-        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Node reference is missing."), NULL, _kODBundleID, NULL ) : CFSTR(""));
+        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Missing node reference."), NULL, _kODBundleID, NULL ) : CFSTR(""));
         dsStatus = eDSNullParameter;
         goto finish;
     }
     else if( NULL == inRecordType )
     {
-        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Record type is missing."), NULL, _kODBundleID, NULL ) : CFSTR(""));
+        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Missing record type."), NULL, _kODBundleID, NULL ) : CFSTR(""));
         dsStatus = eDSNullParameter;
         goto finish;
     }
     else if( NULL == inRecordName )
     {
-        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Record name is missing."), NULL, _kODBundleID, NULL ) : CFSTR(""));
+        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Missing record name."), NULL, _kODBundleID, NULL ) : CFSTR(""));
         dsStatus = eDSNullParameter;
         goto finish;
     }
@@ -4347,7 +5198,7 @@ ODRecordRef _ODNodeCopyRecord( ODNodeRef inNodeRef, CFStringRef inRecordType, CF
     }    
     
     _ODNode         *pODNode        = (_ODNode *) inNodeRef;
-    Boolean         bFailedOnce     = FALSE;
+    bool         bFailedOnce     = false;
     tDataBufferPtr  dsDataBuffer    = dsDataBufferAllocate( 0, 4096 );
     char            *pRecordName    = _GetCStringFromCFString( inRecordName );
     char            *pRecordType    = _GetCStringFromCFString( inRecordType );
@@ -4372,18 +5223,19 @@ ODRecordRef _ODNodeCopyRecord( ODNodeRef inNodeRef, CFStringRef inRecordType, CF
         }
         
         // ensure we always get metanode location if we are not asking for all attributes or standard
-        if( FALSE == CFSetContainsValue(cfReturnAttribs, CFSTR(kDSAttributesStandardAll)) &&
-            FALSE == CFSetContainsValue(cfReturnAttribs, CFSTR(kDSAttributesAll)) )
+        if( false == CFSetContainsValue(cfReturnAttribs, kODAttributeTypeStandardOnly) &&
+            false == CFSetContainsValue(cfReturnAttribs, kODAttributeTypeAllAttributes) )
         {
-            CFSetAddValue( (CFMutableSetRef) cfReturnAttribs, CFSTR(kDSNAttrMetaNodeLocation) );
+            CFSetAddValue( (CFMutableSetRef) cfReturnAttribs, kODAttributeTypeMetaNodeLocation );
+            CFSetAddValue( (CFMutableSetRef) cfReturnAttribs, kODAttributeTypeRecordName );
         }
     }
     else
     {
         // if NULL is passed, we don't retrieve any attributes.
-        CFStringRef cfNodeLocation = CFSTR( kDSNAttrMetaNodeLocation );
+		ODAttributeType values[] = { kODAttributeTypeRecordName, kODAttributeTypeMetaNodeLocation };
         
-        cfReturnAttribs = CFSetCreate( kCFAllocatorDefault, (const void **) &cfNodeLocation, 1, &kCFTypeSetCallBacks );
+        cfReturnAttribs = CFSetCreate( kCFAllocatorDefault, (const void **) values, sizeof(values) / sizeof(ODAttributeType), &kCFTypeSetCallBacks );
     }
 
     dsAttribList = _ConvertCFSetToDataList( cfReturnAttribs );
@@ -4393,7 +5245,7 @@ ODRecordRef _ODNodeCopyRecord( ODNodeRef inNodeRef, CFStringRef inRecordType, CF
     do
     {
         dsStatus = dsGetRecordList( pODNode->_dsNodeRef, dsDataBuffer, dsNameList, eDSExact, dsRecordTypes, dsAttribList,
-                                    FALSE, &ulRecCount, &dsContextData );
+                                    false, &ulRecCount, &dsContextData );
         
         if( eDSBufferTooSmall == dsStatus )
         {
@@ -4412,7 +5264,7 @@ ODRecordRef _ODNodeCopyRecord( ODNodeRef inNodeRef, CFStringRef inRecordType, CF
         }
         
         if( (eDSInvalidNodeRef == dsStatus || eDSInvalidReference == dsStatus || eDSInvalidDirRef == dsStatus || eDSCannotAccessSession == dsStatus || eDSInvalidRefType == dsStatus) && 
-            bFailedOnce == FALSE )
+            bFailedOnce == false )
         {
             if( 0 != dsContextData )
             {
@@ -4441,7 +5293,7 @@ ODRecordRef _ODNodeCopyRecord( ODNodeRef inNodeRef, CFStringRef inRecordType, CF
                 dsStatus = eDSBufferTooSmall;
             }
             
-            bFailedOnce = TRUE;
+            bFailedOnce = true;
         }
     } while( eDSBufferTooSmall == dsStatus );
     
@@ -4550,14 +5402,14 @@ finish:
             {                    
                 if( NULL != inRecordName )
                 {
-                    CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to retrieve record %@ from node."), NULL, _kODBundleID, "where %@ is a record name like user1" );
+                    CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to retrieve record %@ from the node."), NULL, _kODBundleID, "where %@ is a record name like user1" );
                     cfDescription = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, cfTemp, inRecordName );
                     CFRelease( cfTemp );
                 }
                 else
                 {
-                    CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to retrieve a record from node."), NULL, _kODBundleID, NULL );
-                    cfDescription = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, cfTemp );
+                    CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to retrieve a record from the node."), NULL, _kODBundleID, NULL );
+                    cfDescription = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR("%@"), cfTemp );
                     CFRelease( cfTemp );                    
                 }
             }
@@ -4588,7 +5440,7 @@ CFDataRef ODNodeCustomCall( ODNodeRef inNodeRef, CFIndex inCustomCode, CFDataRef
         
     if( NULL == inNodeRef )
     {
-        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Node reference is missing."), NULL, _kODBundleID, NULL ) : CFSTR(""));
+        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Missing node reference."), NULL, _kODBundleID, NULL ) : CFSTR(""));
         dsStatus = eDSNullParameter;
         goto finish;
     }
@@ -4601,7 +5453,7 @@ CFDataRef ODNodeCustomCall( ODNodeRef inNodeRef, CFIndex inCustomCode, CFDataRef
     }    
     
    _ODNode         *pODNode        = (_ODNode *) inNodeRef;
-    Boolean         bFailedOnce     = FALSE;
+    bool         bFailedOnce     = false;
     tDataBufferPtr  dsReceiveBuffer = dsDataBufferAllocate( 0, 1024 * 1024 ); // not all custom calls support eDSBufferTooSmall
     tDataBufferPtr  dsSendBuffer    = dsDataBufferAllocate( 0, NULL != inSendData ? CFDataGetLength(inSendData) : 4 );
     CFDataRef       cfResponse      = NULL;
@@ -4634,7 +5486,7 @@ CFDataRef ODNodeCustomCall( ODNodeRef inNodeRef, CFIndex inCustomCode, CFDataRef
         }
         
         if( (eDSInvalidNodeRef == dsStatus || eDSInvalidReference == dsStatus || eDSInvalidDirRef == dsStatus || eDSCannotAccessSession == dsStatus || eDSInvalidRefType == dsStatus) && 
-            bFailedOnce == FALSE )
+            bFailedOnce == false )
         {
             dsStatus = dsVerifyDirRefNum( pODNode->_ODSession->_dsRef );
             if( eDSInvalidReference == dsStatus || eDSInvalidDirRef == dsStatus || eDSInvalidRefType == dsStatus)
@@ -4652,7 +5504,7 @@ CFDataRef ODNodeCustomCall( ODNodeRef inNodeRef, CFIndex inCustomCode, CFDataRef
             }
             
             dsStatus = eDSBufferTooSmall;
-            bFailedOnce = TRUE;
+            bFailedOnce = true;
         }
     } while( eDSBufferTooSmall == dsStatus );
     
@@ -4690,13 +5542,13 @@ finish:
             
             if( NULL != cfNodeName )
             {
-                CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Custom call %d failed to %@."), NULL, _kODBundleID, "where %@ is a node name like /LDAPv3/127.0.0.1" );
+                CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Custom call %d to %@ failed."), NULL, _kODBundleID, "where %@ is a node name like /LDAPv3/127.0.0.1" );
                 cfDescription = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, cfTemp, inCustomCode, cfNodeName );
                 CFRelease( cfTemp );
             }
             else
             {                    
-                CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Custom call %d failed to node."), NULL, _kODBundleID, NULL );
+                CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Custom call %d to node failed."), NULL, _kODBundleID, NULL );
                 cfDescription = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, cfTemp, inCustomCode );
                 CFRelease( cfTemp );
             }
@@ -4741,7 +5593,7 @@ CFTypeID ODRecordGetTypeID( void )
     return _kODRecordTypeID;
 }
 
-Boolean ODRecordSetNodeCredentials( ODRecordRef inRecordRef, CFStringRef inUsername, CFStringRef inPassword, CFErrorRef *outError )
+bool ODRecordSetNodeCredentials( ODRecordRef inRecordRef, CFStringRef inUsername, CFStringRef inPassword, CFErrorRef *outError )
 {
     CFStringRef cfError     = NULL;
     tDirStatus  dsStatus;
@@ -4753,30 +5605,30 @@ Boolean ODRecordSetNodeCredentials( ODRecordRef inRecordRef, CFStringRef inUsern
         
     if( NULL == inRecordRef )
     {
-        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Node reference is missing."), NULL, _kODBundleID, NULL ) : CFSTR(""));
+        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Missing node reference."), NULL, _kODBundleID, NULL ) : CFSTR(""));
         dsStatus = eDSNullParameter;
         goto finish;
     }
     else if( NULL == inUsername )
     {
-        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Username is missing."), NULL, _kODBundleID, NULL ) : CFSTR(""));
+        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Missing username."), NULL, _kODBundleID, NULL ) : CFSTR(""));
         dsStatus = eDSNullParameter;
         goto finish;
     }
     else if( NULL == inPassword )
     {
-        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Password is missing."), NULL, _kODBundleID, NULL ) : CFSTR(""));
+        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Missing password."), NULL, _kODBundleID, NULL ) : CFSTR(""));
         dsStatus = eDSNullParameter;
         goto finish;
     }
     
-    CF_OBJC_FUNCDISPATCH( _kODRecordTypeID, Boolean, inRecordRef, "setNodeCredentials:password:error:", inUsername, inPassword, outError );
+    CF_OBJC_FUNCDISPATCH( _kODRecordTypeID, bool, inRecordRef, "setNodeCredentials:password:error:", inUsername, inPassword, outError );
     
     _VerifyNodeTypeForChange( inRecordRef, outError );
     
     _ODRecord   *pODRecRef  = (_ODRecord *) inRecordRef;
     CFStringRef cfCurrUser  = CFDictionaryGetValue( pODRecRef->_ODNode->_info, kODNodeUsername );
-    Boolean     bSuccess    = FALSE;
+    bool     bSuccess    = false;
     
     _ODRecordLock( pODRecRef );
     
@@ -4804,7 +5656,7 @@ Boolean ODRecordSetNodeCredentials( ODRecordRef inRecordRef, CFStringRef inUsern
     }
     else
     {
-        bSuccess = TRUE;
+        bSuccess = true;
     }
     
     _ODRecordUnlock( pODRecRef );
@@ -4844,7 +5696,7 @@ finish:
     return bSuccess;
 }
 
-Boolean ODRecordSetNodeCredentialsExtended( ODRecordRef inRecordRef, CFStringRef inRecordType, CFStringRef inAuthType, 
+bool ODRecordSetNodeCredentialsExtended( ODRecordRef inRecordRef, CFStringRef inRecordType, CFStringRef inAuthType, 
                                             CFArrayRef inAuthItems, CFArrayRef *outAuthItems, ODContextRef *outContext,
                                             CFErrorRef *outError )
 {
@@ -4864,31 +5716,31 @@ Boolean ODRecordSetNodeCredentialsExtended( ODRecordRef inRecordRef, CFStringRef
     }
     else if( NULL == inRecordType )
     {
-        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Record type is missing."), NULL, _kODBundleID, NULL ) : CFSTR(""));
+        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Missing record type."), NULL, _kODBundleID, NULL ) : CFSTR(""));
         dsStatus = eDSNullParameter;
         goto finish;
     }
     else if( NULL == inAuthType )
     {
-        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Authentication type is missing."), NULL, _kODBundleID, NULL ) : CFSTR(""));
+        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Missing authentication type."), NULL, _kODBundleID, NULL ) : CFSTR(""));
         dsStatus = eDSNullParameter;
         goto finish;
     }
     else if( NULL == inAuthItems )
     {
-        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Authentication item(s) are missing."), NULL, _kODBundleID, NULL ) : CFSTR(""));
+        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("The user name, password, or both are missing."), NULL, _kODBundleID, NULL ) : CFSTR(""));
         dsStatus = eDSNullParameter;
         goto finish;
     }
     
-    CF_OBJC_FUNCDISPATCH( _kODRecordTypeID, Boolean, inRecordRef, 
+    CF_OBJC_FUNCDISPATCH( _kODRecordTypeID, bool, inRecordRef, 
                           "setNodeCredentialsWithRecordType:authenticationType:authenticationItems:continueItems:context:error:", 
                           inRecordType, inAuthType, inAuthItems, outAuthItems, outContext, outError );
     
     _VerifyNodeTypeForChange( inRecordRef, outError );
     
     _ODRecord   *pODRecRef  = (_ODRecord *) inRecordRef;
-    Boolean     bSuccess    = FALSE;
+    bool     bSuccess    = false;
     
     pthread_mutex_lock( &pODRecRef->_mutex );
     
@@ -4946,7 +5798,7 @@ finish:
     return bSuccess;
 }
 
-Boolean ODRecordSetNodeCredentialsUsingKerberosCache( ODRecordRef inRecordRef, CFStringRef inCacheName, CFErrorRef *outError )
+bool ODRecordSetNodeCredentialsUsingKerberosCache( ODRecordRef inRecordRef, CFStringRef inCacheName, CFErrorRef *outError )
 {
     CFStringRef cfError     = NULL;
     tDirStatus  dsStatus;
@@ -4963,12 +5815,12 @@ Boolean ODRecordSetNodeCredentialsUsingKerberosCache( ODRecordRef inRecordRef, C
         goto finish;
     }
     
-    CF_OBJC_FUNCDISPATCH( _kODRecordTypeID, Boolean, inRecordRef, "setNodeCredentialsUsingKerberosCache:error:", inCacheName, outError );
+    CF_OBJC_FUNCDISPATCH( _kODRecordTypeID, bool, inRecordRef, "setNodeCredentialsUsingKerberosCache:error:", inCacheName, outError );
     
     _VerifyNodeTypeForChange( inRecordRef, outError );
     
     _ODRecord   *pODRecRef  = (_ODRecord *) inRecordRef;
-    Boolean     bSuccess    = FALSE;
+    bool     bSuccess    = false;
     
     pthread_mutex_lock( &pODRecRef->_mutex );
     
@@ -5045,7 +5897,7 @@ CFDictionaryRef ODRecordCopyPasswordPolicy( CFAllocatorRef inAllocator, ODRecord
     if( CF_IS_OBJC(_kODRecordTypeID, inRecordRef) )
     {
         CFDictionaryRef returnValue = NULL;
-        CF_OBJC_CALL( CFDictionaryRef, returnValue, inRecordRef, "passwordPolicy:", outError );
+        CF_OBJC_CALL( CFDictionaryRef, returnValue, inRecordRef, "passwordPolicyAndReturnError:", outError );
         return (NULL != returnValue && CF_USING_COLLECTABLE_MEMORY ? CFRetain(returnValue) : NULL);
     }    
     
@@ -5059,7 +5911,7 @@ CFDictionaryRef ODRecordCopyPasswordPolicy( CFAllocatorRef inAllocator, ODRecord
     
     _ODRecordLock( pODRecord );
     
-    _Authenticate( (ODNodeRef) pODRecord->_ODNode, kDSStdAuthGetEffectivePolicy, NULL, cfAuthItems, &cfResponse, NULL, TRUE );
+    _Authenticate( (ODNodeRef) pODRecord->_ODNode, kDSStdAuthGetEffectivePolicy, NULL, cfAuthItems, &cfResponse, NULL, true );
     
     _ODRecordUnlock( pODRecord );
     
@@ -5092,6 +5944,8 @@ CFDictionaryRef ODRecordCopyPasswordPolicy( CFAllocatorRef inAllocator, ODRecord
                     
                     free( xmlDataStr );
                 }
+
+                free( pPolicy );
             }
         }
         
@@ -5140,7 +5994,7 @@ finish:
     return cfReturn;
 }
 
-Boolean ODRecordVerifyPassword( ODRecordRef inRecordRef, CFStringRef inPassword, CFErrorRef *outError )
+bool ODRecordVerifyPassword( ODRecordRef inRecordRef, CFStringRef inPassword, CFErrorRef *outError )
 {
     CFStringRef cfError     = NULL;
     tDirStatus  dsStatus;
@@ -5158,12 +6012,12 @@ Boolean ODRecordVerifyPassword( ODRecordRef inRecordRef, CFStringRef inPassword,
     }
     else if( NULL == inPassword )
     {
-        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Password is missing."), NULL, _kODBundleID, NULL ) : CFSTR(""));
+        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Missing password."), NULL, _kODBundleID, NULL ) : CFSTR(""));
         dsStatus = eDSNullParameter;
         goto finish;
     }
     
-    CF_OBJC_FUNCDISPATCH( _kODRecordTypeID, Boolean, inRecordRef, "verifyPassword:error:", inPassword, outError );
+    CF_OBJC_FUNCDISPATCH( _kODRecordTypeID, bool, inRecordRef, "verifyPassword:error:", inPassword, outError );
     
     _VerifyNodeTypeForChange( inRecordRef, outError );
     
@@ -5173,7 +6027,7 @@ Boolean ODRecordVerifyPassword( ODRecordRef inRecordRef, CFStringRef inPassword,
     
     _ODRecordLock( pODRecord );
     
-    dsStatus = _Authenticate( (ODNodeRef) pODRecord->_ODNode, kDSStdAuthNodeNativeClearTextOK, NULL, cfAuthItems, NULL, NULL, TRUE );
+    dsStatus = _Authenticate( (ODNodeRef) pODRecord->_ODNode, kDSStdAuthNodeNativeClearTextOK, NULL, cfAuthItems, NULL, NULL, true );
     
     _ODRecordUnlock( pODRecord );
     
@@ -5198,13 +6052,13 @@ finish:
             
             if( NULL != cfRecordName )
             {
-                CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to verify password for record %@."), NULL, _kODBundleID, "where %@ is a record name like user1" );
+                CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to verify the password for record %@."), NULL, _kODBundleID, "where %@ is a record name like user1" );
                 cfDescription = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, cfTemp, cfRecordName );
                 CFRelease( cfTemp );
             }
             else
             {                    
-                cfDescription = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to verify password for a record."), NULL, _kODBundleID, NULL );
+                cfDescription = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to verify the password for a record."), NULL, _kODBundleID, NULL );
             }
             
             _ODErrorSet( outError, kODErrorDomainFramework, dsStatus, 
@@ -5217,13 +6071,13 @@ finish:
             CFRelease( cfError );
         }
 
-        return FALSE;
+        return false;
     }    
     
-    return TRUE;
+    return true;
 }
 
-Boolean ODRecordVerifyPasswordExtended( ODRecordRef inRecordRef, CFStringRef inAuthType, CFArrayRef inAuthItems, CFArrayRef *outAuthItems,
+bool ODRecordVerifyPasswordExtended( ODRecordRef inRecordRef, CFStringRef inAuthType, CFArrayRef inAuthItems, CFArrayRef *outAuthItems,
                                         ODContextRef *outContext, CFErrorRef *outError )
 {
     CFStringRef cfError     = NULL;
@@ -5236,24 +6090,24 @@ Boolean ODRecordVerifyPasswordExtended( ODRecordRef inRecordRef, CFStringRef inA
         
     if( NULL == inRecordRef )
     {
-        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Invalid record reference."), NULL, _kODBundleID, NULL ) : CFSTR(""));
+        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Missing record reference."), NULL, _kODBundleID, NULL ) : CFSTR(""));
         dsStatus = eDSNullParameter;
         goto finish;
     }
     else if( NULL == inAuthType )
     {
-        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Authentication type is missing."), NULL, _kODBundleID, NULL ) : CFSTR(""));
+        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Missing authentication type."), NULL, _kODBundleID, NULL ) : CFSTR(""));
         dsStatus = eDSNullParameter;
         goto finish;
     }
     else if( NULL == inAuthItems )
     {
-        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("List of authentication items is missing."), NULL, _kODBundleID, NULL ) : CFSTR(""));
+        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("The user name, password, or both are missing."), NULL, _kODBundleID, NULL ) : CFSTR(""));
         dsStatus = eDSNullParameter;
         goto finish;
     }
     
-    CF_OBJC_FUNCDISPATCH( _kODRecordTypeID, Boolean, inRecordRef, 
+    CF_OBJC_FUNCDISPATCH( _kODRecordTypeID, bool, inRecordRef, 
                           "verifyExtendedWithAuthenticationType:authenticationItems:continueItems:context:error:", 
                           inAuthType, inAuthItems, outAuthItems, outContext, outError );
     
@@ -5266,7 +6120,7 @@ Boolean ODRecordVerifyPasswordExtended( ODRecordRef inRecordRef, CFStringRef inA
     {
         _ODRecordLock( pODRecord );
         
-        dsStatus = _Authenticate( (ODNodeRef) pODRecord->_ODNode, pAuthType, NULL, inAuthItems, outAuthItems, NULL, TRUE );
+        dsStatus = _Authenticate( (ODNodeRef) pODRecord->_ODNode, pAuthType, NULL, inAuthItems, outAuthItems, NULL, true );
         
         _ODRecordUnlock( pODRecord );
         
@@ -5313,13 +6167,13 @@ finish:
             CFRelease( cfError );
         }
 
-        return FALSE;
+        return false;
     }    
     
-    return TRUE;
+    return true;
 }
 
-Boolean ODRecordChangePassword( ODRecordRef inRecordRef, CFStringRef inOldPassword, CFStringRef inNewPassword, CFErrorRef *outError )
+bool ODRecordChangePassword( ODRecordRef inRecordRef, CFStringRef inOldPassword, CFStringRef inNewPassword, CFErrorRef *outError )
 {
     if( NULL != outError )
     {
@@ -5329,7 +6183,7 @@ Boolean ODRecordChangePassword( ODRecordRef inRecordRef, CFStringRef inOldPasswo
     return _ODRecordChangePassword( inRecordRef, inOldPassword, inNewPassword, outError );
 }
 
-Boolean _ODRecordChangePassword( ODRecordRef inRecordRef, CFStringRef inOldPassword, CFStringRef inNewPassword, CFErrorRef *outError )
+bool _ODRecordChangePassword( ODRecordRef inRecordRef, CFStringRef inOldPassword, CFStringRef inNewPassword, CFErrorRef *outError )
 {
     CFStringRef cfError     = NULL;
     tDirStatus  dsStatus    = eDSAuthFailed;
@@ -5342,12 +6196,12 @@ Boolean _ODRecordChangePassword( ODRecordRef inRecordRef, CFStringRef inOldPassw
     }
     else if( NULL == inNewPassword )
     {
-        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("New password is missing."), NULL, _kODBundleID, NULL ) : CFSTR(""));
+        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Missing new password."), NULL, _kODBundleID, NULL ) : CFSTR(""));
         dsStatus = eDSNullParameter;
         goto finish;
     }
     
-    CF_OBJC_FUNCDISPATCH( _kODRecordTypeID, Boolean, inRecordRef, "changePassword:toPassword:error:", inOldPassword, inNewPassword, outError );
+    CF_OBJC_FUNCDISPATCH( _kODRecordTypeID, bool, inRecordRef, "changePassword:toPassword:error:", inOldPassword, inNewPassword, outError );
     
     _VerifyNodeTypeForChange( inRecordRef, outError );
     
@@ -5373,7 +6227,7 @@ Boolean _ODRecordChangePassword( ODRecordRef inRecordRef, CFStringRef inOldPassw
     
     _ODRecordLock( pODRecord );
     
-    dsStatus = _Authenticate( (ODNodeRef) pODRecord->_ODNode, pAuthType, pRecType, cfAuthItems, NULL, NULL, TRUE );
+    dsStatus = _Authenticate( (ODNodeRef) pODRecord->_ODNode, pAuthType, pRecType, cfAuthItems, NULL, NULL, true );
     
     _ODRecordUnlock( pODRecord );
     
@@ -5404,13 +6258,13 @@ finish:
             
             if( NULL != cfRecordName )
             {
-                CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to change password for record %@."), NULL, _kODBundleID, "where %@ is a record name like user1" );
+                CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to change the password for record %@."), NULL, _kODBundleID, "where %@ is a record name like user1" );
                 cfDescription = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, cfTemp, cfRecordName );
                 CFRelease( cfTemp );
             }
             else
             {                    
-                cfDescription = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to change password for a record."), NULL, _kODBundleID, NULL );
+                cfDescription = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to changethe password for a record."), NULL, _kODBundleID, NULL );
             }
             
             _ODErrorSet( outError, kODErrorDomainFramework, dsStatus, 
@@ -5423,10 +6277,10 @@ finish:
             CFRelease( cfError );
         }
 
-        return FALSE;
+        return false;
     }
     
-    return TRUE;
+    return true;
 }
 
 CFStringRef ODRecordGetRecordType( ODRecordRef inRecordRef )
@@ -5467,7 +6321,7 @@ CFStringRef ODRecordGetRecordName( ODRecordRef inRecordRef )
     return pODRecord->_cfRecordName;
 }
 
-CFArrayRef ODRecordCopyValues( ODRecordRef inRecordRef, CFStringRef inAttribute, CFErrorRef *outError )
+CFArrayRef ODRecordCopyValues( ODRecordRef inRecordRef, ODAttributeType inAttribute, CFErrorRef *outError )
 {
     if( NULL != outError )
     {
@@ -5483,7 +6337,7 @@ CFArrayRef ODRecordCopyValues( ODRecordRef inRecordRef, CFStringRef inAttribute,
     return values;
 }
 
-CFArrayRef _ODRecordGetValues( ODRecordRef inRecordRef, CFStringRef inAttribute, CFErrorRef *outError )
+CFArrayRef _ODRecordGetValues( ODRecordRef inRecordRef, ODAttributeType inAttribute, CFErrorRef *outError )
 {
     tDirStatus  dsStatus    = eDSNoErr;
     CFStringRef cfError     = NULL;
@@ -5513,7 +6367,7 @@ CFArrayRef _ODRecordGetValues( ODRecordRef inRecordRef, CFStringRef inAttribute,
     
     _ODRecordLock( pODRecRef );
 
-    if( FALSE == _wasAttributeFetched(pODRecRef, inAttribute) )
+    if( false == _wasAttributeFetched(pODRecRef, inAttribute) )
     {
         if( 0 != pODRecRef->_dsRecordRef )
         {
@@ -5544,7 +6398,7 @@ CFArrayRef _ODRecordGetValues( ODRecordRef inRecordRef, CFStringRef inAttribute,
                                 CFTypeRef cfRef = CFStringCreateWithBytes( kCFAllocatorDefault, 
                                                                            (const UInt8 *) dsAttrValueEntry->fAttributeValueData.fBufferData, 
                                                                            dsAttrValueEntry->fAttributeValueData.fBufferLength, kCFStringEncodingUTF8,
-                                                                           FALSE );
+                                                                           false );
                                 
                                 if( NULL == cfRef )
                                 {
@@ -5657,20 +6511,20 @@ finish:
             {
                 if( NULL != cfRecordName )
                 {
-                    CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to get values attribute for record %@."), NULL, _kODBundleID, "where %@ is a record name like user1" );
+                    CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to obtain attribute values for record %@."), NULL, _kODBundleID, "where %@ is a record name like user1" );
                     cfDescription = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, cfTemp, cfRecordName );
                     CFRelease( cfTemp );
                 }
                 else
                 {                    
-                    cfDescription = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to get values for attribute of a record."), NULL, _kODBundleID, NULL );
+                    cfDescription = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to obtain a record attribute values."), NULL, _kODBundleID, NULL );
                 }
             }
             else
             {
                 if( NULL != cfRecordName )
                 {
-                    CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to get values for attribute %@ of record %@."), NULL, _kODBundleID, "where %1@ is some attribute like PhoneNumber or RecordName and %2@ is a record name like user1" );
+                    CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to obtain values for attribute %@ of record %@."), NULL, _kODBundleID, "where %1@ is some attribute like PhoneNumber or RecordName and %2@ is a record name like user1" );
                     cfDescription = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, cfTemp, inAttribute, cfRecordName );
                     CFRelease( cfTemp );
                 }
@@ -5696,17 +6550,17 @@ finish:
     return cfValues;
 }
 
-Boolean ODRecordSetValues( ODRecordRef inRecordRef, CFStringRef inAttribute, CFArrayRef inValues, CFErrorRef *outError )
+bool ODRecordSetValue( ODRecordRef inRecordRef, ODAttributeType inAttribute, CFTypeRef inValueOrValues, CFErrorRef *outError )
 {
     if( outError != NULL )
     {
         (*outError) = NULL;
     }
     
-    return _ODRecordSetValues( inRecordRef, inAttribute, inValues, outError );
+    return _ODRecordSetValues( inRecordRef, inAttribute, inValueOrValues, outError );
 }
 
-Boolean _ODRecordSetValues( ODRecordRef inRecordRef, CFStringRef inAttribute, CFArrayRef inValues, CFErrorRef *outError )
+bool _ODRecordSetValues( ODRecordRef inRecordRef, ODAttributeType inAttribute, CFTypeRef inValues, CFErrorRef *outError )
 {
     CFStringRef cfError     = NULL;
     tDirStatus  dsStatus    = eDSInvalidRecordRef;
@@ -5720,23 +6574,23 @@ Boolean _ODRecordSetValues( ODRecordRef inRecordRef, CFStringRef inAttribute, CF
     }
     else if( NULL == inAttribute )
     {
-        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Attribute type is missing."), NULL, _kODBundleID, NULL ) : CFSTR(""));
+        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Missing attribute type."), NULL, _kODBundleID, NULL ) : CFSTR(""));
         dsStatus = eDSNullParameter;
         goto finish;
     }
     else if( NULL == inValues )
     {
-        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("New values are missing."), NULL, _kODBundleID, NULL ) : CFSTR(""));
+        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Missing new values."), NULL, _kODBundleID, NULL ) : CFSTR(""));
         dsStatus = eDSNullParameter;
         goto finish;
     }
-    else if( CFStringCompare(inAttribute, CFSTR(kDSNAttrMetaNodeLocation), 0) == kCFCompareEqualTo )
+    else if( CFStringCompare(inAttribute, kODAttributeTypeMetaNodeLocation, 0) == kCFCompareEqualTo )
     {
         dsStatus = eDSNoErr;
         goto finish;
     }
 
-    CF_OBJC_FUNCDISPATCH( _kODRecordTypeID, Boolean, inRecordRef, "setValues:forAttribute:error:", inValues, inAttribute, outError );
+    CF_OBJC_FUNCDISPATCH( _kODRecordTypeID, bool, inRecordRef, "setValues:forAttribute:error:", inValues, inAttribute, outError );
 
     if( CFGetTypeID(inValues) == CFDataGetTypeID() || CFGetTypeID(inValues) == CFStringGetTypeID() )
     {
@@ -5761,15 +6615,28 @@ Boolean _ODRecordSetValues( ODRecordRef inRecordRef, CFStringRef inAttribute, CF
     _ODRecordLock( pODRecRef );
 
     CFDictionaryRef     cfAttributes    = pODRecRef->_cfAttributes;
-    CFMutableArrayRef   cfOldValues     = (CFMutableArrayRef) CFDictionaryGetValue( cfAttributes, inAttribute );
+    CFArrayRef          cfOldValues     = _ODRecordGetValues( inRecordRef, inAttribute, NULL );
 
     // we need to special case the record name
-    if( CFStringCompare(inAttribute, CFSTR(kDSNAttrRecordName), 0) == kCFCompareEqualTo )
+    if( CFStringCompare(inAttribute, kODAttributeTypeRecordName, 0) == kCFCompareEqualTo )
     {
         if( NULL != inValues && CFArrayGetCount(inValues) > 0 )
         {
             CFIndex iCount;
             CFIndex ii;
+            
+            // need to remove the old values because dsSetRecordName, only sets the first value
+            if ( cfOldValues != NULL && CFArrayGetCount(cfOldValues) > 1 ) {
+                // copy the old list because ODRecordRemoveValue removes the values from the internal copy
+                CFArrayRef cfTempList = CFArrayCreateCopy( kCFAllocatorDefault, cfOldValues );
+                
+                iCount = CFArrayGetCount( cfTempList );
+                for ( ii = 1; ii < iCount; ii++ ) {
+                    ODRecordRemoveValue( inRecordRef, kODAttributeTypeRecordName, CFArrayGetValueAtIndex(cfTempList, ii), NULL );
+                }
+                
+                CFRelease( cfTempList );
+            }
             
             // now add any values
             iCount = CFArrayGetCount( inValues );
@@ -5803,14 +6670,14 @@ Boolean _ODRecordSetValues( ODRecordRef inRecordRef, CFStringRef inAttribute, CF
                     {
                         if( NULL != outError )
                         {
-                            CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to set then record name to %@."), NULL, _kODBundleID, "where %@ is a record name like user1" );
+                            CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to set the record name to %@."), NULL, _kODBundleID, "where %@ is a record name like user1" );
                             cfError = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, cfTemp, cfValue );
                             CFRelease( cfTemp );
                         }
                         goto failed;
                     }
                 }
-                else if( FALSE == ODRecordAddValue(inRecordRef, inAttribute, cfValue, outError) )
+                else if( false == ODRecordAddValue(inRecordRef, inAttribute, cfValue, outError) )
                 {
                     goto failed;
                 }
@@ -5821,7 +6688,7 @@ Boolean _ODRecordSetValues( ODRecordRef inRecordRef, CFStringRef inAttribute, CF
         }
         else
         {
-            cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Record name is missing.  At least one name must be provided."), NULL, _kODBundleID, NULL ) : CFSTR(""));
+            cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Missing record name. At least one name is required."), NULL, _kODBundleID, NULL ) : CFSTR(""));
             dsStatus = eDSEmptyAttributeValue;
             goto failed;
         }
@@ -5829,7 +6696,7 @@ Boolean _ODRecordSetValues( ODRecordRef inRecordRef, CFStringRef inAttribute, CF
     else if( NULL != inValues )
     {
         // if node doesn't support setValues or we don't know yet we need to do more work...
-        if( 1 != pODRecRef->_ODNode->_iSupportsSetValues )
+        if ( 0 != (pODRecRef->_ODNode->_flags & kODNodeFlagNoSetValues) )
         {
             // if we have a value, see if we can do this more efficiently, specifically, if we are adding a single
             // value or removing a single value, we can do that more efficiently
@@ -5845,7 +6712,7 @@ Boolean _ODRecordSetValues( ODRecordRef inRecordRef, CFStringRef inAttribute, CF
                 {
                     CFStringRef cfRef = CFArrayGetValueAtIndex( cfOldValues, ii );
                     
-                    if( FALSE == CFArrayContainsValue(inValues, cfRange, cfRef) )
+                    if( false == CFArrayContainsValue(inValues, cfRange, cfRef) )
                     {
                         CFArrayAppendValue( cfRemove, cfRef );
                     }
@@ -5856,15 +6723,14 @@ Boolean _ODRecordSetValues( ODRecordRef inRecordRef, CFStringRef inAttribute, CF
                 {
                     CFStringRef cfRef = CFArrayGetValueAtIndex( inValues, ii );
                     
-                    if( FALSE == CFArrayContainsValue(cfOldValues, cfRange, cfRef) )
+                    if( false == CFArrayContainsValue(cfOldValues, cfRange, cfRef) )
                     {
                         CFArrayAppendValue( cfAdd, cfRef );
                     }
                 }
             }
         }
-        
-        if( 0 != pODRecRef->_ODNode->_iSupportsSetValues )
+        else
         {
             dsDataList = _ConvertCFArrayToDataList( inValues );
         }
@@ -5876,13 +6742,11 @@ Boolean _ODRecordSetValues( ODRecordRef inRecordRef, CFStringRef inAttribute, CF
         if( NULL != dsDataList && 0 != dsDataListGetNodeCount(dsDataList) )
         {
             dsStatus = dsSetAttributeValues( pODRecRef->_dsRecordRef, dsAttributeName, dsDataList );
-            if( eDSNoErr == dsStatus )
-            {
-                pODRecRef->_ODNode->_iSupportsSetValues = 1;
-            }
-            else if( eNotYetImplemented == dsStatus || eNotHandledByThisNode == dsStatus )
-            {
-                pODRecRef->_ODNode->_iSupportsSetValues = 0;
+            switch ( dsStatus ) {
+                case eNotYetImplemented:
+                case eNotHandledByThisNode:
+                    pODRecRef->_ODNode->_flags |= kODNodeFlagNoSetValues;
+                    break;
             }
         }
         else if( CFArrayGetCount(inValues) == 0 )
@@ -5905,7 +6769,7 @@ Boolean _ODRecordSetValues( ODRecordRef inRecordRef, CFStringRef inAttribute, CF
              eDSInvalidNodeRef == dsStatus || eDSInvalidRefType == dsStatus );
     
     // if plugin hasn't implemented SetAttributeValues or node doesn't suppport SetValues, we need to fall back
-    if( eNotYetImplemented == dsStatus || eNotHandledByThisNode == dsStatus || 0 == pODRecRef->_ODNode->_iSupportsSetValues )
+    if( eNotYetImplemented == dsStatus || eNotHandledByThisNode == dsStatus || 0 != (pODRecRef->_ODNode->_flags & kODNodeFlagNoSetValues) )
     {
         CFIndex iCount;
         CFIndex ii;
@@ -5916,7 +6780,7 @@ Boolean _ODRecordSetValues( ODRecordRef inRecordRef, CFStringRef inAttribute, CF
         {
             CFTypeRef   cfValue = CFArrayGetValueAtIndex( cfAdd, ii );
             
-            if( FALSE == ODRecordAddValue(inRecordRef, inAttribute, cfValue, outError) )
+            if( false == ODRecordAddValue(inRecordRef, inAttribute, cfValue, outError) )
             {
                 break;
             }
@@ -5928,7 +6792,7 @@ Boolean _ODRecordSetValues( ODRecordRef inRecordRef, CFStringRef inAttribute, CF
         {
             CFTypeRef   cfValue = CFArrayGetValueAtIndex( cfRemove, ii );
             
-            if( FALSE == ODRecordRemoveValue(inRecordRef, inAttribute, cfValue, outError) )
+            if( false == ODRecordRemoveValue(inRecordRef, inAttribute, cfValue, outError) )
             {
                 break;
             }
@@ -6030,20 +6894,20 @@ finish:
                 {
                     if( NULL != inValues && CFGetTypeID(inValues) == CFStringGetTypeID() && CFStringGetLength((CFStringRef) inValues) < 20 )
                     {
-                        CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to set the attribute value %@ in record %@."), NULL, _kODBundleID, "where %1@ is an attribute like PhoneNumber or Recordname and %2@ is a record name like user1" );
+                        CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to set the attribute value %@ in the record %@."), NULL, _kODBundleID, "where %1@ is an attribute like PhoneNumber or Recordname and %2@ is a record name like user1" );
                         cfDescription = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, cfTemp, inValues, cfRecordName );
                         CFRelease( cfTemp );
                     }
                     else
                     {
-                        CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to set attribute value(s) for %@."), NULL, _kODBundleID, "where %@ is an attribute like PhoneNumber" );
+                        CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to set attribute value or values for %@"), NULL, _kODBundleID, "where %@ is an attribute like PhoneNumber" );
                         cfDescription = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, cfTemp, cfRecordName );
                         CFRelease( cfTemp );
                     }
                 }
                 else
                 {                    
-                    cfDescription = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to set attribute value(s) for a record."), NULL, _kODBundleID, NULL );
+                    cfDescription = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to set attribute value or values for a record."), NULL, _kODBundleID, NULL );
                 }
             }
             else
@@ -6058,7 +6922,7 @@ finish:
                     }
                     else
                     {
-                        CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to set value(s) for %@ in record %@."), NULL, _kODBundleID, "%1@ is an attribute like PhoneNumber or Recordname and %2@ is a record name like user1" );
+                        CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to set value or values for %@ in the record %@."), NULL, _kODBundleID, "%1@ is an attribute like PhoneNumber or Recordname and %2@ is a record name like user1" );
                         cfDescription = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, cfTemp, inAttribute, cfRecordName );
                         CFRelease( cfTemp );
                     }
@@ -6067,13 +6931,13 @@ finish:
                 {
                     if( NULL != inValues && CFGetTypeID(inValues) == CFStringGetTypeID() && CFStringGetLength((CFStringRef) inValues) < 20 )
                     {
-                        CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to set %@ to %@ in record."), NULL, _kODBundleID, "where %1@ is an attribute value like 555-1212, %2@ is an attribute like PhoneNumber or Recordname" );
+                        CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to set %@ to %@ in the record."), NULL, _kODBundleID, "where %1@ is an attribute value like 555-1212, %2@ is an attribute like PhoneNumber or Recordname" );
                         cfDescription = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, cfTemp, inValues, inAttribute );
                         CFRelease( cfTemp );
                     }
                     else
                     {
-                        CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to set value(s) for %@ in record."), NULL, _kODBundleID, "%@ is an attribute like PhoneNumber or Recordname" );
+                        CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to set value or values for %@ in the record."), NULL, _kODBundleID, "%@ is an attribute like PhoneNumber or Recordname" );
                         cfDescription = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, cfTemp, inAttribute );
                         CFRelease( cfTemp );
                     }
@@ -6090,13 +6954,13 @@ finish:
             CFRelease( cfError );
         }
 
-        return FALSE;
+        return false;
     }
     
-    return TRUE;
+    return true;
 }
 
-Boolean ODRecordAddValue( ODRecordRef inRecordRef, CFStringRef inAttribute, CFTypeRef inValue, CFErrorRef *outError )
+bool ODRecordAddValue( ODRecordRef inRecordRef, ODAttributeType inAttribute, CFTypeRef inValue, CFErrorRef *outError )
 {
     if( NULL != outError )
     {
@@ -6106,7 +6970,7 @@ Boolean ODRecordAddValue( ODRecordRef inRecordRef, CFStringRef inAttribute, CFTy
     return _ODRecordAddValue( inRecordRef, inAttribute, inValue, outError );
 }
 
-Boolean _ODRecordAddValue( ODRecordRef inRecordRef, CFStringRef inAttribute, CFTypeRef inValue, CFErrorRef *outError )
+bool _ODRecordAddValue( ODRecordRef inRecordRef, ODAttributeType inAttribute, CFTypeRef inValue, CFErrorRef *outError )
 {
     CFStringRef cfError     = NULL;
     tDirStatus  dsStatus    = eDSInvalidRecordRef;
@@ -6119,7 +6983,7 @@ Boolean _ODRecordAddValue( ODRecordRef inRecordRef, CFStringRef inAttribute, CFT
     }
     else if( NULL == inAttribute )
     {
-        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("New password is missing."), NULL, _kODBundleID, NULL ) : CFSTR(""));
+        cfError = (NULL != outError ? CFCopyLocalizedStringFromTableInBundle( CFSTR("Missing new password."), NULL, _kODBundleID, NULL ) : CFSTR(""));
         dsStatus = eDSNullParameter;
         goto finish;
     }
@@ -6129,13 +6993,13 @@ Boolean _ODRecordAddValue( ODRecordRef inRecordRef, CFStringRef inAttribute, CFT
         dsStatus = eDSNullParameter;
         goto finish;
     }
-    else if( CFStringCompare(inAttribute, CFSTR(kDSNAttrMetaNodeLocation), 0) == kCFCompareEqualTo )
+    else if( CFStringCompare(inAttribute, kODAttributeTypeMetaNodeLocation, 0) == kCFCompareEqualTo )
     {
         dsStatus = eDSNoErr;
         goto finish;
     }
     
-    CF_OBJC_FUNCDISPATCH( _kODRecordTypeID, Boolean, inRecordRef, "addValue:toAttribute:error:", inValue, inAttribute, outError );
+    CF_OBJC_FUNCDISPATCH( _kODRecordTypeID, bool, inRecordRef, "addValue:toAttribute:error:", inValue, inAttribute, outError );
 
     _VerifyNodeTypeForChange( inRecordRef, outError );
     
@@ -6228,13 +7092,13 @@ finish:
                 {
                     if( NULL != inValue && CFGetTypeID(inValue) == CFStringGetTypeID() && CFStringGetLength(inValue) < 20 )
                     {
-                        CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to add %@ to %@ in record %@."), NULL, _kODBundleID, "where %1@ is an attribute value like 555-1212, %2@ is an attribute like RecordName/PhoneNumber, %3@ is a record name like user1" );
+                        CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to add %@ to %@ in the record %@."), NULL, _kODBundleID, "where %1@ is an attribute value like 555-1212, %2@ is an attribute like RecordName/PhoneNumber, %3@ is a record name like user1" );
                         cfDescription = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, cfTemp, inValue, inAttribute, cfRecordName );
                         CFRelease( cfTemp );
                     }
                     else
                     {
-                        CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to add a value to %@ in record %@."), NULL, _kODBundleID, "where %1@ is an attribute like RecordName/PhoneNumber, %2@ is a record name like user1" );
+                        CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to add a value to %@ in the record %@."), NULL, _kODBundleID, "where %1@ is an attribute like RecordName/PhoneNumber, %2@ is a record name like user1" );
                         cfDescription = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, cfTemp, inAttribute, cfRecordName );
                         CFRelease( cfTemp );
                     }
@@ -6266,13 +7130,13 @@ finish:
             CFRelease( cfError );
         }
 
-        return FALSE;
+        return false;
     }
     
-    return TRUE;
+    return true;
 }
 
-Boolean ODRecordRemoveValue( ODRecordRef inRecordRef, CFStringRef inAttribute, CFTypeRef inValue, CFErrorRef *outError )
+bool ODRecordRemoveValue( ODRecordRef inRecordRef, ODAttributeType inAttribute, CFTypeRef inValue, CFErrorRef *outError )
 {
     CFStringRef cfError     = NULL;
     tDirStatus  dsStatus    = eDSAttributeValueNotFound;
@@ -6300,13 +7164,13 @@ Boolean ODRecordRemoveValue( ODRecordRef inRecordRef, CFStringRef inAttribute, C
         dsStatus = eDSNullParameter;
         goto finish;
     }
-    else if( CFStringCompare(inAttribute, CFSTR(kDSNAttrMetaNodeLocation), 0) == kCFCompareEqualTo )
+    else if( CFStringCompare(inAttribute, kODAttributeTypeMetaNodeLocation, 0) == kCFCompareEqualTo )
     {
         dsStatus = eDSNoErr;
         goto finish;
     }    
     
-    CF_OBJC_FUNCDISPATCH( _kODRecordTypeID, Boolean, inRecordRef, "removeValue:fromAttribute:error:", inValue, inAttribute, outError );
+    CF_OBJC_FUNCDISPATCH( _kODRecordTypeID, bool, inRecordRef, "removeValue:fromAttribute:error:", inValue, inAttribute, outError );
     
     _VerifyNodeTypeForChange( inRecordRef, outError );
     
@@ -6436,7 +7300,7 @@ finish:
                 {
                     if( NULL != inValue && CFGetTypeID(inValue) == CFStringGetTypeID() && CFStringGetLength(inValue) < 20 )
                     {
-                        CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to remove %@ from %@ for record %@."), NULL, _kODBundleID, "where %1@ is an attribute value like 555-1212, %2@ is an attribute like RecordName/PhoneNumber, %3@ is a record name like user1" );
+                        CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to remove %@ from %@ for record %3$@."), NULL, _kODBundleID, "where %1@ is an attribute value like 555-1212, %2@ is an attribute like RecordName/PhoneNumber, %3@ is a record name like user1" );
                         cfDescription = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, cfTemp, inValue, inAttribute, cfRecordName );
                         CFRelease( cfTemp );
                     }
@@ -6474,17 +7338,17 @@ finish:
             CFRelease( cfError );
         }
 
-        return FALSE;
+        return false;
     }
     
-    return TRUE;
+    return true;
 }
 
 CFDictionaryRef ODRecordCopyDetails( ODRecordRef inRecordRef, CFArrayRef inAttributes, CFErrorRef *outError )
 {
     CFMutableSetRef         cfAttribsNeeded = NULL;
     CFMutableSetRef         cfFinalAttribs  = NULL;
-    Boolean                 bNeedAll        = FALSE;
+    bool                 bNeedAll        = false;
     CFMutableDictionaryRef  cfReturn        = NULL;
     _ODRecord               *pODRecRef      = (_ODRecord *) inRecordRef;
     
@@ -6498,7 +7362,7 @@ CFDictionaryRef ODRecordCopyDetails( ODRecordRef inRecordRef, CFArrayRef inAttri
         if( NULL != outError && NULL == (*outError) )
         {
             _ODErrorSet( outError, kODErrorDomainFramework, eDSNullParameter, 
-                         CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to get details of record."), NULL, _kODBundleID, NULL ), 
+                         CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to obtain record details"), NULL, _kODBundleID, NULL ), 
                          CFCopyLocalizedStringFromTableInBundle( CFSTR("Invalid record reference."), NULL, _kODBundleID, NULL ),
                          NULL );
         }
@@ -6524,7 +7388,7 @@ CFDictionaryRef ODRecordCopyDetails( ODRecordRef inRecordRef, CFArrayRef inAttri
         void            **cfList        = (void *) calloc( iCount, sizeof(void **) );
         CFIndex         ii;
         
-        bNeedAll = CFSetContainsValue( cfAttributeSet, CFSTR(kDSAttributesAll) );
+        bNeedAll = CFSetContainsValue( cfAttributeSet, kODAttributeTypeAllAttributes );
         
         CFSetGetValues( cfAttributeSet, (const void **) cfList );
         
@@ -6532,7 +7396,7 @@ CFDictionaryRef ODRecordCopyDetails( ODRecordRef inRecordRef, CFArrayRef inAttri
         
         for( ii = 0; ii < iCount; ii ++ )
         {
-            if( _wasAttributeFetched(pODRecRef, cfList[ii]) == FALSE )
+            if( _wasAttributeFetched(pODRecRef, cfList[ii]) == false )
             {
                 CFSetAddValue( cfAttribsNeeded, cfList[ii] );
                 CFSetAddValue( cfTempFinal, cfList[ii] );
@@ -6608,8 +7472,8 @@ CFDictionaryRef ODRecordCopyDetails( ODRecordRef inRecordRef, CFArrayRef inAttri
         CFTypeRef       *cfKeys     = (CFTypeRef *) calloc( sizeof(CFTypeRef), iKeys );
         CFTypeRef       *cfValues   = (CFTypeRef *) calloc( sizeof(CFTypeRef), iKeys );
         CFRange         cfRange     = CFRangeMake( 0, CFArrayGetCount(inAttributes) );
-        Boolean         bStandard   = CFArrayContainsValue( inAttributes, cfRange, CFSTR(kDSAttributesStandardAll) );
-        Boolean         bNative     = CFArrayContainsValue( inAttributes, cfRange, CFSTR(kDSAttributesNativeAll) );
+        bool         bStandard   = CFArrayContainsValue( inAttributes, cfRange, kODAttributeTypeStandardOnly );
+        bool         bNative     = CFArrayContainsValue( inAttributes, cfRange, kODAttributeTypeNativeOnly );
         CFIndex         ii;
         
         CFDictionaryGetKeysAndValues( pODRecRef->_cfAttributes, cfKeys, cfValues );
@@ -6618,10 +7482,10 @@ CFDictionaryRef ODRecordCopyDetails( ODRecordRef inRecordRef, CFArrayRef inAttri
         {
             CFStringRef cfKey = cfKeys[ii];
             
-            if( TRUE == bNeedAll ||
-                (TRUE == bStandard && TRUE == CFStringHasPrefix(cfKey, CFSTR(kDSStdAttrTypePrefix))) ||
-                (TRUE == bNative && TRUE == CFStringHasPrefix(cfKey, CFSTR(kDSNativeAttrTypePrefix))) ||
-                (TRUE == CFArrayContainsValue(inAttributes, cfRange, cfKey)) )
+            if( true == bNeedAll ||
+                (true == bStandard && true == CFStringHasPrefix(cfKey, CFSTR(kDSStdAttrTypePrefix))) ||
+                (true == bNative && true == CFStringHasPrefix(cfKey, CFSTR(kDSNativeAttrTypePrefix))) ||
+                (true == CFArrayContainsValue(inAttributes, cfRange, cfKey)) )
             {
                 // make a copy of the array before we add it to the dictionary to return
                 CFTypeRef cfValuesCopy = CFArrayCreateCopy( kCFAllocatorDefault, cfValues[ii] );
@@ -6651,7 +7515,7 @@ CFDictionaryRef ODRecordCopyDetails( ODRecordRef inRecordRef, CFArrayRef inAttri
     return cfReturn;
 }
 
-Boolean ODRecordSynchronize( ODRecordRef inRecordRef, CFErrorRef *outError )
+bool ODRecordSynchronize( ODRecordRef inRecordRef, CFErrorRef *outError )
 {
     if( NULL != outError )
     {
@@ -6667,10 +7531,10 @@ Boolean ODRecordSynchronize( ODRecordRef inRecordRef, CFErrorRef *outError )
                          CFCopyLocalizedStringFromTableInBundle( CFSTR("Invalid record reference."), NULL, _kODBundleID, NULL ),
                          NULL );
         }
-        return FALSE;
+        return false;
     }
     
-    CF_OBJC_FUNCDISPATCH( _kODRecordTypeID, Boolean, inRecordRef, "synchronize:", outError );
+    CF_OBJC_FUNCDISPATCH( _kODRecordTypeID, bool, inRecordRef, "synchronizeAndReturnError:", outError );
 
     _ODRecord   *pODRecord      = (_ODRecord *) inRecordRef;
 
@@ -6705,13 +7569,13 @@ Boolean ODRecordSynchronize( ODRecordRef inRecordRef, CFErrorRef *outError )
     }
     else
     {
-        return FALSE;
+        return false;
     }
     
-    return TRUE;
+    return true;
 }
 
-Boolean ODRecordDelete( ODRecordRef inRecordRef, CFErrorRef *outError )
+bool ODRecordDelete( ODRecordRef inRecordRef, CFErrorRef *outError )
 {
     if( NULL != outError )
     {
@@ -6721,7 +7585,7 @@ Boolean ODRecordDelete( ODRecordRef inRecordRef, CFErrorRef *outError )
     return _ODRecordDelete( inRecordRef, outError );
 }
 
-Boolean _ODRecordDelete( ODRecordRef inRecordRef, CFErrorRef *outError )
+bool _ODRecordDelete( ODRecordRef inRecordRef, CFErrorRef *outError )
 {
     CFStringRef cfError     = NULL;
     tDirStatus  dsStatus    = eDSInvalidRecordRef;
@@ -6733,7 +7597,7 @@ Boolean _ODRecordDelete( ODRecordRef inRecordRef, CFErrorRef *outError )
         goto finish;
     }
     
-    CF_OBJC_FUNCDISPATCH( _kODRecordTypeID, Boolean, inRecordRef, "deleteRecord:", outError );
+    CF_OBJC_FUNCDISPATCH( _kODRecordTypeID, bool, inRecordRef, "deleteRecordAndReturnError:", outError );
     
     _VerifyNodeTypeForChange( inRecordRef, outError );
 
@@ -6796,16 +7660,212 @@ finish:
             CFRelease( cfError );
         }
         
-        return FALSE;
+        return false;
     }   
     
-    return TRUE;
+    return true;
 }
 
-Boolean ODRecordAddMember( ODRecordRef inGroupRef, ODRecordRef inMemberRef, CFErrorRef *outError )
+enum
+{
+    kODMemberUseUUID    = 0x00000001,
+    kODMemberUseName    = 0x00000002,
+
+    kODMemberNested     = 0x00000010,
+
+    kODMemberUser       = 0x00000100,
+    kODMemberComputer   = 0x00000200,
+    kODMemberGroup      = 0x00000400,
+    kODMemberOtherGroup = 0x00000800
+};
+
+static CFStringRef _CopyTempUUIDForRecord( ODRecordRef inRecordRef, uint32_t inFlags )
+{
+    CFStringRef returnUUID  = NULL;
+    CFStringRef (^getUUID)(ODAttributeType, int (*)(uid_t, uuid_t)) = ^(ODAttributeType attrib, int (*mbr_cb)(uid_t, uuid_t))
+    {
+        CFStringRef cfUUID  = NULL;
+        CFArrayRef  idArray = _ODRecordGetValues( inRecordRef, attrib, NULL );
+        
+        if ( idArray != NULL && CFArrayGetCount(idArray) > 0 )
+        {
+            CFStringRef cfID = (CFStringRef) CFArrayGetValueAtIndex( idArray, 0 );
+            if ( cfID != NULL && CFGetTypeID(cfID) == CFStringGetTypeID() )
+            {
+                uuid_t  uuid;
+                
+                if ( mbr_cb(CFStringGetIntValue(cfID), uuid) == 0 )
+                {
+                    uuid_string_t uuidStr;
+                    
+                    uuid_unparse_upper( uuid, uuidStr );
+                    cfUUID = CFStringCreateWithCString( kCFAllocatorDefault, uuidStr, kCFStringEncodingUTF8 );
+                }
+            }
+        }
+        
+        return cfUUID;
+    };
+    
+    if ( (inFlags & kODMemberUser) != 0 ) {
+        returnUUID = getUUID( kODAttributeTypeUniqueID, mbr_uid_to_uuid );
+    }
+    else if ( (inFlags & kODMemberGroup) != 0 ) {
+        returnUUID = getUUID( kODAttributeTypePrimaryGroupID, mbr_gid_to_uuid );
+    }
+    
+    return returnUUID;
+}
+
+static uint32_t __ODRecordMapTypes( ODRecordRef inGroupRef, ODRecordRef inMemberRef )
+{
+    CFStringRef cfGroupType     = ODRecordGetRecordType( inGroupRef );
+    CFStringRef cfMemberType    = ODRecordGetRecordType( inMemberRef );
+    uint32_t    flags           = 0;
+    
+    if ( cfGroupType == NULL || cfMemberType == NULL ) return 0;
+    
+    if ( CFStringCompare(cfGroupType, kODRecordTypeGroups, 0) == kCFCompareEqualTo )
+    {
+        if ( CFStringCompare(cfMemberType, kODRecordTypeUsers, 0) == kCFCompareEqualTo ) {
+            flags |= kODMemberUser | kODMemberUseUUID | kODMemberUseName;
+        }
+        else if ( CFStringCompare(cfMemberType, kODRecordTypeGroups, 0) == kCFCompareEqualTo ) {
+            flags |= kODMemberGroup | kODMemberUseUUID | kODMemberNested;
+        }
+    }
+    else if ( CFStringCompare(cfGroupType, kODRecordTypeComputerGroups, 0) == kCFCompareEqualTo )
+    {
+        if ( CFStringCompare(cfMemberType, kODRecordTypeComputers, 0) == kCFCompareEqualTo ) {
+            flags |= kODMemberComputer | kODMemberUseUUID;
+        }
+        else if ( CFStringCompare(cfMemberType, kODRecordTypeComputerGroups, 0) == kCFCompareEqualTo ) {
+            flags |= kODMemberOtherGroup | kODMemberUseUUID | kODMemberNested;
+        }
+    }
+    else if ( CFStringCompare(cfGroupType, kODRecordTypeComputerLists, 0) == kCFCompareEqualTo )
+    {
+        if ( CFStringCompare(cfMemberType, kODRecordTypeComputers, 0) == kCFCompareEqualTo ) {
+            flags |= kODMemberComputer | kODMemberUseName;
+        }
+        else if ( CFStringCompare(cfMemberType, kODRecordTypeComputerLists, 0) == kCFCompareEqualTo ) {
+            flags |= kODMemberOtherGroup | kODMemberUseName | kODMemberNested;
+        }
+    }
+    
+    return flags;
+}
+
+static CFErrorRef __MembershipApplyBlock( ODRecordRef inGroupRef, ODRecordRef inMemberRef, uint32_t inFlags, 
+                                          CFErrorRef (^block)(ODAttributeType attr, CFTypeRef value) )
+{
+    CFErrorRef  cfError = NULL;
+    bool        bValid  = false;    // is a valid flag combination
+    
+    // need UUID for these ops
+    if ( (inFlags & kODMemberUseUUID) != 0 )
+    {
+        CFArrayRef  cfMemberUUIDList    = _ODRecordGetValues( inMemberRef, kODAttributeTypeGUID, NULL );
+        CFStringRef cfMemberUUID        = NULL;
+        CFStringRef cfTempUUID          = NULL;
+        
+        if ( NULL != cfMemberUUIDList && 0 != CFArrayGetCount(cfMemberUUIDList) ) {
+            cfMemberUUID = (CFStringRef) CFArrayGetValueAtIndex( cfMemberUUIDList, 0 );
+        }
+        
+        if ( NULL == cfMemberUUID ) {
+            cfMemberUUID = cfTempUUID = _CopyTempUUIDForRecord( inMemberRef, inFlags );
+        }
+        
+        // if we have a UUID
+        if ( cfMemberUUID != NULL )
+        {
+            if ( (inFlags & (kODMemberComputer | kODMemberUser)) != 0 ) {
+                cfError = block( kODAttributeTypeGroupMembers, cfMemberUUID );
+                bValid = true;
+            }
+            else if ( (inFlags & kODMemberNested) != 0 ) {
+                cfError = block( kODAttributeTypeNestedGroups, cfMemberUUID );
+                bValid = true;
+            }
+            
+            // clear the error if attribute type is not supported
+            if ( cfError != NULL && CFErrorGetCode(cfError) == kODErrorRecordAttributeUnknownType ) {
+                CFRelease( cfError );
+                cfError = NULL;
+                bValid = false;
+            }
+        }
+        else if ( (inFlags & kODMemberNested) != 0 )
+        {
+            _ODErrorSet( &cfError,
+                         kODErrorDomainFramework, 
+                         kODErrorRecordAttributeNotFound, 
+                         CFCopyLocalizedStringFromTableInBundle( CFSTR("Could not determine a UUID of the member record to add membership."), NULL, _kODBundleID, NULL ), 
+                         _MapDSErrorToReason(&cfError, kODErrorRecordAttributeNotFound),
+                         NULL );
+        }
+        
+        if ( cfTempUUID != NULL ) {
+            CFRelease( cfTempUUID );
+            cfTempUUID = NULL;
+        }
+    }
+    
+    if ( cfError == NULL && (inFlags & kODMemberUseName) != 0 )
+    {
+        CFStringRef  cfMemberName = ODRecordGetRecordName( inMemberRef );
+        if ( cfMemberName != NULL )
+        {
+            if ( (inFlags & kODMemberUser) != 0 ) {
+                cfError = block( kODAttributeTypeGroupMembership, cfMemberName );
+                bValid = true;
+            }
+            else if ( (inFlags & kODMemberComputer) != 0 ) {
+                cfError = block( kODAttributeTypeComputers, cfMemberName );
+                bValid = true;
+            }
+            else if ( (inFlags & kODMemberNested) != 0 ) {
+                cfError = block( kODAttributeTypeGroup, cfMemberName );
+                bValid = true;
+            }
+            
+            // clear the error and use the consistent one below if it is no supported attribute
+            if ( cfError != NULL && CFErrorGetCode(cfError) == kODErrorRecordAttributeUnknownType ) {
+                CFRelease( cfError );
+                cfError = NULL;
+                bValid = false;
+            }            
+        }
+        else
+        {
+            _ODErrorSet( &cfError,
+                         kODErrorDomainFramework, 
+                         kODErrorRecordAttributeNotFound, 
+                         CFCopyLocalizedStringFromTableInBundle( CFSTR("Could not determine name of the member record to add membership."), NULL, _kODBundleID, NULL ), 
+                         _MapDSErrorToReason(&cfError, kODErrorRecordAttributeNotFound),
+                         NULL );
+        }
+    }
+
+    // Create an error case if the value failed to add to any known types
+    if ( cfError == NULL && bValid == false ) {
+        _ODErrorSet( &cfError,
+                    kODErrorDomainFramework, 
+                    kODErrorRecordAttributeUnknownType, 
+                    CFCopyLocalizedStringFromTableInBundle( CFSTR("Could not modify group because it does not support required membership attributes."), NULL, _kODBundleID, NULL ), 
+                    _MapDSErrorToReason(&cfError, kODErrorRecordAttributeUnknownType),
+                    NULL );
+    }        
+    
+    return cfError;
+}
+
+bool ODRecordAddMember( ODRecordRef inGroupRef, ODRecordRef inMemberRef, CFErrorRef *outError )
 {
     CFStringRef cfError     = NULL;
-    tDirStatus  dsStatus    = eDSAttributeValueNotFound;
+    tDirStatus  dsStatus    = eDSOperationFailed;
+    bool        bSuccess    = false;
     
     if( NULL != outError )
     {
@@ -6825,56 +7885,75 @@ Boolean ODRecordAddMember( ODRecordRef inGroupRef, ODRecordRef inMemberRef, CFEr
         goto finish;
     }
 
-    CF_OBJC_FUNCDISPATCH( _kODRecordTypeID, Boolean, inGroupRef, "addMemberRecord:error:", inMemberRef, outError );
+    CF_OBJC_FUNCDISPATCH( _kODRecordTypeID, bool, inGroupRef, "addMemberRecord:error:", inMemberRef, outError );
     
     _VerifyNodeTypeForChange( inGroupRef, outError );
     
-    CFArrayRef  cfMemberNames   = (CFArrayRef) _ODRecordGetValues( inMemberRef, CFSTR(kDSNAttrRecordName), outError );
-    CFArrayRef  cfMemberUUIDs   = (CFArrayRef) _ODRecordGetValues( inMemberRef, CFSTR(kDS1AttrGeneratedUID), outError );
-    CFStringRef cfMemberName    = NULL;
-    CFStringRef cfMemberUUID    = NULL;
-    CFStringRef cfMemberType    = ODRecordGetRecordType( inMemberRef );
-    CFStringRef cfGroupType     = ODRecordGetRecordType( inGroupRef );
-    Boolean     bWorked         = FALSE;
-    
-    if( CFStringCompare( cfGroupType, CFSTR(kDSStdRecordTypeGroups), 0) == kCFCompareEqualTo )
+    if ( outError == NULL || (*outError) == NULL )
     {
-        if( NULL != cfMemberNames )
-            cfMemberName = (CFStringRef) CFArrayGetValueAtIndex( cfMemberNames, 0 );
+        uint32_t flags = __ODRecordMapTypes( inGroupRef, inMemberRef );
         
-        if( NULL != cfMemberUUIDs )
-            cfMemberUUID = (CFStringRef) CFArrayGetValueAtIndex( cfMemberUUIDs, 0 );
+        // groups can be hybrid so check hybrid status before attempting to add values to user list
+        if ( (flags & (kODMemberUseUUID | kODMemberUseName)) != 0 && (flags & kODMemberUser) != 0 ) {
+            CFArrayRef  names   = _ODRecordGetValues( inGroupRef, kODAttributeTypeGroupMembership, NULL );
+            CFArrayRef  uuids   = _ODRecordGetValues( inGroupRef, kODAttributeTypeGroupMembers, NULL );
+            CFIndex     nameCnt = (names != NULL ? CFArrayGetCount(names) : 0);
+            CFIndex     uuidCnt = (uuids != NULL ? CFArrayGetCount(uuids) : 0);
+            
+            // if we don't have any UUIDs but we have names, don't add UUIDs
+            if ( uuids == 0 && names > 0 ) {
+                // if this is a nested group attempt, it will fail because the group is legacy format still
+                flags &= ~kODMemberUseUUID;
+            }
+            
+            // if not hybrid, don't add the name either
+            if ( uuids > 0 && names == 0 ) {
+                flags &= ~kODMemberUseName;
+            }
+        }
         
-        // if this is a group, just add the UUID to the nested groups section
-        if( CFStringCompare( cfMemberType, CFSTR(kDSStdRecordTypeGroups), 0) == kCFCompareEqualTo )
+        if ( (flags & (kODMemberUseUUID | kODMemberUseName)) != 0 )
         {
-            if( NULL != cfMemberUUID )
-            {
-                bWorked = _ODRecordAddValue( inGroupRef, CFSTR(kDSNAttrNestedGroups), cfMemberUUID, outError );
+            CFErrorRef cfTempError = __MembershipApplyBlock( inGroupRef,
+                                                             inMemberRef, 
+                                                             flags,
+                                                             ^(ODAttributeType attr, CFTypeRef value)
+                                                             {
+                                                                 CFErrorRef cfError  = NULL;
+                                                                 CFArrayRef cfValues = (CFArrayRef) _ODRecordGetValues( inGroupRef, attr, NULL );
+                                               
+                                                                 if ( cfValues == NULL || 
+                                                                      CFArrayContainsValue(cfValues, CFRangeMake(0, CFArrayGetCount(cfValues)), value) == false ) 
+                                                                 {
+                                                                     _ODRecordAddValue( inGroupRef, attr, value, &cfError );
+                                                                 }
+                                               
+                                                                 return cfError;
+                                                             } );
+            
+            if ( cfTempError == NULL ) {
+                bSuccess = true;
+            }
+            else {
+                if ( outError != NULL ) {
+                    (*outError) = cfTempError;
+                }
+                else if ( cfTempError != NULL ) {
+                    CFRelease( cfTempError );
+                    cfTempError = NULL;
+                }
             }
         }
         else
         {
-            if( NULL != cfMemberUUID )
-            {
-                bWorked = _ODRecordAddValue( inGroupRef, CFSTR(kDSNAttrGroupMembers), cfMemberUUID, outError );
-            }
-
-            if( NULL != cfMemberName )
-            {
-                bWorked = _ODRecordAddValue( inGroupRef, CFSTR(kDSNAttrGroupMembership), cfMemberName, outError );
-            }
-        }            
-    }
-    else
-    {
-        dsStatus = eDSInvalidRecordType;
-        cfError = _MapDSErrorToReason( outError, dsStatus );
+            dsStatus = eDSInvalidRecordType;
+            cfError = _MapDSErrorToReason( outError, eDSInvalidRecordType );
+        }
     }
     
 finish:
-        
-    if( NULL != cfError )
+    
+    if ( NULL != cfError )
     {
         if( NULL != outError && NULL == (*outError) )
         {
@@ -6886,26 +7965,26 @@ finish:
             {
                 if( NULL != cfMemberName )
                 {
-                    CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to add %@ to group."), NULL, _kODBundleID, "where %@ is a record name like user1" );
+                    CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to add %@ to the group."), NULL, _kODBundleID, "where %@ is a record name like user1" );
                     cfDescription = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, cfTemp, cfMemberName );
                     CFRelease( cfTemp );
                 }
                 else
                 {                    
-                    cfDescription = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to add a member to group."), NULL, _kODBundleID, NULL );
+                    cfDescription = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to add a member to the group."), NULL, _kODBundleID, NULL );
                 }
             }
             else
             {
                 if( NULL != cfMemberName )
                 {
-                    CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to add %@ to group %@."), NULL, _kODBundleID, "where both %@ are record names like user1, group1" );
+                    CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to add %@ to the group %@."), NULL, _kODBundleID, "where both %@ are record names like user1, group1" );
                     cfDescription = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, cfTemp, cfMemberName, cfGroupName );
                     CFRelease( cfTemp );
                 }
                 else
                 {                    
-                    CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to add member to group %@."), NULL, _kODBundleID, "where %@ is a group name like myGroup" );
+                    CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to add member to the group %@."), NULL, _kODBundleID, "where %@ is a group name like myGroup" );
                     cfDescription = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, cfTemp, cfGroupName );
                     CFRelease( cfTemp );
                 }
@@ -6919,16 +7998,20 @@ finish:
         else
         {
             CFRelease( cfError );
+            cfError = NULL;
         }
+        
+        bSuccess = false;
     }
     
-    return bWorked;
+    return bSuccess;
 }
 
-Boolean ODRecordRemoveMember( ODRecordRef inGroupRef, ODRecordRef inMemberRef, CFErrorRef *outError )
+bool ODRecordRemoveMember( ODRecordRef inGroupRef, ODRecordRef inMemberRef, CFErrorRef *outError )
 {
     CFStringRef cfError     = NULL;
-    tDirStatus  dsStatus    = eDSAttributeValueNotFound;
+    tDirStatus  dsStatus    = eDSInvalidRecordType;
+    bool        bSuccess    = false;
     
     if( NULL != outError )
     {
@@ -6948,31 +8031,57 @@ Boolean ODRecordRemoveMember( ODRecordRef inGroupRef, ODRecordRef inMemberRef, C
         goto finish;
     }
     
-    CF_OBJC_FUNCDISPATCH( _kODRecordTypeID, Boolean, inGroupRef, "removeRecordMember:error:", inMemberRef, outError );
+    CF_OBJC_FUNCDISPATCH( _kODRecordTypeID, bool, inGroupRef, "removeRecordMember:error:", inMemberRef, outError );
     
     _VerifyNodeTypeForChange( inGroupRef, outError );
         
-    CFArrayRef  cfMemberNames   = (CFArrayRef) _ODRecordGetValues( inMemberRef, CFSTR(kDSNAttrRecordName), outError );
-    CFArrayRef  cfMemberUUIDs   = (CFArrayRef) _ODRecordGetValues( inMemberRef, CFSTR(kDS1AttrGeneratedUID), outError );
-    CFStringRef cfMemberName    = NULL;
-    CFStringRef cfMemberUUID    = NULL;
-    CFStringRef cfGroupType     = ODRecordGetRecordType( inGroupRef );
-    Boolean     bWorked         = FALSE;
-    
-    if( CFStringCompare( cfGroupType, CFSTR(kDSStdRecordTypeGroups), 0) == kCFCompareEqualTo )
+    if ( outError == NULL || (*outError) == NULL )
     {
-        if( NULL != cfMemberNames && 0 != CFArrayGetCount(cfMemberNames) )
-            cfMemberName = (CFStringRef) CFArrayGetValueAtIndex( cfMemberNames, 0 );
-        
-        if( NULL != cfMemberUUIDs && 0 != CFArrayGetCount(cfMemberUUIDs) )
-            cfMemberUUID = (CFStringRef) CFArrayGetValueAtIndex( cfMemberUUIDs, 0 );
-        
-        bWorked = _ODRecordRemoveMember( inGroupRef, cfMemberName, cfMemberUUID, outError );
+        uint32_t flags = __ODRecordMapTypes( inGroupRef, inMemberRef );
+        if ( (flags & (kODMemberUseUUID | kODMemberUseName)) != 0 )
+        {
+            CFErrorRef cfTempError = __MembershipApplyBlock( inGroupRef,
+                                                             inMemberRef, 
+                                                             flags,
+                                                             ^(ODAttributeType attr, CFTypeRef value)
+                                                             {
+                                                                 CFErrorRef cfTempError = NULL;
+                                                                 bool bTemp = ODRecordRemoveValue( inGroupRef, attr, value, &cfTempError );
+                                                                 if ( bTemp == false ) {
+                                                                     CFIndex code = CFErrorGetCode( cfTempError );
+                                                                     if ( kODErrorRecordAttributeValueNotFound == code || 
+                                                                          kODErrorRecordAttributeNotFound == code )
+                                                                     {
+                                                                         CFRelease( cfTempError );
+                                                                         cfTempError = NULL;
+                                                                     }
+                                                                 }
+                                                                 
+                                                                 return cfTempError;
+                                                             } );
+            if ( cfTempError == NULL ) {
+                bSuccess = true;
+            }
+            else {
+                if ( outError != NULL ) {
+                    (*outError) = cfTempError;
+                }
+                else if ( cfTempError != NULL ) {
+                    CFRelease( cfTempError );
+                    cfTempError = NULL;
+                }
+            }
+        }
+        else
+        {
+            dsStatus = eDSInvalidRecordType;
+            cfError = _MapDSErrorToReason( outError, eDSInvalidRecordType );
+        }
     }
     
 finish:
-        
-    if( NULL != cfError )
+    
+    if ( NULL != cfError )
     {
         if( NULL != outError && NULL == (*outError) )
         {
@@ -6984,13 +8093,13 @@ finish:
             {
                 if( NULL != cfMemberName )
                 {
-                    CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to remove %@ from group."), NULL, _kODBundleID, "where %@ is a record name like user1" );
+                    CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to remove %@ from the group."), NULL, _kODBundleID, "where %@ is a record name like user1" );
                     cfDescription = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, cfTemp, cfMemberName );
                     CFRelease( cfTemp );
                 }
                 else
                 {                    
-                    cfDescription = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to remove a member from group."), NULL, _kODBundleID, NULL );
+                    cfDescription = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to remove a member from the group."), NULL, _kODBundleID, NULL );
                 }
             }
             else
@@ -7017,16 +8126,20 @@ finish:
         else
         {
             CFRelease( cfError );
+            cfError = NULL;
         }
+        
+        bSuccess = false;
     }
     
-    return bWorked;
+    return bSuccess;
 }
 
-Boolean ODRecordContainsMember( ODRecordRef inGroupRef, ODRecordRef inMemberRef, CFErrorRef *outError )
+static bool _ODRecordContainsMember( ODRecordRef inGroupRef, ODRecordRef inMemberRef, bool inRefresh, CFErrorRef *outError )
 {
     CFStringRef cfError     = NULL;
-    tDirStatus  dsStatus;
+    tDirStatus  dsStatus    = eDSNoErr;
+    int         isMember    = 0;
     
     if( NULL != outError )
     {
@@ -7046,137 +8159,70 @@ Boolean ODRecordContainsMember( ODRecordRef inGroupRef, ODRecordRef inMemberRef,
         goto finish;
     }
     
-    CF_OBJC_FUNCDISPATCH( _kODRecordTypeID, Boolean, inGroupRef, "isMemberRecord:error:", inMemberRef, outError );
-    
-    CFArrayRef  cfMemberUUIDs   = (CFArrayRef) _ODRecordGetValues( inMemberRef, CFSTR(kDS1AttrGeneratedUID), outError );
-    CFArrayRef  cfGroupUUIDs    = (CFArrayRef) _ODRecordGetValues( inGroupRef, CFSTR(kDS1AttrGeneratedUID), outError );
-    CFStringRef cfMemberUUID    = NULL;
-    char        *pGroupUUID     = NULL;
-    Boolean     bGroupFound     = FALSE;
-    Boolean     bUserFound      = FALSE;
-    uuid_t      uuid_group;
-    uuid_t      uuid_member;
-    int         isMember        = 0;
-    
-    if( NULL != cfGroupUUIDs && CFArrayGetCount(cfGroupUUIDs) != 0 )
-    {
-        CFStringRef cfGroupUUID = (CFStringRef) CFArrayGetValueAtIndex( cfGroupUUIDs, 0 );
-        
-        if( NULL != cfGroupUUID )
-        {
-            pGroupUUID = _GetCStringFromCFString( cfGroupUUID );
-            
-            if( NULL != pGroupUUID )
-            {
-                if( mbr_string_to_uuid( pGroupUUID, uuid_group) == 0 )
-                {
-                    bGroupFound = TRUE;
-                }
-                free( pGroupUUID );
-                pGroupUUID = NULL;
-            }
-        }
-    }
-    
-    if( FALSE == bGroupFound )
-    {
-        CFArrayRef  cfGroupNames = (CFArrayRef) _ODRecordGetValues( inMemberRef, CFSTR(kDSNAttrRecordName), outError );
-        
-        if( NULL != cfGroupNames )
-        {
-            CFIndex iCount = CFArrayGetCount( cfGroupNames );
-            CFIndex ii;
-            
-            for( ii = 0; ii < iCount; ii++ )
-            {
-                CFStringRef cfGroupName = (CFStringRef) CFArrayGetValueAtIndex( cfGroupNames, ii );
-                
-                if( NULL != cfGroupName )
-                {
-                    char    *pGroupName = _GetCStringFromCFString( cfGroupName );
-                    
-                    if( NULL != pGroupName )
-                    {
-                        if( mbr_group_name_to_uuid(pGroupName, uuid_group) == 0 )
-                        {
-                            free( pGroupName );
-                            pGroupName = NULL;
-                            
-                            bGroupFound = TRUE;
-                            break;
-                        }
+    CF_OBJC_FUNCDISPATCH( _kODRecordTypeID, bool, inGroupRef, "isMemberRecord:error:", inMemberRef, outError );
 
-                        free( pGroupName );
-                        pGroupName = NULL;
-                    }
-                }
-            }
-        }
-    }
-    
-    if( TRUE == bGroupFound )
+    // TODO: make it work over proxy using the remote daemon (probably a custom call)
+    if ( outError == NULL || (*outError) == NULL )
     {
-        if( NULL != cfMemberUUIDs && CFArrayGetCount(cfMemberUUIDs) != 0 )
+        uint32_t flags = __ODRecordMapTypes( inGroupRef, inMemberRef );
+        if ( (flags & kODMemberNested) == 0 )
         {
-            cfMemberUUID = (CFStringRef) CFArrayGetValueAtIndex( cfMemberUUIDs, 0 );
-            if( NULL != cfMemberUUID )
-            {
-                char    *pMemberUUID = _GetCStringFromCFString( cfMemberUUID );
-                
-                if( NULL != pMemberUUID )
-                {
-                    if( mbr_string_to_uuid(pMemberUUID, uuid_member) == 0 )
-                    {
-                        bUserFound = TRUE;
-                    }
-                    
-                    free( pMemberUUID );
-                    pMemberUUID = NULL;
-                }
-            }
-        }
-        
-        // if we have a UUID, then no reason to get the name
-        if( FALSE == bUserFound )
-        {
-            CFArrayRef cfMemberNames = (CFArrayRef) _ODRecordGetValues( inMemberRef, CFSTR(kDSNAttrRecordName), outError );
+            uuid_t uuid_group;
+            uuid_t uuid_member;
             
-            if( NULL != cfMemberNames )
+            bool (^getUUID)(ODRecordRef, uuid_t) = ^(ODRecordRef inRecord, uuid_t inUUID ) 
             {
-                CFIndex iCount = CFArrayGetCount( cfMemberNames );
-                CFIndex ii;
+                CFArrayRef  cfRecordUUIDList    = _ODRecordGetValues( inRecord, kODAttributeTypeGUID, NULL );
+                CFStringRef cfRecordUUID        = NULL;
+                CFStringRef cfTempUUID          = NULL;
+                bool        bFound              = false;
                 
-                for( ii = 0; ii < iCount; ii++ )
+                if ( NULL != cfRecordUUIDList && 0 != CFArrayGetCount(cfRecordUUIDList) ) {
+                    cfRecordUUID = (CFStringRef) CFArrayGetValueAtIndex( cfRecordUUIDList, 0 );
+                }
+                
+                if ( NULL == cfRecordUUID ) {
+                    cfRecordUUID = cfTempUUID = _CopyTempUUIDForRecord( inMemberRef, flags );
+                }
+                
+                // if we have a UUID
+                if ( cfRecordUUID != NULL )
                 {
-                    CFStringRef cfMemberName = (CFStringRef) CFArrayGetValueAtIndex( cfMemberNames, ii );
-                    
-                    if( NULL != cfMemberName )
+                    char *pMemberUUID = _GetCStringFromCFString( cfRecordUUID );
+                    if ( NULL != pMemberUUID )
                     {
-                        char    *pMemberName = _GetCStringFromCFString( cfMemberName );
+                        if ( mbr_string_to_uuid(pMemberUUID, inUUID) == 0 ) {
+                            bFound = true;
+                        }
                         
-                        if( NULL != pMemberName )
-                        {
-                            if( mbr_user_name_to_uuid(pMemberName, uuid_member) == 0 )
-                            {
-                                free( pMemberName );
-                                pMemberName = NULL;
-                                
-                                bUserFound = TRUE;
-                                break;
-                            }
-
-                            free( pMemberName );
-                            pMemberName = NULL;
-                        }
+                        free( pMemberUUID );
+                        pMemberUUID = NULL;
                     }
+                }
+                
+                if ( cfTempUUID != NULL ) {
+                    CFRelease( cfTempUUID );
+                    cfTempUUID = NULL;
+                }
+                
+                return bFound;
+            };
+            
+            // should always have a UUID
+            if ( getUUID(inGroupRef, uuid_group) == true && getUUID(inMemberRef, uuid_member) == true ) {
+                if ( inRefresh == false ) {
+                    mbr_check_membership( uuid_member, uuid_group, &isMember );
+                }
+                else {
+                    mbr_check_membership_refresh( uuid_member, uuid_group, &isMember );
                 }
             }
         }
-    }
-    
-    if( TRUE == bUserFound && TRUE == bGroupFound )
-    {
-        mbr_check_membership( uuid_member, uuid_group, &isMember );
+        else
+        {
+            dsStatus = eDSInvalidRecordType;
+            cfError = _MapDSErrorToReason( outError, eDSInvalidRecordType );
+        }        
     }
     
 finish:
@@ -7193,26 +8239,26 @@ finish:
             {
                 if( NULL != cfMemberName )
                 {
-                    CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to determine if %@ is member of group."), NULL, _kODBundleID, "where %@ is a record name like user1" );
+                    CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to determine if %@ is a member of the group."), NULL, _kODBundleID, "where %@ is a record name like user1" );
                     cfDescription = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, cfTemp, cfMemberName );
                     CFRelease( cfTemp );
                 }
                 else
                 {                    
-                    cfDescription = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to determine if member of group."), NULL, _kODBundleID, NULL );
+                    cfDescription = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to determine if this user is a member of group."), NULL, _kODBundleID, NULL );
                 }
             }
             else
             {
                 if( NULL != cfMemberName )
                 {
-                    CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to determine if %@ is member of group %@."), NULL, _kODBundleID, "where both %@ are record names like user1, group2, etc." );
+                    CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to determine if %@ is a member of group %@."), NULL, _kODBundleID, "where both %@ are record names like user1, group2, etc." );
                     cfDescription = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, cfTemp, cfMemberName, cfGroupName );
                     CFRelease( cfTemp );
                 }
                 else
                 {                    
-                    CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to determine if member of group %@."), NULL, _kODBundleID, "where %@ is a record name like myGroup" );
+                    CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to determine if this user is a member of group %@."), NULL, _kODBundleID, "where %@ is a record name like myGroup" );
                     cfDescription = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, cfTemp, cfGroupName );
                     CFRelease( cfTemp );
                 }
@@ -7226,10 +8272,21 @@ finish:
         else
         {
             CFRelease( cfError );
+            cfError = NULL;
         }
     }    
     
-    return (isMember == 1 ? TRUE : FALSE);
+    return (isMember == 1 ? true : false);
+}
+
+bool ODRecordContainsMember( ODRecordRef inGroupRef, ODRecordRef inMemberRef, CFErrorRef *outError )
+{
+    return _ODRecordContainsMember( inGroupRef, inMemberRef, false, outError );
+}
+
+bool ODRecordContainsMemberRefresh( ODRecordRef inGroupRef, ODRecordRef inMemberRef, CFErrorRef *outError )
+{
+    return _ODRecordContainsMember( inGroupRef, inMemberRef, true, outError );
 }
 
 tRecordReference ODRecordGetDSRef( ODRecordRef inRecordRef )
@@ -7262,48 +8319,6 @@ CFDictionaryRef _ODRecordGetDictionary( ODRecordRef inRecordRef )
     return pODRecord->_cfAttributes;
 }
 
-Boolean _ODRecordRemoveMember( ODRecordRef inGroupRef, CFStringRef inMemberName, CFStringRef inMemberUUID, CFErrorRef *outError )
-{
-    if( NULL != outError )
-    {
-        (*outError) = NULL;
-    }
-        
-    if( NULL == inGroupRef )
-    {
-        _ODErrorSet( outError, kODErrorDomainFramework, eDSNullParameter, 
-                     CFCopyLocalizedStringFromTableInBundle(CFSTR("Null parameter"), NULL, _kODBundleID, NULL), 
-                     CFCopyLocalizedStringFromTableInBundle(CFSTR("inGroupRef was null."), NULL, _kODBundleID, NULL),
-                     NULL );
-        return FALSE;
-    }
-    
-    _VerifyNodeTypeForChange( inGroupRef, outError );
-    
-    CFStringRef cfGroupType = ODRecordGetRecordType( inGroupRef );
-    Boolean     bWorked     = FALSE;
-    
-    if( NULL != cfGroupType )
-    {
-        if( CFStringCompare( cfGroupType, CFSTR(kDSStdRecordTypeGroups), 0) == kCFCompareEqualTo )
-        {
-            // remove from both nested GroupMembers and Nested Groups
-            if( NULL != inMemberUUID )
-            {
-                bWorked = ODRecordRemoveValue( inGroupRef, CFSTR(kDSNAttrNestedGroups), inMemberUUID, outError );
-                bWorked = ODRecordRemoveValue( inGroupRef, CFSTR(kDSNAttrGroupMembers), inMemberUUID, outError );
-            }
-            
-            if( NULL != inMemberName )
-            {
-                bWorked = ODRecordRemoveValue( inGroupRef, CFSTR(kDSNAttrGroupMembership), inMemberName, outError );
-            }
-        }
-    }
-    
-    return bWorked;
-}
-
 void _VerifyNodeTypeForChange( ODRecordRef inRecord, CFErrorRef *outError )
 {
     _ODRecord   *pODRecord  = (_ODRecord *) inRecord;
@@ -7314,9 +8329,9 @@ void _VerifyNodeTypeForChange( ODRecordRef inRecord, CFErrorRef *outError )
     ODNodeType nodeType = pODRecord->_ODNode->_nodeType;
     
     // if we have a type, we need to open the actual node for this record
-    if( 0 != nodeType && kODTypeLocalNode != nodeType && kODTypeConfigNode != nodeType )
+    if( 0 != nodeType && kODNodeTypeLocalNodes != nodeType && kODNodeTypeConfigure != nodeType )
     {
-        CFArrayRef cfNodeLocation = (CFArrayRef) CFDictionaryGetValue( pODRecord->_cfAttributes, CFSTR(kDSNAttrMetaNodeLocation) );
+        CFArrayRef cfNodeLocation = (CFArrayRef) CFDictionaryGetValue( pODRecord->_cfAttributes, kODAttributeTypeMetaNodeLocation );
         
         if( NULL != cfNodeLocation )
         {
@@ -7339,8 +8354,8 @@ void _VerifyNodeTypeForChange( ODRecordRef inRecord, CFErrorRef *outError )
             if( NULL != outError && NULL == (*outError) )
             {
                 _ODErrorSet( outError, kODErrorDomainFramework, eNotHandledByThisNode, 
-                             CFCopyLocalizedStringFromTableInBundle(CFSTR("Cannot determine location of node to verify type."), NULL, _kODBundleID, NULL), 
-                             CFCopyLocalizedStringFromTableInBundle(CFSTR("Node name is null."), NULL, _kODBundleID, NULL),
+                             CFCopyLocalizedStringFromTableInBundle(CFSTR("Cannot determine the location of node to verify type."), NULL, _kODBundleID, NULL), 
+                             CFCopyLocalizedStringFromTableInBundle(CFSTR("Node name is empty."), NULL, _kODBundleID, NULL),
                              NULL );
             }
         }
@@ -7549,7 +8564,7 @@ tDirStatus _ReopenNode( _ODNode *inNode )
     
     if( 0 != inNode->_dsNodeRef )
     {
-        inNode->_closeRef = TRUE;
+        inNode->_flags |= kODNodeFlagCloseRef;
         dsCloseDirNode( inNode->_dsNodeRef );
         inNode->_dsNodeRef = 0;
     }
@@ -7578,7 +8593,7 @@ tDirStatus _ReopenNode( _ODNode *inNode )
             CFTypeRef   values[]    = { CFDictionaryGetValue(inNode->_info, kODNodeUsername), inNode->_cfNodePassword, NULL };
             CFArrayRef  cfAuthItems = CFArrayCreate( kCFAllocatorDefault, values, 2, &kCFTypeArrayCallBacks );
             
-            dsStatus = _Authenticate( (ODNodeRef) inNode, kDSStdAuthNodeNativeClearTextOK, NULL, cfAuthItems, NULL, NULL, FALSE );
+            dsStatus = _Authenticate( (ODNodeRef) inNode, kDSStdAuthNodeNativeClearTextOK, NULL, cfAuthItems, NULL, NULL, false );
             
             CFRelease( cfAuthItems );
             cfAuthItems = NULL;
@@ -7660,7 +8675,7 @@ tDirStatus  _FindDirNode( _ODNode *inNode, tDirPatternMatch inNodeMatch, CFError
     
     if( eDSNoErr == dsStatus )
     {
-        Boolean bFailedOnce = FALSE;
+        bool bFailedOnce = false;
 
         do
         {
@@ -7673,10 +8688,10 @@ tDirStatus  _FindDirNode( _ODNode *inNode, tDirPatternMatch inNodeMatch, CFError
                 dsDataBuffer = dsDataBufferAllocate( 0, newSize );
             }
 
-            if( FALSE == bFailedOnce && (eDSInvalidReference == dsStatus || eDSInvalidDirRef == dsStatus || eDSInvalidRefType == dsStatus) )
+            if( false == bFailedOnce && (eDSInvalidReference == dsStatus || eDSInvalidDirRef == dsStatus || eDSInvalidRefType == dsStatus) )
             {
                 dsStatus = _ReopenDS( inNode->_ODSession );
-                bFailedOnce = TRUE;
+                bFailedOnce = true;
                 dsStatus = eDSBufferTooSmall; // reset error so we try again
             }
         } while( eDSBufferTooSmall == dsStatus );
@@ -7726,7 +8741,7 @@ tDirStatus  _FindDirNode( _ODNode *inNode, tDirPatternMatch inNodeMatch, CFError
     
     if( eDSNoErr != dsStatus && NULL != outError && NULL == (*outError) )
     {
-        CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to find node type %d."), NULL, _kODBundleID, NULL );
+        CFStringRef cfTemp = CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to find node of type %d."), NULL, _kODBundleID, NULL );
         CFStringRef cfDescription = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, cfTemp, inNodeMatch );
         
         _ODErrorSet( outError, kODErrorDomainFramework, eDSNullParameter, 
@@ -7806,7 +8821,7 @@ void _AppendRecordsToListNonStd( _ODNode *inNode, tDataBufferPtr inDataBuffer, u
         if( eDSNoErr != dsStatus && NULL != outError && NULL == (*outError) )
         {
             _ODErrorSet( outError, kODErrorDomainFramework, eDSNullParameter, 
-                         CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to parse buffer returned by Directory Service."), NULL, _kODBundleID, NULL ), 
+                         CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to parse the buffer returned by Directory Service."), NULL, _kODBundleID, NULL ), 
                          _MapDSErrorToReason( outError, dsStatus ),
                          NULL );
         }
@@ -7820,7 +8835,7 @@ void _AppendRecordsToList( _ODNode *inNode, tDataBufferPtr inDataBuffer, UInt32 
     char            *pEndBuffer = pBuffer + uiLength;
     uint32_t        uiOffset    = 0;
     uint32_t        bufTag      = 0;
-    Boolean         bStdA       = TRUE;
+    bool         bStdA       = true;
     CFAllocatorRef  cfAllocator = CFGetAllocator(inArrayRef);
     
     if( uiLength >= sizeof(uint32_t) )
@@ -7831,7 +8846,7 @@ void _AppendRecordsToList( _ODNode *inNode, tDataBufferPtr inDataBuffer, UInt32 
         if( bufTag == 'StdA' || bufTag == 'StdB' || bufTag == 'DbgA' || bufTag == 'DbgB' )
         {
             if( bufTag == 'StdB' || bufTag == 'DbgB' )
-                bStdA = FALSE;
+                bStdA = false;
             
             inRecCount = *((uint32_t *)pBuffer);
             pBuffer += sizeof(uint32_t);
@@ -7963,7 +8978,7 @@ void _AppendRecordsToList( _ODNode *inNode, tDataBufferPtr inDataBuffer, UInt32 
                                             if( pRecEntry + uiAttribValueLen <= pEndBuffer )
                                             {
                                                 cfValue = CFStringCreateWithBytes( cfAllocator, (const UInt8 *) pRecEntry, uiAttribValueLen, 
-                                                                                   kCFStringEncodingUTF8, FALSE );
+                                                                                   kCFStringEncodingUTF8, false );
                                                 if( NULL == cfValue )
                                                 {
                                                     cfValue = CFDataCreate( cfAllocator, (const UInt8 *)pRecEntry, uiAttribValueLen );
@@ -7982,7 +8997,7 @@ void _AppendRecordsToList( _ODNode *inNode, tDataBufferPtr inDataBuffer, UInt32 
                                         }
                                         
                                         cfAttribName = CFStringCreateWithBytes( cfAllocator, (const UInt8 *) pAttribName, cfAttribNameLen, 
-                                                                                kCFStringEncodingUTF8, FALSE );
+                                                                                kCFStringEncodingUTF8, false );
 
                                         CFDictionarySetValue( cfNewRecord, cfAttribName, cfValues );
                                         
@@ -8155,7 +9170,7 @@ CFMutableDictionaryRef _GetAttributesFromBuffer( tDirNodeReference inNodeRef, tD
     if( eDSNoErr != dsStatus && NULL != outError && NULL == (*outError) )
     {
         _ODErrorSet( outError, kODErrorDomainFramework, eDSNullParameter, 
-                     CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to get attributes from buffer returned by Directory Service."), NULL, _kODBundleID, NULL ), 
+                     CFCopyLocalizedStringFromTableInBundle( CFSTR("Unable to obtain attributes from buffer returned by Directory Service."), NULL, _kODBundleID, NULL ), 
                      _MapDSErrorToReason( outError, dsStatus ),
                      NULL );
     }
@@ -8164,7 +9179,7 @@ CFMutableDictionaryRef _GetAttributesFromBuffer( tDirNodeReference inNodeRef, tD
 }
 
 static tDirStatus _Authenticate( ODNodeRef inNodeRef, char *inAuthType, char *inRecordType, CFArrayRef inAuthItems, 
-                                 CFArrayRef *outAuthItems, ODContextRef *outContext, Boolean inAuthOnly )
+                                 CFArrayRef *outAuthItems, ODContextRef *outContext, bool inAuthOnly )
 {
     _ODNode         *pODNodeRef = (_ODNode *) inNodeRef;
     tDataBufferPtr  dsAuthType  = dsDataNodeAllocateString( 0, inAuthType );
@@ -8382,17 +9397,16 @@ CFStringRef _createRandomPassword( void )
     int     i;
     int     punct = 0;
     
-    srandomdev();
     while( !punct )
     {
-        i = random() % 0x7f;
+        i = arc4random() % 0x7f;
         if( ispunct(i) )
             punct = i;
     }
     
     for (i = 0; i < 8; i++)
     {
-        if( punct && (random() & 0x100) )
+        if( punct && (arc4random() & 0x100) )
         {
             password[i] = punct;
             punct = 0;
@@ -8401,7 +9415,7 @@ CFStringRef _createRandomPassword( void )
         {
             while( !isalnum(password[i]) || !isprint(password[i]) )
             {
-                password[i] = random() & 0x7f;
+                password[i] = arc4random() & 0x7f;
             }
         }
     }
@@ -8410,33 +9424,33 @@ CFStringRef _createRandomPassword( void )
     return CFStringCreateWithCString( kCFAllocatorDefault, password, kCFStringEncodingUTF8 );
 }
 
-Boolean _wasAttributeFetched( _ODRecord *inRecord, CFStringRef inAttribute )
+bool _wasAttributeFetched( _ODRecord *inRecord, ODAttributeType inAttribute )
 {
-    Boolean     bFetched    = FALSE;
+    bool     bFetched    = false;
     CFSetRef    cfFetched   = inRecord->_cfFetchedAttributes;
     
     if( NULL != cfFetched && NULL != inAttribute )
     {
-        if( TRUE == CFSetContainsValue(cfFetched, inAttribute) )
+        if( true == CFSetContainsValue(cfFetched, inAttribute) )
         {
-            bFetched = TRUE;
+            bFetched = true;
         }
         // if we fetched all attributes
-        else if( TRUE == CFSetContainsValue(cfFetched, CFSTR(kDSAttributesAll)) )
+        else if( true == CFSetContainsValue(cfFetched, kODAttributeTypeAllAttributes) )
         {
-            bFetched = TRUE;
+            bFetched = true;
         }
         // if it is a Native prefix and we've fetched all Native attributes
-        else if( TRUE == CFStringHasPrefix(inAttribute, CFSTR(kDSNativeAttrTypePrefix)) && 
-                 TRUE == CFSetContainsValue(cfFetched, CFSTR(kDSAttributesNativeAll)) )
+        else if( true == CFStringHasPrefix(inAttribute, CFSTR(kDSNativeAttrTypePrefix)) && 
+                 true == CFSetContainsValue(cfFetched, kODAttributeTypeNativeOnly) )
         {
-            bFetched = TRUE;
+            bFetched = true;
         }
         // if it is standard prefix and we fetched Standard attributes
-        else if( TRUE == CFStringHasPrefix(inAttribute, CFSTR(kDSStdAttrTypePrefix)) && 
-                 TRUE == CFSetContainsValue(cfFetched, CFSTR(kDSAttributesStandardAll)) )
+        else if( true == CFStringHasPrefix(inAttribute, CFSTR(kDSStdAttrTypePrefix)) && 
+                 true == CFSetContainsValue(cfFetched, kODAttributeTypeStandardOnly) )
         {
-            bFetched = TRUE;
+            bFetched = true;
         }
     }
     return bFetched;
@@ -8452,7 +9466,7 @@ void _StripAttributesWithTypePrefix( CFMutableSetRef inSet, CFStringRef inPrefix
     
     for( ii = 0; ii < iCount; ii ++ )
     {
-        if( TRUE == CFStringHasPrefix(cfList[ii], inPrefix) )
+        if( true == CFStringHasPrefix(cfList[ii], inPrefix) )
         {
             CFSetRemoveValue( inSet, cfList[ii] );
         }
@@ -8465,25 +9479,25 @@ CFMutableSetRef _minimizeAttributeSet( CFSetRef inSet )
 {
     CFMutableSetRef returnValue = CFSetCreateMutable( kCFAllocatorDefault, 0, &kCFTypeSetCallBacks );
     
-    if( TRUE == CFSetContainsValue(inSet, CFSTR(kDSAttributesAll)) ||
-        ( TRUE == CFSetContainsValue(inSet, CFSTR(kDSAttributesNativeAll)) &&
-          TRUE == CFSetContainsValue(inSet, CFSTR(kDSAttributesStandardAll)) ) )
+    if( true == CFSetContainsValue(inSet, kODAttributeTypeAllAttributes) ||
+        ( true == CFSetContainsValue(inSet, kODAttributeTypeNativeOnly) &&
+          true == CFSetContainsValue(inSet, kODAttributeTypeStandardOnly) ) )
     {
-        CFSetAddValue( returnValue, CFSTR(kDSAttributesAll) );
+        CFSetAddValue( returnValue, kODAttributeTypeAllAttributes );
     }
     else
     {
         CFMutableSetRef tempSet     = CFSetCreateMutableCopy( kCFAllocatorDefault, 0, inSet );
         
-        if( TRUE == CFSetContainsValue(inSet, CFSTR(kDSAttributesNativeAll)) )
+        if( true == CFSetContainsValue(inSet, kODAttributeTypeNativeOnly) )
         {
-            CFSetAddValue( returnValue, CFSTR(kDSAttributesNativeAll) );
+            CFSetAddValue( returnValue, kODAttributeTypeNativeOnly );
             _StripAttributesWithTypePrefix( tempSet, CFSTR(kDSNativeAttrTypePrefix) );
         }
         
-        if( TRUE == CFSetContainsValue(inSet, CFSTR(kDSAttributesStandardAll)) )
+        if( true == CFSetContainsValue(inSet, kODAttributeTypeStandardOnly) )
         {
-            CFSetAddValue( returnValue, CFSTR(kDSAttributesStandardAll) );
+            CFSetAddValue( returnValue, kODAttributeTypeStandardOnly );
             _StripAttributesWithTypePrefix( tempSet, CFSTR(kDSStdAttrTypePrefix) );
         }
         

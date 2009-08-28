@@ -142,4 +142,66 @@ test tests: $(top_builddir)/xsltproc/xsltproc
 	  fi ; \
 	  rm -f $$name.res $$name.bad ; \
 	  done)
+	@echo '## Running REC tests without dictionaries'
+	-@(for i in $(srcdir)/*.xsl ; do \
+	  name=`basename $$i .xsl` ; \
+	  if [ ! -f $(srcdir)/$$name.xml ] ; then \
+	  	continue ; \
+	  fi ; \
+	  log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc --nodict \
+	  	$(srcdir)/$$name.xsl $(srcdir)/$$name.xml \
+	  	> $$name.res 2>$$name.bad ; \
+	  if [ ! -f $(srcdir)/$$name.out ] ; then \
+	  	cp $$name.res $(srcdir)/$$name.out ; \
+		if [ -s $$name.bad ] ; then \
+			cp $$name.bad $(srcdir)/$$name.err ; \
+		fi ; \
+	  else \
+	  	if  [ ! -s $$name.res ] ; then \
+	  		echo "Fatal error, no $$name.res\n" ; \
+	  	else \
+	  		diff $(srcdir)/$$name.out $$name.res ; \
+			if [ -s $$name.err ] ; then \
+				diff $(srcdir)/$$name.err $$name.bad ; \
+			else \
+				diff /dev/null $$name.bad ; \
+			fi ; \
+	  	fi ; \
+	  fi ; \
+	  grep "MORY ALLO" .memdump  | \
+	  grep -v "MEMORY ALLOCATED : 0" || true` ; \
+	  if [ -n "$$log" ] ; then \
+	  	echo $$name result ; \
+		echo $$log ; \
+	  fi ; \
+	  rm -f $$name.res $$name.bad ; \
+	  done)
+	@(for i in $(srcdir)/stand*.xml ; do \
+	  name=`basename $$i .xml` ; \
+	  log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc --nodict \
+	  	$(srcdir)/$$name.xml > $$name.res 2>$$name.bad ;\
+	  if [ ! -f $(srcdir)/$$name.stand.out ] ; then \
+		cp $$name.res $(srcdir)/$$name.stand.out ; \
+		if [ -s $$name.bad ] ; then \
+			cp $$name.bad $(srcdir)/$$name.stand.err ; \
+		fi ; \
+	  else \
+	  	if  [ ! -s $$name.res ] ; then \
+	  		echo "Fatal error, no $$name.res\n" ; \
+	  	else \
+	  		diff $(srcdir)/$$name.stand.out $$name.res ; \
+			if [ -s $$name.stand.err ] ; then \
+	  			diff $(srcdir)/$$name.stand.err $$name.bad ; \
+			else \
+				diff /dev/null $$name.bad; \
+			fi ; \
+		fi ; \
+	  fi ; \
+	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true` ; \
+	  if [ -n "$$log" ] ; then \
+	  	echo $$name result ; \
+		echo $$log ; \
+	  fi ; \
+	  rm -f $$name.res $$name.bad ; \
+	  done)
 

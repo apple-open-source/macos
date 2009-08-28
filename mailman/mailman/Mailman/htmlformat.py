@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2006 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2007 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -327,7 +327,10 @@ class Document(Container):
                 kws.setdefault('link', mm_cfg.WEB_LINK_COLOR)
             for k, v in kws.items():
                 quals.append('%s="%s"' % (k, v))
-            output.append('%s<BODY %s>' % (tab, SPACE.join(quals)))
+            output.append('%s<BODY %s' % (tab, SPACE.join(quals)))
+            # Language direction
+            direction = Utils.GetDirection(self.language)
+            output.append('dir="%s">' % direction)
         # Always do this...
         output.append(Container.Format(self, indent))
         if not self.suppress_head:

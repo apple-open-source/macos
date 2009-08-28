@@ -1,4 +1,4 @@
-Class::C3 version 0.14
+Class::C3 version 0.18
 ===========================
 
 INSTALLATION
@@ -14,7 +14,14 @@ DEPENDENCIES
 
 This module requires these other modules and libraries:
 
-	None
+	Algorithm::C3 0.06
+	Scalar::Util 1.10
+
+Additionally, this module will optionally take advantage of
+these if installed:
+
+        perl 5.9.5
+        Class::C3::XS 0.04
 
 COPYRIGHT AND LICENCE
 

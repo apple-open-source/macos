@@ -1,4 +1,3 @@
-/* APPLE LOCAL begin mainline 2005-04-06 4071679 */
 /* Darwin host-specific hook definitions.
    Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
 
@@ -16,8 +15,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the
-   Free Software Foundation, 59 Temple Place - Suite 330, Boston,
-   MA 02111-1307, USA.  */
+   Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
+   MA 02110-1301, USA.  */
 
 extern void * darwin_gt_pch_get_address (size_t sz, int fd);
 extern int darwin_gt_pch_use_address (void *addr, size_t sz, int fd, 
@@ -27,4 +26,3 @@ extern int darwin_gt_pch_use_address (void *addr, size_t sz, int fd,
 #define HOST_HOOKS_GT_PCH_GET_ADDRESS darwin_gt_pch_get_address
 #undef HOST_HOOKS_GT_PCH_USE_ADDRESS
 #define HOST_HOOKS_GT_PCH_USE_ADDRESS darwin_gt_pch_use_address
-/* APPLE LOCAL end mainline 2005-04-06 4071679 */

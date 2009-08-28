@@ -1,0 +1,1933 @@
+<html><head><title>TkTextBindings</title>
+<STYLE TYPE="text/css">
+    PRE {font-family: Verdana,Arial,Helvetica,Sans-Serif; font-size: 8pt; color: #000033;}
+    XMP {font-family: Verdana,Arial,Helvetica,Sans-Serif; font-size: 8pt; color: #000033;}
+    HR {color: #0066CC; size: 1; border-color: #0066CC; border-width: 1; border-style: none;}
+    INPUT {font-family: Verdana,Arial,Helvetica,Sans-Serif; font-size: 8pt; color: #0066CC; font-weight: bold; border-color: #0066CC; border-width: 1; border-style: solid; background-color: #ECF4FC;}
+    TEXTAREA {font-family: Verdana,Arial,Helvetica,Sans-Serif; font-size: 8pt; color: #0066CC; font-weight: bold; border-color: #0066CC; border-width: 1; border-style: solid; background-color: #ECF4FC;}
+    SELECT {font-family: Verdana,Arial,Helvetica,Sans-Serif; font-size: 8pt; color: #0066CC; font-weight: bold; border-color: #0066CC; border-width: 1; border-style: none; background-color: #ECF4FC;}
+    OPTION {font-family: Verdana,Arial,Helvetica,Sans-Serif; font-size: 8pt; color: #0066CC; font-weight: bold; border-color: #0066CC; border-width: 1; border-style: none; background-color: #ECF4FC;}
+    A {font-family: Verdana,Arial,Helvetica,Sans-Serif; font-size: 8pt; color: #000099; font-weight: normal; text-decoration: none;}
+    A.grey {font-family: Verdana,Arial,Helvetica,Sans-Serif; font-size: 8pt; color: #999999; font-weight: normal; text-decoration: none;}
+    A:link {text-decoration: none;}
+    A:visited {text-decoration: none;}
+    A:active {text-decoration: none;}
+    A:hover {color: #0066CC; text-decoration: underline;}
+    P {font-family: Verdana,Arial,Helvetica,Sans-Serif; font-size: 8pt; color: #000033;}
+    LI {list-style-type: square; color: #000033}
+    TD {font-family: Verdana,Arial,Helvetica,Sans-Serif; font-size: 8pt; color: #000033;}
+    TD.title {font-family: Trebuchet MS,Verdana,Arial,Helvetica,Sans-Serif; font-size: 14pt; color: #0066CC; font-weight: bold;}
+    TD.header1 {font-family: Trebuchet MS,Verdana,Arial,Helvetica,Sans-Serif; font-size: 8pt; color: #9966CC; font-weight: bold;}
+    TD.bold {font-family: Verdana,Arial,Helvetica,Sans-Serif; font-size: 8pt; color: #000033; font-weight: bold;}
+    TD.red  {font-family: Verdana,Arial,Helvetica,Sans-Serif; font-size: 8pt; color: #FF0000;}
+    TD.grey {font-family: Verdana,Arial,Helvetica,Sans-Serif; font-size: 8pt; color: #999999;}
+    FONT {font-family: Verdana,Arial,Helvetica,Sans-Serif; font-size: 8pt; color: #000033;}
+    FONT.bold {font-family: Verdana,Arial,Helvetica,Sans-Serif; font-size: 8pt; color: #000033; font-weight: bold;}
+    FONT.title {font-family: Trebuchet MS,Verdana,Arial,Helvetica,Sans-Serif; font-size: 14pt; color: #0066CC; font-weight: bold;}
+    FONT.header1 {font-family: Trebuchet MS,Verdana,Arial,Helvetica,Sans-Serif; font-size: 8pt; color: #0066CC; font-weight: bold;}
+    FONT.contents {font-family: Trebuchet MS,Verdana,Arial,Helvetica,Sans-Serif; font-size: 6pt; color: #0066CC; font-weight: normal;}
+    FONT.red {font-family: Verdana,Arial,Helvetica,Sans-Serif; font-size: 8pt; color: #FF0000;}
+    FONT.grey {font-family: Verdana,Arial,Helvetica,Sans-Serif; font-size: 8pt; color: #999999;}
+    FONT.ce {font-family: Verdana,Copperplate Gothic Bold,Verdana,Arial,Helvetica,Sans-Serif; font-size: 8pt; color: #000033;}
+    FONT.cegrey {font-family: Copperplate Gothic Bold,Verdana,Arial,Helvetica,Sans-Serif; font-size: 8pt; color: #999999;}
+    H1 {font-family: Verdana,Arial,Helvetica,Sans-Serif; font-size: 18pt; color: #000033; font-weight: bold;}
+    H2 {font-family: Verdana,Arial,Helvetica,Sans-Serif; font-size: 16pt; color: #000033; font-weight: bold;}
+    H3 {font-family: Verdana,Arial,Helvetica,Sans-Serif; font-size: 14pt; color: #000033; font-weight: bold;}
+    H4 {font-family: Verdana,Arial,Helvetica,Sans-Serif; font-size: 12pt; color: #000033; font-weight: bold;}
+</STYLE>
+
+ <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</head>
+<body leftmargin="0" topmargin="0" alink="#ff9933" background="" bgcolor="#ffffff" link="#0033cc" marginheight="0" marginwidth="0" text="#000066" vlink="#0033cc">
+
+<table align="left" bgcolor="#ffffff" border="0" cellpadding="0" cellspacing="0" width="100%">
+
+<tbody>
+
+<tr>
+
+<td valign="top" width="50">&nbsp;&nbsp;</td>
+
+<td valign="top" width="100%"><div>
+<div>
+<h4>Bindings in the Text Binding Tag</h4>
+
+<p>The "Text" binding tag has 92 bindings in X11, 103 in OS X, 90 in
+Windows (Table 1). In addition, several "real events" are mapped to
+"virtual events" that are bound in the "Text" binding tag (Table 2).
+</p>
+
+
+<p><strong>Table 1: List of Bindings</strong>
+</p>
+
+
+<p>Column Headings
+</p>
+
+  <ul type="circle">
+  <li><strong>Event</strong> is the event "sequence" specified in the bind command</li>
+  <li><strong>Type</strong>
+is either "keyboard" or "mouse" (either may include keyboard
+modifiers); other types of event are not bound in the Text binding tag</li>
+  <li>The next six columns describe the effects of the binding, in eight categories.  The columns are:
+    <ul type="circle">
+    <li><strong>Navigation</strong> - a change in the position of the insert mark ("cursor"), other than to accommodate insertion or removal of text at the cursor</li>
+    <li><strong>Text</strong> - a change in the text content of the widget</li>
+    <li><strong>Selection</strong> - effect on the selection</li>
+    <li><strong>Focus</strong> - changes in keyboard focus</li>
+    <li><strong>Undo Stack</strong>
+- the insertion of separators, and changes to the stack itself (other
+than the default, i.e. recording the modifications to the widget)</li>
+    <li><strong>Other</strong> - other effects are
+      <ul type="circle">
+      <li>scrolling</li>
+      <li>changes to the clipboard contents</li>
+      <li>'break' commands</li>
+      <li>changes to selection and scroll view when the mouse pointer leaves the widget while Button 1 is pressed</li>
+      <li>initialization for subsequent events      </li>
+      </ul>
+    </li>
+    </ul>
+  </li>
+  <li>The next two columns give further information on the effects of the binding:
+    <ul type="circle">
+    <li><strong>Conditions</strong> - if the conditions stated in this column are not satisfied, the binding has no effect.  <em>(Information in this column that is not a condition is given in italics and brackets.)</em></li>
+    <li><strong>Description</strong> - may be provided in an attempt to clarify the effects of the binding    </li>
+    </ul>
+  </li>
+  <li><strong>Windowing System Specific</strong>
+- availability on different windowing systems - Tk may not provide
+certain bindings on all windowing systems, and even if it does, the
+windowing system may intercept the event and not pass it on to the
+application </li>
+  </ul>
+
+
+
+<p>Abbreviations used in Table 1:
+</p>
+
+  <ul type="circle">
+  <li>"DSE" = "delete selection if it exists"</li>
+  <li>"DSEC" = "delete selection if it exists and if the insert mark is inside the selection or at its boundaries"</li>
+  <li>"blocks" = "the existence of this binding prevents the event from being handled by the binding for"</li>
+  <li>"ignore
+sel[ection]" means that the selection is not automatically cancelled or
+overwritten, but its contents may be changed if the alteration to the
+text lies within the selection boundaries; this is the default (i.e.
+applies if the table cell is empty)</li>
+  <li>"Std Kbd Navigation"
+(standard keyboard navigation) means navigation, combined with changing
+the selection if the event includes the Shift modifier, or cancelling
+the selection and inserting a separator on the undo stack if the event
+does not include the Shift modifier</li>
+  <li>"(a)", "(b)" and "x2 (c)", in the <strong>Undo Stack</strong>
+column, refer to the placement of autoseparators (note that if a
+separator is already present at the top of the undo stack another will
+not be inserted): <ul type="circle">
+    <li>"(a)" is a single autoseparator that is placed in order to split keyboard-entered text into lines</li>
+    <li>"(b)"
+is a single autoseparator that is placed in order to record movement of
+the insert mark: the purpose is to separate changes made to the text in
+different places</li>
+    <li>"x2 (c)" is two autoseparators that are placed before and after the change to the text, in order to make that change atomic    </li>
+    </ul>
+  </li>
+  <li>In the <strong>Focus</strong> column, "take" means "take keyboard focus for the widget"; "move" means "keyboard focus is moved to another widget"</li>
+  <li>"NSM" = "not strict Motif", meaning that the variable ::tk_strictMotif is set to boolean false.    <em>(For convenience, all consequences of "NSM" are listed in the </em><strong>Conditions</strong><em> column, but information that is not a condition is given in italics and brackets.)</em></li>
+  <li>"preceded
+by" - does not necessarily mean "immediately preceded by", for example
+a series of events might be &lt;Button-1&gt;, &lt;Double-Button-1&gt;,
+&lt;Double-Button-1&gt;.</li>
+  <li>"EOL" = "End Of Line", really means "End of Logical Line", not end of display line  </li>
+  </ul>
+
+
+<p><em>File: lib/tk8.5/text.tcl</em>
+</p>
+
+<table border="1" cellpadding="2" cellspacing="0">
+<tbody><tr>
+<td><strong>Event</strong>                </td>
+<td><strong>Type</strong></td>
+<td><strong>Navigation</strong></td>
+<td><strong>Text</strong></td>
+<td><strong>Selection</strong></td>
+<td><strong>Focus</strong></td>
+<td><strong>Undo Stack</strong></td>
+<td><strong>Other</strong></td>
+<td><strong>Description</strong></td>
+<td><strong>Conditions</strong></td>
+<td><strong>Windowing System Specific</strong></td>
+</tr><tr>
+<td>&lt;Key&gt;                    </td>
+<td>Keyboard</td>
+<td>&nbsp;        </td>
+<td>Y       </td>
+<td>DSEC</td>
+<td>&nbsp;</td>
+<td>if&nbsp;DSEC x2&nbsp;(c)</td>
+<td>&nbsp;  </td>
+<td>DSEC, then insert the keypress character</td>
+<td>widget is not disabled and key is one that inserts text</td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Key-BackSpace&gt;          </td>
+<td>Keyboard</td>
+<td>&nbsp;        </td>
+<td>Y       </td>
+<td>DSE</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;  </td>
+<td>DSE, else delete prev char</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Key-Delete&gt;             </td>
+<td>Keyboard</td>
+<td>&nbsp;        </td>
+<td>Y       </td>
+<td>DSE</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;  </td>
+<td>DSE, else delete next char</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Key-Return&gt;             </td>
+<td>Keyboard</td>
+<td>&nbsp;        </td>
+<td>Y       </td>
+<td>DSEC</td>
+<td>&nbsp;</td>
+<td>if&nbsp;DSEC x2&nbsp;(c), else (a)</td>
+<td>&nbsp;</td>
+<td>DSEC, then insert newline, add autoseparator</td>
+<td>widget is not disabled</td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Key-Tab&gt;                </td>
+<td>Keyboard</td>
+<td>&nbsp;        </td>
+<td>Y       </td>
+<td>DSEC</td>
+<td>take@</td>
+<td>if&nbsp;DSEC x2&nbsp;(c)</td>
+<td>break to prevent the binding tag "all" from changing the focus</td>
+<td>DSEC and insert tab, then take focus, then break</td>
+<td>widget is not disabled</td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Shift-Key-Tab&gt;          </td>
+<td>Keyboard</td>
+<td>&nbsp;        </td>
+<td>&nbsp;  </td>
+<td>&nbsp;    </td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>break to prevent the binding tag "all" from changing the focus</td>
+<td>no action except break; blocks &lt;Key-Tab&gt;<br><br>note that
+your "Shift Tab" key probably has a different name and is not covered
+by this binding but by &lt;&lt;PrevWindow&gt;&gt;: see Tables 5, 6
+below.</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Control-Key-Tab&gt;        </td>
+<td>Keyboard</td>
+<td>&nbsp;        </td>
+<td>&nbsp;  </td>
+<td>&nbsp;    </td>
+<td>move</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>move focus to another widget</td>
+<td>&nbsp;  </td>
+<td>intercepted by KDE</td>
+</tr><tr>
+<td>&lt;Control-Shift-Key-Tab&gt;  </td>
+<td>Keyboard</td>
+<td>&nbsp;        </td>
+<td>&nbsp;  </td>
+<td>&nbsp;    </td>
+<td>move</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>move focus to another widget</td>
+<td>&nbsp;  </td>
+<td>intercepted by KDE</td>
+</tr><tr>
+<td>&lt;Control-Key&gt;            </td>
+<td>Keyboard</td>
+<td>&nbsp;        </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;  </td>
+<td>no action; blocks &lt;Key&gt;</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Alt-Key&gt;                </td>
+<td>Keyboard</td>
+<td>&nbsp;        </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;  </td>
+<td>no action; blocks &lt;Key&gt;</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Meta-Key&gt;               </td>
+<td>Keyboard</td>
+<td>&nbsp;        </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;  </td>
+<td>no action; blocks &lt;Key&gt;</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Command-KeyPress&gt;       </td>
+<td>Keyboard</td>
+<td>&nbsp;        </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;  </td>
+<td>no action; blocks &lt;Key&gt;</td>
+<td>&nbsp;  </td>
+<td>Aqua only</td>
+</tr><tr>
+<td>&lt;Key-Escape&gt;             </td>
+<td>Keyboard</td>
+<td>&nbsp;        </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;  </td>
+<td>no action; blocks &lt;Key&gt;</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Key-KP_Enter&gt;           </td>
+<td>Keyboard</td>
+<td>&nbsp;        </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;  </td>
+<td>no action; blocks &lt;Key&gt;</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Key-Insert&gt;             </td>
+<td>Keyboard</td>
+<td>&nbsp;        </td>
+<td>Y       </td>
+<td>DSEC</td>
+<td>&nbsp;</td>
+<td>if&nbsp;DSEC x2&nbsp;(c)</td>
+<td>&nbsp;</td>
+<td>DSEC, then insert selected text (use with &lt;Control-1&gt;)</td>
+<td>widget is not disabled and selection is not empty</td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Meta-Key-b&gt;             </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>cancel sel</td>
+<td>&nbsp;</td>
+<td>(b)</td>
+<td>&nbsp;</td>
+<td>Std Kbd Navigation;<br>move to previous word-start</td>
+<td>NSM</td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Meta-Key-d&gt;             </td>
+<td>Keyboard</td>
+<td>&nbsp;        </td>
+<td>Y       </td>
+<td>ignore sel</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>delete to next word-start</td>
+<td>NSM</td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Meta-Key-f&gt;             </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>cancel sel</td>
+<td>&nbsp;</td>
+<td>(b)</td>
+<td>&nbsp;</td>
+<td>Std Kbd Navigation;<br>move to next word-start</td>
+<td>NSM</td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Meta-Key-less&gt;          </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>cancel sel</td>
+<td>&nbsp;</td>
+<td>(b)</td>
+<td>&nbsp;</td>
+<td>Std Kbd Navigation;<br>move to top (1.0)</td>
+<td>NSM</td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Meta-Key-greater&gt;       </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>cancel sel</td>
+<td>&nbsp;</td>
+<td>(b)</td>
+<td>&nbsp;</td>
+<td>Std Kbd Navigation;<br>move to bottom (end-1c)</td>
+<td>NSM</td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Meta-Key-BackSpace&gt;     </td>
+<td>Keyboard</td>
+<td>&nbsp;        </td>
+<td>Y       </td>
+<td>ignore sel</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>delete to previous word-start</td>
+<td>NSM</td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Meta-Key-Delete&gt;        </td>
+<td>Keyboard</td>
+<td>&nbsp;        </td>
+<td>Y       </td>
+<td>ignore sel</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>delete to previous word-start</td>
+<td>NSM</td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Control-Key-a&gt;          </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>cancel sel</td>
+<td>&nbsp;</td>
+<td>(b)</td>
+<td>&nbsp;</td>
+<td>Std Kbd Navigation;<br>move to display line start</td>
+<td>NSM</td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Control-Key-b&gt;          </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>cancel sel</td>
+<td>&nbsp;</td>
+<td>(b)</td>
+<td>&nbsp;</td>
+<td>Std Kbd Navigation;<br>move -1 char</td>
+<td>NSM</td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Control-Key-d&gt;          </td>
+<td>Keyboard</td>
+<td>&nbsp;        </td>
+<td>Y       </td>
+<td>ignore sel</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>delete next char</td>
+<td>NSM</td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Control-Key-e&gt;          </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>cancel sel</td>
+<td>&nbsp;</td>
+<td>(b)</td>
+<td>&nbsp;</td>
+<td>Std Kbd Navigation;<br>move to display line end</td>
+<td>NSM</td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Control-Key-f&gt;          </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>cancel sel</td>
+<td>&nbsp;</td>
+<td>(b)</td>
+<td>&nbsp;</td>
+<td>Std Kbd Navigation;<br>move +1 char</td>
+<td>NSM</td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Control-Key-h&gt;          </td>
+<td>Keyboard</td>
+<td>&nbsp;        </td>
+<td>Y       </td>
+<td>ignore sel</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>Backspace: delete previous char</td>
+<td>NSM, and insert mark not at 1.0</td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Control-Key-i&gt;          </td>
+<td>Keyboard</td>
+<td>&nbsp;        </td>
+<td>Y       </td>
+<td>DSEC</td>
+<td>&nbsp;</td>
+<td>if&nbsp;DSEC x2&nbsp;(c)</td>
+<td>&nbsp;</td>
+<td>DSEC, then insert tab char</td>
+<td>widget is not disabled</td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Control-Key-k&gt;          </td>
+<td>Keyboard</td>
+<td>&nbsp;        </td>
+<td>Y       </td>
+<td>ignore sel</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>if at EOL, delete EOL; else delete to EOL</td>
+<td>NSM</td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Control-Key-n&gt;          </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>cancel sel</td>
+<td>&nbsp;</td>
+<td>(b)</td>
+<td>&nbsp;</td>
+<td>Std Kbd Navigation;<br>move to next line</td>
+<td>NSM</td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Control-Key-o&gt;          </td>
+<td>Keyboard</td>
+<td>&nbsp;        </td>
+<td>Y       </td>
+<td>ignore sel</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>insert newline after insert mark</td>
+<td>NSM</td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Control-Key-p&gt;          </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>cancel sel</td>
+<td>&nbsp;</td>
+<td>(b)</td>
+<td>&nbsp;</td>
+<td>Std Kbd Navigation;<br>move to previous line</td>
+<td>NSM</td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Control-Key-t&gt;          </td>
+<td>Keyboard</td>
+<td>&nbsp;        </td>
+<td>Y       </td>
+<td>ignore sel</td>
+<td>&nbsp;</td>
+<td>x2&nbsp;(c)</td>
+<td>&nbsp;</td>
+<td>swap chars each side of insert cursor; move cursor +1 char</td>
+<td>NSM, and insert mark not at 1.0</td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Control-Key-backslash&gt;  </td>
+<td>Keyboard</td>
+<td>&nbsp;        </td>
+<td>&nbsp;  </td>
+<td>cancel sel </td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>Clear Selection</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Control-Key-slash&gt;      </td>
+<td>Keyboard</td>
+<td>&nbsp;        </td>
+<td>&nbsp;  </td>
+<td>change sel </td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>Select All</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Shift-Key-Select&gt;       </td>
+<td>Keyboard</td>
+<td>&nbsp;        </td>
+<td>&nbsp;  </td>
+<td>change sel </td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>select from anchor to insert</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Control-Shift-Key-space&gt;</td>
+<td>Keyboard</td>
+<td>&nbsp;        </td>
+<td>&nbsp;  </td>
+<td>change sel </td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>select from anchor to insert</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Key-Select&gt;             </td>
+<td>Keyboard</td>
+<td>&nbsp;        </td>
+<td>&nbsp;  </td>
+<td>ignore sel; set anchor</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>set selection anchor</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Control-Key-space&gt;      </td>
+<td>Keyboard</td>
+<td>&nbsp;        </td>
+<td>&nbsp;  </td>
+<td>ignore sel; set anchor</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>set selection anchor</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td>Navigation Events</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Key-Left&gt;               </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>cancel sel</td>
+<td>&nbsp;</td>
+<td>(b)</td>
+<td>&nbsp;</td>
+<td>Std Kbd Navigation</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Key-Right&gt;              </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>cancel sel</td>
+<td>&nbsp;</td>
+<td>(b)</td>
+<td>&nbsp;</td>
+<td>Std Kbd Navigation</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Key-Up&gt;                 </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>cancel sel</td>
+<td>&nbsp;</td>
+<td>(b)</td>
+<td>&nbsp;</td>
+<td>Std Kbd Navigation</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Key-Down&gt;               </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>cancel sel</td>
+<td>&nbsp;</td>
+<td>(b)</td>
+<td>&nbsp;</td>
+<td>Std Kbd Navigation</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Shift-Key-Left&gt;         </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>change sel</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;  </td>
+<td>Std Kbd Navigation</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Shift-Key-Right&gt;        </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>change sel</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;  </td>
+<td>Std Kbd Navigation</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Shift-Key-Up&gt;           </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>change sel</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;  </td>
+<td>Std Kbd Navigation</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Shift-Key-Down&gt;         </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>change sel</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;  </td>
+<td>Std Kbd Navigation</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Control-Key-Left&gt;       </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>cancel sel</td>
+<td>&nbsp;</td>
+<td>(b)</td>
+<td>&nbsp;</td>
+<td>Std Kbd Navigation</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Control-Key-Right&gt;      </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>cancel sel</td>
+<td>&nbsp;</td>
+<td>(b)</td>
+<td>&nbsp;</td>
+<td>Std Kbd Navigation</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Control-Key-Up&gt;         </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>cancel sel</td>
+<td>&nbsp;</td>
+<td>(b)</td>
+<td>&nbsp;</td>
+<td>Std Kbd Navigation</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Control-Key-Down&gt;       </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>cancel sel</td>
+<td>&nbsp;</td>
+<td>(b)</td>
+<td>&nbsp;</td>
+<td>Std Kbd Navigation</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Control-Shift-Key-Left&gt; </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>change sel</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;  </td>
+<td>Std Kbd Navigation</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Control-Shift-Key-Right&gt;</td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>change sel</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;  </td>
+<td>Std Kbd Navigation</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Control-Shift-Key-Up&gt;   </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>change sel</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;  </td>
+<td>Std Kbd Navigation</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Control-Shift-Key-Down&gt; </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>change sel</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;  </td>
+<td>Std Kbd Navigation</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Key-Home&gt;               </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>cancel sel</td>
+<td>&nbsp;</td>
+<td>(b)</td>
+<td>&nbsp;</td>
+<td>Std Kbd Navigation</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Key-End&gt;                </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>cancel sel</td>
+<td>&nbsp;</td>
+<td>(b)</td>
+<td>&nbsp;</td>
+<td>Std Kbd Navigation</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Control-Key-Home&gt;       </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>cancel sel</td>
+<td>&nbsp;</td>
+<td>(b)</td>
+<td>&nbsp;</td>
+<td>Std Kbd Navigation</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Control-Key-End&gt;        </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>cancel sel</td>
+<td>&nbsp;</td>
+<td>(b)</td>
+<td>&nbsp;</td>
+<td>Std Kbd Navigation</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Shift-Key-Home&gt;         </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>change sel</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;  </td>
+<td>Std Kbd Navigation</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Shift-Key-End&gt;          </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>change sel</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;  </td>
+<td>Std Kbd Navigation</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Control-Shift-Key-Home&gt; </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>change sel</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;  </td>
+<td>Std Kbd Navigation</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Control-Shift-Key-End&gt;  </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>change sel</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;  </td>
+<td>Std Kbd Navigation</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Key-Next&gt;               </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>cancel sel</td>
+<td>&nbsp;</td>
+<td>(b)</td>
+<td>&nbsp;</td>
+<td>Std Kbd Navigation</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Key-Prior&gt;              </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>cancel sel</td>
+<td>&nbsp;</td>
+<td>(b)</td>
+<td>&nbsp;</td>
+<td>Std Kbd Navigation</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Shift-Key-Next&gt;         </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>change sel</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;  </td>
+<td>Std Kbd Navigation</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Shift-Key-Prior&gt;        </td>
+<td>Keyboard</td>
+<td>Y             </td>
+<td>&nbsp;  </td>
+<td>change sel</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;  </td>
+<td>Std Kbd Navigation</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Control-Key-Next&gt;       </td>
+<td>Keyboard</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;    </td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>horizontal scrolling</td>
+<td>No navigation (insert cursor is unchanged)</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Control-Key-Prior&gt;      </td>
+<td>Keyboard</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;    </td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>horizontal scrolling</td>
+<td>No navigation (insert cursor is unchanged)</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Option-Left&gt;            </td>
+<td>Keyboard</td>
+<td>Y</td>
+<td>&nbsp;</td>
+<td>cancel sel</td>
+<td>&nbsp;</td>
+<td>(b)</td>
+<td>&nbsp;</td>
+<td>Std Kbd Navigation</td>
+<td>&nbsp;  </td>
+<td>Aqua Only (Option Key)</td>
+</tr><tr>
+<td>&lt;Option-Right&gt;           </td>
+<td>Keyboard</td>
+<td>Y</td>
+<td>&nbsp;</td>
+<td>cancel sel</td>
+<td>&nbsp;</td>
+<td>(b)</td>
+<td>&nbsp;</td>
+<td>Std Kbd Navigation</td>
+<td>&nbsp;  </td>
+<td>Aqua Only (Option Key)</td>
+</tr><tr>
+<td>&lt;Option-Up&gt;              </td>
+<td>Keyboard</td>
+<td>Y</td>
+<td>&nbsp;</td>
+<td>cancel sel</td>
+<td>&nbsp;</td>
+<td>(b)</td>
+<td>&nbsp;</td>
+<td>Std Kbd Navigation</td>
+<td>&nbsp;  </td>
+<td>Aqua Only (Option Key)</td>
+</tr><tr>
+<td>&lt;Option-Down&gt;            </td>
+<td>Keyboard</td>
+<td>Y</td>
+<td>&nbsp;</td>
+<td>cancel sel</td>
+<td>&nbsp;</td>
+<td>(b)</td>
+<td>&nbsp;</td>
+<td>Std Kbd Navigation</td>
+<td>&nbsp;  </td>
+<td>Aqua Only (Option Key)</td>
+</tr><tr>
+<td>&lt;Shift-Option-Left&gt;      </td>
+<td>Keyboard</td>
+<td>Y</td>
+<td>&nbsp;</td>
+<td>change sel</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;  </td>
+<td>Std Kbd Navigation</td>
+<td>&nbsp;  </td>
+<td>Aqua Only (Option Key)</td>
+</tr><tr>
+<td>&lt;Shift-Option-Right&gt;     </td>
+<td>Keyboard</td>
+<td>Y</td>
+<td>&nbsp;</td>
+<td>change sel</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;  </td>
+<td>Std Kbd Navigation</td>
+<td>&nbsp;  </td>
+<td>Aqua Only (Option Key)</td>
+</tr><tr>
+<td>&lt;Shift-Option-Up&gt;        </td>
+<td>Keyboard</td>
+<td>Y</td>
+<td>&nbsp;</td>
+<td>change sel</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;  </td>
+<td>Std Kbd Navigation</td>
+<td>&nbsp;  </td>
+<td>Aqua Only (Option Key)</td>
+</tr><tr>
+<td>&lt;Shift-Option-Down&gt;      </td>
+<td>Keyboard</td>
+<td>Y</td>
+<td>&nbsp;</td>
+<td>change sel</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;  </td>
+<td>Std Kbd Navigation</td>
+<td>&nbsp;  </td>
+<td>Aqua Only (Option Key)</td>
+</tr><tr>
+<td>&lt;Control-v&gt;              </td>
+<td>Keyboard</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>vertical scrolling</td>
+<td>No navigation (insert cursor is unchanged)</td>
+<td>&nbsp;  </td>
+<td>Aqua Only   </td>
+</tr><tr>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr><tr>
+<td>&lt;&lt;Undo&gt;&gt;                 </td>
+<td>Keyboard</td>
+<td>Y</td>
+<td>Y</td>
+<td>ignore sel</td>
+<td>&nbsp;</td>
+<td>move item to redo stack</td>
+<td>&nbsp;  </td>
+<td>Undo changes back to previous separator</td>
+<td>undo activated for the widget</td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;&lt;Redo&gt;&gt;                 </td>
+<td>Keyboard</td>
+<td>Y</td>
+<td>Y</td>
+<td>ignore sel</td>
+<td>&nbsp;</td>
+<td>move item from redo stack</td>
+<td>&nbsp;  </td>
+<td>Redo "undone" changes up to the next separator</td>
+<td>undo activated for the widget</td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;&lt;Cut&gt;&gt;                  </td>
+<td>Keyboard</td>
+<td>&nbsp;</td>
+<td>Y</td>
+<td>cancel sel</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>change clipboard</td>
+<td>Move text from selection to clipboard</td>
+<td>selection not empty</td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;&lt;Copy&gt;&gt;                 </td>
+<td>Keyboard</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>ignore sel</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>change clipboard</td>
+<td>Copy text from selection to clipboard</td>
+<td>selection not empty</td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;&lt;Paste&gt;&gt;                </td>
+<td>Keyboard</td>
+<td>&nbsp;</td>
+<td>Y</td>
+<td>ignore sel (x11), DSE (other)</td>
+<td>&nbsp;</td>
+<td>x2 (c)</td>
+<td>&nbsp;</td>
+<td>Delete selection (except on x11), then copy text from clipboard to insert mark</td>
+<td>clipboard not empty</td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;&lt;Clear&gt;&gt;                </td>
+<td>Keyboard</td>
+<td>&nbsp;</td>
+<td>Y</td>
+<td>DSE</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>delete selected text</td>
+<td>&nbsp;  </td>
+<td>Aqua Only*</td>
+</tr><tr>
+<td>&lt;&lt;PasteSelection&gt;&gt;       </td>
+<td>Mouse</td>
+<td>Y </td>
+<td>Y</td>
+<td>ignore sel</td>
+<td>take</td>
+<td>x2 (c)</td>
+<td>&nbsp;  </td>
+<td>Mapped to &lt;ButtonRelease-2&gt;.<br>If "strict Motif", or if the
+mouse pointer has not moved since &lt;Button-2&gt;, then navigate,
+paste selection, and if widget not disabled take focus.<br>If "not
+strict Motif" ("NSM"), and if the mouse has moved since
+&lt;Button-2&gt;, then nothing is done, and instead &lt;B2-Motion&gt;
+implements ScanDrag.</td>
+<td><em>(N.B. precise action depends on NSM)</em></td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Button-1&gt;               </td>
+<td>Mouse   </td>
+<td>Y</td>
+<td>&nbsp;  </td>
+<td>cancel sel</td>
+<td>take</td>
+<td>(b)</td>
+<td>&nbsp;  </td>
+<td>navigate; if widget not disabled or if platform is windows, take focus</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;ButtonRelease-1&gt;        </td>
+<td>Mouse   </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>See "Description"</td>
+<td>See &lt;B1-Leave&gt;</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;B1-Motion&gt;              </td>
+<td>Mouse   </td>
+<td>Y</td>
+<td>&nbsp;  </td>
+<td>change sel</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Shift-Button-1&gt;         </td>
+<td>Mouse   </td>
+<td>Y</td>
+<td>&nbsp;  </td>
+<td>change sel</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Control-Button-1&gt;       </td>
+<td>Mouse   </td>
+<td>Y</td>
+<td>&nbsp;  </td>
+<td>ignore sel</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;B1-Enter&gt;               </td>
+<td>Mouse   </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>See "Description"</td>
+<td>See &lt;B1-Leave&gt;</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;B1-Leave&gt;               </td>
+<td>Mouse   </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>See "Description"</td>
+<td>Start monitoring the mouse coordinates in order to update the
+selection range and scroll view of the widget. Do not stop until either
+&lt;B1-Enter&gt; or &lt;ButtonRelease-1&gt;.</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Double-Button-1&gt;        </td>
+<td>Mouse   </td>
+<td>Y</td>
+<td>&nbsp;  </td>
+<td>change sel</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;  </td>
+<td>preceded by &lt;Button-1&gt;</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Double-Shift-Button-1&gt;  </td>
+<td>Mouse   </td>
+<td>&nbsp;</td>
+<td>&nbsp;  </td>
+<td>change sel</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;  </td>
+<td>preceded by &lt;Shift-Button-1&gt;</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Triple-Button-1&gt;        </td>
+<td>Mouse   </td>
+<td>Y</td>
+<td>&nbsp;  </td>
+<td>change sel</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;  </td>
+<td>preceded by &lt;Button-1&gt;, &lt;Double-Button-1&gt;</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Triple-Shift-Button-1&gt;  </td>
+<td>Mouse   </td>
+<td>&nbsp;</td>
+<td>&nbsp;  </td>
+<td>change sel</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;  </td>
+<td>preceded by &lt;Shift-Button-1&gt;, &lt;Double-Shift-Button-1&gt;</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;Button-2&gt;               </td>
+<td>Mouse   </td>
+<td>&nbsp; </td>
+<td>&nbsp;  </td>
+<td>ignore sel</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>See "Description"</td>
+<td>Initialization for &lt;ButtonRelease-2&gt; and possible &lt;B2-Motion&gt; events</td>
+<td>NSM</td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td>&lt;B2-Motion&gt;              </td>
+<td>Mouse   </td>
+<td>&nbsp; </td>
+<td>&nbsp; </td>
+<td>ignore sel</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>ScanDrag scrolling</td>
+<td>No navigation (insert cursor is unchanged)</td>
+<td>NSM</td>
+<td>&nbsp;  </td>
+</tr><tr>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr><tr>
+<td>&lt;Button-4&gt;               </td>
+<td>Mouse   </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>vertical scrolling</td>
+<td>&nbsp;  </td>
+<td>NSM</td>
+<td>X11 only - for Mouse Wheel</td>
+</tr><tr>
+<td>&lt;Button-5&gt;               </td>
+<td>Mouse   </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>vertical scrolling</td>
+<td>&nbsp;  </td>
+<td>NSM</td>
+<td>X11 only - for Mouse Wheel</td>
+</tr><tr>
+<td>&lt;MouseWheel&gt;             </td>
+<td>Mouse   </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>vertical scrolling</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>Not Aqua</td>
+</tr><tr>
+<td>&lt;MouseWheel&gt;             </td>
+<td>Mouse   </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>vertical scrolling</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>Aqua Only</td>
+</tr><tr>
+<td>&lt;Option-MouseWheel&gt;      </td>
+<td>Mouse   </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>vertical scrolling</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>Aqua Only (Option Key)</td>
+</tr><tr>
+<td>&lt;Shift-MouseWheel&gt;       </td>
+<td>Mouse   </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>horizontal scrolling</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>Aqua Only   </td>
+</tr><tr>
+<td>&lt;Shift-Option-MouseWheel&gt;</td>
+<td>Mouse   </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>horizontal scrolling</td>
+<td>&nbsp;  </td>
+<td>&nbsp;  </td>
+<td>Aqua Only (Option Key)</td>
+</tr>
+</tbody></table>
+
+
+<p> * The virtual event &lt;&lt;Clear&gt;&gt; is provided on all
+windowing systems, but is used only on Aqua, where it is mapped to the
+&lt;Clear&gt; key.<br>
+ @ Why does &lt;Key-Tab&gt; take focus? The widget must already have focus to receive the event, so why take it?  <em>??Possibly
+some platforms respond to &lt;Tab&gt; by moving the focus before
+passing the event to the application/window that received it - if so,
+reclaiming the focus would be necessary here.</em>
+</p>
+
+
+<p> The widget prevents text insertion or deletion if its state is
+"disabled". However, the widget's bindings still fire, and so the
+bindings test the widget state, to provide control over operations
+other than text manipulation - usually changes to focus, and placement
+of autoseparators.
+</p>
+
+
+<p><strong>Table 2: Real and Virtual Events</strong>
+</p>
+
+
+<p>Specifically, the Table shows mappings of &lt;Real Events&gt; to
+&lt;&lt;Virtual Events&gt;&gt; that are bound in the 'Text' binding
+tag.
+</p>
+
+
+<p>The windowing system, [tk windowingsystem], governs the aspects of
+system-dependence discussed in Tables 1 and 2. System-dependence is
+also expressed by the values of the array variable ::tcl_platform,
+which is used by <em>Text</em> in other ways <font class="red">(to be discussed)</font>.
+</p>
+
+
+  <ul type="circle">
+  <li><strong>Windowing Systems</strong> - abbreviations used in Table 2:
+    <ul type="circle">
+    <li>"X" = x11 (Linux, UNIX, BSD)</li>
+    <li>"W" = win32 (Windows)</li>
+    <li>"M" = aqua (Mac OS X)</li>
+    <li>"-" = mapping is not included on this platform    </li>
+    </ul>
+  </li>
+  <li><strong>Conditions</strong> - the event mapping is created iff the conditions stated in this column are satisfied
+    <ul type="circle">
+    <li>"NSM" = "not strict Motif", meaning that the variable $::tk_strictMotif is set to boolean false.    </li>
+    </ul>
+  </li>
+  </ul>
+
+
+<p><em>File: lib/tk8.5/tk.tcl</em>
+</p>
+
+<table border="1" cellpadding="2" cellspacing="0">
+<tbody><tr>
+<td><strong>Real Event</strong>       </td>
+<td><strong>Type</strong></td>
+<td><strong>Virtual Event</strong></td>
+<td><strong>Windowing Systems</strong></td>
+<td><strong>Conditions</strong></td>
+</tr><tr>
+<td>&lt;ButtonRelease-2&gt;        </td>
+<td>Mouse   </td>
+<td>&lt;&lt;PasteSelection&gt;&gt;</td>
+<td>XWM </td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>&lt;Shift-Key-Delete&gt;      </td>
+<td>Keyboard</td>
+<td>&lt;&lt;Cut&gt;&gt;           </td>
+<td>-W- </td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>&lt;Shift-Key-Insert&gt;      </td>
+<td>Keyboard</td>
+<td>&lt;&lt;Paste&gt;&gt;         </td>
+<td>-W- </td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>&lt;Control-Key-Insert&gt;    </td>
+<td>Keyboard</td>
+<td>&lt;&lt;Copy&gt;&gt;          </td>
+<td>-W- </td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>&lt;Control-Key-c&gt;          </td>
+<td>Keyboard</td>
+<td>&lt;&lt;Copy&gt;&gt;          </td>
+<td>XW- </td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>&lt;Control-Key-v&gt;          </td>
+<td>Keyboard</td>
+<td>&lt;&lt;Paste&gt;&gt;         </td>
+<td>XW- </td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>&lt;Control-Key-w&gt;          </td>
+<td>Keyboard</td>
+<td>&lt;&lt;Cut&gt;&gt;           </td>
+<td>X-- </td>
+<td>NSM</td>
+</tr><tr>
+<td>&lt;Control-Key-x&gt;          </td>
+<td>Keyboard</td>
+<td>&lt;&lt;Cut&gt;&gt;           </td>
+<td>XW- </td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>&lt;Control-Key-y&gt;         </td>
+<td>Keyboard</td>
+<td>&lt;&lt;Redo&gt;&gt;          </td>
+<td>-W- </td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>&lt;Control-Key-y&gt;         </td>
+<td>Keyboard</td>
+<td>&lt;&lt;Paste&gt;&gt;         </td>
+<td>X-- </td>
+<td>NSM</td>
+</tr><tr>
+<td>&lt;Control-Key-z&gt;          </td>
+<td>Keyboard</td>
+<td>&lt;&lt;Undo&gt;&gt;          </td>
+<td>XW- </td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>&lt;Control-Key-Z&gt;          </td>
+<td>Keyboard</td>
+<td>&lt;&lt;Redo&gt;&gt;          </td>
+<td>X-- </td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>&lt;Control-Key-underscore&gt; </td>
+<td>Keyboard</td>
+<td>&lt;&lt;Undo&gt;&gt;          </td>
+<td>X-- </td>
+<td>NSM</td>
+</tr><tr>
+<td>&lt;Meta-Key-w&gt;             </td>
+<td>Keyboard</td>
+<td>&lt;&lt;Copy&gt;&gt;          </td>
+<td>X-- </td>
+<td>NSM</td>
+</tr><tr>
+<td>&lt;Command-Key-c&gt;          </td>
+<td>Keyboard</td>
+<td>&lt;&lt;Copy&gt;&gt;          </td>
+<td>--M </td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>&lt;Command-Key-v&gt;          </td>
+<td>Keyboard</td>
+<td>&lt;&lt;Paste&gt;&gt;         </td>
+<td>--M </td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>&lt;Command-Key-x&gt;          </td>
+<td>Keyboard</td>
+<td>&lt;&lt;Cut&gt;&gt;           </td>
+<td>--M </td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>&lt;Command-Key-y&gt;          </td>
+<td>Keyboard</td>
+<td>&lt;&lt;Redo&gt;&gt;          </td>
+<td>--M </td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>&lt;Command-Key-z&gt;          </td>
+<td>Keyboard</td>
+<td>&lt;&lt;Undo&gt;&gt;          </td>
+<td>--M </td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>&lt;Clear&gt;                  </td>
+<td>Keyboard</td>
+<td>&lt;&lt;Clear&gt;&gt;         </td>
+<td>--M </td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>&lt;Key-F2&gt;                 </td>
+<td>Keyboard</td>
+<td>&lt;&lt;Cut&gt;&gt;           </td>
+<td>--M </td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>&lt;Key-F3&gt;                 </td>
+<td>Keyboard</td>
+<td>&lt;&lt;Copy&gt;&gt;          </td>
+<td>--M </td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>&lt;Key-F4&gt;                 </td>
+<td>Keyboard</td>
+<td>&lt;&lt;Paste&gt;&gt;         </td>
+<td>--M </td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>&lt;Key-F16&gt;                </td>
+<td>Keyboard</td>
+<td>&lt;&lt;Copy&gt;&gt;          </td>
+<td>X-- </td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>&lt;Key-F18&gt;                </td>
+<td>Keyboard</td>
+<td>&lt;&lt;Paste&gt;&gt;         </td>
+<td>X-- </td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>&lt;Key-F20&gt;                </td>
+<td>Keyboard</td>
+<td>&lt;&lt;Cut&gt;&gt;           </td>
+<td>X-- </td>
+<td>&nbsp;</td>
+</tr>
+</tbody></table>
+
+
+<p><strong>Table 3:  Keyboard Modifiers (PC)</strong>
+</p>
+
+
+<p>A standard PC keyboard does not have Select or Clear keys; nor does
+it have Meta, Option or Command modifier keys. Its modifier keys are:
+</p>
+
+
+<p><em>File:</em> these names are not defined by a Tcl script file
+</p>
+
+<table border="1" cellpadding="2" cellspacing="0">
+<tbody><tr>
+<td><strong>Key</strong></td>
+<td><strong>Notes</strong></td>
+</tr><tr>
+<td>Shift_L</td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>Shift_R</td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>Control_L</td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>Control_R</td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>Super_L</td>
+<td>(The left "Windows" key)</td>
+</tr><tr>
+<td>Super_R</td>
+<td>(The right "Windows" key)</td>
+</tr><tr>
+<td>Alt_L</td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>ISO_Level3_Shift</td>
+<td>(The "Right Alt" key)</td>
+</tr>
+</tbody></table>
+
+
+<p>The "Windows Menu" key &lt;Menu&gt; is not a modifier key.
+</p>
+
+
+<p><strong>Table 4: Actions that modify the text contents of the widget</strong>
+</p>
+
+
+<p><em>File: lib/tk8.5/text.tcl</em> - data extracted from Table 1.
+</p>
+
+<table border="1" cellpadding="2" cellspacing="0">
+<tbody><tr>
+<td><strong>Binding</strong></td>
+<td><strong>Mapped To</strong></td>
+</tr><tr>
+<td>&lt;Key&gt;</td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>&lt;Key-BackSpace&gt;</td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>&lt;Key-Delete&gt;</td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>&lt;Key-Return&gt;</td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>&lt;Key-Tab&gt;</td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>&lt;Key-Insert&gt;</td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>&lt;Meta-Key-d&gt;</td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>&lt;Meta-Key-BackSpace&gt;</td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>&lt;Meta-Key-Delete&gt;</td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>&lt;Control-Key-d&gt;</td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>&lt;Control-Key-h&gt;</td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>&lt;Control-Key-i&gt;</td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>&lt;Control-Key-k&gt;</td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>&lt;Control-Key-o&gt;</td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>&lt;Control-Key-t&gt;</td>
+<td>&nbsp;</td>
+</tr><tr>
+<td>&lt;&lt;Undo&gt;&gt;</td>
+<td>windowing-system-dependent: e.g. in X11 &lt;Control-Key-z&gt; (and others)</td>
+</tr><tr>
+<td>&lt;&lt;Redo&gt;&gt;</td>
+<td>windowing-system-dependent: e.g. in X11 &lt;Control-Key-Z&gt;</td>
+</tr><tr>
+<td>&lt;&lt;Cut&gt;&gt;</td>
+<td>windowing-system-dependent: e.g. in X11 &lt;Control-Key-x&gt; (and others)</td>
+</tr><tr>
+<td>&lt;&lt;Paste&gt;&gt;</td>
+<td>windowing-system-dependent: e.g. in X11 &lt;Control-Key-v&gt; (and others)</td>
+</tr><tr>
+<td>&lt;&lt;Clear&gt;&gt;</td>
+<td>windowing-system-dependent: Aqua only, &lt;Clear&gt; key</td>
+</tr><tr>
+<td>&lt;&lt;PasteSelection&gt;&gt;</td>
+<td>&lt;ButtonRelease-2&gt;</td>
+</tr>
+</tbody></table>
+
+<h4>Bindings in the "all" Binding Tag</h4>
+
+<p><strong>Table 5: List of Bindings</strong>
+</p>
+
+
+<p>The "all" Binding Tag has 5 bindings (Table 5). Further real events
+are mapped to a "virtual event" that is bound in the "all" binding tag
+(Table 6).
+</p>
+
+
+<p><em>Files: lib/tk8.5/focus.tcl, lib/tk8.5/menu.tcl, lib/tk8.5/tk.tcl</em>
+</p>
+
+<table border="1" cellpadding="2" cellspacing="0">
+<tbody><tr>
+<td><strong>Event</strong>                </td>
+<td><strong>Type</strong></td>
+<td><strong>Description</strong></td>
+<td><strong>File</strong></td>
+</tr><tr>
+<td>&lt;&lt;PrevWindow&gt;&gt;  </td>
+<td>keyboard</td>
+<td>switching focus between widgets</td>
+<td>lib/tk8.5/tk.tcl</td>
+</tr><tr>
+<td>&lt;Key-Tab&gt;  </td>
+<td>keyboard</td>
+<td>switching focus between widgets</td>
+<td>lib/tk8.5/tk.tcl</td>
+</tr><tr>
+<td>&lt;Key-F10&gt;  </td>
+<td>keyboard</td>
+<td>keyboard navigation of menus</td>
+<td>lib/tk8.5/menu.tcl</td>
+</tr><tr>
+<td>&lt;Alt-Key&gt;    </td>
+<td>keyboard</td>
+<td>keyboard navigation of menus</td>
+<td>lib/tk8.5/menu.tcl</td>
+</tr><tr>
+<td>&lt;Enter&gt;       </td>
+<td>mouse     </td>
+<td>focus follows mouse (optional, not the default)</td>
+<td>lib/tk8.5/focus.tcl</td>
+</tr>
+</tbody></table>
+
+
+<p><strong>Table 6: Real and Virtual Events</strong>
+</p>
+
+
+<p>Specifically, the Table shows mappings of &lt;Real Events&gt; to
+&lt;&lt;Virtual Events&gt;&gt; that are bound in the "all" binding tag.
+</p>
+
+
+<p><em>File: lib/tk8.5/tk.tcl</em>
+</p>
+
+<table border="1" cellpadding="2" cellspacing="0">
+<tbody><tr>
+<td><strong>Real Event</strong>       </td>
+<td><strong>Type</strong></td>
+<td><strong>Virtual Event</strong></td>
+<td><strong>Systems</strong></td>
+</tr><tr>
+<td>&lt;Key-ISO_Left_Tab&gt;</td>
+<td>Keyboard</td>
+<td>&lt;&lt;PrevWindow&gt;&gt;</td>
+<td>X11 (XFree86 or X.org) on PC</td>
+</tr><tr>
+<td>&lt;Key-hpBackTab&gt;</td>
+<td>Keyboard</td>
+<td>&lt;&lt;PrevWindow&gt;&gt;</td>
+<td>some HP systems</td>
+</tr><tr>
+<td>&lt;Shift-Key-Tab&gt;</td>
+<td>Keyboard</td>
+<td>&lt;&lt;PrevWindow&gt;&gt;</td>
+<td>all</td>
+</tr>
+</tbody></table>
+
+
+<p>Some systems define a goofy (as in, not &lt;Shift-Tab&gt;) keysym
+that is returned when the user presses &lt;Shift-Tab&gt;. These keysyms
+are added to the &lt;&lt;PrevWindow&gt;&gt; event. For the first two, <em>catch</em> is used in case the keysym isn't recognized.
+</p>
+
+
+
+</div>
+
+</div>
+</td>
+
+<td valign="top" width="50">&nbsp;&nbsp;</td>
+
+</tr>
+</tbody></table>
+</body></html>

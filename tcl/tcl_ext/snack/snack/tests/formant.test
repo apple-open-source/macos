@@ -1,0 +1,62 @@
+# Commands covered: sound formant
+#
+
+package require -exact snack 2.2
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+test formant-1.1 {formant command} {
+  set s [snack::sound snd -load ex1.wav]
+  set tcl_precision 5
+  set res [lindex [$s formant -framelength 0.01 -preemphasis 0.7 -numformants 4  -lpcorder 12 -windowlength .049 -lpctype 0 -ds_freq 10000.0 -nom_f1_freq -10.0] end]
+  $s destroy
+  set res
+} {102.23 2077.6 2951.1 3818.2 734.88 480.1 532.49 588.74}
+
+test formant-1.2 {formant command} {
+  set s [snack::sound snd -load ex1.wav]
+  set tcl_precision 5
+  set res [lindex [$s formant] end]
+  $s destroy
+  set res
+} {102.23 2077.6 2951.1 3818.2 734.88 480.1 532.49 588.74}
+
+test formant-1.3 {formant command} {
+  set s [snack::sound snd -load ex1.wav]
+  set tcl_precision 5
+  set res [lindex [$s formant -windowtype 2] end]
+  $s destroy
+  set res
+} {102.23 2077.6 2951.1 3818.2 734.88 480.1 532.49 588.74}
+
+test formant-1.4 {formant command} {
+  set s [snack::sound snd -load ex1.wav]
+  set tcl_precision 5
+  set res [lindex [$s formant -windowtype cos^4] end]
+  $s destroy
+  set res
+} {102.23 2077.6 2951.1 3818.2 734.88 480.1 532.49 588.74}
+
+test formant-1.5 {formant command} {
+  set s [snack::sound snd -load ex1.wav]
+  set tcl_precision 5
+  set res [lindex [$s formant -windowtype 0] end]
+  $s destroy
+  set res
+} {151.71 1265.8 2097.1 2948.0 651.9 693.92 580.95 513.44}
+
+test formant-1.6 {formant command} {
+  set s [snack::sound snd -load ex1.wav]
+  set tcl_precision 5
+  set res [lindex [$s formant -windowtype rectangular] end]
+  $s destroy
+  set res
+} {151.71 1265.8 2097.1 2948.0 651.9 693.92 580.95 513.44}
+
+
+# cleanup
+::tcltest::cleanupTests
+return

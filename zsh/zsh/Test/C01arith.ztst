@@ -43,6 +43,16 @@
 0:precedence (arithmetic)
 >1591
 
+  fn() {
+    setopt localoptions c_precedences
+    integer i
+    (( i = 4 - - 3 * 7 << 1 & 7 ^ 1 | 16 ** 2 ))
+    print $i
+  }
+  fn
+0:precedence (arithmetic, with C_PRECEDENCES)
+>259
+
   print $(( 1 < 2 || 2 < 2 && 3 > 4 ))
 0:precedence (logical)
 >1
@@ -91,8 +101,13 @@
 >3.5
 >4
 
-  (( newarray[unsetvar]++ ))
-  (( newarray[unsetvar]++ ))
+  (( newarray[unsetvar] = 1 ))
+2:error using unset variable as index
+?(eval):1: newarray: assignment to invalid subscript range
+
+  integer setvar=1
+  (( newarray[setvar]++ ))
+  (( newarray[setvar]++ ))
   print ${(t)newarray} ${#newarray} ${newarray[1]}
 0:setting array elements in math context
 >array 1 2
@@ -147,4 +162,29 @@
 
   print $(( 37#z ))
 1:bases beyond 36 don't work
-?(eval):1: invalid base: 37
+?(eval):1: invalid base (must be 2 to 36 inclusive): 37
+
+  print $(( 3 + "fail" ))
+1:parse failure in arithmetic
+?(eval):1: bad math expression: operand expected at `"fail" '
+
+  alias 3=echo
+  print $(( 3 + "OK"); echo "Worked")
+0:not a parse failure because not arithmetic
+>+ OK Worked
+
+  fn() {
+    emulate -L zsh
+    print $(( [#16] 255 ))
+    print $(( [##16] 255 ))
+    setopt cbases
+    print $(( [#16] 255 ))
+    print $(( [##16] 255 ))
+  }
+  fn
+0:doubled # in base removes radix
+>16#FF
+>FF
+>0xFF
+>FF
+

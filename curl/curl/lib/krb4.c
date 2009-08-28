@@ -7,7 +7,7 @@
  *
  * Copyright (c) 1995, 1996, 1997, 1998, 1999 Kungliga Tekniska Högskolan
  * (Royal Institute of Technology, Stockholm, Sweden).
- * Copyright (c) 2004 - 2007 Daniel Stenberg
+ * Copyright (c) 2004 - 2008 Daniel Stenberg
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,7 +37,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: krb4.c,v 1.45 2007-01-03 23:04:43 bagder Exp $
+ * $Id: krb4.c,v 1.51 2008-11-16 12:26:50 bagder Exp $
  */
 
 #include "setup.h"
@@ -58,15 +58,12 @@
 #endif
 
 #include "urldata.h"
-#include "base64.h"
+#include "curl_base64.h"
 #include "ftp.h"
 #include "sendf.h"
 #include "krb4.h"
+#include "inet_ntop.h"
 #include "memory.h"
-
-#if defined(HAVE_INET_NTOA_R) && !defined(HAVE_INET_NTOA_R_DECL)
-#include "inet_ntoa_r.h"
-#endif
 
 /* The last #include file should be: */
 #include "memdebug.h"
@@ -97,7 +94,7 @@ strlcpy (char *dst, const char *src, size_t dst_sz)
        ++p, ++src, ++n)
     *p = *src;
   *p = '\0';
-  if (*src == '\0')
+  if(*src == '\0')
     return n;
   else
     return n + strlen (src);
@@ -151,17 +148,22 @@ krb4_overhead(void *app_data, int level, int len)
 }
 
 static int
-krb4_encode(void *app_data, void *from, int length, int level, void **to,
+krb4_encode(void *app_data, const void *from, int length, int level, void **to,
             struct connectdata *conn)
 {
   struct krb4_data *d = app_data;
   *to = malloc(length + 31);
+  if(!*to)
+    return -1;
   if(level == prot_safe)
-    return krb_mk_safe(from, *to, length, &d->key,
+    /* NOTE that the void* cast is safe, krb_mk_safe/priv don't modify the
+     * input buffer
+     */
+    return krb_mk_safe((void*)from, *to, length, &d->key,
                        (struct sockaddr_in *)LOCAL_ADDR,
                        (struct sockaddr_in *)REMOTE_ADDR);
   else if(level == prot_private)
-    return krb_mk_priv(from, *to, length, d->schedule, &d->key,
+    return krb_mk_priv((void*)from, *to, length, d->schedule, &d->key,
                        (struct sockaddr_in *)LOCAL_ADDR,
                        (struct sockaddr_in *)REMOTE_ADDR);
   else
@@ -228,24 +230,20 @@ krb4_auth(void *app_data, struct connectdata *conn)
   }
 
 #ifdef HAVE_KRB_GET_OUR_IP_FOR_REALM
-  if (krb_get_config_bool("nat_in_use")) {
+  if(krb_get_config_bool("nat_in_use")) {
     struct sockaddr_in *localaddr  = (struct sockaddr_in *)LOCAL_ADDR;
     struct in_addr natAddr;
 
-    if (krb_get_our_ip_for_realm(krb_realmofhost(host),
+    if(krb_get_our_ip_for_realm(krb_realmofhost(host),
                                  &natAddr) != KSUCCESS
         && krb_get_our_ip_for_realm(NULL, &natAddr) != KSUCCESS)
       infof(data, "Can't get address for realm %s\n",
                  krb_realmofhost(host));
     else {
-      if (natAddr.s_addr != localaddr->sin_addr.s_addr) {
-#ifdef HAVE_INET_NTOA_R
-        char ntoa_buf[64];
-        char *ip = (char *)inet_ntoa_r(natAddr, ntoa_buf, sizeof(ntoa_buf));
-#else
-        char *ip = (char *)inet_ntoa(natAddr);
-#endif
-        infof(data, "Using NAT IP address (%s) for kerberos 4\n", ip);
+      if(natAddr.s_addr != localaddr->sin_addr.s_addr) {
+        char addr_buf[128];
+        if(Curl_inet_ntop(AF_INET, natAddr, addr_buf, sizeof(addr_buf)))
+          infof(data, "Using NAT IP address (%s) for kerberos 4\n", addr_buf);
         localaddr->sin_addr = natAddr;
       }
     }
@@ -362,7 +360,7 @@ CURLcode Curl_krb_kauth(struct connectdata *conn)
     tmp=0;
   }
   if(!tmp || !ptr) {
-    Curl_failf(conn->data, "Failed to decode base64 in reply.\n");
+    Curl_failf(conn->data, "Failed to decode base64 in reply");
     Curl_set_command_prot(conn, save);
     return CURLE_FTP_WEIRD_SERVER_REPLY;
   }
@@ -387,7 +385,7 @@ CURLcode Curl_krb_kauth(struct connectdata *conn)
   des_pcbc_encrypt((void *)tkt.dat, (void *)tktcopy.dat,
                    tkt.length,
                    schedule, &key, DES_DECRYPT);
-  if (strcmp ((char*)tktcopy.dat + 8,
+  if(strcmp ((char*)tktcopy.dat + 8,
               KRB_TICKET_GRANTING_TICKET) != 0) {
     afs_string_to_key(passwd,
                       krb_realmofhost(conn->host.name),

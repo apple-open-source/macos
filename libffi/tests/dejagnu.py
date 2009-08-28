@@ -74,7 +74,7 @@ class DgTestCase (unittest.TestCase):
         "%s %s %s" % (compileOptionsBase, archOption, "-O1"), 
         "%s %s %s" % (compileOptionsBase, archOption, "-O2"), 
         "%s %s %s" % (compileOptionsBase, archOption, "-O3"), 
-        "%s %s %s" % (compileOptionsBase, archOption, "-Os"),  # Note: Apple-Only, see gcc man page for details
+        "%s %s %s" % (compileOptionsBase, archOption, "-Os"),
         "%s %s %s" % (compileOptionsBase, archOption, "-Oz"),  # Note: Apple-Only, see gcc man page for details
         )
     def runTest(self):

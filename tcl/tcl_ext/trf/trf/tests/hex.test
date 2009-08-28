@@ -1,0 +1,52 @@
+# -*- tcl -*-
+# Commands covered:  hex
+#
+# This file contains a collection of tests for one or more of the trf
+# commands of the TRF extension. Sourcing this file into Tcl runs the
+# tests and generates output for errors.  No output means no errors were
+# found.
+#
+# Copyright (c) 1995 Andreas Kupries (a.kupries@westend.com)
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# $Id: hex.test,v 1.2 1997/07/22 20:32:50 aku Exp $
+
+if {[string compare test [info procs test]] == 1} then {source defs}
+
+set text	{hello  @ hello@}
+set text_c	{hello  @ helloP}
+set text_hex	{68656C6C6F2020402068656C6C6F40}
+set text_hex_b	{68656c6c6f2020402068656c6c6f40}
+set text_hex_c	{68656c6c6f2020402068656c6c6f5}
+
+
+
+test hex-2.0 {hex, conversion errors} {
+    catch {hex -mode decode 68656c6c6f2020402068656c6c6k40} msg
+    set msg
+} {illegal character 'k' found in input}
+
+
+foreach {index string fullencode encode} {
+    1 {hello  @ hello@} 68656C6C6F2020402068656C6C6F40 68656C6C6F2020402068656C6C6F40
+    2 {hello  @ helloP} 68656C6C6F2020402068656C6C6F50 68656C6C6F2020402068656C6C6F5
+} {
+    test hex-3.$index {hex, encode string} {
+	hex -mode encode $string
+    } $fullencode	;#{}
+
+    test hex-4.$index {hex, decode string} {
+	hex -mode decode $encode
+    } $string	;#{}
+
+    # redundant tests following
+    test hex-5.$index {hex, encode/decode identity} {
+	hex -mode decode [hex -mode encode $string]
+    } $string	;#{}
+
+    test hex-6.$index {hex, decode/encode identity} {
+	hex -mode encode [hex -mode decode $fullencode]
+    } $fullencode	;#{}
+}

@@ -514,7 +514,11 @@ bfd_cache_lookup_worker (bfd *abfd)
       if (bfd_open_file (abfd) == NULL
 	  || abfd->where != (unsigned long) abfd->where
 	  || real_fseek ((FILE *) abfd->iostream, abfd->where, SEEK_SET) != 0)
-	abort ();
+        {
+          if (abfd->filename)
+            printf ("ERROR: File '%s' has disappeared!\n", abfd->filename);
+	  abort ();
+        }
     }
 
   return (FILE *) abfd->iostream;

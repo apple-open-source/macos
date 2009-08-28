@@ -1,6 +1,6 @@
 #! @PYTHON@
 #
-# Copyright (C) 1998,1999,2000,2001,2002 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2008 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -161,6 +161,11 @@ def main():
         # set the lock lifetime to 3 hours.  XXX is this reasonable???
         lock = LockFile(lockfile, lifetime=3*60*60)
         lock.lock()
+        # Try to open mbox before wiping old archive.
+        try:
+            fp = open(mbox)
+        except IOError, msg:
+            usage(3, _('Cannot open mbox file %(mbox)s: %(msg)s'))
         # Maybe wipe the old archives
         if wipe:
             if mlist.scrub_nondigest:
@@ -177,10 +182,6 @@ def main():
             shutil.rmtree(mlist.archive_dir())
             if mlist.scrub_nondigest and saved:
                 os.renames(savedir, atchdir)
-        try:
-            fp = open(mbox)
-        except IOError, msg:
-            usage(3, _('Cannot open mbox file %(mbox)s: %(msg)s'))
 
         archiver = HyperArchive(mlist)
         archiver.VERBOSE = verbose

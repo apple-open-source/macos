@@ -1,9 +1,9 @@
 .TH LDAP 3 "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man3/ldap.3,v 1.34.2.5 2006/01/03 22:16:04 kurt Exp $
-.\" Copyright 1998-2006 The OpenLDAP Foundation All Rights Reserved.
+.\" $OpenLDAP: pkg/ldap/doc/man/man3/ldap.3,v 1.40.2.4 2008/02/11 23:26:39 kurt Exp $
+.\" Copyright 1998-2008 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
-ldap - OpenLDAP Lightweight Directory Access Protocol API
+ldap \- OpenLDAP Lightweight Directory Access Protocol API
 .SH LIBRARY
 OpenLDAP LDAP (libldap, -lldap)
 .SH SYNOPSIS
@@ -14,12 +14,12 @@ OpenLDAP LDAP (libldap, -lldap)
 .fi
 .SH DESCRIPTION
 .LP
-The Lightweight Directory Access Protocol (LDAP) (RFC 3377) provides
+The Lightweight Directory Access Protocol (LDAP) (RFC 4510) provides
 access to X.500 directory services.  These services may be stand\-alone
 or part of a distributed directory service.  This client API supports
-LDAP over TCP (RFC2251), LDAP over TLS/SSL, and LDAP over IPC (UNIX
-domain sockets).  This API supports SASL (RFC2829) and Start TLS
-(RFC2830) as well as a number of protocol extensions.  This API is
+LDAP over TCP (RFC 4511), LDAP over TLS/SSL, and LDAP over IPC (UNIX
+domain sockets).  This API supports SASL (RFC 4513) and Start TLS
+(RFC 4513) as well as a number of protocol extensions.  This API is
 loosely based upon IETF/LDAPEXT C LDAP API draft specification, a (orphaned)
 work in progress.
 .LP
@@ -39,16 +39,21 @@ created using
 and set the protocol version to 3 by calling
 .BR ldap_set_option (3).
 The underlying session is established first operation is
-issued.  This would generally be a Start TLS or Bind operation.
+issued.  This would generally be a Start TLS or Bind operation,
+or a Search operation to read attributes of the Root DSE.
 A Start TLS operation is performed by calling
 .BR ldap_start_tls_s (3).
 A LDAP bind operation is performed by calling
 .BR ldap_sasl_bind (3)
-or one of its friends.  Subsequently, other operations are performed
+or one of its friends.
+A Search operation is performed by calling ldap_search_ext_s(3)
+or one of its friends.
+
+Subsequently, additional operations are performed
 by calling one of the synchronous or asynchronous routines (e.g.,
-.BR ldap_search_ext_s (3)
+.BR ldap_compare_ext_s (3)
 or
-.BR ldap_search_ext (3)
+.BR ldap_compare_ext (3)
 followed by
 .BR ldap_result (3)).
 Results returned from these routines are interpreted by calling the
@@ -60,9 +65,9 @@ Errors can be interpreted by calling
 .BR ldap_err2string (3).
 .SH LDAP versions
 This library supports version 3 of the Lightweight Directory Access
-Protocol (LDAPv3) as defined in RFC 3377.  It also supports a variant
+Protocol (LDAPv3) as defined in RFC 4510.  It also supports a variant
 of version 2 of LDAP as defined by U-Mich LDAP and, to some degree,
-RFC 1777.  Version 2 (all variants) should be viewed as obsolete.
+RFC 1777.  Version 2 (all variants) are considered obsolete.
 Version 3 should be used instead.
 .LP
 For backwards compatibility reasons, the library defaults to version 2.
@@ -76,17 +81,21 @@ All character string input/output is expected to be/is UTF\-8
 encoded Unicode (version 3.2). 
 .LP
 Distinguished names (DN) (and relative distinguished names (RDN) to
-be passed to the LDAP routines should conform to RFC 2253 UTF\-8
+be passed to the LDAP routines should conform to RFC 4514 UTF\-8
 string representation. 
 .LP
 Search filters to be passed to the search routines are to be
-constructed by hand and should conform to RFC 2254 UTF\-8
+constructed by hand and should conform to RFC 4515 UTF\-8
 string representation.
 .LP
-LDAP URL are to be passed to routines are expected to conform
-to RFC 2255 syntax.  The
+LDAP URLs to be passed to routines are expected to conform
+to RFC 4516 format.  The
 .BR ldap_url (3)
 routines can be used to work with LDAP URLs.
+.LP
+LDAP controls to be passed to routines can be manipulated using the
+.BR ldap_controls (3)
+routines.
 .SH DISPLAYING RESULTS
 Results obtained from the search routines can be output by hand,
 by calling
@@ -107,6 +116,10 @@ Also provided are various utility routines.  The
 .BR ldap_sort (3)
 routines are used to sort the entries and values returned via
 the ldap search routines. 
+.SH DEPRECATED INTERFACES
+A number of interfaces are now considered deprecated.  For instance,
+ldap_add(3) is deprecated in favor of ldap_add_ext(3).
+.so Deprecated
 .SH BER LIBRARY
 Also included in the distribution is a set of lightweight Basic
 Encoding Rules routines.  These routines are used by the LDAP library
@@ -174,6 +187,12 @@ list of LDAP errors and their meanings
 .TP
 .SM ldap_err2string(3)
 convert LDAP error indication to a string
+.TP
+.SM ldap_extended_operation(3)
+asynchronously perform an arbitrary extended operation
+.TP
+.SM ldap_extended_operation_s(3)
+synchronously perform an arbitrary extended operation
 .TP
 .SM ldap_first_attribute(3)
 return first attribute name in an entry
@@ -251,10 +270,7 @@ case insensitive string comparison
 .BR slapd (8),
 .BR draft-ietf-ldapext-ldap-c-api-xx.txt \ <http://www.ietf.org>
 .SH ACKNOWLEDGEMENTS
-.B OpenLDAP
-is developed and maintained by The OpenLDAP Project (http://www.openldap.org/).
-.B OpenLDAP
-is derived from University of Michigan LDAP 3.3 Release.  
+.so ../Project
 .LP
 These API manual pages are loosely based upon descriptions provided
 in the IETF/LDAPEXT C LDAP API Internet Draft, a (orphaned) work

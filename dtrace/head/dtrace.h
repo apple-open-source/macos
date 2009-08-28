@@ -2,9 +2,8 @@
  * CDDL HEADER START
  *
  * The contents of this file are subject to the terms of the
- * Common Development and Distribution License, Version 1.0 only
- * (the "License").  You may not use this file except in compliance
- * with the License.
+ * Common Development and Distribution License (the "License").
+ * You may not use this file except in compliance with the License.
  *
  * You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
  * or http://www.opensolaris.org/os/licensing.
@@ -21,14 +20,14 @@
  */
 
 /*
- * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
 #ifndef	_DTRACE_H
 #define	_DTRACE_H
 
-#pragma ident	"@(#)dtrace.h	1.16	06/02/08 SMI"
+#pragma ident	"@(#)dtrace.h	1.17	07/11/12 SMI"
 
 #if !defined(__APPLE__)
 #include <sys/dtrace.h>
@@ -36,37 +35,63 @@
 #include <stdio.h>
 #include <gelf.h>
 #else /* is Apple Mac OS X */
+
+#if defined(__LP64__)
+#if !defined(_LP64)
+#define _LP64 /* Solaris vs. Darwin */
+#endif
+#else
+#if !defined(_ILP32)
+#define _ILP32 /* Solaris vs. Darwin */
+#endif
+#endif
+
 #include <mach/machine.h>
 #include <sys/dtrace.h>
 #include <stdarg.h>
 #include <stdio.h>
 
-/* In lieu of gelf.h (ELF is not supported on Darwin) */
+/*
+ * In lieu of gelf.h. 
+ * dtrace.h is a publicly exported header.
+ * It makes glancing reference to some GElf types.
+ * Rather than haul in all the undelying Elf typing machinery, we'll
+ * #define the GElf stuff that's referenced here onto suitable simple types.
+ */
 #define GElf_Addr	__GElf_Addr
 #define GElf_Xword	__GElf_Xword
+#define GElf_Sxword	__GElf_Sxword
 #define GElf_Half	__GElf_Half
 #define GElf_Word	__GElf_Word
 #define GElf_Sym	__GElf_Sym
 
+/*
+ * GElf_Addr and GElf_Xword must accomodate 64-bit addresses, since a 32-bit ctf tool
+ * may manipulate a 64-bit target. 
+ */
 #if defined(_LP64)
 typedef unsigned long		GElf_Addr;
 typedef	unsigned long		GElf_Xword;
-#elif defined(_LONGLONG_TYPE)
+typedef long			GElf_Sxword;
+#else
 typedef unsigned long long	GElf_Addr;
 typedef	unsigned long long	GElf_Xword;
+typedef long long		GElf_Sxword;
 #endif
 
 typedef unsigned short		GElf_Half;
 typedef	unsigned int		GElf_Word;
 
 typedef struct {
-	GElf_Word	st_name;
+	GElf_Sxword	st_name;
 	unsigned char	st_info;	/* bind, type: ELF_64_ST_... */
 	unsigned char	st_other;
 	GElf_Half	st_shndx;	/* SHN_... */
 	GElf_Addr	st_value;
 	GElf_Xword	st_size;
 } GElf_Sym;
+
+extern char* demangleSymbolCString(const char*);
 
 #endif /* __APPLE__ */
 
@@ -149,7 +174,8 @@ typedef struct dtrace_proginfo {
 #define	DTRACE_C_ARGREF	0x0200	/* Do not require all macro args to be used */
 #define	DTRACE_C_DEFARG	0x0800	/* Use 0/"" as value for unspecified args */
 #define	DTRACE_C_NOLIBS	0x1000	/* Do not process D system libraries */
-#define	DTRACE_C_MASK	0x1bff	/* mask of all valid flags to dtrace_*compile */
+#define	DTRACE_C_CTL	0x2000	/* Only process control directives */
+#define	DTRACE_C_MASK	0x3bff	/* mask of all valid flags to dtrace_*compile */
 
 extern dtrace_prog_t *dtrace_program_strcompile(dtrace_hdl_t *,
     const char *, dtrace_probespec_t, uint_t, int, char *const []);
@@ -598,8 +624,10 @@ extern int dtrace_provider_modules(dtrace_hdl_t *, const char **, int);
 
 extern const char *const _dtrace_version;
 extern int _dtrace_debug;
+#if defined(__APPLE__)
 extern int _dtrace_scanalzyer;
 extern int _dtrace_mangled;
+#endif /* __APPLE__ */
 	
 #ifdef	__cplusplus
 }
@@ -608,6 +636,7 @@ extern int _dtrace_mangled;
 #if defined(__APPLE__)
 #undef GElf_Addr
 #undef GElf_Xword
+#undef GElf_Sxword
 #undef GElf_Half
 #undef GElf_Word
 #undef GElf_Sym

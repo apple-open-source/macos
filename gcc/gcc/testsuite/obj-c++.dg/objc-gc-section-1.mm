@@ -3,7 +3,8 @@
    with flag of 0 */
 
 /* { dg-do compile } */
-/* { dg-skip-if "" { *-*-darwin* } { "-m64" } { "" } } */
+/* { dg-require-effective-target ilp32 } */
+/* { dg-skip-if "" { arm*-*-darwin* } { "*" } { "" } } */
 
 @interface INTF
 @end

@@ -321,7 +321,7 @@ complaints_show_value (struct ui_file *file, int from_tty,
 void
 _initialize_complaints (void)
 {
-  add_setshow_zinteger_cmd ("complaints", class_support, &stop_whining, _("\
+  add_setshow_uinteger_cmd ("complaints", class_support, &stop_whining, _("\
 Set max number of complaints about incorrect symbols."), _("\
 Show max number of complaints about incorrect symbols."), NULL,
 			    NULL, complaints_show_value,

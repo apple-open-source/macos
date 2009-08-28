@@ -201,8 +201,9 @@ darwin_kernel_detach (char *args, int from_tty)
 }
 
 static int
-darwin_kernel_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len, int write,
-    struct mem_attrib *attrib, struct target_ops *target)
+darwin_kernel_xfer_memory (CORE_ADDR memaddr, gdb_byte *myaddr, int len, 
+                          int write, struct mem_attrib *attrib, 
+                          struct target_ops *target)
 {
 	int ret = 0;
 	if (write)
@@ -223,14 +224,14 @@ darwin_kernel_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len, int write,
 }
 
 static int
-darwin_kernel_insert_breakpoint (CORE_ADDR addr, char *contents_cache)
+darwin_kernel_insert_breakpoint (CORE_ADDR addr, gdb_byte *contents_cache)
 {
 	darwin_kernel_logger(DARWIN_KERNEL_LOG_ERROR, "", "Cannot set breakpoints for live kernel\n");
 	return (-1);
 }
 
 static int
-darwin_kernel_remove_breakpoint (CORE_ADDR addr, char *contents_cache)
+darwin_kernel_remove_breakpoint (CORE_ADDR addr, gdb_byte *contents_cache)
 {
 	darwin_kernel_logger(DARWIN_KERNEL_LOG_ERROR, "", "Cannot remove breakpoints for live kernel\n");
 	return (-1);
@@ -255,7 +256,8 @@ darwin_kernel_load (char *args, int from_tty)
 }
 
 static void
-darwin_kernel_create_inferior (char *execfile, char *args, char **env)
+darwin_kernel_create_inferior (char *execfile, char *args, char **env, 
+                               int fromtty)
 {
 	error ("Unsupported operation darwin_kernel_create_inferior\n");
 }

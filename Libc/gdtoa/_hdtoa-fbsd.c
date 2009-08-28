@@ -126,12 +126,12 @@ __hdtoa(double d, const char *xdigs, int ndigits, int *decpt, int *sign,
 	static const int sigfigs = (DBL_MANT_DIG + 3) / 4;
 	union IEEEd2bits u;
 	char *s, *s0;
-	int bufsize;
+	int bufsize, f;
 
 	u.d = d;
 	*sign = u.bits.sign;
 
-	switch (fpclassify(d)) {
+	switch (f = fpclassify(d)) {
 	case FP_NORMAL:
 		*decpt = u.bits.exp - DBL_ADJ;
 		break;
@@ -149,7 +149,7 @@ __hdtoa(double d, const char *xdigs, int ndigits, int *decpt, int *sign,
 		*decpt = INT_MAX;
 		return (nrv_alloc(NANSTR, rve, sizeof(NANSTR) - 1));
 	default:
-		abort();
+		LIBC_ABORT("fpclassify returned %d", f);
 	}
 
 	/* FP_NORMAL or FP_SUBNORMAL */
@@ -223,7 +223,7 @@ __hldtoa(long double e, const char *xdigs, int ndigits, int *decpt, int *sign,
 	static const int sigfigs = (LDBL_MANT_DIG + 3) / 4;
 	union IEEEl2bits u;
 	char *s, *s0;
-	int bufsize;
+	int bufsize, f;
 #ifdef LDBL_HEAD_TAIL_PAIR
 	uint32_t bits[4];
 	int i, pos;
@@ -232,7 +232,7 @@ __hldtoa(long double e, const char *xdigs, int ndigits, int *decpt, int *sign,
 	u.e = e;
 	*sign = u.bits.sign;
 
-	switch (fpclassify(e)) {
+	switch (f = fpclassify(e)) {
 	case FP_NORMAL:
 	case FP_SUPERNORMAL:
 		*decpt = u.bits.exp - LDBL_ADJ;
@@ -251,7 +251,7 @@ __hldtoa(long double e, const char *xdigs, int ndigits, int *decpt, int *sign,
 		*decpt = INT_MAX;
 		return (nrv_alloc(NANSTR, rve, sizeof(NANSTR) - 1));
 	default:
-		abort();
+		LIBC_ABORT("fpclassify returned %d", f);
 	}
 
 	/* FP_NORMAL or FP_SUBNORMAL */
@@ -277,7 +277,7 @@ __hldtoa(long double e, const char *xdigs, int ndigits, int *decpt, int *sign,
 	for (s = s0 + bufsize - 1; s > s0 + sigfigs - 1; s--)
 		*s = 0;
 #ifdef LDBL_HEAD_TAIL_PAIR
-	_ldbl2array32dd(u, bits);
+	*decpt -= _ldbl2array32dd(u, bits);
 	i = 0;
 	pos = 8;
 	for (; s > s0; s--) {

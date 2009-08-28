@@ -84,7 +84,7 @@ void prop_check(int fd, xar_t x, xar_file_t f) {
 	off_t offset = 0, length = 0;
 	const char *origcsum = NULL;
 	
-	i = xar_iter_new(x);
+	i = xar_iter_new();
 	if( !i ) {
 		fprintf(stderr, "Error creating new prop iter\n");
 		exit(1);

@@ -21,12 +21,14 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+
 #ifndef _IOKIT_IOUSBMASSSTORAGEUFISUBCLASS_H
 #define _IOKIT_IOUSBMASSSTORAGEUFISUBCLASS_H
 
 // This class' header file
 #include <IOKit/usb/IOUSBMassStorageClass.h>
 #include <IOKit/scsi/IOSCSIPrimaryCommandsDevice.h>
+
 
 #pragma mark -
 #pragma mark IOUSBMassStorageUFIDevice declaration
@@ -44,7 +46,7 @@ protected:
 	{
 	};
     IOUSBMassStorageUFIDeviceExpansionData *fIOUSBMassStorageUFIDeviceReserved;
-		
+
 	// ---- Medium Characteristics ----
 	bool				fMediumPresent;
 
@@ -98,6 +100,7 @@ protected:
 	
 	// ---- Methods used for power managment ----
 	virtual UInt32		GetInitialPowerState ( void );
+	virtual void 		InitializePowerManagement ( IOService * provider );
 	virtual void		HandlePowerChange ( void );
 	virtual void		HandleCheckPowerState ( void );
 	virtual void		TicklePowerManager ( void );
@@ -134,7 +137,7 @@ protected:
 							void * 					clientData );
 
 public:
-		
+											
 	static 	void		sProcessPoll( void * pdtDriver, void * refCon );
 
 	// Interface to the UFI Storage Services Driver
@@ -338,6 +341,7 @@ protected:
 
 #pragma mark -
 #pragma mark IOUSBMassStorageUFISubclass declaration
+
 
 class IOUSBMassStorageUFISubclass : public IOUSBMassStorageClass
 {

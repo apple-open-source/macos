@@ -3,24 +3,27 @@
 	<key>OpenSourceProject</key>
 	<string>ntp</string>
 	<key>OpenSourceVersion</key>
-	<string>4.2.2</string>
+	<string>4.2.4p4</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.ntp.org</string>
 	<key>OpenSourceURL</key>
-	<string>http://www.eecis.udel.edu/~ntp/ntp_spool/ntp4/ntp-4.2/ntp-4.2.2.tar.gz</string>
+	<string>http://www.eecis.udel.edu/~ntp/ntp_spool/ntp4/ntp-4.2/ntp-4.2.4p4.tar.gz</string>
 	<key>OpenSourceSHA1</key>
-	<string>a3e9652a1d9e288e2c0d88d1876de67ca4d608fb</string>
+	<string>886a7c6819c148cc1f832d43a3446526488b1b5e</string>
 	<key>OpenSourceImportDate</key>
-	<string>2006-06-06</string>
+	<string>2007-10-23</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>Build fixes</string>
-		<string>-c configpath option for ntpdate</string>
-		<string>rdar://2620001 disable driftfile writes when saving energy</string>
-		<string>Update interfaces when network changes</string>
 		<string>Map getaddrinfo EAI_NONAME to EAI_AGAIN</string>
-		<string>Reduce logging of network errors to once per unique errno</string>
 		<string>Fix sprintf overflow in ntpq.c</string>
+		<string>Reduce logging of network errors to once per unique errno</string>
+		<string>Disable use of SCM_TIMESTAMP</string>
+		<string>Use DNS txt record for configuration options</string>	
+		<string>Don't bind ipv6 if interface is still tentative</string>
+		<string>Instant off and reduced disk i/o</string>
+		<string>Defer first log till after log level is set</string>
+		<string>Force a timesync after each machine wakeup</string>
 		<string>fix for CVE-2009-0021</string>
 	</array>
 	<key>OpenSourceLicenseFile</key>

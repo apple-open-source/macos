@@ -87,8 +87,8 @@
 # The appropriate byte order marker for UTF-16 is written to the start of the file.
 # Note that the list of errors must be numerically unique across all input files, 
 # or the strings file will be invalid. Comments in "Style B" may span multiple lines.
-# C++ style comments are not supported. Any single or double quote in a comment is
-# converted to a "-" in the output.
+# C++ style comments are not supported. Double quotes in a comment are hardened with
+# "\" in the output.
 #
 # The English versions of the error messages can be seen with:
 #
@@ -280,14 +280,6 @@ void writeStrings(const char *stringsFileName)
 	NSData *rawstrings = [fh readDataToEndOfFile];
 	UInt32 encoding = CFStringConvertEncodingToNSStringEncoding (kCFStringEncodingUTF8);
 	NSString *instring = [[NSString alloc] initWithData:rawstrings encoding:(NSStringEncoding)encoding];
-	
-	/* temporary fix to avoid relocalization of two specific strings which have already been fixed in header files */
-	if (instring)
-	{
-		instring = [instring stringByReplacingOccurrencesOfString:@"\\\"-2147408896\\\" = \\\"Host name mismatch\\\"" withString:@"\\\"-2147408896\\\" = \\\"mismatch between Cert-s common name and app-specified host name\\\""];
-		instring = [instring stringByReplacingOccurrencesOfString:@"\\\"-2147408883\\\" = \\\"Cannot find appropriate CRL\\\"" withString:@"\\\"-2147408883\\\" = \\\"Can-t find appropriate CRL\\\""];
-	}
-
 
 	if (instring)
 	{
@@ -319,7 +311,7 @@ sub cleanupComment
 		$comment =~ s/\s\s+/ /g; 	# Squeeze multiple spaces to one
 		$comment =~ s/^\s+//;		# Drop leading whitespace
 		$comment =~ s/\s+$//;		# Drop trailing whitespace
-		$comment =~ s/[\'\"]/-/g; 	# Replace quotes with -
+		$comment =~ s/[\"]/\\\\\\"/g; 	# Replace double quotes with \" (backslash is sextupled to make it through regex and printf)
 	}
 #	print "B:",$comment,"\n";
 	$comment;

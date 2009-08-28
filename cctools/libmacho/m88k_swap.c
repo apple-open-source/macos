@@ -85,7 +85,7 @@ enum NXByteOrder target_byte_sex)
 		unsigned	xmod:BIT_WIDTH(16);
 		unsigned	:BITS_WIDTH(31,17);
 	    } fields;
-	    unsigned long word;
+	    uint32_t word;
 	} u;
     } ssr;
     struct swapped_m88k_fpcr {
@@ -100,7 +100,7 @@ enum NXByteOrder target_byte_sex)
 		m88k_fpcr_rm_t	rm:BITS_WIDTH(15,14);
 		unsigned	:BITS_WIDTH(31,16);
 	    } fields;
-	    unsigned long word;
+	    uint32_t word;
 	} u;
     } scr;
 
@@ -284,7 +284,7 @@ swap_m88110_thread_state_impl_t(
 m88110_thread_state_impl_t *spu,
 enum NXByteOrder target_byte_sex)
 {
-    unsigned long i;
+    uint32_t i;
     enum NXByteOrder host_byte_sex;
 
     struct swapped_m88110_bp_ctrl {
@@ -297,7 +297,7 @@ enum NXByteOrder target_byte_sex)
 		unsigned	rw:BIT_WIDTH(28);
 		unsigned	:BITS_WIDTH(31,29);
 	    } fields;
-	    unsigned long word;
+	    uint32_t word;
 	} u;
     } sbpc;
 
@@ -318,7 +318,7 @@ enum NXByteOrder target_byte_sex)
 		unsigned	le:BIT_WIDTH(30);
 		unsigned	supr:BIT_WIDTH(31);
 	    } fields;
-	    unsigned long word;
+	    uint32_t word;
 	} u;
     } spsr;
 
@@ -338,7 +338,7 @@ enum NXByteOrder target_byte_sex)
 		m88110_iresult_size_t	iresult_size:BITS_WIDTH(15,14);
 		unsigned	:BITS_WIDTH(31,16);
 	    } fields;
-	    unsigned long word;
+	    uint32_t word;
 	} u;
     } sfps;
 

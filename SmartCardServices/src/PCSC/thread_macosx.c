@@ -68,18 +68,23 @@ int SYS_ThreadCreate(PCSCLITE_THREAD_T * pthThread, int attributes,
 	PCSCLITE_THREAD_FUNCTION(pvFunction), LPVOID pvArg)
 {
 	pthread_attr_t attr;
-
+	int rx;
+	
 	if (0 != pthread_attr_init(&attr))
 		return 0;
 
-	if (0 != pthread_attr_setdetachstate(&attr,
-		attributes & THREAD_ATTR_DETACHED ? PTHREAD_CREATE_DETACHED : PTHREAD_CREATE_JOINABLE))
-		return 0;
-
-	if (0 == pthread_create(pthThread, &attr, pvFunction, pvArg))
-		return 1;
-	else
-		return 0;
+	if (attributes & THREAD_ATTR_DETACHED)
+		if (0 != pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED))
+		{
+			pthread_attr_destroy(&attr);
+			return 0;
+		}
+	
+	rx = pthread_create(pthThread, &attr, pvFunction, pvArg);
+	
+	pthread_attr_destroy(&attr);
+	
+	return (0 == rx);	// return 1 if success, 0 otherwise
 }
 
 int SYS_ThreadCancel(PCSCLITE_THREAD_T * pthThread)

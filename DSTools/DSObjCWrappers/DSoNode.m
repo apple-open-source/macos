@@ -468,7 +468,7 @@
 														  authOnly: (BOOL)inAuthOnly
 {
 	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-	size_t              ulCurrentLength = 0;
+	UInt32              ulCurrentLength = 0;
 	DSoBuffer		   *dbAuth          = nil;
 	DSoBuffer		   *dbStep          = [[DSoBuffer alloc] initWithDir:mDirectory bufferSize:2048] ;
 	DSoDataNode		   *dnAuthType      = [(DSoDataNode*)[DSoDataNode alloc] initWithDir:mDirectory cString:inAuthType] ;
@@ -523,7 +523,7 @@
 					   responseBufferItems: (NSArray**)outBufferItems
 {
 	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-	size_t			ulCurrentLength = 0;
+	UInt32          ulCurrentLength = 0;
 	DSoBuffer		*dbAuth = nil;
 	DSoBuffer		*dbStep = [[DSoBuffer alloc] initWithDir:mDirectory bufferSize:2048] ;
 	DSoDataNode		*dnAuthType = [(DSoDataNode*)[DSoDataNode alloc] initWithDir:mDirectory cString:inAuthType] ;
@@ -574,14 +574,14 @@
 		buffLen = ([dbStep dsDataBuffer])->fBufferLength;
 		while ( (offset < buffLen) && (tResult == eDSNoErr) )
 		{
-			if (offset + sizeof( unsigned long ) > buffLen)
+			if (offset + sizeof(ulCurrentLength) > buffLen)
 			{
 				tResult = eDSInvalidBuffFormat;
 				break;
 			}
-			memcpy( &ulCurrentLength, cpBuff, sizeof( unsigned long ) );
-			cpBuff += sizeof( unsigned long );
-			offset += sizeof( unsigned long );
+			memcpy( &ulCurrentLength, cpBuff, sizeof(ulCurrentLength) );
+			cpBuff += sizeof( ulCurrentLength );
+			offset += sizeof( ulCurrentLength );
 			if (ulCurrentLength + offset > buffLen)
 			{
 				tResult = eDSInvalidBuffFormat;
@@ -688,7 +688,7 @@
 	outputData:(NSMutableData*)outputData
 {
 	tDirStatus dsStatus = eDSNoErr;
-	unsigned long itemSize = 0;
+	UInt32 itemSize = 0;
 	NSMutableData* inputData = [NSMutableData new];
 	NSEnumerator* itemEnum = [items objectEnumerator];
 	NSObject* item = nil;
@@ -729,7 +729,7 @@
 	withAuthorization:(void*)authExternalForm
 	sizeCall:(int)sizeNumber
 {
-	CFIndex bufferSize = 0;
+	UInt32 bufferSize = 0;
 	NSData* inputData = [[NSData alloc] initWithBytes:authExternalForm
 							length:sizeof(AuthorizationExternalForm)];
 	NSMutableData* sizeData = [NSMutableData new];
@@ -1073,12 +1073,12 @@
 				else
 					[DSoException raiseWithStatus:status];
 			}
-		} while ((status == eDSBufferTooSmall) || (status == eDSNoErr && context != nil));
+		} while ((status == eDSBufferTooSmall) || (status == eDSNoErr && context != 0));
 		
 	} @catch( NSException *exception ) {
         @throw;
     } @finally {
-		if (context != nil)
+		if (context != 0)
         {
 			dsReleaseContinueData(mNodeRef, context);
             context = 0;

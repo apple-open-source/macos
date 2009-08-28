@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,12 +40,19 @@
 #include <IOKit/scsi/SCSITaskDefinition.h>
 
 
+//-----------------------------------------------------------------------------
+//	Class Declarations
+//-----------------------------------------------------------------------------
+
 class SCSIParallelTask: public IODMACommand
 {
 	
 	OSDeclareDefaultStructors ( SCSIParallelTask )
 	
 public:
+	
+	queue_chain_t		fResendTaskChain;
+	queue_chain_t		fTimeoutChain;
 	
 	static SCSIParallelTask *	Create ( UInt32 sizeOfHBAData, UInt64 alignmentMask ); 
 	
@@ -54,8 +61,8 @@ public:
 	
 	void	ResetForNewTask ( void );
 
-	bool					SetSCSITaskIdentifier ( SCSITaskIdentifier scsiRequest );
-	SCSITaskIdentifier		GetSCSITaskIdentifier ( void );
+	bool				SetSCSITaskIdentifier ( SCSITaskIdentifier scsiRequest );
+	SCSITaskIdentifier	GetSCSITaskIdentifier ( void );
 	
 	bool					SetTargetIdentifier ( SCSITargetIdentifier theTargetID );
 	SCSITargetIdentifier	GetTargetIdentifier ( void );
@@ -86,14 +93,14 @@ public:
 	bool	SetRealizedDataTransferCount ( UInt64 realizedTransferCountInBytes );
 	void	IncrementRealizedDataTransferCount ( UInt64 realizedTransferCountInBytes );
 	
-	IOMemoryDescriptor * GetDataBuffer ( void );
-	UInt64	GetDataBufferOffset ( void );
-	UInt32	GetTimeoutDuration ( void );
-    bool	SetAutoSenseData ( SCSI_Sense_Data * senseData, UInt8 senseDataSize );
- 	bool    GetAutoSenseData ( SCSI_Sense_Data * receivingBuffer, UInt8 senseDataSize );
- 	UInt8	GetAutoSenseDataSize ( void );	
-	UInt64	GetAutosenseRealizedDataCount ( void );
-
+	IOMemoryDescriptor *	GetDataBuffer ( void );
+	UInt64					GetDataBufferOffset ( void );
+	UInt32					GetTimeoutDuration ( void );
+	bool					SetAutoSenseData ( SCSI_Sense_Data * senseData, UInt8 senseDataSize );
+	bool					GetAutoSenseData ( SCSI_Sense_Data * receivingBuffer, UInt8 senseDataSize );
+	UInt8					GetAutoSenseDataSize ( void );	
+	UInt64					GetAutosenseRealizedDataCount ( void );
+	
 	void	SetSCSIParallelFeatureNegotiation ( SCSIParallelFeature			requestedFeature,
 												SCSIParallelFeatureRequest	newRequest );
 
@@ -104,32 +111,17 @@ public:
 
 	SCSIParallelFeatureResult	GetSCSIParallelFeatureNegotiationResult ( SCSIParallelFeature requestedFeature );
 	UInt64	GetSCSIParallelFeatureNegotiationResultCount ( void );
-
+	
 	void	SetControllerTaskIdentifier ( UInt64 newIdentifier );
 	UInt64	GetControllerTaskIdentifier ( void );
-
+	
 	UInt32	GetHBADataSize ( void );
 	void *	GetHBADataPointer ( void );
 	IOMemoryDescriptor *	GetHBADataDescriptor ( void );
-    
-	SCSIParallelTask *	GetPreviousTaskInList ( void );
-	void	SetPreviousTaskInList ( SCSIParallelTask * newPrev );
-
-	SCSIParallelTask *	GetNextTaskInList ( void );
-	void	SetNextTaskInList( SCSIParallelTask * newNext );
-
-	SCSIParallelTask *	GetPreviousResendTaskInList ( void );
-	void	SetPreviousResendTaskInList ( SCSIParallelTask * newPrev );
-
-	SCSIParallelTask *	GetNextResendTaskInList ( void );
-	void	SetNextResendTaskInList ( SCSIParallelTask * newNext );
-
-	SCSIParallelTask *	GetNextTimeoutTaskInList ( void );
-	void	SetNextTimeoutTaskInList ( SCSIParallelTask * newNext );
-
+    	
 	AbsoluteTime	GetTimeoutDeadline ( void );
 	void			SetTimeoutDeadline ( AbsoluteTime time );
-
+	
 	inline IOReturn SetBuffer ( IOMemoryDescriptor * buffer )
 	{
 		return setMemoryDescriptor ( buffer, false );
@@ -175,19 +167,8 @@ private:
 	// Local storage for data that needs to be copied back to the client's SCSI Task
 	UInt64						fRealizedTransferCount;
 	
-	// Member variables to maintain the previous and next element in the 
-	// outstanding task list.
-	SCSIParallelTask *			fPreviousParallelTask;
-	SCSIParallelTask *			fNextParallelTask;
-	
-	// Member variables to maintain the previous and next element in the 
-	// resend task list.
-	SCSIParallelTask *			fPreviousResendTask;
-	SCSIParallelTask *			fNextResendTask;
-
 	// Member variables to maintain the next element in the 
 	// timeout list and the timeout deadline.
-	SCSIParallelTask *			fNextTimeoutTask;
 	AbsoluteTime				fTimeoutDeadline;
 	
 };

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,7 +23,6 @@
 
 #include <sys/types.h>
 #include <CoreFoundation/CoreFoundation.h>
-#include <DiskArbitration/DiskArbitration.h>
 #include <DiskArbitration/DiskArbitrationPrivate.h>
 #include <IOKit/IOKitLib.h>
 
@@ -1453,11 +1452,6 @@ findDiskInit()
 	return (0);
 }
 
-static void __rendezvous( void * context )
-{
-    _exit( 0 );
-}
-
 int
 main(int argc, char * argv[])
 {
@@ -1518,22 +1512,5 @@ main(int argc, char * argv[])
 		exit(0);
     }
 
-    {
-        DASessionRef session;
-
-        session = DASessionCreate( kCFAllocatorDefault );
-
-        if ( session )
-        {
-            DASessionScheduleWithRunLoop( session, CFRunLoopGetCurrent( ), kCFRunLoopDefaultMode );
-
-            DARegisterIdleCallback( session, __rendezvous, NULL );
-
-            CFRunLoopRun( );
-        }
-    }
-	
-	/* Not reached */
-	
 	exit(0);
 }

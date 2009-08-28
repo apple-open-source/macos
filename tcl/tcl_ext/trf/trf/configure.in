@@ -1,0 +1,348 @@
+dnl
+dnl Process this file with autoconf to produce a configure script.
+dnl
+AC_REVISION($Id: configure.in,v 1.15 2008/12/11 19:04:25 andreas_kupries Exp $)
+
+AC_INIT([Trf],[2.1.3])
+
+TEA_INIT([3.7])
+
+AC_CONFIG_AUX_DIR(tclconfig)
+
+#--------------------------------------------------------------------
+# Configure script for package 'trf', as distributed at November 20, 2001.
+# TEA compliant.
+#--------------------------------------------------------------------
+
+#--------------------------------------------------------------------
+# Load the tclConfig.sh file
+#--------------------------------------------------------------------
+
+TEA_PATH_TCLCONFIG
+TEA_LOAD_TCLCONFIG
+
+TEA_PATH_CONFIG_X(zlibtcl,optional)
+if test $HAVE_zlibtcl_PACKAGE -gt 0 ; then
+    TEA_LOAD_CONFIG(zlibtcl)
+
+    #--------------------------------------------------------------------
+    # Compute an absolute path to the src directory of 'zlibtcl'. We
+    # need the special 'zlib.h' header which routes through
+    # 'zlibtcl.h' to splice the stub definitions into the unchanged
+    # sources of png.
+    #--------------------------------------------------------------------
+
+    case $zlibtcl_SRC_DIR in
+    /*)	zlibtcl_SRC_PATH=$zlibtcl_SRC_DIR
+	;;
+    *)	# SRC_DIR relative, splice with BUILD_PATH
+	zlibtcl_SRC_PATH="`dirname $zlibtcl_BUILD_STUB_LIB_PATH`/$zlibtcl_SRC_DIR"
+    esac
+
+    zlibtcl_BUILD_PATH="`dirname $zlibtcl_BUILD_STUB_LIB_PATH`"
+
+    if test "${TEA_PLATFORM}" = "windows" ; then
+	zlibtcl_SRC_PATH="`$CYGPATH $zlibtcl_SRC_PATH`"
+	zlibtcl_BUILD_PATH="`$CYGPATH $zlibtcl_BUILD_PATH`"
+    fi
+fi
+
+AC_SUBST(zlibtcl_SRC_PATH)
+AC_SUBST(zlibtcl_BUILD_PATH)
+AC_SUBST(zlibtcl_VERSION)
+
+#-----------------------------------------------------------------------
+# Handle the --prefix=... option by defaulting to what Tcl gave.
+# Must be called after TEA_LOAD_TCLCONFIG and before TEA_SETUP_COMPILER.
+#-----------------------------------------------------------------------
+
+TEA_PREFIX
+
+#-----------------------------------------------------------------------
+# Standard compiler checks.
+# This sets up CC by using the CC env var, or looks for gcc otherwise.
+# This also calls AC_PROG_CC, AC_PROG_INSTALL and a few others to create
+# the basic setup necessary to compile executables.
+#-----------------------------------------------------------------------
+
+TEA_SETUP_COMPILER
+
+#-----------------------------------------------------------------------
+# Specify the C source files to compile in TEA_ADD_SOURCES,
+# public headers that need to be installed in TEA_ADD_HEADERS,
+# stub library C source files to compile in TEA_ADD_STUB_SOURCES,
+# and runtime Tcl library files in TEA_ADD_TCL_SOURCES.
+# This defines PKG(_STUB)_SOURCES, PKG(_STUB)_OBJECTS, PKG_HEADERS
+# and PKG_TCL_SOURCES.
+#-----------------------------------------------------------------------
+
+TEA_ADD_SOURCES([zlib.c bz2lib.c loadman.c init.c registry.c unstack.c load.c crypt.c])
+
+TEA_ADD_SOURCES([convert.c util.c ref_opt.c])
+TEA_ADD_SOURCES([bincode.c hexcode.c octcode.c])
+TEA_ADD_SOURCES([uucode.c b64code.c asc85code.c])
+TEA_ADD_SOURCES([otpcode.c qpcode.c reflect.c])
+
+TEA_ADD_SOURCES([dig_opt.c digest.c])
+TEA_ADD_SOURCES([crc.c crc_zlib.c adler.c])
+TEA_ADD_SOURCES([md5dig.c haval.c sha.c md2.c sha1.c])
+TEA_ADD_SOURCES([rmd160.c rmd128.c])
+TEA_ADD_SOURCES([otpmd5.c otpsha1.c])
+
+TEA_ADD_SOURCES([rs_ecc.c])
+TEA_ADD_SOURCES([zip_opt.c zip.c bz2_opt.c bz2.c])
+
+TEA_ADD_SOURCES([trfStubInit.c])
+TEA_ADD_HEADERS([generic/transform.h generic/trfDecls.h])
+
+TEA_ADD_INCLUDES([-I\"\${srcdir}\"])
+TEA_ADD_INCLUDES([-I\"\${srcdir}/generic\"])
+TEA_ADD_INCLUDES([-I\"\${zlibtcl_SRC_PATH}\"])
+TEA_ADD_INCLUDES([-I\"\${zlibtcl_BUILD_PATH}\"])
+TEA_ADD_INCLUDES([-I\${ZLIB_INCLUDE_DIR}])
+TEA_ADD_INCLUDES([-I\${SSL_INCLUDE_DIR}])
+TEA_ADD_INCLUDES([-DLIBZ_DEFAULTNAME=\\\"libz\${SHLIB_SUFFIX}\\\"])
+AC_SUBST(SHLIB_SUFFIX)
+
+
+TEA_ADD_LIBS([])
+TEA_ADD_CFLAGS([])
+TEA_ADD_CFLAGS([-DZLIBTCL_VERSION=\\\"${zlibtcl_VERSION}\\\"])
+
+TEA_ADD_STUB_SOURCES([trfStubLib.c])
+dnl TEA_ADD_SOURCES([trfStubLib.c])
+TEA_ADD_TCL_SOURCES([])
+
+#--------------------------------------------------------------------
+# If ltoa is present, use it to convert integer values into strings.
+# If not, sprintf is used, which is slower and requires more code.
+#--------------------------------------------------------------------
+
+AC_C_BIGENDIAN
+AC_CHECK_SIZEOF(int)
+AC_CHECK_SIZEOF(long int)
+AC_CHECK_FUNCS(ltoa)
+if test "${TEA_PLATFORM}" = "windows" ; then
+    AC_MSG_CHECKING([for main in -lcrypt])
+    AC_MSG_RESULT([no (Windows)])
+    HAS_LIBCRYPT=0
+elif test "`uname -s`" = "Darwin"; then
+    AC_CHECK_LIB(System, crypt, HAS_LIBCRYPT=1, HAS_LIBCRYPT=0)
+else
+    AC_CHECK_LIB(crypt, main, HAS_LIBCRYPT=1, HAS_LIBCRYPT=0)
+    AC_CHECK_LIB(crypt, md5_init_ctx, HAS_LIBCRYPT_MD5=1, HAS_LIBCRYPT_MD5=0)
+fi
+
+
+
+# -----------------------------------------------------------------------
+AC_MSG_CHECKING(if assert needs __eprintf)
+cat > conftest.$ac_ext <<EOF
+#include "confdefs.h"
+#include "assert.h"
+int main(argc)
+    int argc;
+{
+assert(argc);
+; return 0; }
+EOF
+${TCL_CC-cc} -c $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext 1>&5
+if test "x`nm conftest.o |grep __eprintf`" != "x"; then
+    AC_MSG_RESULT(yes)
+
+    TEA_ADD_SOURCES([compat/_eprintf.c])
+else
+    AC_MSG_RESULT(no)
+fi
+
+#--------------------------------------------------------------------
+# __CHANGE__
+# Choose which headers you need.  Extension authors should try very
+# hard to only rely on the Tcl public header files.  Internal headers
+# contain private data structures and are subject to change without
+# notice.
+# This MUST be called after TEA_LOAD_TCLCONFIG / TEA_LOAD_TKCONFIG
+#--------------------------------------------------------------------
+
+case "`uname -s`" in
+    *win32* | *WIN32* | *CYGWIN_NT* | *CYGWIN_98* | *CYGWIN_95* | MINGW32_NT*)
+	# On windows tclLoadWin.c depends on internal headers. Darn.
+	TEA_PRIVATE_TCL_HEADERS
+    ;;
+    *)
+	# Everywhere else we can stick with the public ones.
+	TEA_PUBLIC_TCL_HEADERS
+    ;;
+esac
+
+#TEA_PUBLIC_TCL_HEADERS
+#TEA_PRIVATE_TCL_HEADERS
+
+#--------------------------------------------------------------------
+# A few miscellaneous platform-specific items:
+#
+# We have to define a special symbol for Windows (BUILD_Trf in this
+# case) so that we create the export library with the dll.
+#
+# Windows creates a few extra files that need to be cleaned up.
+# We can add more files to clean if our extension creates any extra
+# files in the future.
+#
+# Define any extra compiler flags in the PACKAGE_CFLAGS variable.
+# These will be appended to the current set of compiler flags for
+# your system.
+#--------------------------------------------------------------------
+
+if test "${TEA_PLATFORM}" = "windows" ; then
+    AC_DEFINE(BUILD_Trf)
+    CLEANFILES="pkgIndex.tcl *.lib *.dll *.exp *.ilk *.pdb vc*.pch"
+else
+    CLEANFILES="pkgIndex.tcl"
+fi
+AC_SUBST(CLEANFILES)
+
+#--------------------------------------------------------------------
+# Check whether --enable-threads or --disable-threads was given.
+# So far only Tcl responds to this one.
+#--------------------------------------------------------------------
+
+TEA_ENABLE_THREADS
+
+#--------------------------------------------------------------------
+# The statement below defines a collection of symbols related to
+# building as a shared library instead of a static library.
+#--------------------------------------------------------------------
+
+TEA_ENABLE_SHARED
+
+#--------------------------------------------------------------------
+# This macro figures out what flags to use with the compiler/linker
+# when building shared/static debug/optimized objects.  This information
+# can be taken from the tclConfig.sh file, but this figures it all out.
+#--------------------------------------------------------------------
+
+TEA_CONFIG_CFLAGS
+
+#--------------------------------------------------------------------
+# Set the default compiler switches based on the --enable-symbols option.
+#--------------------------------------------------------------------
+
+TEA_ENABLE_SYMBOLS
+
+#--------------------------------------------------------------------
+# Everyone should be linking against the Tcl stub library.  If you
+# can't for some reason, remove this definition.  If you aren't using
+# stubs, you also need to modify the SHLIB_LD_LIBS setting below to
+# link against the non-stubbed Tcl library.
+#--------------------------------------------------------------------
+
+AC_DEFINE(USE_TCL_STUBS)
+AC_DEFINE(USE_ZLIBTCL_STUBS)
+
+#--------------------------------------------------------------------
+# This macro generates a line to use when building a library.  It
+# depends on values set by the TEA_ENABLE_SHARED, TEA_ENABLE_SYMBOLS,
+# and TEA_LOAD_TCLCONFIG macros above.
+#--------------------------------------------------------------------
+
+TEA_MAKE_LIB
+
+#--------------------------------------------------------------------
+# __CHANGE__
+# Add platform libs to LIBS or SHLIB_LD_LIBS as necessary.
+#--------------------------------------------------------------------
+
+if test "${TEA_PLATFORM}" = "windows" -a "$GCC" != "yes" ; then
+    TEA_ADD_LIBS([\"`${CYGPATH} ${zlibtcl_STUB_LIB_PATH}`\"])
+else
+    TEA_ADD_LIBS([${zlibtcl_STUB_LIB_SPEC}])
+fi
+
+#--------------------------------------------------------------------
+# Find tclsh so that we can run pkg_mkIndex to generate the pkgIndex.tcl
+# file during the install process.  Don't run the TCLSH_PROG through
+# ${CYGPATH} because it's being used directly by make.
+# Require that we use a tclsh shell version 8.2 or later since earlier
+# versions have bugs in the pkg_mkIndex routine.
+# Add WISH as well if this is a Tk extension.
+#--------------------------------------------------------------------
+
+TEA_PROG_TCLSH
+
+#--------------------------------------------------------------------
+# Propagate the information about the required loader file.
+#--------------------------------------------------------------------
+
+case "`uname -s`" in
+    *win32* | *WIN32* | *CYGWIN_NT* | *CYGWIN_98* | *CYGWIN_95* | MINGW32_NT*)
+	TEA_ADD_SOURCES([compat/tclLoadWin.c])
+    ;;
+    *Darwin)
+    ;;
+    *)
+	if test "x${DL_OBJS}" != "xtclLoadDl.o"
+	then
+	    TEA_ADD_SOURCES([compat/`basename ${DL_OBJS} .o`.c])
+	fi
+    ;;
+esac
+
+#--------------------------------------------------------------------
+# Locate supporting libraries
+#--------------------------------------------------------------------
+
+TRF_FIND_ZLIB_SSL
+
+#--------------------------------------------------------------------
+# MD5 handling...
+# Cases:
+#	(1) libcrypt not present		=> compile, use that name.
+#	(2) libcrypt present, contains Md5	=> nothing to do
+#	(3) libcrypt present, no Md5		=> compile, name = libmd5crypt
+#--------------------------------------------------------------------
+
+MD5_LIB_FILE=""
+if test \( $HAS_LIBCRYPT -eq 0 \)
+then
+	# (1)
+	## MD5_LIB_FILE=libcrypt$TCL_SHLIB_SUFFIX
+	## TRF_DEFS="$TRF_DEFS -DCRYPT_LIB_NAME=\\\"NONE\\\""
+	eval AC_DEFINE_UNQUOTED(MD5_STATIC_BUILD, 1)
+
+	TEA_ADD_SOURCES([md5-crypt/crypt-entry.c md5-crypt/md5-crypt.c md5-crypt/md5.c compat/stpncpy.c])
+elif test "`uname -s`" != "Darwin"; then
+	# (2,3)
+	if test \( $HAS_LIBCRYPT_MD5 -eq 0 \)
+	then
+		# (3)
+		## MD5_LIB_FILE=libmd5crypt$TCL_SHLIB_SUFFIX
+		## TRF_DEFS="$TRF_DEFS -DCRYPT_LIB_NAME=\\\"NONE\\\""
+
+		# Sun Solaris is special, we may not use -lcrypt !
+		# Verified for: SunOS 5.5.1 (Solaris 2.5)
+		#		SunOS 5.6   (Solaris 2.6)
+
+		## case "`uname -s`" in
+		## SunOS*)	;;
+		## *)	LIBS="-lcrypt $LIBS"
+		##	SHLIB_LD_LIBS="-lcrypt $SHLIB_LD_LIBS"
+		##	;;
+		## esac
+
+		eval AC_DEFINE_UNQUOTED(MD5_STATIC_BUILD, 1)
+
+		TEA_ADD_SOURCES([md5-crypt/crypt-entry.c md5-crypt/md5-crypt.c md5-crypt/md5.c compat/stpncpy.c])
+	fi
+fi
+
+AC_SUBST(MD5_LIB_FILE)
+
+#--------------------------------------------------------------------
+# Finally, substitute all of the various values into the Makefile.
+# You may alternatively have a special pkgIndex.tcl.in or other files
+# which require substituting th AC variables in.  Include these here.
+#--------------------------------------------------------------------
+
+AC_OUTPUT([Makefile test.setup])
+
+#--------------------------------------------------------------------

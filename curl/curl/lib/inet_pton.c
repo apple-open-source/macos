@@ -74,9 +74,6 @@ Curl_inet_pton(int af, const char *src, void *dst)
   case AF_INET:
     return (inet_pton4(src, (unsigned char *)dst));
 #ifdef ENABLE_IPV6
-#ifndef AF_INET6
-#define AF_INET6        (AF_MAX+1)        /* just to let this compile */
-#endif
   case AF_INET6:
     return (inet_pton6(src, (unsigned char *)dst));
 #endif
@@ -108,31 +105,34 @@ inet_pton4(const char *src, unsigned char *dst)
   octets = 0;
   tp = tmp;
   *tp = 0;
-  while ((ch = *src++) != '\0') {
+  while((ch = *src++) != '\0') {
     const char *pch;
 
-    if ((pch = strchr(digits, ch)) != NULL) {
+    if((pch = strchr(digits, ch)) != NULL) {
       unsigned int val = *tp * 10 + (unsigned int)(pch - digits);
 
-      if (val > 255)
+      if(saw_digit && *tp == 0)
+        return (0);
+      if(val > 255)
         return (0);
       *tp = (unsigned char)val;
-      if (! saw_digit) {
-        if (++octets > 4)
+      if(! saw_digit) {
+        if(++octets > 4)
           return (0);
         saw_digit = 1;
       }
-    } else if (ch == '.' && saw_digit) {
-      if (octets == 4)
+    }
+    else if(ch == '.' && saw_digit) {
+      if(octets == 4)
         return (0);
       *++tp = 0;
       saw_digit = 0;
-    } else
+    }
+    else
       return (0);
   }
-  if (octets < 4)
+  if(octets < 4)
     return (0);
-  /* bcopy(tmp, dst, INADDRSZ); */
   memcpy(dst, tmp, INADDRSZ);
   return (1);
 }
@@ -165,34 +165,33 @@ inet_pton6(const char *src, unsigned char *dst)
   endp = tp + IN6ADDRSZ;
   colonp = NULL;
   /* Leading :: requires some special handling. */
-  if (*src == ':')
-    if (*++src != ':')
+  if(*src == ':')
+    if(*++src != ':')
       return (0);
   curtok = src;
   saw_xdigit = 0;
   val = 0;
-  while ((ch = *src++) != '\0') {
+  while((ch = *src++) != '\0') {
     const char *pch;
 
-    if ((pch = strchr((xdigits = xdigits_l), ch)) == NULL)
+    if((pch = strchr((xdigits = xdigits_l), ch)) == NULL)
       pch = strchr((xdigits = xdigits_u), ch);
-    if (pch != NULL) {
+    if(pch != NULL) {
       val <<= 4;
       val |= (pch - xdigits);
-      if (val > 0xffff)
+      if(++saw_xdigit > 4)
         return (0);
-      saw_xdigit = 1;
       continue;
     }
-    if (ch == ':') {
+    if(ch == ':') {
       curtok = src;
-      if (!saw_xdigit) {
-        if (colonp)
+      if(!saw_xdigit) {
+        if(colonp)
           return (0);
         colonp = tp;
         continue;
       }
-      if (tp + INT16SZ > endp)
+      if(tp + INT16SZ > endp)
         return (0);
       *tp++ = (unsigned char) (val >> 8) & 0xff;
       *tp++ = (unsigned char) val & 0xff;
@@ -200,7 +199,7 @@ inet_pton6(const char *src, unsigned char *dst)
       val = 0;
       continue;
     }
-    if (ch == '.' && ((tp + INADDRSZ) <= endp) &&
+    if(ch == '.' && ((tp + INADDRSZ) <= endp) &&
         inet_pton4(curtok, tp) > 0) {
       tp += INADDRSZ;
       saw_xdigit = 0;
@@ -208,29 +207,30 @@ inet_pton6(const char *src, unsigned char *dst)
     }
     return (0);
   }
-  if (saw_xdigit) {
-    if (tp + INT16SZ > endp)
+  if(saw_xdigit) {
+    if(tp + INT16SZ > endp)
       return (0);
     *tp++ = (unsigned char) (val >> 8) & 0xff;
     *tp++ = (unsigned char) val & 0xff;
   }
-  if (colonp != NULL) {
+  if(colonp != NULL) {
     /*
      * Since some memmove()'s erroneously fail to handle
      * overlapping regions, we'll do the shift by hand.
      */
-    const int n = tp - colonp;
-    int i;
+    const long n = tp - colonp;
+    long i;
 
+    if(tp == endp)
+      return (0);
     for (i = 1; i <= n; i++) {
       endp[- i] = colonp[n - i];
       colonp[n - i] = 0;
     }
     tp = endp;
   }
-  if (tp != endp)
+  if(tp != endp)
     return (0);
-  /* bcopy(tmp, dst, IN6ADDRSZ); */
   memcpy(dst, tmp, IN6ADDRSZ);
   return (1);
 }

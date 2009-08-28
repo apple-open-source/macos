@@ -48,13 +48,13 @@
   <xsl:variable name="globaltitle">
     <xsl:choose>
       <xsl:when test="$libname='libxslt'">
-        <xsl:value-of select="'The XSLT C library for Gnome'"/>
+        <xsl:value-of select="'The XSLT C library for GNOME'"/>
      </xsl:when>
      <xsl:when test="$libname='libxml'">
-	  <xsl:value-of select="'The XML C library for Gnome'"/>
+	  <xsl:value-of select="'The XML C library for GNOME'"/>
 	</xsl:when>
 	<xsl:when test="$libname='libexslt'">
-	  <xsl:value-of select="'The EXSLT C library for Gnome'"/>
+	  <xsl:value-of select="'The EXSLT C library for GNOME'"/>
 	</xsl:when>
      <xsl:otherwise>
        <xsl:value-of select="'Unknown Library'"/>

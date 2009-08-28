@@ -44,8 +44,9 @@ svn_cl__delete(apr_getopt_t *os,
   svn_commit_info_t *commit_info = NULL;
   svn_error_t *err;
 
-  SVN_ERR(svn_opt_args_to_target_array2(&targets, os, 
-                                        opt_state->targets, pool));
+  SVN_ERR(svn_cl__args_to_target_array_print_reserved(&targets, os,
+                                                      opt_state->targets,
+                                                      ctx, pool));
 
   if (! targets->nelts)
     return svn_error_create(SVN_ERR_CL_INSUFFICIENT_ARGS, 0, NULL);
@@ -56,31 +57,34 @@ svn_cl__delete(apr_getopt_t *os,
 
   if (! svn_path_is_url(APR_ARRAY_IDX(targets, 0, const char *)))
     {
-      ctx->log_msg_func2 = NULL;
-      if (opt_state->message || opt_state->filedata)
+      ctx->log_msg_func3 = NULL;
+      if (opt_state->message || opt_state->filedata || opt_state->revprop_table)
         {
           return svn_error_create
             (SVN_ERR_CL_UNNECESSARY_LOG_MESSAGE, NULL,
-             _("Local, non-commit operations do not take a log message"));
+             _("Local, non-commit operations do not take a log message "
+               "or revision properties"));
         }
     }
   else
     {
-      SVN_ERR(svn_cl__make_log_msg_baton(&(ctx->log_msg_baton2), opt_state,
+      SVN_ERR(svn_cl__make_log_msg_baton(&(ctx->log_msg_baton3), opt_state,
                                          NULL, ctx->config, pool));
     }
 
-  err = svn_client_delete2(&commit_info, targets, opt_state->force, ctx, pool);
+  err = svn_client_delete3(&commit_info, targets, opt_state->force,
+                           opt_state->keep_local, opt_state->revprop_table,
+                           ctx, pool);
   if (err)
     err = svn_cl__may_need_force(err);
 
-  if (ctx->log_msg_func2)
-    SVN_ERR(svn_cl__cleanup_log_msg(ctx->log_msg_baton2, err));
+  if (ctx->log_msg_func3)
+    SVN_ERR(svn_cl__cleanup_log_msg(ctx->log_msg_baton3, err, pool));
   else if (err)
     return err;
 
   if (commit_info && ! opt_state->quiet)
     SVN_ERR(svn_cl__print_commit_info(commit_info, pool));
-      
+
   return SVN_NO_ERROR;
 }

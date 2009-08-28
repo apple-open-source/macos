@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.
    Renesas H8/300 version
-   Copyright (C) 2000, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com),
    Jim Wilson (wilson@cygnus.com), and Doug Evans (dje@cygnus.com).
 
@@ -18,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #ifndef GCC_H8300_PROTOS_H
 #define GCC_H8300_PROTOS_H
@@ -53,29 +53,6 @@ extern int fix_bit_operand (rtx *, enum rtx_code);
 extern int h8300_adjust_insn_length (rtx, int);
 extern void split_adds_subs (enum machine_mode, rtx[]);
 
-extern int general_operand_src (rtx, enum machine_mode);
-extern int general_operand_dst (rtx, enum machine_mode);
-extern int single_one_operand (rtx, enum machine_mode);
-extern int single_zero_operand (rtx, enum machine_mode);
-extern int call_insn_operand (rtx, enum machine_mode);
-extern int two_insn_adds_subs_operand (rtx, enum machine_mode);
-extern int small_call_insn_operand (rtx, enum machine_mode);
-extern int jump_address_operand (rtx, enum machine_mode);
-extern int bit_operand (rtx, enum machine_mode);
-extern int bit_memory_operand (rtx, enum machine_mode);
-extern int stack_pointer_operand (rtx, enum machine_mode);
-extern int const_int_gt_2_operand (rtx, enum machine_mode);
-extern int const_int_ge_8_operand (rtx, enum machine_mode);
-extern int const_int_qi_operand (rtx, enum machine_mode);
-extern int const_int_hi_operand (rtx, enum machine_mode);
-extern int incdec_operand (rtx, enum machine_mode);
-extern int bit_operator (rtx, enum machine_mode);
-extern int nshift_operator (rtx, enum machine_mode);
-extern int eqne_operator (rtx, enum machine_mode);
-extern int gtle_operator (rtx, enum machine_mode);
-extern int gtuleu_operator (rtx, enum machine_mode);
-extern int iorxor_operator (rtx, enum machine_mode);
-
 extern int h8300_eightbit_constant_address_p (rtx);
 extern int h8300_tiny_constant_address_p (rtx);
 extern int byte_accesses_mergeable_p (rtx, rtx);
@@ -87,6 +64,28 @@ extern int h8300_legitimate_address_p (enum machine_mode, rtx, int);
 
 /* Used in builtins.c */
 extern rtx h8300_return_addr_rtx (int, rtx);
+
+/* Classifies an h8sx shift operation.
+
+   H8SX_SHIFT_NONE
+	The shift cannot be done in a single instruction.
+
+   H8SX_SHIFT_UNARY
+	The shift is effectively a unary operation.  The instruction will
+	allow any sort of destination operand and have a format similar
+	to neg and not.  This is true of certain power-of-2 shifts.
+
+   H8SX_SHIFT_BINARY
+	The shift is a binary operation.  The destination must be a
+	register and the source can be a register or a constant.  */
+enum h8sx_shift_type {
+  H8SX_SHIFT_NONE,
+  H8SX_SHIFT_UNARY,
+  H8SX_SHIFT_BINARY
+};
+
+extern enum h8sx_shift_type h8sx_classify_shift (enum machine_mode, enum rtx_code, rtx);
+extern int h8300_ldm_stm_parallel (rtvec, int, int);
 #endif /* RTX_CODE */
 
 #ifdef TREE_CODE

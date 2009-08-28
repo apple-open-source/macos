@@ -1,0 +1,27 @@
+Doing diffs in libstdc++-v3:
+--- libstdc++-v3/config/abi/pre/gnu.ver.~1~	2008-04-09 18:47:08.000000000 -0700
++++ libstdc++-v3/config/abi/pre/gnu.ver	2008-04-09 18:49:01.000000000 -0700
+@@ -99,6 +99,8 @@ GLIBCXX_3.4 {
+       std::ostrstream*;
+       std::out_of_range*;
+       std::overflow_error*;
++# APPLE LOCAL libstdc++ abi compatibility fix 5724986
++      std::search*
+       std::set_new_handler*;
+       std::set_terminate*;
+       std::set_unexpected*;
+--- libstdc++-v3/src/string-inst.cc.~1~	2008-04-09 14:35:50.000000000 -0700
++++ libstdc++-v3/src/string-inst.cc	2008-04-09 14:36:28.000000000 -0700
+@@ -77,6 +77,11 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
+     S::_S_construct(const C*, const C*, const allocator<C>&,
+ 		    forward_iterator_tag);
+ 
++  // APPLE LOCAL begin libstdc++ abi compatibility fix 5724986
++  template
++    const C*
++    search(const C*, const C*, const C*, const C*, bool(*)(const C&, const C&));
++  // APPLE LOCAL end libstdc++ abi compatibility fix
+ _GLIBCXX_END_NAMESPACE
+ 
+ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+--------------

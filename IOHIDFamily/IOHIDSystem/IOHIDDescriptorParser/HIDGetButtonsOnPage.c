@@ -86,7 +86,7 @@ OSStatus HIDGetButtonsOnPage(HIDReportType reportType,
 						   UInt32 *piUsageListLength,
 						   HIDPreparsedDataRef preparsedDataRef,
 						   void *psReport,
-						   UInt32 iReportLength)
+						   ByteCount iReportLength)
 {
 	HIDPreparsedDataPtr ptPreparsedData = (HIDPreparsedDataPtr) preparsedDataRef;
 	HIDUsageAndPage tUsageAndPage;

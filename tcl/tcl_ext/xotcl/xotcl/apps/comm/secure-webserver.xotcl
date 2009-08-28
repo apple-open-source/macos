@@ -1,0 +1,79 @@
+#!/usr/bin/env tclsh
+# $Id: secure-webserver.xotcl,v 1.2 2006/02/18 22:17:32 neumann Exp $
+package require XOTcl; namespace import -force xotcl::*
+
+@ @File {
+  description {
+    This small secure web server that provides its documents
+    via SSL (https, port 8443) and plain http (port 8086).
+    <br>
+    This file requires TLS. If you experice problems with 
+    versions obtained from the Web, contact gustaf.neumann@wu-wien.ac.at
+    for a patch.
+  }
+}
+
+#
+# We load the following packages:
+#
+package require xotcl::trace
+package require xotcl::comm::httpd
+#
+# we set the default for document root to ../../src/doc and port to 8443
+#
+set root ../../doc
+set port 8443
+set class Httpsd
+set cb callback  ;# use this for triggering the callbacks  
+#set cb ""
+
+foreach {att value} $argv {
+  switch -- $att {
+    -root {set root $value}
+    -port {set port $value}
+    -class {set class $value}
+    -cb {set cb $value}
+  }
+}
+#
+# now we can start the web-server instance with these settings
+#
+Httpd h0 -port 8086 -root $root 
+$class h1 -port $port  -root $root -infoCb $cb  \
+  -requestCert 1 -requireValidCert 0
+
+
+# Start des HTTP-Servers mit port 8086 und dem angegebenen Verzeichnis
+#Httpd h2 -port 9086 -root $root \
+    -mixin {Responder BasicAccessControl} \
+    -addRealmEntry test {test test} -protectDir test "" {} 
+
+Object callback
+callback proc error {chan msg} {
+  puts stderr "+++TLS/$chan: error: $msg"
+}
+callback proc verify {chan depth cert rc err} {
+  array set c $cert
+  if {$rc != "1"} {
+    puts stderr "+++TLS/$chan: verify/$depth: Bad Cert: $err (rc = $rc)"
+  } else {
+    puts stderr "+++TLS/$chan: verify/$depth: $c(subject)"
+  }
+  return $rc
+}
+callback proc info {chan state minor msg} {
+  # For tracing
+  #upvar #0 tls::$chan cb
+  #set cb($major) $minor
+  #puts stderr "+++TLS/$chan: $major/$minor: $state"
+  puts stderr "+++TLS/$chan $state $minor: $msg"
+
+}
+callback proc unknown {option args} {
+  return -code error "bad option \"$option\": must be one of error, info, or verify"
+}
+#
+# and finally call the event loop... 
+#
+vwait forever
+

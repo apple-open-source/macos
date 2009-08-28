@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: net.c,v 1.9.18.10 2008/08/08 05:15:09 marka Exp $ */
+/* $Id: net.c,v 1.18 2008/08/08 05:06:49 marka Exp $ */
 
 #include <config.h>
 

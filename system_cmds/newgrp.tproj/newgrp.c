@@ -260,6 +260,7 @@ loginshell(void)
 {
 	char *args[2], **cleanenv, *term, *ticket;
 	const char *shell;
+	char *prog, progbuf[PATH_MAX];
 #ifndef __APPLE__
 	login_cap_t *lc;
 #endif /* !__APPLE__ */
@@ -292,7 +293,10 @@ loginshell(void)
 	if (ticket != NULL)
 		setenv("KRBTKFILE", ticket, 1);
 
-	if (asprintf(args, "-%s", basename(shell)) < 0)
+	strlcpy(progbuf, shell, sizeof(progbuf));
+	prog = basename(progbuf);
+
+	if (asprintf(args, "-%s", prog) < 0)
 		err(1, "asprintf");
 	args[1] = NULL;
 
@@ -304,10 +308,15 @@ static void
 doshell(void)
 {
 	const char *shell;
+	char *prog, progbuf[PATH_MAX];
 
 	shell = pwd->pw_shell;
 	if (*shell == '\0')
 		shell = _PATH_BSHELL;
-	execl(shell, basename(shell), (char *)NULL);
+
+	strlcpy(progbuf, shell, sizeof(progbuf));
+	prog = basename(progbuf);
+
+	execl(shell, prog, (char *)NULL);
 	err(1, "%s", shell);
 }

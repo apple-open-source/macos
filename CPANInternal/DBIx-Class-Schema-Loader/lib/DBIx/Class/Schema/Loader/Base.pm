@@ -10,7 +10,11 @@ use DBIx::Class::Schema::Loader::RelBuilder;
 use Data::Dump qw/ dump /;
 use POSIX qw//;
 use File::Spec qw//;
+use Cwd qw//;
+use Digest::MD5 qw//;
 require DBIx::Class;
+
+our $VERSION = '0.04005';
 
 __PACKAGE__->mk_ro_accessors(qw/
                                 schema
@@ -23,15 +27,18 @@ __PACKAGE__->mk_ro_accessors(qw/
                                 left_base_classes
                                 components
                                 resultset_components
-                                relationships
+                                skip_relationships
                                 moniker_map
                                 inflect_singular
                                 inflect_plural
                                 debug
                                 dump_directory
                                 dump_overwrite
-
-                                legacy_default_inflections
+                                really_erase_my_files
+                                use_namespaces
+                                result_namespace
+                                resultset_namespace
+                                default_resultset_class
 
                                 db_schema
                                 _tables
@@ -57,9 +64,10 @@ classes, and implements the common functionality between them.
 These constructor options are the base options for
 L<DBIx::Class::Schema::Loader/loader_opts>.  Available constructor options are:
 
-=head2 relationships
+=head2 skip_relationships
 
-Try to automatically detect/setup has_a and has_many relationships.
+Skip setting up relationships.  The default is to attempt the loading
+of relationships.
 
 =head2 debug
 
@@ -137,18 +145,14 @@ classes.  A good example would be C<AlwaysRS>.  Component
 C<ResultSetManager> will be automatically added to the above
 C<components> list if this option is set.
 
-=head2 legacy_default_inflections
+=head2 use_namespaces
 
-Setting this option changes the default fallback for L</inflect_plural> to
-utilize L<Lingua::EN::Inflect/PL>, and L</inflect_singular> to a no-op.
-Those choices produce substandard results, but might be necessary to support
-your existing code if you started developing on a version prior to 0.03 and
-don't wish to go around updating all your relationship names to the new
-defaults.
-
-This option will continue to be supported until at least version 0.05xxx,
-but may dissappear sometime thereafter.  It is recommended that you update
-your code to use the newer-style inflections when you have the time.
+Generate result class names suitable for
+L<DBIx::Class::Schema/load_namespaces> and call that instead of
+L<DBIx::Class::Schema/load_classes>. When using this option you can also
+specify any of the options for C<load_namespaces> (i.e. C<result_namespace>,
+C<resultset_namespace>, C<default_resultset_class>), and they will be added
+to the call (and the generated result class names adjusted appropriately).
 
 =head2 dump_directory
 
@@ -162,11 +166,7 @@ in memory.
 
 The created schema class will have the same classname as the one on
 which you are setting this option (and the ResultSource classes will be
-based on this name as well).  Therefore it is wise to note that if you
-point the C<dump_directory> option of a schema class at the live libdir
-where that class is currently located, it will overwrite itself with a
-manual version of itself.  This might be a really good or bad thing
-depending on your situation and perspective.
+based on this name as well).
 
 Normally you wouldn't hard-code this setting in your schema class, as it
 is meant for one-time manual usage.
@@ -176,28 +176,27 @@ recommended way to access this functionality.
 
 =head2 dump_overwrite
 
-If set to a true value, the dumping code will overwrite existing files.
-The default is false, which means the dumping code will skip the already
-existing files.
+Deprecated.  See L</really_erase_my_files> below, which does *not* mean
+the same thing as the old C<dump_overwrite> setting from previous releases.
 
-=head1 DEPRECATED CONSTRUCTOR OPTIONS
+=head2 really_erase_my_files
 
-B<These will be removed in version 0.04000 !!!>
+Default false.  If true, Loader will unconditionally delete any existing
+files before creating the new ones from scratch when dumping a schema to disk.
 
-=head2 inflect_map
+The default behavior is instead to only replace the top portion of the
+file, up to and including the final stanza which contains
+C<# DO NOT MODIFY THIS OR ANYTHING ABOVE!>
+leaving any customizations you placed after that as they were.
 
-Equivalent to L</inflect_plural>.
+When C<really_erase_my_files> is not set, if the output file already exists,
+but the aforementioned final stanza is not found, or the checksum
+contained there does not match the generated contents, Loader will
+croak and not touch the file.
 
-=head2 inflect
-
-Equivalent to L</inflect_plural>.
-
-=head2 connect_info, dsn, user, password, options
-
-You connect these schemas the same way you would any L<DBIx::Class::Schema>,
-which is by calling either C<connect> or C<connection> on a schema class
-or object.  These options are only supported via the deprecated
-C<load_from_connection> interface, which is also being removed in 0.04000.
+You should really be using version control on your schema classes (and all
+of the rest of your code for that matter).  Don't blame me if a bug in this
+code wipes something out when it shouldn't have, you've been warned.
 
 =head1 METHODS
 
@@ -233,7 +232,6 @@ sub new {
 
     bless $self => $class;
 
-    $self->{db_schema}  ||= '';
     $self->_ensure_arrayref(qw/additional_classes
                                additional_base_classes
                                left_base_classes
@@ -247,65 +245,84 @@ sub new {
     $self->{monikers} = {};
     $self->{classes} = {};
 
-    # Support deprecated arguments
-    for(qw/inflect_map inflect/) {
-        warn "Argument $_ is deprecated in favor of 'inflect_plural'"
-           . ", and will be removed in 0.04000"
-                if $self->{$_};
-    }
-    $self->{inflect_plural} ||= $self->{inflect_map} || $self->{inflect};
-
     $self->{schema_class} ||= ( ref $self->{schema} || $self->{schema} );
     $self->{schema} ||= $self->{schema_class};
+
+    croak "dump_overwrite is deprecated.  Please read the"
+        . " DBIx::Class::Schema::Loader::Base documentation"
+            if $self->{dump_overwrite};
+
+    $self->{relbuilder} = DBIx::Class::Schema::Loader::RelBuilder->new(
+        $self->schema_class, $self->inflect_plural, $self->inflect_singular
+    ) if !$self->{skip_relationships};
 
     $self;
 }
 
-sub _load_external {
-    my $self = shift;
+sub _find_file_in_inc {
+    my ($self, $file) = @_;
 
-    my $abs_dump_dir;
-
-    $abs_dump_dir = File::Spec->rel2abs($self->dump_directory)
-        if $self->dump_directory;
-
-    foreach my $table_class (values %{$self->classes}) {
-        $table_class->require;
-        if($@ && $@ !~ /^Can't locate /) {
-            croak "Failed to load external class definition"
-                  . " for '$table_class': $@";
-        }
-        next if $@; # "Can't locate" error
-
-        # If we make it to here, we loaded an external definition
-        warn qq/# Loaded external class definition for '$table_class'\n/
-            if $self->debug;
-
-        if($abs_dump_dir) {
-            my $class_path = $table_class;
-            $class_path =~ s{::}{/}g;
-            $class_path .= '.pm';
-            my $filename = File::Spec->rel2abs($INC{$class_path});
-            croak 'Failed to locate actual external module file for '
-                  . "'$table_class'"
-                      if !$filename;
-            next if($filename =~ /^$abs_dump_dir/);
-            open(my $fh, '<', $filename)
-                or croak "Failed to open $filename for reading: $!";
-            $self->_raw_stmt($table_class,
-                q|# These lines loaded from user-supplied external file: |
-            );
-            while(<$fh>) {
-                chomp;
-                $self->_raw_stmt($table_class, $_);
-            }
-            $self->_raw_stmt($table_class,
-                q|# End of lines loaded from user-supplied external file |
-            );
-            close($fh)
-                or croak "Failed to close $filename: $!";
-        }
+    foreach my $prefix (@INC) {
+        my $fullpath = $prefix . '/' . $file;
+        return $fullpath if -f $fullpath;
     }
+
+    return;
+}
+
+sub _load_external {
+    my ($self, $class) = @_;
+
+    my $class_path = $class;
+    $class_path =~ s{::}{/}g;
+    $class_path .= '.pm';
+
+    my $inc_path = $self->_find_file_in_inc($class_path);
+
+    return if !$inc_path;
+
+    my $real_dump_path = $self->dump_directory
+        ? Cwd::abs_path(
+              File::Spec->catfile($self->dump_directory, $class_path)
+          )
+        : '';
+    my $real_inc_path = Cwd::abs_path($inc_path);
+    return if $real_inc_path eq $real_dump_path;
+
+    $class->require;
+    croak "Failed to load external class definition"
+        . " for '$class': $@"
+            if $@;
+
+    # If we make it to here, we loaded an external definition
+    warn qq/# Loaded external class definition for '$class'\n/
+        if $self->debug;
+
+    # The rest is only relevant when dumping
+    return if !$self->dump_directory;
+
+    croak 'Failed to locate actual external module file for '
+          . "'$class'"
+              if !$real_inc_path;
+    open(my $fh, '<', $real_inc_path)
+        or croak "Failed to open '$real_inc_path' for reading: $!";
+    $self->_ext_stmt($class,
+        qq|# These lines were loaded from '$real_inc_path' found in \@INC.|
+        .q|# They are now part of the custom portion of this file|
+        .q|# for you to hand-edit.  If you do not either delete|
+        .q|# this section or remove that file from @INC, this section|
+        .q|# will be repeated redundantly when you re-create this|
+        .q|# file again via Loader!|
+    );
+    while(<$fh>) {
+        chomp;
+        $self->_ext_stmt($class, $_);
+    }
+    $self->_ext_stmt($class,
+        qq|# End of lines loaded from '$real_inc_path' |
+    );
+    close($fh)
+        or croak "Failed to close $real_inc_path: $!";
 }
 
 =head2 load
@@ -317,15 +334,85 @@ Does the actual schema-construction work.
 sub load {
     my $self = shift;
 
-    $self->_load_classes;
-    $self->_load_relationships if $self->relationships;
-    $self->_load_external;
+    $self->_load_tables($self->_tables_list);
+}
+
+=head2 rescan
+
+Arguments: schema
+
+Rescan the database for newly added tables.  Does
+not process drops or changes.  Returns a list of
+the newly added table monikers.
+
+The schema argument should be the schema class
+or object to be affected.  It should probably
+be derived from the original schema_class used
+during L</load>.
+
+=cut
+
+sub rescan {
+    my ($self, $schema) = @_;
+
+    $self->{schema} = $schema;
+
+    my @created;
+    my @current = $self->_tables_list;
+    foreach my $table ($self->_tables_list) {
+        if(!exists $self->{_tables}->{$table}) {
+            push(@created, $table);
+        }
+    }
+
+    my $loaded = $self->_load_tables(@created);
+
+    return map { $self->monikers->{$_} } @$loaded;
+}
+
+sub _load_tables {
+    my ($self, @tables) = @_;
+
+    # First, use _tables_list with constraint and exclude
+    #  to get a list of tables to operate on
+
+    my $constraint   = $self->constraint;
+    my $exclude      = $self->exclude;
+
+    @tables = grep { /$constraint/ } @tables if $constraint;
+    @tables = grep { ! /$exclude/ } @tables if $exclude;
+
+    # Save the new tables to the tables list
+    foreach (@tables) {
+        $self->{_tables}->{$_} = 1;
+    }
+
+    # Set up classes/monikers
+    {
+        no warnings 'redefine';
+        local *Class::C3::reinitialize = sub { };
+        use warnings;
+
+        $self->_make_src_class($_) for @tables;
+    }
+
+    Class::C3::reinitialize;
+
+    $self->_setup_src_meta($_) for @tables;
+
+    if(!$self->skip_relationships) {
+        $self->_load_relationships($_) for @tables;
+    }
+
+    $self->_load_external($_)
+        for map { $self->classes->{$_} } @tables;
+
     $self->_dump_to_dir if $self->dump_directory;
 
     # Drop temporary cache
     delete $self->{_cache};
 
-    1;
+    return \@tables;
 }
 
 sub _get_dump_filename {
@@ -343,11 +430,12 @@ sub _ensure_dump_subdirs {
                      # which is a filename
 
     my $dir = $self->dump_directory;
-    foreach (@name_parts) {
-        $dir = File::Spec->catdir($dir,$_);
-        if(! -d $dir) {
+    while (1) {
+        if(!-d $dir) {
             mkdir($dir) or croak "mkdir('$dir') failed: $!";
         }
+        last if !@name_parts;
+        $dir = File::Spec->catdir($dir, shift @name_parts);
     }
 }
 
@@ -362,52 +450,117 @@ sub _dump_to_dir {
 
     warn "Dumping manual schema for $schema_class to directory $target_dir ...\n";
 
-    if(! -d $target_dir) {
-        mkdir($target_dir) or croak "mkdir('$target_dir') failed: $!";
-    }
+    my $schema_text =
+          qq|package $schema_class;\n\n|
+        . qq|use strict;\nuse warnings;\n\n|
+        . qq|use base 'DBIx::Class::Schema';\n\n|;
 
-    my $verstr = $DBIx::Class::Schema::Loader::VERSION;
-    my $datestr = POSIX::strftime('%Y-%m-%d %H:%M:%S', localtime);
-    my $tagline = qq|# Created by DBIx::Class::Schema::Loader v$verstr @ $datestr|;
-
-    $self->_ensure_dump_subdirs($schema_class);
-
-    my $schema_fn = $self->_get_dump_filename($schema_class);
-    if (-f $schema_fn && !$self->dump_overwrite) {
-        warn "$schema_fn exists, will not overwrite\n";
+    
+    if ($self->use_namespaces) {
+        $schema_text .= qq|__PACKAGE__->load_namespaces|;
+        my $namespace_options;
+        for my $attr (qw(result_namespace
+                         resultset_namespace
+                         default_resultset_class)) {
+            if ($self->$attr) {
+                $namespace_options .= qq|    $attr => '| . $self->$attr . qq|',\n|
+            }
+        }
+        $schema_text .= qq|(\n$namespace_options)| if $namespace_options;
+        $schema_text .= qq|;\n|;
     }
     else {
-        open(my $schema_fh, '>', $schema_fn)
-            or croak "Cannot open $schema_fn for writing: $!";
-        print $schema_fh qq|package $schema_class;\n\n$tagline\n\n|;
-        print $schema_fh qq|use strict;\nuse warnings;\n\n|;
-        print $schema_fh qq|use base 'DBIx::Class::Schema';\n\n|;
-        print $schema_fh qq|__PACKAGE__->load_classes;\n|;
-        print $schema_fh qq|\n1;\n\n|;
-        close($schema_fh)
-            or croak "Cannot close $schema_fn: $!";
+        $schema_text .= qq|__PACKAGE__->load_classes;\n|;
+
     }
 
+    $self->_write_classfile($schema_class, $schema_text);
+
     foreach my $src_class (sort keys %{$self->{_dump_storage}}) {
-        $self->_ensure_dump_subdirs($src_class);
-        my $src_fn = $self->_get_dump_filename($src_class);
-        if (-f $src_fn && !$self->dump_overwrite) {
-            warn "$src_fn exists, will not overwrite\n";
-            next;
-        }    
-        open(my $src_fh, '>', $src_fn)
-            or croak "Cannot open $src_fn for writing: $!";
-        print $src_fh qq|package $src_class;\n\n$tagline\n\n|;
-        print $src_fh qq|use strict;\nuse warnings;\n\n|;
-        print $src_fh qq|use base 'DBIx::Class';\n\n|;
-        print $src_fh qq|$_\n|
-            for @{$self->{_dump_storage}->{$src_class}};
-        print $src_fh qq|\n1;\n\n|;
-        close($src_fh)
-            or croak "Cannot close $src_fn: $!";
+        my $src_text = 
+              qq|package $src_class;\n\n|
+            . qq|use strict;\nuse warnings;\n\n|
+            . qq|use base 'DBIx::Class';\n\n|;
+
+        $self->_write_classfile($src_class, $src_text);
     }
 
     warn "Schema dump completed.\n";
+}
+
+sub _write_classfile {
+    my ($self, $class, $text) = @_;
+
+    my $filename = $self->_get_dump_filename($class);
+    $self->_ensure_dump_subdirs($class);
+
+    if (-f $filename && $self->really_erase_my_files) {
+        warn "Deleting existing file '$filename' due to "
+            . "'really_erase_my_files' setting\n";
+        unlink($filename);
+    }    
+
+    my $custom_content = $self->_get_custom_content($class, $filename);
+
+    $custom_content ||= qq|\n\n# You can replace this text with custom|
+        . qq| content, and it will be preserved on regeneration|
+        . qq|\n1;\n|;
+
+    $text .= qq|$_\n|
+        for @{$self->{_dump_storage}->{$class} || []};
+
+    $text .= qq|\n\n# Created by DBIx::Class::Schema::Loader|
+        . qq| v| . $DBIx::Class::Schema::Loader::VERSION
+        . q| @ | . POSIX::strftime('%Y-%m-%d %H:%M:%S', localtime)
+        . qq|\n# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:|;
+
+    open(my $fh, '>', $filename)
+        or croak "Cannot open '$filename' for writing: $!";
+
+    # Write the top half and its MD5 sum
+    print $fh $text . Digest::MD5::md5_base64($text) . "\n";
+
+    # Write out anything loaded via external partial class file in @INC
+    print $fh qq|$_\n|
+        for @{$self->{_ext_storage}->{$class} || []};
+
+    print $fh $custom_content;
+
+    close($fh)
+        or croak "Cannot close '$filename': $!";
+}
+
+sub _get_custom_content {
+    my ($self, $class, $filename) = @_;
+
+    return if ! -f $filename;
+    open(my $fh, '<', $filename)
+        or croak "Cannot open '$filename' for reading: $!";
+
+    my $mark_re = 
+        qr{^(# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:)([A-Za-z0-9/+]{22})\n};
+
+    my $found = 0;
+    my $buffer = '';
+    while(<$fh>) {
+        if(!$found && /$mark_re/) {
+            $found = 1;
+            $buffer .= $1;
+            croak "Checksum mismatch in '$filename'"
+                if Digest::MD5::md5_base64($buffer) ne $2;
+
+            $buffer = '';
+        }
+        else {
+            $buffer .= $_;
+        }
+    }
+
+    croak "Cannot not overwrite '$filename' without 'really_erase_my_files',"
+        . " it does not appear to have been generated by Loader"
+            if !$found;
+
+    return $buffer;
 }
 
 sub _use {
@@ -439,87 +592,82 @@ sub _inject {
     }
 }
 
-# Load and setup classes
-sub _load_classes {
-    my $self = shift;
+# Create class with applicable bases, setup monikers, etc
+sub _make_src_class {
+    my ($self, $table) = @_;
 
     my $schema       = $self->schema;
     my $schema_class = $self->schema_class;
-    my $constraint   = $self->constraint;
-    my $exclude      = $self->exclude;
-    my @tables       = sort $self->_tables_list;
 
-    warn "No tables found in database, nothing to load" if !@tables;
-
-    if(@tables) {
-        @tables = grep { /$constraint/ } @tables if $constraint;
-        @tables = grep { ! /$exclude/ } @tables if $exclude;
-
-        warn "All tables excluded by constraint/exclude, nothing to load"
-            if !@tables;
-    }
-
-    $self->{_tables} = \@tables;
-
-    foreach my $table (@tables) {
-        my $table_moniker = $self->_table2moniker($table);
-        my $table_class = $schema_class . q{::} . $table_moniker;
-
-        my $table_normalized = lc $table;
-        $self->classes->{$table} = $table_class;
-        $self->classes->{$table_normalized} = $table_class;
-        $self->monikers->{$table} = $table_moniker;
-        $self->monikers->{$table_normalized} = $table_moniker;
-
-        no warnings 'redefine';
-        local *Class::C3::reinitialize = sub { };
-        use warnings;
-
-        { no strict 'refs'; @{"${table_class}::ISA"} = qw/DBIx::Class/ }
-
-        $self->_use   ($table_class, @{$self->additional_classes});
-        $self->_inject($table_class, @{$self->additional_base_classes});
-
-        $self->_dbic_stmt($table_class, 'load_components', @{$self->components}, qw/PK::Auto Core/);
-
-        $self->_dbic_stmt($table_class, 'load_resultset_components', @{$self->resultset_components})
-            if @{$self->resultset_components};
-        $self->_inject($table_class, @{$self->left_base_classes});
-    }
-
-    Class::C3::reinitialize;
-
-    foreach my $table (@tables) {
-        my $table_class = $self->classes->{$table};
-        my $table_moniker = $self->monikers->{$table};
-
-        $self->_dbic_stmt($table_class,'table',$table);
-
-        my $cols = $self->_table_columns($table);
-        my $col_info;
-        eval { $col_info = $schema->storage->columns_info_for($table) };
-        if($@) {
-            $self->_dbic_stmt($table_class,'add_columns',@$cols);
+    my $table_moniker = $self->_table2moniker($table);
+    my @result_namespace = ($schema_class);
+    if ($self->use_namespaces) {
+        my $result_namespace = $self->result_namespace || 'Result';
+        if ($result_namespace =~ /^\+(.*)/) {
+            # Fully qualified namespace
+            @result_namespace =  ($1)
         }
         else {
-            my %col_info_lc = map { lc($_), $col_info->{$_} } keys %$col_info;
-            $self->_dbic_stmt(
-                $table_class,
-                'add_columns',
-                map { $_, ($col_info_lc{$_}||{}) } @$cols
-            );
+            # Relative namespace
+            push @result_namespace, $result_namespace;
         }
-
-        my $pks = $self->_table_pk_info($table) || [];
-        @$pks ? $self->_dbic_stmt($table_class,'set_primary_key',@$pks)
-              : carp("$table has no primary key");
-
-        my $uniqs = $self->_table_uniq_info($table) || [];
-        $self->_dbic_stmt($table_class,'add_unique_constraint',@$_) for (@$uniqs);
-
-        $schema_class->register_class($table_moniker, $table_class);
-        $schema->register_class($table_moniker, $table_class) if $schema ne $schema_class;
     }
+    my $table_class = join(q{::}, @result_namespace, $table_moniker);
+
+    my $table_normalized = lc $table;
+    $self->classes->{$table} = $table_class;
+    $self->classes->{$table_normalized} = $table_class;
+    $self->monikers->{$table} = $table_moniker;
+    $self->monikers->{$table_normalized} = $table_moniker;
+
+    { no strict 'refs'; @{"${table_class}::ISA"} = qw/DBIx::Class/ }
+
+    $self->_use   ($table_class, @{$self->additional_classes});
+    $self->_inject($table_class, @{$self->additional_base_classes});
+
+    $self->_dbic_stmt($table_class, 'load_components', @{$self->components}, 'Core');
+
+    $self->_dbic_stmt($table_class, 'load_resultset_components', @{$self->resultset_components})
+        if @{$self->resultset_components};
+    $self->_inject($table_class, @{$self->left_base_classes});
+}
+
+# Set up metadata (cols, pks, etc) and register the class with the schema
+sub _setup_src_meta {
+    my ($self, $table) = @_;
+
+    my $schema       = $self->schema;
+    my $schema_class = $self->schema_class;
+
+    my $table_class = $self->classes->{$table};
+    my $table_moniker = $self->monikers->{$table};
+
+    $self->_dbic_stmt($table_class,'table',$table);
+
+    my $cols = $self->_table_columns($table);
+    my $col_info;
+    eval { $col_info = $self->_columns_info_for($table) };
+    if($@) {
+        $self->_dbic_stmt($table_class,'add_columns',@$cols);
+    }
+    else {
+        my %col_info_lc = map { lc($_), $col_info->{$_} } keys %$col_info;
+        $self->_dbic_stmt(
+            $table_class,
+            'add_columns',
+            map { $_, ($col_info_lc{$_}||{}) } @$cols
+        );
+    }
+
+    my $pks = $self->_table_pk_info($table) || [];
+    @$pks ? $self->_dbic_stmt($table_class,'set_primary_key',@$pks)
+          : carp("$table has no primary key");
+
+    my $uniqs = $self->_table_uniq_info($table) || [];
+    $self->_dbic_stmt($table_class,'add_unique_constraint',@$_) for (@$uniqs);
+
+    $schema_class->register_class($table_moniker, $table_class);
+    $schema->register_class($table_moniker, $table_class) if $schema ne $schema_class;
 }
 
 =head2 tables
@@ -532,7 +680,7 @@ names.
 sub tables {
     my $self = shift;
 
-    return @{$self->_tables};
+    return keys %{$self->_tables};
 }
 
 # Make a moniker from a table
@@ -554,27 +702,17 @@ sub _table2moniker {
 }
 
 sub _load_relationships {
-    my $self = shift;
+    my ($self, $table) = @_;
 
-    # Construct the fk_info RelBuilder wants to see, by
-    # translating table names to monikers in the _fk_info output
-    my %fk_info;
-    foreach my $table ($self->tables) {
-        my $tbl_fk_info = $self->_table_fk_info($table);
-        foreach my $fkdef (@$tbl_fk_info) {
-            $fkdef->{remote_source} =
-                $self->monikers->{delete $fkdef->{remote_table}};
-        }
-        my $moniker = $self->monikers->{$table};
-        $fk_info{$moniker} = $tbl_fk_info;
+    my $tbl_fk_info = $self->_table_fk_info($table);
+    foreach my $fkdef (@$tbl_fk_info) {
+        $fkdef->{remote_source} =
+            $self->monikers->{delete $fkdef->{remote_table}};
     }
 
-    my $relbuilder = DBIx::Class::Schema::Loader::RelBuilder->new(
-        $self->schema_class, \%fk_info, $self->inflect_plural,
-        $self->inflect_singular
-    );
+    my $local_moniker = $self->monikers->{$table};
+    my $rel_stmts = $self->{relbuilder}->generate_code($local_moniker, $tbl_fk_info);
 
-    my $rel_stmts = $relbuilder->generate_code;
     foreach my $src_class (sort keys %$rel_stmts) {
         my $src_stmts = $rel_stmts->{$src_class};
         foreach my $stmt (@$src_stmts) {
@@ -626,6 +764,12 @@ sub _dbic_stmt {
 sub _raw_stmt {
     my ($self, $class, $stmt) = @_;
     push(@{$self->{_dump_storage}->{$class}}, $stmt) if $self->dump_directory;
+}
+
+# Like above, but separately for the externally loaded stuff
+sub _ext_stmt {
+    my ($self, $class, $stmt) = @_;
+    push(@{$self->{_ext_storage}->{$class}}, $stmt) if $self->dump_directory;
 }
 
 =head2 monikers

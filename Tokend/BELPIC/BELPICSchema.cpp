@@ -88,6 +88,12 @@ void BELPICSchema::create()
 
 	createStandardRelation(CSSM_DL_DB_RECORD_X509_CERTIFICATE);
 	createKeyRelation(CSSM_DL_DB_RECORD_PRIVATE_KEY);
-    createStandardRelation(CSSM_DL_DB_RECORD_GENERIC);
+	
+	Relation *rn_gen = createStandardRelation(CSSM_DL_DB_RECORD_GENERIC);
+	
+	// Create the generic table
+	MetaRecord &mr_gen = rn_gen->metaRecord();
+	mr_gen.attributeCoderForData(&mBELPICDataAttributeCoder);
+	
 }
 

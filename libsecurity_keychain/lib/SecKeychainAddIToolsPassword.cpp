@@ -99,5 +99,5 @@ OSStatus SecKeychainAddIToolsPassword(SecKeychainRef keychain, UInt32 accountNam
 		access,
 		itemRef);
 	
-	END_SECAPI2("SecKeychainAddIToolsPassword")
+	END_SECAPI
 }

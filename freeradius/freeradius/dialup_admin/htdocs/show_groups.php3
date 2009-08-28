@@ -12,9 +12,23 @@ else{
 <meta http-equiv="Content-Type" content="text/html; charset=$config[general_charset]">
 <link rel="stylesheet" href="style.css">
 </head>
-<body bgcolor="#80a040" background="images/greenlines1.gif" link="black" alink="black">
+<body>
 <center>
 <b>Could not include SQL library functions. Aborting</b>
+</body>
+</html>
+EOM;
+	exit();
+}
+if ($config[general_lib_type] != 'sql'){
+	echo <<<EOM
+<title>User Groups</title>
+<meta http-equiv="Content-Type" content="text/html; charset=$config[general_charset]">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<center>
+<b>This page is only available if you are using sql as general library type</b>
 </body>
 </html>
 EOM;
@@ -26,7 +40,7 @@ EOM;
 <meta http-equiv="Content-Type" content="text/html; charset=<?php echo $config[general_charset]?>">
 <link rel="stylesheet" href="style.css">
 </head>
-<body bgcolor="#80a040" background="images/greenlines1.gif" link="black" alink="black">
+<body>
 <center>
 <table border=0 width=550 cellpadding=0 cellspacing=0>
 <tr valign=top>
@@ -48,41 +62,31 @@ EOM;
 <tr bgcolor="black" valign=top><td colspan=2>
 	<table border=0 width=100% cellpadding=12 cellspacing=0 bgcolor="#ffffd0" valign=top>
 	<tr><td>
-<p>
+<font size=-2>Only groups with members are shown</font><p>
 	<table border=1 bordercolordark=#ffffe0 bordercolorlight=#000000 width=100% cellpadding=2 cellspacing=0 bgcolor="#ffffe0" valign=top>
 	<tr bgcolor="#d0ddb0">
 	<th>#</th><th>group</th><th># of members</th>
 	</tr>
 
 <?php
-$link = @da_sql_pconnect($config);
-if ($link){
-	$search = @da_sql_query($link,$config,
-	"SELECT COUNT(*) as counter,groupname,MAX(username) AS usersample FROM $config[sql_usergroup_table] GROUP BY groupname;");
-	if ($search){
-		if (@da_sql_num_rows($search,$config)){
-			while( $row = @da_sql_fetch_array($search,$config) ){
-				$num++;
-				$group = $row[groupname];
-				$num_members = $row[counter];
-				if ($row[usersample] == "") $num_members--;
-				echo <<<EOM
+unset($login);
+$num = 0;
+include_once("../lib/$config[general_lib_type]/group_info.php3");
+if (isset($existing_groups)){
+	foreach ($existing_groups as $group => $num_members){
+		$num++;
+		$Group = urlencode($group);
+		echo <<<EOM
 		<tr align=center>
 			<td>$num</td>
-			<td><a href="group_admin.php3?login=$group" title="Edit group $group">$group</a></td>
+			<td><a href="group_admin.php3?login=$Group" title="Edit group $group">$group</a></td>
 			<td>$num_members</td>
 		</tr>
 EOM;
-			}
-		}
-		else
-			echo "<b>Could not find any groups</b><br>\n";
 	}
-	else
-		echo "<b>Database query failed: " . da_sql_error($link,$config) . "</b><br>\n";
 }
 else
-	echo "<b>Could not connect to SQL database</b><br>\n";
+	echo "<b>Could not find any groups</b><br>\n";
 ?>
 	</table>
 </table>

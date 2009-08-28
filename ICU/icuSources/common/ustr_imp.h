@@ -1,6 +1,6 @@
 /*  
 **********************************************************************
-*   Copyright (C) 1999-2006, International Business Machines
+*   Copyright (C) 1999-2008, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   file name:  ustr_imp.h
@@ -32,7 +32,7 @@
  * and memcmp/UnicodeString style (at least one length >=0).
  * @internal
  */
-U_CAPI int32_t U_EXPORT2
+U_CFUNC int32_t U_EXPORT2
 uprv_strCompare(const UChar *s1, int32_t length1,
                 const UChar *s2, int32_t length2,
                 UBool strncmpStyle, UBool codePointOrder);
@@ -101,6 +101,33 @@ u_growBufferFromStatic(void *context,
 /**
  * @internal
  */
+struct UCaseMap {
+    const UCaseProps *csp;
+#if !UCONFIG_NO_BREAK_ITERATION
+    UBreakIterator *iter;  /* We adopt the iterator, so we own it. */
+#endif
+    char locale[32];
+    int32_t locCache;
+    uint32_t options;
+};
+
+#ifndef __UCASEMAP_H__
+typedef struct UCaseMap UCaseMap;
+#endif
+
+/**
+ * @internal
+ */
+enum {
+    TO_LOWER,
+    TO_UPPER,
+    TO_TITLE,
+    FOLD_CASE
+};
+
+/**
+ * @internal
+ */
 U_CFUNC int32_t
 ustr_toLower(const UCaseProps *csp,
              UChar *dest, int32_t destCapacity,
@@ -128,7 +155,7 @@ ustr_toTitle(const UCaseProps *csp,
              UChar *dest, int32_t destCapacity,
              const UChar *src, int32_t srcLength,
              UBreakIterator *titleIter,
-             const char *locale,
+             const char *locale, uint32_t options,
              UErrorCode *pErrorCode);
 
 #endif

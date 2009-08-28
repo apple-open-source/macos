@@ -1,0 +1,28 @@
+#!/bin/sh
+
+# Assume call with pwd = 'doc'.
+
+# Phase I ... List known manpages ...
+
+rm -f ../tools/rules/manpages
+touch ../tools/rules/manpages
+
+tclsh="$1"
+
+for i in `ls *.man`
+do
+	echo $i '-->' manpages
+	$tclsh ../tools/mpexpand.tcl list $i - | \
+	    awk "{ print \$2 }" | \
+	    sed -e 's|^\(.*\)$|manpage mem/mp/\1 \1 mp.\1.html|' |
+	    cat >> ../tools/rules/manpages
+done
+
+
+# Phase II .. Generate true output ...
+
+for i in `ls *.man`
+do
+	echo $i '-->' `basename $i .man`.n
+	$tclsh ../tools/mpexpand.tcl nroff $i - > `basename $i .man`.n
+done

@@ -1,7 +1,7 @@
 /*
  * rlm_eap_tls.c  contains the interfaces that are called from eap
  *
- * Version:     $Id: rlm_eap_tls.c,v 1.21.4.14 2007/04/20 11:58:46 aland Exp $
+ * Version:     $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,19 +15,45 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
  * Copyright 2001  hereUare Communications, Inc. <raghud@hereuare.com>
  * Copyright 2003  Alan DeKok <aland@freeradius.org>
+ * Copyright 2006  The FreeRADIUS server project
+ *
  */
 
-#include "autoconf.h"
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
+
+#include <freeradius-devel/autoconf.h>
 
 #ifdef HAVE_OPENSSL_RAND_H
 #include <openssl/rand.h>
 #endif
 
+#ifdef HAVE_OPENSSL_EVP_H
+#include <openssl/evp.h>
+#endif
+
 #include "rlm_eap_tls.h"
+#include "config.h"
+
+#ifdef HAVE_SYS_STAT_H
+#include <sys/stat.h>
+#endif
+
+static CONF_PARSER cache_config[] = {
+	{ "enable", PW_TYPE_BOOLEAN,
+	  offsetof(EAP_TLS_CONF, session_cache_enable), NULL, "no" },
+	{ "lifetime", PW_TYPE_INTEGER,
+	  offsetof(EAP_TLS_CONF, session_timeout), NULL, "24" },
+	{ "max_entries", PW_TYPE_INTEGER,
+	  offsetof(EAP_TLS_CONF, session_cache_size), NULL, "255" },
+	{ "name", PW_TYPE_STRING_PTR,
+	  offsetof(EAP_TLS_CONF, session_id_name), NULL, NULL},
+ 	{ NULL, -1, 0, NULL, NULL }           /* end the list */
+};
 
 static CONF_PARSER module_config[] = {
 	{ "rsa_key_exchange", PW_TYPE_BOOLEAN,
@@ -40,15 +66,15 @@ static CONF_PARSER module_config[] = {
 	  offsetof(EAP_TLS_CONF, dh_key_length), NULL, "512" },
 	{ "verify_depth", PW_TYPE_INTEGER,
 	  offsetof(EAP_TLS_CONF, verify_depth), NULL, "0" },
-	{ "CA_path", PW_TYPE_STRING_PTR,
+	{ "CA_path", PW_TYPE_FILENAME,
 	  offsetof(EAP_TLS_CONF, ca_path), NULL, NULL },
 	{ "pem_file_type", PW_TYPE_BOOLEAN,
 	  offsetof(EAP_TLS_CONF, file_type), NULL, "yes" },
-	{ "private_key_file", PW_TYPE_STRING_PTR,
+	{ "private_key_file", PW_TYPE_FILENAME,
 	  offsetof(EAP_TLS_CONF, private_key_file), NULL, NULL },
-	{ "certificate_file", PW_TYPE_STRING_PTR,
+	{ "certificate_file", PW_TYPE_FILENAME,
 	  offsetof(EAP_TLS_CONF, certificate_file), NULL, NULL },
-	{ "CA_file", PW_TYPE_STRING_PTR,
+	{ "CA_file", PW_TYPE_FILENAME,
 	  offsetof(EAP_TLS_CONF, ca_file), NULL, NULL },
 	{ "private_key_password", PW_TYPE_STRING_PTR,
 	  offsetof(EAP_TLS_CONF, private_key_password), NULL, NULL },
@@ -68,6 +94,10 @@ static CONF_PARSER module_config[] = {
 	  offsetof(EAP_TLS_CONF, cipher_list), NULL, NULL},
 	{ "check_cert_issuer", PW_TYPE_STRING_PTR,
 	  offsetof(EAP_TLS_CONF, check_cert_issuer), NULL, NULL},
+	{ "make_cert_command", PW_TYPE_STRING_PTR,
+	  offsetof(EAP_TLS_CONF, make_cert_command), NULL, NULL},
+
+	{ "cache", PW_TYPE_SUBSECTION, 0, NULL, (const void *) cache_config },
 
  	{ NULL, -1, 0, NULL, NULL }           /* end the list */
 };
@@ -89,7 +119,7 @@ static int load_dh_params(SSL_CTX *ctx, char *file)
 	dh = PEM_read_bio_DHparams(bio, NULL, NULL, NULL);
 	BIO_free(bio);
 	if (!dh) {
-		radlog(L_INFO, "WARNING: rlm_eap_tls: Unable to set DH parameters.  DH cipher suites may not work!");
+		DEBUG2("WARNING: rlm_eap_tls: Unable to set DH parameters.  DH cipher suites may not work!");
 		DEBUG2("WARNING: Fix this by running the OpenSSL command listed in eap.conf");
 		return 0;
 	}
@@ -104,8 +134,9 @@ static int load_dh_params(SSL_CTX *ctx, char *file)
 	return 0;
 }
 
+
 /*
- *	Generte ephemeral RSA keys.
+ *	Generate ephemeral RSA keys.
  */
 static int generate_eph_rsa_key(SSL_CTX *ctx)
 {
@@ -114,7 +145,7 @@ static int generate_eph_rsa_key(SSL_CTX *ctx)
 	rsa = RSA_generate_key(512, RSA_F4, NULL, NULL);
 
 	if (!SSL_CTX_set_tmp_rsa(ctx, rsa)) {
-		radlog(L_ERR, "rlm_eap_tls: Couldn't set RSA key");
+		radlog(L_ERR, "rlm_eap_tls: Couldn't set ephemeral RSA key");
 		return -1;
 	}
 
@@ -122,6 +153,65 @@ static int generate_eph_rsa_key(SSL_CTX *ctx)
 	return 0;
 }
 
+
+/*
+ *	These functions don't do anything other than print debugging
+ *	messages.
+ *
+ *	FIXME: Write sessions to some long-term storage, so that
+ *	       session resumption can still occur after the server
+ *	       restarts.
+ */
+#define MAX_SESSION_SIZE (256)
+
+static void cbtls_remove_session(UNUSED SSL_CTX *ctx, SSL_SESSION *sess)
+{
+	size_t size;
+	char buffer[2 * MAX_SESSION_SIZE + 1];
+
+	size = sess->session_id_length;
+	if (size > MAX_SESSION_SIZE) size = MAX_SESSION_SIZE;
+
+	fr_bin2hex(sess->session_id, buffer, size);
+
+        DEBUG2("  SSL: Removing session %s from the cache", buffer);
+        SSL_SESSION_free(sess);
+
+        return;
+}
+
+static int cbtls_new_session(UNUSED SSL *s, SSL_SESSION *sess)
+{
+	size_t size;
+	char buffer[2 * MAX_SESSION_SIZE + 1];
+
+	size = sess->session_id_length;
+	if (size > MAX_SESSION_SIZE) size = MAX_SESSION_SIZE;
+
+	fr_bin2hex(sess->session_id, buffer, size);
+
+	DEBUG2("  SSL: adding session %s to cache", buffer);
+
+	return 1;
+}
+
+static SSL_SESSION *cbtls_get_session(UNUSED SSL *s,
+				      unsigned char *data, int len,
+				      UNUSED int *copy)
+{
+	size_t size;
+	char buffer[2 * MAX_SESSION_SIZE + 1];
+
+	size = len;
+	if (size > MAX_SESSION_SIZE) size = MAX_SESSION_SIZE;
+
+	fr_bin2hex(data, buffer, size);
+
+        DEBUG2("  SSL: Client requested nonexistent cached session %s",
+	       buffer);
+
+	return NULL;
+}
 
 /*
  *	Before trusting a certificate, you must make sure that the
@@ -160,6 +250,7 @@ static int cbtls_verify(int ok, X509_STORE_CTX *ctx)
 	int err, depth;
 	EAP_TLS_CONF *conf;
 	int my_ok = ok;
+	REQUEST *request;
 
 	client_cert = X509_STORE_CTX_get_current_cert(ctx);
 	err = X509_STORE_CTX_get_error(ctx);
@@ -177,6 +268,7 @@ static int cbtls_verify(int ok, X509_STORE_CTX *ctx)
 	 */
 	ssl = X509_STORE_CTX_get_ex_data(ctx, SSL_get_ex_data_X509_STORE_CTX_idx());
 	handler = (EAP_HANDLER *)SSL_get_ex_data(ssl, 0);
+	request = handler->request;
 	conf = (EAP_TLS_CONF *)SSL_get_ex_data(ssl, 1);
 
 	/*
@@ -229,7 +321,7 @@ static int cbtls_verify(int ok, X509_STORE_CTX *ctx)
 		 *	against the specified value and fail
 		 *	verification if they don't match.
 		 */
-		if (conf->check_cert_issuer && 
+		if (conf->check_cert_issuer &&
 		    (strcmp(issuer, conf->check_cert_issuer) != 0)) {
 			radlog(L_AUTH, "rlm_eap_tls: Certificate issuer (%s) does not match specified value (%s)!", issuer, conf->check_cert_issuer);
  			my_ok = 0;
@@ -247,7 +339,7 @@ static int cbtls_verify(int ok, X509_STORE_CTX *ctx)
 				/* if this fails, fail the verification */
 				my_ok = 0;
 			} else {
-				DEBUG2("    rlm_eap_tls: checking certificate CN (%s) with xlat'ed value (%s)", common_name, cn_str);
+				RDEBUG2("checking certificate CN (%s) with xlat'ed value (%s)", common_name, cn_str);
 				if (strcmp(cn_str, common_name) != 0) {
 					radlog(L_AUTH, "rlm_eap_tls: Certificate CN (%s) does not match specified value (%s)!", common_name, cn_str);
 					my_ok = 0;
@@ -257,16 +349,30 @@ static int cbtls_verify(int ok, X509_STORE_CTX *ctx)
 	} /* depth == 0 */
 
 	if (debug_flag > 0) {
-		radlog(L_INFO, "chain-depth=%d, ", depth);
-		radlog(L_INFO, "error=%d", err);
+		RDEBUG2("chain-depth=%d, ", depth);
+		RDEBUG2("error=%d", err);
 
-		radlog(L_INFO, "--> User-Name = %s", handler->identity);
-		radlog(L_INFO, "--> BUF-Name = %s", common_name);
-		radlog(L_INFO, "--> subject = %s", subject);
-		radlog(L_INFO, "--> issuer  = %s", issuer);
-		radlog(L_INFO, "--> verify return:%d", my_ok);
+		RDEBUG2("--> User-Name = %s", handler->identity);
+		RDEBUG2("--> BUF-Name = %s", common_name);
+		RDEBUG2("--> subject = %s", subject);
+		RDEBUG2("--> issuer  = %s", issuer);
+		RDEBUG2("--> verify return:%d", my_ok);
 	}
 	return my_ok;
+}
+
+
+/*
+ *	Free cached session data, which is always a list of VALUE_PAIRs
+ */
+static void eaptls_session_free(UNUSED void *parent, void *data_ptr,
+				UNUSED CRYPTO_EX_DATA *ad, UNUSED int idx,
+				UNUSED long argl, UNUSED void *argp)
+{
+	VALUE_PAIR *vp = data_ptr;
+	if (!data_ptr) return;
+
+	pairfree(&vp);
 }
 
 
@@ -293,6 +399,15 @@ static SSL_CTX *init_tls_ctx(EAP_TLS_CONF *conf)
 	SSL_library_init();
 	SSL_load_error_strings();
 
+	/*
+	 *	SHA256 is in all versions of OpenSSL, but isn't
+	 *	initialized by default.  It's needed for WiMAX
+	 *	certificates.
+	 */
+#ifdef HAVE_OPENSSL_EVP_SHA256
+	EVP_add_digest(EVP_sha256());
+#endif
+
 	meth = TLSv1_method();
 	ctx = SSL_CTX_new(meth);
 
@@ -309,6 +424,49 @@ static SSL_CTX *init_tls_ctx(EAP_TLS_CONF *conf)
 	 * Set the password to load private key
 	 */
 	if (conf->private_key_password) {
+#ifdef __APPLE__
+		/*
+		 * We don't want to put the private key password in eap.conf, so  check
+		 * for our special string which indicates we should get the password
+		 * programmatically. 
+		 */
+		const char* special_string = "Apple:UseCertAdmin";
+		if (strncmp(conf->private_key_password,
+					special_string,
+					strlen(special_string)) == 0)
+		{
+			char cmd[256];
+			const long max_password_len = 128;
+			snprintf(cmd, sizeof(cmd) - 1,
+					 "/usr/sbin/certadmin --get-private-key-passphrase \"%s\"",
+					 conf->private_key_file);
+
+			DEBUG2("rlm_eap: Getting private key passphrase using command \"%s\"", cmd);
+
+			FILE* cmd_pipe = popen(cmd, "r");
+			if (!cmd_pipe) {
+				radlog(L_ERR, "rlm_eap: %s command failed.	Unable to get private_key_password", cmd);
+				radlog(L_ERR, "rlm_eap: Error reading private_key_file %s", conf->private_key_file);
+				return NULL;
+			}
+
+			free(conf->private_key_password);
+			conf->private_key_password = malloc(max_password_len * sizeof(char));
+			if (!conf->private_key_password) {
+				radlog(L_ERR, "rlm_eap: Can't malloc space for private_key_password");
+				radlog(L_ERR, "rlm_eap: Error reading private_key_file %s", conf->private_key_file);
+				pclose(cmd_pipe);
+				return NULL;
+			}
+
+			fgets(conf->private_key_password, max_password_len, cmd_pipe);
+			pclose(cmd_pipe);
+
+			/* Get rid of newline at end of password. */
+			conf->private_key_password[strlen(conf->private_key_password) - 1] = '\0';
+			DEBUG2("rlm_eap:  Password from command = \"%s\"", conf->private_key_password);
+		}
+#endif
 		SSL_CTX_set_default_passwd_cb_userdata(ctx, conf->private_key_password);
 		SSL_CTX_set_default_passwd_cb(ctx, cbtls_password);
 	}
@@ -323,31 +481,30 @@ static SSL_CTX *init_tls_ctx(EAP_TLS_CONF *conf)
 	 *	openSSL.org
 	 */
 	if (type == SSL_FILETYPE_PEM) {
-		radlog(L_INFO, "rlm_eap_tls: Loading the certificate file as a chain");
 		if (!(SSL_CTX_use_certificate_chain_file(ctx, conf->certificate_file))) {
 			radlog(L_ERR, "rlm_eap: SSL error %s", ERR_error_string(ERR_get_error(), NULL));
-			radlog(L_ERR, "rlm_eap_tls: Error reading certificate file");
+			radlog(L_ERR, "rlm_eap_tls: Error reading certificate file %s", conf->certificate_file);
 			return NULL;
 		}
 
 	} else if (!(SSL_CTX_use_certificate_file(ctx, conf->certificate_file, type))) {
 		radlog(L_ERR, "rlm_eap: SSL error %s", ERR_error_string(ERR_get_error(), NULL));
-		radlog(L_ERR, "rlm_eap_tls: Error reading certificate file");
+		radlog(L_ERR, "rlm_eap_tls: Error reading certificate file %s", conf->certificate_file);
 		return NULL;
 	}
-
 
 	/* Load the CAs we trust */
-	if (!SSL_CTX_load_verify_locations(ctx, conf->ca_file, conf->ca_path)) {
-		radlog(L_ERR, "rlm_eap: SSL error %s", ERR_error_string(ERR_get_error(), NULL));
-		radlog(L_ERR, "rlm_eap_tls: Error reading Trusted root CA list");
-		return NULL;
+	if (conf->ca_file || conf->ca_path) {
+		if (!SSL_CTX_load_verify_locations(ctx, conf->ca_file, conf->ca_path)) {
+			radlog(L_ERR, "rlm_eap: SSL error %s", ERR_error_string(ERR_get_error(), NULL));
+			radlog(L_ERR, "rlm_eap_tls: Error reading Trusted root CA list %s",conf->ca_file );
+			return NULL;
+		}
 	}
-	SSL_CTX_set_client_CA_list(ctx, SSL_load_client_CA_file(conf->ca_file));
-
+	if (conf->ca_file && *conf->ca_file) SSL_CTX_set_client_CA_list(ctx, SSL_load_client_CA_file(conf->ca_file));
 	if (!(SSL_CTX_use_PrivateKey_file(ctx, conf->private_key_file, type))) {
 		radlog(L_ERR, "rlm_eap: SSL error %s", ERR_error_string(ERR_get_error(), NULL));
-		radlog(L_ERR, "rlm_eap_tls: Error reading private key file");
+		radlog(L_ERR, "rlm_eap_tls: Error reading private key file %s", conf->private_key_file);
 		return NULL;
 	}
 
@@ -373,13 +530,17 @@ static SSL_CTX *init_tls_ctx(EAP_TLS_CONF *conf)
 	 *	SSL_OP_SINGLE_DH_USE has an impact on the computer
 	 *	time needed during negotiation, but it is not very
 	 *	large.
-	 *	 
+	 */
+   	ctx_options |= SSL_OP_SINGLE_DH_USE;
+
+	/*
 	 *	SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS to work around issues
 	 *	in Windows Vista client.
 	 *	http://www.openssl.org/~bodo/tls-cbc.txt
 	 *	http://www.nabble.com/(RADIATOR)-Radiator-Version-3.16-released-t2600070.html
 	 */
-   	ctx_options |= SSL_OP_SINGLE_DH_USE | SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS;
+   	ctx_options |= SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS;
+
 	SSL_CTX_set_options(ctx, ctx_options);
 
 	/*
@@ -398,6 +559,17 @@ static SSL_CTX *init_tls_ctx(EAP_TLS_CONF *conf)
 
 	/* Set Info callback */
 	SSL_CTX_set_info_callback(ctx, cbtls_info);
+
+	/*
+	 *	Callbacks, etc. for session resumption.
+	 */						      
+	if (conf->session_cache_enable) {
+		SSL_CTX_sess_set_new_cb(ctx, cbtls_new_session);
+		SSL_CTX_sess_set_get_cb(ctx, cbtls_get_session);
+		SSL_CTX_sess_set_remove_cb(ctx, cbtls_remove_session);
+
+		SSL_CTX_set_quiet_shutdown(ctx, 1);
+	}
 
 	/*
 	 *	Check the certificates for revocation.
@@ -444,6 +616,70 @@ static SSL_CTX *init_tls_ctx(EAP_TLS_CONF *conf)
 		}
 	}
 
+	/*
+	 *	Setup session caching
+	 */
+	if (conf->session_cache_enable) {
+		/*
+		 *	Create a unique context Id per EAP-TLS configuration.
+		 */
+		if (conf->session_id_name) {
+			snprintf(conf->session_context_id,
+				 sizeof(conf->session_context_id),
+				 "FreeRADIUS EAP-TLS %s",
+				 conf->session_id_name);
+		} else {
+			snprintf(conf->session_context_id,
+				 sizeof(conf->session_context_id),
+				 "FreeRADIUS EAP-TLS %p", conf);
+		}
+
+		/*
+		 *	Cache it, and DON'T auto-clear it.
+		 */
+		SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_SERVER | SSL_SESS_CACHE_NO_AUTO_CLEAR);
+					       
+		SSL_CTX_set_session_id_context(ctx,
+					       (unsigned char *) conf->session_context_id,
+					       (unsigned int) strlen(conf->session_context_id));
+
+		/*
+		 *	Our timeout is in hours, this is in seconds.
+		 */
+		SSL_CTX_set_timeout(ctx, conf->session_timeout * 3600);
+		
+		/*
+		 *	Set the maximum number of entries in the
+		 *	session cache.
+		 */
+		SSL_CTX_sess_set_cache_size(ctx, conf->session_cache_size);
+
+	} else {
+		SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_OFF);
+	}
+
+	/*
+	 *	Register the application indices.  We can't use
+	 *	hard-coded "0" and "1" as before, because we need to
+	 *	set up a "free" handler for the cached session
+	 *	information.
+	 */
+	if (eaptls_handle_idx < 0) {
+		eaptls_handle_idx = SSL_get_ex_new_index(0, "eaptls_handle_idx",
+							  NULL, NULL, NULL);
+	}
+	
+	if (eaptls_conf_idx < 0) {
+		eaptls_conf_idx = SSL_get_ex_new_index(0, "eaptls_conf_idx",
+							  NULL, NULL, NULL);
+	}
+
+	if (eaptls_session_idx < 0) {
+		eaptls_session_idx = SSL_get_ex_new_index(0, "eaptls_session_idx",
+							  NULL, NULL,
+							  eaptls_session_free);
+	}
+
 	return ctx;
 }
 
@@ -460,18 +696,6 @@ static int eaptls_detach(void *arg)
 	conf = inst->conf;
 
 	if (conf) {
-		free(conf->dh_file);
-		free(conf->ca_path);
-		free(conf->certificate_file);
-		free(conf->private_key_file);
-		free(conf->private_key_password);
-		free(conf->ca_file);
-		free(conf->random_file);
-
-		free(conf->check_cert_cn);
-		free(conf->cipher_list);
-		free(conf->check_cert_issuer);
-
 		memset(conf, 0, sizeof(*conf));
 		free(inst->conf);
 		inst->conf = NULL;
@@ -519,6 +743,55 @@ static int eaptls_attach(CONF_SECTION *cs, void **instance)
 		return -1;
 	}
 
+	/*
+	 *	The EAP RFC's say 1020, but we're less picky.
+	 */
+	if (conf->fragment_size < 100) {
+		radlog(L_ERR, "rlm_eap_tls: Fragment size is too small.");
+		eaptls_detach(inst);
+		return -1;
+	}
+
+	/*
+	 *	The maximum size for a RADIUS packet is 4096,
+	 *	minus the header (20), Message-Authenticator (18),
+	 *	and State (18), etc. results in about 4000 bytes of data
+	 *	that can be devoted *solely* to EAP.
+	 */
+	if (conf->fragment_size > 4000) {
+		radlog(L_ERR, "rlm_eap_tls: Fragment size is too large.");
+		eaptls_detach(inst);
+		return -1;
+	}
+
+	/*
+	 *	Account for the EAP header (4), and the EAP-TLS header
+	 *	(6), as per Section 4.2 of RFC 2716.  What's left is
+	 *	the maximum amount of data we read from a TLS buffer.
+	 */
+	conf->fragment_size -= 10;
+
+	/*
+	 *	This magic makes the administrators life HUGELY easier
+	 *	on initial deployments.
+	 *
+	 *	If the server starts up in debugging mode, AND the
+	 *	bootstrap command is configured, AND it exists, AND
+	 *	there is no server certificate
+	 */
+	if (conf->make_cert_command && (debug_flag >= 2)) {
+		struct stat buf;
+
+		if ((stat(conf->make_cert_command, &buf) == 0) &&
+		    (stat(conf->certificate_file, &buf) < 0) &&
+		    (errno == ENOENT) &&
+		    (radius_exec_program(conf->make_cert_command, NULL, 1,
+					 NULL, 0, NULL, NULL, 0) != 0)) {
+			eaptls_detach(inst);
+			return -1;
+		}
+	}
+
 
 	/*
 	 *	Initialize TLS
@@ -533,10 +806,10 @@ static int eaptls_attach(CONF_SECTION *cs, void **instance)
 		eaptls_detach(inst);
 		return -1;
 	}
-	if (generate_eph_rsa_key(inst->ctx) < 0) {
-		eaptls_detach(inst);
-		return -1;
-	}
+
+        if (generate_eph_rsa_key(inst->ctx) < 0) {
+                return -1;
+        }
 
 	*instance = inst;
 
@@ -570,9 +843,26 @@ static int eaptls_initiate(void *type_arg, EAP_HANDLER *handler)
 	eap_tls_t	*inst;
 	VALUE_PAIR	*vp;
 	int		client_cert = TRUE;
-	int		verify_mode = SSL_VERIFY_NONE;
+	int		verify_mode = 0;
+	REQUEST		*request = handler->request;
 
 	inst = (eap_tls_t *)type_arg;
+
+	/*
+	 *	Manually flush the sessions every so often.  If HALF
+	 *	of the session lifetime has passed since we last
+	 *	flushed, then flush it again.
+	 *
+	 *	FIXME: Also do it every N sessions?
+	 */
+	if (inst->conf->session_cache_enable &&
+	    ((inst->conf->session_last_flushed + (inst->conf->session_timeout * 1800)) <= request->timestamp)) {
+		RDEBUG2("Flushing SSL sessions (of #%ld)",
+			SSL_CTX_sess_number(inst->ctx));
+
+		SSL_CTX_flush_sessions(inst->ctx, request->timestamp);
+		inst->conf->session_last_flushed = request->timestamp;
+	}
 
 	/*
 	 *	If we're TTLS or PEAP, then do NOT require a client
@@ -586,7 +876,7 @@ static int eaptls_initiate(void *type_arg, EAP_HANDLER *handler)
 		if (!vp) {
 			client_cert = FALSE;
 		} else {
-			client_cert = vp->lvalue;
+			client_cert = vp->vp_integer;
 		}
 	}
 
@@ -606,7 +896,7 @@ static int eaptls_initiate(void *type_arg, EAP_HANDLER *handler)
 	 *	Verify the peer certificate, if asked.
 	 */
 	if (client_cert) {
-		DEBUG2(" rlm_eap_tls: Requiring client certificate");
+		RDEBUG2("Requiring client certificate");
 		verify_mode = SSL_VERIFY_PEER;
 		verify_mode |= SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
 		verify_mode |= SSL_VERIFY_CLIENT_ONCE;
@@ -640,7 +930,7 @@ static int eaptls_initiate(void *type_arg, EAP_HANDLER *handler)
 	 */
 	ssn->offset = inst->conf->fragment_size;
 	vp = pairfind(handler->request->packet->vps, PW_FRAMED_MTU);
-	if (vp && ((vp->lvalue - 14) < ssn->offset)) {
+	if (vp && ((vp->vp_integer - 14) < ssn->offset)) {
 		/*
 		 *	Discount the Framed-MTU by:
 		 *	 4 : EAPOL header
@@ -653,18 +943,31 @@ static int eaptls_initiate(void *type_arg, EAP_HANDLER *handler)
 		 *	---
 		 *	14
 		 */
-		ssn->offset = vp->lvalue - 14;
+		ssn->offset = vp->vp_integer - 14;
 	}
 
 	handler->opaque = ((void *)ssn);
 	handler->free_opaque = session_free;
 
-	DEBUG2("  rlm_eap_tls: Initiate");
+	RDEBUG2("Initiate");
 
 	/*
-	 *	PEAP-specific breakage.
+	 *	Set up type-specific information.
 	 */
-	if (handler->eap_type == PW_EAP_PEAP) {
+	switch (handler->eap_type) {
+	case PW_EAP_TLS:
+	default:
+		ssn->prf_label = "client EAP encryption";
+		break;
+
+	case PW_EAP_TTLS:
+		ssn->prf_label = "ttls keying material";
+		break;
+
+		/*
+		 *	PEAP-specific breakage.
+		 */
+	case PW_EAP_PEAP:
 		/*
 		 *	As it is a poorly designed protocol, PEAP uses
 		 *	bits in the TLS header to indicate PEAP
@@ -682,6 +985,13 @@ static int eaptls_initiate(void *type_arg, EAP_HANDLER *handler)
 		 *	we force it here.
 		 */
 		ssn->length_flag = 0;
+
+		ssn->prf_label = "client EAP encryption";
+		break;
+	}
+
+	if (inst->conf->session_cache_enable) {
+		ssn->allow_session_resumption = 1; /* otherwise it's zero */
 	}
 
 	/*
@@ -689,7 +999,7 @@ static int eaptls_initiate(void *type_arg, EAP_HANDLER *handler)
 	 *	related handshaking or application data.
 	 */
 	status = eaptls_start(handler->eap_ds, ssn->peap_flag);
-	DEBUG2("  rlm_eap_tls: Start returned %d", status);
+	RDEBUG2("Start returned %d", status);
 	if (status == 0)
 		return 0;
 
@@ -704,15 +1014,17 @@ static int eaptls_initiate(void *type_arg, EAP_HANDLER *handler)
 /*
  *	Do authentication, by letting EAP-TLS do most of the work.
  */
-static int eaptls_authenticate(void *arg UNUSED, EAP_HANDLER *handler)
+static int eaptls_authenticate(void *arg, EAP_HANDLER *handler)
 {
 	eaptls_status_t	status;
 	tls_session_t *tls_session = (tls_session_t *) handler->opaque;
+	REQUEST *request = handler->request;
+	eap_tls_t *inst = (eap_tls_t *) arg;
 
-	DEBUG2("  rlm_eap_tls: Authenticate");
+	RDEBUG2("Authenticate");
 
 	status = eaptls_process(handler);
-	DEBUG2("  eaptls_process returned %d\n", status);
+	RDEBUG2("eaptls_process returned %d\n", status);
 	switch (status) {
 		/*
 		 *	EAP-TLS handshake was successful, return an
@@ -734,9 +1046,9 @@ static int eaptls_authenticate(void *arg UNUSED, EAP_HANDLER *handler)
 		 *	data.
 		 */
 	case EAPTLS_OK:
-		DEBUG2("  rlm_eap_tls: Received unexpected tunneled data after successful handshake.");
+		RDEBUG2("Received unexpected tunneled data after successful handshake.");
 #ifndef NDEBUG
-		if (debug_flag > 2) {
+		if ((debug_flag > 2) && fr_log_fp) {
 			unsigned int i;
 			unsigned int data_len;
 			unsigned char buffer[1024];
@@ -745,34 +1057,71 @@ static int eaptls_authenticate(void *arg UNUSED, EAP_HANDLER *handler)
 						buffer, sizeof(buffer));
 			log_debug("  Tunneled data (%u bytes)\n", data_len);
 			for (i = 0; i < data_len; i++) {
-				if ((i & 0x0f) == 0x00) printf("  %x: ", i);
-				if ((i & 0x0f) == 0x0f) printf("\n");
+				if ((i & 0x0f) == 0x00) fprintf(fr_log_fp, "  %x: ", i);
+				if ((i & 0x0f) == 0x0f) fprintf(fr_log_fp, "\n");
 
-				printf("%02x ", buffer[i]);
+				fprintf(fr_log_fp, "%02x ", buffer[i]);
 			}
-			printf("\n");
+			fprintf(fr_log_fp, "\n");
 		}
 #endif
 
-		eaptls_fail(handler->eap_ds, 0);
+		eaptls_fail(handler, 0);
 		return 0;
 		break;
 
 		/*
 		 *	Anything else: fail.
+		 *
+		 *	Also, remove the session from the cache so that
+		 *	the client can't re-use it.
 		 */
 	default:
+		if (inst->conf->session_cache_enable) {	
+			SSL_CTX_remove_session(inst->ctx,
+					       tls_session->ssl->session);
+		}
+
 		return 0;
 	}
 
 	/*
-	 *	Success: Return MPPE keys.
+	 *	New sessions cause some additional information to be
+	 *	cached.
 	 */
-	eaptls_success(handler->eap_ds, 0);
-	eaptls_gen_mppe_keys(&handler->request->reply->vps,
-			     tls_session->ssl,
-			     "client EAP encryption");
-	return 1;
+	if (!SSL_session_reused(tls_session->ssl)) {
+		/*
+		 *	FIXME: Store miscellaneous data.
+		 */
+		RDEBUG2("Adding user data to cached session");
+		
+#if 0
+		SSL_SESSION_set_ex_data(tls_session->ssl->session,
+					ssl_session_idx_user_session, session_data);
+#endif
+	} else {
+		/*
+		 *	FIXME: Retrieve miscellaneous data.
+		 */
+#if 0
+		data = SSL_SESSION_get_ex_data(tls_session->ssl->session,
+					       ssl_session_idx_user_session);
+
+		if (!session_data) {
+			radlog_request(L_ERR, 0, request,
+				       "No user session data in cached session - "
+				       " REJECTING");
+			return 0;
+		}
+#endif
+
+		RDEBUG2("Retrieved session data from cached session");
+	}
+
+	/*
+	 *	Success: Automatically return MPPE keys.
+	 */
+	return eaptls_success(handler, 0);
 }
 
 /*

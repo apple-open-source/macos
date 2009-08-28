@@ -61,7 +61,7 @@ gdb_test "cond 1 ((int)\[object isKindOfClass:(id)\[NSString class\]\])" \
          "set break point conditon to isKindOfClass of NSString"
 
 gdb_test "info break" \
-         "Num Type.*condition not yet parsed:.*object isKindOfClass.*breakpoint already hit 1 time" \
+         "Num Type.*stop only if .*object isKindOfClass.*breakpoint already hit 1 time" \
          "info break"
          
 

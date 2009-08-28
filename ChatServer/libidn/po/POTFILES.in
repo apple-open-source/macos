@@ -1,5 +1,5 @@
 # List of source files containing translatable strings for GNU Libidn.
-# Copyright (C) 2004 by Simon Josefsson
+# Copyright (C) 2004, 2005, 2006, 2007 by Simon Josefsson
 lib/strerror-idna.c
 lib/strerror-pr29.c
 lib/strerror-punycode.c

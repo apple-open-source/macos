@@ -12,7 +12,7 @@
 .\"WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE,
 .\"QUIET ENJOYMENT OR NON-INFRINGEMENT. Please see the License for the 
 .\"specific language governing rights and limitations under the License."
-.Dd March 24, 2001
+.Dd April 28, 2008
 .Dt UFS.UTIL 8 
 .Os Darwin
 .Sh NAME
@@ -20,12 +20,20 @@
 .Nd UFS file system utility
 .Sh SYNOPSIS
 .Nm
-.Op Fl m Ar mountflag1 mountflag2 mountflag3 mountflag4
-.Ar device node
+.Fl m 
+.Ar device mountpoint
+.Op Ar mountflag1 
+.Op Ar mountflag2 
+.Op Ar mountflag3 
+.Op Ar mountflag4
 .Pp
 .Nm
-.Op Fl p Ar mountflag1 mountflag2 mountflag3 mountflag4
+.Fl p 
 .Ar device
+.Op Ar mountflag1 
+.Op Ar mountflag2 
+.Op Ar mountflag3 
+.Op Ar mountflag4
 .Pp
 .Nm
 .Op Fl ksu 
@@ -40,15 +48,23 @@ The
 command supports the mounting, probing, and unmounting of UFS file systems.
 .Pp
 Options:
-.Bl -tag -width -indent "a"
+.Bl -tag -compact -offset indent
 .It Fl k 
 get UUID key
-.It Fl m Ar mountflag1 mountflag2 mountflag3 mountflag4
-mount
+.It Fl m 
+Mount the UFS file system located on 
+.Ar device
+onto
+.Ar mountpoint 
+with the flags 
+.Ar mountflag1 mountflag2 mountflag3 mountflag4
 .It Fl n
 set name
-.It Fl p Ar mountflag1 mountflag2 mountflag3 mountflag4
-probe for mounting
+.It Fl p 
+Probe the UFS file system located on 
+.Ar device
+with the flags
+.Ar mountflag1 mountflag2 mountflag3 mountflag4
 .It Fl s 
 set UUID key
 .It Fl u 
@@ -57,7 +73,7 @@ unmount
 .Pp
 .Ar mountflags 
 above are either:
-.Bl -bullet -indent
+.Bl -bullet
 .It
 .Ar removable 
 or

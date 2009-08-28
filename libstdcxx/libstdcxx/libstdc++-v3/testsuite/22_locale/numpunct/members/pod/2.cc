@@ -1,6 +1,6 @@
 // 2003-07-09  Benjamin Kosnik  <bkoz@redhat.com>
 
-// Copyright (C) 2003 Free Software Foundation, Inc.
+// Copyright (C) 2003, 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -15,25 +15,25 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 #include <locale>
 #include <sstream>
 #include <ostream>
 #include <stdexcept>
-#include <ext/pod_char_traits.h>
 #include <testsuite_hooks.h>
+#include <testsuite_character.h>
 
 // Check for numpunct and ctype dependencies. Make sure that numpunct
 // can be created without ctype.
 void test01()
 {
   using namespace std;
-  using __gnu_test::pod_type;
+  using __gnu_test::pod_ushort;
 
-  typedef numpunct<pod_type>::string_type 	string_type;
-  typedef basic_ostringstream<pod_type> 		ostream_type;
+  typedef numpunct<pod_ushort>::string_type 	string_type;
+  typedef basic_ostringstream<pod_ushort> 		ostream_type;
   
   bool 		test = true;
 
@@ -58,7 +58,7 @@ void test01()
   VERIFY( test );
 
   // 2: fail, no ctype
-  const locale 	loc2(loc, new num_put<pod_type>);
+  const locale 	loc2(loc, new num_put<pod_ushort>);
   os.clear();
   os.imbue(loc2);
   try
@@ -74,7 +74,7 @@ void test01()
   VERIFY( test );
 
   // 3: fail, no numpunct
-  const locale 	loc3(loc2, new ctype<pod_type>);
+  const locale 	loc3(loc2, new ctype<pod_ushort>);
   os.clear();
   os.imbue(loc3);
   try
@@ -90,7 +90,7 @@ void test01()
   VERIFY( test );
 
   // 4: works.
-  const locale 	loc4(loc3, new numpunct<pod_type>);
+  const locale 	loc4(loc3, new numpunct<pod_ushort>);
   os.clear();
   os.imbue(loc4);
   try

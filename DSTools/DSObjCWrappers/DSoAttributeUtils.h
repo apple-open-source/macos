@@ -44,28 +44,28 @@
                 to NO, then it will return Hex encoded value instead.
 */
 + (id) getAttributeFromBuffer:(tDataBufferPtr)inBufferPtr 
-                  allowBinary:(BOOL)inAllowBinary;
+                  allowBinary:(BOOL)inAllowBinary DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 + (NSDictionary*)getAttributesAndValuesInNode:(DSoNode*)inNode
                                    fromBuffer:(DSoBuffer*)inBuf
                                 listReference:(tAttributeListRef)inListRef
-                                        count:(unsigned long)inCount;
+                                        count:(unsigned long)inCount DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 + (NSDictionary*)getAttributesAndValuesInNode:(DSoNode*)inNode
                                    fromBuffer:(DSoBuffer*)inBuf
                                 listReference:(tAttributeListRef)inListRef
                                         count:(unsigned long)inCount
-                                  allowBinary:(BOOL)inAllowBinary;
+                                  allowBinary:(BOOL)inAllowBinary DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 + (NSArray*)getAttributesInNode:(DSoNode*)inNode
                      fromBuffer:(DSoBuffer*)inBuf
                   listReference:(tAttributeListRef)inListRef
-                          count:(unsigned long)inCount;
+                          count:(unsigned long)inCount DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 + (NSArray*)getAttributesInNode:(DSoNode*)inNode
                      fromBuffer:(DSoBuffer*)inBuf
                   listReference:(tAttributeListRef)inListRef
                           count:(unsigned long)inCount
-                    allowBinary:(BOOL)inAllowBinary;
+                    allowBinary:(BOOL)inAllowBinary DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 @end

@@ -1,0 +1,96 @@
+--- php-5.3.0/acconfig.h	2009-06-10 11:23:33.000000000 -0700
++++ php/acconfig.h	2009-06-16 17:10:25.000000000 -0700
+@@ -20,6 +20,8 @@
+ 
+ /* $Id: acconfig.h,v 1.40.2.1.2.1.2.3 2008/12/31 11:15:31 sebastian Exp $ */
+ 
++#ifndef ZEND_API
++
+ #if defined(__GNUC__) && __GNUC__ >= 4
+ # define ZEND_API __attribute__ ((visibility("default")))
+ # define ZEND_DLEXPORT __attribute__ ((visibility("default")))
+@@ -129,6 +131,26 @@
+ #endif
+ 
+ /*
++ * Darwin's GCC can generate multiple architectures in a single pass so the size and
++ * byte order will only be accurate for the one architecture that happened to invoke
++ * configure.
++ */
++#ifdef __DARWIN_BYTE_ORDER
++#/* This symbol must be allowed to be cleared. */ undef WORDS_BIGENDIAN
++# if (__DARWIN_BYTE_ORDER == __DARWIN_BIG_ENDIAN)
++#  define WORDS_BIGENDIAN 1
++# endif
++#/* This symbol must be allowed to be cleared. */ undef SIZEOF_LONG
++# ifdef __LP64__
++#/* This symbol should not be modified by configure. */  define SIZEOF_LONG 8
++# else
++#/* This symbol should not be modified by configure. */  define SIZEOF_LONG 4
++# endif
++#endif
++
++#endif	/* ZEND_API */
++
++/*
+  * Local variables:
+  * tab-width: 4
+  * c-basic-offset: 4
+--- php-5.3.0/main/php_config.h.in	2009-06-10 11:23:36.000000000 -0700
++++ php/main/php_config.h.in	2009-06-16 17:10:25.000000000 -0700
+@@ -21,6 +21,8 @@
+ 
+ /* $Id: acconfig.h,v 1.40.2.1.2.1.2.3 2008/12/31 11:15:31 sebastian Exp $ */
+ 
++#ifndef ZEND_API
++
+ #if defined(__GNUC__) && __GNUC__ >= 4
+ # define ZEND_API __attribute__ ((visibility("default")))
+ # define ZEND_DLEXPORT __attribute__ ((visibility("default")))
+@@ -2957,6 +2959,26 @@
+ #endif
+ 
+ /*
++ * Darwin's GCC can generate multiple architectures in a single pass so the size and
++ * byte order will only be accurate for the one architecture that happened to invoke
++ * configure.
++ */
++#ifdef __DARWIN_BYTE_ORDER
++#/* This symbol must be allowed to be cleared. */ undef WORDS_BIGENDIAN
++# if (__DARWIN_BYTE_ORDER == __DARWIN_BIG_ENDIAN)
++#  define WORDS_BIGENDIAN 1
++# endif
++#/* This symbol must be allowed to be cleared. */ undef SIZEOF_LONG
++# ifdef __LP64__
++#/* This symbol should not be modified by configure. */  define SIZEOF_LONG 8
++# else
++#/* This symbol should not be modified by configure. */  define SIZEOF_LONG 4
++# endif
++#endif
++
++#endif	/* ZEND_API */
++
++/*
+  * Local variables:
+  * tab-width: 4
+  * c-basic-offset: 4
+--- php-5.3.0/ext/mysqlnd/mysqlnd_portability.h	2009-04-20 02:16:51.000000000 -0700
++++ php/ext/mysqlnd/mysqlnd_portability.h	2009-07-15 20:12:12.000000000 -0700
+@@ -174,7 +174,7 @@
+ #define MYSQLND_LLU_SPEC "%lu"
+ #endif
+ 
+-#if __powerpc64__
++#if __powerpc64__ || __ppc64__
+ #define MYSQLND_LL_SPEC	"%li"
+ #define MYSQLND_LLU_SPEC "%lu"
+ #endif
+@@ -189,7 +189,7 @@
+ #define MYSQLND_LLU_SPEC "%lu"
+ #endif
+ 
+-#if __powerpc__ && !__powerpc64__
++#if (__powerpc__ || __ppc__) && !(__powerpc64__ || __ppc64__)
+ #define MYSQLND_LL_SPEC	"%lli"
+ #define MYSQLND_LLU_SPEC "%llu"
+ #endif

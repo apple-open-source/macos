@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 2005 Free Software Foundation, Inc.                        *
+ * Copyright (c) 2005-2007,2008 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -29,11 +29,14 @@
 /*
  * Author: Thomas E. Dickey
  *
- * $Id: demo_termcap.c,v 1.2 2005/04/30 14:57:54 tom Exp $
+ * $Id: demo_termcap.c,v 1.7 2008/02/09 18:08:36 tom Exp $
  *
  * A simple demo of the termcap interface.
  */
+#define USE_TINFO
 #include <test.priv.h>
+
+#if HAVE_TGETENT
 
 #define isCapName(c) (isgraph(c) && strchr("^#=:\\", c) == 0)
 
@@ -106,7 +109,7 @@ dumpit(char *cap)
 	printf("\n");
     } else if ((num = tgetnum(cap)) >= 0) {
 	printf("num %s = %d\n", cap, num);
-    } else if ((num = tgetflag(cap)) != 0) {
+    } else if ((num = tgetflag(cap)) > 0) {
 	printf("flg %s\n", cap);
     }
     fflush(stdout);
@@ -118,7 +121,7 @@ demo_termcap(char *name)
     char buffer[1024];
 
     printf("Terminal type %s\n", name);
-    if (tgetent(buffer, name)) {
+    if (tgetent(buffer, name) >= 0) {
 	char cap[3];
 	int c1, c2;
 
@@ -150,8 +153,19 @@ main(int argc, char *argv[])
     } else if ((name = getenv("TERM")) != 0) {
 	demo_termcap(name);
     } else {
-	demo_termcap("dumb");
+	static char dumb[] = "dumb";
+	demo_termcap(dumb);
     }
 
     ExitProgram(EXIT_SUCCESS);
 }
+
+#else
+int
+main(int argc GCC_UNUSED,
+     char *argv[]GCC_UNUSED)
+{
+    printf("This program requires termcap\n");
+    exit(EXIT_FAILURE);
+}
+#endif

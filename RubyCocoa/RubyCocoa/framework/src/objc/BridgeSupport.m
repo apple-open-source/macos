@@ -1,5 +1,5 @@
 /* 
- * Copyright (c) 2006-2007, The RubyCocoa Project.
+ * Copyright (c) 2006-2008, The RubyCocoa Project.
  * Copyright (c) 2001-2006, FUJIMOTO Hisakuni.
  * All Rights Reserved.
  *
@@ -944,7 +944,7 @@ func_dispatch_retain_if_necessary(VALUE arg, BOOL is_retval, void *ctx)
 
   // retain the new ObjC object, that will be released once the Ruby object is collected
   if (!NIL_P (arg) 
-      && (*encoding_skip_modifiers(func->retval->octypestr) == _C_ID 
+      && (*encoding_skip_to_first_type(func->retval->octypestr) == _C_ID 
           || find_bs_cf_type_by_encoding(func->retval->octypestr) != NULL)) {
     if (func->retval->should_be_retained && !OBJCID_DATA_PTR(arg)->retained) {
       DLOG("MDLOSX", "retaining objc value");
@@ -1011,7 +1011,7 @@ bridge_support_dispatcher (int argc, VALUE *argv, VALUE rcv)
     }
     else {
       set_octypes_for_format_str(&arg_octypesstr[func->argc], 
-        argc - func->argc, STR2CSTR(format_str)); 
+        argc - func->argc, StringValuePtr(format_str)); 
     }
   }
   else {
@@ -1057,11 +1057,64 @@ osx_load_bridge_support_dylib (VALUE rcv, VALUE path)
 {
   const char *cpath;
 
-  cpath = STR2CSTR(path);
+  cpath = StringValuePtr(path);
   if (dlopen(cpath, RTLD_LAZY) == NULL)
     rb_raise(rb_eArgError, "Can't load the bridge support dylib file `%s' : %s", cpath, dlerror());
 
   return Qnil;
+}
+
+static void
+reload_protocols(void) 
+{ 
+    Protocol **prots; 
+    unsigned int i, prots_count; 
+ 
+    prots = objc_copyProtocolList(&prots_count); 
+    for (i = 0; i < prots_count; i++) { 
+        Protocol *p; 
+        struct objc_method_description *methods; 
+        unsigned j, methods_count; 
+ 
+        p = prots[i]; 
+ 
+#define REGISTER_MDESCS(cmethods) \
+    do { \
+	struct st_table *t = cmethods ? bsInformalProtocolClassMethods : bsInformalProtocolInstanceMethods; \
+        for (j = 0; j < methods_count; j++) { \
+            struct bsInformalProtocolMethod *informal_method; \
+            informal_method = (struct bsInformalProtocolMethod *)malloc(sizeof(struct bsInformalProtocolMethod)); \
+            ASSERT_ALLOC(informal_method); \
+            informal_method->selector = (char *)methods[j].name; \
+            informal_method->is_class_method = cmethods; \
+            informal_method->encoding = strdup(methods[j].types); \
+            informal_method->protocol_name = strdup(protocol_getName(p)); \
+            st_insert(t, (st_data_t)methods[j].name, (st_data_t)informal_method); \
+        } \
+        free(methods); \
+    } \
+    while (0)
+ 
+        methods = protocol_copyMethodDescriptionList(p, true, true, &methods_count); 
+        REGISTER_MDESCS(false); 
+        methods = protocol_copyMethodDescriptionList(p, false, true, &methods_count); 
+        REGISTER_MDESCS(false);
+        methods = protocol_copyMethodDescriptionList(p, true, false, &methods_count); 
+        REGISTER_MDESCS(true);
+        methods = protocol_copyMethodDescriptionList(p, false, false, &methods_count); 
+        REGISTER_MDESCS(true);
+ 
+#undef REGISTER_MDESCS 
+    } 
+    free(prots); 
+} 
+
+static int
+compare_bs_arg(const void *a, const void *b)
+{
+    struct bsArg *arg_a = (struct bsArg *)a;
+    struct bsArg *arg_b = (struct bsArg *)b;
+    return arg_a->index == arg_b->index ? 0 : (arg_a->index > arg_b->index ? 1 : -1);
 }
 
 static VALUE
@@ -1082,7 +1135,7 @@ osx_load_bridge_support_file (VALUE mOSX, VALUE path)
     unsigned  argc;
   } func_ptr;
 
-  cpath = STR2CSTR(path);
+  cpath = StringValuePtr(path);
 
 #define RESET_FUNC_PTR_CTX()      \
   do {                            \
@@ -1593,7 +1646,7 @@ osx_load_bridge_support_file (VALUE mOSX, VALUE path)
             if (func != NULL) {
               if (retval->octypestr != NULL) {
                 retval->should_be_retained = 
-                  *encoding_skip_modifiers(retval->octypestr) == _C_ID
+                  *encoding_skip_to_first_type(retval->octypestr) == _C_ID
                   || find_bs_cf_type_by_encoding(retval->octypestr) != NULL
                     ? !get_boolean_attribute(reader, "already_retained", NO) 
                     : YES;
@@ -1783,6 +1836,7 @@ osx_load_bridge_support_file (VALUE mOSX, VALUE path)
           method->argv = (struct bsArg *)malloc(len);
           ASSERT_ALLOC(method->argv);
           memcpy(method->argv, args, len);
+          qsort(method->argv, method->argc, sizeof(struct bsArg), compare_bs_arg);
         }
 
         method = NULL;
@@ -1801,6 +1855,8 @@ osx_load_bridge_support_file (VALUE mOSX, VALUE path)
 
   xmlFreeTextReader(reader);
 
+  reload_protocols(); // TODO this should probably be done somewhere else
+
   return mOSX;
 }
 
@@ -1809,7 +1865,7 @@ osx_load_bridge_support_file (VALUE mOSX, VALUE path)
 static VALUE
 osx_load_bridge_support_file (VALUE rcv, VALUE path)
 {
-  rb_warn("libxml2 is not available, bridge support file `%s' cannot be read", STR2CSTR(path));
+  rb_warn("libxml2 is not available, bridge support file `%s' cannot be read", StringValuePtr(path));
   return rcv;
 }
 
@@ -2010,7 +2066,7 @@ osx_lookup_informal_protocol_method_type (VALUE rcv, VALUE sel,
 {
   struct bsInformalProtocolMethod *method;
 
-  method = find_bs_informal_protocol_method(STR2CSTR(sel), 
+  method = find_bs_informal_protocol_method(StringValuePtr(sel), 
     RTEST(is_class_method));
 
   return method == NULL ? Qnil : rb_str_new2(method->encoding);

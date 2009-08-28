@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2007 Apple Inc. All rights reserved.
+# Copyright (c) 2007-2008 Apple Inc. All rights reserved.
 #
 # @APPLE_LICENSE_HEADER_START@
 # 
@@ -30,9 +30,9 @@ include ${TESTROOT}/include/common.makefile
 run: all
 
 all:
-	${CXX} ${CXXFLAGS} main.cxx -DANCHOR=1 -o main -Wl,-order_file -Wl,main.order 
+	${CXX} ${CXXFLAGS} main.cxx -o main -Wl,-order_file -Wl,main.order 
 	${FAIL_IF_BAD_MACHO} main
-	nm -n -g -j main | grep "_GLOBAL__N" > main.actual
+	nm -n -j main | grep "_GLOBAL__N" > main.actual
 	${PASS_IFF} diff main.actual main.expected
 
 

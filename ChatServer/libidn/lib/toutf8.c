@@ -1,5 +1,5 @@
 /* toutf8.c --- Convert strings from system locale into UTF-8.
- * Copyright (C) 2002, 2003, 2004, 2005  Simon Josefsson
+ * Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007  Simon Josefsson
  *
  * This file is part of GNU Libidn.
  *
@@ -19,7 +19,7 @@
  *
  */
 
-#if HAVE_CONFIG_H
+#ifdef HAVE_CONFIG_H
 # include "config.h"
 #endif
 
@@ -36,7 +36,7 @@
 #include <string.h>
 
 /* Get iconv_string. */
-#include "iconvme.h"
+#include "striconv.h"
 
 #ifdef _LIBC
 # define HAVE_ICONV 1
@@ -111,7 +111,7 @@ stringprep_convert (const char *str,
 		    const char *to_codeset, const char *from_codeset)
 {
 #if HAVE_ICONV
-  return iconv_string (str, from_codeset, to_codeset);
+  return str_iconv (str, from_codeset, to_codeset);
 #else
   char *p;
   fprintf (stderr, "libidn: warning: libiconv not installed, cannot "

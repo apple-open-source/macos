@@ -1,0 +1,38 @@
+--- base5067/innobase/mem/mem0pool.c	2008-08-04 05:19:16.000000000 -0700
++++ m5067/innobase/mem/mem0pool.c	2008-09-08 06:53:12.000000000 -0700
+@@ -326,6 +326,9 @@
+ 				minus MEM_AREA_EXTRA_SIZE */
+ 	mem_pool_t*	pool)	/* in: memory pool */
+ {
++#ifdef UNIV_DISABLE_MEM_POOL
++        return malloc(size);
++#else /* UNIV_DISABLE_MEM_POOL */
+ 	mem_area_t*	area;
+ 	ulint		n;
+ 	ibool		ret;
+@@ -399,6 +402,7 @@
+ 	ut_ad(mem_pool_validate(pool));
+ 	
+ 	return((void*)(MEM_AREA_EXTRA_SIZE + ((byte*)area))); 
++#endif /* UNIV_DISABLE_MEM_POOL */
+ }
+ 
+ /************************************************************************
+@@ -451,6 +455,9 @@
+ 				buffer */
+ 	mem_pool_t*	pool)	/* in: memory pool */
+ {
++#ifdef UNIV_DISABLE_MEM_POOL
++        free(ptr);
++#else /* UNIV_DISABLE_MEM_POOL */
+ 	mem_area_t*	area;
+ 	mem_area_t*	buddy;
+ 	void*		new_ptr;
+@@ -557,6 +564,7 @@
+ 	mutex_exit(&(pool->mutex));
+ 
+ 	ut_ad(mem_pool_validate(pool));
++#endif /* UNIV_DISABLE_MEM_POOL */
+ }
+ 
+ /************************************************************************

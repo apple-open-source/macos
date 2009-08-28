@@ -1,8 +1,8 @@
 /* time.c - deal with time subsystem */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/time.c,v 1.29.2.4 2006/01/03 22:16:21 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/time.c,v 1.37.2.3 2008/02/11 23:26:47 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2001-2006 The OpenLDAP Foundation.
+ * Copyright 2001-2008 The OpenLDAP Foundation.
  * Portions Copyright 2001-2003 Pierangelo Masarati.
  * All rights reserved.
  *
@@ -46,7 +46,7 @@ monitor_subsys_time_init(
 	
 	Entry		*e, **ep, *e_time;
 	monitor_entry_t	*mp;
-	char		buf[ BACKMONITOR_BUFSIZE ];
+	struct berval	bv, value;
 
 	assert( be != NULL );
 
@@ -67,34 +67,18 @@ monitor_subsys_time_init(
 	mp->mp_children = NULL;
 	ep = &mp->mp_children;
 
-	snprintf( buf, sizeof( buf ),
-			"dn: cn=Start,%s\n"
-			"objectClass: %s\n"
-			"structuralObjectClass: %s\n"
-			"cn: Start\n"
-			"%s: %s\n"
-			"creatorsName: %s\n"
-			"modifiersName: %s\n"
-			"createTimestamp: %s\n"
-			"modifyTimestamp: %s\n", 
-			ms->mss_dn.bv_val,
-			mi->mi_oc_monitoredObject->soc_cname.bv_val,
-			mi->mi_oc_monitoredObject->soc_cname.bv_val,
-			mi->mi_ad_monitorTimestamp->ad_cname.bv_val,
-			mi->mi_startTime.bv_val,
-			mi->mi_creatorsName.bv_val,
-			mi->mi_creatorsName.bv_val,
-			mi->mi_startTime.bv_val,
-			mi->mi_startTime.bv_val );
-
-	e = str2entry( buf );
+	BER_BVSTR( &bv, "cn=Start" );
+	e = monitor_entry_stub( &ms->mss_dn, &ms->mss_ndn, &bv,
+		mi->mi_oc_monitoredObject, mi, NULL, NULL );
 	if ( e == NULL ) {
 		Debug( LDAP_DEBUG_ANY,
 			"monitor_subsys_time_init: "
-			"unable to create entry \"cn=Start,%s\"\n",
-			ms->mss_ndn.bv_val, 0, 0 );
+			"unable to create entry \"%s,%s\"\n",
+			bv.bv_val, ms->mss_ndn.bv_val, 0 );
 		return( -1 );
 	}
+	attr_merge_normalize_one( e, mi->mi_ad_monitorTimestamp,
+		&mi->mi_startTime, NULL );
 	
 	mp = monitor_entrypriv_create();
 	if ( mp == NULL ) {
@@ -108,8 +92,8 @@ monitor_subsys_time_init(
 	if ( monitor_cache_add( mi, e ) ) {
 		Debug( LDAP_DEBUG_ANY,
 			"monitor_subsys_time_init: "
-			"unable to add entry \"cn=Start,%s\"\n",
-			ms->mss_ndn.bv_val, 0, 0 );
+			"unable to add entry \"%s,%s\"\n",
+			bv.bv_val, ms->mss_ndn.bv_val, 0 );
 		return( -1 );
 	}
 	
@@ -119,34 +103,18 @@ monitor_subsys_time_init(
 	/*
 	 * Current
 	 */
-	snprintf( buf, sizeof( buf ),
-			"dn: cn=Current,%s\n"
-			"objectClass: %s\n"
-			"structuralObjectClass: %s\n"
-			"cn: Current\n"
-			"%s: %s\n"
-			"creatorsName: %s\n"
-			"modifiersName: %s\n"
-			"createTimestamp: %s\n"
-			"modifyTimestamp: %s\n",
-			ms->mss_dn.bv_val,
-			mi->mi_oc_monitoredObject->soc_cname.bv_val,
-			mi->mi_oc_monitoredObject->soc_cname.bv_val,
-			mi->mi_ad_monitorTimestamp->ad_cname.bv_val,
-			mi->mi_startTime.bv_val,
-			mi->mi_creatorsName.bv_val,
-			mi->mi_creatorsName.bv_val,
-			mi->mi_startTime.bv_val,
-			mi->mi_startTime.bv_val );
-
-	e = str2entry( buf );
+	BER_BVSTR( &bv, "cn=Current" );
+	e = monitor_entry_stub( &ms->mss_dn, &ms->mss_ndn, &bv,
+		mi->mi_oc_monitoredObject, mi, NULL, NULL );
 	if ( e == NULL ) {
 		Debug( LDAP_DEBUG_ANY,
 			"monitor_subsys_time_init: "
-			"unable to create entry \"cn=Current,%s\"\n",
-			ms->mss_ndn.bv_val, 0, 0 );
+			"unable to create entry \"%s,%s\"\n",
+			bv.bv_val, ms->mss_ndn.bv_val, 0 );
 		return( -1 );
 	}
+	attr_merge_normalize_one( e, mi->mi_ad_monitorTimestamp,
+		&mi->mi_startTime, NULL );
 
 	mp = monitor_entrypriv_create();
 	if ( mp == NULL ) {
@@ -160,8 +128,45 @@ monitor_subsys_time_init(
 	if ( monitor_cache_add( mi, e ) ) {
 		Debug( LDAP_DEBUG_ANY,
 			"monitor_subsys_time_init: "
-			"unable to add entry \"cn=Current,%s\"\n",
-			ms->mss_ndn.bv_val, 0, 0 );
+			"unable to add entry \"%s,%s\"\n",
+			bv.bv_val, ms->mss_ndn.bv_val, 0 );
+		return( -1 );
+	}
+	
+	*ep = e;
+	ep = &mp->mp_next;
+
+	/*
+	 * Uptime
+	 */
+	BER_BVSTR( &bv, "cn=Uptime" );
+	e = monitor_entry_stub( &ms->mss_dn, &ms->mss_ndn, &bv,
+		mi->mi_oc_monitoredObject, mi, NULL, NULL );
+	if ( e == NULL ) {
+		Debug( LDAP_DEBUG_ANY,
+			"monitor_subsys_time_init: "
+			"unable to create entry \"%s,%s\"\n",
+			bv.bv_val, ms->mss_ndn.bv_val, 0 );
+		return( -1 );
+	}
+	BER_BVSTR( &value, "0" );
+	attr_merge_normalize_one( e, mi->mi_ad_monitoredInfo,
+		&value, NULL );
+
+	mp = monitor_entrypriv_create();
+	if ( mp == NULL ) {
+		return -1;
+	}
+	e->e_private = ( void * )mp;
+	mp->mp_info = ms;
+	mp->mp_flags = ms->mss_flags \
+		| MONITOR_F_SUB | MONITOR_F_PERSISTENT;
+
+	if ( monitor_cache_add( mi, e ) ) {
+		Debug( LDAP_DEBUG_ANY,
+			"monitor_subsys_time_init: "
+			"unable to add entry \"%s,%s\"\n",
+			bv.bv_val, ms->mss_ndn.bv_val, 0 );
 		return( -1 );
 	}
 	
@@ -180,7 +185,8 @@ monitor_subsys_time_update(
 	Entry                   *e )
 {
 	monitor_info_t		*mi = ( monitor_info_t * )op->o_bd->be_private;
-	static struct berval	bv_current = BER_BVC( "cn=current" );
+	static struct berval	bv_current = BER_BVC( "cn=current" ),
+				bv_uptime = BER_BVC( "cn=uptime" );
 	struct berval		rdn;
 
 	assert( mi != NULL );
@@ -231,6 +237,29 @@ monitor_subsys_time_update(
 
 		assert( len == a->a_vals[ 0 ].bv_len );
 		AC_MEMCPY( a->a_vals[ 0 ].bv_val, tmbuf, len );
+
+		/* FIXME: touch modifyTimestamp? */
+
+	} else if ( dn_match( &rdn, &bv_uptime ) ) {
+		Attribute	*a;
+		double		diff;
+		char		buf[ BACKMONITOR_BUFSIZE ];
+		struct berval	bv;
+
+		a = attr_find( e->e_attrs, mi->mi_ad_monitoredInfo );
+		if ( a == NULL ) {
+			return rs->sr_err = LDAP_OTHER;
+		}
+
+		diff = difftime( slap_get_time(), starttime );
+		bv.bv_len = snprintf( buf, sizeof( buf ), "%lu",
+			(unsigned long) diff );
+		bv.bv_val = buf;
+
+		ber_bvreplace( &a->a_vals[ 0 ], &bv );
+		if ( a->a_nvals != a->a_vals ) {
+			ber_bvreplace( &a->a_nvals[ 0 ], &bv );
+		}
 
 		/* FIXME: touch modifyTimestamp? */
 	}

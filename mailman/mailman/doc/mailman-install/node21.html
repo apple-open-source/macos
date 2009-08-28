@@ -1,0 +1,114 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+<link rel="STYLESHEET" href="mailman-install.css" type='text/css' />
+<link rel="first" href="mailman-install.html" title='GNU mailman - installation Manual' />
+<link rel='last' href='about.html' title='About this document...' />
+<link rel='help' href='about.html' title='About this document...' />
+<link rel="next" href="node22.html" />
+<link rel="prev" href="node20.html" />
+<link rel="parent" href="node16.html" />
+<link rel="next" href="node22.html" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name='aesop' content='information' />
+<title>6.2.5 Router for Exim 4</title>
+</head>
+<body>
+<div class="navigation">
+<div id='top-navigation-panel' xml:id='top-navigation-panel'>
+<table align="center" width="100%" cellpadding="0" cellspacing="2">
+<tr>
+<td class='online-navigation'><a rel="prev" title="6.2.4 director for Exim"
+  href="node20.html"><img src='previous.png'
+  border='0' height='32'  alt='Previous Page' width='32' /></a></td>
+<td class='online-navigation'><a rel="parent" title="6.2 using the Exim"
+  href="node16.html"><img src='up.png'
+  border='0' height='32'  alt='Up one Level' width='32' /></a></td>
+<td class='online-navigation'><a rel="next" title="6.2.6 transports for Exim"
+  href="node22.html"><img src='next.png'
+  border='0' height='32'  alt='Next Page' width='32' /></a></td>
+<td align="center" width="100%">GNU Mailman - Installation Manual</td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+</tr></table>
+<div class='online-navigation'>
+<b class="navlabel">Previous:</b>
+<a class="sectref" rel="prev" href="node20.html">6.2.4 Director for Exim</a>
+<b class="navlabel">Up:</b>
+<a class="sectref" rel="parent" href="node16.html">6.2 Using the Exim</a>
+<b class="navlabel">Next:</b>
+<a class="sectref" rel="next" href="node22.html">6.2.6 Transports for Exim</a>
+</div>
+<hr /></div>
+</div>
+<!--End of Navigation Panel-->
+
+<h3><a name="SECTION001625000000000000000">
+6.2.5 Router for Exim 4</a>
+</h3>
+
+<p>
+In Exim 4, there's no such thing as directors - you need to add a new router
+instead.  Also, the canonical order of the configuration file was changed so
+routers come before transports, so the router for Exim 4 comes first here.
+Put this router somewhere after the ``begin routers'' line of your config
+file, and remember that order matters.
+
+<p>
+<div class="verbatim"><pre>
+  mailman_router:
+    driver = accept
+    require_files = MAILMAN_HOME/lists/$local_part/config.pck
+    local_part_suffix_optional
+    local_part_suffix = -admin : -bounces : -bounces+* : \
+                        -confirm : -confirm+* : \
+                        -join : -leave : \
+                        -owner : -request : \
+                        -subscribe : -unsubscribe
+    transport = mailman_transport
+</pre></div>
+
+<p>
+
+<div class="navigation">
+<div class='online-navigation'>
+<p></p><hr />
+<table align="center" width="100%" cellpadding="0" cellspacing="2">
+<tr>
+<td class='online-navigation'><a rel="prev" title="6.2.4 director for Exim"
+  href="node20.html"><img src='previous.png'
+  border='0' height='32'  alt='Previous Page' width='32' /></a></td>
+<td class='online-navigation'><a rel="parent" title="6.2 using the Exim"
+  href="node16.html"><img src='up.png'
+  border='0' height='32'  alt='Up one Level' width='32' /></a></td>
+<td class='online-navigation'><a rel="next" title="6.2.6 transports for Exim"
+  href="node22.html"><img src='next.png'
+  border='0' height='32'  alt='Next Page' width='32' /></a></td>
+<td align="center" width="100%">GNU Mailman - Installation Manual</td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+</tr></table>
+<div class='online-navigation'>
+<b class="navlabel">Previous:</b>
+<a class="sectref" rel="prev" href="node20.html">6.2.4 Director for Exim</a>
+<b class="navlabel">Up:</b>
+<a class="sectref" rel="parent" href="node16.html">6.2 Using the Exim</a>
+<b class="navlabel">Next:</b>
+<a class="sectref" rel="next" href="node22.html">6.2.6 Transports for Exim</a>
+</div>
+</div>
+<hr />
+<span class="release-info">Release 2.1, documentation updated on January 11, 2009.</span>
+</div>
+<!--End of Navigation Panel-->
+
+</body>
+</html>

@@ -1,16 +1,16 @@
 /********************************************************************
- * COPYRIGHT: 
- * Copyright (c) 1997-2004, International Business Machines Corporation
- * and others. All Rights Reserved.
- ********************************************************************/
-/********************************************************************************
-*
-* File CFINTST.C
-*
-* Modification History:
-*        Name                     Description            
-*     Madhu Katragadda            Ported for C API
-*********************************************************************************/
+ * Copyright (c) 1997-2007, International Business Machines
+ * Corporation and others. All Rights Reserved.
+ ********************************************************************
+ *
+ * File CFINTST.C
+ *
+ * Modification History:
+ *        Name                     Description            
+ *     Madhu Katragadda            Ported for C API
+ ********************************************************************
+ */
+
 /**
  * CollationFinnishTest is a third level test class.  This tests the locale
  * specific primary, secondary and tertiary rules.  For example, the ignorable
@@ -78,7 +78,7 @@ static void TestTertiary( )
     
     int32_t i;
     UErrorCode status = U_ZERO_ERROR;
-    myCollation = ucol_open("fi_FI", &status);
+    myCollation = ucol_open("fi_FI@collation=standard", &status);
     if(U_FAILURE(status)){
         log_err("ERROR: in creation of rule based collator: %s\n", myErrorName(status));
     }
@@ -96,7 +96,7 @@ static void TestPrimary()
     
     int32_t i;
     UErrorCode status = U_ZERO_ERROR;
-    myCollation = ucol_open("fi_FI", &status);
+    myCollation = ucol_open("fi_FI@collation=standard", &status);
     if(U_FAILURE(status)){
         log_err("ERROR: in creation of rule based collator: %s\n", myErrorName(status));
     }

@@ -38,24 +38,6 @@ manual volume numbers.
 
   </refsect1>
 
-  <refsect1>
-    <title>ENVIRONMENT</title>
-    <variablelist>
-      <varlistentry>
-        <term><envar>XPSERVERLIST</envar>
-        </term>
-        <listitem>
-	    <para>
-              <envar>${XPSERVERLIST}</envar> must be set,
-	      identifying the available Xprint servers.
-              See <citerefentry><refentrytitle>Xprint</refentrytitle><manvolnum>__miscmansuffix__</manvolnum></citerefentry>
-	      for more details.
-	  </para>
-	</listitem>
-      </varlistentry>
-    </variablelist>
-  </refsect1>
-
 <!-- not yet
   <refsect1>
     <title>KNOWN BUGS</title>
@@ -71,7 +53,6 @@ manual volume numbers.
         <!-- specific references -->
         <!-- none -->
         
-        <!-- Xprint general references -->
         <member><citerefentry><refentrytitle>X11</refentrytitle><manvolnum>__miscmansuffix__</manvolnum></citerefentry></member>
         <member><citerefentry><refentrytitle>xman</refentrytitle><manvolnum>__appmansuffix__</manvolnum></citerefentry></member>
       </simplelist>

@@ -1,0 +1,114 @@
+
+README for QuickTimeTcl 3.1
+
+QuickTimeTcl is an extension to Tcl/Tk on Mac OS X and Windows that provides 
+many bindings to QuickTime from Tcl/Tk. Starting with this release, support 
+for Mac OS Classic has been abandoned. 
+ 
+Documentation:
+
+For more documentation, see the manual pages in the 'docs' folder. These 
+contain the latest information. There are also some simple tcl example code 
+in the 'ExampleCode' folder that can be helpful; just source them in.
+
+Requirements:
+
+Tcl/Tk 8.4 (8.4.4 on Mac OS X) and QuickTime 5 or higher.
+
+Testing:
+
+The current version of QuickTimeTcl is developed and tested on Mac OS X 10.2 
+and Windows 2000 using Tcl/Tk 8.4. 
+
+QuickTime:
+
+Download QuickTime from "http://www.apple.com/quicktime/download", or get a 
+standalone installer from (good for switching between versions or if you are 
+behind a firewall) "http://www.apple.com/quicktime/download/support". 
+You don't need the pay (Pro) version. Not even I have it and that works fine anyway. 
+Many things, altough not all, you pay for can be reproduced by some coding using 
+this package :-)
+    
+Installing:
+
+Just run the installer on the respective platform, or:
+    
+Mac OS X: Make a folder QuickTimeTcl3.1 with the QuickTimeTcl.dylib and pkgIndex.tcl 
+files inside, and put this folder either in /Library/Tcl/ or ~/Library/Tcl/.
+
+Windows: put the QuickTimeTcl directory inside the lib directory of the Tcl directory, 
+as:
+    
+	Program
+	    ...
+	    Tcl
+		bin
+		doc
+		include
+		lib
+		    ...
+		    QuickTimeTcl
+			QuickTimeTcl.dll
+			pkgIndex.tcl
+		    ...
+
+
+WebCams on Windows:
+
+On Windows, the 'vdig' (video digitizer) component which should be the hardware 
+manufacturers responsibilty is sadly lacking on most WebCams. The grabber is 
+therefore only tested with an emulated 'vdig' component WinVdig from www.vdig.com (.org). 
+If you never got a QuickTime 'vdig' component with your PC camera, try WinVdig. 
+Note, however, that this is only a second best solution.    
+
+Abstractplane (http://www.abstractplane.com) has an industrial-strength vdig 
+component for QuickTime on Windows which you can try.             
+   
+Compiling:
+
+You may need to copy the header file tkFont.h from the Tk sources to the typical place
+for Tcl include files.
+ 
+Mac OS X:
+
+Use the Xcode project.
+
+Win32:
+
+If you compile under windows the 'Cursor' symbol in 'X.h' need to be redefined 
+as 'XCursor', just as what is done on the Mac.         
+It may also be necessary to comment out the enum MEDIA_TYPE in moviesformat.h.
+
+    
+BUGS:   
+
+If you want to see some printouts of what is happening inside QuickTimeTcl, use the 
+command 'quicktimetcl::debuglevel 3'.
+    
+-   There are some tuning to be done to get maximal performance for QTVR panoramas; 
+    the cursor flashes which is perhaps the cause.
+		    
+-   (Windows) -resizable not working.
+
+-  The effect command not implemented yet for Mac OS X.
+	    
+
+LICENSE:
+	  
+All software within the quicktimetcl repository is distributed under the BSD license.
+    
+
+Acknowledgements:   
+Bruce O'Neel made the original version of QuickTimeTcl; 
+The Windows port contains some tiny code fragments from Steve Aronson.
+
+Enjoy,  Mats Bengtsson
+
+matben@privat.utfors.se
+
+Hamngatan 21
+SE-582 26  Linkoping
+Sweden
+
+ © 1998 Bruce O'Neel, © 2000-2003 Mats Bengtsson
+  

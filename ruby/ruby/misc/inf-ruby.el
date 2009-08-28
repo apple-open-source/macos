@@ -1,8 +1,8 @@
 ;;; -*-Emacs-Lisp-*-
 ;;;
-;;;  $Id: inf-ruby.el 12032 2007-03-11 10:05:02Z knu $
+;;;  $Id: inf-ruby.el 12031 2007-03-11 10:01:15Z knu $
 ;;;  $Author: knu $
-;;;  $Date: 2007-03-11 19:05:02 +0900 (Sun, 11 Mar 2007) $
+;;;  $Date: 2007-03-11 19:01:15 +0900 (Sun, 11 Mar 2007) $
 ;;;
 ;;; Inferior Ruby Mode - ruby process in a buffer.
 ;;;                      adapted from cmuscheme.el

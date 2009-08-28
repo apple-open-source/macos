@@ -36,26 +36,32 @@ extern "C" {
  *
  * This file exists to expose the innards of ps_prochandle.
  * We cannot place this in libproc.h, because it refers to
- * objc and mach specific classes and types.
+ * CoreSymbolication and mach specific classes and types.
  *
  * The Apple emulation of /proc control requires access to
  * this structure.
  */
+
+struct ps_proc_activity_event {
+	rd_event_msg_t rd_event;
+	struct ps_proc_activity_event* next;
+	bool synchronous;
+	volatile bool destroyed;
+	pthread_mutex_t synchronous_mutex;
+	pthread_cond_t synchronous_cond;
+};
 	
 struct ps_prochandle {
-	task_t task;
 	pstatus_t status;
-	VMUSymbolicator* symbolicator;
-	VMUSymbolicator* prev_symbolicator;
-	NSMutableDictionary* prmap_dictionary;
-	mach_port_t dtrace_dyld_port;
-	Phandler_func_t *activity_handler_func;
-	void *activity_handler_arg;
-	rd_event_msg_t activity_handler_rdm;
+	CSSymbolicatorRef symbolicator;
+	uint32_t current_symbol_owner_generation;
+	rd_event_msg_t rd_event;
+	struct ps_proc_activity_event* proc_activity_queue;
+	uint32_t proc_activity_queue_enabled;
+	pthread_mutex_t proc_activity_queue_mutex;
+	pthread_cond_t proc_activity_queue_cond;
 };
-
-extern void Pmothball_syms(struct ps_prochandle *);
-	
+			
 #ifdef  __cplusplus
 }
 #endif

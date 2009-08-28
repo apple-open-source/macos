@@ -221,11 +221,23 @@
 			>
 		</File>
 		<File
+			RelativePath="..\..\wtf\CrossThreadRefCounted.h"
+			>
+		</File>
+		<File
 			RelativePath="..\..\wtf\CurrentTime.cpp"
 			>
 		</File>
 		<File
 			RelativePath="..\..\wtf\CurrentTime.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\DateMath.cpp"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\DateMath.h"
 			>
 		</File>
 		<File
@@ -333,11 +345,23 @@
 			>
 		</File>
 		<File
+			RelativePath="..\..\wtf\OwnFastMallocPtr.h"
+			>
+		</File>
+		<File
 			RelativePath="..\..\wtf\OwnPtr.h"
 			>
 		</File>
 		<File
+			RelativePath="..\..\wtf\OwnPtrCommon.h"
+			>
+		</File>
+		<File
 			RelativePath="..\..\wtf\OwnPtrWin.cpp"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\PassOwnPtr.h"
 			>
 		</File>
 		<File
@@ -382,6 +406,10 @@
 		</File>
 		<File
 			RelativePath="..\..\wtf\RetainPtr.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\SegmentedVector.h"
 			>
 		</File>
 		<File

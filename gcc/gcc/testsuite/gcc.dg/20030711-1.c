@@ -1,13 +1,13 @@
 /* Test whether strncmp has not been "optimized" into memcmp
    nor any code with memcmp semantics.  */
-/* APPLE LOCAL begin 4229621 mainline */
 /* { dg-do run { target i?86-*-linux* x86_64-*-linux* ia64-*-linux* alpha*-*-linux* powerpc*-*-linux* s390*-*-linux* sparc*-*-linux* *-*-darwin* } } */
 /* { dg-options "-O2" } */
+#include <stddef.h>
+#include <stdio.h>
 #include <sys/mman.h>
 #ifndef MAP_ANONYMOUS
 #define MAP_ANONYMOUS MAP_ANON
 #endif
-/* APPLE LOCAL end 4229621 mainline */
 #include <stdlib.h>
 
 void __attribute__((noinline)) test (const char *p)

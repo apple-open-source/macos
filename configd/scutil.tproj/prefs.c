@@ -35,7 +35,9 @@
 #include <dlfcn.h>
 
 #include <SystemConfiguration/SCPreferencesSetSpecific.h>
+#if	!TARGET_OS_IPHONE
 #include <Security/Authorization.h>
+#endif	/* !TARGET_OS_IPHONE */
 
 #include "scutil.h"
 #include "commands.h"
@@ -45,6 +47,7 @@
 /* -------------------- */
 
 
+#if	!TARGET_OS_IPHONE
 static void *
 __loadSecurity(void) {
 	static void *image = NULL;
@@ -118,7 +121,7 @@ _createAuthorization()
 
 	return authorization;
 }
-
+#endif	/* !TARGET_OS_IPHONE */
 
 /* -------------------- */
 
@@ -133,7 +136,11 @@ _prefs_open(CFStringRef name, CFStringRef prefsID)
 	if (geteuid() == 0) {
 		prefs = SCPreferencesCreate(NULL, name, prefsID);
 	} else {
+#if	!TARGET_OS_IPHONE
 		authorization = _createAuthorization();
+#else	/* !TARGET_OS_IPHONE */
+		authorization = NULL;
+#endif	/* !TARGET_OS_IPHONE */
 		prefs = SCPreferencesCreateWithAuthorization(NULL, name, prefsID, authorization);
 	}
 
@@ -190,8 +197,12 @@ _prefs_close()
 	}
 
 	if (authorization != NULL) {
+#if	!TARGET_OS_IPHONE
 		AuthorizationFree(authorization, kAuthorizationFlagDefaults);
 //		AuthorizationFree(authorization, kAuthorizationFlagDestroyRights);
+#else	/* !TARGET_OS_IPHONE */
+		// Uh...if authorization isn't NULL, something went horribly wrong.
+#endif	/* !TARGET_OS_IPHONE */
 		authorization = NULL;
 	}
 
@@ -287,7 +298,6 @@ get_ComputerName(int argc, char **argv)
 static void
 set_ComputerName(int argc, char **argv)
 {
-	CFStringEncoding	encoding;
 	CFStringRef		hostname;
 	Boolean			ok;
 
@@ -302,13 +312,11 @@ set_ComputerName(int argc, char **argv)
 
 	if (argc == 0) {
 		hostname = _copyStringFromSTDIN();
-		encoding = kCFStringEncodingUTF8;
 	} else {
-		hostname = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingASCII);
-		encoding = kCFStringEncodingASCII;
+		hostname = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
 	}
 
-	ok = SCPreferencesSetComputerName(prefs, hostname, encoding);
+	ok = SCPreferencesSetComputerName(prefs, hostname, kCFStringEncodingUTF8);
 	if (hostname != NULL) CFRelease(hostname);
 	if (!ok) {
 		SCPrint(TRUE,
@@ -385,7 +393,7 @@ set_HostName(int argc, char **argv)
 	if (argc == 0) {
 		hostname = _copyStringFromSTDIN();
 	} else {
-		hostname = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingASCII);
+		hostname = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
 	}
 
 	ok = SCPreferencesSetHostName(prefs, hostname);
@@ -455,7 +463,7 @@ set_LocalHostName(int argc, char **argv)
 	if (argc == 0) {
 		hostname = _copyStringFromSTDIN();
 	} else {
-		hostname = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingASCII);
+		hostname = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
 	}
 
 	ok = SCPreferencesSetLocalHostName(prefs, hostname);

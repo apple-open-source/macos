@@ -1,8 +1,8 @@
 /*
  * syck.h
  *
- * $Author: shyouhei $
- * $Date: 2007-08-22 10:16:17 +0900 (Wed, 22 Aug 2007) $
+ * $Author: nobu $
+ * $Date: 2007-07-15 22:24:51 +0900 (Sun, 15 Jul 2007) $
  *
  * Copyright (C) 2003 why the lucky stiff
  */

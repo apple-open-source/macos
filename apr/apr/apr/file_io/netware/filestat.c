@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -58,6 +58,7 @@ static void fill_out_finfo(apr_finfo_t *finfo, struct stat *info,
 { 
     finfo->valid = APR_FINFO_MIN | APR_FINFO_IDENT | APR_FINFO_NLINK 
                     | APR_FINFO_OWNER | APR_FINFO_PROT;
+
     finfo->protection = apr_unix_mode2perms(info->st_mode);
     finfo->filetype = filetype_from_mode(info->st_mode);
     finfo->user = info->st_uid;
@@ -66,15 +67,41 @@ static void fill_out_finfo(apr_finfo_t *finfo, struct stat *info,
     finfo->inode = info->st_ino;
     finfo->device = info->st_dev;
     finfo->nlink = info->st_nlink;
+
     apr_time_ansi_put(&finfo->atime, info->st_atime.tv_sec);
     apr_time_ansi_put(&finfo->mtime, info->st_mtime.tv_sec);
     apr_time_ansi_put(&finfo->ctime, info->st_ctime.tv_sec);
-    /* ### needs to be revisited  
-     * if (wanted & APR_FINFO_CSIZE) {
-     *   finfo->csize = info->st_blocks * 512;
-     *   finfo->valid |= APR_FINFO_CSIZE;
-     * }
-     */
+
+#ifdef HAVE_STRUCT_STAT_ST_BLOCKS
+#ifdef DEV_BSIZE
+    finfo->csize = (apr_off_t)info->st_blocks * (apr_off_t)DEV_BSIZE;
+#else
+    finfo->csize = (apr_off_t)info->st_blocks * (apr_off_t)512;
+#endif
+    finfo->valid |= APR_FINFO_CSIZE;
+#endif
+}
+
+apr_status_t apr_file_info_get_locked(apr_finfo_t *finfo, apr_int32_t wanted,
+                                      apr_file_t *thefile)
+{
+    struct_stat info;
+
+    if (thefile->buffered) {
+        apr_status_t rv = apr_file_flush_locked(thefile);
+        if (rv != APR_SUCCESS)
+            return rv;
+    }
+
+    if (fstat(thefile->filedes, &info) == 0) {
+        finfo->pool = thefile->pool;
+        finfo->fname = thefile->fname;
+        fill_out_finfo(finfo, &info, wanted);
+        return (wanted & ~finfo->valid) ? APR_INCOMPLETE : APR_SUCCESS;
+    }
+    else {
+        return errno;
+    }
 }
 
 APR_DECLARE(apr_status_t) apr_file_info_get(apr_finfo_t *finfo, 
@@ -84,6 +111,7 @@ APR_DECLARE(apr_status_t) apr_file_info_get(apr_finfo_t *finfo,
     struct stat info;
 
     if (thefile->buffered) {
+        /* XXX: flush here is not mutex protected */
         apr_status_t rv = apr_file_flush(thefile);
         if (rv != APR_SUCCESS)
             return rv;

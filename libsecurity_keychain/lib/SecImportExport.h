@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,12 +20,11 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- * SecImportExport.h - high-level facilities for importing and exporting
- * Sec layer objects. 
- */
- 
- 
+
+/*!
+	@header SecImportExport
+	contains import/export functionality for keys and certificates.
+*/
 #ifndef	_SECURITY_SEC_IMPORT_EXPORT_H_
 #define _SECURITY_SEC_IMPORT_EXPORT_H_
 
@@ -376,6 +375,40 @@ OSStatus SecKeychainItemImport(
 	const SecKeyImportExportParameters  *keyParams,				/* optional */
 	SecKeychainRef						importKeychain,			/* optional */
 	CFArrayRef							*outItems);				/* optional */
+
+/*!
+    @enum Import/Export options
+    @discussion Predefined key constants used when passing dictionary-based arguments to import/export functions.
+    @constant kSecImportExportPassphrase Specifies a passphrase represented by a CFStringRef to be used when exporting to (or importing from) PKCS#12 format.
+*/
+extern CFStringRef kSecImportExportPassphrase;
+
+/*!
+    @enum Import/Export item description
+    @discussion Predefined key constants used by functions which return a CFArray with a CFDictionary per item.
+
+    @constant kSecImportItemLabel A CFStringRef representing the item label. This implementation specific identifier cannot be expected to have any format.
+    @constant kSecImportItemKeyID A CFDataRef representing the key id. Typically this is the SHA-1 digest of the public key.
+    @constant kSecImportItemIdentity A SecIdentityRef representing the identity.
+    @constant kSecImportItemTrust A SecTrustRef set up with all relevant certificates. Not guaranteed to succesfully evaluate.
+    @constant kSecImportItemCertChain A CFArrayRef holding all relevant certificates for this item's identity.
+*/
+extern CFStringRef kSecImportItemLabel;
+extern CFStringRef kSecImportItemKeyID;
+extern CFStringRef kSecImportItemTrust;
+extern CFStringRef kSecImportItemCertChain;
+extern CFStringRef kSecImportItemIdentity;
+
+/*!
+	@function SecPKCS12Import
+	@abstract Imports the contents of a PKCS12 formatted blob.
+    @param pkcs12_data The PKCS12 data to be imported.
+    @param options A dictionary containing import options. A kSecImportExportPassphrase entry is required at minimum. Only password-based PKCS12 blobs are currently supported.
+    @param items On return, an array containing a dictionary for every item extracted. Use kSecImportItem constants to access specific elements of these dictionaries. Your code must CFRelease the array when it is no longer needed.
+	@result errSecSuccess in case of success. errSecDecode means either the blob can't be read or it is malformed.
+		errSecAuthFailed means an incorrect password was supplied, or data in the container is damaged.
+*/
+OSStatus SecPKCS12Import(CFDataRef pkcs12_data, CFDictionaryRef options, CFArrayRef *items);
 
 #ifdef	__cplusplus
 }

@@ -6,10 +6,10 @@
 # commit in repository REPOS using the permissions listed in the
 # configuration file CONF_FILE.
 #
-# $HeadURL: http://svn.collab.net/repos/svn/branches/1.4.x/tools/hook-scripts/commit-access-control.pl.in $
-# $LastChangedDate: 2004-06-14 20:29:22 +0000 (Mon, 14 Jun 2004) $
-# $LastChangedBy: breser $
-# $LastChangedRevision: 9986 $
+# $HeadURL: http://svn.collab.net/repos/svn/branches/1.6.x/tools/hook-scripts/commit-access-control.pl.in $
+# $LastChangedDate: 2008-03-25 14:42:32 +0000 (Tue, 25 Mar 2008) $
+# $LastChangedBy: arfrever $
+# $LastChangedRevision: 30041 $
 #
 # Usage: commit-access-control.pl REPOS TXN-NAME CONF_FILE
 #    

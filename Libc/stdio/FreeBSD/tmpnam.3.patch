@@ -1,5 +1,14 @@
---- _SB/Libc/stdio/FreeBSD/tmpnam.3	2004-11-25 11:38:35.000000000 -0800
-+++ _SB/Libc/stdio/FreeBSD/tmpnam.3.edit	2006-06-28 16:55:52.000000000 -0700
+--- tmpnam.3.orig	2008-11-13 16:39:10.000000000 -0800
++++ tmpnam.3	2008-11-13 16:45:15.000000000 -0800
+@@ -36,7 +36,7 @@
+ .\"     @(#)tmpnam.3	8.2 (Berkeley) 11/17/93
+ .\" $FreeBSD: src/lib/libc/stdio/tmpnam.3,v 1.16 2004/06/21 19:38:25 mpp Exp $
+ .\"
+-.Dd November 17, 1993
++.Dd November 12, 2008
+ .Dt TMPFILE 3
+ .Os
+ .Sh NAME
 @@ -49,11 +49,18 @@
  .Sh SYNOPSIS
  .In stdio.h
@@ -58,16 +67,28 @@
  is expected to be at least
  .Dv L_tmpnam
  bytes in length.
-@@ -116,7 +124,7 @@
- The environment variable
- .Ev TMPDIR
- (if set), the argument
+@@ -113,21 +121,23 @@
+ but provides the ability to specify the directory which will
+ contain the temporary file and the file name prefix.
+ .Pp
+-The environment variable
+-.Ev TMPDIR
+-(if set), the argument
 -.Fa tmpdir
++The argument
 +.Fa dir
  (if
  .Pf non- Dv NULL ) ,
  the directory
-@@ -127,7 +135,7 @@
+ .Dv P_tmpdir ,
+-and the directory
++the environment variable
++.Ev TMPDIR
++(if set),
++the directory
+ .Pa /tmp
++and finally, the current directory,
+ are tried, in the listed order, as directories in which to store the
  temporary file.
  .Pp
  The argument
@@ -76,7 +97,16 @@
  if
  .Pf non- Dv NULL ,
  is used to specify a file name prefix, which will be the
-@@ -229,11 +237,6 @@
+@@ -226,14 +236,15 @@
+ interface should not be used in software expected to be used on other systems
+ if there is any possibility that the user does not wish the temporary file to
+ be publicly readable and writable.
++.Sh LEGACY DESCRIPTION
++In legacy mode, the order directories are tried by the
++.Fn tempnam
++function is different; the environment variable
++.Ev TMPDIR
++(if defined) is used first.
  .Sh SEE ALSO
  .Xr mkstemp 3 ,
  .Xr mktemp 3

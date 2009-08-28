@@ -403,8 +403,8 @@ void IOFWInterface::controllerWillClose(IONetworkController * ctr)
 //    SIOCDELMULTI
 //
 // Returns an error code defined in errno.h (BSD).
-SInt32 IOFWInterface::performCommand( IONetworkController * ctr,
-                                            UInt32                cmd,
+SInt32 IOFWInterface::performCommand( IONetworkController *		  ctr,
+                                            unsigned long         cmd,
                                             void *                arg0,
                                             void *                arg1 )
 {
@@ -461,7 +461,7 @@ int IOFWInterface::performGatedCommand(void * target,
         ( self->getInterfaceState() & kIONetworkInterfaceDisabledState ) )
          return EPWROFF;
 
-    switch ( (UInt32) arg2_cmd )
+    switch ( (UInt64) arg2_cmd )
     {
         case SIOCSIFADDR:
             ret = self->syncSIOCSIFADDR(ctr);
@@ -487,6 +487,11 @@ int IOFWInterface::performGatedCommand(void * target,
             ret = self->syncSIOCSIFLLADDR( ctr, ifr->ifr_addr.sa_data,
                                            ifr->ifr_addr.sa_len );
             break;
+		
+		case SIOCGIFADDR:	/* get ifnet address */
+			struct sockaddr *sa = (struct sockaddr *) & ifr->ifr_data;
+			ret = self->syncSIOCGIFADDR( ctr, sa->sa_data, FIREWIRE_ADDR_LEN );
+			break;
     }
 
     return ret;
@@ -766,6 +771,19 @@ int IOFWInterface::syncSIOCSIFMTU( IONetworkController * ctr,
 
 //---------------------------------------------------------------------------
 
+int IOFWInterface::syncSIOCGIFADDR( IONetworkController * ctr, char * lladdr, int len )
+{
+	if( len != kIOFWAddressSize || lladdr == NULL )
+		return EINVAL;
+	
+    if ( _ctrEnabled != true )    /* reject if interface is down */
+        return (ENETDOWN);
+	
+	ifnet_lladdr_copy_bytes(getIfnet(), lladdr, len);
+	
+	return 0;
+}
+
 int IOFWInterface::syncSIOCSIFLLADDR( IONetworkController * ctr,
                                             const char * lladdr, int len )
 {
@@ -1031,7 +1049,7 @@ IOFWInterface::controllerWillChangePowerState(
          ( _controllerLostPower == false )   &&
          _ctrEnabled )
     {
-        UInt32 filters;
+        unsigned long filters;
 
         _controllerLostPower = true;
 

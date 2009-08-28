@@ -23,7 +23,7 @@
  */
 #ifndef lint
 static const char rcsid[] _U_ =
-    "@(#) $Header: /tcpdump/master/tcpdump/addrtoname.c,v 1.108.2.8 2006/02/27 07:27:16 hannes Exp $ (LBL)";
+    "@(#) $Header: /tcpdump/master/tcpdump/addrtoname.c,v 1.119 2007-08-08 14:06:34 hannes Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -69,7 +69,7 @@ extern int ether_ntohost(char *, const struct ether_addr *);
 #include "oui.h"
 
 #ifndef ETHER_ADDR_LEN
-#include "ether.h"
+#define ETHER_ADDR_LEN	6
 #endif
 
 /*
@@ -79,7 +79,6 @@ extern int ether_ntohost(char *, const struct ether_addr *);
  */
 
 #define HASHNAMESIZE 4096
-#define BUFSIZE 128
 
 struct hnamemem {
 	u_int32_t addr;
@@ -509,14 +508,19 @@ etheraddr_string(register const u_char *ep)
 }
 
 const char *
-linkaddr_string(const u_char *ep, const unsigned int len)
+linkaddr_string(const u_char *ep, const unsigned int type, const unsigned int len)
 {
 	register u_int i;
 	register char *cp;
 	register struct enamemem *tp;
 
-	if (len == 6)	/* XXX not totally correct... */
-		return etheraddr_string(ep);
+	if (type == LINKADDR_ETHER && len == ETHER_ADDR_LEN) {
+            return etheraddr_string(ep);
+        }
+
+        if (type == LINKADDR_FRELAY) {
+            return q922_string(ep);
+        }
 
 	tp = lookup_bytestring(ep, len);
 	if (tp->e_name)

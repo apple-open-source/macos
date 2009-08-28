@@ -37,7 +37,9 @@
 extern "C" {
 #endif
 
-#pragma options align=mac68k
+#ifndef __LP64__
+	#pragma options align=mac68k
+#endif
 
 /*
     This file provides Endian Flipping routines for dealing with converting data
@@ -291,7 +293,9 @@ typedef unsigned short                  BigEndianUnsignedShort;
 #endif  /* TARGET_RT_LITTLE_ENDIAN */
 
 
-#pragma options align=reset
+#ifndef __LP64__
+	#pragma options align=reset
+#endif
 
 #ifdef __cplusplus
 }

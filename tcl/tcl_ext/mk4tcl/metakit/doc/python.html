@@ -1,0 +1,293 @@
+<HTML><HEAD>
+<TITLE>Metakit for Python</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF"><A NAME="top"></A>
+<A HREF="http://www.python.org/"><IMG SRC="python.gif" WIDTH="87" HEIGHT="24" BORDER=0 align=left></A>
+<A HREF="http://www.equi4.com/"><IMG SRC="e4s.gif" vspace=3 WIDTH="97" HEIGHT="35" BORDER=0 align=right></A>
+<CENTER>
+<H2>Metakit for Python</H2>
+<I>The structured database which fits in the palm of your hand</I>
+<P>
+[ <A HREF="#Terminology">Terminology</A> 
+| <A HREF="#inst">Installation</A> 
+| <A HREF="#start">Getting started</A> 
+| <A HREF="#ref">Mk4py Reference</A> ]
+</CENTER>
+<P>
+<B>Buzzwords</B> - <A HREF=".">Metakit</A> is an embeddable database which runs on Unix, Windows, Macintosh, and other platforms.  It lets you build applications which store their data efficiently, in a portable way, and which will not need a complex runtime installation.  In terms of the data model, Metakit takes the middle ground between RDBMS, OODBMS, and flat-file databases - yet it is quite different from each of them.
+<P>
+<B>Technology</B> - Everything is stored variable-sized yet with efficient positional row access.  Changing an existing datafile structure is as simple as re-opening it with that new structure.  All changes are transacted.  You can mix and match software written in C++, Python, and Tcl.  Things can't get much more flexible...
+<P>
+<B>Python</B> - The extension for <A HREF="http://www.python.org/">Python</A> is called "Mk4py".  It provides a lower-level API for the Metakit C++ core extension than an earlier version of this interface, and uses <A HREF="http://starship.python.net/crew/gmcm/scxx.html">SCXX</A> by Gordon McMillan as C++ glue interface.
+<P>
+<B>Mk4py 2.4.9.7</B> - is a final/production release.  The <A HREF="http://www.equi4.com/metakit.html">homepage</A> points to a download area with pre-compiled shared libraries for Unix, Windows, and Macintosh.  The Metakit source distribution includes this documentation, the Mk4py C++ source code, a "MkMemoIO.py" class which provides efficient and fail-safe I/O (therefore also pickling) using Metakit memo fields, and a few more goodies.
+<P>
+<B>License and support</B> - Metakit 2 and up are distributed under the liberal
+X/MIT-style open source license. Commercial support is available through an Enterprise License.  See the <A HREF="http://www.equi4.com/mklicense.html">license</A> page for details.
+<P>
+<B>Credits</B> - Are due to Gordon McMillan for not stopping at the original Mk4py and coming up with a more Pythonic interface, and to Christian Tismer for pushing Mk4py way beyond its design goals.  Also to GvR and the Python community for taking scripting to such fascinating heights...
+<P>
+<P>
+<B>Updates</B> - The latest version of this document is at
+<a href="http://www.equi4.com/metakit/python.html">http://www.equi4.com/metakit/python.html</a>
+<A name="Terminology"><HR size=1></A><H2>Terminology</H2>
+    There are several ways to say the same thing, depending on where you're
+    coming from.  For example, the terms <I>table</I>, <I>list</I>, <I>collection</I>,
+    <I>array</I>, <I>sequence</I>, and <I>vector</I> all
+    denote a more or less similar concept.
+    To help avoid confusion, Metakit uses a simple
+    (but hopefully precise) terminology.
+<P>
+    The terms adopted by Metakit can be summarized as follows:
+<P>
+    <UL>
+        <LI>A <B>view</B> is an indexable collection of <B>rows</B>
+            (a <I>table</I> of <I>records</I>, an <I>array</I> of <I>elements</I>).
+        <LI>An <B>index</B> is a position in a <I>view</I>, used to specify a <I>row</I>
+            (the first row is at index zero).
+        <LI>Each view has an ordered
+            set of <B>properties</B>, used to refer to the data values of each row.
+        <LI>In Metakit, each (<I>view</I>, <I>index</I>, <I>property</I>) combination denotes
+            a single data value.
+        <LI>A different way to describe this combination would be:
+            (<I>matrix</I>, <I>row-index</I>, <I>column-id</I>).
+        <LI>Data values can be strings, numeric, untyped data,
+            or a nested view, called a <B>subview</B>.
+    </UL>
+<P>
+    A few more comments about the semantics of Metakit:
+<P>
+    <UL>
+        <LI>Views are <I>homogenous</I>: each row in a view contains the same type of
+            information.
+        <LI>This also implies that all subviews within the same view always
+            have the same structure.
+        <LI>Rows are either part of a view on file, or <I>temporary</I> (gone
+            when no longer referenced).
+    </UL>
+<P>
+<A NAME="inst"><HR size=1></A><H2>Installation</H2>
+
+<OL>
+<LI>Download the latest version from <A HREF="http://www.equi4.com/pub/mk/">http://www.equi4.com/pub/mk/</A>
+<LI>On Unix, rename the appropriate compiled extension to "Mk4py.so" (on Win/Mac, use the corresponding file)
+<LI>Place the Mk4py extension as well as the "metakit.py" wrapper somewhere on Python's module search path, <br> such as in the site-packages directory (or just leave it in ".")
+<LI>Do a small test, by running "demo.py".  If all is well, you should get some self-explanatory output
+</OL>
+<P>
+<A NAME="start"><HR size=1></A><H2>Getting started</H2>
+Create a database:
+<BLOCKQUOTE><PRE>import metakit
+db = metakit.storage("datafile.mk",1)</PRE></BLOCKQUOTE>
+Create a view (this is the Metakit term for "table"):
+<BLOCKQUOTE><PRE>vw = db.getas("people[first:S,last:S,shoesize:I]")</PRE></BLOCKQUOTE>
+Add two rows (this is the Metakit term for "record"):
+<BLOCKQUOTE><PRE>vw.append(first='John',last='Lennon',shoesize=44)
+vw.append(first='Flash',last='Gordon',shoesize=42)</PRE></BLOCKQUOTE>
+Commit the changes to file:
+<BLOCKQUOTE><PRE>db.commit()</PRE></BLOCKQUOTE>
+Show a list of all people:
+<BLOCKQUOTE><PRE>for r in vw: print r.first, r.last, r.shoesize</PRE></BLOCKQUOTE>
+Show a list of all people, sorted by last name:
+<BLOCKQUOTE><PRE>for r in vw.sort(vw.last): print r.first, r.last, r.shoesize</PRE></BLOCKQUOTE>
+Show a list of all people with first name 'John':
+<BLOCKQUOTE><PRE>for r in vw.select(first='John'): print r.first, r.last, r.shoesize</PRE></BLOCKQUOTE>
+<P>
+<A NAME="ref"><HR size=1></A>
+<!--BEGIN-->
+<A NAME="0"></A><H2>Mk4py Reference</H2>
+<OL>
+<LI><A HREF="#1">Module functions</A>
+<LI><A HREF="#2">Storage objects</A>
+<LI><A HREF="#3">View objects</A>
+<LI><A HREF="#4">Derived views</A>
+<LI><A HREF="#5">View operations</A>
+<LI><A HREF="#6">Mapping views</A>
+<LI><A HREF="#7">Rowref objects</A>
+<LI><A HREF="#8">Property objects</A>
+</OL>
+<HR SIZE=1>
+<H3><A NAME="1"></A><A HREF="#0">1.</A> Module functions</H3>These functions live at the module level.  You can use them
+            as described below after executing the following preamble:<BR><PRE><FONT COLOR="#000099">     import metakit
+     print metakit.version</FONT></PRE><P><B><FONT SIZE=-1>SYNOPSYS</FONT></B><BLOCKQUOTE><DL><DT><FONT COLOR="#990000"><I>db</I> = <I>metakit</I>.<B>storage</B>()</font><DD>Create an in-memory database (can't use commit/rollback)<DT><FONT COLOR="#990000"><I>db</I> = <I>metakit</I>.<B>storage</B>(<I>file</I>)</font><DD>Use a specified file object to build the storage on<DT><FONT COLOR="#990000"><I>db</I> = <I>metakit</I>.<B>storage</B>(<I>name</I>, <I>mode</I>)</font><DD>Open file, create if absent and rwflag is non-zero.
+        Open read-only if mode is 0, r/w if mode is 1 (cannot be shared),
+	or as commit-extend if mode is 2
+        (in mode 1 and 2, the file will be created if needed).<DT><FONT COLOR="#990000"><I>vw</I> = <I>metakit</I>.<B>view</B>()</font><DD>Create a standalone view; not in any storage object<DT><FONT COLOR="#990000"><I>pr</I> = <I>metakit</I>.<B>property</B>(<I>type</I>, <I>name</I>)</font><DD>Create a property (a column, when associated to a view)<DT><FONT COLOR="#990000"><I>vw</I> = <I>metakit</I>.<B>wrap</B>(<I>sequence</I>, <I>proplist</I>, <I>byPos</I>=0)</font><DD>Wraps a Python sequence as a view</DL></BLOCKQUOTE><B><FONT SIZE=-1>ADDITIONAL DETAILS</FONT></B><BLOCKQUOTE><DL><FONT COLOR="#990000"><B>storage</B></FONT> - When given a single argument, the file object must be a real
+            stdio file, not a class implementing the file r/w protocol.
+            When the storage object is destroyed (such as with
+            'db = None'), the associated datafile will be closed.
+	    Be sure to keep a reference to it around as long as you use it.
+        <BR><BR><FONT COLOR="#990000"><B>wrap</B></FONT> - This call can be used to wrap any Python sequence, it assumes
+            that each item is either a dictionary or an object with attribute
+            names corresponding to the property names.  Alternately, if
+            byPos is nonzero, each item can be a list or tuple - they will
+            then be accessed by position instead.
+	    Views created in this way can be used in
+            joins and any other view operations.
+        <BR><BR></DL></BLOCKQUOTE>
+<H3><A NAME="2"></A><A HREF="#0">2.</A> Storage objects</H3><B><FONT SIZE=-1>SYNOPSYS</FONT></B><BLOCKQUOTE><DL><DT><FONT COLOR="#990000"><I>vw</I> = <I>storage</I>.<B>getas</B>(<I>description</I>)</font><DD>Locate, define, or re-define a view stored in a storage object<DT><FONT COLOR="#990000"><I>vw</I> = <I>storage</I>.<B>view</B>(<I>viewname</I>)</font><DD>The normal way to retrieve an existing view<DT><FONT COLOR="#990000"><I>storage</I>.<B>rollback</B>(<I>full</I>=0)</font><DD>Revert data and structure as was last committed to disk.
+	In commit-aside mode, a &quot;full&quot; rollback reverts to the
+	state of the original file and forgets about the aside file.
+<br> After a rollback, your view objects are invalid (use the view
+or getas methods on your storage object to get them back).
+Furthermore, after a full rollback, the aside storage is detached from
+the main storage. Use the aside method on your main storage object to
+reattach it. If you do not reattach it, further commits will (try to)
+write to the main storage.
+	<DT><FONT COLOR="#990000"><I>storage</I>.<B>commit</B>(<I>full</I>=0)</font><DD>Permanently commit data and structure changes to disk
+	In commit-aside mode, a &quot;full&quot; commit save the latest
+	state in the original file and clears the aside datafile.<DT><FONT COLOR="#990000"><I>ds</I> = <I>storage</I>.<B>description</B>(<I>viewname</I>='')</font><DD>The description string is described under getas<DT><FONT COLOR="#990000"><I>vw</I> = <I>storage</I>.<B>contents</B>()</font><DD>Returns the View which holds the meta data for the Storage.<DT><FONT COLOR="#990000"><I>storage</I>.<B>autocommit</B>()</font><DD>Commit changes automatically when the storage object goes away<DT><FONT COLOR="#990000"><I>storage</I>.<B>load</B>(<I>fileobj</I>)</font><DD>Replace storage contents with data from file (or any other object
+	supporting read)<DT><FONT COLOR="#990000"><I>storage</I>.<B>save</B>(<I>fileobj</I>)</font><DD>Serialize storage contents to file (or any other object
+	supporting write)</DL></BLOCKQUOTE><B><FONT SIZE=-1>ADDITIONAL DETAILS</FONT></B><BLOCKQUOTE><DL><FONT COLOR="#990000"><B>description</B></FONT> - A description of the entire storage is retured if no viewname 
+            is specified, otherwise just the specified top-level view.
+        <BR><BR><FONT COLOR="#990000"><B>getas</B></FONT> - Side-effects: the structure of the view is changed.<BR>Notes: Normally used to create a new View, or alter the
+            structure of an existing one.
+        <BR>A description string looks like:<BR><PRE><FONT COLOR="#000099">     &quot;people[name:S,addr:S,city:S,state:S,zip:S]&quot;</FONT></PRE>That is &quot;&lt;viewname&gt;[&lt;propertyname&gt;:&lt;propertytype&gt;...]&quot;<BR>Where the property type is one of:<BR>
+	<TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0>
+	<TR><TD WIDTH=40></TD><TD>I</TD><TD WIDTH=20></TD><TD>adaptive integer (becomes Python int)</TD></TR>
+	<TR><TD WIDTH=40></TD><TD>L</TD><TD WIDTH=20></TD><TD>64-bit integer (becomes Python long)</TD></TR>
+	<TR><TD WIDTH=40></TD><TD>F</TD><TD WIDTH=20></TD><TD>C float (becomes Python float)</TD></TR>
+	<TR><TD WIDTH=40></TD><TD>D</TD><TD WIDTH=20></TD><TD>C double (is a Python float)</TD></TR>
+	<TR><TD WIDTH=40></TD><TD>S</TD><TD WIDTH=20></TD><TD>C null terminated string (becomes Python string)</TD></TR>
+	<TR><TD WIDTH=40></TD><TD>B</TD><TD WIDTH=20></TD><TD>C array of bytes (becomes Python string)</TD></TR>
+	</TABLE>Careful: do not include white space in the decription string.<BR><P>
+	In the Python binding, the difference between S and B types is not as
+	important as in C/C++, where S is used for zero-terminated text
+	strings.  In Python, the main distinctions are that B properties must
+	be used if the data can contain zero bytes, and that sort order of S
+	(stricmp) and B (memcmp) differ.  At some point, Unicode/UTF-8 will
+	also play a role for S properties, so it's best to use S for text.
+	<BR>
+	</DL></BLOCKQUOTE>
+<H3><A NAME="3"></A><A HREF="#0">3.</A> View objects</H3>View implements sequence (list) methods, including slicing, 
+            concatentation etc.  They behave as a sequence of &quot;rows&quot;,
+            which in turn have &quot;properties&quot;.
+            Indexing (getitem) returns a reference to a row, not a copy.
+        <BR><PRE><FONT COLOR="#000099">     r = view[0]
+     r.name = 'Julius Caesar'
+     view[0].name # will yield 'Julius Caesar'</FONT></PRE>A slice returns a modifiable view which is tied to the underlying
+	    view.  As special case, however, you can create a fresh empty view
+	    with the same structure as another view with:
+        <BR><PRE><FONT COLOR="#000099">     v2 = v[0:0]</FONT></PRE>Setting a slice changes the view:<BR><PRE><FONT COLOR="#000099">     v[:] = [] # empties the view</FONT></PRE>View supports getattr, which returns a Property
+            (eg view.shoesize can be used to refer to the shoesize column).
+            Views can be obtained from Storage objects:
+            view = db.view('inventory') or from other views
+            (see select, sort, flatten, join, project...) or empty,
+            columnless views can be created: vw = metakit.view()
+        <BR><P><B><FONT SIZE=-1>SYNOPSYS</FONT></B><BLOCKQUOTE><DL><DT><FONT COLOR="#990000"><I>view</I>.<B>insert</B>(<I>index</I>, <I>obj</I>)</font><DD>Coerce object to a Row and insert at index in View<DT><FONT COLOR="#990000"><I>ix</I> = <I>view</I>.<B>append</B>(<I>obj</I>)</font><DD>Object is coerced to Row and added to end of View<DT><FONT COLOR="#990000"><I>view</I>.<B>delete</B>(<I>index</I>)</font><DD>Row at index removed from View<DT><FONT COLOR="#990000"><I>lp</I> = <I>view</I>.<B>structure</B>()</font><DD>Return a list of property objects<DT><FONT COLOR="#990000"><I>cn</I> = <I>view</I>.<B>addproperty</B>(<I>fileobj</I>)</font><DD>Define a new property, return its column position<DT><FONT COLOR="#990000"><I>str</I> = <I>view</I>.<B>access</B>(<I>byteprop</I>, <I>rownum</I>, <I>offset</I>, <I>length</I>=0)</font><DD>Get (partial) byte property contents<DT><FONT COLOR="#990000"><I>view</I>.<B>modify</B>(<I>byteprop</I>, <I>rownum</I>, <I>string</I>, <I>offset</I>, <I>diff</I>=0)</font><DD>Store (partial) byte property contents.
+	A non-zero value of diff removes (&lt;0) or inserts (&gt;0) bytes.<DT><FONT COLOR="#990000">n = <I>view</I>.<B>itemsize</B>(<I>prop</I>, <I>rownum</I>=0)</font><DD>Return size of item (rownum only needed for S/B types).
+	With integer fields, a result of -1/-2/-4 means 1/2/4 bits
+	per value, respectively.<DT><FONT COLOR="#990000"><I>view</I>.<B>map</B>(<I>func</I>, <I>subset</I>=<I>None</I>)</font><DD>Apply func to each row of view, or (if subset specified)
+	to each row in view that is lso in subset.
+	Func must have the signature &quot;func(row)&quot;, and may mutate row.
+	Subset must be a subset of view: e.g.
+	&quot;customers.map(func, customers.select(...))&quot;.<DT><FONT COLOR="#990000"><I>rview</I> = <I>view</I>.<B>filter</B>(<I>func</I>)</font><DD>Return a view containing the indices of those rows
+	satisfying func.  Func must have signature &quot;func(row)&quot;
+	and must return a false value to omit the row.<DT><FONT COLOR="#990000"><I>obj</I> = <I>view</I>.<B>reduce</B>(<I>func</I>, <I>start</I>=0)</font><DD>Return the result of applying func(row, lastresult) to
+	each row in view.<DT><FONT COLOR="#990000"><I>view</I>.<B>remove</B>(<I>indices</I>)</font><DD>Remove all rows whose indices are in subset from view.
+	Not the same as minus, because unique is not required, 
+	and view is not reordered.<DT><FONT COLOR="#990000"><I>rview</I> = <I>view</I>.<B>indices</B>(<I>subset</I>)</font><DD>Returns a view containing the indices in view of the rows in
+	subset.<DT><FONT COLOR="#990000"><I>rview</I> = <I>view</I>.<B>copy</B>()</font><DD>Returns a copy of the view.</DL></BLOCKQUOTE><B><FONT SIZE=-1>ADDITIONAL DETAILS</FONT></B><BLOCKQUOTE><DL><FONT COLOR="#990000"><B>addproperty</B></FONT> - This adds properties which do not persist when committed.  To
+	    make them persist, you should use storage.getas(...) when
+	    defining (or restructuring) the view.
+        <BR><BR><FONT COLOR="#990000"><B>append</B></FONT> - Also support keyword args (colname=value...).<BR><BR><FONT COLOR="#990000"><B>insert</B></FONT> - coercion to a Row is driven by the View's columns, and works for:<BR><TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0><TR><TD WIDTH=40></TD><TD>dictionaries</TD><TD WIDTH=20></TD><TD>(column name -&gt; key)</TD></TR><TR><TD WIDTH=40></TD><TD>instances</TD><TD WIDTH=20></TD><TD>(column name -&gt; attribute name)</TD></TR><TR><TD WIDTH=40></TD><TD>lists</TD><TD WIDTH=20></TD><TD>(column number -&gt; list index) - watch out!</TD></TR></TABLE><BR></DL></BLOCKQUOTE>
+<H3><A NAME="4"></A><A HREF="#0">4.</A> Derived views</H3><B><FONT SIZE=-1>SYNOPSYS</FONT></B><BLOCKQUOTE><DL><DT><FONT COLOR="#990000"><I>vw</I> = <I>view</I>.<B>select</B>(<I>criteria</I>...)</font><DD>Return a view which has fields matching the given criteria<DT><FONT COLOR="#990000"><I>vw</I> = <I>view</I>.<B>select</B>(<I>low</I>, <I>high</I>)</font><DD>Return a view with rows in the specified range (inclusive)<DT><FONT COLOR="#990000"><I>vw</I> = <I>view</I>.<B>sort</B>()</font><DD>Sort view in &quot;native&quot; order, i.e. the definition order of its keys<DT><FONT COLOR="#990000"><I>vw</I> = <I>view</I>.<B>sort</B>(<I>property</I>...)</font><DD>Sort view in the specified order<DT><FONT COLOR="#990000"><I>vw</I> = <I>view</I>.<B>sortrev</B>((<I>propall</I>...), (<I>proprev</I>...))</font><DD>Sort view in specified order, with optionally some properties in reverse<DT><FONT COLOR="#990000"><I>vw</I> = <I>view</I>.<B>project</B>(<I>property</I>...)</font><DD>Returns a derived view with only the named columns</DL></BLOCKQUOTE><B><FONT SIZE=-1>ADDITIONAL DETAILS</FONT></B><BLOCKQUOTE><DL><FONT COLOR="#990000"><B>select</B></FONT> - Example selections, returning the corresponding subsets:<BR><PRE><FONT COLOR="#000099">     result = inventory.select(shoesize=44)
+     result = inventory.select({'shoesize':40},{'shoesize':43})
+     result = inventory.select({},{'shoesize':43})</FONT></PRE>The derived view is &quot;connected&quot; to the base view.
+            Modifications of rows in the
+            derived view are reflected in the base view
+        <BR><BR><FONT COLOR="#990000"><B>sort</B></FONT> - Example, returning the sorted permutation:<BR><PRE><FONT COLOR="#000099">     result = inventory.sort(inventory.shoesize)</FONT></PRE>See notes for select concerning changes to the sorted view<BR><BR></DL></BLOCKQUOTE>
+<H3><A NAME="5"></A><A HREF="#0">5.</A> View operations</H3><B><FONT SIZE=-1>SYNOPSYS</FONT></B><BLOCKQUOTE>
+<DL>
+<DT><FONT COLOR="#990000"><I>vw</I> = <I>view</I>.<B>flatten</B>(<I>subprop</I>, <I>outer</I>=0)</font>
+<DD>Produces one 'flat' view from a nested view
+<DT><FONT COLOR="#990000"><I>vw</I> = <I>view</I>.<B>join</B>(<I>view</I>, <I>property</I>...,<I>outer</I>=0)</font>
+<DD>Both views must have a property (column) of that name and type
+<DT><FONT COLOR="#990000"><I>ix</I> = <I>view</I>.<B>find</B>(<I>criteria</I>..., <I>start</I>=0)</font>
+<DD>Returns the index of the found row, or -1
+<DT><FONT COLOR="#990000"><I>ix</I> = <I>view</I>.<B>search</B>(<I>criteria</I>...)</font>
+<DD>Binary search (native view order), returns match or insertion point
+<DT><FONT COLOR="#990000"><I>ix, cnt</I> = <I>view</I>.<B>locate</B>(<I>criteria</I>...)</font>
+<DD>Binary search, returns position and count as tuple (count can be zero)
+<DT><FONT COLOR="#990000"><I>vw</I> = <I>view</I>.<B>unique</B>()</font>
+<DD>Returns a new view without duplicate rows (a set)
+<DT><FONT COLOR="#990000"><I>vw</I> = <I>view</I>.<B>union</B>(<I>view2</I>)</font>
+<DD>Returns a new view which is the set union of view and view2
+<DT><FONT COLOR="#990000"><I>vw</I> = <I>view</I>.<B>intersect</B>(<I>view2</I>)</font>
+<DD>Returns a new view which is the set intersection of view and view2
+<DT><FONT COLOR="#990000"><I>vw</I> = <I>view</I>.<B>different</B>(<I>view2</I>)</font>
+<DD>Returns a new view which is the set XOR of view and view2
+<DT><FONT COLOR="#990000"><I>vw</I> = <I>view</I>.<B>minus</B>(<I>view2</I>)</font>
+<DD>Returns a new view which is (in set terms) view - view.intersect(view2)
+<DT><FONT COLOR="#990000"><I>vw</I> = <I>view</I>.<B>remapwith</B>(<I>view2</I>)</font>
+<DD>Remap rows according to the first (int) property in view2
+<DT><FONT COLOR="#990000"><I>vw</I> = <I>view</I>.<B>pair</B>(<I>view2</I>)</font>
+<DD>Concatenate rows pairwise, side by side
+<DT><FONT COLOR="#990000"><I>vw</I> = <I>view</I>.<B>rename</B>('<I>oldname</I>', '<I>newname</I>')</font>
+<DD>Returns a derived view with one property renamed
+<DT><FONT COLOR="#990000"><I>vw</I> = <I>view</I>.<B>product</B>(<I>view</I>)</font>
+<DD>Returns the cartesian product of both views
+<DT><FONT COLOR="#990000"><I>vw</I> = <I>view</I>.<B>groupby</B>(<I>property</I>..., '<I>subname</I>')</font>
+<DD>Groups on specified properties, with subviews to hold groups
+<DT><FONT COLOR="#990000"><I>vw</I> = <I>view</I>.<B>counts</B>(<I>property</I>..., '<I>name</I>')</font>
+<DD>Groups on specified properties, replacing rest with a count field
+</DL></BLOCKQUOTE>
+<B><FONT SIZE=-1>ADDITIONAL DETAILS</FONT></B><BLOCKQUOTE>
+<DL><FONT COLOR="#990000"><B>find</B></FONT> - view[view.find(firstname='Joe')] is the same as
+              view.select(firstname='Joe')[0] but much faster
+            Subsequent finds use the &quot;start&quot; keyword:
+              view.find(firstname='Joe', start=3)
+        <BR><BR></DL></BLOCKQUOTE>
+<H3><A NAME="6"></A><A HREF="#0">6.</A> Mapping views</H3><B><FONT SIZE=-1>SYNOPSYS</FONT></B><BLOCKQUOTE><DL><DT><FONT COLOR="#990000"><I>vw</I> = <I>view</I>.<B>hash</B>(<I>mapview</I>, <I>numkeys</I>=1)</font><DD>Construct a hash mapping based on the first N fields.<DT><FONT COLOR="#990000"><I>vw</I> = <I>view</I>.<B>blocked</B>(<I>blockview</I>)</font><DD>Construct a &quot;blocked&quot; view, which acts as if all segments together
+	form a single large view.<DT><FONT COLOR="#990000"><I>vw</I> = <I>view</I>.<B>ordered</B>(<I>numkeys</I>=1)</font><DD>Define a view which assumes and maintains sort order,
+	based on the first N fields.  When layered on top of a blocked
+	view, this implements a 2-level btree.</DL></BLOCKQUOTE><B><FONT SIZE=-1>ADDITIONAL DETAILS</FONT></B><BLOCKQUOTE><DL><FONT COLOR="#990000"><B>blocked</B></FONT> - This view acts like a large flat view, even though the actual
+	    rows are stored in blocks, which are rebalanced automatically to
+	    maintain a good trade-off between block size and number of blocks.
+	<BR>The underlying view must be defined with a single view property,
+	    with the structure of the subview being as needed.
+        <BR><BR><FONT COLOR="#990000"><B>hash</B></FONT> - This view creates and manages a special hash map view, to implement
+	    a fast find on the key.  The key is defined to consist of the
+	    first numKeys_ properties of the underlying view.
+	<BR>The mapview must be empty the first time this hash view is used,
+	    so that Metakit can fill it based on whatever rows are already
+	    present in the underlying view.  After that, neither the underlying
+	    view nor the map view may be modified other than through this
+	    hash mapping layer.  The defined structure of the map view must be
+	    &quot;_H:I,_R:I&quot;.
+	<BR>This view is modifiable.  Insertions and changes to key field
+	    properties can cause rows to be repositioned to maintain hash
+	    uniqueness.  Careful: when a row is changed in such a way that its
+	    key is the same as in another row, that other row will be deleted
+	    from the view.
+	<BR><BR><FONT COLOR="#990000"><B>ordered</B></FONT> - This is an identity view, which has as only use to inform Metakit
+	    that the underlying view can be considered to be sorted on its
+	    first numKeys properties.  The effect is that view.find() will
+	    try to use binary search when the search includes key properties
+	    (results will be identical to unordered views, the find will
+	    just be more efficient).
+	<BR>This view is modifiable.  Insertions and changes to key field
+	    properties can cause rows to be repositioned to maintain the sort
+	    order.  Careful: when a row is changed in such a way that its key
+	    is the same as in another row, that other row will be deleted from
+	    the view.
+	<BR>This view can be combined with view.blocked(), to create a 2-level
+	    btree structure.
+	<BR><BR></DL></BLOCKQUOTE>
+<H3><A NAME="7"></A><A HREF="#0">7.</A> Rowref objects</H3>RowRef allows setting and getting of attributes (columns)<BR>RowRef encapsulates a (view, ndx) tuple.<BR>Normally obtained from a view:  rowref = view[33]<BR>
+<H3><A NAME="8"></A><A HREF="#0">8.</A> Property objects</H3>Property has attributes name, id and type.
+        Example:    p = metakit.property('I', 'shoesize')
+    <BR>Note that a property is used to describe a column, but it is NOT the
+        same as a column. That is, in a given storage, the property
+        Property('I', 'shoesize') will be unique, (that is, no matter how many
+        instances you create, they will all have the same property.id). But that
+        one property can describe any number of columns, each one in a different
+        view. This is how joins are done, and why &quot;view.sort(view.firstname)&quot;
+        is the same as &quot;view.sort(metakit.property('S','firstname'))&quot;.
+    <BR>
+<!--END-->
+<P>
+<HR size=1>
+&copy; 2005 Jean-Claude Wippler &lt;<A HREF="mailto:jcw@equi4.com">jcw@equi4.com</A>&gt;
+</BODY>
+</HTML>

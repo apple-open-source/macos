@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for DEC Alpha on Tru64 5.
-   Copyright (C) 2000, 2001, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2004, 2005, 2006 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -15,12 +15,12 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 /* Tru64 5.1 uses IEEE QUAD format.  */
 #undef TARGET_DEFAULT
-#define TARGET_DEFAULT	MASK_FP | MASK_FPREGS | MASK_LONG_DOUBLE_128
+#define TARGET_DEFAULT	(MASK_FPREGS | MASK_LONG_DOUBLE_128)
 
 /* In Tru64 UNIX V5.1, Compaq introduced a new assembler
    (/usr/lib/cmplrs/cc/adu) which currently (versions between 3.04.29 and
@@ -50,4 +50,8 @@
 /* Tru64 v5.1 has the float and long double forms of math functions.  */
 #undef TARGET_C99_FUNCTIONS
 #define TARGET_C99_FUNCTIONS  1
+
+/* The native assembler doesn't understand parenthesis.  */
+#define TARGET_ASM_OPEN_PAREN ""
+#define TARGET_ASM_CLOSE_PAREN ""
 

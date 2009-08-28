@@ -1,0 +1,60 @@
+--- configure.orig	2008-08-01 21:51:51.000000000 -0700
++++ configure	2008-08-01 21:52:11.000000000 -0700
+@@ -81609,8 +81609,8 @@
+ echo "${ECHO_T}$ompi_cv_c_link_Objective_C" >&6; }
+ 
+   if test "$ompi_cv_c_link_Objective_C" = "yes"; then
+-  { echo "$as_me:$LINENO: checking for XGridFoundation Framework" >&5
+-echo $ECHO_N "checking for XGridFoundation Framework... $ECHO_C" >&6; }
++  { echo "$as_me:$LINENO: checking for XgridFoundation Framework" >&5
++echo $ECHO_N "checking for XgridFoundation Framework... $ECHO_C" >&6; }
+ if test "${ompi_cv_check_xgrid_foundation+set}" = set; then
+   echo $ECHO_N "(cached) $ECHO_C" >&6
+ else
+@@ -81622,7 +81622,7 @@
+ ac_compiler_gnu=$ac_cv_objc_compiler_gnu
+ 
+   ompi_check_xgrid_save_LDFLAGS="$LDFLAGS"
+-  LDFLAGS="$LDFLAGS -framework XGridFoundation -framework Foundation"
++  LDFLAGS="$LDFLAGS -framework XgridFoundation -framework Foundation"
+   cat >conftest.$ac_ext <<_ACEOF
+ /* confdefs.h.  */
+ _ACEOF
+@@ -81697,7 +81697,7 @@
+ 
+ 
+     if test "$ompi_check_xgrid_happy" = "yes"; then
+-  pls_xgrid_LDFLAGS="$pls_xgrid_LDFLAGS -framework XGridFoundation -framework Foundation"
++  pls_xgrid_LDFLAGS="$pls_xgrid_LDFLAGS -framework XgridFoundation -framework Foundation"
+            pls_xgrid_good=1
+ else
+   pls_xgrid_good=0
+@@ -89623,8 +89623,8 @@
+ echo "${ECHO_T}$ompi_cv_c_link_Objective_C" >&6; }
+ 
+   if test "$ompi_cv_c_link_Objective_C" = "yes"; then
+-  { echo "$as_me:$LINENO: checking for XGridFoundation Framework" >&5
+-echo $ECHO_N "checking for XGridFoundation Framework... $ECHO_C" >&6; }
++  { echo "$as_me:$LINENO: checking for XgridFoundation Framework" >&5
++echo $ECHO_N "checking for XgridFoundation Framework... $ECHO_C" >&6; }
+ if test "${ompi_cv_check_xgrid_foundation+set}" = set; then
+   echo $ECHO_N "(cached) $ECHO_C" >&6
+ else
+@@ -89636,7 +89636,7 @@
+ ac_compiler_gnu=$ac_cv_objc_compiler_gnu
+ 
+   ompi_check_xgrid_save_LDFLAGS="$LDFLAGS"
+-  LDFLAGS="$LDFLAGS -framework XGridFoundation -framework Foundation"
++  LDFLAGS="$LDFLAGS -framework XgridFoundation -framework Foundation"
+   cat >conftest.$ac_ext <<_ACEOF
+ /* confdefs.h.  */
+ _ACEOF
+@@ -89711,7 +89711,7 @@
+ 
+ 
+     if test "$ompi_check_xgrid_happy" = "yes"; then
+-  ras_xgrid_LDFLAGS="$ras_xgrid_LDFLAGS -framework XGridFoundation -framework Foundation"
++  ras_xgrid_LDFLAGS="$ras_xgrid_LDFLAGS -framework XgridFoundation -framework Foundation"
+            ras_xgrid_good=1
+ else
+   ras_xgrid_good=0

@@ -40,9 +40,9 @@ Behavior is undefined if the pathname ends in a directory separator.
 #endif /* DIR_SEPARATOR_2 */
 
 char *
-basename (const char *name)
+basename (char *name)
 {
-  const char *base;
+  char *base;
 
 #if defined (HAVE_DOS_BASED_FILE_SYSTEM)
   /* Skip over the disk name in MSDOS pathnames. */
@@ -57,6 +57,6 @@ basename (const char *name)
 	  base = name + 1;
 	}
     }
-  return (char *) base;
+  return base;
 }
 

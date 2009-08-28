@@ -1,7 +1,7 @@
 /*
  * eap_leap.c  EAP LEAP functionality.
  *
- * Version:     $Id: eap_leap.c,v 1.7.4.1 2006/02/06 16:23:54 nbk Exp $
+ * Version:     $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,9 +15,10 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
  * Copyright 2003 Alan DeKok <aland@freeradius.org>
+ * Copyright 2006 The FreeRADIUS server project
  */
 
 /*
@@ -42,6 +43,9 @@
  *
  *  The LEAP type (0x11) is *not* included in the type data...
  */
+
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -197,8 +201,9 @@ LEAP_PACKET *eapleap_extract(EAP_DS *eap_ds)
  */
 static int eapleap_ntpwdhash(unsigned char *ntpwdhash, VALUE_PAIR *password)
 {
-	if (password->attribute == PW_PASSWORD) {
-		int i;
+	if ((password->attribute == PW_USER_PASSWORD) ||
+	    (password->attribute == PW_CLEARTEXT_PASSWORD)) {
+		size_t i;
 		unsigned char unicode[512];
 
 		/*
@@ -210,18 +215,18 @@ static int eapleap_ntpwdhash(unsigned char *ntpwdhash, VALUE_PAIR *password)
 			 *  Yes, the *even* bytes have the values,
 			 *  and the *odd* bytes are zero.
 			 */
-			unicode[(i << 1)] = password->strvalue[i];
+			unicode[(i << 1)] = password->vp_strvalue[i];
 		}
 
 		/*
 		 *  Get the NT Password hash.
 		 */
-		md4_calc(ntpwdhash, unicode, password->length * 2);
+		fr_md4_calc(ntpwdhash, unicode, password->length * 2);
 
 	} else {		/* MUST be NT-Password */
 		if (password->length == 32) {
-			password->length = lrad_hex2bin((char *)password->strvalue,
-							password->strvalue,
+			password->length = fr_hex2bin(password->vp_strvalue,
+							password->vp_octets,
 							16);
 		}
 		if (password->length != 16) {
@@ -229,7 +234,7 @@ static int eapleap_ntpwdhash(unsigned char *ntpwdhash, VALUE_PAIR *password)
 			return 0;
 		}
 
-		memcpy(ntpwdhash, password->strvalue, 16);
+		memcpy(ntpwdhash, password->vp_strvalue, 16);
 	}
 	return 1;
 }
@@ -277,11 +282,11 @@ LEAP_PACKET *eapleap_stage6(LEAP_PACKET *packet, REQUEST *request,
 			    VALUE_PAIR *user_name, VALUE_PAIR* password,
 			    leap_session_t *session, VALUE_PAIR **reply_vps)
 {
-	int i;
+	size_t i;
 	unsigned char ntpwdhash[16], ntpwdhashhash[16];
 	unsigned char buffer[256];
 	LEAP_PACKET *reply;
-	char *p;
+	unsigned char *p;
 	VALUE_PAIR *vp;
 
 	/*
@@ -318,7 +323,7 @@ LEAP_PACKET *eapleap_stage6(LEAP_PACKET *packet, REQUEST *request,
 	/*
 	 *	Copy the name over, and ensure it's NUL terminated.
 	 */
-	memcpy(reply->name, user_name->strvalue, user_name->length);
+	memcpy(reply->name, user_name->vp_strvalue, user_name->length);
 	reply->name[user_name->length] = '\0';
 	reply->name_len = user_name->length;
 
@@ -329,7 +334,7 @@ LEAP_PACKET *eapleap_stage6(LEAP_PACKET *packet, REQUEST *request,
 		eapleap_free(&reply);
 		return NULL;
 	}
-	md4_calc(ntpwdhashhash, ntpwdhash, 16);
+	fr_md4_calc(ntpwdhashhash, ntpwdhash, 16);
 
 	/*
 	 *	Calculate our response, to authenticate ourselves
@@ -350,7 +355,7 @@ LEAP_PACKET *eapleap_stage6(LEAP_PACKET *packet, REQUEST *request,
 	/*
 	 *	And calculate the MPPE session key.
 	 */
-	p = (char *)buffer;
+	p = buffer;
 	memcpy(p, ntpwdhashhash, 16); /* MPPEHASH */
 	p += 16;
 	memcpy(p, packet->challenge, 8); /* APC */
@@ -365,15 +370,15 @@ LEAP_PACKET *eapleap_stage6(LEAP_PACKET *packet, REQUEST *request,
 	/*
 	 *	These 16 bytes are the session key to use.
 	 */
-	librad_md5_calc(ntpwdhash, buffer, 16 + 8 + 24 + 8 + 24);
+	fr_md5_calc(ntpwdhash, buffer, 16 + 8 + 24 + 8 + 24);
 
-	memcpy(vp->strvalue + vp->length, ntpwdhash, 16);
-	memset(vp->strvalue + vp->length + 16, 0,
-	       sizeof(vp->strvalue) - (vp->length + 16));
+	memcpy(vp->vp_strvalue + vp->length, ntpwdhash, 16);
+	memset(vp->vp_strvalue + vp->length + 16, 0,
+	       sizeof(vp->vp_strvalue) - (vp->length + 16));
 
 	i = 16;
-	rad_tunnel_pwencode((char *)vp->strvalue + vp->length, &i,
-			    request->secret, request->packet->vector);
+	rad_tunnel_pwencode(vp->vp_strvalue + vp->length, &i,
+			    request->client->secret, request->packet->vector);
 	vp->length += i;
 	pairadd(reply_vps, vp);
 
@@ -410,7 +415,7 @@ LEAP_PACKET *eapleap_initiate(UNUSED EAP_DS *eap_ds, VALUE_PAIR *user_name)
 	 *	Fill the challenge with random bytes.
 	 */
 	for (i = 0; i < reply->count; i++) {
-		reply->challenge[i] = lrad_rand();
+		reply->challenge[i] = fr_rand();
 	}
 
 	DEBUG2("  rlm_eap_leap: Issuing AP Challenge");
@@ -428,7 +433,7 @@ LEAP_PACKET *eapleap_initiate(UNUSED EAP_DS *eap_ds, VALUE_PAIR *user_name)
 	/*
 	 *	Copy the name over, and ensure it's NUL terminated.
 	 */
-	memcpy(reply->name, user_name->strvalue, user_name->length);
+	memcpy(reply->name, user_name->vp_strvalue, user_name->length);
 	reply->name[user_name->length] = '\0';
 	reply->name_len = user_name->length;
 

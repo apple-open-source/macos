@@ -1,4 +1,6 @@
-/* $Id: misc.h,v 1.6.10.1 2005/11/06 17:18:26 monas Exp $ */
+/*	$NetBSD: misc.h,v 1.4 2006/09/09 16:22:09 manu Exp $	*/
+
+/* Id: misc.h,v 1.9 2006/04/06 14:00:06 manubsd Exp */
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -47,15 +49,26 @@ extern const char *debug_location __P((const char *, int, const char *));
 extern int getfsize __P((char *));
 struct timeval;
 extern double timedelta __P((struct timeval *, struct timeval *));
+char *strdup __P((const char *));
 
-#ifndef HAVE_STRLCPY
-#define strlcpy(d,s,l) (strncpy(d,s,l), (d)[(l)-1] = '\0')
+#if defined(__APPLE__)
+#define RACOON_TAILQ_FOREACH_REVERSE(var, head, headname ,field)	\
+  TAILQ_FOREACH_REVERSE(var, head, field, headname)
+#else
+#define RACOON_TAILQ_FOREACH_REVERSE(var, head, headname ,field)	\
+    TAILQ_FOREACH_REVERSE(var, head, headname, field)
 #endif
 
-#ifndef HAVE_STRLCAT
-#define strlcat(d,s,l) strncat(d,s,(l)-strlen(d)-1)
-#endif
+#define STRDUP_FATAL(x) if (x == NULL) {			\
+	plog(LLV_ERROR, LOCATION, NULL, "strdup failed\n");	\
+	exit(1);						\
+}
 
 #include "libpfkey.h"
+
+#define remainingsize(string_buffer_sizeof, filled_str) (string_buffer_sizeof - strlen(filled_str) - 1)
+#define remainingsize_opt(string_buffer_sizeof, filled_strlen) (string_buffer_sizeof - filled_strlen - 1)
+#define remainingsizeof(string_buffer) (sizeof(string_buffer) - strlen(string_buffer) - 1)
+#define remainingsizeof_opt(string_buffer, filled_strlen) (sizeof(string_buffer) - filled_strlen - 1)
 
 #endif /* _MISC_H */

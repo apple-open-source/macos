@@ -19,5 +19,9 @@
 	<array>
 		<string>*</string>
 	</array>
+	<key>realname</key>
+	<array>
+		<string>Podcast Producer Server</string>
+	</array>
 </dict>
 </plist>

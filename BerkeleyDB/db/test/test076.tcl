@@ -1,13 +1,12 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 2000-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 2000,2007 Oracle.  All rights reserved.
 #
-# $Id: test076.tcl,v 1.2 2004/03/30 01:24:09 jtownsen Exp $
+# $Id: test076.tcl,v 12.6 2007/05/17 15:15:56 bostic Exp $
 #
 # TEST	test076
 # TEST	Test creation of many small databases in a single environment. [#1528].
-proc test076 { method { ndbs 1000  } { tnum "076" } args } {
+proc test076 { method { ndbs 1000 } { tnum "076" } args } {
 	global is_qnx_test
 	source ./include.tcl
 
@@ -48,6 +47,10 @@ proc test076 { method { ndbs 1000  } { tnum "076" } args } {
 	if { $is_qnx_test && $ndbs > 100 } {
 		set ndbs 100
 	}
+	if { [is_queueext $method] } {
+		set ndbs 500
+	}
+
 	puts -nonewline "Test$tnum $method ($args): "
 	puts -nonewline "Create $ndbs"
 	puts " small databases in one env."

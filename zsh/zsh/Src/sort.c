@@ -134,9 +134,9 @@ eltpcmp(const void *a, const void *b)
 		    while (idigit(*as) && idigit(*bs))
 			as++, bs++;
 		    if (idigit(*as) && !idigit(*bs))
-			return 1;
+			return sortdir;
 		    if (idigit(*bs) && !idigit(*as))
-			return -1;
+			return -sortdir;
 		}
 	    }
 	}
@@ -338,8 +338,9 @@ strmetasort(char **array, int sortwhat, int *unmetalenp)
 		src = dst;
 	    }
 	    if (sortwhat & SORTIT_IGNORING_BACKSLASHES) {
+                char *end = src + len + 1;
 		/* copy null byte, so increment length */
-		for (s = src, t = dst; s - src != len+1; ) {
+		for (s = src, t = dst; s < end; ) {
 		    if (*s == '\\') {
 			s++;
 			len--;

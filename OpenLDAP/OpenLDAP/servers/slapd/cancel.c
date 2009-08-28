@@ -1,8 +1,8 @@
 /* cancel.c - LDAP cancel extended operation */
-/* $OpenLDAP: pkg/ldap/servers/slapd/cancel.c,v 1.16.2.6 2006/01/03 22:16:13 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/cancel.c,v 1.23.2.4 2008/02/11 23:26:43 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -18,7 +18,6 @@
 
 #include <stdio.h>
 
-#include <ac/krb.h>
 #include <ac/socket.h>
 #include <ac/string.h>
 #include <ac/unistd.h>
@@ -27,6 +26,8 @@
 
 #include <lber_pvt.h>
 #include <lutil.h>
+
+const struct berval slap_EXOP_CANCEL = BER_BVC(LDAP_EXOP_CANCEL);
 
 int cancel_extop( Operation *op, SlapReply *rs )
 {
@@ -55,21 +56,21 @@ int cancel_extop( Operation *op, SlapReply *rs )
 
 	(void) ber_free( ber, 1 );
 
+	Statslog( LDAP_DEBUG_STATS, "%s CANCEL msg=%d\n",
+		op->o_log_prefix, opid, 0, 0, 0 );
+
 	if ( opid < 0 ) {
 		rs->sr_text = "message ID invalid";
 		return LDAP_PROTOCOL_ERROR;
 	}
 
-	Statslog( LDAP_DEBUG_STATS, "%s CANCEL msg=%d\n",
-		op->o_log_prefix, opid, 0, 0, 0 );
-
 	ldap_pvt_thread_mutex_lock( &op->o_conn->c_mutex );
 	LDAP_STAILQ_FOREACH( o, &op->o_conn->c_pending_ops, o_next ) {
 		if ( o->o_msgid == opid ) {
-			LDAP_STAILQ_REMOVE( &op->o_conn->c_pending_ops, o, slap_op, o_next );
+			LDAP_STAILQ_REMOVE( &op->o_conn->c_pending_ops, o, Operation, o_next );
 			LDAP_STAILQ_NEXT(o, o_next) = NULL;
 			op->o_conn->c_n_ops_pending--;
-			slap_op_free( o );
+			slap_op_free( o, NULL );
 			ldap_pvt_thread_mutex_unlock( &op->o_conn->c_mutex );
 			return LDAP_SUCCESS;
 		}

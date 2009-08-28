@@ -1,0 +1,1443 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		2E16A6510EFB09F000EAC4D7 /* LaunchDaemons */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 2E16A65B0EFB0A4500EAC4D7 /* Build configuration list for PBXAggregateTarget "LaunchDaemons" */;
+			buildPhases = (
+				2E16A65F0EFB0A6A00EAC4D7 /* ShellScript */,
+			);
+			dependencies = (
+			);
+			name = LaunchDaemons;
+			productName = LaunchDaemons;
+		};
+		2E5A21480EC780EE005D4569 /* OpenBSM */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 2E5A21510EC7811B005D4569 /* Build configuration list for PBXAggregateTarget "OpenBSM" */;
+			buildPhases = (
+			);
+			dependencies = (
+				2E5A214C0EC780F5005D4569 /* PBXTargetDependency */,
+				2E5A21620EC78158005D4569 /* PBXTargetDependency */,
+				6855F4E90F7809CB00A5C604 /* PBXTargetDependency */,
+				2E8BE2380ECF7DB400083EC1 /* PBXTargetDependency */,
+				2E8BE2A40ECF817700083EC1 /* PBXTargetDependency */,
+				2E8BE2A20ECF817700083EC1 /* PBXTargetDependency */,
+				2E8BE1950ECF73EF00083EC1 /* PBXTargetDependency */,
+				2E8BE3D20ECFA0BF00083EC1 /* PBXTargetDependency */,
+				2E8BE3980ECF9EF900083EC1 /* PBXTargetDependency */,
+				2E8BE3330ECF9B0500083EC1 /* PBXTargetDependency */,
+				2E8BE3850ECF9CCB00083EC1 /* PBXTargetDependency */,
+				2E7B63D00EFB0BC400FFD9FB /* PBXTargetDependency */,
+			);
+			name = OpenBSM;
+			productName = OpenBSM;
+		};
+		2E8BE3300ECF9AF800083EC1 /* man_pages */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 2E8BE3360ECF9B3800083EC1 /* Build configuration list for PBXAggregateTarget "man_pages" */;
+			buildPhases = (
+				2EB722020F268B2B00A5E281 /* Copy section 3 man pages */,
+				2E8BE3510ECF9B6700083EC1 /* Copy section 5 man pages */,
+			);
+			dependencies = (
+			);
+			name = man_pages;
+			productName = man;
+		};
+		2E8BE37E0ECF9C8B00083EC1 /* compress_man_pages */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 2E8BE3830ECF9CB300083EC1 /* Build configuration list for PBXAggregateTarget "compress_man_pages" */;
+			buildPhases = (
+				2E8BE37D0ECF9C8B00083EC1 /* ShellScript */,
+			);
+			dependencies = (
+			);
+			name = compress_man_pages;
+			productName = compress_man_pages;
+		};
+		2E8BE3950ECF9ED600083EC1 /* OpenSource */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 2E8BE3A10ECF9F2200083EC1 /* Build configuration list for PBXAggregateTarget "OpenSource" */;
+			buildPhases = (
+				2E8BE3FF0ECFA3A300083EC1 /* ShellScript */,
+			);
+			dependencies = (
+			);
+			name = OpenSource;
+			productName = OpenSource;
+		};
+		2E8BE3BD0ECFA02C00083EC1 /* etc_security */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 2E8BE3C20ECFA06200083EC1 /* Build configuration list for PBXAggregateTarget "etc_security" */;
+			buildPhases = (
+				2E8BE3BC0ECFA02C00083EC1 /* CopyFiles */,
+				2E8BE40B0ECFA5CC00083EC1 /* ShellScript */,
+			);
+			dependencies = (
+			);
+			name = etc_security;
+			productName = etc/security;
+		};
+		2ECB0AC70ED4CAF6004B8557 /* OpenBSM_embedded */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 2ECB0ACB0ED4CAF9004B8557 /* Build configuration list for PBXAggregateTarget "OpenBSM_embedded" */;
+			buildPhases = (
+			);
+			dependencies = (
+				2ECB0AD10ED4CC59004B8557 /* PBXTargetDependency */,
+				2ECB0ACF0ED4CC37004B8557 /* PBXTargetDependency */,
+			);
+			name = OpenBSM_embedded;
+			productName = OpenBSM_embedded;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		2E49CBBD0F27DA7900A5D2E0 /* bsm_errno.c in Sources */ = {isa = PBXBuildFile; fileRef = 2E49CBBC0F27DA7900A5D2E0 /* bsm_errno.c */; };
+		2E49CBC60F27DC4600A5D2E0 /* au_errno.3 in Copy section 3 man pages */ = {isa = PBXBuildFile; fileRef = 2E49CBBB0F27DA7900A5D2E0 /* au_errno.3 */; };
+		2E49CBE80F27E1FB00A5D2E0 /* au_domain.3 in Copy section 3 man pages */ = {isa = PBXBuildFile; fileRef = EEA779410F17F63300916A50 /* au_domain.3 */; };
+		2E49CBE90F27E20400A5D2E0 /* au_socket_type.3 in Copy section 3 man pages */ = {isa = PBXBuildFile; fileRef = EEA7794A0F17F6E300916A50 /* au_socket_type.3 */; };
+		2E5A21600EC78152005D4569 /* auditd_lib.c in Sources */ = {isa = PBXBuildFile; fileRef = 2E5A215F0EC78152005D4569 /* auditd_lib.c */; };
+		2E8BE16D0ECF71F600083EC1 /* libbsm.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 2EEAFFEB0EC6605000E3E405 /* libbsm.0.dylib */; };
+		2E8BE1970ECF741400083EC1 /* libbsm.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 2EEAFFEB0EC6605000E3E405 /* libbsm.0.dylib */; };
+		2E8BE1980ECF741E00083EC1 /* libauditd.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 2E5A21560EC7812B005D4569 /* libauditd.0.dylib */; };
+		2E8BE20B0ECF7B1D00083EC1 /* audit_triggers.defs in Sources */ = {isa = PBXBuildFile; fileRef = 2E8BE2050ECF7B1D00083EC1 /* audit_triggers.defs */; settings = {ATTRIBUTES = (Server, ); }; };
+		2E8BE20C0ECF7B1D00083EC1 /* audit_warn.c in Sources */ = {isa = PBXBuildFile; fileRef = 2E8BE2060ECF7B1D00083EC1 /* audit_warn.c */; };
+		2E8BE20D0ECF7B1D00083EC1 /* auditd_control.defs in Sources */ = {isa = PBXBuildFile; fileRef = 2E8BE2070ECF7B1D00083EC1 /* auditd_control.defs */; settings = {ATTRIBUTES = (Server, ); }; };
+		2E8BE20E0ECF7B1D00083EC1 /* auditd_darwin.c in Sources */ = {isa = PBXBuildFile; fileRef = 2E8BE2080ECF7B1D00083EC1 /* auditd_darwin.c */; };
+		2E8BE20F0ECF7B1D00083EC1 /* auditd.c in Sources */ = {isa = PBXBuildFile; fileRef = 2E8BE2090ECF7B1D00083EC1 /* auditd.c */; };
+		2E8BE23D0ECF7DD900083EC1 /* audit.c in Sources */ = {isa = PBXBuildFile; fileRef = 2E8BE23C0ECF7DD900083EC1 /* audit.c */; };
+		2E8BE2410ECF7E0500083EC1 /* auditd_control.defs in Sources */ = {isa = PBXBuildFile; fileRef = 2E8BE2070ECF7B1D00083EC1 /* auditd_control.defs */; settings = {ATTRIBUTES = (Client, ); }; };
+		2E8BE2A50ECF818A00083EC1 /* libbsm.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 2EEAFFEB0EC6605000E3E405 /* libbsm.0.dylib */; };
+		2E8BE2A60ECF81A100083EC1 /* libbsm.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 2EEAFFEB0EC6605000E3E405 /* libbsm.0.dylib */; };
+		2E8BE2A70ECF81A900083EC1 /* libbsm.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 2EEAFFEB0EC6605000E3E405 /* libbsm.0.dylib */; };
+		2E8BE2B00ECF81CE00083EC1 /* auditreduce.c in Sources */ = {isa = PBXBuildFile; fileRef = 2E8BE2AE0ECF81CE00083EC1 /* auditreduce.c */; };
+		2E8BE2B80ECF81F000083EC1 /* praudit.c in Sources */ = {isa = PBXBuildFile; fileRef = 2E8BE2B70ECF81F000083EC1 /* praudit.c */; };
+		2E8BE2DE0ECF998C00083EC1 /* auditd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2E8BE2180ECF7CDA00083EC1 /* auditd.8 */; };
+		2E8BE2F30ECF99E700083EC1 /* audit.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2E8BE23B0ECF7DD900083EC1 /* audit.8 */; };
+		2E8BE2F70ECF9A0F00083EC1 /* auditreduce.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2E8BE2AD0ECF81CE00083EC1 /* auditreduce.1 */; };
+		2E8BE2FE0ECF9A3F00083EC1 /* praudit.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2E8BE2B60ECF81F000083EC1 /* praudit.1 */; };
+		2E8BE3520ECF9B7500083EC1 /* audit.log.5 in Copy section 5 man pages */ = {isa = PBXBuildFile; fileRef = 2E8BE3380ECF9B3C00083EC1 /* audit.log.5 */; };
+		2E8BE3530ECF9B7500083EC1 /* audit_class.5 in Copy section 5 man pages */ = {isa = PBXBuildFile; fileRef = 2E8BE34C0ECF9B6700083EC1 /* audit_class.5 */; };
+		2E8BE3540ECF9B7500083EC1 /* audit_control.5 in Copy section 5 man pages */ = {isa = PBXBuildFile; fileRef = 2E8BE34D0ECF9B6700083EC1 /* audit_control.5 */; };
+		2E8BE3550ECF9B7500083EC1 /* audit_event.5 in Copy section 5 man pages */ = {isa = PBXBuildFile; fileRef = 2E8BE34E0ECF9B6700083EC1 /* audit_event.5 */; };
+		2E8BE3560ECF9B7500083EC1 /* audit_user.5 in Copy section 5 man pages */ = {isa = PBXBuildFile; fileRef = 2E8BE34F0ECF9B6700083EC1 /* audit_user.5 */; };
+		2E8BE3570ECF9B7500083EC1 /* audit_warn.5 in Copy section 5 man pages */ = {isa = PBXBuildFile; fileRef = 2E8BE3500ECF9B6700083EC1 /* audit_warn.5 */; };
+		2E8BE3B20ECF9FE500083EC1 /* audit_filter.h in Headers */ = {isa = PBXBuildFile; fileRef = 2E8BE3AF0ECF9FE500083EC1 /* audit_filter.h */; };
+		2E8BE3B30ECF9FE500083EC1 /* audit_uevents.h in Headers */ = {isa = PBXBuildFile; fileRef = 2E8BE3B00ECF9FE500083EC1 /* audit_uevents.h */; };
+		2E8BE3B40ECF9FE500083EC1 /* libbsm.h in Headers */ = {isa = PBXBuildFile; fileRef = 2E8BE3B10ECF9FE500083EC1 /* libbsm.h */; };
+		2E8BE3CB0ECFA09200083EC1 /* audit_class in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2E8BE3C50ECFA09200083EC1 /* audit_class */; };
+		2E8BE3CC0ECFA09200083EC1 /* audit_control in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2E8BE3C60ECFA09200083EC1 /* audit_control */; };
+		2E8BE3CD0ECFA09200083EC1 /* audit_event in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2E8BE3C70ECFA09200083EC1 /* audit_event */; };
+		2E8BE3CF0ECFA09200083EC1 /* audit_user in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2E8BE3C90ECFA09200083EC1 /* audit_user */; };
+		2E8BE3D00ECFA09200083EC1 /* audit_warn in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2E8BE3CA0ECFA09200083EC1 /* audit_warn */; };
+		2E8BE3D60ECFA0EA00083EC1 /* auditd_lib.h in Headers */ = {isa = PBXBuildFile; fileRef = 2E8BE3D50ECFA0EA00083EC1 /* auditd_lib.h */; };
+		2E8BE3DF0ECFA33300083EC1 /* audit_filter.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2E8BE3AF0ECF9FE500083EC1 /* audit_filter.h */; };
+		2E8BE3E00ECFA33300083EC1 /* audit_uevents.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2E8BE3B00ECF9FE500083EC1 /* audit_uevents.h */; };
+		2E8BE3E10ECFA33300083EC1 /* libbsm.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2E8BE3B10ECF9FE500083EC1 /* libbsm.h */; };
+		2E8BE3E50ECFA35C00083EC1 /* auditd_lib.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2E8BE3D50ECFA0EA00083EC1 /* auditd_lib.h */; };
+		2EB721F70F268B0100A5E281 /* libbsm.3 in Copy section 3 man pages */ = {isa = PBXBuildFile; fileRef = 2E8BE38C0ECF9E9B00083EC1 /* libbsm.3 */; };
+		2EB721F80F268B0100A5E281 /* au_class.3 in Copy section 3 man pages */ = {isa = PBXBuildFile; fileRef = 2E8BE3060ECF9A8000083EC1 /* au_class.3 */; };
+		2EB721F90F268B0100A5E281 /* au_control.3 in Copy section 3 man pages */ = {isa = PBXBuildFile; fileRef = 2E8BE3070ECF9A8000083EC1 /* au_control.3 */; };
+		2EB721FA0F268B0100A5E281 /* au_event.3 in Copy section 3 man pages */ = {isa = PBXBuildFile; fileRef = 2E8BE3080ECF9A8000083EC1 /* au_event.3 */; };
+		2EB721FB0F268B0100A5E281 /* au_free_token.3 in Copy section 3 man pages */ = {isa = PBXBuildFile; fileRef = 2E8BE3090ECF9A8000083EC1 /* au_free_token.3 */; };
+		2EB721FC0F268B0100A5E281 /* au_io.3 in Copy section 3 man pages */ = {isa = PBXBuildFile; fileRef = 2E8BE30A0ECF9A8000083EC1 /* au_io.3 */; };
+		2EB721FD0F268B0100A5E281 /* au_mask.3 in Copy section 3 man pages */ = {isa = PBXBuildFile; fileRef = 2E8BE30B0ECF9A8000083EC1 /* au_mask.3 */; };
+		2EB721FE0F268B0100A5E281 /* au_open.3 in Copy section 3 man pages */ = {isa = PBXBuildFile; fileRef = 2E8BE30C0ECF9A8000083EC1 /* au_open.3 */; };
+		2EB721FF0F268B0100A5E281 /* au_token.3 in Copy section 3 man pages */ = {isa = PBXBuildFile; fileRef = 2E8BE30D0ECF9A8000083EC1 /* au_token.3 */; };
+		2EB722000F268B0100A5E281 /* au_user.3 in Copy section 3 man pages */ = {isa = PBXBuildFile; fileRef = 2E8BE30E0ECF9A8000083EC1 /* au_user.3 */; };
+		2EB722010F268B0100A5E281 /* audit_submit.3 in Copy section 3 man pages */ = {isa = PBXBuildFile; fileRef = 2E8BE30F0ECF9A8000083EC1 /* audit_submit.3 */; };
+		2EEAFFEE0EC6605E00E3E405 /* bsm_audit.c in Sources */ = {isa = PBXBuildFile; fileRef = 2EEAFFC10EC65FD300E3E405 /* bsm_audit.c */; };
+		2EEAFFEF0EC6605E00E3E405 /* bsm_class.c in Sources */ = {isa = PBXBuildFile; fileRef = 2EEAFFC20EC65FD300E3E405 /* bsm_class.c */; };
+		2EEAFFF00EC6605E00E3E405 /* bsm_control.c in Sources */ = {isa = PBXBuildFile; fileRef = 2EEAFFC30EC65FD300E3E405 /* bsm_control.c */; };
+		2EEAFFF10EC6605E00E3E405 /* bsm_event.c in Sources */ = {isa = PBXBuildFile; fileRef = 2EEAFFC40EC65FD300E3E405 /* bsm_event.c */; };
+		2EEAFFF20EC6605E00E3E405 /* bsm_flags.c in Sources */ = {isa = PBXBuildFile; fileRef = 2EEAFFC50EC65FD300E3E405 /* bsm_flags.c */; };
+		2EEAFFF30EC6605E00E3E405 /* bsm_io.c in Sources */ = {isa = PBXBuildFile; fileRef = 2EEAFFC60EC65FD300E3E405 /* bsm_io.c */; };
+		2EEAFFF40EC6605E00E3E405 /* bsm_mask.c in Sources */ = {isa = PBXBuildFile; fileRef = 2EEAFFC70EC65FD300E3E405 /* bsm_mask.c */; };
+		2EEAFFF50EC6605E00E3E405 /* bsm_notify.c in Sources */ = {isa = PBXBuildFile; fileRef = 2EEAFFC80EC65FD300E3E405 /* bsm_notify.c */; };
+		2EEAFFF60EC6605E00E3E405 /* bsm_token.c in Sources */ = {isa = PBXBuildFile; fileRef = 2EEAFFC90EC65FD300E3E405 /* bsm_token.c */; };
+		2EEAFFF70EC6605E00E3E405 /* bsm_user.c in Sources */ = {isa = PBXBuildFile; fileRef = 2EEAFFCA0EC65FD300E3E405 /* bsm_user.c */; };
+		2EEAFFF80EC6605E00E3E405 /* bsm_wrappers.c in Sources */ = {isa = PBXBuildFile; fileRef = 2EEAFFCB0EC65FD300E3E405 /* bsm_wrappers.c */; };
+		6855F4DC0F78092C00A5C604 /* amt.c in Sources */ = {isa = PBXBuildFile; fileRef = 6855F4D60F78092C00A5C604 /* amt.c */; };
+		6855F4DD0F78092C00A5C604 /* fault_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 6855F4D80F78092C00A5C604 /* fault_test.c */; };
+		6855F4DE0F78092C00A5C604 /* mem_sep.c in Sources */ = {isa = PBXBuildFile; fileRef = 6855F4D90F78092C00A5C604 /* mem_sep.c */; };
+		6855F4DF0F78092C00A5C604 /* memory.c in Sources */ = {isa = PBXBuildFile; fileRef = 6855F4DA0F78092C00A5C604 /* memory.c */; };
+		6855F4E00F78092C00A5C604 /* priv_inst.c in Sources */ = {isa = PBXBuildFile; fileRef = 6855F4DB0F78092C00A5C604 /* priv_inst.c */; };
+		6855F4EB0F780AA700A5C604 /* libbsm.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 2EEAFFEB0EC6605000E3E405 /* libbsm.0.dylib */; };
+		6855F4EE0F780B9100A5C604 /* amt.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 6855F4E30F78093F00A5C604 /* amt.8 */; };
+		EE1313890F61DF2C0083B0AA /* au_fcntl_cmd.3 in Copy section 3 man pages */ = {isa = PBXBuildFile; fileRef = EE1313880F61DF010083B0AA /* au_fcntl_cmd.3 */; };
+		EE13138B0F61DFA70083B0AA /* bsm_fcntl.c in Sources */ = {isa = PBXBuildFile; fileRef = EE13138A0F61DFA70083B0AA /* bsm_fcntl.c */; };
+		EEA779520F17F74C00916A50 /* bsm_socket_type.c in Sources */ = {isa = PBXBuildFile; fileRef = EEA779510F17F73900916A50 /* bsm_socket_type.c */; };
+		EEA779530F17F75700916A50 /* bsm_domain.c in Sources */ = {isa = PBXBuildFile; fileRef = EEA779500F17F72500916A50 /* bsm_domain.c */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		2E5A214B0EC780F5005D4569 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2ECEFDC00EC65F8700FEE956 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2EEAFFEA0EC6605000E3E405;
+			remoteInfo = bsm.0;
+		};
+		2E5A21610EC78158005D4569 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2ECEFDC00EC65F8700FEE956 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2E5A21550EC7812B005D4569;
+			remoteInfo = auditd.0;
+		};
+		2E7B63CF0EFB0BC400FFD9FB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2ECEFDC00EC65F8700FEE956 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2E16A6510EFB09F000EAC4D7;
+			remoteInfo = LaunchDaemons;
+		};
+		2E8BE1940ECF73EF00083EC1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2ECEFDC00EC65F8700FEE956 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2E8BE18F0ECF73E500083EC1;
+			remoteInfo = auditd;
+		};
+		2E8BE2370ECF7DB400083EC1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2ECEFDC00EC65F8700FEE956 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2E8BE22C0ECF7D8700083EC1;
+			remoteInfo = audit;
+		};
+		2E8BE2A10ECF817700083EC1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2ECEFDC00EC65F8700FEE956 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2E8BE29A0ECF80C700083EC1;
+			remoteInfo = praudit;
+		};
+		2E8BE2A30ECF817700083EC1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2ECEFDC00EC65F8700FEE956 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2E8BE28D0ECF808C00083EC1;
+			remoteInfo = auditreduce;
+		};
+		2E8BE3320ECF9B0500083EC1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2ECEFDC00EC65F8700FEE956 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2E8BE3300ECF9AF800083EC1;
+			remoteInfo = man;
+		};
+		2E8BE3840ECF9CCB00083EC1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2ECEFDC00EC65F8700FEE956 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2E8BE37E0ECF9C8B00083EC1;
+			remoteInfo = compress_man_pages;
+		};
+		2E8BE3970ECF9EF900083EC1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2ECEFDC00EC65F8700FEE956 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2E8BE3950ECF9ED600083EC1;
+			remoteInfo = OpenSource;
+		};
+		2E8BE3D10ECFA0BF00083EC1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2ECEFDC00EC65F8700FEE956 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2E8BE3BD0ECFA02C00083EC1;
+			remoteInfo = etc_security;
+		};
+		2ECB0ACE0ED4CC37004B8557 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2ECEFDC00EC65F8700FEE956 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2E8BE3950ECF9ED600083EC1;
+			remoteInfo = OpenSource;
+		};
+		2ECB0AD00ED4CC59004B8557 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2ECEFDC00EC65F8700FEE956 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2EEAFFEA0EC6605000E3E405;
+			remoteInfo = bsm.0;
+		};
+		6855F4E80F7809CB00A5C604 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2ECEFDC00EC65F8700FEE956 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6855F4CA0F7808A300A5C604;
+			remoteInfo = amt;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		2E8BE2EF0ECF999C00083EC1 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				2E8BE2DE0ECF998C00083EC1 /* auditd.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2E8BE3010ECF9A4700083EC1 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				2E8BE2F30ECF99E700083EC1 /* audit.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2E8BE3020ECF9A4700083EC1 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = usr/share/man/man1;
+			dstSubfolderSpec = 0;
+			files = (
+				2E8BE2F70ECF9A0F00083EC1 /* auditreduce.1 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2E8BE3030ECF9A4700083EC1 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = usr/share/man/man1;
+			dstSubfolderSpec = 0;
+			files = (
+				2E8BE2FE0ECF9A3F00083EC1 /* praudit.1 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2E8BE3510ECF9B6700083EC1 /* Copy section 5 man pages */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = usr/share/man/man5;
+			dstSubfolderSpec = 0;
+			files = (
+				2E8BE3520ECF9B7500083EC1 /* audit.log.5 in Copy section 5 man pages */,
+				2E8BE3530ECF9B7500083EC1 /* audit_class.5 in Copy section 5 man pages */,
+				2E8BE3540ECF9B7500083EC1 /* audit_control.5 in Copy section 5 man pages */,
+				2E8BE3550ECF9B7500083EC1 /* audit_event.5 in Copy section 5 man pages */,
+				2E8BE3560ECF9B7500083EC1 /* audit_user.5 in Copy section 5 man pages */,
+				2E8BE3570ECF9B7500083EC1 /* audit_warn.5 in Copy section 5 man pages */,
+			);
+			name = "Copy section 5 man pages";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2E8BE3BC0ECFA02C00083EC1 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = private/etc/security;
+			dstSubfolderSpec = 0;
+			files = (
+				2E8BE3CB0ECFA09200083EC1 /* audit_class in CopyFiles */,
+				2E8BE3CC0ECFA09200083EC1 /* audit_control in CopyFiles */,
+				2E8BE3CD0ECFA09200083EC1 /* audit_event in CopyFiles */,
+				2E8BE3CF0ECFA09200083EC1 /* audit_user in CopyFiles */,
+				2E8BE3D00ECFA09200083EC1 /* audit_warn in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2E8BE3FA0ECFA36D00083EC1 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = usr/include/bsm;
+			dstSubfolderSpec = 0;
+			files = (
+				2E8BE3DF0ECFA33300083EC1 /* audit_filter.h in CopyFiles */,
+				2E8BE3E00ECFA33300083EC1 /* audit_uevents.h in CopyFiles */,
+				2E8BE3E10ECFA33300083EC1 /* libbsm.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2E8BE3FB0ECFA36D00083EC1 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = usr/local/include/bsm;
+			dstSubfolderSpec = 0;
+			files = (
+				2E8BE3E50ECFA35C00083EC1 /* auditd_lib.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2EB722020F268B2B00A5E281 /* Copy section 3 man pages */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = usr/share/man/man3;
+			dstSubfolderSpec = 0;
+			files = (
+				2EB721F70F268B0100A5E281 /* libbsm.3 in Copy section 3 man pages */,
+				2EB721F80F268B0100A5E281 /* au_class.3 in Copy section 3 man pages */,
+				2EB721F90F268B0100A5E281 /* au_control.3 in Copy section 3 man pages */,
+				2E49CBE80F27E1FB00A5D2E0 /* au_domain.3 in Copy section 3 man pages */,
+				2E49CBC60F27DC4600A5D2E0 /* au_errno.3 in Copy section 3 man pages */,
+				2EB721FA0F268B0100A5E281 /* au_event.3 in Copy section 3 man pages */,
+				EE1313890F61DF2C0083B0AA /* au_fcntl_cmd.3 in Copy section 3 man pages */,
+				2EB721FB0F268B0100A5E281 /* au_free_token.3 in Copy section 3 man pages */,
+				2EB721FC0F268B0100A5E281 /* au_io.3 in Copy section 3 man pages */,
+				2EB721FD0F268B0100A5E281 /* au_mask.3 in Copy section 3 man pages */,
+				2EB721FE0F268B0100A5E281 /* au_open.3 in Copy section 3 man pages */,
+				2E49CBE90F27E20400A5D2E0 /* au_socket_type.3 in Copy section 3 man pages */,
+				2EB721FF0F268B0100A5E281 /* au_token.3 in Copy section 3 man pages */,
+				2EB722000F268B0100A5E281 /* au_user.3 in Copy section 3 man pages */,
+				2EB722010F268B0100A5E281 /* audit_submit.3 in Copy section 3 man pages */,
+			);
+			name = "Copy section 3 man pages";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		6855F4EA0F7809E900A5C604 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				6855F4EE0F780B9100A5C604 /* amt.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		2E16A64D0EFB09D100EAC4D7 /* com.apple.auditd.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.auditd.plist; sourceTree = "<group>"; };
+		2E49CBBB0F27DA7900A5D2E0 /* au_errno.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = au_errno.3; path = openbsm/libbsm/au_errno.3; sourceTree = "<group>"; };
+		2E49CBBC0F27DA7900A5D2E0 /* bsm_errno.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = bsm_errno.c; path = openbsm/libbsm/bsm_errno.c; sourceTree = "<group>"; };
+		2E5A21560EC7812B005D4569 /* libauditd.0.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libauditd.0.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		2E5A215F0EC78152005D4569 /* auditd_lib.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = auditd_lib.c; path = openbsm/libauditd/auditd_lib.c; sourceTree = "<group>"; };
+		2E8BE1900ECF73E500083EC1 /* auditd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = auditd; sourceTree = BUILT_PRODUCTS_DIR; };
+		2E8BE2050ECF7B1D00083EC1 /* audit_triggers.defs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.mig; name = audit_triggers.defs; path = openbsm/bin/auditd/audit_triggers.defs; sourceTree = "<group>"; };
+		2E8BE2060ECF7B1D00083EC1 /* audit_warn.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = audit_warn.c; path = openbsm/bin/auditd/audit_warn.c; sourceTree = "<group>"; };
+		2E8BE2070ECF7B1D00083EC1 /* auditd_control.defs */ = {isa = PBXFileReference; explicitFileType = sourcecode.mig; fileEncoding = 4; name = auditd_control.defs; path = openbsm/bin/auditd/auditd_control.defs; sourceTree = "<group>"; };
+		2E8BE2080ECF7B1D00083EC1 /* auditd_darwin.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = auditd_darwin.c; path = openbsm/bin/auditd/auditd_darwin.c; sourceTree = "<group>"; };
+		2E8BE2090ECF7B1D00083EC1 /* auditd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = auditd.c; path = openbsm/bin/auditd/auditd.c; sourceTree = "<group>"; };
+		2E8BE20A0ECF7B1D00083EC1 /* auditd.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = auditd.h; path = openbsm/bin/auditd/auditd.h; sourceTree = "<group>"; };
+		2E8BE2180ECF7CDA00083EC1 /* auditd.8 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 4; name = auditd.8; path = openbsm/bin/auditd/auditd.8; sourceTree = "<group>"; };
+		2E8BE22D0ECF7D8700083EC1 /* audit */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = audit; sourceTree = BUILT_PRODUCTS_DIR; };
+		2E8BE23B0ECF7DD900083EC1 /* audit.8 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 4; name = audit.8; path = openbsm/bin/audit/audit.8; sourceTree = "<group>"; };
+		2E8BE23C0ECF7DD900083EC1 /* audit.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = audit.c; path = openbsm/bin/audit/audit.c; sourceTree = "<group>"; };
+		2E8BE28E0ECF808C00083EC1 /* auditreduce */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = auditreduce; sourceTree = BUILT_PRODUCTS_DIR; };
+		2E8BE29B0ECF80C700083EC1 /* praudit */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = praudit; sourceTree = BUILT_PRODUCTS_DIR; };
+		2E8BE2AD0ECF81CE00083EC1 /* auditreduce.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; name = auditreduce.1; path = openbsm/bin/auditreduce/auditreduce.1; sourceTree = "<group>"; };
+		2E8BE2AE0ECF81CE00083EC1 /* auditreduce.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = auditreduce.c; path = openbsm/bin/auditreduce/auditreduce.c; sourceTree = "<group>"; };
+		2E8BE2AF0ECF81CE00083EC1 /* auditreduce.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = auditreduce.h; path = openbsm/bin/auditreduce/auditreduce.h; sourceTree = "<group>"; };
+		2E8BE2B60ECF81F000083EC1 /* praudit.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; name = praudit.1; path = openbsm/bin/praudit/praudit.1; sourceTree = "<group>"; };
+		2E8BE2B70ECF81F000083EC1 /* praudit.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = praudit.c; path = openbsm/bin/praudit/praudit.c; sourceTree = "<group>"; };
+		2E8BE3060ECF9A8000083EC1 /* au_class.3 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 4; name = au_class.3; path = openbsm/libbsm/au_class.3; sourceTree = "<group>"; };
+		2E8BE3070ECF9A8000083EC1 /* au_control.3 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 4; name = au_control.3; path = openbsm/libbsm/au_control.3; sourceTree = "<group>"; };
+		2E8BE3080ECF9A8000083EC1 /* au_event.3 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 4; name = au_event.3; path = openbsm/libbsm/au_event.3; sourceTree = "<group>"; };
+		2E8BE3090ECF9A8000083EC1 /* au_free_token.3 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 4; name = au_free_token.3; path = openbsm/libbsm/au_free_token.3; sourceTree = "<group>"; };
+		2E8BE30A0ECF9A8000083EC1 /* au_io.3 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 4; name = au_io.3; path = openbsm/libbsm/au_io.3; sourceTree = "<group>"; };
+		2E8BE30B0ECF9A8000083EC1 /* au_mask.3 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 4; name = au_mask.3; path = openbsm/libbsm/au_mask.3; sourceTree = "<group>"; };
+		2E8BE30C0ECF9A8000083EC1 /* au_open.3 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 4; name = au_open.3; path = openbsm/libbsm/au_open.3; sourceTree = "<group>"; };
+		2E8BE30D0ECF9A8000083EC1 /* au_token.3 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 4; name = au_token.3; path = openbsm/libbsm/au_token.3; sourceTree = "<group>"; };
+		2E8BE30E0ECF9A8000083EC1 /* au_user.3 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 4; name = au_user.3; path = openbsm/libbsm/au_user.3; sourceTree = "<group>"; };
+		2E8BE30F0ECF9A8000083EC1 /* audit_submit.3 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 4; name = audit_submit.3; path = openbsm/libbsm/audit_submit.3; sourceTree = "<group>"; };
+		2E8BE3380ECF9B3C00083EC1 /* audit.log.5 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 4; name = audit.log.5; path = openbsm/man/audit.log.5; sourceTree = "<group>"; };
+		2E8BE34C0ECF9B6700083EC1 /* audit_class.5 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = audit_class.5; path = openbsm/man/audit_class.5; sourceTree = "<group>"; };
+		2E8BE34D0ECF9B6700083EC1 /* audit_control.5 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = audit_control.5; path = openbsm/man/audit_control.5; sourceTree = "<group>"; };
+		2E8BE34E0ECF9B6700083EC1 /* audit_event.5 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = audit_event.5; path = openbsm/man/audit_event.5; sourceTree = "<group>"; };
+		2E8BE34F0ECF9B6700083EC1 /* audit_user.5 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = audit_user.5; path = openbsm/man/audit_user.5; sourceTree = "<group>"; };
+		2E8BE3500ECF9B6700083EC1 /* audit_warn.5 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = audit_warn.5; path = openbsm/man/audit_warn.5; sourceTree = "<group>"; };
+		2E8BE38C0ECF9E9B00083EC1 /* libbsm.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = libbsm.3; path = openbsm/libbsm/libbsm.3; sourceTree = "<group>"; };
+		2E8BE3A40ECF9F3600083EC1 /* openbsm.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = openbsm.plist; sourceTree = "<group>"; };
+		2E8BE3A70ECF9F8100083EC1 /* LICENSE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = LICENSE; path = openbsm/LICENSE; sourceTree = "<group>"; };
+		2E8BE3AF0ECF9FE500083EC1 /* audit_filter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = audit_filter.h; path = openbsm/bsm/audit_filter.h; sourceTree = "<group>"; };
+		2E8BE3B00ECF9FE500083EC1 /* audit_uevents.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = audit_uevents.h; path = openbsm/bsm/audit_uevents.h; sourceTree = "<group>"; };
+		2E8BE3B10ECF9FE500083EC1 /* libbsm.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = libbsm.h; path = openbsm/bsm/libbsm.h; sourceTree = "<group>"; };
+		2E8BE3C50ECFA09200083EC1 /* audit_class */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = audit_class; path = openbsm/etc/audit_class; sourceTree = "<group>"; };
+		2E8BE3C60ECFA09200083EC1 /* audit_control */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = audit_control; path = openbsm/etc/audit_control; sourceTree = "<group>"; };
+		2E8BE3C70ECFA09200083EC1 /* audit_event */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = audit_event; path = openbsm/etc/audit_event; sourceTree = "<group>"; };
+		2E8BE3C80ECFA09200083EC1 /* audit_filter */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = audit_filter; path = openbsm/etc/audit_filter; sourceTree = "<group>"; };
+		2E8BE3C90ECFA09200083EC1 /* audit_user */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = audit_user; path = openbsm/etc/audit_user; sourceTree = "<group>"; };
+		2E8BE3CA0ECFA09200083EC1 /* audit_warn */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = audit_warn; path = openbsm/etc/audit_warn; sourceTree = "<group>"; };
+		2E8BE3D50ECFA0EA00083EC1 /* auditd_lib.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = auditd_lib.h; path = openbsm/bsm/auditd_lib.h; sourceTree = "<group>"; };
+		2EEAFFC10EC65FD300E3E405 /* bsm_audit.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = bsm_audit.c; path = openbsm/libbsm/bsm_audit.c; sourceTree = "<group>"; };
+		2EEAFFC20EC65FD300E3E405 /* bsm_class.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = bsm_class.c; path = openbsm/libbsm/bsm_class.c; sourceTree = "<group>"; };
+		2EEAFFC30EC65FD300E3E405 /* bsm_control.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = bsm_control.c; path = openbsm/libbsm/bsm_control.c; sourceTree = "<group>"; };
+		2EEAFFC40EC65FD300E3E405 /* bsm_event.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = bsm_event.c; path = openbsm/libbsm/bsm_event.c; sourceTree = "<group>"; };
+		2EEAFFC50EC65FD300E3E405 /* bsm_flags.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = bsm_flags.c; path = openbsm/libbsm/bsm_flags.c; sourceTree = "<group>"; };
+		2EEAFFC60EC65FD300E3E405 /* bsm_io.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = bsm_io.c; path = openbsm/libbsm/bsm_io.c; sourceTree = "<group>"; };
+		2EEAFFC70EC65FD300E3E405 /* bsm_mask.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = bsm_mask.c; path = openbsm/libbsm/bsm_mask.c; sourceTree = "<group>"; };
+		2EEAFFC80EC65FD300E3E405 /* bsm_notify.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = bsm_notify.c; path = openbsm/libbsm/bsm_notify.c; sourceTree = "<group>"; };
+		2EEAFFC90EC65FD300E3E405 /* bsm_token.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = bsm_token.c; path = openbsm/libbsm/bsm_token.c; sourceTree = "<group>"; };
+		2EEAFFCA0EC65FD300E3E405 /* bsm_user.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = bsm_user.c; path = openbsm/libbsm/bsm_user.c; sourceTree = "<group>"; };
+		2EEAFFCB0EC65FD300E3E405 /* bsm_wrappers.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = bsm_wrappers.c; path = openbsm/libbsm/bsm_wrappers.c; sourceTree = "<group>"; };
+		2EEAFFEB0EC6605000E3E405 /* libbsm.0.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libbsm.0.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		6855F4CB0F7808A300A5C604 /* amt */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = amt; sourceTree = BUILT_PRODUCTS_DIR; };
+		6855F4D60F78092C00A5C604 /* amt.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = amt.c; path = amt/amt.c; sourceTree = "<group>"; };
+		6855F4D70F78092C00A5C604 /* amt.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = amt.h; path = amt/amt.h; sourceTree = "<group>"; };
+		6855F4D80F78092C00A5C604 /* fault_test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = fault_test.c; path = amt/fault_test.c; sourceTree = "<group>"; };
+		6855F4D90F78092C00A5C604 /* mem_sep.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = mem_sep.c; path = amt/mem_sep.c; sourceTree = "<group>"; };
+		6855F4DA0F78092C00A5C604 /* memory.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = memory.c; path = amt/memory.c; sourceTree = "<group>"; };
+		6855F4DB0F78092C00A5C604 /* priv_inst.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = priv_inst.c; path = amt/priv_inst.c; sourceTree = "<group>"; };
+		6855F4E30F78093F00A5C604 /* amt.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = amt.8; path = amt/amt.8; sourceTree = "<group>"; };
+		EE1313880F61DF010083B0AA /* au_fcntl_cmd.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = au_fcntl_cmd.3; path = openbsm/libbsm/au_fcntl_cmd.3; sourceTree = "<group>"; };
+		EE13138A0F61DFA70083B0AA /* bsm_fcntl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = bsm_fcntl.c; path = openbsm/libbsm/bsm_fcntl.c; sourceTree = "<group>"; };
+		EEA779410F17F63300916A50 /* au_domain.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = au_domain.3; path = openbsm/libbsm/au_domain.3; sourceTree = "<group>"; };
+		EEA7794A0F17F6E300916A50 /* au_socket_type.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = au_socket_type.3; path = openbsm/libbsm/au_socket_type.3; sourceTree = "<group>"; };
+		EEA779500F17F72500916A50 /* bsm_domain.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = bsm_domain.c; path = openbsm/libbsm/bsm_domain.c; sourceTree = "<group>"; };
+		EEA779510F17F73900916A50 /* bsm_socket_type.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = bsm_socket_type.c; path = openbsm/libbsm/bsm_socket_type.c; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		2E5A21540EC7812B005D4569 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2E8BE16D0ECF71F600083EC1 /* libbsm.0.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2E8BE18E0ECF73E500083EC1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2E8BE1970ECF741400083EC1 /* libbsm.0.dylib in Frameworks */,
+				2E8BE1980ECF741E00083EC1 /* libauditd.0.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2E8BE22B0ECF7D8700083EC1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2E8BE2A50ECF818A00083EC1 /* libbsm.0.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2E8BE28C0ECF808C00083EC1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2E8BE2A60ECF81A100083EC1 /* libbsm.0.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2E8BE2990ECF80C700083EC1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2E8BE2A70ECF81A900083EC1 /* libbsm.0.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2EEAFFE90EC6605000E3E405 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6855F4C90F7808A300A5C604 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6855F4EB0F780AA700A5C604 /* libbsm.0.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		2E16A6480EFB09B400EAC4D7 /* LaunchDaemons */ = {
+			isa = PBXGroup;
+			children = (
+				2E16A64D0EFB09D100EAC4D7 /* com.apple.auditd.plist */,
+			);
+			name = LaunchDaemons;
+			sourceTree = "<group>";
+		};
+		2E5A215B0EC78136005D4569 /* libauditd */ = {
+			isa = PBXGroup;
+			children = (
+				2E8BE3D50ECFA0EA00083EC1 /* auditd_lib.h */,
+				2E5A215F0EC78152005D4569 /* auditd_lib.c */,
+			);
+			name = libauditd;
+			sourceTree = "<group>";
+		};
+		2E8BE1850ECF735D00083EC1 /* auditd */ = {
+			isa = PBXGroup;
+			children = (
+				2E8BE2180ECF7CDA00083EC1 /* auditd.8 */,
+				2E8BE2050ECF7B1D00083EC1 /* audit_triggers.defs */,
+				2E8BE2060ECF7B1D00083EC1 /* audit_warn.c */,
+				2E8BE2070ECF7B1D00083EC1 /* auditd_control.defs */,
+				2E8BE2080ECF7B1D00083EC1 /* auditd_darwin.c */,
+				2E8BE2090ECF7B1D00083EC1 /* auditd.c */,
+				2E8BE20A0ECF7B1D00083EC1 /* auditd.h */,
+			);
+			name = auditd;
+			sourceTree = "<group>";
+		};
+		2E8BE2270ECF7D7E00083EC1 /* audit */ = {
+			isa = PBXGroup;
+			children = (
+				2E8BE23B0ECF7DD900083EC1 /* audit.8 */,
+				2E8BE23C0ECF7DD900083EC1 /* audit.c */,
+			);
+			name = audit;
+			sourceTree = "<group>";
+		};
+		2E8BE2AA0ECF81B200083EC1 /* auditreduce */ = {
+			isa = PBXGroup;
+			children = (
+				2E8BE2AD0ECF81CE00083EC1 /* auditreduce.1 */,
+				2E8BE2AE0ECF81CE00083EC1 /* auditreduce.c */,
+				2E8BE2AF0ECF81CE00083EC1 /* auditreduce.h */,
+			);
+			name = auditreduce;
+			sourceTree = "<group>";
+		};
+		2E8BE2B30ECF81D500083EC1 /* praudit */ = {
+			isa = PBXGroup;
+			children = (
+				2E8BE2B60ECF81F000083EC1 /* praudit.1 */,
+				2E8BE2B70ECF81F000083EC1 /* praudit.c */,
+			);
+			name = praudit;
+			sourceTree = "<group>";
+		};
+		2E8BE32C0ECF9AEB00083EC1 /* man */ = {
+			isa = PBXGroup;
+			children = (
+				2E8BE34C0ECF9B6700083EC1 /* audit_class.5 */,
+				2E8BE34D0ECF9B6700083EC1 /* audit_control.5 */,
+				2E8BE34E0ECF9B6700083EC1 /* audit_event.5 */,
+				2E8BE34F0ECF9B6700083EC1 /* audit_user.5 */,
+				2E8BE3500ECF9B6700083EC1 /* audit_warn.5 */,
+				2E8BE3380ECF9B3C00083EC1 /* audit.log.5 */,
+			);
+			name = man;
+			sourceTree = "<group>";
+		};
+		2E8BE3910ECF9EBD00083EC1 /* OpenSource */ = {
+			isa = PBXGroup;
+			children = (
+				2E8BE3A70ECF9F8100083EC1 /* LICENSE */,
+				2E8BE3A40ECF9F3600083EC1 /* openbsm.plist */,
+			);
+			name = OpenSource;
+			sourceTree = "<group>";
+		};
+		2E8BE3C10ECFA06200083EC1 /* etc_security */ = {
+			isa = PBXGroup;
+			children = (
+				2E8BE3C50ECFA09200083EC1 /* audit_class */,
+				2E8BE3C60ECFA09200083EC1 /* audit_control */,
+				2E8BE3C70ECFA09200083EC1 /* audit_event */,
+				2E8BE3C80ECFA09200083EC1 /* audit_filter */,
+				2E8BE3C90ECFA09200083EC1 /* audit_user */,
+				2E8BE3CA0ECFA09200083EC1 /* audit_warn */,
+			);
+			name = etc_security;
+			sourceTree = "<group>";
+		};
+		2ECEFDBE0EC65F8700FEE956 = {
+			isa = PBXGroup;
+			children = (
+				EE13138A0F61DFA70083B0AA /* bsm_fcntl.c */,
+				2EEAFFBC0EC65FB600E3E405 /* Sources */,
+				2EEAFFD60EC65FF900E3E405 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		2EEAFFBC0EC65FB600E3E405 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				2E8BE3C10ECFA06200083EC1 /* etc_security */,
+				2E8BE3910ECF9EBD00083EC1 /* OpenSource */,
+				2E8BE32C0ECF9AEB00083EC1 /* man */,
+				2E8BE2B30ECF81D500083EC1 /* praudit */,
+				6855F4D00F7808F400A5C604 /* amt */,
+				2E8BE2AA0ECF81B200083EC1 /* auditreduce */,
+				2E8BE2270ECF7D7E00083EC1 /* audit */,
+				2E8BE1850ECF735D00083EC1 /* auditd */,
+				2E5A215B0EC78136005D4569 /* libauditd */,
+				2EEAFFCE0EC65FD800E3E405 /* libbsm */,
+				2E16A6480EFB09B400EAC4D7 /* LaunchDaemons */,
+			);
+			name = Sources;
+			sourceTree = "<group>";
+		};
+		2EEAFFCE0EC65FD800E3E405 /* libbsm */ = {
+			isa = PBXGroup;
+			children = (
+				2E8BE3AF0ECF9FE500083EC1 /* audit_filter.h */,
+				2E8BE3B00ECF9FE500083EC1 /* audit_uevents.h */,
+				2E8BE3B10ECF9FE500083EC1 /* libbsm.h */,
+				2E8BE38C0ECF9E9B00083EC1 /* libbsm.3 */,
+				2E8BE3060ECF9A8000083EC1 /* au_class.3 */,
+				2E8BE3070ECF9A8000083EC1 /* au_control.3 */,
+				EEA779410F17F63300916A50 /* au_domain.3 */,
+				2E49CBBB0F27DA7900A5D2E0 /* au_errno.3 */,
+				2E8BE3080ECF9A8000083EC1 /* au_event.3 */,
+				2E8BE3090ECF9A8000083EC1 /* au_free_token.3 */,
+				EE1313880F61DF010083B0AA /* au_fcntl_cmd.3 */,
+				2E8BE30A0ECF9A8000083EC1 /* au_io.3 */,
+				2E8BE30B0ECF9A8000083EC1 /* au_mask.3 */,
+				2E8BE30C0ECF9A8000083EC1 /* au_open.3 */,
+				EEA7794A0F17F6E300916A50 /* au_socket_type.3 */,
+				2E8BE30D0ECF9A8000083EC1 /* au_token.3 */,
+				2E8BE30E0ECF9A8000083EC1 /* au_user.3 */,
+				2E8BE30F0ECF9A8000083EC1 /* audit_submit.3 */,
+				2EEAFFC10EC65FD300E3E405 /* bsm_audit.c */,
+				2EEAFFC20EC65FD300E3E405 /* bsm_class.c */,
+				2EEAFFC30EC65FD300E3E405 /* bsm_control.c */,
+				EEA779500F17F72500916A50 /* bsm_domain.c */,
+				2E49CBBC0F27DA7900A5D2E0 /* bsm_errno.c */,
+				2EEAFFC40EC65FD300E3E405 /* bsm_event.c */,
+				2EEAFFC50EC65FD300E3E405 /* bsm_flags.c */,
+				2EEAFFC60EC65FD300E3E405 /* bsm_io.c */,
+				2EEAFFC70EC65FD300E3E405 /* bsm_mask.c */,
+				2EEAFFC80EC65FD300E3E405 /* bsm_notify.c */,
+				EEA779510F17F73900916A50 /* bsm_socket_type.c */,
+				2EEAFFC90EC65FD300E3E405 /* bsm_token.c */,
+				2EEAFFCA0EC65FD300E3E405 /* bsm_user.c */,
+				2EEAFFCB0EC65FD300E3E405 /* bsm_wrappers.c */,
+			);
+			name = libbsm;
+			sourceTree = "<group>";
+		};
+		2EEAFFD60EC65FF900E3E405 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				2EEAFFEB0EC6605000E3E405 /* libbsm.0.dylib */,
+				2E5A21560EC7812B005D4569 /* libauditd.0.dylib */,
+				2E8BE1900ECF73E500083EC1 /* auditd */,
+				2E8BE22D0ECF7D8700083EC1 /* audit */,
+				2E8BE28E0ECF808C00083EC1 /* auditreduce */,
+				2E8BE29B0ECF80C700083EC1 /* praudit */,
+				6855F4CB0F7808A300A5C604 /* amt */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		6855F4D00F7808F400A5C604 /* amt */ = {
+			isa = PBXGroup;
+			children = (
+				6855F4E30F78093F00A5C604 /* amt.8 */,
+				6855F4D60F78092C00A5C604 /* amt.c */,
+				6855F4D70F78092C00A5C604 /* amt.h */,
+				6855F4D80F78092C00A5C604 /* fault_test.c */,
+				6855F4D90F78092C00A5C604 /* mem_sep.c */,
+				6855F4DA0F78092C00A5C604 /* memory.c */,
+				6855F4DB0F78092C00A5C604 /* priv_inst.c */,
+			);
+			name = amt;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		2E5A21520EC7812B005D4569 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2E8BE3D60ECFA0EA00083EC1 /* auditd_lib.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2EEAFFE70EC6605000E3E405 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2E8BE3B20ECF9FE500083EC1 /* audit_filter.h in Headers */,
+				2E8BE3B30ECF9FE500083EC1 /* audit_uevents.h in Headers */,
+				2E8BE3B40ECF9FE500083EC1 /* libbsm.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		2E5A21550EC7812B005D4569 /* auditd.0 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2E5A215C0EC78136005D4569 /* Build configuration list for PBXNativeTarget "auditd.0" */;
+			buildPhases = (
+				2E5A21520EC7812B005D4569 /* Headers */,
+				2E5A21530EC7812B005D4569 /* Sources */,
+				2E5A21540EC7812B005D4569 /* Frameworks */,
+				2E8BE3FB0ECFA36D00083EC1 /* CopyFiles */,
+				2E8BE4200ECFA81000083EC1 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = auditd.0;
+			productName = auditd.0;
+			productReference = 2E5A21560EC7812B005D4569 /* libauditd.0.dylib */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+		2E8BE18F0ECF73E500083EC1 /* auditd */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2E8BE1960ECF741000083EC1 /* Build configuration list for PBXNativeTarget "auditd" */;
+			buildPhases = (
+				2E8BE18D0ECF73E500083EC1 /* Sources */,
+				2E8BE18E0ECF73E500083EC1 /* Frameworks */,
+				2E8BE2EF0ECF999C00083EC1 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = auditd;
+			productName = auditd;
+			productReference = 2E8BE1900ECF73E500083EC1 /* auditd */;
+			productType = "com.apple.product-type.tool";
+		};
+		2E8BE22C0ECF7D8700083EC1 /* audit */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2E8BE2360ECF7D9800083EC1 /* Build configuration list for PBXNativeTarget "audit" */;
+			buildPhases = (
+				2E8BE22A0ECF7D8700083EC1 /* Sources */,
+				2E8BE22B0ECF7D8700083EC1 /* Frameworks */,
+				2E8BE3010ECF9A4700083EC1 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = audit;
+			productName = audit;
+			productReference = 2E8BE22D0ECF7D8700083EC1 /* audit */;
+			productType = "com.apple.product-type.tool";
+		};
+		2E8BE28D0ECF808C00083EC1 /* auditreduce */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2E8BE2930ECF808D00083EC1 /* Build configuration list for PBXNativeTarget "auditreduce" */;
+			buildPhases = (
+				2E8BE28B0ECF808C00083EC1 /* Sources */,
+				2E8BE28C0ECF808C00083EC1 /* Frameworks */,
+				2E8BE3020ECF9A4700083EC1 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = auditreduce;
+			productName = auditreduce;
+			productReference = 2E8BE28E0ECF808C00083EC1 /* auditreduce */;
+			productType = "com.apple.product-type.tool";
+		};
+		2E8BE29A0ECF80C700083EC1 /* praudit */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2E8BE29F0ECF80D900083EC1 /* Build configuration list for PBXNativeTarget "praudit" */;
+			buildPhases = (
+				2E8BE2980ECF80C700083EC1 /* Sources */,
+				2E8BE2990ECF80C700083EC1 /* Frameworks */,
+				2E8BE3030ECF9A4700083EC1 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = praudit;
+			productName = praudit;
+			productReference = 2E8BE29B0ECF80C700083EC1 /* praudit */;
+			productType = "com.apple.product-type.tool";
+		};
+		2EEAFFEA0EC6605000E3E405 /* bsm.0 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2EEA00030EC6607700E3E405 /* Build configuration list for PBXNativeTarget "bsm.0" */;
+			buildPhases = (
+				2EEAFFE70EC6605000E3E405 /* Headers */,
+				2EEAFFE80EC6605000E3E405 /* Sources */,
+				2EEAFFE90EC6605000E3E405 /* Frameworks */,
+				2E8BE3FA0ECFA36D00083EC1 /* CopyFiles */,
+				2E8BE41A0ECFA7C500083EC1 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = bsm.0;
+			productName = bsm.0;
+			productReference = 2EEAFFEB0EC6605000E3E405 /* libbsm.0.dylib */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+		6855F4CA0F7808A300A5C604 /* amt */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6855F4D10F7808F400A5C604 /* Build configuration list for PBXNativeTarget "amt" */;
+			buildPhases = (
+				6855F4C80F7808A300A5C604 /* Sources */,
+				6855F4C90F7808A300A5C604 /* Frameworks */,
+				6855F4EA0F7809E900A5C604 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = amt;
+			productName = amt;
+			productReference = 6855F4CB0F7808A300A5C604 /* amt */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		2ECEFDC00EC65F8700FEE956 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 2ECEFDC30EC65F8700FEE956 /* Build configuration list for PBXProject "OpenBSM" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 0;
+			mainGroup = 2ECEFDBE0EC65F8700FEE956;
+			productRefGroup = 2EEAFFD60EC65FF900E3E405 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				2E5A21480EC780EE005D4569 /* OpenBSM */,
+				2ECB0AC70ED4CAF6004B8557 /* OpenBSM_embedded */,
+				2E5A21550EC7812B005D4569 /* auditd.0 */,
+				2EEAFFEA0EC6605000E3E405 /* bsm.0 */,
+				6855F4CA0F7808A300A5C604 /* amt */,
+				2E8BE18F0ECF73E500083EC1 /* auditd */,
+				2E8BE22C0ECF7D8700083EC1 /* audit */,
+				2E8BE28D0ECF808C00083EC1 /* auditreduce */,
+				2E8BE29A0ECF80C700083EC1 /* praudit */,
+				2E8BE3300ECF9AF800083EC1 /* man_pages */,
+				2E8BE37E0ECF9C8B00083EC1 /* compress_man_pages */,
+				2E8BE3950ECF9ED600083EC1 /* OpenSource */,
+				2E8BE3BD0ECFA02C00083EC1 /* etc_security */,
+				2E16A6510EFB09F000EAC4D7 /* LaunchDaemons */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		2E16A65F0EFB0A6A00EAC4D7 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "launchdaemons=\"$DSTROOT/System/Library/LaunchDaemons\"\nset -e\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$launchdaemons\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0644 \"$SRCROOT/com.apple.auditd.plist\" \"$launchdaemons\"\n";
+			showEnvVarsInLog = 0;
+		};
+		2E8BE37D0ECF9C8B00083EC1 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "# shell script goes here\n/Developer/Makefiles/bin/compress-man-pages.pl -d \"$DSTROOT\" /usr/share/man\nexit 0";
+			showEnvVarsInLog = 0;
+		};
+		2E8BE3FF0ECFA3A300083EC1 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "osv=\"$DSTROOT/usr/local/OpenSourceVersions\"\nosl=\"$DSTROOT/usr/local/OpenSourceLicenses\"\nset -e\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$osv\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$osl\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0444 \"$SRCROOT/openbsm.plist\" \"$osv/openbsm.plist\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0444 \"$SRCROOT/openbsm/LICENSE\" \"$osl/openbsm.txt\"";
+			showEnvVarsInLog = 0;
+		};
+		2E8BE40B0ECFA5CC00083EC1 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "etc=\"$DSTROOT/private/etc/security\"\n\"$CHOWN\" -R root:wheel \"$etc\"\n\"$CHMOD\" 0444 \"$etc/\"*\n\"$CHMOD\" 0400 \"$etc/audit_control\" \"$etc/audit_user\"\n\"$CHMOD\" 0555 \"$etc/audit_warn\"";
+			showEnvVarsInLog = 0;
+		};
+		2E8BE41A0ECFA7C500083EC1 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "cd \"$DSTROOT\"/usr/lib\nln -fs lib$PRODUCT_NAME.dylib libbsm.dylib";
+			showEnvVarsInLog = 0;
+		};
+		2E8BE4200ECFA81000083EC1 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "cd \"$DSTROOT\"/usr/lib\nln -fs lib$PRODUCT_NAME.dylib libauditd.dylib";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		2E5A21530EC7812B005D4569 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2E5A21600EC78152005D4569 /* auditd_lib.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2E8BE18D0ECF73E500083EC1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2E8BE20B0ECF7B1D00083EC1 /* audit_triggers.defs in Sources */,
+				2E8BE20D0ECF7B1D00083EC1 /* auditd_control.defs in Sources */,
+				2E8BE20C0ECF7B1D00083EC1 /* audit_warn.c in Sources */,
+				2E8BE20E0ECF7B1D00083EC1 /* auditd_darwin.c in Sources */,
+				2E8BE20F0ECF7B1D00083EC1 /* auditd.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2E8BE22A0ECF7D8700083EC1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2E8BE2410ECF7E0500083EC1 /* auditd_control.defs in Sources */,
+				2E8BE23D0ECF7DD900083EC1 /* audit.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2E8BE28B0ECF808C00083EC1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2E8BE2B00ECF81CE00083EC1 /* auditreduce.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2E8BE2980ECF80C700083EC1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2E8BE2B80ECF81F000083EC1 /* praudit.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2EEAFFE80EC6605000E3E405 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2EEAFFEE0EC6605E00E3E405 /* bsm_audit.c in Sources */,
+				2EEAFFEF0EC6605E00E3E405 /* bsm_class.c in Sources */,
+				2EEAFFF00EC6605E00E3E405 /* bsm_control.c in Sources */,
+				EEA779530F17F75700916A50 /* bsm_domain.c in Sources */,
+				2EEAFFF10EC6605E00E3E405 /* bsm_event.c in Sources */,
+				2EEAFFF20EC6605E00E3E405 /* bsm_flags.c in Sources */,
+				2EEAFFF30EC6605E00E3E405 /* bsm_io.c in Sources */,
+				2EEAFFF40EC6605E00E3E405 /* bsm_mask.c in Sources */,
+				2EEAFFF50EC6605E00E3E405 /* bsm_notify.c in Sources */,
+				EEA779520F17F74C00916A50 /* bsm_socket_type.c in Sources */,
+				2EEAFFF60EC6605E00E3E405 /* bsm_token.c in Sources */,
+				2EEAFFF70EC6605E00E3E405 /* bsm_user.c in Sources */,
+				2EEAFFF80EC6605E00E3E405 /* bsm_wrappers.c in Sources */,
+				2E49CBBD0F27DA7900A5D2E0 /* bsm_errno.c in Sources */,
+				EE13138B0F61DFA70083B0AA /* bsm_fcntl.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6855F4C80F7808A300A5C604 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6855F4DC0F78092C00A5C604 /* amt.c in Sources */,
+				6855F4DD0F78092C00A5C604 /* fault_test.c in Sources */,
+				6855F4DE0F78092C00A5C604 /* mem_sep.c in Sources */,
+				6855F4DF0F78092C00A5C604 /* memory.c in Sources */,
+				6855F4E00F78092C00A5C604 /* priv_inst.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		2E5A214C0EC780F5005D4569 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2EEAFFEA0EC6605000E3E405 /* bsm.0 */;
+			targetProxy = 2E5A214B0EC780F5005D4569 /* PBXContainerItemProxy */;
+		};
+		2E5A21620EC78158005D4569 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2E5A21550EC7812B005D4569 /* auditd.0 */;
+			targetProxy = 2E5A21610EC78158005D4569 /* PBXContainerItemProxy */;
+		};
+		2E7B63D00EFB0BC400FFD9FB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2E16A6510EFB09F000EAC4D7 /* LaunchDaemons */;
+			targetProxy = 2E7B63CF0EFB0BC400FFD9FB /* PBXContainerItemProxy */;
+		};
+		2E8BE1950ECF73EF00083EC1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2E8BE18F0ECF73E500083EC1 /* auditd */;
+			targetProxy = 2E8BE1940ECF73EF00083EC1 /* PBXContainerItemProxy */;
+		};
+		2E8BE2380ECF7DB400083EC1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2E8BE22C0ECF7D8700083EC1 /* audit */;
+			targetProxy = 2E8BE2370ECF7DB400083EC1 /* PBXContainerItemProxy */;
+		};
+		2E8BE2A20ECF817700083EC1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2E8BE29A0ECF80C700083EC1 /* praudit */;
+			targetProxy = 2E8BE2A10ECF817700083EC1 /* PBXContainerItemProxy */;
+		};
+		2E8BE2A40ECF817700083EC1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2E8BE28D0ECF808C00083EC1 /* auditreduce */;
+			targetProxy = 2E8BE2A30ECF817700083EC1 /* PBXContainerItemProxy */;
+		};
+		2E8BE3330ECF9B0500083EC1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2E8BE3300ECF9AF800083EC1 /* man_pages */;
+			targetProxy = 2E8BE3320ECF9B0500083EC1 /* PBXContainerItemProxy */;
+		};
+		2E8BE3850ECF9CCB00083EC1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2E8BE37E0ECF9C8B00083EC1 /* compress_man_pages */;
+			targetProxy = 2E8BE3840ECF9CCB00083EC1 /* PBXContainerItemProxy */;
+		};
+		2E8BE3980ECF9EF900083EC1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2E8BE3950ECF9ED600083EC1 /* OpenSource */;
+			targetProxy = 2E8BE3970ECF9EF900083EC1 /* PBXContainerItemProxy */;
+		};
+		2E8BE3D20ECFA0BF00083EC1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2E8BE3BD0ECFA02C00083EC1 /* etc_security */;
+			targetProxy = 2E8BE3D10ECFA0BF00083EC1 /* PBXContainerItemProxy */;
+		};
+		2ECB0ACF0ED4CC37004B8557 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2E8BE3950ECF9ED600083EC1 /* OpenSource */;
+			targetProxy = 2ECB0ACE0ED4CC37004B8557 /* PBXContainerItemProxy */;
+		};
+		2ECB0AD10ED4CC59004B8557 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2EEAFFEA0EC6605000E3E405 /* bsm.0 */;
+			targetProxy = 2ECB0AD00ED4CC59004B8557 /* PBXContainerItemProxy */;
+		};
+		6855F4E90F7809CB00A5C604 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6855F4CA0F7808A300A5C604 /* amt */;
+			targetProxy = 6855F4E80F7809CB00A5C604 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		2E16A6520EFB09F100EAC4D7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = LaunchDaemons;
+			};
+			name = Release;
+		};
+		2E5A214A0EC780EF005D4569 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				PRODUCT_NAME = OpenBSM;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		2E5A21580EC7812C005D4569 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				EXECUTABLE_PREFIX = lib;
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = /usr/lib;
+				PRODUCT_NAME = auditd.0;
+			};
+			name = Release;
+		};
+		2E8BE1930ECF73E500083EC1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_PATH = /usr/sbin;
+				PRODUCT_NAME = auditd;
+			};
+			name = Release;
+		};
+		2E8BE2300ECF7D8800083EC1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_PATH = /usr/sbin;
+				PRODUCT_NAME = audit;
+			};
+			name = Release;
+		};
+		2E8BE2910ECF808C00083EC1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_PATH = /usr/sbin;
+				PRODUCT_NAME = auditreduce;
+			};
+			name = Release;
+		};
+		2E8BE29D0ECF80C800083EC1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_PATH = /usr/sbin;
+				PRODUCT_NAME = praudit;
+			};
+			name = Release;
+		};
+		2E8BE3310ECF9AF900083EC1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = misc_man;
+			};
+			name = Release;
+		};
+		2E8BE37F0ECF9C8B00083EC1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = compress_man_pages;
+			};
+			name = Release;
+		};
+		2E8BE3960ECF9ED600083EC1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = OpenSource;
+			};
+			name = Release;
+		};
+		2E8BE3BE0ECFA02C00083EC1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = etc_security;
+			};
+			name = Release;
+		};
+		2ECB0AC80ED4CAF6004B8557 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				PRODUCT_NAME = OpenBSM_embedded;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		2ECEFDC20EC65F8700FEE956 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_CW_ASM_SYNTAX = NO;
+				GCC_C_LANGUAGE_STANDARD = c99;
+				GCC_STRICT_ALIASING = NO;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
+				GCC_TREAT_NONCONFORMANT_CODE_ERRORS_AS_WARNINGS = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = NO;
+				GCC_WARN_ABOUT_MISSING_FIELD_INITIALIZERS = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_NON_VIRTUAL_DESTRUCTOR = NO;
+				GCC_WARN_PEDANTIC = YES;
+				GCC_WARN_PROTOTYPE_CONVERSION = NO;
+				GCC_WARN_SHADOW = NO;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = openbsm;
+				PREBINDING = NO;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		2EEAFFED0EC6605100E3E405 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				EXECUTABLE_PREFIX = lib;
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = /usr/lib;
+				PRODUCT_NAME = bsm.0;
+			};
+			name = Release;
+		};
+		6855F4CD0F7808A400A5C604 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_PATH = /usr/sbin;
+				PRODUCT_NAME = amt;
+				VALID_ARCHS = "armv6 i386 x86_64";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		2E16A65B0EFB0A4500EAC4D7 /* Build configuration list for PBXAggregateTarget "LaunchDaemons" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2E16A6520EFB09F100EAC4D7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2E5A21510EC7811B005D4569 /* Build configuration list for PBXAggregateTarget "OpenBSM" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2E5A214A0EC780EF005D4569 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2E5A215C0EC78136005D4569 /* Build configuration list for PBXNativeTarget "auditd.0" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2E5A21580EC7812C005D4569 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2E8BE1960ECF741000083EC1 /* Build configuration list for PBXNativeTarget "auditd" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2E8BE1930ECF73E500083EC1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2E8BE2360ECF7D9800083EC1 /* Build configuration list for PBXNativeTarget "audit" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2E8BE2300ECF7D8800083EC1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2E8BE2930ECF808D00083EC1 /* Build configuration list for PBXNativeTarget "auditreduce" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2E8BE2910ECF808C00083EC1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2E8BE29F0ECF80D900083EC1 /* Build configuration list for PBXNativeTarget "praudit" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2E8BE29D0ECF80C800083EC1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2E8BE3360ECF9B3800083EC1 /* Build configuration list for PBXAggregateTarget "man_pages" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2E8BE3310ECF9AF900083EC1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2E8BE3830ECF9CB300083EC1 /* Build configuration list for PBXAggregateTarget "compress_man_pages" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2E8BE37F0ECF9C8B00083EC1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2E8BE3A10ECF9F2200083EC1 /* Build configuration list for PBXAggregateTarget "OpenSource" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2E8BE3960ECF9ED600083EC1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2E8BE3C20ECFA06200083EC1 /* Build configuration list for PBXAggregateTarget "etc_security" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2E8BE3BE0ECFA02C00083EC1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2ECB0ACB0ED4CAF9004B8557 /* Build configuration list for PBXAggregateTarget "OpenBSM_embedded" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2ECB0AC80ED4CAF6004B8557 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2ECEFDC30EC65F8700FEE956 /* Build configuration list for PBXProject "OpenBSM" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2ECEFDC20EC65F8700FEE956 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2EEA00030EC6607700E3E405 /* Build configuration list for PBXNativeTarget "bsm.0" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2EEAFFED0EC6605100E3E405 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		6855F4D10F7808F400A5C604 /* Build configuration list for PBXNativeTarget "amt" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6855F4CD0F7808A400A5C604 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 2ECEFDC00EC65F8700FEE956 /* Project object */;
+}

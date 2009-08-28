@@ -45,22 +45,25 @@ STDOUT->autoflush(1);
 
 my $exit_value = 0;
 
-my $filearg = "";
-if ($o{f}) {
-  $filearg = "-f";
-}
-
 my $space = "";
 while (scalar (@ARGV)) {
   my $file =  shift @ARGV;
   if (-e $file) {
-    my $command; 
+    my @command; 
+    push(@command, q(/usr/sbin/lsof));
+    push(@command, q(-F));
     if ($o{u}) {		# Add user name
-      $command = qq(/usr/sbin/lsof -F pfL $filearg -- $file);
+      push(@command, q(pfL));
     } else {
-      $command = qq(/usr/sbin/lsof -F pf $filearg -- $file);
+      push(@command, q(pf));
     }
-    my @results = qx($command 2>/dev/null);
+    push(@command, q(-f)) if ($o{f});
+    push(@command, q(--));
+    push(@command, $file);
+    # This cryptic statement will cause exec(@command) to run in the child,
+    # with the output set up correctl and LSOF's input set up correctly.
+    open (LSOF, "-|") or exec(@command);
+    my @results = <LSOF>;
     chomp(@results);
     # fuser man page is very explicit about stdout/stderr output
     print STDERR $file, qq(: );
@@ -82,7 +85,7 @@ while (scalar (@ARGV)) {
     } 
     print STDERR $username . qq(\n);
   } else {
-    print STDERR "$0: $file does not exist\n";
+    print STDERR "$0: '$file' does not exist\n";
     $exit_value = 1;
   }
 }

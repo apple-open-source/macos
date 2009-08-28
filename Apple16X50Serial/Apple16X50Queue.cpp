@@ -247,10 +247,12 @@ setHighWater(UInt32 high)
 Apple16X50Queue::
 Apple16X50Queue(tDirection dir)
 {
+
     Queue=NULL;
     switch (dir) {
-        case kRxQ : Name = "Apple16X50RxQ"; break;
-        case kTxQ : Name = "Apple16X50TxQ"; break;
+        case kRxQ : (void)strlcpy(Name,"Apple16X50RxQ",sizeof(Name)); break;
+			
+        case kTxQ : (void)strlcpy(Name,"Apple16X50TxQ",sizeof(Name)); break;
     }
     DEBUG_IOLog("%s::Apple16X50Queue() constructed\n", Name);
     setSize(0);

@@ -43,4 +43,4 @@ all:
 	grep ordinal fail.log | ${PASS_IFF_EMPTY}
 
 clean:
-	rm *.dylib main fail.log
+	rm -f *.dylib main fail.log

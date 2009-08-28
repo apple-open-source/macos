@@ -1,3 +1,4 @@
+// $OpenLDAP: pkg/ldap/contrib/ldapc++/src/LDAPAttrType.cpp,v 1.3.4.3 2008/05/01 21:28:42 quanah Exp $
 /*
  * Copyright 2003, OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
@@ -15,16 +16,7 @@ LDAPAttrType::LDAPAttrType(){
     desc = string ();
     names = StringList ();
     single = false;
-}
-
-LDAPAttrType::LDAPAttrType (const LDAPAttrType &at){
-    DEBUG(LDAP_DEBUG_CONSTRUCT,
-            "LDAPAttrType::LDAPAttrType( )" << endl);
-
-    oid = at.oid;
-    desc = at.desc;
-    names = at.names;
-    single = at.single;
+    usage = 0;
 }
 
 LDAPAttrType::LDAPAttrType (string at_item) { 
@@ -38,10 +30,16 @@ LDAPAttrType::LDAPAttrType (string at_item) {
     a = ldap_str2attributetype (at_item.c_str(), &ret, &errp,SCHEMA_PARSE_FLAG);
 
     if (a) {
-	this->setNames (a->at_names);
-	this->setDesc (a->at_desc);
-	this->setOid (a->at_oid);
-	this->setSingle (a->at_single_value);
+	this->setNames( a->at_names );
+	this->setDesc( a->at_desc );
+	this->setOid( a->at_oid );
+	this->setSingle( a->at_single_value );
+	this->setUsage( a->at_usage );
+        this->setSuperiorOid( a->at_sup_oid );
+        this->setEqualityOid( a->at_equality_oid );
+        this->setOrderingOid( a->at_ordering_oid );
+        this->setSubstringOid( a->at_substr_oid );
+        this->setSyntaxOid( a->at_syntax_oid );
     }
     // else? -> error
 }
@@ -54,42 +52,97 @@ void LDAPAttrType::setSingle (int at_single) {
     single = (at_single == 1);
 }
     
-void LDAPAttrType::setNames (char **at_names) {
-    names = StringList (at_names);
+void LDAPAttrType::setNames ( char **at_names ) {
+    names = StringList(at_names);
 }
 
-void LDAPAttrType::setDesc (char *at_desc) {
+void LDAPAttrType::setDesc (const char *at_desc) {
     desc = string ();
     if (at_desc)
 	desc = at_desc;
 }
 
-void LDAPAttrType::setOid (char *at_oid) {
+void LDAPAttrType::setOid (const char *at_oid) {
     oid = string ();
     if (at_oid)
 	oid = at_oid;
 }
 
-bool LDAPAttrType::isSingle () {
-    return single;
+void LDAPAttrType::setUsage (int at_usage) {
+    usage = at_usage;
 }
 
-string LDAPAttrType::getOid () {
+void LDAPAttrType::setSuperiorOid( const char *oid ){
+    if ( oid )
+        superiorOid = oid;
+}
+
+void LDAPAttrType::setEqualityOid( const char *oid ){
+    if ( oid )
+        equalityOid = oid;
+}
+
+void LDAPAttrType::setOrderingOid( const char *oid ){
+    if ( oid )
+        orderingOid = oid;
+}
+
+void LDAPAttrType::setSubstringOid( const char *oid ){
+    if ( oid )
+        substringOid = oid;
+}
+
+void LDAPAttrType::setSyntaxOid( const char *oid ){
+    if ( oid )
+        syntaxOid = oid;
+}
+
+bool LDAPAttrType::isSingle() const {
+    return single;
+} 
+
+string LDAPAttrType::getOid() const {
     return oid;
 }
 
-string LDAPAttrType::getDesc () {
+string LDAPAttrType::getDesc() const {
     return desc;
 }
 
-StringList LDAPAttrType::getNames () {
+StringList LDAPAttrType::getNames() const {
     return names;
 }
 
-string LDAPAttrType::getName () {
+string LDAPAttrType::getName() const {
 
     if (names.empty())
 	return "";
     else
 	return *(names.begin());
 }
+
+int LDAPAttrType::getUsage() const {
+    return usage;
+}
+
+std::string LDAPAttrType::getSuperiorOid() const {
+    return superiorOid;
+}
+
+std::string LDAPAttrType::getEqualityOid() const {
+    return equalityOid;
+}
+
+std::string LDAPAttrType::getOrderingOid() const {
+    return orderingOid;
+}
+
+std::string LDAPAttrType::getSubstringOid() const {
+    return substringOid;
+}
+
+std::string LDAPAttrType::getSyntaxOid() const {
+    return syntaxOid;
+}
+
+

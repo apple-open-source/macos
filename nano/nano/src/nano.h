@@ -1,9 +1,9 @@
-/* $Id: nano.h,v 1.184 2006/11/10 02:47:11 dolorous Exp $ */
+/* $Id: nano.h,v 1.188 2007/01/01 05:15:32 dolorous Exp $ */
 /**************************************************************************
  *   nano.h                                                               *
  *                                                                        *
  *   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004 Chris Allegretta    *
- *   Copyright (C) 2005, 2006 David Lawrence Ramsey                       *
+ *   Copyright (C) 2005, 2006, 2007 David Lawrence Ramsey                 *
  *   This program is free software; you can redistribute it and/or modify *
  *   it under the terms of the GNU General Public License as published by *
  *   the Free Software Foundation; either version 2, or (at your option)  *
@@ -50,7 +50,7 @@
 #define ISSET(bit) ((flags & bit) != 0)
 #define TOGGLE(bit) flags ^= bit
 
-/* Macros for character allocation, etc. */
+/* Macros for character allocation and more. */
 #define charalloc(howmuch) (char *)nmalloc((howmuch) * sizeof(char))
 #define charealloc(ptr, howmuch) (char *)nrealloc(ptr, (howmuch) * sizeof(char))
 #define charmove(dest, src, n) memmove(dest, src, (n) * sizeof(char))
@@ -412,54 +412,54 @@ typedef struct rcoption {
 #define NANO_CONTROL_8 127
 
 /* Meta key sequences. */
-#define NANO_ALT_SPACE ' '
-#define NANO_ALT_LPARENTHESIS '('
-#define NANO_ALT_RPARENTHESIS ')'
-#define NANO_ALT_PLUS '+'
-#define NANO_ALT_COMMA ','
-#define NANO_ALT_MINUS '-'
-#define NANO_ALT_PERIOD '.'
-#define NANO_ALT_SLASH '/'
-#define NANO_ALT_0 '0'
-#define NANO_ALT_6 '6'
-#define NANO_ALT_9 '9'
-#define NANO_ALT_LCARET '<'
-#define NANO_ALT_EQUALS '='
-#define NANO_ALT_RCARET '>'
-#define NANO_ALT_QUESTION '?'
-#define NANO_ALT_BACKSLASH '\\'
-#define NANO_ALT_RBRACKET ']'
-#define NANO_ALT_CARET '^'
-#define NANO_ALT_UNDERSCORE '_'
-#define NANO_ALT_A 'a'
-#define NANO_ALT_B 'b'
-#define NANO_ALT_C 'c'
-#define NANO_ALT_D 'd'
-#define NANO_ALT_E 'e'
-#define NANO_ALT_F 'f'
-#define NANO_ALT_G 'g'
-#define NANO_ALT_H 'h'
-#define NANO_ALT_I 'i'
-#define NANO_ALT_J 'j'
-#define NANO_ALT_K 'k'
-#define NANO_ALT_L 'l'
-#define NANO_ALT_M 'm'
-#define NANO_ALT_N 'n'
-#define NANO_ALT_O 'o'
-#define NANO_ALT_P 'p'
-#define NANO_ALT_Q 'q'
-#define NANO_ALT_R 'r'
-#define NANO_ALT_S 's'
-#define NANO_ALT_T 't'
-#define NANO_ALT_U 'u'
-#define NANO_ALT_V 'v'
-#define NANO_ALT_W 'w'
-#define NANO_ALT_X 'x'
-#define NANO_ALT_Y 'y'
-#define NANO_ALT_Z 'z'
-#define NANO_ALT_LCURLYBRACKET '{'
-#define NANO_ALT_PIPE '|'
-#define NANO_ALT_RCURLYBRACKET '}'
+#define NANO_META_SPACE ' '
+#define NANO_META_LPARENTHESIS '('
+#define NANO_META_RPARENTHESIS ')'
+#define NANO_META_PLUS '+'
+#define NANO_META_COMMA ','
+#define NANO_META_MINUS '-'
+#define NANO_META_PERIOD '.'
+#define NANO_META_SLASH '/'
+#define NANO_META_0 '0'
+#define NANO_META_6 '6'
+#define NANO_META_9 '9'
+#define NANO_META_LCARET '<'
+#define NANO_META_EQUALS '='
+#define NANO_META_RCARET '>'
+#define NANO_META_QUESTION '?'
+#define NANO_META_BACKSLASH '\\'
+#define NANO_META_RBRACKET ']'
+#define NANO_META_CARET '^'
+#define NANO_META_UNDERSCORE '_'
+#define NANO_META_A 'a'
+#define NANO_META_B 'b'
+#define NANO_META_C 'c'
+#define NANO_META_D 'd'
+#define NANO_META_E 'e'
+#define NANO_META_F 'f'
+#define NANO_META_G 'g'
+#define NANO_META_H 'h'
+#define NANO_META_I 'i'
+#define NANO_META_J 'j'
+#define NANO_META_K 'k'
+#define NANO_META_L 'l'
+#define NANO_META_M 'm'
+#define NANO_META_N 'n'
+#define NANO_META_O 'o'
+#define NANO_META_P 'p'
+#define NANO_META_Q 'q'
+#define NANO_META_R 'r'
+#define NANO_META_S 's'
+#define NANO_META_T 't'
+#define NANO_META_U 'u'
+#define NANO_META_V 'v'
+#define NANO_META_W 'w'
+#define NANO_META_X 'x'
+#define NANO_META_Y 'y'
+#define NANO_META_Z 'z'
+#define NANO_META_LCURLYBRACKET '{'
+#define NANO_META_PIPE '|'
+#define NANO_META_RCURLYBRACKET '}'
 
 /* Some semi-changeable keybindings; don't play with these unless you're
  * sure you know what you're doing.  Assume ERR is defined as -1. */
@@ -480,22 +480,22 @@ typedef struct rcoption {
 #define NANO_WRITEOUT_FKEY		KEY_F(3)
 #define NANO_GOTOLINE_KEY		NANO_CONTROL_7
 #define NANO_GOTOLINE_FKEY		KEY_F(13)
-#define NANO_GOTOLINE_ALTKEY		NANO_ALT_G
+#define NANO_GOTOLINE_METAKEY		NANO_META_G
 #define NANO_GOTODIR_KEY		NANO_CONTROL_7
 #define NANO_GOTODIR_FKEY		KEY_F(13)
-#define NANO_GOTODIR_ALTKEY		NANO_ALT_G
+#define NANO_GOTODIR_METAKEY		NANO_META_G
 #define NANO_TOGOTOLINE_KEY		NANO_CONTROL_T
 #define NANO_HELP_KEY			NANO_CONTROL_G
 #define NANO_HELP_FKEY			KEY_F(1)
 #define NANO_WHEREIS_KEY		NANO_CONTROL_W
 #define NANO_WHEREIS_FKEY		KEY_F(6)
-#define NANO_WHEREIS_NEXT_KEY		NANO_ALT_W
+#define NANO_WHEREIS_NEXT_KEY		NANO_META_W
 #define NANO_WHEREIS_NEXT_FKEY		KEY_F(16)
 #define NANO_TOOTHERWHEREIS_KEY		NANO_CONTROL_T
-#define NANO_REGEXP_KEY			NANO_ALT_R
+#define NANO_REGEXP_KEY			NANO_META_R
 #define NANO_REPLACE_KEY		NANO_CONTROL_4
 #define NANO_REPLACE_FKEY		KEY_F(14)
-#define NANO_ALT_REPLACE_KEY		NANO_ALT_R
+#define NANO_REPLACE_METAKEY		NANO_META_R
 #define NANO_TOOTHERSEARCH_KEY		NANO_CONTROL_R
 #define NANO_PREVPAGE_KEY		NANO_CONTROL_Y
 #define NANO_PREVPAGE_FKEY		KEY_F(7)
@@ -503,8 +503,8 @@ typedef struct rcoption {
 #define NANO_NEXTPAGE_FKEY		KEY_F(8)
 #define NANO_CUT_KEY			NANO_CONTROL_K
 #define NANO_CUT_FKEY			KEY_F(9)
-#define NANO_COPY_KEY			NANO_ALT_CARET
-#define NANO_COPY_ALTKEY		NANO_ALT_6
+#define NANO_COPY_KEY			NANO_META_CARET
+#define NANO_COPY_METAKEY		NANO_META_6
 #define NANO_UNCUT_KEY			NANO_CONTROL_U
 #define NANO_UNCUT_FKEY			KEY_F(10)
 #define NANO_CURSORPOS_KEY		NANO_CONTROL_C
@@ -513,20 +513,20 @@ typedef struct rcoption {
 #define NANO_SPELL_FKEY			KEY_F(12)
 #define NANO_FIRSTLINE_KEY		NANO_PREVPAGE_KEY
 #define NANO_FIRSTLINE_FKEY		NANO_PREVPAGE_FKEY
-#define NANO_FIRSTLINE_ALTKEY		NANO_ALT_BACKSLASH
-#define NANO_FIRSTLINE_ALTKEY2		NANO_ALT_PIPE
+#define NANO_FIRSTLINE_METAKEY		NANO_META_BACKSLASH
+#define NANO_FIRSTLINE_METAKEY2		NANO_META_PIPE
 #define NANO_FIRSTFILE_KEY		NANO_FIRSTLINE_KEY
 #define NANO_FIRSTFILE_FKEY		NANO_FIRSTLINE_FKEY
-#define NANO_FIRSTFILE_ALTKEY		NANO_FIRSTLINE_ALTKEY
-#define NANO_FIRSTFILE_ALTKEY2		NANO_FIRSTLINE_ALTKEY2
+#define NANO_FIRSTFILE_METAKEY		NANO_FIRSTLINE_METAKEY
+#define NANO_FIRSTFILE_METAKEY2		NANO_FIRSTLINE_METAKEY2
 #define NANO_LASTLINE_KEY		NANO_NEXTPAGE_KEY
 #define NANO_LASTLINE_FKEY		NANO_NEXTPAGE_FKEY
-#define NANO_LASTLINE_ALTKEY		NANO_ALT_SLASH
-#define NANO_LASTLINE_ALTKEY2		NANO_ALT_QUESTION
+#define NANO_LASTLINE_METAKEY		NANO_META_SLASH
+#define NANO_LASTLINE_METAKEY2		NANO_META_QUESTION
 #define NANO_LASTFILE_KEY		NANO_LASTLINE_KEY
 #define NANO_LASTFILE_FKEY		NANO_LASTLINE_FKEY
-#define NANO_LASTFILE_ALTKEY		NANO_LASTLINE_ALTKEY
-#define NANO_LASTFILE_ALTKEY2		NANO_LASTLINE_ALTKEY2
+#define NANO_LASTFILE_METAKEY		NANO_LASTLINE_METAKEY
+#define NANO_LASTFILE_METAKEY2		NANO_LASTLINE_METAKEY2
 #define NANO_REFRESH_KEY		NANO_CONTROL_L
 #define NANO_JUSTIFY_KEY		NANO_CONTROL_J
 #define NANO_JUSTIFY_FKEY		KEY_F(4)
@@ -537,42 +537,42 @@ typedef struct rcoption {
 #define NANO_FORWARD_KEY		NANO_CONTROL_F
 #define NANO_BACK_KEY			NANO_CONTROL_B
 #define NANO_MARK_KEY			NANO_CONTROL_6
-#define NANO_MARK_ALTKEY		NANO_ALT_A
+#define NANO_MARK_METAKEY		NANO_META_A
 #define NANO_MARK_FKEY			KEY_F(15)
 #define NANO_HOME_KEY			NANO_CONTROL_A
 #define NANO_END_KEY			NANO_CONTROL_E
 #define NANO_DELETE_KEY			NANO_CONTROL_D
 #define NANO_BACKSPACE_KEY		NANO_CONTROL_H
 #define NANO_TAB_KEY			NANO_CONTROL_I
-#define NANO_INDENT_KEY			NANO_ALT_RCURLYBRACKET
-#define NANO_UNINDENT_KEY		NANO_ALT_LCURLYBRACKET
+#define NANO_INDENT_KEY			NANO_META_RCURLYBRACKET
+#define NANO_UNINDENT_KEY		NANO_META_LCURLYBRACKET
 #define NANO_SUSPEND_KEY		NANO_CONTROL_Z
 #define NANO_ENTER_KEY			NANO_CONTROL_M
 #define NANO_TOFILES_KEY		NANO_CONTROL_T
-#define NANO_APPEND_KEY			NANO_ALT_A
-#define NANO_PREPEND_KEY		NANO_ALT_P
-#define NANO_PREVFILE_KEY		NANO_ALT_LCARET
-#define NANO_PREVFILE_ALTKEY		NANO_ALT_COMMA
-#define NANO_NEXTFILE_KEY		NANO_ALT_RCARET
-#define NANO_NEXTFILE_ALTKEY		NANO_ALT_PERIOD
-#define NANO_BRACKET_KEY		NANO_ALT_RBRACKET
+#define NANO_APPEND_KEY			NANO_META_A
+#define NANO_PREPEND_KEY		NANO_META_P
+#define NANO_PREVFILE_KEY		NANO_META_LCARET
+#define NANO_PREVFILE_METAKEY		NANO_META_COMMA
+#define NANO_NEXTFILE_KEY		NANO_META_RCARET
+#define NANO_NEXTFILE_METAKEY		NANO_META_PERIOD
+#define NANO_BRACKET_KEY		NANO_META_RBRACKET
 #define NANO_NEXTWORD_KEY		NANO_CONTROL_SPACE
-#define NANO_PREVWORD_KEY		NANO_ALT_SPACE
-#define NANO_WORDCOUNT_KEY		NANO_ALT_D
-#define NANO_SCROLLUP_KEY		NANO_ALT_MINUS
-#define NANO_SCROLLDOWN_KEY		NANO_ALT_PLUS
-#define NANO_SCROLLUP_ALTKEY		NANO_ALT_UNDERSCORE
-#define NANO_SCROLLDOWN_ALTKEY		NANO_ALT_EQUALS
-#define NANO_CUTTILLEND_ALTKEY		NANO_ALT_T
+#define NANO_PREVWORD_KEY		NANO_META_SPACE
+#define NANO_WORDCOUNT_KEY		NANO_META_D
+#define NANO_SCROLLUP_KEY		NANO_META_MINUS
+#define NANO_SCROLLDOWN_KEY		NANO_META_PLUS
+#define NANO_SCROLLUP_METAKEY		NANO_META_UNDERSCORE
+#define NANO_SCROLLDOWN_METAKEY		NANO_META_EQUALS
+#define NANO_CUTTILLEND_METAKEY		NANO_META_T
 #define NANO_PARABEGIN_KEY		NANO_CONTROL_W
-#define NANO_PARABEGIN_ALTKEY		NANO_ALT_LPARENTHESIS
-#define NANO_PARABEGIN_ALTKEY2		NANO_ALT_9
+#define NANO_PARABEGIN_METAKEY		NANO_META_LPARENTHESIS
+#define NANO_PARABEGIN_METAKEY2		NANO_META_9
 #define NANO_PARAEND_KEY		NANO_CONTROL_O
-#define NANO_PARAEND_ALTKEY		NANO_ALT_RPARENTHESIS
-#define NANO_PARAEND_ALTKEY2		NANO_ALT_0
+#define NANO_PARAEND_METAKEY		NANO_META_RPARENTHESIS
+#define NANO_PARAEND_METAKEY2		NANO_META_0
 #define NANO_FULLJUSTIFY_KEY		NANO_CONTROL_U
-#define NANO_FULLJUSTIFY_ALTKEY		NANO_ALT_J
-#define NANO_VERBATIM_KEY		NANO_ALT_V
+#define NANO_FULLJUSTIFY_METAKEY	NANO_META_J
+#define NANO_VERBATIM_KEY		NANO_META_V
 
 /* Toggles do not exist if NANO_TINY is defined. */
 #ifndef NANO_TINY
@@ -581,26 +581,26 @@ typedef struct rcoption {
 #define TOGGLE_NO_KEY			-2
 
 /* Normal toggles. */
-#define TOGGLE_NOHELP_KEY		NANO_ALT_X
-#define TOGGLE_CONST_KEY		NANO_ALT_C
-#define TOGGLE_MORESPACE_KEY		NANO_ALT_O
-#define TOGGLE_SMOOTH_KEY		NANO_ALT_S
-#define TOGGLE_WHITESPACE_KEY		NANO_ALT_P
-#define TOGGLE_SYNTAX_KEY		NANO_ALT_Y
-#define TOGGLE_SMARTHOME_KEY		NANO_ALT_H
-#define TOGGLE_AUTOINDENT_KEY		NANO_ALT_I
-#define TOGGLE_CUTTOEND_KEY		NANO_ALT_K
-#define TOGGLE_WRAP_KEY			NANO_ALT_L
-#define TOGGLE_TABSTOSPACES_KEY		NANO_ALT_Q
-#define TOGGLE_BACKUP_KEY		NANO_ALT_B
-#define TOGGLE_MULTIBUFFER_KEY		NANO_ALT_F
-#define TOGGLE_MOUSE_KEY		NANO_ALT_M
-#define TOGGLE_NOCONVERT_KEY		NANO_ALT_N
-#define TOGGLE_SUSPEND_KEY		NANO_ALT_Z
-#define TOGGLE_CASE_KEY			NANO_ALT_C
-#define TOGGLE_BACKWARDS_KEY		NANO_ALT_B
-#define TOGGLE_DOS_KEY			NANO_ALT_D
-#define TOGGLE_MAC_KEY			NANO_ALT_M
+#define TOGGLE_NOHELP_KEY		NANO_META_X
+#define TOGGLE_CONST_KEY		NANO_META_C
+#define TOGGLE_MORESPACE_KEY		NANO_META_O
+#define TOGGLE_SMOOTH_KEY		NANO_META_S
+#define TOGGLE_WHITESPACE_KEY		NANO_META_P
+#define TOGGLE_SYNTAX_KEY		NANO_META_Y
+#define TOGGLE_SMARTHOME_KEY		NANO_META_H
+#define TOGGLE_AUTOINDENT_KEY		NANO_META_I
+#define TOGGLE_CUTTOEND_KEY		NANO_META_K
+#define TOGGLE_WRAP_KEY			NANO_META_L
+#define TOGGLE_TABSTOSPACES_KEY		NANO_META_Q
+#define TOGGLE_BACKUP_KEY		NANO_META_B
+#define TOGGLE_MULTIBUFFER_KEY		NANO_META_F
+#define TOGGLE_MOUSE_KEY		NANO_META_M
+#define TOGGLE_NOCONVERT_KEY		NANO_META_N
+#define TOGGLE_SUSPEND_KEY		NANO_META_Z
+#define TOGGLE_CASE_KEY			NANO_META_C
+#define TOGGLE_BACKWARDS_KEY		NANO_META_B
+#define TOGGLE_DOS_KEY			NANO_META_D
+#define TOGGLE_MAC_KEY			NANO_META_M
 #endif /* !NANO_TINY */
 
 #define VIEW TRUE

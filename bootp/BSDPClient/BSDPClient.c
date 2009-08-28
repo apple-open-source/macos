@@ -457,20 +457,6 @@ SystemIdentifierCopy()
     return (NULL);
 }
 
-static u_long
-my_random()
-{
-    static int inited = 0;
-
-    if (inited == 0) {
-	struct timeval	start_time;
-	gettimeofday(&start_time, 0);
-	srandom(start_time.tv_usec & ~start_time.tv_sec);
-	inited = 1;
-    }
-    return (random());
-}
-
 static struct dhcp * 
 make_bsdp_request(char * system_id, struct dhcp * request, int pkt_size,
 		  dhcp_msgtype_t msg, u_char * hwaddr, u_char hwtype, 
@@ -713,7 +699,7 @@ BSDPClientProcess(CFSocketRef s, CFSocketCallBackType type,
     dhcpol_t			bsdp_options;
     bsdp_msgtype_t		bsdp_msg;
     BSDPClientRef 		client = (BSDPClientRef)info;
-    char			err[256];
+    dhcpo_err_str_t		err;
     struct sockaddr_in 		from;
     socklen_t 			fromlen;
     int 			n;
@@ -762,10 +748,10 @@ BSDPClientProcess(CFSocketRef s, CFSocketCallBackType type,
     dhcpol_init(&options);
     dhcpol_init(&bsdp_options);
 
-    if (dhcpol_parse_packet(&options, reply, n, err) == FALSE) {
+    if (dhcpol_parse_packet(&options, reply, n, &err) == FALSE) {
 	fprintf(stderr, 
 		"BSDPClientProcess: dhcpol_parse_packet failed, %s\n",
-		err);
+		err.str);
 	goto done;
     }
 
@@ -792,9 +778,9 @@ BSDPClientProcess(CFSocketRef s, CFSocketCallBackType type,
     server_ip = *((struct in_addr *)opt);
 
     /* decode the BSDP options */
-    if (dhcpol_parse_vendor(&bsdp_options, &options, err) == FALSE) {
+    if (dhcpol_parse_vendor(&bsdp_options, &options, &err) == FALSE) {
 	fprintf(stderr, 
-		"BSDPClientProcess: dhcpol_parse_vendor failed, %s", err);
+		"BSDPClientProcess: dhcpol_parse_vendor failed, %s", err.str);
 	goto done;
     }
     /* get the BSDP message type */
@@ -937,7 +923,7 @@ BSDPClientCreateWithInterfaceAndAttributes(BSDPClientStatus * status_p,
     client->rls = rls;
     client->client_port = client_port;
     client->socket = socket;
-    client->xid = my_random();
+    client->xid = arc4random();
     client->if_p = if_p;
     client->state = kBSDPClientStateInit;
     ifl_free(&ifl);
@@ -1092,7 +1078,7 @@ BSDPClientCreateImageList(BSDPClientRef client,
 	if (boot_image_id != BOOT_IMAGE_ID_NULL
 	    && attributes_match(htons(attributes), 
 				client->attrs, client->n_attrs)) {
-	    u_int16_t	index;
+	    uint32_t	index;
 
 	    this_dict
 		= CFDictionaryCreateMutable(NULL, 0,
@@ -1101,7 +1087,7 @@ BSDPClientCreateImageList(BSDPClientRef client,
 	    cf_image_id = CFNumberCreate(NULL, kCFNumberSInt32Type, 
 					 &boot_image_id);
 	    index = bsdp_image_index(boot_image_id);
-	    cf_image_index = CFNumberCreate(NULL, kCFNumberShortType, 
+	    cf_image_index = CFNumberCreate(NULL, kCFNumberSInt32Type, 
 					    &index);
 	    cf_image_name = CFStringCreateWithBytes(NULL, 
 						    descr->name,
@@ -1165,14 +1151,14 @@ BSDPClientProcessList(BSDPClientRef client, struct in_addr server_ip,
     void *			opt;
     int				opt_len;
     CFArrayRef			images = NULL;
-    bsdp_priority_t		priority = 0;
+    uint32_t			priority = 0;
     bsdp_image_id_t		selected_image_id = BOOT_IMAGE_ID_NULL;
 
     /* get the server priority */
     opt = dhcpol_find(bsdp_options_p, bsdptag_server_priority_e, &opt_len,
 		      NULL);
     if (opt != NULL && opt_len == sizeof(bsdp_priority_t)) {
-	priority = ntohs(*((bsdp_priority_t *)opt));
+	priority = (uint32_t)ntohs(*((bsdp_priority_t *)opt));
     }
     /* get the default boot image */
     opt = dhcpol_find(bsdp_options_p, bsdptag_default_boot_image_e, &opt_len,
@@ -1192,7 +1178,7 @@ BSDPClientProcessList(BSDPClientRef client, struct in_addr server_ip,
     if (image_list == NULL) {
 	goto done;
     }
-    cf_priority = CFNumberCreate(NULL, kCFNumberShortType, &priority);
+    cf_priority = CFNumberCreate(NULL, kCFNumberSInt32Type, &priority);
     cf_server_ip = CFStringCreateWithCString(NULL, inet_ntoa(server_ip),
 					     kCFStringEncodingASCII);
     images = BSDPClientCreateImageList(client, default_image_id, 
@@ -1554,6 +1540,7 @@ BSDPClientSelect(BSDPClientRef client,
 		 CFNumberRef Identifier,
 		 BSDPClientSelectCallBack callback, void * info)
 {
+    unsigned long	image_identifier;
     struct timeval	t;
     BSDPClientStatus	status = kBSDPClientStatusAllocationError;
 
@@ -1562,11 +1549,12 @@ BSDPClientSelect(BSDPClientRef client,
     BSDPClientCancelTimer(client);
     if (callback == NULL
 	|| CFNumberGetValue(Identifier, kCFNumberLongType, 
-			    &client->callback.image_identifier) == FALSE) {
+			    &image_identifier) == FALSE) {
 	status = kBSDPClientStatusInvalidArgument;
 	goto failed;
     }
     client->xid++;
+    client->callback.image_identifier = image_identifier;
     status = BSDPClientSendSelectRequest(client);
     if (status != kBSDPClientStatusOK) {
 	goto failed;

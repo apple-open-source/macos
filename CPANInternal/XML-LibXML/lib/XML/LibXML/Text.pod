@@ -4,6 +4,10 @@ XML::LibXML::Text - XML::LibXML Class for Text Nodes
 
 =head1 SYNOPSIS
 
+  use XML::LibXML;
+  # Only methods specific to Text nodes listed here,
+  # see XML::LibXML::Node manpage for other methods
+
   $text = XML::LibXML::Text->new( $content ); 
   $nodedata = $text->data;
   $text->setData( $text_content );
@@ -21,7 +25,7 @@ XML::LibXML::Text - XML::LibXML Class for Text Nodes
 
 Different to the DOM specification XML::LibXML implements the text node as the
 base class of all character data node. Therefor there exists no CharacterData
-class. This allow one to use all methods that are available for textnodes as
+class. This allow one to use all methods that are available for text nodes as
 well for Comments or CDATA-sections.
 
 =over 4
@@ -30,13 +34,8 @@ well for Comments or CDATA-sections.
 
   $text = XML::LibXML::Text->new( $content ); 
 
-The constuctor of the class. It creates an unbound text node.
+The constructor of the class. It creates an unbound text node.
 
-
-
-=back
-
-=over 4
 
 =item B<data>
 
@@ -56,11 +55,6 @@ and
 will have the same result and are not different entities.
 
 
-
-=back
-
-=over 4
-
 =item B<setData($string)>
 
   $text->setData( $text_content );
@@ -69,27 +63,17 @@ This function sets or replaces text content to a node. The node has to be of
 the type "text", "cdata" or "comment".
 
 
-
-=back
-
-=over 4
-
 =item B<substringData($offset,$length)>
 
   $text->substringData($offset, $length);
 
 Extracts a range of data from the node. (DOM Spec) This function takes the two
-parameters $offset and $length and returns the substring, if available.
+parameters $offset and $length and returns the sub-string, if available.
 
-If the node contains no data or $offset refers to an nonexisting string index,
+If the node contains no data or $offset refers to an non-existing string index,
 this function will return undef. If $length is out of range substringData will
 return the data starting at $offset instead of causing an error.
 
-
-
-=back
-
-=over 4
 
 =item B<appendData($string)>
 
@@ -98,11 +82,6 @@ return the data starting at $offset instead of causing an error.
 Appends a string to the end of the existing data. If the current text node
 contains no data, this function has the same effect as setData.
 
-
-
-=back
-
-=over 4
 
 =item B<insertData($offset,$string)>
 
@@ -116,11 +95,6 @@ The $offset has to be a positive value. If $offset is out of range, insertData
 will have the same behaviour as appendData.
 
 
-
-=back
-
-=over 4
-
 =item B<deleteData($offset, $length)>
 
   $text->deleteData($offset, $length);
@@ -129,11 +103,6 @@ This method removes a chunk from the existing node data at the given offset.
 The $length parameter tells, how many characters should be removed from the
 string.
 
-
-
-=back
-
-=over 4
 
 =item B<deleteDataString($string, [$all])>
 
@@ -144,15 +113,10 @@ quite unhandy if you already know which string to remove from a text node, this
 method allows more perlish code :)
 
 The functions takes two parameters: $string and optional the $all flag. If $all
-is not set, undef or 0, deleteDataString will remove only the first occourance
+is not set, undef or 0, deleteDataString will remove only the first occurrence
 of $string. If $all is TRUE deleteDataString will remove all occurrences of
 $string from the node data.
 
-
-
-=back
-
-=over 4
 
 =item B<replaceData($offset, $length, $string)>
 
@@ -160,11 +124,6 @@ $string from the node data.
 
 The DOM style version to replace node data.
 
-
-
-=back
-
-=over 4
 
 =item B<replaceDataString($oldstring, $newstring, [$all])>
 
@@ -174,13 +133,8 @@ The more programmer friendly version of replaceData() :)
 
 Instead of giving offsets and length one can specify the exact string
 ($oldstring) to be replaced. Additionally the $all flag allows to replace all
-occourences of $oldstring.
+occurrences of $oldstring.
 
-
-
-=back
-
-=over 4
 
 =item B<replaceDataRegEx( $search_cond, $replace_cond, $reflags )>
 
@@ -207,12 +161,14 @@ complex variants it is recommended to use the code snippet above.
 
 Matt Sergeant, 
 Christian Glahn, 
+Petr Pajas, 
+
 =head1 VERSION
 
-1.58
+1.64
 
 =head1 COPYRIGHT
 
-2001-2004, AxKit.com Ltd; 2002-2004 Christian Glahn, All rights reserved.
+2001-2007, AxKit.com Ltd; 2002-2006 Christian Glahn; 2006-2007 Petr Pajas, All rights reserved.
 
 =cut

@@ -20,7 +20,11 @@
 #include <stdio.h>
 #endif
 #ifdef RESOLVE_H_NEEDS_NAMESER8_COMPAT_H
+#ifdef __APPLE_OS_X_SERVER__
+#include <arpa/nameser_compat.h>
+#else
 #include <nameser8_compat.h>
+#endif
 #endif
 #include <resolv.h>
 

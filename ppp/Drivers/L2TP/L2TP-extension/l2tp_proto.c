@@ -169,7 +169,7 @@ This function is called by socket layer when the protocol is added
 ----------------------------------------------------------------------------- */
 void l2tp_init()
 {
-    //log(LOGVAL, "l2tp_init\n");
+    //IOLog("l2tp_init\n");
 }
 
 /* -----------------------------------------------------------------------------
@@ -184,7 +184,7 @@ int l2tp_ctloutput(struct socket *so, struct sockopt *sopt)
 		
 	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
     
-    //log(LOGVAL, "l2tp_ctloutput, so = 0x%x\n", so);
+    //IOLog("l2tp_ctloutput, so = %p\n", so);
 
     error = optval = 0;
     if (sopt->sopt_level != PPPPROTO_L2TP) {
@@ -346,7 +346,7 @@ int l2tp_attach (struct socket *so, int proto, struct proc *p)
 {
     int			error;
 
-    //og(LOGVAL, "l2tp_attach, so = 0x%x, dom_ref = %d\n", so, so->so_proto->pr_domain->dom_refs);
+    //IOLog("l2tp_attach, so = %p, dom_ref = %d\n", so, so->so_proto->pr_domain->dom_refs);
     if (so->so_pcb)
         return EINVAL;
 
@@ -376,7 +376,7 @@ int l2tp_detach(struct socket *so)
 
 	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 	
-    //log(LOGVAL, "l2tp_detach, so = 0x%x, dom_ref = %d\n", so, so->so_proto->pr_domain->dom_refs);
+    //IOLog("l2tp_detach, so = %p, dom_ref = %d\n", so, so->so_proto->pr_domain->dom_refs);
 
     if (so->so_tpcb) {
         l2tp_wan_detach((struct ppp_link *)so->so_tpcb);
@@ -398,25 +398,25 @@ int l2tp_control(struct socket *so, u_long cmd, caddr_t data,
 {
     int 		error = 0;
 
-    //log(LOGVAL, "l2tp_control : so = 0x%x, cmd = %d\n", so, cmd);
+    //IOLog("l2tp_control : so = %p, cmd = %d\n", so, cmd);
 	
 	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     switch (cmd) {
 	case PPPIOCGCHAN:
-            //log(LOGVAL, "l2tp_control : PPPIOCGCHAN\n");
+            //IOLog("l2tp_control : PPPIOCGCHAN\n");
             if (!so->so_tpcb)
                 return EINVAL;// not attached
             *(u_int32_t *)data = ((struct ppp_link *)so->so_tpcb)->lk_index;
             break;
 	case PPPIOCATTACH:
-            //log(LOGVAL, "l2tp_control : PPPIOCATTACH\n");
+            //IOLog("l2tp_control : PPPIOCATTACH\n");
            if (so->so_tpcb)
                 return EINVAL;// already attached
             error = l2tp_wan_attach(so->so_pcb, (struct ppp_link **)&so->so_tpcb);
             break;
 	case PPPIOCDETACH:
-            //log(LOGVAL, "l2tp_control : PPPIOCDETACH\n");
+            //IOLog("l2tp_control : PPPIOCDETACH\n");
             if (!so->so_tpcb)
                 return EINVAL;// already detached
             l2tp_wan_detach((struct ppp_link *)so->so_tpcb);
@@ -479,7 +479,7 @@ int l2tp_input(void *data, mbuf_t m, struct sockaddr *from, int more)
         }
 
 	if (sbappendaddr(&so->so_rcv, from, (struct mbuf *)m, 0, &err) == 0) {
-            //log(LOGVAL, "l2tp_input no space, so = 0x%x\n", so);
+            //IOLog("l2tp_input no space, so = %p\n", so);
             return 1;
 	}
     }

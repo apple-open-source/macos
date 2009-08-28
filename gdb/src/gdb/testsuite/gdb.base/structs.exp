@@ -59,6 +59,7 @@ proc start_structs_test { types } {
     global subdir
     global srcdir
     global gdb_prompt
+    global compiler_info
 
     # Create the additional flags
     set flags "debug"
@@ -71,7 +72,9 @@ proc start_structs_test { types } {
 	append testfile "-" "$t"
     }
     # APPLE LOCAL begin quiet about long doubles
-    if {[istarget "*-apple-darwin*"]} {
+    # APPLE LOCAL: Only gcc-4.0 accepts -Wno-long-double, 4.2 & above do not.
+    get_compiler_info not_used
+    if {[istarget "*-apple-darwin*"] && [regexp {gcc-4-[01]} $compiler_info]} {
 	lappend flags "additional_flags=-Wno-long-double"
     }
     # APPLE LOCAL begin quiet about long doubles

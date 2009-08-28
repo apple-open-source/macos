@@ -1,3 +1,358 @@
+2008-10-28  kimura wataru <kimuraw@i.nifty.jp>
+
+	* install.rb:
+	fix failure of test_loadlibs() from an ambiguous condition for path
+	of RubyCocoa.framework.
+
+2008-08-25  kimura wataru <kimuraw@i.nifty.jp>
+
+	* framework/src/objc/mdl_bundle_support.m:
+	avoid crashes from bundleForClass: on ruby uninitialized thread.
+	[Rubycocoa-devel 1368] by Jonathan deWerd.
+
+2008-07-25 Eloy Duran <e.duran@superalloy.nl>
+
+	* Rakefile:
+	Check for the existence of rubycocoa.bundle before running the install task.
+
+2008-07-20  kimura wataru <kimuraw@i.nifty.jp>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	  tests/tc_nsarray.rb:
+	adjust behavior of OSX::NSArray#slice! to Array#slice on both of
+	Ruby 1.8.7 and 1.8.6 (or earlier).
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb:
+	refactoring OSX::NSString#_read_impl()
+	refactoring OSX::NSArray#_read_impl()
+
+2008-07-02  kimura wataru <kimuraw@i.nifty.jp>
+
+	* framework/src/ruby/osx/objc/oc_import.rb:
+	fix infinite loop of kvc-setter defined by invoking kvc_writer()
+	multiple times for the same key.
+
+2008-07-01  kimura wataru <kimuraw@i.nifty.jp>
+
+	* metaconfig:
+	change install destination of Xcode temlate files
+	from /Library/Application Support/Developer/3.0/Xcode/
+	to   /Library/Application Support/Developer/Shared/Xcode/.
+
+2008-06-26  kimura wataru <kimuraw@i.nifty.jp>
+
+	* tests/tc_nsarray.rb:
+	the behavior of Array#slice! with out-of-boundary was changed in
+	ruby 1.8.7. see "Compatibility issues" of
+	http://svn.ruby-lang.org/repos/ruby/tags/v1_8_7/NEWS
+	[ToDo]NSArray#slice! in osx/objc/oc_attachments.rb should be modified.
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb:
+	fix infinite loop of NSArray#count and NSDictionary#count for
+	add Enumerable#count for ruby 1.8.7.
+
+	* framework/src/objc/RBObject.m:
+	fix "[BUG] object allocation during garbage collection phase" at
+	-[RBObject releaseRubyObject] on ruby 1.8.7.
+
+2008-05-29  kimura wataru <kimuraw@i.nifty.jp>
+
+	* tests/tc_subclass.rb:
+	simplify test_rbobject_kvo_autonotify.
+
+	* framework/src/ruby/osx/objc/oc_import.rb,
+	  tests/tc_kvc_kvo.rb, tests/tc_subclass.rb:
+	bug fix: ignoring automaticallyNotifiesObserversForKey: at 
+	to-many KVC-accessors defined by kvc_array_accessor.
+
+2008-05-28  kimura wataru <kimuraw@i.nifty.jp>
+
+	* framework/src/ruby/osx/objc/oc_import.rb,
+	  tests/tc_subclass.rb:
+	remove unwanted willChangeValueForKey and didChangeValueForKey.
+	this bug makes an object to send wrong notification via KVO.
+	Though the reciever does not have a setter for the key, Cocoa invokes 
+	these methods in setValue:forKey:. 
+
+	* framework/src/ruby/osx/objc/oc_import.rb,
+	  tests/tc_subclass.rb:
+	bug fix: ignoring automaticallyNotifiesObserversForKey: at 
+	setValue:forKey: with accessors defined by kvc_writer.
+
+2008-05-15 Eloy Duran <e.duran@superalloy.nl>
+
+	* sample/Scripts/HelloWorld.rb,
+	  sample/Scripts/sndplay.rb:
+	- Updated HelloWorld to work with MacRuby RubyCocoa layer. Also cleaned up the whitespace a bit, sumimasen Hisa-san ;)
+	- Updated sndplay to not segfault (10.5) anymore and cleaned a bit more.
+
+2008-04-22  kimura wataru <kimuraw@i.nifty.jp>
+
+	* framework/src/ruby/osx/objc/oc_wrapper.rb, tests/tc_constants.rb:
+	use default handling of method_missing failure for OSX module.
+	suggested by Tammo Freese in [rubycocoa-devel:1353]
+
+2008-04-11 Eloy Duran <e.duran@superalloy.nl>
+
+	* framework/src/ruby/osx/objc/oc_import.rb:
+	Added documentation for OSX.require_framework. Patch by Scott Thompson.
+
+2008-04-02  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	  tests/tc_nsstring_compat.rb:
+	NSString#split without parameters should see $; not $/.
+
+2008-03-12  kimura wataru <kimuraw@i.nifty.jp>
+
+	* install.rb, package/config/10.4, package/config/10.5:
+	package task ignores config.save and overwrite with package/config/*.
+
+=== RubyCocoa 0.13.2 ===
+
+2007-02-14  Laurent Sansonetti <lsansonetti@apple.com>
+
+	* **/*.{rb,m,h}:
+	Updated copyright headers for 2008.
+
+	* VERSION:
+	Updated for 0.13.2.
+
+2008-02-13 Eloy Duran <e.duran@superalloy.nl>
+
+	* framework/src/ruby/osx/objc/active_record.rb:
+	Fixed compatibility bug with AR 1.15.x.
+	Patch thanks to Laurent Sansonetti.
+
+2008-02-10  kimura wataru <kimuraw@i.nifty.jp>
+
+	* framework/src/objc/mdl_objwrapper.m:
+	should use rbobj_to_nsobj(), not rbobj_get_ocid(), to get a Ruby
+	VALUE from ObjC id. rbobj_get_ocid() is a very internal function.
+
+2007-02-09  Laurent Sansonetti <lsansonetti@apple.com>
+
+	* framework/src/objc/RBObject.m,
+	  framework/src/objc/OverrideMixin.m:
+	Resume caching method arguments of objc callbacks, which was disabled
+	for an unknown reason. (Thanks Kimura-san.)
+
+2008-02-08 kimura wataru <kimuraw@i.nifty.jp>
+
+	* install.rb:
+	add "--test-args" option of install.rb. this option enables to pass
+	arguments of AutoRunner on test task.
+	ex) run test only "test_ocid" method
+	  % ruby install.rb test --test-args="--name=test_ocid"
+
+2008-02-08 kimura wataru <kimuraw@i.nifty.jp>
+
+	* framework/src/objc/RBObject.m,
+	  framework/src/objc/libffi.m,
+	  framework/src/objc/ocdata_conv.h,
+	  framework/src/objc/ocdata_conv.m,
+	  framework/src/objc/OverrideMixin.m,
+	  framework/src/objc/BridgeSupport.m:
+	rename two functions in ocdata_conv.h
+	- encoding_skip_modifiers() -> encoding_skip_to_first_type()
+	- encoding_skip_notype() -> encoding_skip_qualifiers()
+
+
+2007-02-07  Laurent Sansonetti <lsansonetti@apple.com>
+
+	* sample/RSSPhotoViewer/rb_main.rb,
+	  sample/QTKitSimpleDocument/rb_main.rb:
+	Removed ENV['BRIDGE_SUPPORT_PATH']= debug calls.
+
+2008-02-08 kimura wataru <kimuraw@i.nifty.jp>
+
+	* framework/src/objc/libffi.m,
+	  framework/src/objc/ocdata_conv.h,
+	  framework/src/objc/ocdata_conv.m:
+	fix: cannot handle objc types with qualifiers such as (in|out|inout).
+	add a function "encoding_skip_notype", skipping type encoding 
+	characters.
+	
+	* tests/tc_passbyref.rb,
+	  tests/objc_test.m:
+	add tests of type encoding with (in|out|inout|bycopy|oneway).
+
+2008-02-01 Eloy Duran <e.duran@superalloy.nl>
+
+	* framework/src/ruby/osx/objc/active_record.rb:
+
+	Fixed bug on case-sensitive filesystems where 'FileUtils' was required instead of 'fileutils'.
+	Reported by Jason Foreman.
+
+2008-01-29 Eloy Duran <e.duran@superalloy.nl>
+
+	* sample/MailDemo/MailDemoActiveRecordBindings/English.lproj/MainMenu.nib/classes.nib,
+	  sample/MailDemo/MailDemoActiveRecordBindings/English.lproj/MainMenu.nib/info.nib,
+	  sample/MailDemo/MailDemoActiveRecordBindings/English.lproj/MainMenu.nib/keyedobjects.nib,
+	  sample/MailDemo/MailDemoActiveRecordBindings/MailDemoActiveRecordBindings.xcodeproj/project.pbxproj:
+	Made the MailDemoActiveRecordBindings sample use the new BelongsToActiveRecordSetController for the Emails.
+
+2008-01-21 Eloy Duran <e.duran@superalloy.nl>
+
+	* framework/src/ruby/osx/objc/active_record.rb,
+	  tests/tc_active_record.rb:
+	- Fixed a bug where calling #to_activerecord_proxy on the same record object would return a new different proxy
+	  object and thus resulting in a kvo error. The proxy instance is now cached in the record itself.
+	- Made more speed improvements by making sure that all the record methods are only defined once on the proxy class.
+	- A ActiveRecordProxy instance will now go through #rbValueForKey and thus also return a ActiveRecordProxy instance.
+
+2008-01-20 Eloy Duran <e.duran@superalloy.nl>
+
+	* tests/tc_attachments.rb:
+	Added one more test to check if f.to_ns.to_ruby does equal f.
+
+2008-01-20  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	  tests/tc_attachments.rb:
+	NSNumber#to_f should use doubleValue.
+
+2008-01-20  Satoshi Nakagawa <artension@gmail.com>
+
+	* package/pre-package.rb,
+	  framework/post-setup.rb,
+	  misc/bridge-support-tiger.tar.gz:
+	Now we can build a release package for Tiger on Leopard.
+
+2008-01-19 Eloy Duran <e.duran@superalloy.nl>
+
+	* tests/TableView.nib,
+	  tests/TableView.nib/classes.nib,
+	  tests/TableView.nib/info.nib,
+	  tests/TableView.nib/keyedobjects.nib,
+	  tests/tc_uniqobj.rb:
+	Added a failing test, which shows the current bug where equality doesn't work with objc objects.
+
+2008-01-19 Eloy Duran <e.duran@superalloy.nl>
+
+	* framework/src/ruby/osx/objc/active_record.rb,
+	  tests/tc_active_record.rb:
+	- Completely refactored the ActiveRecord related tests. (There's one FIXME in the file, which causes a segfualt.)
+	- Refactored the ActiveRecord libraries a bit.
+
+2008-01-18 Eloy Duran <e.duran@superalloy.nl>
+
+	* tests/maildemo.sql,
+	  tests/tc_active_record.rb:
+	- The ActiveRecord related tests now use an in memory sqlite db,
+	  so there's no clutter on the filesystem needed anymore.
+	- Fixed the ActiveRecord related tests after the last commit.
+
+2008-01-18  Satoshi Nakagawa <artension@gmail.com>
+
+	* pre-setup.rb,
+	  pre-config.rb,
+	  misc/libffi/Makefile.rubycocoa:
+	Fixed a problem, libffi should be built always for macosx-deployment-target=10.4.
+
+2008-01-18 Eloy Duran <e.duran@superalloy.nl>
+
+	* framework/src/ruby/osx/objc/active_record.rb:
+
+	- Made speed improvements in the way records in a has many association are created.
+	  You'll get this by using a BelongsToActiveRecordSetController instead of a ActiveRecordSetController.
+	- ActiveRecordSetController now allows to destroy a multiple selection.
+
+2008-01-13 Eloy Duran <e.duran@superalloy.nl>
+
+	* framework/tool/gen_bridge_doc/lib/cocoa_ref.rb,
+	  framework/tool/gen_bridge_doc/lib/lib/hpricot_proxy.rb,
+	  framework/tool/gen_bridge_doc/rdocify_framework.rb:
+	Fixed bugs that were introduced by the new (not better) layout Apple uses for it's reference docs.
+	This does not yet fix any regular parsing errors for misspelled methods etc, but the majority will parse.
+
+2008-01-13  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	  tests/tc_nsstring_compat.rb,
+	  tests/tc_nsarray.rb,
+	  tests/tc_to_ns.rb:
+	- Refactoring.
+	- Fixed a bug, NSString#scan(regexp){block} passed String to its block argument. It should be NSString.
+	- Fixed a bug, NSString#split returned an array contains immutable NSString sometimes.
+	- Fixed a bug, NSArray#delete always yielded a block.
+
+2008-01-09  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_types.rb,
+	  framework/src/ruby/osx/objc/oc_attachments.rb,
+	  tests/tc_boxed.rb,
+	  tests/tc_types.rb:
+	- Added NSSize methods: /, *, +, -.
+	- Added NSPoint methods: +, -.
+	- Made NSNumber#float? deprecated and added integer? to conform to Number#integer?.
+	- Added tests.
+
+2008-01-09  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/objc/RBObject.m,
+	  framework/src/objc/RBRuntime.m,
+	  framework/src/objc/OverrideMixin.m,
+	  framework/src/objc/ocdata_conv.m,
+	  framework/src/objc/libffi.m,
+	  framework/src/objc/mdl_osxobjc.m,
+	  framework/src/objc/mdl_objwrapper.m,
+	  framework/src/objc/cls_objcptr.m:
+	- Set volatile to some VALUE type local variables.
+	  If VALUE local variables are erased by optimization, the VALUE is missing from the stack.
+	  It could cause that GC sweeps the VALUE.
+	  See http://i.loveruby.net/ja/rhg/book/gc.html (in Japanese)
+	- Changed func(RSTRING(rb_inspect(obj))->ptr to StringValuePtr(). Because it was a dangling pointer.
+
+2008-01-09  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/objc/RBObject.m,
+	  framework/src/objc/RBRuntime.m,
+	  framework/src/objc/ocdata_conv.m,
+	  framework/src/objc/mdl_osxobjc.m,
+	  framework/src/objc/mdl_objwrapper.m,
+	  framework/src/objc/mdl_bundle_support.m,
+	  framework/src/objc/cls_objcptr.m,
+	  framework/src/objc/BridgeSupport.m:
+	Migrated from STR2CSTR() to StringValuePtr().
+
+2007-12-26  Laurent Sansonetti <lsansonetti@apple.com>
+	
+	* AUTHORS:
+	Added Jonathan.
+
+	* tests/CAryStructTest.bridgesupport,
+	  tests/objc_test.m,
+	  tests/tc_types.rb:
+	Added tests for the previous fix.
+
+2007-12-26  Jonathan deWerd <jjoonathan@gmail.com>
+
+	* framework/src/objc/libffi.m:
+	Fixed a bug when returning C array (CARY) in struct.
+
+2007-12-19  Laurent Sansonetti <lsansonetti@apple.com>
+
+	* AUTHORS:
+	Added Dave.
+
+2007-12-19  Dave Vasilevsky <djvasi@gmail.com>
+
+	* framework/src/objc/OverrideMixin.m,
+	  tests/tc_ovmix.rb,
+	  tests/objc_test.m:
+	- Fixed a bug when direct-overriding a method in a subclass of an 
+	  Objective-C class that implements the method ;
+	- Added test cases. 
+
+2007-12-18  Satoshi Nakagawa <artension@gmail.com>
+
+	* sample/GrowlClient/main.rb,
+	  sample/GrowlClient/growl.rb:
+	Added a Growl sample.
+
+=== RubyCocoa 0.13.1 ===
+
 2007-12-14  Laurent Sansonetti <lsansonetti@apple.com>
 
 	* VERSION:

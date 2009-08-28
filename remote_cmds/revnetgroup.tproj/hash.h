@@ -1,28 +1,4 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/* $OpenBSD: hash.h,v 1.1 1997/04/15 22:06:12 maja Exp $ */
-/*
  * Copyright (c) 1995
  *	Bill Paul <wpaul@ctr.columbia.edu>.  All rights reserved.
  *
@@ -53,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- *	$FreeBSD: hash.h,v 1.5 1997/02/22 14:22:02 peter Exp $
+ * $FreeBSD: src/libexec/revnetgroup/hash.h,v 1.7 2002/02/07 23:57:01 imp Exp $
  */
 
 /* Groupname entry hung off a member_entry node. */
@@ -83,9 +59,9 @@ struct group_entry {
 
 #define LINSIZ 1024 * 10
 
-extern void store __P(( struct group_entry ** , char *, char * ));
-extern void mstore __P(( struct member_entry ** , char *, char *, char * ));
-extern char *lookup __P(( struct group_entry **, char * ));
-extern void __endnetgrent __P(( void ));
-extern void __setnetgrent __P(( char * ));
-extern int __getnetgrent __P(( char **, char **, char ** ));
+extern void store(struct group_entry ** , char *, char *);
+extern void mstore(struct member_entry ** , char *, char *, char *);
+extern char *lookup(struct group_entry **, char *);
+extern void __endnetgrent(void);
+extern void __setnetgrent(char *);
+extern int __getnetgrent(char **, char **, char **);

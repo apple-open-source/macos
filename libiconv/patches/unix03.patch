@@ -1,6 +1,6 @@
 diff -r -u -N --exclude='*.orig' libiconv-1.11.orig/include/iconv.h.build.in libiconv-1.11/include/iconv.h.build.in
 --- libiconv-1.11.orig/include/iconv.h.build.in	2006-05-15 14:28:04.000000000 -0700
-+++ libiconv-1.11/include/iconv.h.build.in	2007-02-12 02:02:30.000000000 -0800
++++ libiconv-1.11/include/iconv.h.build.in	2008-03-11 01:08:52.000000000 -0700
 @@ -21,6 +21,13 @@
  #ifndef _LIBICONV_H
  #define _LIBICONV_H
@@ -56,7 +56,8 @@ diff -r -u -N --exclude='*.orig' libiconv-1.11.orig/include/iconv.h.build.in lib
 -#ifndef LIBICONV_PLUG
 -#define iconv libiconv
 -#endif
- extern LIBICONV_DLL_EXPORTED size_t iconv (iconv_t cd, @ICONV_CONST@ char* * inbuf, size_t *inbytesleft, char* * outbuf, size_t *outbytesleft);
+-extern LIBICONV_DLL_EXPORTED size_t iconv (iconv_t cd, @ICONV_CONST@ char* * inbuf, size_t *inbytesleft, char* * outbuf, size_t *outbytesleft);
++extern LIBICONV_DLL_EXPORTED size_t iconv (iconv_t cd, char* * __restrict inbuf, size_t * __restrict inbytesleft, char* * __restrict outbuf, size_t * __restrict outbytesleft);
  
  /* Frees resources allocated for conversion descriptor `cd'. */
 -#ifndef LIBICONV_PLUG

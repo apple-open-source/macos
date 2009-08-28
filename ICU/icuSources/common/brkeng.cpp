@@ -1,8 +1,8 @@
 /**
- *******************************************************************************
- * Copyright (C) 2006, International Business Machines Corporation and others. *
- * All Rights Reserved.                                                        *
- *******************************************************************************
+ ************************************************************************************
+ * Copyright (C) 2006-2007, International Business Machines Corporation and others. *
+ * All Rights Reserved.                                                             *
+ ************************************************************************************
  */
 
 #include "unicode/utypes.h"
@@ -21,7 +21,7 @@
 #include "unicode/ustring.h"
 #include "unicode/uscript.h"
 #include "uvector.h"
-#include "mutex.h"
+#include "umutex.h"
 #include "uresimp.h"
 #include "ubrkimpl.h"
 
@@ -130,7 +130,7 @@ ICULanguageBreakFactory::~ICULanguageBreakFactory() {
 U_NAMESPACE_END
 U_CDECL_BEGIN
 static void U_CALLCONV _deleteEngine(void *obj) {
-    delete (const LanguageBreakEngine *) obj;
+    delete (const U_NAMESPACE_QUALIFIER LanguageBreakEngine *) obj;
 }
 U_CDECL_END
 U_NAMESPACE_BEGIN
@@ -142,6 +142,9 @@ ICULanguageBreakFactory::getEngineFor(UChar32 c, int32_t breakType) {
     const LanguageBreakEngine *lbe = NULL;
     UErrorCode  status = U_ZERO_ERROR;
 
+    // TODO: The global mutex should not be used.
+    // The global mutex should only be used for short periods.
+    // A ICULanguageBreakFactory specific mutex should be used.
     umtx_lock(NULL);
     needsInit = (UBool)(fEngines == NULL);
     if (!needsInit) {
@@ -240,7 +243,7 @@ ICULanguageBreakFactory::loadEngineFor(UChar32 c, int32_t breakType) {
 }
 
 const CompactTrieDictionary *
-ICULanguageBreakFactory::loadDictionaryFor(UScriptCode script, int32_t breakType) {
+ICULanguageBreakFactory::loadDictionaryFor(UScriptCode script, int32_t /*breakType*/) {
     UErrorCode status = U_ZERO_ERROR;
     // Open root from brkitr tree.
     char dictnbuff[256];

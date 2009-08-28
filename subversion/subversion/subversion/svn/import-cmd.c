@@ -73,8 +73,9 @@ svn_cl__import(apr_getopt_t *os,
    * ### kff todo: review above behaviors.
    */
 
-  SVN_ERR(svn_opt_args_to_target_array2(&targets, os, 
-                                        opt_state->targets, pool));
+  SVN_ERR(svn_cl__args_to_target_array_print_reserved(&targets, os,
+                                                      opt_state->targets,
+                                                      ctx, pool));
 
   if (targets->nelts < 1)
     return svn_error_create
@@ -86,13 +87,13 @@ svn_cl__import(apr_getopt_t *os,
        _("Too many arguments to import command"));
   else if (targets->nelts == 1)
     {
-      url = ((const char **) (targets->elts))[0];
+      url = APR_ARRAY_IDX(targets, 0, const char *);
       path = "";
     }
   else
     {
-      path = ((const char **) (targets->elts))[0];
-      url = ((const char **) (targets->elts))[1];
+      path = APR_ARRAY_IDX(targets, 0, const char *);
+      url = APR_ARRAY_IDX(targets, 1, const char *);
     }
 
   if (! svn_path_is_url(url))
@@ -104,16 +105,23 @@ svn_cl__import(apr_getopt_t *os,
     svn_cl__get_notifier(&ctx->notify_func2, &ctx->notify_baton2,
                          FALSE, FALSE, FALSE, pool);
 
-  SVN_ERR(svn_cl__make_log_msg_baton(&(ctx->log_msg_baton2), opt_state,
+  if (opt_state->depth == svn_depth_unknown)
+    opt_state->depth = svn_depth_infinity;
+
+  SVN_ERR(svn_cl__make_log_msg_baton(&(ctx->log_msg_baton3), opt_state,
                                      NULL, ctx->config, pool));
-  SVN_ERR(svn_cl__cleanup_log_msg 
-          (ctx->log_msg_baton2, svn_client_import2(&commit_info,
-                                                   path,
-                                                   url,
-                                                   opt_state->nonrecursive,
-                                                   opt_state->no_ignore,
-                                                   ctx,
-                                                   pool)));
+
+  SVN_ERR(svn_cl__cleanup_log_msg
+          (ctx->log_msg_baton3,
+           svn_client_import3(&commit_info,
+                              path,
+                              url,
+                              opt_state->depth,
+                              opt_state->no_ignore,
+                              opt_state->force,
+                              opt_state->revprop_table,
+                              ctx,
+                              pool), pool));
 
   if (commit_info && ! opt_state->quiet)
     SVN_ERR(svn_cl__print_commit_info(commit_info, pool));

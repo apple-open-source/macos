@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2008 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -15,7 +15,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 dnl Process this file with autoconf to produce a configure script.
-AC_REVISION($Revision: 7462 $)
+AC_REVISION($Revision: 8122 $)
 AC_PREREQ(2.0)
 AC_INIT(src/common.h)
 
@@ -52,8 +52,7 @@ AC_SUBST(PYTHON)
 PYTHON=$with_python
 AC_MSG_RESULT($PYTHON)
 
-# See if Python is new enough.  2.1 or better is required, with 2.1.3
-# recommended.
+# See if Python is new enough.
 AC_MSG_CHECKING(Python version)
 changequote(,)
 cat > conftest.py <<EOF
@@ -62,8 +61,7 @@ try:
     v = sys.hexversion
 except AttributeError:
     v = 0
-# int of hexversion 0x2010000
-if v >= 0x2010000:
+if v >= 0x2040000:
     s = sys.version.split()[0]
 else:
     s = ""
@@ -80,10 +78,45 @@ then
     AC_MSG_ERROR([
 
 ***** $PYTHON is too old (or broken)
-***** Python 2.1 or newer is required
-***** Python 2.1.3 or better is recommended])
+***** Python 2.4 or newer is required])
 fi
 AC_MSG_RESULT($version)
+
+# Check the email package version.
+AC_MSG_CHECKING(Python's email package)
+changequote(,)
+cat > conftest.py <<EOF
+import sys
+try:
+    import email
+except ImportError:
+    res = "not ok"
+else:
+    provided = (2, 5, 8)
+    version = tuple(int(v) for v in email.__version__.split('.'))
+    if provided > version:
+        res = "not ok"
+    else:
+        res = "ok"
+fp = open("conftest.out", "w")
+fp.write("%s\n" % res)
+fp.close()
+EOF
+changequote([, ])
+$PYTHON conftest.py
+needemailpkg=`cat conftest.out`
+rm -f conftest.out conftest.py
+
+# Should we rely on Python's own email package or use the pre-packaged version?
+AC_SUBST(EMAILPKG)
+if test "$needemailpkg" = "ok"
+then
+    EMAILPKG=""
+else
+    EMAILPKG=email-2.5.8
+fi
+AC_MSG_RESULT($needemailpkg)
+
 
 # Make sure distutils is available.  Some Linux Python packages split
 # distutils into the "-devel" package, so they need both.
@@ -101,7 +134,14 @@ else:
     except distutils.errors.DistutilsPlatformError:
         res = "no"
     else:
-        res = "yes"
+        # some RedHat packages put distutils in python, but the C headers
+        # are in python-devel so check for headers too.
+        import os.path
+        pdothpath = distutils.sysconfig.get_config_var('CONFINCLUDEPY')
+        if os.path.isfile(os.path.join(pdothpath, "Python.h")):
+            res = "yes"
+        else:
+            res = "no"
 fp = open("conftest.out", "w")
 fp.write("%s\n" % res)
 fp.close()
@@ -117,7 +157,8 @@ then
 ***** Distutils is not available or is incomplete for $PYTHON
 ***** If you installed Python from RPM (or other package manager)
 ***** be sure to install the -devel package, or install Python
-***** from source.  See README.LINUX for details])
+***** from source.  See sec. 15.1 of the Installation Manual for
+***** details])
 fi
 AC_MSG_RESULT($havedistutils)
 
@@ -208,7 +249,7 @@ else
 fi
 
 # new macro for finding group names
-AC_DEFUN(MM_FIND_GROUP_NAME, [
+AC_DEFUN([MM_FIND_GROUP_NAME], [
 # $1 == variable name
 # $2 == user id to check for
 AC_SUBST($1)
@@ -240,7 +281,7 @@ rm -f conftest.out conftest.py])
 
 
 # new macro for finding UIDs
-AC_DEFUN(MM_FIND_USER_NAME, [
+AC_DEFUN([MM_FIND_USER_NAME], [
 # $1 == variable name
 # $2 == user id to check for
 AC_SUBST($1)
@@ -353,11 +394,9 @@ else:
     if mailmangid <> gid:
         problems.append("Directory must be owned by group " +
                         groupname + ": " + prefix)
-    if (mode & S_ISGID) <> S_ISGID:
-        problems.append("Set-gid bit must be set for directory: " + prefix)
     perms = S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH
     if (mode & perms) <> perms:
-        problems.append("Permissions should be at least 02775: " + prefix)
+        problems.append("Permissions should be at least 0775: " + prefix)
 if not problems:
     msg = "okay\n"
 else:
@@ -481,6 +520,7 @@ else
 fi
 AC_MSG_RESULT($with_urlhost)
 
+
 changequote(,)
 cat > conftest.py <<EOF
 # python
@@ -541,7 +581,7 @@ AC_CHECK_FUNCS(vsnprintf)
 
 dnl Expand PYTHON path in the scripts, output into build/scriptname
 
-AC_DEFUN(MM_SCRIPTS, [dnl
+AC_DEFUN([MM_SCRIPTS], [dnl
 bin/add_members \
 bin/arch \
 bin/change_pw \
@@ -553,6 +593,7 @@ bin/config_list \
 bin/convert.py \
 bin/discard \
 bin/dumpdb \
+bin/export.py \
 bin/find_member \
 bin/fix_url.py \
 bin/genaliases \
@@ -584,6 +625,7 @@ contrib/qmail-to-mailman.py \
 contrib/rotatelogs.py \
 cron/bumpdigests \
 cron/checkdbs \
+cron/cull_bad_shunt \
 cron/disabled \
 cron/gate_news \
 cron/mailpasswds \

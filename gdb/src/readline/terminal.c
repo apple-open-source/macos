@@ -51,6 +51,7 @@
 /* System-specific feature definitions and include files. */
 #include "rldefs.h"
 
+#include <sys/ioctl.h>  /* required for ioctl() prototype */
 #if defined (GWINSZ_IN_SYS_IOCTL) && !defined (TIOCGWINSZ)
 #  include <sys/ioctl.h>
 #endif /* GWINSZ_IN_SYS_IOCTL && !TIOCGWINSZ */

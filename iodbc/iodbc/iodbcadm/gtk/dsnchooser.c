@@ -1,7 +1,7 @@
 /*
  *  dsnchooser.c
  *
- *  $Id: dsnchooser.c,v 1.15 2006/12/21 11:23:43 source Exp $
+ *  $Id: dsnchooser.c,v 1.16 2007/02/02 11:58:14 source Exp $
  *
  *  The iODBC driver manager.
  *
@@ -1656,6 +1656,10 @@ create_dsnchooser (HWND hwnd, TDSNCHOOSER * choose_t)
   gtk_window_set_modal (GTK_WINDOW (dsnchooser), TRUE);
   gtk_window_set_policy (GTK_WINDOW (dsnchooser), FALSE, FALSE, FALSE);
 
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_widget_show (dsnchooser);
+#endif
+
   dialog_vbox1 = GTK_DIALOG (dsnchooser)->vbox;
   gtk_object_set_data (GTK_OBJECT (dsnchooser), "dialog_vbox1", dialog_vbox1);
   gtk_widget_show (dialog_vbox1);
@@ -1729,8 +1733,13 @@ create_dsnchooser (HWND hwnd, TDSNCHOOSER * choose_t)
       (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (l_usdsn);
   gtk_fixed_put (GTK_FIXED (fixed1), l_usdsn, 8, 8);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_widget_set_uposition (l_usdsn, 12, 35);
+  gtk_widget_set_usize (l_usdsn, 120, 16);
+#else
   gtk_widget_set_uposition (l_usdsn, 8, 8);
   gtk_widget_set_usize (l_usdsn, 112, 16);
+#endif
   gtk_label_set_justify (GTK_LABEL (l_usdsn), GTK_JUSTIFY_LEFT);
 
   frame1 = gtk_frame_new (NULL);
@@ -1738,8 +1747,13 @@ create_dsnchooser (HWND hwnd, TDSNCHOOSER * choose_t)
   gtk_object_set_data_full (GTK_OBJECT (dsnchooser), "frame1", frame1,
       (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (frame1);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed1), frame1, 8, 295);
+  gtk_widget_set_uposition (frame1, 8, 295);
+#else
   gtk_fixed_put (GTK_FIXED (fixed1), frame1, 8, 264);
   gtk_widget_set_uposition (frame1, 8, 264);
+#endif
   gtk_widget_set_usize (frame1, 546, 64);
 
   table1 = gtk_table_new (1, 2, FALSE);
@@ -1763,10 +1777,18 @@ create_dsnchooser (HWND hwnd, TDSNCHOOSER * choose_t)
       (GtkAttachOptions) (0), (GtkAttachOptions) (0), 0, 0);
   gtk_label_set_justify (GTK_LABEL (l_explanation), GTK_JUSTIFY_LEFT);
 
+#if GTK_CHECK_VERSION(2,0,0)
+  style = gtk_widget_get_style (dsnchooser);
+  pixmap =
+      gdk_pixmap_create_from_xpm_d (dsnchooser->window, &mask,
+      &style->bg[GTK_STATE_NORMAL], (gchar **) odbc4_xpm);
+#else
   style = gtk_widget_get_style (GTK_WIDGET (hwnd));
   pixmap =
       gdk_pixmap_create_from_xpm_d (GTK_WIDGET (hwnd)->window, &mask,
       &style->bg[GTK_STATE_NORMAL], (gchar **) odbc4_xpm);
+#endif
+
   pixmap1 = gtk_pixmap_new (pixmap, mask);
   gtk_widget_ref (pixmap1);
   gtk_object_set_data_full (GTK_OBJECT (dsnchooser), "pixmap1", pixmap1,
@@ -1781,7 +1803,11 @@ create_dsnchooser (HWND hwnd, TDSNCHOOSER * choose_t)
       vbuttonbox1, (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (vbuttonbox1);
   gtk_fixed_put (GTK_FIXED (fixed1), vbuttonbox1, 472, 16);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_widget_set_uposition (vbuttonbox1, 472, 52);
+#else
   gtk_widget_set_uposition (vbuttonbox1, 472, 16);
+#endif
   gtk_widget_set_usize (vbuttonbox1, 85, 135);
 
   b_add = gtk_button_new_with_label ("");
@@ -1912,8 +1938,13 @@ create_dsnchooser (HWND hwnd, TDSNCHOOSER * choose_t)
       (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (l_sdsn);
   gtk_fixed_put (GTK_FIXED (fixed2), l_sdsn, 8, 8);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_widget_set_uposition (l_sdsn, 12, 35);
+  gtk_widget_set_usize (l_sdsn, 138, 16);
+#else
   gtk_widget_set_uposition (l_sdsn, 8, 8);
   gtk_widget_set_usize (l_sdsn, 130, 16);
+#endif
   gtk_label_set_justify (GTK_LABEL (l_sdsn), GTK_JUSTIFY_LEFT);
 
   frame2 = gtk_frame_new (NULL);
@@ -1921,8 +1952,13 @@ create_dsnchooser (HWND hwnd, TDSNCHOOSER * choose_t)
   gtk_object_set_data_full (GTK_OBJECT (dsnchooser), "frame2", frame2,
       (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (frame2);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed2), frame2, 8, 295);
+  gtk_widget_set_uposition (frame2, 8, 295);
+#else
   gtk_fixed_put (GTK_FIXED (fixed2), frame2, 8, 264);
   gtk_widget_set_uposition (frame2, 8, 264);
+#endif
   gtk_widget_set_usize (frame2, 546, 64);
 
   table2 = gtk_table_new (1, 2, FALSE);
@@ -1960,7 +1996,11 @@ create_dsnchooser (HWND hwnd, TDSNCHOOSER * choose_t)
       vbuttonbox2, (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (vbuttonbox2);
   gtk_fixed_put (GTK_FIXED (fixed2), vbuttonbox2, 472, 16);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_widget_set_uposition (vbuttonbox2, 472, 52);
+#else
   gtk_widget_set_uposition (vbuttonbox2, 472, 16);
+#endif
   gtk_widget_set_usize (vbuttonbox2, 85, 135);
 
   b_add = gtk_button_new_with_label ("");
@@ -2050,8 +2090,13 @@ create_dsnchooser (HWND hwnd, TDSNCHOOSER * choose_t)
   gtk_object_set_data_full (GTK_OBJECT (dsnchooser), "l_lookin", l_lookin,
      (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (l_lookin);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed3), l_lookin, 16, 44);
+  gtk_widget_set_uposition (l_lookin, 16, 44);
+#else
   gtk_fixed_put (GTK_FIXED (fixed3), l_lookin, 16, 16);
   gtk_widget_set_uposition (l_lookin, 16, 16);
+#endif
   gtk_widget_set_usize (l_lookin, 57, 16);
   gtk_label_set_justify (GTK_LABEL (l_lookin), GTK_JUSTIFY_LEFT);
 
@@ -2060,8 +2105,13 @@ create_dsnchooser (HWND hwnd, TDSNCHOOSER * choose_t)
   gtk_object_set_data_full (GTK_OBJECT (dsnchooser), "optionmenu1", optionmenu1,
      (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (optionmenu1);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed3), optionmenu1, 72, 40);
+  gtk_widget_set_uposition (optionmenu1, 72, 40);
+#else
   gtk_fixed_put (GTK_FIXED (fixed3), optionmenu1, 72, 16);
   gtk_widget_set_uposition (optionmenu1, 72, 16);
+#endif
   gtk_widget_set_usize (optionmenu1, 392, 24);
   optionmenu1_menu = gtk_menu_new ();
   gtk_option_menu_set_menu (GTK_OPTION_MENU (optionmenu1), optionmenu1_menu);
@@ -2071,8 +2121,13 @@ create_dsnchooser (HWND hwnd, TDSNCHOOSER * choose_t)
   gtk_object_set_data_full (GTK_OBJECT (dsnchooser), "scrolledwindow3", scrolledwindow3,
      (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (scrolledwindow3);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed3), scrolledwindow3, 8, 74);
+  gtk_widget_set_uposition (scrolledwindow3, 8, 74);
+#else
   gtk_fixed_put (GTK_FIXED (fixed3), scrolledwindow3, 8, 48);
   gtk_widget_set_uposition (scrolledwindow3, 8, 48);
+#endif
   gtk_widget_set_usize (scrolledwindow3, 224, 176);
 
   clist3 = gtk_clist_new (1);
@@ -2098,8 +2153,13 @@ create_dsnchooser (HWND hwnd, TDSNCHOOSER * choose_t)
   gtk_object_set_data_full (GTK_OBJECT (dsnchooser), "scrolledwindow4", scrolledwindow4,
      (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (scrolledwindow4);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed3), scrolledwindow4, 240, 74);
+  gtk_widget_set_uposition (scrolledwindow4, 240, 74);
+#else
   gtk_fixed_put (GTK_FIXED (fixed3), scrolledwindow4, 240, 48);
   gtk_widget_set_uposition (scrolledwindow4, 240, 48);
+#endif
   gtk_widget_set_usize (scrolledwindow4, 224, 176);
 
   clist4 = gtk_clist_new (1);
@@ -2124,8 +2184,13 @@ create_dsnchooser (HWND hwnd, TDSNCHOOSER * choose_t)
   gtk_object_set_data_full (GTK_OBJECT (dsnchooser), "t_fileselected", t_fileselected,
      (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (t_fileselected);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed3), t_fileselected, 95, 260);
+  gtk_widget_set_uposition (t_fileselected, 95, 260);
+#else
   gtk_fixed_put (GTK_FIXED (fixed3), t_fileselected, 95, 234);
   gtk_widget_set_uposition (t_fileselected, 95, 234);
+#endif
   gtk_widget_set_usize (t_fileselected, 370, 22);
 
   frame3 = gtk_frame_new (NULL);
@@ -2133,8 +2198,13 @@ create_dsnchooser (HWND hwnd, TDSNCHOOSER * choose_t)
   gtk_object_set_data_full (GTK_OBJECT (dsnchooser), "frame3", frame3,
      (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (frame3);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed3), frame3, 8, 295);
+  gtk_widget_set_uposition (frame3, 8, 295);
+#else
   gtk_fixed_put (GTK_FIXED (fixed3), frame3, 8, 264);
   gtk_widget_set_uposition (frame3, 8, 264);
+#endif
   gtk_widget_set_usize (frame3, 546, 64);
 
   table3 = gtk_table_new (1, 2, FALSE);
@@ -2171,8 +2241,13 @@ create_dsnchooser (HWND hwnd, TDSNCHOOSER * choose_t)
   gtk_object_set_data_full (GTK_OBJECT (dsnchooser), "l_selected", l_selected,
      (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (l_selected);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_fixed_put (GTK_FIXED (fixed3), l_selected, 8, 263);
+  gtk_widget_set_uposition (l_selected, 8, 263);
+#else
   gtk_fixed_put (GTK_FIXED (fixed3), l_selected, 8, 237);
   gtk_widget_set_uposition (l_selected, 8, 237);
+#endif
   gtk_widget_set_usize (l_selected, 85, 16);
 
   vbuttonbox3 = gtk_vbutton_box_new ();
@@ -2181,7 +2256,11 @@ create_dsnchooser (HWND hwnd, TDSNCHOOSER * choose_t)
      (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (vbuttonbox3);
   gtk_fixed_put (GTK_FIXED (fixed3), vbuttonbox3, 472, 16);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_widget_set_uposition (vbuttonbox3, 472, 52);
+#else
   gtk_widget_set_uposition (vbuttonbox3, 472, 16);
+#endif
   gtk_widget_set_usize (vbuttonbox3, 85, 165);
 
   b_add = gtk_button_new_with_label ("");

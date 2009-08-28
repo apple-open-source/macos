@@ -5,6 +5,7 @@
 	<key>comment</key>
 	<array>
 		<string>Group membership calculated by system</string>
+		<string>Accounts from a remote directory server</string>
 	</array>
 	<key>generateduid</key>
 	<array>
@@ -17,6 +18,10 @@
 	<key>name</key>
 	<array>
 		<string>netaccounts</string>
+	</array>
+	<key>passwd</key>
+	<array>
+		<string>*</string>
 	</array>
 	<key>realname</key>
 	<array>

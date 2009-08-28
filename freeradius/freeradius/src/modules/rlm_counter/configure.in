@@ -1,5 +1,6 @@
+AC_PREREQ([2.53])
 AC_INIT(rlm_counter.c)
-AC_REVISION($Revision: 1.9 $)
+AC_REVISION($Revision$)
 AC_DEFUN(modname,[rlm_counter])
 
 if test x$with_[]modname != xno; then
@@ -7,8 +8,8 @@ if test x$with_[]modname != xno; then
 	AC_PROG_CC
 	AC_PROG_CPP
 
-	AC_SMART_CHECK_INCLUDE(gdbm.h)
-	AC_SMART_CHECK_LIB(gdbm, gdbm_open)
+	FR_SMART_CHECK_INCLUDE(gdbm.h)
+	FR_SMART_CHECK_LIB(gdbm, gdbm_open)
 	if test "x$ac_cv_lib_gdbm_gdbm_open" != "xyes"; then
 		fail="$fail libgdbm"
 	fi
@@ -23,7 +24,7 @@ if test x$with_[]modname != xno; then
 	not found.  this version must use sync by default.
 #endif
 			], [
-			AC_DEFINE(NEED_GDBM_SYNC, yes) 
+			AC_DEFINE(NEED_GDBM_SYNC, yes, [do we need GDBM_SYNC])
 			AC_MSG_RESULT(needs it.)
 			], [
 			AC_MSG_RESULT(SYNCs by default.)
@@ -36,7 +37,7 @@ if test x$with_[]modname != xno; then
 	AC_CHECK_FUNC(gdbm_fdesc)
 	if test "x$ac_cv_func_gdbm_fdesc" = "xyes";
 	then
-		AC_DEFINE(HAVE_GDBM_FDESC)
+		AC_DEFINE(HAVE_GDBM_FDESC, [], [do we have gdbm_fdesc])
 	fi
 	LIBS=$old_LIBS
 
@@ -51,7 +52,7 @@ if test x"$fail" != x""; then
 		AC_MSG_ERROR([set --without-]modname[ to disable it explicitly.])
 	else
 		AC_MSG_WARN([silently not building ]modname[.])
-		AC_MSG_WARN([FAILURE: ]modname[ requires: $fail.]); 
+		AC_MSG_WARN([FAILURE: ]modname[ requires: $fail.]);
 		targetname=""
 	fi
 fi

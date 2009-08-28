@@ -40,11 +40,11 @@
     map to guest = Bad User
     guest account = nobody
 
-    unix charset = UTF-8-MAC
-    display charset = UTF-8-MAC
+    unix charset = UTF-8
+    display charset = UTF-8
     dos charset = 437
 
-    vfs objects = darwinacl,darwin_streams
+    vfs objects = notify_kqueue,darwinacl,darwin_streams
 
     ; Don't become a master browser unless absolutely necessary.
     os level = 2
@@ -54,6 +54,9 @@
     ; to the maximum and enable sendfile support.
     max xmit = 131072
     use sendfile = yes
+
+    mangled names = no
+    stat cache = no
 
     ; The darwin_streams module gives us named streams support.
     stream support = yes
@@ -66,28 +69,22 @@
     ; dump core will trigger a crash report, so we still want to try.
     enable core files = yes
 
-    ; Configure usershares for use by the synchronize-shares tool.
-    usershare max shares = 1000
-    usershare path = /var/samba/shares
-    usershare owner only = no
-    usershare allow guests = yes
-    usershare allow full config = yes
-
     ; Filter inaccessible shares from the browse list.
     com.apple:filter shares by access = yes
 
     ; Check in with PAM to enforce SACL access policy.
     obey pam restrictions = yes
 
-    ; Don't be trying to enforce ACLs in userspace.
-    acl check permissions = no
-
     ; Make sure that we resolve unqualified names as NetBIOS before DNS.
     name resolve order = lmhosts wins bcast host
 
-    ; Pull in system-wide preference settings. These are managed by
-    ; synchronize-preferences tool.
+    ; Pull in system-wide preference settings. These are managed
+    ; by smb-sync-preferences.
     include = /var/db/smb.conf
+
+    ; Pull in system share configuration. These are managed
+    ; by smb-sync-shares.
+    include = /var/db/samba/smb.shares
 
 [printers]
     comment = All Printers

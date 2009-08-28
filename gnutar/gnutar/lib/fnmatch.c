@@ -1,4 +1,4 @@
-/* Copyright (C) 1991,1992,1993,1996,1997,1998,1999,2000,2001,2002,2003,2004
+/* Copyright (C) 1991,1992,1993,1996,1997,1998,1999,2000,2001,2002,2003,2004,2005,2006,2007
 	Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
@@ -13,9 +13,9 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software Foundation,
-   Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
-#if HAVE_CONFIG_H
+#ifndef _LIBC
 # include <config.h>
 #endif
 
@@ -40,15 +40,14 @@
 #include <string.h>
 
 #define WIDE_CHAR_SUPPORT \
-  (HAVE_WCTYPE_H && HAVE_WCHAR_H && HAVE_BTOWC \
+  (HAVE_WCTYPE_H && HAVE_BTOWC && HAVE_ISWCTYPE \
    && HAVE_WMEMCHR && (HAVE_WMEMCPY || HAVE_WMEMPCPY))
 
 /* For platform which support the ISO C amendement 1 functionality we
    support user defined character classes.  */
 #if defined _LIBC || WIDE_CHAR_SUPPORT
-/* Solaris 2.5 has a bug: <wchar.h> must be included before <wctype.h>.  */
-# include <wchar.h>
 # include <wctype.h>
+# include <wchar.h>
 #endif
 
 /* We need some of the locale data (the collation sequence information)
@@ -86,33 +85,9 @@ extern int fnmatch (const char *pattern, const char *string, int flags);
 #if defined _LIBC || !defined __GNU_LIBRARY__ || !HAVE_FNMATCH_GNU
 
 
-# if defined STDC_HEADERS || !defined isascii
-#  define ISASCII(c) 1
-# else
-#  define ISASCII(c) isascii(c)
+# if ! (defined isblank || HAVE_DECL_ISBLANK)
+#  define isblank(c) ((c) == ' ' || (c) == '\t')
 # endif
-
-# ifdef isblank
-#  define ISBLANK(c) (ISASCII (c) && isblank (c))
-# else
-#  define ISBLANK(c) ((c) == ' ' || (c) == '\t')
-# endif
-# ifdef isgraph
-#  define ISGRAPH(c) (ISASCII (c) && isgraph (c))
-# else
-#  define ISGRAPH(c) (ISASCII (c) && isprint (c) && !isspace (c))
-# endif
-
-# define ISPRINT(c) (ISASCII (c) && isprint (c))
-# define ISDIGIT(c) (ISASCII (c) && isdigit (c))
-# define ISALNUM(c) (ISASCII (c) && isalnum (c))
-# define ISALPHA(c) (ISASCII (c) && isalpha (c))
-# define ISCNTRL(c) (ISASCII (c) && iscntrl (c))
-# define ISLOWER(c) (ISASCII (c) && islower (c))
-# define ISPUNCT(c) (ISASCII (c) && ispunct (c))
-# define ISSPACE(c) (ISASCII (c) && isspace (c))
-# define ISUPPER(c) (ISASCII (c) && isupper (c))
-# define ISXDIGIT(c) (ISASCII (c) && isxdigit (c))
 
 # define STREQ(s1, s2) ((strcmp (s1, s2) == 0))
 
@@ -169,18 +144,14 @@ static int posixly_correct;
 # endif
 
 /* Note that this evaluates C many times.  */
-# ifdef _LIBC
-#  define FOLD(c) ((flags & FNM_CASEFOLD) ? tolower (c) : (c))
-# else
-#  define FOLD(c) ((flags & FNM_CASEFOLD) && ISUPPER (c) ? tolower (c) : (c))
-# endif
+# define FOLD(c) ((flags & FNM_CASEFOLD) ? tolower (c) : (c))
 # define CHAR	char
 # define UCHAR	unsigned char
 # define INT	int
 # define FCT	internal_fnmatch
 # define EXT	ext_match
 # define END	end_pattern
-# define L(CS)	CS
+# define L_(CS)	CS
 # ifdef _LIBC
 #  define BTOWC(C)	__btowc (C)
 # else
@@ -210,7 +181,7 @@ static int posixly_correct;
 #  define FCT	internal_fnwmatch
 #  define EXT	ext_wmatch
 #  define END	end_wpattern
-#  define L(CS)	L##CS
+#  define L_(CS)	L##CS
 #  define BTOWC(C)	(C)
 #  ifdef _LIBC
 #   define STRLEN(S) __wcslen (S)
@@ -319,54 +290,51 @@ fnmatch (const char *pattern, const char *string, int flags)
 	 wide characters.  */
       memset (&ps, '\0', sizeof (ps));
       patsize = mbsrtowcs (NULL, &pattern, 0, &ps) + 1;
-      if (__builtin_expect (patsize == 0, 0))
-	/* Something wrong.
-	   XXX Do we have to set `errno' to something which mbsrtows hasn't
-	   already done?  */
-	return -1;
-      assert (mbsinit (&ps));
-      strsize = mbsrtowcs (NULL, &string, 0, &ps) + 1;
-      if (__builtin_expect (strsize == 0, 0))
-	/* Something wrong.
-	   XXX Do we have to set `errno' to something which mbsrtows hasn't
-	   already done?  */
-	return -1;
-      assert (mbsinit (&ps));
-      totsize = patsize + strsize;
-      if (__builtin_expect (! (patsize <= totsize
-			       && totsize <= SIZE_MAX / sizeof (wchar_t)),
-			    0))
+      if (__builtin_expect (patsize != 0, 1))
 	{
-	  errno = ENOMEM;
-	  return -1;
-	}
-
-      /* Allocate room for the wide characters.  */
-      if (__builtin_expect (totsize < ALLOCA_LIMIT, 1))
-	wpattern = (wchar_t *) alloca (totsize * sizeof (wchar_t));
-      else
-	{
-	  wpattern = malloc (totsize * sizeof (wchar_t));
-	  if (__builtin_expect (! wpattern, 0))
+	  assert (mbsinit (&ps));
+	  strsize = mbsrtowcs (NULL, &string, 0, &ps) + 1;
+	  if (__builtin_expect (strsize != 0, 1))
 	    {
-	      errno = ENOMEM;
-	      return -1;
+	      assert (mbsinit (&ps));
+	      totsize = patsize + strsize;
+	      if (__builtin_expect (! (patsize <= totsize
+				       && totsize <= SIZE_MAX / sizeof (wchar_t)),
+				    0))
+		{
+		  errno = ENOMEM;
+		  return -1;
+		}
+
+	      /* Allocate room for the wide characters.  */
+	      if (__builtin_expect (totsize < ALLOCA_LIMIT, 1))
+		wpattern = (wchar_t *) alloca (totsize * sizeof (wchar_t));
+	      else
+		{
+		  wpattern = malloc (totsize * sizeof (wchar_t));
+		  if (__builtin_expect (! wpattern, 0))
+		    {
+		      errno = ENOMEM;
+		      return -1;
+		    }
+		}
+	      wstring = wpattern + patsize;
+
+	      /* Convert the strings into wide characters.  */
+	      mbsrtowcs (wpattern, &pattern, patsize, &ps);
+	      assert (mbsinit (&ps));
+	      mbsrtowcs (wstring, &string, strsize, &ps);
+
+	      res = internal_fnwmatch (wpattern, wstring, wstring + strsize - 1,
+				       flags & FNM_PERIOD, flags);
+
+	      if (__builtin_expect (! (totsize < ALLOCA_LIMIT), 0))
+		free (wpattern);
+	      return res;
 	    }
 	}
-      wstring = wpattern + patsize;
-
-      /* Convert the strings into wide characters.  */
-      mbsrtowcs (wpattern, &pattern, patsize, &ps);
-      assert (mbsinit (&ps));
-      mbsrtowcs (wstring, &string, strsize, &ps);
-
-      res = internal_fnwmatch (wpattern, wstring, wstring + strsize - 1,
-			       flags & FNM_PERIOD, flags);
-
-      if (__builtin_expect (! (totsize < ALLOCA_LIMIT), 0))
-	free (wpattern);
-      return res;
     }
+
 # endif /* HANDLE_MULTIBYTE */
 
   return internal_fnmatch (pattern, string, string + strlen (string),

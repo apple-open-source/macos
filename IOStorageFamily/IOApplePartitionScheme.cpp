@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,7 +30,7 @@
 #define super IOPartitionScheme
 OSDefineMetaClassAndStructors(IOApplePartitionScheme, IOPartitionScheme);
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+//
 // Notes
 //
 // o the on-disk structure's fields are big-endian formatted
@@ -47,8 +47,6 @@ OSDefineMetaClassAndStructors(IOApplePartitionScheme, IOPartitionScheme);
 //       byte block size (for the one partition)
 // o the dpme_pblock_start block value is relative to the media container
 //
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 bool IOApplePartitionScheme::init(OSDictionary * properties)
 {
@@ -73,8 +71,6 @@ bool IOApplePartitionScheme::init(OSDictionary * properties)
     return true;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 void IOApplePartitionScheme::free()
 {
     //
@@ -85,8 +81,6 @@ void IOApplePartitionScheme::free()
 
     super::free();
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IOService * IOApplePartitionScheme::probe(IOService * provider, SInt32 * score)
 {
@@ -108,8 +102,6 @@ IOService * IOApplePartitionScheme::probe(IOService * provider, SInt32 * score)
 
     return ( _partitions ) ? this : 0;
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 bool IOApplePartitionScheme::start(IOService * provider)
 {
@@ -148,8 +140,6 @@ bool IOApplePartitionScheme::start(IOService * provider)
     return true;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 void IOApplePartitionScheme::stop(IOService * provider)
 {
     //
@@ -179,8 +169,6 @@ void IOApplePartitionScheme::stop(IOService * provider)
 
     super::stop(provider);
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IOReturn IOApplePartitionScheme::requestProbe(IOOptionBits options)
 {
@@ -217,8 +205,6 @@ IOReturn IOApplePartitionScheme::requestProbe(IOOptionBits options)
 
     return partitions ? kIOReturnSuccess : kIOReturnError;
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 OSSet * IOApplePartitionScheme::scan(SInt32 * score)
 {
@@ -440,8 +426,6 @@ scanErr:
     return 0;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 bool IOApplePartitionScheme::isPartitionCorrupt(
                                                dpme * /* partition          */ ,
                                                UInt32 /* partitionID        */ ,
@@ -455,8 +439,6 @@ bool IOApplePartitionScheme::isPartitionCorrupt(
 
     return false;
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 bool IOApplePartitionScheme::isPartitionInvalid( dpme * partition,
                                                  UInt32 partitionID,
@@ -489,8 +471,6 @@ bool IOApplePartitionScheme::isPartitionInvalid( dpme * partition,
 
     return false;
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IOMedia * IOApplePartitionScheme::instantiateMediaObject(
                                                      dpme * partition,
@@ -569,13 +549,13 @@ IOMedia * IOApplePartitionScheme::instantiateMediaObject(
             // Set a name for this partition.
 
             char name[24];
-            snprintf(name, sizeof(name), "Untitled %ld", partitionID);
+            snprintf(name, sizeof(name), "Untitled %d", (int) partitionID);
             newMedia->setName(partitionName[0] ? partitionName : name);
 
             // Set a location value (the partition number) for this partition.
 
             char location[12];
-            snprintf(location, sizeof(location), "%ld", partitionID);
+            snprintf(location, sizeof(location), "%d", (int) partitionID);
             newMedia->setLocation(location);
 
             // Set the "Partition ID" key for this partition.
@@ -592,8 +572,6 @@ IOMedia * IOApplePartitionScheme::instantiateMediaObject(
     return newMedia;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 IOMedia * IOApplePartitionScheme::instantiateDesiredMediaObject(
                                                      dpme * partition,
                                                      UInt32 partitionID,
@@ -606,8 +584,7 @@ IOMedia * IOApplePartitionScheme::instantiateDesiredMediaObject(
     return new IOMedia;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
+#ifndef __LP64__
 bool IOApplePartitionScheme::attachMediaObjectToDeviceTree(IOMedia * media)
 {
     //
@@ -617,8 +594,6 @@ bool IOApplePartitionScheme::attachMediaObjectToDeviceTree(IOMedia * media)
     return super::attachMediaObjectToDeviceTree(media);
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 void IOApplePartitionScheme::detachMediaObjectFromDeviceTree(IOMedia * media)
 {
     //
@@ -627,67 +602,21 @@ void IOApplePartitionScheme::detachMediaObjectFromDeviceTree(IOMedia * media)
 
     super::detachMediaObjectFromDeviceTree(media);
 }
+#endif /* !__LP64__ */
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOApplePartitionScheme, 0);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOApplePartitionScheme, 1);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOApplePartitionScheme, 2);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOApplePartitionScheme, 3);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOApplePartitionScheme, 4);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOApplePartitionScheme, 5);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOApplePartitionScheme, 6);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOApplePartitionScheme, 7);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOApplePartitionScheme, 8);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOApplePartitionScheme, 9);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
+OSMetaClassDefineReservedUnused(IOApplePartitionScheme,  0);
+OSMetaClassDefineReservedUnused(IOApplePartitionScheme,  1);
+OSMetaClassDefineReservedUnused(IOApplePartitionScheme,  2);
+OSMetaClassDefineReservedUnused(IOApplePartitionScheme,  3);
+OSMetaClassDefineReservedUnused(IOApplePartitionScheme,  4);
+OSMetaClassDefineReservedUnused(IOApplePartitionScheme,  5);
+OSMetaClassDefineReservedUnused(IOApplePartitionScheme,  6);
+OSMetaClassDefineReservedUnused(IOApplePartitionScheme,  7);
+OSMetaClassDefineReservedUnused(IOApplePartitionScheme,  8);
+OSMetaClassDefineReservedUnused(IOApplePartitionScheme,  9);
 OSMetaClassDefineReservedUnused(IOApplePartitionScheme, 10);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOApplePartitionScheme, 11);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOApplePartitionScheme, 12);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOApplePartitionScheme, 13);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOApplePartitionScheme, 14);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOApplePartitionScheme, 15);

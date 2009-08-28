@@ -38,7 +38,7 @@
 #if 0
 static const char sccsid[] = "@(#)sel_subs.c	8.1 (Berkeley) 5/31/93";
 #else
-static const char rcsid[] __attribute__((__unused__)) = "$OpenBSD: sel_subs.c,v 1.18 2004/04/16 22:50:23 deraadt Exp $";
+static const char rcsid[] = "$OpenBSD: sel_subs.c,v 1.18 2004/04/16 22:50:23 deraadt Exp $";
 #endif
 #endif /* not lint */
 

@@ -81,6 +81,9 @@
 
 /*****
  * BOM-integrity predicates.
+ *
+ * Kext integrity is no longer used on SnowLeopard. We read the
+ * flags but no kext will ever match them now.
  */
 #define kPredNameIntegrity               "-integrity"
 
@@ -232,12 +235,17 @@
 
 /*****
  * Command-line keywords for the five possible integrity states.
+ *
+ * Kext integrity is no longer used on SnowLeopard. We read the
+ * flags but no kext will ever match them now.
  */
 #define kIntegrityCorrect             "correct"
 #define kIntegrityUnknown             "unknown"
 #define kIntegrityNotApple            "not-apple"
 #define kIntegrityNoReceipt           "no-receipt"
 #define kIntegrityModified            "modified"
+
+#define kIntegrityNotApplicable       "n/a"
 
 #define kKeywordFlag    "flag"
 #define kKeywordCommand "command"

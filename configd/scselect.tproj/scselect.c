@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -48,8 +48,9 @@
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
 
-#include <Security/Security.h>
+#if	!TARGET_OS_IPHONE
 #include <Security/AuthSession.h>
+#endif	/* !TARGET_OS_IPHONE */
 
 
 static Boolean	apply	= TRUE;
@@ -103,6 +104,7 @@ isAdmin()
 }
 
 
+#if	!TARGET_OS_IPHONE
 static void *
 __loadSecurity(void) {
 	static void *image = NULL;
@@ -136,11 +138,12 @@ _SessionGetInfo(SecuritySessionId session, SecuritySessionId *sessionId, Session
 	return dyfunc ? dyfunc(session, sessionId, attributes) : -1;
 }
 #define SessionGetInfo _SessionGetInfo
-
+#endif	/* !TARGET_OS_IPHONE */
 
 static Boolean
 hasLocalConsoleAccess()
 {
+#if	!TARGET_OS_IPHONE
 	OSStatus		error;
 	SecuritySessionId	sessionID	= 0;
 	SessionAttributeBits	attributeBits	= 0;
@@ -152,6 +155,9 @@ hasLocalConsoleAccess()
 	}
 
 	return (attributeBits & (sessionHasGraphicAccess|sessionIsRemote)) == sessionHasGraphicAccess;
+#else	/* !TARGET_OS_IPHONE */
+	return TRUE;
+#endif	/* !TARGET_OS_IPHONE */
 }
 
 
@@ -198,7 +204,7 @@ main(int argc, char **argv)
 
 	newSet = (argc == 1)
 			? CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingMacRoman)
-			: CFSTR("");
+			: CFRetain(CFSTR(""));
 
 	prefs = SCPreferencesCreate(NULL, CFSTR("Select Set Command"), NULL);
 	if (prefs == NULL) {
@@ -239,10 +245,11 @@ main(int argc, char **argv)
 			CFStringDelete(tmp, CFRangeMake(0, CFStringGetLength(prefix)));
 			current = tmp;
 		} else {
+			CFRetain(current);
 			currentMatched = -1;	/* not prefixed */
 		}
 	} else {
-		current = CFSTR("");
+		current = CFRetain(CFSTR(""));
 		currentMatched = -2;	/* not defined */
 	}
 
@@ -265,7 +272,6 @@ main(int argc, char **argv)
 		if (CFEqual(newSet, key)) {
 			newSetUDN = CFDictionaryGetValue(dict, kSCPropUserDefinedName);
 			if (newSetUDN != NULL) CFRetain(newSetUDN);
-			current = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@%@"), prefix, newSet);
 			goto found;
 		}
 	}
@@ -280,7 +286,6 @@ main(int argc, char **argv)
 			CFRelease(newSet);
 			newSet = CFRetain(key);
 			CFRetain(newSetUDN);
-			current = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@%@"), prefix, newSet);
 			goto found;
 		}
 	}
@@ -329,6 +334,9 @@ main(int argc, char **argv)
 		exit (EX_NOPERM);
 	}
 
+	CFRelease(current);
+	current = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@%@"), prefix, newSet);
+
 	if (!SCPreferencesSetValue(prefs, kSCPrefCurrentSet, current)) {
 		SCPrint(TRUE, stderr,
 			CFSTR("SCPreferencesSetValue(...,%@,%@) failed\n"),
@@ -349,13 +357,17 @@ main(int argc, char **argv)
 		}
 	}
 
-	CFRelease(prefs);
-
 	SCPrint(TRUE, stdout,
 		CFSTR("%@ updated to %@ (%@)\n"),
 		kSCPrefCurrentSet,
 		newSet,
 		newSetUDN ? newSetUDN : CFSTR(""));
+
+	CFRelease(current);
+	CFRelease(newSet);
+	if (newSetUDN != NULL)	CFRelease(newSetUDN);
+	CFRelease(prefix);
+	CFRelease(prefs);
 
 	exit (0);
 	return 0;

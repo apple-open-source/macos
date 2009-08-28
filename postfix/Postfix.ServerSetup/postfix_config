@@ -9,6 +9,9 @@ _master_cf="/etc/postfix/master.cf"
 _master_cf_tmp="/etc/postfix/master.cf.tmp"
 _master_cf_orig="/etc/postfix/master.cf.orig"
 _master_cf_default="/etc/postfix/master.cf.default"
+_postfix_data_dir="/var/run/postfix"
+_other_plist="/etc/MailServicesOther.plist"
+_other_plist_default="/etc/MailServicesOther.plist.default"
 
 echo "Configuring Postfix..."
 
@@ -17,10 +20,17 @@ if [ ! -e "$_mail_log" ] ; then
   touch "$_mail_log"
 fi
 
+# Set mail.log ownership
+if [ -e "$_mail_log" ] ; then
+  chown root:admin "$_mail_log"
+  chmod 640 "$_mail_log"
+fi
+
 # Create main.cf file
 if [ ! -e "$_main_cf" ] ; then
   if [ -e "$_main_cf_default" ] ; then
     cp "$_main_cf_default" "$_main_cf"
+    chmod 644 "$_main_cf"
   else
     echo "$_main_cf_default does not exist:  Could not create $_main_cf"
   fi
@@ -30,9 +40,31 @@ fi
 if [ ! -e "$_master_cf" ] ; then
   if [ -e "$_master_cf_default" ] ; then
     cp "$_master_cf_default" "$_master_cf"
+    chmod 644 "$_master_cf"
   else
     echo "$_master_cf_default does not exist:  Could not create $_master_cf"
   fi
+fi
+
+# Setup mail other settins file with defaults
+if [ ! -e "$_other_plist" ] ; then
+  if [ -e "$_master_cf_default" ] ; then
+    cp "$_other_plist_default" "$_other_plist_default"
+    chmod 644 "$_other_plist"
+  else
+    echo "$_other_plist_default does not exist:  Could not create $_other_plist"
+  fi
+fi
+
+# Create new data directory
+#  - Required by 2.5.5
+if [ ! -d "$_postfix_data_dir" ] ; then
+  mkdir "$_postfix_data_dir"
+  chmod 755 "$_postfix_data_dir"
+  chown _postfix "$_postfix_data_dir"
+else
+  chmod 755 "$_postfix_data_dir"
+  chown _postfix "$_postfix_data_dir"
 fi
 
 # Set content_filter to nil in master.cf
@@ -55,5 +87,20 @@ fi
 /usr/sbin/postconf -e setgid_group=_postdrop
 /usr/sbin/postconf -e mailbox_size_limit=0
 
-sed 's/^mail\.\*/mail.crit/' < /etc/syslog.conf > /etc/syslog.conf.$$ && mv /etc/syslog.conf.$$ /etc/syslog.conf
+# Set spool permissions
+/usr/sbin/postfix check > /dev/null 2>&1
+/usr/sbin/postfix set-permissions > /dev/null 2>&1
 
+# If postfix is not running we want to give it a quick start/stop so it creates all necessary sockets & pipes
+POSTFIX_PID=`ps -cxU root | grep master | sed -n -e "s/[^0-9]*\([0-9]*\).*/\1/p"`
+if [ "$POSTFIX_PID" = "" ] ; then
+  /usr/sbin/postfix start
+  sleep 2
+  /usr/sbin/postfix stop
+fi
+
+# set default auth setting
+serveradmin settings mail:postfix:smtpd_pw_server_security_options:_array_index:0 = "cram-md5"
+
+# Set log level to critical
+sed 's/^mail\.\*/mail.crit/' < /etc/syslog.conf > /etc/syslog.conf.$$ && mv /etc/syslog.conf.$$ /etc/syslog.conf

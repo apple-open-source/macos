@@ -1,0 +1,51 @@
+
+The documentation is written in TMML (developed by Joe English). See
+http://tmml.sourceforge.net/ for informations about TMML.
+
+The HTML files and man pages are created from the TMML sources. 
+
+To process the TMML files you need:
+
+o tDOM
+
+  tDOM must be already successfully installed.
+
+o TMML
+
+  VERY IMPORTANT: Make sure, you have the current CVS HEAD of
+  TMML. The latest TMML distribution dates from August 2000 and could
+  not used for the steps, described below. Informations about how to
+  get TMML CVS HEAD could be found at
+  http://sourceforge.net/cvs/?group_id=16386 
+
+  You only need to check out the actual version of TMML, no further
+  installation or modification is needed.
+
+o tcllib
+  
+  The TMML tools uses a module out of tcllib. Any recent distribution
+  should do. If you really don't have it already, it's worth to
+  install it, regardless of this TMML stuff.  Installation should be
+  completely painless. Find it at
+  http://sourceforge.net/project/showfiles.php?group_id=12883
+
+If you have all requirements in place, just do:
+
+  tclsh path/to/your/tmml/tools/tmml.tcl toman dom.xml ?domDoc.xml  ...?
+
+This creates nroff man pages of the accordingly documentation in the sub dir
+man (which will be automatically created, if it doesn't exist.)
+ 
+The next command creates the HTML pages:
+
+  tclsh path/to/your/tmml/tools/tmml.tcl tohtml dom.xml ?domDoc.xml ...?
+
+This creates the HTML pages in the html sub dir (also, will be
+created, if needed).
+
+And you may do 
+
+  tclsh path/to/your/tmml/tools/tmml.tcl navpages
+
+This will create an index.html, the category-index.html and the
+keyword-index.html for the HTML version of the documentation.

@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in
-# Copyright (C) 2005 Simon Josefsson.
+# Copyright (C) 2005, 2006, 2007 Simon Josefsson.
 #
 # This file is part of GNU Libidn.
 #
@@ -18,7 +18,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
-CSHARPCOMP = $(SHELL) ../gl/csharpcomp.sh
+CSHARPCOMP = $(SHELL) $(top_builddir)/csharpcomp.sh
 CSHARPCOMPFLAGS =
 
 SOURCES = AssemblyInfo.cs IDNA.cs RFC3454.cs CombiningClass.cs	\
@@ -26,11 +26,15 @@ SOURCES = AssemblyInfo.cs IDNA.cs RFC3454.cs CombiningClass.cs	\
 	StringprepException.cs DecompositionKeys.cs Punycode.cs	\
 	DecompositionMappings.cs PunycodeException.cs
 
+SOURCES_GENERATE = generate/AssemblyInfo.cs \
+	generate/GenerateNFKC.cs generate/GenerateRFC3454.cs \
+	generate/HashSet.cs generate/Program.cs generate/Tokenizer.cs
+
 MSVSC = libidn.csproj libidn.csproj.user libidn_PPC.csdproj	\
 	libidn_PPC.csdproj.user libidn_PPC.sln libidn_PPC.suo	\
 	libidn.sln libidn.suo
 
-EXTRA_DIST = $(SOURCES) $(MSVSC)
+EXTRA_DIST = $(SOURCES) $(SOURCES_GENERATE) $(MSVSC)
 
 CLEANFILES = Libidn.dll
 
@@ -48,6 +52,28 @@ UNINSTALL_LOCAL_TARGETS += uninstall-dll
 Libidn.dll: $(SOURCES)
 	$(CSHARPCOMP) $(CSHARPCOMPFLAGS) -o $@ \
 		`for src in $(SOURCES); do echo $(srcdir)/$$src; done`
+
+SPEC = $(top_srcdir)/doc/specifications
+
+GenerateTables: $(SOURCES_GENERATE)
+	$(CSHARPCOMP) $(CSHARPCOMPFLAGS) -o $@ \
+		`for src in $(SOURCES_GENERATE); do echo $(srcdir)/$$src; done`
+	if ! test -f rfc3454.txt; then \
+		ln -s $(SPEC)/rfc3454.txt . \
+		|| cp $(SPEC)/rfc3454.txt .; \
+	fi
+	if ! test -f UnicodeData.txt; then \
+		ln -s $(SPEC)/UnicodeData-3.2.0.txt UnicodeData.txt \
+		|| cp $(SPEC)/UnicodeData-3.2.0.txt UnicodeData.txt; \
+	fi
+	if ! test -f CompositionExclusions.txt; then \
+		ln -s $(SPEC)/CompositionExclusions-3.2.0.txt CompositionExclusions.txt \
+		|| cp $(SPEC)/CompositionExclusions-3.2.0.txt CompositionExclusions.txt; \
+	fi
+
+RFC3454.cs CombiningClass.cs DecompositionKeys.cs DecompositionMappings.cs Composition.cs: $(GEN_SOURCES)
+	make GenerateTables
+	./GenerateTables
 
 install-dll-dir:
 	$(mkinstalldirs) $(DESTDIR)$(libdir)

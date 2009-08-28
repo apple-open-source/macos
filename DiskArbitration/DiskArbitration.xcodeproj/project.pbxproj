@@ -7,9 +7,9 @@
 	objects = {
 
 /* Begin PBXAggregateTarget section */
-		603C87A008EC8117004474CD /* all */ = {
+		603C87A008EC8117004474CD /* All */ = {
 			isa = PBXAggregateTarget;
-			buildConfigurationList = 603C87A908EC8117004474CD /* Build configuration list for PBXAggregateTarget "all" */;
+			buildConfigurationList = 603C87A908EC8117004474CD /* Build configuration list for PBXAggregateTarget "All" */;
 			buildPhases = (
 			);
 			dependencies = (
@@ -18,7 +18,7 @@
 				603C883008EC8117004474CD /* PBXTargetDependency */,
 				603C883208EC8117004474CD /* PBXTargetDependency */,
 			);
-			name = all;
+			name = All;
 			productName = DiskArbitration;
 		};
 /* End PBXAggregateTarget section */
@@ -26,7 +26,6 @@
 /* Begin PBXBuildFile section */
 		603C87B208EC8117004474CD /* autodiskmount.c in Sources */ = {isa = PBXBuildFile; fileRef = 6DC2CC130471E0DB00A87B01 /* autodiskmount.c */; };
 		603C87B408EC8117004474CD /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6DC2CC1D0471E23500A87B01 /* CoreFoundation.framework */; };
-		603C87B508EC8117004474CD /* DiskArbitration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6DC2CC2D0471E51D00A87B01 /* DiskArbitration.framework */; };
 		603C87B608EC8117004474CD /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6D5FF0C80471E5EE00A87B01 /* IOKit.framework */; };
 		603C87B808EC8117004474CD /* autodiskmount.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 604D7A7B07528AC5007E0745 /* autodiskmount.8 */; };
 		603C87C108EC8117004474CD /* vsdb.h in Headers */ = {isa = PBXBuildFile; fileRef = 6DA40B2203F8314600A87B01 /* vsdb.h */; };
@@ -130,13 +129,6 @@
 			remoteGlobalIDString = 603C880E08EC8117004474CD;
 			remoteInfo = "DiskArbitration (Upgraded)";
 		};
-		603C883308EC8117004474CD /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 12D2592B030A908603A87B01 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 603C880E08EC8117004474CD;
-			remoteInfo = "DiskArbitration (Upgraded)";
-		};
 		603C883508EC8117004474CD /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 12D2592B030A908603A87B01 /* Project object */;
@@ -216,7 +208,7 @@
 		12E786260343571B03A87B01 /* DACommand.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = DACommand.c; path = diskarbitrationd/DACommand.c; sourceTree = "<group>"; };
 		12EFD4EB038AE27403A87B01 /* DALog.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = DALog.h; path = diskarbitrationd/DALog.h; sourceTree = "<group>"; };
 		12EFD4EC038AE27403A87B01 /* DALog.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = DALog.c; path = diskarbitrationd/DALog.c; sourceTree = "<group>"; };
-		603C87BD08EC8117004474CD /* autodiskmount */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "compiled.mach-o.executable"; path = autodiskmount; sourceTree = BUILT_PRODUCTS_DIR; };
+		603C87BD08EC8117004474CD /* autodiskmount */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = autodiskmount; sourceTree = BUILT_PRODUCTS_DIR; };
 		603C87FB08EC8117004474CD /* diskarbitrationd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = diskarbitrationd; sourceTree = BUILT_PRODUCTS_DIR; };
 		603C880C08EC8117004474CD /* disktool */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = disktool; sourceTree = BUILT_PRODUCTS_DIR; };
 		603C882A08EC8117004474CD /* DiskArbitration.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = DiskArbitration.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -278,7 +270,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				603C87B408EC8117004474CD /* CoreFoundation.framework in Frameworks */,
-				603C87B508EC8117004474CD /* DiskArbitration.framework in Frameworks */,
 				603C87B608EC8117004474CD /* IOKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -603,7 +594,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				603C883408EC8117004474CD /* PBXTargetDependency */,
 			);
 			name = autodiskmount;
 			productInstallPath = /usr/local/bin;
@@ -660,7 +650,6 @@
 				603C881708EC8117004474CD /* Resources */,
 				603C881908EC8117004474CD /* Sources */,
 				603C882108EC8117004474CD /* Frameworks */,
-				605B6F0B0BBD6E9B00871E59 /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -678,12 +667,14 @@
 		12D2592B030A908603A87B01 /* Project object */ = {
 			isa = PBXProject;
 			buildConfigurationList = 60BCD1B1088D46E40091026D /* Build configuration list for PBXProject "DiskArbitration" */;
+			compatibilityVersion = "Xcode 2.4";
 			hasScannedForEncodings = 1;
 			mainGroup = 12D25927030A908603A87B01;
 			productRefGroup = 124AF309030AD93503A87B01 /* Products */;
 			projectDirPath = "";
+			projectRoot = "";
 			targets = (
-				603C87A008EC8117004474CD /* all */,
+				603C87A008EC8117004474CD /* All */,
 				603C87AD08EC8117004474CD /* autodiskmount */,
 				603C87BF08EC8117004474CD /* diskarbitrationd */,
 				603C87FD08EC8117004474CD /* disktool */,
@@ -716,19 +707,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "if [ -r /usr/local/lib/OrderFiles/DiskArbitration.order ] ; then\n\tcp /usr/local/lib/OrderFiles/DiskArbitration.order ${OBJROOT}/DiskArbitration.order\nelse\n\ttouch ${OBJROOT}/DiskArbitration.order\nfi";
-		};
-		605B6F0B0BBD6E9B00871E59 /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
-			files = (
-			);
-			inputPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = "mkdir -p ${DSTROOT}${SYSTEM_LIBRARY_DIR}/PrivateFrameworks\ncd ${DSTROOT}${SYSTEM_LIBRARY_DIR}/PrivateFrameworks\nln -s ../Frameworks/DiskArbitration.framework";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -815,11 +793,6 @@
 			target = 603C880E08EC8117004474CD /* DiskArbitration */;
 			targetProxy = 603C883108EC8117004474CD /* PBXContainerItemProxy */;
 		};
-		603C883408EC8117004474CD /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 603C880E08EC8117004474CD /* DiskArbitration */;
-			targetProxy = 603C883308EC8117004474CD /* PBXContainerItemProxy */;
-		};
 		603C883608EC8117004474CD /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 603C880E08EC8117004474CD /* DiskArbitration */;
@@ -839,225 +812,87 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
-		603C87AA08EC8117004474CD /* Development */ = {
+		603C87AA08EC8117004474CD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = All;
+			};
+			name = Debug;
+		};
+		603C87AB08EC8117004474CD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = All;
+			};
+			name = Release;
+		};
+		603C87BA08EC8117004474CD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = All;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = YES;
+				INSTALL_PATH = /sbin;
+				PRODUCT_NAME = autodiskmount;
+				VALID_ARCHS = i386;
+				WARNING_CFLAGS = "-Wall";
 			};
-			name = Development;
+			name = Debug;
 		};
-		603C87AB08EC8117004474CD /* Deployment */ = {
+		603C87BB08EC8117004474CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = All;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = NO;
+				INSTALL_PATH = /sbin;
+				PRODUCT_NAME = autodiskmount;
+				VALID_ARCHS = i386;
+				WARNING_CFLAGS = "-Wall";
 			};
-			name = Deployment;
+			name = Release;
 		};
-		603C87AC08EC8117004474CD /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = All;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Default;
-		};
-		603C87BA08EC8117004474CD /* Development */ = {
+		603C87F808EC8117004474CD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				INSTALL_PATH = /sbin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = autodiskmount;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
-				WARNING_CFLAGS = "-Wall";
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		603C87BB08EC8117004474CD /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				INSTALL_PATH = /sbin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = autodiskmount;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
-				WARNING_CFLAGS = "-Wall";
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		603C87BC08EC8117004474CD /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				INSTALL_PATH = /sbin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = autodiskmount;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
-				WARNING_CFLAGS = "-Wall";
-			};
-			name = Default;
-		};
-		603C87F808EC8117004474CD /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = __DISKARBITRATIOND__;
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = "-fconstant-cfstrings";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = diskarbitrationd;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
 				WARNING_CFLAGS = "-Wall";
-				ZERO_LINK = YES;
 			};
-			name = Development;
+			name = Debug;
 		};
-		603C87F908EC8117004474CD /* Deployment */ = {
+		603C87F908EC8117004474CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = __DISKARBITRATIOND__;
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = "-fconstant-cfstrings";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = diskarbitrationd;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
-				WARNING_CFLAGS = "-Wall";
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		603C87FA08EC8117004474CD /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				GCC_PREPROCESSOR_DEFINITIONS = __DISKARBITRATIOND__;
-				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = "-fconstant-cfstrings";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = diskarbitrationd;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
 				WARNING_CFLAGS = "-Wall";
 			};
-			name = Default;
+			name = Release;
 		};
-		603C880908EC8117004474CD /* Development */ = {
+		603C880908EC8117004474CD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = disktool;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = i386;
 				WARNING_CFLAGS = "-Wall";
-				ZERO_LINK = YES;
 			};
-			name = Development;
+			name = Debug;
 		};
-		603C880A08EC8117004474CD /* Deployment */ = {
+		603C880A08EC8117004474CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = disktool;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
-				WARNING_CFLAGS = "-Wall";
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		603C880B08EC8117004474CD /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = disktool;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = i386;
 				WARNING_CFLAGS = "-Wall";
 			};
-			name = Default;
+			name = Release;
 		};
-		603C882608EC8117004474CD /* Development */ = {
+		603C882608EC8117004474CD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = (
@@ -1069,16 +904,8 @@
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				FRAMEWORK_VERSION = A;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				INFOPLIST_FILE = DiskArbitration/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
-				OTHER_CFLAGS = "-fconstant-cfstrings";
-				OTHER_LDFLAGS = "";
-				OTHER_LIBTOOL_FLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRINCIPAL_CLASS = "";
 				PRODUCT_NAME = DiskArbitration;
 				SECTORDER_FLAGS = (
 					"-sectorder",
@@ -1088,11 +915,10 @@
 				);
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = framework;
-				ZERO_LINK = YES;
 			};
-			name = Development;
+			name = Debug;
 		};
-		603C882708EC8117004474CD /* Deployment */ = {
+		603C882708EC8117004474CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = (
@@ -1104,45 +930,8 @@
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				FRAMEWORK_VERSION = A;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				INFOPLIST_FILE = DiskArbitration/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
-				OTHER_CFLAGS = "-fconstant-cfstrings";
-				OTHER_LDFLAGS = "";
-				OTHER_LIBTOOL_FLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRINCIPAL_CLASS = "";
-				PRODUCT_NAME = DiskArbitration;
-				SECTORDER_FLAGS = (
-					"-sectorder",
-					__TEXT,
-					__text,
-					"$(OBJROOT)/DiskArbitration.order",
-				);
-				WARNING_CFLAGS = "-Wall";
-				WRAPPER_EXTENSION = framework;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		603C882808EC8117004474CD /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_VARIANTS = (
-					normal,
-					debug,
-					profile,
-				);
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				FRAMEWORK_VERSION = A;
-				INFOPLIST_FILE = DiskArbitration/Info.plist;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
-				OTHER_CFLAGS = "-fconstant-cfstrings";
-				OTHER_LDFLAGS = "";
-				OTHER_LIBTOOL_FLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRINCIPAL_CLASS = "";
 				PRODUCT_NAME = DiskArbitration;
 				SECTORDER_FLAGS = (
 					"-sectorder",
@@ -1153,88 +942,76 @@
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = framework;
 			};
-			name = Default;
+			name = Release;
 		};
-		60BCD1B2088D46E40091026D /* Development */ = {
+		60BCD1B2088D46E40091026D /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 			};
-			name = Development;
+			name = Debug;
 		};
-		60BCD1B3088D46E40091026D /* Deployment */ = {
+		60BCD1B3088D46E40091026D /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 			};
-			name = Deployment;
-		};
-		60BCD1B4088D46E40091026D /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-			};
-			name = Default;
+			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		603C87A908EC8117004474CD /* Build configuration list for PBXAggregateTarget "all" */ = {
+		603C87A908EC8117004474CD /* Build configuration list for PBXAggregateTarget "All" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				603C87AA08EC8117004474CD /* Development */,
-				603C87AB08EC8117004474CD /* Deployment */,
-				603C87AC08EC8117004474CD /* Default */,
+				603C87AA08EC8117004474CD /* Debug */,
+				603C87AB08EC8117004474CD /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
 		603C87B908EC8117004474CD /* Build configuration list for PBXNativeTarget "autodiskmount" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				603C87BA08EC8117004474CD /* Development */,
-				603C87BB08EC8117004474CD /* Deployment */,
-				603C87BC08EC8117004474CD /* Default */,
+				603C87BA08EC8117004474CD /* Debug */,
+				603C87BB08EC8117004474CD /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
 		603C87F708EC8117004474CD /* Build configuration list for PBXNativeTarget "diskarbitrationd" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				603C87F808EC8117004474CD /* Development */,
-				603C87F908EC8117004474CD /* Deployment */,
-				603C87FA08EC8117004474CD /* Default */,
+				603C87F808EC8117004474CD /* Debug */,
+				603C87F908EC8117004474CD /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
 		603C880808EC8117004474CD /* Build configuration list for PBXNativeTarget "disktool" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				603C880908EC8117004474CD /* Development */,
-				603C880A08EC8117004474CD /* Deployment */,
-				603C880B08EC8117004474CD /* Default */,
+				603C880908EC8117004474CD /* Debug */,
+				603C880A08EC8117004474CD /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
 		603C882508EC8117004474CD /* Build configuration list for PBXNativeTarget "DiskArbitration" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				603C882608EC8117004474CD /* Development */,
-				603C882708EC8117004474CD /* Deployment */,
-				603C882808EC8117004474CD /* Default */,
+				603C882608EC8117004474CD /* Debug */,
+				603C882708EC8117004474CD /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
 		60BCD1B1088D46E40091026D /* Build configuration list for PBXProject "DiskArbitration" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				60BCD1B2088D46E40091026D /* Development */,
-				60BCD1B3088D46E40091026D /* Deployment */,
-				60BCD1B4088D46E40091026D /* Default */,
+				60BCD1B2088D46E40091026D /* Debug */,
+				60BCD1B3088D46E40091026D /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

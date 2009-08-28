@@ -1,10 +1,9 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1996,2007 Oracle.  All rights reserved.
  *
- * $Id: db_page.h,v 1.2 2004/03/30 01:21:28 jtownsen Exp $
+ * $Id: db_page.h,v 12.13 2007/05/17 15:15:05 bostic Exp $
  */
 
 #ifndef _DB_PAGE_H_
@@ -36,7 +35,7 @@ extern "C" {
 /* Page types. */
 #define	P_INVALID	0	/* Invalid page type. */
 #define	__P_DUPLICATE	1	/* Duplicate. DEPRECATED in 3.1 */
-#define	P_HASH		2	/* Hash. */
+#define	P_HASH_UNSORTED	2	/* Hash pages created pre 4.6. DEPRECATED */
 #define	P_IBTREE	3	/* Btree internal. */
 #define	P_IRECNO	4	/* Recno internal. */
 #define	P_LBTREE	5	/* Btree leaf. */
@@ -47,7 +46,10 @@ extern "C" {
 #define	P_QAMMETA	10	/* Queue metadata page. */
 #define	P_QAMDATA	11	/* Queue data page. */
 #define	P_LDUP		12	/* Off-page duplicate leaf. */
-#define	P_PAGETYPE_MAX	13
+#define	P_HASH		13	/* Sorted hash page. */
+#define	P_PAGETYPE_MAX	14
+/* Flag to __db_new */
+#define	P_DONTEXTEND	0x8000	/* Don't allocate if there are no free pages. */
 
 /*
  * When we create pages in mpool, we ask mpool to clear some number of bytes
@@ -100,12 +102,12 @@ typedef struct _btmeta33 {
 #define	BTM_MASK	0x07f
 	DBMETA	dbmeta;		/* 00-71: Generic meta-data header. */
 
-	u_int32_t maxkey;	/* 72-75: Btree: Maxkey. */
+	u_int32_t unused1;	/* 72-75: Unused space. */
 	u_int32_t minkey;	/* 76-79: Btree: Minkey. */
 	u_int32_t re_len;	/* 80-83: Recno: fixed-length record length. */
 	u_int32_t re_pad;	/* 84-87: Recno: fixed-length record pad. */
 	u_int32_t root;		/* 88-91: Root page. */
-	u_int32_t unused[92];	/* 92-459: Unused space */
+	u_int32_t unused2[92];	/* 92-459: Unused space. */
 	u_int32_t crypto_magic;		/* 460-463: Crypto magic number */
 	u_int32_t trash[3];		/* 464-475: Trash space - Do not use */
 	u_int8_t iv[DB_IV_BYTES];	/* 476-495: Crypto IV */
@@ -268,7 +270,7 @@ typedef struct _db_page {
 	(F_ISSET((dbp), DB_AM_ENCRYPT) ? ((u_int8_t *)(pg) +		\
 	SIZEOF_PAGE + SSZA(PG_CRYPTO, chksum)) :			\
 	(F_ISSET((dbp), DB_AM_CHKSUM) ? ((u_int8_t *)(pg) +		\
-	SIZEOF_PAGE + SSZA(PG_CHKSUM, chksum))			\
+	SIZEOF_PAGE + SSZA(PG_CHKSUM, chksum))				\
 	: NULL))
 
 /* PAGE element macros. */
@@ -454,9 +456,9 @@ typedef struct _hkeydata {
 	(HKEYDATA_SIZE(len) + sizeof(db_indx_t))
 
 /* Put a HKEYDATA item at the location referenced by a page entry. */
-#define	PUT_HKEYDATA(pe, kd, len, type) {				\
-	((HKEYDATA *)pe)->type = type;					\
-	memcpy((u_int8_t *)pe + sizeof(u_int8_t), kd, len);		\
+#define	PUT_HKEYDATA(pe, kd, len, etype) {				\
+	((HKEYDATA *)(pe))->type = etype;				\
+	memcpy((u_int8_t *)(pe) + sizeof(u_int8_t), kd, len);		\
 }
 
 /*
@@ -531,12 +533,9 @@ typedef struct _hoffdup {
 #define	B_DSET(t)	(t) |= B_DELETE
 #define	B_DISSET(t)	((t) & B_DELETE)
 
-#define	B_TYPE(t)	((t) & ~B_DELETE)
-#define	B_TSET(t, type, deleted) {					\
-	(t) = (type);							\
-	if (deleted)							\
-		B_DSET(t);						\
-}
+#define	B_TYPE(t)		((t) & ~B_DELETE)
+#define	B_TSET(t, type)	((t) = B_TYPE(type))
+#define	B_TSET_DELETED(t, type) ((t) = (type) | B_DELETE)
 
 /*
  * The first type is B_KEYDATA, represented by the BKEYDATA structure:
@@ -553,10 +552,13 @@ typedef struct _bkeydata {
 
 /*
  * Page space required to add a new BKEYDATA item to the page, with and
- * without the index value.
+ * without the index value.  The (u_int16_t) cast avoids warnings: DB_ALIGN
+ * casts to uintmax_t, the cast converts it to a small integral type so we
+ * don't get complaints when we assign the final result to an integral type
+ * smaller than uintmax_t.
  */
 #define	BKEYDATA_SIZE(len)						\
-	ALIGN((len) + SSZA(BKEYDATA, data), sizeof(u_int32_t))
+	(u_int16_t)DB_ALIGN((len) + SSZA(BKEYDATA, data), sizeof(u_int32_t))
 #define	BKEYDATA_PSIZE(len)						\
 	(BKEYDATA_SIZE(len) + sizeof(db_indx_t))
 
@@ -578,15 +580,20 @@ typedef struct _boverflow {
 
 /*
  * Page space required to add a new BOVERFLOW item to the page, with and
- * without the index value.  The (u_int16_t) cast avoids warnings: ALIGN
- * casts to db_align_t, the cast converts it to a small integral type so
- * we don't get complaints when we assign the final result to an integral
- * type smaller than db_align_t.
+ * without the index value.
  */
 #define	BOVERFLOW_SIZE							\
-	((u_int16_t)ALIGN(sizeof(BOVERFLOW), sizeof(u_int32_t)))
+	((u_int16_t)DB_ALIGN(sizeof(BOVERFLOW), sizeof(u_int32_t)))
 #define	BOVERFLOW_PSIZE							\
 	(BOVERFLOW_SIZE + sizeof(db_indx_t))
+
+#define	BITEM_SIZE(bk)							\
+	(B_TYPE((bk)->type) != B_KEYDATA ? BOVERFLOW_SIZE :		\
+	BKEYDATA_SIZE((bk)->len))
+
+#define	BITEM_PSIZE(bk)							\
+	(B_TYPE((bk)->type) != B_KEYDATA ? BOVERFLOW_PSIZE :		\
+	BKEYDATA_PSIZE((bk)->len))
 
 /*
  * Btree leaf and hash page layouts group indices in sets of two, one for the
@@ -621,7 +628,7 @@ typedef struct _binternal {
  * without the index value.
  */
 #define	BINTERNAL_SIZE(len)						\
-	ALIGN((len) + SSZA(BINTERNAL, data), sizeof(u_int32_t))
+	(u_int16_t)DB_ALIGN((len) + SSZA(BINTERNAL, data), sizeof(u_int32_t))
 #define	BINTERNAL_PSIZE(len)						\
 	(BINTERNAL_SIZE(len) + sizeof(db_indx_t))
 
@@ -646,9 +653,14 @@ typedef struct _rinternal {
  * without the index value.
  */
 #define	RINTERNAL_SIZE							\
-	ALIGN(sizeof(RINTERNAL), sizeof(u_int32_t))
+	(u_int16_t)DB_ALIGN(sizeof(RINTERNAL), sizeof(u_int32_t))
 #define	RINTERNAL_PSIZE							\
 	(RINTERNAL_SIZE + sizeof(db_indx_t))
+
+struct pglist {
+	db_pgno_t pgno;
+	DB_LSN lsn;
+};
 
 #if defined(__cplusplus)
 }

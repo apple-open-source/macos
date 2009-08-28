@@ -1,14 +1,14 @@
 # Polish translation for libidn.
-# Copyright (C) 2004 Free Software Foundation, Inc.
+# Copyright (C) 2004, 2007 Free Software Foundation, Inc.
 # This file is distributed under the same license as the libidn package.
-# Jakub Bogusz <qboosh@pld-linux.org>, 2004.
+# Jakub Bogusz <qboosh@pld-linux.org>, 2004-2007.
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: libidn 0.5.6\n"
+"Project-Id-Version: libidn 0.6.12\n"
 "Report-Msgid-Bugs-To: bug-libidn@gnu.org\n"
-"POT-Creation-Date: 2005-12-03 11:36+0100\n"
-"PO-Revision-Date: 2004-10-15 22:20+0200\n"
+"POT-Creation-Date: 2007-05-31 12:54+0200\n"
+"PO-Revision-Date: 2007-05-30 17:33+0200\n"
 "Last-Translator: Jakub Bogusz <qboosh@pld-linux.org>\n"
 "Language-Team: Polish <translation-team-pl@lists.sourceforge.net>\n"
 "MIME-Version: 1.0\n"
@@ -127,16 +127,16 @@ msgid "Could not convert from UTF-8 to UCS-4."
 msgstr "Nie mo¿na przekonwertowaæ z UTF-8 na UCS-4."
 
 #, c-format
-msgid "input[%d] = U+%04x\n"
-msgstr "wej¶cie[%d] = U+%04x\n"
+msgid "input[%lu] = U+%04x\n"
+msgstr "wej¶cie[%lu] = U+%04x\n"
 
 #, c-format
 msgid "stringprep_profile: %s"
 msgstr "stringprep_profile: %s"
 
 #, c-format
-msgid "output[%d] = U+%04x\n"
-msgstr "wyj¶cie[%d] = U+%04x\n"
+msgid "output[%lu] = U+%04x\n"
+msgstr "wyj¶cie[%lu] = U+%04x\n"
 
 #, c-format
 msgid "Could not convert from UTF-8 to %s."
@@ -165,12 +165,12 @@ msgid "idna_to_unicode_8z4z (TLD): %s"
 msgstr "idna_to_unicode_8z4z (TLD): %s"
 
 #, c-format
-msgid "tld[%d] = U+%04x\n"
-msgstr "tld[%d] = U+%04x\n"
+msgid "tld[%lu] = U+%04x\n"
+msgstr "tld[%lu] = U+%04x\n"
 
 #, c-format
-msgid "tld_check_4z (position %d): %s"
-msgstr "tld_check_4z (pozycja %d): %s"
+msgid "tld_check_4z (position %lu): %s"
+msgstr "tld_check_4z (pozycja %lu): %s"
 
 #, c-format
 msgid "tld_check_4z: %s"

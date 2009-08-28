@@ -33,14 +33,14 @@ using namespace CssmClient;
 
 
 PrimaryKeyImpl::PrimaryKeyImpl(const CSSM_DATA &data)
-: CssmDataContainer(data.Data, data.Length)
+: CssmDataContainer(data.Data, data.Length), mMutex(Mutex::recursive)
 {
 
 //@@@ do bounds checking here, throw if invalid
 
 }
 
-PrimaryKeyImpl::PrimaryKeyImpl(const DbAttributes &primaryKeyAttrs)
+PrimaryKeyImpl::PrimaryKeyImpl(const DbAttributes &primaryKeyAttrs) : mMutex(Mutex::recursive)
 {
 	Length = sizeof(uint32);
 	for (uint32 ix = 0; ix < primaryKeyAttrs.size(); ++ix)
@@ -68,6 +68,7 @@ PrimaryKeyImpl::PrimaryKeyImpl(const DbAttributes &primaryKeyAttrs)
 CssmClient::DbCursor
 PrimaryKeyImpl::createCursor(const Keychain &keychain) 
 {
+	StLock<Mutex>_(mMutex);
 	DbCursor cursor(keychain->database());
 
 	// @@@ Set up cursor to find item with this.

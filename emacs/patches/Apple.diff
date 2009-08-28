@@ -363,39 +363,6 @@ diff -u -b -r1.10 m-mac.h
  
  /* Define VIRT_ADDR_VARIES if the virtual addresses of
     pure and impure space as loaded can vary, and even their
-Index: src/Makefile.in
-===================================================================
-RCS file: /cvsroot/emacs/emacs/src/Makefile.in,v
-retrieving revision 1.340
-diff -u -b -r1.340 Makefile.in
---- src/Makefile.in	20 Mar 2007 08:49:19 -0000	1.340
-+++ src/Makefile.in	2 Jun 2007 16:22:08 -0000
-@@ -957,6 +957,13 @@
- 	rm -f emacs${EXEEXT}
- 	ln temacs${EXEEXT} emacs${EXEEXT}
- #else
-+	if [ -n "`file temacs | grep 'Mach-O universal binary'`" ]; then	\
-+		mv temacs emacs-undumped;				\
-+		lipo -thin `$(SRCROOT)/filearch.rb emacs-undumped` -output temacs emacs-undumped;	\
-+	else if [ -n "`file temacs | grep 'Mach-O'`" ]; then		\
-+		cp temacs emacs-undumped;				\
-+	fi								\
-+	fi
- #ifdef HAVE_SHM
- 	LC_ALL=C $(RUN_TEMACS) -nl -batch -l loadup dump
- #else /* ! defined (HAVE_SHM) */
-@@ -1382,6 +1389,11 @@
- #ifdef CANNOT_DUMP
- 	ln temacs${EXEEXT} bootstrap-emacs${EXEEXT}
- #else
-+	if [ -n "`file temacs | grep 'Mach-O universal binary'`" ]; then        \
-+		mv temacs emacs-undumped;                               \
-+		lipo -thin `$(SRCROOT)/filearch.rb emacs-undumped` -output temacs emacs-undumped;        \
-+		rm emacs-undumped;					\
-+	fi
- #ifdef HAVE_SHM
- 	$(RUN_TEMACS) -nl -batch -l loadup bootstrap
- #else /* ! defined (HAVE_SHM) */
 Index: src/dispnew.c
 ===================================================================
 RCS file: /cvsroot/emacs/emacs/src/dispnew.c,v
@@ -493,88 +460,6 @@ diff -u -b -r1.77 mac.c
  }
  
  
-Index: src/unexmacosx.c
-===================================================================
-RCS file: /cvsroot/emacs/emacs/src/unexmacosx.c,v
-retrieving revision 1.22
-diff -u -b -r1.22 unexmacosx.c
---- src/unexmacosx.c	21 Jan 2007 04:18:15 -0000	1.22
-+++ src/unexmacosx.c	2 Jun 2007 16:22:08 -0000
-@@ -443,17 +443,7 @@
- 
-   while (num && num_unexec_regions < MAX_UNEXEC_REGIONS)
-     {
--      /* Subtract the size of trailing null pages from filesize.  It
--	 can be smaller than vmsize in segment commands.  In such a
--	 case, trailing pages are initialized with zeros.  */
--      for (p = ranges->address + ranges->size; p > ranges->address;
--	   p -= sizeof (int))
--	if (*(((int *) p)-1))
--	  break;
--      filesize = ROUNDUP_TO_PAGE_BOUNDARY (p - ranges->address);
--      assert (filesize <= ranges->size);
--
--      unexec_regions[num_unexec_regions].filesize = filesize;
-+      unexec_regions[num_unexec_regions].filesize = ranges->size;
-       unexec_regions[num_unexec_regions++].range = *ranges;
-       printf ("%#10lx (sz: %#8lx/%#8lx)\n", (long) (ranges->address),
- 	      (long) filesize, (long) (ranges->size));
-@@ -502,6 +492,7 @@
- unexec_regions_merge ()
- {
-   int i, n;
-+  vm_address_t end;
-   unexec_region_info r;
- 
-   qsort (unexec_regions, num_unexec_regions, sizeof (unexec_regions[0]),
-@@ -517,11 +508,27 @@
- 	  r.range.size += unexec_regions[i].range.size;
- 	}
-       else
--	{
-+	{	/* All segments must be a multiple of pagesize */
-+	  end = r.range.address + r.range.size;
-+	  if (end & (pagesize-1L)) {
-+	    end = ROUNDUP_TO_PAGE_BOUNDARY(end);
-+	    printf("Page (%#8x) aligning region @%#8x size from %#8x to %#8x\n",
-+		   pagesize, r.range.address, r.range.size, end - r.range.address);
-+	    r.range.size = end - r.range.address;
-+	    r.filesize = r.range.size;
-+	  }
- 	  unexec_regions[n++] = r;
- 	  r = unexec_regions[i];
- 	}
-     }
-+  end = r.range.address + r.range.size;
-+  if (end & (pagesize-1L)) {
-+     end = ROUNDUP_TO_PAGE_BOUNDARY(end);
-+     printf("Page (%#8x) aligning region @%#8x size from %#8x to %#8x\n",
-+	    pagesize, r.range.address, r.range.size, end - r.range.address);
-+     r.range.size = end - r.range.address;
-+     r.filesize = r.range.size;
-+  }
-   unexec_regions[n++] = r;
-   num_unexec_regions = n;
- }
-@@ -562,6 +569,9 @@
-     case LC_TWOLEVEL_HINTS:
-       printf ("LC_TWOLEVEL_HINTS");
-       break;
-+    case LC_UUID:
-+      printf("LC_UUID");
-+      break;
-     default:
-       printf ("unknown          ");
-     }
-@@ -846,7 +856,7 @@
- 	      (long) (sc.vmsize), (long) (sc.vmaddr));
- 
-       if (!unexec_write (sc.fileoff, (void *) sc.vmaddr, sc.filesize))
--	unexec_error ("cannot write new __DATA segment");
-+        unexec_error ("cannot write new __DATA segment %#8x (sz: %#8x)", sc.vmaddr, sc.filesize);
-       curr_file_offset += ROUNDUP_TO_PAGE_BOUNDARY (sc.filesize);
- 
-       if (!unexec_write (curr_header_offset, &sc, sc.cmdsize))
 Index: src/s/darwin.h
 ===================================================================
 RCS file: /cvsroot/emacs/emacs/src/s/darwin.h,v

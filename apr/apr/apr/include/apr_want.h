@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -81,9 +81,27 @@
 
 #ifdef APR_WANT_IOVEC
 
+#if APR_HAVE_IOVEC
+
 #if APR_HAVE_SYS_UIO_H
 #include <sys/uio.h>
 #endif
+
+#else
+
+struct iovec
+{
+    char *iov_base;
+    size_t iov_len;
+};
+
+#endif
+
+/* apr_want is included at several layers; redefining APR_HAVE_IOVEC
+ * now to ensure that our struct is not introduced several times.
+ */
+#undef APR_HAVE_IOVEC
+#define APR_HAVE_IOVEC 1
 
 #undef APR_WANT_IOVEC
 #endif

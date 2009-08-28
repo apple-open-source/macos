@@ -1,0 +1,73 @@
+package provide xotcl::registry::registry 0.8
+
+package require xotcl::trace
+package require xotcl::rdf::triple
+package require xotcl::rdf::tripleRecreator
+package require xotcl::actiweb::agent
+package require XOTcl
+
+namespace eval ::xotcl::registry::registry {
+    namespace import ::xotcl::*
+
+    Class Registry -superclass Agent
+
+    Registry instproc init args {
+	next
+	my exportProcs register query queryProperty
+	RDFParser [self]::parser
+	TripleVisitor [self]::tripleVisitor -parser [self]::parser
+	[self]::tripleVisitor descriptionAsBag 0
+	my array set services {}
+    }
+
+    Registry instproc register {rdfScript} {
+	#my showCall
+	[[self]::tripleVisitor set parser] parse $rdfScript
+	[self]::tripleVisitor interpretNodeTree [self]::parser::topNode
+	[self]::tripleVisitor resetWithoutDB
+	foreach serviceTriple [[self]::tripleVisitor::db queryPredicate \
+				   "http://nestroy.wi-inf.uni-essen.de/schema/service#name"] {
+	    set service [$serviceTriple object]
+	    if {[info exists services($service)]} {
+		puts stderr "we have already such a service '$service'"
+		# hier koennte man ueberlegen, den service zu loeschen oder nicht
+		# zZT: loesche altes service
+	    }
+	    puts stderr "REGISTRY: registering $service with [$serviceTriple subject]"
+	    my set services($service) [$serviceTriple subject];
+	}
+    }
+
+    Registry instproc query {service} {
+	my showCall
+	if {[info exists services($service)]} {
+	    set s [my set services($service)]
+	    return [[Place getInstance]::rdfCreator createFromTriples [[self]::tripleVisitor::db querySubject $s]]
+	}
+    }
+
+    Registry instproc queryProperty {args} {
+	# returns first service with matching properties
+	my showCall
+	foreach s [my array names services] {
+	    set success 1
+	    foreach {att value} $args {
+		set t [[self]::tripleVisitor::db queryPredicateOnSubject $att [my set services($s)]]
+		if {$t eq "" || [$t object] != $value} {
+		    set success 0
+		    break
+		}
+	    }
+	    if {$success} {
+		set r [my query $s]
+		return $r
+	    } else {
+		return ""
+	    }
+	}
+    }
+
+    namespace export Registry
+}
+
+namespace import ::xotcl::registry::registry::*

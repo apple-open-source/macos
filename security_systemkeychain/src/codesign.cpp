@@ -29,8 +29,6 @@
 #include <cmath>
 #include <getopt.h>
 
-
-using namespace CodeSigning;
 using namespace UnixPlusPlus;
 
 
@@ -57,7 +55,8 @@ SecIdentityRef signer = NULL;		// signer identity
 SecKeychainRef keychain = NULL;		// source keychain for signer identity
 const char *internalReq = NULL;		// internal requirement (raw optarg)
 const char *testReq = NULL;			// external requirement (raw optarg)
-const char *detached = NULL;		// detached signature path
+const char *detached = NULL;		// detached signature path (to explicit file)
+const char *detachedDb = NULL;		// reference to detached signature database
 const char *entitlements = NULL;	// path to entitlement configuration input
 const char *resourceRules = NULL;	// explicit resource rules template
 const char *uniqueIdentifier = NULL; // unique ident hash
@@ -78,6 +77,7 @@ bool preserveMetadata = false;		// keep metadata from previous signature (if any
 // Local functions
 //
 static void usage();
+static OSStatus keychain_open(const char *name, SecKeychainRef &keychain);
 
 
 //
@@ -86,6 +86,7 @@ static void usage();
 enum {
 	optCheckExpiration = 1,
 	optContinue,
+	optDetachedDatabase,
 	optDryRun,
 	optExtractCerts,
 	optEntitlements,
@@ -121,6 +122,7 @@ const struct option options[] = {
 
 	{ "check-expiration", no_argument,		NULL, optCheckExpiration },
 	{ "continue",	no_argument,			NULL, optContinue },
+	{ "detached-database", optional_argument, NULL, optDetachedDatabase },
 	{ "dryrun",		no_argument,			NULL, optDryRun },
 	{ "entitlements", required_argument,	NULL, optEntitlements },
 	{ "expired",	no_argument,			NULL, optCheckExpiration },
@@ -133,6 +135,7 @@ const struct option options[] = {
 	{ "preserve-metadata", no_argument,		NULL, optPreserveMetadata },
 	{ "procaction",	required_argument,		NULL, optProcAction },
 	{ "procinfo",	no_argument,			NULL, optProcInfo },
+	{ "remove-signature", no_argument,		NULL, optRemoveSignature },
 	{ "resource-rules", required_argument,	NULL, optResourceRules },
 	{ "signature-size", required_argument,	NULL, optSignatureSize },
 	{ "signing-time", required_argument,	NULL, optSigningTime },
@@ -205,6 +208,12 @@ int main(int argc, char *argv[])
 			case optContinue:
 				continueOnError = true;
 				break;
+			case optDetachedDatabase:
+				if (optarg)
+					detachedDb = optarg;
+				else
+					detachedDb = "system";
+				break;
 			case optDryRun:
 				dryrun = true;
 				break;
@@ -227,7 +236,7 @@ int main(int argc, char *argv[])
 				verifyOptions |= kSecCSDoNotValidateResources;
 				break;
 			case optKeychain:
-				MacOSError::check(SecKeychainOpen(optarg, &keychain));
+				MacOSError::check(keychain_open(optarg, keychain));
 				break;
 			case optNoMachO:
 				noMachO = true;
@@ -241,6 +250,10 @@ int main(int argc, char *argv[])
 				break;
 			case optProcInfo:
 				operation = doProcInfo;
+				break;
+			case optRemoveSignature:
+				signerName = NULL;
+				operation = doSign;		// well, un-sign
 				break;
 			case optResourceRules:
 				resourceRules = optarg;
@@ -293,13 +306,7 @@ int main(int argc, char *argv[])
 				sign(target);
 				break;
 			case doVerify:
-				try {
-					verify(target);
-				} catch (...) {
-					diagnose(target);
-					if (!exitcode)
-						exitcode = exitFailure;
-				}
+				verify(target);
 				break;
 			case doDump:
 				dump(target);
@@ -315,7 +322,11 @@ int main(int argc, char *argv[])
 				break;
 			}
 		} catch (...) {
-			diagnose(target, continueOnError ? 0 : exitFailure);
+			diagnose(target);
+			if (!exitcode)
+				exitcode = exitFailure;
+			if (!continueOnError)
+				exit(exitFailure);
 		}
 	}
 
@@ -331,3 +342,47 @@ void usage()
 	);
 	exit(exitUsage);
 }
+
+OSStatus
+keychain_open(const char *name, SecKeychainRef &keychain)
+{
+	OSStatus result;
+
+//	check_obsolete_keychain(name);
+	if (name && name[0] != '/')
+	{
+		CFArrayRef dynamic = NULL;
+		result = SecKeychainCopyDomainSearchList(
+			kSecPreferencesDomainDynamic, &dynamic);
+		if (result)
+			return result;
+		else
+		{
+			uint32_t i;
+			uint32_t count = dynamic ? CFArrayGetCount(dynamic) : 0;
+
+			for (i = 0; i < count; ++i)
+			{
+				char pathName[PATH_MAX];
+				UInt32 ioPathLength = sizeof(pathName);
+				bzero(pathName, ioPathLength);
+				keychain = (SecKeychainRef)CFArrayGetValueAtIndex(dynamic, i);
+				result = SecKeychainGetPath(keychain, &ioPathLength, pathName);
+				if (result)
+					return result;
+
+				if (!strncmp(pathName, name, ioPathLength))
+				{
+					CFRetain(keychain);
+					CFRelease(dynamic);
+					return noErr;
+				}
+			}
+			CFRelease(dynamic);
+		}
+	}
+
+	return SecKeychainOpen(name, &keychain);
+}
+
+

@@ -1161,7 +1161,7 @@ sec_asn1d_prepare_for_contents (sec_asn1d_state *state,
 	PORT_Assert (state->underlying_kind == SEC_ASN1_SET_OF
 	   || state->underlying_kind == SEC_ASN1_SEQUENCE_OF
 	   || state->underlying_kind == (SEC_ASN1_SEQUENCE_OF|SEC_ASN1_DYNAMIC)
-	   || state->underlying_kind == (SEC_ASN1_SEQUENCE_OF|SEC_ASN1_DYNAMIC)
+	   || state->underlying_kind == (SEC_ASN1_SET_OF|SEC_ASN1_DYNAMIC)
 		     );
 	if (state->contents_length != 0 || state->indefinite) {
 	    const SecAsn1Template *subt;

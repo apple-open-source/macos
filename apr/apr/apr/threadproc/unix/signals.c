@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -55,7 +55,7 @@ APR_DECLARE(apr_status_t) apr_proc_kill(apr_proc_t *proc, int signum)
 
 #if APR_HAVE_SIGACTION
 
-#ifdef DARWIN
+#if defined(__NetBSD__) || defined(DARWIN)
 static void avoid_zombies(int signo)
 {
     int exit_status;
@@ -91,7 +91,7 @@ APR_DECLARE(apr_sigfunc_t *) apr_signal(int signo, apr_sigfunc_t * func)
         act.sa_flags |= SA_NOCLDWAIT;
     }
 #endif
-#ifdef DARWIN
+#if defined(__NetBSD__) || defined(DARWIN)
     /* ignoring SIGCHLD or leaving the default disposition doesn't avoid zombies,
      * and there is no SA_NOCLDWAIT flag, so catch the signal and reap status in 
      * the handler to avoid zombies
@@ -116,7 +116,7 @@ void apr_signal_init(apr_pool_t *pglobal)
 }
 const char *apr_signal_description_get(int signum)
 {
-    return sys_siglist[signum];
+    return (signum >= 0) ? sys_siglist[signum] : "unknown signal (number)";
 }
 
 #else /* !(SYS_SIGLIST_DECLARED || HAVE_DECL_SYS_SIGLIST) */
@@ -262,7 +262,7 @@ void apr_signal_init(apr_pool_t *pglobal)
 const char *apr_signal_description_get(int signum)
 {
     return
-        signum < APR_NUMSIG
+        (signum >= 0 && signum < APR_NUMSIG)
         ? signal_description[signum]
         : "unknown signal (number)";
 }
@@ -422,7 +422,7 @@ APR_DECLARE(apr_status_t) apr_setup_signal_thread(void)
     }
 #else
     if ((rv = pthread_sigmask(SIG_SETMASK, &sig_mask, NULL)) != 0) {
-#ifdef PTHREAD_SETS_ERRNO
+#ifdef HAVE_ZOS_PTHREADS
         rv = errno;
 #endif
     }
@@ -448,7 +448,7 @@ APR_DECLARE(apr_status_t) apr_signal_block(int signum)
     }
 #else
     if ((rv = pthread_sigmask(SIG_BLOCK, &sig_mask, NULL)) != 0) {
-#ifdef PTHREAD_SETS_ERRNO
+#ifdef HAVE_ZOS_PTHREADS
         rv = errno;
 #endif
     }
@@ -475,7 +475,7 @@ APR_DECLARE(apr_status_t) apr_signal_unblock(int signum)
     }
 #else
     if ((rv = pthread_sigmask(SIG_UNBLOCK, &sig_mask, NULL)) != 0) {
-#ifdef PTHREAD_SETS_ERRNO
+#ifdef HAVE_ZOS_PTHREADS
         rv = errno;
 #endif
     }

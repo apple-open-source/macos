@@ -12,7 +12,7 @@ OSL = $(DSTROOT)/usr/local/OpenSourceLicenses
 build::
 	(cd $(SRCROOT)/$(Project) \
 	&& $(CP) Makefile.AP2 Makefile \
-	&& $(MAKE) CFLAGS="$(CFLAGS)" top_dir=/usr/share/httpd MACOSX_DEPLOYMENT_TARGET=10.4 DESTDIR=$(DSTROOT) all install)
+	&& $(MAKE) CFLAGS="$(CFLAGS)" top_dir=/usr/share/httpd DESTDIR=$(DSTROOT) all install)
 	$(STRIP) -x $(DSTROOT)/usr/libexec/apache2/mod_fastcgi.so
 	$(MKDIR) $(OSV)
 	$(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist

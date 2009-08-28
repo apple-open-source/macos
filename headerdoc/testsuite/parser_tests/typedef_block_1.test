@@ -1,0 +1,1137 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$109|#ifdef __LP64__
+    typedef uint32_t IOHIDElementCookie;
+#else
+    typedef void * IOHIDElementCookie;
+#endif
+$116|/*!
+    @typedef IOHIDElementCookie
+    @abstract Abstract data type used as a unique identifier for an element.
+*/
+$0|$7536|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 1
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/typedef_block_1.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/typedef_block_1.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 4
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 1
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => __LP64__
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} => #ifdef __LP64__
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 1
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => 
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{typestring} => #
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 1
+typelist: MACRO
+namelist: __LP64__
+posstypes: MACRO
+value: 
+returntype: #ifdef __LP64__
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---#ifdef
+|   +--- 
+|   +---__LP64__
+|   +---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: typedef block 1
+APIUID: //test_ref/doc/header/typedef_block_1.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 5
+    INDEX GROUP: 
+    IS BLOCK: 1
+    OBJECT TYPE: HeaderDoc::Typedef
+    NAME: IOHIDElementCookie
+    APIUID: //test_ref/c/tdef/IOHIDElementCookie
+    ABSTRACT: "<p>Abstract data type used as a unique identifier for an element.
+"
+    DISCUSSION: "<p></p>"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::Typedef"
+    MASTERENUM: "0"
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
++---    
++---typedef
++--- 
++---void
++--- 
++---*
++--- 
++---IOHIDElementCookie
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
++---#ifdef
+|   +--- 
+|   +---__LP64__
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
++---    
++---typedef
++--- 
++---uint32_t
++--- 
++---IOHIDElementCookie
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
++---#else
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
++---#endif
+|   +---[ NEWLINE ]
++---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
+	<span class="keyword">typedef</span> <!-- a logicalPath="//test_ref/c/cl/void //test_ref/c/tdef/void //test_ref/c/tag/void //test_ref/c/econst/void //test_ref/c/struct/void //test_ref/c/clconst/void //test_ref/c/intf/void" --><span class="type">void</span><!-- /a --> <span class="type">*</span> <!-- a logicalPath="//test_ref/c/econst/IOHIDElementCookie //test_ref/c/data/IOHIDElementCookie" --><span class="var">IOHIDElementCookie</span><!-- /a -->;  
+END OF OBJECT
+
+
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
+	<span class="">#ifdef</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/__LP64__ //test_ref/c/tdef/__LP64__ //test_ref/c/tag/__LP64__ //test_ref/c/econst/__LP64__ //test_ref/c/struct/__LP64__ //test_ref/c/data/__LP64__ //test_ref/c/clconst/__LP64__ //test_ref/c/intf/__LP64__ //test_ref/c/instm/__LP64__ //test_ref/c/clm/__LP64__ //test_ref/c/intfcm/__LP64__ //test_ref/c/intfm/__LP64__ //test_ref/c/func/__LP64__ //test_ref/c/ftmplt/__LP64__ //test_ref/c/defn/__LP64__ //test_ref/c/macro/__LP64__ //test_ref/doc/com/intfm/__LP64__" --><span class="preprocessor">__LP64__</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
+	<span class="keyword">typedef</span> <!-- a logicalPath="//test_ref/c/cl/uint32_t //test_ref/c/tdef/uint32_t //test_ref/c/tag/uint32_t //test_ref/c/econst/uint32_t //test_ref/c/struct/uint32_t //test_ref/c/clconst/uint32_t //test_ref/c/intf/uint32_t" --><span class="type">uint32_t</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/IOHIDElementCookie //test_ref/c/data/IOHIDElementCookie" --><span class="var">IOHIDElementCookie</span><!-- /a -->;  
+END OF OBJECT
+
+
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
+	<span class="">#else</span> 
+END OF OBJECT
+
+
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
+	<span class="">#endif</span>  
+END OF OBJECT
+
+
+
+$7536|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 1
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/typedef_block_1.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/typedef_block_1.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 4
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 1
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => __LP64__
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} => #ifdef __LP64__
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 1
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => 
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{typestring} => #
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 1
+typelist: MACRO
+namelist: __LP64__
+posstypes: MACRO
+value: 
+returntype: #ifdef __LP64__
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---#ifdef
+|   +--- 
+|   +---__LP64__
+|   +---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: typedef block 1
+APIUID: //test_ref/doc/header/typedef_block_1.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 5
+    INDEX GROUP: 
+    IS BLOCK: 1
+    OBJECT TYPE: HeaderDoc::Typedef
+    NAME: IOHIDElementCookie
+    APIUID: //test_ref/c/tdef/IOHIDElementCookie
+    ABSTRACT: "<p>Abstract data type used as a unique identifier for an element.
+"
+    DISCUSSION: "<p></p>"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::Typedef"
+    MASTERENUM: "0"
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
++---    
++---typedef
++--- 
++---void
++--- 
++---*
++--- 
++---IOHIDElementCookie
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
++---#ifdef
+|   +--- 
+|   +---__LP64__
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
++---    
++---typedef
++--- 
++---uint32_t
++--- 
++---IOHIDElementCookie
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
++---#else
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
++---#endif
+|   +---[ NEWLINE ]
++---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
+	<span class="keyword">typedef</span> <!-- a logicalPath="//test_ref/c/cl/void //test_ref/c/tdef/void //test_ref/c/tag/void //test_ref/c/econst/void //test_ref/c/struct/void //test_ref/c/clconst/void //test_ref/c/intf/void" --><span class="type">void</span><!-- /a --> <span class="type">*</span> <!-- a logicalPath="//test_ref/c/econst/IOHIDElementCookie //test_ref/c/data/IOHIDElementCookie" --><span class="var">IOHIDElementCookie</span><!-- /a -->;  
+END OF OBJECT
+
+
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
+	<span class="">#ifdef</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/__LP64__ //test_ref/c/tdef/__LP64__ //test_ref/c/tag/__LP64__ //test_ref/c/econst/__LP64__ //test_ref/c/struct/__LP64__ //test_ref/c/data/__LP64__ //test_ref/c/clconst/__LP64__ //test_ref/c/intf/__LP64__ //test_ref/c/instm/__LP64__ //test_ref/c/clm/__LP64__ //test_ref/c/intfcm/__LP64__ //test_ref/c/intfm/__LP64__ //test_ref/c/func/__LP64__ //test_ref/c/ftmplt/__LP64__ //test_ref/c/defn/__LP64__ //test_ref/c/macro/__LP64__ //test_ref/doc/com/intfm/__LP64__" --><span class="preprocessor">__LP64__</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
+	<span class="keyword">typedef</span> <!-- a logicalPath="//test_ref/c/cl/uint32_t //test_ref/c/tdef/uint32_t //test_ref/c/tag/uint32_t //test_ref/c/econst/uint32_t //test_ref/c/struct/uint32_t //test_ref/c/clconst/uint32_t //test_ref/c/intf/uint32_t" --><span class="type">uint32_t</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/IOHIDElementCookie //test_ref/c/data/IOHIDElementCookie" --><span class="var">IOHIDElementCookie</span><!-- /a -->;  
+END OF OBJECT
+
+
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
+	<span class="">#else</span> 
+END OF OBJECT
+
+
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
+	<span class="">#endif</span>  
+END OF OBJECT
+
+
+
+$130|This test is related to the multiple insertion of the curObj
+object into the API owner object in cases where the names all
+match.
+$43|testsuite/parser_tests/typedef_block_1.test$1|C$15|typedef block 1$7536|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 1
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/typedef_block_1.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/typedef_block_1.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 4
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 1
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => __LP64__
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} => #ifdef __LP64__
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 1
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => 
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{typestring} => #
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 1
+typelist: MACRO
+namelist: __LP64__
+posstypes: MACRO
+value: 
+returntype: #ifdef __LP64__
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---#ifdef
+|   +--- 
+|   +---__LP64__
+|   +---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: typedef block 1
+APIUID: //test_ref/doc/header/typedef_block_1.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 5
+    INDEX GROUP: 
+    IS BLOCK: 1
+    OBJECT TYPE: HeaderDoc::Typedef
+    NAME: IOHIDElementCookie
+    APIUID: //test_ref/c/tdef/IOHIDElementCookie
+    ABSTRACT: "<p>Abstract data type used as a unique identifier for an element.
+"
+    DISCUSSION: "<p></p>"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::Typedef"
+    MASTERENUM: "0"
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
++---    
++---typedef
++--- 
++---void
++--- 
++---*
++--- 
++---IOHIDElementCookie
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
++---#ifdef
+|   +--- 
+|   +---__LP64__
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
++---    
++---typedef
++--- 
++---uint32_t
++--- 
++---IOHIDElementCookie
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
++---#else
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
++---#endif
+|   +---[ NEWLINE ]
++---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
+	<span class="keyword">typedef</span> <!-- a logicalPath="//test_ref/c/cl/void //test_ref/c/tdef/void //test_ref/c/tag/void //test_ref/c/econst/void //test_ref/c/struct/void //test_ref/c/clconst/void //test_ref/c/intf/void" --><span class="type">void</span><!-- /a --> <span class="type">*</span> <!-- a logicalPath="//test_ref/c/econst/IOHIDElementCookie //test_ref/c/data/IOHIDElementCookie" --><span class="var">IOHIDElementCookie</span><!-- /a -->;  
+END OF OBJECT
+
+
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
+	<span class="">#ifdef</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/__LP64__ //test_ref/c/tdef/__LP64__ //test_ref/c/tag/__LP64__ //test_ref/c/econst/__LP64__ //test_ref/c/struct/__LP64__ //test_ref/c/data/__LP64__ //test_ref/c/clconst/__LP64__ //test_ref/c/intf/__LP64__ //test_ref/c/instm/__LP64__ //test_ref/c/clm/__LP64__ //test_ref/c/intfcm/__LP64__ //test_ref/c/intfm/__LP64__ //test_ref/c/func/__LP64__ //test_ref/c/ftmplt/__LP64__ //test_ref/c/defn/__LP64__ //test_ref/c/macro/__LP64__ //test_ref/doc/com/intfm/__LP64__" --><span class="preprocessor">__LP64__</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
+	<span class="keyword">typedef</span> <!-- a logicalPath="//test_ref/c/cl/uint32_t //test_ref/c/tdef/uint32_t //test_ref/c/tag/uint32_t //test_ref/c/econst/uint32_t //test_ref/c/struct/uint32_t //test_ref/c/clconst/uint32_t //test_ref/c/intf/uint32_t" --><span class="type">uint32_t</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/IOHIDElementCookie //test_ref/c/data/IOHIDElementCookie" --><span class="var">IOHIDElementCookie</span><!-- /a -->;  
+END OF OBJECT
+
+
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
+	<span class="">#else</span> 
+END OF OBJECT
+
+
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
+	<span class="">#endif</span>  
+END OF OBJECT
+
+
+
+$7536|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 1
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/typedef_block_1.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/typedef_block_1.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 4
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 1
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => __LP64__
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} => #ifdef __LP64__
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 1
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => 
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{typestring} => #
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 1
+typelist: MACRO
+namelist: __LP64__
+posstypes: MACRO
+value: 
+returntype: #ifdef __LP64__
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---#ifdef
+|   +--- 
+|   +---__LP64__
+|   +---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: typedef block 1
+APIUID: //test_ref/doc/header/typedef_block_1.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 5
+    INDEX GROUP: 
+    IS BLOCK: 1
+    OBJECT TYPE: HeaderDoc::Typedef
+    NAME: IOHIDElementCookie
+    APIUID: //test_ref/c/tdef/IOHIDElementCookie
+    ABSTRACT: "<p>Abstract data type used as a unique identifier for an element.
+"
+    DISCUSSION: "<p></p>"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::Typedef"
+    MASTERENUM: "0"
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
++---    
++---typedef
++--- 
++---void
++--- 
++---*
++--- 
++---IOHIDElementCookie
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
++---#ifdef
+|   +--- 
+|   +---__LP64__
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
++---    
++---typedef
++--- 
++---uint32_t
++--- 
++---IOHIDElementCookie
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
++---#else
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
++---#endif
+|   +---[ NEWLINE ]
++---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
+	<span class="keyword">typedef</span> <!-- a logicalPath="//test_ref/c/cl/void //test_ref/c/tdef/void //test_ref/c/tag/void //test_ref/c/econst/void //test_ref/c/struct/void //test_ref/c/clconst/void //test_ref/c/intf/void" --><span class="type">void</span><!-- /a --> <span class="type">*</span> <!-- a logicalPath="//test_ref/c/econst/IOHIDElementCookie //test_ref/c/data/IOHIDElementCookie" --><span class="var">IOHIDElementCookie</span><!-- /a -->;  
+END OF OBJECT
+
+
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
+	<span class="">#ifdef</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/__LP64__ //test_ref/c/tdef/__LP64__ //test_ref/c/tag/__LP64__ //test_ref/c/econst/__LP64__ //test_ref/c/struct/__LP64__ //test_ref/c/data/__LP64__ //test_ref/c/clconst/__LP64__ //test_ref/c/intf/__LP64__ //test_ref/c/instm/__LP64__ //test_ref/c/clm/__LP64__ //test_ref/c/intfcm/__LP64__ //test_ref/c/intfm/__LP64__ //test_ref/c/func/__LP64__ //test_ref/c/ftmplt/__LP64__ //test_ref/c/defn/__LP64__ //test_ref/c/macro/__LP64__ //test_ref/doc/com/intfm/__LP64__" --><span class="preprocessor">__LP64__</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
+	<span class="keyword">typedef</span> <!-- a logicalPath="//test_ref/c/cl/uint32_t //test_ref/c/tdef/uint32_t //test_ref/c/tag/uint32_t //test_ref/c/econst/uint32_t //test_ref/c/struct/uint32_t //test_ref/c/clconst/uint32_t //test_ref/c/intf/uint32_t" --><span class="type">uint32_t</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/IOHIDElementCookie //test_ref/c/data/IOHIDElementCookie" --><span class="var">IOHIDElementCookie</span><!-- /a -->;  
+END OF OBJECT
+
+
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
+	<span class="">#else</span> 
+END OF OBJECT
+
+
+OBJECT: IOHIDElementCookie (HeaderDoc::Typedef)
+	<span class="">#endif</span>  
+END OF OBJECT
+
+
+
+$1|C$6|parser

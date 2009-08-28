@@ -8,6 +8,9 @@
 *                                     Mike Machado <mike@innercite.com>    *
 ***************************************************************************/
 
+#include <freeradius-devel/ident.h>
+RCSIDH(conf_h, "$Id$")
+
 typedef struct sql_config {
 	char   *sql_driver;
 	char   *sql_server;
@@ -15,9 +18,9 @@ typedef struct sql_config {
 	char   *sql_login;
 	char   *sql_password;
 	char   *sql_db;
-	char   *sql_nas_table;
 	char   *query_user;
 	char   *default_profile;
+	char   *nas_query;
 	char   *authorize_check_query;
 	char   *authorize_reply_query;
 	char   *authorize_group_check_query;
@@ -34,12 +37,12 @@ typedef struct sql_config {
 	char   *groupmemb_query;
 	int     sqltrace;
 	int	do_clients;
+	int	read_groups;
 	char   *tracefile;
 	char   *xlat_name;
 	int     deletestalesessions;
 	int     num_sql_socks;
 	int     connect_failure_retry_delay;
-	int	query_on_not_found;
 	char   *postauth_query;
 	char   *allowed_chars;
 

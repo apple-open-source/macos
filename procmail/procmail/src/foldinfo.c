@@ -8,7 +8,7 @@
  ************************************************************************/
 #ifdef RCS
 static /*const*/char rcsid[]=
- "$Id: foldinfo.c,v 1.1.1.2 2003/10/14 23:13:23 rbraun Exp $";
+ "$Id: foldinfo.c,v 1.11 2001/08/04 07:07:42 guenther Exp $";
 #endif
 #include "procmail.h"
 #include "misc.h"

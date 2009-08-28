@@ -1,9 +1,10 @@
-# $Id: configure.ac,v 1.2 2004/03/30 01:21:34 jtownsen Exp $
+# $Id: configure.ac,v 12.64 2007/05/08 21:16:46 bostic Exp $
 # Process this file with autoconf to produce a configure script.
 
 PACKAGE=db
-AC_INIT(Berkeley DB,
-	__EDIT_DB_VERSION__, support@sleepycat.com, db-__EDIT_DB_VERSION__)
+AC_INIT(Berkeley DB, __EDIT_DB_VERSION__,
+	[Oracle Technology Network Berkeley DB forum],
+	db-__EDIT_DB_VERSION__)
 AC_CONFIG_SRCDIR([../db/db.c])
 AC_CONFIG_HEADERS([db_config.h:config.hin])
 
@@ -15,8 +16,11 @@ AC_ARG_PROGRAM()
 AC_MSG_CHECKING(if building in the top-level or dist directories)
 if [ test -d db_archive -o -f configure.ac ] ; then
 	AC_MSG_RESULT(yes)
-	AC_MSG_ERROR(
-    [Berkeley DB should not be built in the top-level or dist directories.])
+	AC_MSG_ERROR([\
+Berkeley DB should not be built in the top-level or "dist" directories. \
+Change directory to the build_unix directory and run ../dist/configure \
+from there.])
+
 fi
 AC_MSG_RESULT(no)
 
@@ -33,6 +37,8 @@ AC_SUBST(CPPFLAGS)
 AC_SUBST(CRYPTO_OBJS)
 AC_SUBST(CXX)
 AC_SUBST(CXXFLAGS)
+AC_SUBST(DB_PROTO1)
+AC_SUBST(DB_PROTO2)
 AC_SUBST(DEFAULT_LIB)
 AC_SUBST(DEFAULT_LIB_CXX)
 AC_SUBST(INSTALLER)
@@ -41,6 +47,7 @@ AC_SUBST(INSTALL_TARGET)
 AC_SUBST(JAR)
 AC_SUBST(JAVACFLAGS)
 AC_SUBST(LDFLAGS)
+AC_SUBST(LIBCSO_LIBS)
 AC_SUBST(LIBJSO_LIBS)
 AC_SUBST(LIBS)
 AC_SUBST(LIBSO_LIBS)
@@ -49,7 +56,6 @@ AC_SUBST(LIBTSO_LIBS)
 AC_SUBST(LIBTSO_MODSUFFIX)
 AC_SUBST(LIBTSO_MODULE)
 AC_SUBST(LIBXSO_LIBS)
-AC_SUBST(LOAD_LIBS)
 AC_SUBST(MAKEFILE_CC)
 AC_SUBST(MAKEFILE_CCLINK)
 AC_SUBST(MAKEFILE_CXX)
@@ -61,19 +67,16 @@ AC_SUBST(PATH_SEPARATOR)
 AC_SUBST(POSTLINK)
 AC_SUBST(REPLACEMENT_OBJS)
 AC_SUBST(RPC_CLIENT_OBJS)
-AC_SUBST(RPM_BUILD)
-AC_SUBST(RPM_POST_INSTALL)
-AC_SUBST(RPM_POST_UNINSTALL)
+AC_SUBST(RPC_SERVER_H)
 AC_SUBST(SOFLAGS)
-AC_SUBST(db_cv_path_rpm_archive)
+AC_SUBST(SWIGCFLAGS)
+AC_SUBST(TEST_LIBS)
 AC_SUBST(db_int_def)
 AC_SUBST(o)
 
-# RPM needs the current absolute path.
-# RPM needs the list of original arguments, but we don't include the RPM
-# option itself.
-CONFIGURATION_PATH=${PWD-`pwd`}
-CONFIGURATION_ARGS=`echo "$*" | sed -e 's/--with-rpm[[^ ]]*//'`
+# The Windows public header has two extra symbols we need to remove.
+AC_SUBST(platform_header)
+AC_SUBST(platform_footer)
 
 # Set the default installation location.
 AC_PREFIX_DEFAULT(/usr/local/BerkeleyDB.__EDIT_DB_VERSION_MAJOR__.__EDIT_DB_VERSION_MINOR__)
@@ -111,7 +114,7 @@ fi
 if test "$db_cv_umrw" = "yes"; then
 	AC_DEFINE(UMRW)
 	AH_TEMPLATE(UMRW,
-    [Define to 1 to mask harmless unitialized memory read/writes.])
+    [Define to 1 to mask harmless uninitialized memory read/writes.])
 
 fi
 if test "$db_cv_test" = "yes"; then
@@ -120,35 +123,23 @@ if test "$db_cv_test" = "yes"; then
     [Define to 1 if you want to build a version for running the test suite.])
 fi
 
+AH_TEMPLATE(HAVE_UPGRADE_SUPPORT,
+    [Define to 1 if port includes historic database upgrade support.])
+AC_DEFINE(HAVE_UPGRADE_SUPPORT)
+
 # Check for programs used in building and installation.
 AM_PROGRAMS_SET
 AC_PROG_INSTALL
 
-# RPM support: change the standard make and install targets
-if test "$db_cv_rpm" = "yes"; then
-	BUILD_TARGET="rpm_build"
+BUILD_TARGET="library_build"
+INSTALL_TARGET="library_install"
 
-	# Check if we are running RPM version 3 or 4.
-	case "`rpm --version`" in
-	*version\ 4*)
-		RPM_BUILD="rpmbuild"
-		echo "_topdir $CONFIGURATION_PATH" > rpm-macro-defines;;
-	*version\ 3*)
-		RPM_BUILD="rpm"
-		echo "topdir: $CONFIGURATION_PATH" > rpm-macro-defines;;
-	esac
-	INSTALL_TARGET="rpm_install"
-else
-	BUILD_TARGET="library_build"
-	INSTALL_TARGET="library_install"
-fi
+# Respect the environment LIBS settings
+LIBSO_LIBS="$LIBS"
 
 # This is where we handle stuff that autoconf can't handle: compiler,
 # preprocessor and load flags, libraries that the standard tests don't
-# look for.  The default optimization is -O.  We would like to set the
-# default optimization for systems using gcc to -O2, but we can't.  By
-# the time we know we're using gcc, it's too late to set optimization
-# flags.
+# look for.
 #
 # There are additional libraries we need for some compiler/architecture
 # combinations.
@@ -159,73 +150,102 @@ fi
 # The makefile CC may be different than the CC used in config testing,
 # because the makefile CC may be set to use $(LIBTOOL).
 #
-# XXX
 # Don't override anything if it's already set from the environment.
-optimize_def="-O"
+optimize_debug="-O"
 case "$host_os" in
 aix4.3.*|aix5*)
-	optimize_def="-O2"
+	case "$host_os" in
+	aix4.3.*)
+		CPPFLAGS="$CPPFLAGS -D_LINUX_SOURCE_COMPAT";;
+	esac
+	optimize_debug="-O2"
 	CC=${CC-"xlc_r"}
 	CPPFLAGS="$CPPFLAGS -D_THREAD_SAFE"
 	LDFLAGS="$LDFLAGS -Wl,-brtl";;
-bsdi3*)	optimize_def="-O2"
-	CC=${CC-"shlicc2"}
-	LIBS="$LIBS -lipc";;
-bsdi*)	optimize_def="-O2";;
+bsdi3*)	CC=${CC-"shlicc2"}
+	LIBSO_LIBS="$LIBSO_LIBS -lipc";;
 cygwin*)
-	optimize_def="-O2"
 	CPPFLAGS="$CPPFLAGS -D_GNU_SOURCE -D_REENTRANT";;
 freebsd*)
-	optimize_def="-O2"
 	CPPFLAGS="$CPPFLAGS -D_THREAD_SAFE"
 	LDFLAGS="$LDFLAGS -pthread";;
 gnu*|k*bsd*-gnu|linux*)
-	optimize_def="-O2"
 	CPPFLAGS="$CPPFLAGS -D_GNU_SOURCE -D_REENTRANT";;
 hpux*)	CPPFLAGS="$CPPFLAGS -D_REENTRANT";;
-irix*)	optimize_def="-O2"
+irix*)	optimize_debug="-O2"
 	CPPFLAGS="$CPPFLAGS -D_SGI_MP_SOURCE";;
 mpeix*)	CPPFLAGS="$CPPFLAGS -D_POSIX_SOURCE -D_SOCKET_SOURCE"
-	LIBS="$LIBS -lsocket -lsvipc";;
+	LIBSO_LIBS="$LIBSO_LIBS -lsocket -lsvipc";;
 osf*)	CPPFLAGS="$CPPFLAGS -pthread";;
-*qnx*)	AC_DEFINE(HAVE_QNX)
+*qnx*)	qnx_build="yes"
+	AC_DEFINE(HAVE_QNX)
 	AH_TEMPLATE(HAVE_QNX, [Define to 1 if building on QNX.]);;
 solaris*)
-	CPPFLAGS="$CPPFLAGS -D_REENTRANT";;
+	CPPFLAGS="$CPPFLAGS -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS ";;
 esac
 
-# Set CFLAGS/CXXFLAGS.  We MUST set the flags before we call autoconf
-# compiler configuration macros, because if we don't, they set CFLAGS
-# to no optimization and -g, which isn't what we want.
-CFLAGS=${CFLAGS-$optimize_def}
-CXXFLAGS=${CXXFLAGS-"$CFLAGS"}
-
-# If the user wants a debugging environment, add -g to the CFLAGS value.
-#
-# XXX
-# Some compilers can't mix optimizing and debug flags.  The only way to
-# handle this is to specify CFLAGS in the environment before configuring.
+# If the user wants a debugging environment, change any compiler optimization
+# flags to -g.  We used to add -g to the -O compiler flags, but compilers are
+# good enough at code re-organization that debugging with -O no longer works.
+# If you want to compile with a different set of flags, specify CFLAGS in the
+# environment before configuring.
 if test "$db_cv_debug" = "yes"; then
 	AC_DEFINE(DEBUG)
 	AH_TEMPLATE(DEBUG, [Define to 1 if you want a debugging version.])
 
-	CFLAGS="$CFLAGS -g"
-	CXXFLAGS="$CXXFLAGS -g"
-	db_cv_build_type=debug
-else
-	db_cv_build_type=release
+	optimize_debug="-g"
 fi
-AC_SUBST(db_cv_build_type)
+
+# Set CFLAGS/CXXFLAGS.  We MUST set the flags before we call autoconf
+# compiler configuration macros, because if we don't, they set CFLAGS
+# to no optimization and -g, which isn't what we want.
+CFLAGS=${CFLAGS-$optimize_debug}
+CXXFLAGS=${CXXFLAGS-"$CFLAGS"}
 
 # The default compiler is cc (NOT gcc), the default CFLAGS is as specified
 # above, NOT what is set by AC_PROG_CC, as it won't set optimization flags
 # for any compiler other than gcc.
 AC_PROG_CC(cc gcc)
 
-# Checks for compiler characteristics.
-AC_SUBST(DB_PROTO1)
-AC_SUBST(DB_PROTO2)
+# We know what compiler we're going to use, now.  Set per-compiler flags.
+if test "$GCC" = "yes"; then
+	# Use -O3 if we're using gcc, unless we're doing a small build, in
+	# which case we use -Os alone.  The code size for -O3 is quite a
+	# bit larger than -O2: a compromise is "-Os -finline-functions",
+	# it's smaller and explicitly inlining the functions helps Berkeley
+	# DB.
+	CFLAGS="$CFLAGS "
+	if test "$db_cv_smallbuild" = "yes"; then
+		CFLAGS=`echo "$CFLAGS" | sed 's/-O /-Os /g'`
+	else
+		CFLAGS=`echo "$CFLAGS" | sed 's/-O /-O3 /g'`
+	fi
+else
+	case "$host_os" in
+	hpux11.0*)	;;
+	hpux11*)	CPPFLAGS="$CPPFLAGS -mt";;
+	esac
+fi
 
+# Check for "const" and "inline" keywords.
+AC_C_CONST
+AC_C_INLINE
+
+# We use prototypes and the keyword "const" in db.h which doesn't include
+# db_config.h, so we have to figure out what to do there.   We don't have
+# much choice, we look at internal autoconf variables.
+AC_SUBST(DB_CONST)
+if test "$ac_cv_c_const" != "yes"; then
+	DB_CONST="#define const"
+fi
+
+# Now prototypes.
+#
+# There is an autoconf AC_C_PROTOTYPES macro, but it doesn't set internal
+# variables, so it doesn't help us at all -- use the internal variable for
+# STDC compilers instead.
+#
+# First, clear __P, some other systems use it too.
 DB_PROTO1="#undef __P"
 
 # AC_PROG_CC_STDC only sets ac_cv_prog_cc_stdc if the test fails, so
@@ -234,12 +254,6 @@ if test "$ac_cv_prog_cc_stdc" = "no"; then
 	DB_PROTO2="#define	__P(protos)	()"
 else
 	DB_PROTO2="#define	__P(protos)	protos"
-fi
-
-AC_C_CONST
-AC_SUBST(DB_CONST)
-if test "$ac_cv_c_const" != "yes"; then
-	DB_CONST="#define const"
 fi
 
 # Because of shared library building, the ${CC} used for config tests
@@ -262,10 +276,13 @@ if test "$db_cv_cxx" = "yes"; then
 		case "$host_os" in
 		aix*)		AC_CHECK_TOOL(CCC, xlC_r)
 				LIBXSO_LIBS="-lC_r $LIBXSO_LIBS"
-				LIBS="-lC_r $LIBS";;
+				LIBSO_LIBS="-lC_r $LIBSO_LIBS";;
 		hpux*)		AC_CHECK_TOOL(CCC, aCC);;
 		irix*)		AC_CHECK_TOOL(CCC, CC);;
-		osf*)		AC_CHECK_TOOL(CCC, cxx);;
+		osf*)		AC_CHECK_TOOL(CCC, cxx)
+				CXXFLAGS="$CXXFLAGS -D__USE_STD_IOSTREAM"
+				test -d /usr/include.dtk &&
+				    CXXFLAGS="$CXXFLAGS -I/usr/include.dtk";;
 		solaris*)	AC_CHECK_TOOL(CCC, CC);;
 		esac
 	fi
@@ -323,7 +340,7 @@ MAKEFILE_CXXLINK="\$(LIBTOOL) --mode=link ${MAKEFILE_CXXLINK}"
 LIBTOOL="\$(SHELL) ./libtool"
 
 case "$host_os" in
-cygwin*)
+cygwin* | mingw*)
 	MAKEFILE_SOLINK="$MAKEFILE_SOLINK -no-undefined"
 	MAKEFILE_XSOLINK="$MAKEFILE_XSOLINK -no-undefined";;
 esac
@@ -345,6 +362,17 @@ if test `$LIBTOOL_PROG --config |
 else
 	enable_static="yes"
 fi
+
+case "$host_os" in
+    darwin*)
+        LIBTSO_MODULE=""
+        LIBTSO_MODSUFFIX=".dylib"
+    ;;
+    *)
+        LIBTSO_MODULE="-module"
+        LIBTSO_MODSUFFIX=$MODSUFFIX
+    ;;
+esac
 
 # C API.
 if test "$enable_shared" = "no"; then
@@ -405,6 +433,14 @@ if test "$db_cv_java" = "yes"; then
 		AC_MSG_ERROR([Java version 1.3 or higher required, got $JAVA_VERSION]) ;;
 	esac
 
+	# Because of the code that SWIG generates to cast between pointers and
+	# integers, we need to add the flag "-fno-strict-aliasing" to the gcc
+	# command line when compiling the JNI code.  This is documented in
+	# [#14953] and at http://www.swig.org/Doc1.3/Java.html
+	if test ${GCC} = "yes"; then
+		SWIGCFLAGS="-fno-strict-aliasing"
+	fi
+
 	for JNI_INCLUDE_DIR in $JNI_INCLUDE_DIRS
 	do
 		CPPFLAGS="$CPPFLAGS -I$JNI_INCLUDE_DIR"
@@ -418,7 +454,7 @@ fi
 
 # MinGW support.
 if test "$db_cv_mingw" = "yes"; then
-	OSDIR=os_win32
+	OSDIR=os_windows
 	PATH_SEPARATOR="\\\\/:"
 
 	AC_DEFINE(DB_WIN32)
@@ -426,120 +462,17 @@ if test "$db_cv_mingw" = "yes"; then
 else
 	OSDIR=os
 	PATH_SEPARATOR="/"
-fi
-
-# Optional RPC client/server.
-if test "$db_cv_rpc" = "yes"; then
-	AC_DEFINE(HAVE_RPC)
-	AH_TEMPLATE(HAVE_RPC, [Define to 1 if building RPC client/server.])
-
-	RPC_CLIENT_OBJS="\$(RPC_CLIENT_OBJS)"
-	ADDITIONAL_PROGS="berkeley_db_svc $ADDITIONAL_PROGS"
-
-	case "$host_os" in
-	hpux*)
-		AC_CHECK_FUNC(svc_run,,
-		    AC_CHECK_LIB(nsl, svc_run,
-		    LIBS="-lnsl $LIBS"; LIBTSO_LIBS="-lnsl $LIBTSO_LIBS";
-		    LIBJSO_LIBS="-lnsl $LIBJSO_LIBS"));;
-	solaris*)
-		AC_CHECK_FUNC(svc_run,, AC_CHECK_LIB(nsl, svc_run));;
-	esac
-fi
-
-case "$host_os" in
-    darwin*)
-        LIBTSO_MODULE=""
-        LIBTSO_MODSUFFIX=".dylib"
-    ;;
-    *)
-        LIBTSO_MODULE="-module"
-        LIBTSO_MODSUFFIX=@MODSUFFIX@
-    ;;
-esac
-
-AM_TCL_LOAD
-
-# Optional DB 1.85 compatibility API.
-if test "$db_cv_compat185" = "yes"; then
-	ADDITIONAL_INCS="db_185.h $ADDITIONAL_INCS"
-
-	ADDITIONAL_OBJS="db185${o} $ADDITIONAL_OBJS"
-fi
-
-# You can disable pieces of functionality to save space.
-#
-# Btree is always configured: it is the standard method, and Hash off-page
-# duplicates require it.
-ADDITIONAL_OBJS="$ADDITIONAL_OBJS \$(BTREE_OBJS)"
-
-# Hash can be disabled.
-if test "$db_cv_build_hash" = "yes"; then
-	AC_DEFINE(HAVE_HASH)
-	AH_TEMPLATE(HAVE_HASH, [Define to 1 if building Hash access method.])
-	ADDITIONAL_OBJS="$ADDITIONAL_OBJS \$(HASH_OBJS)"
-	if test "$db_cv_build_verify" = "yes"; then
-		ADDITIONAL_OBJS="$ADDITIONAL_OBJS \$(HASH_VRFY_OBJS)"
-	fi
-else
-	ADDITIONAL_OBJS="$ADDITIONAL_OBJS hash_stub${o}"
-fi
-
-# Queue can be disabled.
-if test "$db_cv_build_queue" = "yes"; then
-	AC_DEFINE(HAVE_QUEUE)
-	AH_TEMPLATE(HAVE_QUEUE, [Define to 1 if building Queue access method.])
-	ADDITIONAL_OBJS="$ADDITIONAL_OBJS \$(QUEUE_OBJS)"
-	if test "$db_cv_build_verify" = "yes"; then
-		ADDITIONAL_OBJS="$ADDITIONAL_OBJS \$(QUEUE_VRFY_OBJS)"
-	fi
-else
-	ADDITIONAL_OBJS="$ADDITIONAL_OBJS qam_stub${o}"
-fi
-
-# The replication code.
-if test "$db_cv_build_replication" = "yes"; then
-	AC_DEFINE(HAVE_REPLICATION)
-	AH_TEMPLATE(HAVE_REPLICATION,
-	    [Define to 1 if building replication support.])
-	ADDITIONAL_OBJS="$ADDITIONAL_OBJS \$(REP_OBJS)"
-else
-	ADDITIONAL_OBJS="$ADDITIONAL_OBJS rep_stub${o}"
-fi
-
-# The verification code.
-if test "$db_cv_build_verify" = "yes"; then
-	AC_DEFINE(HAVE_VERIFY)
-	AH_TEMPLATE(HAVE_VERIFY,
-	    [Define to 1 if building access method verification support.])
-	ADDITIONAL_OBJS="$ADDITIONAL_OBJS \$(BTREE_VRFY_OBJS)"
-else
-	ADDITIONAL_OBJS="$ADDITIONAL_OBJS db_vrfy_stub${o}"
-fi
-
-# The crypto support.
-if test -d "$srcdir/../crypto" -a "$db_cv_build_cryptography" = "yes"; then
-	AC_DEFINE(HAVE_CRYPTO)
-	AH_TEMPLATE(HAVE_CRYPTO,
-    [Define to 1 if Berkeley DB release includes strong cryptography.])
-
-	CRYPTO_OBJS="\$(CRYPTO_OBJS)"
-else
-	CRYPTO_OBJS="crypto_stub${o}"
-fi
-
-# Optional utilities.
-if test "$db_cv_dump185" = "yes"; then
-	ADDITIONAL_PROGS="db_dump185 $ADDITIONAL_PROGS"
+	AC_DEFINE(HAVE_SYSTEM_INCLUDE_FILES)
 fi
 
 # Checks for include files, structures, C types.
 AC_HEADER_STAT
 AC_HEADER_TIME
 AC_HEADER_DIRENT
-AC_CHECK_HEADERS(sys/select.h sys/time.h sys/fcntl.h)
+AC_CHECK_HEADERS(sys/select.h sys/socket.h sys/time.h)
 AC_CHECK_MEMBERS([struct stat.st_blksize])
 AM_TYPES
+AM_SOCKLEN_T
 
 AC_CACHE_CHECK([for ANSI C exit success/failure values], db_cv_exit_defines, [
 AC_TRY_COMPILE([#include <stdlib.h>], return (EXIT_SUCCESS);,
@@ -550,44 +483,92 @@ if test "$db_cv_exit_defines" = "yes"; then
     [Define to 1 if you have EXIT_SUCCESS/EXIT_FAILURE #defines.])
 fi
 
-# Test for various functions/libraries that the test and example programs use:
-#	sched_yield function
-#	pthreads, socket and math libraries
-AC_CHECK_FUNC(sched_yield,,
-    AC_SEARCH_LIBS(sched_yield, rt, LOAD_LIBS="$LOAD_LIBS -lrt"))
-
-# XXX
-# We can't check for pthreads in the same way we did the test for sched_yield
-# because the Solaris C library includes pthread interfaces which are not
-# thread-safe.  For that reason we always add -lpthread if we find a pthread
-# library.  Also we can't depend on any specific call existing (pthread_create,
-# for example), as it may be #defined in an include file -- OSF/1 (Tru64) has
-# this problem.
-AC_HAVE_LIBRARY(pthread, LOAD_LIBS="$LOAD_LIBS -lpthread")
-
-# XXX
-# We could be more exact about whether these libraries are needed, but we don't
-# bother -- if they exist, we load them.
-AC_HAVE_LIBRARY(m, LOAD_LIBS="$LOAD_LIBS -lm")
-AC_HAVE_LIBRARY(socket, LOAD_LIBS="$LOAD_LIBS -lsocket")
-AC_HAVE_LIBRARY(nsl, LOAD_LIBS="$LOAD_LIBS -lnsl")
-
 # Check for mutexes.
-# We do this here because it changes $LIBS.
+# We do this first because it changes $LIBSO_LIBS.
 AM_DEFINE_MUTEXES
+
+# Test for various functions/libraries -- do tests that change library values
+# first.
+#
+# Update LIBS, so we're testing against the current list of libraries.
+LIBS="$LIBSO_LIBS"
+
+# The yield function on Solaris is almost certainly pthread_yield (LWP threads
+# or POSIX pthreads), or thr_yield (UI threads).  There's an outside chance it
+# is sched_yield() though, only available in -lrt on Solaris.
+AC_SEARCH_LIBS(sched_yield, rt)
+
+# The Berkeley DB library calls fdatasync, only available in -lrt on Solaris.
+AC_SEARCH_LIBS(fdatasync, rt)
+
+AC_SEARCH_LIBS(getaddrinfo, nsl socket)
+AC_SEARCH_LIBS(hstrerror, resolv)
+
+# Those tests updated LIBS, update our internal list.
+LIBSO_LIBS="$LIBS"
+
+# !!!
+# We could be more exact about whether these libraries are needed, but don't
+# bother -- if they exist, we load them, it's only the test programs anyway.
+AC_HAVE_LIBRARY(m, TEST_LIBS="$TEST_LIBS -lm")
+AC_HAVE_LIBRARY(nsl, TEST_LIBS="$TEST_LIBS -lnsl")
+AC_HAVE_LIBRARY(pthread, TEST_LIBS="$TEST_LIBS -lpthread")
+AC_HAVE_LIBRARY(socket, TEST_LIBS="$TEST_LIBS -lsocket")
 
 # Checks for system functions for which we have replacements.
 #
-# XXX
 # The only portable getcwd call is getcwd(char *, size_t), where the
 # buffer is non-NULL -- Solaris can't handle a NULL buffer, and they
 # deleted getwd().
-AC_REPLACE_FUNCS(getcwd getopt memcmp memcpy memmove raise)
-AC_REPLACE_FUNCS(snprintf strcasecmp strdup strerror vsnprintf)
+AC_REPLACE_FUNCS(\
+	abort atoi atol getcwd getenv getopt isalpha isdigit isprint\
+	isspace memcmp memcpy memmove printf qsort raise rand strcasecmp\
+	strcat strchr strdup strerror strncat strncmp strrchr strsep\
+	strtol strtoul)
 
 # Check for system functions we optionally use.
-AC_CHECK_FUNCS(_fstati64 clock_gettime directio getrusage gettimeofday getuid)
-AC_CHECK_FUNCS(pstat_getdynamic sched_yield select strtoul sysconf yield)
+AC_CHECK_FUNCS(\
+	_fstati64 directio fchmod fclose fcntl fdatasync fgetc fgets\
+	fopen fwrite getaddrinfo getrusage gettimeofday getuid hstrerror\
+	localtime mprotect pstat_getdynamic pthread_yield sched_yield\
+	select sigaction snprintf stat strftime sysconf time vsnprintf\
+	yield)
+
+# Replication can't run correctly if ftruncate isn't available.
+AC_CHECK_FUNCS(ftruncate)
+if test \
+    "$db_cv_build_replication" = "yes" -a "$ac_cv_func_ftruncate" = "no"; then
+	db_cv_build_replication=no
+	AC_MSG_WARN([replication requires ftruncate, replication disabled.])
+fi
+
+# AIX 4.3 will link applications with calls to clock_gettime, but the
+# calls always fail.
+case "$host_os" in
+aix4.3.*)
+	;;
+*)
+	AC_CHECK_FUNCS(clock_gettime);;
+esac
+
+# ctime_r --
+#
+# There are two versions of ctime_r, one of which takes a buffer length as a
+# third argument, and one which only takes two arguments.  (There is also a
+# difference in return values, but we handle that in the code itself.)
+AC_CHECK_FUNCS(ctime_r)
+if test "$ac_cv_func_ctime_r" = "yes"; then
+AC_CACHE_CHECK([for 2 or 3 argument version of ctime_r], db_cv_ctime_r_3arg, [
+AC_TRY_LINK([
+#include <time.h>], [
+	ctime_r(NULL, NULL, 100);
+],  [db_cv_ctime_r_3arg="3-argument"], [db_cv_ctime_r_3arg="2-argument"])])
+fi
+if test "$db_cv_ctime_r_3arg" = "3-argument"; then
+	AC_DEFINE(HAVE_CTIME_R_3ARG)
+	AH_TEMPLATE(HAVE_CTIME_R_3ARG,
+	    [Define to 1 if ctime_r takes a buffer length as a third argument.])
+fi
 
 # Pread/pwrite.
 # HP-UX has pread/pwrite, but it doesn't work with largefile support.
@@ -618,26 +599,22 @@ case "$host_os" in
 aux*)	AC_LIBOBJ([getopt]);;
 esac
 
-# Linux has a broken O_DIRECT flag, but we allow people to override it from
-# the command line.
-test_host_prw=yes
-AC_CACHE_CHECK([for open/O_DIRECT], db_cv_open_o_direct, [
-AC_TRY_LINK([
-#include <sys/types.h>
-#include <fcntl.h>], [
-	open("a", O_RDONLY | O_DIRECT, 0);
-], [db_cv_open_o_direct=yes; test_host_prw=no], [db_cv_open_o_direct=no])])
-if test "$test_host_prw" = "no" -a "$db_cv_open_o_direct" = "yes"; then
-	case "$host_os" in
-	linux*)
-		db_cv_open_o_direct=no;
-		AC_MSG_WARN(
-		    [O_DIRECT interface ignored on $host_os-$host_vendor.]);;
-	esac
-fi
-if test "$db_cv_open_o_direct" = "yes"; then
-	AC_DEFINE(HAVE_O_DIRECT)
-	AH_TEMPLATE(HAVE_O_DIRECT, [Define to 1 if you have the O_DIRECT flag.])
+# Linux has a broken O_DIRECT flag, but you can't detect it at configure time.
+# Linux and SGI require buffer alignment we may not match, otherwise writes
+# will fail.  Default to not using the O_DIRECT flag.
+if test "$db_cv_o_direct" = "yes"; then
+	AC_CACHE_CHECK([for open/O_DIRECT], db_cv_open_o_direct, [
+	AC_TRY_LINK([
+	#include <sys/types.h>
+	#include <fcntl.h>], [
+		open("a", O_RDONLY | O_DIRECT, 0);
+	], [db_cv_open_o_direct=yes], [db_cv_open_o_direct=no])])
+	if test \
+	    "$db_cv_o_direct" = "yes" -a "$db_cv_open_o_direct" = "yes"; then
+		AC_DEFINE(HAVE_O_DIRECT)
+		AH_TEMPLATE(HAVE_O_DIRECT,
+		    [Define to 1 if you have the O_DIRECT flag.])
+	fi
 fi
 
 # Check for largefile support.
@@ -686,6 +663,124 @@ if test "$mmap_ok" = "no" -a "$shmget_ok" = "no"; then
 	AC_MSG_WARN([Neither mmap/munmap(2) or shmget(2) library functions.])
 fi
 
+# Optional RPC client/server.
+if test "$db_cv_rpc" = "yes"; then
+	AM_RPC_CONFIGURE
+fi
+
+# Optional Tcl support.
+if test "$db_cv_tcl" = "yes"; then
+	AM_TCL_LOAD
+fi
+
+# Optional sequence code.
+AM_SEQUENCE_CONFIGURE
+
+# Optional DB 1.85 compatibility API.
+if test "$db_cv_compat185" = "yes"; then
+	ADDITIONAL_INCS="db_185.h $ADDITIONAL_INCS"
+
+	ADDITIONAL_OBJS="db185${o} $ADDITIONAL_OBJS"
+fi
+
+# Optional utilities.
+if test "$db_cv_dump185" = "yes"; then
+	ADDITIONAL_PROGS="db_dump185 $ADDITIONAL_PROGS"
+fi
+
+# You can disable pieces of functionality to save space.
+#
+# Btree is always configured: it is the standard method, and Hash off-page
+# duplicates require it.
+ADDITIONAL_OBJS="$ADDITIONAL_OBJS \$(BTREE_OBJS)"
+
+# Hash can be disabled.
+if test "$db_cv_build_hash" = "yes"; then
+	AC_DEFINE(HAVE_HASH)
+	AH_TEMPLATE(HAVE_HASH, [Define to 1 if building Hash access method.])
+	ADDITIONAL_OBJS="$ADDITIONAL_OBJS \$(HASH_OBJS)"
+	if test "$db_cv_build_verify" = "yes"; then
+		ADDITIONAL_OBJS="$ADDITIONAL_OBJS \$(HASH_VRFY_OBJS)"
+	fi
+else
+	ADDITIONAL_OBJS="$ADDITIONAL_OBJS hash_stub${o}"
+fi
+
+# Queue can be disabled.
+if test "$db_cv_build_queue" = "yes"; then
+	AC_DEFINE(HAVE_QUEUE)
+	AH_TEMPLATE(HAVE_QUEUE, [Define to 1 if building Queue access method.])
+	ADDITIONAL_OBJS="$ADDITIONAL_OBJS \$(QUEUE_OBJS)"
+	if test "$db_cv_build_verify" = "yes"; then
+		ADDITIONAL_OBJS="$ADDITIONAL_OBJS \$(QUEUE_VRFY_OBJS)"
+	fi
+else
+	ADDITIONAL_OBJS="$ADDITIONAL_OBJS qam_stub${o}"
+fi
+
+# Replication can be disabled.
+if test "$db_cv_build_replication" = "yes"; then
+	AC_DEFINE(HAVE_REPLICATION)
+	AH_TEMPLATE(HAVE_REPLICATION,
+	    [Define to 1 if building replication support.])
+	ADDITIONAL_OBJS="$ADDITIONAL_OBJS \$(REP_OBJS)"
+
+	if test "$db_cv_build_replication_mgr" = "yes"; then
+		ADDITIONAL_OBJS="$ADDITIONAL_OBJS \$(REPMGR_OBJS)"
+	else
+		ADDITIONAL_OBJS="$ADDITIONAL_OBJS repmgr_stub${o}"
+	fi
+else
+	ADDITIONAL_OBJS="$ADDITIONAL_OBJS rep_stub${o} repmgr_stub${o}"
+fi
+
+# The statistics code can be disabled.
+if test "$db_cv_build_statistics" = "yes"; then
+	AC_DEFINE(HAVE_STATISTICS)
+	AH_TEMPLATE(HAVE_STATISTICS,
+	    [Define to 1 if building statistics support.])
+fi
+
+# The verification code can be disabled.
+if test "$db_cv_build_verify" = "yes"; then
+	AC_DEFINE(HAVE_VERIFY)
+	AH_TEMPLATE(HAVE_VERIFY,
+	    [Define to 1 if building access method verification support.])
+	ADDITIONAL_OBJS="$ADDITIONAL_OBJS \$(BTREE_VRFY_OBJS)"
+else
+	ADDITIONAL_OBJS="$ADDITIONAL_OBJS db_vrfy_stub${o}"
+fi
+
+# The crypto code can be disabled.
+if test -d "$srcdir/../crypto" -a "$db_cv_build_cryptography" = "yes"; then
+	AC_DEFINE(HAVE_CRYPTO)
+	AH_TEMPLATE(HAVE_CRYPTO,
+    [Define to 1 if Berkeley DB release includes strong cryptography.])
+
+	CRYPTO_OBJS="\$(CRYPTO_OBJS)"
+else
+	CRYPTO_OBJS="crypto_stub${o}"
+fi
+
+# The mutex code can be disabled, and if there aren't any mutexes, then there's
+# no reason to include the locking code.
+if test "$db_cv_build_mutexsupport" = "yes"; then
+	ADDITIONAL_OBJS="$ADDITIONAL_OBJS \$(LOCK_OBJS) \$(MUTEX_OBJS)"
+else
+	ADDITIONAL_OBJS="$ADDITIONAL_OBJS lock_stub${o} mut_stub${o}"
+fi
+
+# If DIAGNOSTIC is defined, include the log print routines in the library
+# itself, various diagnostic modes use them.
+if test "$db_cv_diagnostic" = "yes"; then
+	ADDITIONAL_OBJS="$ADDITIONAL_OBJS \$(PRINT_OBJS)"
+fi
+
+# If building for QNX, we need additional OS files.
+if test "$qnx_build" = "yes"; then
+	ADDITIONAL_OBJS="$ADDITIONAL_OBJS os_qnx_open${o}"
+fi
+
 # We need to add the additional object files into the Makefile with the correct
 # suffix.  We can't use $LTLIBOBJS itself, because that variable has $U encoded
 # in it for automake, and that's not what we want.  See SR #7227 for additional
@@ -693,37 +788,32 @@ fi
 #
 # XXX: I'm not sure this is correct.
 REPLACEMENT_OBJS=`echo "$LIB@&t@OBJS" |
-		 sed "s,\.[[^.]]* ,$o ,g;s,\.[[^.]]*$,$o,"`
+		sed "s,\.[[^.]]* ,$o ,g;s,\.[[^.]]*$,$o,"`
 
 # This is necessary so that .o files in LIBOBJS are also built via
 # the ANSI2KNR-filtering rules.
 LIB@&t@OBJS=`echo "$LIB@&t@OBJS" |
-	     sed 's,\.[[^.]]* ,$U&,g;s,\.[[^.]]*$,$U&,'`
+		sed 's,\.[[^.]]* ,$U&,g;s,\.[[^.]]*$,$U&,'`
 LTLIBOBJS=`echo "$LIB@&t@OBJS" |
-	   sed 's,\.[[^.]]* ,.lo ,g;s,\.[[^.]]*$,.lo,'`
+		sed 's,\.[[^.]]* ,.lo ,g;s,\.[[^.]]*$,.lo,'`
 AC_SUBST(LTLIBOBJS)
 
 # Initial output file list.
 CREATE_LIST="Makefile
     db_cxx.h:$srcdir/../dbinc/db_cxx.in
     db_int.h:$srcdir/../dbinc/db_int.in
+    clib_port.h:$srcdir/../dist/clib_port.in
     include.tcl:$srcdir/../test/include.tcl"
-
-# MinGW needs win_db.h.
-if test "$db_cv_mingw" = "yes"; then
-CREATE_LIST="$CREATE_LIST
-    win_db.h:$srcdir/win_db.in"
-fi
 
 # Create the db.h file from a source file, a list of global function
 # prototypes, and, if configured for unique names, a list of #defines
 # to do DB_VERSION_UNIQUE_NAME substitution.
 if test "$db_cv_uniquename" = "yes"; then
 	CREATE_LIST="$CREATE_LIST
-	db.h:$srcdir/../dbinc/db.in:$srcdir/../dbinc_auto/rpc_defs.in:$srcdir/../dbinc_auto/ext_def.in:$srcdir/../dbinc_auto/ext_prot.in"
+	db.h:$srcdir/../dbinc/db.in:$srcdir/../dbinc_auto/ext_def.in:$srcdir/../dbinc_auto/ext_prot.in"
 else
 	CREATE_LIST="$CREATE_LIST
-	db.h:$srcdir/../dbinc/db.in:$srcdir/../dbinc_auto/rpc_defs.in:$srcdir/../dbinc_auto/ext_prot.in"
+	db.h:$srcdir/../dbinc/db.in:$srcdir/../dbinc_auto/ext_prot.in"
 fi
 
 # If configured for unique names, create the db_int_uext.h file (which
@@ -748,10 +838,6 @@ if test "$db_cv_compat185" = "yes"; then
 		db_185.h:$srcdir/../dbinc/db_185.in:$srcdir/../dbinc_auto/ext_185_prot.in
 		db185_int.h:$srcdir/../db185/db185_int.in:$srcdir/../dbinc_auto/ext_185_prot.in"
 	fi
-fi
-
-if test "$db_cv_rpm" = "yes"; then
-	CREATE_LIST="$CREATE_LIST db.spec:../dist/db.spec.in"
 fi
 
 AC_CONFIG_FILES($CREATE_LIST)

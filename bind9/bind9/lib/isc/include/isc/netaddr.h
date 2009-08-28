@@ -1,8 +1,8 @@
 /*
- * Copyright (C) 2004, 2005  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2007  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1998-2002  Internet Software Consortium.
  *
- * Permission to use, copy, modify, and distribute this software for any
+ * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
@@ -15,12 +15,12 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: netaddr.h,v 1.25.18.5 2005/07/28 04:58:47 marka Exp $ */
+/* $Id: netaddr.h,v 1.35 2007/06/18 23:47:44 tbox Exp $ */
 
 #ifndef ISC_NETADDR_H
 #define ISC_NETADDR_H 1
 
-/*! \file */
+/*! \file isc/netaddr.h */
 
 #include <isc/lang.h>
 #include <isc/net.h>
@@ -48,13 +48,18 @@ struct isc_netaddr {
 isc_boolean_t
 isc_netaddr_equal(const isc_netaddr_t *a, const isc_netaddr_t *b);
 
+/*%<
+ * Compare network addresses 'a' and 'b'.  Return #ISC_TRUE if
+ * they are equal, #ISC_FALSE if not.
+ */
+
 isc_boolean_t
 isc_netaddr_eqprefix(const isc_netaddr_t *a, const isc_netaddr_t *b,
 		     unsigned int prefixlen);
 /*%<
  * Compare the 'prefixlen' most significant bits of the network
- * addresses 'a' and 'b'.  Return #ISC_TRUE if they are equal,
- * #ISC_FALSE if not.
+ * addresses 'a' and 'b'.  If 'b''s scope is zero then 'a''s scope is
+ * ignored.  Return #ISC_TRUE if they are equal, #ISC_FALSE if not.
  */
 
 isc_result_t

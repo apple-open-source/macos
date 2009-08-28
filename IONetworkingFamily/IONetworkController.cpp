@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,8 +20,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1999 Apple Computer, Inc.  All rights reserved. 
- *
  * IONetworkController.cpp
  *
  * HISTORY
@@ -32,6 +30,7 @@
 #include <IOKit/assert.h>
 #include <IOKit/IOCommandGate.h>
 #include <IOKit/network/IONetworkController.h>
+#include <IOKit/network/IOEthernetController.h>
 #include <IOKit/network/IOOutputQueue.h>
 #include <IOKit/network/IONetworkMedium.h>
 #include <IOKit/IOMessage.h>
@@ -116,6 +115,7 @@ static const OSData   * gIONullLinkData;
 //
 const OSSymbol * gIONetworkFilterGroup;
 const OSSymbol * gIOEthernetWakeOnLANFilterGroup;
+const OSSymbol * gIOEthernetDisabledWakeOnLANFilterGroup;
 
 // Constants for handleCommand().
 //
@@ -150,8 +150,11 @@ IONetworkControllerGlobals::IONetworkControllerGlobals()
         OSSymbol::withCStringNoCopy(kIONetworkFilterGroup);
     
     gIOEthernetWakeOnLANFilterGroup =
-        OSSymbol::withCStringNoCopy("IOEthernetWakeOnLANFilterGroup");
-    
+        OSSymbol::withCStringNoCopy(kIOEthernetWakeOnLANFilterGroup);
+
+    gIOEthernetDisabledWakeOnLANFilterGroup =
+        OSSymbol::withCStringNoCopy(kIOEthernetDisabledWakeOnLANFilterGroup);
+
     gIOControllerEnabledKey = 
         OSSymbol::withCStringNoCopy("IOControllerEnabled");
 }
@@ -166,6 +169,7 @@ IONetworkControllerGlobals::~IONetworkControllerGlobals()
     RELEASE( gIONullLinkData );
     RELEASE( gIONetworkFilterGroup );
     RELEASE( gIOEthernetWakeOnLANFilterGroup );
+    RELEASE( gIOEthernetDisabledWakeOnLANFilterGroup );
     RELEASE( gIOControllerEnabledKey );
 }
 
@@ -179,6 +183,7 @@ bool IONetworkControllerGlobals::isValid() const
              gIONullLinkData       &&
              gIONetworkFilterGroup &&
              gIOEthernetWakeOnLANFilterGroup &&
+             gIOEthernetDisabledWakeOnLANFilterGroup &&
              gIOControllerEnabledKey );
 }
 
@@ -349,10 +354,10 @@ bool IONetworkController::start(IOService * provider)
         !isPowerOfTwo(constraints.alignStart) ||
         !isPowerOfTwo(constraints.alignLength))
     {
-        IOLog("%s: Invalid alignment: start:%ld, length:%ld\n",
+        IOLog("%s: Invalid alignment: start:%d, length:%d\n",
             getName(),
-            constraints.alignStart,
-            constraints.alignLength);
+            (uint32_t) constraints.alignStart,
+            (uint32_t) constraints.alignLength);
         return false;
     }
 
@@ -774,7 +779,7 @@ bool IONetworkController::publishProperties()
         if (getPacketFilters(gIONetworkFilterGroup, &num) != kIOReturnSuccess)
             break;
 
-        dict   = OSDictionary::withCapacity(4);
+        dict   = OSDictionary::withCapacity(1);
         numObj = OSNumber::withNumber(num, sizeof(num) * 8);
         if ( (dict == 0) || (numObj == 0) ) break;
 
@@ -1001,10 +1006,10 @@ static mbuf_t getPacket( UInt32 size,
 		
 		while(size && m)
 		{
-			vm_address_t alignedStart, originalStart;
+			uintptr_t alignedStart, originalStart;
 			
-			originalStart = (vm_address_t)mbuf_data(m);
-			alignedStart = (originalStart + smask) & ~smask;
+			originalStart = (uintptr_t)mbuf_data(m);
+			alignedStart = (originalStart + smask) & ~((uintptr_t)smask);
 			mbuf_setdata(m,  (caddr_t)alignedStart, (mbuf_maxlen(m) - (alignedStart - originalStart)) & ~lmask);
 			
 			if(mbuf_len(m) > size)
@@ -2070,7 +2075,7 @@ IOReturn IONetworkController::handleCommand(void * target,
 {
 
     IONetworkController * self    = (IONetworkController *) target;
-    UInt32                command = (UInt32) param0;
+    UInt32                command = (uintptr_t) param0;
     IOService *           client  = (IOService *) param1;
     IOReturn              ret     = kIOReturnSuccess;
     UInt32                count   = 0;
@@ -2171,4 +2176,32 @@ const IONetworkMedium * IONetworkController::getCurrentMedium() const
 bool IONetworkController::setCurrentMedium(const IONetworkMedium * medium)
 {
     return setSelectedMedium(medium);
+}
+
+//---------------------------------------------------------------------------
+
+void IONetworkController::systemWillShutdown( IOOptionBits specifier )
+{
+    if (specifier == kIOMessageSystemWillPowerOff ||
+        specifier == kIOMessageSystemWillRestart)
+    {
+        messageClients(kMessageControllerWillShutdown);
+    }
+
+    super::systemWillShutdown(specifier);
+}
+
+//---------------------------------------------------------------------------
+
+IOReturn IONetworkController::setAggressiveness(
+    unsigned long type, unsigned long newLevel )
+{
+    // Tell interface object(s) that WOMP support has changed.
+
+    if ((kPMEthernetWakeOnLANSettings == type) && _clientSetIter)
+    {
+        _broadcastEvent( kIONetworkEventWakeOnLANSupportChanged );
+    }    
+
+    return super::setAggressiveness(type, newLevel);
 }

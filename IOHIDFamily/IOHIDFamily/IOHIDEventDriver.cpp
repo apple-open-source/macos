@@ -30,8 +30,8 @@
 #include "IOHIDPrivateKeys.h"
 #include <IOKit/hid/IOHIDUsageTables.h>
 #include <IOKit/IOLib.h>
-#include <sys/kdebug.h>
 #include <IOKit/usb/USB.h>
+#include "IOHIDFamilyTrace.h"
 
 enum {
     kMouseButtons   = 0x1,
@@ -532,7 +532,7 @@ void IOHIDEventDriver::handleInterruptReport (
     SInt32          tiltX           = 0;
     SInt32          tiltY           = 0;
     SInt32          twist           = 0;
-	SInt32          tipPressure     = EV_MAXPRESSURE;
+    SInt32          tipPressure     = EV_MAXPRESSURE;
     SInt32          tipPressureMin  = EV_MAXPRESSURE;
     SInt32          tipPressureMax  = EV_MAXPRESSURE;
     SInt32          barrelPressureMin = 0;
@@ -553,44 +553,40 @@ void IOHIDEventDriver::handleInterruptReport (
         return;
     
     elements = GetElementArray(GetReportHandlerSlot(reportID), reportType);
-
-    if ( elements )
-    {
     
-        if ( number = OSDynamicCast(OSNumber, getProperty(kIOHIDAbsoluteAxisBoundsRemovalPercentage)) ) 
+    IOHID_DEBUG(kIOHIDDebugCode_InturruptReport, reportType, reportID, elements ? elements->getCount() : -1, 0);
+    
+    if ( elements ) {
+    
+        if ( number = OSDynamicCast(OSNumber, getProperty(kIOHIDAbsoluteAxisBoundsRemovalPercentage)) )
             absoluteAxisRemovalPercentage = number->unsigned32BitValue();
-    
+            
         count = elements->getCount();
         
-        for (index = 0; index < count; index++)
-        {
+        for (index = 0; index < count; index++) {
             element = (IOHIDElement *)elements->getObject(index);
             
             elementTS           = element->getTimeStamp();
             reportTS            = timeStamp;
-
+            
             elementIsCurrent    = (CMP_ABSOLUTETIME(&elementTS, &reportTS) == 0);
             
-            if ( element->getReportID() != reportID ) 
+            if ( element->getReportID() != reportID )
                 continue;
-
+                
             usagePage       = element->getUsagePage();
             usage           = element->getUsage();
             
             
-            if ( usagePage == kHIDPage_GenericDesktop )
-            {
-                switch ( element->getUsage() )
-                {
+            if ( usagePage == kHIDPage_GenericDesktop ) {
+                switch ( element->getUsage() ) {
                     case kHIDUsage_GD_X:
                         pointingHandled |= true;
-                        if (element->getFlags() & kIOHIDElementFlagsRelativeMask)
-                        {
+                        if (element->getFlags() & kIOHIDElementFlagsRelativeMask) {
                             if ( elementIsCurrent )
                                 relativeX = element->getValue();
                         }
-                        else
-                        {
+                        else {
                             tabletHandled  |= elementIsCurrent;
                             absoluteAxis    = true;
                             absoluteX       = element->getValue();
@@ -601,44 +597,39 @@ void IOHIDEventDriver::handleInterruptReport (
                             bounds.maxx     -= boundsDiff;
                         }
                         break;
-                    
+                        
                     case kHIDUsage_GD_Y:
                         pointingHandled |= true;
-                        if (element->getFlags() & kIOHIDElementFlagsRelativeMask)
-                        {
+                        if (element->getFlags() & kIOHIDElementFlagsRelativeMask) {
                             if ( elementIsCurrent )
                                 relativeY = element->getValue();
                         }
-                        else 
-                        {
+                        else {
                             tabletHandled  |= elementIsCurrent;
                             absoluteAxis    = true;
                             absoluteY       = element->getValue();
                             bounds.miny     = element->getLogicalMin();
-                            bounds.maxy     = element->getLogicalMax();                            
-                            bounds.maxy     = element->getLogicalMax();   
+                            bounds.maxy     = element->getLogicalMax();
+                            bounds.maxy     = element->getLogicalMax();
                             boundsDiff      = ((bounds.maxy - bounds.miny) * absoluteAxisRemovalPercentage) / 200;
                             bounds.miny     += boundsDiff;
                             bounds.maxy     -= boundsDiff;
                         }
                         break;
-
+                        
                     case kHIDUsage_GD_Z:
-                        if (element->getFlags() & kIOHIDElementFlagsRelativeMask)
-                        {
+                        if (element->getFlags() & kIOHIDElementFlagsRelativeMask) {
                             if ( elementIsCurrent )
                                 scrollHoriz = element->getValue();
                         }
-                        else 
-                        {
+                        else {
                             tabletHandled  |= elementIsCurrent;
                             absoluteZ       = element->getValue();
                         }
                         break;
-                    
+                        
                     case kHIDUsage_GD_Wheel:
-                        if ( elementIsCurrent )
-                        {
+                        if ( elementIsCurrent ) {
                             scrollVert = element->getValue();
                         }
                         break;
@@ -648,14 +639,12 @@ void IOHIDEventDriver::handleInterruptReport (
                         if ( elementIsCurrent )
                             dispatchKeyboardEvent( timeStamp, usagePage, usage, element->getValue());
                         break;
-                }   
+                }
             }
-            else if ( usagePage == kHIDPage_Digitizer )
-            {
+            else if ( usagePage == kHIDPage_Digitizer ) {
                 pointingHandled |= elementIsCurrent;
-
-                switch ( usage ) 
-                {
+                
+                switch ( usage ) {
                     case kHIDUsage_Dig_TipSwitch:
                         setButtonState ( &buttonState, 0, element->getValue());
                         break;
@@ -666,8 +655,7 @@ void IOHIDEventDriver::handleInterruptReport (
                         setButtonState ( &buttonState, 2, element->getValue());
                         break;
                     case kHIDUsage_Dig_InRange:
-                        if ( elementIsCurrent )
-                        {
+                        if ( elementIsCurrent ) {
                             inRange = (element->getValue() != 0);
                             proximityHandled |= ( inRange != _cachedRangeState );
                         }
@@ -676,14 +664,14 @@ void IOHIDEventDriver::handleInterruptReport (
                         tabletHandled      |= elementIsCurrent;
                         barrelPressure      = element->getValue();
                         barrelPressureMin   = element->getLogicalMin();
-                        barrelPressureMax   = element->getLogicalMax();                        
+                        barrelPressureMax   = element->getLogicalMax();
                         barrelPressureMin  += ((barrelPressureMax - barrelPressureMin) * 15) / 100;
                         break;
                     case kHIDUsage_Dig_TipPressure:
                         tabletHandled  |= elementIsCurrent;
                         tipPressure     = element->getValue();
                         tipPressureMin  = element->getLogicalMin();
-                        tipPressureMax  = element->getLogicalMax();                        
+                        tipPressureMax  = element->getLogicalMax();
                         tipPressureMin  += ((tipPressureMax - tipPressureMin) * 15) / 100;
                         break;
                     case kHIDUsage_Dig_XTilt:
@@ -709,23 +697,19 @@ void IOHIDEventDriver::handleInterruptReport (
                     default:
                         break;
                 }
-            }	
-            else if ( usagePage == kHIDPage_Button )
-            {
+            }
+            else if ( usagePage == kHIDPage_Button ) {
                 pointingHandled |= true;
                 
                 tabletHandled  |= ( absoluteAxis && elementIsCurrent );
-                                
+                
                 setButtonState ( &buttonState, (element->getUsage() - 1), element->getValue());
             }
-            else if (( usagePage == kHIDPage_KeyboardOrKeypad ) && elementIsCurrent )
-            {
+            else if (( usagePage == kHIDPage_KeyboardOrKeypad ) && elementIsCurrent ) {
                 dispatchKeyboardEvent( timeStamp, usagePage, usage, element->getValue());
             }
-            else if (( usagePage == kHIDPage_Consumer ) && elementIsCurrent )
-            {
-                switch ( usage ) 
-                {
+            else if (( usagePage == kHIDPage_Consumer ) && elementIsCurrent ) {
+                switch ( usage ) {
                     case kHIDUsage_Csmr_VolumeIncrement:
                         volumeHandled   |= 0x1;
                         volumeState     |= (element->getValue() != 0) ? 0x1:0;
@@ -739,27 +723,25 @@ void IOHIDEventDriver::handleInterruptReport (
                         volumeState     |= (element->getValue() != 0) ? 0x4:0;
                         break;
                     case kHIDUsage_Csmr_ACPan:
-                        scrollHoriz = -element->getValue();  
+                        scrollHoriz = -element->getValue();
                         break;
                     default:
                         dispatchKeyboardEvent(timeStamp, usagePage, usage, element->getValue());
                         break;
                 }
             }
-            else if (elementIsCurrent && 
-                       (((usagePage == kHIDPage_AppleVendorTopCase) && (usage == kHIDUsage_AV_TopCase_KeyboardFn)) || 
-                        ((usagePage == kHIDPage_AppleVendorKeyboard) && (usage == kHIDUsage_AppleVendorKeyboard_Function))))
-            {
+            else if (elementIsCurrent &&
+                     (((usagePage == kHIDPage_AppleVendorTopCase) && (usage == kHIDUsage_AV_TopCase_KeyboardFn)) ||
+                      ((usagePage == kHIDPage_AppleVendorKeyboard) && (usage == kHIDUsage_AppleVendorKeyboard_Function)))) {
                 dispatchKeyboardEvent(timeStamp, usagePage, usage, element->getValue());
             }
-
+            
         }
         
         // RY: Handle the case where Vol Increment, Decrement, and Mute are all down
         // If such an event occurs, it is likely that the device is defective,
         // and should be ignored.
-        if ( (volumeState != 0x7) && (volumeHandled != 0x7) )
-        {
+        if ( (volumeState != 0x7) && (volumeHandled != 0x7) ) {
             // Volume Increment
             if ( volumeHandled & 0x1 )
                 dispatchKeyboardEvent(timeStamp, kHIDPage_Consumer, kHIDUsage_Csmr_VolumeIncrement, ((volumeState & 0x1) != 0));
@@ -774,46 +756,38 @@ void IOHIDEventDriver::handleInterruptReport (
         if ( scrollVert || scrollHoriz )
             dispatchScrollWheelEvent(timeStamp, scrollVert, scrollHoriz, 0);
     }
-            
-    if ( (_bootSupport & kBootMouse) && (reportID == 0))
-    {
+    
+    if ( (_bootSupport & kBootMouse) && (reportID == 0)) {
         handleBootPointingReport(report, &relativeX, &relativeY, &buttonState);
         pointingHandled |= true;
     }
     
-
-    if ( proximityHandled ) 
-    {
+    
+    if ( proximityHandled ) {
         dispatchTabletProximityEvent(timeStamp, transducerID, inRange, invert);
         _cachedRangeState = inRange;
     }
     
-    if ( tabletHandled && inRange )
-    {
+    if ( tabletHandled && inRange ) {
         dispatchTabletPointerEvent(timeStamp, transducerID, absoluteX, absoluteY, absoluteZ, &bounds, buttonState, tipPressure, tipPressureMin, tipPressureMax, barrelPressure, barrelPressureMin, barrelPressureMax, tiltX, tiltY, twist);
     }
-        
-    if ( pointingHandled || proximityHandled )
-    {
-        if ( proximityHandled || (absoluteAxis && inRange && !relativeX && !relativeY && 
-            !((buttonState != _cachedButtonState) && _relativeButtonCollection))) 
-        {
-            if ( !inRange )
-            {
+    
+    if ( pointingHandled || proximityHandled ) {
+        if ( proximityHandled || (absoluteAxis && inRange && !relativeX && !relativeY &&
+                                  !((buttonState != _cachedButtonState) && _relativeButtonCollection))) {
+            if ( !inRange ) {
                 buttonState = 0;
                 tipPressure = tipPressureMin;
             }
-
+            
             dispatchAbsolutePointerEvent(timeStamp, absoluteX, absoluteY, &bounds, buttonState, inRange, tipPressure, tipPressureMin, tipPressureMax);
-        } 
-        else if (relativeX || relativeY || (buttonState != _cachedButtonState)) 
-        {
+        }
+        else if (relativeX || relativeY || (buttonState != _cachedButtonState)) {
             dispatchRelativePointerEvent(timeStamp, relativeX, relativeY, buttonState);
         }
-    
+        
         _cachedButtonState = buttonState;
     }
-
 }
 
 //====================================================================================================

@@ -220,7 +220,7 @@ printhead(mesg)
 int
 pdot()
 {
-	printf("%d\n", dot - &message[0] + 1);
+	printf("%ld\n", (uintptr_t)dot - (uintptr_t)&message[0] + 1);
 	return (0);
 }
 

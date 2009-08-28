@@ -118,7 +118,7 @@ LNotShort:
 	cmova	%rcx,%rax		// %eax = max(LHS offset, RHS offset);
 	movl	$4096,%ecx
 	subl	%eax,%ecx		// get #bytes to next page crossing
-	cmpl	%edx,%ecx		// will operand run out first?
+	cmpq	%rdx,%rcx		// will operand run out first?
 	cmova	%edx,%ecx		// get min(length remaining, bytes to page end)
 	movl	%ecx,%eax
 	shrl	$4,%ecx			// get #chunks till end of operand or page

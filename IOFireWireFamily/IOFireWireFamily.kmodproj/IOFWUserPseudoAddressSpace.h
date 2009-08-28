@@ -29,6 +29,13 @@
  */
 /*
 	$Log: IOFWUserPseudoAddressSpace.h,v $
+	Revision 1.11  2008/09/12 23:44:05  calderon
+	<rdar://5971979/> PseudoAddressSpace skips/mangles packets
+	<rdar://5708169/> FireWire synchronous commands' headerdoc missing callback info
+	
+	Revision 1.10  2008/07/04 00:09:14  arulchan
+	fix for rdar://6035774
+	
 	Revision 1.9  2007/02/16 19:03:44  arulchan
 	*** empty log message ***
 	
@@ -95,6 +102,8 @@ typedef union IOFWPacketHeader_t
         IOFWPacketHeader_t*			next ;
         OSAsyncReference64*			whichAsyncRef ;
         UInt32						argCount ;
+        io_user_reference_t			headerSize ;		// only valid for skipped packets
+		io_user_reference_t			headerOffset ;		// only valid for skipped packets
         
         io_user_reference_t			args[9] ;
     } CommonHeader ;
@@ -106,6 +115,8 @@ typedef union IOFWPacketHeader_t
         IOFWPacketHeader_t*			next ;
         OSAsyncReference64*			whichAsyncRef ;
         UInt32						argCount ;
+		io_user_reference_t			headerSize ;		// only valid for skipped packets
+		io_user_reference_t			headerOffset ;		// only valid for skipped packets
         // -----------------------------------------------
         
         io_user_reference_t			commandID ;			//	0
@@ -128,6 +139,8 @@ typedef union IOFWPacketHeader_t
         IOFWPacketHeader_t*			next ;
         OSAsyncReference64*			whichAsyncRef ;
         UInt32						argCount ;
+		io_user_reference_t			headerSize ;		// only valid for skipped packets
+		io_user_reference_t			headerOffset ;		// only valid for skipped packets
         // -----------------------------------------------
 
         io_user_reference_t					commandID ;			//	0
@@ -141,6 +154,8 @@ typedef union IOFWPacketHeader_t
 		IOFWPacketHeader_t*			next ;
 		OSAsyncReference64*			whichAsyncRef ;
 		UInt32						argCount ;
+		io_user_reference_t			headerSize ;		// only valid for skipped packets
+		io_user_reference_t			headerOffset ;		// only valid for skipped packets
 		// -----------------------------------------------
 
         io_user_reference_t			commandID ;			//	0
@@ -222,7 +237,6 @@ public:
 
 	// --- IOFWPseudoAddressSpace ----------
 	// override deactivate so we can delete any notification related structures...
-	virtual IOReturn					activate() ;
 	virtual void						deactivate() ;
 	
 	bool							completeInit( IOFireWireUserClient* userclient, AddressSpaceCreateParams* params ) ;
@@ -306,6 +320,7 @@ private:
 	
 	Boolean						fPacketQueuePrepared ;
 	Boolean						fBackingStorePrepared ;
+	io_user_reference_t			fBufferStartOffset;
 } ;
 
 #endif //__IOFWUserClientPsduAddrSpace_H__

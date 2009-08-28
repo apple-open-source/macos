@@ -1,14 +1,22 @@
 /*
-#  $Id: Driver_xst.h,v 1.5 2003/08/20 00:15:24 timbo Exp $
+#  $Id: Driver_xst.h 10378 2007-12-06 10:48:17Z timbo $
 #  Copyright (c) 2002  Tim Bunce  Ireland
 #
 #  You may distribute under the terms of either the GNU General Public
 #  License or the Artistic License, as specified in the Perl README file.
 */
 
+
+/* This is really just a workaround for SUPER:: not working right for XS code.
+ * It would be better if we setup perl's context so SUPER:: did the right thing
+ * (borrowing the relevant magic from pp_entersub in perl pp_hot.c).
+ * Then we could just use call_method("SUPER::foo") instead.
+ * XXX remember to call SPAGAIN in the calling code after calling this!
+ */
 static SV *
 dbixst_bounce_method(char *methname, int params)
 {
+    dTHX;
     /* XXX this 'magic' undoes the dMARK embedded in the dXSARGS of our caller	*/
     /* so that the dXSARGS below can set things up as they were for our caller	*/
     void *xxx = PL_markstack_ptr++;
@@ -46,6 +54,7 @@ dbdxst_bind_params(SV *sth, imp_sth_t *imp_sth, I32 items, I32 ax)
     /* Handle binding supplied values to placeholders.		*/
     /* items = one greater than the number of params		*/
     /* ax = ax from calling sub, maybe adjusted to match items	*/
+    dTHX;
     int i;
     SV *idx;
     if (items-1 != DBIc_NUM_PARAMS(imp_sth)
@@ -75,6 +84,7 @@ dbdxst_bind_params(SV *sth, imp_sth_t *imp_sth, I32 items, I32 ax)
 static SV *
 dbdxst_fetchall_arrayref(SV *sth, SV *slice, SV *batch_row_count)
 {
+    dTHX;
     D_imp_sth(sth);
     SV *rows_rvav;
     if (SvOK(slice)) {  /* should never get here */

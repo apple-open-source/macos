@@ -50,7 +50,7 @@ IOFWPHYPacketListener * IOFWPHYPacketListener::createWithController( IOFireWireC
         
     if( status == kIOReturnSuccess )
     {
-        me = new IOFWPHYPacketListener;
+        me = OSTypeAlloc( IOFWPHYPacketListener );
         if( me == NULL )
             status = kIOReturnNoMemory;
     }
@@ -128,7 +128,7 @@ void IOFWPHYPacketListener::deactivate( void )
 
 void IOFWPHYPacketListener::processPHYPacket( UInt32 data1, UInt32 data2 )
 {
-	IOLog( "IOFWPHYPacketListener<0x%08lx>::processPHYPacket - 0x%08lx %08lx\n", (UInt32)this, data1, data2 );
+	IOLog( "IOFWPHYPacketListener<%p>::processPHYPacket - 0x%x 0x%x\n", this, (uint32_t)data1, (uint32_t)data2 );
 	
 	if( fCallback )
 	{

@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2006 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2008 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -16,6 +16,8 @@
 # USA.
 
 """Decorate a message by sticking the header and footer around it."""
+
+import re
 
 from types import ListType
 from email.MIMEText import MIMEText
@@ -63,6 +65,7 @@ def process(mlist, msg, msgdata):
         except Errors.NotAMemberError:
             pass
     # These strings are descriptive for the log file and shouldn't be i18n'd
+    d.update(msgdata.get('decoration-data', {}))
     header = decorate(mlist, mlist.msg_header, 'non-digest header', d)
     footer = decorate(mlist, mlist.msg_footer, 'non-digest footer', d)
     # Escape hatch if both the footer and header are empty
@@ -95,8 +98,16 @@ def process(mlist, msg, msgdata):
         # TK: Try to keep the message plain by converting the header/
         # footer/oldpayload into unicode and encode with mcset/lcset.
         # Try to decode qp/base64 also.
-        uheader = unicode(header, lcset, 'ignore')
-        ufooter = unicode(footer, lcset, 'ignore')
+        # It is possible header/footer is already unicode if it was
+        # interpolated with a unicode.
+        if isinstance(header, unicode):
+            uheader = header
+        else:
+            uheader = unicode(header, lcset, 'ignore')
+        if isinstance(footer, unicode):
+            ufooter = footer
+        else:
+            ufooter = unicode(footer, lcset, 'ignore')
         try:
             oldpayload = unicode(msg.get_payload(decode=True), mcset)
             frontsep = endsep = u''
@@ -115,13 +126,19 @@ def process(mlist, msg, msgdata):
                     payload = payload.encode(mcset)
                     newcset = mcset
                     # if this fails, fallback to outer try and wrap=true
+            format = msg.get_param('format')
+            delsp = msg.get_param('delsp')
             del msg['content-transfer-encoding']
             del msg['content-type']
             msg.set_payload(payload, newcset)
+            if format:
+                msg.set_param('Format', format)
+            if delsp:
+                msg.set_param('DelSp', delsp)
             wrap = False
         except (LookupError, UnicodeError):
             pass
-    elif msg.get_type() == 'multipart/mixed':
+    elif msg.get_content_type() == 'multipart/mixed':
         # The next easiest thing to do is just prepend the header and append
         # the footer as additional subparts
         payload = msg.get_payload()
@@ -150,9 +167,11 @@ def process(mlist, msg, msgdata):
     # basis of the interior, wrapped Message.
     inner = Message()
     # Which headers to copy?  Let's just do the Content-* headers
+    copied = False
     for h, v in msg.items():
         if h.lower().startswith('content-'):
             inner[h] = v
+            copied = True
     inner.set_payload(msg.get_payload())
     # For completeness
     inner.set_unixfrom(msg.get_unixfrom())
@@ -162,6 +181,10 @@ def process(mlist, msg, msgdata):
     # get_content_charset isn't.  However, do make sure there is a default
     # content-type, even if the original message was not MIME.
     inner.set_default_type(msg.get_default_type())
+    if not copied:
+        inner['Content-Type'] = inner.get_content_type()
+    if msg['mime-version'] == None:
+        msg['MIME-Version'] = '1.0'
     # BAW: HACK ALERT.
     if hasattr(msg, '__version__'):
         inner.__version__ = msg.__version__
@@ -185,7 +208,7 @@ def process(mlist, msg, msgdata):
 
 
 
-def decorate(mlist, template, what, extradict={}):
+def decorate(mlist, template, what, extradict=None):
     # `what' is just a descriptive phrase used in the log message
     #
     # BAW: We've found too many situations where Python can be fooled into
@@ -205,13 +228,15 @@ def decorate(mlist, template, what, extradict={}):
                   'info'          : mlist.info,
                   'cgiext'        : mm_cfg.CGIEXT,
                   })
-    d.update(extradict)
+    if extradict is not None:
+        d.update(extradict)
     # Using $-strings?
     if getattr(mlist, 'use_dollar_strings', 0):
         template = Utils.to_percent(template)
     # Interpolate into the template
     try:
-        text = (template % d).replace('\r\n', '\n')
+        text = re.sub(r'(?m)(?<!^--) +(?=\n)', '',
+                      re.sub(r'\r\n', r'\n', template % d))
     except (ValueError, TypeError), e:
         syslog('error', 'Exception while calculating %s:\n%s', what, e)
         what = what.upper()

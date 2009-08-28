@@ -45,6 +45,7 @@ ignored_words = {
   "ATTRIBUTE_UNUSED": (0, "macro keyword"),
   "LIBEXSLT_PUBLIC": (0, "macro keyword"),
   "X_IN_Y": (5, "macro function builder"),
+  "XSLT_ITEM_COMMON_FIELDS": (0, "Special macro")
 }
 
 def escape(raw):
@@ -703,7 +704,7 @@ class CParser:
 		self.warning("  Expecting '* %s:' got '%s'" % (name, lines[0]))
 	    return(((ret[0], retdesc), args, desc))
 	del lines[0]
-	while lines[0] == '*':
+	while len(lines) > 0 and lines[0] == '*':
 	    del lines[0]
 	nbargs = len(args)
 	while len(lines) > 0 and lines[0][0:3] == '* @':
@@ -1073,7 +1074,8 @@ class CParser:
 	    return token
 
 	while token[0] == "name" and ( 
-	      token[1] == "const" or token[1] == "unsigned"):
+	      token[1] == "const" or token[1] == "unsigned" or
+	      token[1] == "signed"):
 	    if self.type == "":
 	        self.type = token[1]
 	    else:

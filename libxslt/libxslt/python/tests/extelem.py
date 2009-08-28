@@ -41,7 +41,7 @@ styledoc = libxml2.parseDoc("""
 <xsl:stylesheet version='1.0'
   xmlns:xsl='http://www.w3.org/1999/XSL/Transform'
   xmlns:foo='%s'
-  xsl:extension-element-prefixes='foo'>
+  extension-element-prefixes='foo'>
 
   <xsl:template match='/'>
     <article><foo:test>FAILURE</foo:test></article>

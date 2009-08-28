@@ -38,8 +38,9 @@
 
 #include "enums.h"
 #include "structs.h"
+#include "protos.h"
 
-void usage() {
+void usage(void) {
     fprintf(stderr, "Usage: %s [options]\n", getprogname());
     fputs(
 "\t--help\t\tThis usage statement\n"
@@ -86,7 +87,7 @@ void usage() {
 }
 
 /* Basically lifted from the man page */
-void usage_short() {
+void usage_short(void) {
     fprintf(stderr, "Usage: %s [options]\n", getprogname());
     fputs(
 "bless --help\n"

@@ -1,13 +1,28 @@
-#	@(#)Makefile	8.1 (Berkeley) 6/6/93
-# $FreeBSD: src/usr.sbin/portmap/Makefile,v 1.7.2.1 2001/04/25 12:10:33 ru Exp $
+Project = portmap
+Install_Dir = /usr/sbin
 
-PROG=	portmap
-MAN8=	portmap.8
-SRCS=	portmap.c from_local.c pmap_check.c
-SUBDIR= pmap_set pmap_dump
+CFILES = portmap.c from_local.c pmap_check.c
+MANPAGES = portmap.8
 
-CFLAGS+= -DHOSTS_ACCESS -mdynamic-no-pic
-DPADD=	${LIBWRAP}
-LDADD=	-lwrap
+Extra_CC_Flags = -Wall -Werror -Wno-deprecated-declarations
+Extra_CC_Flags += -DHOSTS_ACCESS -DINSTANT_OFF
 
-.include <bsd.prog.mk>
+Extra_LD_Flags = -lwrap -Wl,-pie
+
+SubProjects = pmap_set pmap_dump
+
+include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make
+
+OSV = $(DSTROOT)/usr/local/OpenSourceVersions
+OSL = $(DSTROOT)/usr/local/OpenSourceLicenses
+SANDBOX = $(DSTROOT)/usr/share/sandbox
+
+after_install:
+	mkdir -p $(DSTROOT)/System/Library/LaunchDaemons
+	cp com.apple.portmap.plist $(DSTROOT)/System/Library/LaunchDaemons
+	$(MKDIR) $(OSV)
+	$(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist
+	$(MKDIR) $(OSL)
+	$(INSTALL_FILE) $(SRCROOT)/LICENSE $(OSL)/$(Project).txt
+	$(MKDIR) $(SANDBOX)
+	$(INSTALL_FILE) portmap.sb $(SANDBOX)/portmap.sb

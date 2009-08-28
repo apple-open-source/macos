@@ -199,7 +199,7 @@ xsltFunctionLocalTime(xmlXPathParserContextPtr ctxt, int nargs) {
     
     str = (char *) obj->stringval;
 
-    /* str = "$Date: 2002/10/15 16:06:47 $" */
+    /* str = "$Date$" */
     memset(digits, 0, sizeof(digits));
     strncpy(digits, str+7, 4);
     field = strtol(digits, NULL, 10);

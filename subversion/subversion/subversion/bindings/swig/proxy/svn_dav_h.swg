@@ -5,10 +5,11 @@
 #ifdef SWIGPYTHON
 #endif
 
+/* Callback typemaps */
+
+/* Baton typemaps */
+
 /* Includes */
-#ifdef SWIGPYTHON
-%import proxy.swg
-#endif
 %{
 #include "svn_dav.h"
 %}
@@ -22,3 +23,7 @@
 
 %inline %{
 %}
+
+#ifdef SWIGPYTHON
+
+#endif

@@ -1,4 +1,3 @@
-/* APPLE LOCAL begin mainline 2005-09-01 3449986 */
 /* Target definitions for Darwin 8.0 and above (Mac OS X) systems.
    Copyright (C) 2004, 2005
    Free Software Foundation, Inc.
@@ -32,4 +31,3 @@ Boston, MA 02110-1301, USA.  */
 #define LIB_SPEC "%{!static:\
   %{!mlong-double-64:%{pg:-lSystemStubs_profile;:-lSystemStubs}} \
   %{!m64:%:version-compare(>< 10.3 10.4 mmacosx-version-min= -lmx)} -lSystem}"
-/* APPLE LOCAL end mainline 2005-09-01 3449986 */

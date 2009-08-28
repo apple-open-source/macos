@@ -1,13 +1,14 @@
-AC_INIT(rlm_example.c)  # change 'example'
-AC_REVISION($Revision: 1.5 $)
-AC_DEFUN(modname,[rlm_example])  # change 'example'
+AC_PREREQ([2.53])
+AC_INIT(rlm_example.c) # change 'example'
+AC_REVISION($Revision$)
+AC_DEFUN(modname,[rlm_example]) # change 'example'
 
 if test x$with_[]modname != xno; then
 
 	AC_PROG_CC
 	AC_PROG_CPP
 
-	dnl put configuration checks here.  
+	dnl put configuration checks here.
 	dnl set $fail to what's missing, on fatal errors.
 	dnl use AC_MSG_WARN() on important messages.
 	AC_CHECK_LIB(c, printf,
@@ -35,7 +36,7 @@ if test x"$fail" != x""; then
 		AC_MSG_ERROR([set --without-]modname[ to disable it explicitly.])
 	else
 		AC_MSG_WARN([silently not building ]modname[.])
-		AC_MSG_WARN([FAILURE: ]modname[ requires: $fail.]); 
+		AC_MSG_WARN([FAILURE: ]modname[ requires: $fail.]);
 		targetname=""
 	fi
 fi

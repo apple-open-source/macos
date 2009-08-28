@@ -1,0 +1,23 @@
+2004-11-01  Andreas Kupries <andreask@activestate.com>
+
+	* window.c: Removed inclusion of windows.h. This is done through
+	  tcl.h and tk.h, doing it here before Tcl/Tk causes a conflict in
+	  8.5, which restructured the includes. The change is ok when
+	  compiling against 8.[34] as well.
+
+2004-08-18  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tkimg 1.3 ========================
+	*
+
+2002-12-03  Andreas Kupries <andreas_kupries@users.sourceforge.net>
+
+	* Makefile.in (CYGPATH): Added this variable. Is substituted by
+	  configure. The miss caused problems on Linux (empty backtick).
+
+2002-11-25  Andreas Kupries <andreas_kupries@users.sourceforge.net>
+
+	* Start of logging.
+	* tkimg/window: WINDOW photo image type. Provided by Paul Obermeier
+	  <obermeier@users.sourceforge.net> using the original Img sources.

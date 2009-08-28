@@ -1,0 +1,103 @@
+package provide xotcl::actiweb::pageTemplate 0.8
+
+package require xotcl::actiweb::webObject
+package require xotcl::actiweb::invoker
+package require xotcl::mixinStrategy
+
+package require XOTcl
+
+namespace eval ::xotcl::actiweb::pageTemplate {
+    namespace import ::xotcl::*
+
+    Class PageTemplate -superclass WebObject
+    PageTemplate instproc init args {
+	next
+	my mixinStrategy ::Send=TypedString
+    }
+
+    PageTemplate abstract instproc listExportedProcs args
+    PageTemplate abstract instproc simplePage args
+
+    Class PageTemplateHtml -superclass PageTemplate
+
+    PageTemplateHtml instproc init args {
+	my contentType text/html
+	next
+    }
+
+    PageTemplateHtml instproc listExportedProcs args {
+	#
+	# place must be a Html place!
+	#
+	set place [HtmlPlace getInstance]
+	set c "
+  The following options are avaiable on $n:
+  "
+
+	foreach i [my exportedProcs] {
+	    set href [my selfAction "[self] $i"]
+	    set app {
+		<p> <a href= "$href">$i</a>
+	    }
+	    append c [subst -nobackslashes $app]
+	}
+	return [my simplePage $place [self] $c]
+    }
+
+    PageTemplateHtml instproc simplePage {title heading content {closing ""}}  {
+      set place [Place getInstance]
+	set c {<html>
+<head>
+<title>$title</title>
+</head>
+<body>
+<h1>$heading</h1>
+<hr>
+<p> 
+    
+$content
+	    
+<p> $closing
+
+<p><hr><p>
+</body>
+</html>
+}
+	return [subst -nobackslashes -nocommands $c] 
+    }
+
+    #
+    # builds a simple Form -- args are tupels of the form
+    # {text, name, type, default, size}
+    #
+    #
+    PageTemplateHtml instproc simpleForm {action args} {
+	set action [my selfAction $action]
+	set c {
+	    <form method="get" action="$action">
+	    <TABLE>
+	}
+	foreach {text name type def size} $args {
+	    append c "
+      <TR>
+        <TD>$text: </TD>
+        <TD><input name=\"$name\" type=\"$type\" size=\"$size\" value=\"$def\"></TD>
+      </TR>
+    "
+	}
+	append c {
+	    <TR>
+	    <td><input type=submit value="Submit"></td>
+	    <td><input type=reset value="Reset"></td>
+	    </TR>
+	    </TABLE>
+
+	    </FORM>
+	}
+	return [subst -nobackslashes -nocommands $c]
+    }
+
+    namespace export PageTemplate PageTemplateHtml
+}
+
+namespace import ::xotcl::actiweb::pageTemplate::*

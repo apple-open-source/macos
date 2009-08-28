@@ -59,19 +59,19 @@ mi_run_cmd
 mi_get_bp_stopped "1" "\[01\]" "" "main" "structs.c" ".*" "run to main"
 
 mi_gdb_test "103-stack-list-locals 2 1" \
-    "103\\^done,locals=\\\[varobj=\{exp=\"a\",value=\"$decimal\",name=\"var1\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"b\",value=\"\{...\}\",name=\"var2\",numchild=\"2\",type=\"NSRect\",typecode=\"STRUCT\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\}\\\]" "create locals varobjs"
+    "103\\^done,locals=\\\[varobj=\{exp=\"a\",value=\"$decimal\",name=\"var1\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"b\",value=\"\{...\}\",name=\"var2\",numchild=\"2\",type=\"NSRect\",typecode=\"STRUCT\",dynamic_type=\"\",resolved_type=\"struct _NSRect\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\}\\\]" "create locals varobjs"
 
 mi_gdb_test "110-var-list-children var2 2" \
-  "110\\^done,numchild=\"2\",children=\\\[child=\{name=\"var2.origin\",exp=\"origin\",numchild=\"2\",type=\"NSPoint\",typecode=\"STRUCT\",dynamic_type=\"\",value=\"\{...\}\"\},child=\{name=\"var2.size\",exp=\"size\",numchild=\"2\",type=\"NSSize\",typecode=\"STRUCT\",dynamic_type=\"\",value=\"\{...\}\"\}\\\]" "create children via var-list-children"
+  "110\\^done,numchild=\"2\",children=\\\[child=\{name=\"var2.origin\",exp=\"origin\",numchild=\"2\",type=\"NSPoint\",typecode=\"STRUCT\",dynamic_type=\"\",resolved_type=\"struct _NSPoint\",value=\"\{...\}\"\},child=\{name=\"var2.size\",exp=\"size\",numchild=\"2\",type=\"NSSize\",typecode=\"STRUCT\",dynamic_type=\"\",resolved_type=\"struct _NSSize\",value=\"\{...\}\"\}\\\]" "create children via var-list-children"
 
 mi_gdb_test "110-var-list-children 1 var2" \
-  "110\\^done,numchild=\"2\",children=\\\[child=\{name=\"var2.origin\",exp=\"origin\",numchild=\"2\",type=\"NSPoint\",typecode=\"STRUCT\",dynamic_type=\"\",value=\"\{...\}\"\},child=\{name=\"var2.size\",exp=\"size\",numchild=\"2\",type=\"NSSize\",typecode=\"STRUCT\",dynamic_type=\"\",value=\"\{...\}\"\}\\\]" "create children via var-list-children FSF style numerial"
+  "110\\^done,numchild=\"2\",children=\\\[child=\{name=\"var2.origin\",exp=\"origin\",numchild=\"2\",type=\"NSPoint\",typecode=\"STRUCT\",dynamic_type=\"\",resolved_type=\"struct _NSPoint\",value=\"\{...\}\"\},child=\{name=\"var2.size\",exp=\"size\",numchild=\"2\",type=\"NSSize\",typecode=\"STRUCT\",dynamic_type=\"\",resolved_type=\"struct _NSSize\",value=\"\{...\}\"\}\\\]" "create children via var-list-children FSF style numerial"
 
 mi_gdb_test "110-var-list-children --all-values var2" \
-  "110\\^done,numchild=\"2\",children=\\\[child=\{name=\"var2.origin\",exp=\"origin\",numchild=\"2\",type=\"NSPoint\",typecode=\"STRUCT\",dynamic_type=\"\",value=\"\{...\}\"\},child=\{name=\"var2.size\",exp=\"size\",numchild=\"2\",type=\"NSSize\",typecode=\"STRUCT\",dynamic_type=\"\",value=\"\{...\}\"\}\\\]" "create children via var-list-children command line style flag"
+  "110\\^done,numchild=\"2\",children=\\\[child=\{name=\"var2.origin\",exp=\"origin\",numchild=\"2\",type=\"NSPoint\",typecode=\"STRUCT\",dynamic_type=\"\",resolved_type=\"struct _NSPoint\",value=\"\{...\}\"\},child=\{name=\"var2.size\",exp=\"size\",numchild=\"2\",type=\"NSSize\",typecode=\"STRUCT\",dynamic_type=\"\",resolved_type=\"struct _NSSize\",value=\"\{...\}\"\}\\\]" "create children via var-list-children command line style flag"
 
 mi_gdb_test "120-var-list-children var2.origin 2" \
- "120\\^done,numchild=\"2\",children=\\\[child=\{name=\"var2.origin.x\",exp=\"x\",numchild=\"0\",type=\"float\",typecode=\"FLT\",dynamic_type=\"\",value=\"$decimal\"\},child=\{name=\"var2.origin.y\",exp=\"y\",numchild=\"0\",type=\"float\",typecode=\"FLT\",dynamic_type=\"\",value=\"$decimal\"\}\\\]" "get children of origin, Xcode-style"
+ "120\\^done,numchild=\"2\",children=\\\[child=\{name=\"var2.origin.x\",exp=\"x\",numchild=\"0\",type=\"float\",typecode=\"FLT\",dynamic_type=\"\",resolved_type=\"float\",value=\"$decimal\"\},child=\{name=\"var2.origin.y\",exp=\"y\",numchild=\"0\",type=\"float\",typecode=\"FLT\",dynamic_type=\"\",resolved_type=\"float\",value=\"$decimal\"\}\\\]" "get children of origin, Xcode-style"
 
 
 mi_gdb_exit

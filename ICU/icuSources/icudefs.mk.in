@@ -1,13 +1,14 @@
-
 # Make definitions that are shared by the different subprojects of ICU.
 #
 # Yves Arrouye.
 #
-# Copyright (C) 2000-2005, International Business Machines Corporation and others.
+# Copyright (C) 2000-2008, International Business Machines Corporation and others.
 # All Rights Reserved.
 
 #
 # Some of these variables are overridden in the config/mh-* files.
+# 
+# Please be sure to update config/Makefile.inc.in  if you add something here.
 #
 
 # Shell to use
@@ -21,6 +22,7 @@ exec_prefix = @exec_prefix@
 
 bindir = @bindir@
 sbindir = @sbindir@
+datarootdir = @datarootdir@
 datadir = @datadir@
 libdir = @libdir@
 includedir = @includedir@
@@ -63,6 +65,8 @@ ICUDATA_NAME = $(ICUDATA_PLATFORM_NAME)
 ICUPKGDATA_DIR = $(ICUDATA_DIR)
 endif
 endif
+# This is needed so that make -j2 doesn't complain when invoking pkgdata's make
+PKGDATA_INVOKE_OPTS = MAKEFLAGS=
 
 # These are defined here because mh-cygwin-msvc needs to override these values.
 ICUPKGDATA_INSTALL_DIR = $(DESTDIR)$(ICUPKGDATA_DIR)
@@ -97,9 +101,8 @@ ENABLE_RELEASE = @ENABLE_RELEASE@
 EXEEXT = @EXEEXT@
 CC = @CC@
 CXX = @CXX@
-AIX_SHLIB = @AIX_SHLIB@
 AR = @AR@
-ARFLAGS := @ARFLAGS@ $(ARFLAGS)
+ARFLAGS = @ARFLAGS@ r
 RANLIB = @RANLIB@
 COMPILE_LINK_ENVVAR = @COMPILE_LINK_ENVVAR@
 
@@ -115,12 +118,20 @@ CFLAGS = @CFLAGS@
 CXXFLAGS = @CXXFLAGS@
 # CPPFLAGS is for C Pre-Processor flags
 CPPFLAGS = @CPPFLAGS@
+# LIBCFLAGS are the flags for static and shared libraries.
+LIBCFLAGS = @LIBCFLAGS@
+# LIBCXXFLAGS are the flags for static and shared libraries.
+LIBCXXFLAGS = @LIBCXXFLAGS@
 # DEFAULT_LIBS are the default libraries to link against
 DEFAULT_LIBS = @LIBS@
 # LIB_M is for linking against the math library
 LIB_M = @LIB_M@
+# LIB_THREAD is for linking against the threading library
+LIB_THREAD = @LIB_THREAD@
 # OUTOPT is for creating a specific output name
-OUTOPT = -o 
+OUTOPT = -o # The extra space after the argument is needed.
+# AR_OUTOPT is for creating a specific output name for static libraries.
+AR_OUTOPT =
 
 ENABLE_RPATH = @ENABLE_RPATH@
 ifeq ($(ENABLE_RPATH),YES)
@@ -183,7 +194,8 @@ RMV = rm -rf
 # INSTALL-L installs libraries. Override in mh-* file to INSTALL_PROGRAM
 #           when the library needs to have executable permissions
 INSTALL-S = $(INSTALL_PROGRAM)
-INSTALL-L = $(INSTALL_DATA)
+INSTALL-L = $(INSTALL_PROGRAM)
+#INSTALL-L = $(INSTALL_DATA)
 
 # Location of the libraries before "make install" is used
 LIBDIR=$(top_builddir)/lib

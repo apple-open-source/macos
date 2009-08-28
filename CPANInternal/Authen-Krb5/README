@@ -1,0 +1,55 @@
+Krb5 provides an object oriented interface to the most commonly used
+functions included in the Kerberos 5 API.  It was developed and tested
+using Perl 5.005_03 and MIT Kerberos 5 version 1.0.5 and 1.1.1.
+
+Your comments and bug reports are welcome.  Please send them to me at
+jeff@smashing.org.
+
+
+REQUIREMENTS
+------------
+o Perl 5.004_04 or later (may work with 5.003).
+o Build, test and install MIT Kerberos 5 version 1.0.5 or later.
+
+
+BUILDING & INSTALLATION
+-----------------------
+Krb5 is built and installed in the usual Perl module fashion:
+
+1) edit Makefile.PL and change the variables in the top section according
+   to your Kerberos 5 configuration.
+2) perl Makefile.PL
+3) make
+4) make test (not implemented yet)
+5) make install
+
+
+DOCUMENTATION
+-------------
+'make' should create man pages for Krb5 which will be installed upon a
+'make install'.  Perl POD documentation is supplied in Krb5.pm, which can
+be viewed by typing 'perldoc Krb5'.
+
+Take a look at the sample and simple clients and servers for some
+practical examples. 
+
+NOTE: The documentation assumes familiarity with Kerberos 5 and Kerberos
+programming.  Please see the Kerberos documentation for gory details.
+
+
+BUGS & PROBLEMS
+---------------
+o The contents of a new Krb5::Address object needs to be converted to
+  network byte order before being passed to Krb5::Address->new().
+  If this is not done, many functions like mk_priv and rd_priv will fail
+  on little-endian platforms.  I will try to make this automatic in a
+  future version.
+
+
+ACKNOWLEDGEMENTS
+----------------
+Thanks to Doug MacEachern for handing off this module to me, although I'm
+sure he was glad to get it off his back!
+
+Valuable code contributions from Scott Hutton (shutton@indiana.edu).
+

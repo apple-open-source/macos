@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1998-2004,2005 Free Software Foundation, Inc.              *
+ * Copyright (c) 1998-2007,2008 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -27,7 +27,7 @@
  ****************************************************************************/
 
 /****************************************************************************
- *  Author: Thomas E. Dickey <dickey@clark.net> 1996,1997                   *
+ *  Author: Thomas E. Dickey                    1996-on                     *
  ****************************************************************************/
 
 #include <curses.priv.h>
@@ -40,7 +40,7 @@
 extern int malloc_errfd;	/* FIXME */
 #endif
 
-MODULE_ID("$Id: lib_freeall.c,v 1.33 2005/06/04 22:34:01 tom Exp $")
+MODULE_ID("$Id: lib_freeall.c,v 1.54 2008/09/27 13:09:57 tom Exp $")
 
 /*
  * Free all ncurses data.  This is used for testing only (there's no practical
@@ -50,22 +50,30 @@ NCURSES_EXPORT(void)
 _nc_freeall(void)
 {
     WINDOWLIST *p, *q;
-    char *s;
+    static va_list empty_va;
 
     T((T_CALLED("_nc_freeall()")));
 #if NO_LEAKS
-    _nc_free_tparm();
-    if (_nc_oldnums != 0) {
-	FreeAndNull(_nc_oldnums);
+    if (SP != 0) {
+	if (SP->_oldnum_list != 0) {
+	    FreeAndNull(SP->_oldnum_list);
+	}
+	if (SP->_panelHook.destroy != 0) {
+	    SP->_panelHook.destroy(SP->_panelHook.stdscr_pseudo_panel);
+	}
     }
 #endif
     if (SP != 0) {
+	_nc_lock_global(curses);
+
 	while (_nc_windows != 0) {
+	    bool deleted = FALSE;
+
 	    /* Delete only windows that're not a parent */
-	    for (p = _nc_windows; p != 0; p = p->next) {
+	    for (each_window(p)) {
 		bool found = FALSE;
 
-		for (q = _nc_windows; q != 0; q = q->next) {
+		for (each_window(q)) {
 		    if ((p != q)
 			&& (q->win._flags & _SUBWIN)
 			&& (&(p->win) == q->win._parent)) {
@@ -75,34 +83,32 @@ _nc_freeall(void)
 		}
 
 		if (!found) {
-		    delwin(&(p->win));
+		    if (delwin(&(p->win)) != ERR)
+			deleted = TRUE;
 		    break;
 		}
 	    }
+
+	    /*
+	     * Don't continue to loop if the list is trashed.
+	     */
+	    if (!deleted)
+		break;
 	}
 	delscreen(SP);
+	_nc_unlock_global(curses);
     }
+    if (cur_term != 0)
+	del_curterm(cur_term);
 
-    del_curterm(cur_term);
-    _nc_free_entries(_nc_head);
-    _nc_get_type(0);
-    _nc_first_name(0);
-#if USE_WIDEC_SUPPORT
-    FreeIfNeeded(_nc_wacs);
-#endif
-#if NO_LEAKS
-    _nc_alloc_entry_leaks();
-    _nc_captoinfo_leaks();
-    _nc_comp_scan_leaks();
-#endif
-
-    if ((s = _nc_home_terminfo()) != 0)
-	free(s);
-
-    (void) _nc_printf_string(0, 0);
+    (void) _nc_printf_string(0, empty_va);
 #ifdef TRACE
     (void) _nc_trace_buf(-1, 0);
 #endif
+#if USE_WIDEC_SUPPORT
+    FreeIfNeeded(_nc_wacs);
+#endif
+    _nc_leaks_tinfo();
 
 #if HAVE_LIBDBMALLOC
     malloc_dump(malloc_errfd);
@@ -123,7 +129,10 @@ _nc_free_and_exit(int code)
     _nc_freeall();
 #ifdef TRACE
     trace(0);			/* close trace file, freeing its setbuf */
-    free(_nc_varargs("?", 0));
+    {
+	static va_list fake;
+	free(_nc_varargs("?", fake));
+    }
 #endif
     fclose(stdout);
     FreeIfNeeded(last_setbuf);
@@ -134,5 +143,15 @@ _nc_free_and_exit(int code)
 NCURSES_EXPORT(void)
 _nc_freeall(void)
 {
+}
+
+NCURSES_EXPORT(void)
+_nc_free_and_exit(int code)
+{
+    if (SP)
+	delscreen(SP);
+    if (cur_term != 0)
+	del_curterm(cur_term);
+    exit(code);
 }
 #endif

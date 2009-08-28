@@ -1,10 +1,49 @@
-2005-07-07  Release Manager
+2007-07-19  Release Manager
 
-	* GCC 4.0.1 released.
+	* GCC 4.2.1 released.
 
-2005-04-20  Release Manager
+2007-05-13  Release Manager
 
-	* GCC 4.0.0 released.
+	* GCC 4.2.0 released.
+
+2006-09-27  Alan Modra  <amodra@bigpond.net.au>
+
+	* Makefile.in (distclean): Delete config files.
+
+2006-09-13  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR other/23541
+	PR other/26507
+	Backport from gettext repository:
+
+	2003-09-04  Bruno Haible  <bruno@clisp.org>
+	* dgettext.c: Include <locale.h> after gettextP.h, not before. This
+	ensures that libintl_dcgettext is correctly declared on Solaris.
+	(Needed because Solaris <locale.h> includes libintl.h.)
+	* dngettext.c: Likewise, for the libintl_dcngettext declaration.
+
+2006-06-07  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* Makefile.in (install-info, install-dvi, install-ps, install-pdf):
+	New dummy targets.
+
+2005-05-23  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* Makefile.in: Add info dvi ps pdf html install-html to .PHONY
+	Add install-html target.
+
+2005-05-13  Nick Clifton  <nickc@redhat.com>
+
+	* Update the address and phone number of the FSF organization in
+	the GPL notices in the following files:
+	Makefile.in, bindtextdom.c, dcgettext.c, dcigettext.c,
+	dcngettext.c, dgettext.c, dngettext.c, eval-plural.h,
+	explodename.c, finddomain.c, gettext.c, gettextP.h, gmo.h,
+	hash-string.h, intl-compat.c, l10nflist.c, libgnuintl.h,
+	loadinfo.h, loadmsgcat.c, localcharset.c, localcharset.h,
+	locale.alias, localealias.c, localename.c, log.c, ngettext.c,
+	osdep.c, plural-exp.c, plural-exp.h, plural.c, plural.y,
+	relocatable.c, relocatable.h, textdomain.c
 
 2004-11-24  Kelley Cook  <kcook@gcc.gnu.org>
 

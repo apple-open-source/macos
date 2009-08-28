@@ -1,5 +1,5 @@
 /* Virtual array support.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2006
    Free Software Foundation, Inc.
    Contributed by Cygnus Solutions.
 
@@ -17,21 +17,14 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the Free
-   the Free Software Foundation, 59 Temple Place - Suite 330, Boston,
-   MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
+   MA 02110-1301, USA.  */
 
-/* This file is compiled twice: once for the generator programs
-   once for the compiler.  */
-#ifdef GENERATOR_FILE
-#include "bconfig.h"
-#else
 #include "config.h"
-#endif
-
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "errors.h"
+#include "toplev.h"
 #include "varray.h"
 #include "ggc.h"
 #include "hashtab.h"
@@ -172,7 +165,7 @@ varray_grow (varray_type va, size_t n)
 	va = xrealloc (va, VARRAY_HDR_SIZE + data_size);
       va->num_elements = n;
       if (n > old_elements)
-	memset (&va->data.c[old_data_size], 0, data_size - old_data_size);
+	memset (&va->data.vdt_c[old_data_size], 0, data_size - old_data_size);
 #ifdef GATHER_STATISTICS
       if (oldva != va)
         desc->copied++;
@@ -188,7 +181,7 @@ varray_clear (varray_type va)
 {
   size_t data_size = element[va->type].size * va->num_elements;
 
-  memset (va->data.c, 0, data_size);
+  memset (va->data.vdt_c, 0, data_size);
   va->elements_used = 0;
 }
 
@@ -247,7 +240,8 @@ print_statistics (void **slot, void *b)
 #endif
 
 /* Output per-varray memory usage statistics.  */
-void dump_varray_statistics (void)
+void
+dump_varray_statistics (void)
 {
 #ifdef GATHER_STATISTICS
   struct output_info info;

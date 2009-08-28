@@ -36,6 +36,9 @@ type Data = array [] of char;
 type Pointer = uint32_t;
 type BasePointer = uint32_t;
 
+type XMLBlob = Data;
+type XMLBlobOut = Data;
+
 type KeyBlob = Data
 	ctype: Pointer;
 
@@ -145,10 +148,6 @@ type DBParameters = struct [2] of uint32_t;
 type CSSM_CSP_OPERATIONAL_STATISTICS = struct [10] of uint32_t;
 type CSPOperationalStatistics = CSSM_CSP_OPERATIONAL_STATISTICS;
 
-type AuthorizationItemSetBlob = Data
-	ctype: AuthorizationItemSetPtr;
-type AuthorizationItemSetPtr = BasePointer;
-
 type AuthorizationBlob = struct [8] of uint8_t;					// 8 opaque bytes
 type AuthorizationExternalForm = struct [32] of uint8_t;		// 32 opaque bytes
 
@@ -177,6 +176,8 @@ type CSSM_DB_MODIFY_MODE = uint32_t;
 type FilePath = c_string[*:1024];		// PATH_MAX
 type FilePathOut = c_string[*:1024];	// PATH_MAX
 type RelationName = c_string[*:2048];	//@@@ a bit big, no?
+type HashData = array[*:64] of char;
+type HashDataOut = array [64] of char;	// returning hash data, max. 512 bits
 
 type pid_t = unsigned32;
 

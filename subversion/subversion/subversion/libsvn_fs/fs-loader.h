@@ -2,7 +2,7 @@
  * fs_loader.h:  Declarations for the FS loader library
  *
  * ====================================================================
- * Copyright (c) 2000-2004 CollabNet.  All rights reserved.
+ * Copyright (c) 2000-2008 CollabNet.  All rights reserved.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution.  The terms
@@ -52,7 +52,7 @@ extern "C" {
    implements the BDB filesystem type.  Consult the dev list for
    details on the "FSP-level" abstraction concept.
 */
-   
+
 
 
 /*** Top-level library vtable type ***/
@@ -66,16 +66,35 @@ typedef struct fs_library_vtable_t
      this statement, now that the minor version has increased. */
   const svn_version_t *(*get_version)(void);
 
-  svn_error_t *(*create)(svn_fs_t *fs, const char *path, apr_pool_t *pool);
-  svn_error_t *(*open)(svn_fs_t *fs, const char *path, apr_pool_t *pool);
+  /* The open_fs/create/open_fs_for_recovery/upgrade_fs functions are
+     serialized so that they may use the common_pool parameter to
+     allocate fs-global objects such as the bdb env cache. */
+  svn_error_t *(*create)(svn_fs_t *fs, const char *path, apr_pool_t *pool,
+                         apr_pool_t *common_pool);
+  svn_error_t *(*open_fs)(svn_fs_t *fs, const char *path, apr_pool_t *pool,
+                          apr_pool_t *common_pool);
+  /* open_for_recovery() is like open(), but used to fill in an fs pointer
+     that will be passed to recover().  We assume that the open() method
+     might not be immediately appropriate for recovery. */
+  svn_error_t *(*open_fs_for_recovery)(svn_fs_t *fs, const char *path,
+                                       apr_pool_t *pool,
+                                       apr_pool_t *common_pool);
+  svn_error_t *(*upgrade_fs)(svn_fs_t *fs, const char *path, apr_pool_t *pool,
+                             apr_pool_t *common_pool);
   svn_error_t *(*delete_fs)(const char *path, apr_pool_t *pool);
   svn_error_t *(*hotcopy)(const char *src_path, const char *dest_path,
                           svn_boolean_t clean, apr_pool_t *pool);
   const char *(*get_description)(void);
+  svn_error_t *(*recover)(svn_fs_t *fs,
+                          svn_cancel_func_t cancel_func, void *cancel_baton,
+                          apr_pool_t *pool);
+  svn_error_t *(*pack_fs)(svn_fs_t *fs, const char *path,
+                          svn_fs_pack_notify_t notify_func, void *notify_baton,
+                          svn_cancel_func_t cancel_func, void *cancel_baton,
+                          apr_pool_t *pool);
 
   /* Provider-specific functions should go here, even if they could go
      in an object vtable, so that they are all kept together. */
-  svn_error_t *(*bdb_recover)(const char *path, apr_pool_t *pool);
   svn_error_t *(*bdb_logfiles)(apr_array_header_t **logfiles,
                                const char *path, svn_boolean_t only_unused,
                                apr_pool_t *pool);
@@ -93,19 +112,31 @@ typedef struct fs_library_vtable_t
    library vtable. The LOADER_VERSION parameter must remain first in
    the list, and the function must use the C calling convention on all
    platforms, so that the init functions can safely read the version
-   parameter.
+   parameter.  The COMMON_POOL parameter must be a pool with a greater
+   lifetime than the fs module so that fs global state can be kept
+   in it and cleaned up on termination before the fs module is unloaded.
+   Calls to these functions are globally serialized so that they have
+   exclusive access to the COMMON_POOL parameter.
 
    ### need to force this to be __cdecl on Windows... how?? */
 typedef svn_error_t *(*fs_init_func_t)(const svn_version_t *loader_version,
-                                       fs_library_vtable_t **vtable);
+                                       fs_library_vtable_t **vtable,
+                                       apr_pool_t* common_pool);
 
 /* Here are the declarations for the FS module init functions.  If we
    are using DSO loading, they won't actually be linked into
-   libsvn_fs. */
+   libsvn_fs.  Note that these private functions have a common_pool
+   parameter that may be used for fs module scoped variables such as
+   the bdb cache.  This will be the same common_pool that is passed
+   to the create and open functions and these init functions (as well
+   as the open and create functions) are globally serialized so that
+   they have exclusive access to the common_pool. */
 svn_error_t *svn_fs_base__init(const svn_version_t *loader_version,
-                               fs_library_vtable_t **vtable);
+                               fs_library_vtable_t **vtable,
+                               apr_pool_t* common_pool);
 svn_error_t *svn_fs_fs__init(const svn_version_t *loader_version,
-                             fs_library_vtable_t **vtable);
+                             fs_library_vtable_t **vtable,
+                             apr_pool_t* common_pool);
 
 
 
@@ -113,17 +144,6 @@ svn_error_t *svn_fs_fs__init(const svn_version_t *loader_version,
 
 typedef struct fs_vtable_t
 {
-  /* The FS loader library invokes serialized_init after a create or
-     open call, with the new FS object as its first parameter.  Calls
-     to serialized_init are globally serialized, so the FS module
-     function has exclusive access to COMMON_POOL.  The same
-     COMMON_POOL will be passed for every FS object created during the
-     lifetime of the pool passed to svn_fs_initialize(), or during the
-     lifetime of the process if svn_fs_initialize() is not invoked.
-     Temporary allocations can be made in POOL. */
-  svn_error_t *(*serialized_init)(svn_fs_t *fs, apr_pool_t *common_pool,
-                                  apr_pool_t *pool);
-
   svn_error_t *(*youngest_rev)(svn_revnum_t *youngest_p, svn_fs_t *fs,
                                apr_pool_t *pool);
   svn_error_t *(*revision_prop)(svn_string_t **value_p, svn_fs_t *fs,
@@ -184,6 +204,8 @@ typedef struct txn_vtable_t
                               const svn_string_t *value, apr_pool_t *pool);
   svn_error_t *(*root)(svn_fs_root_t **root_p, svn_fs_txn_t *txn,
                        apr_pool_t *pool);
+  svn_error_t *(*change_props)(svn_fs_txn_t *txn, apr_array_header_t *props,
+                               apr_pool_t *pool);
 } txn_vtable_t;
 
 
@@ -210,6 +232,9 @@ typedef struct root_vtable_t
   svn_error_t *(*node_created_rev)(svn_revnum_t *revision,
                                    svn_fs_root_t *root, const char *path,
                                    apr_pool_t *pool);
+  svn_error_t *(*node_origin_rev)(svn_revnum_t *revision,
+                                  svn_fs_root_t *root, const char *path,
+                                  apr_pool_t *pool);
   svn_error_t *(*node_created_path)(const char **created_path,
                                     svn_fs_root_t *root, const char *path,
                                     apr_pool_t *pool);
@@ -252,9 +277,9 @@ typedef struct root_vtable_t
   /* Files */
   svn_error_t *(*file_length)(svn_filesize_t *length_p, svn_fs_root_t *root,
                               const char *path, apr_pool_t *pool);
-  svn_error_t *(*file_md5_checksum)(unsigned char digest[],
-                                    svn_fs_root_t *root,
-                                    const char *path, apr_pool_t *pool);
+  svn_error_t *(*file_checksum)(svn_checksum_t **checksum,
+                                svn_checksum_kind_t kind, svn_fs_root_t *root,
+                                const char *path, apr_pool_t *pool);
   svn_error_t *(*file_contents)(svn_stream_t **contents,
                                 svn_fs_root_t *root, const char *path,
                                 apr_pool_t *pool);
@@ -263,11 +288,11 @@ typedef struct root_vtable_t
   svn_error_t *(*apply_textdelta)(svn_txdelta_window_handler_t *contents_p,
                                   void **contents_baton_p,
                                   svn_fs_root_t *root, const char *path,
-                                  const char *base_checksum,
-                                  const char *result_checksum,
+                                  svn_checksum_t *base_checksum,
+                                  svn_checksum_t *result_checksum,
                                   apr_pool_t *pool);
   svn_error_t *(*apply_text)(svn_stream_t **contents_p, svn_fs_root_t *root,
-                             const char *path, const char *result_checksum,
+                             const char *path, svn_checksum_t *result_checksum,
                              apr_pool_t *pool);
   svn_error_t *(*contents_changed)(int *changed_p, svn_fs_root_t *root1,
                                    const char *path1, svn_fs_root_t *root2,
@@ -288,6 +313,12 @@ typedef struct root_vtable_t
                         svn_fs_root_t *ancestor_root,
                         const char *ancestor_path,
                         apr_pool_t *pool);
+  svn_error_t *(*get_mergeinfo)(svn_mergeinfo_catalog_t *catalog,
+                                svn_fs_root_t *root,
+                                const apr_array_header_t *paths,
+                                svn_mergeinfo_inheritance_t inherit,
+                                svn_boolean_t include_descendants,
+                                apr_pool_t *pool);
 } root_vtable_t;
 
 
@@ -313,10 +344,8 @@ typedef struct id_vtable_t
 
 /* These are transaction properties that correspond to the bitfields
    in the 'flags' argument to svn_fs_lock().  */
-#define SVN_FS_PROP_TXN_CHECK_LOCKS            SVN_PROP_PREFIX "check-locks"
-#define SVN_FS_PROP_TXN_CHECK_OOD              SVN_PROP_PREFIX "check-ood"
-
-
+#define SVN_FS__PROP_TXN_CHECK_LOCKS           SVN_PROP_PREFIX "check-locks"
+#define SVN_FS__PROP_TXN_CHECK_OOD             SVN_PROP_PREFIX "check-ood"
 
 struct svn_fs_t
 {
@@ -378,7 +407,9 @@ struct svn_fs_root_t
   /* For transaction roots, flags describing the txn's behavior. */
   apr_uint32_t txn_flags;
 
-  /* For revision roots, the number of the revision.  */
+  /* For revision roots, the number of the revision; for transaction
+     roots, the number of the revision on which the transaction is
+     based. */
   svn_revnum_t rev;
 
   /* FSAP-specific vtable and private data */

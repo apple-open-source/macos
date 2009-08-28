@@ -33,14 +33,18 @@ LDBLSRCS += asprintf.c fprintf.c fscanf.c fwprintf.c fwscanf.c printf.c \
 CFLAGS-${_src} += -fshort-enums -DVECTORS
 .endfor
 
-LEGACYSRCS+= fputs.c freopen.c fwrite.c tempnam.c
+LEGACYSRCS+= fdopen.c fopen.c fputs.c freopen.c fwrite.c tempnam.c
+DARWINEXTSNSRCS+= fdopen.c fopen.c
 
 # set the LIBC_ALIAS_* macros so we can decorate the symbol independent
 # of other macro settings
+CFLAGS-fdopen-fbsd.c += -DLIBC_ALIAS_FDOPEN
+CFLAGS-fopen-fbsd.c += -DLIBC_ALIAS_FOPEN
 CFLAGS-fputs-fbsd.c += -DLIBC_ALIAS_FPUTS
 CFLAGS-freopen-fbsd.c += -DLIBC_ALIAS_FREOPEN
 CFLAGS-fwrite-fbsd.c += -DLIBC_ALIAS_FWRITE
 CFLAGS-tempnam-fbsd.c += -DLIBC_ALIAS_TEMPNAM
+CFLAGS-tmpfile-fbsd.c += -D_DARWIN_UNLIMITED_STREAMS
 
 .if ${LIB} == "c"
 MAN3+=	getwc_l.3 putwc_l.3 printf_l.3 scanf_l.3 wprintf_l.3 wscanf_l.3

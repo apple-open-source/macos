@@ -1,0 +1,12 @@
+diff -ubB Net-IP/Makefile.PL Net-IP/Makefile.PL.tmp
+--- Net-IP/Makefile.PL	2008-06-23 10:44:59.000000000 -0700
++++ Net-IP/Makefile.PL.tmp	2008-06-23 11:33:05.000000000 -0700
+@@ -31,7 +31,7 @@
+     'NAME'		=> 'Net::IP',
+     'VERSION_FROM'	=> 'IP.pm',
+     'PREREQ_PM'		=> {},
+-    'EXE_FILES'         => [qw(ipcount iptab)],
++    #'EXE_FILES'         => [qw(ipcount iptab)],
+     'PL_FILES'		=> { 'Net-IP.spec.PL'	=>	'Net-IP.spec' },
+     %PARAM
+ );

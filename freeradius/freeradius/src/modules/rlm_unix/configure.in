@@ -1,5 +1,6 @@
+AC_PREREQ([2.53])
 AC_INIT(rlm_unix.c)
-AC_REVISION($Revision: 1.4 $)
+AC_REVISION($Revision$)
 AC_DEFUN(modname,[rlm_unix])
 
 if test x$with_[]modname != xno; then
@@ -12,7 +13,7 @@ if test x$with_[]modname != xno; then
 		AC_MSG_RESULT(/etc/passwd)
 	else
 		AC_MSG_RESULT(no /etc/passwd file.)
-		[ fail=$fail" /etc/passwd" ],
+		[ fail=$fail" /etc/passwd" ]
 	fi
 
 	dnl useless?
@@ -23,35 +24,28 @@ if test x$with_[]modname != xno; then
 		AC_MSG_RESULT(no /etc/shadow file.)
 	fi
 
-	AC_CHECK_FUNC(crypt, 
-		[ cryptlocation=libc ],
-		[
-			#crypt not in libc
-			AC_CHECK_LIB(crypt, crypt, 
-				[ 
-					cryptlocation=libcrypt 
-					unix_ldflags="${unix_ldflags} -lcrypt"
-				]
-			)
-		]
-	)
-	if test x$cryptlocation = x; then
-		[ fail=$fail" crypt()" ],
+	AC_CHECK_HEADERS(shadow.h pwd.h grp.h)
+	AC_CHECK_FUNCS(getspnam getusershell getpwnam)
+
+	if test "$ac_cv_func_getpwnam" != "yes"; then
+		AC_MSG_RESULT(no getpwnam)
+		[ fail=$fail" getpwnam" ]
+        fi
+
+	if test "$ac_cv_header_pwd_h" != "yes"; then
+		AC_MSG_RESULT(no pwd.h)
+		[ fail=$fail" pwd.h" ]
 	fi
 
-	AC_CHECK_HEADERS(crypt.h shadow.h)
-	AC_CHECK_FUNCS(getspnam getusershell)
-
-	AC_CHECK_LIB(shadow, getspnam, 
-		[ 
+	AC_CHECK_LIB(shadow, getspnam,
+		[
 			unix_ldflags="${unix_ldflags} -lshadow"
-			AC_DEFINE(HAVE_GETSPNAM) 
+			AC_DEFINE(HAVE_GETSPNAM)
 		]
 	)
 
-	AC_CHECK_FUNCS(fgetpwent fgetspent fgetgrent)
-
 	targetname=modname
+
 else
 	targetname=
 	echo \*\*\* module modname is disabled.
@@ -62,7 +56,7 @@ if test x"$fail" != x""; then
 		AC_MSG_ERROR([set --without-]modname[ to disable it explicitly.])
 	else
 		AC_MSG_WARN([silently not building ]modname[.])
-		AC_MSG_WARN([FAILURE: ]modname[ requires: $fail.]); 
+		AC_MSG_WARN([FAILURE: ]modname[ requires: $fail.]);
 		targetname=""
 	fi
 fi

@@ -116,19 +116,19 @@ void ConvertHexToBinary( const char *inHexStr, unsigned char *outData, unsigned 
 int ConvertBinaryTo64( const char *inData, unsigned long inLen, char *outHexStr );
 int Convert64ToBinary( const char *inHexStr, char *outData, unsigned long maxLen, unsigned long *outLen );
 
-long ConnectToServer( sPSContextData *inContext );
+int ConnectToServer( sPSContextData *inContext );
 Boolean Connected( sPSContextData *inContext );
-long IdentifyReachableReplica( CFMutableArrayRef inServerArray, const char *inHexHash, sPSServerEntry *outReplica, int *outSock );
+int IdentifyReachableReplica( CFMutableArrayRef inServerArray, const char *inHexHash, sPSServerEntry *outReplica, int *outSock );
 
-long IdentifyReachableReplicaByIP(
+int IdentifyReachableReplicaByIP(
 	sPSServerEntry *entrylist,
 	CFIndex servCount,
 	const char *inHexHash,
 	sPSServerEntry *outReplica,
 	int *outSock );
 
-long ConvertCFArrayToServerArray( CFArrayRef inCFArray, sPSServerEntry **outServerArray, CFIndex *outCount );
-long GetBigNumber( sPSContextData *inContext, char **outBigNumStr );
+int ConvertCFArrayToServerArray( CFArrayRef inCFArray, sPSServerEntry **outServerArray, CFIndex *outCount );
+int GetBigNumber( sPSContextData *inContext, char **outBigNumStr );
 
 PWServerError SendFlush( sPSContextData *inContext,
 	const char *inCommandStr,
@@ -148,19 +148,20 @@ char *SendFlushReadAssembleCommand(
 	const char *inArg2Str );
 		
 void StripRSAKey( char *inOutUserID );
-long GetPasswordServerList( CFMutableArrayRef *outServerList, int inConfigSearchOptions );
-long GetPasswordServerListForKeyHash( CFMutableArrayRef *outServerList, int inConfigSearchOptions, const char *inKeyHash );
-long GetServerListFromLocalCache( CFMutableArrayRef inOutServerList );
-long GetServerListFromFile( CFMutableArrayRef inOutServerList );
-long GetServerListFromFileForKeyHash( CFMutableArrayRef inOutServerList, const char *inKeyHash );
-long GetServerFromDict( CFDictionaryRef serverDict, int inIPIndex, sPSServerEntry *outServerEntry );
+int GetPasswordServerList( CFMutableArrayRef *outServerList, int inConfigSearchOptions );
+int GetPasswordServerListForKeyHash( CFMutableArrayRef *outServerList, int inConfigSearchOptions, const char *inKeyHash );
+int GetServerListFromLocalCache( CFMutableArrayRef inOutServerList );
+int GetServerListFromFile( CFMutableArrayRef inOutServerList );
+int GetServerListFromFileForKeyHash( CFMutableArrayRef inOutServerList, const char *inKeyHash );
+int GetServerFromDict( CFDictionaryRef serverDict, int inIPIndex, sPSServerEntry *outServerEntry );
 int SaveLocalReplicaCache( CFMutableArrayRef inReplicaArray, sPSServerEntry *inLastContactEntry );
 void AppendToArrayIfUnique( CFMutableArrayRef inArray, sPSServerEntry *inServerEntry );
-ReplicaIPLevel ReplicaPriority( sPSServerEntry *inReplica, unsigned long *iplist );
+ReplicaIPLevel ReplicaPriority( sPSServerEntry *inReplica, in_addr_t *iplist );
 bool ReplicaInIPSet( sPSServerEntry *inReplica, ReplicaIPLevel inLevel );
-long pwsf_LocalIPList( unsigned long **outIPList );
-long getconn_async(const char *host, const char *port, struct timeval *inOpenTimeout, float *outConnectTime, int *inOutSocket);
-long testconn_udp(const char *host, const char *port, int *outSocket);
+int pwsf_LocalIPList( in_addr_t **outIPList );
+int getconn_async(const char *host, const char *port, struct timeval *inOpenTimeout, float *outConnectTime, int *inOutSocket);
+int testconn_udp(const char *host, const char *port, int *outSocket);
+int pwsf_pingpws( const char *host, const struct timespec *timeout );
 pid_t pwsf_ProcessIsRunning( const char *inProcName );
 bool pwsf_GetSASLMechInfo( const char *inMechName, char **outPluginFileName, bool *outRequiresPlainTextOnDisk );
 int pwsf_mkdir_p( const char *path, mode_t mode );
@@ -172,16 +173,16 @@ int pwsf_LaunchTaskWithIO(
 	char *const argv[],
 	const char* inputBuf,
 	char* outputBuf,
-	int outputBufSize,
+	size_t outputBufSize,
 	bool *outExitedBeforeInput);
 int pwsf_LaunchTaskWithIO2(
 	const char *path,
 	char *const argv[],
 	const char* inputBuf,
 	char* outputBuf,
-	int outputBufSize,
+	size_t outputBufSize,
 	char* errBuf,
-	int errBufSize);
+	size_t errBufSize);
 
 #ifdef __cplusplus
 };

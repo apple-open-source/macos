@@ -1,10 +1,7 @@
 ##
 # Group Database
 # 
-# Note that this file is consulted when the system is running in single-user
-# mode.  At other times this information is handled by lookupd.  By default,
-# lookupd gets information from NetInfo, so this file will not be consulted
-# unless you have changed lookupd's configuration.
+# This file is the authoritative user database.
 ##
 nobody:*:-2:
 nogroup:*:-1:
@@ -22,7 +19,6 @@ owner:*:10:
 everyone:*:12:
 group:*:16:
 staff:*:20:root
-smmsp:*:25:
 _lp:*:26:
 _postfix:*:27:
 _postdrop:*:28:

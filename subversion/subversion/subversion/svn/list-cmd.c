@@ -1,8 +1,8 @@
 /*
- * ls-cmd.c -- list a URL
+ * list-cmd.c -- list a URL
  *
  * ====================================================================
- * Copyright (c) 2000-2006 CollabNet.  All rights reserved.
+ * Copyright (c) 2000-2007 CollabNet.  All rights reserved.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution.  The terms
@@ -16,12 +16,6 @@
  * ====================================================================
  */
 
-/* ==================================================================== */
-
-
-
-/*** Includes. ***/
-
 #include "svn_cmdline.h"
 #include "svn_client.h"
 #include "svn_error.h"
@@ -29,11 +23,13 @@
 #include "svn_time.h"
 #include "svn_xml.h"
 #include "svn_path.h"
+#include "svn_utf.h"
+
 #include "cl.h"
 
 #include "svn_private_config.h"
+
 
-/*** Code. ***/
 
 /* Baton used when printing directory entries. */
 struct print_baton {
@@ -56,12 +52,15 @@ print_dirent(void *baton,
 
   if (pb->ctx->cancel_func)
     SVN_ERR(pb->ctx->cancel_func(pb->ctx->cancel_baton));
-     
+
   if (strcmp(path, "") == 0)
     {
       if (dirent->kind == svn_node_file)
         entryname = svn_path_basename(abs_path, pool);
+      else if (pb->verbose)
+        entryname = ".";
       else
+        /* Don't bother to list if no useful information will be shown. */
         return SVN_NO_ERROR;
     }
   else
@@ -84,12 +83,12 @@ print_dirent(void *baton,
           && apr_time_sec(dirent->time - now) < (365 * 86400 / 2))
         {
           apr_err = apr_strftime(timestr, &size, sizeof(timestr),
-                                 "%b %d %H:%M", &exp_time);
+                                 _("%b %d %H:%M"), &exp_time);
         }
       else
         {
           apr_err = apr_strftime(timestr, &size, sizeof(timestr),
-                                 "%b %d  %Y", &exp_time);
+                                 _("%b %d  %Y"), &exp_time);
         }
 
       /* if that failed, just zero out the string and print nothing */
@@ -101,7 +100,7 @@ print_dirent(void *baton,
 
       sizestr = apr_psprintf(pool, "%" SVN_FILESIZE_T_FMT, dirent->size);
 
-      SVN_ERR(svn_cmdline_printf
+      return svn_cmdline_printf
               (pool, "%7ld %-8.8s %c %10s %12s %s%s\n",
                dirent->created_rev,
                dirent->last_author ? dirent->last_author : " ? ",
@@ -109,31 +108,14 @@ print_dirent(void *baton,
                (dirent->kind == svn_node_file) ? sizestr : "",
                utf8_timestr,
                entryname,
-               (dirent->kind == svn_node_dir) ? "/" : ""));
+               (dirent->kind == svn_node_dir) ? "/" : "");
     }
   else
     {
-      SVN_ERR(svn_cmdline_printf(pool, "%s%s\n", entryname,
-                                 (dirent->kind == svn_node_dir)
-                                 ? "/" : ""));
+      return svn_cmdline_printf(pool, "%s%s\n", entryname,
+                                (dirent->kind == svn_node_dir)
+                                ? "/" : "");
     }
-
-  return SVN_NO_ERROR;
-}
-
-
-static svn_error_t *
-print_header_xml(apr_pool_t *pool)
-{
-  svn_stringbuf_t *sb = svn_stringbuf_create("", pool);
-
-  /* <?xml version="1.0" encoding="utf-8"?> */
-  svn_xml_make_header(&sb, pool);
-  
-  /* "<lists>" */
-  svn_xml_make_open_tag(&sb, pool, svn_xml_normal, "lists", NULL);
-  
-  return svn_cl__error_checked_fputs(sb->data, stdout);
 }
 
 
@@ -155,7 +137,10 @@ print_dirent_xml(void *baton,
     {
       if (dirent->kind == svn_node_file)
         entryname = svn_path_basename(abs_path, pool);
+      else if (pb->verbose)
+        entryname = ".";
       else
+        /* Don't bother to list if no useful information will be shown. */
         return SVN_NO_ERROR;
     }
   else
@@ -163,11 +148,11 @@ print_dirent_xml(void *baton,
 
   if (pb->ctx->cancel_func)
     SVN_ERR(pb->ctx->cancel_func(pb->ctx->cancel_baton));
-     
+
   sb = svn_stringbuf_create("", pool);
 
   svn_xml_make_open_tag(&sb, pool, svn_xml_normal, "entry",
-                        "kind", svn_cl__node_kind_str(dirent->kind),
+                        "kind", svn_cl__node_kind_str_xml(dirent->kind),
                         NULL);
 
   svn_cl__xml_tagged_cdata(&sb, pool, "name", entryname);
@@ -207,18 +192,6 @@ print_dirent_xml(void *baton,
 
   svn_xml_make_close_tag(&sb, pool, "entry");
 
-  SVN_ERR(svn_cl__error_checked_fputs(sb->data, stdout));
-
-  return SVN_NO_ERROR;
-}
-
-
-static svn_error_t *
-print_footer_xml(apr_pool_t *pool)
-{
-  /* "</lists>" */
-  svn_stringbuf_t *sb = svn_stringbuf_create("", pool);
-  svn_xml_make_close_tag(&sb, pool, "lists");
   return svn_cl__error_checked_fputs(sb->data, stdout);
 }
 
@@ -233,12 +206,13 @@ svn_cl__list(apr_getopt_t *os,
   svn_client_ctx_t *ctx = ((svn_cl__cmd_baton_t *) baton)->ctx;
   apr_array_header_t *targets;
   int i;
-  apr_pool_t *subpool = svn_pool_create(pool); 
+  apr_pool_t *subpool = svn_pool_create(pool);
   apr_uint32_t dirent_fields;
   struct print_baton pb;
 
-  SVN_ERR(svn_opt_args_to_target_array2(&targets, os, 
-                                        opt_state->targets, pool));
+  SVN_ERR(svn_cl__args_to_target_array_print_reserved(&targets, os,
+                                                      opt_state->targets,
+                                                      ctx, pool));
 
   /* Add "." if user passed 0 arguments */
   svn_opt_push_implicit_dot_target(targets, pool);
@@ -255,7 +229,7 @@ svn_cl__list(apr_getopt_t *os,
          everything in a top-level element. This makes the output in
          its entirety a well-formed XML document. */
       if (! opt_state->incremental)
-        SVN_ERR(print_header_xml(pool));
+        SVN_ERR(svn_cl__xml_print_header("lists", pool));
     }
   else
     {
@@ -273,15 +247,18 @@ svn_cl__list(apr_getopt_t *os,
   pb.ctx = ctx;
   pb.verbose = opt_state->verbose;
 
+  if (opt_state->depth == svn_depth_unknown)
+    opt_state->depth = svn_depth_immediates;
+
   /* For each target, try to list it. */
   for (i = 0; i < targets->nelts; i++)
     {
-      const char *target = ((const char **) (targets->elts))[i];
+      const char *target = APR_ARRAY_IDX(targets, i, const char *);
       const char *truepath;
       svn_opt_revision_t peg_revision;
 
       svn_pool_clear(subpool);
-     
+
       SVN_ERR(svn_cl__check_cancel(ctx->cancel_baton));
 
       /* Get peg revisions. */
@@ -297,12 +274,13 @@ svn_cl__list(apr_getopt_t *os,
           SVN_ERR(svn_cl__error_checked_fputs(sb->data, stdout));
         }
 
-      SVN_ERR(svn_client_list(truepath, &peg_revision,
-                              &(opt_state->start_revision),
-                              opt_state->recursive, dirent_fields,
-                              (opt_state->xml || opt_state->verbose),
-                              opt_state->xml ? print_dirent_xml : print_dirent,
-                              &pb, ctx, subpool));
+      SVN_ERR(svn_client_list2(truepath, &peg_revision,
+                               &(opt_state->start_revision),
+                               opt_state->depth,
+                               dirent_fields,
+                               (opt_state->xml || opt_state->verbose),
+                               opt_state->xml ? print_dirent_xml : print_dirent,
+                               &pb, ctx, subpool));
 
       if (opt_state->xml)
         {
@@ -313,9 +291,9 @@ svn_cl__list(apr_getopt_t *os,
     }
 
   svn_pool_destroy(subpool);
-  
+
   if (opt_state->xml && ! opt_state->incremental)
-    SVN_ERR(print_footer_xml(pool));
+    SVN_ERR(svn_cl__xml_print_footer("lists", pool));
 
   return SVN_NO_ERROR;
 }

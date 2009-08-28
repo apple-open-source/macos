@@ -1,3 +1,19 @@
+#ifdef __APPLE_OS_X_SERVER__
+
+typedef enum {
+	eAOD_no_error			= 0,
+	eAOD_param_error		= -1,
+	eAOD_open_OD_failed		= -2,
+	eAOD_passwd_mismatch	= -3,
+	eAOD_unknown_user		= -4,
+	eAOD_system_error		= -5,
+	eAOD_auth_failed		= -6,
+	eAOD_end				= 0xFF
+} eAODError;
+
+extern void smtpd_sasl_initialize(int);
+extern char *smtpd_pw_server_authenticate(SMTPD_STATE *, const char *, const char *);
+#else /* __APPLE_OS_X_SERVER__ */
 /*++
 /* NAME
 /*	smtpd_sasl_glue 3h
@@ -11,40 +27,6 @@
  /*
   * SASL protocol interface
   */
-#ifdef __APPLE_OS_X_SERVER__
-#define	ODA_NO_ERROR			0
-#define	ODA_AUTH_FAILED			-2000
-#define	ODA_AUTH_CANCEL			-2001
-#define	ODA_PROTOCOL_ERROR		-2002
-
-typedef enum {
-	eAODNoErr				= 0,
-	eAODParamErr			= -1,
-	eAODOpenDSFailed		= -2,
-	eAODOpenSearchFailed	= -3,
-	eAODUserNotFound		= -4,
-	eAODCantOpenUserNode	= -5,
-	eAODAuthFailed			= -6,
-	eAODAuthWarnNewPW		= -7,
-	eAODAuthWarnExpirePW	= -8,
-	eAOD					= 0xFF
-} eAODError;
-
-typedef enum
-{
-	kSGSSSuccess		= 0,
-	kSGSSBufferSizeErr	= -70001,
-	kSGSSImportNameErr	= -70002,
-	kSGSSAquireCredErr	= -70003,
-	kSGSSInquireCredErr	= -70004,
-	kSGSSAuthFailed		= -70005,
-	kGSSErrUnknownType	= -70010,
-	kUnknownErr			= -70010
-} eGSSError;
-
-extern void smtpd_sasl_initialize(int);
-extern char *smtpd_pw_server_authenticate(SMTPD_STATE *, const char *, const char *);
-#else /* __APPLE_OS_X_SERVER__ */
 extern void smtpd_sasl_initialize(void);
 #endif /* __APPLE_OS_X_SERVER__ */
 extern void smtpd_sasl_connect(SMTPD_STATE *, const char *, const char *);

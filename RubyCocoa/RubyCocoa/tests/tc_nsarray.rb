@@ -322,6 +322,16 @@ class TC_NSArray < Test::Unit::TestCase
     r = e.delete(1)
     assert_equal(r, nil)
     assert_equal(e, a)
+    
+    a = alloc_nsarray(5)
+    called = false
+    a.delete(1) {called=true}
+    assert_equal(true, called)
+    
+    a = alloc_nsarray(5)
+    called = false
+    a.delete(5) {called=true}
+    assert_equal(false, called)
   end
   
   def test_delete_at
@@ -703,21 +713,35 @@ class TC_NSArray < Test::Unit::TestCase
   def test_slice_error
     a = alloc_nsarray(1,2,3,4,5)
     b = map_to_nsnumber([1,2,3,4,5])
-    assert_raise(RangeError) { a.slice!(10..20) }
+    if RUBY_VERSION >= '1.8.7'
+      assert_nothing_raised { a.slice!(10..20) }
+    else
+      assert_raise(RangeError) { a.slice!(10..20) }
+    end
     assert_nothing_raised { b.slice!(10..20) }
     
     [(-10...3), (-20...-10)].each do |i|
       a = alloc_nsarray(1,2,3,4,5)
       b = map_to_nsnumber([1,2,3,4,5])
-      assert_raise(RangeError) { a.slice!(i) }
-      assert_raise(RangeError) { b.slice!(i) }
+      if RUBY_VERSION >= '1.8.7'
+	assert_nil(a.slice!(i))
+	assert_nil(b.slice!(i))
+      else
+	assert_raise(RangeError) { a.slice!(i) }
+	assert_raise(RangeError) { b.slice!(i) }
+      end
     end
     
     [[0,-3], [-3,-3]].each do |i|
       a = alloc_nsarray(1,2,3,4,5)
       b = map_to_nsnumber([1,2,3,4,5])
-      assert_raise(IndexError) { a.slice!(*i) }
-      assert_raise(IndexError) { b.slice!(*i) }
+      if RUBY_VERSION >= '1.8.7'
+	assert_nil(a.slice!(*i))
+	assert_nil(b.slice!(*i))
+      else
+	assert_raise(IndexError) { a.slice!(*i) }
+	assert_raise(IndexError) { b.slice!(*i) }
+      end
     end
   end
   
@@ -846,6 +870,7 @@ class TC_NSArray < Test::Unit::TestCase
       x = a.grep(/^[a-z0-9]+$/) {|i| i.to_s*2 }
       y = b.grep(/^[a-z0-9]+$/) {|i| i*2 }
       assert_equal(y, x.to_ruby)
+      assert_kind_of(NSArray, x)
     end
   end
   
@@ -856,6 +881,7 @@ class TC_NSArray < Test::Unit::TestCase
       x = a.partition {|i| i.to_i < 4 }
       y = b.partition {|i| i < 4 }
       assert_equal(y, x.to_ruby)
+      assert_kind_of(NSArray, x)
     end
   end
   
@@ -866,6 +892,7 @@ class TC_NSArray < Test::Unit::TestCase
       x = a.reject {|i| i.to_i < 4 }
       y = b.reject {|i| i < 4 }
       assert_equal(y, x.to_ruby)
+      assert_kind_of(NSArray, x)
     end
   end
   
@@ -876,6 +903,7 @@ class TC_NSArray < Test::Unit::TestCase
       x = a.sort
       y = b.sort
       assert_equal(y, x.to_ruby)
+      assert_kind_of(NSArray, x)
     end
   end
   
@@ -886,6 +914,7 @@ class TC_NSArray < Test::Unit::TestCase
       x = a.sort_by {|i| i.to_i * 2 }
       y = b.sort_by {|i| i.to_i * 2 }
       assert_equal(y, x.to_ruby)
+      assert_kind_of(NSArray, x)
     end
   end
   
@@ -911,6 +940,7 @@ class TC_NSArray < Test::Unit::TestCase
       a.zip(*d[1]) {}
       b.zip(*d[1]) {}
       assert_equal(y, x.to_ruby)
+      assert_kind_of(NSArray, x)
     end
   end
 end

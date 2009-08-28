@@ -1,16 +1,16 @@
 /********************************************************************
  * COPYRIGHT:
- * Copyright (c) 1997-2006, International Business Machines Corporation and
+ * Copyright (c) 1997-2008, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
-/********************************************************************************
+/*******************************************************************************
 *
 * File CUCDTST.C
 *
 * Modification History:
 *        Name                     Description
 *     Madhu Katragadda            Ported for C API, added tests for string functions
-*********************************************************************************
+********************************************************************************
 */
 
 #include <string.h>
@@ -51,7 +51,6 @@ static void TestCodePoint(void);
 static void TestCharLength(void);
 static void TestCharNames(void);
 static void TestMirroring(void);
-/*       void TestUScriptCodeAPI(void);*/    /* defined in cucdapi.h */
 static void TestUScriptRunAPI(void);
 static void TestAdditionalProperties(void);
 static void TestNumericProperties(void);
@@ -167,10 +166,11 @@ void addUnicodeTest(TestNode** root);
 
 void addUnicodeTest(TestNode** root)
 {
-    addTest(root, &TestUnicodeData, "tsutil/cucdtst/TestUnicodeData");
     addTest(root, &TestCodeUnit, "tsutil/cucdtst/TestCodeUnit");
     addTest(root, &TestCodePoint, "tsutil/cucdtst/TestCodePoint");
     addTest(root, &TestCharLength, "tsutil/cucdtst/TestCharLength");
+    addTest(root, &TestBinaryValues, "tsutil/cucdtst/TestBinaryValues");
+    addTest(root, &TestUnicodeData, "tsutil/cucdtst/TestUnicodeData");
     addTest(root, &TestAdditionalProperties, "tsutil/cucdtst/TestAdditionalProperties");
     addTest(root, &TestNumericProperties, "tsutil/cucdtst/TestNumericProperties");
     addTest(root, &TestUpperLower, "tsutil/cucdtst/TestUpperLower");
@@ -1825,7 +1825,9 @@ TestMirroring() {
     log_verbose("Testing u_charMirror()\n");
     if(!(u_charMirror(0x3c)==0x3e && u_charMirror(0x5d)==0x5b && u_charMirror(0x208d)==0x208e && u_charMirror(0x3017)==0x3016 &&
          u_charMirror(0xbb)==0xab && u_charMirror(0x2215)==0x29F5 && u_charMirror(0x29F5)==0x2215 && /* large delta between the code points */
-         u_charMirror(0x2e)==0x2e && u_charMirror(0x6f3)==0x6f3 && u_charMirror(0x301c)==0x301c && u_charMirror(0xa4ab)==0xa4ab 
+         u_charMirror(0x2e)==0x2e && u_charMirror(0x6f3)==0x6f3 && u_charMirror(0x301c)==0x301c && u_charMirror(0xa4ab)==0xa4ab &&
+         /* see Unicode Corrigendum #6 at http://www.unicode.org/versions/corrigendum6.html */
+         u_charMirror(0x2018)==0x2018 && u_charMirror(0x201b)==0x201b && u_charMirror(0x301d)==0x301d
          )
     ) {
         log_err("u_charMirror() does not work correctly\n");
@@ -2084,7 +2086,7 @@ TestAdditionalProperties() {
     };
 
     /* test data for u_hasBinaryProperty() */
-    static int32_t
+    static const int32_t
     props[][3]={ /* code point, property, value */
         { 0x0627, UCHAR_ALPHABETIC, TRUE },
         { 0x1034a, UCHAR_ALPHABETIC, TRUE },
@@ -2098,6 +2100,12 @@ TestAdditionalProperties() {
 
         { 0x003c, UCHAR_BIDI_MIRRORED, TRUE },
         { 0x003d, UCHAR_BIDI_MIRRORED, FALSE },
+
+        /* see Unicode Corrigendum #6 at http://www.unicode.org/versions/corrigendum6.html */
+        { 0x2018, UCHAR_BIDI_MIRRORED, FALSE },
+        { 0x201d, UCHAR_BIDI_MIRRORED, FALSE },
+        { 0x201f, UCHAR_BIDI_MIRRORED, FALSE },
+        { 0x301e, UCHAR_BIDI_MIRRORED, FALSE },
 
         { 0x058a, UCHAR_DASH, TRUE },
         { 0x007e, UCHAR_DASH, FALSE },
@@ -2206,14 +2214,17 @@ TestAdditionalProperties() {
         { 0x1801, UCHAR_DEFAULT_IGNORABLE_CODE_POINT, FALSE },
 
         { 0x0341, UCHAR_DEPRECATED, TRUE },
-        { 0xe0041, UCHAR_DEPRECATED, FALSE },
+        { 0xe0041, UCHAR_DEPRECATED, TRUE },        /* changed from Unicode 5 to 5.1 */
+        { 0xe0100, UCHAR_DEPRECATED, FALSE },
 
         { 0x00a0, UCHAR_GRAPHEME_BASE, TRUE },
         { 0x0a4d, UCHAR_GRAPHEME_BASE, FALSE },
-        { 0xff9f, UCHAR_GRAPHEME_BASE, TRUE },      /* changed from Unicode 3.2 to 4 */
+        { 0xff9d, UCHAR_GRAPHEME_BASE, TRUE },
+        { 0xff9f, UCHAR_GRAPHEME_BASE, FALSE },     /* changed from Unicode 3.2 to 4 and again from 5 to 5.1 */
 
         { 0x0300, UCHAR_GRAPHEME_EXTEND, TRUE },
-        { 0xff9f, UCHAR_GRAPHEME_EXTEND, FALSE },   /* changed from Unicode 3.2 to 4 */
+        { 0xff9d, UCHAR_GRAPHEME_EXTEND, FALSE },
+        { 0xff9f, UCHAR_GRAPHEME_EXTEND, TRUE },    /* changed from Unicode 3.2 to 4 and again from 5 to 5.1 */
         { 0x0603, UCHAR_GRAPHEME_EXTEND, FALSE },
 
         { 0x0a4d, UCHAR_GRAPHEME_LINK, TRUE },
@@ -2263,7 +2274,7 @@ TestAdditionalProperties() {
         { 0x10909, UCHAR_BIDI_CLASS, U_RIGHT_TO_LEFT },
         { 0x10fe4, UCHAR_BIDI_CLASS, U_RIGHT_TO_LEFT },
 
-        { 0x0606, UCHAR_BIDI_CLASS, U_RIGHT_TO_LEFT_ARABIC },
+        { 0x0605, UCHAR_BIDI_CLASS, U_RIGHT_TO_LEFT_ARABIC },
         { 0x061c, UCHAR_BIDI_CLASS, U_RIGHT_TO_LEFT_ARABIC },
         { 0x063f, UCHAR_BIDI_CLASS, U_RIGHT_TO_LEFT_ARABIC },
         { 0x070e, UCHAR_BIDI_CLASS, U_RIGHT_TO_LEFT_ARABIC },
@@ -2479,7 +2490,7 @@ TestAdditionalProperties() {
     if( u_getIntPropertyMaxValue(UCHAR_ID_CONTINUE)!=1) {
         log_err("error: u_getIntPropertyMaxValue(UCHAR_ID_CONTINUE) wrong\n");
     }
-    if( u_getIntPropertyMaxValue(UCHAR_BINARY_LIMIT-1)!=1) {
+    if( u_getIntPropertyMaxValue((UProperty)(UCHAR_BINARY_LIMIT-1))!=1) {
         log_err("error: u_getIntPropertyMaxValue(UCHAR_BINARY_LIMIT-1) wrong\n");
     }
     if( u_getIntPropertyMaxValue(UCHAR_BIDI_CLASS)!=(int32_t)U_CHAR_DIRECTION_COUNT-1 ) {
@@ -2671,6 +2682,7 @@ TestPropertyNames(void) {
     UBool atLeastSomething = FALSE;
 
     for (p=0; ; ++p) {
+        UProperty propEnum = (UProperty)p;
         UBool sawProp = FALSE;
         if(p > 10 && !atLeastSomething) {
           log_data_err("Never got anything after 10 tries.\nYour data is probably fried. Quitting this test\n", p, choice);
@@ -2678,9 +2690,10 @@ TestPropertyNames(void) {
         }
 
         for (choice=0; ; ++choice) {
-            const char* name = u_getPropertyName(p, choice);
+            const char* name = u_getPropertyName(propEnum, (UPropertyNameChoice)choice);
             if (name) {
-                if (!sawProp) log_verbose("prop 0x%04x+%2d:", p&~0xfff, p&0xfff);
+                if (!sawProp)
+                    log_verbose("prop 0x%04x+%2d:", p&~0xfff, p&0xfff);
                 log_verbose("%d=\"%s\"", choice, name);
                 sawProp = TRUE;
                 atLeastSomething = TRUE;
@@ -2696,7 +2709,7 @@ TestPropertyNames(void) {
         }
         if (sawProp) {
             /* looks like a valid property; check the values */
-            const char* pname = u_getPropertyName(p, U_LONG_PROPERTY_NAME);
+            const char* pname = u_getPropertyName(propEnum, U_LONG_PROPERTY_NAME);
             int32_t max = 0;
             if (p == UCHAR_CANONICAL_COMBINING_CLASS) {
                 max = 255;
@@ -2712,14 +2725,14 @@ TestPropertyNames(void) {
             for (v=-1; ; ++v) {
                 UBool sawValue = FALSE;
                 for (choice=0; ; ++choice) {
-                    const char* vname = u_getPropertyValueName(p, v, choice);
+                    const char* vname = u_getPropertyValueName(propEnum, v, (UPropertyNameChoice)choice);
                     if (vname) {
                         if (!sawValue) log_verbose(" %s, value %d:", pname, v);
                         log_verbose("%d=\"%s\"", choice, vname);
                         sawValue = TRUE;
 
                         /* test reverse mapping */
-                        rev = u_getPropertyValueEnum(p, vname);
+                        rev = u_getPropertyValueEnum(propEnum, vname);
                         if (rev != v) {
                             log_err("Value round-trip failure (%s): %d -> %s -> %d\n",
                                     pname, v, vname, rev);
@@ -2760,15 +2773,17 @@ TestPropertyValues(void) {
     /* Min should be 0 for everything. */
     /* Until JB#2478 is fixed, the one exception is UCHAR_BLOCK. */
     for (p=UCHAR_INT_START; p<UCHAR_INT_LIMIT; ++p) {
-        min = u_getIntPropertyMinValue(p);
+        UProperty propEnum = (UProperty)p;
+        min = u_getIntPropertyMinValue(propEnum);
         if (min != 0) {
             if (p == UCHAR_BLOCK) {
                 /* This is okay...for now.  See JB#2487.
                    TODO Update this for JB#2487. */
             } else {
                 const char* name;
-                name = u_getPropertyName(p, U_LONG_PROPERTY_NAME);
-                if (name == NULL) name = "<ERROR>";
+                name = u_getPropertyName(propEnum, U_LONG_PROPERTY_NAME);
+                if (name == NULL)
+                    name = "<ERROR>";
                 log_err("FAIL: u_getIntPropertyMinValue(%s) = %d, exp. 0\n",
                         name, min);
             }
@@ -2781,7 +2796,7 @@ TestPropertyValues(void) {
     }
 
     /* Max should be -1 for invalid properties. */
-    max = u_getIntPropertyMaxValue(-1);
+    max = u_getIntPropertyMaxValue(UCHAR_INVALID_CODE);
     if (max != -1) {
         log_err("FAIL: u_getIntPropertyMaxValue(-1) = %d, exp. -1\n",
                 max);
@@ -3042,11 +3057,9 @@ static void TestUCase() {
 #if !HARDCODED_DATA_4497
     UDataMemory *pData;
     UCaseProps *csp;
-#endif
     const UCaseProps *ccsp;
     UErrorCode errorCode;
 
-#if !HARDCODED_DATA_4497
     /* coverage for ucase_openBinary() */
     errorCode=U_ZERO_ERROR;
     pData=udata_open(NULL, UCASE_DATA_TYPE, UCASE_DATA_NAME, &errorCode);
@@ -3070,7 +3083,6 @@ static void TestUCase() {
 
     ucase_close(csp);
     udata_close(pData);
-#endif
 
     /* coverage for ucase_getDummy() */
     errorCode=U_ZERO_ERROR;
@@ -3078,6 +3090,7 @@ static void TestUCase() {
     if(ucase_tolower(ccsp, 0x41)!=0x41) {
         log_err("ucase_tolower(dummy, A)!=A\n");
     }
+#endif
 }
 
 /* API coverage for ubidi_props.c */
@@ -3085,11 +3098,9 @@ static void TestUBiDiProps() {
 #if !HARDCODED_DATA_4497
     UDataMemory *pData;
     UBiDiProps *bdp;
-#endif
     const UBiDiProps *cbdp;
     UErrorCode errorCode;
 
-#if !HARDCODED_DATA_4497
     /* coverage for ubidi_openBinary() */
     errorCode=U_ZERO_ERROR;
     pData=udata_open(NULL, UBIDI_DATA_TYPE, UBIDI_DATA_NAME, &errorCode);
@@ -3113,7 +3124,6 @@ static void TestUBiDiProps() {
 
     ubidi_closeProps(bdp);
     udata_close(pData);
-#endif
 
     /* coverage for ubidi_getDummy() */
     errorCode=U_ZERO_ERROR;
@@ -3121,6 +3131,7 @@ static void TestUBiDiProps() {
     if(ubidi_getClass(cbdp, 0x20)!=0) {
         log_err("ubidi_getClass(dummy, space)!=0\n");
     }
+#endif
 }
 
 /* test case folding, compare return values with CaseFolding.txt ------------ */

@@ -1,0 +1,107 @@
+<!-- #bbinclude "header.txt"
+  #PAGETITLE#="Kerberos for Macintosh 5.0 Release Notes"
+  #BASEHREF#="" 
+-->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN"
+			"http://www.w3.org/TR/REC-html40/loose.dtd">
+<HTML>
+<HEAD> 
+	<BASE HREF="http://web.mit.edu/macdev/KfM/Common/Documentation/release-5.0.html">
+  	<META NAME="keywords" CONTENT="#KEYWORDS#">
+	<META NAME="description" CONTENT="#DESCRIPTION#">
+	<TITLE>Kerberos for Macintosh 5.0 Release Notes</TITLE> 
+	<STYLE TYPE="text/css">
+		@import url(../../Common/Documentation/templates/site.css);
+	</STYLE>
+</HEAD>
+<BODY>
+
+<DIV ID="menu">
+<IMG SRC="../../Common/Documentation/graphics/Kerberos.jpg" ALT="Kerberos for Macintosh Logo">
+<HR>
+<P><A HREF="../../Common/Documentation/index.html">Home</A></P>
+<P><A HREF="http://web.mit.edu/kerberos/">MIT Kerberos</A></P>
+<P><A HREF="http://web.mit.edu/ist/">MIT IS&amp;T</A></P>
+<HR>
+<P><A HREF="../../Common/Documentation/news.html">News</A></P>
+<P><A HREF="../../Common/Documentation/documentation.html">Documentation</A></P>
+<P><A HREF="../../Common/Documentation/developer.html">Developer Resources</A></P>
+<P><A HREF="../../Common/Documentation/license.html">License</A></P>
+<HR>
+<P><A HREF="../../Common/Documentation/download.html">Download</A></P>
+<P><A HREF="../../Common/Documentation/support.html">Support</A></P>
+<P><A HREF="../../Common/Documentation/contact.html">Contact Us</A></P>
+</DIV>
+<DIV ID="body">
+<!-- end bbinclude -->
+<!-- #bbinclude "icon.txt" #ICON#="graphics/ThreeHeadsAndKey.gif" #TEXT#="<H2>Kerberos for Macintosh 5.0 Release Notes</H2>" -->
+<TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0>
+   <TR VALIGN=middle>
+      <TD ALIGN=center> <IMG CLASS=icon SRC="graphics/ThreeHeadsAndKey.gif" ALT="An icon image (description text to the right)" WIDTH=32 HEIGHT=32> </TD>
+      <TD ALIGN=left> <H2>Kerberos for Macintosh 5.0 Release Notes</H2> </TD>
+   </TR>
+</TABLE>
+<!-- end bbinclude -->
+
+<P>Kerberos for Macintosh 5.0 is a major new version of Kerberos for Macintosh for Mac OS X.  It is only available as part of Mac OS X 10.3 (Panther).</P>
+  
+<H3>System Requirements for Kerberos for Macintosh 5.0</H3>
+<UL>
+	<LI>Mac OS X 10.3 (included with operating system)</LI>
+</UL>
+  
+<H3>New Features and Changes in Kerberos for Macintosh 5.0</H3>
+
+<UL>
+	<LI>Kerberos Authentication Dialog</LI>
+	<UL CLASS=small>
+		<LI>Redesigned, streamlined Kerberos authentication dialog</LI>
+		<LI>Rewritten entirely in Cocoa</LI>
+		<LI>UI for getting addressless tickets (NAT mode) in authentication dialog</LI>
+		<LI>UI for getting renewable tickets and setting renewable lifetime in authentication dialog</LI>
+		<LI>Kerberos authentication dialog badged to show which application presented it</LI>
+		<LI>New realms can be entered directly into dialog (for DNS support)</LI>
+		<LI>Localized for French, German, and Japanese</LI>
+	</UL>
+	
+	<LI>Kerberos Application</LI>
+	<UL CLASS=small>
+		<LI>Improved appearance and performance</LI>
+		<LI>New icon with better key status visibility</LI>
+		<LI>Support for setting defaults for addressless tickets, renewable tickets, and renewable lifetime</LI>
+		<LI>Optionally will automatically renew renewable tickets</LI>
+		<LI>Support for adding DNS realms in the Edit Favorite Realms dialog</LI>
+		<LI>Double-click on ticket entries to display ticket information window</LI>
+		<LI>Will work without a configuration file being present</LI>
+	</UL>
+
+	<LI>Miscellaneous</LI>
+	<UL CLASS=small>
+		<LI>Includes <A HREF="http://web.mit.edu/kerberos/www/krb5-1.3/README-1.3.1.txt">MIT Kerberos 1.3.1</A></LI>
+		<LI>Apple KDC based on MIT KDC ships with Mac OS X Server (includes integration with other services on Mac OS X server)</LI>
+		<LI>Standard MIT KDC binaries are included with Mac OS X client but not configured</LI>
+		<LI>kadmin, ktutil tools now included</LI>
+		<LI>Improved Windows interoperability: TCP support added to client libraries and KDC, RC4 crypto system, Microsoft set-password protocol</LI>
+		<LI>Support for DNS lookups of KDCs</LI>
+		<LI>Defaults to addressless tickets (if user hasn't already specified a default in their configuration file)
+		<LI>Kerberos configuration file can now be located in /etc/krb5.conf</LI>
+		<LI>Kerberos v4 now based on MIT's core v4 compatibility library</LI>
+		<LI>No longer prompts for Kerberos login in command-line environments</LI>
+		<LI>Many bug fixes and feature improvements</LI>
+	</UL>
+	
+</UL>
+<!-- #bbinclude "footer.txt" -->
+</DIV>
+<DIV ID="footer">
+	<P>
+		Copyright 2007 Massachusetts Institute of Technology.<BR>
+		Last updated on $Date: 2007-08-27 16:27:32 -0400 (Mon, 27 Aug 2007) $ <BR> 
+		Last modified by $Author: lxs $ 
+	</P>
+</DIV>
+<!-- Begin MIT-use only web reporting counter -->
+	<IMG SRC="http://counter.mit.edu/tally" WIDTH=1 HEIGHT=1 ALT="">
+<!-- End MIT-use only web reporting counter -->
+</BODY></HTML>
+<!-- end bbinclude -->

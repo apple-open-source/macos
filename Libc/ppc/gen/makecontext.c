@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -73,12 +73,12 @@ _ctx_done(ucontext_t *ucp)
 
 		setcontext((const ucontext_t *)ucp->uc_link);
 
-		abort(); /* should never return from above call */
+		LIBC_ABORT("setcontext failed"); /* should never return from above call */
 	}
 }
 
 void
-makecontext(ucontext_t *ucp, void (*start)(void), int argc, ...)
+makecontext(ucontext_t *ucp, void (*start)(), int argc, ...)
 {
 	mcontext_t mc;
 	char *sp;

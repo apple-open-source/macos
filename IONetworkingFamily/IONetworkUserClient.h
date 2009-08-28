@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -19,12 +19,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- * Copyright (c) 1999 Apple Computer, Inc.  All rights reserved. 
- *
- * HISTORY
- *
- */
 
 #ifndef _IONETWORKUSERCLIENT_H
 #define _IONETWORKUSERCLIENT_H
@@ -38,30 +32,10 @@
 //
 enum {
         kIONUCResetNetworkDataIndex          = 0,
-#define kIONUCResetNetworkDataInputs           1
-#define kIONUCResetNetworkDataOutputs          0
-#define kIONUCResetNetworkDataFlags            kIOUCScalarIScalarO
-
         kIONUCWriteNetworkDataIndex          = 1,
-#define kIONUCWriteNetworkDataInput0           0xffffffff
-#define kIONUCWriteNetworkDataInput1           0xffffffff
-#define kIONUCWriteNetworkDataFlags            kIOUCScalarIStructI
-
         kIONUCReadNetworkDataIndex           = 2,
-#define kIONUCReadNetworkDataInputs            1
-#define kIONUCReadNetworkDataOutputs           0xffffffff
-#define kIONUCReadNetworkDataFlags             kIOUCScalarIStructO
-
         kIONUCGetNetworkDataCapacityIndex    = 3,
-#define kIONUCGetNetworkDataCapacityInputs     1
-#define kIONUCGetNetworkDataCapacityOutputs    1
-#define kIONUCGetNetworkDataCapacityFlags      kIOUCScalarIScalarO
-
         kIONUCGetNetworkDataHandleIndex      = 4,
-#define kIONUCGetNetworkDataHandleInputs       0xffffffff
-#define kIONUCGetNetworkDataHandleOutputs      0xffffffff
-#define kIONUCGetNetworkDataHandleFlags        kIOUCStructIStructO
-
         kIONUCLastIndex
 };
 
@@ -80,14 +54,15 @@ class IONetworkUserClient : public IOUserClient
     OSDeclareDefaultStructors( IONetworkUserClient )
 
 protected:
-    IONetworkInterface *   _owner;
-    task_t                 _task;
-    IOExternalMethod       _methods[kIONUCLastIndex];
+    IONetworkInterface *    _owner;
+    task_t                  _task;
+    OSArray *               _handleArray;
+    IOLock *                _handleLock;
 
 /*! @function
     @abstract Free the IONetworkUserClient object. */
 
-    virtual void free();
+    virtual void free(void);
 
 public:
 
@@ -112,53 +87,49 @@ public:
     @discussion Close and detach from our owner (provider).
     @result kIOReturnSuccess. */
 
-    virtual IOReturn clientClose();
+    virtual IOReturn clientClose(void);
 
 /*! @function clientDied
     @abstract Handle client death.
     @discussion Close and detach from our owner (provider).
     @result kIOReturnSuccess. */
 
-    virtual IOReturn clientDied();
+    virtual IOReturn clientDied(void);
 
-/*! @function getExternalMethodForIndex
-    @abstract Look up a method entry from the method array.
-    @discussion Called by IOUserClient to fetch the method entry,
-    described by an IOExternalMethod structure, that correspond to
-    the index provided.
-    @param index The method index.
-    @result A pointer to an IOExternalMethod structure containing the
-    method definition for the given index. */
-
-    virtual IOExternalMethod * getExternalMethodForIndex(UInt32 index);
+    virtual IOReturn externalMethod(
+                        uint32_t selector,
+                        IOExternalMethodArguments * arguments,
+                        IOExternalMethodDispatch * dispatch = 0,
+                        OSObject * target = 0,
+                        void * reference = 0 );
 
 protected:
 
 /*! @function resetNetworkData
     @abstract Fill the data buffer in an IONetworkData object with zeroes.
-    @param key An OSSymbol key associated with an IONetworkData object.
+    @param dataHandle The handle associated with an IONetworkData object.
     @result kIOReturnSuccess on success, kIOReturnBadArgument if an
     argument is invalid, or an error from IONetworkData::reset(). */
 
-    virtual IOReturn resetNetworkData(OSSymbol * key);
+    IOReturn resetNetworkData(uint32_t  dataHandle);
 
 /*! @function writeNetworkData
     @abstract Write to the data buffer in an IONetworkData object with
     data from a source buffer provided by the caller.
-    @param key The OSSymbol key associated with an IONetworkData object.
+    @param dataHandle The handle associated with an IONetworkData object.
     @param srcBuffer The source buffer provided by the caller.
     @param srcBufferSize The size of the source buffer.
     @result kIOReturnSuccess on success, kIOReturnBadArgument if an
     argument is invalid, or an error from IONetworkData::write(). */
 
-    virtual IOReturn writeNetworkData(OSSymbol *   key,
-                                      void *       srcBuffer,
-                                      IOByteCount  srcBufferSize);
+    IOReturn writeNetworkData(uint32_t  dataHandle,
+                              void *    srcBuffer,
+                              uint32_t  srcBufferSize);
 
 /*! @function readNetworkData
     @abstract Read the data buffer in an IONetworkData object and copy
     this data to a destination buffer provided by the caller.
-    @param key The OSSymbol key associated with an IONetworkData object.
+    @param dataHandle The handle associated with an IONetworkData object.
     @param dstBuffer The destination buffer provided by the caller.
     @param dstBufferSize Pointer to an integer that the caller must
     initialize to hold the size of the destination buffer. This method
@@ -166,21 +137,21 @@ protected:
     @result kIOReturnSuccess on success, kIOReturnBadArgument if an
     argument is invalid, or an error from IONetworkData::read(). */
 
-    virtual IOReturn readNetworkData(OSSymbol *    key,
-                                     void *        dstBuffer,
-                                     IOByteCount * dstBufferSize);
+    IOReturn readNetworkData(uint32_t   dataHandle,
+                             void *     dstBuffer,
+                             uint32_t * dstBufferSize);
 
 /*! @function getNetworkDataCapacity
     @abstract Get the capacity of an IONetworkData object, described
     by the size of its data buffer.
-    @param key The OSSymbol key of an IONetworkData object.
+    @param dataHandle The handle of an IONetworkData object.
     @param capacity A pointer to the capacity value returned by this
     method.
     @result kIOReturnSuccess on success, kIOReturnBadArgument if an
     argument is invalid. */
 
-    virtual IOReturn getNetworkDataCapacity(OSSymbol * key,
-                                            UInt32 *   capacity);
+    IOReturn getNetworkDataCapacity(uint32_t   dataHandle,
+                                    uint64_t * capacity);
 
 /*! @function getNetworkDataHandle
     @abstract Return an opaque handle to a provider's IONetworkData object.
@@ -188,8 +159,8 @@ protected:
     object. This handle can be later passed to other methods defined in this
     class to refer to the same object.
     @param name A C string with the name of the IONetworkData object.
-    @param handle If an IONetworkData object with the given name is found,
-    then its associated OSSymbol object is written to this address.
+    @param dataHandle If an IONetworkData object with the given name is found,
+    then a handle is written to this address.
     @param nameSize The size of the name string, including the final
     terminating null character.
     @param handleSizeP The size of the buffer allocated by the caller
@@ -197,10 +168,10 @@ protected:
     @result kIOReturnSuccess on success, kIOReturnBadArgument if an
     argument is invalid, or kIOReturnNoMemory if unable to allocate memory. */
 
-    virtual IOReturn getNetworkDataHandle(char *         name,
-                                          OSSymbol **    handle,
-                                          IOByteCount    nameSize,
-                                          IOByteCount *  handleSizeP);
+    IOReturn getNetworkDataHandle(const char * name,
+                                  uint32_t *   dataHandle,
+                                  uint32_t     nameSize,
+                                  uint32_t *   handleSizeP);
 
 /*! @function setProperties
     @abstract Handle a request to set properties from non-kernel clients.
@@ -211,12 +182,6 @@ protected:
     provider is returned. */
 
     virtual IOReturn setProperties(OSObject * properties);
-
-/*! @function getService
-    @abstract Get the IOService which is the provider of this user client.
-    @result Returns the IONetworkInterface that created the user client. */
-
-    virtual IOService * getService();
 };
 
 #endif /* KERNEL */

@@ -15,6 +15,7 @@
 #include "atof-ieee.h"
 #include "input-scrub.h"
 #include "sections.h"
+#include "dwarf2dbg.h"
 
 /*
  * The assembler can assemble the trailing +/- by setting either the Y-bit or
@@ -98,19 +99,21 @@ const char md_FLT_CHARS[] = "dDfF";
  * This is the machine dependent pseudo opcode table for this target machine.
  */
 static void s_reg(
-    int reg);
+    uintptr_t reg);
 static void s_no_ppc601(
-    int ignore);
+    uintptr_t ignore);
 static void s_flag_reg(
-    int ignore);
+    uintptr_t ignore);
 static void s_noflag_reg(
-    int ignore);
+    uintptr_t ignore);
 const pseudo_typeS md_pseudo_table[] =
 {
     {"greg",		s_reg,		'r' },
     {"no_ppc601",	s_no_ppc601,	0 },
     {"flag_reg",	s_flag_reg,	0 },
     {"noflag_reg",	s_noflag_reg,	0 },
+    {"file", (void (*) (uintptr_t)) dwarf2_directive_file, 0},
+    {"loc", dwarf2_directive_loc, 0},
     {0} /* end of table marker */
 };
 
@@ -119,12 +122,12 @@ const pseudo_typeS md_pseudo_table[] =
 #define RB(x)           (((x) >> 11) & 0x1f)
 
 struct ppc_insn {
-    unsigned long opcode;
+    uint32_t opcode;
     expressionS exp;
     expressionS jbsr_exp;
     enum reloc_type_ppc reloc;
-    long pcrel;
-    long pcrel_reloc;
+    int32_t pcrel;
+    int32_t pcrel_reloc;
 };
 
 /*
@@ -137,7 +140,7 @@ static struct hash_control *op_hash = NULL;
  * These aid in the printing of better error messages for parameter syntax
  * errors when there is only one mnemonic in the tables.
  */
-static unsigned long error_param_count = 0;
+static uint32_t error_param_count = 0;
 static char *error_param_message = NULL;
 
 /*
@@ -145,7 +148,7 @@ static char *error_param_message = NULL;
  * to them.
  */
 struct special_register {
-    unsigned long number;
+    uint32_t number;
     char *name;
 };
 static const struct special_register special_registers[] = {
@@ -230,7 +233,7 @@ static const struct special_register special_registers[] = {
  * numbers assigned to them.
  */
 struct condition_symbol {
-    unsigned long value;
+    uint32_t value;
     char *name;
 };
 static const struct condition_symbol condition_symbols[] = {
@@ -243,7 +246,7 @@ static const struct condition_symbol condition_symbols[] = {
 };
 
 struct CR_field {
-    unsigned long value;
+    uint32_t value;
     char *name;
 };
 static const struct CR_field CR_fields[] = {
@@ -344,6 +347,7 @@ static const struct macros ppc_macros[] = {
     { "mfear\n",   "mfspr $0,282\n"},
     { "mtear\n",   "mtspr 282,$0\n"},
     { "mfpvr\n",   "mfspr $0,287\n"},
+    { "mtvrsave\n","mtspr 256,$0\n"},
     { "mtibatu\n", "mtspr 528+2*($0),$1\n"},
     { "mfibatu\n", "mfspr $0,528+2*($1)\n"},
     { "mtibatl\n", "mtspr 529+2*($0),$1\n"},
@@ -403,46 +407,46 @@ static char *parse_reg(
     char *param,
     struct ppc_insn *insn,
     struct ppc_opcode *format,
-    unsigned long parcnt);
+    uint32_t parcnt);
 static char *parse_spreg(
     char *param,
     struct ppc_insn *insn,
     struct ppc_opcode *format,
-    unsigned long parcnt);
+    uint32_t parcnt);
 static char *parse_bcnd(
     char *param,
     struct ppc_insn *insn,
     struct ppc_opcode *format,
-    unsigned long parcnt);
+    uint32_t parcnt);
 static char *parse_crf(
     char *param,
     struct ppc_insn *insn,
     struct ppc_opcode *format,
-    unsigned long parcnt);
+    uint32_t parcnt);
 static char *parse_num(
     char *param,
     struct ppc_insn *insn,
     struct ppc_opcode *format,
-    unsigned long parcnt,
-    long max_width_zero,
-    long zero_only,
-    long signed_num,
-    long bit_mask_with_1_bit_set);
+    uint32_t parcnt,
+    int32_t max_width_zero,
+    int32_t zero_only,
+    int32_t signed_num,
+    int32_t bit_mask_with_1_bit_set);
 static char *parse_mbe(
     char *param,
     struct ppc_insn *insn,
     struct ppc_opcode *format,
-    unsigned long parcnt);
+    uint32_t parcnt);
 static char *parse_sh(
     char *param,
     struct ppc_insn *insn,
     struct ppc_opcode *format,
-    unsigned long parcnt);
+    uint32_t parcnt);
 static char *parse_mb(
     char *param,
     struct ppc_insn *insn,
     struct ppc_opcode *format,
-    unsigned long parcnt);
+    uint32_t parcnt);
 
 /*
  * md_begin() is called from main() in as.c before assembly begins.  It is used
@@ -451,7 +455,7 @@ static char *parse_mb(
 void
 md_begin(void)
 {
-    unsigned long i;
+    uint32_t i;
     char *name;
     const char *retval;
 
@@ -556,11 +560,11 @@ char ***vecP)
 static
 void
 s_reg(
-int reg)
+uintptr_t reg)
 {
 	char *name, *end_name, delim;
 	symbolS *symbolP;
-	unsigned long n_value, val;
+	uint32_t n_value, val;
 
 	if( * input_line_pointer == '"')
 	  name = input_line_pointer + 1;
@@ -614,7 +618,7 @@ int reg)
 static
 void
 s_no_ppc601(
-int ignore)
+uintptr_t ignore)
 {
 	no_ppc601 = 1;
 	totally_ignore_line();
@@ -627,7 +631,7 @@ int ignore)
 static
 void
 s_flag_reg(
-int ignore)
+uintptr_t ignore)
 {
    int reg;
 
@@ -647,7 +651,7 @@ int ignore)
 static
 void
 s_noflag_reg(
-int ignore)
+uintptr_t ignore)
 {
    int i, reg;
 
@@ -678,10 +682,10 @@ char *op)
     enum branch_prediction prediction;
     struct ppc_opcode *format;
     struct ppc_insn insn;
-    unsigned long i, val, retry;
+    uint32_t i, val, retry;
 
     static char *file_spec;
-    static unsigned long line_spec;
+    static uint32_t line_spec;
     static int syntax_warning_issued_for_AT_bits = 0;
 
 	/*
@@ -757,7 +761,7 @@ char *op)
 		    if(error_param_message != NULL)
 			as_bad(error_param_message, error_param_count + 1);
 		    else
-			as_bad("Parameter syntax error (parameter %lu)",
+			as_bad("Parameter syntax error (parameter %u)",
 				error_param_count + 1);
 		}
 		else
@@ -832,7 +836,7 @@ char *op)
 	 * loaded the instruction form is invalid.
 	 */
 	if((insn.opcode & 0xfc0007fe) == 0x7c0004aa){ /* lswi */
-	    unsigned long nb, nr;
+	    uint32_t nb, nr;
 
 		nb = (insn.opcode & 0x0000f800) >> 11;
 		if(nb == 0)
@@ -900,9 +904,27 @@ char *op)
 	}
 #endif /* ALLOW_INVALID_FORMS */
 
+	/*
+	 * If the -g flag is present generate a line number stab for the
+	 * instruction.
+	 * 
+	 * See the detailed comments about stabs in read_a_source_file() for a
+	 * description of what is going on here.
+	 */
+	if(flagseen['g'] && frchain_now->frch_nsect == text_nsect){
+	    (void)symbol_new(
+		  "",
+		  68 /* N_SLINE */,
+		  text_nsect,
+		  logical_input_line /* n_desc, line number */,
+		  obstack_next_free(&frags) - frag_now->fr_literal,
+		  frag_now);
+	}
+
 	/* grow the current frag and plop in the opcode */
 	thisfrag = frag_more(4);
 	md_number_to_chars(thisfrag, insn.opcode, 4);
+	dwarf2_emit_insn(4);
 
 	/*
 	 * If we are to flag registers not to be used then check the instruction
@@ -915,7 +937,7 @@ char *op)
 		    val = (insn.opcode & (0x1f << format->ops[i].offset)) >>
 			  format->ops[i].offset;
 		    if(flag_gregs[val])
-			as_bad("flagged register r%lu used", val);
+			as_bad("flagged register r%u used", val);
 		}
 	    }
 	}
@@ -980,29 +1002,12 @@ char *op)
 			    as_bad("more than one implementation specific "
 				   "instruction seen and -force_cpusubtype_ALL "
 				   "not specified (first implementation "
-				   "specific instruction in: %s at line %lu)",
+				   "specific instruction in: %s at line %u)",
 				   file_spec, line_spec);
 		    }
 		    break;
 		}
 	    }
-	}
-
-	/*
-	 * If the -g flag is present generate a line number stab for the
-	 * instruction.
-	 * 
-	 * See the detailed comments about stabs in read_a_source_file() for a
-	 * description of what is going on here.
-	 */
-	if(flagseen['g'] && frchain_now->frch_nsect == text_nsect){
-	    (void)symbol_new(
-		  "",
-		  68 /* N_SLINE */,
-		  text_nsect,
-		  logical_input_line /* n_desc, line number */,
-		  obstack_next_free(&frags) - frag_now->fr_literal,
-		  frag_now);
 	}
 
 	/*
@@ -1078,7 +1083,7 @@ struct ppc_insn *insn,
 char *op,
 enum branch_prediction prediction)
 {
-    unsigned long parcnt, bo;
+    uint32_t parcnt, bo;
 
 	/* initial the passed structure */
 	memset(insn, '\0', sizeof(struct ppc_insn));
@@ -1347,7 +1352,7 @@ struct ppc_insn *insn,
 struct ppc_opcode *format,
 int parcnt)
 {
-    unsigned long val;
+    uint32_t val;
     char *saveptr, *saveparam;
     segT seg;
 
@@ -1575,9 +1580,9 @@ char *reg_name,
 char *param,
 struct ppc_insn *insn,
 struct ppc_opcode *format,
-unsigned long parcnt)
+uint32_t parcnt)
 {
-    unsigned long val, d;
+    uint32_t val, d;
 
 	d = 0;
 	if(*param == '(' && parcnt == 2 &&
@@ -1601,7 +1606,7 @@ unsigned long parcnt)
 
 	    while(isdigit(*param))
 		if((val = val * 10 + *param++ - '0') >=
-		   (unsigned long)(1 << format->ops[parcnt].width))
+		   (uint32_t)(1 << format->ops[parcnt].width))
 		return(NULL);
 
 	    if(format->ops[parcnt].type == G0REG && val == 0){
@@ -1644,10 +1649,10 @@ parse_spreg(
 char *param,
 struct ppc_insn *insn,
 struct ppc_opcode *format,
-unsigned long parcnt)
+uint32_t parcnt)
 {
     signed_target_addr_t val;
-    unsigned long i;
+    uint32_t i;
     char *saveptr, save_c;
     expressionS exp;
     segT seg;
@@ -1714,10 +1719,10 @@ parse_bcnd(
 char *param,
 struct ppc_insn *insn,
 struct ppc_opcode *format,
-unsigned long parcnt)
+uint32_t parcnt)
 {
     signed_target_addr_t val;
-    unsigned long i, j;
+    uint32_t i, j;
     char *saveptr, save_c, *plus, save_plus;
     expressionS exp;
     segT seg;
@@ -1809,10 +1814,10 @@ parse_crf(
 char *param,
 struct ppc_insn *insn,
 struct ppc_opcode *format,
-unsigned long parcnt)
+uint32_t parcnt)
 {
     signed_target_addr_t val;
-    unsigned long i;
+    uint32_t i;
     char *saveptr, save_c;
     expressionS exp;
     segT seg;
@@ -1883,11 +1888,11 @@ parse_num(
 char *param,
 struct ppc_insn *insn,
 struct ppc_opcode *format,
-unsigned long parcnt,
-long max_width_zero,
-long zero_only,
-long signed_num,
-long bit_mask_with_1_bit_set)
+uint32_t parcnt,
+int32_t max_width_zero,
+int32_t zero_only,
+int32_t signed_num,
+int32_t bit_mask_with_1_bit_set)
 {
     signed_target_addr_t val;
     int i, max, min, mask, temp;
@@ -1996,7 +2001,7 @@ parse_mbe(
 char *param,
 struct ppc_insn *insn,
 struct ppc_opcode *format,
-unsigned long parcnt)
+uint32_t parcnt)
 {
     signed_target_addr_t val;
     char *saveptr, save_c;
@@ -2030,7 +2035,7 @@ unsigned long parcnt)
 
 	if (parcnt == 3 && *param == '\0')
 	  {
-	    unsigned long uval, mask;
+	    uint32_t uval, mask;
 	    int mb, me, mx, count, last;
 
 	    uval = val;
@@ -2094,7 +2099,7 @@ parse_sh(
 char *param,
 struct ppc_insn *insn,
 struct ppc_opcode *format,
-unsigned long parcnt)
+uint32_t parcnt)
 {
     signed_target_addr_t val;
     char *saveptr, save_c;
@@ -2155,7 +2160,7 @@ parse_mb(
 char *param,
 struct ppc_insn *insn,
 struct ppc_opcode *format,
-unsigned long parcnt)
+uint32_t parcnt)
 {
     signed_target_addr_t val;
     char *saveptr, save_c;
@@ -2256,7 +2261,7 @@ int nbytes,
 fixS *fixP,
 int nsect)
 {
-    unsigned long opcode;
+    uint32_t opcode;
 
 	if(fixP->fx_r_type == NO_RELOC ||
 	   fixP->fx_r_type == PPC_RELOC_VANILLA){
@@ -2424,7 +2429,7 @@ int *sizeP)
 
 	*sizeP = prec * sizeof(LITTLENUM_TYPE);
 	for(wordP = words; prec--; ){
-	    md_number_to_chars(litP, (long)(*wordP++), sizeof(LITTLENUM_TYPE));
+	    md_number_to_chars(litP, (int32_t)(*wordP++), sizeof(LITTLENUM_TYPE));
 	    litP += sizeof(LITTLENUM_TYPE);
 	}
 	return ""; /* OK */
@@ -2436,7 +2441,7 @@ fragS *fragP,
 int segment_type)
 {
 	as_bad("Relaxation should never occur");
-	return(sizeof(long));
+	return(sizeof(int32_t));
 }
 
 const relax_typeS md_relax_table[] = { {0} };

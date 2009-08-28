@@ -1,0 +1,5 @@
+/^import platform/s//&, re/
+/self\.failIf(real_ver is None)/a
+            real_ver = re.sub('^(\d+\.\d+)$', '\g<1>.0', real_ver)
+.
+w

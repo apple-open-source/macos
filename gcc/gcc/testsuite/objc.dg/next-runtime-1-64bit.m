@@ -1,7 +1,7 @@
 /* APPLE LOCAL file 4492976 */
 /* Test that the correct version number (7) is set in the module descriptor
    when compiling for the NeXT runtime.  */
-/* { dg-do compile { target *-*-darwin* } } */
+/* { dg-do compile { target powerpc*-*-darwin* i?86*-*-darwin* } } */
 /* { dg-options "-fnext-runtime -m64 -fobjc-abi-version=1" } */
 
 #include <objc/Object.h>

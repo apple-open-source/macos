@@ -230,6 +230,107 @@ OSStatus SSLInternalSetSessionTicket(
    const void *ticket,   	
    size_t ticketLength);
 
+/*
+ * Support for specifying and obtaining ECC curves, used with the ECDH-based
+ * ciphersuites. 
+ */
+ 
+/* 
+ * These are the named curves we support. These values come from RFC 4492 
+ * section 5.1.1, with the exception of SSL_Curve_None which means
+ * "ECDSA not negotiated". 
+ */
+typedef enum 
+{
+	SSL_Curve_None = -1,
+	SSL_Curve_secp256r1 = 23,
+	SSL_Curve_secp384r1 = 24,
+	SSL_Curve_secp521r1 = 25
+} SSL_ECDSA_NamedCurve;
+
+/* 
+ * Obtain the SSL_ECDSA_NamedCurve negotiated during a handshake.
+ * Returns paramErr if no ECDH-related ciphersuite was negotiated.
+ */
+extern OSStatus SSLGetNegotiatedCurve(
+   SSLContextRef ctx,
+   SSL_ECDSA_NamedCurve *namedCurve);    /* RETURNED */
+
+/*
+ * Obtain the number of currently enabled SSL_ECDSA_NamedCurves.
+ */
+extern OSStatus SSLGetNumberOfECDSACurves(
+   SSLContextRef ctx,
+   unsigned *numCurves);				/* RETURNED */
+
+/*
+ * Obtain the ordered list of currently enabled SSL_ECDSA_NamedCurves.
+ * Caller allocates returned array and specifies its size (in
+ * SSL_ECDSA_NamedCurves) in *numCurves on entry; *numCurves
+ * is the actual size of the returned array on successful return. 
+ */
+extern OSStatus SSLGetECDSACurves(
+   SSLContextRef ctx,
+   SSL_ECDSA_NamedCurve *namedCurves,	/* RETURNED */
+   unsigned *numCurves);				/* IN/OUT */
+
+/* 
+ * Specify ordered list of allowable named curves.
+ */
+extern OSStatus SSLSetECDSACurves(
+   SSLContextRef ctx,
+   const SSL_ECDSA_NamedCurve *namedCurves,   
+   unsigned numCurves);                  
+
+/*
+ * Server-specified client authentication mechanisms. 
+ */
+typedef enum {
+	/* doesn't appear on the wire */
+	SSLClientAuthNone = -1,
+	/* RFC 2246 7.4.6 */
+	SSLClientAuth_RSASign = 1,
+	SSLClientAuth_DSSSign = 2,
+	SSLClientAuth_RSAFixedDH = 3,
+	SSLClientAuth_DSS_FixedDH = 4,
+	/* RFC 4492 5.5 */
+	SSLClientAuth_ECDSASign = 64,
+	SSLClientAuth_RSAFixedECDH = 65,
+	SSLClientAuth_ECDSAFixedECDH = 66
+} SSLClientAuthenticationType;
+
+/*
+ * Obtain the number of client authentication mechanisms specified by 
+ * the server in its Certificate Request message. 
+ * Returns paramErr if server hasn't sent a Certificate Request message
+ * (i.e., client certificate state is kSSLClientCertNone). 
+ */
+extern OSStatus SSLGetNumberOfClientAuthTypes(
+	SSLContextRef ctx,
+	unsigned *numTypes);
+	
+/*
+ * Obtain the client authentication mechanisms specified by 
+ * the server in its Certificate Request message.
+ * Caller allocates returned array and specifies its size (in
+ * SSLClientAuthenticationTypes) in *numType on entry; *numTypes
+ * is the actual size of the returned array on successful return. 
+ */
+extern OSStatus SSLGetClientAuthTypes(
+   SSLContextRef ctx,
+   SSLClientAuthenticationType *authTypes,		/* RETURNED */
+   unsigned *numTypes);							/* IN/OUT */
+
+/* 
+ * Obtain the SSLClientAuthenticationType actually performed. 
+ * Only valid if client certificate state is kSSLClientCertSent
+ * or kSSLClientCertRejected; SSLClientAuthNone is returned as
+ * the negotiated auth type otherwise. 
+ */
+extern OSStatus SSLGetNegotiatedClientAuthType(
+   SSLContextRef ctx,
+   SSLClientAuthenticationType *authType);		/* RETURNED */
+   
 #ifdef __cplusplus
 }
 #endif

@@ -1,5 +1,5 @@
 /* 
- * Copyright (c) 2006-2007, The RubyCocoa Project.
+ * Copyright (c) 2006-2008, The RubyCocoa Project.
  * Copyright (c) 2001-2006, FUJIMOTO Hisakuni.
  * All Rights Reserved.
  *
@@ -16,6 +16,7 @@
 #import "cls_objcptr.h"
 #import "internal_macros.h"
 #import <st.h>
+#include <sys/mman.h>   // for mmap()
 
 #define FFI_LOG(fmt, args...) DLOG("LIBFFI", fmt, ##args)
 
@@ -54,7 +55,7 @@ bs_boxed_ffi_type(struct bsBoxed *bs_boxed)
 static struct st_table *ary_ffi_types = NULL;
 
 static ffi_type *
-fake_ary_ffi_type (unsigned bytes)
+fake_ary_ffi_type (unsigned bytes, unsigned align)
 {
   ffi_type *type;
   unsigned i;
@@ -71,7 +72,7 @@ fake_ary_ffi_type (unsigned bytes)
   ASSERT_ALLOC(type);
 
   type->size = bytes; 
-  type->alignment = 0;
+  type->alignment = align;
   type->type = FFI_TYPE_STRUCT;
   type->elements = malloc(bytes * sizeof(ffi_type *));
   ASSERT_ALLOC(type->elements);
@@ -86,8 +87,7 @@ fake_ary_ffi_type (unsigned bytes)
 ffi_type *
 ffi_type_for_octype (const char *octypestr)
 {
-  if (*octypestr == _C_CONST)
-    octypestr++;
+  octypestr = encoding_skip_qualifiers(octypestr);
 
   switch (*octypestr) {
     case _C_ID:
@@ -154,7 +154,7 @@ ffi_type_for_octype (const char *octypestr)
           else if (size <= 4)
             return &ffi_type_uint; 
           else
-            return fake_ary_ffi_type(size);
+            return fake_ary_ffi_type(size, 0);
         }
       }
       break;
@@ -162,13 +162,13 @@ ffi_type_for_octype (const char *octypestr)
     case _C_ARY_B:
       {
 #if __LP64__
-        unsigned long size;
+        unsigned long size, align;
 #else
-        unsigned int size;
+        unsigned int size, align;
 #endif
 
         @try {
-          NSGetSizeAndAlignment(octypestr, &size, NULL);
+          NSGetSizeAndAlignment(octypestr, &size, &align);
         }
         @catch (id exception) {
           rb_raise(rb_eRuntimeError, "Cannot compute size of type `%s' : %s",
@@ -176,7 +176,7 @@ ffi_type_for_octype (const char *octypestr)
         }
 
         if (size > 0)  
-          return fake_ary_ffi_type(size);
+          return fake_ary_ffi_type(size, align);
       }
       break;
 
@@ -284,12 +284,11 @@ rb_ffi_dispatch (
   if (expected_argc - length_args_count != given_argc) {
     for (i = 0; i < expected_argc; i++) {
       char *type = ARG_OCTYPESTR(i);
-      if (*type == _C_CONST)
-        type++;
+      type = (char *)encoding_skip_qualifiers(type);
       if (given_argc + pointers_args_count < expected_argc
           && (i >= given_argc || !NIL_P(argv[i]))
-          && (*type == _C_PTR && find_bs_cf_type_by_encoding(type) == NULL) 
-              || *type == _C_ARY_B) {
+          && ((*type == _C_PTR && find_bs_cf_type_by_encoding(type) == NULL) 
+               || *type == _C_ARY_B)) {
         struct bsArg *bs_arg;
 
         bs_arg = find_bs_arg_by_index(call_entry, i, expected_argc);
@@ -358,7 +357,7 @@ rb_ffi_dispatch (
     }
     // Regular argument.
     else {
-      VALUE arg;
+      volatile VALUE arg;
       void *value;
       BOOL is_c_array;
       int len;
@@ -383,8 +382,7 @@ rb_ffi_dispatch (
         const char * ptype;
 
         ptype = octype_str;
-        if (*ptype == _C_CONST)
-          ptype++;
+        ptype = encoding_skip_qualifiers(ptype);
         if (*ptype != _C_PTR && *ptype != _C_ARY_B && *ptype != _C_CHARPTR)
           return rb_err_new(rb_eRuntimeError, "Internal error: argument #%d is not a defined as a pointer in the runtime or it is described as such in the metadata", i);
         ptype++;
@@ -476,13 +474,14 @@ rb_ffi_dispatch (
   FFI_LOG("retval : %s", ret_octype);
   ret_type = ffi_type_for_octype(ret_octype);
   if (ret_type != &ffi_type_void) {
-    size_t ret_len = ocdata_size(ret_octype);
+    size_t ret_len = MAX(sizeof(long), ocdata_size(ret_octype));
     FFI_LOG("allocated %ld bytes for the result", ret_len);
     retval = alloca(ret_len);
   }
 
   // Prepare cif.
-  if (ffi_prep_cif(&cif, FFI_DEFAULT_ABI, expected_argc + argc_delta, ret_type, arg_types) != FFI_OK)
+  int cif_ret_status = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, expected_argc + argc_delta, ret_type, arg_types);
+  if (cif_ret_status != FFI_OK)
     rb_fatal("Can't prepare the cif");
 
   // Call function.
@@ -532,7 +531,7 @@ rb_ffi_dispatch (
 
   // Get omitted pointers result, and pack them with the result in an array.
   if (pointers_args_count > 0) {
-    VALUE retval_ary;
+    volatile VALUE retval_ary;
 
     retval_ary = rb_ary_new();
     if (*ret_octype != _C_VOID) { 
@@ -548,16 +547,16 @@ rb_ffi_dispatch (
 
       value = arg_values[i + argc_delta];
       if (value != NULL) {
-        VALUE rbval;
+        volatile VALUE rbval;
         const char *octype_str;
         struct bsArg *bs_arg;
         char fake_octype_str[512];
 
         octype_str = ARG_OCTYPESTR(i);
+        octype_str = encoding_skip_qualifiers(octype_str);
         if (*octype_str == _C_PTR)
           octype_str++;
-        if (*octype_str == _C_CONST)
-          octype_str++;
+        octype_str = encoding_skip_qualifiers(octype_str);
         FFI_LOG("got omitted_pointer[%d] : %s (%p)", i, octype_str, value);
         rbval = Qnil;
         if ((*octype_str == _C_PTR || *octype_str == _C_ARY_B) 
@@ -622,7 +621,7 @@ rb_ffi_dispatch (
             p = &value;
           else
             p = *(void **)value;
-          if (!ocdata_to_rbobj(Qnil, octype_str, p, &rbval, YES))
+          if (!ocdata_to_rbobj(Qnil, octype_str, p, (VALUE*)&rbval, YES))
             return rb_err_new(ocdataconv_err_class(), "Cannot convert the passed-by-reference argument #%d as '%s' to Ruby", i, octype_str);
         }
         (*retain_if_necessary)(rbval, NO, retain_if_necessary_ctx);
@@ -681,14 +680,23 @@ ffi_make_closure(const char *rettype, const char **argtypes, unsigned argc, void
     goto bails;
   }
 
-  closure = (ffi_closure *)malloc(sizeof(ffi_closure));
-  if (closure == NULL) {
+  // Allocate a page to hold the closure with read and write permissions.
+  if ((closure = mmap(NULL, sizeof(ffi_closure), PROT_READ | PROT_WRITE,
+				  MAP_ANON | MAP_PRIVATE, -1, 0)) == (void*)-1)
+  {
     error = "Can't allocate memory";
     goto bails;
   }
 
   if (ffi_prep_closure(closure, cif, handler, context) != FFI_OK) {
     error = "Can't prepare closure";
+    goto bails;
+  }
+
+  // Ensure that the closure will execute on all architectures.
+  if (mprotect(closure, sizeof(closure), PROT_READ | PROT_EXEC) == -1)
+  {
+    error = "Can't mark the closure with PROT_EXEC";
     goto bails;
   }
 

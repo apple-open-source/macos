@@ -312,7 +312,7 @@ IOReturn IOHIDQueueClass::dispose()
     uint64_t    input = fQueueRef;
     uint32_t    outputCount = 0;
     
-    ret = IOConnectCallScalarMethod(fOwningDevice->fConnection, kIOHIDLibUserClientCreateQueue, &input, 1, 0, &outputCount); 
+    ret = IOConnectCallScalarMethod(fOwningDevice->fConnection, kIOHIDLibUserClientDisposeQueue, &input, 1, 0, &outputCount); 
 
     if (ret != kIOReturnSuccess)
         return ret;
@@ -427,7 +427,7 @@ IOReturn IOHIDQueueClass::start (IOOptionBits options)
         ret = IOConnectUnmapMemory (fOwningDevice->fConnection, 
                                     fQueueRef, 
                                     mach_task_self(), 
-                                    (vm_address_t)fQueueMappedMemory);
+                                    (uintptr_t)fQueueMappedMemory);
         fQueueMappedMemory      = NULL;
         fQueueMappedMemorySize  = 0;
     }    

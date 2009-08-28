@@ -1,10 +1,9 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1996,2007 Oracle.  All rights reserved.
  *
- * $Id: ex_dbclient.c,v 1.2 2004/03/30 01:23:16 jtownsen Exp $
+ * $Id: ex_dbclient.c,v 12.5 2007/05/17 15:15:12 bostic Exp $
  */
 
 #include <sys/types.h>
@@ -21,6 +20,7 @@
 #define	DATABASE	"access.db"
 
 int	db_clientrun __P((DB_ENV *, const char *));
+int	ex_dbclient __P((const char *));
 int	ex_dbclient_run __P((const char *, FILE *, const char *, const char *));
 int	main __P((int, char *[]));
 

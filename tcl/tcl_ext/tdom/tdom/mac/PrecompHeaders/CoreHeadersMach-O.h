@@ -1,0 +1,1 @@
+// CoreHeadersMach-O.h#if __mwlinker__		#include <CoreHeadersMacOSX>#else		#include <CoreHeadersMach-O>#endif

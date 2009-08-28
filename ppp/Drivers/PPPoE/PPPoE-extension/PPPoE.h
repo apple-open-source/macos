@@ -28,6 +28,13 @@
 #include <sys/ioccom.h>
 #include <net/ethernet.h>
 
+// PPPoE error codes (bits 8..15 of last cause key)
+#define EXIT_PPPoE_NOSERVER  		1
+#define EXIT_PPPoE_NOSERVICE  		2
+#define EXIT_PPPoE_NOAC 		3
+#define EXIT_PPPoE_NOACSERVICE 		4
+#define EXIT_PPPoE_CONNREFUSED 		5
+
 #define PPPOE_ETHERTYPE_CTRL 	0x8863
 #define PPPOE_ETHERTYPE_DATA 	0x8864
 
@@ -42,8 +49,8 @@
 struct sockaddr_pppoe
 {
     struct sockaddr_ppp	ppp;					/* generic ppp address */
-    u_int8_t 		pppoe_ac_name[PPPOE_AC_NAME_LEN];	/* Access Concentrator name */
-    u_int8_t 		pppoe_service[PPPOE_SERVICE_LEN];	/* Service name */
+    char 		pppoe_ac_name[PPPOE_AC_NAME_LEN];	/* Access Concentrator name */
+    char 		pppoe_service[PPPOE_SERVICE_LEN];	/* Service name */
 };
 
 

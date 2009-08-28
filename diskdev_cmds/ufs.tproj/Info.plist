@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.apple.filesystems.ufs</string>
+	<string>com.apple.filesystems.util.ufs</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -15,9 +15,9 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>7.2</string>
+	<string>7.3</string>
 	<key>CFBundleShortVersionString</key>
-	<string>7.2</string>
+	<string>7.3</string>
 	<key>FSMediaTypes</key>
 	<dict>
 		<key>55465300-0000-11AA-AA11-00306543ECAC</key>
@@ -73,16 +73,6 @@
 	<dict>
 		<key>UFS</key>
 		<dict>
-			<key>FSFormatArguments</key>
-			<string></string>
-			<key>FSFormatContentMask</key>
-			<string>Apple_UFS</string>
-			<key>FSFormatExecutable</key>
-			<string>../../../../../../sbin/newfs</string>
-			<key>FSFormatMinimumSize</key>
-			<integer>131072</integer>
-			<key>FSFormatMaximumSize</key>
-			<integer>1099511627264</integer>
 			<key>FSMountArguments</key>
 			<string></string>
 			<key>FSMountExecutable</key>
@@ -97,8 +87,6 @@
 			<string>-n</string>
 			<key>FSVerificationExecutable</key>
 			<string>../../../../../../sbin/fsck</string>
-			<key>FSFormatInteractive</key>
-			<false/>
 		</dict>
 	</dict>
 </dict>

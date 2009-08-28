@@ -166,7 +166,7 @@ char    *gNextMsg = &gMsgBuf[0];                            // pointer to next a
 int     gNextModuleIndex = 0;                               // index of next avail entry in gModuleNames 
 
 UInt32 GetModuleIndex(EventTraceCauseDesc *desc);
-char *CopyMsg(char *msg);
+char *CopyMsg(const char *msg);
 
 //EventTraceCauseDesc* gDebugTable;     // temp
 //UInt32                gDebugIndex;
@@ -231,12 +231,12 @@ int gModuleIndex;
 UInt32 GetModuleIndex(EventTraceCauseDesc *desc)
 {
     int i;
-    char *modstart;
+    const char *modstart;
     int namelen;
     char modulename[kMaxModuleNameLen];         // copy of module name (need the trailing null)
     
     modstart = desc[0].description;             // extract module name from 1st msg in client table
-    {   char *t;
+    {   const char *t;
 	t = strchr(modstart, ':');
 	if (t == nil) return -1;
 	namelen = t - modstart;
@@ -259,7 +259,7 @@ UInt32 GetModuleIndex(EventTraceCauseDesc *desc)
     // make a new entry
     
     if (gNextModuleIndex < kMaxModuleNames) {                   // if room in the table
-	strcpy(gModuleNames[gNextModuleIndex++], modulename);   // copy it in
+	strlcpy(gModuleNames[gNextModuleIndex++], modulename, sizeof(gModuleNames[0]));   // copy it in
 	gModuleIndex = gNextModuleIndex-1;
 	return gNextModuleIndex-1;
     }
@@ -269,7 +269,7 @@ UInt32 GetModuleIndex(EventTraceCauseDesc *desc)
 
 
 // return ptr to a copy of the msg or nil if out of memory
-char *CopyMsg(char *msg)
+char *CopyMsg(const char *msg)
 {
     char *result;
     int len;

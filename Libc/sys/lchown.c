@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2006, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,7 +30,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-int lchown(const char *, uid_t, gid_t);
+int __lchown(const char *, uid_t, gid_t);
 
 /*
  * lchown stub, legacy version

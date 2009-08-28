@@ -1,8 +1,8 @@
 /* back-bdb.h - bdb back-end header file */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/back-bdb.h,v 1.117.2.11 2006/04/07 16:12:33 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/back-bdb.h,v 1.141.2.14 2008/05/01 21:39:35 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2006 The OpenLDAP Foundation.
+ * Copyright 2000-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -58,6 +58,30 @@ LDAP_BEGIN_DECL
 #define	BDB_PAGESIZE	4096	/* BDB's original default */
 #endif
 
+/* 4.6.18 redefines cursor->locker */
+#if DB_VERSION_FULL >= 0x04060012
+
+struct __db_locker {
+	u_int32_t	id;
+};
+
+typedef struct __db_locker * BDB_LOCKER;
+
+extern int __lock_getlocker(DB_LOCKTAB *lt, u_int32_t locker, int create, DB_LOCKER **ret);
+
+#define CURSOR_SETLOCKER(cursor, id)	cursor->locker = id
+#define CURSOR_GETLOCKER(cursor)	cursor->locker
+#define BDB_LOCKID(locker)	locker->id
+#else
+
+typedef u_int32_t BDB_LOCKER;
+
+#define CURSOR_SETLOCKER(cursor, id)	cursor->locker = id
+#define CURSOR_GETLOCKER(cursor)	cursor->locker
+#define BDB_LOCKID(locker)	locker
+
+#endif
+
 #define DEFAULT_CACHE_SIZE     1000
 
 /* The default search IDL stack cache depth */
@@ -68,9 +92,9 @@ LDAP_BEGIN_DECL
 
 typedef struct bdb_idl_cache_entry_s {
 	struct berval kstr;
-	ldap_pvt_thread_rdwr_t idl_entry_rwlock;
 	ID      *idl;
 	DB      *db;
+	int		idl_flags;
 	struct bdb_idl_cache_entry_s* idl_lru_prev;
 	struct bdb_idl_cache_entry_s* idl_lru_next;
 } bdb_idl_cache_entry_t;
@@ -84,7 +108,7 @@ typedef struct bdb_entry_info {
 	 * to avoid conflicting with BDB's internal locks. So add a byte here
 	 * that is always zero.
 	 */
-	char bei_lockpad;
+	short bei_lockpad;
 
 	short bei_state;
 #define	CACHE_ENTRY_DELETED	1
@@ -94,6 +118,9 @@ typedef struct bdb_entry_info {
 #define	CACHE_ENTRY_LOADING	0x10
 #define	CACHE_ENTRY_WALKING	0x20
 #define	CACHE_ENTRY_ONELEVEL	0x40
+#define	CACHE_ENTRY_REFERENCED	0x80
+#define	CACHE_ENTRY_NOT_CACHED	0x100
+	int bei_finders;
 
 	/*
 	 * remaining fields require backend cache lock to access
@@ -121,20 +148,23 @@ typedef struct bdb_entry_info {
 
 /* for the in-core cache of entries */
 typedef struct bdb_cache {
-	int             c_maxsize;
-	int             c_cursize;
-	int		c_minfree;
-	int		c_eiused;	/* EntryInfo's in use */
-	int		c_leaves;	/* EntryInfo leaf nodes */
-	EntryInfo	c_dntree;
 	EntryInfo	*c_eifree;	/* free list */
-	Avlnode         *c_idtree;
+	Avlnode		*c_idtree;
 	EntryInfo	*c_lruhead;	/* lru - add accessed entries here */
 	EntryInfo	*c_lrutail;	/* lru - rem lru entries from here */
+	EntryInfo	c_dntree;
+	unsigned	c_maxsize;
+	int		c_cursize;
+	unsigned	c_minfree;
+	unsigned	c_eimax;
+	int		c_eiused;	/* EntryInfo's in use */
+	int		c_leaves;	/* EntryInfo leaf nodes */
+	int		c_purging;
+	BDB_LOCKER	c_locker;	/* used by lru cleaner */
 	ldap_pvt_thread_rdwr_t c_rwlock;
-	ldap_pvt_thread_mutex_t lru_head_mutex;
-	ldap_pvt_thread_mutex_t lru_tail_mutex;
-	u_int32_t	c_locker;	/* used by lru cleaner */
+	ldap_pvt_thread_mutex_t c_lru_mutex;
+	ldap_pvt_thread_mutex_t c_count_mutex;
+	ldap_pvt_thread_mutex_t c_eifree_mutex;
 #ifdef SLAP_ZONE_ALLOC
 	void *c_zctx;
 #endif
@@ -146,9 +176,18 @@ typedef struct bdb_cache {
 #define BDB_INDICES		128
 
 struct bdb_db_info {
-	char		*bdi_name;
+	struct berval	bdi_name;
 	DB			*bdi_db;
 };
+
+#ifdef LDAP_DEVEL
+#define BDB_MONITOR_IDX
+#endif /* LDAP_DEVEL */
+
+typedef struct bdb_monitor_t {
+	void		*bdm_cb;
+	struct berval	bdm_ndn;
+} bdb_monitor_t;
 
 /* From ldap_rq.h */
 struct re_s;
@@ -186,7 +225,7 @@ struct bdb_info {
 
 	ID			bi_lastid;
 	ldap_pvt_thread_mutex_t	bi_lastid_mutex;
-	int		bi_idl_cache_max_size;
+	unsigned	bi_idl_cache_max_size;
 	int		bi_idl_cache_size;
 	Avlnode		*bi_idl_tree;
 	bdb_idl_cache_entry_t	*bi_idl_lru_head;
@@ -196,6 +235,15 @@ struct bdb_info {
 	alock_info_t	bi_alock_info;
 	char		*bi_db_config_path;
 	BerVarray	bi_db_config;
+	char		*bi_db_crypt_file;
+	struct berval	bi_db_crypt_key;
+	bdb_monitor_t	bi_monitor;
+
+#ifdef BDB_MONITOR_IDX
+	ldap_pvt_thread_mutex_t	bi_idx_mutex;
+	Avlnode		*bi_idx;
+#endif /* BDB_MONITOR_IDX */
+
 	int		bi_flags;
 #define	BDB_IS_OPEN		0x01
 #define	BDB_HAS_CONFIG	0x02
@@ -206,10 +254,14 @@ struct bdb_info {
 	int		bi_modrdns;		/* number of modrdns completed */
 	ldap_pvt_thread_mutex_t	bi_modrdns_mutex;
 #endif
+#ifdef __APPLE__
+	int			bi_disable_fullfsync_mode;
+#endif
 };
 
 #define bi_id2entry	bi_databases[BDB_ID2ENTRY]
 #define bi_dn2id	bi_databases[BDB_DN2ID]
+
 
 struct bdb_lock_info {
 	struct bdb_lock_info *bli_next;
@@ -218,16 +270,15 @@ struct bdb_lock_info {
 };
 
 struct bdb_op_info {
-	BackendDB*	boi_bdb;
+	OpExtra boi_oe;
 	DB_TXN*		boi_txn;
 	u_int32_t	boi_err;
-	u_int32_t	boi_locker;
 	int		boi_acl_cache;
 	struct bdb_lock_info *boi_locks;	/* used when no txn */
 };
 
 #define	DB_OPEN(db, file, name, type, flags, mode) \
-	(db)->open(db, file, name, type, flags, mode)
+	((db)->open)(db, file, name, type, flags, mode)
 
 #if DB_VERSION_MAJOR < 4
 #define LOCK_DETECT(env,f,t,a)		lock_detect(env, f, t, a)
@@ -258,9 +309,41 @@ struct bdb_op_info {
 #if DB_VERSION_FULL >= 0x04010011
 #undef DB_OPEN
 #define	DB_OPEN(db, file, name, type, flags, mode) \
-	(db)->open(db, NULL, file, name, type, flags, mode)
+	((db)->open)(db, NULL, file, name, type, flags, mode)
 #endif
 
+/* BDB 4.6.18 makes locker a struct instead of an int */
+#if DB_VERSION_FULL >= 0x04060012
+#undef TXN_ID
+#define TXN_ID(txn)	(txn)->locker
+#endif
+
+/* #undef BDB_LOG_DEBUG */
+
+#ifdef BDB_LOG_DEBUG
+
+/* env->log_printf appeared in 4.4 */
+#if DB_VERSION_FULL >= 0x04040000
+#define	BDB_LOG_PRINTF(env,txn,fmt,...)	(env)->log_printf((env),(txn),(fmt),__VA_ARGS__)
+#else
+extern int __db_logmsg(const DB_ENV *env, DB_TXN *txn, const char *op, u_int32_t flags,
+	const char *fmt,...);
+#define	BDB_LOG_PRINTF(env,txn,fmt,...)	__db_logmsg((env),(txn),"DIAGNOSTIC",0,(fmt),__VA_ARGS__)
+#endif
+
+/* !BDB_LOG_DEBUG */
+#elif (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L) || \
+	(defined(__GNUC__) && __GNUC__ >= 3 && !defined(__STRICT_ANSI__))
+#define BDB_LOG_PRINTF(a,b,c,...)
+#else
+#define BDB_LOG_PRINTF (void)	/* will evaluate and discard the arguments */
+
+#endif /* BDB_LOG_DEBUG */
+
+#endif
+
+#ifndef DB_BUFFER_SMALL
+#define DB_BUFFER_SMALL			ENOMEM
 #endif
 
 #define BDB_REUSE_LOCKERS

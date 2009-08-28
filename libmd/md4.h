@@ -1,5 +1,5 @@
 /* MD4.H - header file for MD4C.C
- * $FreeBSD: src/lib/libmd/md4.h,v 1.10 2001/03/17 10:00:50 phk Exp $
+ * $FreeBSD: src/lib/libmd/md4.h,v 1.11 2006/01/17 15:35:56 phk Exp $
  */
 
 /* Copyright (C) 1991-2, RSA Data Security, Inc. Created 1991. All
@@ -27,7 +27,8 @@
 #define _MD4_H_
 
 #ifdef __APPLE__
-#include <openssl/md4.h>
+#define COMMON_DIGEST_FOR_OPENSSL
+#include <CommonCrypto/CommonDigest.h>
 #else /* !__APPLE__ */
 /* MD4 context. */
 typedef struct MD4Context {
@@ -41,7 +42,7 @@ typedef struct MD4Context {
 
 __BEGIN_DECLS
 void   MD4Init(MD4_CTX *);
-void   MD4Update(MD4_CTX *, const unsigned char *, unsigned int);
+void   MD4Update(MD4_CTX *, const void *, unsigned int);
 #ifndef __APPLE__
 void   MD4Pad(MD4_CTX *);
 #endif /* !__APPLE__ */
@@ -49,7 +50,7 @@ void   MD4Final(unsigned char [16], MD4_CTX *);
 char * MD4End(MD4_CTX *, char *);
 char * MD4File(const char *, char *);
 char * MD4FileChunk(const char *, char *, off_t, off_t);
-char * MD4Data(const unsigned char *, unsigned int, char *);
+char * MD4Data(const void *, unsigned int, char *);
 __END_DECLS
 
 #endif /* _MD4_H_ */

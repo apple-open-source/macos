@@ -3,7 +3,7 @@
  *
  *   Copyright (C) UENO Katsuhiro 2000-2003
  *
- * $Id: zlib.c 18087 2008-07-16 16:37:56Z shyouhei $
+ * $Id: zlib.c 18089 2008-07-16 16:39:00Z shyouhei $
  */
 
 #include <ruby.h>

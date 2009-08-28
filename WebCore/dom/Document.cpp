@@ -165,6 +165,10 @@
 #include "WMLNames.h"
 #endif
 
+#if ENABLE(XHTMLMP)
+#include "HTMLNoScriptElement.h"
+#endif
+
 using namespace std;
 using namespace WTF;
 using namespace Unicode;
@@ -386,6 +390,9 @@ Document::Document(Frame* frame, bool isXHTML)
 
     static int docID = 0;
     m_docID = docID++;
+#if ENABLE(XHTMLMP)
+    m_shouldProcessNoScriptElement = settings() && !settings()->isJavaScriptEnabled();
+#endif
 }
 
 void Document::removedLastRef()
@@ -1476,7 +1483,7 @@ void Document::open(Document* ownerDocument)
         if (m_frame->loader()->state() == FrameStateProvisional)
             m_frame->loader()->stopAllLoaders();
     }
-    
+
     implicitOpen();
 
     if (m_frame)
@@ -1503,6 +1510,9 @@ void Document::implicitOpen()
     clear();
     m_tokenizer = createTokenizer();
     setParsing(true);
+
+    if (m_frame)
+        m_tokenizer->setXSSAuditor(m_frame->script()->xssAuditor());
 
     // If we reload, the animation controller sticks around and has
     // a stale animation time. We need to update it here.
@@ -1653,7 +1663,8 @@ void Document::implicitClose()
     }
 
     frame()->loader()->checkCallImplicitClose();
-
+    RenderObject* renderObject = renderer();
+    
     // We used to force a synchronous display and flush here.  This really isn't
     // necessary and can in fact be actively harmful if pages are loading at a rate of > 60fps
     // (if your platform is syncing flushes and limiting them to 60fps).
@@ -1662,13 +1673,18 @@ void Document::implicitClose()
         updateStyleIfNeeded();
         
         // Always do a layout after loading if needed.
-        if (view() && renderer() && (!renderer()->firstChild() || renderer()->needsLayout()))
+        if (view() && renderObject && (!renderObject->firstChild() || renderObject->needsLayout()))
             view()->layout();
     }
 
 #if PLATFORM(MAC)
-    if (f && renderer() && this == topDocument() && AXObjectCache::accessibilityEnabled())
-        axObjectCache()->postNotification(renderer(), "AXLoadComplete", true);
+    if (f && renderObject && this == topDocument() && AXObjectCache::accessibilityEnabled())
+        // The AX cache may have been cleared at this point, but we need to make sure it contains an
+        // AX object to send the notification to. getOrCreate will make sure that an valid AX object
+        // exists in the cache (we ignore the return value because we don't need it here). This is 
+        // only safe to call when a layout is not in progress, so it can not be used in postNotification.    
+        axObjectCache()->getOrCreate(renderObject);
+        axObjectCache()->postNotification(renderObject, "AXLoadComplete", true);
 #endif
 
 #if ENABLE(SVG)
@@ -2530,7 +2546,7 @@ bool Document::setFocusedNode(PassRefPtr<Node> newFocusedNode)
             focusChangeBlocked = true;
             newFocusedNode = 0;
         }
-        oldFocusedNode->dispatchUIEvent(eventNames().DOMFocusOutEvent);
+        oldFocusedNode->dispatchUIEvent(eventNames().DOMFocusOutEvent, 0, 0);
         if (m_focusedNode) {
             // handler shifted focus
             focusChangeBlocked = true;
@@ -2560,7 +2576,7 @@ bool Document::setFocusedNode(PassRefPtr<Node> newFocusedNode)
             focusChangeBlocked = true;
             goto SetFocusedNodeDone;
         }
-        m_focusedNode->dispatchUIEvent(eventNames().DOMFocusInEvent);
+        m_focusedNode->dispatchUIEvent(eventNames().DOMFocusInEvent, 0, 0);
         if (m_focusedNode != newFocusedNode) { 
             // handler shifted focus
             focusChangeBlocked = true;
@@ -2593,6 +2609,18 @@ bool Document::setFocusedNode(PassRefPtr<Node> newFocusedNode)
 #if PLATFORM(MAC) && !PLATFORM(CHROMIUM)
     if (!focusChangeBlocked && m_focusedNode && AXObjectCache::accessibilityEnabled())
         axObjectCache()->handleFocusedUIElementChanged();
+#elif PLATFORM(GTK)
+    if (!focusChangeBlocked && m_focusedNode && AXObjectCache::accessibilityEnabled()) {
+        RenderObject* oldFocusedRenderer = 0;
+        RenderObject* newFocusedRenderer = 0;
+
+        if (oldFocusedNode)
+            oldFocusedRenderer = oldFocusedNode.get()->renderer();
+        if (newFocusedNode)
+            newFocusedRenderer = newFocusedNode.get()->renderer();
+
+        axObjectCache()->handleFocusedUIElementChangedWithRenderers(oldFocusedRenderer, newFocusedRenderer);
+    }
 #endif
 
 SetFocusedNodeDone:
@@ -2726,6 +2754,24 @@ void Document::setWindowAttributeEventListener(const AtomicString& eventType, Pa
     domWindow->setAttributeEventListener(eventType, listener);
 }
 
+EventListener* Document::getWindowAttributeEventListener(const AtomicString& eventType)
+{
+    DOMWindow* domWindow = this->domWindow();
+    if (!domWindow)
+        return 0;
+    return domWindow->getAttributeEventListener(eventType);
+}
+
+void Document::dispatchWindowEvent(PassRefPtr<Event> event)
+{
+    ASSERT(!eventDispatchForbidden());
+    DOMWindow* domWindow = this->domWindow();
+    if (!domWindow)
+        return;
+    ExceptionCode ec;
+    domWindow->dispatchEvent(event, ec);
+}
+
 void Document::dispatchWindowEvent(const AtomicString& eventType, bool canBubbleArg, bool cancelableArg)
 {
     ASSERT(!eventDispatchForbidden());
@@ -2845,7 +2891,7 @@ void Document::setCookie(const String& value)
     if (cookieURL.isEmpty())
         return;
 
-    setCookies(this, cookieURL, policyBaseURL(), value);
+    setCookies(this, cookieURL, value);
 }
 
 String Document::referrer() const
@@ -4246,6 +4292,14 @@ void Document::resetWMLPageState()
     if (WMLPageState* pageState = wmlPageStateForDocument(this))
         pageState->reset();
 }
+
+void Document::initializeWMLPageState()
+{
+    if (!isWMLDocument())
+        return;
+
+    static_cast<WMLDocument*>(this)->initialize();
+}
 #endif
 
 void Document::attachRange(Range* range)
@@ -4256,7 +4310,8 @@ void Document::attachRange(Range* range)
 
 void Document::detachRange(Range* range)
 {
-    ASSERT(m_ranges.contains(range));
+    // We don't ASSERT m_ranges.contains(range) to allow us to call this
+    // unconditionally to fix: https://bugs.webkit.org/show_bug.cgi?id=26044
     m_ranges.remove(range);
 }
 
@@ -4429,5 +4484,17 @@ void Document::displayBufferModifiedByEncoding(UChar* buffer, unsigned len) cons
     if (m_decoder)
         m_decoder->encoding().displayBuffer(buffer, len);
 }
+
+#if ENABLE(XHTMLMP)
+bool Document::isXHTMLMPDocument() const
+{
+    if (!frame() || !frame()->loader())
+        return false;
+    // As per section 7.2 of OMA-WAP-XHTMLMP-V1_1-20061020-A.pdf, a conforming user agent
+    // MUST accept XHTMLMP document identified as "application/vnd.wap.xhtml+xml"
+    // and SHOULD accept it identified as "application/xhtml+xml"
+    return frame()->loader()->responseMIMEType() == "application/vnd.wap.xhtml+xml" || frame()->loader()->responseMIMEType() == "application/xhtml+xml";
+}
+#endif
 
 } // namespace WebCore

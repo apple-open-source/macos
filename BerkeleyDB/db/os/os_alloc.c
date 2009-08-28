@@ -1,32 +1,22 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1997-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1997,2007 Oracle.  All rights reserved.
+ *
+ * $Id: os_alloc.c,v 12.13 2007/05/17 15:15:46 bostic Exp $
  */
 
 #include "db_config.h"
-
-#ifndef lint
-static const char revid[] = "$Id: os_alloc.c,v 1.2 2004/03/30 01:23:45 jtownsen Exp $";
-#endif /* not lint */
-
-#ifndef NO_SYSTEM_INCLUDES
-#include <sys/types.h>
-
-#include <stdlib.h>
-#include <string.h>
-#endif
 
 #include "db_int.h"
 
 #ifdef DIAGNOSTIC
 static void __os_guard __P((DB_ENV *));
 
-union __db_alloc {
+typedef union {
 	size_t size;
 	double align;
-};
+} db_allocinfo_t;
 #endif
 
 /*
@@ -48,9 +38,11 @@ union __db_alloc {
 
 /*
  * __os_umalloc --
- *	A malloc(3) function that will use, in order of preference,
- *	the allocation function specified to the DB handle, the DB_ENV
- *	handle, or __os_malloc.
+ *	Allocate memory to be used by the application.
+ *
+ *	Use, in order of preference, the allocation function specified to the
+ *	DB_ENV handle, the allocation function specified as a replacement for
+ *	the library malloc, or the library malloc().
  *
  * PUBLIC: int __os_umalloc __P((DB_ENV *, size_t, void *));
  */
@@ -75,19 +67,19 @@ __os_umalloc(dbenv, size, storep)
 			/*
 			 *  Correct error return, see __os_malloc.
 			 */
-			if ((ret = __os_get_errno()) == 0) {
+			if ((ret = __os_get_errno_ret_zero()) == 0) {
 				ret = ENOMEM;
 				__os_set_errno(ENOMEM);
 			}
-			__db_err(dbenv,
-			    "malloc: %s: %lu", strerror(ret), (u_long)size);
+			__db_err(dbenv, ret, "malloc: %lu", (u_long)size);
 			return (ret);
 		}
 		return (0);
 	}
 
 	if ((*(void **)storep = dbenv->db_malloc(size)) == NULL) {
-		__db_err(dbenv, "User-specified malloc function returned NULL");
+		__db_errx(dbenv,
+		    "user-specified malloc function returned NULL");
 		return (ENOMEM);
 	}
 
@@ -96,7 +88,9 @@ __os_umalloc(dbenv, size, storep)
 
 /*
  * __os_urealloc --
- *	realloc(3) counterpart to __os_umalloc.
+ *	Allocate memory to be used by the application.
+ *
+ *	A realloc(3) counterpart to __os_umalloc's malloc(3).
  *
  * PUBLIC: int __os_urealloc __P((DB_ENV *, size_t, void *));
  */
@@ -127,19 +121,18 @@ __os_urealloc(dbenv, size, storep)
 			/*
 			 * Correct errno, see __os_realloc.
 			 */
-			if ((ret = __os_get_errno()) == 0) {
+			if ((ret = __os_get_errno_ret_zero()) == 0) {
 				ret = ENOMEM;
 				__os_set_errno(ENOMEM);
 			}
-			__db_err(dbenv,
-			    "realloc: %s: %lu", strerror(ret), (u_long)size);
+			__db_err(dbenv, ret, "realloc: %lu", (u_long)size);
 			return (ret);
 		}
 		return (0);
 	}
 
 	if ((*(void **)storep = dbenv->db_realloc(ptr, size)) == NULL) {
-		__db_err(dbenv,
+		__db_errx(dbenv,
 		    "User-specified realloc function returned NULL");
 		return (ENOMEM);
 	}
@@ -149,7 +142,9 @@ __os_urealloc(dbenv, size, storep)
 
 /*
  * __os_ufree --
- *	free(3) counterpart to __os_umalloc.
+ *	Free memory used by the application.
+ *
+ *	A free(3) counterpart to __os_umalloc's malloc(3).
  *
  * PUBLIC: void __os_ufree __P((DB_ENV *, void *));
  */
@@ -242,7 +237,7 @@ __os_malloc(dbenv, size, storep)
 
 #ifdef DIAGNOSTIC
 	/* Add room for size and a guard byte. */
-	size += sizeof(union __db_alloc) + 1;
+	size += sizeof(db_allocinfo_t) + 1;
 #endif
 
 	if (DB_GLOBAL(j_malloc) != NULL)
@@ -256,12 +251,11 @@ __os_malloc(dbenv, size, storep)
 		 * but it turns out that setting errno is quite expensive on
 		 * Windows/NT in an MT environment.
 		 */
-		if ((ret = __os_get_errno()) == 0) {
+		if ((ret = __os_get_errno_ret_zero()) == 0) {
 			ret = ENOMEM;
 			__os_set_errno(ENOMEM);
 		}
-		__db_err(dbenv,
-		    "malloc: %s: %lu", strerror(ret), (u_long)size);
+		__db_err(dbenv, ret, "malloc: %lu", (u_long)size);
 		return (ret);
 	}
 
@@ -276,8 +270,8 @@ __os_malloc(dbenv, size, storep)
 	 */
 	((u_int8_t *)p)[size - 1] = CLEAR_BYTE;
 
-	((union __db_alloc *)p)->size = size;
-	p = &((union __db_alloc *)p)[1];
+	((db_allocinfo_t *)p)->size = size;
+	p = &((db_allocinfo_t *)p)[1];
 #endif
 	*(void **)storep = p;
 
@@ -311,10 +305,18 @@ __os_realloc(dbenv, size, storep)
 
 #ifdef DIAGNOSTIC
 	/* Add room for size and a guard byte. */
-	size += sizeof(union __db_alloc) + 1;
+	size += sizeof(db_allocinfo_t) + 1;
 
-	/* Back up to the real begining */
-	ptr = &((union __db_alloc *)ptr)[-1];
+	/* Back up to the real beginning */
+	ptr = &((db_allocinfo_t *)ptr)[-1];
+
+	{
+		size_t s;
+
+		s = ((db_allocinfo_t *)ptr)->size;
+		if (((u_int8_t *)ptr)[s - 1] != CLEAR_BYTE)
+			 __os_guard(dbenv);
+	}
 #endif
 
 	/*
@@ -332,19 +334,18 @@ __os_realloc(dbenv, size, storep)
 		 * but it turns out that setting errno is quite expensive on
 		 * Windows/NT in an MT environment.
 		 */
-		if ((ret = __os_get_errno()) == 0) {
+		if ((ret = __os_get_errno_ret_zero()) == 0) {
 			ret = ENOMEM;
 			__os_set_errno(ENOMEM);
 		}
-		__db_err(dbenv,
-		    "realloc: %s: %lu", strerror(ret), (u_long)size);
+		__db_err(dbenv, ret, "realloc: %lu", (u_long)size);
 		return (ret);
 	}
 #ifdef DIAGNOSTIC
 	((u_int8_t *)p)[size - 1] = CLEAR_BYTE;	/* Initialize guard byte. */
 
-	((union __db_alloc *)p)->size = size;
-	p = &((union __db_alloc *)p)[1];
+	((db_allocinfo_t *)p)->size = size;
+	p = &((db_allocinfo_t *)p)[1];
 #endif
 
 	*(void **)storep = p;
@@ -364,24 +365,32 @@ __os_free(dbenv, ptr)
 	void *ptr;
 {
 #ifdef DIAGNOSTIC
-	int size;
+	size_t size;
+#endif
+
 	/*
-	 * Check that the guard byte (one past the end of the memory) is
-	 * still CLEAR_BYTE.
+	 * ANSI C requires free(NULL) work.  Don't depend on the underlying
+	 * library.
 	 */
 	if (ptr == NULL)
 		return;
 
-	ptr = &((union __db_alloc *)ptr)[-1];
-	size = ((union __db_alloc *)ptr)->size;
+#ifdef DIAGNOSTIC
+	/*
+	 * Check that the guard byte (one past the end of the memory) is
+	 * still CLEAR_BYTE.
+	 */
+	ptr = &((db_allocinfo_t *)ptr)[-1];
+	size = ((db_allocinfo_t *)ptr)->size;
 	if (((u_int8_t *)ptr)[size - 1] != CLEAR_BYTE)
 		 __os_guard(dbenv);
 
 	/* Overwrite memory. */
 	if (size != 0)
 		memset(ptr, CLEAR_BYTE, size);
-#endif
+#else
 	COMPQUIET(dbenv, NULL);
+#endif
 
 	if (DB_GLOBAL(j_free) != NULL)
 		DB_GLOBAL(j_free)(ptr);
@@ -398,8 +407,8 @@ static void
 __os_guard(dbenv)
 	DB_ENV *dbenv;
 {
-	__db_err(dbenv, "Guard byte incorrect during free");
-	abort();
+	__db_errx(dbenv, "Guard byte incorrect during free");
+	__os_abort();
 	/* NOTREACHED */
 }
 #endif

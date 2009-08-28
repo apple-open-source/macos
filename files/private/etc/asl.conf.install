@@ -1,0 +1,2 @@
+# No rate limiting during install
+= mps_limit 0

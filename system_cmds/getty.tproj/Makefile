@@ -10,4 +10,12 @@ ifeq ($(Embedded),YES)
 LAUNCHD_PLISTS = com.apple.getty.plist
 endif
 
+Extra_CC_Flags = -Wall -Werror -mdynamic-no-pic
+Extra_LD_Flags = -dead_strip
+
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make
+
+ifeq ($(Embedded),YES)
+after_install:
+	plutil -convert binary1 "$(DSTROOT)/System/Library/LaunchDaemons/$(LAUNCHD_PLISTS)"
+endif

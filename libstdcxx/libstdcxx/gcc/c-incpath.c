@@ -1,6 +1,7 @@
 /* Set up combined include path chain for the preprocessor.
    Copyright (C) 1986, 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
 
    Broken out of cppinit.c and cppfiles.c and rewritten Mar 2003.
 
@@ -16,7 +17,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -45,8 +46,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 # define INO_T_COPY(DEST, SRC) (DEST) = (SRC)
 #endif
 
+static const char dir_separator_str[] = { DIR_SEPARATOR, 0 };
+
 static void add_env_var_paths (const char *, int);
-static void add_standard_paths (const char *, const char *, int);
+static void add_standard_paths (const char *, const char *, const char *, int);
 static void free_path (struct cpp_dir *, int);
 static void merge_include_chains (cpp_reader *, int);
 static struct cpp_dir *remove_duplicates (cpp_reader *, struct cpp_dir *,
@@ -109,7 +112,7 @@ add_env_var_paths (const char *env_var, int chain)
 	path = xstrdup (".");
       else
 	{
-	  path = xmalloc (q - p + 1);
+	  path = XNEWVEC (char, q - p + 1);
 	  memcpy (path, p, q - p);
 	  path[q - p] = '\0';
 	}
@@ -120,7 +123,8 @@ add_env_var_paths (const char *env_var, int chain)
 
 /* Append the standard include chain defined in cppdefault.c.  */
 static void
-add_standard_paths (const char *sysroot, const char *iprefix, int cxx_stdinc)
+add_standard_paths (const char *sysroot, const char *iprefix,
+		    const char *imultilib, int cxx_stdinc)
 {
   const struct default_include *p;
   size_t len;
@@ -142,6 +146,8 @@ add_standard_paths (const char *sysroot, const char *iprefix, int cxx_stdinc)
 	      if (!strncmp (p->fname, cpp_GCC_INCLUDE_DIR, len))
 		{
 		  char *str = concat (iprefix, p->fname + len, NULL);
+		  if (p->multilib && imultilib)
+		    str = concat (str, dir_separator_str, imultilib, NULL);
 		  add_path (str, SYSTEM, p->cxx_aware, false);
 		}
 	    }
@@ -159,6 +165,9 @@ add_standard_paths (const char *sysroot, const char *iprefix, int cxx_stdinc)
 	    str = concat (sysroot, p->fname, NULL);
 	  else
 	    str = update_path (p->fname, p->component);
+
+	  if (p->multilib && imultilib)
+	    str = concat (str, dir_separator_str, imultilib, NULL);
 
 	  add_path (str, SYSTEM, p->cxx_aware, false);
 	}
@@ -211,8 +220,8 @@ remove_duplicates (cpp_reader *pfile, struct cpp_dir *head,
 	  /* Remove this one if it is in the system chain.  */
 	  reason = REASON_DUP_SYS;
 	  for (tmp = system; tmp; tmp = tmp->next)
-           if (INO_T_EQ (tmp->ino, cur->ino) && tmp->dev == cur->dev
-               && cur->construct == tmp->construct)
+	   if (INO_T_EQ (tmp->ino, cur->ino) && tmp->dev == cur->dev
+	       && cur->construct == tmp->construct)
 	      break;
 
 	  if (!tmp)
@@ -220,16 +229,16 @@ remove_duplicates (cpp_reader *pfile, struct cpp_dir *head,
 	      /* Duplicate of something earlier in the same chain?  */
 	      reason = REASON_DUP;
 	      for (tmp = head; tmp != cur; tmp = tmp->next)
-               if (INO_T_EQ (cur->ino, tmp->ino) && cur->dev == tmp->dev
-                   && cur->construct == tmp->construct)
+	       if (INO_T_EQ (cur->ino, tmp->ino) && cur->dev == tmp->dev
+		   && cur->construct == tmp->construct)
 		  break;
 
 	      if (tmp == cur
 		  /* Last in the chain and duplicate of JOIN?  */
 		  && !(cur->next == NULL && join
 		       && INO_T_EQ (cur->ino, join->ino)
-                      && cur->dev == join->dev
-                      && cur->construct == join->construct))
+		      && cur->dev == join->dev
+		      && cur->construct == join->construct))
 		{
 		  /* Unique, so keep this directory.  */
 		  pcur = &cur->next;
@@ -340,7 +349,7 @@ add_path (char *path, int chain, int cxx_aware, bool user_supplied_p)
     if (*c == '\\') *c = '/';
 #endif
 
-  p = xmalloc (sizeof (cpp_dir));
+  p = XNEW (cpp_dir);
   p->next = NULL;
   p->name = path;
   if (chain == SYSTEM || chain == AFTER)
@@ -357,8 +366,8 @@ add_path (char *path, int chain, int cxx_aware, bool user_supplied_p)
    removal, and registration with cpplib.  */
 void
 register_include_chains (cpp_reader *pfile, const char *sysroot,
-			 const char *iprefix, int stdinc, int cxx_stdinc,
-			 int verbose)
+			 const char *iprefix, const char *imultilib,
+			 int stdinc, int cxx_stdinc, int verbose)
 {
   static const char *const lang_env_vars[] =
     { "C_INCLUDE_PATH", "CPLUS_INCLUDE_PATH",
@@ -375,12 +384,12 @@ register_include_chains (cpp_reader *pfile, const char *sysroot,
      include chain.  */
   add_env_var_paths ("CPATH", BRACKET);
   add_env_var_paths (lang_env_vars[idx], SYSTEM);
-  
+
   target_c_incpath.extra_pre_includes (sysroot, iprefix, stdinc);
 
   /* Finally chain on the standard directories.  */
   if (stdinc)
-    add_standard_paths (sysroot, iprefix, cxx_stdinc);
+    add_standard_paths (sysroot, iprefix, imultilib, cxx_stdinc);
 
   target_c_incpath.extra_includes (sysroot, iprefix, stdinc);
 

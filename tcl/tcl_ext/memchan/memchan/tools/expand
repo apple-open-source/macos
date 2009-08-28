@@ -1,0 +1,1036 @@
+#!/bin/sh
+# -*-tcl-*-
+# the next line restarts using tclsh\
+exec tclsh "$0" "$@"
+
+#-------------------------------------------------------------------------
+# TITLE:
+#	expand.tcl
+#
+# VERSION:
+#       2.0
+#
+# AUTHOR:
+#	Will Duquette
+#
+# DESCRIPTION:
+#       Usage: tclsh expand.tcl [options] files....
+#
+#	Reads files, writing input to output.  Most text
+# 	is output unchanged.  Certain text is evaluated as Tcl code;
+# 	the result of the Tcl code, if any, is output.  If the Tcl
+# 	code results in an error, the error result is output.
+#
+#	Before reading any input, expand.tcl reads any exprules.tcl
+# 	file in the current directory, or alternatively a tcl file
+# 	specified by the "-rules" command line option.  This allows the
+# 	caller to define special formatting macros for general use
+#	and override them as needed.  The rules file can also read
+# 	arguments from the command line, after options are removed but
+# 	before the files are processed.
+#
+#	On an error in a macro, expand can "ignore" the macro,
+#       "output" the macro unchanged, "fail" (the default), halting
+#	processing, depending on the value of the "-error" option.
+#
+#	Output is written to stdout, by default; the "-out" option
+#       sends it to a file, instead.  If the specified file is "nul",
+#       then no output is written at all.  The rules can also control
+#       the output via the setoutput command.
+#
+#	Any text in brackets, e.g., "[" and "]" is treated as a Tcl
+#       command, and evaluated.  The bracket characters can be changed
+#       using ::expand::setbrackets.
+#
+#       Normally Expand reads the output files only once; a rules file
+#       can choose multiple passes using the ::expand::setpasses command.  The
+#       ::expand::exppass command returns the number of the current pass,
+#       starting at 1.
+#
+# LICENSE:
+#       Copyright (C) 2000 by William H. Duquette.  See license.txt,
+#       distributed with this file, for license information.
+#
+# CHANGE LOG:
+#
+#       06/27/98: Released V1.0 on web.
+#       06/27/98: Changed exp_extract to handle multi-character bracket
+#                 tokens.  Added exp_stripBrackets to remove multi-character
+#                 bracket tokens.
+#       06/27/98: Added function setbrackets to allow the user to choose the
+#                 bracket tokens.
+#       06/27/98: Added brand new command line option parser.  The new parser
+#                 can be used by the rules file's begin_hook.
+#
+#	06/28/98: Version 1.1 released.
+#
+#	06/29/98: Added init_hook.
+#       06/29/98: Added setoutput command.
+#       06/29/98: Added setpasses/exppass and multi-pass processing.
+#       06/29/98: Fixed potential bug in exp_getCmd: using "info complete"
+#                 with changed left and right brackets.
+#	06/30/98: Added -testmode flag: causes error output to go to 
+#                 stdout instead of stderr to aid testing.
+#       07/01/98: Added a tclsh80 starter at the top of the file.
+#       07/01/98: exp_error calls "exit 1" instead of "exit 0" again.
+#       07/02/98: Added expandText and include commands.
+#       07/03/98: Renamed exp_write to expwrite, and made it public,
+#                 for use with setoutput.
+#       07/07/98: Released Expand V1.2
+#
+#	10/10/99: Added raw_text_hook.
+#	01/15/00: Rewrote popArg, in an attempt to prevent an odd bug
+#		  that manifests only on certain platforms.
+#	01/15/00: Released Expand V1.3
+#
+#       02/03/00: Found a bug in expandText; it isn't safe to extract
+#                 the command name from an arbitrary Tcl script using
+#                 lindex, as many valid scripts aren't valid lists. I
+#                 now use scan instead of lindex.
+#
+#       04/17/00: Version 2 rewrite begins.  The code is cleaned up and 
+#                 placed in the ::expand:: namespace.
+#
+#       05/07/00: Version 2 rewrite ends (for now).
+
+#-------------------------------------------------------------------------
+# Namespace: all of the expand code exists in the ::expand:: namespace,
+# leaving the global namespace for the user's rules.
+
+namespace eval ::expand:: {
+    # Exported Commands
+    namespace export {[a-z]*}
+
+    # Expand Variables
+
+    # Macro bracketing sequences.
+    variable leftBracket "\["
+    variable rightBracket "\]"
+
+    # What to output when an error is detected: 
+    # "nothing", "macro", "error", "fail"
+    variable errorOutputMode fail
+
+    # Number of passes to make over the input
+    variable numberOfPasses 1
+
+    # The current output channel
+    variable outputChannel ""
+
+    # A command can push its context onto a stack, causing any text 
+    # that follows it to be saved separately.  Later on, a paired command 
+    # can pop the stack, acquiring the saved text and including it in its own
+    # output.
+    variable level 0
+    variable context
+    variable contextName
+    variable contextData
+    set context($level) ""
+    set contextName($level) ":0"
+
+    # Status variables
+    variable currentFileName ""
+    variable currentPass 0
+}
+
+#-------------------------------------------------------------------------
+# User settings:  These commands allow the users to set, and in some
+# cases retrieve, various expansion parameters.
+
+# lb
+#
+# Return the left bracket sequence.
+
+proc ::expand::lb {} {
+    variable leftBracket
+
+    return $leftBracket
+}
+
+# rb
+#
+# Return the right bracket sequence.
+
+proc ::expand::rb {} {
+    variable rightBracket
+
+    return $rightBracket
+}
+
+# setbrackets lb rb
+#
+# Set the bracket sequences
+proc ::expand::setbrackets {lb rb} {
+    variable leftBracket 
+    variable rightBracket
+
+    if {$lb == "" || $rb == ""} {
+        error "Empty string specified as left or right bracket."
+    }
+
+    set leftBracket $lb
+    set rightBracket $rb
+
+    return
+}
+
+# setErrorOutputMode mode
+#
+# Set the error output mode
+proc ::expand::setErrorOutputMode {mode} {
+    variable errorOutputMode 
+
+    if {![oneOf {fail nothing macro error} $mode]} {
+        error "Invalid error output mode '$mode'"
+    }
+
+    set errorOutputMode $mode
+}
+
+# Return the current file name
+proc ::expand::expfile {} {
+    variable currentFileName
+
+    return $currentFileName
+}
+
+# Return the number of the current pass.
+proc ::expand::exppass {} {
+    variable currentPass
+
+    return $currentPass
+}
+
+# Set the number of passes
+proc ::expand::setpasses {passes} {
+    variable numberOfPasses
+
+    set numberOfPasses $passes
+
+    if {$numberOfPasses < 1} {
+        error "setpasses: must be >= 1"
+    }
+}
+
+#-------------------------------------------------------------------------
+# User hooks: a rule set can redefine these hooks to do anything desired.
+# The init_hook doesn't contribute to the output, but the other hooks do.
+# Since the hooks do nothing by default, and are to be redefined by the
+# user, they are defined in the global name space.
+
+# Initialization Hook: called when the rule set is loaded.
+proc init_hook {} {}
+
+# Begin Hook: Called at the beginning of each pass.
+proc begin_hook {} {}
+
+# End Hook: Called at the end of each pass.
+proc end_hook {} {}
+
+# Begin File Hook: Called before each file is processed.
+proc begin_file_hook {fileName} {}
+
+# End File Hook: Called after each file is processed.
+proc end_file_hook {fileName} {}
+
+# Raw Text Hook: All plain (non-macro) text is passed through this
+# function.
+proc raw_text_hook {text} {return $text}
+
+#-------------------------------------------------------------------------
+# Context: Every expansion takes place in its own context; however, 
+# a macro can push a new context, causing the text it returns and all
+# subsequent text to be saved separately.  Later, a matching macro can
+# pop the context, acquiring all text saved since the first command,
+# and use that in its own output.
+
+# cpush name
+#
+# pushes an empty context onto the stack.  All output text will be added
+# to this context until it is popped.
+
+proc ::expand::cpush {name} {
+    variable level
+    variable context
+    variable contextName
+
+    incr level
+    set context($level) {}
+    set contextName($level) $name
+}
+
+# cis name
+#
+# Returns true if the current context has the given name.
+
+proc ::expand::cis {name} {
+    variable level
+    variable contextName
+
+    return [expr [string compare $name $contextName($level)] == 0]
+}
+
+# cname
+#
+# Returns the current context name.
+
+proc ::expand::cname {} {
+    variable level
+    variable contextName
+
+    return $contextName($level)
+}
+
+# csave name value
+#
+# Save or retrieve value in the current context
+
+proc ::expand::csave {name value} {
+    variable contextData
+    variable level
+    
+    set contextData($level-$name) $value
+}
+
+# cget name
+#
+# Get the value of a context variable
+proc ::expand::cget {name} {
+    variable contextData
+    variable level
+
+    if {![info exists contextData($level-$name)]} {
+        error "*** Error, context var $name doesn't exist in this context"
+    }
+
+    return $contextData($level-$name)
+}
+
+# cvar name
+#
+# Get a context variable's real name, e.g., for appending or lappending
+proc ::expand::cvar {name} {
+    variable contextData
+    variable level
+
+    if {![info exists contextData($level-$name)]} {
+        error "*** Error, context var $name doesn't exist in this context"
+    }
+
+    return ::expand::contextData($level-$name)
+}
+
+# cpop
+#
+# Pops a context level off of the stack, returning the accumulated text.
+
+proc ::expand::cpop {name} {
+    variable level
+    variable context
+    variable contextName
+    variable contextData
+
+    if {$level == 0} {
+        error "*** Error, context mismatch: got unexpected '$name'"
+    }
+
+    if {"$contextName($level)" != "$name"} {
+        error \
+      "*** Error, context mismatch: expected $contextName($level), got $name"
+    }
+
+    set result $context($level)
+    set context($level) ""
+    set contextName($level) ""
+
+    foreach name [array names contextData $level-*] {
+        unset contextData($name)
+    }
+
+    incr level -1
+
+    return $result
+}
+
+# ContextAppend text
+#
+# This private command appends text to the current context.  It is for
+# use only by the Expand code; macros should return their text.
+
+proc ::expand::ContextAppend {text} {
+    variable context
+    variable level
+
+    append context($level) $text
+}
+
+#-------------------------------------------------------------------------
+# Macro-expansion:  The following code is the heart of the program.
+# Given a text string, and the current variable settings, this code
+# returns an expanded string, with all macros replaced.
+#
+# If a fatal error is detected during expansion, expandText throws
+# an error for its caller to handle.   An error detected while 
+# expanding a particular macro is only fatal if the errorOutputMode
+# is "fail"; otherwise, the result of the expansion attempt is 
+# output according to the mode.
+#
+# All non-macro text is passed through the raw_text_hook.
+
+# Expands a string using the current macro definitions and Expand
+# variable settings.
+proc ::expand::expandText {inputString} {
+    variable errorOutputMode
+    global errorInfo
+
+    cpush expandText
+
+    while {[string length $inputString] > 0} {
+        set plainText [ExtractToToken inputString [lb] exclude]
+
+        # FIRST, If there was plain text, append it to the output, and 
+        # continue.
+        if {$plainText != ""} {
+            ContextAppend [raw_text_hook $plainText]
+            if {[string length $inputString] == 0} {
+                break
+            }
+        }
+
+        # NEXT, A macro is the next thing; process it.
+        if {[catch "GetMacro inputString" macro]} {
+            error "*** Error reading macro from input: $macro"
+        }
+
+        # Expand the macro, and output the result, or
+        # handle an error.
+        if {![catch "uplevel #0 [list $macro]" result]} {
+            ContextAppend $result 
+            continue
+        } 
+        
+        switch $errorOutputMode {
+            nothing { }
+            macro { 
+                ContextAppend "[lb]$macro[rb]" 
+            }
+            error {
+                ContextAppend "[lb]$macro[rb]\n"
+                ContextAppend "*** Error in preceding macro: $result\n$errorInfo"
+            }
+            fail   { 
+                error "*** Error in macro:\n[lb]$macro[rb]\n$result"
+            }
+        }
+    }
+
+    return [cpop expandText]
+}
+
+# ExtractToToken string token mode
+#
+# Extract text from a string, up to or including a particular
+# token.  Remove the extracted text from the string.
+# mode determines whether the found token is removed;
+# it should be "include" or "exclude".  The string is
+# modified in place, and the extracted text is returned.
+proc ::expand::ExtractToToken {string token mode} {
+    upvar $string theString
+
+    # First, determine the offset
+    switch $mode {
+        include { set offset [expr [string length $token] - 1] }
+        exclude { set offset -1 }
+        default { error "::expand::ExtractToToken: unknown mode $mode" }
+    }
+
+    # Next, find the first occurrence of the token.
+    set tokenPos [string first $token $theString]
+
+    # Next, return the entire string if it wasn't found, or just
+    # the part upto or including the character.
+    if {$tokenPos == -1} {
+        set theText $theString
+        set theString ""
+    } else {
+        set newEnd [expr $tokenPos + $offset]
+        set newBegin [expr $newEnd + 1]
+        set theText [string range $theString 0 $newEnd]
+        set theString [string range $theString $newBegin end]
+    }
+
+    return $theText
+}
+
+# Get the next complete command, removing it from the string.
+proc ::expand::GetMacro {string} {
+    upvar $string theString
+
+    # FIRST, it's an error if the string doesn't begin with a
+    # character.
+    if {[string first [lb] $theString] != 0} {
+        error "::expand::GetMacro: assertion failure, next text isn't a command! '$theString'"
+    }
+
+    # NEXT, extract a full macro
+    set macro [ExtractToToken theString [lb] include]
+    while {[string length $theString] > 0} {
+        append macro [ExtractToToken theString [rb] include]
+
+        # Verify that the command really ends with the [rb] characters,
+        # whatever they are.  If not, break because of unexpected
+        # end of file.
+        if {![IsBracketed $macro]} {
+            break;
+        }
+
+        set strippedMacro [StripBrackets $macro]
+
+        if {[info complete "puts \[$strippedMacro\]"]} {
+            return $strippedMacro
+        }
+    }
+
+    if {[string length $macro] > 40} {
+        set macro "[string range $macro 0 39]...\n"
+    }
+    error "*** Error, unexpected EOF in macro:\n$macro"
+}
+
+# Strip left and right bracket tokens from the ends of a macro,
+# provided that it's properly bracketed.
+proc ::expand::StripBrackets {macro} {
+    set llen [string length [lb]]
+    set rlen [string length [rb]]
+    set tlen [string length $macro]
+
+    return [string range $macro $llen [expr $tlen - $rlen - 1]]
+}
+
+# Return 1 if the macro is properly bracketed, and 0 otherwise.
+proc ::expand::IsBracketed {macro} {
+    set llen [string length [lb]]
+    set rlen [string length [rb]]
+    set tlen [string length $macro]
+
+    set leftEnd [string range $macro 0 [expr $llen - 1]]
+    set rightEnd [string range $macro [expr $tlen - $rlen] end]
+
+    if {$leftEnd != [lb]} {
+        return 0
+    } elseif {$rightEnd != [rb]} {
+        return 0
+    } else {
+        return 1
+    }
+}
+
+#-------------------------------------------------------------------------
+# File handling: these routines, some public and some private, handle
+# processing of files.
+
+# expand fileList outputFile
+#
+# This is the basic algorithm of the Expand tool.  Given a list of files
+# to expand, it executes the following sequence.  Return values of all
+# handlers, except for the initHandlers, is written to the current output
+# file.
+#
+# - For each pass,
+#     - Set ::expand::currentPass.
+#     - Call the begin_hook.
+#     - For each file in the file list,
+#         - Set ::expand::currentFileName
+#         - Call the begin_file_hook.
+#	  - read file and expand its contents
+#         - Call the end_file_hook.
+#     - Call the end_hook.
+# - Close the current output file.
+
+proc ::expand::expand {fileList outputFile} {
+    variable currentPass
+    variable numberOfPasses
+    variable currentFileName
+
+    for {set currentPass 1} {$currentPass <= $numberOfPasses} \
+            {incr currentPass} {
+
+        # First, if this is any pass but the last, set output to nul;
+        # otherwise, set output to the requested output file.
+        if {$currentPass < $numberOfPasses} {
+            setoutput nul
+        } else {
+            setoutput $outputFile
+        }
+
+        # Next, execute the beginning hook
+        set currentFileName ""
+        expwrite [begin_hook]
+
+        # Next, expand each of the files on the command line.
+        foreach file $fileList {
+            if {[catch "ExpandFile [list $file]" result]} {
+                puts stderr $result
+                exit 1
+            }
+            expwrite $result
+        }
+
+        # Next, execute the end hook
+        expwrite [end_hook]
+    }
+
+    # Next, close the output file.
+    setoutput nul
+}
+
+# ExpandFile
+#
+# Helper routine for ::expand::expand.  It expands a single file,
+# calling the begin and end file handlers and returning the expanded
+# result.
+
+proc ::expand::ExpandFile {fileName} {
+    variable currentFileName
+
+    # Set the current file
+    set currentFileName $fileName
+
+    # Call the begin_file_hook
+    set output [begin_file_hook $fileName]
+
+    # Expand the file
+    set contents [readFile $fileName]
+
+    if {[catch [list expandText $contents] result]} {
+        error "*** Error expanding $fileName:\n$result"
+    }
+
+    append output $result
+
+    # Call the endFileHandlers
+    append output [end_file_hook $fileName]
+
+    return $output
+}
+
+# include file
+#
+# Reads a file into memory, and expands its contents.
+
+proc ::expand::include {fileName} {
+    # Get the file's contents, and prepare to output it.
+    set contents [readFile $fileName]
+
+    if {[catch [list expandText $contents] result]} {
+        error "*** Error including $fileName:\n$result"
+    }
+
+    return $result
+}
+
+# readFile file
+#
+# Reads a file into memory, returning its contents.
+proc ::expand::readFile {fileName} {
+   # Open the file.
+    if {[catch "open $fileName" fin]} {
+        error "Could not read file '$fileName': $fin"
+    }
+
+    # Read the contents and close the file.
+    set contents [read $fin]
+    close $fin
+
+    return $contents
+}
+
+#-------------------------------------------------------------------------
+# Output Management
+
+# Set the output file
+proc ::expand::setoutput {fileName} {
+    variable outputChannel
+
+    # Close any existing file
+    if {$outputChannel != "" && $outputChannel != "stdout"} {
+        close $outputChannel
+    }
+
+    # Pick stdout, no output at all, or a real file
+    if {$fileName == ""} {
+        set outputChannel stdout
+    } elseif {$fileName == "nul"} {
+        set outputChannel ""
+    } else {
+        if {[catch "open $fileName w" outputChannel]} {
+            error "Could not open output file $fileName"
+        }
+    }
+
+    return
+}
+
+# Output a bunch of text to the output file.
+proc ::expand::expwrite {text} {
+    variable outputChannel
+
+    if {$outputChannel != ""} {
+        puts -nonewline $outputChannel $text
+    }
+}
+
+#-------------------------------------------------------------------------
+# getoptions: command line option parsing
+#
+# The getoptions function parses a list as a command line, removing
+# options and their values.  Any remaining tokens and options remain
+# in the list and can be parsed by another call to getoptions or in
+# any other way the caller prefers.
+#
+# getoptions is called as follows:
+#
+# getoptions arglist [-strict] [{optionDef... }]
+#
+# "arglist" is the name of a list variable, typically argv.  It is
+# passed by name, and modified in place.  If the "-strict" option
+# is specified, unrecognized options are flagged as errors.
+# The call may include any number of option definitions, including
+# none.  The call "getoptions argv -strict", for example, will ensure
+# that no options remain in the list contained in "argv".
+#
+# Option definitions may take the following forms.  In each, NAME is
+# the option name, which must begin with a "-" character, and VAR is
+# the name of a variable in the caller's scope to receive the option's value.
+#
+# {NAME VAR flag}
+#     If the option appears on the command line, the variable
+#     is set to 1, otherwise to 0.
+#
+# {NAME VAR enum VAL1 VAL2....}
+#     If the option appears on the command line, the next argument
+#     must be one of the enumerated values, VAL1, VAL2, etc.  The 
+#     variable is set to the value, or VAL1 if the option does not
+#     appear on the command line.  If the option's value is not one of
+#     the valid choices, an error message will be displayed and the
+#     program will halt.  None of the enumerated values may begin with
+#     a "-" character.
+#
+# {NAME VAR string DEFVALUE}
+#     The named variable is set to the value following the option on
+#     the command line.  If the option doesn't appear, the variable is
+#     set to the DEFVALUE.  The option's value may not begin with 
+#     "-" character, as if it does, the most likely explanation is
+#     that the option's real value is missing and the next argument is
+#     another option name.
+
+# Utility routine: pops an arg off of the front of an arglist.
+proc ::expand::popArg {arglist} {
+    upvar $arglist args
+
+    if {[llength $args] == 0} {
+        set arg ""
+    } elseif {[llength $args] == 1} {
+        set arg $args
+        set args ""
+    } else {
+        set arg [lindex $args 0]
+        set args [lrange $args 1 end]
+    }
+
+    return $arg
+}
+
+proc ::expand::getoptions {arglist strictOrDefs {defsOrNil ""}} {
+    # First, the arglist is called by name.
+    upvar $arglist args
+
+    # Next, strictOrDefs is either the "-strict" option or the 
+    # definition list.
+    if {$strictOrDefs == "-strict"} {
+        set strictFlag 1
+        set defList $defsOrNil
+    } else {
+        set strictFlag 0
+        set defList $strictOrDefs
+    }
+
+    # Next, get names of the options
+    set optNames {}
+    set optTypes {flag enum string}
+    set optLens {3 5 4}
+    foreach def $defList {
+        if {[llength $def] < 3} {
+            error "Error in option definition: $def"
+        }
+        lappend optNames [lindex $def 0]
+        set varName [lindex $def 1]
+        set optType [lindex $def 2]
+        set i [lsearch -exact $optTypes $optType]
+
+        if {$i == -1} {
+            error "Unknown option type: $optType"
+        }
+
+        if {[llength $def] < [lindex $optLens $i]} {
+            error "Error in option definition: $def"
+        }
+
+        upvar $varName theVar
+        switch $optType {
+            flag {set theVar 0}
+            enum -
+            string {set theVar [lindex $def 3]}
+        }
+    }
+
+    # Next, process the options on the command line.
+    set errorCount 0
+    set newList {}
+    for {set arg [popArg args]} {$arg != ""} {set arg [popArg args]} {
+        # First, does it look like an option?  If not, add it to the
+        # output list.
+        if {[string index $arg 0] != "-"} {
+            lappend newList $arg
+            continue
+        }
+
+        # Next, Is the argument unknown?  Flag an error or just skip it.
+        set i [lsearch -exact $optNames $arg] 
+        if {$i == -1} {
+            if {$strictFlag} {
+                puts stderr "*** Unknown option: $arg"
+                incr errorCount
+            } else {
+                lappend newList $arg
+            }
+
+            continue
+        }
+
+        # Next, process the argument
+        set def [lindex $defList $i]
+        set varName [lindex $def 1]
+        set optType [lindex $def 2]
+
+        upvar $varName theVar
+        switch $optType {
+            flag {
+                set theVar 1
+            }
+
+            enum {
+                set vals [lreplace $def 0 2]
+                set theVar [popArg args]
+                if {$theVar == "" || [string index $theVar 0] == "-"} {
+                    puts stderr "*** Missing option value: $arg"
+                    incr errorCount
+                    continue
+                }
+                if {[lsearch -exact $vals $theVar] == -1} {
+                    puts stderr "*** Invalid option value: $arg $theVar"
+                    incr errorCount
+                }
+            }
+
+            string {
+                set theVar [popArg args]
+                if {$theVar == "" || [string index $theVar 0] == "-"} {
+                    puts stderr "*** Missing option value: $arg"
+                    incr errorCount
+                }
+            }
+        }
+    }
+
+    # Next, if there are any errors, halt.
+    if {$errorCount > 0} {
+        exit 1
+    }
+
+    # Next, return the new argument list.
+    set args $newList
+    return
+}
+
+#-------------------------------------------------------------------------
+# Importing macros into the global namespace
+
+# GlobalizeMacros args
+#
+# args is a list of glob patterns matching the macros to be imported.
+# The prefix ::expand:: is added automatically.
+
+proc ::expand::GlobalizeMacros {args} {
+    set globList {}
+
+    foreach arg $args {
+        lappend globList ::expand::$arg
+    }
+
+    namespace eval :: "namespace import -force $globList"
+}
+
+#-------------------------------------------------------------------------
+# Standard Rule Set: 
+#
+# These are the rules that are always available.
+
+proc ::expand::standardRuleSet {} {
+    GlobalizeMacros cget cis cname cpop cpush csave cvar expandText expfile
+    GlobalizeMacros exppass expwrite getoptions include lb popArg rb
+    GlobalizeMacros readFile setErrorOutputMode setbrackets setoutput
+    GlobalizeMacros setpasses textToID
+}
+
+#-------------------------------------------------------------------------
+# Rule Set: Web Rules
+#
+# These macros are for creating HTML pages.  They are only defined when
+# webRuleSet is called.
+
+proc ::expand::webRuleSet {} {
+    GlobalizeMacros dot tag link mailto today
+}
+
+# Output a big black dot.
+proc ::expand::dot {} {
+    return "&#149;"
+}
+
+# Format an html tag.  name is the tag name, args is a list of
+# of attribute names and values
+proc ::expand::tag {name args} {
+    set result "<$name"
+    foreach {attr val} $args {
+        append result " $attr=\"$val\""
+    }
+    append result ">"
+}
+
+# Format a link.  If text is given, use it as the displayed text;
+# otherwise use the url.
+proc ::expand::link {url {text ""}} {
+    if {$text == ""} {
+        set text $url
+    }
+    
+    return "[tag a href $url]$text[tag /a]"
+}
+
+# Format an email URL
+proc ::expand::mailto {address {name ""}} {
+    if {$name == ""} {
+        set name $address
+    }
+    
+    return "[tag a href mailto:$address]$name[tag /a]"
+}
+
+# Return today's date.  Use dd MONTH yyyy unless some other format is
+# proposed.
+proc ::expand::today {{format ""}} {
+    set secs [clock seconds]
+    
+    if {$format == ""} {
+        set format "%d %B %Y"
+    }
+    return [string trimleft [clock format $secs -format $format] "0"]
+}
+
+
+#-------------------------------------------------------------------------
+# Miscellaneous utility commands
+
+# oneOf list value
+#
+# Checks to see if a value is in a list.
+
+proc ::expand::oneOf {list value} {
+    return [expr {[lsearch -exact $list $value] != -1}]
+}
+
+# Converts a generic string to an ID string.  Leading and trailing
+# whitespace and internal punctuation is removed, internal whitespace
+# is converted to "_", and the text is converted to lower case.
+proc ::expand::textToID {text} {
+    # First, trim any white space and convert to lower case
+   set text [string trim [string tolower $text]]
+
+    # Next, substitute "_" for internal whitespace, and delete any
+    # non-alphanumeric characters (other than "_", of course)
+    regsub -all {[ ]+} $text "_" text
+    regsub -all {[^a-z0-9_]} $text "" text
+
+    return $text
+}
+
+#-------------------------------------------------------------------------
+# Main-line code:  This is the implementation of the Expand tool
+# itself.  It is executed only if this is the top-level script.
+
+proc ::expand::ShowHelp { } {
+    puts {tclsh expand.tcl [options] files...
+
+    -help           Displays this text.
+    -rules file     Specify the name of the rules file 
+                    (exprules.tcl is the default)
+    -out file       Specify the name of the output file, or "nul" for 
+                    no output.  Output is to stdout, by default.
+    -errout mode    nothing, macro, error, or fail (fail is the default)
+    -web            Enable the optional web rule set.
+    files...        Names of files to process.}
+}
+
+if {"[info script]" == "$argv0"} {
+
+    # First, parse the command line
+    ::expand::getoptions argv {
+        {-help      ::expand::helpFlag        flag}
+        {-errout    ::expand::errorOutputMode enum   fail nothing macro error}
+        {-rules     ::expand::rulesFile       string "exprules.tcl"}
+        {-web       ::expand::webFlag         flag}
+        {-out       ::expand::outputFile      string ""}
+    }
+
+    # Next, if they asked for help or if there are no arguments left,
+    # show help and stop.
+    if {$::expand::helpFlag || [llength $argv] == 0} {
+        ::expand::ShowHelp
+        exit 0
+    }
+
+    # Next, load the standard macros
+    ::expand::standardRuleSet
+
+    # Next, load optional rule sets.
+    if {$::expand::webFlag} {
+        ::expand::webRuleSet
+    }
+
+    # Next, load the rules file. (Should only do it if file exists;
+    # should die if there are any errors)
+    if {[file exists $::expand::rulesFile]} {
+        if {[catch "source $::expand::rulesFile" result]} {
+            puts "*** Error in rules file $::expand::rulesFile: $result"
+            exit 1
+        }
+    } elseif {$::expand::rulesFile != "exprules.tcl"} {
+        puts "*** Rules file $rulesFile not found."
+        exit 1
+    }
+
+    # Next, call the init_hook.
+    if {[catch init_hook result]} {
+        puts "*** Error executing init_hook: $result"
+        exit 1
+    }
+
+    # Next, make sure the command line contains no additional options
+    ::expand::getoptions argv -strict
+
+    # Next, process the files
+    ::expand::expand $argv $::expand::outputFile
+}
+
+

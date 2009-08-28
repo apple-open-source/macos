@@ -86,23 +86,6 @@ helplog(int level, const char *fmt, ...)
 	va_end(ap);
 }
 
-void
-debug_(const char *func, const char *fmt, ...)
-{
-	char buf[2048];
-	va_list ap;
-	ssize_t n = snprintf(buf, sizeof(buf), "%s: ", func);
-	
-	if (n >= (int)sizeof(buf)) {
-		return;
-	}
-	
-	va_start(ap, fmt);
-	vsnprintf(&buf[n], sizeof(buf)-n, fmt, ap);
-	va_end(ap);
-	helplog(ASL_LEVEL_DEBUG, buf);
-}
-
 int
 authorized(audit_token_t *token)
 {
@@ -148,7 +131,7 @@ idletimer_main (void *context)
 	for (;;) {
 		assert(0 == gettimeofday(&now, NULL));
 		if (now.tv_sec - last_message.tv_sec > (long) maxidle) {
-			(void) request_LKDCHelperExit ((mach_port_t) context);
+			(void) request_LKDCHelperExit (*(mach_port_t*)context);
 			sleep(1);
 		} else {
 			int t = maxidle - (now.tv_sec - last_message.tv_sec);
@@ -168,7 +151,7 @@ initialize_timer(mach_port_t port)
 
 	update_idle_timer();
 
-	err = pthread_create(&idletimer_thread, NULL, idletimer_main, (void *)port);
+	err = pthread_create(&idletimer_thread, NULL, idletimer_main, &port);
 
 	if (0 != err) {
 		helplog(ASL_LEVEL_ERR, "Failed to start idletimer thread: %s", strerror(err));
@@ -299,7 +282,7 @@ main(int ac, char *av[])
 	LKDCHelperUID = getuid ();
 	LKDCHelperGID = getgid ();
 	
-	helplog (ASL_LEVEL_NOTICE, "Starting (uid=%ul)", (unsigned long)LKDCHelperUID);
+	helplog (ASL_LEVEL_NOTICE, "Starting (uid=%lu)", (unsigned long)LKDCHelperUID);
 
 	if (opt_debug) {
 		port = register_service (kLKDCHelperName);

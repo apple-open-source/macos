@@ -1,0 +1,57 @@
+2008-12-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.11.1 ========================
+	* 
+
+2008-10-16  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.11 ========================
+	* 
+
+2007-11-15 Aaron Faupell <afaupell@users.sourceforge.net>
+
+	* nmea.tcl: added return values to do_line, new input command
+	bumped minor rev
+	* nmea.man: updated for do_line, input, new intro paragraph
+
+2007-09-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.10 ========================
+	* 
+
+2007-08-20  Andreas Kupries  <andreask@activestate.com>
+
+	* nmea.man: Bumped package version to 0.1.1.
+	* nmea/tcl:
+	* pkgIndex.tcl:
+
+2007-08-16 Aaron Faupell <afaupell@users.sourceforge.net>
+
+        * nmea.tcl fixed bug in read_port when using logging,
+        bug id 1765388
+
+2007-05-28  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* nmea.man: Added title, extended set of keywords.
+
+2007-03-21  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* nmea.man: Fixed all warnings due to use of now deprecated
+	  commands. Added a section about how to give feedback.
+
+2006-10-03  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.9 ========================
+	* 
+
+2006-06-30  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* nmea.man: Fixed syntax errors in the documentation.
+
+2006-06-30 Aaron Faupell <afaupell@users.sourceforge.net>
+
+	* New module for handling NMEA protocol

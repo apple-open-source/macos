@@ -250,10 +250,11 @@ void AppleTPSession::CertGroupConstruct(CSSM_CL_HANDLE clHand,
 	TPCertGroup			gatheredCerts(*this, TGO_Group);
 	
 	CSSM_RETURN constructReturn = CSSM_OK;
+	CSSM_APPLE_TP_ACTION_FLAGS	actionFlags = 0;
 	CSSM_BOOL verifiedToRoot;		// not used
 	CSSM_BOOL verifiedToAnchor;		// not used
 	CSSM_BOOL verifiedViaTrustSetting;	// not used
-		
+	
 	try {
 		CertGroupConstructPriv(clHand,
 			cspHand,
@@ -262,7 +263,7 @@ void AppleTPSession::CertGroupConstruct(CSSM_CL_HANDLE clHand,
 			NULL,				// cssmTimeStr
 			/* no anchors */
 			0, NULL,
-			0,					// actionFlags
+			actionFlags,
 			/* no user trust */
 			NULL, NULL, 0, 0,
 			gatheredCerts,
@@ -983,7 +984,7 @@ void AppleTPSession::CertGroupVerify(CSSM_CL_HANDLE clHand,
 	}
 	CSSM_RETURN outErr = outCertGroup.getReturnCode(constructReturn, policyReturn,
 		actionFlags);
-		
+	
 	if(outErr) {
 		CssmError::throwMe(outErr);
 	}

@@ -81,13 +81,6 @@ CSSM_BOOL tp_CompareCerts(
 	const CSSM_DATA			*cert1,
 	const CSSM_DATA			*cert2);
 
-/*
- * Given an OID, return the corresponding CSSM_ALGID.
- */
-CSSM_ALGORITHMS tpOidToAldId(
-	const CSSM_OID *oid,
-	CSSM_ALGORITHMS *keyAlg);			// RETURNED
-
 void tpToLower(
 	char *str,
 	unsigned strLen);
@@ -109,6 +102,10 @@ CSSM_BOOL tpCompareEmailAddr(
 	char			*certEmail,		// from cert, we tpToLower
 	uint32			certEmailLen,
 	bool			normalizeAll);	// true : lower-case all certEmail characters
+
+int decodeECDSA_SigAlgParams(
+	const CSSM_DATA *params,
+	CSSM_ALGORITHMS *cssmAlg);		/* RETURNED */
 
 #ifdef	__cplusplus
 }

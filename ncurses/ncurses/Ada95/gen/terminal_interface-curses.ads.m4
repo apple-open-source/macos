@@ -9,7 +9,7 @@ include(M4MACRO)----------------------------------------------------------------
 --                                 S P E C                                  --
 --                                                                          --
 ------------------------------------------------------------------------------
--- Copyright (c) 1998,2004 Free Software Foundation, Inc.                   --
+-- Copyright (c) 1998-2006,2007 Free Software Foundation, Inc.              --
 --                                                                          --
 -- Permission is hereby granted, free of charge, to any person obtaining a  --
 -- copy of this software and associated documentation files (the            --
@@ -37,8 +37,8 @@ include(M4MACRO)----------------------------------------------------------------
 ------------------------------------------------------------------------------
 --  Author:  Juergen Pfeifer, 1996
 --  Version Control:
---  $Revision: 1.35 $
---  $Date: 2004/08/21 21:37:00 $
+--  $Revision: 1.41 $
+--  $Date: 2007/05/05 20:33:52 $
 --  Binding Version 01.00
 ------------------------------------------------------------------------------
 include(`Base_Defs')
@@ -188,24 +188,20 @@ include(`AC_Rep')
    function Number_Of_Color_Pairs return Natural;
    pragma Inline (Number_Of_Color_Pairs);
 
-   ACS_Map : array (Character'Val (0) .. Character'Val (127)) of
-     Attributed_Character;
-   pragma Import (C, ACS_Map, "acs_map");
-   --
-   --
-   --  Constants for several characters from the Alternate Character Set
-   --  You must use this constants as indices into the ACS_Map array
-   --  to get the corresponding attributed character at runtime.
-   --
 include(`ACS_Map')dnl
 
    --  MANPAGE(`curs_initscr.3x')
-   --  | Not implemented: newterm, set_term, delscreen, curscr
+   --  | Not implemented: newterm, set_term, delscreen
 
    --  ANCHOR(`stdscr',`Standard_Window')
    function Standard_Window return Window;
    --  AKA
    pragma Inline (Standard_Window);
+
+   --  ANCHOR(`curscr',`Current_Window')
+   function Current_Window return Window;
+   --  AKA
+   pragma Inline (Current_Window);
 
    --  ANCHOR(`initscr()',`Init_Screen')
    procedure Init_Screen;
@@ -214,14 +210,14 @@ include(`ACS_Map')dnl
    procedure Init_Windows renames Init_Screen;
    --  AKA
    pragma Inline (Init_Screen);
-   pragma Inline (Init_Windows);
+   --  pragma Inline (Init_Windows);
 
    --  ANCHOR(`endwin()',`End_Windows')
    procedure End_Windows;
    --  AKA
    procedure End_Screen renames End_Windows;
    pragma Inline (End_Windows);
-   pragma Inline (End_Screen);
+   --  pragma Inline (End_Screen);
 
    --  ANCHOR(`isendwin()',`Is_End_Window')
    function Is_End_Window return Boolean;
@@ -301,7 +297,7 @@ include(`ACS_Map')dnl
       First_Line_Position   : Line_Position;
       First_Column_Position : Column_Position) return Window
      renames Create;
-   pragma Inline (New_Window);
+   --  pragma Inline (New_Window);
 
    --  ANCHOR(`delwin()',`Delete')
    procedure Delete (Win : in out Window);
@@ -1478,7 +1474,7 @@ include(`ACS_Map')dnl
    --  Window or if you pass the Null_Window as argument.
    --  We don't inline this procedure
 
-   --  MANPAGE(`dft_fgbg.3x')
+   --  MANPAGE(`default_colors.3x')
 
    --  ANCHOR(`use_default_colors()',`Use_Default_Colors')
    procedure Use_Default_Colors;
@@ -1500,6 +1496,12 @@ include(`ACS_Map')dnl
    --  ANCHOR(`use_extended_names()',`Use_Extended_Names')
    --  The returnvalue is the previous setting of the flag
    function Use_Extended_Names (Enable : Boolean) return Boolean;
+   --  AKA
+
+   --  MANPAGE(`curs_trace.3x')
+
+   --  ANCHOR(`_nc_freeall()',`Curses_Free_All')
+   procedure Curses_Free_All;
    --  AKA
 
    --  MANPAGE(`curs_scr_dump.3x')
@@ -1532,7 +1534,6 @@ include(`ACS_Map')dnl
 
    --  MANPAGE(`curs_scanw.3x')
    --  Not implemented: scanw, wscanw, mvscanw, mvwscanw, vwscanw, vw_scanw
-
 
    --  MANPAGE(`resizeterm.3x')
    --  Not Implemented: resizeterm

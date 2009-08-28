@@ -1,4 +1,3 @@
-# chmod 0755 */*.exe
 # perl ../../cmd/scripts/dtest.pl -d /var/tmp/Sandbox/ `grep -v '#' AllTests `
 # N.B. The shell gets tetchy when the "grep -v" just above returns more than 29K characters or so.
 aggs/err.D_AGG_FUNC.bad.d
@@ -422,6 +421,7 @@ funcs/tst.chill.ksh
 funcs/tst.cleanpath.d
 funcs/tst.copyin.d
 funcs/tst.copyinto.d
+funcs/tst.core_profile.d
 # funcs/tst.ddi_pathname.d						/* WAIVED: Solaris device driver model specific. */
 funcs/tst.default.d
 funcs/tst.freopen.ksh
@@ -477,11 +477,11 @@ misc/err.D_PRAGMA_OPTSET.d
 misc/tst.badopt.d
 misc/tst.boolopt.d
 misc/tst.dynopt.d
-misc/tst.enablerace.ksh
-misc/tst.haslam.d
-misc/tst.include.ksh
+# misc/tst.enablerace.ksh
+# misc/tst.haslam.d
+# misc/tst.include.ksh
 # misc/tst.roch.d								/* RADAR 4769158: Awaits mutex_enter mutex_owner probes. */
-misc/tst.schrock.ksh
+# misc/tst.schrock.ksh
 multiaggs/err.D_PRINTA_AGGKEY.d
 multiaggs/err.D_PRINTA_AGGPROTO.d
 multiaggs/tst.many.d
@@ -523,6 +523,7 @@ pid/tst.manypids.ksh
 pid/tst.ret1.d
 pid/tst.ret2.d
 pid/tst.vfork.d
+pid/tst.dlopen.ksh
 # pid/tst.weak1.d								/* DEFERRED wants #pragma weak _go = go */
 # pid/tst.weak2.d								/* DEFERRED wants #pragma weak _go = go */
 plockstat/tst.available.d
@@ -747,7 +748,7 @@ safety/tst.uregs.d
 safety/tst.ustack.d							
 safety/tst.ustackdepth.d
 safety/tst.vahole.d
-safety/tst.violentdeath.ksh
+# safety/tst.violentdeath.ksh
 scalars/err.D_ARR_LOCAL.thisarray.d
 scalars/err.D_DECL_CLASS.selfthis.d
 scalars/err.D_DECL_CLASS.thisself.d
@@ -1050,3 +1051,5 @@ vars/tst.ucaller.ksh
 vars/tst.uid.d
 vars/tst.walltimestamp.d
 version/tst.1.0.d
+../i386/pid/tst.nop.d
+

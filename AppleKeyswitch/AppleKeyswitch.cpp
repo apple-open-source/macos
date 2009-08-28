@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2006 Apple Computer, Inc.  All rights reserved.
  *
- *  DRI: Tom Sherman
+ *  DRI: Tom Sherman / Bill Galcher
  *
  */
 
@@ -53,7 +53,7 @@ bool AppleKeyswitch::start( IOService * provider )
         return false;
 	}
 
-#if defined( __i386__ )										// **********************  Intel -- Start
+#if defined( __i386__ ) || defined( __x86_64__ )			// **********************  Intel -- Start
 
 	//myProvider = OSDynamicCast( IOACPIPlatformDevice, provider );
 	myProvider = (IOACPIPlatformDevice *) provider->metaCast( "IOACPIPlatformDevice" );
@@ -122,7 +122,7 @@ bool AppleKeyswitch::start( IOService * provider )
     interruptSource->enable();
 
 															// **********************  PowerPC -- End
-#elif defined( __i386__ )									// **********************  Intel   -- Start
+#elif defined( __i386__ ) || defined( __x86_64__ )			// **********************  Intel   -- Start
 
 	DLOG( "AppleKeyswitch::start - Intel-specific initialization entered.\n" );
 
@@ -183,7 +183,7 @@ void AppleKeyswitch::stop(IOService *provider)
         interruptSource = NULL;
     }
 															// **********************  PowerPC -- End
-#elif defined ( __i386__ )									// **********************  Intel -- Start
+#elif defined ( __i386__ ) || defined( __x86_64__ )			// **********************  Intel -- Start
 
 	if ( switchEventNotify )
 	{
@@ -225,7 +225,7 @@ void AppleKeyswitch::interruptOccurred(OSObject* obj, IOInterruptEventSource * s
 #endif														// **********************  PowerPC -- End
 
 
-#if	defined( __i386__ )										// **********************  Intel -- Start
+#if	defined( __i386__ ) || defined( __x86_64__ )			// **********************  Intel -- Start
 
 /* **************************************************
 *	    k e y s w i t c h N o t i f i c a t i o n   *
@@ -316,7 +316,7 @@ int		i;
         interruptSource->enable(); 
 	
 															// **********************  PowerPC -- End
-#elif defined ( __i386__ )									// **********************  Intel -- Start
+#elif defined ( __i386__ ) || defined( __x86_64__ )			// **********************  Intel -- Start
 
 	// ACPI is going to do the interrupt / switch-debounce for us.
 	// All we have to do is read the switch value.
@@ -371,7 +371,7 @@ UInt8		val = 0;	// default value is "unlocked".  should it be "locked"?
 	val = ( val & 0x2 ) >> 1;
 
 															// **********************  PowerPC -- End
-#elif defined ( __i386__ )									// **********************  Intel -- Start
+#elif defined ( __i386__ ) || defined( __x86_64__ )			// **********************  Intel -- Start
 
 IOReturn	err;
 UInt32		num = 0;

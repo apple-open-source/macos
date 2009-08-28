@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2002-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,8 +32,10 @@
  * - created
  */
 
+#include <CoreFoundation/CFBase.h>
 #include <Security/SecBase.h>
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
+
 const char *
 EAPSecurityErrorString(OSStatus err);
 

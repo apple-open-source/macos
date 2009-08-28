@@ -1,5 +1,5 @@
 /*
- * $Id: extern.h,v 1.1.2.3 2006/10/24 05:15:45 fcusack Exp $
+ * $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -22,12 +22,12 @@
 #ifndef EXTERN_H
 #define EXTERN_H
 
-#include "ident.h"
-RCSIDH(extern_h, "$Id: extern.h,v 1.1.2.3 2006/10/24 05:15:45 fcusack Exp $")
+#include <freeradius-devel/ident.h>
+RCSIDH(extern_h, "$Id$")
 
-#include <autoconf.h>
-#include <radiusd.h>
-#include <modules.h>
+#include <freeradius-devel/autoconf.h>
+#include <freeradius-devel/radiusd.h>
+#include <freeradius-devel/modules.h>
 
 #include <sys/types.h>
 #include <pthread.h>

@@ -3,18 +3,11 @@
 
 # Include machine dependent definitions.
 #
-# MDASM names override the default syscall names in MIASM.
-# NOASM will prevent the default syscall code from being generated.
-#
 .sinclude "${.CURDIR}/${MACHINE_ARCH}/sys/Makefile.inc"
 
 # sys sources
 .PATH: ${.CURDIR}/sys
 CWD := ${.CURDIR}/sys
-
-# Include the generated makefile containing the *complete* list
-# of syscall names in MIASM.
-#.include "${.CURDIR}/../../sys/sys/syscall.mk"
 
 # Sources common to both syscall interfaces:
 
@@ -25,11 +18,11 @@ MISRCS += chmod.c chmodx_np.c crt_externs.c \
 	mmap.c \
 	openx_np.c \
 	posix_spawn.c \
-	select.c sem_open.c sem_unlink.c semctl.c \
-	setrlimit.c \
-	shm_open.c shm_unlink.c sigaction.c sigcatch.c sigsuspend.c \
+	remove_counter.c rename.c rmdir.c \
+	select.c setrlimit.c settimeofday.c \
+	sigaction.c sigcatch.c sigsuspend.c \
 	sigtramp.c statx_np.c \
-	umaskx_np.c
+	umaskx_np.c unlink.c
 
 .ifdef FEATURE_MEM_THERM_NOTIFICATION_APIS
 MISRCS += OSMemoryNotification.c OSThermalNotification.c
@@ -37,7 +30,9 @@ MISRCS += OSMemoryNotification.c OSThermalNotification.c
 
 .if (${MACHINE_ARCH} != ppc)
 .if (${MACHINE_ARCH} != i386)
+.if (${MACHINE_ARCH} != x86_64)
 MISRCS+= context-stubs.c
+.endif
 .endif
 .endif
 
@@ -47,8 +42,10 @@ OBSDMISRCS= stack_protector.c
 
 .ifdef FEATURE_PATCH_3375657
 # patches for sem_open() sem_unlink() shm_open() shm_unlink()
-MISRCS+= fix-3375657.c
+MISRCS+= fix-3375657.c sem_open.c sem_unlink.c shm_open.c shm_unlink.c
 .endif # FEATURE_PATCH_3375657
+
+DARWINEXTSNSRCS += getgroups.c
 
 INODE32SRCS += statx_np.c
 
@@ -57,6 +54,8 @@ CANCELABLESRCS += select.c sigsuspend.c
 .if defined(LP64) || (${MACHINE_ARCH} == arm)
 CANCELABLESRCS+= fcntl.c
 MISRCS+= fcntl.c ioctl.c
+.endif
+.if defined(LP64)
 PRE1050SRCS+= select.c
 .endif
 
@@ -68,11 +67,6 @@ LEGACYSRCS += accept.c bind.c connect.c \
 	recvfrom.c recvmsg.c \
 	select.c semctl.c sendmsg.c sendto.c setattrlist.c \
 	shmctl.c sigsuspend.c socketpair.c
-
-# we need to create open.h, which just contains a definition for O_NOCTTY
-open.${OBJSUFFIX}: open.h
-open.h :
-	${CC} -E -dD ${CFLAGS} -include fcntl.h -x c /dev/null | grep O_NOCTTY > ${.TARGET}
 
 .for _src in msgctl.c semctl.c shmctl.c
 CFLAGS-${_src} += -DKERNEL
@@ -109,7 +103,7 @@ CFLAGS-msgctl.c += -DLIBC_ALIAS_MSGCTL
 #CFLAGS-msgsnd.c += -DLIBC_ALIAS_MSGSND
 CFLAGS-msync.c += -DLIBC_ALIAS_MSYNC
 CFLAGS-munmap.c += -DLIBC_ALIAS_MUNMAP
-CFLAGS-open.c += -DLIBC_ALIAS_OPEN
+#CFLAGS-open.c += -DLIBC_ALIAS_OPEN
 #CFLAGS-poll.c += -DLIBC_ALIAS_POLL
 #CFLAGS-pread.c += -DLIBC_ALIAS_PREAD
 #CFLAGS-pwrite.c += -DLIBC_ALIAS_PWRITE
@@ -130,39 +124,6 @@ CFLAGS-socketpair.c += -DLIBC_ALIAS_SOCKETPAIR
 #CFLAGS-waitid.c += -DLIBC_ALIAS_WAITID
 #CFLAGS-write.c += -DLIBC_ALIAS_WRITE
 #CFLAGS-writev.c += -DLIBC_ALIAS_WRITEV
-
-# Add machine dependent asm sources:
-SRCS+=${MDASM}
-
-# Look though the complete list of syscalls (MIASM) for names that are
-# not defined with machine dependent implementations (MDASM) and are
-# not declared for no generation of default code (NOASM).  Add each
-# syscall that satisfies these conditions to the ASM list.
-.for _asm in ${MIASM}
-.if (${MDASM:R:M${_asm:R}} == "")
-.if (${NOASM:R:M${_asm:R}} == "")
-ASM+=$(_asm)
-.endif
-.endif
-.endfor
-
-OBJS+=	${ASM} ${PSEUDO}
-
-SASM=	${ASM:S/.o/.S/}
-
-SPSEUDO= ${PSEUDO:S/.o/.S/}
-
-SRCS+=	${SASM} ${SPSEUDO}
-
-# Generated files
-CLEANFILES+=	${SASM} ${SPSEUDO}
-
-${SASM}:
-	printf '#include <SYS.h>\nRSYSCALL(${.PREFIX})\n' > ${.TARGET}
-
-${SPSEUDO}:
-	printf '#include <SYS.h>\nPSEUDO(${.PREFIX:S/_//})\n' \
-	    > ${.TARGET}
 
 COPYFILES+= ${.CURDIR}/sys/libc.syscall
 

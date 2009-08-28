@@ -1,5 +1,5 @@
 /* Default language-specific hooks.
-   Copyright 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -158,37 +158,31 @@ lhd_set_decl_assembler_name (tree decl)
      DECL_ASSEMBLER_NAME for lots of DECLs.  Only FUNCTION_DECLs and
      VAR_DECLs for variables with static storage duration need a real
      DECL_ASSEMBLER_NAME.  */
-  if (TREE_CODE (decl) == FUNCTION_DECL
-      || (TREE_CODE (decl) == VAR_DECL
-	  && (TREE_STATIC (decl)
-	      || DECL_EXTERNAL (decl)
-	      || TREE_PUBLIC (decl))))
-    {
-      /* By default, assume the name to use in assembly code is the
-	 same as that used in the source language.  (That's correct
-	 for C, and GCC used to set DECL_ASSEMBLER_NAME to the same
-	 value as DECL_NAME in build_decl, so this choice provides
-	 backwards compatibility with existing front-ends.
-
-         Can't use just the variable's own name for a variable whose
-	 scope is less than the whole compilation.  Concatenate a
-	 distinguishing number - we use the DECL_UID.  */
-      if (TREE_PUBLIC (decl) || DECL_CONTEXT (decl) == NULL_TREE)
-	SET_DECL_ASSEMBLER_NAME (decl, DECL_NAME (decl));
-      else
-	{
-	  const char *name = IDENTIFIER_POINTER (DECL_NAME (decl));
-	  char *label;
-
-	  ASM_FORMAT_PRIVATE_NAME (label, name, DECL_UID (decl));
-	  SET_DECL_ASSEMBLER_NAME (decl, get_identifier (label));
-	}
-    }
+  gcc_assert (TREE_CODE (decl) == FUNCTION_DECL
+	      || (TREE_CODE (decl) == VAR_DECL
+		  && (TREE_STATIC (decl)
+		      || DECL_EXTERNAL (decl)
+		      || TREE_PUBLIC (decl))));
+  
+  /* By default, assume the name to use in assembly code is the same
+     as that used in the source language.  (That's correct for C, and
+     GCC used to set DECL_ASSEMBLER_NAME to the same value as
+     DECL_NAME in build_decl, so this choice provides backwards
+     compatibility with existing front-ends.
+      
+     Can't use just the variable's own name for a variable whose scope
+     is less than the whole compilation.  Concatenate a distinguishing
+     number - we use the DECL_UID.  */
+  if (TREE_PUBLIC (decl) || DECL_CONTEXT (decl) == NULL_TREE)
+    SET_DECL_ASSEMBLER_NAME (decl, DECL_NAME (decl));
   else
-    /* Nobody should ever be asking for the DECL_ASSEMBLER_NAME of
-       these DECLs -- unless they're in language-dependent code, in
-       which case set_decl_assembler_name hook should handle things.  */
-    abort ();
+    {
+      const char *name = IDENTIFIER_POINTER (DECL_NAME (decl));
+      char *label;
+      
+      ASM_FORMAT_PRIVATE_NAME (label, name, DECL_UID (decl));
+      SET_DECL_ASSEMBLER_NAME (decl, get_identifier (label));
+    }
 }
 
 /* By default we always allow bit-field based optimizations.  */
@@ -202,7 +196,7 @@ lhd_can_use_bit_fields_p (void)
 tree
 lhd_type_promotes_to (tree ARG_UNUSED (type))
 {
-  abort ();
+  gcc_unreachable ();
 }
 
 /* Registration of machine- or os-specific builtin types.  */
@@ -216,10 +210,8 @@ lhd_register_builtin_type (tree ARG_UNUSED (type),
 void
 lhd_incomplete_type_error (tree ARG_UNUSED (value), tree type)
 {
-  if (TREE_CODE (type) == ERROR_MARK)
-    return;
-
-  abort ();
+  gcc_assert (TREE_CODE (type) == ERROR_MARK);
+  return;
 }
 
 /* Provide a default routine for alias sets that always returns -1.  This
@@ -248,7 +240,7 @@ lhd_expand_expr (tree ARG_UNUSED (t), rtx ARG_UNUSED (r),
 		 int ARG_UNUSED (em),
 		 rtx * ARG_UNUSED (a))
 {
-  abort ();
+  gcc_unreachable ();
 }
 
 /* The default language-specific function for expanding a decl.  After
@@ -272,6 +264,16 @@ lhd_decl_printable_name (tree decl, int ARG_UNUSED (verbosity))
   return IDENTIFIER_POINTER (DECL_NAME (decl));
 }
 
+/* This is the default dwarf_name function.  */
+
+const char *
+lhd_dwarf_name (tree t, int verbosity)
+{
+  gcc_assert (DECL_P (t));
+
+  return lang_hooks.decl_printable_name (t, verbosity);
+}
+
 /* This compares two types for equivalence ("compatible" in C-based languages).
    This routine should only return 1 if it is sure.  It should not be used
    in contexts where erroneously returning 0 causes problems.  */
@@ -288,10 +290,10 @@ lhd_types_compatible_p (tree x, tree y)
    handle language-specific tree codes, as well as language-specific
    information associated to common tree codes.  If a tree node is
    completely handled within this function, it should set *SUBTREES to
-   0, so that generic handling isn't attempted.  For language-specific
-   tree codes, generic handling would abort(), so make sure it is set
-   properly.  Both SUBTREES and *SUBTREES is guaranteed to be nonzero
-   when the function is called.  */
+   0, so that generic handling isn't attempted.  The generic handling
+   cannot deal with language-specific tree codes, so make sure it is
+   set properly.  Both SUBTREES and *SUBTREES is guaranteed to be
+   nonzero when the function is called.  */
 
 tree
 lhd_tree_inlining_walk_subtrees (tree *tp ATTRIBUTE_UNUSED,
@@ -444,8 +446,7 @@ lhd_gimplify_expr (tree *expr_p ATTRIBUTE_UNUSED, tree *pre_p ATTRIBUTE_UNUSED,
 size_t
 lhd_tree_size (enum tree_code c ATTRIBUTE_UNUSED)
 {
-  abort ();
-  return 0;
+  gcc_unreachable ();
 }
 
 /* Return true if decl, which is a function decl, may be called by a
@@ -476,7 +477,7 @@ write_global_declarations (void)
 
   tree globals = lang_hooks.decls.getdecls ();
   int len = list_length (globals);
-  tree *vec = xmalloc (sizeof (tree) * len);
+  tree *vec = XNEWVEC (tree, len);
   int i;
   tree decl;
 
@@ -487,10 +488,10 @@ write_global_declarations (void)
     vec[len - i - 1] = decl;
 
   wrapup_global_declarations (vec, len);
-
   check_global_declarations (vec, len);
+  emit_debug_global_declarations (vec, len);
 
-    /* Clean up.  */
+  /* Clean up.  */
   free (vec);
 }
 
@@ -551,4 +552,39 @@ HOST_WIDE_INT
 lhd_to_target_charset (HOST_WIDE_INT c)
 {
   return c;
+}
+
+tree
+lhd_expr_to_decl (tree expr, bool *tc ATTRIBUTE_UNUSED,
+		  bool *ti ATTRIBUTE_UNUSED, bool *se ATTRIBUTE_UNUSED)
+{
+  return expr;
+}
+
+/* Return sharing kind if OpenMP sharing attribute of DECL is
+   predetermined, OMP_CLAUSE_DEFAULT_UNSPECIFIED otherwise.  */
+
+enum omp_clause_default_kind
+lhd_omp_predetermined_sharing (tree decl ATTRIBUTE_UNUSED)
+{
+  if (DECL_ARTIFICIAL (decl))
+    return OMP_CLAUSE_DEFAULT_SHARED;
+  return OMP_CLAUSE_DEFAULT_UNSPECIFIED;
+}
+
+/* Generate code to copy SRC to DST.  */
+
+tree
+lhd_omp_assignment (tree clause ATTRIBUTE_UNUSED, tree dst, tree src)
+{
+  return build2 (MODIFY_EXPR, void_type_node, dst, src);
+}
+
+/* Register language specific type size variables as potentially OpenMP
+   firstprivate variables.  */
+
+void
+lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *c ATTRIBUTE_UNUSED,
+				   tree t ATTRIBUTE_UNUSED)
+{
 }

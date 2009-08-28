@@ -11,8 +11,9 @@ This prompt is color-scheme-able.  You can invoke it thus:
 The default colors are both cyan.  This theme works best with a dark
 background.
 
-Recommended fonts for this theme: nexus or vga or similar.  If you
-don't have any of these, the 8-bit characters will probably look stupid.
+Recommended fonts for this theme: either UTF-8, or nexus or vga or similar.
+If you don't have any of these, the 8-bit characters will probably look
+stupid.
 EOH
 }
 
@@ -20,24 +21,23 @@ prompt_elite2_setup () {
   local text_col=${1:-'cyan'}
   local parens_col=${2:-$text_col}
 
-  for code in 332 304 300; do
-    local char_$code=$(echo -n "\\0$code")
-  done
+  local -A schars
+  autoload -Uz prompt_special_chars
+  prompt_special_chars
 
-  local text="%{$fg_no_bold[$text_col]%}"
-  local parens="%{$fg_bold[$parens_col]%}"
-  local punct="%{$fg_bold[grey]%}"
-  local reset="%{$reset_color%}"
+  local text="%b%F{$text_col}"
+  local parens="%B%F{$parens_col}"
+  local punct="%B%F{black}"
+  local reset="%b%f"
 
   local lpar="$parens($text"
   local rpar="$parens)$text"
 
-  PS1="$punct$char_332$text$char_304$lpar%n$punct@$text%m$rpar$char_304$lpar%!$punct/$text%y$rpar$char_304$lpar%D{%I:%M%P}$punct:$text%D{%m/%d/%y}$rpar$char_304$punct-$reset$prompt_newline$punct$char_300$text$char_304$lpar%#$punct:$text%~$rpar$char_304$punct-$reset " 
+  PS1="$punct$schars[332]$text$schars[304]$lpar%n$punct@$text%m$rpar$schars[304]$lpar%!$punct/$text%y$rpar$schars[304]$lpar%D{%I:%M%P}$punct:$text%D{%m/%d/%y}$rpar$schars[304]$punct-$reset$prompt_newline$punct$schars[300]$text$schars[304]$lpar%#$punct:$text%~$rpar$schars[304]$punct-$reset " 
 
-  PS2="$parens$char_304$text$char_304$punct-$reset "
+  PS2="$parens$schars[304]$text$schars[304]$punct-$reset "
 
-  precmd () { setopt promptsubst }
-  preexec () { }
+  prompt_opts=(cr subst percent)
 }
 
 prompt_elite2_preview () {

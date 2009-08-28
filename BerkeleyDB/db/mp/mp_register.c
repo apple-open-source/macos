@@ -1,21 +1,14 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1996,2007 Oracle.  All rights reserved.
+ *
+ * $Id: mp_register.c,v 12.13 2007/05/17 15:15:45 bostic Exp $
  */
+
 #include "db_config.h"
 
-#ifndef lint
-static const char revid[] = "$Id: mp_register.c,v 1.2 2004/03/30 01:23:44 jtownsen Exp $";
-#endif /* not lint */
-
-#ifndef NO_SYSTEM_INCLUDES
-#include <sys/types.h>
-#endif
-
 #include "db_int.h"
-#include "dbinc/db_shash.h"
 #include "dbinc/log.h"
 #include "dbinc/mp.h"
 
@@ -34,18 +27,17 @@ __memp_register_pp(dbenv, ftype, pgin, pgout)
 	int (*pgin) __P((DB_ENV *, db_pgno_t, void *, DBT *));
 	int (*pgout) __P((DB_ENV *, db_pgno_t, void *, DBT *));
 {
-	int rep_check, ret;
+	DB_THREAD_INFO *ip;
+	int ret;
 
 	PANIC_CHECK(dbenv);
 	ENV_REQUIRES_CONFIG(dbenv,
 	    dbenv->mp_handle, "DB_ENV->memp_register", DB_INIT_MPOOL);
 
-	rep_check = IS_ENV_REPLICATED(dbenv) ? 1 : 0;
-	if (rep_check)
-		__env_rep_enter(dbenv);
-	ret = __memp_register(dbenv, ftype, pgin, pgout);
-	if (rep_check)
-		__env_rep_exit(dbenv);
+	ENV_ENTER(dbenv, ip);
+	REPLICATION_WRAP(dbenv,
+	    (__memp_register(dbenv, ftype, pgin, pgout)), ret);
+	ENV_LEAVE(dbenv, ip);
 	return (ret);
 }
 
@@ -71,33 +63,46 @@ __memp_register(dbenv, ftype, pgin, pgout)
 	dbmp = dbenv->mp_handle;
 
 	/*
-	 * Chances are good that the item has already been registered, as the
-	 * DB access methods are the folks that call this routine.  If already
-	 * registered, just update the entry, although it's probably unchanged.
+	 * We keep the DB pgin/pgout functions outside of the linked list
+	 * to avoid locking/unlocking the linked list on every page I/O.
+	 *
+	 * The Berkeley DB I/O conversion functions are registered when the
+	 * environment is first created, so there's no need for locking here.
 	 */
-	MUTEX_THREAD_LOCK(dbenv, dbmp->mutexp);
-	for (mpreg = LIST_FIRST(&dbmp->dbregq);
-	    mpreg != NULL; mpreg = LIST_NEXT(mpreg, q))
+	if (ftype == DB_FTYPE_SET) {
+		if (dbmp->pg_inout != NULL)
+			return (0);
+		if ((ret =
+		    __os_malloc(dbenv, sizeof(DB_MPREG), &dbmp->pg_inout)) != 0)
+			return (ret);
+		dbmp->pg_inout->ftype = ftype;
+		dbmp->pg_inout->pgin = pgin;
+		dbmp->pg_inout->pgout = pgout;
+		return (0);
+	}
+
+	/*
+	 * The item may already have been registered.  If already registered,
+	 * just update the entry, although it's probably unchanged.
+	 */
+	MUTEX_LOCK(dbenv, dbmp->mutex);
+	LIST_FOREACH(mpreg, &dbmp->dbregq, q)
 		if (mpreg->ftype == ftype) {
 			mpreg->pgin = pgin;
 			mpreg->pgout = pgout;
 			break;
 		}
-	MUTEX_THREAD_UNLOCK(dbenv, dbmp->mutexp);
-	if (mpreg != NULL)
-		return (0);
 
-	/* New entry. */
-	if ((ret = __os_malloc(dbenv, sizeof(DB_MPREG), &mpreg)) != 0)
-		return (ret);
+	if (mpreg == NULL) {			/* New entry. */
+		if ((ret = __os_malloc(dbenv, sizeof(DB_MPREG), &mpreg)) != 0)
+			return (ret);
+		mpreg->ftype = ftype;
+		mpreg->pgin = pgin;
+		mpreg->pgout = pgout;
 
-	mpreg->ftype = ftype;
-	mpreg->pgin = pgin;
-	mpreg->pgout = pgout;
-
-	MUTEX_THREAD_LOCK(dbenv, dbmp->mutexp);
-	LIST_INSERT_HEAD(&dbmp->dbregq, mpreg, q);
-	MUTEX_THREAD_UNLOCK(dbenv, dbmp->mutexp);
+		LIST_INSERT_HEAD(&dbmp->dbregq, mpreg, q);
+	}
+	MUTEX_UNLOCK(dbenv, dbmp->mutex);
 
 	return (0);
 }

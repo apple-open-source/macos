@@ -19,10 +19,6 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <stdio.h>
 #include <stdarg.h>
-#ifdef OLD_PROJECTBUILDER_INTERFACE
-#include <streams/streams.h>
-#endif
-#include "make.h"
 #include <stdlib.h>
 #include <string.h>
 #include <mach/mach.h>
@@ -71,78 +67,6 @@ int bad_error = 0;
  */
 int arch_multiple = 0;
 
-#ifdef OLD_PROJECTBUILDER_INTERFACE
-/*
- * This is for the ProjectBuilder (formally MakeApp) interface.
- */
-static int talking_to_ProjectBuilder = 0;
-static NXStream *ProjectBuilder_stream = NULL;
-static mach_port_t ProjectBuilder_port;
-
-/*
- * check_for_ProjectBuilder() is called once before any error messages are
- * generated and sets up what is needed to send error messages to project
- * builder.
- */
-void
-check_for_ProjectBuilder(void)
-{
-    char *portName;
-#if defined(__OPENSTEP__) || defined(__GONZO_BUNSEN_BEAKER__)
-    char *hostName;
-    
-	hostName = getenv("MAKEHOST");
-	if(hostName == NULL)
-	    hostName = "";
-#endif
-	portName = getenv("MAKEPORT");
-	if(portName == NULL)
-	    return;
-#if defined(__OPENSTEP__) || defined(__GONZO_BUNSEN_BEAKER__)
-	if(netname_look_up(name_server_port, hostName, portName,
-	   (int *)&ProjectBuilder_port) != KERN_SUCCESS)
-	    return;
-#else
-	if(bootstrap_look_up(bootstrap_port, portName,
-	   (int *)&ProjectBuilder_port) != KERN_SUCCESS)
-	    return;
-#endif
-	if(ProjectBuilder_port == MACH_PORT_NULL)
-	    return;
-	talking_to_ProjectBuilder = 1;
-}
-
-/*
- * tell_ProjectBuilder() takes the message in the stream and sends it to project
- * builder.  It then resets the stream for the next message.
- */
-static
-void
-tell_ProjectBuilder(
-int eventType) /* 0 error, 1 warning, -1 doing */
-{
-    char *fileName, *directory, *message;
-    int line, len, maxlen;
-
-	as_where_ProjectBuilder(&fileName, &directory, &line);
-	if(fileName == NULL)
-	    fileName = "";
-	if(directory == NULL)
-	    directory = "";
-	NXGetMemoryBuffer(ProjectBuilder_stream, &message, &len, &maxlen);
-#ifndef __MACH30__
-	make_alert(ProjectBuilder_port,
-	    eventType,
-	    NULL, 0, /* functionName, not used by ProjectBuilder */
-	    fileName, strlen(fileName)+1 > 1024 ? 1024 : strlen(fileName)+1,
-	    directory, strlen(directory)+1 > 1024 ? 1024 : strlen(directory)+1,
-	    line,
-	    message, len+1 > 1024 ? 1024 : len+1);
-#endif
-	NXSeek(ProjectBuilder_stream, 0, NX_FROMSTART);
-}
-#endif /* OLD_PROJECTBUILDER_INTERFACE */
-
 /*
  * architecture_banner() returns the string to say what target we are assembling
  * for.
@@ -172,6 +96,9 @@ architecture_banner(void)
 #ifdef SPARC
 	return("as: for architecture sparc\n");
 #endif
+#ifdef ARM
+	return("as: for architecture arm\n");
+#endif
 }
 
 /*
@@ -185,11 +112,7 @@ print_architecture_banner(void)
     static int printed = 0;
 
 	if(arch_multiple && !printed){
-	    printf(architecture_banner());
-#ifdef OLD_PROJECTBUILDER_INTERFACE
-	    if(talking_to_ProjectBuilder)
-		NXPrintf(ProjectBuilder_stream, architecture_banner());
-#endif /* OLD_PROJECTBUILDER_INTERFACE */
+	    printf("%s", architecture_banner());
 	    printed = 1;
 	}
 }
@@ -214,13 +137,6 @@ const char *format,
 	    va_start(ap, format);
 	    vfprintf(stderr, format, ap);
 	    fprintf(stderr, "\n");
-#ifdef OLD_PROJECTBUILDER_INTERFACE
-	    if(talking_to_ProjectBuilder){
-		NXVPrintf(ProjectBuilder_stream, format, ap);
-		NXPrintf(ProjectBuilder_stream, "\n");
-		tell_ProjectBuilder(1 /* warning */);
-	    }
-#endif /* OLD_PROJECTBUILDER_INTERFACE */
 	    va_end(ap);
 	}
 }
@@ -237,6 +153,32 @@ as_warn_where (char *file, unsigned int line, const char *format, ...)
 		fprintf(stderr,"%s:%u:", file, line);
 	    va_start (args, format);
 	    vfprintf(stderr, format, args);
+	    va_end (args);
+    }
+}
+
+/*
+ * Like as_warn_where but the file name and optional line number and column
+ * are passed in.
+ */
+void
+as_warn_where_with_column (char *file, unsigned int line, unsigned int column, const char *format, ...)
+{
+  va_list args;
+
+  if (!flagseen['W'])
+    {
+	    print_architecture_banner();
+	    fprintf(stderr, "%s:", file);
+	    if (line)
+	      {
+		fprintf(stderr, "%u:", line);
+		if (column)
+		    fprintf(stderr, "%u:", column);
+	      }
+	    va_start (args, format);
+	    vfprintf(stderr, format, args);
+	    fprintf(stderr, "\n");
 	    va_end (args);
     }
 }
@@ -262,13 +204,6 @@ const char *format,
 	va_start(ap, format);
 	vfprintf(stderr, format, ap);
 	fprintf(stderr, "\n");
-#ifdef OLD_PROJECTBUILDER_INTERFACE
-	if(talking_to_ProjectBuilder){
-	    NXVPrintf(ProjectBuilder_stream, format, ap);
-	    NXPrintf(ProjectBuilder_stream, "\n");
-	    tell_ProjectBuilder(0 /* error */);
-	}
-#endif /* OLD_PROJECTBUILDER_INTERFACE */
 	va_end(ap);
 }
 
@@ -294,14 +229,6 @@ const char *format,
 	fprintf (stderr, "FATAL:");
 	vfprintf(stderr, format, ap);
 	fprintf(stderr, "\n");
-#ifdef OLD_PROJECTBUILDER_INTERFACE
-	if(talking_to_ProjectBuilder){
-	    NXPrintf(ProjectBuilder_stream, "FATAL:");
-	    NXVPrintf(ProjectBuilder_stream, format, ap);
-	    NXPrintf(ProjectBuilder_stream, "\n");
-	    tell_ProjectBuilder(0 /* error */);
-	}
-#endif /* OLD_PROJECTBUILDER_INTERFACE */
 	va_end(ap);
 	exit(1);
 }

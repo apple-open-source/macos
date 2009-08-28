@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 2005-2006, International Business Machines Corporation and
+ * Copyright (c) 2005-2009, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /************************************************************************
@@ -54,6 +54,10 @@ UTextTest::runIndexedTest(int32_t index, UBool exec,
             if (exec) ErrorTest();   break;
         case 2: name = "FreezeTest";
             if (exec) FreezeTest();  break;
+        case 3: name = "Ticket5560";
+            if (exec) Ticket5560();  break;
+        case 4: name = "Ticket6847";
+            if (exec) Ticket6847();  break;
         default: name = "";          break;
     }
 }
@@ -539,11 +543,44 @@ cleanupAndReturn:
 }
 
 //
-//  TestAccess()    Test the read only access functions on a UText.
+//  TestAccess      Test the read only access functions on a UText, including cloning.
 //                  The text is accessed in a variety of ways, and compared with
 //                  the reference UnicodeString.
 //
 void UTextTest::TestAccess(const UnicodeString &us, UText *ut, int cpCount, m *cpMap) {
+    // Run the standard tests on the caller-supplied UText.
+    TestAccessNoClone(us, ut, cpCount, cpMap);
+
+    // Re-run tests on a shallow clone.
+    utext_setNativeIndex(ut, 0);
+    UErrorCode status = U_ZERO_ERROR;
+    UText *shallowClone = utext_clone(NULL, ut, FALSE /*deep*/, FALSE /*readOnly*/, &status);
+    TEST_SUCCESS(status);
+    TestAccessNoClone(us, shallowClone, cpCount, cpMap);
+
+    //
+    // Rerun again on a deep clone.
+    // Note that text providers are not required to provide deep cloning,
+    //   so unsupported errors are ignored.
+    //
+    status = U_ZERO_ERROR;
+    utext_setNativeIndex(shallowClone, 0);
+    UText *deepClone = utext_clone(NULL, shallowClone, TRUE, FALSE, &status);
+    utext_close(shallowClone);
+    if (status != U_UNSUPPORTED_ERROR) {
+        TEST_SUCCESS(status);
+        TestAccessNoClone(us, deepClone, cpCount, cpMap);
+    }
+    utext_close(deepClone);
+}
+    
+
+//
+//  TestAccessNoClone()    Test the read only access functions on a UText.
+//                         The text is accessed in a variety of ways, and compared with
+//                         the reference UnicodeString.
+//
+void UTextTest::TestAccessNoClone(const UnicodeString &us, UText *ut, int cpCount, m *cpMap) {
     UErrorCode  status = U_ZERO_ERROR;
     gTestNum++;
 
@@ -996,7 +1033,8 @@ void UTextTest::ErrorTest()
             TEST_ASSERT(extractedLen == exLen[i]);
             if (extractedLen > 0) {
                 UChar32  c32;
-                U16_GET(buf, 0, 0, extractedLen, c32);
+                /* extractedLen-extractedLen == 0 is used to get around a compiler warning. */
+                U16_GET(buf, 0, extractedLen-extractedLen, extractedLen, c32);
                 TEST_ASSERT(c32 == c32Map[i]);
             }
         }
@@ -1008,7 +1046,7 @@ void UTextTest::ErrorTest()
     {    //  Similar test, with utf16 instead of utf8
          //  TODO:  merge the common parts of these tests.
         
-        UnicodeString u16str("\\u1000\\U00011000\\u2000\\U00022000");
+        UnicodeString u16str("\\u1000\\U00011000\\u2000\\U00022000", -1, US_INV);
         int32_t startMap[]  ={ 0,     1,   1,    3,     4,  4,     6,  6};
         int32_t nextMap[]  = { 1,     3,   3,    4,     6,  6,     6,  6};
         int32_t prevMap[]  = { 0,     0,   0,    1,     3,  3,     4,  4};
@@ -1064,7 +1102,8 @@ void UTextTest::ErrorTest()
             TEST_ASSERT(extractedLen == exLen[i]);
             if (extractedLen > 0) {
                 UChar32  c32;
-                U16_GET(buf, 0, 0, extractedLen, c32);
+                /* extractedLen-extractedLen == 0 is used to get around a compiler warning. */
+                U16_GET(buf, 0, extractedLen-extractedLen, extractedLen, c32);
                 TEST_ASSERT(c32 == c32Map[i]);
             }
         }
@@ -1075,7 +1114,7 @@ void UTextTest::ErrorTest()
     {    //  Similar test, with UText over Replaceable
          //  TODO:  merge the common parts of these tests.
         
-        UnicodeString u16str("\\u1000\\U00011000\\u2000\\U00022000");
+        UnicodeString u16str("\\u1000\\U00011000\\u2000\\U00022000", -1, US_INV);
         int32_t startMap[]  ={ 0,     1,   1,    3,     4,  4,     6,  6};
         int32_t nextMap[]  = { 1,     3,   3,    4,     6,  6,     6,  6};
         int32_t prevMap[]  = { 0,     0,   0,    1,     3,  3,     4,  4};
@@ -1131,7 +1170,8 @@ void UTextTest::ErrorTest()
             TEST_ASSERT(extractedLen == exLen[i]);
             if (extractedLen > 0) {
                 UChar32  c32;
-                U16_GET(buf, 0, 0, extractedLen, c32);
+                /* extractedLen-extractedLen == 0 is used to get around a compiler warning. */
+                U16_GET(buf, 0, extractedLen-extractedLen, extractedLen, c32);
                 TEST_ASSERT(c32 == c32Map[i]);
             }
         }
@@ -1274,11 +1314,30 @@ fragTextAccess(UText *ut, int64_t index, UBool forward) {
     }
     return false;
 }
-U_CDECL_END
 
 // Function table to be used with this fragmented text provider.
 //   Initialized in the open function.
-UTextFuncs  fragmentFuncs;
+static UTextFuncs  fragmentFuncs;
+
+// Clone function for fragmented text provider.
+//   Didn't really want to provide this, but it's easier to provide it than to keep it
+//   out of the tests.
+//
+UText *
+cloneFragmentedUnicodeString(UText *dest, const UText *src, UBool deep, UErrorCode *status) {
+    if (U_FAILURE(*status)) {
+        return NULL;
+    }
+    if (deep) {
+        *status = U_UNSUPPORTED_ERROR;
+        return NULL;
+    }
+    dest = utext_openUnicodeString(dest, (UnicodeString *)src->context, status);
+    utext_setNativeIndex(dest, utext_getNativeIndex(src));
+    return dest;
+}
+
+U_CDECL_END
 
 // Open function for the fragmented text provider.
 UText *
@@ -1292,6 +1351,7 @@ openFragmentedUnicodeString(UText *ut, UnicodeString *s, UErrorCode *status) {
     //   and replace the entry for the access function.
     memcpy(&fragmentFuncs, ut->pFuncs, sizeof(fragmentFuncs));
     fragmentFuncs.access = fragTextAccess;
+    fragmentFuncs.clone  = cloneFragmentedUnicodeString;
     ut->pFuncs = &fragmentFuncs;
 
     ut->chunkContents = (UChar *)&ut->b;
@@ -1299,4 +1359,77 @@ openFragmentedUnicodeString(UText *ut, UnicodeString *s, UErrorCode *status) {
     return ut;
 }
 
+// Regression test for Ticket 5560
+//   Clone fails to update chunkContentPointer in the cloned copy.
+//   This is only an issue for UText types that work in a local buffer,
+//      (UTF-8 wrapper, for example)
+//
+//   The test:
+//     1.  Create an inital UText
+//     2.  Deep clone it.  Contents should match original.
+//     3.  Reset original to something different.
+//     4.  Check that clone contents did not change.  
+//
+void UTextTest::Ticket5560() {
+    /* The following two strings are in UTF-8 even on EBCDIC platforms. */
+    static const char s1[] = {0x41,0x42,0x43,0x44,0x45,0x46,0}; /* "ABCDEF" */
+    static const char s2[] = {0x31,0x32,0x33,0x34,0x35,0x36,0}; /* "123456" */
+	UErrorCode status = U_ZERO_ERROR;
+
+	UText ut1 = UTEXT_INITIALIZER;
+	UText ut2 = UTEXT_INITIALIZER;
+
+	utext_openUTF8(&ut1, s1, -1, &status);
+	UChar c = utext_next32(&ut1);
+	TEST_ASSERT(c == 0x41);  // c == 'A'
+
+	utext_clone(&ut2, &ut1, TRUE, FALSE, &status);
+	TEST_SUCCESS(status);
+    c = utext_next32(&ut2);
+	TEST_ASSERT(c == 0x42);  // c == 'B'
+    c = utext_next32(&ut1);
+	TEST_ASSERT(c == 0x42);  // c == 'B'
+
+	utext_openUTF8(&ut1, s2, -1, &status);
+	c = utext_next32(&ut1);
+	TEST_ASSERT(c == 0x31);  // c == '1'
+    c = utext_next32(&ut2);
+	TEST_ASSERT(c == 0x43);  // c == 'C'
+
+    utext_close(&ut1);
+    utext_close(&ut2);
+}
+
+
+// Test for Ticket 6847
+//
+void UTextTest::Ticket6847() {
+    const int STRLEN = 90;
+    UChar s[STRLEN+1];
+    u_memset(s, 0x41, STRLEN);
+    s[STRLEN] = 0;
+
+    UErrorCode status = U_ZERO_ERROR;
+    UText *ut = utext_openUChars(NULL, s, -1, &status);
+
+    utext_setNativeIndex(ut, 0);
+    int32_t count = 0;
+    UChar32 c = 0;
+    int32_t nativeIndex = UTEXT_GETNATIVEINDEX(ut);
+    TEST_ASSERT(nativeIndex == 0);
+    while ((c = utext_next32(ut)) != U_SENTINEL) {
+        TEST_ASSERT(c == 0x41);
+        TEST_ASSERT(count < STRLEN);
+        if (count >= STRLEN) {
+            break;
+        }
+        count++;
+        nativeIndex = UTEXT_GETNATIVEINDEX(ut);
+        TEST_ASSERT(nativeIndex == count);
+    }
+    TEST_ASSERT(count == STRLEN);
+    nativeIndex = UTEXT_GETNATIVEINDEX(ut);
+    TEST_ASSERT(nativeIndex == STRLEN);
+    utext_close(ut);
+}
 

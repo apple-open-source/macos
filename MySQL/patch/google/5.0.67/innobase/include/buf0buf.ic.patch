@@ -1,0 +1,11 @@
+--- base5067/innobase/include/buf0buf.ic	2008-08-04 05:19:13.000000000 -0700
++++ m5067/innobase/include/buf0buf.ic	2008-09-08 06:53:12.000000000 -0700
+@@ -518,7 +518,7 @@
+ #ifdef UNIV_SYNC_DEBUG	
+ 	ibool	ret;
+ 
+-	ret = rw_lock_s_lock_func_nowait(&(block->debug_latch), file, line);
++	ret = rw_lock_s_lock_nowait(&(block->debug_latch), file, line);
+ 
+ 	ut_ad(ret == TRUE);
+ 	ut_ad(mutex_own(&block->mutex));

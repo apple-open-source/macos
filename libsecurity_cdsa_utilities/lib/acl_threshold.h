@@ -77,7 +77,7 @@ private:
     AclSubjectVector elements;			// sub-subject vector
 
     template <class Action>
-    void ThresholdAclSubject::exportBlobForm(Action &pub, Action &priv);
+    void exportBlobForm(Action &pub, Action &priv);
 };
 
 } // namespace Security

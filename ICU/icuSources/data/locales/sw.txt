@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2006 International Business Machines
+// * Copyright (C) 2008 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/sw.xml
@@ -10,6 +10,7 @@
  *  ICU <specials> source: <path>/xml/main/sw.xml
  */
 sw{
+    AuxExemplarCharacters{"[q x]"}
     Countries{
         AE{"Muugano wa Falme za Nchi za Kiarabu"}
         AG{"Antigua na Barbuda"}
@@ -117,7 +118,13 @@ sw{
     LocaleScript{
         "Latn",
     }
-    Version{"1.47"}
+    NumberPatterns{
+        "#,##0.###",
+        "#,##0.00 ¤",
+        "#,##0%",
+        "#E0",
+    }
+    Version{"1.64"}
     calendar{
         gregorian{
             dayNames{
@@ -151,18 +158,18 @@ sw{
             monthNames{
                 format{
                     abbreviated{
-                        "Januari",
+                        "Jan",
                         "Feb",
-                        "Mar",
-                        "Aprili",
+                        "Mac",
+                        "Apr",
                         "Mei",
-                        "Juni",
+                        "Jun",
                         "Jul",
                         "Ago",
-                        "Septemba",
-                        "Oktoba",
-                        "Novemba",
-                        "Desemba",
+                        "Sep",
+                        "Okt",
+                        "Nov",
+                        "Des",
                     }
                     wide{
                         "Januari",
@@ -180,31 +187,11 @@ sw{
                     }
                 }
             }
-            quarters{
-                format{
-                    abbreviated{
-                        "R1",
-                        "R2",
-                        "R3",
-                        "R4",
-                    }
-                    wide{
-                        "robo ya kwanza",
-                        "robo ya pili",
-                        "robo ya tatu",
-                        "robo ya nne",
-                    }
-                }
-            }
         }
     }
     zoneStrings{
-        "Africa:Nairobi"{
-            ec{"Nairobi"}
-            ld{"Saa za Africa Mashariki"}
+        "meta:Africa_Eastern"{
             ls{"Saa za Africa Mashariki"}
-            sd{"EAT"}
-            ss{"EAT"}
         }
     }
 }

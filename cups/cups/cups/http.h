@@ -1,10 +1,10 @@
 /*
- * "$Id: http.h 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: http.h 7026 2007-10-19 00:57:45Z mike $"
  *
  *   Hyper-Text Transport Protocol definitions for the Common UNIX Printing
  *   System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -23,6 +23,7 @@
  * Include necessary headers...
  */
 
+#  include "versioning.h"
 #  include <string.h>
 #  include <time.h>
 #  include <sys/types.h>
@@ -59,17 +60,6 @@ typedef off_t ssize_t;			/* @private@ */
 #      define SO_PEERCRED LOCAL_PEERCRED
 #    endif /* LOCAL_PEERCRED && !SO_PEERCRED */
 #  endif /* WIN32 */
-
-/*
- * With GCC 3.0 and higher, we can mark old APIs "deprecated" so you get
- * a warning at compile-time.
- */
-
-#  if defined(__GNUC__) && __GNUC__ > 2
-#    define _HTTP_DEPRECATED __attribute__ ((__deprecated__))
-#  else
-#    define _HTTP_DEPRECATED
-#  endif /* __GNUC__ && __GNUC__ > 2 */
 
 
 /*
@@ -134,7 +124,7 @@ typedef enum http_auth_e		/**** HTTP authentication types ****/
   HTTP_AUTH_MD5_SESS,			/* MD5-session authentication in use */
   HTTP_AUTH_MD5_INT,			/* Digest authentication in use for body */
   HTTP_AUTH_MD5_SESS_INT,		/* MD5-session authentication in use for body */
-  HTTP_AUTH_NEGOTIATE			/* GSSAPI authentication in use @since CUPS 1.3@ */
+  HTTP_AUTH_NEGOTIATE			/* GSSAPI authentication in use @since CUPS 1.3/Mac OS X 10.5@ */
 } http_auth_t;
 
 typedef enum http_encoding_e		/**** HTTP transfer encoding values ****/
@@ -258,7 +248,10 @@ typedef enum http_status_e		/**** HTTP status codes ****/
   HTTP_BAD_GATEWAY,			/* Bad gateway */
   HTTP_SERVICE_UNAVAILABLE,		/* Service is unavailable */
   HTTP_GATEWAY_TIMEOUT,			/* Gateway connection timed out */
-  HTTP_NOT_SUPPORTED			/* HTTP version not supported */
+  HTTP_NOT_SUPPORTED,			/* HTTP version not supported */
+
+  HTTP_AUTHORIZATION_CANCELED = 1000	/* User cancelled authorization */
+
 } http_status_t;
 
 typedef enum http_uri_status_e		/**** URI separation status @since CUPS1.2@ ****/
@@ -298,7 +291,7 @@ typedef enum http_version_e		/**** HTTP version numbers ****/
 typedef union _http_addr_u		/**** Socket address union, which
 					 **** makes using IPv6 and other
 					 **** address types easier and
-					 **** more portable. @since CUPS 1.2@
+					 **** more portable. @since CUPS 1.2/Mac OS X 10.5@
 					 ****/
 {
   struct sockaddr	addr;		/* Base structure for family value */
@@ -315,7 +308,7 @@ typedef union _http_addr_u		/**** Socket address union, which
 typedef struct http_addrlist_s		/**** Socket address list, which is
 					 **** used to enumerate all of the
 					 **** addresses that are associated
-					 **** with a hostname. @since CUPS 1.2@
+					 **** with a hostname. @since CUPS 1.2/Mac OS X 10.5@
 					 ****/
 {
   struct http_addrlist_s *next;		/* Pointer to next address in list */
@@ -358,20 +351,20 @@ __attribute__ ((__format__ (__printf__, 2, 3)))
 #  endif /* __GNUC__ */
 ;
 extern int		httpPut(http_t *http, const char *uri);
-extern int		httpRead(http_t *http, char *buffer, int length) _HTTP_DEPRECATED;
+extern int		httpRead(http_t *http, char *buffer, int length) _CUPS_DEPRECATED;
 extern int		httpReconnect(http_t *http);
 extern void		httpSeparate(const char *uri, char *method,
 			             char *username, char *host, int *port,
-				     char *resource) _HTTP_DEPRECATED;
+				     char *resource) _CUPS_DEPRECATED;
 extern void		httpSetField(http_t *http, http_field_t field,
 			             const char *value);
 extern const char	*httpStatus(http_status_t status);
 extern int		httpTrace(http_t *http, const char *uri);
 extern http_status_t	httpUpdate(http_t *http);
-extern int		httpWrite(http_t *http, const char *buffer, int length) _HTTP_DEPRECATED;
-extern char		*httpEncode64(char *out, const char *in) _HTTP_DEPRECATED;
-extern char		*httpDecode64(char *out, const char *in) _HTTP_DEPRECATED;
-extern int		httpGetLength(http_t *http) _HTTP_DEPRECATED;
+extern int		httpWrite(http_t *http, const char *buffer, int length) _CUPS_DEPRECATED;
+extern char		*httpEncode64(char *out, const char *in) _CUPS_DEPRECATED;
+extern char		*httpDecode64(char *out, const char *in) _CUPS_DEPRECATED;
+extern int		httpGetLength(http_t *http) _CUPS_DEPRECATED;
 extern char		*httpMD5(const char *, const char *, const char *,
 			         char [33]);
 extern char		*httpMD5Final(const char *, const char *, const char *,
@@ -379,73 +372,73 @@ extern char		*httpMD5Final(const char *, const char *, const char *,
 extern char		*httpMD5String(const unsigned char *, char [33]);
 
 /**** New in CUPS 1.1.19 ****/
-extern void		httpClearCookie(http_t *http);
-extern const char	*httpGetCookie(http_t *http);
-extern void		httpSetCookie(http_t *http, const char *cookie);
-extern int		httpWait(http_t *http, int msec);
+extern void		httpClearCookie(http_t *http) _CUPS_API_1_1_19;
+extern const char	*httpGetCookie(http_t *http) _CUPS_API_1_1_19;
+extern void		httpSetCookie(http_t *http, const char *cookie) _CUPS_API_1_1_19;
+extern int		httpWait(http_t *http, int msec) _CUPS_API_1_1_19;
 
 /**** New in CUPS 1.1.21 ****/
-extern char		*httpDecode64_2(char *out, int *outlen, const char *in);
+extern char		*httpDecode64_2(char *out, int *outlen, const char *in) _CUPS_API_1_1_21;
 extern char		*httpEncode64_2(char *out, int outlen, const char *in,
-			                int inlen);
+			                int inlen) _CUPS_API_1_1_21;
 extern void		httpSeparate2(const char *uri,
 			              char *method, int methodlen,
 			              char *username, int usernamelen,
 				      char *host, int hostlen, int *port,
-				      char *resource, int resourcelen) _HTTP_DEPRECATED;
+				      char *resource, int resourcelen) _CUPS_DEPRECATED;
 
-/**** New in CUPS 1.2 ****/
-extern int		httpAddrAny(const http_addr_t *addr);
-extern http_addrlist_t	*httpAddrConnect(http_addrlist_t *addrlist, int *sock);
+/**** New in CUPS 1.2/Mac OS X 10.5 ****/
+extern int		httpAddrAny(const http_addr_t *addr) _CUPS_API_1_2;
+extern http_addrlist_t	*httpAddrConnect(http_addrlist_t *addrlist, int *sock) _CUPS_API_1_2;
 extern int		httpAddrEqual(const http_addr_t *addr1,
-			              const http_addr_t *addr2);
-extern void		httpAddrFreeList(http_addrlist_t *addrlist);
+			              const http_addr_t *addr2) _CUPS_API_1_2;
+extern void		httpAddrFreeList(http_addrlist_t *addrlist) _CUPS_API_1_2;
 extern http_addrlist_t	*httpAddrGetList(const char *hostname, int family,
-			                 const char *service);
-extern int		httpAddrLength(const http_addr_t *addr);
-extern int		httpAddrLocalhost(const http_addr_t *addr);
+			                 const char *service) _CUPS_API_1_2;
+extern int		httpAddrLength(const http_addr_t *addr) _CUPS_API_1_2;
+extern int		httpAddrLocalhost(const http_addr_t *addr) _CUPS_API_1_2;
 extern char		*httpAddrLookup(const http_addr_t *addr,
-                                        char *name, int namelen);
+                                        char *name, int namelen) _CUPS_API_1_2;
 extern char		*httpAddrString(const http_addr_t *addr,
-			                char *s, int slen);
+			                char *s, int slen) _CUPS_API_1_2;
 extern http_uri_status_t httpAssembleURI(http_uri_coding_t encoding,
 			                 char *uri, int urilen,
 			        	 const char *scheme,
 					 const char *username,
 					 const char *host, int port,
-					 const char *resource);
+					 const char *resource) _CUPS_API_1_2;
 extern http_uri_status_t httpAssembleURIf(http_uri_coding_t encoding,
 			                  char *uri, int urilen,
 			        	  const char *scheme,
 					  const char *username,
 					  const char *host, int port,
-					  const char *resourcef, ...);
-extern int		httpFlushWrite(http_t *http);
-extern int		httpGetBlocking(http_t *http);
-extern const char	*httpGetDateString2(time_t t, char *s, int slen);
-extern int		httpGetFd(http_t *http);
-extern const char	*httpGetHostname(http_t *http, char *s, int slen);
-extern off_t		httpGetLength2(http_t *http);
-extern http_status_t	httpGetStatus(http_t *http);
+					  const char *resourcef, ...) _CUPS_API_1_2;
+extern int		httpFlushWrite(http_t *http) _CUPS_API_1_2;
+extern int		httpGetBlocking(http_t *http) _CUPS_API_1_2;
+extern const char	*httpGetDateString2(time_t t, char *s, int slen) _CUPS_API_1_2;
+extern int		httpGetFd(http_t *http) _CUPS_API_1_2;
+extern const char	*httpGetHostname(http_t *http, char *s, int slen) _CUPS_API_1_2;
+extern off_t		httpGetLength2(http_t *http) _CUPS_API_1_2;
+extern http_status_t	httpGetStatus(http_t *http) _CUPS_API_1_2;
 extern char		*httpGetSubField2(http_t *http, http_field_t field,
 			                  const char *name, char *value,
-					  int valuelen);
-extern ssize_t		httpRead2(http_t *http, char *buffer, size_t length);
+					  int valuelen) _CUPS_API_1_2;
+extern ssize_t		httpRead2(http_t *http, char *buffer, size_t length) _CUPS_API_1_2;
 extern http_uri_status_t httpSeparateURI(http_uri_coding_t decoding,
 			                 const char *uri,
 			        	 char *scheme, int schemelen,
 			        	 char *username, int usernamelen,
 					 char *host, int hostlen, int *port,
-					 char *resource, int resourcelen);
-extern void		httpSetExpect(http_t *http, http_status_t expect);
-extern void		httpSetLength(http_t *http, size_t length);
+					 char *resource, int resourcelen) _CUPS_API_1_2;
+extern void		httpSetExpect(http_t *http, http_status_t expect) _CUPS_API_1_2;
+extern void		httpSetLength(http_t *http, size_t length) _CUPS_API_1_2;
 extern ssize_t		httpWrite2(http_t *http, const char *buffer,
-			           size_t length);
+			           size_t length) _CUPS_API_1_2;
 
-/**** New in CUPS 1.3 ****/
-extern char		*httpGetAuthString(http_t *http);
+/**** New in CUPS 1.3/Mac OS X 10.5 ****/
+extern char		*httpGetAuthString(http_t *http) _CUPS_API_1_3;
 extern void		httpSetAuthString(http_t *http, const char *scheme,
-			                  const char *data);
+			                  const char *data) _CUPS_API_1_3;
 
 /*
  * C++ magic...
@@ -457,5 +450,5 @@ extern void		httpSetAuthString(http_t *http, const char *scheme,
 #endif /* !_CUPS_HTTP_H_ */
 
 /*
- * End of "$Id: http.h 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: http.h 7026 2007-10-19 00:57:45Z mike $".
  */

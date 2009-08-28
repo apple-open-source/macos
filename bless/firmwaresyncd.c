@@ -36,6 +36,7 @@
 #include <unistd.h>
 #include <getopt.h>
 #include <err.h>
+#include <spawn.h>
 #include <sys/stat.h>
 #include <sys/mount.h>
 #include <sys/fcntl.h>
@@ -63,6 +64,8 @@
 #define kTimeDelay (4*60)
 #define kTSCacheDir         "/System/Library/Caches/com.apple.bootstamps"
 
+extern char **environ;
+
 void usage(void);
 void catch_sigterm(int sig);
 
@@ -79,7 +82,7 @@ bool generate_timestamp_path(CFUUIDRef uuid, char *path);
 bool check_if_uptodate(CFUUIDRef uuid);
 bool update_esp(void);
 bool update_timestamp(CFUUIDRef uuid);
-
+bool run_tool(char *argv[], CFDataRef *output);
 
 int main(int argc, char *argv[]) {
 
@@ -87,15 +90,18 @@ int main(int argc, char *argv[]) {
     int opt_d = 0;
     CFUUIDRef uuid = NULL;
     mach_port_t vollock = MACH_PORT_NULL, kextdport = MACH_PORT_NULL;
-    bool needunlock = false;
+    bool needunlock = false, immediately = false;
     unsigned int sleepleft;
     
     signal(SIGTERM, catch_sigterm);
     
-    while ((ch = getopt(argc, argv, "d")) != -1) {
+    while ((ch = getopt(argc, argv, "di")) != -1) {
         switch (ch) {
             case 'd':
                 opt_d = 1;
+                break;
+            case 'i':
+                immediately = true;
                 break;
             case '?':
             default:
@@ -107,7 +113,7 @@ int main(int argc, char *argv[]) {
     argc -= optind;
     argv += optind;
     
-    openlog(getprogname(), LOG_PID, LOG_DAEMON);
+    openlog(getprogname(), LOG_PID | (opt_d ? LOG_PERROR : 0), LOG_DAEMON);
     setlogmask(opt_d ? LOG_UPTO(LOG_DEBUG) : LOG_UPTO(LOG_ERR));
     
 //    syslog(LOG_INFO, "This is informational");
@@ -128,7 +134,7 @@ int main(int argc, char *argv[]) {
         goto done;
     }
     
-    sleepleft = kTimeDelay;
+    sleepleft = (immediately ? 0 : kTimeDelay);
     syslog(LOG_DEBUG, "Sleeping for %u seconds", sleepleft);
     do {
         if (gSIGTERM) {
@@ -525,7 +531,7 @@ bool update_esp(void)
     int newargc;
     char *slash;
     char espname[MAXPATHLEN], espdev[MAXPATHLEN], mntpath[MAXPATHLEN], espfontpath[MAXPATHLEN];
-    pid_t p;
+    CFDataRef output = NULL;
     
     ret = statfs("/", &sb);
     if (ret) {
@@ -573,6 +579,26 @@ bool update_esp(void)
     strlcat(espdev, espname, sizeof(espdev));
     syslog(LOG_DEBUG, "ESP partition is %s", espdev);
     
+    
+    syslog(LOG_DEBUG, "Verifying %s", espdev);
+    
+    newargc = 0;
+    newargv[newargc++] = "/sbin/fsck_msdos";
+    newargv[newargc++] = "-fn";
+    newargv[newargc++] = espdev;
+    newargv[newargc++] = NULL;
+    
+    if (!run_tool(newargv, &output)) {
+        if (output) {
+            syslog(LOG_ERR, "Command %s output: %.*s", newargv[0], (int)CFDataGetLength(output), CFDataGetBytePtr(output));
+            CFRelease(output);
+        }
+        goto done;
+    }
+    if (output) {
+        CFRelease(output);
+    }
+    
     strlcpy(mntpath, "/Volumes/firmwaresyncd.XXXXXX", sizeof(mntpath));
     if(!mkdtemp(mntpath)) {
         syslog(LOG_DEBUG, "Could not make temporary directory %s", mntpath);
@@ -593,30 +619,17 @@ bool update_esp(void)
     newargv[newargc++] = mntpath;
     newargv[newargc++] = NULL;
 
-    syslog(LOG_DEBUG, "Calling %s\n", newargv[0]);
-
-    p = fork();
-    if (p == 0) {
-        setuid(geteuid());
-        ret = execv(newargv[0], newargv);
-        _exit(1);
-    }
-
-    if (p == -1) {
-        syslog(LOG_DEBUG, "Failed to fork");
+    if (!run_tool(newargv, &output)) {
+        if (output) {
+            syslog(LOG_ERR, "Command %s output: %.*s", newargv[0], (int)CFDataGetLength(output), CFDataGetBytePtr(output));
+            CFRelease(output);
+        }
         goto done;
     }
-
-    do {
-        p = wait(&ret);
-    } while (p == -1 && errno == EINTR);
-    
-    syslog(LOG_DEBUG, "Returned %d\n", ret);
-    if(p == -1 || ret) {
-        syslog(LOG_DEBUG, "%s returned exit status %d\n", newargv[0], ret );
-        goto done;
+    if (output) {
+        CFRelease(output);
     }
-    
+            
     needunmount = true;
     
     strlcpy(espfontpath, mntpath, sizeof(espfontpath));
@@ -642,10 +655,10 @@ bool update_esp(void)
 
     ret = copyfile(kFirmwareFileOSPath, espfontpath, NULL, COPYFILE_DATA);
     if (ret) {
-        syslog(LOG_DEBUG, "Could not copy %s to %s: %d", kFirmwareFileEFIPath, espfontpath, ret);
+        syslog(LOG_DEBUG, "Could not copy %s to %s: %d", kFirmwareFileOSPath, espfontpath, ret);
         goto done;
     }
-    syslog(LOG_DEBUG, "Copied %s to %s", kFirmwareFileEFIPath, espfontpath);
+    syslog(LOG_DEBUG, "Copied %s to %s", kFirmwareFileOSPath, espfontpath);
         
     result = true;
     
@@ -656,38 +669,26 @@ done:
         newargv[newargc++] = mntpath;
         newargv[newargc++] = NULL;
         
-        syslog(LOG_DEBUG, "Calling %s\n", newargv[0]);
-        
-        p = fork();
-        if (p == 0) {
-            setuid(geteuid());
-            ret = execv(newargv[0], newargv);
-            _exit(1);
-        }
-        
-        if (p == -1) {
-            syslog(LOG_DEBUG, "Failed to fork");
+        if (!run_tool(newargv, &output)) {
+            if (output) {
+                syslog(LOG_ERR, "Command %s output: %.*s", newargv[0], (int)CFDataGetLength(output), CFDataGetBytePtr(output));
+                CFRelease(output);
+            }
             goto done2;
         }
-        
-        do {
-            p = wait(&ret);
-        } while (p == -1 && errno == EINTR);
-        
-        syslog(LOG_DEBUG, "Returned %d\n", ret);
-        if(p == -1 || ret) {
-            syslog(LOG_DEBUG, "%s returned exit status %d\n", newargv[0], ret );
-            goto done2;
+        if (output) {
+            CFRelease(output);
         }
+        
     }      
     
+done2:
     if (needrmdir) {
         syslog(LOG_DEBUG, "Removing %s\n", mntpath);
 
         ret = rmdir(mntpath);
     }
     
-done2:
     if (dict) {
         CFRelease(dict);
     }
@@ -753,3 +754,99 @@ done:
     return result;
 
 }
+
+bool run_tool(char *argv[], CFDataRef *output)
+{
+    bool result = false, destroyFileActions = false, closeFDs = false;
+    pid_t p, p2;
+    int ret;
+    CFMutableDataRef dataRef;
+    int fds[2];
+    posix_spawn_file_actions_t file_actions;
+    char buffer[100];
+    ssize_t readBytes;
+    
+    dataRef = CFDataCreateMutable(kCFAllocatorDefault, 0);
+    
+    ret = pipe(fds);
+    if (ret) {
+        syslog(LOG_DEBUG, "Could not call posix_spawn: %d", errno);
+        goto done;        
+    }
+    closeFDs = true;
+    
+    ret = posix_spawn_file_actions_init(&file_actions);
+    if (ret < 0) {
+        syslog(LOG_DEBUG, "Could not call posix_spawn_file_actions_init: %d", errno);
+        goto done;        
+    }
+    destroyFileActions = true;
+    
+    posix_spawn_file_actions_addclose(&file_actions, fds[0]);
+    if (fds[1] != STDOUT_FILENO) {
+        (void)posix_spawn_file_actions_adddup2(&file_actions, fds[1], STDOUT_FILENO);
+        if (fds[1] != STDERR_FILENO) {
+            (void)posix_spawn_file_actions_adddup2(&file_actions, fds[1], STDERR_FILENO);
+        }        
+        (void)posix_spawn_file_actions_addclose(&file_actions, fds[1]);
+    }
+    
+    syslog(LOG_DEBUG, "Calling %s\n", argv[0]);
+    ret = posix_spawn(&p, argv[0], &file_actions, NULL, argv, environ);
+    if (ret) {
+        syslog(LOG_DEBUG, "Could not call posix_spawn: %d", ret);
+        goto done;
+    }
+    
+    // read 100 bytes at a time until we get EOF (child closed pipe);
+    close(fds[1]);
+    fds[1] = -1;
+    do {
+        readBytes = read(fds[0], buffer, sizeof(buffer));
+        syslog(LOG_DEBUG, "Read %ld from pipe", readBytes);
+        if (readBytes > 0) {
+            CFDataAppendBytes(dataRef, (UInt8 *)buffer, readBytes);
+        }
+    } while (readBytes > 0);
+    
+    if (readBytes < 0) {
+        syslog(LOG_DEBUG, "read returned error: %d\n", errno );
+        goto done;        
+    }
+    
+    do {
+        p2 = waitpid(p, &ret, 0);
+    } while (p2 == -1 && errno == EINTR);
+    
+    syslog(LOG_DEBUG, "Returned %d\n", ret);
+    if(p2 == -1) {
+        syslog(LOG_DEBUG, "%s failed to return: %d\n", argv[0], errno );
+        goto done;
+    }
+    if(ret) {
+        if (WIFEXITED(ret)) {
+            syslog(LOG_ERR, "%s exited with %d\n", argv[0], WEXITSTATUS(ret) );
+        } else {
+            syslog(LOG_ERR, "%s signaled with %d\n", argv[0], WTERMSIG(ret) );
+        }
+        goto done;
+    }
+    
+    result = true;
+    
+done:
+    
+    if (destroyFileActions) {
+        posix_spawn_file_actions_destroy(&file_actions);
+    }
+    
+    if (closeFDs) {
+        close(fds[0]);
+        close(fds[1]);
+    }
+    
+    *output = dataRef;
+    
+    return result;
+}
+

@@ -95,6 +95,9 @@ LIBS = $(LIBS) zlibomf.lib
 !if "$(WITH_THREADS)" == "posix"
 LIBS = $(LIBS) pthreadVC.lib
 !endif
+!if "$(WITH_MODULES)" == "1"
+LIBS = $(LIBS) kernel32.lib
+!endif
 
 # The archiver and its options.
 AR = tlib.exe
@@ -133,6 +136,7 @@ XML_OBJS = $(XML_INTDIR)\c14n.obj\
 	$(XML_INTDIR)\relaxng.obj\
 	$(XML_INTDIR)\SAX.obj\
 	$(XML_INTDIR)\SAX2.obj\
+	$(XML_INTDIR)\schematron.obj\
 	$(XML_INTDIR)\threads.obj\
 	$(XML_INTDIR)\tree.obj\
 	$(XML_INTDIR)\uri.obj\
@@ -143,6 +147,7 @@ XML_OBJS = $(XML_INTDIR)\c14n.obj\
 	$(XML_INTDIR)\xmlmemory.obj\
 	$(XML_INTDIR)\xmlreader.obj\
 	$(XML_INTDIR)\xmlregexp.obj\
+	$(XML_INTDIR)\xmlmodule.obj\
 	$(XML_INTDIR)\xmlsave.obj\
 	$(XML_INTDIR)\xmlschemas.obj\
 	$(XML_INTDIR)\xmlschemastypes.obj\
@@ -176,6 +181,7 @@ XML_OBJS_A = $(XML_INTDIR_A)\c14n.obj\
 	$(XML_INTDIR_A)\relaxng.obj\
 	$(XML_INTDIR_A)\SAX.obj\
 	$(XML_INTDIR_A)\SAX2.obj\
+	$(XML_INTDIR_A)\schematron.obj\
 	$(XML_INTDIR_A)\threads.obj\
 	$(XML_INTDIR_A)\tree.obj\
 	$(XML_INTDIR_A)\uri.obj\
@@ -186,6 +192,7 @@ XML_OBJS_A = $(XML_INTDIR_A)\c14n.obj\
 	$(XML_INTDIR_A)\xmlmemory.obj\
 	$(XML_INTDIR_A)\xmlreader.obj\
 	$(XML_INTDIR_A)\xmlregexp.obj\
+	$(XML_INTDIR_A)\xmlmodule.obj\
 	$(XML_INTDIR_A)\xmlsave.obj\
 	$(XML_INTDIR_A)\xmlschemas.obj\
 	$(XML_INTDIR_A)\xmlschemastypes.obj\
@@ -205,10 +212,14 @@ UTILS = $(BINDIR)\xmllint.exe\
 	$(BINDIR)\testReader.exe\
 	$(BINDIR)\testRelax.exe\
 	$(BINDIR)\testRegexp.exe\
+	$(BINDIR)\testModule.exe\
 	$(BINDIR)\testSAX.exe\
 	$(BINDIR)\testSchemas.exe\
 	$(BINDIR)\testURI.exe\
-	$(BINDIR)\testXPath.exe
+	$(BINDIR)\testXPath.exe\
+	$(BINDIR)\runtest.exe\
+	$(BINDIR)\runsuite.exe\
+	$(BINDIR)\testapi.exe
 
 
 !if "$(WITH_THREADS)" == "yes" || "$(WITH_THREADS)" == "ctls" || "$(WITH_THREADS)" == "native"
@@ -238,7 +249,7 @@ distclean : clean
 
 rebuild : clean all
 
-install : all
+install-libs : all
 	if not exist "$(INCPREFIX)\libxml" mkdir "$(INCPREFIX)\libxml"
 	if not exist "$(BINPREFIX)" mkdir "$(BINPREFIX)"
 	if not exist "$(LIBPREFIX)" mkdir "$(LIBPREFIX)"
@@ -248,14 +259,10 @@ install : all
 	copy $(BINDIR)\$(XML_IMP) "$(LIBPREFIX)"
 	copy $(BINDIR)\*.exe "$(BINPREFIX)"
 
-install-bindist : all
-	if not exist "$(INCPREFIX)\libxml" mkdir "$(INCPREFIX)\libxml"
-	if not exist "$(BINPREFIX)" mkdir "$(BINPREFIX)"
-	if not exist "$(LIBPREFIX)" mkdir "$(LIBPREFIX)"
-	copy $(XML_SRCDIR)\include\libxml\*.h "$(INCPREFIX)\libxml"
-	copy $(BINDIR)\$(XML_SO) "$(SOPREFIX)"
-	copy $(BINDIR)\$(XML_A) "$(LIBPREFIX)"
-	copy $(BINDIR)\$(XML_IMP) "$(LIBPREFIX)"
+install : install-libs
+	copy $(BINDIR)\*.exe "$(BINPREFIX)"
+
+install-dist : install-libs
 	copy $(BINDIR)\xml*.exe "$(BINPREFIX)"
 
 # This is a target for me, to make a binary distribution. Not for the public use,
@@ -263,7 +270,7 @@ install-bindist : all
 BDVERSION = $(LIBXML_MAJOR_VERSION).$(LIBXML_MINOR_VERSION).$(LIBXML_MICRO_VERSION)
 BDPREFIX = $(XML_BASENAME)-$(BDVERSION).win32
 bindist : all
-	$(MAKE) /nologo PREFIX=$(BDPREFIX) SOPREFIX=$(BDPREFIX)\bin install-bindist
+	$(MAKE) /nologo PREFIX=$(BDPREFIX) SOPREFIX=$(BDPREFIX)\bin install-dist
 	cscript //NoLogo configure.js genreadme $(XML_BASENAME) $(BDVERSION) $(BDPREFIX)\readme.txt
 
 

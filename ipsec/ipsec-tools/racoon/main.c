@@ -49,6 +49,7 @@
 #endif
 #include <paths.h>
 #include <err.h>
+#include <launch.h>
 
 /*
  * If we're using a debugging malloc library, this may define our
@@ -65,18 +66,26 @@
 
 #include "cfparse_proto.h"
 #include "isakmp_var.h"
-#ifdef HAVE_LIBRADIUS
+#ifdef ENABLE_HYBRID
+#include <resolv.h>
 #include "isakmp.h"
 #include "isakmp_xauth.h"
+#include "isakmp_cfg.h"
 #endif
 #include "remoteconf.h"
 #include "localconf.h"
 #include "session.h"
 #include "oakley.h"
 #include "pfkey.h"
+#include "policy.h"
 #include "crypto_openssl.h"
 #include "backupsa.h"
 #include "vendorid.h"
+
+#ifdef __APPLE__
+#include <CoreFoundation/CoreFoundation.h>
+#include <SystemConfiguration/SystemConfiguration.h>
+#endif
 
 //#include "package_version.h"
 
@@ -99,6 +108,7 @@ static void restore_params __P((void));
 static void save_params __P((void));
 static void saverestore_params __P((int));
 static void cleanup_pidfile __P((void));
+static int launchedbylaunchd(void);
 
 pid_t racoon_pid = 0;
 int print_pid = 1;	/* for racoon only */
@@ -106,7 +116,7 @@ int print_pid = 1;	/* for racoon only */
 void
 usage()
 {
-	printf("usage: racoon [-BdFve%s] %s[-f (file)] [-l (file)] [-p (port)]\n",
+	printf("usage: racoon [-BdFvs%s] %s[-f (file)] [-l (file)] [-p (port)]\n",
 #ifdef INET6
 		"46",
 #else
@@ -125,7 +135,7 @@ usage()
 	printf("   -L: include location in debug messages\n");
 	printf("   -F: run in foreground, do not become daemon.\n");
 	printf("   -v: be more verbose\n");
-	printf("   -e: enable auto exit\n");
+	printf("   -s: override enable auto exit\n");
 #ifdef INET6
 	printf("   -4: IPv4 mode.\n");
 	printf("   -6: IPv6 mode.\n");
@@ -146,6 +156,7 @@ main(ac, av)
 	char **av;
 {
 	int error;
+	char				logFileStr[MAXPATHLEN+1];
 
 	if (geteuid() != 0) {
 		errx(1, "must be root to invoke this program.");
@@ -168,6 +179,8 @@ main(ac, av)
 	DRM_init();
 #endif
 
+	logFileStr[0] = 0;
+
 	eay_init();
 	initlcconf();
 	initrmconf();
@@ -175,8 +188,63 @@ main(ac, av)
 	compute_vendorids();
 
 	parse(ac, av);
-	if (lcconf->logfile_param)
-		plogset(lcconf->logfile_param);
+	
+	#ifdef __APPLE__
+	/*
+	 * Check IPSec plist
+	 */
+	{
+		SCPreferencesRef 	prefs = NULL;
+		CFPropertyListRef	globals;
+		CFStringRef			logFileRef;
+		CFNumberRef			debugLevelRef;
+		
+		int					level = 0;
+		
+		logFileStr[0] = 0;
+		   
+	    if ((prefs = SCPreferencesCreate(0, CFSTR("racoon"), CFSTR("com.apple.ipsec.plist"))) == NULL)
+			goto skip;
+		globals = SCPreferencesGetValue(prefs, CFSTR("Global"));
+		if (!globals || (CFGetTypeID(globals) != CFDictionaryGetTypeID()))
+			goto skip;
+		debugLevelRef = CFDictionaryGetValue(globals, CFSTR("DebugLevel"));
+		if (!debugLevelRef || (CFGetTypeID(debugLevelRef) != CFNumberGetTypeID()))
+			goto skip;
+		CFNumberGetValue(debugLevelRef, kCFNumberSInt32Type, &level);
+		switch (level)
+		{
+			case 0:
+				loglevel = 5;
+				goto skip;
+				break;
+			case 1:
+				loglevel = 6;
+				break;
+			case 2:
+				loglevel = 7;
+				break;
+			default:
+				break; /* invalid - ignore */
+		}
+		
+		logFileRef = CFDictionaryGetValue(globals, CFSTR("DebugLogfile"));
+		if (!logFileRef	|| (CFGetTypeID(logFileRef) != CFStringGetTypeID())) {	
+			goto skip;
+		}
+		CFStringGetCString(logFileRef, logFileStr, MAXPATHLEN, kCFStringEncodingMacRoman);
+skip:
+		if (prefs)
+			CFRelease(prefs);
+	}
+	
+	if (logFileStr[0])
+			plogset(logFileStr);
+	else	
+#endif /* __APPLE__ */
+		if (lcconf->logfile_param)
+			plogset(lcconf->logfile_param);			
+
 	ploginit();
 
 	plog(LLV_INFO, LOCATION, NULL, "***** racoon started: pid=%d  started by: %d\n", getpid(), getppid());
@@ -184,12 +252,24 @@ main(ac, av)
 	plog(LLV_INFO, LOCATION, NULL, "@(#)"
 	    "This product linked %s (http://www.openssl.org/)"
 	    "\n", eay_version());
+	plog(LLV_INFO, LOCATION, NULL, "Reading configuration from \"%s\"\n", 
+	    lcconf->racoon_conf);
 
 	if (pfkey_init() < 0) {
 		errx(1, "something error happened "
 			"while pfkey initializing.");
 		/* NOTREACHED*/
 	}
+
+#ifdef ENABLE_HYBRID
+	if (isakmp_cfg_init(ISAKMP_CFG_INIT_COLD))
+		errx(1, "could not initialize ISAKMP mode config structures");
+#endif
+
+#ifdef HAVE_LIBLDAP
+	if (xauth_ldap_init() != 0)
+		errx(1, "could not initialize libldap");
+#endif
 
 	/*
 	 * in order to prefer the parameters by command line,
@@ -200,7 +280,8 @@ main(ac, av)
 	if (error != 0)
 		errx(1, "failed to parse configuration file.");
 	restore_params();
-	if (lcconf->logfile_param == NULL)
+	
+	if (lcconf->logfile_param == NULL && logFileStr[0] == 0)
 		plogreset(lcconf->pathinfo[LC_PATHTYPE_LOGFILE]);
 		
 #ifdef ENABLE_NATT
@@ -235,54 +316,67 @@ main(ac, av)
 
 	if (f_foreground)
 		close(0);
-	else if (exec_done) {
-		if (atexit(cleanup_pidfile) < 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				"cannot register pidfile cleanup");
+	else {
+		if ( !exec_done && launchedbylaunchd() ){
+			plog(LLV_INFO, LOCATION, NULL,
+				 "racoon launched by launchd.\n");
+			exec_done = 1;
+			if (atexit(cleanup_pidfile) < 0) {
+				plog(LLV_ERROR, LOCATION, NULL,
+					 "cannot register pidfile cleanup");
+			}
+		}else {
+		
+			if (exec_done) {
+				if (atexit(cleanup_pidfile) < 0) {
+					plog(LLV_ERROR, LOCATION, NULL,
+						"cannot register pidfile cleanup");
+				}
+			} else {
+				#define MAX_EXEC_ARGS 32
+				
+				char *args[MAX_EXEC_ARGS + 2]; /* 2 extra, for '-x' and NULL */
+				char *env[1] = {0};	
+				int	i;
+				
+				if (ac > MAX_EXEC_ARGS) {
+					plog(LLV_ERROR, LOCATION, NULL,
+						"too many arguments.\n");
+					exit(1);
+				}
+				
+				if (daemon(0, 0) < 0) {
+					errx(1, "failed to be daemon. (%s)",
+						strerror(errno));
+				}
+				
+				/* Radar 5129006 - Prevent non-root user from killing racoon
+				 * when launched by setuid process
+				 */
+				if (setuid(0)) {
+					plog(LLV_ERROR, LOCATION, NULL,
+						"cannot set uid.\n");
+					exit(1);
+				}
+				if (setgid(0)) {
+					plog(LLV_ERROR, LOCATION, NULL,
+						"cannot set gid.\n");
+					exit(1);
+				}
+				
+				/* setup args to re-exec - for CoreFoundation issues */
+				args[0] = PATHRACOON;	
+				for (i = 1; i < ac; i++)
+					args[i] = *(av + i);
+				args[ac] = "-x";		/* tells racoon its been exec'd */
+				args[ac+1] = 0;
+				
+				execve(PATHRACOON, args, env);
+				plog(LLV_ERROR, LOCATION, NULL,
+						"failed to exec racoon. (%s)", strerror(errno));
+				exit(1);
+			}
 		}
-	} else {
-		#define MAX_EXEC_ARGS 32
-		
-		char *args[MAX_EXEC_ARGS + 1];
-		char *env[1] = {0};	
-		int	i;
-		
-		if (ac > MAX_EXEC_ARGS) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				"too many arguments.\n");
-			exit(1);
-		}
-		
-		if (daemon(0, 0) < 0) {
-			errx(1, "failed to be daemon. (%s)",
-				strerror(errno));
-		}
-		
-		/* Radar 5129006 - Prevent non-root user from killing racoon
-		 * when launched by setuid process
-		 */
-		if (setuid(0)) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				"cannot set uid.\n");
-			exit(1);
-		}
-		if (setgid(0)) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				"cannot set gid.\n");
-			exit(1);
-		}
-		
-		/* setup args to re-exec - for CoreFoundation issues */
-		args[0] = PATHRACOON;	
-		for (i = 1; i < ac; i++)
-			args[i] = *(av + i);
-		args[ac] = "-x";		/* tells racoon its been exec'd */
-		args[ac+1] = 0;
-		
-		execve(PATHRACOON, args, env);
-		plog(LLV_ERROR, LOCATION, NULL,
-				"failed to exec racoon. (%s)", strerror(errno));
-		exit(1);
 	}
 
 	session();
@@ -290,6 +384,41 @@ main(ac, av)
 	exit(0);
 }
 
+
+static int
+launchedbylaunchd(){
+	int             launchdlaunched = 1;
+	launch_data_t checkin_response = NULL;
+	launch_data_t checkin_request = NULL;
+	
+	/* check in with launchd */
+	if ((checkin_request = launch_data_new_string(LAUNCH_KEY_CHECKIN)) == NULL) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "launch_data_new_string fails.\n");
+		launchdlaunched = 0;
+		goto done;
+	}
+	if ((checkin_response = launch_msg(checkin_request)) == NULL) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "launch_msg fails.\n");
+		launchdlaunched = 0;
+		goto done;
+	}
+	if (LAUNCH_DATA_ERRNO == launch_data_get_type(checkin_response)) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "launch_data_get_type fails errno %d.\n", launch_data_get_errno(checkin_response));
+		launchdlaunched = 0;
+		goto done;
+	}
+	
+done:
+	/* clean up before we leave */
+	if ( checkin_request )
+		launch_data_free(checkin_request);
+	if ( checkin_response )
+		launch_data_free(checkin_response);
+	return launchdlaunched;
+}
 
 static void
 cleanup_pidfile()
@@ -300,12 +429,12 @@ cleanup_pidfile()
 	/* if it's not child process, clean everything */
 	if (racoon_pid == p) {
 		if (lcconf->pathinfo[LC_PATHTYPE_PIDFILE] == NULL) 
-			strlcpy(pid_file, _PATH_VARRUN "racoon.pid", MAXPATHLEN);
+			strlcpy(pid_file, _PATH_VARRUN "racoon.pid", sizeof(pid_file));
 		else if (lcconf->pathinfo[LC_PATHTYPE_PIDFILE][0] == '/') 
-			strlcpy(pid_file, lcconf->pathinfo[LC_PATHTYPE_PIDFILE], MAXPATHLEN);
+			strlcpy(pid_file, lcconf->pathinfo[LC_PATHTYPE_PIDFILE], sizeof(pid_file));
 		else {
-			strlcat(pid_file, _PATH_VARRUN, MAXPATHLEN);
-			strlcat(pid_file, lcconf->pathinfo[LC_PATHTYPE_PIDFILE], MAXPATHLEN);
+			strlcat(pid_file, _PATH_VARRUN, sizeof(pid_file));
+			strlcat(pid_file, lcconf->pathinfo[LC_PATHTYPE_PIDFILE], sizeof(pid_file));
 		}
 		(void) unlink(pid_file);
 	}
@@ -335,7 +464,7 @@ parse(ac, av)
 	plogset("/tmp/racoon.log");
 #endif
 
-	while ((c = getopt(ac, av, "dLFp:P:a:f:l:veZBCx"
+	while ((c = getopt(ac, av, "dLFp:P:a:f:l:vsZBCx"
 #ifdef YYDEBUG
 			"y"
 #endif
@@ -378,8 +507,8 @@ parse(ac, av)
 		case 'v':
 			vflag++;
 			break;
-		case 'e':
-			lcconf->auto_exit_state |= LC_AUTOEXITSTATE_CLIENT;
+		case 's':
+			lcconf->auto_exit_state &= ~LC_AUTOEXITSTATE_CLIENT;	/* override default auto exit state */
 			break;
 		case 'x':
 			exec_done = 1;

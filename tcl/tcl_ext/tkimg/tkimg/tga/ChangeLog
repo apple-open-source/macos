@@ -1,0 +1,11 @@
+2004-08-18  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tkimg 1.3 ========================
+	*
+
+2002-11-25  Andreas Kupries <andreas_kupries@users.sourceforge.net>
+
+	* Start of logging.
+	* tkimg/tga: TGA photo image type. Provided by Paul Obermeier
+	  <obermeier@users.sourceforge.net>

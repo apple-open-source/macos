@@ -1,3 +1,5 @@
+@subheading pr29_4
+@anchor{pr29_4}
 @deftypefun {int} {pr29_4} (const uint32_t * @var{in}, size_t @var{len})
 @var{in}: input array with unicode code points.
 

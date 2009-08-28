@@ -13,27 +13,23 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2000  The FreeRADIUS server project
+ * Copyright 2000,2006  The FreeRADIUS server project
  */
 
-#include "autoconf.h"
-#include "libradius.h"
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <freeradius-devel/radiusd.h>
+#include <freeradius-devel/modules.h>
 
-#include "radiusd.h"
-#include "modules.h"
+#include <ctype.h>
 
 /*
  *  Room for at least 16 attributes.
  */
 #define  BUFFERLEN  4096
-
-static const char rcsid[] = "$Id: rlm_acct_unique.c,v 1.29 2004/02/26 19:04:27 aland Exp $";
 
 typedef struct rlm_acct_unique_list_t {
 	DICT_ATTR		      *dattr;
@@ -45,7 +41,7 @@ typedef struct rlm_acct_unique_t {
 	rlm_acct_unique_list_t *head;
 } rlm_acct_unique_t;
 
-static CONF_PARSER module_config[] = {
+static const CONF_PARSER module_config[] = {
   { "key",  PW_TYPE_STRING_PTR, offsetof(rlm_acct_unique_t,key), NULL,  NULL },
   { NULL, -1, 0, NULL, NULL }    /* end the list */
 };
@@ -75,14 +71,21 @@ static int unique_parse_key(rlm_acct_unique_t *inst, char *key)
 	char *ptr, *prev, *keyptr;
 	DICT_ATTR *a;
 
-	keyptr = key;
-	ptr = key;
 	prev = key;
+	keyptr = ptr = key;
 
 	/* Let's remove spaces in the string */
-	rad_rmspace(key);
+	while (*keyptr) {
+		if (isspace((int) *keyptr)) {
+			keyptr++;
+		} else {
+			*(ptr++) = *(keyptr++);
+		}
+	}
+	*ptr = '\0';
 
-	ptr = key;
+
+	keyptr = ptr = key;
 	while(ptr) {
 		switch(*ptr) {
 		case ',':
@@ -121,7 +124,6 @@ static int unique_detach(void *instance)
 	rlm_acct_unique_t *inst = instance;
 	rlm_acct_unique_list_t *this, *next;
 
-	free(inst->key);
 	for (this = inst->head; this != NULL; this = next) {
 		next = this->next;
 		free(this);
@@ -199,9 +201,27 @@ static int add_unique_id(void *instance, REQUEST *request)
 
 	/* loop over items to create unique identifiers */
 	while (cur) {
+		VALUE_PAIR hack;
+
 		vp = pairfind(request->packet->vps, cur->dattr->attr);
 		if (!vp) {
-			DEBUG2("rlm_acct_unique: WARNING: Attribute %s was not found in request, unique ID MAY be inconsistent", cur->dattr->name);
+			/*
+			 *	This was changed in 2.x, but it's still
+			 *	useful.
+			 */
+			if ((cur->dattr->attr == PW_CLIENT_IP_ADDRESS) &&
+			    (request->packet->src_ipaddr.af == AF_INET)) {
+				memset(&hack, 0, sizeof(hack));
+				hack.name = cur->dattr->name;
+				hack.attribute = cur->dattr->attr;
+				hack.type = cur->dattr->type;
+				hack.operator = T_OP_EQ;
+				hack.length = 4;
+				hack.lvalue = request->packet->src_ipaddr.ipaddr.ip4addr.s_addr;
+				vp = &hack;
+			} else {
+				RDEBUG2("WARNING: Attribute %s was not found in request, unique ID MAY be inconsistent", cur->dattr->name);
+			}
 		}
 		length = vp_prints(p, left, vp);
 		left -= length + 1;	/* account for ',' in between elements */
@@ -211,18 +231,18 @@ static int add_unique_id(void *instance, REQUEST *request)
 	}
 	buffer[BUFFERLEN-left-1] = '\0';
 
-	DEBUG2("rlm_acct_unique: Hashing '%s'", buffer);
+	RDEBUG2("Hashing '%s'", buffer);
 	/* calculate a 'unique' string based on the above information */
-	librad_md5_calc(md5_buf, (u_char *)buffer, (p - buffer));
+	fr_md5_calc(md5_buf, (u_char *)buffer, (p - buffer));
 	sprintf(buffer, "%02x%02x%02x%02x%02x%02x%02x%02x",
 		md5_buf[0], md5_buf[1], md5_buf[2], md5_buf[3],
 		md5_buf[4], md5_buf[5], md5_buf[6], md5_buf[7]);
 
-	DEBUG2("rlm_acct_unique: Acct-Unique-Session-ID = \"%s\".", buffer);
+	RDEBUG2("Acct-Unique-Session-ID = \"%s\".", buffer);
 
 	vp = pairmake("Acct-Unique-Session-Id", buffer, 0);
 	if (!vp) {
-		radlog(L_ERR, "%s", librad_errstr);
+		radlog(L_ERR, "%s", fr_strerror());
 		return RLM_MODULE_FAIL;
 	}
 
@@ -234,10 +254,11 @@ static int add_unique_id(void *instance, REQUEST *request)
 
 /* globally exported name */
 module_t rlm_acct_unique = {
+	RLM_MODULE_INIT,
 	"Acct-Unique-Session-Id",
-	0,				/* type: reserved */
-	NULL,				/* initialization */
+	RLM_TYPE_CHECK_CONFIG_SAFE,   	/* type */
 	unique_instantiate,		/* instantiation */
+	unique_detach,		/* detach */
 	{
 		NULL,			/* authentication */
 		add_unique_id,	/* authorization */
@@ -248,6 +269,4 @@ module_t rlm_acct_unique = {
 		NULL,			/* post-proxy */
 		NULL			/* post-auth */
 	},
-	unique_detach,		/* detach */
-	NULL,				/* destroy */
 };

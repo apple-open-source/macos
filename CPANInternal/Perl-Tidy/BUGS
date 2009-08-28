@@ -1,0 +1,17 @@
+Perltidy open BUGS
+    You can help perltidy evolve into a better program. If you think you
+    have hit a bug or weird behavior, or have a suggested improvement,
+    please send a note to perltidy at users.sourceforge.net.
+
+    This file only lists open bugs. For bugs which have been fixed, see the
+    ChangeLog.
+
+  The --extrude option can produce code with syntax errors
+    The --extrude tries to put as many newlines in the formatted code as
+    possible. This option is very useful for testing perltidy but not for
+    actual formatting. Occasionally it will produce code which Perl
+    considers to have a syntax error. These problems usually involve code
+    where Perl is having to guess the tokenization based on whitespace.
+    Since the --extrude option is typically only used for testing perltidy,
+    this type of error should not normally occur in practice.
+

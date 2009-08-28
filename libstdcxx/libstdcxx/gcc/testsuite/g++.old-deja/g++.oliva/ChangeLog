@@ -1,8 +1,12 @@
-2005-04-20  Release Manager
+2007-07-19  Release Manager
 
-	* GCC 4.0.0 released.
+	* GCC 4.2.1 released.
 
-2005-04-04  Alexandre Oliva  <aoliva@redhat.com>
+2007-05-13  Release Manager
+
+	* GCC 4.2.0 released.
+
+2005-04-03  Alexandre Oliva  <aoliva@redhat.com>
 
 	PR c++/19199
 	* expr2.C: Fixed.

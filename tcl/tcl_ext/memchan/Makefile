@@ -1,5 +1,5 @@
 ##
-# Makefile for tclmemchan
+# Makefile for memchan
 ##
 # Daniel A. Steffen <das@users.sourceforge.net>
 ##
@@ -7,16 +7,21 @@
 # Project info
 Project               = memchan
 ProjectName           = Memchan
+License               = doc/license.terms
+
+# Fetch info
+Release               = 2.2.1
+TEApotVersion         = $(Release).2008.10.20.18.13.18
 
 Extra_Configure_Flags = $(TEA_Configure_Flags)
-Extra_CC_Flags        = -fno-common
-Extra_LD_Flags        = -L$(TclFramework)
-Extra_Environment     = CC=gcc $(TEA_Environment)
+Extra_Environment     = $(TEA_Environment)
 
-GnuAfterInstall       = strip install-doc fix-owner
+GnuAfterInstall       = strip install-doc fix-perms
 
 # include TEA Tcl extension build support
 include ../TEA.make
+
+Install_Target        = install-binaries install-doc
 
 TclExtDir             = $(ProjectName)
 

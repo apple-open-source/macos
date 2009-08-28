@@ -1,7 +1,7 @@
 .\"
 .\"     @(#)scutil.8
 .\"
-.Dd November 4, 2003
+.Dd January 23, 2008
 .Dt SCUTIL 8
 .Os "Mac OS X"
 .Sh NAME
@@ -14,7 +14,9 @@
 .Fl -prefs Op preference-file
 .Br
 .Nm
-.Fl r Bro "" Ar nodename | Ar address | Ar local-address remote-address "" Brc
+.Fl r
+.Op Fl W
+.Bro "" Ar nodename | Ar address | Ar local-address remote-address "" Brc
 .Br
 .Nm
 .Fl w Ar dynamic-store-key Op Fl t Ar timeout
@@ -70,7 +72,7 @@ the current host and the specified host.
 The
 .Fl w
 option provides a means of checking for (and optionally waiting for the
-creation of) a dynamic store key.
+creation of or posting of a notification to) a dynamic store key.
 .Pp
 The
 .Fl -get
@@ -105,7 +107,7 @@ option reports the current system proxy configuration.
 .\"option provides a means of managing the system's network configuration.
 .Sh OPTIONS
 .Bl -tag -width xx
-.It Fl r Bro "" Ar nodename | Ar address | Ar local-address remote-address "" Brc
+.It Fl r Oo Fl W Oc Bro "" Ar nodename | Ar address | Ar local-address remote-address "" Brc
 Check the network reachability of the specified host name, IP address, or a
 pair of local and remote IP addresses.
 One or more of the following strings will be reported to standard output.
@@ -139,6 +141,12 @@ Network traffic to the specified nodename/address will not go through a
 gateway but is routed directly to one of the interfaces on the system.
 .El
 .Pp
+The reachability can also be monitored by specifying the
+.Fl W
+(watch) option.
+This will result in the current status being reported as well as the
+status when/if the network configuration changes.
+.Pp
 A zero exit status will be returned when the reachability status is reported correctly.
 A non-zero exit status will be returned if errors are detected with an error reported to standard error.
 .It Fl w Ar dynamic-store-key Op Fl t Ar timeout
@@ -151,8 +159,10 @@ If present,
 will return with a zero exit status.
 If not present,
 .Nm
-will wait for the specified time for the key to be established.
-A non-zero exit status will be returned if the key was not created within the specified time.
+will wait for the specified time for data to be associated with or a notification
+to be posted using the key.
+A non-zero exit status will be returned if the key was not created/posted
+within the specified time.
 .Pp
 .Nm
 will wait indefinitely if a timeout of 0 seconds is specified.

@@ -1,0 +1,346 @@
+commit 1a34928cd823ef1452b973bd7c4c1d12cd976bba
+Author: Adam Jackson <ajax@redhat.com>
+Date:   Wed Jul 2 15:42:37 2008 -0400
+
+    libXft 2.1.13
+
+commit 19240d3605b5f1e88ca5509afffd48acdb7e1c5f
+Author: Julien Cristau <jcristau@debian.org>
+Date:   Wed Jun 11 02:12:05 2008 +0200
+
+    Revert "Drop Requires, use Requires.private instead."
+    
+    This reverts commit a1c78ce68c5f2106c38b6cb93a6b22420e1a80ab.
+    
+    Unfortunately this doesn't work on old pkg-config, which made
+    Requires.private completely useless.  That's fixed in 0.22, but...
+
+commit a1c78ce68c5f2106c38b6cb93a6b22420e1a80ab
+Author: Julien Cristau <jcristau@debian.org>
+Date:   Tue Jun 10 17:29:27 2008 +0200
+
+    Drop Requires, use Requires.private instead.
+    
+    Users of libXft don't need to link with fontconfig, freetype and
+    Xrender directly if they don't use them.
+
+commit 541c6194d986e7849ee9541a9fd60b0724647a44
+Author: Adam Jackson <ajax@redhat.com>
+Date:   Mon Mar 24 12:10:19 2008 -0400
+
+    Bug #14232: Fix XftDrawRect when Render not supported.
+
+commit 8661a88789dce4fe06d45faec70f8e74834abdd6
+Author: Matthieu Herrb <matthieu.herrb@laas.fr>
+Date:   Sun Mar 9 08:28:43 2008 +0100
+
+    nuke RCS Ids
+
+commit 9e25c9019bd6788076c12cb4356c7d27d6c7d9af
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Dec 6 16:38:28 2007 -0500
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit 8a7f3d450c1f339f429dbce55df523d026c92375
+Author: Stefan Dirsch <sndirsch@suse.de>
+Date:   Sun Nov 4 11:31:44 2007 -0800
+
+    Register objects used by libXft.
+    
+    libXft uses XFT_MAX_GLYPH_MEMORY without first registering with fontconfig.
+
+commit 8ae5ea8c75a7850fa0aca0acc3962b6263f55094
+Author: Karl Tomlinson <bugs.freedesktop@karlt.net>
+Date:   Wed Sep 12 12:00:43 2007 +0100
+
+    XftFontOpenInfo: Use of uninitialised value of size 8 (bug 11200)
+    
+    This is due to XftFontInfoFill using the binary representation of the
+    XftFontInfo to generate fi->hash.
+    
+    With 64-bit pointers there is padding between .hash and .file in struct
+    _XftFontInfo.  This padding is not initialized, and the hash uses these
+    bytes.
+    
+    This will interfere with finding "a matching previously opened font" in
+    XftFontOpenInfo, and XftFontInfoEqual, which uses memcmp, will have similar
+    problems.
+    
+    This fix makes no assumptions about the sizes and alignment of members of
+    struct _XftFontInfo by using memset.  (It also makes no assumptions about
+    what FcPatternGet* does to its output parameter when it returns
+    FcResultNoMatch.)
+
+commit a782fe3fbed05344e2a12f53ede6101e120ed485
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Mon Sep 3 05:53:39 2007 -0400
+
+    Add *~ to .gitignore to skip patch/emacs droppings
+
+commit 3c68c68fc20b875b405f2640778e32a41a807e27
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Thu Dec 7 12:20:44 2006 +0200
+
+    bump to 2.1.12
+
+commit 22112a0ee3bd16b40e414bac32c532a73cbabbcb
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Thu Dec 7 12:20:05 2006 +0200
+
+    XftNameUnparse: re-export to public API (bug #8900)
+    Fix botched git import, which reverted some changes from CVS, by
+    re-exporting XftNameUnparse.
+
+commit 6159d185048fbbb67627667d60dcd475def5bb44
+Author: Adam Jackson <ajax@benzedrine.nwnk.net>
+Date:   Fri Oct 13 17:08:55 2006 -0400
+
+    Bump to 2.1.11
+
+commit 661199d47ff8e9842542f9e407da50629c8a17b6
+Author: Adam Jackson <ajax@benzedrine.nwnk.net>
+Date:   Fri Oct 13 16:18:47 2006 -0400
+
+    Bump to 2.1.10
+
+commit 5e5d0c7597e7f494ad3010f6d4656c5209b09f88
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Jul 13 14:58:58 2006 -0700
+
+    renamed: .cvsignore -> .gitignore
+
+commit 8fc012344f8f072ee3bd1b09c336fed8d47826c5
+Author: Kjartan Maraas <kmaraas@gnome.org>
+Date:   Thu Jul 13 10:28:30 2006 -0400
+
+    Bug #7259: Various Coverity fixes.
+
+commit 824f87ba102e36808c59e92d7f527ca2f8b00026
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Sat Jun 3 10:41:03 2006 +0000
+
+    Bug #4711: Don't export unnecessary symbols. (Alan Coopersmith). Bump to
+        2.1.9.
+
+commit 250b95f857cdd7fadab9e06f1a6f69706467aac2
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:30 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit 2a43efac053b9fa0a460d47f5154511cfaf4f2ba
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:44 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit 88a1de23e126cde06bf4136b56007dc24ad991e8
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Sun Nov 20 23:17:41 2005 +0000
+
+    Add/improve libs .cvsignores.
+
+commit bcbcdcdb0f41b61351454db5032a514215f2f089
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Nov 19 07:15:49 2005 +0000
+
+    Update pkgconfig files to separate library build-time dependencies from
+        application build-time dependencies, and update package deps to work
+        with separate build roots.
+
+commit 143f9e1b8d328ebc806067fb44809a8a8fd419e4
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:48:10 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit 34dc7dbd584f2bbef39248c26236186e08c79a25
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:46:56 2005 +0000
+
+    lib/Xcomposite/Xcomposite.h
+    lib/Xft/Imakefile
+    lib/Xft/Xft.h Update library version numbers to match updated package
+        versions.
+    Update driver version numbers for RC1.
+
+commit 11bc8208939991e9cd3eba2900827fd2e37b04a5
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 5 19:46:16 2005 +0000
+
+    Clean up generated files
+
+commit edfb44c93c03c41f13240af318a45f0f04dde6d1
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Thu Aug 4 16:15:48 2005 +0000
+
+    If --with-freetype-config is not specified, try pkgconfig freetype2, then
+        fall back to freetype-config if pkgconfig fails.
+
+commit a09401affaf007aef2585711cd5eb499f554be9b
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:51 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit 0dd89a9e7ba09ed0c3f90a415b506a4ed89b91bb
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Wed Jul 27 21:48:38 2005 +0000
+
+    Build system for Xft
+
+commit db7a51a120898eda2824ec15d55641589571ed5d
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Sun Jul 3 07:00:57 2005 +0000
+
+    Add Xtrans definitions (FONT_t, TRANS_CLIENT) to clean up warnings.
+    Add XSERV_t, TRANS_SERVER, TRANS_REOPEN to quash warnings.
+    Add #include <dix-config.h> or <xorg-config.h>, as appropriate, to all
+        source files in the xserver/xorg tree, predicated on defines of
+        HAVE_{DIX,XORG}_CONFIG_H. Change all Xfont includes to
+        <X11/fonts/foo.h>.
+
+commit 403c9f9886cea9fd390a242e7c031ba2cc26217f
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Jun 24 22:43:20 2005 +0000
+
+    Sync with Xft from xlibs CVS (2.1.7 plus man page updates from Branden
+        Robinson) - see lib/Xft/ChangeLog for full details
+
+commit 1d14cc37d43bf349ee18e748f62913a0963f6e85
+Author: Egbert Eich <eich@suse.de>
+Date:   Tue May 17 08:10:10 2005 +0000
+
+    gcc4 allows to check if sentinels are correct (a sentinel is the
+        terminating element in a varargs list). A sentinel needs to be NULL,
+        not 0 - which doesn't make a difference on 32bit but matters on 64bit.
+        Furthermore it can be told that functions have a printf-like format
+        string and argument list so that they can verify that both match. To
+        use these features certain attributes need to be set - which are
+        compiler specific. To do this we define macros which are expanded
+        depending on the compiler version. For now we put those in
+        include/Xfuncproto.h (the XFree86 DDX layer contains a file compiler.h
+        which however is not visible outside the DDX) (Bugzilla #3268).
+
+commit 0161d08ecd543c80e5625bf63d0091dbccd95f4e
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Fri Aug 13 19:03:15 2004 +0000
+
+    Fri Aug 13 21:01:34 2004 Soeren Sandmann <sandmann@daimi.au.dk>
+    Fix the build
+
+commit 0641e99b21eead5aaee0c1136dd2d640028f6783
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Fri Aug 13 18:24:06 2004 +0000
+
+    Fri Aug 13 19:53:10 2004 Soeren Sandmann <sandmann@redhat.com>
+    Fix for lockups on some versions of Matrox Mystique. #687, Patch from Mike
+        Harris.
+    Call xf86EnableDisableFBAccess though the function pointer instead of
+        directly. #1041, Patch from Aaron Plattner.
+    Swap the phsyical size of the screen when rotiation. #1050, Patch from
+        Aaron Plattner.
+    Fri Aug 13 19:47:12 2004 Soeren Sandmann <sandmann@redhat.com>
+    Make HAVE_FT_BITMAP_SIZE_Y_PPEM conditional on the FreeType version instead
+        of proping it. This way it will work with the monolithic version too.
+        #1062, Patch by Owen Taylor.
+
+commit 14c188e8b0a0d88f97bcde21c8e1b1da8541bdf8
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Aug 11 23:37:34 2004 +0000
+
+    Called strlen with (f->file) without checking for NULL (which happens when
+        directly using FT_Face objects) (Bug #1047, Keith Packard).
+
+commit 591dcad65f73450a07ac7477a3a827d95eb6f726
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 18:43:42 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit c7e70c7e31897e00caaeb177176a8c24b834bc78
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:32:10 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit 113366a92f315a2178d19c6bb9bed54109697864
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Mar 11 14:16:10 2004 +0000
+
+    file Xft.3.in was initially added on branch XORG-RELEASE-1.
+
+commit 30761fcb5a6f3f2f23466f1b0ec1d290b5002e4e
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Mar 11 14:16:09 2004 +0000
+
+    file NEWS was initially added on branch XORG-RELEASE-1.
+
+commit be5842a55ddd89141de2f238e9b41541a247d13b
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Mar 11 14:16:09 2004 +0000
+
+    file AUTHORS was initially added on branch XORG-RELEASE-1.
+
+commit 4214b9fb11baea4347bb2279b800819ee9792c46
+Author: Egbert Eich <eich@suse.de>
+Date:   Tue Mar 9 16:52:30 2004 +0000
+
+    file README was initially added on branch XORG-RELEASE-1.
+
+commit 14f8861ef153e64359e062a96212eb5358a32fd4
+Author: Egbert Eich <eich@suse.de>
+Date:   Tue Mar 9 16:52:30 2004 +0000
+
+    file INSTALL was initially added on branch XORG-RELEASE-1.
+
+commit fabef42954896dca3d43fb414c564e9750112bf5
+Author: Egbert Eich <eich@suse.de>
+Date:   Tue Mar 9 16:52:30 2004 +0000
+
+    file COPYING was initially added on branch XORG-RELEASE-1.
+
+commit 3ff3e952c6095488466f71da06c6664a056e4c03
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:11:28 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit 00bdde8b2e4521b5058ee988c32dd814b852813d
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:35:33 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit f328c0a0fff3ec647c3f1d7c06b3d701850eb955
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:22:43 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit 1781965aa5fac8f0737251ca883301e1aec7b12b
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:28:09 2003 +0000
+
+    XFree86 4.3.99.16 Bring the tree up to date for the Cygwin folks
+
+commit ac1033d4dc0ff95ab31dd2eb4752e7b4520fe819
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:48 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit 52a3d6a04aa1a18223059334f8d5ed2955461b7d
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:48 2003 +0000
+
+    Initial revision

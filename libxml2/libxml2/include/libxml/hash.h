@@ -1,7 +1,7 @@
 /*
- * Summary: chained hash tables
- * description: this module implement the hash table support used in 
- * various place in the library.
+ * Summary: Chained hash tables
+ * Description: This module implements the hash table support used in 
+ * 		various places in the library.
  *
  * Copy: See Copyright for the status of this software.
  *
@@ -27,10 +27,34 @@ typedef xmlHashTable *xmlHashTablePtr;
 
 #include <libxml/xmlversion.h>
 #include <libxml/parser.h>
+#include <libxml/dict.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/*
+ * Recent version of gcc produce a warning when a function pointer is assigned
+ * to an object pointer, or vice versa.  The following macro is a dirty hack
+ * to allow suppression of the warning.  If your architecture has function
+ * pointers which are a different size than a void pointer, there may be some
+ * serious trouble within the library.
+ */
+/**
+ * XML_CAST_FPTR:
+ * @fptr:  pointer to a function
+ *
+ * Macro to do a casting from an object pointer to a
+ * function pointer without encountering a warning from
+ * gcc
+ *
+ * #define XML_CAST_FPTR(fptr) (*(void **)(&fptr))
+ * This macro violated ISO C aliasing rules (gcc4 on s390 broke)
+ * so it is disabled now
+ */
+
+#define XML_CAST_FPTR(fptr) fptr
+
 
 /*
  * function types:
@@ -81,6 +105,9 @@ typedef void (*xmlHashScannerFull)(void *payload, void *data,
  */
 XMLPUBFUN xmlHashTablePtr XMLCALL
 			xmlHashCreate	(int size);
+XMLPUBFUN xmlHashTablePtr XMLCALL
+			xmlHashCreateDict(int size,
+					 xmlDictPtr dict);
 XMLPUBFUN void XMLCALL			
 			xmlHashFree	(xmlHashTablePtr table,
 					 xmlHashDeallocator f);

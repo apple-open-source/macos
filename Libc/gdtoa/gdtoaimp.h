@@ -130,13 +130,16 @@ THIS SOFTWARE.
  *	Infinity and NaN (case insensitively).
  *	When INFNAN_CHECK is #defined and No_Hex_NaN is not #defined,
  *	strtodg also accepts (case insensitively) strings of the form
- *	NaN(x), where x is a string of hexadecimal digits and spaces;
- *	if there is only one string of hexadecimal digits, it is taken
- *	for the fraction bits of the resulting NaN; if there are two or
- *	more strings of hexadecimal digits, each string is assigned
- *	to the next available sequence of 32-bit words of fractions
- *	bits (starting with the most significant), right-aligned in
- *	each sequence.
+ *	NaN(x), where x is a string of hexadecimal digits (optionally
+ *	preceded by 0x or 0X) and spaces; if there is only one string
+ *	of hexadecimal digits, it is taken for the fraction bits of the
+ *	resulting NaN; if there are two or more strings of hexadecimal
+ *	digits, each string is assigned to the next available sequence
+ *	of 32-bit words of fractions bits (starting with the most
+ *	significant), right-aligned in each sequence.
+ *	Unless GDTOA_NON_PEDANTIC_NANCHECK is #defined, input "NaN(...)"
+ *	is consumed even when ... has the wrong form (in which case the
+ *	"(...)" is consumed but ignored).
  * #define MULTIPLE_THREADS if the system offers preemptively scheduled
  *	multiple threads.  In this case, you must provide (or suitably
  *	#define) two locks, acquired by ACQUIRE_DTOA_LOCK(n) and freed
@@ -148,7 +151,7 @@ THIS SOFTWARE.
  *	dtoa.  You may do so whether or not MULTIPLE_THREADS is #defined.
  * #define IMPRECISE_INEXACT if you do not care about the setting of
  *	the STRTOG_Inexact bits in the special case of doing IEEE double
- *	precision conversions (which could also be done by the strtog in
+ *	precision conversions (which could also be done by the strtod in
  *	dtoa.c).
  * #define NO_HEX_FP to disable recognition of C9x's hexadecimal
  *	floating-point constants.
@@ -167,9 +170,96 @@ THIS SOFTWARE.
 
 #ifndef GDTOAIMP_H_INCLUDED
 #define GDTOAIMP_H_INCLUDED
+/*
+ * Paranoia: Protect exported symbols, including ones in files we don't
+ * compile right now.  The standard strtof and strtod survive.
+ */
+#define	dtoa		__dtoa
+#define	gdtoa		__gdtoa
+#define	freedtoa	__freedtoa
+#define	strtodg		__strtodg
+#define	g_ddfmt		__g_ddfmt
+#define	g_dfmt		__g_dfmt
+#define	g_ffmt		__g_ffmt
+#define	g_Qfmt		__g_Qfmt
+#define	g_xfmt		__g_xfmt
+#define	g_xLfmt		__g_xLfmt
+#define	strtoId		__strtoId
+#define	strtoIdd	__strtoIdd
+#define	strtoIf		__strtoIf
+#define	strtoIQ		__strtoIQ
+#define	strtoIx		__strtoIx
+#define	strtoIxL	__strtoIxL
+#define	strtord		__strtord
+#define	strtordd	__strtordd
+#define	strtorf		__strtorf
+#define	strtorQ		__strtorQ
+#define	strtorx		__strtorx
+#define	strtorxL	__strtorxL
+#define	strtodI		__strtodI
+#define	strtopd		__strtopd
+#define	strtopdd	__strtopdd
+#define	strtopf		__strtopf
+#define	strtopQ		__strtopQ
+#define	strtopx		__strtopx
+#define	strtopxL	__strtopxL
+
+/* Protect gdtoa-internal symbols */
+#define	Balloc		__Balloc_D2A
+#define	Bfree		__Bfree_D2A
+#define	ULtoQ		__ULtoQ_D2A
+#define	ULtof		__ULtof_D2A
+#define	ULtod		__ULtod_D2A
+#define	ULtodd		__ULtodd_D2A
+#define	ULtox		__ULtox_D2A
+#define	ULtoxL		__ULtoxL_D2A
+#define	any_on		__any_on_D2A
+#define	b2d		__b2d_D2A
+#define	bigtens		__bigtens_D2A
+#define	cmp		__cmp_D2A
+#define	copybits	__copybits_D2A
+#define	d2b		__d2b_D2A
+#define	decrement	__decrement_D2A
+#define	diff		__diff_D2A
+#define	dtoa_result	__dtoa_result_D2A
+#define	g__fmt		__g__fmt_D2A
+#define	gethex		__gethex_D2A
+#define	hexdig		__hexdig_D2A
+#define	hexdig_init_D2A	__hexdig_init_D2A
+#define	hexnan		__hexnan_D2A
+#define	hi0bits		__hi0bits_D2A
+#define	hi0bits_D2A	__hi0bits_D2A
+#define	i2b		__i2b_D2A
+#define	increment	__increment_D2A
+#define	lo0bits		__lo0bits_D2A
+#define	lshift		__lshift_D2A
+#define	match		__match_D2A
+#define	mult		__mult_D2A
+#define	multadd		__multadd_D2A
+#define	nrv_alloc	__nrv_alloc_D2A
+#define	pow5mult	__pow5mult_D2A
+#define	quorem		__quorem_D2A
+#define	ratio		__ratio_D2A
+#define	rshift		__rshift_D2A
+#define	rv_alloc	__rv_alloc_D2A
+#define	s2b		__s2b_D2A
+#define	set_ones	__set_ones_D2A
+#define	strcp		__strcp_D2A
+#define	strcp_D2A      	__strcp_D2A
+#define	strtoIg		__strtoIg_D2A
+#define	sum		__sum_D2A
+#define	tens		__tens_D2A
+#define	tinytens	__tinytens_D2A
+#define	tinytens	__tinytens_D2A
+#define	trailz		__trailz_D2A
+#define	ulp		__ulp_D2A
+
 #include <xlocale.h>
 #include "gdtoa.h"
 #include "gd_qnan.h"
+#ifdef Honor_FLT_ROUNDS
+#include <fenv.h>
+#endif
 
 #ifdef DEBUG
 #include "stdio.h"
@@ -196,6 +286,7 @@ extern Char *MALLOC ANSI((size_t));
 
 #define INFNAN_CHECK
 #define USE_LOCALE
+#define NO_LOCALE_CACHE
 
 #undef IEEE_Arith
 #undef Avoid_Underflow
@@ -458,13 +549,11 @@ extern double rnd_prod(double, double), rnd_quot(double, double);
 
 #define MULTIPLE_THREADS
 extern spinlock_t __gdtoa_locks[2];
-#define ACQUIRE_DTOA_LOCK(n)	do {		\
-	if (__isthreaded)			\
-		_SPINLOCK(&__gdtoa_locks[n]);	\
+#define ACQUIRE_DTOA_LOCK(n)	do {				\
+	if (__isthreaded) _SPINLOCK(&__gdtoa_locks[n]);		\
 } while(0)
-#define FREE_DTOA_LOCK(n)	do {		\
-	if (__isthreaded)			\
-		_SPINUNLOCK(&__gdtoa_locks[n]);	\
+#define FREE_DTOA_LOCK(n)	do {				\
+	if (__isthreaded) _SPINUNLOCK(&__gdtoa_locks[n]);	\
 } while(0)
 
 #define Kmax 15
@@ -488,90 +577,6 @@ extern void memcpy_D2A ANSI((void*, const void*, size_t));
 #define Bcopy(x,y) memcpy(&x->sign,&y->sign,y->wds*sizeof(ULong) + 2*sizeof(int))
 #endif /* NO_STRING_H */
 
-/*
- * Paranoia: Protect exported symbols, including ones in files we don't
- * compile right now.  The standard strtof and strtod survive.
- */
-#define	dtoa		__dtoa
-#define	gdtoa		__gdtoa
-#define	freedtoa	__freedtoa
-#define	strtodg		__strtodg
-#define	g_ddfmt		__g_ddfmt
-#define	g_dfmt		__g_dfmt
-#define	g_ffmt		__g_ffmt
-#define	g_Qfmt		__g_Qfmt
-#define	g_xfmt		__g_xfmt
-#define	g_xLfmt		__g_xLfmt
-#define	strtoId		__strtoId
-#define	strtoIdd	__strtoIdd
-#define	strtoIf		__strtoIf
-#define	strtoIQ		__strtoIQ
-#define	strtoIx		__strtoIx
-#define	strtoIxL	__strtoIxL
-#define	strtord		__strtord
-#define	strtordd	__strtordd
-#define	strtorf		__strtorf
-#define	strtorQ		__strtorQ
-#define	strtorx		__strtorx
-#define	strtorxL	__strtorxL
-#define	strtodI		__strtodI
-#define	strtopd		__strtopd
-#define	strtopdd	__strtopdd
-#define	strtopf		__strtopf
-#define	strtopQ		__strtopQ
-#define	strtopx		__strtopx
-#define	strtopxL	__strtopxL
-
-/* Protect gdtoa-internal symbols */
-#define	Balloc		__Balloc_D2A
-#define	Bfree		__Bfree_D2A
-#define	ULtoQ		__ULtoQ_D2A
-#define	ULtof		__ULtof_D2A
-#define	ULtod		__ULtod_D2A
-#define	ULtodd		__ULtodd_D2A
-#define	ULtox		__ULtox_D2A
-#define	ULtoxL		__ULtoxL_D2A
-#define	any_on		__any_on_D2A
-#define	b2d		__b2d_D2A
-#define	bigtens		__bigtens_D2A
-#define	cmp		__cmp_D2A
-#define	copybits	__copybits_D2A
-#define	d2b		__d2b_D2A
-#define	decrement	__decrement_D2A
-#define	diff		__diff_D2A
-#define	dtoa_result	__dtoa_result_D2A
-#define	g__fmt		__g__fmt_D2A
-#define	gethex		__gethex_D2A
-#define	hexdig		__hexdig_D2A
-#define	hexdig_init_D2A	__hexdig_init_D2A
-#define	hexnan		__hexnan_D2A
-#define	hi0bits		__hi0bits_D2A
-#define	hi0bits_D2A	__hi0bits_D2A
-#define	i2b		__i2b_D2A
-#define	increment	__increment_D2A
-#define	lo0bits		__lo0bits_D2A
-#define	lshift		__lshift_D2A
-#define	match		__match_D2A
-#define	mult		__mult_D2A
-#define	multadd		__multadd_D2A
-#define	nrv_alloc	__nrv_alloc_D2A
-#define	pow5mult	__pow5mult_D2A
-#define	quorem		__quorem_D2A
-#define	ratio		__ratio_D2A
-#define	rshift		__rshift_D2A
-#define	rv_alloc	__rv_alloc_D2A
-#define	s2b		__s2b_D2A
-#define	set_ones	__set_ones_D2A
-#define	strcp		__strcp_D2A
-#define	strcp_D2A      	__strcp_D2A
-#define	strtoIg		__strtoIg_D2A
-#define	sum		__sum_D2A
-#define	tens		__tens_D2A
-#define	tinytens	__tinytens_D2A
-#define	tinytens	__tinytens_D2A
-#define	trailz		__trailz_D2A
-#define	ulp		__ulp_D2A
-
  extern char *dtoa_result;
  extern CONST double bigtens[], tens[], tinytens[];
  extern unsigned char hexdig[];
@@ -589,14 +594,11 @@ extern void memcpy_D2A ANSI((void*, const void*, size_t));
  extern int cmp ANSI((Bigint*, Bigint*));
  extern void copybits ANSI((ULong*, int, Bigint*));
  extern Bigint *d2b ANSI((double, int*, int*));
- extern int decrement ANSI((Bigint*));
+ extern void decrement ANSI((Bigint*));
  extern Bigint *diff ANSI((Bigint*, Bigint*));
  extern char *dtoa ANSI((double d, int mode, int ndigits,
 			int *decpt, int *sign, char **rve));
- extern void freedtoa ANSI((char*));
- extern char *gdtoa ANSI((FPI *fpi, int be, ULong *bits, int *kindp,
-			  int mode, int ndigits, int *decpt, char **rve));
- extern char *g__fmt ANSI((char*, char*, char*, int, ULong));
+ extern char *g__fmt ANSI((char*, char*, char*, int, ULong, size_t));
  extern int gethex ANSI((CONST char**, FPI*, Long*, Bigint**, int, locale_t));
  extern void hexdig_init_D2A(Void);
  extern int hexnan ANSI((CONST char**, FPI*, ULong*));
@@ -617,29 +619,9 @@ extern void memcpy_D2A ANSI((void*, const void*, size_t));
  extern Bigint *s2b ANSI((CONST char*, int, int, ULong, int));
  extern Bigint *set_ones ANSI((Bigint*, int));
  extern char *strcp ANSI((char*, const char*));
- extern int strtodg ANSI((CONST char*, char**, FPI*, Long*, ULong*, locale_t)) __DARWIN_ALIAS(strtodg);
-
- extern int strtoId ANSI((CONST char *, char **, double *, double *));
- extern int strtoIdd ANSI((CONST char *, char **, double *, double *));
- extern int strtoIf ANSI((CONST char *, char **, float *, float *));
  extern int strtoIg ANSI((CONST char*, char**, FPI*, Long*, Bigint**, int*));
- extern int strtoIQ ANSI((CONST char *, char **, void *, void *));
- extern int strtoIx ANSI((CONST char *, char **, void *, void *));
- extern int strtoIxL ANSI((CONST char *, char **, void *, void *));
  extern double strtod ANSI((const char *s00, char **se));
  extern double strtod_l ANSI((const char *s00, char **se, locale_t));
- extern int strtopQ ANSI((CONST char *, char **, Void *));
- extern int strtopf ANSI((CONST char *, char **, float *));
- extern int strtopd ANSI((CONST char *, char **, double *));
- extern int strtopdd ANSI((CONST char *, char **, double *, locale_t));
- extern int strtopx ANSI((CONST char *, char **, Void *, locale_t));
- extern int strtopxL ANSI((CONST char *, char **, Void *));
- extern int strtord ANSI((CONST char *, char **, int, double *));
- extern int strtordd ANSI((CONST char *, char **, int, double *));
- extern int strtorf ANSI((CONST char *, char **, int, float *));
- extern int strtorQ ANSI((CONST char *, char **, int, void *));
- extern int strtorx ANSI((CONST char *, char **, int, void *));
- extern int strtorxL ANSI((CONST char *, char **, int, void *));
  extern Bigint *sum ANSI((Bigint*, Bigint*));
  extern int trailz ANSI((Bigint*));
  extern double ulp ANSI((double));

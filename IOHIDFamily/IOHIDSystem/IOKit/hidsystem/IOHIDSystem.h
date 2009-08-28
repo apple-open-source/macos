@@ -36,6 +36,7 @@
 #ifndef	_IOHIDSYSTEM_H
 #define _IOHIDSYSTEM_H
 
+#include <TargetConditionals.h>
 #include <IOKit/IOTimerEventSource.h>
 #include <IOKit/IOInterruptEventSource.h>
 #include <IOKit/IOService.h>
@@ -45,13 +46,16 @@
 #include <IOKit/IOCommandGate.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
 #include <IOKit/pwr_mgt/IOPM.h>
+#if TARGET_OS_EMBEDDED
+class IOGraphicsDevice;
+#else
 #include <IOKit/graphics/IOGraphicsDevice.h>
+#endif
 #include <IOKit/hidsystem/IOHIDevice.h>
 #include <IOKit/hidsystem/IOHIDShared.h>
 #include <IOKit/hidsystem/IOHIDTypes.h>
 #include <IOKit/hidsystem/IOLLEvent.h>
 #include <IOKit/IODataQueue.h>
-#include <IOKit/hid/IOHIDEvent.h>
 #include <IOKit/hidsystem/ev_keymap.h>		/* For NX_NUM_SCANNED_SPECIALKEYS */
 
            
@@ -66,6 +70,7 @@
 
 class IOHIDKeyboardDevice;
 class IOHIDPointingDevice;
+class IOHIDEvent;
 
 class IOHIDSystem : public IOService
 {
@@ -90,6 +95,7 @@ private:
         IONotifier *		terminateNotify;
         
         OSArray *		ioHIDevices;
+    OSSet             * touchEventPosters;
 
 	// Ports on which we hold send rights
 	mach_port_t	eventPort;	// Send msg here when event queue
@@ -101,7 +107,7 @@ private:
 
 	// Shared memory area information
     IOBufferMemoryDescriptor * globalMemory;
-	vm_offset_t	shmem_addr;	// kernel address of shared memory
+	uintptr_t	shmem_addr;	// kernel address of shared memory
 	vm_size_t	shmem_size;	// size of shared memory
     
 	// Pointers to structures which occupy the shared memory area.
@@ -206,6 +212,10 @@ private:
         
 private:
     void vblEvent(void);
+    UInt8 getSubtypeForSender(OSObject * sender);
+    void updateMouseEventForSender(OSObject * sender, NXEventData * evData);
+    void updateMouseMoveEventForSender(OSObject * sender, NXEventData * evData);
+    void updateScrollEventForSender(OSObject * sender, NXEventData * evData);
     static void _vblEvent(OSObject *self, IOTimerEventSource *sender);
 
   inline short getUniqueEventNum();
@@ -215,7 +225,7 @@ private:
   void _resetMouseParameters();
 
   /* Initialize the shared memory area */
-  void     initShmem();
+  void     initShmem(bool clean);
   /* Dispatch low level events through shared memory to the WindowServer */
   void postEvent(int           what,
           /* at */       IOGPoint *       location,
@@ -324,6 +334,8 @@ public:
   virtual IOReturn message(UInt32 type, IOService * provider,
 				void * argument);
   virtual void free();
+  virtual bool attach( IOService * provider );
+  virtual void detach( IOService * provider );
 
   virtual IOWorkLoop *getWorkLoop() const;
 
@@ -524,6 +536,8 @@ public:
   virtual IOReturn extSetMouseLocation(void*,void*,void*,void*,void*,void*);
   virtual IOReturn extGetButtonEventNum(void*,void*,void*,void*,void*,void*);
   IOReturn extSetBounds( IOGBounds * bounds );
+    IOReturn extGetModifierLockState(void*,void*,void*,void*,void*,void*);
+    IOReturn extSetModifierLockState(void*,void*,void*,void*,void*,void*);
 
 /*
  * HISTORICAL NOTE:
@@ -752,6 +766,13 @@ static	IOReturn	doSetParamPropertiesPre (IOHIDSystem *self, void * arg0, void * 
 static	IOReturn	doSetParamPropertiesPost (IOHIDSystem *self, void * arg0);        
         IOReturn	setParamPropertiesPostGated (OSDictionary * dict);
         
+static	IOReturn	doExtGetToggleState (IOHIDSystem *self, void *p1, void *p2);        
+static	IOReturn	doExtSetToggleState (IOHIDSystem *self, void *p1, void *p2);        
+        IOReturn    getCapsLockState(unsigned int *state_O);
+        IOReturn    setCapsLockState(unsigned int state_I);
+        IOReturn    getNumLockState(unsigned int *state_O);
+        IOReturn    setNumLockState(unsigned int state_I);
+
 /* END COMMAND GATE COMPATIBILITY */
 
 public:

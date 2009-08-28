@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for the pdp-11
-   Copyright (C) 1994, 1995, 1996, 1998, 1999, 2000, 2001, 2002, 2004
+   Copyright (C) 1994, 1995, 1996, 1998, 1999, 2000, 2001, 2002, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Michael K. Gschwind (mike@vlsivie.tuwien.ac.at).
 
@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #define CONSTANT_POOL_BEFORE_FUNCTION	0
 
@@ -45,91 +45,9 @@ Boston, MA 02111-1307, USA.  */
 
 /* #define DBX_DEBUGGING_INFO */
 
-/* Run-time compilation parameters selecting different hardware subsets.
-*/
-
-extern int target_flags;
-
-/* Macro to define tables used to set the flags.
-   This is a list in braces of triplets in braces,
-   each triplet being { "NAME", VALUE, DOC }
-   where VALUE is the bits to set or minus the bits to clear and DOC
-   is the documentation for --help (NULL if intentionally undocumented).
-   An empty string NAME is used to identify the default VALUE.  */
-
-#define TARGET_SWITCHES  \
-{   { "fpu", 1, N_("Use hardware floating point") },			\
-    { "soft-float", -1, N_("Do not use hardware floating point") },	\
-/* return float result in ac0 */					\
-    { "ac0", 2, N_("Return floating point results in ac0") },		\
-    { "no-ac0", -2, N_("Return floating point results in memory") },	\
-/* is 11/40 */								\
-    { "40", 4, N_("Generate code for an 11/40") },			\
-    { "no-40", -4, "" },						\
-/* is 11/45 */								\
-    { "45", 8, N_("Generate code for an 11/45") },			\
-    { "no-45", -8, "" },						\
-/* is 11/10 */								\
-    { "10", -12, N_("Generate code for an 11/10") },			\
-/* use movmemhi for bcopy */						\
-    { "bcopy", 16, NULL },						\
-    { "bcopy-builtin", -16, NULL },					\
-/* use 32 bit for int */						\
-    { "int32", 32, N_("Use 32 bit int") },				\
-    { "no-int16", 32, N_("Use 32 bit int") },				\
-    { "int16", -32, N_("Use 16 bit int") },				\
-    { "no-int32", -32, N_("Use 16 bit int") },				\
-/* use 32 bit for float */						\
-    { "float32", 64, N_("Use 32 bit float") },				\
-    { "no-float64", 64, N_("Use 32 bit float") },			\
-    { "float64", -64, N_("Use 64 bit float") },				\
-    { "no-float32", -64, N_("Use 64 bit float") },			\
-/* allow abshi pattern? - can trigger "optimizations" which make code SLOW! */\
-    { "abshi", 128, NULL },						\
-    { "no-abshi", -128, NULL },						\
-/* is branching expensive - on a PDP, it's actually really cheap */ \
-/* this is just to play around and check what code gcc generates */ \
-    { "branch-expensive", 256, NULL }, 					\
-    { "branch-cheap", -256, NULL },					\
-/* split instruction and data memory? */ 				\
-    { "split", 1024, N_("Target has split I&D") },			\
-    { "no-split", -1024, N_("Target does not have split I&D") },	\
-/* UNIX assembler syntax?  */						\
-    { "unix-asm", 2048, N_("Use UNIX assembler syntax") },		\
-    { "dec-asm", -2048, N_("Use DEC assembler syntax") },		\
-/* default */			\
-    { "", TARGET_DEFAULT, NULL}	\
-}
-
-#define TARGET_DEFAULT (1 | 8 | 128 | TARGET_UNIX_ASM_DEFAULT)
-
-#define TARGET_FPU 		(target_flags & 1)
-#define TARGET_SOFT_FLOAT 	(!TARGET_FPU)
-
-#define TARGET_AC0		((target_flags & 2) && TARGET_FPU)
-#define TARGET_NO_AC0		(! TARGET_AC0)
-
-#define TARGET_45		(target_flags & 8)
-#define TARGET_40_PLUS		((target_flags & 4) || (target_flags & 8))
+#define TARGET_40_PLUS		(TARGET_40 || TARGET_45)
 #define TARGET_10		(! TARGET_40_PLUS)
 
-#define TARGET_BCOPY_BUILTIN	(! (target_flags & 16))
-
-#define TARGET_INT16		(! TARGET_INT32)
-#define TARGET_INT32		(target_flags & 32)
-
-#define TARGET_FLOAT32		(target_flags & 64)
-#define TARGET_FLOAT64		(! TARGET_FLOAT32)
-
-#define TARGET_ABSHI_BUILTIN	(target_flags & 128)
-
-#define TARGET_BRANCH_EXPENSIVE	(target_flags & 256)
-#define TARGET_BRANCH_CHEAP 	(!TARGET_BRANCH_EXPENSIVE)
-
-#define TARGET_SPLIT		(target_flags & 1024)
-#define TARGET_NOSPLIT		(! TARGET_SPLIT)
-
-#define TARGET_UNIX_ASM		(target_flags & 2048)
 #define TARGET_UNIX_ASM_DEFAULT	0
 
 #define ASSEMBLER_DIALECT	(TARGET_UNIX_ASM ? 1 : 0)
@@ -497,12 +415,12 @@ loading is easier into LOAD_FPU_REGS than FPU_REGS! */
    makes the stack pointer a smaller address.  */
 #define STACK_GROWS_DOWNWARD
 
-/* Define this if the nominal address of the stack frame
+/* Define this to nonzero if the nominal address of the stack frame
    is at the high-address end of the local variables;
    that is, each additional local variable allocated
    goes at a more negative offset in the frame.
 */
-#define FRAME_GROWS_DOWNWARD
+#define FRAME_GROWS_DOWNWARD 1
 
 /* Offset within stack frame to start allocating local variables at.
    If FRAME_GROWS_DOWNWARD, this is the offset to the END of the
@@ -632,7 +550,7 @@ maybe ac0 ? - as option someday! */
    for profiling a function entry.  */
 
 #define FUNCTION_PROFILER(FILE, LABELNO)  \
-   abort ();
+   gcc_unreachable ();
 
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
    the stack pointer does not matter.  The value is tested only in
@@ -1026,7 +944,7 @@ extern struct rtx_def *cc0_reg_rtx;
 	fprintf (FILE, "\t.even\n");	\
 	break;				\
       default:				\
-	abort ();			\
+	gcc_unreachable ();		\
     }
 
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
@@ -1098,8 +1016,7 @@ JMP	FUNCTION	0x0058  0x0000 <- FUNCTION
 
 #define TRAMPOLINE_TEMPLATE(FILE)	\
 {					\
-  if (TARGET_SPLIT)			\
-    abort();				\
+  gcc_assert (!TARGET_SPLIT);		\
 					\
   assemble_aligned_integer (2, GEN_INT (0x9400+STATIC_CHAIN_REGNUM));	\
   assemble_aligned_integer (2, const0_rtx);				\
@@ -1116,8 +1033,7 @@ JMP	FUNCTION	0x0058  0x0000 <- FUNCTION
 
 #define INITIALIZE_TRAMPOLINE(TRAMP,FNADDR,CXT)	\
 {					\
-  if (TARGET_SPLIT)			\
-    abort();				\
+  gcc_assert (!TARGET_SPLIT);		\
 					\
   emit_move_insn (gen_rtx_MEM (HImode, plus_constant (TRAMP, 2)), CXT); \
   emit_move_insn (gen_rtx_MEM (HImode, plus_constant (TRAMP, 6)), FNADDR); \

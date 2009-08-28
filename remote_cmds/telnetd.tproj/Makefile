@@ -7,8 +7,14 @@ CFILES = global.c slc.c state.c sys_term.c telnetd.c\
 MANPAGES = telnetd.8
 LAUNCHD_PLISTS = telnet.plist
 
-Extra_CC_Flags = -DNO_UTMP -DLINEMODE -DKLUDGELINEMODE -DUSE_TERMIO -DDIAGNOSTICS -DOLD_ENVIRON -DENV_HACK # -DAUTHENTICATION -DENCRYPTION
-Extra_LD_Flags = -lcurses -ltelnet
+Extra_CC_Flags = -Wall -Werror -fPIE
+Extra_CC_Flags += -D__FBSDID=__RCSID
+Extra_LD_Flags = -dead_strip -pie
+
+Extra_CC_Flags += -DNO_UTMP -DLINEMODE -DKLUDGELINEMODE -DUSE_TERMIO \
+		-DDIAGNOSTICS -DOLD_ENVIRON -DENV_HACK -DINET6 \
+		# -DAUTHENTICATION -DENCRYPTION
+Extra_LD_Libraries = -lcurses -ltelnet
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make
 

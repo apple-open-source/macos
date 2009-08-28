@@ -29,8 +29,8 @@ set testfile "macscp"
 set binfile ${objdir}/${subdir}/${testfile}
 set additional_flags "additional_flags=-O3"
 
-if [istarget "i\[3-6\]86-apple-darwin*"] {
-    verbose "Skipping ppc inlining tests."
+if ![istarget "powerpc-apple-darwin*"] {
+    verbose "Skipping PPC-specific inline test."
     return
 }
 
@@ -56,78 +56,77 @@ gdb_test "run" "Starting program: $binfile *\r\n\Reading symbols for shared libr
 
 
 
-gdb_test "next" "\\\*\\\* Stepping over inlined function code. \\\*\\\*.*macscp1_1.*70.*" "Next 0"
+gdb_test "next" ".*macscp1_1.*70.*" "Next 0"
 
-gdb_test "next" "\\\*\\\* Stepping over inlined function code. \\\*\\\*.*macscp2_1.*71.*" "Next 1"
+gdb_test "next" ".*macscp2_1.*71.*" "Next 1"
 
-gdb_test "next" "\\\*\\\* Stepping over inlined function code. \\\*\\\*.*macscp4_1_from_macscp2.*72.*" "Next 2"
+gdb_test "next" ".*macscp4_1_from_macscp2.*72.*" "Next 2"
 
-gdb_test "next" "\\\*\\\* Stepping over inlined function code. \\\*\\\*.*macscp4_2_from_macscp2.*73.*" "Next 3"
+gdb_test "next" ".*macscp4_2_from_macscp2.*73.*" "Next 3"
 
-gdb_test "next" "\\\*\\\* Stepping over inlined function code. \\\*\\\*.*macscp2_2.*74.*" "Next 4"
+gdb_test "next" ".*macscp2_2.*74.*" "Next 4"
 
-gdb_test "next" "\\\*\\\* Stepping over inlined function code. \\\*\\\*.*macscp1_2.*75.*" "Next 5"
+gdb_test "next" ".*macscp1_2.*75.*" "Next 5"
 
-gdb_test "next" "\\\*\\\* Stepping over inlined function code. \\\*\\\*.*macscp3_1.*76.*" "Next 6"
+gdb_test "next" ".*macscp3_1.*76.*" "Next 6"
 
-gdb_test "next" "\\\*\\\* Stepping over inlined function code. \\\*\\\*.*macscp4_1_from_macscp3.*77.*" "Next 7"
+gdb_test "next" ".*macscp4_1_from_macscp3.*77.*" "Next 7"
 
-gdb_test "next" "\\\*\\\* Stepping over inlined function code. \\\*\\\*.*macscp4_2_from_macscp3.*78.*" "Next 8"
+gdb_test "next" ".*macscp4_2_from_macscp3.*78.*" "Next 8"
 
-gdb_test "next" "\\\*\\\* Stepping over inlined function code. \\\*\\\*.*macscp3_2.*80.*" "Next 9"
+gdb_test "next" ".*macscp3_2.*80.*" "Next 9"
 
 gdb_test "next" ".*79.*" "Next 10"
 
-gdb_test "next" "\\\*\\\* Stepping over inlined function code. \\\*\\\*.*" "Next 11"
+gdb_test "next" ".*" "Next 11"
 
 gdb_test "continue" ".*Continuing.*macscp1_3.*Program exited with code" "Continue to end"
 
 gdb_test "run" "Starting program:.*Breakpoint 1.*" "Re-starting program"
 
-gdb_test "step" "\\\*\\\* Simulating stepping into inlined subroutine.  \\\*\\\*.*
-39.*puts.*" "Step 1"
+gdb_test "step" ".*39.*puts.*" "Step 1"
 
 gdb_test "step" "macscp1_1.*70	  macscp2_1.*" "Step 2"
 
-gdb_test "step" "\\\*\\\* Simulating stepping into inlined subroutine.  \\\*\\\*.*10	  puts.*" "Step 3"
+gdb_test "step" ".*10	  puts.*" "Step 3"
 
 gdb_test "step" "macscp2_1.*71	  macscp4_1_from_macscp2.*" "Step 4"
 
-gdb_test "step" "\\\*\\\* Simulating stepping into inlined subroutine.  \\\*\\\*.*24	  puts .*" "Step 5"
+gdb_test "step" ".*24	  puts .*" "Step 5"
 
 gdb_test "step" "macscp4_1_from_macscp2.*72	  macscp4_2_from_macscp2.*" "Step 6"
 
-gdb_test "step" "\\\*\\\* Simulating stepping into inlined subroutine.  \\\*\\\*.*41	  puts.*" "Step 7"
+gdb_test "step" ".*41	  puts.*" "Step 7"
 
 gdb_test "step" "macscp4_2_from_macscp2.*73	  macscp2_2.*" "Step 8"
 
-gdb_test "step" "\\\*\\\* Simulating stepping into inlined subroutine.  \\\*\\\*.*22	  puts.*" "Step 9"
+gdb_test "step" ".*22	  puts.*" "Step 9"
 
 gdb_test "step" "macscp2_2.*74	  macscp1_2.*" "Step 10"
 
-gdb_test "step" "\\\*\\\* Simulating stepping into inlined subroutine.  \\\*\\\*.*51	  puts.*" "Step 11"
+gdb_test "step" ".*51	  puts.*" "Step 11"
 
 gdb_test "step" "macscp1_2.*75	  macscp3_1.*" "Step 12"
 
-gdb_test "step" "\\\*\\\* Simulating stepping into inlined subroutine.  \\\*\\\*.*10	  puts.*" "Step 13"
+gdb_test "step" ".*10	  puts.*" "Step 13"
 
 gdb_test "step" "macscp3_1.*76	  macscp4_1_from_macscp3.*" "Step 14"
 
-gdb_test "step" "\\\*\\\* Simulating stepping into inlined subroutine.  \\\*\\\*.*24	  puts.*" "Step 15"
+gdb_test "step" ".*24	  puts.*" "Step 15"
 
 gdb_test "step" "macscp4_1_from_macscp3.*77	  macscp4_2_from_macscp3.*" "Step 16"
 
-gdb_test "step" "\\\*\\\* Simulating stepping into inlined subroutine.  \\\*\\\*.*41	  puts.*" "Step 17"
+gdb_test "step" ".*41	  puts.*" "Step 17"
 
 gdb_test "step" "macscp4_2_from_macscp3.*78	  macscp3_2.*" "Step 18"
 
-gdb_test "step" "\\\*\\\* Simulating stepping into inlined subroutine.  \\\*\\\*.*22	  puts.*" "Step 19"
+gdb_test "step" ".*22	  puts.*" "Step 19"
 
 gdb_test "step" "macscp3_2.*80.*" "Step 20"
 
 gdb_test "step" "main.*macscp1.c:79.*79	  macscp1_3.*" "Step 21"
 
-gdb_test "step" "\\\*\\\* Simulating stepping into inlined subroutine.  \\\*\\\*.*63	  puts.*" "Step 22"
+gdb_test "step" ".*63	  puts.*" "Step 22"
 
 gdb_test "continue" "Continuing..*macscp1_3.*Program exited with code.*" "Continue to end"
 

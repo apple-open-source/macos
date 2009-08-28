@@ -32,6 +32,7 @@
 #include <security_utilities/refcount.h>
 #include <security_cdsa_utilities/cssmerrors.h>
 #include <Security/cssmerr.h>
+#include <CoreFoundation/CoreFoundation.h>
 
 namespace Security {
 
@@ -60,6 +61,9 @@ public:
 	{ Data = reinterpret_cast<UInt8 *>(data); Length = length; }
 	CssmData(signed char *data, size_t length)
 	{ Data = reinterpret_cast<UInt8 *>(data); Length = length; }
+
+	CssmData(CFDataRef cf)
+	{ Data = const_cast<UInt8 *>(CFDataGetBytePtr(cf)); Length = CFDataGetLength(cf); }
 		
 	// the void * form accepts too much; explicitly deny all other types
 	private: template <class T> CssmData(T *, size_t); public:

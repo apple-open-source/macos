@@ -75,10 +75,10 @@ class CLDAPConnection : public CObject<CLDAPConnection>
 
 #if defined(DEBUG_LOCKS) || defined(DEBUG_LOCKS_HISTORY) || defined(DEBUG_LDAPSESSION_LOCKS)
 		#define LockLDAPSession()		LockLDAPSessionDebug( __FILE__, __LINE__ )
-		LDAP			*LockLDAPSessionDebug	( char *inFile, int inLine );
+		LDAP			*LockLDAPSessionDebug	( const char *inFile, int inLine );
 	
 		#define UnlockLDAPSession(a,b)	UnlockLDAPSessionDebug( a, b, __FILE__, __LINE__ )
-		void			UnlockLDAPSessionDebug	( LDAP * &inLDAP, bool inFailed, char *inFile, int inLine );
+		void			UnlockLDAPSessionDebug	( LDAP * &inLDAP, bool inFailed, const char *inFile, int inLine );
 #else
 		LDAP			*LockLDAPSession		( void );
 		void			UnlockLDAPSession		( LDAP * &inLDAP, bool inFailed );

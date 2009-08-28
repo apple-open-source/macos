@@ -14,7 +14,7 @@ HTTP/1.1 200 OK swsclose
 Date: Thu, 09 Nov 2010 14:49:00 GMT
 Connection: close
 
-<html>result</html>
+_data_result_data_
 </data>
 <postcmd>
 wait 10
@@ -41,7 +41,7 @@ http://%HOSTIP:%HTTPPORT/want/29 -m 2
 </strip>
 <protocol>
 GET /want/29 HTTP/1.1
-Host: 127.0.0.1:%HTTPPORT
+Host: %HOSTIP:%HTTPPORT
 Accept: */*
 
 </protocol>

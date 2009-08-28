@@ -658,11 +658,12 @@ main
 
 #ifdef FEAT_VIMINFO
     /*
-     * Read in registers, history etc, but not marks, from the viminfo file
+     * Read in registers, history etc, but not marks, from the viminfo file.
+     * This is where v:oldfiles gets filled.
      */
     if (*p_viminfo != NUL)
     {
-	read_viminfo(NULL, TRUE, FALSE, FALSE);
+	read_viminfo(NULL, VIF_WANT_INFO | VIF_GET_OLDFILES);
 	TIME_MSG("reading viminfo");
     }
 #endif
@@ -1522,7 +1523,8 @@ parse_command_name(parmp)
 early_arg_scan(parmp)
     mparm_T	*parmp;
 {
-#if defined(FEAT_XCLIPBOARD) || defined(FEAT_CLIENTSERVER)
+#if defined(FEAT_XCLIPBOARD) || defined(FEAT_CLIENTSERVER) \
+	|| !defined(FEAT_NETBEANS_INTG)
     int		argc = parmp->argc;
     char	**argv = parmp->argv;
     int		i;
@@ -1594,6 +1596,14 @@ early_arg_scan(parmp)
 	else if (STRICMP(argv[i], "--echo-wid") == 0)
 	    echo_wid_arg = TRUE;
 # endif
+# ifndef FEAT_NETBEANS_INTG
+	else if (strncmp(argv[i], "-nb", (size_t)3) == 0)
+        {
+            mch_errmsg(_("'-nb' cannot be used: not enabled at compile time\n"));
+            mch_exit(2);
+        }
+# endif
+
     }
 #endif
 }
@@ -2377,7 +2387,7 @@ read_stdin()
      * Is there any other system that cannot do this?
      */
     close(0);
-    dup(2);
+    ignored = dup(2);
 #endif
 }
 
@@ -2602,7 +2612,7 @@ edit_buffers(parmp)
 # endif
 	    (void)do_ecmd(0, arg_idx < GARGCOUNT
 			  ? alist_name(&GARGLIST[arg_idx]) : NULL,
-			  NULL, NULL, ECMD_LASTL, ECMD_HIDE);
+			  NULL, NULL, ECMD_LASTL, ECMD_HIDE, curwin);
 # ifdef HAS_SWAP_EXISTS_ACTION
 	    if (swap_exists_did_quit)
 	    {

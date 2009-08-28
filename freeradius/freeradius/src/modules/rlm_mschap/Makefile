@@ -1,11 +1,11 @@
 #
 # Makefile
 #
-# Version:	$Id: Makefile,v 1.14.2.1.2.1 2006/02/10 19:48:05 nbk Exp $
+# Version:	$Id$
 #
 
 TARGET		= rlm_mschap
-SRCS		= rlm_mschap.c smbdes.c
+SRCS		= rlm_mschap.c smbdes.c opendir.c
 HEADERS		=
 RLM_CFLAGS	=
 RLM_LDFLAGS	=
@@ -18,7 +18,7 @@ include ../rules.mak
 
 $(LT_OBJS): $(HEADERS)
 
-smbencrypt: smbencrypt.lo smbdes.lo ../../lib/libradius.la
+smbencrypt: smbencrypt.lo smbdes.lo $(LIBRADIUS)
 	$(LIBTOOL) --mode=link $(CC) $(LDFLAGS) $(RLM_LDFLAGS) \
 		-o $@ $^ $(RLM_LIBS) $(LIBS)
 

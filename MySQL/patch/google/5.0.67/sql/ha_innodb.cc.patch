@@ -1,0 +1,52 @@
+--- base5067/sql/ha_innodb.cc	2008-08-04 05:20:03.000000000 -0700
++++ m5067/sql/ha_innodb.cc	2008-09-08 06:53:12.000000000 -0700
+@@ -284,6 +284,10 @@
+   (char*) &export_vars.innodb_dblwr_writes,               SHOW_LONG},
+   {"log_waits",
+   (char*) &export_vars.innodb_log_waits,                  SHOW_LONG},
++  {"have_atomic_builtins",
++  (char*) &export_vars.innodb_have_atomic_builtins,       SHOW_BOOL},
++  {"heap_enabled",
++  (char*) &export_vars.innodb_heap_enabled,               SHOW_BOOL},
+   {"log_write_requests",
+   (char*) &export_vars.innodb_log_write_requests,         SHOW_LONG},
+   {"log_writes",
+@@ -6463,6 +6467,7 @@
+   Protocol        *protocol= thd->protocol;
+   List<Item> field_list;
+   mutex_t*  mutex;
++  rw_lock_t*  lock;
+ #ifdef UNIV_DEBUG
+   ulint   rw_lock_count= 0;
+   ulint   rw_lock_count_spin_loop= 0;
+@@ -6547,6 +6552,30 @@
+ 
+   mutex_exit_noninline(&mutex_list_mutex);
+ 
++  mutex_enter_noninline(&rw_lock_list_mutex);
++
++  lock = UT_LIST_GET_FIRST(rw_lock_list);
++
++  while (lock != NULL)
++  {
++    if (lock->count_os_wait)
++    {
++      protocol->prepare_for_resend();
++      protocol->store(lock->cfile_name, system_charset_info);
++      protocol->store((ulonglong)lock->cline);
++      protocol->store((ulonglong)lock->count_os_wait);
++
++      if (protocol->write())
++      {
++        mutex_exit_noninline(&rw_lock_list_mutex);
++        DBUG_RETURN(1);
++      }
++    }
++    lock = UT_LIST_GET_NEXT(list, lock);
++  }
++
++  mutex_exit_noninline(&rw_lock_list_mutex);
++
+ #ifdef UNIV_DEBUG
+   protocol->prepare_for_resend();
+   protocol->store("rw_lock_mutexes", system_charset_info);

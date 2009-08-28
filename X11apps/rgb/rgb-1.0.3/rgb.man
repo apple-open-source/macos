@@ -1,0 +1,91 @@
+.\" Copyright 1994, 2008 Sun Microsystems, Inc.  All rights reserved.
+.\" 
+.\" Permission is hereby granted, free of charge, to any person obtaining a
+.\" copy of this software and associated documentation files (the
+.\" "Software"), to deal in the Software without restriction, including
+.\" without limitation the rights to use, copy, modify, merge, publish,
+.\" distribute, and/or sell copies of the Software, and to permit persons
+.\" to whom the Software is furnished to do so, provided that the above
+.\" copyright notice(s) and this permission notice appear in all copies of
+.\" the Software and that both the above copyright notice(s) and this
+.\" permission notice appear in supporting documentation.
+.\" 
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+.\" OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT
+.\" OF THIRD PARTY RIGHTS. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+.\" HOLDERS INCLUDED IN THIS NOTICE BE LIABLE FOR ANY CLAIM, OR ANY SPECIAL
+.\" INDIRECT OR CONSEQUENTIAL DAMAGES, OR ANY DAMAGES WHATSOEVER RESULTING
+.\" FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,
+.\" NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION
+.\" WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+.\" 
+.\" Except as contained in this notice, the name of a copyright holder
+.\" shall not be used in advertising or otherwise to promote the sale, use
+.\" or other dealings in this Software without prior written authorization
+.\" of the copyright holder.
+.\" 
+.TH rgb __appmansuffix__ __xorgversion__
+.IX "rgb" "" "\f3rgb\fP(1) \(em build colorname database" ""
+.IX "color" "build" "color" "building the colorname database \(em \f3rgb\fP(1)" ""
+.SH NAME
+rgb \- build the color name database
+.SH SYNOPSIS
+.B rgb
+[
+.I dbname
+]
+.SH DESCRIPTION
+.B rgb
+reads from standard input lines of the form:
+.PP
+.nf
+.I
+	red\ \ green\ \ blue\ \ \ \ \ \ name
+.fi
+.PP
+where
+.I red
+/
+.I green
+/
+.I blue
+are decimal values between the range 0 to 255, and
+.I name
+is a description of the color.
+.B rgb
+then builds a color name database in
+.B __RGB_DB_TYPE__
+format.  The color name database provides a mapping between ASCII color
+names and RGB color values.  It is useful for increasing the
+portability of color programs.  The input source for the database is 
+in \fI__RGB_DB__.txt\fP.  \fIrgb.txt\fP
+is compiled into the __RGB_DB_TYPE__ files
+.IR "__RGB_DB_FILES__" .
+When the server first starts up, it consults the contents of these
+files to build an internal representation of their contents.  This
+internal representation is consulted to map color names to color
+values.
+.PP
+.B rgb
+uses the default color name database of \fI__RGB_DB__.txt\fP.
+.SH OPTIONS
+.IP "\fIdbname" 1i
+Color name database.
+.SH EXAMPLES
+example% rgb rgb < __RGB_DB__.txt
+.PP
+example% cat __RGB_DB__.txt
+.SH FILES
+.PD 0
+.TP 30
+.B __RGB_DB__.txt
+color name database source.
+Maps color names to RGB color values.
+.TP
+.B __RGB_DB_DIR__/__RGB_DB_FILES__
+__RGB_DB_TYPE__ files containing color name to RGB mapping.
+.PD
+.SH SEE ALSO
+.BR cat (1),
+.BR __RGB_DB_TYPE__ (3)

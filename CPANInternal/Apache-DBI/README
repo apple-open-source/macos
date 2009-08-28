@@ -1,12 +1,7 @@
-#-------------------------------------------------------
-# $Id: README,v 1.1.1.1 2004/05/25 23:07:10 jpetri Exp $
-#-------------------------------------------------------
-
-
 DESCRIPTION:
 ------------
 
-This is version 0.93 of Apache::AuthDBI and Apache::DBI.
+This is version 1.06 of Apache::AuthDBI and Apache::DBI.
 
 These modules are supposed to be used with the Apache server together with 
 an embedded perl interpreter like mod_perl. They provide support for basic 
@@ -31,16 +26,14 @@ modules.  It can be considered stable.
 RECENT CHANGES:
 ---------------
 
- - This or one of the next versions are likely to be renamed to 1.00!
-
   See the Changes file for more detail
 
 
 DEVELOPMENT:
 ------------
 
-Apache::DBI is in CVS at perl.org; see
-http://cvs.perl.org/info?module=Apache/DBI/
+Apache::DBI is in svn at perl.org; see
+http://svn.perl.org/modules/Apache-DBI
 
 
 EXAMPLES:
@@ -231,13 +224,15 @@ License or the Artistic License, as specified in the Perl README file.
 PREREQUISITES:
 --------------
 
-Configure mod_perl with: 
+Configure mod_perl1 with: 
 
   perl Makefile.PL PERL_CHILD_INIT=1 PERL_AUTHEN=1 PERL_AUTHZ=1 
                    PERL_CLEANUP=1 PERL_STACKED_HANDLERS=1
 
 If there are no security reasons to limit the API, just use EVERYTHING=1. 
 
+mod_perl2 RC5 and higher should work with Apache::DBI 0.96 and higher.
+No specific switches must be passed to mod_perl2's Makefile.PL.
 
 INSTALLATION:
 -------------
@@ -272,7 +267,6 @@ If this doesn't help, please send an email to <modperl@apache.org> and include
 the following information in your bug-report:
 
  - debug output,
- - output of perl -v,
  - output of perl -V,
  - version of ApacheDBI,
  - version of DBI,
@@ -310,7 +304,7 @@ DBI      by Tim Bunce       dbi-users-subscribe@perl.org
                             http://dbi.perl.org/
 
 Apache   by Apache Group    news:comp.infosystems.www.servers.unix
-			    users-subscribe@httpd.apache.org
+                            users-subscribe@httpd.apache.org
                             http://httpd.apache.org/
 
 
@@ -318,6 +312,6 @@ Apache   by Apache Group    news:comp.infosystems.www.servers.unix
 
    Edmund Mergl <E.Mergl@bawue.de>
    Ask Bjoern Hansen <ask@develooper.com>
-
+   Philip M. Gollucci <pgollucci@p6m7g8.com>
 
 ---------------------------------------------------------------------------

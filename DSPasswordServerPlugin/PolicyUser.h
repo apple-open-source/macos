@@ -31,6 +31,7 @@
 	unsigned long mWarnOfDisableMinutes;
 	time_t mProjectedPasswordExpireDate;
 	time_t mProjectedAccountDisableDate;
+	time_t mModDateOfPassword;
 }
 
 -(void)getPolicy:(PWAccessFeatures *)outPolicy extraPolicy:(PWMoreAccessFeatures *)outExtraPolicy;

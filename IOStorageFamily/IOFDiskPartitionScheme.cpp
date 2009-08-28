@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,7 +30,7 @@
 #define super IOPartitionScheme
 OSDefineMetaClassAndStructors(IOFDiskPartitionScheme, IOPartitionScheme);
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+//
 // Notes
 //
 // o the on-disk structure's fields are little-endian formatted
@@ -46,11 +46,7 @@ OSDefineMetaClassAndStructors(IOFDiskPartitionScheme, IOPartitionScheme);
 // o there should be no more than one extended partition defined per FDisk map
 //
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 #define kIOFDiskPartitionSchemeContentTable "Content Table"
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 bool IOFDiskPartitionScheme::init(OSDictionary * properties)
 {
@@ -74,8 +70,6 @@ bool IOFDiskPartitionScheme::init(OSDictionary * properties)
     return true;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 void IOFDiskPartitionScheme::free()
 {
     //
@@ -86,8 +80,6 @@ void IOFDiskPartitionScheme::free()
 
     super::free();
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IOService * IOFDiskPartitionScheme::probe(IOService * provider, SInt32 * score)
 {
@@ -119,8 +111,6 @@ IOService * IOFDiskPartitionScheme::probe(IOService * provider, SInt32 * score)
 
     return ( _partitions ) ? this : 0;
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 bool IOFDiskPartitionScheme::start(IOService * provider)
 {
@@ -159,8 +149,6 @@ bool IOFDiskPartitionScheme::start(IOService * provider)
     return true;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 void IOFDiskPartitionScheme::stop(IOService * provider)
 {
     //
@@ -190,8 +178,6 @@ void IOFDiskPartitionScheme::stop(IOService * provider)
 
     super::stop(provider);
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IOReturn IOFDiskPartitionScheme::requestProbe(IOOptionBits options)
 {
@@ -228,8 +214,6 @@ IOReturn IOFDiskPartitionScheme::requestProbe(IOOptionBits options)
 
     return partitions ? kIOReturnSuccess : kIOReturnError;
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 OSSet * IOFDiskPartitionScheme::scan(SInt32 * score)
 {
@@ -391,8 +375,6 @@ scanErr:
     return 0;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 bool IOFDiskPartitionScheme::isPartitionExtended(fdisk_part * partition)
 {
     //
@@ -404,8 +386,6 @@ bool IOFDiskPartitionScheme::isPartitionExtended(fdisk_part * partition)
              partition->systid == 0x85 );
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 bool IOFDiskPartitionScheme::isPartitionUsed(fdisk_part * partition)
 {
     //
@@ -414,8 +394,6 @@ bool IOFDiskPartitionScheme::isPartitionUsed(fdisk_part * partition)
 
     return ( partition->systid != 0 && partition->numsect != 0 );
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 bool IOFDiskPartitionScheme::isPartitionCorrupt( fdisk_part * partition,
                                                  UInt32       partitionID,
@@ -433,8 +411,6 @@ bool IOFDiskPartitionScheme::isPartitionCorrupt( fdisk_part * partition,
 
     return false;
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 bool IOFDiskPartitionScheme::isPartitionInvalid( fdisk_part * partition,
                                                  UInt32       partitionID,
@@ -469,8 +445,6 @@ bool IOFDiskPartitionScheme::isPartitionInvalid( fdisk_part * partition,
     return false;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 IOMedia * IOFDiskPartitionScheme::instantiateMediaObject(
                                                      fdisk_part * partition,
                                                      UInt32       partitionID,
@@ -502,16 +476,19 @@ IOMedia * IOFDiskPartitionScheme::instantiateMediaObject(
 
     // Look up a type for the new partition.
 
+    char hintIndex[5];
+
+    snprintf(hintIndex, sizeof(hintIndex), "0x%02X", partition->systid & 0xFF);
+
+    partitionHint = hintIndex;
+
     OSDictionary * hintTable = OSDynamicCast( 
               /* type     */ OSDictionary,
               /* instance */ getProperty(kIOFDiskPartitionSchemeContentTable) );
 
     if ( hintTable )
     {
-        char       hintIndex[5];
         OSString * hintValue;
-
-        snprintf(hintIndex, sizeof(hintIndex), "0x%02X", partition->systid & 0xFF);
 
         hintValue = OSDynamicCast(OSString, hintTable->getObject(hintIndex));
 
@@ -539,13 +516,13 @@ IOMedia * IOFDiskPartitionScheme::instantiateMediaObject(
             // Set a name for this partition.
 
             char name[24];
-            snprintf(name, sizeof(name), "Untitled %ld", partitionID);
+            snprintf(name, sizeof(name), "Untitled %d", (int) partitionID);
             newMedia->setName(name);
 
             // Set a location value (the partition number) for this partition.
 
             char location[12];
-            snprintf(location, sizeof(location), "%ld", partitionID);
+            snprintf(location, sizeof(location), "%d", (int) partitionID);
             newMedia->setLocation(location);
 
             // Set the "Partition ID" key for this partition.
@@ -562,8 +539,6 @@ IOMedia * IOFDiskPartitionScheme::instantiateMediaObject(
     return newMedia;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 IOMedia * IOFDiskPartitionScheme::instantiateDesiredMediaObject(
                                                      fdisk_part * partition,
                                                      UInt32       partitionID,
@@ -576,8 +551,7 @@ IOMedia * IOFDiskPartitionScheme::instantiateDesiredMediaObject(
     return new IOMedia;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
+#ifndef __LP64__
 bool IOFDiskPartitionScheme::attachMediaObjectToDeviceTree(IOMedia * media)
 {
     //
@@ -587,10 +561,6 @@ bool IOFDiskPartitionScheme::attachMediaObjectToDeviceTree(IOMedia * media)
     return super::attachMediaObjectToDeviceTree(media);
 }
 
-OSMetaClassDefineReservedUsed(IOFDiskPartitionScheme, 0);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 void IOFDiskPartitionScheme::detachMediaObjectFromDeviceTree(IOMedia * media)
 {
     //
@@ -599,61 +569,26 @@ void IOFDiskPartitionScheme::detachMediaObjectFromDeviceTree(IOMedia * media)
 
     super::detachMediaObjectFromDeviceTree(media);
 }
+#endif /* !__LP64__ */
 
-OSMetaClassDefineReservedUsed(IOFDiskPartitionScheme, 1);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOFDiskPartitionScheme, 2);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOFDiskPartitionScheme, 3);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOFDiskPartitionScheme, 4);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOFDiskPartitionScheme, 5);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOFDiskPartitionScheme, 6);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOFDiskPartitionScheme, 7);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOFDiskPartitionScheme, 8);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOFDiskPartitionScheme, 9);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
+#ifdef __LP64__
+OSMetaClassDefineReservedUnused(IOFDiskPartitionScheme,  0);
+OSMetaClassDefineReservedUnused(IOFDiskPartitionScheme,  1);
+#else /* !__LP64__ */
+OSMetaClassDefineReservedUsed(IOFDiskPartitionScheme,  0);
+OSMetaClassDefineReservedUsed(IOFDiskPartitionScheme,  1);
+#endif /* !__LP64__ */
+OSMetaClassDefineReservedUnused(IOFDiskPartitionScheme,  2);
+OSMetaClassDefineReservedUnused(IOFDiskPartitionScheme,  3);
+OSMetaClassDefineReservedUnused(IOFDiskPartitionScheme,  4);
+OSMetaClassDefineReservedUnused(IOFDiskPartitionScheme,  5);
+OSMetaClassDefineReservedUnused(IOFDiskPartitionScheme,  6);
+OSMetaClassDefineReservedUnused(IOFDiskPartitionScheme,  7);
+OSMetaClassDefineReservedUnused(IOFDiskPartitionScheme,  8);
+OSMetaClassDefineReservedUnused(IOFDiskPartitionScheme,  9);
 OSMetaClassDefineReservedUnused(IOFDiskPartitionScheme, 10);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFDiskPartitionScheme, 11);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFDiskPartitionScheme, 12);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFDiskPartitionScheme, 13);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFDiskPartitionScheme, 14);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFDiskPartitionScheme, 15);

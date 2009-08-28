@@ -1,0 +1,14 @@
+
+		Tcl Data transformations (Tcl-Trf)
+		(Version 2.1.3 / DEC-06-2008)
+
+		Andreas Kupries	(a.kupries@westend.com)
+
+This is the README file for the Macintosh version of the Tcl-Trf package.
+
+
+	I don't have a Mac, nor do I have access one. Because
+	of this I am unable to provide a Mac port of this
+	extension.  I will most happily integrate any required
+	changes, makefiles, et cetera into the distribution,
+	if they are send to me (a.kupries@westend.com).

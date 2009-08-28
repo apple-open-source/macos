@@ -1,4 +1,6 @@
-/* $Id: remoteconf.h,v 1.19.2.1 2005/05/20 00:37:42 manubsd Exp $ */
+/*	$NetBSD: remoteconf.h,v 1.7 2006/10/03 08:01:56 vanhu Exp $	*/
+
+/* Id: remoteconf.h,v 1.26 2006/05/06 15:52:44 manubsd Exp */
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -36,10 +38,15 @@
 
 #include <sys/queue.h>
 #include "genlist.h"
+#ifdef ENABLE_HYBRID
+#include "isakmp_var.h"
+#include "isakmp_xauth.h"
+#endif
 #ifdef __APPLE__
 #include <CoreFoundation/CFData.h>
 #endif
 #include "algorithm.h"
+
 
 struct proposalspec {
 	time_t lifetime;		/* for isakmp/ipsec */
@@ -75,12 +82,18 @@ struct etypes {
 	struct etypes *next;
 };
 
+enum {
+    DPD_ALGO_DEFAULT = 0,
+    DPD_ALGO_INBOUND_DETECT,
+    DPD_ALGO_BLACKHOLE_DETECT,
+    DPD_ALGO_MAX,
+};
+
 /* Script hooks */
 #define SCRIPT_PHASE1_UP	0
 #define SCRIPT_PHASE1_DOWN	1
 #define SCRIPT_MAX		1
 extern char *script_names[SCRIPT_MAX + 1];
-extern vchar_t *script_paths;
 
 struct remoteconf {
 	struct sockaddr *remote;	/* remote IP address */
@@ -127,14 +140,18 @@ struct remoteconf {
 	int esp_frag;			/* ESP fragmentation */
 	int mode_cfg;			/* Gets config through mode config */
 	int support_proxy;		/* support mip6/proxy */
+#define GENERATE_POLICY_NONE   0
+#define GENERATE_POLICY_REQUIRE        1
+#define GENERATE_POLICY_UNIQUE 2
 	int gen_policy;			/* generate policy if no policy found */
 	int ini_contact;		/* initial contact */
 	int pcheck_level;		/* level of propocl checking */
 	int nat_traversal;		/* NAT-Traversal */
 #ifdef __APPLE__
 	int natt_multiple_user; /* special handling of multiple users behind a nat - for VPN server */
+	int natt_keepalive;		/* do we need to send natt keep alive */
 #endif
-	int script[SCRIPT_MAX + 1];	/* script hooks index in script_paths */
+	vchar_t *script[SCRIPT_MAX + 1];	/* script hooks paths */
 	int dh_group;			/* use it when only aggressive mode */
 	struct dhgroup *dhgrp;		/* use it when only aggressive mode */
 					/* above two can't be defined by user*/
@@ -146,7 +163,14 @@ struct remoteconf {
 	int dpd;				/* Negociate DPD support ? */
 	int dpd_retry;			/* in seconds */
 	int dpd_interval;		/* in seconds */
-	int dpd_maxfails; 
+	int dpd_maxfails;
+    int dpd_algo;
+    int idle_timeout;       /* in seconds */
+    int idle_timeout_dir;   /* direction to check */
+	
+	int ph1id; /* ph1id to be matched with sainfo sections */
+
+	int weak_phase1_check;		/* act on unencrypted deletions ? */
 
 	struct isakmpsa *proposal;	/* proposal list */
 	struct remoteconf *inherited_from;	/* the original rmconf 
@@ -156,6 +180,18 @@ struct remoteconf {
 
 	struct genlist	*rsa_private,	/* lists of PlainRSA keys to use */
 			*rsa_public;
+
+#ifdef ENABLE_HYBRID
+	struct xauth_rmconf *xauth;
+#endif
+	int initiate_ph1rekey;
+
+#ifdef __APPLE__
+	int    to_remove;
+	int    to_delete;
+	int    linked_to_ph1;
+#endif
+
 	TAILQ_ENTRY(remoteconf) chain;	/* next remote conf */
 };
 
@@ -192,6 +228,12 @@ typedef struct remoteconf * (rmconf_func_t)(struct remoteconf *rmconf, void *dat
 extern struct remoteconf *getrmconf __P((struct sockaddr *));
 extern struct remoteconf *getrmconf_strict
 	__P((struct sockaddr *remote, int allow_anon));
+
+#ifdef __APPLE__
+extern int link_rmconf_to_ph1 __P((struct remoteconf *));
+extern int unlink_rmconf_from_ph1 __P((struct remoteconf *));
+#endif
+extern int no_remote_configs __P((void));
 extern struct remoteconf *copyrmconf __P((struct sockaddr *));
 extern struct remoteconf *newrmconf __P((void));
 extern struct remoteconf *duprmconf __P((struct remoteconf *));
@@ -217,7 +259,7 @@ extern void dumprmconf __P((void));
 
 extern struct idspec *newidspec __P((void));
 
-extern int script_path_add __P((vchar_t *));
+extern vchar_t *script_path_add __P((vchar_t *));
 
 extern void rsa_key_free __P((void *entry));
 

@@ -2,8 +2,8 @@
 
   signal.c -
 
-  $Author: shyouhei $
-  $Date: 2008-06-29 16:52:47 +0900 (Sun, 29 Jun 2008) $
+  $Author: knu $
+  $Date: 2008-06-06 19:39:57 +0900 (Fri, 06 Jun 2008) $
   created at: Tue Dec 20 10:13:44 JST 1994
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -36,7 +36,7 @@
 #endif
 
 static struct signals {
-    char *signm;
+    const char *signm;
     int  signo;
 } siglist [] = {
     {"EXIT", 0},
@@ -186,7 +186,7 @@ signm2signo(nm)
     return 0;
 }
 
-static char*
+static const char*
 signo2signm(no)
     int no;
 {
@@ -270,14 +270,17 @@ esignal_init(argc, argv, self)
 }
 
 static VALUE
-interrupt_init(self, mesg)
-    VALUE self, mesg;
+interrupt_init(argc, argv, self)
+    int argc;
+    VALUE *argv;
+    VALUE self;
 {
-    VALUE argv[2];
+    VALUE args[2];
 
-    argv[0] = INT2FIX(SIGINT);
-    argv[1] = mesg;
-    return rb_call_super(2, argv);
+    args[0] = INT2FIX(SIGINT);
+    rb_scan_args(argc, argv, "01", &args[1]);
+
+    return rb_call_super(2, args);
 }
 
 void
@@ -324,7 +327,7 @@ rb_f_kill(argc, argv)
     int negative = 0;
     int sig;
     int i;
-    char *s;
+    const char *s;
 
     rb_secure(2);
     if (argc < 2)
@@ -626,6 +629,8 @@ sigsegv(sig)
     }
 #endif
 
+    extern int ruby_gc_stress;
+    ruby_gc_stress = 0;
     rb_bug("Segmentation fault");
 }
 #endif
@@ -680,11 +685,13 @@ struct trap_arg {
     VALUE sig, cmd;
 };
 
+#if USE_TRAP_MASK
 # ifdef HAVE_SIGPROCMASK
 static sigset_t trap_last_mask;
 # else
 static int trap_last_mask;
 # endif
+#endif
 
 static RETSIGTYPE sigexit _((int));
 static RETSIGTYPE
@@ -701,7 +708,7 @@ trap(arg)
     sighandler_t func, oldfunc;
     VALUE command, oldcmd;
     int sig = -1;
-    char *s;
+    const char *s;
 
     func = sighandler;
     command = arg->cmd;
@@ -986,6 +993,7 @@ install_nativethread_sighandler(signum, handler)
 #endif
 #endif
 
+#if defined(SIGCLD) || defined(SIGCHLD)
 static void
 init_sigchld(sig)
     int sig;
@@ -1027,6 +1035,7 @@ init_sigchld(sig)
     trap_last_mask = mask;
 #endif
 }
+#endif
 
 /*
  * Many operating systems allow signals to be sent to running
@@ -1078,7 +1087,7 @@ Init_signal()
     rb_define_method(rb_eSignal, "initialize", esignal_init, -1);
     rb_attr(rb_eSignal, rb_intern("signo"), 1, 0, 0);
     rb_alias(rb_eSignal, rb_intern("signm"), rb_intern("message"));
-    rb_define_method(rb_eInterrupt, "initialize", interrupt_init, 1);
+    rb_define_method(rb_eInterrupt, "initialize", interrupt_init, -1);
 
     install_sighandler(SIGINT, sighandler);
 #ifdef SIGHUP

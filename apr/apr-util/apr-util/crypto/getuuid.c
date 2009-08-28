@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -102,7 +102,7 @@ static void get_random_info(unsigned char node[NODE_LENGTH])
 static void get_pseudo_node_identifier(unsigned char *node)
 {
     get_random_info(node);
-    node[0] |= 0x01;                    /* this designates a random node ID */
+    node[0] |= 0x01;                    /* this designates a random multicast node ID */
 }
 
 static void get_system_time(apr_uint64_t *uuid_time)
@@ -131,7 +131,7 @@ static int true_random(void)
 
     /* crap. this isn't crypto quality, but it will be Good Enough */
 
-    get_system_time(&time_now);
+    time_now = apr_time_now();
     srand((unsigned int)(((time_now >> 32) ^ time_now) & 0xffffffff));
 
     return rand() & 0x0FFFF;
@@ -147,11 +147,11 @@ static void get_current_time(apr_uint64_t *timestamp)
 {
     /* ### this needs to be made thread-safe! */
 
-    apr_time_t time_now;
-    static apr_interval_time_t time_last = 0;
-    static apr_interval_time_t fudge = 0;
+    apr_uint64_t time_now;
+    static apr_uint64_t time_last = 0;
+    static apr_uint64_t fudge = 0;
 
-    time_now = apr_time_now();
+    get_system_time(&time_now);
         
     /* if clock reading changed since last UUID generated... */
     if (time_last != time_now) {
@@ -188,17 +188,21 @@ APU_DECLARE(void) apr_uuid_get(apr_uuid_t *uuid)
 
     get_current_time(&timestamp);
 
-    d[0] = (unsigned char)timestamp;
-    d[1] = (unsigned char)(timestamp >> 8);
-    d[2] = (unsigned char)(timestamp >> 16);
-    d[3] = (unsigned char)(timestamp >> 24);
-    d[4] = (unsigned char)(timestamp >> 32);
-    d[5] = (unsigned char)(timestamp >> 40);
-    d[6] = (unsigned char)(timestamp >> 48);
-    d[7] = (unsigned char)(((timestamp >> 56) & 0x0F) | 0x10);
-
+    /* time_low, uint32 */
+    d[3] = (unsigned char)timestamp;
+    d[2] = (unsigned char)(timestamp >> 8);
+    d[1] = (unsigned char)(timestamp >> 16);
+    d[0] = (unsigned char)(timestamp >> 24);
+    /* time_mid, uint16 */
+    d[5] = (unsigned char)(timestamp >> 32);
+    d[4] = (unsigned char)(timestamp >> 40);
+    /* time_hi_and_version, uint16 */
+    d[7] = (unsigned char)(timestamp >> 48);
+    d[6] = (unsigned char)(((timestamp >> 56) & 0x0F) | 0x10);
+    /* clock_seq_hi_and_reserved, uint8 */
     d[8] = (unsigned char)(((uuid_state_seqnum >> 8) & 0x3F) | 0x80);
+    /* clock_seq_low, uint8 */
     d[9] = (unsigned char)uuid_state_seqnum;
-
+    /* node, byte[6] */
     memcpy(&d[10], uuid_state_node, NODE_LENGTH);
 }

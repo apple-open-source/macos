@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2006, International Business Machines Corporation and
+ * Copyright (c) 1997-2007, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
  
@@ -50,7 +50,7 @@ class NumberFormatTest: public CalendarTimeZoneTest {
     /**
      * API coverage for DigitList
      **/
-    void TestDigitList(void);
+    //void TestDigitList(void);
     
     /**
      * Test localized currency patterns.
@@ -123,7 +123,18 @@ class NumberFormatTest: public CalendarTimeZoneTest {
 
     void TestHost(void);
 
+    void TestHostClone(void);
+
     void TestCurrencyFormat(void);
+    
+    /* Port of ICU4J rounding test. */
+    void TestRounding(void);
+
+    void TestNonpositiveMultiplier(void);
+	
+	void TestLenientParse(void);
+	void TestSpaceParsing(void);
+	
  private:
 
     static UBool equalValue(const Formattable& a, const Formattable& b);
@@ -202,6 +213,11 @@ class NumberFormatTest: public CalendarTimeZoneTest {
 
     // internal subtest used by TestRounding487
     void roundingTest(NumberFormat& nf, double x, int32_t maxFractionDigits, const char* expected);
+    
+    // internal rounding checking for TestRounding
+    void checkRounding(DecimalFormat* df, double base, int iterations, double increment);
+    
+    double checkRound(DecimalFormat* df, double iValue, double lastParsed);
 };
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

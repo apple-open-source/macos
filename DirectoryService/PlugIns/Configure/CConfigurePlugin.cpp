@@ -34,10 +34,12 @@
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <Security/Authorization.h>
 #include <Kerberos/Kerberos.h>
+#include <CoreFoundation/CFPriv.h>
 
 #include "DirServices.h"
 #include "DirServicesUtils.h"
 #include "DirServicesConst.h"
+#include "DirServicesConstPriv.h"
 
 #include "SharedConsts.h"
 #include "CSharedData.h"
@@ -74,7 +76,10 @@ extern	CPlugInList		*gPlugins;
 extern  CPluginConfig   *gPluginConfig;
 extern  const char		*gStrDaemonBuildVersion;
 extern  DSMutexSemaphore    *gKerberosMutex;
-extern	CRefTable			*gRefTable;
+extern	CRefTable			gRefTable;
+extern	bool			gServerOS;
+extern	bool			gCacheFlushDisabled;
+extern	CCachePlugin	*gCacheNode;
 
 struct sConfigContinueData
 {
@@ -82,6 +87,7 @@ struct sConfigContinueData
 	UInt32				fRecTypeIndex;
 	UInt32				fAllRecIndex;
 	UInt32				fAttrIndex;
+	vector<tClientDetails> *fRefTable;
     gss_ctx_id_t		gssContext;
     gss_cred_id_t		gssCredentials;
     gss_name_t			gssServicePrincipal; // e.g., "ldap/host@REALM"
@@ -101,6 +107,7 @@ struct sConfigContinueData
         gssClientPrincipal = NULL;
         gssFinished = false;
         exportContext = 0;
+		fRefTable = NULL;
     }
     
     ~sConfigContinueData( void )
@@ -108,6 +115,8 @@ struct sConfigContinueData
         OM_uint32           minorStatus     = 0;
 		
         gKerberosMutex->WaitLock();
+		
+		DSDelete( fRefTable );
         
         if( gssServicePrincipal != NULL )
             gss_release_name( &minorStatus, &gssServicePrincipal );
@@ -175,6 +184,7 @@ static const char *sAttrTypes[  ] =
 	kDS1AttrHomeDirectoryQuota,
 	kDS1AttrHomeDirectorySoftQuota,
 	kDS1AttrHomeLocOwner,
+	kDS1AttrHardwareUUID,
 	kDS1AttrInternetAlias,
 	kDS1AttrKDCConfigData,
 	kDS1AttrLastName,
@@ -250,6 +260,7 @@ static const char *sAttrTypes[  ] =
 	kDSNAttrAddressLine1,
 	kDSNAttrAddressLine2,
 	kDSNAttrAddressLine3,
+	kDSNAttrAltSecurityIdentities,
 	kDSNAttrAreaCode,
 	kDSNAttrAuthenticationAuthority,
 	kDSNAttrAutomountInformation,
@@ -280,6 +291,7 @@ static const char *sAttrTypes[  ] =
 	kDSNAttrJPEGPhoto,
 	kDSNAttrJobTitle,
 	kDSNAttrKDCAuthKey,
+	kDSNAttrKerberosServices,
 	kDSNAttrKeywords,
 	kDSNAttrLDAPReadReplicas,
 	kDSNAttrLDAPWriteReplicas,
@@ -298,6 +310,7 @@ static const char *sAttrTypes[  ] =
 	// The following will not published in DirServicesConst.h, but are here so that nodes know they exist
 	"dsAttrTypeStandard:OLCDatabaseIndex",
 	"dsAttrTypeStandard:OLCDatabase",
+	"dsAttrTypeStandard:OLCSyncRepl",
 	// end special types
 	kDSNAttrOrganizationInfo,
 	kDSNAttrOrganizationName,
@@ -369,6 +382,7 @@ static const char* sRecTypes[] =
 	"dsRecTypeStandard:OLCGlobalConfig",
 	"dsRecTypeStandard:OLCOverlayDynamicID",	
 	"dsRecTypeStandard:OLCSchemaConfig",
+	"dsRecTypeStandard:OLCLDIFConfig",
 	// end special types
 	kDSStdRecordTypePasswordServer,
 	kDSStdRecordTypePeople,
@@ -441,7 +455,8 @@ static const char* sRecTypeAttributes[][82] =
 	  kDS1AttrSMBPWDLastSet, kDS1AttrSMBLogonTime, kDS1AttrSMBLogoffTime, 
 	  kDS1AttrSMBKickoffTime, kDS1AttrSMBRID, kDS1AttrSMBGroupRID, kDS1AttrSMBSID,
 	  kDS1AttrSMBPrimaryGroupSID, kDS1AttrTimeToLive, kDSNAttrURL, kDS1AttrXMLPlist, 
-	  kDSNAttrIPAddress, kDSNAttrIPv6Address, kDSNAttrIPAddressAndENetAddress, NULL },
+	  kDSNAttrIPAddress, kDSNAttrIPv6Address, kDSNAttrIPAddressAndENetAddress, kDSNAttrKerberosServices, 
+	  kDSNAttrAltSecurityIdentities, kDS1AttrHardwareUUID, NULL },
 	// kDSStdRecordTypeConfig
 	{ kDSNAttrRecordName, kDS1AttrDistinguishedName, kDS1AttrComment,
 	  kDS1AttrDataStamp, kDSNAttrKDCAuthKey, kDS1AttrKDCConfigData,
@@ -510,6 +525,8 @@ static const char* sRecTypeAttributes[][82] =
 	{ kDSNAttrRecordName, NULL },
 	// dsRecTypeStandard:OLCSchemaConfig
 	{ kDSNAttrRecordName, NULL },
+	// dsRecTypeStandard:OLCLDIFConfig
+	{ kDSNAttrRecordName, "dsAttrTypeStandard:OLCDatabase", "dsAttrTypeStandard:OLCSyncRepl", NULL },
 	// kDSStdRecordTypePasswordServer
 	{ kDSNAttrRecordName, NULL },
 	// kDSStdRecordTypePeople
@@ -601,12 +618,11 @@ static const char* sRecTypeAttributes[][82] =
 	  kDS1AttrUserPKCS12Data, kDS1AttrUserSMIMECertificate, kDSNAttrJPEGPhoto,
 	  kDS1AttrBirthday,  kDSNAttrRelationships, kDSNAttrPhoneContacts, kDSNAttrEMailContacts, 
 	  kDSNAttrPostalAddressContacts, kDSNAttrMapCoordinates, kDS1AttrMapGUID, kDSNAttrMapURI,
-	  kDSNAttrOrganizationInfo, kDSNAttrServicesLocator, kDS1AttrXMLPlist, NULL },
+	  kDSNAttrOrganizationInfo, kDSNAttrServicesLocator, kDS1AttrXMLPlist, kDSNAttrAltSecurityIdentities, NULL },
 	// kDSStdRecordTypeWebServer
 	{ kDSNAttrRecordName, NULL },
-	NULL
+	{ NULL, NULL }
 };
-
 
 char *CopyComponentBuildVersion( const char *inVersionPlistFilePath, const char *inDictionaryKey, UInt32 inMaxStringSize);
 char *CopyComponentBuildVersion( const char *inVersionPlistFilePath, const char *inDictionaryKey, UInt32 inMaxStringSize)
@@ -703,7 +719,7 @@ CConfigurePlugin::CConfigurePlugin ( FourCharCode inSig, const char *inName ) : 
 
 	if ( gConfigContinue == nil )
 	{
-		gConfigContinue = new CContinue( CConfigurePlugin::ContinueDeallocProc, 16 );
+		gConfigContinue = new CContinue( CConfigurePlugin::ContinueDeallocProc );
 		if ( gConfigContinue == nil ) throw((SInt32)eMemoryAllocError);
 	}
 } // CConfigurePlugin
@@ -969,7 +985,7 @@ SInt32 CConfigurePlugin::ReleaseContinueData ( sReleaseContinueData *inData )
 	SInt32	siResult	= eDSNoErr;
 
 	// RemoveItem calls our ContinueDeallocProc to clean up
-	if ( gConfigContinue->RemoveItem( inData->fInContinueData ) != eDSNoErr )
+	if ( gConfigContinue->RemoveContext( inData->fInContinueData ) != eDSNoErr )
 	{
 		siResult = eDSInvalidContext;
 	}
@@ -1009,8 +1025,7 @@ SInt32 CConfigurePlugin::OpenDirNode ( sOpenDirNode *inData )
 					gConfigNodeRef->AddItem( inData->fOutNodeRef, pContext );
 				}
 
-				delete( pathStr );
-				pathStr = nil;
+				DSFree( pathStr );
 			}
 		}
 
@@ -1040,7 +1055,7 @@ SInt32 CConfigurePlugin::CloseDirNode ( sCloseDirNode *inData )
 		if ( pContext == nil ) throw( (SInt32)eDSInvalidNodeRef );
 
 		gConfigNodeRef->RemoveItem( inData->fInNodeRef );
-		gConfigContinue->RemoveItems( inData->fInNodeRef );
+		gConfigContinue->RemovePointersForRefNum( inData->fInNodeRef );
 	}
 
 	catch( SInt32 err )
@@ -1073,6 +1088,7 @@ SInt32 CConfigurePlugin::GetDirNodeInfo ( sGetDirNodeInfo *inData )
 	CDataBuff		   *aAttrData		= nil;
 	CDataBuff		   *aTmpData		= nil;
 	SInt32				buffResult		= eDSNoErr;
+	CFDictionaryRef		versionDict		= NULL;
 
 // Can extract here the following:
 // kDS1AttrENetAddress
@@ -1116,8 +1132,67 @@ SInt32 CConfigurePlugin::GetDirNodeInfo ( sGetDirNodeInfo *inData )
 		while ( inAttrList->GetAttribute( uiCntr++, &pAttrName ) == eDSNoErr )
 		{
 			//package up all the dir node attributes dependant upon what was asked for
+			bool bAllAttrs = (strcmp(pAttrName, kDSAttributesAll) == 0);
 			
-			if ( (::strcmp( pAttrName, kDSAttributesAll ) == 0) || 
+			if ( bAllAttrs == true || 
+				 strcmp(pAttrName, kDS1AttrOperatingSystem) == 0 )
+			{
+				// get the Server version dictionary if it exists
+				if ( versionDict == NULL )
+					versionDict = _CFCopyServerVersionDictionary();
+				
+				// get the System version dictionary
+				if ( versionDict == NULL )
+					versionDict = _CFCopySystemVersionDictionary();
+				
+				if ( versionDict != NULL ) {
+					
+					CFStringRef productName = (CFStringRef) CFDictionaryGetValue( versionDict, _kCFSystemVersionProductNameKey );
+					if ( productName != NULL ) {
+						char *tmpStr = NULL;
+						const char *productNameStr = BaseDirectoryPlugin::GetCStringFromCFString( productName, &tmpStr );
+						
+						if ( productNameStr != NULL ) {
+							uiAttrCnt++;
+							buffResult = dsCDataBuffFromAttrTypeAndStringValue( aAttrData, aTmpData, inData->fInAttrInfoOnly, kDS1AttrOperatingSystem, 
+																			    productNameStr );
+						}
+						
+						DSFree( tmpStr );
+					}
+				}
+			}
+			
+			if ( bAllAttrs == true || 
+				 strcmp(pAttrName, kDS1AttrOperatingSystemVersion) == 0 )
+			{
+				// get the Server version dictionary if it exists
+				if ( versionDict == NULL )
+					versionDict = _CFCopyServerVersionDictionary();
+				
+				// get the System version dictionary
+				if ( versionDict == NULL )
+					versionDict = _CFCopySystemVersionDictionary();
+				
+				if ( versionDict != NULL ) {
+					
+					CFStringRef productVersion = (CFStringRef) CFDictionaryGetValue( versionDict, _kCFSystemVersionProductVersionKey );
+					if ( productVersion != NULL ) {
+						char *tmpStr = NULL;
+						const char *productVersionStr = BaseDirectoryPlugin::GetCStringFromCFString( productVersion, &tmpStr );
+						
+						if ( productVersionStr != NULL ) {
+							uiAttrCnt++;
+							buffResult = dsCDataBuffFromAttrTypeAndStringValue( aAttrData, aTmpData, inData->fInAttrInfoOnly, 
+																			    kDS1AttrOperatingSystemVersion, productVersionStr );
+						}
+						
+						DSFree( tmpStr );
+					}
+				}
+			}
+			
+			if ( bAllAttrs == true || 
 				 (::strcmp( pAttrName, kDS1AttrReadOnlyNode ) == 0) )
 			{
 				uiAttrCnt++;
@@ -1127,7 +1202,7 @@ SInt32 CConfigurePlugin::GetDirNodeInfo ( sGetDirNodeInfo *inData )
 				buffResult = dsCDataBuffFromAttrTypeAndStringValue( aAttrData, aTmpData, inData->fInAttrInfoOnly, kDS1AttrReadOnlyNode, "ReadOnly" );
 			}
 
-			if ( (::strcmp( pAttrName, kDSAttributesAll ) == 0) || 
+			if ( bAllAttrs == true || 
 				 (::strcmp( pAttrName, kDS1AttrENetAddress ) == 0) )
 			{
 				uiAttrCnt++;
@@ -1153,8 +1228,8 @@ SInt32 CConfigurePlugin::GetDirNodeInfo ( sGetDirNodeInfo *inData )
 				
 				DSFreeString(stringValue);
 			}
-
-			if ( (::strcmp( pAttrName, kDSAttributesAll ) == 0) || 
+			
+			if ( bAllAttrs == true || 
 				 (::strcmp( pAttrName, kDSNAttrIPAddress ) == 0) )
 			{
 				uiAttrCnt++;
@@ -1175,7 +1250,7 @@ SInt32 CConfigurePlugin::GetDirNodeInfo ( sGetDirNodeInfo *inData )
 				buffResult = dsCDataBuffFromAttrTypeAndStringValue( aAttrData, aTmpData, inData->fInAttrInfoOnly, kDSNAttrIPAddress, ipAddressString );
 			}
 
-			if ( (::strcmp( pAttrName, kDSAttributesAll ) == 0) || 
+			if ( bAllAttrs == true || 
 				 (::strcmp( pAttrName, kDS1AttrBuildVersion ) == 0) )
 			{
 				uiAttrCnt++;
@@ -1191,7 +1266,7 @@ SInt32 CConfigurePlugin::GetDirNodeInfo ( sGetDirNodeInfo *inData )
 				buffResult = dsCDataBuffFromAttrTypeAndStringValue( aAttrData, aTmpData, inData->fInAttrInfoOnly, kDS1AttrBuildVersion, buildVersion );
 			}
 
-			if ( (::strcmp( pAttrName, kDSAttributesAll ) == 0) || 
+			if ( bAllAttrs == true || 
 				 (::strcmp( pAttrName, kDS1AttrFWVersion ) == 0) )
 			{
 				uiAttrCnt++;
@@ -1211,7 +1286,7 @@ SInt32 CConfigurePlugin::GetDirNodeInfo ( sGetDirNodeInfo *inData )
 				DSFreeString(buildVersion);
 			}
 
-			if ( (::strcmp( pAttrName, kDSAttributesAll ) == 0) || 
+			if ( bAllAttrs == true || 
 				 (::strcmp( pAttrName, kDS1AttrCoreFWVersion ) == 0) )
 			{
 				uiAttrCnt++;
@@ -1231,7 +1306,7 @@ SInt32 CConfigurePlugin::GetDirNodeInfo ( sGetDirNodeInfo *inData )
 				DSFreeString(buildVersion);
 			}
             
-            if ( (::strcmp( pAttrName, kDSAttributesAll ) == 0) || 
+			if ( bAllAttrs == true || 
 				 (::strcmp( pAttrName, kDSNAttrRecordType ) == 0) )
 			{
 				uiAttrCnt++;
@@ -1239,8 +1314,7 @@ SInt32 CConfigurePlugin::GetDirNodeInfo ( sGetDirNodeInfo *inData )
 				buffResult = dsCDataBuffFromAttrTypeAndStringValues( aAttrData, aTmpData, inData->fInAttrInfoOnly, kDSNAttrRecordType, 
                     kDSStdRecordTypeAttributeTypes, kDSStdRecordTypePlugins, kDSStdRecordTypeRecordTypes, kDSStdRecordTypeRefTableEntries, NULL );
 			}
-//TODO  remove (::strcmp( pAttrName, kDSAttributesAll ) == 0) after dscl bug is fixed
-			if ( ( gRefTable != nil ) && ( (::strcmp( pAttrName, kDS1AttrRefNumTableList) == 0) || (::strcmp( pAttrName, kDSAttributesAll ) == 0) ) )
+			if ( strcmp(pAttrName, kDS1AttrRefNumTableList) == 0 || strcmp(pAttrName, kDSAttributesAll) == 0 )
 			{
 				aTmpData->Clear();
 
@@ -1262,32 +1336,30 @@ SInt32 CConfigurePlugin::GetDirNodeInfo ( sGetDirNodeInfo *inData )
 					aSubData = new CDataBuff();
 					if ( aSubData  == nil ) throw( (SInt32) eMemoryError );
 				
-					char* attrValue = nil;
 					UInt32 attrCount = 0;
-					tIPPIDDirRefMap::iterator theIPEntry;
-					tPIDDirRefMap::iterator thePIDEntry;
-					gRefTable->LockClientPIDList();
-					attrValue = gRefTable->CreateNextClientPIDListString( true, theIPEntry, thePIDEntry );
-					while(attrValue != nil)
-					{
+					
+					vector<string> *values = gRefTable.GetClientPIDListStrings();
+					vector<string>::iterator iter;
+					
+					for ( iter = values->begin(); iter != values->end(); iter++ ) {
 						attrCount++;
-						aSubData->AppendLong( ::strlen( attrValue ) );
-						aSubData->AppendString( attrValue );
-						DSFreeString(attrValue);
-						attrValue = gRefTable->CreateNextClientPIDListString( false, theIPEntry, thePIDEntry );
+						aSubData->AppendLong( (*iter).size() );
+						aSubData->AppendString( (*iter).c_str() );
 					}
-					gRefTable->UnlockClientPIDList();
+					
+					delete values;
+
 					aTmpData->AppendShort( attrCount );
 					aTmpData->AppendBlock( aSubData->GetData(), aSubData->GetLength() );
 					delete( aSubData );
 					aSubData = nil;
 				}
-
+				
 				// Add the attribute length and data
 				aAttrData->AppendLong( aTmpData->GetLength() );
 				aAttrData->AppendBlock( aTmpData->GetData(), aTmpData->GetLength() );
 			}
-
+			
 		} // while
 
 		aRecData->AppendShort( uiAttrCnt );
@@ -1348,6 +1420,8 @@ SInt32 CConfigurePlugin::GetDirNodeInfo ( sGetDirNodeInfo *inData )
 		delete( aTmpData );
 		aTmpData = nil;
 	}
+	
+	DSCFRelease( versionDict );
 
 	return( siResult );
 
@@ -1382,6 +1456,7 @@ SInt32 CConfigurePlugin::GetRecordList ( sGetRecordList *inData )
 	CDataBuff				   *aAttrData		= nil;
 	CDataBuff				   *aTmpData		= nil;
 	SInt32						buffResult		= eDSNoErr;
+	tContextData				uiContinue			= 0;
 
 	try
 	{
@@ -1407,10 +1482,10 @@ SInt32 CConfigurePlugin::GetRecordList ( sGetRecordList *inData )
 		pContext = (sConfigContextData *)gConfigNodeRef->GetItemData( inData->fInNodeRef );
 		if ( pContext == nil ) throw( (SInt32)eDSInvalidNodeRef );
 
-		if ( inData->fIOContinueData == nil )
+		if ( inData->fIOContinueData == 0 )
 		{
 			pContinue = new sConfigContinueData;
-			gConfigContinue->AddItem( pContinue, inData->fInNodeRef );
+			uiContinue = gConfigContinue->AddPointer( pContinue, inData->fInNodeRef );
 
 			pContinue->fRecNameIndex = 1;
 			pContinue->fRecTypeIndex = 1;
@@ -1419,14 +1494,13 @@ SInt32 CConfigurePlugin::GetRecordList ( sGetRecordList *inData )
 		}
 		else
 		{
-			pContinue = (sConfigContinueData *)inData->fIOContinueData;
-			if ( gConfigContinue->VerifyItem( pContinue ) == false )
-			{
-				throw( (SInt32)eDSInvalidContinueData );
-			}
+			pContinue = (sConfigContinueData *)gConfigContinue->GetPointer( inData->fIOContinueData );
+			if ( pContinue == NULL ) throw( (SInt32)eDSInvalidContinueData );
+			
+			uiContinue = inData->fIOContinueData;
 		}
 
-		inData->fIOContinueData = nil;
+		inData->fIOContinueData = 0;
 
 		outBuff = new CBuff();
 		if ( outBuff == nil ) throw( (SInt32)eMemoryError );
@@ -1673,7 +1747,7 @@ SInt32 CConfigurePlugin::GetRecordList ( sGetRecordList *inData )
 							}
 							else
 							{
-								inData->fIOContinueData = pContinue;
+								inData->fIOContinueData = uiContinue;
 								inData->fOutRecEntryCount = uiTotal;
 								outBuff->SetLengthToSize();
 
@@ -1766,7 +1840,7 @@ SInt32 CConfigurePlugin::GetRecordList ( sGetRecordList *inData )
 							}
 							else
 							{
-								inData->fIOContinueData = pContinue;
+								inData->fIOContinueData = uiContinue;
 								inData->fOutRecEntryCount = uiTotal;
 								outBuff->SetLengthToSize();
 
@@ -1849,7 +1923,7 @@ SInt32 CConfigurePlugin::GetRecordList ( sGetRecordList *inData )
 							}
 							else
 							{
-								inData->fIOContinueData = pContinue;
+								inData->fIOContinueData = uiContinue;
 								inData->fOutRecEntryCount = uiTotal;
 								outBuff->SetLengthToSize();
 
@@ -1878,204 +1952,196 @@ SInt32 CConfigurePlugin::GetRecordList ( sGetRecordList *inData )
 				// get these names
 				while ( cpRecNameList->GetAttribute( pContinue->fRecNameIndex, &pRecName ) == eDSNoErr )
 				{
-					// Get all records of this name
-					if ( ::strcmp( pRecName, kDSRecordsAll ) == 0 )
+					if ( pContinue->fRefTable == NULL ) {
+						if ( strcmp(pRecName, kDSRecordsAll) == 0 ) {
+							pContinue->fRefTable = gRefTable.GetClientDetails();
+						}
+						else {
+							// IP:<value>,Socket:<value>
+							// Mach:<value>,PID:<value>
+							char *portPtr = strrchr( pRecName, ':' );
+							portPtr++;
+							
+							switch ( pRecName[0] ) {
+								case 'I':
+									pContinue->fRefTable = gRefTable.GetClientDetails( -1, strtol(portPtr, NULL, 10) );
+									break;
+								case 'M':
+									pContinue->fRefTable = gRefTable.GetClientDetails( strtol(portPtr, NULL, 10), -1 );
+									break;
+							}
+						}
+					}
+					else {
+						i = pContinue->fAllRecIndex;
+					}
+					
+					size_t count = pContinue->fRefTable->size();
+					for ( ; i < count; i++ )
 					{
-						//does NOT work with the continue data ie. send back eDSBufferTooSmall error if required
-						//why? Because can't guarantee that the ref table stays the same across continue calls
-						//nor can we guarantee any order to the records
-						//and since we need to build the record names out of the IP and PID since they are not fixed
-
-						char* listRecNameValue = nil;
-						tIPPIDDirRefMap::iterator theIPEntry;
-						tPIDDirRefMap::iterator thePIDEntry;
-						char* anIPAddress = nil;
-						SInt32 anIP = 0;
-						char* aPIDValue = nil;
-						UInt32 aPID = 0;
-						char* aProcessName = nil;
-						UInt32 aTotalRefCount = 0;
-						char* outString = nil;
-						UInt32 aDirRefCount = 0;
-						char** theDirRefs = nil;
-						UInt32 aNodeRefCount = 0;
-						char** theNodeRefs = nil;
-						UInt32 aRecRefCount = 0;
-						char** theRecRefs = nil;
-						UInt32 aAttrListRefCount = 0;
-						char** theAttrListRefs = nil;
-						UInt32 aAttrListValueRefCount = 0;
-						char** theAttrListValueRefs = nil;
+						tClientDetails	*pDetails					= &pContinue->fRefTable->at( i );
+						char			*recordName					= NULL;
+						char			clientIP[INET6_ADDRSTRLEN]	= { 0, };
+						char			tempBuffer[256]				= { 0, };
 						
-						gRefTable->Lock(); //table mutex
-						gRefTable->LockClientPIDList(); //list mutex
+						aRecData->Clear();
 						
-						listRecNameValue = gRefTable->CreateNextClientPIDListRecordName( true, theIPEntry, thePIDEntry,
-													&anIPAddress, &aPIDValue, anIP, aPID, aTotalRefCount, aDirRefCount, theDirRefs );
-						while(listRecNameValue != nil)
-						{
-							gRefTable->RetrieveRefDataPerClientPIDAndIP(anIP, aPID, theDirRefs,
-																		aNodeRefCount, theNodeRefs,
-																		aRecRefCount, theRecRefs,
-																		aAttrListRefCount, theAttrListRefs,
-																		aAttrListValueRefCount, theAttrListValueRefs );
+						// Add the record type which in this case is config node
+						aRecData->AppendShort( sizeof(kDSStdRecordTypeRefTableEntries) - 1 );
+						aRecData->AppendString( kDSStdRecordTypeRefTableEntries );
+						
+						if ( (pDetails->flags & kClientTypeMach) != 0 ) {
+							asprintf( &recordName, "Mach:%u,PID:%u", pDetails->portInfo.fMachPort, pDetails->clientID.fPID );
+						}
+						else {
+							GetClientIPString( (sockaddr *) &pDetails->clientID.fAddress, clientIP, sizeof(clientIP) );
+							asprintf( &recordName, "IP:%s,Socket:%u", clientIP, pDetails->portInfo.fSocket );
+						}
+						
+						// Add the record name which in this case is the config node name
+						aRecData->AppendShort( strlen(recordName) );
+						aRecData->AppendString( recordName );
+						
+						aAttrData->Clear();
+						siValCnt = 0;
+						
+						buffResult = dsCDataBuffFromAttrTypeAndStringValue( aAttrData, aTmpData, false, kDSNAttrRecordName, recordName );
+						siValCnt++;
+						DSFree( recordName );
 
-							//use the listRecNameValue to build the record name
-							
-							aRecData->Clear();
-
-							// Add the record type which in this case is config node
-							aRecData->AppendShort( ::strlen( pRecType ) );
-							aRecData->AppendString( pRecType );
-
-							// Add the record name which in this case is the config node name
-							aRecData->AppendShort( ::strlen( listRecNameValue ) );
-							aRecData->AppendString( listRecNameValue );
-
-							//let's get the attributes in this order
-							//record name - kDSNAttrRecordName
-							//IP address - kDSNAttrIPAddress
-							//PID - kDS1AttrPIDValue
-							//Process name - kDS1AttrProcessName
-							//total ref count - kDS1AttrTotalRefCount
-							//dir ref count - kDS1AttrDirRefCount
-							//dir refs - kDSNAttrDirRefs
-							//node ref count - kDS1AttrNodeRefCount
-							//node refs - kDSNAttrNodeRefs
-							//record ref count - kDS1AttrRecRefCount
-							//record refs - kDSNAttrRecRefs
-							//attr list ref count - kDS1AttrAttrListRefCount
-							//attr list refs - kDSNAttrAttrListRefs
-							//attr list value ref count - kDS1AttrAttrListValueRefCount
-							//attr list value refs - kDSNAttrAttrListValueRefs
-							
-							//now get all the attrs
-							
-							aAttrData->Clear();
-
-							buffResult = dsCDataBuffFromAttrTypeAndStringValue( aAttrData, aTmpData, false, kDSNAttrRecordName, listRecNameValue );
-							
-							buffResult = dsCDataBuffFromAttrTypeAndStringValue( aAttrData, aTmpData, false, kDSNAttrIPAddress, anIPAddress );
-							
-							buffResult = dsCDataBuffFromAttrTypeAndStringValue( aAttrData, aTmpData, false, kDS1AttrPIDValue, aPIDValue );
-							
-							if (strcmp(anIPAddress, "localhost") == 0)
-							{
-								if (aPID == 0)
-								{
-									aProcessName = dsGetNameForProcessID(getpid());
-								}
-								else
-								{
-									aProcessName = dsGetNameForProcessID(aPID);
-								}
+						if ( (pDetails->flags & kClientTypeTCP) != 0 ) {
+							if ( strchr(clientIP, '.') != NULL ) {
+								buffResult = dsCDataBuffFromAttrTypeAndStringValue( aAttrData, aTmpData, false, kDSNAttrIPAddress, clientIP );
 							}
+							else {
+								buffResult = dsCDataBuffFromAttrTypeAndStringValue( aAttrData, aTmpData, false, kDSNAttrIPv6Address, clientIP );
+							}
+							siValCnt++;
+						}
+						else {
+							snprintf( tempBuffer, sizeof(tempBuffer), "%u", pDetails->clientID.fPID );
+							buffResult = dsCDataBuffFromAttrTypeAndStringValue( aAttrData, aTmpData, false, kDS1AttrPIDValue, tempBuffer );
+							siValCnt++;
+							
+							char *aProcessName = dsGetNameForProcessID( pDetails->clientID.fPID );
 							buffResult = dsCDataBuffFromAttrTypeAndStringValue( aAttrData, aTmpData, false, kDS1AttrProcessName, aProcessName );
+							siValCnt++;
+							DSFree( aProcessName );
+						}
+						
+						size_t refCnt = pDetails->refs.size();
 
-							outString = (char *)calloc(8+1,sizeof(char*));
-							sprintf(outString, "%u", (unsigned int)aTotalRefCount);
-							buffResult = dsCDataBuffFromAttrTypeAndStringValue( aAttrData, aTmpData, false, kDS1AttrTotalRefCount, outString );
-							DSFreeString(outString);
-							
-							outString = (char *)calloc(8+1,sizeof(char*));
-							sprintf(outString, "%u", (unsigned int)aDirRefCount);
-							buffResult = dsCDataBuffFromAttrTypeAndStringValue( aAttrData, aTmpData, false, kDS1AttrDirRefCount, outString );
-							DSFreeString(outString);
-							
-							buffResult = dsCDataBuffFromAttrTypeAndStringValues( aAttrData, aTmpData, false, kDSNAttrDirRefs, (const char **)theDirRefs );
-							
-							outString = (char *)calloc(8+1,sizeof(char*));
-							sprintf(outString, "%u", (unsigned int)aNodeRefCount);
-							buffResult = dsCDataBuffFromAttrTypeAndStringValue( aAttrData, aTmpData, false, kDS1AttrNodeRefCount, outString );
-							DSFreeString(outString);
-							
-							buffResult = dsCDataBuffFromAttrTypeAndStringValues( aAttrData, aTmpData, false, kDSNAttrNodeRefs, (const char **)theNodeRefs );
-							
-							outString = (char *)calloc(8+1,sizeof(char*));
-							sprintf(outString, "%u", (unsigned int)aRecRefCount);
-							buffResult = dsCDataBuffFromAttrTypeAndStringValue( aAttrData, aTmpData, false, kDS1AttrRecRefCount, outString );
-							DSFreeString(outString);
-							
-							buffResult = dsCDataBuffFromAttrTypeAndStringValues( aAttrData, aTmpData, false, kDSNAttrRecRefs, (const char **)theRecRefs );
-							
-							outString = (char *)calloc(8+1,sizeof(char*));
-							sprintf(outString, "%u", (unsigned int)aAttrListRefCount);
-							buffResult = dsCDataBuffFromAttrTypeAndStringValue( aAttrData, aTmpData, false, kDS1AttrAttrListRefCount, outString );
-							DSFreeString(outString);
-							
-							buffResult = dsCDataBuffFromAttrTypeAndStringValues( aAttrData, aTmpData, false, kDSNAttrAttrListRefs, (const char **)theAttrListRefs );
-							
-							outString = (char *)calloc(8+1,sizeof(char*));
-							sprintf(outString, "%u", (unsigned int)aAttrListValueRefCount);
-							buffResult = dsCDataBuffFromAttrTypeAndStringValue( aAttrData, aTmpData, false, kDS1AttrAttrListValueRefCount, outString );
-							DSFreeString(outString);
-							
-							buffResult = dsCDataBuffFromAttrTypeAndStringValues( aAttrData, aTmpData, false, kDSNAttrAttrListValueRefs, (const char **)theAttrListValueRefs );
-							
-							siValCnt = 15;
-							// Attribute count
-							aRecData->AppendShort( siValCnt );
-							aRecData->AppendBlock( aAttrData->GetData(), aAttrData->GetLength() );
+						snprintf( tempBuffer, sizeof(tempBuffer), "%d", (int) refCnt );
+						buffResult = dsCDataBuffFromAttrTypeAndStringValue( aAttrData, aTmpData, false, kDS1AttrTotalRefCount, tempBuffer );
+						siValCnt++;
 
-							//add the record data to the buffer
-							siResult = outBuff->AddData( aRecData->GetData(), aRecData->GetLength() );
+						char **theDirRefs = (char **) calloc( refCnt + 1, sizeof(char *) );
+						char **theNodeRefs = (char **) calloc( refCnt + 1, sizeof(char *) );
+						char **theRecRefs = (char **) calloc( refCnt + 1, sizeof(char *) );
+						char **theAttrListRefs = (char **) calloc( refCnt + 1, sizeof(char *) );
+						char **theAttrListValueRefs = (char **) calloc( refCnt + 1, sizeof(char *) );
+						int aDirRefCount = 0;
+						int aNodeRefCount = 0;
+						int aRecRefCount = 0;
+						int aAttrListRefCount = 0;
+						int aAttrListValueRefCount = 0;
+						
+						for ( vector<UInt32>::iterator refIter = pDetails->refs.begin(); refIter != pDetails->refs.end(); refIter++ ) {
+							char *tempPtr = NULL;
 
-							DSFreeString(listRecNameValue);
-							DSFreeString(anIPAddress);
-							anIP = 0;
-							DSFreeString(aPIDValue);
-							aPID = 0;
-							DSFreeString(aProcessName);
-							aTotalRefCount = 0;
-							aDirRefCount = 0;
-							DSFreeStringList(theDirRefs);
-							aNodeRefCount = 0;
-							DSFreeStringList(theNodeRefs);
-							aRecRefCount = 0;
-							DSFreeStringList(theRecRefs);
-							aAttrListRefCount = 0;
-							DSFreeStringList(theAttrListRefs);
-							aAttrListValueRefCount = 0;
-							DSFreeStringList(theAttrListValueRefs);
-
-							if ( siResult != eDSNoErr )
+							asprintf( &tempPtr, "%u", (*refIter) );
+							switch( GetRefType(*refIter) )
 							{
-								break;
+								case eRefTypeDir:
+									theDirRefs[aDirRefCount++] = tempPtr;
+									break;
+									
+								case eRefTypeDirNode:
+									theNodeRefs[aNodeRefCount++] = tempPtr;
+									break;
+								
+								case eRefTypeRecord:
+									theRecRefs[aRecRefCount++] = tempPtr;
+									break;
+									
+								case eRefTypeAttributeList:
+									theAttrListRefs[aAttrListRefCount++] = tempPtr;
+									break;
+									
+								case eRefTypeAttributeValueList:
+									theAttrListValueRefs[aAttrListValueRefCount++] = tempPtr;
+									break;
 							}
-
-							listRecNameValue = gRefTable->CreateNextClientPIDListRecordName( false, theIPEntry, thePIDEntry,
-													&anIPAddress, &aPIDValue, anIP, aPID, aTotalRefCount, aDirRefCount, theDirRefs );
 						}
 						
-						gRefTable->UnlockClientPIDList(); //list mutex
-						gRefTable->Unlock(); //table mutex
+						snprintf( tempBuffer, sizeof(tempBuffer), "%d", aDirRefCount);
+						buffResult = dsCDataBuffFromAttrTypeAndStringValue( aAttrData, aTmpData, false, kDS1AttrDirRefCount, tempBuffer );
+						siValCnt++;
+						buffResult = dsCDataBuffFromAttrTypeAndStringValues( aAttrData, aTmpData, false, kDSNAttrDirRefs, (const char **) theDirRefs );
+						DSFreeStringList( theDirRefs );
+						siValCnt++;
 						
-						outBuff->GetDataBlockCount( &uiCount );
-
-						if ( siResult == CBuff::kBuffFull )
-						{
-							throw( (SInt32)eDSBufferTooSmall );
+						snprintf( tempBuffer, sizeof(tempBuffer), "%d", aNodeRefCount );
+						buffResult = dsCDataBuffFromAttrTypeAndStringValue( aAttrData, aTmpData, false, kDS1AttrNodeRefCount, tempBuffer );
+						siValCnt++;
+						buffResult = dsCDataBuffFromAttrTypeAndStringValues( aAttrData, aTmpData, false, kDSNAttrNodeRefs, (const char **) theNodeRefs );
+						DSFreeStringList( theNodeRefs );
+						siValCnt++;
+						
+						snprintf( tempBuffer, sizeof(tempBuffer), "%d", aRecRefCount );
+						buffResult = dsCDataBuffFromAttrTypeAndStringValue( aAttrData, aTmpData, false, kDS1AttrRecRefCount, tempBuffer );
+						siValCnt++;
+						buffResult = dsCDataBuffFromAttrTypeAndStringValues( aAttrData, aTmpData, false, kDSNAttrRecRefs, (const char **) theRecRefs );
+						DSFreeStringList( theRecRefs );
+						siValCnt++;
+						
+						snprintf( tempBuffer, sizeof(tempBuffer), "%d", aAttrListRefCount );
+						buffResult = dsCDataBuffFromAttrTypeAndStringValue( aAttrData, aTmpData, false, kDS1AttrAttrListRefCount, tempBuffer );
+						siValCnt++;
+						buffResult = dsCDataBuffFromAttrTypeAndStringValues( aAttrData, aTmpData, false, kDSNAttrAttrListRefs, (const char **) theAttrListRefs );
+						DSFreeStringList( theAttrListRefs );
+						siValCnt++;
+						
+						snprintf( tempBuffer, sizeof(tempBuffer), "%d", aAttrListValueRefCount );
+						buffResult = dsCDataBuffFromAttrTypeAndStringValue( aAttrData, aTmpData, false, kDS1AttrAttrListValueRefCount, tempBuffer );
+						siValCnt++;
+						buffResult = dsCDataBuffFromAttrTypeAndStringValues( aAttrData, aTmpData, false, kDSNAttrAttrListValueRefs, (const char **) theAttrListValueRefs );
+						DSFreeStringList( theAttrListValueRefs );
+						siValCnt++;
+						
+						// Attribute count
+						aRecData->AppendShort( siValCnt );
+						aRecData->AppendBlock( aAttrData->GetData(), aAttrData->GetLength() );
+						
+						//add the record data to the buffer
+						siResult = outBuff->AddData( aRecData->GetData(), aRecData->GetLength() );
+						if ( siResult == CBuff::kBuffFull ) {
+							inData->fIOContinueData = uiContinue;
+							if ( uiTotal != 0 ) {
+								inData->fOutRecEntryCount = uiTotal;
+								pContinue->fAllRecIndex = i;
+								outBuff->SetLengthToSize();
+								throw ((SInt32) eDSNoErr);
+							}
+							else {
+								throw ((SInt32) eDSBufferTooSmall);
+							}
 						}
-						else if ( siResult == eDSNoErr )
-						{
-							uiTotal += uiCount;
-						}
-						else
-						{
-							//error
+						else if ( siResult != eDSNoErr ) {
 							break;
 						}
-
-					} // single record name
-
+						
+						uiTotal++;
+					}
+					
 					pContinue->fRecNameIndex++;
-
 				} // loop over record names
 			}
 			else
 			{
 				siResult = eDSInvalidRecordType;
 			}
+			
 			if (siResult != eDSNoErr)
 			{
 				break;
@@ -2106,10 +2172,10 @@ SInt32 CConfigurePlugin::GetRecordList ( sGetRecordList *inData )
 		siResult = err;
 	}
 
-	if ( (inData->fIOContinueData == nil) && (pContinue != nil) )
+	if ( (inData->fIOContinueData == 0) && (pContinue != nil) )
 	{
 		// we've decided not to return continue data, so we should clean up
-		gConfigContinue->RemoveItem( pContinue );
+		gConfigContinue->RemoveContext( uiContinue );
 		pContinue = nil;
 	}
 
@@ -2582,16 +2648,7 @@ SInt32 CConfigurePlugin::GetAttributeValue ( sGetAttributeValue *inData )
 
 sConfigContextData* CConfigurePlugin::MakeContextData ( void )
 {
-	sConfigContextData	*pOut	= nil;
-
-	pOut = new sConfigContextData;
-	if ( pOut != nil )
-	{
-		::memset( pOut, 0, sizeof( sConfigContextData ) );
-	}
-
-	return( pOut );
-
+	return (sConfigContextData *) calloc( 1, sizeof(sConfigContextData) );
 } // MakeContextData
 
 //------------------------------------------------------------------------------------
@@ -2604,7 +2661,6 @@ SInt32 CConfigurePlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 	UInt32						aRequest	= 0;
 	UInt32						pluginIndex	= 0;
 	CPlugInList::sTableData    *pPIInfo		= nil;
-	UInt32						thePIState	= 0;
 	UInt32						bufLen		= 0;
 	AuthorizationExternalForm   authExtForm;
 	AuthorizationRef			authRef		= 0;
@@ -2653,7 +2709,7 @@ SInt32 CConfigurePlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 			offset += sizeof( UInt32 );
 			if ( passwordLength == 0 )
 			{
-				password = "";
+				password = (char *)"";
 			}
 			else
 			{
@@ -2805,6 +2861,39 @@ SInt32 CConfigurePlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 			gSrvrCntl->DeactivatePeformanceStatGathering();			
 		}
 #endif
+		else if (aRequest == eDSCustomCallConfigureSuspendCacheFlushes)
+		{
+			if (pContext->fEffectiveUID == 0) {
+				if (__sync_bool_compare_and_swap(&gCacheFlushDisabled, false, true) == true) {
+					DbgLog(kLogPlugin, "CConfigure: disabling cache flushes due to custom call");
+					dispatch_after(dispatch_time(0, 5ULL * 60ULL * (unsigned long long) NSEC_PER_SEC),
+								   dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), 
+								   ^(void) {
+									   if (__sync_bool_compare_and_swap(&gCacheFlushDisabled, true, false) == true) {
+										   DbgLog(kLogPlugin, "CConfigure: flushing the cache because cache flushes were disabled");
+										   dsFlushMembershipCache();
+										   gCacheNode->EmptyCacheEntryType(CACHE_ENTRY_TYPE_GROUP | CACHE_ENTRY_TYPE_USER);
+									   }
+								   });
+				}
+			}
+			else {
+				siResult = eDSPermissionError;
+			}
+		}
+		else if (aRequest == eDSCustomCallConfigureEnableCacheFlushes)
+		{
+			if (pContext->fEffectiveUID == 0) {
+				if (__sync_bool_compare_and_swap(&gCacheFlushDisabled, true, false) == true) {
+					DbgLog(kLogPlugin, "CConfigure: re-enabled cache flushes due to custom call - flushing caches now");
+					dsFlushMembershipCache();
+					gCacheNode->EmptyCacheEntryType(CACHE_ENTRY_TYPE_GROUP | CACHE_ENTRY_TYPE_USER);
+				}
+			}
+			else {
+				siResult = eDSPermissionError;
+			}
+		}
         else
 		{
 			if ( bufLen < sizeof( AuthorizationExternalForm ) ) throw( (SInt32)eDSInvalidBuffFormat );
@@ -2816,10 +2905,6 @@ SInt32 CConfigurePlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 				if (siResult != errAuthorizationSuccess)
 				{
 					DbgLog( kLogPlugin, "CConfigure: AuthorizationCreateFromExternalForm returned error %d", siResult );
-					if (aRequest != eDSCustomCallConfigureCheckAuthRef)
-					{
-						syslog( LOG_ALERT, "Configure Custom Call <%d> AuthorizationCreateFromExternalForm returned error %d", aRequest, siResult );
-					}
 					throw( (SInt32)eDSPermissionError );
 				}
 		
@@ -2833,10 +2918,6 @@ SInt32 CConfigurePlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 				if (siResult != errAuthorizationSuccess)
 				{
 					DbgLog( kLogPlugin, "CConfigure: AuthorizationCopyRights returned error %d", siResult );
-					if (aRequest != eDSCustomCallConfigureCheckAuthRef)
-					{
-						syslog( LOG_ALERT, "AuthorizationCopyRights returned error %d", siResult );
-					}
 					throw( (SInt32)eDSPermissionError );
 				}
 			}
@@ -2853,29 +2934,50 @@ SInt32 CConfigurePlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
                 pPIInfo = gPlugins->GetPlugInInfo( pluginIndex );
 				if ( pPIInfo != NULL )
 				{
-					if (pPIInfo->fState & kActive)
+					const char *piName		= pPIInfo->fName;
+					UInt32		thePIState	= pPIInfo->fState;
+
+					if (thePIState & kActive)
 					{
-						thePIState = pPIInfo->fState;
-						thePIState += (UInt32)kInactive;
-						thePIState -= (UInt32)kActive;
-						gPlugins->SetState( pPIInfo->fName, thePIState );
+						thePIState += kInactive;
+						thePIState -= kActive;
 
-						gPluginConfig->SetPluginState( pPIInfo->fName, kInactive);
-						gPluginConfig->SaveConfigData();
-
-						SrvrLog( kLogApplication, "Plug-in %s state is now set inactive.", pPIInfo->fName );
+						// close any references for this plugin and run the disable in the same dispatch block
+						gRefTable.CleanRefsForPlugin(pPIInfo->fPluginPtr,
+													 ^(void){
+														 // the config code is the gate for enable/disable
+														 if (gPluginConfig->SetPluginState(piName, kInactive) == eDSNoErr) {
+															 gPlugins->SetState(piName, thePIState);
+															 
+															 gPluginConfig->SaveConfigData();
+															 
+															 SrvrLog(kLogApplication, "Plug-in %s state is now set inactive.", piName);
+														 }
+														 else {
+															 DbgLog(kLogError, "Plug-in %s state could not be set to inactive.", piName);
+														 }
+													 });
 					}
-					else if (pPIInfo->fState & kInactive)
+					else if (thePIState & kInactive)
 					{
-						thePIState = pPIInfo->fState;
 						thePIState -= kInactive;
 						thePIState += kActive;
-						gPlugins->SetState( pPIInfo->fName, thePIState );
 
-						gPluginConfig->SetPluginState( pPIInfo->fName, kActive);
-						gPluginConfig->SaveConfigData();
-
-						SrvrLog( kLogApplication, "Plug-in %s state is now set active.", pPIInfo->fName );
+						// we do this on the same queue as the ref cleanup otherwise if someone enable/disables too fast we get odd behavior
+						dispatch_async(gRefTable.fCleanupQueue, 
+									   ^(void) {
+										   // the config code is the gate for enable/disable
+										   if (gPluginConfig->SetPluginState(piName, kActive) == eDSNoErr) {
+											   gPlugins->SetState(piName, thePIState);
+											   
+											   gPluginConfig->SaveConfigData();
+											   
+											   SrvrLog(kLogApplication, "Plug-in %s state is now set active.", piName);
+										   }
+										   else {
+											   DbgLog(kLogError, "Plug-in %s state could not be set to active.", piName);
+										   }
+									   });
 					}
 				}
             }
@@ -2944,16 +3046,17 @@ SInt32 CConfigurePlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 					//toggle whether TCP Listener is active or not
 					struct stat		statResult;
 
-					siResult = ::stat( "/Library/Preferences/DirectoryService/.DSTCPListening", &statResult );
-					if (siResult != eDSNoErr)
+					if ( lstat("/Library/Preferences/DirectoryService/.DSTCPListening", &statResult) == 0 )
 					{
-						dsTouch( "/Library/Preferences/DirectoryService/.DSTCPListening" );
-						gSrvrCntl->StartTCPListener(kDSDefaultListenPort);
+						DbgLog( kLogInfo, "CConfigurePlugin::DoPlugInCustomCall - request to disable DS Proxy" );
+						dsRemove( "/Library/Preferences/DirectoryService/.DSTCPListening" );
+						gSrvrCntl->StopTCPListener();
 					}
 					else
 					{
-						dsRemove( "/Library/Preferences/DirectoryService/.DSTCPListening" );
-						gSrvrCntl->StopTCPListener();
+						DbgLog( kLogInfo, "CConfigurePlugin::DoPlugInCustomCall - request to enable DS Proxy" );
+						dsTouch( "/Library/Preferences/DirectoryService/.DSTCPListening" );
+						gSrvrCntl->StartTCPListener( kDSDefaultListenPort );
 					}
 					break;
 				}
@@ -3025,7 +3128,7 @@ SInt32 CConfigurePlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 				}
 				
 				case eDSCustomCallConfigureLocalMountRecordsChanged:
-					gSrvrCntl->SearchPolicyChangedNotify();
+					// mount record notifications should not be required with autofs
 					break;
 			}
 		} // else
@@ -3055,6 +3158,7 @@ SInt32 CConfigurePlugin::DoDirNodeAuth( sDoDirNodeAuth *inData )
     int                     siResult		= eDSAuthFailed;
     sConfigContextData      *pContext		= NULL;
     sConfigContinueData		*pContinue      = NULL;
+	tContextData			uiContinue		= 0;
     char                    *pServicePrinc  = NULL;
 
     // let's lock kerberos now
@@ -3103,10 +3207,10 @@ SInt32 CConfigurePlugin::DoDirNodeAuth( sDoDirNodeAuth *inData )
         if ( inData->fInDirNodeAuthOnlyFlag == false ) throw( (SInt32) eDSAuthMethodNotSupported );
         if ( inData->fOutAuthStepDataResponse->fBufferSize < 1500 ) throw ( (SInt32) eDSBufferTooSmall );
         
-        if ( inData->fIOContinueData == NULL )
+        if ( inData->fIOContinueData == 0 )
         {
             pContinue = new sConfigContinueData;
-            gConfigContinue->AddItem( pContinue, inData->fInNodeRef );
+            uiContinue = gConfigContinue->AddPointer( pContinue, inData->fInNodeRef );
             
             if( strcmp(inData->fInAuthMethod->fBufferData, "dsAuthMethodStandard:GSSAPI") != 0 )
             {
@@ -3173,14 +3277,15 @@ SInt32 CConfigurePlugin::DoDirNodeAuth( sDoDirNodeAuth *inData )
         }
         else
         {
-            pContinue = (sConfigContinueData *)inData->fIOContinueData;
-            if ( gConfigContinue->VerifyItem( pContinue ) == false ) throw( (SInt32)eDSAuthContinueDataBad );
+            pContinue = (sConfigContinueData *) gConfigContinue->GetPointer( inData->fIOContinueData );
+            if ( pContinue == NULL ) throw( (SInt32)eDSAuthContinueDataBad );
+			uiContinue = inData->fIOContinueData;
             
             recvToken.value = inData->fInAuthStepData->fBufferData;
             recvToken.length = inData->fInAuthStepData->fBufferLength;
         }
         
-        inData->fIOContinueData = NULL; // NULL out the continue data we'll set it later if necessary
+        inData->fIOContinueData = 0; // NULL out the continue data we'll set it later if necessary
         
         if( pContinue->gssFinished == false )
         {
@@ -3193,7 +3298,7 @@ SInt32 CConfigurePlugin::DoDirNodeAuth( sDoDirNodeAuth *inData )
             {
                 OM_uint32 statusList[] = { majorStatus, minorStatus };
                 OM_uint32 mechType[] = { GSS_C_GSS_CODE, GSS_C_MECH_CODE };
-                char *statusString[] = { "Major", "Minor" };
+                const char *statusString[] = { "Major", "Minor" };
                 
                 for( int ii = 0; ii < 2; ii++ )
                 {
@@ -3243,7 +3348,7 @@ SInt32 CConfigurePlugin::DoDirNodeAuth( sDoDirNodeAuth *inData )
                 // get buffer length by subtracting where we ended up
                 inData->fOutAuthStepDataResponse->fBufferLength = pBuffer - inData->fOutAuthStepDataResponse->fBufferData;
                 
-                inData->fIOContinueData = pContinue;
+                inData->fIOContinueData = uiContinue;
                 siResult = eDSContinue;
             }
             else // this is GSS_S_COMPLETE
@@ -3363,10 +3468,10 @@ SInt32 CConfigurePlugin::DoDirNodeAuth( sDoDirNodeAuth *inData )
     
     DSFreeString( pServicePrinc );
     
-    if ( (inData->fIOContinueData == NULL) && (pContinue != NULL) )
+    if ( (inData->fIOContinueData == 0) && (pContinue != NULL) )
     {
         // we've decided not to return continue data, so we should clean up
-        gConfigContinue->RemoveItem( pContinue );
+        gConfigContinue->RemoveContext( uiContinue );
         pContinue = nil;
     }
     

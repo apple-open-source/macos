@@ -1,5 +1,11 @@
-#include<iostream.h>
-#include<strstream>
+// $OpenLDAP: pkg/ldap/contrib/ldapc++/examples/readSchema.cpp,v 1.1.6.3 2008/04/14 23:18:59 quanah Exp $
+/*
+ * Copyright 2008, OpenLDAP Foundation, All Rights Reserved.
+ * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+ */
+
+#include <iostream>
+#include <sstream>
 #include "LDAPConnection.h"
 #include "LDAPConstraints.h"
 #include "LDAPSearchReference.h"
@@ -9,17 +15,16 @@
 #include "LDAPEntry.h"
 #include "LDAPException.h"
 #include "LDAPModification.h"
-#include "LDAPReferralException.h"
 #include "LDAPSchema.h"
 
-#include"debug.h"
+#include "debug.h"
 
 int main(){
     LDAPConnection *lc=new LDAPConnection("192.168.3.128",389);
-    cout << "----------------------doing bind...." <<  endl;
+    std::cout << "----------------------doing bind...." <<  std::endl;
     try{
         lc->bind("uid=admin,dc=home,dc=local" , "secret");
-        cout << lc->getHost() << endl;
+        std::cout << lc->getHost() << std::endl;
         StringList tmp;
         tmp.add("subschemasubentry");
         LDAPSearchResults* entries = lc->search("", 
@@ -45,14 +50,14 @@ int main(){
                 LDAPSchema schema;
                 schema.setObjectClasses((oc->getValues()));
                 LDAPObjClass test = schema.getObjectClassByName("inetOrgPerson");
-                cout << test.getDesc() << endl;
+                std::cout << test.getDesc() << std::endl;
 //                StringList mustAttr = test.getMay();
 //                for( StringList::const_iterator i = mustAttr.begin(); i != mustAttr.end(); i++ ){
-//                    cout << *i << endl;
+//                    std::cout << *i << std::endl;
 //                }
                 StringList sup = test.getSup();
                 for( StringList::const_iterator i = sup.begin(); i != sup.end(); i++ ){
-                    cout << *i << endl;
+                    std::cout << *i << std::endl;
                 }
             }
         }
@@ -60,8 +65,8 @@ int main(){
         lc->unbind();
         delete lc;
    }catch (LDAPException e){
-        cout << "------------------------- caught Exception ---------"<< endl;
-        cout << e << endl;
+        std::cout << "---------------- caught Exception ---------"<< std::endl;
+        std::cout << e << std::endl;
     }
 
 }

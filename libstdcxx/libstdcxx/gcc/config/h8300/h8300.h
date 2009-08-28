@@ -1,7 +1,7 @@
 /* Definitions of target machine for GNU compiler.
    Renesas H8/300 (generic)
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com),
    Jim Wilson (wilson@cygnus.com), and Doug Evans (dje@cygnus.com).
 
@@ -19,8 +19,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #ifndef GCC_H8300_H
 #define GCC_H8300_H
@@ -96,86 +96,15 @@ extern const char * const *h8_reg_names;
 
 #define TARGET_VERSION fprintf (stderr, " (Renesas H8/300)");
 
-/* Run-time compilation parameters selecting different hardware subsets.  */
-
-extern int target_flags;
-
-/* Masks for the -m switches.  */
-#define MASK_H8300S		0x00000001
-#define MASK_MAC		0x00000002
-#define MASK_INT32		0x00000008
-#define MASK_ADDRESSES		0x00000040
-#define MASK_QUICKCALL		0x00000080
-#define MASK_SLOWBYTE		0x00000100
-#define MASK_NORMAL_MODE 	0x00000200
-#define MASK_RELAX		0x00000400
-#define MASK_H8300H		0x00001000
-#define MASK_ALIGN_300		0x00002000
-#define MASK_H8300SX		0x00004000
-
 /* Macros used in the machine description to test the flags.  */
-
-/* Make int's 32 bits.  */
-#define TARGET_INT32 (target_flags & MASK_INT32)
-
-/* Dump recorded insn lengths into the output file.  This helps debug the
-   md file.  */
-#define TARGET_ADDRESSES (target_flags & MASK_ADDRESSES)
-
-/* Pass the first few arguments in registers.  */
-#define TARGET_QUICKCALL (target_flags & MASK_QUICKCALL)
-
-/* Pretend byte accesses are slow.  */
-#define TARGET_SLOWBYTE (target_flags & MASK_SLOWBYTE)
 
 /* Select between the H8/300 and H8/300H CPUs.  */
 #define TARGET_H8300	(! TARGET_H8300H && ! TARGET_H8300S)
-#define TARGET_H8300H	(target_flags & MASK_H8300H)
-#define TARGET_H8300S	(target_flags & (MASK_H8300S | MASK_H8300SX))
-#define TARGET_H8300SX	(target_flags & MASK_H8300SX)
+#define TARGET_H8300S	(TARGET_H8300S_1 || TARGET_H8300SX)
 /* Some multiply instructions are not available in all H8SX variants.
    Use this macro instead of TARGET_H8300SX to indicate this, even
    though we don't actually generate different code for now.  */
 #define TARGET_H8300SXMUL TARGET_H8300SX
-#define TARGET_NORMAL_MODE (target_flags & MASK_NORMAL_MODE)
-
-/* mac register and relevant instructions are available.  */
-#define TARGET_MAC    (target_flags & MASK_MAC)
-
-/* Align all values on the H8/300H the same way as the H8/300.  Specifically,
-   32 bit and larger values are aligned on 16 bit boundaries.
-   This is all the hardware requires, but the default is 32 bits for the H8/300H.
-   ??? Now watch someone add hardware floating point requiring 32 bit
-   alignment.  */
-#define TARGET_ALIGN_300 (target_flags & MASK_ALIGN_300)
-
-/* Macro to define tables used to set the flags.
-   This is a list in braces of pairs in braces,
-   each pair being { "NAME", VALUE }
-   where VALUE is the bits to set or minus the bits to clear.
-   An empty string NAME is used to identify the default VALUE.  */
-
-#define TARGET_SWITCHES							    \
-{ {"s",			 MASK_H8300S, N_("Generate H8S code")},		    \
-  {"no-s",		-MASK_H8300S, N_("Do not generate H8S code")},	    \
-  {"sx",		 MASK_H8300SX, N_("Generate H8SX code")},	    \
-  {"no-sx",		-MASK_H8300SX, N_("Do not generate H8SX code")},    \
-  {"s2600",		 MASK_MAC, N_("Generate H8S/2600 code")},	    \
-  {"no-s2600",		-MASK_MAC, N_("Do not generate H8S/2600 code")},    \
-  {"int32",		 MASK_INT32, N_("Make integers 32 bits wide")},	    \
-  {"addresses",		 MASK_ADDRESSES, NULL},				    \
-  {"quickcall",		 MASK_QUICKCALL,				    \
-   N_("Use registers for argument passing")},				    \
-  {"no-quickcall",	-MASK_QUICKCALL,				    \
-   N_("Do not use registers for argument passing")},			    \
-  {"slowbyte",		 MASK_SLOWBYTE,					    \
-   N_("Consider access to byte sized memory slow")},			    \
-  {"relax",		 MASK_RELAX, N_("Enable linker relaxing")},	    \
-  {"h",			 MASK_H8300H, N_("Generate H8/300H code")},	    \
-  {"n",			 MASK_NORMAL_MODE, N_("Enable the normal mode")},   \
-  {"no-h",		-MASK_H8300H, N_("Do not generate H8/300H code")},  \
-  {"align-300",		 MASK_ALIGN_300, N_("Use H8/300 alignment rules")}, \
-  { "",			 TARGET_DEFAULT, NULL}}
 
 #ifdef IN_LIBGCC2
 #undef TARGET_H8300H
@@ -556,12 +485,12 @@ enum reg_class {
 
 #define STACK_GROWS_DOWNWARD
 
-/* Define this if the nominal address of the stack frame
+/* Define this to nonzero if the nominal address of the stack frame
    is at the high-address end of the local variables;
    that is, each additional local variable allocated
    goes at a more negative offset in the frame.  */
 
-#define FRAME_GROWS_DOWNWARD
+#define FRAME_GROWS_DOWNWARD 1
 
 /* Offset within stack frame to start allocating local variables at.
    If FRAME_GROWS_DOWNWARD, this is the offset to the END of the
@@ -1271,44 +1200,9 @@ extern int h8300_move_ratio;
 #undef  MOVE_RATIO
 #define MOVE_RATIO h8300_move_ratio
 
-/* Define the codes that are matched by predicates in h8300.c.  */
-
-#define PREDICATE_CODES							\
-  {"general_operand_src", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,	\
-			   LABEL_REF, SUBREG, REG, MEM}},		\
-  {"general_operand_dst", {SUBREG, REG, MEM}},				\
-  {"h8300_src_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,	\
-			 LABEL_REF, SUBREG, REG, MEM}},			\
-  {"h8300_dst_operand", {SUBREG, REG, MEM}},				\
-  {"nibble_operand", {CONST_INT}},					\
-  {"reg_or_nibble_operand", {CONST_INT, SUBREG, REG}},			\
-  {"h8sx_unary_shift_operator", {ASHIFTRT, LSHIFTRT, ASHIFT, ROTATE}},	\
-  {"h8sx_binary_shift_operator", {ASHIFTRT, LSHIFTRT, ASHIFT}},		\
-  {"h8sx_binary_memory_operator", {PLUS, MINUS, AND, IOR, XOR, ASHIFT,	\
-				   ASHIFTRT, LSHIFTRT, ROTATE}},	\
-  {"h8sx_unary_memory_operator", {NEG, NOT}},				\
-  {"h8300_ldm_parallel", {PARALLEL}},					\
-  {"h8300_stm_parallel", {PARALLEL}},					\
-  {"h8300_return_parallel", {PARALLEL}},				\
-  {"single_one_operand", {CONST_INT}},					\
-  {"single_zero_operand", {CONST_INT}},					\
-  {"call_insn_operand", {MEM}},						\
-  {"small_call_insn_operand", {MEM}},					\
-  {"jump_address_operand", {REG, MEM}},					\
-  {"two_insn_adds_subs_operand", {CONST_INT}},				\
-  {"bit_operand", {REG, SUBREG, MEM}},					\
-  {"bit_memory_operand", {MEM}},					\
-  {"stack_pointer_operand", {REG}},					\
-  {"const_int_gt_2_operand", {CONST_INT}},				\
-  {"const_int_ge_8_operand", {CONST_INT}},				\
-  {"const_int_qi_operand", {CONST_INT}},				\
-  {"const_int_hi_operand", {CONST_INT}},				\
-  {"incdec_operand", {CONST_INT}},					\
-  {"bit_operator", {XOR, AND, IOR}},					\
-  {"nshift_operator", {ASHIFTRT, LSHIFTRT, ASHIFT}},			\
-  {"eqne_operator", {EQ, NE}},						\
-  {"gtle_operator", {GT, LE, GTU, LEU}},				\
-  {"gtuleu_operator", {GTU, LEU}},					\
-  {"iorxor_operator", {IOR, XOR}},
+/* Machine-specific symbol_ref flags.  */
+#define SYMBOL_FLAG_FUNCVEC_FUNCTION	(SYMBOL_FLAG_MACH_DEP << 0)
+#define SYMBOL_FLAG_EIGHTBIT_DATA	(SYMBOL_FLAG_MACH_DEP << 1)
+#define SYMBOL_FLAG_TINY_DATA		(SYMBOL_FLAG_MACH_DEP << 2)
 
 #endif /* ! GCC_H8300_H */

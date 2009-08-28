@@ -25,8 +25,8 @@
 #define __WORKSTATIONSERVICE__
 
 __BEGIN_DECLS
-extern int32_t WorkstationServiceRegister(void);
-extern int32_t WorkstationServiceUnregister(void);
+void WorkstationServiceRegister(void);
+void WorkstationServiceUnregister(void);
 __END_DECLS
 
 #endif

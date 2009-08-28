@@ -1,0 +1,20 @@
+#!/usr/bin/env wish
+if {$argc && [string equal -length \
+      [string length [lindex $argv 0]] [lindex $argv 0] "-file"]} {
+  set argv  [lreplace $argv 0 0]
+  incr argc -1
+}
+if {$argc == 0 || [string index [lindex $argv 0] 0] eq "-" )} {
+  puts "Don't use [info script] as interactive shell! Use instead:"
+  puts "   wish"
+  puts "   package require XOTcl; namespace import ::xotcl::*"
+  exit -1
+} else {
+  package require XOTcl
+  namespace import ::xotcl::*
+  set argv0 [lindex $argv 0]
+  set argv  [lreplace $argv 0 0]
+  incr argc -1
+  source $argv0
+}
+###catch {vwait forever}

@@ -1,6 +1,6 @@
 /* 
    tests for compressed response handling.
-   Copyright (C) 2001-2004, 2006, Joe Orton <joe@manyfish.co.uk>
+   Copyright (C) 2001-2008, Joe Orton <joe@manyfish.co.uk>
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -279,13 +279,14 @@ static int auth_cb(void *userdata, const char *realm, int tries,
 }
 
 static int retry_compress_helper(ne_accept_response acceptor,
-                                 struct string *resp, struct string *expect)
+                                 struct double_serve_args *args, 
+                                 struct string *expect)
 {
     ne_session *sess;
     ne_request *req;
     ne_decompress *dc;
     
-    CALL(make_session(&sess, serve_sstring, resp));
+    CALL(make_session(&sess, double_serve_sstring, args));
 
     ne_set_server_auth(sess, auth_cb, NULL);
 
@@ -307,45 +308,48 @@ static int retry_compress_helper(ne_accept_response acceptor,
     return OK;
 }
 
-static char retry_gz_resp[] = 
-"HTTP/1.1 401 Get Away\r\n"
-"Content-Encoding: gzip\r\n"
-"WWW-Authenticate: Basic realm=WallyWorld\r\n"
-"Content-Length: 5\r\n"
-"\r\n"
-"abcde"
-"HTTP/1.1 200 OK\r\n"
-"Server: foo\r\n"
-"Content-Length: 5\r\n"
-"Connection: close\r\n"
-"\r\n"
-"hello";
+#define SSTRING(x) { x, sizeof(x) - 1 }
+
+static struct double_serve_args retry_gz_args = { 
+    SSTRING("HTTP/1.1 401 Get Away\r\n"
+            "Content-Encoding: gzip\r\n"
+            "WWW-Authenticate: Basic realm=WallyWorld\r\n"
+            "Content-Length: 5\r\n"
+            "\r\n"
+            "abcde"),
+    SSTRING("HTTP/1.1 200 OK\r\n"
+            "Server: foo\r\n"
+            "Content-Length: 5\r\n"
+            "Connection: close\r\n"
+            "\r\n"
+            "hello")
+};
 
 /* Test where the response to the retried request does *not* have
  * a content-encoding, whereas the original 401 response did. */
 static int retry_notcompress(void)
 {
-    struct string response = { retry_gz_resp, strlen(retry_gz_resp) };
     struct string expect = { "hello", 5 };
-    return retry_compress_helper(ne_accept_2xx, &response, &expect);
+    return retry_compress_helper(ne_accept_2xx, &retry_gz_args, &expect);
 }
 
-static char retry_gz_resp2[] = 
-"HTTP/1.1 401 Get Away\r\n"
-"Content-Encoding: gzip\r\n"
-"WWW-Authenticate: Basic realm=WallyWorld\r\n"
-"Content-Length: 25\r\n"
-"\r\n"
-"\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\x03\xcb\x48\xcd\xc9\xc9\x07"
-"\x00\x86\xa6\x10\x36\x05\x00\x00\x00"
-"HTTP/1.1 200 OK\r\n"
-"Server: foo\r\n"
-"Content-Encoding: gzip\r\n"
-"Content-Length: 25\r\n"
-"Connection: close\r\n"
-"\r\n"
-"\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\x03\x2b\xcf\x2f\xca\x49\x01"
-"\x00\x43\x11\x77\x3a\x05\x00\x00\x00";
+static struct double_serve_args retry_gz_args2 = {
+    SSTRING("HTTP/1.1 401 Get Away\r\n"
+            "Content-Encoding: gzip\r\n"
+            "WWW-Authenticate: Basic realm=WallyWorld\r\n"
+            "Content-Length: 25\r\n"
+            "\r\n"
+            "\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\x03\xcb\x48\xcd\xc9\xc9\x07"
+            "\x00\x86\xa6\x10\x36\x05\x00\x00\x00"),
+    SSTRING("HTTP/1.1 200 OK\r\n"
+            "Server: foo\r\n"
+            "Content-Encoding: gzip\r\n"
+            "Content-Length: 25\r\n"
+            "Connection: close\r\n"
+            "\r\n"
+            "\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\x03\x2b\xcf\x2f\xca\x49\x01"
+            "\x00\x43\x11\x77\x3a\x05\x00\x00\x00")
+};
 
 static int retry_accept(void *ud, ne_request *req, const ne_status *st)
 {
@@ -370,9 +374,8 @@ static int retry_accept(void *ud, ne_request *req, const ne_status *st)
  * content-encoding, as did the original 401 response. */
 static int retry_compress(void)
 {
-    struct string resp = { retry_gz_resp2, sizeof(retry_gz_resp2) - 1 };
     struct string expect = { "fish", 4 };
-    return retry_compress_helper(retry_accept, &resp, &expect);
+    return retry_compress_helper(retry_accept, &retry_gz_args2, &expect);
 }
 
 #define READER_ABORT_ERR "reader_abort error string"

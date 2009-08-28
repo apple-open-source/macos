@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,19 +20,16 @@
 #include <stdlib.h>     /* for free() */
 #endif
 
+#include "apu_config.h"
 #include "apu.h"
 
-#if APU_HAVE_NDBM 
+#if APU_HAVE_NDBM
 #include "apr_dbm_private.h"
 
 #include <ndbm.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-
-/* this is used in a few places to define a noop "function". it is needed
-   to stop "no effect" warnings from GCC. */
-#define NOOP_FUNCTION if (0) ; else
 
 #define APR_DBM_DBMODE_RO       O_RDONLY
 #define APR_DBM_DBMODE_RW       O_RDWR
@@ -122,14 +119,17 @@ static void vt_ndbm_close(apr_dbm_t *dbm)
 }
 
 static apr_status_t vt_ndbm_fetch(apr_dbm_t *dbm, apr_datum_t key,
-                                  apr_datum_t * pvalue)
+                                  apr_datum_t *pvalue)
 {
-    datum *ckey;
-    datum rd;
+    datum kd, rd;
 
-    ckey = (datum*)&key;
-    rd = dbm_fetch(dbm->file, *ckey);
-    *pvalue = *(apr_datum_t*)&rd;
+    kd.dptr = key.dptr;
+    kd.dsize = key.dsize;
+
+    rd = dbm_fetch(dbm->file, kd);
+
+    pvalue->dptr = rd.dptr;
+    pvalue->dsize = rd.dsize;
 
     /* store the error info into DBM, and return a status code. Also, note
        that *pvalue should have been cleared on error. */
@@ -139,59 +139,71 @@ static apr_status_t vt_ndbm_fetch(apr_dbm_t *dbm, apr_datum_t key,
 static apr_status_t vt_ndbm_store(apr_dbm_t *dbm, apr_datum_t key,
                                   apr_datum_t value)
 {
-    apr_status_t rv;
-    datum *ckey;
-    datum *cvalue;
+    int rc;
+    datum kd, vd;
 
-    ckey =  (datum*)&key;
-    cvalue = (datum*)&value;
-    rv = ndbm2s( dbm_store( dbm->file, *ckey, *cvalue, DBM_REPLACE));
+    kd.dptr = key.dptr;
+    kd.dsize = key.dsize;
+
+    vd.dptr = value.dptr;
+    vd.dsize = value.dsize;
+
+    rc = dbm_store(dbm->file, kd, vd, DBM_REPLACE);
 
     /* store any error info into DBM, and return a status code. */
-    return set_error(dbm, rv);
+    return set_error(dbm, ndbm2s(rc));
 }
 
 static apr_status_t vt_ndbm_del(apr_dbm_t *dbm, apr_datum_t key)
 {
-    apr_status_t rv;
-    datum *ckey;
+    int rc;
+    datum kd;
 
-    ckey = (datum*)&key;
-    rv = ndbm2s( dbm_delete(dbm->file, *ckey));
+    kd.dptr = key.dptr;
+    kd.dsize = key.dsize;
+
+    rc = dbm_delete(dbm->file, kd);
 
     /* store any error info into DBM, and return a status code. */
-    return set_error(dbm, rv);
+    return set_error(dbm, ndbm2s(rc));
 }
 
 static int vt_ndbm_exists(apr_dbm_t *dbm, apr_datum_t key)
 {
-    datum *ckey = (datum *)&key;
-    datum value;
+    datum kd, rd;
 
-    value = dbm_fetch( dbm->file, *ckey);
+    kd.dptr = key.dptr;
+    kd.dsize = key.dsize;
 
-    return value.dptr != NULL;
+    rd = dbm_fetch(dbm->file, kd);
+
+    return rd.dptr != NULL;
 }
 
-static apr_status_t vt_ndbm_firstkey(apr_dbm_t *dbm, apr_datum_t * pkey)
+static apr_status_t vt_ndbm_firstkey(apr_dbm_t *dbm, apr_datum_t *pkey)
 {
     datum rd;
 
     rd = dbm_firstkey(dbm->file);
-    *pkey = *(apr_datum_t*)&rd;
+
+    pkey->dptr = rd.dptr;
+    pkey->dsize = rd.dsize;
 
     /* store any error info into DBM, and return a status code. */
     return set_error(dbm, APR_SUCCESS);
 }
 
-static apr_status_t vt_ndbm_nextkey(apr_dbm_t *dbm, apr_datum_t * pkey)
+static apr_status_t vt_ndbm_nextkey(apr_dbm_t *dbm, apr_datum_t *pkey)
 {
-    datum *ckey;
-    datum rd;
+    datum kd, rd;
 
-    ckey = (datum*)pkey;
+    kd.dptr = pkey->dptr;
+    kd.dsize = pkey->dsize;
+
     rd = dbm_nextkey(dbm->file);
-    *pkey = *(apr_datum_t*)&rd;
+
+    pkey->dptr = rd.dptr;
+    pkey->dsize = rd.dsize;
 
     /* store any error info into DBM, and return a status code. */
     return set_error(dbm, APR_SUCCESS);
@@ -209,10 +221,8 @@ static void vt_ndbm_usednames(apr_pool_t *pool, const char *pathname,
     *used2 = NULL;
 }
 
-
-APU_DECLARE_DATA const apr_dbm_type_t apr_dbm_type_ndbm = {
+APU_MODULE_DECLARE_DATA const apr_dbm_type_t apr_dbm_type_ndbm = {
     "ndbm",
-
     vt_ndbm_open,
     vt_ndbm_close,
     vt_ndbm_fetch,
@@ -224,4 +234,5 @@ APU_DECLARE_DATA const apr_dbm_type_t apr_dbm_type_ndbm = {
     vt_ndbm_freedatum,
     vt_ndbm_usednames
 };
+
 #endif /* APU_HAVE_NDBM  */

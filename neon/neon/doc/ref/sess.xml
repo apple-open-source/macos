@@ -70,8 +70,11 @@ certificate (see <xref linkend="ne_ssl_trust_cert"/>, <xref
 linkend="ne_ssl_trust_default_ca"/>).</para>
 
 	<para>If an HTTP proxy server should be used for the session,
-<function>ne_session_proxy</function> must be called giving the
-hostname and port on which to contact the proxy.</para>
+	<function>ne_session_proxy</function> must be called giving
+	the hostname and port on which to contact the proxy.</para>
+
+        <para>Further per-session options may be changed using the
+        <xref linkend="ne_set_request_flag"/> interface.</para>
 
 	<para>If it is known that the session will not be used for a
 significant period of time, <function>ne_close_connection</function>
@@ -117,7 +120,7 @@ ne_session_destroy(sess);
       <refsect1>
 	<title>See Also</title>
 
-	<para><xref linkend="ne_ssl_set_verify"/>, <xref linkend="ne_ssl_trust_cert"/>, <xref linkend="ne_sock_init"/></para>
+	<para><xref linkend="ne_ssl_set_verify"/>, <xref linkend="ne_ssl_trust_cert"/>, <xref linkend="ne_sock_init"/>, <xref linkend="ne_set_session_flag"/></para>
       </refsect1>
 
     </refentry>

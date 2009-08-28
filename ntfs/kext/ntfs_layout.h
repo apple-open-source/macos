@@ -1,8 +1,8 @@
 /*
  * ntfs_layout.h - NTFS associated on-disk structures.
  *
- * Copyright (c) 2006, 2007 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006, 2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2008 Anton Altaparmakov.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2008 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -59,34 +59,35 @@
  * BIOS parameter block (bpb) structure.
  */
 typedef struct {
-	le16 bytes_per_sector;		/* Size of a sector in bytes. */
-	u8  sectors_per_cluster;	/* Size of a cluster in sectors. */
-	le16 reserved_sectors;		/* zero */
-	u8  fats;			/* zero */
-	le16 root_entries;		/* zero */
-	le16 sectors;			/* zero */
-	u8  media_type;			/* 0xf8 = hard disk */
-	le16 sectors_per_fat;		/* zero */
-	le16 sectors_per_track;		/* irrelevant */
-	le16 heads;			/* irrelevant */
-	le32 hidden_sectors;		/* zero */
-	le32 large_sectors;		/* zero */
+	le16 bytes_per_sector;	/* Size of a sector in bytes. */
+	u8 sectors_per_cluster;	/* Size of a cluster in sectors. */
+	le16 reserved_sectors;	/* zero */
+	u8 fats;		/* zero */
+	le16 root_entries;	/* zero */
+	le16 sectors;		/* zero */
+	u8 media_type;		/* 0xf8 = hard disk */
+	le16 sectors_per_fat;	/* zero */
+	le16 sectors_per_track;	/* Required to boot Windows. */
+	le16 heads;		/* Required to boot Windows. */
+	le32 hidden_sectors;	/* Offset to the start of the partition
+				   relative to the disk in sectors.  Required
+				   to boot Windows. */
+	le32 large_sectors;	/* zero */
 } __attribute__((__packed__)) BIOS_PARAMETER_BLOCK;
 
 /*
  * NTFS boot sector structure.
  */
 typedef struct {
-	u8  jump[3];			/* Irrelevant (jump to boot up code).*/
+	u8 jump[3];			/* Irrelevant (jump to boot up code).*/
 	le64 oem_id;			/* Magic "NTFS    ". */
-	BIOS_PARAMETER_BLOCK bpb;	/* See BIOS_PARAMETER_BLOCK. */
-	u8  unused[4];			/* zero, NTFS diskedit.exe states that
+/*0x0b*/BIOS_PARAMETER_BLOCK bpb;	/* See BIOS_PARAMETER_BLOCK. */
+	u8 unused[4];			/* zero, NTFS diskedit.exe states that
 					   this is actually:
-						__u8 physical_drive;	// 0x80
-						__u8 current_head;	// zero
-						__u8 extended_boot_signature;
-									// 0x80
-						__u8 unused;		// zero
+					    u8 physical_drive;		// 0x80
+					    u8 current_head;		// zero
+					    u8 extended_boot_signature;	// 0x80
+					    u8 unused;			// zero
 					 */
 /*0x28*/sle64 number_of_sectors;	/* Number of sectors in volume. Gives
 					   maximum volume size of 2^63 sectors.
@@ -95,17 +96,17 @@ typedef struct {
 					   approx. 4.7x10^21 bytes. (-; */
 	sle64 mft_lcn;			/* Cluster location of mft data. */
 	sle64 mftmirr_lcn;		/* Cluster location of copy of mft. */
-	s8  clusters_per_mft_record;	/* Mft record size in clusters. */
-	u8  reserved0[3];		/* zero */
-	s8  clusters_per_index_record;	/* Index block size in clusters. */
-	u8  reserved1[3];		/* zero */
+	s8 clusters_per_mft_record;	/* Mft record size in clusters. */
+	u8 reserved0[3];		/* zero */
+	s8 clusters_per_index_block;	/* Index block size in clusters. */
+	u8 reserved1[3];		/* zero */
 	le64 volume_serial_number;	/* Irrelevant (serial number). */
 	le32 checksum;			/* Boot sector checksum. */
-/*0x54*/u8  bootstrap[426];		/* Irrelevant (boot up code). */
+/*0x54*/u8 bootstrap[426];		/* Irrelevant (boot up code). */
 	le16 end_of_sector_marker;	/* End of bootsector magic. Always is
 					   0xaa55 in little endian. */
 /* sizeof() = 512 (0x200) bytes */
-} __attribute__((__packed__)) NTFS_BOOT_SECTOR;
+} __attribute__((__packed__, __aligned__(8))) NTFS_BOOT_SECTOR;
 
 /*
  * Magic identifiers present at the beginning of all ntfs record containing
@@ -204,7 +205,7 @@ typedef struct {
 				   including the Update Sequence Number (usn),
 				   thus the number of fixups is the usa_count
 				   minus 1. */
-} __attribute__((__packed__)) NTFS_RECORD;
+} __attribute__((__packed__, __aligned__(8))) NTFS_RECORD;
 
 /*
  * System files mft record numbers. All these files are always marked as used
@@ -398,7 +399,7 @@ typedef struct {
  * by overwriting it since you then can't get it back...
  * When reading we obviously use the data from the ntfs record header.
  */
-} __attribute__((__packed__)) MFT_RECORD;
+} __attribute__((__packed__, __aligned__(8))) MFT_RECORD;
 
 /* This is the version without the NTFS 3.1+ specific fields. */
 typedef struct {
@@ -464,7 +465,7 @@ typedef struct {
  * by overwriting it since you then can't get it back...
  * When reading we obviously use the data from the ntfs record header.
  */
-} __attribute__((__packed__)) MFT_RECORD_OLD;
+} __attribute__((__packed__, __aligned__(8))) MFT_RECORD_OLD;
 
 /*
  * System defined attributes (32-bit).  Each attribute type has a corresponding
@@ -598,15 +599,15 @@ typedef struct {
 /*hex ofs*/
 /*  0*/	ntfschar name[0x40];		/* Unicode name of the attribute. Zero
 					   terminated. */
-/* 80*/	ATTR_TYPE type;			/* Type of the attribute. */
-/* 84*/	le32 display_rule;		/* Default display rule.
+/*0x80*/ATTR_TYPE type;			/* Type of the attribute. */
+/*0x84*/le32 display_rule;		/* Default display rule.
 					   FIXME: What does it mean? (AIA) */
-/* 88*/ COLLATION_RULE collation_rule;	/* Default collation rule. */
-/* 8c*/	ATTR_DEF_FLAGS flags;		/* Flags describing the attribute. */
-/* 90*/	sle64 min_size;			/* Optional minimum attribute size. */
-/* 98*/	sle64 max_size;			/* Maximum size of attribute. */
+/*0x88*/COLLATION_RULE collation_rule;	/* Default collation rule. */
+/*0x8c*/ATTR_DEF_FLAGS flags;		/* Flags describing the attribute. */
+/*0x90*/sle64 min_size;			/* Optional minimum attribute size. */
+/*0x98*/sle64 max_size;			/* Maximum size of attribute. */
 /* sizeof() = 0xa0 or 160 bytes */
-} __attribute__((__packed__)) ATTR_DEF;
+} __attribute__((__packed__, __aligned__(8))) ATTR_DEF;
 
 /*
  * Attribute flags (16-bit).
@@ -741,7 +742,7 @@ typedef struct {
 /* 22 */		RESIDENT_ATTR_FLAGS resident_flags; /* See above. */
 /* 23 */		s8 reservedR;	  /* Reserved/alignment to 8-byte
 					     boundary. */
-		} __attribute__((__packed__));
+		} __attribute__((__packed__, __aligned__(8)));
 		/* Non-resident attributes. */
 		struct {
 /* 16*/			leVCN lowest_vcn;	/* Lowest valid virtual cluster
@@ -753,8 +754,7 @@ typedef struct {
 				extent of the attribute value. - Usually there
 				is only one portion, so this usually equals the
 				attribute value size in clusters minus 1.  Can
-				be -1 for zero length files.  Can be 0 for
-				"single extent" attributes. */
+				be -1 for zero length files. */
 /* 32*/			le16 mapping_pairs_offset; /* Byte offset from the
 				beginning of the structure to the mapping pairs
 				array which contains the mappings between the
@@ -767,8 +767,7 @@ typedef struct {
 				0 means not compressed.  (This effectively
 				limits the compression unit size to be a power
 				of two clusters.)  WinNT4 only uses a value of
-				4.  Sparse files also have this set to 0 on
-				XPSP2. */
+				4.  Sparse files have this set to 0 on XPSP2. */
 /* 35*/			u8 reservedN[5];	/* Align to 8-byte boundary. */
 /* The sizes below are only used when lowest_vcn is zero, as otherwise it would
    be difficult to keep them up-to-date.*/
@@ -793,9 +792,9 @@ typedef struct {
 				the cluster size.  Represents the actual amount
 				of disk space being used on the disk. */
 /* sizeof(compressed attr) = 72*/
-		} __attribute__((__packed__));
-	} __attribute__((__packed__));
-} __attribute__((__packed__)) ATTR_RECORD;
+		} __attribute__((__packed__, __aligned__(8)));
+	} __attribute__((__packed__, __aligned__(8)));
+} __attribute__((__packed__, __aligned__(8))) ATTR_RECORD;
 
 typedef ATTR_RECORD ATTR_REC;
 
@@ -854,15 +853,18 @@ enum {
 	/* Note, this is a copy of the corresponding bit from the mft record,
 	   telling us whether this file has a view index present (eg. object id
 	   index, quota index, one of the security indexes or the encrypting
-	   filesystem related indexes). */
+	   file system related indexes). */
 };
 
 typedef le32 FILE_ATTR_FLAGS;
 
+// TODO: Need to add __aligned__() to the packed structure definitions starting
+// form here (above here is already done)...
+
 /*
  * NOTE on times in NTFS: All times are in MS standard time format, i.e. they
  * are the number of 100-nanosecond intervals since 1st January 1601, 00:00:00
- * universal coordinated time (UTC). (In Linux time starts 1st January 1970,
+ * universal coordinated time (UTC). (In OS X time starts 1st January 1970,
  * 00:00:00 UTC and is stored as the number of 1-second intervals since then.)
  */
 
@@ -953,25 +955,29 @@ typedef struct {
  *
  * - Can be either resident or non-resident.
  * - Value consists of a sequence of variable length, 8-byte aligned,
- * ATTR_LIST_ENTRY records.
+ *   ATTR_LIST_ENTRY records.
  * - The list is not terminated by anything at all! The only way to know when
- * the end is reached is to keep track of the current offset and compare it to
- * the attribute value size.
+ *   the end is reached is to keep track of the current offset and compare it
+ *   to the attribute value size.
  * - The attribute list attribute contains one entry for each attribute of
- * the file in which the list is located, except for the list attribute
- * itself. The list is sorted: first by attribute type, second by attribute
- * name (if present), third by instance number. The extents of one
- * non-resident attribute (if present) immediately follow after the initial
- * extent. They are ordered by lowest_vcn and have their instace set to zero.
- * It is not allowed to have two attributes with all sorting keys equal.
+ *   the file in which the list is located, except for the list attribute
+ *   itself. The list is sorted: first by attribute type, second by attribute
+ *   name (if present), third by lowest vcn for the extents of a non-resident
+ *   attribute.
+ * - When multiple attributes have the same sorting keys as is the case for
+ *   multiple hard links for example (where we have multiple entries with
+ *   attribute type AT_FILENAME, unnamed, lowest vcn zero) then the order in
+ *   the attribute list attribute is irrelevant/random/depends purely on the
+ *   order of addition of the entries.  Windows chkdsk does not complain if we
+ *   swap such attribute list attribute entries around.
  * - Further restrictions:
  *	- If not resident, the vcn to lcn mapping array has to fit inside the
  *	  base mft record.
  *	- The attribute list attribute value has a maximum size of 256kb. This
  *	  is imposed by the Windows cache manager.
  * - Attribute lists are only used when the attributes of mft record do not
- * fit inside the mft record despite all attributes (that can be made
- * non-resident) having been made non-resident. This can happen e.g. when:
+ *   fit inside the mft record despite all attributes (that can be made
+ *   non-resident) having been made non-resident. This can happen e.g. when:
  *	- File has a large number of hard links (lots of filename
  *	  attributes present).
  *	- The mapping pairs array of some non-resident attribute becomes so
@@ -1083,7 +1089,7 @@ typedef struct {
 		/* 3e*/	le16 reserved;		/* Reserved for alignment. */
 		} __attribute__((__packed__));
 	/* 3c*/	struct {
-		/* 3c*/	le32 reparse_point_tag;	/* Type of reparse point,
+		/* 3c*/	le32 reparse_tag;	/* Type of reparse point,
 						   present only in reparse
 						   points and only if there are
 						   no EAs. */
@@ -2049,14 +2055,13 @@ typedef struct {
 					   COLLATION_FILENAME. */
 	le32 index_block_size;		/* Size of each index block in bytes (in
 					   the index allocation attribute). */
-	u8 clusters_per_index_block;	/* Cluster size of each index block (in
-					   the index allocation attribute), when
-					   an index block is >= than a cluster,
-					   otherwise this will be the log of
-					   the size (like how the encoding of
-					   the mft record size and the index
-					   record size found in the boot sector
-					   work). Has to be a power of 2. */
+	s8 blocks_per_index_block;	/* Number of clusters per index block
+					   (in the index allocation attribute)
+					   when index_block_size is greater or
+					   equal to the cluster size and number
+					   of sectors per index block when the
+					   index_block_size is smaller than the
+					   cluster size. */
 	u8 reserved[3];			/* Reserved/align to 8-byte boundary. */
 	INDEX_HEADER index;		/* Index header describing the
 					   following index entries. */
@@ -2418,7 +2423,8 @@ typedef struct {
 				   excluding the '\0' byte terminator. */
 	le16 ea_value_length;	/* Byte size of the EA's value. */
 	u8 ea_name[0];		/* Name of the EA.  Note this is ASCII, not
-				   Unicode and it is zero terminated. */
+				   Unicode and it may or may not be zero
+				   terminated. */
 	u8 ea_value[0];		/* The value of the EA.  Immediately follows
 				   the name. */
 } __attribute__((__packed__)) EA_ATTR;
@@ -2584,12 +2590,12 @@ typedef struct {
 
 typedef EFS_DF_CERTIFICATE_THUMBPRINT_HEADER EFS_DF_CERT_THUMBPRINT_HEADER;
 
-#define INTX_SYM_LINK \
-		const_cpu_to_le64(0x014B4E4C78746E49ULL) /* "IntxLNK\1" */
-#define INTX_CHAR_DEVICE \
-		const_cpu_to_le64(0x0052484378746E49ULL) /* "IntxCHR\0" */
 #define INTX_BLOCK_DEVICE \
 		const_cpu_to_le64(0x004B4C4278746E49ULL) /* "IntxBLK\0" */
+#define INTX_CHAR_DEVICE \
+		const_cpu_to_le64(0x0052484378746E49ULL) /* "IntxCHR\0" */
+#define INTX_SYM_LINK \
+		const_cpu_to_le64(0x014B4E4C78746E49ULL) /* "IntxLNK\1" */
 
 typedef u64 INTX_INODE_TYPES;
 
@@ -2603,7 +2609,7 @@ typedef struct {
 		} __attribute__((__packed__)) device;
 		/* Symbolic links. */
 		ntfschar target[0];	/* The target of the symbolic link. */
-	} __attribute__((__packed__)) data;
+	} __attribute__((__packed__));
 } __attribute__((__packed__)) INTX_FILE;
 
 #endif /* !_OSX_NTFS_LAYOUT_H */

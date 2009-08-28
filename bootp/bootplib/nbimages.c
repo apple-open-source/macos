@@ -50,6 +50,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
+#include <CoreFoundation/CFURL.h>
 #include <SystemConfiguration/SCValidation.h>
 
 struct NBImageList_s {
@@ -353,8 +354,9 @@ NBImageEntry_print(NBImageEntryRef entry)
 {
     int		i;
 
-    printf("%-12s %-35s 0x%08x %-9s %-12s", 
+    printf("%-12s %-35s %-35s 0x%08x %-9s %-12s", 
 	   entry->sharepoint->name,
+	   entry->dir_name_esc,
 	   entry->name,
 	   entry->image_id, 
 	   NBImageTypeStr(entry->type),
@@ -371,7 +373,8 @@ NBImageEntry_print(NBImageEntryRef entry)
 	       (entry->type_info.nfs.indirect == TRUE)? " [indirect]" : "");
 	break;
     case kNBImageTypeHTTP:
-	printf(" %-12s%s", entry->type_info.http.root_path,
+	printf(" %-12s%s", 
+	       entry->type_info.http.root_path_esc,
 	       (entry->type_info.http.indirect == TRUE)? " [indirect]" : "");
 	break;
     default:
@@ -408,6 +411,45 @@ NBImageEntry_print(NBImageEntryRef entry)
     }
     printf("\n");
     return;
+}
+
+static int
+escape_path(const char * path, int path_len,
+	    char * escaped_path, int escaped_path_len)
+{
+    CFDataRef	data = NULL;
+    int		data_len;
+    int		len = 0;
+    CFURLRef	url = NULL;
+
+    url = CFURLCreateFromFileSystemRepresentation(NULL, (const UInt8 *)path,
+						  path_len, FALSE);
+    if (url == NULL) {
+	goto done;
+    }
+    data = CFURLCreateData(NULL, url, kCFStringEncodingUTF8, TRUE);
+    if (data == NULL) {
+	goto done;
+    }
+    data_len = CFDataGetLength(data);
+    if (data_len >= escaped_path_len) {
+	/* would truncate, so don't bother */
+	goto done;
+    }
+    if (data_len == path_len
+	&& bcmp(CFDataGetBytePtr(data), path, path_len) == 0) {
+	/* exactly the same string, no need to escape */
+	goto done;
+    }
+    bcopy(CFDataGetBytePtr(data), escaped_path, data_len);
+    escaped_path[data_len] = '\0';
+    len = data_len;
+
+ done:
+    if (url != NULL) {
+	CFRelease(url);
+    }
+    return (len);
 }
 
 static boolean_t
@@ -477,6 +519,9 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
     u_int16_t		attr = 0;
     CFStringRef		bootfile_prop;
     int			bootfile_space = 0;
+    char		dir_name_esc[PATH_MAX];
+    int			dir_name_esc_len;
+    int			dir_name_len;
     CFArrayRef		disabled_mac_prop = NULL;
     int			disabled_mac_space = 0;
     boolean_t		diskless;
@@ -500,6 +545,9 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
     CFStringRef		private_prop = NULL;
     int			private_space = 0;
     char		root_path[PATH_MAX];
+    int			root_path_len = 0;
+    char		root_path_esc[PATH_MAX];
+    int			root_path_esc_len = 0;
     CFStringRef		root_path_prop = NULL;
     struct in_addr	server_ip;
     char *              server_password;
@@ -514,7 +562,10 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
     CFStringRef		type;
     NBImageType		type_val = kNBImageTypeNone;
 
-    tail_space = strlen(dir_name) + 1;
+    /* space for directory name */
+    dir_name_len = strlen(dir_name);
+    tail_space += dir_name_len + 1;
+
     plist = my_CFPropertyListCreateFromFile(info_plist_path);
     if (isA_CFDictionary(plist) == NULL) {
 	goto failed;
@@ -612,6 +663,18 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
 	}
     }
     attr |= bsdp_image_attributes_from_kind(kind_val);
+
+    /* space for escaped directory name */
+    if (type_val == kNBImageTypeHTTP) {
+	dir_name_esc_len = escape_path(dir_name, dir_name_len,
+				       dir_name_esc, sizeof(dir_name_esc));
+	if (dir_name_esc_len != 0) {
+	    tail_space += dir_name_esc_len + 1;
+	}
+    }
+    else {
+	dir_name_esc_len = 0;
+    }
 
     /* architectures */
     archlist_prop = CFDictionaryGetValue(plist, kNetBootImageInfoArchitectures);
@@ -783,7 +846,8 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
 	else {
 	    goto failed;
 	}
-	tail_space += strlen(root_path) + 1;
+	root_path_len = strlen(root_path);
+	tail_space += root_path_len + 1;
 	break;
     case kNBImageTypeHTTP:
 	/* must have RootPath */
@@ -798,6 +862,10 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
 	}
 	if (stat_file(dir_path, tmp) == TRUE) {
 	    strlcpy(root_path, tmp, sizeof(root_path));
+	    root_path_len = strlen(root_path);
+	    root_path_esc_len = escape_path(root_path, root_path_len,
+					    root_path_esc,
+					    sizeof(root_path_esc));
 	}
 	else if (parse_http_path(tmp, &server_ip, &server_username,
 				 &server_password, &server_port,
@@ -828,12 +896,16 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
 			     inet_ntoa(server_ip), image_file);
 		}
 	    }
+	    root_path_len = strlen(root_path);
 	    indirect = TRUE;
 	}
 	else {
 	    goto failed;
 	}
-	tail_space += strlen(root_path) + 1;
+	tail_space += root_path_len + 1;
+	if (root_path_esc_len != 0) {
+	    tail_space += root_path_esc_len + 1;
+	}
 	break;
     case kNBImageTypeBootFileOnly:
     default:
@@ -938,8 +1010,18 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
 
     /* dir_name */
     entry->dir_name = offset;
-    strcpy(entry->dir_name, dir_name);
-    offset += strlen(dir_name) + 1;
+    strlcpy(entry->dir_name, dir_name, dir_name_len + 1);
+    offset += dir_name_len + 1;
+
+    /* dir_name_esc */
+    if (dir_name_esc_len == 0) {
+	entry->dir_name_esc = entry->dir_name;
+    }
+    else {
+	entry->dir_name_esc = offset;
+	strlcpy(entry->dir_name_esc, dir_name_esc, dir_name_esc_len + 1);
+	offset += dir_name_esc_len + 1;
+    }
 
     /* name */
     entry->name = offset;
@@ -963,13 +1045,23 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
     case kNBImageTypeNFS:
 	entry->type_info.nfs.root_path = offset;
 	strcpy((char *)entry->type_info.nfs.root_path, root_path);
-	offset += strlen(root_path) + 1;
+	offset += root_path_len + 1;
 	entry->type_info.nfs.indirect = indirect;
 	break;
     case kNBImageTypeHTTP:
 	entry->type_info.http.root_path = offset;
 	strcpy((char *)entry->type_info.http.root_path, root_path);
-	offset += strlen(root_path) + 1;
+	offset += root_path_len + 1;
+	if (root_path_esc_len == 0) {
+	    entry->type_info.http.root_path_esc
+		= entry->type_info.http.root_path;
+	}
+	else {
+	    entry->type_info.http.root_path_esc = offset;
+	    strcpy((char *)entry->type_info.http.root_path_esc, 
+		   root_path_esc);
+	    offset += root_path_esc_len + 1;
+	}
 	entry->type_info.http.indirect = indirect;
 	break;
     default:
@@ -979,7 +1071,7 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
     printf("tail_space %d - actual %d = %d\n",
 	   tail_space, (offset - (char *)(entry + 1)),
 	   tail_space - (offset - (char *)(entry + 1)));
-#endif 0
+#endif
     my_CFRelease(&plist);
     return (entry);
 
@@ -1211,7 +1303,8 @@ NBImageList_print(NBImageListRef image_list)
     int			count;
     int			i;
 
-    printf("%-12s %-35s %-10s %-9s %-12s Image(s)\n", "Sharepoint", "Name",
+    printf("%-12s %-35s %-35s %-10s %-9s %-12s Image(s)\n", "Sharepoint",
+	   "Dir", "Name",
 	   "Identifier", "Type", "BootFile");
 
     count = dynarray_count(&image_list->list);

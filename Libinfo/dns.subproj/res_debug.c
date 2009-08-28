@@ -84,11 +84,13 @@ static char rcsid[] = "$Id: res_debug.c,v 1.5 2004/06/11 23:16:00 majka Exp $";
 #include <sys/param.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <arpa/nameser8_compat.h>
 
 #include <stdio.h>
 #include <netdb.h>
-#include <resolv8_compat.h>
+
+#include "nameser8_compat.h"
+#include "resolv8_compat.h"
+
 #if defined(BSD) && (BSD >= 199103)
 # include <string.h>
 #else
@@ -236,7 +238,7 @@ do_rrset(msg, len, cp, cnt, pflag, file, hs)
 	if ((n = ntohs(cnt))) {
 		if ((!_res.pfcode) ||
 		    ((sflag) && (_res.pfcode & RES_PRF_HEAD1)))
-			fprintf(file, hs);
+			fprintf(file, "%s", hs);
 		while (--n >= 0) {
 			if ((!_res.pfcode) || sflag) {
 				cp = p_rr(cp, msg, file);

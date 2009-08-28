@@ -1,6 +1,6 @@
 /*
  **********************************************************************
- *   Copyright (C) 1997-2006, International Business Machines
+ *   Copyright (C) 1997-2008, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  **********************************************************************
 *
@@ -41,7 +41,7 @@
 
 #define LENGTHOF(array) (int32_t)(sizeof(array)/sizeof((array)[0]))
 
-static Locale*  availableLocaleList = NULL;
+static U_NAMESPACE_QUALIFIER Locale*  availableLocaleList = NULL;
 static int32_t  availableLocaleListCount;
 typedef enum ELocalePos {
     eENGLISH,
@@ -76,9 +76,9 @@ U_CFUNC int32_t locale_getKeywords(const char *localeID,
             UBool valuesToo,
             UErrorCode *status);
 
-static Locale        *gLocaleCache         = NULL;
-static const Locale  *gDefaultLocale       = NULL;
-static UHashtable    *gDefaultLocalesHashT = NULL;
+static U_NAMESPACE_QUALIFIER Locale *gLocaleCache         = NULL;
+static U_NAMESPACE_QUALIFIER Locale *gDefaultLocale       = NULL;
+static UHashtable                   *gDefaultLocalesHashT = NULL;
 
 U_CDECL_BEGIN
 //
@@ -86,7 +86,7 @@ U_CDECL_BEGIN
 //
 static void U_CALLCONV
 deleteLocale(void *obj) {
-    delete (Locale *) obj;
+    delete (U_NAMESPACE_QUALIFIER Locale *) obj;
 }
 
 static UBool U_CALLCONV locale_cleanup(void)
@@ -108,6 +108,10 @@ static UBool U_CALLCONV locale_cleanup(void)
         uhash_close(gDefaultLocalesHashT);   // Automatically deletes all elements, using deleter func.
         gDefaultLocalesHashT = NULL;
     }
+    else if (gDefaultLocale) {
+        // The cache wasn't created, and only one default locale was created.
+        delete gDefaultLocale;
+    }
     gDefaultLocale = NULL;
 
     return TRUE;
@@ -115,14 +119,11 @@ static UBool U_CALLCONV locale_cleanup(void)
 U_CDECL_END
 
 U_NAMESPACE_BEGIN
-UOBJECT_DEFINE_RTTI_IMPLEMENTATION(Locale)
-
 //
 //  locale_set_default_internal.
 //
 void locale_set_default_internal(const char *id)
 {
-    U_NAMESPACE_USE
     UErrorCode   status = U_ZERO_ERROR;
     UBool canonicalize = FALSE;
 
@@ -154,10 +155,36 @@ void locale_set_default_internal(const char *id)
                                                  //   (long names are truncated.)
 
     // Lazy creation of the hash table itself, if needed.
-    //
-    umtx_lock(NULL);
-    UBool hashTableNeedsInit = (gDefaultLocalesHashT == NULL);
-    umtx_unlock(NULL);
+    UBool isOnlyLocale;
+    UMTX_CHECK(NULL, (gDefaultLocale == NULL), isOnlyLocale);
+    if (isOnlyLocale) {
+        // We haven't seen this locale id before.
+        // Create a new Locale object for it.
+        Locale *newFirstDefault = new Locale(Locale::eBOGUS);
+        if (newFirstDefault == NULL) {
+            // No way to report errors from here.
+            return;
+        }
+        newFirstDefault->init(localeNameBuf, FALSE);
+        umtx_lock(NULL);
+        if (gDefaultLocale == NULL) {
+            gDefaultLocale = newFirstDefault;  // Assignment to gDefaultLocale must happen inside mutex
+            newFirstDefault = NULL;
+            ucln_common_registerCleanup(UCLN_COMMON_LOCALE, locale_cleanup);
+        }
+        // Else some other thread raced us through here, and set the new Locale.
+        // Use the hash table next.
+        umtx_unlock(NULL);
+        if (newFirstDefault == NULL) {
+            // We were successful in setting the locale, and we were the first one to set it.
+            return;
+        }
+        // else start using the hash table.
+    }
+
+    // Lazy creation of the hash table itself, if needed.
+    UBool hashTableNeedsInit;
+    UMTX_CHECK(NULL, (gDefaultLocalesHashT == NULL), hashTableNeedsInit);
     if (hashTableNeedsInit) {
         status = U_ZERO_ERROR;
         UHashtable *tHashTable = uhash_open(uhash_hashChars, uhash_compareChars, NULL, &status);
@@ -169,11 +196,11 @@ void locale_set_default_internal(const char *id)
         if (gDefaultLocalesHashT == NULL) {
             gDefaultLocalesHashT = tHashTable;
             ucln_common_registerCleanup(UCLN_COMMON_LOCALE, locale_cleanup);
-            umtx_unlock(NULL);
         } else {
-            umtx_unlock(NULL);
             uhash_close(tHashTable);
+            hashTableNeedsInit = FALSE;
         }
+        umtx_unlock(NULL);
     }
 
     // Hash table lookup, key is the locale full name
@@ -199,11 +226,15 @@ void locale_set_default_internal(const char *id)
         const char *key = newDefault->getName();
         U_ASSERT(uprv_strcmp(key, localeNameBuf) == 0);
         umtx_lock(NULL);
-        const Locale *hashTableVal = (const Locale *)uhash_get(gDefaultLocalesHashT, key);
+        Locale *hashTableVal = (Locale *)uhash_get(gDefaultLocalesHashT, key);
         if (hashTableVal == NULL) {
+            if (hashTableNeedsInit) {
+                // This is the second request to set the locale.
+                // Cache the first one.
+                uhash_put(gDefaultLocalesHashT, (void *)gDefaultLocale->getName(), gDefaultLocale, &status);
+            }
             uhash_put(gDefaultLocalesHashT, (void *)key, newDefault, &status);
             gDefaultLocale = newDefault;
-            umtx_unlock(NULL);
             // ignore errors from hash table insert.  (Couldn't do anything anyway)
             // We can still set the default Locale,
             //  it just wont be cached, and will eventually leak.
@@ -211,13 +242,12 @@ void locale_set_default_internal(const char *id)
             // Some other thread raced us through here, and got the new Locale
             //   into the hash table before us.  Use that one.
             gDefaultLocale = hashTableVal;  // Assignment to gDefaultLocale must happen inside mutex
-            umtx_unlock(NULL);
             delete newDefault;
         }
+        umtx_unlock(NULL);
     }
 }
 U_NAMESPACE_END
-
 
 /* sfb 07/21/99 */
 U_CFUNC void
@@ -238,6 +268,8 @@ locale_get_default(void)
 
 
 U_NAMESPACE_BEGIN
+
+UOBJECT_DEFINE_RTTI_IMPLEMENTATION(Locale)
 
 /*Character separating the posix id fields*/
 // '_'
@@ -360,6 +392,10 @@ Locale::Locale( const   char * newLanguage,
         if (size >= ULOC_FULLNAME_CAPACITY)
         {
             togo_heap = (char *)uprv_malloc(sizeof(char)*(size+1));
+            // If togo_heap could not be created, initialize with default settings.
+            if (togo_heap == NULL) {
+                init(NULL, FALSE);
+            }
             togo = togo_heap;
         }
         else
@@ -448,6 +484,9 @@ Locale &Locale::operator=(const Locale &other)
     /* Allocate the full name if necessary */
     if(other.fullName != other.fullNameBuffer) {
         fullName = (char *)uprv_malloc(sizeof(char)*(uprv_strlen(other.fullName)+1));
+        if (fullName == NULL) {
+            return *this;
+        }
     }
     /* Copy the full name */
     uprv_strcpy(fullName, other.fullName);
@@ -638,9 +677,7 @@ const Locale& U_EXPORT2
 Locale::getDefault()
 {
     const Locale *retLocale;
-    umtx_lock(NULL);
-    retLocale = gDefaultLocale;
-    umtx_unlock(NULL);
+    UMTX_CHECK(NULL, gDefaultLocale, retLocale);
     if (retLocale == NULL) {
         locale_set_default_internal(NULL);
         umtx_lock(NULL);
@@ -926,9 +963,8 @@ const Locale* U_EXPORT2
 Locale::getAvailableLocales(int32_t& count)
 {
     // for now, there is a hardcoded list, so just walk through that list and set it up.
-    umtx_lock(NULL);
-    UBool needInit = availableLocaleList == 0;
-    umtx_unlock(NULL);
+    UBool needInit;
+    UMTX_CHECK(NULL, availableLocaleList == NULL, needInit);
 
     if (needInit) {
         int32_t locCount = uloc_countAvailable();
@@ -1289,6 +1325,9 @@ Locale::getBaseName() const
         int32_t baseNameSize = uloc_getBaseName(fullName, baseName, ULOC_FULLNAME_CAPACITY, &status);
         if(baseNameSize >= ULOC_FULLNAME_CAPACITY) {
             ((Locale *)this)->baseName = (char *)uprv_malloc(sizeof(char) * baseNameSize + 1);
+            if (baseName == NULL) {
+                return baseName;
+            }
             uloc_getBaseName(fullName, baseName, baseNameSize+1, &status);
         }
         baseName[baseNameSize] = 0;

@@ -34,12 +34,14 @@
 #include "Editor.h"
 #include "Element.h"
 #include "EventHandler.h"
+#include "FileList.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameView.h"
 #include "HTMLNames.h"
 #include "Image.h"
 #include "MIMETypeRegistry.h"
+#include "NotImplemented.h"
 #include "Page.h"
 #include "Pasteboard.h"
 #include "PlatformMouseEvent.h"
@@ -580,6 +582,12 @@ HashSet<String> ClipboardWin::types() const
     return results;
 }
 
+PassRefPtr<FileList> ClipboardWin::files() const
+{
+    notImplemented();
+    return 0;
+}
+
 void ClipboardWin::setDragImage(CachedImage* image, Node *node, const IntPoint &loc)
 {
     if (policy() != ClipboardImageWritable && policy() != ClipboardWritable) 
@@ -608,9 +616,12 @@ void ClipboardWin::setDragImageElement(Node *node, const IntPoint &loc)
 DragImageRef ClipboardWin::createDragImage(IntPoint& loc) const
 {
     HBITMAP result = 0;
-    //FIXME: Need to be able to draw element <rdar://problem/5015942>
     if (m_dragImage) {
         result = createDragImageFromImage(m_dragImage->image());        
+        loc = m_dragLoc;
+    } else if (m_dragImageElement) {
+        Node* node = m_dragImageElement.get();
+        result = node->document()->frame()->nodeImage(node);
         loc = m_dragLoc;
     }
     return result;
@@ -767,6 +778,14 @@ bool ClipboardWin::hasData()
     }
 
     return false;
+}
+
+void ClipboardWin::setExternalDataObject(IDataObject *dataObject)
+{
+    ASSERT(isForDragging());
+
+    m_writableDataObject = 0;
+    m_dataObject = dataObject;
 }
 
 } // namespace WebCore

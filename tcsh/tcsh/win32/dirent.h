@@ -1,4 +1,4 @@
-/*$Header: /src/pub/tcsh/win32/dirent.h,v 1.5 2005/01/05 16:06:19 christos Exp $*/
+/*$Header: /p/tcsh/cvsroot/tcsh/win32/dirent.h,v 1.6 2006/03/03 22:08:45 amold Exp $*/
 /*-
  * Copyright (c) 1980, 1991 The Regents of the University of California.
  * All rights reserved.
@@ -65,7 +65,7 @@ typedef struct {
 	struct dirent *dd_buf;
 }DIR;
 
-DIR *opendir(char*);
+DIR *opendir(const char*);
 struct dirent *readdir(DIR*);
 int closedir(DIR*);
 void rewinddir(DIR*);

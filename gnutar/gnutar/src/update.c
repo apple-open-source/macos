@@ -1,7 +1,7 @@
 /* Update a tar archive.
 
    Copyright (C) 1988, 1992, 1994, 1996, 1997, 1999, 2000, 2001, 2003,
-   2004 Free Software Foundation, Inc.
+   2004, 2005 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -15,7 +15,7 @@
 
    You should have received a copy of the GNU General Public License along
    with this program; if not, write to the Free Software Foundation, Inc.,
-   59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 /* Implement the 'r', 'u' and 'A' options for tar.  'A' means that the
    file names are tar files, and they should simply be appended to the end
@@ -110,7 +110,7 @@ update_archive (void)
 
   name_gather ();
   open_archive (ACCESS_UPDATE);
-  xheader_write_global ();
+  buffer_write_global_xheader ();
 
   while (!found_end)
     {
@@ -129,7 +129,7 @@ update_archive (void)
 	    decode_header (current_header, &current_stat_info,
 			   &current_format, 0);
 	    archive_format = current_format;
-	    
+
 	    if (subcommand_option == UPDATE_SUBCOMMAND
 		&& (name = name_scan (current_stat_info.file_name)) != NULL)
 	      {
@@ -138,7 +138,9 @@ update_archive (void)
 		chdir_do (name->change_dir);
 		if (deref_stat (dereference_option,
 				current_stat_info.file_name, &s) == 0
-		    && s.st_mtime <= current_stat_info.stat.st_mtime)
+		    && (tar_timespec_cmp (get_stat_mtime (&s),
+				          current_stat_info.mtime)
+			<= 0))
 		  add_avoided_name (current_stat_info.file_name);
 	      }
 
@@ -179,7 +181,6 @@ update_archive (void)
 	}
 
       tar_stat_destroy (&current_stat_info);
-      xheader_destroy (&extended_header);
       previous_status = status;
     }
 

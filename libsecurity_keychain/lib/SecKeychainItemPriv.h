@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2003-2008 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -91,25 +91,6 @@ OSStatus SecKeychainItemSetData(SecKeychainItemRef itemRef, UInt32 length, const
 OSStatus SecKeychainItemFindFirst(SecKeychainRef keychainRef, const SecKeychainAttributeList *attrList, SecKeychainSearchRef *searchRef, SecKeychainItemRef *itemRef);
 
 /*!
-    @function SecKeychainItemCreatePersistentReference
-    @abstract Returns a CFDataRef which can be used as a persistent reference to the given keychain item. The data obtained can be turned back into a SecKeychainItemRef later by calling SecKeychainItemCopyFromPersistentReference().
-    @param itemRef A reference to a keychain item.
-    @param persistentItemRef On return, a CFDataRef containing a persistent reference. You must release this data reference by calling the CFRelease function.
-    @result A result code. See "Security Error Codes" (SecBase.h).
-*/
-OSStatus SecKeychainItemCreatePersistentReference(SecKeychainItemRef itemRef, CFDataRef *persistentItemRef);
-
-
-/*!
-    @function SecKeychainItemCopyFromPersistentReference
-    @abstract Returns a SecKeychainItemRef, given a persistent reference previously obtained by calling SecKeychainItemCreatePersistentReference().
-    @param persistentItemRef A CFDataRef containing a persistent reference to a keychain item.
-    @param itemRef On return, a SecKeychainItemRef for the keychain item described by the persistent reference. You must release this item reference by calling the CFRelease function.
-    @result A result code. See "Security Error Codes" (SecBase.h).
-*/
-OSStatus SecKeychainItemCopyFromPersistentReference(CFDataRef persistentItemRef, SecKeychainItemRef *itemRef);
-
-/*!
 	@function SecKeychainItemCopyRecordIdentifier
 	@abstract Returns the record identifier for a keychain item
 	@param itemRef The item for which the localID is to be returned
@@ -150,11 +131,10 @@ OSStatus SecKeychainItemCopyAttributesAndEncryptedData(SecKeychainItemRef itemRe
 													   UInt32 *length, void **outData);
 
 /*!
-	@function SecKeychainItemModifyAttributesAndData
-	@abstract Updates an existing keychain item after changing its attributes or data.
-			  The data is not encrypted.
+	@function SecKeychainItemModifyEncryptedData
+	@abstract Updates an existing keychain item after changing its data.
+			  The data is not re-encrypted.
 	@param itemRef A reference to the keychain item to modify.
-	@param attrList The list of attributes to set.
 	@param length The length of the buffer pointed to by data.
 	@param data Pointer to a buffer containing the data to store.
     @result A result code.  See "Security Error Codes" (SecBase.h).
@@ -163,14 +143,15 @@ OSStatus SecKeychainItemCopyAttributesAndEncryptedData(SecKeychainItemRef itemRe
 OSStatus SecKeychainItemModifyEncryptedData(SecKeychainItemRef itemRef, UInt32 length, const void *data);
 
 /*!
-	@function SecKeychainItemCreateFromContent
-	@abstract Creates a new keychain item from the supplied parameters.  The data is not encrypted.
+	@function SecKeychainItemCreateFromEncryptedContent
+	@abstract Creates a new keychain item from the supplied parameters. The data is not re-encrypted.
 	@param itemClass A constant identifying the class of item to create.
 	@param length The length of the buffer pointed to by data.
 	@param data A pointer to a buffer containing the data to store.
-	@param initialAccess A reference to the access for this keychain item.
     @param keychainRef A reference to the keychain in which to add the item.
+	@param initialAccess A reference to the access for this keychain item.
 	@param itemRef On return, a pointer to a reference to the newly created keychain item (optional). When the item reference is no longer required, call CFRelease to deallocate memory occupied by the item.
+	@param itemLocalID On return, the item's local ID data (optional). When the local ID data reference is no longer required, call CFRelease to deallocate memory occupied by the reference.
     @result A result code.  See "Security Error Codes" (SecBase.h). In addition, paramErr (-50) may be returned if not enough valid parameters are supplied, or memFullErr (-108) if there is not enough memory in the current heap zone to create the object.
 */
 OSStatus SecKeychainItemCreateFromEncryptedContent(SecItemClass itemClass, UInt32 length, const void *data,

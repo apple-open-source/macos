@@ -43,7 +43,8 @@
 #include <netinet6/ipsec.h>
 #endif
 
-#if defined(IP_RECVDSTADDR) && !defined(IPV6_RECVDSTADDR)
+#if defined(INET6) && !defined(INET6_ADVAPI) && \
+	defined(IP_RECVDSTADDR) && !defined(IPV6_RECVDSTADDR)
 #define IPV6_RECVDSTADDR IP_RECVDSTADDR
 #endif
 
@@ -61,6 +62,7 @@
 #include "sockmisc.h"
 #include "debug.h"
 #include "gcmalloc.h"
+#include "debugrm.h"
 #include "libpfkey.h"
 
 #ifndef IP_IPSEC_POLICY
@@ -320,7 +322,7 @@ recvfromto(s, buf, buflen, flags, from, fromlen, to, tolen)
 	u_int len;
 	struct sockaddr_storage ss;
 	struct msghdr m;
-	struct cmsghdr *cm;
+	struct cmsghdr *cm, *cm_prev;
 	struct iovec iov[2];
 	u_char cmsgbuf[256];
 #if defined(INET6) && defined(INET6_ADVAPI)
@@ -352,14 +354,16 @@ recvfromto(s, buf, buflen, flags, from, fromlen, to, tolen)
 		plog(LLV_ERROR, LOCATION, NULL,
 			"recvmsg (%s)\n", strerror(errno));
 		return -1;
+	} else if (len == 0) {
+	        return 0;
 	}
 	*fromlen = m.msg_namelen;
 
 	otolen = *tolen;
 	*tolen = 0;
-	for (cm = (struct cmsghdr *)CMSG_FIRSTHDR(&m);
-	     m.msg_controllen != 0 && cm;
-	     cm = (struct cmsghdr *)CMSG_NXTHDR(&m, cm)) {
+	for (cm = (struct cmsghdr *)CMSG_FIRSTHDR(&m), cm_prev = NULL;
+	     m.msg_controllen != 0 && cm && cm != cm_prev;
+	     cm_prev = cm, cm = (struct cmsghdr *)CMSG_NXTHDR(&m, cm)) {
 #if 0
 		plog(LLV_ERROR, LOCATION, NULL,
 			"cmsg %d %d\n", cm->cmsg_level, cm->cmsg_type);)
@@ -650,7 +654,8 @@ sendfromto(s, buf, buflen, src, dst, cnt)
 #endif
 				       (void *)&yes, sizeof(yes)) < 0) {
 				plog(LLV_ERROR, LOCATION, NULL,
-					"setsockopt (%s)\n", strerror(errno));
+					"setsockopt SO_REUSEPORT (%s)\n", 
+					strerror(errno));
 				close(sendsock);
 				return -1;
 			}
@@ -659,7 +664,8 @@ sendfromto(s, buf, buflen, src, dst, cnt)
 			    setsockopt(sendsock, IPPROTO_IPV6, IPV6_USE_MIN_MTU,
 			    (void *)&yes, sizeof(yes)) < 0) {
 				plog(LLV_ERROR, LOCATION, NULL,
-					"setsockopt (%s)\n", strerror(errno));
+					"setsockopt IPV6_USE_MIN_MTU (%s)\n", 
+					strerror(errno));
 				close(sendsock);
 				return -1;
 			}
@@ -738,7 +744,7 @@ setsockopt_bypass(so, family)
 	                         IP_IPSEC_POLICY : IPV6_IPSEC_POLICY),
 	               buf, ipsec_get_policylen(buf)) < 0) {
 		plog(LLV_ERROR, LOCATION, NULL,
-			"setsockopt (%s)\n",
+			"setsockopt IP_IPSEC_POLICY (%s)\n",
 			strerror(errno));
 		return -1;
 	}
@@ -757,7 +763,7 @@ setsockopt_bypass(so, family)
 	                         IP_IPSEC_POLICY : IPV6_IPSEC_POLICY),
 	               buf, ipsec_get_policylen(buf)) < 0) {
 		plog(LLV_ERROR, LOCATION, NULL,
-			"setsockopt (%s)\n",
+			"setsockopt IP_IPSEC_POLICY (%s)\n",
 			strerror(errno));
 		return -1;
 	}
@@ -772,10 +778,11 @@ newsaddr(len)
 {
 	struct sockaddr *new;
 
-	new = racoon_calloc(1, len);
-	if (new == NULL)
+	if ((new = racoon_calloc(1, len)) == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
 			"%s\n", strerror(errno)); 
+		goto out;
+	}
 
 #ifdef __linux__
 	if (len == sizeof (struct sockaddr_in6))
@@ -786,7 +793,7 @@ newsaddr(len)
 	/* initial */
 	new->sa_len = len;
 #endif
-
+out:
 	return new;
 }
 
@@ -869,8 +876,10 @@ naddrwop2str_fromto(const char *format, const struct netaddr *saddr,
 	static char buf[2*(NI_MAXHOST + NI_MAXSERV + 10) + 100];
 	char *src, *dst;
 
-	src = strdup(naddrwop2str(saddr));
-	dst = strdup(naddrwop2str(daddr));
+	src = racoon_strdup(naddrwop2str(saddr));
+	dst = racoon_strdup(naddrwop2str(daddr));
+	STRDUP_FATAL(src);
+	STRDUP_FATAL(dst);
 	/* WARNING: Be careful about the format string! Don't 
 	   ever pass in something that a user can modify!!! */
 	snprintf (buf, sizeof(buf), format, src, dst);
@@ -889,8 +898,10 @@ saddr2str_fromto(format, saddr, daddr)
 	static char buf[2*(NI_MAXHOST + NI_MAXSERV + 10) + 100];
 	char *src, *dst;
 
-	src = strdup(saddr2str(saddr));
-	dst = strdup(saddr2str(daddr));
+	src = racoon_strdup(saddr2str(saddr));
+	dst = racoon_strdup(saddr2str(daddr));
+	STRDUP_FATAL(src);
+	STRDUP_FATAL(dst);
 	/* WARNING: Be careful about the format string! Don't 
 	   ever pass in something that a user can modify!!! */
 	snprintf (buf, sizeof(buf), format, src, dst);
@@ -995,7 +1006,7 @@ naddr_score(const struct netaddr *naddr, const struct sockaddr *saddr)
 {
 	static const struct netaddr naddr_any;	/* initialized to all-zeros */
 	struct sockaddr sa;
-	uint16_t naddr_port, saddr_port;
+	u_int16_t naddr_port, saddr_port;
 	int port_score;
 
 	if (!naddr || !saddr) {
@@ -1027,9 +1038,12 @@ naddr_score(const struct netaddr *naddr, const struct sockaddr *saddr)
 	mask_sockaddr(&sa, saddr, naddr->prefix);
 	if (loglevel >= LLV_DEBUG) {	/* debug only */
 		char *a1, *a2, *a3;
-		a1 = strdup(naddrwop2str(naddr));
-		a2 = strdup(saddrwop2str(saddr));
-		a3 = strdup(saddrwop2str(&sa));
+		a1 = racoon_strdup(naddrwop2str(naddr));
+		a2 = racoon_strdup(saddrwop2str(saddr));
+		a3 = racoon_strdup(saddrwop2str(&sa));
+		STRDUP_FATAL(a1);
+		STRDUP_FATAL(a2);
+		STRDUP_FATAL(a3);
 		plog(LLV_DEBUG, LOCATION, NULL,
 		     "naddr=%s, saddr=%s (masked=%s)\n",
 		     a1, a2, a3);

@@ -35,7 +35,7 @@
 
 
 /*
- * $Id: machine.h,v 1.5 2006/03/23 21:28:26 ajn Exp $
+ * $Id: machine.h,v 1.6 2008/10/21 16:15:16 abe Exp $
  */
 
 
@@ -494,6 +494,15 @@
  */
 
 /* #define	HASTCPTPIW	1 */
+
+
+/*
+ * HASTCPUDPSTATE is defined for dialects that have TCP and UDP state
+ * support -- i.e., for the "-stcp|udp:state" option and its associated
+ * speed improvements.
+ */
+
+#define	HASTCPUDPSTATE	1
 
 
 /*

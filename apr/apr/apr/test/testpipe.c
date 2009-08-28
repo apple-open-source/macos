@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -56,12 +56,12 @@ static void set_timeout(abts_case *tc, void *data)
     apr_status_t rv;
     apr_interval_time_t timeout;
 
-    rv = apr_file_pipe_create(&readp, &writep, p);
+    rv = apr_file_pipe_create_ex(&readp, &writep, APR_WRITE_BLOCK, p);
     ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
     ABTS_PTR_NOTNULL(tc, readp);
     ABTS_PTR_NOTNULL(tc, writep);
 
-    rv = apr_file_pipe_timeout_get(readp, &timeout);
+    rv = apr_file_pipe_timeout_get(writep, &timeout);
     ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
     ABTS_ASSERT(tc, "Timeout mismatch, expected -1", timeout == -1);
 
@@ -71,7 +71,7 @@ static void set_timeout(abts_case *tc, void *data)
     rv = apr_file_pipe_timeout_get(readp, &timeout);
     ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
     ABTS_ASSERT(tc, "Timeout mismatch, expected 1 second", 
-                       timeout == apr_time_from_sec(1));
+		        timeout == apr_time_from_sec(1));
 }
 
 static void read_write(abts_case *tc, void *data)
@@ -83,7 +83,7 @@ static void read_write(abts_case *tc, void *data)
     nbytes = strlen("this is a test");
     buf = (char *)apr_palloc(p, nbytes + 1);
 
-    rv = apr_file_pipe_create(&readp, &writep, p);
+    rv = apr_file_pipe_create_ex(&readp, &writep, APR_WRITE_BLOCK, p);
     ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
     ABTS_PTR_NOTNULL(tc, readp);
     ABTS_PTR_NOTNULL(tc, writep);
@@ -94,7 +94,7 @@ static void read_write(abts_case *tc, void *data)
     if (!rv) {
         rv = apr_file_read(readp, buf, &nbytes);
         ABTS_INT_EQUAL(tc, 1, APR_STATUS_IS_TIMEUP(rv));
-        ABTS_INT_EQUAL(tc, 0, nbytes);
+        ABTS_SIZE_EQUAL(tc, 0, nbytes);
     }
 }
 
@@ -113,14 +113,14 @@ static void read_write_notimeout(abts_case *tc, void *data)
     ABTS_PTR_NOTNULL(tc, writep);
 
     rv = apr_file_write(writep, buf, &nbytes);
-    ABTS_INT_EQUAL(tc, strlen("this is a test"), nbytes);
+    ABTS_SIZE_EQUAL(tc, strlen("this is a test"), nbytes);
     ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
 
     nbytes = 256;
     input = apr_pcalloc(p, nbytes + 1);
     rv = apr_file_read(readp, input, &nbytes);
     ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
-    ABTS_INT_EQUAL(tc, strlen("this is a test"), nbytes);
+    ABTS_SIZE_EQUAL(tc, strlen("this is a test"), nbytes);
     ABTS_STR_EQUAL(tc, "this is a test", input);
 }
 
@@ -151,7 +151,7 @@ static void test_pipe_writefull(abts_case *tc, void *data)
 
     args[0] = "readchild" EXTENSION;
     args[1] = NULL;
-    rv = apr_proc_create(&proc, "./readchild" EXTENSION, args, NULL, procattr, p);
+    rv = apr_proc_create(&proc, TESTBINPATH "readchild" EXTENSION, args, NULL, procattr, p);
     ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
 
     rv = apr_file_pipe_timeout_set(proc.in, apr_time_from_sec(10));

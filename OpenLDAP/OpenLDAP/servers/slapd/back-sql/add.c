@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-sql/add.c,v 1.20.2.12 2006/08/17 17:53:17 ando Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-sql/add.c,v 1.50.2.6 2008/02/11 23:26:48 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2006 The OpenLDAP Foundation.
+ * Copyright 1999-2008 The OpenLDAP Foundation.
  * Portions Copyright 1999 Dmitry Kovalev.
  * Portions Copyright 2002 Pierangelo Masarati.
  * Portions Copyright 2004 Mark Adamson.
@@ -794,7 +794,7 @@ backsql_add_attr(
 		int		prc = LDAP_SUCCESS;
 		/* first parameter #, parameter order */
 		SQLUSMALLINT	pno, po;
-		char		logbuf[] = "val[18446744073709551615UL], id=18446744073709551615UL";
+		char		logbuf[ STRLENOF("val[], id=") + 2*LDAP_PVT_INTTYPE_CHARS(unsigned long)];
 		
 		/*
 		 * Do not deal with the objectClass that is used
@@ -924,6 +924,7 @@ backsql_add( Operation *op, SlapReply *rs )
 	Entry			p = { 0 }, *e = NULL;
 	Attribute		*at,
 				*at_objectClass = NULL;
+	ObjectClass		*soc = NULL;
 	struct berval		scname = BER_BVNULL;
 	struct berval		pdn;
 	struct berval		realdn = BER_BVNULL;
@@ -957,13 +958,11 @@ backsql_add( Operation *op, SlapReply *rs )
 	Debug( LDAP_DEBUG_TRACE, "==>backsql_add(\"%s\")\n",
 			op->ora_e->e_name.bv_val, 0, 0 );
 
-	slap_add_opattrs( op, &rs->sr_text, textbuf, textlen, 1 );
-
 	/* check schema */
 	if ( BACKSQL_CHECK_SCHEMA( bi ) ) {
 		char		textbuf[ SLAP_TEXT_BUFLEN ] = { '\0' };
 
-		rs->sr_err = entry_schema_check( op, op->ora_e, NULL, 0,
+		rs->sr_err = entry_schema_check( op, op->ora_e, NULL, 0, 1,
 			&rs->sr_text, textbuf, sizeof( textbuf ) );
 		if ( rs->sr_err != LDAP_SUCCESS ) {
 			Debug( LDAP_DEBUG_TRACE, "   backsql_add(\"%s\"): "
@@ -973,6 +972,8 @@ backsql_add( Operation *op, SlapReply *rs )
 			goto done;
 		}
 	}
+
+	slap_add_opattrs( op, &rs->sr_text, textbuf, textlen, 1 );
 
 	/* search structuralObjectClass */
 	for ( at = op->ora_e->e_attrs; at != NULL; at = at->a_next ) {
@@ -1002,8 +1003,8 @@ backsql_add( Operation *op, SlapReply *rs )
 			goto done;
 		}
 
-		rs->sr_err = structural_class( at->a_vals, &scname, NULL,
-				&text, buf, sizeof( buf ) );
+		rs->sr_err = structural_class( at->a_vals, &soc, NULL,
+				&text, buf, sizeof( buf ), op->o_tmpmemctx );
 		if ( rs->sr_err != LDAP_SUCCESS ) {
 			Debug( LDAP_DEBUG_TRACE, "   backsql_add(\"%s\"): "
 				"%s (%d)\n",
@@ -1011,6 +1012,7 @@ backsql_add( Operation *op, SlapReply *rs )
 			e = NULL;
 			goto done;
 		}
+		scname = soc->soc_cname;
 
 	} else {
 		scname = at->a_vals[0];
@@ -1479,7 +1481,6 @@ done:;
 	 * in deleting that row.
 	 */
 
-#ifdef SLAP_ACL_HONOR_DISCLOSE
 	if ( e != NULL ) {
 		int	disclose = 1;
 
@@ -1504,7 +1505,6 @@ done:;
 			}
 		}
 	}
-#endif /* SLAP_ACL_HONOR_DISCLOSE */
 
 	if ( op->o_noop && rs->sr_err == LDAP_SUCCESS ) {
 		rs->sr_err = LDAP_X_NO_OPERATION;
@@ -1520,7 +1520,7 @@ done:;
 	}
 
 	if ( !BER_BVISNULL( &bsi.bsi_base_id.eid_ndn ) ) {
-		(void)backsql_free_entryID( op, &bsi.bsi_base_id, 0 );
+		(void)backsql_free_entryID( &bsi.bsi_base_id, 0, op->o_tmpmemctx );
 	}
 
 	if ( !BER_BVISNULL( &p.e_nname ) ) {

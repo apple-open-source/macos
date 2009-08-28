@@ -1,4 +1,4 @@
-/* $Id: inet_pton.c,v 1.2 2006/09/26 06:04:26 lukem Exp $ */
+/* $NetBSD: inet_pton.c,v 1.4 2008/09/21 16:35:25 lukem Exp $ */
 /* from	NetBSD: inet_pton.c,v 1.3 2006/09/26 05:59:18 lukem Exp */
 
 /*
@@ -25,9 +25,9 @@
  * sizeof(int) < 4.  sizeof(int) > 4 is fine; all the world's not a VAX.
  */
 
-static int	inet_pton4(const char *src, u_char *dst, int pton);
+static int	inet_pton4(const char *src, unsigned char *dst, int pton);
 #ifdef INET6
-static int	inet_pton6(const char *src, u_char *dst);
+static int	inet_pton6(const char *src, unsigned char *dst);
 #endif /* INET6 */
 
 /* int
@@ -71,14 +71,14 @@ inet_pton(int af, const char *src, void *dst)
  *	Paul Vixie, 1996.
  */
 static int
-inet_pton4(const char *src, u_char *dst, int pton)
+inet_pton4(const char *src, unsigned char *dst, int pton)
 {
-	u_int32_t val;
-	u_int digit, base;
+	uint32_t val;
+	unsigned int digit, base;
 	int n;
 	unsigned char c;
-	u_int parts[4];
-	register u_int *pp = parts;
+	unsigned int parts[4];
+	register unsigned int *pp = parts;
 
 	c = *src;
 	for (;;) {
@@ -192,14 +192,14 @@ inet_pton4(const char *src, u_char *dst, int pton)
  *	Paul Vixie, 1996.
  */
 static int
-inet_pton6(const char *src, u_char *dst)
+inet_pton6(const char *src, unsigned char *dst)
 {
 	static const char xdigits_l[] = "0123456789abcdef",
 			  xdigits_u[] = "0123456789ABCDEF";
-	u_char tmp[NS_IN6ADDRSZ], *tp, *endp, *colonp;
+	unsigned char tmp[NS_IN6ADDRSZ], *tp, *endp, *colonp;
 	const char *xdigits, *curtok;
 	int ch, saw_xdigit;
-	u_int val;
+	unsigned int val;
 
 	memset((tp = tmp), '\0', NS_IN6ADDRSZ);
 	endp = tp + NS_IN6ADDRSZ;
@@ -235,8 +235,8 @@ inet_pton6(const char *src, u_char *dst)
 				return (0);
 			if (tp + NS_INT16SZ > endp)
 				return (0);
-			*tp++ = (u_char) (val >> 8) & 0xff;
-			*tp++ = (u_char) val & 0xff;
+			*tp++ = (unsigned char) (val >> 8) & 0xff;
+			*tp++ = (unsigned char) val & 0xff;
 			saw_xdigit = 0;
 			val = 0;
 			continue;
@@ -252,8 +252,8 @@ inet_pton6(const char *src, u_char *dst)
 	if (saw_xdigit) {
 		if (tp + NS_INT16SZ > endp)
 			return (0);
-		*tp++ = (u_char) (val >> 8) & 0xff;
-		*tp++ = (u_char) val & 0xff;
+		*tp++ = (unsigned char) (val >> 8) & 0xff;
+		*tp++ = (unsigned char) val & 0xff;
 	}
 	if (colonp != NULL) {
 		/*

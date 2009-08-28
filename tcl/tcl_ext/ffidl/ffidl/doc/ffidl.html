@@ -1,0 +1,587 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+  <head>
+    <LINK REV=MADE HREF="mailto:rec@elf.org">
+    <meta name="GENERATOR" content="Roger E Critchlow Jr">
+    <meta name="DESCRIPTION" content="Tcl/Tk Foreign Function Call Extension">
+    <title>Ffidl</title>
+  </head>
+  <body text="#000" bgcolor="#ffffff" background="images/el_bg.gif" link="#993333" vlink="#333399" alink="#cc3333">
+    <img src="images/cloud-banner.jpg" width="500" height="50" vspace="25" hspace="25" alt="clouds">
+    <br>
+    <table border="0" cellspacing="0" cellpadding="0">
+	<tr><td width="5"><img height="1" width="5" src="images/pixel.gif" alt=""></td>
+	  <td width="125" valign="top"><img height="1" width="125" vspace="20" src="images/pixel.gif" alt=""><br>
+	    <!-- left column content here -->
+	    <a href="http://rutherglen.ics.mq.edu.au/~steffen/tcltk/ffidl/ffidl-darwin.tar.gz">ffidl-darwin.tar.gz</a></br>
+	    <br>
+	    <a href="#commands">Commands, et al.</a><br>
+	    &nbsp;&nbsp;<a href="#::ffidl::callout">::ffidl::callout</a><br>
+	    &nbsp;&nbsp;<a href="#::ffidl::callback">::ffidl::callback</a><br>
+	    &nbsp;&nbsp;<a href="#::ffidl::symbol">::ffidl::symbol</a><br>
+	    &nbsp;&nbsp;<a href="#::ffidl::stubsymbol">::ffidl::stubsymbol</a><br>
+	    &nbsp;&nbsp;<a href="#::ffidl::typedef">::ffidl::typedef</a><br>
+	    &nbsp;&nbsp;<a href="#::ffidl::info">::ffidl::info</a><br>
+	    &nbsp;&nbsp;<a href="#ffidl_pointer_pun">ffidl_pointer_pun</a><br>
+	    &nbsp;&nbsp;<a href="#::ffidl::find-lib">::ffidl::find-lib</a><br>
+	    &nbsp;&nbsp;<a href="#::ffidl::find-type">::ffidl::find-type</a><br>
+	    <a href="#types">Types</a><br>
+	    <br>
+	    <a href="#install">Install</a><br>
+	    <a href="#demos">Demos</a><br>
+	    <a href="#performance">Performance</a><br>
+	    <a href="#issues">Issues</a><br>
+	    <a href="#credits">Credits</a><br>
+	    &nbsp;&nbsp;<a href="http://www.jessikat.fsnet.co.uk/docdll.html">::dll</a><br>
+	    &nbsp;&nbsp;<a href="http://sources.redhat.com/libffi/">libffi</a><br>
+	    <a href="#copyright">Copyright</a><br>
+	    <a href="#license">License</a><br>
+	    <a href="#warranty">No Warranty</a><br>
+	  </td><td width="25"><img height="1" width="25" src="images/pixel.gif" alt=""></td>
+	  <td width="365" valign="top"><img height="1" width="500" src="images/pixel.gif" alt=""><br>
+	  <b>Ffidl Version 0.6.1 (Darwin 9 Universal version)</b>
+	  <p>
+	    <a href="http://elf.org/ffidl/">Ffidl</a>
+	      allows you to call C functions using pure Tcl wrappers.
+	      You specify a function name, a library, a list of
+	      argument types, and a return type, and Ffidl takes care
+	      of the nasty details of converting a Tcl command call
+	      into a C function call for you.
+	      So, if you have a shared library and a specification of
+	      the entries in the library, you can wrap the library
+	      into a Tcl extension with Ffidl and pure Tcl.
+	  <p>
+	      Ffidl 0.6.1 (Darwin 9 Universal version) has the following changes:
+	  <ul>
+             <li>support for 4-way universal builds on Darwin</li>
+             <li>support for Leopard libffi</li>
+             <li>removal of ffcall and other code unused in Darwin universal build</li>
+             <li>support for Darwin Intel</li>
+             <li>Tcl ObjType bugfixes</li>
+             <li>TEA 3.6 buildsystem</li>
+	  </ul>
+	  <p>
+	      Ffidl 0.6 has the following changes since 0.5:
+	  <ul>
+             <li>updates for 2005 version of libffi</li>
+             <li>TEA 3.2 buildsystem, testsuite</li>
+             <li>support for Tcl 8.4, Tcl_WideInt, TclpDlopen</li>
+             <li>support for Darwin PowerPC</li>
+             <li>fixes for 64bit (LP64)</li>
+             <li>callouts &amp; callbacks are created/used relative to current namespace (for unqualified names)</li>
+             <li>addition of <a href="#::ffidl::stubsymbol">::ffidl::stubsymbol</a> for Tcl/Tk symbol resolution via stubs tables</li>
+             <li>callbacks can be called anytime, not just from inside callouts (using Tcl_BackgroundError to report errors)</li>
+	  </ul>
+	  <p>
+	      The changes for 0.6 and 0.6.1 were implemented by Daniel A. Steffen and are under BSD License; do not contact the
+	      original Ffidl author for support about them.
+	  <p>
+	      Ffidl uses the Leopard libffi
+	      to dynamically construct calls to C functions from Tcl.
+	    <p>
+	      <b><a name="commands">Commands, Functions, and Procs</a></b>
+	    <p>
+	      Ffidl defines six Tcl commands in the <b>Ffidl</b>
+	      package:
+	      <a href="#::ffidl::callout">::ffidl::callout</a>,
+	      <a href="#::ffidl::callback">::ffidl::callback</a>,
+	      <a href="#::ffidl::symbol">::ffidl::symbol</a>,
+	      <a href="#::ffidl::stubsymbol">::ffidl::stubsymbol</a>,
+	      <a href="#::ffidl::typedef">::ffidl::typedef</a>,
+	      and <a href="#::ffidl::info">::ffidl::info</a>;
+	      exports one function from the <b>Ffidl</b> shared library: 
+	      <a href="#ffidl_pointer_pun">ffidl_pointer_pun</a>;
+	      and defines two helper procs in the <b>Ffidlrt</b>
+	      package in <b>demos/ffidlrt.tcl</b>:
+	      <a href="#::ffidl::find-lib">::ffidl::find-lib</a>, 
+	      and <a href="#::ffidl::find-type">::ffidl::find-type</a>,
+	      which are currently just stubs of their true form.
+	    <p>
+	      These interfaces should be considered subject to revision.
+	    <p>
+	    <dl>
+	      <dt>
+		<a name="::ffidl::callout">
+		  <b>::ffidl::callout</b> <i>name</i> {<i>?arg_type1 ...?</i>}
+		  <i>return_type</i> <i>address</i> <i>?protocol?</i>
+		</a>
+	      </dt><dd>
+		<b>::ffidl::callout</b> defines a Tcl command with the
+		specified <i>name</i> which, when invoked, converts
+		its arguments according to the <i>arg_types</i>
+		specified, calls the function at the specified
+		<i>address</i>, and converts the specified
+		<i>return_type</i> into a Tcl result.  The allowed <a
+		  href="#types">types</a> are described below.
+		<p>
+		  The <i>protocol</i> specifies a calling convention
+		  to be used.
+		  The only platform which supports <i>protocols</i> is
+		  Windows where <i>protocol</i> may be <b>cdecl</b>,
+		  which is the default, or <b>stdcall</b>.
+		<p>
+	      </dd><dt>
+		<a name="::ffidl::callback">
+		  <b>::ffidl::callback</b> <i>name</i> {<i>?arg_type1
+		    ...?</i>} <i>return_type</i> <i>?protocol?</i>
+		</a>
+	      </dt><dd>
+		<b>::ffidl::callback</b> declares that a Tcl proc with
+		the specified <i>name</i> will be invoked as a
+		callback from C code.  When invoked the arguments will
+		be converted to Tcl values according to the
+		<i>arg_types</i> specified, passed to <i>name</i>,
+		the return value from <i>name</i> will be converted
+		back into the specified <i>return_type</i>, and the
+		value will be returned to the caller.  The allowed
+		<a href="#types">types</a> are described below.
+		<p>
+		  The <i>protocol</i> specifies a calling convention
+		  to be used.
+		  The only platform which supports <i>protocols</i> is
+		  Windows where <i>protocol</i> may be <b>cdecl</b>,
+		  which is the default, or <b>stdcall</b>.
+		<p>
+	      </dd><dt>
+		<a name="::ffidl::symbol">
+		  <b>::ffidl::symbol</b> <i>library</i> <i>symbol</i>
+		</a>
+	      </dt><dd>
+		<b>::ffidl::symbol</b> loads, if necessary, a dynamically
+		linked library of name <i>library</i> and fetches the
+		loaded address of <i>symbol</i> from the library.  The
+		kinds of <i>symbols</i> available vary with the
+		implementation of dynamic loading.
+		<p>
+	      </dd><dt>
+		<a name="::ffidl::stubsymbol">
+		  <b>::ffidl::stubsymbol</b> <i>library</i> <i>stubstable</i> <i>symbolnumber</i>
+		</a>
+	      </dt><dd>
+		<b>::ffidl::stubsymbol</b> returns the address of the
+		symbol indexed by <i>symbolnumber</i> in the <i>library</i>'s
+		stubs table <i>stubstable</i>. 
+		<p>
+		<i>library</i> can be one of <b>tcl</b> or <b>tk</b>
+		and <i>stubstable</i> can be one of <b>stubs</b>,
+		<b>intStubs</b>, <b>platStubs</b>, <b>intPlatStubs</b>
+		or <b>intXLibStubs</b>.
+		<p>
+	      </dd><dt>
+		<a name="::ffidl::typedef">
+		  <b>::ffidl::typedef</b> <i>name</i> <i>type1 ?...?</i>
+		</a>
+	      </dt><dd>
+		<b>::ffidl::typedef</b> defines a new Ffidl type name.
+		This may be either a simple alias for an existing type,
+		or a list of types which form a structured aggregate.
+		To pass a structure by value or return a structure by
+		value, you must make a <b>::ffidl::typedef</b> for it.  But
+		even if you only pass or receive structures by
+		reference, you might want to define a structure in order
+		to use the <b>format</b>, <b>sizeof</b>, and
+		<b>alignof</b> options of <b>::ffidl::info</b> on it. 
+		<p>
+	      </dd><dt>
+		<a name="::ffidl::info">
+		  <b>::ffidl::info</b> <i>option</i> <i>?...?</i>
+		</a>
+	      </dt><dd>
+		<b>::ffidl::info</b> implements a variety of information
+		functions.
+		<dl>
+		  <dt><b>::ffidl::info alignof</b> <i>type</i></dt><dd>returns the alignment modulus for <i>type</i>.
+		  </dd>
+		  <dt><b>::ffidl::info callbacks</b></dt><dd>returns a list of <b>::ffidl::callback</b> declared names.
+		  </dd>
+		  <dt><b>::ffidl::info callouts</b></dt><dd>returns a list of <b>::ffidl::callout</b> defined names.
+ 		  </dd>
+		  <dt><b>::ffidl::info canonical-host</b></dt><dd>returns the canonical host name as determined by autoconf.
+		  </dd>
+		  <dt><b>::ffidl::info format</b> <i>type</i>
+		  </dt><dd>
+		    returns a format string for <i>type</i>, in the
+		    style of the Tcl <b>binary format</b> and <b>binary
+		      scan</b> commands, using the correct endian format
+		    for integers and, for structures, including any pad
+		    bytes required for alignment of fields.
+		  </dd>
+		  <dt><b>::ffidl::info have-int64</b></dt><dd> returns true if the host implements a 64 bit integer.
+		  </dd>
+		  <dt><b>::ffidl::info have-long-double</b></dt><dd>returns true if the host implements the "long double" type.
+		  </dd>
+		  <dt><b>::ffidl::info have-long-long</b></dt><dd>returns true if the host implements the "long long" type.
+		  </dd>
+		  <dt><b>::ffidl::info interp</b></dt><dd>returns the current Tcl_Interp as an integer value.
+		  </dd>
+		  <dt><b>::ffidl::info libraries</b></dt><dd>returns the list of libraries opened by <b>::ffidl::symbol</b>. 
+		  </dd>
+		  <dt><b>::ffidl::info signatures</b></dt><dd>returns the list of function call signatures used by <b>::ffidl::callout</b>.
+		  </dd>
+		  <dt><b>::ffidl::info sizeof</b> <i>type</i></dt><dd>returns the size of <i>type</i>. 
+		  </dd>
+		  <dt><b>::ffidl::info typedefs</b></dt><dd>returns a list of <b>::ffidl::typedef</b> defined names.
+		  </dd>
+		  <dt><b>::ffidl::info use-callbacks</b></dt><dd>returns true if Ffidl was configured to use callbacks.
+		  </dd>
+		  <dt><b>::ffidl::info use-ffcall</b></dt><dd>returns true if Ffidl was configured to use ffcall.
+		  </dd>
+		  <dt><b>::ffidl::info use-libffi</b></dt><dd>returns true if Ffidl was configured to use libffi.
+		  </dd>
+		  <dt><b>::ffidl::info use-libffi-raw</b></dt><dd>returns true if libffi implements the raw api.
+		  </dd>
+		</dl>
+		<p>
+	      </dd><dt>
+		<a name="ffidl_pointer_pun">
+		  EXTERN void *<b>ffidl_pointer_pun</b>(void *<i>pointer</i>);
+		</a>
+	      </dt><dd>
+		<b>ffidl_pointer_pun</b> is exported from the Ffidl
+		shared lib to allow conversions between pointer
+		representations to be coded as Ffidl bindings.  There
+		are some examples in <b>ffidlrt.tcl</b>.
+		<p>
+	      </dd><dt>
+		<a name="::ffidl::find-lib">
+		  <b>::ffidl::find-lib</b> <i>library</i>
+		</a>
+	      </dt><dd>
+		<b>::ffidl::find-lib</b> converts a conventional name for a 
+		library into the path name for the library name
+		appropriate to the host system.  It is currently
+		implemented in <b>ffidlrt.tcl</b> as a table lookup
+		which returns the libraries appropriate to my Linux
+		system.
+		<p>
+	      </dd><dt>
+		<a name="::ffidl::find-type">
+		  <b>::ffidl::find-type</b> <i>type</i>
+		</a>
+	      </dt><dd>
+		<b>::ffidl::find-type</b> converts a standard types
+		such as <b>size_t</b> and <b>time_t</b> into real types 
+		appropriate to the host system.  It is currently
+		implemented in <b>ffidlrt.tcl</b> as a table lookup
+		which returns the types appropriate to my Linux system.
+	      </dd></dl>
+	    <p>
+	      <b><a name="types">Types</a></b>
+	    <p>
+	      The Ffidl builtin types include the scalar C types in both
+	      their unsized forms and as explicitly bit sized types, and 
+	      a variety of pointer treatments.  Note that some types are
+	      only valid in certain contexts: arguments (arg), return
+	      (ret), or struct elements (elt).
+	    <p>
+	      In addition to the builtin types, the <b>::ffidl::typedef</b>
+	      command may be used to define new types.
+	      Aliases for existing types may be used where ever the
+	      existing type may be used.
+	      Structured aggregates may be used as arguments, returns,
+	      or elements of other structures.
+	    <p>
+	    <table border="2">
+		<tr>
+		  <th colspan="2">proc</th>
+		  <th colspan="2">callback</th>
+		  <th rowspan="2">elt</th>
+		  <th rowspan="2">type</th>
+		  <th rowspan="2">definition</th>
+		</tr>
+		<tr>
+		  <th>arg</th>
+		  <th>ret</th>
+		  <th>arg</th>
+		  <th>ret</th>
+		</tr>
+		<tr><td>-</td><td>+</td><td>-</td><td>+</td><td>-</td><td>void</td><td>void</td></tr>
+		<tr><td>+</td><td>+</td><td>+</td><td>+</td><td>+</td><td>int</td><td>int</td></tr>
+		<tr><td>+</td><td>+</td><td>+</td><td>+</td><td>+</td><td>unsigned</td><td>unsigned int</td></tr>
+		<tr><td>+</td><td>+</td><td>+</td><td>+</td><td>+</td><td>short</td><td>signed short int</td></tr>
+		<tr><td>+</td><td>+</td><td>+</td><td>+</td><td>+</td><td>unsigned short</td><td>unsigned short int</td></tr>
+		<tr><td>+</td><td>+</td><td>+</td><td>+</td><td>+</td><td>long</td><td>signed long int</td></tr>
+		<tr><td>+</td><td>+</td><td>+</td><td>+</td><td>+</td><td>unsigned long</td><td>unsigned long int</td></tr>
+		<tr><td>+</td><td>+</td><td>+</td><td>+</td><td>+</td><td>float</td><td>float</td></tr>
+		<tr><td>+</td><td>+</td><td>+</td><td>+</td><td>+</td><td>double</td><td>double</td></tr>
+		<tr><td>+</td><td>+</td><td>+</td><td>+</td><td>+</td><td>long double</td><td>long double</td></tr>
+		<tr><td>+</td><td>+</td><td>+</td><td>+</td><td>+</td><td>sint8</td><td>signed 8 bit int</td></tr>
+		<tr><td>+</td><td>+</td><td>+</td><td>+</td><td>+</td><td>uint8</td><td>unsigned 8 bit int</td></tr>
+		<tr><td>+</td><td>+</td><td>+</td><td>+</td><td>+</td><td>sint16</td><td>signed 16 bit int</td></tr>
+		<tr><td>+</td><td>+</td><td>+</td><td>+</td><td>+</td><td>uint16</td><td>unsigned 16 bit int</td></tr>
+		<tr><td>+</td><td>+</td><td>+</td><td>+</td><td>+</td><td>sint32</td><td>signed 32 bit int</td></tr>
+		<tr><td>+</td><td>+</td><td>+</td><td>+</td><td>+</td><td>uint32</td><td>unsigned 32 bit int</td></tr>
+		<tr><td>+</td><td>+</td><td>+</td><td>+</td><td>+</td><td>sint64</td><td>signed 64 bit int</td></tr>
+		<tr><td>+</td><td>+</td><td>+</td><td>+</td><td>+</td><td>uint64</td><td>unsigned 64 bit int</td></tr>
+		<tr><td>+</td><td>+</td><td>+</td><td>+</td><td>+</td><td>pointer</td><td>pointer as an integer value</td></tr>
+		<tr><td>+</td><td>+</td><td>+</td><td>+</td><td>-</td><td>pointer-obj</td><td>pointer from Tcl_Obj</td></tr>
+		<tr><td>+</td><td>+</td><td>+</td><td>-</td><td>-</td><td>pointer-utf8</td><td>pointer from String</td></tr>
+		<tr><td>+</td><td>+</td><td>+</td><td>-</td><td>-</td><td>pointer-utf16</td><td>pointer from Unicode</td></tr>
+		<tr><td>+</td><td>-</td><td>-</td><td>-</td><td>-</td><td>pointer-byte</td><td>pointer from ByteArray</td></tr>
+		<tr><td>+</td><td>-</td><td>-</td><td>-</td><td>-</td><td>pointer-var</td><td>pointer from ByteArray stored in
+		    variable. If the ByteArray is shared,
+		    then an unshared copy is made and
+		    stored back into the
+		    variable.</td></tr>
+		<tr><td>+</td><td>-</td><td>-</td><td>-</td><td>-</td><td>pointer-proc</td><td>
+		    pointer to callback function constructed to call a
+		    Tcl proc.</td></tr>
+	    </table>
+	    <p>
+	      <b><a name="install">Installation</a></b>
+	    <p>
+	      Building on plaforms supported by TEA 3.6 should be painless.
+	    <p>
+	      Installation is like for any other TEA extension, minimally it consists of:
+	    <pre>
+tar xzvf ffidl-darwin.tar.gz
+cd ffidl
+configure &amp;&amp; make</pre>
+	    <p>
+	      Custom configure options are implemented for customizing where
+	      libffi headers (--with-libffi-include) and library
+	      (--with-libffi-lib) are located, for excluding callbacks
+	      (--disable-callbacks) and for enabling building of the ffidl
+	      test functions into the extension (--enable-test).
+	    <p>
+	      Running
+	    <pre>
+make test</pre>
+	    will run the ffidl tests (when configured with --enable-test).
+	    It is not quite a systematic test suite, but
+	    it does exercise a good deal of Ffidl's capabilities, and it
+	    has turned up some problems with libffi.
+	    <p>
+	      <b><a name="demos">Demos</a></b>
+	    <p>
+	      The demos directory contains several small and medium
+	      size examples of Ffidl bindings to shared libraries, and
+	      some code for making comparisons to other ways of doing
+	      the same thing.
+	    <p>
+	    <table border="2">
+		<tr><td>atol.tcl</td><td>a Ffidl binding to atol() and
+		  congeners</td></tr>
+		<tr><td>ffidlrt.tcl</td><td>run time support for Ffidl bindings</td></tr>
+		<tr><td>gdbm.tcl</td><td>a Ffidl binding to gdbm-1.8</td></tr>
+		<tr><td>getrusage.tcl</td><td>a Ffidl binding to getrusage()</td></tr>
+		<tr><td>libm.tcl</td><td>a Ffidl binding to libm</td></tr>
+		<tr><td>qsort.tcl</td><td>a Ffidl binding to qsort</td></tr>
+		<tr><td>tkphoto.tcl</td><td>a Ffidl binding to the Tk photo image.</td></tr>
+		<tr><td>pkgIndex.tcl</td><td>hand built package index</td></tr>
+		<tr><td>gmp.tcl</td><td>a Ffidl binding to gmp-2.0.2</td></tr>
+		<tr><td>gmpz.tcl</td><td>arbitrary precision integers via gmp.tcl</td></tr>
+		<tr><td>gmpq.tcl</td><td>arbitrary precision rationals via gmp.tcl</td></tr>
+		<tr><td>gmpf.tcl</td><td>arbitrary precision floats via gmp.tcl</td></tr>
+		<tr><td>test-gdbm-1.tcl</td><td>a test of the gdbm binding</td></tr>
+		<tr><td>test-gdbm-2.tcl</td><td>a test of the gdbm binding</td></tr>
+		<tr><td>test-gmpz.tcl</td><td>a test of the gmpz routines</td></tr>
+		<tr><td>time-libm.tcl</td><td>a timing comparison of Ffidl and expr</td></tr>
+	    </table>
+	    <p>
+	      <b>library/ffidlrt.tcl</b> contains two functions,
+	      <b>::ffidl::find-lib</b> and <b>::ffidl::find-type</b>, which
+	      abstract library names and system typedefs out of the
+	      rest of the code.
+	    <p>
+	      <b>ibrary/ffidlrt.tcl</b> also contains some examples of
+	      binding into the Tcl core itself.
+	    <p>
+	      <b>demos/tkphoto.tcl</b> allows extraction and insertion of
+	      photo image pixels as binary data.  See
+	      <b>tests/tkphoto.test</b> for an example.
+	    <p>
+	      The <b>demos/other/gdbm.tcl</b> extension should be plug compatible
+	      with Tclgdbm0.6, a C coded Tcl extension for manipulating
+	      gdbm files.  Since gdbm passes and returns structures, it
+	      also tests the Ffidl struct code.
+	    <p>
+	      The <b>demos/other/gmp*.tcl</b> extensions make a nice example.  The
+	      main Gmp package wraps all the exported mpz_*, mpq_*, and
+	      mpf_* entries from the Gnu multiple precision library.
+	      The subsidiary Gmp[zqf] packages use the Gmp package to
+	      define arbitrary precision integers, rationals, and floats
+	      which are represented as strings. This isn't the most
+	      efficient way to do arbitrary precision arithmetic, but it
+	      is convenient, it does avoid needing to know what type 
+	      mp_limb_t and mp_size_t actually are, and it does show how 
+	      to use the underlying library if you want to build
+	      something more efficient.
+	    <p>
+	      <b><a name="performance">Performance</a></b>
+	    <p>
+	      Performance appears to be excellent, but I can't take any
+	      credit because libffi is doing most of the work.  The
+	      <b>demos/mathswig/time-libm.tcl</b> script compares
+	      <b>::ffidl::callout</b> wrapped libm functions to the Tcl expr
+	      versions of the same functions.  You'll need to manually
+	      build the libmathswig0.5 dynamic library to provide a
+	      SWIG wrapped libm for comparison purposes.  If you're
+	      running on Linux-x86 or Windows you can install Robin
+	      Becker's ::dll for another data point.
+	      <b>demos/mathswig/time-libm.tcl</b> will time them on the same functions.
+	    <p>
+	      <b><a name="issues">Open Issues</a></b>
+	    <p>
+	      A few issues have been closed since the initial release.
+	    <p>
+	      The Windows port is done.
+	    <p>
+	      Callbacks are implemented for the x86 architecture.
+	    <p>
+	      But there are many open issues.
+	    <p>
+	      Finding the right library is a pain.  dlopen("libm.so")
+	      finds libm on my machine, but dlopen("libc.so") returns an
+	      error string decorated with binary characters while
+	      dlopen("libc.so.6") works.  If you work with shared
+	      libraries you build yourself, it's not an issue, but for
+	      all the standard stuff there is no standard.  In
+	      <b>demos/ffidlrt.tcl</b> the <b>::ffidl::find-lib</b>
+	      function provides an abstraction for at least removing
+	      these issues one layer away from your Ffidl bindings to
+	      the library, but the implementation of the abstraction
+	      hasn't gone farther than listing where I find my standard
+	      libraries.
+	    <p>
+	      Discovering what type a type is is also a pain.  Include
+	      headers are typically so heavily conditionalized, that
+	      one needs to search and search to find which typedef is
+	      actually implemented.  In <b>demos/ffidlrt.tcl</b> the 
+	      <b>::ffidl::find-type</b> function abstracts these issues
+	      out of the Ffidl bindings, but again the implementation
+	      of the abstraction will need some work.
+	    <p>
+	      A backend for SWIG which generates Ffidl bindings might
+	      be useful.
+	    <p>
+	      There are some more pointer types which ought to be
+	      defined: a variant of pointer-var which requires an
+	      unshared value; a pointer to a native character string -- 
+	      but couldn't that be pushed back to the Tcl layer?
+	    <p>
+	      Writing Tcl extensions with Ffidl is very much like
+	      writing C code in Tcl.  I'm not sure what the actual
+	      required skill set is.  But if you're not sure what
+	      you're doing, you might be in over your head.  In any
+	      case, try not to take the core dumps personally.
+	    <p>
+	      Loading snippets of code into a Tcl interpreter with
+	      Ffidl loaded could be very hazardous, as in downloading
+	      "Try ME!" scripts from the web.  There is no
+	      Ffidl_SafeInit(), we'd probably need signed scripts to
+	      even begin to consider such a thing.
+	    <p>
+	      I've looked at SWIG and at dll and seen that they very
+	      carefully duplicate any shared Tcl_Obj before attempting
+	      a conversion to Int or Double.  I've also looked at the
+	      source for Tcl's expr command, and it converts objects
+	      to Double or Int and only duplicates shared objects when
+	      it finds a valid Int or a Double with an existing string
+	      representation.  Ffidl only duplicates shared objects
+	      when processing pointer-var, though I'm open to
+	      explanations why it should do otherwise.  It seems that
+	      if you pass a parameter to a typed function that you
+	      shouldn't be upset if the parameter is converted to that
+	      type.
+	    <p>
+	      Hmm, this is a really pared to the bone.  It would be
+	      nice for newbies and experimenters and the careless if
+	      Ffidl implemented a debugging mode which verified that
+	      constraints were observed: 1) that Tcl_Obj string reps
+	      were not modified, 2) that Tcl_Obj bytearray reps were
+	      not modified outside their allocated sizes, and so on.
+	      This could be done by switching in an alternate
+	      implementation of tcl_ffidl_call() which made copies and
+	      verified the constraints after the call.
+	    <p>
+	      Some naming consistency in the demos.  I seem to be
+	      reinventing my Ffidl extension style each time I start a
+	      new example.
+	    <p>
+	      Some style consistency in the tests.  The tests just
+	      run, some generate descriptions, some report what
+	      they've done, some say nothing, some give summaries.
+	    <p>
+	      <b><a name="credits">Credits</a></b>
+	    <p>
+	      Robin Becker's <a
+		href="http://www.jessikat.fsnet.co.uk/docdll.html">
+		::dll</a> package, which does much the same thing as
+	      Ffidl, provided the immediate inspiration for this work
+	      and pointed to the solution of some of the design issues
+	      for me.  And Robin hisself has been very helpful.
+	    <p>
+	      Anthony Green's
+	      <a href="http://sources.redhat.com/libffi/">
+		libffi
+	      </a> package provided most of the initial implementation
+	      of Ffidl.
+	    <p>
+	      <b><a name="copyright">Copyright</a>,
+		<a name="license">License</a>, &amp;
+		<a name="warranty">No Warranty</a></b>
+	    <p>
+	      Ffidl Version 0.6.1, Copyright &copy; 1999 by Roger E
+	      Critchlow Jr, Santa Fe, NM, USA
+	    <p>
+	      Permission is hereby granted, free of charge, to any
+	      person obtaining a copy of this software and associated
+	      documentation files (the ``Software''), to deal in the
+	      Software without restriction, including without
+	      limitation the rights to use, copy, modify, merge,
+	      publish, distribute, sublicense, and/or sell copies of
+	      the Software, and to permit persons to whom the Software
+	      is furnished to do so, subject to the following
+	      conditions:
+	    <p>
+	      The above copyright notice and this permission notice
+	      shall be included in all copies or substantial portions
+	      of the Software.
+	    <p>
+	      THE SOFTWARE IS PROVIDED ``AS IS'', WITHOUT WARRANTY OF
+	      ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+	      TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+	      PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT
+	      SHALL ROGER E CRITCHLOW JR BE LIABLE FOR ANY CLAIM,
+	      DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+	      CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+	      CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+	      DEALINGS IN THE SOFTWARE.
+	    <p>
+             Changes since ffidl 0.5 are under BSD License and are
+             Copyright &copy; 2005-2007 by Daniel A. Steffen
+	    <p>
+
+
+	      Note that
+	      <a href="http://sources.redhat.com/libffi/">
+		libffi
+	      </a>
+	      is Copyright &copy; 1996-2003  Red Hat, Inc. and bears
+	      a similar copyright notice, license, and non-warranty.
+	    <p>
+ 	  <!-- right column content here -->
+	</td></tr></table>
+    <img src="images/pixel.gif" height="10" width="500" alt="">
+    <table border="0" cellspacing="0" cellpadding="0">
+      <tr><td width="5"><img height="1" width="5" src="images/pixel.gif" alt=""></td>
+	<td width="125" valign="top"><img height="1" width="125" src="images/pixel.gif" alt=""><br>
+	  <!-- left column content here -->
+	</td><td width="25"><img height="1" width="25" src="images/pixel.gif" alt=""></td>
+	<td width="365" valign="top"><img height="1" width="365" src="images/pixel.gif" alt=""><br>
+	  <!-- right column content here -->
+	  <center>
+	    <address><a href="mailto:rec@elf.org">Roger E Critchlow Jr</a></address>
+	    <address><a href="mailto:das@users.sourceforge.net">Daniel A. Steffen</a></address>
+	    <!-- Created: Sun Mar 14 22:54:17 MST 1999 -->
+	    <!-- hhmts start -->
+Last modified: Aug 23 2007
+<!-- hhmts end -->
+	    <address><a href="http://www.elf.org">elf.org</a></address>
+	  </center>
+	</td>
+      </tr>
+    </table>
+  </body>
+</html>

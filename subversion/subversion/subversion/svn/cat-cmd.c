@@ -43,8 +43,9 @@ svn_cl__cat(apr_getopt_t *os,
   svn_stream_t *out;
   apr_pool_t *subpool = svn_pool_create(pool);
 
-  SVN_ERR(svn_opt_args_to_target_array2(&targets, os,
-                                        opt_state->targets, pool));
+  SVN_ERR(svn_cl__args_to_target_array_print_reserved(&targets, os,
+                                                      opt_state->targets,
+                                                      ctx, pool));
 
   /* Cat cannot operate on an implicit '.' so a filename is required */
   if (! targets->nelts)
@@ -54,7 +55,7 @@ svn_cl__cat(apr_getopt_t *os,
 
   for (i = 0; i < targets->nelts; i++)
     {
-      const char *target = ((const char **) (targets->elts))[i];
+      const char *target = APR_ARRAY_IDX(targets, i, const char *);
       const char *truepath;
       svn_opt_revision_t peg_revision;
 
@@ -64,10 +65,10 @@ svn_cl__cat(apr_getopt_t *os,
       /* Get peg revisions. */
       SVN_ERR(svn_opt_parse_path(&peg_revision, &truepath, target,
                                  subpool));
-      
-      SVN_ERR(svn_cl__try( svn_client_cat2(out, truepath, &peg_revision,
-                                           &(opt_state->start_revision),
-                                           ctx, subpool),
+
+      SVN_ERR(svn_cl__try(svn_client_cat2(out, truepath, &peg_revision,
+                                          &(opt_state->start_revision),
+                                          ctx, subpool),
                            NULL, opt_state->quiet,
                            SVN_ERR_UNVERSIONED_RESOURCE,
                            SVN_ERR_ENTRY_NOT_FOUND,

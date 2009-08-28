@@ -1,1 +1,1 @@
---disable-xf86bigfont --without-xcb
+--without-xcb

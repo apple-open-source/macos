@@ -1,5 +1,5 @@
 /* APPLE LOCAL file */
-/* { dg-do compile { target i?86-*-* x86_64-*-* } } */
+/* { dg-do compile { target "i?86-*-* x86_64-*-*" } } */
 /* { dg-options "-mssse3" } */
 #include <tmmintrin.h>
 

@@ -1,0 +1,92 @@
+# Copyright 2003 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+# This file was written by Caroline Tice <ctice@apple.com>
+
+# This test case tests that gcc's linetable information for
+# "blocks" is correct..
+
+if $tracelevel then {
+        strace $tracelevel
+        }
+
+#
+# test running programs
+#
+
+set prms_id 0
+set bug_id 0
+
+set testfile "global-blocks-lines"
+set srcfile ${testfile}.c
+set binfile ${objdir}/${subdir}/${testfile}
+
+set additional_flags "additional_flags=-mmacosx-version-min=10.6"
+if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable [list debug $additional_flags]] != "" } {
+     gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
+}
+
+if {$debug_default_format_is_dwarf == 0 } then {
+        return;
+}
+
+# Start with a fresh gdb
+gdb_exit
+gdb_start
+gdb_reinitialize_dir $srcdir/$subdir
+gdb_load "${binfile}"
+
+# runto_main
+
+# set bp_at_first_block_function   [gdb_get_line_number "Breakpoint for first Blo\
+ck function."]
+# set bp_at_second_block_function  [gdb_get_line_number "Breakpoint for second Bl\
+ock function."]
+# set bp_at_third_block_function   [gdb_get_line_number "Breakpoint for third Blo\
+ck function."]
+
+# gdb_breakpoint $bp_at_first_block_function #  This is breakpoint 1
+# gdb_breakpoint $bp_at_second_block_function # This is breakpoint 2
+# gdb_breakpoint $bp_at_third_block_function # This is breakpoint 3
+
+
+gdb_test "break __block_global_1" "Breakpoint 1 at .*" "Set breakpoint at first Block function"
+gdb_test "break __block_global_2" "Breakpoint 2 at .*" "Set breakpoint at second Block function"
+gdb_test "break __block_global_3" "Breakpoint 3 at .*" "Set breakpoint at third Block function"
+
+gdb_test "run" "Starting program: $binfile *\r\n\Reading symbols for shared libraries \(\[.+\]\)+ done.*Breakpoint 1.*" "continue to breakpoint at first Block function"
+
+# Verifying linear stepping through first block function
+
+gdb_test "next" ".*\}.*" "Next from first block function"
+
+# Verifying linear stepping through second block function
+
+gdb_test "continue" ".*Breakpoint 2, .*" "Continue to second block function"
+
+gdb_test "next" ".*\}.*" "Next from second block function"
+
+# Verifying linear stepping through third block function
+
+gdb_test "continue" ".*Breakpoint 3, .*" "Continue to third block function"
+
+gdb_test "next" ".*main .*printf.*" "Next to main"
+
+
+# gdb_test "continue" ".*Program exited normally.*" "Finish program"
+
+gdb_exit
+return 0

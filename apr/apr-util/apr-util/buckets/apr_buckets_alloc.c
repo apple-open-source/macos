@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -85,6 +85,9 @@ APU_DECLARE_NONSTD(apr_bucket_alloc_t *) apr_bucket_alloc_create_ex(
     apr_memnode_t *block;
 
     block = apr_allocator_alloc(allocator, ALLOC_AMT);
+    if (!block) {
+        return NULL;
+    }
     list = (apr_bucket_alloc_t *)block->first_avail;
     list->pool = NULL;
     list->allocator = allocator;
@@ -127,6 +130,9 @@ APU_DECLARE_NONSTD(void *) apr_bucket_alloc(apr_size_t size,
             endp = active->first_avail + SMALL_NODE_SIZE;
             if (endp >= active->endp) {
                 list->blocks = apr_allocator_alloc(list->allocator, ALLOC_AMT);
+                if (!list->blocks) {
+                    return NULL;
+                }
                 list->blocks->next = active;
                 active = list->blocks;
                 endp = active->first_avail + SMALL_NODE_SIZE;
@@ -140,6 +146,9 @@ APU_DECLARE_NONSTD(void *) apr_bucket_alloc(apr_size_t size,
     }
     else {
         apr_memnode_t *memnode = apr_allocator_alloc(list->allocator, size);
+        if (!memnode) {
+            return NULL;
+        }
         node = (node_header_t *)memnode->first_avail;
         node->alloc = list;
         node->memnode = memnode;

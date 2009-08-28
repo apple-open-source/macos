@@ -1,7 +1,7 @@
 /*
  * rlm_counter.c
  *
- * Version:  $Id: rlm_counter.c,v 1.43 2004/02/26 19:04:28 aland Exp $
+ * Version:  $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,28 +15,24 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2001  The FreeRADIUS server project
+ * Copyright 2001,2006  The FreeRADIUS server project
  * Copyright 2001  Alan DeKok <aland@ox.org>
  * Copyright 2001-3  Kostas Kalevras <kkalev@noc.ntua.gr>
  */
 
-#include "config.h"
-#include "autoconf.h"
-#include "libradius.h"
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <freeradius-devel/radiusd.h>
+#include <freeradius-devel/modules.h>
+
 #include <ctype.h>
 
-#include "radiusd.h"
-#include "modules.h"
-#include "conffile.h"
+#include "config.h"
 
 #include <gdbm.h>
-#include <time.h>
 
 #ifdef NEEDS_GDBM_SYNC
 #	define GDBM_SYNCOPT GDBM_SYNC
@@ -56,8 +52,6 @@
 
 #define UNIQUEID_MAX_LEN 32
 
-static const char rcsid[] = "$Id: rlm_counter.c,v 1.43 2004/02/26 19:04:28 aland Exp $";
-
 /*
  *	Define a structure for our module configuration.
  *
@@ -72,12 +66,14 @@ typedef struct rlm_counter_t {
 	char *count_attribute;	/* Acct-Session-Time */
 	char *counter_name;	/* Daily-Session-Time */
 	char *check_name;	/* Daily-Max-Session */
+	char *reply_name;	/* Session-Timeout */
 	char *service_type;	/* Service-Type to search for */
 	int cache_size;
 	int service_val;
 	int key_attr;
 	int count_attr;
 	int check_attr;
+	int reply_attr;
 	time_t reset_time;	/* The time of the next reset. */
 	time_t last_reset;	/* The time of the last reset. */
 	int dict_attr;		/* attribute number for the counter. */
@@ -112,13 +108,14 @@ typedef struct rad_counter {
  *	to the strdup'd string into 'config.string'.  This gets around
  *	buffer over-flows.
  */
-static CONF_PARSER module_config[] = {
+static const CONF_PARSER module_config[] = {
   { "filename", PW_TYPE_STRING_PTR, offsetof(rlm_counter_t,filename), NULL, NULL },
   { "key", PW_TYPE_STRING_PTR, offsetof(rlm_counter_t,key_name), NULL, NULL },
   { "reset", PW_TYPE_STRING_PTR, offsetof(rlm_counter_t,reset), NULL,  NULL },
   { "count-attribute", PW_TYPE_STRING_PTR, offsetof(rlm_counter_t,count_attribute), NULL, NULL },
   { "counter-name", PW_TYPE_STRING_PTR, offsetof(rlm_counter_t,counter_name), NULL,  NULL },
   { "check-name", PW_TYPE_STRING_PTR, offsetof(rlm_counter_t,check_name), NULL, NULL },
+  { "reply-name", PW_TYPE_STRING_PTR, offsetof(rlm_counter_t,reply_name), NULL, NULL },
   { "allowed-servicetype", PW_TYPE_STRING_PTR, offsetof(rlm_counter_t,service_type),NULL, NULL },
   { "cache-size", PW_TYPE_INTEGER, offsetof(rlm_counter_t,cache_size), NULL, "1000" },
   { NULL, -1, 0, NULL, NULL }
@@ -153,7 +150,7 @@ static int counter_cmp(void *instance,
 		return RLM_MODULE_NOOP;
 	}
 
-	key_datum.dptr = key_vp->strvalue;
+	key_datum.dptr = key_vp->vp_strvalue;
 	key_datum.dsize = key_vp->length;
 
 	count_datum = gdbm_fetch(data->gdbm, key_datum);
@@ -164,7 +161,7 @@ static int counter_cmp(void *instance,
 	memcpy(&counter, count_datum.dptr, sizeof(rad_counter));
 	free(count_datum.dptr);
 
-	return counter.user_counter - check->lvalue;
+	return counter.user_counter - check->vp_integer;
 }
 
 
@@ -241,21 +238,21 @@ static int reset_db(rlm_counter_t *data)
 
 static int find_next_reset(rlm_counter_t *data, time_t timeval)
 {
-	int ret=0;
-	unsigned int num=1;
-	char last = 0;
+	int ret = 0;
+	size_t len;
+	unsigned int num = 1;
+	char last = '\0';
 	struct tm *tm, s_tm;
 	char sCurrentTime[40], sNextTime[40];
 
 	tm = localtime_r(&timeval, &s_tm);
-	strftime(sCurrentTime, sizeof(sCurrentTime),"%Y-%m-%d %H:%M:%S",tm);
+	len = strftime(sCurrentTime, sizeof(sCurrentTime), "%Y-%m-%d %H:%M:%S", tm);
+	if (len == 0) *sCurrentTime = '\0';
 	tm->tm_sec = tm->tm_min = 0;
 
 	if (data->reset == NULL)
 		return -1;
 	if (isdigit((int) data->reset[0])){
-		unsigned int len=0;
-
 		len = strlen(data->reset);
 		if (len == 0)
 			return -1;
@@ -297,9 +294,11 @@ static int find_next_reset(rlm_counter_t *data, time_t timeval)
 			data->reset);
 		return -1;
 	}
-	strftime(sNextTime, sizeof(sNextTime),"%Y-%m-%d %H:%M:%S",tm);
-	DEBUG2("rlm_counter: Current Time: %d [%s], Next reset %d [%s]",
-		(int)timeval,sCurrentTime,(int)data->reset_time,sNextTime);
+
+	len = strftime(sNextTime, sizeof(sNextTime), "%Y-%m-%d %H:%M:%S", tm);
+	if (len == 0) *sNextTime = '\0';
+	DEBUG2("rlm_counter: Current Time: %li [%s], Next reset %li [%s]",
+		timeval, sCurrentTime, data->reset_time, sNextTime);
 
 	return ret;
 }
@@ -382,6 +381,27 @@ static int counter_instantiate(CONF_SECTION *conf, void **instance)
 		return -1;
 	}
 	data->count_attr = dattr->attr;
+
+	/*
+	 * Discover the attribute number of the reply attribute.
+	 */
+	if (data->reply_name != NULL) {
+		dattr = dict_attrbyname(data->reply_name);
+		if (dattr == NULL) {
+			radlog(L_ERR, "rlm_counter: No such attribute %s",
+					data->reply_name);
+			counter_detach(data);
+			return -1;
+		}
+		if (dattr->type != PW_TYPE_INTEGER) {
+			radlog(L_ERR, "rlm_counter: Reply attribute %s is not of type integer",
+				data->reply_name);
+			counter_detach(data);
+			return -1;
+		}
+		data->reply_attr = dattr->attr;
+	}
+
 
 	/*
 	 *  Create a new attribute for the counter.
@@ -553,7 +573,7 @@ static int counter_accounting(void *instance, REQUEST *request)
 	time_t diff;
 
 	if ((key_vp = pairfind(request->packet->vps, PW_ACCT_STATUS_TYPE)) != NULL)
-		acctstatustype = key_vp->lvalue;
+		acctstatustype = key_vp->vp_integer;
 	else {
 		DEBUG("rlm_counter: Could not find account status type in packet.");
 		return RLM_MODULE_NOOP;
@@ -564,7 +584,7 @@ static int counter_accounting(void *instance, REQUEST *request)
 	}
 	uniqueid_vp = pairfind(request->packet->vps, PW_ACCT_UNIQUE_SESSION_ID);
 	if (uniqueid_vp != NULL)
-		DEBUG("rlm_counter: Packet Unique ID = '%s'",uniqueid_vp->strvalue);
+		DEBUG("rlm_counter: Packet Unique ID = '%s'",uniqueid_vp->vp_strvalue);
 
 	/*
 	 *	Before doing anything else, see if we have to reset
@@ -590,7 +610,7 @@ static int counter_accounting(void *instance, REQUEST *request)
 			DEBUG("rlm_counter: Could not find Service-Type attribute in the request. Returning NOOP.");
 			return RLM_MODULE_NOOP;
 		}
-		if ((unsigned)proto_vp->lvalue != data->service_val){
+		if ((unsigned)proto_vp->vp_integer != data->service_val){
 			DEBUG("rlm_counter: This Service-Type is not allowed. Returning NOOP.");
 			return RLM_MODULE_NOOP;
 		}
@@ -601,8 +621,8 @@ static int counter_accounting(void *instance, REQUEST *request)
 	 */
 	key_vp = pairfind(request->packet->vps, PW_ACCT_DELAY_TIME);
 	if (key_vp != NULL){
-		if (key_vp->lvalue != 0 &&
-		    (request->timestamp - key_vp->lvalue) < data->last_reset){
+		if (key_vp->vp_integer != 0 &&
+		    (request->timestamp - key_vp->vp_integer) < data->last_reset){
 			DEBUG("rlm_counter: This packet is too old. Returning NOOP.");
 			return RLM_MODULE_NOOP;
 		}
@@ -629,10 +649,10 @@ static int counter_accounting(void *instance, REQUEST *request)
 		return RLM_MODULE_NOOP;
 	}
 
-	key_datum.dptr = key_vp->strvalue;
+	key_datum.dptr = key_vp->vp_strvalue;
 	key_datum.dsize = key_vp->length;
 
-	DEBUG("rlm_counter: Searching the database for key '%s'",key_vp->strvalue);
+	DEBUG("rlm_counter: Searching the database for key '%s'",key_vp->vp_strvalue);
 	pthread_mutex_lock(&data->mutex);
 	count_datum = gdbm_fetch(data->gdbm, key_datum);
 	pthread_mutex_unlock(&data->mutex);
@@ -640,7 +660,8 @@ static int counter_accounting(void *instance, REQUEST *request)
 		DEBUG("rlm_counter: Could not find the requested key in the database.");
 		counter.user_counter = 0;
 		if (uniqueid_vp != NULL)
-			strncpy(counter.uniqueid,uniqueid_vp->strvalue,UNIQUEID_MAX_LEN - 1);
+			strlcpy(counter.uniqueid,uniqueid_vp->vp_strvalue,
+				sizeof(counter.uniqueid));
 		else
 			memset((char *)counter.uniqueid,0,UNIQUEID_MAX_LEN);
 	}
@@ -652,13 +673,14 @@ static int counter_accounting(void *instance, REQUEST *request)
 			DEBUG("rlm_counter: Counter Unique ID = '%s'",counter.uniqueid);
 		if (uniqueid_vp != NULL){
 			if (counter.uniqueid != NULL &&
-				strncmp(uniqueid_vp->strvalue,counter.uniqueid, UNIQUEID_MAX_LEN - 1) == 0){
+				strncmp(uniqueid_vp->vp_strvalue,counter.uniqueid, UNIQUEID_MAX_LEN - 1) == 0){
 				DEBUG("rlm_counter: Unique IDs for user match. Droping the request.");
 				return RLM_MODULE_NOOP;
 			}
-			strncpy(counter.uniqueid,uniqueid_vp->strvalue,UNIQUEID_MAX_LEN - 1);
+			strlcpy(counter.uniqueid,uniqueid_vp->vp_strvalue,
+				sizeof(counter.uniqueid));
 		}
-		DEBUG("rlm_counter: User=%s, Counter=%d.",request->username->strvalue,counter.user_counter);
+		DEBUG("rlm_counter: User=%s, Counter=%d.",request->username->vp_strvalue,counter.user_counter);
 	}
 
 	if (data->count_attr == PW_ACCT_SESSION_TIME) {
@@ -673,14 +695,14 @@ static int counter_accounting(void *instance, REQUEST *request)
 		 *	day). That is the right thing
 		 */
 		diff = request->timestamp - data->last_reset;
-		counter.user_counter += (count_vp->lvalue < diff) ? count_vp->lvalue : diff;
+		counter.user_counter += (count_vp->vp_integer < diff) ? count_vp->vp_integer : diff;
 
 	} else if (count_vp->type == PW_TYPE_INTEGER) {
 		/*
 		 *	Integers get counted, without worrying about
 		 *	reset dates.
 		 */
-		counter.user_counter += count_vp->lvalue;
+		counter.user_counter += count_vp->vp_integer;
 
 	} else {
 		/*
@@ -690,7 +712,7 @@ static int counter_accounting(void *instance, REQUEST *request)
 		counter.user_counter++;
 	}
 
-	DEBUG("rlm_counter: User=%s, New Counter=%d.",request->username->strvalue,counter.user_counter);
+	DEBUG("rlm_counter: User=%s, New Counter=%d.",request->username->vp_strvalue,counter.user_counter);
 	count_datum.dptr = (char *) &counter;
 	count_datum.dsize = sizeof(rad_counter);
 
@@ -766,7 +788,7 @@ static int counter_authorize(void *instance, REQUEST *request)
 		return ret;
 	}
 
-	key_datum.dptr = key_vp->strvalue;
+	key_datum.dptr = key_vp->vp_strvalue;
 	key_datum.dsize = key_vp->length;
 
 
@@ -776,7 +798,7 @@ static int counter_authorize(void *instance, REQUEST *request)
 
 	counter.user_counter = 0;
 
-	DEBUG("rlm_counter: Searching the database for key '%s'",key_vp->strvalue);
+	DEBUG("rlm_counter: Searching the database for key '%s'",key_vp->vp_strvalue);
 	pthread_mutex_lock(&data->mutex);
 	count_datum = gdbm_fetch(data->gdbm, key_datum);
 	pthread_mutex_unlock(&data->mutex);
@@ -791,8 +813,8 @@ static int counter_authorize(void *instance, REQUEST *request)
 	/*
 	 * Check if check item > counter
 	 */
-	DEBUG("rlm_counter: Check item = %d, Count = %d",check_vp->lvalue,counter.user_counter);
-	res=check_vp->lvalue - counter.user_counter;
+	DEBUG("rlm_counter: Check item = %d, Count = %d",check_vp->vp_integer,counter.user_counter);
+	res=check_vp->vp_integer - counter.user_counter;
 	if (res > 0) {
 		DEBUG("rlm_counter: res is greater than zero");
 		if (data->count_attr == PW_ACCT_SESSION_TIME) {
@@ -817,22 +839,31 @@ static int counter_authorize(void *instance, REQUEST *request)
 		 	*	If we are near a reset then add the next
 		 	*	limit, so that the user will not need to
 		 	*	login again
+			*	Before that set the return value to the time
+			*	remaining to next reset
 		 	*/
 			if (data->reset_time && (
 				res >= (data->reset_time - request->timestamp))) {
-				res += check_vp->lvalue;
+				res = data->reset_time - request->timestamp;
+				res += check_vp->vp_integer;
 			}
 
 			if ((reply_item = pairfind(request->reply->vps, PW_SESSION_TIMEOUT)) != NULL) {
-				if (reply_item->lvalue > res)
-					reply_item->lvalue = res;
+				if (reply_item->vp_integer > res)
+					reply_item->vp_integer = res;
 			} else {
-				if ((reply_item = paircreate(PW_SESSION_TIMEOUT, PW_TYPE_INTEGER)) == NULL) {
-					radlog(L_ERR|L_CONS, "no memory");
-					return RLM_MODULE_NOOP;
-				}
-				reply_item->lvalue = res;
-				pairadd(&request->reply->vps, reply_item);
+				reply_item = radius_paircreate(request, &request->reply->vps, PW_SESSION_TIMEOUT, PW_TYPE_INTEGER);
+				reply_item->vp_integer = res;
+			}
+		}
+		else if (data->reply_attr) {
+			if ((reply_item = pairfind(request->reply->vps, data->reply_attr)) != NULL) {
+				if (reply_item->vp_integer > res)
+					reply_item->vp_integer = res;
+			}
+			else {
+				reply_item = radius_paircreate(request, &request->reply->vps, data->reply_attr, PW_TYPE_INTEGER);
+				reply_item->vp_integer = res;
 			}
 		}
 
@@ -840,9 +871,9 @@ static int counter_authorize(void *instance, REQUEST *request)
 
 		DEBUG2("rlm_counter: (Check item - counter) is greater than zero");
 		DEBUG2("rlm_counter: Authorized user %s, check_item=%d, counter=%d",
-				key_vp->strvalue,check_vp->lvalue,counter.user_counter);
+				key_vp->vp_strvalue,check_vp->vp_integer,counter.user_counter);
 		DEBUG2("rlm_counter: Sent Reply-Item for user %s, Type=Session-Timeout, value=%d",
-				key_vp->strvalue,res);
+				key_vp->vp_strvalue,res);
 	}
 	else{
 		char module_fmsg[MAX_STRING_LEN];
@@ -862,7 +893,7 @@ static int counter_authorize(void *instance, REQUEST *request)
 		ret=RLM_MODULE_REJECT;
 
 		DEBUG2("rlm_counter: Rejected user %s, check_item=%d, counter=%d",
-				key_vp->strvalue,check_vp->lvalue,counter.user_counter);
+				key_vp->vp_strvalue,check_vp->vp_integer,counter.user_counter);
 	}
 
 	return ret;
@@ -875,13 +906,6 @@ static int counter_detach(void *instance)
 	paircompare_unregister(data->dict_attr, counter_cmp);
 	if (data->gdbm)
 		gdbm_close(data->gdbm);
-	free(data->filename);
-	free(data->reset);
-	free(data->key_name);
-	free(data->count_attribute);
-	free(data->counter_name);
-	free(data->check_name);
-	free(data->service_type);
 	pthread_mutex_destroy(&data->mutex);
 
 	free(instance);
@@ -898,10 +922,11 @@ static int counter_detach(void *instance)
  *	is single-threaded.
  */
 module_t rlm_counter = {
-	"Counter",
+	 RLM_MODULE_INIT,
+	"counter",
 	RLM_TYPE_THREAD_SAFE,		/* type */
-	NULL,				/* initialization */
 	counter_instantiate,		/* instantiation */
+	counter_detach,			/* detach */
 	{
 		NULL,			/* authentication */
 		counter_authorize, 	/* authorization */
@@ -912,6 +937,4 @@ module_t rlm_counter = {
 		NULL,			/* post-proxy */
 		NULL			/* post-auth */
 	},
-	counter_detach,			/* detach */
-	NULL,				/* destroy */
 };

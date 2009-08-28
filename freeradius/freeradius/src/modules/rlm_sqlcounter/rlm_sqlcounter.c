@@ -1,7 +1,7 @@
 /*
  * rlm_sqlcounter.c
  *
- * Version:  $Id: rlm_sqlcounter.c,v 1.11.2.3.2.8 2007/04/07 23:21:42 aland Exp $
+ * Version:  $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -17,45 +17,42 @@
  *   along with this program; if not, write to the Free Software
  *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2001  The FreeRADIUS server project
+ * Copyright 2001,2006  The FreeRADIUS server project
  * Copyright 2001  Alan DeKok <aland@ox.org>
  */
 
 /* This module is based directly on the rlm_counter module */
 
 
-#include "autoconf.h"
-#include "libradius.h"
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <freeradius-devel/radiusd.h>
+#include <freeradius-devel/modules.h>
+
 #include <ctype.h>
-
-#include "radiusd.h"
-#include "modules.h"
-#include "conffile.h"
 
 #define MAX_QUERY_LEN 1024
 
-#include <time.h>
+static int sqlcounter_detach(void *instance);
 
-
-/* 	Note: When your counter spans more than 1 period (ie 3 months or 2 weeks), this module
- *	probably does NOT do what you want!  It calculates the range of dates to count across
- *	by first calculating the End of the Current period and then subtracting the number of
- *	periods you specify from that to determine the beginning of the range.
+/*
+ *	Note: When your counter spans more than 1 period (ie 3 months
+ *	or 2 weeks), this module probably does NOT do what you want! It
+ *	calculates the range of dates to count across by first calculating
+ *	the End of the Current period and then subtracting the number of
+ *	periods you specify from that to determine the beginning of the
+ *	range.
  *
- *	For example, if you specify a 3 month counter and today is June 15th, the end of the current
- *	period is June 30. Subtracting 3 months from that gives April 1st.  So, the counter will
- *	sum radacct entries from April 1st to June 30. Then, next month, it will sum entries
- *	from May 1st to July 31st.
+ *	For example, if you specify a 3 month counter and today is June 15th,
+ *	the end of the current period is June 30. Subtracting 3 months from
+ *	that gives April 1st. So, the counter will sum radacct entries from
+ *	April 1st to June 30. Then, next month, it will sum entries from
+ *	May 1st to July 31st.
  *
- *	To fix this behavior, we need to add some way of storing the Next Reset Time
+ *	To fix this behavior, we need to add some way of storing the Next
+ *	Reset Time.
  */
-
-
-static const char rcsid[] = "$Id: rlm_sqlcounter.c,v 1.11.2.3.2.8 2007/04/07 23:21:42 aland Exp $";
 
 /*
  *	Define a structure for our module configuration.
@@ -89,7 +86,7 @@ typedef struct rlm_sqlcounter_t {
  *	to the strdup'd string into 'config.string'.  This gets around
  *	buffer over-flows.
  */
-static CONF_PARSER module_config[] = {
+static const CONF_PARSER module_config[] = {
   { "counter-name", PW_TYPE_STRING_PTR, offsetof(rlm_sqlcounter_t,counter_name), NULL,  NULL },
   { "check-name", PW_TYPE_STRING_PTR, offsetof(rlm_sqlcounter_t,check_name), NULL, NULL },
   { "reply-name", PW_TYPE_STRING_PTR, offsetof(rlm_sqlcounter_t,reply_name), NULL, NULL },
@@ -106,7 +103,7 @@ static char *allowed_chars = NULL;
 /*
  *	Translate the SQL queries.
  */
-static int sql_escape_func(char *out, int outlen, const char *in)
+static size_t sql_escape_func(char *out, size_t outlen, const char *in)
 {
 	int len = 0;
 
@@ -154,28 +151,28 @@ static int sql_escape_func(char *out, int outlen, const char *in)
 
 static int find_next_reset(rlm_sqlcounter_t *data, time_t timeval)
 {
-	int ret=0;
-	unsigned int num=1;
-	char last = 0;
+	int ret = 0;
+	size_t len;
+	unsigned int num = 1;
+	char last = '\0';
 	struct tm *tm, s_tm;
 	char sCurrentTime[40], sNextTime[40];
 
 	tm = localtime_r(&timeval, &s_tm);
-	strftime(sCurrentTime, sizeof(sCurrentTime),"%Y-%m-%d %H:%M:%S",tm);
+	len = strftime(sCurrentTime, sizeof(sCurrentTime), "%Y-%m-%d %H:%M:%S", tm);
+	if (len == 0) *sCurrentTime = '\0';
 	tm->tm_sec = tm->tm_min = 0;
 
 	if (data->reset == NULL)
 		return -1;
 	if (isdigit((int) data->reset[0])){
-		unsigned int len=0;
-
 		len = strlen(data->reset);
 		if (len == 0)
 			return -1;
 		last = data->reset[len - 1];
 		if (!isalpha((int) last))
 			last = 'd';
-/*		num = atoi(data->reset); */
+		num = atoi(data->reset);
 		DEBUG("rlm_sqlcounter: num=%d, last=%c",num,last);
 	}
 	if (strcmp(data->reset, "hourly") == 0 || last == 'h') {
@@ -210,9 +207,11 @@ static int find_next_reset(rlm_sqlcounter_t *data, time_t timeval)
 			data->reset);
 		return -1;
 	}
-	strftime(sNextTime, sizeof(sNextTime),"%Y-%m-%d %H:%M:%S",tm);
-	DEBUG2("rlm_sqlcounter: Current Time: %d [%s], Next reset %d [%s]",
-		(int)timeval,sCurrentTime,(int)data->reset_time, sNextTime);
+
+	len = strftime(sNextTime, sizeof(sNextTime),"%Y-%m-%d %H:%M:%S",tm);
+	if (len == 0) *sNextTime = '\0';
+	DEBUG2("rlm_sqlcounter: Current Time: %li [%s], Next reset %li [%s]",
+		timeval, sCurrentTime, data->reset_time, sNextTime);
 
 	return ret;
 }
@@ -224,21 +223,21 @@ static int find_next_reset(rlm_sqlcounter_t *data, time_t timeval)
 
 static int find_prev_reset(rlm_sqlcounter_t *data, time_t timeval)
 {
-	int ret=0;
-	unsigned int num=1;
-	char last = 0;
+	int ret = 0;
+	size_t len;
+	unsigned int num = 1;
+	char last = '\0';
 	struct tm *tm, s_tm;
 	char sCurrentTime[40], sPrevTime[40];
 
 	tm = localtime_r(&timeval, &s_tm);
-	strftime(sCurrentTime, sizeof(sCurrentTime),"%Y-%m-%d %H:%M:%S",tm);
+	len = strftime(sCurrentTime, sizeof(sCurrentTime), "%Y-%m-%d %H:%M:%S", tm);
+	if (len == 0) *sCurrentTime = '\0';
 	tm->tm_sec = tm->tm_min = 0;
 
 	if (data->reset == NULL)
 		return -1;
 	if (isdigit((int) data->reset[0])){
-		unsigned int len=0;
-
 		len = strlen(data->reset);
 		if (len == 0)
 			return -1;
@@ -280,9 +279,10 @@ static int find_prev_reset(rlm_sqlcounter_t *data, time_t timeval)
 			data->reset);
 		return -1;
 	}
-	strftime(sPrevTime, sizeof(sPrevTime),"%Y-%m-%d %H:%M:%S",tm);
-	DEBUG2("rlm_sqlcounter: Current Time: %d [%s], Prev reset %d [%s]",
-		(int)timeval,sCurrentTime,(int)data->last_reset, sPrevTime);
+	len = strftime(sPrevTime, sizeof(sPrevTime), "%Y-%m-%d %H:%M:%S", tm);
+	if (len == 0) *sPrevTime = '\0';
+	DEBUG2("rlm_sqlcounter: Current Time: %li [%s], Prev reset %li [%s]",
+	       timeval, sCurrentTime, data->last_reset, sPrevTime);
 
 	return ret;
 }
@@ -305,6 +305,7 @@ static int sqlcounter_expand(char *out, int outlen, const char *fmt, void *insta
 	const char *p;
 	char *q;
 	char tmpdt[40]; /* For temporary storing of dates */
+	int openbraces=0;
 
 	q = out;
 	for (p = fmt; *p ; p++) {
@@ -314,6 +315,15 @@ static int sqlcounter_expand(char *out, int outlen, const char *fmt, void *insta
 			break;
 		c = *p;
 		if ((c != '%') && (c != '$') && (c != '\\')) {
+			/*
+			 * We check if we're inside an open brace.  If we are
+			 * then we assume this brace is NOT literal, but is
+			 * a closing brace and apply it
+			 */
+			if((c == '}') && openbraces) {
+				openbraces--;
+				continue;
+			}
 			*q++ = *p;
 			continue;
 		}
@@ -339,20 +349,20 @@ static int sqlcounter_expand(char *out, int outlen, const char *fmt, void *insta
 				*q++ = *p;
 			case 'b': /* last_reset */
 				snprintf(tmpdt, sizeof(tmpdt), "%lu", data->last_reset);
-				strNcpy(q, tmpdt, freespace);
+				strlcpy(q, tmpdt, freespace);
 				q += strlen(q);
 				break;
 			case 'e': /* reset_time */
 				snprintf(tmpdt, sizeof(tmpdt), "%lu", data->reset_time);
-				strNcpy(q, tmpdt, freespace);
+				strlcpy(q, tmpdt, freespace);
 				q += strlen(q);
 				break;
 			case 'k': /* Key Name */
-				strNcpy(q, data->key_name, freespace);
+				strlcpy(q, data->key_name, freespace);
 				q += strlen(q);
 				break;
 			case 'S': /* SQL module instance */
-				strNcpy(q, data->sqlmod_inst, freespace);
+				strlcpy(q, data->sqlmod_inst, freespace);
 				q += strlen(q);
 				break;
 			default:
@@ -372,8 +382,9 @@ static int sqlcounter_expand(char *out, int outlen, const char *fmt, void *insta
 /*
  *	See if the counter matches.
  */
-static int sqlcounter_cmp(void *instance, REQUEST *req, VALUE_PAIR *request, VALUE_PAIR *check,
-		VALUE_PAIR *check_pairs, VALUE_PAIR **reply_pairs)
+static int sqlcounter_cmp(void *instance, REQUEST *req,
+			  UNUSED VALUE_PAIR *request, VALUE_PAIR *check,
+			  VALUE_PAIR *check_pairs, VALUE_PAIR **reply_pairs)
 {
 	rlm_sqlcounter_t *data = (rlm_sqlcounter_t *) instance;
 	int counter;
@@ -398,7 +409,7 @@ static int sqlcounter_cmp(void *instance, REQUEST *req, VALUE_PAIR *request, VAL
 
 	counter = atoi(querystr);
 
-	return counter - check->lvalue;
+	return counter - check->vp_integer;
 }
 
 
@@ -425,6 +436,7 @@ static int sqlcounter_instantiate(CONF_SECTION *conf, void **instance)
 	 */
 	data = rad_malloc(sizeof(*data));
 	if (!data) {
+		radlog(L_ERR, "rlm_sqlcounter: Not enough memory.");
 		return -1;
 	}
 	memset(data, 0, sizeof(*data));
@@ -434,7 +446,8 @@ static int sqlcounter_instantiate(CONF_SECTION *conf, void **instance)
 	 *	fail.
 	 */
 	if (cf_section_parse(conf, data, module_config) < 0) {
-		free(data);
+		radlog(L_ERR, "rlm_sqlcounter: Unable to parse parameters.");
+		sqlcounter_detach(data);
 		return -1;
 	}
 
@@ -443,6 +456,7 @@ static int sqlcounter_instantiate(CONF_SECTION *conf, void **instance)
 	 */
 	if (data->query == NULL) {
 		radlog(L_ERR, "rlm_sqlcounter: 'query' must be set.");
+		sqlcounter_detach(data);
 		return -1;
 	}
 
@@ -457,17 +471,20 @@ static int sqlcounter_instantiate(CONF_SECTION *conf, void **instance)
 	 */
 	if (data->key_name == NULL) {
 		radlog(L_ERR, "rlm_sqlcounter: 'key' must be set.");
+		sqlcounter_detach(data);
 		return -1;
 	}
 	sql_escape_func(buffer, sizeof(buffer), data->key_name);
 	if (strcmp(buffer, data->key_name) != 0) {
 		radlog(L_ERR, "rlm_sqlcounter: The value for option 'key' is too long or contains unsafe characters.");
+		sqlcounter_detach(data);
 		return -1;
 	}
 	dattr = dict_attrbyname(data->key_name);
 	if (dattr == NULL) {
 		radlog(L_ERR, "rlm_sqlcounter: No such attribute %s",
 				data->key_name);
+		sqlcounter_detach(data);
 		return -1;
 	}
 	data->key_attr = dattr->attr;
@@ -487,6 +504,7 @@ static int sqlcounter_instantiate(CONF_SECTION *conf, void **instance)
 		if (dattr == NULL) {
 			radlog(L_ERR, "rlm_sqlcounter: No such attribute %s",
 			       data->reply_name);
+			sqlcounter_detach(data);
 			return -1;
 		}
 		data->reply_attr = dattr->attr;
@@ -499,11 +517,13 @@ static int sqlcounter_instantiate(CONF_SECTION *conf, void **instance)
 	 */
 	if (data->sqlmod_inst == NULL) {
 		radlog(L_ERR, "rlm_sqlcounter: 'sqlmod-inst' must be set.");
+		sqlcounter_detach(data);
 		return -1;
 	}
 	sql_escape_func(buffer, sizeof(buffer), data->sqlmod_inst);
 	if (strcmp(buffer, data->sqlmod_inst) != 0) {
 		radlog(L_ERR, "rlm_sqlcounter: The value for option 'sqlmod-inst' is too long or contains unsafe characters.");
+		sqlcounter_detach(data);
 		return -1;
 	}
 
@@ -512,6 +532,7 @@ static int sqlcounter_instantiate(CONF_SECTION *conf, void **instance)
 	 */
 	if (data->counter_name == NULL) {
 		radlog(L_ERR, "rlm_sqlcounter: 'counter-name' must be set.");
+		sqlcounter_detach(data);
 		return -1;
 	}
 
@@ -521,6 +542,7 @@ static int sqlcounter_instantiate(CONF_SECTION *conf, void **instance)
 	if (dattr == NULL) {
 		radlog(L_ERR, "rlm_sqlcounter: Failed to create counter attribute %s",
 				data->counter_name);
+		sqlcounter_detach(data);
 		return -1;
 	}
 	data->dict_attr = dattr->attr;
@@ -532,6 +554,7 @@ static int sqlcounter_instantiate(CONF_SECTION *conf, void **instance)
 	 */
 	if (data->check_name == NULL) {
 		radlog(L_ERR, "rlm_sqlcounter: 'check-name' must be set.");
+		sqlcounter_detach(data);
 		return -1;
 	}
 	dict_addattr(data->check_name, 0, PW_TYPE_INTEGER, -1, flags);
@@ -539,6 +562,7 @@ static int sqlcounter_instantiate(CONF_SECTION *conf, void **instance)
 	if (dattr == NULL) {
 		radlog(L_ERR, "rlm_sqlcounter: Failed to create check attribute %s",
 				data->check_name);
+		sqlcounter_detach(data);
 		return -1;
 	}
 	DEBUG2("rlm_sqlcounter: Check attribute %s is number %d",
@@ -549,22 +573,28 @@ static int sqlcounter_instantiate(CONF_SECTION *conf, void **instance)
 	 */
 	if (data->reset == NULL) {
 		radlog(L_ERR, "rlm_sqlcounter: 'reset' must be set.");
+		sqlcounter_detach(data);
 		return -1;
 	}
 	now = time(NULL);
 	data->reset_time = 0;
 
-	if (find_next_reset(data,now) == -1)
+	if (find_next_reset(data,now) == -1) {
+		radlog(L_ERR, "rlm_sqlcounter: Failed to find the next reset time.");
+		sqlcounter_detach(data);
 		return -1;
+	}
 
 	/*
 	 *  Discover the beginning of the current time period.
 	 */
 	data->last_reset = 0;
 
-	if (find_prev_reset(data,now) == -1)
+	if (find_prev_reset(data,now) == -1) {
+		radlog(L_ERR, "rlm_sqlcounter: Failed to find the previous reset time.");
+		sqlcounter_detach(data);
 		return -1;
-
+	}
 
 	/*
 	 *	Register the counter comparison operation.
@@ -586,8 +616,7 @@ static int sqlcounter_authorize(void *instance, REQUEST *request)
 {
 	rlm_sqlcounter_t *data = (rlm_sqlcounter_t *) instance;
 	int ret=RLM_MODULE_NOOP;
-	int counter=0;
-	int res=0;
+	unsigned int counter;
 	DICT_ATTR *dattr;
 	VALUE_PAIR *key_vp, *check_vp;
 	VALUE_PAIR *reply_item;
@@ -649,15 +678,19 @@ static int sqlcounter_authorize(void *instance, REQUEST *request)
 	/* Finally, xlat resulting SQL query */
 	radius_xlat(querystr, MAX_QUERY_LEN, responsestr, request, sql_escape_func);
 
-	counter = atoi(querystr);
-
+	if (sscanf(querystr, "%u", &counter) != 1) {
+		DEBUG2("rlm_sqlcounter: No integer found in string \"%s\"",
+		       querystr);
+		return RLM_MODULE_NOOP;
+	}
 
 	/*
 	 * Check if check item > counter
 	 */
-	res=check_vp->lvalue - counter;
-	if (res > 0) {
-		DEBUG2("rlm_sqlcounter: (Check item - counter) is greater than zero");
+	if (check_vp->vp_integer > counter) {
+		unsigned int res = check_vp->lvalue - counter;
+
+		DEBUG2("rlm_sqlcounter: Check item is greater than query result");
 		/*
 		 *	We are assuming that simultaneous-use=1. But
 		 *	even if that does not happen then our user
@@ -675,30 +708,29 @@ static int sqlcounter_authorize(void *instance, REQUEST *request)
 		 *	limit, so that the user will not need to
 		 *	login again
 		 */
-		if (data->reset_time && (
-			res >= (data->reset_time - request->timestamp))) {
+		if (data->reset_time &&
+		    (res >= (data->reset_time - request->timestamp))) {
 			res = data->reset_time - request->timestamp;
-			res += check_vp->lvalue;
+			res += check_vp->vp_integer;
 		}
 
 		if ((reply_item = pairfind(request->reply->vps, data->reply_attr)) != NULL) {
-			if (reply_item->lvalue > res)
-				reply_item->lvalue = res;
+			if (reply_item->vp_integer > res)
+				reply_item->vp_integer = res;
 		} else {
-			if ((reply_item = paircreate(data->reply_attr, PW_TYPE_INTEGER)) == NULL) {
-				radlog(L_ERR|L_CONS, "no memory");
-				return RLM_MODULE_NOOP;
-			}
-			reply_item->lvalue = res;
-			pairadd(&request->reply->vps, reply_item);
+			reply_item = radius_paircreate(request,
+						       &request->reply->vps,
+						       data->reply_attr,
+						       PW_TYPE_INTEGER);
+			reply_item->vp_integer = res;
 		}
 
 		ret=RLM_MODULE_OK;
 
-		DEBUG2("rlm_sqlcounter: Authorized user %s, check_item=%d, counter=%d",
-				key_vp->strvalue,check_vp->lvalue,counter);
-		DEBUG2("rlm_sqlcounter: Sent Reply-Item for user %s, Type=%s, value=%d",
-				key_vp->strvalue,data->reply_name,reply_item->lvalue);
+		DEBUG2("rlm_sqlcounter: Authorized user %s, check_item=%u, counter=%u",
+				key_vp->vp_strvalue,check_vp->vp_integer,counter);
+		DEBUG2("rlm_sqlcounter: Sent Reply-Item for user %s, Type=%s, value=%u",
+				key_vp->vp_strvalue,data->reply_name,reply_item->vp_integer);
 	}
 	else{
 		char module_fmsg[MAX_STRING_LEN];
@@ -719,8 +751,8 @@ static int sqlcounter_authorize(void *instance, REQUEST *request)
 
 		ret=RLM_MODULE_REJECT;
 
-		DEBUG2("rlm_sqlcounter: Rejected user %s, check_item=%d, counter=%d",
-				key_vp->strvalue,check_vp->lvalue,counter);
+		DEBUG2("rlm_sqlcounter: Rejected user %s, check_item=%u, counter=%u",
+				key_vp->vp_strvalue,check_vp->vp_integer,counter);
 	}
 
 	return ret;
@@ -728,19 +760,35 @@ static int sqlcounter_authorize(void *instance, REQUEST *request)
 
 static int sqlcounter_detach(void *instance)
 {
-	rlm_sqlcounter_t *data = (rlm_sqlcounter_t *) instance;
+	int i;
+	char **p;
+	rlm_sqlcounter_t *inst = (rlm_sqlcounter_t *)instance;
 
-	paircompare_unregister(data->dict_attr, sqlcounter_cmp);
-	free(data->reset);
-	free(data->query);
-	free(data->check_name);
-	if (data->reply_name) free(data->reply_name);
-	free(data->sqlmod_inst);
-	free(data->counter_name);
-	free(data->allowed_chars);
 	allowed_chars = NULL;
+	paircompare_unregister(inst->dict_attr, sqlcounter_cmp);
 
-	free(instance);
+	/*
+	 *	Free up dynamically allocated string pointers.
+	 */
+	for (i = 0; module_config[i].name != NULL; i++) {
+		if (module_config[i].type != PW_TYPE_STRING_PTR) {
+			continue;
+		}
+
+		/*
+		 *	Treat 'config' as an opaque array of bytes,
+		 *	and take the offset into it.  There's a
+		 *      (char*) pointer at that offset, and we want
+		 *	to point to it.
+		 */
+		p = (char **) (((char *)inst) + module_config[i].offset);
+		if (!*p) { /* nothing allocated */
+			continue;
+		}
+		free(*p);
+		*p = NULL;
+	}
+	free(inst);
 	return 0;
 }
 
@@ -754,10 +802,11 @@ static int sqlcounter_detach(void *instance)
  *	is single-threaded.
  */
 module_t rlm_sqlcounter = {
+	RLM_MODULE_INIT,
 	"SQL Counter",
 	RLM_TYPE_THREAD_SAFE,		/* type */
-	NULL,				/* initialization */
 	sqlcounter_instantiate,		/* instantiation */
+	sqlcounter_detach,		/* detach */
 	{
 		NULL,			/* authentication */
 		sqlcounter_authorize, 	/* authorization */
@@ -768,7 +817,5 @@ module_t rlm_sqlcounter = {
 		NULL,			/* post-proxy */
 		NULL			/* post-auth */
 	},
-	sqlcounter_detach,		/* detach */
-	NULL,				/* destroy */
 };
 

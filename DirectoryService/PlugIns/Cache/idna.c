@@ -60,6 +60,8 @@
 #include <dns.h>
 #include <dns_util.h>
 
+#ifdef HANDLE_DNS_LOOKUPS    
+
 extern dns_reply_t *dns_lookup_soa_min(dns_handle_t d, const char *name, uint32_t class, uint32_t type, int *min);
 
 #define ACE_PREFIX_LEN 4
@@ -473,3 +475,5 @@ idna_dns_lookup(dns_handle_t dns, const char *name, uint32_t dnsclass, uint32_t 
 
 	return idna_dns_postprocess_reply(r);
 }
+
+#endif

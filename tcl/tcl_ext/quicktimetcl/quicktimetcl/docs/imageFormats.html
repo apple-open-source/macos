@@ -1,0 +1,118 @@
+<HTML>
+
+<HEAD>
+
+<TITLE>QuickTimeTcl Commands - tk_image formats manual page</TITLE>
+
+</HEAD>
+
+<BODY>
+
+<DL>
+    <DD><A HREF="imageFormats.html#M1">NAME</A>
+    
+    <DL>
+	<DD>still image formats supported by the photo interface added by 
+	QuickTimeTcl
+    </DL>
+    
+    <DD><A HREF="imageFormats.html#M2">SYNOPSIS</A>
+    
+    <DL>
+	<DD><B>package require QuickTimeTcl</B> ?<I>version</I>? 
+	<DD><B>image create photo </B> ?<I>imageName</I>? <B>-file</B> <I>fileName</I> 
+	?<B>-format</B> <I>formatName</I>?
+	<DD><I>imageName</I> <B>write</B> <I>fileName</I> ?<B>-format</B> <I>formatName</I>?
+    </DL>
+    
+    <DD><A HREF="imageFormats.html#M3">DESCRIPTION</A>
+        
+    <DD><A HREF="imageFormats.html#M5">KEYWORDS</A>
+</DL>
+
+<HR>
+
+<H3><A NAME="M1">NAME</A></H3>
+
+image create photo formats option.
+
+<P>
+
+<P>
+
+<H3><A NAME="M2">SYNOPSIS</A></H3>
+
+<DL>
+    <DD><B>package require QuickTimeTcl</B> ?<I>version</I>? 
+    <DD><B>image create photo </B> ?<I>imageName</I>? <B>-file</B> <I>fileName</I> 
+    ?<B>-format</B> <I>formatName</I>?
+    <DD><I>imageName</I> <B>write</B> <I>fileName</I> ?<B>-format</B> <I>formatName</I>?
+</DL>
+
+<H3><A NAME="M3">DESCRIPTION</A></H3>
+
+The QuickTimeTcl package supports a number of still image formats via the 
+standard photo command. Only file import/export is supported. No string 
+based import/export is supported. This excludes commands as <I>imageName</I> 
+<B>data</B>, and <B>image create photo</B> <I>imageName</I> <B>-data</B> 
+<I>string</I>.
+
+<P>
+The import format supported is <B>quicktime</B>. Use 
+<B>image create photo </B> <I>imageName</I> <B>-file</B> <I>fileName</I> 
+<B>-format quicktime</B> to specify a QuickTime graphics importer.
+Since both Tk and QuickTimeTcl supports GIF images, it is necessary to 
+specify <B>-format gif</B> in order to use the Tk's image importer, and
+<B>-format quicktime</B> to use QuickTime.
+
+<P>
+When exporting via the <B>write</B> command, there are several ways to do it.
+If no format is specified, then Tk's standard method is used which means 
+that a GIF image is written.
+With QuickTimeTcl you may specify the 
+precise image format wanted. The following values for the <B>-format</B> option 
+are supported:
+
+<UL>
+    <LI><B>quicktimebmp</B> : BMP format
+    <LI><B>quicktimejfif</B> : JFIF format
+    <LI><B>quicktimejpeg</B> : JPEG format
+    <LI><B>quicktimemacpaint</B> : MacPaint format
+    <LI><B>quicktimephotoshop</B> : PhotoShop format
+    <LI><B>quicktimepng</B> : PNG format
+    <LI><B>quicktimepict</B> : QuickDraw PICT format
+    <LI><B>quicktimequicktimeimage</B> : QuickTime image format
+    <LI><B>quicktimesgiimage</B> : Silicon Graphics format
+    <LI><B>quicktimetargaimage</B> : Targa format
+    <LI><B>quicktimetiff</B> : TIFF format
+</UL>
+
+For each of these formats you may display a compression dialog for setting 
+various format specific parameters by appending a list element <B>-dialog</B> 
+to the format name. For instance, to export an image into a JPEG file 
+using a dialog, use <B>-format {quicktimejpeg -dialog}</B>. Not all formats 
+support dialogs.
+Sorry for the syntax being a bit nonstandard, but that's because the 
+<B>image</B> command has limited customization possibilities.
+
+<P>
+The other alternative is to use <B>-format {quicktime -dialog}</B>. 
+Then a "Save As..." dialog is shown, where the initial file name is the one
+given in the command, possibly with an extension appended. In the dialog
+the user can select from a number of image formats, and for some of them,
+additional characteristics may be given in separate dialogs. It is also
+possible to change the file name and directory. If the user cancels,
+the <I>imageName</I> <B>write</B> <I>fileName</I> command returns an error,
+with the result string <CODE>{0 {User canceled}}</CODE>. If the user saves 
+it, the selected file path is returned.
+
+<H3><A NAME="M5">KEYWORDS</A></H3>
+
+<U>image, photo</U>,<U>QuickTime</U>
+<HR>
+
+<PRE>
+<U>Copyright</U> &#169; 2001-2003 Mats Bengtsson
+</BODY></HTML>
+
+

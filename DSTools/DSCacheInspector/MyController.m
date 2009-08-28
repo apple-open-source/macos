@@ -26,6 +26,17 @@
 #import <DSlibinfoMIG_types.h>
 #import <servers/bootstrap.h>
 #import <OpenDirectory/NSOpenDirectory.h>
+#include <OpenDirectory/OpenDirectoryPriv.h>
+#include <DirectoryService/DirectoryService.h>
+
+@implementation NSString (MyCompareAdditions)
+
+- (NSComparisonResult)numericCompare:(NSString*)string
+{
+	return [self compare: string options: NSNumericSearch | NSCaseInsensitiveSearch];
+}
+
+@end
 
 @implementation MyController
 

@@ -1,0 +1,9 @@
+/def test_itimer_virtual(self):/a
+.
+/for i in xrange(100000000):/a
+            # need to use some user time
+            x = 0
+            for j in xrange(1000000):
+                x += 1
+.
+w

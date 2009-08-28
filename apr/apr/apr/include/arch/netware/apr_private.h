@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -69,6 +69,15 @@
 #define HAVE_UNSETENV   1
 
 #define HAVE_WRITEV     1
+
+#define HAVE_GETPASS_R  1
+/*
+ * check for older NDKs which have only the getpassword() function.
+ */
+#include <ndkvers.h>
+#if (CURRENT_NDK_THRESHOLD < 709060000)
+#define getpass_r getpassword
+#endif
 
 /* 64-bit integer conversion function */
 #define APR_INT64_STRFN	      strtoll
@@ -160,6 +169,8 @@ typedef struct app_data {
     rtag_t  gs_lookup_rtag;
     rtag_t  gs_event_rtag;
     rtag_t  gs_pcp_rtag;
+    void*   gs_ldap_xref_lock;
+    void*   gs_xref_head;
 } APP_DATA;
 
 int setGlobalPool(void *data);

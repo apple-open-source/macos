@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,7 +39,7 @@
 
 static OSSpinLock _atomic_lock = OS_SPINLOCK_INIT;
 
-int32_t	OSAtomicAdd32( int32_t theAmount, int32_t *theValue )
+int32_t	OSAtomicAdd32( int32_t theAmount, volatile int32_t *theValue )
 {
     int32_t result;
 
@@ -50,12 +50,28 @@ int32_t	OSAtomicAdd32( int32_t theAmount, int32_t *theValue )
     return result;
 }
 
-int32_t	OSAtomicAdd32Barrier( int32_t theAmount, int32_t *theValue )
+int32_t	OSAtomicAdd32Barrier( int32_t theAmount, volatile int32_t *theValue )
 {
     return OSAtomicAdd32(theAmount, theValue);
 }
 
-int32_t	OSAtomicOr32( uint32_t theMask, uint32_t *theValue )
+int64_t	OSAtomicAdd64( int64_t theAmount, volatile int64_t *theValue )
+{
+    int64_t result;
+
+    OSSpinLockLock(&_atomic_lock);
+    result = (*theValue += theAmount);
+    OSSpinLockUnlock(&_atomic_lock);
+
+    return result;
+}
+
+int64_t	OSAtomicAdd64Barrier( int64_t theAmount, volatile int64_t *theValue )
+{
+    return OSAtomicAdd64(theAmount, theValue);
+}
+
+int32_t	OSAtomicOr32( uint32_t theMask, volatile uint32_t *theValue )
 {
     int32_t result;
 
@@ -66,12 +82,29 @@ int32_t	OSAtomicOr32( uint32_t theMask, uint32_t *theValue )
     return result;
 }
 
-int32_t	OSAtomicOr32Barrier( uint32_t theMask, uint32_t *theValue )
+int32_t	OSAtomicOr32Barrier( uint32_t theMask, volatile uint32_t *theValue )
 {
     return OSAtomicOr32(theMask, theValue);
 }
 
-int32_t	OSAtomicAnd32( uint32_t theMask, uint32_t *theValue )
+int32_t	OSAtomicOr32Orig( uint32_t theMask, volatile uint32_t *theValue )
+{
+    int32_t result;
+
+    OSSpinLockLock(&_atomic_lock);
+    result = *theValue;
+    *theValue |= theMask;
+    OSSpinLockUnlock(&_atomic_lock);
+
+    return result;
+}
+
+int32_t	OSAtomicOr32OrigBarrier( uint32_t theMask, volatile uint32_t *theValue )
+{
+    return OSAtomicOr32Orig(theMask, theValue);
+}
+
+int32_t	OSAtomicAnd32( uint32_t theMask, volatile uint32_t *theValue )
 {
     int32_t result;
 
@@ -82,12 +115,29 @@ int32_t	OSAtomicAnd32( uint32_t theMask, uint32_t *theValue )
     return result;
 }
 
-int32_t	OSAtomicAnd32Barrier( uint32_t theMask, uint32_t *theValue )
+int32_t	OSAtomicAnd32Barrier( uint32_t theMask, volatile uint32_t *theValue )
 {
     return OSAtomicAnd32(theMask, theValue);
 }
 
-int32_t	OSAtomicXor32( uint32_t theMask, uint32_t *theValue )
+int32_t	OSAtomicAnd32Orig( uint32_t theMask, volatile uint32_t *theValue )
+{
+    int32_t result;
+
+    OSSpinLockLock(&_atomic_lock);
+    result = *theValue;
+    *theValue &= theMask;
+    OSSpinLockUnlock(&_atomic_lock);
+
+    return result;
+}
+
+int32_t	OSAtomicAnd32OrigBarrier( uint32_t theMask, volatile uint32_t *theValue )
+{
+    return OSAtomicAnd32Orig(theMask, theValue);
+}
+
+int32_t	OSAtomicXor32( uint32_t theMask, volatile uint32_t *theValue )
 {
     int32_t result;
 
@@ -98,12 +148,29 @@ int32_t	OSAtomicXor32( uint32_t theMask, uint32_t *theValue )
     return result;
 }
 
-int32_t	OSAtomicXor32Barrier( uint32_t theMask, uint32_t *theValue )
+int32_t	OSAtomicXor32Barrier( uint32_t theMask, volatile uint32_t *theValue )
 {
     return OSAtomicXor32(theMask, theValue);
 }
 
-bool	OSAtomicCompareAndSwap32( int32_t oldValue, int32_t newValue, int32_t *theValue )
+int32_t	OSAtomicXor32Orig( uint32_t theMask, volatile uint32_t *theValue )
+{
+    int32_t result;
+
+    OSSpinLockLock(&_atomic_lock);
+    result = *theValue;
+    *theValue ^= theMask;
+    OSSpinLockUnlock(&_atomic_lock);
+
+    return result;
+}
+
+int32_t	OSAtomicXor32OrigBarrier( uint32_t theMask, volatile uint32_t *theValue )
+{
+    return OSAtomicXor32Orig(theMask, theValue);
+}
+
+bool	OSAtomicCompareAndSwap32( int32_t oldValue, int32_t newValue, volatile int32_t *theValue )
 {
     bool result;
     
@@ -115,12 +182,29 @@ bool	OSAtomicCompareAndSwap32( int32_t oldValue, int32_t newValue, int32_t *theV
     return result;
 }
 
-bool    OSAtomicCompareAndSwap32Barrier( int32_t oldValue, int32_t newValue, int32_t *theValue )
+bool    OSAtomicCompareAndSwap32Barrier( int32_t oldValue, int32_t newValue, volatile int32_t *theValue )
 {
     return OSAtomicCompareAndSwap32(oldValue, newValue, theValue);
 }
 
-bool    OSAtomicTestAndSet( uint32_t n, void *theAddress )
+bool	OSAtomicCompareAndSwap64( int64_t oldValue, int64_t newValue, volatile int64_t *theValue )
+{
+    bool result;
+    
+    OSSpinLockLock(&_atomic_lock);
+    result = (*theValue == oldValue);
+    if (result) *theValue = newValue;
+    OSSpinLockUnlock(&_atomic_lock);
+
+    return result;
+}
+
+bool    OSAtomicCompareAndSwap64Barrier( int64_t oldValue, int64_t newValue, volatile int64_t *theValue )
+{
+    return OSAtomicCompareAndSwap64(oldValue, newValue, theValue);
+}
+
+bool    OSAtomicTestAndSet( uint32_t n, volatile void *theAddress )
 {
     char *byteAddress = ((char*)theAddress + (n>>3));
     uint32_t byteBit = (0x80>>(n&7));
@@ -134,12 +218,12 @@ bool    OSAtomicTestAndSet( uint32_t n, void *theAddress )
     return result;
 }
 
-bool    OSAtomicTestAndSetBarrier( uint32_t n, void *theAddress )
+bool    OSAtomicTestAndSetBarrier( uint32_t n, volatile void *theAddress )
 {
     return OSAtomicTestAndSet(n, theAddress);
 }
 
-bool    OSAtomicTestAndClear( uint32_t n, void *theAddress )
+bool    OSAtomicTestAndClear( uint32_t n, volatile void *theAddress )
 {
     char *byteAddress = ((char*)theAddress + (n>>3));
     uint32_t byteBit = (0x80>>(n&7));
@@ -153,7 +237,7 @@ bool    OSAtomicTestAndClear( uint32_t n, void *theAddress )
     return result;
 }
 
-bool    OSAtomicTestAndClearBarrier( uint32_t n, void *theAddress )
+bool    OSAtomicTestAndClearBarrier( uint32_t n, volatile void *theAddress )
 {
     return OSAtomicTestAndClear(n, theAddress);
 }
@@ -161,6 +245,24 @@ bool    OSAtomicTestAndClearBarrier( uint32_t n, void *theAddress )
 void    OSMemoryBarrier( void )
 {
     return;
+}
+
+
+bool    OSAtomicCompareAndSwapPtrBarrier( void *__oldValue, void *__newValue, void * volatile *__theValue )
+{
+    return OSAtomicCompareAndSwapPtr(__oldValue, __newValue, __theValue);
+}
+
+bool    OSAtomicCompareAndSwapPtr( void *__oldValue, void *__newValue, void * volatile *__theValue )
+{
+    bool result;
+    
+    OSSpinLockLock(&_atomic_lock);
+    result = (*__theValue == __oldValue);
+    if (result) *__theValue = __newValue;
+    OSSpinLockUnlock(&_atomic_lock);
+
+    return result;
 }
 
 #endif /* !defined(_ARM_ARCH_6) */

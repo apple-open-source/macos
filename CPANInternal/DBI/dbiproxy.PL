@@ -1,11 +1,13 @@
 # -*- perl -*-
 
-my $file = 'dbiproxy';
+my $file = $ARGV[0] || 'dbiproxy';
 
 my $script = <<'SCRIPT';
 ~startperl~
 
 use strict;
+
+my $VERSION = sprintf("1.%06d", q$Revision: 10720 $ =~ /(\d+)/o);
 
 my $arg_test    = shift(@ARGV)		if $ARGV[0] eq '--test';
 $ENV{DBI_TRACE} = shift(@ARGV) || 2	if $ARGV[0] =~ s/^--dbitrace=?//;
@@ -34,7 +36,6 @@ __END__
 
 dbiproxy - A proxy server for the DBD::Proxy driver
 
-
 =head1 SYNOPSIS
 
     dbiproxy <options> --localport=<port>
@@ -44,7 +45,7 @@ dbiproxy - A proxy server for the DBD::Proxy driver
 
 This tool is just a front end for the DBI::ProxyServer package. All it
 does is picking options from the command line and calling
-DBI::ProxyServer::main(). See L<DBI::ProxyServer(3)> for details.
+DBI::ProxyServer::main(). See L<DBI::ProxyServer> for details.
 
 Available options include:
 
@@ -53,7 +54,7 @@ Available options include:
 =item B<--chroot=dir>
 
 (UNIX only)  After doing a bind(), change root directory to the given
-directory by doing a chroot(). This is usefull for security, but it
+directory by doing a chroot(). This is useful for security, but it
 restricts the environment a lot. For example, you need to load DBI
 drivers in the config file or you have to create hard links to Unix
 sockets, if your drivers are using them. For example, with MySQL, a
@@ -82,8 +83,8 @@ certain directory tree only after logging in. See also the --group and
 
 Config files are assumed to return a single hash ref that overrides the
 arguments of the new method. However, command line arguments in turn take
-precedence over the config file. See the L<"CONFIGURATION FILE"> section
-below for details on the config file.
+precedence over the config file. See the "CONFIGURATION FILE" section
+in the L<DBI::ProxyServer> documentation for details on the config file.
 
 =item B<--debug>
 
@@ -92,13 +93,13 @@ level "debug" are created.
 
 =item B<--facility=mode>
 
-(UNIX only) Facility to use for L<Sys::Syslog (3)>. The default is
+(UNIX only) Facility to use for L<Sys::Syslog>. The default is
 B<daemon>.
 
 =item B<--group=gid>
 
 After doing a bind(), change the real and effective GID to the given.
-This is usefull, if you want your server to bind to a privileged port
+This is useful, if you want your server to bind to a privileged port
 (<1024), but don't want the server to execute as root. See also
 the --user option.
 
@@ -120,7 +121,7 @@ must be given somehow, as there's no default.
 Be default logging messages will be written to the syslog (Unix) or
 to the event log (Windows NT). On other operating systems you need to
 specify a log file. The special value "STDERR" forces logging to
-stderr. See L<Net::Daemon::Log(3)> for details.
+stderr. See L<Net::Daemon::Log> for details.
 
 =item B<--mode=modename>
 
@@ -139,7 +140,7 @@ you use the "--mode=fork" option.
 Finally there's a single-connection mode: If the server has accepted a
 connection, he will enter the Run() method. No other connections are
 accepted until the Run() method returns (if the client disconnects).
-This operation mode is usefull if you have neither threads nor fork(),
+This operation mode is useful if you have neither threads nor fork(),
 for example on the Macintosh. For debugging purposes you can force this
 mode with "--mode=single".
 
@@ -151,7 +152,7 @@ given location. Default is to not create a pidfile.
 =item B<--user=uid>
 
 After doing a bind(), change the real and effective UID to the given.
-This is usefull, if you want your server to bind to a privileged port
+This is useful, if you want your server to bind to a privileged port
 (<1024), but don't want the server to execute as root. See also
 the --group and the --chroot options.
 
@@ -183,8 +184,9 @@ the DBI.
 
 =head1 SEE ALSO
 
-L<DBI::ProxyServer(3)>, L<DBD::Proxy(3)>, L<DBI(3)>
+L<DBI::ProxyServer>, L<DBD::Proxy>, L<DBI>
 
+=cut
 SCRIPT
 
 
@@ -198,4 +200,10 @@ if (!(open(FILE, ">$file"))  ||
     !(close(FILE))) {
     die "Error while writing $file: $!\n";
 }
+chmod 0755, $file;
 print "Extracted $file from ",__FILE__," with variable substitutions.\n";
+
+# syntax check resulting file, but only for developers
+exit 1 if system($^X, '-wc', '-Mblib', $file) != 0 && -d ".svn";
+
+

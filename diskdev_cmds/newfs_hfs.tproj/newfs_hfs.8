@@ -15,7 +15,7 @@
 .\" under the License.
 .\" 
 .\"     @(#)newfs_hfs.8
-.Dd April 1, 2003
+.Dd June 19, 2008
 .Dt NEWFS_HFS 8
 .Os "Mac OS X"
 .Sh NAME
@@ -23,7 +23,20 @@
 .Nd construct a new HFS Plus file system
 .Sh SYNOPSIS
 .Nm newfs_hfs
-.Op Fl N Ar [partition-size]
+.Op Fl N
+.Op Fl U Ar uid
+.Op Fl G Ar gid
+.Op Fl M Ar mask
+.Op Fl s
+.Op Fl b Ar block-size
+.Op Fl c Ar clump-size-list
+.Op Fl i Ar first-cnid
+.Op Fl J Ar [journal-size]
+.Op Fl n Ar node-size-list
+.Op Fl v Ar volume-name
+.Ar special
+.Nm newfs_hfs
+.Fl N Ar partition-size
 .Op Fl U Ar uid
 .Op Fl G Ar gid
 .Op Fl M Ar mask
@@ -35,7 +48,6 @@
 .Op Fl J Ar [journal-size]
 .Op Fl n Ar node-size-list
 .Op Fl v Ar volume-name
-.Ar special
 .Sh DESCRIPTION
 .Nm Newfs_hfs
 builds an HFS Plus file system on the specified special device.
@@ -55,15 +67,23 @@ The options are as follows:
 .Bl -tag -width Fl
 .It Fl N Ar [partition-size]
 Causes the file system parameters to be printed out
-without really creating the file system.  The optional
-.Ar partition-size
-argument can be specified in bytes (with a `b' suffix),
+without really creating the file system.
+If the argument following the
+.Fl N
+starts with a decimal digit, it is assumed to be a partition size.
+The paritition size may be given in decimal, octal (with leading `0'),
+or hexadecimal (with leading `0x').
+The partition size argument can be specified in 512-byte blocks (with a `b' suffix),
 petabytes (`p' suffix), terabytes (`t' suffix), gigabytes
 (`g' suffix), megabytes (`m' suffix), or kilobytes
 (`k' suffix).  All suffixes indicate binary, not decimal,
 multipliers (e.g., `1k' is 1024 bytes).  If no suffix is
 specified, the value is assumed to be in bytes; if an illegal
 suffix is specified, it results in a size of 0 bytes.
+.Pp
+If the partition size is given, then no special device argument shall be provided.
+If no partition size is given, then the size of the given special device
+is used instead, and the special device will not be written to.
 .It Fl U Ar uid
 Set the owner of the file system's root directory to
 .Pa uid .
@@ -73,19 +93,11 @@ Set the group of the file system's root directory to
 .It Fl M Ar mask
 Specify the octal access permissions mask for the file system's root
 directory.
-.It Fl h
-Creates a legacy HFS format filesystem. This option
-is not recomended for file systems that will be
-primarily used with Mac OS X or Darwin.
 .It Fl s
 Creates a case-sensitive HFS Plus filesystem. By
 default a case-insensitive filesystem is created.
 Case-sensitive HFS Plus file systems require a Mac OS X
 version of 10.3 (Darwin 7.0) or later. 
-.It Fl w
-Adds an HFS wrapper around the HFS Plus file system.
-This wrapper is required if the file system will be used
-to boot natively into Mac OS 9.
 .It Fl b Ar block-size
 The allocation block size of the file system.  
 The default value is 4096.
@@ -114,8 +126,6 @@ Set the catalog file clump size.
 Set the data fork clump size.
 .It Em e=blocks
 Set the extent overflow file clump size.
-.It Em g=blocks
-Set the maximum growable size of the hfs wrapper.
 .It Em r=blocks
 Set the resource fork clump size.
 .El
@@ -124,9 +134,9 @@ This specifies the initial catalog node ID for user files
 and directories. The default value is 16.
 .It Fl J Ar [journal-size]
 Creates a journaled HFS+ volume.
-The default journal size is 8MB.  Appending an 'M' to the
+The default journal size varies, based on the size of the volume.  Appending an 'M' to the
 journal size implies megabytes (i.e. 64M is 64 megabytes).
-The maximum journal size is 512 megabytes.
+The maximum journal size is 1024 megabytes.
 .It Fl n Ar node-size-list
 This specifies the b-tree
 .Em node
@@ -159,4 +169,4 @@ Volume name (file system name) in ascii or UTF-8 format.
 .Sh HISTORY
 The
 .Nm
-command appeared in Mac OS X Server 1.0 .
+command appeared in Mac OS X Server 1.0 .  As of Mac OS X 10.6, this utility no longer generates HFS standard file systems.

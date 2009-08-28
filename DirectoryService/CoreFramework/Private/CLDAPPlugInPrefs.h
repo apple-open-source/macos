@@ -38,7 +38,9 @@
 typedef struct DSPrefs {
 	CFStringRef version;
 	CFArrayRef configs;
-	char services[256];
+	char services[512];
+	CFArrayRef serviceArray;
+	CFArrayRef defaultServiceArray;
 	char path[PATH_MAX];
 } DSPrefs;
 

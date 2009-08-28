@@ -17,7 +17,6 @@ bool IOUPSMIGServerIsRunning(
     mach_port_t * bootstrap_port_ref, 
     mach_port_t * upsd_port_ref)
 {
-    boolean_t active = FALSE;
     Boolean result = false;
     kern_return_t kern_result = KERN_SUCCESS;
     mach_port_t   bootstrap_port;

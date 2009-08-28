@@ -70,7 +70,7 @@ bpf_new()
     int fd = -1;
 
     for (i = 0; true; i++) {
-	sprintf(bpfdev, "/dev/bpf%d", i);
+	snprintf(bpfdev, sizeof(bpfdev), "/dev/bpf%d", i);
 	fd = open(bpfdev, O_RDWR , 0);
 	if (fd >= 0) {
 	    break;
@@ -87,7 +87,7 @@ bpf_setif(int fd, const char * en_name)
 {
     struct ifreq ifr;
 
-    strcpy(ifr.ifr_name, en_name);
+    strlcpy(ifr.ifr_name, en_name, sizeof(ifr.ifr_name));
     return (ioctl(fd, BIOCSETIF, &ifr));
 }
 

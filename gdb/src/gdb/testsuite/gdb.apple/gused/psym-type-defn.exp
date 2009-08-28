@@ -33,7 +33,12 @@ set testfile "psym-type-defn"
 set srcfile ${testfile}.c
 set binfile ${objdir}/${subdir}/${testfile}
 
-set additional_flags "additional_flags=-gused\ -Wl,-dead_strip"
+if [target_info exists darwin64] {
+   verbose "This test file not applicable for x86-64, skipping."
+   return
+}
+
+set additional_flags "additional_flags=-gstabs+\ -feliminate-unused-debug-symbols\ -Wl,-dead_strip"
 
 if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable [list $additional_flags "-Wl,-dead_strip" ] ] != "" } {
      gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."

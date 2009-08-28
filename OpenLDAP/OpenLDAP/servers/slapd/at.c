@@ -1,8 +1,8 @@
 /* at.c - routines for dealing with attribute types */
-/* $OpenLDAP: pkg/ldap/servers/slapd/at.c,v 1.62.2.9 2006/01/03 22:16:13 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/at.c,v 1.84.2.6 2008/07/08 19:01:38 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,14 +27,30 @@
 #include "slap.h"
 
 
-int is_at_syntax(
-	AttributeType *at,
-	const char *oid )
+const char *
+at_syntax(
+	AttributeType	*at )
 {
-	for( ; at != NULL; at = at->sat_sup ) {
-		if( at->sat_syntax_oid ) {
-			return ( strcmp( at->sat_syntax_oid, oid ) == 0 );
+	for ( ; at != NULL; at = at->sat_sup ) {
+		if ( at->sat_syntax_oid ) {
+			return at->sat_syntax_oid;
 		}
+	}
+
+	assert( 0 );
+
+	return NULL;
+}
+
+int
+is_at_syntax(
+	AttributeType	*at,
+	const char	*oid )
+{
+	const char *syn_oid = at_syntax( at );
+
+	if ( syn_oid ) {
+		return strcmp( syn_oid, oid ) == 0;
 	}
 
 	return 0;
@@ -58,8 +74,11 @@ struct aindexrec {
 
 static Avlnode	*attr_index = NULL;
 static Avlnode	*attr_cache = NULL;
-static LDAP_STAILQ_HEAD(ATList, slap_attribute_type) attr_list
+static LDAP_STAILQ_HEAD(ATList, AttributeType) attr_list
 	= LDAP_STAILQ_HEAD_INITIALIZER(attr_list);
+
+/* Last hardcoded attribute registered */
+AttributeType *at_sys_tail;
 
 int at_oc_cache;
 
@@ -110,9 +129,13 @@ at_bvfind( struct berval *name )
 
 	air = avl_find( attr_index, name, attr_index_name_cmp );
 
-	if ( air && ( slapMode & SLAP_TOOL_MODE ) && at_oc_cache ) {
-		avl_insert( &attr_cache, (caddr_t) air,
-			attr_index_cmp, avl_dup_error );
+	if ( air ) {
+		if ( air->air_at->sat_flags & SLAP_AT_DELETED ) {
+			air = NULL;
+		} else if (( slapMode & SLAP_TOOL_MODE ) && at_oc_cache ) {
+			avl_insert( &attr_cache, (caddr_t) air,
+				attr_index_cmp, avl_dup_error );
+		}
 	}
 
 	return air != NULL ? air->air_at : NULL;
@@ -204,45 +227,103 @@ at_find_in_list(
 	return -1;
 }
 
+static void
+at_delete_names( AttributeType *at )
+{
+	char			**names = at->sat_names;
+
+	while (*names) {
+		struct aindexrec	tmpair, *air;
+
+		ber_str2bv( *names, 0, 0, &tmpair.air_name );
+		tmpair.air_at = at;
+		air = (struct aindexrec *)avl_delete( &attr_index,
+			(caddr_t)&tmpair, attr_index_cmp );
+		assert( air != NULL );
+		ldap_memfree( air );
+		names++;
+	}
+}
+
+/* Mark the attribute as deleted, remove from list, and remove all its
+ * names from the AVL tree. Leave the OID in the tree.
+ */
+void
+at_delete( AttributeType *at )
+{
+	at->sat_flags |= SLAP_AT_DELETED;
+
+	LDAP_STAILQ_REMOVE(&attr_list, at, AttributeType, sat_next);
+
+	at_delete_names( at );
+}
+
+static void
+at_clean( AttributeType *a )
+{
+	if ( a->sat_equality ) {
+		MatchingRule	*mr;
+
+		mr = mr_find( a->sat_equality->smr_oid );
+		assert( mr != NULL );
+		if ( mr != a->sat_equality ) {
+			ch_free( a->sat_equality );
+			a->sat_equality = NULL;
+		}
+	}
+
+	assert( a->sat_syntax != NULL );
+	if ( a->sat_syntax != NULL ) {
+		Syntax		*syn;
+
+		syn = syn_find( a->sat_syntax->ssyn_oid );
+		assert( syn != NULL );
+		if ( syn != a->sat_syntax ) {
+			ch_free( a->sat_syntax );
+			a->sat_syntax = NULL;
+		}
+	}
+
+	if ( a->sat_oidmacro ) {
+		ldap_memfree( a->sat_oidmacro );
+		a->sat_oidmacro = NULL;
+	}
+	if ( a->sat_soidmacro ) {
+		ldap_memfree( a->sat_soidmacro );
+		a->sat_soidmacro = NULL;
+	}
+	if ( a->sat_subtypes ) {
+		ldap_memfree( a->sat_subtypes );
+		a->sat_subtypes = NULL;
+	}
+}
+
+static void
+at_destroy_one( void *v )
+{
+	struct aindexrec *air = v;
+	AttributeType *a = air->air_at;
+
+	at_clean( a );
+	ad_destroy(a->sat_ad);
+	ldap_pvt_thread_mutex_destroy(&a->sat_ad_mutex);
+	ldap_attributetype_free((LDAPAttributeType *)a);
+	ldap_memfree(air);
+}
+
 void
 at_destroy( void )
 {
 	AttributeType *a;
-	avl_free(attr_index, ldap_memfree);
 
 	while( !LDAP_STAILQ_EMPTY(&attr_list) ) {
 		a = LDAP_STAILQ_FIRST(&attr_list);
 		LDAP_STAILQ_REMOVE_HEAD(&attr_list, sat_next);
 
-		if ( a->sat_equality ) {
-			MatchingRule	*mr;
-
-			mr = mr_find( a->sat_equality->smr_oid );
-			assert( mr != NULL );
-			if ( mr != a->sat_equality ) {
-				ch_free( a->sat_equality );
-				a->sat_equality = NULL;
-			}
-		}
-
-		assert( a->sat_syntax != NULL );
-		if ( a->sat_syntax != NULL ) {
-			Syntax		*syn;
-
-			syn = syn_find( a->sat_syntax->ssyn_oid );
-			assert( syn != NULL );
-			if ( syn != a->sat_syntax ) {
-				ch_free( a->sat_syntax );
-				a->sat_syntax = NULL;
-			}
-		}
-
-		if ( a->sat_oidmacro ) ldap_memfree( a->sat_oidmacro );
-		if ( a->sat_subtypes ) ldap_memfree( a->sat_subtypes );
-		ad_destroy(a->sat_ad);
-		ldap_pvt_thread_mutex_destroy(&a->sat_ad_mutex);
-		ldap_attributetype_free((LDAPAttributeType *)a);
+		at_delete_names( a );
 	}
+
+	avl_free(attr_index, at_destroy_one);
 
 	if ( slap_schema.si_at_undefined ) {
 		ad_destroy(slap_schema.si_at_undefined->sat_ad);
@@ -268,7 +349,7 @@ at_next( AttributeType **at )
 {
 	assert( at != NULL );
 
-#if 1	/* pedantic check */
+#if 0	/* pedantic check: don't use this */
 	{
 		AttributeType *tmp = NULL;
 
@@ -338,36 +419,84 @@ at_check_dup(
 	return SLAP_SCHERR_ATTR_DUP;
 }
 
+static struct aindexrec *air_old;
+
+static int
+at_dup_error( void *left, void *right )
+{
+	air_old = left;
+	return -1;
+}
 
 static int
 at_insert(
-    AttributeType	*sat,
+    AttributeType	**rat,
+	AttributeType	*prev,
     const char		**err )
 {
 	struct aindexrec	*air;
 	char			**names = NULL;
-
+	AttributeType	*sat = *rat;
 
 	if ( sat->sat_oid ) {
 		air = (struct aindexrec *)
 			ch_calloc( 1, sizeof(struct aindexrec) );
 		ber_str2bv( sat->sat_oid, 0, 0, &air->air_name );
 		air->air_at = sat;
+		air_old = NULL;
+
 		if ( avl_insert( &attr_index, (caddr_t) air,
-		                 attr_index_cmp, avl_dup_error ) )
+		                 attr_index_cmp, at_dup_error ) )
 		{
 			AttributeType	*old_sat;
 			int		rc;
 
 			*err = sat->sat_oid;
 
-			old_sat = at_bvfind( &air->air_name );
-			assert( old_sat != NULL );
-			rc = at_check_dup( old_sat, sat );
+			assert( air_old != NULL );
+			old_sat = air_old->air_at;
 
-			ldap_memfree( air );
+			/* replacing a deleted definition? */
+			if ( old_sat->sat_flags & SLAP_AT_DELETED ) {
+				AttributeType tmp;
+				AttributeDescription *ad;
+				
+				/* Keep old oid, free new oid;
+				 * Keep old ads, free new ads;
+				 * Keep old ad_mutex, free new ad_mutex;
+				 * Keep new everything else, free old
+				 */
+				tmp = *old_sat;
+				*old_sat = *sat;
+				old_sat->sat_oid = tmp.sat_oid;
+				tmp.sat_oid = sat->sat_oid;
+				old_sat->sat_ad = tmp.sat_ad;
+				tmp.sat_ad = sat->sat_ad;
+				old_sat->sat_ad_mutex = tmp.sat_ad_mutex;
+				tmp.sat_ad_mutex = sat->sat_ad_mutex;
+				*sat = tmp;
 
-			return rc;
+				/* Check for basic ad pointing at old cname */
+				for ( ad = old_sat->sat_ad; ad; ad=ad->ad_next ) {
+					if ( ad->ad_cname.bv_val == sat->sat_cname.bv_val ) {
+						ad->ad_cname = old_sat->sat_cname;
+						break;
+					}
+				}
+
+				at_clean( sat );
+				at_destroy_one( air );
+
+				air = air_old;
+				sat = old_sat;
+				*rat = sat;
+			} else {
+				ldap_memfree( air );
+
+				rc = at_check_dup( old_sat, sat );
+
+				return rc;
+			}
 		}
 		/* FIX: temporal consistency check */
 		at_bvfind( &air->air_name );
@@ -437,7 +566,15 @@ at_insert(
 		}
 	}
 
-	LDAP_STAILQ_INSERT_TAIL( &attr_list, sat, sat_next );
+	if ( sat->sat_flags & SLAP_AT_HARDCODE ) {
+		prev = at_sys_tail;
+		at_sys_tail = sat;
+	}
+	if ( prev ) {
+		LDAP_STAILQ_INSERT_AFTER( &attr_list, prev, sat, sat_next );
+	} else {
+		LDAP_STAILQ_INSERT_TAIL( &attr_list, sat, sat_next );
+	}
 
 	return 0;
 }
@@ -447,6 +584,7 @@ at_add(
 	LDAPAttributeType	*at,
 	int			user,
 	AttributeType		**rsat,
+	AttributeType	*prev,
 	const char		**err )
 {
 	AttributeType	*sat = NULL;
@@ -456,6 +594,12 @@ at_add(
 	int		code = LDAP_SUCCESS;
 	char		*cname = NULL;
 	char		*oidm = NULL;
+	char		*soidm = NULL;
+
+	if ( !at->at_oid ) {
+		*err = "";
+		return SLAP_SCHERR_ATTR_INCOMPLETE;
+	}
 
 	if ( !OID_LEADCHAR( at->at_oid[0] )) {
 		char	*oid;
@@ -483,7 +627,7 @@ at_add(
 			goto error_return;
 		}
 		if ( oid != at->at_syntax_oid ) {
-			ldap_memfree( at->at_syntax_oid );
+			soidm = at->at_syntax_oid;
 			at->at_syntax_oid = oid;
 		}
 	}
@@ -501,13 +645,9 @@ at_add(
 
 		cname = at->at_names[0];
 
-	} else if ( at->at_oid ) {
+	} else {
 		cname = at->at_oid;
 
-	} else {
-		*err = "";
-		code = SLAP_SCHERR_ATTR_INCOMPLETE;
-		goto error_return;
 	}
 
 	*err = cname;
@@ -538,6 +678,7 @@ at_add(
 	sat->sat_cname.bv_val = cname;
 	sat->sat_cname.bv_len = strlen( cname );
 	sat->sat_oidmacro = oidm;
+	sat->sat_soidmacro = soidm;
 	ldap_pvt_thread_mutex_init(&sat->sat_ad_mutex);
 
 	if ( at->at_sup_oid ) {
@@ -619,9 +760,12 @@ at_add(
 			goto error_return;
 		}
 
-		if( sat->sat_syntax != NULL && sat->sat_syntax != syn ) {
-			code = SLAP_SCHERR_ATTR_BAD_SUP;
-			goto error_return;
+		if ( sat->sat_syntax != NULL && sat->sat_syntax != syn ) {
+			/* BEWARE: no loop detection! */
+			if ( syn_is_sup( sat->sat_syntax, syn ) ) {
+				code = SLAP_SCHERR_ATTR_BAD_SUP;
+				goto error_return;
+			}
 		}
 
 		sat->sat_syntax = syn;
@@ -768,7 +912,7 @@ at_add(
 		sat->sat_substr = mr;
 	}
 
-	code = at_insert( sat, err );
+	code = at_insert( &sat, prev, err );
 	if ( code != 0 ) {
 error_return:;
 		if ( sat ) {
@@ -780,6 +924,11 @@ error_return:;
 			SLAP_FREE( at->at_oid );
 			at->at_oid = oidm;
 		}
+
+		if ( soidm ) {
+			SLAP_FREE( at->at_syntax_oid );
+			at->at_syntax_oid = soidm;
+ 		}
 
 	} else if ( rsat ) {
 		*rsat = sat;
@@ -823,7 +972,7 @@ at_unparse( BerVarray *res, AttributeType *start, AttributeType *end, int sys )
 	/* count the result size */
 	i = 0;
 	for ( at=start; at; at=LDAP_STAILQ_NEXT(at, sat_next)) {
-		if ( sys && !(at->sat_flags & SLAP_AT_HARDCODE)) continue;
+		if ( sys && !(at->sat_flags & SLAP_AT_HARDCODE)) break;
 		i++;
 		if ( at == end ) break;
 	}
@@ -840,10 +989,13 @@ at_unparse( BerVarray *res, AttributeType *start, AttributeType *end, int sys )
 	i = 0;
 	for ( at=start; at; at=LDAP_STAILQ_NEXT(at, sat_next)) {
 		LDAPAttributeType lat, *latp;
-		if ( sys && !(at->sat_flags & SLAP_AT_HARDCODE)) continue;
-		if ( at->sat_oidmacro ) {
+		if ( sys && !(at->sat_flags & SLAP_AT_HARDCODE)) break;
+		if ( at->sat_oidmacro || at->sat_soidmacro ) {
 			lat = at->sat_atype;
-			lat.at_oid = at->sat_oidmacro;
+			if ( at->sat_oidmacro )
+				lat.at_oid = at->sat_oidmacro;
+			if ( at->sat_soidmacro )
+				lat.at_syntax_oid = at->sat_soidmacro;
 			latp = &lat;
 		} else {
 			latp = &at->sat_atype;
@@ -890,4 +1042,47 @@ at_schema_info( Entry *e )
 		ldap_memfree( val.bv_val );
 	}
 	return 0;
+}
+
+int
+register_at( const char *def, AttributeDescription **rad, int dupok )
+{
+	LDAPAttributeType *at;
+	int code, freeit = 0;
+	const char *err;
+	AttributeDescription *ad = NULL;
+
+	at = ldap_str2attributetype( def, &code, &err, LDAP_SCHEMA_ALLOW_ALL );
+	if ( !at ) {
+		Debug( LDAP_DEBUG_ANY,
+			"register_at: AttributeType \"%s\": %s, %s\n",
+				def, ldap_scherr2str(code), err );
+		return code;
+	}
+
+	code = at_add( at, 0, NULL, NULL, &err );
+	if ( code ) {
+		if ( code == SLAP_SCHERR_ATTR_DUP && dupok ) {
+			freeit = 1;
+
+		} else {
+			ldap_attributetype_free( at );
+			Debug( LDAP_DEBUG_ANY,
+				"register_at: AttributeType \"%s\": %s, %s\n",
+				def, scherr2str(code), err );
+			return code;
+		}
+	}
+	code = slap_str2ad( at->at_names[0], &ad, &err );
+	if ( freeit || code ) {
+		ldap_attributetype_free( at );
+	} else {
+		ldap_memfree( at );
+	}
+	if ( code ) {
+		Debug( LDAP_DEBUG_ANY, "register_at: AttributeType \"%s\": %s\n",
+			def, err, 0 );
+	}
+	if ( rad ) *rad = ad;
+	return code;
 }

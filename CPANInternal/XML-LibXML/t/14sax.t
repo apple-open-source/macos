@@ -1,6 +1,6 @@
 use Test;
 
-BEGIN { plan tests => 48 }
+BEGIN { plan tests => 52 }
 
 use XML::LibXML;
 use XML::LibXML::SAX;
@@ -69,8 +69,30 @@ sub {
     
     $_->() for @tests;
 
+    
 }
 
+
+########### Error Handling ###########
+{
+  my $xml = '<a>Text</b>';
+
+  my $handler = SAXErrorTester->new;
+
+  foreach my $pkg (qw(XML::LibXML::SAX::Parser XML::LibXML::SAX)) {
+    undef $@;
+    eval {
+      $pkg->new(Handler => $handler)->parse_string($xml);
+    };
+    ok($@); # We got an error
+  }
+  
+  $handler = SAXErrorCallbackTester->new;
+  eval { XML::LibXML::SAX->new(Handler => $handler )->parse_string($xml) };
+  ok($@); # We got an error
+  ok( $handler->{fatal_called} );
+
+}
 
 ########### Helper class #############
 
@@ -157,5 +179,36 @@ sub start_element {
     ok $elt->{NamespaceURI} eq "xml://A"
         if $elt->{Name} eq "b"
 }
+
+1;
+
+package SAXErrorTester;
+use Test;
+
+sub new {
+    bless {}, shift;
+}
+
+sub end_document {
+    print "End doc: @_\n";
+    return 1; # Shouldn't be reached
+}
+
+package SAXErrorCallbackTester;
+use Test;
+
+sub fatal_error {
+    $_[0]->{fatal_called} = 1;
+}
+
+sub new {
+    bless {}, shift;
+}
+
+sub end_document {
+    print "End doc: @_\n";
+    return 1; # Shouldn't be reached
+}
+
 
 1;

@@ -2,9 +2,8 @@
  * CDDL HEADER START
  *
  * The contents of this file are subject to the terms of the
- * Common Development and Distribution License, Version 1.0 only
- * (the "License").  You may not use this file except in compliance
- * with the License.
+ * Common Development and Distribution License (the "License").
+ * You may not use this file except in compliance with the License.
  *
  * You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
  * or http://www.opensolaris.org/os/licensing.
@@ -23,14 +22,14 @@
 /*	  All Rights Reserved  	*/
 
 /*
- * Copyright 2005 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
 #ifndef _LIBELF_H
 #define	_LIBELF_H
 
-#pragma ident	"@(#)libelf.h	1.29	05/11/17 SMI"	/* SVr4.0 1.9	*/
+#pragma ident	"@(#)libelf.h	1.30	07/10/02 SMI"	/* SVr4.0 1.9	*/
 
 #if !defined(__APPLE__)
 #include <sys/types.h>
@@ -78,6 +77,9 @@ typedef enum {
 	ELF_C_RDWR,
 	ELF_C_WRIMAGE,
 	ELF_C_IMAGE,
+#if defined(__APPLE__)
+	ELF_C_RDKERNTYPE,
+#endif /* __APPLE__ */
 	ELF_C_NUM	/* must be last */
 } Elf_Cmd;
 
@@ -204,6 +206,11 @@ int		elf_getphnum	_((Elf *, size_t *));
 int		elf_getshnum	_((Elf *, size_t *));
 int		elf_getshstrndx	_((Elf *, size_t *));
 unsigned long	elf_hash	_((const char *));
+#if !defined(__APPLE__)
+uint_t		elf_sys_encoding _((void));
+#else
+unsigned int	elf_sys_encoding _((void));
+#endif /* __APPLE__ */
 long		elf32_checksum	_((Elf *));
 Elf_Kind	elf_kind	_((Elf *));
 Elf		*elf_memory	_((char *, size_t));

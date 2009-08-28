@@ -1,0 +1,752 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		AC88470205F939A40064C93C /* BuildAll */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = ACECCF790D16FE3100316C6F /* Build configuration list for PBXAggregateTarget "BuildAll" */;
+			buildPhases = (
+			);
+			dependencies = (
+				AC88470405F939AF0064C93C /* PBXTargetDependency */,
+				AC88470605F939AF0064C93C /* PBXTargetDependency */,
+			);
+			name = BuildAll;
+			productName = BuildAll;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		83607D0705D7609700BD92DC /* hd.icns in Resources */ = {isa = PBXBuildFile; fileRef = 83607D0405D7609700BD92DC /* hd.icns */; };
+		83607D0805D7609700BD92DC /* nothing.icns in Resources */ = {isa = PBXBuildFile; fileRef = 83607D0505D7609700BD92DC /* nothing.icns */; };
+		83607D0905D7609700BD92DC /* pccard.icns in Resources */ = {isa = PBXBuildFile; fileRef = 83607D0605D7609700BD92DC /* pccard.icns */; };
+		836D934A05D70CBD00C12D37 /* info.icns in Resources */ = {isa = PBXBuildFile; fileRef = 836D934905D70CBD00C12D37 /* info.icns */; };
+		836D935605D70D1600C12D37 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 836D935505D70D1600C12D37 /* Localizable.strings */; };
+		836D935805D70E1A00C12D37 /* prefs.icns in Resources */ = {isa = PBXBuildFile; fileRef = 836D935705D70E1A00C12D37 /* prefs.icns */; };
+		8D15AC290486D014006FF6A4 /* SCSITargetProber_Prefix.pch in Headers */ = {isa = PBXBuildFile; fileRef = 32DBCF750370BD2300C91783 /* SCSITargetProber_Prefix.pch */; };
+		8D15AC2A0486D014006FF6A4 /* SCSITargetProberDocument.h in Headers */ = {isa = PBXBuildFile; fileRef = 2A37F4AEFDCFA73011CA2CEA /* SCSITargetProberDocument.h */; };
+		8D15AC2D0486D014006FF6A4 /* MainMenu.nib in Resources */ = {isa = PBXBuildFile; fileRef = 2A37F4B6FDCFA73011CA2CEA /* MainMenu.nib */; };
+		8D15AC2E0486D014006FF6A4 /* SCSITargetProberDocument.nib in Resources */ = {isa = PBXBuildFile; fileRef = 2A37F4B4FDCFA73011CA2CEA /* SCSITargetProberDocument.nib */; };
+		8D15AC2F0486D014006FF6A4 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 089C165FFE840EACC02AAC07 /* InfoPlist.strings */; };
+		8D15AC310486D014006FF6A4 /* SCSITargetProberDocument.m in Sources */ = {isa = PBXBuildFile; fileRef = 2A37F4ACFDCFA73011CA2CEA /* SCSITargetProberDocument.m */; settings = {ATTRIBUTES = (); }; };
+		8D15AC320486D014006FF6A4 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 2A37F4B0FDCFA73011CA2CEA /* main.m */; settings = {ATTRIBUTES = (); }; };
+		8D15AC340486D014006FF6A4 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1058C7A7FEA54F5311CA2CBB /* Cocoa.framework */; };
+		AC25844F05D868E300ECF410 /* Probing.c in Sources */ = {isa = PBXBuildFile; fileRef = AC25844D05D868E300ECF410 /* Probing.c */; };
+		AC25845005D868E300ECF410 /* Probing.h in Headers */ = {isa = PBXBuildFile; fileRef = AC25844E05D868E300ECF410 /* Probing.h */; };
+		AC27FD2C05CB6CB500C81EA0 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AC27FD2B05CB6CB500C81EA0 /* IOKit.framework */; };
+		AC495AC005E6F0E40041BF80 /* SCSITargetProberUnixTool.c in Sources */ = {isa = PBXBuildFile; fileRef = AC25844C05D868D700ECF410 /* SCSITargetProberUnixTool.c */; };
+		AC495AC105E6F0F20041BF80 /* Probing.h in Headers */ = {isa = PBXBuildFile; fileRef = AC25844E05D868E300ECF410 /* Probing.h */; };
+		AC495AC205E6F1070041BF80 /* Probing.c in Sources */ = {isa = PBXBuildFile; fileRef = AC25844D05D868E300ECF410 /* Probing.c */; };
+		AC495BCE05E6F1DD0041BF80 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AC27FD2B05CB6CB500C81EA0 /* IOKit.framework */; };
+		AC495BCF05E6F1E40041BF80 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AC495B7E05E6F15E0041BF80 /* CoreFoundation.framework */; };
+		AC519ECE05E2AD5C0045B742 /* AppPreferences.nib in Resources */ = {isa = PBXBuildFile; fileRef = AC519ECD05E2AD5C0045B742 /* AppPreferences.nib */; };
+		AC519EE105E2CCE20045B742 /* AppPreferences.h in Headers */ = {isa = PBXBuildFile; fileRef = AC519EDF05E2CCE20045B742 /* AppPreferences.h */; };
+		AC519EE205E2CCE20045B742 /* AppPreferences.m in Sources */ = {isa = PBXBuildFile; fileRef = AC519EE005E2CCE20045B742 /* AppPreferences.m */; };
+		AC781A7F05C8A792004A09F6 /* FilteringArrayController.h in Headers */ = {isa = PBXBuildFile; fileRef = AC781A7D05C8A792004A09F6 /* FilteringArrayController.h */; };
+		AC781A8005C8A792004A09F6 /* FilteringArrayController.m in Sources */ = {isa = PBXBuildFile; fileRef = AC781A7E05C8A792004A09F6 /* FilteringArrayController.m */; };
+		AC781A8F05C8B6D5004A09F6 /* SCSITargetProberAppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = AC781A8D05C8B6D5004A09F6 /* SCSITargetProberAppDelegate.m */; };
+		AC781A9005C8B6D6004A09F6 /* SCSITargetProberAppDelegate.h in Headers */ = {isa = PBXBuildFile; fileRef = AC781A8E05C8B6D5004A09F6 /* SCSITargetProberAppDelegate.h */; };
+		ACA19F4805C9935200F5EB83 /* SCSIDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = ACA19F4605C9935200F5EB83 /* SCSIDevice.h */; };
+		ACA19F4905C9935200F5EB83 /* SCSIDevice.m in Sources */ = {isa = PBXBuildFile; fileRef = ACA19F4705C9935200F5EB83 /* SCSIDevice.m */; };
+		ACA19F4C05C9936E00F5EB83 /* SCSIInitiator.h in Headers */ = {isa = PBXBuildFile; fileRef = ACA19F4A05C9936E00F5EB83 /* SCSIInitiator.h */; };
+		ACA19F4D05C9936E00F5EB83 /* SCSIInitiator.m in Sources */ = {isa = PBXBuildFile; fileRef = ACA19F4B05C9936E00F5EB83 /* SCSIInitiator.m */; };
+		ACA4E29105F429A500EFCC32 /* SCSITargetProber.icns in Resources */ = {isa = PBXBuildFile; fileRef = ACA4E29005F429A500EFCC32 /* SCSITargetProber.icns */; };
+		ACCEBC9C05F3F5130083198C /* SCSITargetProberKeys.h in Headers */ = {isa = PBXBuildFile; fileRef = ACCEBC9B05F3F5130083198C /* SCSITargetProberKeys.h */; };
+		ACD965EF05D8778A0048CAFA /* pcicard.icns in Resources */ = {isa = PBXBuildFile; fileRef = ACD965EE05D8778A0048CAFA /* pcicard.icns */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		AC88470305F939AF0064C93C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2A37F4A9FDCFA73011CA2CEA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 8D15AC270486D014006FF6A4;
+			remoteInfo = SCSITargetProber;
+		};
+		AC88470505F939AF0064C93C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2A37F4A9FDCFA73011CA2CEA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AC495ABB05E6F0C10041BF80;
+			remoteInfo = stp;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		089C1660FE840EACC02AAC07 /* InfoPlist.strings */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = InfoPlist.strings; path = Cocoa/Resources/English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		1058C7A7FEA54F5311CA2CBB /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = /System/Library/Frameworks/Cocoa.framework; sourceTree = "<absolute>"; };
+		2A37F4ACFDCFA73011CA2CEA /* SCSITargetProberDocument.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = SCSITargetProberDocument.m; path = Cocoa/SCSITargetProberDocument.m; sourceTree = SOURCE_ROOT; };
+		2A37F4AEFDCFA73011CA2CEA /* SCSITargetProberDocument.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = SCSITargetProberDocument.h; path = Cocoa/SCSITargetProberDocument.h; sourceTree = SOURCE_ROOT; };
+		2A37F4B0FDCFA73011CA2CEA /* main.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = main.m; path = Cocoa/main.m; sourceTree = SOURCE_ROOT; };
+		2A37F4B5FDCFA73011CA2CEA /* SCSITargetProberDocument.nib */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = SCSITargetProberDocument.nib; path = Cocoa/Resources/English.lproj/SCSITargetProberDocument.nib; sourceTree = "<group>"; };
+		2A37F4B7FDCFA73011CA2CEA /* MainMenu.nib */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = MainMenu.nib; path = Cocoa/Resources/English.lproj/MainMenu.nib; sourceTree = "<group>"; };
+		2A37F4C4FDCFA73011CA2CEA /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = /System/Library/Frameworks/AppKit.framework; sourceTree = "<absolute>"; };
+		2A37F4C5FDCFA73011CA2CEA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
+		32DBCF750370BD2300C91783 /* SCSITargetProber_Prefix.pch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = SCSITargetProber_Prefix.pch; path = Cocoa/SCSITargetProber_Prefix.pch; sourceTree = "<group>"; };
+		83607D0405D7609700BD92DC /* hd.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; name = hd.icns; path = Cocoa/Resources/hd.icns; sourceTree = SOURCE_ROOT; };
+		83607D0505D7609700BD92DC /* nothing.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; name = nothing.icns; path = Cocoa/Resources/nothing.icns; sourceTree = SOURCE_ROOT; };
+		83607D0605D7609700BD92DC /* pccard.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; name = pccard.icns; path = Cocoa/Resources/pccard.icns; sourceTree = SOURCE_ROOT; };
+		836D934905D70CBD00C12D37 /* info.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; name = info.icns; path = Cocoa/Resources/info.icns; sourceTree = SOURCE_ROOT; };
+		836D934F05D70D0300C12D37 /* Localizable.strings */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; name = Localizable.strings; path = Cocoa/Resources/English.lproj/Localizable.strings; sourceTree = "<group>"; };
+		836D935705D70E1A00C12D37 /* prefs.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; name = prefs.icns; path = Cocoa/Resources/prefs.icns; sourceTree = SOURCE_ROOT; };
+		8D15AC360486D014006FF6A4 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; name = Info.plist; path = Cocoa/Info.plist; sourceTree = "<group>"; };
+		8D15AC370486D014006FF6A4 /* SCSITargetProber.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SCSITargetProber.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AC0640F005F43773008E2724 /* History.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; path = History.rtf; sourceTree = "<group>"; };
+		AC25844C05D868D700ECF410 /* SCSITargetProberUnixTool.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = SCSITargetProberUnixTool.c; path = Tool/SCSITargetProberUnixTool.c; sourceTree = SOURCE_ROOT; };
+		AC25844D05D868E300ECF410 /* Probing.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = Probing.c; path = "Common Code/Probing.c"; sourceTree = "<group>"; };
+		AC25844E05D868E300ECF410 /* Probing.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = Probing.h; path = "Common Code/Probing.h"; sourceTree = "<group>"; };
+		AC27FD2B05CB6CB500C81EA0 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
+		AC495ABC05E6F0C10041BF80 /* stp */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = stp; sourceTree = BUILT_PRODUCTS_DIR; };
+		AC495B7E05E6F15E0041BF80 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
+		AC519EC705E2AD3C0045B742 /* AppPreferences.nib */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = AppPreferences.nib; path = Cocoa/Resources/English.lproj/AppPreferences.nib; sourceTree = "<group>"; };
+		AC519EDF05E2CCE20045B742 /* AppPreferences.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AppPreferences.h; path = Cocoa/AppPreferences.h; sourceTree = "<group>"; };
+		AC519EE005E2CCE20045B742 /* AppPreferences.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = AppPreferences.m; path = Cocoa/AppPreferences.m; sourceTree = "<group>"; };
+		AC781A7D05C8A792004A09F6 /* FilteringArrayController.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = FilteringArrayController.h; path = Cocoa/FilteringArrayController.h; sourceTree = SOURCE_ROOT; };
+		AC781A7E05C8A792004A09F6 /* FilteringArrayController.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = FilteringArrayController.m; path = Cocoa/FilteringArrayController.m; sourceTree = SOURCE_ROOT; };
+		AC781A8D05C8B6D5004A09F6 /* SCSITargetProberAppDelegate.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = SCSITargetProberAppDelegate.m; path = Cocoa/SCSITargetProberAppDelegate.m; sourceTree = SOURCE_ROOT; };
+		AC781A8E05C8B6D5004A09F6 /* SCSITargetProberAppDelegate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = SCSITargetProberAppDelegate.h; path = Cocoa/SCSITargetProberAppDelegate.h; sourceTree = SOURCE_ROOT; };
+		ACA19F4605C9935200F5EB83 /* SCSIDevice.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = SCSIDevice.h; path = Cocoa/SCSIDevice.h; sourceTree = SOURCE_ROOT; };
+		ACA19F4705C9935200F5EB83 /* SCSIDevice.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = SCSIDevice.m; path = Cocoa/SCSIDevice.m; sourceTree = SOURCE_ROOT; };
+		ACA19F4A05C9936E00F5EB83 /* SCSIInitiator.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = SCSIInitiator.h; path = Cocoa/SCSIInitiator.h; sourceTree = SOURCE_ROOT; };
+		ACA19F4B05C9936E00F5EB83 /* SCSIInitiator.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = SCSIInitiator.m; path = Cocoa/SCSIInitiator.m; sourceTree = SOURCE_ROOT; };
+		ACA4E29005F429A500EFCC32 /* SCSITargetProber.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; name = SCSITargetProber.icns; path = Cocoa/Resources/SCSITargetProber.icns; sourceTree = "<group>"; };
+		ACCEBC9B05F3F5130083198C /* SCSITargetProberKeys.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = SCSITargetProberKeys.h; path = Cocoa/SCSITargetProberKeys.h; sourceTree = "<group>"; };
+		ACD965EE05D8778A0048CAFA /* pcicard.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; name = pcicard.icns; path = Cocoa/Resources/pcicard.icns; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		8D15AC330486D014006FF6A4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8D15AC340486D014006FF6A4 /* Cocoa.framework in Frameworks */,
+				AC27FD2C05CB6CB500C81EA0 /* IOKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AC495BCD05E6F1D30041BF80 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AC495BCF05E6F1E40041BF80 /* CoreFoundation.framework in Frameworks */,
+				AC495BCE05E6F1DD0041BF80 /* IOKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		1058C7A6FEA54F5311CA2CBB /* Linked Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				1058C7A7FEA54F5311CA2CBB /* Cocoa.framework */,
+				AC27FD2B05CB6CB500C81EA0 /* IOKit.framework */,
+			);
+			name = "Linked Frameworks";
+			sourceTree = "<group>";
+		};
+		1058C7A8FEA54F5311CA2CBB /* Other Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				2A37F4C5FDCFA73011CA2CEA /* Foundation.framework */,
+				2A37F4C4FDCFA73011CA2CEA /* AppKit.framework */,
+			);
+			name = "Other Frameworks";
+			sourceTree = "<group>";
+		};
+		19C28FB0FE9D524F11CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				8D15AC370486D014006FF6A4 /* SCSITargetProber.app */,
+				AC495ABC05E6F0C10041BF80 /* stp */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		2A37F4AAFDCFA73011CA2CEA /* SCSITargetProber */ = {
+			isa = PBXGroup;
+			children = (
+				AC0640F005F43773008E2724 /* History.rtf */,
+				AC25841005D8672300ECF410 /* Common Code */,
+				AC781A3805C8A628004A09F6 /* Cocoa */,
+				AC781A7A05C8A63B004A09F6 /* UnixTool */,
+				19C28FB0FE9D524F11CA2CBB /* Products */,
+			);
+			name = SCSITargetProber;
+			sourceTree = "<group>";
+		};
+		2A37F4ABFDCFA73011CA2CEA /* Classes */ = {
+			isa = PBXGroup;
+			children = (
+				AC519EDF05E2CCE20045B742 /* AppPreferences.h */,
+				AC519EE005E2CCE20045B742 /* AppPreferences.m */,
+				AC781A8E05C8B6D5004A09F6 /* SCSITargetProberAppDelegate.h */,
+				AC781A8D05C8B6D5004A09F6 /* SCSITargetProberAppDelegate.m */,
+				2A37F4AEFDCFA73011CA2CEA /* SCSITargetProberDocument.h */,
+				2A37F4ACFDCFA73011CA2CEA /* SCSITargetProberDocument.m */,
+				AC781A7D05C8A792004A09F6 /* FilteringArrayController.h */,
+				AC781A7E05C8A792004A09F6 /* FilteringArrayController.m */,
+				ACA19F4605C9935200F5EB83 /* SCSIDevice.h */,
+				ACA19F4705C9935200F5EB83 /* SCSIDevice.m */,
+				ACA19F4A05C9936E00F5EB83 /* SCSIInitiator.h */,
+				ACA19F4B05C9936E00F5EB83 /* SCSIInitiator.m */,
+			);
+			name = Classes;
+			sourceTree = "<group>";
+		};
+		2A37F4AFFDCFA73011CA2CEA /* Other Sources */ = {
+			isa = PBXGroup;
+			children = (
+				ACCEBC9B05F3F5130083198C /* SCSITargetProberKeys.h */,
+				32DBCF750370BD2300C91783 /* SCSITargetProber_Prefix.pch */,
+				2A37F4B0FDCFA73011CA2CEA /* main.m */,
+			);
+			name = "Other Sources";
+			sourceTree = "<group>";
+		};
+		2A37F4B8FDCFA73011CA2CEA /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				836D935705D70E1A00C12D37 /* prefs.icns */,
+				836D934905D70CBD00C12D37 /* info.icns */,
+				83607D0405D7609700BD92DC /* hd.icns */,
+				83607D0505D7609700BD92DC /* nothing.icns */,
+				83607D0605D7609700BD92DC /* pccard.icns */,
+				ACD965EE05D8778A0048CAFA /* pcicard.icns */,
+				ACA4E29005F429A500EFCC32 /* SCSITargetProber.icns */,
+				AC519ECD05E2AD5C0045B742 /* AppPreferences.nib */,
+				2A37F4B6FDCFA73011CA2CEA /* MainMenu.nib */,
+				2A37F4B4FDCFA73011CA2CEA /* SCSITargetProberDocument.nib */,
+				8D15AC360486D014006FF6A4 /* Info.plist */,
+				089C165FFE840EACC02AAC07 /* InfoPlist.strings */,
+				836D935505D70D1600C12D37 /* Localizable.strings */,
+			);
+			name = Resources;
+			sourceTree = "<group>";
+		};
+		2A37F4C3FDCFA73011CA2CEA /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				1058C7A6FEA54F5311CA2CBB /* Linked Frameworks */,
+				1058C7A8FEA54F5311CA2CBB /* Other Frameworks */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		AC25841005D8672300ECF410 /* Common Code */ = {
+			isa = PBXGroup;
+			children = (
+				AC25844E05D868E300ECF410 /* Probing.h */,
+				AC25844D05D868E300ECF410 /* Probing.c */,
+			);
+			name = "Common Code";
+			sourceTree = "<group>";
+		};
+		AC781A3805C8A628004A09F6 /* Cocoa */ = {
+			isa = PBXGroup;
+			children = (
+				2A37F4ABFDCFA73011CA2CEA /* Classes */,
+				2A37F4AFFDCFA73011CA2CEA /* Other Sources */,
+				2A37F4B8FDCFA73011CA2CEA /* Resources */,
+				2A37F4C3FDCFA73011CA2CEA /* Frameworks */,
+			);
+			name = Cocoa;
+			sourceTree = "<group>";
+		};
+		AC781A7A05C8A63B004A09F6 /* UnixTool */ = {
+			isa = PBXGroup;
+			children = (
+				AC25844C05D868D700ECF410 /* SCSITargetProberUnixTool.c */,
+				AC495B7E05E6F15E0041BF80 /* CoreFoundation.framework */,
+			);
+			name = UnixTool;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		8D15AC280486D014006FF6A4 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8D15AC290486D014006FF6A4 /* SCSITargetProber_Prefix.pch in Headers */,
+				8D15AC2A0486D014006FF6A4 /* SCSITargetProberDocument.h in Headers */,
+				AC781A7F05C8A792004A09F6 /* FilteringArrayController.h in Headers */,
+				AC781A9005C8B6D6004A09F6 /* SCSITargetProberAppDelegate.h in Headers */,
+				ACA19F4805C9935200F5EB83 /* SCSIDevice.h in Headers */,
+				ACA19F4C05C9936E00F5EB83 /* SCSIInitiator.h in Headers */,
+				AC25845005D868E300ECF410 /* Probing.h in Headers */,
+				AC519EE105E2CCE20045B742 /* AppPreferences.h in Headers */,
+				ACCEBC9C05F3F5130083198C /* SCSITargetProberKeys.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AC495AB905E6F0C10041BF80 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AC495AC105E6F0F20041BF80 /* Probing.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		8D15AC270486D014006FF6A4 /* SCSITargetProber */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = ACECCF770D16FE3100316C6F /* Build configuration list for PBXNativeTarget "SCSITargetProber" */;
+			buildPhases = (
+				8D15AC280486D014006FF6A4 /* Headers */,
+				8D15AC2B0486D014006FF6A4 /* Resources */,
+				8D15AC300486D014006FF6A4 /* Sources */,
+				8D15AC330486D014006FF6A4 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SCSITargetProber;
+			productInstallPath = "$(HOME)/Applications";
+			productName = SCSITargetProber;
+			productReference = 8D15AC370486D014006FF6A4 /* SCSITargetProber.app */;
+			productType = "com.apple.product-type.application";
+		};
+		AC495ABB05E6F0C10041BF80 /* stp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = ACECCF780D16FE3100316C6F /* Build configuration list for PBXNativeTarget "stp" */;
+			buildPhases = (
+				AC495AB905E6F0C10041BF80 /* Headers */,
+				AC495BCD05E6F1D30041BF80 /* Frameworks */,
+				AC495ABA05E6F0C10041BF80 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = stp;
+			productName = stp;
+			productReference = AC495ABC05E6F0C10041BF80 /* stp */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		2A37F4A9FDCFA73011CA2CEA /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = ACECCF760D16FE3100316C6F /* Build configuration list for PBXProject "SCSITargetProber" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 1;
+			mainGroup = 2A37F4AAFDCFA73011CA2CEA /* SCSITargetProber */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				8D15AC270486D014006FF6A4 /* SCSITargetProber */,
+				AC495ABB05E6F0C10041BF80 /* stp */,
+				AC88470205F939A40064C93C /* BuildAll */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		8D15AC2B0486D014006FF6A4 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8D15AC2D0486D014006FF6A4 /* MainMenu.nib in Resources */,
+				8D15AC2E0486D014006FF6A4 /* SCSITargetProberDocument.nib in Resources */,
+				8D15AC2F0486D014006FF6A4 /* InfoPlist.strings in Resources */,
+				836D934A05D70CBD00C12D37 /* info.icns in Resources */,
+				836D935605D70D1600C12D37 /* Localizable.strings in Resources */,
+				836D935805D70E1A00C12D37 /* prefs.icns in Resources */,
+				83607D0705D7609700BD92DC /* hd.icns in Resources */,
+				83607D0805D7609700BD92DC /* nothing.icns in Resources */,
+				83607D0905D7609700BD92DC /* pccard.icns in Resources */,
+				ACD965EF05D8778A0048CAFA /* pcicard.icns in Resources */,
+				AC519ECE05E2AD5C0045B742 /* AppPreferences.nib in Resources */,
+				ACA4E29105F429A500EFCC32 /* SCSITargetProber.icns in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		8D15AC300486D014006FF6A4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8D15AC310486D014006FF6A4 /* SCSITargetProberDocument.m in Sources */,
+				8D15AC320486D014006FF6A4 /* main.m in Sources */,
+				AC781A8005C8A792004A09F6 /* FilteringArrayController.m in Sources */,
+				AC781A8F05C8B6D5004A09F6 /* SCSITargetProberAppDelegate.m in Sources */,
+				ACA19F4905C9935200F5EB83 /* SCSIDevice.m in Sources */,
+				ACA19F4D05C9936E00F5EB83 /* SCSIInitiator.m in Sources */,
+				AC25844F05D868E300ECF410 /* Probing.c in Sources */,
+				AC519EE205E2CCE20045B742 /* AppPreferences.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AC495ABA05E6F0C10041BF80 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AC495AC205E6F1070041BF80 /* Probing.c in Sources */,
+				AC495AC005E6F0E40041BF80 /* SCSITargetProberUnixTool.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		AC88470405F939AF0064C93C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 8D15AC270486D014006FF6A4 /* SCSITargetProber */;
+			targetProxy = AC88470305F939AF0064C93C /* PBXContainerItemProxy */;
+		};
+		AC88470605F939AF0064C93C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AC495ABB05E6F0C10041BF80 /* stp */;
+			targetProxy = AC88470505F939AF0064C93C /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		089C165FFE840EACC02AAC07 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				089C1660FE840EACC02AAC07 /* InfoPlist.strings */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+		2A37F4B4FDCFA73011CA2CEA /* SCSITargetProberDocument.nib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				2A37F4B5FDCFA73011CA2CEA /* SCSITargetProberDocument.nib */,
+			);
+			name = SCSITargetProberDocument.nib;
+			sourceTree = "<group>";
+		};
+		2A37F4B6FDCFA73011CA2CEA /* MainMenu.nib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				2A37F4B7FDCFA73011CA2CEA /* MainMenu.nib */,
+			);
+			name = MainMenu.nib;
+			sourceTree = "<group>";
+		};
+		836D935505D70D1600C12D37 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				836D934F05D70D0300C12D37 /* Localizable.strings */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+		AC519ECD05E2AD5C0045B742 /* AppPreferences.nib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				AC519EC705E2AD3C0045B742 /* AppPreferences.nib */,
+			);
+			name = AppPreferences.nib;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		ACECCF6A0D16FE3100316C6F /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Development;
+		};
+		ACECCF6B0D16FE3100316C6F /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Deployment;
+		};
+		ACECCF6C0D16FE3100316C6F /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Default;
+		};
+		ACECCF6D0D16FE3100316C6F /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DEBUGGING_SYMBOLS = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_ENABLE_TRIGRAPHS = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = Cocoa/SCSITargetProber_Prefix.pch;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = NO;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
+				GCC_WARN_UNKNOWN_PRAGMAS = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = Cocoa/Info.plist;
+				INSTALL_PATH = "$(SYSTEM_DEVELOPER_APPS_DIR)/Utilities";
+				LIBRARY_SEARCH_PATHS = "";
+				MACOSX_DEPLOYMENT_TARGET = 10.3;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = SCSITargetProber;
+				SECTORDER_FLAGS = "";
+				UNSTRIPPED_PRODUCT = YES;
+				WARNING_CFLAGS = (
+					"-W",
+					"-Wall",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = app;
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		ACECCF6E0D16FE3100316C6F /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_ENABLE_TRIGRAPHS = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = Cocoa/SCSITargetProber_Prefix.pch;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = NO;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
+				GCC_WARN_UNKNOWN_PRAGMAS = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = Cocoa/Info.plist;
+				INSTALL_PATH = "$(SYSTEM_DEVELOPER_APPS_DIR)/Utilities";
+				LIBRARY_SEARCH_PATHS = "";
+				MACOSX_DEPLOYMENT_TARGET = 10.3;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = SCSITargetProber;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-W",
+					"-Wall",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = app;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		ACECCF6F0D16FE3100316C6F /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_ENABLE_TRIGRAPHS = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = Cocoa/SCSITargetProber_Prefix.pch;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = NO;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
+				GCC_WARN_UNKNOWN_PRAGMAS = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = Cocoa/Info.plist;
+				INSTALL_PATH = "$(SYSTEM_DEVELOPER_APPS_DIR)/Utilities";
+				LIBRARY_SEARCH_PATHS = "";
+				MACOSX_DEPLOYMENT_TARGET = 10.3;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = SCSITargetProber;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-W",
+					"-Wall",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = app;
+			};
+			name = Default;
+		};
+		ACECCF700D16FE3100316C6F /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DEBUGGING_SYMBOLS = YES;
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
+				GCC_WARN_UNKNOWN_PRAGMAS = NO;
+				INSTALL_PATH = /usr/local/bin;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = stp;
+				SECTORDER_FLAGS = "";
+				UNSTRIPPED_PRODUCT = YES;
+				WARNING_CFLAGS = (
+					"-W",
+					"-Wall",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		ACECCF710D16FE3100316C6F /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
+				GCC_WARN_UNKNOWN_PRAGMAS = NO;
+				INSTALL_PATH = /usr/local/bin;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = stp;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-W",
+					"-Wall",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		ACECCF720D16FE3100316C6F /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
+				GCC_WARN_UNKNOWN_PRAGMAS = NO;
+				INSTALL_PATH = /usr/local/bin;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = stp;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-W",
+					"-Wall",
+				);
+			};
+			name = Default;
+		};
+		ACECCF730D16FE3100316C6F /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DEBUGGING_SYMBOLS = YES;
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = BuildAll;
+				SECTORDER_FLAGS = "";
+				UNSTRIPPED_PRODUCT = YES;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		ACECCF740D16FE3100316C6F /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = BuildAll;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		ACECCF750D16FE3100316C6F /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = BuildAll;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		ACECCF760D16FE3100316C6F /* Build configuration list for PBXProject "SCSITargetProber" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				ACECCF6A0D16FE3100316C6F /* Development */,
+				ACECCF6B0D16FE3100316C6F /* Deployment */,
+				ACECCF6C0D16FE3100316C6F /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		ACECCF770D16FE3100316C6F /* Build configuration list for PBXNativeTarget "SCSITargetProber" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				ACECCF6D0D16FE3100316C6F /* Development */,
+				ACECCF6E0D16FE3100316C6F /* Deployment */,
+				ACECCF6F0D16FE3100316C6F /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		ACECCF780D16FE3100316C6F /* Build configuration list for PBXNativeTarget "stp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				ACECCF700D16FE3100316C6F /* Development */,
+				ACECCF710D16FE3100316C6F /* Deployment */,
+				ACECCF720D16FE3100316C6F /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		ACECCF790D16FE3100316C6F /* Build configuration list for PBXAggregateTarget "BuildAll" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				ACECCF730D16FE3100316C6F /* Development */,
+				ACECCF740D16FE3100316C6F /* Deployment */,
+				ACECCF750D16FE3100316C6F /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 2A37F4A9FDCFA73011CA2CEA /* Project object */;
+}

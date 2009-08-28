@@ -2,11 +2,11 @@
 #
 #  getopt_tests.py:  testing the svn command line processing
 #
-#  Subversion is a tool for revision control. 
+#  Subversion is a tool for revision control.
 #  See http://subversion.tigris.org for more information.
-#    
+#
 # ====================================================================
-# Copyright (c) 2000-2004 CollabNet.  All rights reserved.
+# Copyright (c) 2000-2004, 2008 CollabNet.  All rights reserved.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution.  The terms
@@ -17,7 +17,7 @@
 ######################################################################
 
 # General modules
-import string, sys, re, os.path
+import sys, re, os.path
 
 # Our testing module
 import svntest
@@ -56,8 +56,9 @@ del_lines_res = [
                  re.compile(r'\s+compiled\s+'),
 
                  # Also for 'svn --version':
-                 re.compile(r"\* ra_(dav|local|svn|serf) :"),
+                 re.compile(r"\* ra_(neon|local|svn|serf) :"),
                  re.compile(r"  - handles '(https?|file|svn)' scheme"),
+                 re.compile(r"  - with Cyrus SASL authentication"),
                  re.compile(r"\* fs_(base|fs) :"),
                 ]
 
@@ -114,11 +115,10 @@ def run_one_test(sbox, basename, *varargs):
 
   # special case the 'svn' test so that no extra arguments are added
   if basename != 'svn':
-    actual_stdout, actual_stderr = apply(svntest.main.run_svn, (1,) + varargs)
+    exit_code, actual_stdout, actual_stderr = svntest.main.run_svn(1, *varargs)
   else:
-    actual_stdout, actual_stderr = apply(svntest.main.run_command,
-                                         (svntest.main.svn_binary, 1, 0)
-                                         + varargs)
+    exit_code, actual_stdout, actual_stderr = svntest.main.run_command(svntest.main.svn_binary,
+                                                                       1, 0, *varargs)
 
   # Delete and perform search and replaces on the lines from the
   # actual and expected output that may differ between build
@@ -129,27 +129,31 @@ def run_one_test(sbox, basename, *varargs):
   actual_stderr = process_lines(actual_stderr)
 
   if exp_stdout != actual_stdout:
-    print "Standard output does not match."
-    print "Expected standard output:"
-    print "====="
-    map(sys.stdout.write, exp_stdout)
-    print "====="
-    print "Actual standard output:"
-    print "====="
-    map(sys.stdout.write, actual_stdout)
-    print "====="
+    print("Standard output does not match.")
+    print("Expected standard output:")
+    print("=====")
+    for x in exp_stdout:
+      sys.stdout.write(x)
+    print("=====")
+    print("Actual standard output:")
+    print("=====")
+    for x in actual_stdout:
+      sys.stdout.write(x)
+    print("=====")
     raise svntest.Failure
 
   if exp_stderr != actual_stderr:
-    print "Standard error does not match."
-    print "Expected standard error:"
-    print "====="
-    map(sys.stdout.write, exp_stderr)
-    print "====="
-    print "Actual standard error:"
-    print "====="
-    map(sys.stdout.write, actual_stderr)
-    print "====="
+    print("Standard error does not match.")
+    print("Expected standard error:")
+    print("=====")
+    for x in exp_stderr:
+      sys.stdout.write(x)
+    print("=====")
+    print("Actual standard error:")
+    print("=====")
+    for x in actual_stderr:
+      sys.stdout.write(x)
+    print("=====")
     raise svntest.Failure
 
 def getopt_no_args(sbox):

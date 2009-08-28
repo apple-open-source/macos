@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT:
- * Copyright (c) 1997-2006, International Business Machines Corporation and
+ * Copyright (c) 1997-2008, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 //===============================================================================
@@ -225,11 +225,16 @@ CollationAPITest::TestProperty(/* char* par */)
     if (U_FAILURE(success))
     {
         errln("Creating French collator failed.");
-        delete col; delete junk;
+        delete col;
+        delete junk;
         return;
     }
 
-    doAssert((*frCol != *junk), "The junk is the same as the French collator.");
+    // If the default locale isn't French, the French and non-French collators
+    // should be different
+    if (frCol->getLocale(ULOC_ACTUAL_LOCALE, success) != Locale::getFrench()) {
+        doAssert((*frCol != *junk), "The junk is the same as the French collator.");
+    }
     Collator *aFrCol = frCol->clone();
     doAssert((*frCol == *aFrCol), "The cloning of a French collator failed.");
     logln("Collator property test ended.");
@@ -1017,15 +1022,61 @@ CollationAPITest::TestCompare(/* char* par */)
 void
 CollationAPITest::TestGetAll(/* char* par */)
 {
-    int32_t count;
-    const Locale* list = Collator::getAvailableLocales(count);
-    for (int32_t i = 0; i < count; ++i) {
-        UnicodeString locName, dispName;
-        log("Locale name: ");
-        log(list[i].getName());
-        log(" , the display name is : ");
-        logln(list[i].getDisplayName(dispName));
+    int32_t count1, count2;
+    UErrorCode status = U_ZERO_ERROR;
+
+    logln("Trying Collator::getAvailableLocales(int&)");
+
+    const Locale* list = Collator::getAvailableLocales(count1);
+    for (int32_t i = 0; i < count1; ++i) {
+        UnicodeString dispName;
+        logln(UnicodeString("Locale name: ")
+            + UnicodeString(list[i].getName())
+            + UnicodeString(" , the display name is : ")
+            + UnicodeString(list[i].getDisplayName(dispName)));
     }
+
+    if (count1 == 0 || list == NULL) {
+        errln("getAvailableLocales(int&) returned an empty list");
+    }
+
+    logln("Trying Collator::getAvailableLocales()");
+    StringEnumeration* localeEnum = Collator::getAvailableLocales();
+    const UnicodeString* locStr;
+    const char *locCStr;
+    count2 = 0;
+
+    if (localeEnum == NULL) {
+        errln("getAvailableLocales() returned NULL");
+        return;
+    }
+
+    while ((locStr = localeEnum->snext(status)) != NULL)
+    {
+        logln(UnicodeString("Locale name is: ") + *locStr);
+        count2++;
+    }
+    if (count1 != count2) {
+        errln("getAvailableLocales(int&) returned %d and getAvailableLocales() returned %d", count1, count2);
+    }
+
+    logln("Trying Collator::getAvailableLocales() clone");
+    count1 = 0;
+    StringEnumeration* localeEnum2 = localeEnum->clone();
+    localeEnum2->reset(status);
+    while ((locCStr = localeEnum2->next(NULL, status)) != NULL)
+    {
+        logln(UnicodeString("Locale name is: ") + UnicodeString(locCStr));
+        count1++;
+    }
+    if (count1 != count2) {
+        errln("getAvailableLocales(3rd time) returned %d and getAvailableLocales(2nd time) returned %d", count1, count2);
+    }
+    if (localeEnum->count(status) != count1) {
+        errln("localeEnum->count() returned %d and getAvailableLocales() returned %d", localeEnum->count(status), count1);
+    }
+    delete localeEnum;
+    delete localeEnum2;
 }
 
 void CollationAPITest::TestSortKey()
@@ -1052,11 +1103,17 @@ void CollationAPITest::TestSortKey()
     col->setAttribute(UCOL_STRENGTH, UCOL_IDENTICAL, status);
 
     uint8_t key2compat[] = {
+        /* 3.9 key, from UCA 5.1 */
+        0x2c, 0x2e, 0x30, 0x32, 0x2c, 0x01, 
+        0x09, 0x01, 0x09, 0x01, 0x2b, 0x01, 
+        0x92, 0x93, 0x94, 0x95, 0x92, 0x0
+
         /* 3.6 key, from UCA 5.0 */
+	/*
         0x29, 0x2b, 0x2d, 0x2f, 0x29, 0x01, 
         0x09, 0x01, 0x09, 0x01, 0x28, 0x01, 
         0x92, 0x93, 0x94, 0x95, 0x92, 0x00
-        
+        */
         /* 3.4 key, from UCA 4.1 */
         /*
         0x28, 0x2a, 0x2c, 0x2e, 0x28, 0x01, 
@@ -1627,7 +1684,7 @@ void CollationAPITest::TestBounds(void) {
     uint8_t sortkey[512], lower[512], upper[512];
     UChar buffer[512];
 
-    const char *test[] = {
+    static const char * const test[] = {
         "John Smith",
         "JOHN SMITH",
         "john SMITH",
@@ -1638,7 +1695,7 @@ void CollationAPITest::TestBounds(void) {
         "John Smithsonian"
     };
 
-    static struct teststruct tests[] = {
+    struct teststruct tests[] = {
         {"\\u010CAKI MIHALJ", {0}},
         {"\\u010CAKI MIHALJ", {0}},
         {"\\u010CAKI PIRO\\u0160KA", {0}},
@@ -1905,7 +1962,7 @@ public:
                              uint8_t*result, int32_t resultLength) const;
     virtual UnicodeSet *getTailoredSet(UErrorCode &status) const;
     virtual UBool operator!=(const Collator& other) const;
-    virtual void setLocales(const Locale& requestedLocale, const Locale& validLocale);
+    virtual void setLocales(const Locale& requestedLocale, const Locale& validLocale, const Locale& actualLocale);
     TestCollator() : Collator() {};
     TestCollator(UCollationStrength collationStrength, 
            UNormalizationMode decompositionMode) : Collator(collationStrength, decompositionMode) {};
@@ -2104,9 +2161,9 @@ UnicodeSet * TestCollator::getTailoredSet(UErrorCode &status) const
     return Collator::getTailoredSet(status);
 }
 
-void TestCollator::setLocales(const Locale& requestedLocale, const Locale& validLocale) 
+void TestCollator::setLocales(const Locale& requestedLocale, const Locale& validLocale, const Locale& actualLocale) 
 {
-    Collator::setLocales(requestedLocale, validLocale);
+    Collator::setLocales(requestedLocale, validLocale, actualLocale);
 }
 
 
@@ -2145,7 +2202,7 @@ void CollationAPITest::TestSubclass()
     // use base class implementation
     Locale loc1 = Locale::getGermany();
     Locale loc2 = Locale::getFrance();
-    col1.setLocales(loc1, loc2); // default implementation has no effect
+    col1.setLocales(loc1, loc2, loc2); // default implementation has no effect
 
     UnicodeString displayName;
     col1.getDisplayName(loc1, loc2, displayName); // de_DE collator in fr_FR locale
@@ -2187,6 +2244,12 @@ void CollationAPITest::TestClone() {
     logln("\ninit c0");
     UErrorCode status = U_ZERO_ERROR;
     RuleBasedCollator* c0 = (RuleBasedCollator*)Collator::createInstance(status);
+
+    if (U_FAILURE(status)) {
+        errln("Collator::CreateInstance(status) failed with %s", u_errorName(status));
+        return;
+    }
+
     c0->setStrength(Collator::TERTIARY);
     dump("c0", c0, status);
 

@@ -59,6 +59,19 @@ IODestroyPlugInInterface(). Do not call Release() on it.
 */
 /*
 	$Log: IOFireWireLib.h,v $
+	Revision 1.76  2008/12/12 04:43:57  collin
+	user space compare swap command fixes
+	
+	Revision 1.75  2008/09/12 23:44:05  calderon
+	<rdar://5971979/> PseudoAddressSpace skips/mangles packets
+	<rdar://5708169/> FireWire synchronous commands' headerdoc missing callback info
+	
+	Revision 1.74  2007/11/09 01:39:04  arulchan
+	fix for rdar://5555060
+	
+	Revision 1.73  2007/10/16 16:50:21  ayanowit
+	Removed existing "work-in-progress" support for buffer-fill isoch.
+	
 	Revision 1.72  2007/06/21 04:08:45  collin
 	*** empty log message ***
 	
@@ -555,7 +568,6 @@ typedef struct 	IOFireWireRemoteIsochPortInterface_t**		IOFireWireLibRemoteIsoch
 typedef struct 	IOFireWireLocalIsochPortInterface_t**		IOFireWireLibLocalIsochPortRef ;
 typedef struct 	IOFireWireDCLCommandPoolInterface_t**		IOFireWireLibDCLCommandPoolRef ;
 typedef struct	IOFireWireNuDCLPoolInterface_t**			IOFireWireLibNuDCLPoolRef ;
-typedef struct	IOFireWireBufferFillIsochPortInterface_t**	IOFireWireLibBufferFillIsochPortRef ;
 typedef struct  IOFWAsyncStreamListenerInterface_t**		IOFWAsyncStreamListenerInterfaceRef;
 typedef struct  IOFireWireLibPHYPacketListenerInterface_t**	IOFireWireLibPHYPacketListenerRef;
 
@@ -1015,7 +1027,7 @@ public:
 		@param addr Command target address
 		@param buf A pointer to a buffer where the results will be stored
 		@param size Number of bytes to read
-		@param callback Command completion callback.
+		@param callback Command completion callback. Setting the callback value to nil defaults to synchronous execution.
 		@param failOnReset Pass true if the command should only be executed during the FireWire bus generation
 			specified in 'generation'. Pass false to ignore the generation parameter. The generation can be
 			obtained by calling GetBusGeneration(). Must be 'true' when using 64-bit addressing.
@@ -1035,6 +1047,7 @@ public:
 		@param addr Command target address
 		@param quads An array of quadlets where results should be stored
 		@param numQuads Number of quadlets to read
+		@param callback Command completion callback. Setting the callback value to nil defaults to synchronous execution.
 		@param failOnReset Pass true if the command should only be executed during the FireWire bus generation
 			specified in 'generation'. Pass false to ignore the generation parameter. The generation can be
 			obtained by calling GetBusGeneration(). Must be 'true' when using 64-bit addressing.
@@ -1053,7 +1066,7 @@ public:
 		@param addr Command target address
 		@param buf A pointer to the buffer containing the data to be written
 		@param size Number of bytes to write
-		@param callback Command completion callback.
+		@param callback Command completion callback. Setting the callback value to nil defaults to synchronous execution.
 		@param failOnReset Pass true if the command should only be executed during the FireWire bus generation
 			specified in 'generation'. Pass false to ignore the generation parameter. The generation can be
 			obtained by calling GetBusGeneration(). Must be 'true' when using 64-bit addressing.
@@ -1073,6 +1086,7 @@ public:
 		@param addr Command target address
 		@param quads An array of quadlets containing quadlets to be written
 		@param numQuads Number of quadlets to write
+		@param callback Command completion callback. Setting the callback value to nil defaults to synchronous execution.
 		@param failOnReset Pass true if the command should only be executed during the FireWire bus generation
 			specified in 'generation'. Pass false to ignore the generation parameter. The generation can be
 			obtained by calling GetBusGeneration(). Must be 'true' when using 64-bit addressing.
@@ -1093,7 +1107,7 @@ public:
 		@param addr Command target address
 		@param cmpVal 32-bit value expected at target address
 		@param newVal 32-bit value to be set at target address
-		@param callback Command completion callback.
+		@param callback Command completion callback. Setting the callback value to nil defaults to synchronous execution.
 		@param failOnReset Pass true if the command should only be executed during the FireWire bus generation
 			specified in 'generation'. Pass false to ignore the generation parameter. The generation can be
 			obtained by calling GetBusGeneration(). Must be 'true' when using 64-bit addressing.
@@ -3363,7 +3377,7 @@ public:
 		@param self The command object interface of interest
 		@param cmpVal The value expected at the address targeted by this command object
 		@param newVal The value to be written at the address targeted by this command object */
-	void	(*SetValues)(IOFireWireLibCompareSwapCommandRef self, UInt32 cmpVal, UInt32 newVal) ;
+	void	(*SetValues)(IOFireWireLibCompareSwapCommandV3Ref self, UInt32 cmpVal, UInt32 newVal) ;
 	
 	// --- v2 ---
 	
@@ -3375,7 +3389,7 @@ public:
 		@param self The command object interface of interest
 		@param cmpVal The value expected at the address targeted by this command object
 		@param newVal The value to be written at the address targeted by this command object */
-	void	(*SetValues64)(IOFireWireLibCompareSwapCommandRef self, UInt64 cmpVal, UInt64 newVal) ;
+	void	(*SetValues64)(IOFireWireLibCompareSwapCommandV3Ref self, UInt64 cmpVal, UInt64 newVal) ;
 
 	/*!	@function DidLock
 		@abstract Was the last lock operation successful?
@@ -3383,7 +3397,7 @@ public:
 		@param self The command object interface of interest
 		@result Returns true if the last lock operation performed by this command object was successful,
 			false otherwise. */
-	Boolean	(*DidLock)(IOFireWireLibCompareSwapCommandRef self) ;
+	Boolean	(*DidLock)(IOFireWireLibCompareSwapCommandV3Ref self) ;
 
 	/*!	@function Locked
 		@abstract Get the 32-bit value returned on the last compare swap operation.
@@ -3392,7 +3406,7 @@ public:
 		@param oldValue A pointer to contain the value returned by the target of this command
 			on the last compare swap operation
 		@result Returns kIOReturnBadArgument if the last compare swap operation performed was 64-bit. */
-	IOReturn (*Locked)(IOFireWireLibCompareSwapCommandRef self, UInt32* oldValue) ;
+	IOReturn (*Locked)(IOFireWireLibCompareSwapCommandV3Ref self, UInt32* oldValue) ;
 
 	/*!	@function Locked64
 		@abstract Get the 64-bit value returned on the last compare swap operation.
@@ -3401,7 +3415,7 @@ public:
 		@param oldValue A pointer to contain the value returned by the target of this command
 			on the last compare swap operation
 		@result Returns kIOReturnBadArgument if the last compare swap performed was 32-bit. */
-	IOReturn (*Locked64)(IOFireWireLibCompareSwapCommandRef self, UInt64* oldValue) ;
+	IOReturn (*Locked64)(IOFireWireLibCompareSwapCommandV3Ref self, UInt64* oldValue) ;
 	
 } IOFireWireCompareSwapCommandInterface_v3 ;
 
@@ -3450,6 +3464,27 @@ public:
 	IOFIREWIRELIBCOMMAND_C_GUTS_v2;
 
 	IOFIREWIRELIBCOMMAND_C_GUTS_v3;
+	
+	/*!	@function SetChannel
+	@abstract Set the new channel to transmit the AsyncStream command.
+	@discussion Available in v1 and newer.
+	@param self The command object interface of interest
+	@param channel The channel for AsyncStream command transmit.*/
+	void	(*SetChannel)( IOFireWireLibAsyncStreamCommandRef self, UInt32 channel );
+
+	/*!	@function SetSyncBits
+		@abstract Set the sync bits for the AsynStream packets.
+		@discussion Available in v1 and newer.
+		@param self The command object interface of interest
+		@param sync The value for sync bits in the AsyncStream packet */
+	void	(*SetSyncBits)( IOFireWireLibAsyncStreamCommandRef self, UInt16 sync );
+
+	/*!	@function SetTagBits
+		@abstract Set the tag bits for the AsynStream packets.
+		@discussion Available in v1 and newer.
+		@param self The command object interface of interest
+		@param tag The value for tag bits in the AsyncStream packet */
+	void	(*SetTagBits)( IOFireWireLibAsyncStreamCommandRef self, UInt16 tag );
 		
 } IOFireWireAsyncStreamCommandInterface;
 

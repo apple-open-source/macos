@@ -171,6 +171,8 @@ struct mi_cmd mi_cmds[] =
   { "target-list-available-targets", { NULL, 0 }, NULL, NULL },
   { "target-list-current-targets", { NULL, 0 }, NULL, NULL },
   { "target-list-parameters", { NULL, 0 }, NULL, NULL },
+  { "target-load-solib", { NULL, 0 }, 0, mi_cmd_target_load_solib },
+  { "target-unload-solib", { NULL, 0 }, 0, mi_cmd_target_unload_solib },
   { "target-select", { NULL, 0 }, mi_cmd_target_select},
   { "thread-info", { NULL, 0 }, NULL, NULL },
   { "thread-list-all-threads", { NULL, 0 }, NULL, NULL },

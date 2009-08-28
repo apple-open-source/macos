@@ -1,12 +1,12 @@
-#include <Foundation/Foundation.h>
 
-@interface Foo : NSObject {
+@interface Foo  {
 	int f;
 }
 - (void) doit;
 @end
 
+
 @implementation Foo
-- (void) doit { }
+- (void) doit {  }
 @end
 

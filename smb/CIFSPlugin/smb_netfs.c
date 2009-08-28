@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 - 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2006 - 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -21,12 +21,15 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <Carbon/Carbon.h>
-#include <URLMount/URLMount.h>
+#include <sys/param.h>
+#include <sys/mount.h>
+
+#include <NetFS/NetFSPlugin.h>
+#include <NetFS/NetFSUtil.h>
+#include <NetFS/NetFSPrivate.h>
 
 #include <asl.h>
 #include "smb_netfs.h"
-#include <netsmb/smb_lib.h>
 #include <netsmb/smb_lib.h>
 #include <netsmb/smb_conn.h>
 #include <parse_url.h>
@@ -43,7 +46,7 @@ netfsError SMB_CreateSessionRef(void **sessionRef)
 	int error;
 		
 	/* Need to initialize the library and load the kext */
-	error = smb_load_library(NULL);
+	error = smb_load_library();
 	if (error) {
 		smb_log_info("%s: loading the smb library failed!", error, ASL_LEVEL_ERR, __FUNCTION__);
 		*sessionRef = NULL;
@@ -55,9 +58,9 @@ netfsError SMB_CreateSessionRef(void **sessionRef)
 		smb_log_info("%s: creating session refernce failed!\n", ENOMEM, ASL_LEVEL_ERR, __FUNCTION__);
 		return ENOMEM;
 	}
-#ifdef DEBUG
+#ifdef SMB_DEBUG
 	smb_log_info("%s: refernce %p\n", 0, ASL_LEVEL_DEBUG, __FUNCTION__, *sessionRef);
-#endif // DEBUG
+#endif // SMB_DEBUG
 	return 0;
 }
 
@@ -66,9 +69,9 @@ netfsError SMB_CreateSessionRef(void **sessionRef)
  */
 netfsError SMB_Cancel(void *sessionRef) 
 {
-#ifdef DEBUG
+#ifdef SMB_DEBUG
 	smb_log_info("%s: refernce %p\n", 0, ASL_LEVEL_DEBUG, __FUNCTION__, sessionRef);
-#endif // DEBUG
+#endif // SMB_DEBUG
 	smb_ctx_cancel_connection((struct smb_ctx *)sessionRef);
 	return 0;
 }
@@ -78,9 +81,9 @@ netfsError SMB_Cancel(void *sessionRef)
  */
 netfsError SMB_CloseSession(void *sessionRef) 
 {
-#ifdef DEBUG
+#ifdef SMB_DEBUG
 	smb_log_info("%s: refernce %p\n", 0, ASL_LEVEL_DEBUG, __FUNCTION__, sessionRef);
-#endif // DEBUG
+#endif // SMB_DEBUG
 	smb_ctx_done(sessionRef);
 	return 0;
 }
@@ -126,14 +129,47 @@ netfsError SMB_OpenSession(CFURLRef url, void *sessionRef, CFDictionaryRef openO
 		return EINVAL;
 	}
 	pthread_mutex_lock(&ctx->ctx_mutex);
-	error = smb_open_session(sessionRef, url, openOptions, sessionInfo);
+	/* 
+	 * They didn't set any of the authentication dictionary items. Lets try 
+	 * Kerberos and if that fails fallback to using user authentication. Now if
+	 * the server doesn't support Kerberos then smb_open_session will check
+	 * for that and return an EAUTH error. Alo if we haven't connected yet then
+	 * smb_open_session will connect before checking to see if the server 
+	 * supports Kerberos. So smb_open_session does most of the work for us.
+	 */
+	if ((openOptions == NULL) ||
+		((CFDictionaryGetValue(openOptions, kNetFSUseKerberosKey) == NULL) && 
+		(CFDictionaryGetValue(openOptions, kNetFSUseGuestKey) == NULL) && 
+		(CFDictionaryGetValue(openOptions, kNetFSUseAnonymousKey) == NULL))) {
+		CFMutableDictionaryRef openOptionsKerb;
+		
+		if (openOptions)
+			openOptionsKerb = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, openOptions);
+		else
+			openOptionsKerb = CFDictionaryCreateMutable(kCFAllocatorDefault, 0 /* capacity */,
+								&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+
+		if (openOptionsKerb) {
+			CFDictionarySetValue (openOptionsKerb, kNetFSUseKerberosKey, kCFBooleanTrue);
+			error = smb_open_session(sessionRef, url, openOptionsKerb, sessionInfo);
+			smb_log_info("%s: No security method selected attempting Kerberos. error = %d", 0, ASL_LEVEL_DEBUG, __FUNCTION__, error);
+			CFRelease(openOptionsKerb);
+		} else
+			error = EAUTH;	/* Should never happen, but just to be safe */
+		
+		/* The Kerberos attempt failed, now attempt it with user level security */
+		if (error == EAUTH)
+			error = smb_open_session(sessionRef, url, openOptions, sessionInfo);
+
+	} else
+		error = smb_open_session(sessionRef, url, openOptions, sessionInfo);
 	pthread_mutex_unlock(&ctx->ctx_mutex);
 	if (error)
 		smb_log_info("%s: - error = %d!", 0, ASL_LEVEL_DEBUG, __FUNCTION__, error);		
-#ifdef DEBUG
+#ifdef SMB_DEBUG
 	else 
 		smb_log_info("%s: refernce %p\n", 0, ASL_LEVEL_DEBUG, __FUNCTION__, sessionRef);
-#endif // DEBUG
+#endif // SMB_DEBUG
 	return error;
 }
 
@@ -154,10 +190,10 @@ netfsError SMB_GetServerInfo(CFURLRef url, void *sessionRef, CFDictionaryRef ope
 	pthread_mutex_unlock(&ctx->ctx_mutex);
 	if (error)
 		smb_log_info("%s: - error = %d!", 0, ASL_LEVEL_DEBUG, __FUNCTION__, error);		
-#ifdef DEBUG
+#ifdef SMB_DEBUG
 	else 
 		smb_log_info("%s: refernce %p\n", 0, ASL_LEVEL_DEBUG, __FUNCTION__, sessionRef);
-#endif // DEBUG
+#endif // SMB_DEBUG
 	return error;
 }
 
@@ -179,10 +215,10 @@ netfsError SMB_EnumerateShares(void *sessionRef, CFDictionaryRef enumerateOption
 	pthread_mutex_unlock(&ctx->ctx_mutex);
 	if (error)
 		smb_log_info("%s: - error = %d!", 0, ASL_LEVEL_DEBUG, __FUNCTION__, error);		
-#ifdef DEBUG
+#ifdef SMB_DEBUG
 	else 
 		smb_log_info("%s: refernce %p\n", 0, ASL_LEVEL_DEBUG, __FUNCTION__, sessionRef);
-#endif // DEBUG
+#endif // SMB_DEBUG
 	return error;
 }
 
@@ -216,9 +252,72 @@ netfsError SMB_Mount(void *sessionRef, CFURLRef url, CFStringRef mPoint, CFDicti
 	pthread_mutex_unlock(&ctx->ctx_mutex);
 	if (error)
 		smb_log_info("%s: - error = %d!", 0, ASL_LEVEL_DEBUG, __FUNCTION__, error);		
-#ifdef DEBUG
+#ifdef SMB_DEBUG
 	else 
 		smb_log_info("%s: refernce %p\n", 0, ASL_LEVEL_DEBUG, __FUNCTION__, sessionRef);
-#endif // DEBUG
+#endif // SMB_DEBUG
 	return error;
+}
+
+/*
+ * %%% Need to clean this routine up in the future.
+ */
+netfsError SMB_GetMountInfo(CFStringRef in_Mountpath, CFDictionaryRef *out_MountInfo)
+{
+	int error;
+	char *mountpath;
+	struct statfs statbuf;
+	char *sharepointname;
+	char *url;
+	size_t url_length;
+	CFStringRef url_CString;
+	CFMutableDictionaryRef	mutableDict = NULL;
+
+	*out_MountInfo = NULL;
+	mutableDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, 
+										 &kCFTypeDictionaryValueCallBacks);
+	if (mutableDict == NULL)
+		return ENOMEM;
+
+	mountpath = NetFSCFStringtoCString(in_Mountpath);
+	if (mountpath == NULL) {
+		CFRelease(mutableDict);
+		return ENOMEM;
+	}
+
+	if (statfs(mountpath, &statbuf) == -1) {
+		error = errno;
+		CFRelease(mutableDict);
+		free(mountpath);
+		return error;
+	}
+	free(mountpath);
+
+	smb_ctx_get_user_mount_info(statbuf.f_mntonname, mutableDict);
+
+	sharepointname = statbuf.f_mntfromname;
+	/* Skip all leading slashes and backslashes*/
+	while ((*sharepointname == '/') || (*sharepointname == '\\')) {
+		++sharepointname;
+	}
+	url_length = sizeof(SMB_PREFIX) + strlen(sharepointname); /* sizeof(SMB_PREFIX) will include the null byte */
+	url = malloc(url_length);
+	if (url == NULL) {
+		CFRelease(mutableDict);
+		return ENOMEM;	
+	}
+	strlcpy(url, SMB_PREFIX, url_length);
+	strlcat(url, sharepointname, url_length);
+	url_CString = CFStringCreateWithCString(kCFAllocatorDefault, url,
+	    kCFStringEncodingUTF8);
+	free(url);
+	if (url_CString == NULL) {
+		CFRelease(mutableDict);		
+		return ENOMEM;
+	}
+	CFDictionarySetValue (mutableDict, kNetFSMountedURLKey, url_CString);
+
+	*out_MountInfo = mutableDict;
+	CFRelease(url_CString);
+	return 0;
 }

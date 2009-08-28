@@ -33,6 +33,7 @@
 namespace Security {
 namespace Tokend {
 
+static void copyDataFromIPC(void *dataPtr, mach_msg_type_number_t dataLength, CssmData *outData);
 
 using MachPlusPlus::VMGuard;
 
@@ -170,8 +171,7 @@ RecordHandle ClientSession::findFirst(const CssmQuery &query,
 	}
 	else
 		outAttributes = NULL;
-	if (outData)
-		*outData = CssmData(dataPtr, dataLength);
+	copyDataFromIPC(dataPtr, dataLength, outData);
 	if (tmpOutAttributes)
 		mig_deallocate(reinterpret_cast<vm_address_t>(tmpOutAttributes), outAttributesLength);
 	return hRecord;
@@ -198,8 +198,9 @@ RecordHandle ClientSession::findNext(SearchHandle hSearch,
 	}
 	else
 		outAttributes = NULL;
-	if (outData)
-		*outData = CssmData(dataPtr, dataLength);
+	copyDataFromIPC(dataPtr, dataLength, outData);
+	if (tmpOutAttributes)
+		mig_deallocate(reinterpret_cast<vm_address_t>(tmpOutAttributes), outAttributesLength);
 	return hRecord;
 }
 
@@ -222,8 +223,9 @@ void ClientSession::findRecordHandle(RecordHandle hRecord,
 	}
 	else
 		outAttributes = NULL;
-	if (outData)
-		*outData = CssmData(dataPtr, dataLength);
+	if (tmpOutAttributes)
+		mig_deallocate(reinterpret_cast<vm_address_t>(tmpOutAttributes), outAttributesLength);
+	copyDataFromIPC(dataPtr, dataLength, outData);
 }
 
 void ClientSession::insertRecord(CSSM_DB_RECORDTYPE recordType,
@@ -410,13 +412,15 @@ void ClientSession::unwrapKey(const Security::Context &context,
 	Copier<CssmKey> cWrappingKey(wrappingKey, internalAllocator);
 	Copier<CssmKey> cPublicKey(publicKey, internalAllocator);
 	Copier<CssmWrappedKey> cWrappedKey(&wrappedKey, internalAllocator);
-	CssmKey *keyBase; mach_msg_type_number_t keyLength;
+	CssmKey *tmpKeyBase; mach_msg_type_number_t tmpKeyLength;
+	CssmKey *tmpKey;
 	DataOutput descriptor(descriptiveData, returnAllocator);
 	IPC(tokend_client_unwrapKey(TOKEND_ARGS, CONTEXT(ctx), hWrappingKey, COPY(cWrappingKey),
 		COPY(creds), COPY(owner), hPublicKey, COPY(cPublicKey),
 		COPY(cWrappedKey), usage, attrs, DATA(descriptor),
-        &hKey, COPY_OUT(key)));
-	relocate(key, keyBase);
+        &hKey, COPY_OUT(tmpKey)));
+	relocate(tmpKey, tmpKeyBase);
+	key = chunkCopy(tmpKey);
 }
 
 
@@ -501,6 +505,31 @@ bool ClientSession::isLocked()
 	return locked;
 }
 
-
+static void copyDataFromIPC(void *dataPtr, mach_msg_type_number_t dataLength, CssmData *outData)
+{
+	if (!outData || !dataPtr)
+		return;
+	
+	/*
+		<rdar://problem/6738709> securityd leaks VM memory during certain smartcard operations
+		The preceeding IPC call to tokend_client_findRecordHandle() vm_allocates()s the memory
+		for returning dataPtr. The rest of the system wants to treat this memory as a CssmData object
+		and call free() on it. But free() won't work for vm_allocate()d memory, so copy the data into 
+		heap memory.
+	*/
+	
+	void *newData = malloc(dataLength);
+	if (newData == NULL)
+		CssmError::throwMe(CSSM_ERRCODE_MEMORY_ERROR);
+	
+	memcpy(newData, dataPtr, dataLength);
+	*outData = CssmData(newData, dataLength);
+	
+//	secdebug(who, "dataPtr (%p), dataLength (%d); newData (%p)", dataPtr, dataLength, newData);
+		
+	mig_deallocate(reinterpret_cast<vm_address_t>(dataPtr), (vm_size_t)dataLength);
+}
+	
+	
 }	// namespace Tokend
 }	// namespace Security

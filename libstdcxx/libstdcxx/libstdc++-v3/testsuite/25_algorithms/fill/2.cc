@@ -1,6 +1,6 @@
 // 2004-06-25  Paolo Carlini  <pcarlini@suse.de>
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -15,7 +15,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // 25.2.5 [lib.alg.fill] Fill
@@ -56,12 +56,6 @@ void test01()
   fill_n(coll2.begin(), coll2.size(), val);
   VERIFY( equal(coll2.begin(), coll2.end(), V) );
 }
-
-#if !__GXX_WEAK__ && _MT_ALLOCATOR_H
-// Explicitly instantiate for systems with no COMDAT or weak support.
-template class __gnu_cxx::__mt_alloc<std::_List_node<int> >;
-template class __gnu_cxx::__mt_alloc<std::_List_node<num> >;
-#endif
 
 int main()
 {

@@ -1,0 +1,143 @@
+package provide xotcl::comm::ldap 0.9
+
+package require xotcl::wafecompat ; # Get 'requireModules'.
+
+package require XOTcl
+
+namespace eval ::xotcl::comm::ldap {
+    namespace import ::xotcl::*
+
+    requireModules { ldapOpen ldaplibGen.so }
+
+    Class Ldap -superclass NetAccess -parameter {host port dn attributes scope filter}
+    Ldap instproc initialize args {
+	my instvar port mapToC useCache
+	my set port 389
+	my set useCache 0
+	set mapToC(one) onelevel
+	set mapToC(sub) subtree
+	set mapToC(base) base
+	next
+    }
+    Ldap proc urlDecode string {
+	set toParse $string
+	set parsed ""
+	while {1} {
+	    if {[regexp {^([^%]*)%(..)(.*)$} $toParse _ front hex toParse]} {
+		append parsed $front [binary format c 0x$hex]
+	    } else {
+		append parsed $toParse
+		break
+	    }
+	}
+	return $parsed
+    }
+    Ldap instproc getUrlcomponents {} { 
+	showCall
+	my instvar path dn attributes scope filter url
+	set path [Ldap urlDecode $path]
+	puts stderr "___ path=<$path>"
+	if {[regexp -nocase {^/([^?]*)(\?([^?]*)(\?([^?]*)(\?([^?]*))?)?)?$} \
+		 $path _ dn a attributes s scope f filter]} {
+	    if {$scope eq ""} { set scope "base" }
+	    if {$filter eq ""} { set filter "(objectClass=*)" }
+	} else {
+	    set errmsg    "*** Ldap Url trail=<$path> does not  match!\n"      
+	    append errmsg "___ RFC 1959 says:\n"
+	    append errmsg "    ldap://<host>:<port>/<dn>\[?<attributes>\[?<scope>?<filter>\]\]\n"    
+	    append errmsg "___ Cineast and Netscape uses:\n"
+	    append errmsg "    ldap://<host>:<port>/<dn>\[?<attributes>\[?<scope>\[?<filter>\]\]\]"
+	    my abort "Unsupported URL: '$url' \n $errmsg"
+	}    
+    }
+    Ldap instproc GET {} {
+	my instvar  contentType totalsize state currentsize informObjects block
+	showCall
+	set contentType text/html
+	my getUrlcomponents
+	if {"start" ne $state } {
+	    puts stderr "... [self]:$proc ignoring request in state $state"
+	    return
+	}
+	my open
+	my search
+	my body-state
+	set totalsize [string length $block]
+	set currentsize $totalsize
+	foreach obj $informObjects {
+	    $obj incCb [self] $totalsize $currentsize
+	}
+	my eof
+    }
+    Ldap instproc open {} {
+	showCall
+	my instvar port host  ldapHandle
+	set ldapHandle [ldapOpen $host $port]
+    }
+    Ldap instproc bind {} {
+	my instvar ldapHandle
+	showCall
+    }
+    Ldap instproc search {} {
+	showVars
+	my instvar url ldapHandle searchHandle dn attributes scope filter results mapToC path
+	set searchHandle [ldapSearch $ldapHandle $dn \
+			      $mapToC($scope) $filter [split $attributes ,] false results]
+	set nentries [ldapCountEntries $ldapHandle $searchHandle]
+	puts stderr "*** nentries = $nentries"
+	if {!$nentries} {set results ""}
+	my response 
+    }
+    Ldap instproc getAttrs {dn} {
+    }
+    Ldap instproc makeUrl {dn} {
+	showCall
+	my instvar port host scope filter attributes
+	set tmpUrl ldap://$host:$port/$dn?$attributes?$scope?$filter
+	return "<a href=\"$tmpUrl\">$dn</a>"  
+    }
+    Ldap instproc  response {} { 
+	showCall
+	my  instvar block results attrsVals ldapHandle searchHandle
+	set block "
+<HTML>
+ <HEAD><TITLE>LDAP searching result!!</TITLE></HEAD>
+ <BODY bgcolor=FFFFFF>
+   <H1>Result</H1>\n  <ul>\n"
+	foreach {resDN}  $results {
+	    append block "   <li>  [my makeUrl $resDN] <p>\n    <ul>\n"   
+	    ldapAttributes $ldapHandle $searchHandle $resDN attrsVals
+	    foreach {a v} [array get attrsVals] {      
+		append block "     <li> <FONT COLOR=\"\#cc0000\" face=\"Arial,Helvetica\" size=4><b> $a </b></FONT> = $v <p>\n"    
+	    }
+	    append block "    </ul>\n" 
+	}
+	append block "  </ul>\n </BODY>\n</HTML>"
+    }
+
+    # destructor: Close Connection to LDAP-Server and unbind 
+    Ldap instproc destroy {} {
+	showCall
+	my  instvar ldapHandle
+	if {[catch {ldapUnbind $ldapHandle} error]} {
+	    return $error
+	}
+	my freeSearchHandle
+    }
+    Ldap instproc close {} {
+	showCall
+	my destroy
+	next
+    }
+    Ldap instproc freeSearchHandle {} { 
+	showCall
+	my instvar searchHandle 
+	if {[info exists searchHandle]} {
+	    ldapFreeSearch $searchHandle  
+	}
+    }
+
+    namespace export Ldap
+}
+
+namespace import ::xotcl::comm::ldap::*

@@ -115,6 +115,7 @@ ALL : "..\..\..\Build\Release\libisc.dll"
 CLEAN :
 	-@erase "$(INTDIR)\app.obj"
 	-@erase "$(INTDIR)\assertions.obj"
+	-@erase "$(INTDIR)\base32.obj"
 	-@erase "$(INTDIR)\base64.obj"
 	-@erase "$(INTDIR)\bitstring.obj"
 	-@erase "$(INTDIR)\buffer.obj"
@@ -134,11 +135,13 @@ CLEAN :
 	-@erase "$(INTDIR)\hex.obj"
 	-@erase "$(INTDIR)\hmacmd5.obj"
 	-@erase "$(INTDIR)\hmacsha.obj"
+	-@erase "$(INTDIR)\httpd.obj"
 	-@erase "$(INTDIR)\inet_aton.obj"
 	-@erase "$(INTDIR)\inet_ntop.obj"
 	-@erase "$(INTDIR)\inet_pton.obj"
 	-@erase "$(INTDIR)\interfaceiter.obj"
 	-@erase "$(INTDIR)\ipv6.obj"
+	-@erase "$(INTDIR)\iterated_hash.obj"
 	-@erase "$(INTDIR)\keyboard.obj"
 	-@erase "$(INTDIR)\lex.obj"
 	-@erase "$(INTDIR)\lfsr.obj"
@@ -158,6 +161,7 @@ CLEAN :
 	-@erase "$(INTDIR)\parseint.obj"
 	-@erase "$(INTDIR)\portset.obj"
 	-@erase "$(INTDIR)\quota.obj"
+	-@erase "$(INTDIR)\radix.obj"
 	-@erase "$(INTDIR)\random.obj"
 	-@erase "$(INTDIR)\ratelimiter.obj"
 	-@erase "$(INTDIR)\refcount.obj"
@@ -213,6 +217,7 @@ LINK32_OBJS= \
 	"$(INTDIR)\fsaccess.obj" \
 	"$(INTDIR)\interfaceiter.obj" \
 	"$(INTDIR)\ipv6.obj" \
+	"$(INTDIR)\iterated_hash.obj" \
 	"$(INTDIR)\keyboard.obj" \
 	"$(INTDIR)\net.obj" \
 	"$(INTDIR)\ntpaths.obj" \
@@ -229,6 +234,7 @@ LINK32_OBJS= \
 	"$(INTDIR)\version.obj" \
 	"$(INTDIR)\win32os.obj" \
 	"$(INTDIR)\assertions.obj" \
+	"$(INTDIR)\base32.obj" \
 	"$(INTDIR)\base64.obj" \
 	"$(INTDIR)\bitstring.obj" \
 	"$(INTDIR)\buffer.obj" \
@@ -241,6 +247,7 @@ LINK32_OBJS= \
 	"$(INTDIR)\hex.obj" \
 	"$(INTDIR)\hmacmd5.obj" \
 	"$(INTDIR)\hmacsha.obj" \
+	"$(INTDIR)\httpd.obj" \
 	"$(INTDIR)\inet_aton.obj" \
 	"$(INTDIR)\inet_ntop.obj" \
 	"$(INTDIR)\inet_pton.obj" \
@@ -256,6 +263,7 @@ LINK32_OBJS= \
 	"$(INTDIR)\netscope.obj" \
 	"$(INTDIR)\ondestroy.obj" \
 	"$(INTDIR)\quota.obj" \
+	"$(INTDIR)\radix.obj" \
 	"$(INTDIR)\random.obj" \
 	"$(INTDIR)\ratelimiter.obj" \
 	"$(INTDIR)\refcount.obj" \
@@ -296,6 +304,8 @@ CLEAN :
 	-@erase "$(INTDIR)\app.sbr"
 	-@erase "$(INTDIR)\assertions.obj"
 	-@erase "$(INTDIR)\assertions.sbr"
+	-@erase "$(INTDIR)\base32.obj"
+	-@erase "$(INTDIR)\base32.sbr"
 	-@erase "$(INTDIR)\base64.obj"
 	-@erase "$(INTDIR)\base64.sbr"
 	-@erase "$(INTDIR)\bitstring.obj"
@@ -334,6 +344,8 @@ CLEAN :
 	-@erase "$(INTDIR)\hmacmd5.sbr"
 	-@erase "$(INTDIR)\hmacsha.obj"
 	-@erase "$(INTDIR)\hmacsha.sbr"
+	-@erase "$(INTDIR)\httpd.obj"
+	-@erase "$(INTDIR)\httpd.sbr"
 	-@erase "$(INTDIR)\inet_aton.obj"
 	-@erase "$(INTDIR)\inet_aton.sbr"
 	-@erase "$(INTDIR)\inet_ntop.obj"
@@ -344,6 +356,8 @@ CLEAN :
 	-@erase "$(INTDIR)\interfaceiter.sbr"
 	-@erase "$(INTDIR)\ipv6.obj"
 	-@erase "$(INTDIR)\ipv6.sbr"
+	-@erase "$(INTDIR)\iterated_hash.obj"
+	-@erase "$(INTDIR)\iterated_hash.sbr"
 	-@erase "$(INTDIR)\keyboard.obj"
 	-@erase "$(INTDIR)\keyboard.sbr"
 	-@erase "$(INTDIR)\lex.obj"
@@ -382,6 +396,8 @@ CLEAN :
 	-@erase "$(INTDIR)\portset.sbr"
 	-@erase "$(INTDIR)\quota.obj"
 	-@erase "$(INTDIR)\quota.sbr"
+	-@erase "$(INTDIR)\radix.obj"
+	-@erase "$(INTDIR)\radix.sbr"
 	-@erase "$(INTDIR)\random.obj"
 	-@erase "$(INTDIR)\random.sbr"
 	-@erase "$(INTDIR)\ratelimiter.obj"
@@ -461,6 +477,7 @@ BSC32_SBRS= \
 	"$(INTDIR)\fsaccess.sbr" \
 	"$(INTDIR)\interfaceiter.sbr" \
 	"$(INTDIR)\ipv6.sbr" \
+	"$(INTDIR)\iterated_hash.sbr" \
 	"$(INTDIR)\keyboard.sbr" \
 	"$(INTDIR)\net.sbr" \
 	"$(INTDIR)\ntpaths.sbr" \
@@ -477,6 +494,7 @@ BSC32_SBRS= \
 	"$(INTDIR)\version.sbr" \
 	"$(INTDIR)\win32os.sbr" \
 	"$(INTDIR)\assertions.sbr" \
+	"$(INTDIR)\base32.sbr" \
 	"$(INTDIR)\base64.sbr" \
 	"$(INTDIR)\bitstring.sbr" \
 	"$(INTDIR)\buffer.sbr" \
@@ -489,6 +507,7 @@ BSC32_SBRS= \
 	"$(INTDIR)\hex.sbr" \
 	"$(INTDIR)\hmacmd5.sbr" \
 	"$(INTDIR)\hmacsha.sbr" \
+	"$(INTDIR)\httpd.sbr" \
 	"$(INTDIR)\inet_aton.sbr" \
 	"$(INTDIR)\inet_ntop.sbr" \
 	"$(INTDIR)\inet_pton.sbr" \
@@ -504,6 +523,7 @@ BSC32_SBRS= \
 	"$(INTDIR)\netscope.sbr" \
 	"$(INTDIR)\ondestroy.sbr" \
 	"$(INTDIR)\quota.sbr" \
+	"$(INTDIR)\radix.sbr" \
 	"$(INTDIR)\random.sbr" \
 	"$(INTDIR)\ratelimiter.sbr" \
 	"$(INTDIR)\refcount.sbr" \
@@ -542,6 +562,7 @@ LINK32_OBJS= \
 	"$(INTDIR)\fsaccess.obj" \
 	"$(INTDIR)\interfaceiter.obj" \
 	"$(INTDIR)\ipv6.obj" \
+	"$(INTDIR)\iterated_hash.obj" \
 	"$(INTDIR)\keyboard.obj" \
 	"$(INTDIR)\net.obj" \
 	"$(INTDIR)\ntpaths.obj" \
@@ -558,6 +579,7 @@ LINK32_OBJS= \
 	"$(INTDIR)\version.obj" \
 	"$(INTDIR)\win32os.obj" \
 	"$(INTDIR)\assertions.obj" \
+	"$(INTDIR)\base32.obj" \
 	"$(INTDIR)\base64.obj" \
 	"$(INTDIR)\bitstring.obj" \
 	"$(INTDIR)\buffer.obj" \
@@ -570,6 +592,7 @@ LINK32_OBJS= \
 	"$(INTDIR)\hex.obj" \
 	"$(INTDIR)\hmacmd5.obj" \
 	"$(INTDIR)\hmacsha.obj" \
+	"$(INTDIR)\httpd.obj" \
 	"$(INTDIR)\inet_aton.obj" \
 	"$(INTDIR)\inet_ntop.obj" \
 	"$(INTDIR)\inet_pton.obj" \
@@ -585,6 +608,7 @@ LINK32_OBJS= \
 	"$(INTDIR)\netscope.obj" \
 	"$(INTDIR)\ondestroy.obj" \
 	"$(INTDIR)\quota.obj" \
+	"$(INTDIR)\radix.obj" \
 	"$(INTDIR)\random.obj" \
 	"$(INTDIR)\ratelimiter.obj" \
 	"$(INTDIR)\refcount.obj" \
@@ -811,6 +835,7 @@ SOURCE=.\ipv6.c
 
 
 !ENDIF 
+
 
 SOURCE=.\keyboard.c
 
@@ -1070,6 +1095,24 @@ SOURCE=..\assertions.c
 
 !ENDIF 
 
+SOURCE=..\base32.c
+
+!IF  "$(CFG)" == "libisc - Win32 Release"
+
+
+"$(INTDIR)\base32.obj" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+!ELSEIF  "$(CFG)" == "libisc - Win32 Debug"
+
+
+"$(INTDIR)\base32.obj"	"$(INTDIR)\base32.sbr" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+!ENDIF 
+
 SOURCE=..\base64.c
 
 !IF  "$(CFG)" == "libisc - Win32 Release"
@@ -1286,6 +1329,24 @@ SOURCE=..\hmacsha.c
 
 !ENDIF 
 
+SOURCE=..\httpd.c
+
+!IF  "$(CFG)" == "libisc - Win32 Release"
+
+
+"$(INTDIR)\httpd.obj" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+!ELSEIF  "$(CFG)" == "libisc - Win32 Debug"
+
+
+"$(INTDIR)\httpd.obj"	"$(INTDIR)\httpd.sbr" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+!ENDIF 
+
 SOURCE=..\inet_aton.c
 
 !IF  "$(CFG)" == "libisc - Win32 Release"
@@ -1335,6 +1396,24 @@ SOURCE=..\inet_pton.c
 
 
 "$(INTDIR)\inet_pton.obj"	"$(INTDIR)\inet_pton.sbr" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+!ENDIF 
+
+SOURCE=..\iterated_hash.c
+
+!IF  "$(CFG)" == "libisc - Win32 Release"
+
+
+"$(INTDIR)\iterated_hash.obj" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+!ELSEIF  "$(CFG)" == "libisc - Win32 Debug"
+
+
+"$(INTDIR)\iterated_hash.obj"	"$(INTDIR)\iterated_hash.sbr" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
@@ -1587,6 +1666,24 @@ SOURCE=..\quota.c
 
 
 "$(INTDIR)\quota.obj"	"$(INTDIR)\quota.sbr" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+!ENDIF 
+
+SOURCE=..\radix.c
+
+!IF  "$(CFG)" == "libisc - Win32 Release"
+
+
+"$(INTDIR)\radix.obj" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+!ELSEIF  "$(CFG)" == "libisc - Win32 Debug"
+
+
+"$(INTDIR)\radix.obj"	"$(INTDIR)\radix.sbr" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 

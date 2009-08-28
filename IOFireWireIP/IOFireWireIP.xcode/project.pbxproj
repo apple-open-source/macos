@@ -72,9 +72,9 @@
 
 /* Begin PBXFileReference section */
 		14C630660761010D00169D0F /* IOFWIPBusInterface.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOFWIPBusInterface.cpp; sourceTree = "<group>"; };
-		30038668094E4EA100762E56 /* Info-IOFireWireIP__Upgraded_.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "Info-IOFireWireIP__Upgraded_.plist"; sourceTree = "<group>"; };
+		30038668094E4EA100762E56 /* Info-IOFireWireIP__Upgraded_.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOFireWireIP__Upgraded_.plist"; sourceTree = "<group>"; };
 		30038669094E4EA100762E56 /* IOFireWireIP.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOFireWireIP.kext; sourceTree = BUILT_PRODUCTS_DIR; };
-		30038686094E4EB300762E56 /* Info-IOFireWireIPPrivate__Upgraded_.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "Info-IOFireWireIPPrivate__Upgraded_.plist"; sourceTree = "<group>"; };
+		30038686094E4EB300762E56 /* Info-IOFireWireIPPrivate__Upgraded_.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOFireWireIPPrivate__Upgraded_.plist"; sourceTree = "<group>"; };
 		30038687094E4EB300762E56 /* IOFireWireIPPrivate.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOFireWireIPPrivate.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		B1E929F7040ED80200CD2883 /* firewire.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = firewire.h; sourceTree = "<group>"; };
 		B1E929F8040ED80200CD2883 /* if_firewire.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = if_firewire.h; sourceTree = "<group>"; };
@@ -462,7 +462,6 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -480,6 +479,12 @@
 		14220D4F08AC38B300347178 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					i386,
+					ppc,
+					ppc64,
+					x86_64,
+				);
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				OTHER_CFLAGS = "";
@@ -500,7 +505,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				OPTIMIZATION_CFLAGS = "-O0";
+				GCC_OPTIMIZATION_LEVEL = 0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -591,15 +596,17 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = __MBUF_TRANSITION_;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Info-IOFireWireIP__Upgraded_.plist";
+				INFOPLIST_PREPROCESSOR_DEFINITIONS = "";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_MODULE = YES;
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireIP;
-				MODULE_VERSION = 1.7.7;
+				MODULE_VERSION = 2.0.3;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOFireWireIP;
@@ -617,9 +624,15 @@
 		30038665094E4EA100762E56 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					i386,
+					ppc,
+					x86_64,
+				);
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = __MBUF_TRANSITION_;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Info-IOFireWireIP__Upgraded_.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
@@ -628,11 +641,14 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireIP;
-				MODULE_VERSION = 1.7.7;
+				MODULE_VERSION = 2.0.3;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
+				PRIVATE_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/PrivateHeaders/IOKit/$(KEXT_FAMILY_NAME)";
 				PRODUCT_NAME = IOFireWireIP;
+				PUBLIC_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/Headers/IOKit/$(KEXT_FAMILY_NAME)";
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "ppc7400 ppc970 i386 ppc x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -649,6 +665,7 @@
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = __MBUF_TRANSITION_;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Info-IOFireWireIP__Upgraded_.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
@@ -657,7 +674,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireIP;
-				MODULE_VERSION = 1.7.7;
+				MODULE_VERSION = 2.0.3;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOFireWireIP;
@@ -675,6 +692,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_PREPROCESSOR_DEFINITIONS = __MBUF_TRANSITION_;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Info-IOFireWireIP__Upgraded_.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
@@ -683,7 +701,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireIP;
-				MODULE_VERSION = 1.7.7;
+				MODULE_VERSION = 2.0.3;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOFireWireIP;
@@ -706,6 +724,7 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = __MBUF_TRANSITION_;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Info-IOFireWireIPPrivate__Upgraded_.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
@@ -714,7 +733,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireIPPrivate;
-				MODULE_VERSION = 1.7.7;
+				MODULE_VERSION = 2.0.3;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOFireWireIPPrivate;
@@ -732,9 +751,15 @@
 		30038683094E4EB300762E56 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					i386,
+					ppc,
+					x86_64,
+				);
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = __MBUF_TRANSITION_;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Info-IOFireWireIPPrivate__Upgraded_.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
@@ -743,11 +768,12 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireIPPrivate;
-				MODULE_VERSION = 1.7.7;
+				MODULE_VERSION = 2.0.3;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOFireWireIPPrivate;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "ppc7400 ppc970 i386 x86_64 ppc";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -764,6 +790,7 @@
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = __MBUF_TRANSITION_;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Info-IOFireWireIPPrivate__Upgraded_.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
@@ -772,7 +799,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireIPPrivate;
-				MODULE_VERSION = 1.7.7;
+				MODULE_VERSION = 2.0.3;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOFireWireIPPrivate;
@@ -790,6 +817,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_PREPROCESSOR_DEFINITIONS = __MBUF_TRANSITION_;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Info-IOFireWireIPPrivate__Upgraded_.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
@@ -798,7 +826,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireIPPrivate;
-				MODULE_VERSION = 1.7.7;
+				MODULE_VERSION = 2.0.3;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOFireWireIPPrivate;

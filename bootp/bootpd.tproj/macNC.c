@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -369,7 +369,7 @@ S_add_afppath_option(struct in_addr servip, dhcpoa_t * options,
 		     int tag)
 {
     char		buf[DHCP_OPTION_SIZE_MAX];
-    char		err[256];
+    dhcpo_err_str_t	err;
     int			len;
     char		path[PATH_MAX];
 
@@ -382,9 +382,9 @@ S_add_afppath_option(struct in_addr servip, dhcpoa_t * options,
     len = sizeof(buf);
     if (macNCopt_encodeAFPPath(servip, AFP_PORT_NUMBER, entry->name,
 			       AFP_DIRID_NULL, AFP_PATHTYPE_LONG,
-			       path, '/', buf, &len, err) == FALSE) {
+			       path, '/', buf, &len, &err) == FALSE) {
 	my_log(LOG_INFO, "macNC: couldn't encode %s:%s, %s", entry->name, path,
-	       err);
+	       err.str);
 	return (FALSE);
     }
     if (dhcpoa_add(options, tag, len, buf) != dhcpoa_success_e) {
@@ -424,7 +424,7 @@ S_freespace(const char * path, unsigned long long * size)
     *size = ((unsigned long long)fsb.f_bavail) 	
 	* ((unsigned long long)fsb.f_bsize);
     if (debug)
-	printf("%s %lu x %lu = %qu bytes\n", path,
+        printf("%s %qu x %u = %qu bytes\n", path,
 	       fsb.f_bavail, fsb.f_bsize, *size);
     return (TRUE);
 }
@@ -497,6 +497,11 @@ macNC_allocate_shadow(const char * machine_name, int host_number,
     unsigned long long	needspace;
     char		shadow_path[PATH_MAX];
     int			vol_index;
+
+    if (G_client_sharepoints == NULL) {
+	syslog(LOG_NOTICE, "macNC_allocate_shadow: no client sharepoints");
+	return (NULL);
+    }
 
     strncpy(nc_images_dir, machine_name, sizeof(nc_images_dir));
 
@@ -894,6 +899,11 @@ macNC_allocate(NBImageEntryRef image_entry,
 	       struct in_addr servip, int host_number, dhcpoa_t * options,
 	       uid_t uid, const char * afp_user, const char * passwd)
 {
+    if (G_client_sharepoints == NULL) {
+	syslog(LOG_NOTICE, "macNC_allocate: no client sharepoints");
+	return (FALSE);
+    }
+
     if (dhcpoa_add(options, macNCtag_user_name_e, strlen(afp_user),
 		   afp_user) != dhcpoa_success_e) {
 	my_log(LOG_INFO, 
@@ -942,6 +952,9 @@ macNC_unlink_shadow(int host_number, const char * hostname)
     char		shadow_path[PATH_MAX];
     int			vol_index;
 
+    if (G_client_sharepoints == NULL) {
+	return;
+    }
     snprintf(nc_images_dir, sizeof(nc_images_dir),
 	     "%s", hostname);
 

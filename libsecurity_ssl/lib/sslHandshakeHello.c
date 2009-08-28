@@ -176,7 +176,7 @@ SSLProcessServerHello(SSLBuffer message, SSLContext *ctx)
     p += sessionIDLen;
     
     ctx->selectedCipher = (UInt16)SSLDecodeInt(p,2);
-    sslLogNegotiateDebug("===ssl3: server requests cipherKind %d", 
+    sslLogNegotiateDebug("===ssl3: server requests cipherKind %x", 
     	(unsigned)ctx->selectedCipher);
     p += 2;
     if ((err = FindCipherSpec(ctx)) != 0) {
@@ -187,6 +187,18 @@ SSLProcessServerHello(SSLBuffer message, SSLContext *ctx)
         return unimpErr;
     
 	/* any remaining data is server hello extensions, none of which we deal with */
+	
+	/*
+	 * Note: the server MAY send a SSL_HE_EC_PointFormats extension if 
+	 * we've negotiated an ECDSA ciphersuite...but 
+	 * a) the provided format list MUST contain SSL_PointFormatUncompressed per
+	 *    RFC 4492 5.2; and
+	 * b) The uncompressed format is the only one we support.
+	 * 
+	 * Thus we drop a possible incoming SSL_HE_EC_PointFormats extension here. 
+	 * IF we ever support other point formats, we have to parse the extension
+	 * to see what the server supports.
+	 */
     return noErr;
 }
 
@@ -196,13 +208,18 @@ SSLEncodeClientHello(SSLRecord *clientHello, SSLContext *ctx)
 	unsigned		length, i;
     OSStatus        err;
     unsigned char   *p;
-    SSLBuffer       sessionIdentifier;
+    SSLBuffer       sessionIdentifier = { 0, NULL };
     UInt16          sessionIDLen;
-	int				doExtensions = 0;
 	UInt32			sessionTicketLen = 0;
 	UInt32			serverNameLen = 0;
+	UInt32			pointFormatLen = 0;
+	UInt32			suppCurveLen = 0;
+	UInt32			totalExtenLen = 0;
 	
     assert(ctx->protocolSide == SSL_ClientSide);
+	
+	clientHello->contents.length = 0;
+	clientHello->contents.data = NULL;
 	
     sessionIDLen = 0;
     if (ctx->resumableSession.data != 0)
@@ -221,7 +238,7 @@ SSLEncodeClientHello(SSLRecord *clientHello, SSLContext *ctx)
 	err = sslGetMaxProtVersion(ctx, &clientHello->protocolVersion);
 	if(err) {
 		/* we don't have a protocol enabled */
-		return err;
+		goto err_exit;
 	}
 
 	/* prepare for optional ClientHello extensions */
@@ -234,33 +251,48 @@ SSLEncodeClientHello(SSLRecord *clientHello, SSLContext *ctx)
 						1 +	/* length of name_type */
 						2 + /* length of HostName */
 						ctx->peerDomainNameLen;
-		doExtensions = 1;
+		totalExtenLen += serverNameLen;
 	}
 	if(ctx->sessionTicket.length) {
 		sessionTicketLen = 2 +	/* extension type */
 						   2 + /* 2-byte vector length, extension_data */
 						   ctx->sessionTicket.length;
-		doExtensions = 1;
+		totalExtenLen += sessionTicketLen;
 	}
-	if(doExtensions) {
+	if((clientHello->protocolVersion >= TLS_Version_1_0) &&
+	   (ctx->ecdsaEnable)) {
+		/* Two more extensions: point format, supported curves */
+		pointFormatLen = 2 +	/* extension type */
+						 2 +	/* 2-byte vector length, extension_data */
+						 1 +    /* length of the ec_point_format_list */
+						 1;		/* the single format we support */
+		suppCurveLen   = 2 +	/* extension type */
+						 2 +	/* 2-byte vector length, extension_data */
+						 2 +    /* length of the elliptic_curve_list */
+						(2 * ctx->ecdhNumCurves);	/* each curve is 2 bytes */
+		totalExtenLen += (pointFormatLen + suppCurveLen);
+	}
+	if(totalExtenLen != 0) {
 		/* 
 		 * Total length extensions have to fit in a 16 bit field...
 		 */
-		if((serverNameLen + sessionTicketLen) > 0xffff) {
+		if(totalExtenLen > 0xffff) {
 			sslErrorLog("Total extensions length EXCEEDED\n");
-			doExtensions = 0;
+			totalExtenLen = 0;
 			sessionTicketLen = 0;
 			serverNameLen = 0;
+			pointFormatLen = 0;
+			suppCurveLen = 0;
 		}
 		else {
 			/* add length of total length plus lengths of extensions */
-			length += (serverNameLen + sessionTicketLen + 2);
+			length += (totalExtenLen + 2);
 		}
 	}
 		
     clientHello->contentType = SSL_RecordTypeHandshake;
     if ((err = SSLAllocBuffer(&clientHello->contents, length + 4, ctx)) != 0)
-        return err;
+        goto err_exit;
     
     p = clientHello->contents.data;
     *p++ = SSL_HdskClientHello;
@@ -270,16 +302,13 @@ SSLEncodeClientHello(SSLRecord *clientHello, SSLContext *ctx)
 		"%d_%d capable ONLY",
 		clientHello->protocolVersion >> 8, clientHello->protocolVersion & 0xff);
    if ((err = SSLEncodeRandom(p, ctx)) != 0)
-    {   SSLFreeBuffer(&clientHello->contents, ctx);
-        return err;
+    {   goto err_exit;
     }
     memcpy(ctx->clientRandom, p, SSL_CLIENT_SRVR_RAND_SIZE);
     p += 32;
     *p++ = sessionIDLen;    				/* 1 byte vector length */
     if (sessionIDLen > 0)
     {   memcpy(p, sessionIdentifier.data, sessionIDLen);
-        if ((err = SSLFreeBuffer(&sessionIdentifier, ctx)) != 0)
-            return err;
     }
     p += sessionIDLen;
     p = SSLEncodeInt(p, 2*(ctx->numValidNonSSLv2Specs), 2);  
@@ -288,8 +317,8 @@ SSLEncodeClientHello(SSLRecord *clientHello, SSLContext *ctx)
 		if(CIPHER_SUITE_IS_SSLv2(ctx->validCipherSpecs[i].cipherSpec)) {
 			continue;
 		}
-		sslLogNegotiateDebug("ssl3EncodeClientHello sending spec %x", 
-					ctx->validCipherSpecs[i].cipherSpec);		
+		sslLogNegotiateVerbDebug("ssl3EncodeClientHello sending spec %x", 
+					(unsigned)ctx->validCipherSpecs[i].cipherSpec);		
         p = SSLEncodeInt(p, ctx->validCipherSpecs[i].cipherSpec, 2);
 	}
     *p++ = 1;                               /* 1 byte long vector */
@@ -298,9 +327,9 @@ SSLEncodeClientHello(SSLRecord *clientHello, SSLContext *ctx)
 	/* 
  	 * Append ClientHello extensions. 
 	 */
-	if(doExtensions) {
+	if(totalExtenLen != 0) {
 		/* first, total length of all extensions */
-   		p = SSLEncodeInt(p, sessionTicketLen + serverNameLen, 2);
+   		p = SSLEncodeInt(p, totalExtenLen, 2);
 	}
 	if(sessionTicketLen) {
 		sslEapDebug("Adding %lu bytes of sessionTicket to ClientHello",
@@ -320,12 +349,37 @@ SSLEncodeClientHello(SSLRecord *clientHello, SSLContext *ctx)
 		memcpy(p, ctx->peerDomainName, ctx->peerDomainNameLen);
 		p += ctx->peerDomainNameLen;
 	}
+	if(suppCurveLen) {
+		UInt32 len = 2 * ctx->ecdhNumCurves;
+		unsigned dex;
+		p = SSLEncodeInt(p, SSL_HE_EllipticCurves, 2);
+		p = SSLEncodeInt(p, len+2, 2);		/* length of extension data */
+		p = SSLEncodeInt(p, len, 2);		/* length of elliptic_curve_list */
+		for(dex=0; dex<ctx->ecdhNumCurves; dex++) {
+			sslEcdsaDebug("+++ adding supported curves %u to ClientHello", 
+				(unsigned)ctx->ecdhCurves[dex]);
+			p = SSLEncodeInt(p, ctx->ecdhCurves[dex], 2);	
+		}
+	}
+	if(pointFormatLen) {
+		sslEcdsaDebug("+++ adding point format to ClientHello");
+		p = SSLEncodeInt(p, SSL_HE_EC_PointFormats, 2);
+		p = SSLEncodeInt(p, 2, 2);		/* length of extension data */
+		p = SSLEncodeInt(p, 1, 1);		/* length of ec_point_format_list */
+		p = SSLEncodeInt(p, SSL_PointFormatUncompressed, 1);	
+	}
     assert(p == clientHello->contents.data + clientHello->contents.length);
     
     if ((err = SSLInitMessageHashes(ctx)) != 0)
-        return err;
-    
-    return noErr;
+        goto err_exit;
+
+err_exit:
+	if (err != 0) {
+		SSLFreeBuffer(&clientHello->contents, ctx);
+	}
+	SSLFreeBuffer(&sessionIdentifier, ctx);
+
+	return err;
 }
 
 OSStatus

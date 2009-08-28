@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>OpenSourceProject</key>
+	<string>libarchive</string>
+	<key>OpenSourceVersion</key>
+	<string>2.6.2</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://code.google.com/p/libarchive/</string>
+	<key>OpenSourceURL</key>
+	<string>http://libarchive.googlecode.com/files/libarchive-2.6.2.tar.gz</string>
+	<key>OpenSourceSHA1</key>
+	<string>56be9601877f467369cc7792f1319f0271becd1c</string>
+	<key>OpenSourceImportDate</key>
+	<string>2009-03-02</string>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>libarchive.txt</string>
+</dict>
+</plist>

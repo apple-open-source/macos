@@ -82,6 +82,8 @@ to use
 .Ar config_file
 instead of
 .Pa /etc/newsyslog.conf
+and
+.Pa /etc/newsyslog.d/*.conf
 for its configuration file.
 .It Fl a Ar directory
 Specify a
@@ -216,12 +218,15 @@ normally waits a few seconds after any signal that is sent.
 If additional command line arguments are given,
 .Nm
 will only examine log files that match those arguments; otherwise, it
-will examine all files listed in the configuration file.
+will examine all files listed in the configuration file(s).
 .Sh FILES
 .Bl -tag -width /etc/newsyslog.confxxxx -compact
 .It Pa /etc/newsyslog.conf
 .Nm
 configuration file
+.It Pa /etc/newsyslog.d/
+.Nm
+configuration directory
 .El
 .Sh COMPATIBILITY
 Previous versions of the

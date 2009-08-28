@@ -50,16 +50,12 @@ CALLBACK_FUNC_DECL(WorkerConstructor)
 {
     INC_STATS(L"DOM.Worker.Constructor");
 
-    if (!WorkerContextExecutionProxy::isWebWorkersEnabled()) {
-        return throwError("Worker is not enabled.", V8Proxy::SYNTAX_ERROR);
-    }
-
     if (!args.IsConstructCall()) {
         return throwError("DOM object constructor cannot be called as a function.");
     }
 
     if (args.Length() == 0) {
-        return throwError("Not enough arguments", V8Proxy::SYNTAX_ERROR);
+        return throwError("Not enough arguments", V8Proxy::SyntaxError);
     }
 
     v8::TryCatch tryCatch;
@@ -83,16 +79,19 @@ CALLBACK_FUNC_DECL(WorkerConstructor)
     }
 
     // Create the worker object.
-    // Note: it's OK to let this RefPtr go out of scope because we also call SetDOMWrapper(), which effectively holds a reference to obj.
+    // Note: it's OK to let this RefPtr go out of scope because we also call setDOMWrapper(), which effectively holds a reference to obj.
     ExceptionCode ec = 0;
     RefPtr<Worker> obj = Worker::create(toWebCoreString(scriptUrl), context, ec);
 
+    if (ec)
+        return throwError(ec);
+
     // Setup the standard wrapper object internal fields.
     v8::Handle<v8::Object> wrapperObject = args.Holder();
-    V8Proxy::SetDOMWrapper(wrapperObject, V8ClassIndex::WORKER, obj.get());
+    V8DOMWrapper::setDOMWrapper(wrapperObject, V8ClassIndex::WORKER, obj.get());
 
     obj->ref();
-    V8Proxy::SetJSWrapperForActiveDOMObject(obj.get(), v8::Persistent<v8::Object>::New(wrapperObject));
+    V8DOMWrapper::setJSWrapperForActiveDOMObject(obj.get(), v8::Persistent<v8::Object>::New(wrapperObject));
 
     return wrapperObject;
 }
@@ -107,7 +106,7 @@ PassRefPtr<EventListener> getEventListener(Worker* worker, v8::Local<v8::Value> 
 
     V8Proxy* proxy = V8Proxy::retrieve(worker->scriptExecutionContext());
     if (proxy)
-        return findOnly ? proxy->FindObjectEventListener(value, false) : proxy->FindOrCreateObjectEventListener(value, false);
+        return findOnly ? proxy->findObjectEventListener(value, false) : proxy->findOrCreateObjectEventListener(value, false);
 
     return 0;
 }
@@ -115,7 +114,7 @@ PassRefPtr<EventListener> getEventListener(Worker* worker, v8::Local<v8::Value> 
 ACCESSOR_GETTER(WorkerOnmessage)
 {
     INC_STATS(L"DOM.Worker.onmessage._get");
-    Worker* worker = V8Proxy::ToNativeObject<Worker>(V8ClassIndex::WORKER, info.Holder());
+    Worker* worker = V8DOMWrapper::convertToNativeObject<Worker>(V8ClassIndex::WORKER, info.Holder());
     if (worker->onmessage()) {
         V8ObjectEventListener* listener = static_cast<V8ObjectEventListener*>(worker->onmessage());
         v8::Local<v8::Object> v8Listener = listener->getListenerObject();
@@ -127,7 +126,7 @@ ACCESSOR_GETTER(WorkerOnmessage)
 ACCESSOR_SETTER(WorkerOnmessage)
 {
     INC_STATS(L"DOM.Worker.onmessage._set");
-    Worker* worker = V8Proxy::ToNativeObject<Worker>(V8ClassIndex::WORKER, info.Holder());
+    Worker* worker = V8DOMWrapper::convertToNativeObject<Worker>(V8ClassIndex::WORKER, info.Holder());
     V8ObjectEventListener* oldListener = static_cast<V8ObjectEventListener*>(worker->onmessage());
     if (value->IsNull()) {
         if (oldListener) {
@@ -154,7 +153,7 @@ ACCESSOR_SETTER(WorkerOnmessage)
 ACCESSOR_GETTER(WorkerOnerror)
 {
     INC_STATS(L"DOM.Worker.onerror._get");
-    Worker* worker = V8Proxy::ToNativeObject<Worker>(V8ClassIndex::WORKER, info.Holder());
+    Worker* worker = V8DOMWrapper::convertToNativeObject<Worker>(V8ClassIndex::WORKER, info.Holder());
     if (worker->onerror()) {
         V8ObjectEventListener* listener = static_cast<V8ObjectEventListener*>(worker->onerror());
         v8::Local<v8::Object> v8Listener = listener->getListenerObject();
@@ -166,7 +165,7 @@ ACCESSOR_GETTER(WorkerOnerror)
 ACCESSOR_SETTER(WorkerOnerror)
 {
     INC_STATS(L"DOM.Worker.onerror._set");
-    Worker* worker = V8Proxy::ToNativeObject<Worker>(V8ClassIndex::WORKER, info.Holder());
+    Worker* worker = V8DOMWrapper::convertToNativeObject<Worker>(V8ClassIndex::WORKER, info.Holder());
     V8ObjectEventListener* oldListener = static_cast<V8ObjectEventListener*>(worker->onerror());
     if (value->IsNull()) {
         if (oldListener) {
@@ -193,7 +192,7 @@ ACCESSOR_SETTER(WorkerOnerror)
 CALLBACK_FUNC_DECL(WorkerAddEventListener)
 {
     INC_STATS(L"DOM.Worker.addEventListener()");
-    Worker* worker = V8Proxy::ToNativeObject<Worker>(V8ClassIndex::WORKER, args.Holder());
+    Worker* worker = V8DOMWrapper::convertToNativeObject<Worker>(V8ClassIndex::WORKER, args.Holder());
 
     RefPtr<EventListener> listener = getEventListener(worker, args[1], false);
     if (listener) {
@@ -209,7 +208,7 @@ CALLBACK_FUNC_DECL(WorkerAddEventListener)
 CALLBACK_FUNC_DECL(WorkerRemoveEventListener)
 {
     INC_STATS(L"DOM.Worker.removeEventListener()");
-    Worker* worker = V8Proxy::ToNativeObject<Worker>(V8ClassIndex::WORKER, args.Holder());
+    Worker* worker = V8DOMWrapper::convertToNativeObject<Worker>(V8ClassIndex::WORKER, args.Holder());
 
     RefPtr<EventListener> listener = getEventListener(worker, args[1], true);
     if (listener) {

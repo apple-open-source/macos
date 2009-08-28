@@ -1,0 +1,323 @@
+# $Id: forwardtest.xotcl,v 1.12 2007/08/14 16:38:27 neumann Exp $
+package require XOTcl
+namespace import -force xotcl::*
+package require xotcl::test
+
+proc ? {cmd expected} {
+  set t [Test new -cmd $cmd]
+  $t expected $expected 
+  $t run
+}
+
+###########################################
+# trivial object delegation
+###########################################
+Object dog
+Object tail
+tail proc wag args { return $args }
+dog forward wag tail %proc
+
+? {dog wag 100} 100
+
+
+###########################################
+# evaluating in scope 
+###########################################
+Class X -parameter {{x 1}}
+X instforward Incr -objscope incr
+
+X x1 -x 100
+x1 Incr x
+x1 Incr x
+x1 Incr x
+? {x1 x} 103
+#puts "======"
+
+###########################################
+# adding 
+###########################################
+Object obj
+obj forward addOne expr 1 +
+
+? {obj addOne 5} 6
+#puts "======"
+
+###########################################
+# more arguments
+###########################################
+Object target
+target proc foo args {return $args}
+obj forward foo target %proc %self a1 a2
+
+? {obj foo x1 x2} [list ::obj a1 a2 x1 x2]
+
+obj forward foo target %proc %self %%self %%p
+? {obj foo x1 x2} [list ::obj %self %p x1 x2]
+
+#puts "======"
+
+
+###########################################
+# mixin example
+###########################################
+Object create mixin
+mixin proc unknown {m args} {return [concat [self] $m $args]}
+ 
+obj forward Mixin mixin %1 %self
+? {obj Mixin add M1} [list ::mixin add ::obj M1]
+? {catch {obj Mixin}} 1
+
+
+obj forward Mixin -default {getter setter} mixin %1  %self
+? {obj Mixin add M1} [list ::mixin add ::obj M1]
+? {obj Mixin M1} [list ::mixin setter ::obj M1]
+? {obj Mixin} [list ::mixin getter ::obj]
+#puts "======"
+
+
+###########################################
+# sketching extensibe info
+###########################################
+Object Info
+Info proc @mixin {o} {
+  $o info mixin
+}
+Info proc @class {o} { ;# without prefix, doing here a [Info class] wod be wrong
+  $o info class
+}
+Info proc @help {o} { ;# define a new subcommand for info
+  foreach c [my info procs] {lappend result [string range $c 1 end]}
+  return $result
+}
+Object instforward Info -methodprefix @ Info %1 %self 
+
+? {x1 Info class} ::X
+? {x1 Info help} [list help mixin class]
+
+###########################################
+# variations of placement of options
+###########################################
+obj set x 1
+obj forward i1 -objscope incr x 
+
+? {obj i1} 2
+#puts "======"
+
+###########################################
+# introspeciton options
+###########################################
+Class C 
+C instforward Info -methodprefix @ Info %1 %self 
+
+? {C info instforward} Info
+C instforward XXXo x
+? {lsort [C info instforward]} [list Info XXXo]
+
+? {C info instforward X*} [list XXXo]
+? {lsort [C info instforward *o]} [list Info XXXo]
+
+# delete the forwarder
+C instproc XXXo {} {}
+? {C info instforward} [list Info]
+# get the definition of a instforwarder
+? {C info instforward -definition Info} [list -methodprefix @ Info %1 %self]
+
+# chek introspection for objects
+? {lsort [obj info forward]} "Mixin addOne foo i1"
+? {obj info forward -definition Mixin} "-default {getter setter} mixin %1 %self"
+? {obj info forward -definition addOne} "expr 1 +"
+? {obj info forward -definition foo} "target %proc %self %%self %%p"
+? {obj info forward -definition i1} "-objscope ::incr x"
+#puts "======"
+
+###########################################
+# test serializer
+###########################################
+package require xotcl::serializer
+obj proc test {} {puts "i am [self proc]"}
+set a [Serializer deepSerialize obj]
+#puts <<$a>>
+eval $a
+? {set ::a} [Serializer deepSerialize obj]
+
+###########################################
+# test optional target cmd
+###########################################
+obj set x 2
+obj forward append -objscope
+? {obj append x y z} 2yz
+
+Object n; Object n::x; Object o; 
+o forward ::n::x
+? {o x self} ::n::x
+
+###########################################
+# arg including instvar
+###########################################
+obj set x 10
+obj forward x* expr {%my set x} *
+? {obj x* 10} "100"
+
+###########################################
+# positional arguments
+###########################################
+
+obj forward @end-13 list {%@end 13}
+? {obj @end-13 1 2 3 } [list 1 2 3 13]
+
+obj forward @-1-13 list {%@-1 13}
+? {obj @-1-13 1 2 3 } [list 1 2 13 3]
+
+obj forward @1-13 list {%@1 13}
+? {obj @1-13 1 2 3 } [list 13 1 2 3]
+? {obj @1-13} [list 13]
+
+obj forward @2-13 list {%@2 13}
+? {obj @2-13 1 2 3 } [list 1 13 2 3]
+
+obj forward @list 10 {%@0 list} {%@end 99}
+? {obj @list} [list 10 99]
+? {obj @list a b c} [list 10 a b c 99]
+
+obj forward @list {%@end 99} {%@0 list} 10
+? {obj @list} [list 10 99]
+? {obj @list a b c} [list 10 a b c 99]
+
+obj forward @list {%@2 2} {%@1 1} {%@0 list}
+? {obj @list} [list 1 2]
+? {obj @list a b c} [list 1 2 a b c]
+
+obj forward @list x y z {%@0 list} {%@1 1} {%@2 2} 
+? {obj @list} [list 1 2 x y z]
+? {obj @list a b c} [list 1 2 x y z a b c]
+
+obj forward @list x y z {%@2 2} {%@1 1} {%@0 list}
+? {obj @list} [list x 1 y 2 z]
+? {obj @list a b c} [list x 1 y 2 z a b c]
+
+###############################################
+# substitution depending on number of arguments
+###############################################
+
+obj forward f %self [list %argclindex [list a b c]]
+obj proc a args {return [list [self proc] $args]}
+obj proc b args {return [list [self proc] $args]}
+obj proc c args {return [list [self proc] $args]}
+? {obj f} [list a {}]
+? {obj f 1 } [list b 1]
+? {obj f 1 2} [list c {1 2}]
+? {catch {obj f 1 2 3}} 1
+
+###############################################
+# option earlybinding
+###############################################
+obj forward s -earlybinding ::set %proc
+? {obj s 100} 100
+? {obj s} 100
+
+Object instproc f args { next }          
+
+Class NS	
+Class NS::Main
+
+NS::Main proc m1 {} { my m2 }
+
+NS::Main proc m2 {} {
+  ? {namespace eval :: {Object toplevelObj1}} ::toplevelObj1
+  
+  ? [list set _ [namespace current]] ::NS
+  ? [list set _ [NS create m1]] ::NS::m1
+  NS filter f
+  ? [list set _ [NS create m2]] ::NS::m2
+  NS filter ""
+
+  namespace eval ::test {
+    ? [list set _ [NS create m3]] ::test::m3
+    NS filter f
+    ? [list set _ [NS create m4]] ::test::m4
+    NS filter ""
+  }
+
+  namespace eval test {
+    ? [list set _ [NS create m5]] ::NS::test::m5
+    NS filter f
+    ? [list set _ [NS create m6]] ::NS::test::m6
+    NS filter ""
+  }
+
+}
+
+NS::Main instproc i1 {} { my i2 }
+
+NS::Main instproc i2 {} {
+  ? {namespace eval :: {Object toplevelObj2}} ::toplevelObj2
+  
+  ? [list set _ [namespace current]] ::NS
+  ? [list set _ [NS create i1]] ::NS::i1
+  NS filter f
+  ? [list set _ [NS create i2]] ::NS::i2
+  NS filter ""
+
+  namespace eval ::test {
+    ? [list set _ [NS create i3]] ::test::i3
+    NS filter f
+    ? [list set _ [NS create i4]] ::test::i4
+    NS filter ""
+  }
+
+  namespace eval test {
+    ? [list set _ [NS create i5]] ::NS::test::i5
+    NS filter f
+    ? [list set _ [NS create i6]] ::NS::test::i6
+    NS filter ""
+  }
+
+}
+
+#puts ====
+NS::Main m1
+NS::Main create m
+m i1
+
+#puts ====
+? [list set _ [NS create n1]] ::n1
+NS filter f
+? [list set _ [NS create n2]] ::n2
+NS filter ""
+
+#puts ====
+namespace eval test {
+  ? [list set _ [NS create n1]] ::test::n1
+  ? [list set _ [NS create n3]] ::test::n3
+  NS filter f
+  ? [list set _ [NS create n4]] ::test::n4
+  NS filter ""
+}
+
+###########################################
+# forward to expr + callstack
+###########################################
+
+Object instforward expr -objscope
+
+Class C
+C instproc xx {} {self}
+C proc t {o expr} {
+  return [$o expr $expr]
+}
+C create c1
+
+#puts ====
+? {c1 expr {[self]}} 		::c1
+? {c1 expr {[self] == "::c1"}} 	1
+? {c1 expr {[my xx]}} 		::c1
+? {c1 expr {[my info class]}} 	::C
+? {c1 expr {[my istype C]}} 	1
+? {c1 expr {[my istype ::C]}} 	1
+
+? {C t ::c1 {[self]}} 		::c1
+? {C t ::c1 {[self] == "::c1"}} 1
+? {C t ::c1 {[my xx]}} 		::c1
+? {C t ::c1 {[my info class]}} ::C
+? {C t ::c1 {[my istype C]}} 	1
+? {C t ::c1 {[my istype ::C]}} 	1

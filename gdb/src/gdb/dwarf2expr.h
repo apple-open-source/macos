@@ -131,7 +131,7 @@ void free_dwarf_expr_context (struct dwarf_expr_context *ctx);
 void dwarf_expr_push (struct dwarf_expr_context *ctx, CORE_ADDR value);
 void dwarf_expr_pop (struct dwarf_expr_context *ctx);
 void dwarf_expr_eval (struct dwarf_expr_context *ctx, unsigned char *addr,
-		      size_t len);
+		      size_t len, int eh_frame_p);
 CORE_ADDR dwarf_expr_fetch (struct dwarf_expr_context *ctx, int n);
 
 

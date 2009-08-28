@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -104,6 +104,35 @@ APR_DECLARE(apr_status_t) apr_file_pipe_create(apr_file_t **in, apr_file_t **out
 
 
 
+APR_DECLARE(apr_status_t) apr_file_pipe_create_ex(apr_file_t **in, 
+                                                  apr_file_t **out, 
+                                                  apr_int32_t blocking,
+                                                  apr_pool_t *pool)
+{
+    apr_status_t status;
+
+    if ((status = apr_file_pipe_create(in, out, pool)) != APR_SUCCESS)
+        return status;
+
+    switch (blocking) {
+        case APR_FULL_BLOCK:
+            break;
+        case APR_READ_BLOCK:
+            apr_file_pipe_timeout_set(*out, 0);
+            break;
+        case APR_WRITE_BLOCK:
+            apr_file_pipe_timeout_set(*in, 0);
+            break;
+        default:
+            apr_file_pipe_timeout_set(*out, 0);
+            apr_file_pipe_timeout_set(*in, 0);
+    }
+
+    return APR_SUCCESS;
+}
+
+    
+    
 APR_DECLARE(apr_status_t) apr_file_namedpipe_create(const char *filename, apr_fileperms_t perm, apr_pool_t *pool)
 {
     /* Not yet implemented, interface not suitable */

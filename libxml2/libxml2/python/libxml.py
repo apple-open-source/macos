@@ -1,8 +1,18 @@
 import libxml2mod
 import types
+import sys
 
 # The root of all libxml2 errors.
 class libxmlError(Exception): pass
+
+#
+# id() is sometimes negative ...
+#
+def pos_id(o):
+    i = id(o)
+    if (i < 0):
+        return (sys.maxint - i)
+    return i
 
 #
 # Errors raised by the wrappers when some tree handling failed.
@@ -211,7 +221,8 @@ class SAXCallback:
         pass
 
     def warning(self, msg):
-        print msg
+        #print msg
+        pass
 
     def error(self, msg):
         raise parserError(msg)
@@ -231,6 +242,25 @@ class xmlCore:
             self._o = _obj;
             return
         self._o = None
+
+    def __eq__(self, other):
+        if other == None:
+            return False
+        ret = libxml2mod.compareNodesEqual(self._o, other._o)
+        if ret == None:
+            return False
+        return ret == True
+    def __ne__(self, other):
+        if other == None:
+            return True
+        ret = libxml2mod.compareNodesEqual(self._o, other._o)
+        return not ret
+    def __hash__(self):
+        ret = libxml2mod.nodeHash(self._o)
+        return ret
+
+    def __str__(self):
+        return self.serialize()
     def get_parent(self):
         ret = libxml2mod.parent(self._o)
         if ret == None:
@@ -427,6 +457,27 @@ class xmlCore:
     def xpathEval2(self, expr):
         return self.xpathEval(expr)
 
+    # Remove namespaces
+    def removeNsDef(self, href):
+        """
+        Remove a namespace definition from a node.  If href is None,
+        remove all of the ns definitions on that node.  The removed
+        namespaces are returned as a linked list.
+
+        Note: If any child nodes referred to the removed namespaces,
+        they will be left with dangling links.  You should call
+        renciliateNs() to fix those pointers.
+
+        Note: This method does not free memory taken by the ns
+        definitions.  You will need to free it manually with the
+        freeNsList() method on the returns xmlNs object.
+        """
+
+        ret = libxml2mod.xmlNodeRemoveNsDef(self._o, href)
+        if ret is None:return None
+        __tmp = xmlNs(_obj=ret)
+        return __tmp
+
     # support for python2 iterators
     def walk_depth_first(self):
         return xmlCoreDepthFirstItertor(self)
@@ -511,10 +562,17 @@ def nodeWrap(o):
     return xmlNode(_obj=o)
 
 def xpathObjectRet(o):
-    if type(o) == type([]) or type(o) == type(()):
-        ret = map(lambda x: nodeWrap(x), o)
+    otype = type(o)
+    if otype == type([]):
+        ret = map(xpathObjectRet, o)
         return ret
-    return o
+    elif otype == type(()):
+        ret = map(xpathObjectRet, o)
+        return tuple(ret)
+    elif otype == type('') or otype == type(0) or otype == type(0.0):
+        return o
+    else:
+        return nodeWrap(o)
 
 #
 # register an XPath function
@@ -585,6 +643,45 @@ class parserCtxtCore:
         return libxml2mod.addLocalCatalog(self._o, uri)
     
 
+class ValidCtxtCore:
+
+    def __init__(self, *args, **kw):
+        pass
+
+    def setValidityErrorHandler(self, err_func, warn_func, arg=None):
+        """
+        Register error and warning handlers for DTD validation.
+        These will be called back as f(msg,arg)
+        """
+        libxml2mod.xmlSetValidErrors(self._o, err_func, warn_func, arg)
+    
+
+class SchemaValidCtxtCore:
+
+    def __init__(self, *args, **kw):
+        pass
+
+    def setValidityErrorHandler(self, err_func, warn_func, arg=None):
+        """
+        Register error and warning handlers for Schema validation.
+        These will be called back as f(msg,arg)
+        """
+        libxml2mod.xmlSchemaSetValidErrors(self._o, err_func, warn_func, arg)
+
+
+class relaxNgValidCtxtCore:
+
+    def __init__(self, *args, **kw):
+        pass
+
+    def setValidityErrorHandler(self, err_func, warn_func, arg=None):
+        """
+        Register error and warning handlers for RelaxNG validation.
+        These will be called back as f(msg,arg)
+        """
+        libxml2mod.xmlRelaxNGSetValidErrors(self._o, err_func, warn_func, arg)
+
+    
 def _xmlTextReaderErrorFunc((f,arg),msg,severity,locator):
     """Intermediate callback to wrap the locator"""
     return f(arg,msg,severity,xmlTextReaderLocator(locator))

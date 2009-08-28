@@ -653,7 +653,7 @@ CLog::CLog ( const char *inFile,
 
 	// CFile throws.  We need to catch so we don't throw out of our constructor
 	try {
-		fFile = new CFile( inFile, true, (inFlags & CLog::kRollLog) );
+		fFile = new CFile( inFile, true, (inFlags & kRollLog) );
 		if ( !fFile->is_open() )
 			throw(-1);
 		
@@ -715,8 +715,8 @@ void CLog::GetInfo (	CFileSpec	&fileSpec,
 						bool		&hasWrapped )
 {
 	::strcpy( fileSpec, fFileSpec );
-	startOffset = fOffset;
-	dataLength = fLength;
+	startOffset = (UInt32) fOffset;
+	dataLength = (UInt32) fLength;
 	hasWrapped = false;
 } // GetInfo
 

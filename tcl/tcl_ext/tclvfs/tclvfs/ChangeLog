@@ -1,0 +1,1144 @@
+2008-12-04  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* Makefile.in: change VPATH to ensure that configure munging of
+	VPATH when configuring in the main directory does not break it.
+	[Bug 2389466]
+
+2008-12-03  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* tests/vfsFtp.test: correct unmount ordering
+
+	* library/tclprocvfs.tcl (vfs::ns::matchindirectory): Handle the
+	single item dir/file, and don't add a slash for single proc.
+
+2008-12-02  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* tests/vfs.test (vfs-2.3,2.4,4.1): add tests for mount command
+	not existing and for an issue with .. resolution.
+
+	* pkgIndex.tcl.in, library/tclprocvfs.tcl: vfs::ns bump to 0.5.1
+	Correct glob of namespaces. [Bug 1280914]
+
+	* generic/vfs.c (TCLVFS_POSIXERROR): note use of -1 return code to
+	indicate a posix error passing through.
+
+	* tclconfig/tcl.m4, generic/vfs.c, doc/vfs.n:
+	* configure, configure.in: update to TEA 3.7, bump vfs to v1.4
+
+	* pkgIndex.tcl.in: this is now the sole pkgIndex.tcl script.
+	vfs::loadvfs updated to source vfsUtils.tcl right after loading
+	the dll.  Package versions updated, removed mk4vfs and zipvfs
+	compat packages.
+
+	* Makefile.in, win/makefile.vc: update for removed files
+
+	* library/template/*: add package provide 1.5.2 for each template
+
+	* library/mk4vfscompat.tcl (removed): remove old compat pkg
+	* library/zipvfscompat.tcl (removed): remove old compat pkg
+
+	* library/tclIndex (removed): users should package require the
+	appropriate driver, not rely on autoload
+	* library/pkgIndex.tcl (removed): impotent index files
+	* library/template/pkgIndex.tcl (removed):
+
+	* tests/all.tcl (vfsCreateInterp): simplify the test to require
+	vfs as the main interps do.
+
+	* library/vfslib.tcl: remove vfs::normalize compat proc
+	bump vfslib to 1.4
+
+	* library/mk4vfs.tcl: remove unused lassign defn
+
+	* library/starkit.tcl (header): require namespace-based vfs driver
+	(eg. vfs::mk4 instead of mk4vfs).  bump starkit to v1.3.3
+
+	* mac/* (removed): removed outdated Mac classic pieces
+
+	* Makefile.in (install-lib-binaries): use lib_BINARIES for the
+	binary install list. [Bug 1699827]
+	Install pkgIndex.tcl for static or shared build. [Bug 699176]
+	(pkgIndex.tcl): add rebuild target
+
+2008-11-20  Andreas Kupries  <andreask@activestate.com>
+
+	* library/starkit.tcl (_startup, autoextend): Replaced the buggy
+	  'vfs::filesystem fullynormalize' with the ok 'fullnormalize'
+	  defined in the same file. Now 'starkit::startup' handles
+	  sym-links to a starpack ok when detecting the wrap mode.
+
+2008-10-17  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* pkgIndex.tcl.in, library/pkgIndex.tcl: update vfs::tar to 0.91
+	* library/tarvfs.tcl: update vfs::tar to use only its own
+	namespace and not conflict with tcllib tar. [Bug 80465]
+
+2008-10-10  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* generic/vfs.c: Make use of CONST86 for 8.6a3 support.
+
+2008-08-11  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* http2.6/http.tcl: Merged zlib crc fix from Tcl.
+
+2008-04-30  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* win/makefile.vc:  Updated the NMAKE build files.
+	* win/rules.vc:
+	* win/nmakehlp.c:
+
+2008-04-15  Andreas Kupries  <andreask@activestate.com>
+
+	* pkgIndex.tcl.in: Updated to handle the new files, and
+	* Makefile.in: sync'd generated index with manual one.
+
+	* library/pkgIndex.tcl: Moved the backward compatibility package
+	* library/mkvfs.tcl: names (mk4vfs, zipvfs) into separate files,
+	* library/zipvfs.tcl: as true packages. They properly load the new
+	* library/mk4vfscompat.tcl: packages. The mess with one file
+	* library/zipvfscompat.tcl: annoncing itself as two packages has
+	been removed. Patchlevels bumped (1.10.1, 1.0.1 respectively),
+	considering it as bug fix.
+
+2008-04-11  Andreas Kupries  <andreask@activestate.com>
+
+	* library/pkgIndex.tcl: Bumped version of starkit to 1.3.2. We
+	* library/starkit.tcl: should have done that when we synchronized
+	* pkgIndex.tcl.in: the mismatched version on 2005-11-09 anyway,
+	because it was a bugfix, with attendant change to the version
+	number. Without this bump we now have 1.3.1 floating around in two
+	variants, i.e. it may or may not be mismatched with its package
+	index, and the two variants cannot be distinguished. By bumping
+	the patchlevel the correct version would have been easy to
+	distinguish. Now it will.
+
+2008-04-08  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* configure:    If building static then do not define USE_TCL_STUBS
+	* configure.in: (needed to link tclkit with 8.6)
+
+2008-03-21  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* http2.6/http.tcl, http2.6/pkgIndex.tcl: merge with tcl cvs 2.7
+	http changes, change this version to 2.6.8.
+
+2008-03-10  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* http2.6/http.n, http2.6/http.tcl, http2.6/pkgIndex.tcl: merge
+	with tcl cvs 2.5.5 http changes, correct whitespace differences,
+	require Tcl 8.4.
+
+2008-03-04  Steve Huntley  <stephen.huntley@alum.mit.edu>
+
+	vfs::template package update ver. 1.5.2:
+
+	* templatevfs.tcl, deltavfs.tcl, versionvfs.tcl, quotavfs.tcl, fishvfs.tcl:
+	  added workaround to memchan bug that shows up when tclkit used.
+	* pkgIndex.tcl, tclIndex: moved auto_index edits from former to latter
+	  to conform to Tcl package management standard practice.
+
+2008-02-26  Steve Huntley  <stephen.huntley@alum.mit.edu>
+
+	vfs::template package update ver. 1.5.1:
+
+	* deltavfs.tcl, versionvfs.tcl, quotavfs.tcl: minor bug
+	  fixes and reformatting.
+
+2008-02-15  Steve Huntley  <stephen.huntley@alum.mit.edu>
+
+	vfs::template package update ver. 1.5:
+
+	* Better formatting as Tcl package (added template/pkgIndex.tcl)
+	* Added chrootvfs.tcl
+	* Code refactored for simplicity and better performance
+	* Added improved globfind package
+	* Bug fixes.
+
+2007-06-19  Andreas Kupries  <andreask@activestate.com>
+
+	* library/starkit.tcl (header): See last entry. Simplified the
+	  helper command 'fullnormalize', replaced complex file
+	  split/lrange/join/eval operation with 'file dirname'.
+
+2007-05-28  Andreas Kupries  <andreask@activestate.com>
+
+	* library/starkit.tcl (header): Added helper command
+	  'fullnormalize' and use it to resolve symlinks in the path to
+	  the file calling starkit::header. This makes it possible to run
+	  starkits and starpacks via symlinks.
+
+2007-04-17  Andreas Kupries  <andreask@activestate.com>
+
+	* library/zipvfs.tcl: "zip::DosTime" extended to handle bad
+	  timestamps without crashing. Force-fixed to nearest legal
+	  date/time. "zip::EndOfArchive" extended to find chunk even
+	  if a (long) zip archive comment is present.
+
+2007-04-13  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* Makefile.in:     Applied patch #1589278 to include the template
+	* pkgIndex.tcl.in: vfs files in the install.
+
+2007-04-05  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* Makefile.in: Was failing install the pkgIndex.tcl file
+
+2007-03-12  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* http2.6/http.tcl: Fixed some bugs (0 length body with chunked
+	transfer) and added support for gzip encoding if zlib is
+	available. Tested continued operation with Tcl 8.2.
+	* library/webdavvfs.tcl: Encoding is now in the http package.
+	* http2.6/pkgIndex.tcl: version to 2.6.6
+
+2007-03-07  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* library/webdavvfs.tcl: silence debug output
+	* http2.6/http.tcl: merge in from tclsoap and jcw's webdav
+	versions and merged in tcl8.5 changes.
+	* http2.6/pkgIndex.tcl: version to 2.6.5
+
+2006-12-28  Jean-Claude Wippler  <jcw@equi4.com>
+
+	* configure: autoconf 2.59
+	* tclconfig/tcl.m4: based on tcl.m4,v 1.97 2006/12/19 01:20:55 das
+
+2006-12-10  Steve Huntley  <stephen.huntley@alum.mit.edu>
+
+	* library/template/versionvfs.tcl: when time attribute is set,
+	files created after set time are made invisible.
+
+2006-11-14  Jean-Claude Wippler  <jcw@equi4.com>
+
+	* library/mkclvfs.tcl: removed, now part of the vlerq extension again
+	* library/pkgIndex.tcl, pkgIndex.tcl.in, Makefile.in: removed mkcl
+
+2006-11-10  Steve Huntley  <stephen.huntley@alum.mit.edu>
+
+	* library/template/templatevfs.tcl: file delete on vfs mount 
+	point now causes vfs to unmount ; can now pass empty string
+	as arbitrary attribute value
+
+	* library/template/versionvfs.tcl: more efficient directory
+	deletion code
+
+2006-10-31  Steve Huntley  <stephen.huntley@alum.mit.edu>
+
+	* library/template/versionvfs.tcl: added code to ensure all
+	subfiles of a directory are deleted before dir deletion.
+
+2006-10-29  Steve Huntley  <stephen.huntley@alum.mit.edu>
+
+	Added comments and license info:
+	* library/template/globfind.tcl
+	* library/template/tdelta.tcl
+
+2006-10-23  Steve Huntley  <stephen.huntley@alum.mit.edu>
+
+	Initial upload of template virtual filesystems in new subfolder:
+	* library/template/collatevfs.tcl
+	* library/template/deltavfs.tcl
+	* library/template/fishvfs.tcl
+	* library/template/quotavfs.tcl
+	* library/template/templatevfs.tcl
+	* library/template/versionvfs.tcl
+
+	Plus helper utlities:
+	* library/template/tdelta.tcl - required by deltavfs.tcl
+	* library/template/globfind.tcl - required by quotavfs.tcl
+
+	* library/pkgIndex.tcl - added "package ifneeded" statements for
+	template virtual filesystems.
+
+2006-09-29  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* library/httpvfs.tcl (vfs::http::geturl): wrapper around
+	http::geturl that does 404 check.
+
+2006-09-19  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* library/httpvfs.tcl (vfs::http::urlparse): add method to
+	deconstruct the url using RFC 3986 semantics.
+	(vfs::http::Mount): add support for HTTP basic auth if a user was
+	passed in the url
+
+2006-09-15  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* library/pkgIndex.tcl: bump vfs::http to 0.6
+	* library/httpvfs.tcl:  Add urlname encoding to handle the
+	translation of "/foo/my file (2).txt" as
+	foo/my%20file%20%282%29.txt, per RFC 3986, for the user.  This is
+	controlled via a new ?-urlencode bool? mount option, default 1.
+		**** POTENTIAL INCOMPATIBILITY ****
+		**** if user was "working around" at [open] level ****
+
+2006-09-14  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* library/httpvfs.tcl: rewritten to clean up http tokens and
+	actually interpret data from them.
+	(Mount): If a url doesn't return "ok" status, return failure.
+	(stat, access): If HEAD returns 404 or status != ok, return ENOENT.
+
+	* library/vfslib.tcl: code cleanup
+
+2006-08-30  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* generic/vfs.c: move static globals to being thread-specific.  If
+	you wish to access a mount point or volume in a thread, you need
+	to remount the file in the thread.  This is a change from the
+	previous behavior that would allow access across threads, which
+	was unsafe and would potentially crash.
+		**** POTENTIAL INCOMPATIBILITY ****
+
+2006-06-22  Jean-Claude Wippler  <jcw@equi4.com>
+
+	* library/mkclvfs.tcl: Updated to latest 1.4 revision
+
+2006-05-26  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* generic/vfs.c (VfsOpenFileChannel): handle closing channels that
+	were inherited as std channels. [Bug 1468291]
+
+2006-03-12  Vince Darley <vincentdarley@sourceforge.net>
+
+	* library/ftpvfs.tcl: provide caching of listings to improve
+	performance for many standard use cases.
+
+2006-02-27  Jean-Claude Wippler  <jcw@equi4.com>
+
+	* library/mkclvfs.tcl: Small optimization so a writable starkit
+	does not cause a real commit if no changes at all were made.
+
+2006-01-25  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* configure, configure.in: update to TEA 3.5
+	* tclconfig/tcl.m4:        TEA rcs 1.89 2006/01/25 21:25:02
+
+2006-01-22  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* tclconfig/tcl.m4, configure: update to TEA 3.4 interim
+
+2005-12-02  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* tclconfig/tcl.m4, configure.in, configure: update to TEA 3.4
+
+2005-11-10  Jean-Claude Wippler  <jcw@equi4.com>
+
+	* Makefile.in: added missing mkclvfs.tcl dependency
+
+2005-11-09  Andreas Kupries <andreask@activestate.com>
+
+	* library/vfslib.tcl:  Brought the version numbers of provide
+	* library/starkit.tcl: and ifneeded commands back into sync.
+
+2005-11-04  Jean-Claude Wippler  <jcw@equi4.com>
+
+	* library/mkclvfs.tcl: some more thrill api mods
+	* pkgIndex.tcl.in, library/pkgIndex.tcl: bumped to 1.2
+
+2005-11-01  Jean-Claude Wippler  <jcw@equi4.com>
+
+	* library/mkclvfs.tcl: renamed vlerq package to thrill
+	* pkgIndex.tcl.in, library/pkgIndex.tcl: bumped to 1.1
+
+2005-10-19  Jean-Claude Wippler  <jcw@equi4.com>
+
+	* library/mk4vfs.tcl: added fallback to new vfs::mkcl
+	* library/mkclvfs.tcl: new MK Compatible Lite driver
+	* pkgIndex.tcl.in, library/pkgIndex.tcl: adjusted
+
+2005-08-31  Vince Darley <vincentdarley@sourceforge.net>
+
+	* generic/vfs.c: despite lack of documentation on this point,
+	VfsMatchInDirectory should really allow a NULL interp, even in
+	error situations.  Tcl 8.5 now documents that this is allowed.
+
+2005-03-18  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* Makefile.in (AR): use @AR@
+	* configure, tclconfig/tcl.m4: TEA 3.2 patch update
+
+2005-02-14  Jean-Claude Wippler  <jcw@equi4.com>
+
+	* configure, configure.in, tclconfig/tcl.m4: update from sample
+
+2005-02-01  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* configure, configure.in, tclconfig/tcl.m4: update to TEA 3.2
+
+2005-01-25  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* configure, configure.in (BUILD_vfs): correct from sample default
+
+2005-01-20  Jean-Claude Wippler  <jcw@equi4.com>
+
+	* library/mk4vfs.tcl: added return in periodicCommit
+
+2004-11-22  Andreas Kupries <andreask@activestate.com>
+
+	* Makefile.in (PKG_TCL_SOURCES): Added 'tkvfs.tcl' to the list of
+	  installed files. It is listed in the package index, but was not
+	  installed.
+
+2004-09-28  Vince Darley <vincentdarley@sourceforge.net>
+
+	* win/makefile.vc: some cleanup of makefile to allow compilation
+	  with more than just VC++ 5.x.
+
+2004-09-13  Vince Darley <vincentdarley@sourceforge.net>
+
+	* generic/vfs.c: fix to crash if TclVfsAttr(Set|Get) are called
+	  with a NULL interp for error reporting. [Bug 1022202]
+
+2004-08-05  Andreas Kupries  <andreask@activestate.com>
+
+	* library/zipvfs.tcl (Data): Fixed [SF Tclvfs Bug 1003591]. This
+	  reverts an incomplete and unrecorded fix for handling dashes at
+	  the beginning of data, giving precedence to '2004-07-04 @
+	  library/vfsUtils.tcl' instead, see below. The unrecorded fix was
+	  entered two days before and clashes with the other one. As it
+	  was incomplete the other fix was chosen, despite coming later.
+
+2004-08-04  Andreas Kupries  <andreask@activestate.com>
+
+	* library/zipvfs.tcl (EndOfArchive): Fixed [SF Tclvfs Bug
+	  1003574]. Added code preventing us from seeking before the
+	  beginning of the zip file.
+
+2004-07-15  Andreas Kupries  <andreask@activestate.com>
+
+	* doc/vfs-fsapi.man: Clarified description of the close callback
+	the handler method 'open' may set up. Especially noted that
+	'close' must not be called from within this callback, that it is
+	done by the caller itself.
+
+2004-07-15  Vince Darley <vincentdarley@sourceforge.net>
+
+	* doc/*: fix to removedirectory docs which should say to return
+	a posix EEXIST error if the directory is non-empty.
+
+2004-07-04  Andreas Kupries <andreas_kupries@users.sourceforge.net>
+	
+	* library/vfsUtils.tcl (crc, zip): Modified the Trf adapter
+	  commands. They are now adding in a "--" before the last argument
+	  they get, to ensure its interpretation as data instead of being
+	  misinterpreted as option should it begin with a dash. Without
+	  this adding a file beginning with a dash to a filesystem will
+	  fail.
+
+2004-06-29  Vince Darley <vincentdarley@sourceforge.net>
+
+	* library/zipvfs.tcl: fix to bug finding zip header (reported on
+	Tcl'ers wiki).
+
+2004-06-09  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* Makefile.in: corrected targets that use 'for' over what may be
+	an empty list.  Cleaned up echo output.
+
+	* generic/vfs.c (Vfs_Init): added #ifndef PACKAGE_VERSION for
+	non-TEA based build system.
+
+2004-06-04  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* examples/simpleExamples.tcl:
+	* tests/vfsUrl.test: s/scriptics.com/tcl.tk
+
+	* library/zipvfs.tcl (zip::Data): add zip::stat call that
+	correctly determines size for some zip files (Ferril).
+
+	* generic/vfs.c: use PACKAGE_VERSION instead of hard-coded version
+	info.
+
+	* configure, configure.in, Makefile.in, tclconfig/tcl.m4: updated
+	to the latest TEA3 spec
+	* pkgIndex.tcl.in (added): move from library/ subdir
+	* library/pkgIndex.tcl.in (removed): 
+
+2004-06-03  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* configure (regened):
+	* tclconfig/tcl.m4 (TEA_TCL_64BIT_FLAGS): update to define
+	TCL_WIDE_INT_IS_LONG when 'using long'.
+
+2004-05-21  Vince Darley <vincentdarley@sourceforge.net>
+
+	* win/makefile.vc: fix to compilation problem with new #includes
+	in Tcl 8.5.
+
+2004-05-21  Daniel Steffen <das@users.sourceforge.net>
+
+	* library/starkit.tcl: improved previous symbolic link patch by
+	using [vfs::filesystem fullynormalize], as suggessted by Vince.
+	
+	* library/pkgIndex.tcl.in: brought back into sync with pkgIndex.tcl
+	* library/pkgIndex.tcl: fixed spacing to be like pkgIndex.tcl.in
+
+2004-05-19  Jean-Claude Wippler  <jcw@equi4.com>
+
+	* library/starkit.tcl: added a patch from Bryan Schofield to properly
+	resolve all symbolic links so starkit::startup detection works.
+	* library/pkgIndex.tcl: bumped starkit version from 1.3 to 1.3.1
+
+	* ChangeLog: cleaned up a few tab-vs-space indentations
+
+2004-04-18  Daniel Steffen <das@users.sourceforge.net>
+
+	* generic/vfs.c: continue to #include tclPort.h, otherwise
+	compilation breaks against tcl 8.4.x.
+
+2004-04-01  Vince Darley <vincentdarley@sourceforge.net>
+
+	* generic/vfs.c: added #include tclInt.h given recent Tcl
+        changes which broke compilation.
+
+        Fix to privately reported vfs bug with 'glob -type d -dir .  *'
+        across a vfs boundary.  No tests for this are currently possible
+        without effectively moving tclvfs into Tcl's test suite.
+
+2003-11-10  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* configure: regen
+	* tclconfig/tcl.m4: update to latest TEA that corrects calling
+	order of compiler and header checks.
+
+2003-10-30  Vince Darley <vincentdarley@sourceforge.net>
+
+	* library/tarvfs.tcl: fix to problem with relative paths
+	(Thanks Stefan).
+
+2003-10-21  Jean-Claude Wippler  <jcw@equi4.com>
+
+	* starkit.tcl: add starkit::mode variable, which remembers the
+	return value of starkit::startup (suggestion by Andreas Kupries)
+	* pkgIndex.tcl: bumped starkit version from 1.2 to 1.3
+
+	* ChangeLog: cleaned up a few tab-vs-space indentations
+
+2003-10-17  Vince Darley <vincentdarley@sourceforge.net>
+
+	* generic/vfs.c: removed some compiler warnings on OS X.
+
+2003-10-13  Vince Darley <vincentdarley@sourceforge.net>
+
+	* generic/vfs.c: added support for TCL_GLOB_TYPE_MOUNT flag to
+	the MatchInDirectory proc, which provides for more seamless
+	boundaries between filesystems which allows for fixing Tcl's [Bug
+	800106].  This means (with a suitable version of Tcl) that 'glob
+	*/*' across a filesystem boundary will now work correctly.
+	
+	The code should work fine with Tcl 8.4 and 8.5, although with
+	8.4.4 the mount list will never be queried.
+	
+	* library/pkgIndex.tcl(.in): 
+	* DESCRIPTION.txt:
+	* win/makefile.vc:
+	* configure.in: updated version to 1.3.0 reflecting the above
+	significant improvement.
+	
+2003-10-06  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* configure:        updated to autoconf 2.5
+	* tclconfig/tcl.m4: updated to latest TEA spec with WinCE support
+	and corrected defn of TCL_WIDE_INT_TYPE for compiling.
+
+	* Makefile.in: add CFLAGS_WARNING and pedantic quoting
+
+2003-09-28  Jean-Claude Wippler  <jcw@equi4.com>
+
+	* starkit.tcl: added "package" and "pload" procs, to simplify
+	loading compiled extensions from a platform-specific subdir.
+	The naming conventions and code were adopted from Critcl.
+
+2003-09-26  Jean-Claude Wippler  <jcw@equi4.com>
+
+	* starkit.tcl: add file normalize around info nameofexe, fixes
+	startup detection when exec'd in some cases (thx E Boudaillier).
+
+2003-09-01  Vince Darley <vincentdarley@sourceforge.net>
+
+	* library/mk4vfs.tcl: fix to Bug #796782.
+	* library/zipvfs.tcl:
+	* library/tarvfs.tcl: fix to similar bug in these filesystems.
+	
+2003-07-15  Vince Darley <vincentdarley@sourceforge.net>
+
+	* tests/vfsZip.test:
+	* tests/vfsTar.test: added some new tests for recently fixed
+        bugs.
+	* library/tarvfs.tcl: fix to bug when closing an empty archive.
+
+        Also updated package to version 1.2.1 since a variety of bugs
+        have been fixed since the 1.2 release
+	
+2003-07-06  Vince Darley <vincentdarley@sourceforge.net>
+
+	* library/ftpvfs.tcl: fix to 'file stat' on a directory, which
+        fixes a variety of problems (e.g. recurisve 'file copy' in a 
+        directory).  Thanks to msofer for the detailed bug report and
+        test script.
+	* library/zipvfs.tcl:
+	* library/tarvfs.tcl: ensure archive channel is closed if an
+	error is encountered while trying to open it.
+	
+2003-07-03  Vince Darley <vincentdarley@sourceforge.net>
+
+	* library/ftpvfs.tcl: added support for ports other than 21,
+	patch from msofer -- thanks.
+	
+2003-06-16  Vince Darley <vincentdarley@sourceforge.net>
+
+	* library/ftpvfs.tcl: added '-output ::vfs::log' to ftp
+        initialisation code to avoid messages being dumped to stderr
+        when errors occur.
+	
+2003-05-16  Vince Darley <vincentdarley@sourceforge.net>
+
+	* library/tkvfs.tcl: added 'tk' widget hierarchy vfs.  Use:
+	     package require vfs::tk
+	     vfs::tk::Mount .frame.a.b foo
+	     cd foo
+	     ...
+	  to examine.
+	* library/pkgIndex.tcl(.in): added new package.
+	
+2003-05-15  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* library/pkgIndex.tcl.in: use vfs::dll var directly
+
+2003-05-14  Vince Darley <vincentdarley@sourceforge.net>
+
+	* library/vfsUtils.tcl: fix to package names
+	* library/mk4vfs.tcl: fix to 'file attributes' implementation
+	
+2003-04-29  Vince Darley <vincentdarley@sourceforge.net>
+
+	* library/zipvfs.tcl: patterns in 'glob' should be case-insensitive
+	since everything else is.
+	
+2003-04-04  Andreas Kupries  <andreask@activestate.com>
+
+	* configure.in:
+	* tclconfig/tcl.m4: Updated to newest tcl.m4, regenerated
+	  configure's.
+
+2003-03-17  Jean-Claude Wippler  <jcw@equi4.com>
+
+	* pkgIndex.tcl, pkgIndex.tcl.in: mk4vfs rev bumped to 1.9
+	* mk4vfs.tcl: reverted to old translucent/readwrite open modes
+
+2003-03-11  Andreas Kupries  <andreask@activestate.com>
+
+	* doc/vfs.man:             Added doctools documentation derived
+	* doc/vfs-fsapi.man:       from the original nroff-based
+	* doc/vfs-filesystems.man: manpages. Approved by Vincent.
+
+2003-03-11  Vince Darley <vincentdarley@sourceforge.net>
+
+	* library/pkgIndex.tcl:
+	* win/makefile.vc: updated for Tcl's incompatible change 
+	from 'd' to 'g' for debug builds.
+
+2003-02-24  Jean-Claude Wippler  <jcw@equi4.com>
+
+	* pkgIndex.tcl, pkgIndex.tcl.in: starkit rev bumped to 1.2
+	* starkit.tcl: more contexts, panic ok if "." already gone
+
+2003-02-23  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* configure: regen
+	* configure.in:
+	* tclconfig/tcl.m4: regen from latest TEA setup
+	* Makefile.in: only use pkgIndex.tcl with shared builds
+	Handle RUNTIME_SOURCES properly when srcdir == top_builddir
+
+2003-02-21  Vince Darley <vincentdarley@sourceforge.net>
+
+	* doc/vfs.n:
+	* library/*.tcl: added missing 'recursive' flag to most
+        .tcl 'removedirectory' implementations.
+	
+	* library/mk4vfs.tcl: added catch around 'after cancel'
+	
+2003-02-21  Vince Darley <vincentdarley@sourceforge.net>
+
+	* generic/vfs.c: some small cleanup
+	* doc/vfs.n: better documentation for 'createdirectory'
+	* library/mk4vfs.tcl: better posix adherence.
+	* library/vfsUtils.tcl: typo fix.
+	
+2003-02-20  Vince Darley <vincentdarley@sourceforge.net>
+
+	* generic/vfs.c: completed use of internalerror and posix handling
+	for all functions.
+	* doc/vfs.n:
+	* doc/vfslib.n: more documentation regarding handling of errors
+	and use of the 'internalerror' feature.
+	
+        Around the time Tcl 8.4.2 is released we should increment tclvfs's
+	version to 1.3 and make a proper release.  In the meantime,
+	improvements to all .tcl implementations (esp. proper error
+	handling) would be greatly appreciated.
+	
+2003-02-20  Andreas Kupries  <andreask@activestate.com>
+
+	* library/mk4vfs.tcl: Switching to canceling the stored after id
+	  of the periodic commit in _unmount instead of canceling by
+	  script. The scripts in '_umount' and 'periodicCommit' were
+	  different, causing the cancel to fail, and thus an eternal
+	  commit, failing after the close; hanging the system.
+
+2003-02-20  Vince Darley <vincentdarley@sourceforge.net>
+
+	* generic/vfs.c: added new debugging feature 'vfs::filesystem
+	internalerror ?script?'  which can be used to specify a script to
+	evaluate when any tclvfs implementation throws a standard Tcl
+	error.  Once implementation of all .tcl's is complete, they
+	should only return TCL_OK or a posix error code (which has a Tcl
+	return value of -1).  Any other code will signal an unintended
+	error which can be logged or reported using this new hook.  If
+	the script is not set, the behaviour of this extension is
+	unchanged.  For example:
+	
+        vfs::filesystem internalerror vfsreport
+	proc vfsreport {} {
+	    puts "vfs bug found: $::errorInfo"
+	}
+	
+	Note that this has only been applied to those VFS api's which
+	are not currently able to pass an error message at the Tcl level.
+	Some (open, matchindirectory, fileattributes with get/set) are
+	already able to pass their errors up, so these cases are *not*
+	passed to this handler.
+
+	* library/mk4vfs.tcl: made one change to support the above
+	feature.
+	
+2003-02-19  Vince Darley <vincentdarley@sourceforge.net>
+
+	* library/mk4vfs.tcl: added 'commit' attribute
+	* library/vfsUtils.tcl:
+	* library/tarvfs.tcl:
+	* library/zipvfs.tcl:
+	* library/ftpvfs.tcl: added support for 'state' attribute
+	of these filesystems.
+	
+2003-02-18  Vince Darley <vincentdarley@sourceforge.net>
+
+	* generic/vfs.c:
+	* library/*.tcl: clean up of posix error handling.
+
+	* doc/vfs.n: added some more documentation.
+	
+2003-02-18  Vince Darley <vincentdarley@sourceforge.net>
+
+	* generic/vfs.c: added 'vfs::filesystem posixerror' command
+	to allow direct reporting of posix error codes to Tcl.
+	* library/vfsUtils.tcl: added support for state switching
+	between "readonly", "translucent" and "readwrite".
+	* library/mk4vfs.tcl: 
+	* library/tarvfs.tcl:
+	* library/zipvfs.tcl:
+	* library/httpvfs.tcl: added support for proper reporting
+	of read-only status of filesystem
+	* library/tclIndex:  regen.
+	
+        You can now switch an mk4 filesystem between translucent and
+	readonly with 'vfs::attributes $mount -state readonly'. All
+	errors etc are correctly reported as if the filesystem is
+	read-only.
+	
+2003-02-17  Vince Darley <vincentdarley@sourceforge.net>
+
+	* library/vfsUtils.tcl: added beginnings of interface for
+	filesystem configuration.
+	* library/mk4vfs.tcl: 
+	* library/tclIndex:  regen.
+	
+2003-02-01  Jean-Claude Wippler  <jcw@equi4.com>
+
+	* library/vfslib.tcl: fixed bug in new vfs::zstream code,
+	preventing forward seeking from working properly
+	* library/starkit.tcl: recognize if launched as NT service
+
+2003-02-08  Vince Darley <vincentdarley@sourceforge.net>
+
+	* library/*.tcl: made all 'matchindirectory' implementations
+	robust to whether they are passed a directory with a trailing
+	file-separator or not.  (Tcl doesn't document whether there
+	will be one, and optimisations to Tcl's filesystem require
+	this flexibility.  Also the use of 'file join' will actually
+	make the entire filesystem *more* efficient soon).
+	
+2003-02-06  Andreas Kupries  <andreask@activestate.com>
+
+	* tclconfig/tcl.m4: Added SC_TCL_EARLY_FLAGS and
+	* configure.in:     SC_TCL64BIT_FLAGS, copied from the Tcl
+	* configure:        configuration. Usage prevents mismatch
+	                    between tcl core and tclvfs with regard
+			    to the selected types for wide integer
+			    and Tcl_StatBuf. Regenerated configure.
+
+2003-02-04  Vince Darley <vincentdarley@sourceforge.net>
+
+	* doc/vfs.n: 
+	* doc/vfslib.n: update docs to reflect last six months
+	of changes.
+	
+2003-02-04  Andreas Kupries  <andreask@activestate.com>
+
+	* library/mk4vfs.tcl: Fixed bad vfs::mk4::Mount change.
+
+2003-02-04  Vince Darley <vincentdarley@sourceforge.net>
+
+	* generic/vfs.c: fixed version of VfsFullyNormalizePath,
+	should resolve some problems with symlinks. Tcl really needs
+	a 'file normalized -full' and equivalent C api.
+	
+2003-02-04  Vince Darley <vincentdarley@sourceforge.net>
+
+	* tests/*.test: cleanup
+	
+	Also updated version of the package to 1.2 (not 1.1 since there's
+	a Windows binary floating around with that number, and we want to
+	avoid confusion).  It's been fixed at 1.0 for far too long.
+	
+2003-02-01  Jean-Claude Wippler  <jcw@equi4.com>
+
+	* library/mk4vfs.tcl:  fixed bad mk4vfs::_umount change
+
+2003-02-01  Jean-Claude Wippler  <jcw@equi4.com>
+
+	* library/pkgIndex.tcl.in: mk4vfs 1.8, starkit 1.1, vfslib 1.3.1
+	* library/pkgIndex.tcl: (shouldn't this be dropped from CVS now?)
+	* library/mk4vfs.tcl:  updated from tclkit project
+	* library/starkit.tcl: updated from tclkit project
+	* library/vfslib.tcl:  updated from tclkit project
+
+2003-01-30  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* Makefile.in: only install pkgIndex.tcl for shared builds
+
+2003-01-29  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* library/pkgIndex.tcl.in (new):
+	* library/pkgIndex.tcl: Replace pkgIndex.tcl with one that is
+	* configure:            generated by configure to include the right
+	* configure.in:         vfs dll name.  Left the old one for
+	* Makefile.in:          non-configure users, but it can be wrong.
+	Also added tarvfs.tcl to list of files to install.
+
+	* library/vfsUtils.tcl: code cleanup
+
+2003-01-28  Vince Darley <vincentdarley@sourceforge.net>
+	* library/*.tcl: add 'package provide vfs::<name>' to the
+	virtual filesystems.  These are the current versions:
+	
+	package ifneeded vfs::ftp 1.0 
+	package ifneeded vfs::http 0.5
+	package ifneeded vfs::mk4 1.6 
+	package ifneeded vfs::ns 0.5 
+	package ifneeded vfs::tar 0.9
+	package ifneeded vfs::test 1.0
+	package ifneeded vfs::urltype 1.0
+	package ifneeded vfs::webdav 0.1
+	package ifneeded vfs::zip 1.0 
+	
+        I've used '0.1' to indicate a very preliminary version, 0.5 for
+	something which has had some work, 0.9 for nearly complete and
+	1.0 or newer for something which is well used.
+	
+        There is no need to do 'package require vfs', simply do a package
+	require of the particular vfs implementation you want from the
+	above list.
+	
+	* DESCRIPTION.txt:
+	* make55.tcl: new files for TIP55 compliance. (Steve Cassidy)
+
+	* tests/*:
+	* doc/tcllib.n: updated tests and docs for the above 'package'
+	information.
+
+2003-01-16  Vince Darley <vincentdarley@sourceforge.net>
+	* library/tarvfs.tcl: 
+	* library/zipvfs.tcl: ::close .zip or .tar file when unmounting
+	the filesystem.
+	
+2003-01-14  Vince Darley <vincentdarley@sourceforge.net>
+	* library/tarvfs.tcl: new 'tar' filesystem courtesy of Stefan
+	Vogel -- many thanks!  The tar vfs is currently read-only and
+	doesn't support .tgz.
+	* library/tclIndex:
+	* library/pkgIndex.tcl:
+	* library/vfsUtils.tcl: updated for new tar vfs.
+	
+2003-01-06  Vince Darley <vincentdarley@sourceforge.net>
+	* library/ftpvfs.tcl: allow 'file mtime' to set the modified
+	time of a file, if the ftp package supports it.
+	
+2002-12-24  Vince Darley <vincentdarley@sourceforge.net>
+	* library/ftpvfs.tcl: set the 'size' element in stat calls.
+	(Bug reported on comp.lang.tcl).
+	* library/vfsUtils.tcl: added '.kit' to the set of extensions
+	which vfs::auto will recognise for auto-mounting.
+	
+2002-10-30  Andreas Kupries  <andreask@activestate.com>
+
+	* library/pkgIndex.tcl: Changed 'tcl_platform' to
+	  '::tcl_platform'. Package index must not assume execution at
+	  global level.
+
+2002-10-19  Jean-Claude Wippler <jcw@equi4.com>
+
+	* library/pkgIndex.tcl:
+	* library/mk4vfs.tcl: merged 1.6 changes, periodic commit/flush
+
+2002-10-18  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* Makefile.in: add tclIndex to install
+
+	* library/mk4vfs.tcl:
+	* library/starkit.tcl:
+	* library/vfsUtils.tcl:
+	* library/vfslib.tcl:
+	* library/webdavvfs.tcl: whitespace cleanup
+
+	* library/pkgIndex.tcl: remove 8.4 alpha checks, use vfs::dll var
+	to store library name.
+
+2002-10-15  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* tclconfig/tcl.m4:
+	* configure:
+	* configure.in: move the CFLAGS definition into TEA_ENABLE_SHARED
+	and make it pick up the env CFLAGS at configure time.
+
+2002-09-25  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* Makefile.in:               replace the ancient build system
+	* README.cygwin:             with TEA 2002 build spec.
+	* aclocal.m4:
+	* config.guess (removed):
+	* config.sub (removed):
+	* configure:
+	* configure.in:
+	* install-sh (removed):
+	* mkIndex.tcl.in (removed):
+	* mkinstalldirs (removed):
+	* tcl.m4 (removed):
+	* tclconfig/README.txt (new):
+	* tclconfig/install-sh (new):
+	* tclconfig/tcl.m4 (new):
+	* generic/vfs.c: changed BUILD_Vfs to BUILD_vfs
+
+2002-09-10  Jean-Claude Wippler <jcw@equi4.com>
+	* library/pkgIndex.tcl:	adjusted for two new packages,
+	also fixed to use proper file name on unix (as shared lib)
+	* library/starkit.tcl: added, new impl of scripdoc.tcl
+	* library/vfslib.tcl: added back in, need by above
+
+2002-07-18  Vince Darley <vincentdarley@sourceforge.net>
+	* generic/vfs.c: ensure all mount activity is with fully
+	normalized paths in which the last path element is not a link.
+	Solves (together with latest cvs head changes) a problem in
+	starting up a tclkit(sh) from a link.
+	
+2002-07-08  Vince Darley <vincentdarley@sourceforge.net>
+	* generic/vfs.c: update for latest cvs head.
+	* win/makefile.vc: compilation into Release and Debug
+	directories as appropriate.
+	
+2002-06-22  Jean-Claude Wippler <jcw@equi4.com>
+	* mac/pkgIndex_mac.tcl:
+	* library/pkgIndex.tcl:
+	* library/mk4vfs.in: fix recursive file deletion, bump to 1.5
+
+2002-05-29  Jean-Claude Wippler <jcw@equi4.com>
+	* Makefile.in: moved the definition of $(OBJEXT) up so the
+	definition of vfs_OBJECTS works with more make's
+
+2002-05-13  Vince Darley <vincentdarley@sourceforge.net>
+	* library/webdavvfs.tcl: v. early implementation of a webdav
+	vfs.  (Note: this and the 'http' vfs need lots of work --
+	please help out!).  This requires the '2.6' version of the http
+	package which is distributed with tclvfs.
+	
+2002-05-13  Vince Darley <vincentdarley@sourceforge.net>
+	* library/mk4vfs.tcl: newer version from tclkit.
+
+2002-05-03  Vince Darley <vincentdarley@sourceforge.net>
+	* tests/*: more test improvements, and new file vfsArchive.test
+	which will test the running of the tests inside an archive. 
+	This requires recursive invocation of the 'tcltest' package,
+	which may well cause some problems if it isn't designed to
+	handle that (i.e. executing one test actually causes the
+	execution of a lot of other tests).
+	* library/pkgIndex.tcl: update to try to avoid the 'no such
+	command vfs::*::Mount' error messages which you can get, if
+	the relevant .tcl files are not on your auto_path.
+
+2002-05-02  Vince Darley <vincentdarley@sourceforge.net>
+	* tests/vfs.test: tests work independent of directory in which
+	they run.  Tests added to check that at least 'vfs::memchan'
+	basically works, and vfs::zip, vfs::crc helpers do what they
+	are supposed to.
+	* tests/vfsZip.test: test to run all tests inside a zip.
+	* mac/*: updated for removal of scripdoc.tcl and vfs.tcl
+	
+2002-04-25  Jean-Claude Wippler <jcw@equi4.com>
+	* library/*vfs.tcl: switching to vfs::{crc,memchan,zip}
+	* library/vfsUtils.tcl: fixed env to be global, added unset
+	so unmounting cleans up its list of mounted file systems,
+	define Trf/memchan-based versions of vfs::{crc,memchan,zip}
+	* library/{scripdoc.tcl,vfs.tcl}: removed, tclkit specific
+	* library/pkgIndex.tcl: drop packages "scripdoc" and "vfslib"
+
+2002-04-25  Vince Darley <vincentdarley@sourceforge.net>
+	* tests/*: revamp of tests to be more robust, and to be
+	able to run from inside a mounted virtual filesystem.
+	
+2002-04-09  Jean-Claude Wippler <jcw@equi4.com>
+	* configure: generated and added to project
+
+2002-04-08  Daniel Steffen  <das@users.sourceforge.net>
+	* mac/pkgIndex_mac.tcl: synced to generic/pkgIndex.tcl
+
+2002-04-01  Vince Darley <vincentdarley@sourceforge.net>
+	* Makefile.in: compilation fix from jcw.
+	
+2002-03-16  Vince Darley <vincentdarley@sourceforge.net>
+	* generic/vfs.c: updated for latest cvs head of Tcl 8.4a5.
+	* library/vfs.tcl: New version from jcw, with better handling
+	of env(PATH).
+
+2002-03-09  Vince Darley <vincentdarley@sourceforge.net>
+	* library/mk4vfs.tcl: updated version from Jean-Claude Wippler.
+
+2002-03-01  Vince Darley <vincentdarley@sourceforge.net>
+	* library/*.tcl: completed and tested most changes from 02-19.
+
+2002-02-19  Vince Darley <vincentdarley@sourceforge.net>
+	* library/*.tcl: updated the vfs implementations to deal
+	with the 2002-02-01 change below.  More work needed.
+
+2002-02-17  Vince Darley <vincentdarley@sourceforge.net>
+	* generic/vfs.c: updated for TIP#72 application to cvs head.
+	The 'file stat' implementation now deals with files of size
+	greater than a 32 bit representation.  This requires the
+	very latest cvs head of Tcl 8.4a4, and is not compatible
+	with previous releases (but that is fine, since we're still
+	tracking alpha releases anyway).
+
+2002-02-01 Vince Darley <vincentdarley@sourceforge.net>
+	* generic/vfs.c: allow 'pattern' to be NULL in calls to 
+	Tcl_FSMatchInDirectory in preparation for fix of Tcl bug
+	511666.  This will require additions to each individual
+	filesystem to handle that special case (and thereby fix the
+	bug that fully specified files were not matched against
+	'types').
+
+2002-01-28 Vince Darley <vincentdarley@sourceforge.net>
+	* generic/vfs.c: const, MacOS fixes (also thanks Daniel Steffen).
+
+2001-12-07 Vince Darley <vincentdarley@sourceforge.net>
+	* various test, install fixes (unix) thanks to Larry Virden.
+	
+2001-12-02 Vince Darley <vincentdarley@sourceforge.net>
+	* generic/vfs.c: minor code cleanup and simplification. Fix
+	to problem with absolute paths on unix systems introduced in
+	recent changes.
+	
+2001-11-21 Vince Darley <vincentdarley@sourceforge.net>
+	* generic/vfs.c: added more comments to the code, and 
+	made mount point checking faster and simpler (we no longer
+	need to modify strings temporarily).
+	
+2001-11-09 Vince Darley <vincentdarley@sourceforge.net>
+	* tests/vfs*.test: better tests; more platform independent.
+
+2001-11-08  Vince Darley <vincentdarley@sourceforge.net>
+	* generic/vfs.c: made code thread-safe.  Disallow
+	safe interpreters from using vfs code since they can then
+	mess with the filesystem across all interpreters.
+
+2001-11-07  Vince Darley <vincentdarley@sourceforge.net>
+	* generic/vfs.c: all mount information is now stored in a
+	purpose built data structure ('vfs::mount' variable is gone),
+	and the code handles multiple interpreters in a very robust
+	fashion.  Fixes crashing problem in pkg_mkIndex and
+	general inconsistencies with multiple interps.  Also, the 
+	'-volume' flag is no longer required for unmounting.  Lastly
+	added a lot more documentation in the code.
+	* library/vfsUrl.tcl: remove '-volume' flag.
+	* tests/vfs*.test: various new tests added
+	* doc/vfs.n: documentation much improved, especially with
+	respect to multiple interpreters.
+
+2001-11-01  Vince Darley <vincentdarley@sourceforge.net>
+	* generic/vfs.c: 'vfs::mount' no longer a string-literal
+	* tests/vfs*.test: various new tests added
+	
+2001-10-31  Vince Darley <vincentdarley@sourceforge.net>
+	* examples/simpleExamples.tcl: a demo
+	* doc/vfslib.n: some documentation on the 'library' code.
+	
+2001-10-29  Vince Darley <vincentdarley@sourceforge.net>
+	* win/makefile.vc: installation is better.
+	* library/vfsUrl.tcl: improved urltype mounting.  The following
+	will now work in all cases:
+	% vfs::urltype::Mount ftp
+	% set listing [glob -dir ftp://ftp.scriptics.com/pub *]
+	...
+	% vfs::urltype::Mount http
+	% set fd [open http://sourceforge.net/projects/tcl]
+	% set contents [read $fd] ; close $fd
+	...
+	
+2001-09-27  Vince Darley <vincentdarley@sourceforge.net>
+	* library/mk4vfs.tcl: Update from Jean-Claude Wippler
+	* library/vfsUtils.tcl:
+	* generic/vfs.c: Moved 'list volumes' functionality
+	entirely into C from Tcl (faster and easier for tclkit
+	to make proper use of).  This required the addition
+	of a '-volume' flag to the mount/unmount commands, and
+	meant we can remove the 'mountschanged' subcommand.
+
+2001-09-07  Vince Darley <vincentdarley@sourceforge.net>
+	* generic/vfs.c: Fixed '==' error
+	* doc/vfs.n: Improved docs.
+	* library/mk4vfs.tcl: Better mk support
+
+2001-09-06  Vince Darley <vincentdarley@sourceforge.net>
+	* Further minor improvements, unfortunately requires
+	new release of Tcl from cvs (today).  Also added
+	'install' target to vc++ makefile.
+
+2001-08-29  Vince Darley <vincentdarley@sourceforge.net>
+	* can now mount root volumes which end in separator
+	characters (such as 'ftp://').  The code handles path
+	separation in such cases.  This means the 'urltype'
+	vfs now works (the 8-22 changes below didn't quite
+	complete the job).
+	This requires the latest 8.4a4 release from cvs.
+	
+2001-08-22  Vince Darley <vincentdarley@sourceforge.net>
+	* added ability to treat entire urls as file paths, so
+	we can mount 'ftp://' as a root volume and examine its
+	contents.  This requires the latest 8.4a4 release from cvs.
+	
+2001-08-13  Vince Darley <vincentdarley@sourceforge.net>
+	* ftp vfs works reasonably well now; try:
+	% package require vfs
+	% vfs::ftp::Mount ftp://ftp.ucsd.edu/pub/alpha/ local
+	% cd local ; cd tcl ; source vfsTest.tcl
+	
+2001-08-10  Vince Darley <vincentdarley@sourceforge.net>
+	* added a man page vfs.n
+	* added 'utime' to various vfs
+	* included mk4tcl vfs implementation which works
+	* added some support files so this library can be
+	  used more easily with TclKit.
+	* memory leak in file attributes get fixed.
+
+2001-05-09  Vince Darley <vincentdarley@sourceforge.net>
+	* initial distribution, zip vfs works

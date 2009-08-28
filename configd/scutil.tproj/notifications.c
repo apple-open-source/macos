@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2008, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -309,7 +309,7 @@ notificationWatcherVerbose(SCDynamicStoreRef store, void *arg)
 {
 	SCPrint(TRUE, stdout, CFSTR("notification callback (store address = %p).\n"), store);
 	SCPrint(TRUE, stdout, CFSTR("  arg = %s.\n"), (char *)arg);
-	do_notify_changes(0, NULL);	/* report the keys which changed */
+	do_notify_changes(0, NULL);	/* report the keys that changed */
 	return TRUE;
 }
 
@@ -386,6 +386,9 @@ do_notify_file(int argc, char **argv)
 		SCPrint(TRUE, stdout, CFSTR("  Received notification, identifier = %d.\n"), buf.gotID);
 	}
 
+	/* report the keys that changed */
+	do_notify_changes(0, NULL);
+
 	/* this utility only allows processes one notification per "n.file" request */
 	(void) SCDynamicStoreNotifyCancel(store);
 
@@ -412,7 +415,6 @@ do_notify_signal(int argc, char **argv)
 	int			sig;
 	pid_t			pid;
 	struct sigaction	nact;
-	int			ret;
 
 	if (isdigit(*argv[0])) {
 		if ((sscanf(argv[0], "%d", &sig) != 1) || (sig <= 0) || (sig >= NSIG)) {
@@ -451,7 +453,7 @@ do_notify_signal(int argc, char **argv)
 	}
 
 	if (oact != NULL) {
-		ret = sigaction(osig, oact, NULL);	/* restore original signal handler */
+		(void) sigaction(osig, oact, NULL);	/* restore original signal handler */
 	} else {
 		oact = malloc(sizeof(struct sigaction));
 	}
@@ -459,7 +461,7 @@ do_notify_signal(int argc, char **argv)
 	nact.sa_handler = signalCatcher;
 	sigemptyset(&nact.sa_mask);
 	nact.sa_flags = SA_RESTART;
-	ret = sigaction(sig, &nact, oact);
+	(void) sigaction(sig, &nact, oact);
 	osig = sig;
 	SCPrint(TRUE, stdout, CFSTR("signal handler started.\n"));
 
@@ -476,8 +478,6 @@ __private_extern__
 void
 do_notify_cancel(int argc, char **argv)
 {
-	int			ret;
-
 	if (notifyRls) {
 		CFRunLoopSourceInvalidate(notifyRls);
 		CFRelease(notifyRls);
@@ -495,7 +495,7 @@ do_notify_cancel(int argc, char **argv)
 	}
 
 	if (oact != NULL) {
-		ret = sigaction(osig, oact, NULL);	/* restore original signal handler */
+		(void) sigaction(osig, oact, NULL);	/* restore original signal handler */
 		free(oact);
 		oact = NULL;
 	}

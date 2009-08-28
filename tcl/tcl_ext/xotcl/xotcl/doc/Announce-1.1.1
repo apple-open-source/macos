@@ -1,0 +1,52 @@
+Announcing XOTcl 1.1.1
+**********************
+
+WHAT IS XOTCL?
+
+  XOTcl is an object-oriented extension of Tcl that was derived from
+  OTcl. In short, XOTcl tries to provide a highly flexible,
+  reflective, component-based, and object-oriented environment. It
+  integrates language support for high level concepts which are not
+  found in other languages, with reasonable performance. It prevails
+  the Tcl programming style and the dynamic/introspective nature of
+  the language, rather than introducing other language's styles and
+  rigidness (such as C++) into Tcl.
+
+
+CHANGES relative to 1.1.0 are:
+
+  - Improved portability
+     * for Mac OS X (many thanks to Daniel Steffen)
+     * freebsd 4.9 (many thanks to Marc Spitzer)
+
+  - configure can run outside of xotcl-tree and
+    can install to a different directory. Example:
+
+            % mkdir -p /tmp/xotcl/unix
+            % cd /tmp/xotcl/unix
+            % ~/xotcl-1.1.1/unix/configure --with-all
+            % make
+            % make test
+            % make install DESTDIR=/tmp
+
+  - several fixes and improvements such as 
+     * added option --with-tkinclude for configure 
+       (only needed, when built with optional --with-xowish)
+     * made gdbm work when compiled with threads enabled
+     * fix for initialization of stubtables in gdbm
+     * fixes for HTTP support (return format of values in
+       HTTP OPTION command made windows explorer hang)
+     * easy provision for redirects in HTTP server
+
+ For more details, please consult the ChangeLog    
+
+MORE INFO
+  General and more detailed information about XOTcl and its components
+  can be found at http://www.xotcl.org
+
+
+Best regards,
+
+Gustaf Neumann
+Uwe Zdun
+

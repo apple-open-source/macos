@@ -32,14 +32,19 @@
 #ifndef _S_CLIENTCONTROLINTERFACE
 #define _S_CLIENTCONTROLINTERFACE
 
+#include <stdint.h>
+
 #define kEAPOLClientControlCommand		CFSTR("Command")
 #define kEAPOLClientControlConfiguration	CFSTR("Configuration")
-#define kEAPOLClientControlRequestedProperties	CFSTR("RequestedProperties")
+#define kEAPOLClientControlUserInput		CFSTR("UserInput")
+#define kEAPOLClientControlMode			CFSTR("Mode") /* CFNumber(EAPOLControlMode) */
 
-typedef enum {
+enum {
     kEAPOLClientControlCommandRun = 1,
     kEAPOLClientControlCommandStop = 2,
     kEAPOLClientControlCommandRetry = 3,
-} EAPOLClientControlCommand;
+    kEAPOLClientControlCommandTakeUserInput = 4,
+};
+typedef uint32_t EAPOLClientControlCommand;
 
 #endif _S_CLIENTCONTROLINTERFACE

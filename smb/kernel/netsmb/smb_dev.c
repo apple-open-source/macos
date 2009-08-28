@@ -41,7 +41,6 @@
 #include <sys/conf.h>
 #include <sys/kpi_mbuf.h>
 #include <sys/proc.h>
-#include <sys/filedesc.h>
 #include <sys/fcntl.h>
 #include <sys/file.h>
 #include <sys/socket.h>
@@ -53,7 +52,7 @@
 
 #include <net/if.h>
 #include <sys/smb_apple.h>
-#include <sys/mchain.h>		/* for "htoles()" */
+#include <sys/mchain.h>
 
 #include <netsmb/smb.h>
 #include <netsmb/smb_conn.h>
@@ -77,17 +76,10 @@ int smb_minor_hiwat = -1;
 					return (ENXIO); \
 				} while(0)
 
+
 static d_open_t	 nsmb_dev_open;
 static d_close_t nsmb_dev_close;
 static d_ioctl_t nsmb_dev_ioctl;
-
-
-static int smb_version = NSMB_VERSION;
-
-SYSCTL_DECL(_net_smb);
-SYSCTL_INT(_net_smb, OID_AUTO, version, CTLFLAG_RD, &smb_version, 0, "");
-
-MALLOC_DEFINE(M_NSMBDEV, "NETSMBDEV", "NET/SMB device");
 
 static struct cdevsw nsmb_cdevsw = {
 	nsmb_dev_open,
@@ -113,9 +105,9 @@ extern lck_mtx_t  * dev_lck;
 static int
 nsmb_dev_open_nolock(dev_t dev, int oflags, int devtype, struct proc *p)
 {
-	#pragma unused(oflags, devtype)
+#pragma unused(oflags, devtype, p)
 	struct smb_dev *sdp;
-	kauth_cred_t cred = proc_ucred(p);
+	kauth_cred_t cred = vfs_context_ucred(vfs_context_current());
 
 	sdp = SMB_GETDEV(dev);
 	if (sdp && (sdp->sd_flags & NSMBFL_OPEN))
@@ -151,6 +143,13 @@ nsmb_dev_open(dev_t dev, int oflags, int devtype, struct proc *p)
 {
 	int error;
 
+	/* Just some sanity checks for debug purposes only */
+	DBG_ASSERT(sizeof(struct smbioc_negotiate) < SMB_MAX_IOC_SIZE);
+	DBG_ASSERT(sizeof(struct smbioc_setup) < SMB_MAX_IOC_SIZE);
+	DBG_ASSERT(sizeof(struct smbioc_share) < SMB_MAX_IOC_SIZE);
+	DBG_ASSERT(sizeof(struct smbioc_rq) < SMB_MAX_IOC_SIZE);
+	DBG_ASSERT(sizeof(struct smbioc_t2rq) < SMB_MAX_IOC_SIZE);
+	DBG_ASSERT(sizeof(struct smbioc_rw) < SMB_MAX_IOC_SIZE);
 	lck_mtx_lock(dev_lck);
 	error = nsmb_dev_open_nolock(dev, oflags, devtype, p);
 	lck_mtx_unlock(dev_lck);
@@ -160,29 +159,29 @@ nsmb_dev_open(dev_t dev, int oflags, int devtype, struct proc *p)
 static int
 nsmb_dev_close_nolock(dev_t dev, int flag, int fmt, struct proc *p)
 {
-	#pragma unused(flag, fmt, p)
+#pragma unused(flag, fmt, p)
 	struct smb_dev *sdp;
 	struct smb_vc *vcp;
 	struct smb_share *ssp;
-	struct smb_cred scred;
-	vfs_context_t      vfsctx;
+	vfs_context_t context;
 
 	SMB_CHECKMINOR(sdp, dev);
 	if ((sdp->sd_flags & NSMBFL_OPEN) == 0)
 		return (EBADF);
 
-	vfsctx = vfs_context_create((vfs_context_t)0);
-	smb_scred_init(&scred, vfsctx);
+	context = vfs_context_create((vfs_context_t)0);
 	ssp = sdp->sd_share;
+	sdp->sd_share = NULL; /* Just to be extra carefull */
 	if (ssp != NULL)
-		smb_share_rele(ssp, &scred);
+		smb_share_rele(ssp, context);
 	vcp = sdp->sd_vc;
+	sdp->sd_vc = NULL; /* Just to be extra carefull */
 	if (vcp != NULL) 
-		smb_vc_rele(vcp, &scred);
+		smb_vc_rele(vcp, context);
 
 	devfs_remove(sdp->sd_devfs); /* first disallow opens */
 
-	vfs_context_rele(vfsctx);
+	vfs_context_rele(context);
 
 	SMB_GETDEV(dev) = NULL;
 	free(sdp, M_NSMBDEV);
@@ -201,214 +200,214 @@ nsmb_dev_close(dev_t dev, int flag, int fmt, struct proc *p)
 	return (error);
 }
 
-/*
- * Take the 32 bit world pointers and convert them to user_addr_t.
- */
-static void convert_smbioc_pointers(struct smbioc_ossn *dp)
+static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag, 
+						  struct proc *p)
 {
-	dp->ioc_kern_server = CAST_USER_ADDR_T(dp->ioc_server);
-	dp->ioc_kern_local = CAST_USER_ADDR_T(dp->ioc_local);
-}
-
-static int
-nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag, struct proc *p)
-{
-	#pragma unused(flag, p)
+#pragma unused(flag, p)
 	struct smb_dev *sdp;
 	struct smb_vc *vcp;
-	struct smb_share *ssp;
-	struct smb_cred scred;
 	u_int32_t error = 0;
-	vfs_context_t      context;
+	vfs_context_t context;
 
 	SMB_CHECKMINOR(sdp, dev);
 	if ((sdp->sd_flags & NSMBFL_OPEN) == 0)
 		return (EBADF);
 
-	/* %%%
-	 * This context will get created with the users creds, but the main thread context
-	 * gets created with the kernel creds, we need to look at this in the future. The 
-	 * gssd needs the proc pointer so for now make sure this cred gets passed to the
-	 * gssd_negotiate routine.
-	 */
 	context = vfs_context_create((vfs_context_t)0);
-	smb_scred_init(&scred, context);
+	/* 
+	  *%%% K64 
+	 * Need to keep checking to see if this gets corrected. The problem here
+	 * is ioctl_cmd_t is u_int32_t on K64 builds. The _IO defines use sizeof
+	 * which returns a size_t. Hopefully either cmd will be changed to u_long
+	 * or the _IO defines will have sizeof typed cast to u_int32_t.
+	 */
 	switch (cmd) {
-	case SMBIOC_REQUEST: {
-		struct smbioc_rq * dp = (struct smbioc_rq *)data;
-
-		if (sdp->sd_share == NULL) {
-			error = ENOTCONN;
-			goto out;
-		}
- 		/* Take the 32 bit world pointers and convert them to user_addr_t. */
-		if (! vfs_context_is64bit (context)) {
-			dp->ioc_kern_twords = CAST_USER_ADDR_T(dp->ioc_twords);
-			dp->ioc_kern_tbytes = CAST_USER_ADDR_T(dp->ioc_tbytes);
-			dp->ioc_kern_rpbuf = CAST_USER_ADDR_T(dp->ioc_rpbuf);
-		}
-		error = smb_usr_simplerequest(sdp->sd_share, dp, &scred);
-		break;
-	}
-	case SMBIOC_T2RQ: {
-		struct smbioc_t2rq * dp2 = (struct smbioc_t2rq *)data;
-
-		if (sdp->sd_share == NULL) {
-			error = ENOTCONN;
-			goto out;
-		}
- 		/* Take the 32 bit world pointers and convert them to user_addr_t. */
-		if (! vfs_context_is64bit (context)) {
-			dp2->ioc_kern_name = CAST_USER_ADDR_T(dp2->ioc_name);
-			dp2->ioc_kern_tparam = CAST_USER_ADDR_T(dp2->ioc_tparam);
-			dp2->ioc_kern_tdata = CAST_USER_ADDR_T(dp2->ioc_tdata);
-			dp2->ioc_kern_rparam = CAST_USER_ADDR_T(dp2->ioc_rparam);
-			dp2->ioc_kern_rdata = CAST_USER_ADDR_T(dp2->ioc_rdata);
-		}
-		error = smb_usr_t2request(sdp->sd_share, dp2, &scred);
-		break;		
-	}
-	case SMBIOC_READ: 
-	case SMBIOC_WRITE: {
-		struct smbioc_rw *rwrq = (struct smbioc_rw *)data;
-		uio_t auio;
-		smbfh fh;
-		
-		if ((ssp = sdp->sd_share) == NULL) {
-			error = ENOTCONN;
-			goto out;
-		}
-		
- 		/* Take the 32 bit world pointers and convert them to user_addr_t. */
-		if (vfs_context_is64bit(context))
-			auio = uio_create(1, rwrq->ioc_offset, UIO_USERSPACE64, (cmd == SMBIOC_READ) ? UIO_READ : UIO_WRITE);
-		else {
-			rwrq->ioc_kern_base = CAST_USER_ADDR_T(rwrq->ioc_base);
-			auio = uio_create(1, rwrq->ioc_offset, UIO_USERSPACE32, (cmd == SMBIOC_READ) ? UIO_READ : UIO_WRITE);
-		}
-		if (! auio) {
-			error = ENOMEM;
-			goto out;
-		}
-		uio_addiov(auio, rwrq->ioc_kern_base, rwrq->ioc_cnt);
-		fh = htoles(rwrq->ioc_fh);
-		if (cmd == SMBIOC_READ)
-			error = smb_read(ssp, fh, auio, &scred);
-		else
-			error = smb_write(ssp, fh, auio, &scred, SMBWRTTIMO);
-		rwrq->ioc_cnt -= uio_resid(auio);
-		uio_free(auio);
-		break;
-	}
-	case SMBIOC_NEGOTIATE:
-		if (sdp->sd_vc || sdp->sd_share) {
-			error = EISCONN;
-			goto out;
-		}
-		if (! vfs_context_is64bit (context))
-			convert_smbioc_pointers(&((struct smbioc_negotiate *)data)->ioc_ssn);
+		case SMBIOC_NEGOTIATE:
+		{
+			struct smbioc_negotiate * vspec = (struct smbioc_negotiate *)data;
 			
-		vcp = NULL;
-		error = smb_usr_negotiate((struct smbioc_negotiate *)data, &scred,  &vcp, sdp);
-		if ((error == 0) && vcp) {
-			sdp->sd_vc = vcp;
-			smb_vc_unlock(vcp);
-		}
-		break;
-	case SMBIOC_SSNSETUP:
-		if (sdp->sd_share) {
-			error = EISCONN;
-			goto out;
-		}
-		if (!sdp->sd_vc) {
-			error = ENOTCONN;
-			goto out;
-		}
-		if (! vfs_context_is64bit (context))
-			convert_smbioc_pointers(&((struct smbioc_ssnsetup *)data)->ioc_ssn);
-		
-		if (! vfs_context_is64bit (context)) {
-			struct smbioc_ssnsetup * dp = (struct smbioc_ssnsetup *)data;
-
-			dp->kern_clientpn = CAST_USER_ADDR_T(dp->user_clientpn);
-			dp->kern_servicepn = CAST_USER_ADDR_T(dp->user_servicepn);
-		}
-		vcp = sdp->sd_vc;
-		error = smb_usr_ssnsetup((struct smbioc_ssnsetup *)data, &scred,  vcp);
-		if (error)
+			/* Make sure the version matches */
+			if (vspec->ioc_version != SMB_IOC_STRUCT_VERSION) {
+				error = EINVAL;
+			} else if (sdp->sd_vc || sdp->sd_share) {
+				error = EISCONN;
+			} else {
+				error = smb_usr_negotiate(vspec, context, sdp);				
+			}			
 			break;
-		smb_vc_put(vcp, &scred);
-		break;
-	case SMBIOC_TDIS:
-		if (sdp->sd_share == NULL) {
-			error = ENOTCONN;
-			goto out;
 		}
-		smb_share_rele(sdp->sd_share, &scred);
-		sdp->sd_share = NULL;
-		break;
-	case SMBIOC_TCON:
-		if (sdp->sd_share) {
-			error = EISCONN;
-			goto out;
-		}
-		if (!sdp->sd_vc) {
-			error = ENOTCONN;
-			goto out;
-		}
-		if (! vfs_context_is64bit (context))
-			convert_smbioc_pointers(&((struct smbioc_treeconn *)data)->ioc_ssn);
-
-		vcp = sdp->sd_vc;
-		ssp = NULL;
-		error = smb_usr_tcon((struct smbioc_treeconn*)data, &scred, vcp, &ssp);
-		if (error)
+		case SMBIOC_SSNSETUP: 
+		{
+			struct smbioc_setup * sspec = (struct smbioc_setup *)data;
+			
+			/* Make sure the version matches */
+			if (sspec->ioc_version != SMB_IOC_STRUCT_VERSION) {
+				error = EINVAL;
+			} else if (sdp->sd_share) {
+				error = EISCONN;
+			} else if (!sdp->sd_vc) {
+				error = ENOTCONN;
+			} else {
+				error = smb_sm_ssnsetup(sdp->sd_vc, sspec, context);				
+			}
 			break;
-		smb_vc_rele(vcp, &scred);
-		if (ssp) {
-			sdp->sd_share = ssp;
-			smb_share_unlock(ssp);
 		}
-		break;
-	case SMBIOC_GET_VC_FLAGS:
-		/* Get them the current settings of the vc flags */
-		if (!sdp->sd_vc) {
-			error = ENOTCONN;
-			goto out;
+		case SMBIOC_TCON:
+		{
+			struct smbioc_share * shspec = (struct smbioc_share *)data;
+			
+			/* Make sure the version matches */
+			if (shspec->ioc_version != SMB_IOC_STRUCT_VERSION) {
+				error = EINVAL;
+			} else if (sdp->sd_share) {
+				error = EISCONN;
+			} else  if (!sdp->sd_vc) {
+				error = ENOTCONN;
+			} else  {
+				error = smb_sm_tcon(sdp->sd_vc, shspec, &sdp->sd_share, context);
+			}
+			break;
 		}
-		vcp = sdp->sd_vc;
-		*(u_int32_t *)data = vcp->vc_flags;
-		break;
-	case SMBIOC_FLAGS2:
-		/* 
-		 * We are asking for the vc flags 2 field, why do we need a 
-		 * tree connect? The Dfs work will require that we are able
-		 * to get at these flags without a tree connect. 
-		 */
-		if (sdp->sd_share == NULL) {
-			error = ENOTCONN;
-			goto out;
+		case SMBIOC_TDIS: 
+		{
+			struct smbioc_share * shspec = (struct smbioc_share *)data;
+			
+			/* Make sure the version match */
+			if (shspec->ioc_version != SMB_IOC_STRUCT_VERSION) {
+				error = EINVAL;
+			} else  if (sdp->sd_share == NULL) {
+				error = ENOTCONN;
+			} else {
+				smb_share_rele(sdp->sd_share, context);
+				sdp->sd_share = NULL;
+				error = 0;
+			}
+			break;			
 		}
-		if (!sdp->sd_vc) {
-			error = ENOTCONN;
-			goto out;
+		case SMBIOC_GET_VC_FLAGS:
+		{
+			/* Get them the current settings of the vc flags */
+			if (!sdp->sd_vc) {
+				error = ENOTCONN;
+			} else {
+				vcp = sdp->sd_vc;
+				*(u_int32_t *)data = vcp->vc_flags;				
+			}
+			break;
 		}
-		vcp = sdp->sd_vc;
-		*(u_int16_t *)data = vcp->vc_hflags2;
-		break;
-	case SMBIOC_SESSSTATE:
-		/* Check to see if the VC is still up and running */
-		if (sdp->sd_vc && (SMB_TRAN_FATAL(sdp->sd_vc, 0) == 0))
-			*(u_int16_t *)data = EISCONN;	/* Shouldn't we just return zero? */
-		else *(u_int16_t *)data = ENOTCONN;
-		break;
-	case SMBIOC_CANCEL_SESSION:
-		sdp->sd_flags |= NSMBFL_CANCEL;
-		break;
-	default:
-		error = ENODEV;
+		case SMBIOC_GET_OS_LANMAN:
+		{
+			if (!sdp->sd_vc) {
+				error = ENOTCONN;
+			} else {
+				struct smbioc_os_lanman * OSLanman = (struct smbioc_os_lanman *)data;
+				vcp = sdp->sd_vc;
+				if (vcp->NativeOS)
+					strlcpy(OSLanman->NativeOS, vcp->NativeOS, sizeof(OSLanman->NativeOS));
+				if (vcp->NativeLANManager)
+					strlcpy(OSLanman->NativeLANManager, vcp->NativeLANManager, sizeof(OSLanman->NativeLANManager));
+			}
+			break;
+		}
+		case SMBIOC_GET_VC_FLAGS2:
+		{
+			if (!sdp->sd_vc) {
+				error = ENOTCONN;
+			} else {
+				vcp = sdp->sd_vc;
+				*(u_int16_t *)data = vcp->vc_hflags2;
+			}
+			break;			
+		}
+		case SMBIOC_SESSSTATE:
+		{
+			/* Check to see if the VC is still up and running */
+			if (sdp->sd_vc && (SMB_TRAN_FATAL(sdp->sd_vc, 0) == 0))
+				*(u_int16_t *)data = EISCONN;
+			else 
+				*(u_int16_t *)data = ENOTCONN;
+			break;			
+		}
+		case SMBIOC_CANCEL_SESSION:
+		{
+			sdp->sd_flags |= NSMBFL_CANCEL;
+			break;			
+		}
+		case SMBIOC_REQUEST: 
+		{
+			struct smbioc_rq * dp = (struct smbioc_rq *)data;
+			
+			/* Make sure the version match */
+			if (dp->ioc_version != SMB_IOC_STRUCT_VERSION) {
+				error = EINVAL;
+			}
+			else if (sdp->sd_share == NULL) {
+				error = ENOTCONN;
+			} else {
+				error = smb_usr_simplerequest(sdp->sd_share, dp, context);
+			}
+			break;
+		}
+		case SMBIOC_T2RQ: 
+		{
+			struct smbioc_t2rq * dp2 = (struct smbioc_t2rq *)data;
+			
+			/* Make sure the version match */
+			if (dp2->ioc_version != SMB_IOC_STRUCT_VERSION) {
+				error = EINVAL;
+			} else if (sdp->sd_share == NULL) {
+				error = ENOTCONN;
+			} else {
+				error = smb_usr_t2request(sdp->sd_share, dp2, context);				
+			}
+			break;		
+		}
+		case SMBIOC_READ: 
+		case SMBIOC_WRITE: 
+		{
+			struct smbioc_rw *rwrq = (struct smbioc_rw *)data;
+			
+			/* Make sure the version match */
+			if (rwrq->ioc_version != SMB_IOC_STRUCT_VERSION) {
+				error = EINVAL;
+			} else if (sdp->sd_share == NULL) {
+				error = ENOTCONN;
+			} else {
+				uio_t auio = NULL;
+
+				/* Take the 32 bit world pointers and convert them to user_addr_t. */
+				if (vfs_context_is64bit(context))
+					auio = uio_create(1, rwrq->ioc_offset, UIO_USERSPACE64, 
+									  (cmd == SMBIOC_READ) ? UIO_READ : UIO_WRITE);
+				else {
+					rwrq->ioc_kern_base = CAST_USER_ADDR_T(rwrq->ioc_base);
+					auio = uio_create(1, rwrq->ioc_offset, UIO_USERSPACE32, 
+									  (cmd == SMBIOC_READ) ? UIO_READ : UIO_WRITE);
+				}
+				if (auio) {
+					smbfh fh;
+
+					uio_addiov(auio, rwrq->ioc_kern_base, rwrq->ioc_cnt);
+					fh = htoles(rwrq->ioc_fh);
+					if (cmd == SMBIOC_READ)
+						error = smb_read(sdp->sd_share, fh, auio, context);
+					else
+						error = smb_write(sdp->sd_share, fh, auio, context, SMBWRTTIMO);
+					rwrq->ioc_cnt -= (int32_t)uio_resid(auio);
+					uio_free(auio);
+					
+				} else
+					error = ENOMEM;
+			}
+			break;
+		}
+		default:
+		{
+			error = ENODEV;
+			break;
+		}
 	}
-out:
+
 	vfs_context_rele(context);
 	return (error);
 }
@@ -416,7 +415,7 @@ out:
 
 static int nsmb_dev_load(module_t mod, int cmd, void *arg)
 {
-	#pragma unused(mod, arg)
+#pragma unused(mod, arg)
 	int error = 0;
 
 	lck_mtx_lock(dev_lck);
@@ -501,7 +500,7 @@ smb_dev2share(int fd, struct smb_share **sspp)
 	dev_t dev = NODEV;
 	int error;
 
-	error = file_vnode(fd, &vp);
+	error = file_vnode_withvid(fd, &vp, NULL);
 	if (error)
 		return (error);
 	if (vp)
@@ -517,7 +516,7 @@ smb_dev2share(int fd, struct smb_share **sspp)
 		return (ENOTCONN);		
 	}
 	/*
-	 * The share is already locked and referenced by the TCON ioctl
+	 * The share is already referenced by the TCON ioctl
 	 * We NULL to hand off share to caller (mount)
 	 * This allows further ioctls against connection, for instance
 	 * another tree connect and mount, in the automounter case

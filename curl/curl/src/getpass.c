@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2005, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2008, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: getpass.c,v 1.18 2007-04-14 16:55:17 gknauf Exp $
+ * $Id: getpass.c,v 1.24 2008-10-24 01:27:00 yangtse Exp $
  ***************************************************************************/
 
 /* This file is a reimplementation of the previous one, due to license
@@ -95,17 +95,26 @@ char *getpass_r(const char *prompt, char *buffer, size_t buflen)
 #define DONE
 #endif /* VMS */
 
+
 #ifdef WIN32
 /* Windows implementation */
 #include <conio.h>
+#endif
+
+#ifdef __SYMBIAN32__
+#define getch() getchar()
+#endif
+
+#if defined(WIN32) || defined(__SYMBIAN32__)
+
 char *getpass_r(const char *prompt, char *buffer, size_t buflen)
 {
   size_t i;
   fputs(prompt, stderr);
 
   for(i=0; i<buflen; i++) {
-    buffer[i] = getch();
-    if ( buffer[i] == '\r' ) {
+    buffer[i] = (char)getch();
+    if ( buffer[i] == '\r' || buffer[i] == '\n' ) {
       buffer[i] = 0;
       break;
     }
@@ -115,6 +124,10 @@ char *getpass_r(const char *prompt, char *buffer, size_t buflen)
            previous one as well */
         i = i - (i>=1?2:1);
   }
+#ifndef __SYMBIAN32__  
+  /* since echo is disabled, print a newline */
+  fputs("\n", stderr);
+#endif
   /* if user didn't hit ENTER, terminate buffer */
   if (i==buflen)
     buffer[buflen-1]=0;
@@ -122,15 +135,44 @@ char *getpass_r(const char *prompt, char *buffer, size_t buflen)
   return buffer; /* we always return success */
 }
 #define DONE
-#endif /* WIN32 */
+#endif /* WIN32 || __SYMBIAN32__ */
 
 #ifdef NETWARE
 /* NetWare implementation */
+#ifdef __NOVELL_LIBC__
 #include <screen.h>
 char *getpass_r(const char *prompt, char *buffer, size_t buflen)
 {
   return getpassword(prompt, buffer, buflen);
 }
+#else
+#include <nwconio.h>
+char *getpass_r(const char *prompt, char *buffer, size_t buflen)
+{
+  size_t i = 0;
+
+  printf("%s", prompt);
+  do {
+    buffer[i++] = getch();
+    if (buffer[i-1] == '\b') {
+      /* remove this letter and if this is not the first key,
+         remove the previous one as well */
+      if (i > 1) {   
+        printf("\b \b");
+        i = i - 2;
+      } else {
+        RingTheBell();
+        i = i - 1;
+      }
+    } else if (buffer[i-1] != 13) {
+      putchar('*');
+    }
+  } while ((buffer[i-1] != 13) && (i < buflen));
+  buffer[i-1] = 0;
+  printf("\r\n");
+  return buffer;
+}
+#endif /* __NOVELL_LIBC__ */
 #define DONE
 #endif /* NETWARE */
 
@@ -153,7 +195,7 @@ static bool ttyecho(bool enable, int fd)
   static struct_term noecho;
 #endif
   if(!enable) {
-  /* dissable echo by extracting the current 'withecho' mode and remove the
+  /* disable echo by extracting the current 'withecho' mode and remove the
      ECHO bit and set back the struct */
 #ifdef HAVE_TERMIOS_H
     tcgetattr(fd, &withecho);

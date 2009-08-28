@@ -1,3 +1,24 @@
+2009-06-16  Caroline Tice  <ctice@apple.com>
+
+        * configure.ac:  Added apple-darwin case to host case statement,
+        assigning mh-macosx to frag.
+        * configure:  Re-built using autoconf, to use new configure.ac.
+        * config/mh-macosx:  New file.
+
+2009-01-13  Jason Molenda  (jmolenda@apple.com)
+
+	* basename.c (basename): Take a 'char *' paramater as per the UNIX03
+	basename function signature instead of the old 'const char *' parameter.
+
+2008-06-27  Jason Molenda  (jmolenda@apple.com)
+
+	* floatformat.c: Update to FSF gdb sources from 2007-07-02.
+
+2008-03-27  Jason Molenda  (jmolenda@apple.com)
+
+	* cplus-dem.c, cp-demangle.h, cp-demangle.c:  Imported the versions
+	circa 2007-05-08 from the FSF cvs repository.
+
 2007-01-23  Jason Molenda  (jmolenda@apple.com)
 
 	* configure: Regenerated with autoconf-2.61 to handle dSYM files

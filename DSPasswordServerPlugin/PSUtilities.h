@@ -34,8 +34,8 @@
 extern "C" {
 #endif
 
-long pwsf_GetServerListFromConfig( CFMutableArrayRef *outServerList, ReplicaFile *inReplicaData );
-long pwsf_GetServerListFromXML( ReplicaFile *inReplicaFile, CFMutableArrayRef inOutServerList );
+int pwsf_GetServerListFromConfig( CFMutableArrayRef *outServerList, ReplicaFile *inReplicaData );
+int pwsf_GetServerListFromXML( ReplicaFile *inReplicaFile, CFMutableArrayRef inOutServerList );
 
 PWServerError pwsf_ReadSyncDataFromServerWithCASTKey(
 	sPSContextData *inContext,

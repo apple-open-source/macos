@@ -1,4 +1,193 @@
-$Id: ChangeLog,v 1.27 2006/12/18 04:15:01 lukem Exp $
+$NetBSD: ChangeLog,v 1.42 2008/09/27 16:07:36 lukem Exp $
+
+Sat Sep 27 16:05:08 UTC 2008	lukem
+
+	* Tweak make's subdir traversal.
+
+	* Don't assume pid_t can be printed as an int without casting.
+
+	* fts_open.c: fix unused variable if !defined(FTS_ALLOC_ALIGNED)
+
+	* Use AC_PROG_MKDIR_P, and @MKDIR_P@ appropriately.
+
+	* Ensure $YACC is actually usable.
+
+	* Consistency tweaks in AC_MSG_CHECKING.
+
+Sun Sep 21 16:34:30 UTC 2008	lukem
+
+	* Change RCSID from Id to NetBSD.
+
+	* Ship '.manin' variants of the manual pages that are
+	  @substitution@ expanded, to fix the paths in the
+	  manual pages to match those used in the application.
+
+	* Update to NetBSD-ftpd 20080921:
+		* Don't split large commands into multiple commands;
+		  just fail on them.
+		  This prevents CSRF-like attacks, when a web
+		  browser is used to access an ftp server.
+		  Reported by Maksymilian Arciemowicz <cxib@securityreason.com>.
+		  Fix mostly derived from OpenBSD, written
+		  by Moritz Jodeit <moritz@OpenBSD.org>
+		* Enhance -C to support an optional @host ('-C user[@host]'):
+		  checks whether user as connecting from host would be
+		  granted access by ftpusers(5).
+		  Support IPv6 in the host directive of ftpusers(5).
+		  Both features from Rudolf Cejka <cejkar@fit.vutbr.cz>
+		  (FreeBSD's tnftpd port maintainer).
+
+Sat Sep 20 01:47:15 UTC 2008	lukem
+
+	* Add fts_free() to complement fts_alloc(), and use instead of free().
+	  Should avoid a memory leak on systems without ALIGNBYTES.
+
+Wed Sep 17 03:43:14 UTC 2008	lukem
+
+	* Check for DIR.dd_fd, DIR.__dd_fd, and dirfd(),
+	  and provide a replacement dirfd() if possible.
+
+Fri Aug 15 04:24:01 UTC 2008	lukem
+
+	* Improve "Configuration results" display.
+	  Fix handling of with_skey=auto.
+
+Thu Jun 12 09:00:22 UTC 2008	lukem
+
+	* Search for and #include <sys/resource.h> after <sys/time.h>;
+	  fixes build on OS X 10.3.x.
+
+Mon Jun  9 03:08:29 UTC 2008	lukem
+
+	* Tagged as "tnftpd-20080609".
+
+	* Updated version to "tnftpd 20080609".
+
+	* RCSID updates, minor documentation improvements.
+
+	* Update to NetBSD-ftpd 20080609:
+		* Don't use non-standard "u_<foo>" types.
+		* Strip trailing whitespace (as well as ':'s) off PAM
+		  password prompts.
+		* Improve some debug logging related to PAM.
+
+Sun Jun  1 06:04:00 UTC 2008	lukem
+
+	* Disable --with-skey by default.
+
+	* Forbid --with-pam at the same time as --with-skey.
+
+	* Move IPv6 checks from tnftpd.h to configure.ac.
+
+	* Display a "configuration result" at the end of configure.
+
+	* Remove test for flock() and lockf(); we now just use fcntl() locking.
+
+	* Update to NetBSD-ftpd 20080504:
+		* Reorganize USE_PAM so that the PAM conversation has a
+		  chance to display a custom message in the 331 reply to USER.
+		* Remove clause 3 and 4 from TNF licenses
+		* Switch from lockf() to (more portable) fcntl() locking
+		* Rename HAVE_SOCKADDR_SA_LEN to HAVE_STRUCT_SOCKADDR_SA_LEN.
+		* Use defined(HAVE_foo) instead of just testing HAVE_foo.
+		* Replace references from draft-ietf-ftpext-mlst-NN to RFC 3659.
+		* Explicitly note the unsupported requests from RFC 2228.
+		* Improvements from FreeBSD:
+		  - Document `ftp-chroot' from login.conf(5).
+		  - Document that SIZE is prevented for files > 10240 bytes
+		    via ASCII transfers.
+		* Add -n option to display addresses in logs.
+		* Rename cred_t to ftpd_cred_t; the former causes a nameclash
+		  on Solaris.
+		* Expand documentation on numeric argument suffix parsing,
+		  and convert to IEC 60027-2 prefixes for 2^n multiples
+		  ("KiB" instead of "KB", etc.)
+
+	* Add check for madvise().
+
+Sun Mar  9 21:05:10 UTC 2008	lukem
+
+	* Sync fts source with NetBSD:
+	    - Sync to src/include/fts.h 1.17
+	    - Sync to src/lib/libc/gen/fts.c 1.31
+	  Notable changes:
+	    - Coverity CID 17: Free parent if it was not used.
+	    - PR/33163: Auster Vl.: fts: cant allocate memory | filename too
+	      long.  Change the ftp_pathlen and fts_namelen to u_int from
+	      u_short so that pathnames > 32K work.
+	    - Use FD_CLOEXEC.
+	    - Instead of special-casing root, special case paths that end with
+	      a /, so that find foo/ does not print foo//bar. From FreeBSD.
+	    - Minimize code diffs with FreeBSD.
+	      Return ENAMETOOLONG instead of ENOMEM if name is too long to fit.
+	      Only decrement cp if we are pointing to the end of the string.
+
+	* Support @EXEEXT@.  Use .PHONY.
+
+Tue Jul 24 00:06:52 UTC 2007	lukem
+
+	* Set YACC to @YACC@ so that AC_PROG_YACC DTRT on systems
+	  that only have bison.
+
+	* Avoid an 'unused variable' warning.
+
+Mon Jul 23 11:42:21 UTC 2007	lukem
+
+	* Don't use non-standard: u_char u_short u_int.
+	  Use uint32_t instead of u_int32_t.
+
+	* Add back check for <sys/sysmacros.h> (lost in conversion to
+	  autoconf 2.61), as it's needed on Solaris for major() and minor().
+
+	* Provide prototypes for replaced functions: getgrouplist(),
+	  inet_net_pton(), usleep().
+
+	* Rename cred_t to ftpd_cred_t; the former causes a nameclash
+	  on Solaris.
+
+	* If fts.h isn't usable, force use of our fts_open.c even if
+	  the target provides fts_open().
+	  Should fix use of fts() with _FILE_OFFSET_BITS=64 on
+	  newer Linux/glibc.
+
+	* Consistently use AS_CASE() and AS_IF() in configure.ac.
+
+	* Don't use defined() with HAVE_DECL_xxx.
+	  Don't include fts.h if NO_INTERNAL_LS.
+	  Use `LL' instead of `L' suffix for fallback defines of
+	  LLONG_MIN and LLONG_MAX.
+
+	* Only check for fts.h if --enable-builtinls.
+
+	* Explicitly exit(1) at the end of main(), to suppress a compile
+	  warning on certain systems.
+
+Sun Jul 22 11:27:29 UTC 2007	lukem
+
+	* Sync to config.guess 2007-07-22, config.sub 2007-06-28.
+
+	* Rename configure.in to configure.ac.
+
+	* Overhaul to use autoconf 2.61 instead of autoconf 2.13.
+	  Notable differences:
+	    - --with-pam to enable PAM.
+	    - --with-skey improved.
+	    - build-related auxiliary files now in ./build-aux/
+	    - large-file support should be better detected
+	    - use autoconf 2.61 macros to detect struct members, declarations,
+	      types (etc).
+	    - remove support for SOCKS for now (until test systems are
+	      available)
+	    - use #if defined(foo)  rather that just #if foo.
+	    - always use our arpa_ftp.h rather than trying to detect if
+	      FTP_NAMES works.
+
+Mon Mar 19 01:00:19 UTC 2007	lukem
+
+	* Change the return value of the replacement gai_strerror()
+	  from "char *" to "const char *", to match the current
+	  standards.
+	  Problem noted by Thomas Klausner.
 
 Mon Dec 18 04:08:33 UTC 2006	lukem
 
@@ -40,7 +229,7 @@ Wed Sep 27 05:22:18 UTC 2006	lukem
 		  Pointed out in private mail by Tetsuya Isaki and Dmitry
 		  Sivachenko.
 		* Add recvbufsize configuration option.
-		  This allows for setting the passive socket's SO_RCVBUF. 
+		  This allows for setting the passive socket's SO_RCVBUF.
 		  Option works similarly to the current sendbufsize
 		  configuration option.
 		* Change how recveive_data() works.  When reading data from
@@ -51,7 +240,7 @@ Wed Sep 27 05:22:18 UTC 2006	lukem
 		  option readsize chunks.
 		* Add hidesymlinks configuration option.  This adds a -L to
 		  all ls command arguments so that the file or directory the
-		  link references is listed rather than the link itself. 
+		  link references is listed rather than the link itself.
 		  This was inspired by IRIX ftpd's -S option.
 		* Change _PATH_FOO to _NAME_FOO where FOO is not a path.
 		* Reorder some declarations so that parsers generated by
@@ -59,7 +248,7 @@ Wed Sep 27 05:22:18 UTC 2006	lukem
 		  Fix from Michael Richardson.
 		* Implement option "-D", for running ftpd in standalone mode
 		  (daemon).  ftpd will listen on the default FTP port for
-		  incoming connections and fork a child for each connection. 
+		  incoming connections and fork a child for each connection.
 		  This is lower overhead than starting ftpd from inetd(8) and
 		  thus might be useful on busy servers to reduce load.
 		  Inspired by FreeBSD.
@@ -185,7 +374,7 @@ Tue Aug 10 00:48:58 UTC 2004	lukem
 		  Since the only OOB commands we currently implement are ABOR
 		  and STAT, this isn't an issue.
 
-Fri Dec 19 22:57:50 UTC 2003	grant@NetBSD.org
+Fri Dec 19 22:57:50 UTC 2003	grant
 
 	* Honour --sysconfdir.
 

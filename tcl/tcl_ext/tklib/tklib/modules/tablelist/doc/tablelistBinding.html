@@ -1,0 +1,162 @@
+<html>
+<head>
+  <title>Helper Commands Used in Tablelist Binding Scripts</title>
+
+  <meta name="Author" content="Csaba Nemethi">
+  <meta name="Keywords" content="tablelist, binding script">
+</head>
+
+<body bgcolor="#FFFFFF">
+  <div align="center">
+    <h1>Helper Commands Used in Tablelist Binding Scripts</h1>
+
+    <h3>by</h3>
+
+    <h2>Csaba Nemethi</h2>
+
+    <address>
+      <a href="mailto:csaba.nemethi@t-online.de">csaba.nemethi@t-online.de</a>
+    </address>
+  </div>
+
+  <hr>
+
+  <h2><a name="contents"></a>Contents</h2>
+
+  <ul>
+    <li><a href="#overview">Overview</a></li>
+
+    <li><a href="#getTablelistPath">The
+    <code><b>tablelist::getTablelistPath</b></code> Command</a></li>
+
+    <li><a href="#convEventFields">The
+    <code><b>tablelist::convEventFields</b></code> Command</a></li>
+  </ul>
+
+  <div align="center">
+    <p><a href="index.html">Start page</a></p>
+  </div>
+
+  <hr>
+
+  <h2><a name="overview"></a>Overview</h2>
+
+  <p>The commands described in this reference page are used in the default
+  binding scripts associated with the binding tag
+  <code><b>TablelistBody</b></code>.&nbsp; It is recommended to use them also
+  in individual binding scripts for the binding tag whose name is returned by
+  the <code><b><a href="tablelistWidget.html#bodytag">bodytag</a></b></code>
+  subcommand of the Tcl command associated with a tablelist widget (see the
+  <a href="tablelistWidget.html#body_bindings">DEFAULT AND INDIVIDUAL BINDINGS
+  FOR THE TABLELIST BODY</a> section of the corresponding reference page for
+  details).</p>
+
+  <div align="center">
+    <p><a href="#contents">Contents</a>&nbsp;&nbsp;&nbsp;&nbsp; <a href=
+    "index.html">Start page</a></p>
+  </div>
+
+  <hr>
+
+  <h2><a name="getTablelistPath"></a>The
+  <code><b>tablelist::getTablelistPath</b></code> Command</h2>
+
+  <dl>
+    <dt><b>NAME</b></dt>
+
+    <dd><code>tablelist::getTablelistPath</code> - Get the path name of a
+    tablelist widget from the path name of one of its descendants</dd>
+
+    <dt><br>
+    <b>SYNOPSIS</b></dt>
+
+    <dd>
+      <pre>
+<b>tablelist::getTablelistPath</b> <i>descendantPathName</i>
+</pre>
+    </dd>
+
+    <dt><b>DESCRIPTION</b></dt>
+
+    <dd>This command gets the path name of a tablelist widget from the path
+    name <code><i>descendantPathName</i></code> of one of its descendants.</dd>
+
+    <dd><br>
+    In a binding script, the descendant widget corresponds to the event field
+    <code><b>%W</b></code>, which can be the tablelist's body, one of the
+    separator frames, a label widget displaying an embedded image, or (a
+    descendant of) an embedded window.&nbsp; The return value is often assigned
+    to the help variable <code><b>tablelist::W</b></code>.</dd>
+
+    <dt><br>
+    <b>KEYWORDS</b></dt>
+
+    <dd>tablelist, path name, binding script</dd>
+  </dl>
+
+  <div align="center">
+    <p><a href="#contents">Contents</a>&nbsp;&nbsp;&nbsp;&nbsp; <a href=
+    "index.html">Start page</a></p>
+  </div>
+
+  <hr>
+
+  <h2><a name="convEventFields"></a>The
+  <code><b>tablelist::convEventFields</b></code> Command</h2>
+
+  <dl>
+    <dt><b>NAME</b></dt>
+
+    <dd><code>tablelist::convEventFields</code> - Convert event fields relative
+    to a descendant of a tablelist widget</dd>
+
+    <dt><br>
+    <b>SYNOPSIS</b></dt>
+
+    <dd>
+      <pre>
+<b>tablelist::convEventFields</b> <i>descendantPathName</i> <i>x</i> <i>y</i>
+</pre>
+    </dd>
+
+    <dt><b>DESCRIPTION</b></dt>
+
+    <dd>This command gets the path name of a tablelist widget and the x and y
+    coordinates relative to the latter from the path name
+    <code><i>descendantPathName</i></code> of one of its descendants and from
+    the x and y coordinates <code><i>x</i></code>, <code><i>y</i></code>
+    relative to this descendant.&nbsp; The command returns these values as the
+    components of a list consisting of three elements.</dd>
+
+    <dd>
+      <br>
+      In a binding script, the descendant widget corresponds to the event field
+      <code><b>%W</b></code>, which can be the tablelist's body, one of the
+      separator frames, a label widget displaying an embedded image, or (a
+      descendant of) an embedded window.&nbsp; Likewise, the arguments
+      <code><i>x</i></code> and <code><i>y</i></code> correspond to the event
+      fields <code><b>%x</b></code> and <code><b>%y</b></code>.&nbsp; The three
+      elements of the list returned by the command are usually assigned to the
+      help variables <code><b>tablelist::W</b></code>,
+      <code><b>tablelist::x</b></code>, and <code><b>tablelist::y</b></code>,
+      by using the statement
+
+      <blockquote>
+        <pre>
+foreach {tablelist::W tablelist::x tablelist::y} \
+    [tablelist::convEventFields %W %x %y] {}
+</pre>
+      </blockquote>
+    </dd>
+
+    <dt><b>KEYWORDS</b></dt>
+
+    <dd>tablelist, event fields, binding script</dd>
+  </dl>
+
+  <div align="center">
+    <p><a href="#contents">Contents</a>&nbsp;&nbsp;&nbsp;&nbsp; <a href=
+    "index.html">Start page</a></p>
+  </div>
+</body>
+</html>

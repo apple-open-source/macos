@@ -1,7 +1,7 @@
 /*
  * sql_db2.c		IBM DB2 rlm_sql driver
  *
- * Version:	$Id: sql_db2.c,v 1.8 2004/05/01 11:31:36 phampson Exp $
+ * Version:	$Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,9 +15,9 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2000  The FreeRADIUS server project
+ * Copyright 2000,2006  The FreeRADIUS server project
  * Copyright 2000  Mike Machado <mike@innercite.com>
  * Copyright 2000  Alan DeKok <aland@ox.org>
  * Copyright 2001  Joerg Wendland <wendland@scan-plus.de>
@@ -28,12 +28,13 @@
  * by Joerg Wendland <wendland@scan-plus.de>
  */
 
-#include <stdio.h>
-#include <sys/stat.h>
-#include <stdlib.h>
-#include <string.h>
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include "radiusd.h"
+#include <freeradius-devel/radiusd.h>
+
+#include <sys/stat.h>
+
 #include <sql.h>
 #include <sqlcli.h>
 #include "rlm_sql.h"

@@ -23,9 +23,5 @@
 	<array>
 		<string>SPAM Assassin Group 1</string>
 	</array>
-	<key>smb_sid</key>
-	<array>
-		<string>S-1-5-21-182</string>
-	</array>
 </dict>
 </plist>

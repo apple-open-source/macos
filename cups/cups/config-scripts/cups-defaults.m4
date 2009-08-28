@@ -1,10 +1,10 @@
 dnl
-dnl "$Id: cups-defaults.m4 7448 2008-04-14 18:10:27Z mike $"
+dnl "$Id: cups-defaults.m4 7959 2008-09-17 19:30:58Z mike $"
 dnl
 dnl   Default cupsd configuration settings for the Common UNIX Printing System
 dnl   (CUPS).
 dnl
-dnl   Copyright 2007-2008 by Apple Inc.
+dnl   Copyright 2007-2009 by Apple Inc.
 dnl   Copyright 2006-2007 by Easy Software Products, all rights reserved.
 dnl
 dnl   These coded instructions, statements, and computer programs are the
@@ -15,7 +15,7 @@ dnl   file is missing or damaged, see the license at "http://www.cups.org/".
 dnl
 
 dnl Default languages...
-LANGUAGES="`ls -1 locale/*.po | sed -e '1,$s/locale\/cups_//' -e '1,$s/\.po//' | tr '\n' ' '`"
+LANGUAGES="`ls -1 locale/cups_*.po | sed -e '1,$s/locale\/cups_//' -e '1,$s/\.po//' | tr '\n' ' '`"
 
 AC_ARG_WITH(languages, [  --with-languages        set installed languages, default=all ],[
 	case "$withval" in
@@ -43,8 +43,30 @@ AC_ARG_WITH(log_file_perm, [  --with-log-file-perm    set default LogFilePerm va
 AC_SUBST(CUPS_LOG_FILE_PERM)
 AC_DEFINE_UNQUOTED(CUPS_DEFAULT_LOG_FILE_PERM, 0$CUPS_LOG_FILE_PERM)
 
+dnl Default FatalErrors
+AC_ARG_WITH(fatal_errors, [  --with-fatal-errors     set default FatalErrors value, default=config],
+	CUPS_FATAL_ERRORS="$withval",
+	CUPS_FATAL_ERRORS="config")
+AC_SUBST(CUPS_FATAL_ERRORS)
+AC_DEFINE_UNQUOTED(CUPS_DEFAULT_FATAL_ERRORS, "$CUPS_FATAL_ERRORS")
+
+
+dnl Default LogLevel
+AC_ARG_WITH(log_level, [  --with-log-level        set default LogLevel value, default=warn],
+	CUPS_LOG_LEVEL="$withval",
+	CUPS_LOG_LEVEL="warn")
+AC_SUBST(CUPS_LOG_LEVEL)
+AC_DEFINE_UNQUOTED(CUPS_DEFAULT_LOG_LEVEL, "$CUPS_LOG_LEVEL")
+
+dnl Default AccessLogLevel
+AC_ARG_WITH(access_log_level, [  --with-access-log-level set default AccessLogLevel value, default=actions],
+	CUPS_ACCESS_LOG_LEVEL="$withval",
+	CUPS_ACCESS_LOG_LEVEL="actions")
+AC_SUBST(CUPS_ACCESS_LOG_LEVEL)
+AC_DEFINE_UNQUOTED(CUPS_DEFAULT_ACCESS_LOG_LEVEL, "$CUPS_ACCESS_LOG_LEVEL")
+
 dnl Default Browsing
-AC_ARG_ENABLE(browsing, [  --enable-browsing       enable Browsing by default, default=yes])
+AC_ARG_ENABLE(browsing, [  --disable-browsing      disable Browsing by default])
 if test "x$enable_browsing" = xno; then
 	CUPS_BROWSING="No"
 	AC_DEFINE_UNQUOTED(CUPS_DEFAULT_BROWSING, 0)
@@ -101,8 +123,8 @@ AC_DEFINE_UNQUOTED(CUPS_DEFAULT_BROWSE_REMOTE_PROTOCOLS,
 	"$CUPS_BROWSE_REMOTE_PROTOCOLS")
 
 dnl Default BrowseShortNames
-AC_ARG_ENABLE(browse_short, [  --enable-browse-short-names
-                          enable BrowseShortNames by default, default=yes])
+AC_ARG_ENABLE(browse_short, [  --disable-browse-short-names
+			  disable BrowseShortNames by default])
 if test "x$enable_browse_short" = xno; then
 	CUPS_BROWSE_SHORT_NAMES="No"
 	AC_DEFINE_UNQUOTED(CUPS_DEFAULT_BROWSE_SHORT_NAMES, 0)
@@ -113,7 +135,8 @@ fi
 AC_SUBST(CUPS_BROWSE_SHORT_NAMES)
 
 dnl Default DefaultShared
-AC_ARG_ENABLE(default_shared, [  --enable-default-shared enable DefaultShared by default, default=yes])
+AC_ARG_ENABLE(default_shared, [  --disable-default-shared
+			  disable DefaultShared by default])
 if test "x$enable_default_shared" = xno; then
 	CUPS_DEFAULT_SHARED="No"
 	AC_DEFINE_UNQUOTED(CUPS_DEFAULT_DEFAULT_SHARED, 0)
@@ -124,8 +147,8 @@ fi
 AC_SUBST(CUPS_DEFAULT_SHARED)
 
 dnl Default ImplicitClasses
-AC_ARG_ENABLE(implicit, [  --enable-implicit-classes
-                          enable ImplicitClasses by default, default=yes])
+AC_ARG_ENABLE(implicit, [  --disable-implicit-classes
+                          disable ImplicitClasses by default])
 if test "x$enable_implicit" = xno; then
 	CUPS_IMPLICIT_CLASSES="No"
 	AC_DEFINE_UNQUOTED(CUPS_DEFAULT_IMPLICIT_CLASSES, 0)
@@ -137,7 +160,7 @@ AC_SUBST(CUPS_IMPLICIT_CLASSES)
 
 dnl Default UseNetworkDefault
 AC_ARG_ENABLE(use_network_default, [  --enable-use-network-default
-                          enable UseNetworkDefault by default, default=auto])
+                          set UseNetworkDefault to Yes by default])
 if test "x$enable_use_network_default" != xno; then
 	AC_MSG_CHECKING(whether to use network default printers)
 	if test "x$enable_use_network_default" = xyes -o $uname != Darwin; then
@@ -268,7 +291,7 @@ if test x$default_printcap != xno; then
 		case $uname in
 			Darwin*)
 				if test $uversion -ge 90; then
-					CUPS_DEFAULT_PRINTCAP=""
+					CUPS_DEFAULT_PRINTCAP="/Library/Preferences/org.cups.printers.plist"
 				else
 					CUPS_DEFAULT_PRINTCAP="/etc/printcap"
 				fi
@@ -287,31 +310,70 @@ else
 	CUPS_DEFAULT_PRINTCAP=""
 fi
 
+AC_SUBST(CUPS_DEFAULT_PRINTCAP)
 AC_DEFINE_UNQUOTED(CUPS_DEFAULT_PRINTCAP, "$CUPS_DEFAULT_PRINTCAP")
 
-dnl Default MaxCopies value...
-AC_ARG_WITH(max-copies, [  --with-max-copies       set default max copies value, default=auto ],
-	CUPS_MAX_COPIES="$withval",
-	if test "x$uname" = xDarwin; then
-		CUPS_MAX_COPIES="9999"
+dnl Default LPD config file...
+AC_ARG_WITH(lpdconfigfile, [  --with-lpdconfigfile    set default LPDConfigFile URI],
+	default_lpdconfigfile="$withval",
+	default_lpdconfigfile="default")
+
+if test x$default_lpdconfigfile != xno; then
+	if test "x$default_lpdconfigfile" = "xdefault"; then
+		case $uname in
+			Darwin*)
+				CUPS_DEFAULT_LPD_CONFIG_FILE="launchd:///System/Library/LaunchDaemons/org.cups.cups-lpd.plist"
+				;;
+			*)
+				if test -d /etc/xinetd.d; then
+					CUPS_DEFAULT_LPD_CONFIG_FILE="xinetd:///etc/xinetd.d/cups-lpd"
+				else
+					CUPS_DEFAULT_LPD_CONFIG_FILE=""
+				fi
+				;;
+		esac
 	else
-		CUPS_MAX_COPIES="100"
-	fi)
+		CUPS_DEFAULT_LPD_CONFIG_FILE="$default_lpdconfigfile"
+	fi
+else
+	CUPS_DEFAULT_LPD_CONFIG_FILE=""
+fi
+
+AC_DEFINE_UNQUOTED(CUPS_DEFAULT_LPD_CONFIG_FILE, "$CUPS_DEFAULT_LPD_CONFIG_FILE")
+
+dnl Default SMB config file...
+AC_ARG_WITH(smbconfigfile, [  --with-smbconfigfile    set default SMBConfigFile URI],
+	default_smbconfigfile="$withval",
+	default_smbconfigfile="default")
+
+if test x$default_smbconfigfile != xno; then
+	if test "x$default_smbconfigfile" = "xdefault"; then
+		if test -f /etc/smb.conf; then
+			CUPS_DEFAULT_SMB_CONFIG_FILE="samba:///etc/smb.conf"
+		else
+			CUPS_DEFAULT_SMB_CONFIG_FILE=""
+		fi
+	else
+		CUPS_DEFAULT_SMB_CONFIG_FILE="$default_smbconfigfile"
+	fi
+else
+	CUPS_DEFAULT_SMB_CONFIG_FILE=""
+fi
+
+AC_DEFINE_UNQUOTED(CUPS_DEFAULT_SMB_CONFIG_FILE, "$CUPS_DEFAULT_SMB_CONFIG_FILE")
+
+dnl Default MaxCopies value...
+AC_ARG_WITH(max-copies, [  --with-max-copies       set default max copies value, default=9999 ],
+	CUPS_MAX_COPIES="$withval",
+	CUPS_MAX_COPIES="9999")
 
 AC_SUBST(CUPS_MAX_COPIES)
 AC_DEFINE_UNQUOTED(CUPS_DEFAULT_MAX_COPIES, $CUPS_MAX_COPIES)
 
 dnl Default raw printing state
-AC_ARG_ENABLE(raw_printing, [  --enable-raw-printing   enable raw printing by default, default=auto])
+AC_ARG_ENABLE(raw_printing, [  --disable-raw-printing  do not allow raw printing by default])
 if test "x$enable_raw_printing" != xno; then
-	AC_MSG_CHECKING(whether to enable raw printing)
-	if test "x$enable_raw_printing" = xyes -o $uname = Darwin; then
-		DEFAULT_RAW_PRINTING=""
-		AC_MSG_RESULT(yes)
-	else
-		DEFAULT_RAW_PRINTING="#"
-		AC_MSG_RESULT(no)
-	fi
+	DEFAULT_RAW_PRINTING=""
 else
 	DEFAULT_RAW_PRINTING="#"
 fi
@@ -338,13 +400,40 @@ AC_SUBST(CUPS_SNMP_ADDRESS)
 AC_SUBST(CUPS_SNMP_COMMUNITY)
 
 dnl New default port definition for IPP...
-AC_ARG_WITH(ipp-port, [  --with-ipp-port         set default port number for IPP ],
+AC_ARG_WITH(ipp-port, [  --with-ipp-port         set port number for IPP, default=631 ],
 	DEFAULT_IPP_PORT="$withval",
 	DEFAULT_IPP_PORT="631")
 
 AC_SUBST(DEFAULT_IPP_PORT)
 AC_DEFINE_UNQUOTED(CUPS_DEFAULT_IPP_PORT,$DEFAULT_IPP_PORT)
 
+dnl Filters
+AC_ARG_ENABLE(bannertops, [  --enable-bannertops     always build the banner filter ])
+AC_ARG_ENABLE(texttops, [  --enable-texttops       always build the text filter ])
+
+if test "x$enable_bannertops" = xno; then
+	BANNERTOPS=""
+elif test "x$enable_bannertops" = xyes; then
+	BANNERTOPS="bannertops"
+elif test $uname = Darwin; then
+	BANNERTOPS=""
+else
+	BANNERTOPS="bannertops"
+fi
+
+if test "x$enable_texttops" = xno; then
+	TEXTTOPS=""
+elif test "x$enable_texttops" = xyes; then
+	TEXTTOPS="texttops"
+elif test $uname = Darwin; then
+	TEXTTOPS=""
+else
+	TEXTTOPS="texttops"
+fi
+
+AC_SUBST(BANNERTOPS)
+AC_SUBST(TEXTTOPS)
+
 dnl
-dnl End of "$Id: cups-defaults.m4 7448 2008-04-14 18:10:27Z mike $".
+dnl End of "$Id: cups-defaults.m4 7959 2008-09-17 19:30:58Z mike $".
 dnl

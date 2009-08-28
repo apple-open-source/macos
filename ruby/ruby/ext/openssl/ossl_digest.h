@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_digest.h 11708 2007-02-12 23:01:19Z shyouhei $
+ * $Id: ossl_digest.h 12496 2007-06-08 15:02:04Z technorama $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -11,7 +11,6 @@
 #if !defined(_OSSL_DIGEST_H_)
 #define _OSSL_DIGEST_H_
 
-extern VALUE mDigest;
 extern VALUE cDigest;
 extern VALUE eDigestError;
 

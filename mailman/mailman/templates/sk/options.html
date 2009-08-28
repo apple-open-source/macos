@@ -1,0 +1,315 @@
+<html>
+<head>
+    <link rel="SHORTCUT ICON" href="<mm-favicon>">
+    <title><MM-Presentable-User> - osobné nastavenia pre <MM-List-Name>
+    </title>
+</head>
+<BODY BGCOLOR="#ffffff">
+    <TABLE WIDTH="100%" BORDER="0" CELLSPACING="0" CELLPADDING="5">
+    <TR><TD WIDTH="100%" BGCOLOR="#99CCFF"><B>
+        <FONT COLOR="#000000" SIZE=+1>
+        <MM-List-Name> - osobné nastavenia pre
+        <MM-Presentable-User>
+        </FONT></B></TD></TR>
+    </TABLE>
+<p>
+<table width="100%" border="0" cellspacing="5" cellpadding="5">
+    <tr><td>
+        <b><MM-Presentable-User></b> - nastavenia a heslá
+        pre konferenciu <MM-List-Name>.
+        </td><td><MM-Form-Start><mm-logout-button><MM-Form-End></td>
+    </tr><tr>
+        <td colspan="2">
+        <MM-Case-Preserved-User>
+
+        <MM-Disabled-Notice>
+
+        <p><mm-results>
+        </td>
+    </tr>
+</table>
+
+<MM-Form-Start>
+<p>
+<TABLE WIDTH="100%" BORDER="0" CELLSPACING="0" CELLPADDING="5">
+    <TR><TD WIDTH="100%" BGCOLOR="#FFF0D0" colspan="2">
+        <FONT COLOR="#000000">
+        <B>Zmena osobných nastavení pre konferenciu <MM-List-Name></B>
+        </FONT></TD></TR>
+    <tr><td colspan="2">Tu si môžete zmeniť adresu, na ktorú ste prihlásený
+        do konferencie vložením novej adresy do nižšie uvedených políčok.
+        Poznámka: bude Vám zaslaná overovacia správa, ktorú musíte potvrdiť.
+        E-mailová adresa bude zmenená až po potvrdení.
+
+        <p>Na potvrdenie bude systém čakať približne <mm-pending-days>.
+
+        <p>Tiež môžete zmeniť alebo nastaviť Vaše meno (nepovinná voľba)
+        (napr. <em>Peter Novák</em>).
+
+        <p>Ak chcete urobiť tieto zmeny pre všetky konferencie na serveri
+        <mm-host>, v ktorých ste účastníkom, zaškrtnite políčko
+        <em>zmeniť globálne</em>.
+
+        </td></tr>
+    <tr><td><center>
+        <table border="0" cellspacing="2" cellpadding="2" width="80%" cols="2">
+        <tr><td bgcolor="#dddddd"><div align="right">Nová e-mailová adresa:
+	    </div></td>
+            <td><mm-new-address-box></td>
+            </tr>
+        <tr><td bgcolor="#dddddd"><div align="right">Zopakovať novú
+            adresu:</div></td> 
+            <td><mm-confirm-address-box></td>
+            </tr>
+        </tr></table></center>
+        </td>
+        <td><center>
+        <table border="0" cellspacing="2" cellpadding="2" width="80%" cols="2">
+            <tr><td bgcolor="#dddddd"><div align="right">Vaše meno
+            (nepovinné):</div></td>
+            <td><mm-fullname-box></td>
+            </tr>
+        </table></center>
+        </td>
+        </tr>
+    <tr><td colspan="2"><center><mm-change-address-button>
+        <p><mm-global-change-of-address>zmeniť globálne</center></td>
+    </tr>
+</table>
+
+<p>
+<TABLE WIDTH="100%" BORDER="0" CELLSPACING="5" CELLPADDING="5">
+    <TR><TD WIDTH="50%" BGCOLOR="#FFF0D0"><FONT COLOR="#000000">
+        <B>Odhlásenie z konferencie <MM-List-Name></B></td>
+
+        <TD WIDTH="50%" BGCOLOR="#FFF0D0"><FONT COLOR="#000000">
+        <B>Vaša účasť na ďalšich konferenciách na serveri <MM-Host></B>
+        </FONT></TD></TR>
+
+    <tr><td>
+        Zaškrtnite potvrdzovacie políčko a stlačte tlačidlo pre
+        odhlásenie sa z tejto konferencie.  <strong>Pozor:</strong>
+        Táto zmena bude prevedená okamžite!
+        <p>
+        <center><MM-Unsubscribe-Button></center></td>
+    <td>
+        Tu si môžete pozrieť zoznam všetkých ďalších konferencií na serveri
+        <mm-host>, do ktorých ste prihlásený. Cez tento zoznam sa dostanete
+        na Vaše nastavenia k tímto konferenciám.
+
+        <p>
+        <center><MM-Other-Subscriptions-Submit></center>
+        </TD></TR>
+</table>
+
+<TABLE WIDTH="100%" BORDER="0" CELLSPACING="0" CELLPADDING="5">
+    <TR><TD COLSPAN=2 WIDTH="100%" BGCOLOR="#FFF0D0"><FONT COLOR="
+"#000000">
+        <B>Vaše heslo pre konferenciu <MM-List-Name></B>
+        </FONT></TD></TR>
+
+    <tr valign="TOP"><td WIDTH="50%">
+        <a name=reminder>
+        <center>
+        <h3>Zabudli ste heslo?</h3>
+        </center>
+        Kliknite na toto tlačidlo a Vaše heslo Vám bude zaslané na adresu,
+        na ktorú ste prihlásený.
+        <p><MM-Umbrella-Notice>
+        <center>
+        <MM-Email-My-Pw>
+        </center>
+        </td>
+
+    <td WIDTH="50%">
+        <a name=changepw>
+        <center>
+        <h3>Zmena hesla</h3>
+        <TABLE BORDER="0" CELLSPACING="2" CELLPADDING="2" WIDTH="70%" COLS=2>
+            <TR><TD BGCOLOR="#dddddd"><div align="right">Nové
+                heslo:</div></TD>
+                <TD><MM-New-Pass-Box></TD>
+                </TR>
+            <TR>
+                <TD BGCOLOR="#dddddd"><div align="right">Zopakovať
+                nové heslo:</div></TD>
+                <TD><MM-Confirm-Pass-Box></TD>
+            </TR>
+        </table>
+
+        <MM-Change-Pass-Button>
+        <p><center><mm-global-pw-changes-button>zmeniť globálne
+        </center>
+</TABLE>
+
+<p>
+<TABLE WIDTH="100%" BORDER="0" CELLSPACING="0" CELLPADDING="5">
+    <TR><TD WIDTH="100%" BGCOLOR="#FFF0D0"><FONT COLOR="#000000">
+        <B>Osobné nastavenia pre konferenciu <MM-List-Name></B>
+        </FONT></TD></TR>
+</table>
+
+<p>
+<i><strong>Momentálne aktívne nastavenia sú zaškrtnuté.</strong></i>
+
+<p>Poznámka: niektoré nastavenia majú možnosť <em>nastaviť globálne</em>.
+Zaškrtnutím bude toto nastavenie aplikované na všetky konferencie na
+serveri <mm-host>, v ktorých ste účastníkom. Kliknutím na <em>Zobraziť moje
+ďalšie konferencie</em> vyššie získate zoznam konferencií,
+do ktorých ste prihlásený.
+<p>
+<TABLE BORDER="0" CELLSPACING="3" CELLPADDING="4" WIDTH="100%">
+    <tr><TD BGCOLOR="#cccccc">
+        <a name="disable">
+        <strong>Doručovanie pošty</strong></a><p>
+        Nastavte na <em>zapnuté</em>, ak chcete prijímať správy zasielané
+        do tejto konferencie. Použite voľbu <em>vypnuté</em> ak chcete
+        zostať prihlásený, ale nechcete počas určitej doby prijímať poštu
+        (napr. ak idete na dovolenku). Ak vypnete doručovanie pošty,
+        nezabudnite ho po Vašom návrate opäť zapnúť, automaticky zapnuté
+        nebude.
+        </td><td bgcolor="#cccccc">
+        <mm-delivery-enable-button>zapnuté<br>
+        <mm-delivery-disable-button>vypnuté<p>
+        <mm-global-deliver-button><i>nastaviť globálne</i>
+        </td></tr>
+
+    <tr><TD BGCOLOR="#cccccc">
+        <strong>Dávkové doručovanie pošty (digest)</strong><p>
+        Ak zapnete dávkové doručovanie pošty, budete dostávať príspevky
+        zlúčené do jednej správy raz denne (pri niektorých veľmi aktívnych
+        konferenciách aj častejšie) namiesto každého príspevku samostatne.
+        Ak vypnete doručovanie vo forme dávok, môže Vám byť doručená
+        ešte jedna posledná dávka (digest).
+        </td><td bgcolor="#cccccc">
+        <MM-Undigest-Radio-Button>vypnuté<br>
+        <MM-Digest-Radio-Button>zapnuté
+        </td></tr>
+        
+    <tr><TD BGCOLOR="#cccccc">
+        <strong>Odoberať dávky vo forme čistého textu alebo MIME?</strong>
+        <p>Váš poštový program môže, ale nemusí porporovať digest vo formáte
+        MIME. Odporúčame odoberať dávky vo formáte MIME, ale ak máte problém
+        takúto poštu čítať, vyberte čistý text.
+        </td><td bgcolor="#cccccc">
+        <MM-Mime-Digests-Button>MIME<br>
+        <MM-Plain-Digests-Button>čistý text<p>
+        <mm-global-mime-button><i>nastaviť globálne</i>
+        </td></tr>
+        
+    <tr><TD BGCOLOR="#cccccc">
+        <strong>Odoberať vlastné príspevky do konferencie?</strong><p>
+        Tradične dostanete kópiu každej správy, ktorá bola zaslaná do
+        konferenccie. Ak nechcete dostávať kópiu vlastných zaslaných správ,
+        nastavte voľbu na <em>nie</em>.
+        </td><td bgcolor="#cccccc">
+        <mm-dont-receive-own-mail-button>nie<br>
+        <mm-receive-own-mail-button>áno
+        </td></tr>
+
+    <tr><TD BGCOLOR="#cccccc">
+        <strong>Chcete dostávať potvrdenie o rozposlaní Vaších príspevkov do
+        konferencie?</strong><p>
+        </td><td bgcolor="#cccccc">
+        <mm-dont-ack-posts-button>nie<br>
+        <mm-ack-posts-button>áno
+        </td></tr>
+
+    <tr><td bgcolor="#cccccc">
+        <strong>Zasielať pre túto konferenciu pripomienku hesla?</strong><p>
+        Raz mesačne obdržíte správu, ktorá obsahuje heslo pre každú
+        konferenciu na tomto serveri, v ktorej ste účastníkom. Zasielanie
+        hesla môžete vypnúť vybraním voľby <em>nie</em>. Ak vypnete
+        zasielanie hesla globálne (pre všetky konferencie), nebude Vám
+        zaslaná žiadna správa.
+        </td><td bgcolor="#cccccc">
+        <mm-dont-get-password-reminder-button>nie<br>
+        <mm-get-password-reminder-button>áno<p>
+        <mm-global-remind-button><i>nastaviť globálne</i>
+        </td></tr>
+
+    <tr><TD BGCOLOR="#cccccc">
+        <strong>Skryť Vašu adresu zo zoznamu účastníkov?</strong><p>
+        Ak si niekto prezerá zoznam účastníkov, Vaša adresa je za normálnych
+        okolností zobrazená (v pozmenenej forme, aby ju nerozpoznali spamové
+        roboty). Ak nechcete Vašu adresu v tomto zozname zobraziť vôbec,
+        vyberte v tejto voľbe <em>áno</em>."
+        </td><td bgcolor="#cccccc">
+        <MM-Public-Subscription-Button>nie<br>
+        <MM-Hide-Subscription-Button>áno
+        </td></tr>
+
+    <tr><TD BGCOLOR="#cccccc">
+        <strong>Aký jazyk uprednostňujete na komunikáciu?</strong><p>
+        </td><td bgcolor="#cccccc">
+        <MM-list-langs>
+        </td></tr>
+
+    <tr><td bgcolor="#cccccc">
+        <strong>Do ktorých tematických kategórií sa chcete prihlásiť?
+                </strong><p>
+                Vybraním jednej alebo viac tém budú filtrované
+                príspevky zasielané do konferencie tak, že dostanete iba
+                niektoré z nich. Ak bude príspevok vyhovovať niektorej
+                z Vami vybraných tém, tak Vám bude doručený. V opačnom
+                prípade Vám doručený nebude.
+
+                <p>Ak príspevok nevyhovuje žiadnej téme, tak je účinné
+                nastavenie, ktoré sa nachádza nižšie. Keď si nevyberiete
+                žiadne témy, budete dostávať všetky príspevky, ktoré boli
+                zaslané do konferencie.
+        </td><td bgcolor="#cccccc">
+        <mm-topics>
+        </td></tr>
+
+    <tr><td bgcolor="#cccccc">
+        <strong>Chcete dostávať príspevky, ktoré nevyhovujú žiadnemu
+                tématickému filtru?</strong><p>
+
+                Toto nastavenie je účinné iba vtedy, ak ste sa vybrali
+                vo vyššom nastavení aspoň jednu tému. Určuje všeobecné
+                pravidlo pre doručenie práspevkov, ktoré nevyhoveli žiadnemu
+                tématickému filtru. Voľba <em>nie</em> spôsobí, že ak
+                príspevok nevyhovie žiadnemu tématickému filtru, tak Vám
+                nebude doručený. Pri voľbe <em>áno</em> Vám tento príspevok
+                doručený bude.
+
+                <p>Ak nie je vo voľbe vyššie vybraná žiadna téma, tak Vám
+                budú doručené všetky správy, ktoré boli zaslané do tejto
+                konferencie.
+        </td><td bgcolor="#cccccc">
+        <mm-suppress-nonmatching-topics>nie<br>
+        <mm-receive-nonmatching-topics>áno
+        </td></tr>
+
+    <tr><td bgcolor="#cccccc">
+        <strong>Zabrániť duplicitným kópiam príspevkov?</strong><p>
+
+                Keď ste uvedený v hlavičke <tt>To:</tt>, alebo <tt>Cc:</tt>
+                správy, ktorá bola zaslaná do tejto konferencie, môžete
+                zabrániť jej opätovnému doručeniu. Vyberte <em>áno</em>,
+                ak nechcete dostať kópiu takýchto správ z konferencie alebo
+                <em>nie</em>, ak chcete, aby Vám boli doručené aj ich kópie.
+
+                <p>Ak má táto konferencia zapnuté personifikované
+                správy a Vy máte zapnuté zasielanie kópií, tak bude mať"
+                každá kópia pridanú hlavičku <tt>X-Mailman-Copy: yes</tt>
+
+        </td><td bgcolor="#cccccc">
+        <mm-receive-duplicates-button>nie<br>
+        <mm-dont-receive-duplicates-button>áno<p>
+        <mm-global-nodupes-button><i>nastaviť globálne</i>
+        </td></tr>
+
+    <tr><TD colspan="2">
+        <center><MM-options-Submit-button></center>
+        </td></tr>
+
+</table>
+</center>
+<p>
+<MM-Form-End>
+
+<MM-Mailman-Footer>
+</body>
+</html>

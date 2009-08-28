@@ -90,6 +90,10 @@ class IOFWAddressSpace;
 
 #pragma mark -
 
+/*! @class IOFWAddressSpaceAux
+	@discussion An IOFWAddressSpaceAux is for internal use only. You should never subclass IOFWAddressSpaceAux 
+*/
+
 class IOFWAddressSpaceAux : public OSObject
 {
     OSDeclareDefaultStructors(IOFWAddressSpaceAux)

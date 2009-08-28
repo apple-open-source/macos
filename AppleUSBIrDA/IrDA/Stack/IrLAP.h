@@ -280,7 +280,7 @@ class TIrLAPPutBuffer : public OSObject
     OSDeclareDefaultStructors(TIrLAPPutBuffer);
     
 public:
-	    static TIrLAPPutBuffer * TIrLAPPutBuffer::tIrLAPPutBuffer(void);    // factory constructor
+	    static TIrLAPPutBuffer * tIrLAPPutBuffer(void);    // factory constructor
 	    void            free(void);
 	    bool            init();
 	    
@@ -361,7 +361,7 @@ class TIrLAP : public TIrStream
 	    Boolean         ReaquiredConnection         ( void );
 	    void            BrokenBeamDisconnect        ( void );
 	    Boolean         IsConnected                 ( void );
-	    void            GetNickName                 ( UInt8 * name );
+	    void            GetNickName                 ( UInt8 * name, int maxlen);
 										// jdg: stop listen if in disconnected state
 	    TIrEvent *      CancelPendingListenRequest  (void);                 // return event if canceled, else nil
 /*** Temp I hope ***/           

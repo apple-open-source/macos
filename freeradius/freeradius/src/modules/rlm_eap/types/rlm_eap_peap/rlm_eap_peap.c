@@ -1,7 +1,7 @@
 /*
  * rlm_eap_peap.c  contains the interfaces that are called from eap
  *
- * Version:     $Id: rlm_eap_peap.c,v 1.5.4.2 2007/07/13 09:34:33 aland Exp $
+ * Version:     $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,12 +15,16 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
  * Copyright 2003 Alan DeKok <aland@freeradius.org>
+ * Copyright 2006 The FreeRADIUS server project
  */
 
-#include "autoconf.h"
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
+
+#include <freeradius-devel/autoconf.h>
 #include "eap_peap.h"
 
 typedef struct rlm_eap_peap_t {
@@ -47,6 +51,11 @@ typedef struct rlm_eap_peap_t {
 	 *	protocol.
 	 */
 	int	proxy_tunneled_request_as_eap;
+
+	/*
+	 *	Virtual server for inner tunnel session.
+	 */
+  	char	*virtual_server;
 } rlm_eap_peap_t;
 
 
@@ -63,6 +72,9 @@ static CONF_PARSER module_config[] = {
 	{ "proxy_tunneled_request_as_eap", PW_TYPE_BOOLEAN,
 	  offsetof(rlm_eap_peap_t, proxy_tunneled_request_as_eap), NULL, "yes" },
 
+	{ "virtual_server", PW_TYPE_STRING_PTR,
+	  offsetof(rlm_eap_peap_t, virtual_server), NULL, NULL },
+
  	{ NULL, -1, 0, NULL, NULL }           /* end the list */
 };
 
@@ -73,7 +85,6 @@ static int eappeap_detach(void *arg)
 {
 	rlm_eap_peap_t *inst = (rlm_eap_peap_t *) arg;
 
-	if (inst->default_eap_type_name) free(inst->default_eap_type_name);
 
 	free(inst);
 
@@ -150,6 +161,8 @@ static peap_tunnel_t *peap_alloc(rlm_eap_peap_t *inst)
 	t->copy_request_to_tunnel = inst->copy_request_to_tunnel;
 	t->use_tunneled_reply = inst->use_tunneled_reply;
 	t->proxy_tunneled_request_as_eap = inst->proxy_tunneled_request_as_eap;
+	t->virtual_server = inst->virtual_server;
+	t->session_resumption_state = PEAP_RESUMPTION_MAYBE;
 
 	return t;
 }
@@ -163,12 +176,20 @@ static int eappeap_authenticate(void *arg, EAP_HANDLER *handler)
 	eaptls_status_t status;
 	rlm_eap_peap_t *inst = (rlm_eap_peap_t *) arg;
 	tls_session_t *tls_session = (tls_session_t *) handler->opaque;
-	peap_tunnel_t *peap = NULL;
+	peap_tunnel_t *peap = tls_session->opaque;
+	REQUEST *request = handler->request;
 
-	DEBUG2("  rlm_eap_peap: Authenticate");
+	/*
+	 *	Session resumption requires the storage of data, so
+	 *	allocate it if it doesn't already exist.
+	 */
+	if (!tls_session->opaque) {
+		peap = tls_session->opaque = peap_alloc(inst);
+		tls_session->free_opaque = peap_free;
+	}
 
 	status = eaptls_process(handler);
-	DEBUG2("  eaptls_process returned %d\n", status);
+	RDEBUG2("eaptls_process returned %d\n", status);
 	switch (status) {
 		/*
 		 *	EAP-TLS handshake was successful, tell the
@@ -178,7 +199,31 @@ static int eappeap_authenticate(void *arg, EAP_HANDLER *handler)
 		 *	an EAP-TLS-Success packet here.
 		 */
 	case EAPTLS_SUCCESS:
-		{
+		if (SSL_session_reused(tls_session->ssl)) {
+			uint8_t tlv_packet[11];
+			
+			RDEBUG2("Skipping Phase2 because of session resumption.");
+			peap->session_resumption_state = PEAP_RESUMPTION_YES;
+			
+			tlv_packet[0] = PW_EAP_REQUEST;
+			tlv_packet[1] = handler->eap_ds->response->id +1;
+			tlv_packet[2] = 0;
+			tlv_packet[3] = 11;     /* length of this packet */
+			tlv_packet[4] = PW_EAP_TLV;
+			tlv_packet[5] = 0x80;
+			tlv_packet[6] = EAP_TLV_ACK_RESULT;
+			tlv_packet[7] = 0;
+			tlv_packet[8] = 2;      /* length of the data portion */
+			tlv_packet[9] = 0;
+			tlv_packet[10] = EAP_TLV_SUCCESS;
+			
+			peap->status = PEAP_STATUS_SENT_TLV_SUCCESS;
+
+			(tls_session->record_plus)(&tls_session->clean_in, tlv_packet, 11);
+			tls_handshake_send(tls_session);
+			(tls_session->record_init)(&tls_session->clean_in);
+
+		} else {
 			eap_packet_t eap_packet;
 
 			eap_packet.code = PW_EAP_REQUEST;
@@ -189,12 +234,13 @@ static int eappeap_authenticate(void *arg, EAP_HANDLER *handler)
 
 			(tls_session->record_plus)(&tls_session->clean_in,
 						  &eap_packet, sizeof(eap_packet));
-			
+
 			tls_handshake_send(tls_session);
 			(tls_session->record_init)(&tls_session->clean_in);
 		}
+
 		eaptls_request(handler->eap_ds, tls_session);
-		DEBUG2("  rlm_eap_peap: EAPTLS_SUCCESS");
+		RDEBUG2("EAPTLS_SUCCESS");
 		return 1;
 
 		/*
@@ -203,7 +249,12 @@ static int eappeap_authenticate(void *arg, EAP_HANDLER *handler)
 		 *	do nothing.
 		 */
 	case EAPTLS_HANDLED:
-		DEBUG2("  rlm_eap_peap: EAPTLS_HANDLED");
+	  /*
+	   *	FIXME: If the SSL session is established, grab the state
+	   *	and EAP id from the inner tunnel, and update it with
+	   *	the expected EAP id!
+	   */
+		RDEBUG2("EAPTLS_HANDLED");
 		return 1;
 
 		/*
@@ -211,14 +262,14 @@ static int eappeap_authenticate(void *arg, EAP_HANDLER *handler)
 		 *	data.
 		 */
 	case EAPTLS_OK:
-		DEBUG2("  rlm_eap_peap: EAPTLS_OK");
+		RDEBUG2("EAPTLS_OK");
 		break;
 
 		/*
 		 *	Anything else: fail.
 		 */
 	default:
-		DEBUG2("  rlm_eap_peap: EAPTLS_OTHERS");
+		RDEBUG2("EAPTLS_OTHERS");
 		return 0;
 	}
 
@@ -226,7 +277,7 @@ static int eappeap_authenticate(void *arg, EAP_HANDLER *handler)
 	 *	Session is established, proceed with decoding
 	 *	tunneled data.
 	 */
-	DEBUG2("  rlm_eap_peap: Session established.  Decoding tunneled attributes.");
+	RDEBUG2("Session established.  Decoding tunneled attributes.");
 
 	/*
 	 *	We may need PEAP data associated with the session, so
@@ -243,7 +294,7 @@ static int eappeap_authenticate(void *arg, EAP_HANDLER *handler)
 	rcode = eappeap_process(handler, tls_session);
 	switch (rcode) {
 	case RLM_MODULE_REJECT:
-		eaptls_fail(handler->eap_ds, 0);
+		eaptls_fail(handler, 0);
 		return 0;
 
 	case RLM_MODULE_HANDLED:
@@ -251,24 +302,21 @@ static int eappeap_authenticate(void *arg, EAP_HANDLER *handler)
 		return 1;
 
 	case RLM_MODULE_OK:
-		eaptls_success(handler->eap_ds, 0);
-
 		/*
 		 *	Move the saved VP's from the Access-Accept to
 		 *	our Access-Accept.
 		 */
 		peap = tls_session->opaque;
 		if (peap->accept_vps) {
-			DEBUG2("  Using saved attributes from the original Access-Accept");
+			RDEBUG2("Using saved attributes from the original Access-Accept");
+			pairmove(&handler->request->reply->vps, &peap->accept_vps);
+			pairfree(&peap->accept_vps);
 		}
-		pairmove(&handler->request->reply->vps, &peap->accept_vps);
-		pairfree(&peap->accept_vps);
 
-		eaptls_gen_mppe_keys(&handler->request->reply->vps,
-				     tls_session->ssl,
-				     "client EAP encryption");
-
-		return 1;
+		/*
+		 *	Success: Automatically return MPPE keys.
+		 */
+		return eaptls_success(handler, 0);
 
 		/*
 		 *	No response packet, MUST be proxying it.
@@ -285,7 +333,7 @@ static int eappeap_authenticate(void *arg, EAP_HANDLER *handler)
 		break;
 	}
 
-	eaptls_fail(handler->eap_ds, 0);
+	eaptls_fail(handler, 0);
 	return 0;
 }
 

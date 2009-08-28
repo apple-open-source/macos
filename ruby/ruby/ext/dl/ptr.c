@@ -1,5 +1,5 @@
 /* -*- C -*-
- * $Id: ptr.c 17140 2008-06-13 04:15:51Z shyouhei $
+ * $Id: ptr.c 15471 2008-02-14 08:46:06Z matz $
  */
 
 #include <ruby.h>
@@ -336,7 +336,7 @@ rb_dlptr_to_array(int argc, VALUE argv[], VALUE self)
       n = data->size / sizeof(void*);
       break;
     case 'S': case 's':
-      for (n=0; ((void**)(data->ptr))[n]; n++) {};
+      n = data->size / sizeof(char*);
       break;
     default:
 	n = 0;

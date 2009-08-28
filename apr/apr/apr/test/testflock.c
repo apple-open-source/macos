@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -44,7 +44,7 @@ static int launch_reader(abts_case *tc)
 
     args[0] = "tryread" EXTENSION;
     args[1] = NULL;
-    rv = apr_proc_create(&proc, "./tryread" EXTENSION, args, NULL, procattr, p);
+    rv = apr_proc_create(&proc, TESTBINPATH "tryread" EXTENSION, args, NULL, procattr, p);
     APR_ASSERT_SUCCESS(tc, "Couldn't launch program", rv);
 
     ABTS_ASSERT(tc, "wait for child process",

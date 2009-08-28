@@ -1,9 +1,8 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1996-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 1996,2007 Oracle.  All rights reserved.
 #
-# $Id: test036.tcl,v 1.2 2004/03/30 01:24:08 jtownsen Exp $
+# $Id: test036.tcl,v 12.5 2007/05/17 15:15:56 bostic Exp $
 #
 # TEST	test036
 # TEST	Test KEYFIRST and KEYLAST when the key doesn't exist

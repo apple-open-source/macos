@@ -54,7 +54,8 @@ bool DSEventSemaphore::WaitForEvent( SInt32 milliSecs )
     {
         if( milliSecs == 0 ) // wait forever
         {
-            pthread_cond_wait( &fCondition, &fMutex );
+			// pthread_cond states we should check our predicate boolean to ensure we didn't get spuriously woken
+			while ( fbEvent == false ) pthread_cond_wait( &fCondition, &fMutex );
         }
         else if( milliSecs > 0 )
         {

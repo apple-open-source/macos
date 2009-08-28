@@ -1,5 +1,5 @@
 /*
- * $Id: otp_rlm.c,v 1.19.2.13 2007/05/23 22:20:35 fcusack Exp $
+ * $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -20,22 +20,14 @@
  * Copyright 2005-2007 TRI-D Systems, Inc.
  */
 
-#include "ident.h"
-RCSID("$Id: otp_rlm.c,v 1.19.2.13 2007/05/23 22:20:35 fcusack Exp $")
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include <autoconf.h>
-#include <radiusd.h>
-#include <modules.h>
+#include <freeradius-devel/radiusd.h>
+#include <freeradius-devel/modules.h>
 
 #include "extern.h"
 #include "otp.h"
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/types.h>
-#include <time.h>
-#include <netinet/in.h>	/* htonl(), ntohl() */
 
 /* Global data */
 static unsigned char hmac_key[16];	/* to protect State attribute  */
@@ -192,7 +184,7 @@ otp_authorize(void *instance, REQUEST *request)
     auth_type_found = 0;
     if ((vp = pairfind(request->config_items, PW_AUTHTYPE)) != NULL) {
       auth_type_found = 1;
-      if (strcmp(vp->strvalue, inst->name))
+      if (strcmp(vp->vp_strvalue, inst->name))
         return RLM_MODULE_NOOP;
     }
   }
@@ -306,7 +298,7 @@ otp_authenticate(void *instance, REQUEST *request)
                   __func__);
     return RLM_MODULE_INVALID;
   }
-  username = request->username->strvalue;
+  username = request->username->vp_strvalue;
 
   if ((pwe = otp_pwe_present(request)) == 0) {
     (void) radlog(L_AUTH, "rlm_otp: %s: Attribute \"User-Password\" "
@@ -343,7 +335,7 @@ otp_authenticate(void *instance, REQUEST *request)
      */
 
     /* ASCII decode; this is why OTP_MAX_RADSTATE_LEN has +1 */
-    (void) memcpy(rad_state, vp->strvalue, vp->length);
+    (void) memcpy(rad_state, vp->vp_strvalue, vp->length);
     rad_state[e_length] = '\0';
     if (otp_a2x(rad_state, raw_state) == -1) {
       (void) radlog(L_AUTH, "rlm_otp: %s: bad radstate for [%s]: not hex",
@@ -364,7 +356,7 @@ otp_authenticate(void *instance, REQUEST *request)
       return RLM_MODULE_FAIL;
     }
     /* compare generated state against returned state to verify hmac */
-    if (memcmp(state, vp->strvalue, vp->length)) {
+    if (memcmp(state, vp->vp_strvalue, vp->length)) {
       (void) radlog(L_AUTH, "rlm_otp: %s: bad radstate for [%s]: hmac",
                     __func__, username);
       return RLM_MODULE_REJECT;
@@ -394,10 +386,6 @@ otp_authenticate(void *instance, REQUEST *request)
 static int
 otp_detach(void *instance)
 {
-  otp_option_t *inst = (otp_option_t *) instance;
-
-  free(inst->otpd_rp);
-  free(inst->chal_prompt);
   free(instance);
   /*
    * Only the main thread instantiates and detaches instances,
@@ -417,10 +405,11 @@ otp_detach(void *instance)
  *	is single-threaded.
  */
 module_t rlm_otp = {
+  RLM_MODULE_INIT,
   "otp",
   RLM_TYPE_THREAD_SAFE,		/* type */
-  NULL,
   otp_instantiate,		/* instantiation */
+  otp_detach,			/* detach */
   {
     otp_authenticate,		/* authentication */
     otp_authorize,		/* authorization */
@@ -431,6 +420,4 @@ module_t rlm_otp = {
     NULL,			/* post-proxy */
     NULL			/* post-auth */
   },
-  otp_detach,			/* detach */
-  NULL,
 };

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -162,7 +162,12 @@ typedef UInt32 IOStorageOptions;
 struct IOStorageAttributes
 {
     IOStorageOptions options;
-    UInt32           reserved[3];
+    UInt32           reserved0032;
+    UInt64           reserved0064;
+#ifdef __LP64__
+    UInt64           reserved0128;
+    UInt64           reserved0192;
+#endif /* __LP64__ */
 };
 
 /*!
@@ -284,11 +289,13 @@ protected:
 
 public:
 
+#ifndef __LP64__
     /*
      * Initialize this object's minimal state.
      */
 
     virtual bool init(OSDictionary * properties = 0);
+#endif /* !__LP64__ */
 
     /*!
      * @function complete
@@ -308,9 +315,11 @@ public:
                          IOReturn              status,
                          UInt64                actualByteCount = 0);
 
+#ifndef __LP64__
     static void complete(IOStorageCompletion completion,
                          IOReturn            status,
                          UInt64              actualByteCount = 0); /* DEPRECATED */
+#endif /* !__LP64__ */
 
     /*!
      * @function open
@@ -335,15 +344,17 @@ public:
                       IOOptionBits    options,
                       IOStorageAccess access);
 
+#ifndef __LP64__
     virtual void read(IOService *          client,
                       UInt64               byteStart,
                       IOMemoryDescriptor * buffer,
-                      IOStorageCompletion  completion); /* DEPRECATED */
+                      IOStorageCompletion  completion) __attribute__ ((deprecated));
 
     virtual void write(IOService *          client,
                        UInt64               byteStart,
                        IOMemoryDescriptor * buffer,
-                       IOStorageCompletion  completion); /* DEPRECATED */
+                       IOStorageCompletion  completion) __attribute__ ((deprecated));
+#endif /* !__LP64__ */
 
     /*!
      * @function read
@@ -358,16 +369,26 @@ public:
      * @param buffer
      * Buffer for the data transfer.  The size of the buffer implies the size of
      * the data transfer.
+     * @param attributes
+     * Attributes of the data transfer.  See IOStorageAttributes.
      * @param actualByteCount
      * Returns the actual number of bytes transferred in the data transfer.
      * @result
      * Returns the status of the data transfer.
      */
 
-    virtual IOReturn read(IOService *          client,
-                          UInt64               byteStart,
-                          IOMemoryDescriptor * buffer,
-                          UInt64 *             actualByteCount = 0);
+#ifdef __LP64__
+    virtual IOReturn read(IOService *           client,
+                          UInt64                byteStart,
+                          IOMemoryDescriptor *  buffer,
+                          IOStorageAttributes * attributes      = 0,
+                          UInt64 *              actualByteCount = 0);
+#else /* !__LP64__ */
+    virtual IOReturn read(IOService *           client,
+                          UInt64                byteStart,
+                          IOMemoryDescriptor *  buffer,
+                          UInt64 *              actualByteCount = 0);
+#endif /* !__LP64__ */
 
     /*!
      * @function write
@@ -382,16 +403,26 @@ public:
      * @param buffer
      * Buffer for the data transfer.  The size of the buffer implies the size of
      * the data transfer.
+     * @param attributes
+     * Attributes of the data transfer.  See IOStorageAttributes.
      * @param actualByteCount
      * Returns the actual number of bytes transferred in the data transfer.
      * @result
      * Returns the status of the data transfer.
      */
 
-    virtual IOReturn write(IOService *          client,
-                           UInt64               byteStart,
-                           IOMemoryDescriptor * buffer,
-                           UInt64 *             actualByteCount = 0);
+#ifdef __LP64__
+    virtual IOReturn write(IOService *           client,
+                           UInt64                byteStart,
+                           IOMemoryDescriptor *  buffer,
+                           IOStorageAttributes * attributes      = 0,
+                           UInt64 *              actualByteCount = 0);
+#else /* !__LP64__ */
+    virtual IOReturn write(IOService *           client,
+                           UInt64                byteStart,
+                           IOMemoryDescriptor *  buffer,
+                           UInt64 *              actualByteCount = 0);
+#endif /* !__LP64__ */
 
     /*!
      * @function synchronizeCache
@@ -430,13 +461,19 @@ public:
      * of the data transfer, as necessary.
      */
 
+#ifdef __LP64__
     virtual void read(IOService *           client,
                       UInt64                byteStart,
                       IOMemoryDescriptor *  buffer,
                       IOStorageAttributes * attributes,
-                      IOStorageCompletion * completion); /* ABSTRACT */
-
-    OSMetaClassDeclareReservedUsed(IOStorage, 0); /* 10.5.0 */
+                      IOStorageCompletion * completion) = 0;
+#else /* !__LP64__ */
+    virtual void read(IOService *           client,
+                      UInt64                byteStart,
+                      IOMemoryDescriptor *  buffer,
+                      IOStorageAttributes * attributes,
+                      IOStorageCompletion * completion); /* 10.5.0 */
+#endif /* !__LP64__ */
 
     /*!
      * @function write
@@ -463,13 +500,19 @@ public:
      * of the data transfer, as necessary.
      */
 
+#ifdef __LP64__
     virtual void write(IOService *           client,
                        UInt64                byteStart,
                        IOMemoryDescriptor *  buffer,
                        IOStorageAttributes * attributes,
-                       IOStorageCompletion * completion); /* ABSTRACT */
-
-    OSMetaClassDeclareReservedUsed(IOStorage, 1); /* 10.5.0 */
+                       IOStorageCompletion * completion) = 0;
+#else /* !__LP64__ */
+    virtual void write(IOService *           client,
+                       UInt64                byteStart,
+                       IOMemoryDescriptor *  buffer,
+                       IOStorageAttributes * attributes,
+                       IOStorageCompletion * completion); /* 10.5.0 */
+#endif /* !__LP64__ */
 
     /*!
      * @function discard
@@ -488,10 +531,17 @@ public:
 
     virtual IOReturn discard(IOService * client,
                              UInt64      byteStart,
-                             UInt64      byteCount);
+                             UInt64      byteCount); /* 10.6.0 */
 
-    OSMetaClassDeclareReservedUsed(IOStorage, 2); /* 10.6.0 */
-
+#ifdef __LP64__
+    OSMetaClassDeclareReservedUnused(IOStorage,  0);
+    OSMetaClassDeclareReservedUnused(IOStorage,  1);
+    OSMetaClassDeclareReservedUnused(IOStorage,  2);
+#else /* !__LP64__ */
+    OSMetaClassDeclareReservedUsed(IOStorage,  0);
+    OSMetaClassDeclareReservedUsed(IOStorage,  1);
+    OSMetaClassDeclareReservedUsed(IOStorage,  2);
+#endif /* !__LP64__ */
     OSMetaClassDeclareReservedUnused(IOStorage,  3);
     OSMetaClassDeclareReservedUnused(IOStorage,  4);
     OSMetaClassDeclareReservedUnused(IOStorage,  5);

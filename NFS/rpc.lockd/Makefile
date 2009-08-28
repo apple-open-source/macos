@@ -4,19 +4,22 @@
 
 Project = rpc.lockd
 
+inplace:
+	@$(MAKE) all SRCROOT=. OBJROOT=. SYMROOT=. DSTROOT=/
+
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
-SRCROOT ?= .
-OBJROOT ?= .
-SYMROOT ?= .
-DSTROOT ?= .
 SDKROOT ?= /
 
-WARNFLAGS = -Wall -Wextra -Wshadow -Wmissing-prototypes \
-	 -Wmissing-declarations -Wno-discard-qual
-
-Extra_CC_Flags = $(WARNFLAGS)  -I $(SRCROOT) -I $(OBJROOT) -isysroot $(SDKROOT)
-Extra_LD_Flags = -lutil -dead_strip
+WARNING_FLAGS = -Wall -Wextra -Wformat=2 -Wpointer-arith -Wcast-align \
+		-Wwrite-strings -Wno-unknown-pragmas \
+		-Wno-missing-field-initializers \
+		-Wshadow -Wmissing-prototypes \
+		-Wmissing-declarations -Wno-discard-qual
+Extra_CC_Flags = $(WARNFLAGS) -D_FORTIFY_SOURCE=2 \
+		 -I $(SRCROOT) -I $(OBJROOT) -isysroot $(SDKROOT) \
+		 -fPIE
+Extra_LD_Flags = -Wl,-pie -lutil -dead_strip
 
 DST_DIR = $(DSTROOT)/usr/sbin
 MAN_DIR = $(DSTROOT)/usr/share/man/man8
@@ -25,9 +28,9 @@ LAUNCHDAEMONS_DIR = $(DSTROOT)/System/Library/LaunchDaemons
 #
 # Standard B&I targets
 #
-all: rpc.lockd
+all: $(SYMROOT)/rpc.lockd
 
-install:: $(SYMROOT)/rpc.lockd
+install:: all
 	install -d -o root -g wheel -m 755 $(DST_DIR)
 	install -c -o root -g wheel -m 555 -s $(SYMROOT)/rpc.lockd $(DST_DIR)
 	install -d -o root -g wheel -m 755 $(MAN_DIR)
@@ -70,17 +73,6 @@ $(MIG_OUT_FILES): $(MIG_DEF_FILES)
 		-sheader $(OBJROOT)/lockd_machServer.h \
 		$(MIG_DEF_FILES)
 
-$(MIG_GEN_FILES): $(MIG_DEF_FILES)
-	mig \
-		-user    lockd_machUser.c \
-		-header  lockd_mach.h \
-		-server  lockd_machServer.c \
-		-sheader lockd_machServer.h \
-		$(MIG_DEF_FILES)
-
 $(SYMROOT)/rpc.lockd: $(addprefix $(OBJROOT)/, $(OFILES))
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
-
-rpc.lockd: $(OFILES)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
 

@@ -41,6 +41,8 @@
 #include <time.h>
 #include <signal.h>			// for signal handling
 #include <time.h>
+#include <sys/syscall.h>
+#include <sys/kauth.h>
 
 #include <mach/mach.h>
 #include <mach/mach_error.h>
@@ -48,6 +50,7 @@
 #include <sys/sysctl.h>				// for struct kinfo_proc and sysctl()
 #include <syslog.h>					// for syslog()
 #include <asl.h>
+#include <vproc.h>
 
 #define USE_SYSTEMCONFIGURATION_PUBLIC_APIS
 #include <SystemConfiguration/SystemConfiguration.h>	//required for the configd kicker operation
@@ -56,10 +59,8 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <mach/mach_init.h>
 #include <mach/port.h>
-
-#if HAVE_CORE_SERVER
-#include <XSEventPort.h>
-#endif
+#include <dispatch/dispatch.h>
+#include "DirServicesConstPriv.h"
 
 #include "DirServiceMain.h"
 #include "ServerControl.h"
@@ -80,165 +81,42 @@
 
 using namespace std;
 
+typedef CFTypeRef _XSEventPortCreate( CFAllocatorRef allocator );
+typedef int _XSEventPortPostEvent( CFTypeRef inPortRef, CFStringRef inEventType, CFDictionaryRef inEventData );
+
+static _XSEventPortPostEvent *_xsEventPortPostEvent = NULL;
+static _XSEventPortCreate *_xsEventPortCreate		= NULL;
+
+bool	gCacheFlushDisabled		= false;
 dsBool	gServerOS				= false;	//indicates whether this is running on Server or not
-dsBool	gLogAPICalls			= false;
-dsBool	gDebugLogging			= false;
+bool	gLogAPICalls			= false;
+bool	gDebugLogging			= false;
 dsBool	gDSFWCSBPDebugLogging   = false;
-dsBool	gIgnoreSunsetTime		= false;
+bool	gIgnoreSunsetTime		= false;
 dsBool	gDSDebugMode			= false;
 dsBool	gDSLocalOnlyMode		= false;
 dsBool	gDSInstallDaemonMode	= false;
 dsBool	gProperShutdown			= false;
 dsBool	gSafeBoot				= false;
-CFAbsoluteTime	gSunsetTime		= 0;
-
-#if HAVE_CORE_SERVER
-XSEventPortRef	gEventPort		= NULL;
-#else
-void			*gEventPort		= NULL;
-#endif
+CFTypeRef		gEventPort		= NULL;
+uint32_t	gNumberOfCores		= 0;
 
 //Used for Power Management
 io_object_t			gPMDeregisterNotifier;
 io_connect_t		gPMKernelPort;
 CFRunLoopRef		gPluginRunLoop = NULL;	// this is not our main runloop, this is our plugin runloop
 DSMutexSemaphore    *gKerberosMutex = NULL;
-mach_port_t			gMachMIGSet = MACH_PORT_NULL;
 DSEventSemaphore	gPluginRunLoopEvent;
+
+mach_port_t			gLibinfoMachPort	= MACH_PORT_NULL;
+mach_port_t			gAPIMachPort		= MACH_PORT_NULL;
+mach_port_t			gMembershipMachPort	= MACH_PORT_NULL;
 
 extern CDSLocalPlugin	*gLocalNode;
 
 #warning VERIFY the version string before each software release
-const char* gStrDaemonAppleVersion = "5.7"; //match this with x.y in 10.x.y
-
+const char* gStrDaemonAppleVersion = "6.0"; //match this with x.y in 10.x.y
 const char* gStrDaemonBuildVersion = "unlabeled/engineering";
-
-enum
-{
-	kSignalMessage		= 1000
-};
-
-typedef struct SignalMessage
-{
-	mach_msg_header_t	header;
-	mach_msg_body_t		body;
-	int					signum;
-	mach_msg_audit_trailer_t	trailer;
-} SignalMessage;
-
-void LoggingTimerCallBack( CFRunLoopTimerRef timer, void *info );
-
-static void SignalHandler(int signum);
-static void SignalMessageHandler(CFMachPortRef port,SignalMessage *msg,CFIndex size,void *info);
-
-static mach_port_t					gSignalPort = MACH_PORT_NULL;
-
-void SignalHandler(int signum)
-{
-	SignalMessage	msg;
-	
-	msg.header.msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_COPY_SEND,0);
-	msg.header.msgh_size = sizeof(msg) - sizeof(mach_msg_trailer_t);
-	msg.header.msgh_remote_port = gSignalPort;
-	msg.header.msgh_local_port = MACH_PORT_NULL;
-	msg.header.msgh_id = kSignalMessage;
-	msg.body.msgh_descriptor_count = 0;
-	msg.signum = signum;
-	
-	mach_msg(&msg.header,(MACH_SEND_MSG | MACH_SEND_TIMEOUT),
-			 msg.header.msgh_size,0,MACH_PORT_NULL,0,MACH_PORT_NULL);
-}
-
-// ---------------------------------------------------------------------------
-//	* _HandleSIGTERM ()
-//
-// ---------------------------------------------------------------------------
-static void _HandleSIGTERM ( ... )
-{
-	CFRunLoopStop(CFRunLoopGetCurrent());
-} // _HandleSIGTERM
-
-// ---------------------------------------------------------------------------
-//	* _HandleSigHup ()
-//
-// ---------------------------------------------------------------------------
-static void _HandleSigHup ( ... )
-{
-	if ( gSrvrCntl != nil )
-	{
-		gSrvrCntl->HandleNetworkTransition(); //ignore return status
-	}
-} // _HandleSigHup
-
-// ---------------------------------------------------------------------------
-//	* _HandleSIGUSR1 ()
-//
-// ---------------------------------------------------------------------------
-static void _HandleSIGUSR1 ( ... )
-{
-	if ( gSrvrCntl != nil )
-	{
-		gSrvrCntl->ResetDebugging(); //ignore return status
-	}
-} // _HandleSIGUSR1
-
-// ---------------------------------------------------------------------------
-//	* _HandleSIGUSR2 ()
-//
-// ---------------------------------------------------------------------------
-static void _HandleSIGUSR2 ( ... )
-{
-	//toggle the global
-	if (gLogAPICalls)
-	{
-		gLogAPICalls = false;
-		syslog(LOG_ALERT,"Logging of API Calls turned OFF after receiving USR2 signal.");
-	}
-	else
-	{
-		gLogAPICalls = true;
-		gSunsetTime		= CFAbsoluteTimeGetCurrent() + 300;
-		CFRunLoopTimerRef timer = CFRunLoopTimerCreate(	kCFAllocatorDefault,
-														gSunsetTime, // set timer a little ahead
-														0,
-														0,
-														0,
-														LoggingTimerCallBack,
-														NULL );
-		
-		// this does not block the runloop
-		CFRunLoopAddTimer( CFRunLoopGetMain(), timer, kCFRunLoopDefaultMode );
-		CFRelease( timer );
-		timer = NULL;
-		syslog(LOG_ALERT,"Logging of API Calls turned ON after receiving USR2 signal.");
-	}
-} // _HandleSIGUSR2
-
-
-void SignalMessageHandler(CFMachPortRef port,SignalMessage *msg,CFIndex size,void *info)
-{
-	//handle SIGTERM, SIGHUP, SIGUSR1, SIGUSR2, SIGABRT, SIGINT, SIGPIPE
-	if (msg->signum == SIGUSR1)
-	{
-		_HandleSIGUSR1();
-	}
-	else if (msg->signum == SIGUSR2)
-	{
-		_HandleSIGUSR2();
-	}
-	else if (msg->signum == SIGHUP)
-	{
-		_HandleSigHup();
-	}
-	else if ( (msg->signum == SIGTERM) || (msg->signum == SIGABRT) )
-	{
-		_HandleSIGTERM();
-	}
-	else if (msg->signum == SIGPIPE || msg->signum == SIGURG)
-	{
-		//don't do anything for a SIGPIPE
-	}
-}
 
 // ---------------------------------------------------------------------------
 //	* _Usage ()
@@ -302,20 +180,6 @@ static void _AppleOptions ( FILE *fp, const char *argv0 )
 } // _AppleOptions
 
 // ---------------------------------------------------------------------------
-//	* LoggingTimerCallBack ()
-//
-// ---------------------------------------------------------------------------
-
-void LoggingTimerCallBack( CFRunLoopTimerRef timer, void *info )
-{
-	if ( gLogAPICalls && !gIgnoreSunsetTime )
-	{
-		gLogAPICalls	= false;
-		syslog(LOG_CRIT,"Logging of API Calls automatically turned OFF at reaching sunset duration of five minutes.");
-	}
-}
-
-// ---------------------------------------------------------------------------
 //	* NetworkChangeCallBack ()
 //
 // ---------------------------------------------------------------------------
@@ -375,7 +239,7 @@ void dsPMNotificationHandler ( void *refContext, io_service_t service, natural_t
 		case kIOMessageCanSystemSleep:
 		case kIOMessageCanSystemPowerOff:
 		case kIOMessageCanDevicePowerOff:
-            IOAllowPowerChange(gPMKernelPort, (SInt32)notificationID);	// don't want to slow up machine from going to sleep
+            IOAllowPowerChange(gPMKernelPort, (long) notificationID);	// don't want to slow up machine from going to sleep
 		break;
 
 		case kIOMessageSystemWillNotSleep:
@@ -407,11 +271,7 @@ void dsPMNotificationHandler ( void *refContext, io_service_t service, natural_t
 
 int dsPostEvent( CFStringRef inEventType, CFDictionaryRef inEventData )
 {
-#if HAVE_CORE_SERVER
-	return ((gEventPort != NULL) ? XSEventPortPostEvent(gEventPort, inEventType, inEventData) : -1);
-#else
-	return 0;
-#endif
+	return ((gEventPort != NULL && _xsEventPortPostEvent != NULL) ? _xsEventPortPostEvent(gEventPort, inEventType, inEventData) : -1);
 }
 
 // ---------------------------------------------------------------------------
@@ -434,6 +294,7 @@ int main ( int argc, char * const *argv )
 	bool				bFound			= false;
 	struct stat			statResult;
 	pid_t				ourUID			= ::getuid();
+	static CFBundleRef	coreServerBundle	= NULL;
 
 	if ( sizeof(BUILDNUMBER) > sizeof("") )
 		gStrDaemonBuildVersion = BUILDNUMBER;
@@ -516,86 +377,47 @@ int main ( int argc, char * const *argv )
 		syslog(LOG_ALERT, "DirectoryService needs to be launched as root.\n");
 		exit( 1 );
 	}
-
-	syslog(LOG_ALERT,"Launched version %s (v%s)", gStrDaemonAppleVersion, gStrDaemonBuildVersion );
 	
-	mach_port_t			send_port			= MACH_PORT_NULL;
+	if ( gDSLocalOnlyMode == false && gDSInstallDaemonMode == false && gDSDebugMode == false &&
+		lstat("/etc/rc.cdrom", &statResult) == 0 && lstat("/System/Installation", &statResult) == 0 )
+	{
+		gDSInstallDaemonMode = true;
+		syslog( LOG_NOTICE, "Launched version %s (v%s) - installer mode", gStrDaemonAppleVersion, gStrDaemonBuildVersion );
+	}
+	else if ( gDSDebugMode == true )
+	{
+		printf( "Debug mode enabled.\nTo access this daemon define environment variable DS_DEBUG_MODE.\n" );
+	}
+	else
+	{
+		syslog( LOG_INFO, "Launched version %s (v%s)", gStrDaemonAppleVersion, gStrDaemonBuildVersion );
+	}
+	
 	mach_port_t			priv_bootstrap_port	= MACH_PORT_NULL;
-	mach_port_t			tempMachPort		= MACH_PORT_NULL;
 	int					status				= eDSNoErr;
-
-	mach_port_allocate( mach_task_self(), MACH_PORT_RIGHT_PORT_SET, &gMachMIGSet );
 
 	if (!gDSDebugMode)
 	{
-		char* usedPortName = nil;
-	
-		if (gDSLocalOnlyMode) //set up parameters to differentiate the daemon
-		{
-			usedPortName = kDSStdMachLocalPortName;
-		}
-		else
-		{
-			usedPortName = kDSStdMachPortName;
-		}
+		char* usedPortName = (char *) (gDSLocalOnlyMode == true ? kDSStdMachLocalPortName : kDSStdMachPortName);
 
         /*
          * See if our service name is already registered and if we have privilege to check in.
          */
-		status = bootstrap_check_in(bootstrap_port, usedPortName, &tempMachPort);
-		if ( status == BOOTSTRAP_SUCCESS )
-		{
-			mach_port_move_member( mach_task_self(), tempMachPort, gMachMIGSet );
-			tempMachPort = MACH_PORT_NULL;
-
-			if ( !gDSLocalOnlyMode )
-			{
-				// checkin for our libinfo name
-				status = bootstrap_check_in(bootstrap_port, kDSStdMachDSLookupPortName, &tempMachPort);
-				if ( status == BOOTSTRAP_SUCCESS )
-				{
-					mach_port_move_member( mach_task_self(), tempMachPort, gMachMIGSet );
-					tempMachPort = MACH_PORT_NULL;
-				}
-			}
-		}
-
-		if (status == BOOTSTRAP_SERVICE_ACTIVE)
-		{
+		status = bootstrap_check_in( bootstrap_port, usedPortName, &gAPIMachPort );
+		if ( status == BOOTSTRAP_SERVICE_ACTIVE ) {
 			syslog(LOG_ALERT, "DirectoryService %s instance is already running - exiting this instance", usedPortName );
-			exit(0);
+			exit( 0 );
 		}
-		else if ( (status != BOOTSTRAP_SUCCESS) && gDSLocalOnlyMode )
-		{
-			syslog(LOG_ALERT, "bootstrap_check_in() for mach_init local port returned BOOTSTRAP_UNKNOWN_SERVICE so we will create our own portset" );
-			//immediate and not on demand launch
-			status = bootstrap_create_server(bootstrap_port, "/usr/sbin/DirectoryService -localonly", 0, true, &priv_bootstrap_port);
-			if (status == KERN_SUCCESS)
-			{
-				status = bootstrap_create_service(priv_bootstrap_port, kDSStdMachLocalPortName, &send_port);
-				if (status == KERN_SUCCESS)
-				{
-					status = bootstrap_check_in(priv_bootstrap_port, kDSStdMachLocalPortName, &tempMachPort);
-					if (status != KERN_SUCCESS)
-					{
-						syslog(LOG_ALERT, "unable to bootstrap_check_in our own debug portset - exiting" );
-						exit(0);
-					}
-					
-					mach_port_move_member( mach_task_self(), tempMachPort, gMachMIGSet );
-					tempMachPort = MACH_PORT_NULL;
-				}
-				else
-				{
-					syslog(LOG_ALERT, "unable to bootstrap_create_service our own debug portset - exiting" );
-					exit(0);
-				}
-			}
-		}
-		else if (status != BOOTSTRAP_SUCCESS) //we should never get here
-		{
-			syslog(LOG_ALERT, "launchd has failed to launch DirectoryService %s instance - exiting this instance with error <%d>", usedPortName, status );
-			exit(0);
+
+		assert( status == BOOTSTRAP_SUCCESS );
+
+		if ( gDSLocalOnlyMode == false ) {
+			// checkin for our libinfo and membership name
+			status = bootstrap_check_in(bootstrap_port, (char *)kDSStdMachDSLookupPortName, &gLibinfoMachPort);
+			assert( status == BOOTSTRAP_SUCCESS );
+			
+			status = bootstrap_check_in( bootstrap_port, (char *)kDSStdMachMembershipPortName, &gMembershipMachPort );
+			assert( status == BOOTSTRAP_SUCCESS );
 		}
 	}
 	else // this is only debug mode, we don't error anything
@@ -604,18 +426,12 @@ int main ( int argc, char * const *argv )
          * See if our service name is already registered and if we have privilege to check in.
 		 * This should never work for debug mode. - expect to get BOOTSTRAP_UNKNOWN_SERVICE
          */
-		status = bootstrap_check_in(bootstrap_port, kDSStdMachDebugPortName, &tempMachPort);
+		status = bootstrap_check_in(bootstrap_port, kDSStdMachPortName"Debug", &gAPIMachPort);
 		if (status == BOOTSTRAP_SUCCESS)
 		{
-			mach_port_move_member( mach_task_self(), tempMachPort, gMachMIGSet );
-			tempMachPort = MACH_PORT_NULL;
-
-			status = bootstrap_check_in(bootstrap_port, kDSStdMachDSLookupPortName, &tempMachPort);
-			if (status == BOOTSTRAP_SUCCESS)
-			{
-				mach_port_move_member( mach_task_self(), tempMachPort, gMachMIGSet );
-				tempMachPort = MACH_PORT_NULL;
-			}
+			bootstrap_check_in( bootstrap_port, kDSStdMachDSLookupPortName"Debug", &gLibinfoMachPort );
+			
+			bootstrap_check_in( bootstrap_port, kDSStdMachMembershipPortName"Debug", &gMembershipMachPort );
 		}
 		
 		if (status == BOOTSTRAP_SERVICE_ACTIVE)
@@ -628,39 +444,37 @@ int main ( int argc, char * const *argv )
 			syslog(LOG_ALERT, "bootstrap_check_in() for mach_init debug port returned BOOTSTRAP_UNKNOWN_SERVICE so we will create our own portset" );
 			
 			//immediate and not on demand launch
-			status = bootstrap_create_server(bootstrap_port, "/usr/sbin/DirectoryService", 0, false, &priv_bootstrap_port);
+			status = bootstrap_create_server(bootstrap_port, (char *)"/usr/sbin/DirectoryService", 0, false, &priv_bootstrap_port);
 			if (status == KERN_SUCCESS)
 			{
-				status = bootstrap_create_service(priv_bootstrap_port, kDSStdMachDebugPortName, &send_port);
-				if (status == KERN_SUCCESS)
-				{
-					status = bootstrap_check_in(priv_bootstrap_port, kDSStdMachDebugPortName, &tempMachPort);
-					if (status != KERN_SUCCESS)
-					{
-						syslog(LOG_ALERT, "unable to create our own debug portset - exiting" );
-						exit(0);
-					}
+				mach_port_t (^registerDebugService)(const char *) = ^(const char *service) {
+					char		debugPortName[256];
+					mach_port_t tempPort	= MACH_PORT_NULL;
+					mach_port_t	send_port	= MACH_PORT_NULL;
 					
-					mach_port_move_member( mach_task_self(), tempMachPort, gMachMIGSet );
-					tempMachPort = MACH_PORT_NULL;
-
-					status = bootstrap_check_in(priv_bootstrap_port, kDSStdMachDSLookupPortName, &tempMachPort);
-					if (status != KERN_SUCCESS)
-					{
-						status = bootstrap_create_service(priv_bootstrap_port, kDSStdMachDSLookupPortName, &send_port);
-						if (status == KERN_SUCCESS)
+					snprintf( debugPortName, sizeof(debugPortName), "%sDebug", service );
+					kern_return_t kr = bootstrap_check_in( priv_bootstrap_port, debugPortName, &tempPort );
+					if ( kr != KERN_SUCCESS ) {
+						kr = bootstrap_create_service( priv_bootstrap_port, debugPortName, &send_port );
+						if ( kr == KERN_SUCCESS )
 						{
-							status = bootstrap_check_in(priv_bootstrap_port, kDSStdMachDSLookupPortName, &tempMachPort);
-							if (status != KERN_SUCCESS)
+							kr = bootstrap_check_in( priv_bootstrap_port, debugPortName, &tempPort );
+							if (kr != KERN_SUCCESS)
 							{
 								syslog(LOG_ALERT, "unable to create our own debug portset - exiting" );
 								exit(0);
 							}
-
-							mach_port_move_member( mach_task_self(), tempMachPort, gMachMIGSet );
-							tempMachPort = MACH_PORT_NULL;
 						}
 					}
+					
+					return tempPort;
+				};
+				
+				gAPIMachPort = registerDebugService( kDSStdMachDebugPortName );
+				if ( gAPIMachPort != MACH_PORT_NULL ) {
+					gLibinfoMachPort = registerDebugService( kDSStdMachDSLookupPortName );
+					gMembershipMachPort = registerDebugService( kDSStdMachDSLookupPortName );
+					
 				}
 			}
 		}
@@ -675,22 +489,23 @@ int main ( int argc, char * const *argv )
 		}
 
 		//global set to determine different behavior dependant on server build versus desktop
-		if (stat( "/System/Library/CoreServices/ServerVersion.plist", &statResult ) == eDSNoErr)
-		{
+		if ( lstat("/System/Library/CoreServices/ServerVersion.plist", &statResult) == 0 ) {
 			gServerOS = true;
 		}
-
+		
 		// if not properly shut down, the SQL index for the local node needs to be deleted
 		// we look for the pid and the special file since /var/run gets cleaned at boot
 		// and we could have crashed just as we were shutting down
-		if ( gDSLocalOnlyMode || gDSInstallDaemonMode || (stat(kDSPIDFile, &statResult) != 0 &&
-			stat(kDSRunningFile, &statResult) != 0) )
+		if ( gDSDebugMode == true || 
+			 gDSLocalOnlyMode == true || 
+			 gDSInstallDaemonMode == true || 
+			 (stat(kDSPIDFile, &statResult) != 0 && stat(kDSRunningFile, &statResult) != 0) )
 		{
 			// file not present, last shutdown was normal
 			gProperShutdown = true;
 		}
-			
-		if ( !gDSLocalOnlyMode && !gDSInstallDaemonMode )
+		
+		if ( !gDSLocalOnlyMode && !gDSInstallDaemonMode && !gDSDebugMode )
 		{
 			// create pid file
 			char pidStr[256];
@@ -707,7 +522,14 @@ int main ( int argc, char * const *argv )
 				dsTouch( kDSRunningFile );
 		}
 		
-		if (!gDebugLogging && stat( "/Library/Preferences/DirectoryService/.DSLogDebugAtStart", &statResult ) == eDSNoErr)
+		if ( gDebugLogging == false && lstat( "/Library/Preferences/DirectoryService/.DSLogDebugAtStartOnce", &statResult ) == 0 )
+		{
+			dsRemove( "/Library/Preferences/DirectoryService/.DSLogDebugAtStartOnce" );
+			gDebugLogging = true;
+			debugOpts = kLogEverything;
+		}
+		
+		if ( gDebugLogging == false && lstat( "/Library/Preferences/DirectoryService/.DSLogDebugAtStart", &statResult ) == 0 )
 		{
 			gDebugLogging = true;
 			debugOpts = kLogEverything;
@@ -743,30 +565,48 @@ int main ( int argc, char * const *argv )
 			SrvrLog( kLogApplication, "Safe Boot is enabled" );
 		}
 		
-		mach_port_limits_t	limits = { 1 };
-		CFMachPortRef		port;
+		struct rlimit rl = { FD_SETSIZE, FD_SETSIZE };
 		
-		port = CFMachPortCreate(NULL,(CFMachPortCallBack)SignalMessageHandler,NULL,NULL);
-		CFRunLoopAddSource(	CFRunLoopGetCurrent(),
-							CFMachPortCreateRunLoopSource(NULL,port,0),
-							kCFRunLoopCommonModes);
+		if ( setrlimit(RLIMIT_NOFILE, &rl) != 0 ) {
+			syslog( LOG_NOTICE, "Unable to increase file limit to %d", rl.rlim_cur );
+		}
 		
-		gSignalPort = CFMachPortGetPort(port);
-		mach_port_set_attributes(	mach_task_self(),
-									gSignalPort,
-									MACH_PORT_LIMITS_INFO,
-									(mach_port_info_t)&limits,
-									sizeof(limits) / sizeof(natural_t));
+		dispatch_source_t source;
 		
-		//handle SIGTERM, SIGHUP, SIGUSR1, SIGUSR2, SIGABRT, SIGINT, SIGPIPE, SIGURG
-		signal(SIGTERM,SignalHandler);
-		signal(SIGHUP,SignalHandler);
-		signal(SIGUSR1,SignalHandler);
-		signal(SIGUSR2,SignalHandler);
-		signal(SIGABRT,SignalHandler);
-		signal(SIGINT,SignalHandler);
-		signal(SIGPIPE,SignalHandler);
-		signal(SIGURG,SignalHandler);
+		// TERM
+		source = dispatch_source_signal_create( SIGTERM, NULL, dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT), ^(dispatch_source_t ds) { 
+			DbgLog( kLogInfo, "dsdispatch - SIGTERM - attempting to stop main runloop" );
+			CFRunLoopStop( CFRunLoopGetMain() ); 
+		} );
+		assert( source != NULL );
+		
+		signal( SIGTERM, SIG_IGN );
+		
+		// USR1
+		source = dispatch_source_signal_create( SIGUSR1, NULL, dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT), ^(dispatch_source_t ds){ ServerControl::ResetDebugging(); } );
+		assert( source != NULL );
+		
+		signal( SIGUSR1, SIG_IGN );
+		
+		// USR2
+		source = dispatch_source_signal_create( SIGUSR2, NULL, dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT), ^(dispatch_source_t ds) { ServerControl::ToggleAPILogging(true); } );
+		assert( source != NULL );
+		
+		signal( SIGUSR2, SIG_IGN );
+
+		// HUP
+		source = dispatch_source_signal_create( SIGHUP, NULL, dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT), ^(dispatch_source_t ds) { 
+			ServerControl::HandleNetworkTransition();
+			DbgLog( kLogInfo, "dsdispatch - SIGHUP - simulating network transition" );
+		} );
+		assert( source != NULL );
+		
+		signal( SIGHUP, SIG_IGN );
+
+		if ( gDSDebugMode == false ) {
+			signal( SIGINT, SIG_IGN );
+		}
+		signal( SIGPIPE, SIG_IGN );
 		
 		// first thing we do is setup our plugin runloop for handling requests from plugins
 		CPluginRunLoopThread *pluginRunLoopThread = new CPluginRunLoopThread();
@@ -787,11 +627,54 @@ int main ( int argc, char * const *argv )
 			gSrvrCntl->ResetDebugging(); //ignore return status
 		}
 
+		// we stat instead of using CFBundlePreflightExecutable() to prevent a deadlock with CF text encoding issues
+		struct stat statBlock;
+		if ( stat("/System/Library/PrivateFrameworks/CoreServer.framework", &statBlock) == 0 ) {
+			
+			CFURLRef coreServerURL = CFURLCreateWithFileSystemPath( NULL, CFSTR("/System/Library/PrivateFrameworks/CoreServer.framework"), 
+																    kCFURLPOSIXPathStyle, false );
+			if ( coreServerURL != NULL ) {
+				
+				coreServerBundle = CFBundleCreate( kCFAllocatorDefault, coreServerURL );
+				if ( coreServerBundle != NULL ) {
+					
+					Boolean isLoaded = CFBundleIsExecutableLoaded( coreServerBundle );
+					if ( isLoaded == FALSE )
+						isLoaded = CFBundleLoadExecutable( coreServerBundle );
+					
+					if ( isLoaded == TRUE ) {
+						_xsEventPortPostEvent = (_XSEventPortPostEvent *) CFBundleGetFunctionPointerForName( coreServerBundle, CFSTR("XSEventPortPostEvent") );
+						_xsEventPortCreate = (_XSEventPortCreate *) CFBundleGetFunctionPointerForName( coreServerBundle, CFSTR("XSEventPortCreate") );
+						
+						if ( _xsEventPortPostEvent != NULL && _xsEventPortCreate != NULL )
+							SrvrLog( kLogApplication, "CoreServer.framework found using for events" );
+						else
+							DbgLog( kLogError, "CoreServer.framework found but unable to map functions" );
+					}
+				}
+				
+				DSCFRelease( coreServerURL );
+			}
+		}
+		
 		// Create an XSEventPort for the adaptive firewall
-#if HAVE_CORE_SERVER
-		gEventPort = XSEventPortCreate( NULL );
-#endif
-
+		if ( _xsEventPortCreate != NULL )
+			gEventPort = _xsEventPortCreate( NULL );
+		
+		vproc_transaction_t vProcTransaction = NULL;
+		if ( !gDSLocalOnlyMode && !gDSInstallDaemonMode && !gDSDebugMode )
+		{
+			vProcTransaction = vproc_transaction_begin( NULL );
+		}
+		
+		// temporary until MIG dispatch
+		// need a solution for kauth syscall work
+		// helps lower thread cycling rates, but increases our base thread count
+		sbsz = sizeof( gNumberOfCores );
+		sysctlbyname( "hw.logicalcpu_max", &gNumberOfCores, &sbsz, NULL, 0 );
+		SrvrLog( kLogApplication, "Detected %d logical CPUs", gNumberOfCores );
+		if ( gNumberOfCores > 4 ) gNumberOfCores = 4;
+		
 		SInt32 startSrvr;
 		startSrvr = gSrvrCntl->StartUpServer();
 		if ( startSrvr != eDSNoErr ) throw( startSrvr );
@@ -809,12 +692,15 @@ int main ( int argc, char * const *argv )
 			gSrvrCntl->ShutDownServer();
 		}
 		
-		if ( !gDSLocalOnlyMode && !gDSInstallDaemonMode )
+		if ( !gDSLocalOnlyMode && !gDSInstallDaemonMode && !gDSDebugMode )
 		{
 			fcntl( 0, F_FULLFSYNC ); // ensure FS is flushed before we remove the PID files
 			
 			dsRemove( kDSRunningFile );
 			dsRemove( kDSPIDFile );
+			
+			if ( vProcTransaction != NULL )
+				vproc_transaction_end( NULL, vProcTransaction );
 		}
 	}
 

@@ -1,6 +1,8 @@
+/* proto-back-relay.h - relay backend header file */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-relay/proto-back-relay.h,v 1.6.2.4 2008/02/12 01:03:16 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2004-2006 The OpenLDAP Foundation.
+ * Copyright 2004-2008 The OpenLDAP Foundation.
  * Portions Copyright 2004 Pierangelo Masarati.
  * All rights reserved.
  *
@@ -27,7 +29,6 @@ LDAP_BEGIN_DECL
 extern BI_init			relay_back_initialize;
 
 extern BI_db_init		relay_back_db_init;
-extern BI_db_config		relay_back_db_config;
 extern BI_db_open		relay_back_db_open;
 extern BI_db_close		relay_back_db_close;
 extern BI_db_destroy		relay_back_db_destroy;

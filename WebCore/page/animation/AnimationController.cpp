@@ -152,23 +152,9 @@ void AnimationControllerPrivate::updateStyleIfNeededDispatcherFired(Timer<Animat
     
     if (m_frame)
         m_frame->document()->updateStyleIfNeeded();
-
-    // We can now safely remove any animations or transitions that are finished.
-    // We can't remove them any earlier because we might get a false restart of
-    // a transition. This can happen because we have not yet set the final property
-    // value until we call the rendering dispatcher. So this can make the current
-    // style slightly different from the desired final style (because our last 
-    // animation step was, say 0.9999 or something). And we need to remove them
-    // here because if there are no more animations running we'll never get back
-    // into the animation code to clean them up.
-    RenderObjectAnimationMap::const_iterator animationsEnd = m_compositeAnimations.end();
-    for (RenderObjectAnimationMap::const_iterator it = m_compositeAnimations.begin(); it != animationsEnd; ++it) {
-        CompositeAnimation* compAnim = it->second.get();
-        compAnim->cleanupFinishedAnimations(); // will not modify m_compositeAnimations, so OK to call while iterating
-    }
 }
 
-void AnimationControllerPrivate::startupdateStyleIfNeededDispatcher()
+void AnimationControllerPrivate::startUpdateStyleIfNeededDispatcher()
 {
     if (!m_updateStyleIfNeededDispatcher.isActive())
         m_updateStyleIfNeededDispatcher.startOneShot(0);
@@ -183,7 +169,7 @@ void AnimationControllerPrivate::addEventToDispatch(PassRefPtr<Element> element,
     event.name = name;
     event.elapsedTime = elapsedTime;
     
-    startupdateStyleIfNeededDispatcher();
+    startUpdateStyleIfNeededDispatcher();
 }
 
 void AnimationControllerPrivate::addNodeChangeToDispatch(PassRefPtr<Node> node)
@@ -193,7 +179,7 @@ void AnimationControllerPrivate::addNodeChangeToDispatch(PassRefPtr<Node> node)
         return;
 
     m_nodeChangesToDispatch.append(node);
-    startupdateStyleIfNeededDispatcher();
+    startUpdateStyleIfNeededDispatcher();
 }
 
 void AnimationControllerPrivate::animationTimerFired(Timer<AnimationControllerPrivate>*)
@@ -259,7 +245,7 @@ bool AnimationControllerPrivate::pauseAnimationAtTime(RenderObject* renderer, co
 
     if (compAnim->pauseAnimationAtTime(name, t)) {
         renderer->node()->setNeedsStyleRecalc(AnimationStyleChange);
-        startupdateStyleIfNeededDispatcher();
+        startUpdateStyleIfNeededDispatcher();
         return true;
     }
 
@@ -277,7 +263,7 @@ bool AnimationControllerPrivate::pauseTransitionAtTime(RenderObject* renderer, c
 
     if (compAnim->pauseTransitionAtTime(cssPropertyID(property), t)) {
         renderer->node()->setNeedsStyleRecalc(AnimationStyleChange);
-        startupdateStyleIfNeededDispatcher();
+        startUpdateStyleIfNeededDispatcher();
         return true;
     }
 

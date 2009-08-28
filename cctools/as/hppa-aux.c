@@ -816,7 +816,7 @@ expressionS exp,
 int field_selector)
 {
 	int value;
-	unsigned long left21, right14;
+	uint32_t left21, right14;
 
 	value = exp.X_add_number;
 	calc_hppa_HILO(0, value, &left21, &right14);

@@ -91,7 +91,8 @@ protected:
 
 	void CopyAttributes (Relation* r, Tuple *t, CSSM_DB_RECORD_ATTRIBUTE_DATA_PTR attributes); // copy attributes into a realtion
 	void ExportUniqueID (UniqueIdentifier *id, CSSM_DB_UNIQUE_RECORD_PTR *uniqueID); // export a unique ID
-	void LDAPDatabase::GetDataFromTuple (Tuple *t, CSSM_DATA &data);
+	void GetDataFromTuple (Tuple *t, CSSM_DATA &data);
+	void processNext(CSSM_DB_RECORD_ATTRIBUTE_DATA_PTR attributes,CSSM_DATA_PTR data,CSSM_DB_UNIQUE_RECORD_PTR *uniqueID, Query *q, Relation *r);
 
 public:
 	LDAPDatabase (AttachedInstance *ai);
@@ -113,7 +114,7 @@ public:
 									    CSSM_DATA_PTR data,
 									    CSSM_DB_UNIQUE_RECORD_PTR *uniqueID);
 	
-	virtual void DbDataGetNext (CSSM_HANDLE resultsHandle,
+	virtual bool DbDataGetNext (CSSM_HANDLE resultsHandle,
 							    CSSM_DB_RECORD_ATTRIBUTE_DATA_PTR attributes,
 							    CSSM_DATA_PTR data,
 							    CSSM_DB_UNIQUE_RECORD_PTR *uniqueID);

@@ -1,8 +1,8 @@
 /* schema_check.c - routines to enforce schema definitions */
-/* $OpenLDAP: pkg/ldap/servers/slapd/schema_check.c,v 1.94.2.7 2006/01/03 22:16:15 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/schema_check.c,v 1.103.2.6 2008/04/18 22:33:55 ando Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,6 +32,7 @@ static char * oc_check_required(
 static int entry_naming_check(
 	Entry *e,
 	int manage,
+	int add_naming,
 	const char** text,
 	char *textbuf, size_t textlen );
 /*
@@ -47,15 +48,15 @@ entry_schema_check(
 	Entry *e,
 	Attribute *oldattrs,
 	int manage,
+	int add,
 	const char** text,
 	char *textbuf, size_t textlen )
 {
-	Attribute	*a, *asc, *aoc;
-	ObjectClass *sc, *oc;
+	Attribute	*a, *asc = NULL, *aoc = NULL;
+	ObjectClass *sc, *oc, **socs = NULL;
 	AttributeType *at;
 	ContentRule *cr;
 	int	rc, i;
-	struct berval nsc;
 	AttributeDescription *ad_structuralObjectClass
 		= slap_schema.si_ad_structuralObjectClass;
 	AttributeDescription *ad_objectClass
@@ -87,12 +88,17 @@ entry_schema_check(
 		assert( a->a_vals[0].bv_val != NULL ); 
 
 		if( a->a_desc->ad_type->sat_check ) {
-			int rc = (a->a_desc->ad_type->sat_check)(
+			rc = (a->a_desc->ad_type->sat_check)(
 				op->o_bd, e, a, text, textbuf, textlen );
 			if( rc != LDAP_SUCCESS ) {
 				return rc;
 			}
 		}
+
+		if( a->a_desc == ad_structuralObjectClass )
+			asc = a;
+		else if ( a->a_desc == ad_objectClass )
+			aoc = a;
 
 		if( !collectiveSubentry && is_at_collective( a->a_desc->ad_type ) ) {
 			snprintf( textbuf, textlen,
@@ -117,15 +123,39 @@ entry_schema_check(
 		}
 	}
 
-	/* find the structural object class attribute */
-	asc = attr_find( e->e_attrs, ad_structuralObjectClass );
-	if ( asc == NULL ) {
+	/* check the object class attribute */
+	if ( aoc == NULL ) {
+		Debug( LDAP_DEBUG_ANY, "No objectClass for entry (%s)\n",
+		    e->e_dn, 0, 0 );
+
+		*text = "no objectClass attribute";
+		return LDAP_OBJECT_CLASS_VIOLATION;
+	}
+
+	assert( aoc->a_vals != NULL );
+	assert( aoc->a_vals[0].bv_val != NULL );
+
+	/* check the structural object class attribute */
+	if ( asc == NULL && !add ) {
 		Debug( LDAP_DEBUG_ANY,
 			"No structuralObjectClass for entry (%s)\n",
 		    e->e_dn, 0, 0 );
 
 		*text = "no structuralObjectClass operational attribute";
 		return LDAP_OTHER;
+	}
+
+	rc = structural_class( aoc->a_vals, &oc, &socs, text, textbuf, textlen,
+		op->o_tmpmemctx );
+	if( rc != LDAP_SUCCESS ) {
+		return rc;
+	}
+
+	if ( asc == NULL && add ) {
+		attr_merge_one( e, ad_structuralObjectClass, &oc->soc_cname, NULL );
+		asc = attr_find( e->e_attrs, ad_structuralObjectClass );
+		sc = oc;
+		goto got_soc;
 	}
 
 	assert( asc->a_vals != NULL );
@@ -142,7 +172,8 @@ entry_schema_check(
 			"entry_check_schema(%s): %s\n",
 			e->e_dn, textbuf, 0 );
 
-		return LDAP_OBJECT_CLASS_VIOLATION;
+		rc = LDAP_OBJECT_CLASS_VIOLATION;
+		goto done;
 	}
 
 	if( sc->soc_kind != LDAP_SCHEMA_STRUCTURAL ) {
@@ -154,9 +185,11 @@ entry_schema_check(
 			"entry_check_schema(%s): %s\n",
 			e->e_dn, textbuf, 0 );
 
-		return LDAP_OTHER;
+		rc = LDAP_OTHER;
+		goto done;
 	}
 
+got_soc:
 	if( !manage && sc->soc_obsolete ) {
 		snprintf( textbuf, textlen, 
 			"structuralObjectClass '%s' is OBSOLETE",
@@ -166,25 +199,8 @@ entry_schema_check(
 			"entry_check_schema(%s): %s\n",
 			e->e_dn, textbuf, 0 );
 
-		return LDAP_OBJECT_CLASS_VIOLATION;
-	}
-
-	/* find the object class attribute */
-	aoc = attr_find( e->e_attrs, ad_objectClass );
-	if ( aoc == NULL ) {
-		Debug( LDAP_DEBUG_ANY, "No objectClass for entry (%s)\n",
-		    e->e_dn, 0, 0 );
-
-		*text = "no objectClass attribute";
-		return LDAP_OBJECT_CLASS_VIOLATION;
-	}
-
-	assert( aoc->a_vals != NULL );
-	assert( aoc->a_vals[0].bv_val != NULL );
-
-	rc = structural_class( aoc->a_vals, &nsc, &oc, text, textbuf, textlen );
-	if( rc != LDAP_SUCCESS ) {
-		return rc;
+		rc = LDAP_OBJECT_CLASS_VIOLATION;
+		goto done;
 	}
 
 	*text = textbuf;
@@ -193,23 +209,25 @@ entry_schema_check(
 		snprintf( textbuf, textlen, 
 			"unrecognized objectClass '%s'",
 			aoc->a_vals[0].bv_val );
-		return LDAP_OBJECT_CLASS_VIOLATION;
+		rc = LDAP_OBJECT_CLASS_VIOLATION;
+		goto done;
 
 	} else if ( sc != slap_schema.si_oc_glue && sc != oc ) {
 		snprintf( textbuf, textlen, 
 			"structural object class modification "
 			"from '%s' to '%s' not allowed",
-			asc->a_vals[0].bv_val, nsc.bv_val );
-		return LDAP_NO_OBJECT_CLASS_MODS;
+			asc->a_vals[0].bv_val, oc->soc_cname.bv_val );
+		rc = LDAP_NO_OBJECT_CLASS_MODS;
+		goto done;
 	} else if ( sc == slap_schema.si_oc_glue ) {
 		sc = oc;
 	}
 
 	/* naming check */
-	if ( !is_entry_objectclass ( e, slap_schema.si_oc_glue, 0 ) ) {
-		rc = entry_naming_check( e, manage, text, textbuf, textlen );
+	if ( !is_entry_glue ( e ) ) {
+		rc = entry_naming_check( e, manage, add, text, textbuf, textlen );
 		if( rc != LDAP_SUCCESS ) {
-			return rc;
+			goto done;
 		}
 	} else {
 		/* Glue Entry */
@@ -232,7 +250,8 @@ entry_schema_check(
 				"Entry (%s): %s\n",
 				e->e_dn, textbuf, 0 );
 
-			return LDAP_OBJECT_CLASS_VIOLATION;
+			rc = LDAP_OBJECT_CLASS_VIOLATION;
+			goto done;
 		}
 
 		if( cr->scr_required ) for( i=0; cr->scr_required[i]; i++ ) {
@@ -255,7 +274,8 @@ entry_schema_check(
 					"Entry (%s): %s\n",
 					e->e_dn, textbuf, 0 );
 
-				return LDAP_OBJECT_CLASS_VIOLATION;
+				rc = LDAP_OBJECT_CLASS_VIOLATION;
+				goto done;
 			}
 		}
 
@@ -279,25 +299,15 @@ entry_schema_check(
 					"Entry (%s): %s\n",
 					e->e_dn, textbuf, 0 );
 
-				return LDAP_OBJECT_CLASS_VIOLATION;
+				rc = LDAP_OBJECT_CLASS_VIOLATION;
+				goto done;
 			}
 		}
 	}
 
 	/* check that the entry has required attrs for each oc */
-	for ( i = 0; aoc->a_vals[i].bv_val != NULL; i++ ) {
-		if ( (oc = oc_bvfind( &aoc->a_vals[i] )) == NULL ) {
-			snprintf( textbuf, textlen, 
-				"unrecognized objectClass '%s'",
-				aoc->a_vals[i].bv_val );
-
-			Debug( LDAP_DEBUG_ANY,
-				"entry_check_schema(%s): %s\n",
-				e->e_dn, textbuf, 0 );
-
-			return LDAP_OBJECT_CLASS_VIOLATION;
-		}
-
+	for ( i = 0; socs[i]; i++ ) {
+		oc = socs[i];
 		if ( !manage && oc->soc_obsolete ) {
 			/* disallow obsolete classes */
 			snprintf( textbuf, textlen, 
@@ -308,14 +318,15 @@ entry_schema_check(
 				"entry_check_schema(%s): %s\n",
 				e->e_dn, textbuf, 0 );
 
-			return LDAP_OBJECT_CLASS_VIOLATION;
+			rc = LDAP_OBJECT_CLASS_VIOLATION;
+			goto done;
 		}
 
 		if ( oc->soc_check ) {
-			int rc = (oc->soc_check)( op->o_bd, e, oc,
+			rc = (oc->soc_check)( op->o_bd, e, oc,
 				text, textbuf, textlen );
 			if( rc != LDAP_SUCCESS ) {
-				return rc;
+				goto done;
 			}
 		}
 
@@ -326,20 +337,9 @@ entry_schema_check(
 			{
 				int j;
 				ObjectClass *xc = NULL;
-				for( j=0; aoc->a_vals[j].bv_val; j++ ) {
+				for( j=0; socs[j]; j++ ) {
 					if( i != j ) {
-						xc = oc_bvfind( &aoc->a_vals[i] );
-						if( xc == NULL ) {
-							snprintf( textbuf, textlen, 
-								"unrecognized objectClass '%s'",
-								aoc->a_vals[i].bv_val );
-
-							Debug( LDAP_DEBUG_ANY,
-								"entry_check_schema(%s): %s\n",
-								e->e_dn, textbuf, 0 );
-
-							return LDAP_OBJECT_CLASS_VIOLATION;
-						}
+						xc = socs[j];
 
 						/* since we previous check against the
 						 * structural object of this entry, the
@@ -356,8 +356,8 @@ entry_schema_check(
 					}
 				}
 
-				if( xc == NULL ) {
-					snprintf( textbuf, textlen, "instanstantiation of "
+				if( xc != NULL ) {
+					snprintf( textbuf, textlen, "instantiation of "
 						"abstract objectClass '%s' not allowed",
 						aoc->a_vals[i].bv_val );
 
@@ -365,7 +365,8 @@ entry_schema_check(
 						"entry_check_schema(%s): %s\n",
 						e->e_dn, textbuf, 0 );
 
-					return LDAP_OBJECT_CLASS_VIOLATION;
+					rc = LDAP_OBJECT_CLASS_VIOLATION;
+					goto done;
 				}
 			}
 
@@ -387,23 +388,28 @@ entry_schema_check(
 							}
 						}
 					}
+					if ( k ) {
+						snprintf( textbuf, textlen, 
+							"class '%s' not allowed by content rule '%s'",
+							oc->soc_cname.bv_val,
+							ldap_contentrule2name( &cr->scr_crule ) );
+					}
 				} else if ( global_disallows & SLAP_DISALLOW_AUX_WO_CR ) {
 					k = -1;
+					snprintf( textbuf, textlen, 
+						"class '%s' not allowed by any content rule",
+						oc->soc_cname.bv_val );
 				} else {
 					k = 0;	
 				}
 
 				if( k == -1 ) {
-					snprintf( textbuf, textlen, 
-						"content rule '%s' does not allow class '%s'",
-						ldap_contentrule2name( &cr->scr_crule ),
-						oc->soc_cname.bv_val );
-
 					Debug( LDAP_DEBUG_ANY,
 						"Entry (%s): %s\n",
 						e->e_dn, textbuf, 0 );
 
-					return LDAP_OBJECT_CLASS_VIOLATION;
+					rc = LDAP_OBJECT_CLASS_VIOLATION;
+					goto done;
 				}
 			}
 
@@ -417,7 +423,8 @@ entry_schema_check(
 					"Entry (%s): %s\n",
 					e->e_dn, textbuf, 0 );
 
-				return LDAP_OBJECT_CLASS_VIOLATION;
+				rc = LDAP_OBJECT_CLASS_VIOLATION;
+				goto done;
 			}
 
 			if( oc == slap_schema.si_oc_extensibleObject ) {
@@ -428,39 +435,38 @@ entry_schema_check(
 
 	if( extensible ) {
 		*text = NULL;
-		return LDAP_SUCCESS;
+		rc = LDAP_SUCCESS;
+		goto done;
 	}
 
 	/* check that each attr in the entry is allowed by some oc */
 	for ( a = e->e_attrs; a != NULL; a = a->a_next ) {
-		int ret;
-
- 		ret = LDAP_OBJECT_CLASS_VIOLATION;
+ 		rc = LDAP_OBJECT_CLASS_VIOLATION;
 
 		if( cr && cr->scr_required ) {
 			for( i=0; cr->scr_required[i]; i++ ) {
 				if( cr->scr_required[i] == a->a_desc->ad_type ) {
-					ret = LDAP_SUCCESS;
+					rc = LDAP_SUCCESS;
 					break;
 				}
 			}
 		}
 
-		if( ret != LDAP_SUCCESS && cr && cr->scr_allowed ) {
+		if( rc != LDAP_SUCCESS && cr && cr->scr_allowed ) {
 			for( i=0; cr->scr_allowed[i]; i++ ) {
 				if( cr->scr_allowed[i] == a->a_desc->ad_type ) {
-					ret = LDAP_SUCCESS;
+					rc = LDAP_SUCCESS;
 					break;
 				}
 			}
 		}
 
-		if( ret != LDAP_SUCCESS ) 
+		if( rc != LDAP_SUCCESS ) 
 		{
-			ret = oc_check_allowed( a->a_desc->ad_type, aoc->a_vals, sc );
+			rc = oc_check_allowed( a->a_desc->ad_type, socs, sc );
 		}
 
-		if ( ret != LDAP_SUCCESS ) {
+		if ( rc != LDAP_SUCCESS ) {
 			char *type = a->a_desc->ad_cname.bv_val;
 
 			snprintf( textbuf, textlen, 
@@ -471,12 +477,14 @@ entry_schema_check(
 			    "Entry (%s), %s\n",
 			    e->e_dn, textbuf, 0 );
 
-			return ret;
+			goto done;
 		}
 	}
 
 	*text = NULL;
-	return LDAP_SUCCESS;
+done:
+	slap_sl_free( socs, op->o_tmpmemctx );
+	return rc;
 }
 
 static char *
@@ -519,7 +527,7 @@ oc_check_required(
 
 int oc_check_allowed(
 	AttributeType *at,
-	BerVarray ocl,
+	ObjectClass **socs,
 	ObjectClass *sc )
 {
 	int		i, j;
@@ -562,9 +570,13 @@ int oc_check_allowed(
 	}
 
 	/* check that the type appears as req or opt in at least one oc */
-	for ( i = 0; ocl[i].bv_val != NULL; i++ ) {
+	for ( i = 0; socs[i]; i++ ) {
 		/* if we know about the oc */
-		ObjectClass	*oc = oc_bvfind( &ocl[i] );
+		ObjectClass	*oc = socs[i];
+		/* extensibleObject allows all */
+		if ( oc == slap_schema.si_oc_extensibleObject ) {
+			return LDAP_SUCCESS;
+		}
 		if ( oc != NULL && oc->soc_kind != LDAP_SCHEMA_ABSTRACT &&
 			( sc == NULL || oc->soc_kind == LDAP_SCHEMA_AUXILIARY ))
 		{
@@ -596,30 +608,40 @@ int oc_check_allowed(
  */
 int structural_class(
 	BerVarray ocs,
-	struct berval *scbv,
 	ObjectClass **scp,
+	ObjectClass ***socsp,
 	const char **text,
-	char *textbuf, size_t textlen )
+	char *textbuf, size_t textlen,
+	void *ctx )
 {
-	int i;
-	ObjectClass *oc;
+	int i, nocs;
+	ObjectClass *oc, **socs;
 	ObjectClass *sc = NULL;
 	int scn = -1;
 
 	*text = "structural_class: internal error";
-	scbv->bv_len = 0;
+
+	/* count them */
+	for( i=0; ocs[i].bv_val; i++ ) ;
+	nocs = i;
+	
+	socs = slap_sl_malloc( (nocs+1) * sizeof(ObjectClass *), ctx );
 
 	for( i=0; ocs[i].bv_val; i++ ) {
-		oc = oc_bvfind( &ocs[i] );
+		socs[i] = oc_bvfind( &ocs[i] );
 
-		if( oc == NULL ) {
+		if( socs[i] == NULL ) {
 			snprintf( textbuf, textlen,
 				"unrecognized objectClass '%s'",
 				ocs[i].bv_val );
 			*text = textbuf;
-			return LDAP_OBJECT_CLASS_VIOLATION;
+			goto fail;
 		}
+	}
+	socs[i] = NULL;
 
+	for( i=0; ocs[i].bv_val; i++ ) {
+		oc = socs[i];
 		if( oc->soc_kind == LDAP_SCHEMA_STRUCTURAL ) {
 			if( sc == NULL || is_object_subclass( sc, oc ) ) {
 				sc = oc;
@@ -631,14 +653,14 @@ int structural_class(
 
 				/* find common superior */
 				for( j=i+1; ocs[j].bv_val; j++ ) {
-					xc = oc_bvfind( &ocs[j] );
+					xc = socs[j];
 
 					if( xc == NULL ) {
 						snprintf( textbuf, textlen,
 							"unrecognized objectClass '%s'",
 							ocs[j].bv_val );
 						*text = textbuf;
-						return LDAP_OBJECT_CLASS_VIOLATION;
+						goto fail;
 					}
 
 					if( xc->soc_kind != LDAP_SCHEMA_STRUCTURAL ) {
@@ -662,7 +684,7 @@ int structural_class(
 						"invalid structural object class chain (%s/%s)",
 						ocs[scn].bv_val, ocs[i].bv_val );
 					*text = textbuf;
-					return LDAP_OBJECT_CLASS_VIOLATION;
+					goto fail;
 				}
 			}
 		}
@@ -674,24 +696,26 @@ int structural_class(
 
 	if( sc == NULL ) {
 		*text = "no structural object class provided";
-		return LDAP_OBJECT_CLASS_VIOLATION;
+		goto fail;
 	}
 
 	if( scn < 0 ) {
 		*text = "invalid structural object class";
-		return LDAP_OBJECT_CLASS_VIOLATION;
+		goto fail;
 	}
 
-	*scbv = ocs[scn];
-
-	if( scbv->bv_len == 0 ) {
-		*text = "invalid structural object class";
-		return LDAP_OBJECT_CLASS_VIOLATION;
+	if ( socsp ) {
+		*socsp = socs;
+	} else {
+		slap_sl_free( socs, ctx );
 	}
-
 	*text = NULL;
 
 	return LDAP_SUCCESS;
+
+fail:
+	slap_sl_free( socs, ctx );
+	return LDAP_OBJECT_CLASS_VIOLATION;
 }
 
 /*
@@ -701,9 +725,11 @@ int mods_structural_class(
 	Modifications *mods,
 	struct berval *sc,
 	const char **text,
-	char *textbuf, size_t textlen )
+	char *textbuf, size_t textlen, void *ctx )
 {
 	Modifications *ocmod = NULL;
+	ObjectClass *ssc;
+	int rc;
 
 	for( ; mods != NULL; mods = mods->sml_next ) {
 		if( mods->sml_desc == slap_schema.si_ad_objectClass ) {
@@ -725,8 +751,11 @@ int mods_structural_class(
 		return LDAP_OBJECT_CLASS_VIOLATION;
 	}
 
-	return structural_class( ocmod->sml_values, sc, NULL,
-		text, textbuf, textlen );
+	rc = structural_class( ocmod->sml_values, &ssc, NULL,
+		text, textbuf, textlen, ctx );
+	if ( rc == LDAP_SUCCESS )
+		*sc = ssc->soc_cname;
+	return rc;
 }
 
 
@@ -734,6 +763,7 @@ static int
 entry_naming_check(
 	Entry *e,
 	int manage,
+	int add_naming,
 	const char** text,
 	char *textbuf, size_t textlen )
 {
@@ -764,6 +794,7 @@ entry_naming_check(
 		AttributeDescription *desc = NULL;
 		Attribute *attr;
 		const char *errtext;
+		int add = 0;
 
 		if( ava->la_flags & LDAP_AVA_BINARY ) {
 			snprintf( textbuf, textlen, 
@@ -824,37 +855,51 @@ entry_naming_check(
 			snprintf( textbuf, textlen, 
 				"naming attribute '%s' is not present in entry",
 				ava->la_attr.bv_val );
-			rc = LDAP_NAMING_VIOLATION;
-			break;
+			if ( add_naming ) {
+				add = 1;
+
+			} else {
+				rc = LDAP_NAMING_VIOLATION;
+			}
+
+		} else {
+			rc = attr_valfind( attr, SLAP_MR_VALUE_OF_ASSERTION_SYNTAX|
+				SLAP_MR_ATTRIBUTE_VALUE_NORMALIZED_MATCH,
+				&ava->la_value, NULL, NULL );
+
+			if( rc != 0 ) {
+				switch( rc ) {
+				case LDAP_INAPPROPRIATE_MATCHING:
+					snprintf( textbuf, textlen, 
+						"inappropriate matching for naming attribute '%s'",
+						ava->la_attr.bv_val );
+					break;
+				case LDAP_INVALID_SYNTAX:
+					snprintf( textbuf, textlen, 
+						"value of naming attribute '%s' is invalid",
+						ava->la_attr.bv_val );
+					break;
+				case LDAP_NO_SUCH_ATTRIBUTE:
+					snprintf( textbuf, textlen, 
+						"value of naming attribute '%s' is not present in entry",
+						ava->la_attr.bv_val );
+					if ( add_naming ) {
+						add = 1;
+					}
+					break;
+				default:
+					snprintf( textbuf, textlen, 
+						"naming attribute '%s' is inappropriate",
+						ava->la_attr.bv_val );
+				}
+				rc = LDAP_NAMING_VIOLATION;
+			}
 		}
 
-		rc = value_find_ex( desc, SLAP_MR_VALUE_OF_ASSERTION_SYNTAX|
-			SLAP_MR_ATTRIBUTE_VALUE_NORMALIZED_MATCH,
-			attr->a_nvals, &ava->la_value, NULL );
+		if ( add ) {
+			attr_merge_normalize_one( e, desc, &ava->la_value, NULL );
 
-		if( rc != 0 ) {
-			switch( rc ) {
-			case LDAP_INAPPROPRIATE_MATCHING:
-				snprintf( textbuf, textlen, 
-					"inappropriate matching for naming attribute '%s'",
-					ava->la_attr.bv_val );
-				break;
-			case LDAP_INVALID_SYNTAX:
-				snprintf( textbuf, textlen, 
-					"value of naming attribute '%s' is invalid",
-					ava->la_attr.bv_val );
-				break;
-			case LDAP_NO_SUCH_ATTRIBUTE:
-				snprintf( textbuf, textlen, 
-					"value of naming attribute '%s' is not present in entry",
-					ava->la_attr.bv_val );
-				break;
-			default:
-				snprintf( textbuf, textlen, 
-					"naming attribute '%s' is inappropriate",
-					ava->la_attr.bv_val );
-			}
-			rc = LDAP_NAMING_VIOLATION;
+		} else if ( rc != LDAP_SUCCESS ) {
 			break;
 		}
 	}

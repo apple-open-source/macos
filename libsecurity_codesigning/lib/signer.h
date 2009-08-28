@@ -47,11 +47,15 @@ class SecCodeSigner::Signer {
 public:
 	Signer(SecCodeSigner &s, SecStaticCode *c) : state(s), code(c) { }
 	void sign(SecCSFlags flags);
+	void remove(SecCSFlags flags);
 	
 	SecCodeSigner &state;
 	SecStaticCode * const code;
 	
+	std::string path() const { return cfString(rep->canonicalPath()); }
+	
 protected:
+	void prepare(SecCSFlags flags);				// set up signing parameters
 	void signMachO(Universal *fat);				// sign a Mach-O binary
 	void signArchitectureAgnostic();			// sign anything else
 
@@ -59,6 +63,8 @@ protected:
 	void populate(CodeDirectory::Builder &builder, DiskRep::Writer &writer,
 		InternalRequirements &ireqs, size_t offset = 0, size_t length = 0);	// per-architecture
 	CFDataRef signCodeDirectory(const CodeDirectory *cd);
+
+	uint32_t cdTextFlags(std::string text);		// convert text CodeDirectory flags
 	
 private:
 	RefPointer<DiskRep> rep;		// DiskRep of Code being signed

@@ -11,62 +11,38 @@ ProjectName           = OpenSSH
 UserType              = Administrator
 ToolType              = Services
 
-$have_tconf =: $(strip $(shell which tconf))
+
+have_tconf =: $(strip $(shell which tconf))
 ifneq ($(have_tconf),)
 	Product=$(shell tconf --product)
 	Embedded=$(shell tconf --test TARGET_OS_EMBEDDED)
 endif
 
-Extra_CC_Flags        = -fPIE -Wl,-pie -D_FORTIFY_SOURCE=2
-Extra_LD_Flags        = -L. -Lopenbsd-compat -Wl,-pie
-Extra_Configure_Flags	= --sysconfdir="/etc" --disable-suid-ssh --with-ssl-dir=/usr/include/openssl --with-random=/dev/urandom --with-tcp-wrappers --with-pam --with-kerberos5 --without-zlib-version-check --with-4in6 --with-audit=bsm CPPFLAGS="-D__APPLE_SACL__ -D_UTMPX_COMPAT -D__APPLE_UTMPX__ -DUSE_CCAPI -D__APPLE_LAUNCHD__ -D__APPLE_PRIVPTY__ -D__BROKEN_GLOB__ -Dcannot_audit" --disable-libutil --disable-utmp --with-keychain=apple --disable-wtmp --with-keychain=apple --with-privsep-user=_sshd
+
+Environment 		= CC="/usr/bin/llvm-gcc-4.2"
+Extra_CC_Flags          = -fPIE -D_FORTIFY_SOURCE=2
+Extra_LD_Flags          = -L. -Lopenbsd-compat -Wl,-pie -framework CoreFoundation -framework OpenDirectory -lresolv
+Extra_Configure_Flags	= --sysconfdir="/etc" --disable-suid-ssh --with-ssl-dir=/usr/include/openssl --with-random=/dev/urandom --with-tcp-wrappers --with-pam --with-kerberos5 --without-zlib-version-check --with-4in6 --with-audit=bsm CPPFLAGS="-D__APPLE_SACL__ -D_UTMPX_COMPAT -D__APPLE_UTMPX__ -DUSE_CCAPI -D__APPLE_LAUNCHD__ -D__APPLE_MEMBERSHIP__ -D__APPLE_SANDBOX_PRIVSEP_CHILDREN__ -D__APPLE_CROSS_REALM__ -D__APPLE_XSAN__" --with-keychain=apple --disable-libutil --disable-utmp --disable-wtmp --with-privsep-user=_sshd
 Extra_Install_Flags		= sysconfdir="$(DSTROOT)$(ETCDIR)" MANPAGES=""
-GnuAfterInstall			= fixup-dstroot install-startup-item install-plist install-man-pages relocate-sym-files DVG-4859983_install_ssh-agent_plist install-strings
+GnuAfterInstall			= fixup-dstroot install-startup-item install-plist install-man-pages install-sandbox relocate-sym-files DVG-4859983_install_ssh-agent_plist install-strings install-PAM-config-files
 
 ifeq ($(Embedded), YES)
-	Extra_Configure_Flags	= --sysconfdir="/etc" --disable-suid-ssh --with-ssl-dir="$(SDKROOT)/usr/include/openssl" --with-random=/dev/urandom --without-zlib-version-check --with-4in6 CPPFLAGS="-D_UTMPX_COMPAT -D__APPLE_UTMPX__ -D__APPLE_LAUNCHD__ -D__APPLE_PRIVPTY__ -D__BROKEN_GLOB__ -Dcannot_audit" --disable-libutil --disable-utmp --disable-wtmp --with-keychain=no --host=none-apple-darwin --with-privsep-user=_sshd
-	Extra_Environment	= ac_cv_header_endian_h=no
+	Extra_CC_Flags          =
+	Extra_LD_Flags          = -L. -Lopenbsd-compat
+	Extra_Configure_Flags	= --sysconfdir="/etc" --disable-suid-ssh --with-ssl-dir="$(SDKROOT)/usr/include/openssl" --with-random=/dev/urandom --without-zlib-version-check --with-4in6 CPPFLAGS="-D_UTMPX_COMPAT -D__APPLE_UTMPX__ -D__APPLE_LAUNCHD__ -D__APPLE_SANDBOX_PRIVSEP_CHILDREN__" --disable-libutil --disable-utmp --disable-wtmp --with-keychain=no --host=none-apple-darwin --with-privsep-user=_sshd
+	Extra_Environment       = ac_cv_header_endian_h=no
 	Extra_Install_Flags		= sysconfdir="$(DSTROOT)$(ETCDIR)" MANPAGES=""
-	GnuAfterInstall			= fixup-dstroot install-startup-item install-plist install-man-pages relocate-sym-files fix-startup-item-for-embedded
+	GnuAfterInstall			= fixup-dstroot install-startup-item install-plist install-man-pages install-sandbox relocate-sym-files fix-startup-item-for-embedded
 endif
-ifeq  ($(MACOSX_DEPLOYMENT_TARGET),10.4)
-	Extra_CC_Flags        =
-	Extra_LD_Flags = -L. -Lopenbsd-compat
-	Extra_Configure_Flags	= --sysconfdir="/etc" --disable-suid-ssh --with-ssl-dir=/usr/include/openssl --with-random=/dev/urandom --with-tcp-wrappers --with-pam --with-kerberos5 --without-zlib-version-check --with-4in6 --with-audit=bsm --without-keychain CPPFLAGS="-D__APPLE_SACL__ -DUSE_CCAPI -D__APPLE_GSSAPI_ENABLE__ -Dcannot_audit"
-	Extra_Install_Flags		= sysconfdir="$(DSTROOT)$(ETCDIR)" MANPAGES=""
-	GnuAfterInstall			= fixup-dstroot install-startup-item install-plist install-man-pages relocate-sym-files
-endif
-ifeq ($(MACOSX_DEPLOYMENT_TARGET),10.3)
-	Extra_CC_Flags        =
-	Extra_LD_Flags = -L. -Lopenbsd-compat
-	Extra_Configure_Flags	= --sysconfdir="/etc" --disable-suid-ssh --with-ssl-dir=/usr/include/openssl --with-random=/dev/urandom --with-tcp-wrappers --with-pam --with-kerberos5 --without-zlib-version-check --with-4in6 --with-audit=bsm --without-keychain CPPFLAGS="-DUSE_CCAPI -D__APPLE_GSSAPI_ENABLE__ -Dcannot_audit"
-	Extra_Install_Flags		= sysconfdir="$(DSTROOT)$(ETCDIR)" MANPAGES=""
-	GnuAfterInstall			= fixup-dstroot install-panther-startup-item install-plist install-man-pages relocate-sym-files
+
+ifdef SDKROOT
+Extra_CC_Flags += -isysroot $(SDKROOT)
 endif
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
 Install_Flags         = DESTDIR=$(DSTROOT)
-
-# Automatic Extract & Patch
-AEP            = YES
-AEP_Project    = $(Project)
-AEP_Version    = 5.1p1
-AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
-AEP_Filename   = $(AEP_ProjVers).tar.gz
-AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = pam.patch sacl.patch DVG-4122722+5277818_new_EA.patch DVG-3977221_manpage_tweaks.patch DVG-4212542_auth_error_logging_fix.patch DVG-4157448+4920695_corrected_UsePAM_comment.patch lastlog.patch openssh-5.0p1-gsskex-20080404.patch DVG-4853931_enable_GSSAPI.patch DVG-4648874_preserve_EA_mtime.patch DVG-4748610+4897588_ssh-agent_via_launchd.patch DVG-4694589_16_group_limit_fix.patch DVG-5142987_launchd_DISPLAY_for_X11.patch DVG-5258734_pty_permission_fix.patch AJ-5491854-fix_unsafe_usage_of_getpwuid.patch DVG-4135812_add_SACLSupport_to_sshd_conf_manpage.patch PR-6146452_do_not_use_pipes.patch DVG-6264809_empty_banner.patch
-ifeq  (, $(findstring $(MACOSX_DEPLOYMENT_TARGET), 10.4 10.3))
-	AEP_Patches   += AJ-5229538+5383306+5446006+5567447_keychain.patch
-endif
-
-ifeq ($(suffix $(AEP_Filename)),.bz2)
-    AEP_ExtractOption = j
-else
-    AEP_ExtractOption = z
-endif
-
 
 Install_Target = install-nokeys
 
@@ -76,11 +52,6 @@ build::
 ifeq "$(Embedded)" "YES"
 	$(_v) sed -i '' 's/\/etc\//\/var\/db\//g' $(OBJROOT)/sshd-keygen-wrapper
 	$(_v) sed -i '' 's/\#HostKey \/etc\/ssh_host_/HostKey \/var\/db\/ssh_host_/g' $(OBJROOT)/sshd_config.out
-endif
-ifneq  (, $(findstring $(MACOSX_DEPLOYMENT_TARGET), 10.4 10.3))
-	patch -p0 -d $(OBJROOT) < $(SRCROOT)/patches/DVG-4920695_remove_nullok_comment_for_pre-Leopard---BuildPhase.patch
-	patch -p0 -d $(OBJROOT) < $(SRCROOT)/patches/DVG-5462402_enable_SSH1_for_pre-Leopard---BuildPhase.patch
-	patch -p0 -d $(OBJROOT) < $(SRCROOT)/patches/DVG-4853931_enable_GSSAPI_for_pre-Leopard---BuildPhase.patch
 endif
 
 StartupItemDir = $(NSLIBRARYDIR)/StartupItems/SSH
@@ -100,22 +71,17 @@ install-startup-item:
 	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)/usr/libexec
 	$(_v) $(INSTALL_FILE) -m 555  -c $(OBJROOT)/sshd-keygen-wrapper $(DSTROOT)/usr/libexec/sshd-keygen-wrapper
 
-install-panther-startup-item:
-	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)/private/etc/xinetd.d
-	$(_v) $(INSTALL_FILE)   -c ssh-via-xinetd  $(DSTROOT)/private/etc/xinetd.d/ssh
-	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)/usr/libexec
-	$(_v) $(INSTALL_FILE) -m 555  -c sshd-keygen-wrapper $(DSTROOT)/usr/libexec/sshd-keygen-wrapper
-
 fix-startup-item-for-embedded: install-startup-item
-ifeq "$(Embedded)" "YES"
+ifeq ($(Embedded), YES)
 	/usr/libexec/PlistBuddy -x \
 		-c "Delete :Disabled" \
 		-c "Delete :SessionCreate" \
 		-c "Add :Sockets:Listeners:SockFamily string IPv4" \
 		"$(DSTROOT)/System/Library/LaunchDaemons/ssh.plist"
-ifeq "$(Product)" "iPhone"
+ifeq ($(Product), iPhone)
 	/usr/libexec/PlistBuddy -x \
-		-c "Set :Sockets:Listeners:Bonjour false" \
+		-c 'Delete :Sockets:Listeners:Bonjour' \
+		-c "Add :Sockets:Listeners:Bonjour bool false" \
 		-c "Add :Sockets:Listeners:SockNodeName string localhost" \
 		"$(DSTROOT)/System/Library/LaunchDaemons/ssh.plist"
 endif
@@ -123,15 +89,6 @@ endif
 
 
 install_source::
-ifeq ($(AEP),YES)
-	$(TAR) -C $(SRCROOT) -$(AEP_ExtractOption)xf $(SRCROOT)/$(AEP_Filename)
-	$(RMDIR) $(SRCROOT)/$(AEP_Project)
-	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(AEP_Project)
-	for patchfile in $(AEP_Patches); do \
-	   echo $$patchfile; \
-	   cd $(SRCROOT)/$(Project) && patch -lp0 < $(SRCROOT)/patches/$$patchfile || exit 1; \
-	done
-endif
 
 OSV	= $(DSTROOT)/usr/local/OpenSourceVersions
 OSL	= $(DSTROOT)/usr/local/OpenSourceLicenses
@@ -157,6 +114,10 @@ relocate-sym-files:
 	$(CP) $(OBJROOT)/ssh-rand-helper $(SYMROOT)/ssh-rand-helper
 	$(CP) $(OBJROOT)/sshd $(SYMROOT)/sshd
 
+install-sandbox:
+	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)/usr/share/sandbox
+	$(_v) $(INSTALL_FILE) -o root -g wheel -m 644 -c sshd.sb $(DSTROOT)/usr/share/sandbox/sshd.sb
+
 DVG-4859983_install_ssh-agent_plist:
 	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)/System/Library/LaunchAgents
 	$(_v) $(INSTALL_FILE) -m 644  -c org.openbsd.ssh-agent.plist $(DSTROOT)/System/Library/LaunchAgents/org.openbsd.ssh-agent.plist
@@ -164,3 +125,7 @@ DVG-4859983_install_ssh-agent_plist:
 install-strings:
 	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)/System/Library/CoreServices/Resources/English.lproj
 	$(_v) $(INSTALL_FILE) -m 644  -c OpenSSH.strings $(DSTROOT)/System/Library/CoreServices/Resources/English.lproj/OpenSSH.strings
+
+install-PAM-config-files:
+	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)/private/etc/pam.d
+	$(_v) $(INSTALL_FILE) -m 444  -c $(SRCROOT)/pam.d/sshd $(DSTROOT)/private/etc/pam.d/sshd

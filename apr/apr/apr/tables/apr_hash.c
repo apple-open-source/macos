@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -365,6 +365,13 @@ APR_DECLARE(void) apr_hash_set(apr_hash_t *ht,
 APR_DECLARE(unsigned int) apr_hash_count(apr_hash_t *ht)
 {
     return ht->count;
+}
+
+APR_DECLARE(void) apr_hash_clear(apr_hash_t *ht)
+{
+    apr_hash_index_t *hi;
+    for (hi = apr_hash_first(NULL, ht); hi; hi = apr_hash_next(hi))
+        apr_hash_set(ht, hi->this->key, hi->this->klen, NULL);
 }
 
 APR_DECLARE(apr_hash_t*) apr_hash_overlay(apr_pool_t *p,

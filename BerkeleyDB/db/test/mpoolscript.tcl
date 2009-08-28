@@ -1,9 +1,8 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1996-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 1996,2007 Oracle.  All rights reserved.
 #
-# $Id: mpoolscript.tcl,v 1.2 2004/03/30 01:24:07 jtownsen Exp $
+# $Id: mpoolscript.tcl,v 12.6 2007/05/17 15:15:55 bostic Exp $
 #
 # Random multiple process mpool tester.
 # Usage: mpoolscript dir id numiters numfiles numpages sleepint
@@ -83,7 +82,7 @@ set lock [$e lock_get write $locker 0:$id]
 error_check_good lock_get [is_valid_lock $lock $e] TRUE
 
 set mp [lindex $mpools 0]
-set master_page [$mp get -create $id]
+set master_page [$mp get -create -dirty $id]
 error_check_good mp_get:$master_page [is_valid_page $master_page $mp] TRUE
 
 set r [$master_page init MASTER$id]
@@ -115,7 +114,7 @@ for { set iter 0 } { $iter < $numiters } { incr iter } {
 			    [is_valid_lock $lock $e] TRUE
 
 			# Now, get the page
-			set pp [$mpf get -create $p]
+			set pp [$mpf get -create -dirty $p]
 			error_check_good page_get:$fnum:$p \
 			    [is_valid_page $pp $mpf] TRUE
 
@@ -124,7 +123,7 @@ for { set iter 0 } { $iter < $numiters } { incr iter } {
 				set r [$pp init $id]
 				error_check_good page_init:$fnum:$p $r 0
 				incr pages
-				set r [$pp put -dirty]
+				set r [$pp put]
 				error_check_good page_put:$fnum:$p $r 0
 			} else {
 				error_check_good page_put:$fnum:$p [$pp put] 0
@@ -139,7 +138,7 @@ for { set iter 0 } { $iter < $numiters } { incr iter } {
 puts "$id: End of run verification of master page"
 set r [$master_page is_setto MASTER$id]
 error_check_good page_check $r 1
-set r [$master_page put -dirty]
+set r [$master_page put]
 error_check_good page_put $r 0
 
 set i [expr ($id + 1) % $maxprocs]

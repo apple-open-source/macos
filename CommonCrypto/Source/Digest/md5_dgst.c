@@ -299,3 +299,15 @@ int printit(unsigned long *l)
 CC_DIGEST_ONE_SHOT(CC_MD5, CC_MD5_CTX, CC_MD5_Init, CC_MD5_Update, CC_MD5_Final)
 
 #endif
+
+/*
+	The following is needed because CC_MD5_Final takes an unsigned char*, not an unsigned char digest[16].
+	We previously handled this with a macro, but we take this approach because it allows a function pointer to
+	MD5Final to be created.
+*/
+void MD5Final (unsigned char digest[16], MD5_CTX *context);
+void MD5Final (unsigned char digest[16], MD5_CTX *context)
+{
+	CC_MD5_Final(digest, context);
+}
+

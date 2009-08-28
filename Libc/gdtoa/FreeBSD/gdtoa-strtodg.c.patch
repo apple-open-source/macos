@@ -1,6 +1,6 @@
---- gdtoa-strtodg.c.orig	2007-10-04 15:00:21.000000000 -0700
-+++ gdtoa-strtodg.c	2007-10-04 17:49:06.000000000 -0700
-@@ -29,13 +29,29 @@
+--- gdtoa-strtodg.c.orig	2008-10-28 12:23:36.000000000 -0700
++++ gdtoa-strtodg.c	2008-10-28 12:34:18.000000000 -0700
+@@ -29,13 +29,29 @@ THIS SOFTWARE.
  /* Please send bug reports to David M. Gay (dmg at acm dot org,
   * with " at " changed at "@" and " dot " changed to ".").	*/
  
@@ -31,8 +31,8 @@
  fivesbits[] = {	 0,  3,  5,  7, 10, 12, 14, 17, 19, 21,
  		24, 26, 28, 31, 33, 35, 38, 40, 42, 45,
  		47, 49, 52
-@@ -122,7 +138,7 @@
- 	return STRTOG_Inexlo;
+@@ -121,7 +137,7 @@ decrement(Bigint *b)
+ #endif
  	}
  
 - static int
@@ -40,7 +40,7 @@
  #ifdef KR_headers
  all_on(b, n) Bigint *b; int n;
  #else
-@@ -169,7 +185,7 @@
+@@ -168,7 +184,7 @@ set_ones(Bigint *b, int n)
  	return b;
  	}
  
@@ -49,7 +49,7 @@
  rvOK
  #ifdef KR_headers
   (d, fpi, exp, bits, exact, rd, irv)
-@@ -290,7 +306,7 @@
+@@ -289,7 +305,7 @@ rvOK
  	return rv;
  	}
  
@@ -58,7 +58,7 @@
  #ifdef KR_headers
  mantbits(d) double d;
  #else
-@@ -313,13 +329,15 @@
+@@ -312,13 +328,15 @@ mantbits(double d)
  	return P - 32 - lo0bits(&L);
  	}
  
@@ -77,18 +77,24 @@
  #endif
  {
  	int abe, abits, asub;
-@@ -332,6 +350,10 @@
- 	Long L;
- 	ULong y, z;
+@@ -332,13 +350,14 @@ strtodg
+ 	ULong *b, *be, y, z;
  	Bigint *ab, *bb, *bb1, *bd, *bd0, *bs, *delta, *rvb, *rvb0;
-+#ifdef USE_LOCALE
-+	char *decimal_point;
-+	int decimal_point_len;
-+#endif /* USE_LOCALE */
- 
- 	irv = STRTOG_Zero;
- 	denorm = sign = nz0 = nz = 0;
-@@ -367,7 +389,7 @@
+ #ifdef USE_LOCALE
++	NORMALIZE_LOCALE(loc)
+ #ifdef NO_LOCALE_CACHE
+-	char *decimalpoint = localeconv()->decimal_point;
++	char *decimalpoint = localeconv_l(loc)->decimal_point;
+ #else
+ 	char *decimalpoint;
+ 	static char *decimalpoint_cache;
+ 	if (!(s0 = decimalpoint_cache)) {
+-		s0 = localeconv()->decimal_point;
++		s0 = localeconv_l(loc)->decimal_point;
+ 		if ((decimalpoint_cache = (char*)malloc(strlen(s0) + 1))) {
+ 			strcpy(decimalpoint_cache, s0);
+ 			s0 = decimalpoint_cache;
+@@ -382,7 +401,7 @@ strtodg
  		switch(s[1]) {
  		  case 'x':
  		  case 'X':
@@ -97,69 +103,45 @@
  			if (irv == STRTOG_NoNumber) {
  				s = s00;
  				sign = 0;
-@@ -389,14 +411,22 @@
- 		else if (nd < 16)
- 			z = 10*z + c - '0';
- 	nd0 = nd;
-+	NORMALIZE_LOCALE(loc);
- #ifdef USE_LOCALE
--	if (c == *localeconv()->decimal_point)
-+	decimal_point = localeconv_l(loc)->decimal_point;
-+	decimal_point_len = strlen(decimal_point);
-+	if (strncmp(s, decimal_point, decimal_point_len) == 0)
- #else
- 	if (c == '.')
- #endif
- 		{
- 		decpt = 1;
-+#ifdef USE_LOCALE
-+		s += decimal_point_len;
-+		c = *s;
-+#else
- 		c = *++s;
-+#endif
- 		if (!nd) {
- 			for(; c == '0'; c = *++s)
- 				nz++;
-@@ -668,6 +698,9 @@
+@@ -687,6 +706,10 @@ strtodg
  					rvb->x[0] = 0;
  					*exp = emin;
  					irv = STRTOG_Underflow | STRTOG_Inexlo;
-+#ifndef NO_ERRNO
++/* When __DARWIN_UNIX03 is set, we don't need this (errno is set later) */
++#if !defined(NO_ERRNO) && !__DARWIN_UNIX03
 +					errno = ERANGE;
 +#endif
  					goto ret;
  					}
  				rvb->x[0] = rvb->wds = rvbits = 1;
-@@ -684,7 +717,11 @@
+@@ -703,7 +726,11 @@ strtodg
  
  	/* Put digits into bd: true value = bd * 10^e */
  
 -	bd0 = s2b(s0, nd0, nd, y);
 +#ifdef USE_LOCALE
-+	bd0 = s2b(s0, nd0, nd, y, decimal_point_len);
++	bd0 = s2b(s0, nd0, nd, y, strlen(decimalpoint));
 +#else
 +	bd0 = s2b(s0, nd0, nd, y, 1);
 +#endif
  
  	for(;;) {
  		bd = Balloc(bd0->k);
-@@ -824,7 +861,7 @@
- 				rvb = increment(rvb);
- 				if ( (j = rvbits & kmask) !=0)
- 					j = ULbits - j;
--				if (hi0bits(rvb->x[(rvb->wds - 1) >> kshift])
-+				if (hi0bits(rvb->x[rvb->wds - 1])
- 						!= j)
- 					rvbits++;
- 				irv = STRTOG_Normal | STRTOG_Inexhi;
-@@ -1008,5 +1045,9 @@
- 		copybits(bits, nbits, rvb);
- 		Bfree(rvb);
- 		}
+@@ -1032,7 +1059,7 @@ strtodg
+ 		if (sudden_underflow) {
+ 			rvb->wds = 0;
+ 			irv = STRTOG_Underflow | STRTOG_Inexlo;
+-#ifndef NO_ERRNO
 +#if !defined(NO_ERRNO) && __DARWIN_UNIX03
-+	if (irv & STRTOG_Underflow)
-+		errno = ERANGE;
-+#endif
- 	return irv;
- 	}
+ 			errno = ERANGE;
+ #endif
+ 			}
+@@ -1041,7 +1068,7 @@ strtodg
+ 				(rvb->wds > 0 ? STRTOG_Denormal : STRTOG_Zero);
+ 			if (irv & STRTOG_Inexact) {
+ 				irv |= STRTOG_Underflow;
+-#ifndef NO_ERRNO
++#if !defined(NO_ERRNO) && __DARWIN_UNIX03
+ 				errno = ERANGE;
+ #endif
+ 				}

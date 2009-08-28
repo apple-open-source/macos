@@ -23,6 +23,12 @@
 # a separate version for such a tiny option.
 #
 
+XML=""
+if [ "x$1" = "x-X" ] ; then
+	XML="-X"
+	EVERYTHING="-E"
+fi
+
 FRAMEWORKS="$(cat FrameworkList | grep -v '^\#')";
 oldifs="$IFS"
 # NOTE: This is intentionally a string containing a newline.
@@ -37,7 +43,7 @@ for frameworkline in $FRAMEWORKS ; do
 		echo "FRAMEWORK: $framework"
 		echo "FRAMEWORKNAME: $frameworkName"
 
-		frameworkDir="$framework"
+		frameworkDir="$(echo "$framework" | sed 's/\/$//g')"
 		# frameworkName=`basename $framework`
 		outputDir="framework_output/$frameworkName"
 		rm -rf $outputDir
@@ -47,29 +53,41 @@ for frameworkline in $FRAMEWORKS ; do
 
 		frameworkHDOC="frameworkHDOC/$frameworkName.hdoc"
 
+		EXCLUDE=0
+		if [ -f "frameworkHDOC/$frameworkName.skiplist" ] ; then
+			EXCLUDE=1
+			EXCLUDELISTFILE="frameworkHDOC/$frameworkName.skiplist"
+		fi
+
 		echo "HDOC FILE WOULD BE $frameworkHDOC"
 		if [ -f "$frameworkHDOC" ] ; then
 			if [ -d copyframework ] ; then
 				rm -rf copyframework;
 			fi
 			mkdir copyframework;
-			cp $frameworkHDOC copyframework;
-			cp -R $frameworkDir copyframework;
+			cp -L $frameworkHDOC copyframework;
+			cp -L -R $frameworkDir copyframework;
 			frameworkDir="copyframework"
 			cat $frameworkHDOC
 			delete=1
 		fi
 		# ls $frameworkDir
 
-		./headerDoc2HTML.pl -H -O -j -p -o $outputDir $frameworkDir
+		if [ $EXCLUDE -eq 1 ] ; then
+			./headerDoc2HTML.pl $XML $EVERYTHING -H -O -j -Q -n -p -e $EXCLUDELISTFILE -o $outputDir $frameworkDir
+		else
+			./headerDoc2HTML.pl $XML $EVERYTHING -H -O -j -Q -n -p -o $outputDir $frameworkDir
+		fi
 		if [ $? != 0 ] ; then
 			echo "HeaderDoc crashed.  Exiting."
 			exit -1;
 		fi
-		./gatherHeaderDoc.pl $outputDir index.html
-		if [ $? != 0 ] ; then
-			echo "GatherHeaderDoc crashed.  Exiting."
-			exit -1;
+		if [ "x$XML" = "x" ] ; then
+			./gatherHeaderDoc.pl $outputDir index.html
+			if [ $? != 0 ] ; then
+				echo "GatherHeaderDoc crashed.  Exiting."
+				exit -1;
+			fi
 		fi
 
 		if [ $delete == 1 ] ; then
@@ -84,8 +102,14 @@ for frameworkline in $FRAMEWORKS ; do
 	fi
 done
 
-if [ -f "./breadcrumbtree.pl" ] ; then
-	./breadcrumbtree.pl framework_output
+if [ "x$XML" = "x" ] ; then
+	if [ -f "./breadcrumbtree.pl" ] ; then
+		if which perl5.8.9 > /dev/null ; then
+			perl5.8.9 ./breadcrumbtree.pl framework_output
+		else 
+			./breadcrumbtree.pl framework_output
+		fi
+	fi
 fi
 
 IFS="$oldifs"

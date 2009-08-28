@@ -2,7 +2,7 @@
    that are called from within the C and C++ front-ends,
    respectively.
    Copyright (C) 1991, 1995, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -18,8 +18,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -63,11 +63,28 @@ objc_is_reserved_word (tree ARG_UNUSED (ident))
   return 0;
 }
 
-int
-objc_comptypes (tree ARG_UNUSED (lhs), tree ARG_UNUSED (rhs),
-                int ARG_UNUSED (reflexive))
+bool
+objc_compare_types (tree ARG_UNUSED (ltyp), tree ARG_UNUSED (rtyp),
+		    int ARG_UNUSED (argno), tree ARG_UNUSED (callee))
 {
-  return -1;
+  return false;
+}
+
+void
+objc_volatilize_decl (tree ARG_UNUSED (decl))
+{
+}
+
+bool
+objc_type_quals_match (tree ARG_UNUSED (ltyp), tree ARG_UNUSED (rtyp))
+{
+  return false;
+}
+
+tree
+objc_rewrite_function_call (tree function, tree ARG_UNUSED (params))
+{
+  return function;
 }
 
 tree
@@ -189,7 +206,8 @@ objc_build_keyword_decl (tree ARG_UNUSED (selector),
 tree
 objc_build_method_signature (tree ARG_UNUSED (rettype),
 			     tree ARG_UNUSED (selectors),
-			     tree ARG_UNUSED (optparms))
+			     tree ARG_UNUSED (optparms),
+			     bool ARG_UNUSED (ellipsis))
 {
   return 0;
 }
@@ -254,3 +272,57 @@ objc_is_public (tree ARG_UNUSED (expr), tree ARG_UNUSED (identifier))
 {
   return 1;
 }
+
+tree
+objc_get_class_ivars (tree ARG_UNUSED (name))
+{
+  return 0;
+}
+
+tree
+objc_build_throw_stmt (tree ARG_UNUSED (expr))
+{
+  return 0;
+}
+
+tree
+objc_build_synchronized (location_t ARG_UNUSED (start_locus),
+			 tree ARG_UNUSED (mutex), tree ARG_UNUSED (body))
+{
+  return 0;
+}
+
+void
+objc_begin_try_stmt (location_t ARG_UNUSED (try_locus), tree ARG_UNUSED (body))
+{
+}
+   
+void
+objc_begin_catch_clause (tree ARG_UNUSED (decl))
+{
+}
+
+void
+objc_finish_catch_clause (void)
+{
+}
+
+void
+objc_build_finally_clause (location_t ARG_UNUSED (finally_locus),
+			   tree ARG_UNUSED (body))
+{
+}
+
+tree
+objc_finish_try_stmt (void)
+{
+  return 0;
+}
+
+tree
+objc_generate_write_barrier (tree ARG_UNUSED (lhs),
+			     enum tree_code ARG_UNUSED (modifycode),
+			     tree ARG_UNUSED (rhs))
+{
+  return 0;
+}  

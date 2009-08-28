@@ -1,9 +1,9 @@
-/* $Id: global.c,v 1.219 2006/11/10 02:47:11 dolorous Exp $ */
+/* $Id: global.c,v 1.223.2.1 2007/04/19 03:15:04 dolorous Exp $ */
 /**************************************************************************
  *   global.c                                                             *
  *                                                                        *
  *   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004 Chris Allegretta    *
- *   Copyright (C) 2005, 2006 David Lawrence Ramsey                       *
+ *   Copyright (C) 2005, 2006, 2007 David Lawrence Ramsey                 *
  *   This program is free software; you can redistribute it and/or modify *
  *   it under the terms of the GNU General Public License as published by *
  *   the Free Software Foundation; either version 2, or (at your option)  *
@@ -26,7 +26,7 @@
 /* Global variables. */
 #ifndef NANO_TINY
 sigjmp_buf jump_buf;
-	/* Used to return to main() or the unjustify routine in
+	/* Used to return to either main() or the unjustify routine in
 	 * do_justify() after a SIGWINCH. */
 bool jump_buf_main = FALSE;
 	/* Have we set jump_buf so that we return to main() after a
@@ -110,7 +110,7 @@ size_t quotelen;
 #endif
 
 char *answer = NULL;
-	/* The answer string used in the statusbar prompt. */
+	/* The answer string used by the statusbar prompt. */
 
 ssize_t tabsize = -1;
 	/* The width of a tab in spaces.  The default value is set in
@@ -239,7 +239,7 @@ void sc_init_one(shortcut **shortcutage, int ctrlval, const char *desc
 	for (s = *shortcutage; s->next != NULL; s = s->next)
 	    ;
 	s->next = (shortcut *)nmalloc(sizeof(shortcut));
-	s = s->next; 
+	s = s->next;
     }
 
     s->ctrlval = ctrlval;
@@ -558,21 +558,21 @@ void shortcut_init(bool unjustify)
 	nano_disabled_msg);
 
     sc_init_one(&main_list, NANO_GOTOLINE_KEY, go_to_line_msg,
-	IFSCHELP(nano_gotoline_msg, FALSE, NANO_GOTOLINE_ALTKEY),
+	IFSCHELP(nano_gotoline_msg, FALSE, NANO_GOTOLINE_METAKEY),
 	NANO_GOTOLINE_FKEY, NANO_NO_KEY, VIEW,
 	do_gotolinecolumn_void);
 
     sc_init_one(&main_list, NANO_REPLACE_KEY, replace_msg
 #ifndef NANO_TINY
-	, IFSCHELP(nano_replace_msg, FALSE, NANO_ALT_REPLACE_KEY)
+	, IFSCHELP(nano_replace_msg, FALSE, NANO_REPLACE_METAKEY)
 #else
-	, IFSCHELP(nano_replace_msg, TRUE, NANO_ALT_REPLACE_KEY)
+	, IFSCHELP(nano_replace_msg, TRUE, NANO_REPLACE_METAKEY)
 #endif
 	, NANO_REPLACE_FKEY, NANO_NO_KEY, NOVIEW, do_replace);
 
 #ifndef NANO_TINY
     sc_init_one(&main_list, NANO_MARK_KEY, N_("Mark Text"),
-	IFSCHELP(nano_mark_msg, FALSE, NANO_MARK_ALTKEY),
+	IFSCHELP(nano_mark_msg, FALSE, NANO_MARK_METAKEY),
 	NANO_MARK_FKEY, NANO_NO_KEY, VIEW, do_mark);
 
     sc_init_one(&main_list, NANO_NO_KEY, whereis_next_msg,
@@ -581,7 +581,7 @@ void shortcut_init(bool unjustify)
 
     sc_init_one(&main_list, NANO_NO_KEY, N_("Copy Text"),
 	IFSCHELP(nano_copy_msg, FALSE, NANO_COPY_KEY), NANO_NO_KEY,
-	NANO_COPY_ALTKEY, NOVIEW, do_copy_text);
+	NANO_COPY_METAKEY, NOVIEW, do_copy_text);
 
     sc_init_one(&main_list, NANO_NO_KEY, N_("Indent Text"),
 	IFSCHELP(nano_indent_msg, FALSE, NANO_INDENT_KEY), NANO_NO_KEY,
@@ -628,21 +628,21 @@ void shortcut_init(bool unjustify)
 
 #ifndef DISABLE_JUSTIFY
     sc_init_one(&main_list, NANO_NO_KEY, beg_of_par_msg,
-	IFSCHELP(nano_parabegin_msg, FALSE, NANO_PARABEGIN_ALTKEY),
-	NANO_NO_KEY, NANO_PARABEGIN_ALTKEY2, VIEW, do_para_begin_void);
+	IFSCHELP(nano_parabegin_msg, FALSE, NANO_PARABEGIN_METAKEY),
+	NANO_NO_KEY, NANO_PARABEGIN_METAKEY2, VIEW, do_para_begin_void);
 
     sc_init_one(&main_list, NANO_NO_KEY, end_of_par_msg,
-	IFSCHELP(nano_paraend_msg, FALSE, NANO_PARAEND_ALTKEY),
-	NANO_NO_KEY, NANO_PARAEND_ALTKEY2, VIEW, do_para_end_void);
+	IFSCHELP(nano_paraend_msg, FALSE, NANO_PARAEND_METAKEY),
+	NANO_NO_KEY, NANO_PARAEND_METAKEY2, VIEW, do_para_end_void);
 #endif
 
     sc_init_one(&main_list, NANO_NO_KEY, first_line_msg,
-	IFSCHELP(nano_firstline_msg, FALSE, NANO_FIRSTLINE_ALTKEY),
-	NANO_NO_KEY, NANO_FIRSTLINE_ALTKEY2, VIEW, do_first_line);
+	IFSCHELP(nano_firstline_msg, FALSE, NANO_FIRSTLINE_METAKEY),
+	NANO_NO_KEY, NANO_FIRSTLINE_METAKEY2, VIEW, do_first_line);
 
     sc_init_one(&main_list, NANO_NO_KEY, last_line_msg,
-	IFSCHELP(nano_lastline_msg, TRUE, NANO_LASTLINE_ALTKEY),
-	NANO_NO_KEY, NANO_LASTLINE_ALTKEY2, VIEW, do_last_line);
+	IFSCHELP(nano_lastline_msg, TRUE, NANO_LASTLINE_METAKEY),
+	NANO_NO_KEY, NANO_LASTLINE_METAKEY2, VIEW, do_last_line);
 
 #ifndef NANO_TINY
     sc_init_one(&main_list, NANO_NO_KEY, N_("Find Other Bracket"),
@@ -651,22 +651,22 @@ void shortcut_init(bool unjustify)
 
     sc_init_one(&main_list, NANO_NO_KEY, N_("Scroll Up"),
 	IFSCHELP(nano_scrollup_msg, FALSE, NANO_SCROLLUP_KEY),
-	NANO_NO_KEY, NANO_SCROLLUP_ALTKEY, VIEW, do_scroll_up);
+	NANO_NO_KEY, NANO_SCROLLUP_METAKEY, VIEW, do_scroll_up);
 
     sc_init_one(&main_list, NANO_NO_KEY, N_("Scroll Down"),
 	IFSCHELP(nano_scrolldown_msg, TRUE, NANO_SCROLLDOWN_KEY),
-	NANO_NO_KEY, NANO_SCROLLDOWN_ALTKEY, VIEW, do_scroll_down);
+	NANO_NO_KEY, NANO_SCROLLDOWN_METAKEY, VIEW, do_scroll_down);
 #endif
 
 #ifdef ENABLE_MULTIBUFFER
     sc_init_one(&main_list, NANO_NO_KEY, N_("Previous File"),
 	IFSCHELP(nano_prevfile_msg, FALSE, NANO_PREVFILE_KEY),
-	NANO_NO_KEY, NANO_PREVFILE_ALTKEY, VIEW,
+	NANO_NO_KEY, NANO_PREVFILE_METAKEY, VIEW,
 	switch_to_prev_buffer_void);
 
     sc_init_one(&main_list, NANO_NO_KEY, N_("Next File"),
 	IFSCHELP(nano_nextfile_msg, TRUE, NANO_NEXTFILE_KEY),
-	NANO_NO_KEY, NANO_NEXTFILE_ALTKEY, VIEW,
+	NANO_NO_KEY, NANO_NEXTFILE_METAKEY, VIEW,
 	switch_to_next_buffer_void);
 #endif
 
@@ -696,13 +696,13 @@ void shortcut_init(bool unjustify)
 
 #ifndef NANO_TINY
     sc_init_one(&main_list, NANO_NO_KEY, N_("CutTillEnd"),
-	IFSCHELP(nano_cut_till_end_msg, TRUE, NANO_CUTTILLEND_ALTKEY),
+	IFSCHELP(nano_cut_till_end_msg, TRUE, NANO_CUTTILLEND_METAKEY),
 	NANO_NO_KEY, NANO_NO_KEY, NOVIEW, do_cut_till_end);
 #endif
 
 #ifndef DISABLE_JUSTIFY
     sc_init_one(&main_list, NANO_NO_KEY, fulljstify_msg,
-	IFSCHELP(nano_fulljustify_msg, FALSE, NANO_FULLJUSTIFY_ALTKEY),
+	IFSCHELP(nano_fulljustify_msg, FALSE, NANO_FULLJUSTIFY_METAKEY),
 	NANO_NO_KEY, NANO_NO_KEY, NOVIEW, do_full_justify);
 #endif
 
@@ -737,13 +737,13 @@ void shortcut_init(bool unjustify)
 	NANO_NO_KEY, VIEW, NULL);
 
     sc_init_one(&whereis_list, NANO_FIRSTLINE_KEY, first_line_msg,
-	IFSCHELP(nano_firstline_msg, FALSE, NANO_FIRSTLINE_ALTKEY),
-	NANO_FIRSTLINE_FKEY, NANO_FIRSTLINE_ALTKEY2, VIEW,
+	IFSCHELP(nano_firstline_msg, FALSE, NANO_FIRSTLINE_METAKEY),
+	NANO_FIRSTLINE_FKEY, NANO_FIRSTLINE_METAKEY2, VIEW,
 	do_first_line);
 
     sc_init_one(&whereis_list, NANO_LASTLINE_KEY, last_line_msg,
-	IFSCHELP(nano_lastline_msg, FALSE, NANO_LASTLINE_ALTKEY),
-	NANO_LASTLINE_FKEY, NANO_LASTLINE_ALTKEY2, VIEW, do_last_line);
+	IFSCHELP(nano_lastline_msg, FALSE, NANO_LASTLINE_METAKEY),
+	NANO_LASTLINE_FKEY, NANO_LASTLINE_METAKEY2, VIEW, do_last_line);
 
     sc_init_one(&whereis_list, NANO_TOOTHERSEARCH_KEY, replace_msg,
 	IFSCHELP(nano_replace_msg, FALSE, NANO_NO_KEY),
@@ -755,12 +755,12 @@ void shortcut_init(bool unjustify)
 
 #ifndef DISABLE_JUSTIFY
     sc_init_one(&whereis_list, NANO_PARABEGIN_KEY, beg_of_par_msg,
-	IFSCHELP(nano_parabegin_msg, FALSE, NANO_PARABEGIN_ALTKEY),
-	NANO_NO_KEY, NANO_PARABEGIN_ALTKEY2, VIEW, do_para_begin_void);
+	IFSCHELP(nano_parabegin_msg, FALSE, NANO_PARABEGIN_METAKEY),
+	NANO_NO_KEY, NANO_PARABEGIN_METAKEY2, VIEW, do_para_begin_void);
 
     sc_init_one(&whereis_list, NANO_PARAEND_KEY, end_of_par_msg,
-	IFSCHELP(nano_paraend_msg, FALSE, NANO_PARAEND_ALTKEY),
-	NANO_NO_KEY, NANO_PARAEND_ALTKEY2, VIEW, do_para_end_void);
+	IFSCHELP(nano_paraend_msg, FALSE, NANO_PARAEND_METAKEY),
+	NANO_NO_KEY, NANO_PARAEND_METAKEY2, VIEW, do_para_end_void);
 #endif
 
 #ifndef NANO_TINY
@@ -791,7 +791,7 @@ void shortcut_init(bool unjustify)
 
 #ifndef DISABLE_JUSTIFY
     sc_init_one(&whereis_list, NANO_FULLJUSTIFY_KEY, fulljstify_msg,
-	IFSCHELP(nano_fulljustify_msg, FALSE, NANO_FULLJUSTIFY_ALTKEY),
+	IFSCHELP(nano_fulljustify_msg, FALSE, NANO_FULLJUSTIFY_METAKEY),
 	NANO_NO_KEY, NANO_NO_KEY, NOVIEW, do_full_justify);
 #endif
 
@@ -812,13 +812,13 @@ void shortcut_init(bool unjustify)
 	NANO_NO_KEY, VIEW, NULL);
 
     sc_init_one(&replace_list, NANO_FIRSTLINE_KEY, first_line_msg,
-	IFSCHELP(nano_firstline_msg, FALSE, NANO_FIRSTLINE_ALTKEY),
-	NANO_FIRSTLINE_FKEY, NANO_FIRSTLINE_ALTKEY2, VIEW,
+	IFSCHELP(nano_firstline_msg, FALSE, NANO_FIRSTLINE_METAKEY),
+	NANO_FIRSTLINE_FKEY, NANO_FIRSTLINE_METAKEY2, VIEW,
 	do_first_line);
 
     sc_init_one(&replace_list, NANO_LASTLINE_KEY, last_line_msg,
-	IFSCHELP(nano_lastline_msg, FALSE, NANO_LASTLINE_ALTKEY),
-	NANO_LASTLINE_FKEY, NANO_LASTLINE_ALTKEY2, VIEW, do_last_line);
+	IFSCHELP(nano_lastline_msg, FALSE, NANO_LASTLINE_METAKEY),
+	NANO_LASTLINE_FKEY, NANO_LASTLINE_METAKEY2, VIEW, do_last_line);
 
     /* TRANSLATORS: Try to keep this at most 12 characters. */
     sc_init_one(&replace_list, NANO_TOOTHERSEARCH_KEY, N_("No Replace"),
@@ -868,13 +868,13 @@ void shortcut_init(bool unjustify)
 	NANO_NO_KEY, VIEW, NULL);
 
     sc_init_one(&replace_list_2, NANO_FIRSTLINE_KEY, first_line_msg,
-	IFSCHELP(nano_firstline_msg, FALSE, NANO_FIRSTLINE_ALTKEY),
-	NANO_FIRSTLINE_FKEY, NANO_FIRSTLINE_ALTKEY2, VIEW,
+	IFSCHELP(nano_firstline_msg, FALSE, NANO_FIRSTLINE_METAKEY),
+	NANO_FIRSTLINE_FKEY, NANO_FIRSTLINE_METAKEY2, VIEW,
 	do_first_line);
 
     sc_init_one(&replace_list_2, NANO_LASTLINE_KEY, last_line_msg,
-	IFSCHELP(nano_lastline_msg, FALSE, NANO_LASTLINE_ALTKEY),
-	NANO_LASTLINE_FKEY, NANO_LASTLINE_ALTKEY2, VIEW, do_last_line);
+	IFSCHELP(nano_lastline_msg, FALSE, NANO_LASTLINE_METAKEY),
+	NANO_LASTLINE_FKEY, NANO_LASTLINE_METAKEY2, VIEW, do_last_line);
 
 #ifndef NANO_TINY
     sc_init_one(&replace_list_2, NANO_PREVLINE_KEY, prev_history_msg,
@@ -903,13 +903,13 @@ void shortcut_init(bool unjustify)
 	NANO_NO_KEY, VIEW, NULL);
 
     sc_init_one(&gotoline_list, NANO_FIRSTLINE_KEY, first_line_msg,
-	IFSCHELP(nano_firstline_msg, FALSE, NANO_FIRSTLINE_ALTKEY),
-	NANO_FIRSTLINE_FKEY, NANO_FIRSTLINE_ALTKEY2, VIEW,
+	IFSCHELP(nano_firstline_msg, FALSE, NANO_FIRSTLINE_METAKEY),
+	NANO_FIRSTLINE_FKEY, NANO_FIRSTLINE_METAKEY2, VIEW,
 	do_first_line);
 
     sc_init_one(&gotoline_list, NANO_LASTLINE_KEY, last_line_msg,
-	IFSCHELP(nano_lastline_msg, FALSE, NANO_LASTLINE_ALTKEY),
-	NANO_LASTLINE_FKEY, NANO_LASTLINE_ALTKEY2, VIEW, do_last_line);
+	IFSCHELP(nano_lastline_msg, FALSE, NANO_LASTLINE_METAKEY),
+	NANO_LASTLINE_FKEY, NANO_LASTLINE_METAKEY2, VIEW, do_last_line);
 
     sc_init_one(&gotoline_list, NANO_TOOTHERWHEREIS_KEY,
 	N_("Go To Text"), IFSCHELP(nano_whereis_msg, FALSE,
@@ -1082,12 +1082,12 @@ void shortcut_init(bool unjustify)
 	NANO_NO_KEY, VIEW, NULL);
 
     sc_init_one(&help_list, NANO_NO_KEY, first_line_msg,
-	IFSCHELP(nano_firstline_msg, FALSE, NANO_FIRSTLINE_ALTKEY),
-	NANO_NO_KEY, NANO_FIRSTLINE_ALTKEY2, VIEW, NULL);
+	IFSCHELP(nano_firstline_msg, FALSE, NANO_FIRSTLINE_METAKEY),
+	NANO_NO_KEY, NANO_FIRSTLINE_METAKEY2, VIEW, NULL);
 
     sc_init_one(&help_list, NANO_NO_KEY, last_line_msg,
-	IFSCHELP(nano_lastline_msg, TRUE, NANO_LASTLINE_ALTKEY),
-	NANO_NO_KEY, NANO_LASTLINE_ALTKEY2, VIEW, NULL);
+	IFSCHELP(nano_lastline_msg, TRUE, NANO_LASTLINE_METAKEY),
+	NANO_NO_KEY, NANO_LASTLINE_METAKEY2, VIEW, NULL);
 #endif
 
 #ifndef DISABLE_SPELLER
@@ -1136,16 +1136,16 @@ void shortcut_init(bool unjustify)
 	NANO_NEXTPAGE_FKEY, NANO_NO_KEY, VIEW, NULL);
 
     sc_init_one(&browser_list, NANO_NO_KEY, first_file_msg,
-	IFSCHELP(nano_firstfile_msg, FALSE, NANO_FIRSTFILE_ALTKEY),
-	NANO_NO_KEY, NANO_FIRSTFILE_ALTKEY2, VIEW, NULL);
+	IFSCHELP(nano_firstfile_msg, FALSE, NANO_FIRSTFILE_METAKEY),
+	NANO_NO_KEY, NANO_FIRSTFILE_METAKEY2, VIEW, NULL);
 
     sc_init_one(&browser_list, NANO_NO_KEY, last_file_msg,
-	IFSCHELP(nano_lastfile_msg, FALSE, NANO_LASTFILE_ALTKEY),
-	NANO_NO_KEY, NANO_LASTFILE_ALTKEY2, VIEW, NULL);
+	IFSCHELP(nano_lastfile_msg, FALSE, NANO_LASTFILE_METAKEY),
+	NANO_NO_KEY, NANO_LASTFILE_METAKEY2, VIEW, NULL);
 
     /* TRANSLATORS: Try to keep this at most 12 characters. */
     sc_init_one(&browser_list, NANO_GOTODIR_KEY, N_("Go To Dir"),
-	IFSCHELP(nano_gotodir_msg, FALSE, NANO_GOTODIR_ALTKEY),
+	IFSCHELP(nano_gotodir_msg, FALSE, NANO_GOTODIR_METAKEY),
 	NANO_GOTODIR_FKEY, NANO_NO_KEY, VIEW, NULL);
 
     free_shortcutage(&whereis_file_list);
@@ -1165,13 +1165,13 @@ void shortcut_init(bool unjustify)
 	NANO_NO_KEY, VIEW, NULL);
 
     sc_init_one(&whereis_file_list, NANO_FIRSTFILE_KEY, first_file_msg,
-	IFSCHELP(nano_firstfile_msg, FALSE, NANO_FIRSTFILE_ALTKEY),
-	NANO_FIRSTFILE_FKEY, NANO_FIRSTFILE_ALTKEY2, VIEW,
+	IFSCHELP(nano_firstfile_msg, FALSE, NANO_FIRSTFILE_METAKEY),
+	NANO_FIRSTFILE_FKEY, NANO_FIRSTFILE_METAKEY2, VIEW,
 	do_first_file);
 
     sc_init_one(&whereis_file_list, NANO_LASTFILE_KEY, last_file_msg,
-	IFSCHELP(nano_lastfile_msg, FALSE, NANO_LASTFILE_ALTKEY),
-	NANO_LASTFILE_FKEY, NANO_LASTFILE_ALTKEY2, VIEW, do_last_file);
+	IFSCHELP(nano_lastfile_msg, FALSE, NANO_LASTFILE_METAKEY),
+	NANO_LASTFILE_FKEY, NANO_LASTFILE_METAKEY2, VIEW, do_last_file);
 
 #ifndef NANO_SMALL
     sc_init_one(&whereis_file_list, NANO_NO_KEY, case_sens_msg,

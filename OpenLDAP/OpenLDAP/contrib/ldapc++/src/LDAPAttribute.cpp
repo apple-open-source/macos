@@ -1,5 +1,6 @@
+// $OpenLDAP: pkg/ldap/contrib/ldapc++/src/LDAPAttribute.cpp,v 1.6.10.2 2008/04/14 23:09:26 quanah Exp $
 /*
- * Copyright 2000, OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 2000-2007, OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -12,7 +13,7 @@
 
 
 #include <ldap.h> 
-//#include <ctype.h>
+#include <cstdlib>
 
 #include "debug.h"
 #include "StringList.h"

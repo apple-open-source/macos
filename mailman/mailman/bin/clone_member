@@ -129,6 +129,12 @@ def dolist(mlist, options):
         if not options.quiet:
             print _('    address not found:'), options.fromaddr
         return
+    # Check for banned to address.
+    pattern = mlist.GetBannedPattern(options.toaddr)
+    if pattern:
+        if not options.quiet:
+            print '   ', _('Banned address (matched %(pattern)s)')
+        return
 
     # Now change the membership address
     try:

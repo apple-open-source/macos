@@ -1,0 +1,296 @@
+dnl Process this file with autoconf to produce a configure script.
+AC_INIT(../include/mk4.h)
+AC_PREREQ(2.5)
+AC_CONFIG_AUX_DIR(scripts)
+AC_CONFIG_HEADER(config.h)
+AC_LANG_CPLUSPLUS
+
+MK_TARGETS="core"
+MK_INSTALL="install-mk"
+
+AC_ARG_WITH(python,
+[  --with-python=PATH      build the Mk4py extension for Python with headers in
+                          `PATH/include/python2.5'; install the Mk4py modules in
+                          `PATH/lib/python2.5/site-packages'.  If PATH is of the
+                          form `HEADER,LIB', search for header files in HEADER,
+                          and install Mk4py in LIB.  If you omit the `=PATH'
+                          part, use the standard includedir and libdir.],
+                          [with_python=${withval}], [with_python=no])
+
+AC_MSG_CHECKING([for Python configuration])
+case "$with_python" in
+  "yes" )
+	PY_INCLUDE_DIR="${prefix}/include/python2.5"
+	PY_LIB_DIR="${prefix}/lib/python2.5/site-packages"
+  ;;
+  "no" )
+	PY_INCLUDE_DIR="# no Python headers"
+  ;;
+  *","* )
+	PY_INCLUDE_DIR="`echo $with_python | sed -e 's/,.*$//'`"
+	PY_LIB_DIR="`echo $with_python | sed -e 's/^.*,//'`"
+  ;;
+  * )
+    PY_INCLUDE_DIR="$with_python/include/python2.5"
+    PY_LIB_DIR="$with_python/lib/python2.5/site-packages"
+  ;;
+esac
+
+if test x"$with_python" = xno; then
+  AC_MSG_RESULT(not enabled)
+else
+  MK_TARGETS="$MK_TARGETS python"
+  MK_INSTALL="$MK_INSTALL install-python"
+  if test -f "${PY_INCLUDE_DIR}/Python.h" ; then
+    MK_TARGETS="$MK_TARGETS python"
+    MK_INSTALL="$MK_INSTALL install-python"
+    AC_MSG_RESULT($PY_INCLUDE_DIR and $PY_LIB_DIR)
+  else
+    AC_MSG_RESULT(can't find ${PY_INCLUDE_DIR}/Python.h)
+  fi
+fi
+
+AC_ARG_WITH(tcl, 
+[  --with-tcl=PATH         build the Mk4tcl extension for Tcl with tcl.h in
+                          `PATH/tcl.h'; install the Mk4tcl package in
+			  `PATH/../lib'.  If PATH is of the form `HEADER,LIB',
+                          search for tcl.h in HEADER, and install Mk4tcl in
+                          LIB.  If you omit the `=PATH' part, use the standard
+			  includedir and libdir.],
+			  [with_tcl=${withval}], [with_tcl=no])
+
+AC_MSG_CHECKING([for Tcl headers])
+case "$with_tcl" in
+  "yes" )
+	TCL_INCLUDE_DIR="${prefix}/include"
+	TCL_LIB_DIR="${prefix}/lib/tcl8.4"
+  ;;
+  "no" )
+	TCL_INCLUDE_DIR="# no Tcl headers"
+  ;;
+  *","* )
+	TCL_INCLUDE_DIR="`echo $with_tcl | sed -e 's/,.*$//'`"
+	TCL_LIB_DIR="`echo $with_tcl | sed -e 's/^.*,//'`"
+  ;;
+  * )
+    TCL_INCLUDE_DIR="$with_tcl"
+    TCL_LIB_DIR="$with_tcl/../lib"
+  ;;
+esac
+
+if test x"$with_tcl" = xno ; then
+  AC_MSG_RESULT(not enabled)
+else
+  MK_TARGETS="$MK_TARGETS tcl"
+  MK_INSTALL="$MK_INSTALL install-tcl"
+  if test -f "${TCL_INCLUDE_DIR}/tcl.h" ; then
+    AC_MSG_RESULT(found ${TCL_INCLUDE_DIR}/tcl.h)
+    MK_TARGETS="$MK_TARGETS tcl"
+    MK_INSTALL="$MK_INSTALL install-tcl"
+    AC_MSG_CHECKING(for Tcl package installation location)
+    AC_MSG_RESULT(${TCL_LIB_DIR})
+  else
+    AC_MSG_ERROR([${TCL_INCLUDE_DIR} directory doesn't contain tcl.h])
+  fi
+fi
+
+AC_MSG_CHECKING([for building with threads])
+AC_ARG_ENABLE(threads, [  --enable-threads        build with threads], [ok=$enableval], [ok=no])
+if test "$ok" = yes; then
+  MK_THREADS="-Dq4_MULTI -DTCL_THREADS"
+  AC_MSG_RESULT(yes)
+else
+  MK_THREADS=""
+  AC_MSG_RESULT([no (default)])
+fi
+
+AC_MSG_CHECKING([for building as shared lib])
+AC_ARG_ENABLE(shared, [  --enable-shared         build as shared lib (default=yes)], [ok=$enableval], [ok=yes])
+if test "$ok" = yes; then
+  SHARED_BUILD=1
+  AC_MSG_RESULT([yes (default)])
+else
+  SHARED_BUILD=0
+  AC_MSG_RESULT([no, static])
+fi
+
+if test $SHARED_BUILD = 1; then
+  SHLIB_FLAGS="-shared"
+  SHLIB_CFLAGS="-fPIC -DUSE_TCL_STUBS"
+  SHLIB_LD="g++ -shared"
+else
+  SHLIB_FLAGS=""
+  SHLIB_CFLAGS=""
+  SHLIB_LD=""
+fi
+
+# Checks for programs.
+AC_PROG_CXX
+AC_PROG_INSTALL
+
+# Checks for libraries.
+
+# Checks for header files.
+AC_HEADER_STDC
+
+# Checks for typedefs, structures, and compiler characteristics.
+AC_C_CONST
+AC_C_INLINE
+AC_CHECK_SIZEOF(long,4)
+AC_CHECK_TYPES(long long)
+
+# Checks for library functions.
+AC_CHECK_FUNCS(mmap memmove bcopy)
+
+# Deal with static & shared lib differences
+LIB_SUFFIX=".a"
+SHLIB_SUFFIX=".so"
+STRIP_FLAGS=
+
+build_os=`uname -s`
+build_cpu=`uname -p`
+
+case $build_os in
+  Darwin*)
+    SHLIB_SUFFIX=".dylib"
+    SHLIB_LD="g++ -dynamiclib -flat_namespace -undefined suppress"
+    STRIP_FLAGS=-S
+    ;;
+  HP-UX*)
+    case "`uname -r`" in
+      B.11.00|B.10*)
+	CXXFLAGS="$CXXFLAGS -DNO_MMAP"
+	;;
+    esac
+    SHLIB_SUFFIX=".sl"
+    ;;
+  cyg*)
+    LIB_SUFFIX=".lib"
+    SHLIB_SUFFIX=".dll"
+    ;;
+esac
+
+if test $SHARED_BUILD = 1; then
+  LIBEXT=$SHLIB_SUFFIX
+else
+  LIBEXT=$LIB_SUFFIX
+fi
+
+AC_CHECK_LIB(pthread, pthread_mutex_init, [LIBS="$LIBS -lpthread"])
+
+# ---------------------------------------------------------
+# Special hackery for hpux machines to allow usage of the
+# metakit C++ library from within Tcl (C application).
+#
+# The special configurations are:
+#
+# (1)  CXX=aCC, CC=cc, build_os=hpux*, build_cpu=hppa
+# (1a) CXX=aCC, CC=cc, build_os=hpux*, build_cpu=hppa2.0w (true 64 bit)
+# (2)  CXX=aCC, CC=cc, build_os=hpux*, build_cpu=ia64
+#
+# [Ad 1]  Link against -lCsup and insert cpprt0_stub.o
+# [Ad 1a] Link against -lCsup
+# [Ad 2]  Link against -lCsup
+#
+# Variables to substitute
+# = LINK_SPECIAL_FLAGS
+# = LINK_SPECIAL_FILES
+
+LINK_SPECIAL_FLAGS=""
+LINK_SPECIAL_FILES=""
+
+case $build_os in
+  HP-UX*)
+    if test "X$build_cpu" != "Xia64" -a "$threads_ok" = yes; then
+       # Handle special link requirements of hpux-parisc in threaded case.
+       LINK_SPECIAL_FLAGS="$LINK_SPECIAL_FLAGS -lpthread"
+    fi
+
+    if test \
+	"`basename $CXX`x" = "aCCx" -a	\
+	"Z`basename $CC`" = "Zcc"
+    then
+	# Native HP compilers
+
+    	if test "X$build_cpu" = "Xia64" ; then
+	    # Itanium: No -lstdc++
+	    LINK_SPECIAL_FLAGS="$LINK_SPECIAL_FLAGS -lCsup"
+	    LINK_SPECIAL_FILES=""
+    	else
+	    # pa-risc: The exact architecture of the cpu is now important.
+	    # Actually: The exact nature of the code we generate is important.
+
+	    case $CXXFLAGS in
+	      *DA2.0W*)
+	        # True 64 bit, no stdc++, no stubs
+	    	LINK_SPECIAL_FLAGS="$LINK_SPECIAL_FLAGS -lCsup"
+	      ;;
+	      *)
+	        # Everything else
+		LINK_SPECIAL_FLAGS="$LINK_SPECIAL_FLAGS -lCsup -Wl,cpprt0_stubs.o"
+	    	LINK_SPECIAL_FILES="cpprt0_stubs.o"
+    	    	LDFLAGS="${LDFLAGS} -lstdc++"
+	      ;;
+	    esac
+	fi
+    fi
+    ;;
+  SunOS-*)
+    # Tested for solaris-2.8.
+
+    if test "x`basename $CXX`" = "xCC"
+    then
+	# Native SUN C++ compiler
+	# Depending on 32/64 mode choose between runtime libraries
+
+	# Stupid which can insert warnings into the output
+	# instad of using stderr. Bah.
+
+	base=`which $CXX 2>/dev/null`    ; # Full path of compiler.
+	basea=`echo "$base" | sed -e 's/^Warning: ridiculously long PATH truncated//'`
+	baseb=`dirname $basea` ; # Strip name of compiler
+	basec=`dirname $baseb` ; # Strip bin directory
+	CCRUNDIR="$basec/lib"
+
+	case $CXXFLAGS in
+	    *xarch=v9*) CCRUNDIR="$CCRUNDIR/v9" ;;
+	    *)          :                       ;;
+	esac
+
+	LDFLAGS="${LDFLAGS} -L${CCRUNDIR} -lCrun"
+    else
+	# Setup not using CC, use -lstdc++, like for case '*' below.
+
+	LDFLAGS="${LDFLAGS} -lstdc++"
+    fi
+    ;;
+  *)
+    LDFLAGS="${LDFLAGS} -lstdc++"
+    ;;
+esac
+
+AC_SUBST(LINK_SPECIAL_FLAGS)
+AC_SUBST(LINK_SPECIAL_FILES)
+
+# ---------------------------------------------------------
+
+
+AC_SUBST(MK_TARGETS)
+AC_SUBST(MK_INSTALL)
+AC_SUBST(MK_THREADS)
+AC_SUBST(PY_INCLUDE_DIR)
+AC_SUBST(PY_LIB_DIR)
+AC_SUBST(TCL_INCLUDE_DIR)
+AC_SUBST(TCL_LIB_DIR)
+AC_SUBST(EXEEXT)
+AC_SUBST(CPPFLAGS)
+AC_SUBST(LDFLAGS)
+AC_SUBST(LIBEXT)
+AC_SUBST(LIB_SUFFIX)
+AC_SUBST(SHLIB_SUFFIX)
+AC_SUBST(SHLIB_CFLAGS)
+AC_SUBST(SHLIB_LD)
+AC_SUBST(SHLIB_FLAGS)
+AC_SUBST(STRIP_FLAGS)
+
+AC_OUTPUT(Makefile)

@@ -1,4 +1,6 @@
-/*	$Id: racoonctl.c,v 1.2.2.1 2005/04/21 09:07:20 monas Exp $ */
+/*	$NetBSD: racoonctl.c,v 1.7 2006/10/02 07:12:26 manu Exp $	*/
+
+/*	Id: racoonctl.c,v 1.11 2006/04/06 17:06:25 manubsd Exp */
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -65,6 +67,7 @@
 #endif
 #include <err.h>
 #include <sys/ioctl.h> 
+#include <resolv.h>
 
 #include "var.h"
 #include "vmbuf.h"
@@ -77,6 +80,7 @@
 #include "handler.h"
 #include "sockmisc.h"
 #include "vmbuf.h"
+#include "plog.h"
 #include "isakmp_var.h"
 #include "isakmp.h"
 #include "isakmp_xauth.h"
@@ -97,8 +101,13 @@ static vchar_t *f_flushsa __P((int, char **));
 static vchar_t *f_deletesa __P((int, char **));
 static vchar_t *f_exchangesa __P((int, char **));
 static vchar_t *f_vpnc __P((int, char **));
+static vchar_t *f_exchangesatest __P((int, char **));
+static vchar_t *f_vpntest __P((int, char **));
 static vchar_t *f_vpnd __P((int, char **));
 static vchar_t *f_getevt __P((int, char **));
+#ifdef ENABLE_HYBRID
+static vchar_t *f_logoutusr __P((int, char **));
+#endif
 
 struct cmd_tag {
 	vchar_t *(*func) __P((int, char **));
@@ -119,10 +128,15 @@ struct cmd_tag {
 	{ f_exchangesa,	ADMIN_ESTABLISH_SA,	"es" },
 	{ f_vpnc,	ADMIN_ESTABLISH_SA,	"vpn-connect" },
 	{ f_vpnc,	ADMIN_ESTABLISH_SA,	"vc" },
+	{ f_vpntest, ADMIN_ESTABLISH_SA_VPNCONTROL, "vpntest" },
 	{ f_vpnd,	ADMIN_DELETE_ALL_SA_DST,"vpn-disconnect" },
 	{ f_vpnd,	ADMIN_DELETE_ALL_SA_DST,"vd" },
 	{ f_getevt,	ADMIN_SHOW_EVT,		"show-event" },
 	{ f_getevt,	ADMIN_SHOW_EVT,		"se" },
+#ifdef ENABLE_HYBRID
+	{ f_logoutusr,	ADMIN_LOGOUT_USER,	"logout-user" },
+	{ f_logoutusr,	ADMIN_LOGOUT_USER,	"lu" },
+#endif
 	{ NULL, 0, NULL },
 };
 
@@ -145,7 +159,10 @@ struct evtmsg {
 	{ EVTT_XAUTH_FAILED, "Xauth exchange failed", ERROR },
 	{ EVTT_PEERPH1AUTH_FAILED, "Peer failed phase 1 authentication "
 	    "(certificate problem?)", ERROR },
+	{ EVTT_PEERPH1_NOPROP, "Peer failed phase 1 initiation "
+	    "(proposal problem?)", ERROR },
 	{ 0, NULL, UNSPEC },
+	{ EVTT_NO_ISAKMP_CFG, "No need for ISAKMP mode config ", INFO },
 };
 
 static int get_proto __P((char *));
@@ -207,6 +224,7 @@ void print_evt __P((caddr_t, int));
 void print_cfg __P((caddr_t, int));
 void print_err __P((caddr_t, int));
 void print_ph1down __P((caddr_t, int));
+void print_ph1up __P((caddr_t, int));
 int evt_poll __P((void));
 char * fixed_addr __P((char *, char *, int));
 
@@ -329,6 +347,7 @@ evt_poll(void) {
 		errx(1, "Cannot make combuf");
 
 	while (evt_filter & (EVTF_LOOP|EVTF_PURGE)) {
+		/* handle_recv closes the socket time, so open it each time */
 		com_init();
 		if (com_send(sendbuf) != 0)
 			errx(1, "Cannot send combuf");
@@ -343,7 +362,7 @@ evt_poll(void) {
 		(void)select(0, NULL, NULL, NULL, &tv);
 	}
 
-	/* NOTREACHED */
+	vfree(sendbuf);
 	return 0;
 }
 
@@ -555,7 +574,7 @@ f_deletesa(ac, av)
 
 	buf = vmalloc(sizeof(*head) + index->l);
 	if (buf == NULL)
-		return NULL;
+		goto out;
 
 	head = (struct admin_com *)buf->v;
 	head->ac_len = buf->l + index->l;
@@ -564,6 +583,10 @@ f_deletesa(ac, av)
 	head->ac_proto = proto;
 
 	memcpy(buf->v+sizeof(*head), index->v, index->l);
+
+out:
+	if (index != NULL)
+		vfree(index);
 
 	return buf;
 }
@@ -606,7 +629,7 @@ f_deleteallsadst(ac, av)
 
 	buf = vmalloc(sizeof(*head) + index->l);
 	if (buf == NULL)
-		return NULL;
+		goto out;
 
 	head = (struct admin_com *)buf->v;
 	head->ac_len = buf->l + index->l;
@@ -615,6 +638,10 @@ f_deleteallsadst(ac, av)
 	head->ac_proto = proto;
 
 	memcpy(buf->v+sizeof(*head), index->v, index->l);
+
+out:
+	if (index != NULL)
+		vfree(index);
 
 	return buf;
 }
@@ -691,26 +718,194 @@ f_exchangesa(ac, av)
 	memcpy(buf->v+sizeof(*head), index->v, index->l);
 
 	if (id && key) {
+	        // overload com_len to track the number of unused bytes in buf->v
 		char *data;
 		acp = (struct admin_com_psk *)
 		    (buf->v + sizeof(*head) + index->l);
+		com_len -= sizeof(*head) + index->l;
 
-		acp->id_type = IDTYPE_LOGIN;
+		acp->id_type = IDTYPE_USERFQDN;
 		acp->id_len = strlen(id) + 1;
 		acp->key_len = strlen(key) + 1;
 
 		data = (char *)(acp + 1);
-		strcpy(data, id);
+		com_len -= sizeof(*acp);
+		strlcpy(data, id, com_len);
 
 		data = (char *)(data + acp->id_len);
-		strcpy(data, key);
+		com_len -= acp->id_len;
+		strlcpy(data, key, com_len);
 	}
+
+	vfree(index);
+
+	return buf;
+}
+
+// %%%%% testing
+static vchar_t *
+f_exchangesatest(ac, av)
+	int ac;
+	char **av;
+{
+	vchar_t *buf, *index;
+	struct admin_com *head;
+	int proto;
+	int cmd = ADMIN_ESTABLISH_SA_VPNCONTROL;
+	size_t com_len = 0;
+	char *id = NULL;
+	char *key = NULL;
+	struct admin_com_psk *acp;
+
+	if (ac < 1)
+		errx(1, "insufficient arguments");
+
+	/* Optional -u identity */
+	if (strcmp(av[0], "-u") == 0) {
+		if (ac < 2)
+			errx(1, "-u require an argument");
+
+		id = av[1];
+		if ((key = getpass("Password: ")) == NULL)
+			errx(1, "getpass() failed: %s", strerror(errno));
+		
+		com_len += sizeof(*acp) + strlen(id) + 1 + strlen(key) + 1;
+		cmd = ADMIN_ESTABLISH_SA_VPNCONTROL;
+
+		av += 2;
+		ac -= 2;
+	}
+
+	/* need protocol */
+	if (ac < 1)
+		errx(1, "insufficient arguments");
+	if ((proto = get_proto(*av)) == -1)
+		errx(1, "unknown protocol %s", *av);
+
+	/* get index(es) */
+	av++;
+	ac--;
+	switch (proto) {
+	case ADMIN_PROTO_ISAKMP:
+		index = get_index(ac, av);
+		if (index == NULL)
+			return NULL;
+		break;
+	case ADMIN_PROTO_AH:
+	case ADMIN_PROTO_ESP:
+		index = get_index(ac, av);
+		if (index == NULL)
+			return NULL;
+		break;
+	default:
+		errno = EPROTONOSUPPORT;
+		return NULL;
+	}
+
+	com_len += sizeof(*head) + index->l;
+	if ((buf = vmalloc(com_len)) == NULL)
+		errx(1, "Cannot allocate buffer");
+
+	head = (struct admin_com *)buf->v;
+	head->ac_len = buf->l;
+	head->ac_cmd = cmd;
+	head->ac_errno = 0;
+	head->ac_proto = proto;
+
+	memcpy(buf->v+sizeof(*head), index->v, index->l);
+
+	if (id && key) {
+	        // overload com_len to track the number of unused bytes in buf->v
+		char *data;
+		acp = (struct admin_com_psk *)
+		    (buf->v + sizeof(*head) + index->l);
+		com_len -= sizeof(*head) + index->l;
+
+		acp->id_type = IDTYPE_USERFQDN;
+		acp->id_len = strlen(id) + 1;
+		acp->key_len = strlen(key) + 1;
+
+		data = (char *)(acp + 1);
+		strlcpy(data, id, com_len);
+
+		data = (char *)(data + acp->id_len);
+		com_len -= acp->id_len;
+		strlcpy(data, key, com_len);
+	}
+
+	vfree(index);
 
 	return buf;
 }
 
 static vchar_t *
 f_vpnc(ac, av)
+	int ac;
+	char **av;
+{
+	char *nav[] = {NULL, NULL, NULL, NULL, NULL, NULL};
+	int nac = 0;
+	char *isakmp = "isakmp";
+	char *inet = "inet";
+	char *srcaddr;
+	struct addrinfo hints, *res;
+	struct sockaddr *src;
+	char *idx;
+
+	if (ac < 1)
+		errx(1, "insufficient arguments");
+
+	evt_filter = (EVTF_LOOP|EVTF_CFG|EVTF_CFG_STOP|EVTF_ERR|EVTF_ERR_STOP);
+	time(&evt_start);
+	
+	/* Optional -u identity */
+	if (strcmp(av[0], "-u") == 0) {
+		if (ac < 2)
+			errx(1, "-u require an argument");
+
+		nav[nac++] = av[0];
+		nav[nac++] = av[1];
+
+		ac -= 2;
+		av += 2;
+	}
+
+	if (ac < 1)
+		errx(1, "VPN gateway required");	
+	if (ac > 1)
+		warnx("Extra arguments");
+
+	/*
+	 * Find the source address
+	 */
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = PF_UNSPEC;
+	hints.ai_socktype = SOCK_DGRAM;
+	if (getaddrinfo(av[0], "4500", &hints, &res) != 0)
+		errx(1, "Cannot resolve destination address");
+
+	if ((src = getlocaladdr(res->ai_addr)) == NULL)
+		errx(1, "cannot find source address");
+
+	if ((srcaddr = saddr2str(src)) == NULL)
+		errx(1, "cannot read source address");
+
+	/* We get "ip[port]" strip the port */
+	if ((idx = index(srcaddr, '[')) == NULL) 
+		errx(1, "unexpected source address format");
+	*idx = '\0';
+
+	nav[nac++] = isakmp;
+	nav[nac++] = inet;
+	nav[nac++] = srcaddr;
+	nav[nac++] = av[0];
+
+	return f_exchangesa(nac, nav);
+}
+
+// %%% testing
+static vchar_t *
+f_vpntest(ac, av)
 	int ac;
 	char **av;
 {
@@ -785,7 +980,6 @@ f_vpnd(ac, av)
 	char *inet = "inet";
 	char *anyaddr = "0.0.0.0";
 	char *idx;
-	vchar_t *buf, *index;
 
 	if (ac < 1)
 		errx(1, "VPN gateway required");	
@@ -802,6 +996,39 @@ f_vpnd(ac, av)
 
 	return f_deleteallsadst(nac, nav);
 }
+
+#ifdef ENABLE_HYBRID
+static vchar_t *
+f_logoutusr(ac, av)
+	int ac;
+	char **av;
+{
+	vchar_t *buf;
+	struct admin_com *head;
+	char *user;
+
+	/* need username */
+	if (ac < 1)
+		errx(1, "insufficient arguments");
+	user = av[0];
+	if ((user == NULL) || ((strlen(user) + 1) > LOGINLEN))
+		errx(1, "bad login (too long?)");
+
+	buf = vmalloc(sizeof(*head) + LOGINLEN);
+	if (buf == NULL)
+		return NULL;
+
+	head = (struct admin_com *)buf->v;
+	head->ac_len = buf->l;
+	head->ac_cmd = ADMIN_LOGOUT_USER;
+	head->ac_errno = 0;
+	head->ac_proto = 0;
+
+	strlcpy((char *)(head + 1), user, LOGINLEN);
+
+	return buf;
+}
+#endif /* ENABLE_HYBRID */
 
 
 static int
@@ -959,28 +1186,34 @@ get_comindex(str, name, port, pref)
 
 	*name = *port = *pref = NULL;
 
-	*name = strdup(str);
+	*name = racoon_strdup(str);
+	STRDUP_FATAL(*name);
 	p = strpbrk(*name, "/[");
 	if (p != NULL) {
 		if (*(p + 1) == '\0')
 			goto bad;
 		if (*p == '/') {
 			*p = '\0';
-			*pref = strdup(p + 1);
+			*pref = racoon_strdup(p + 1);
+			STRDUP_FATAL(*pref);
 			p = strchr(*pref, '[');
 			if (p != NULL) {
 				if (*(p + 1) == '\0')
 					goto bad;
 				*p = '\0';
-				*port = strdup(p + 1);
+				*port = racoon_strdup(p + 1);
+				STRDUP_FATAL(*port);
 				p = strchr(*pref, ']');
 				if (p == NULL)
 					goto bad;
 				*p = '\0';
 			}
 		} else if (*p == '[') {
+			if (*pref == NULL)
+				goto bad;
 			*p = '\0';
-			*port = strdup(p + 1);
+			*port = racoon_strdup(p + 1);
+			STRDUP_FATAL(*port);
 			p = strchr(*pref, ']');
 			if (p == NULL)
 				goto bad;
@@ -1369,7 +1602,8 @@ print_cfg(buf, len)
 	
 	memset(&addr4, 0, sizeof(addr4));
 
-	if (evtdump->type != EVTT_ISAKMP_CFG_DONE)
+	if (evtdump->type != EVTT_ISAKMP_CFG_DONE && 
+	    evtdump->type != EVTT_NO_ISAKMP_CFG)
 		return;
 
 	len -= sizeof(*evtdump);
@@ -1422,8 +1656,12 @@ print_cfg(buf, len)
 			    (n + sizeof(*attr) + ntohs(attr->lorv));
 		}
 	}
-
-	printf("Bound to address %s\n", inet_ntoa(addr4));
+	
+	if (evtdump->type == EVTT_ISAKMP_CFG_DONE)
+		printf("Bound to address %s\n", inet_ntoa(addr4));
+	else
+		printf("VPN connexion established\n");
+	
 	if (banner) {
 		struct winsize win;
 		int col = 0;
@@ -1438,6 +1676,7 @@ print_cfg(buf, len)
 		for (i = 0; i < col; i++)
 			printf("%c", '=');
 		printf("\n");
+		racoon_free(banner);
 	}
 	
 	if (evt_filter & EVTF_CFG_STOP)

@@ -1,4 +1,4 @@
-/* $Id: snprintf.c,v 1.2 2003/12/10 01:35:10 lukem Exp $ */
+/* $NetBSD: snprintf.c,v 1.5 2008/09/21 16:35:25 lukem Exp $ */
 
 /*
  * Copyright Patrick Powell 1995
@@ -60,13 +60,13 @@
 #include "tnftpd.h"
 
 
-#if HAVE_LONG_DOUBLE
+#if defined(HAVE_LONG_DOUBLE)
 #define LDOUBLE long double
 #else
 #define LDOUBLE double
 #endif
 
-#if HAVE_LONG_LONG
+#if defined(HAVE_LONG_LONG_INT)
 #define LLONG long long
 #else
 #define LLONG long
@@ -731,7 +731,7 @@ main(int argc, char *argv[])
 			"%+22.33d",
 			"%01.3d",
 			"%4d",
-#if HAVE_LONG_LONG
+#if defined(HAVE_LONG_LONG_INT)
 			"%12lld",
 #endif
 			NULL

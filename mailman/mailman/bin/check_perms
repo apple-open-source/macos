@@ -1,6 +1,6 @@
 #! @PYTHON@
 #
-# Copyright (C) 1998-2005 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2008 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -14,7 +14,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 """Check the permissions for the Mailman installation.
 
@@ -69,10 +70,11 @@ class State:
 
 STATE = State()
 
-DIRPERMS = S_ISGID | S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH
-QFILEPERMS = S_ISGID | S_IRWXU | S_IRWXG
+DIRPERMS = S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH
+QFILEPERMS = S_IRWXU | S_IRWXG
 PYFILEPERMS = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH
 ARTICLEFILEPERMS = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP
+PRIVATEPERMS = QFILEPERMS
 
 
 
@@ -124,20 +126,26 @@ def checkwalk(arg, dirname, names):
                 os.chown(path, -1, MAILMAN_GID)
             else:
                 print
-        # all directories must be at least rwxrwsr-x.  Don't check the private
-        # archive directory or database directory themselves since these are
-        # checked in checkarchives() and checkarchivedbs() below.
+        # Most directories must be at least rwxrwsr-x.
+        # The private archive directory  and database directory must be at
+        # least rwxrws---.  Their 'other' permissions are checked in
+        # checkarchives() and checkarchivedbs() below.  Their 'user' and
+        # 'group' permissions are checked here.
+        # The directories under qfiles should be rwxrws---.  Their 'user' and
+        # 'group' permissions are checked here.  Their 'other' permissions
+        # aren't checked.
         private = mm_cfg.PRIVATE_ARCHIVE_FILE_DIR
-        if path == private or (os.path.commonprefix((path, private)) == private
-                               and os.path.split(path)[1] == 'database'):
-            continue
-        # The directories under qfiles should have a more limited permission
-        if os.path.commonprefix((path, mm_cfg.QUEUE_DIR)) == mm_cfg.QUEUE_DIR:
+        if path == private or (
+            os.path.commonprefix((path, private)) == private
+            and os.path.split(path)[1] == 'database'):
+            # then...
+            targetperms = PRIVATEPERMS
+        elif (os.path.commonprefix((path, mm_cfg.QUEUE_DIR))
+              == mm_cfg.QUEUE_DIR):
             targetperms = QFILEPERMS
-            octperms = oct(targetperms)
         else:
             targetperms = DIRPERMS
-            octperms = oct(targetperms)
+        octperms = oct(targetperms)
         if S_ISDIR(mode) and (mode & targetperms) <> targetperms:
             arg.ERRORS += 1
             print _('directory permissions must be %(octperms)s: %(path)s'),
@@ -186,7 +194,7 @@ def checkall():
             continue
         if (mode & DIRPERMS) <> DIRPERMS:
             STATE.ERRORS += 1
-            print _('directory must be at least 02775: %(d)s'),
+            print _('directory must be at least 0775: %(d)s'),
             if STATE.FIX:
                 print _('(fixing)')
                 os.chmod(d, mode | DIRPERMS)
@@ -326,6 +334,7 @@ def checkdata():
     checkfiles = ('config.pck', 'config.pck.last',
                   'config.db', 'config.db.last',
                   'next-digest', 'next-digest-topics',
+                  'digest.mbox', 'pending.pck',
                   'request.db', 'request.db.tmp')
     if STATE.VERBOSE:
         print _('checking permissions on list data')

@@ -1,3 +1,5 @@
+@subheading tld_check_lz
+@anchor{tld_check_lz}
 @deftypefun {int} {tld_check_lz} (const char * @var{in}, size_t * @var{errpos}, const Tld_table ** @var{overrides})
 @var{in}: Zero-terminated string in the current locales encoding to process.
 

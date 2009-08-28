@@ -9,10 +9,10 @@
 #define HAVE_DWARF2_99_EXTENSION 1
 
 /* Define to 1 if the elf64_getehdr function is in libelf.a. */
-/* #undef HAVE_ELF64_GETEHDR */
+#define HAVE_ELF64_GETEHDR 1
 
 /* Define to 1 if the elf64_getshdr function is in libelf.a. */
-/* #undef HAVE_ELF64_GETSHDR */
+#define HAVE_ELF64_GETSHDR 1
 
 /* Define to 1 if you have the <elfaccess.h> header file. */
 /* #undef HAVE_ELFACCESS_H */

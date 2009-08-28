@@ -1,3 +1,0 @@
-syslog.lo .libs/syslog.o: syslog.c ../config.h
-
-../config.h:

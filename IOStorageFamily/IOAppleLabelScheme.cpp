@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,18 +31,14 @@
 #define super IOFilterScheme
 OSDefineMetaClassAndStructors(IOAppleLabelScheme, IOFilterScheme);
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+//
 // Notes
 //
 // o the on-disk structure's fields are big-endian formatted
 // o the al_offset value is relative to the media container
 //
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 #define kIOMediaBaseKey "Base"
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 bool IOAppleLabelScheme::init(OSDictionary * properties)
 {
@@ -65,8 +61,6 @@ bool IOAppleLabelScheme::init(OSDictionary * properties)
     return true;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 void IOAppleLabelScheme::free()
 {
     //
@@ -77,8 +71,6 @@ void IOAppleLabelScheme::free()
 
     super::free();
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IOService * IOAppleLabelScheme::probe(IOService * provider, SInt32 * score)
 {
@@ -100,8 +92,6 @@ IOService * IOAppleLabelScheme::probe(IOService * provider, SInt32 * score)
 
     return ( _content ) ? this : 0;
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 bool IOAppleLabelScheme::start(IOService * provider)
 {
@@ -128,8 +118,6 @@ bool IOAppleLabelScheme::start(IOService * provider)
     return true;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 void IOAppleLabelScheme::stop(IOService * provider)
 {
     //
@@ -146,8 +134,6 @@ void IOAppleLabelScheme::stop(IOService * provider)
 
     super::stop(provider);
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IOMedia * IOAppleLabelScheme::scan(SInt32 * score)
 {
@@ -298,8 +284,6 @@ scanErr:
     return 0;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 bool IOAppleLabelScheme::isContentCorrupt(OSDictionary * properties)
 {
     //
@@ -308,8 +292,6 @@ bool IOAppleLabelScheme::isContentCorrupt(OSDictionary * properties)
 
     return false;
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 bool IOAppleLabelScheme::isContentInvalid(OSDictionary * properties)
 {
@@ -348,8 +330,6 @@ bool IOAppleLabelScheme::isContentInvalid(OSDictionary * properties)
 
     return false;
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IOMedia * IOAppleLabelScheme::instantiateMediaObject(OSDictionary * properties)
 {
@@ -509,8 +489,6 @@ IOMedia * IOAppleLabelScheme::instantiateMediaObject(OSDictionary * properties)
     return newMedia;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 IOMedia * IOAppleLabelScheme::instantiateDesiredMediaObject(
                                                      OSDictionary * properties )
 {
@@ -520,8 +498,6 @@ IOMedia * IOAppleLabelScheme::instantiateDesiredMediaObject(
 
     return new IOMedia;
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 bool IOAppleLabelScheme::attachMediaObjectToDeviceTree( IOMedia * media )
 {
@@ -555,8 +531,6 @@ bool IOAppleLabelScheme::attachMediaObjectToDeviceTree( IOMedia * media )
     return false;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 void IOAppleLabelScheme::detachMediaObjectFromDeviceTree( IOMedia * media )
 {
     //
@@ -585,66 +559,19 @@ void IOAppleLabelScheme::detachMediaObjectFromDeviceTree( IOMedia * media )
     }
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOAppleLabelScheme, 0);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOAppleLabelScheme, 1);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOAppleLabelScheme, 2);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOAppleLabelScheme, 3);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOAppleLabelScheme, 4);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOAppleLabelScheme, 5);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOAppleLabelScheme, 6);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOAppleLabelScheme, 7);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOAppleLabelScheme, 8);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOAppleLabelScheme, 9);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
+OSMetaClassDefineReservedUnused(IOAppleLabelScheme,  0);
+OSMetaClassDefineReservedUnused(IOAppleLabelScheme,  1);
+OSMetaClassDefineReservedUnused(IOAppleLabelScheme,  2);
+OSMetaClassDefineReservedUnused(IOAppleLabelScheme,  3);
+OSMetaClassDefineReservedUnused(IOAppleLabelScheme,  4);
+OSMetaClassDefineReservedUnused(IOAppleLabelScheme,  5);
+OSMetaClassDefineReservedUnused(IOAppleLabelScheme,  6);
+OSMetaClassDefineReservedUnused(IOAppleLabelScheme,  7);
+OSMetaClassDefineReservedUnused(IOAppleLabelScheme,  8);
+OSMetaClassDefineReservedUnused(IOAppleLabelScheme,  9);
 OSMetaClassDefineReservedUnused(IOAppleLabelScheme, 10);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOAppleLabelScheme, 11);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOAppleLabelScheme, 12);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOAppleLabelScheme, 13);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOAppleLabelScheme, 14);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOAppleLabelScheme, 15);

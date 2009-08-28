@@ -75,6 +75,14 @@ setup our fault handlers
 ********************************************************************/
 void fault_setup(void (*fn)(void *))
 {
+#ifdef DARWINOS
+#pragma unused(fn)
+	/* We want CrashReporter and gdb to be able to see the original signal
+	 * and not to have to walk the stack over the signal trampoline, which
+	 * tends to be unreliable.
+	 */
+	return;
+#endif
 	cont_fn = fn;
 
 #ifdef SIGSEGV

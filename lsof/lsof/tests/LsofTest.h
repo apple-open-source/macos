@@ -31,7 +31,7 @@
 
 
 /*
- * $Id: LsofTest.h,v 1.11 2005/08/29 10:19:04 abe Exp $
+ * $Id: LsofTest.h,v 1.12 2008/07/05 16:21:07 abe Exp $
  */
 
 
@@ -322,6 +322,8 @@ typedef struct LTfldo {			/* lsof field output information */
  *	these global variables may be found in LTlib.c.
  */
 
+extern int LsofFd;			/* lsof pipe FD */
+extern FILE *LsofFs;			/* stream for lsof pipe FD */
 extern char *LsofPath;			/* path to lsof executable */
 extern pid_t LsofPid;			/* PID of lsof child process */
 extern int LTopt_h;			/* "-h" option's switch value */

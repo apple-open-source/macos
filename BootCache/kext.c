@@ -107,25 +107,23 @@ static int BC_chit_low_level = 50;
  * If the cache is not turned off, the history buffer will grow to
  * its maximum size, and blocks may remain tied up in the cache
  * indefinitely.  This timeout will kill the cache after the
- * specified interval (in seconds).
- */
-static int BC_cache_timeout = 120;
-
-/*
- * Maximum read size.
+ * specified interval (in hz).
  *
- * Due to platform hardware limitations, this must never result in
- * a request that would require more than 32 entries in a scatter-gather
- * list.
+ * User DVDs don't issue a "BootCacheControl stop", so they depend
+ * on the cache timeout.
  */
-#define BC_MAX_READ	(64 * 1024)
+static int BC_cache_timeout = 240 * 100;
 
 /*
  * Trace macros
  */
-#define DBG_BOOTCACHE	6
-#define	DBG_BC_CUT	1
+#ifndef DBG_BOOTCACHE
+#define DBG_BOOTCACHE	7
+#endif
 
+#define	DBG_BC_TAG	1
+#define	DBG_BC_BATCH	2
+static int dbg_tag_count = 0;
 
 #ifdef DEBUG
 # define MACH_DEBUG
@@ -142,30 +140,32 @@ extern void Debugger(char *);
 # define xdebug(fmt, args...)
 #endif
 
-#include <sys/param.h>
-#include <sys/proc.h>
 #include <sys/buf.h>
 #include <sys/conf.h>
+#include <sys/fcntl.h>
 #include <sys/kdebug.h>
 #include <sys/kernel.h>
 #include <sys/malloc.h>
+#include <sys/param.h>
+#include <sys/proc.h>
 #include <sys/sysctl.h>
 #include <sys/systm.h>
+#include <sys/vnode.h>
 #include <sys/ubc.h>
+#include <sys/uio.h>
 
-#include <ipc/ipc_types.h>
-#include <mach/host_priv.h>
 #include <mach/kmod.h>
-#include <mach/vm_map.h>
-#include <mach/vm_param.h>	/* for mem_size */
+#include <mach/mach_types.h>
+#include <mach/vm_param.h>	/* for max_mem */
+
 #include <vm/vm_kern.h>
 
 #include <libkern/libkern.h>
 #include <libkern/OSAtomic.h>
 
-#include <mach/mach_types.h>
 #include <kern/assert.h>
 #include <kern/host.h>
+#include <kern/kalloc.h>
 #include <kern/thread_call.h>
 
 #include <IOKit/storage/IOMediaBSDClient.h>
@@ -174,9 +174,6 @@ extern void Debugger(char *);
 
 #include "BootCache.h"
 
-#ifdef STATIC_PLAYLIST
-# include "playlist.h"
-#endif
 
 /*
  * A cache extent.
@@ -186,16 +183,14 @@ extern void Debugger(char *);
  */
 struct BC_cache_extent {
 	lck_mtx_t	ce_lock;
-	u_int64_t	ce_offset;	/* physical offset on device */
+	u_int64_t	ce_diskoffset;	/* physical offset on device */
 	u_int64_t	ce_length;	/* data length */
-	caddr_t		ce_data;	/* pointer to base of data in buffer */
+	off_t		ce_cacheoffset;	/* offset into cache backing store */
 	int		ce_flags;	/* low 8 bits mark the batch */ 
 #define CE_ABORTED	(1 << 9)	/* extent no longer has data */
 #define CE_IODONE	(1 << 10)	/* extent has been read */
 	u_int32_t	*ce_blockmap;	/* track valid blocks for this extent */
 };
-
-#define SET_EXTENT_FLAG(ce, flag)	OSBitOrAtomic(flag, &(ce)->ce_flags) 
 
 /*
  * A history list cluster.
@@ -247,16 +242,8 @@ struct BC_cache_control {
 	/* device block size and total size */
 	u_int64_t	c_blocksize;		/* keep 64-bit for promotion */
 	u_int64_t	c_devsize;		/* range checking */
-	
-	/* flags */
-	int		c_flags;
-#define	BC_FLAG_SHUTDOWN	(1<<0)		/* cache shutting down */
-#define BC_FLAG_CACHEACTIVE	(1<<1)		/* cache is active, owns memory */
-#define BC_FLAG_HTRUNCATED	(1<<2)		/* history list truncated */
-#define BC_FLAG_IOBUSY		(1<<3)		/* readahead in progress */
-#define BC_FLAG_STARTED		(1<<4)		/* cache started by user */
-	int		c_strategycalls;	/* count of busy strategy calls */
-	int		c_bypasscalls;		/* count of busy strategy bypasses */
+	u_int64_t	c_cachesize;		/* total number of bytes in cache */
+	u_int64_t	c_maxread;		/* largest read the dev will support */
 
 	/*
 	 * Each extent tracks the pages it owns in the buffer.
@@ -265,22 +252,33 @@ struct BC_cache_control {
 	struct BC_cache_extent *c_extents; /* extent list */
 	int		c_extent_count;	/* total number of extents */
 	int		c_batch_count;		/* number of extent batches */
-	caddr_t		c_buffer;	/* base of buffer in memory */
 	lck_grp_t	*c_lckgrp;
+	vnode_t		c_vp;
+	uint32_t	c_vid;
 
 	/* history list, in reverse order */
 	struct BC_history_cluster *c_history;
 	u_int64_t	c_history_bytes; /* total read size in bytes */
 
+	/* lock protects all the above fields; fields below are accessed atomically */
+	lck_mtx_t	c_histlock;
+	
+	/* flags */
+	UInt32		c_flags;
+#define	BC_FLAG_SHUTDOWN	(1 << 0)	/* cache shutting down */
+#define	BC_FLAG_CACHEACTIVE	(1 << 1)	/* cache is active, owns memory */
+#define	BC_FLAG_HTRUNCATED	(1 << 2)	/* history list truncated */
+#define	BC_FLAG_IOBUSY		(1 << 3)	/* readahead in progress */
+#define	BC_FLAG_STARTED		(1 << 4)	/* cache started by user */
+	SInt32		c_strategycalls;	/* count of busy strategy calls */
+
 	/* statistics */
 	struct BC_statistics c_stats;
 
-	/* Mach VM-related housekeeping */
-	mach_port_t	c_map_port;
-	vm_map_t	c_map;
-	vm_address_t	c_mapbase;
-	vm_size_t	c_mapsize;
-	mach_port_t	c_entry_port;
+	/* time-keeping */
+	struct timeval c_starttime;
+	struct timeval c_endtime;
+	struct timeval c_loadtime;
 
 #ifdef READ_HISTORY_BUFFER
 	int		c_rhistory_idx;
@@ -347,13 +345,18 @@ struct BC_cache_control {
 		}							\
 	} while (0);
 
+/*
+ * Synchronization macros
+ */
 #define LOCK_EXTENT(e)		lck_mtx_lock(&(e)->ce_lock)
-#define TRY_LOCK_EXTENT(e)	lck_mtx_try_lock(&(e)->ce_lock)
 #define UNLOCK_EXTENT(e)	lck_mtx_unlock(&(e)->ce_lock)
+#define LOCK_HISTORY()		lck_mtx_lock(&BC_cache->c_histlock)
+#define UNLOCK_HISTORY()	lck_mtx_unlock(&BC_cache->c_histlock)
+#define BC_ADD_STAT(stat, inc)	OSAddAtomic((inc), ((SInt32 *)&BC_cache->c_stats.ss_##stat))
+
 /*
  * Only one instance of the cache is supported.
  */
-static struct buf *BC_private_bp = NULL;
 static struct BC_cache_control BC_cache_softc;
 static struct BC_cache_control *BC_cache = &BC_cache_softc;
 
@@ -379,15 +382,16 @@ static void	BC_handle_write(struct buf *bp);
 static int	BC_terminate_readahead(void);
 static int	BC_terminate_cache(void);
 static int	BC_terminate_history(void);
-static void	BC_next_valid_block_range(struct BC_cache_extent *ce, daddr64_t from, daddr64_t *next, u_int64_t *length);
+static void	BC_next_valid_range(struct BC_cache_extent *ce, uint32_t from, 
+		uint32_t *nextpage, uint32_t *nextoffset, uint32_t *nextlength);
 static u_int64_t BC_setup_extent(struct BC_cache_extent *ce, struct BC_playlist_entry *pce);
 static void	BC_teardown_extent(struct BC_cache_extent *ce);
-static int	BC_copyin_playlist(size_t length, void *uptr);
-static int	BC_init_cache(size_t length, caddr_t uptr, u_int64_t blocksize);
+static int	BC_copyin_playlist(size_t length, user_addr_t uptr);
+static int	BC_init_cache(size_t length, user_addr_t uptr, u_int64_t blocksize);
 static void	BC_timeout_cache(void *);
 static void	BC_add_history(u_int64_t offset, u_int64_t length, int flags);
-static size_t	BC_size_history(void);
-static int	BC_copyout_history(void *uptr);
+static int	BC_size_history(void);
+static int	BC_copyout_history(user_addr_t uptr);
 static void	BC_discard_history(void);
 static void	BC_auto_start(void);
 
@@ -412,28 +416,17 @@ extern int	netboot_root(void);
  * once the root filesystem is mounted.
  */
 extern void (* mountroot_post_hook)(void);
+extern void (* unmountroot_pre_hook)(void);
 
 /*
  * Mach VM-specific functions.
  */
-static int	BC_alloc_pagebuffer(size_t size);
+static int	BC_alloc_pagebuffer();
 static void	BC_free_pagebuffer();
 static void	BC_free_page(struct BC_cache_extent *ce, int page);
-/* Convert from a map entry port to a map (not prototyped elsewhere) */
-extern vm_map_t convert_port_entry_to_map(ipc_port_t port);
-extern vm_object_t convert_port_entry_to_object(ipc_port_t port);
-extern void	ipc_port_release_send(ipc_port_t port);
-extern kern_return_t memory_object_page_op(
-	memory_object_control_t control,
-	memory_object_offset_t  offset,
-	int                     ops,
-	vm_offset_t             *phys_entry,
-	int                     *flags);
 
-#ifdef __ppc__
-extern void	mapping_prealloc(unsigned int);
-extern void	mapping_relpre(void);
-#endif
+/* Functions not prototyped elsewhere */
+int     	ubc_range_op(vnode_t, off_t, off_t, int, int *); /* in sys/ubc_internal.h */
 
 /*
  * Mach-o functions.
@@ -442,6 +435,20 @@ extern void	mapping_relpre(void);
 #include <mach-o/loader.h>
 extern void *getsectdatafromheader(struct mach_header *, char *, char *, int *);
 
+/*
+ * Set or clear a flag atomically and return the previous value of that bit.
+ */
+static inline UInt32
+BC_set_flag(UInt32 flag)
+{
+	return flag & OSBitOrAtomic(flag, &BC_cache->c_flags);
+}
+
+static inline UInt32
+BC_clear_flag(UInt32 flag)
+{
+	return flag & OSBitAndAtomic(~(flag), &BC_cache->c_flags);
+}
 
 /*
  * Test whether a given byte range on disk intersects with an extent's range.
@@ -449,8 +456,8 @@ extern void *getsectdatafromheader(struct mach_header *, char *, char *, int *);
 static inline int
 BC_check_intersection(struct BC_cache_extent *ce, u_int64_t offset, u_int64_t length)
 {
-	if ((offset < (ce->ce_offset + ce->ce_length)) &&
-			((offset + length) > ce->ce_offset))
+	if ((offset < (ce->ce_diskoffset + ce->ce_length)) &&
+			((offset + length) > ce->ce_diskoffset))
 			return 1;
 	return 0;
 }
@@ -490,8 +497,8 @@ BC_find_extent(u_int64_t offset, u_int64_t length, int contained)
 	 * Note that we check for possible intersection, rather than
 	 * containment.
 	 */
-	if (((offset + length) <= base->ce_offset) ||
-	    (offset >= (last->ce_offset + last->ce_length)))
+	if (((offset + length) <= base->ce_diskoffset) ||
+	    (offset >= (last->ce_diskoffset + last->ce_length)))
 		return(NULL);
 
 	/*
@@ -525,13 +532,13 @@ BC_find_extent(u_int64_t offset, u_int64_t length, int contained)
 			 * extent, as there's no other we will be contained by.
 			 */
 			if ((contained != 0) &&
-			    ((offset < p->ce_offset) ||
-			     ((offset + length) > (p->ce_offset + p->ce_length))))
+			    ((offset < p->ce_diskoffset) ||
+			     ((offset + length) > (p->ce_diskoffset + p->ce_length))))
 				return(NULL);
 			return(p);
 		}
 		
-		if (offset > p->ce_offset) {	/* move right */
+		if (offset > p->ce_diskoffset) {	/* move right */
 			base = p + 1;
 			lim--;
 		}				/* else move left */
@@ -553,8 +560,8 @@ BC_find_extent(u_int64_t offset, u_int64_t length, int contained)
 static int
 BC_discard_blocks(struct BC_cache_extent *ce, u_int64_t offset, u_int64_t length)
 {
-	u_int64_t estart, eend, dstart, dend;
-	int base, i, page, discarded, nblk;
+	u_int64_t estart, eend, dstart, dend, nblk, base, page;
+	int i, discarded;
 
 	/* invariants */
 	assert(length > 0);
@@ -575,8 +582,8 @@ BC_discard_blocks(struct BC_cache_extent *ce, u_int64_t offset, u_int64_t length
 	dstart = offset;			/* convert to start/end format */
 	dend = offset + length;
 	assert(dend > dstart);
-	estart = ce->ce_offset;
-	eend = ce->ce_offset + ce->ce_length;
+	estart = ce->ce_diskoffset;
+	eend = ce->ce_diskoffset + ce->ce_length;
 	assert(eend > estart);
 
 	if (dend <= estart)			/* check for overlap */
@@ -601,7 +608,7 @@ BC_discard_blocks(struct BC_cache_extent *ce, u_int64_t offset, u_int64_t length
 	 * Note that this could be optimised to reduce the number of
 	 * page-freeable checks, but the logic would be more complex.
 	 */
-	base = CB_BYTE_TO_BLOCK(dstart - ce->ce_offset);
+	base = CB_BYTE_TO_BLOCK(dstart - ce->ce_diskoffset);
 	assert(base >= 0);
 	discarded = 0;
 	for (i = 0; i < nblk; i++) {
@@ -616,36 +623,61 @@ BC_discard_blocks(struct BC_cache_extent *ce, u_int64_t offset, u_int64_t length
 			
 			page = CB_BLOCK_TO_PAGE(base + i);
 			if (CB_PAGE_VACANT(ce, page))
-				BC_free_page(ce, page);
+				BC_free_page(ce, (int) page);
 		}
 	}
 	return(discarded);
 }
 
 /*
- * Find the next range of present blocks in extent ce after block
- * 'from', and return in 'next' and 'length'.
+ * Blocks in an extent can be invalidated, e.g. by a write, before the
+ * reader thread fills the extent. Search for the next range of viable blocks
+ * in the extent, starting from offset 'fromoffset'.
+ *
+ * Values are returned by out parameters:
+ * 	'nextpage' takes the page containing the start of the next run, or
+ * 		-1 if no more runs are to be found.
+ * 	'nextoffset' takes the offset into that page that the run begins.
+ * 	'nextlength' takes the length in bytes of the range, capped at maxread.
+ *
+ * In other words, for this blockmap, if
+ * 	    *fromoffset = 3 * blocksize,
+ * 	1 1 0 0 0 1 1 1   1 1 1 1 1 1 0 0
+ * 	*nextpage = 0
+ * 	          *nextoffset = 5 * blocksize
+ * 	                            *nextlength = 6 * blocksize
  */
 static void 
-BC_next_valid_block_range(struct BC_cache_extent *ce, daddr64_t from, 
-		daddr64_t *next, u_int64_t *length)
+BC_next_valid_range(struct BC_cache_extent *ce, uint32_t fromoffset, 
+		uint32_t *nextpage, uint32_t *nextoffset, uint32_t *nextlength)
 {
-	int blk, nblks;
-	u_int32_t nfound = 0;
-	nblks = howmany(ce->ce_length, BC_cache->c_blocksize);
-	*next = -1;
-	for (blk = from; blk < nblks; blk++) {
-		if (CB_BLOCK_PRESENT(ce, blk)) {
-			if (nfound == 0) {
-				*next = blk;
+	int maxblks, i, nextblk = 0;
+	int found = 0;
+
+	maxblks = (int) howmany(ce->ce_length, BC_cache->c_blocksize);
+	i = CB_BYTE_TO_BLOCK(fromoffset);
+	/* scan for the next range of valid blocks in the extent */
+	for (; i < maxblks; i++) {
+		if (CB_BLOCK_PRESENT(ce, i)) {
+			if (found == 0) {
+				nextblk = i;
 			}
-			nfound++;
+			found++;
 		} else {
-			if (nfound != 0)
+			if (found != 0)
 				break;
 		}
 	}
-	*length = nfound * BC_cache->c_blocksize;
+
+	if (found) {
+		/* found a valid range, so convert to (page, offset, length) */
+		*nextpage = CB_BLOCK_TO_PAGE(nextblk);
+		*nextoffset = CB_BLOCK_TO_BYTE(nextblk) % PAGE_SIZE;
+		*nextlength = MIN(CB_BLOCK_TO_BYTE(found), BC_cache->c_maxread);
+	} else {
+		*nextpage = -1;
+	}
+
 	return;
 }
 
@@ -662,7 +694,7 @@ BC_blocks_present(struct BC_cache_extent *ce, int base, int nblk)
 	for (blk = 0; blk < nblk; blk++) {
 		
 		if (!CB_BLOCK_PRESENT(ce, base + blk)) {
-			BC_cache->c_stats.ss_hit_blkmissing++;
+			BC_ADD_STAT(hit_blkmissing, 1);
 			/*
 			 * Note that we could optionally flush blocks that *are*
 			 * present here, on the assumption that this was a read
@@ -682,22 +714,22 @@ static void
 BC_reader_thread(void *param0, wait_result_t param1)
 {
 	struct BC_cache_extent *ce = NULL;
-	boolean_t funnel_state;
 	struct buf *bp;
 	int count, batch;
-	uintptr_t offset_in_map;
+	upl_t	upl;
 	kern_return_t kret;
+	struct timeval batchstart, batchend;
 			  
-	/* we run under the kernel funnel */
-	funnel_state = thread_funnel_set(kernel_flock, TRUE);
-
-	BC_private_bp = buf_alloc(BC_cache->c_devvp);
-	bp = BC_private_bp;
+	bp = buf_alloc(BC_cache->c_devvp);
 	
 	debug("reader thread started");
 
 	for (batch = 0; batch <= BC_cache->c_batch_count; batch++) {
 		debug("starting batch %d", batch);
+		KERNEL_DEBUG_CONSTANT(FSDBG_CODE(DBG_BOOTCACHE, DBG_BC_BATCH) | 
+				DBG_FUNC_START,
+				batch, 0, 0, 0, 0);
+		microtime(&batchstart);
 
 		/* iterate over extents to populate */
 		for (ce = BC_cache->c_extents;
@@ -724,87 +756,82 @@ BC_reader_thread(void *param0, wait_result_t param1)
 
 			/* loop reading to fill this extent */
 			buf_setcount(bp, 0);
+			uint32_t fromoffset = 0;
 
 			for (;;) {
-				daddr64_t nextblk;
-				u_int64_t nextlength;
-				daddr64_t fromblk = 0;
-
-				/*
-				 * Fill the buf to perform the read.
-				 *
-				 * Note that in the case of a partial read, our buf will
-				 * still contain state from the previous read, which we
-				 * use to detect this condition.
-				 */
-				if (buf_count(bp) != 0) {
-					fromblk = buf_blkno(bp) + CB_BYTE_TO_BLOCK(buf_count(bp)) - 
-						CB_BYTE_TO_BLOCK(ce->ce_offset);
-				}
+				uint32_t nextpage;
+				uint32_t nextoffset;
+				uint32_t nextlength;
 
 				/*
 				 * Find the next set of blocks that haven't been invalidated
 				 * for this extent.
 				 */
-				BC_next_valid_block_range(ce, fromblk, &nextblk, &nextlength);
+				BC_next_valid_range(ce, fromoffset, &nextpage, &nextoffset, &nextlength);
 				/* no more blocks to be read */
-				if (nextblk == -1)
+				if (nextpage == -1)
 					break;
 
-				buf_setblkno(bp, nextblk + CB_BYTE_TO_BLOCK(ce->ce_offset));
-				buf_setcount(bp, MIN(nextlength, BC_MAX_READ));
-				buf_setdataptr(bp, (uintptr_t) ce->ce_data + CB_BLOCK_TO_BYTE(nextblk));
+				/* set up fromoffset to read the next segment of the extent */
+				fromoffset = (nextpage * PAGE_SIZE) + nextoffset + nextlength;
 
+				kret = vnode_getwithvid(BC_cache->c_vp, BC_cache->c_vid);
+				if (kret != KERN_SUCCESS) {
+					debug("reader thread: vnode_getwithvid failed - %d\n", kret);
+					goto out;
+				}
+
+				kret = ubc_create_upl(BC_cache->c_vp, 
+						ce->ce_cacheoffset + (nextpage * PAGE_SIZE), 
+						(int) roundup(nextoffset + nextlength, PAGE_SIZE), 
+						&upl, 
+						NULL, 
+						UPL_SET_LITE|UPL_FILE_IO);
+				if (kret != KERN_SUCCESS) {
+					debug("ubc_create_upl returned %d\n", kret);
+					(void) vnode_put(BC_cache->c_vp);
+					goto out;
+				}
+
+				/* set buf to fill the requested subset of the upl */
+				buf_setblkno(bp, CB_BYTE_TO_BLOCK(ce->ce_diskoffset + nextoffset) + CB_PAGE_TO_BLOCK(nextpage));
+				buf_setcount(bp, (unsigned int) nextlength);
+				buf_setupl(bp, upl, (unsigned int) nextoffset);
 				buf_setresid(bp, buf_count(bp));	/* ask for residual indication */
 				buf_reset(bp, B_READ);
 
-
-				offset_in_map = (uintptr_t)(((unsigned char *)buf_dataptr(bp) - (unsigned char *)BC_cache->c_buffer) +
-							    (unsigned char *)BC_cache->c_mapbase);
-
-	                        kret = vm_map_wire(BC_cache->c_map, (vm_map_offset_t)trunc_page(offset_in_map),
-						  (vm_map_offset_t)round_page(offset_in_map+buf_count(bp)),
-						   VM_PROT_READ | VM_PROT_WRITE, FALSE);
-				if (kret != KERN_SUCCESS) {
-					SET_EXTENT_FLAG(ce, CE_ABORTED);
-					BC_cache->c_stats.ss_read_errors++;
-					break;
-				}
-
 				/* give the buf to the underlying strategy routine */
 				KERNEL_DEBUG_CONSTANT(FSDBG_CODE(DBG_DKRW, DKIO_READ) | DBG_FUNC_NONE,
-						(unsigned int)bp, buf_device(bp), (int)buf_blkno(bp), buf_count(bp), 0);
+						(uintptr_t) bp, buf_device(bp), (int)buf_blkno(bp), buf_count(bp), 0);
 
-				BC_cache->c_stats.ss_initiated_reads++;
+				BC_ADD_STAT(initiated_reads, 1);
 				BC_cache->c_strategy(bp);
 
 				/* wait for the bio to complete */
 				buf_biowait(bp);
 
-				kret = vm_map_unwire(BC_cache->c_map, (vm_map_offset_t)trunc_page(offset_in_map),
-						(vm_map_offset_t)round_page(offset_in_map+buf_count(bp)), FALSE);
-				if (kret != KERN_SUCCESS)
-					debug("vm_map_unwire returned %d\n", kret);
+				kret = ubc_upl_commit(upl);
+				(void) vnode_put(BC_cache->c_vp);
 
 				/*
-				 * If the read returned an error, invalidate the blocks
+				 * If the read or commit returned an error, invalidate the blocks
 				 * covered by the read (on a residual, we could avoid invalidating
 				 * blocks that are claimed to be read as a minor optimisation, but we do
 				 * not expect errors as a matter of course).
 				 */
-				if (buf_error(bp) || (buf_resid(bp) != 0)) {
-					debug("read error: extent %d %lu/%lu "
+				if (kret != KERN_SUCCESS || buf_error(bp) || (buf_resid(bp) != 0)) {
+					debug("read error: extent %lu %lu/%lu "
 							"(error buf %ld/%ld flags %08x resid %d)",
-							ce - BC_cache->c_extents,
-							(unsigned long)ce->ce_offset, (unsigned long)ce->ce_length,
+							(unsigned long) (ce - BC_cache->c_extents),
+							(unsigned long)ce->ce_diskoffset, (unsigned long)ce->ce_length,
 							(long)buf_blkno(bp), (long)buf_count(bp),
 							buf_flags(bp), buf_resid(bp));
 
 					count = BC_discard_blocks(ce, CB_BLOCK_TO_BYTE(buf_blkno(bp)),
 							buf_count(bp));
 					debug("read error: discarded %d blocks", count);
-					BC_cache->c_stats.ss_read_errors++;
-					BC_cache->c_stats.ss_error_discards += count;
+					BC_ADD_STAT(read_errors, 1);
+					BC_ADD_STAT(error_discards, count);
 				}
 #ifdef READ_HISTORY_BUFFER
 				if (BC_cache->c_rhistory_idx < READ_HISTORY_BUFFER) {
@@ -825,20 +852,27 @@ BC_reader_thread(void *param0, wait_result_t param1)
 			}
 
 			/* update stats */
-			BC_cache->c_stats.ss_read_blocks += CB_BYTE_TO_BLOCK(ce->ce_length);
-			BC_cache->c_stats.ss_batch_size[batch] += CB_BYTE_TO_BLOCK(ce->ce_length);
+			BC_ADD_STAT(read_blocks, (u_int) CB_BYTE_TO_BLOCK(ce->ce_length));
+			BC_ADD_STAT(batch_size[batch], (u_int) CB_BYTE_TO_BLOCK(ce->ce_length));
 
 			/*
 			 * Wake up anyone wanting this extent, as it is now ready for
 			 * use.
 			 */
-			SET_EXTENT_FLAG(ce, CE_IODONE);
+			ce->ce_flags |= CE_IODONE;
 			UNLOCK_EXTENT(ce);
 			wakeup(ce);
 		}
 		/* Measure times for the first 4 batches separately */
-		microtime(&BC_cache->c_stats.ss_batch_time[MIN((batch + 1), STAT_BATCHMAX)]);
+		microtime(&batchend);
+		timersub(&batchend, &batchstart, &batchend);
+		BC_cache->c_stats.ss_batch_time[MIN(batch, STAT_BATCHMAX)] = 
+			(u_int) batchend.tv_sec * 1000 + 
+			(u_int) batchend.tv_usec / 1000;
 		debug("batch %d done", batch);
+		KERNEL_DEBUG_CONSTANT(FSDBG_CODE(DBG_BOOTCACHE, DBG_BC_BATCH) | 
+				DBG_FUNC_END,
+				batch, 0, 0, 0, 0);
 
 		ce = NULL;
 	}
@@ -863,11 +897,11 @@ out:
 			LOCK_EXTENT(tmp);
 			/* abort any extent in a batch we haven't hit yet */
 			if (batch < (tmp->ce_flags & CE_BATCH_MASK)) {
-				SET_EXTENT_FLAG(tmp, CE_ABORTED);
+				tmp->ce_flags |= CE_ABORTED;
 			}
 			/* abort extents in this batch that we haven't reached */
 			if ((tmp >= ce) && (batch == (tmp->ce_flags & CE_BATCH_MASK))) {
-				SET_EXTENT_FLAG(tmp, CE_ABORTED);
+				tmp->ce_flags |= CE_ABORTED;
 			}
 			/* wake up anyone asleep on this extent */
 			UNLOCK_EXTENT(tmp);
@@ -876,20 +910,12 @@ out:
 		}
 	}
 
-	/* finalise accounting */
-	microtime(&BC_cache->c_stats.ss_batch_time[STAT_BATCHMAX]);
-
 	/* wake up someone that might be waiting for us to exit */
-	BC_cache->c_flags &= ~BC_FLAG_IOBUSY;
+	BC_clear_flag(BC_FLAG_IOBUSY);
 	wakeup(&BC_cache->c_flags);
-	debug("reader thread done in %d sec",
-			(int) BC_cache->c_stats.ss_batch_time[STAT_BATCHMAX].tv_sec - 
-			(int) BC_cache->c_stats.ss_batch_time[0].tv_sec);
+	debug("reader thread done");
 
-	BC_private_bp = NULL;
 	buf_free(bp);
-
-	(void) thread_funnel_set(kernel_flock, funnel_state);
 }
 
 
@@ -899,30 +925,22 @@ out:
 static void
 BC_strategy_bypass(struct buf *bp)
 {
-	int isread;
+	int isread = 0;
 	assert(bp != NULL);
 
-	/*
-	 * Since the strategy routine may drop the funnel, we need
-	 * to protect ourselves from being unloaded so that the return
-	 * address is still valid.  This is protected by the kernel
-	 * funnel.
-	 */
-	BC_cache->c_bypasscalls++;
-
 	/* if here, and it's a read, we missed the cache */
-	if (buf_flags(bp) & B_READ) {
+	if (buf_flags(bp) & B_THROTTLED_IO) {
+		BC_ADD_STAT(strategy_throttled, 1);
+	} else if (buf_flags(bp) & B_READ) {
 		BC_add_history(CB_BLOCK_TO_BYTE(buf_blkno(bp)), buf_count(bp), BC_HE_MISS);
 		isread = 1;
-	} else {
-		isread = 0;
 	}
 
 	/* not really "bypassed" if the cache is not active */
 	if (BC_cache->c_flags & BC_FLAG_CACHEACTIVE) {
-		BC_cache->c_stats.ss_strategy_bypassed++;
+		BC_ADD_STAT(strategy_bypassed, 1);
 		if (BC_cache->c_flags & BC_FLAG_IOBUSY)
-			BC_cache->c_stats.ss_strategy_bypass_active++;
+			BC_ADD_STAT(strategy_bypass_active, 1);
 	}
 
 	/* if this is a read, and we do have a cache, and it's active */
@@ -953,21 +971,17 @@ BC_strategy_bypass(struct buf *bp)
 			if (BC_terminate_readahead()) {
 				message("could not stop readahead on bad cache hitrate");
 			} else {
+				OSAddAtomic(-1, &BC_cache->c_strategycalls);
 				if (BC_terminate_cache()) {
 					message("could not terminate cache on bad hitrate");
+					OSAddAtomic(1, &BC_cache->c_strategycalls);
 				}
 			}
 		}
 	}
 	
-	KERNEL_DEBUG_CONSTANT(FSDBG_CODE(DBG_BOOTCACHE, DBG_BC_CUT),
-			(unsigned int)bp, 0, 0, 0, 0);
-
 	/* pass the request on */
 	BC_cache->c_strategy(bp);
-
-	/* un-refcount ourselves */
-	BC_cache->c_bypasscalls--;
 }
 
 /*
@@ -977,20 +991,15 @@ static void
 BC_strategy(struct buf *bp)
 {
 	struct BC_cache_extent *ce = NULL;
-	boolean_t funnel_state;
-	int base, nblk;
-	caddr_t p, s;
-	int retry;
-	struct timeval blocktime, now, elapsed;
+	uio_t uio = NULL;
+	int base, nblk, retry, bcount, resid, discards;
 	struct timespec timeout;
 	daddr64_t blkno;
-	int     bcount;
-	caddr_t	vaddr;
+	caddr_t p;
+	off_t offset;
+	kern_return_t kret;
 
 	assert(bp != NULL);
-
-	/* we run under the kernel funnel */
-	funnel_state = thread_funnel_set(kernel_flock, TRUE);
 
 	blkno = buf_blkno(bp);
 	bcount = buf_count(bp);
@@ -1005,53 +1014,51 @@ BC_strategy(struct buf *bp)
 	 */
 	if (buf_device(bp) != BC_cache->c_dev)  {
 		BC_cache->c_strategy(bp);
-		(void) thread_funnel_set(kernel_flock, funnel_state);
 		return;
 	}
+
+	/*
+	 * In order to prevent the cleanup code from racing with us
+	 * when we sleep, we track the number of strategy calls active.
+	 */
+	OSAddAtomic(1, &BC_cache->c_strategycalls);
+	BC_ADD_STAT(strategy_calls, 1);
 
 	/*
 	 * If the cache is not active, bypass the request.  We may
 	 * not be able to fill it, but we still want to record it.
 	 */
 	if (!(BC_cache->c_flags & BC_FLAG_CACHEACTIVE)) {
-		BC_strategy_bypass(bp);
-		(void) thread_funnel_set(kernel_flock, funnel_state);
-		return;
+		goto bypass;
 	}
-	
-	/*
-	 * In order to prevent the cleanup code from racing with us
-	 * when we sleep, we track the number of strategy calls active.
-	 * This value is protected by the kernel funnel, and must be
-	 * incremented here before we have a chance to sleep and
-	 * release the funnel following the check for BC_FLAG_CACHEACTIVE.
-	 */
-	BC_cache->c_strategycalls++;
-	BC_cache->c_stats.ss_strategy_calls++;
 
 	/* if it's not a read, pass it off */
 	if ( !(buf_flags(bp) & B_READ)) {
 		BC_handle_write(bp);
 		BC_add_history(CB_BLOCK_TO_BYTE(blkno), bcount, BC_HE_WRITE);
-		BC_cache->c_stats.ss_strategy_nonread++;
+		BC_ADD_STAT(strategy_nonread, 1);
 		goto bypass;
 	}
 
-	BC_cache->c_stats.ss_requested_blocks += CB_BYTE_TO_BLOCK(bcount);
+	/* ignore low-priority IO */
+	if (buf_flags(bp) & B_THROTTLED_IO) {
+		goto bypass;
+	}
+
+	BC_ADD_STAT(requested_blocks, (u_int) CB_BYTE_TO_BLOCK(bcount));
 	
 	/*
 	 * Look for a cache extent containing this request.
 	 */
-	BC_cache->c_stats.ss_extent_lookups++;
+	BC_ADD_STAT(extent_lookups, 1);
 	if ((ce = BC_find_extent(CB_BLOCK_TO_BYTE(blkno), bcount, 1)) == NULL)
 		goto bypass;
-	BC_cache->c_stats.ss_extent_hits++;
+	BC_ADD_STAT(extent_hits, 1);
 
 	/*
 	 * If the extent hasn't been read yet, sleep waiting for it.
 	 */
 	LOCK_EXTENT(ce);
-	blocktime.tv_sec = 0;
 	for (retry = 0; ; retry++) {
 		/* has the reader thread made it to this extent? */
 		if (ce->ce_flags & (CE_ABORTED | CE_IODONE))
@@ -1063,26 +1070,14 @@ BC_strategy(struct buf *bp)
 			goto bypass;
 		}
 
-		/* account for blocked time, part one */
-		if (blocktime.tv_sec == 0) {	/* never true for a real time */
-			microtime(&blocktime);
-			BC_cache->c_stats.ss_strategy_blocked++;
-		}
+		/* account for blocked callers */
+		if (retry == 1)
+			BC_ADD_STAT(strategy_blocked, 1);
 		
 		/* not ready, sleep */
 		msleep(ce, &ce->ce_lock, PRIBIO, "BC_strategy", &timeout);
 	}
 
-	/*
-	 * Record any time we spent blocked.
-	 */
-	if (blocktime.tv_sec != 0) {
-		microtime(&now);
-		timersub(&now, &blocktime, &elapsed);
-		timeradd(&elapsed, &BC_cache->c_stats.ss_wait_time, 
-				&BC_cache->c_stats.ss_wait_time);
-	}
-	
 	/*
 	 * Check that the extent wasn't aborted while we were asleep.
 	 */
@@ -1093,18 +1088,18 @@ BC_strategy(struct buf *bp)
 	 * Check that the requested blocks are in the buffer.
 	 */
 	/* XXX assumes cache block size == disk block size */
-	base = blkno - CB_BYTE_TO_BLOCK(ce->ce_offset);
-	nblk = CB_BYTE_TO_BLOCK(bcount);
+	base = (int) (blkno - CB_BYTE_TO_BLOCK(ce->ce_diskoffset));
+	nblk = (int) CB_BYTE_TO_BLOCK(bcount);
 	assert(base >= 0);
 	if (!BC_blocks_present(ce, base, nblk))
 		goto bypass;
 
-	if ((BC_cache->c_flags & BC_FLAG_IOBUSY))
-		BC_cache->c_stats.ss_strategy_duringio++;
+	if (BC_cache->c_flags & BC_FLAG_IOBUSY)
+		BC_ADD_STAT(strategy_duringio, 1);
 #ifdef EMULATE_ONLY
 	/* discard blocks we have touched */
-	BC_cache->c_stats.ss_hit_blocks +=
-	    BC_discard_blocks(ce, CB_BLOCK_TO_BYTE(blkno), bcount);
+	discards = BC_discard_blocks(ce, CB_BLOCK_TO_BYTE(blkno), bcount);
+	BC_ADD_STAT(hit_blocks, discards);
 
 	/* release the extent */
 	UNLOCK_EXTENT(ce);
@@ -1115,22 +1110,64 @@ BC_strategy(struct buf *bp)
 	/* bypass directly without updating statistics */
 	BC_cache->c_strategy(bp);
 #else
+
 	/*
-	 * buf_map will do it's best to provide access to this
+	 * buf_map will do its best to provide access to this
 	 * buffer via a kernel accessible address
 	 * if it fails, we can still fall through.
 	 */
-	if (buf_map(bp, &vaddr)) {
+	if (buf_map(bp, &p)) {
 		/* can't map, let someone else worry about it */
 	        goto bypass;
 	}
-	p = vaddr;
 
-	/* find the source in our buffer */
-	s = ce->ce_data + CB_BLOCK_TO_BYTE(base);
+	offset = ce->ce_cacheoffset + CB_BLOCK_TO_BYTE(base);
+	resid = bcount;
+	
+	uio = uio_create(1, offset, UIO_SYSSPACE, UIO_READ);
+	if (uio == NULL) {
+		debug("couldn't allocate uio");
+		buf_unmap(bp);
+		goto bypass;
+	}
 
-	/* copy from cache to buf */
-	bcopy(s, p, bcount);
+	kret = uio_addiov(uio, CAST_USER_ADDR_T(p), bcount);
+	if (kret != KERN_SUCCESS) {
+		debug("couldn't add iov to uio - %d", kret);
+		buf_unmap(bp);
+		goto bypass;
+	}
+
+	kret = vnode_getwithvid(BC_cache->c_vp, BC_cache->c_vid);
+	if (kret != KERN_SUCCESS) {
+		debug("vnode_getwithvid failed - %d", kret);
+		buf_unmap(bp);
+		goto bypass;
+	}
+
+	kret = cluster_copy_ubc_data(BC_cache->c_vp, uio, &resid, 1); 
+	if (kret != KERN_SUCCESS) {
+		debug("couldn't copy ubc data - %d", kret);
+		buf_unmap(bp);
+		(void) vnode_put(BC_cache->c_vp);
+		goto bypass;
+	}
+
+	(void) vnode_put(BC_cache->c_vp);
+
+	/* make sure we didn't hit a missing page in the cache */
+	if (resid != 0) {
+		/* blocks have been stolen for pageout or contiguous memory */
+		discards = BC_discard_blocks(ce, CB_BLOCK_TO_BYTE(blkno), bcount);
+		BC_ADD_STAT(lost_blocks, discards);
+
+		buf_unmap(bp);
+		goto bypass;
+	} 	
+
+	/* copy was successful */
+	uio_free(uio);
+
 	buf_setresid(bp, 0);
 
 	/* buf_unmap will take care of all cases */
@@ -1142,8 +1179,8 @@ BC_strategy(struct buf *bp)
 	/* can't dereference bp after a buf_biodone has been issued */
 
 	/* discard blocks we have touched */
-	BC_cache->c_stats.ss_hit_blocks +=
-		BC_discard_blocks(ce, CB_BLOCK_TO_BYTE(blkno), bcount);
+	discards = BC_discard_blocks(ce, CB_BLOCK_TO_BYTE(blkno), bcount);
+	BC_ADD_STAT(hit_blocks, discards);
 
 	UNLOCK_EXTENT(ce);
 	/* record successful fulfilment (may block) */
@@ -1151,8 +1188,7 @@ BC_strategy(struct buf *bp)
 #endif
 
 	/* we are not busy anymore */
-	BC_cache->c_strategycalls--;
-	(void) thread_funnel_set(kernel_flock, funnel_state);
+	OSAddAtomic(-1, &BC_cache->c_strategycalls);
 	return;
 
 bypass:
@@ -1163,9 +1199,10 @@ bypass:
 	 */
 	if (ce != NULL)
 		UNLOCK_EXTENT(ce);
-	BC_cache->c_strategycalls--;
+	if (uio != NULL)
+		uio_free(uio);
 	BC_strategy_bypass(bp);
-	(void) thread_funnel_set(kernel_flock, funnel_state);
+	OSAddAtomic(-1, &BC_cache->c_strategycalls);
 	return;
 }
 
@@ -1197,13 +1234,10 @@ BC_handle_write(struct buf *bp)
 	/*
 	 * Discard blocks in the matched extent.
 	 */
-	if (TRY_LOCK_EXTENT(ce)) {
-		count = BC_discard_blocks(ce, offset, bcount);
-		UNLOCK_EXTENT(ce);
-	} else {
-		SET_EXTENT_FLAG(ce, CE_ABORTED);
-	}
-	BC_cache->c_stats.ss_write_discards += count;
+	LOCK_EXTENT(ce);
+	count = BC_discard_blocks(ce, offset, bcount);
+	UNLOCK_EXTENT(ce);
+	BC_ADD_STAT(write_discards, count);
 	assert(count != 0);
 
 	/*
@@ -1212,29 +1246,23 @@ BC_handle_write(struct buf *bp)
 	p = ce - 1;
 	while (p >= BC_cache->c_extents && 
 			BC_check_intersection(p, offset, bcount)) {
-		if (TRY_LOCK_EXTENT(p)) {
-			count = BC_discard_blocks(p, offset, bcount);
-			UNLOCK_EXTENT(p);
-			if (count == 0)
-				break;
-			BC_cache->c_stats.ss_write_discards += count;
-		} else {
-			SET_EXTENT_FLAG(p, CE_ABORTED);
-		}
+		LOCK_EXTENT(p);
+		count = BC_discard_blocks(p, offset, bcount);
+		UNLOCK_EXTENT(p);
+		if (count == 0)
+			break;
+		BC_ADD_STAT(write_discards, count);
 		p--;
 	}
 	p = ce + 1;
 	while (p < (BC_cache->c_extents + BC_cache->c_extent_count) && 
 			BC_check_intersection(p, offset, bcount)) {
-		if (TRY_LOCK_EXTENT(p)) {
-			count = BC_discard_blocks(p, offset, bcount);
-			UNLOCK_EXTENT(p);
-			if (count == 0)
-				break;
-			BC_cache->c_stats.ss_write_discards += count;
-		} else {
-			SET_EXTENT_FLAG(p, CE_ABORTED);
-		}
+		LOCK_EXTENT(p);
+		count = BC_discard_blocks(p, offset, bcount);
+		UNLOCK_EXTENT(p);
+		if (count == 0)
+			break;
+		BC_ADD_STAT(write_discards, count);
 		p++;
 	}
 	
@@ -1267,26 +1295,19 @@ BC_terminate_readahead(void)
 		 * Signal the readahead thread to terminate, and wait for
 		 * it to comply.  If this takes > 10 seconds, give up.
 		 */
-		BC_cache->c_flags |= BC_FLAG_SHUTDOWN;
-		error = tsleep(&BC_cache->c_flags, PRIBIO, "BC_terminate_readahead", hz * 10);
+		if (!BC_set_flag(BC_FLAG_SHUTDOWN)) { 
+			/* lost the race, so we're done here */
+			debug("readahead already shut down");
+			return 0;
+		}
+
+		error = tsleep(&BC_cache->c_flags, PRIBIO, "BC_terminate_readahead", 1000);
 		if (error == EWOULDBLOCK) {
 		
 			debug("timed out waiting for I/O to stop");
 			if (!(BC_cache->c_flags & BC_FLAG_IOBUSY)) {
 				debug("but I/O has stopped!");
-			} else {
-				debug("current buf:");
-				if (BC_private_bp) {
-				  debug(" blkno %qd  bcount %d  resid %d  flags 0x%x  dataptr %p",
-				    buf_blkno(BC_private_bp),
-				    buf_count(BC_private_bp),
-				    buf_resid(BC_private_bp),
-				    buf_flags(BC_private_bp),
-				    (void *) buf_dataptr(BC_private_bp));
-				} else
-				  debug("NULL pointer");
-
-			}
+			} 
 #ifdef DEBUG
  			Debugger("I/O Kit wedged on us");
 #endif
@@ -1322,12 +1343,12 @@ BC_terminate_cache(void)
 		return(EBUSY);
 	}
 	
-	/* can't shut down if we're not active */
-	if (!(BC_cache->c_flags & BC_FLAG_CACHEACTIVE)) {
+	if (!BC_clear_flag(BC_FLAG_CACHEACTIVE)) { 
+		/* can't shut down if we're not active */
 		debug("cannot terminate cache when not active");
 		return(ENXIO);
 	}
-	BC_cache->c_flags &= ~BC_FLAG_CACHEACTIVE;
+
 	debug("terminating cache...");
 
 	/*
@@ -1337,7 +1358,7 @@ BC_terminate_cache(void)
 	for (i = 0; i < BC_cache->c_extent_count; i++) {
 		struct BC_cache_extent *ce = BC_cache->c_extents + i;
 		LOCK_EXTENT(ce);
-		SET_EXTENT_FLAG(ce, CE_ABORTED);
+		ce->ce_flags |= CE_ABORTED;
 		UNLOCK_EXTENT(ce);
 		wakeup(ce);
 
@@ -1346,7 +1367,7 @@ BC_terminate_cache(void)
 		 */
 		for (j = 0; j < howmany(ce->ce_length, BC_cache->c_blocksize); j++) {
 			if (CB_BLOCK_PRESENT(ce, j))
-				BC_cache->c_stats.ss_spurious_blocks++;
+				BC_ADD_STAT(spurious_blocks, 1);
 		}
 			
 		BC_teardown_extent(ce);
@@ -1364,14 +1385,11 @@ BC_terminate_cache(void)
 	 */
 	retry = 0;
 	while (BC_cache->c_strategycalls > 0) {
-		tsleep(BC_cache, PRIBIO, "BC_terminate_cache", hz / 10);
+		tsleep(BC_cache, PRIBIO, "BC_terminate_cache", 10);
 		if (retry++ > 50) {
 			debug("could not terminate cache, timed out with %d caller%s in BC_strategy",
-			    BC_cache->c_strategycalls,
+			    (int) BC_cache->c_strategycalls,
 			    BC_cache->c_strategycalls == 1 ? "" : "s");
-
-			/* mark active again, since we failed */
-			BC_cache->c_flags |= BC_FLAG_CACHEACTIVE;
 
 			return(EBUSY);	/* again really EWEDGED */
 		}
@@ -1390,41 +1408,32 @@ BC_terminate_cache(void)
  *
  * This stops us recording any further history events, as well
  * as disabling the cache.
+ *
+ * Only called if BC_terminate_cache was successful.
  */
 static int
 BC_terminate_history(void)
 {
-	int retry;
-
 	debug("terminating history collection...");
 	/* disconnect the strategy routine */
 	if ((BC_cache->c_devsw != NULL) &&
 	    (BC_cache->c_strategy != NULL))
 		BC_cache->c_devsw->d_strategy = BC_cache->c_strategy;
 
-	/*
-	 * It is possible that one or more callers are asleep in the
-	 * real strategy routine (as it may drop the funnel).  Check
-	 * the count of callers in the bypass code, and sleep until
-	 * there are none left (or we time out here).  Note that by
-	 * removing ourselves from the bdev switch above we prevent
-	 * any new callers from entering the bypass code, so the count
-	 * must eventually drain to zero.
-	 */
-	retry = 0;
-	while (BC_cache->c_bypasscalls > 0) {
-		tsleep(BC_cache, PRIBIO, "BC_terminate_history", hz / 10);
-		if (retry++ > 50) {
-			debug("could not terminate history, timed out with %d caller%s in BC_strategy_bypass",
-			    BC_cache->c_bypasscalls,
-			    BC_cache->c_bypasscalls == 1 ? "" : "s");
-
-			return(EBUSY);	/* again really EWEDGED */
-		}
-	}
-
 	/* record stop time */
-	microtime(&BC_cache->c_stats.ss_cache_stop);
+	microtime(&BC_cache->c_endtime);
+	timersub(&BC_cache->c_endtime,
+			&BC_cache->c_starttime,
+			&BC_cache->c_endtime);
+	BC_ADD_STAT(active_time, (u_int) BC_cache->c_endtime.tv_sec * 1000 + 
+			(u_int) BC_cache->c_endtime.tv_usec / 1000);
+
+	timersub(&BC_cache->c_starttime,
+			&BC_cache->c_loadtime,
+			&BC_cache->c_starttime);
+	BC_ADD_STAT(preload_time, (u_int) BC_cache->c_starttime.tv_sec * 1000 + 
+			(u_int) BC_cache->c_starttime.tv_usec / 1000);
+
 	
 	return(0);
 }
@@ -1433,22 +1442,20 @@ static u_int64_t
 BC_setup_extent(struct BC_cache_extent *ce, struct BC_playlist_entry *pce)
 {
 	u_int64_t roundsize;
-	int numblocks, numpages;
+	int numblocks;
 
 	roundsize = roundup(pce->pce_length, PAGE_SIZE);
-	numblocks = howmany(pce->pce_length, BC_cache->c_blocksize);
-	numpages = howmany(pce->pce_length, PAGE_SIZE);
-
+	numblocks = (int) howmany(pce->pce_length, BC_cache->c_blocksize);
 
 	lck_mtx_init(&ce->ce_lock, BC_cache->c_lckgrp,
 			LCK_ATTR_NULL);
-	ce->ce_offset = pce->pce_offset;
+	ce->ce_diskoffset = pce->pce_offset;
 	ce->ce_length = pce->pce_length;
-	ce->ce_flags = pce->pce_batch & CE_BATCH_MASK;
+	ce->ce_flags = (int) (pce->pce_batch & CE_BATCH_MASK);
 #ifdef IGNORE_BATCH
 	ce->ce_flags &= ~CE_BATCH_MASK;
 #endif
-	ce->ce_data = NULL;
+	ce->ce_cacheoffset = 0;
 	ce->ce_blockmap = _MALLOC(
 			howmany(numblocks, (CB_MAPFIELDBITS / CB_MAPFIELDBYTES)),
 			M_TEMP, M_WAITOK | M_ZERO);
@@ -1466,22 +1473,21 @@ BC_setup_extent(struct BC_cache_extent *ce, struct BC_playlist_entry *pce)
 static void
 BC_teardown_extent(struct BC_cache_extent *ce)
 {
-	SET_EXTENT_FLAG(ce, CE_ABORTED);
+	ce->ce_flags |= CE_ABORTED;
 	_FREE_ZERO(ce->ce_blockmap, M_TEMP);
 }
 
 /*
  * Fetch the playlist from userspace or the Mach-O segment where it
- * was preloaded.  Note that in the STATIC_PLAYLIST case the playlist
- * is already in memory.
+ * was preloaded.   
  */
 static int
-BC_copyin_playlist(size_t length, void *uptr)
+BC_copyin_playlist(size_t length, user_addr_t uptr)
 {
 	struct BC_playlist_entry *pce;
 	struct BC_cache_extent *ce;
 	int error, idx;
-	caddr_t p;
+	off_t p;
 	u_int64_t size, esize;
 	int entries;
 	int actual;
@@ -1490,7 +1496,7 @@ BC_copyin_playlist(size_t length, void *uptr)
 	pce = NULL;
 	
 	/* allocate playlist storage */
-	entries = length / sizeof(*pce);
+	entries = (int) (length / sizeof(*pce));
 	BC_cache->c_extents = _MALLOC(entries * sizeof(struct BC_cache_extent),
 	    M_TEMP, M_WAITOK | M_ZERO);
 	if (BC_cache->c_extents == NULL) {
@@ -1508,7 +1514,7 @@ BC_copyin_playlist(size_t length, void *uptr)
 		 * Unpack the static control entry array into the extent array.
 		 */
 		debug("using static playlist with %d entries", entries);
-		pce = (struct BC_playlist_entry *)uptr;
+		pce = CAST_DOWN(struct BC_playlist_entry *, uptr);
 		for (idx = 0; idx < entries; idx++) {
 			esize = BC_setup_extent(ce + idx, pce + idx);
 			if (esize == 0) {
@@ -1533,9 +1539,9 @@ BC_copyin_playlist(size_t length, void *uptr)
 		while (entries > 0) {
 
 			actual = min(entries, BC_PLC_CHUNK);
-			if ((error = copyin(CAST_USER_ADDR_T(uptr), pce,
+			if ((error = copyin(uptr, pce,
 					    actual * sizeof(struct BC_playlist_entry))) != 0) {
-				message("copyin from %p to %p failed", uptr, pce);
+				message("copyin from 0x%llx to %p failed", uptr, pce);
 				_FREE(pce, M_TEMP);
 				goto out;
 			}
@@ -1550,7 +1556,7 @@ BC_copyin_playlist(size_t length, void *uptr)
 				size += esize;
 			}
 			entries -= actual;
-			uptr = (struct BC_playlist_entry *)uptr + actual;
+			uptr += actual * sizeof(struct BC_playlist_entry);
 			ce += actual;
 		}
 		_FREE(pce, M_TEMP);
@@ -1567,7 +1573,7 @@ BC_copyin_playlist(size_t length, void *uptr)
 	 * Verify that the cache is not larger than 50% of physical memory
 	 * to avoid forcing pageout activity.
 	 *
-	 * mem_size and size are in bytes.  All calculations are done in page
+	 * max_mem and size are in bytes.  All calculations are done in page
 	 * units to avoid overflow/sign issues.
 	 *
 	 * If the cache is too large, we discard it and go to record-only mode.
@@ -1575,29 +1581,31 @@ BC_copyin_playlist(size_t length, void *uptr)
 	 * manually made too large, but the "real" bootstrap footprint
 	 * would be OK.
 	 */
-	if (size > (mem_size / 2)) {
-		message("cache size (%lu bytes) too large for physical memory (%u bytes)",
-				(unsigned long)size, mem_size);
+	if (size > (max_mem / 2)) {
+		message("cache size (%lu bytes) too large for physical memory (%llu bytes)",
+				(unsigned long)size, max_mem);
 		goto out;
 	}
+
+	BC_cache->c_cachesize = size;
 
 	/*
 	 * Allocate the pagebuffer.
 	 */
-	if (BC_alloc_pagebuffer(size) != 0) {
+	if (BC_alloc_pagebuffer() != 0) {
 		message("can't allocate %lld bytes for cache buffer", size);
 		error = ENOMEM;
 		goto out;
 	}
 
 	/*
-	 * Fix up the extent data pointers.
+	 * Fix up the extent cache offsets.
 	 */
-	p = BC_cache->c_buffer;
+	p = 0; 
 	for (idx = 0; idx < BC_cache->c_extent_count; idx++) {
-		int length = BC_cache->c_extents[idx].ce_length;
+		u_int64_t length = BC_cache->c_extents[idx].ce_length;
 		int j;
-		(BC_cache->c_extents + idx)->ce_data = p;
+		(BC_cache->c_extents + idx)->ce_cacheoffset = p;
 		p += roundup(length, PAGE_SIZE);
 
 		for (j = 0; j < howmany(length, BC_cache->c_blocksize); j++)
@@ -1608,7 +1616,7 @@ BC_copyin_playlist(size_t length, void *uptr)
 out:
 	if (error != 0) {
 		debug("cache setup failed, aborting");
-		if (BC_cache->c_buffer != NULL)
+		if (BC_cache->c_vp != NULL)
 			BC_free_pagebuffer();
 		for (idx = 0; idx < BC_cache->c_extent_count; idx++)
 			BC_teardown_extent(BC_cache->c_extents + idx);
@@ -1624,28 +1632,23 @@ out:
  * find and attach to our block device.
  */
 static int
-BC_init_cache(size_t length, caddr_t uptr, u_int64_t blocksize)
+BC_init_cache(size_t length, user_addr_t uptr, u_int64_t blocksize)
 {
 	u_int32_t blksize;
 	u_int64_t blkcount;
 	int error;
 	unsigned int boot_arg;
-	boolean_t funnel_state;
 	thread_t rthread;
 
 	error = 0;
 
 	/*
 	 * Check that we're not already running.
-	 * This is safe first time around because the BSS is guaranteed
-	 * to be zeroed.  Must be fixed if we move to dynamically
-	 * allocating the cache softc.
 	 */
-	if (BC_cache->c_flags != 0)
+	if (BC_set_flag(BC_FLAG_STARTED)) {
+		debug("cache already started");
 		return(EBUSY);
-	
-	/* clear the control structure */
-	bzero(BC_cache, sizeof(*BC_cache));
+	}
 
 	/*
 	 * If we have less than the minimum supported physical memory,
@@ -1654,9 +1657,9 @@ BC_init_cache(size_t length, caddr_t uptr, u_int64_t blocksize)
 	 * large amounts of wired memory around which further exacerbates
 	 * the problem.
 	 */
-	if ((mem_size / (1024 * 1024)) < BC_minimum_mem_size) {
+	if ((max_mem / (1024 * 1024)) < BC_minimum_mem_size) {
 		debug("insufficient physical memory (%dMB < %dMB required)",
-		    (int)(mem_size / (1024 * 1024)), BC_minimum_mem_size);
+		    (int)(max_mem / (1024 * 1024)), BC_minimum_mem_size);
 		return(ENOMEM);
 	}
 	
@@ -1670,8 +1673,8 @@ BC_init_cache(size_t length, caddr_t uptr, u_int64_t blocksize)
 	 * rootdev...
 	 */
 	if (netboot_root() && 
-	    (!PE_parse_boot_arg("BootCacheOverride", &boot_arg) ||
-	     (boot_arg != 1)))                          /* not interesting */
+			(!PE_parse_boot_argn("BootCacheOverride", &boot_arg, sizeof(boot_arg)) ||
+			 (boot_arg != 1)))                          /* not interesting */
 		return(ENXIO);
 	BC_cache->c_dev = rootdev;
 	BC_cache->c_devvp = rootvp;
@@ -1681,6 +1684,15 @@ BC_init_cache(size_t length, caddr_t uptr, u_int64_t blocksize)
 	if (BC_cache->c_strategy == NULL)		/* not configured */
 		return(ENXIO);
 
+	BC_cache->c_devsw->d_ioctl(BC_cache->c_dev,	/* device */
+	    DKIOCGETMAXSEGMENTBYTECOUNTREAD,		/* cmd */
+	    (caddr_t)&BC_cache->c_maxread,		/* data */
+	    0,						/* fflag */
+	    kernproc);					/* proc */
+	if (BC_cache->c_maxread < PAGE_SIZE) {
+		debug("can't determine device read size; using default");
+		BC_cache->c_maxread = MAXPHYS;
+	}
 	BC_cache->c_devsw->d_ioctl(BC_cache->c_dev,	/* device */
 	    DKIOCGETBLOCKSIZE,				/* cmd */
 	    (caddr_t)&blksize,				/* data */
@@ -1700,10 +1712,11 @@ BC_init_cache(size_t length, caddr_t uptr, u_int64_t blocksize)
 	}
 	BC_cache->c_blocksize = blksize;
 	BC_cache->c_devsize = BC_cache->c_blocksize * blkcount;
-	BC_cache->c_stats.ss_blocksize = BC_cache->c_blocksize;
+	BC_cache->c_stats.ss_blocksize = (u_int) BC_cache->c_blocksize;
 	debug("blocksize %lu bytes, filesystem %lu bytes",
 	    (unsigned long)BC_cache->c_blocksize, (unsigned long)BC_cache->c_devsize);
 	BC_cache->c_lckgrp = lck_grp_alloc_init("BootCache", LCK_GRP_ATTR_NULL);
+	lck_mtx_init(&BC_cache->c_histlock, BC_cache->c_lckgrp, LCK_ATTR_NULL);
 
 	/*
 	 * If we have playlist data, fetch it.
@@ -1722,7 +1735,7 @@ BC_init_cache(size_t length, caddr_t uptr, u_int64_t blocksize)
 		debug("no playlist, recording only");
 	}
 
-	microtime(&BC_cache->c_stats.ss_batch_time[0]);
+	microtime(&BC_cache->c_starttime);
 #ifndef NO_HISTORY
 # ifdef STATIC_HISTORY
 	/* initialise the history buffer */
@@ -1745,15 +1758,11 @@ BC_init_cache(size_t length, caddr_t uptr, u_int64_t blocksize)
 	bzero(BC_cache->c_rhistory, READ_HISTORY_BUFFER * sizeof(struct BC_read_history_entry));
 #endif
 
-
-	/* we run under the kernel funnel */
-	funnel_state = thread_funnel_set(kernel_flock, TRUE);
-
 #ifdef EMULATE_ONLY
 	{
 		int i;
 		for (i = 0; i < BC_cache->c_extent_count; i++)
-			SET_EXTENT_FLAG(&BC_cache->c_extents[i], CE_IODONE);
+			BC_cache->c_extents[i].ce_flags |= CE_IODONE;
 	}
 #else
 	/*
@@ -1761,7 +1770,7 @@ BC_init_cache(size_t length, caddr_t uptr, u_int64_t blocksize)
 	 */
 	if (BC_cache->c_extents != NULL) {
 		debug("starting readahead");
-		BC_cache->c_flags |= BC_FLAG_IOBUSY;
+		BC_set_flag(BC_FLAG_IOBUSY);
 		kernel_thread_start(BC_reader_thread, NULL, &rthread);
 		thread_deallocate(rthread);
 	}
@@ -1774,9 +1783,7 @@ BC_init_cache(size_t length, caddr_t uptr, u_int64_t blocksize)
 	BC_cache->c_devsw->d_strategy = BC_strategy;
 
 	/* cache is now active */
-	BC_cache->c_flags |= BC_FLAG_CACHEACTIVE;
-
-	(void) thread_funnel_set(kernel_flock, funnel_state);
+	BC_set_flag(BC_FLAG_CACHEACTIVE);
 
 	return(0);
 }
@@ -1791,16 +1798,11 @@ BC_init_cache(size_t length, caddr_t uptr, u_int64_t blocksize)
 static void
 BC_timeout_cache(void *junk)
 {
-	boolean_t       funnel_state;
-
-	funnel_state = thread_funnel_set(kernel_flock, TRUE);
-
 	/* shut the cache down */
 	BC_terminate_readahead();
-	BC_terminate_cache();
+	if (BC_terminate_cache())
+		return;
 	BC_terminate_history();
-
-	(void) thread_funnel_set(kernel_flock, funnel_state);
 }
 
 /*
@@ -1811,13 +1813,13 @@ BC_timeout_cache(void *junk)
 static void
 BC_add_history(u_int64_t offset, u_int64_t length, int flags)
 {
-	struct BC_history_cluster *hc;
+	struct BC_history_cluster *hc, *tmphc = NULL;
 	struct BC_history_entry *he;
-	kern_return_t kret;
 
+	LOCK_HISTORY();
 	/* don't do anything if the history list has been truncated */
 	if (BC_cache->c_flags & BC_FLAG_HTRUNCATED)
-		return;
+		goto out;
 
 	/*
 	 * In order to avoid recording a playlist larger than we will
@@ -1829,14 +1831,15 @@ BC_add_history(u_int64_t offset, u_int64_t length, int flags)
 	 * cessation of caching at a single point, rather than
 	 * introducing sporadic cache misses throughout the cache's run.
 	 */
-	if ((BC_cache->c_history_bytes + length) > (mem_size / 2))
-		return;
+	if ((BC_cache->c_history_bytes + length) > (max_mem / 2))
+		goto out;
+
 	BC_cache->c_history_bytes += length;
 	
 #ifdef NO_HISTORY
-	BC_cache->c_flags |= BC_FLAG_HTRUNCATED;
+	BC_set_flag(BC_FLAG_HTRUNCATED);
 	debug("history disabled, truncating");
-	return;
+	goto out;
 #endif
 	
 	/*
@@ -1844,27 +1847,36 @@ BC_add_history(u_int64_t offset, u_int64_t length, int flags)
 	 */
 	hc = BC_cache->c_history;
 	if ((hc == NULL) || (hc->hc_entries >= BC_HISTORY_ENTRIES)) {
-		BC_cache->c_stats.ss_history_clusters++;
+		BC_ADD_STAT(history_clusters, 1);
 
 		/* limit the number of clusters we will allocate */
 		if (BC_cache->c_stats.ss_history_clusters >= BC_HISTORY_MAXCLUSTERS) {
 			message("too many history clusters (%d, limit %ld)",
 			    BC_cache->c_stats.ss_history_clusters,
 			    (long)BC_HISTORY_MAXCLUSTERS);
-			BC_cache->c_flags |= BC_FLAG_HTRUNCATED;
-			BC_cache->c_stats.ss_history_clusters--;
-			return;
+			BC_set_flag(BC_FLAG_HTRUNCATED);
+			BC_ADD_STAT(history_clusters, -1);
+			goto out;
 		}
-		hc = kalloc(BC_HISTORY_ALLOC);
-		if (hc == NULL) {
+		UNLOCK_HISTORY();
+		tmphc = kalloc(BC_HISTORY_ALLOC);
+		LOCK_HISTORY();
+		if (tmphc == NULL) {
 			message("could not allocate %d bytes for history cluster",
 			    BC_HISTORY_ALLOC);
-			BC_cache->c_flags |= BC_FLAG_HTRUNCATED;
-			return;
+			BC_set_flag(BC_FLAG_HTRUNCATED);
+			goto out;
 		}
-		hc->hc_entries = 0;
-		hc->hc_link = BC_cache->c_history;
-		BC_cache->c_history = hc;
+
+		/* verify that we still need a new cluster */
+		hc = BC_cache->c_history;
+		if ((hc == NULL) || (hc->hc_entries >= BC_HISTORY_ENTRIES)) {
+			tmphc->hc_entries = 0;
+			tmphc->hc_link = BC_cache->c_history;
+			BC_cache->c_history = tmphc;
+			hc = tmphc;
+			tmphc = NULL;
+		}
 	}
 
 	/*
@@ -1877,12 +1889,17 @@ BC_add_history(u_int64_t offset, u_int64_t length, int flags)
 	he->he_length = length;
 	he->he_flags = flags;
 	hc->hc_entries++;
+out:
+	UNLOCK_HISTORY();
+	if (tmphc != NULL)
+		kfree(tmphc, BC_HISTORY_ALLOC);
+	return;
 }
 
 /*
  * Return the size of the history buffer.
  */
-static size_t
+static int 
 BC_size_history(void)
 {
 	struct BC_history_cluster *hc;
@@ -1893,7 +1910,7 @@ BC_size_history(void)
 	for (hc = BC_cache->c_history; hc != NULL; hc = hc->hc_link)
 		nentries += hc->hc_entries;
 
-	return(nentries * sizeof(struct BC_history_entry));
+	return(nentries * (int) sizeof(struct BC_history_entry));
 }
 
 /*
@@ -1903,12 +1920,12 @@ BC_size_history(void)
  * order to avoid a race around the entry count/buffer size.
  */
 static int
-BC_copyout_history(void *uptr)
+BC_copyout_history(user_addr_t uptr)
 {
 	struct BC_history_cluster *hc, *ohc;
 	int error, nentries;
 
-	assert(uptr != NULL);
+	assert(uptr != 0);
 
 	/* walk the list of clusters and count the number of entries */
 	nentries = 0;
@@ -1928,10 +1945,10 @@ BC_copyout_history(void *uptr)
 		ohc = hc;
 
 		/* copy the cluster out */
-		if ((error = copyout(hc->hc_data, CAST_USER_ADDR_T(uptr),
+		if ((error = copyout(hc->hc_data, uptr,
 			 hc->hc_entries * sizeof(struct BC_history_entry))) != 0)
 			return(error);
-		uptr = (caddr_t)uptr + hc->hc_entries * sizeof(struct BC_history_entry);
+		uptr += hc->hc_entries * sizeof(struct BC_history_entry);
 
 		/* if this was the last cluster, all done */
 		if (hc == BC_cache->c_history)
@@ -1964,18 +1981,33 @@ BC_auto_start(void)
 	int error;
 
 	/* initialise the cache */
-#ifdef STATIC_PLAYLIST
-	error = BC_init_cache(sizeof(BC_data), (caddr_t)&BC_data[0], BC_playlist_blocksize);
-#else /* !STATIC_PLAYLIST */
 	error = BC_init_cache(BC_preloaded_playlist->ph_entries * sizeof(struct BC_playlist_entry), 
-			      (caddr_t)BC_preloaded_playlist + sizeof(struct BC_playlist_header), 
+			      CAST_USER_ADDR_T((uintptr_t)BC_preloaded_playlist + sizeof(struct BC_playlist_header)), 
 			      BC_preloaded_playlist->ph_blocksize);
-#endif /* STATIC_PLAYLIST */
 	if (error != 0)
 		debug("BootCache autostart failed: %d", error);
+}
 
-	/* set 'started' flag (cleared when we get history) */
-	BC_cache->c_flags |= BC_FLAG_STARTED;
+/*
+ * Called from the root-unmount hook.
+ */
+static void
+BC_unmount_hook(void)
+{
+	/*
+	 * Kill the timeout handler; we don't want it going off
+	 * now.
+	 */
+	untimeout(BC_timeout_cache, NULL);
+	
+	/*
+	 * If the cache is running, stop it.  If it's already stopped
+	 * (it may have stopped itself), that's OK.
+	 */
+	BC_terminate_readahead();
+	if (!BC_terminate_cache())
+		BC_terminate_history();
+
 }
 
 
@@ -1986,47 +2018,37 @@ static int
 BC_sysctl SYSCTL_HANDLER_ARGS
 {
 	struct BC_command bc;
-	boolean_t funnel_state;
 	int error;
-
-	/* we run under the kernel funnel */
-	funnel_state = thread_funnel_set(kernel_flock, TRUE);
 
 	/* get the commande structure and validate */
 	if ((error = SYSCTL_IN(req, &bc, sizeof(bc))) != 0) {
 		debug("couldn't get command");
-		(void) thread_funnel_set(kernel_flock, funnel_state);
 		return(error);
 	}
 	if (bc.bc_magic != BC_MAGIC) {
 		debug("bad command magic");
-		(void) thread_funnel_set(kernel_flock, funnel_state);
 		return(EINVAL);
 	}
 
 	switch (bc.bc_opcode) {
-#ifndef STATIC_PLAYLIST
 	case BC_OP_START:
 		if (BC_preloaded_playlist) {
 			error = EINVAL;
 			break;
 		}
-		debug("BC_OP_START(%ld)", bc.bc_length);
-		error = BC_init_cache(bc.bc_length, bc.bc_data, (u_int64_t)bc.bc_param);
+		debug("BC_OP_START(%d)", bc.bc_length);
+		error = BC_init_cache(bc.bc_length, (user_addr_t) bc.bc_data, (u_int64_t)bc.bc_param);
 		if (error != 0) {
 			message("cache init failed");
 		} else {
 			/* start the timeout handler */
-			timeout(BC_timeout_cache, NULL, hz * BC_cache_timeout);
-
-			/* set 'started' flag (cleared when we get history) */
-			BC_cache->c_flags |= BC_FLAG_STARTED;
+			timeout(BC_timeout_cache, NULL, BC_cache_timeout);
 		}
 		break;
-#endif /* STATIC_PLAYLIST */
 
 	case BC_OP_STOP:
 		debug("BC_OP_STOP");
+		unmountroot_pre_hook = NULL;
 
 		/*
 		 * Kill the timeout handler; we don't want it going off
@@ -2039,10 +2061,11 @@ BC_sysctl SYSCTL_HANDLER_ARGS
 		 * (it may have stopped itself), that's OK.
 		 */
 		BC_terminate_readahead();
-		BC_terminate_cache();
-		BC_terminate_history();
+		if (!BC_terminate_cache())
+			BC_terminate_history();
 
 		/* return the size of the history buffer */
+		LOCK_HISTORY();
 		if (BC_cache->c_flags & BC_FLAG_HTRUNCATED) {
 			bc.bc_length = 0;
 		} else {
@@ -2050,15 +2073,18 @@ BC_sysctl SYSCTL_HANDLER_ARGS
 		}
 		if ((error = SYSCTL_OUT(req, &bc, sizeof(bc))) != 0)
 			debug("could not return history size");
+		UNLOCK_HISTORY();
 		break;
 		
 	case BC_OP_HISTORY:
 		debug("BC_OP_HISTORY");
 		/* if there's a user buffer, verify the size and copy out */
-		if (bc.bc_data != NULL) {
+		LOCK_HISTORY();
+		if (bc.bc_data != 0) {
 			if (bc.bc_length < BC_size_history()) {
 				debug("supplied history buffer too small");
 				error = EINVAL;
+				UNLOCK_HISTORY();
 				break;
 			}
 			if ((error = BC_copyout_history(bc.bc_data)) != 0)
@@ -2069,7 +2095,8 @@ BC_sysctl SYSCTL_HANDLER_ARGS
 		 * Release the last of the memory we own.
 		 */
 		BC_discard_history();
-		BC_cache->c_flags = 0;
+		UNLOCK_HISTORY();
+		BC_clear_flag(BC_FLAG_STARTED);
 		break;
 				    
 	case BC_OP_STATS:
@@ -2080,20 +2107,23 @@ BC_sysctl SYSCTL_HANDLER_ARGS
 			error = ENOMEM;
 		} else {
 			BC_cache->c_stats.ss_cache_flags = BC_cache->c_flags;
-			if ((error = copyout(&BC_cache->c_stats, CAST_USER_ADDR_T(bc.bc_data), bc.bc_length)) != 0)
+			if ((error = copyout(&BC_cache->c_stats, bc.bc_data, bc.bc_length)) != 0)
 				debug("could not copy out statistics");
 		}
 		break;
 
 	case BC_OP_TAG:
 		debug("BC_OP_TAG");
+		KERNEL_DEBUG_CONSTANT(FSDBG_CODE(DBG_BOOTCACHE, DBG_BC_TAG) | 
+				DBG_FUNC_NONE, proc_selfppid(), dbg_tag_count, 
+				0, 0, 0);
 		BC_add_history((u_int64_t)bc.bc_param, 0, BC_HE_TAG);
+		dbg_tag_count++;
 		break;
 		
 	default:
 		error = EINVAL;
 	}
-	(void) thread_funnel_set(kernel_flock, funnel_state);
 	return(error);
 }
 
@@ -2103,98 +2133,28 @@ BC_sysctl SYSCTL_HANDLER_ARGS
  *
  */
 static int
-BC_alloc_pagebuffer(size_t size)
+BC_alloc_pagebuffer()
 {
 	kern_return_t kret;
-	vm_object_offset_t s;
-	int i;
 
-	BC_cache->c_mapsize = size;
+	kret = vnode_open(BC_BOOT_BACKINGFILE, (O_CREAT | O_NOFOLLOW | FREAD), 
+			0400, 0, &BC_cache->c_vp, vfs_context_current());
+	if (kret != KERN_SUCCESS) {
+		debug("vnode_open failed - %d", kret);
+		return -1;
+	}
 
-	/*
-	 * Create a VM region object (our private map).
-	 */
-	kret = vm_region_object_create(kernel_map,
-	    BC_cache->c_mapsize,
-	    &BC_cache->c_map_port);
-	if (kret != KERN_SUCCESS) {
-		debug("vm_region_object_create failed - %d", kret);
-		return(ENOMEM);
-	}
-	BC_cache->c_map = convert_port_entry_to_map(BC_cache->c_map_port);
+	BC_cache->c_vid = vnode_vid(BC_cache->c_vp);
 
-	/*
-	 * Allocate and wire pages into our submap.
-	 */
-	BC_cache->c_mapbase = 0;
-	kret = vm_allocate(BC_cache->c_map,	/* map to allocate in */
-	    &BC_cache->c_mapbase,		/* offset in map */
-	    BC_cache->c_mapsize,		/* size in bytes */
-	    FALSE);				/* allocate_anywhere */
-	if (kret != KERN_SUCCESS) {
-		debug("vm_allocate failed - %d", kret);
-		return(ENOMEM);
+	assert(BC_cache->c_cachesize != 0);
+	kret = ubc_setsize(BC_cache->c_vp, BC_cache->c_cachesize);
+	if (kret != 1) {
+		debug("ubc_setsize failed - %d", kret);
+		return -1;
 	}
-	s = (vm_object_offset_t)size;
-	kret = mach_make_memory_entry_64(
-		BC_cache->c_map,		/* map */
-		&s,				/* size */
-		0,				/* offset */
-		VM_PROT_READ | VM_PROT_WRITE,	/* default memory protection */
-		&BC_cache->c_entry_port,	/* return handle */
-		NULL);				/* parent */
-	if ((kret != KERN_SUCCESS) || (s != size)) {
-		debug("mach_make_memory_entry failed - %d", kret);
-		return(ENOMEM);
-	}
-	kret = vm_protect(BC_cache->c_map,	/* map */
-	    BC_cache->c_mapbase,		/* offset */
-	    BC_cache->c_mapsize,		/* length */
-	    TRUE,				/* set maximum protection */
-	    VM_PROT_READ | VM_PROT_WRITE);	/* default memory protection */
-	if ((kret != KERN_SUCCESS) || (s != size)) {
-		debug("vm_protect failed - %d", kret);
-		return(ENOMEM);
-	}
-	/*
-	 * Map our private map into the kernel map as a submap.
-	 */
-	BC_cache->c_buffer = NULL;		/* start at the bottom of memory */
-	kret = vm_map(kernel_map,		/* parent map */
-	    (vm_offset_t *)&BC_cache->c_buffer,	/* mapped address */
-	    BC_cache->c_mapsize,		/* mapping size */
-	    0,					/* mask */
-	    1,					/* flags (want VM_MAP_ANYWHERE) */
-	    BC_cache->c_map_port,		/* port */
-	    BC_cache->c_mapbase,		/* offset in child map */
-	    FALSE,				/* copy */
-	    VM_PROT_READ | VM_PROT_WRITE,	/* default memory protection */
-	    VM_PROT_READ | VM_PROT_WRITE,	/* maximum memory protection */
-	    VM_INHERIT_NONE);			/* inheritance */
-	if (kret != KERN_SUCCESS) {
-		debug("vm_map failed - %d", kret);
-		return(ENOMEM);
-	}
-#ifdef __ppc__
-	/*
-	 * Tell the pmap that we are about to touch a *lot* of new memory.
-	 * This is a hack, but the current pmap demands it.
-	 */
-	mapping_prealloc(BC_cache->c_mapsize);
-#endif
 	
-	/*
-	 * Touch every page in the buffer to get it into the pmap.  Some
-	 * device drivers will use the pmap to perform virtual-physical
-	 * translation and fail if we do not do this.
-	 */
-	for (i = 0; i < BC_cache->c_mapsize; i += PAGE_SIZE)
-		*(char *)(BC_cache->c_buffer + i) = 0;
+	(void) vnode_put(BC_cache->c_vp);
 
-#ifdef __ppc__
-	mapping_relpre();
-#endif
-	
 	return(0);
 }
 
@@ -2204,33 +2164,35 @@ BC_alloc_pagebuffer(size_t size)
 static void
 BC_free_pagebuffer(void)
 {
+	kern_return_t kret;
+	if (BC_cache->c_vp != NULL) {
+		/* Can handle a vnode without ubc info */
+		kret = vnode_getwithref(BC_cache->c_vp);
+		if (kret != KERN_SUCCESS) {
+			debug("vnode_getwithref failed - %d", kret);
+			return;
+		}
 
-	if (BC_cache->c_buffer != NULL) {
-		/*
-		 * Remove our submap from the kernel map.
-		 */
-		vm_deallocate(kernel_map,		/* parent map */
-		    (vm_address_t)BC_cache->c_buffer,	/* virtual offset */
-		    BC_cache->c_mapsize);		/* size */
-		BC_cache->c_buffer = NULL;
-		BC_cache->c_mapbase = 0;
-		BC_cache->c_mapsize = 0;
-	}
-	if (BC_cache->c_map != 0) {
-		vm_map_deallocate(BC_cache->c_map);	/* release reference on port */
-		BC_cache->c_map = 0;
-	}
+		kret = ubc_range_op(BC_cache->c_vp, 0, BC_cache->c_cachesize, 
+				UPL_ROP_DUMP, NULL);
+		if (kret != KERN_SUCCESS) {
+			debug("ubc_range_op failed - %d", kret);
+		}
 
-	/*
-	 * Kill our map by removing its name, nuke the object's name.
-	 */
-	if (BC_cache->c_entry_port != 0) {
-		ipc_port_release_send(BC_cache->c_entry_port);
-		BC_cache->c_entry_port = 0;
-	}
-	if (BC_cache->c_map_port != 0) {
-		ipc_port_release_send(BC_cache->c_map_port);
-		BC_cache->c_map_port = 0;
+#if 0
+		/* need this interface to be exported... will eliminate need
+		 * for the ubc_range_op above */
+		kret = vnode_delete(BC_BOOT_BACKINGFILE, vfs_context_current());
+		if (kret) {
+			debug("vnode_delete failed - %d", error);
+		}
+#endif
+		kret = vnode_close(BC_cache->c_vp, 0, vfs_context_current());
+		if (kret != KERN_SUCCESS) {
+			debug("vnode_close failed - %d", kret);
+		}
+		
+		BC_cache->c_vp = NULL;
 	}
 }
 
@@ -2240,42 +2202,48 @@ BC_free_pagebuffer(void)
 static void
 BC_free_page(struct BC_cache_extent *ce, int page)
 {
+	off_t vpoffset;
+	kern_return_t kret;
 
-	/*
-	 * Translate the page in the extent to the page in the submap.
-	 */
-	int realpage = page + (((unsigned int) (ce->ce_data - BC_cache->c_buffer)) / PAGE_SIZE);
+	vpoffset = (page * PAGE_SIZE) + ce->ce_cacheoffset;
+	kret = vnode_getwithvid(BC_cache->c_vp, BC_cache->c_vid);
+	if (kret != KERN_SUCCESS) {
+		debug("vnode_getwithvid failed - %d", kret);
+		return;
+	}
 
-	/*
-	 * Deallocate the page from our submap.
-	 */
-	vm_deallocate(BC_cache->c_map,			/* child map */
-	    BC_cache->c_mapbase + (realpage * PAGE_SIZE),/* offset */
-	    PAGE_SIZE);					/* length */
+	kret = ubc_range_op(BC_cache->c_vp, vpoffset, vpoffset + PAGE_SIZE,
+			UPL_ROP_DUMP, NULL);
+	if (kret != KERN_SUCCESS) {
+		debug("ubc_range_op failed - %d", kret);
+	}
 
-	/*
-	 * Push the page completely out of the object.
-	 */
-	mach_memory_entry_page_op(
-		BC_cache->c_entry_port,			/* handle */
-		(realpage * PAGE_SIZE),			/* offset */
-		UPL_POP_DUMP,				/* operation */
-		NULL,					/* phys_entry */
-		NULL);					/* flags */
+	(void) vnode_put(BC_cache->c_vp);
+}
+
+void
+BC_hook(void)
+{
+	microtime(&BC_cache->c_loadtime);
 }
 
 /*
  * Cache start/stop functions.
  */
 void
-BC_start(void)
+BC_load(void)
 {
-#ifndef STATIC_PLAYLIST
 	struct mach_header	*mh;
-	int			xsize;
+	long			xsize;
+	int			has64bitness, error;
+	size_t			sysctlsize = sizeof(int);
+	char			*plsection = "playlist";
 
 	/* register our control interface */
 	sysctl_register_oid(&sysctl__kern_BootCache);
+
+	/* clear the control structure */
+	bzero(BC_cache, sizeof(*BC_cache));
 
 	/*
 	 * Find the preload section and its size.  If it's not empty
@@ -2287,10 +2255,21 @@ BC_start(void)
 		return;
 	}
 	mh = (struct mach_header *)kmod_info.address;
-	BC_preloaded_playlist = getsectdatafromheader(mh, "BootCache", "playlist",
-						      &BC_preloaded_playlist_size);
-	debug("preload section: %d @ %p", 
-	      BC_preloaded_playlist_size, BC_preloaded_playlist);
+
+	/*
+	 * If booting on a 32-bit only machine, use the "playlist32" section.
+	 * Otherwise, fall through to the default "playlist" section.
+	 */
+	error = sysctlbyname("hw.cpu64bit_capable", &has64bitness, &sysctlsize, 
+			NULL, 0);
+	if (error == 0 && has64bitness == 0) {
+		plsection = "playlist32";
+	}
+	BC_preloaded_playlist = getsectdatafromheader(mh, "BootCache", 
+			plsection, &BC_preloaded_playlist_size);
+	debug("preload section %s: %d @ %p", 
+	      plsection, BC_preloaded_playlist_size, BC_preloaded_playlist);
+
 	if (BC_preloaded_playlist != NULL) {
 		if (BC_preloaded_playlist_size < sizeof(struct BC_playlist_header)) {
 			message("preloaded playlist too small");
@@ -2304,39 +2283,33 @@ BC_start(void)
 		xsize = sizeof(struct BC_playlist_header) + 
 			(BC_preloaded_playlist->ph_entries * sizeof(struct BC_playlist_entry));
 		if (xsize > BC_preloaded_playlist_size) {
-			message("preloaded playlist too small (%d, expected at least %d)",
+			message("preloaded playlist too small (%d, expected at least %ld)",
 				BC_preloaded_playlist_size, xsize);
 			return;
 		}
 		BC_wait_for_readahead = BC_READAHEAD_WAIT_CDROM;
 		mountroot_post_hook = BC_auto_start;
-
+		unmountroot_pre_hook = BC_unmount_hook;
+		microtime(&BC_cache->c_loadtime);
+		
 		debug("waiting for root mount...");
 	} else {
 		/* no preload, normal operation */
 		BC_preloaded_playlist = NULL;
+		mountroot_post_hook = BC_hook;
 		debug("waiting for playlist...");
 	}
-#else /* STATIC_PLAYLIST */
-	/* register our control interface */
-	sysctl_register_oid(&sysctl__kern_BootCache);
-
-	mountroot_post_hook = BC_auto_start;
-	debug("waiting for root mount...");
-#endif /* STATIC_PLAYLIST */
 }
 
 int
-BC_stop(void)
+BC_unload(void)
 {
-	boolean_t funnel_state;
 	int error;
 
-	/* we run under the kernel funnel */
 	error = 1;
-	funnel_state = thread_funnel_set(kernel_flock, TRUE);
 
 	debug("preparing to unload...");
+	unmountroot_pre_hook = NULL;
 	/*
 	 * Kill the timeout handler; we don't want it going off
 	 * now.
@@ -2349,15 +2322,16 @@ BC_stop(void)
 	 */
 	if (BC_terminate_readahead())
 		goto out;
-	BC_terminate_cache();
+	if (BC_terminate_cache())
+		goto out;
 	BC_terminate_history();
+	LOCK_HISTORY();
 	BC_discard_history();
-	BC_cache->c_flags = 0;
+	UNLOCK_HISTORY();
 
 	sysctl_unregister_oid(&sysctl__kern_BootCache);
 	error = 0;
 
 out:
-	(void) thread_funnel_set(kernel_flock, funnel_state);
 	return(error);
 }

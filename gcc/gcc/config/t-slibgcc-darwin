@@ -16,14 +16,14 @@ SHLIB_LC = -lc
 # so the libgcc variants have different names not different locations.
 # Note that this version is used for the loader, not the linker; the linker
 # uses the stub versions named by $(LIBGCC).
-# APPLE LOCAL begin no-libtool
+# APPLE LOCAL begin mainline
 SHLIB_LINK = $(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) -dynamiclib -nodefaultlibs \
 	-install_name $(slibdir)/$(SHLIB_INSTALL_NAME) \
 	-single_module -o $(SHLIB_DIR)/$(SHLIB_SONAME).tmp \
 	-Wl,-exported_symbols_list,$(SHLIB_MAP) \
 	$(SHLIB_VERSTRING) \
 	@multilib_flags@ $(SHLIB_OBJS) $(SHLIB_LC)
-# APPLE LOCAL end no-libtool
+# APPLE LOCAL end mainline
 
 # $(slibdir) double quoted to protect it from expansion while building
 # libgcc.mk.  We want this delayed until actual install time.
@@ -95,12 +95,10 @@ install-darwin-libgcc-stubs : $(INSTALL_FILES) installdirs
 	else true; fi
 	$(LN_S) libgcc_s.1.dylib \
 		$(DESTDIR)$(slibdir)/libgcc_s_ppc64.1.dylib
-# APPLE LOCAL begin x86_64
 	if [ -f $(DESTDIR)$(slibdir)/libgcc_s_x86_64.1.dylib ]; then \
 	  rm -f $(DESTDIR)$(slibdir)/libgcc_s_x86_64.1.dylib; \
 	else true; fi
 	$(LN_S) libgcc_s.1.dylib \
 		$(DESTDIR)$(slibdir)/libgcc_s_x86_64.1.dylib
-# APPLE LOCAL end x86_64
 
 INSTALL_LIBGCC = install-darwin-libgcc-stubs install-multilib

@@ -78,8 +78,11 @@ schedaddtimed(time_t t)
 static void
 scheddeltimed(void)
 {
-    deltimedfn(checksched);
-    schedcmdtimed = 0;
+    if (schedcmdtimed)
+    {
+	deltimedfn(checksched);
+	schedcmdtimed = 0;
+    }
 }
 
 
@@ -115,7 +118,7 @@ checksched(void)
 	scheddeltimed();
 
 	if ((sch->flags & SCHEDFLAG_TRASH_ZLE) && zleactive)
-	    trashzleptr();
+	    zleentry(ZLE_CMD_TRASH);
 	execstring(sch->cmd, 0, 0);
 	zsfree(sch->cmd);
 	zfree(sch, sizeof(struct schedcmd));
@@ -201,12 +204,14 @@ bin_sched(char *nam, char **argv, UNUSED(Options ops), UNUSED(int func))
 
     /* given no arguments, display the schedule list */
     if (!*argptr) {
-	char tbuf[40], *flagstr, *endstr;
-
 	for (sn = 1, sch = schedcmds; sch; sch = sch->next, sn++) {
+	    char tbuf[60], *flagstr, *endstr;
+	    time_t t;
+	    struct tm *tmp;
+
 	    t = sch->time;
-	    tm = localtime(&t);
-	    ztrftime(tbuf, 20, "%a %b %e %k:%M:%S", tm);
+	    tmp = localtime(&t);
+	    ztrftime(tbuf, 40, "%a %b %e %k:%M:%S", tmp);
 	    if (sch->flags & SCHEDFLAG_TRASH_ZLE)
 		flagstr = "-o ";
 	    else
@@ -329,8 +334,56 @@ bin_sched(char *nam, char **argv, UNUSED(Options ops), UNUSED(int func))
     return 0;
 }
 
+
+/**/
+static char **
+schedgetfn(UNUSED(Param pm))
+{
+    int i;
+    struct schedcmd *sch;
+    char **ret, **aptr;
+
+    for (i = 0, sch = schedcmds; sch; sch = sch->next, i++)
+	;
+
+    aptr = ret = zhalloc(sizeof(char **) * (i+1));
+    for (sch = schedcmds; sch; sch = sch->next, aptr++) {
+	char tbuf[40], *flagstr;
+	time_t t;
+
+	t = sch->time;
+	sprintf(tbuf, "%ld", t);
+	if (sch->flags & SCHEDFLAG_TRASH_ZLE)
+	    flagstr = "-o";
+	else
+	    flagstr = "";
+	*aptr = (char *)zhalloc(5 + strlen(tbuf) + strlen(sch->cmd));
+	sprintf(*aptr, "%s:%s:%s", tbuf, flagstr, sch->cmd);
+    }
+    *aptr = NULL;
+
+    return ret;
+}
+
+
 static struct builtin bintab[] = {
     BUILTIN("sched", 0, bin_sched, 0, -1, 0, NULL, NULL),
+};
+
+static const struct gsu_array sched_gsu =
+{ schedgetfn, arrsetfn, stdunsetfn };
+
+static struct paramdef partab[] = {
+    SPECIALPMDEF("zsh_scheduled_events", PM_ARRAY|PM_READONLY,
+		 &sched_gsu, NULL, NULL)
+};
+
+static struct features module_features = {
+    bintab, sizeof(bintab)/sizeof(*bintab),
+    NULL, 0,
+    NULL, 0,
+    partab, sizeof(partab)/sizeof(*partab),
+    0
 };
 
 /**/
@@ -342,10 +395,23 @@ setup_(UNUSED(Module m))
 
 /**/
 int
+features_(Module m, char ***features)
+{
+    *features = featuresarray(m, &module_features);
+    return 0;
+}
+
+/**/
+int
+enables_(Module m, int **enables)
+{
+    return handlefeatures(m, &module_features, enables);
+}
+
+/**/
+int
 boot_(Module m)
 {
-    if(!addbuiltins(m->nam, bintab, sizeof(bintab)/sizeof(*bintab)))
-	return 1;
     addprepromptfn(&checksched);
     return 0;
 }
@@ -364,8 +430,7 @@ cleanup_(Module m)
 	zfree(sch, sizeof(*sch));
     }
     delprepromptfn(&checksched);
-    deletebuiltins(m->nam, bintab, sizeof(bintab)/sizeof(*bintab));
-    return 0;
+    return setfeatureenables(m, &module_features, NULL);
 }
 
 /**/

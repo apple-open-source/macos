@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved. 
+ * Portions Copyright (C) 2001 - 2008 Apple Inc. All rights reserved. 
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -63,6 +63,7 @@ static void usage(void);
 static struct mntopt mopts[] = {
 	MOPT_STDOPTS,
 	{ "streams",	0, SMBFS_MNT_STREAMS_ON, 1 },
+	{ "notification",	1, SMBFS_MNT_NOTIFY_OFF, 1 },
 	{ "soft",	0, SMBFS_MNT_SOFT, 1 },
 	{ NULL, 0, 0, 0 }
 };
@@ -78,8 +79,8 @@ static char *readstring(int fd)
 		if (bytes_read < 0) {
 			err(EX_IOERR, "error reading from authentication pipe: ");
 		} else
-			errx(EX_USAGE, "error reading from authentication pipe: expected %lu bytes, got %ld",
-				 (unsigned long)sizeof stringlen, (long)bytes_read);
+			errx(EX_USAGE, "error reading from authentication pipe: expected %lu bytes, got %lld",
+				 sizeof(stringlen), bytes_read);
 	}
 	
 	if (stringlen == 0xFFFFFFFF)
@@ -91,12 +92,12 @@ static char *readstring(int fd)
 		err(EX_UNAVAILABLE, "can't allocate memory for string: ");
 	
 	bytes_read = read(fd, string, stringlen);
-	if (bytes_read != stringlen) {
+	if ((uint32_t)bytes_read != stringlen) {
 		if (bytes_read < 0)
 			err(EX_IOERR, "error reading from authentication pipe: ");
 		else
 			errx(EX_USAGE, "error reading from authentication pipe: expected %u bytes, got %ld",
-				 stringlen, (long)bytes_read);
+				 stringlen, (int32_t)bytes_read);
 	}
 	string[stringlen] = '\0';
 	return (string);
@@ -115,10 +116,10 @@ main(int argc, char *argv[])
 	const char *cp;
 	int opt;
 	int authpipe = -1;
-	char * url = NULL;
+	const char * url = NULL;
 	int error = 0;
 	int mntflags = 0;
-	int altflags = 0;
+	int altflags = SMBFS_MNT_STREAMS_ON;
 	mode_t	mode;
 	mntoptparse_t mp;
 	int prompt_user = (isatty(STDIN_FILENO)) ? TRUE : FALSE;
@@ -129,7 +130,7 @@ main(int argc, char *argv[])
 		switch (opt) {
 		    case 'p':
 				errno = 0;
-				authpipe = strtol(optarg, &next, 0);
+				authpipe = (int)strtol(optarg, &next, 0);
 				if (errno || (next == optarg) || (*next != 0))
 					errx(EX_NOUSER, "invalid value for authentication pipe FD");
 				break;
@@ -163,7 +164,7 @@ main(int argc, char *argv[])
 				if (mp == NULL)
 					err(1, NULL);
 				freemntopts(mp);
-			break;
+				break;
 			case 'v':
 				errx(EX_OK, "version %d.%d.%d", 
 					SMBFS_VERSION / 100000, (SMBFS_VERSION % 10000) / 1000, (SMBFS_VERSION % 1000) / 100);
@@ -177,7 +178,7 @@ main(int argc, char *argv[])
 	}
 	/* We now have the mount flags and alternative mount flags add them to the mount options */
 	if (mOptions) {
-		CFNumberRef numRef = CFNumberCreate (NULL, kCFNumberSInt32Type, &mntflags);
+		numRef = CFNumberCreate (NULL, kCFNumberSInt32Type, &mntflags);
 
 		if (numRef) {
 			CFDictionarySetValue (mOptions, kMountFlagsKey, numRef);
@@ -185,6 +186,12 @@ main(int argc, char *argv[])
 		}
 		if (altflags & SMBFS_MNT_STREAMS_ON)
 			CFDictionarySetValue (mOptions, kStreamstMountKey, kCFBooleanTrue);
+		else
+			CFDictionarySetValue (mOptions, kStreamstMountKey, kCFBooleanFalse);
+
+		if (altflags & SMBFS_MNT_NOTIFY_OFF)
+			CFDictionarySetValue (mOptions, kNotifyOffMountKey, kCFBooleanTrue);
+		
 		if (altflags & SMBFS_MNT_SOFT)
 			CFDictionarySetValue (mOptions, kSoftMountKey, kCFBooleanTrue);
 	}
@@ -218,12 +225,20 @@ main(int argc, char *argv[])
 		err(EX_NOPERM, "couldn't create mount point reference");
 	
 	/* We should have all our arguments by now load the kernel and initialize the library */
-	if ((errno = smb_load_library(NULL)) != 0)
+	if ((errno = smb_load_library()) != 0)
 		err(EX_UNAVAILABLE, "failed to load the smb library");
 	
 	/* Initialize the context structure */
-	if ((errno = smb_ctx_init(&ctx, url, SMBL_SHARE, SMB_ST_DISK, (mntflags & MNT_AUTOMOUNTED))) != 0)
-		err(EX_UNAVAILABLE, "failed to intitialize the smb library");
+	if ((errno = smb_ctx_init(&ctx, url, SMBL_SHARE, SMB_ST_DISK, (mntflags & MNT_AUTOMOUNTED))) != 0) {
+		/* 
+		 * We will either get an ENOMEM if the library 
+		 * intitialization failed or some error from the URL parse. 
+		 */
+		if (errno == ENOMEM)
+			err(EX_UNAVAILABLE, "failed to intitialize the smb library");
+		else
+			err(EX_UNAVAILABLE, "URL parsing failed, please correct the URL and try again");
+	}
 	
 	/* Force a private session, if being automounted */
 	if (mntflags & (MNT_DONTBROWSE | MNT_AUTOMOUNTED))
@@ -259,26 +274,18 @@ main(int argc, char *argv[])
 		err(EX_NOHOST, "server connection failed");
 	}
 	
-	/* The server supports Kerberos then see we can connect */
-	if (ctx->ct_vc_flags & SMBV_KERBEROS_SUPPORT)
-		error = smb_session_security(ctx, NULL, NULL);
-	else if (ctx->ct_ssn.ioc_opt & SMBV_EXT_SEC)
-		error = ENOTSUP;
-	else 
-		error = smb_session_security(ctx, NULL, NULL);
-		
+	/* The server supports Kerberos then see if we can connect with Kerberos. */
+	if (ctx->ct_vc_flags & SMBV_MECHTYPE_KRB5) {
+		ctx->ct_ssn.ioc_opt |= SMBV_KERBEROS_ACCESS;		
+		error = smb_session_security(ctx, NULL, NULL);		
+	} else if (ctx->ct_vc_shared) {
+		/* See if we can use the same security session with this connectation */
+		error = smb_session_security(ctx, NULL, NULL);				
+	} else
+		error = ENOTSUP;	/* If no Kerberos support then force normal security */
 	
-	/* Either Kerberos failed or they do extended security, but not Kerberos */ 
+	/* Either Kerberos failed or the server doesn't support Kerberos, so now try normal security */ 
 	if (error) {
-	    	if (error < 0) /* Could be an expired password error */
-		    error = EAUTH;
-		ctx->ct_ssn.ioc_opt &= ~SMBV_EXT_SEC;	
-		ctx->ct_flags &= ~SMBCF_CONNECT_STATE;		
-		error  = smb_connect(ctx);
-		if (error) {
-			errno = error;
-			err(EX_NOHOST, "server connection failed");
-		}
 		/* need to command-line prompting for the password */
 		if (prompt_user && ((ctx->ct_flags & SMBCF_EXPLICITPWD) != SMBCF_EXPLICITPWD)) {
 			char passwd[SMB_MAXPASSWORDLEN + 1];
@@ -286,10 +293,17 @@ main(int argc, char *argv[])
 			strncpy(passwd, getpass(SMB_PASSWORD_KEY ":"), SMB_MAXPASSWORDLEN);
 			smb_ctx_setpassword(ctx, passwd);
 		}
+			
+		/* No username or password then they must want anonymous authentication */
+		if ((ctx->ct_setup.ioc_user[0] == 0) && (ctx->ct_setup.ioc_password[0] == 0)) {
+			ctx->ct_ssn.ioc_opt |= SMBV_ANONYMOUS_ACCESS;
+			fprintf(stderr, "Connecting with anonymous authentication.\n");
+		}
+		
 		error = smb_session_security(ctx, NULL, NULL);
 		if (error) {
-	    		if (error < 0) /* Could be an expired password error */
-		    		error = EAUTH;
+			if (error < 0) /* Could be an expired password error */
+				error = EAUTH;
 			errno = error;
 			err(EX_NOPERM, "server rejected the connection");
 		}

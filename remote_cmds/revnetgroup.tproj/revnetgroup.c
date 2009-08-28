@@ -1,28 +1,4 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/* $OpenBSD: revnetgroup.c,v 1.1 1997/04/15 22:06:15 maja Exp $ */
-/*
  * Copyright (c) 1995
  *	Bill Paul <wpaul@ctr.columbia.edu>.  All rights reserved.
  *
@@ -58,21 +34,19 @@
  * Written by Bill Paul <wpaul@ctr.columbia.edu>
  * Center for Telecommunications Research
  * Columbia University, New York City
- *
- *	$FreeBSD: revnetgroup.c,v 1.7 1997/03/28 15:48:15 imp Exp $
  */
 
+#ifndef lint
+static const char rcsid[] =
+  "$FreeBSD: src/libexec/revnetgroup/revnetgroup.c,v 1.13 2005/02/09 20:36:12 ru Exp $";
+#endif /* not lint */
+
+#include <err.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
-#include <errno.h>
-#include <err.h>
+#include <unistd.h>
 #include "hash.h"
-
-#ifndef lint
-__unused static const char rcsid[] = "$OpenBSD: revnetgroup.c,v 1.1 1997/04/15 22:06:15 maja Exp $";
-#endif
 
 /* Default location of netgroup file. */
 char *netgroup = "/etc/netgroup";
@@ -86,19 +60,15 @@ struct group_entry *gtable[TABLESIZE];
  */
 struct member_entry *mtable[TABLESIZE];
 
-void usage(prog)
-char *prog;
+static void
+usage(void)
 {
-	fprintf (stderr,"usage: %s -u|-h [-f netgroup file]\n",prog);
+	fprintf (stderr,"usage: revnetgroup -u | -h [-f netgroup_file]\n");
 	exit(1);
 }
 
-extern char *optarg;
-
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
 	FILE *fp;
 	char readbuf[LINSIZ];
@@ -110,21 +80,21 @@ main(argc, argv)
 	int hosts = -1, i;
 
 	if (argc < 2)
-		usage(argv[0]);
+		usage();
 
 	while ((ch = getopt(argc, argv, "uhf:")) != -1) {
 		switch(ch) {
 		case 'u':
 			if (hosts != -1) {
 				warnx("please use only one of -u or -h");
-				usage(argv[0]);
+				usage();
 			}
 			hosts = 0;
 			break;
 		case 'h':
 			if (hosts != -1) {
 				warnx("please use only one of -u or -h");
-				usage(argv[0]);
+				usage();
 			}
 			hosts = 1;
 			break;
@@ -132,17 +102,17 @@ main(argc, argv)
 			netgroup = optarg;
 			break;
 		default:
-			usage(argv[0]);
+			usage();
 			break;
 		}
 	}
 
 	if (hosts == -1)
-		usage(argv[0]);
+		usage();
 
 	if (strcmp(netgroup, "-")) {
 		if ((fp = fopen(netgroup, "r")) == NULL) {
-			err(1,netgroup);
+			err(1, "%s", netgroup);
 		}
 	} else {
 		fp = stdin;

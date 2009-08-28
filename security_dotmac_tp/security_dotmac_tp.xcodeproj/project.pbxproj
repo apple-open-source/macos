@@ -99,7 +99,7 @@
 		0582D06A064813B500577DEB /* dotMacTpAsn1Templates.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = dotMacTpAsn1Templates.h; path = lib/dotMacTpAsn1Templates.h; sourceTree = "<group>"; };
 		0582D0A80648160200577DEB /* dotMacTpAsn1Templates.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = dotMacTpAsn1Templates.cpp; path = lib/dotMacTpAsn1Templates.cpp; sourceTree = "<group>"; };
 		0582D18E0648269100577DEB /* dotmac_tp.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = dotmac_tp.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
-		0582D18F0648269100577DEB /* dotmac_tp-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "dotmac_tp-Info.plist"; sourceTree = SOURCE_ROOT; };
+		0582D18F0648269100577DEB /* dotmac_tp-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "dotmac_tp-Info.plist"; sourceTree = SOURCE_ROOT; };
 		05B8665406C0211B005E1549 /* security_dotmac_tp.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = security_dotmac_tp.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		05C6EE9A06C00E9D00D0BEF2 /* dotmac_policyOids.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = dotmac_policyOids.mdsinfo; path = mds/dotmac_policyOids.mdsinfo; sourceTree = "<group>"; };
 		05D01A4F06404527004A4E75 /* dotMacXmlRpc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = dotMacXmlRpc.h; path = lib/dotMacXmlRpc.h; sourceTree = "<group>"; };
@@ -336,7 +336,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 33607;
+				CURRENT_PROJECT_VERSION = 36564;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
@@ -357,7 +357,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 33607;
+				CURRENT_PROJECT_VERSION = 36564;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
@@ -377,7 +377,7 @@
 		C27AD4680987FCE9001272E0 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 33607;
+				CURRENT_PROJECT_VERSION = 36564;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
@@ -399,7 +399,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 33607;
+				DYLIB_CURRENT_VERSION = 36564;
 				FRAMEWORK_VERSION = A;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks;
@@ -417,7 +417,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 33607;
+				DYLIB_CURRENT_VERSION = 36564;
 				FRAMEWORK_VERSION = A;
 				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks;
 				OTHER_CFLAGS = "-DNDEBUG";
@@ -434,7 +434,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 33607;
+				DYLIB_CURRENT_VERSION = 36564;
 				FRAMEWORK_VERSION = A;
 				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks;
 				PRODUCT_NAME = security_dotmac_tp;

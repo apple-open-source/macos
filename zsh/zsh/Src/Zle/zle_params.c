@@ -87,9 +87,14 @@ static const struct gsu_integer numeric_gsu =
 { get_numeric, set_numeric, unset_numeric };
 static const struct gsu_integer pending_gsu =
 { get_pending, NULL, zleunsetfn };
+static const struct gsu_integer region_active_gsu =
+{ get_region_active, set_region_active, zleunsetfn };
 
 static const struct gsu_array killring_gsu =
 { get_killring, set_killring, unset_killring };
+/* implementation is in zle_refresh.c */
+static const struct gsu_array region_highlight_gsu =
+{ get_region_highlight, set_region_highlight, unset_region_highlight };
 
 #define GSU(X) ( (GsuScalar)(void*)(&(X)) )
 static struct zleparam {
@@ -120,6 +125,8 @@ static struct zleparam {
     { "PREBUFFER",  PM_SCALAR | PM_READONLY,  GSU(prebuffer_gsu), NULL },
     { "PREDISPLAY", PM_SCALAR, GSU(predisplay_gsu), NULL },
     { "RBUFFER", PM_SCALAR,  GSU(rbuffer_gsu), NULL },
+    { "REGION_ACTIVE", PM_INTEGER, GSU(region_active_gsu), NULL},
+    { "region_highlight", PM_ARRAY, GSU(region_highlight_gsu), NULL },
     { "WIDGET", PM_SCALAR | PM_READONLY, GSU(widget_gsu), NULL },
     { "WIDGETFUNC", PM_SCALAR | PM_READONLY, GSU(widgetfunc_gsu), NULL },
     { "WIDGETSTYLE", PM_SCALAR | PM_READONLY, GSU(widgetstyle_gsu), NULL },
@@ -241,6 +248,20 @@ static zlong
 get_mark(UNUSED(Param pm))
 {
     return mark;
+}
+
+/**/
+static void
+set_region_active(UNUSED(Param pm), zlong x)
+{
+    region_active = (int)!!x;
+}
+
+/**/
+static zlong
+get_region_active(UNUSED(Param pm))
+{
+    return region_active;
 }
 
 /**/
@@ -497,16 +518,18 @@ set_killring(UNUSED(Param pm), char **x)
 	 */
 	int kpos = 0;
 	kringsize = arrlen(x);
-	kring = (Cutbuffer)zshcalloc(kringsize * sizeof(struct cutbuffer));
-	for (p = x; *p; p++) {
-	    int n, len = strlen(*p);
-	    kptr = kring + kpos;
+	if (kringsize != 0) {
+	    kring = (Cutbuffer)zshcalloc(kringsize * sizeof(struct cutbuffer));
+	    for (p = x; *p; p++) {
+		int n, len = strlen(*p);
+		kptr = kring + kpos;
 
-	    kptr->buf = stringaszleline(*p, 0, &n, NULL, NULL);
-	    kptr->len = n;
+		kptr->buf = stringaszleline(*p, 0, &n, NULL, NULL);
+		kptr->len = n;
 
-	    zfree(*p, len+1);
-	    kpos = (kpos + kringsize -1 ) % kringsize;
+		zfree(*p, len+1);
+		kpos = (kpos + kringsize -1 ) % kringsize;
+	    }
 	}
 	free(x);
     }

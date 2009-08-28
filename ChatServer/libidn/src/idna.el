@@ -1,6 +1,6 @@
 ;;; idna.el --- Internationalizing Domain Names in Applications.
 
-;; Copyright (C) 2003, 2005  Simon Josefsson
+;; Copyright (C) 2003, 2005, 2006, 2007  Simon Josefsson
 ;; Keywords: idna, idn, domain name, internationalization
 
 ;; This file is part of GNU Libidn.

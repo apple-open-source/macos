@@ -42,7 +42,7 @@ tests if a given user is a member of a group, individually or as a member of a n
 .Fa ismember
 is set to 1 if the user is a member of the group, and 0 otherwise.  
 .Pp
-Users may belong to any number of grouos.
+Users may belong to any number of groups.
 .Fn mbr_check_membership
 should be always be used to check group membership, rather than
 calling
@@ -83,7 +83,7 @@ Note that
 does not test whether
 .Fa group
 exists or not.
-Querying membership for a nonexistant group will result in
+Querying membership for a nonexistent group will result in
 .Fa ismember
 being to 0 and a return value of 0.
 .Sh SEE ALSO

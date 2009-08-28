@@ -9,7 +9,7 @@
 # Note, you can set V from the buildit command line by specifying V=2
 # or V=3[.x] after the pathname to the gcc_select source folder.
 
-V = 4.0
+V = 4.2
 
 #---------------------------------------------------------------------#
 

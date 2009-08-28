@@ -9,8 +9,11 @@ ifeq ($(Embedded),NO)
 USERDEFS = kextmanager.defs
 endif
 
+Extra_CC_Flags = -Wall -Werror -mdynamic-no-pic
+Extra_LD_Flags = -dead_strip
+
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make
 
 after_install:
-	$(LN) $(DSTROOT)/$(Install_Dir)/reboot $(DSTROOT)$(Install_Dir)/halt
+	$(LN) -f $(DSTROOT)/$(Install_Dir)/reboot $(DSTROOT)$(Install_Dir)/halt
 	$(LN) -fs reboot.8 $(DSTROOT)/usr/share/man/man8/halt.8

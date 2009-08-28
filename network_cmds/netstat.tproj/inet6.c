@@ -1,3 +1,30 @@
+/*
+ * Copyright (c) 2008 Apple Inc. All rights reserved.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ *
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+ */
 
 /*	BSDI inet.c,v 2.3 1995/10/24 02:19:29 prb Exp	*/
 /*
@@ -75,8 +102,6 @@ static char sccsid[] = "@(#)inet6.c	8.4 (Berkeley) 4/20/94";
 
 char	*inet6name (struct in6_addr *);
 void	inet6print (struct in6_addr *, int, char *, int);
-
-static char ntop_buf[INET6_ADDRSTRLEN];
 
 static	char *ip6nh[] = {
 	"hop by hop",
@@ -341,7 +366,7 @@ static	char *ip6nh[] = {
  * Dump IP6 statistics structure.
  */
 void
-ip6_stats(u_long off __unused, char *name, int af __unused)
+ip6_stats(uint32_t off __unused, char *name, int af __unused)
 {
 	static struct ip6stat pip6stat;
 	struct ip6stat ip6stat;
@@ -821,7 +846,7 @@ static	char *icmp6names[] = {
  * Dump ICMP6 statistics.
  */
 void
-icmp6_stats(u_long off __unused, char *name, int af __unused)
+icmp6_stats(uint32_t off __unused, char *name, int af __unused)
 {
 	static struct icmp6stat picmp6stat;
 	struct icmp6stat icmp6stat;
@@ -1012,7 +1037,7 @@ pim6_stats(void)
  * Dump raw ip6 statistics structure.
  */
 void
-rip6_stats(u_long off __unused, char *name, int af __unused)
+rip6_stats(uint32_t off __unused, char *name, int af __unused)
 {
 	static struct rip6stat prip6stat;
 	struct rip6stat rip6stat;

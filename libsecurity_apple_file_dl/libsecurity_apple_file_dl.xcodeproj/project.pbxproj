@@ -55,36 +55,12 @@
 		4094B099057EA68B00B44BCC /* dl_common.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = dl_common.mdsinfo; sourceTree = "<group>"; };
 		4094B09A057EA68B00B44BCC /* dl_primary.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = dl_primary.mdsinfo; sourceTree = "<group>"; };
 		4C3180550540C0AB006FC739 /* security_apple_file_dl.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = security_apple_file_dl.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		4CA1FEBE052A3C8100F22E42 /* security_apple_file_dl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; path = security_apple_file_dl; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CA1FEBE052A3C8100F22E42 /* security_apple_file_dl */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = security_apple_file_dl; sourceTree = BUILT_PRODUCTS_DIR; };
 		C2196B68053B59D4005808D4 /* AppleDLBuiltin.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleDLBuiltin.cpp; path = lib/AppleDLBuiltin.cpp; sourceTree = "<group>"; };
 		C28436DC0534880F000AE0FC /* AppleDLPlugin.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleDLPlugin.cpp; sourceTree = "<group>"; };
 		C28436DD0534880F000AE0FC /* AppleFileDL.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleFileDL.cpp; sourceTree = "<group>"; };
 		C28436DE0534880F000AE0FC /* AppleFileDL.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleFileDL.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
-
-/* Begin PBXFrameworkTarget section */
-		4C3180540540C0AB006FC739 /* security_apple_file_dl */ = {
-			isa = PBXFrameworkTarget;
-			buildConfigurationList = C27AD2730987FCDC001272E0 /* Build configuration list for PBXFrameworkTarget "security_apple_file_dl" */;
-			buildPhases = (
-				4C31804F0540C0AB006FC739 /* Headers */,
-				4CCBFF75058000DB00981D43 /* CopyFiles */,
-				4CCBFF76058000DD00981D43 /* CopyFiles */,
-			);
-			dependencies = (
-			);
-			name = security_apple_file_dl;
-			productInstallPath = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-			productName = security_apple_file_dl;
-			productReference = 4C3180550540C0AB006FC739 /* security_apple_file_dl.framework */;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict/>
-</plist>
-";
-		};
-/* End PBXFrameworkTarget section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		4CA1FEBB052A3C8100F22E42 /* Frameworks */ = {
@@ -155,16 +131,36 @@
 		};
 /* End PBXHeadersBuildPhase section */
 
-/* Begin PBXLibraryTarget section */
+/* Begin PBXNativeTarget section */
+		4C3180540540C0AB006FC739 /* security_apple_file_dl */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD2730987FCDC001272E0 /* Build configuration list for PBXNativeTarget "security_apple_file_dl" */;
+			buildPhases = (
+				4C31804F0540C0AB006FC739 /* Headers */,
+				4CCBFF75058000DB00981D43 /* CopyFiles */,
+				4CCBFF76058000DD00981D43 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = security_apple_file_dl;
+			productInstallPath = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+			productName = security_apple_file_dl;
+			productReference = 4C3180550540C0AB006FC739 /* security_apple_file_dl.framework */;
+			productType = "com.apple.product-type.framework";
+		};
 		4CA1FEBD052A3C8100F22E42 /* libsecurity_apple_file_dl */ = {
-			isa = PBXLibraryTarget;
-			buildConfigurationList = C27AD2770987FCDC001272E0 /* Build configuration list for PBXLibraryTarget "libsecurity_apple_file_dl" */;
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD2770987FCDC001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_apple_file_dl" */;
 			buildPhases = (
 				4CA1FEB9052A3C8100F22E42 /* Headers */,
 				4CA1FEBA052A3C8100F22E42 /* Sources */,
 				4CA1FEBB052A3C8100F22E42 /* Frameworks */,
 				4C789C89055AF8E500B6FC95 /* ShellScript */,
 				4CD0D503055B1122001715CB /* ShellScript */,
+			);
+			buildRules = (
 			);
 			dependencies = (
 				4C7502A60540C7A600056564 /* PBXTargetDependency */,
@@ -173,8 +169,9 @@
 			productInstallPath = /usr/local/lib;
 			productName = libsecurity_apple_file_dl;
 			productReference = 4CA1FEBE052A3C8100F22E42 /* security_apple_file_dl */;
+			productType = "com.apple.product-type.library.static";
 		};
-/* End PBXLibraryTarget section */
+/* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
@@ -186,7 +183,6 @@
 			productRefGroup = 4CA1FEBF052A3C8100F22E42 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
-			shouldCheckCompatibility = 1;
 			targets = (
 				4CA1FEBD052A3C8100F22E42 /* libsecurity_apple_file_dl */,
 				4C3180540540C0AB006FC739 /* security_apple_file_dl */,
@@ -202,7 +198,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tln -fs \"../../../${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework/Versions/A\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework\n\tnmedit -p \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\n\tranlib \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\ndone";
+			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tditto -V \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}${postfix}\" \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\n\tln -fs \"../../../${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework/Versions/A\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework\n\tnmedit -p \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\n\tranlib \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\ndone";
 		};
 		4CD0D503055B1122001715CB /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -240,11 +236,13 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				INFOPLIST_FILE = "Info-security_apple_file_dl.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Components/Security;
 				PRODUCT_NAME = security_apple_file_dl;
 				WRAPPER_EXTENSION = framework;
@@ -255,8 +253,10 @@
 		C27AD2750987FCDC001272E0 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INFOPLIST_FILE = "Info-security_apple_file_dl.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Components/Security;
 				PRODUCT_NAME = security_apple_file_dl;
 				WRAPPER_EXTENSION = framework;
@@ -267,7 +267,10 @@
 		C27AD2760987FCDC001272E0 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
+				INFOPLIST_FILE = "Info-security_apple_file_dl.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Components/Security;
 				PRODUCT_NAME = security_apple_file_dl;
 				WRAPPER_EXTENSION = framework;
@@ -278,10 +281,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 29159;
+				CURRENT_PROJECT_VERSION = 36064;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				HEADER_SEARCH_PATHS = (
@@ -302,7 +306,7 @@
 				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
 				PRODUCT_NAME = security_apple_file_dl;
@@ -323,9 +327,10 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 29159;
+				CURRENT_PROJECT_VERSION = 36064;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
@@ -344,7 +349,7 @@
 				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
 				PRODUCT_NAME = security_apple_file_dl;
@@ -365,7 +370,9 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 29159;
+				CURRENT_PROJECT_VERSION = 36064;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
@@ -385,7 +392,7 @@
 				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
 				PRODUCT_NAME = security_apple_file_dl;
@@ -426,7 +433,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		C27AD2730987FCDC001272E0 /* Build configuration list for PBXFrameworkTarget "security_apple_file_dl" */ = {
+		C27AD2730987FCDC001272E0 /* Build configuration list for PBXNativeTarget "security_apple_file_dl" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C27AD2740987FCDC001272E0 /* Development */,
@@ -436,7 +443,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
-		C27AD2770987FCDC001272E0 /* Build configuration list for PBXLibraryTarget "libsecurity_apple_file_dl" */ = {
+		C27AD2770987FCDC001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_apple_file_dl" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C27AD2780987FCDC001272E0 /* Development */,

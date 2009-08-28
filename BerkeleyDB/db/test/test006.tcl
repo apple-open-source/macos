@@ -1,9 +1,8 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1996-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 1996,2007 Oracle.  All rights reserved.
 #
-# $Id: test006.tcl,v 1.2 2004/03/30 01:24:08 jtownsen Exp $
+# $Id: test006.tcl,v 12.5 2007/05/17 15:15:56 bostic Exp $
 #
 # TEST	test006
 # TEST	Small keys/medium data
@@ -31,7 +30,7 @@ proc test006 { method {nentries 10000} {reopen 0} {tnum "006"} \
 
 proc test006_body { method {nentries 10000} {reopen 0} {tnum "006"} \
     {ndups 5} sort flags {largs ""} } {
-
+	global is_je_test
 	source ./include.tcl
 
 	set do_renumber [is_rrecno $method]
@@ -54,6 +53,10 @@ proc test006_body { method {nentries 10000} {reopen 0} {tnum "006"} \
 		set basename $dbname
 		incr eindex
 		set env [lindex $largs $eindex]
+		if { $is_je_test && $sort == "unsorted" } {
+			puts "Test$tnum skipping $sort duplicates for JE"
+			return
+		}
 		set txnenv [is_txnenv $env]
 		if { $txnenv == 1 } {
 			append largs " -auto_commit "

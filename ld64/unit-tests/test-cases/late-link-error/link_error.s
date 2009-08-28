@@ -16,3 +16,7 @@ _foo:	movl  _strcmp, %eax
 _foo:	movl  _strcmp(%rip), %eax
 #endif
 
+#if __arm__
+	; illegal absolute load
+_foo:	ldr r2, _strcmp
+#endif

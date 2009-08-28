@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -35,16 +31,21 @@
 static char sccsid[] = "@(#)qsort.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdlib/qsort.c,v 1.12 2002/09/10 02:04:49 wollman Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdlib/qsort.c,v 1.15 2008/01/14 09:21:34 das Exp $");
 
 #include <stdlib.h>
+#include <string.h>
 
 #ifdef I_AM_QSORT_R
 typedef int		 cmp_t(void *, const void *, const void *);
 #else
 typedef int		 cmp_t(const void *, const void *);
 #endif
+#ifdef I_AM_QSORT_B
+static inline char	*med3(char *, char *, char *, cmp_t ^, void *) __attribute__((always_inline));
+#else
 static inline char	*med3(char *, char *, char *, cmp_t *, void *) __attribute__((always_inline));
+#endif
 static inline void	 swapfunc(char *, char *, int, int) __attribute__((always_inline));
 
 #define min(a, b)	(a) < (b) ? a : b
@@ -94,7 +95,13 @@ swapfunc(a, b, n, swaptype)
 #endif
 
 static inline char *
-med3(char *a, char *b, char *c, cmp_t *cmp, void *thunk
+med3(char *a, char *b, char *c,
+#ifdef I_AM_QSORT_B
+cmp_t ^cmp,
+#else
+cmp_t *cmp,
+#endif
+void *thunk
 #ifndef I_AM_QSORT_R
 __unused
 #endif
@@ -105,19 +112,47 @@ __unused
               :(CMP(thunk, b, c) > 0 ? b : (CMP(thunk, a, c) < 0 ? a : c ));
 }
 
+#ifdef __LP64__
+#define DEPTH(x)	(2 * (flsl((long)(x)) - 1))
+#else /* !__LP64__ */
+#define DEPTH(x)	(2 * (fls((int)(x)) - 1))
+#endif /* __LP64__ */
+
 #ifdef I_AM_QSORT_R
-void
-qsort_r(void *a, size_t n, size_t es, void *thunk, cmp_t *cmp)
-#else
-#define thunk NULL
-void
-qsort(void *a, size_t n, size_t es, cmp_t *cmp)
+int __heapsort_r(void *, size_t, size_t, void *, int (*)(void *, const void *, const void *));
 #endif
+
+static void
+_qsort(void *a, size_t n, size_t es,
+#ifdef I_AM_QSORT_R
+void *thunk,
+#else
+#define thunk	NULL
+#endif
+#ifdef I_AM_QSORT_B
+cmp_t ^cmp,
+#else
+cmp_t *cmp,
+#endif
+int depth_limit)
 {
 	char *pa, *pb, *pc, *pd, *pl, *pm, *pn;
-	int d, r, swaptype, swap_cnt;
+	size_t d, r;
+	int cmp_result;
+	int swaptype, swap_cnt;
 
-loop:	SWAPINIT(a, es);
+loop:
+	if (depth_limit-- <= 0) {
+#ifdef I_AM_QSORT_B
+		heapsort_b(a, n, es, cmp);
+#elif defined(I_AM_QSORT_R)
+		__heapsort_r(a, n, es, thunk, cmp);
+#else
+		heapsort(a, n, es, cmp);
+#endif
+		return;
+	}
+	SWAPINIT(a, es);
 	swap_cnt = 0;
 	if (n < 7) {
 		for (pm = (char *)a + es; pm < (char *)a + n * es; pm += es)
@@ -144,16 +179,16 @@ loop:	SWAPINIT(a, es);
 
 	pc = pd = (char *)a + (n - 1) * es;
 	for (;;) {
-		while (pb <= pc && (r = CMP(thunk, pb, a)) <= 0) {
-			if (r == 0) {
+		while (pb <= pc && (cmp_result = CMP(thunk, pb, a)) <= 0) {
+			if (cmp_result == 0) {
 				swap_cnt = 1;
 				swap(pa, pb);
 				pa += es;
 			}
 			pb += es;
 		}
-		while (pb <= pc && (r = CMP(thunk, pc, a)) >= 0) {
-			if (r == 0) {
+		while (pb <= pc && (cmp_result = CMP(thunk, pc, a)) >= 0) {
+			if (cmp_result == 0) {
 				swap_cnt = 1;
 				swap(pc, pd);
 				pd -= es;
@@ -167,25 +202,31 @@ loop:	SWAPINIT(a, es);
 		pb += es;
 		pc -= es;
 	}
-	if (swap_cnt == 0) {  /* Switch to insertion sort */
-		for (pm = (char *)a + es; pm < (char *)a + n * es; pm += es)
-			for (pl = pm; 
-			     pl > (char *)a && CMP(thunk, pl - es, pl) > 0;
-			     pl -= es)
-				swap(pl, pl - es);
-		return;
-	}
 
 	pn = (char *)a + n * es;
 	r = min(pa - (char *)a, pb - pa);
 	vecswap(a, pb - r, r);
 	r = min(pd - pc, pn - pd - es);
 	vecswap(pb, pn - r, r);
+
+	if (swap_cnt == 0) {  /* Switch to insertion sort */
+		r = 1 + n / 4; /* n >= 7, so r >= 2 */
+		for (pm = (char *)a + es; pm < (char *)a + n * es; pm += es)
+			for (pl = pm; 
+			     pl > (char *)a && CMP(thunk, pl - es, pl) > 0;
+			     pl -= es) {
+				swap(pl, pl - es);
+				if (++swap_cnt > r) goto nevermind;
+			}
+		return;
+	}
+
+nevermind:
 	if ((r = pb - pa) > es)
 #ifdef I_AM_QSORT_R
-		qsort_r(a, r / es, es, thunk, cmp);
+		_qsort(a, r / es, es, thunk, cmp, depth_limit);
 #else
-		qsort(a, r / es, es, cmp);
+		_qsort(a, r / es, es, cmp, depth_limit);
 #endif
 	if ((r = pd - pc) > es) {
 		/* Iterate rather than recurse to save stack space */
@@ -194,4 +235,20 @@ loop:	SWAPINIT(a, es);
 		goto loop;
 	}
 /*		qsort(pn - r, r / es, es, cmp);*/
+}
+
+void
+#ifdef I_AM_QSORT_R
+qsort_r(void *a, size_t n, size_t es, void *thunk, cmp_t *cmp)
+#elif defined(I_AM_QSORT_B)
+qsort_b(void *a, size_t n, size_t es, cmp_t ^cmp)
+#else
+qsort(void *a, size_t n, size_t es, cmp_t *cmp)
+#endif
+{
+	_qsort(a, n, es,
+#ifdef I_AM_QSORT_R
+		thunk,
+#endif
+		cmp, DEPTH(n));
 }

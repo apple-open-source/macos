@@ -3,19 +3,20 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -33,6 +34,22 @@
 
 __BEGIN_DECLS
 
+// kIOPMSystemPowerStateNotify
+// Notify(3) string that PM fires every time the system begins a sleep, wake, or a maintenance wake.
+// The notification fires at the "system will" notificatin phase; e.g. at the beginning of the sleep or wake.
+// Unless you have a strong need for this asynchronous sleep/wake notification, you should really be using IOPMConnectionCreate().
+#define kIOPMSystemPowerStateNotify "com.apple.powermanagement.systempowerstate"
+
+// kIOPMSystemPowerCapabilitiesKeySuffix
+// SCDynamicStoreKey location where the system state capability can be found.
+// This state is always updated immediately prior to when PM delivers 
+// the notify (3) notification kIOPMSystemPowerStateNotify
+// The System power capabilities are defined by the enum IOPMSystemPowerStateCapabilities below.
+#define kIOPMSystemPowerCapabilitiesKeySuffix   "/IOKit/SystemPowerCapabilities"
+
+// kIOPMServerBootstrapName
+// The PM system server registers via this key with launchd.
+// Do not use. There's no reason for any code outside of PowerManagement to use this.
 #define kIOPMServerBootstrapName    "com.apple.PowerManagement.control"
 
 // AutoWake API
@@ -78,9 +95,6 @@ __BEGIN_DECLS
 * Private assertions
 *
 **************************************************/
-// Keeps the CPU at its highest level
-#define kIOPMAssertionTypeNeedsCPU              CFSTR("CPUBoundAssertion")
-#define kIOPMCPUBoundAssertion                  kIOPMAssertionTypeNeedsCPU
 
 // Disables AC Power Inflow (requires root to initiate)
 #define kIOPMAssertionTypeDisableInflow         CFSTR("DisableInflow")
@@ -97,6 +111,12 @@ __BEGIN_DECLS
 // Once initially asserted, the machine may only idle sleep while this assertion
 // is asserted. For embedded use only.
 #define kIOPMAssertionTypeEnableIdleSleep           CFSTR("EnableIdleSleep")
+
+
+// Needs CPU Assertions - DEPRECATED
+// Only have meaning on PowerPC machines.
+#define kIOPMAssertionTypeNeedsCPU              CFSTR("CPUBoundAssertion")
+#define kIOPMCPUBoundAssertion                  kIOPMAssertionTypeNeedsCPU
 
 
 /*
@@ -202,10 +222,6 @@ CFStringRef IOPMAssertionCreateAggregateAssertionKey(void);
 #define kIOPMSystemSleepKey                             "System Sleep Timer"	
 
 // units - CFNumber 0/1
-#define kIOPMReduceSpeedKey                             "Reduce Processor Speed"
-// units - CFNumber 0/1
-#define kIOPMDynamicPowerStepKey                        "Dynamic Power Step"
-// units - CFNumber 0/1
 #define kIOPMWakeOnLANKey                               "Wake On LAN"
 // units - CFNumber 0/1
 #define kIOPMWakeOnRingKey                              "Wake On Modem Ring"
@@ -227,6 +243,15 @@ CFStringRef IOPMAssertionCreateAggregateAssertionKey(void);
 #define kIOPMTTYSPreventSleepKey                        "TTYSPreventSleep"
 // units - CFNumber 0/1
 #define kIOPMGPUSwitchKey                               "GPUSwitch"
+
+
+// kIOPMReduceSpeedKey
+// Deprecated; do not use. Only relevant to PowerPC systems.
+#define kIOPMReduceSpeedKey                             "Reduce Processor Speed"
+
+// kIOPMDynamicPowerStepKey
+// Deprecated; do not use. Only relevant to PowerPC systems.
+#define kIOPMDynamicPowerStepKey                        "Dynamic Power Step"
 
 typedef void (*IOPMPrefsCallbackType)(void *context);
 
@@ -530,6 +555,11 @@ IOReturn IOPMCancelAllRepeatingPowerEvents(void);
 
 /* @function IOPMCopyCPUPowerStatus
     @abstract Copy status of all current CPU power levels.
+    @discussion The returned dictionary may define some of these keys, 
+                    as defined in IOPM.h:
+          - kIOPMCPUPowerLimitProcessorSpeedKey
+          - kIOPMCPUPowerLimitProcessorCountKey
+          - kIOPMCPUPowerLimitSchedulerTimeKey        
     @param cpuPowerStatus Upon success, a pointer to a dictionary defining CPU power; 
         otherwise NULL. Pointer will be populated with a newly created dictionary 
         upon successful return. Caller must release dictionary.
@@ -567,6 +597,401 @@ IOReturn IOPMGetThermalWarningLevel(uint32_t *thermalLevel);
 IOReturn IOPMSystemPowerEventOccurred(
         CFStringRef typeString, 
         CFTypeRef eventValue);
+
+
+/**************************************************
+*
+* Sleep/Wake Bookkeeping API
+*
+* Returns timing details about system level power events.
+*
+**************************************************/
+
+/*! IOPMGetLastWakeTime returns the timestamp of the last system wake.
+ *  If possible, the wakeup time is adjusted backward using hardware
+ *  timers, so that whenWake refers to the time of the physical event
+ *  that woke the system.
+ *  @param whenWoke On successful return, whenWoke will contain the CFAbsoluteTime,
+ *      in the CF time scale, that the system awoke. This time is already adjusted
+ *      with the SMC wake delta, when available.
+ *  @param adjustedForPhsyicalWake Returns the interval (in CF time units of seconds) that
+ *      PM adjusted the wakeup time by. If the system doesn't support the HW timers
+ *      required to adjust the time, this value will be zero.
+ *  @result Returns kIOReturnSuccess; all others returns indicate a failure; the returned
+ *      time values should not be used upon a failure return value.
+ */
+IOReturn IOPMGetLastWakeTime(
+        CFAbsoluteTime      *whenWoke,
+        CFTimeInterval      *adjustedForPhysicalWake);
+
+/*! IOPMSleepWakeSetUUID
+ *  Sets the upcoming sleep/wake UUID. The kernel will cache
+ *  this and activate it the next time the system goes to sleep.
+ *  Pass a CFStringRef to set the upcoming UUID.
+ *  Pass NULL to indicate that the current UUID should be cancelled.
+ *  Only should be called by PM configd & loginwindow.
+ */
+IOReturn IOPMSleepWakeSetUUID(CFStringRef newUUID);
+ 
+/*! IOPMSleepWakeCopyUUID
+ *  Returns the active sleep wake UUID, if it exists.
+ *  The returned UUID is only useful for logging events that occurred during
+ *  the given sleep/wake.
+ *  Returns a CFString containing the UUID. May return NULL if there is no UUID.
+ *  Unless the result is NULL, caller must release the result.
+ */
+CFStringRef IOPMSleepWakeCopyUUID(void);
+
+// Poweranagement's 1-byte status code
+#define kIOPMSleepWakeFailureKey            "PMFailurePhase"
+
+// PCI Device failure name
+// Will indicate which driver-subtree it occured in 
+// If the failure took place during a driver sleep/wake phase,
+#define kIOPMSleepWakeFailureDriverTreeKey  "PCIDeviceFailure"
+
+// LoginWindow's 1-byte status code
+// Will indicate LoginWindow's role in putting up the security panel 
+//  if the failure took place during sleep phase:
+//  kIOPMTracePointSystemLoginwindowPhase = 0x30
+#define kIOPMSleepWakeFailureLoginKey       "LWFailurePhase"
+
+// The UUID of the sleep that failed
+#define kIOPMSleepWakeFailureUUIDKey        "UUID"
+
+// The date of the attempted sleep that resulted in failure.
+#define kIOPMSleepWakeFailureDateKey        "Date"
+
+// PowerManagement's 8-byte failure descriptor.
+// Do not reference this key, instead references the decoded data
+// stored under other keys in this dictionary.
+#define kIOPMSleepWakeFailureCodeKey        "PMStatusCode"
+
+
+/*
+ * For use by LoginWindow only.
+ * facility - Pass CFSTR(kIOPMLoginWindowSecurityDebugKey) for the facility
+ * data - Pass a pointer to a variable containing one byte of data.
+ * dataCount - Pass the integer 1.
+ */
+IOReturn IOPMDebugTracePoint(
+        CFStringRef     facility, 
+        uint8_t         *data, 
+        int             dataCount);
+
+
+/*
+ * Returns data describing the sleep failure (if any) that occured prior to the system booting.
+ *
+ * This routine will return the same CFDictionary over the lifetime of a given boot - it does not return
+ * dynamic information after each sleep/wake. It only returns information pertaining to the last
+ * failed sleep/wake before booting up.
+ * 
+ * If NULL, then the last sleep/wake was successful, or we were unable to determine whether
+ * there was a problem.
+ * If non-NULL, Caller must release the returned dictionary.
+ *
+ * kIOPMSleepWakeFailureLoginKey points to a CFNumber containing LW's 8-bit code.
+ * kIOPMSleepWakeFailureUUIDKey points to a CFStringRef containing the UUID associated with the failed sleep.
+ * kIOPMSleepWakeFailureDateKey points to the CFDate that the failed sleep was initiated.
+ */
+CFDictionaryRef IOPMCopySleepWakeFailure(void);
+
+
+
+/**************************************************
+*
+* IOPMConnection API
+*
+* IOPMConnection API lets user processes receive
+* power management notifications.
+*
+**************************************************/
+/*!
+ * @functiongroup IOPMConnection
+ */
+ 
+ 
+/*! 
+ * IOPMConnection is the basic connection type between a user process
+ * and system power management.
+ * IOPMConnections are backed by mach ports, and are automatically cleaned up
+ * on process death.
+ */
+typedef const struct __IOPMConnection * IOPMConnection;
+
+/*! 
+ * A unique IOPMConnectionMessageToken accompanies each PM message received from
+ * an IOPMConnection notification. This message token should be passed as an argument
+ * to IOPMConnectionAcknowledgeEvent().
+ */
+typedef uint32_t IOPMConnectionMessageToken;
+
+
+/*****************************************************************************/
+/*****************************************************************************/
+
+/*! IOPMSystemPowerStateCapabilities
+ *
+ * Bits define capabilities in IOPMSystemPowerStateCapabilities type.
+ *
+ * These bits describe the capabilities of a system power state.
+ * Each bit describes whether a capability is supported; it does not
+ * guarantee that the described feature is available. Even if a feature
+ * is supported, the client must still verify that it's accessible
+ * before attempting to use it, and be prepared for an error if the
+ * functionality is not accessible.
+ *
+ * Please use these bits to:
+ *      - Specify the capabilities you're interested in in calls to
+ *          IOPMConnectionCreate()
+ *      - Interpret the power states passed to you in your IOPMEventHandlerType
+ *          notification.
+ */
+enum 
+{
+    /*! kIOPMSystemPowerStateCapabilityCPU
+     *  If set, indicates that in this power state the CPU is running. If this bit is clear,
+     *  then the system is going into a low power state such as sleep or hibernation. 
+     *  Checking this bit 
+     *
+     *  The CPU capability bit must be set for any other capability bits (video, audio, 
+     *  network, disk, etc.) to be available as well.
+     */
+    kIOPMSystemPowerStateCapabilityCPU          = 0x1,
+
+    /*! kIOPMSystemPowerStateCapabilityVideo
+     * If set, indicates that in this power state, graphic output to displays are supported.
+     */
+    kIOPMSystemPowerStateCapabilityVideo        = 0x2,
+
+    /*! kIOPMSystemPowerStateCapabilityAudio
+     * If set, indicates that in this power state, audio output is supported.
+     */
+    kIOPMSystemPowerStateCapabilityAudio        = 0x4,
+
+    /*! kIOPMSystemPowerStateCapabilityNetwork
+     * If set, indicates that in this power state, network connections are supported.
+     */
+    kIOPMSystemPowerStateCapabilityNetwork      = 0x8,
+
+    /*! kIOPMSystemPowerStateCapabilityDisk
+     * If set, indicates that in this power state, internal disk and storage device access is supported.
+     */
+    kIOPMSystemPowerStateCapabilityDisk         = 0x10,
+
+    /*! kIOPMSystemPowerStateCapabiliesMask
+     *  Should be used as a mask to check for states; this value should not be 
+     *  passed as an an argument to IOPMConnectionCreate. 
+     *  Passing this as an interest argument will produce undefined behavior.
+     *
+     *  Any PowerStateCapability bits that are not included in this mask are 
+     *  reserved for future use.
+     */
+    kIOPMSytemPowerStateCapabilitiesMask        = 0x1F
+};
+
+/*! IOPMSystemPowerStateCapabilities
+ *  Should be a bitfield with a subset of the kIOPMSystemPowerStateCapabilityBits.
+ */
+typedef uint32_t IOPMSystemPowerStateCapabilities;
+
+
+
+/*!
+ * IOPMEventHandlerType is the generic function type to handle a
+ *   notification generated from the power management system. All clients of
+ *   IOPMConnection that wish to listen for notifications must provide a handler
+ *   when they call IOPMConnectionCreate.
+ * @param param Pointer to user-chosen data.
+ * @param connection The IOPMConnection associated with this notification.
+ * @param token Uniquely identifies this message invocation; should be passed
+ *          to IOPMConnectAcknowledgeEvent().
+ * @param eventDescriptor Provides a bitfield describing the new system power state.
+ *          See IOPMSystemPowerStateCapabilities below.
+ */
+typedef void (*IOPMEventHandlerType)(
+                void *param, 
+                IOPMConnection connection, 
+                IOPMConnectionMessageToken token, 
+                IOPMSystemPowerStateCapabilities eventDescriptor);
+
+
+/*****************************************************************************/
+/*****************************************************************************/
+
+/*! kIOPMAcknowledgmentOptionDate
+ *
+ *  This string can be used as a key in the 'options' dictionary
+ *  argument to IOPMConnectionAcknowledgeEventWithOptions.
+ *
+ *  Passing this "Date" option lets a caller request a maintenance wake
+ *  from the system at a later date. If possible, the system will wake
+ *  to the requested power state at the requested time.
+ *
+ *  This acknowledgement option is only valid when the system is transitioning into a
+ *  sleep state i.e. entering a state with 0 capabilities. 
+ *
+ *  *** Limitation
+ *  This acknowledgement argument may only be successfully used with
+ *  the requirements bitfield 
+ *      kIOPMSystemPowerStateCapabilityDisk | kIOPMSystemPowerStateCapabilityNetwork
+ * 
+ */
+#define kIOPMAcknowledgmentOptionWakeDate    CFSTR("WakeDate")
+
+/*! kIOPMAcknowledgmentOptionSystemCapabilityRequirements
+ *
+ *  This string can be used as a key in the 'options' dictionary
+ *  argument to IOPMConnectionAcknowledgeEventWithOptions, or as
+ *  an argument to IOPMSystemPowerStateSupportsAcknowledgementOption().
+ *
+ *  This string should only be specified if the key
+ *  kIOPMAcknowledgementOptionDate is also specified.
+ *
+ *  In the 'options' acknowledgement dictionary, specify a CFNumber that you
+ *  contains a bitfield describing the capabilities your process requires at the next
+ *  maintenance wake.
+ *
+ *  This acknowledgement option is only valid when the system is transitioning into a
+ *  sleep state i.e. entering a state with 0 capabilities. 
+ *
+ *  *** Limitation
+ *  This acknowledgement argument may only be successfully used with
+ *  the requirements bitfield 
+ *      kIOPMSystemPowerStateCapabilityDisk | kIOPMSystemPowerStateCapabilityNetwork
+ * 
+ */
+#define kIOPMAcknowledgmentOptionSystemCapabilityRequirements    CFSTR("Requirements")
+
+/*****************************************************************************/
+/*****************************************************************************/
+
+
+/*!
+ * IOPMConnectionCreate() opens an IOPMConnection.
+ *
+ * IOPMConnections provide access to power management notifications. They are a
+ * replacement for the existing IORegisterForSystemPower() API, and provide
+ * newer functionality and logging as well.
+ *
+ * Clients are expected to also call IOPMConnectionSetNotification() and
+ * IOPMConnectionScheduleWithRunLoop() in order to receive notifications.
+ *
+ * @param myName Caller should provide a CFStringRef describing its identity, 
+ *      for logging.
+ * @param interests A bitfield of IOPMSystemPowerStateCapabilities defining
+ *      which capabilites the caller is interested in. Caller will only be notified
+ *      of changes to the bits specified here.
+ * @param newConnection Upon success this will be populated with a fresh IOPMConnection.
+ *      The caller must release this with a call to IOPMReleaseConnection.
+ * @result Returns kIOReturnSuccess; otherwise on failure.
+ */
+IOReturn IOPMConnectionCreate(
+            CFStringRef myName, 
+            IOPMSystemPowerStateCapabilities interests, 
+            IOPMConnection *newConnection
+            ) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_NA);
+
+/*! 
+ * IOPMConnectionSetNotification associates a notificiation handler with an IOPMConnection
+ * @discussion Caller must also call IOPMConnectionScheduleWithRunLoop to setup the notification.
+ * @param param User-supplied pointer will be passed to all invocations of handler.  
+ *      This call does not retain the *param struct; caller must ensure that the pointer is 
+ *      retained.
+ * @param myConnection The IOPMConnection created by calling <link>IOPMConnectionCreate</link>
+ * @param handler Ths function pointer will be invoked every time an event of interest
+ *      occurs.
+ */
+IOReturn IOPMConnectionSetNotification(
+            IOPMConnection myConnection, 
+            void *param, 
+            IOPMEventHandlerType handler
+            ) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_NA);
+
+/*!
+ * IOPMConnectionScheduleWithRunLoop schedules a notification on the specified runloop.
+ * @discussion The connection must be unscheduled by calling 
+ *      IOPMConnectionUnscheduleFromRunLoop.
+ * @param myConnection The IOPMConnection created by calling <link>IOPMConnectionCreate</link>
+ * @param theRunLoop A pointer to the run loop that the caller wants the callback 
+ *     scheduled on. Invoking IOPMConnectionRelease will remove the notification from the 
+ *     notification from the specified runloop. 
+ * @result Returns kIOReturnSuccess; otherwise on failure.
+ */
+IOReturn IOPMConnectionScheduleWithRunLoop(
+            IOPMConnection myConnection, 
+            CFRunLoopRef theRunLoop,
+            CFStringRef runLoopMode
+            ) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_NA);
+
+/*!
+ * IOPMConnectionUnscheduleFromRunLoop removes a previously scheduled run loop source.
+ * @param myConnection The IOPMConnection created by calling <link>IOPMConnectionCreate</link>
+ * @param theRunLoop A pointer to the run loop that the caller has previously scheduled
+ *      a connection upon. 
+ * @result Returns kIOReturnSuccess; otherwise on failure.
+ */
+IOReturn IOPMConnectionUnscheduleFromRunLoop(
+            IOPMConnection myConnection, 
+            CFRunLoopRef theRunLoop,
+            CFStringRef  runLoopMode
+            ) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_NA);
+
+
+/*!
+ * IOPMConnectionRelease cleans up state and notifications for a given
+ *      PM connection. This will not remove any scheduled run loop sources - it is the caller's 
+ *      responsibility to remove all scheduled run loop sources.
+ * @param connection Connection to release.
+ * @result Returns kIOReturnSuccess; otherwise on failure.
+ */
+IOReturn IOPMConnectionRelease(
+            IOPMConnection connection
+            ) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_NA);
+
+
+/*! Acknowledge a power management event.
+ * 
+ * All IOPMConnection notifications must be acknowledged by calling IOPMConnectAcknowledgeEvent,
+ *  or IOPMConnectAcknowledgeEventWithOptions. The caller may invoke IOPMConnectAcknowledgeEvent
+ * immediately from within its own notify handler, or the caller may invoke acknowledge
+ * the notification from another context.
+ *
+ * @param connect A valid IOPMConnection object
+ * @param token A unique token identifying the message this acknowledgement refers to. This token
+ *      should have been received as an argument to the IOPMEventHandlerType handler.
+ */
+IOReturn IOPMConnectionAcknowledgeEvent(
+            IOPMConnection connect, 
+            IOPMConnectionMessageToken token
+            ) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_NA);
+
+
+/*! Acknowledge a power management event with additional options.
+ *
+ * To request a maintenance wake while acknowledging a system sleep event, 
+ * the caller should create an 'options' dictionary with values set for keys
+ *      kIOPMAcknowledgmentOptionWakeDate
+ *      and kIOPMAcknowledgmentOptionSystemCapabilityRequirements
+ *
+ * Note that requesting a maintenance wake is only meaningful if the system is transitioning
+ * into a sleep state; that is, only if the capabilities flags are all 0.
+ *
+ * @param connect A valid IOPMConnection object
+ * @param token A unique token identifying the message this acknowledgement refers to.
+ * @param options If the response type requires additonal arguments, they may be placed
+ *          as objects in the "options" dictionary using 
+ *          any of the kIOPMAcknowledgementOption* strings as dictionary keys.
+ *          Passing NULL for options is equivalent to calling 
+ *          IOPMConnectionAcknowledgeEvent()
+ * @result Returns kIOReturnSuccess; otherwise on failure.
+ */
+IOReturn IOPMConnectionAcknowledgeEventWithOptions(
+            IOPMConnection connect, 
+            IOPMConnectionMessageToken token, 
+            CFDictionaryRef options
+            ) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_NA);
 
 
 __END_DECLS

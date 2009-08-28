@@ -1,4 +1,4 @@
-/*	$NetBSD: cmp.c,v 1.3 2003/12/15 12:18:43 lukem Exp $	*/
+/*	$NetBSD: cmp.c,v 1.4 2007/07/22 11:05:35 lukem Exp $	*/
 
 /*
  * Copyright (c) 1989, 1993
@@ -32,16 +32,16 @@
  * SUCH DAMAGE.
  */
 
-#if	HAVE_TNFTPD_H
+#if defined(HAVE_TNFTPD_H)
 #include "tnftpd.h"
-#else	/* ! HAVE_TNFTPD_H */
+#else /* ! HAVE_TNFTPD_H */
 
 #include <sys/cdefs.h>
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)cmp.c	8.1 (Berkeley) 5/31/93";
 #else
-__RCSID("$NetBSD: cmp.c,v 1.3 2003/12/15 12:18:43 lukem Exp $");
+__RCSID("$NetBSD: cmp.c,v 1.4 2007/07/22 11:05:35 lukem Exp $");
 #endif
 #endif /* not lint */
 
@@ -51,16 +51,16 @@ __RCSID("$NetBSD: cmp.c,v 1.3 2003/12/15 12:18:43 lukem Exp $");
 #include <fts.h>
 #include <string.h>
 
-#endif	/* ! HAVE_TNFTPD_H */
+#endif /* !defined(HAVE_TNFTPD_H) */
 
 #include "ls.h"
 #include "extern.h"
 
-#if	HAVE_TNFTPD_H
+#if defined(HAVE_TNFTPD_H)
 #define ATIMENSEC_CMP(x, op, y) (1 op 1)
 #define CTIMENSEC_CMP(x, op, y) (1 op 1)
 #define MTIMENSEC_CMP(x, op, y) (1 op 1)
-#else	/* ! HAVE_TNFTPD_H */
+#else /* !defined(HAVE_TNFTPD_H) */
 #if defined(_POSIX_SOURCE) || defined(_POSIX_C_SOURCE) || \
     defined(_XOPEN_SOURCE) || defined(__NetBSD__)
 #define ATIMENSEC_CMP(x, op, y) ((x)->st_atimensec op (y)->st_atimensec)
@@ -74,7 +74,7 @@ __RCSID("$NetBSD: cmp.c,v 1.3 2003/12/15 12:18:43 lukem Exp $");
 #define MTIMENSEC_CMP(x, op, y) \
 	((x)->st_mtimespec.tv_nsec op (y)->st_mtimespec.tv_nsec)
 #endif
-#endif	/* ! HAVE_TNFTPD_H */
+#endif /* !defined(HAVE_TNFTPD_H) */
 
 int
 namecmp(const FTSENT *a, const FTSENT *b)

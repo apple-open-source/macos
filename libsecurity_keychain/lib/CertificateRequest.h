@@ -144,6 +144,7 @@ private:
 	bool							mIsAsync;	/* true means no persistent state
 												 * stored in user prefs; default 
 												 * is false */
+	Mutex							mMutex;
 };
 
 } // end namespace KeychainCore

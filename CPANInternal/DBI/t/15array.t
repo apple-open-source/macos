@@ -1,8 +1,9 @@
 #!perl -w
+$|=1;
 
 use strict;
 
-use Test::More tests => 50;
+use Test::More tests => 55;
 
 ## ----------------------------------------------------------------------------
 ## 15array.t
@@ -15,11 +16,11 @@ BEGIN {
 }
 
 # create a database handle
-my $dbh = DBI->connect("dbi:Sponge:dummy", '', '', 
-					{ 
-						RaiseError=>1, 
-						AutoCommit=>1 
-					});
+my $dbh = DBI->connect("dbi:Sponge:dummy", '', '', { 
+    RaiseError => 1, 
+    ShowErrorStatement => 1,
+    AutoCommit => 1 
+});
 
 # check that our db handle is good
 isa_ok($dbh, "DBI::db");
@@ -45,17 +46,21 @@ cmp_ok(scalar @{$rows}, '==', 0, '... we should have 0 rows');
 
 # -----------------------------------------------
 
-ok(!$sth->execute_array(
-		{ 
-			ArrayTupleStatus => $tuple_status 
+ok(! eval {
+        local $sth->{PrintError} = 0;
+        $sth->execute_array(
+		{
+			ArrayTupleStatus => $tuple_status
 		},
 		[ 1, 2, 3 ],	          # array of integers
-		42,		                  # scalar 42 treated as array of 42's
-		undef,		              # scalar undef treated as array of undef's
+		42,                       # scalar 42 treated as array of 42's
+		undef,                    # scalar undef treated as array of undef's
 		[ qw(A B C) ],	          # array of strings
-    ),
-	'... execute_array should return false'
+    ) },
+    '... execute_array should return false'
 );
+ok $@, 'execute_array failure with RaiseError should have died';
+like $sth->errstr, '/executing 3 generated 1 errors/';
 
 cmp_ok(scalar @{$rows}, '==', 2, '... we should have 2 rows');
 cmp_ok(scalar @{$tuple_status}, '==', 3, '... we should have 3 tuple_status');
@@ -93,6 +98,14 @@ ok(eq_array(
 		[1, 1, 1]
 		),
 	'... our tuple_status is as expected');
+
+# -----------------------------------------------
+# --- call execute_array in array context to get executed AND affected
+@$rows = ();
+my ($executed, $affected) = $sth->execute_array({ ArrayTupleStatus => $tuple_status });
+ok($executed, '... execute_array should return true');
+cmp_ok($executed, '==', 3, '... we should have executed 3 rows');
+cmp_ok($affected, '==', 3, '... we should have affected 3 rows');
 
 # -----------------------------------------------
 # --- with no values for bind params, should execute zero times

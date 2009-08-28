@@ -1,7 +1,7 @@
 /*
  *******************************************************************************
  *
- *   Copyright (C) 1999-2005, International Business Machines
+ *   Copyright (C) 1999-2007, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  *
  *******************************************************************************
@@ -146,7 +146,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         context->height = 400;
 
         context->paragraph = Paragraph::paragraphFactory("Sample.txt", font, guiSupport);
-        SetWindowLong(hwnd, 0, (LONG) context);
+        SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR) context);
 
         windowCount += 1;
         ReleaseDC(hwnd, hdc);
@@ -157,7 +157,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
     case WM_SIZE:
     {
-        context = (Context *) GetWindowLong(hwnd, 0);
+        context = (Context *) GetWindowLongPtr(hwnd, GWLP_USERDATA);
         context->width  = LOWORD(lParam);
         context->height = HIWORD(lParam);
 
@@ -214,7 +214,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         SetScrollInfo(hwnd, SB_VERT, &si, TRUE);
         GetScrollInfo(hwnd, SB_VERT, &si);
 
-        context = (Context *) GetWindowLong(hwnd, 0);
+        context = (Context *) GetWindowLongPtr(hwnd, GWLP_USERDATA);
 
         if (context->paragraph != NULL && si.nPos != vertPos) {
             ScrollWindow(hwnd, 0, context->paragraph->getLineHeight() * (vertPos - si.nPos), NULL, NULL);
@@ -239,7 +239,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
         firstLine = si.nPos;
 
-        context = (Context *) GetWindowLong(hwnd, 0);
+        context = (Context *) GetWindowLongPtr(hwnd, GWLP_USERDATA);
 
         if (context->paragraph != NULL) {
             surface->setHDC(hdc);
@@ -295,7 +295,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                 Paragraph *newParagraph = Paragraph::paragraphFactory(szFileName, font, guiSupport);
 
                 if (newParagraph != NULL) {
-                    context = (Context *) GetWindowLong(hwnd, 0);
+                    context = (Context *) GetWindowLongPtr(hwnd, GWLP_USERDATA);
 
                     if (context->paragraph != NULL) {
                         delete context->paragraph;
@@ -332,7 +332,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
     case WM_DESTROY:
     {
-        context = (Context *) GetWindowLong(hwnd, 0);
+        context = (Context *) GetWindowLongPtr(hwnd, GWLP_USERDATA);
 
         if (context != NULL && context->paragraph != NULL) {
             delete context->paragraph;

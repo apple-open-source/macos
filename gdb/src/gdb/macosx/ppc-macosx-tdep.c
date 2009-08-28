@@ -939,7 +939,7 @@ ppc_sigtramp_frame_sniffer (struct frame_info *next_frame)
   CORE_ADDR pc = frame_pc_unwind (next_frame);
   char *name;
 
-  find_pc_partial_function (pc, &name, NULL, NULL);
+  find_pc_partial_function_no_inlined (pc, &name, NULL, NULL);
   if (legacy_pc_in_sigtramp (pc, name))
     return &ppc_sigtramp_frame_unwind;
 

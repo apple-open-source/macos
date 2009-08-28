@@ -119,7 +119,7 @@ __private_extern__ enum byte_sex get_byte_sex_from_flag(
  * either positive (+1) or negative (-1) of the architecture for the
  * specified cputype and cpusubtype if known.  If unknown it returns 0.
  */
-__private_extern__ long get_stack_direction_from_flag(
+__private_extern__ int get_stack_direction_from_flag(
     const struct arch_flag *flag);
 
 /*
@@ -132,19 +132,26 @@ __private_extern__ uint64_t get_stack_addr_from_flag(
 /*
  * get_stack_size_from_flag() returns the default size of the userstack.
  */
-__private_extern__ unsigned long get_stack_size_from_flag(
+__private_extern__ uint32_t get_stack_size_from_flag(
     const struct arch_flag *flag);
 
 /*
  * get_segalign_from_flag() returns the default segment alignment (page size).
  */
-__private_extern__ unsigned long get_segalign_from_flag(
+__private_extern__ uint32_t get_segalign_from_flag(
     const struct arch_flag *flag);
 
 /*
  * get_segprot_from_flag() returns the default segment protection.
  */
 __private_extern__ vm_prot_t get_segprot_from_flag(
+    const struct arch_flag *flag);
+
+/*
+ * get_shared_region_size_from_flag() returns the size of the read only shared
+ * region.
+ */
+__private_extern__ uint32_t get_shared_region_size_from_flag(
     const struct arch_flag *flag);
 
 /*

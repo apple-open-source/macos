@@ -1,7 +1,7 @@
 # -*- buffer-read-only: t -*- vi: set ro:
 # DO NOT EDIT! GENERATED AUTOMATICALLY!
 # DO NOT EDIT! GENERATED AUTOMATICALLY!
-# Copyright (C) 2004-2006 Free Software Foundation, Inc.
+# Copyright (C) 2004-2007 Free Software Foundation, Inc.
 #
 # This file is free software, distributed under the terms of the GNU
 # General Public License.  As a special exception to the GNU General
@@ -42,19 +42,26 @@ AC_DEFUN([gl_INIT],
   gl_cond_libtool=false
   gl_libdeps=
   gl_ltlibdeps=
-  gl_source_base='.#bootmp/lib'
+  gl_source_base='lib'
   gl_ERROR
   gl_EXITFAIL
-  dnl gl_USE_SYSTEM_EXTENSIONS must be added quite early to configure.ac.
   gl_FCNTL_H
   gl_FCNTL_SAFER
+  gl_MODULE_INDICATOR([fcntl-safer])
   gl_GETOPT
+  AC_SUBST([LIBINTL])
+  AC_SUBST([LTLIBINTL])
   gl_INLINE
   gl_STAT_TIME
+  gl_STAT_BIRTHTIME
   AM_STDBOOL_H
+  gl_STDLIB_H
   gl_HEADER_SYS_STAT_H
-  gl_TIMESPEC
-  gl_HEADER_UNISTD
+  AC_PROG_MKDIR_P
+  gl_HEADER_SYS_TIME_H
+  AC_PROG_MKDIR_P
+  gl_HEADER_TIME_H
+  gl_UNISTD_H
   gl_UNISTD_SAFER
   gl_UTIMENS
   gl_XALLOC
@@ -100,12 +107,12 @@ AC_DEFUN([gl_LIBSOURCES],
 # This macro records the list of files which have been installed by
 # gnulib-tool and may be removed by future gnulib-tool invocations.
 AC_DEFUN([gl_FILE_LIST], [
+  build-aux/link-warning.h
   doc/fdl.texi
   lib/creat-safer.c
   lib/dup-safer.c
   lib/error.c
   lib/error.h
-  lib/exit.h
   lib/exitfail.c
   lib/exitfail.h
   lib/fcntl--.h
@@ -122,9 +129,12 @@ AC_DEFUN([gl_FILE_LIST], [
   lib/stat-time.h
   lib/stat_.h
   lib/stdbool_.h
-  lib/timespec.h
+  lib/stdlib_.h
+  lib/sys_time_.h
+  lib/time_.h
   lib/unistd--.h
   lib/unistd-safer.h
+  lib/unistd_.h
   lib/utimens.c
   lib/utimens.h
   lib/xalloc-die.c
@@ -139,11 +149,14 @@ AC_DEFUN([gl_FILE_LIST], [
   m4/fcntl-safer.m4
   m4/fcntl_h.m4
   m4/getopt.m4
+  m4/gnulib-common.m4
   m4/inline.m4
   m4/stat-time.m4
   m4/stdbool.m4
+  m4/stdlib_h.m4
   m4/sys_stat_h.m4
-  m4/timespec.m4
+  m4/sys_time_h.m4
+  m4/time_h.m4
   m4/unistd-safer.m4
   m4/unistd_h.m4
   m4/utimbuf.m4

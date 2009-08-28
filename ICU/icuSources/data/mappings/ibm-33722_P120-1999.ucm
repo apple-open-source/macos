@@ -1,11 +1,11 @@
 # ***************************************************************************
 # *
-# *   Copyright (C) 1995-2003, International Business Machines
+# *   Copyright (C) 1995-2007, International Business Machines
 # *   Corporation and others.  All Rights Reserved.
 # *
 # ***************************************************************************
 #
-# File created by rptp2ucm (compiled on Dec  3 2002)
+# File created by rptp2ucm (compiled on May  9 2007)
 # from source files 34B083BA.RPMAP120 and 83BA34B0.TPMAP110
 #
 <code_set_name>               "ibm-33722_P120-1999"
@@ -26,7 +26,7 @@
 
 # build an extension-only (delta) .cnv file
 # requires the base .cnv file at runtime
-<icu:base>                    "ibm-33722_P12A-1999"
+<icu:base>                    "ibm-33722_P12A_P12A-2004_U2"
 
 CHARMAP
 <U0000> \x00 |0

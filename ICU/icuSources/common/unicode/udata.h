@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1999-2006, International Business Machines
+*   Copyright (C) 1999-2008, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -220,7 +220,7 @@ udata_open(const char *path, const char *type, const char *name,
  * logically prepended to the ICU data directory string.</p>
  *
  * <p>For details about ICU data loading see the User Guide
- * Data Management chapter. (http://icu.sourceforge.net/userguide/icudata.html)</p>
+ * Data Management chapter. (http://icu-project.org/userguide/icudata.html)</p>
  *
  * @param path Specifies an absolute path and/or a basename for the
  *             finding of the data in the file system.
@@ -354,18 +354,18 @@ udata_setAppData(const char *packageName, const void *data, UErrorCode *err);
 /**
  * Possible settings for udata_setFileAccess()
  * @see udata_setFileAccess
- * @draft ICU 3.4
+ * @stable ICU 3.4
  */
 typedef enum UDataFileAccess {
-    /** ICU does not access the file system for data loading. */
-    UDATA_NO_FILES,
+    /** ICU looks for data in single files first, then in packages. (default) */
+    UDATA_FILES_FIRST,
     /** ICU only loads data from packages, not from single files. */
     UDATA_ONLY_PACKAGES,
     /** ICU loads data from packages first, and only from single files
         if the data cannot be found in a package. */
     UDATA_PACKAGES_FIRST,
-    /** ICU looks for data in single files first, then in packages. (default) */
-    UDATA_FILES_FIRST,
+    /** ICU does not access the file system for data loading. */
+    UDATA_NO_FILES,
     /** An alias for the default access mode. */
     UDATA_DEFAULT_ACCESS = UDATA_FILES_FIRST,
     UDATA_FILE_ACCESS_COUNT
@@ -379,9 +379,9 @@ typedef enum UDataFileAccess {
  * @param access The type of file access to be used
  * @param status Error code.
  * @see UDataFileAccess
- * @draft ICU 3.4 
+ * @stable ICU 3.4 
  */
-U_DRAFT void U_EXPORT2
+U_STABLE void U_EXPORT2
 udata_setFileAccess(UDataFileAccess access, UErrorCode *status);
 
 U_CDECL_END

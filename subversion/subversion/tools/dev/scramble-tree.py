@@ -35,6 +35,10 @@
 import os
 import sys
 import getopt
+try:
+  my_getopt = getopt.gnu_getopt
+except AttributeError:
+  my_getopt = getopt.getopt
 import random
 import md5
 import base64
@@ -54,7 +58,7 @@ class VCActions:
 class NoVCActions(VCActions):
   def remove_file(self, path):
     os.unlink(path)
-  
+
 
 class CVSActions(VCActions):
   def add_file(self, path):
@@ -82,7 +86,7 @@ class SVNActions(VCActions):
     os.remove(path)
     os.system('svn rm --quiet --force "%s"' % (path))
 
-    
+
 class hashDir:
   """Given a directory, creates a string containing all directories
   and files under that directory (sorted alphanumerically) and makes a
@@ -112,7 +116,7 @@ class hashDir:
 class Scrambler:
   def __init__(self, seed, vc_actions, dry_run, quiet):
     if not quiet:
-      print 'SEED: ' + seed
+      print('SEED: ' + seed)
 
     self.rand = random.Random(seed)
     self.vc_actions = vc_actions
@@ -148,7 +152,7 @@ talented scramble-tree.py script.
   ### File Mungers
   def _mod_append_to_file(self, path):
     if not self.quiet:
-      print 'append_to_file:', path
+      print('append_to_file: %s' % path)
     if self.dry_run:
       return
     fh = open(path, "a")
@@ -157,7 +161,7 @@ talented scramble-tree.py script.
 
   def _mod_remove_from_file(self, path):
     if not self.quiet:
-      print 'remove_from_file:', path
+      print('remove_from_file: %s' % path)
     if self.dry_run:
       return
     lines = self.shrink_list(open(path, "r").readlines(), 5)
@@ -165,18 +169,18 @@ talented scramble-tree.py script.
 
   def _mod_delete_file(self, path):
     if not self.quiet:
-      print 'delete_file:', path
+      print('delete_file: %s' % path)
     if self.dry_run:
-      return    
+      return
     self.vc_actions.remove_file(path)
 
   ### Public Interfaces
   def get_randomizer(self):
     return self.rand
-  
+
   def schedule_munge(self, path):
     self.ops.append(tuple(["munge", path]))
-    
+
   def schedule_addition(self, dir):
     self.ops.append(tuple(["add", dir]))
 
@@ -190,35 +194,35 @@ talented scramble-tree.py script.
       if op == "add":
         path = self._make_new_file(path)
         if not self.quiet:
-          print "add_file:", path
+          print("add_file: %s" % path)
         if self.dry_run:
           return
         self.vc_actions.add_file(path)
       elif op == "munge":
         file_mungers = [self._mod_append_to_file,
                         self._mod_append_to_file,
-                        self._mod_append_to_file,                         
+                        self._mod_append_to_file,
                         self._mod_remove_from_file,
                         self._mod_remove_from_file,
                         self._mod_remove_from_file,
                         self._mod_delete_file,
                         ]
         self.rand.choice(file_mungers)(path)
-                            
+
 
 def usage(retcode=255):
-  print 'Usage: %s [OPTIONS] DIRECTORY' % (sys.argv[0])
-  print ''
-  print 'Options:'
-  print '    --help, -h  : Show this usage message.'
-  print '    --seed ARG  : Use seed ARG to scramble the tree.'
-  print '    --use-svn   : Use Subversion (as "svn") to perform file additions'
-  print '                  and removals.'
-  print '    --use-cvs   : Use CVS (as "cvs") to perform file additions'
-  print '                  and removals.'
-  print '    --dry-run   : Don\'t actually change the disk.'
-  print '    --limit N   : Limit the scrambling to a maximum of N operations.'
-  print '    --quiet, -q : Run in stealth mode!'
+  print('Usage: %s [OPTIONS] DIRECTORY' % (sys.argv[0]))
+  print('')
+  print('Options:')
+  print('    --help, -h  : Show this usage message.')
+  print('    --seed ARG  : Use seed ARG to scramble the tree.')
+  print('    --use-svn   : Use Subversion (as "svn") to perform file additions')
+  print('                  and removals.')
+  print('    --use-cvs   : Use CVS (as "cvs") to perform file additions')
+  print('                  and removals.')
+  print('    --dry-run   : Don\'t actually change the disk.')
+  print('    --limit N   : Limit the scrambling to a maximum of N operations.')
+  print('    --quiet, -q : Run in stealth mode!')
   sys.exit(retcode)
 
 
@@ -240,11 +244,11 @@ def main():
   dry_run = 0
   quiet = 0
   limit = None
-  
+
   # Mm... option parsing.
-  optlist, args = getopt.getopt(sys.argv[1:], "hq",
-                                ['seed=', 'use-svn', 'use-cvs',
-                                 'help', 'quiet', 'dry-run', 'limit='])
+  optlist, args = my_getopt(sys.argv[1:], "hq",
+                            ['seed=', 'use-svn', 'use-cvs',
+                             'help', 'quiet', 'dry-run', 'limit='])
   for opt, arg in optlist:
     if opt == '--help' or opt == '-h':
       usage(0)

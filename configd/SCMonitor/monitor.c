@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2007-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,30 +31,69 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <asl.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
+#include <IOKit/IOKitLib.h>
+#include <IOKit/IOMessage.h>
 #include <ApplicationServices/ApplicationServices.h>
 #include "UserEventAgentInterface.h"
 
-#define MY_BUNDLE_ID    CFSTR("com.apple.SystemConfiguration.SCMonitor")
+#define MY_BUNDLE_ID    "com.apple.SystemConfiguration.SCMonitor"
 #define	MY_ICON_PATH	"/System/Library/PreferencePanes/Network.prefPane/Contents/Resources/Network.icns"
 
 #define	NETWORK_PREF_APP	"/System/Library/PreferencePanes/Network.prefPane"
 #define	NETWORK_PREF_CMD	"New Interface"
+
+/*
+ * The following keys/values control the actions taken when a new interface
+ * has been detected and whether we interact with the user.
+ *
+ * The keys/values can be provided globally (in SCMonitor.plugin's Info.plist
+ * file) or per-inteface in the IORegistry.
+ *
+ * For the "New Interface Detected Action" key we define the following [CFString]
+ * values :
+ *
+ *   "None"       No action, ignore this interface.
+ *   "Prompt"     Post a "new interface detected" notification to the user.
+ *   "Configure"  Automatically configure this interface without any
+ *                intervention.
+ *
+ *   Note: automatic configuration may require authorization if the logged
+ *         in user is NOT "root" (eUID==0) or if the "system.preferences"
+ *         administrator right is not currently available.
+ *
+ * An [older] "User Intervention" key is also supported.  That CFBoolean
+ * key, if present and TRUE, implies "Configure" configuration of the
+ * interface without intervention.
+ */
 
 typedef struct {
 	UserEventAgentInterfaceStruct	*_UserEventAgentInterface;
 	CFUUIDRef			_factoryID;
 	UInt32				_refCount;
 
-	Boolean				no_user_intervention;
+	aslmsg				log_msg;
+
+	CFStringRef			configuration_action;
 
 	CFRunLoopSourceRef		monitorRls;
 
-	CFMutableSetRef			knownInterfaces;
+	IONotificationPortRef		notifyPort;
+	io_iterator_t			notifyIterator;
+	CFMutableArrayRef		notifyNodes;
 
-	CFMutableArrayRef		userInterfaces;
+	// interfaces that we already know about
+	CFMutableSetRef			interfaces_known;
+
+	// interfaces that should be auto-configured (no user notification)
+	CFMutableArrayRef		interfaces_configure;
+
+	// interfaces that require user notification
+	CFMutableArrayRef		interfaces_prompt;
+
 	CFUserNotificationRef		userNotification;
 	CFRunLoopSourceRef		userRls;
 } MyType;
@@ -63,11 +102,11 @@ static CFMutableDictionaryRef	notify_to_instance	= NULL;
 
 
 #pragma mark -
-#pragma mark Watch for new [network] interfaces
+#pragma mark New interface notification / configuration
 
 
 static void
-open_NetworkPrefPane(void)
+open_NetworkPrefPane(MyType *myInstance)
 {
 	AEDesc		aeDesc	= { typeNull, NULL };
 	CFArrayRef	prefArray;
@@ -87,7 +126,7 @@ open_NetworkPrefPane(void)
 			      strlen(NETWORK_PREF_CMD),
 			      &aeDesc);
 	if (status != noErr) {
-		SCLog(TRUE, LOG_ERR, CFSTR("SCMonitor: AECreateDesc() failed: %d"), status);
+		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR, CFSTR("SCMonitor: AECreateDesc() failed: %d"), status);
 	}
 
 	prefSpec.appURL		= NULL;
@@ -98,7 +137,7 @@ open_NetworkPrefPane(void)
 
 	status = LSOpenFromURLSpec(&prefSpec, NULL);
 	if (status != noErr) {
-		SCLog(TRUE, LOG_ERR, CFSTR("SCMonitor: LSOpenFromURLSpec() failed: %d"), status);
+		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR, CFSTR("SCMonitor: LSOpenFromURLSpec() failed: %d"), status);
 	}
 
 	CFRelease(prefArray);
@@ -110,9 +149,14 @@ open_NetworkPrefPane(void)
 static void
 notify_remove(MyType *myInstance, Boolean cancel)
 {
-	if (myInstance->userInterfaces != NULL) {
-		CFRelease(myInstance->userInterfaces);
-		myInstance->userInterfaces = NULL;
+	if (myInstance->interfaces_configure != NULL) {
+		CFRelease(myInstance->interfaces_configure);
+		myInstance->interfaces_configure = NULL;
+	}
+
+	if (myInstance->interfaces_prompt != NULL) {
+		CFRelease(myInstance->interfaces_prompt);
+		myInstance->interfaces_prompt = NULL;
 	}
 
 	if (myInstance->userRls != NULL) {
@@ -127,7 +171,7 @@ notify_remove(MyType *myInstance, Boolean cancel)
 
 			status = CFUserNotificationCancel(myInstance->userNotification);
 			if (status != 0) {
-				SCLog(TRUE, LOG_ERR,
+				SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR,
 				      CFSTR("SCMonitor: CFUserNotificationCancel() failed, status=%d"),
 				      status);
 			}
@@ -157,7 +201,7 @@ notify_reply(CFUserNotificationRef userNotification, CFOptionFlags response_flag
 		}
 	}
 	if (myInstance == NULL) {
-		SCLog(TRUE, LOG_ERR, CFSTR("SCMonitor: can't find user notification"));
+		SCLOG(NULL, NULL, ASL_LEVEL_ERR, CFSTR("SCMonitor: can't find user notification"));
 		return;
 	}
 
@@ -165,7 +209,7 @@ notify_reply(CFUserNotificationRef userNotification, CFOptionFlags response_flag
 	switch (response_flags & 0x3) {
 		case kCFUserNotificationDefaultResponse:
 			// user asked to configure interface
-			open_NetworkPrefPane();
+			open_NetworkPrefPane(myInstance);
 			break;
 		default:
 			// user cancelled
@@ -184,19 +228,18 @@ notify_add(MyType *myInstance)
 	CFMutableDictionaryRef	dict	= NULL;
 	SInt32			error	= 0;
 	CFIndex			i;
-	CFMutableArrayRef	message;
-	CFIndex			n	= CFArrayGetCount(myInstance->userInterfaces);
+	CFIndex			n	= CFArrayGetCount(myInstance->interfaces_prompt);
 	CFURLRef		url	= NULL;
 
 	if (myInstance->userNotification != NULL) {
 		CFMutableArrayRef	save	= NULL;
 
 		if (n > 0) {
-			CFRetain(myInstance->userInterfaces);
-			save = myInstance->userInterfaces;
+			CFRetain(myInstance->interfaces_prompt);
+			save = myInstance->interfaces_prompt;
 		}
 		notify_remove(myInstance, TRUE);
-		myInstance->userInterfaces = save;
+		myInstance->interfaces_prompt = save;
 		if (n == 0) {
 			return;
 		}
@@ -208,16 +251,27 @@ notify_add(MyType *myInstance)
 					 &kCFTypeDictionaryValueCallBacks);
 
 	// set localization URL
-	bundle = CFBundleGetBundleWithIdentifier(MY_BUNDLE_ID);
+	bundle = CFBundleGetBundleWithIdentifier(CFSTR(MY_BUNDLE_ID));
 	if (bundle != NULL) {
 		url = CFBundleCopyBundleURL(bundle);
 	}
+#ifdef	MAIN
+	if (url == NULL) {
+		url = CFURLCreateFromFileSystemRepresentation(NULL,
+							      (const UInt8 *)"/System/Library/UserEventPlugins/SCMonitor.plugin",
+							      strlen("/System/Library/UserEventPlugins/SCMonitor.plugin"),
+							      FALSE);
+		if (bundle == NULL) {
+			bundle = CFBundleCreate(NULL, url);
+		}
+	}
+#endif	// MAIN
 	if (url != NULL) {
 		// set URL
 		CFDictionarySetValue(dict, kCFUserNotificationLocalizationURLKey, url);
 		CFRelease(url);
 	} else {
-		SCLog(TRUE, LOG_NOTICE, CFSTR("SCMonitor: can't find bundle"));
+		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR, CFSTR("SCMonitor: can't find bundle"));
 		goto done;
 	}
 
@@ -237,29 +291,44 @@ notify_add(MyType *myInstance)
 			     (n == 1) ? CFSTR("HEADER_1") : CFSTR("HEADER_N"));
 
 	// message
-	message = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-	CFArrayAppendValue(message,
-			   (n == 1) ? CFSTR("MESSAGE_S1") : CFSTR("MESSAGE_SN"));
-	for (i = 0; i < n; i++) {
+	if (n == 1) {
+		CFStringRef		format;
 		SCNetworkInterfaceRef	interface;
+		CFStringRef		message;
 		CFStringRef		name;
 
-		interface = CFArrayGetValueAtIndex(myInstance->userInterfaces, i);
-		name = SCNetworkInterfaceGetLocalizedDisplayName(interface);
-		if (n == 1) {
-			CFArrayAppendValue(message, name);
-		} else {
-			CFStringRef	str;
+#define MESSAGE_1 "The \"%@\" network interface has not been set up. To set up this interface, use Network Preferences."
 
+		format = CFBundleCopyLocalizedString(bundle,
+						     CFSTR("MESSAGE_1"),
+						     CFSTR(MESSAGE_1),
+						     NULL);
+		interface = CFArrayGetValueAtIndex(myInstance->interfaces_prompt, 0);
+		name = SCNetworkInterfaceGetLocalizedDisplayName(interface);
+		message = CFStringCreateWithFormat(NULL, NULL, format, name);
+		CFDictionarySetValue(dict, kCFUserNotificationAlertMessageKey, message);
+		CFRelease(message);
+		CFRelease(format);
+	} else {
+		CFMutableArrayRef	message;
+
+		message = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+		CFArrayAppendValue(message, CFSTR("MESSAGE_SN"));
+		for (i = 0; i < n; i++) {
+			SCNetworkInterfaceRef	interface;
+			CFStringRef		name;
+			CFStringRef		str;
+
+			interface = CFArrayGetValueAtIndex(myInstance->interfaces_prompt, i);
+			name = SCNetworkInterfaceGetLocalizedDisplayName(interface);
 			str = CFStringCreateWithFormat(NULL, NULL, CFSTR("\r\t%@"), name);
 			CFArrayAppendValue(message, str);
 			CFRelease(str);
 		}
+		CFArrayAppendValue(message, CFSTR("MESSAGE_EN"));
+		CFDictionarySetValue(dict, kCFUserNotificationAlertMessageKey, message);
+		CFRelease(message);
 	}
-	CFArrayAppendValue(message,
-			   (n == 1) ? CFSTR("MESSAGE_E1") : CFSTR("MESSAGE_EN"));
-	CFDictionarySetValue(dict, kCFUserNotificationAlertMessageKey, message);
-	CFRelease(message);
 
 	// button titles
 	CFDictionaryAddValue(dict, kCFUserNotificationDefaultButtonTitleKey,   CFSTR("OPEN_NP"));
@@ -272,7 +341,7 @@ notify_add(MyType *myInstance)
 								&error,
 								dict);
 	if (myInstance->userNotification == NULL) {
-		SCLog(TRUE, LOG_ERR, CFSTR("SCMonitor: CFUserNotificationCreate() failed, %d"), error);
+		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR, CFSTR("SCMonitor: CFUserNotificationCreate() failed, %d"), error);
 		goto done;
 	}
 
@@ -282,7 +351,7 @@ notify_add(MyType *myInstance)
 								    notify_reply,
 								    0);
 	if (myInstance->userRls == NULL) {
-		SCLog(TRUE, LOG_ERR, CFSTR("SCMonitor: CFUserNotificationCreateRunLoopSource() failed"));
+		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR, CFSTR("SCMonitor: CFUserNotificationCreateRunLoopSource() failed"));
 		CFRelease(myInstance->userNotification);
 		myInstance->userNotification = NULL;
 		goto done;
@@ -310,7 +379,7 @@ notify_configure(MyType *myInstance)
 {
 	AuthorizationRef	authorization	= NULL;
 	CFIndex			i;
-	CFIndex			n;
+	CFIndex			n		= CFArrayGetCount(myInstance->interfaces_configure);
 	Boolean			ok;
 	SCPreferencesRef	prefs		= NULL;
 	SCNetworkSetRef		set		= NULL;
@@ -326,8 +395,8 @@ notify_configure(MyType *myInstance)
 					     flags,
 					     &authorization);
 		if (status != errAuthorizationSuccess) {
-			SCLog(TRUE, LOG_ERR,
-			      CFSTR("AuthorizationCreate() failed: status = %d\n"),
+			SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR,
+			      CFSTR("AuthorizationCreate() failed: status = %d"),
 			      status);
 			return;
 		}
@@ -343,38 +412,37 @@ notify_configure(MyType *myInstance)
 		}
 	}
 
-	n = CFArrayGetCount(myInstance->userInterfaces);
 	for (i = 0; i < n; i++) {
 		SCNetworkInterfaceRef	interface;
-		
-		interface = CFArrayGetValueAtIndex(myInstance->userInterfaces, i);
+
+		interface = CFArrayGetValueAtIndex(myInstance->interfaces_configure, i);
 		ok = SCNetworkSetEstablishDefaultInterfaceConfiguration(set, interface);
 		if (ok) {
 			CFStringRef	name;
 
 			name = SCNetworkInterfaceGetLocalizedDisplayName(interface);
-			SCLog(TRUE, LOG_NOTICE, CFSTR("add service for %@"), name);
+			SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_NOTICE, CFSTR("add service for %@"), name);
 		}
 	}
-	
+
 	ok = SCPreferencesCommitChanges(prefs);
 	if (!ok) {
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("SCPreferencesCommitChanges() failed: %s\n"),
+		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR,
+		      CFSTR("SCPreferencesCommitChanges() failed: %s"),
 		      SCErrorString(SCError()));
-                goto done;
-        }
-		
-        ok = SCPreferencesApplyChanges(prefs);
+		goto done;
+	}
+
+	ok = SCPreferencesApplyChanges(prefs);
 	if (!ok) {
-                SCLog(TRUE, LOG_ERR,
-		      CFSTR("SCPreferencesApplyChanges() failed: %s\n"),
+		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR,
+		      CFSTR("SCPreferencesApplyChanges() failed: %s"),
 		      SCErrorString(SCError()));
-                goto done;
-        }
+		goto done;
+	}
 
     done :
-	
+
 	if (set != NULL) {
 		CFRelease(set);
 		set = NULL;
@@ -384,29 +452,32 @@ notify_configure(MyType *myInstance)
 		CFRelease(prefs);
 		prefs = NULL;
 	}
-	
-        if (authorization != NULL) {
-                AuthorizationFree(authorization, kAuthorizationFlagDefaults);
-		//              AuthorizationFree(authorization, kAuthorizationFlagDestroyRights);
-                authorization = NULL;
-        }
-	
-	CFRelease(myInstance->userInterfaces);
-	myInstance->userInterfaces = NULL;
-	
+
+	if (authorization != NULL) {
+		AuthorizationFree(authorization, kAuthorizationFlagDefaults);
+//              AuthorizationFree(authorization, kAuthorizationFlagDestroyRights);
+		authorization = NULL;
+	}
+
+	CFRelease(myInstance->interfaces_configure);
+	myInstance->interfaces_configure = NULL;
+
 	return;
 }
 
 
+#pragma mark -
+
+
 static void
-updateInterfaceList(SCDynamicStoreRef store, CFArrayRef changes, void * arg)
+updateInterfaceList(MyType *myInstance)
 {
+	Boolean			changed		= FALSE;
 	CFIndex			i;
 	CFArrayRef		interfaces;
-	MyType			*myInstance	= (MyType *)arg;
+	CFMutableSetRef		interfaces_old	= NULL;
 	CFIndex			n;
 	SCPreferencesRef	prefs;
-	CFMutableSetRef		previouslyKnown	= NULL;
 	SCNetworkSetRef		set		= NULL;
 
 	prefs = SCPreferencesCreate(NULL, CFSTR("SCMonitor"), NULL);
@@ -422,139 +493,150 @@ updateInterfaceList(SCDynamicStoreRef store, CFArrayRef changes, void * arg)
 		}
 	}
 
-	previouslyKnown = CFSetCreateMutableCopy(NULL, 0, myInstance->knownInterfaces);
+	interfaces_old = CFSetCreateMutableCopy(NULL, 0, myInstance->interfaces_known);
 
 	interfaces = SCNetworkInterfaceCopyAll();
 	if (interfaces != NULL) {
-
 		n = CFArrayGetCount(interfaces);
 		for (i = 0; i < n; i++) {
-			CFStringRef		bsdName;
 			SCNetworkInterfaceRef	interface;
 			Boolean			ok;
 
 			interface = CFArrayGetValueAtIndex(interfaces, i);
-			bsdName = SCNetworkInterfaceGetBSDName(interface);
-			if (bsdName == NULL) {
-				// if no BSD name
+
+			if (_SCNetworkInterfaceIsBuiltin(interface)) {
+				// skip built-in interfaces
 				continue;
 			}
 
-			CFSetRemoveValue(previouslyKnown, bsdName);
-
-			if (CFSetContainsValue(myInstance->knownInterfaces, bsdName)) {
-				// if known interface
+			// track new vs. old (removed) interfaces
+			CFSetRemoveValue(interfaces_old, interface);
+			if (CFSetContainsValue(myInstance->interfaces_known, interface)) {
+				// if we already know about this interface
 				continue;
 			}
-
-			CFSetAddValue(myInstance->knownInterfaces, bsdName);
+			CFSetAddValue(myInstance->interfaces_known, interface);
+			changed = TRUE;
 
 			ok = SCNetworkSetEstablishDefaultInterfaceConfiguration(set, interface);
 			if (ok) {
+				CFStringRef		action;
+
 				// this is a *new* interface
-				if (myInstance->userInterfaces == NULL) {
-					myInstance->userInterfaces = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+
+				action = _SCNetworkInterfaceGetConfigurationAction(interface);
+				if (action == NULL) {
+					// if no per-interface action, use [global] default
+					action = myInstance->configuration_action;
 				}
-				CFArrayAppendValue(myInstance->userInterfaces, interface);
+				if ((action == NULL) ||
+				    (!CFEqual(action, kSCNetworkInterfaceConfigurationActionValueNone) &&
+				     !CFEqual(action, kSCNetworkInterfaceConfigurationActionValueConfigure))) {
+					action = kSCNetworkInterfaceConfigurationActionValuePrompt;
+				}
+
+				if (CFEqual(action, kSCNetworkInterfaceConfigurationActionValueNone)) {
+					continue;
+				} else if (CFEqual(action, kSCNetworkInterfaceConfigurationActionValueConfigure)) {
+					// configure automatically (without user intervention)
+					if (myInstance->interfaces_configure == NULL) {
+						myInstance->interfaces_configure = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+					}
+					CFArrayAppendValue(myInstance->interfaces_configure, interface);
+				} else {
+					// notify user
+					if (myInstance->interfaces_prompt == NULL) {
+						myInstance->interfaces_prompt = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+					}
+					CFArrayAppendValue(myInstance->interfaces_prompt, interface);
+				}
 			}
 		}
 
 		CFRelease(interfaces);
 	}
 
-	n = CFSetGetCount(previouslyKnown);
+	// remove any posted notifications for network interfaces that have been removed
+	n = CFSetGetCount(interfaces_old);
 	if (n > 0) {
-		const void *    names_q[32];
-		const void **   names                 = names_q;
+		const void *    paths_q[32];
+		const void **   paths                 = paths_q;
 
-		if (n > (CFIndex)(sizeof(names_q) / sizeof(CFTypeRef)))
-			names = CFAllocatorAllocate(NULL, n * sizeof(CFTypeRef), 0);
-		CFSetGetValues(previouslyKnown, names);
+		if (n > (CFIndex)(sizeof(paths_q) / sizeof(CFTypeRef)))
+			paths = CFAllocatorAllocate(NULL, n * sizeof(CFTypeRef), 0);
+		CFSetGetValues(interfaces_old, paths);
 		for (i = 0; i < n; i++) {
-			if (myInstance->userInterfaces != NULL) {
+			if (myInstance->interfaces_prompt != NULL) {
 				CFIndex	j;
 
-				j = CFArrayGetCount(myInstance->userInterfaces);
-				while (--j >= 0) {
-					CFStringRef		bsdName;
+				j = CFArrayGetCount(myInstance->interfaces_prompt);
+				while (j > 0) {
 					SCNetworkInterfaceRef	interface;
 
-					interface = CFArrayGetValueAtIndex(myInstance->userInterfaces, j);
-					bsdName = SCNetworkInterfaceGetBSDName(interface);
-					if (CFEqual(bsdName, names[i])) {
+					j--;
+					interface = CFArrayGetValueAtIndex(myInstance->interfaces_prompt, j);
+					if (CFEqual(interface, paths[i])) {
 						// if we have previously posted a notification
 						// for this no-longer-present interface
-						CFArrayRemoveValueAtIndex(myInstance->userInterfaces, j);
+						CFArrayRemoveValueAtIndex(myInstance->interfaces_prompt, j);
+						changed = TRUE;
 					}
 				}
 			}
 
-			CFSetRemoveValue(myInstance->knownInterfaces, names[i]);
+			CFSetRemoveValue(myInstance->interfaces_known, paths[i]);
 		}
-		if (names != names_q)       CFAllocatorDeallocate(NULL, names);
+		if (paths != paths_q)       CFAllocatorDeallocate(NULL, paths);
 	}
 
     done :
 
-	if (myInstance->userInterfaces != NULL) {
-		if (myInstance->no_user_intervention) {
-			// add network services for new interfaces
+	if (changed) {
+		if (myInstance->interfaces_configure != NULL) {
+			// if we have network services to configure automatically
 			notify_configure(myInstance);
-		} else {
-			// post notification
+		}
+
+		if (myInstance->interfaces_prompt != NULL) {
+			// if we have network services that require user intervention
+			// post notification for new interfaces
 			notify_add(myInstance);
 		}
 	}
 
+	if (interfaces_old != NULL) CFRelease(interfaces_old);
 	if (set != NULL) CFRelease(set);
 	CFRelease(prefs);
 	return;
 }
 
 
+#pragma mark -
+#pragma mark Watch for new [network] interfaces
+
+
 static void
-watcher_remove(MyType *myInstance)
+update_lan(SCDynamicStoreRef store, CFArrayRef changes, void * arg)
 {
-	if (myInstance->monitorRls != NULL) {
-		CFRunLoopSourceInvalidate(myInstance->monitorRls);
-		CFRelease(myInstance->monitorRls);
-		myInstance->monitorRls = NULL;
-	}
+	MyType	*myInstance	= (MyType *)arg;
 
-	if (myInstance->knownInterfaces != NULL) {
-		CFRelease(myInstance->knownInterfaces);
-		myInstance->knownInterfaces = NULL;
-	}
-
+	updateInterfaceList(myInstance);
 	return;
 }
 
 
 static void
-watcher_add(MyType *myInstance)
+watcher_add_lan(MyType *myInstance)
 {
-	CFBundleRef		bundle;
 	SCDynamicStoreContext	context	= { 0, (void *)myInstance, NULL, NULL, NULL };
 	CFDictionaryRef		dict;
 	CFStringRef		key;
 	CFArrayRef		keys;
 	SCDynamicStoreRef	store;
 
-	bundle = CFBundleGetBundleWithIdentifier(MY_BUNDLE_ID);
-	if (bundle != NULL) {
-		CFDictionaryRef	info;
-		CFBooleanRef	user_intervention;
-		
-		info = CFBundleGetInfoDictionary(bundle);
-		user_intervention = CFDictionaryGetValue(info, CFSTR("User Intervention"));
-		if (isA_CFBoolean(user_intervention)) {
-			myInstance->no_user_intervention = !CFBooleanGetValue(user_intervention);
-		}
-	}
-
-	store = SCDynamicStoreCreate(NULL, CFSTR("SCMonitor"), updateInterfaceList, &context);
+	store = SCDynamicStoreCreate(NULL, CFSTR("SCMonitor"), update_lan, &context);
 	if (store == NULL) {
-		SCLog(TRUE, LOG_ERR,
+		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR,
 		      CFSTR("SCMonitor: SCDynamicStoreCreate() failed: %s"),
 		      SCErrorString(SCError()));
 		return;
@@ -572,7 +654,7 @@ watcher_add(MyType *myInstance)
 			   kCFRunLoopDefaultMode);
 
 	// initialize the list of known interfaces
-	myInstance->knownInterfaces = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
+	myInstance->interfaces_known = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
 	dict = SCDynamicStoreCopyValue(store, key);
 	if (dict != NULL) {
 		if (isA_CFDictionary(dict)) {
@@ -587,7 +669,13 @@ watcher_add(MyType *myInstance)
 
 				bsdName = CFArrayGetValueAtIndex(interfaces, i);
 				if (isA_CFString(bsdName)) {
-					CFSetAddValue(myInstance->knownInterfaces, bsdName);
+					SCNetworkInterfaceRef	interface;
+
+					interface = _SCNetworkInterfaceCreateWithBSDName(NULL, bsdName, kIncludeNoVirtualInterfaces);
+					if (interface != NULL) {
+						CFSetAddValue(myInstance->interfaces_known, interface);
+						CFRelease(interface);
+					}
 				}
 			}
 		}
@@ -597,6 +685,360 @@ watcher_add(MyType *myInstance)
 
 	CFRelease(key);
 	CFRelease(store);
+	return;
+}
+
+
+static void
+watcher_remove_lan(MyType *myInstance)
+{
+	if (myInstance->monitorRls != NULL) {
+		CFRunLoopSourceInvalidate(myInstance->monitorRls);
+		CFRelease(myInstance->monitorRls);
+		myInstance->monitorRls = NULL;
+	}
+
+	if (myInstance->interfaces_known != NULL) {
+		CFRelease(myInstance->interfaces_known);
+		myInstance->interfaces_known = NULL;
+	}
+
+	return;
+}
+
+
+#pragma mark -
+
+
+typedef struct {
+	io_registry_entry_t	interface;
+	MyType			*myInstance;
+	io_object_t		notification;
+} MyNode;
+
+
+static void
+add_node_watcher(MyType *myInstance, io_registry_entry_t node, io_registry_entry_t interface);
+
+
+static void
+update_node(void *refCon, io_service_t service, natural_t messageType, void *messageArgument)
+{
+	CFIndex		i;
+	CFDataRef	myData		= (CFDataRef)refCon;
+	MyType		*myInstance;
+	MyNode		*myNode;
+
+	myNode     = (MyNode *)CFDataGetBytePtr(myData);
+	myInstance = myNode->myInstance;
+
+	switch (messageType) {
+		case kIOMessageServicePropertyChange : {
+			Boolean			initializing	= FALSE;
+			SCNetworkInterfaceRef	interface;
+			CFTypeRef		val;
+
+			if (myNode->interface == MACH_PORT_NULL) {
+				// if we are not watching the "Initializing" property
+				return;
+			}
+
+			val = IORegistryEntryCreateCFProperty(service, CFSTR("Initializing"), NULL, 0);
+			if (val != NULL) {
+				initializing = (isA_CFBoolean(val) && CFBooleanGetValue(val));
+				CFRelease(val);
+				if (initializing) {
+					// if initialization not complete, keep watching
+					return;
+				}
+			}
+
+			// node is ready
+			interface = _SCNetworkInterfaceCreateWithIONetworkInterfaceObject(myNode->interface);
+			if (interface != NULL) {
+				CFRelease(interface);
+
+				// watch interface (to see when/if it's removed)
+				add_node_watcher(myInstance, myNode->interface, MACH_PORT_NULL);
+			}
+			break;
+		}
+
+		case kIOMessageServiceIsTerminated :
+			break;
+
+		default :
+			return;
+	}
+
+	// remove no-longer-needed notification
+	if (myNode->interface != MACH_PORT_NULL) {
+		IOObjectRelease(myNode->interface);
+		myNode->interface = MACH_PORT_NULL;
+	}
+	IOObjectRelease(myNode->notification);
+	i = CFArrayGetFirstIndexOfValue(myInstance->notifyNodes,
+					CFRangeMake(0, CFArrayGetCount(myInstance->notifyNodes)),
+					myData);
+	if (i != kCFNotFound) {
+		CFArrayRemoveValueAtIndex(myInstance->notifyNodes, i);
+		if (CFArrayGetCount(myInstance->notifyNodes) == 0) {
+			CFRelease(myInstance->notifyNodes);
+			myInstance->notifyNodes = NULL;
+		}
+	}
+
+	updateInterfaceList(myInstance);
+	return;
+}
+
+
+static void
+add_node_watcher(MyType *myInstance, io_registry_entry_t node, io_registry_entry_t interface)
+{
+	kern_return_t		kr;
+	CFMutableDataRef	myData;
+	MyNode			*myNode;
+
+	// wait for initialization to complete
+	myData = CFDataCreateMutable(NULL, sizeof(MyNode));
+	CFDataSetLength(myData, sizeof(MyNode));
+	myNode = (MyNode *)CFDataGetBytePtr(myData);
+	bzero(myNode, sizeof(MyNode));
+	if (interface != MACH_PORT_NULL) {
+		IOObjectRetain(interface);
+	}
+	myNode->interface    = interface;
+	myNode->myInstance   = myInstance;
+	myNode->notification = MACH_PORT_NULL;
+
+	kr = IOServiceAddInterestNotification(myInstance->notifyPort,	// IONotificationPortRef
+					      node,			// io_service_t
+					      kIOGeneralInterest,	// interestType
+					      update_node,		// IOServiceInterestCallback
+					      (void *)myData,		// refCon
+					      &myNode->notification);	// notification
+	if (kr == KERN_SUCCESS) {
+		if (myInstance->notifyNodes == NULL) {
+			myInstance->notifyNodes = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+		}
+		CFArrayAppendValue(myInstance->notifyNodes, myData);
+	} else {
+		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR,
+		      CFSTR("add_init_watcher IOServiceAddInterestNotification() failed, kr =  0x%x"), kr);
+	}
+	CFRelease(myData);
+}
+
+
+static void
+add_init_watcher(MyType *myInstance, io_registry_entry_t interface)
+{
+	kern_return_t		kr;
+	io_registry_entry_t	node		= interface;
+	CFTypeRef		val		= NULL;
+
+	while (node != MACH_PORT_NULL) {
+		io_registry_entry_t	parent;
+
+		val = IORegistryEntryCreateCFProperty(node, CFSTR("HiddenPort"), NULL, 0);
+		if (val != NULL) {
+			CFRelease(val);
+			val = NULL;
+			break;
+		}
+
+		val = IORegistryEntryCreateCFProperty(node, CFSTR("Initializing"), NULL, 0);
+		if (val != NULL) {
+			break;
+		}
+
+		parent = MACH_PORT_NULL;
+		kr = IORegistryEntryGetParentEntry(node, kIOServicePlane, &parent);
+		switch (kr) {
+			case kIOReturnSuccess  :	// if we have a parent node
+			case kIOReturnNoDevice :	// if we have hit the root node
+				break;
+			default :
+				SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR, CFSTR("add_init_watcher IORegistryEntryGetParentEntry() failed, kr = 0x%x"), kr);
+				break;
+		}
+		if (node != interface) {
+			IOObjectRelease(node);
+		}
+		node = parent;
+	}
+
+	if (val != NULL) {
+		if (isA_CFBoolean(val) && CFBooleanGetValue(val)) {
+			// watch the "Initializing" node
+			add_node_watcher(myInstance, node, interface);
+		}
+
+		CFRelease(val);
+	}
+
+	if ((node != MACH_PORT_NULL) && (node != interface)) {
+		IOObjectRelease(node);
+	}
+
+	return;
+}
+
+
+static void
+update_serial(void *refcon, io_iterator_t iter)
+{
+	MyType			*myInstance	= (MyType *)refcon;
+	io_registry_entry_t	obj;
+
+	while ((obj = IOIteratorNext(iter)) != MACH_PORT_NULL) {
+		SCNetworkInterfaceRef	interface;
+
+		interface = _SCNetworkInterfaceCreateWithIONetworkInterfaceObject(obj);
+		if (interface != NULL) {
+			CFRelease(interface);
+
+			// watch interface (to see when/if it's removed)
+			add_node_watcher(myInstance, obj, MACH_PORT_NULL);
+		} else {
+			// check interface, watch if initializing
+			add_init_watcher(myInstance, obj);
+		}
+
+		IOObjectRelease(obj);
+	}
+
+	updateInterfaceList(myInstance);
+	return;
+}
+
+
+static void
+watcher_add_serial(MyType *myInstance)
+{
+	kern_return_t	kr;
+
+	myInstance->notifyPort = IONotificationPortCreate(kIOMasterPortDefault);
+	if (myInstance->notifyPort == NULL) {
+		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR,
+		      CFSTR("SCMonitor: IONotificationPortCreate failed"));
+		return;
+	}
+
+	// watch for the introduction of new network serial devices
+	kr = IOServiceAddMatchingNotification(myInstance->notifyPort,
+					      kIOFirstMatchNotification,
+					      IOServiceMatching("IOSerialBSDClient"),
+					      &update_serial,
+					      (void *)myInstance,		// refCon
+					      &myInstance->notifyIterator);	// notification
+	if (kr != KERN_SUCCESS) {
+		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR,
+		      CFSTR("SCMonitor : IOServiceAddMatchingNotification returned 0x%x"),
+		      kr);
+		return;
+	}
+
+	myInstance->notifyNodes = NULL;
+
+	// Get the current list of matches and arm the notification for
+	// future interface arrivals.
+	update_serial((void *)myInstance, myInstance->notifyIterator);
+
+	// and keep watching
+	CFRunLoopAddSource(CFRunLoopGetCurrent(),
+			   IONotificationPortGetRunLoopSource(myInstance->notifyPort),
+			   kCFRunLoopDefaultMode);
+	return;
+}
+
+
+static void
+watcher_remove_serial(MyType *myInstance)
+{
+	if (myInstance->notifyNodes != NULL) {
+		CFIndex	i;
+		CFIndex	n	= CFArrayGetCount(myInstance->notifyNodes);
+
+		for (i = 0; i < n; i++) {
+			CFDataRef	myData;
+			MyNode		*myNode;
+
+			myData = CFArrayGetValueAtIndex(myInstance->notifyNodes, i);
+			myNode = (MyNode *)CFDataGetBytePtr(myData);
+			if (myNode->interface != MACH_PORT_NULL) {
+				IOObjectRelease(myNode->interface);
+			}
+			IOObjectRelease(myNode->notification);
+		}
+
+		CFRelease(myInstance->notifyNodes);
+		myInstance->notifyNodes = NULL;
+	}
+
+	if (myInstance->notifyIterator != MACH_PORT_NULL) {
+		IOObjectRelease(myInstance->notifyIterator);
+		myInstance->notifyIterator = MACH_PORT_NULL;
+	}
+
+	if (myInstance->notifyPort != MACH_PORT_NULL) {
+		IONotificationPortDestroy(myInstance->notifyPort);
+		myInstance->notifyPort = NULL;
+	}
+
+	return;
+}
+
+
+#pragma mark -
+
+
+static void
+watcher_add(MyType *myInstance)
+{
+	CFBundleRef	bundle;
+
+	if (myInstance->log_msg == NULL) {
+		myInstance->log_msg = asl_new(ASL_TYPE_MSG);
+		asl_set(myInstance->log_msg, ASL_KEY_FACILITY, MY_BUNDLE_ID);
+	}
+
+	bundle = CFBundleGetBundleWithIdentifier(CFSTR(MY_BUNDLE_ID));
+	if (bundle != NULL) {
+		CFStringRef	action;
+		CFDictionaryRef	info;
+
+		info = CFBundleGetInfoDictionary(bundle);
+		action = CFDictionaryGetValue(info, kSCNetworkInterfaceConfigurationActionKey);
+		action = isA_CFString(action);
+
+		if (action != NULL) {
+			myInstance->configuration_action = action;
+		} else {
+			CFBooleanRef	user_intervention;
+
+			user_intervention = CFDictionaryGetValue(info, CFSTR("User Intervention"));
+			if (isA_CFBoolean(user_intervention) && !CFBooleanGetValue(user_intervention)) {
+				myInstance->configuration_action = kSCNetworkInterfaceConfigurationActionValueConfigure;
+			}
+		}
+	}
+
+	watcher_add_lan(myInstance);
+	watcher_add_serial(myInstance);
+	return;
+}
+
+
+static void
+watcher_remove(MyType *myInstance)
+{
+	watcher_remove_lan(myInstance);
+	watcher_remove_serial(myInstance);
+
+	asl_free(myInstance->log_msg);
+	myInstance->log_msg = NULL;
 	return;
 }
 

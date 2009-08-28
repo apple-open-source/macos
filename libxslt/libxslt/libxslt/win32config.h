@@ -11,6 +11,7 @@
 
 #define HAVE_CTYPE_H 1
 #define HAVE_STDLIB_H 1
+#define HAVE_STDARG_H 1
 #define HAVE_MALLOC_H 1
 #define HAVE_TIME_H 1
 #define HAVE_LOCALTIME 1
@@ -79,7 +80,9 @@ static int isnan (double d) {
 #if defined(_MSC_VER) || defined(__MINGW32__)
 #define mkdir(p,m) _mkdir(p)
 #define snprintf _snprintf
+#if _MSC_VER < 1500
 #define vsnprintf(b,c,f,a) _vsnprintf(b,c,f,a)
+#endif
 #endif
 
 #define HAVE_SYS_STAT_H

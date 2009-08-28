@@ -1,5 +1,5 @@
 dnl
-dnl "$Id: cups-directories.m4 6976 2007-09-18 20:39:31Z mike $"
+dnl "$Id: cups-directories.m4 7799 2008-07-25 20:06:08Z mike $"
 dnl
 dnl   Directory stuff for the Common UNIX Printing System (CUPS).
 dnl
@@ -123,12 +123,14 @@ AC_ARG_WITH(rcdir, [  --with-rcdir            set path for rc scripts],rcdir="$w
 AC_ARG_WITH(rclevels, [  --with-rclevels         set run levels for rc scripts],rclevels="$withval",rclevels="2 3 5")
 AC_ARG_WITH(rcstart, [  --with-rcstart          set start number for rc scripts],rcstart="$withval",rcstart="99")
 AC_ARG_WITH(rcstop, [  --with-rcstop           set stop number for rc scripts],rcstop="$withval",rcstop="00")
+AC_ARG_WITH(smfmanifestdir, [  --with-smfmanifestdir   set path for Solaris SMF manifest],smfmanifestdir="$withval",smfmanifestdir="")
 
 INITDIR=""
 INITDDIR=""
 RCLEVELS="$rclevels"
 RCSTART="$rcstart"
 RCSTOP="$rcstop"
+SMFMANIFESTDIR=""
 
 if test x$rcdir = x; then
 	case "$uname" in
@@ -163,7 +165,7 @@ if test x$rcdir = x; then
 			RCSTOP="25"
 			;;
 
-		Linux | GNU)
+		Linux | GNU | GNU/k*BSD*)
 			# Linux/HURD seems to choose an init.d directory at random...
 			if test -d /sbin/init.d; then
 				# SuSE
@@ -192,8 +194,12 @@ if test x$rcdir = x; then
 
 		SunOS*)
 			# Solaris
-			INITDIR="/etc"
-			RCSTART="81"
+			if test "x$smfmanifestdir" != x; then
+				SMFMANIFESTDIR=$smfmanifestdir
+			else
+				INITDIR="/etc"
+				RCSTART="81"
+			fi
 			;;
 
 		*)
@@ -214,6 +220,7 @@ AC_SUBST(INITDDIR)
 AC_SUBST(RCLEVELS)
 AC_SUBST(RCSTART)
 AC_SUBST(RCSTOP)
+AC_SUBST(SMFMANIFESTDIR)
 
 dnl Xinetd support...
 AC_ARG_WITH(xinetd, [  --with-xinetd           set path for xinetd config files],XINETD="$withval",XINETD="")
@@ -230,6 +237,47 @@ elif test "x$XINETD" = xno; then
 fi
 
 AC_SUBST(XINETD)
+
+dnl LPD sharing support...
+AC_ARG_WITH(lpdconfig, [  --with-lpdconfig        set URI for LPD config file],
+	LPDCONFIG="$withval", LPDCONFIG="")
+
+if test "x$LPDCONFIG" = x; then
+	if test -f /System/Library/LaunchDaemons/org.cups.cups-lpd.plist; then
+		LPDCONFIG="launchd:///System/Library/LaunchDaemons/org.cups.cups-lpd.plist"
+	elif test "x$XINETD" != x; then
+		LPDCONFIG="xinetd://$XINETD/cups-lpd"
+	fi
+fi
+
+if test "x$LPDCONFIG" = xoff; then
+	AC_DEFINE_UNQUOTED(CUPS_DEFAULT_LPD_CONFIG, "")
+else
+	AC_DEFINE_UNQUOTED(CUPS_DEFAULT_LPD_CONFIG, "$LPDCONFIG")
+fi
+
+dnl SMB sharing support...
+AC_ARG_WITH(smbconfig, [  --with-smbconfig        set URI for Samba config file],
+	SMBCONFIG="$withval", SMBCONFIG="")
+
+if test "x$SMBCONFIG" = x; then
+	if test -f /System/Library/LaunchDaemons/smbd.plist; then
+		SMBCONFIG="launchd:///System/Library/LaunchDaemons/smbd.plist"
+	else
+		for dir in /etc /etc/samba /usr/local/etc; do
+			if test -f $dir/smb.conf; then
+				SMBCONFIG="samba://$dir/smb.conf"
+				break
+			fi
+		done
+	fi
+fi
+
+if test "x$SMBCONFIG" = xoff; then
+	AC_DEFINE_UNQUOTED(CUPS_DEFAULT_SMB_CONFIG, "")
+else
+	AC_DEFINE_UNQUOTED(CUPS_DEFAULT_SMB_CONFIG, "$SMBCONFIG")
+fi
 
 dnl Setup default locations...
 # Cache data...
@@ -299,12 +347,11 @@ fi
 AC_SUBST(CUPS_FONTPATH)
 AC_DEFINE_UNQUOTED(CUPS_FONTPATH, "$CUPS_FONTPATH")
 
-# Locale data (initial assignment allows us not to require autoconf 2.60)
-localedir="${localedir:=}"
-if test "$localedir" = "\${datarootdir}/locale" -o "$localedir" = ""; then
+# Locale data
+if test "$localedir" = "\${datarootdir}/locale"; then
 	case "$uname" in
 		Linux | GNU | *BSD* | Darwin*)
-			CUPS_LOCALEDIR="$datadir/locale"
+			CUPS_LOCALEDIR="$datarootdir/locale"
 			;;
 
 		OSF1* | AIX*)
@@ -364,10 +411,19 @@ AC_DEFINE_UNQUOTED(CUPS_SERVERROOT, "$sysconfdir/cups")
 AC_SUBST(CUPS_SERVERROOT)
 
 # Transient run-time state
-CUPS_STATEDIR="$localstatedir/run/cups"
-AC_DEFINE_UNQUOTED(CUPS_STATEDIR, "$localstatedir/run/cups")
+case "$uname" in
+	Darwin*)
+		# Darwin (Mac OS X)
+		CUPS_STATEDIR="$CUPS_SERVERROOT"
+		;;
+	*)
+		# All others
+		CUPS_STATEDIR="$localstatedir/run/cups"
+		;;
+esac
+AC_DEFINE_UNQUOTED(CUPS_STATEDIR, "$CUPS_STATEDIR")
 AC_SUBST(CUPS_STATEDIR)
 
 dnl
-dnl End of "$Id: cups-directories.m4 6976 2007-09-18 20:39:31Z mike $".
+dnl End of "$Id: cups-directories.m4 7799 2008-07-25 20:06:08Z mike $".
 dnl

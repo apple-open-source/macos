@@ -1324,6 +1324,11 @@ main(int ac, char **av)
 	}
 #endif
 
+#ifdef __APPLE_LAUNCHD__
+	if (l_flag)
+		goto skip2;
+#endif
+
 	/*
 	 * Fork, and have the parent execute the command, if any, or present
 	 * the socket data.  The child continues as the authentication agent.
@@ -1336,12 +1341,6 @@ main(int ac, char **av)
 		printf("echo Agent pid %ld;\n", (long)parent_pid);
 		goto skip;
 	}
-
-#ifdef __APPLE_LAUNCHD__
-	if (l_flag)
-	goto skip2;
-#endif
-
 	pid = fork();
 	if (pid == -1) {
 		perror("fork");

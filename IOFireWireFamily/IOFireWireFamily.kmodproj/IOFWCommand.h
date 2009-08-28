@@ -818,6 +818,7 @@ public:
                                 int						speed,
                                 FWAsyncStreamCallback	completion,
                                 void 					* refcon);
+
 	virtual void free( void );
 
     virtual IOReturn	reinit(	UInt32 					generation, 
@@ -829,7 +830,7 @@ public:
                                 int						speed,
                                	FWAsyncStreamCallback	completion,
                                 void 					* refcon);
-
+								
     virtual void				gotAck(
     							int 					ackCode);
 	// Utility for setting generation on newly created command
@@ -843,13 +844,38 @@ public:
     
     bool		failOnReset() const
     { return fFailOnReset; }
-    
 
 private:
     OSMetaClassDeclareReservedUnused(IOFWAsyncStreamCommand, 0);
     OSMetaClassDeclareReservedUnused(IOFWAsyncStreamCommand, 1);
-    OSMetaClassDeclareReservedUnused(IOFWAsyncStreamCommand, 2);
-    OSMetaClassDeclareReservedUnused(IOFWAsyncStreamCommand, 3);
+
+public:
+    virtual bool		initAll(
+    							IOFireWireController 	* control,
+                                UInt32 					generation, 
+                                UInt32 					channel,
+                                UInt32 					sync,
+                                UInt32 					tag,
+                                IOMemoryDescriptor 		* hostMem,
+                                UInt32					size,
+                                int						speed,
+                                FWAsyncStreamCallback	completion,
+                                void 					* refcon,
+								bool					failOnReset );
+								
+    
+	virtual IOReturn	reinit(
+								UInt32 					generation, 
+                                UInt32 					channel,
+                                UInt32 					sync,
+                                UInt32 					tag,
+                                IOMemoryDescriptor 		* hostMem,
+                                UInt32					size,
+                                int						speed,
+                                FWAsyncStreamCallback 	completion,
+                                void 					* refcon,
+								bool					failOnReset);
+	
 
 };
 

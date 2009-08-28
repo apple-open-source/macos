@@ -1,0 +1,90 @@
+# $Id: PlaceAccessControl.xotcl,v 1.7 2006/09/27 08:12:40 neumann Exp $
+
+package provide xotcl::actiweb::placeAccessControl 0.8
+
+package require xotcl::comm::httpd
+package require xotcl::actiweb::httpPlace
+
+package require XOTcl
+
+#
+# Simple Object Pwd Protection with BasicAccessControl
+#
+#Usage example:
+#ConferenceOrgPlace confPlace -port $placeport -root [pwd] \
+    #  -mixin PlaceAccessControl
+#
+#confPlace protect conference.html [confData set password]
+#
+#confPlace setPasswd conference.html xxx
+
+namespace eval ::xotcl::actiweb::placeAccessControl {
+    namespace import ::xotcl::*
+
+    Class ObjectAccessControl -superclass BasicAccessControl
+
+    ObjectAccessControl instproc protectedResource {fn method varAuthMethod varRealm} {
+	# check whether access to $fn via $method is protected
+	upvar [self callinglevel] $varAuthMethod authMethod $varRealm realm
+	my instvar root
+	# we check only the current directory, not the parent directories
+	set call [url decodeItem $fn]
+	regsub "^$root" $call "" call
+	set call [string trimleft $call /]
+	set call [string trimleft $call :]
+	regexp {^([^ ]*)} $call _ call
+	set call "$root/$call"
+
+	foreach i [list $call $call:$method] {
+	    #puts stderr "check <$i>"
+	    if {[my exists protected($i)]} {
+		set realm [my set protected($i)]
+		set authMethod Basic
+		return 1
+	    }
+	}
+	return 0
+    }
+
+    Class PlaceAccessControl
+    PlaceAccessControl instproc init args {
+	next
+	[self]::httpd mixin add ObjectAccessControl
+	[self]::httpd initWorkerMixins
+    }
+
+    PlaceAccessControl instproc protect {objName id pwd} {
+	set objName [string trimleft $objName :]
+	[self]::httpd protectDir $objName $objName {}
+	if {$pwd ne ""} {
+	    my setPassword $objName $id $pwd
+	} 
+    }
+
+    PlaceAccessControl instproc credentialsNotOk {credentials authMethod realm} {
+	#my instvar passwd
+	#parray passwd
+	next
+    }
+
+    PlaceAccessControl instproc setPassword {realm id pwd} {
+	set httpd [self]::httpd 
+	if {[$httpd exists passwd($realm:$id)]} {
+	    $httpd unset passwd($realm:$id)
+	    $httpd set passwd($realm:$id) $pwd
+	} else {
+	    $httpd addRealmEntry $realm "$id $pwd"
+	}
+	#$httpd set passwd($realm:admin) nimda
+    }
+    PlaceAccessControl instproc removeID {realm id} {
+	set httpd [self]::httpd
+	if {[$httpd exists passwd($realm:$id)]} {
+	    $httpd unset passwd($realm:$id)
+	}
+    }
+
+    namespace export ObjectAccessControl PlaceAccessControl
+}
+
+namespace import ::xotcl::actiweb::placeAccessControl::*

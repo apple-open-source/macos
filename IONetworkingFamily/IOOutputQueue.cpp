@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,8 +20,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1998 Apple Computer, Inc.  All rights reserved. 
- *
  * IOOutputQueue.cpp
  *
  * HISTORY
@@ -310,7 +308,7 @@ void IOBasicOutputQueue::free()
 void IOBasicOutputQueue::serviceThread(void * param)
 {
     QUEUE_LOCK;
-    STATE_CLR((UInt32) param);
+    STATE_CLR((uintptr_t) param);
     STATE_SET(kStateOutputActive);
     dequeue();
     QUEUE_UNLOCK;
@@ -531,7 +529,7 @@ bool IOBasicOutputQueue::stop()
 // If the queue becomes stalled, then service() must be called by the target
 // to restart the queue when the target is ready to accept more packets.
 
-bool IOBasicOutputQueue::service(UInt32 options)
+bool IOBasicOutputQueue::service(IOOptionBits options)
 {
     bool    doDequeue = false;
     bool    async     = (options & kServiceAsync);
@@ -606,11 +604,7 @@ UInt32 IOBasicOutputQueue::getCapacity() const
 
 UInt32 IOBasicOutputQueue::getSize() const
 {
-    UInt32 size;
-    QUEUE_LOCK;
-    size = IOMbufQueueGetSize(_queues[0]) + IOMbufQueueGetSize(_queues[1]);
-    QUEUE_UNLOCK;
-    return size;
+    return IOMbufQueueGetSize(_queues[0]);
 }
 
 //---------------------------------------------------------------------------
@@ -675,8 +669,14 @@ IOBasicOutputQueue::handleNetworkDataAccess(IONetworkData * data,
     {
         case kIONetworkDataAccessTypeRead:
         case kIONetworkDataAccessTypeSerialize:
-            _stats->size = getSize();
+        {
+            UInt32 size;
+            QUEUE_LOCK;
+            size = IOMbufQueueGetSize(_queues[0]) + IOMbufQueueGetSize(_queues[1]);
+            QUEUE_UNLOCK;
+            _stats->size = size;
             break;
+        }
 
         default:
             ret = kIOReturnNotWritable;
@@ -880,7 +880,7 @@ void IOGatedOutputQueue::output(IOMbufQueue * queue, UInt32 * state)
 
 bool IOGatedOutputQueue::scheduleServiceThread(void * param)
 {
-    if ( ((UInt32) param) & kStateOutputDeferred )
+    if ( ((uintptr_t) param) & kStateOutputDeferred )
     {
         _interruptSrc->interruptOccurred(0, 0, 0);
         return true;

@@ -1,6 +1,5 @@
-
 /*
- * Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,7 +38,7 @@
 #include <string.h>
 #include "EAPUtil.h"
 #include "printdata.h"
-
+#include "EAPClientModule.h"
 
 int
 EAPCodeValid(EAPCode code)
@@ -88,10 +87,14 @@ EAPTypeStr(EAPType type)
 	return ("TLS");
     case kEAPTypeCiscoLEAP:
 	return ("LEAP");
+    case kEAPTypeEAPSIM:
+	return ("EAP-SIM");
     case kEAPTypeSRPSHA1:
 	return ("SRPSHA1");
     case kEAPTypeTTLS:
 	return ("TTLS");
+    case kEAPTypeEAPAKA:
+	return ("EAP-AKA");
     case kEAPTypePEAP:
 	return ("PEAP");
     case kEAPTypeMSCHAPv2:
@@ -107,50 +110,63 @@ EAPTypeStr(EAPType type)
 }
 
 static bool
-EAPRequestResponseValid(EAPPacketRef eap_p, uint32_t length, bool debug)
+EAPRequestResponseValid(EAPPacketRef eap_p, uint32_t length, FILE * f)
 {
     EAPNakPacketRef 	nak_p = (EAPNakPacketRef)eap_p;
     EAPRequestPacketRef	rd_p = (EAPRequestPacketRef)eap_p;
 
     if (length < sizeof(*rd_p)) {
-	if (debug) {
-	    printf("eap_request_response_valid:"
-		   " length %d < sizeof(*rd_p) %ld\n",
-		   length, sizeof(*rd_p));
+	if (f != NULL) {
+	    fprintf(f, "eap_request_response_valid:"
+		    " length %d < sizeof(*rd_p) %ld\n",
+		    length, sizeof(*rd_p));
 	}
 	return (false);
     }
     
-    if (debug) {
-	printf("%s (%d)\n", EAPTypeStr(rd_p->type),
-	       rd_p->type);
-    }
     switch (rd_p->type) {
     case kEAPTypeInvalid:
-	if (debug) {
-	    printf("EAP type is invalid (0)\n");
+	if (f != NULL) {
+	    fprintf(f, "EAP type is invalid (0)\n");
 	}
 	return (false);
 
     case kEAPTypeNak:
+	if (f != NULL) {
+	    fprintf(f, "%s (%d)\n", EAPTypeStr(rd_p->type),
+		    rd_p->type);
+	}
 	if (length < sizeof(*nak_p)) {
-	    if (debug) {
-		printf("Nak packet too short\n");
+	    if (f != NULL) {
+		fprintf(f, "Nak packet too short\n");
 	    }
 	    return (false);
 	}
-	if (debug) {
-	    printf("Desired authentication type: %s (%d)\n", 
-		   EAPTypeStr(nak_p->desired_type),
-		   nak_p->desired_type);
+	if (f != NULL) {
+	    fprintf(f, "Desired authentication type: %s (%d)\n", 
+		    EAPTypeStr(nak_p->desired_type),
+		    nak_p->desired_type);
 	}
 	break;
 
     default:
-	if (debug) {
-	    printf("length %d  - sizeof(*rd_p) %ld = %ld\n",
-		   length, sizeof(*rd_p), length - sizeof(*rd_p));
-	    print_data(rd_p->type_data, length - sizeof(*rd_p));
+	if (f != NULL) {
+	    bool		printed = FALSE;
+	    EAPClientModuleRef	module;
+
+	    module = EAPClientModuleLookup(rd_p->type);
+	    if (module != NULL) {
+		printed
+		    = EAPClientModulePluginPacketDump(module, f,
+						      (const EAPPacketRef)rd_p);
+	    }
+	    if (printed == FALSE) {
+		fprintf(f, "%s (%d)\n", EAPTypeStr(rd_p->type),
+			rd_p->type);
+		fprintf(f, "length %d  - sizeof(*rd_p) %ld = %ld\n",
+			length, sizeof(*rd_p), length - sizeof(*rd_p));
+		fprint_data(f, rd_p->type_data, length - sizeof(*rd_p));
+	    }
 	}
 	break;
     }
@@ -158,35 +174,35 @@ EAPRequestResponseValid(EAPPacketRef eap_p, uint32_t length, bool debug)
 }
 
 bool
-EAPPacketValid(EAPPacketRef eap_p, uint16_t pkt_length, bool debug)
+EAPPacketValid(EAPPacketRef eap_p, uint16_t pkt_length, FILE * f)
 {
     int			length;
     bool		ret = true;
 
     if (pkt_length < sizeof(*eap_p)) {
-	if (debug) {
-	    printf("EAPPacketValid: pkt_length %d < sizeof(*eap_p) %ld\n",
-		   pkt_length, sizeof(*eap_p));
+	if (f != NULL) {
+	    fprintf(f, "EAPPacketValid: pkt_length %d < sizeof(*eap_p) %ld\n",
+		    pkt_length, sizeof(*eap_p));
 	}
 	return (false);
     }
     length = EAPPacketGetLength(eap_p);
-    if (debug) {
-	printf("EAP %s (%d): identifier %d length %d\n",
-	       EAPCodeStr(eap_p->code), eap_p->code,
-	       eap_p->identifier, length);
+    if (f != NULL) {
+	fprintf(f, "EAP %s (%d): Identifier %d Length %d\n",
+		EAPCodeStr(eap_p->code), eap_p->code,
+		eap_p->identifier, length);
     }
     if (pkt_length < length) {
-	if (debug) {
-	    printf("EAPPacketValid: pkt_length %d < length %d\n",
-		   pkt_length, length);
+	if (f != NULL) {
+	    fprintf(f, "EAPPacketValid: pkt_length %d < length %d\n",
+		    pkt_length, length);
 	}
 	return (false);
     }
     switch (eap_p->code) {
     case kEAPCodeRequest:
     case kEAPCodeResponse:
-	ret = EAPRequestResponseValid(eap_p, length, debug);
+	ret = EAPRequestResponseValid(eap_p, length, f);
 	break;
     case kEAPCodeFailure:
     case kEAPCodeSuccess:
@@ -194,11 +210,11 @@ EAPPacketValid(EAPPacketRef eap_p, uint16_t pkt_length, bool debug)
     default:
 	break;
     }
-    if (debug) {
+    if (f != NULL) {
 	if (length < pkt_length) {
-	    printf("EAP: %d bytes follow data:\n", pkt_length - length);
-	    print_data(eap_p->data + length,
-		       pkt_length - length);
+	    fprintf(f, "EAP: %d bytes follow data:\n", pkt_length - length);
+	    fprint_data(f, eap_p->data + length,
+			pkt_length - length);
 	}
     }
     return (ret);

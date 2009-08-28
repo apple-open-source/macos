@@ -1,0 +1,677 @@
+## $Header: /home/neumann/cvs/xotcl/xotcl/library/lib/htmllib.xotcl,v 1.6 2006/09/27 08:12:40 neumann Exp $
+
+#
+# htmllib.xotcl
+#
+# Author: Antti Salonen, as@fishpool.fi
+#
+# Copyright:
+#
+# This software is copyrighted by Fishpool Creations Oy Ltd.  The following 
+# terms apply to all files associated with the software unless explicitly 
+# disclaimed in individual files.
+#
+# The authors hereby grant permission to use, copy, modify, distribute,
+# and license this software and its documentation for any purpose, provided
+# that existing copyright notices are retained in all copies and that this
+# notice is included verbatim in any distributions. No written agreement,
+# license, or royalty fee is required for any of the authorized uses.
+# Modifications to this software may be copyrighted by their authors
+# and need not follow the licensing terms described here, provided that
+# the new terms are clearly indicated on the first page of each file where
+# they apply.
+# 
+# IN NO EVENT SHALL THE AUTHORS OR DISTRIBUTORS BE LIABLE TO ANY PARTY
+# FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES
+# ARISING OUT OF THE USE OF THIS SOFTWARE, ITS DOCUMENTATION, OR ANY
+# DERIVATIVES THEREOF, EVEN IF THE AUTHORS HAVE BEEN ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+# 
+# THE AUTHORS AND DISTRIBUTORS SPECIFICALLY DISCLAIM ANY WARRANTIES,
+# INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.  THIS SOFTWARE
+# IS PROVIDED ON AN "AS IS" BASIS, AND THE AUTHORS AND DISTRIBUTORS HAVE
+# NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR
+# MODIFICATIONS.
+# 
+
+package provide xotcl::htmllib 0.1
+package require XOTcl
+
+namespace eval ::xotcl::htmllib {
+    namespace import ::xotcl::*
+
+    @ @File {
+	description {
+	    This package provides the class HtmlBuilder, which can be used to 
+	    generate HTML documents, or a part of a document.
+	}
+	authors {
+	    Antti Salonen, as@fishpool.fi
+	}
+	date {
+	    $Date: 2006/09/27 08:12:40 $
+	}
+    }
+    
+    #
+    # the compressed parameter means that minimal HTML page are created
+    # i.e. that space indentation is turned off
+    #
+    Class HtmlBuilder -parameter {
+	{compressed 0}
+    }
+
+    ## The constructor.
+    ##
+    ## The HtmlBuilder object has two instance variables. The document Tcl list
+    ## contains the document as a list of strings. The document is stored as a list
+    ## rather than a single string to allow further indentation of the whole
+    ## document when necessary.
+    ##   The indentLevel variable is the level of indentation, which is generally
+    ## increased for the contents of any HTML element that may contain block-level
+    ## elements. Typical examples would be <ul>, <li>, <td> and so forth.
+
+    HtmlBuilder instproc init {} {
+	my instvar document indentLevel
+	set document [list] 
+	set indentLevel 0
+	return
+    }
+
+
+    HtmlBuilder instproc clear {} {
+	my instvar document indentLevel
+
+	set document [list]
+	set indentLevel 0
+	return
+    }
+
+
+    HtmlBuilder instproc getDocument {} {
+	my instvar document
+	return $document
+    }
+
+
+    HtmlBuilder instproc toString {} {
+	my instvar document compressed
+	set rvalue ""
+	foreach line $document {
+	    if {$compressed == "0"} {
+		append rvalue "$line\n"
+	    } else {
+		## only new line for closing tags at the beginnig 
+		## of a document element
+		if {[string equal -length 2 "</" $line]} {
+		    append rvalue "$line\n"
+		} else {
+		    append rvalue "$line "
+		}
+	    }
+	}
+	return $rvalue
+    }
+
+
+    ## parseArguments - Parses the arguments in argList as described in the two
+    ## additional Tcl lists. In addition to the arguments listed in the two 
+    ## additional lists, the procedure also accepts arguments common to all
+    ## HTML elements.
+    ## Arguments:
+    ##   argList - List of arguments to be parsed
+    ##   argParamList - List of arguments that take a parameter
+    ##   argNoParamList - List of arguments that don't take a parameter
+    ## Returns:
+    ##   A string with arguments to an HTML element.
+
+    HtmlBuilder proc parseArguments {argList argParamList argNoParamList} {
+	set rvalue ""
+	set argParamList [concat $argParamList [list "ID" "CLASS" "STYLE" "TITLE" "LANG" "DIR"]]
+	set param 0
+	foreach arg $argList {
+	    if {$param} {
+		append rvalue "=\"$arg\""
+		set param 0
+	    } else {
+		set arg2 [string toupper [string trimleft $arg "-"]]
+		if {[lsearch -exact $argParamList $arg2] != -1} {
+		    append rvalue " $arg2"
+		    set param 1
+		} elseif {[lsearch -exact $argNoParamList $arg2] != -1} {
+		    append rvalue " $arg2"
+		} else {
+		    error "HTML syntax error: Invalid argument $arg2 to element"
+		}
+	    }
+	}
+	if {$param} {
+	    error "HTML syntax error: Missing parameter to argument $arg2"
+	}
+	return $rvalue
+    }
+
+
+    ##############################################################################
+    ## Low-level modification methods:
+    ##
+    ## The efficiency of these is of utmost importance if efficiency is an issue
+    ## in the first place.
+    ##
+    ## addString
+    ## addStringIncr
+    ## addStringDecr
+    ## addWhiteSpace
+    ## addDocument
+    ## mergeDocument
+
+
+    ## Add a new arbitrary string to the document. This method is used by other
+    ## modification methods, as well as the user directly to add content other than
+    ## HTML elements. The string str is appended to the document with proper
+    ## indentation.
+
+    HtmlBuilder instproc addString {str} {
+	my instvar document indentLevel compressed
+	
+	if {$compressed == "0"} {
+	    for {set n 0} {$n < $indentLevel} {incr n} {
+		append newLine "  "
+	    }
+	}
+	append newLine $str
+	lappend document $newLine
+	
+	return
+    }
+
+    ## Add a string to the document and increase the indentation level.
+
+    HtmlBuilder instproc addStringIncr {str} {
+	my instvar indentLevel
+	my addString $str
+	incr indentLevel
+	return
+    }
+
+
+    ## Decrease the indentation level and add a string to the document.
+
+    HtmlBuilder instproc addStringDecr {str} {
+	my instvar indentLevel
+	incr indentLevel -1
+	my addString $str
+	return
+    }
+
+    #
+    # add the string and replace all line breaks in the
+    # string with addLineBreak calls so that given plain text 
+    # appears similar in HTML output
+
+    HtmlBuilder instproc addStringWithLineBreaks {str} {
+	while {[set idx [string first "\n" $str]] != -1} {
+	    my addString [string range $str 0 [expr {$idx - 1}]]
+	    my addLineBreak
+	    set str [string range $str [expr {$idx + 1}] end]
+	}
+	my addString $str
+    }
+    
+    ## Add a single line of white space to the HTML document.
+    
+    HtmlBuilder instproc addWhiteSpace {} {
+	my addString ""
+	return
+    }
+
+    ## Add the content of the document given as parameter.
+
+    HtmlBuilder instproc addDocument {document} {
+	set documentList [$document getDocument]
+	
+	foreach line $documentList {
+	    my addString $line
+	}
+	return
+    }
+
+    ## Merge the content of the document given as a parameter. The difference
+    ## to addDocument is that the document merged is destroyed.
+
+    HtmlBuilder instproc mergeDocument {document} {
+	set documentList [$document getDocument]
+	
+	foreach line $documentList {
+	    my addString $line
+	}
+	$document destroy
+	return
+    }
+
+
+
+
+    ##############################################################################
+    ## HTML generation methods:                                                
+    ##              
+    ## The methods for generating various HTML structures are either a pair of 
+    ## start and end methods, such as startParagraph and endParagraph, or a single
+    ## method such as addListItem. Even if the the closing tag for <p>, for
+    ## example, is not required by the HTML specification, using the closing method
+    ## is necessary to have the document properly indented.
+
+
+    # Add a string to the document within <strong>...</strong>
+
+    HtmlBuilder instproc addStringStrong {str} {
+	my addString "<STRONG>$str</STRONG>"
+	return
+    }
+
+    # Add a string to the document within <em>...</em>
+
+    HtmlBuilder instproc addStringEmphasized {str} {
+	my addString "<EM>$str</EM>"
+	return
+    }
+
+    # Add a comment to the document <!-- ... -->
+
+    HtmlBuilder instproc addComment {str} {
+	my addString "<!-- $str -->"
+	return
+    }
+
+    HtmlBuilder instproc addLineBreak {} {
+	my addString "<BR>"
+	return
+    }
+
+    ## startDocument - Start an HTML document. Currently all documents are HTML 4.0
+    ## Transitional. HTML, BODY, HEAD and TITLE elements are added/started here.
+    ## Optional arguments:
+    ##   -title documentTitle (empty if not given)
+    ##   -stylesheet externalStyleSheet
+    ##   -bgcolor backgroundColour (deprecated in HTML 4.0)
+
+    HtmlBuilder instproc startDocument {args} {
+	set title ""
+	foreach {name value} $args {
+	    switch -- $name {
+		-title {
+		    set title $value
+		}
+		-stylesheet {
+		    set stylesheet $value
+		}
+		-bgcolor {
+		    set bgcolor $value
+		}
+	    }
+	}
+	my addString {<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/frameset.dtd">}
+	my addWhiteSpace
+	my addString {<HTML>}
+	my addStringIncr {<HEAD>}
+	my addString "<TITLE>$title</TITLE>"
+	if {[info exists stylesheet]} {
+	    my addString "<LINK REL=\"StyleSheet\" HREF=\"$stylesheet\" TYPE=\"text/css\">"
+	}
+	my addStringDecr {</HEAD>}
+	my addWhiteSpace
+	if {[info exists bgcolor]} {
+	    my addStringIncr "<BODY BGCOLOR=\"$bgcolor\">"
+	} else {
+	    my addStringIncr {<BODY>}
+	}
+	return
+    }
+
+    ## endDocument - end an HTML document
+
+    HtmlBuilder instproc endDocument {} {
+	my addStringDecr {</BODY>}
+	my addString {</HTML>}
+	return
+    }
+
+    ## startParagraph - start a P element
+    ## Optional arguments:
+    ##   Common HTML arguments
+
+    HtmlBuilder instproc startParagraph {args} {
+	set attributes [HtmlBuilder parseArguments $args [list] [list]]
+	my addStringIncr "<P$attributes>"
+	return
+    }
+
+    ## endParagraph - end a P element
+
+    HtmlBuilder instproc endParagraph {} {
+	my addStringDecr {</P>}
+	return
+    }
+
+    ## startAnchor - start an A element
+    ## Optional arguments:
+    ##   -href URI
+    ##   -name cdata
+    ##   -target frameTarget
+    ##   Common HTML arguments
+
+    HtmlBuilder instproc startAnchor {args} {
+	set attributes [HtmlBuilder parseArguments $args \
+			    [list "HREF" "NAME" "TARGET"] [list]]
+	my addStringIncr "<A$attributes>"
+	return
+    }
+
+    ## endAnchor - end an A element
+
+    HtmlBuilder instproc endAnchor {args} {
+	my addStringDecr {</A>}
+	return
+    }
+
+    ## addAnchor - add an A element, using content as the visible link.
+    ## Optional arguments:
+    ##   -href URI
+    ##   -name cdata
+    ##   -target frameTarget
+    ##   Common HTML arguments
+
+    HtmlBuilder instproc addAnchor {content args} {
+	eval my startAnchor $args
+	my addString $content
+	my endAnchor
+	return
+    }
+
+    ## startUnorderedList - start a UL element
+    ## Optional arguments:
+    ##   Commmon HTML arguments
+
+    HtmlBuilder instproc startUnorderedList {args} {
+	set attributes [HtmlBuilder parseArguments $args [list] [list]]
+	my addStringIncr "<UL$attributes>"
+	return
+    }
+
+    ## endUnorderedList - end a UL element
+
+    HtmlBuilder instproc endUnorderedList {} {
+	my addStringDecr {</UL>}
+	return
+    }
+
+    ## startListItem - start an LI element
+    ## Optional arguments:
+    ##   Common HTML arguments
+
+    HtmlBuilder instproc startListItem {args} {
+	set attributes [HtmlBuilder parseArguments $args [list] [list]]
+	my addStringIncr "<LI$attributes>"
+	return
+    }
+
+    ## endListItem - end an LI element
+
+    HtmlBuilder instproc endListItem {} {
+	my addStringDecr {</LI>}
+	return
+    }
+
+    ## add a simple list item
+    HtmlBuilder instproc addListItem {content} {
+	my startListItem
+	my addString $content
+	my endListItem
+    }
+
+    ## startTable - start a TABLE element. Note that if the -border argument isn't
+    ## used, by default the table are created with borders (<TABLE BORDER>).
+
+    ## Optional arguments:
+    ##   -border pixels
+    ##   -cellpadding length
+    ##   -cellspacing length
+    ##   -summary text
+    ##   -width length
+    ##   -bgcolor  color spec
+    ##   Common HTML arguments
+
+    HtmlBuilder instproc startTable {args} {
+	set attributes [HtmlBuilder parseArguments $args \
+			    [list "BORDER" "CELLPADDING" "CELLSPACING" "SUMMARY" \
+				 "WIDTH" "BGCOLOR"] [list]]
+	if {[lsearch $args "-border"] == -1} {
+	    append attributes " BORDER"
+	}
+	my addStringIncr "<TABLE$attributes>"
+	return
+    }
+
+    ## endTable - end a TABLE element
+
+    HtmlBuilder instproc endTable {} {
+	my addStringDecr {</TABLE>}
+	return
+    }
+
+    ## startTableRow - start a TR element
+    ## Optional arguments:
+    ##   Common HTML arguments
+    HtmlBuilder instproc startTableRow {args} {
+	set attributes [HtmlBuilder parseArguments $args [list "VALIGN"] [list]]
+	my addStringIncr "<TR$attributes>"
+	return
+    }
+
+    ## endTableRow - end a TR element
+
+    HtmlBuilder instproc endTableRow {} {
+	my addStringDecr {</TR>}
+	return
+    }
+
+    ## startTableCell - start a TD element
+    ## Optional arguments:
+    ##   -colspan number
+    ##   -rowspan number
+    ##   -align left|center|right|justify|char
+    ##   -valign top|middle|bottom|baseline
+    ##   -bgcolor
+    ##   -width
+    ##   Common HTML arguments
+
+    HtmlBuilder instproc startTableCell {args} {
+	set attributes [HtmlBuilder parseArguments $args \
+			    [list "COLSPAN" "ROWSPAN" "ALIGN" "VALIGN" \
+				 "BGCOLOR" "WIDTH"] [list]]
+	my addStringIncr "<TD$attributes>"
+	return
+    }
+
+    ## endTableCell - end a TD element
+
+    HtmlBuilder instproc endTableCell {} {
+	my addStringDecr {</TD>}
+	return
+    }
+
+    #
+    # add a simple table cell which just contains a string
+    #
+    HtmlBuilder instproc addTableCell {{string ""} args} {
+	eval my startTableCell $args
+	my addString $string
+	my endTableCell
+    }
+
+    ## startTableHeaderCell - start a TH element
+    ## Optional arguments:
+    ##   -colspan number
+    ##   -rowspan number
+    ##   -align left|center|right|justify|char
+    ##   -valign top|middle|bottom|baseline
+    ##   Common HTML arguments
+
+    HtmlBuilder instproc startTableHeaderCell {args} {
+	set attributes [HtmlBuilder parseArguments $args \
+			    [list "COLSPAN" "ROWSPAN" "ALIGN" "VALIGN"] [list]]
+	my addStringIncr "<TH$attributes>"
+	return
+    }
+
+    ## endTableHeaderCell - end a TH element
+
+    HtmlBuilder instproc endTableHeaderCell {} {
+	my addStringDecr {</TH>}
+	return
+    }
+
+    ## startForm - start a FORM element
+    ## Required arguments:
+    ##   -action URI
+    ## Optional arguments:
+    ##   -method get|post
+    ##   Common HTML arguments
+
+    HtmlBuilder instproc startForm {args} {
+	set attributes [HtmlBuilder parseArguments $args \
+			    [list "ACTION" "METHOD" "ENCTYPE"] [list]]
+	my addStringIncr "<FORM$attributes>"
+	return
+    }
+
+    ## endForm - end a FORM element
+
+    HtmlBuilder instproc endForm {} {
+	my addStringDecr {</FORM>}
+	return
+    }
+
+    ## addInput - add in INPUT element
+    ## Required arguments:
+    ##   -type <input type>
+    ##   -name <control name>
+    ## Optional arguments:
+    ##   -value <initial value>
+    ##   -size <width of input, in pixels of characters>
+    ##   -maxlength <max number of characters for text input>
+    ##   -checked
+    ##   Common HTML arguments
+    
+    HtmlBuilder instproc addInput {args} {
+	set attributes [HtmlBuilder parseArguments $args \
+			    [list "TYPE" "NAME" "VALUE" "SIZE" "MAXLENGTH"] \
+			    [list "CHECKED"]]
+	my addString "<INPUT$attributes>"
+	return
+    }
+
+    ## addTextArea - start a TEXTAREA element
+    ## First parameter: value - Default value of the text area
+    ## Required arguments:
+    ##   -rows <number of rows>
+    ##   -cols <number of columns>
+    ## Optional arguments:
+    ##   -name <control name>
+    ##   Common HTML Arguments
+
+    HtmlBuilder instproc addTextArea {value args} {
+	set attributes [HtmlBuilder parseArguments $args \
+			    [list "ROWS" "COLS" "NAME"] [list]]
+	my addString "<TEXTAREA$attributes>$value</TEXTAREA>"
+	return
+    }
+
+    ## startOptionSelector - start a SELECT element
+    ## Optional arguments:
+    ##   -name <control name>
+    ##   -size <number of visible items>
+    ##   -multiple
+    ##   Common HTML arguments
+
+    HtmlBuilder instproc startOptionSelector {args} {
+	set attributes [HtmlBuilder parseArguments $args \
+			    [list "NAME" "SIZE"] [list "MULTIPLE"]]
+	my addStringIncr "<SELECT$attributes>"
+	return
+    }    
+
+    ## endOptionSelector - end a SELECT element
+
+    HtmlBuilder instproc endOptionSelector {} {
+	my addStringDecr "</SELECT>"
+	return
+    }
+
+    ## startOption - start an OPTION element
+    ## Optional arguments:
+    ##   -value <value of option>
+    ##   -selected
+    ##   Common HTML arguments
+
+    HtmlBuilder instproc startOption {args} {
+	set attributes [HtmlBuilder parseArguments $args \
+			    [list "VALUE"] [list "SELECTED"]]
+	my addStringIncr "<OPTION$attributes>"
+	return
+    }
+
+    ## endOption - end an OPTION element
+
+    HtmlBuilder instproc endOption {} {
+	my addStringDecr "</OPTION>"
+	return
+    }
+
+    ## addImage - add an IMG element
+    ## Required arguments:
+    ##   -src <url>
+    ##   -alt <alternate text>
+    ##   -align <alignment> (deprecated in HTML 4.0)
+    ## Optional arguments:
+    ##   Common HTML arguments
+
+    HtmlBuilder instproc addImage {args} {
+	set attributes [HtmlBuilder parseArguments $args \
+			    [list "SRC" "ALT" "ALIGN"] [list]]
+	my addString "<IMG$attributes>"
+	return
+    }
+
+    ## startBlock - start a DIV element (a generic block-level container)
+    ## Optional arguments:
+    ##   Common HTML attributes
+
+    HtmlBuilder instproc startBlock {args} {
+	set attributes [HtmlBuilder parseArguments $args [list] [list]]
+	my addStringIncr "<DIV$attributes>"
+	return
+    }
+
+    ## endBlock - end a DIV element
+
+    HtmlBuilder instproc endBlock {} {
+	my addStringDecr "</DIV>"
+	return
+    }
+
+    ## addHorizontalRule - add an HR element
+    ## Optional arguments:
+    ##   Common HTML arguments
+
+    HtmlBuilder instproc addHorizontalRule {args} {
+	set attributes [HtmlBuilder parseArguments $args [list] [list]]
+	my addString "<HR$attributes>"
+	return
+    }
+
+    namespace export HtmlBuilder
+}
+
+namespace import ::xotcl::htmllib::*

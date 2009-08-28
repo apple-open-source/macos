@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2005-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -21,10 +21,18 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <AvailabilityMacros.h>
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_6
+
 #ifndef __OPENDIRECTORY_H
 #define __OPENDIRECTORY_H
 
-#include <CFOpenDirectory/CFOpenDirectoryConsts.h>
 #include <CFOpenDirectory/CFOpenDirectory.h>
+
+#ifdef __OBJC__
+#import <OpenDirectory/NSOpenDirectory.h>
+#endif /* __OBJC__ */
+
+#endif
 
 #endif

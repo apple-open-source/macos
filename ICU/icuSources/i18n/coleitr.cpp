@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 1996-2006, International Business Machines Corporation and    *
+* Copyright (C) 1996-2008, International Business Machines Corporation and    *
 * others. All Rights Reserved.                                                *
 *******************************************************************************
 */
@@ -86,11 +86,7 @@ UBool CollationElementIterator::operator!=(
 UBool CollationElementIterator::operator==(
                                     const CollationElementIterator& that) const
 {
-    if (this == &that) {
-        return TRUE;
-    }
-  
-    if (m_data_ == that.m_data_) {
+    if (this == &that || m_data_ == that.m_data_) {
         return TRUE;
     }
 
@@ -123,7 +119,7 @@ UBool CollationElementIterator::operator==(
 
     // checking normalization buffer
     if ((m_data_->iteratordata_.flags & UCOL_ITER_HASLEN) == 0) {
-        if ((m_data_->iteratordata_.flags & UCOL_ITER_HASLEN) != 0) {
+        if ((that.m_data_->iteratordata_.flags & UCOL_ITER_HASLEN) != 0) {
             return FALSE;
         }
         // both are in the normalization buffer
@@ -135,7 +131,7 @@ UBool CollationElementIterator::operator==(
             return FALSE;
         }
     }
-    else if ((m_data_->iteratordata_.flags & UCOL_ITER_HASLEN) == 0) {
+    else if ((that.m_data_->iteratordata_.flags & UCOL_ITER_HASLEN) == 0) {
         return FALSE;
     }
     // checking ce position
@@ -203,6 +199,8 @@ void CollationElementIterator::setText(const UnicodeString& source,
         }
         *string = 0;
     }
+    /* Free offsetBuffer before initializing it. */
+    freeOffsetBuffer(&(m_data_->iteratordata_));
     uprv_init_collIterate(m_data_->iteratordata_.coll, string, length, 
         &m_data_->iteratordata_);
 
@@ -248,6 +246,8 @@ void CollationElementIterator::setText(CharacterIterator& source,
         uprv_free(m_data_->iteratordata_.string);
     }
     m_data_->isWritable = TRUE;
+    /* Free offsetBuffer before initializing it. */
+    freeOffsetBuffer(&(m_data_->iteratordata_));
     uprv_init_collIterate(m_data_->iteratordata_.coll, buffer, length, 
         &m_data_->iteratordata_);
     m_data_->reset_   = TRUE;
@@ -455,19 +455,36 @@ const CollationElementIterator& CollationElementIterator::operator=(
             coliter->pos = coliter->string + 
                 (othercoliter->pos - othercoliter->string);
         }
-        else {
+        else if (coliter->writableBuffer != NULL) {
             coliter->pos = coliter->writableBuffer + 
                 (othercoliter->pos - othercoliter->writableBuffer);
         }
+        else {
+            // Error: couldn't allocate memory for writableBuffer
+            coliter->pos = NULL;
+        }
 
         /* CE buffer */
-        int32_t CEsize = (int32_t)(othercoliter->CEpos - othercoliter->CEs);
-        if (CEsize > 0) {
-            uprv_memcpy(coliter->CEs, othercoliter->CEs, CEsize);
+        int32_t CEsize;
+        if (coliter->extendCEs) {
+            uprv_memcpy(coliter->CEs, othercoliter->CEs, sizeof(uint32_t) * UCOL_EXPAND_CE_BUFFER_SIZE);
+            CEsize = sizeof(othercoliter->extendCEs);
+            if (CEsize > 0) {
+                othercoliter->extendCEs = (uint32_t *)uprv_malloc(CEsize);
+                uprv_memcpy(coliter->extendCEs, othercoliter->extendCEs, CEsize);
+            }
+            coliter->toReturn = coliter->extendCEs + 
+                (othercoliter->toReturn - othercoliter->extendCEs);
+            coliter->CEpos    = coliter->extendCEs + CEsize;
+        } else {
+            CEsize = (int32_t)(othercoliter->CEpos - othercoliter->CEs);
+            if (CEsize > 0) {
+                uprv_memcpy(coliter->CEs, othercoliter->CEs, CEsize);
+            }
+            coliter->toReturn = coliter->CEs + 
+                (othercoliter->toReturn - othercoliter->CEs);
+            coliter->CEpos    = coliter->CEs + CEsize;
         }
-        coliter->toReturn = coliter->CEs + 
-            (othercoliter->toReturn - othercoliter->CEs);
-        coliter->CEpos    = coliter->CEs + CEsize;
 
         if (othercoliter->fcdPosition != NULL) {
             coliter->fcdPosition = coliter->string + 

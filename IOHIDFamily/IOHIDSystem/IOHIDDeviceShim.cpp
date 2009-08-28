@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2009 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -245,7 +245,7 @@ OSString * IOHIDDeviceShim::newSerialNumberString() const
 	if (_device) {
 		if (number = OSDynamicCast(OSNumber, _device->getProperty("iSerialNumber")))
 		{
-			sprintf(str, "%d", number->unsigned32BitValue());
+			snprintf(str, sizeof (str), "%d", number->unsigned32BitValue());
 			str[32] = 0;
 			return OSString::withCString(str);
 		} 

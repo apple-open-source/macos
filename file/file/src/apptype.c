@@ -26,14 +26,12 @@
 
 #include "file.h"
 
-#include <stdio.h>
+#ifndef	lint
+FILE_RCSID("@(#)$File: apptype.c,v 1.10 2009/02/03 20:27:51 christos Exp $")
+#endif /* lint */
+
 #include <stdlib.h>
 #include <string.h>
-
-
-#ifndef	lint
-FILE_RCSID("@(#)$Id: apptype.c,v 1.6 2003/11/11 20:01:45 christos Exp $")
-#endif /* lint */
 
 #ifdef __EMX__
 #include <io.h>

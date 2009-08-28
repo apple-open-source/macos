@@ -1,7 +1,8 @@
-/*	$NetBSD: conf.c,v 1.5 2006/09/26 06:38:38 lukem Exp $	*/
+/*	$NetBSD: conf.c,v 1.9 2008/06/09 00:52:33 lukem Exp $	*/
+/*	from	NetBSD: conf.c,v 1.61 2008/06/09 00:33:39 lukem Exp	*/
 
 /*-
- * Copyright (c) 1997-2005 The NetBSD Foundation, Inc.
+ * Copyright (c) 1997-2008 The NetBSD Foundation, Inc.
  * All rights reserved.
  *
  * This code is derived from software contributed to The NetBSD Foundation
@@ -15,13 +16,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *        This product includes software developed by the NetBSD
- *        Foundation, Inc. and its contributors.
- * 4. Neither the name of The NetBSD Foundation nor the names of its
- *    contributors may be used to endorse or promote products derived
- *    from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE NETBSD FOUNDATION, INC. AND CONTRIBUTORS
  * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
@@ -36,13 +30,13 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if	HAVE_TNFTPD_H
+#if defined(HAVE_TNFTPD_H)
 #include "tnftpd.h"
-#else	/* ! HAVE_TNFTPD_H */
+#else /* !defined(HAVE_TNFTPD_H) */
 
 #include <sys/cdefs.h>
 #ifndef lint
-__RCSID("$NetBSD: conf.c,v 1.5 2006/09/26 06:38:38 lukem Exp $");
+__RCSID(" NetBSD: conf.c,v 1.61 2008/06/09 00:33:39 lukem Exp  ");
 #endif /* not lint */
 
 #include <sys/types.h>
@@ -69,7 +63,7 @@ __RCSID("$NetBSD: conf.c,v 1.5 2006/09/26 06:38:38 lukem Exp $");
 #include <krb5/krb5.h>
 #endif
 
-#endif	/* ! HAVE_TNFTPD_H */
+#endif /* !defined(HAVE_TNFTPD_H) */
 
 #include "extern.h"
 #include "pathnames.h"
@@ -481,7 +475,7 @@ parse_conf(const char *findclass)
 			REASSIGN(template, EMPTYSTR(arg) ? NULL : ftpd_strdup(arg));
 
 		} else if (strcasecmp(word, "umask") == 0) {
-			u_long fumask;
+			unsigned long fumask;
 
 			curclass.umask = DEFAULT_UMASK;
 			if (none || EMPTYSTR(arg))
@@ -901,29 +895,28 @@ count_users(void)
 	size_t	count;
 	pid_t  *pids, mypid;
 	struct stat sb;
+	struct flock fl;
 
 	(void)strlcpy(fn, _PATH_CLASSPIDS, sizeof(fn));
 	(void)strlcat(fn, curclass.classname, sizeof(fn));
 	pids = NULL;
 	connections = 1;
+	fl.l_start = 0;
+	fl.l_len = 0;
+	fl.l_pid = 0;
+	fl.l_type = F_WRLCK;
+	fl.l_whence = SEEK_SET;
 
 	if ((fd = open(fn, O_RDWR | O_CREAT, 0600)) == -1)
 		return;
-#if HAVE_LOCKF
-	if (lockf(fd, F_TLOCK, 0) == -1)
+	if (fcntl(fd, F_SETLK, &fl) == -1)
 		goto cleanup_count;
-#elif HAVE_FLOCK
-	if (flock(fd, LOCK_EX | LOCK_NB) != 0)
-		goto cleanup_count;
-#else
-    /* XXX: use fcntl ? */
-#endif
 	if (fstat(fd, &sb) == -1)
 		goto cleanup_count;
 	if ((pids = malloc(sb.st_size + sizeof(pid_t))) == NULL)
 		goto cleanup_count;
 	count = read(fd, pids, sb.st_size);
-	if (count < 0 || count != sb.st_size)
+	if ((ssize_t)count == -1 || count != sb.st_size)
 		goto cleanup_count;
 	count /= sizeof(pid_t);
 	mypid = getpid();
@@ -955,14 +948,8 @@ count_users(void)
 	(void)ftruncate(fd, count);
 
  cleanup_count:
-#if HAVE_LOCKF
-	if (lseek(fd, 0, SEEK_SET) != -1)
-		(void)lockf(fd, F_ULOCK, 0);
-#elif HAVE_FLOCK
-	(void)flock(fd, LOCK_UN);
-#else
-    /* XXX: use fcntl ? */
-#endif
+	fl.l_type = F_UNLCK;
+	(void)fcntl(fd, F_SETLK, &fl);
 	close(fd);
 	REASSIGN(pids, NULL);
 }

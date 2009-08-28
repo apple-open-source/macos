@@ -1,6 +1,6 @@
 /*
  *
- * (C) Copyright IBM Corp. 1998-2005 - All Rights Reserved
+ * (C) Copyright IBM Corp. 1998-2007 - All Rights Reserved
  *
  */
 
@@ -12,17 +12,18 @@
 #endif
 
 #include "unicode/utypes.h"
+
+#ifdef XP_CPLUSPLUS
 #include "unicode/uobject.h"
+#endif
 
 #ifdef LE_USE_CMEMORY
 #include "cmemory.h"
 #endif
 
-U_NAMESPACE_BEGIN
-
 /*!
  * \file
- * \brief Basic definitions for the ICU LayoutEngine
+ * \brief C API: Basic definitions for the ICU LayoutEngine
  */
 
 /**
@@ -562,7 +563,4 @@ typedef enum LEErrorCode LEErrorCode;
  */
 #define LE_FAILURE(code) (U_FAILURE((UErrorCode)code))
 
-U_NAMESPACE_END
 #endif
-
-

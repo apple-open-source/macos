@@ -2,7 +2,7 @@
  * Copyright (c) 2000, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -51,8 +51,6 @@
 #include <netsmb/smb_lib.h>
 #include <netsmb/smb_conn.h>
 
-/*#include <sys/ioctl.h>*/
-
 #include "rap.h"
 
 static int
@@ -84,7 +82,7 @@ smb_rap_parserqparam(const char *s, char **next, int *rlen)
 		return EINVAL;
 	}
 	if (isdigit(*s)) {
-		len *= strtoul(s, &np, 10);
+		len *= (int)strtoul(s, &np, 10);
 		s = np;
 	}
 	*rlen = len;
@@ -114,7 +112,7 @@ smb_rap_parserpparam(const char *s, char **next, int *rlen)
 		return EINVAL;
 	}
 	if (isdigit(*s)) {
-		len *= strtoul(s, &np, 10);
+		len *= (int)strtoul(s, &np, 10);
 		s = np;
 	}
 	*rlen = len;
@@ -145,7 +143,7 @@ smb_rap_parserpdata(const char *s, char **next, int *rlen)
 		return EINVAL;
 	}
 	if (isdigit(*s)) {
-		len *= strtoul(s, &np, 10);
+		len *= (int)strtoul(s, &np, 10);
 		s = np;
 	}
 	*rlen = len;
@@ -156,7 +154,7 @@ smb_rap_parserpdata(const char *s, char **next, int *rlen)
 static int
 smb_rap_rqparam_z(struct smb_rap *rap, const char *value)
 {
-	int len = strlen(value) + 1;
+	int len = (int)strlen(value) + 1;
 
 	bcopy(value, rap->r_npbuf, len);
 	rap->r_npbuf += len;
@@ -165,7 +163,7 @@ smb_rap_rqparam_z(struct smb_rap *rap, const char *value)
 }
 
 static int
-smb_rap_rqparam(struct smb_rap *rap, char ptype, char plen, long value)
+smb_rap_rqparam(struct smb_rap *rap, char ptype, char plen, int32_t value)
 {
 	char *p = rap->r_npbuf;
 	int len;
@@ -208,7 +206,7 @@ smb_rap_create(int fn, const char *param, const char *data,
 	/*
 	 * Calculate length of request parameter block
 	 */
-	len = 2 + strlen(param) + 1 + strlen(data) + 1;
+	len = 2 + (int)strlen(param) + 1 + (int)strlen(data) + 1;
 	
 	while (*p) {
 		if (smb_rap_parserqparam(p, &p, &plen) != 0)
@@ -230,11 +228,15 @@ smb_rap_done(struct smb_rap *rap)
 		free(rap->r_sparam);
 	if (rap->r_sdata)
 		free(rap->r_sdata);
+	if (rap->r_pbuf)
+		free(rap->r_pbuf);		
+	if (rap->r_dbuf)
+		free(rap->r_dbuf);		
 	free(rap);
 }
 
 int
-smb_rap_setNparam(struct smb_rap *rap, long value)
+smb_rap_setNparam(struct smb_rap *rap, int32_t value)
 {
 	char *p = rap->r_nparam;
 	char ptype = *p;
@@ -281,7 +283,7 @@ smb_rap_setPparam(struct smb_rap *rap, void *value)
 }
 
 static int
-smb_rap_getNparam(struct smb_rap *rap, long *value)
+smb_rap_getNparam(struct smb_rap *rap, int32_t *value)
 {
 	char *p = rap->r_nparam;
 	char ptype = *p;
@@ -396,7 +398,7 @@ smb_rap_NetShareEnum(struct smb_ctx *ctx, int sLevel, void *pbBuffer,
 	int cbBuffer, int *pcEntriesRead, int *pcTotalAvail)
 {
 	struct smb_rap *rap;
-	long lval = 0;
+	int32_t lval = 0;
 	int error;
 
 	error = smb_rap_create(0, "WrLeh", "B13BWz", &rap);

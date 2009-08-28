@@ -39,7 +39,7 @@ static void usage(
 
 static void process(
     struct arch *archs,
-    unsigned long narchs);
+    uint32_t narchs);
 
 static void hack_seg(
     struct object *object,
@@ -61,7 +61,7 @@ char **envp)
     int i;
     char *input, *output;
     struct arch *archs;
-    unsigned long narchs;
+    uint32_t narchs;
     struct stat stat_buf;
 
 	progname = argv[0];
@@ -133,9 +133,9 @@ static
 void
 process(
 struct arch *archs,
-unsigned long narchs)
+uint32_t narchs)
 {
-    unsigned long i, j, k, offset, size;
+    uint32_t i, j, k, offset, size;
     struct object *object;
     struct load_command *lc;
     struct segment_command *sg;
@@ -274,7 +274,7 @@ struct load_command *lc,
 struct segment_command *sg)
 {
     struct section *s;
-    unsigned long i;
+    uint32_t i;
 
 	if(strcmp(sg->segname, SEG_PAGEZERO) != 0 &&
 	   strcmp(sg->segname, SEG_LINKEDIT) != 0){

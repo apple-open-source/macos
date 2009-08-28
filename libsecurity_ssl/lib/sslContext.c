@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2007 Apple, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2009 Apple, Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -23,7 +23,7 @@
 
 	Written by:	Doug Mitchell
 
-	Copyright: (c) 1999-2007 Apple Inc., all rights reserved.
+	Copyright: (c) 1999-2009 Apple Inc. All Rights Reserved.
 
 */
 
@@ -145,7 +145,20 @@ SSLNewContext				(Boolean 			isServer,
 	/* default for additional SSL handshake results is DISABLED */
 	ctx->breakOnServerAuth = false;
 	ctx->breakOnCertRequest = false;
+    ctx->signalServerAuth = false;
+    ctx->signalCertRequest = false;
 
+	/* 
+	 * Initial/default set of ECDH curves
+	 */
+	ctx->ecdhNumCurves = SSL_ECDSA_NUM_CURVES;
+	ctx->ecdhCurves[0] = SSL_Curve_secp256r1;
+	ctx->ecdhCurves[1] = SSL_Curve_secp384r1;
+	ctx->ecdhCurves[2] = SSL_Curve_secp521r1;
+	
+	ctx->ecdhPeerCurve = SSL_Curve_None;		/* until we negotiate one */
+	ctx->negAuthType = SSLClientAuthNone;		/* ditto */
+	
     *contextPtr = ctx;
     return noErr;
     
@@ -191,6 +204,13 @@ SSLDisposeContext				(SSLContext			*ctx)
     SSLFreeBuffer(&ctx->dhExchangePublic, ctx);
 	sslFreeKey(ctx->cspHand, &ctx->dhPrivate, NULL);
     #endif	/* APPLE_DH */
+	
+    SSLFreeBuffer(&ctx->ecdhPeerPublic, ctx);
+    SSLFreeBuffer(&ctx->ecdhExchangePublic, ctx);
+	if(ctx->ecdhPrivCspHand == ctx->cspHand) {
+		sslFreeKey(ctx->ecdhPrivCspHand, &ctx->ecdhPrivate, NULL);
+	}
+	/* else we got this key from a SecKeyRef, no free needed */
 	
 	CloseHash(&SSLHashSHA1, &ctx->shaState, ctx);
 	CloseHash(&SSLHashMD5,  &ctx->md5State, ctx);
@@ -255,7 +275,10 @@ SSLDisposeContext				(SSLContext			*ctx)
 	if(ctx->encryptCertArray) {
 		CFRelease(ctx->encryptCertArray);
 	}
-
+	if(ctx->clientAuthTypes) {
+		sslFree(ctx->clientAuthTypes);
+	}
+	
     memset(ctx, 0, sizeof(SSLContext));
     sslFree(ctx);
 	sslCleanupSession();
@@ -993,7 +1016,8 @@ SSLSetCertificate			(SSLContextRef		ctx,
 		certRefs,
 		&ctx->localCert,
 		&ctx->signingPubKey,
-		&ctx->signingPrivKeyRef);
+		&ctx->signingPrivKeyRef,
+		&ctx->ourSignerAlg);
 	if(ortn == noErr) {
 		ctx->localCertArray = certRefs;
 		CFRetain(certRefs);
@@ -1026,7 +1050,8 @@ SSLSetEncryptionCertificate	(SSLContextRef		ctx,
 		certRefs,
 		&ctx->encryptCert,
 		&ctx->encryptPubKey,
-		&ctx->encryptPrivKeyRef);
+		&ctx->encryptPrivKeyRef,
+		NULL);			/* Signer alg */
 	if(ortn == noErr) {
 		ctx->encryptCertArray = certRefs;
 		CFRetain(certRefs);
@@ -1660,3 +1685,135 @@ OSStatus SSLInternalSetSessionTicket(
 	return SSLCopyBufferFromData(ticket, ticketLength, &ctx->sessionTicket);
 }
 
+/*
+ * ECDSA curve accessors.
+ */
+ 
+/* 
+ * Obtain the SSL_ECDSA_NamedCurve negotiated during a handshake.
+ * Returns paramErr if no ECDH-related ciphersuite was negotiated.
+ */
+OSStatus SSLGetNegotiatedCurve(
+   SSLContextRef ctx,
+   SSL_ECDSA_NamedCurve *namedCurve)    /* RETURNED */
+{
+	if((ctx == NULL) || (namedCurve == NULL)) {
+		return paramErr;
+	}
+	if(ctx->ecdhPeerCurve == SSL_Curve_None) {
+		return paramErr;
+	}
+	*namedCurve = ctx->ecdhPeerCurve;
+	return noErr;
+}
+
+/*
+ * Obtain the number of currently enabled SSL_ECDSA_NamedCurves.
+ */
+OSStatus SSLGetNumberOfECDSACurves(
+   SSLContextRef ctx,
+   unsigned *numCurves)	/* RETURNED */
+{
+	if((ctx == NULL) || (numCurves == NULL)) {
+		return paramErr;
+	}
+	*numCurves = ctx->ecdhNumCurves;
+	return noErr;
+}
+
+/*
+ * Obtain the ordered list of currently enabled SSL_ECDSA_NamedCurves.
+ */
+OSStatus SSLGetECDSACurves(
+   SSLContextRef ctx,
+   SSL_ECDSA_NamedCurve *namedCurves,		/* RETURNED */
+   unsigned *numCurves)						/* IN/OUT */
+{
+	if((ctx == NULL) || (namedCurves == NULL) || (numCurves == NULL)) {
+		return paramErr;
+	}
+	if(*numCurves < ctx->ecdhNumCurves) {
+		return paramErr;
+	}
+	memmove(namedCurves, ctx->ecdhCurves, 
+		(ctx->ecdhNumCurves * sizeof(SSL_ECDSA_NamedCurve)));
+	*numCurves = ctx->ecdhNumCurves;
+	return noErr;
+}
+
+/* 
+ * Specify ordered list of allowable named curves.
+ */
+OSStatus SSLSetECDSACurves(
+   SSLContextRef ctx,
+   const SSL_ECDSA_NamedCurve *namedCurves,   
+   unsigned numCurves)
+{
+	if((ctx == NULL) || (namedCurves == NULL) || (numCurves == 0)) {
+		return paramErr;
+	}
+	if(numCurves > SSL_ECDSA_NUM_CURVES) {
+		return paramErr;
+	}
+	if(sslIsSessionActive(ctx)) {
+		/* can't do this with an active session */
+		return badReqErr;
+	}
+	memmove(ctx->ecdhCurves, namedCurves, (numCurves * sizeof(SSL_ECDSA_NamedCurve)));
+	ctx->ecdhNumCurves = numCurves;
+	return noErr;
+}
+
+/*
+ * Obtain the number of client authentication mechanisms specified by 
+ * the server in its Certificate Request message. 
+ * Returns paramErr if server hasn't sent a Certificate Request message
+ * (i.e., client certificate state is kSSLClientCertNone). 
+ */
+OSStatus SSLGetNumberOfClientAuthTypes(
+	SSLContextRef ctx,
+	unsigned *numTypes)
+{
+	if((ctx == NULL) || (ctx->clientCertState == kSSLClientCertNone)) {
+		return paramErr;
+	}
+	*numTypes = ctx->numAuthTypes;
+	return noErr;
+}
+	
+/*
+ * Obtain the client authentication mechanisms specified by 
+ * the server in its Certificate Request message.
+ * Caller allocates returned array and specifies its size (in
+ * SSLClientAuthenticationTypes) in *numType on entry; *numTypes
+ * is the actual size of the returned array on successful return. 
+ */
+OSStatus SSLGetClientAuthTypes(
+   SSLContextRef ctx,
+   SSLClientAuthenticationType *authTypes,		/* RETURNED */
+   unsigned *numTypes)							/* IN/OUT */
+{
+	if((ctx == NULL) || (ctx->clientCertState == kSSLClientCertNone)) {
+		return paramErr;
+	}
+	memmove(authTypes, ctx->clientAuthTypes, 
+		ctx->numAuthTypes * sizeof(SSLClientAuthenticationType));
+	*numTypes = ctx->numAuthTypes;
+	return noErr;
+}
+
+/* 
+ * Obtain the SSLClientAuthenticationType actually performed. 
+ * Only valid if client certificate state is kSSLClientCertSent
+ * or kSSLClientCertRejected; returns paramErr otherwise. 
+ */
+OSStatus SSLGetNegotiatedClientAuthType(
+   SSLContextRef ctx,
+   SSLClientAuthenticationType *authType)		/* RETURNED */
+{
+	if(ctx == NULL) {
+		return paramErr;
+	}
+	*authType = ctx->negAuthType;
+	return noErr;
+}

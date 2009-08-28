@@ -24,21 +24,22 @@
 #ifndef _FLATFILENODE_H
 #define _FLATFILENODE_H
 
-#include <sqlite3.h>
 #include <map>
 #include <string>		//STL string class
+#include "SQLiteHelper.h"
 #include <DirectoryServiceCore/DSMutexSemaphore.h>
 #include "BDPIVirtualNode.h"
 
 using namespace std;
 
-typedef CFMutableDictionaryRef				(*ParseCallback)( sqlite3 *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName );
+typedef CFMutableDictionaryRef				(*ParseCallback)( SQLiteHelper *inHelper, bool inGenDictionary, int inLineNumber, char *inData, const char *inName );
 
 struct sFileMapping
 {
 	const char		*fRecordType;	// record type we care about
 	CFStringRef		fRecordTypeCF;
 	const char		*fFileName;		// actual filename on disk
+	CFArrayRef		fSuppAttribsCF;
 	ParseCallback	fParseCallback;
 	char const		**fAttributes;	// NULL terminated
 	CFArrayRef		fAttributesCF;
@@ -67,20 +68,20 @@ class FlatFileNode : public BDPIVirtualNode
 		static DSMutexSemaphore			fFlatFileLock;
 
 	protected:
-		static CFMutableDictionaryRef	parse_user( sqlite3 *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName );
-		static CFMutableDictionaryRef	parse_group( sqlite3 *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName );
-		static CFMutableDictionaryRef	parse_host( sqlite3 *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName );
-		static CFMutableDictionaryRef	parse_network( sqlite3 *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName );
-		static CFMutableDictionaryRef	parse_service( sqlite3 *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName );
-		static CFMutableDictionaryRef	parse_protocol( sqlite3 *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName );
-		static CFMutableDictionaryRef	parse_rpc( sqlite3 *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName );
-		static CFMutableDictionaryRef	parse_mount( sqlite3 *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName );
-		static CFMutableDictionaryRef	parse_printer( sqlite3 *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName );
-		static CFMutableDictionaryRef	parse_bootp( sqlite3 *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName );
-		static CFMutableDictionaryRef	parse_alias( sqlite3 *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName );
-		static CFMutableDictionaryRef	parse_ethernet( sqlite3 *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName );
-		static CFMutableDictionaryRef	parse_netgroup( sqlite3 *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName );
-		static CFMutableDictionaryRef	parse_automounts( sqlite3 *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName );
+		static CFMutableDictionaryRef	parse_user( SQLiteHelper *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName );
+		static CFMutableDictionaryRef	parse_group( SQLiteHelper *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName );
+		static CFMutableDictionaryRef	parse_host( SQLiteHelper *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName );
+		static CFMutableDictionaryRef	parse_network( SQLiteHelper *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName );
+		static CFMutableDictionaryRef	parse_service( SQLiteHelper *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName );
+		static CFMutableDictionaryRef	parse_protocol( SQLiteHelper *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName );
+		static CFMutableDictionaryRef	parse_rpc( SQLiteHelper *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName );
+		static CFMutableDictionaryRef	parse_mount( SQLiteHelper *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName );
+		static CFMutableDictionaryRef	parse_printer( SQLiteHelper *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName );
+		static CFMutableDictionaryRef	parse_bootp( SQLiteHelper *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName );
+		static CFMutableDictionaryRef	parse_alias( SQLiteHelper *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName );
+		static CFMutableDictionaryRef	parse_ethernet( SQLiteHelper *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName );
+		static CFMutableDictionaryRef	parse_netgroup( SQLiteHelper *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName );
+		static CFMutableDictionaryRef	parse_automounts( SQLiteHelper *inDatabase, bool inGenDictionary, int inLineNumber, char *inData, const char *inName );
 
 		static CFMutableDictionaryRef	CreateRecordDictionary( CFStringRef inRecordType, const char *inRecordName );
 		static void						AddAttributeToRecord( CFMutableDictionaryRef inRecord, CFStringRef inAttribute, const char *inValue );
@@ -90,14 +91,12 @@ class FlatFileNode : public BDPIVirtualNode
 	
 	private:
 		static int						fKqueue;
-		static sqlite3					*fSQLDatabase;
+		static SQLiteHelper				*fDatabaseHelper;
 		static pthread_mutex_t			fWatchFilesLock;
-		static DSMutexSemaphore			fSQLDatabaseLock;
 		static bool						fProperShutdown;
 		static bool						fSafeBoot;
 	
 	private:
-		static int						sqlExecSync( const char *command );
 		static int						sqlExecSyncInsert( const char *command, int count, ... );
 		static void						FreeSearchState( void *inState );
 		static void						FileChangeNotification( CFFileDescriptorRef cfFD, CFOptionFlags callBackTypes, void *info );
@@ -107,7 +106,7 @@ class FlatFileNode : public BDPIVirtualNode
 		void							CheckTimeStamp( sFileMapping *inFileType );
 		void							GetDatabaseTimestamps( void );
 		static void						InsertFileMapping( const char *inRecordType, const char *inFileName, int inCacheType, 
-														   ParseCallback inCallback, ... );
+														   ParseCallback inCallback, CFStringRef inSuppAttr[], CFIndex inSuppAttrCnt, ... );
 		SInt32							FetchAllRecords( sBDPISearchRecordsContext *inContext, BDPIOpaqueBuffer inBuffer, UInt32 *outCount );
 		SInt32							FetchMatchingRecords( sBDPISearchRecordsContext *inContext, BDPIOpaqueBuffer inBuffer, UInt32 *outCount );
 		SInt32							InternalSearchRecords( sBDPISearchRecordsContext *inContext, BDPIOpaqueBuffer inBuffer, UInt32 *outCount );

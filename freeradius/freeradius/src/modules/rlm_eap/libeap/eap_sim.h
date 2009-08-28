@@ -1,7 +1,7 @@
 /*
  * eap_sim.h    Header file containing the EAP-SIM types
  *
- * Version:     $Id: eap_sim.h,v 1.5.4.1 2007/02/15 12:51:37 aland Exp $
+ * Version:     $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,13 +15,17 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
  * Copyright 2003  Michael Richardson <mcr@sandelman.ottawa.on.ca>
+ * Copyright 2006  The FreeRADIUS server project
  *
  */
 #ifndef _EAP_SIM_H
 #define _EAP_SIM_H
+
+#include <freeradius-devel/ident.h>
+RCSIDH(eap_sim_h, "$Id$")
 
 #include "eap_types.h"
 
@@ -34,17 +38,17 @@
 #define ATTRIBUTE_EAP_SIM_RAND1         1201
 #define ATTRIBUTE_EAP_SIM_RAND2         1202
 #define ATTRIBUTE_EAP_SIM_RAND3         1203
-					
+
 #define ATTRIBUTE_EAP_SIM_SRES1         1204
 #define ATTRIBUTE_EAP_SIM_SRES2         1205
 #define ATTRIBUTE_EAP_SIM_SRES3         1206
-					
+
 #define ATTRIBUTE_EAP_SIM_STATE         1207
 #define ATTRIBUTE_EAP_SIM_IMSI          1208
 #define ATTRIBUTE_EAP_SIM_HMAC          1209
 #define ATTRIBUTE_EAP_SIM_KEY           1210
 #define ATTRIBUTE_EAP_SIM_EXTRA         1211
-					
+
 #define ATTRIBUTE_EAP_SIM_KC1           1212
 #define ATTRIBUTE_EAP_SIM_KC2           1213
 #define ATTRIBUTE_EAP_SIM_KC3           1214
@@ -99,9 +103,7 @@ enum eapsim_serverstates {
 /*
  * interfaces in eapsimlib.c
  */
-extern int map_eapsim_types(RADIUS_PACKET *r);
 extern int map_eapsim_basictypes(RADIUS_PACKET *r, EAP_PACKET *ep);
-extern int unmap_eapsim_types(RADIUS_PACKET *r);
 extern const char *sim_state2name(enum eapsim_clientstates state, char *buf, int buflen);
 extern const char *sim_subtype2name(enum eapsim_subtype subtype, char *buf, int buflen);
 extern int unmap_eapsim_basictypes(RADIUS_PACKET *r,

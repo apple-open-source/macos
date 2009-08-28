@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -71,6 +71,12 @@ enum {
 };
 typedef uint32_t EAPOLPacketType;
 
+enum {
+    kEAPOLKeyDescriptorTypeRC4 = 1,
+    kEAPOLKeyDescriptorTypeIEEE80211 = 2
+};
+typedef uint32_t EAPOLKeyDescriptorType;
+
 typedef struct {
     uint8_t		descriptor_type;
     uint8_t		key_length[2];
@@ -79,31 +85,72 @@ typedef struct {
     uint8_t		key_index;
     uint8_t		key_signature[16];
     uint8_t		key[0];
-} EAPOLKeyDescriptor, * EAPOLKeyDescriptorRef;
+} EAPOLRC4KeyDescriptor, * EAPOLRC4KeyDescriptorRef;
+
+typedef EAPOLRC4KeyDescriptor EAPOLKeyDescriptor, * EAPOLKeyDescriptorRef;
 
 static __inline__ void
-EAPOLKeyDescriptorSetLength(EAPOLKeyDescriptorRef pkt, uint16_t length)
+EAPOLRC4KeyDescriptorSetLength(EAPOLRC4KeyDescriptorRef pkt, uint16_t length)
 {
     *((unsigned short *)pkt->key_length) = htons(length);
     return;
 }
 
+static __inline__ void
+EAPOLKeyDescriptorSetLength(EAPOLKeyDescriptorRef pkt, uint16_t length)
+{
+    EAPOLRC4KeyDescriptorSetLength(pkt, length);
+    return;
+}
+
 static __inline__ uint16_t
-EAPOLKeyDescriptorGetLength(const EAPOLKeyDescriptorRef pkt)
+EAPOLRC4KeyDescriptorGetLength(const EAPOLRC4KeyDescriptorRef pkt)
 {
     return (ntohs(*((unsigned short *)pkt->key_length)));
 }
 
-enum {
-    kEAPOLKeyDescriptorTypeRC4 = 1
-};
-typedef uint32_t EAPOLKeyDescriptorType;
-
+static __inline__ uint16_t
+EAPOLKeyDescriptorGetLength(const EAPOLKeyDescriptorRef pkt)
+{
+    return (EAPOLRC4KeyDescriptorGetLength(pkt));
+}
 enum {
     kEAPOLKeyDescriptorIndexUnicastFlag = 0x80,
     kEAPOLKeyDescriptorIndexMask = 0x7f
 };
 typedef uint32_t EAPOLKeyDescriptorIndex;
+
+typedef struct {
+    uint8_t		descriptor_type;
+    uint8_t		key_information[2];
+    uint8_t		key_length[2];
+    uint8_t		replay_counter[8];
+    uint8_t		key_nonce[32];
+    uint8_t		EAPOL_key_IV[16];
+    uint8_t		key_RSC[8];
+    uint8_t		key_reserved[8];
+    uint8_t		key_MIC[16];
+    uint8_t		key_data_length[2];
+    uint8_t		key_data[0];
+} EAPOLIEEE80211KeyDescriptor, * EAPOLIEEE80211KeyDescriptorRef;
+
+static __inline__ uint16_t
+EAPOLIEEE80211KeyDescriptorGetLength(const EAPOLIEEE80211KeyDescriptorRef pkt)
+{
+    return (ntohs(*((unsigned short *)pkt->key_length)));
+}
+
+static __inline__ uint16_t
+EAPOLIEEE80211KeyDescriptorGetInformation(const EAPOLIEEE80211KeyDescriptorRef pkt)
+{
+    return (ntohs(*((unsigned short *)pkt->key_information)));
+}
+
+static __inline__ uint16_t
+EAPOLIEEE80211KeyDescriptorGetKeyDataLength(const EAPOLIEEE80211KeyDescriptorRef pkt)
+{
+    return (ntohs(*((unsigned short *)pkt->key_data_length)));
+}
 
 #endif _EAP8021X_EAPOL_H
 

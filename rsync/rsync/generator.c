@@ -356,6 +356,8 @@ void itemize(struct file_struct *file, int ndx, int statret, STRUCT_STAT *st,
 		if (preserve_gid && file->gid != GID_NONE
 		    && st->st_gid != file->gid)
 			iflags |= ITEM_REPORT_GROUP;
+		if (file->flags & FLAG_CLEAR_METADATA)
+			iflags |= ITEM_REPORT_ACL | ITEM_REPORT_XATTR;
 	} else
 		iflags |= ITEM_IS_NEW;
 
@@ -1150,16 +1152,17 @@ static void recv_generator(char *fname, struct file_struct *file, int ndx,
 	fnamecmp = fname;
 	fnamecmp_type = FNAMECMP_FNAME;
 #ifdef EA_SUPPORT
-	if (extended_attributes && !strncmp("._", file->basename, 2)) {
-		if (protocol_version >= 29)
-			itemize(file, ndx, -1, NULL, ITEM_TRANSFER|ITEM_REPORT_ACL|ITEM_REPORT_XATTR, 0, file->basename);
-		else {
-			write_int(f_out,ndx);
+	if (extended_attributes) {
+		if (!strncmp("._", file->basename, 2)) {
+			if (protocol_version >= 29)
+				itemize(file, ndx, -1, NULL, ITEM_TRANSFER|ITEM_REPORT_ACL|ITEM_REPORT_XATTR, 0, file->basename);
+			else
+				write_int(f_out,ndx);
+			if (!dry_run) {
+				write_sum_head(f_out, NULL);
+			}
+			return;
 		}
-		if (!dry_run) {
-			write_sum_head(f_out, NULL);
-		}
-		return;
 	}
 #endif	/* EA_SUPPORT */
 	if (statret == 0 && !S_ISREG(st.st_mode)) {

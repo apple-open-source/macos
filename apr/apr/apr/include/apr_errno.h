@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -122,15 +122,42 @@ APR_DECLARE(char *) apr_strerror(apr_status_t statcode, char *buf,
  */
 #define APR_OS_ERRSPACE_SIZE 50000
 /**
+ * APR_UTIL_ERRSPACE_SIZE is the size of the space that is reserved for
+ * use within apr-util. This space is reserved above that used by APR
+ * internally.
+ * @note This number MUST be smaller than APR_OS_ERRSPACE_SIZE by a
+ *       large enough amount that APR has sufficient room for it's
+ *       codes.
+ */
+#define APR_UTIL_ERRSPACE_SIZE 20000
+/**
  * APR_OS_START_STATUS is where the APR specific status codes start.
  */
 #define APR_OS_START_STATUS    (APR_OS_START_ERROR + APR_OS_ERRSPACE_SIZE)
+/**
+ * APR_UTIL_START_STATUS is where APR-Util starts defining it's
+ * status codes.
+ */
+#define APR_UTIL_START_STATUS   (APR_OS_START_STATUS + \
+                           (APR_OS_ERRSPACE_SIZE - APR_UTIL_ERRSPACE_SIZE))
 /**
  * APR_OS_START_USERERR are reserved for applications that use APR that
  *     layer their own error codes along with APR's.  Note that the
  *     error immediately following this one is set ten times farther
  *     away than usual, so that users of apr have a lot of room in
  *     which to declare custom error codes.
+ *
+ * In general applications should try and create unique error codes. To try
+ * and assist in finding suitable ranges of numbers to use, the following
+ * ranges are known to be used by the listed applications. If your 
+ * application defines error codes please advise the range of numbers it
+ * uses to dev@apr.apache.org for inclusion in this list.
+ *
+ * Ranges shown are in relation to APR_OS_START_USERERR
+ *
+ * Subversion - Defined ranges, of less than 100, at intervals of 5000
+ *              starting at an offset of 5000, e.g.
+ *               +5000 to 5100,  +10000 to 10100
  */
 #define APR_OS_START_USERERR    (APR_OS_START_STATUS + APR_OS_ERRSPACE_SIZE)
 /**
@@ -154,6 +181,43 @@ APR_DECLARE(char *) apr_strerror(apr_status_t statcode, char *buf,
  *     apr_status_t values.
  */
 #define APR_OS_START_SYSERR    (APR_OS_START_EAIERR + APR_OS_ERRSPACE_SIZE)
+
+/**
+ * @defgroup APR_ERROR_map APR Error Space
+ * <PRE>
+ * The following attempts to show the relation of the various constants
+ * used for mapping APR Status codes.
+ *
+ *       0          
+ *
+ *  20,000     APR_OS_START_ERROR
+ *
+ *         + APR_OS_ERRSPACE_SIZE (50,000)
+ *
+ *  70,000      APR_OS_START_STATUS
+ *
+ *         + APR_OS_ERRSPACE_SIZE - APR_UTIL_ERRSPACE_SIZE (30,000)
+ *
+ * 100,000      APR_UTIL_START_STATUS
+ *
+ *         + APR_UTIL_ERRSPACE_SIZE (20,000)
+ *
+ * 120,000      APR_OS_START_USERERR
+ *
+ *         + 10 x APR_OS_ERRSPACE_SIZE (50,000 * 10)
+ *
+ * 620,000      APR_OS_START_CANONERR
+ *
+ *         + APR_OS_ERRSPACE_SIZE (50,000)
+ *
+ * 670,000      APR_OS_START_EAIERR
+ *
+ *         + APR_OS_ERRSPACE_SIZE (50,000)
+ *
+ * 720,000      APR_OS_START_SYSERR
+ *
+ * </PRE>
+ */
 
 /** no error. */
 #define APR_SUCCESS 0
@@ -181,6 +245,7 @@ APR_DECLARE(char *) apr_strerror(apr_status_t statcode, char *buf,
  * APR_EBADIP       The specified IP address is invalid
  * APR_EBADMASK     The specified netmask is invalid
  * APR_ESYMNOTFOUND Could not find the requested symbol
+ * APR_ENOTENOUGHENTROPY Not enough entropy to continue
  * </PRE>
  *
  * <PRE>
@@ -358,7 +423,6 @@ APR_DECLARE(char *) apr_strerror(apr_status_t statcode, char *buf,
 #endif
 /** The given process was not recognized by APR. */
 #define APR_STATUS_IS_EPROC_UNKNOWN(s)  ((s) == APR_EPROC_UNKNOWN)
-
 /** APR could not gather enough entropy to continue. */
 #define APR_STATUS_IS_ENOTENOUGHENTROPY(s) ((s) == APR_ENOTENOUGHENTROPY)
 
@@ -575,7 +639,7 @@ APR_DECLARE(char *) apr_strerror(apr_status_t statcode, char *buf,
 #define APR_EACCES         (APR_OS_START_CANONERR + 1)
 #endif
 
-/** @see APR_STATUS_IS_EXIST */
+/** @see APR_STATUS_IS_EEXIST */
 #ifdef EEXIST
 #define APR_EEXIST EEXIST
 #else
@@ -760,6 +824,13 @@ APR_DECLARE(char *) apr_strerror(apr_status_t statcode, char *buf,
 #define APR_ENOTEMPTY     (APR_OS_START_CANONERR + 26)
 #endif
 
+/** @see APR_STATUS_IS_EAFNOSUPPORT */
+#ifdef EAFNOSUPPORT
+#define APR_EAFNOSUPPORT EAFNOSUPPORT
+#else
+#define APR_EAFNOSUPPORT  (APR_OS_START_CANONERR + 27)
+#endif
+
 /** @} */
 
 #if defined(OS2) && !defined(DOXYGEN)
@@ -902,6 +973,8 @@ APR_DECLARE(char *) apr_strerror(apr_status_t statcode, char *buf,
 #define APR_STATUS_IS_ENOTEMPTY(s)      ((s) == APR_ENOTEMPTY \
                 || (s) == APR_OS_START_SYSERR + ERROR_DIR_NOT_EMPTY \
                 || (s) == APR_OS_START_SYSERR + ERROR_ACCESS_DENIED)
+#define APR_STATUS_IS_EAFNOSUPPORT(s)   ((s) == APR_AFNOSUPPORT \
+                || (s) == APR_OS_START_SYSERR + SOCEAFNOSUPPORT)
 
 /*
     Sorry, too tired to wrap this up for OS2... feel free to
@@ -917,7 +990,6 @@ APR_DECLARE(char *) apr_strerror(apr_status_t statcode, char *buf,
     { SOCESOCKTNOSUPPORT,       ESOCKTNOSUPPORT },
     { SOCEOPNOTSUPP,            EOPNOTSUPP      },
     { SOCEPFNOSUPPORT,          EPFNOSUPPORT    },
-    { SOCEAFNOSUPPORT,          EAFNOSUPPORT    },
     { SOCEADDRINUSE,            EADDRINUSE      },
     { SOCEADDRNOTAVAIL,         EADDRNOTAVAIL   },
     { SOCENETDOWN,              ENETDOWN        },
@@ -1045,6 +1117,8 @@ APR_DECLARE(char *) apr_strerror(apr_status_t statcode, char *buf,
                 || (s) == APR_OS_START_SYSERR + ERROR_NOT_SAME_DEVICE)
 #define APR_STATUS_IS_ENOTEMPTY(s)      ((s) == APR_ENOTEMPTY \
                 || (s) == APR_OS_START_SYSERR + ERROR_DIR_NOT_EMPTY)
+#define APR_STATUS_IS_EAFNOSUPPORT(s)   ((s) == APR_EAFNOSUPPORT \
+                || (s) == APR_OS_START_SYSERR + WSAEAFNOSUPPORT)
 
 #elif defined(NETWARE) && defined(USE_WINSOCK) && !defined(DOXYGEN) /* !defined(OS2) && !defined(WIN32) */
 
@@ -1104,6 +1178,8 @@ APR_DECLARE(char *) apr_strerror(apr_status_t statcode, char *buf,
 #define APR_STATUS_IS_EPIPE(s)          ((s) == APR_EPIPE)
 #define APR_STATUS_IS_EXDEV(s)          ((s) == APR_EXDEV)
 #define APR_STATUS_IS_ENOTEMPTY(s)      ((s) == APR_ENOTEMPTY)
+#define APR_STATUS_IS_EAFNOSUPPORT(s)   ((s) == APR_EAFNOSUPPORT \
+                || (s) == APR_OS_START_SYSERR + WSAEAFNOSUPPORT)
 
 #else /* !defined(NETWARE) && !defined(OS2) && !defined(WIN32) */
 
@@ -1221,6 +1297,8 @@ APR_DECLARE(char *) apr_strerror(apr_status_t statcode, char *buf,
 /** Directory Not Empty */
 #define APR_STATUS_IS_ENOTEMPTY(s)       ((s) == APR_ENOTEMPTY || \
                                           (s) == APR_EEXIST)
+/** Address Family not supported */
+#define APR_STATUS_IS_EAFNOSUPPORT(s)    ((s) == APR_EAFNOSUPPORT)
 /** @} */
 
 #endif /* !defined(NETWARE) && !defined(OS2) && !defined(WIN32) */

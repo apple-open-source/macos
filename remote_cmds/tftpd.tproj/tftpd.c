@@ -1,26 +1,3 @@
-/*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
 /*	$NetBSD: tftpd.c,v 1.28 2004/05/05 20:15:45 kleink Exp $	*/
 /*
  * Copyright (c) 1983, 1993
@@ -51,15 +28,18 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1983, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n");
+static const char copyright[] =
+"@(#) Copyright (c) 1983, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
+#endif /* not lint */
+
+#ifndef lint
 #if 0
 static char sccsid[] = "@(#)tftpd.c	8.1 (Berkeley) 6/4/93";
-#else
-__RCSID("$NetBSD: tftpd.c,v 1.28 2004/05/05 20:15:45 kleink Exp $");
 #endif
+static const char rcsid[] =
+  "$FreeBSD: src/libexec/tftpd/tftpd.c,v 1.38 2007/11/23 00:05:29 edwin Exp $";
 #endif /* not lint */
 
 /*
@@ -73,9 +53,11 @@ __RCSID("$NetBSD: tftpd.c,v 1.28 2004/05/05 20:15:45 kleink Exp $");
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/time.h>
 
 #include <netinet/in.h>
-#include "tftp.h"
+#include <arpa/tftp.h>
 #include <arpa/inet.h>
 
 #include <ctype.h>
@@ -98,6 +80,7 @@ __RCSID("$NetBSD: tftpd.c,v 1.28 2004/05/05 20:15:45 kleink Exp $");
 #define	DEFAULTUSER	"nobody"
 
 #define	TIMEOUT		5
+#define	MAX_TIMEOUTS	5
 
 int	peer;
 int	rexmtval = TIMEOUT;
@@ -123,7 +106,7 @@ int	tftp_tsize = 0;
  */
 #define MAXDIRS	20
 static struct dirlist {
-	char	*name;
+	const char	*name;
 	int	len;
 } dirs[MAXDIRS+1];
 static int	suppress_naks;
@@ -135,15 +118,20 @@ static char	*securedir;
 struct formats;
 
 static const char *errtomsg(int);
-static void	 nak(int);
+static void  nak(int);
+#ifndef __APPLE__
+static void  oack(void);
+#endif
+
+static void  timer(int);
+static void  justquit(int);
+
 static void	 tftp(struct tftphdr *, int);
 static void	 usage(void);
 static char	*verifyhost(struct sockaddr *);
-void	justquit(int);
 int	main(int, char **);
 void	recvfile(struct formats *, int, int);
 void	xmitfile(struct formats *, int, int);
-void	timer(int);
 static const char *opcode(int);
 int	validate_access(char **, int);
 
@@ -340,8 +328,7 @@ main(int argc, char *argv[])
 	 * spawn endless instances, clogging the system.
 	 */
 	{
-		int pid;
-		int i;
+		int i, pid;
 		socklen_t j;
 
 		for (i = 1; i < 20; i++) {
@@ -399,7 +386,6 @@ main(int argc, char *argv[])
 		me.ss_family = from.ss_family;
 		me.ss_len = from.ss_len;
 	}
-
 	alarm(0);
 	close(fd);
 	close(1);
@@ -572,6 +558,11 @@ struct tftp_options {
 	{ "timeout", timeout_handler },
 	{ "tsize", tsize_handler },
 	{ NULL, NULL }
+};
+
+enum opt_enum {
+	OPT_TSIZE = 0,
+	OPT_TIMEOUT,
 };
 
 /*
@@ -908,6 +899,7 @@ xmitfile(struct formats *pf, int etftp, int acklength)
 	struct tftphdr	*ap;    /* ack packet */
 	int		 size, n;
 	int		 first = 1;
+	long		 amount = 0;
 
 	signal(SIGALRM, timer);
 	ap = (struct tftphdr *)ackbuf;
@@ -941,6 +933,7 @@ send_data:
 			syslog(LOG_ERR, "tftpd: write: %m");
 			goto abort;
 		}
+		amount += size;
 		if (block)
 			read_ahead(file, tftp_blksize, pf->f_convert);
 		for ( ; ; ) {
@@ -958,21 +951,21 @@ send_data:
 				goto abort;
 
 			case ACK:
-				if (ap->th_block == 0 && first) {
+				if (ap->th_block == 0 && first && block == 0) {
 					first = 0;
 					etftp = 0;
 					acklength = 0;
 					dp = r_init();
 					goto done;
 				}
-				if (ap->th_block == block)
+				if (ap->th_block == (u_short)block)
 					goto done;
 				if (debug)
 					syslog(LOG_DEBUG, "Resync ACK %u != %u",
 					    (unsigned int)ap->th_block, block);
 				/* Re-synchronize with the other side */
 				(void) synchnet(peer, tftp_blksize);
-				if (ap->th_block == (block -1))
+				if (ap->th_block == (u_short)(block-1))
 					goto send_data;
 			default:
 				syslog(LOG_INFO, "Received %s in sendfile\n",
@@ -987,8 +980,8 @@ done:
 	} while (size == tftp_blksize || block == 1);
 abort:
 	if (logging) {
-		syslog(LOG_DEBUG, "%s: request completed",
-			verifyhost((struct sockaddr *)&from));
+		syslog(LOG_DEBUG, "%s: request completed (%ld bytes)",
+		       verifyhost((struct sockaddr *)&from), amount);
 		}
 	(void) fclose(file);
 }
@@ -1053,14 +1046,14 @@ send_ack:
 			case ERROR:
 				goto abort;
 			case DATA:
-				if (dp->th_block == block)
+				if (dp->th_block == (u_short)block)
 					goto done;   /* normal */
 				if (debug)
 					syslog(LOG_DEBUG, "Resync %u != %u",
 					    (unsigned int)dp->th_block, block);
 				/* Re-synchronize with the other side */
 				(void) synchnet(peer, tftp_blksize);
-				if (dp->th_block == (block-1))
+				if (dp->th_block == (u_short)(block-1))
 					goto send_ack;          /* rexmit */
 				break;
 			default:
@@ -1183,3 +1176,59 @@ verifyhost(struct sockaddr *fromp)
 				strlcpy(hbuf, "?", sizeof(hbuf));
 	return (hbuf);
 }
+
+#ifndef __APPLE__
+/*
+ * Send an oack packet (option acknowledgement).
+ */
+static void
+oack(void)
+{
+	struct tftphdr *tp, *ap;
+	int size, i, n;
+	char *bp;
+
+	tp = (struct tftphdr *)buf;
+	bp = buf + 2;
+	size = sizeof(buf) - 2;
+	tp->th_opcode = htons((u_short)OACK);
+	for (i = 0; options[i].o_type != NULL; i++) {
+		if (options[i].o_request) {
+			n = snprintf(bp, size, "%s%c%d", options[i].o_type,
+				     0, options[i].o_reply);
+			bp += n+1;
+			size -= n+1;
+			if (size < 0) {
+				syslog(LOG_ERR, "oack: buffer overflow");
+				exit(1);
+			}
+		}
+	}
+	size = bp - buf;
+	ap = (struct tftphdr *)ackbuf;
+	signal(SIGALRM, timer);
+	timeouts = 0;
+
+	(void)setjmp(timeoutbuf);
+	if (send(peer, buf, size, 0) != size) {
+		syslog(LOG_INFO, "oack: %m");
+		exit(1);
+	}
+
+	for (;;) {
+		alarm(rexmtval);
+		n = recv(peer, ackbuf, sizeof (ackbuf), 0);
+		alarm(0);
+		if (n < 0) {
+			syslog(LOG_ERR, "recv: %m");
+			exit(1);
+		}
+		ap->th_opcode = ntohs((u_short)ap->th_opcode);
+		ap->th_block = ntohs((u_short)ap->th_block);
+		if (ap->th_opcode == ERROR)
+			exit(1);
+		if (ap->th_opcode == ACK && ap->th_block == 0)
+			break;
+	}
+}
+#endif /* !__APPLE__ */

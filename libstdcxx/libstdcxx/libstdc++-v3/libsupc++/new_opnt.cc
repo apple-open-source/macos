@@ -15,8 +15,8 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with GCC; see the file COPYING.  If not, write to
-// the Free Software Foundation, 59 Temple Place - Suite 330,
-// Boston, MA 02111-1307, USA.
+// the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+// Boston, MA 02110-1301, USA.
 //
 // As a special exception, you may use this file as part of a free software
 // library without restriction.  Specifically, if other files instantiate
@@ -27,9 +27,9 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-#include "new"
-#include <exception_defines.h>
 #include <bits/c++config.h>
+#include <exception_defines.h>
+#include "new"
 
 /* APPLE LOCAL begin keymgr */
 #if defined(__APPLE__) && defined(__ppc__) && defined(PIC)

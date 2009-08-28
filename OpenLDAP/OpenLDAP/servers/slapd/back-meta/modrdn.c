@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-meta/modrdn.c,v 1.19.2.13 2006/05/09 20:00:37 ando Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-meta/modrdn.c,v 1.39.2.9 2008/04/14 18:57:13 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2006 The OpenLDAP Foundation.
+ * Copyright 1999-2008 The OpenLDAP Foundation.
  * Portions Copyright 2001-2003 Pierangelo Masarati.
  * Portions Copyright 1999-2003 Howard Chu.
  * All rights reserved.
@@ -35,6 +35,7 @@ int
 meta_back_modrdn( Operation *op, SlapReply *rs )
 {
 	metainfo_t	*mi = ( metainfo_t * )op->o_bd->be_private;
+	metatarget_t	*mt;
 	metaconn_t	*mc;
 	int		candidate = -1;
 	struct berval	mdn = BER_BVNULL,
@@ -42,7 +43,8 @@ meta_back_modrdn( Operation *op, SlapReply *rs )
 	dncookie	dc;
 	int		msgid;
 	int		do_retry = 1;
-	int		maperr = 1;
+	LDAPControl	**ctrls = NULL;
+	struct berval	newrdn = BER_BVNULL;
 
 	mc = meta_back_getconn( op, rs, &candidate, LDAP_BACK_SENDERR );
 	if ( !mc || !meta_back_dobind( op, rs, mc, LDAP_BACK_SENDERR ) ) {
@@ -51,6 +53,8 @@ meta_back_modrdn( Operation *op, SlapReply *rs )
 
 	assert( mc->mc_conns[ candidate ].msc_ld != NULL );
 
+	mt = mi->mi_targets[ candidate ];
+	dc.target = mt;
 	dc.conn = op->o_conn;
 	dc.rs = rs;
 
@@ -76,7 +80,7 @@ meta_back_modrdn( Operation *op, SlapReply *rs )
 		 */
 
 		/* needs LDAPv3 */
-		switch ( mi->mi_targets[ candidate ].mt_version ) {
+		switch ( mt->mt_version ) {
 		case LDAP_VERSION3:
 			break;
 
@@ -90,18 +94,17 @@ meta_back_modrdn( Operation *op, SlapReply *rs )
 			/* op->o_protocol cannot be anything but LDAPv3,
 			 * otherwise wouldn't be here */
 			rs->sr_err = LDAP_UNWILLING_TO_PERFORM;
-			maperr = 0;
+			send_ldap_result( op, rs );
 			goto cleanup;
 		}
 		
 		/*
 		 * Rewrite the new superior, if defined and required
 	 	 */
-		dc.target = &mi->mi_targets[ candidate ];
 		dc.ctx = "newSuperiorDN";
 		if ( ldap_back_dn_massage( &dc, op->orr_newSup, &mnewSuperior ) ) {
 			rs->sr_err = LDAP_OTHER;
-			maperr = 0;
+			send_ldap_result( op, rs );
 			goto cleanup;
 		}
 	}
@@ -109,76 +112,46 @@ meta_back_modrdn( Operation *op, SlapReply *rs )
 	/*
 	 * Rewrite the modrdn dn, if required
 	 */
-	dc.target = &mi->mi_targets[ candidate ];
 	dc.ctx = "modrDN";
 	if ( ldap_back_dn_massage( &dc, &op->o_req_dn, &mdn ) ) {
 		rs->sr_err = LDAP_OTHER;
-		maperr = 0;
+		send_ldap_result( op, rs );
 		goto cleanup;
 	}
 
+	/* NOTE: we need to copy the newRDN in case it was formed
+	 * from a DN by simply changing the length (ITS#5397) */
+	newrdn = op->orr_newrdn;
+	if ( newrdn.bv_val[ newrdn.bv_len ] != '\0' ) {
+		ber_dupbv_x( &newrdn, &op->orr_newrdn, op->o_tmpmemctx );
+	}
+
 retry:;
+	ctrls = op->o_ctrls;
+	if ( meta_back_controls_add( op, rs, mc, candidate, &ctrls ) != LDAP_SUCCESS )
+	{
+		send_ldap_result( op, rs );
+		goto cleanup;
+	}
+
 	rs->sr_err = ldap_rename( mc->mc_conns[ candidate ].msc_ld,
-			mdn.bv_val, op->orr_newrdn.bv_val,
+			mdn.bv_val, newrdn.bv_val,
 			mnewSuperior.bv_val, op->orr_deleteoldrdn,
-			op->o_ctrls, NULL, &msgid );
+			ctrls, NULL, &msgid );
+	rs->sr_err = meta_back_op_result( mc, op, rs, candidate, msgid,
+		mt->mt_timeout[ SLAP_OP_MODRDN ], LDAP_BACK_SENDRESULT );
 	if ( rs->sr_err == LDAP_UNAVAILABLE && do_retry ) {
 		do_retry = 0;
 		if ( meta_back_retry( op, rs, &mc, candidate, LDAP_BACK_SENDERR ) ) {
+			/* if the identity changed, there might be need to re-authz */
+			(void)mi->mi_ldap_extra->controls_free( op, rs, &ctrls );
 			goto retry;
-		}
-		goto done;
-
-	} else if ( rs->sr_err == LDAP_SUCCESS ) {
-		struct timeval	tv, *tvp = NULL;
-		LDAPMessage	*res = NULL;
-		int		rc;
-
-		if ( mi->mi_targets[ candidate ].mt_timeout[ LDAP_BACK_OP_MODRDN ] != 0 ) {
-			tv.tv_sec = mi->mi_targets[ candidate ].mt_timeout[ LDAP_BACK_OP_MODRDN ];
-			tv.tv_usec = 0;
-			tvp = &tv;
-		}
-
-		rs->sr_err = LDAP_OTHER;
-		rc = ldap_result( mc->mc_conns[ candidate ].msc_ld,
-			msgid, LDAP_MSG_ALL, tvp, &res );
-		maperr = 0;
-		switch ( rc ) {
-		case -1:
-			break;
-
-		case 0:
-			ldap_abandon_ext( mc->mc_conns[ candidate ].msc_ld,
-				msgid, NULL, NULL );
-			rs->sr_err = op->o_protocol >= LDAP_VERSION3 ?
-				LDAP_ADMINLIMIT_EXCEEDED : LDAP_OPERATIONS_ERROR;
-			break;
-
-		case LDAP_RES_RENAME:
-			rc = ldap_parse_result( mc->mc_conns[ candidate ].msc_ld,
-				res, &rs->sr_err, NULL, NULL, NULL, NULL, 1 );
-			if ( rc != LDAP_SUCCESS ) {
-				rs->sr_err = rc;
-			}
-			maperr = 1;
-			break;
-
-		default:
-			ldap_msgfree( res );
-			break;
 		}
 	}
 
 cleanup:;
-	if ( maperr ) {
-		meta_back_op_result( mc, op, rs, candidate );
+	(void)mi->mi_ldap_extra->controls_free( op, rs, &ctrls );
 
-	} else {
-		send_ldap_result( op, rs );
-	}
-
-done:;
 	if ( mdn.bv_val != op->o_req_dn.bv_val ) {
 		free( mdn.bv_val );
 		BER_BVZERO( &mdn );
@@ -191,8 +164,12 @@ done:;
 		BER_BVZERO( &mnewSuperior );
 	}
 
+	if ( newrdn.bv_val != op->orr_newrdn.bv_val ) {
+		op->o_tmpfree( newrdn.bv_val, op->o_tmpmemctx );
+	}
+
 	if ( mc ) {
-		meta_back_release_conn( op, mc );
+		meta_back_release_conn( mi, mc );
 	}
 
 	return rs->sr_err;

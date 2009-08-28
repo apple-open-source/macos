@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -44,7 +44,6 @@
 #include "config.h"		/* MiG generated file */
 
 
-static int		_sc_active	= 0;
 static CFStringRef	_sc_bundleID	= NULL;
 static pthread_mutex_t	_sc_lock	= PTHREAD_MUTEX_INITIALIZER;
 static mach_port_t	_sc_server	= MACH_PORT_NULL;
@@ -113,7 +112,6 @@ __SCDynamicStoreDeallocate(CFTypeRef cf)
 {
 	int				oldThreadState;
 	int				sc_status;
-	kern_return_t			status;
 	SCDynamicStoreRef		store		= (SCDynamicStoreRef)cf;
 	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 
@@ -127,15 +125,19 @@ __SCDynamicStoreDeallocate(CFTypeRef cf)
 	}
 
 	if (storePrivate->server != MACH_PORT_NULL) {
-		status = configclose(storePrivate->server, (int *)&sc_status);
-#ifdef	DEBUG
-		if (status != KERN_SUCCESS) {
-			if (status != MACH_SEND_INVALID_DEST)
-				SCLog(_sc_verbose, LOG_DEBUG, CFSTR("__SCDynamicStoreDeallocate configclose(): %s"), mach_error_string(status));
-		}
-#endif	/* DEBUG */
+		__MACH_PORT_DEBUG(TRUE, "*** __SCDynamicStoreDeallocate", storePrivate->server);
+		(void) configclose(storePrivate->server, (int *)&sc_status);
+		__MACH_PORT_DEBUG(TRUE, "*** __SCDynamicStoreDeallocate (after configclose)", storePrivate->server);
 
-		(void) mach_port_destroy(mach_task_self(), storePrivate->server);
+		/*
+		 * the above call to configclose() should result in the SCDynamicStore
+		 * server code deallocating it's receive right.  That, in turn, should
+		 * result in our send becoming a dead name.  We could explicitly remove
+		 * the dead name right with a call to mach_port_mod_refs() but, to be
+		 * sure, we use mach_port_deallocate() since that will get rid of a
+		 * send, send_once, or dead name right.
+		 */
+		(void) mach_port_deallocate(mach_task_self(), storePrivate->server);
 		storePrivate->server = MACH_PORT_NULL;
 	}
 
@@ -150,16 +152,6 @@ __SCDynamicStoreDeallocate(CFTypeRef cf)
 	/* release any keys being watched */
 	CFRelease(storePrivate->keys);
 	CFRelease(storePrivate->patterns);
-
-	/* cleanup */
-	pthread_mutex_lock(&_sc_lock);
-	_sc_active--;			/* drop the number of active dynamic store sessions */
-	if ((_sc_active == 0) && (_sc_server != MACH_PORT_NULL)) {
-		/* release the [last] reference to the server */
-		(void)mach_port_deallocate(mach_task_self(), _sc_server);
-		_sc_server = MACH_PORT_NULL;
-	}
-	pthread_mutex_unlock(&_sc_lock);
 
 	return;
 }
@@ -186,9 +178,7 @@ childForkHandler()
 {
 	/* the process has forked (and we are the child process) */
 
-	_sc_active = 0;
 	_sc_server = MACH_PORT_NULL;
-
 	return;
 }
 
@@ -196,7 +186,8 @@ childForkHandler()
 static pthread_once_t initialized	= PTHREAD_ONCE_INIT;
 
 static void
-__SCDynamicStoreInitialize(void) {
+__SCDynamicStoreInitialize(void)
+{
 	CFBundleRef	bundle;
 
 	/* register with CoreFoundation */
@@ -230,6 +221,38 @@ __SCDynamicStoreInitialize(void) {
 	}
 
 	return;
+}
+
+
+static mach_port_t
+__SCDynamicStoreServerPort(kern_return_t *status)
+{
+	mach_port_t	server	= MACH_PORT_NULL;
+	char		*server_name;
+
+	server_name = getenv("SCD_SERVER");
+	if (!server_name) {
+		server_name = SCD_SERVER;
+	}
+
+	*status = bootstrap_look_up(bootstrap_port, server_name, &server);
+	switch (*status) {
+		case BOOTSTRAP_SUCCESS :
+			/* service currently registered, "a good thing" (tm) */
+			return server;
+		case BOOTSTRAP_UNKNOWN_SERVICE :
+			/* service not currently registered, try again later */
+			break;
+		default :
+#ifdef	DEBUG
+			SCLog(_sc_verbose, LOG_DEBUG,
+			      CFSTR("SCDynamicStoreCreate[WithOptions] bootstrap_look_up() failed: status=%s"),
+			      bootstrap_strerror(*status));
+#endif	/* DEBUG */
+			break;
+	}
+
+	return MACH_PORT_NULL;
 }
 
 
@@ -305,45 +328,6 @@ __SCDynamicStoreCreatePrivate(CFAllocatorRef		allocator,
 	storePrivate->notifySignal			= 0;
 	storePrivate->notifySignalTask			= TASK_NULL;
 
-	/* initialize global state */
-
-	pthread_mutex_lock(&_sc_lock);
-
-	/* get the server port */
-	if (_sc_server == MACH_PORT_NULL) {
-		char		*server_name;
-		kern_return_t	status;
-
-		server_name = getenv("SCD_SERVER");
-		if (!server_name) {
-			server_name = SCD_SERVER;
-		}
-
-		status = bootstrap_look_up(bootstrap_port, server_name, &_sc_server);
-		switch (status) {
-			case BOOTSTRAP_SUCCESS :
-				/* service currently registered, "a good thing" (tm) */
-				break;
-			case BOOTSTRAP_UNKNOWN_SERVICE :
-				/* service not currently registered, try again later */
-				sc_status = status;
-				goto done;
-			default :
-#ifdef	DEBUG
-				SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreCreate[WithOptions] bootstrap_look_up() failed: status=%d"), status);
-#endif	/* DEBUG */
-				sc_status = status;
-				goto done;
-		}
-	}
-
-	/* bump the number of active dynamic store sessions */
-	_sc_active++;
-
-    done :
-
-	pthread_mutex_unlock(&_sc_lock);
-
 	if (sc_status != kSCStatusOK) {
 		_SCErrorSet(sc_status);
 		CFRelease(storePrivate);
@@ -364,15 +348,16 @@ SCDynamicStoreCreateWithOptions(CFAllocatorRef		allocator,
 				SCDynamicStoreCallBack	callout,
 				SCDynamicStoreContext	*context)
 {
+	int				sc_status	= kSCStatusFailed;
+	mach_port_t			server;
+	kern_return_t			status		= KERN_SUCCESS;
 	SCDynamicStorePrivateRef	storePrivate;
-	kern_return_t			status;
 	CFDataRef			utfName;		/* serialized name */
 	xmlData_t			myNameRef;
 	CFIndex				myNameLen;
 	CFDataRef			xmlOptions	= NULL;	/* serialized options */
 	xmlData_t			myOptionsRef	= NULL;
 	CFIndex				myOptionsLen	= 0;
-	int				sc_status	= kSCStatusFailed;
 
 	/*
 	 * allocate and initialize a new session
@@ -406,30 +391,61 @@ SCDynamicStoreCreateWithOptions(CFAllocatorRef		allocator,
 	}
 
 	/* open a new session with the server */
-	status = configopen(_sc_server,
-			    myNameRef,
-			    myNameLen,
-			    myOptionsRef,
-			    myOptionsLen,
-			    &storePrivate->server,
-			    (int *)&sc_status);
+	server = _sc_server;
+	while (TRUE) {
+		if (server != MACH_PORT_NULL) {
+			status = configopen(server,
+					    myNameRef,
+					    myNameLen,
+					    myOptionsRef,
+					    myOptionsLen,
+					    &storePrivate->server,
+					    (int *)&sc_status);
+			if (status == KERN_SUCCESS) {
+				break;
+			}
+
+			// our [cached] server port is not valid
+			if (status != MACH_SEND_INVALID_DEST) {
+				// if we got an unexpected error, don't retry
+				sc_status = status;
+				break;
+			}
+		}
+
+		pthread_mutex_lock(&_sc_lock);
+		if (_sc_server != MACH_PORT_NULL) {
+			if (server == _sc_server) {
+				// if the server we tried returned the error
+				(void)mach_port_deallocate(mach_task_self(), _sc_server);
+				_sc_server = __SCDynamicStoreServerPort(&sc_status);
+			} else {
+				// another thread has refreshed the SCDynamicStore server port
+			}
+		} else {
+			_sc_server = __SCDynamicStoreServerPort(&sc_status);
+		}
+		server = _sc_server;
+		pthread_mutex_unlock(&_sc_lock);
+
+		if (server == MACH_PORT_NULL) {
+			// if SCDynamicStore server not available
+			break;
+		}
+	}
+	__MACH_PORT_DEBUG(TRUE, "*** SCDynamicStoreCreate[WithOptions]", storePrivate->server);
 
 	/* clean up */
 	CFRelease(utfName);
 	if (xmlOptions)	CFRelease(xmlOptions);
 
-	if (status != KERN_SUCCESS) {
-#ifdef	DEBUG
-		if (status != MACH_SEND_INVALID_DEST)
-			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreCreate[WithOptions] configopen(): %s"), mach_error_string(status));
-#endif	/* DEBUG */
-		sc_status = status;
-		goto done;
-	}
-
     done :
 
 	if (sc_status != kSCStatusOK) {
+		SCLog(TRUE,
+		      (status == KERN_SUCCESS) ? LOG_DEBUG : LOG_ERR,
+		      CFSTR("SCDynamicStoreCreate[WithOptions] configopen(): %s"),
+		      SCErrorString(sc_status));
 		_SCErrorSet(sc_status);
 		CFRelease(storePrivate);
 		storePrivate = NULL;

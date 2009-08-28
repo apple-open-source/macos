@@ -112,6 +112,7 @@ CPolicyXML::CPolicyCommonInit( void )
 	mWarnOfDisableMinutes = 0;
 	mProjectedPasswordExpireDate = 0;
 	mProjectedAccountDisableDate = 0;
+	mModDateOfPassword = 0;
 }
 
 
@@ -175,13 +176,13 @@ CPolicyXML::GetPolicyAsSpaceDelimitedData( void )
 	char *returnStr = NULL;
 	long metaFeatureStrLen = 0;
 	char featureStr[2048];
-	char metaFeatureStr[256] = { 0, };
+	char metaFeatureStr[512] = { 0, };
 	
 	PWAccessFeaturesToStringWithoutStateInfoExtra( &mPolicy, &mExtraPolicy, sizeof(featureStr), featureStr );
 	
 	if ( mWarnOfExpirationMinutes > 0 )
 	{
-		metaFeatureStrLen = sprintf( metaFeatureStr,
+		metaFeatureStrLen = snprintf( metaFeatureStr, sizeof(metaFeatureStr),
 				 " warnOfExpirationMinutes=%lu projectedPasswordExpireDate=%lu",
 				 mWarnOfExpirationMinutes,
 				 (unsigned long)mProjectedPasswordExpireDate );
@@ -189,10 +190,15 @@ CPolicyXML::GetPolicyAsSpaceDelimitedData( void )
 	
 	if ( mWarnOfDisableMinutes > 0 )
 	{
-		sprintf( metaFeatureStr + metaFeatureStrLen,
+		metaFeatureStrLen += snprintf( metaFeatureStr + metaFeatureStrLen, sizeof(metaFeatureStr) - metaFeatureStrLen,
 				 " warnOfDisableMinutes=%lu projectedAccountDisableDate=%lu",
 				 mWarnOfDisableMinutes,
 				 (unsigned long)mProjectedAccountDisableDate );
+	}
+
+	if ( mModDateOfPassword > 0 )
+	{
+		snprintf( metaFeatureStr + metaFeatureStrLen, sizeof(metaFeatureStr) - metaFeatureStrLen, " %s=%lu", kPWPolicyStr_passwordLastSetTime, (unsigned long)mModDateOfPassword );
 	}
 	
 	returnStr = (char *) malloc( strlen(featureStr) + strlen(metaFeatureStr) + 1 );
@@ -266,6 +272,10 @@ CPolicyXML::AddMiscPolicies( const char *inPolicyStr )
 		
 	if ( StringToPWAccessFeatures_GetValue( warnOfDisableMinutes, &value ) )
 		mWarnOfDisableMinutes = value;
+
+    const char *passwordLastSetTime = strstr( inPolicyStr, kPWPolicyStr_passwordLastSetTime );
+	if ( StringToPWAccessFeatures_GetValue( passwordLastSetTime, &value ) )
+        mModDateOfPassword = value;
 }
 
 
@@ -325,21 +335,21 @@ CPolicyXML::ConvertPropertyListPolicyToStruct( CFMutableDictionaryRef inPolicyDi
 		CFGetTypeID(valueRef) == CFNumberGetTypeID() &&
 		CFNumberGetValue( (CFNumberRef)valueRef, kCFNumberLongType, &aLongValue) )
 	{
-		mExtraPolicy.notGuessablePattern = aLongValue;
+		mExtraPolicy.notGuessablePattern = (UInt32)aLongValue;
 	}
 	
     // expirationDateGMT
 	if ( CFDictionaryGetValueIfPresent( mPolicyDict, CFSTR(kPWPolicyStr_expirationDateGMT), (const void **)&valueRef ) &&
 		CFGetTypeID(valueRef) == CFDateGetTypeID() )
 	{
-		this->ConvertCFDateToBSDTime( (CFDateRef)valueRef, (struct tm *)&mPolicy.expirationDateGMT );
+		this->ConvertCFDateToBSDTime( (CFDateRef)valueRef, &mPolicy.expirationDateGMT );
 	}
 	
 	// hardExpireDateGMT
 	if ( CFDictionaryGetValueIfPresent( mPolicyDict, CFSTR(kPWPolicyStr_hardExpireDateGMT), (const void **)&valueRef ) &&
 		CFGetTypeID(valueRef) == CFDateGetTypeID() )
 	{
-		this->ConvertCFDateToBSDTime( (CFDateRef)valueRef, (struct tm *)&mPolicy.hardExpireDateGMT );
+		this->ConvertCFDateToBSDTime( (CFDateRef)valueRef, &mPolicy.hardExpireDateGMT );
 	}
 	
 	// maxMinutesUntilChangePassword
@@ -347,7 +357,7 @@ CPolicyXML::ConvertPropertyListPolicyToStruct( CFMutableDictionaryRef inPolicyDi
 		CFGetTypeID(valueRef) == CFNumberGetTypeID() &&
 		CFNumberGetValue( (CFNumberRef)valueRef, kCFNumberLongType, &aLongValue) )
 	{
-		mPolicy.maxMinutesUntilChangePassword = aLongValue;
+		mPolicy.maxMinutesUntilChangePassword = (UInt32)aLongValue;
 	}
 	
 	// maxMinutesUntilDisabled
@@ -355,7 +365,7 @@ CPolicyXML::ConvertPropertyListPolicyToStruct( CFMutableDictionaryRef inPolicyDi
 		CFGetTypeID(valueRef) == CFNumberGetTypeID() &&
 		CFNumberGetValue( (CFNumberRef)valueRef, kCFNumberLongType, &aLongValue) )
 	{
-		mPolicy.maxMinutesUntilDisabled = aLongValue;
+		mPolicy.maxMinutesUntilDisabled = (UInt32)aLongValue;
 	}
 
 	// maxMinutesOfNonUse
@@ -363,7 +373,7 @@ CPolicyXML::ConvertPropertyListPolicyToStruct( CFMutableDictionaryRef inPolicyDi
 		CFGetTypeID(valueRef) == CFNumberGetTypeID() &&
 		CFNumberGetValue( (CFNumberRef)valueRef, kCFNumberLongType, &aLongValue) )
 	{
-		mPolicy.maxMinutesOfNonUse = aLongValue;
+		mPolicy.maxMinutesOfNonUse = (UInt32)aLongValue;
 	}
 
 	// maxFailedLoginAttempts
@@ -436,6 +446,21 @@ CPolicyXML::ConvertPropertyListPolicyToStruct( CFMutableDictionaryRef inPolicyDi
 	{
 		mWarnOfDisableMinutes = aLongValue;
 	}
+
+	// passwordLastSetTime
+	if ( CFDictionaryGetValueIfPresent( mPolicyDict, CFSTR(kPWPolicyStr_passwordLastSetTime), (const void **)&valueRef ) &&
+		CFGetTypeID(valueRef) == CFNumberGetTypeID() &&
+		CFNumberGetValue( (CFNumberRef)valueRef, kCFNumberLongType, &aLongValue) )
+	{
+		mModDateOfPassword = aLongValue;
+	}
+
+	if ( CFDictionaryGetValueIfPresent( mPolicyDict, CFSTR(kPWPolicyStr_passwordLastSetTime), (const void **)&valueRef ) &&
+		CFGetTypeID(valueRef) == CFNumberGetTypeID() &&
+		CFNumberGetValue( (CFNumberRef)valueRef, kCFNumberLongType, &aLongValue) )
+	{
+		mModDateOfPassword = aLongValue;
+	}
 	
 	// projectedPasswordExpireDate
 	if ( CFDictionaryGetValueIfPresent( mPolicyDict, CFSTR(kPWPolicyStr_projectedPasswordExpireDate), (const void **)&valueRef ) &&
@@ -473,6 +498,7 @@ CPolicyXML::ConvertStructToPropertyListPolicy( void )
 	unsigned int aBoolVal;
 	CFNumberRef warnOfExpirationRef = NULL;
 	CFNumberRef warnOfDisableRef = NULL;
+	CFNumberRef passwordLastSetTimeRef = NULL;
 
 	policyDict = CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
 	if ( policyDict == NULL )
@@ -521,13 +547,15 @@ CPolicyXML::ConvertStructToPropertyListPolicy( void )
 	CFNumberRef minCharsRef = CFNumberCreate( kCFAllocatorDefault, kCFNumberShortType, &mPolicy.minChars );
 	CFNumberRef maxCharsRef = CFNumberCreate( kCFAllocatorDefault, kCFNumberShortType, &mPolicy.maxChars );
 	
-	this->ConvertBSDTimeToCFDate( (struct tm *)&(mPolicy.expirationDateGMT), &expirationDateGMTRef );
-	this->ConvertBSDTimeToCFDate( (struct tm *)&(mPolicy.hardExpireDateGMT), &hardExpireDateGMTRef );
+	this->ConvertBSDTimeToCFDate( &(mPolicy.expirationDateGMT), &expirationDateGMTRef );
+	this->ConvertBSDTimeToCFDate( &(mPolicy.hardExpireDateGMT), &hardExpireDateGMTRef );
 	
 	if ( mWarnOfExpirationMinutes > 0 )
 		warnOfExpirationRef = CFNumberCreate( kCFAllocatorDefault, kCFNumberLongType, &mWarnOfExpirationMinutes );
 	if ( mWarnOfDisableMinutes > 0 )
 		warnOfDisableRef = CFNumberCreate( kCFAllocatorDefault, kCFNumberLongType, &mWarnOfDisableMinutes );
+	if ( mModDateOfPassword > 0 )
+		passwordLastSetTimeRef = CFNumberCreate( kCFAllocatorDefault, kCFNumberLongType, &mModDateOfPassword );
 	
 	if ( usingHistoryRef != NULL )
 	{
@@ -653,6 +681,12 @@ CPolicyXML::ConvertStructToPropertyListPolicy( void )
 	{
 		CFDictionaryAddValue( policyDict, CFSTR(kPWPolicyStr_warnOfDisableMinutes), warnOfDisableRef );
 		CFRelease( warnOfDisableRef );
+	}
+
+	if ( passwordLastSetTimeRef != NULL )
+	{
+		CFDictionaryAddValue( policyDict, CFSTR(kPWPolicyStr_passwordLastSetTime), passwordLastSetTimeRef );
+		CFRelease( passwordLastSetTimeRef );
 	}
 	
 	if ( mPolicyDict != NULL )

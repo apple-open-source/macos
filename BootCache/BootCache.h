@@ -3,6 +3,7 @@
  * Files.
  */
 #define BC_BOOT_PLAYLIST	"/var/db/BootCache.playlist"
+#define BC_BOOT_BACKINGFILE	"/var/db/BootCache.data"
 #define BC_BOOT_FLAGFILE	"/var/db/BootCache.flag"
 #define BC_BOOT_STATFILE	"/tmp/BootCache.statistics"
 #define BC_BOOT_HISTFILE	"/tmp/BootCache.history"
@@ -32,9 +33,9 @@ struct BC_command {
 	/* optional parameter */
 	int	bc_param;
 	
+	unsigned int	bc_length;
 	/* user-space data buffer, use varies with opcode */
-	void	*bc_data;
-	size_t	bc_length;
+	u_int64_t bc_data;
 };
 
 #define BC_SYSCTL	"kern.BootCache"
@@ -67,7 +68,7 @@ struct BC_playlist_header {
 struct BC_playlist_entry {
 	u_int64_t	pce_offset;	/* block address */
 	u_int64_t	pce_length;	/* size */
-	u_int32_t	pce_batch;
+	u_int64_t	pce_batch;
 #define CE_BATCH_MASK	0xff
 };
 
@@ -96,7 +97,7 @@ struct BC_playlist_entry {
 struct BC_history_entry {
 	u_int64_t	he_offset;	/* data offset on device */
 	u_int64_t	he_length;	/* length of data */
-	int		he_flags;
+	u_int64_t	he_flags;
 #define	BC_HE_MISS	0		/* read was not satisfied from cache */
 #define	BC_HE_HIT	1		/* read was satisfied from cache */
 #define BC_HE_TAG	2		/* userland-set tag */
@@ -111,7 +112,7 @@ struct BC_history_entry {
  */
 struct BC_statistics {
 	/* device */
-	u_int	ss_blocksize;		/* underlying device bloksize */
+	u_int	ss_blocksize;		/* underlying device blocksize */
 
 	/* readahead */
 	u_int	ss_initiated_reads;	/* read operations we initiated */
@@ -119,13 +120,14 @@ struct BC_statistics {
 	u_int	ss_read_errors;		/* read errors encountered */
 	u_int	ss_error_discards;	/* blocks discarded due to read errors */
 	u_int	ss_batch_size[STAT_BATCHMAX+1];	/* number of blocks in read per batch */
-	struct timeval ss_batch_time[STAT_BATCHMAX+1];	/* time prefetch stopped */
-	struct timeval ss_cache_stop;	/* time cache stopped */
-	struct timeval ss_wait_time;	/* total time spent blocked for blocks */
+	u_int	ss_batch_time[STAT_BATCHMAX+1];	/* msecs per batch */
+	u_int	ss_active_time;		/* msecs cache was alive */
+	u_int	ss_preload_time;		/* msecs before cache started */
 
 	/* inbound strategy calls */
 	u_int	ss_strategy_calls;	/* total strategy calls we received */
 	u_int	ss_strategy_nonread;	/* strategy calls that were not reads */
+	u_int	ss_strategy_throttled;	/* strategy calls marked low priority */
 	u_int	ss_strategy_bypassed;	/* strategy calls we bypassed */
 	u_int	ss_strategy_bypass_active; /* strategy calls we bypassed reading */
 	u_int	ss_strategy_blocked;	/* strategy calls that blocked */
@@ -141,9 +143,9 @@ struct BC_statistics {
 	/* block/page activity */
 	u_int	ss_requested_blocks;
 	u_int	ss_hit_blocks;		/* number of blocks vacated due to read hits */
+	u_int	ss_lost_blocks;		/* number of blocks lost to pageout or contig mem */
 	u_int	ss_write_discards;	/* blocks discarded due to overwriting */
 	u_int	ss_spurious_blocks;	/* number of blocks not consumed */
-	u_int	ss_spurious_pages;	/* number of pages not consumed */
 
 	/* history activity */
 	u_int	ss_history_clusters;	/* number of allocated history clusters */

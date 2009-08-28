@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -14,7 +14,7 @@
 //
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // { dg-do run { target *-*-freebsd* *-*-netbsd* *-*-linux* *-*-solaris* *-*-cygwin *-*-darwin* alpha*-*-osf* } }
@@ -25,8 +25,8 @@
 #include <string>
 #include <pthread.h>
 
-static void *
-foo (void *p)
+static void*
+foo (void*)
 {
   typedef std::char_traits<char> traits_type;
   typedef __gnu_cxx::new_allocator<char> allocator_type;
@@ -47,7 +47,7 @@ int
 main ()
 {
   pthread_t t;
-  int j = pthread_create (&t, 0, foo, 0);
-  int i = pthread_join (t, 0);
+  pthread_create (&t, 0, foo, 0);
+  pthread_join (t, 0);
   return 0;
 }

@@ -1,9 +1,9 @@
 .\"
-.\" "$Id: lprm.man 6649 2007-07-11 21:46:42Z mike $"
+.\" "$Id: lprm.man 7600 2008-05-20 21:06:23Z mike $"
 .\"
 .\"   lprm man page for the Common UNIX Printing System (CUPS).
 .\"
-.\"   Copyright 2007 by Apple Inc.
+.\"   Copyright 2007-2009 by Apple Inc.
 .\"   Copyright 1997-2006 by Easy Software Products.
 .\"
 .\"   These coded instructions, statements, and computer programs are the
@@ -12,7 +12,7 @@
 .\"   which should have been included with this file.  If this file is
 .\"   file is missing or damaged, see the license at "http://www.cups.org/".
 .\"
-.TH lprm 1 "Common UNIX Printing System" "12 February 2006" "Apple Inc."
+.TH lprm 1 "CUPS" "12 February 2006" "Apple Inc."
 .SH NAME
 lprm \- cancel print jobs
 .SH SYNOPSIS
@@ -59,7 +59,7 @@ Berkeley \fIlprm\fR command.
 .br
 http://localhost:631/help
 .SH COPYRIGHT
-Copyright 2007 by Apple Inc.
+Copyright 2007-2009 by Apple Inc.
 .\"
-.\" End of "$Id: lprm.man 6649 2007-07-11 21:46:42Z mike $".
+.\" End of "$Id: lprm.man 7600 2008-05-20 21:06:23Z mike $".
 .\"

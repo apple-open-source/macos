@@ -24,12 +24,11 @@
 #ifndef __POLICYBASE__
 #define __POLICYBASE__
 
-#import <objc/Object.h>
-#import <CoreFoundation/CoreFoundation.h>
+#import <Foundation/Foundation.h>
 #import <time.h>
 #import <PasswordServer/AuthFile.h>
 
-@interface PolicyBase : Object {
+@interface PolicyBase : NSObject {
 }
 
 -(id)initWithUTF8String:(const char *)xmlDataStr;

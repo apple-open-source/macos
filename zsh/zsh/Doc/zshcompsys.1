@@ -1,4 +1,4 @@
-.TH "ZSHCOMPSYS" "1" "April 19, 2006" "zsh 4\&.3\&.4"
+.TH "ZSHCOMPSYS" "1" "October 30, 2008" "zsh 4\&.3\&.9"
 .SH "NAME"
 zshcompsys \- zsh completion system
 .\" Yodl file: Zsh/compsys.yo
@@ -900,6 +900,10 @@ offering the original string as a match
 \fBother\-accounts\fP
 used to look up the \fBusers\-hosts\fP style
 .TP
+\fBother\-files\fP
+for the names of any non\-directory files\&.  This is used instead
+of \fBall\-files\fP when the \fBlist\-dirs\-first\fP style is in effect\&.
+.TP
 \fBpackages\fP
 for packages (e\&.g\&. \fBrpm\fP or installed \fBDebian\fP packages)
 .TP
@@ -1045,6 +1049,21 @@ be allowed to complete \fB$foo\fP to \fB$foobar\fP\&. If the style is set to
 system will also be allowed to continue\&.
 .RE
 .TP
+\fBaccept\-exact\-dirs\fP
+This is used by filename completion\&.  Unlike \fBaccept\-exact\fP it is
+a boolean\&.  By default, filename completion examines all components
+of a path to see if there are completions of that component, even if
+the component matches an existing directory\&.  For example, when
+completion after \fB/usr/bin/\fP, the function examines possible
+completions to \fB/usr\fP\&.
+.RS
+.PP
+When this style is true, any prefix of a path that matches an existing
+directory is accepted without any attempt to complete it further\&.
+Hence, in the given example, the path \fB/usr/bin/\fP is accepted
+immediately and completion tried in that directory\&.
+.RE
+.TP
 \fBadd\-space\fP
 This style is used by the \fB_expand\fP completer\&.  If it is true (the
 default), a space will be inserted after all words resulting from the 
@@ -1164,6 +1183,15 @@ bindable command\&.  If it set to `true\&' and the word on the command
 line is not the name of an alias, matching alias names will be
 completed\&.
 .TP
+\fBcomplete\-options\fP
+This is used by the completer for \fBcd\fP, \fBchdir\fP and \fBpushd\fP\&.
+For these commands a \fB\-\fP is used to introduce a directory stack entry
+and completion of these is far more common than completing options\&.
+Hence unless the value of this style is true options will not be
+completed, even after an initial \fB\-\fP\&.  If it is true, options will
+be completed after an initial \fB\-\fP unless there is a preceding
+\fB\-\fP\fB\-\fP on the command line\&.
+.TP
 \fBcompleter\fP
 The strings given as the value of this style provide the names of the
 completer functions to use\&. The available completer functions are
@@ -1207,21 +1235,34 @@ This style is used by the \fB_list\fP completer function to decide if
 insertion of matches should be delayed unconditionally\&. The default is 
 `true\&'\&.
 .TP
+\fBdelimiters\fP
+This style is used when adding a delimiter for use with history
+modifiers or glob qualifiers that have delimited arguments\&.  It is
+an array of preferred delimiters to add\&.  Non\-special characters are
+preferred as the completion system may otherwise become confused\&.
+The default list is \fB:\fP, \fB+\fP, \fB/\fP, \fB\-\fP, \fB%\fP\&.  The list
+may be empty to force a delimiter to be typed\&.
+.TP
 \fBdisabled\fP
 If this is set to `true\&', the \fB_expand_alias\fP completer and bindable 
 command will try to expand disabled aliases, too\&.  The default is
 `\fBfalse\fP\&'\&.
 .TP
-\fBdisable\-stat\fP
-This is used with an empty tag by the \fB_cvs\fP function
-to decide whether the \fBzsh/stat\fP module should be used to
-generate names of modified files in the appropriate places (this is its
-only use)\&.  If the style is set, completion will use the \fBls\fP command\&.
-.TP
 \fBdomains\fP
 A list of names of network domains for completion\&.
 If this is not set, domain names will be taken from
 the file \fB/etc/resolv\&.conf\fP\&.
+.TP
+\fBenviron\fP
+The environ style is used when completing for `\fBsudo\fP\&'\&.  It is set to an
+array of `\fIVAR\fP\fB=\fP\fIvalue\fP\&' assignments to be exported into the
+local environment before the completion for the target command is invoked\&.
+.RS
+.nf
+\fBzstyle :complete:sudo: environ \e 
+  PATH="/sbin:/usr/sbin:$PATH" HOME="/root"\fP
+.fi
+.RE
 .TP
 \fBexpand\fP
 This style is used when completing strings consisting of multiple
@@ -1288,13 +1329,18 @@ without a tag\&.  Its values are of the form
 `\fIdir\fP\fB:\fP\fInames\&.\&.\&.\fP\&'\&.  This will add the \fInames\fP (strings
 separated by spaces) as
 possible matches when completing in the directory \fIdir\fP, even if no 
-such files really exist\&.
+such files really exist\&.  The dir may be a pattern; pattern characters
+or colons in \fIdir\fP should be quote with a backslash to be treated
+literally\&.
 .RS
 .PP
 This can be useful on systems that support special filesystems whose
 top\-level pathnames can not be listed or generated with glob patterns\&.
 It can also be used for directories for which one does not have read
 permission\&.
+.PP
+The pattern form can be used to add a certain `magic\&' entry
+to all directories on a particular filing system\&.
 .RE
 .TP
 \fBfake\-parameters\fP
@@ -1433,7 +1479,10 @@ modification time; `\fBaccess\fP\&' to sort by the last access time; and
 `\fBinode\fP\&' (or `\fBchange\fP') to sort by the last inode change
 time\&.  If the style is set to any other value, or is unset, files will be
 sorted alphabetically by name\&.  If the value contains the string
-`\fBreverse\fP\&', sorting is done in the opposite order\&.
+`\fBreverse\fP\&', sorting is done in the opposite order\&.  If the value
+contains the string `\fBfollow\fP\&', timestamps are associated with the
+targets of symbolic links; the default is to use the timestamps
+of the links themselves\&.
 .TP
 \fBfilter\fP
 This is used by the LDAP plugin for e\-mail address completion to specify
@@ -1464,9 +1513,14 @@ certain types of match\&.
 If this is set for the \fBdescriptions\fP tag, its value is used as a
 string to display above matches in completion lists\&.  The sequence
 `\fB%d\fP\&' in this string will be replaced with a short description of
-what these matches are\&.  This string may also contain the sequences to
-specify output attributes, such as `\fB%B\fP\&', `\fB%S\fP' and
-`\fB%{\fP\&.\&.\&.\fB%}\fP\&'\&.
+what these matches are\&.  This string may also contain the following
+sequences to specify output attributes,
+as described in the section PROMPT EXPANSION in \fIzshmisc\fP(1):
+`\fB%B\fP\&', `\fB%S\fP', `\fB%U\fP', `\fB%F\fP', `\fB%K\fP' and their lower case
+counterparts, as well as `\fB%{\fP\&.\&.\&.\fB%}\fP\&'\&.  `\fB%F\fP', `\fB%K\fP' and
+`\fB%{\fP\&.\&.\&.\fB%}\fP\&' take arguments in the same form as prompt
+expansion\&.  Note that the \fB%G\fP sequence is not available; an argument
+to `\fB%{\fP\&' should be used instead\&.
 .RS
 .PP
 The style is tested with each tag valid for the current completion
@@ -1646,6 +1700,11 @@ Excluded values act in a similar fashion to values of the
 the \fB_ignored\fP completer\&.
 .RE
 .TP
+\fBextra\-verbose\fP
+If set, the completion listing is more verbose at the cost of
+a probable decrease in completion speed\&.  Completion performance
+will suffer if this style is set to `true\&'\&.
+.TP
 \fBignored\-patterns\fP
 A list of patterns; any trial completion matching one of the patterns
 will be excluded from consideration\&.  The
@@ -1793,6 +1852,13 @@ The default colors are the same as for the GNU \fBls\fP command and can be
 obtained by setting the style to an empty string (i\&.e\&. \fB\&''\fP)\&.
 .RE
 .TP
+\fBlist\-dirs\-first\fP
+This is used by file completion\&.  If set, directories to be completed
+are listed separately from and before completion for other files,
+regardless of tag ordering\&.  In addition, the tag \fBother\-files\fP
+is used in place of \fBall\-files\fP for the remaining files, to indicate
+that no directories are presented with that tag\&.
+.TP
 \fBlist\-grouped\fP
 If this style is `true\&' (the default), the completion system will try to
 make certain completion listings more compact by grouping matches\&.
@@ -1828,9 +1894,10 @@ width, padded to the  right with spaces, while the lowercase form will
 be replaced by a variable width string\&.  As in other prompt strings, the
 escape sequences `\fB%S\fP\&', `\fB%s\fP', `\fB%B\fP', `\fB%b\fP', `\fB%U\fP',
 `\fB%u\fP\&' for entering and leaving the display modes
-standout, bold and underline are also available, as is the form
+standout, bold and underline, and `\fB%F\fP\&', `\fB%f\fP', `\fB%K\fP', `\fB%k\fP' for
+changing the foreground background colour, are also available, as is the form
 `\fB%{\fP\&.\&.\&.\fB%}\fP\&' for enclosing escape sequences which display with zero
-width\&.
+(or, with a numeric argument, some other) width\&.
 .PP
 After deleting this prompt the variable \fBLISTPROMPT\fP should be unset for
 the the removal to take effect\&.
@@ -1893,12 +1960,12 @@ only be performed with the `\fB*\fP\&' inserted\&.
 This style is tested separately for each tag valid in the current
 context\&.  Its value is added to any match specifications given by the 
 \fBmatcher\-list\fP style\&.  It should be in the form described in
-the section `Matching Control\&' in \fIzshcompwid\fP(1)\&.
+the section `Completion Matching Control\&' in \fIzshcompwid\fP(1)\&.
 .TP
 \fBmatcher\-list\fP
 This style can be set to a list of match specifications that are to
 be applied everywhere\&. Match specifications are described in
-the section `Matching Control\&' in \fIzshcompwid\fP(1)\&.
+the section `Completion Matching Control\&' in \fIzshcompwid\fP(1)\&.
 The completion system will try them one after another for each completer
 selected\&.  For example, to try first simple completion and, if that
 generates no matches, case\-insensitive completion:
@@ -1963,6 +2030,11 @@ quickly reduce the shell\&'s performance\&.  As a rough rule of thumb,
 one to three strings will give acceptable performance\&.  On the other
 hand, putting multiple space\-separated values into the same string does
 not have an appreciable impact on performance\&.
+.PP
+If there is no current matcher or it is empty, and the option
+\fBNO_CASE_GLOB\fP is in effect, the matching for files is performed
+case\-insensitively in any case\&.  However, any matcher must
+explicitly specify case\-insensitive matching if that is required\&.
 .RE
 .TP
 \fBmax\-errors\fP
@@ -2067,10 +2139,11 @@ with a number and once with `\fBlong\fP\&' or `\fBlong\-list\fP'\&.
 Finally, it is possible to activate two special modes of menu selection\&.
 The word `\fBinteractive\fP\&' in the value causes interactive mode
 to be entered immediately when menu selection is started; see
-the description of the \fBzsh/complist\fP module in \fIzshmodules\fP(1).RE for a description of interactive mode\&.  Including the string
+the description of the \fBzsh/complist\fP module in \fIzshmodules\fP(1)
+for a description of interactive mode\&.  Including the string
 `\fBsearch\fP\&' does the same for incremental search mode\&.  To select backward
 incremental search, include the string `\fBsearch\-backward\fP\&'\&.
-)
+.RE
 .TP
 \fBmuttrc\fP
 If set, gives the location of the mutt configuration file\&.  It defaults
@@ -2757,9 +2830,20 @@ zstyle \&':completion:all\-matches::::' completer _all_matches\fP
 .fi
 .RE
 .PP
-Note that this does not generate completions by itself\&.  First use
+Note that this does not generate completions by itself:  first use
 any of the standard ways of generating a list of completions,
-then use \fB^Xa\fP to show all matches\&.
+then use \fB^Xa\fP to show all matches\&.  It is possible instead to
+add a standard completer to the list and request that the
+list of all matches should be directly inserted:
+.PP
+.RS
+.nf
+\fBzstyle \&':completion:all\-matches::::' completer _all_matches _complete
+zstyle \&':completion:all\-matches:*' insert true\fP
+.fi
+.RE
+.PP
+In this case the \fBold\-matches\fP style should not be set\&.
 .RE
 .TP
 \fB_approximate\fP
@@ -3217,6 +3301,47 @@ used and the contexts for which they are used will be shown, too\&.
 Note that the information about styles may be incomplete; it depends on the
 information available from the completion functions called, which in turn
 is determined by the user\&'s own styles and other settings\&.
+.RE
+.TP
+\fB_complete_help_generic\fP
+Unlike other commands listed here, this must be created as a normal ZLE
+widget rather than a completion widget (i\&.e\&. with \fBzle \-N\fP)\&.  It
+is used for generating help with a widget bound to the \fB_generic\fP
+widget that is described above\&.
+.RS
+.PP
+If this widget is created using the name of the function, as it is by
+default, then when executed it will read a key sequence\&.  This is expected
+to be bound to a call to a completion function that uses the \fB_generic\fP
+widget\&.  That widget will be executed, and information provided in
+the same format that the \fB_complete_help\fP widget displays for
+contextual completion\&.
+.PP
+If the widget\&'s name contains \fBdebug\fP, for example if it is created
+as `\fBzle \-N _complete_debug_generic _complete_help_generic\fP\&', it
+will read and execute the keystring for a generic widget as before,
+but then generate debugging information as done by \fB_complete_debug\fP
+for contextual completion\&.
+.PP
+If the widget\&'s name contains \fBnoread\fP, it will not read a keystring
+but instead arrange that the next use of a generic widget run in
+the same shell will have the effect as described above\&.
+.PP
+The widget works by setting the shell parameter
+\fBZSH_TRACE_GENERIC_WIDGET\fP which is read by \fB_generic\fP\&.  Unsetting
+the parameter cancels any pending effect of the \fBnoread\fP form\&.
+.PP
+For example, after executing the following:
+.PP
+.RS
+.nf
+\fBzle \-N _complete_debug_generic _complete_help_generic
+bindkey \&'^x:' _complete_debug_generic\fP
+.fi
+.RE
+.PP
+typing `\fBC\-x :\fP\&' followed by the key sequence for a generic widget
+will cause trace output for that widget to be saved to a file\&.
 .RE
 .TP
 \fB_complete_tag (^Xt)\fP
@@ -3941,6 +4066,7 @@ Example:
 .nf
 \fB_example_caching_policy () {
     # rebuild if cache is more than a week old
+    local \-a oldp
     oldp=( "$1"(Nmw+1) )
     (( $#oldp ))
 }\fP

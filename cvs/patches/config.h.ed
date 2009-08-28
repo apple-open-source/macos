@@ -1,0 +1,36 @@
+/SIZEOF_LONG/c
+#ifdef __LP64__
+#define SIZEOF_LONG 8
+#else /* !__LP64__ */
+#define SIZEOF_LONG 4
+#endif /* __LP64__ */
+.
+/SIZEOF_PTRDIFF_T/c
+#ifdef __LP64__
+#define SIZEOF_PTRDIFF_T 8
+#else /* !__LP64__ */
+#define SIZEOF_PTRDIFF_T 4
+#endif /* __LP64__ */
+.
+/SIZEOF_SIZE_T/c
+#ifdef __LP64__
+#define SIZEOF_SIZE_T 8
+#else /* !__LP64__ */
+#define SIZEOF_SIZE_T 4
+#endif /* __LP64__ */
+.
+/UNIQUE_INT_TYPE_LONG/c
+#ifdef __LP64__
+#define UNIQUE_INT_TYPE_LONG 1
+#else /* !__LP64__ */
+/* #undef UNIQUE_INT_TYPE_LONG */
+#endif /* __LP64__ */
+.
+/UNIQUE_INT_TYPE_LONG_LONG/c
+#ifdef __LP64__
+/* #undef UNIQUE_INT_TYPE_LONG_LONG */
+#else /* !__LP64__ */
+#define UNIQUE_INT_TYPE_LONG_LONG 1
+#endif /* __LP64__ */
+.
+w

@@ -1,0 +1,44 @@
+# -*- tcl -*-
+# Script to load the commands to test, and the necessary prerequisites.
+
+package require Memchan
+
+proc read_file {file} {
+    set fd [open $file]
+    fconfigure $fd -translation binary
+    set data [read $fd]
+    close $fd
+    return $data
+}
+
+proc write_file {file data} {
+    set fd [open $file w]
+    fconfigure $fd -translation binary
+    puts -nonewline $fd $data
+    close $fd
+}
+
+proc read_zip {file} {
+    set fd [open $file]
+    fconfigure $fd -translation binary
+    zip -attach $fd -mode compress
+    fconfigure $fd -translation binary
+    set data [read $fd]
+    close $fd
+    return $data
+}
+
+proc write_zip {file data} {
+    set fd [open $file w]
+    fconfigure $fd -translation binary
+    zip -attach $fd -mode compress
+    fconfigure $fd -translation binary
+    puts -nonewline $fd $data
+    close $fd
+}
+
+
+# -- and the commands to test --
+
+load ./@PKG_LIB_FILE@
+

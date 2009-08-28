@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -310,22 +310,22 @@ APU_DECLARE(apr_status_t) apr_xlate_conv_buffer(apr_xlate_t *convset,
          */
         switch (status) {
 
-            case E2BIG:  /* out of space on output */
+            case APR_BADARG:  /* out of space on output */
                 status = 0; /* change table lookup code below if you
                                make this an error */
                 break;
 
-            case EINVAL: /* input character not complete (yet) */
+            case APR_EINVAL: /* input character not complete (yet) */
                 status = APR_INCOMPLETE;
                 break;
 
-            case EILSEQ: /* bad input byte */
+            case APR_BADCH: /* bad input byte */
                 status = APR_EINVAL;
                 break;
 
              /* Sometimes, iconv is not good about setting errno. */
             case 0:
-                if (*inbytes_left)
+                if (inbytes_left && *inbytes_left)
                     status = APR_INCOMPLETE;
                 break;
 
@@ -387,8 +387,8 @@ APU_DECLARE(apr_status_t) apr_xlate_conv_buffer(apr_xlate_t *convset,
 #endif
 
     if (inbuf) {
-        int to_convert = min(*inbytes_left, *outbytes_left);
-        int converted = to_convert;
+        apr_size_t to_convert = min(*inbytes_left, *outbytes_left);
+        apr_size_t converted = to_convert;
         char *table = convset->sbcs_table;
 
         while (to_convert) {

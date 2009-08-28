@@ -1,0 +1,25 @@
+Revision history for Perl extension MRO::Compat.
+
+0.05 - Sun Sept 9, 2007
+    - Fix for RT#28661 (ill-formated %INC filenames aren't nice)
+
+0.04 - Wed July 18, 2007
+    - Removed doc warning now that 5.9.5 is out
+    - Stopped the code from assuming valid classnames
+      are true in boolean context
+    - Misc small tweaks
+
+0.03 - Mon Jun 4, 2007
+    - Bumped C3 requirements
+    - Loads mro.pm on 5.9.5+
+
+0.02 - Sat May 12, 2007
+    - Added mro::get_pkg_gen (which optionally works
+      even faster with Class::C3::XS 0.04) in
+      anticipation of it being added to 5.9.5
+    - Changed mro::get_isarev to return arrayref in
+      anticipation of that change in 5.9.5
+    - Bumped requirements, added more docs
+
+0.01_01 - Fri May 11, 2007
+    - Initial dev release

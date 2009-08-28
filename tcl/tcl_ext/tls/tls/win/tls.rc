@@ -1,0 +1,40 @@
+// tls.rc - Copyright (C) 2004 Pat Thoyts <patthoyts@users.sf.net>
+//
+// Note: the version numbers in here are all provided from the makefile.
+//       No editing required.
+//
+// $Id: tls.rc,v 1.1 2004/12/17 16:02:06 patthoyts Exp $
+
+#include <winver.h>
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION	COMMAVERSION
+ PRODUCTVERSION	COMMAVERSION
+ FILEFLAGSMASK	0x3fL
+#ifdef DEBUG
+ FILEFLAGS	VS_FF_DEBUG
+#else
+ FILEFLAGS	0x0L
+#endif
+ FILEOS		VOS__WINDOWS32
+ FILETYPE	VFT_DLL
+ FILESUBTYPE	0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"   /* LANG_ENGLISH/SUBLANG_ENGLISH_US, Unicode CP */
+        BEGIN
+            VALUE "FileDescription",  "SSL and TLS support for Tcl\0"
+            VALUE "OriginalFilename", "tls" VERSION ".dll\0"
+            VALUE "FileVersion",      DOTVERSION "\0"
+            VALUE "LegalCopyright",   "Copyright \251 1997-1999 Matt Newman, et al.\0"
+            VALUE "ProductName",      "TLS " DOTVERSION " for Windows\0"
+            VALUE "ProductVersion",   DOTVERSION "\0"
+            VALUE "Comments",         "http://sourceforge.net/projects/tls\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END

@@ -52,52 +52,6 @@
 		C2D3112E053B225E00CB61B1 /* AppleX509CLPlugin.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C284365C053485B1000AE0FC /* AppleX509CLPlugin.cpp */; };
 /* End PBXBuildFile section */
 
-/* Begin PBXBundleTarget section */
-		C207F276053B21E600FF85CB /* plugin_apple_x509_cl */ = {
-			isa = PBXBundleTarget;
-			buildConfigurationList = C27AD2890987FCDC001272E0 /* Build configuration list for PBXBundleTarget "plugin_apple_x509_cl" */;
-			buildPhases = (
-				C207F272053B21E600FF85CB /* Resources */,
-				C207F273053B21E600FF85CB /* Sources */,
-				4CEDA0FD0612788200545384 /* Frameworks */,
-			);
-			dependencies = (
-				C2AAE44B053B54E2009142E3 /* PBXTargetDependency */,
-			);
-			name = plugin_apple_x509_cl;
-			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
-			productName = plugin_apple_x509_cl;
-			productReference = C207F277053B21E600FF85CB /* apple_x509_cl.bundle */;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>English</string>
-	<key>CFBundleExecutable</key>
-	<string>apple_x509_cl</string>
-	<key>CFBundleIconFile</key>
-	<string></string>
-	<key>CFBundleIdentifier</key>
-	<string></string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundleName</key>
-	<string></string>
-	<key>CFBundlePackageType</key>
-	<string>BNDL</string>
-	<key>CFBundleShortVersionString</key>
-	<string></string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>29856</string>
-</dict>
-</plist>
-";
-		};
-/* End PBXBundleTarget section */
-
 /* Begin PBXContainerItemProxy section */
 		4094B04D057EA52A00B44BCC /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -144,7 +98,7 @@
 		4094B07D057EA5D400B44BCC /* cl_common.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = cl_common.mdsinfo; sourceTree = "<group>"; };
 		4094B07E057EA5D400B44BCC /* cl_primary.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = cl_primary.mdsinfo; sourceTree = "<group>"; };
 		4C58E3990540C12300B89535 /* security_apple_x509_cl.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = security_apple_x509_cl.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		4CC7C27506127AA100E6CE35 /* security_apple_x509_cl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = security_apple_x509_cl; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CC7C27506127AA100E6CE35 /* security_apple_x509_cl */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = security_apple_x509_cl; sourceTree = BUILT_PRODUCTS_DIR; };
 		4CED9FAC0612777800545384 /* security_asn1.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = security_asn1.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		4CED9FAD0612777800545384 /* security_cdsa_client.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = security_cdsa_client.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		4CED9FAE0612777800545384 /* security_cdsa_plugin.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = security_cdsa_plugin.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -190,30 +144,6 @@
 		C284367B053485B1000AE0FC /* Session_Crypto.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = Session_Crypto.cpp; sourceTree = "<group>"; };
 		C284367C053485B1000AE0FC /* Session_CSR.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = Session_CSR.cpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
-
-/* Begin PBXFrameworkTarget section */
-		4C58E3980540C12300B89535 /* security_apple_x509_cl */ = {
-			isa = PBXFrameworkTarget;
-			buildConfigurationList = C27AD2810987FCDC001272E0 /* Build configuration list for PBXFrameworkTarget "security_apple_x509_cl" */;
-			buildPhases = (
-				4C58E3930540C12300B89535 /* Headers */,
-				4CCB00E50580119400981D43 /* CopyFiles */,
-				4CCB00E60580119600981D43 /* CopyFiles */,
-			);
-			dependencies = (
-			);
-			name = security_apple_x509_cl;
-			productInstallPath = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-			productName = security_apple_x509_cl;
-			productReference = 4C58E3990540C12300B89535 /* security_apple_x509_cl.framework */;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict/>
-</plist>
-";
-		};
-/* End PBXFrameworkTarget section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		4CA1FEBB052A3C8100F22E42 /* Frameworks */ = {
@@ -353,16 +283,36 @@
 		};
 /* End PBXHeadersBuildPhase section */
 
-/* Begin PBXLibraryTarget section */
+/* Begin PBXNativeTarget section */
+		4C58E3980540C12300B89535 /* security_apple_x509_cl */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD2810987FCDC001272E0 /* Build configuration list for PBXNativeTarget "security_apple_x509_cl" */;
+			buildPhases = (
+				4C58E3930540C12300B89535 /* Headers */,
+				4CCB00E50580119400981D43 /* CopyFiles */,
+				4CCB00E60580119600981D43 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = security_apple_x509_cl;
+			productInstallPath = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+			productName = security_apple_x509_cl;
+			productReference = 4C58E3990540C12300B89535 /* security_apple_x509_cl.framework */;
+			productType = "com.apple.product-type.framework";
+		};
 		4CA1FEBD052A3C8100F22E42 /* libsecurity_apple_x509_cl */ = {
-			isa = PBXLibraryTarget;
-			buildConfigurationList = C27AD2850987FCDC001272E0 /* Build configuration list for PBXLibraryTarget "libsecurity_apple_x509_cl" */;
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD2850987FCDC001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_apple_x509_cl" */;
 			buildPhases = (
 				4CA1FEB9052A3C8100F22E42 /* Headers */,
 				4CA1FEBA052A3C8100F22E42 /* Sources */,
 				4CA1FEBB052A3C8100F22E42 /* Frameworks */,
 				4C789C7A055AF8C800B6FC95 /* ShellScript */,
 				4CD0D4F4055B10EA001715CB /* ShellScript */,
+			);
+			buildRules = (
 			);
 			dependencies = (
 				4C58E39A0540C12600B89535 /* PBXTargetDependency */,
@@ -371,8 +321,28 @@
 			productInstallPath = /usr/local/lib;
 			productName = libsecurity_apple_x509_cl;
 			productReference = 4CC7C27506127AA100E6CE35 /* security_apple_x509_cl */;
+			productType = "com.apple.product-type.library.static";
 		};
-/* End PBXLibraryTarget section */
+		C207F276053B21E600FF85CB /* plugin_apple_x509_cl */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD2890987FCDC001272E0 /* Build configuration list for PBXNativeTarget "plugin_apple_x509_cl" */;
+			buildPhases = (
+				C207F272053B21E600FF85CB /* Resources */,
+				C207F273053B21E600FF85CB /* Sources */,
+				4CEDA0FD0612788200545384 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C2AAE44B053B54E2009142E3 /* PBXTargetDependency */,
+			);
+			name = plugin_apple_x509_cl;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = plugin_apple_x509_cl;
+			productReference = C207F277053B21E600FF85CB /* apple_x509_cl.bundle */;
+			productType = "com.apple.product-type.bundle";
+		};
+/* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
@@ -384,7 +354,6 @@
 			productRefGroup = 4CA1FEBF052A3C8100F22E42 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
-			shouldCheckCompatibility = 1;
 			targets = (
 				4CA1FEBD052A3C8100F22E42 /* libsecurity_apple_x509_cl */,
 				4C58E3980540C12300B89535 /* security_apple_x509_cl */,
@@ -413,7 +382,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tln -fs \"../../../${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework/Versions/A\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework\n\tnmedit -p \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\n\tranlib \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\ndone";
+			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tditto -V \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}${postfix}\" \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\n\tln -fs \"../../../${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework/Versions/A\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework\n\tnmedit -p \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\n\tranlib \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\ndone";
 		};
 		4CD0D4F4055B10EA001715CB /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -483,10 +452,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				INFOPLIST_FILE = "Info-security_apple_x509_cl.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Components/Security;
 				PRODUCT_NAME = security_apple_x509_cl;
 				WRAPPER_EXTENSION = framework;
@@ -497,8 +468,10 @@
 		C27AD2830987FCDC001272E0 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INFOPLIST_FILE = "Info-security_apple_x509_cl.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Components/Security;
 				PRODUCT_NAME = security_apple_x509_cl;
 				WRAPPER_EXTENSION = framework;
@@ -509,7 +482,10 @@
 		C27AD2840987FCDC001272E0 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
+				INFOPLIST_FILE = "Info-security_apple_x509_cl.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Components/Security;
 				PRODUCT_NAME = security_apple_x509_cl;
 				WRAPPER_EXTENSION = framework;
@@ -520,13 +496,14 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 29856;
+				CURRENT_PROJECT_VERSION = 36064;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Components/Security,
 					/usr/local/SecurityPieces/Frameworks,
 				);
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
@@ -546,7 +523,7 @@
 				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
 				PRODUCT_NAME = security_apple_x509_cl;
@@ -567,12 +544,13 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 29856;
+				CURRENT_PROJECT_VERSION = 36064;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Components/Security,
 					/usr/local/SecurityPieces/Frameworks,
 				);
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
@@ -591,7 +569,7 @@
 				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
 				PRODUCT_NAME = security_apple_x509_cl;
@@ -612,7 +590,9 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 29856;
+				CURRENT_PROJECT_VERSION = 36064;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Components/Security,
 					/usr/local/SecurityPieces/Frameworks,
@@ -635,7 +615,7 @@
 				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
 				PRODUCT_NAME = security_apple_x509_cl;
@@ -652,15 +632,17 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 29856;
+				CURRENT_PROJECT_VERSION = 36064;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
 				);
+				INFOPLIST_FILE = "Info-plugin_apple_x509_cl.plist";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
@@ -670,9 +652,9 @@
 				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS) \"-framework\" \"security_apple_x509_cl,_debug\" \"-framework\" \"security_cdsa_plugin,_debug\" \"-framework\" \"security_cdsa_client,_debug\" \"-framework\" \"securityd_client,_debug\" \"-framework\" \"security_cdsa_utilities,_debug\" \"-framework\" \"security_utilities,_debug\" \"-framework\" \"security_asn1,_debug\" \"-framework\" \"Security,_debug\"";
-				OTHER_LDFLAGS_normal = "$(OTHER_LDFLAGS) \"-framework\" \"security_apple_x509_cl\" \"-framework\" \"security_cdsa_plugin\" \"-framework\" \"security_cdsa_client\" \"-framework\" \"securityd_client\" \"-framework\" \"security_cdsa_utilities\" \"-framework\" \"security_utilities\" \"-framework\" \"security_asn1\" \"-framework\" \"Security\"";
-				OTHER_LDFLAGS_profile = "$(OTHER_LDFLAGS) \"-framework\" \"security_apple_x509_cl,_profile\" \"-framework\" \"security_cdsa_plugin,_profile\" \"-framework\" \"security_cdsa_client,_profile\" \"-framework\" \"securityd_client,_profile\" \"-framework\" \"security_cdsa_utilities,_profile\" \"-framework\" \"security_utilities,_profile\" \"-framework\" \"security_asn1,_profile\" \"-framework\" \"Security,_profile\" -pg";
+				OTHER_LDFLAGS_debug = "\"-framework\" \"security_apple_x509_cl,_debug\" \"-framework\" \"security_cdsa_plugin,_debug\" \"-framework\" \"security_cdsa_client,_debug\" \"-framework\" \"securityd_client,_debug\" \"-framework\" \"security_cdsa_utilities,_debug\" \"-framework\" \"security_utilities,_debug\" \"-framework\" \"security_asn1,_debug\" \"-framework\" \"Security,_debug\"";
+				OTHER_LDFLAGS_normal = "\"-framework\" \"security_apple_x509_cl\" \"-framework\" \"security_cdsa_plugin\" \"-framework\" \"security_cdsa_client\" \"-framework\" \"securityd_client\" \"-framework\" \"security_cdsa_utilities\" \"-framework\" \"security_utilities\" \"-framework\" \"security_asn1\" \"-framework\" \"Security\"";
+				OTHER_LDFLAGS_profile = "\"-framework\" \"security_apple_x509_cl,_profile\" \"-framework\" \"security_cdsa_plugin,_profile\" \"-framework\" \"security_cdsa_client,_profile\" \"-framework\" \"securityd_client,_profile\" \"-framework\" \"security_cdsa_utilities,_profile\" \"-framework\" \"security_utilities,_profile\" \"-framework\" \"security_asn1,_profile\" \"-framework\" \"Security,_profile\" -pg";
 				PRODUCT_NAME = apple_x509_cl;
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
@@ -692,13 +674,15 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 29856;
+				CURRENT_PROJECT_VERSION = 36064;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
 				);
+				INFOPLIST_FILE = "Info-plugin_apple_x509_cl.plist";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
@@ -708,9 +692,9 @@
 				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS) \"-framework\" \"security_apple_x509_cl,_debug\" \"-framework\" \"security_cdsa_plugin,_debug\" \"-framework\" \"security_cdsa_client,_debug\" \"-framework\" \"securityd_client,_debug\" \"-framework\" \"security_cdsa_utilities,_debug\" \"-framework\" \"security_utilities,_debug\" \"-framework\" \"security_asn1,_debug\" \"-framework\" \"Security,_debug\"";
-				OTHER_LDFLAGS_normal = "$(OTHER_LDFLAGS) \"-framework\" \"security_apple_x509_cl\" \"-framework\" \"security_cdsa_plugin\" \"-framework\" \"security_cdsa_client\" \"-framework\" \"securityd_client\" \"-framework\" \"security_cdsa_utilities\" \"-framework\" \"security_utilities\" \"-framework\" \"security_asn1\" \"-framework\" \"Security\"";
-				OTHER_LDFLAGS_profile = "$(OTHER_LDFLAGS) \"-framework\" \"security_apple_x509_cl,_profile\" \"-framework\" \"security_cdsa_plugin,_profile\" \"-framework\" \"security_cdsa_client,_profile\" \"-framework\" \"securityd_client,_profile\" \"-framework\" \"security_cdsa_utilities,_profile\" \"-framework\" \"security_utilities,_profile\" \"-framework\" \"security_asn1,_profile\" \"-framework\" \"Security,_profile\" -pg";
+				OTHER_LDFLAGS_debug = "\"-framework\" \"security_apple_x509_cl,_debug\" \"-framework\" \"security_cdsa_plugin,_debug\" \"-framework\" \"security_cdsa_client,_debug\" \"-framework\" \"securityd_client,_debug\" \"-framework\" \"security_cdsa_utilities,_debug\" \"-framework\" \"security_utilities,_debug\" \"-framework\" \"security_asn1,_debug\" \"-framework\" \"Security,_debug\"";
+				OTHER_LDFLAGS_normal = "\"-framework\" \"security_apple_x509_cl\" \"-framework\" \"security_cdsa_plugin\" \"-framework\" \"security_cdsa_client\" \"-framework\" \"securityd_client\" \"-framework\" \"security_cdsa_utilities\" \"-framework\" \"security_utilities\" \"-framework\" \"security_asn1\" \"-framework\" \"Security\"";
+				OTHER_LDFLAGS_profile = "\"-framework\" \"security_apple_x509_cl,_profile\" \"-framework\" \"security_cdsa_plugin,_profile\" \"-framework\" \"security_cdsa_client,_profile\" \"-framework\" \"securityd_client,_profile\" \"-framework\" \"security_cdsa_utilities,_profile\" \"-framework\" \"security_utilities,_profile\" \"-framework\" \"security_asn1,_profile\" \"-framework\" \"Security,_profile\" -pg";
 				PRODUCT_NAME = apple_x509_cl;
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
@@ -730,12 +714,15 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 29856;
+				CURRENT_PROJECT_VERSION = 36064;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
 				);
+				INFOPLIST_FILE = "Info-plugin_apple_x509_cl.plist";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
@@ -745,9 +732,9 @@
 				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS) \"-framework\" \"security_apple_x509_cl,_debug\" \"-framework\" \"security_cdsa_plugin,_debug\" \"-framework\" \"security_cdsa_client,_debug\" \"-framework\" \"securityd_client,_debug\" \"-framework\" \"security_cdsa_utilities,_debug\" \"-framework\" \"security_utilities,_debug\" \"-framework\" \"security_asn1,_debug\" \"-framework\" \"Security,_debug\"";
-				OTHER_LDFLAGS_normal = "$(OTHER_LDFLAGS) \"-framework\" \"security_apple_x509_cl\" \"-framework\" \"security_cdsa_plugin\" \"-framework\" \"security_cdsa_client\" \"-framework\" \"securityd_client\" \"-framework\" \"security_cdsa_utilities\" \"-framework\" \"security_utilities\" \"-framework\" \"security_asn1\" \"-framework\" \"Security\"";
-				OTHER_LDFLAGS_profile = "$(OTHER_LDFLAGS) \"-framework\" \"security_apple_x509_cl,_profile\" \"-framework\" \"security_cdsa_plugin,_profile\" \"-framework\" \"security_cdsa_client,_profile\" \"-framework\" \"securityd_client,_profile\" \"-framework\" \"security_cdsa_utilities,_profile\" \"-framework\" \"security_utilities,_profile\" \"-framework\" \"security_asn1,_profile\" \"-framework\" \"Security,_profile\" -pg";
+				OTHER_LDFLAGS_debug = "\"-framework\" \"security_apple_x509_cl,_debug\" \"-framework\" \"security_cdsa_plugin,_debug\" \"-framework\" \"security_cdsa_client,_debug\" \"-framework\" \"securityd_client,_debug\" \"-framework\" \"security_cdsa_utilities,_debug\" \"-framework\" \"security_utilities,_debug\" \"-framework\" \"security_asn1,_debug\" \"-framework\" \"Security,_debug\"";
+				OTHER_LDFLAGS_normal = "\"-framework\" \"security_apple_x509_cl\" \"-framework\" \"security_cdsa_plugin\" \"-framework\" \"security_cdsa_client\" \"-framework\" \"securityd_client\" \"-framework\" \"security_cdsa_utilities\" \"-framework\" \"security_utilities\" \"-framework\" \"security_asn1\" \"-framework\" \"Security\"";
+				OTHER_LDFLAGS_profile = "\"-framework\" \"security_apple_x509_cl,_profile\" \"-framework\" \"security_cdsa_plugin,_profile\" \"-framework\" \"security_cdsa_client,_profile\" \"-framework\" \"securityd_client,_profile\" \"-framework\" \"security_cdsa_utilities,_profile\" \"-framework\" \"security_utilities,_profile\" \"-framework\" \"security_asn1,_profile\" \"-framework\" \"Security,_profile\" -pg";
 				PRODUCT_NAME = apple_x509_cl;
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
@@ -787,7 +774,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		C27AD2810987FCDC001272E0 /* Build configuration list for PBXFrameworkTarget "security_apple_x509_cl" */ = {
+		C27AD2810987FCDC001272E0 /* Build configuration list for PBXNativeTarget "security_apple_x509_cl" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C27AD2820987FCDC001272E0 /* Development */,
@@ -797,7 +784,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
-		C27AD2850987FCDC001272E0 /* Build configuration list for PBXLibraryTarget "libsecurity_apple_x509_cl" */ = {
+		C27AD2850987FCDC001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_apple_x509_cl" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C27AD2860987FCDC001272E0 /* Development */,
@@ -807,7 +794,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
-		C27AD2890987FCDC001272E0 /* Build configuration list for PBXBundleTarget "plugin_apple_x509_cl" */ = {
+		C27AD2890987FCDC001272E0 /* Build configuration list for PBXNativeTarget "plugin_apple_x509_cl" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C27AD28A0987FCDC001272E0 /* Development */,

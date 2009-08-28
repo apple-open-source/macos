@@ -29,9 +29,15 @@
 # $FreeBSD: src/usr.bin/locate/locate/updatedb.sh,v 1.20 2005/11/12 12:45:08 grog Exp $
 
 if [ "$(id -u)" = "0" ]; then
-	echo ">>> WARNING" 1>&2
-	echo ">>> Executing updatedb as root.  This WILL reveal all filenames" 1>&2
-	echo ">>> on your machine to all login users, which is a security risk." 1>&2
+	rc=0
+	export FCODES=`mktemp -t updatedb`
+	chown nobody $FCODES
+	tmpdb=`su -fm nobody -c "$0"` || rc=1
+	if [ $rc = 0 ]; then
+		install -m 0444 -o nobody -g wheel $FCODES /var/db/locate.database
+	fi
+	rm $FCODES
+	exit $rc
 fi
 : ${LOCATE_CONFIG="/etc/locate.rc"}
 if [ -f "$LOCATE_CONFIG" -a -r "$LOCATE_CONFIG" ]; then
@@ -47,11 +53,13 @@ fi
 
 PATH=$LIBEXECDIR:/bin:/usr/bin:$PATH; export PATH
 
+# 6497475
+set -o noglob
 
 : ${mklocatedb:=locate.mklocatedb}	 # make locate database program
 : ${FCODES:=/var/db/locate.database}	 # the database
 : ${SEARCHPATHS:="/"}		# directories to be put in the database
-: ${PRUNEPATHS:="/tmp /var/tmp */Backups.backupdb"} # unwanted directories
+: ${PRUNEPATHS:="/private/tmp /private/var/folders /private/var/tmp */Backups.backupdb"} # unwanted directories
 : ${FILESYSTEMS:="hfs ufs"}			 # allowed filesystems 
 : ${find:=find}
 

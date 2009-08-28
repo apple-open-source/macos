@@ -54,8 +54,6 @@ typedef void (*pptp_rfc_event_callback)(void *data, u_int32_t evt, u_int32_t msg
 
 u_int16_t pptp_rfc_init();
 u_int16_t pptp_rfc_dispose();
-int pptp_rfc_attach(u_short unit, u_long *dl_tag);
-int pptp_rfc_detach(u_short unit);
 u_int16_t pptp_rfc_new_client(void *host, void **data,
                          pptp_rfc_input_callback input, 
                          pptp_rfc_event_callback event);

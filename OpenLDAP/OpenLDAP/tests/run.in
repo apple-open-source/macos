@@ -1,8 +1,8 @@
 #!/bin/sh
-# $OpenLDAP: pkg/ldap/tests/run.in,v 1.28.2.16 2006/01/03 22:16:27 kurt Exp $
+# $OpenLDAP: pkg/ldap/tests/run.in,v 1.47.2.6 2008/02/11 23:26:50 kurt Exp $
 ## This work is part of OpenLDAP Software <http://www.openldap.org/>.
 ##
-## Copyright 1998-2006 The OpenLDAP Foundation.
+## Copyright 1998-2008 The OpenLDAP Foundation.
 ## All rights reserved.
 ##
 ## Redistribution and use in source and binary forms, with or without
@@ -27,7 +27,6 @@ export SRCDIR TOPSRCDIR LN_S EGREP_CMD
 AC_bdb=@BUILD_BDB@
 AC_hdb=@BUILD_HDB@
 AC_ldap=ldap@BUILD_LDAP@
-AC_ldbm=@BUILD_LDBM@
 AC_meta=meta@BUILD_META@
 AC_monitor=@BUILD_MONITOR@
 AC_relay=relay@BUILD_RELAY@
@@ -35,7 +34,9 @@ AC_sql=sql@BUILD_SQL@
 
 # overlays
 AC_accesslog=accesslog@BUILD_ACCESSLOG@
+AC_dds=dds@BUILD_DDS@
 AC_dynlist=dynlist@BUILD_DYNLIST@
+AC_memberof=memberof@BUILD_MEMBEROF@
 AC_pcache=pcache@BUILD_PROXYCACHE@
 AC_ppolicy=ppolicy@BUILD_PPOLICY@
 AC_refint=refint@BUILD_REFINT@
@@ -52,12 +53,22 @@ AC_WITH_TLS=@WITH_TLS@
 AC_WITH_MODULES_ENABLED=@WITH_MODULES_ENABLED@
 AC_ACI_ENABLED=aci@WITH_ACI_ENABLED@
 AC_THREADS=threads@BUILD_THREAD@
+AC_LIBS_DYNAMIC=lib@BUILD_LIBS_DYNAMIC@
 
-export AC_bdb AC_hdb AC_ldap AC_ldbm AC_meta AC_monitor AC_relay AC_sql \
-	AC_accesslog AC_dynlist AC_pcache AC_ppolicy AC_refint AC_retcode \
-	AC_rwm AC_unique AC_syncprov AC_translucent AC_valsort \
+# sanitize
+if test "${AC_ldap}" = "ldapmod" && test "${AC_LIBS_DYNAMIC}" = "static" ; then
+	AC_ldap="ldapno"
+fi
+if test "${AC_meta}" = "metamod" && test "${AC_LIBS_DYNAMIC}" = "static" ; then
+	AC_meta="metano"
+fi
+
+export AC_bdb AC_hdb AC_ldap AC_meta AC_monitor AC_relay AC_sql \
+	AC_accesslog AC_dds AC_dynlist AC_memberof AC_pcache AC_ppolicy \
+	AC_refint AC_retcode AC_rwm AC_unique AC_syncprov AC_translucent \
+	AC_valsort \
 	AC_WITH_SASL AC_WITH_TLS AC_WITH_MODULES_ENABLED AC_ACI_ENABLED \
-	AC_THREADS
+	AC_THREADS AC_LIBS_DYNAMIC
 
 if test ! -x ../servers/slapd/slapd ; then
 	echo "Could not locate slapd(8)"
@@ -111,7 +122,7 @@ while test $# -gt 0 ; do
 done
 
 if test -z "$BACKEND" ; then
-	for b in bdb ldbm hdb ; do
+	for b in bdb hdb ; do
 		if eval "test \"\$AC_$b\" != no" ; then
 			BACKEND=$b
 			break
@@ -166,13 +177,13 @@ if test -d ${TESTDIR} ; then
 		/bin/rm -rf ${TESTDIR}/db.*
 	fi
 fi
+mkdir -p ${TESTDIR}
 
 if test $USERDATA = yes ; then
 	if test ! -d userdata ; then
 		echo "User data directory (userdata) does not exist."
 		exit 1
 	fi
-	mkdir -p ${TESTDIR}
 	cp -R userdata/* ${TESTDIR}
 fi
 

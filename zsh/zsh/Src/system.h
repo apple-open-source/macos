@@ -37,7 +37,7 @@
 #endif
 #endif
 
-#ifdef __linux
+#if defined(__linux) || defined(__GLIBC__)
 /*
  * Turn on numerous extensions.
  * This is in order to get the functions for manipulating /dev/ptmx.
@@ -51,6 +51,21 @@
 # undef HAVE_TERMIOS_H
 # undef HAVE_SYS_UTSNAME_H
 #endif
+
+#ifndef ZSH_NO_XOPEN
+# ifdef ZSH_CURSES_SOURCE
+#  define _XOPEN_SOURCE_EXTENDED 1
+# else
+#  ifdef MULTIBYTE_SUPPORT
+/*
+ * Needed for wcwidth() which is part of XSI.
+ * Various other uses of the interface mean we can't get away with just
+ * _XOPEN_SOURCE.
+ */
+#   define _XOPEN_SOURCE_EXTENDED 1
+#  endif /* MULTIBYTE_SUPPORT */
+# endif /* ZSH_CURSES_SOURCE */
+#endif /* ZSH_NO_XOPEN */
 
 /*
  * Solaris by default zeroes all elements of the tm structure in
@@ -225,7 +240,7 @@ char *alloca _((size_t));
 #endif
 
 /* This is needed by some old SCO unices */
-#ifndef HAVE_STRUCT_TIMEZONE
+#if !defined(HAVE_STRUCT_TIMEZONE) && !defined(ZSH_OOT_MODULE)
 struct timezone {
     int tz_minuteswest;
     int tz_dsttime;
@@ -693,6 +708,15 @@ struct timezone {
 
 extern char **environ;
 
+/*
+ * We always need setenv and unsetenv in pairs, because
+ * we don't know how to do memory management on the values set.
+ */
+#if defined(HAVE_SETENV) && defined(HAVE_UNSETENV)
+# define USE_SET_UNSET_ENV
+#endif
+
+
 /* These variables are sometimes defined in, *
  * and needed by, the termcap library.       */
 #if MUST_DEFINE_OSPEED
@@ -757,6 +781,11 @@ extern short ospeed;
  * If MULTIBYTE_SUPPORT is not defined, these includes provide a subset of
  * Unicode support that makes the \u and \U printf escape sequences work.
  */
+
+#if defined(__hpux) && !defined(_INCLUDE__STDC_A1_SOURCE)
+#define _INCLUDE__STDC_A1_SOURCE
+#endif
+
 # include <wchar.h>
 # include <wctype.h>
 #endif
@@ -791,3 +820,24 @@ extern short ospeed;
 # define USE_GETPWUID
 #endif
 
+#ifdef HAVE_STRUCT_STAT_ST_ATIM_TV_NSEC
+# define GET_ST_ATIME_NSEC(st) (st).st_atim.tv_nsec
+#elif HAVE_STRUCT_STAT_ST_ATIMESPEC_TV_NSEC
+# define GET_ST_ATIME_NSEC(st) (st).st_atimespec.tv_nsec
+#elif HAVE_STRUCT_STAT_ST_ATIMENSEC
+# define GET_ST_ATIME_NSEC(st) (st).st_atimensec
+#endif
+#ifdef HAVE_STRUCT_STAT_ST_MTIM_TV_NSEC
+# define GET_ST_MTIME_NSEC(st) (st).st_mtim.tv_nsec
+#elif HAVE_STRUCT_STAT_ST_MTIMESPEC_TV_NSEC
+# define GET_ST_MTIME_NSEC(st) (st).st_mtimespec.tv_nsec
+#elif HAVE_STRUCT_STAT_ST_MTIMENSEC
+# define GET_ST_MTIME_NSEC(st) (st).st_mtimensec
+#endif
+#ifdef HAVE_STRUCT_STAT_ST_CTIM_TV_NSEC
+# define GET_ST_CTIME_NSEC(st) (st).st_ctim.tv_nsec
+#elif HAVE_STRUCT_STAT_ST_CTIMESPEC_TV_NSEC
+# define GET_ST_CTIME_NSEC(st) (st).st_ctimespec.tv_nsec
+#elif HAVE_STRUCT_STAT_ST_CTIMENSEC
+# define GET_ST_CTIME_NSEC(st) (st).st_ctimensec
+#endif

@@ -1,0 +1,53 @@
+# This file is a Tcl script to test out RAW reading and writing.
+# It is organized in the standard fashion for Tcl tests.
+#
+
+puts "img::raw [package require img::raw]"
+
+set rawdata \
+{TWFnaWM9UkFXCldpZHRoPTE2CkhlaWdodD0xMgpOdW1DaGFuPTMKQnl0ZU9yZGVyPUludGVs
+ClNjYW5PcmRlcj1Ub3BEb3duClBpeGVsVHlwZT1ieXRlCtnZ2dnZ2dnZ2QAAAAAAAAAAAAAA
+ANnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2QAAAPD/gPD/gPD/gPD/gAAAANnZ
+2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2QAAAPD/gPD/gPD/gPD/gPD/gPD/gAAAANnZ2dnZ
+2dnZ2dnZ2dnZ2dnZ2dnZ2QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+ANnZ2dnZ2dnZ2QAAAPD/gPD/gPD/gPD/gPD/gPD/gPD/gPD/gPD/gPD/gPD/gAAAANnZ2dnZ
+2dnZ2QAAAPD/gPD/gPD/gPD/gPD/gPD/gPD/gPD/gPD/gPD/gPD/gAAAANnZ2dnZ2dnZ2QAA
+APD/gPD/gPD/gPD/gPD/gPD/gPD/gPD/gPD/gPD/gPD/gAAAANnZ2dnZ2dnZ2QAAAPD/gPD/
+gPD/gPD/gPD/gPD/gPD/gPD/gPD/gPD/gPD/gAAAANnZ2dnZ2dnZ2QAAAPD/gPD/gPD/gPD/
+gPD/gPD/gPD/gPD/gPD/gPD/gPD/gAAAANnZ2dnZ2dnZ2QAAAPD/gPD/gPD/gPD/gPD/gPD/
+gPD/gPD/gPD/gPD/gPD/gAAAANnZ2dnZ2dnZ2QAAAPD/gPD/gPD/gPD/gPD/gPD/gPD/gPD/
+gPD/gPD/gPD/gAAAANnZ2dnZ2dnZ2QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAANnZ2dnZ2dnZ2Q==}
+
+test raw-1.1 {} {
+    catch {image delete i}
+    image create photo i -file [file join $tcltest::testsDirectory folder.raw]
+    i data -format "raw -useheader true -nomap true -nchan 3"
+} $rawdata
+test raw-1.2 {} {
+    catch {image delete i}
+    image create photo i -data $rawdata
+    set data [i data -format "raw -useheader true -nomap true -nchan 3"]
+} $rawdata
+test raw-1.3 {} {
+    i blank
+    i put $rawdata
+    set data [i data -format "raw -useheader true -nomap true -nchan 3"]
+} $rawdata
+test raw-1.4 {} {
+    i blank
+    i put $rawdata -format raw
+    set data [i data -format "raw -useheader true -nomap true -nchan 3"]
+} $rawdata
+if {[info tclversion] < 8.0} {
+    return
+}
+
+test raw-2.0 {Binary I/O with RAW images} {
+    i blank
+    set f [open [file join $tcltest::testsDirectory folder.raw] r]
+    fconfigure $f -translation binary
+    set return [catch {i put [read $f]} msg]
+    close $f
+    lappend return $msg
+} {0 {}}

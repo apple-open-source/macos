@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2008 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -20,19 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-// Hack for now. This is (will be) part of <mach/task_special_ports.h>
-#ifndef	_GSSD__H_
-#define _GSSD_H_
+extern void gssd_enter(void *);
+extern void gssd_remove(void *);
+extern int gssd_check(void *);
 
-#include <mach/task_special_ports.h>
-
-#ifndef TASK_GSSD_PORT
-#define TASK_GSSD_PORT		8	/* GSSD port for security context */
-
-#define task_get_gssd_port(task, port)	\
-		(task_get_special_port((task), TASK_GSSD_PORT, (port)))
-
-#define task_set_gssd_port(task, port)	\
-		(task_set_special_port((task), TASK_GSSD_PORT, (port)))
-#endif
-#endif	/* _GSSD_H_ */

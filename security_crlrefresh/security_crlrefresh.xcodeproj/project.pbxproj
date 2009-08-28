@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 42;
+	objectVersion = 45;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -11,28 +11,6 @@
 		058B797D05694B9100B395BD /* crlRefresh.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 058B797A05694B9100B395BD /* crlRefresh.cpp */; };
 		058B7ADA05694CBD00B395BD /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 058B7AD905694CBD00B395BD /* CoreFoundation.framework */; };
 /* End PBXBuildFile section */
-
-/* Begin PBXBuildStyle section */
-		4CA1FEAE052A3C5800F22E42 /* Development */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				BUILD_VARIANTS = debug;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		4CA1FEAF052A3C5800F22E42 /* Deployment */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-/* End PBXBuildStyle section */
 
 /* Begin PBXCopyFilesBuildPhase section */
 		052860DB062B26A7004E2D42 /* CopyFiles */ = {
@@ -108,20 +86,38 @@
 		};
 /* End PBXHeadersBuildPhase section */
 
+/* Begin PBXNativeTarget section */
+		4CA1FEB5052A3C6D00F22E42 /* crlrefresh */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD45B0987FCE9001272E0 /* Build configuration list for PBXNativeTarget "crlrefresh" */;
+			buildPhases = (
+				4CA1FEB1052A3C6D00F22E42 /* Headers */,
+				4CA1FEB2052A3C6D00F22E42 /* Sources */,
+				4CA1FEB3052A3C6D00F22E42 /* Frameworks */,
+				052860DB062B26A7004E2D42 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = crlrefresh;
+			productInstallPath = /usr/bin;
+			productName = security_crlrefresh;
+			productReference = 4CA1FEB6052A3C6D00F22E42 /* crlrefresh */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
 /* Begin PBXProject section */
 		4CA1FEB0052A3C5800F22E42 /* Project object */ = {
 			isa = PBXProject;
 			buildConfigurationList = C27AD45F0987FCE9001272E0 /* Build configuration list for PBXProject "security_crlrefresh" */;
-			buildSettings = {
-			};
-			buildStyles = (
-				4CA1FEAE052A3C5800F22E42 /* Development */,
-				4CA1FEAF052A3C5800F22E42 /* Deployment */,
-			);
+			compatibilityVersion = "Xcode 3.1";
 			hasScannedForEncodings = 1;
 			mainGroup = 4CA1FEAC052A3C5800F22E42;
 			productRefGroup = 4CA1FEB7052A3C6D00F22E42 /* Products */;
 			projectDirPath = "";
+			projectRoot = "";
 			targets = (
 				4CA1FEB5052A3C6D00F22E42 /* crlrefresh */,
 			);
@@ -139,65 +135,16 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
-/* Begin PBXToolTarget section */
-		4CA1FEB5052A3C6D00F22E42 /* crlrefresh */ = {
-			isa = PBXToolTarget;
-			buildConfigurationList = C27AD45B0987FCE9001272E0 /* Build configuration list for PBXToolTarget "crlrefresh" */;
-			buildPhases = (
-				4CA1FEB1052A3C6D00F22E42 /* Headers */,
-				4CA1FEB2052A3C6D00F22E42 /* Sources */,
-				4CA1FEB3052A3C6D00F22E42 /* Frameworks */,
-				052860DB062B26A7004E2D42 /* CopyFiles */,
-			);
-			buildSettings = {
-				BUILD_VARIANTS = (
-					normal,
-					debug,
-				);
-				CURRENT_PROJECT_VERSION = 31832;
-				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
-				INSTALL_PATH = /usr/bin;
-				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CFLAGS = "";
-				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_CFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_CPLUSPLUSFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS = "";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)  \"-framework\" \"Security,_debug\" \"-framework\" \"security_cdsa_utils,_debug\" \"-framework\" \"security_cdsa_client,_debug\" \"-framework\" \"security_cdsa_utilities,_debug\" \"-framework\" \"security_utilities,_debug\" $(OTHER_LDFLAGS)  \"-framework\" \"Security,_debug\" \"-framework\" \"security_cdsa_utils,_debug\" \"-framework\" \"security_cdsa_client,_debug\" \"-framework\" \"security_cdsa_utilities,_debug\" \"-framework\" \"security_ocspd,_debug\" \"-lstdc++\"";
-				OTHER_LDFLAGS_normal = "$(OTHER_LDFLAGS)  \"-framework\" \"Security\" \"-framework\" \"security_cdsa_utils\" \"-framework\" \"security_cdsa_client\" \"-framework\" \"security_cdsa_utilities\" \"-framework\" \"security_utilities\" \"-framework\" \"security_ocspd\" \"-lstdc++\"";
-				OTHER_LDFLAGS_profile = "$(OTHER_LDFLAGS)  \"-framework\" \"Security,_profile\" \"-framework\" \"security_cdsa_utils,_profile\" \"-framework\" \"security_cdsa_client,_profile\" \"-framework\" \"security_cdsa_utilities,_profile\" \"-framework\" \"security_utilities,_profile\" \"-framework\" \"security_ocspd,_profile\" \"-lstdc++\" -pg";
-				PRODUCT_NAME = crlrefresh;
-				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			dependencies = (
-			);
-			name = crlrefresh;
-			productInstallPath = /usr/bin;
-			productName = security_crlrefresh;
-			productReference = 4CA1FEB6052A3C6D00F22E42 /* crlrefresh */;
-		};
-/* End PBXToolTarget section */
-
 /* Begin XCBuildConfiguration section */
 		C27AD45C0987FCE9001272E0 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 31832;
+				CURRENT_PROJECT_VERSION = 36090;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				INSTALL_PATH = /usr/bin;
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
@@ -211,9 +158,9 @@
 				OTHER_CPLUSPLUSFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
 				OTHER_LDFLAGS = "";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)  \"-framework\" \"Security,_debug\" \"-framework\" \"security_cdsa_utils,_debug\" \"-framework\" \"security_cdsa_client,_debug\" \"-framework\" \"security_cdsa_utilities,_debug\" \"-framework\" \"security_utilities,_debug\" $(OTHER_LDFLAGS)  \"-framework\" \"Security,_debug\" \"-framework\" \"security_cdsa_utils,_debug\" \"-framework\" \"security_cdsa_client,_debug\" \"-framework\" \"security_cdsa_utilities,_debug\" \"-framework\" \"security_ocspd,_debug\" \"-lstdc++\"";
-				OTHER_LDFLAGS_normal = "$(OTHER_LDFLAGS)  \"-framework\" \"Security\" \"-framework\" \"security_cdsa_utils\" \"-framework\" \"security_cdsa_client\" \"-framework\" \"security_cdsa_utilities\" \"-framework\" \"security_utilities\" \"-framework\" \"security_ocspd\" \"-lstdc++\"";
-				OTHER_LDFLAGS_profile = "$(OTHER_LDFLAGS)  \"-framework\" \"Security,_profile\" \"-framework\" \"security_cdsa_utils,_profile\" \"-framework\" \"security_cdsa_client,_profile\" \"-framework\" \"security_cdsa_utilities,_profile\" \"-framework\" \"security_utilities,_profile\" \"-framework\" \"security_ocspd,_profile\" \"-lstdc++\" -pg";
+				OTHER_LDFLAGS_debug = "\"-framework\" \"Security,_debug\" \"-framework\" \"security_cdsa_utils,_debug\" \"-framework\" \"security_cdsa_client,_debug\" \"-framework\" \"security_cdsa_utilities,_debug\" \"-framework\" \"security_utilities,_debug\" $(OTHER_LDFLAGS)  \"-framework\" \"Security,_debug\" \"-framework\" \"security_cdsa_utils,_debug\" \"-framework\" \"security_cdsa_client,_debug\" \"-framework\" \"security_cdsa_utilities,_debug\" \"-framework\" \"security_ocspd,_debug\" \"-lstdc++\"";
+				OTHER_LDFLAGS_normal = "\"-framework\" \"Security\" \"-framework\" \"security_cdsa_utils\" \"-framework\" \"security_cdsa_client\" \"-framework\" \"security_cdsa_utilities\" \"-framework\" \"security_utilities\" \"-framework\" \"security_ocspd\" \"-lstdc++\"";
+				OTHER_LDFLAGS_profile = "\"-framework\" \"Security,_profile\" \"-framework\" \"security_cdsa_utils,_profile\" \"-framework\" \"security_cdsa_client,_profile\" \"-framework\" \"security_cdsa_utilities,_profile\" \"-framework\" \"security_utilities,_profile\" \"-framework\" \"security_ocspd,_profile\" \"-lstdc++\" -pg";
 				PRODUCT_NAME = crlrefresh;
 				SECTORDER_FLAGS = "";
 				VERSIONING_SYSTEM = "apple-generic";
@@ -233,9 +180,10 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 31832;
+				CURRENT_PROJECT_VERSION = 36090;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				INSTALL_PATH = /usr/bin;
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
@@ -248,9 +196,9 @@
 				OTHER_CPLUSPLUSFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
 				OTHER_LDFLAGS = "";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)  \"-framework\" \"Security,_debug\" \"-framework\" \"security_cdsa_utils,_debug\" \"-framework\" \"security_cdsa_client,_debug\" \"-framework\" \"security_cdsa_utilities,_debug\" \"-framework\" \"security_utilities,_debug\" $(OTHER_LDFLAGS)  \"-framework\" \"Security,_debug\" \"-framework\" \"security_cdsa_utils,_debug\" \"-framework\" \"security_cdsa_client,_debug\" \"-framework\" \"security_cdsa_utilities,_debug\" \"-framework\" \"security_ocspd,_debug\" \"-lstdc++\"";
-				OTHER_LDFLAGS_normal = "$(OTHER_LDFLAGS)  \"-framework\" \"Security\" \"-framework\" \"security_cdsa_utils\" \"-framework\" \"security_cdsa_client\" \"-framework\" \"security_cdsa_utilities\" \"-framework\" \"security_utilities\" \"-framework\" \"security_ocspd\" \"-lstdc++\"";
-				OTHER_LDFLAGS_profile = "$(OTHER_LDFLAGS)  \"-framework\" \"Security,_profile\" \"-framework\" \"security_cdsa_utils,_profile\" \"-framework\" \"security_cdsa_client,_profile\" \"-framework\" \"security_cdsa_utilities,_profile\" \"-framework\" \"security_utilities,_profile\" \"-framework\" \"security_ocspd,_profile\" \"-lstdc++\" -pg";
+				OTHER_LDFLAGS_debug = "\"-framework\" \"Security,_debug\" \"-framework\" \"security_cdsa_utils,_debug\" \"-framework\" \"security_cdsa_client,_debug\" \"-framework\" \"security_cdsa_utilities,_debug\" \"-framework\" \"security_utilities,_debug\" $(OTHER_LDFLAGS)  \"-framework\" \"Security,_debug\" \"-framework\" \"security_cdsa_utils,_debug\" \"-framework\" \"security_cdsa_client,_debug\" \"-framework\" \"security_cdsa_utilities,_debug\" \"-framework\" \"security_ocspd,_debug\" \"-lstdc++\"";
+				OTHER_LDFLAGS_normal = "\"-framework\" \"Security\" \"-framework\" \"security_cdsa_utils\" \"-framework\" \"security_cdsa_client\" \"-framework\" \"security_cdsa_utilities\" \"-framework\" \"security_utilities\" \"-framework\" \"security_ocspd\" \"-lstdc++\"";
+				OTHER_LDFLAGS_profile = "\"-framework\" \"Security,_profile\" \"-framework\" \"security_cdsa_utils,_profile\" \"-framework\" \"security_cdsa_client,_profile\" \"-framework\" \"security_cdsa_utilities,_profile\" \"-framework\" \"security_utilities,_profile\" \"-framework\" \"security_ocspd,_profile\" \"-lstdc++\" -pg";
 				PRODUCT_NAME = crlrefresh;
 				SECTORDER_FLAGS = "";
 				VERSIONING_SYSTEM = "apple-generic";
@@ -270,7 +218,9 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 31832;
+				CURRENT_PROJECT_VERSION = 36090;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				INSTALL_PATH = /usr/bin;
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
@@ -284,9 +234,9 @@
 				OTHER_CPLUSPLUSFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
 				OTHER_LDFLAGS = "";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)  \"-framework\" \"Security,_debug\" \"-framework\" \"security_cdsa_utils,_debug\" \"-framework\" \"security_cdsa_client,_debug\" \"-framework\" \"security_cdsa_utilities,_debug\" \"-framework\" \"security_utilities,_debug\" $(OTHER_LDFLAGS)  \"-framework\" \"Security,_debug\" \"-framework\" \"security_cdsa_utils,_debug\" \"-framework\" \"security_cdsa_client,_debug\" \"-framework\" \"security_cdsa_utilities,_debug\" \"-framework\" \"security_ocspd,_debug\" \"-lstdc++\"";
-				OTHER_LDFLAGS_normal = "$(OTHER_LDFLAGS)  \"-framework\" \"Security\" \"-framework\" \"security_cdsa_utils\" \"-framework\" \"security_cdsa_client\" \"-framework\" \"security_cdsa_utilities\" \"-framework\" \"security_utilities\" \"-framework\" \"security_ocspd\" \"-lstdc++\"";
-				OTHER_LDFLAGS_profile = "$(OTHER_LDFLAGS)  \"-framework\" \"Security,_profile\" \"-framework\" \"security_cdsa_utils,_profile\" \"-framework\" \"security_cdsa_client,_profile\" \"-framework\" \"security_cdsa_utilities,_profile\" \"-framework\" \"security_utilities,_profile\" \"-framework\" \"security_ocspd,_profile\" \"-lstdc++\" -pg";
+				OTHER_LDFLAGS_debug = "\"-framework\" \"Security,_debug\" \"-framework\" \"security_cdsa_utils,_debug\" \"-framework\" \"security_cdsa_client,_debug\" \"-framework\" \"security_cdsa_utilities,_debug\" \"-framework\" \"security_utilities,_debug\" $(OTHER_LDFLAGS)  \"-framework\" \"Security,_debug\" \"-framework\" \"security_cdsa_utils,_debug\" \"-framework\" \"security_cdsa_client,_debug\" \"-framework\" \"security_cdsa_utilities,_debug\" \"-framework\" \"security_ocspd,_debug\" \"-lstdc++\"";
+				OTHER_LDFLAGS_normal = "\"-framework\" \"Security\" \"-framework\" \"security_cdsa_utils\" \"-framework\" \"security_cdsa_client\" \"-framework\" \"security_cdsa_utilities\" \"-framework\" \"security_utilities\" \"-framework\" \"security_ocspd\" \"-lstdc++\"";
+				OTHER_LDFLAGS_profile = "\"-framework\" \"Security,_profile\" \"-framework\" \"security_cdsa_utils,_profile\" \"-framework\" \"security_cdsa_client,_profile\" \"-framework\" \"security_cdsa_utilities,_profile\" \"-framework\" \"security_utilities,_profile\" \"-framework\" \"security_ocspd,_profile\" \"-lstdc++\" -pg";
 				PRODUCT_NAME = crlrefresh;
 				SECTORDER_FLAGS = "";
 				VERSIONING_SYSTEM = "apple-generic";
@@ -301,6 +251,7 @@
 		C27AD4600987FCE9001272E0 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
 			};
@@ -309,6 +260,7 @@
 		C27AD4610987FCE9001272E0 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
 			};
@@ -317,6 +269,7 @@
 		C27AD4620987FCE9001272E0 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
 			};
@@ -325,7 +278,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		C27AD45B0987FCE9001272E0 /* Build configuration list for PBXToolTarget "crlrefresh" */ = {
+		C27AD45B0987FCE9001272E0 /* Build configuration list for PBXNativeTarget "crlrefresh" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C27AD45C0987FCE9001272E0 /* Development */,

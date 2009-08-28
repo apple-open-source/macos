@@ -2,7 +2,7 @@ Index: samba/source/configure.in
 ===================================================================
 --- samba/source/configure.in.orig
 +++ samba/source/configure.in
-@@ -347,6 +347,35 @@ AC_ARG_ENABLE(swat,
+@@ -358,6 +358,35 @@ AC_ARG_ENABLE(swat,
      AC_SUBST(SWAT_INSTALL_TARGETS)
  ])
  
@@ -363,9 +363,8 @@ Index: samba/source/smbd/server.c
  	/* Stop zombies */
  	CatchSignal(SIGCLD, sig_cld);
 -				
-+
- 	FD_ZERO(&listen_set);
- 
+-	FD_ZERO(&listen_set);
+-
 -	/* use a reasonable default set of ports - listing on 445 and 139 */
 -	if (!smb_ports) {
 -		ports = lp_smb_ports();
@@ -376,14 +375,8 @@ Index: samba/source/smbd/server.c
 -		}
 -	} else {
 -		ports = smb_xstrdup(smb_ports);
-+	/* At this point, it doesn't matter what daemon mode we are in, we
-+	 * need some sockets to listen on.
-+	 */
-+	num_sockets = smbd_sockinit(smb_ports, fd_listenset, &idle_timeout);
-+	if (num_sockets == 0) {
-+		return False;
- 	}
- 
+-	}
+-
 -	if (lp_interfaces() && lp_bind_interfaces_only()) {
 -		/* We have been given an interfaces line, and been 
 -		   told to only bind to those interfaces. Create a
@@ -404,7 +397,7 @@ Index: samba/source/smbd/server.c
 -
 -			for (ptr=ports; next_token(&ptr, tok, " \t,", sizeof(tok)); ) {
 -				unsigned port = atoi(tok);
--				if (port == 0) {
+-				if (port == 0 || port > 0xffff) {
 -					continue;
 -				}
 -				s = fd_listenset[num_sockets] = open_socket_in(SOCK_STREAM, port, 0, ifip->s_addr, True);
@@ -436,7 +429,7 @@ Index: samba/source/smbd/server.c
 -	} else {
 -		/* Just bind to 0.0.0.0 - accept connections
 -		   from anywhere. */
--
+ 
 -		fstring tok;
 -		const char *ptr;
 -
@@ -444,7 +437,7 @@ Index: samba/source/smbd/server.c
 -		
 -		for (ptr=ports; next_token(&ptr, tok, " \t,", sizeof(tok)); ) {
 -			unsigned port = atoi(tok);
--			if (port == 0) continue;
+-			if (port == 0 || port > 0xffff) continue;
 -			/* open an incoming socket */
 -			s = open_socket_in(SOCK_STREAM, port, 0,
 -					   interpret_addr(lp_socket_address()),True);
@@ -464,7 +457,8 @@ Index: samba/source/smbd/server.c
 -				close(s);
 -				return False;
 -			}
--
++	FD_ZERO(&listen_set);
+ 
 -			fd_listenset[num_sockets] = s;
 -			FD_SET(s,&listen_set);
 -			maxfd = MAX( maxfd, s);
@@ -477,7 +471,14 @@ Index: samba/source/smbd/server.c
 -			}
 -		}
 -	} 
--
++	/* At this point, it doesn't matter what daemon mode we are in, we
++	 * need some sockets to listen on.
++	 */
++	num_sockets = smbd_sockinit(smb_ports, fd_listenset, &idle_timeout);
++	if (num_sockets == 0) {
++		return False;
++  	}
+ 
 -	SAFE_FREE(ports);
 +	for (i = 0; i < num_sockets; ++i) {
 +		FD_SET(fd_listenset[i], &listen_set);
@@ -1064,23 +1065,7 @@ Index: samba/source/nsswitch/winbindd_util.c
 ===================================================================
 --- samba/source/nsswitch/winbindd_util.c.orig
 +++ samba/source/nsswitch/winbindd_util.c
-@@ -36,15 +36,6 @@ extern struct winbindd_methods passdb_me
-  * Winbind daemon for NT domain authentication nss module.
-  **/
- 
--
--/**
-- * Used to clobber name fields that have an undefined value.
-- *
-- * Correct code should never look at a field that has this value.
-- **/
--
--static const fstring name_deadbeef = "<deadbeef>";
--
- /* The list of trusted domains.  Note that the list can be deleted and
-    recreated using the init_domain_list() function so pointers to
-    individual winbindd_domain structures cannot be made.  Keep a copy of
-@@ -927,53 +918,6 @@ char *get_winbind_priv_pipe_dir(void) 
+@@ -913,53 +913,6 @@ char *get_winbind_priv_pipe_dir(void) 
  	return lock_path(WINBINDD_PRIV_SOCKET_SUBDIR);
  }
  

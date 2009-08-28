@@ -1,4 +1,4 @@
-# Copyright (C) 1998,1999,2000,2001,2002 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2008 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -61,7 +61,7 @@ def process(msg):
     leaves = []
     flatten(msg, leaves)
     for i, subpart in zip(range(len(leaves)-1), leaves):
-        if subpart.get_type() == 'text/plain':
+        if subpart.get_content_type() == 'text/plain':
             plainmsg = subpart
             break
     if not plainmsg:

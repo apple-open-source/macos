@@ -37,6 +37,19 @@
 #include <security_utilities/globalizer.h>
 #include <security_utilities/threading.h>
 #include <security_utilities/logging.h>
+#include <vproc.h>
+
+class TransactionLock
+{
+private:
+	vproc_transaction_t mHandle;
+
+public:
+	TransactionLock() {mHandle = vproc_transaction_begin(NULL);}
+	~TransactionLock() {vproc_transaction_end(NULL, mHandle);}
+};
+
+
 
 #define OCSP_DB_FILE		"/private/var/db/crls/ocspcache.db"
 
@@ -74,7 +87,7 @@ private:
 	CSSM_RETURN dbOpen(bool doCreate);
 	
 	/* see implementations for comments */
-	bool OcspdDatabase::validateRecord(
+	bool validateRecord(
 		const CSSM_DATA				&certID,
 		const CSSM_DATA				&recordData,	// raw OCSP response
 		const CSSM_DATA				&expireTime,	// the attribute data
@@ -416,6 +429,7 @@ bool OcspdDatabase::lookup(
 	const CSSM_DATA		*URI,			// optional
 	CSSM_DATA			&derResp)		// RETURNED
 {
+	TransactionLock tLock;
 	StLock<Mutex> _(mLock);
 	if(dbOpen(false)) {
 		return false;
@@ -493,6 +507,7 @@ void OcspdDatabase::addResponse(
 	const CSSM_DATA		&ocspResp,				// DER encoded SecAsn1OCSPResponse
 	const CSSM_DATA		&URI)	
 {
+	TransactionLock tLock;
 	StLock<Mutex> _(mLock);
 	ocspdDbDebug("addResponse: top");
 	if(dbOpen(true)) {
@@ -608,6 +623,7 @@ errOut:
 void OcspdDatabase::flushCertID(
 	const CSSM_DATA 	&certID)
 {
+	TransactionLock tLock;
 	StLock<Mutex> _(mLock);
 	if(dbOpen(false)) {
 		return;
@@ -644,6 +660,7 @@ void OcspdDatabase::flushCertID(
 
 void OcspdDatabase::flushStale()
 {
+	TransactionLock tLock;
 	StLock<Mutex> _(mLock);
 	if(dbOpen(false)) {
 		return;

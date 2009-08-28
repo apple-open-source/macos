@@ -204,7 +204,7 @@ mi_cmd_disassemble (char *command, char **argv, int argc)
       return MI_CMD_DONE;
     }
 
-  if (find_pc_partial_function (start, NULL, &low, &high) == 0)
+  if (find_pc_partial_function_no_inlined (start, NULL, &low, &high) == 0)
     error ("mi_cmd_disassemble: No function contains the specified address.");
   
   if (! num_seen)

@@ -40,6 +40,12 @@
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #undef HAVE_DLFCN_H
 
+/* Have dlopen based dso */
+#undef HAVE_DLOPEN
+
+/* Define to 1 if you have the <dl.h> header file. */
+#undef HAVE_DL_H
+
 /* Define to 1 if you have the <errno.h> header file. */
 #undef HAVE_ERRNO_H
 
@@ -79,6 +85,9 @@
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
+/* Define to 1 if you have the <inttypes.h.h> header file. */
+#undef HAVE_INTTYPES_H_H
+
 /* Define if isinf is there */
 #undef HAVE_ISINF
 
@@ -91,20 +100,11 @@
 /* Define if history library is there (-lhistory) */
 #undef HAVE_LIBHISTORY
 
-/* Define to 1 if you have the `inet' library (-linet). */
-#undef HAVE_LIBINET
-
-/* Define to 1 if you have the `nsl' library (-lnsl). */
-#undef HAVE_LIBNSL
-
 /* Define if pthread library is there (-lpthread) */
 #undef HAVE_LIBPTHREAD
 
 /* Define if readline library is there (-lreadline) */
 #undef HAVE_LIBREADLINE
-
-/* Define to 1 if you have the `socket' library (-lsocket). */
-#undef HAVE_LIBSOCKET
 
 /* Have compression library */
 #undef HAVE_LIBZ
@@ -144,6 +144,9 @@
 
 /* Define to 1 if you have the <resolv.h> header file. */
 #undef HAVE_RESOLV_H
+
+/* Have shl_load based dso */
+#undef HAVE_SHLLOAD
 
 /* Define to 1 if you have the `signal' function. */
 #undef HAVE_SIGNAL
@@ -225,6 +228,9 @@
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
 
+/* Whether va_copy() is available */
+#undef HAVE_VA_COPY
+
 /* Define to 1 if you have the `vfprintf' function. */
 #undef HAVE_VFPRINTF
 
@@ -239,6 +245,12 @@
 
 /* Define to 1 if you have the `_stat' function. */
 #undef HAVE__STAT
+
+/* Whether __va_copy() is available */
+#undef HAVE___VA_COPY
+
+/* Define as const if the declaration of iconv() needs const. */
+#undef ICONV_CONST
 
 /* Name of package */
 #undef PACKAGE
@@ -261,9 +273,6 @@
 /* Define to 1 if the C compiler supports function prototypes. */
 #undef PROTOTYPES
 
-/* Determine what socket length (socklen_t) data type is */
-#undef SOCKLEN_T
-
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
 
@@ -272,6 +281,9 @@
 
 /* Version number of package */
 #undef VERSION
+
+/* Determine what socket length (socklen_t) data type is */
+#undef XML_SOCKLEN_T
 
 /* Using the Win32 Socket implementation */
 #undef _WINSOCKAPI_

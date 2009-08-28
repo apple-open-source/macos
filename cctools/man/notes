@@ -2,6 +2,46 @@ TODO:
 - Add -v description to checksyms.
 - The 4.4bsd a.out(5) man page is wrong for Rhapsody.
 
+Changes for the 5.26 release (the cctools-750 release):
+- Added the -rpath, -add_rpath and -delete_rpath options to
+  install_name_tool(1).  Radar bug #5684850.
+
+Changes for the 5.25 release (the cctools-724 release):
+- Updated the getsegbyname.3 man page to reference the use of
+  _dyld_get_image_vmaddr_slide(0) with executable linked with -pie.
+  Radar bug #6194728.
+
+Changes for the 5.25 release (the cctools-720 release):
+- Fixed a typo on the libtool.1 man page. Added a comma after library in the
+  -install_name description.  Radar bug #4574762.
+
+Changes for the 5.25 release (the cctools-717 release):
+- Added the -d filename option to the mtoc(1) man page. Radar bug #6211642.
+
+Changes for the 5.25 release (the cctools-705 release):
+- Removed man pages for cmpshlib.1, mkshlib.1, dylibprof.1, atom.1, and file.1.
+
+Changes for the 5.25 release (the cctools-701 release):
+- Added the -align option to the mtoc(1) man page.
+
+Changes for the 5.25 release (the cctools-688 release):
+- Added the -section_alignment option to the mtoc(1) man page.
+
+Changes for the 5.25 release (the cctools-681 release):
+- Added the -A option to the codesign_allocate(1) man page.  Radar bug #5681427.
+- Added the mtoc(1) man page.  Radar bug #5536661.
+
+Changes for the 5.25 release (the cctools-676 release):
+- Fixed typos on the libtool.1 man page. Changed "ror" to "For" and added a
+  comma after library in the -compatibility_version description.  Radar bug
+  #4574762.
+- Changed the BUGS section of the libtool.1 man page to reflect the current
+  behavior of out of date table of contents.  Radar bug #4708229.
+- Fixed a type of "effected" to be "affected" on the nmedit.1 man page.
+  Radar bug #5068920.
+- Fixed the typo of "architecutre" to be "architecture" on the libtool.1 man
+  page.  Radar bug #5160229.
+
 Changes for the 5.24 release (the cctools-663 release):
 - Change the "SEE ALSO" line on the as(1) man page for the reference to the
   assebler manual.  Radar but #5143784.

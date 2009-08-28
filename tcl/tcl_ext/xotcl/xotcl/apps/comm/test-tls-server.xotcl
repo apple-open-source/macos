@@ -1,0 +1,87 @@
+#!../../src/xotclsh
+# $Id: test-tls-server.xotcl,v 1.5 2006/09/27 08:12:39 neumann Exp $
+#
+# sample secure server that reflect all incoming data to the client
+# It uses tls1.3 package of Matt Newman <matt@novadigm.com>
+# Fredj Dridi
+
+package require tls 
+
+proc bgerror {err} {
+    global errorInfo
+    puts stderr "BG Error: $errorInfo"
+}
+
+#
+# Sample callback - just reflect data back to client
+#
+proc reflectCB {chan {verbose 0}} {
+  puts stderr "\n*** reflectCB $chan $verbose"
+  
+  fconfigure $chan -translation {auto crlf}
+  
+  set data {}
+  if {[catch {set n [::gets $chan data]} msg]} {
+    set error $msg 
+    puts stderr "\nEOF ($data)"
+    catch {close $chan}
+    return 0
+  }
+  puts stderr n=<$n>
+  if {$verbose && $data ne ""} {
+    puts stderr "data=<$data>"
+  }
+  if {[eof $chan]} {    ;# client gone or finished
+    puts stderr "\nEOF"
+    close $chan        ;# release the servers client channel
+    return
+  }
+  #puts -nonewline $chan $data
+  #flush $chan
+}
+proc acceptCB { chan ip port } {
+  puts stderr "\n*** acceptCB $chan $ip $port"
+  
+  tls::import $chan -cafile cacert.pem -certfile  server.pem  \
+      -server 1 -request 1 -require 1 -keyfile server.key -command callback
+  if {![tls::handshake $chan]} {
+    puts stderr "\nHandshake pending"
+    return
+  }
+  array set cert [tls::status $chan]
+  puts stderr "\n"
+  parray cert
+
+  fileevent $chan readable [list reflectCB $chan 1]
+}
+
+
+set chan [socket -server acceptCB 8443] 
+puts stderr "Server waiting connection on $chan (8443)"
+
+
+## Sample Callback that gives SSL information 
+Object callback
+callback proc error {chan msg} {
+  puts stderr "+++TLS/$chan: error: $msg"
+}
+callback proc verify {chan depth cert rc err} {
+  array set c $cert
+  if {$rc != "1"} {
+    puts stderr "+++TLS/$chan: verify/$depth: ** Bad Cert **: $err (rc = $rc)"
+  } else {
+    puts stderr "+++TLS/$chan: verify/$depth: $c(subject)"
+  }
+  return $rc
+}
+callback proc info {chan state minor msg} {
+  puts stderr "+++TLS/$chan $state $minor: $msg"
+
+}
+callback proc unknown {option args} {
+  my showCall
+  return -code error "bad option \"$option\": must be one of error, info, or verify"
+}
+
+# Go into the eventloop
+vwait forever

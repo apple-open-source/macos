@@ -22,6 +22,7 @@
 #include "launch.h"
 #include "launch_priv.h"
 #include "launch_internal.h"
+#include "launchd_ktrace.h"
 
 #include <mach/mach.h>
 #include <libkern/OSByteOrder.h>
@@ -39,6 +40,24 @@
 #include <errno.h>
 #include <pwd.h>
 #include <assert.h>
+#include <uuid/uuid.h>
+#include <sys/syscall.h>
+
+#ifdef __LP64__
+/* workaround: 5723161 */
+#ifndef __DARWIN_ALIGN32
+#define	__DARWIN_ALIGN32(x)	(((size_t)(x) + 3) & ~3)
+#endif
+#undef	CMSG_DATA
+#define	CMSG_DATA(cmsg)	\
+	((uint8_t *)(cmsg) + __DARWIN_ALIGN32(sizeof(struct cmsghdr)))
+#undef	CMSG_SPACE
+#define	CMSG_SPACE(l)	\
+	(__DARWIN_ALIGN32(sizeof(struct cmsghdr)) + __DARWIN_ALIGN32(l))
+#undef	CMSG_LEN
+#define	CMSG_LEN(l)	\
+	(__DARWIN_ALIGN32(sizeof(struct cmsghdr)) + (l))
+#endif
 
 #include "bootstrap.h"
 #include "vproc.h"
@@ -50,17 +69,17 @@
  */
 extern void __OSBogusByteSwap__(void);
 
-#define host2big(x)				\
+#define host2wire(x)				\
 	({ typeof (x) _X, _x = (x);		\
 	 switch (sizeof(_x)) {			\
 	 case 8:				\
-	 	_X = OSSwapHostToBigInt64(_x);	\
+	 	_X = OSSwapHostToLittleInt64(_x);	\
 	 	break;				\
 	 case 4:				\
-	 	_X = OSSwapHostToBigInt32(_x);	\
+	 	_X = OSSwapHostToLittleInt32(_x);	\
 	 	break;				\
 	 case 2:				\
-	 	_X = OSSwapHostToBigInt16(_x);	\
+	 	_X = OSSwapHostToLittleInt16(_x);	\
 	 	break;				\
 	 case 1:				\
 	 	_X = _x;			\
@@ -73,17 +92,17 @@ extern void __OSBogusByteSwap__(void);
 	 })
 
 
-#define big2host(x)				\
+#define big2wire(x)				\
 	({ typeof (x) _X, _x = (x);		\
 	 switch (sizeof(_x)) {			\
 	 case 8:				\
-	 	_X = OSSwapBigToHostInt64(_x);	\
+	 	_X = OSSwapLittleToHostInt64(_x);	\
 	 	break;				\
 	 case 4:				\
-	 	_X = OSSwapBigToHostInt32(_x);	\
+	 	_X = OSSwapLittleToHostInt32(_x);	\
 	 	break;				\
 	 case 2:				\
-	 	_X = OSSwapBigToHostInt16(_x);	\
+	 	_X = OSSwapLittleToHostInt16(_x);	\
 	 	break;				\
 	 case 1:				\
 	 	_X = _x;			\
@@ -119,15 +138,19 @@ struct _launch_data {
 				uint64_t opaque_size;
 			};
 		};
-		int fd;
-		mach_port_t mp;
-		int err;
-		long long number;
-		uint32_t boolean; /* We'd use 'bool' but this struct needs to be used under Rosetta, and sizeof(bool) is different between PowerPC and Intel */
+		int64_t fd;
+		uint64_t  mp;
+		uint64_t err;
+		int64_t number;
+		uint64_t boolean; /* We'd use 'bool' but this struct needs to be used under Rosetta, and sizeof(bool) is different between PowerPC and Intel */
 		double float_num;
 	};
 };
 
+enum {
+	LAUNCHD_USE_CHECKIN_FD,
+	LAUNCHD_USE_OTHER_FD,
+};
 struct _launch {
 	void	*sendbuf;
 	int	*sendfds;
@@ -137,6 +160,8 @@ struct _launch {
 	size_t	sendfdcnt;
 	size_t	recvlen;
 	size_t	recvfdcnt;
+	int which;
+	int cifd;
 	int	fd;
 };
 
@@ -147,8 +172,11 @@ static void launch_msg_getmsgs(launch_data_t m, void *context);
 static launch_data_t launch_msg_internal(launch_data_t d);
 static void launch_mach_checkin_service(launch_data_t obj, const char *key, void *context);
 
+static int64_t s_am_embedded_god = false;
 static launch_t in_flight_msg_recv_client;
 static pthread_once_t _lc_once = PTHREAD_ONCE_INIT;
+
+bool do_apple_internal_logging = false;
 
 static struct _launch_client {
 	pthread_mutex_t mtx;
@@ -162,58 +190,92 @@ launch_client_init(void)
 	struct sockaddr_un sun;
 	char *where = getenv(LAUNCHD_SOCKET_ENV);
 	char *_launchd_fd = getenv(LAUNCHD_TRUSTED_FD_ENV);
-	int dfd, lfd = -1;
+	int dfd, lfd = -1, cifd = -1;
 	name_t spath;
 	
 	_lc = calloc(1, sizeof(struct _launch_client));
-
+	
 	if (!_lc)
 		return;
-
+	
 	pthread_mutex_init(&_lc->mtx, NULL);
-
+	
 	if (_launchd_fd) {
-		lfd = strtol(_launchd_fd, NULL, 10);
-		if ((dfd = dup(lfd)) >= 0) {
+		cifd = strtol(_launchd_fd, NULL, 10);
+		if ((dfd = dup(cifd)) >= 0) {
 			close(dfd);
-			_fd(lfd);
+			_fd(cifd);
 		} else {
-			lfd = -1;
+			cifd = -1;
 		}
 		unsetenv(LAUNCHD_TRUSTED_FD_ENV);
 	}
-	if (lfd == -1) {
-		memset(&sun, 0, sizeof(sun));
-		sun.sun_family = AF_UNIX;
-		
-		if (where && where[0] != '\0') {
-			strncpy(sun.sun_path, where, sizeof(sun.sun_path));
-		} else if (!getenv("SUDO_COMMAND") && _vprocmgr_getsocket(spath) == 0) {
-			size_t min_len;
-
-			min_len = sizeof(sun.sun_path) < sizeof(spath) ? sizeof(sun.sun_path) : sizeof(spath);
-
-			strncpy(sun.sun_path, spath, min_len);
-		} else {
-			strncpy(sun.sun_path, LAUNCHD_SOCK_PREFIX "/sock", sizeof(sun.sun_path));
+	
+	memset(&sun, 0, sizeof(sun));
+	sun.sun_family = AF_UNIX;
+	
+	/* The rules are as follows. 
+	 * - All users (including root) talk to their per-user launchd's by default.
+	 * - If we have been invoked under sudo, talk to the system launchd.
+	 * - If we're the root user and the __USE_SYSTEM_LAUNCHD environment variable is set, then
+	 *   talk to the system launchd.
+	 */
+	if (where && where[0] != '\0') {
+		strncpy(sun.sun_path, where, sizeof(sun.sun_path));
+	} else {
+		if( _vprocmgr_getsocket(spath) == 0 ) {
+			if( (getenv("SUDO_COMMAND") || getenv("__USE_SYSTEM_LAUNCHD")) && geteuid() == 0 ) {
+				/* Talk to the system launchd. */
+				strncpy(sun.sun_path, LAUNCHD_SOCK_PREFIX "/sock", sizeof(sun.sun_path));
+			} else {
+				/* Talk to our per-user launchd. */
+				size_t min_len;
+				
+				min_len = sizeof(sun.sun_path) < sizeof(spath) ? sizeof(sun.sun_path) : sizeof(spath);
+				
+				strncpy(sun.sun_path, spath, min_len);
+			}
 		}
-
-		if ((lfd = _fd(socket(AF_UNIX, SOCK_STREAM, 0))) == -1)
-			goto out_bad;
-		if (-1 == connect(lfd, (struct sockaddr *)&sun, sizeof(sun)))
-			goto out_bad;
 	}
-	if (!(_lc->l = launchd_fdopen(lfd)))
+		
+	if ((lfd = _fd(socket(AF_UNIX, SOCK_STREAM, 0))) == -1) {
 		goto out_bad;
-	if (!(_lc->async_resp = launch_data_alloc(LAUNCH_DATA_ARRAY)))
+	}
+	
+#if TARGET_OS_EMBEDDED
+	(void)vproc_swap_integer(NULL, VPROC_GSK_EMBEDDEDROOTEQUIVALENT, NULL, &s_am_embedded_god);
+#endif
+	if (-1 == connect(lfd, (struct sockaddr *)&sun, sizeof(sun))) {
+		if( cifd != -1 || s_am_embedded_god ) {
+			/* There is NO security enforced by this check. This is just a hint to our
+			 * library that we shouldn't error out due to failing to open this socket. If
+			 * we inherited a trusted file descriptor, we shouldn't fail. This should be
+			 * adequate for clients' expectations.
+			 */
+			close(lfd);
+			lfd = -1;
+		} else {
+			goto out_bad;
+		}
+	}
+	
+	if (!(_lc->l = launchd_fdopen(lfd, cifd))) {
 		goto out_bad;
-
+	}
+	
+	if (!(_lc->async_resp = launch_data_alloc(LAUNCH_DATA_ARRAY))) {
+		goto out_bad;
+	}
+		
 	return;
 out_bad:
 	if (_lc->l)
 		launchd_close(_lc->l, close);
 	else if (lfd != -1)
 		close(lfd);
+	if( cifd != -1 ) {
+		close(cifd);
+	}
 	if (_lc)
 		free(_lc);
 	_lc = NULL;
@@ -277,7 +339,6 @@ launch_data_dict_get_count(launch_data_t dict)
 	return dict->_array_cnt / 2;
 }
 
-
 bool
 launch_data_dict_insert(launch_data_t dict, launch_data_t what, const char *key)
 {
@@ -337,11 +398,13 @@ launch_data_dict_iterate(launch_data_t dict, void (*cb)(launch_data_t, const cha
 {
 	size_t i;
 
-	if (LAUNCH_DATA_DICTIONARY != dict->type)
+	if (LAUNCH_DATA_DICTIONARY != dict->type) {
 		return;
+	}
 
-	for (i = 0; i < dict->_array_cnt; i += 2)
+	for (i = 0; i < dict->_array_cnt; i += 2) {
 		cb(dict->_array[i + 1], dict->_array[i]->string, context);
+	}
 }
 
 bool
@@ -353,8 +416,10 @@ launch_data_array_set_index(launch_data_t where, launch_data_t what, size_t ind)
 		where->_array_cnt = ind + 1;
 	}
 
-	if (where->_array[ind])
+	if (where->_array[ind]) {
 		launch_data_free(where->_array[ind]);
+	}
+
 	where->_array[ind] = what;
 	return true;
 }
@@ -362,11 +427,11 @@ launch_data_array_set_index(launch_data_t where, launch_data_t what, size_t ind)
 launch_data_t
 launch_data_array_get_index(launch_data_t where, size_t ind)
 {
-	if (LAUNCH_DATA_ARRAY != where->type)
+	if (LAUNCH_DATA_ARRAY != where->type || ind >= where->_array_cnt) {
 		return NULL;
-	if (ind < where->_array_cnt)
+	} else {
 		return where->_array[ind];
-	return NULL;
+	}
 }
 
 launch_data_t
@@ -520,11 +585,11 @@ launch_data_get_opaque_size(launch_data_t d)
 int
 launchd_getfd(launch_t l)
 {
-	return l->fd;
+	return ( l->which == LAUNCHD_USE_CHECKIN_FD ) ? l->cifd : l->fd;
 }
 
 launch_t
-launchd_fdopen(int fd)
+launchd_fdopen(int fd, int cifd)
 {
 	launch_t c;
 
@@ -533,8 +598,16 @@ launchd_fdopen(int fd)
 		return NULL;
 
 	c->fd = fd;
+	c->cifd = cifd;
+
+	if( c->fd == -1 || (c->fd != -1 && c->cifd != -1) ) {
+		c->which = LAUNCHD_USE_CHECKIN_FD;
+	} else if( c->cifd == -1 ) {
+		c->which = LAUNCHD_USE_OTHER_FD;
+	}
 
 	fcntl(fd, F_SETFL, O_NONBLOCK);
+	fcntl(cifd, F_SETFL, O_NONBLOCK);
 
 	if ((c->sendbuf = malloc(0)) == NULL)
 		goto out_bad;
@@ -576,6 +649,7 @@ launchd_close(launch_t lh, typeof(close) closefunc)
 	if (lh->recvfds)
 		free(lh->recvfds);
 	closefunc(lh->fd);
+	closefunc(lh->cifd);
 	free(lh);
 }
 
@@ -585,76 +659,88 @@ size_t
 launch_data_pack(launch_data_t d, void *where, size_t len, int *fd_where, size_t *fd_cnt)
 {
 	launch_data_t o_in_w = where;
-	size_t i, rsz, total_data_len = sizeof(struct _launch_data);
+	size_t i, rsz, node_data_len = sizeof(struct _launch_data);
 
-	if (total_data_len > len) {
+	if (node_data_len > len) {
 		return 0;
 	}
 
-	where += total_data_len;
+	where += node_data_len;
 
-	o_in_w->type = host2big(d->type);
+	o_in_w->type = host2wire(d->type);
 
+	size_t pad_len = 0;
 	switch (d->type) {
 	case LAUNCH_DATA_INTEGER:
-		o_in_w->number = host2big(d->number);
+		o_in_w->number = host2wire(d->number);
 		break;
 	case LAUNCH_DATA_REAL:
-		o_in_w->float_num = host2big(d->float_num);
+		o_in_w->float_num = host2wire(d->float_num);
 		break;
 	case LAUNCH_DATA_BOOL:
-		o_in_w->boolean = host2big(d->boolean);
+		o_in_w->boolean = host2wire(d->boolean);
 		break;
 	case LAUNCH_DATA_ERRNO:
-		o_in_w->err = host2big(d->err);
+		o_in_w->err = host2wire(d->err);
 		break;
 	case LAUNCH_DATA_FD:
-		o_in_w->fd = host2big(d->fd);
+		o_in_w->fd = host2wire(d->fd);
 		if (fd_where && d->fd != -1) {
 			fd_where[*fd_cnt] = d->fd;
 			(*fd_cnt)++;
 		}
 		break;
 	case LAUNCH_DATA_STRING:
-		o_in_w->string_len = host2big(d->string_len);
-		total_data_len += ROUND_TO_64BIT_WORD_SIZE(strlen(d->string) + 1);
-		if (total_data_len > len) {
+		o_in_w->string_len = host2wire(d->string_len);
+		node_data_len += ROUND_TO_64BIT_WORD_SIZE(d->string_len + 1);
+		
+		if (node_data_len > len) {
 			return 0;
 		}
-		memcpy(where, d->string, strlen(d->string) + 1);
+		memcpy(where, d->string, d->string_len + 1);
+		
+		/* Zero padded data. */
+		pad_len = ROUND_TO_64BIT_WORD_SIZE(d->string_len + 1) - (d->string_len + 1);
+		bzero(where + d->string_len + 1, pad_len);
+		
 		break;
 	case LAUNCH_DATA_OPAQUE:
-		o_in_w->opaque_size = host2big(d->opaque_size);
-		total_data_len += ROUND_TO_64BIT_WORD_SIZE(d->opaque_size);
-		if (total_data_len > len) {
+		o_in_w->opaque_size = host2wire(d->opaque_size);
+		node_data_len += ROUND_TO_64BIT_WORD_SIZE(d->opaque_size);
+		if (node_data_len > len) {
 			return 0;
 		}
 		memcpy(where, d->opaque, d->opaque_size);
+		
+		/* Zero padded data. */
+		pad_len = ROUND_TO_64BIT_WORD_SIZE(d->opaque_size) - d->opaque_size;
+		bzero(where + d->opaque_size, pad_len);
+		
 		break;
 	case LAUNCH_DATA_DICTIONARY:
 	case LAUNCH_DATA_ARRAY:
-		o_in_w->_array_cnt = host2big(d->_array_cnt);
-		total_data_len += d->_array_cnt * sizeof(uint64_t);
-		if (total_data_len > len) {
+		o_in_w->_array_cnt = host2wire(d->_array_cnt);
+		node_data_len += d->_array_cnt * sizeof(uint64_t);
+		if (node_data_len > len) {
 			return 0;
 		}
 
 		where += d->_array_cnt * sizeof(uint64_t);
 
 		for (i = 0; i < d->_array_cnt; i++) {
-			rsz = launch_data_pack(d->_array[i], where, len - total_data_len, fd_where, fd_cnt);
+			rsz = launch_data_pack(d->_array[i], where, len - node_data_len, fd_where, fd_cnt);
 			if (rsz == 0) {
 				return 0;
 			}
 			where += rsz;
-			total_data_len += rsz;
+			node_data_len += rsz;
 		}
 		break;
 	default:
 		break;
 	}
 
-	return total_data_len;
+	return node_data_len;
 }
 
 launch_data_t
@@ -667,10 +753,10 @@ launch_data_unpack(void *data, size_t data_size, int *fds, size_t fd_cnt, size_t
 		return NULL;
 	*data_offset += sizeof(struct _launch_data);
 
-	switch (big2host(r->type)) {
+	switch (big2wire(r->type)) {
 	case LAUNCH_DATA_DICTIONARY:
 	case LAUNCH_DATA_ARRAY:
-		tmpcnt = big2host(r->_array_cnt);
+		tmpcnt = big2wire(r->_array_cnt);
 		if ((data_size - *data_offset) < (tmpcnt * sizeof(uint64_t))) {
 			errno = EAGAIN;
 			return NULL;
@@ -685,7 +771,7 @@ launch_data_unpack(void *data, size_t data_size, int *fds, size_t fd_cnt, size_t
 		r->_array_cnt = tmpcnt;
 		break;
 	case LAUNCH_DATA_STRING:
-		tmpcnt = big2host(r->string_len);
+		tmpcnt = big2wire(r->string_len);
 		if ((data_size - *data_offset) < (tmpcnt + 1)) {
 			errno = EAGAIN;
 			return NULL;
@@ -695,7 +781,7 @@ launch_data_unpack(void *data, size_t data_size, int *fds, size_t fd_cnt, size_t
 		*data_offset += ROUND_TO_64BIT_WORD_SIZE(tmpcnt + 1);
 		break;
 	case LAUNCH_DATA_OPAQUE:
-		tmpcnt = big2host(r->opaque_size);
+		tmpcnt = big2wire(r->opaque_size);
 		if ((data_size - *data_offset) < tmpcnt) {
 			errno = EAGAIN;
 			return NULL;
@@ -711,16 +797,16 @@ launch_data_unpack(void *data, size_t data_size, int *fds, size_t fd_cnt, size_t
 		}
 		break;
 	case LAUNCH_DATA_INTEGER:
-		r->number = big2host(r->number);
+		r->number = big2wire(r->number);
 		break;
 	case LAUNCH_DATA_REAL:
-		r->float_num = big2host(r->float_num);
+		r->float_num = big2wire(r->float_num);
 		break;
 	case LAUNCH_DATA_BOOL:
-		r->boolean = big2host(r->boolean);
+		r->boolean = big2wire(r->boolean);
 		break;
 	case LAUNCH_DATA_ERRNO:
-		r->err = big2host(r->err);
+		r->err = big2wire(r->err);
 	case LAUNCH_DATA_MACHPORT:
 		break;
 	default:
@@ -729,12 +815,13 @@ launch_data_unpack(void *data, size_t data_size, int *fds, size_t fd_cnt, size_t
 		break;
 	}
 
-	r->type = big2host(r->type);
+	r->type = big2wire(r->type);
 
 	return r;
 }
 
-int launchd_msg_send(launch_t lh, launch_data_t d)
+int
+launchd_msg_send(launch_t lh, launch_data_t d)
 {
 	struct launch_msg_header lmh;
 	struct cmsghdr *cm = NULL;
@@ -742,6 +829,12 @@ int launchd_msg_send(launch_t lh, launch_data_t d)
 	struct iovec iov[2];
 	size_t sentctrllen = 0;
 	int r;
+
+	int fd2use = launchd_getfd(lh);
+	if( fd2use == -1 ) {
+		errno = EPERM;
+		return -1;
+	}
 
 	memset(&mh, 0, sizeof(mh));
 
@@ -768,9 +861,9 @@ int launchd_msg_send(launch_t lh, launch_data_t d)
 
 		lh->sendfdcnt = fd_slots_used;
 
-		msglen = lh->sendlen + sizeof(struct launch_msg_header); /* type promotion to make the host2big() macro work right */
-		lmh.len = host2big(msglen);
-		lmh.magic = host2big(LAUNCH_MSG_HEADER_MAGIC);
+		msglen = lh->sendlen + sizeof(struct launch_msg_header); /* type promotion to make the host2wire() macro work right */
+		lmh.len = host2wire(msglen);
+		lmh.magic = host2wire(LAUNCH_MSG_HEADER_MAGIC);
 
 		iov[0].iov_base = &lmh;
 		iov[0].iov_len = sizeof(lmh);
@@ -799,7 +892,7 @@ int launchd_msg_send(launch_t lh, launch_data_t d)
 		memcpy(CMSG_DATA(cm), lh->sendfds, lh->sendfdcnt * sizeof(int));
 	}
 
-	if ((r = sendmsg(lh->fd, &mh, 0)) == -1) {
+	if ((r = sendmsg(fd2use, &mh, 0)) == -1) {
 		return -1;
 	} else if (r == 0) {
 		errno = ECONNRESET;
@@ -832,7 +925,6 @@ int launchd_msg_send(launch_t lh, launch_data_t d)
 
 	return 0;
 }
-
 
 int
 launch_get_fd(void)
@@ -895,6 +987,23 @@ launch_msg(launch_data_t d)
 	return r;
 }
 
+extern kern_return_t vproc_mig_set_security_session(mach_port_t, uuid_t, mach_port_t);
+
+static inline bool
+uuid_data_is_null(launch_data_t d)
+{
+	bool result = false;
+	if( launch_data_get_type(d) == LAUNCH_DATA_OPAQUE && launch_data_get_opaque_size(d) == sizeof(uuid_t) ) {
+		uuid_t existing_uuid;
+		memcpy(existing_uuid, launch_data_get_opaque(d), sizeof(uuid_t));
+		
+		/* A NULL UUID tells us to keep the session inherited from the parent. */
+		result = (bool)uuid_is_null(existing_uuid);
+	}
+	
+	return result;
+}
+
 launch_data_t
 launch_msg_internal(launch_data_t d)
 {
@@ -907,11 +1016,64 @@ launch_msg_internal(launch_data_t d)
 	}
 
 	pthread_once(&_lc_once, launch_client_init);
-
 	if (!_lc) {
 		errno = ENOTCONN;
 		return NULL;
 	}
+
+	int fd2use = -1;
+	if( (launch_data_get_type(d) == LAUNCH_DATA_STRING && strcmp(launch_data_get_string(d), LAUNCH_KEY_CHECKIN) == 0) || s_am_embedded_god ) {
+		_lc->l->which = LAUNCHD_USE_CHECKIN_FD;
+	} else {
+		_lc->l->which = LAUNCHD_USE_OTHER_FD;
+	}
+	
+	fd2use = launchd_getfd(_lc->l);
+	
+	if( fd2use == -1 ) {
+		errno = EPERM;
+		return NULL;
+	}
+	
+#if !TARGET_OS_EMBEDDED
+	uuid_t uuid;
+	launch_data_t uuid_d = NULL;
+	size_t jobs_that_need_sessions = 0;
+	if( d && launch_data_get_type(d) == LAUNCH_DATA_DICTIONARY ) {
+		launch_data_t v = launch_data_dict_lookup(d, LAUNCH_KEY_SUBMITJOB);
+
+		if( v && launch_data_get_type(v) == LAUNCH_DATA_ARRAY ) {
+			size_t cnt = launch_data_array_get_count(v);
+			size_t i = 0;
+
+			uuid_generate(uuid);
+			for( i = 0; i < cnt; i++ ) {
+				launch_data_t ji = launch_data_array_get_index(v, i);
+				if( launch_data_get_type(ji) == LAUNCH_DATA_DICTIONARY ) {
+					launch_data_t existing_v = launch_data_dict_lookup(ji, LAUNCH_JOBKEY_SECURITYSESSIONUUID);
+					if( !existing_v ) {
+						/* I really wish these were reference-counted. Sigh... */
+						uuid_d = launch_data_new_opaque(uuid, sizeof(uuid));
+						launch_data_dict_insert(ji, uuid_d, LAUNCH_JOBKEY_SECURITYSESSIONUUID);
+						jobs_that_need_sessions++;
+					} else if( launch_data_get_type(existing_v) == LAUNCH_DATA_OPAQUE ) {
+						jobs_that_need_sessions += uuid_data_is_null(existing_v) ? 0 : 1;
+					}
+				}
+			}
+		} else if( v && launch_data_get_type(v) == LAUNCH_DATA_DICTIONARY ) {
+			launch_data_t existing_v = launch_data_dict_lookup(v, LAUNCH_JOBKEY_SECURITYSESSIONUUID);
+			if( !existing_v ) {
+				uuid_generate(uuid);
+				uuid_d = launch_data_new_opaque(uuid, sizeof(uuid));
+				launch_data_dict_insert(v, uuid_d, LAUNCH_JOBKEY_SECURITYSESSIONUUID);
+				jobs_that_need_sessions++;
+			} else {
+				jobs_that_need_sessions += uuid_data_is_null(existing_v) ? 0 : 1;
+			}
+		}
+	}
+#endif
 
 	pthread_mutex_lock(&_lc->mtx);
 
@@ -921,7 +1083,7 @@ launch_msg_internal(launch_data_t d)
 				goto out;
 		} while (launchd_msg_send(_lc->l, NULL) == -1);
 	}
-
+	
 	while (resp == NULL) {
 		if (d == NULL && launch_data_array_get_count(_lc->async_resp) > 0) {
 			resp = launch_data_array_pop_first(_lc->async_resp);
@@ -937,20 +1099,58 @@ launch_msg_internal(launch_data_t d)
 				fd_set rfds;
 
 				FD_ZERO(&rfds);
-				FD_SET(_lc->l->fd, &rfds);
+				FD_SET(fd2use, &rfds);
 			
-				select(_lc->l->fd + 1, &rfds, NULL, NULL, NULL);
+				select(fd2use + 1, &rfds, NULL, NULL, NULL);
 			}
 		}
 	}
 
 out:
+#if !TARGET_OS_EMBEDDED
+	if( !uuid_is_null(uuid) && resp && jobs_that_need_sessions > 0 ) {
+		mach_port_t session_port = _audit_session_self();
+		launch_data_type_t resp_type = launch_data_get_type(resp);
+		
+		bool set_session = false;
+		if( resp_type == LAUNCH_DATA_ERRNO ) {
+			set_session = ( launch_data_get_errno(resp) == ENEEDAUTH );
+		} else if( resp_type == LAUNCH_DATA_ARRAY ) {
+			set_session = true;
+		}
+		
+		kern_return_t kr = KERN_FAILURE;
+		if( set_session ) {
+			kr = vproc_mig_set_security_session(bootstrap_port, uuid, session_port);
+		}
+		
+		if( kr == KERN_SUCCESS ) {
+			if( resp_type == LAUNCH_DATA_ERRNO ) {
+				launch_data_set_errno(resp, 0);
+			} else {
+				size_t i = 0;
+				for( i = 0; i < launch_data_array_get_count(resp); i++ ) {
+					launch_data_t ri = launch_data_array_get_index(resp, i);
+					
+					int recvd_err = 0;
+					if( launch_data_get_type(ri) == LAUNCH_DATA_ERRNO && (recvd_err = launch_data_get_errno(ri)) ) {
+						launch_data_set_errno(ri, recvd_err == ENEEDAUTH ? 0 : recvd_err);
+					}
+				}
+			}
+		}
+
+		mach_port_deallocate(mach_task_self(), session_port);
+	}
+#endif
+
 	pthread_mutex_unlock(&_lc->mtx);
 
 	return resp;
 }
 
-int launchd_msg_recv(launch_t lh, void (*cb)(launch_data_t, void *), void *context)
+int
+launchd_msg_recv(launch_t lh, void (*cb)(launch_data_t, void *), void *context)
 {
 	struct cmsghdr *cm = alloca(4096); 
 	launch_data_t rmsg = NULL;
@@ -958,6 +1158,12 @@ int launchd_msg_recv(launch_t lh, void (*cb)(launch_data_t, void *), void *conte
 	struct msghdr mh;
 	struct iovec iov;
 	int r;
+
+	int fd2use = launchd_getfd(lh);
+	if( fd2use == -1 ) {
+		errno = EPERM;
+		return -1;
+	}
 
 	memset(&mh, 0, sizeof(mh));
 	mh.msg_iov = &iov;
@@ -970,7 +1176,7 @@ int launchd_msg_recv(launch_t lh, void (*cb)(launch_data_t, void *), void *conte
 	mh.msg_control = cm;
 	mh.msg_controllen = 4096;
 
-	if ((r = recvmsg(lh->fd, &mh, 0)) == -1)
+	if ((r = recvmsg(fd2use, &mh, 0)) == -1)
 		return -1;
 	if (r == 0) {
 		errno = ECONNRESET;
@@ -998,9 +1204,9 @@ int launchd_msg_recv(launch_t lh, void (*cb)(launch_data_t, void *), void *conte
 		if (lh->recvlen < sizeof(struct launch_msg_header))
 			goto need_more_data;
 
-		tmplen = big2host(lmhp->len);
+		tmplen = big2wire(lmhp->len);
 
-		if (big2host(lmhp->magic) != LAUNCH_MSG_HEADER_MAGIC || tmplen <= sizeof(struct launch_msg_header)) {
+		if (big2wire(lmhp->magic) != LAUNCH_MSG_HEADER_MAGIC || tmplen <= sizeof(struct launch_msg_header)) {
 			errno = EBADRPC;
 			goto out_bad;
 		}
@@ -1049,7 +1255,8 @@ out_bad:
 	return -1;
 }
 
-launch_data_t launch_data_copy(launch_data_t o)
+launch_data_t
+launch_data_copy(launch_data_t o)
 {
 	launch_data_t r = launch_data_alloc(o->type);
 	size_t i;
@@ -1100,14 +1307,16 @@ launchd_batch_query(void)
 	return false;
 }
 
-static int _fd(int fd)
+int
+_fd(int fd)
 {
 	if (fd >= 0)
 		fcntl(fd, F_SETFD, 1);
 	return fd;
 }
 
-launch_data_t launch_data_new_errno(int e)
+launch_data_t
+launch_data_new_errno(int e)
 {
 	launch_data_t r = launch_data_alloc(LAUNCH_DATA_ERRNO);
 
@@ -1117,7 +1326,8 @@ launch_data_t launch_data_new_errno(int e)
 	return r;
 }
 
-launch_data_t launch_data_new_fd(int fd)
+launch_data_t
+launch_data_new_fd(int fd)
 {
 	launch_data_t r = launch_data_alloc(LAUNCH_DATA_FD);
 
@@ -1127,7 +1337,8 @@ launch_data_t launch_data_new_fd(int fd)
 	return r;
 }
 
-launch_data_t launch_data_new_machport(mach_port_t p)
+launch_data_t
+launch_data_new_machport(mach_port_t p)
 {
 	launch_data_t r = launch_data_alloc(LAUNCH_DATA_MACHPORT);
 
@@ -1137,7 +1348,8 @@ launch_data_t launch_data_new_machport(mach_port_t p)
 	return r;
 }
 
-launch_data_t launch_data_new_integer(long long n)
+launch_data_t
+launch_data_new_integer(long long n)
 {
 	launch_data_t r = launch_data_alloc(LAUNCH_DATA_INTEGER);
 
@@ -1147,7 +1359,8 @@ launch_data_t launch_data_new_integer(long long n)
 	return r;
 }
 
-launch_data_t launch_data_new_bool(bool b)
+launch_data_t
+launch_data_new_bool(bool b)
 {
 	launch_data_t r = launch_data_alloc(LAUNCH_DATA_BOOL);
 
@@ -1157,7 +1370,8 @@ launch_data_t launch_data_new_bool(bool b)
 	return r;
 }
 
-launch_data_t launch_data_new_real(double d)
+launch_data_t
+launch_data_new_real(double d)
 {
 	launch_data_t r = launch_data_alloc(LAUNCH_DATA_REAL);
 
@@ -1167,7 +1381,8 @@ launch_data_t launch_data_new_real(double d)
 	return r;
 }
 
-launch_data_t launch_data_new_string(const char *s)
+launch_data_t
+launch_data_new_string(const char *s)
 {
 	launch_data_t r = launch_data_alloc(LAUNCH_DATA_STRING);
 
@@ -1182,7 +1397,8 @@ launch_data_t launch_data_new_string(const char *s)
 	return r;
 }
 
-launch_data_t launch_data_new_opaque(const void *o, size_t os)
+launch_data_t
+launch_data_new_opaque(const void *o, size_t os)
 {
 	launch_data_t r = launch_data_alloc(LAUNCH_DATA_OPAQUE);
 
@@ -1200,35 +1416,18 @@ launch_data_t launch_data_new_opaque(const void *o, size_t os)
 void
 load_launchd_jobs_at_loginwindow_prompt(int flags __attribute__((unused)), ...)
 {
-	_vprocmgr_init("LoginWindow");
+	_vprocmgr_init(VPROCMGR_SESSION_LOGINWINDOW);
 }
 
 pid_t
-create_and_switch_to_per_session_launchd(const char *login __attribute__((unused)), int flags __attribute__((unused)), ...)
+create_and_switch_to_per_session_launchd(const char *login __attribute__((unused)), int flags, ...)
 {
-	mach_port_t bezel_ui_server;
-	struct stat sb;
 	uid_t target_user = geteuid() ? geteuid() : getuid();
-
-	if (_vprocmgr_move_subset_to_user(target_user, "Aqua")) {
+	if (_vprocmgr_move_subset_to_user(target_user, VPROCMGR_SESSION_AQUA, flags)) {
 		return -1;
-	}
-
-#define BEZEL_UI_PATH "/System/Library/LoginPlugins/BezelServices.loginPlugin/Contents/Resources/BezelUI/BezelUIServer"
-#define BEZEL_UI_PLIST "/System/Library/LaunchAgents/com.apple.BezelUIServer.plist"
-#define BEZEL_UI_SERVICE "BezelUI"
-
-	if (!(stat(BEZEL_UI_PLIST, &sb) == 0 && S_ISREG(sb.st_mode))) {
-		if (bootstrap_create_server(bootstrap_port, BEZEL_UI_PATH, target_user, true, &bezel_ui_server) == BOOTSTRAP_SUCCESS) {
-			mach_port_t srv;
-
-			if (bootstrap_create_service(bezel_ui_server, BEZEL_UI_SERVICE, &srv) == BOOTSTRAP_SUCCESS) {
-				mach_port_deallocate(mach_task_self(), srv);
-			}
-
-			mach_port_deallocate(mach_task_self(), bezel_ui_server);
-		}
 	}
 
 	return 1;
 }
+
+

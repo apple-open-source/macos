@@ -36,19 +36,8 @@
 
 /* int32_t	OSAtomicAdd32( int32_t theAmount, int32_t *theValue ); */
 
-#if defined(__ppc__)
 MI_ENTRY_POINT(_OSAtomicAdd32)
     ba      _COMM_PAGE_ATOMIC_ADD32
-#elif defined(__ppc64__)
-MI_ENTRY_POINT(_OSAtomicAdd32)
-    mflr    r12			// save return address
-    bla	    _COMM_PAGE_ATOMIC_ADD32
-    mtlr    r12
-    extsw   r3,r3		// sign extend return value
-    blr
-#else
-#error undefined architecture
-#endif
 
 
 /* int32_t	OSAtomicOr32( int32_t theMask, int32_t *theValue ); */
@@ -251,13 +240,7 @@ MI_ENTRY_POINT(_OSAtomicAdd32Barrier)
     cmpwi   r3,0                // did swap occur?
     beq--   1b                  // compare-and-swap failed, try again
     mtlr    r12                 // restore return adddress
-#if defined(__ppc__)
     mr      r3,r4               // return new value
-#elif defined(__ppc64__)
-    extsw   r3,r4		// sign extend return value
-#else
-#error undefined architecture
-#endif
     blr
 
 

@@ -1,6 +1,8 @@
 # Configure template for gzip.
 
-# Copyright (C) 1999, 2000, 2001, 2002, 2006 Free Software Foundation, Inc.
+# Copyright (C) 1999, 2000, 2001, 2002, 2006, 2007 Free Software
+# Foundation, Inc.
+
 # Copyright (C) 1992-1993 Jean-loup Gailly
 
 # This program is free software; you can redistribute it and/or modify
@@ -19,7 +21,7 @@
 # 02111-1307, USA.
 
 AC_PREREQ([2.60])
-AC_INIT([gzip], [1.3.10], [bug-gzip@gnu.org])
+AC_INIT([gzip], [1.3.12], [bug-gzip@gnu.org])
 AC_CONFIG_SRCDIR(gzip.c)
 AC_CONFIG_AUX_DIR(build-aux)
 AC_CONFIG_HEADERS([lib/config.h:lib/config.hin])

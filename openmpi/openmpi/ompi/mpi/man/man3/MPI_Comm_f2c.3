@@ -2,7 +2,7 @@
 .\" Copyright (c) 1996 Thinking Machines Corporation
 .TH MPI_Comm_f2c 3OpenMPI "September 2006" "Open MPI 1.2" " "
 .SH NAME
-\fBHandle translation routines \fP \- Translates a C handle into a Fortran handle, or vice versa. 
+\fBMPI_Comm_f2c, MPI_Comm_c2f, MPI_File_f2c, MPI_File_c2f, MPI_Info_f2c, MPI_Info_c2f, MPI_Op_f2c, MPI_Op_c2f, MPI_Request_f2c, MPI_Request_c2f, MPI_Type_f2c, MPI_Type_c2f, MPI_Win_f2c, MPI_Win_c2f \fP \- Translates a C handle into a Fortran handle, or vice versa.
 
 .SH SYNTAX
 .ft R
@@ -40,6 +40,3 @@ Handles are passed between Fortran and C or C++ by using an explicit C wrapper t
 For example, if \fIcomm\fP is a valid Fortran handle to a communicator, then MPI_Comm_f2c returns a valid C handle to that same communicator; if \fIcomm\fP = MPI_COMM_NULL (Fortran value), then MPI_Comm_f2c returns a null C handle; if \fIcomm\fP is an invalid Fortran handle, then MPI_Comm_f2c returns an invalid C handle. 
 .SH NOTE
 This function does not return an error value. Consequently, the result of calling it before MPI_Init or after MPI_Finalize is undefined.
-
-
-

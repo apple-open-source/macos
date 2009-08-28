@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 1997-2004, International Business Machines
+*   Copyright (C) 1997-2008, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *
@@ -370,13 +370,15 @@ void ResourceBundle::getVersion(UVersionInfo versionInfo) const {
 const Locale &ResourceBundle::getLocale(void) const
 {
     UBool needInit;
-    umtx_lock(NULL);
-    needInit = (fLocale == NULL);
-    umtx_unlock(NULL);
+    UMTX_CHECK(NULL, (fLocale == NULL), needInit);
     if(needInit) {
         UErrorCode status = U_ZERO_ERROR;
         const char *localeName = ures_getLocale(fResource, &status);
         Locale  *tLocale = new Locale(localeName);
+        // Null pointer check
+        if (tLocale == NULL) {
+        	return Locale::getDefault(); // Return default locale if one could not be created.
+        }
         umtx_lock(NULL);
         ResourceBundle *me = (ResourceBundle *)this; // semantically const
         if (me->fLocale == NULL) {

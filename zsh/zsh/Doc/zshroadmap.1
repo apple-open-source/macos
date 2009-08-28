@@ -1,4 +1,4 @@
-.TH "ZSHROADMAP" "1" "April 19, 2006" "zsh 4\&.3\&.4"
+.TH "ZSHROADMAP" "1" "October 30, 2008" "zsh 4\&.3\&.9"
 .SH "NAME"
 zshroadmap \- informal introduction to the zsh manual
 .\" Yodl file: Zsh/roadmap.yo
@@ -14,11 +14,13 @@ When it starts, the shell reads commands from various files\&.  These can
 be created or edited to customize the shell\&.  See the section
 Startup/Shutdown Files in \fIzsh\fP(1)\&.
 .PP
-If no personal intialization files exist for the current user, a function
+If no personal initialization files exist for the current user, a function
 is run to help you change some of the most common settings\&.  It won\&'t
 appear if your administrator has disabled the \fBzsh/newuser\fP module\&.
 The function is designed to be self\-explanatory\&.  You can run it by hand
 with `\fBautoload \-Uz zsh\-newuser\-install; zsh\-newuser\-install \-f\fP\&'\&.
+See also
+the section User Configuration Functions in \fIzshcontrib\fP(1)\&.
 .PP
 .SH "INTERACTIVE USE"
 .PP
@@ -37,6 +39,13 @@ set appropriate variables, and the number of history lines retained by
 default is quite small (30 lines)\&.  See the description of the shell
 variables (referred to in the documentation as parameters) \fBHISTFILE\fP,
 \fBHISTSIZE\fP and \fBSAVEHIST\fP in \fIzshparam\fP(1)\&.
+.PP
+The shell now supports the UTF\-8 character set (and also others if
+supported by the operating system)\&.  This is (mostly) handled transparently
+by the shell, but the degree of support in terminal emulators is variable\&.
+There is some discussion of this in the shell FAQ,
+http://zsh\&.dotsrc\&.org/FAQ/ \&.  Note in particular that for combining
+characters to be handled the option \fBCOMBINING_CHARS\fP needs to be set\&.
 .PP
 .SS "Completion"
 .PP

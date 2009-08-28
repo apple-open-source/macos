@@ -1,12 +1,13 @@
 # http://module-build.sourceforge.net/META-spec.html
 #XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
 name:         SOAP-Lite
-version:      0.67
+version:      0.69
 version_from: lib/SOAP/Lite.pm
 installdirs:  site
 requires:
     Compress::Zlib:                0
     Crypt::SSLeay:                 0
+    FCGI:                          0
     HTTP::Daemon:                  0
     IO::File:                      0
     MIME::Base64:                  0

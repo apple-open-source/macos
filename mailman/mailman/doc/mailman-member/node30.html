@@ -1,0 +1,185 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+<link rel="STYLESHEET" href="mailman-member.css" type='text/css' />
+<link rel="first" href="mailman-member.html" title='GNU mailman - list Member Manual' />
+<link rel='contents' href='contents.html' title="Contents" />
+<link rel='last' href='about.html' title='About this document...' />
+<link rel='help' href='about.html' title='About this document...' />
+<link rel="next" href="node31.html" />
+<link rel="prev" href="node29.html" />
+<link rel="parent" href="node29.html" />
+<link rel="next" href="node31.html" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name='aesop' content='information' />
+<title>9.1 How do I make sure that my post has the right topic?</title>
+</head>
+<body>
+<div class="navigation">
+<div id='top-navigation-panel' xml:id='top-navigation-panel'>
+<table align="center" width="100%" cellpadding="0" cellspacing="2">
+<tr>
+<td class='online-navigation'><a rel="prev" title="9 mailing list topics"
+  href="node29.html"><img src='previous.png'
+  border='0' height='32'  alt='Previous Page' width='32' /></a></td>
+<td class='online-navigation'><a rel="parent" title="9 mailing list topics"
+  href="node29.html"><img src='up.png'
+  border='0' height='32'  alt='Up one Level' width='32' /></a></td>
+<td class='online-navigation'><a rel="next" title="9.2 how do I"
+  href="node31.html"><img src='next.png'
+  border='0' height='32'  alt='Next Page' width='32' /></a></td>
+<td align="center" width="100%">GNU Mailman - List Member Manual</td>
+<td class='online-navigation'><a rel="contents" title="Table of Contents"
+  href="contents.html"><img src='contents.png'
+  border='0' height='32'  alt='Contents' width='32' /></a></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+</tr></table>
+<div class='online-navigation'>
+<b class="navlabel">Previous:</b>
+<a class="sectref" rel="prev" href="node29.html">9 Mailing list topics</a>
+<b class="navlabel">Up:</b>
+<a class="sectref" rel="parent" href="node29.html">9 Mailing list topics</a>
+<b class="navlabel">Next:</b>
+<a class="sectref" rel="next" href="node31.html">9.2 How do I</a>
+</div>
+<hr /></div>
+</div>
+<!--End of Navigation Panel-->
+
+<h2><a name="SECTION002910000000000000000"></a><a name="sec:posttopic"></a>
+<br>
+9.1 How do I make sure that my post has the right 
+	topic?
+</h2>
+
+<p>
+When a list administrator defines a topic, he or she sets three things:
+
+<ul>
+<li>a topic name
+</li>
+<li>a regular expression (regexp)
+</li>
+<li>a description
+</li>
+</ul>
+
+<p>
+You can view this information by logging in to your member options page. 
+ (See Section&nbsp;<a href="node9.html#sec:web">3.1</a> for more details on how to do this.) and 
+clicking on the "details" link for any topic that interests you.
+
+<p>
+To post on a given topic, you need to make sure that the 
+<span class="mailheader">Keywords:</span> or <span class="mailheader">Subject:</span> headers in a message  
+match the <em>regular expression</em> for that topic.  
+Regular expressions can actually be fairly complex, so you may want to 
+just ask the list administrator if you don't know how to make
+heads or tails of the expression given.  
+
+<p>
+Most Mailman topic expressions will be fairly simple regular expressions, so 
+in this document we will simply give you some common examples.  Regular 
+expressions are a bit too complex to teach in a few lines here, so if you
+really want to understand how the regular expressions work, you should
+find a tutorial or reference elsewhere.  (For example, DevShed has a decent
+tutorial at 
+<a class="url" href="http://www.devshed.com/Server_Side/Administration/RegExp/">http://www.devshed.com/Server_Side/Administration/RegExp/</a>)  
+
+<p>
+Here are some examples of possible regular expressions and matching lines:
+
+<p>
+<div class="center"><table class="realtable">
+  <thead>
+    <tr>
+      <th class="left"  >Regular expression</th>
+      <th class="left"  >Matching lines</th>
+      </tr>
+    </thead>
+  <tbody>
+    <tr><td class="left"   valign="baseline">zuff</td>
+        <td class="left"  >Keywords: zuff</td></tr>
+    <tr><td class="left"   valign="baseline">zuff</td>
+        <td class="left"  >Keywords: ZUFF</td></tr>
+    <tr><td class="left"   valign="baseline">zuff</td>
+        <td class="left"  >Keywords: Zuff</td></tr>
+    <tr><td class="left"   valign="baseline">zuff</td>
+        <td class="left"  >Keywords: amaryllis, zuff, applesauce</td></tr>
+    <tr><td class="left"   valign="baseline">zuff</td>
+        <td class="left"  >Subject: [zuff] Do you have the right stuff for zuff?</td></tr>
+    <tr><td class="left"   valign="baseline">zuff</td>
+        <td class="left"  >Subject: Do you have the right stuff for zuff?</td></tr>
+    <tr><td class="left"   valign="baseline">zuff</td>
+        <td class="left"  >Subject: What is zuff?</td></tr>
+	
+    <tr><td class="left"   valign="baseline">\[zuff\]</td>
+        <td class="left"  >Keywords: [zuff]</td></tr>
+    <tr><td class="left"   valign="baseline">\[zuff\]</td>
+        <td class="left"  >Subject: [zuff]	Do you have the right stuff?</td></tr>
+    <tr><td class="left"   valign="baseline">\[zuff\]</td>
+        <td class="left"  >Subject: Online zuff tutorials (was Re: [zuff] What is zuff?)</td></tr></tbody>
+</table></div>
+
+<p>
+A few notes:
+
+<ul>
+<li>The matching is case-insensitive, so if zuff matches, so will ZUFF,
+	 zuFF, and any other variations in capitalization.
+</li>
+<li>Some characters have special meaning in a regular expression, so
+	to match those characters specifically, they must be "escaped" with a 
+	backslash (\).  As you can see in the above example, 
+	[ and ] are such characters.  (Others include ".", "?", and "*").  
+	The backslash is also used for other things (I wasn't kidding about 
+	regular expressions being complex: consult other documentation
+	for details about other uses of the backslash character), but this 
+	is the most likely use in a topic expression.
+</li>
+</ul>
+
+<p>
+
+<div class="navigation">
+<div class='online-navigation'>
+<p></p><hr />
+<table align="center" width="100%" cellpadding="0" cellspacing="2">
+<tr>
+<td class='online-navigation'><a rel="prev" title="9 mailing list topics"
+  href="node29.html"><img src='previous.png'
+  border='0' height='32'  alt='Previous Page' width='32' /></a></td>
+<td class='online-navigation'><a rel="parent" title="9 mailing list topics"
+  href="node29.html"><img src='up.png'
+  border='0' height='32'  alt='Up one Level' width='32' /></a></td>
+<td class='online-navigation'><a rel="next" title="9.2 how do I"
+  href="node31.html"><img src='next.png'
+  border='0' height='32'  alt='Next Page' width='32' /></a></td>
+<td align="center" width="100%">GNU Mailman - List Member Manual</td>
+<td class='online-navigation'><a rel="contents" title="Table of Contents"
+  href="contents.html"><img src='contents.png'
+  border='0' height='32'  alt='Contents' width='32' /></a></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+</tr></table>
+<div class='online-navigation'>
+<b class="navlabel">Previous:</b>
+<a class="sectref" rel="prev" href="node29.html">9 Mailing list topics</a>
+<b class="navlabel">Up:</b>
+<a class="sectref" rel="parent" href="node29.html">9 Mailing list topics</a>
+<b class="navlabel">Next:</b>
+<a class="sectref" rel="next" href="node31.html">9.2 How do I</a>
+</div>
+</div>
+<hr />
+<span class="release-info">Release 2.1, documentation updated on January 11, 2009.</span>
+</div>
+<!--End of Navigation Panel-->
+
+</body>
+</html>

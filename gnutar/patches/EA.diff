@@ -1,303 +1,13 @@
-diff -u --exclude=CVS -r -udbp config.hin config.hin
---- config.hin	2004-05-11 01:14:44.000000000 -0700
-+++ config.hin	2005-03-21 13:00:28.000000000 -0800
-@@ -91,6 +91,12 @@
- /* Define to 1 if you have the `clock_settime' function. */
- #undef HAVE_CLOCK_SETTIME
- 
-+/* Define to 1 if you have the `copyfile' function. */
-+#undef HAVE_COPYFILE
-+
-+/* Define to 1 if you have the <copyfile.h> header file. */
-+#undef HAVE_COPYFILE_H
-+
- /* Define if the GNU dcgettext() function is already present or preinstalled.
-    */
- #undef HAVE_DCGETTEXT
-diff -u --exclude=CVS -r -udbp configure configure
---- configure	2004-05-11 01:13:36.000000000 -0700
-+++ configure	2005-03-21 13:00:28.000000000 -0800
-@@ -24384,6 +24384,258 @@
- fi
- 
- 
-+for ac_func in copyfile
-+do
-+as_ac_var=`echo "ac_cv_func_$ac_func" | $as_tr_sh`
-+echo "$as_me:$LINENO: checking for $ac_func" >&5
-+echo $ECHO_N "checking for $ac_func... $ECHO_C" >&6
-+if eval "test \"\${$as_ac_var+set}\" = set"; then
-+  echo $ECHO_N "(cached) $ECHO_C" >&6
-+else
-+  cat >conftest.$ac_ext <<_ACEOF
-+/* confdefs.h.  */
-+_ACEOF
-+cat confdefs.h >>conftest.$ac_ext
-+cat >>conftest.$ac_ext <<_ACEOF
-+/* end confdefs.h.  */
-+/* Define $ac_func to an innocuous variant, in case <limits.h> declares $ac_func.
-+   For example, HP-UX 11i <limits.h> declares gettimeofday.  */
-+#define $ac_func innocuous_$ac_func
-+
-+/* System header to define __stub macros and hopefully few prototypes,
-+    which can conflict with char $ac_func (); below.
-+    Prefer <limits.h> to <assert.h> if __STDC__ is defined, since
-+    <limits.h> exists even on freestanding compilers.  */
-+
-+#ifdef __STDC__
-+# include <limits.h>
-+#else
-+# include <assert.h>
-+#endif
-+
-+#undef $ac_func
-+
-+/* Override any gcc2 internal prototype to avoid an error.  */
-+#ifdef __cplusplus
-+extern "C"
-+{
-+#endif
-+/* We use char because int might match the return type of a gcc2
-+   builtin and then its argument prototype would still apply.  */
-+char $ac_func ();
-+/* The GNU C library defines this for functions which it implements
-+    to always fail with ENOSYS.  Some functions are actually named
-+    something starting with __ and the normal name is an alias.  */
-+#if defined (__stub_$ac_func) || defined (__stub___$ac_func)
-+choke me
-+#else
-+char (*f) () = $ac_func;
-+#endif
-+#ifdef __cplusplus
-+}
-+#endif
-+
-+int
-+main ()
-+{
-+return f != $ac_func;
-+  ;
-+  return 0;
-+}
-+_ACEOF
-+rm -f conftest.$ac_objext conftest$ac_exeext
-+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
-+  (eval $ac_link) 2>conftest.er1
-+  ac_status=$?
-+  grep -v '^ *+' conftest.er1 >conftest.err
-+  rm -f conftest.er1
-+  cat conftest.err >&5
-+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-+  (exit $ac_status); } &&
-+	 { ac_try='test -z "$ac_c_werror_flag"
-+			 || test ! -s conftest.err'
-+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-+  (eval $ac_try) 2>&5
-+  ac_status=$?
-+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-+  (exit $ac_status); }; } &&
-+	 { ac_try='test -s conftest$ac_exeext'
-+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-+  (eval $ac_try) 2>&5
-+  ac_status=$?
-+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-+  (exit $ac_status); }; }; then
-+  eval "$as_ac_var=yes"
-+else
-+  echo "$as_me: failed program was:" >&5
-+sed 's/^/| /' conftest.$ac_ext >&5
-+
-+eval "$as_ac_var=no"
-+fi
-+rm -f conftest.err conftest.$ac_objext \
-+      conftest$ac_exeext conftest.$ac_ext
-+fi
-+echo "$as_me:$LINENO: result: `eval echo '${'$as_ac_var'}'`" >&5
-+echo "${ECHO_T}`eval echo '${'$as_ac_var'}'`" >&6
-+if test `eval echo '${'$as_ac_var'}'` = yes; then
-+  cat >>confdefs.h <<_ACEOF
-+#define `echo "HAVE_$ac_func" | $as_tr_cpp` 1
-+_ACEOF
-+
-+fi
-+done
-+
-+
-+for ac_header in copyfile.h
-+do
-+as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
-+if eval "test \"\${$as_ac_Header+set}\" = set"; then
-+  echo "$as_me:$LINENO: checking for $ac_header" >&5
-+echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6
-+if eval "test \"\${$as_ac_Header+set}\" = set"; then
-+  echo $ECHO_N "(cached) $ECHO_C" >&6
-+fi
-+echo "$as_me:$LINENO: result: `eval echo '${'$as_ac_Header'}'`" >&5
-+echo "${ECHO_T}`eval echo '${'$as_ac_Header'}'`" >&6
-+else
-+  # Is the header compilable?
-+echo "$as_me:$LINENO: checking $ac_header usability" >&5
-+echo $ECHO_N "checking $ac_header usability... $ECHO_C" >&6
-+cat >conftest.$ac_ext <<_ACEOF
-+/* confdefs.h.  */
-+_ACEOF
-+cat confdefs.h >>conftest.$ac_ext
-+cat >>conftest.$ac_ext <<_ACEOF
-+/* end confdefs.h.  */
-+$ac_includes_default
-+#include <$ac_header>
-+_ACEOF
-+rm -f conftest.$ac_objext
-+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
-+  (eval $ac_compile) 2>conftest.er1
-+  ac_status=$?
-+  grep -v '^ *+' conftest.er1 >conftest.err
-+  rm -f conftest.er1
-+  cat conftest.err >&5
-+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-+  (exit $ac_status); } &&
-+	 { ac_try='test -z "$ac_c_werror_flag"
-+			 || test ! -s conftest.err'
-+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-+  (eval $ac_try) 2>&5
-+  ac_status=$?
-+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-+  (exit $ac_status); }; } &&
-+	 { ac_try='test -s conftest.$ac_objext'
-+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-+  (eval $ac_try) 2>&5
-+  ac_status=$?
-+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-+  (exit $ac_status); }; }; then
-+  ac_header_compiler=yes
-+else
-+  echo "$as_me: failed program was:" >&5
-+sed 's/^/| /' conftest.$ac_ext >&5
-+
-+ac_header_compiler=no
-+fi
-+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
-+echo "$as_me:$LINENO: result: $ac_header_compiler" >&5
-+echo "${ECHO_T}$ac_header_compiler" >&6
-+
-+# Is the header present?
-+echo "$as_me:$LINENO: checking $ac_header presence" >&5
-+echo $ECHO_N "checking $ac_header presence... $ECHO_C" >&6
-+cat >conftest.$ac_ext <<_ACEOF
-+/* confdefs.h.  */
-+_ACEOF
-+cat confdefs.h >>conftest.$ac_ext
-+cat >>conftest.$ac_ext <<_ACEOF
-+/* end confdefs.h.  */
-+#include <$ac_header>
-+_ACEOF
-+if { (eval echo "$as_me:$LINENO: \"$ac_cpp conftest.$ac_ext\"") >&5
-+  (eval $ac_cpp conftest.$ac_ext) 2>conftest.er1
-+  ac_status=$?
-+  grep -v '^ *+' conftest.er1 >conftest.err
-+  rm -f conftest.er1
-+  cat conftest.err >&5
-+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-+  (exit $ac_status); } >/dev/null; then
-+  if test -s conftest.err; then
-+    ac_cpp_err=$ac_c_preproc_warn_flag
-+    ac_cpp_err=$ac_cpp_err$ac_c_werror_flag
-+  else
-+    ac_cpp_err=
-+  fi
-+else
-+  ac_cpp_err=yes
-+fi
-+if test -z "$ac_cpp_err"; then
-+  ac_header_preproc=yes
-+else
-+  echo "$as_me: failed program was:" >&5
-+sed 's/^/| /' conftest.$ac_ext >&5
-+
-+  ac_header_preproc=no
-+fi
-+rm -f conftest.err conftest.$ac_ext
-+echo "$as_me:$LINENO: result: $ac_header_preproc" >&5
-+echo "${ECHO_T}$ac_header_preproc" >&6
-+
-+# So?  What about this header?
-+case $ac_header_compiler:$ac_header_preproc:$ac_c_preproc_warn_flag in
-+  yes:no: )
-+    { echo "$as_me:$LINENO: WARNING: $ac_header: accepted by the compiler, rejected by the preprocessor!" >&5
-+echo "$as_me: WARNING: $ac_header: accepted by the compiler, rejected by the preprocessor!" >&2;}
-+    { echo "$as_me:$LINENO: WARNING: $ac_header: proceeding with the compiler's result" >&5
-+echo "$as_me: WARNING: $ac_header: proceeding with the compiler's result" >&2;}
-+    ac_header_preproc=yes
-+    ;;
-+  no:yes:* )
-+    { echo "$as_me:$LINENO: WARNING: $ac_header: present but cannot be compiled" >&5
-+echo "$as_me: WARNING: $ac_header: present but cannot be compiled" >&2;}
-+    { echo "$as_me:$LINENO: WARNING: $ac_header:     check for missing prerequisite headers?" >&5
-+echo "$as_me: WARNING: $ac_header:     check for missing prerequisite headers?" >&2;}
-+    { echo "$as_me:$LINENO: WARNING: $ac_header: see the Autoconf documentation" >&5
-+echo "$as_me: WARNING: $ac_header: see the Autoconf documentation" >&2;}
-+    { echo "$as_me:$LINENO: WARNING: $ac_header:     section \"Present But Cannot Be Compiled\"" >&5
-+echo "$as_me: WARNING: $ac_header:     section \"Present But Cannot Be Compiled\"" >&2;}
-+    { echo "$as_me:$LINENO: WARNING: $ac_header: proceeding with the preprocessor's result" >&5
-+echo "$as_me: WARNING: $ac_header: proceeding with the preprocessor's result" >&2;}
-+    { echo "$as_me:$LINENO: WARNING: $ac_header: in the future, the compiler will take precedence" >&5
-+echo "$as_me: WARNING: $ac_header: in the future, the compiler will take precedence" >&2;}
-+    (
-+      cat <<\_ASBOX
-+## ------------------------------ ##
-+## Report this to bug-tar@gnu.org ##
-+## ------------------------------ ##
-+_ASBOX
-+    ) |
-+      sed "s/^/$as_me: WARNING:     /" >&2
-+    ;;
-+esac
-+echo "$as_me:$LINENO: checking for $ac_header" >&5
-+echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6
-+if eval "test \"\${$as_ac_Header+set}\" = set"; then
-+  echo $ECHO_N "(cached) $ECHO_C" >&6
-+else
-+  eval "$as_ac_Header=\$ac_header_preproc"
-+fi
-+echo "$as_me:$LINENO: result: `eval echo '${'$as_ac_Header'}'`" >&5
-+echo "${ECHO_T}`eval echo '${'$as_ac_Header'}'`" >&6
-+
-+fi
-+if test `eval echo '${'$as_ac_Header'}'` = yes; then
-+  cat >>confdefs.h <<_ACEOF
-+#define `echo "HAVE_$ac_header" | $as_tr_cpp` 1
-+_ACEOF
-+
-+fi
-+
-+done
-+
-+
-                                                                       ac_config_files="$ac_config_files Makefile doc/Makefile lib/Makefile po/Makefile.in scripts/Makefile rmt/Makefile src/Makefile"
- cat >confcache <<\_ACEOF
- # This file is a shell script that caches the results of configure
-diff -u --exclude=CVS -r -udbp configure.ac configure.ac
---- configure.ac	2004-05-11 01:11:48.000000000 -0700
-+++ configure.ac	2005-03-21 13:00:28.000000000 -0800
-@@ -259,6 +259,8 @@ else
- 	BACKUP_SED_COND='/^\#IF_DATE_FORMAT_OK/,/^\#ELSE_DATE_FORMAT_OK/d;/^\#ENDIF_DATE_FORMAT_OK/d'
- fi
- 
-+AC_CHECK_FUNCS(copyfile)
-+AC_CHECK_HEADERS(copyfile.h)
- 
- AC_OUTPUT([Makefile\
-            doc/Makefile\
-diff -u --exclude=CVS -r -udbp src/create.c src/create.c
---- src/create.c	2004-04-26 02:17:20.000000000 -0700
-+++ src/create.c	2005-03-21 13:00:28.000000000 -0800
-@@ -36,6 +36,14 @@ struct utimbuf
+--- src/create.c.orig	2007-06-01 03:17:10.000000000 -0700
++++ src/create.c	2008-08-18 19:10:08.000000000 -0700
+@@ -26,6 +26,15 @@
  #include "common.h"
  #include <hash.h>
  
-+#ifdef HAVE_COPYFILE_H
++#ifdef __APPLE__
 +#include <copyfile.h>
 +#include <libgen.h>
++#include <paths.h>
 +
 +int copyfile_on = 0;
 +char *copyfile_fname = NULL;
@@ -306,44 +16,39 @@ diff -u --exclude=CVS -r -udbp src/create.c src/create.c
  struct link
    {
      dev_t dev;
-@@ -1345,8 +1353,16 @@ dump_file0 (struct tar_stat_info *st, ch
+@@ -1485,9 +1494,18 @@
    if (interactive_option && !confirm ("add", p))
      return;
  
 +  if (copyfile_on)
 +  {
 +    assign_string (&st->orig_file_name, copyfile_fname);
-+    assign_string (&st->file_name, safer_name_suffix (copyfile_fname, false));
++    assign_string (&st->file_name,
++                   safer_name_suffix (copyfile_fname, false, absolute_names_option));
 +  }
 +  else
 +  {
    assign_string (&st->orig_file_name, p);
-   assign_string (&st->file_name, safer_name_suffix (p, false));
+   assign_string (&st->file_name,
+                  safer_name_suffix (p, false, absolute_names_option));
 +  }
  
-   if (deref_stat (dereference_option, p, &st->stat) != 0)
-     {
-@@ -1422,7 +1438,11 @@ dump_file0 (struct tar_stat_info *st, ch
+   transform_name (&st->file_name);
  
- 	  if (file_dumpable_p (st))
- 	    {
-+#if HAVE_COPYFILE
-+		fd = open ( copyfile_on ? p : st->orig_file_name,
-+#else
- 	      fd = open (st->orig_file_name,
-+#endif
- 			 O_RDONLY | O_BINARY);
- 	      if (fd < 0)
- 		{
-@@ -1568,6 +1588,33 @@ void
- dump_file (char *p, int top_level, dev_t parent_device)
+@@ -1777,6 +1795,40 @@
+ dump_file (const char *p, int top_level, dev_t parent_device)
  {
    struct tar_stat_info st;
 +
-+#ifdef HAVE_COPYFILE
++#ifdef __APPLE__
++	if (!getenv(COPYFILE_DISABLE_VAR) && !strncmp(basename(p), "._", 2)) {
++		return;
++	}
++
 +  if (!getenv(COPYFILE_DISABLE_VAR) && strncmp(basename(p), "._", 2))
 +  {
-+	char *md_p = strdup("/tmp/tar.md.XXXXXX");
++	char *tmpdir = getenv("TMPDIR"), *md_p;
++	asprintf(&md_p, "%s/tar.md.XXXXXXXX", tmpdir ? tmpdir : _PATH_TMP);
 +	asprintf(&copyfile_fname, "%s/._%s", dirname(p), basename(p));
 +
 +	if (copyfile(p, NULL, 0, COPYFILE_CHECK | COPYFILE_NOFOLLOW | COPYFILE_ACL | COPYFILE_XATTR))
@@ -353,8 +58,10 @@ diff -u --exclude=CVS -r -udbp src/create.c src/create.c
 +
 +	    if(mktemp(md_p))
 +	    {
-+		copyfile(p, md_p, 0, COPYFILE_PACK | COPYFILE_NOFOLLOW | COPYFILE_ACL | COPYFILE_XATTR);
-+		dump_file0 (&st, md_p, top_level, parent_device);
++		if (copyfile(p, md_p, 0, COPYFILE_PACK | COPYFILE_NOFOLLOW | COPYFILE_ACL | COPYFILE_XATTR) == 0)
++			dump_file0 (&st, md_p, top_level, parent_device);
++		else
++			WARN((0, 0, "copyfile pack (%s) failed: %s", p, strerror(errno)));
 +	    }
 +
 +	    tar_stat_destroy (&st);
@@ -368,15 +75,14 @@ diff -u --exclude=CVS -r -udbp src/create.c src/create.c
 +
    tar_stat_init (&st);
    dump_file0 (&st, p, top_level, parent_device);
-   tar_stat_destroy (&st);
-diff -u --exclude=CVS -r -udbp src/extract.c src/extract.c
---- src/extract.c	2004-04-05 00:23:51.000000000 -0700
-+++ src/extract.c	2005-03-21 13:01:08.000000000 -0800
-@@ -36,6 +36,19 @@ struct utimbuf
+   if (listed_incremental_option)
+--- src/extract.c.orig	2007-06-08 01:14:42.000000000 -0700
++++ src/extract.c	2008-08-18 19:10:08.000000000 -0700
+@@ -27,6 +27,19 @@
  
  #include "common.h"
  
-+#ifdef HAVE_COPYFILE_H
++#ifdef __APPLE__
 +#include <libgen.h>
 +#include <sys/queue.h>
 +#include <copyfile.h>
@@ -389,64 +95,59 @@ diff -u --exclude=CVS -r -udbp src/extract.c src/extract.c
 +extern LIST_HEAD(copyfile_list_t, copyfile_list_entry_t) copyfile_list;
 +#endif
 +
- bool we_are_root;		/* true if our effective uid == 0 */
+ static bool we_are_root;	/* true if our effective uid == 0 */
  static mode_t newdir_umask;	/* umask when creating new directories */
  static mode_t current_umask;	/* current umask (which is set to 0 if -p) */
-@@ -617,6 +630,10 @@ extract_archive (void)
-   int interdir_made = 0;
+@@ -1200,6 +1213,9 @@
+ {
    char typeflag;
-   char *file_name;
-+#if HAVE_COPYFILE
-+  char *tmp;
-+  struct copyfile_list_entry_t *cle;
+   tar_extractor_t fun;
++#ifdef __APPLE__
++  struct copyfile_list_entry_t *cle = NULL;
 +#endif
  
    set_next_block_after (current_header);
    decode_header (current_header, &current_stat_info, &current_format, 1);
-@@ -694,6 +711,35 @@ extract_archive (void)
- 	  goto extract_file;
- 	}
+@@ -1240,7 +1256,31 @@
  
-+#if HAVE_COPYFILE
-+      if (!strncmp(basename(file_name), "._", 2))
-+	{
-+	  if ((cle = calloc(1, sizeof(struct copyfile_list_entry_t))) == NULL)
-+	      goto err;
-+
-+	  if ((cle->src = strdup(file_name)) == NULL)
-+	      goto err;
-+
-+	  if(asprintf(&cle->tmp, "%s.XXX", file_name) == -1)
-+	      goto err;
-+
-+	  if(mktemp(cle->tmp) == NULL)
-+	      goto err;
-+
-+	  if (asprintf(&cle->dst, "%s/%s", dirname(file_name), basename(file_name) + 2) != -1)
-+	      LIST_INSERT_HEAD(&copyfile_list, cle, link);
-+	  else {
-+    err:
-+	      if (cle->src) free(cle->src);
-+	      if (cle->dst) free(cle->dst);
-+	      if (cle->tmp) free(cle->tmp);
-+	      if (cle) free(cle);
-+	      break;
-+	  }
-+	  file_name = cle->tmp;
-+	}
+   if (prepare_to_extract (current_stat_info.file_name, typeflag, &fun))
+     {
+-      if (fun && (*fun) (current_stat_info.file_name, typeflag)
++#ifdef __APPLE__
++		if (strncmp(basename(current_stat_info.file_name), "._", 2) == 0) {
++			if ((cle = calloc(1, sizeof(struct copyfile_list_entry_t))) == NULL)
++				goto err;
++			if ((cle->src = strdup(current_stat_info.file_name)) == NULL)
++				goto err;
++			if (asprintf(&cle->tmp, "%s.XXX", current_stat_info.file_name) == -1)
++				goto err;
++			if (mktemp(cle->tmp) == NULL)
++				goto err;
++			if (asprintf(&cle->dst, "%s/%s", dirname(current_stat_info.file_name), basename(current_stat_info.file_name) + 2) != -1)
++				LIST_INSERT_HEAD(&copyfile_list, cle, link);
++			else {
++err:
++				if (cle->src) free(cle->src);
++				if (cle->dst) free(cle->dst);
++				if (cle->tmp) free(cle->tmp);
++				if (cle) {
++					free(cle);
++					cle = NULL;
++				}
++			}
++		}
 +#endif
-+
-       if (! prepare_to_extract (file_name))
- 	{
- 	  skip_member ();
-diff -u --exclude=CVS -r -udbp src/list.c src/list.c
---- src/list.c	2004-05-10 04:49:09.000000000 -0700
-+++ src/list.c	2005-03-21 13:03:26.000000000 -0800
-@@ -25,6 +25,19 @@
- #include <system.h>
++      if (fun && (*fun) (cle ? cle->tmp : current_stat_info.file_name, typeflag)
+ 	  && backup_option)
+ 	undo_last_backup ();
+     }
+--- src/list.c.orig	2007-06-08 01:14:42.000000000 -0700
++++ src/list.c	2008-08-18 19:10:08.000000000 -0700
+@@ -23,6 +23,19 @@
+ #include <inttostr.h>
  #include <quotearg.h>
  
-+#if HAVE_COPYFILE
++#ifdef __APPLE__
 +#include <copyfile.h>
 +#include <sys/param.h>
 +#include <sys/queue.h>
@@ -462,11 +163,11 @@ diff -u --exclude=CVS -r -udbp src/list.c src/list.c
  #include "common.h"
  
  #define max(a, b) ((a) < (b) ? (b) : (a))
-@@ -69,6 +82,12 @@ read_and (void (*do_something) (void))
-   enum read_header status = HEADER_STILL_UNREAD;
+@@ -68,6 +81,12 @@
    enum read_header prev_status;
+   struct timespec mtime;
  
-+#if HAVE_COPYFILE
++#ifdef __APPLE__
 +  int disable_copyfile = (getenv(COPYFILE_DISABLE_VAR) != NULL);
 +  struct copyfile_list_entry_t *cle;
 +  LIST_INIT(&copyfile_list);
@@ -474,19 +175,26 @@ diff -u --exclude=CVS -r -udbp src/list.c src/list.c
 +
    base64_init ();
    name_gather ();
-
-@@ -199,6 +218,21 @@ read_and (void (*do_something) (void))
+ 
+@@ -195,6 +214,28 @@
      }
    while (!all_names_found (&current_stat_info));
  
-+#ifdef HAVE_COPYFILE
++#ifdef __APPLE__
 +      LIST_FOREACH(cle, &copyfile_list, link)
 +	{
-+	  if(disable_copyfile || copyfile(cle->tmp, cle->dst, 0, COPYFILE_UNPACK | COPYFILE_NOFOLLOW | COPYFILE_ACL | COPYFILE_XATTR))
-+	    {    
-+	      rename(cle->tmp, cle->src);
-+	    } else
++	  if(!disable_copyfile && copyfile(cle->tmp, cle->dst, 0, COPYFILE_UNPACK | COPYFILE_NOFOLLOW | COPYFILE_ACL | COPYFILE_XATTR) == 0)
++	    {
 +	      unlink(cle->tmp);
++	    }
++	  else
++	    {
++	      if (!disable_copyfile)
++		{
++		  WARN((0, 0, "copyfile unpack (%s) failed: %s", cle->dst, strerror(errno)));
++		}
++	      rename(cle->tmp, cle->src);
++	    }
 +
 +	  free(cle->tmp);
 +	  free(cle->dst);
@@ -497,14 +205,14 @@ diff -u --exclude=CVS -r -udbp src/list.c src/list.c
    close_archive ();
    names_notfound ();		/* print names not found */
  }
-diff -u --exclude=CVS -r -udbp src/tar.c src/tar.c
---- src/tar.c	2004-05-10 04:49:19.000000000 -0700
-+++ src/tar.c	2005-03-21 13:00:28.000000000 -0800
-@@ -592,6 +592,7 @@
- {
-   printf ("tar (%s) %s\n%s\n", PACKAGE_NAME, PACKAGE_VERSION,
- 	  "Copyright (C) 2004 Free Software Foundation, Inc.\n");
-+  puts (_("Modified to support extended attributes.\n"));
-   puts (_("Based on the work of John Gilmore and Jay Fenlason. See AUTHORS\n\
- for complete list of authors.\n"));
-   printf (_("   GNU tar is free software; you can redistribute it and/or modify\n"
+--- lib/version-etc.c.orig	2008-08-18 19:17:17.000000000 -0700
++++ lib/version-etc.c	2008-08-18 19:19:10.000000000 -0700
+@@ -74,6 +74,8 @@
+ "),
+ 	 stream);
+ 
++  fputs (_("Modified to support extended attributes.\n"), stream);
++
+   switch (n_authors)
+     {
+     case 0:

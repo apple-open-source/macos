@@ -39,11 +39,11 @@ static void usage(
 
 static void process(
     struct arch *archs,
-    unsigned long narchs);
+    uint32_t narchs);
 
 static void write_on_input(
     struct arch *archs,
-    unsigned long narchs,
+    uint32_t narchs,
     char *input);
 
 static void setup_object_symbolic_info(
@@ -51,7 +51,7 @@ static void setup_object_symbolic_info(
 
 static void update_load_commands(
     struct arch *arch,
-    unsigned long *header_size);
+    uint32_t *header_size);
 
 /* the argument to the -id option */
 static char *id = NULL;
@@ -62,14 +62,38 @@ struct changes {
     char *new;
 };
 static struct changes *changes = NULL;
-static unsigned long nchanges = 0;
+static uint32_t nchanges = 0;
+
+/* the arguments to the -rpath options */
+struct rpaths {
+    char *old;
+    char *new;
+    enum bool found;
+};
+static struct rpaths *rpaths = NULL;
+static uint32_t nrpaths = 0;
+
+/* the arguments to the -add_rpath options */
+struct add_rpaths {
+    char *new;
+};
+static struct add_rpaths *add_rpaths = NULL;
+static uint32_t nadd_rpaths = 0;
+
+/* the arguments to the -delete_rpath options */
+struct delete_rpaths {
+    char *old;
+    enum bool found;
+};
+static struct delete_rpaths *delete_rpaths = NULL;
+static uint32_t ndelete_rpaths = 0;
 
 /*
  * This is a pointer to an array of the original header sizes (mach header and
  * load commands) for each architecture which is used when we are writing on the
  * input file.
  */
-static unsigned long *arch_header_sizes = NULL;
+static uint32_t *arch_header_sizes = NULL;
 
 /*
  * The -o output option is not enabled as it is not needed and has the
@@ -84,10 +108,19 @@ static unsigned long *arch_header_sizes = NULL;
  * are larger the binary should be built with the ld(1)
  * -headerpad_max_install_names option.
  *
- *    Usage: install_name_tool [-change old new] ... [-id name] input
+ *    Usage: install_name_tool [-change old new] ... [-rpath old new] ...
+ * 	[-add_rpath new] ... [-delete_rpath old] ... [-id name] input
  *
  * The "-change old new" option changes the "old" install name to the "new"
  * install name if found in the binary.
+ * 
+ * The "-rpath old new" option changes the "old" path name in the rpath to
+ * the "new" path name in an LC_RPATH load command in the binary.
+ *
+ * The "-add_rpath new" option adds an LC_RPATH load command.
+ *
+ * The "-delete_rpath old" option deletes the LC_RPATH load command with the
+ * "old" path name in the binary.
  *
  * The "-id name" option changes the install name in the LC_ID_DYLIB load
  * command for a dynamic shared library.
@@ -98,9 +131,9 @@ int argc,
 char **argv,
 char **envp)
 {
-    int i;
+    int i, j;
     struct arch *archs;
-    unsigned long narchs;
+    uint32_t narchs;
     char *input;
     char *output;
 
@@ -149,6 +182,130 @@ char **envp)
 		nchanges += 1;
 		i += 2;
 	    }
+	    else if(strcmp(argv[i], "-rpath") == 0){
+		if(i + 2 == argc){
+		    error("missing argument(s) to: %s option", argv[i]);
+		    usage();
+		}
+		for(j = 0; j < nrpaths; j++){
+		    if(strcmp(rpaths[j].old, argv[i+1]) == 0){
+		        if(strcmp(rpaths[j].new, argv[i+2]) == 0){
+			    error("\"-rpath %s %s\" specified more than once",
+				   argv[i+1], argv[i+2]);
+			    usage();
+			}
+			error("can't specify both \"-rpath %s %s\" and "
+			      "\"-rpath %s %s\"", rpaths[j].old, rpaths[j].new,
+			      argv[i+1], argv[i+2]);
+			usage();
+		    }
+		    if(strcmp(rpaths[j].new, argv[i+1]) == 0 ||
+		       strcmp(rpaths[j].old, argv[i+2]) == 0 ||
+		       strcmp(rpaths[j].new, argv[i+2]) == 0){
+			error("can't specify both \"-rpath %s %s\" and "
+			      "\"-rpath %s %s\"", rpaths[j].old, rpaths[j].new,
+			      argv[i+1], argv[i+2]);
+			usage();
+		    }
+		}
+		for(j = 0; j < nadd_rpaths; j++){
+		    if(strcmp(add_rpaths[j].new, argv[i+1]) == 0 ||
+		       strcmp(add_rpaths[j].new, argv[i+2]) == 0){
+			error("can't specify both \"-add_rpath %s\" "
+			      "and \"-rpath %s %s\"", add_rpaths[j].new,
+			      argv[i+1], argv[i+2]);
+			usage();
+		    }
+		}
+		for(j = 0; j < ndelete_rpaths; j++){
+		    if(strcmp(delete_rpaths[j].old, argv[i+1]) == 0 ||
+		       strcmp(delete_rpaths[j].old, argv[i+2]) == 0){
+			error("can't specify both \"-delete_rpath %s\" "
+			      "and \"-rpath %s %s\"", delete_rpaths[j].old,
+			      argv[i+1], argv[i+2]);
+			usage();
+		    }
+		}
+		rpaths = reallocate(rpaths,
+				    sizeof(struct rpaths) * (nrpaths + 1));
+		rpaths[nrpaths].old = argv[i+1];
+		rpaths[nrpaths].new = argv[i+2];
+		rpaths[nrpaths].found = FALSE;
+		nrpaths += 1;
+		i += 2;
+	    }
+	    else if(strcmp(argv[i], "-add_rpath") == 0){
+		if(i + 1 == argc){
+		    error("missing argument(s) to: %s option", argv[i]);
+		    usage();
+		}
+		for(j = 0; j < nadd_rpaths; j++){
+		    if(strcmp(add_rpaths[j].new, argv[i+1]) == 0){
+			error("\"-add_rpath %s\" specified more than once",
+			      add_rpaths[j].new);
+			usage();
+		    }
+		}
+		for(j = 0; j < nrpaths; j++){
+		    if(strcmp(rpaths[j].old, argv[i+1]) == 0 ||
+		       strcmp(rpaths[j].new, argv[i+1]) == 0){
+			error("can't specify both \"-rpath %s %s\" and "
+			      "\"-add_rpath %s\"", rpaths[j].old, rpaths[j].new,
+			      argv[i+1]);
+			usage();
+		    }
+		}
+		for(j = 0; j < ndelete_rpaths; j++){
+		    if(strcmp(delete_rpaths[j].old, argv[i+1]) == 0){
+			error("can't specify both \"-delete_rpath %s\" "
+			      "and \"-add_rpath %s\"", delete_rpaths[j].old,
+			      argv[i+1]);
+			usage();
+		    }
+		}
+		add_rpaths = reallocate(add_rpaths,
+				sizeof(struct add_rpaths) * (nadd_rpaths + 1));
+		add_rpaths[nadd_rpaths].new = argv[i+1];
+		nadd_rpaths += 1;
+		i += 1;
+	    }
+	    else if(strcmp(argv[i], "-delete_rpath") == 0){
+		if(i + 1 == argc){
+		    error("missing argument(s) to: %s option", argv[i]);
+		    usage();
+		}
+		for(j = 0; j < ndelete_rpaths; j++){
+		    if(strcmp(delete_rpaths[j].old, argv[i+1]) == 0){
+			error("\"-delete_rpath %s\" specified more than once",
+			      delete_rpaths[j].old);
+			usage();
+		    }
+		}
+		for(j = 0; j < nrpaths; j++){
+		    if(strcmp(rpaths[j].old, argv[i+1]) == 0 ||
+		       strcmp(rpaths[j].new, argv[i+1]) == 0){
+			error("can't specify both \"-rpath %s %s\" and "
+			      "\"-delete_rpath %s\"", rpaths[j].old,
+			      rpaths[j].new, argv[i+1]);
+			usage();
+		    }
+		}
+		for(j = 0; j < nadd_rpaths; j++){
+		    if(strcmp(add_rpaths[j].new, argv[i+1]) == 0){
+			error("can't specify both \"-add_rpath %s\" "
+			      "and \"-delete_rpath %s\"", add_rpaths[j].new,
+			      argv[i+1]);
+			usage();
+		    }
+		}
+		delete_rpaths = reallocate(delete_rpaths,
+				sizeof(struct delete_rpaths) *
+					(ndelete_rpaths + 1));
+		delete_rpaths[ndelete_rpaths].old = argv[i+1];
+		delete_rpaths[ndelete_rpaths].found = FALSE;
+		ndelete_rpaths += 1;
+		i += 1;
+	    }
 	    else{
 		if(input != NULL){
 		    error("more than one input file specified (%s and %s)",
@@ -158,7 +315,8 @@ char **envp)
 		input = argv[i];
 	    }
 	}
-	if(input == NULL || (id == NULL && nchanges == 0))
+	if(input == NULL || (id == NULL && nchanges == 0 && nrpaths == 0 &&
+	   nadd_rpaths == 0 && ndelete_rpaths == 0))
 	    usage();
 
 	breakout(input, &archs, &narchs, FALSE);
@@ -169,7 +327,7 @@ char **envp)
 	if(errors)
 	    exit(EXIT_FAILURE);
 
-	arch_header_sizes = allocate(narchs * sizeof(unsigned long));
+	arch_header_sizes = allocate(narchs * sizeof(uint32_t));
 	process(archs, narchs);
 	if(errors)
 	    exit(EXIT_FAILURE);
@@ -193,7 +351,9 @@ void
 usage(
 void)
 {
-	fprintf(stderr, "Usage: %s [-change old new] ... [-id name] input"
+	fprintf(stderr, "Usage: %s [-change old new] ... [-rpaths old new] ... "
+			"[-add_rpath new] ... [-delete_rpath old] ... "
+			"[-id name] input"
 #ifdef OUTPUT_OPTION
 		" [-o output]"
 #endif /* OUTPUT_OPTION */
@@ -205,9 +365,9 @@ static
 void
 process(
 struct arch *archs,
-unsigned long narchs)
+uint32_t narchs)
 {
-    unsigned long i;
+    uint32_t i;
     struct object *object;
 
 	for(i = 0; i < narchs; i++){
@@ -234,11 +394,11 @@ static
 void
 write_on_input(
 struct arch *archs,
-unsigned long narchs,
+uint32_t narchs,
 char *input)
 {
     int fd;
-    unsigned long i, offset, size, headers_size;
+    uint32_t i, offset, size, headers_size;
     char *headers;
     struct mach_header *mh;
     struct mach_header_64 *mh64;
@@ -257,7 +417,7 @@ char *input)
 	    else
 		offset = 0;
 	    if(lseek(fd, offset, SEEK_SET) == -1)
-		system_error("can't lseek to offset: %lu in file: %s for "
+		system_error("can't lseek to offset: %u in file: %s for "
 			     "writing", offset, input);
 	    /*
 	     * Since the new headers may be smaller than the old headers and
@@ -346,7 +506,7 @@ struct object *object)
 		(object->object_addr + object->dyst->locreloff);
 	    object->output_ext_relocs = (struct relocation_info *)
 		(object->object_addr + object->dyst->extreloff);
-	    object->output_indirect_symtab = (unsigned long *)
+	    object->output_indirect_symtab = (uint32_t *)
 		(object->object_addr + object->dyst->indirectsymoff);
 	    object->output_tocs =
 		(struct dylib_table_of_contents *)
@@ -358,13 +518,20 @@ struct object *object)
 	    object->output_refs = (struct dylib_reference *)
 		(object->object_addr + object->dyst->extrefsymoff);
 	    object->output_nextrefsyms = object->dyst->nextrefsyms;
+	    if(object->dyld_info != NULL){
+		object->input_sym_info_size += object->dyld_info->rebase_size
+					    + object->dyld_info->bind_size
+					    + object->dyld_info->weak_bind_size
+					    + object->dyld_info->lazy_bind_size
+					    + object->dyld_info->export_size;
+	    }
 	    object->input_sym_info_size +=
 		object->dyst->nlocrel *
 		    sizeof(struct relocation_info) +
 		object->dyst->nextrel *
 		    sizeof(struct relocation_info) +
 		object->dyst->nindirectsyms *
-		    sizeof(unsigned long) +
+		    sizeof(uint32_t) +
 		object->dyst->ntoc *
 		    sizeof(struct dylib_table_of_contents)+
 		object->dyst->nmodtab *
@@ -377,7 +544,7 @@ struct object *object)
 		object->dyst->nextrel *
 		    sizeof(struct relocation_info) +
 		object->dyst->nindirectsyms *
-		    sizeof(unsigned long) +
+		    sizeof(uint32_t) +
 		object->dyst->ntoc *
 		    sizeof(struct dylib_table_of_contents)+
 		object->dyst->nmodtab *
@@ -432,21 +599,23 @@ static
 void
 update_load_commands(
 struct arch *arch,
-unsigned long *header_size)
+uint32_t *header_size)
 {
-    unsigned long i, j, new_sizeofcmds, new_size,
-		  linked_modules_size, ncmds, sizeof_mach_header, cmd_round;
+    uint32_t i, j, new_sizeofcmds, new_size, linked_modules_size, ncmds,
+	     sizeof_mach_header, cmd_round;
     uint64_t low_fileoff;
     struct load_command *lc1, *lc2, *new_load_commands;
     struct dylib_command *dl_load1, *dl_load2, *dl_id1, *dl_id2;
     struct prebound_dylib_command *pbdylib1, *pbdylib2;
     char *dylib_name1, *dylib_name2, *arch_name, *linked_modules1,
-	 *linked_modules2;
+	 *linked_modules2, *path1, *path2;
     struct segment_command *sg;
     struct segment_command_64 *sg64;
     struct section *s;
     struct section_64 *s64;
     struct arch_flag arch_flag;
+    struct rpath_command *rpath1, *rpath2;
+    enum bool delete;
 
 	/*
 	 * Make a pass through the load commands and figure out what the new
@@ -458,13 +627,20 @@ unsigned long *header_size)
 	    ncmds = arch->object->mh->ncmds;
 	    sizeof_mach_header = sizeof(struct mach_header);
 	    cmd_round = 4;
+	    arch_flag.cputype = arch->object->mh->cputype;
+	    arch_flag.cpusubtype = arch->object->mh->cpusubtype;
 	}
 	else{
 	    new_sizeofcmds = arch->object->mh64->sizeofcmds;
 	    ncmds = arch->object->mh64->ncmds;
 	    sizeof_mach_header = sizeof(struct mach_header_64);
 	    cmd_round = 8;
+	    arch_flag.cputype = arch->object->mh64->cputype;
+	    arch_flag.cpusubtype = arch->object->mh64->cpusubtype;
 	}
+	set_arch_flag_name(&arch_flag);
+	arch_name = arch_flag.name;
+
 	low_fileoff = ULLONG_MAX;
 	lc1 = arch->object->load_commands;
 	for(i = 0; i < ncmds; i++){
@@ -482,6 +658,7 @@ unsigned long *header_size)
 	    case LC_LOAD_DYLIB:
 	    case LC_LOAD_WEAK_DYLIB:
 	    case LC_REEXPORT_DYLIB:
+	    case LC_LAZY_LOAD_DYLIB:
 		dl_load1 = (struct dylib_command *)lc1;
 		dylib_name1 = (char *)dl_load1 + dl_load1->dylib.name.offset;
 		for(j = 0; j < nchanges; j++){
@@ -550,19 +727,69 @@ unsigned long *header_size)
 			low_fileoff = sg64->fileoff;
 		}
 		break;
+
+	    case LC_RPATH:
+		rpath1 = (struct rpath_command *)lc1;
+		path1 = (char *)rpath1 + rpath1->path.offset;
+		for(j = 0; j < nadd_rpaths; j++){
+		    if(strcmp(add_rpaths[j].new, path1) == 0){
+			error("for: %s (for architecture %s) option "
+			      "\"-add_rpath %s\" would duplicate path, file "
+			      "already has LC_RPATH for: %s", arch->file_name,
+			      arch_name, add_rpaths[j].new, path1);
+		    }
+		}
+		for(j = 0; j < nrpaths; j++){
+		    if(strcmp(rpaths[j].old, path1) == 0){
+			rpaths[j].found = TRUE;
+			new_size = round(sizeof(struct rpath_command) +
+				         strlen(rpaths[j].new) + 1,
+					 cmd_round);
+			new_sizeofcmds += (new_size - rpath1->cmdsize);
+			break;
+		    }
+		}
+		for(j = 0; j < ndelete_rpaths; j++){
+		    if(strcmp(delete_rpaths[j].old, path1) == 0){
+			delete_rpaths[j].found = TRUE;
+			new_sizeofcmds -= rpath1->cmdsize;
+			break;
+		    }
+		}
+		break;
 	    }
 	    lc1 = (struct load_command *)((char *)lc1 + lc1->cmdsize);
 	}
 
+	for(i = 0; i < ndelete_rpaths; i++){
+	    if(delete_rpaths[i].found == FALSE){
+		error("no LC_RPATH load command with path: %s found in: "
+		      "%s (for architecture %s), required for specified option "
+		      "\"-delete_rpath %s\"", delete_rpaths[i].old,
+		      arch->file_name, arch_name, delete_rpaths[i].old);
+	    }
+	}
+	for(i = 0; i < nrpaths; i++){
+	    if(rpaths[i].found == FALSE){
+		error("no LC_RPATH load command with path: %s found in: "
+		      "%s (for architecture %s), required for specified option "
+		      "\"-rpath %s %s\"", rpaths[i].old, arch->file_name,
+		      arch_name, rpaths[i].old, rpaths[i].new);
+	    }
+	}
+
+	for(i = 0; i < nadd_rpaths; i++){
+	    new_size = round(sizeof(struct rpath_command) +
+			     strlen(add_rpaths[i].new) + 1, cmd_round);
+	    new_sizeofcmds += new_size;
+	}
+
 	if(new_sizeofcmds + sizeof_mach_header > low_fileoff){
-	    arch_flag.cputype = arch->object->mh->cputype;
-	    arch_flag.cpusubtype = arch->object->mh->cpusubtype;
-	    set_arch_flag_name(&arch_flag);
-	    arch_name = arch_flag.name;
-	    error("changing install names can't be redone for: %s (for "
-		  "architecture %s) because larger updated load commands do "
-		  "not fit (the program must be relinked)", arch->file_name,
-		  arch_name);
+	    error("changing install names or rpaths can't be redone for: %s "
+		  "(for architecture %s) because larger updated load commands "
+		  "do not fit (the program must be relinked, and you may need "
+		  "to use -headerpad or -headerpad_max_install_names)",
+		  arch->file_name, arch_name);
 	    return;
 	}
 
@@ -581,6 +808,7 @@ unsigned long *header_size)
 	lc1 = arch->object->load_commands;
 	lc2 = new_load_commands;
 	for(i = 0; i < ncmds; i++){
+	    delete = FALSE;
 	    switch(lc1->cmd){
 	    case LC_ID_DYLIB:
 		if(id != NULL){
@@ -600,6 +828,7 @@ unsigned long *header_size)
 	    case LC_LOAD_DYLIB:
 	    case LC_LOAD_WEAK_DYLIB:
 	    case LC_REEXPORT_DYLIB:
+	    case LC_LAZY_LOAD_DYLIB:
 		dl_load1 = (struct dylib_command *)lc1;
 		dylib_name1 = (char *)dl_load1 + dl_load1->dylib.name.offset;
 		for(j = 0; j < nchanges; j++){
@@ -660,13 +889,58 @@ unsigned long *header_size)
 		}
 		break;
 
+	    case LC_RPATH:
+		rpath1 = (struct rpath_command *)lc1;
+		path1 = (char *)rpath1 + rpath1->path.offset;
+		for(j = 0; j < ndelete_rpaths; j++){
+		    if(strcmp(delete_rpaths[j].old, path1) == 0){
+			delete = TRUE;
+			break;
+		    }
+		}
+		if(delete == TRUE)
+		    break;
+		for(j = 0; j < nrpaths; j++){
+		    if(strcmp(rpaths[j].old, path1) == 0){
+			memcpy(lc2, lc1, sizeof(struct rpath_command));
+			rpath2 = (struct rpath_command *)lc2;
+			rpath2->cmdsize = round(sizeof(struct rpath_command) +
+					        strlen(rpaths[j].new) + 1,
+						cmd_round);
+			rpath2->path.offset = sizeof(struct rpath_command);
+			path2 = (char *)rpath2 + rpath2->path.offset;
+			strcpy(path2, rpaths[j].new);
+			break;
+		    }
+		}
+		if(j >= nrpaths){
+		    memcpy(lc2, lc1, lc1->cmdsize);
+		}
+		break;
+
 	    default:
 		memcpy(lc2, lc1, lc1->cmdsize);
 		break;
 	    }
 	    lc1 = (struct load_command *)((char *)lc1 + lc1->cmdsize);
-	    lc2 = (struct load_command *)((char *)lc2 + lc2->cmdsize);
+	    if(delete == FALSE)
+		lc2 = (struct load_command *)((char *)lc2 + lc2->cmdsize);
 	}
+	/*
+	 * Add the new rpath load commands.
+	 */
+	for(i = 0; i < nadd_rpaths; i++){
+	    rpath2 = (struct rpath_command *)lc2;
+	    rpath2->cmd = LC_RPATH;
+	    rpath2->cmdsize = round(sizeof(struct rpath_command) +
+				    strlen(add_rpaths[i].new) + 1,
+				    cmd_round);
+	    rpath2->path.offset = sizeof(struct rpath_command);
+	    path2 = (char *)rpath2 + rpath2->path.offset;
+	    strcpy(path2, add_rpaths[i].new);
+	}
+	ncmds += nadd_rpaths;
+	ncmds -= ndelete_rpaths;
 
 	/*
 	 * Finally copy the updated load commands over the existing load
@@ -684,6 +958,7 @@ unsigned long *header_size)
 	    memcpy(arch->object->load_commands, new_load_commands,
 		   new_sizeofcmds);
 	    arch->object->mh->sizeofcmds = new_sizeofcmds;
+	    arch->object->mh->ncmds = ncmds;
 	}
 	else{
 	    *header_size = sizeof(struct mach_header_64) +
@@ -695,6 +970,7 @@ unsigned long *header_size)
 	    memcpy(arch->object->load_commands, new_load_commands,
 		   new_sizeofcmds);
 	    arch->object->mh64->sizeofcmds = new_sizeofcmds;
+	    arch->object->mh64->ncmds = ncmds;
 	}
 
 	free(new_load_commands);

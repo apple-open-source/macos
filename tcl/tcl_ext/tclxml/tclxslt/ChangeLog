@@ -1,0 +1,136 @@
+==============  Released version 2.6  05/03/2003  ==============
+
+2003-03-05  Steve Ball  <Steve.Ball@zveno.com>
+	* docs/README.xml: Converted README to XML format.
+	
+2002-12-12  Steve Ball  <Steve.Ball@zveno.com>
+	* configure.in: Added check for .dylib to support Mac OS X
+	  when not building as a framework.
+
+==============  Released version 2.5  10/12/2002  ==============
+
+2002-12-09  Steve Ball  <Steve.Ball@zveno.com>
+	* configure.in: Added --enable-framework switch and
+	  modified check for library to search for Mac OS X framework.
+
+2002-12-08  Steve Ball  <Steve.Ball@zveno.com>
+	* Updated for v2.5.
+
+2002-12-04  Steve Ball  <Steve.Ball@zveno.com>
+	* library/xsltcache.tcl: Fixed bug in transformdoc.
+
+2002-12-03  Steve Ball  <Steve.Ball@zveno.com>
+	* library/xsltcache.tcl: Stylesheet document is now cached
+	  as a source document.
+
+2002-11-18  Steve Ball  <Steve.Ball@zveno.com>
+	* library/xsltcache.tcl: Added alternative interface.
+
+2002-11-12  Steve Ball  <Steve.Ball@zveno.com>
+	* library/xsltcache.tcl: Added new utility.
+	
+==============  Released version 2.4  09/11/2002  ==============
+
+2002-11-09  Steve Ball  <Steve.Ball@zveno.com>
+	* tclxslt.h: Fixed broken header file inclusion.
+	* README: Updated installation instructions.
+
+2002-11-08  Steve Ball  <Steve.Ball@zveno.com>
+	* tclxslt.h: Updated header file inclusion for Mac OS X build.
+
+2002-10-31  Andreas Kupries  <andreask@activestate.com>
+
+	* Makefile.in: Added variables for libxml2 paths. Added usage of
+	  stub table exported by TclDOM/libxml2.
+	  (INCLUDES): Added paths to headers of libxml2, libxslt, and
+	  libexslt.
+
+	* configure.in: Added code to look for libxml2 headers and library
+	  as they are used by TclXSLT too. Changed code handling the xlst,
+	  exslt libraries to follow the handling in tcldom/src-libxml2
+	  (Windows differentiation). Added libxml2 to link list. Added
+	  code to find TclDOM/libxml2, for use of its stub table. Added
+	  code to look for iconv library (windows only), as in tcldom.
+
+	* tclxslt.c: Added CONST84 for option tables used in calls to
+	  Tcl_'GetIndexFromOBj'. Gets rid of 8.4 specific warnings.
+	  ! NOTE ! IMHO the code in lines 34-36 is should be in tcl.h and
+	  not here.
+	  (TclXSLT_RegisterAll): Added casts to get rid of more warnings.
+	  (TclXSLTExtFunction): Removed bogus &.
+	  Added initialization of imported stub table.
+
+	* tclxslt.h: Removed directory of tcldom-libxml2. Just get it form
+	  prefix/include, i.e. where it was installed by
+	  tcldom/src-libxml2. Added handling of C++ compiler, and
+	  TCL_STORAGE_CLASS.
+
+2002-10-30  Lothar Arndt <Lothar_Arndt@yahoo.com>
+
+	* Makefile.in: Added definitions for xslt and exslt INCLUDES and
+	  LIBS
+
+2002-10-30  Lothar Arndt <Lothar_Arndt@yahoo.com>
+
+	* configure.in: Added code to handle --with-[e]xslt-include,
+	  --with-[e]xslt-lib
+
+2002-10-22  Steve Ball  <Steve.Ball@zveno.com>
+
+	* tclxslt.c (TclXSLTExtFunction): Don't free XPath object before
+	  invoking callback.  This introduces a memory leak which will
+	  have to be fixed later.
+
+2002-10-17  Steve Ball  <Steve.Ball@zveno.com>
+	* tclconfig/*, Makefile.in, configure.in, aclocal.m4: Upgraded to TEA2.
+
+2002-10-14  Steve Ball  <Steve.Ball@zveno.com>
+	* library/pkgIndex.tcl, *.c: Updated version numbers for v2.4.
+
+2002-09-20  Steve Ball  <Steve.Ball@zveno.com>
+	* tclxslt.c, library/tclxslt.tcl: Implemented extension elements.  Preserve XPath node types.
+
+==============  Released version 2.3  13/09/2002  ==============
+
+==============  Released version 2.3rc2  09/09/2002  ==============
+
+==============  Released version 2.2  12/08/2002  ==============
+
+2002-07-22  Steve Ball  <Steve.Ball@zveno.com>
+	* INCOMPATIBILITY:
+	tclxslt.h, tclxslt.c (various): Switched from using Tcl Objects
+	to Tcl commands.
+
+2002-06-12  Steve Ball  <Steve.Ball@zveno.com>
+
+	* tclxslt.c (TclXSLTSetFromAnyStylesheet): Create data structure for handling generic error calls.
+
+August 2001
+
+==============  Released version 1.0  14/08/2001  ==============
+
+28/02/2002	Steve.Ball@zveno.com
+		Integrated with TclDOM-libxml2.  TclDOM is now
+		a dependency.
+
+		INCOMPATIBILITIES:
+		* arguments to xslt::transform must be parsed TclDOM documents.
+		* -filename option has been removed.
+		* xslt::configure has been removed.
+
+==============  Released version 1.1  01/03/2002  ==============
+
+01/03/2002	Steve.Ball@zveno.com
+		tclxslt.c
+		Added xslt::compile command.  This must be used
+		to cache compiled stylesheets.
+
+11/04/2002	Steve.Ball@zveno.com
+		tclxslt.h, tclxslt.c
+		Register all EXSLT extensions upon initialisation.
+
+7/5/2002	Steve.Ball@zveno.com
+		tclxslt.c
+		Added -messagecommand option.  This can be used
+		to capture xsl:message output.
+

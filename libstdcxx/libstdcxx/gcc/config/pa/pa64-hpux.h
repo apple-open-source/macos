@@ -17,19 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
-
-#undef SUBTARGET_SWITCHES
-#define SUBTARGET_SWITCHES				\
-  { "sio",	 MASK_SIO,				\
-     N_("Generate cpp defines for server IO") },	\
-  { "wsio",	-MASK_SIO,				\
-     N_("Generate cpp defines for workstation IO") },	\
-  {"gnu-ld",	 MASK_GNU_LD,				\
-     N_("Assume code will be linked by GNU ld") },	\
-  {"hp-ld",	-MASK_GNU_LD,				\
-     N_("Assume code will be linked by HP ld") },
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* We can debug dynamically linked executables on hpux11; we also
    want dereferencing of a NULL pointer to cause a SEGV.  Do not move
@@ -44,7 +33,8 @@ Boston, MA 02111-1307, USA.  */
    %{!shared:%{pg:-L/lib/pa20_64/libp -L/usr/lib/pa20_64/libp %{!static:\
      %nWarning: consider linking with `-static' as system libraries with\n\
      %n  profiling support are only provided in archive format}}}\
-   %{mhp-ld:+Accept TypeMismatch -z} -E %{mlinker-opt:-O} %{!shared:-u main}\
+   %{mhp-ld:+Accept TypeMismatch -z} -E %{mlinker-opt:-O}\
+   %{!shared:-u main %{!nostdlib:%{!nodefaultlibs:-u __cxa_finalize}}}\
    %{static:-a archive} %{shared:%{mhp-ld:-b}%{!mhp-ld:-shared}}"
 #else
 #define LINK_SPEC \
@@ -54,7 +44,8 @@ Boston, MA 02111-1307, USA.  */
    %{!shared:%{pg:-L/lib/pa20_64/libp -L/usr/lib/pa20_64/libp %{!static:\
      %nWarning: consider linking with `-static' as system libraries with\n\
      %n  profiling support are only provided in archive format}}}\
-   %{!mgnu-ld:+Accept TypeMismatch -z} -E %{mlinker-opt:-O} %{!shared:-u main}\
+   %{!mgnu-ld:+Accept TypeMismatch -z} -E %{mlinker-opt:-O}\
+   %{!shared:-u main %{!nostdlib:%{!nodefaultlibs:-u __cxa_finalize}}}\
    %{static:-a archive} %{shared:%{mgnu-ld:-shared}%{!mgnu-ld:-b}}"
 #endif
 
@@ -67,26 +58,32 @@ Boston, MA 02111-1307, USA.  */
 #if ((TARGET_DEFAULT | TARGET_CPU_DEFAULT) & MASK_GNU_LD)
 #define LIB_SPEC \
   "%{!shared:\
-     %{!p:%{!pg: -lc %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}\
+     %{!p:%{!pg: %{static|mt|pthread:-lpthread} -lc\
+	    %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}\
      %{p:%{!pg:%{static:%{!mhp-ld:-a shared}%{mhp-ld:-a archive_shared}}\
-	   -lprof %{static:-a archive} -lc\
+	   -lprof %{static:-a archive} %{static|mt|pthread:-lpthread} -lc\
 	   %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}\
      %{pg:%{static:%{!mhp-ld:-a shared}%{mhp-ld:-a archive_shared}}\
-       -lgprof %{static:-a archive} -lc\
-       %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}\
-   /usr/lib/pa20_64/milli.a"
+       -lgprof %{static:-a archive} %{static|mt|pthread:-lpthread} -lc\
+       %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}"
 #else
 #define LIB_SPEC \
   "%{!shared:\
-     %{!p:%{!pg: -lc %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}\
+     %{!p:%{!pg: %{static|mt|pthread:-lpthread} -lc\
+	    %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}\
      %{p:%{!pg:%{static:%{mgnu-ld:-a shared}%{!mgnu-ld:-a archive_shared}}\
-	   -lprof %{static:-a archive} -lc\
+	   -lprof %{static:-a archive} %{static|mt|pthread:-lpthread} -lc\
 	   %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}\
      %{pg:%{static:%{mgnu-ld:-a shared}%{!mgnu-ld:-a archive_shared}}\
-       -lgprof %{static:-a archive} -lc\
-       %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}\
-   /usr/lib/pa20_64/milli.a"
+       -lgprof %{static:-a archive} %{static|mt|pthread:-lpthread} -lc\
+       %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}"
 #endif
+
+/* The libgcc_stub.a and milli.a libraries need to come last.  */
+#undef LINK_GCC_C_SEQUENCE_SPEC
+#define LINK_GCC_C_SEQUENCE_SPEC "\
+  %G %L %G %{!nostdlib:%{!nodefaultlibs:%{!shared:-lgcc_stub}\
+  /usr/lib/pa20_64/milli.a}}"
 
 /* Under hpux11, the normal location of the `ld' and `as' programs is the
    /usr/ccs/bin directory.  */
@@ -335,16 +332,7 @@ do {								\
    the array.  DT_FINI_ARRAY is supposed to be executed in the opposite
    order.
 
-   The second hack is stubs for __cxa_finalize and _Jv_RegisterClasses.
-   The HP implementation of undefined weak symbols is broken.  The linker
-   and dynamic loader both search for undefined weak symbols contrary the
-   generic System V ABI.  An undefined weak symbol should resolve to a
-   value of 0 rather than causing an error.  The prototypes for
-   __cxa_finalize and _Jv_RegisterClasses in crtstuff.c are weak when
-   weak is supported (GNU as), so in theory a strong define should override
-   the stub functions provided here.
-
-   The final hack is a set of plabels to implement the effect of
+   The second hack is a set of plabels to implement the effect of
    CRT_CALL_STATIC_FUNCTION.  HP-UX 11 only supports DI_INIT_ARRAY and
    DT_FINI_ARRAY and they put the arrays in .init and .fini, rather than
    in .init_array and .fini_array.  The standard defines for .init and
@@ -360,25 +348,6 @@ do {								\
    either using the linker +init command or a plabel, run before the
    initializers specified here.  */
 
-/* We need a __cxa_finalize stub if CRTSTUFFS_O is defined.  */
-#ifdef CRTSTUFFS_O
-#define PA_CXA_FINALIZE_STUB \
-extern void __cxa_finalize (void *) TARGET_ATTRIBUTE_WEAK;		\
-void									\
-__cxa_finalize (void *p __attribute__((unused))) {}
-#else
-#define PA_CXA_FINALIZE_STUB
-#endif
-
-/* We need a _Jv_RegisterClasses stub if JCR_SECTION_NAME is defined.  */
-#ifdef JCR_SECTION_NAME
-#define PA_JV_REGISTERCLASSES_STUB \
-void									\
-_Jv_RegisterClasses (void *p __attribute__((unused))) {}
-#else
-#define PA_JV_REGISTERCLASSES_STUB
-#endif
-
 /* We need to add frame_dummy to the initializer list if EH_FRAME_SECTION_NAME
    or JCR_SECTION_NAME is defined.  */
 #if defined(EH_FRAME_SECTION_NAME) || defined(JCR_SECTION_NAME)
@@ -387,7 +356,10 @@ _Jv_RegisterClasses (void *p __attribute__((unused))) {}
 #define PA_INIT_FRAME_DUMMY_ASM_OP ""
 #endif
 
-#define PA_INIT_FINI_HACK \
+/* The following hack sets up the .init, .init_array, .fini and
+   .fini_array sections.  */
+#define PA_CRTBEGIN_HACK \
+asm (TEXT_SECTION_ASM_OP);						\
 static void __attribute__((used))					\
 __do_global_ctors_aux (void)						\
 {									\
@@ -398,35 +370,36 @@ __do_global_ctors_aux (void)						\
     (*p) ();								\
 }									\
 									\
-PA_CXA_FINALIZE_STUB							\
-PA_JV_REGISTERCLASSES_STUB						\
-									\
 asm (HP_INIT_ARRAY_SECTION_ASM_OP);					\
+asm (".align 8");							\
 asm (".dword P%__do_global_ctors_aux");					\
 asm (PA_INIT_FRAME_DUMMY_ASM_OP);					\
 asm (GNU_INIT_ARRAY_SECTION_ASM_OP);					\
+asm (".align 8");							\
 asm (".dword P%__do_global_ctors_aux");					\
 asm (PA_INIT_FRAME_DUMMY_ASM_OP);					\
 asm (HP_FINI_ARRAY_SECTION_ASM_OP);					\
+asm (".align 8");							\
 asm (".dword P%__do_global_dtors_aux");					\
 asm (GNU_FINI_ARRAY_SECTION_ASM_OP);					\
+asm (".align 8");							\
 asm (".dword P%__do_global_dtors_aux")
 
 /* The following two variants of DTOR_LIST_BEGIN are identical to those
-   in crtstuff.c except for the addition of the above init-fini hack.  */
+   in crtstuff.c except for the addition of the above crtbegin hack.  */
 #ifdef DTORS_SECTION_ASM_OP
 #define DTOR_LIST_BEGIN \
 asm (DTORS_SECTION_ASM_OP);						\
 STATIC func_ptr __DTOR_LIST__[1]					\
   __attribute__ ((aligned(sizeof(func_ptr))))				\
   = { (func_ptr) (-1) };						\
-PA_INIT_FINI_HACK
+PA_CRTBEGIN_HACK
 #else
 #define DTOR_LIST_BEGIN \
 STATIC func_ptr __DTOR_LIST__[1]					\
   __attribute__ ((section(".dtors"), aligned(sizeof(func_ptr))))	\
   = { (func_ptr) (-1) };						\
-PA_INIT_FINI_HACK
+PA_CRTBEGIN_HACK
 #endif
 
 /* If using HP ld do not call pxdb.  Use size as a program that does nothing
@@ -434,6 +407,15 @@ PA_INIT_FINI_HACK
    an interpreter.  */
 #define INIT_ENVIRONMENT "LD_PXDB=/usr/ccs/bin/size"
 
-/* The HPUX dynamic linker objects to weak symbols with no
-   definitions, so do not use them in gthr-posix.h.  */
+/* The HPUX dynamic linker objects to undefined weak symbols, so do
+   not use them in gthr-posix.h.  */
 #define GTHREAD_USE_WEAK 0
+
+/* We don't want undefined weak references to __register_frame_info,
+   __deregister_frame_info, _Jv_RegisterClasses and __cxa_finalize
+   introduced by crtbegin.o.  The GNU linker only resolves weak
+   references if they appear in a shared library.  Thus, it would be
+   impossible to create a static executable if the symbols were weak.
+   So, the best solution seems to be to make the symbols strong and
+   provide an archive library of empty stub functions.  */
+#define TARGET_ATTRIBUTE_WEAK

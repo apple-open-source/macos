@@ -3,12 +3,13 @@
 #################################   Constants  #################################
 $DIFF = "/usr/bin/diff";
 $RM = "/bin/rm";
-$PBUDDY = "/usr/libexec/sbs_backup/PBuddy";
+$PBUDDY = "/usr/libexec/PlistBuddy";
 $TAR = "/usr/bin/tar";
 $SQLITE = "/usr/bin/sqlite3";
 $ServiceConf = "75-iChatServer.plist";
-$SBS_CONF = "/private/etc/sbs_backup";
+$SBS_CONF = "/private/etc/server_backup";
 $tmpPath = "/private/var/jabberd/tmp";
+$servermgrJabberConfigPath = "/Library/Preferences/com.apple.ichatserver.plist";
 
 %dbinfo = {};
 %BigList = "";
@@ -16,12 +17,21 @@ $CONF_EXT = ".conf";
 $STATUS_EXT = ".status";
 $ret = 0;
 
+$VERBOSE = 0;
+$DEBUG = 0;
+$FUNCLOG = 0;
+
+# Enum for deciding what to do with output
+($OUTPUT_NONE, $OUTPUT_DEBUG, $OUTPUT_VERBOSE, 
+	$OUTPUT_FUNCLOG, $OUTPUT_PRINT) = (0..4);
+
+$LOG_PATH = &_get_log_path(@ARGV);   # global, for service-specific log path
+
 if($ENV{VERBOSE} eq 1) {$VERBOSE = '1';}
 if($ENV{DEBUG} eq 1) {$DEBUG = '1';}
 if($ENV{FUNCLOG} eq 1) {$FUNCLOG = '1';}
 
-if ($VERBOSE) 
-	{ print("iChatServer_verify was called.\n"); }
+&_log($OUTPUT_VERBOSE, 	"iChatServer_verify was called.\n");
 
 ParseOptions();
 if ($DEBUG) 
@@ -51,24 +61,21 @@ sub validateOptionsAndDispatch()
 ################################################################################
 sub Actions() 
 {
-	if ($FUNCLOG) 
-		{ print("Start Actions-------------------------------------------------------+\n"); }
+	&_log($OUTPUT_FUNCLOG, "Start Actions-------------------------------------------------------+\n");
 
-	if($VERBOSE) {
-		print (qq(${PBUDDY} -c \"Print :VerifyActions\" $SBS_CONF/$ServiceConf) . "\n");
-	}
+	&_log($OUTPUT_VERBOSE, 	(qq(${PBUDDY} -c \"Print :VerifyActions\" $SBS_CONF/$ServiceConf) . "\n"));
+
 	$Version = qx(${PBUDDY} -c \"Print :VerifyActions\" $SBS_CONF/$ServiceConf);
-	print($Version);
+	&_log($OUTPUT_PRINT, $Version);
 
-	if ($FUNCLOG) 
-		{ print("End   Actions-------------------------------------------------------+\n"); }
+	&_log($OUTPUT_FUNCLOG, "End   Actions-------------------------------------------------------+\n");
+
 }
 
 ################################################################################
 sub Verify()
 {
-	if ($FUNCLOG) 
-		{ print("Start Verify-------------------------------------------------------+\n"); }
+	&_log($OUTPUT_FUNCLOG, "Start Verify-------------------------------------------------------+\n");
 
 	my $successCount = 0;
 	my $failureCount = 0;
@@ -79,29 +86,37 @@ sub Verify()
 	my $storedFileDir = "$tmpPath/iChatServer_restored_for_verify";
 	my $restoredSqlFile = "iChatServer_data_backup.sql";
 	my $newSqlFile = "iChatServer_data_current.sql";
-	my $sqliteDbPath = "/private/var/jabberd/sqlite/jabberd2.db";
+	my $sqliteDefaultDbPath = "/private/var/jabberd/sqlite/jabberd2.db";
+	my $sqliteDbPath = "";
 	my @diffLines;
 	my $cmd;
 
+    # find sqlite database path
+    my $pbuddyDbPath = qx(${PBUDDY} -c \"Print :jabberdDatabasePath:\" $servermgrJabberConfigPath);
+    chomp($pbuddyDbPath);
+    if (-e $pbuddyDbPath) {
+        $sqliteDbPath = $pbuddyDbPath;
+    } else {
+        $sqliteDbPath = $sqliteDefaultDbPath;
+    }
+    
 	umask(077);
 
-	if ($DEBUG) {
-		print("IMAGE_PATH := $imagePath\n");
-	}
+	&_log($OUTPUT_DEBUG, "IMAGE_PATH := $imagePath\n");
 	
 	if ($OPT ne "configuration" && $OPT ne "data" && $OPT ne "all") {
-		print "Invalid or missing -opt given.\n";
+		&_log($OUTPUT_PRINT, "Invalid or missing -opt given.\n");
 		return 1;
 	}
 	
 	if (! -e $imagePath) {
-		print "The provided image path does not exist. Aborting.\npath was: $imagePath\n";
+		&_log($OUTPUT_PRINT, "The provided image path does not exist. Aborting.\npath was: $imagePath\n");
 		return 1;
 	}
 	
 	# Find our config file backups
 	if (! opendir(SBSDIR, "$imagePath")) {
-		print "Couldn't open the directory for reading: $imagePath\n";
+		&_log($OUTPUT_PRINT, "Couldn't open the directory for reading: $imagePath\n");
 		return 1;
 	}
 
@@ -148,29 +163,22 @@ sub Verify()
 		foreach $configFile (@configurationFiles) {
 			# Allow for wildcards in the plist strings.  Expand them and push them onto the array for later processing.
 			if ($configFile =~ /\*/) {
-				if ($VERBOSE || $DEBUG) {
-					print "Found a wildcard in the plist ($configFile), expanding for later processing...\n";
-				}
+				&_log($OUTPUT_VERBOSE, "Found a wildcard in the plist ($configFile), expanding for later processing...\n");
 				my @expFiles = `ls -1 $configFile`;
 				chomp(@expFiles);
 				foreach my $expFile (@expFiles) {
-					if ($VERBOSE || $DEBUG) {
-						print "Adding wildcard expansion to configurationFiles array: $expFile\n";
-					}
+					&_log($OUTPUT_VERBOSE, "Adding wildcard expansion to configurationFiles array: $expFile\n");
 					push(@configurationFiles, $expFile);
 				}
 				next;
 			}
 					
-			if ($VERBOSE || $DEBUG) {
-				print "Comparing $configFile...\n";
-			}
+			&_log($OUTPUT_VERBOSE, "Comparing $configFile...\n");
+
 			my $relativeFilePath = $configFile;
 			$relativeFilePath =~ s/^\///;
 			$cmd = "$DIFF -q \"$configFile\" \"$relativeFilePath\" &> \"$diffFilePath\"";
-			if ($VERBOSE || $DEBUG) {
-				print "Executing: $cmd\n";
-			}
+			&_log($OUTPUT_VERBOSE, "Executing: $cmd\n");
 			qx($cmd);
 			open(DIFF, "<$diffFilePath");
 			@diffLines = <DIFF>;
@@ -178,20 +186,14 @@ sub Verify()
 			chomp(@diffLines);
 			if ($diffLines[0] eq "") {
 				$successCount++;	
-				if ($VERBOSE || $DEBUG) {
-					print "File match ($configFile)\n";
-				}
+				&_log($OUTPUT_VERBOSE, "File match ($configFile)\n");
 			} else {
 				if (! -e $configFile && ! -e $relativeFilePath) {
 					# if a file was missing from backup and current system, ignore
 					$successCount++;	
-					if ($VERBOSE || $DEBUG) {
-						print "Ignoring file ($configFile), counting as a match\n";
-					}
+					&_log($OUTPUT_VERBOSE, "Ignoring file ($configFile), counting as a match\n");
 				} else {
-					if ($VERBOSE || $DEBUG) {
-						print "VERIFICATION FAILURE: config file $configFile does not match original\n";
-					}
+					&_log($OUTPUT_VERBOSE, "VERIFICATION FAILURE: config file $configFile does not match original\n");
 					$failureCount++;	
 				}
 			}
@@ -205,9 +207,7 @@ sub Verify()
 		my @files = <DIR>;
 		closedir(DIR);
 		if (! -e "$storedFileDir/$restoredSqlFile") {
-			if ($VERBOSE || $DEBUG) {
-				print "VERIFICATION FAILURE: Could not find original .sql file for database comparison";
-			}
+			&_log($OUTPUT_VERBOSE, "VERIFICATION FAILURE: Could not find original .sql file for database comparison");
 			$failureCount++;
 		} else {
 			qx(echo ".dump" | $SQLITE $sqliteDbPath > $tmpPath/$newSqlFile);
@@ -219,9 +219,7 @@ sub Verify()
 			if ($diffLines[0] eq "") {
 				$successCount++;     
 			} else {
-				if ($VERBOSE || $DEBUG) {
-					print "VERIFICATION FAILURE: Backed up database does not match current database\n";
-				}
+				&_log($OUTPUT_VERBOSE, "VERIFICATION FAILURE: Backed up database does not match current database\n");
 				$failureCount++;    
 			}
 		}
@@ -232,27 +230,23 @@ sub Verify()
 	}
 
 	#print("\nVerify service := iChatServer resulted in:\nSuccessful matches := $successCount\nNumber of failures to match := $failureCount\nNumber of ommisions := $omittedCount\n"); $ret = 1;
-	print("\nVerify service := iChatServer resulted in:\nSuccessful matches := $successCount\nNumber of failures to match := $failureCount\n"); $ret = 1;
+	&_log($OUTPUT_PRINT, "\nVerify service := iChatServer resulted in:\nSuccessful matches := $successCount\nNumber of failures to match := $failureCount\n"); 
+	$ret = 1;
 
-	if ($FUNCLOG) 
-		{ print("End   Verify-------------------------------------------------------+\n"); }
+	&_log($OUTPUT_FUNCLOG, "End Verify-------------------------------------------------------+\n");
+
 	return($ret);
 }
 
 ################################################################################
 sub Version() 
 {
-	if ($FUNCLOG) 
-		{ print("Start Version-------------------------------------------------------+\n"); }
+	&_log($OUTPUT_FUNCLOG, "Start Version-------------------------------------------------------+\n");
 
-	if($VERBOSE) {
-		print (qq(${PBUDDY} -c \"Print :Version\" $SBS_CONF/$ServiceConf) . "\n");
-	}
 	$Version = qx(${PBUDDY} -c \"Print :Version\" $SBS_CONF/$ServiceConf);
-	print($Version);
+	&_log($OUTPUT_PRINT, $Version);
 
-	if ($FUNCLOG) 
-		{ print("End   Version-------------------------------------------------------+\n"); }
+	&_log($OUTPUT_FUNCLOG, "End Version-------------------------------------------------------+\n");
 }
 
 ################################################################################
@@ -321,4 +315,51 @@ sub dumpAssociativeArray()
 }
 
 ################################################################################
+sub timestamp()
+{
+	my ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst ) =
+	localtime(time);
+	$year += 1900;
+	$mon  += 1;
+	if ( $hour =~ /^\d$/ ) { $hour = "0" . $hour; }
+	if ( $min  =~ /^\d$/ ) { $min  = "0" . $min; }
+	if ( $sec  =~ /^\d$/ ) { $sec  = "0" . $sec; }
 
+	my $ret = $year."-".$mon."-".$mday."-$hour:$min:$sec";
+	#my $ret = $year."-".$mon."-".$mday;
+	return $ret;
+}
+
+################################################################################
+# Handle the various output modes, log to our file
+sub _log {
+	my $type = shift;
+	my $msg = shift;
+	
+	# log the message to our service-specific log file
+	if ($LOG_PATH ne "") {
+		open(OUT, ">>$LOG_PATH") || die "ERROR: Cannot open log file at path: $LOG_PATH : $!";
+		print OUT &timestamp."\t".$msg;
+		close(OUT);
+	}
+
+	# print to STDOUT if appropriate
+	if (($type == $OUTPUT_PRINT)  ||
+			($FUNCLOG && ($type == $OUTPUT_FUNCLOG)) ||
+			($DEBUG && ($type == $OUTPUT_DEBUG)) ||
+			($VERBOSE && ($type == $OUTPUT_VERBOSE))) {
+		print $msg;
+	}
+}
+
+# Pull the -log arg from argv
+sub _get_log_path {
+	my ($theKey, $theVal);
+	my %theArgList = @ARGV;
+	while(($theKey, $theVal) = each (%theArgList)) {
+		if ($theKey eq "-log") {
+			return $theVal;
+		}
+	}
+	return "";
+}

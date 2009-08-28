@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2008 Apple Inc.  All rights reserved.
+ * Copyright (c) 2007 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,6 +35,7 @@
 #define NOTIFY_SYSTEM_ASL_FILTER "com.apple.system.syslog.asl_filter"
 #define NOTIFY_PREFIX_SYSTEM "com.apple.system.syslog"
 #define NOTIFY_PREFIX_USER "user.syslog"
+#define NOTIFY_RC "com.apple.asl.remote"
 
 #define ASL_MSG_FMT_RAW "raw"
 #define ASL_MSG_FMT_STD "std"
@@ -53,6 +54,10 @@
 
 #define ASL_KEY_REF_PID  "RefPID"
 #define ASL_KEY_REF_PROC "RefProc"
+#define ASL_KEY_OPTION "ASLOption"
+
+#define ASL_OPT_IGNORE "ignore"
+#define ASL_OPT_STORE "store"
 
 typedef struct __aslclient
 {

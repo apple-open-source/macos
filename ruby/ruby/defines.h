@@ -2,8 +2,8 @@
 
   defines.h -
 
-  $Author: shyouhei $
-  $Date: 2008-06-15 23:06:16 +0900 (Sun, 15 Jun 2008) $
+  $Author: knu $
+  $Date: 2008-05-19 00:02:36 +0900 (Mon, 19 May 2008) $
   created at: Wed May 18 00:21:44 JST 1994
 
 ************************************************/
@@ -102,7 +102,7 @@ void xfree _((void*));
 #endif
 #endif
 
-#if defined(__BIG_ENDIAN__) || defined(__LITTLE_ENDIAN__)
+#if defined(__NeXT__) || defined(__APPLE__)
 /* Do not trust WORDS_BIGENDIAN from configure since -arch compiler flag may
    result in a different endian.  Instead trust __BIG_ENDIAN__ and
    __LITTLE_ENDIAN__ which are set correctly by -arch. */

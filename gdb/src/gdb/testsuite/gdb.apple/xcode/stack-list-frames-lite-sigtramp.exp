@@ -49,19 +49,19 @@ gdb_test "run" "Starting program: $binfile *\r\n\Reading symbols for shared libr
 send_gdb "set interpreter mi1\n"
 
 mi_gdb_test "104-stack-list-frames-lite -limit 500" \
-  "104\\^done,frames=\\\[0=\{pc=\"$hex\",fp=\"$hex\"\},1=\{pc=\"$hex\",fp=\"$hex\"\},2=\{pc=\"$hex\",fp=\"$hex\"\},3=\{pc=\"$hex\",fp=\"$hex\"\},4=\{pc=\"$hex\",fp=\"$hex\"\}.*\\\],valid=\"1\",count=\"11\"" "-stack-list-frames-lite -limit 500 works"
+  "104\\^done,frames=\\\[0=\{pc=\"$hex\",fp=\"$hex\"\},1=\{pc=\"$hex\",fp=\"$hex\"\},2=\{pc=\"$hex\",fp=\"$hex\"\},3=\{pc=\"$hex\",fp=\"$hex\"\},4=\{pc=\"$hex\",fp=\"$hex\"\}.*\\\],valid=\"1\",count=\"11\".*" "-stack-list-frames-lite -limit 500 works"
 
 set slow_worked 0
 set fast_worked 0
 
 
 mi_gdb_test "105-stack-info-depth" \
-  "105\\^done,depth=\"11\"" "check stack depth is as expected"
+  "105\\^done,depth=\"11\".*" "check stack depth is as expected"
 
     #-re "120\\^done,stack=\\\[frame=\{level=\"0\",addr=\"($hex)\",fp=\"($hex)\",func=\"subroutine6\",.*\},frame=\{level=\"1\",addr=\"($hex)\",fp=\"($hex)\",func=\"subroutine5\",.*\},frame=\{level=\"2\",addr=\"($hex)\",fp=\"($hex)\",func=\"subroutine4\",.*\},frame=\{level=\"3\",addr=\"($hex)\",fp=\"($hex)\",func=\"subroutine3\",.*\},frame=\{level=\"4\",addr=\"($hex)\",fp=\"($hex)\",func=\"subroutine2\",.*\},frame=\{level=\"5\",addr=\"($hex)\",fp=\"($hex)\",func=\"subroutine1\",.*\},frame=\{level=\"6\",addr=\"($hex)\",fp=\"($hex)\",func=\"handler\",.*\},frame=\{level=\"7\",addr=\"($hex)\",fp=\"($hex)\",func=\".*signal handler called.*\",.*\},frame=\{level=\"8\",addr=\"($hex)\",fp=\"($hex)\",func=\"superroutine2\",.*\},frame=\{level=\"9\",addr=\"($hex)\",fp=\"($hex)\",func=\"superroutine1\",.*\},frame=\{level=\"10\",addr=\"($hex)\",fp=\"($hex)\",func=\"main\",.*\}\\\]\[\r\n\]+$mi_gdb_prompt$" {
 send_gdb "120-stack-list-frames\n"
 gdb_expect {
-   -re "120\\^done,stack=\\\[frame=\{level=\"0\",addr=\"($hex)\",fp=\"($hex)\",func=\"subroutine6\",.*\},frame=\{level=\"1\",addr=\"($hex)\",fp=\"($hex)\",func=\"subroutine5\",.*\},frame=\{level=\"2\",addr=\"($hex)\",fp=\"($hex)\",func=\"subroutine4\",.*\},frame=\{level=\"3\",addr=\"($hex)\",fp=\"($hex)\",func=\"subroutine3\",.*\},frame=\{level=\"4\",addr=\"($hex)\",fp=\"($hex)\",func=\"subroutine2\",.*\},frame=\{level=\"5\",addr=\"($hex)\",fp=\"($hex)\",func=\"subroutine1\",.*\},frame=\{level=\"6\",addr=\"($hex)\",fp=\"($hex)\",func=\"handler\",.*\},frame=\{level=\"7\",addr=\"($hex)\",fp=\"($hex)\",func=\"<signal handler called>\"\},frame=\{level=\"8\",addr=\"($hex)\",fp=\"($hex)\",func=\"superroutine2\",.*\},frame=\{level=\"9\",addr=\"($hex)\",fp=\"($hex)\",func=\"superroutine1\",.*\},frame=\{level=\"10\",addr=\"($hex)\",fp=\"($hex)\",func=\"main\",.*\}\\\]\[\r\n\]+$mi_gdb_prompt$" {
+   -re "120\\^done,stack=\\\[frame=\{level=\"0\",addr=\"($hex)\",fp=\"($hex)\",func=\"subroutine6\",.*\},frame=\{level=\"1\",addr=\"($hex)\",fp=\"($hex)\",func=\"subroutine5\",.*\},frame=\{level=\"2\",addr=\"($hex)\",fp=\"($hex)\",func=\"subroutine4\",.*\},frame=\{level=\"3\",addr=\"($hex)\",fp=\"($hex)\",func=\"subroutine3\",.*\},frame=\{level=\"4\",addr=\"($hex)\",fp=\"($hex)\",func=\"subroutine2\",.*\},frame=\{level=\"5\",addr=\"($hex)\",fp=\"($hex)\",func=\"subroutine1\",.*\},frame=\{level=\"6\",addr=\"($hex)\",fp=\"($hex)\",func=\"handler\",.*\},frame=\{level=\"7\",addr=\"($hex)\",fp=\"($hex)\",func=\"<signal handler called>\"\},frame=\{level=\"8\",addr=\"($hex)\",fp=\"($hex)\",func=\"superroutine2\",.*\},frame=\{level=\"9\",addr=\"($hex)\",fp=\"($hex)\",func=\"superroutine1\",.*\},frame=\{level=\"10\",addr=\"($hex)\",fp=\"($hex)\",func=\"main\",.*\}\\\].*\[\r\n\]+$mi_gdb_prompt$" {
 	pass "get values from stack-list-frames"
 	set wildnum 1
 	for {set lev 0} {$lev < 10} {incr lev} {
@@ -87,7 +87,7 @@ gdb_expect {
 
 send_gdb "121-stack-list-frames-lite\n"
 gdb_expect {
-    -re "121\\^done,frames=\\\[0=\{pc=\"($hex)\",fp=\"($hex)\"\},1=\{pc=\"($hex)\",fp=\"($hex)\"\},2=\{pc=\"($hex)\",fp=\"($hex)\"\},3=\{pc=\"($hex)\",fp=\"($hex)\"\},4=\{pc=\"($hex)\",fp=\"($hex)\"\},5=\{pc=\"($hex)\",fp=\"($hex)\"\},6=\{pc=\"($hex)\",fp=\"($hex)\"\},7=\{pc=\"($hex)\",fp=\"($hex)\"\},8=\{pc=\"($hex)\",fp=\"($hex)\"\},9=\{pc=\"($hex)\",fp=\"($hex)\"\},10=\{pc=\"($hex)\",fp=\"($hex)\"\}.*\\\],valid=\"1\",count=\"11\"\[\r\n\]+$mi_gdb_prompt$" {
+    -re "121\\^done,frames=\\\[0=\{pc=\"($hex)\",fp=\"($hex)\"\},1=\{pc=\"($hex)\",fp=\"($hex)\"\},2=\{pc=\"($hex)\",fp=\"($hex)\"\},3=\{pc=\"($hex)\",fp=\"($hex)\"\},4=\{pc=\"($hex)\",fp=\"($hex)\"\},5=\{pc=\"($hex)\",fp=\"($hex)\"\},6=\{pc=\"($hex)\",fp=\"($hex)\"\},7=\{pc=\"($hex)\",fp=\"($hex)\"\},8=\{pc=\"($hex)\",fp=\"($hex)\"\},9=\{pc=\"($hex)\",fp=\"($hex)\"\},10=\{pc=\"($hex)\",fp=\"($hex)\"\}.*\\\],valid=\"1\",count=\"11\".*\[\r\n\]+$mi_gdb_prompt$" {
 	pass "get values from stack-list-frames-lite"
 	set wildnum 1
 	for {set lev 0} {$lev < 10} {incr lev} {

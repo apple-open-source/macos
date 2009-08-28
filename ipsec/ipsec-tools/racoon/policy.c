@@ -383,7 +383,7 @@ inssp(new)
 	}
 	if (p == NULL)
 #endif
-		TAILQ_INSERT_TAIL(&sptree, new, chain);
+	        TAILQ_INSERT_HEAD(&sptree, new, chain);
 
 	check_auto_exit();
 	return;

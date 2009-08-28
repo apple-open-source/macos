@@ -1,6 +1,6 @@
 /* 
    Tests for property handling
-   Copyright (C) 2002-2006, Joe Orton <joe@manyfish.co.uk>
+   Copyright (C) 2002-2008, Joe Orton <joe@manyfish.co.uk>
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -411,10 +411,12 @@ static int two_oh_seven(void)
 }
 
 /* Serialize propfind result callbacks into a string */
-static int simple_iterator(void *buf, const ne_propname *name,
+static int simple_iterator(void *vbuf, const ne_propname *name,
                            const char *value, const ne_status *st)
 {
     char code[20];
+    ne_buffer *buf = vbuf;
+
     ne_buffer_concat(buf, "prop:[{", name->nspace, ",", 
                      name->name, "}=", NULL);
     if (value)
@@ -596,6 +598,15 @@ static int propfind(void)
           "results(/alpha,prop:[{DAV:,alpha}='beta':{200 OK}];)//",
           0, PF_SIMPLE},
         
+        /* attribute handling. */
+        { MULTI_207(RESP_207("\r\nhttp://localhost:7777/alpha ",
+                             PSTAT_207(PROPS_207("<D:alpha>"
+                                                 "<D:foo D:fee='bar' bar='fee'>beta</D:foo></D:alpha>")
+                                       "<D:status>\r\nHTTP/1.1 200 OK </D:status>"))),
+          "results(/alpha,prop:[{DAV:,alpha}='<DAV:foo DAV:fee='bar' bar='fee'>beta</DAV:foo>':{200 OK}];)//",
+          0, PF_SIMPLE},
+        
+
         /* "complex" propfinds. */
 
         { FISHBONE_RESP("hello, world", "212 Well OK"),

@@ -1,0 +1,95 @@
+#
+# this is a maintenance program for XOTcl that allows us to change the 
+# version information across the whole distribution automatically.
+# 
+# this program assumes that pwd is in xotcl-full-X.X* directory or subdir
+#
+set XOTCL_MAJOR_VERSION 1
+set XOTCL_MINOR_VERSION 6
+set XOTCL_RELEASE_LEVEL .2
+
+# example settings: 
+# 1.0
+#set XOTCL_MAJOR_VERSION 1
+#set XOTCL_MINOR_VERSION 0
+#set XOTCL_RELEASE_LEVEL .3
+#
+# 0.9.3
+#set XOTCL_MAJOR_VERSION 0
+#set XOTCL_MINOR_VERSION 9
+#set XOTCL_RELEASE_LEVEL .3
+
+#set XOTCL_MAJOR_VERSION 0
+#set XOTCL_MINOR_VERSION 9
+#set XOTCL_RELEASE_LEVEL .3
+#set XOTCL_RELEASE_LEVEL .4
+#set XOTCL_RELEASE_LEVEL .5
+
+
+set XOTCL_VERSION $XOTCL_MAJOR_VERSION.$XOTCL_MINOR_VERSION
+set FULL_VERSION $XOTCL_VERSION$XOTCL_RELEASE_LEVEL
+
+if {![regexp {((^.*/xotcl-)([0-9.]*))/?} [pwd] _ topdirname topdirprefix oldversion]} {
+  error "this program assumes that pwd is in xotcl-X.X* directory"
+}
+
+puts "Prior version is: $oldversion"
+puts "New version is:   $FULL_VERSION"
+puts "Working in:       $topdirname"
+
+cd $topdirname
+
+puts "... make clean first"
+if {[file exists Makefile]} {
+  exec make clean
+}
+
+foreach file [exec find . -name configure.in] {
+  puts "... updating $file"
+  set F [open $file]; set c [read $F]; close $F
+  set newFile ""
+  foreach line [split $c \n] {
+    set newLine $line
+    if {[regexp {^XOTCL_MAJOR_VERSION=[0-9]} $line]} {
+      set line "XOTCL_MAJOR_VERSION=$XOTCL_MAJOR_VERSION"
+    } elseif {[regexp {^XOTCL_MINOR_VERSION=[0-9]} $line]} {
+      set line "XOTCL_MINOR_VERSION=$XOTCL_MINOR_VERSION"
+    } elseif {[regexp {^XOTCL_RELEASE_LEVEL=} $line]} {
+      set line "XOTCL_RELEASE_LEVEL=$XOTCL_RELEASE_LEVEL"
+    } elseif {[regexp {^define\(XOTclVersion, .*$} $line]} {
+      set line "define(XOTclVersion, $XOTCL_MAJOR_VERSION.$XOTCL_MINOR_VERSION$XOTCL_RELEASE_LEVEL)"
+    }
+    append newFile $line\n
+  }
+  set F [open $file w]; puts $F $newFile; close $F
+}
+
+set newtopdirname $topdirprefix$FULL_VERSION
+if {$oldversion != $FULL_VERSION} {
+  puts "topdir:               $topdirname->$newtopdirname"
+  file rename -force $topdirname $newtopdirname
+} 
+cd $newtopdirname
+
+foreach file [exec find . -name configure.in] {
+  set dir [file dirname $file]
+  set oldpwd [pwd]
+  cd $dir
+  exec autoconf
+  cd $oldpwd
+}
+
+# determine last configure command
+cd $newtopdirname
+if {[catch {set configurecmd [exec fgrep {$ ./configure} config.log]}]} {
+  set configurecmd "./configure"
+} else {
+  regsub {^ +\$ } $configurecmd "" configurecmd
+}
+#puts $configurecmd
+
+cd $newtopdirname/
+puts "Configuring in [pwd]"
+eval exec $configurecmd
+
+puts "ok ... version is now $FULL_VERSION"

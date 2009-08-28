@@ -21,6 +21,9 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		7296FBDF0F8BA4DB0077D3EA /* AuditUtils.c in Sources */ = {isa = PBXBuildFile; fileRef = 7296FBDD0F8BA4DB0077D3EA /* AuditUtils.c */; };
+		7296FBE00F8BA4DB0077D3EA /* AuditUtils.h in Headers */ = {isa = PBXBuildFile; fileRef = 7296FBDE0F8BA4DB0077D3EA /* AuditUtils.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		7296FBE90F8BA52E0077D3EA /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 7296FBE80F8BA5190077D3EA /* libbsm.dylib */; };
 		9A7F27880C8648A900E3E5D7 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F56C19EF0294331B01DD284B /* SystemConfiguration.framework */; };
 		AA01E5B009F8177C00BE8A76 /* CPSPlugInUtils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA01E5AE09F8177C00BE8A76 /* CPSPlugInUtils.cpp */; };
 		AA01E5B109F8177C00BE8A76 /* CPSPlugInUtils.h in Headers */ = {isa = PBXBuildFile; fileRef = AA01E5AF09F8177C00BE8A76 /* CPSPlugInUtils.h */; };
@@ -152,6 +155,9 @@
 
 /* Begin PBXFileReference section */
 		0AA1909FFE8422F4C02AAC07 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
+		7296FBDD0F8BA4DB0077D3EA /* AuditUtils.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = AuditUtils.c; sourceTree = "<group>"; };
+		7296FBDE0F8BA4DB0077D3EA /* AuditUtils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AuditUtils.h; sourceTree = "<group>"; };
+		7296FBE80F8BA5190077D3EA /* libbsm.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libbsm.dylib; path = /usr/lib/libbsm.dylib; sourceTree = "<absolute>"; };
 		842C24BF0561685200C9FCCD /* CPolicyGlobalXML.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CPolicyGlobalXML.cpp; sourceTree = "<group>"; };
 		842C24C00561685200C9FCCD /* CPolicyGlobalXML.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CPolicyGlobalXML.h; sourceTree = "<group>"; };
 		842E228903DFC6B800DD284B /* AuthFile.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AuthFile.h; sourceTree = "<group>"; };
@@ -196,9 +202,9 @@
 		AA60AF2D0977212200B2E83E /* PSUtilities.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PSUtilities.m; sourceTree = "<group>"; };
 		AA60AF320977217300B2E83E /* PSUtilitiesDefs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PSUtilitiesDefs.h; sourceTree = "<group>"; };
 		AA9A307A08BA343800F499F3 /* AuthOverflowFile.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AuthOverflowFile.h; sourceTree = "<group>"; };
-		AABD3D080830037A00C77166 /* Info-PasswordServerPlugin.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "Info-PasswordServerPlugin.plist"; sourceTree = "<group>"; };
+		AABD3D080830037A00C77166 /* Info-PasswordServerPlugin.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-PasswordServerPlugin.plist"; sourceTree = "<group>"; };
 		AABD3D090830037A00C77166 /* PasswordServer.dsplug */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PasswordServer.dsplug; sourceTree = BUILT_PRODUCTS_DIR; };
-		AABD3D440830037A00C77166 /* Info-PasswordServerFramework.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "Info-PasswordServerFramework.plist"; sourceTree = "<group>"; };
+		AABD3D440830037A00C77166 /* Info-PasswordServerFramework.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-PasswordServerFramework.plist"; sourceTree = "<group>"; };
 		AABD3D450830037A00C77166 /* PasswordServer.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = PasswordServer.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		AABD3F05083022D000C77166 /* DirectoryService.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DirectoryService.framework; path = /System/Library/Frameworks/DirectoryService.framework; sourceTree = "<absolute>"; };
 		AAE4827409F9855D00DDDA9A /* CoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreServices.framework; path = /System/Library/Frameworks/CoreServices.framework; sourceTree = "<absolute>"; };
@@ -281,6 +287,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7296FBE90F8BA52E0077D3EA /* libbsm.dylib in Frameworks */,
 				AABD3D410830037A00C77166 /* CoreFoundation.framework in Frameworks */,
 				AABD3D420830037A00C77166 /* libsasl2.2.0.1.dylib in Frameworks */,
 				9A7F27880C8648A900E3E5D7 /* SystemConfiguration.framework in Frameworks */,
@@ -316,6 +323,7 @@
 				F56C19ED0294331B01DD284B /* Security.framework */,
 				F56C19EE0294331B01DD284B /* System.framework */,
 				F56C19EF0294331B01DD284B /* SystemConfiguration.framework */,
+				7296FBE80F8BA5190077D3EA /* libbsm.dylib */,
 			);
 			name = "External Frameworks and Libraries";
 			sourceTree = "<group>";
@@ -363,6 +371,8 @@
 		84A3782E04CC515300FAC35E /* Framework */ = {
 			isa = PBXGroup;
 			children = (
+				7296FBDD0F8BA4DB0077D3EA /* AuditUtils.c */,
+				7296FBDE0F8BA4DB0077D3EA /* AuditUtils.h */,
 				AA17EE5B08905A7900EF9C89 /* LegacyCPlusPlus */,
 				F56C179A029431BE01DD284B /* OpenSSH */,
 				B0D6E03C0C0E324B00D04B07 /* FTPConfig */,
@@ -492,6 +502,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7296FBE00F8BA4DB0077D3EA /* AuditUtils.h in Headers */,
 				AABD3D0C0830037A00C77166 /* CPSPlugIn.h in Headers */,
 				AABD3D0D0830037A00C77166 /* SASLCode.h in Headers */,
 				AABD3D0E0830037A00C77166 /* CReplicaFile.h in Headers */,
@@ -691,6 +702,7 @@
 				B0D6E0300C0E321B00D04B07 /* FTPAccessFile.cpp in Sources */,
 				B0D6E0340C0E323200D04B07 /* ftpmunge.cpp in Sources */,
 				B0D6E0400C0E32D500D04B07 /* ConfigurationFile.cpp in Sources */,
+				7296FBDF0F8BA4DB0077D3EA /* AuditUtils.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -708,6 +720,7 @@
 		AAA5BEB5088852E000082A77 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				COPY_PHASE_STRIP = NO;
 				EXPORTED_SYMBOLS_FILE = ServerModule.exp;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -743,11 +756,13 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PasswordServer;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "i386 x86_64 ppc ppc64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wall",
+					"-Wshorten-64-to-32",
 				);
 				WRAPPER_EXTENSION = dsplug;
 				ZERO_LINK = YES;
@@ -757,6 +772,7 @@
 		AAA5BEB6088852E000082A77 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				COPY_PHASE_STRIP = YES;
 				DEPLOYMENT_LOCATION = YES;
 				DEPLOYMENT_POSTPROCESSING = YES;
@@ -792,11 +808,13 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PasswordServer;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "i386 x86_64 ppc ppc64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wall",
+					"-Wshorten-64-to-32",
 				);
 				WRAPPER_EXTENSION = dsplug;
 				ZERO_LINK = NO;
@@ -806,6 +824,7 @@
 		AAA5BEB7088852E000082A77 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				EXPORTED_SYMBOLS_FILE = ServerModule.exp;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -837,11 +856,13 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PasswordServer;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "i386 x86_64 ppc ppc64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wall",
+					"-Wshorten-64-to-32",
 				);
 				WRAPPER_EXTENSION = dsplug;
 			};
@@ -909,6 +930,7 @@
 		AAA5BEBD088852E000082A77 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				COPY_PHASE_STRIP = NO;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
@@ -946,10 +968,13 @@
 				PRINCIPAL_CLASS = "";
 				PRODUCT_NAME = PasswordServer;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = " i386 x86_64 ppc ppc64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wall",
+					"-Wshorten-64-to-32",
 				);
 				WRAPPER_EXTENSION = framework;
 				ZERO_LINK = YES;
@@ -959,6 +984,7 @@
 		AAA5BEBE088852E000082A77 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				COPY_PHASE_STRIP = YES;
 				DEPLOYMENT_LOCATION = YES;
 				DEPLOYMENT_POSTPROCESSING = YES;
@@ -993,10 +1019,13 @@
 				PRINCIPAL_CLASS = "";
 				PRODUCT_NAME = PasswordServer;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = " i386 x86_64 ppc ppc64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wall",
+					"-Wshorten-64-to-32",
 				);
 				WRAPPER_EXTENSION = framework;
 				ZERO_LINK = NO;
@@ -1006,6 +1035,7 @@
 		AAA5BEBF088852E000082A77 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				EXPORTED_SYMBOLS_FILE = "";
@@ -1036,10 +1066,13 @@
 				PRINCIPAL_CLASS = "";
 				PRODUCT_NAME = PasswordServer;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = " i386 x86_64 ppc ppc64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wall",
+					"-Wshorten-64-to-32",
 				);
 				WRAPPER_EXTENSION = framework;
 			};

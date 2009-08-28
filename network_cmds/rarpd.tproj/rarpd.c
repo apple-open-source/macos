@@ -92,8 +92,8 @@ __unused static char rcsid[] =
 struct if_info {
 	int     ii_fd;		/* BPF file descriptor */
 	u_char  ii_eaddr[6];	/* Ethernet address of this interface */
-	u_long  ii_ipaddr;	/* IP address of this interface */
-	u_long  ii_netmask;	/* subnet or net mask */
+	in_addr_t ii_ipaddr;	/* IP address of this interface */
+	in_addr_t ii_netmask;	/* subnet or net mask */
 	struct if_info *ii_next;
 };
 /*
@@ -103,19 +103,19 @@ struct if_info {
 struct if_info *iflist;
 
 int    rarp_open     __P((char *));
-int    rarp_bootable __P((u_long));
+int    rarp_bootable __P((in_addr_t));
 void   init_one      __P((char *));
 void   init_all      __P((void));
 void   rarp_loop     __P((void));
 void   lookup_eaddr  __P((char *, u_char *));
-void   lookup_ipaddr __P((char *, u_long *, u_long *));
+void   lookup_ipaddr __P((char *, in_addr_t *, in_addr_t *));
 void   usage         __P((void));
 void   rarp_process  __P((struct if_info *, u_char *));
-void   rarp_reply    __P((struct if_info *, struct ether_header *, u_long));
-void   update_arptab __P((u_char *, u_long));
+void   rarp_reply    __P((struct if_info *, struct ether_header *, in_addr_t));
+void   update_arptab __P((u_char *, in_addr_t));
 void   err           __P((int, const char *,...));
 void   debug         __P((const char *,...));
-u_long ipaddrtonetmask __P((u_long));
+in_addr_t ipaddrtonetmask __P((in_addr_t));
 
 int     aflag = 0;		/* listen on "all" interfaces  */
 int     dflag = 0;		/* print debugging messages */
@@ -132,7 +132,7 @@ main(argc, argv)
 	extern char *optarg;
 	extern int optind, opterr;
 
-	if (name = strrchr(argv[0], '/'))
+	if ((name = strrchr(argv[0], '/')) != NULL)
 		++name;
 	else
 		name = argv[0];
@@ -484,16 +484,16 @@ rarp_loop()
  */
 int
 rarp_bootable(addr)
-	u_long  addr;
+	in_addr_t  addr;
 {
 	register struct dirent *dent;
 	register DIR *d;
 	char    ipname[9];
 	static DIR *dd = 0;
 
-	(void) sprintf(ipname, "%08lX", addr);
+	(void) sprintf(ipname, "%08X", addr);
 	/* If directory is already open, rewind it.  Otherwise, open it. */
-	if (d = dd)
+	if ((d = dd) != NULL)
 		rewinddir(d);
 	else {
 		if (chdir(TFTP_DIR) == -1) {
@@ -507,7 +507,7 @@ rarp_bootable(addr)
 		}
 		dd = d;
 	}
-	while (dent = readdir(d))
+	while ((dent = readdir(d)) != NULL)
 		if (strncmp(dent->d_name, ipname, 8) == 0)
 			return 1;
 	return 0;
@@ -517,11 +517,11 @@ rarp_bootable(addr)
  * is on network 'net'; 'netmask' is a mask indicating the network portion
  * of the address.
  */
-u_long
+in_addr_t
 choose_ipaddr(alist, net, netmask)
-	u_long **alist;
-	u_long  net;
-	u_long  netmask;
+	in_addr_t **alist;
+	in_addr_t  net;
+	in_addr_t  netmask;
 {
 	for (; *alist; ++alist) {
 		if ((**alist & netmask) == net)
@@ -540,7 +540,7 @@ rarp_process(ii, pkt)
 {
 	struct ether_header *ep;
 	struct hostent *hp;
-	u_long  target_ipaddr;
+	in_addr_t  target_ipaddr;
 	char    ename[256];
 	struct	in_addr in;
 
@@ -555,7 +555,7 @@ rarp_process(ii, pkt)
 		err(FATAL, "cannot handle non IP addresses");
 		/* NOTREACHED */
 	}
-	target_ipaddr = choose_ipaddr((u_long **) hp->h_addr_list,
+	target_ipaddr = choose_ipaddr((in_addr_t **) hp->h_addr_list,
 	    ii->ii_ipaddr & ii->ii_netmask, ii->ii_netmask);
 
 	if (target_ipaddr == 0) {
@@ -626,8 +626,8 @@ lookup_eaddr(ifname, eaddr)
 void
 lookup_ipaddr(ifname, addrp, netmaskp)
 	char   *ifname;
-	u_long *addrp;
-	u_long *netmaskp;
+	in_addr_t *addrp;
+	in_addr_t *netmaskp;
 {
 	int     fd;
 	struct ifreq ifr;
@@ -664,7 +664,7 @@ lookup_ipaddr(ifname, addrp, netmaskp)
 void
 update_arptab(ep, ipaddr)
 	u_char *ep;
-	u_long  ipaddr;
+	in_addr_t  ipaddr;
 {
 	//int     s;
 	struct arpreq request;
@@ -726,7 +726,7 @@ void
 rarp_reply(ii, ep, ipaddr)
 	struct if_info *ii;
 	struct ether_header *ep;
-	u_long  ipaddr;
+	in_addr_t  ipaddr;
 {
 	int     n;
 	struct ether_arp *ap = (struct ether_arp *) (ep + 1);
@@ -758,9 +758,9 @@ rarp_reply(ii, ep, ipaddr)
  * Get the netmask of an IP address.  This routine is used if
  * SIOCGIFNETMASK doesn't work.
  */
-u_long
+in_addr_t
 ipaddrtonetmask(addr)
-	u_long  addr;
+	in_addr_t  addr;
 {
 	if (IN_CLASSA(addr))
 		return IN_CLASSA_NET;

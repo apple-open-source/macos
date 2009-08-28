@@ -1,0 +1,30 @@
+2008-06-20  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* chatwidget.tcl: Fixed a number of minor bugs. 
+
+2008-02-16  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* pkgIndex.tcl:   Incremented to 1.1.0
+	* chatwidget.tcl: Added support for chatstate notifications. This
+	is a Jabber (XEP-0085) concept that will likely be useful in many
+	chat implementations.
+	Also simpler support for changing the font with a cget/configure
+	override command and access the chatstate via cget -chatstate.
+
+2007-10-23  Andreas Kupries  <andreask@activestate.com>
+
+	* chatwidget.man: Fixed syntax error in documentation.
+
+2007-10-19  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* chatwidget.tcl: Reorganized the widget tree to fix some problems
+	                  when adding scrollbars to the panes. Added
+	                  accessors for all the components.
+
+2007-10-19  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* chatwidget.tcl: Initial checkin of a composite widget for use
+	* chatwidget.man: in chat applications (eg: jabber or irc)
+	* pkgIndex.tcl: 
+
+

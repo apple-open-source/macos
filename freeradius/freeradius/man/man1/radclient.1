@@ -23,7 +23,7 @@ radclient - send packets to a RADIUS server, show reply
 .RB [ \-t
 .IR timeout ]
 .RB [ \-qvx ]
-\fIserver {acct|auth|status|disconnect} secret\fP
+\fIserver {acct|auth|status|disconnect|auto} secret\fP
 .SH DESCRIPTION
 \fBradclient\fP is a radius client program. It can send arbitrary radius
 packets to a radius server, then shows the reply. It can be used to
@@ -92,13 +92,36 @@ accounting packets, and \fBradius\fP for all other requests. If a
 service is not found in \fI/etc/services\fP, 1813 and 1812 are used
 respectively.
 
-.IP acct\ |\ auth\ |\ status\ |\ disconnect
+The RADIUS attributes read by \fIradclient\fP can contain the special
+attribute \fBPacket-Dst-IP-Address\fP.  If this attribute exists, then
+that IP address is where the packet is sent, and the \fBserver\fP
+specified on the command-line is ignored.
+
+If the RADIUS attribute list always contains the
+\fBPacket-Dst-IP-Address\fP attribute, then the \fBserver\fP parameter
+can be given as \fB-\fP.
+
+The RADIUS attributes read by \fIradclient\fP can contain the special
+attribute \fBPacket-Dst-Port\fP.  If this attribute exists, then that
+UDP port is where the packet is sent, and the \fB:port\fP specified
+on the command-line is ignored.
+
+.IP acct\ |\ auth\ |\ status\ |\ disconnect\ |\ auto
 Use \fBauth\fP to send an authentication packet (Access-Request),
 \fBacct\fP to send an accounting packet (Accounting-Request),
 \fBstatus\fP to send an status packet (Status-Server), or
 \fBdisconnect\fP to send a disconnection request. Instead of these
 values, you can also use a decimal code here. For example, code 12 is
 also \fBStatus-Server\fP.
+
+The RADIUS attributes read by \fIradclient\fP can contain the special
+attribute \fBPacket-Type\fP.  If this attribute exists, then that type
+of packet is sent, and the \fItype\fP specified on the command-line
+is ignored.
+
+If the RADIUS attribute list always contains the
+\fBPacket-Type\fP attribute, then the \fBtype\fP parameter can be
+given as \fBauto\fP.
 
 .IP secret
 The shared secret for this client.  It needs to be defined on the
@@ -114,7 +137,7 @@ configurable support for it).
 .sp
 .nf
 .ne 3
-$ echo "User-Name = fnord" | radclient 192.168.1.42 12 s3cr3t
+$ echo "Message-Authenticator = 0x00" | radclient 192.168.1.42 status s3cr3t
 Sending request to server 192.168.1.42, port 1812.
 radrecv: Packet from host 192.168.1.42 code=2, id=140, length=54
     Reply-Message = "FreeRADIUS up 21 days, 02:05"

@@ -1,0 +1,6 @@
+#! /bin/sh
+
+# This is a run-once job to recreate the SMB sharepoint configuration
+# after an upgrade.
+
+/usr/libexec/samba/smb-sync-shares && touch /var/db/.com.apple.smb.sharepoints

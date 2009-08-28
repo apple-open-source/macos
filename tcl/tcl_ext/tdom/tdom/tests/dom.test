@@ -1,0 +1,1303 @@
+# Features covered: dom command
+#
+# This file contains a collection of tests for the dom command of
+# tDOM.
+#
+#    dom-1.*:  createDocument, createDocumentNS
+#    dom-2.*:  parse
+#    dom-3.*:  isName, isNCName, isCharData, isPIName, isComment, isCDATA
+#    dom-4.*:  parse -useForeignDTD
+#    dom-5.*:  external entities
+#    dom-6.*:  use in slave interpreter
+#    dom-7.*:  setNameCheck, setTextCheck
+#    dom-8.*:  createDocumentNode, documentNodes
+#    dom-9.*:  setObjectCommands
+#    dom-10.*: createNodeCmd
+#
+# Copyright (c) 2002, 2003, 2004 Rolf Ade.
+
+source [file join [file dir [info script]] loadtdom.tcl]
+
+test dom-1.1 {createDocument with root node name not a XML Name} {
+    list [catch {dom createDocument "root node"} msg] $msg
+} "1 {invalid root element name}"
+
+test dom-1.2 {createDocument with root node name not a XML Name} {
+    list [catch {dom createDocument "1root"} msg] $msg
+} "1 {invalid root element name}"
+
+test dom-1.3 {createDocument - root name us-ascii} {
+    dom createDocument "root" doc 
+    set root [$doc documentElement]
+    set result [$root nodeName]
+    $doc delete
+    set result
+} "root"
+
+test dom-1.4 {createDocument - root name with UTF-8 chars} {
+    dom createDocument "\u00c4\u00d4\u00dc" doc 
+    set root [$doc documentElement]
+    set result [$root nodeName]
+    $doc delete
+    set result
+} "\u00c4\u00d4\u00dc"
+    
+test dom-1.5 {createDocument with FQ root name} {
+    dom createDocument "foo:bar" doc
+    set root [$doc documentElement]
+    set result [$root nodeName]
+    $doc delete
+    set result
+} "foo:bar"
+
+test dom-1.6 {createDocument with wrong # of args} {
+    list [catch {dom createDocument "root" "http:/foo:bar" doc} msg] $msg
+} "1 {wrong \# args: should be \"createDocument docElemName ?newObjVar?\"}"
+
+test dom-1.7 {createDocumentNS - check root name} {
+    set doc [dom createDocumentNS "http://foo.bar" "root"]
+    set root [$doc documentElement]
+    set result [$root nodeName]
+    $doc delete
+    set result
+} "root"
+
+test dom-1.8 {createDocumentNS - check the NS of the created root} {
+    dom createDocumentNS "http://foo.bar" "root" doc
+    set root [$doc documentElement]
+    set result [$root namespaceURI]
+    $doc delete
+    set result
+} "http://foo.bar"    
+
+test dom-1.9 {createDocumentNS with root name not a NCName} {
+    list [catch {dom createDocumentNS "http://foo.bar" "foo bar" doc} msg] $msg
+} "1 {invalid local name}"
+
+test dom-1.10 {createDocumentNS with root name not a NCName} {
+    list [catch {dom createDocumentNS "http://foo.bar" "a:b:c" doc} msg] $msg
+} "1 {invalid local name}"
+
+test dom-1.11 {createDocumentNS with root name not a NCName} {
+    list [catch {dom createDocumentNS "http://foo.bar" "a b:b" doc} msg] $msg
+} "1 {invalid prefix name}"
+
+test dom-1.12 {createDocumentNS with root name not a NCName} {
+    list [catch {dom createDocumentNS "http://foo.bar" "a:a b" doc} msg] $msg
+} "1 {invalid local name}"
+
+test dom-1.13 {createDocumentNS - check root name} {
+    set doc [dom createDocumentNS "http://foo.bar" foo:root]
+    set root [$doc documentElement]
+    set result [$root nodeName]
+    $doc delete
+    set result
+} "foo:root"
+
+test dom-1.14 {createDocument - rename the doc cmd} {
+    set doc [dom createDocument root]
+    if {[info commands fooCmd] == "fooCmd"} {
+        rename fooCmd {}
+    }
+    rename $doc fooCmd
+    set result [[fooCmd documentElement] nodeName]
+    fooCmd delete
+    set result
+} {root}
+
+test dom-1.15 {createDocument - rename the doc cmd} {
+    if {[info commands fooCmd] == "fooCmd"} {
+        rename fooCmd {}
+    }
+    set nrOfCommands [llength [info commands]]
+    set doc [dom createDocument root]
+    rename $doc fooCmd
+    fooCmd delete
+    expr {[llength [info commands]] == $nrOfCommands}
+} {1}
+
+test dom-2.1 {Don't quash white space at start or end of non white space content} {
+    set doc [dom parse {<root>
+    some content
+    </root>}]
+    set root [$doc documentElement]
+    $root text
+} {
+    some content
+    }
+
+test dom-2.2 {parse doc with various re-declaration of a prefix} {
+    set doc [dom parse {<p:a xmlns:p="uri1">
+    <p:b xmlns:p="uri2">
+        <p:c xmlns:p="uri1"/>
+    </p:b>
+</p:a>}]
+    set root [$doc documentElement]
+    set result [$root asXML]
+    $doc delete
+    set result
+} {<p:a xmlns:p="uri1">
+    <p:b xmlns:p="uri2">
+        <p:c xmlns:p="uri1"/>
+    </p:b>
+</p:a>
+}
+
+test dom-2.3 {parse doc with default NS declaration} {
+    set doc [dom parse {<a xmlns:p="uri">
+    <p:b/>
+    <p:b/>
+</a>}]
+    set root [$doc documentElement]
+    set result [$root asXML]
+    $doc delete
+    set result
+} {<a xmlns:p="uri">
+    <p:b/>
+    <p:b/>
+</a>
+}
+
+test dom-2.4 {parse method: syntax check} {
+    set doc [dom parse -keepEmpties {<root>
+  text
+    </root>}]
+    set result [$doc asXML -indent none]
+    $doc delete
+    set result
+} {<root>
+  text
+    </root>}
+
+test dom-2.5 {parse method: syntax check} {
+    set doc [dom parse -useForeignDTD 0 -keepEmpties {<root>
+  text
+    </root>}]
+    set result [$doc asXML -indent none]
+    $doc delete
+    set result
+} {<root>
+  text
+    </root>}
+
+test dom-2.6 {parse method: syntax check} -setup {
+    set xmlFile [makeFile {<root>    </root>} dom.xml]
+} -body {
+    set fd [open $xmlFile]
+    set doc [dom parse -channel $fd -keepEmpties]
+    close $fd
+    set root [$doc documentElement]
+    set result [$root asXML -indent none]
+    $doc delete
+    set result
+} -cleanup {
+    removeFile dom.xml
+} -result {<root>    </root>}
+
+test dom-2.7 {parse method: syntax check} -setup {
+    set xmlFile [makeFile {<root>    </root>} dom.xml]
+} -body {
+    catch {unset -keepEmpties}
+    set fd [open $xmlFile]
+    set doc [dom parse -channel $fd -keepEmpties]
+    close $fd
+    $doc delete
+    info exists -keepEmpties
+} -cleanup {
+    removeFile dom.xml
+} -result 0
+
+test dom-2.8 {parse method: bogus option} {
+    set result [catch {set doc [dom parse -bogusOption foo <root/>]} errMsg]
+    lappend result $errMsg
+} {1 {bad option "-bogusOption": must be -keepEmpties, -simple, -html, -feedbackAfter, -channel, -baseurl, -externalentitycommand, -useForeignDTD, or -paramentityparsing}}
+
+test dom-2.9 {parse method: bogus option} -setup {
+    set xmlFile [makeFile {<root>    </root>} dom.xml]
+} -body {
+    catch {unset -keepEmpties}
+    set fd [open $xmlFile]
+    set result [catch {set doc [dom parse -channel $fd -bogusOption]} errMsg]
+    close $fd
+    lappend result $errMsg
+} -cleanup {
+    removeFile dom.xml
+} -result {1 {bad option "-bogusOption": must be -keepEmpties, -simple, -html, -feedbackAfter, -channel, -baseurl, -externalentitycommand, -useForeignDTD, or -paramentityparsing}}
+
+set dom_dtd "
+    <!ELEMENT root EMPTY>
+    <!ATTLIST root lang CDATA #FIXED \"en\">"
+
+proc extRefResolver {base systemId publicId} {
+    global dom_dtd
+
+    if {$publicId == "DOMCMDTEST"} {
+        return [list string $base $dom_dtd]
+    } else {
+        return [::tDOM::extRefHandler $base $systemId $publicId]
+    }
+}
+
+test dom-2.10 {parse method: -paramentityparsing default is 'always'} {
+    set doc [dom parse -externalentitycommand extRefResolver {
+        <!DOCTYPE root PUBLIC "DOMCMDTEST" "dummysystemID">
+        <root/>
+    }]
+    set root [$doc documentElement]
+    set result [$root @lang]
+    $doc delete
+    set result
+} {en}
+
+test dom-2.11 {parse method: explicit -paramentityparsing always} {
+    set doc [dom parse -externalentitycommand extRefResolver \
+                       -paramentityparsing always {
+        <!DOCTYPE root PUBLIC "DOMCMDTEST" "dummysystemID">
+        <root/>
+    }]
+    set root [$doc documentElement]
+    set result [$root @lang]
+    $doc delete
+    set result
+} {en}
+
+test dom-2.12 {parse method: -paramentityparsing never} {
+    set doc [dom parse -externalentitycommand extRefResolver \
+                       -paramentityparsing never {
+        <!DOCTYPE root PUBLIC "DOMCMDTEST" "dummysystemID">
+        <root/>
+    }]
+    set root [$doc documentElement]
+    set result [catch {set result [$root @lang]} errMsg]
+    $doc delete
+    lappend result $errMsg
+    set result
+} {1 {Attribute "lang" not found!}}
+
+test dom-2.13 {parse method: -paramentityparsing notstandalone} {
+    set doc [dom parse -externalentitycommand extRefResolver \
+                       -paramentityparsing notstandalone {
+        <!DOCTYPE root PUBLIC "DOMCMDTEST" "dummysystemID">
+        <root/>
+    }]
+    set root [$doc documentElement]
+    set result [$root @lang]
+    $doc delete
+    set result
+} {en}
+
+test dom-2.14 {parse method: -paramentityparsing notstandalone} {
+    set doc [dom parse -externalentitycommand extRefResolver \
+                       -paramentityparsing notstandalone \
+                       {<?xml version="1.0" standalone="yes"?>
+        <!DOCTYPE root PUBLIC "DOMCMDTEST" "dummysystemID">
+        <root/>
+    }]
+    set root [$doc documentElement]
+    set result [catch {set result [$root @lang]} errMsg]
+    $doc delete
+    lappend result $errMsg
+    set result
+} {1 {Attribute "lang" not found!}}
+
+test dom-2.15 {parse method: -paramentityparsing notstandalone} {
+    set doc [dom parse -externalentitycommand extRefResolver \
+                       -paramentityparsing notstandalone \
+                       {<?xml version="1.0" standalone="no"?>
+        <!DOCTYPE root PUBLIC "DOMCMDTEST" "dummysystemID">
+        <root/>
+    }]
+    set root [$doc documentElement]
+    set result [$root @lang]
+    $doc delete
+    set result
+} {en}
+
+test dom-2.16 {parse method: wrong value arg for -paramentityparsing} {
+    set result [catch {set doc [dom parse -paramentityparsing wrong {
+        <root/>}]} errMsg]
+    lappend result $errMsg
+} {1 {bad value "wrong": must be always, never, or notstandalone}}
+
+# The following is syntactically wrong. It's used, to test the
+# error reporting in external DTDs
+set dom_dtd "<!ATTLIST root lang #FIXED \"en\">"
+
+test dom-2.17 {parse method: test reporting of error in external subset} {
+    set result [catch {set doc [dom parse \
+            -externalentitycommand extRefResolver {
+        <!DOCTYPE root PUBLIC "DOMCMDTEST" "dummysystemID">
+        <root/>
+    }]} errMsg]
+    lappend result $errMsg
+} {1 {error "syntax error" in entity "dummysystemID" at line 1 character 20
+"<!ATTLIST root lang # <--Error-- FIXED "en">"}}
+
+test dom-2.18 {parse document with nodes before and after the documentElement} {
+    set doc [dom parse {<!-- First comment -->
+<doc>
+  <!-- Front comment -->
+  <inner/>
+  <!-- Back comment -->
+</doc>
+<!-- Last comment -->}]
+    set result [$doc asXML -indent none]
+    $doc delete
+    set result
+} {<!-- First comment --><doc><!-- Front comment --><inner/><!-- Back comment --></doc><!-- Last comment -->}
+
+test dom-2.19 {parse document - rename docCmd} {
+    set doc [dom parse {<root>foo<child/></root>}]
+    if {[info commands fooCmd] == "fooCmd"} {
+        rename fooCmd {}
+    }
+    rename $doc fooCmd
+    set result [fooCmd asXML -indent none]
+    fooCmd delete
+    set result
+} {<root>foo<child/></root>}
+
+test dom-2.20 {parse - doc with internal subset parsed with -keepEmpties} {
+    set doc [dom parse -keepEmpties {
+        <!DOCTYPE root [
+           <!ELEMENT root EMPTY>
+           <!-- Comment inside the DTD -->
+           <?aPI Inside the DTD?>
+           <!ATTLIST root lang CDATA #FIXED "en">
+          ]>
+        <root/>}]
+    $doc documentElement root
+    set result ""
+    foreach node [$root selectNodes /node()] {
+        switch [$node nodeType] {
+            TEXT_NODE {
+                lappend result TEXT_NODE
+                lappend result [string length [$node value]]
+            }
+            COMMENT_NODE {
+                lappend result COMMENT_NODE
+                lappend result [string length [$node value]]
+            }
+            PROCESSING_INSTRUCTION_NODE {
+                lappend result PROCESSING_INSTRUCTION_NODE
+                lappend result [$node target]
+                lappend result [$node data]
+            }
+            ELEMENT_NODE {
+                lappend result ELEMENT_NODE
+                lappend result [$node nodeName]
+            }
+            default {
+                lappend result [$node nodeType]
+            }
+        }
+    }
+    $doc delete
+    set result
+} {ELEMENT_NODE root}
+
+test dom-2.21 {parse - empty CDATA section} {
+    set doc [dom parse {<doc><![CDATA[]]></doc>}]
+    set root [$doc documentElement]
+    set result [$root hasChildNodes]
+    $doc delete
+    set result
+} {0}
+
+test dom-2.22 {parse - empty comment section} {
+    set doc [dom parse {<doc><!----></doc>}]
+    set root [$doc documentElement]
+    set result [$root hasChildNodes]
+    lappend result [[$root firstChild] nodeValue]
+    $doc delete
+    set result
+} {1 {}}
+
+test dom-2.23 {parse - pi without pivalue} {
+    set doc [dom parse {<doc><?p?></doc>}]
+    set pi [[$doc documentElement] firstChild]
+    set result [list [$pi nodeName] [$pi nodeValue] [$pi target] [$pi data]]
+    $doc delete
+    set result
+} {p {} p {}}
+
+proc 2.24 {args} {
+    error "2.24 external entitiy resolver script error"
+}
+
+test dom-2.24 {parse - script error in -externalentitycommand} {
+    set result [catch {
+        dom parse -externalentitycommand 2.24 {
+            <!DOCTYPE root SYSTEM "data/domCmd2.dtd">
+            <root/>}} errMsg]
+    lappend result $errMsg
+} {1 {2.24 external entitiy resolver script error}}
+
+test dom-2.25 {White space outside the document element is markup and ignored, even with -keepEmpties} {
+    set doc [dom parse -keepEmpties {
+<!-- First comment -->
+<doc>
+  <!-- Front comment -->
+  <inner/>
+  <!-- Back comment -->
+</doc>
+<!-- Last comment -->}]
+    set result [$doc asXML -indent none]
+    $doc delete
+    set result
+} {<!-- First comment --><doc>
+  <!-- Front comment -->
+  <inner/>
+  <!-- Back comment -->
+</doc><!-- Last comment -->}
+
+test dom-2.26 {Not well-formed input} {
+    catch {dom parse {<xsl:transform       
+        xmlns:xsl="http://www.w3.org/1999/XSL/Transform        
+                   <http://www.w3.org/1999/XSL/Transform> "/>}}
+} 1
+
+test dom-3.1 {isName} {
+    dom isName ":foo"
+} {1}
+
+test dom-3.2 {isName} {
+    dom isName "_foo"
+} {1}
+
+test dom-3.3 {isName} {
+    dom isName "foo:bar:baz"
+} {1}
+
+test dom-3.4 {isName} {
+    dom isName "-foo"
+} {0}
+
+test dom-3.5 {isName} {
+    dom isName ".foo"
+} {0}
+
+test dom-3.6 {isName} {
+    catch {dom isName}
+} {1}
+
+test dom-3.7 {isName} {
+    catch {dom isName foo bar}
+} {1}
+
+# The following character classes are out of XML 1.0 Second Edition rec,
+# Appendix B (which is following the Unicode standard).
+
+set BaseChar {
+    {0x0041 0x005A} {0x0061 0x007A} {0x00C0 0x00D6}
+    {0x00D8 0x00F6} {0x00F8 0x00FF} {0x0100 0x0131} {0x0134 0x013E}
+    {0x0141 0x0148} {0x014A 0x017E} {0x0180 0x01C3}
+    {0x01CD 0x01F0} {0x01F4 0x01F5} {0x01FA 0x0217} {0x0250 0x02A8}
+    {0x02BB 0x02C1} 0x0386 {0x0388 0x038A} 0x038C
+    {0x038E 0x03A1} {0x03A3 0x03CE} {0x03D0 0x03D6} 0x03DA 0x03DC
+    0x03DE 0x03E0 {0x03E2 0x03F3} {0x0401 0x040C}
+    {0x040E 0x044F} {0x0451 0x045C} {0x045E 0x0481} {0x0490 0x04C4}
+    {0x04C7 0x04C8} {0x04CB 0x04CC} {0x04D0 0x04EB}
+    {0x04EE 0x04F5} {0x04F8 0x04F9} {0x0531 0x0556} 0x0559
+    {0x0561 0x0586} {0x05D0 0x05EA} {0x05F0 0x05F2} {0x0621 0x063A}
+    {0x0641 0x064A} {0x0671 0x06B7} {0x06BA 0x06BE}
+    {0x06C0 0x06CE} {0x06D0 0x06D3} 0x06D5 {0x06E5 0x06E6}
+    {0x0905 0x0939} 0x093D {0x0958 0x0961} {0x0985 0x098C}
+    {0x098F 0x0990} {0x0993 0x09A8} {0x09AA 0x09B0} 0x09B2
+    {0x09B6 0x09B9} {0x09DC 0x09DD} {0x09DF 0x09E1} {0x09F0 0x09F1}
+    {0x0A05 0x0A0A} {0x0A0F 0x0A10} {0x0A13 0x0A28}
+    {0x0A2A 0x0A30} {0x0A32 0x0A33} {0x0A35 0x0A36} {0x0A38 0x0A39}
+    {0x0A59 0x0A5C} 0x0A5E {0x0A72 0x0A74} {0x0A85 0x0A8B}
+    0x0A8D {0x0A8F 0x0A91} {0x0A93 0x0AA8} {0x0AAA 0x0AB0}
+    {0x0AB2 0x0AB3} {0x0AB5 0x0AB9} 0x0ABD 0x0AE0 {0x0B05 0x0B0C}
+    {0x0B0F 0x0B10} {0x0B13 0x0B28} {0x0B2A 0x0B30}
+    {0x0B32 0x0B33} {0x0B36 0x0B39} 0x0B3D {0x0B5C 0x0B5D}
+    {0x0B5F 0x0B61} {0x0B85 0x0B8A} {0x0B8E 0x0B90} {0x0B92 0x0B95}
+    {0x0B99 0x0B9A} 0x0B9C {0x0B9E 0x0B9F} {0x0BA3 0x0BA4}
+    {0x0BA8 0x0BAA} {0x0BAE 0x0BB5} {0x0BB7 0x0BB9} {0x0C05 0x0C0C}
+    {0x0C0E 0x0C10} {0x0C12 0x0C28} {0x0C2A 0x0C33}
+    {0x0C35 0x0C39} {0x0C60 0x0C61} {0x0C85 0x0C8C} {0x0C8E 0x0C90}
+    {0x0C92 0x0CA8} {0x0CAA 0x0CB3} {0x0CB5 0x0CB9} 0x0CDE
+    {0x0CE0 0x0CE1} {0x0D05 0x0D0C} {0x0D0E 0x0D10} {0x0D12 0x0D28}
+    {0x0D2A 0x0D39} {0x0D60 0x0D61} {0x0E01 0x0E2E} 0x0E30
+    {0x0E32 0x0E33} {0x0E40 0x0E45} {0x0E81 0x0E82} 0x0E84
+    {0x0E87 0x0E88} 0x0E8A 0x0E8D {0x0E94 0x0E97} {0x0E99 0x0E9F}
+    {0x0EA1 0x0EA3} 0x0EA5 0x0EA7 {0x0EAA 0x0EAB}
+    {0x0EAD 0x0EAE} 0x0EB0 {0x0EB2 0x0EB3} 0x0EBD {0x0EC0 0x0EC4}
+    {0x0F40 0x0F47} {0x0F49 0x0F69} {0x10A0 0x10C5}
+    {0x10D0 0x10F6} 0x1100 {0x1102 0x1103} {0x1105 0x1107} 0x1109
+    {0x110B 0x110C} {0x110E 0x1112} 0x113C 0x113E 0x1140
+    0x114C 0x114E 0x1150 {0x1154 0x1155} 0x1159 {0x115F 0x1161}
+    0x1163 0x1165 0x1167 0x1169 {0x116D 0x116E}
+    {0x1172 0x1173} 0x1175 0x119E 0x11A8 0x11AB {0x11AE 0x11AF}
+    {0x11B7 0x11B8} 0x11BA {0x11BC 0x11C2} 0x11EB 0x11F0
+    0x11F9 {0x1E00 0x1E9B} {0x1EA0 0x1EF9} {0x1F00 0x1F15}
+    {0x1F18 0x1F1D} {0x1F20 0x1F45} {0x1F48 0x1F4D} {0x1F50 0x1F57}
+    0x1F59 0x1F5B 0x1F5D {0x1F5F 0x1F7D} {0x1F80 0x1FB4}
+    {0x1FB6 0x1FBC} 0x1FBE {0x1FC2 0x1FC4} {0x1FC6 0x1FCC}
+    {0x1FD0 0x1FD3} {0x1FD6 0x1FDB} {0x1FE0 0x1FEC} {0x1FF2 0x1FF4}
+    {0x1FF6 0x1FFC} 0x2126 {0x212A 0x212B} 0x212E
+    {0x2180 0x2182} {0x3041 0x3094} {0x30A1 0x30FA} {0x3105 0x312C}
+    {0xAC00 0xD7A3}
+}
+
+set Ideographic {
+    {0x4E00 0x9FA5} 0x3007 {0x3021 0x3029}
+}
+
+set CombiningChar {
+    {0x0300 0x0345} {0x0360 0x0361} {0x0483 0x0486} {0x0591 0x05A1}
+    {0x05A3 0x05B9} {0x05BB 0x05BD} 0x05BF {0x05C1 0x05C2}
+    0x05C4 {0x064B 0x0652} 0x0670 {0x06D6 0x06DC} {0x06DD 0x06DF}
+    {0x06E0 0x06E4} {0x06E7 0x06E8} {0x06EA 0x06ED}
+    {0x0901 0x0903} 0x093C {0x093E 0x094C} 0x094D {0x0951 0x0954}
+    {0x0962 0x0963} {0x0981 0x0983} 0x09BC 0x09BE 0x09BF
+    {0x09C0 0x09C4} {0x09C7 0x09C8} {0x09CB 0x09CD} 0x09D7
+    {0x09E2 0x09E3} 0x0A02 0x0A3C 0x0A3E 0x0A3F {0x0A40 0x0A42}
+    {0x0A47 0x0A48} {0x0A4B 0x0A4D} {0x0A70 0x0A71}
+    {0x0A81 0x0A83} 0x0ABC {0x0ABE 0x0AC5} {0x0AC7 0x0AC9}
+    {0x0ACB 0x0ACD} {0x0B01 0x0B03} 0x0B3C {0x0B3E 0x0B43}
+    {0x0B47 0x0B48} {0x0B4B 0x0B4D} {0x0B56 0x0B57} {0x0B82 0x0B83}
+    {0x0BBE 0x0BC2} {0x0BC6 0x0BC8} {0x0BCA 0x0BCD} 0x0BD7
+    {0x0C01 0x0C03} {0x0C3E 0x0C44} {0x0C46 0x0C48} {0x0C4A 0x0C4D}
+    {0x0C55 0x0C56} {0x0C82 0x0C83} {0x0CBE 0x0CC4}
+    {0x0CC6 0x0CC8} {0x0CCA 0x0CCD} {0x0CD5 0x0CD6} {0x0D02 0x0D03}
+    {0x0D3E 0x0D43} {0x0D46 0x0D48} {0x0D4A 0x0D4D} 0x0D57
+    0x0E31 {0x0E34 0x0E3A} {0x0E47 0x0E4E} 0x0EB1 {0x0EB4 0x0EB9}
+    {0x0EBB 0x0EBC} {0x0EC8 0x0ECD} {0x0F18 0x0F19} 0x0F35
+    0x0F37 0x0F39 0x0F3E 0x0F3F {0x0F71 0x0F84} {0x0F86 0x0F8B}
+    {0x0F90 0x0F95} 0x0F97 {0x0F99 0x0FAD} {0x0FB1 0x0FB7}
+    0x0FB9 {0x20D0 0x20DC} 0x20E1 {0x302A 0x302F} 0x3099 0x309A
+}
+
+set Digit {
+    {0x0030 0x0039} {0x0660 0x0669} {0x06F0 0x06F9} {0x0966 0x096F}
+    {0x09E6 0x09EF} {0x0A66 0x0A6F} {0x0AE6 0x0AEF}
+    {0x0B66 0x0B6F} {0x0BE7 0x0BEF} {0x0C66 0x0C6F} {0x0CE6 0x0CEF}
+    {0x0D66 0x0D6F} {0x0E50 0x0E59} {0x0ED0 0x0ED9}
+    {0x0F20 0x0F29}
+}
+
+set Extender {
+    0x00B7 0x02D0 0x02D1 0x0387 0x0640 0x0E46 0x0EC6 0x3005
+    {0x3031 0x3035} {0x309D 0x309E} {0x30FC 0x30FE}
+}
+
+proc sortCmd {a b} {
+    if {[lindex $a 0] > [lindex $b 0]} {
+        return 1
+    } else {
+        return -1
+    }
+}
+
+#  if {$tcl_version < 8.4} {
+#      set nameStartChars [lsort -command sortCmd \
+#              [concat $BaseChar $Ideographic 0x005F 0x003A]]
+#  } else {
+#      set nameStartChars [lsort -integer -index 0 \
+#              [concat $BaseChar $Ideographic 0x005F 0x003A]]
+#  }
+
+set nameStartChars [lsort -command sortCmd \
+        [concat $BaseChar $Ideographic 0x005F 0x003A]]
+
+# Append stop char needed by the test code to work properly.
+lappend nameStartChars 0x10000
+
+test dom-3.8 {isName} {longRunning && need_i18n} {
+    set ind 0
+    set nr 0
+    while {$nr < 65536} {
+        set range [lindex $nameStartChars $ind]
+        incr ind
+        if {[llength $range] == 2} {
+            foreach {min max} $range break
+        } else {
+            set min $range
+            set max $range
+        }
+        while {$nr < $min} {
+            if {[dom isName [subst \\u[format "%04x" $nr]]] != 0} {
+                error "wrong 'isName' result for name start char #x[format "%04x" $nr] - should be illegal"
+            }
+            incr nr
+        }
+        if {$nr == 0x10000} {break}
+        while {$nr <= $max} {
+            if {[dom isName [subst \\u[format "%04x" $nr]]] != 1} {
+                error "wrong 'isName' result for name start char #x[format "%04x" $nr] - should be legal"
+            }
+            incr nr
+        }
+    }
+    set nr
+} {65536}
+
+set nameChars [lsort -command sortCmd \
+        [concat $BaseChar $Ideographic $Digit 0x002E 0x002D 0x005F 0x003A \
+                $CombiningChar $Extender]]
+
+# Append stop char needed by the test code to work properly.
+lappend nameChars 0x10000
+
+test dom-3.9 {isName} {longRunning && need_i18n} {
+    set ind 0
+    set nr 0
+    while {$nr < 65536} {
+        set range [lindex $nameChars $ind]
+        incr ind
+        if {[llength $range] == 2} {
+            foreach {min max} $range break
+        } else {
+            set min $range
+            set max $range
+        }
+        while {$nr < $min} {
+            if {[dom isName a[subst \\u[format "%04x" $nr]]] != 0} {
+                error "wrong 'isName' result for name char #x[format "%04x" $nr] - should be illegal"
+            }
+            incr nr
+        }
+        if {$nr == 0x10000} {break}
+        while {$nr <= $max} {
+            if {[dom isName a[subst \\u[format "%04x" $nr]]] != 1} {
+                error "wrong 'isName' result for name char #x[format "%04x" $nr] - should be legal"
+            }
+            incr nr
+        }
+    }
+    set nr
+} {65536}
+
+
+test dom-3.10 {isNCName} {
+    dom isNCName ":foo"
+} {0}
+
+test dom-3.11 {isNCName} {
+    dom isNCName "_foo"
+} {1}
+
+test dom-3.12 {isNCName} {
+    dom isNCName "foo:bar:baz"
+} {0}
+
+test dom-3.13 {isNCName} {
+    dom isNCName "-foo"
+} {0}
+
+test dom-3.14 {isNCName} {
+    dom isNCName ".foo"
+} {0}
+
+test dom-3.15 {isNCName} {
+    catch {dom isNCName}
+} {1}
+
+test dom-3.16 {isNCName} {
+    catch {dom isNCName foo bar}
+} {1}
+
+
+test dom-3.17 {isQName} {
+    dom isQName ":foo"
+} {0}
+
+test dom-3.18 {isQName} {
+    dom isQName "_foo"
+} {1}
+
+test dom-3.19 {isQName} {
+    dom isQName "foo:bar:baz"
+} {0}
+
+test dom-3.20 {isQName} {
+    dom isQName "-foo"
+} {0}
+
+test dom-3.21 {isQName} {
+    dom isQName ".foo"
+} {0}
+
+test dom-3.22 {isQName} {
+    dom isQName "foo:bar"
+} {1}
+
+test dom-3.23 {isQName} {
+    catch {dom isQName}
+} {1}
+
+test dom-3.24 {isQName} {
+    catch {dom isQName foo bar}
+} {1}
+
+test dom-3.25 {isQName} {
+    dom isQName "foo bar"
+} {0}
+    
+test dom-3.26 {isQName} {
+    dom isQName "woozbiz:"
+} {0}
+
+test dom-3.26.1 {isQName} {
+     dom isQName foo:1
+} {0}
+
+test dom-3.26.2 {isQName} {
+     dom isQName 1:foo
+} {0}
+
+set XMLChars {
+    0x9 0xA 0xD {0x20 0xD7FF} {0xE000 0xFFFD} {0x10000 0x10FFFF}
+}
+
+test dom-3.27 {isCharData} {longRunning && need_i18n} {
+    set ind 0
+    set nr 1
+    while {$nr < 65536} {
+        set range [lindex $XMLChars $ind]
+        incr ind
+        if {[llength $range] == 2} {
+            foreach {min max} $range break
+        } else {
+            set min $range
+            set max $range
+        }
+        while {$nr < $min} {
+            if {[dom isCharData "a[subst \\u[format "%04x" $nr]]b"] != 0} {
+                error "wrong 'isCharData' result for char #x[format "%04x" $nr] - should be illegal"
+            }
+            incr nr
+        }
+        if {$nr == 0x10000} {break}
+        while {$nr <= $max} {
+            if {[dom isCharData "a[subst \\u[format "%04x" $nr]]b"] != 1} {
+                error "wrong 'isCharData' result for char #x[format "%04x" $nr] - should be legal"
+            }
+            incr nr
+        }
+    }
+    set nr
+} {65536}
+
+
+test dom-3.28 {isPIName} {
+    dom isPIName "target"
+} {1}
+
+test dom-3.29 {isPIName} {
+    dom isPIName "foo:target"
+} {1}
+
+test dom-3.30 {isPIName} {
+    dom isPIName "Xml"
+} {0}
+
+test dom-3.31 {isComment} {
+    dom isComment "some comment"
+} {1}
+
+test dom-3.32 {isComment} {
+    dom isComment "some invalid -- comment"
+} {0}
+
+test dom-3.33 {isComment} {
+    dom isComment "some invalid comment-"
+} {0}
+
+test dom-3.34 {isCDATA} {
+    dom isCDATA "<valid>some ]] CDATA </valid>"
+} {1}
+
+test dom-3.35 {isCDATA} {
+    dom isCDATA "<invalid>some ]]> CDATA </invalid>"
+} {0}
+
+test dom-3.36 {isCDATA} {
+    dom isCDATA "invalid: ]]>"
+} {0}
+
+test dom-3.37 {isCDATA} {
+    dom isCDATA "valid: ]]> "
+} {0}
+
+test dom-3.38 {isCDATA} {need_i18n} {
+    dom isCDATA "\ud7fa\ud7fb\ud7fc\ud7fd\ud7fe\ud7ff]]>"
+} {0}
+
+test dom-3.39 {isPIValue} {
+    dom isPIValue "some processing instruction data"
+} {1}
+
+test dom-3.40 {isPIValue} {
+    dom isPIValue "some invalid ?> processing instruction data"
+} {0}
+
+test dom-3.41 {isPIValue} {
+    dom isPIValue "some invalid processing instruction data?>"
+} {0}
+
+
+test dom-4.1 {-useForeignDTD 0} {
+    set doc [dom parse -useForeignDTD 0 {<root/>}]
+    $doc delete
+} {}
+
+test dom-4.2 {-useForeignDTD 1 with document with internal subset} {need_uri} {
+    set baseURI file://[file join [pwd] [file dir [info script]] dom.test]
+    set ::tDOM::useForeignDTD "data/domCmd1.dtd"
+    set doc [dom parse \
+            -useForeignDTD 1 \
+            -baseurl $baseURI \
+            -externalentitycommand ::tDOM::extRefHandler {
+<!DOCTYPE root [
+    <!ATTLIST root fixed CDATA #FIXED "toThat">
+]>
+<root/>}]
+    set root [$doc documentElement]
+    set result [$root @fixed]
+    $doc delete
+    set result
+} {toThat}
+
+test dom-4.3 {-useForeignDTD 1 with document with internal subset} {need_uri} {
+    set baseURI file://[file join [pwd] [file dir [info script]] dom.test]
+    set ::tDOM::useForeignDTD "data/domCmd1.dtd"
+    set doc [dom parse \
+            -useForeignDTD 1 \
+            -baseurl $baseURI \
+            -externalentitycommand ::tDOM::extRefHandler {
+<!DOCTYPE root [
+    <!ATTLIST root fixed2 CDATA #FIXED "toThat">
+]>
+<root/>}]
+    set root [$doc documentElement]
+    set result [$root @fixed]
+    lappend result [$root @fixed2]
+    $doc delete
+    set result
+} {toThis toThat}
+
+test dom-4.4 {-useForeignDTD 1 with document without document declaration} {need_uri} {
+    set baseURI file://[file join [pwd] [file dir [info script]] dom.test]
+    set ::tDOM::useForeignDTD "data/domCmd1.dtd"
+    set doc [dom parse \
+            -useForeignDTD 1 \
+            -baseurl $baseURI \
+            -externalentitycommand ::tDOM::extRefHandler <root/>]
+    set root [$doc documentElement]
+    set result [$root @fixed]
+    $doc delete
+    set result
+} {toThis}
+
+test dom-4.5 {-useForeignDTD 1 does not overwrite a given external subset} {need_uri} {
+    set baseURI file://[file join [pwd] [file dir [info script]] dom.test]
+    set ::tDOM::useForeignDTD "data/domCmd1.dtd"
+    set doc [dom parse \
+            -useForeignDTD 1 \
+            -baseurl $baseURI \
+            -externalentitycommand ::tDOM::extRefHandler {
+<!DOCTYPE root SYSTEM "data/domCmd2.dtd">
+<root/>}]
+    set root [$doc documentElement]
+    set result [$root @fixed]
+    $doc delete
+    set result
+} {toThat}
+
+test dom-4.6 {-useForeignDTD with nonboolean arg} {need_uri} {
+    set result [catch {set doc [dom parse -useForeignDTD foo <root/>]} errMsg]
+    lappend result $errMsg
+} {1 {expected boolean value but got "foo"}}
+
+test dom-5.1 {document with external subset} {need_uri} {
+    set baseURI file://[file join [pwd] [file dir [info script]] dom.test]
+    set doc [dom parse \
+            -baseurl $baseURI \
+            -externalentitycommand ::tDOM::extRefHandler {
+<!DOCTYPE root SYSTEM "data/domCmd2.dtd">
+<root/>}]
+    set root [$doc documentElement]
+    set result [$root @fixed]
+    $doc delete
+    set result
+} {toThat}
+
+proc dom-5.2 {myparm base systemId publicId} {
+    set ::dom-5_2 $myparm
+    return [list string dummy ""]
+}
+
+test dom-5.2 {-externalentitycommand} {
+    set ::dom-5_2 ""
+    set doc [dom parse \
+                 -baseurl "dummy" \
+                 -externalentitycommand [list dom-5.2 thisDoc] {
+                     <!DOCTYPE root SYSTEM "">
+                     <root/>}]
+    $doc delete
+    set ::dom-5_2
+} {thisDoc}
+
+test dom-6.1 {use in slave interpreter} {
+    set slave [interp create]
+    load {} tdom $slave
+    interp eval $slave {
+        dom parse <root>foo</root> doc
+        $doc documentElement root
+    }
+    interp delete $slave
+} {}
+
+test dom-6.2 {use in slave interpreter} {
+    set slave [interp create]
+    load {} tdom $slave
+    interp eval $slave {
+        set doc [dom parse <root>foo</root>]
+        set root [$doc documentElement]
+    }
+    interp delete $slave
+} {}
+
+test dom-7.1 {setNameCheck} {
+    set result [dom setNameCheck]
+    lappend result [dom setNameCheck 0]
+    lappend result [dom setNameCheck]
+    # set back to default
+    lappend result [dom setNameCheck 1]
+    set result
+} {1 0 0 1}
+
+set doc [dom createDocument root]
+# ensure, we've the default
+dom setNameCheck 1
+
+test dom-7.2 {setNameCheck} {
+    set result [catch {$doc createElement "invalid name"} errMsg]
+    lappend result $errMsg
+} {1 {Invalid tag name 'invalid name'}}
+
+test dom-7.3 {setNameCheck} {
+    catch {$doc createElement "valid:name"}
+} {0}
+
+test dom-7.4 {setNameCheck} {
+    catch {$doc createElement "valid::name"}
+} {0}
+
+test dom-7.5 {setNameCheck} {
+    dom setNameCheck 0
+    set result [catch {$doc createElement "invalid name"} errMsg]
+    # set back to default
+    dom setNameCheck 1
+    set result
+} {0}
+
+test dom-7.6 {setNameCheck} {
+    set result [catch {$doc createElementNS "dummyns" "invalid name"} errMsg]
+    lappend result $errMsg
+} {1 {Invalid full qualified tag name 'invalid name'}}
+
+test dom-7.7 {setNameCheck} {
+    catch {$doc createElementNS "dummyns" "valid:name"}
+} {0}
+
+test dom-7.8 {setNameCheck} {
+    set result [catch {$doc createElementNS "dummyns" "invalid::name"} errMsg]
+    lappend result $errMsg
+} {1 {Invalid full qualified tag name 'invalid::name'}}
+
+test dom-7.9 {setNameCheck} {
+    dom setNameCheck 0
+    set result [catch {$doc createElementNS "dummyns" "invalid name"} errMsg]
+    # set back to default
+    dom setNameCheck 1
+    set result
+} {0}
+
+test dom-7.10 {setTextCheck} {
+    set result [catch {$doc createComment "valid comment"}]
+    lappend result [catch {$doc createComment "invalid -- comment"}]
+    dom setTextCheck 0
+    lappend result [catch {$doc createComment "invalid -- comment"}]
+    dom setTextCheck 1
+    set result
+} {0 1 0}
+
+test dom-7.11 {setTextCheck} {
+    set result [catch {$doc createCDATASection "<valid/>"}]
+    lappend result [catch {$doc createCDATASection "<invalid>]]></invalid"}]
+    dom setTextCheck 0
+    lappend result [catch {$doc createCDATASection "<invalid>]]></invalid"}]
+    dom setTextCheck 1
+    set result
+} {0 1 0}
+
+test dom-7.12 {setTextCheck} {
+    set result [catch {$doc createTextNode "data"}]
+    lappend result [catch {$doc createTextNode "not XML \u0002 Char data"}]
+    dom setTextCheck 0
+    lappend result [catch {$doc createTextNode "not XML \u0002 Char data"}]
+    dom setTextCheck 1
+    set result
+} {0 1 0}
+
+test dom-7.13 {setNameCheck} {
+    set result [catch {$doc createProcessingInstruction "target" "data"}]
+    lappend result [catch {$doc createProcessingInstruction "tar get" "data"}]
+    lappend result [catch {$doc createProcessingInstruction "xMl" "data"}]
+    dom setNameCheck 0
+    lappend result [catch {$doc createProcessingInstruction "tar get" "data"}]
+    lappend result [catch {$doc createProcessingInstruction "xMl" "data"}]
+    dom setNameCheck 1
+    set result
+} {0 1 1 0 0}
+
+set root [$doc documentElement]
+
+test dom-7.14 {setNameCheck} {
+    set result [catch {$root appendFromList {"a b" {} {}}} errMsg]
+    lappend result $errMsg
+    dom setNameCheck 0
+    lappend result [catch {$root appendFromList {"a b" {} {}}}]
+    dom setNameCheck 1
+    set result
+} {1 {Invalid tag name 'a b'} 0}
+
+test dom-7.15 {setNameCheck} {
+    set result [catch {$root appendFromList {a {att1 "att1 value" "att 2" "att2 value"} {}}} errMsg]
+    lappend result $errMsg
+    dom setNameCheck 0
+    lappend result [catch {$root appendFromList {a {att1 "att1 value" "att 2" "att2 value"} {}}}]
+    dom setNameCheck 1
+    set result
+} {1 {Invalid attribute name 'att 2'} 0}
+
+test dom-7.16 {setTextCheck} {
+    set result [catch {$root appendFromList {a {att1 "att1 value" "att2" "att2 value \u0002"} {}}} errMsg]
+    lappend result $errMsg
+    dom setTextCheck 0
+    lappend result [catch {$root appendFromList {a {att1 "att1 value" "att2" "att2 value \u0002"} {}}}]
+    dom setTextCheck 1
+    set result
+} [list 1 "Invalid attribute value 'att2 value \u0002'" 0]
+
+test dom-7.17 {setTextCheck} {
+    set result [catch {$root appendFromList {\#text "foo \u0002"}} errMsg]
+    lappend result $errMsg
+    dom setTextCheck 0
+    lappend result [catch {$root appendFromList {\#text "foo \u0002"}}]
+    dom setTextCheck 1
+    set result    
+} [list 1 "Invalid text value 'foo \u0002'" 0]
+
+$doc delete
+
+test dom-7.18 {setTextCheck and appendFromScript} {
+    set doc [dom createDocumentNode]
+    dom setTextCheck 0
+    namespace eval nodeCmds {
+        dom createNodeCmd elementNode doc
+        dom createNodeCmd textNode t
+    }
+    $doc appendFromScript {
+        nodeCmds::doc {
+            nodeCmds::t "foo\u0003bar"
+        }
+    }
+    dom setTextCheck 1
+    set result [$doc asXML -indent none]
+    $doc delete
+    set result
+} "<doc>foo\u0003bar</doc>"
+
+test dom-7.19 {setTextCheck and appendFromScript - setTextCheck state at create time is crucial} {
+    set doc [dom createDocumentNode]
+    namespace eval nodeCmds {
+        dom createNodeCmd elementNode doc
+        dom createNodeCmd textNode t
+    }
+    dom setTextCheck 0
+    set result [catch {$doc appendFromScript {
+        nodeCmds::doc {
+            nodeCmds::t "foo\u0003bar"
+        }
+    }} errMsg]
+    dom setTextCheck 1
+    $doc delete
+    lappend result $errMsg
+} [list 1 "Invalid text value 'foo\u0003bar'"]
+
+test dom-8.1 {createDocumentNode} {
+    set result [catch {dom createDocumentNode foo bar}]
+} {1}
+
+test dom-8.2 {createDocumentNode} {
+    set docNode [dom createDocumentNode]
+    set result [$docNode asXML -indent none]
+    $docNode delete
+    set result
+} {}
+
+test dom-8.3 {createDocumentNode} {
+    dom createDocumentNode docNode
+    set result [$docNode asXML -indent none]
+    $docNode delete
+    set result
+} {}
+
+test dom-8.4 {createDocumentNode} {
+    set docNode [dom createDocumentNode]
+    set result [$docNode nodeType]
+    lappend result [$docNode documentElement]
+    $docNode delete
+    set result
+} {DOCUMENT_NODE {}}
+
+test dom-8.5 {createDocumentNode} {
+    set docNode [dom createDocumentNode]
+    set newNode [$docNode createComment "Comment before the document node"]
+    $docNode appendChild $newNode
+    set result [[$docNode documentElement] nodeType]
+    set newNode [$docNode createElement firstChild]
+    $docNode appendChild $newNode
+    lappend result [[$docNode documentElement] nodeName]
+    set newNode [$docNode createElement secondChild]
+    $docNode appendChild $newNode
+    lappend result [[$docNode documentElement] nodeName]
+    $docNode delete
+    set result
+} {COMMENT_NODE firstChild firstChild}
+
+test dom-8.6 {createDocumentNode} {
+    set docNode [dom createDocumentNode]
+    set doc [dom parse {<root><child1/><child2/>some text<child3/></root>}]
+    set root [$doc documentElement]
+    set listRep [$root asList]
+    $doc delete
+    $docNode appendFromList $listRep
+    set result [$docNode asXML -indent none]
+    $docNode delete
+    set result
+} {<root><child1/><child2/>some text<child3/></root>}
+
+test dom-9.1 {setObjectCommands} {
+    dom setObjectCommands
+} {automatic}
+
+test dom-9.2 {setObjectCommands} {
+    dom setObjectCommands automatic
+} {automatic}
+
+test dom-9.3 {setObjectCommands} {
+    set result [catch {dom setObjectCommands foobar} errMsg]
+    lappend result $errMsg
+} {1 {bad mode value "foobar": must be automatic, command, or token}}
+
+test dom-9.4 {setObjectCommands} {
+    set nrOfCmds [llength [info commands]]
+    dom setObjectCommands automatic
+    set docNode [dom createDocumentNode]
+    set result [expr {$nrOfCmds + 1 == [llength [info commands]]}]
+    $docNode delete
+    lappend result [expr {$nrOfCmds == [llength [info commands]]}]
+    dom setObjectCommands token
+    set docNode [dom createDocumentNode]
+    lappend result [expr {$nrOfCmds == [llength [info commands]]}]
+    lappend result [domDoc $docNode hasChildNodes]
+    domDoc $docNode delete
+    lappend result [expr {$nrOfCmds == [llength [info commands]]}]
+    # switch back to default
+    dom setObjectCommands automatic
+    set result
+} {1 1 1 0 1}
+
+test dom-9.5 {setObjectCommands} {
+    dom setObjectCommands token
+    set nrOfCmds [llength [info commands]]
+    set doc [dom parse <root><child1/><child2/></root>]
+    set root [domDoc $doc documentElement]
+    set result [expr {$nrOfCmds == [llength [info commands]]}]
+    dom setObjectCommands command
+    set docCmd [domNode $root ownerDocument]
+    lappend result [expr {$nrOfCmds + 1 == [llength [info commands]]}]
+    $docCmd delete
+    set result
+} {1 1}
+
+catch {namespace delete nodeCmds}
+
+namespace eval nodeCmds {
+    dom createNodeCmd elementNode e1
+    dom createNodeCmd elementNode e2
+    dom createNodeCmd commentNode c
+    dom createNodeCmd textNode    t
+    dom createNodeCmd cdataNode   cdata
+    dom createNodeCmd piNode      pi
+    dom createNodeCmd parserNode  parser
+}
+
+test dom-10.1 {createNodeCmd} {
+    llength [info commands nodeCmds::*]
+} {7}
+
+namespace eval nodeCmds {
+    rename e1 {}
+    rename e2 {}
+    rename c {}
+    rename t {}
+    rename cdata {}
+    rename pi {}
+    rename parser {}
+}
+
+test dom-10.2 {createNodeCmd} {
+    llength [info commands nodeCmds::*]
+} {0}
+
+namespace eval nodeCmds {
+    dom createNodeCmd elementNode e1
+    dom createNodeCmd textNode    t
+}
+
+test dom-10.3 {node creating command called outside domNode context} {
+    set result [catch {nodeCmds::t "some text"} errMsg]
+    lappend result $errMsg
+} {1 {called outside domNode context}}
+
+test dom-10.4 {node creating command called outside domNode context} {
+    dom createDocument docRoot doc
+    $doc documentElement root
+    $root appendFromScript {
+        nodeCmds::t "Some text"
+    }
+    set result [list [$doc asXML -indent none]]
+    $doc delete
+    lappend result [catch {nodeCmds::t "Some text"} errMsg]
+    lappend result $errMsg
+} {{<docRoot>Some text</docRoot>} 1 {called outside domNode context}}
+
+test dom-10.5 {node creating command called outside domNode context} {
+    dom createDocument docRoot doc
+    $doc documentElement root
+    $root appendFromScript {
+        nodeCmds::e1 {
+            nodeCmds::t "Some text"
+        }
+    }
+    set result [list [$doc asXML -indent none]]
+    $doc delete
+    lappend result [catch {
+        nodeCmds::e1 {
+            nodeCmds::t "Some text"
+        }} errMsg]
+    lappend result $errMsg
+} {{<docRoot><e1>Some text</e1></docRoot>} 1 {called outside domNode context}}
+
+namespace delete nodeCmds
+
+# cleanup
+::tcltest::cleanupTests
+return

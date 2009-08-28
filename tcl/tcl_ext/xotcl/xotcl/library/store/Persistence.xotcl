@@ -1,0 +1,365 @@
+# $Id: Persistence.xotcl,v 1.6 2006/09/27 08:12:40 neumann Exp $
+
+package provide xotcl::store::persistence 0.8
+
+package require xotcl::trace
+package require xotcl::package
+package require xotcl::mixinStrategy
+package require xotcl::store
+package require XOTcl
+
+namespace eval ::xotcl::store::persistence {
+    namespace import ::xotcl::*
+
+    @ @File {
+	description {
+	    Persistent store for XOTcl objects with Eager and Lazy persistence.
+	    Take a look at "persistenceExample.xotcl" for exmaple of usage.
+	}
+    }
+
+    @ Class PersistenceMgr {
+	description {
+	    A persistent store requires a persistent manager. The persistent
+	    manager implements the Storage interface via storage mixin. With 
+	    the parameter "dbPackage" we can specify which storage will be used.
+	    The persistent manager than tries to load the package 
+	    "xotcl::${dbPackage}Storage". Default is Sdbm.
+
+	    Example:
+	    <@pre>
+	    PersistenceMgr pmgr -persistenceDir . -persistenceFile example-db
+	    </@pre>
+
+	}
+    }
+
+    #
+    # base class for persistent managers -- just register corresponding 
+    # storage mixin and open DB
+    #
+    Class PersistenceMgr -parameter {
+	{fileName {[string trimleft [self] :]}}
+	{dbPackage Sdbm}
+	trace
+	dirName
+    }
+
+    PersistenceMgr instproc init args {
+	my instvar dbPackage
+	package require xotcl::store::[string tolower $dbPackage]
+
+	Storage=$dbPackage [self]::store $args
+	foreach v {dirName fileName} {
+	    if {[my exists $v]} {
+		[self]::store $v [my set $v]
+	    }
+	}
+
+	if {[my exists trace]} {
+	    [self]::store filter traceFilter
+	}
+	my array set persistentObjs {}
+	next
+    }
+    # delegate methods to the store object
+    PersistenceMgr instproc store args {
+	eval [self]::store $args
+    }
+
+
+    PersistenceMgr instproc destroy args {
+	foreach obj [my array names persistentObjs] {
+	    $obj storeall
+	    $obj persistenceMgr ""
+	}
+	[self]::store close
+	next
+    }
+    PersistenceMgr instproc assureOpenDb {} {
+	if {![my exists dbOpen]} {
+	    [self]::store dbOpen
+	    my set dbOpen 1
+	}
+    }
+    PersistenceMgr instproc addPersistentObj {obj} {
+	my set persistentObjs($obj) ""
+    }
+    PersistenceMgr instproc removePersistentObj {obj} {
+	if {[my exists persistentObjs($obj)]} {
+	    my unset persistentObjs($obj)
+	}
+    }
+
+    @ Class Persistent {
+	description {
+	    Superclass or mixin class for all persistent objects. Normally
+	    subclasses are used as mixins or instmixins on object, like:
+	    <@pre>
+	    o mixin Persistent=Eager
+	    p mixin Persistent=Lazy
+	    </@pre>
+	}
+    }
+    #
+    # Persistence (mixin) classes#
+    Class Persistent -parameter {
+	persistenceMgr
+    }
+
+    # can be overloaded by subclasses, that need a cleanup on 
+    # persistenceMgr->destroy (like Lazy)
+    Persistent instproc storeall {} {;}
+
+    @ Persistent instproc persistenceMgr {args "persistent manager name"} {
+	description {
+	    Specify which persistence manager to use for [self] object, like:
+	    <@pre>
+	    o persistenceMgr pmgr
+	    </@pre>
+	    Each persistent object must have a persistence manager specified, 
+	    before vars can be made persistent.
+	}
+    }
+
+    #
+    # turn off persistence with ... persistenceMgr "", but 
+    # persistent vars stay persistent
+    #
+    Persistent instproc persistenceMgr args {
+	if {[llength $args] == 0} {
+	    return [my set [self proc]]
+	} elseif {[llength $args] == 1} {
+	    set pmgr [lindex $args 0]
+	    if {$pmgr eq "" && [my exists persistenceMgr]} {
+		[my set persistenceMgr] removePersistentObj [self]
+		my unset persistenceMgr
+		return ""
+	    }
+	    $pmgr addPersistentObj [self]
+	    return [my set [self proc] $pmgr]
+	} else {
+	    error "wrong # args: [self] [self proc] ?value?"
+	}
+    }
+
+    @ Persistent instproc persistentVars {} {
+	description {
+	    Returns list of persistent vars.
+	}
+    }
+
+    Persistent instproc persistentVars {} {
+	if {[my exists __persistentVars]} {
+	    return [my set __persistentVars]
+	}
+	return ""
+    }
+
+    @ Persistent instproc persistent {list "persistent variables" } {
+	description {
+	    Make a list of object variables persistent. If a persistent
+	    DB exists, the values are read from this DB, overwriting the current value.
+	    E.g.:
+	    <@pre>
+	    o persistent {x y}
+	    </@pre>
+
+	}
+    }
+
+    Persistent instproc persistent {list} {
+	my instvar persistenceMgr
+	if {![info exists persistenceMgr]} {return}
+	set store ${persistenceMgr}::store
+
+	$persistenceMgr assureOpenDb
+	foreach var $list {
+	    my lappend __persistentVars $var
+	    # try to refetch vars from db
+	    if {[$store exists [self]::${var}(_____arraynames)]} {
+		#puts stderr array=[self]::${var}
+		foreach i [$store set [self]::${var}(_____arraynames)]  {
+		    my set ${var}($i) [$store set [self]::${var}($i)]
+		}
+	    } elseif {[$store exists [self]::$var]} {
+		#puts stderr "---store=$store exists [self]::$var"
+		#puts stderr "---set [self]::$var <[$store set [self]::$var]>"
+		my instvar $var
+		#set name [$store set [self]::$var]
+		#puts ***name*[set name]--$var
+		set $var [$store set [self]::$var]
+	    } elseif {[my exists $var]} {
+		#
+		# first store of the variable in persistent store
+		if {[my array exists $var]} {
+		    # this variable is an array
+		    #puts stderr array=[self]::$var
+		    set anames [my array names $var]
+		    foreach n $anames {
+			$store set [self]::${var}($n) [my set ${var}($n)]
+		    }
+		    $store set [self]::${var}(_____arraynames) $anames
+		} else {
+		    #puts stderr "+++set [self]::$var [$store set [self]::$var]"
+		    $store set [self]::$var [my set $var]
+		}
+	    } else {
+		error "persistent: $var is not a variable on [self]"
+	    }
+	}
+    }
+
+    @ Persistent instproc persistent+init {list "persistent variables" } {
+	description {
+	    Initialize all data in the list as empty strings, 
+	    if they do not exist yet, and then make them persistent
+	    using the 'persistent' method
+	}
+    }
+
+    Persistent instproc persistent+init {list} {  
+	foreach pd $list {
+	    if {![my exists $pd]} {
+		my set $pd ""
+	    }
+	}
+	my persistent $list
+    }
+
+
+    @ Persistent instproc unPersistent {list "persistent variables" } {
+	description {
+	    Make a list of object variables not persistent. 
+	}
+    }
+
+    Persistent instproc unPersistent {list} {
+	my instvar __persistentVars
+	set pMgr [my set persistenceMgr]
+	foreach v $list {
+	    set i [lsearch -exact $__persistentVars $v]
+	    catch {
+		set __persistentVars [lreplace $__persistentVars $i $i]
+		${pMgr}::store unset [self]::$v
+	    }
+	}
+    }
+
+    @ Persistent instproc makeVarScript {} {
+	description {
+	    Build a Tcl script of "set ..." statements reflecting the current situation in the database.
+	}
+    }
+    Persistent instproc makeVarScript {} {
+	set script ""
+	foreach v [my persistentVars] {
+	    set vt [namespace tail $v]
+	    append script [list my set $vt [my set $vt]]\n
+	}
+	#set script [concat [next] $script]
+	return $script
+    }
+
+    Persistent instproc destroy args {
+	if {[my exists persistenceMgr]} {
+	    [my set persistenceMgr] removePersistentObj [self]
+	    my unset persistenceMgr
+	}
+	next
+	#my showMsg "Persistent object [self] destroyed."
+    }
+
+    @ Class Persistent=Eager {
+	description {
+	    Eager persistence strategy. Store everything at the same moment to the database
+	}
+    }
+    Class Persistent=Eager -superclass Persistent
+
+    #
+    # we use 'strange' argument names to avoid name clashes with given 
+    # variable names, when we have to instvar "[self] instvar $nametail"
+    #
+    Persistent=Eager instproc vartrace {__name_vartrace __sub_vartrace __op_vartrace} {
+	#my showCall
+	if {$__op_vartrace eq "w"} {
+	    my instvar persistenceMgr
+	    if {![info exists persistenceMgr]} {return}
+	    set store ${persistenceMgr}::store
+
+	    set nametail [namespace tail $__name_vartrace]
+	    set key [self]::$nametail
+	    if {$__sub_vartrace eq ""} {
+		my instvar $nametail
+		#puts stderr "+++VT: $store set $key [set $nametail]"
+		$store set $key [set $nametail]
+	    } else {
+		if {$__sub_vartrace ne "_____arraynames"} {
+		    my instvar "${nametail}($__sub_vartrace) subname"
+		    $store set ${key}($__sub_vartrace) $subname
+		    $store set ${key}(_____arraynames) [my array names $nametail]
+		} else {
+		    error "With persistent arrays you may not use '_____arraynames' as index"
+		}
+	    }
+	}
+    }
+
+    Persistent=Eager instproc persistent {list} {
+	#my showCall
+	next
+	foreach v $list {
+	    #puts stderr "***trace variable [self]::$v w [list my vartrace]"
+	    my trace variable $v w [list [self] vartrace]
+	}
+    }
+
+    Persistent=Eager instproc unPersistent {list} {
+	foreach v $list {
+	    my trace vdelete $v w [list [self] vartrace]
+	}
+	next
+    }
+
+    @ Class Persistent=Lazy {
+	description {
+	    Lazy persistence strategy. Store everything on object destroy (or program termination).
+	}
+    }
+
+    Class Persistent=Lazy -superclass Persistent
+    Persistent=Lazy instproc storeall {} {
+	my instvar persistenceMgr
+	if {![info exists persistenceMgr]} {return}
+	set store ${persistenceMgr}::store
+
+	foreach v [my persistentVars] {
+	    if {[my array exists $v]} {
+		set anames ""
+		foreach sub [my array names $v] {
+		    if {[my exists ${v}($sub)]} {
+			set key [self]::${v}($sub)
+			$store set $key [my set ${v}($sub)]
+			lappend anames $sub
+		    }
+		}
+		$store set [self]::${v}(_____arraynames) $anames
+	    } else {
+		if {[my exists $v]} {
+		    set key [self]::$v
+		    $store set $key [my set $v]
+		}
+	    }
+	}
+    }
+
+    Persistent=Lazy instproc destroy args {
+	my storeall
+	next
+    }
+
+    namespace export PersistenceMgr Persistent Persistent=Eager Persistent=Lazy
+}
+
+namespace import ::xotcl::store::persistence::*

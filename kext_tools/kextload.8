@@ -1,601 +1,186 @@
-.Dd February 22, 2002 
-.Dt KEXTLOAD 8
+.Dd March 6, 2009 
 .Os Darwin
+.Dt KEXTLOAD 8
 .Sh NAME
 .Nm kextload
-.Nd loads, validates, and generates symbols for a kernel extension (kext)
+.Nd load kernel extensions (kexts) into the kernel
 .Sh SYNOPSIS
 .Nm
-.Op Fl h
-[
-.Fl v Op 0-6
-|
-.Fl q
-]
-.Op Fl t
-.Op Fl i | I
-.Op Fl x
-.Op Fl z
-.Op Fl e
-.Op Fl c
-.Op Fl D
-.Op Fl k Ar kernel_file
-.Op Fl d Ar extension
-\&.\|.\|.
-.Op Fl r Ar directory
-\&.\|.\|.
-[
-.Fl l | m | n | A
-|
-.Fl a Ar kext_id@address
-]
-\&.\|.\|.
-.Op Fl s Ar directory
-.Op Fl p Ar personality
-\&.\|.\|.
-.Op Fl b Ar bundle_id
-\&.\|.\|.
+.Op Ar options
 .Op Fl -
-.Op Ar extension
-\&.\|.\|.
+.Op Ar kext Li \&.\|.\|.
 .Sh DESCRIPTION
 The
 .Nm
-program is used to explicitly load kernel extensions (kexts),
-validate them to see that they can be loaded by other mechanisms,
-such as
-.Xr kextd 8 ,
-and to generate symbol files for debugging the kext
-in a running kernel.
-In order to load a kext into the kernel
+program is used to explicitly load kernel extensions (kexts).
+For most kexts,
 .Nm
-must be invoked as the superuser;
-for all other uses it can be invoked by any user.
+must run as the superuser (root).
+Kexts installed under
+.Pa /System/
+with an
+OSBundleAllowUserLoad
+property set to true
+may be loaded via
+.Nm
+by non-root users.
+.Pp
+.Em Notice:
+On Mac OS X 10.6 (Snow Leopard), the developer functionality of 
+.Nm
+has moved to the new program
+.Xr kextutil 8 ;
+all developer-related options have been removed from
+.Nm
+and are no longer recognized.
+On Mac OS X 10.6 (Snow Leopard),
+.Nm
+simply forwards a load request to
+.Xr kextd 8 ,
+which performs all communication with the kernel.
 .Pp
 .Nm
-is a formal interface for kext loading in the Darwin OS and
-in Mac OS X.
+is a formal interface for kext loading in all versions
+of Darwin OS and Mac OS X.
 Software and installers can rely on its presence
 and invoke it in order to load kexts.
+Note that long options are present as of Mac OS X 10.6 (Snow Leopard).
 .Pp
-.Nm
-has many options, but most of them are rarely necessary.
-See the EXAMPLES section for tips on common uses.
-The arguments and options available are these:
+Mac OS X 10.6 (Snow Leopard) introduces
+C functions for loading kexts:
+.Xr KextManagerLoadKextWithIdentifier()
+and
+.Xr KextManagerLoadKextWithURL() ,
+which are described in Apple's developer documentation.
+.Pp
+.Sh ARGUMENTS AND OPTIONS
 .Bl -tag -width -indent
-.It Ar extension
-The pathname of a kext bundle to load or otherwise use.
+.It Ar kext
+The pathname of a kext bundle to load.
+The kext's plugins are available for dependency resolution.
 Kexts can also be specified by CFBundleIdentifier with the
-.Fl b
+.Fl bundle-id
 option.
-.It Fl a Ar kext_id@address
-Treat the kext whose CFBundleIdenfier is
-.Ar kext_id
-as being loaded at
-.Ar address
-when generating symbol files and not loading.
-When generating symbols only,
-all dependencies must have known addresses.
-Use this option repeatedly for every nonkernel dependency.
-This option implies the use of the
-.Fl n
-option. See also
-.Fl A
-and
-.Fl n .
-.It Fl A
-When generating symbol files and not loading,
-look up all dependency kext addresses within the running kernel.
-This option implies the use of the
-.Fl n
-option. See also
-.Fl a
-and
-.Fl n .
-.It Fl b Ar bundle_id
+.It Fl b Ar identifier , Fl bundle-id Ar identifier
 Look up the kext whose CFBundleIdentifier is
-.Ar bundle_id
+.Ar identifier
 within the set of known kexts and load it.
 See the
-.Fl d ,
-.Fl e ,
+.Fl dependency
 and
-.Fl r
+.Fl repository
 options for more information.
-.It Fl c
-Ignore any repository cache files and scan all kext bundles
-to gather information.
-If this option is not given,
-.Nm
-will attempt to use cache files and to create them
-if they are out of date or don't exist.
-.It Fl d Ar extension
+.It Fl d Ar kext , Fl dependency Ar kext
 Add
-.Ar extension
-to the set of known kexts for resolving dependencies.
+.Ar kext
+and its plugins to the set of known kexts for resolving dependencies.
 This is useful for adding a single kext from a directory
 while excluding the others.
 See the
-.Fl e
-and
-.Fl r
-options for more information.
-.It Fl D
-Don't check the kernel for already loaded kexts
-when resolving dependencies.
-This behavior is now the default and so this option is
-deprecated and redundant.
-Note that this can result in load failures if a different
-version of a dependency is already loaded.
-This option is relevant only when loading a kext into the kernel.
-The
-.Fl A
-option overrides this option as it must check the kernel
-for which kexts are loaded.
-.It Fl e
-Don't use the contents of /System/Library/Extensions as the
-default repository of kexts.
-If you use this option you will have to explicitly specify
-all dependencies of the kext being loaded
-or otherwise worked on using the
-.Fl d
-and
-.Fl r
-options.
-.It Fl h
-Print a help message describing each option flag.
-.It Fl i
-Interactive mode; pause at each stage of loading for
-user input to continue.
-This allows for debugger setup when the kext needs
-to be debugged during its earliest stages of running.
-.It Fl I
-(capital i) Interactive mode as
-.Fl i
-for the specified kext and all of its dependencies.
-.It Fl k Ar kernel_file
-Link against the given
-.Ar kernel_file .
-Allowed only with the
-.Fl n
-option to generate debug symbols.
-By default
-.Nm
-attempts to get link symbols from the running kernel,
-.It Pa /var/run/mach.sym ,
-and
-.It Pa /mach_kernel ,
-in that order
-(the UUIDs must match that of the running kernel for the disk-based files).
-.It Fl l
-Load and start the kext only; don't send I/O Kit personalities
-to the kernel to begin matching.
-Matching may still occur if the personalities are present from
-an earlier load operation.
-You may want to use
-.Xr kextunload 8
-before loading a kext with this option.
-.It Fl L
-Same as
-.Fl r
-(remains for backward compatibility).
-.It Fl m
-Don't load the kext, but do send its personalities to the kernel
-to begin matching.
-Use this option after you have loaded a driver with
-.Fl l
-and after setting up the debugger.
-.It Fl n
-Neither load the kext nor send personalities to the kernel.
-This option is for use when generating debug symbols only
-with the
-.Fl s
-option,
-or when validating kexts with the
-.Fl t
-option.
-See also the
-.Fl a
-and
-.Fl
-A
-options.
-.It Fl p Ar personality
-Send only the named personalities from the kext to the
-kernel. Repeat for each personality desired, or use the
-.Fl i
-option to have
-.Nm
-ask for each personality.
-.It Fl q
+.Fl repository
+option for more information.
+.It Fl h , Fl help
+Print a help message describing each option flag and exit with a success result,
+regardless of any other options on the command line.
+.It Fl q , Fl quiet
 Quiet mode; print no informational or error messages.
-This option excludes
-.Fl v .
-If
-.Nm
-is run with
-.Fl q
-in a way that might require user interaction,
-as with the
-.Fl i
-and
-.Fl I
-options,
-and some uses of
-.Fl n ,
-the program will silently exit with an error status.
-.It Fl r Ar directory
+.It Fl r Ar directory , Fl repository Ar directory
 Use
 .Ar directory
 as a repository of kexts.
 This adds to the set of known kexts for resolving dependencies
 or looking up by CFBundleIdentifier when using the
-.Fl b
+.Fl bundle-id
 option.
-This is not recursive; only the directory's immediate
-contents are scanned.
+This is not recursive; only kexts directly within the directory,
+and their plugins, are scanned.
 See also the
-.Fl c ,
-.Fl d ,
-and
-.Fl e
-options.
-.It Fl s Ar directory
-Write all generated symbol files into
-.Ar directory .
-The directory must already exist.
-Symbol files are named after the CFBundleIdentifier of each
-kexts with a
-.Ar .sym
-suffix appended.
-.It Fl t
-Perform all possible tests on the named kext(s) and indicate
-whether the kext is loadable, or if not, what problems it has.
-Note that tests are performed in three stages, validation,
-authentication, and dependency resolution; a failure at any
-stage can make tests in further stages impossible.
-Thus, a kext with validation failures may have unreported
-authentication problems or missing dependencies.
-.It Fl v Op 1-6
-Verbose mode; print information about the kext scanning and loading
-process. Higher levels of verbosity include all lower levels.
-The levels of verbose output are these:
-.Bl -tag -width "xxx"
-.It 0
-suppresses informational messages (errors are still printed);
-see also
-.Fl q
-.It 1
-prints basic kext scanning information
-.It 2
-prints basic load information
-.It 3
-prints detailed kext scanning information
-.It 4
-prints basic information on every kext encountered
-.It 5
-prints detailed information on every kext encountered
-.It 6
-prints detailed load information
-.El
-If
-.Fl v
-is not specified only the essential information about the
-load operation is printed (such as whether the kext was
-already  loaded).
-.Pp
-A kext can also specify verbose printing for just itself
-using the OSBundleDebugLevel top-level info dictionary
-property.
-Its values are 1 and 2, for basic and detailed information,
-respectively.
-.Pp
-This option excludes
-.Fl
-q .
-.It Fl x
-Run
-.Nm
-in safe boot mode (indicating startup with the Shift key held down).
-Kexts that don't specify a proper value for the OSBundleRequired
-info dictionary property, or those in which every personality
-contains a nonzero IOKitDebug property, will not load.
-This option implies the use of the
-.Fl c
+.Fl dependency
 option.
-.It Fl z
-Don't authenticate kexts.
-This option is for convenience during development,
-and is allowed only for operations
-that don't actually load a kext
-into the kernel (such as when generating symbols).
-.It Fl Z
-Don't try to resolve dependencies.
-This option is allowed only when using the
-.Fl n
-and
-.Fl t
-options to test a kext for problems.
-It is not allowed with the
-.Fl s
-option as generating symbols requires dependencies to be resolved.
+.It Fl v Li [ 0-6 | 0x#### Ns Li ] , Fl verbose Li [ 0-6 | 0x#### Ns Li ]
+Verbose mode; print information about program operation.
+Higher levels of verbosity include all lower levels.
+You can specify a level from 0-6,
+or a bitmask of flags as a hexadecimal number prefixed with 0x
+(as described in
+.Xr kext_logging 8 Ns No ).
+Because
+.Nm
+messages
+.Xr kextd 8 ,
+to perform the actual work of loading,
+the decimal levels 1-6 generally have little effect.
+You may wish to use
+.Xr kextutil 8
+if you want verbose output about the kext loading operation.
+.Pp
 .It Fl -
 End of all options. Only kext names follow.
 .El
 .Sh EXAMPLES
-Here are the common uses and usage patterns for
-.Nm .
-.Ss Basic loading
-To load a kext you must run
+To load a kext, run
 .Nm
-as the superuser and supply a kext bundle name;
+and supply a kext bundle name;
 no options are required:
-.Bd -literal -offset indent
-    kextload TabletDriver.kext
+.Bd -literal -offset "xxx"
+kextload TabletDriver.kext
 .Ed
 .Pp
 Alternatively, you can use the
-.Fl b
+.Fl bundle-id
+.Li ( Ns Fl b Ns Li )
 option to specify a kext by its CFBundleIdentifier:
-.Bd -literal -offset indent
-    kextload -b com.mycompany.driver.TabletDriver
+.Bd -literal -offset "xxx"
+kextload -bundle-id com.mycompany.driver.TabletDriver
 .Ed
 .Pp
 With no additional options
 .Nm
-will look in /System/Library/Extensions for a kext
-with the given CFBundleIdentifier.
+looks in the system extensions folder
+.Li ( Ns Pa /System/Library/Extensions/ Ns Li )
+for a kext with the given CFBundleIdentifier.
 Adding repository directories with the
-.Fl r
+.Fl repository
 option or individual kexts with the
-.Fl d
+.Fl dependency
 option expands the set of kexts that
 .Nm
-looks among:
-.Bd -literal -offset indent
-    kextload -r ${USER}/Library/Extensions TabletDriver.kext
+looks among for dependency resolution and for loading by bundle identifier:
+.Bd -literal -offset "xxx"
+kextload -repository /Applications/MyApp.app/Contents/Resources \\
+    TabletDriver.kext
 .Ed
 .Pp
-If you're modifying system startup to load a kext,
-be sure to check whether the system is starting up in safe boot mode
-(typically when the user presses the Shift key)
-and use the
-.Fl x
-option to indicate this.
-(The various rc files in /etc can simply use the $SafeBoot shell
-variable on the command line. It evaluates to an empty string
-during normal startup and \(lq-x\(rq during safe boot mode.)
-.Ss Validating Kexts
-The
-.Fl t
-option causes
-.Nm
-to perform all possible validation and authentication checks
-on the specified kexts and to attempt to resolve their dependencies.
-If there are any problems with the specified kexts,
-.Nm
-prints a list of the problems.
-.Pp
-The
-.Fl t
-option is typically used with
-.Fl n
-after a load failure to pinpoint a problem.
-It can be used with any other set of options, however.
-.Pp
-If you want to validate a kext in isolation,
-as in a build environment where dependencies may not be available,
-you can use the
-.Fl e
-and
-.Fl Z
-options to omit the /System/Library/Extensions repository
-and to suppress dependency resolution, respectively:
-.Bd -literal -offset indent
-    kextload -entZ PacketSniffer.kext
-.Ed
-.Pp
-Only validation and authentication checks will be performed.
-.Ss Generating Debug Symbols When Loading
-To generate a symbol file for use with gdb when loading a kext,
-use the
-.Fl s
-option to specify a directory where symbol files will be written
-for the kext being loaded and all its dependencies.
-.Bd -literal -offset indent
-    kextload -s ~/ksyms PacketSniffer.kext
-.Ed
-.Pp
-.Ss Generating Debug Symbols For an Already-Loaded Kext
-If you want to generate symbols for a kext that's already loaded,
-whether on the same system or on another, use the
-.Fl s
-option along with the
-.Fl n
-option.
-Since in this case addresses must be known for the kext and
-all its dependencies, though, you must specify these.
-If you don't indicate them on the command line,
-.Nm
-will ask you for the load address of each kext needed.
-Use
-.Xr kextstat 8
-on the machine you're generating symbols for
-to get these addresses and enter them at each prompt.
-.Bd -literal -offset indent
-    kextload -n -s ~/ksyms GrobbleEthernet.kext
-    enter the hexadecimal load addresses for these modules:
-    com.apple.iokit.IONetworkingFamily: 0x1001000
-    .\|.\|.
-.Ed
-.Pp
-Alternatively, if you know the CFBundleIdentifiers
-of all the kexts, you can use the
-.Fl a
-option for each kext (you needn't specify
-.Fl n
-when using the
-.Fl a
-option):
-.Bd -literal -offset indent
-    kextload -s ~/ksyms \\
-    -a com.apple.iokit.IONetworkingFamily@0x1001000 \\
-    -a com.apple.iokit.IOPCIFamily@0x1004000 \\
-    -a com.mycompany.driver.GrobbleEthernet@0x1007000 \\
-    GrobbleEthernet.kext
-.Ed
-.Pp
-Simplest of all, however, provided you can run
-.Nm
-on the same machine as the loaded kext,
-is to use the
-.Fl A
-option, which checks with the kernel for all loaded
-kexts and automatically gets their load addresses.
-.Bd -literal -offset indent
-    kextload -s ~/ksyms -A GrobbleEthernet.kext
-.Ed
-.Pp
-.Ss Explicitly Specifying Dependencies
-Because
-.Nm
-resolves dependencies automatically,
-it's possible that a kext other than the one you
-intend might get used as a dependency
-(such as when there are multiple versions,
-or if you're working on a new version of a kext
-that's already installed in /System/Library/Extensions).
-By default, when loading a kext into the kernel
-.Nm
-checks which versions of possible dependencies are already
-loaded in order to assure a successful load.
-When not loading, however, it always chooses the most recent
-versions of any dependencies.
-.Pp
-If you want to have complete control over the set of extensions
-used to resolve dependencies,
-use the
-.Fl e ,
-.Fl d ,
-and
-.Fl r
-options.
-The
-.Fl e
-option excludes the standard /System/Library/Extensions folder,
-leaving the set of candidate extensions for dependency resolution
-entirely up to you.
-To specify candidate dependencies you use either
-.Fl d ,
-which names a single kext as a candidate, or
-.Fl r ,
-which adds an entire directory of extensions.
-.Bd -literal -offset indent
-    kextload -n -s ~/ksyms -e \\
-    -d /System/Library/Extensions/System.kext \\
-    -r ~/TestKexts -d JoystickSupport.kext JoystickDriver.kext
-.Ed
-.Pp
-Note also that if you use
-.Fl e ,
-you must supply some version of the System.kext bundle
-in order to supply information about the kernel.
-This should always match the kernel you're linking against,
-which is by default the installed kernel on the machine you're
-using
-.Nm
-on; you can use the
-.Fl k
-option to indicate a different kernel file.
-.Ss Debug-Loading an I/O Kit Driver
-If you need to debug an I/O Kit driver's early startup code,
-you must load the driver on the target machine without starting matching
-by using the
-.Fl l
-option:
-.Bd -literal -offset indent
-    kextload -l DiskController.kext
-.Ed
-.Pp
-Once you have done this, you can use the generated symbol
-file in your debug session to set breakpoints
-and then trigger matching by running
-.Nm
-again on the target machine with the
-.Fl m
-option:
-.Bd -literal -offset indent
-    kextload -m DiskController.kext
-.Ed
-.Pp
-You may wish to use the
-.Fl p
-option as well in order to send selected personalities to the kernel.
-Alternatively, you can use the
-.Fl i
-option for the whole process, which causes
-.Nm
-to pause just before loading any personalities and then
-to ask you for each personality whether that one should be sent to the kernel:
-.Bd -literal -offset indent
-    kextload -i DiskController.kext
-.Ed
-.Pp
-.Ss Debug-Loading a non-I/O Kit Kext
-A non-I/O Kit kext doesn't have a personality-matching phase of loading;
-it just starts executing.
-In order to debug a non-I/O Kit kext's startup code, you must
-use the
-.Fl i
-or
-.Fl I
-option, which pauses loading at each significant stage
-so that you can set up your debugging session as needed before proceeding.
 .Sh FILES
-.Bl -tag -width "/System/Library/Extensions" -compact
-.It Pa /System/Library/Extensions
+.Bl -tag -width "/System/Library/Extensions/" -compact
+.It Pa /System/Library/Extensions/
 The standard system repository of kernel extensions
-.It Pa directoryname/Caches/*
-Cache files for a given directory of kernel extensions
-.It Pa /var/run/mach.sym
-The symbol file for the running kernel, written by
-.Xr kextd 8
-at system startup.
-.It Pa /mach_kernel
-The default kernel file, used for linking as a last resort.
 .El
 .Sh DIAGNOSTICS
 .Nm
-exits with a zero status upon success.
-Upon failure, it prints an error message
-and continues processing any kexts if possible,
+exits with a zero status if all kexts specified load successfully
+(or are already loaded).
+If any kext fails to load,
+.Nm
+prints an error message for that kext,
+continues trying to load any remaining kexts,
 then exits with a nonzero status.
 .Pp
-For a kext to be loadable, it must be valid, authentic,
-have all dependencies met
-(that is, all dependencies must be found and loadable).
-A valid kext has a well formed bundle, info dictionary, and executable.
-An authentic kext's component files are owned by root:wheel,
+For a kext to be loadable, it must be
+valid, authenticated, and all dependencies of the kext must be available and loadable.
+A valid kext has a well formed bundle, info dictionary,
+and an executable built for the running kernel's architecture.
+An authentic kext's component files,
+not including plugins,
+are owned by root:wheel,
 with permissions nonwritable by group and other.
-If your kext fails to load, try using the
-.Fl t
-option to print diagnostics related to validation and authentication.
-.Pp
-Also, of course, the executable must contain code
-for the host machine's architecture and link successfully.
-However, since this is expensive to do,
-these checks are not made unless the kext is actually being linked.
-You can confirm these aspects of loadability by attempting
-to generate symbol files using the
-.Fl s
-option.
+If your kext fails to load, try using
+.Xr kextutil 8
+to examine the kext for problems.
 .Sh SEE ALSO 
 .Xr kextcache 8 ,
 .Xr kextd 8 ,
 .Xr kextstat 8 ,
-.Xr kextunload 8
-.Sh BUGS
-Upon encountering a kext with validation errors,
-.Nm
-typically prints an error message about that kext,
-even if it isn't involved in the load request.
+.Xr kextunload 8 ,
+.Xr kextutil 8 ,
+.Xr kext_logging 8

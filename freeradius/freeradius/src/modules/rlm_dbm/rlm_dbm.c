@@ -1,7 +1,7 @@
 /*
  * rlm_dbm.c authorize:    authorize using ndbm database
  *
- * Version:     $Id: rlm_dbm.c,v 1.9 2004/02/26 19:04:28 aland Exp $
+ * Version:     $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,13 +15,17 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
  * Copyright 2001 Koulik Andrei, Sandy Service
+ * Copyright 2006 The FreeRADIUS server project
  */
 
-#include <string.h>
-#include <stdlib.h>
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
+
+#include <freeradius-devel/radiusd.h>
+#include <freeradius-devel/modules.h>
 
 #ifdef HAVE_NDBM_H
 #include <ndbm.h>
@@ -37,15 +41,9 @@
 
 #include <fcntl.h>
 
-#include "libradius.h"
-#include "radiusd.h"
-#include "modules.h"
-
 #ifdef SANDY_MOD
 #	include "sandymod.h"
 #endif
-
-static const char rcsid[] = "$Id: rlm_dbm.c,v 1.9 2004/02/26 19:04:28 aland Exp $";
 
 #define MYDBM	DBM
 #define get_user_content dbm_fetch
@@ -72,7 +70,7 @@ typedef struct user_entry {
 } SM_USER_ENTRY;
 
 
-static CONF_PARSER module_config[] = {
+static const CONF_PARSER module_config[] = {
         { "usersfile",     PW_TYPE_STRING_PTR,offsetof(struct rlm_dbm_t,userfile),
 		NULL, "/etc/uf" },
         { NULL, -1, 0, NULL, NULL }
@@ -134,7 +132,7 @@ static int isfallthrough(VALUE_PAIR *vp) {
   VALUE_PAIR * tmp;
 
   tmp = pairfind(vp, PW_FALL_THROUGH);
-  return tmp ? tmp -> lvalue : 1; /* if no  FALL_THROUGH - keep looking */
+  return tmp ? tmp -> vp_integer : 1; /* if no  FALL_THROUGH - keep looking */
 }
 
 /* sm_parse_user
@@ -149,8 +147,9 @@ static int isfallthrough(VALUE_PAIR *vp) {
  *  parsed_users - list of parsed user names for loop removal
  */
 
-static int sm_parse_user(DBM *pdb, const char * username, VALUE_PAIR const* request, VALUE_PAIR **config,
-		VALUE_PAIR **reply, SM_USER_ENTRY **ulist)
+static int sm_parse_user(DBM *pdb, const char * username, REQUEST *req,
+			 VALUE_PAIR const* request, VALUE_PAIR **config,
+			 VALUE_PAIR **reply, SM_USER_ENTRY **ulist)
 {
    	datum 	k,d;
    	int		retcod, found = RLM_MODULE_NOTFOUND, res ;
@@ -178,7 +177,7 @@ static int sm_parse_user(DBM *pdb, const char * username, VALUE_PAIR const* requ
 
    	d = dbm_fetch(pdb, k);
    	if ( d.dptr == NULL ) {
-   		 DEBUG2("rlm_dbm: User <%s> not foud in database\n",username);
+   		 DEBUG2("rlm_dbm: User <%s> not found in database\n",username);
    		 return RLM_MODULE_NOTFOUND;
    	}
 
@@ -199,7 +198,7 @@ static int sm_parse_user(DBM *pdb, const char * username, VALUE_PAIR const* requ
 		DEBUG2("parse buffer: <<%s>>\n",beg);
 
    		retcod = userparse(beg,&vp);
-   		if ( retcod == T_INVALID ) librad_perror("parse error ");
+   		if ( retcod == T_OP_INVALID ) fr_perror("parse error ");
 
    	 	switch ( retcod ) {
    	 		case T_COMMA: break; /* continue parse the current list */
@@ -207,7 +206,7 @@ static int sm_parse_user(DBM *pdb, const char * username, VALUE_PAIR const* requ
    	 				if ( parse_state == SMP_PATTERN ) { /* pattern line found */
    	 					DEBUG2("process pattern");
    	 					/* check pattern against request */
-						if ( paircmp(NULL, request, vp, reply ) == 0 ) {
+						if ( paircompare(req, request, vp, reply ) == 0 ) {
 							DEBUG2("rlm_dbm: Pattern matched, look for request");
    	 						pairmove(&tmp_config, &vp);
    	 						pairfree(&vp);
@@ -225,9 +224,9 @@ static int sm_parse_user(DBM *pdb, const char * username, VALUE_PAIR const* requ
 						join_attr = vp;
    	 					while( (join_attr = pairfind(join_attr,SM_JOIN_ATTR) ) != NULL ) {
    	 					 	DEBUG2("rlm_dbm: Proccess nested record: username %s",
-   	 					 		(char *)join_attr->strvalue);
+   	 					 		(char *)join_attr->vp_strvalue);
    	 					 	/* res =  RLM_MODULE_NOTFOUND; */
-   	 						res =  sm_parse_user(pdb, (char *)join_attr->strvalue, request, &tmp_config,
+   	 						res =  sm_parse_user(pdb, (char *)join_attr->vp_strvalue, req, request, &tmp_config,
    	 					 			&nu_reply, ulist);
 							DEBUG("rlm_dbm: recived: %d\n",res);
 							switch ( res ) {
@@ -324,17 +323,17 @@ static int rlm_dbm_authorize(void *instance, REQUEST *request)
          *      Grab the canonical user name.
          */
         namepair = request->username;
-        name = namepair ? (char *) namepair->strvalue : "NONE";
+        name = namepair ? (char *) namepair->vp_strvalue : "NONE";
 
 	DEBUG2("rlm_dbm: try open database file: %s\n",inst -> userfile);
 
 	/* open database */
 	if ( ( pdb = dbm_open(inst->userfile, O_RDONLY, 0600) ) != NULL ) {
 		DEBUG("rlm_dbm: Call parse_user:\n");
-		found = sm_parse_user(pdb, name, request_pairs, &check_tmp, &reply_tmp, &ulist);
+		found = sm_parse_user(pdb, name, request, request_pairs, &check_tmp, &reply_tmp, &ulist);
 	   	if ( found == RLM_MODULE_NOTFOUND ) {
 		  sm_user_list_wipe(&ulist);
-		  found = sm_parse_user(pdb, "DEFAULT", request_pairs, &check_tmp, &reply_tmp, &ulist);
+		  found = sm_parse_user(pdb, "DEFAULT", request, request_pairs, &check_tmp, &reply_tmp, &ulist);
 		}
 		dbm_close(pdb);
 	} else {
@@ -360,7 +359,6 @@ static int rlm_dbm_authorize(void *instance, REQUEST *request)
 static int rlm_dbm_detach(void *instance)
 {
 	struct rlm_dbm_t *inst = instance;
-	free(inst -> userfile);
 	free(inst);
 	return 0;
 }
@@ -368,10 +366,11 @@ static int rlm_dbm_detach(void *instance)
 
 /* globally exported name */
 module_t rlm_dbm = {
+	RLM_MODULE_INIT,
         "dbm",
         0,                              /* type: reserved */
-        NULL,                           /* initialization */
         rlm_dbm_instantiate,            /* instantiation */
+        rlm_dbm_detach,                 /* detach */
         {
                 NULL,                   /* authentication */
                 rlm_dbm_authorize,      /* authorization */
@@ -382,6 +381,4 @@ module_t rlm_dbm = {
                 NULL,			/* post-proxy */
                 NULL			/* post-auth */
 	},
-        rlm_dbm_detach,                 /* detach */
-	NULL                            /* destroy */
 };

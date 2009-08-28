@@ -1,0 +1,2719 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$1068|#define OSDeclareCommonStructors(className)                             \
+    private:                                                            \
+        static const OSMetaClass * const superClass;                    \
+    public:                                                             \
+        static const OSMetaClass * const metaClass;                     \
+        static class MetaClass : public OSMetaClass {                   \
+        public:                                                         \
+            MetaClass();                                                \
+            virtual OSObject *alloc() const;                            \
+        } gMetaClass;                                                   \
+        friend class className ::MetaClass;                             \
+        virtual const OSMetaClass * getMetaClass() const;               \
+    protected:                                                          \
+        className (const OSMetaClass *);                                \
+        virtual ~ className ()
+
+$206|/*! @define OSDeclareCommonStructors
+    @abstract Basic helper macro for the OSDeclare for Default and Abstract macros, qv.  DO NOT USE.
+    @param className Name of class. NO QUOTES.
+    @hidecontents
+*/
+$0|$16245|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 1
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/define_5.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/define_5.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 3
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 15
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => )
+$parserState->{macroNoTrunc} => 2
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 33
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} =>  #define OSDeclareCommonStructors( className)                             \
+private:
+    
+    \
+static const OSMetaClass * const superClass;                     \
+public:
+    
+    \
+static const OSMetaClass * const metaClass;                      \
+static class MetaClass : public OSMetaClass {
+                       \
+public:
+                                                             \
+MetaClass( );                                                 \
+virtual OSObject *alloc( ) const;                             \
+} gMetaClass;                                                    \
+friend class className ::MetaClass;                              \
+virtual const OSMetaClass * getMetaClass( ) const;                \
+protected:
+                                                              \
+className ( const OSMetaClass *);                                 \
+virtual ~ className ()
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 1
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => OSDeclareCommonStructors
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{typestring} => #
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 15
+typelist: #define
+namelist: OSDeclareCommonStructors
+posstypes: function method
+value: 
+returntype: 
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+Parsed Param 0 => className
+-=: DUMP OF PARSE TREE :=-
++---#define
+|   +--- 
+|   +---OSDeclareCommonStructors
+|   +---(
+|   +---className
+|   +---)
+|   +---                             
+|   +---\
+|   +---[ NEWLINE ]
+|   +---    
+|   +---private
+|   +---:
+|   +---                                                            
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---static
+|   +--- 
+|   +---const
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---*
+|   +--- 
+|   +---const
+|   +--- 
+|   +---superClass
+|   +---;
+|   +---                    
+|   +---\
+|   +---[ NEWLINE ]
+|   +---    
+|   +---public
+|   +---:
+|   +---                                                             
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---static
+|   +--- 
+|   +---const
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---*
+|   +--- 
+|   +---const
+|   +--- 
+|   +---metaClass
+|   +---;
+|   +---                     
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---static
+|   +--- 
+|   +---class
+|   +--- 
+|   +---MetaClass
+|   +--- 
+|   +---:
+|   +--- 
+|   +---public
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---{
+|   +---                   
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---public
+|   +---:
+|   +---                                                         
+|   +---\
+|   +---[ NEWLINE ]
+|   +---            
+|   +---MetaClass
+|   +---(
+|   +---)
+|   +---;
+|   +---                                                
+|   +---\
+|   +---[ NEWLINE ]
+|   +---            
+|   +---virtual
+|   +--- 
+|   +---OSObject
+|   +--- 
+|   +---*
+|   +---alloc
+|   +---(
+|   +---)
+|   +--- 
+|   +---const
+|   +---;
+|   +---                            
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---}
+|   +--- 
+|   +---gMetaClass
+|   +---;
+|   +---                                                   
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---friend
+|   +--- 
+|   +---class
+|   +--- 
+|   +---className
+|   +--- 
+|   +---::
+|   +---MetaClass
+|   +---;
+|   +---                             
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---virtual
+|   +--- 
+|   +---const
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---*
+|   +--- 
+|   +---getMetaClass
+|   +---(
+|   +---)
+|   +--- 
+|   +---const
+|   +---;
+|   +---               
+|   +---\
+|   +---[ NEWLINE ]
+|   +---    
+|   +---protected
+|   +---:
+|   +---                                                          
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---className
+|   +--- 
+|   +---(
+|   +---const
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---*
+|   +---)
+|   +---;
+|   +---                                
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---virtual
+|   +--- 
+|   +---~
+|   +--- 
+|   +---className
+|   +--- 
+|   +---(
+|   +---)
+|   +---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+$CPP_HASH{OSDeclareCommonStructors} =>                             
+    private:                                                            
+        static const OSMetaClass * const superClass;                    
+    public:                                                             
+        static const OSMetaClass * const metaClass;                     
+        static class MetaClass : public OSMetaClass {                   
+        public:                                                         
+            MetaClass();                                                
+            virtual OSObject *alloc() const;                            
+        } gMetaClass;                                                   
+        friend class className ::MetaClass;                             
+        virtual const OSMetaClass * getMetaClass() const;               
+    protected:                                                          
+        className (const OSMetaClass *);                                
+        virtual ~ className ()
+$CPP_ARG_HASH{OSDeclareCommonStructors} => className
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: define 5
+APIUID: //test_ref/doc/header/define_5.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    IS AVAILABILITY MACRO: 
+    PARSE ONLY: 
+    OBJECT TYPE: HeaderDoc::PDefine
+    NAME: OSDeclareCommonStructors
+    APIUID: //test_ref/c/macro/OSDeclareCommonStructors
+    ABSTRACT: "<p>Basic helper macro for the OSDeclare for Default and Abstract macros, qv.  DO NOT USE.
+"
+    DISCUSSION: ""
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::PDefine"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: "1"
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+    PARSED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: className
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+    TAGGED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: className
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p>Name of class. NO QUOTES."
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: OSDeclareCommonStructors (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---OSDeclareCommonStructors
+|   +---(
+|   +---className
+|   +---)
+|   +---                             
+|   +---\
+|   +---[ NEWLINE ]
+|   +---    
+|   +---private
+|   +---:
+|   +---                                                            
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---static
+|   +--- 
+|   +---const
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---*
+|   +--- 
+|   +---const
+|   +--- 
+|   +---superClass
+|   +---;
+|   +---                    
+|   +---\
+|   +---[ NEWLINE ]
+|   +---    
+|   +---public
+|   +---:
+|   +---                                                             
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---static
+|   +--- 
+|   +---const
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---*
+|   +--- 
+|   +---const
+|   +--- 
+|   +---metaClass
+|   +---;
+|   +---                     
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---static
+|   +--- 
+|   +---class
+|   +--- 
+|   +---MetaClass
+|   +--- 
+|   +---:
+|   +--- 
+|   +---public
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---{
+|   +---                   
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---public
+|   +---:
+|   +---                                                         
+|   +---\
+|   +---[ NEWLINE ]
+|   +---            
+|   +---MetaClass
+|   +---(
+|   +---)
+|   +---;
+|   +---                                                
+|   +---\
+|   +---[ NEWLINE ]
+|   +---            
+|   +---virtual
+|   +--- 
+|   +---OSObject
+|   +--- 
+|   +---*
+|   +---alloc
+|   +---(
+|   +---)
+|   +--- 
+|   +---const
+|   +---;
+|   +---                            
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---}
+|   +--- 
+|   +---gMetaClass
+|   +---;
+|   +---                                                   
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---friend
+|   +--- 
+|   +---class
+|   +--- 
+|   +---className
+|   +--- 
+|   +---::
+|   +---MetaClass
+|   +---;
+|   +---                             
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---virtual
+|   +--- 
+|   +---const
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---*
+|   +--- 
+|   +---getMetaClass
+|   +---(
+|   +---)
+|   +--- 
+|   +---const
+|   +---;
+|   +---               
+|   +---\
+|   +---[ NEWLINE ]
+|   +---    
+|   +---protected
+|   +---:
+|   +---                                                          
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---className
+|   +--- 
+|   +---(
+|   +---const
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---*
+|   +---)
+|   +---;
+|   +---                                
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---virtual
+|   +--- 
+|   +---~
+|   +--- 
+|   +---className
+|   +--- 
+|   +---(
+|   +---)
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: OSDeclareCommonStructors (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/OSDeclareCommonStructors //test_ref/c/tdef/OSDeclareCommonStructors //test_ref/c/tag/OSDeclareCommonStructors //test_ref/c/econst/OSDeclareCommonStructors //test_ref/c/struct/OSDeclareCommonStructors //test_ref/c/data/OSDeclareCommonStructors //test_ref/c/clconst/OSDeclareCommonStructors //test_ref/c/intf/OSDeclareCommonStructors //test_ref/c/instm/OSDeclareCommonStructors //test_ref/c/clm/OSDeclareCommonStructors //test_ref/c/intfcm/OSDeclareCommonStructors //test_ref/c/intfm/OSDeclareCommonStructors //test_ref/c/func/OSDeclareCommonStructors //test_ref/c/ftmplt/OSDeclareCommonStructors //test_ref/c/defn/OSDeclareCommonStructors //test_ref/c/macro/OSDeclareCommonStructors //test_ref/doc/com/intfm/OSDeclareCommonStructors" --><span class="preprocessor">OSDeclareCommonStructors</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/className //test_ref/c/tdef/className //test_ref/c/tag/className //test_ref/c/econst/className //test_ref/c/struct/className //test_ref/c/data/className //test_ref/c/clconst/className //test_ref/c/intf/className //test_ref/c/instm/className //test_ref/c/clm/className //test_ref/c/intfcm/className //test_ref/c/intfm/className //test_ref/c/func/className //test_ref/c/ftmplt/className //test_ref/c/defn/className //test_ref/c/macro/className //test_ref/doc/com/intfm/className" --><span class="preprocessor">className</span><!-- /a --><span class="preprocessor">)</span>
+END OF OBJECT
+
+
+
+$16245|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 1
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/define_5.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/define_5.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 3
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 15
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => )
+$parserState->{macroNoTrunc} => 2
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 33
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} =>  #define OSDeclareCommonStructors( className)                             \
+private:
+    
+    \
+static const OSMetaClass * const superClass;                     \
+public:
+    
+    \
+static const OSMetaClass * const metaClass;                      \
+static class MetaClass : public OSMetaClass {
+                       \
+public:
+                                                             \
+MetaClass( );                                                 \
+virtual OSObject *alloc( ) const;                             \
+} gMetaClass;                                                    \
+friend class className ::MetaClass;                              \
+virtual const OSMetaClass * getMetaClass( ) const;                \
+protected:
+                                                              \
+className ( const OSMetaClass *);                                 \
+virtual ~ className ()
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 1
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => OSDeclareCommonStructors
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{typestring} => #
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 15
+typelist: #define
+namelist: OSDeclareCommonStructors
+posstypes: function method
+value: 
+returntype: 
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+Parsed Param 0 => className
+-=: DUMP OF PARSE TREE :=-
++---#define
+|   +--- 
+|   +---OSDeclareCommonStructors
+|   +---(
+|   +---className
+|   +---)
+|   +---                             
+|   +---\
+|   +---[ NEWLINE ]
+|   +---    
+|   +---private
+|   +---:
+|   +---                                                            
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---static
+|   +--- 
+|   +---const
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---*
+|   +--- 
+|   +---const
+|   +--- 
+|   +---superClass
+|   +---;
+|   +---                    
+|   +---\
+|   +---[ NEWLINE ]
+|   +---    
+|   +---public
+|   +---:
+|   +---                                                             
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---static
+|   +--- 
+|   +---const
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---*
+|   +--- 
+|   +---const
+|   +--- 
+|   +---metaClass
+|   +---;
+|   +---                     
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---static
+|   +--- 
+|   +---class
+|   +--- 
+|   +---MetaClass
+|   +--- 
+|   +---:
+|   +--- 
+|   +---public
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---{
+|   +---                   
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---public
+|   +---:
+|   +---                                                         
+|   +---\
+|   +---[ NEWLINE ]
+|   +---            
+|   +---MetaClass
+|   +---(
+|   +---)
+|   +---;
+|   +---                                                
+|   +---\
+|   +---[ NEWLINE ]
+|   +---            
+|   +---virtual
+|   +--- 
+|   +---OSObject
+|   +--- 
+|   +---*
+|   +---alloc
+|   +---(
+|   +---)
+|   +--- 
+|   +---const
+|   +---;
+|   +---                            
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---}
+|   +--- 
+|   +---gMetaClass
+|   +---;
+|   +---                                                   
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---friend
+|   +--- 
+|   +---class
+|   +--- 
+|   +---className
+|   +--- 
+|   +---::
+|   +---MetaClass
+|   +---;
+|   +---                             
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---virtual
+|   +--- 
+|   +---const
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---*
+|   +--- 
+|   +---getMetaClass
+|   +---(
+|   +---)
+|   +--- 
+|   +---const
+|   +---;
+|   +---               
+|   +---\
+|   +---[ NEWLINE ]
+|   +---    
+|   +---protected
+|   +---:
+|   +---                                                          
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---className
+|   +--- 
+|   +---(
+|   +---const
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---*
+|   +---)
+|   +---;
+|   +---                                
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---virtual
+|   +--- 
+|   +---~
+|   +--- 
+|   +---className
+|   +--- 
+|   +---(
+|   +---)
+|   +---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+$CPP_HASH{OSDeclareCommonStructors} =>                             
+    private:                                                            
+        static const OSMetaClass * const superClass;                    
+    public:                                                             
+        static const OSMetaClass * const metaClass;                     
+        static class MetaClass : public OSMetaClass {                   
+        public:                                                         
+            MetaClass();                                                
+            virtual OSObject *alloc() const;                            
+        } gMetaClass;                                                   
+        friend class className ::MetaClass;                             
+        virtual const OSMetaClass * getMetaClass() const;               
+    protected:                                                          
+        className (const OSMetaClass *);                                
+        virtual ~ className ()
+$CPP_ARG_HASH{OSDeclareCommonStructors} => className
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: define 5
+APIUID: //test_ref/doc/header/define_5.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    IS AVAILABILITY MACRO: 
+    PARSE ONLY: 
+    OBJECT TYPE: HeaderDoc::PDefine
+    NAME: OSDeclareCommonStructors
+    APIUID: //test_ref/c/macro/OSDeclareCommonStructors
+    ABSTRACT: "<p>Basic helper macro for the OSDeclare for Default and Abstract macros, qv.  DO NOT USE.
+"
+    DISCUSSION: ""
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::PDefine"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: "1"
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+    PARSED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: className
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+    TAGGED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: className
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p>Name of class. NO QUOTES."
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: OSDeclareCommonStructors (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---OSDeclareCommonStructors
+|   +---(
+|   +---className
+|   +---)
+|   +---                             
+|   +---\
+|   +---[ NEWLINE ]
+|   +---    
+|   +---private
+|   +---:
+|   +---                                                            
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---static
+|   +--- 
+|   +---const
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---*
+|   +--- 
+|   +---const
+|   +--- 
+|   +---superClass
+|   +---;
+|   +---                    
+|   +---\
+|   +---[ NEWLINE ]
+|   +---    
+|   +---public
+|   +---:
+|   +---                                                             
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---static
+|   +--- 
+|   +---const
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---*
+|   +--- 
+|   +---const
+|   +--- 
+|   +---metaClass
+|   +---;
+|   +---                     
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---static
+|   +--- 
+|   +---class
+|   +--- 
+|   +---MetaClass
+|   +--- 
+|   +---:
+|   +--- 
+|   +---public
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---{
+|   +---                   
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---public
+|   +---:
+|   +---                                                         
+|   +---\
+|   +---[ NEWLINE ]
+|   +---            
+|   +---MetaClass
+|   +---(
+|   +---)
+|   +---;
+|   +---                                                
+|   +---\
+|   +---[ NEWLINE ]
+|   +---            
+|   +---virtual
+|   +--- 
+|   +---OSObject
+|   +--- 
+|   +---*
+|   +---alloc
+|   +---(
+|   +---)
+|   +--- 
+|   +---const
+|   +---;
+|   +---                            
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---}
+|   +--- 
+|   +---gMetaClass
+|   +---;
+|   +---                                                   
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---friend
+|   +--- 
+|   +---class
+|   +--- 
+|   +---className
+|   +--- 
+|   +---::
+|   +---MetaClass
+|   +---;
+|   +---                             
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---virtual
+|   +--- 
+|   +---const
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---*
+|   +--- 
+|   +---getMetaClass
+|   +---(
+|   +---)
+|   +--- 
+|   +---const
+|   +---;
+|   +---               
+|   +---\
+|   +---[ NEWLINE ]
+|   +---    
+|   +---protected
+|   +---:
+|   +---                                                          
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---className
+|   +--- 
+|   +---(
+|   +---const
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---*
+|   +---)
+|   +---;
+|   +---                                
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---virtual
+|   +--- 
+|   +---~
+|   +--- 
+|   +---className
+|   +--- 
+|   +---(
+|   +---)
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: OSDeclareCommonStructors (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/OSDeclareCommonStructors //test_ref/c/tdef/OSDeclareCommonStructors //test_ref/c/tag/OSDeclareCommonStructors //test_ref/c/econst/OSDeclareCommonStructors //test_ref/c/struct/OSDeclareCommonStructors //test_ref/c/data/OSDeclareCommonStructors //test_ref/c/clconst/OSDeclareCommonStructors //test_ref/c/intf/OSDeclareCommonStructors //test_ref/c/instm/OSDeclareCommonStructors //test_ref/c/clm/OSDeclareCommonStructors //test_ref/c/intfcm/OSDeclareCommonStructors //test_ref/c/intfm/OSDeclareCommonStructors //test_ref/c/func/OSDeclareCommonStructors //test_ref/c/ftmplt/OSDeclareCommonStructors //test_ref/c/defn/OSDeclareCommonStructors //test_ref/c/macro/OSDeclareCommonStructors //test_ref/doc/com/intfm/OSDeclareCommonStructors" --><span class="preprocessor">OSDeclareCommonStructors</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/className //test_ref/c/tdef/className //test_ref/c/tag/className //test_ref/c/econst/className //test_ref/c/struct/className //test_ref/c/data/className //test_ref/c/clconst/className //test_ref/c/intf/className //test_ref/c/instm/className //test_ref/c/clm/className //test_ref/c/intfcm/className //test_ref/c/intfm/className //test_ref/c/func/className //test_ref/c/ftmplt/className //test_ref/c/defn/className //test_ref/c/macro/className //test_ref/doc/com/intfm/className" --><span class="preprocessor">className</span><!-- /a --><span class="preprocessor">)</span>
+END OF OBJECT
+
+
+
+$161|This test should include in its output the following:
+
+#define OSDeclareCommonStructors(className)
+
+If you get more of the declaration than that, there's a bug.
+$36|testsuite/parser_tests/define_5.test$1|C$8|define 5$16245|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 1
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/define_5.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/define_5.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 3
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 15
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => )
+$parserState->{macroNoTrunc} => 2
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 33
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} =>  #define OSDeclareCommonStructors( className)                             \
+private:
+    
+    \
+static const OSMetaClass * const superClass;                     \
+public:
+    
+    \
+static const OSMetaClass * const metaClass;                      \
+static class MetaClass : public OSMetaClass {
+                       \
+public:
+                                                             \
+MetaClass( );                                                 \
+virtual OSObject *alloc( ) const;                             \
+} gMetaClass;                                                    \
+friend class className ::MetaClass;                              \
+virtual const OSMetaClass * getMetaClass( ) const;                \
+protected:
+                                                              \
+className ( const OSMetaClass *);                                 \
+virtual ~ className ()
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 1
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => OSDeclareCommonStructors
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{typestring} => #
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 15
+typelist: #define
+namelist: OSDeclareCommonStructors
+posstypes: function method
+value: 
+returntype: 
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+Parsed Param 0 => className
+-=: DUMP OF PARSE TREE :=-
++---#define
+|   +--- 
+|   +---OSDeclareCommonStructors
+|   +---(
+|   +---className
+|   +---)
+|   +---                             
+|   +---\
+|   +---[ NEWLINE ]
+|   +---    
+|   +---private
+|   +---:
+|   +---                                                            
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---static
+|   +--- 
+|   +---const
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---*
+|   +--- 
+|   +---const
+|   +--- 
+|   +---superClass
+|   +---;
+|   +---                    
+|   +---\
+|   +---[ NEWLINE ]
+|   +---    
+|   +---public
+|   +---:
+|   +---                                                             
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---static
+|   +--- 
+|   +---const
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---*
+|   +--- 
+|   +---const
+|   +--- 
+|   +---metaClass
+|   +---;
+|   +---                     
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---static
+|   +--- 
+|   +---class
+|   +--- 
+|   +---MetaClass
+|   +--- 
+|   +---:
+|   +--- 
+|   +---public
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---{
+|   +---                   
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---public
+|   +---:
+|   +---                                                         
+|   +---\
+|   +---[ NEWLINE ]
+|   +---            
+|   +---MetaClass
+|   +---(
+|   +---)
+|   +---;
+|   +---                                                
+|   +---\
+|   +---[ NEWLINE ]
+|   +---            
+|   +---virtual
+|   +--- 
+|   +---OSObject
+|   +--- 
+|   +---*
+|   +---alloc
+|   +---(
+|   +---)
+|   +--- 
+|   +---const
+|   +---;
+|   +---                            
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---}
+|   +--- 
+|   +---gMetaClass
+|   +---;
+|   +---                                                   
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---friend
+|   +--- 
+|   +---class
+|   +--- 
+|   +---className
+|   +--- 
+|   +---::
+|   +---MetaClass
+|   +---;
+|   +---                             
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---virtual
+|   +--- 
+|   +---const
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---*
+|   +--- 
+|   +---getMetaClass
+|   +---(
+|   +---)
+|   +--- 
+|   +---const
+|   +---;
+|   +---               
+|   +---\
+|   +---[ NEWLINE ]
+|   +---    
+|   +---protected
+|   +---:
+|   +---                                                          
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---className
+|   +--- 
+|   +---(
+|   +---const
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---*
+|   +---)
+|   +---;
+|   +---                                
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---virtual
+|   +--- 
+|   +---~
+|   +--- 
+|   +---className
+|   +--- 
+|   +---(
+|   +---)
+|   +---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+$CPP_HASH{OSDeclareCommonStructors} =>                             
+    private:                                                            
+        static const OSMetaClass * const superClass;                    
+    public:                                                             
+        static const OSMetaClass * const metaClass;                     
+        static class MetaClass : public OSMetaClass {                   
+        public:                                                         
+            MetaClass();                                                
+            virtual OSObject *alloc() const;                            
+        } gMetaClass;                                                   
+        friend class className ::MetaClass;                             
+        virtual const OSMetaClass * getMetaClass() const;               
+    protected:                                                          
+        className (const OSMetaClass *);                                
+        virtual ~ className ()
+$CPP_ARG_HASH{OSDeclareCommonStructors} => className
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: define 5
+APIUID: //test_ref/doc/header/define_5.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    IS AVAILABILITY MACRO: 
+    PARSE ONLY: 
+    OBJECT TYPE: HeaderDoc::PDefine
+    NAME: OSDeclareCommonStructors
+    APIUID: //test_ref/c/macro/OSDeclareCommonStructors
+    ABSTRACT: "<p>Basic helper macro for the OSDeclare for Default and Abstract macros, qv.  DO NOT USE.
+"
+    DISCUSSION: ""
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::PDefine"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: "1"
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+    PARSED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: className
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+    TAGGED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: className
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p>Name of class. NO QUOTES."
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: OSDeclareCommonStructors (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---OSDeclareCommonStructors
+|   +---(
+|   +---className
+|   +---)
+|   +---                             
+|   +---\
+|   +---[ NEWLINE ]
+|   +---    
+|   +---private
+|   +---:
+|   +---                                                            
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---static
+|   +--- 
+|   +---const
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---*
+|   +--- 
+|   +---const
+|   +--- 
+|   +---superClass
+|   +---;
+|   +---                    
+|   +---\
+|   +---[ NEWLINE ]
+|   +---    
+|   +---public
+|   +---:
+|   +---                                                             
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---static
+|   +--- 
+|   +---const
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---*
+|   +--- 
+|   +---const
+|   +--- 
+|   +---metaClass
+|   +---;
+|   +---                     
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---static
+|   +--- 
+|   +---class
+|   +--- 
+|   +---MetaClass
+|   +--- 
+|   +---:
+|   +--- 
+|   +---public
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---{
+|   +---                   
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---public
+|   +---:
+|   +---                                                         
+|   +---\
+|   +---[ NEWLINE ]
+|   +---            
+|   +---MetaClass
+|   +---(
+|   +---)
+|   +---;
+|   +---                                                
+|   +---\
+|   +---[ NEWLINE ]
+|   +---            
+|   +---virtual
+|   +--- 
+|   +---OSObject
+|   +--- 
+|   +---*
+|   +---alloc
+|   +---(
+|   +---)
+|   +--- 
+|   +---const
+|   +---;
+|   +---                            
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---}
+|   +--- 
+|   +---gMetaClass
+|   +---;
+|   +---                                                   
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---friend
+|   +--- 
+|   +---class
+|   +--- 
+|   +---className
+|   +--- 
+|   +---::
+|   +---MetaClass
+|   +---;
+|   +---                             
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---virtual
+|   +--- 
+|   +---const
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---*
+|   +--- 
+|   +---getMetaClass
+|   +---(
+|   +---)
+|   +--- 
+|   +---const
+|   +---;
+|   +---               
+|   +---\
+|   +---[ NEWLINE ]
+|   +---    
+|   +---protected
+|   +---:
+|   +---                                                          
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---className
+|   +--- 
+|   +---(
+|   +---const
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---*
+|   +---)
+|   +---;
+|   +---                                
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---virtual
+|   +--- 
+|   +---~
+|   +--- 
+|   +---className
+|   +--- 
+|   +---(
+|   +---)
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: OSDeclareCommonStructors (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/OSDeclareCommonStructors //test_ref/c/tdef/OSDeclareCommonStructors //test_ref/c/tag/OSDeclareCommonStructors //test_ref/c/econst/OSDeclareCommonStructors //test_ref/c/struct/OSDeclareCommonStructors //test_ref/c/data/OSDeclareCommonStructors //test_ref/c/clconst/OSDeclareCommonStructors //test_ref/c/intf/OSDeclareCommonStructors //test_ref/c/instm/OSDeclareCommonStructors //test_ref/c/clm/OSDeclareCommonStructors //test_ref/c/intfcm/OSDeclareCommonStructors //test_ref/c/intfm/OSDeclareCommonStructors //test_ref/c/func/OSDeclareCommonStructors //test_ref/c/ftmplt/OSDeclareCommonStructors //test_ref/c/defn/OSDeclareCommonStructors //test_ref/c/macro/OSDeclareCommonStructors //test_ref/doc/com/intfm/OSDeclareCommonStructors" --><span class="preprocessor">OSDeclareCommonStructors</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/className //test_ref/c/tdef/className //test_ref/c/tag/className //test_ref/c/econst/className //test_ref/c/struct/className //test_ref/c/data/className //test_ref/c/clconst/className //test_ref/c/intf/className //test_ref/c/instm/className //test_ref/c/clm/className //test_ref/c/intfcm/className //test_ref/c/intfm/className //test_ref/c/func/className //test_ref/c/ftmplt/className //test_ref/c/defn/className //test_ref/c/macro/className //test_ref/doc/com/intfm/className" --><span class="preprocessor">className</span><!-- /a --><span class="preprocessor">)</span>
+END OF OBJECT
+
+
+
+$16245|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 1
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/define_5.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/define_5.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 3
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 15
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => )
+$parserState->{macroNoTrunc} => 2
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 33
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} =>  #define OSDeclareCommonStructors( className)                             \
+private:
+    
+    \
+static const OSMetaClass * const superClass;                     \
+public:
+    
+    \
+static const OSMetaClass * const metaClass;                      \
+static class MetaClass : public OSMetaClass {
+                       \
+public:
+                                                             \
+MetaClass( );                                                 \
+virtual OSObject *alloc( ) const;                             \
+} gMetaClass;                                                    \
+friend class className ::MetaClass;                              \
+virtual const OSMetaClass * getMetaClass( ) const;                \
+protected:
+                                                              \
+className ( const OSMetaClass *);                                 \
+virtual ~ className ()
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 1
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => OSDeclareCommonStructors
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{typestring} => #
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 15
+typelist: #define
+namelist: OSDeclareCommonStructors
+posstypes: function method
+value: 
+returntype: 
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+Parsed Param 0 => className
+-=: DUMP OF PARSE TREE :=-
++---#define
+|   +--- 
+|   +---OSDeclareCommonStructors
+|   +---(
+|   +---className
+|   +---)
+|   +---                             
+|   +---\
+|   +---[ NEWLINE ]
+|   +---    
+|   +---private
+|   +---:
+|   +---                                                            
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---static
+|   +--- 
+|   +---const
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---*
+|   +--- 
+|   +---const
+|   +--- 
+|   +---superClass
+|   +---;
+|   +---                    
+|   +---\
+|   +---[ NEWLINE ]
+|   +---    
+|   +---public
+|   +---:
+|   +---                                                             
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---static
+|   +--- 
+|   +---const
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---*
+|   +--- 
+|   +---const
+|   +--- 
+|   +---metaClass
+|   +---;
+|   +---                     
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---static
+|   +--- 
+|   +---class
+|   +--- 
+|   +---MetaClass
+|   +--- 
+|   +---:
+|   +--- 
+|   +---public
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---{
+|   +---                   
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---public
+|   +---:
+|   +---                                                         
+|   +---\
+|   +---[ NEWLINE ]
+|   +---            
+|   +---MetaClass
+|   +---(
+|   +---)
+|   +---;
+|   +---                                                
+|   +---\
+|   +---[ NEWLINE ]
+|   +---            
+|   +---virtual
+|   +--- 
+|   +---OSObject
+|   +--- 
+|   +---*
+|   +---alloc
+|   +---(
+|   +---)
+|   +--- 
+|   +---const
+|   +---;
+|   +---                            
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---}
+|   +--- 
+|   +---gMetaClass
+|   +---;
+|   +---                                                   
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---friend
+|   +--- 
+|   +---class
+|   +--- 
+|   +---className
+|   +--- 
+|   +---::
+|   +---MetaClass
+|   +---;
+|   +---                             
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---virtual
+|   +--- 
+|   +---const
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---*
+|   +--- 
+|   +---getMetaClass
+|   +---(
+|   +---)
+|   +--- 
+|   +---const
+|   +---;
+|   +---               
+|   +---\
+|   +---[ NEWLINE ]
+|   +---    
+|   +---protected
+|   +---:
+|   +---                                                          
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---className
+|   +--- 
+|   +---(
+|   +---const
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---*
+|   +---)
+|   +---;
+|   +---                                
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---virtual
+|   +--- 
+|   +---~
+|   +--- 
+|   +---className
+|   +--- 
+|   +---(
+|   +---)
+|   +---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+$CPP_HASH{OSDeclareCommonStructors} =>                             
+    private:                                                            
+        static const OSMetaClass * const superClass;                    
+    public:                                                             
+        static const OSMetaClass * const metaClass;                     
+        static class MetaClass : public OSMetaClass {                   
+        public:                                                         
+            MetaClass();                                                
+            virtual OSObject *alloc() const;                            
+        } gMetaClass;                                                   
+        friend class className ::MetaClass;                             
+        virtual const OSMetaClass * getMetaClass() const;               
+    protected:                                                          
+        className (const OSMetaClass *);                                
+        virtual ~ className ()
+$CPP_ARG_HASH{OSDeclareCommonStructors} => className
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: define 5
+APIUID: //test_ref/doc/header/define_5.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    IS AVAILABILITY MACRO: 
+    PARSE ONLY: 
+    OBJECT TYPE: HeaderDoc::PDefine
+    NAME: OSDeclareCommonStructors
+    APIUID: //test_ref/c/macro/OSDeclareCommonStructors
+    ABSTRACT: "<p>Basic helper macro for the OSDeclare for Default and Abstract macros, qv.  DO NOT USE.
+"
+    DISCUSSION: ""
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::PDefine"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: "1"
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+    PARSED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: className
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+    TAGGED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: className
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p>Name of class. NO QUOTES."
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: OSDeclareCommonStructors (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---OSDeclareCommonStructors
+|   +---(
+|   +---className
+|   +---)
+|   +---                             
+|   +---\
+|   +---[ NEWLINE ]
+|   +---    
+|   +---private
+|   +---:
+|   +---                                                            
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---static
+|   +--- 
+|   +---const
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---*
+|   +--- 
+|   +---const
+|   +--- 
+|   +---superClass
+|   +---;
+|   +---                    
+|   +---\
+|   +---[ NEWLINE ]
+|   +---    
+|   +---public
+|   +---:
+|   +---                                                             
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---static
+|   +--- 
+|   +---const
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---*
+|   +--- 
+|   +---const
+|   +--- 
+|   +---metaClass
+|   +---;
+|   +---                     
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---static
+|   +--- 
+|   +---class
+|   +--- 
+|   +---MetaClass
+|   +--- 
+|   +---:
+|   +--- 
+|   +---public
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---{
+|   +---                   
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---public
+|   +---:
+|   +---                                                         
+|   +---\
+|   +---[ NEWLINE ]
+|   +---            
+|   +---MetaClass
+|   +---(
+|   +---)
+|   +---;
+|   +---                                                
+|   +---\
+|   +---[ NEWLINE ]
+|   +---            
+|   +---virtual
+|   +--- 
+|   +---OSObject
+|   +--- 
+|   +---*
+|   +---alloc
+|   +---(
+|   +---)
+|   +--- 
+|   +---const
+|   +---;
+|   +---                            
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---}
+|   +--- 
+|   +---gMetaClass
+|   +---;
+|   +---                                                   
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---friend
+|   +--- 
+|   +---class
+|   +--- 
+|   +---className
+|   +--- 
+|   +---::
+|   +---MetaClass
+|   +---;
+|   +---                             
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---virtual
+|   +--- 
+|   +---const
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---*
+|   +--- 
+|   +---getMetaClass
+|   +---(
+|   +---)
+|   +--- 
+|   +---const
+|   +---;
+|   +---               
+|   +---\
+|   +---[ NEWLINE ]
+|   +---    
+|   +---protected
+|   +---:
+|   +---                                                          
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---className
+|   +--- 
+|   +---(
+|   +---const
+|   +--- 
+|   +---OSMetaClass
+|   +--- 
+|   +---*
+|   +---)
+|   +---;
+|   +---                                
+|   +---\
+|   +---[ NEWLINE ]
+|   +---        
+|   +---virtual
+|   +--- 
+|   +---~
+|   +--- 
+|   +---className
+|   +--- 
+|   +---(
+|   +---)
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: OSDeclareCommonStructors (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/OSDeclareCommonStructors //test_ref/c/tdef/OSDeclareCommonStructors //test_ref/c/tag/OSDeclareCommonStructors //test_ref/c/econst/OSDeclareCommonStructors //test_ref/c/struct/OSDeclareCommonStructors //test_ref/c/data/OSDeclareCommonStructors //test_ref/c/clconst/OSDeclareCommonStructors //test_ref/c/intf/OSDeclareCommonStructors //test_ref/c/instm/OSDeclareCommonStructors //test_ref/c/clm/OSDeclareCommonStructors //test_ref/c/intfcm/OSDeclareCommonStructors //test_ref/c/intfm/OSDeclareCommonStructors //test_ref/c/func/OSDeclareCommonStructors //test_ref/c/ftmplt/OSDeclareCommonStructors //test_ref/c/defn/OSDeclareCommonStructors //test_ref/c/macro/OSDeclareCommonStructors //test_ref/doc/com/intfm/OSDeclareCommonStructors" --><span class="preprocessor">OSDeclareCommonStructors</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/className //test_ref/c/tdef/className //test_ref/c/tag/className //test_ref/c/econst/className //test_ref/c/struct/className //test_ref/c/data/className //test_ref/c/clconst/className //test_ref/c/intf/className //test_ref/c/instm/className //test_ref/c/clm/className //test_ref/c/intfcm/className //test_ref/c/intfm/className //test_ref/c/func/className //test_ref/c/ftmplt/className //test_ref/c/defn/className //test_ref/c/macro/className //test_ref/doc/com/intfm/className" --><span class="preprocessor">className</span><!-- /a --><span class="preprocessor">)</span>
+END OF OBJECT
+
+
+
+$1|C$6|parser

@@ -98,7 +98,7 @@ buffer_get_bignum(Buffer *buffer, BIGNUM *value)
 
 	/* Get the number for bits. */
 	buffer_get(buffer, (char *) buf, 2);
-	bits = GET_16BIT(buf);
+	bits = (int)GET_16BIT(buf);
 	/* Compute the number of binary bytes that follow. */
 	bytes = (bits + 7) / 8;
 	if (buffer_len(buffer) < bytes)
@@ -162,7 +162,7 @@ buffer_get_int(Buffer *buffer)
 {
 	unsigned char buf[4];
 	buffer_get(buffer, (char *) buf, 4);
-	return GET_32BIT(buf);
+	return (unsigned int)GET_32BIT(buf);
 }
 
 /*
@@ -217,7 +217,7 @@ buffer_put_string(Buffer *buffer, const void *buf, unsigned int len)
 void
 buffer_put_cstring(Buffer *buffer, const char *s)
 {
-	buffer_put_string(buffer, s, strlen(s));
+	buffer_put_string(buffer, s, (unsigned int)strlen(s));
 }
 
 /*

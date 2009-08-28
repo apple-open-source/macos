@@ -38,6 +38,7 @@
 #include <assert.h>
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <Security/Security.h>
+#include <Security/SecCertificatePriv.h>
 
 /*
  * Given an array of certs (as SecIdentityRefs, specified by caller
@@ -81,13 +82,89 @@ static OSStatus secCertToSslCert(
 	return noErr;
 }
 
+/* 
+ * Determine the basic signing algorithm, without the digest, component, of
+ * a cert. The returned algorithm will be RSA, DSA, or ECDSA. 
+ */
+static OSStatus sslCertSignerAlg(
+	SecCertificateRef certRef,
+	CSSM_ALGORITHMS *signerAlg)
+{
+	OSStatus ortn;
+	CSSM_DATA_PTR fieldPtr;
+	CSSM_X509_ALGORITHM_IDENTIFIER *algId;
+	CSSM_ALGORITHMS sigAlg;
+	
+	/* 
+	 * Extract the full signature algorithm OID
+	 */
+	*signerAlg = CSSM_ALGID_NONE;
+	ortn = SecCertificateCopyFirstFieldValue(certRef, 
+		&CSSMOID_X509V1SignatureAlgorithm,
+		&fieldPtr);
+	if(ortn) {
+		return ortn;
+	}
+	if(fieldPtr->Length != sizeof(CSSM_X509_ALGORITHM_IDENTIFIER)) {
+		sslErrorLog("sslCertSignerAlg() length error\n");
+		ortn = errSSLCrypto;
+		goto errOut;
+	}
+	algId = (CSSM_X509_ALGORITHM_IDENTIFIER *)fieldPtr->Data;
+	if(!cssmOidToAlg(&algId->algorithm, &sigAlg)) {
+		/* Only way this could happen is if we're given a bad cert */
+		sslErrorLog("sslCertSignerAlg() bad sigAlg OID\n");
+		ortn = paramErr;
+		goto errOut;
+	}
+	
+	/*
+	 * OK we have the full signature algorithm as a CSSM_ALGORITHMS.
+	 * Extract the core signature alg.
+	 */
+	switch(sigAlg) {
+		case CSSM_ALGID_RSA:
+		case CSSM_ALGID_MD2WithRSA:
+		case CSSM_ALGID_MD5WithRSA:
+		case CSSM_ALGID_SHA1WithRSA:
+		case CSSM_ALGID_SHA224WithRSA:
+		case CSSM_ALGID_SHA256WithRSA:
+		case CSSM_ALGID_SHA384WithRSA:
+		case CSSM_ALGID_SHA512WithRSA:
+			*signerAlg = CSSM_ALGID_RSA;
+			break;
+		case CSSM_ALGID_SHA1WithECDSA:
+		case CSSM_ALGID_SHA224WithECDSA:
+		case CSSM_ALGID_SHA256WithECDSA:
+		case CSSM_ALGID_SHA384WithECDSA:
+		case CSSM_ALGID_SHA512WithECDSA:
+		case CSSM_ALGID_ECDSA:
+		case CSSM_ALGID_ECDSA_SPECIFIED:
+			*signerAlg = CSSM_ALGID_ECDSA;
+			break;
+		case CSSM_ALGID_DSA:
+		case CSSM_ALGID_SHA1WithDSA:
+			*signerAlg = CSSM_ALGID_DSA;
+			break;
+		default:
+			sslErrorLog("sslCertSignerAlg() unknown sigAlg\n");
+			ortn = paramErr;
+			break;
+	}
+errOut:
+	SecCertificateReleaseFirstFieldValue(certRef, 
+		&CSSMOID_X509V1SignatureAlgorithm, fieldPtr);
+	return ortn;
+}
+
 OSStatus 
 parseIncomingCerts(
 	SSLContext		*ctx,
 	CFArrayRef		certs,
 	SSLCertificate	**destCert,		/* &ctx->{localCert,encryptCert} */
 	CSSM_KEY_PTR	*pubKey,		/* &ctx->signingPubKey, etc. */
-	SecKeyRef		*privKeyRef)	/* &ctx->signingPrivKeyRef, etc. */
+	SecKeyRef		*privKeyRef,	/* &ctx->signingPrivKeyRef, etc. */
+	CSSM_ALGORITHMS	*signerAlg)		/* optional */
 {
 	CFIndex				numCerts;
 	CFIndex				cert;
@@ -154,6 +231,13 @@ parseIncomingCerts(
 	thisSslCert->next = certChain;
 	certChain = thisSslCert;
 
+	if(signerAlg != NULL) {
+		ortn = sslCertSignerAlg(certRef, signerAlg);
+		if(ortn) {
+			return ortn;
+		}
+	}
+	
 	/* fetch private key from identity */
 	ortn = SecIdentityCopyPrivateKey(identity, &keyRef);
 	if(ortn) {

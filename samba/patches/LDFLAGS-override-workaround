@@ -1,0 +1,17 @@
+This is a hack to work around <rdar://problem/6190548>, where the
+CoreOS makefiles clobber LDFLAGS to an empty valie, defeating the
+value calculated by configure.
+
+Index: samba/source/Makefile.in
+===================================================================
+--- samba/source/Makefile.in.orig
++++ samba/source/Makefile.in
+@@ -27,7 +27,7 @@ AR=@AR@
+ LDSHFLAGS=@LDSHFLAGS@ @LDFLAGS@
+ MODULE_EXPORTS=@MODULE_EXPORTS@
+ WINBIND_NSS_LDSHFLAGS=@WINBIND_NSS_LDSHFLAGS@ @LDFLAGS@
+-LDFLAGS=@PIE_LDFLAGS@ @LDFLAGS@
++override LDFLAGS=@PIE_LDFLAGS@ @LDFLAGS@
+ AWK=@AWK@
+ PICFLAG=@PICFLAG@
+ DYNEXP=@DYNEXP@

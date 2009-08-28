@@ -1,0 +1,121 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin chatwidget n 1.0.0]
+[moddesc   {Composite widget for chat applications}]
+[titledesc {Provides a multi-paned view suitable for display of chat room or irc channel information}]
+[require Tk 8.5]
+[require chatwidget [opt 1.0.0]]
+[description]
+
+This is a composite widget designed to simplify the construction of
+chat applications. The widget contains display areas for chat
+messages, user names and topic and an entry area. It automatically
+handles colourization of messages per nick and manages nick
+completion. A system of hooks permit the application author to adjust
+display features. The main chat display area may be split for use
+displaying history or for searching.
+
+[para]
+
+The widget is made up of a number of text widget and panedwindow
+widgets so that the size of each part of the display may be adjusted
+by the user. All the text widgets may be accessed via widget
+passthrough commands if fine adjustment is required. The topic and
+names sections can also be hidden if desired.
+
+[section COMMANDS]
+
+[list_begin definitions]
+
+[call [cmd ::chatwidget::chatwidget] [arg path] [opt [arg options]]]
+
+Create a new chatwidget using the Tk window id [arg path]. Any options
+provided are currently passed directly to the main chat text widget.
+
+[list_end]
+
+[section {WIDGET COMMANDS}]
+
+[list_begin definitions]
+
+[call [cmd \$widget] topic [arg command] [arg args]]
+
+The chat widget can display a topic string, for instance the topic or
+name given to a multi-user chatroom or irc channel. 
+[list_begin commands]
+[cmd_def show]
+Enable display of the topic.
+[cmd_def hide]
+Disable display of the topic
+[cmd_def "set [arg topic]"]
+Set the topic text to [arg topic].
+[list_end]
+
+[call [cmd \$widget] name [arg nick] [arg args]]
+
+Control the names and tags associated with names. 
+[list_begin commands]
+[cmd_def "list [opt [arg -full]]"]
+Returns a list of all the user names from the names view. If [opt \
+-full] is given then the list returned is a list of lists where each
+sublist is made up of the nick followed by any options that have been
+set on this nick entry. This may be used to examine any application
+specific options that may be applied to a nick when using the 
+[cmd add] command.
+[cmd_def "add [arg nick] [opt [arg options]]"]
+[cmd_def "delete [arg nick]"]
+[list_end]
+
+[call [cmd \$widget] message [arg text] [arg args]]
+
+Add messages to the display. options are -nick, -time, -type, -mark
+-tags
+
+[call [cmd \$widget] hook [arg command] [arg args]]
+
+Manage hooks. add (message, post names_group, names_nick, chatstate), remove, run
+
+[call [cmd \$widget] names [arg args]]
+
+Passthrough to the name display text widget. See the [cmd text] widget manual
+for all available commands. The chatwidget provides two additional
+commands [cmd show] and [cmd hide] which are used to control the
+display of this element in the widget.
+
+[call [cmd \$widget] entry [arg args]]
+
+Passthrough to the entry text widget. See the [cmd text] widget manual
+for all available commands.
+
+[call [cmd \$widget] chat [arg args]]
+
+Passthrough to the chat text widget. See the [cmd text] widget manual for 
+all available commands.
+
+[list_end]
+
+
+[section EXAMPLE]
+
+[example {
+chatwidget::chatwidget .chat
+proc speak {w msg} {$w message $msg -nick user}
+.chat hook add post [list speak .chat]
+pack .chat -side top -fill both -expand 1
+.chat topic show
+.chat topic set "Chat widget demo"
+.chat name add "admin" -group admin
+.chat name add "user" -group users -color tomato
+.chat message "Chatwidget ready" -type system
+.chat message "Hello, user" -nick admin
+.chat message "Hello, admin" -nick user
+}]
+
+[para]
+
+A more extensive example is available by examining the code for the picoirc
+program in the tclapps repository which ties the tcllib [package picoirc] package to this
+[package chatwidget] package to create a simple irc client.
+
+[see_also text(n)]
+[keywords widget {mega-widget} {composite widget} chat irc chatwidget]
+[manpage_end]

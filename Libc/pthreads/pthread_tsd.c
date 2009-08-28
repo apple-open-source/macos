@@ -187,21 +187,9 @@ _pthread_tsd_cleanup(pthread_t self)
 	int i, j;
 	void *param;
 
+	/* destroy dynamic keys first */
 	for (j = 0;  j < PTHREAD_DESTRUCTOR_ITERATIONS;  j++)
 	{
-		/* The first slot is reserved for pthread_self() */
-
-		for (i = __pthread_tsd_first;  i <= __pthread_tsd_max;  i++)
-		{
-			if (_pthread_keys[i].created && (param = self->tsd[i]))
-			{
-				self->tsd[i] = (void *)NULL;
-				if (_pthread_keys[i].destructor)
-				{
-					(_pthread_keys[i].destructor)(param);
-				}
-			}
-		}
 		for (i = __pthread_tsd_start;  i <= self->max_tsd_key;  i++)
 		{
 			if (_pthread_keys[i].created && (param = self->tsd[i]))
@@ -214,7 +202,26 @@ _pthread_tsd_cleanup(pthread_t self)
 			}
 		}
 	}
+
 	self->max_tsd_key = 0;
+
+	/* 
+	 * The first slot is reserved for pthread_self() and there is no cleanup on it.
+	 * Destroy rest of the static keys next only if any destructors registered.
+	 */
+	for (j = 0;  j < PTHREAD_DESTRUCTOR_ITERATIONS;  j++) {
+		for (i = __pthread_tsd_first;  i <= __pthread_tsd_max;  i++)
+		{
+			if (_pthread_keys[i].created && (param = self->tsd[i]))
+			{
+				self->tsd[i] = (void *)NULL;
+				if (_pthread_keys[i].destructor)
+				{
+					(_pthread_keys[i].destructor)(param);
+				}
+			}
+		}
+	}
 }
 
 int

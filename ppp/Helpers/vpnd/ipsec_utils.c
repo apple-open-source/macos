@@ -49,7 +49,11 @@
 #include <net/if_dl.h>
 #include <netinet6/ipsec.h>
 #include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCValidation.h>
 #include <sys/param.h>
+#include <syslog.h>
+#include <netinet/in_var.h>
+#include <sys/kern_event.h>
 
 #include "libpfkey.h"
 #include "cf_utils.h"
@@ -66,7 +70,7 @@
 #define WRITE(t)  fprintf(file, "%s%s", TAB_LEVEL[level], t)
 #define TWRITE(t)  fprintf(file, "%s", t)
 #define FAIL(e) { *errstr = e; goto fail; } 	
-
+#define RACOON_CONFIG_PATH	"/var/run/racoon"
 
 /* -----------------------------------------------------------------------------
     globals
@@ -92,9 +96,56 @@ static int configure_proposal(int level, FILE *file, CFDictionaryRef ipsec_dict,
 static void closeall();
 static int racoon_pid();
 static int racoon_is_started(char *filename);
-static int racoon_start(CFBundleRef bundle, char *filename);
-static int racoon_restart(int launch_if_needed);
+static int racoon_restart();
+static int makepath( char *path);
 
+/* -----------------------------------------------------------------------------
+ Create directories and intermediate directories as required.
+ ----------------------------------------------------------------------------- */
+static int makepath( char *path)
+{
+	char	*c;
+	char	*thepath;
+	int		slen=0;
+	int		done = 0;
+	mode_t	oldmask, newmask;
+	struct stat sb;
+	int		error=0;
+	
+	oldmask = umask(0);
+	newmask = S_IRWXU | S_IRGRP | S_IROTH | S_IXGRP | S_IXOTH; 
+
+	slen = strlen(path);
+	if  ( !(thepath =  malloc( slen+1) ))
+		return -1;
+	strlcpy( thepath, path, slen+1);
+	c = thepath;
+	if ( *c == '/' )
+		c++;		
+	for(  ; !done; c++){
+		if ( (*c == '/') || ( *c == '\0' )){
+			if ( *c == '\0' )
+				done = 1;
+			else 
+				*c = '\0';
+			if ( mkdir( thepath, newmask) ){
+				if ( errno == EEXIST || errno == EISDIR){
+					if ( stat(thepath, &sb) < 0){
+						error = -1;
+						break;
+					}
+				} else {
+					error = -1;
+					break;
+				}
+			}
+			*c = '/';
+		}
+	}
+	free(thepath);
+	umask(oldmask);
+	return error;
+}
 
 /* -----------------------------------------------------------------------------
 The base-64 encoding packs three 8-bit bytes into four 7-bit ASCII
@@ -121,7 +172,7 @@ static int EncodeDataUsingBase64(CFDataRef inputData, char *outputData, int maxO
     CFIndex length = CFDataGetLength(inputData);
     CFIndex i, pos;
     const uint8_t *p;
-	uint8_t * outp = outputData;
+	uint8_t * outp = (uint8_t *)outputData;
 
 	if (maxOutputLen < (length + (length / 3) + (length % 3) + 1))
 		return 0;
@@ -240,104 +291,22 @@ racoon_is_started(char *filename)
 }
 
 /* -----------------------------------------------------------------------------
-check if racoon is started with the same configuration file
-returns:
-    0: racoon is correctly started
-    1: racoon is already started with our configuration
-    -1: racoon is already started but with a different configuration
-    -2: failed to start racoon
------------------------------------------------------------------------------ */
-int 
-racoon_start(CFBundleRef bundle, char *filename)
-{
-    int   	pid, err, tries;
-    CFURLRef	url;
-    char 	name[MAXPATHLEN]; 
-
-    name[0] = 0;
-    
-    /* if a bundle and a name are passed, start racoon with the specific file */
-    if (bundle) {
-        if (url = CFBundleCopyBundleURL(bundle)) {
-            CFURLGetFileSystemRepresentation(url, 0, name, MAXPATHLEN - 1);
-            CFRelease(url);
-            strcat(name, "/");
-            if (url = CFBundleCopyResourcesDirectoryURL(bundle)) {
-                CFURLGetFileSystemRepresentation(url, 0, name + strlen(name), 
-                        MAXPATHLEN - strlen(name) - strlen(filename) - 1);
-                CFRelease(url);
-                strcat(name, "/");
-                strcat(name, filename);
-            }
-        }
-    
-        if (name[0] == 0)
-            return -2;
-    }
-    
-    /* check first is racoon is started */
-    err = racoon_is_started(name);
-    if (err != 0)
-        return err;            
-
-    pid = fork();
-    if (pid < 0)
-        return -2;
-
-    if (pid == 0) {
-
-        closeall();
-        
-        // need to exec a tool, with complete parameters list
-        if (name[0])
-            execle("/usr/sbin/racoon", "racoon", "-f", name, (char *)0, (char *)0);
-        else
-            execle("/usr/sbin/racoon", "racoon", (char *)0, (char *)0);
-            
-        // child exits
-        exit(0);
-        /* NOTREACHED */
-    }
-
-    // parent wait for child's completion, that occurs immediatly since racoon daemonize itself
-    while (waitpid(pid, &err, 0) < 0) {
-        if (errno == EINTR)
-            continue;
-        return -2;
-    }
-        
-    // give some time to racoon
-    sleep(3);
-    
-    // wait for racoon pid
-    tries = 5; // give 5 seconds to racoon to write its pid.
-    while (!racoon_is_started(name) && tries) {
-        sleep(1);
-        tries--;
-    }
-
-    if (tries == 0)
-        return -1;
-        
-    //err = (err >> 8) & 0xFF;
-    return 0;
-}
-
-/* -----------------------------------------------------------------------------
-sighup racoon to reload configurations
+sigusr1 racoon to reload configurations
 if racoon was not started, it will be started only if launch is set
 ----------------------------------------------------------------------------- */
 int 
-racoon_restart(int launch)
+racoon_restart()
 {
 	int pid = racoon_pid();
 
 	if (pid) {
+#ifdef TARGET_EMBEDDED_OS
 		kill(pid, SIGHUP);
+#else
+		kill(pid, SIGUSR1);
+#endif
 		//sleep(1); // no need to wait
 	}
-	else if (launch)
-		racoon_start(0, 0);
     
     return 0;
 }
@@ -381,26 +350,48 @@ configure_proposal(int level, FILE *file, CFDictionaryRef ipsec_dict, CFDictiona
 	{
 		char	str[256];
 		CFStringRef auth_method = NULL;
-		CFStringRef prop_method = NULL;
+		//CFStringRef prop_method = NULL;
+		u_int32_t xauth_enabled = 0;
+		
+		/* get the default/preferred authentication from the ipsec dictionary, if available */
+		auth_method = CFDictionaryGetValue(ipsec_dict, kRASPropIPSecAuthenticationMethod);
+		GetIntFromDict(ipsec_dict, kRASPropIPSecXAuthEnabled, &xauth_enabled, 0);
 
-		/* get te default/preferred authentication from the ipsec dictionary, if available */
-		auth_method = CFDictionaryGetValue(ipsec_dict, kRASPropIPSecProposalAuthenticationMethod);
-
+#if 0
 		if (proposal_dict)
 			prop_method = CFDictionaryGetValue(proposal_dict, kRASPropIPSecProposalAuthenticationMethod);
 
-		strcpy(str, "pre_shared_key");
+		strlcpy(str, "pre_shared_key", sizeof(str));
 		if (isString(auth_method) || isString(prop_method)) {
 				
 			if (CFEqual(isString(prop_method) ? prop_method : auth_method, kRASValIPSecProposalAuthenticationMethodSharedSecret))
-				strcpy(str, "pre_shared_key");
+				strlcpy(str, "pre_shared_key", sizeof(str));
 			else if (CFEqual(isString(prop_method) ? prop_method : auth_method, kRASValIPSecProposalAuthenticationMethodCertificate))
-				strcpy(str, "rsasig");
+				strlcpy(str, "rsasig", sizeof(str));
+			else if (CFEqual(isString(prop_method) ? prop_method : auth_method, kRASValIPSecProposalAuthenticationMethodXauthSharedSecretClient))
+				strlcpy(str, "xauth_psk_client", sizeof(str));
+			else if (CFEqual(isString(prop_method) ? prop_method : auth_method, kRASValIPSecProposalAuthenticationMethodXauthCertificateClient))
+				strlcpy(str, "xauth_rsa_client", sizeof(str));
+			else if (CFEqual(isString(prop_method) ? prop_method : auth_method, kRASValIPSecProposalAuthenticationMethodHybridCertificateClient))
+				strlcpy(str, "hybrid_rsa_client", sizeof(str));
+			else 
+				FAIL("incorrect authentication method";)
+		}
+#endif
+		strlcpy(str, "pre_shared_key", sizeof(str));
+		if (isString(auth_method)) {
+				
+			if (CFEqual(auth_method, kRASValIPSecAuthenticationMethodSharedSecret))
+				strlcpy(str, xauth_enabled ? "xauth_psk_client" : "pre_shared_key", sizeof(str));
+			else if (CFEqual(auth_method, kRASValIPSecAuthenticationMethodCertificate))
+				strlcpy(str, xauth_enabled ? "xauth_rsa_client" : "rsasig", sizeof(str));
+			else if (CFEqual(auth_method, kRASValIPSecAuthenticationMethodHybrid))
+				strlcpy(str, "hybrid_rsa_client", sizeof(str));
 			else 
 				FAIL("incorrect authentication method";)
 		}
 
-		sprintf(text, "authentication_method %s;\n", str);
+		snprintf(text, sizeof(text), "authentication_method %s;\n", str);
 		WRITE(text);
 	}
 
@@ -411,21 +402,21 @@ configure_proposal(int level, FILE *file, CFDictionaryRef ipsec_dict, CFDictiona
 		char	str[256];
 		CFStringRef algo;
 
-		strcpy(str, "sha1");
+		strlcpy(str, "sha1", sizeof(str));
 		if (proposal_dict) {
 			algo = CFDictionaryGetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm);
 			if (isString(algo)) {
 				
 				if (CFEqual(algo, kRASValIPSecProposalHashAlgorithmMD5))
-					strcpy(str, "md5");
+					strlcpy(str, "md5", sizeof(str));
 				else if (CFEqual(algo, kRASValIPSecProposalHashAlgorithmSHA1))
-					strcpy(str, "sha1");
+					strlcpy(str, "sha1", sizeof(str));
 				else 
 					FAIL("incorrect authentication algorithm";)
 
 			}
 		}
-		sprintf(text, "hash_algorithm %s;\n", str);
+		snprintf(text, sizeof(text), "hash_algorithm %s;\n", str);
 		WRITE(text);
 	}
 	
@@ -436,23 +427,25 @@ configure_proposal(int level, FILE *file, CFDictionaryRef ipsec_dict, CFDictiona
 		char	str[256];
 		CFStringRef crypto;
 
-		strcpy(str, "3des");
+		strlcpy(str, "3des", sizeof(str));
 		if (proposal_dict) {
 			crypto = CFDictionaryGetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm);
 			if (isString(crypto)) {
 				
 				if (CFEqual(crypto, kRASValIPSecProposalEncryptionAlgorithmDES))
-					strcpy(str, "des");
+					strlcpy(str, "des", sizeof(str));
 				else if (CFEqual(crypto, kRASValIPSecProposalEncryptionAlgorithm3DES))
-					strcpy(str, "3des");
+					strlcpy(str, "3des", sizeof(str));
 				else if (CFEqual(crypto, kRASValIPSecProposalEncryptionAlgorithmAES))
-					strcpy(str, "aes");
+					strlcpy(str, "aes", sizeof(str));
+				else if (CFEqual(crypto, kRASValIPSecProposalEncryptionAlgorithmAES256))
+					strlcpy(str, "aes 256", sizeof(str));
 				else 
 					FAIL("incorrect encryption algorithm";)
 
 			}
 		}
-		sprintf(text, "encryption_algorithm %s;\n", str);
+		snprintf(text, sizeof(text), "encryption_algorithm %s;\n", str);
 		WRITE(text);
 	}
 	
@@ -464,7 +457,7 @@ configure_proposal(int level, FILE *file, CFDictionaryRef ipsec_dict, CFDictiona
 		if (proposal_dict) {
 			GetIntFromDict(proposal_dict, kRASPropIPSecProposalLifetime, &lval, 3600);
 		}
-		sprintf(text, "lifetime time %d sec;\n", lval);
+		snprintf(text, sizeof(text), "lifetime time %d sec;\n", lval);
 		WRITE(text);
 	}
 	
@@ -476,7 +469,7 @@ configure_proposal(int level, FILE *file, CFDictionaryRef ipsec_dict, CFDictiona
 		if (proposal_dict) {
 			GetIntFromDict(proposal_dict, kRASPropIPSecProposalDHGroup, &lval, 2);
 		}
-		sprintf(text, "dh_group %d;\n", lval);
+		snprintf(text, sizeof(text), "dh_group %d;\n", lval);
 		WRITE(text);
 	}
 	
@@ -527,7 +520,7 @@ configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errst
 		CFArrayRef  modes;
 		CFStringRef mode;
 		
-		strcpy(text, "exchange_mode ");
+		strlcpy(text, "exchange_mode ", sizeof(text));
 		nb = 0;
 		modes = CFDictionaryGetValue(ipsec_dict, kRASPropIPSecExchangeMode);
 		if (isArray(modes)) {		
@@ -540,14 +533,14 @@ configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errst
 					continue;
 					
 				if (i)
-					strcat(text, ", ");
+					strlcat(text, ", ", sizeof(text));
 					
 				if (CFEqual(mode, kRASValIPSecExchangeModeMain))
-					strcat(text, "main");
+					strlcat(text, "main", sizeof(text));
 				else if (CFEqual(mode, kRASValIPSecExchangeModeAggressive))
-					strcat(text, "aggressive");
+					strlcat(text, "aggressive", sizeof(text));
 				else if (CFEqual(mode, kRASValIPSecExchangeModeBase))
-					strcat(text, "base");
+					strlcat(text, "base", sizeof(text));
 				else
 					FAIL("incorrect phase 1 exchange mode");
 			}
@@ -556,11 +549,11 @@ configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errst
 			char str[256];
 			/* default mode is main except if local identifier is defined */
 			if (GetStrFromDict(ipsec_dict, kRASPropIPSecLocalIdentifier, str, sizeof(str), ""))
-				strcat(text, "aggressive");
+				strlcat(text, "aggressive", sizeof(text));
 			else 
-				strcat(text, "main");
+				strlcat(text, "main", sizeof(text));
 		}
-		strcat(text, ";\n");
+		strlcat(text, ";\n", sizeof(text));
 		WRITE(text);
 	}
 	
@@ -569,13 +562,15 @@ configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errst
 		verify all proposal have the same authentication method
 	*/
 	{
+		
+		/* get the default/preferred authentication from the ipsec dictionary, if available */
+		auth_method = CFDictionaryGetValue(ipsec_dict, kRASPropIPSecAuthenticationMethod);
+
+#if 0
 		CFArrayRef  proposals;
 		int 	 i, nb;
 		CFDictionaryRef proposal;
 		CFStringRef method;
-		
-		/* get te default/preferred authentication from the ipsec dictionary, if available */
-		auth_method = CFDictionaryGetValue(ipsec_dict, kRASPropIPSecProposalAuthenticationMethod);
 
 		proposals = CFDictionaryGetValue(ipsec_dict, kRASPropIPSecProposals);
 		if (isArray(proposals)) {
@@ -597,11 +592,13 @@ configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errst
 				}
 			}
 		}
+#endif
 		if (auth_method == NULL)
-			auth_method = kRASValIPSecProposalAuthenticationMethodSharedSecret;
+			auth_method = kRASValIPSecAuthenticationMethodSharedSecret;
 
-		if (!CFEqual(auth_method, kRASValIPSecProposalAuthenticationMethodSharedSecret)
-			&& !CFEqual(auth_method, kRASValIPSecProposalAuthenticationMethodCertificate))
+		if (!CFEqual(auth_method, kRASValIPSecAuthenticationMethodSharedSecret)
+			&& !CFEqual(auth_method, kRASValIPSecAuthenticationMethodCertificate)
+			&& !CFEqual(auth_method, kRASValIPSecAuthenticationMethodHybrid))
 			FAIL("incorrect authentication method found");
 	}
 
@@ -616,34 +613,35 @@ configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errst
 
 		if (GetStrFromDict(ipsec_dict, CFSTR("LocalIdentifierType"), str1, sizeof(str1), "")) {
 			if (!strcmp(str1, "FQDN"))
-				strcpy(str1, "fqdn");
+				strlcpy(str1, "fqdn", sizeof(str1));
 			else if (!strcmp(str1, "UserFQDN"))
-				strcpy(str1, "user_fqdn");
+				strlcpy(str1, "user_fqdn", sizeof(str1));
 			else if (!strcmp(str1, "KeyID"))
-				strcpy(str1, "keyid_use");
+				strlcpy(str1, "keyid_use", sizeof(str1));
 			else if (!strcmp(str1, "Address"))
-				strcpy(str1, "address");
+				strlcpy(str1, "address", sizeof(str1));
 			else if (!strcmp(str1, "ASN1DN"))
-				strcpy(str1, "asn1dn");
+				strlcpy(str1, "asn1dn", sizeof(str1));
 			else 
-				strcpy(str1, "");
+				strlcpy(str1, "", sizeof(str1));
 		}
 		
 		if (GetStrFromDict(ipsec_dict, kRASPropIPSecLocalIdentifier, str, sizeof(str), "")) {
-			sprintf(text, "my_identifier %s \"%s\";\n", str1[0] ? str1 : "fqdn", str);
+			snprintf(text, sizeof(text), "my_identifier %s \"%s\";\n", str1[0] ? str1 : "fqdn", str);
 			WRITE(text);
 		}
 		else {
-			if (CFEqual(auth_method, kRASValIPSecProposalAuthenticationMethodSharedSecret)) {
+			if (CFEqual(auth_method, kRASValIPSecAuthenticationMethodSharedSecret)
+				|| CFEqual(auth_method, kRASValIPSecAuthenticationMethodHybrid)) {
 				/* 
 					use local address 
 				*/
 			}
-			else if (CFEqual(auth_method, kRASValIPSecProposalAuthenticationMethodCertificate)) {
+			else if (CFEqual(auth_method, kRASValIPSecAuthenticationMethodCertificate)) {
 				/* 
 					use subject name from certificate 
 				*/
-				sprintf(text, "my_identifier asn1dn;\n");
+				snprintf(text, sizeof(text), "my_identifier asn1dn;\n");
 				WRITE(text);
 			}
 		}
@@ -675,10 +673,10 @@ configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errst
 				*/
 				if (!GetStrAddrFromDict(ipsec_dict, kRASPropIPSecRemoteAddress, str, sizeof(str)))
 					FAIL("no remote address found");
-				sprintf(text, "peers_identifier address \"%s\";\n", str);
+				snprintf(text, sizeof(text), "peers_identifier address \"%s\";\n", str);
 				WRITE(text);
 				
-				if (CFEqual(auth_method, kRASValIPSecProposalAuthenticationMethodCertificate))
+				if (CFEqual(auth_method, kRASValIPSecAuthenticationMethodCertificate))
 					cert_verification_option = CERT_VERIFICATION_OPTION_PEERS_ID;					
 			}
 			else if (CFEqual(string, kRASValIPSecIdentifierVerificationUseRemoteIdentifier)) {
@@ -687,17 +685,17 @@ configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errst
 				*/
 				if (!GetStrFromDict(ipsec_dict, kRASPropIPSecRemoteIdentifier, str, sizeof(str), ""))
 					FAIL("no remote identifier found");
-				sprintf(text, "peers_identifier fqdn \"%s\";\n", str);
+				snprintf(text, sizeof(text), "peers_identifier fqdn \"%s\";\n", str);
 				WRITE(text);
 
-				if (CFEqual(auth_method, kRASValIPSecProposalAuthenticationMethodCertificate))
+				if (CFEqual(auth_method, kRASValIPSecAuthenticationMethodCertificate))
 					cert_verification_option = CERT_VERIFICATION_OPTION_PEERS_ID;					
 			}
 			else if (CFEqual(string, kRASValIPSecIdentifierVerificationUseOpenDirectory)) {
 				/* 
 					verify using open directory (certificates only)
 				*/
-				if (!CFEqual(auth_method, kRASValIPSecProposalAuthenticationMethodCertificate))
+				if (!CFEqual(auth_method, kRASValIPSecAuthenticationMethodCertificate))
 					FAIL("open directory can only be used with certificate authentication");
 				cert_verification_option = CERT_VERIFICATION_OPTION_OPEN_DIR;
 			}
@@ -709,7 +707,7 @@ configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errst
 				if certificates are not used - verify peers identifier against the Id payload in the isakmp packet.
 				otherwise, verification will be done using the Id in the peers certificate.
 			*/
-			sprintf(text, "verify_identifier %s;\n", (cert_verification_option == CERT_VERIFICATION_OPTION_NONE ? "on" : "off"));
+			snprintf(text, sizeof(text), "verify_identifier %s;\n", (cert_verification_option == CERT_VERIFICATION_OPTION_NONE ? "on" : "off"));
 			WRITE(text);			
 		}
 	}
@@ -724,7 +722,8 @@ configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errst
 		/* 
 			Shared Secret authentication method 
 		*/
-		if (CFEqual(auth_method, kRASValIPSecProposalAuthenticationMethodSharedSecret)) {
+		if (CFEqual(auth_method, kRASValIPSecAuthenticationMethodSharedSecret)
+			|| CFEqual(auth_method, kRASValIPSecAuthenticationMethodHybrid)) {
 			
 			if (!GetStrFromDict(ipsec_dict, kRASPropIPSecSharedSecret, str, sizeof(str), ""))
 				FAIL("no shared secret found");
@@ -732,23 +731,23 @@ configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errst
 			/* 
 				Shared Secrets are stored in the KeyChain, in the plist or in the racoon keys file 
 			*/
-			strcpy(str1, "use");
+			strlcpy(str1, "use", sizeof(str1));
 			string = CFDictionaryGetValue(ipsec_dict, kRASPropIPSecSharedSecretEncryption);
 			if (isString(string)) {
 				if (CFEqual(string, kRASValIPSecSharedSecretEncryptionKey))
-					strcpy(str1, "key");
+					strlcpy(str1, "key", sizeof(str1));
 				else if (CFEqual(string, kRASValIPSecSharedSecretEncryptionKeychain))
-					strcpy(str1, "keychain");
+					strlcpy(str1, "keychain", sizeof(str1));
 				else
 					FAIL("incorrect shared secret encryption found"); 
 			}
-			sprintf(text, "shared_secret %s \"%s\";\n", str1, str);
+			snprintf(text, sizeof(text), "shared_secret %s \"%s\";\n", str1, str);
 			WRITE(text);
 		}
 		/* 
 			Certificates authentication method 
 		*/
-		else if (CFEqual(auth_method, kRASValIPSecProposalAuthenticationMethodCertificate)) {
+		else if (CFEqual(auth_method, kRASValIPSecAuthenticationMethodCertificate)) {
 
 			CFDataRef local_cert;
 
@@ -771,7 +770,7 @@ configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errst
 					option_str = " use_peers_identifier";
 			else
 					option_str = ""; 
-			sprintf(text, "certificate_verification sec_framework%s;\n", option_str);
+			snprintf(text, sizeof(text), "certificate_verification sec_framework%s;\n", option_str);
 			WRITE(text);
 		}
 	}
@@ -782,21 +781,71 @@ configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errst
 	{
 		u_int32_t lval;
 		GetIntFromDict(ipsec_dict, kRASPropIPSecNonceSize, &lval, 16);
-		sprintf(text, "nonce_size %d;\n", lval);
+		snprintf(text, sizeof(text), "nonce_size %d;\n", lval);
 		WRITE(text);
 	}
 	
 	/*
-		Enable/Disable nat traversal multiple user support
-	*/
+	 Enable/Disable nat traversal multiple user support
+	 */
 	{
-		int	natt_multi_user;
+		u_int32_t	natt_multi_user;
 		
 		if (GetIntFromDict(ipsec_dict, kRASPropIPSecNattMultipleUsersEnabled, &natt_multi_user, 0)) {
-			sprintf(text, "nat_traversal_multi_user %s;\n", natt_multi_user ? "on" : "off");
+			snprintf(text, sizeof(text), "nat_traversal_multi_user %s;\n", natt_multi_user ? "on" : "off");
 			WRITE(text);
 		}
 	}
+
+	/*
+	 Enable/Disable nat traversal keepalive
+	 */
+	{
+		u_int32_t	natt_keepalive;
+		
+		if (GetIntFromDict(ipsec_dict, kRASPropIPSecNattKeepAliveEnabled, &natt_keepalive, 1)) {
+			snprintf(text, sizeof(text), "nat_traversal_keepalive %s;\n", natt_keepalive ? "on" : "off");
+			WRITE(text);
+		}
+	}
+	
+	/*
+	 Enable/Disable Dead Peer Detection
+	 */
+	{
+		int	dpd_enabled, dpd_delay, dpd_retry, dpd_maxfail, blackhole_enabled;
+		
+		if (GetIntFromDict(ipsec_dict, kRASPropIPSecDeadPeerDetectionEnabled, (u_int32_t *)&dpd_enabled, 0)) {
+			GetIntFromDict(ipsec_dict, kRASPropIPSecDeadPeerDetectionDelay, (u_int32_t *)&dpd_delay, 30);
+			GetIntFromDict(ipsec_dict, kRASPropIPSecDeadPeerDetectionRetry, (u_int32_t *)&dpd_retry, 5);
+			GetIntFromDict(ipsec_dict, kRASPropIPSecDeadPeerDetectionMaxFail, (u_int32_t *)&dpd_maxfail, 5);
+			GetIntFromDict(ipsec_dict, kRASPropIPSecBlackHoleDetectionEnabled, (u_int32_t *)&blackhole_enabled, 1);
+			snprintf(text, sizeof(text), "dpd_delay %d;\n", dpd_delay);
+			WRITE(text);
+			snprintf(text, sizeof(text), "dpd_retry %d;\n", dpd_retry);
+			WRITE(text);
+			snprintf(text, sizeof(text), "dpd_maxfail %d;\n", dpd_maxfail);
+			WRITE(text);
+			snprintf(text, sizeof(text), "dpd_algorithm %s;\n", blackhole_enabled ? "dpd_blackhole_detect" : "dpd_inbound_detect");
+			WRITE(text);
+		}
+	}
+
+	/*
+	 Inactivity timeout
+	 */
+	{
+		int	disconnect_on_idle, disconnect_on_idle_timer;
+		
+		if (GetIntFromDict(ipsec_dict, kRASPropIPSecDisconnectOnIdle, (u_int32_t *)&disconnect_on_idle, 0)) {
+			// 2 minutes default
+			GetIntFromDict(ipsec_dict, kRASPropIPSecDisconnectOnIdleTimer, (u_int32_t *)&disconnect_on_idle_timer, 120);
+			// only count outgoing traffic -- direction outbound
+			snprintf(text, sizeof(text), "disconnect_on_idle idle_timeout %d idle_direction idle_outbound;\n", disconnect_on_idle_timer);
+			WRITE(text);
+		}
+	}
+	
     /* 
 		other keys 
 	*/
@@ -811,24 +860,48 @@ configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errst
 		CFStringRef behavior;
 		char	str[256];
 
-		strcpy(str, "claim");
+		strlcpy(str, "claim", sizeof(str));
 		behavior = CFDictionaryGetValue(ipsec_dict, kRASPropIPSecProposalsBehavior);
 		if (isString(behavior)) {
 			
 			if (CFEqual(behavior, kRASValIPSecProposalsBehaviorClaim))
-				strcpy(str, "claim");
+				strlcpy(str, "claim", sizeof(str));
 			else if (CFEqual(behavior, kRASValIPSecProposalsBehaviorObey))
-				strcpy(str, "obey");
+				strlcpy(str, "obey", sizeof(str));
 			else if (CFEqual(behavior, kRASValIPSecProposalsBehaviorStrict))
-				strcpy(str, "strict");
+				strlcpy(str, "strict", sizeof(str));
 			else if (CFEqual(behavior, kRASValIPSecProposalsBehaviorExact))
-				strcpy(str, "exact");
+				strlcpy(str, "exact", sizeof(str));
 			else
 				FAIL("incorrect proposal behavior");
 
 		}
-		sprintf(text, "proposal_check %s;\n", str);
+		snprintf(text, sizeof(text), "proposal_check %s;\n", str);
 		WRITE(text);
+	}
+
+	/* 
+		XAUTH User Name is OPTIONAL
+	*/
+	{
+		char	str[256];
+
+		if (GetStrFromDict(ipsec_dict, kRASPropIPSecXAuthName, str, sizeof(str), "")) {
+			snprintf(text, sizeof(text), "xauth_login \"%s\";\n", str);
+			WRITE(text);
+		}
+	}
+
+	/* 
+		ModeConfig is OPTIONAL
+	*/
+	{
+		u_int32_t	modeconfig;
+		
+		if (GetIntFromDict(ipsec_dict, kRASPropIPSecModeConfigEnabled, &modeconfig, 0)) {
+			snprintf(text, sizeof(text), "mode_cfg %s;\n", modeconfig ? "on" : "off");
+			WRITE(text);
+		}
 	}
     
 	/*
@@ -897,7 +970,7 @@ configure_sainfo(int level, FILE *file, CFDictionaryRef ipsec_dict, CFDictionary
 		CFArrayRef  algos;
 		int 	i, nb, found = 0;
 		
-		strcpy(text, "encryption_algorithm ");
+		strlcpy(text, "encryption_algorithm ", sizeof(text));
 		
 		if (policy) {
 			algos = CFDictionaryGetValue(policy, kRASPropIPSecPolicyEncryptionAlgorithm);
@@ -915,14 +988,14 @@ configure_sainfo(int level, FILE *file, CFDictionaryRef ipsec_dict, CFDictionary
 							continue;
 							
 						if (found)
-							strcat(text, ", ");
+							strlcat(text, ", ", sizeof(text));
 							
 						if (CFEqual(algo, kRASValIPSecPolicyEncryptionAlgorithmDES))
-							strcat(text, "des");
+							strlcat(text, "des", sizeof(text));
 						else if (CFEqual(algo, kRASValIPSecPolicyEncryptionAlgorithm3DES))
-							strcat(text, "3des");
+							strlcat(text, "3des", sizeof(text));
 						else if (CFEqual(algo, kRASValIPSecPolicyEncryptionAlgorithmAES))
-							strcat(text, "aes");
+							strlcat(text, "aes", sizeof(text));
 						else 
 							FAIL("incorrect encryption algorithm");
 							
@@ -933,9 +1006,9 @@ configure_sainfo(int level, FILE *file, CFDictionaryRef ipsec_dict, CFDictionary
 			}
 		}
 		if (!found)
-			strcat(text, "aes");
+			strlcat(text, "aes", sizeof(text));
 
-		strcat(text, ";\n");
+		strlcat(text, ";\n", sizeof(text));
 		WRITE(text);
 	}
 	
@@ -946,7 +1019,7 @@ configure_sainfo(int level, FILE *file, CFDictionaryRef ipsec_dict, CFDictionary
 		CFArrayRef  algos;
 		int 	i, nb, found = 0;
 		
-		strcpy(text, "authentication_algorithm ");
+		strlcpy(text, "authentication_algorithm ", sizeof(text));
 		
 		if (policy) {
 			algos = CFDictionaryGetValue(policy, kRASPropIPSecPolicyHashAlgorithm);
@@ -964,12 +1037,12 @@ configure_sainfo(int level, FILE *file, CFDictionaryRef ipsec_dict, CFDictionary
 							continue;
 							
 						if (found)
-							strcat(text, ", ");
+							strlcat(text, ", ", sizeof(text));
 							
 						if (CFEqual(algo, kRASValIPSecPolicyHashAlgorithmSHA1))
-							strcat(text, "hmac_sha1");
+							strlcat(text, "hmac_sha1", sizeof(text));
 						else if (CFEqual(algo, kRASValIPSecPolicyHashAlgorithmMD5))
-							strcat(text, "hmac_md5");
+							strlcat(text, "hmac_md5", sizeof(text));
 						else 
 							FAIL("incorrect authentication algorithm");
 							
@@ -980,9 +1053,9 @@ configure_sainfo(int level, FILE *file, CFDictionaryRef ipsec_dict, CFDictionary
 			}
 		}
 		if (!found)
-			strcat(text, "hmac_sha1");
+			strlcat(text, "hmac_sha1", sizeof(text));
 
-		strcat(text, ";\n");
+		strlcat(text, ";\n", sizeof(text));
 		WRITE(text);
 	}
 	
@@ -993,7 +1066,7 @@ configure_sainfo(int level, FILE *file, CFDictionaryRef ipsec_dict, CFDictionary
 		CFArrayRef  algos;
 		int 	i, nb, found = 0;
 				
-		strcpy(text, "compression_algorithm ");
+		strlcpy(text, "compression_algorithm ", sizeof(text));
 		
 		if (policy) {
 			algos = CFDictionaryGetValue(policy, kRASPropIPSecPolicyCompressionAlgorithm);
@@ -1011,10 +1084,10 @@ configure_sainfo(int level, FILE *file, CFDictionaryRef ipsec_dict, CFDictionary
 							continue;
 							
 						if (found)
-							strcat(text, ", ");
+							strlcat(text, ", ", sizeof(text));
 							
 						if (CFEqual(algo, kRASValIPSecPolicyCompressionAlgorithmDeflate))
-							strcat(text, "deflate");
+							strlcat(text, "deflate", sizeof(text));
 						else 
 							FAIL("incorrect compression algorithm");
 							
@@ -1024,9 +1097,9 @@ configure_sainfo(int level, FILE *file, CFDictionaryRef ipsec_dict, CFDictionary
 			}
 		}
 		if (!found)
-			strcat(text, "deflate");
+			strlcat(text, "deflate", sizeof(text));
 
-		strcat(text, ";\n");
+		strlcat(text, ";\n", sizeof(text));
 		WRITE(text);
 	}
 
@@ -1037,7 +1110,7 @@ configure_sainfo(int level, FILE *file, CFDictionaryRef ipsec_dict, CFDictionary
 		u_int32_t lval = 3600;
 		if (policy)
 			GetIntFromDict(policy, kRASPropIPSecPolicyLifetime, &lval, 3600);
-		sprintf(text, "lifetime time %d sec;\n", lval);
+		snprintf(text, sizeof(text), "lifetime time %d sec;\n", lval);
 		WRITE(text);
 	}
 
@@ -1047,8 +1120,8 @@ configure_sainfo(int level, FILE *file, CFDictionaryRef ipsec_dict, CFDictionary
 	{
 		u_int32_t lval = 0;
 		if (policy) { 
-			if (GetIntFromDict(policy, kRASPropIPSecPolicyPFSGroup, &lval, 0)) {
-				sprintf(text, "pfs_group %d;\n", lval);
+			if (GetIntFromDict(policy, kRASPropIPSecPolicyPFSGroup, &lval, 0) && lval) {
+				snprintf(text, sizeof(text), "pfs_group %d;\n", lval);
 				WRITE(text);
 			}
 		}
@@ -1100,7 +1173,9 @@ racoon_configure(CFDictionaryRef ipsec_dict, char **errstr, int apply)
 	mode_t	mask;
 	FILE	*file = 0;
 	char	filename[256], text[256];
+	char	text2[256];
 	char	local_address[32], remote_address[32];
+	struct stat	sb;
 	
 	filename[0] = 0;
 
@@ -1121,15 +1196,21 @@ racoon_configure(CFDictionaryRef ipsec_dict, char **errstr, int apply)
 		FAIL("incorrect remote address found");
 
 	anonymous = inet_addr(remote_address) == 0;
-
     /*
 		create the configuration file 
 		make the file only readable by root, so we can stick the shared secret inside 
 	*/
 	if (apply) {
-		sprintf(filename, "/etc/racoon/remote/%s.conf", anonymous ? "anonymous" : remote_address);
+		snprintf(filename, sizeof(filename), RACOON_CONFIG_PATH "/%s.conf", anonymous ? "anonymous" : remote_address);
 		/* remove any existing leftover, to create with right permissions */
 		remove(filename);
+		if (stat(RACOON_CONFIG_PATH, &sb) != 0 && errno == ENOENT) {
+			/* Create the path */ 
+			if ( makepath( RACOON_CONFIG_PATH ) ){
+				snprintf(text, sizeof(text), "cannot create racoon configuration file path (error %d)", errno);
+				FAIL(text);
+			}
+		}
 	}
 	
 	/* 
@@ -1139,7 +1220,7 @@ racoon_configure(CFDictionaryRef ipsec_dict, char **errstr, int apply)
 	file = fopen(apply ? filename : "/dev/null" , "w");
 	mask = umask(mask);
     if (file == NULL) {
-		sprintf(text, "cannot create racoon configuration file (error %d)", errno);
+		snprintf(text, sizeof(text), "cannot create racoon configuration file (error %d)", errno);
 		FAIL(text);
 	}
 
@@ -1147,9 +1228,13 @@ racoon_configure(CFDictionaryRef ipsec_dict, char **errstr, int apply)
 		write the remote record. this is common to all the proposals and sainfo records
 	*/
 	
+	/* XXX hack iphone... remove immediately*/
+	if (CFDictionaryGetValue(ipsec_dict, CFSTR("UseAnonymousPolicy")))
+		anonymous = 1;
+
 	{
 		
-		sprintf(text, "remote %s {\n", anonymous ? "anonymous" : remote_address);
+		snprintf(text, sizeof(text), "remote %s {\n", anonymous ? "anonymous" : remote_address);
 		WRITE(text);
 		
 		/*
@@ -1173,7 +1258,8 @@ racoon_configure(CFDictionaryRef ipsec_dict, char **errstr, int apply)
 		policies = CFDictionaryGetValue(ipsec_dict, kRASPropIPSecPolicies);
 		if (!isArray(policies)
 			|| (nb = CFArrayGetCount(policies)) == 0)
-			FAIL("no policies found");
+			//FAIL("no policies found");
+			goto no_policy; // do not fail anymore
 		
 		/* if this is the anonymous configuration, only take the first policy */
 		if (anonymous)
@@ -1184,9 +1270,9 @@ racoon_configure(CFDictionaryRef ipsec_dict, char **errstr, int apply)
 			CFDictionaryRef policy;
 			CFStringRef policylevel, policymode;
 			char	local_network[256], remote_network[256];
-			int local_port, remote_port;
-			int local_prefix, remote_prefix;
-			int protocol, tunnel;
+			u_int32_t local_port, remote_port;
+			u_int32_t local_prefix, remote_prefix;
+			u_int32_t protocol, tunnel;
 
 			policy = CFArrayGetValueAtIndex(policies, i);
 			if (!isDictionary(policy))
@@ -1202,7 +1288,7 @@ racoon_configure(CFDictionaryRef ipsec_dict, char **errstr, int apply)
 				FAIL("incorrect policy level found");
 			
 			if (anonymous) {
-				sprintf(text, "sainfo anonymous {\n");
+				snprintf(text, sizeof(text), "sainfo anonymous {\n");
 			}
 			else {
 				/*
@@ -1237,9 +1323,13 @@ racoon_configure(CFDictionaryRef ipsec_dict, char **errstr, int apply)
 					if (remote_prefix == 0)
 						FAIL("incorrect policy remote prefix");
 
-					sprintf(text, "sainfo address %s/%d 0 address %s/%d 0 {\n", 
+					snprintf(text, sizeof(text), "sainfo address %s/%d 0 address %s/%d 0 {\n", 
 						local_network, local_prefix, 
 						remote_network, remote_prefix);
+					snprintf(text2, sizeof(text2), "sainfo address %s/%d 0 address %s/%d 0 {\n", 
+							 remote_network, remote_prefix,
+							 local_network, local_prefix);
+					
 				}
 				else {
 					
@@ -1247,9 +1337,13 @@ racoon_configure(CFDictionaryRef ipsec_dict, char **errstr, int apply)
 					GetIntFromDict(policy, kRASPropIPSecPolicyRemotePort, &remote_port, 0);
 					GetIntFromDict(policy, kRASPropIPSecPolicyProtocol, &protocol, 0);
 
-					sprintf(text, "sainfo address %s/32 [%d] %d address %s/32 [%d] %d {\n", 
+					snprintf(text, sizeof(text), "sainfo address %s/32 [%d] %d address %s/32 [%d] %d {\n", 
 						local_address, local_port, protocol, 
 						remote_address, remote_port, protocol);
+					snprintf(text2, sizeof(text2), "sainfo address %s/32 [%d] %d address %s/32 [%d] %d {\n", 
+							 remote_address, remote_port, protocol,
+							 local_address, local_port, protocol);
+					
 				}
 			}
 			
@@ -1260,7 +1354,23 @@ racoon_configure(CFDictionaryRef ipsec_dict, char **errstr, int apply)
 						
 			/* end of the record */
 			WRITE("}\n\n");
+
+			if ( !anonymous ){
+				/* write bidirectional info */
+				WRITE(text2);
+
+				if (configure_sainfo(level + 1, file, ipsec_dict, policy, errstr))
+					goto fail;
+
+				/* end of the record */
+				WRITE("}\n\n");
+			}
+
 		}
+	
+		no_policy:
+			;
+
 	}
 	
     fclose(file);
@@ -1268,11 +1378,11 @@ racoon_configure(CFDictionaryRef ipsec_dict, char **errstr, int apply)
     /*
 	 * signal racoon 
 	 */
-	
+
 	if (apply) {
-		racoon_restart(1);
+		racoon_restart();
 	}
-    
+	
     return 0;
 
 fail:
@@ -1318,15 +1428,95 @@ IPSecRemoveConfiguration(CFDictionaryRef ipsec_dict, char **errstr)
 	if (anonymous)
 		return 0;
 	
-	sprintf(filename, "/etc/racoon/remote/%s.conf", remote_address);
+	snprintf(filename, sizeof(filename), RACOON_CONFIG_PATH "/%s.conf", remote_address);
 	remove(filename);
 	
-	racoon_restart(0);
+	racoon_restart();
     return 0;
 
 fail:
 	
 	return -1;
+}
+
+/* -----------------------------------------------------------------------------
+Unconfigure IPSec. 
+Remove an configuration from IPSec, remove the racoon file does not restart racoon.
+This will not remove kernel policies in the kernel and must be done separately.
+
+Parameters:
+ipsec_dict: dictionary containing the IPSec configuration.
+errstr: error string returned in case of configuration error.
+
+Return code:
+0 if successful, -1 otherwise.
+----------------------------------------------------------------------------- */
+int 
+IPSecRemoveConfigurationFile(CFDictionaryRef ipsec_dict, char **errstr) 
+{
+    int 	anonymous;
+	char	filename[256];
+	char	remote_address[32];
+	
+	filename[0] = 0;
+
+	if (!isDictionary(ipsec_dict))
+		FAIL("IPSec dictionary not present");
+
+	if (!GetStrAddrFromDict(ipsec_dict, kRASPropIPSecRemoteAddress, remote_address, sizeof(remote_address)))
+		FAIL("incorrect remote address found");
+
+	anonymous = inet_addr(remote_address) == 0;
+
+	// don't remove anymous entry ?
+	if (anonymous)
+		return 0;
+	
+	snprintf(filename, sizeof(filename), RACOON_CONFIG_PATH "/%s.conf", remote_address);
+	remove(filename);
+	
+    return 0;
+
+fail:
+	
+	return -1;
+}
+
+/* -----------------------------------------------------------------------------
+Kick IPSec racoon when changes have been made before to the configuration files. 
+
+Parameters:
+
+Return code:
+0 if successful, -1 otherwise.
+----------------------------------------------------------------------------- */
+int 
+IPSecKickConfiguration() 
+{
+	
+	racoon_restart();
+    return 0;
+}
+
+/* -----------------------------------------------------------------------------
+Count the number of IPSec kernel policies in the configuration. 
+
+Parameters:
+ipsec_dict: dictionary containing the IPSec configuration.
+
+Return code:
+number of policies in the configuration.
+----------------------------------------------------------------------------- */
+int 
+IPSecCountPolicies(CFDictionaryRef ipsec_dict) 
+{
+	CFArrayRef  policies;
+
+	policies = CFDictionaryGetValue(ipsec_dict, kRASPropIPSecPolicies);
+	if (isArray(policies))
+		return CFArrayGetCount(policies);		
+		
+    return 0;
 }
 
 /* -----------------------------------------------------------------------------
@@ -1348,8 +1538,8 @@ IPSecInstallPolicies(CFDictionaryRef ipsec_dict, CFIndex index, char ** errstr)
     int			s = -1, err, seq = 0, i, nb;
     char		policystr_in[64], policystr_out[64], src_address[32], dst_address[32], str[32];
     caddr_t		policy_in = 0, policy_out = 0;
-    int			policylen_in, policylen_out, local_prefix, remote_prefix;
-	int			protocol = 0xFF;
+    u_int32_t	policylen_in, policylen_out, local_prefix, remote_prefix;
+	u_int32_t	protocol = 0xFF;
 	CFArrayRef  policies;
 	struct sockaddr_in  local_net;
 	struct sockaddr_in  remote_net;
@@ -1418,22 +1608,32 @@ IPSecInstallPolicies(CFDictionaryRef ipsec_dict, CFIndex index, char ** errstr)
 
 		policylevel = CFDictionaryGetValue(policy, kRASPropIPSecPolicyLevel);
 		if (!isString(policylevel) || CFEqual(policylevel, kRASValIPSecPolicyLevelNone)) {
-			sprintf(policystr_out, "out none");
-			sprintf(policystr_in, "in none");
+			snprintf(policystr_out, sizeof(policystr_out), "out none");
+			snprintf(policystr_in, sizeof(policystr_in), "in none");
+		}
+		else if (CFEqual(policylevel, kRASValIPSecPolicyLevelUnique)) {
+			if (tunnel) {
+				snprintf(policystr_out, sizeof(policystr_out), "out ipsec esp/tunnel/%s-%s/unique", src_address, dst_address);
+				snprintf(policystr_in, sizeof(policystr_in), "in ipsec esp/tunnel/%s-%s/unique", dst_address, src_address);
+			}
+			else {
+				snprintf(policystr_out, sizeof(policystr_out), "out ipsec esp/transport//unique");
+				snprintf(policystr_in, sizeof(policystr_in), "in ipsec esp/transport//unique");
+			}
 		}
 		else if (CFEqual(policylevel, kRASValIPSecPolicyLevelRequire)) {
 			if (tunnel) {
-				sprintf(policystr_out, "out ipsec esp/tunnel/%s-%s/require", src_address, dst_address);
-				sprintf(policystr_in, "in ipsec esp/tunnel/%s-%s/require", dst_address, src_address);
+				snprintf(policystr_out, sizeof(policystr_out), "out ipsec esp/tunnel/%s-%s/require", src_address, dst_address);
+				snprintf(policystr_in, sizeof(policystr_in), "in ipsec esp/tunnel/%s-%s/require", dst_address, src_address);
 			}
 			else {
-				sprintf(policystr_out, "out ipsec esp/transport//require");
-				sprintf(policystr_in, "in ipsec esp/transport//require");
+				snprintf(policystr_out, sizeof(policystr_out), "out ipsec esp/transport//require");
+				snprintf(policystr_in, sizeof(policystr_in), "in ipsec esp/transport//require");
 			}
 		}
 		else if (CFEqual(policylevel, kRASValIPSecPolicyLevelDiscard)) {
-			sprintf(policystr_out, "out discard");
-			sprintf(policystr_in, "in discard");
+			snprintf(policystr_out, sizeof(policystr_out), "out discard");
+			snprintf(policystr_in, sizeof(policystr_in), "in discard");
 		}
 		else 
 			FAIL("incorrect policy level");
@@ -1465,19 +1665,19 @@ IPSecInstallPolicies(CFDictionaryRef ipsec_dict, CFIndex index, char ** errstr)
 			GetIntFromDict(policy, kRASPropIPSecPolicyLocalPrefix, &local_prefix, 24);
 
 			if (!GetStrNetFromDict(policy, kRASPropIPSecPolicyRemoteAddress, str, sizeof(str)))
-				FAIL("incorrect remote network");
+				FAIL("incorrect remote network0");
 						
 			remote_net.sin_len = sizeof(remote_net);
 			remote_net.sin_family = AF_INET;
 			remote_net.sin_port = htons(0);
 			if (!inet_aton(str, &remote_net.sin_addr))
-				FAIL("incorrect remote network");
+				FAIL("incorrect remote network1");
 
 			GetIntFromDict(policy, kRASPropIPSecPolicyRemotePrefix, &remote_prefix, 24);
 		
 		}
 		else {
-			int val;
+			u_int32_t val;
 			
 			local_net.sin_len = sizeof(local_net);
 			local_net.sin_family = AF_INET;
@@ -1534,6 +1734,199 @@ fail:
     return -1;
 }
 
+
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+static int 
+install_remove_routes(int cmd, CFDictionaryRef ipsec_dict, CFIndex index, char ** errstr, struct in_addr gateway) 
+{
+    int			s = -1, i, nb;
+    char		src_address[32], dst_address[32], str[32];
+    u_int32_t	remote_prefix;
+	CFArrayRef  policies;
+	struct sockaddr_in  local_net;
+	struct sockaddr_in  remote_net;
+	CFIndex	start, end;
+    int 			len;
+    int 			rtm_seq = 0;
+
+    struct {
+	struct rt_msghdr	hdr;
+	struct sockaddr_in	dst;
+        struct sockaddr_in	gway;
+        struct sockaddr_in	mask;
+    } rtmsg;
+
+    s = socket(PF_ROUTE, SOCK_RAW, AF_INET);
+    if (s < 0) 
+		FAIL("cannot open a routing socket");
+    
+	if (!GetStrAddrFromDict(ipsec_dict, kRASPropIPSecLocalAddress, src_address, sizeof(src_address)))
+		FAIL("incorrect local address");
+
+	if (!GetStrAddrFromDict(ipsec_dict, kRASPropIPSecRemoteAddress, dst_address, sizeof(dst_address)))
+		FAIL("incorrect remote address");
+	
+	policies = CFDictionaryGetValue(ipsec_dict, kRASPropIPSecPolicies);
+	if (!isArray(policies)
+		|| (nb = CFArrayGetCount(policies)) == 0
+		|| index > nb)
+		FAIL("no policies found");
+		
+	if (index == -1) {
+		start = 0;
+		end = nb;
+	}
+	else {
+		start = index;
+		end = index + 1;
+	}
+	for (i = start; i < end; i++) {
+	
+		int		tunnel, in, out;
+		CFDictionaryRef policy;
+		CFStringRef policymode, policydirection, policylevel;
+
+		policy = CFArrayGetValueAtIndex(policies, i);
+		if (!isDictionary(policy))
+			FAIL("incorrect policy found");
+	
+		/* build policies in and out */
+
+		tunnel = 1;
+		policymode = CFDictionaryGetValue(policy, kRASPropIPSecPolicyMode);
+		if (isString(policymode)) {
+		
+			if (CFEqual(policymode, kRASValIPSecPolicyModeTunnel))
+				tunnel = 1;
+			else if (CFEqual(policymode, kRASValIPSecPolicyModeTransport))
+				tunnel = 0;
+			else
+				FAIL("incorrect policy type found");
+		}
+
+		if (tunnel == 0)
+			continue;	// no need for routes for 'tranport' policies
+
+		/* if policy direction is not specified, in/out is assumed */
+		in = out = 1;
+		policydirection = CFDictionaryGetValue(policy, kRASPropIPSecPolicyDirection);
+		if (isString(policydirection)) {
+		
+			if (CFEqual(policydirection, kRASValIPSecPolicyDirectionIn))
+				out = 0;
+			else if (CFEqual(policydirection, kRASValIPSecPolicyDirectionOut))
+				in = 0;
+			else if (!CFEqual(policydirection, kRASValIPSecPolicyDirectionInOut))
+				FAIL("incorrect policy direction found");
+		}
+
+		if (out == 0)
+			continue;	// no need for routes for 'in' policies
+			
+		policylevel = CFDictionaryGetValue(policy, kRASPropIPSecPolicyLevel);
+		if (!isString(policylevel) || CFEqual(policylevel, kRASValIPSecPolicyLevelNone))
+			continue; // no need for routes for 'none' policies
+
+		if (!CFEqual(policylevel, kRASValIPSecPolicyLevelRequire) && !CFEqual(policylevel, kRASValIPSecPolicyLevelDiscard)  && !CFEqual(policylevel, kRASValIPSecPolicyLevelUnique))
+			FAIL("incorrect policy level");
+	
+		/* get local and remote networks */
+	
+		if (!GetStrNetFromDict(policy, kRASPropIPSecPolicyLocalAddress, str, sizeof(str)))
+			FAIL("incorrect local network");
+					
+		local_net.sin_len = sizeof(local_net);
+		local_net.sin_family = AF_INET;
+		local_net.sin_port = htons(0);
+		if (!inet_aton(str, &local_net.sin_addr))
+			FAIL("incorrect local network");
+
+		if (!GetStrNetFromDict(policy, kRASPropIPSecPolicyRemoteAddress, str, sizeof(str)))
+			FAIL("incorrect remote network0");
+					
+		remote_net.sin_len = sizeof(remote_net);
+		remote_net.sin_family = AF_INET;
+		remote_net.sin_port = htons(0);
+		if (!inet_aton(str, &remote_net.sin_addr))
+			FAIL("incorrect remote network1");
+
+
+		memset(&rtmsg, 0, sizeof(rtmsg));
+		rtmsg.hdr.rtm_type = cmd;
+		rtmsg.hdr.rtm_flags = RTF_UP | RTF_STATIC;
+		rtmsg.hdr.rtm_flags |= RTF_GATEWAY;
+		rtmsg.hdr.rtm_version = RTM_VERSION;
+		rtmsg.hdr.rtm_seq = ++rtm_seq;
+		rtmsg.hdr.rtm_addrs = RTA_DST | RTA_NETMASK | RTA_GATEWAY;
+		rtmsg.dst.sin_len = sizeof(rtmsg.dst);
+		rtmsg.dst.sin_family = AF_INET;
+		rtmsg.dst.sin_addr = remote_net.sin_addr;
+		rtmsg.gway.sin_len = sizeof(rtmsg.gway);
+		rtmsg.gway.sin_family = AF_INET;
+		rtmsg.gway.sin_addr = gateway;
+		rtmsg.mask.sin_len = sizeof(rtmsg.mask);
+		rtmsg.mask.sin_family = AF_INET;
+		GetIntFromDict(policy, kRASPropIPSecPolicyRemotePrefix, &remote_prefix, 24);
+		for (rtmsg.mask.sin_addr.s_addr = 0; remote_prefix; remote_prefix--)
+			rtmsg.mask.sin_addr.s_addr = (rtmsg.mask.sin_addr.s_addr>>1)|0x80000000;
+		rtmsg.mask.sin_addr.s_addr = htonl(rtmsg.mask.sin_addr.s_addr);
+		len = sizeof(rtmsg);
+		rtmsg.hdr.rtm_msglen = len;
+		if (write(s, &rtmsg, len) < 0)
+			printf("cannot write on routing socket %d (0x%x --> 0x%x)\n", errno, htonl(remote_net.sin_addr.s_addr), htonl(gateway.s_addr));			;//FAIL("cannot write on routing socket", errno);
+		
+	}
+
+	close(s);
+	return 0;
+
+fail:
+	if (s != -1)
+		close(s);
+    return -1;
+}
+
+/* -----------------------------------------------------------------------------
+Install IPSec Routes. 
+This will not configure IKE or intall policies,  and must be done separately.
+
+Parameters:
+ipsec_dict: dictionary containing the IPSec configuration.
+index: -1, install all policies defined in the configuration
+	otherwise, install only the policy at the specified index.
+errstr: error string returned in case of configuration error.
+gateway: gateway for the routes
+
+Return code:
+0 if successful, -1 otherwise.
+----------------------------------------------------------------------------- */
+int 
+IPSecInstallRoutes(CFDictionaryRef ipsec_dict, CFIndex index, char ** errstr, struct in_addr gateway) 
+{
+	return install_remove_routes(RTM_ADD, ipsec_dict, index, errstr, gateway);
+}
+
+/* -----------------------------------------------------------------------------
+Remove IPSec Routes. 
+This will not unconfigure IKE or remove policies, and must be done separately.
+
+Parameters:
+ipsec_dict: dictionary containing the IPSec configuration.
+index: -1, install all policies defined in the configuration
+	otherwise, install only the policy at the specified index.
+errstr: error string returned in case of configuration error.
+gateway: gateway for the routes
+
+Return code:
+0 if successful, -1 otherwise.
+----------------------------------------------------------------------------- */
+int 
+IPSecRemoveRoutes(CFDictionaryRef ipsec_dict, CFIndex index, char ** errstr, struct in_addr gateway) 
+{
+	return install_remove_routes(RTM_DELETE, ipsec_dict, index, errstr, gateway);
+}
+
 /* -----------------------------------------------------------------------------
 Remove IPSec kernel policies. 
 This will not unconfigure IKE and must be done separately.
@@ -1553,8 +1946,8 @@ IPSecRemovePolicies(CFDictionaryRef ipsec_dict, CFIndex index, char ** errstr)
     int			s = -1, err, seq = 0, nb, i;
     char		policystr_in[64], policystr_out[64], str[32];
     caddr_t		policy_in = 0, policy_out = 0;
-    int			policylen_in, policylen_out, local_prefix, remote_prefix;
-	int			protocol = 0xFF;
+    u_int32_t	policylen_in, policylen_out, local_prefix, remote_prefix;
+	u_int32_t	protocol = 0xFF;
 	CFArrayRef  policies;
 	struct sockaddr_in  local_net;
 	struct sockaddr_in  remote_net;
@@ -1622,8 +2015,8 @@ IPSecRemovePolicies(CFDictionaryRef ipsec_dict, CFIndex index, char ** errstr)
 				FAIL("incorrect policy direction found");
 		}
 
-		sprintf(policystr_out, "out");
-		sprintf(policystr_in, "in");
+		snprintf(policystr_out, sizeof(policystr_out), "out");
+		snprintf(policystr_in, sizeof(policystr_in), "in");
 		
 		policy_in = ipsec_set_policy(policystr_in, strlen(policystr_in));
 		if (policy_in == 0)
@@ -1664,7 +2057,7 @@ IPSecRemovePolicies(CFDictionaryRef ipsec_dict, CFIndex index, char ** errstr)
 		
 		}
 		else {
-			int val;
+			u_int32_t val;
 			
 			local_net.sin_len = sizeof(local_net);
 			local_net.sin_family = AF_INET;
@@ -1762,8 +2155,8 @@ end:
 
 #define NEXT_SA(ap) (ap) = (struct sockaddr *) \
 	((caddr_t)(ap) + ((ap)->sa_len ? ROUNDUP((ap)->sa_len,\
-						 sizeof(u_long)) :\
-						 sizeof(u_long)))
+						 sizeof(u_int32_t)) :\
+						 sizeof(u_int32_t)))
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
@@ -1904,7 +2297,7 @@ get_src_address(struct sockaddr *src, const struct sockaddr *dst, char *if_name)
     int 	i;
     char	buf[200];
 
-    //SCLog(_sc_debug, LOG_DEBUG, CFSTR("rtm_flags = 0x%8.8x"), rtm->rtm_flags);
+    //SCLog(gSCNCDebug, LOG_DEBUG, CFSTR("rtm_flags = 0x%8.8x"), rtm->rtm_flags);
 
     for (i=0; i<RTAX_MAX; i++) {
         if (rti_info[i] != NULL) {
@@ -1943,11 +2336,39 @@ get_if_mtu(char *if_name)
     s = socket(AF_INET, SOCK_DGRAM, 0);
     if (s >= 0) {
 		strlcpy(ifr.ifr_name, if_name, sizeof (ifr.ifr_name));
-		if (err = ioctl(s, SIOCGIFMTU, (caddr_t) &ifr) < 0)
+		if ((err = ioctl(s, SIOCGIFMTU, (caddr_t) &ifr)) < 0)
 			;
 		close(s);
 	}
 	return ifr.ifr_mtu;
+}
+
+/* -----------------------------------------------------------------------------
+ Get the media of an interface.
+ 
+ Parameters:
+ if_name: interface we want information about.
+ 
+ Return code:
+ media for the interface.
+ ----------------------------------------------------------------------------- */
+u_int32_t 
+get_if_media(char *if_name)
+{
+	struct ifmediareq ifr;
+	int s, err;
+    
+    bzero(&ifr, sizeof(ifr));
+
+    s = socket(AF_INET, SOCK_DGRAM, 0);
+    if (s >= 0) {
+		strlcpy(ifr.ifm_name, if_name, sizeof (ifr.ifm_name));
+		if ((err = ioctl(s, SIOCGIFMEDIA, (caddr_t) &ifr)) < 0) {
+//			syslog(LOG_ERR, "can't get interface '%s' media, err %d", if_name, err);
+        }
+		close(s);
+	}
+	return ifr.ifm_current;
 }
 
 /* -----------------------------------------------------------------------------
@@ -2053,7 +2474,7 @@ src: source address of the configuration.
 dst: destination address of the configuration.
 authenticationMethod: SharedSecret or Certificate. 
 isClient: 1 if client, 0 if server.
-	configuratoion varies slightly depending on client or server mode.
+	configuration varies slightly depending on client or server mode.
 	
 Return code:
 the configuration dictionary
@@ -2063,9 +2484,13 @@ IPSecCreateL2TPDefaultConfiguration(struct sockaddr *src, struct sockaddr *dst, 
 		int isClient, int natt_multiple_users, CFStringRef identifierVerification) 
 {
 	CFStringRef				src_string, dst_string, hostname_string = NULL;
-	CFMutableDictionaryRef	ipsec_dict, proposal_dict, policy0, policy1 = NULL;
-	CFMutableArrayRef		policy_array, proposal_array, encryption_array, hash_array;
-	CFNumberRef				src_port_num, dst_port_num, dst_port1_num, proto_num, natt_multiuser_mode;
+	CFMutableDictionaryRef	ipsec_dict, policy0, policy1 = NULL;
+	CFMutableArrayRef		policy_array, encryption_array, hash_array;
+#if 0
+	CFMutableDictionaryRef	proposal_dict;
+	CFMutableArrayRef		proposal_array;
+#endif
+	CFNumberRef				src_port_num, dst_port_num, dst_port1_num, proto_num, natt_multiuser_mode = NULL;
 	int						zero = 0, one = 1, udpproto = IPPROTO_UDP, val;
 	struct sockaddr_in		*our_address = (struct sockaddr_in *)src;
 	struct sockaddr_in		*peer_address = (struct sockaddr_in *)dst;
@@ -2087,10 +2512,11 @@ IPSecCreateL2TPDefaultConfiguration(struct sockaddr *src, struct sockaddr *dst, 
 		natt_multiuser_mode = CFNumberCreate(0, kCFNumberIntType, natt_multiple_users ? &one : &zero);
 	
 
+	CFDictionarySetValue(ipsec_dict, kRASPropIPSecAuthenticationMethod, authenticationMethod);
 	CFDictionarySetValue(ipsec_dict, kRASPropIPSecLocalAddress, src_string);
 	CFDictionarySetValue(ipsec_dict, kRASPropIPSecRemoteAddress, dst_string);
 	CFDictionarySetValue(ipsec_dict, kRASPropIPSecProposalsBehavior, isClient ? kRASValIPSecProposalsBehaviorObey : kRASValIPSecProposalsBehaviorClaim);
-	if (isClient && CFEqual(authenticationMethod, kRASValIPSecProposalAuthenticationMethodCertificate)) {
+	if (isClient && CFEqual(authenticationMethod, kRASValIPSecAuthenticationMethodCertificate)) {
 		if (identifierVerification) {
 			CFDictionarySetValue(ipsec_dict, kRASPropIPSecIdentifierVerification, identifierVerification);
 		}
@@ -2109,8 +2535,9 @@ IPSecCreateL2TPDefaultConfiguration(struct sockaddr *src, struct sockaddr *dst, 
 		CFDictionarySetValue(ipsec_dict, kRASPropIPSecNattMultipleUsersEnabled, natt_multiuser_mode);
 	
 	/* create the phase 1 proposals */
+#if 0
 	proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalAuthenticationMethod, authenticationMethod);
+	CFDictionarySetValue(proposal_dict, kRASPropIPSecAuthenticationMethod, authenticationMethod);
 
 	proposal_array = CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks);
 	CFArraySetValueAtIndex(proposal_array, 0, proposal_dict);
@@ -2118,6 +2545,7 @@ IPSecCreateL2TPDefaultConfiguration(struct sockaddr *src, struct sockaddr *dst, 
 
 	CFDictionarySetValue(ipsec_dict, kRASPropIPSecProposals, proposal_array);
 	CFRelease(proposal_array);
+#endif
 	
 	/* create the policies */
 	policy0 = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
@@ -2168,6 +2596,347 @@ IPSecCreateL2TPDefaultConfiguration(struct sockaddr *src, struct sockaddr *dst, 
 	return ipsec_dict;
 }
 
+/* ----------------------------------------------------------------------------- 
+Create a default configuration for the Cisco Server connection.
+L2PT has a defined set of parameters for IPSec, and this function will create a 
+dictionary with all necessary keys.
+The call will need to complete or adjust the configuration with specific keys
+like authentications keys, or with more specific parameters.
+
+Parameters:
+src: source address of the configuration.
+dst: destination address of the configuration.
+authenticationMethod: SharedSecret or Certificate. 
+isClient: 1 if client, 0 if server.
+	configuration varies slightly depending on client or server mode.
+	
+Return code:
+the configuration dictionary
+----------------------------------------------------------------------------- */
+CFMutableDictionaryRef 
+IPSecCreateCiscoDefaultConfiguration(struct sockaddr *src, struct sockaddr *dst, CFStringRef dst_hostName, CFStringRef authenticationMethod, 
+		int isClient, int natt_multiple_users, CFStringRef identifierVerification) 
+{
+	CFStringRef				src_string, dst_string;
+	CFMutableDictionaryRef	ipsec_dict, proposal_dict;
+	CFMutableArrayRef		proposal_array;
+#if 0
+	CFMutableDictionaryRef	policy0, policy1 = NULL;
+	CFMutableArrayRef		policy_array,  encryption_array, hash_array;
+#endif
+	CFNumberRef				src_port_num, dst_port_num, dst_port1_num, proto_num, natt_multiuser_mode = NULL, cfone = NULL, cfzero = NULL, dhgroup, lifetime, dpd_delay;
+	int						zero = 0, one = 1, anyproto = -1, val, nb;
+	struct sockaddr_in		*our_address = (struct sockaddr_in *)src;
+	struct sockaddr_in		*peer_address = (struct sockaddr_in *)dst;
+
+	// remove as soon as we add dh_group 5 to the loop
+#define ADD_DHGROUP5 1
+#ifdef ADD_DHGROUP5
+	int		add_group5 = 0, val5 = 5;
+	CFNumberRef	dhgroup5 = NULL;
+#endif
+	
+	/* create the main ipsec dictionary */
+	ipsec_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+
+	src_string = CFStringCreateWithCString(0, addr2ascii(AF_INET, &our_address->sin_addr, sizeof(our_address->sin_addr), 0), kCFStringEncodingASCII);
+	dst_string = CFStringCreateWithCString(0, addr2ascii(AF_INET, &peer_address->sin_addr, sizeof(peer_address->sin_addr), 0), kCFStringEncodingASCII);
+	val = ntohs(our_address->sin_port); /* because there is no uint16 type */
+	src_port_num = CFNumberCreate(0, kCFNumberIntType, &val);
+	val = ntohs(peer_address->sin_port); /* because there is no uint16 type */
+	dst_port_num = CFNumberCreate(0, kCFNumberIntType, &val);
+	dst_port1_num = CFNumberCreate(0, kCFNumberIntType, &zero);
+	proto_num = CFNumberCreate(0, kCFNumberIntType, &anyproto);
+	if (!isClient)
+		natt_multiuser_mode = CFNumberCreate(0, kCFNumberIntType, natt_multiple_users ? &one : &zero);
+	
+	cfzero = CFNumberCreate(0, kCFNumberIntType, &zero);
+	cfone = CFNumberCreate(0, kCFNumberIntType, &one);
+	CFDictionarySetValue(ipsec_dict, kRASPropIPSecModeConfigEnabled, cfone);
+	CFDictionarySetValue(ipsec_dict, kRASPropIPSecXAuthEnabled, cfone);
+	
+	CFDictionarySetValue(ipsec_dict, kRASPropIPSecLocalAddress, src_string);
+	CFDictionarySetValue(ipsec_dict, kRASPropIPSecRemoteAddress, dst_string);
+	CFDictionarySetValue(ipsec_dict, kRASPropIPSecProposalsBehavior, isClient ? kRASValIPSecProposalsBehaviorObey : kRASValIPSecProposalsBehaviorClaim);
+	if (isClient && CFEqual(authenticationMethod, kRASValIPSecAuthenticationMethodCertificate)) {
+#ifdef ADD_DHGROUP5
+		add_group5 = 1;
+#endif
+		if (identifierVerification) {
+			CFDictionarySetValue(ipsec_dict, kRASPropIPSecIdentifierVerification, identifierVerification);
+		}
+		else {
+			if (dst_hostName) {
+				CFDictionarySetValue(ipsec_dict, kRASPropIPSecRemoteIdentifier, dst_hostName);
+				CFDictionarySetValue(ipsec_dict, kRASPropIPSecIdentifierVerification, kRASValIPSecIdentifierVerificationUseRemoteIdentifier);
+			} else
+				CFDictionarySetValue(ipsec_dict, kRASPropIPSecIdentifierVerification, kRASValIPSecIdentifierVerificationGenerateFromRemoteAddress);
+		}
+	} else /*server or no certificate */
+		CFDictionarySetValue(ipsec_dict, kRASPropIPSecIdentifierVerification, kRASValIPSecIdentifierVerificationNone);
+		
+	/* if server - set natt multiple user mode */
+	if (!isClient)
+		CFDictionarySetValue(ipsec_dict, kRASPropIPSecNattMultipleUsersEnabled, natt_multiuser_mode);
+
+	/* use dead peer detection blackhole detection */
+	CFDictionarySetValue(ipsec_dict, kRASPropIPSecDeadPeerDetectionEnabled, cfone);
+	CFDictionarySetValue(ipsec_dict, kRASPropIPSecBlackHoleDetectionEnabled, cfone);
+	val = 20; // 20 seconds dpd with blackhole detection  
+	dpd_delay = CFNumberCreate(0, kCFNumberIntType, &val);
+	if (dpd_delay) {
+		CFDictionarySetValue(ipsec_dict, kRASPropIPSecDeadPeerDetectionDelay, dpd_delay);
+		CFRelease(dpd_delay);
+	}
+
+	/* By default, disable keep alive and let DPD play that role 
+	 20 seconds default keepalive kills battery. */
+	//	CFDictionarySetValue(ipsec_dict, kRASPropIPSecNattKeepAliveEnabled, cfzero); 
+	
+	/* create the phase 1 proposals */
+#if 1
+	//Create all combination of proposals
+	proposal_array = CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks);
+
+	val = 3600; 
+	lifetime = CFNumberCreate(0, kCFNumberIntType, &val);
+
+	nb = 0;
+	
+	/* should support group 1, 2, and 5 for main monde and only group 2 for aggressive mode
+		supporting so many proposals could require to turn on ike fragmentation and needs more testing */
+	//int i, dh_group[] = { 1, 2, 5, 0 };
+	int i, dh_group[] = { 2, 0 }; 
+	
+	for (i = 0; val = dh_group[i]; i++) {	
+
+		dhgroup = CFNumberCreate(0, kCFNumberIntType, &val);
+
+#ifdef ADD_DHGROUP5
+		if (add_group5)
+				dhgroup5 = CFNumberCreate(0, kCFNumberIntType, &val5);
+#endif
+		
+		// --- AES256/SHA1
+#ifdef ADD_DHGROUP5
+		if (add_group5) {
+			proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmAES256);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmSHA1);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup5);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
+			CFArraySetValueAtIndex(proposal_array, nb++, proposal_dict);
+			CFRelease(proposal_dict);
+		}
+#endif
+		
+		proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);		
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmAES256);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmSHA1);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
+		CFArraySetValueAtIndex(proposal_array, nb++, proposal_dict);
+		CFRelease(proposal_dict);
+
+		// --- AES/SHA1
+		proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmAES);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmSHA1);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
+		CFArraySetValueAtIndex(proposal_array, nb++, proposal_dict);
+		CFRelease(proposal_dict);
+
+		// --- AES256/MD5
+#ifdef ADD_DHGROUP5
+		if (add_group5) {
+			proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmAES256);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmMD5);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup5);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
+			CFArraySetValueAtIndex(proposal_array, nb++, proposal_dict);
+			CFRelease(proposal_dict);
+		}
+#endif
+		
+		proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmAES256);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmMD5);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
+		CFArraySetValueAtIndex(proposal_array, nb++, proposal_dict);
+		CFRelease(proposal_dict);
+
+		// --- AES/MD5
+		proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmAES);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmMD5);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
+		CFArraySetValueAtIndex(proposal_array, nb++, proposal_dict);
+		CFRelease(proposal_dict);
+
+		// --- 3DES/SHA1
+		proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithm3DES);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmSHA1);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
+		CFArraySetValueAtIndex(proposal_array, nb++, proposal_dict);
+		CFRelease(proposal_dict);
+
+		// --- 3DES/MD5
+		proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithm3DES);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmMD5);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
+		CFArraySetValueAtIndex(proposal_array, nb++, proposal_dict);
+		CFRelease(proposal_dict);
+
+		// --- DES/SHA1
+		proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmDES);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmSHA1);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
+		CFArraySetValueAtIndex(proposal_array, nb++, proposal_dict);
+		CFRelease(proposal_dict);
+
+		// --- DES/MD5
+		proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmDES);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmMD5);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
+		CFArraySetValueAtIndex(proposal_array, nb++, proposal_dict);
+		CFRelease(proposal_dict);
+
+		// ---
+		
+		CFRelease(dhgroup);
+#ifdef ADD_DHGROUP5
+		if (add_group5)
+			CFRelease(dhgroup5);
+#endif
+	}
+	
+	CFRelease(lifetime);
+
+	CFDictionarySetValue(ipsec_dict, kRASPropIPSecProposals, proposal_array);
+	CFRelease(proposal_array);
+
+#endif
+	
+	/* create the policies */
+#if 0
+	policy0 = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	CFDictionarySetValue(policy0, kRASPropIPSecPolicyLocalPort, src_port_num);
+	CFDictionarySetValue(policy0, kRASPropIPSecPolicyRemotePort, dst_port_num);
+	CFDictionarySetValue(policy0, kRASPropIPSecPolicyProtocol, proto_num);
+	CFDictionarySetValue(policy0, kRASPropIPSecPolicyMode, kRASValIPSecPolicyModeTransport);
+	CFDictionarySetValue(policy0, kRASPropIPSecPolicyLevel, kRASValIPSecPolicyLevelRequire);
+	val = 0; 
+	dhgroup = CFNumberCreate(0, kCFNumberIntType, &val);
+	CFDictionarySetValue(policy0, kRASPropIPSecPolicyPFSGroup, dhgroup);
+	CFRelease(dhgroup);
+	val = 3600; 
+	lifetime = CFNumberCreate(0, kCFNumberIntType, &val);
+	CFDictionarySetValue(policy0, kRASPropIPSecPolicyLifetime, lifetime);
+	CFRelease(lifetime);
+	encryption_array = CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks);
+	CFArraySetValueAtIndex(encryption_array, 0, kRASValIPSecPolicyEncryptionAlgorithmAES);
+	CFArraySetValueAtIndex(encryption_array, 1, kRASValIPSecPolicyEncryptionAlgorithm3DES);
+	CFDictionarySetValue(policy0, kRASPropIPSecPolicyEncryptionAlgorithm, encryption_array);
+	CFRelease(encryption_array);
+	hash_array = CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks);
+	CFArraySetValueAtIndex(hash_array, 0, kRASValIPSecPolicyHashAlgorithmSHA1);
+	CFArraySetValueAtIndex(hash_array, 1, kRASValIPSecPolicyHashAlgorithmMD5);
+	CFDictionarySetValue(policy0, kRASPropIPSecPolicyHashAlgorithm, hash_array);
+	CFRelease(hash_array);
+
+	if (isClient) {
+		policy1 = CFDictionaryCreateMutableCopy(0, 0, policy0);
+		CFDictionarySetValue(policy1, kRASPropIPSecPolicyRemotePort, dst_port1_num);
+		CFDictionarySetValue(policy1, kRASPropIPSecPolicyDirection, kRASValIPSecPolicyDirectionIn);
+	}
+		
+	policy_array = CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks);
+	CFArraySetValueAtIndex(policy_array, 0, policy0);
+	if (isClient)
+		CFArraySetValueAtIndex(policy_array, 1, policy1);
+
+	CFRelease(policy0);
+	if (isClient)
+		CFRelease(policy1);
+	
+	CFDictionarySetValue(ipsec_dict, kRASPropIPSecPolicies, policy_array);
+	CFRelease(policy_array);
+#endif
+#if 0
+/* XXX Hack iPhone create sainfo anonymous until we fix racoon. In this specific case, mode must be "transport" */
+	policy0 = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	/* XXX */
+	CFDictionarySetValue(ipsec_dict, CFSTR("UseAnonymousPolicy"), CFSTR("UseAnonymousPolicy"));
+	CFDictionarySetValue(policy0, kRASPropIPSecPolicyLocalPort, src_port_num);
+	CFDictionarySetValue(policy0, kRASPropIPSecPolicyRemotePort, dst_port_num);
+	CFDictionarySetValue(policy0, kRASPropIPSecPolicyProtocol, proto_num);
+	CFDictionarySetValue(policy0, kRASPropIPSecPolicyMode, kRASValIPSecPolicyModeTransport);
+	CFDictionarySetValue(policy0, kRASPropIPSecPolicyLevel, kRASValIPSecPolicyLevelRequire);
+	val = 0; 
+	dhgroup = CFNumberCreate(0, kCFNumberIntType, &val);
+	CFDictionarySetValue(policy0, kRASPropIPSecPolicyPFSGroup, dhgroup);
+	CFRelease(dhgroup);
+	val = 3600; 
+	lifetime = CFNumberCreate(0, kCFNumberIntType, &val);
+	CFDictionarySetValue(policy0, kRASPropIPSecPolicyLifetime, lifetime);
+	CFRelease(lifetime);
+	encryption_array = CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks);
+	CFArraySetValueAtIndex(encryption_array, 0, kRASValIPSecPolicyEncryptionAlgorithmAES);
+	CFArraySetValueAtIndex(encryption_array, 1, kRASValIPSecPolicyEncryptionAlgorithm3DES);
+	CFDictionarySetValue(policy0, kRASPropIPSecPolicyEncryptionAlgorithm, encryption_array);
+	CFRelease(encryption_array);
+	hash_array = CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks);
+	CFArraySetValueAtIndex(hash_array, 0, kRASValIPSecPolicyHashAlgorithmSHA1);
+	CFArraySetValueAtIndex(hash_array, 1, kRASValIPSecPolicyHashAlgorithmMD5);
+	CFDictionarySetValue(policy0, kRASPropIPSecPolicyHashAlgorithm, hash_array);
+	CFRelease(hash_array);
+
+	if (isClient) {
+		policy1 = CFDictionaryCreateMutableCopy(0, 0, policy0);
+		CFDictionarySetValue(policy1, kRASPropIPSecPolicyRemotePort, dst_port1_num);
+		CFDictionarySetValue(policy1, kRASPropIPSecPolicyDirection, kRASValIPSecPolicyDirectionIn);
+	}
+		
+	policy_array = CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks);
+	CFArraySetValueAtIndex(policy_array, 0, policy0);
+	if (isClient)
+		CFArraySetValueAtIndex(policy_array, 1, policy1);
+
+	CFRelease(policy0);
+	if (isClient)
+		CFRelease(policy1);
+	
+	CFDictionarySetValue(ipsec_dict, kRASPropIPSecPolicies, policy_array);
+	CFRelease(policy_array);
+#endif
+	
+	CFRelease(src_string);
+	CFRelease(dst_string);
+	CFRelease(src_port_num);
+	CFRelease(dst_port_num);
+	CFRelease(proto_num);
+	if (cfone)
+		CFRelease(cfone);
+	if (cfzero)
+		CFRelease(cfzero);
+	if (!isClient)
+		CFRelease(natt_multiuser_mode);
+
+	return ipsec_dict;
+}
+
 /* -----------------------------------------------------------------------------
 IPSecSelfRepair. 
 This is an attempt to have IPSec try to repair itself when things
@@ -2185,9 +2954,347 @@ IPSecSelfRepair()
 	int err;
 	
 	racoon_stop();
-	err = racoon_start(0,0);
-	if (err)
-		return -1;
-	
+		
 	return 0;
+}
+
+static char unknown_if_family_str[16];
+static char *
+if_family2ascii (u_int32_t if_family)
+{
+	switch (if_family) {
+		case APPLE_IF_FAM_LOOPBACK:
+			return("Loopback");
+		case APPLE_IF_FAM_ETHERNET:
+			return("Ether");
+		case APPLE_IF_FAM_SLIP:
+			return("SLIP");
+		case APPLE_IF_FAM_TUN:
+			return("TUN");
+		case APPLE_IF_FAM_VLAN:
+			return("VLAN");
+		case APPLE_IF_FAM_PPP:
+			return("PPP");
+		case APPLE_IF_FAM_PVC:
+			return("PVC");
+		case APPLE_IF_FAM_DISC:
+			return("DISC");
+		case APPLE_IF_FAM_MDECAP:
+			return("MDECAP");
+		case APPLE_IF_FAM_GIF:
+			return("GIF");
+		case APPLE_IF_FAM_FAITH:
+			return("FAITH");
+		case APPLE_IF_FAM_STF:
+			return("STF");
+		case APPLE_IF_FAM_FIREWIRE:
+			return("FireWire");
+		case APPLE_IF_FAM_BOND:
+			return("Bond");
+		default:
+			snprintf(unknown_if_family_str, sizeof(unknown_if_family_str), "%d", if_family);
+			return(unknown_if_family_str);
+	}
+}
+
+void
+IPSecLogVPNInterfaceAddressEvent (char                  *location,
+								  struct kern_event_msg *ev_msg,
+								  int                    wait_interface_timeout,
+							 	  char                  *interface,
+								  struct in_addr        *our_address)
+{
+	struct in_addr mask;
+	char           our_addr_str[INET_ADDRSTRLEN];
+
+	if (!ev_msg) {
+		syslog(LOG_NOTICE, "%s: %d secs TIMEOUT waiting for interface to be reconfigured. previous setting (name: %s, address: %s).",
+			   location,
+			   wait_interface_timeout,
+			   interface,
+			   addr2ascii(AF_INET, our_address, sizeof(*our_address), our_addr_str));
+		return;
+	} else {
+		struct kev_in_data      *inetdata = (struct kev_in_data *) &ev_msg->event_data[0];
+		struct kev_in_collision *inetdata_coll = (struct kev_in_collision *) &ev_msg->event_data[0];
+		char                     new_addr_str[INET_ADDRSTRLEN];
+		char                     new_mask_str[INET_ADDRSTRLEN];
+		char                     dst_addr_str[INET_ADDRSTRLEN];
+		
+		mask.s_addr = ntohl(inetdata->ia_netmask);
+		
+		switch (ev_msg->event_code) {
+			case KEV_INET_NEW_ADDR:
+				syslog(LOG_NOTICE, "%s: Address added. previous interface setting (name: %s, address: %s), current interface setting (name: %s%d, family: %s, address: %s, subnet: %s, destination: %s).",
+					   location,
+					   interface,
+					   addr2ascii(AF_INET, our_address, sizeof(*our_address), our_addr_str),
+					   inetdata->link_data.if_name, inetdata->link_data.if_unit,
+					   if_family2ascii(inetdata->link_data.if_family),
+					   addr2ascii(AF_INET, &inetdata->ia_addr, sizeof(inetdata->ia_addr), new_addr_str),
+					   addr2ascii(AF_INET, &mask, sizeof(mask), new_mask_str),
+					   addr2ascii(AF_INET, &inetdata->ia_dstaddr, sizeof(inetdata->ia_dstaddr), dst_addr_str));
+				break;
+			case KEV_INET_CHANGED_ADDR:
+				syslog(LOG_NOTICE, "%s: Address changed. previous interface setting (name: %s, address: %s), current interface setting (name: %s%d, family: %s, address: %s, subnet: %s, destination: %s).",
+					   location,
+					   interface,
+					   addr2ascii(AF_INET, our_address, sizeof(*our_address), our_addr_str),
+					   inetdata->link_data.if_name, inetdata->link_data.if_unit,
+					   if_family2ascii(inetdata->link_data.if_family),
+					   addr2ascii(AF_INET, &inetdata->ia_addr, sizeof(inetdata->ia_addr), new_addr_str),
+					   addr2ascii(AF_INET, &mask, sizeof(mask), new_mask_str),
+					   addr2ascii(AF_INET, &inetdata->ia_dstaddr, sizeof(inetdata->ia_dstaddr), dst_addr_str));
+				break;
+			case KEV_INET_ADDR_DELETED:
+				syslog(LOG_NOTICE, "%s: Address deleted. previous interface setting (name: %s, address: %s), deleted interface setting (name: %s%d, family: %s, address: %s, subnet: %s, destination: %s).",
+					   location,
+					   interface,
+					   addr2ascii(AF_INET, our_address, sizeof(*our_address), our_addr_str),
+					   inetdata->link_data.if_name, inetdata->link_data.if_unit,
+					   if_family2ascii(inetdata->link_data.if_family),
+					   addr2ascii(AF_INET, &inetdata->ia_addr, sizeof(inetdata->ia_addr), new_addr_str),
+					   addr2ascii(AF_INET, &mask, sizeof(mask), new_mask_str),
+					   addr2ascii(AF_INET, &inetdata->ia_dstaddr, sizeof(inetdata->ia_dstaddr), dst_addr_str));
+				break;
+			case KEV_INET_ARPCOLLISION:
+				syslog(LOG_NOTICE, "%s: ARP collided. previous interface setting (name: %s, address: %s), conflicting interface setting (name: %s%d, family: %s, address: %s, mac: %x:%x:%x:%x:%x:%x).",
+					   location,
+					   interface,
+					   addr2ascii(AF_INET, our_address, sizeof(*our_address), our_addr_str),
+					   inetdata_coll->link_data.if_name,
+					   inetdata_coll->link_data.if_unit,
+					   if_family2ascii(inetdata_coll->link_data.if_family),
+					   addr2ascii(AF_INET, &inetdata_coll->ia_ipaddr, sizeof(inetdata_coll->ia_ipaddr), new_addr_str),
+					   inetdata_coll->hw_addr[5],inetdata_coll->hw_addr[4],inetdata_coll->hw_addr[3],inetdata_coll->hw_addr[2],inetdata_coll->hw_addr[1],inetdata_coll->hw_addr[0]);
+				break;
+			default:
+				syslog(LOG_NOTICE, "%s: Unknown Address event (%d). previous interface setting (name: %s, address: %s), other interface setting (name: %s%d, family: %s, address: %s, subnet: %s, destination: %s).",
+					   location,
+					   ev_msg->event_code,
+					   interface,
+					   addr2ascii(AF_INET, our_address, sizeof(*our_address), our_addr_str),
+					   inetdata->link_data.if_name, inetdata->link_data.if_unit,
+					   if_family2ascii(inetdata->link_data.if_family),
+					   addr2ascii(AF_INET, &inetdata->ia_addr, sizeof(inetdata->ia_addr), new_addr_str),
+					   addr2ascii(AF_INET, &mask, sizeof(mask), new_mask_str),
+					   addr2ascii(AF_INET, &inetdata->ia_dstaddr, sizeof(inetdata->ia_dstaddr), dst_addr_str));
+				break;
+		}
+	}
+}
+
+int
+IPSecCheckVPNInterfaceOrServiceUnrecoverable (void                  *dynamicStore,
+					      char                  *location,
+					      struct kern_event_msg *ev_msg,
+					      char                  *interface_buf)
+{
+	SCDynamicStoreRef dynamicStoreRef = (SCDynamicStoreRef)dynamicStore;
+
+	// return 1, if this is a delete event, and;
+	// TODO: add support for IPv6 <rdar://problem/5920237>
+	// walk Setup:/Network/Service/* and check if there are service entries referencing this interface. e.g. Setup:/Network/Service/44DB8790-0177-4F17-8D4E-37F9413D1D87/Interface:DeviceName == interface, other_serv_found = 1
+	// Setup:/Network/Interface/"interface"/AirPort:'PowerEnable' == 0 || Setup:/Network/Interface/"interface"/IPv4 is missing, interf_down = 1
+	if (!dynamicStoreRef)
+		syslog(LOG_DEBUG, "%s: invalid SCDynamicStore reference", location);
+
+	if (dynamicStoreRef &&
+	    (ev_msg->event_code == KEV_INET_ADDR_DELETED || ev_msg->event_code == KEV_INET_CHANGED_ADDR)) {
+		CFStringRef       interf_key;
+		CFMutableArrayRef interf_keys;
+		CFStringRef       pattern;
+		CFMutableArrayRef patterns;
+		CFDictionaryRef   dict = NULL;
+		CFIndex           i;
+		const void *      keys_q[128];
+		const void **     keys = keys_q;
+		const void *      values_q[128];
+		const void **     values = values_q;
+		CFIndex           n;
+		CFStringRef       vpn_if;
+		int               other_serv_found = 0, interf_down = 0;
+
+		vpn_if = CFStringCreateWithCStringNoCopy(NULL,
+							 interface_buf,
+							 kCFStringEncodingASCII,
+							 kCFAllocatorNull);
+		if (!vpn_if) {
+			// if we could not initialize interface CFString
+			syslog(LOG_NOTICE, "%s: failed to initialize interface CFString", location);
+			goto done;
+		}
+
+		interf_keys = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+		patterns = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+		// get Setup:/Network/Interface/<vpn_if>/Airport
+		interf_key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
+									   kSCDynamicStoreDomainSetup,
+									   vpn_if,
+									   kSCEntNetAirPort);
+		CFArrayAppendValue(interf_keys, interf_key);
+		CFRelease(interf_key);
+		// get State:/Network/Interface/<vpn_if>/Airport
+		interf_key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
+									   kSCDynamicStoreDomainState,
+									   vpn_if,
+									   kSCEntNetAirPort);
+		CFArrayAppendValue(interf_keys, interf_key);
+		CFRelease(interf_key);
+		// get Setup:/Network/Service/*/Interface
+		pattern = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
+								      kSCDynamicStoreDomainSetup,
+								      kSCCompAnyRegex,
+								      kSCEntNetInterface);
+		CFArrayAppendValue(patterns, pattern);
+		CFRelease(pattern);
+		// get Setup:/Network/Service/*/IPv4
+		pattern = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
+								      kSCDynamicStoreDomainSetup,
+								      kSCCompAnyRegex,
+								      kSCEntNetIPv4);
+		CFArrayAppendValue(patterns, pattern);
+		CFRelease(pattern);
+		dict = SCDynamicStoreCopyMultiple(dynamicStoreRef, interf_keys, patterns);
+		CFRelease(interf_keys);
+		CFRelease(patterns);
+
+		if (!dict) {
+			// if we could not access the SCDynamicStore
+			syslog(LOG_NOTICE, "%s: failed to initialize SCDynamicStore dictionary", location);
+			goto done;
+		}
+		// look for the service which matches the provided prefixes
+		n = CFDictionaryGetCount(dict);
+		if (n <= 0) {
+			syslog(LOG_NOTICE, "%s: empty SCDynamicStore dictionary", location);
+			goto done;
+		}
+		if (n > (CFIndex)(sizeof(keys_q) / sizeof(CFTypeRef))) {
+			keys   = CFAllocatorAllocate(NULL, n * sizeof(CFTypeRef), 0);
+			values = CFAllocatorAllocate(NULL, n * sizeof(CFTypeRef), 0);
+		}
+		CFDictionaryGetKeysAndValues(dict, keys, values);
+		for (i=0; i < n; i++) {
+			CFStringRef     s_key  = (CFStringRef)keys[i];
+			CFDictionaryRef s_dict = (CFDictionaryRef)values[i];
+			CFStringRef     s_if;
+
+			if (!isA_CFString(s_key) || !isA_CFDictionary(s_dict)) {
+				continue;
+			}
+
+			//syslog(LOG_NOTICE, "processing key: %s \n", CFStringGetCStringPtr(s_key, kCFStringEncodingMacRoman));
+
+			if (CFStringHasSuffix(s_key, kSCEntNetInterface)) {
+				// is a Service Interface entity
+				s_if = CFDictionaryGetValue(s_dict, kSCPropNetInterfaceDeviceName);
+				if (isA_CFString(s_if) && CFEqual(vpn_if, s_if)) {
+					CFArrayRef        components;
+					CFStringRef       serviceIDRef = NULL, serviceKey = NULL;
+					CFPropertyListRef serviceRef = NULL;
+
+					syslog(LOG_NOTICE, "linked service found: %s \n", CFStringGetCStringPtr(s_key, kCFStringEncodingMacRoman));
+					other_serv_found = 1;
+					// extract service ID
+					components = CFStringCreateArrayBySeparatingStrings(NULL, s_key, CFSTR("/"));
+					if (CFArrayGetCount(components) > 3) {
+						serviceIDRef = CFArrayGetValueAtIndex(components, 3);
+						//if (new key) Setup:/Network/Service/service_id/IPv4 is missing, then interf_down = 1
+						serviceKey = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainSetup, serviceIDRef, kSCEntNetIPv4);
+						if (!serviceKey ||
+						    !(serviceRef = CFDictionaryGetValue(dict, serviceKey))) {
+							syslog(LOG_NOTICE, "%s: detected disabled IPv4 Config", location);
+							interf_down = 1;
+						}
+						if (serviceKey) CFRelease(serviceKey);
+					}
+					if (components) CFRelease(components);
+					if (interf_down) break;
+				}
+				continue;
+			} else if (CFStringHasSuffix(s_key, kSCEntNetAirPort)) {
+				// Interface/<vpn_if>/Airport entity
+				if (CFStringHasPrefix(s_key, kSCDynamicStoreDomainSetup)) {
+					CFBooleanRef powerEnable = CFDictionaryGetValue(s_dict, kSCPropNetAirPortPowerEnabled);
+					if (isA_CFBoolean(powerEnable) &&
+					    CFEqual(powerEnable, kCFBooleanFalse)) {
+						syslog(LOG_NOTICE, "%s: detected AirPort, PowerEnable == FALSE", location);
+						interf_down = 1;
+						break;
+					}
+				} else if (CFStringHasPrefix(s_key, kSCDynamicStoreDomainState)) {
+					UInt16      temp;
+					CFNumberRef airStatus = CFDictionaryGetValue(s_dict, CFSTR("Power Status"));
+					if (isA_CFNumber(airStatus) &&
+					    CFNumberGetValue(airStatus, kCFNumberShortType, &temp)) {
+						if (temp ==0) {
+							syslog(LOG_NOTICE, "%s: detected AirPort, PowerStatus == 0", location);
+						}
+					}
+				}
+				continue;
+			}
+		}
+		if (vpn_if) CFRelease(vpn_if);
+		if (keys != keys_q) {
+			CFAllocatorDeallocate(NULL, keys);
+			CFAllocatorDeallocate(NULL, values);
+		}
+done :
+		if (dict) CFRelease(dict);
+
+		return (other_serv_found == 0 || interf_down == 1);             
+	}
+	return 0;
+}
+
+int
+IPSecCheckVPNInterfaceAddressChange (int                    transport_down,
+                                     struct kern_event_msg *ev_msg,
+                                     char                  *interface_buf,
+                                     struct in_addr        *our_address)
+{
+    struct kev_in_data *inetdata;
+
+    /* if transport is still down: ignore deletes, and check if the underlying interface's address has changed (ignore link-local addresses) */
+    if (transport_down &&
+        (ev_msg->event_code == KEV_INET_NEW_ADDR || ev_msg->event_code == KEV_INET_CHANGED_ADDR)) {
+ 		inetdata = (struct kev_in_data *) &ev_msg->event_data[0];
+#if 0
+        syslog(LOG_NOTICE, "%s: checking for interface address change. underlying %s, old-addr %x, new-addr %x\n",
+               __FUNCTION__, interface_buf, our_address->s_addr, inetdata->ia_addr.s_addr);
+#endif
+        /* check if address changed */
+        if (our_address->s_addr != inetdata->ia_addr.s_addr &&
+            !IN_LINKLOCAL(ntohl(inetdata->ia_addr.s_addr))) {
+            return 1;
+        }
+    }
+    
+    return 0;
+}
+
+int
+IPSecCheckVPNInterfaceAddressAlternate (int                    transport_down,
+                                        struct kern_event_msg *ev_msg,
+                                        char                  *interface_buf)
+{
+    struct kev_in_data *inetdata;
+    
+    /* if transport is still down: ignore deletes, and check if any interface address has alternative address */
+    if (transport_down &&
+        (ev_msg->event_code == KEV_INET_NEW_ADDR || ev_msg->event_code == KEV_INET_CHANGED_ADDR)) {
+ 		inetdata = (struct kev_in_data *) &ev_msg->event_data[0];
+#if 0
+        syslog(LOG_NOTICE, "%s: checking for alternate interface. underlying %s, new-addr %x\n",
+               __FUNCTION__, interface_buf, inetdata->ia_addr.s_addr);
+#endif
+        /* check if address changed */
+        if (!IN_LINKLOCAL(ntohl(inetdata->ia_addr.s_addr))) {
+            return 1;
+        }
+    }
+    
+    return 0;
 }

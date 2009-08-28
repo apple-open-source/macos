@@ -4,6 +4,8 @@
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>Copyright © 2002-2008 Apple Inc. All rights reserved.</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.filesystems.util.ntfs</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -13,11 +15,11 @@
 	<key>CFBundlePackageType</key>
 	<string>fs  </string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.1</string>
+	<string>3.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.1</string>
+	<string>3.0</string>
 	<key>FSMediaTypes</key>
 	<dict>
 		<key>Windows_NTFS</key>

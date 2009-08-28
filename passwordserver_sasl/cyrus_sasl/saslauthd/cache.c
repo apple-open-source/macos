@@ -97,8 +97,8 @@ int cache_init(void) {
 	if (table_size == 0)
 		table_size = CACHE_DEFAULT_TABLE_SIZE;
 
-	bytes = (table_size * CACHE_MAX_BUCKETS_PER * sizeof(struct bucket)) \
-		+ sizeof(struct stats) + 256;
+	bytes = (table_size * CACHE_MAX_BUCKETS_PER * (int)sizeof(struct bucket)) \
+		+ (int)sizeof(struct stats) + 256;
 
 
 	if ((base = cache_alloc_mm(bytes)) == NULL)
@@ -134,7 +134,7 @@ int cache_init(void) {
 	table_stats = (void *)((char *)base + 64);
 	table_stats->table_size = table_size;
 	table_stats->max_buckets_per = CACHE_MAX_BUCKETS_PER;
-	table_stats->sizeof_bucket = sizeof(struct bucket);
+	table_stats->sizeof_bucket = (unsigned int)sizeof(struct bucket);
 	table_stats->timeout = table_timeout;
 	table_stats->bytes = bytes;
 
@@ -185,9 +185,9 @@ int cache_lookup(const char *user, const char *realm, const char *service, const
 	 * Initial length checks
 	 **************************************************************/
 
-	user_length = strlen(user) + 1;
-	realm_length = strlen(realm) + 1;
-	service_length = strlen(service) + 1;
+	user_length = (int)strlen(user) + 1;
+	realm_length = (int)strlen(realm) + 1;
+	service_length = (int)strlen(service) + 1;
 
 	if ((user_length + realm_length + service_length) > CACHE_MAX_CREDS_LENGTH) {
 		return CACHE_TOO_BIG;
@@ -360,7 +360,7 @@ void cache_commit(struct cache_result *result) {
  * is based on Allen Holub's version. 
  **************************************************************/
 int cache_pjwhash(char *datum ) {
-    const int BITS_IN_int = ( sizeof(int) * CHAR_BIT );
+    const int BITS_IN_int = ( (int)sizeof(int) * CHAR_BIT );
     const int THREE_QUARTERS = ((int) ((BITS_IN_int * 3) / 4));
     const int ONE_EIGHTH = ((int) (BITS_IN_int / 8));
     const int HIGH_BITS = ( ~((unsigned int)(~0) >> ONE_EIGHTH ));
@@ -386,7 +386,7 @@ void cache_set_table_size(const char *size) {
 	unsigned int	calc_bytes = 0;
 	unsigned int	calc_table_size = 1;
 
-	kilobytes = strtol(size, (char **)NULL, 10);
+	kilobytes = (unsigned int)strtol(size, (char **)NULL, 10);
 
 	if (kilobytes <= 0) {
 		logger(L_ERR, L_FUNC,
@@ -397,12 +397,12 @@ void cache_set_table_size(const char *size) {
 	bytes = kilobytes * 1024;
 
 	calc_table_size =
-	    bytes / (sizeof(struct bucket) * CACHE_MAX_BUCKETS_PER);
+	    bytes / ((unsigned int)sizeof(struct bucket) * CACHE_MAX_BUCKETS_PER);
 
 	do {
 	    calc_table_size = cache_get_next_prime(calc_table_size);
 	    calc_bytes = calc_table_size *
-		sizeof(struct bucket) * CACHE_MAX_BUCKETS_PER; 
+            (unsigned int)sizeof(struct bucket) * CACHE_MAX_BUCKETS_PER; 
 	} while (calc_bytes < bytes);
 
 	table_size = calc_table_size;
@@ -415,7 +415,7 @@ void cache_set_table_size(const char *size) {
  * Allow someone to set the table timeout (in seconds)
  **************************************************************/
 void cache_set_timeout(const char *time) {
-	table_timeout = strtol(time, (char **)NULL, 10);
+	table_timeout = (unsigned int)strtol(time, (char **)NULL, 10);
 
 	if (table_timeout <= 0) {
 		logger(L_ERR, L_FUNC, "cache timeout must be positive");
@@ -434,7 +434,7 @@ void cache_set_timeout(const char *time) {
  **************************************************************/
 unsigned int cache_get_next_prime(unsigned int number) {
 
-#define TEST(f,x)	(*(f+((x)>>4))&(1<<(((x)&15L)>>1)))
+#define TEST(f,x)	(*(f+((x)>>4))&(1<<(((x)&15U)>>1)))
 #define SET(f,x)        *(f+((x)>>4))|=1<<(((x)&15)>>1)
 
 	unsigned char	*feld = NULL;
@@ -508,7 +508,7 @@ void *cache_alloc_mm(unsigned int bytes) {
 
 	memset(null_buff, 0, sizeof(null_buff));
 
-	chunk_count = (bytes / sizeof(null_buff)) + 1;
+	chunk_count = (bytes / (int)sizeof(null_buff)) + 1;
 
 	while (chunk_count > 0) {
 	    if (tx_rec(file_fd, null_buff, sizeof(null_buff))

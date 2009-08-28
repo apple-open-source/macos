@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2005, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2006, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -16,8 +16,8 @@
  * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License *
  * for  more details.  You should have  received  a copy of the GNU General *
  * Public License  distributed with GNAT;  see file COPYING.  If not, write *
- * to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, *
- * MA 02111-1307, USA.                                                      *
+ * to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, *
+ * Boston, MA 02110-1301, USA.                                              *
  *                                                                          *
  * As a  special  exception,  if you  link  this file  with other  files to *
  * produce an executable,  this file does not by itself cause the resulting *
@@ -39,9 +39,9 @@
     installed by this file are used to handle resulting signals that come
     from these probes failing (i.e. touching protected pages) */
 
-/* This file should be kept synchronized with 2sinit.ads, 2sinit.adb, and
-   5zinit.adb. All these files implement the required functionality for
-   different targets. */
+/* This file should be kept synchronized with 2sinit.ads, 2sinit.adb,
+   s-init-ae653-cert.adb and s-init-xi-sparc.adb. All these files implement
+   the required functionality for different targets. */
 
 /* The following include is here to meet the published VxWorks requirement
    that the __vxworks header appear before any other include. */
@@ -80,10 +80,6 @@ extern void (*Lock_Task) (void);
 #define Unlock_Task system__soft_links__unlock_task
 extern void (*Unlock_Task) (void);
 
-#define Get_Machine_State_Addr \
-                      system__soft_links__get_machine_state_addr
-extern struct Machine_State *(*Get_Machine_State_Addr) (void);
-
 #define Check_Abort_Status     \
                       system__soft_links__check_abort_status
 extern int (*Check_Abort_Status) (void);
@@ -91,12 +87,6 @@ extern int (*Check_Abort_Status) (void);
 #define Raise_From_Signal_Handler \
                       ada__exceptions__raise_from_signal_handler
 extern void Raise_From_Signal_Handler (struct Exception_Data *, const char *);
-
-#define Propagate_Signal_Exception \
-                      __gnat_propagate_sig_exc
-extern void Propagate_Signal_Exception (struct Machine_State *,
-                                        struct Exception_Data *,
-                                        const char *);
 
 /* Copies of global values computed by the binder */
 int   __gl_main_priority            = -1;
@@ -112,10 +102,17 @@ int   __gl_unreserve_all_interrupts = 0;
 int   __gl_exception_tracebacks     = 0;
 int   __gl_zero_cost_exceptions     = 0;
 int   __gl_detect_blocking          = 0;
+int   __gl_default_stack_size       = -1;
 
 /* Indication of whether synchronous signal handler has already been
    installed by a previous call to adainit */
 int  __gnat_handler_installed      = 0;
+
+#ifndef IN_RTS
+int __gnat_inside_elab_final_code = 0;
+/* ??? This variable is obsolete since 2001-08-29 but is kept to allow
+   bootstrap from old GNAT versions (< 3.15). */
+#endif
 
 /* HAVE_GNAT_INIT_FLOAT must be set on every targets where a __gnat_init_float
    is defined. If this is not set them a void implementation will be defined
@@ -175,7 +172,8 @@ __gnat_set_globals (int main_priority,
                     int unreserve_all_interrupts,
                     int exception_tracebacks,
                     int zero_cost_exceptions,
-                    int detect_blocking)
+                    int detect_blocking,
+                    int default_stack_size)
 {
   static int already_called = 0;
 
@@ -214,7 +212,8 @@ __gnat_set_globals (int main_priority,
 	  || __gl_queuing_policy           != queuing_policy
 	  || __gl_task_dispatching_policy  != task_dispatching_policy
 	  || __gl_unreserve_all_interrupts != unreserve_all_interrupts
-	  || __gl_zero_cost_exceptions     != zero_cost_exceptions)
+	  || __gl_zero_cost_exceptions     != zero_cost_exceptions
+	  || __gl_default_stack_size       != default_stack_size)
 	__gnat_raise_program_error (__FILE__, __LINE__);
 
       /* If either a library or the main program set the exception traceback
@@ -248,22 +247,16 @@ __gnat_set_globals (int main_priority,
      reasonable other way. This could be removed as soon as the next major
      release is out.  */
 
+   /* ??? ditto for __gl_default_stack_size, new in 5.04 */
+
 #ifdef IN_RTS
   __gl_zero_cost_exceptions = zero_cost_exceptions;
+  __gl_default_stack_size = default_stack_size;
 #else
   __gl_zero_cost_exceptions = 0;
   /* We never build the compiler to run in ZCX mode currently anyway.  */
 #endif
 }
-
-/*********************/
-/* __gnat_initialize */
-/*********************/
-
-/* __gnat_initialize is called at the start of execution of an Ada program
-   (the call is generated by the binder). The standard routine does nothing
-   at all; the intention is that this be replaced by system specific
-   code where initialization is required. */
 
 /* Notes on the Zero Cost Exceptions scheme and its impact on the signal
    handlers implemented below :
@@ -277,10 +270,10 @@ __gnat_set_globals (int main_priority,
    call chain. To evaluate if a handler applies at some point in this chain,
    the propagation engine needs to determine what region the corresponding
    call instruction pertains to. The return address may not be attached to the
-   same region as the call, so the unwinder unconditionally substracts "some"
+   same region as the call, so the unwinder unconditionally subtracts "some"
    amount to the return addresses it gets to search the region tables. The
    exact amount is computed to ensure that the resulting address is inside the
-   call instruction, and is thus target dependant (think about delay slots for
+   call instruction, and is thus target dependent (think about delay slots for
    instance).
 
    When we raise an exception from a signal handler, e.g. to transform a
@@ -291,28 +284,24 @@ __gnat_set_globals (int main_priority,
    as the faulting instruction address in the corresponding signal context
    pushed by the kernel. Leaving this address untouched may loose, because if
    the triggering instruction happens to be the very first of a region, the
-   later adjustements performed by the unwinder would yield an address outside
+   later adjustments performed by the unwinder would yield an address outside
    that region. We need to compensate for those adjustments at some point,
-   which we currently do in the GCC unwinding fallback macro.
+   which we used to do in the GCC unwinding fallback macro.
 
    The thread at http://gcc.gnu.org/ml/gcc-patches/2004-05/msg00343.html
-   describes a couple of issues with our current approach. Basically: on some
-   targets the adjustment to apply depends on the triggering signal, which is
-   not easily accessible from the macro, and we actually do not tackle this as
-   of today. Besides, other languages, e.g. Java, deal with this by performing
-   the adjustment in the signal handler before the raise, so our adjustments
-   may break those front-ends.
+   describes a couple of issues with the fallback based compensation approach.
+   First, on some targets the adjustment to apply depends on the triggering
+   signal, which is not easily accessible from the macro.  Besides, other
+   languages, e.g. Java, deal with this by performing the adjustment in the
+   signal handler before the raise, so fallback adjustments just break those
+   front-ends.
 
-   To have it all right, we should either find a way to deal with the signal
-   variants from the macro and convert Java on all targets (ugh), or remove
-   our macro adjustments and update our signal handlers a-la-java way.  The
-   latter option appears the simplest, although some targets have their share
-   of subtleties to account for.  See for instance the syscall(SYS_sigaction)
-   story in libjava/include/i386-signal.h.  */
+   We now follow the Java way for most targets, via adjust_context_for_raise
+   below.  */
 
-/***********************************/
-/* __gnat_initialize (AIX Version) */
-/***********************************/
+/***************/
+/* AIX Section */
+/***************/
 
 #if defined (_AIX)
 
@@ -402,54 +391,26 @@ __gnat_install_handler (void)
   __gnat_handler_installed = 1;
 }
 
-void
-__gnat_initialize (void *eh ATTRIBUTE_UNUSED)
-{
-}
+/*****************/
+/* Tru64 section */
+/*****************/
 
-/***************************************/
-/* __gnat_initialize (RTEMS version) */
-/***************************************/
-
-#elif defined(__rtems__)
-
-extern void __gnat_install_handler (void);
-
-/* For RTEMS, each bsp will provide a custom __gnat_install_handler (). */
-
-void
-__gnat_initialize (void *eh ATTRIBUTE_UNUSED)
-{
-   __gnat_install_handler ();
-}
-
-/****************************************/
-/* __gnat_initialize (Dec Unix Version) */
-/****************************************/
-
-#elif defined(__alpha__) && defined(__osf__) && ! defined(__alpha_vxworks)
-
-/* Note: it seems that __osf__ is defined for the Alpha VXWorks case. Not
-   clear that this is reasonable, but in any case we have to be sure to
-   exclude this case in the above test.  */
+#elif defined(__alpha__) && defined(__osf__)
 
 #include <signal.h>
 #include <sys/siginfo.h>
 
 static void __gnat_error_handler (int, siginfo_t *, struct sigcontext *);
 extern char *__gnat_get_code_loc (struct sigcontext *);
-extern void __gnat_enter_handler (struct sigcontext *, char *);
+extern void __gnat_set_code_loc (struct sigcontext *, char *);
 extern size_t __gnat_machine_state_length (void);
 
-extern long exc_lookup_gp (char *);
-extern void exc_resume (struct sigcontext *);
-
 static void
-__gnat_error_handler (int sig, siginfo_t *sip, struct sigcontext *context)
+__gnat_error_handler
+  (int sig, siginfo_t *sip, struct sigcontext *context ATTRIBUTE_UNUSED)
 {
   struct Exception_Data *exception;
   static int recurse = 0;
-  struct sigcontext *mstate;
   const char *msg;
 
   /* If this was an explicit signal from a "kill", just resignal it.  */
@@ -507,10 +468,6 @@ __gnat_error_handler (int sig, siginfo_t *sip, struct sigcontext *context)
     }
 
   recurse = 0;
-  mstate = (struct sigcontext *) (*Get_Machine_State_Addr) ();
-  if (mstate != 0)
-    *mstate = *context;
-
   Raise_From_Signal_Handler (exception, (char *) msg);
 }
 
@@ -542,12 +499,7 @@ __gnat_install_handler (void)
   __gnat_handler_installed = 1;
 }
 
-void
-__gnat_initialize (void *eh ATTRIBUTE_UNUSED)
-{
-}
-
-/* Routines called by 5amastop.adb.  */
+/* Routines called by s-mastop-tru64.adb.  */
 
 #define SC_GP 29
 
@@ -558,12 +510,11 @@ __gnat_get_code_loc (struct sigcontext *context)
 }
 
 void
-__gnat_enter_handler ( struct sigcontext *context, char *pc)
+__gnat_set_code_loc (struct sigcontext *context, char *pc)
 {
   context->sc_pc = (long) pc;
-  context->sc_regs[SC_GP] = exc_lookup_gp (pc);
-  exc_resume (context);
 }
+
 
 size_t
 __gnat_machine_state_length (void)
@@ -571,21 +522,40 @@ __gnat_machine_state_length (void)
   return sizeof (struct sigcontext);
 }
 
-/************************************/
-/* __gnat_initialize (HPUX Version) */
-/************************************/
+/********************/
+/* PA HP-UX section */
+/********************/
 
-#elif defined (__hpux__)
+#elif defined (__hppa__) && defined (__hpux__)
 
 #include <signal.h>
-
-static void __gnat_error_handler (int);
+#include <sys/ucontext.h>
 
 static void
-__gnat_error_handler (int sig)
+__gnat_error_handler (int sig, siginfo_t *siginfo, void *ucontext);
+
+/* __gnat_adjust_context_for_raise - see comments along with the default
+   version later in this file.  */
+
+#define HAVE_GNAT_ADJUST_CONTEXT_FOR_RAISE
+
+void
+__gnat_adjust_context_for_raise (int signo ATTRIBUTE_UNUSED, void *ucontext)
+{
+  mcontext_t *mcontext = &((ucontext_t *) ucontext)->uc_mcontext;
+
+  if (UseWideRegs (mcontext))
+    mcontext->ss_wide.ss_32.ss_pcoq_head_lo ++;
+  else
+    mcontext->ss_narrow.ss_pcoq_head ++;
+}
+
+static void
+__gnat_error_handler
+  (int sig, siginfo_t *siginfo ATTRIBUTE_UNUSED, void *ucontext)
 {
   struct Exception_Data *exception;
-  char *msg;
+  const char *msg;
 
   switch (sig)
     {
@@ -609,6 +579,8 @@ __gnat_error_handler (int sig)
       exception = &program_error;
       msg = "unhandled signal";
     }
+
+  __gnat_adjust_context_for_raise (sig, ucontext);
 
   Raise_From_Signal_Handler (exception, msg);
 }
@@ -637,8 +609,8 @@ __gnat_install_handler (void)
 
   sigaltstack (&stack, NULL);
 
-  act.sa_handler = __gnat_error_handler;
-  act.sa_flags = SA_NODEFER | SA_RESTART | SA_ONSTACK;
+  act.sa_sigaction = __gnat_error_handler;
+  act.sa_flags = SA_NODEFER | SA_RESTART | SA_ONSTACK | SA_SIGINFO;
   sigemptyset (&act.sa_mask);
 
   /* Do not install handlers if interrupt state is "System" */
@@ -656,19 +628,17 @@ __gnat_install_handler (void)
   __gnat_handler_installed = 1;
 }
 
-void
-__gnat_initialize (void *eh ATTRIBUTE_UNUSED)
-{
-}
+/*********************/
+/* GNU/Linux Section */
+/*********************/
 
-/*****************************************/
-/* __gnat_initialize (GNU/Linux Version) */
-/*****************************************/
-
-#elif defined (linux) && defined (i386) && !defined (__RT__)
+#elif defined (linux) && (defined (i386) || defined (__x86_64__) \
+                          || defined (__ia64__))
 
 #include <signal.h>
-#include <asm/sigcontext.h>
+
+#define __USE_GNU 1 /* required to get REG_EIP/RIP from glibc's ucontext.h */
+#include <sys/ucontext.h>
 
 /* GNU/Linux, which uses glibc, does not define NULL in included
    header files */
@@ -677,34 +647,35 @@ __gnat_initialize (void *eh ATTRIBUTE_UNUSED)
 #define NULL ((void *) 0)
 #endif
 
-struct Machine_State
-{
-  unsigned long eip;
-  unsigned long ebx;
-  unsigned long esp;
-  unsigned long ebp;
-  unsigned long esi;
-  unsigned long edi;
-};
+static void __gnat_error_handler (int, siginfo_t *siginfo, void *ucontext);
 
-static void __gnat_error_handler (int);
+/* __gnat_adjust_context_for_raise - see comments along with the default
+   version later in this file.  */
+
+#define HAVE_GNAT_ADJUST_CONTEXT_FOR_RAISE
+
+void
+__gnat_adjust_context_for_raise (int signo ATTRIBUTE_UNUSED, void *ucontext)
+{
+  mcontext_t *mcontext = &((ucontext_t *) ucontext)->uc_mcontext;
+
+#if defined (i386)
+  mcontext->gregs[REG_EIP]++;
+#elif defined (__x86_64__)
+  mcontext->gregs[REG_RIP]++;
+#elif defined (__ia64__)
+  mcontext->sc_ip++;
+#endif
+}
 
 static void
-__gnat_error_handler (int sig)
+__gnat_error_handler (int sig,
+                      siginfo_t *siginfo ATTRIBUTE_UNUSED,
+                      void *ucontext)
 {
   struct Exception_Data *exception;
   const char *msg;
   static int recurse = 0;
-
-  struct sigcontext *info
-    = (struct sigcontext *) (((char *) &sig) + sizeof (int));
-
-  /* The Linux kernel does not document how to get the machine state in a
-     signal handler, but in fact the necessary data is in a sigcontext_struct
-     value that is on the stack immediately above the signal number
-     parameter, and the above messing accesses this value on the stack. */
-
-  struct Machine_State *mstate;
 
   switch (sig)
     {
@@ -761,19 +732,15 @@ __gnat_error_handler (int sig)
       exception = &program_error;
       msg = "unhandled signal";
     }
-
-  mstate = (*Get_Machine_State_Addr) ();
-  if (mstate)
-    {
-      mstate->eip = info->eip;
-      mstate->ebx = info->ebx;
-      mstate->esp = info->esp_at_signal;
-      mstate->ebp = info->ebp;
-      mstate->esi = info->esi;
-      mstate->edi = info->edi;
-    }
-
   recurse = 0;
+
+  /* We adjust the interrupted context here (and not in the
+     MD_FALLBACK_FRAME_STATE_FOR macro) because recent versions of the Native
+     POSIX Thread Library (NPTL) are compiled with DWARF 2 unwind information,
+     and hence the later macro is never executed for signal frames. */
+
+  __gnat_adjust_context_for_raise (sig, ucontext);
+
   Raise_From_Signal_Handler (exception, msg);
 }
 
@@ -786,8 +753,8 @@ __gnat_install_handler (void)
      exceptions.  Make sure that the handler isn't interrupted by another
      signal that might cause a scheduling event! */
 
-  act.sa_handler = __gnat_error_handler;
-  act.sa_flags = SA_NODEFER | SA_RESTART;
+  act.sa_sigaction = __gnat_error_handler;
+  act.sa_flags = SA_NODEFER | SA_RESTART | SA_SIGINFO;
   sigemptyset (&act.sa_mask);
 
   /* Do not install handlers if interrupt state is "System" */
@@ -805,44 +772,9 @@ __gnat_install_handler (void)
   __gnat_handler_installed = 1;
 }
 
-void
-__gnat_initialize (void *eh ATTRIBUTE_UNUSED)
-{
-}
-
-/******************************************/
-/* __gnat_initialize (NT-mingw32 Version) */
-/******************************************/
-
-#elif defined (__MINGW32__)
-#include <windows.h>
-
-void
-__gnat_install_handler (void)
-{
-}
-
-void
-__gnat_initialize (void *eh ATTRIBUTE_UNUSED)
-{
-   /* Initialize floating-point coprocessor. This call is needed because
-      the MS libraries default to 64-bit precision instead of 80-bit
-      precision, and we require the full precision for proper operation,
-      given that we have set Max_Digits etc with this in mind */
-   __gnat_init_float ();
-
-   /* Initialize a lock for a process handle list - see a-adaint.c for the
-      implementation of __gnat_portable_no_block_spawn, __gnat_portable_wait */
-   __gnat_plist_init();
-
-   /* Install the Structured Exception handler.  */
-   if (eh)
-     __gnat_install_SEH_handler (eh);
-}
-
-/***************************************/
-/* __gnat_initialize (Interix Version) */
-/***************************************/
+/*******************/
+/* Interix Section */
+/*******************/
 
 #elif defined (__INTERIX)
 
@@ -854,7 +786,7 @@ static void
 __gnat_error_handler (int sig)
 {
   struct Exception_Data *exception;
-  char *msg;
+  const char *msg;
 
   switch (sig)
     {
@@ -907,58 +839,9 @@ __gnat_install_handler (void)
   __gnat_handler_installed = 1;
 }
 
-void
-__gnat_initialize (void *eh ATTRIBUTE_UNUSED)
-{
-   __gnat_init_float ();
-}
-
-/**************************************/
-/* __gnat_initialize (LynxOS Version) */
-/**************************************/
-
-#elif defined (__Lynx__)
-
-void
-__gnat_initialize (void *eh ATTRIBUTE_UNUSED)
-{
-   __gnat_init_float ();
-}
-
-/*********************************/
-/* __gnat_install_handler (Lynx) */
-/*********************************/
-
-void
-__gnat_install_handler (void)
-{
-  __gnat_handler_installed = 1;
-}
-
-/****************************/
-/* __gnat_initialize (OS/2) */
-/****************************/
-
-#elif defined (__EMX__) /* OS/2 dependent initialization */
-
-void
-__gnat_initialize (void *eh ATTRIBUTE_UNUSED)
-{
-}
-
-/*********************************/
-/* __gnat_install_handler (OS/2) */
-/*********************************/
-
-void
-__gnat_install_handler (void)
-{
-  __gnat_handler_installed = 1;
-}
-
-/***********************************/
-/* __gnat_initialize (SGI Version) */
-/***********************************/
+/****************/
+/* IRIX Section */
+/****************/
 
 #elif defined (sgi)
 
@@ -972,11 +855,6 @@ __gnat_install_handler (void)
 #define SIGADAABORT 48
 #define SIGNAL_STACK_SIZE 4096
 #define SIGNAL_STACK_ALIGNMENT 64
-
-struct Machine_State
-{
-  sigcontext_t context;
-};
 
 static void __gnat_error_handler (int, int, sigcontext_t *);
 
@@ -993,9 +871,8 @@ static void __gnat_error_handler (int, int, sigcontext_t *);
 */
 
 static void
-__gnat_error_handler (int sig, int code, sigcontext_t *sc)
+__gnat_error_handler (int sig, int code, sigcontext_t *sc ATTRIBUTE_UNUSED)
 {
-  struct Machine_State  *mstate;
   struct Exception_Data *exception;
   const char *msg;
 
@@ -1070,10 +947,6 @@ __gnat_error_handler (int sig, int code, sigcontext_t *sc)
       msg = "unhandled signal";
     }
 
-  mstate = (*Get_Machine_State_Addr) ();
-  if (mstate != 0)
-    memcpy ((void *) mstate, (const void *) sc, sizeof (sigcontext_t));
-
   Raise_From_Signal_Handler (exception, msg);
 }
 
@@ -1108,14 +981,9 @@ __gnat_install_handler (void)
   __gnat_handler_installed = 1;
 }
 
-void
-__gnat_initialize (void *eh ATTRIBUTE_UNUSED)
-{
-}
-
-/*************************************************/
-/* __gnat_initialize (Solaris and SunOS Version) */
-/*************************************************/
+/*******************/
+/* Solaris Section */
+/*******************/
 
 #elif defined (sun) && defined (__SVR4) && !defined (__vxworks)
 
@@ -1216,16 +1084,13 @@ __gnat_install_handler (void)
   __gnat_handler_installed = 1;
 }
 
-void
-__gnat_initialize (void *eh ATTRIBUTE_UNUSED)
-{
-}
-
-/***********************************/
-/* __gnat_initialize (VMS Version) */
-/***********************************/
+/***************/
+/* VMS Section */
+/***************/
 
 #elif defined (VMS)
+
+long __gnat_error_handler (int *, void *);
 
 #ifdef __IA64
 #define lib_get_curr_invo_context LIB$I64_GET_CURR_INVO_CONTEXT
@@ -1246,12 +1111,69 @@ extern long __gnat_error_prehandler (void);
 extern char *__gnat_error_prehandler_stack;   /* Alternate signal stack */
 #endif
 
+/* Define macro symbols for the VMS conditions that become Ada exceptions.
+   Most of these are also defined in the header file ssdef.h which has not
+   yet been converted to be recognized by Gnu C. */
+
+/* Defining these as macros, as opposed to external addresses, allows
+   them to be used in a case statement (below */
+#define SS$_ACCVIO            12
+#define SS$_HPARITH         1284
+#define SS$_STKOVF          1364
+#define SS$_RESIGNAL        2328
+
+/* These codes are in standard message libraries */
+extern int CMA$_EXIT_THREAD;
+extern int SS$_DEBUG;
+extern int SS$_INTDIV;
+extern int LIB$_KEYNOTFOU;
+extern int LIB$_ACTIMAGE;
+extern int MTH$_FLOOVEMAT;       /* Some ACVC_21 CXA tests */
+
+/* These codes are non standard, which is to say the author is
+   not sure if they are defined in the standard message libraries
+   so keep them as macros for now. */
+#define RDB$_STREAM_EOF 20480426
+#define FDL$_UNPRIKW 11829410
+
+struct cond_except {
+  const int *cond;
+  const struct Exception_Data *except;
+};
+
+struct descriptor_s {unsigned short len, mbz; __char_ptr32 adr; };
+
 /* Conditions that don't have an Ada exception counterpart must raise
    Non_Ada_Error.  Since this is defined in s-auxdec, it should only be
    referenced by user programs, not the compiler or tools. Hence the
    #ifdef IN_RTS. */
 
 #ifdef IN_RTS
+
+#define Status_Error ada__io_exceptions__status_error
+extern struct Exception_Data Status_Error;
+
+#define Mode_Error ada__io_exceptions__mode_error
+extern struct Exception_Data Mode_Error;
+
+#define Name_Error ada__io_exceptions__name_error
+extern struct Exception_Data Name_Error;
+
+#define Use_Error ada__io_exceptions__use_error
+extern struct Exception_Data Use_Error;
+
+#define Device_Error ada__io_exceptions__device_error
+extern struct Exception_Data Device_Error;
+
+#define End_Error ada__io_exceptions__end_error
+extern struct Exception_Data End_Error;
+
+#define Data_Error ada__io_exceptions__data_error
+extern struct Exception_Data Data_Error;
+
+#define Layout_Error ada__io_exceptions__layout_error
+extern struct Exception_Data Layout_Error;
+
 #define Non_Ada_Error system__aux_dec__non_ada_error
 extern struct Exception_Data Non_Ada_Error;
 
@@ -1260,71 +1182,220 @@ extern struct Exception_Data *Coded_Exception (Exception_Code);
 
 #define Base_Code_In system__vms_exception_table__base_code_in
 extern Exception_Code Base_Code_In (Exception_Code);
+
+/* DEC Ada exceptions are not defined in a header file, so they
+   must be declared as external addresses */
+
+extern int ADA$_PROGRAM_ERROR __attribute__ ((weak));
+extern int ADA$_LOCK_ERROR __attribute__ ((weak));
+extern int ADA$_EXISTENCE_ERROR __attribute__ ((weak));
+extern int ADA$_KEY_ERROR __attribute__ ((weak));
+extern int ADA$_KEYSIZERR __attribute__ ((weak));
+extern int ADA$_STAOVF __attribute__ ((weak));
+extern int ADA$_CONSTRAINT_ERRO __attribute__ ((weak));
+extern int ADA$_IOSYSFAILED __attribute__ ((weak));
+extern int ADA$_LAYOUT_ERROR __attribute__ ((weak));
+extern int ADA$_STORAGE_ERROR __attribute__ ((weak));
+extern int ADA$_DATA_ERROR __attribute__ ((weak));
+extern int ADA$_DEVICE_ERROR __attribute__ ((weak));
+extern int ADA$_END_ERROR __attribute__ ((weak));
+extern int ADA$_MODE_ERROR __attribute__ ((weak));
+extern int ADA$_NAME_ERROR __attribute__ ((weak));
+extern int ADA$_STATUS_ERROR __attribute__ ((weak));
+extern int ADA$_NOT_OPEN __attribute__ ((weak));
+extern int ADA$_ALREADY_OPEN __attribute__ ((weak));
+extern int ADA$_USE_ERROR __attribute__ ((weak));
+extern int ADA$_UNSUPPORTED __attribute__ ((weak));
+extern int ADA$_FAC_MODE_MISMAT __attribute__ ((weak));
+extern int ADA$_ORG_MISMATCH __attribute__ ((weak));
+extern int ADA$_RFM_MISMATCH __attribute__ ((weak));
+extern int ADA$_RAT_MISMATCH __attribute__ ((weak));
+extern int ADA$_MRS_MISMATCH __attribute__ ((weak));
+extern int ADA$_MRN_MISMATCH __attribute__ ((weak));
+extern int ADA$_KEY_MISMATCH __attribute__ ((weak));
+extern int ADA$_MAXLINEXC __attribute__ ((weak));
+extern int ADA$_LINEXCMRS __attribute__ ((weak));
+
+/* DEC Ada specific conditions */
+static const struct cond_except dec_ada_cond_except_table [] = {
+  {&ADA$_PROGRAM_ERROR,   &program_error},
+  {&ADA$_USE_ERROR,       &Use_Error},
+  {&ADA$_KEYSIZERR,       &program_error},
+  {&ADA$_STAOVF,          &storage_error},
+  {&ADA$_CONSTRAINT_ERRO, &constraint_error},
+  {&ADA$_IOSYSFAILED,     &Device_Error},
+  {&ADA$_LAYOUT_ERROR,    &Layout_Error},
+  {&ADA$_STORAGE_ERROR,   &storage_error},
+  {&ADA$_DATA_ERROR,      &Data_Error},
+  {&ADA$_DEVICE_ERROR,    &Device_Error},
+  {&ADA$_END_ERROR,       &End_Error},
+  {&ADA$_MODE_ERROR,      &Mode_Error},
+  {&ADA$_NAME_ERROR,      &Name_Error},
+  {&ADA$_STATUS_ERROR,    &Status_Error},
+  {&ADA$_NOT_OPEN,        &Use_Error},
+  {&ADA$_ALREADY_OPEN,    &Use_Error},
+  {&ADA$_USE_ERROR,       &Use_Error},
+  {&ADA$_UNSUPPORTED,     &Use_Error},
+  {&ADA$_FAC_MODE_MISMAT, &Use_Error},
+  {&ADA$_ORG_MISMATCH,    &Use_Error},
+  {&ADA$_RFM_MISMATCH,    &Use_Error},
+  {&ADA$_RAT_MISMATCH,    &Use_Error},
+  {&ADA$_MRS_MISMATCH,    &Use_Error},
+  {&ADA$_MRN_MISMATCH,    &Use_Error},
+  {&ADA$_KEY_MISMATCH,    &Use_Error},
+  {&ADA$_MAXLINEXC,       &constraint_error},
+  {&ADA$_LINEXCMRS,       &constraint_error},
+  {0,                     0}
+};
+
+#if 0
+   /* Already handled by a pragma Import_Exception
+      in Aux_IO_Exceptions */
+  {&ADA$_LOCK_ERROR,      &Lock_Error},
+  {&ADA$_EXISTENCE_ERROR, &Existence_Error},
+  {&ADA$_KEY_ERROR,       &Key_Error},
 #endif
 
-/* Define macro symbols for the VMS conditions that become Ada exceptions.
-   Most of these are also defined in the header file ssdef.h which has not
-   yet been converted to be recoginized by Gnu C. Some, which couldn't be
-   located, are assigned names based on the DEC test suite tests which
-   raise them. */
+#endif /* IN_RTS */
 
-#define SS$_ACCVIO            12
-#define SS$_DEBUG           1132
-#define SS$_INTDIV          1156
-#define SS$_HPARITH         1284
-#define SS$_STKOVF          1364
-#define SS$_RESIGNAL        2328
-#define MTH$_FLOOVEMAT   1475268       /* Some ACVC_21 CXA tests */
-#define SS$_CE24VRU      3253636       /* Write to unopened file */
-#define SS$_C980VTE      3246436       /* AST requests time slice */
-#define CMA$_EXIT_THREAD 4227492
-#define CMA$_EXCCOPLOS   4228108
-#define CMA$_ALERTED     4227460
+/* Non DEC Ada specific conditions. We could probably also put
+   SS$_HPARITH here and possibly SS$_ACCVIO, SS$_STKOVF. */
+static const struct cond_except cond_except_table [] = {
+  {&MTH$_FLOOVEMAT, &constraint_error},
+  {&SS$_INTDIV,     &constraint_error},
+  {0,               0}
+};
 
-struct descriptor_s {unsigned short len, mbz; char *adr; };
+/* To deal with VMS conditions and their mapping to Ada exceptions,
+   the __gnat_error_handler routine below is installed as an exception
+   vector having precedence over DEC frame handlers.  Some conditions
+   still need to be handled by such handlers, however, in which case
+   __gnat_error_handler needs to return SS$_RESIGNAL.  Consider for
+   instance the use of a third party library compiled with DECAda and
+   performing it's own exception handling internally.
 
-long __gnat_error_handler (int *, void *);
+   To allow some user-level flexibility, which conditions should be
+   resignaled is controlled by a predicate function, provided with the
+   condition value and returning a boolean indication stating whether
+   this condition should be resignaled or not.
+
+   That predicate function is called indirectly, via a function pointer,
+   by __gnat_error_handler, and changing that pointer is allowed to the
+   the user code by way of the __gnat_set_resignal_predicate interface.
+
+   The user level function may then implement what it likes, including
+   for instance the maintenance of a dynamic data structure if the set
+   of to be resignalled conditions has to change over the program's
+   lifetime.
+
+   ??? This is not a perfect solution to deal with the possible
+   interactions between the GNAT and the DECAda exception handling
+   models and better (more general) schemes are studied.  This is so
+   just provided as a convenient workaround in the meantime, and
+   should be use with caution since the implementation has been kept
+   very simple.  */
+
+typedef int
+resignal_predicate (int code);
+
+const int *cond_resignal_table [] = {
+  &CMA$_EXIT_THREAD,
+  &SS$_DEBUG,
+  &LIB$_KEYNOTFOU,
+  &LIB$_ACTIMAGE,
+  (int *) RDB$_STREAM_EOF,
+  (int *) FDL$_UNPRIKW,
+  0
+};
+
+const int facility_resignal_table [] = {
+  0x1380000, /* RDB */
+  0x2220000, /* SQL */
+  0
+};
+
+/* Default GNAT predicate for resignaling conditions.  */
+
+static int
+__gnat_default_resignal_p (int code)
+{
+  int i, iexcept;
+
+  for (i = 0; facility_resignal_table [i]; i++)
+    if ((code & 0xfff0000) == facility_resignal_table [i])
+      return 1;
+
+  for (i = 0, iexcept = 0;
+       cond_resignal_table [i] &&
+       !(iexcept = LIB$MATCH_COND (&code, &cond_resignal_table [i]));
+       i++);
+
+  return iexcept;
+}
+
+/* Static pointer to predicate that the __gnat_error_handler exception
+   vector invokes to determine if it should resignal a condition.  */
+
+static resignal_predicate * __gnat_resignal_p = __gnat_default_resignal_p;
+
+/* User interface to change the predicate pointer to PREDICATE. Reset to
+   the default if PREDICATE is null.  */
+
+void
+__gnat_set_resignal_predicate (resignal_predicate * predicate)
+{
+  if (predicate == 0)
+    __gnat_resignal_p = __gnat_default_resignal_p;
+  else
+    __gnat_resignal_p = predicate;
+}
+
+/* Should match System.Parameters.Default_Exception_Msg_Max_Length */
+#define Default_Exception_Msg_Max_Length 512
+
+/* Action routine for SYS$PUTMSG. There may be
+   multiple conditions, each with text to be appended to
+   MESSAGE and separated by line termination. */
+
+static int
+copy_msg (msgdesc, message)
+     struct descriptor_s *msgdesc;
+     char *message;
+{
+  int len = strlen (message);
+  int copy_len;
+
+  /* Check for buffer overflow and skip */
+  if (len > 0 && len <= Default_Exception_Msg_Max_Length - 3)
+    {
+      strcat (message, "\r\n");
+      len += 2;
+    }
+
+  /* Check for buffer overflow and truncate if necessary */
+  copy_len = (len + msgdesc->len <= Default_Exception_Msg_Max_Length - 1 ?
+	      msgdesc->len :
+	      Default_Exception_Msg_Max_Length - 1 - len);
+  strncpy (&message [len], msgdesc->adr, copy_len);
+  message [len + copy_len] = 0;
+
+  return 0;
+}
 
 long
-__gnat_error_handler (int *sigargs, void *mechargs)
+__gnat_handle_vms_condition (int *sigargs, void *mechargs)
 {
   struct Exception_Data *exception = 0;
   Exception_Code base_code;
+  struct descriptor_s gnat_facility = {4,0,"GNAT"};
+  char message [Default_Exception_Msg_Max_Length];
 
-  char *msg = "";
-  char message[256];
-  long prvhnd;
-  struct descriptor_s msgdesc;
-  int msg_flag = 0x000f; /* 1 bit for each of the four message parts */
-  unsigned short outlen;
-  char curr_icb[544];
-  long curr_invo_handle;
-  long *mstate;
+  const char *msg = "";
 
-  /* Resignaled condtions aren't effected by by pragma Import_Exception */
-
-  switch (sigargs[1])
-  {
-
-    case CMA$_EXIT_THREAD:
-      return SS$_RESIGNAL;
-
-    case SS$_DEBUG: /* Gdb attach, resignal to merge activate gdbstub. */
-      return SS$_RESIGNAL;
-
-    case 1409786: /* Nickerson bug #33 ??? */
-      return SS$_RESIGNAL;
-
-    case 1381050: /* Nickerson bug #33 ??? */
-      return SS$_RESIGNAL;
-
-    case 20480426: /* RDB-E-STREAM_EOF */
-      return SS$_RESIGNAL;
-
-    case 11829410: /* Resignalled as Use_Error for CE10VRC */
-      return SS$_RESIGNAL;
-
-  }
+  /* Check for conditions to resignal which aren't effected by pragma
+     Import_Exception.  */
+  if (__gnat_resignal_p (sigargs [1]))
+    return SS$_RESIGNAL;
 
 #ifdef IN_RTS
   /* See if it's an imported exception. Beware that registered exceptions
@@ -1334,11 +1405,12 @@ __gnat_error_handler (int *sigargs, void *mechargs)
 
   if (exception)
     {
-      msgdesc.len = 256;
-      msgdesc.mbz = 0;
-      msgdesc.adr = message;
-      SYS$GETMSG (sigargs[1], &outlen, &msgdesc, msg_flag, 0);
-      message[outlen] = 0;
+      message [0] = 0;
+
+      /* Subtract PC & PSL fields which messes with PUTMSG */
+      sigargs [0] -= 2;
+      SYS$PUTMSG (sigargs, copy_msg, &gnat_facility, message);
+      sigargs [0] += 2;
       msg = message;
 
       exception->Name_Length = 19;
@@ -1369,11 +1441,6 @@ __gnat_error_handler (int *sigargs, void *mechargs)
 	msg = "stack overflow";
 	break;
 
-      case SS$_INTDIV:
-	exception = &constraint_error;
-	msg = "division by zero";
-	break;
-
       case SS$_HPARITH:
 #ifndef IN_RTS
 	return SS$_RESIGNAL; /* toplev.c handles for compiler */
@@ -1385,77 +1452,122 @@ __gnat_error_handler (int *sigargs, void *mechargs)
 #endif
 	break;
 
-      case MTH$_FLOOVEMAT:
-	exception = &constraint_error;
-	msg = "floating overflow in math library";
-	break;
-
-      case SS$_CE24VRU:
-	exception = &constraint_error;
-	msg = "";
-	break;
-
-      case SS$_C980VTE:
-	exception = &program_error;
-	msg = "";
-	break;
-
       default:
-#ifndef IN_RTS
-	exception = &program_error;
+#ifdef IN_RTS
+	{
+	  int i;
+
+	  /* Scan the DEC Ada exception condition table for a match and fetch
+	     the associated GNAT exception pointer */
+	  for (i = 0;
+	       dec_ada_cond_except_table [i].cond &&
+	       !LIB$MATCH_COND (&sigargs [1],
+			        &dec_ada_cond_except_table [i].cond);
+	       i++);
+	  exception = (struct Exception_Data *)
+	    dec_ada_cond_except_table [i].except;
+
+	  if (!exception)
+	    {
+	      /* Scan the VMS standard condition table for a match and fetch
+		 the associated GNAT exception pointer */
+	      for (i = 0;
+		   cond_except_table [i].cond &&
+		   !LIB$MATCH_COND (&sigargs [1], &cond_except_table [i].cond);
+		   i++);
+	      exception =(struct Exception_Data *) cond_except_table [i].except;
+
+	      if (!exception)
+		/* User programs expect Non_Ada_Error to be raised, reference
+		   DEC Ada test CXCONDHAN. */
+		exception = &Non_Ada_Error;
+	    }
+	}
 #else
-	/* User programs expect Non_Ada_Error to be raised, reference
-	   DEC Ada test CXCONDHAN. */
-	exception = &Non_Ada_Error;
+	exception = &program_error;
 #endif
-	msgdesc.len = 256;
-	msgdesc.mbz = 0;
-	msgdesc.adr = message;
-	SYS$GETMSG (sigargs[1], &outlen, &msgdesc, msg_flag, 0);
-	message[outlen] = 0;
+	message [0] = 0;
+	/* Subtract PC & PSL fields which messes with PUTMSG */
+	sigargs [0] -= 2;
+	SYS$PUTMSG (sigargs, copy_msg, &gnat_facility, message);
+	sigargs [0] += 2;
 	msg = message;
 	break;
       }
 
-  mstate = (long *) (*Get_Machine_State_Addr) ();
-  if (mstate != 0)
-    {
-      lib_get_curr_invo_context (&curr_icb);
-      lib_get_prev_invo_context (&curr_icb);
-      lib_get_prev_invo_context (&curr_icb);
-      curr_invo_handle = lib_get_invo_handle (&curr_icb);
-      *mstate = curr_invo_handle;
-    }
-  Raise_From_Signal_Handler (exception, msg);
+ __gnat_adjust_context_for_raise (0, (void *)sigargs);
+ Raise_From_Signal_Handler (exception, msg);
+}
+
+long
+__gnat_error_handler (int *sigargs, void *mechargs)
+{
+  return __gnat_handle_vms_condition (sigargs, mechargs);
 }
 
 void
 __gnat_install_handler (void)
 {
-  long prvhnd;
-#if defined (IN_RTS) && !defined (__IA64)
-  char *c;
+  long prvhnd ATTRIBUTE_UNUSED;
 
-  c = (char *) xmalloc (2049);
-
-  __gnat_error_prehandler_stack = &c[2048];
-
-  /* __gnat_error_prehandler is an assembly function.  */
-  SYS$SETEXV (1, __gnat_error_prehandler, 3, &prvhnd);
-#else
+#if !defined (IN_RTS)
   SYS$SETEXV (1, __gnat_error_handler, 3, &prvhnd);
 #endif
+
+#if defined (IN_RTS) && defined (__IA64)
+  if (getenv ("DBG$TDBG"))
+    printf ("DBG$TDBG defined, __gnat_error_handler not installed!\n");
+  else
+    SYS$SETEXV (1, __gnat_error_handler, 3, &prvhnd);
+#endif
+
+  /* On alpha-vms, we avoid the global vector annoyance thanks to frame based
+     handlers to turn conditions into exceptions since GCC 3.4.  The global
+     vector is still required for earlier GCC versions.  We're resorting to
+     the __gnat_error_prehandler assembly function in this case.  */
+
+#if defined (IN_RTS) && defined (__alpha__)
+  if ((__GNUC__ * 10 + __GNUC_MINOR__) < 34)
+    {
+      char * c = (char *) xmalloc (2049);
+
+      __gnat_error_prehandler_stack = &c[2048];
+      SYS$SETEXV (1, __gnat_error_prehandler, 3, &prvhnd);
+    }
+#endif
+
   __gnat_handler_installed = 1;
 }
 
+/* __gnat_adjust_context_for_raise for alpha - see comments along with the
+   default version later in this file.  */
+
+#if defined (IN_RTS) && defined (__alpha__)
+
+#include <vms/chfctxdef.h>
+#include <vms/chfdef.h>
+
+#define HAVE_GNAT_ADJUST_CONTEXT_FOR_RAISE
+
 void
-__gnat_initialize(void *eh ATTRIBUTE_UNUSED)
+__gnat_adjust_context_for_raise (int signo ATTRIBUTE_UNUSED, void *ucontext)
 {
+  /* Add one to the address of the instruction signaling the condition,
+     located in the sigargs array.  */
+
+  CHF$SIGNAL_ARRAY * sigargs = (CHF$SIGNAL_ARRAY *) ucontext;
+
+  int vcount = sigargs->chf$is_sig_args;
+  int * pc_slot = & (&sigargs->chf$l_sig_name)[vcount-2];
+
+  (*pc_slot) ++;
 }
 
-/*************************************************/
-/* __gnat_initialize (FreeBSD version) */
-/*************************************************/
+#endif
+
+/*******************/
+/* FreeBSD Section */
+/*******************/
 
 #elif defined (__FreeBSD__)
 
@@ -1518,44 +1630,49 @@ __gnat_install_handler ()
   (void) sigaction (SIGFPE,  &act, NULL);
   (void) sigaction (SIGSEGV, &act, NULL);
   (void) sigaction (SIGBUS,  &act, NULL);
+
+  __gnat_handler_installed = 1;
 }
 
-void
-__gnat_initialize (void *eh ATTRIBUTE_UNUSED)
-{
-   __gnat_install_handler ();
-
-   /* XXX - Initialize floating-point coprocessor. This call is
-      needed because FreeBSD defaults to 64-bit precision instead
-      of 80-bit precision?  We require the full precision for
-      proper operation, given that we have set Max_Digits etc
-      with this in mind */
-   __gnat_init_float ();
-}
-
-/***************************************/
-/* __gnat_initialize (VXWorks Version) */
-/***************************************/
+/*******************/
+/* VxWorks Section */
+/*******************/
 
 #elif defined(__vxworks)
 
 #include <signal.h>
 #include <taskLib.h>
+
+#ifndef __RTP__
 #include <intLib.h>
 #include <iv.h>
+#endif
 
 #ifdef VTHREADS
 #include "private/vThreadsP.h"
 #endif
 
-extern int __gnat_inum_to_ivec (int);
 static void __gnat_error_handler (int, int, struct sigcontext *);
 void __gnat_map_signal (int);
 
-#ifndef __alpha_vxworks
+#ifndef __RTP__
+
+/* Directly vectored Interrupt routines are not supported when using RTPs */
+
+extern int __gnat_inum_to_ivec (int);
+
+/* This is needed by the GNAT run time to handle Vxworks interrupts */
+int
+__gnat_inum_to_ivec (int num)
+{
+  return INUM_TO_IVEC (num);
+}
+#endif
+
+#if !defined(__alpha_vxworks) && (_WRS_VXWORKS_MAJOR != 6) && !defined(__RTP__)
 
 /* getpid is used by s-parint.adb, but is not defined by VxWorks, except
-   on Alpha VxWorks */
+   on Alpha VxWorks and VxWorks 6.x (including RTPs). */
 
 extern long getpid (void);
 
@@ -1565,13 +1682,6 @@ getpid (void)
   return taskIdSelf ();
 }
 #endif
-
-/* This is needed by the GNAT run time to handle Vxworks interrupts */
-int
-__gnat_inum_to_ivec (int num)
-{
-  return INUM_TO_IVEC (num);
-}
 
 /* VxWorks expects the field excCnt to be zeroed when a signal is handled.
    The VxWorks version of longjmp does this; gcc's builtin_longjmp does not */
@@ -1585,13 +1695,13 @@ __gnat_clear_exception_count (void)
 #endif
 }
 
-/* Exported to 5zintman.adb in order to handle different signal
+/* Exported to s-intman-vxworks.adb in order to handle different signal
    to exception mappings in different VxWorks versions */
 void
 __gnat_map_signal (int sig)
 {
   struct Exception_Data *exception;
-  char *msg;
+  const char *msg;
 
   switch (sig)
     {
@@ -1690,8 +1800,8 @@ __gnat_init_float (void)
   asm ("mtfsb0 26");
 #endif
 
-  /* Similarily for sparc64. Achieved by masking bits in the Trap Enable Mask
-     field of the Floating-point Status Register (see the Sparc Architecture
+  /* Similarly for sparc64. Achieved by masking bits in the Trap Enable Mask
+     field of the Floating-point Status Register (see the SPARC Architecture
      Manual Version 9, p 48).  */
 #if defined (sparc64)
 
@@ -1710,69 +1820,9 @@ __gnat_init_float (void)
 #endif
 }
 
-void
-__gnat_initialize (void *eh ATTRIBUTE_UNUSED)
-{
-  __gnat_init_float ();
-
-  /* On targets where we might be using the ZCX scheme, we need to register
-     the frame tables.
-
-     For applications loaded as a set of "modules", the crtstuff objects
-     linked in (crtbegin/end) are tailored to provide this service a-la C++
-     constructor fashion, typically triggered by the VxWorks loader.  This is
-     achieved by way of a special variable declaration in the crt object, the
-     name of which has been deduced by analyzing the output of the "munching"
-     step documented for C++.  The de-registration is handled symetrically,
-     a-la C++ destructor fashion and typically triggered by the dynamic
-     unloader.  Note that since the tables shall be registered against a
-     common datastructure, libgcc should be one of the modules (vs beeing
-     partially linked against all the others at build time) and shall be
-     loaded first.
-
-     For applications linked with the kernel, the scheme above would lead to
-     duplicated symbols because the VxWorks kernel build "munches" by default.
-     To prevent those conflicts, we link against crtbegin/endS objects that
-     don't include the special variable and directly call the appropriate
-     function here. We'll never unload that, so there is no de-registration to
-     worry about.
-
-     For whole applications loaded as a single module, we may use one scheme
-     or the other, except for the mixed Ada/C++ case in which the first scheme
-     would fail for the same reason as in the linked-with-kernel situation.
-
-     We can differentiate by looking at the __module_has_ctors value provided
-     by each class of crt objects. As of today, selecting the crt set with the
-     ctors/dtors capabilities (first scheme above) is triggered by adding
-     "-dynamic" to the gcc *link* command line options. Selecting the other
-     set of crt objects is achieved by "-static" instead.
-
-     This is a first approach, tightly synchronized with a number of GCC
-     configuration and crtstuff changes. We need to ensure that those changes
-     are there to activate this circuitry.  */
-
-#if (__GNUC__ >= 3) && (defined (_ARCH_PPC) || defined (__ppc))
- {
-   /* The scheme described above is only useful for the actual ZCX case, and
-      we don't want any reference to the crt provided symbols otherwise.  We
-      may not link with any of the crt objects in the non-ZCX case, e.g. from
-      documented procedures instructing the use of -nostdlib, and references
-      to the ctors symbols here would just remain unsatisfied.
-
-      We have no way to avoid those references in the right conditions in this
-      C module, because we have nothing like a IN_ZCX_RTS macro.  This aspect
-      is then deferred to an Ada routine, which can do that based on a test
-      against a constant System flag value.  */
-
-   extern void __gnat_vxw_setup_for_eh (void);
-   __gnat_vxw_setup_for_eh ();
- }
-#endif
-}
-
-/********************************/
-/* __gnat_initialize for NetBSD */
-/********************************/
+/******************/
+/* NetBSD Section */
+/******************/
 
 #elif defined(__NetBSD__)
 
@@ -1833,30 +1883,13 @@ __gnat_install_handler(void)
   __gnat_handler_installed = 1;
 }
 
-void
-__gnat_initialize (void *eh ATTRIBUTE_UNUSED)
-{
-  __gnat_install_handler ();
-  __gnat_init_float ();
-}
-
 #else
 
-/* For all other versions of GNAT, the initialize routine and handler
-   installation do nothing */
+/* For all other versions of GNAT, the handler does nothing */
 
-/***************************************/
-/* __gnat_initialize (Default Version) */
-/***************************************/
-
-void
-__gnat_initialize (void *eh ATTRIBUTE_UNUSED)
-{
-}
-
-/********************************************/
-/* __gnat_install_handler (Default Version) */
-/********************************************/
+/*******************/
+/* Default Section */
+/*******************/
 
 void
 __gnat_install_handler (void)
@@ -1900,4 +1933,44 @@ void
 __gnat_init_float (void)
 {
 }
+#endif
+
+/***********************************/
+/* __gnat_adjust_context_for_raise */
+/***********************************/
+
+#ifndef HAVE_GNAT_ADJUST_CONTEXT_FOR_RAISE
+
+/* All targets without a specific version will use an empty one */
+
+/* UCONTEXT is a pointer to a context structure received by a signal handler
+   about to propagate an exception. Adjust it to compensate the fact that the
+   generic unwinder thinks the corresponding PC is a call return address.  */
+
+void
+__gnat_adjust_context_for_raise (int signo ATTRIBUTE_UNUSED,
+				 void *ucontext ATTRIBUTE_UNUSED)
+{
+  /* The point is that the interrupted context PC typically is the address
+     that we should search an EH region for, which is different from the call
+     return address case. The target independent part of the GCC unwinder
+     don't differentiate the two situations, so we compensate here for the
+     adjustments it will blindly make.
+
+     signo is passed because on some targets for some signals the PC in
+     context points to the instruction after the faulting one, in which case
+     the unwinder adjustment is still desired.  */
+
+  /* On a number of targets, we have arranged for the adjustment to be
+     performed by the MD_FALLBACK_FRAME_STATE circuitry, so we don't provide a
+     specific instance of this routine.  The MD_FALLBACK doesn't have access
+     to the signal number, though, so the compensation is systematic there and
+     might be wrong in some cases.  */
+
+  /* Having the compensation wrong leads to potential failures.  A very
+     typical case is what happens when there is no compensation and a signal
+     triggers for the first instruction in a region : the unwinder adjustment
+     has it search in the wrong EH region.  */
+}
+
 #endif

@@ -20,7 +20,7 @@
 #	SofaWare-UFP      :   "true" / "false"
 #		The user can /cannot overwrite the URL Filtering policy
 #
-#	$Id: dictionary.sofaware,v 1.1.2.1 2006/11/26 18:21:02 aland Exp $
+#	$Id$
 #
 ##############################################################################
 

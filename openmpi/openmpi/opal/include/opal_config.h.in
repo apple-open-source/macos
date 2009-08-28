@@ -163,9 +163,6 @@
 /* Define to 1 if you have the `socket' library (-lsocket). */
 #undef HAVE_LIBSOCKET
 
-/* Define to 1 if you have the `util' library (-lutil). */
-#undef HAVE_LIBUTIL
-
 /* Define to 1 if you have the <libutil.h> header file. */
 #undef HAVE_LIBUTIL_H
 
@@ -606,6 +603,10 @@
 /* Alignment of type wchar_t */
 #undef OMPI_ALIGNMENT_WCHAR
 
+/* set to 1 if word-size integers must be aligned to word-size padding to
+   prevent bus errors */
+#undef OMPI_ALIGN_WORD_SIZE_INTEGERS
+
 /* OMPI architecture string */
 #undef OMPI_ARCH
 
@@ -842,6 +843,10 @@
 /* Whether we have Fortran 77 REAL*8 or not */
 #undef OMPI_HAVE_FORTRAN_REAL8
 
+/* Do not use outside of mpi.h. Define to 1 if the system has the type `long
+   long'. */
+#undef OMPI_HAVE_LONG_LONG
+
 /* Do we have POSIX threads */
 #undef OMPI_HAVE_POSIX_THREADS
 
@@ -859,6 +864,10 @@
 
 /* Do we have native Solaris threads */
 #undef OMPI_HAVE_SOLARIS_THREADS
+
+/* Do not use outside of mpi.h. Define to 1 if you have the <sys/time.h>
+   header file. */
+#undef OMPI_HAVE_SYS_TIME_H
 
 /* Whether we have __va_copy or not */
 #undef OMPI_HAVE_UNDERSCORE_VA_COPY
@@ -952,6 +961,10 @@
 /* whether to use cnos_barrier or not */
 #undef OMPI_RML_CNOS_HAVE_BARRIER
 
+/* Do not use outside of mpi.h. The size of a `bool', as computed by sizeof.
+   */
+#undef OMPI_SIZEOF_BOOL
+
 /* Size of Fortran 77 COMPLEX */
 #undef OMPI_SIZEOF_FORTRAN_COMPLEX
 
@@ -999,6 +1012,13 @@
 
 /* Size of Fortran 77 REAL*8 */
 #undef OMPI_SIZEOF_FORTRAN_REAL8
+
+/* Do not use outside of mpi.h. The size of a `int', as computed by sizeof. */
+#undef OMPI_SIZEOF_INT
+
+/* Do not use outside of mpi.h. Define to 1 if you have the ANSI C header
+   files. */
+#undef OMPI_STDC_HEADERS
 
 /* Do threads have different pids (pthreads on linux) */
 #undef OMPI_THREADS_HAVE_DIFFERENT_PIDS
@@ -1090,46 +1110,46 @@
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
 
-/* The size of a `bool', as computed by sizeof. */
+/* The size of `bool', as computed by sizeof. */
 #undef SIZEOF_BOOL
 
-/* The size of a `char', as computed by sizeof. */
+/* The size of `char', as computed by sizeof. */
 #undef SIZEOF_CHAR
 
-/* The size of a `double', as computed by sizeof. */
+/* The size of `double', as computed by sizeof. */
 #undef SIZEOF_DOUBLE
 
-/* The size of a `float', as computed by sizeof. */
+/* The size of `float', as computed by sizeof. */
 #undef SIZEOF_FLOAT
 
-/* The size of a `int', as computed by sizeof. */
+/* The size of `int', as computed by sizeof. */
 #undef SIZEOF_INT
 
-/* The size of a `long', as computed by sizeof. */
+/* The size of `long', as computed by sizeof. */
 #undef SIZEOF_LONG
 
-/* The size of a `long double', as computed by sizeof. */
+/* The size of `long double', as computed by sizeof. */
 #undef SIZEOF_LONG_DOUBLE
 
-/* The size of a `long long', as computed by sizeof. */
+/* The size of `long long', as computed by sizeof. */
 #undef SIZEOF_LONG_LONG
 
-/* The size of a `pid_t', as computed by sizeof. */
+/* The size of `pid_t', as computed by sizeof. */
 #undef SIZEOF_PID_T
 
-/* The size of a `ptrdiff_t', as computed by sizeof. */
+/* The size of `ptrdiff_t', as computed by sizeof. */
 #undef SIZEOF_PTRDIFF_T
 
-/* The size of a `short', as computed by sizeof. */
+/* The size of `short', as computed by sizeof. */
 #undef SIZEOF_SHORT
 
-/* The size of a `size_t', as computed by sizeof. */
+/* The size of `size_t', as computed by sizeof. */
 #undef SIZEOF_SIZE_T
 
-/* The size of a `ssize_t', as computed by sizeof. */
+/* The size of `ssize_t', as computed by sizeof. */
 #undef SIZEOF_SSIZE_T
 
-/* The size of a `void *', as computed by sizeof. */
+/* The size of `void *', as computed by sizeof. */
 #undef SIZEOF_VOID_P
 
 /* Define to 1 if you have the ANSI C header files. */
@@ -1234,7 +1254,7 @@
    supported. Do not define if restrict is supported directly. */
 #undef restrict
 
-/* Define to `unsigned' if <sys/types.h> does not define. */
+/* Define to `unsigned int' if <sys/types.h> does not define. */
 #undef size_t
 
 /* Define to `unsigned short' if <sys/types.h> does not define. */

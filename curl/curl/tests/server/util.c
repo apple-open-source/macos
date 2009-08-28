@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2007, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2008, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,17 +18,13 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: util.c,v 1.16 2007-02-19 02:04:02 yangtse Exp $
+ * $Id: util.c,v 1.27 2008-10-01 17:34:25 danf Exp $
  ***************************************************************************/
 #include "setup.h" /* portability help from the lib directory */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdarg.h>
+#ifdef HAVE_SIGNAL_H
 #include <signal.h>
-#include <sys/types.h>
-
+#endif
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
@@ -45,6 +41,11 @@
 #ifdef HAVE_NETDB_H
 #include <netdb.h>
 #endif
+#ifdef HAVE_SYS_POLL_H
+#include <sys/poll.h>
+#elif defined(HAVE_POLL_H)
+#include <poll.h>
+#endif
 
 #define ENABLE_CURLX_PRINTF
 /* make the curlx header define all printf() functions to use the curlx_*
@@ -58,13 +59,10 @@
 const struct in6_addr in6addr_any = {{ IN6ADDR_ANY_INIT }};
 #endif
 
-/* someone else must set this properly */
-extern const char *serverlogfile;
-
 void logmsg(const char *msg, ...)
 {
   va_list ap;
-  char buffer[512]; /* possible overflow if you pass in a huge string */
+  char buffer[2048 + 1];
   FILE *logfp;
   int error;
   struct timeval tv;
@@ -82,10 +80,10 @@ void logmsg(const char *msg, ...)
   now = localtime(&sec); /* not multithread safe but we don't care */
 
   snprintf(timebuf, sizeof(timebuf), "%02d:%02d:%02d.%06ld",
-           now->tm_hour, now->tm_min, now->tm_sec, tv.tv_usec);
+    (int)now->tm_hour, (int)now->tm_min, (int)now->tm_sec, (long)tv.tv_usec);
 
   va_start(ap, msg);
-  vsprintf(buffer, msg, ap);
+  vsnprintf(buffer, sizeof(buffer), msg, ap);
   va_end(ap);
 
   logfp = fopen(serverlogfile, "a");
@@ -158,4 +156,114 @@ char *test2file(long testno)
   static char filename[256];
   snprintf(filename, sizeof(filename), TEST_DATA_PATH, path, testno);
   return filename;
+}
+
+/*
+ * Portable function used for waiting a specific amount of ms.
+ * Waiting indefinitely with this function is not allowed, a
+ * zero or negative timeout value will return immediately.
+ *
+ * Return values:
+ *   -1 = system call error, or invalid timeout value
+ *    0 = specified timeout has elapsed
+ */
+int wait_ms(int timeout_ms)
+{
+#if !defined(MSDOS) && !defined(USE_WINSOCK)
+#ifndef HAVE_POLL_FINE
+  struct timeval pending_tv;
+#endif
+  struct timeval initial_tv;
+  int pending_ms;
+  int error;
+#endif
+  int r = 0;
+
+  if(!timeout_ms)
+    return 0;
+  if(timeout_ms < 0) {
+    SET_SOCKERRNO(EINVAL);
+    return -1;
+  }
+#if defined(MSDOS)
+  delay(timeout_ms);
+#elif defined(USE_WINSOCK)
+  Sleep(timeout_ms);
+#else
+  pending_ms = timeout_ms;
+  initial_tv = curlx_tvnow();
+  do {
+#if defined(HAVE_POLL_FINE)
+    r = poll(NULL, 0, pending_ms);
+#else
+    pending_tv.tv_sec = pending_ms / 1000;
+    pending_tv.tv_usec = (pending_ms % 1000) * 1000;
+    r = select(0, NULL, NULL, NULL, &pending_tv);
+#endif /* HAVE_POLL_FINE */
+    if(r != -1)
+      break;
+    error = SOCKERRNO;
+    if(error == EINVAL)
+      break;
+    pending_ms = timeout_ms - (int)curlx_tvdiff(curlx_tvnow(), initial_tv);
+    if(pending_ms <= 0)
+      break;
+  } while(r == -1);
+#endif /* USE_WINSOCK */
+  if(r)
+    r = -1;
+  return r;
+}
+
+int write_pidfile(const char *filename)
+{
+  FILE *pidfile;
+  long pid;
+
+  pid = (long)getpid();
+  pidfile = fopen(filename, "w");
+  if(!pidfile) {
+    logmsg("Couldn't write pid file: %s %s", filename, strerror(ERRNO));
+    return 0; /* fail */
+  }
+  fprintf(pidfile, "%ld\n", pid);
+  fclose(pidfile);
+  logmsg("Wrote pid %ld to %s", pid, filename);
+  return 1; /* success */
+}
+
+void set_advisor_read_lock(const char *filename)
+{
+  FILE *lockfile;
+  int error = 0;
+  int res;
+
+  do {
+    lockfile = fopen(filename, "wb");
+  } while((lockfile == NULL) && ((error = ERRNO) == EINTR));
+  if(lockfile == NULL) {
+    logmsg("Error creating lock file %s error: %d %s",
+           filename, error, strerror(error));
+    return;
+  }
+
+  do {
+    res = fclose(lockfile);
+  } while(res && ((error = ERRNO) == EINTR));
+  if(res)
+    logmsg("Error closing lock file %s error: %d %s",
+           filename, error, strerror(error));
+}
+
+void clear_advisor_read_lock(const char *filename)
+{
+  int error = 0;
+  int res;
+
+  do {
+    res = unlink(filename);
+  } while(res && ((error = ERRNO) == EINTR));
+  if(res)
+    logmsg("Error removing lock file %s error: %d %s",
+           filename, error, strerror(error));
 }

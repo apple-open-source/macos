@@ -297,8 +297,7 @@ int RenderBoxModelObject::paddingRight(bool) const
 }
 
 
-void RenderBoxModelObject::paintFillLayerExtended(const PaintInfo& paintInfo, const Color& c, const FillLayer* bgLayer, int clipY, int clipH,
-                                                  int tx, int ty, int w, int h, InlineFlowBox* box, CompositeOperator op)
+void RenderBoxModelObject::paintFillLayerExtended(const PaintInfo& paintInfo, const Color& c, const FillLayer* bgLayer, int tx, int ty, int w, int h, InlineFlowBox* box, CompositeOperator op)
 {
     GraphicsContext* context = paintInfo.context;
     bool includeLeftEdge = box ? box->includeLeftEdge() : true;
@@ -311,11 +310,15 @@ void RenderBoxModelObject::paintFillLayerExtended(const PaintInfo& paintInfo, co
     bool clippedToBorderRadius = false;
     if (style()->hasBorderRadius() && (includeLeftEdge || includeRightEdge)) {
         context->save();
-        context->addRoundedRectClip(IntRect(tx, ty, w, h),
-            includeLeftEdge ? style()->borderTopLeftRadius() : IntSize(),
-            includeRightEdge ? style()->borderTopRightRadius() : IntSize(),
-            includeLeftEdge ? style()->borderBottomLeftRadius() : IntSize(),
-            includeRightEdge ? style()->borderBottomRightRadius() : IntSize());
+
+        IntSize topLeft, topRight, bottomLeft, bottomRight;
+        IntRect borderRect(tx, ty, w, h);
+        style()->getBorderRadiiForRect(borderRect, topLeft, topRight, bottomLeft, bottomRight);
+
+        context->addRoundedRectClip(borderRect, includeLeftEdge ? topLeft : IntSize(),
+                                                includeRightEdge ? topRight : IntSize(),
+                                                includeLeftEdge ? bottomLeft : IntSize(),
+                                                includeRightEdge ? bottomRight : IntSize());
         clippedToBorderRadius = true;
     }
 
@@ -336,8 +339,8 @@ void RenderBoxModelObject::paintFillLayerExtended(const PaintInfo& paintInfo, co
         maskRect.intersect(paintInfo.rect);
         
         // Now create the mask.
-        auto_ptr<ImageBuffer> maskImage = ImageBuffer::create(maskRect.size(), false);
-        if (!maskImage.get())
+        OwnPtr<ImageBuffer> maskImage = ImageBuffer::create(maskRect.size(), false);
+        if (!maskImage)
             return;
         
         GraphicsContext* maskImageContext = maskImage->context();
@@ -378,10 +381,12 @@ void RenderBoxModelObject::paintFillLayerExtended(const PaintInfo& paintInfo, co
         }
     }
 
+    bool isRoot = this->isRoot();
+
     // Only fill with a base color (e.g., white) if we're the root document, since iframes/frames with
     // no background in the child document should show the parent's background.
     bool isOpaqueRoot = false;
-    if (isRoot()) {
+    if (isRoot) {
         isOpaqueRoot = true;
         if (!bgLayer->next() && !(bgColor.isValid() && bgColor.alpha() == 255) && view()->frameView()) {
             Element* ownerElement = document()->ownerElement();
@@ -405,7 +410,8 @@ void RenderBoxModelObject::paintFillLayerExtended(const PaintInfo& paintInfo, co
 
     // Paint the color first underneath all images.
     if (!bgLayer->next()) {
-        IntRect rect(tx, clipY, w, clipH);
+        IntRect rect(tx, ty, w, h);
+        rect.intersect(paintInfo.rect);
         // If we have an alpha and we are painting the root element, go ahead and blend with the base background color.
         if (isOpaqueRoot) {
             Color baseColor = view()->frameView()->baseBackgroundColor();
@@ -434,7 +440,21 @@ void RenderBoxModelObject::paintFillLayerExtended(const PaintInfo& paintInfo, co
         if (!destRect.isEmpty()) {
             phase += destRect.location() - destOrigin;
             CompositeOperator compositeOp = op == CompositeSourceOver ? bgLayer->composite() : op;
-            context->drawTiledImage(bg->image(this, tileSize), destRect, phase, tileSize, compositeOp);
+            RenderObject* clientForBackgroundImage = this;
+            // Check if this is the root element painting a background layer propagated from <body>,
+            // and pass the body's renderer as the client in that case.
+            if (isRoot && !style()->hasBackground()) {
+                ASSERT(node()->hasTagName(htmlTag));
+                HTMLElement* body = document()->body();
+                ASSERT(body);
+                ASSERT(body->hasLocalName(bodyTag));
+                ASSERT(body->renderer());
+                if (body) {
+                    if (RenderObject* bodyRenderer = body->renderer())
+                        clientForBackgroundImage = bodyRenderer;
+                }
+            }
+            context->drawTiledImage(bg->image(clientForBackgroundImage, tileSize), destRect, phase, tileSize, compositeOp);
         }
     }
 
@@ -777,26 +797,29 @@ void RenderBoxModelObject::paintBorder(GraphicsContext* graphicsContext, int tx,
     bool renderRight = rightStyle > BHIDDEN && end && !rightTransparent;
     bool renderBottom = bottomStyle > BHIDDEN && !bottomTransparent;
 
-    // Need sufficient width and height to contain border radius curves.  Sanity check our border radii
-    // and our width/height values to make sure the curves can all fit. If not, then we won't paint
-    // any border radii.
     bool renderRadii = false;
-    IntSize topLeft = style->borderTopLeftRadius();
-    IntSize topRight = style->borderTopRightRadius();
-    IntSize bottomLeft = style->borderBottomLeftRadius();
-    IntSize bottomRight = style->borderBottomRightRadius();
+    IntSize topLeft, topRight, bottomLeft, bottomRight;
 
-    if (style->hasBorderRadius() &&
-        static_cast<unsigned>(w) >= static_cast<unsigned>(topLeft.width()) + static_cast<unsigned>(topRight.width()) &&
-        static_cast<unsigned>(w) >= static_cast<unsigned>(bottomLeft.width()) + static_cast<unsigned>(bottomRight.width()) &&
-        static_cast<unsigned>(h) >= static_cast<unsigned>(topLeft.height()) + static_cast<unsigned>(bottomLeft.height()) &&
-        static_cast<unsigned>(h) >= static_cast<unsigned>(topRight.height()) + static_cast<unsigned>(bottomRight.height()))
+    if (style->hasBorderRadius()) {
+        IntRect borderRect = IntRect(tx, ty, w, h);
+
+        IntSize topLeftRadius, topRightRadius, bottomLeftRadius, bottomRightRadius;
+        style->getBorderRadiiForRect(borderRect, topLeftRadius, topRightRadius, bottomLeftRadius, bottomRightRadius);
+
+        if (begin) {
+            topLeft = topLeftRadius;
+            bottomLeft = bottomLeftRadius;
+        }
+        if (end) {
+            topRight = topRightRadius;
+            bottomRight = bottomRightRadius;
+        }
+
         renderRadii = true;
 
-    // Clip to the rounded rectangle.
-    if (renderRadii) {
+        // Clip to the rounded rectangle.
         graphicsContext->save();
-        graphicsContext->addRoundedRectClip(IntRect(tx, ty, w, h), topLeft, topRight, bottomLeft, bottomRight);
+        graphicsContext->addRoundedRectClip(borderRect, topLeft, topRight, bottomLeft, bottomRight);
     }
 
     int firstAngleStart, secondAngleStart, firstAngleSpan, secondAngleSpan;
@@ -1101,6 +1124,9 @@ void RenderBoxModelObject::paintBoxShadow(GraphicsContext* context, int tx, int 
 {
     // FIXME: Deal with border-image.  Would be great to use border-image as a mask.
 
+    if (context->paintingDisabled())
+        return;
+
     IntRect rect(tx, ty, w, h);
     bool hasBorderRadius = s->hasBorderRadius();
     bool hasOpaqueBackground = s->backgroundColor().isValid() && s->backgroundColor().alpha() == 255;
@@ -1111,31 +1137,71 @@ void RenderBoxModelObject::paintBoxShadow(GraphicsContext* context, int tx, int 
         int shadowBlur = shadow->blur;
         IntRect fillRect(rect);
 
-        if (hasBorderRadius) {
-            IntRect shadowRect(rect);
-            shadowRect.inflate(shadowBlur);
-            shadowRect.move(shadowOffset);
-            context->clip(shadowRect);
+        IntRect shadowRect(rect);
+        shadowRect.inflate(shadowBlur);
+        shadowRect.move(shadowOffset);
+        context->clip(shadowRect);
 
-            // Move the fill just outside the clip, adding 1 pixel separation so that the fill does not
-            // bleed in (due to antialiasing) if the context is transformed.
-            IntSize extraOffset(w + max(0, shadowOffset.width()) + shadowBlur + 1, 0);
-            shadowOffset -= extraOffset;
-            fillRect.move(extraOffset);
-        }
+        // Move the fill just outside the clip, adding 1 pixel separation so that the fill does not
+        // bleed in (due to antialiasing) if the context is transformed.
+        IntSize extraOffset(w + max(0, shadowOffset.width()) + shadowBlur + 1, 0);
+        shadowOffset -= extraOffset;
+        fillRect.move(extraOffset);
 
         context->setShadow(shadowOffset, shadowBlur, shadow->color);
         if (hasBorderRadius) {
-            IntSize topLeft = begin ? s->borderTopLeftRadius() : IntSize();
-            IntSize topRight = end ? s->borderTopRightRadius() : IntSize();
-            IntSize bottomLeft = begin ? s->borderBottomLeftRadius() : IntSize();
-            IntSize bottomRight = end ? s->borderBottomRightRadius() : IntSize();
-            if (!hasOpaqueBackground)
-                context->clipOutRoundedRect(rect, topLeft, topRight, bottomLeft, bottomRight);
+            IntSize topLeftRadius, topRightRadius, bottomLeftRadius, bottomRightRadius;
+            s->getBorderRadiiForRect(rect, topLeftRadius, topRightRadius, bottomLeftRadius, bottomRightRadius);
+
+            IntSize topLeft = begin ? topLeftRadius : IntSize();
+            IntSize topRight = end ? topRightRadius : IntSize();
+            IntSize bottomLeft = begin ? bottomLeftRadius : IntSize();
+            IntSize bottomRight = end ? bottomRightRadius : IntSize();
+
+            IntRect rectToClipOut = rect;
+            IntSize topLeftToClipOut = topLeft;
+            IntSize topRightToClipOut = topRight;
+            IntSize bottomLeftToClipOut = bottomLeft;
+            IntSize bottomRightToClipOut = bottomRight;
+
+            // If the box is opaque, it is unnecessary to clip it out. However, doing so saves time
+            // when painting the shadow. On the other hand, it introduces subpixel gaps along the
+            // corners. Those are avoided by insetting the clipping path by one pixel.
+            if (hasOpaqueBackground) {
+                rectToClipOut.inflate(-1);
+
+                topLeftToClipOut.expand(-1, -1);
+                topLeftToClipOut.clampNegativeToZero();
+
+                topRightToClipOut.expand(-1, -1);
+                topRightToClipOut.clampNegativeToZero();
+
+                bottomLeftToClipOut.expand(-1, -1);
+                bottomLeftToClipOut.clampNegativeToZero();
+
+                bottomRightToClipOut.expand(-1, -1);
+                bottomRightToClipOut.clampNegativeToZero();
+            }
+
+            if (!rectToClipOut.isEmpty())
+                context->clipOutRoundedRect(rectToClipOut, topLeftToClipOut, topRightToClipOut, bottomLeftToClipOut, bottomRightToClipOut);
             context->fillRoundedRect(fillRect, topLeft, topRight, bottomLeft, bottomRight, Color::black);
         } else {
-            if (!hasOpaqueBackground)
-                context->clipOut(rect);
+            IntRect rectToClipOut = rect;
+
+            // If the box is opaque, it is unnecessary to clip it out. However, doing so saves time
+            // when painting the shadow. On the other hand, it introduces subpixel gaps along the
+            // edges if they are not pixel-aligned. Those are avoided by insetting the clipping path
+            // by one pixel.
+            if (hasOpaqueBackground) {
+                TransformationMatrix currentTransformation = context->getCTM();
+                if (currentTransformation.a() != 1 || (currentTransformation.d() != 1 && currentTransformation.d() != -1)
+                        || currentTransformation.b() || currentTransformation.c())
+                    rectToClipOut.inflate(-1);
+            }
+
+            if (!rectToClipOut.isEmpty())
+                context->clipOut(rectToClipOut);
             context->fillRect(fillRect, Color::black);
         }
         context->restore();

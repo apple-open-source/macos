@@ -1,0 +1,9 @@
+# RCS: @(#) $Id: BUGS,v 1.3 2005/04/07 02:33:30 andreas_kupries Exp $
+
+The linemap and text widget can get into a voodoo dance of geometry-management madness.  This can occur with lines that wrap and cause the linemap to be able to continue a line.  When the wrap occurs the linemap changes, because the width of the linemap is altered, so the text and linemap do idle size changes until the user goes up or down to avoid the problem. 
+
+Resource classes are not handled with the configure subcommand.  
+
+I don't like having to create a temporary widget to get defaults for colors.  We might be able to just extract the defaults, by removing the colors flags from the $args and then reconfiguring the widget to use them as normal.  This would remove ctext_temp or whatever I called that.
+
+With some fonts; bitmaps don't display properly on the same line.  The size of the bitmap seems to be the issue.   This seems to be a bug with the text widget.

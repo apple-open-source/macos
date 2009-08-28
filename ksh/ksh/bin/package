@@ -41,7 +41,7 @@ all_types='*.*|sun4'		# all but sun4 match *.*
 case `(getopts '[-][123:xyz]' opt --xyz; echo 0$opt) 2>/dev/null` in
 0123)	USAGE=$'
 [-?
-@(#)$Id: package (AT&T Research) 2007-03-28 $
+@(#)$Id: package (AT&T Research) 2007-11-05 $
 ]'$USAGE_LICENSE$'
 [+NAME?package - source and binary package control]
 [+DESCRIPTION?The \bpackage\b command controls source and binary
@@ -4441,7 +4441,7 @@ admin)	while	test ! -f $admin_db
 					make|view)
 						M=`grep -c ']: \*\*\*.* code ' $admin_log/$2` ;;
 					test)	T=`grep -ci 'fail' $admin_log/$2` ;;
-					*)	W=`grep '^[abcdefghijklmnopqrstuvwxyz][abcdefghijklmnopqrstuvwxyz]*:.' $admin_log/$2 | egrep -cv 'start at|done  at|output captured|warning:'` ;;
+					*)	W=`grep '^[abcdefghijklmnopqrstuvwxyz][abcdefghijklmnopqrstuvwxyz]*:.' $admin_log/$2 | egrep -cv 'start at|done  at|output captured|warning:|: package not found|whence: command not found'` ;;
 					esac
 					case $1 in
 					?|??|???|????|?????|??????|???????)
@@ -5474,10 +5474,19 @@ read)	case ${PWD:-`pwd`} in
 	x=
 	remove=
 	touch=
+	set '' $target
+	case $2 in
+	lcl|tgz)tgz=$2
+		shift 2
+		target=$*
+		;;
+	*)	tgz=tgz
+		;;
+	esac
 	set '' $package $target
 	case $# in
 	1)	verbose=:
-		set '' `ls lib/package/tgz/*?[_.][0123456789][0123456789][0123456789][0123456789]-[0123456789][0123456789]-[0123456789][0123456789][_.]* 2>/dev/null`
+		set '' `ls lib/package/$tgz/*?[_.][0123456789][0123456789][0123456789][0123456789]-[0123456789][0123456789]-[0123456789][0123456789][_.]* 2>/dev/null`
 		;;
 	*)	verbose=
 		;;
@@ -5487,12 +5496,12 @@ read)	case ${PWD:-`pwd`} in
 	for f
 	do	if	test -f "$f"
 		then	: ok
-		elif	test -f "lib/package/tgz/$f"
-		then	f=lib/package/tgz/$f
+		elif	test -f "lib/package/$tgz/$f"
+		then	f=lib/package/$tgz/$f
 		else	set '' `ls -r ${f}[_.][0123456789][0123456789][0123456789][0123456789]-[0123456789][0123456789]-[0123456789][0123456789][_.]* 2>/dev/null`
 			if	test '' != "$2" -a -f "$2"
 			then	f=$2
-			else	set '' `ls -r lib/package/tgz/${f}[_.][0123456789][0123456789][0123456789][0123456789]-[0123456789][0123456789]-[0123456789][0123456789][_.]* 2>/dev/null`
+			else	set '' `ls -r lib/package/$tgz/${f}[_.][0123456789][0123456789][0123456789][0123456789]-[0123456789][0123456789]-[0123456789][0123456789][_.]* 2>/dev/null`
 				if	test '' != "$2" -a -f "$2"
 				then	f=$2
 				else	echo "$command: $f: package archive not found" >&2
@@ -5503,7 +5512,7 @@ read)	case ${PWD:-`pwd`} in
 		files="$files $f"
 	done
 	case $files in
-	'')	echo "$command: lib/package/tgz: no package archives" >&2
+	'')	echo "$command: lib/package/$tgz: no package archives" >&2
 		exit 1
 		;;
 	esac

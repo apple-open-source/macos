@@ -1,0 +1,60 @@
+# Host: ARM running Mac OS X using ELF
+
+SER_HARDWIRE = ser-base.o ser-unix.o ser-tcp.o
+
+XM_FILE = xm-arm-macosx.h
+
+XDEPFILES = \
+	macosx-nat-cmds-load.o \
+	macosx-xdep.o
+
+MACOSX_FILES = \
+	macosx-nat-watchpoint.o \
+	macosx-nat-dyld.o \
+	macosx-nat-dyld-path.o \
+	macosx-nat-dyld-info.o \
+	macosx-nat-dyld-process.o \
+	macosx-nat-dyld-io.o \
+	macosx-nat-inferior.o \
+	macosx-nat-inferior-stubs.o \
+	macosx-nat-inferior-util.o \
+	macosx-nat-inferior-debug.o \
+	macosx-nat-sigthread.o \
+	macosx-nat-excthread.o \
+	macosx-nat-mutils.o \
+	macosx-nat-threads.o \
+	macosx-nat-infthread.o \
+	macosx-nat-info.o \
+	macosx-nat.o \
+	excServer.o \
+	excUser.o \
+	macosx-nat-utils.o
+
+
+ARM_FILES = arm-macosx-nat-exec.o 
+
+NAT_FILE = nm-arm-macosx.h
+
+NATDEPFILES = \
+	fork-child.o \
+	inftarg.o \
+	$(ARM_FILES) \
+	$(MACOSX_FILES)
+
+MH_CFLAGS = -I$(srcdir)/macosx
+
+# APPLE LOCAL - Allow more than 256 streams to be open at a time.
+
+MH_CFLAGS += -DUSE_PTHREADS=1 -Wall -Wimplicit -D_DARWIN_UNLIMITED_STREAMS
+
+CFM_CFLAGS = -DWITH_CFM=0
+
+XM_CLIBS = -framework Security
+
+_all: all
+
+excServer.c excUser.c: macosx.defs
+	$(NEXT_ROOT)/usr/bin/mig -I. $<
+
+clean::
+	rm -f excServer.c excUser.c exc.h

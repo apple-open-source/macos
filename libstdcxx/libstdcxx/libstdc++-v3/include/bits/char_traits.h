@@ -1,6 +1,6 @@
 // Character Traits for use by standard string and iostream -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -16,7 +16,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -28,14 +28,14 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-//
-// ISO C++ 14882: 21  Strings library
-//
-
 /** @file char_traits.h
  *  This is an internal header file, included by other library headers.
  *  You should not attempt to use it directly.
  */
+
+//
+// ISO C++ 14882: 21  Strings library
+//
 
 #ifndef _CHAR_TRAITS_H
 #define _CHAR_TRAITS_H 1
@@ -46,8 +46,8 @@
 #include <bits/stl_algobase.h>// For copy, lexicographical_compare, fill_n
 #include <bits/postypes.h>    // For streampos
 
-namespace __gnu_cxx
-{
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+
   /**
    *  @brief  Mapping from character type to associated types.
    *
@@ -148,7 +148,7 @@ namespace __gnu_cxx
     char_traits<_CharT>::
     compare(const char_type* __s1, const char_type* __s2, std::size_t __n)
     {
-      for (size_t __i = 0; __i < __n; ++__i)
+      for (std::size_t __i = 0; __i < __n; ++__i)
 	if (lt(__s1[__i], __s2[__i]))
 	  return -1;
 	else if (lt(__s2[__i], __s1[__i]))
@@ -204,10 +204,11 @@ namespace __gnu_cxx
       std::fill_n(__s, __n, __a);
       return __s;
     }
-}
 
-namespace std
-{
+_GLIBCXX_END_NAMESPACE
+
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   // 21.1
   /**
    *  @brief  Basis for explicit traits specializations.
@@ -361,6 +362,6 @@ namespace std
   };
 #endif //_GLIBCXX_USE_WCHAR_T
 
-} // namespace std
+_GLIBCXX_END_NAMESPACE
 
 #endif

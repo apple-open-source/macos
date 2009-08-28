@@ -1,4 +1,4 @@
-/* $Id: fparseln.c,v 1.1.1.1 2002/10/26 04:25:33 lukem Exp $ */
+/* $NetBSD: fparseln.c,v 1.2 2008/09/21 16:35:25 lukem Exp $ */
 /* from NetBSD: fparseln.c,v 1.5 1997/12/01 02:58:41 lukem Exp */
 
 /*

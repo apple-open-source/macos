@@ -32,72 +32,96 @@ namespace Security {
 
 
 //
+// Content access and validation calls
+//
+char *BlobCore::stringAt(Offset offset)
+{
+	char *s = at<char>(offset);
+	if (offset < this->length() && memchr(s, 0, this->length() - offset))
+		return s;
+	else
+		return NULL;
+}
+
+const char *BlobCore::stringAt(Offset offset) const
+{
+	const char *s = at<const char>(offset);
+	if (offset < this->length() && memchr(s, 0, this->length() - offset))
+		return s;
+	else
+		return NULL;
+}
+
+
+//
 // Read a blob from a standard file stream.
 // Reads in one pass, so it's suitable for transmission over pipes and networks.
 // The blob is allocated with malloc(3).
 // On error, sets errno and returns NULL; in which case the input stream may
 // be partially consumed.
 //
-BlobCore *BlobCore::readBlob(int fd, uint32_t magic, size_t blobSize)
+BlobCore *BlobCore::readBlob(int fd, size_t offset, uint32_t magic, size_t minSize, size_t maxSize)
 {
 	BlobCore header;
-	if (read(fd, &header, sizeof(header)) != sizeof(header))
-		return NULL;
-	if (magic && !header.validateBlob(magic, blobSize)) {
-		errno = EINVAL;
-		return NULL;
-	}
-	if (BlobCore *blob = (BlobCore *)malloc(header.length())) {
-		memcpy(blob, &header, sizeof(header));
-		size_t remainder = header.length() - sizeof(header);
-		if (read(fd, blob+1, remainder) != ssize_t(remainder)) {
-			free(blob);
-			errno = EINVAL;
-			return NULL;
-		}
-		return blob;
-	} else {
-		return NULL;
-	}
+	if (::pread(fd, &header, sizeof(header), offset) == sizeof(header))
+		if (header.validateBlob(magic, minSize, maxSize))
+			if (BlobCore *blob = (BlobCore *)malloc(header.length())) {
+				memcpy(blob, &header, sizeof(header));
+				size_t remainder = header.length() - sizeof(header);
+				if (::pread(fd, blob+1, remainder, offset + sizeof(header)) == ssize_t(remainder))
+					return blob;
+				free(blob);
+				errno = EINVAL;
+			}
+	return NULL;
 }
 
-BlobCore *BlobCore::readBlob(std::FILE *file, uint32_t magic, size_t blobSize)
+BlobCore *BlobCore::readBlob(int fd, uint32_t magic, size_t minSize, size_t maxSize)
 {
 	BlobCore header;
-	if (fread(&header, sizeof(header), 1, file) != 1)
-		return NULL;
-	if (magic && !header.validateBlob(magic, blobSize)) {
-		errno = EINVAL;
-		return NULL;
-	}
-	if (BlobCore *blob = (BlobCore *)malloc(header.length())) {
-		memcpy(blob, &header, sizeof(header));
-		if (fread(blob+1, header.length() - sizeof(header), 1, file) != 1) {
-			free(blob);
-			errno = EINVAL;
-			return NULL;
-		}
-		return blob;
-	} else {
-		return NULL;
-	}
+	if (::read(fd, &header, sizeof(header)) == sizeof(header))
+		if (header.validateBlob(magic, minSize, maxSize))
+			if (BlobCore *blob = (BlobCore *)malloc(header.length())) {
+				memcpy(blob, &header, sizeof(header));
+				size_t remainder = header.length() - sizeof(header);
+				if (::read(fd, blob+1, remainder) == ssize_t(remainder))
+					return blob;
+				free(blob);
+				errno = EINVAL;
+			}
+	return NULL;
+}
+
+BlobCore *BlobCore::readBlob(std::FILE *file, uint32_t magic, size_t minSize, size_t maxSize)
+{
+	BlobCore header;
+	if (::fread(&header, sizeof(header), 1, file) == 1)
+		if (header.validateBlob(magic, minSize, maxSize))
+			if (BlobCore *blob = (BlobCore *)malloc(header.length())) {
+				memcpy(blob, &header, sizeof(header));
+				if (::fread(blob+1, header.length() - sizeof(header), 1, file) == 1)
+					return blob;
+				free(blob);
+				errno = EINVAL;
+			}
+	return NULL;
 }
 
 
 //
 // BlobWrappers
 //
-BlobWrapper *BlobWrapper::alloc(size_t length)
+BlobWrapper *BlobWrapper::alloc(size_t length, Magic magic /* = _magic */)
 {
 	size_t wrapLength = length + sizeof(BlobCore);
 	BlobWrapper *w = (BlobWrapper *)malloc(wrapLength);
-	w->initialize(wrapLength);
+	w->BlobCore::initialize(magic, wrapLength);
 	return w;
 }
 
-BlobWrapper *BlobWrapper::alloc(const void *data, size_t length)
+BlobWrapper *BlobWrapper::alloc(const void *data, size_t length, Magic magic /* = _magic */)
 {
-	BlobWrapper *w = alloc(length);
+	BlobWrapper *w = alloc(length, magic);
 	memcpy(w->data(), data, w->length());
 	return w;
 }

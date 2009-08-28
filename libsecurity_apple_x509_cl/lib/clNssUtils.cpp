@@ -437,108 +437,106 @@ CSSM_KEY_PTR CL_extractCSSMKeyNSS(
 	memset(cssmKey, 0, sizeof(CSSM_KEY));
 	CSSM_KEYHEADER &hdr = cssmKey->KeyHeader;
 	CssmRemoteData keyData(alloc, cssmKey->KeyData);
-	try {
-		hdr.HeaderVersion = CSSM_KEYHEADER_VERSION;
-		/* CspId blank */
-		hdr.BlobType = CSSM_KEYBLOB_RAW;
-		hdr.AlgorithmId = CL_oidToAlg(keyInfo.algorithm.algorithm);
-		hdr.KeyAttr = CSSM_KEYATTR_MODIFIABLE | CSSM_KEYATTR_EXTRACTABLE;
-		
-		/* 
-		 * Format inferred from AlgorithmId. I have never seen these defined
-		 * anywhere, e.g., what's the format of an RSA public key in a cert?
-		 * X509 certainly doesn't say. However. the following two cases are 
-		 * known to be correct. 
-		 */
-		switch(hdr.AlgorithmId) {
-			case CSSM_ALGID_RSA:
-				hdr.Format = CSSM_KEYBLOB_RAW_FORMAT_PKCS1;
-				break;
-			case CSSM_ALGID_DSA:
-			case CSSM_ALGID_DH:
-			case CSSM_ALGMODE_PKCS1_EME_OAEP:
-				hdr.Format = CSSM_KEYBLOB_RAW_FORMAT_X509;
-				break;
-			case CSSM_ALGID_FEE:
-				/* CSSM_KEYBLOB_RAW_FORMAT_NONE --> DER encoded */
-				hdr.Format = CSSM_KEYBLOB_RAW_FORMAT_NONE;
-				break;
-			default:
-				/* punt */
-				hdr.Format = CSSM_KEYBLOB_RAW_FORMAT_NONE;
-		}
-		hdr.KeyClass = CSSM_KEYCLASS_PUBLIC_KEY;
-		
-		/* KeyUsage inferred from extensions */
-		if(decodedCert) {
-			hdr.KeyUsage = decodedCert->inferKeyUsage();
-		}
-		else {
-			hdr.KeyUsage = CSSM_KEYUSE_ANY;
-		}
-		
-		/* start/end date unknown, leave zero */
-		hdr.WrapAlgorithmId = CSSM_ALGID_NONE;
-		hdr.WrapMode = CSSM_ALGMODE_NONE;
-		
-		switch(hdr.AlgorithmId) {
-			case CSSM_ALGID_DSA:
-			case CSSM_ALGID_DH:
-			case CSSM_ALGMODE_PKCS1_EME_OAEP:
-			{
-				/* 
-				 * Just encode the whole subject public key info blob.
-				 * NOTE we're assuming that the keyInfo.subjectPublicKey
-				 * field is in the NSS_native BITSTRING format, i.e., 
-				 * its Length field is in bits and we don't have to adjust.
-				 */
-				PRErrorCode prtn = SecNssEncodeItemOdata(&keyInfo, 
-					kSecAsn1SubjectPublicKeyInfoTemplate, keyData);
-				if(prtn) {
-					clErrorLog("extractCSSMKey: error on reencode\n");
-					CssmError::throwMe(CSSMERR_CL_MEMORY_ERROR);
-				}
-				break;
-			}
-			default:
-				/*
-				 * RSA, FEE for now.
-				 * keyInfo.subjectPublicKey (in BITS) ==> KeyData
-				 */
-				keyData.copy(keyInfo.subjectPublicKey.Data,
-					(keyInfo.subjectPublicKey.Length + 7) / 8);
-		}
-		keyData.release();
 
-		/*
-		 * LogicalKeySizeInBits - ask the CSP
-		 */
-		CSSM_CSP_HANDLE cspHand = getGlobalCspHand(true);
-		CSSM_KEY_SIZE keySize;
-		CSSM_RETURN crtn;
-		crtn = CSSM_QueryKeySizeInBits(cspHand, CSSM_INVALID_HANDLE, cssmKey,
-			&keySize);
-		switch(crtn) {
-			default:
-				CssmError::throwMe(crtn);
-			case CSSMERR_CSP_APPLE_PUBLIC_KEY_INCOMPLETE:
-				/*
-			 	 * This is how the CSP indicates a "partial" public key,
-				 * with a valid public key value but no alg-specific
-				 * parameters (currently, DSA only). 
-				 */
-				hdr.KeyAttr |= CSSM_KEYATTR_PARTIAL;
-				/* and drop thru */
-			case CSSM_OK:
-				cssmKey->KeyHeader.LogicalKeySizeInBits = 
-					keySize.LogicalKeySizeInBits;
-				break;
+	hdr.HeaderVersion = CSSM_KEYHEADER_VERSION;
+	/* CspId blank */
+	hdr.BlobType = CSSM_KEYBLOB_RAW;
+	hdr.AlgorithmId = CL_oidToAlg(keyInfo.algorithm.algorithm);
+	hdr.KeyAttr = CSSM_KEYATTR_MODIFIABLE | CSSM_KEYATTR_EXTRACTABLE;
+	
+	/* 
+	 * Format inferred from AlgorithmId. I have never seen these defined
+	 * anywhere, e.g., what's the format of an RSA public key in a cert?
+	 * X509 certainly doesn't say. However. the following two cases are 
+	 * known to be correct. 
+	 */
+	switch(hdr.AlgorithmId) {
+		case CSSM_ALGID_RSA:
+			hdr.Format = CSSM_KEYBLOB_RAW_FORMAT_PKCS1;
+			break;
+		case CSSM_ALGID_DSA:
+		case CSSM_ALGID_ECDSA:
+		case CSSM_ALGID_DH:
+		case CSSM_ALGMODE_PKCS1_EME_OAEP:
+			hdr.Format = CSSM_KEYBLOB_RAW_FORMAT_X509;
+			break;
+		case CSSM_ALGID_FEE:
+			/* CSSM_KEYBLOB_RAW_FORMAT_NONE --> DER encoded */
+			hdr.Format = CSSM_KEYBLOB_RAW_FORMAT_NONE;
+			break;
+		default:
+			/* punt */
+			hdr.Format = CSSM_KEYBLOB_RAW_FORMAT_NONE;
+	}
+	hdr.KeyClass = CSSM_KEYCLASS_PUBLIC_KEY;
+	
+	/* KeyUsage inferred from extensions */
+	if(decodedCert) {
+		hdr.KeyUsage = decodedCert->inferKeyUsage();
+	}
+	else {
+		hdr.KeyUsage = CSSM_KEYUSE_ANY;
+	}
+	
+	/* start/end date unknown, leave zero */
+	hdr.WrapAlgorithmId = CSSM_ALGID_NONE;
+	hdr.WrapMode = CSSM_ALGMODE_NONE;
+	
+	switch(hdr.AlgorithmId) {
+		case CSSM_ALGID_DSA:
+		case CSSM_ALGID_ECDSA:
+		case CSSM_ALGID_DH:
+		case CSSM_ALGMODE_PKCS1_EME_OAEP:
+		{
+			/* 
+			 * Just encode the whole subject public key info blob.
+			 * NOTE we're assuming that the keyInfo.subjectPublicKey
+			 * field is in the NSS_native BITSTRING format, i.e., 
+			 * its Length field is in bits and we don't have to adjust.
+			 */
+			PRErrorCode prtn = SecNssEncodeItemOdata(&keyInfo, 
+				kSecAsn1SubjectPublicKeyInfoTemplate, keyData);
+			if(prtn) {
+				clErrorLog("extractCSSMKey: error on reencode\n");
+				CssmError::throwMe(CSSMERR_CL_MEMORY_ERROR);
+			}
+			break;
 		}
+		default:
+			/*
+			 * RSA, FEE for now.
+			 * keyInfo.subjectPublicKey (in BITS) ==> KeyData
+			 */
+			keyData.copy(keyInfo.subjectPublicKey.Data,
+				(keyInfo.subjectPublicKey.Length + 7) / 8);
 	}
-	catch (...) {
-		alloc.free(cssmKey);
-		throw;
+
+	/*
+	 * LogicalKeySizeInBits - ask the CSP
+	 */
+	CSSM_CSP_HANDLE cspHand = getGlobalCspHand(true);
+	CSSM_KEY_SIZE keySize;
+	CSSM_RETURN crtn;
+	crtn = CSSM_QueryKeySizeInBits(cspHand, CSSM_INVALID_HANDLE, cssmKey,
+		&keySize);
+	switch(crtn) {
+		default:
+			CssmError::throwMe(crtn);
+		case CSSMERR_CSP_APPLE_PUBLIC_KEY_INCOMPLETE:
+			/*
+			 * This is how the CSP indicates a "partial" public key,
+			 * with a valid public key value but no alg-specific
+			 * parameters (currently, DSA only). 
+			 */
+			hdr.KeyAttr |= CSSM_KEYATTR_PARTIAL;
+			/* and drop thru */
+		case CSSM_OK:
+			cssmKey->KeyHeader.LogicalKeySizeInBits = 
+				keySize.LogicalKeySizeInBits;
+			break;
 	}
+
+	keyData.release();
 	return cssmKey;
 }
 
@@ -561,6 +559,7 @@ void CL_nullAlgParams(
  * CSSM key must be in raw format and with a specific blob format.
  *  	-- RSA keys have to be CSSM_KEYBLOB_RAW_FORMAT_PKCS1
  * 		-- DSA keys have to be CSSM_KEYBLOB_RAW_FORMAT_X509
+ * 		-- ECDSA keys have to be CSSM_KEYBLOB_RAW_FORMAT_X509
  */
 void CL_CSSMKeyToSubjPubKeyInfoNSS(
 	const CSSM_KEY 						&cssmKey,
@@ -602,8 +601,9 @@ void CL_CSSMKeyToSubjPubKeyInfoNSS(
 			break;
 		}	
 		case CSSM_ALGID_DSA:
+		case CSSM_ALGID_ECDSA:
 			if(hdr.Format != CSSM_KEYBLOB_RAW_FORMAT_X509) {
-				clErrorLog("CL SetField: DSA key must be in X509 format\n");
+				clErrorLog("CL SetField: DSA/ECDSA key must be in X509 format\n");
 				CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_FORMAT);
 			}
 			
@@ -1119,7 +1119,7 @@ void CL_nssIssuingDistPointToCssm(
 	NSS_IssuingDistributionPoint *nssIdp,
 	CE_IssuingDistributionPoint	*cssmIdp,
 	SecNssCoder					&coder,
-	Allocator				&alloc)
+	Allocator					&alloc)
 {
 	/* All fields optional */
 	memset(cssmIdp, 0, sizeof(*cssmIdp));
@@ -1155,6 +1155,48 @@ void CL_nssIssuingDistPointToCssm(
 	if(nssIdp->indirectCRL) {
 		cssmIdp->indirectCrlPresent = CSSM_TRUE;
 		cssmIdp->indirectCrl = clNssBoolToCssm(*nssIdp->indirectCRL);
+	}
+}
+
+#pragma mark ----- ECDSA_SigAlgParams support -----
+
+/* 
+ * Some implementations use a two-OID mechanism to specify ECDSA signature
+ * algorithm with a digest of other than SHA1. This is really not necessary;
+ * we use the single-OID method (e.g. CSSMOID_ECDSA_WithSHA512) when 
+ * encoding, but we have to accomodate externally generated items with 
+ * the two-OID method. This routine decodes the digest OID and infers a 
+ * CSSM_ALGORITHMS from it.
+ * Throws CSSMERR_CL_UNKNOWN_FORMAT on any error.
+ */
+CSSM_ALGORITHMS CL_nssDecodeECDSASigAlgParams(
+	const CSSM_DATA &encParams,
+	SecNssCoder &coder)
+{
+	CSSM_X509_ALGORITHM_IDENTIFIER algParams;
+	memset(&algParams, 0, sizeof(algParams));
+	PRErrorCode prtn = coder.decodeItem(encParams, kSecAsn1AlgorithmIDTemplate, &algParams);
+	if(prtn) {
+		clErrorLog("CL_nssDecodeECDSASigAlgParams: error decoding CSSM_X509_ALGORITHM_IDENTIFIER\n");
+		CssmError::throwMe(CSSMERR_CL_UNKNOWN_FORMAT);
+	}
+	
+	/* get the digest algorithm, convert to ECDSA w/digest OID */
+	CSSM_ALGORITHMS digestAlg = CL_oidToAlg(algParams.algorithm);
+	switch(digestAlg) {
+		case CSSM_ALGID_SHA1:
+			return CSSM_ALGID_SHA1WithECDSA;
+		case CSSM_ALGID_SHA224:
+			return CSSM_ALGID_SHA224WithECDSA;
+		case CSSM_ALGID_SHA256:
+			return CSSM_ALGID_SHA256WithECDSA;
+		case CSSM_ALGID_SHA384:
+			return CSSM_ALGID_SHA384WithECDSA;
+		case CSSM_ALGID_SHA512:
+			return CSSM_ALGID_SHA512WithECDSA;
+		default:
+			clErrorLog("CL_nssDecodeECDSASigAlgParams: unknown digest algorithm\n");
+			CssmError::throwMe(CSSMERR_CL_UNKNOWN_FORMAT);
 	}
 }
 

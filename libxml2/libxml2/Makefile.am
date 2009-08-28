@@ -8,7 +8,8 @@ INCLUDES = -I$(top_builddir)/include -I@srcdir@/include @THREAD_CFLAGS@ @Z_CFLAG
 
 noinst_PROGRAMS=testSchemas testRelax testSAX testHTML testXPath testURI \
                 testThreads testC14N testAutomata testRegexp \
-		testReader testapi
+                testReader testapi testModule runtest runsuite testchar \
+		testdict runxmlconf testrecurse
 
 bin_PROGRAMS = xmllint xmlcatalog
 
@@ -17,7 +18,7 @@ bin_SCRIPTS=xml2-config
 lib_LTLIBRARIES = libxml2.la
 libxml2_la_LIBADD = @THREAD_LIBS@ @Z_LIBS@ $(ICONV_LIBS) $(ICU_LIBS) @M_LIBS@ @WIN32_EXTRA_LIBADD@
 
-libxml2_la_LDFLAGS = @CYGWIN_EXTRA_LDFLAGS@ @WIN32_EXTRA_LDFLAGS@ -version-info @LIBXML_VERSION_INFO@
+libxml2_la_LDFLAGS = @CYGWIN_EXTRA_LDFLAGS@ @WIN32_EXTRA_LDFLAGS@ -version-info @LIBXML_VERSION_INFO@ @MODULE_PLATFORM_LIBS@
 
 if WITH_TRIO_SOURCES
 libxml2_la_SOURCES = SAX.c entities.c encoding.c error.c parserInternals.c  \
@@ -27,7 +28,8 @@ libxml2_la_SOURCES = SAX.c entities.c encoding.c error.c parserInternals.c  \
 		catalog.c globals.c threads.c c14n.c xmlstring.c \
 		xmlregexp.c xmlschemas.c xmlschemastypes.c xmlunicode.c \
 		triostr.c trio.c xmlreader.c relaxng.c dict.c SAX2.c \
-		xmlwriter.c legacy.c chvalid.c pattern.c xmlsave.c
+		xmlwriter.c legacy.c chvalid.c pattern.c xmlsave.c \
+		xmlmodule.c schematron.c
 else
 libxml2_la_SOURCES = SAX.c entities.c encoding.c error.c parserInternals.c  \
 		parser.c tree.c hash.c list.c xmlIO.c xmlmemory.c uri.c  \
@@ -36,7 +38,8 @@ libxml2_la_SOURCES = SAX.c entities.c encoding.c error.c parserInternals.c  \
 		catalog.c globals.c threads.c c14n.c xmlstring.c \
 		xmlregexp.c xmlschemas.c xmlschemastypes.c xmlunicode.c \
 		xmlreader.c relaxng.c dict.c SAX2.c \
-		xmlwriter.c legacy.c chvalid.c pattern.c xmlsave.c
+		xmlwriter.c legacy.c chvalid.c pattern.c xmlsave.c \
+		xmlmodule.c schematron.c
 endif
 
 DEPS = $(top_builddir)/libxml2.la
@@ -47,6 +50,31 @@ man_MANS = xml2-config.1 libxml.3
 
 m4datadir = $(datadir)/aclocal
 m4data_DATA = libxml.m4
+
+runtest_SOURCES=runtest.c
+runtest_LDFLAGS = 
+runtest_DEPENDENCIES = $(DEPS)
+runtest_LDADD= @BASE_THREAD_LIBS@ @RDL_LIBS@ $(LDADDS)
+
+testrecurse_SOURCES=testrecurse.c
+testrecurse_LDFLAGS = 
+testrecurse_DEPENDENCIES = $(DEPS)
+testrecurse_LDADD= @BASE_THREAD_LIBS@ @RDL_LIBS@ $(LDADDS)
+
+testchar_SOURCES=testchar.c
+testchar_LDFLAGS = 
+testchar_DEPENDENCIES = $(DEPS)
+testchar_LDADD= @RDL_LIBS@ $(LDADDS)
+
+testdict_SOURCES=testdict.c
+testdict_LDFLAGS = 
+testdict_DEPENDENCIES = $(DEPS)
+testdict_LDADD= @RDL_LIBS@ $(LDADDS)
+
+runsuite_SOURCES=runsuite.c
+runsuite_LDFLAGS = 
+runsuite_DEPENDENCIES = $(DEPS)
+runsuite_LDADD= @RDL_LIBS@ $(LDADDS)
 
 xmllint_SOURCES=xmllint.c
 xmllint_LDFLAGS = 
@@ -81,7 +109,7 @@ testC14N_LDADD= $(LDADDS)
 testThreads_SOURCES=testThreads@THREADS_W32@.c
 testThreads_LDFLAGS = 
 testThreads_DEPENDENCIES = $(DEPS)
-testThreads_LDADD= $(LDADDS)
+testThreads_LDADD= @BASE_THREAD_LIBS@  $(LDADDS)
 
 testURI_SOURCES=testURI.c
 testURI_LDFLAGS = 
@@ -113,24 +141,56 @@ testReader_LDFLAGS =
 testReader_DEPENDENCIES = $(DEPS)
 testReader_LDADD= $(LDADDS)
 
-testapi.c: gentest.py doc/libxml2-api.xml
-	-@(if [ "$(PYTHON)" != "" ] ; then $(PYTHON) gentest.py ; fi )
+testModule_SOURCES=testModule.c
+testModule_LDFLAGS = 
+testModule_DEPENDENCIES = $(DEPS)
+testModule_LDADD= $(LDADDS)
+
+noinst_LTLIBRARIES = testdso.la
+testdso_la_SOURCES = testdso.c
+testdso_la_LDFLAGS = -module -rpath $(libdir)
+
+# that one forces the rebuild when "make rebuild" is run on doc/
+rebuild_testapi:
+	-@(if [ "$(PYTHON)" != "" ] ; then \
+	    $(PYTHON) $(srcdir)/gentest.py $(srcdir) ; fi )
+
+# that one is just to make sure it is rebuilt if missing
+# but adding the dependances generate mess
+testapi.c: $(srcdir)/gentest.py
+	-@(if [ "$(PYTHON)" != "" ] ; then \
+	    $(PYTHON) $(srcdir)/gentest.py $(srcdir) ; fi )
 
 testapi_SOURCES=testapi.c
 testapi_LDFLAGS = 
 testapi_DEPENDENCIES = $(DEPS)
 testapi_LDADD= $(LDADDS)
 
+runxmlconf_SOURCES=runxmlconf.c
+runxmlconf_LDFLAGS = 
+runxmlconf_DEPENDENCIES = $(DEPS)
+runxmlconf_LDADD= $(LDADDS)
+
 #testOOM_SOURCES=testOOM.c testOOMlib.h testOOMlib.c
 #testOOM_LDFLAGS = 
 #testOOM_DEPENDENCIES = $(DEPS)
 #testOOM_LDADD= $(LDADDS)
 
-check-local: all tests
+runtests:
+	$(CHECKER) ./runtest$(EXEEXT) && $(CHECKER) ./testrecurse$(EXEEXT) &&$(CHECKER) ./testapi$(EXEEXT) && $(CHECKER) ./testchar$(EXEEXT)&& $(CHECKER) ./testdict$(EXEEXT) && $(CHECKER) ./runxmlconf$(EXEEXT)
+	@(if [ "@PYTHON_SUBDIR@" != "" ] ; then cd python ; \
+	    $(MAKE) MAKEFLAGS+=--silent tests ; fi)
+
+check: all runtests
+
+check-valgrind: all
+	@echo '## Running the regression tests under Valgrind'
+	@echo '## Go get a cup of coffee it is gonna take a while ...'
+	$(MAKE) CHECKER='valgrind -q' check
 
 testall : tests SVGtests SAXtests
 
-tests: XMLtests XMLenttests NStests IDtests Errtests APItests @READER_TEST@ @TEST_SAX@ @TEST_PUSH@ @TEST_HTML@ @TEST_PHTML@  @TEST_VALID@ URItests @TEST_XPATH@ @TEST_XPTR@ @TEST_XINCLUDE@ @TEST_C14N@ @TEST_DEBUG@ @TEST_CATALOG@ @TEST_REGEXPS@ @TEST_SCHEMAS@ @TEST_THREADS@ Timingtests @TEST_VTIME@ @PYTHON_TESTS@
+tests: XMLtests XMLenttests NStests IDtests Errtests APItests @READER_TEST@ @TEST_SAX@ @TEST_PUSH@ @TEST_HTML@ @TEST_PHTML@  @TEST_VALID@ URItests @TEST_PATTERN@ @TEST_XPATH@ @TEST_XPTR@ @TEST_XINCLUDE@ @TEST_C14N@ @TEST_DEBUG@ @TEST_CATALOG@ @TEST_REGEXPS@ @TEST_SCHEMAS@ @TEST_SCHEMATRON@ @TEST_THREADS@ Timingtests @TEST_VTIME@ @PYTHON_TESTS@ @TEST_MODULES@
 	@(if [ "@PYTHON_SUBDIR@" != "" ] ; then cd python ; \
 	    $(MAKE) MAKEFLAGS+=--silent tests ; fi)
 	@(cd doc/examples ; $(MAKE) MAKEFLAGS+=--silent tests)
@@ -343,15 +403,14 @@ Errtests : xmllint$(EXEEXT)
 	      echo New test file $$name ; \
 	      $(CHECKER) $(top_builddir)/xmllint --stream $$i \
 	         2> $(srcdir)/result/errors/$$name.str \
-		 > $(srcdir)/result/errors/$$name ; \
+		 > /dev/null ; \
 	      grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0"; \
 	  else \
-	      log=`$(CHECKER) $(top_builddir)/xmllint --stream $$i 2> error.$$name > result.$$name ; \
+	      log=`$(CHECKER) $(top_builddir)/xmllint --stream $$i 2> error.$$name > /dev/null ; \
 	      grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0"; \
-	      diff $(srcdir)/result/errors/$$name result.$$name ; \
 	      diff $(srcdir)/result/errors/$$name.str error.$$name` ; \
 	      if [ -n "$$log" ] ; then echo $$name result ; echo $$log ; fi ; \
-	      rm result.$$name error.$$name ; \
+	      rm error.$$name ; \
 	  fi ; fi ; done)
 
 Docbtests : xmllint$(EXEEXT)
@@ -704,7 +763,7 @@ Readertests : xmllint$(EXEEXT)
 
 SAXtests : testSAX$(EXEEXT)
 	@(echo > .memdump)
-	@echo "## SAX callbacks regression tests"
+	@echo "## SAX1 callbacks regression tests"
 	-@(for i in $(srcdir)/test/* ; do \
 	  name=`basename $$i`; \
 	  if [ ! -d $$i ] ; then \
@@ -716,6 +775,21 @@ SAXtests : testSAX$(EXEEXT)
 	      log=`$(CHECKER) $(top_builddir)/testSAX $$i > result.$$name 2> /dev/null ; \
 	      grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0";\
 	      diff $(srcdir)/result/$$name.sax result.$$name` ; \
+	      if [ -n "$$log" ] ; then echo $$name result ; echo $$log ; fi ; \
+	      rm result.$$name ; \
+	  fi ; fi ; done)
+	@echo "## SAX2 callbacks regression tests"
+	-@(for i in $(srcdir)/test/* ; do \
+	  name=`basename $$i`; \
+	  if [ ! -d $$i ] ; then \
+	  if [ ! -f $(srcdir)/result/$$name.sax2 ] ; then \
+	      echo New test file $$name ; \
+	      $(CHECKER) $(top_builddir)/testSAX --sax2 $$i > $(srcdir)/result/$$name.sax2 2> /dev/null ; \
+	      grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0";\
+	  else \
+	      log=`$(CHECKER) $(top_builddir)/testSAX --sax2 $$i > result.$$name 2> /dev/null ; \
+	      grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0";\
+	      diff $(srcdir)/result/$$name.sax2 result.$$name` ; \
 	      if [ -n "$$log" ] ; then echo $$name result ; echo $$log ; fi ; \
 	      rm result.$$name ; \
 	  fi ; fi ; done)
@@ -779,6 +853,21 @@ Regexptests: testRegexp$(EXEEXT)
 	      if [ -n "$$log" ] ; then echo $$name result ; echo $$log ; fi ; \
 	      rm result.$$name ; \
 	  fi ; fi ; done)
+	@echo "## Formal expresssions regression tests"
+	-@(for i in $(srcdir)/test/expr/* ; do \
+	  name=`basename $$i`; \
+	  if [ ! -d $$i ] ; then \
+	  if [ ! -f $(srcdir)/result/expr/$$name ] ; then \
+	      echo New test file $$name ; \
+	      $(CHECKER) $(top_builddir)/testRegexp --expr -i $$i > $(srcdir)/result/expr/$$name; \
+	      grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0";\
+	  else \
+	      log=`$(CHECKER) $(top_builddir)/testRegexp --expr -i $$i 2>&1 > result.$$name ; \
+	      grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0";\
+	      diff $(srcdir)/result/expr/$$name result.$$name` ; \
+	      if [ -n "$$log" ] ; then echo $$name result ; echo $$log ; fi ; \
+	      rm result.$$name ; \
+	  fi ; fi ; done)
 
 Automatatests: testAutomata$(EXEEXT)
 	@(echo > .memdump)
@@ -798,23 +887,23 @@ Automatatests: testAutomata$(EXEEXT)
 	      rm result.$$name ; \
 	  fi ; fi ; done)
 
-$(srcdir)/dba100000.xml: dbgenattr.pl
+dba100000.xml: dbgenattr.pl
 	@echo "## generating dba100000.xml"
-	@($(PERL) $(top_srcdir)/dbgenattr.pl 100000 > $(srcdir)/dba100000.xml)
+	@($(PERL) $(top_srcdir)/dbgenattr.pl 100000 > dba100000.xml)
 
-Timingtests: xmllint$(EXEEXT) $(srcdir)/dba100000.xml
+Timingtests: xmllint$(EXEEXT) dba100000.xml
 	@echo "## Timing tests to try to detect performance"
 	@echo "## as well a memory usage breakage when streaming"
 	@echo "## 1/ using the file interface"
 	@echo "## 2/ using the memory interface"
 	@echo "## 3/ repeated DOM parsing"
 	@echo "## 4/ repeated DOM validation"
-	-@($(top_builddir)/xmllint --stream --timing $(srcdir)/dba100000.xml; \
+	-@($(top_builddir)/xmllint --stream --timing dba100000.xml; \
 	   MEM=`cat .memdump | grep "MEMORY ALLOCATED" | awk '{ print $$7}'`;\
 	   if [ "$$MEM" != "" ] ; then echo Using $$MEM bytes ; fi ; \
 	   grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0";\
 	   exit 0)
-	-@($(top_builddir)/xmllint --stream --timing --memory $(srcdir)/dba100000.xml; \
+	-@($(top_builddir)/xmllint --stream --timing --memory dba100000.xml; \
 	   MEM=`cat .memdump | grep "MEMORY ALLOCATED" | awk '{ print $$7}'`;\
 	   if [ "$$MEM" != "" ] ; then echo Using $$MEM bytes ; fi ; \
 	   grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0";\
@@ -955,7 +1044,7 @@ Relaxtests: xmllint$(EXEEXT)
 		    > res.$$name 2> err.$$name;\
 	          grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0";\
 	          diff $(srcdir)/result/relaxng/"$$name"_"$$xno" res.$$name;\
-		  if [ "$$name" != "tutor10_1" -a "$$name" != "tutor10_2" -a "$$name" != "tutor3_2" ] ; then \
+		  if [ "$$name" != "tutor10_1" -a "$$name" != "tutor10_2" -a "$$name" != "tutor3_2" -a "$$name" != "307377" ] ; then \
 		      diff $(srcdir)/result/relaxng/"$$name"_"$$xno".err \
 			   err.$$name | grep -v "error detected at";\
 		  fi ; grep Unimplemented err.$$name`; \
@@ -964,10 +1053,41 @@ Relaxtests: xmllint$(EXEEXT)
 	       fi ; fi ; \
 	  done; done)
 
+Schematrontests: xmllint$(EXEEXT)
+	@(echo > .memdump)
+	@echo "## Schematron regression tests"
+	-@(for i in $(srcdir)/test/schematron/*.sct ; do \
+	  name=`basename $$i | sed 's+\.sct++'`; \
+	  for j in $(srcdir)/test/schematron/"$$name"_*.xml ; do \
+	      if [ -f $$j ] ; then \
+	      xno=`basename $$j | sed 's+.*_\(.*\).xml+\1+'`; \
+	      if [ ! -f $(srcdir)/result/schematron/"$$name"_"$$xno" ]; \
+	      then \
+		  echo New test file "$$name"_"$$xno" ; \
+		  $(CHECKER) $(top_builddir)/xmllint$(EXEEXT) --schematron $$i $$j \
+		    > $(srcdir)/result/schematron/"$$name"_"$$xno" \
+		    2> $(srcdir)/result/schematron/"$$name"_"$$xno".err; \
+	          grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0";\
+	      else \
+	          log=`$(CHECKER) $(top_builddir)/xmllint$(EXEEXT) --schematron $$i $$j \
+		    > res.$$name 2> err.$$name;\
+	          grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0";\
+	          diff $(srcdir)/result/schematron/"$$name"_"$$xno" \
+		       res.$$name;\
+	          diff $(srcdir)/result/schematron/"$$name"_"$$xno".err \
+		       err.$$name | grep -v "error detected at";\
+		  grep Unimplemented err.$$name`; \
+		  if [ -n "$$log" ] ; then echo "$$name"_"$$xno" result ; echo $$log ; fi ; \
+	          rm res.$$name err.$$name ; \
+	       fi ; fi ; \
+	  done; done)
+
 RelaxNGPythonTests:
 	@(if [ -x $(PYTHON) ] ; then \
 	    PYTHONPATH=$(top_builddir)/python:$(top_builddir)/python/.libs:$$PYTHONPATH ; \
 	    export PYTHONPATH; \
+	    LD_LIBRARY_PATH="$(top_builddir)/.libs:$$LD_LIBRARY_PATH" ; \
+	    export LD_LIBRARY_PATH; \
 	    echo "## Relax-NG Python based test suite 1" ; \
 	    $(CHECKER) $(PYTHON) $(srcdir)/check-relaxng-test-suite.py ; \
 	    echo "## Relax-NG Python based test suite 2" ; \
@@ -978,21 +1098,59 @@ SchemasPythonTests:
 	@(if [ -x $(PYTHON) ] ; then \
 	    PYTHONPATH=$(top_builddir)/python:$(top_builddir)/python/.libs:$$PYTHONPATH; \
 	    export PYTHONPATH; \
+	    LD_LIBRARY_PATH="$(top_builddir)/.libs:$$LD_LIBRARY_PATH" ; \
+	    export LD_LIBRARY_PATH; \
 	    echo "## XML Schemas datatypes Python based test suite" ; \
-	    echo "## It is normal to see 6 errors reported" ; \
+	    echo "## It is normal to see 11 errors reported" ; \
 	    $(CHECKER) $(PYTHON) $(srcdir)/check-xsddata-test-suite.py ; \
 	  fi)
 	@(if [ -x $(PYTHON) -a -d xstc ] ; then cd xstc ; $(MAKE) CHECKER="$(CHECKER)" MAKEFLAGS+=--silent pytests ; fi)
 
+Patterntests: xmllint$(EXEEXT)
+	@(echo > .memdump)
+	@echo "## Pattern regression tests"
+	-@(for i in $(srcdir)/test/pattern/*.pat ; do \
+	  name=`basename $$i .pat`; \
+	  if [ -f $(srcdir)/test/pattern/$$name.xml ] ; then \
+	  if [ ! -f $(srcdir)/result/pattern/$$name ] ; then \
+	      rm -f result.$$name ; \
+	      echo New test file $$name ; \
+	      for pat in `cat $$i` ; do \
+	      $(CHECKER) $(top_builddir)/xmllint --walker --pattern $$pat $(srcdir)/test/pattern/$$name.xml >> $(srcdir)/result/pattern/$$name ; \
+	      grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0";\
+	      done ;\
+	  else \
+	      rm -f result.$$name ; \
+	      lst=`cat $$i` ; \
+	      log=`for pat in $$lst ; do $(CHECKER) $(top_builddir)/xmllint --walker --pattern $$pat $(srcdir)/test/pattern/$$name.xml 2>&1 >> result.$$name ; \
+	      grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0";\
+	      done ;\
+	      diff $(srcdir)/result/pattern/$$name result.$$name` ; \
+	      if [ -n "$$log" ] ; then echo $$name result ; echo $$log ; fi ; \
+	      rm result.$$name ; \
+	  fi ; fi ; done ;)
+
+ModuleTests: testModule$(EXEEXT) testdso.la
+	@echo "## Module tests"
+	@(./testModule$(EXEEXT))
+
 cleanup:
 	-@(find . -name .\#\* -exec rm {} \;)
+	-@(find . -name \*.gcda -o *.gcno -exec rm {} \;)
+	-@(find . -name \*.orig -o -name \*.rej -o -name \*.old -exec rm {} \;)
 
 dist-hook: cleanup libxml2.spec
 	-cp libxml2.spec $(distdir)
-	(cd $(srcdir) ; tar -cf - --exclude CVS win32 macos vms test result SAXresult ) | (cd $(distdir); tar xf -)
+	(cd $(srcdir) ; tar -cf - --exclude CVS --exclude .svn win32 macos vms bakefile test result) | (cd $(distdir); tar xf -)
 
 dist-source: distdir
-	$(AMTAR) -chof - --exclude test --exclude result $(distdir) | GZIP=$(GZIP_ENV) gzip -c >`echo "$(distdir)" | sed "s+libxml2+libxml2-sources+"`.tar.gz
+	$(AMTAR) -chof - --exclude Tests --exclude test --exclude result $(distdir) | GZIP=$(GZIP_ENV) gzip -c >`echo "$(distdir)" | sed "s+libxml2+libxml2-sources+"`.tar.gz
+
+dist-test: distdir
+	(mkdir -p $(distdir))
+	(cd $(srcdir) ; tar -cf - --exclude CVS --exclude .svn xstc/Tests) | (cd $(distdir); tar xf -)
+	tar -cf - $(distdir)/test $(distdir)/result $(distdir)/xstc/Tests  $(distdir)/Makefile.tests $(distdir)/README $(distdir)/README.tests $(distdir)/AUTHORS $(distdir)/testapi.c $(distdir)/runtest.c $(distdir)/runsuite.c | GZIP=$(GZIP_ENV) gzip -c >`echo "$(distdir)" | sed "s+libxml2+libxml2-tests+"`.tar.gz
+	@(rm -rf $(distdir)/xstc/Test)
 
 cleantar:
 	@(rm -f libxml*.tar.gz COPYING.LIB)
@@ -1014,7 +1172,7 @@ xml2Conf.sh: xml2Conf.sh.in Makefile
 	       < $(srcdir)/xml2Conf.sh.in > xml2Conf.tmp \
 	&& mv xml2Conf.tmp xml2Conf.sh
 
-CLEANFILES=xml2Conf.sh
+CLEANFILES=xml2Conf.sh *.gcda *.gcno
 
 confexecdir=$(libdir)
 confexec_DATA = xml2Conf.sh
@@ -1029,6 +1187,7 @@ EXTRA_DIST = xml2-config.in xml2Conf.sh.in libxml.spec.in libxml2.spec \
 	     triop.h triodef.h libxml.h elfgcchack.h \
 	     testThreadsWin32.c genUnicode.py TODO_SCHEMAS \
 	     dbgen.pl dbgenattr.pl regressions.py regressions.xml \
+	     README.tests Makefile.tests \
 	     $(CVS_EXTRA_DIST)
 
 
@@ -1051,5 +1210,42 @@ install-data-local:
 	-@INSTALL@ -m 0644 $(srcdir)/testHTML.c $(DESTDIR)$(EXAMPLES_DIR)
 	-@INSTALL@ -m 0644 $(srcdir)/testXPath.c $(DESTDIR)$(EXAMPLES_DIR)
 
+uninstall-local:
+	rm $(DESTDIR)$(EXAMPLES_DIR)/testXPath.c
+	rm $(DESTDIR)$(EXAMPLES_DIR)/testHTML.c
+	rm $(DESTDIR)$(EXAMPLES_DIR)/testSAX.c
+	rm $(DESTDIR)$(EXAMPLES_DIR)/xmllint.c
+	rm -rf $(DESTDIR)$(EXAMPLES_DIR)
+	rm $(DESTDIR)$(BASE_DIR)/$(DOC_MODULE)/Copyright
+	rm -rf $(DESTDIR)$(BASE_DIR)/$(DOC_MODULE)
+
 tst: tst.c
 	$(CC) $(CFLAGS) -Iinclude -o tst tst.c .libs/libxml2.a -lpthread -lm -lz
+
+sparse: clean
+	$(MAKE) CC=cgcc
+
+#
+# Coverage support, largely borrowed from libvirt
+# Both binaries comes from the lcov package in Fedora
+#
+LCOV = /usr/bin/lcov
+GENHTML = /usr/bin/genhtml
+
+cov: clean-cov
+	if [ "`echo $(LDFLAGS) | grep coverage`" = "" ] ; then \
+	    echo not configured with coverage; exit 1 ; fi
+	if [ ! -x $(LCOV) -o ! -x $(GENHTML) ] ; then \
+	    echo Need $(LCOV) and $(GENHTML) excecutables; exit 1 ; fi
+	-@($(MAKE) check)
+	-@(./runsuite$(EXEEXT))
+	mkdir $(top_builddir)/coverage
+	$(LCOV) -c -o $(top_builddir)/coverage/libxml2.info.tmp -d $(top_srcdir)
+	$(LCOV) -r $(top_builddir)/coverage/libxml2.info.tmp -o $(top_builddir)/coverage/libxml2.info *usr*
+	rm $(top_builddir)/coverage/libxml2.info.tmp
+	$(GENHTML) -s -t "libxml2" -o $(top_builddir)/coverage --legend $(top_builddir)/coverage/libxml2.info
+	echo "Coverage report is in $(top_builddir)/coverage/index.html"
+
+clean-cov:
+	rm -rf $(top_builddir)/coverage
+

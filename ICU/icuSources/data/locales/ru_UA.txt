@@ -1,32 +1,50 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2006 International Business Machines
+// * Copyright (C) 2008 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/ru_UA.xml
 // *
 // ***************************************************************************
 ru_UA{
-    NumberPatterns{
-        "#,##0.###",
-        "#,##0.00 ¤",
-        "#,##0%",
-        "#E0",
+    Currencies{
+        ESB{
+            "ESB",
+            "ESB",
+        }
+        RHD{
+            "RHD",
+            "RHD",
+        }
+        YUM{
+            "YUM",
+            "YUM",
+        }
     }
-    Version{"1.38"}
+    Languages{
+        apa{"апачский"}
+        den{"слэйви"}
+        mh{"маршальский"}
+        tlh{"клингон"}
+    }
+    Version{"1.53"}
     calendar{
         gregorian{
             DateTimePatterns{
-                "HH:mm:ss z",
+                "HH:mm:ss v",
                 "HH:mm:ss z",
                 "HH:mm:ss",
                 "HH:mm",
-                "EEEE, d MMMM yyyy 'г.'",
+                "EEEE, d MMMM yyyy 'г'.",
                 "d MMMM yyyy",
                 "d MMM yyyy",
                 "dd.MM.yy",
                 "{1} {0}",
             }
         }
+    }
+    measurementSystemNames{
+        US{"US"}
+        metric{"Metric"}
     }
 }

@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2009 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -28,6 +28,7 @@
 #include "IOHIDUsageTables.h"
 #include "IOHIDKeyboard.h"
 #include "IOLLEvent.h"
+#include "IOHIDSystem.h"
 
 #define kFnFunctionUsageMapKey      "FnFunctionUsageMap"
 #define	kFnKeyboardUsageMapKey      "FnKeyboardUsageMap"
@@ -95,7 +96,7 @@ void AppleEmbeddedKeyboard::dispatchKeyboardEvent(
                                 UInt32                      usage,
                                 UInt32                      value,
                                 IOOptionBits                options)
-{    
+{
     if ( (( usagePage == kHIDPage_AppleVendorTopCase ) && ( usage == kHIDUsage_AV_TopCase_KeyboardFn )) || 
          (( usagePage == kHIDPage_AppleVendorKeyboard ) && ( usage == kHIDUsage_AppleVendorKeyboard_Function )) )
     {        
@@ -124,6 +125,7 @@ void AppleEmbeddedKeyboard::dispatchKeyboardEvent(
 }
 
 
+/* vtn3: rdar://7045478 removed for readability
 #define SHOULD_SWAP_FN_FUNCTION_KEY(key, down)                   \
     ((_secondaryKeys[key].bits & kSecondaryKeyFnFunction) &&	\
     (!( _fnKeyDownPhysical ^ _fKeyMode ) ||	(!down &&		\
@@ -137,6 +139,7 @@ void AppleEmbeddedKeyboard::dispatchKeyboardEvent(
 #define SHOULD_SWAP_NUM_LOCK_KEY(key, down)			\
     ((_numLockDown || ( !down &&					\
     (_secondaryKeys[key].swapping & kSecondaryKeyNumLockKeyboard))))
+ */
 
 //====================================================================================================
 // AppleEmbeddedKeyboard::filterSecondaryFnFunctionUsage
@@ -146,20 +149,39 @@ bool AppleEmbeddedKeyboard::filterSecondaryFnFunctionUsage(
                                 UInt32 *                    usage,
                                 bool                        down)
 {
-    if (SHOULD_SWAP_FN_FUNCTION_KEY(*usage, down))
-    {
-        if (down)
-            _secondaryKeys[*usage].swapping |= kSecondaryKeyFnFunction;
-        else
-            _secondaryKeys[*usage].swapping = 0; 
-
-        *usagePage  = _secondaryKeys[*usage].fnFunctionUsagePage;
-        *usage      = _secondaryKeys[*usage].fnFunctionUsage;
-
-        return true;
+    // vtn3: rdar://7045478 {
+    // This takes the place of SHOULD_SWAP_FN_FUNCTION_KEY
+    // Only remap keys that have a remapping
+    if (!(_secondaryKeys[*usage].bits & kSecondaryKeyFnFunction))
+        return false;
+    
+    // On a down, we want to remap iff the Fn key is down.
+    if (down && ( _fnKeyDownPhysical ^ _fKeyMode ))
+        return false;
+    
+    // On an up we want to remap iff the key was remapped for the down. We do not
+    // care if the Fn key is down.
+    if (!down && !(_secondaryKeys[*usage].swapping & kSecondaryKeyFnFunction)) 
+        return false;
+    // end rdar://7045478 }
+    
+    if ((*usagePage == kHIDPage_KeyboardOrKeypad) && (*usage == kHIDUsage_KeyboardF5)) {
+        UInt32 flags = IOHIDSystem::instance() ? IOHIDSystem::instance()->eventFlags() : 0;
+        if (flags & (NX_COMMANDMASK | NX_DEVICELCMDKEYMASK | NX_DEVICERCMDKEYMASK)) {
+            // <rdar://problem/6305898> Enhancement: Make Cmd+Fn+Key == Cmd+Key
+            return false;
+        }
     }
     
-    return false;
+    if (down)
+        _secondaryKeys[*usage].swapping |= kSecondaryKeyFnFunction;
+    else
+        _secondaryKeys[*usage].swapping = 0; 
+    
+    *usagePage  = _secondaryKeys[*usage].fnFunctionUsagePage;
+    *usage      = _secondaryKeys[*usage].fnFunctionUsage;
+
+    return true;
 }
 
 //====================================================================================================
@@ -170,18 +192,31 @@ bool AppleEmbeddedKeyboard::filterSecondaryFnKeyboardUsage(
                                 UInt32 *                    usage,
                                 bool                        down)
 {   
-
-    if (SHOULD_SWAP_FN_KEYBOARD_KEY(*usage, down))
-    {
-        if (down)
-            _secondaryKeys[*usage].swapping |= kSecondaryKeyFnKeyboard;
-        else
-            _secondaryKeys[*usage].swapping = 0; 
-
-        *usagePage  = _secondaryKeys[*usage].fnKeyboardUsagePage;
-        *usage      = _secondaryKeys[*usage].fnKeyboardUsage;
-    }
+    // vtn3: rdar://7045478 {
+    // This takes the place of SHOULD_SWAP_FN_KEYBOARD_KEY
+    // Only remap keys that have a remapping
+    if (!(_secondaryKeys[*usage].bits & kSecondaryKeyFnKeyboard))
+        return false;
     
+    // On a down, we want to remap iff the Fn key is down.
+    if (down && !_fnKeyDownVirtual)
+        return false;
+    
+    // On an up we want to remap iff the key was remapped for the down. We do not
+    // care if the Fn key is down.
+    if (!down && !(_secondaryKeys[*usage].swapping & kSecondaryKeyFnKeyboard)) 
+        return false;
+
+    // end rdar://7045478 }
+    
+    if (down)
+        _secondaryKeys[*usage].swapping |= kSecondaryKeyFnKeyboard;
+    else
+        _secondaryKeys[*usage].swapping = 0; 
+
+    *usagePage  = _secondaryKeys[*usage].fnKeyboardUsagePage;
+    *usage      = _secondaryKeys[*usage].fnKeyboardUsage;
+
     return false;
 }
 
@@ -193,23 +228,31 @@ bool AppleEmbeddedKeyboard::filterSecondaryNumLockKeyboardUsage(
                                 UInt32 *                    usage,
                                 bool                        down)
 {
+    // vtn3: rdar://7045478 {
+    // This takes the place of SHOULD_SWAP_NUM_LOCK_KEY
 
-    if (SHOULD_SWAP_NUM_LOCK_KEY(*usage, down))
+    // On a down, we want to remap iff the Num Lock key is down.
+    if (down && !_numLockDown)
+        return false;
+    
+    // On an up we want to remap iff the key was remapped for the down. We do not
+    // care if the Num Lock key is down.
+    if (!down && !(_secondaryKeys[*usage].swapping & kSecondaryKeyNumLockKeyboard)) 
+        return false;
+
+    // If the key is not a swapped numpad key, consume it
+    if (_secondaryKeys[*usage].bits & kSecondaryKeyNumLockKeyboard)
     {
-        // If the key is not a swapped numpad key, consume it
-        if (_secondaryKeys[*usage].bits & kSecondaryKeyNumLockKeyboard)
-        {
-            if (down)
-                _secondaryKeys[*usage].swapping |= kSecondaryKeyNumLockKeyboard;
-            else
-                _secondaryKeys[*usage].swapping = 0; 
+        if (down)
+            _secondaryKeys[*usage].swapping |= kSecondaryKeyNumLockKeyboard;
+        else
+            _secondaryKeys[*usage].swapping = 0; 
 
-            *usagePage  = _secondaryKeys[*usage].numLockKeyboardUsagePage;
-            *usage      = _secondaryKeys[*usage].numLockKeyboardUsage;
-        }
-        else if ( down )
-            return true;
+        *usagePage  = _secondaryKeys[*usage].numLockKeyboardUsagePage;
+        *usage      = _secondaryKeys[*usage].numLockKeyboardUsage;
     }
+    else if ( down )
+        return true;
 
     return false;
 }
@@ -283,6 +326,8 @@ void AppleEmbeddedKeyboard::parseSecondaryUsages()
     } else {
         _virtualMouseKeysSupport = FALSE;
     }
+	
+	setProperty(kIOHIDMouseKeysEnablesVirtualNumPadKey, _virtualMouseKeysSupport);
 }
 
 

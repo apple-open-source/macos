@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-*   Copyright (C) 2004-2005, International Business Machines
+*   Copyright (C) 2004-2008, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *******************************************************************************
 *   file name:  regex.cpp
@@ -19,6 +19,8 @@
 #include "umutex.h"
 #include "uassert.h"
 #include "cmemory.h"
+
+U_NAMESPACE_USE
 
 struct URegularExpression: public UMemory {
 public:
@@ -39,8 +41,6 @@ public:
 };
 
 static const int32_t REXP_MAGIC = 0x72657870; // "rexp" in ASCII
-
-U_NAMESPACE_USE
 
 URegularExpression::URegularExpression() {
     fMagic        = REXP_MAGIC;
@@ -74,7 +74,6 @@ static UBool validateRE(const URegularExpression *re, UErrorCode *status, UBool 
         return FALSE;
     }
     if (re == NULL || re->fMagic != REXP_MAGIC) {
-        // U_ASSERT(FALSE);
         *status = U_ILLEGAL_ARGUMENT_ERROR;
         return FALSE;
     }
@@ -196,10 +195,6 @@ uregex_clone(const URegularExpression *source, UErrorCode *status)  {
         delete clone;
         return NULL;
     }
-    if (clone == NULL) {
-        *status = U_MEMORY_ALLOCATION_ERROR;
-        return NULL;
-    }
 
     clone->fPat          = source->fPat;
     clone->fPatRefCount  = source->fPatRefCount; 
@@ -304,10 +299,15 @@ U_CAPI UBool U_EXPORT2
 uregex_matches(URegularExpression *regexp,
                 int32_t            startIndex,
                 UErrorCode        *status)  {
+    UBool result = FALSE;
     if (validateRE(regexp, status) == FALSE) {
-        return FALSE;
+        return result;
     }
-    UBool result = regexp->fMatcher->matches(startIndex, *status);
+    if (startIndex == -1) {
+        result = regexp->fMatcher->matches(*status);
+    } else {
+        result = regexp->fMatcher->matches(startIndex, *status);
+    }
     return result;
 }
 
@@ -322,10 +322,15 @@ U_CAPI UBool U_EXPORT2
 uregex_lookingAt(URegularExpression *regexp,
                  int32_t             startIndex,
                  UErrorCode         *status)  {
+    UBool result = FALSE;
     if (validateRE(regexp, status) == FALSE) {
-        return FALSE;
+        return result;
     }
-    UBool result = regexp->fMatcher->lookingAt(startIndex, *status);
+    if (startIndex == -1) {
+        result = regexp->fMatcher->lookingAt(*status);
+    } else {
+        result = regexp->fMatcher->lookingAt(startIndex, *status);
+    }
     return result;
 }
 
@@ -340,10 +345,16 @@ U_CAPI UBool U_EXPORT2
 uregex_find(URegularExpression *regexp,
             int32_t             startIndex, 
             UErrorCode         *status)  {
+    UBool result = FALSE;
     if (validateRE(regexp, status) == FALSE) {
-        return FALSE;
+        return result;
     }
-    UBool result = regexp->fMatcher->find(startIndex, *status);
+    if (startIndex == -1) {
+        regexp->fMatcher->resetPreserveRegion();
+        result = regexp->fMatcher->find();
+    } else {
+        result = regexp->fMatcher->find(startIndex, *status);
+    }
     return result;
 }
 
@@ -476,6 +487,242 @@ uregex_reset(URegularExpression    *regexp,
         return;
     }
     regexp->fMatcher->reset(index, *status);
+}
+
+
+//------------------------------------------------------------------------------
+//
+//    uregex_setRegion
+//
+//------------------------------------------------------------------------------
+U_CAPI void U_EXPORT2 
+uregex_setRegion(URegularExpression   *regexp,
+                 int32_t               regionStart,
+                 int32_t               regionLimit,
+                 UErrorCode           *status)  {
+    if (validateRE(regexp, status) == FALSE) {
+        return;
+    }
+    regexp->fMatcher->region(regionStart, regionLimit, *status);
+}
+
+
+//------------------------------------------------------------------------------
+//
+//    uregex_regionStart
+//
+//------------------------------------------------------------------------------
+U_CAPI int32_t U_EXPORT2 
+uregex_regionStart(const  URegularExpression   *regexp,
+                          UErrorCode           *status)  {
+    if (validateRE(regexp, status) == FALSE) {
+        return 0;
+    }
+    return regexp->fMatcher->regionStart();
+}
+
+
+//------------------------------------------------------------------------------
+//
+//    uregex_regionEnd
+//
+//------------------------------------------------------------------------------
+U_CAPI int32_t U_EXPORT2 
+uregex_regionEnd(const  URegularExpression   *regexp,
+                        UErrorCode           *status)  {
+    if (validateRE(regexp, status) == FALSE) {
+        return 0;
+    }
+    return regexp->fMatcher->regionEnd();
+}
+
+
+//------------------------------------------------------------------------------
+//
+//    uregex_hasTransparentBounds
+//
+//------------------------------------------------------------------------------
+U_CAPI UBool U_EXPORT2 
+uregex_hasTransparentBounds(const  URegularExpression   *regexp,
+                                   UErrorCode           *status)  {
+    if (validateRE(regexp, status) == FALSE) {
+        return FALSE;
+    }
+    return regexp->fMatcher->hasTransparentBounds();
+}
+
+
+//------------------------------------------------------------------------------
+//
+//    uregex_useTransparentBounds
+//
+//------------------------------------------------------------------------------
+U_CAPI void U_EXPORT2 
+uregex_useTransparentBounds(URegularExpression    *regexp,
+             UBool                 b,
+             UErrorCode            *status)  {
+    if (validateRE(regexp, status) == FALSE) {
+        return;
+    }
+    regexp->fMatcher->useTransparentBounds(b);
+}
+
+
+//------------------------------------------------------------------------------
+//
+//    uregex_hasAnchoringBounds
+//
+//------------------------------------------------------------------------------
+U_CAPI UBool U_EXPORT2 
+uregex_hasAnchoringBounds(const  URegularExpression   *regexp,
+                                   UErrorCode           *status)  {
+    if (validateRE(regexp, status) == FALSE) {
+        return FALSE;
+    }
+    return regexp->fMatcher->hasAnchoringBounds();
+}
+
+
+//------------------------------------------------------------------------------
+//
+//    uregex_useAnchoringBounds
+//
+//------------------------------------------------------------------------------
+U_CAPI void U_EXPORT2 
+uregex_useAnchoringBounds(URegularExpression    *regexp,
+             UBool                 b,
+             UErrorCode            *status)  {
+    if (validateRE(regexp, status) == FALSE) {
+        return;
+    }
+    regexp->fMatcher->useAnchoringBounds(b);
+}
+
+
+//------------------------------------------------------------------------------
+//
+//    uregex_hitEnd
+//
+//------------------------------------------------------------------------------
+U_CAPI UBool U_EXPORT2 
+uregex_hitEnd(const  URegularExpression   *regexp,
+                     UErrorCode           *status)  {
+    if (validateRE(regexp, status) == FALSE) {
+        return FALSE;
+    }
+    return regexp->fMatcher->hitEnd();
+}
+
+
+//------------------------------------------------------------------------------
+//
+//    uregex_requireEnd
+//
+//------------------------------------------------------------------------------
+U_CAPI UBool U_EXPORT2 
+uregex_requireEnd(const  URegularExpression   *regexp,
+                         UErrorCode           *status)  {
+    if (validateRE(regexp, status) == FALSE) {
+        return FALSE;
+    }
+    return regexp->fMatcher->requireEnd();
+}
+
+
+//------------------------------------------------------------------------------
+//
+//    uregex_setTimeLimit
+//
+//------------------------------------------------------------------------------
+U_CAPI void U_EXPORT2 
+uregex_setTimeLimit(URegularExpression   *regexp,
+                    int32_t               limit,
+                    UErrorCode           *status) {
+    if (validateRE(regexp, status)) {
+        regexp->fMatcher->setTimeLimit(limit, *status);
+    }
+}
+
+
+
+//------------------------------------------------------------------------------
+//
+//    uregex_getTimeLimit
+//
+//------------------------------------------------------------------------------
+U_CAPI int32_t U_EXPORT2 
+uregex_getTimeLimit(const  URegularExpression   *regexp,
+                           UErrorCode           *status) {
+    int32_t retVal = 0;
+    if (validateRE(regexp, status)) {
+        retVal = regexp->fMatcher->getTimeLimit();
+    }
+    return retVal;
+}
+
+
+
+//------------------------------------------------------------------------------
+//
+//    uregex_setStackLimit
+//
+//------------------------------------------------------------------------------
+U_CAPI void U_EXPORT2 
+uregex_setStackLimit(URegularExpression   *regexp,
+                    int32_t               limit,
+                    UErrorCode           *status) {
+    if (validateRE(regexp, status)) {
+        regexp->fMatcher->setStackLimit(limit, *status);
+    }
+}
+
+
+
+//------------------------------------------------------------------------------
+//
+//    uregex_getStackLimit
+//
+//------------------------------------------------------------------------------
+U_CAPI int32_t U_EXPORT2 
+uregex_getStackLimit(const  URegularExpression   *regexp,
+                           UErrorCode           *status) {
+    int32_t retVal = 0;
+    if (validateRE(regexp, status)) {
+        retVal = regexp->fMatcher->getStackLimit();
+    }
+    return retVal;
+}
+
+
+//------------------------------------------------------------------------------
+//
+//    uregex_setMatchCallback
+//
+//------------------------------------------------------------------------------
+U_CAPI void U_EXPORT2
+uregex_setMatchCallback(URegularExpression      *regexp,
+                        URegexMatchCallback     *callback,
+                        const void              *context,
+                        UErrorCode              *status) {
+    if (validateRE(regexp, status)) {
+      regexp->fMatcher->setMatchCallback(callback, context, *status);
+    }
+}
+
+
+//------------------------------------------------------------------------------
+//
+//    uregex_getMatchCallback
+//
+//------------------------------------------------------------------------------
+U_CAPI void U_EXPORT2 
+uregex_getMatchCallback(const URegularExpression    *regexp,
+                        URegexMatchCallback        **callback,
+                        const void                 **context,
+                        UErrorCode                  *status) {
+     if (validateRE(regexp, status)) {
+         regexp->fMatcher->getMatchCallback(*callback, *context, *status);
+     }
 }
 
 
@@ -828,8 +1075,17 @@ uregex_appendReplacement(URegularExpression    *regexp,
 int32_t RegexCImpl::appendTail(URegularExpression    *regexp,
                   UChar                **destBuf,
                   int32_t               *destCapacity,
-                  UErrorCode            *status)  {
+                  UErrorCode            *status)
+{
 
+    if (destCapacity == NULL || destBuf == NULL || 
+        *destBuf == NULL && *destCapacity > 0 ||
+        *destCapacity < 0)
+    {
+        *status = U_ILLEGAL_ARGUMENT_ERROR;
+        return 0;
+    }
+    
     // If we come in with a buffer overflow error, don't suppress the operation.
     //  A series of appendReplacements, appendTail need to correctly preflight
     //  the buffer size when an overflow happens somewhere in the middle.
@@ -842,13 +1098,6 @@ int32_t RegexCImpl::appendTail(URegularExpression    *regexp,
     if (validateRE(regexp, status) == FALSE) {
         return 0;
     }
-    if (destCapacity == NULL || destBuf == NULL || 
-        *destBuf == NULL && *destCapacity > 0 ||
-        *destCapacity < 0) {
-        *status = U_ILLEGAL_ARGUMENT_ERROR;
-        return 0;
-    }
-    
     RegexMatcher *m = regexp->fMatcher;
 
     int32_t  srcIdx;

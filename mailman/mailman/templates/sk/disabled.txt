@@ -1,0 +1,23 @@
+Vaša účasť v konferencii %(listname)s bola pozastavená
+z dôvodu: %(reason)s. Toto varovanie bude zaslané ešte
+%(noticesleft)s krát a ak nebudete reagovať, budete z konferencie
+odhlásený.
+
+Ak chcete obnoviť Vašu účasť, odpovedzte na túto správu tak,
+aby ste nezmenili obsah jej predmetu (Subject:). Alternatívne
+môžete navštíviť stránku, na ktorej môžete účasť potvrdiť:
+
+    %(confirmurl)s
+
+Stránku s Vašími osobnými nastaveniami nájdete na adrese:
+
+    %(optionsurl)s
+
+Na tejto stránke môžete zmeniť nastavenia doručovania alebo Vašu
+e-mailovú adresu. Pre prístup budete potrebovať heslo, ktoré znie:
+
+    %(password)s
+
+Ak máte ďalšie otázky alebo problémy, kontaktujte správcu na adrese
+
+    %(owneraddr)s

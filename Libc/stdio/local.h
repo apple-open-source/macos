@@ -59,9 +59,12 @@ extern int	__fflush(FILE *fp);
 extern wint_t	__fgetwc(FILE *, locale_t);
 extern wint_t	__fputwc(wchar_t, FILE *, locale_t);
 extern int	__sflush(FILE *);
-extern FILE	*__sfp(void);
+extern FILE	*__sfp(int);		/* arg is whether to count against STREAM_MAX or not */
+extern void	__sfprelease(FILE *);	/* mark free and update count as needed */
 extern int	__slbexpand(FILE *, size_t);
 extern int	__srefill(FILE *);
+extern int	__srefill0(FILE *);
+extern int	__srefill1(FILE *);
 extern int	__sread(void *, char *, int);
 extern int	__swrite(void *, char const *, int);
 extern fpos_t	__sseek(void *, fpos_t, int);
@@ -92,7 +95,8 @@ struct __sFILEX {
 	pthread_mutex_t	fl_mutex;	/* used for MT-safety */
 	pthread_t	fl_owner;	/* current owner */
 	int		fl_count;	/* recursive lock count */
-	int		orientation;	/* orientation for fwide() */
+	int		orientation:2;	/* orientation for fwide() */
+	int		counted:1;	/* stream counted against STREAM_MAX */
 	mbstate_t	mbstate;	/* multibyte conversion state */
 };
 

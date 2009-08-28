@@ -1,5 +1,5 @@
 /* Generic hooks for the RTL middle-end.
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -15,8 +15,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -25,6 +25,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "rtlhooks-def.h"
 #include "expr.h"
+#include "recog.h"
 
 
 /* For speed, we will copy the RTX hooks struct member-by-member
@@ -43,9 +44,12 @@ gen_lowpart_general (enum machine_mode mode, rtx x)
 
   if (result)
     return result;
-  else if (REG_P (x))
+  /* If it's a REG, it must be a hard reg that's not valid in MODE.  */
+  else if (REG_P (x)
+	   /* Or we could have a subreg of a floating point value.  */
+	   || (GET_CODE (x) == SUBREG
+	       && FLOAT_MODE_P (GET_MODE (SUBREG_REG (x)))))
     {
-      /* Must be a hard reg that's not valid in MODE.  */
       result = gen_lowpart_common (mode, copy_to_reg (x));
       gcc_assert (result != 0);
       return result;
@@ -79,6 +83,18 @@ gen_lowpart_general (enum machine_mode mode, rtx x)
     }
 }
 
+/* Similar to gen_lowpart, but cannot emit any instruction via
+   copy_to_reg or force_reg.  Mainly used in simplify-rtx.c.  */
+rtx
+gen_lowpart_no_emit_general (enum machine_mode mode, rtx x)
+{
+  rtx result = gen_lowpart_if_possible (mode, x);
+  if (result)
+    return result;
+  else
+    return x;
+}
+
 rtx
 reg_num_sign_bit_copies_general (rtx x ATTRIBUTE_UNUSED,
 				 enum machine_mode mode ATTRIBUTE_UNUSED,
@@ -100,3 +116,54 @@ reg_nonzero_bits_general (rtx x ATTRIBUTE_UNUSED,
 {
   return NULL;
 }
+
+bool
+reg_truncated_to_mode_general (enum machine_mode mode ATTRIBUTE_UNUSED,
+			       rtx x ATTRIBUTE_UNUSED)
+{
+  return false;
+}
+
+/* Assuming that X is an rtx (e.g., MEM, REG or SUBREG) for a fixed-point
+   number, return an rtx (MEM, SUBREG, or CONST_INT) that refers to the
+   least-significant part of X.
+   MODE specifies how big a part of X to return.
+
+   If the requested operation cannot be done, 0 is returned.
+
+   This is similar to gen_lowpart_general.  */
+
+rtx
+gen_lowpart_if_possible (enum machine_mode mode, rtx x)
+{
+  rtx result = gen_lowpart_common (mode, x);
+
+  if (result)
+    return result;
+  else if (MEM_P (x))
+    {
+      /* This is the only other case we handle.  */
+      int offset = 0;
+      rtx new;
+
+      if (WORDS_BIG_ENDIAN)
+	offset = (MAX (GET_MODE_SIZE (GET_MODE (x)), UNITS_PER_WORD)
+		  - MAX (GET_MODE_SIZE (mode), UNITS_PER_WORD));
+      if (BYTES_BIG_ENDIAN)
+	/* Adjust the address so that the address-after-the-data is
+	   unchanged.  */
+	offset -= (MIN (UNITS_PER_WORD, GET_MODE_SIZE (mode))
+		   - MIN (UNITS_PER_WORD, GET_MODE_SIZE (GET_MODE (x))));
+
+      new = adjust_address_nv (x, mode, offset);
+      if (! memory_address_p (mode, XEXP (new, 0)))
+	return 0;
+
+      return new;
+    }
+  else if (mode != GET_MODE (x) && GET_MODE (x) != VOIDmode)
+    return gen_lowpart_SUBREG (mode, x);
+  else
+    return 0;
+}
+

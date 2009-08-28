@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -151,13 +151,13 @@ __fdnlist(fd, list)
 			maxlen = n;
 	}
 	if (read(fd, (char *)&buf, sizeof(buf)) != sizeof(buf) ||
-	    (N_BADMAG(buf) && *((long *)&buf) != MH_MAGIC &&
-	     NXSwapBigLongToHost(*((long *)&buf)) != FAT_MAGIC)) {
+	    (N_BADMAG(buf) && *((uint32_t *)&buf) != MH_MAGIC &&
+	     OSSwapBigToHostInt32(*((uint32_t *)&buf)) != FAT_MAGIC)) {
 		return (-1);
 	}
 
 	/* Deal with fat file if necessary */
-	if (NXSwapBigLongToHost(*((long *)&buf)) == FAT_MAGIC) {
+	if (OSSwapBigToHostInt32(*((uint32_t *)&buf)) == FAT_MAGIC) {
 		struct host_basic_info hbi;
 		struct fat_header fh;
 		struct fat_arch *fat_archs, *fap;
@@ -180,7 +180,7 @@ __fdnlist(fd, list)
 		}
 
 		/* Convert fat_narchs to host byte order */
-		fh.nfat_arch = NXSwapBigLongToHost(fh.nfat_arch);
+		fh.nfat_arch = OSSwapBigToHostInt32(fh.nfat_arch);
 
 		/* Read in the fat archs */
 		fat_archs = (struct fat_arch *)malloc(fh.nfat_arch *
@@ -201,15 +201,15 @@ __fdnlist(fd, list)
 		 */
 		for (i = 0; i < fh.nfat_arch; i++) {
 			fat_archs[i].cputype =
-				NXSwapBigLongToHost(fat_archs[i].cputype);
+				OSSwapBigToHostInt32(fat_archs[i].cputype);
 			fat_archs[i].cpusubtype =
-			      NXSwapBigLongToHost(fat_archs[i].cpusubtype);
+			      OSSwapBigToHostInt32(fat_archs[i].cpusubtype);
 			fat_archs[i].offset =
-				NXSwapBigLongToHost(fat_archs[i].offset);
+				OSSwapBigToHostInt32(fat_archs[i].offset);
 			fat_archs[i].size =
-				NXSwapBigLongToHost(fat_archs[i].size);
+				OSSwapBigToHostInt32(fat_archs[i].size);
 			fat_archs[i].align =
-				NXSwapBigLongToHost(fat_archs[i].align);
+				OSSwapBigToHostInt32(fat_archs[i].align);
 		}
 
 #if	CPUSUBTYPE_SUPPORT
@@ -239,7 +239,7 @@ __fdnlist(fd, list)
 		}
 	}
 		
-	if (*((long *)&buf) == MH_MAGIC) {
+	if (*((uint32_t *)&buf) == MH_MAGIC) {
 	    struct mach_header mh;
 	    struct load_command *load_commands, *lcp;
 	    struct symtab_command *stp;
@@ -261,7 +261,7 @@ __fdnlist(fd, list)
 		stp = NULL;
 		lcp = load_commands;
 		for (i = 0; i < mh.ncmds; i++) {
-			if (lcp->cmdsize % sizeof(long) != 0 ||
+			if (lcp->cmdsize % sizeof(uint32_t) != 0 ||
 			    lcp->cmdsize <= 0 ||
 			    (char *)lcp + lcp->cmdsize >
 			    (char *)load_commands + mh.sizeofcmds) {
@@ -297,7 +297,7 @@ __fdnlist(fd, list)
 
 	lseek(fd, sa, SEEK_SET);
 	while (n) {
-		long savpos;
+		off_t savpos;
 
 		m = sizeof (space);
 		if (n < m)

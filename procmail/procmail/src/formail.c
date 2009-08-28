@@ -10,9 +10,9 @@
  ************************************************************************/
 #ifdef RCS
 static /*const*/char rcsid[]=
- "$Id: formail.c,v 1.1.1.3 2003/10/14 23:13:23 rbraun Exp $";
+ "$Id: formail.c,v 1.102 2001/08/04 07:07:43 guenther Exp $";
 #endif
-static /*const*/char rcsdate[]="$Date: 2003/10/14 23:13:23 $";
+static /*const*/char rcsdate[]="$Date: 2001/08/04 07:07:43 $";
 #include "includes.h"
 #include <ctype.h>		/* iscntrl() */
 #include "formail.h"

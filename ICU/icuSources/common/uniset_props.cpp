@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 1999-2006, International Business Machines
+*   Copyright (C) 1999-2008, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -39,9 +39,11 @@
 #include "uinvchar.h"
 #include "charstr.h"
 #include "cstring.h"
-#include "mutex.h"
+#include "umutex.h"
 #include "uassert.h"
 #include "hash.h"
+
+U_NAMESPACE_USE
 
 #define LENGTHOF(array) (int32_t)(sizeof(array)/sizeof((array)[0]))
 
@@ -89,9 +91,120 @@ static const char ASSIGNED[] = "Assigned"; // [:^Cn:]
  */
 //static const UChar CATEGORY_CLOSE[] = {COLON, SET_CLOSE, 0x0000}; /* ":]" */
 
-U_NAMESPACE_BEGIN
+U_CDECL_BEGIN
 
 static UnicodeSet *INCLUSIONS[UPROPS_SRC_COUNT] = { NULL }; // cached getInclusions()
+
+//----------------------------------------------------------------
+// Inclusions list
+//----------------------------------------------------------------
+
+// USetAdder implementation
+// Does not use uset.h to reduce code dependencies
+static void U_CALLCONV
+_set_add(USet *set, UChar32 c) {
+    ((UnicodeSet *)set)->add(c);
+}
+
+static void U_CALLCONV
+_set_addRange(USet *set, UChar32 start, UChar32 end) {
+    ((UnicodeSet *)set)->add(start, end);
+}
+
+static void U_CALLCONV
+_set_addString(USet *set, const UChar *str, int32_t length) {
+    ((UnicodeSet *)set)->add(UnicodeString((UBool)(length<0), str, length));
+}
+
+/**
+ * Cleanup function for UnicodeSet
+ */
+static UBool U_CALLCONV uset_cleanup(void) {
+    int32_t i;
+
+    for(i = UPROPS_SRC_NONE; i < UPROPS_SRC_COUNT; ++i) {
+        if (INCLUSIONS[i] != NULL) {
+            delete INCLUSIONS[i];
+            INCLUSIONS[i] = NULL;
+        }
+    }
+
+    return TRUE;
+}
+
+U_CDECL_END
+
+U_NAMESPACE_BEGIN
+
+/*
+Reduce excessive reallocation, and make it easier to detect initialization
+problems.
+Usually you don't see smaller sets than this for Unicode 5.0.
+*/
+#define DEFAULT_INCLUSION_CAPACITY 3072
+
+const UnicodeSet* UnicodeSet::getInclusions(int32_t src, UErrorCode &status) {
+    UBool needInit;
+    UMTX_CHECK(NULL, (INCLUSIONS[src] == NULL), needInit);
+    if (needInit) {
+        UnicodeSet* incl = new UnicodeSet();
+        USetAdder sa = {
+            (USet *)incl,
+            _set_add,
+            _set_addRange,
+            _set_addString,
+            NULL, // don't need remove()
+            NULL // don't need removeRange()
+        };
+        incl->ensureCapacity(DEFAULT_INCLUSION_CAPACITY, status);
+        if (incl != NULL) {
+            switch(src) {
+            case UPROPS_SRC_CHAR:
+                uchar_addPropertyStarts(&sa, &status);
+                break;
+            case UPROPS_SRC_PROPSVEC:
+                upropsvec_addPropertyStarts(&sa, &status);
+                break;
+            case UPROPS_SRC_CHAR_AND_PROPSVEC:
+                uchar_addPropertyStarts(&sa, &status);
+                upropsvec_addPropertyStarts(&sa, &status);
+                break;
+            case UPROPS_SRC_HST:
+                uhst_addPropertyStarts(&sa, &status);
+                break;
+#if !UCONFIG_NO_NORMALIZATION
+            case UPROPS_SRC_NORM:
+                unorm_addPropertyStarts(&sa, &status);
+                break;
+#endif
+            case UPROPS_SRC_CASE:
+                ucase_addPropertyStarts(ucase_getSingleton(&status), &sa, &status);
+                break;
+            case UPROPS_SRC_BIDI:
+                ubidi_addPropertyStarts(ubidi_getSingleton(&status), &sa, &status);
+                break;
+            default:
+                status = U_INTERNAL_PROGRAM_ERROR;
+                break;
+            }
+            if (U_SUCCESS(status)) {
+                // Compact for caching
+                incl->compact();
+                umtx_lock(NULL);
+                if (INCLUSIONS[src] == NULL) {
+                    INCLUSIONS[src] = incl;
+                    incl = NULL;
+                    ucln_common_registerCleanup(UCLN_COMMON_USET, uset_cleanup);
+                }
+                umtx_unlock(NULL);
+            }
+            delete incl;
+        } else {
+            status = U_MEMORY_ALLOCATION_ERROR;
+        }
+    }
+    return INCLUSIONS[src];
+}
 
 // helper functions for matching of pattern syntax pieces ------------------ ***
 // these functions are parallel to the PERL_OPEN etc. strings above
@@ -143,8 +256,9 @@ isPOSIXClose(const UnicodeString &pattern, int32_t pos) {
  */
 UnicodeSet::UnicodeSet(const UnicodeString& pattern,
                        UErrorCode& status) :
-    len(0), capacity(START_EXTRA), bufferCapacity(0),
-    list(0), buffer(0), strings(0)
+    len(0), capacity(START_EXTRA), list(0), bmpSet(0), buffer(0),
+    bufferCapacity(0), patLen(0), pat(NULL), strings(NULL), stringSpan(NULL),
+    fFlags(0)
 {   
     if(U_SUCCESS(status)){
         list = (UChar32*) uprv_malloc(sizeof(UChar32) * capacity);
@@ -152,7 +266,7 @@ UnicodeSet::UnicodeSet(const UnicodeString& pattern,
         if(list == NULL) {
             status = U_MEMORY_ALLOCATION_ERROR;  
         }else{
-            allocateStrings();
+            allocateStrings(status);
             applyPattern(pattern, USET_IGNORE_SPACE, NULL, status);
         }
     }
@@ -171,8 +285,9 @@ UnicodeSet::UnicodeSet(const UnicodeString& pattern,
                        uint32_t options,
                        const SymbolTable* symbols,
                        UErrorCode& status) :
-    len(0), capacity(START_EXTRA), bufferCapacity(0),
-    list(0), buffer(0), strings(0)
+    len(0), capacity(START_EXTRA), list(0), bmpSet(0), buffer(0),
+    bufferCapacity(0), patLen(0), pat(NULL), strings(NULL), stringSpan(NULL),
+    fFlags(0)
 {   
     if(U_SUCCESS(status)){
         list = (UChar32*) uprv_malloc(sizeof(UChar32) * capacity);
@@ -180,7 +295,7 @@ UnicodeSet::UnicodeSet(const UnicodeString& pattern,
         if(list == NULL) {
             status = U_MEMORY_ALLOCATION_ERROR;  
         }else{
-            allocateStrings();
+            allocateStrings(status);
             applyPattern(pattern, options, symbols, status);
         }
     }
@@ -191,8 +306,9 @@ UnicodeSet::UnicodeSet(const UnicodeString& pattern, ParsePosition& pos,
                        uint32_t options,
                        const SymbolTable* symbols,
                        UErrorCode& status) :
-    len(0), capacity(START_EXTRA), bufferCapacity(0),
-    list(0), buffer(0), strings(0)
+    len(0), capacity(START_EXTRA), list(0), bmpSet(0), buffer(0),
+    bufferCapacity(0), patLen(0), pat(NULL), strings(NULL), stringSpan(NULL),
+    fFlags(0)
 {
     if(U_SUCCESS(status)){
         list = (UChar32*) uprv_malloc(sizeof(UChar32) * capacity);
@@ -200,7 +316,7 @@ UnicodeSet::UnicodeSet(const UnicodeString& pattern, ParsePosition& pos,
         if(list == NULL) {
             status = U_MEMORY_ALLOCATION_ERROR;   
         }else{
-            allocateStrings();
+            allocateStrings(status);
             applyPattern(pattern, pos, options, symbols, status);
         }
     }
@@ -243,7 +359,7 @@ UnicodeSet& UnicodeSet::applyPattern(const UnicodeString& pattern,
                                      uint32_t options,
                                      const SymbolTable* symbols,
                                      UErrorCode& status) {
-    if (U_FAILURE(status)) {
+    if (U_FAILURE(status) || isFrozen()) {
         return *this;
     }
 
@@ -269,7 +385,7 @@ UnicodeSet& UnicodeSet::applyPattern(const UnicodeString& pattern,
                               uint32_t options,
                               const SymbolTable* symbols,
                               UErrorCode& status) {
-    if (U_FAILURE(status)) {
+    if (U_FAILURE(status) || isFrozen()) {
         return *this;
     }
     // Need to build the pattern in a temporary string because
@@ -283,7 +399,7 @@ UnicodeSet& UnicodeSet::applyPattern(const UnicodeString& pattern,
         status = U_MALFORMED_SET;
         return *this;
     }
-    pat = rebuiltPat;
+    setPattern(rebuiltPat);
     return *this;
 }
 
@@ -720,6 +836,10 @@ void UnicodeSet::applyPattern(RuleCharacterIterator& chars,
     } else {
         _generatePattern(rebuiltPat, FALSE);
     }
+    if (isBogus() && U_SUCCESS(ec)) {
+        // We likely ran out of memory. AHHH!
+        ec = U_MEMORY_ALLOCATION_ERROR;
+    }
 }
 
 //----------------------------------------------------------------
@@ -782,7 +902,7 @@ void UnicodeSet::applyFilter(UnicodeSet::Filter filter,
     clear();
 
     UChar32 startHasProperty = -1;
-    int limitRange = inclusions->getRangeCount();
+    int32_t limitRange = inclusions->getRangeCount();
 
     for (int j=0; j<limitRange; ++j) {
         // get current range
@@ -805,6 +925,10 @@ void UnicodeSet::applyFilter(UnicodeSet::Filter filter,
     }
     if (startHasProperty >= 0) {
         add((UChar32)startHasProperty, (UChar32)0x10FFFF);
+    }
+    if (isBogus() && U_SUCCESS(status)) {
+        // We likely ran out of memory. AHHH!
+        status = U_MEMORY_ALLOCATION_ERROR;
     }
 }
 
@@ -833,7 +957,7 @@ static UBool mungeCharName(char* dst, const char* src, int32_t dstCapacity) {
 
 UnicodeSet&
 UnicodeSet::applyIntPropertyValue(UProperty prop, int32_t value, UErrorCode& ec) {
-    if (U_FAILURE(ec)) return *this;
+    if (U_FAILURE(ec) || isFrozen()) return *this;
 
     if (prop == UCHAR_GENERAL_CATEGORY_MASK) {
         applyFilter(generalCategoryMaskFilter, &value, UPROPS_SRC_CHAR, ec);
@@ -848,7 +972,7 @@ UnicodeSet&
 UnicodeSet::applyPropertyAlias(const UnicodeString& prop,
                                const UnicodeString& value,
                                UErrorCode& ec) {
-    if (U_FAILURE(ec)) return *this;
+    if (U_FAILURE(ec) || isFrozen()) return *this;
 
     // prop and value used to be converted to char * using the default
     // converter instead of the invariant conversion.
@@ -996,6 +1120,10 @@ UnicodeSet::applyPropertyAlias(const UnicodeString& prop,
         ec = U_ILLEGAL_ARGUMENT_ERROR;
     }
 
+    if (isBogus() && U_SUCCESS(ec)) {
+        // We likely ran out of memory. AHHH!
+        ec = U_MEMORY_ALLOCATION_ERROR;
+    }
     return *this;
 }
 
@@ -1166,108 +1294,6 @@ void UnicodeSet::applyPropertyPattern(RuleCharacterIterator& chars,
 }
 
 //----------------------------------------------------------------
-// Inclusions list
-//----------------------------------------------------------------
-
-U_CDECL_BEGIN
-
-// USetAdder implementation
-// Does not use uset.h to reduce code dependencies
-static void U_CALLCONV
-_set_add(USet *set, UChar32 c) {
-    ((UnicodeSet *)set)->add(c);
-}
-
-static void U_CALLCONV
-_set_addRange(USet *set, UChar32 start, UChar32 end) {
-    ((UnicodeSet *)set)->add(start, end);
-}
-
-static void U_CALLCONV
-_set_addString(USet *set, const UChar *str, int32_t length) {
-    ((UnicodeSet *)set)->add(UnicodeString((UBool)(length<0), str, length));
-}
-
-/**
- * Cleanup function for UnicodeSet
- */
-static UBool U_CALLCONV uset_cleanup(void) {
-    int32_t i;
-
-    for(i = UPROPS_SRC_NONE; i < UPROPS_SRC_COUNT; ++i) {
-        if (INCLUSIONS[i] != NULL) {
-            delete INCLUSIONS[i];
-            INCLUSIONS[i] = NULL;
-        }
-    }
-
-    return TRUE;
-}
-
-U_CDECL_END
-
-const UnicodeSet* UnicodeSet::getInclusions(int32_t src, UErrorCode &status) {
-    umtx_lock(NULL);
-    UBool f = (INCLUSIONS[src] == NULL);
-    umtx_unlock(NULL);
-    if (f) {
-        UnicodeSet* incl = new UnicodeSet();
-        USetAdder sa = {
-            (USet *)incl,
-            _set_add,
-            _set_addRange,
-            _set_addString,
-            NULL // don't need remove()
-        };
-
-        if (incl != NULL) {
-            switch(src) {
-            case UPROPS_SRC_CHAR:
-                uchar_addPropertyStarts(&sa, &status);
-                break;
-            case UPROPS_SRC_PROPSVEC:
-                upropsvec_addPropertyStarts(&sa, &status);
-                break;
-            case UPROPS_SRC_CHAR_AND_PROPSVEC:
-                uchar_addPropertyStarts(&sa, &status);
-                upropsvec_addPropertyStarts(&sa, &status);
-                break;
-            case UPROPS_SRC_HST:
-                uhst_addPropertyStarts(&sa, &status);
-                break;
-#if !UCONFIG_NO_NORMALIZATION
-            case UPROPS_SRC_NORM:
-                unorm_addPropertyStarts(&sa, &status);
-                break;
-#endif
-            case UPROPS_SRC_CASE:
-                ucase_addPropertyStarts(ucase_getSingleton(&status), &sa, &status);
-                break;
-            case UPROPS_SRC_BIDI:
-                ubidi_addPropertyStarts(ubidi_getSingleton(&status), &sa, &status);
-                break;
-            default:
-                status = U_INTERNAL_PROGRAM_ERROR;
-                break;
-            }
-            if (U_SUCCESS(status)) {
-                umtx_lock(NULL);
-                if (INCLUSIONS[src] == NULL) {
-                    INCLUSIONS[src] = incl;
-                    incl = NULL;
-                    ucln_common_registerCleanup(UCLN_COMMON_USET, uset_cleanup);
-                }
-                umtx_unlock(NULL);
-            }
-            delete incl;
-        } else {
-            status = U_MEMORY_ALLOCATION_ERROR;
-        }
-    }
-    return INCLUSIONS[src];
-}
-
-//----------------------------------------------------------------
 // Case folding API
 //----------------------------------------------------------------
 
@@ -1290,6 +1316,9 @@ addCaseMapping(UnicodeSet &set, int32_t result, const UChar *full, UnicodeString
 }
 
 UnicodeSet& UnicodeSet::closeOver(int32_t attribute) {
+    if (isFrozen() || isBogus()) {
+        return *this;
+    }
     if (attribute & (USET_CASE_INSENSITIVE | USET_ADD_CASE_MAPPINGS)) {
         UErrorCode status = U_ZERO_ERROR;
         const UCaseProps *csp = ucase_getSingleton(&status);
@@ -1301,7 +1330,8 @@ UnicodeSet& UnicodeSet::closeOver(int32_t attribute) {
                 _set_add,
                 _set_addRange,
                 _set_addString,
-                NULL // don't need remove()
+                NULL, // don't need remove()
+                NULL // don't need removeRange()
             };
 
             // start with input set to guarantee inclusion

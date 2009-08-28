@@ -1,14 +1,14 @@
-# Copyright (c) 2007 Apple Inc. All rights reserved.
+# Copyright (c) 2007-2008 Apple Inc. All rights reserved.
 #
 # @APPLE_LICENSE_HEADER_START@
-# 
+#
 # This file contains Original Code and/or Modifications of Original Code
 # as defined in and that are subject to the Apple Public Source License
 # Version 2.0 (the 'License'). You may not use this file except in
 # compliance with the License. Please obtain a copy of the License at
 # http://www.opensource.apple.com/apsl/ and read it before using this
 # file.
-# 
+#
 # The Original Code and all software distributed under the License are
 # distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
 # EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -16,14 +16,14 @@
 # FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
 # Please see the License for the specific language governing rights and
 # limitations under the License.
-# 
+#
 # @APPLE_LICENSE_HEADER_END@
 
 #
-# Makefile for synchronize-preferences
+# Makefile for smb-sync-preferences
 #
 
-Project := synchronize-preferences
+Project := smb-sync-preferences
 
 ifndef CoreOSMakefiles
 CoreOSMakefiles = $(MAKEFILEPATH)/CoreOS
@@ -93,9 +93,10 @@ ifeq ($(TESTLEAKS),YES)
 Extra_Cxx_Flags += -DTESTLEAKS
 endif
 
-LIBS := -framework SystemConfiguration -framework CoreFoundation
+LIBS := -framework SystemConfiguration -framework CoreServices
 
-SYNC_SOURCES := $(SRCROOT)/sync.cpp \
+SYNC_SOURCES := \
+	$(SRCROOT)/sync.cpp \
 	$(SRCROOT)/rules.cpp \
 	$(SRCROOT)/lib/SmbOption.cpp \
 	$(SRCROOT)/lib/SmbConfig.cpp \
@@ -105,10 +106,18 @@ SYNC_SOURCES := $(SRCROOT)/sync.cpp \
 	$(SRCROOT)/lib/RegularExpression.cpp \
 	$(SRCROOT)/lib/launchctl.cpp
 
-SYNC_OBJECTS := $(subst $(SRCROOT),$(OBJROOT),$(SYNC_SOURCES:.cpp=.o))
-SYNC_REPO := $(SYNC_SOURCES:.cpp=.rpo)
+SHARES_SOURCES := \
+	$(SRCROOT)/shares.cpp \
+	$(SRCROOT)/lib/SmbConfig.cpp \
+	$(SRCROOT)/lib/RegularExpression.cpp \
+	$(SRCROOT)/lib/options.cpp \
+	$(SRCROOT)/lib/utils.cpp
 
-TARGETS := $(OBJROOT)/synchronize-preferences
+SYNC_OBJECTS := $(subst $(SRCROOT),$(OBJROOT),$(SYNC_SOURCES:.cpp=.o))
+SHARES_OBJECTS := $(subst $(SRCROOT),$(OBJROOT),$(SHARES_SOURCES:.cpp=.o))
+
+TARGETS := $(OBJROOT)/smb-sync-preferences \
+	$(OBJROOT)/smb-sync-shares
 
 $(BuildDirectory)/%.o: %.cpp
 	@echo "Compiling "$@"..."
@@ -123,20 +132,35 @@ $(SYNC_OBJECTS): $(OBJROOT)/lib
 $(OBJROOT)/lib:
 	$(_v) $(MKDIR) $(OBJROOT)/lib
 
-$(OBJROOT)/synchronize-preferences: $(SYNC_OBJECTS)
+$(OBJROOT)/smb-sync-preferences: $(SYNC_OBJECTS)
 	@echo Linking $@ ...
 	$(_v) $(Cxx) $(LDFLAGS) -o $@ $^ $(LIBS)
+
+$(OBJROOT)/smb-sync-shares: $(SHARES_OBJECTS)
+	@echo Linking $@ ...
+	$(_v) $(Cxx) $(LDFLAGS) -o $@ $^ $(LIBS) -framework OpenDirectory
 
 # Install preferences sync tools to $DSTROOT and copy the symbolicated
 # versions to $SYMROOT. This is already done in the Samba project as
 # part of the GnuAfterInstall rule. We only need to do this when doing
 # a buildit build of the prefsync sub-project.
-install:: $(OBJROOT)/synchronize-preferences
+#
+# NOTE: smb-sync-preferences used to be called synchronize-preferences. We
+# install a symlink with the old name for compatibility. Thursby software calls
+# the old name, so don't remove the symlink.
+install:: $(TARGETS)
 	$(INSTALL) -d -m 755 $(DSTROOT)$(USRDIR)/local/include
 	$(INSTALL) -d -m 755 $(DSTROOT)$(SMB_LIBEXEC)
 	$(INSTALL) -c -m 755 -o root -g wheel \
-		$(OBJROOT)/synchronize-preferences \
+		$(OBJROOT)/smb-sync-preferences \
 		$(DSTROOT)$(SMB_LIBEXEC)
+	$(INSTALL) -c -m 755 -o root -g wheel \
+		$(OBJROOT)/smb-sync-shares \
+		$(DSTROOT)$(SMB_LIBEXEC)
+	(cd $(DSTROOT)$(SMB_LIBEXEC) && \
+	 	ln -s smb-sync-preferences synchronize-preferences)
+	(cd $(DSTROOT)$(SMB_LIBEXEC) && \
+	 	ln -s smb-sync-shares synchronize-shares)
 	$(INSTALL) -c -m 644 \
 		$(SRCROOT)/include/smb_server_prefs.h \
 		$(DSTROOT)$(USRDIR)/local/include
@@ -144,12 +168,16 @@ ifndef $(NoSymRootCopy)
 	$(INSTALL) -d -m 755 $(SYMROOT)$(USRDIR)/local/include
 	$(INSTALL) -d -m 755 $(SYMROOT)$(SMB_LIBEXEC)
 	$(INSTALL) -c -m 755 -o root -g wheel \
-		$(OBJROOT)/synchronize-preferences \
+		$(OBJROOT)/smb-sync-preferences \
 		$(SYMROOT)$(SMB_LIBEXEC)
-	dsymutil $(SYMROOT)$(SMB_LIBEXEC)/synchronize-preferences
+	$(INSTALL) -c -m 755 -o root -g wheel \
+		$(OBJROOT)/smb-sync-shares \
+		$(SYMROOT)$(SMB_LIBEXEC)
+	dsymutil $(SYMROOT)$(SMB_LIBEXEC)/smb-sync-preferences
+	dsymutil $(SYMROOT)$(SMB_LIBEXEC)/smb-sync-shares
 endif
 
 clean::
-	-$(_v) rm -rf $(SYNC_REPO) $(SYNC_OBJECTS) *.dSYM
+	-$(_v) rm -rf $(SYNC_OBJECTS) $(SHARES_OBJECTS) *.dSYM
 	-$(_v) rm -f $(TARGETS)
 

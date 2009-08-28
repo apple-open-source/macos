@@ -35,66 +35,66 @@
 
 /* Definitions of AGP config registers */
 enum {
-    kIOPCIConfigAGPStatusOffset	 = 4,
+    kIOPCIConfigAGPStatusOffset  = 4,
     kIOPCIConfigAGPCommandOffset = 8
 };
 
 /* Definitions of AGP Command & Status registers */
 enum {
-    kIOAGPRequestQueueMask	= 0xff000000,
-    kIOAGPSideBandAddresssing	= 0x00000200,
-    kIOAGPEnable		= 0x00000100,
-    kIOAGP4GbAddressing		= 0x00000020,
-    kIOAGPFastWrite		= 0x00000010,
-    kIOAGP4xDataRate		= 0x00000004,
-    kIOAGP2xDataRate		= 0x00000002,
-    kIOAGP1xDataRate		= 0x00000001
+    kIOAGPRequestQueueMask      = 0xff000000,
+    kIOAGPSideBandAddresssing   = 0x00000200,
+    kIOAGPEnable                = 0x00000100,
+    kIOAGP4GbAddressing         = 0x00000020,
+    kIOAGPFastWrite             = 0x00000010,
+    kIOAGP4xDataRate            = 0x00000004,
+    kIOAGP2xDataRate            = 0x00000002,
+    kIOAGP1xDataRate            = 0x00000001
 };
 
 enum {
-    kIOAGPGartInvalidate	= 0x00000001
+    kIOAGPGartInvalidate        = 0x00000001
 };
 
 // getAGPStatus() defines
 enum {
-    kIOAGPDefaultStatus		= 0
+    kIOAGPDefaultStatus         = 0
 };
 enum {
-    kIOAGPIdle			= 0x00000001,
-    kIOAGPInvalidGARTEntry	= 0x00000002,
-    kIOAGPAccessOutOfRange	= 0x00000004
+    kIOAGPIdle                  = 0x00000001,
+    kIOAGPInvalidGARTEntry      = 0x00000002,
+    kIOAGPAccessOutOfRange      = 0x00000004
 };
 
-#define kIOAGPBusFlagsKey	"IOAGPFlags"
+#define kIOAGPBusFlagsKey       "IOAGPFlags"
 enum {
     // the AGP target must be idle before invalidating its gart tlb
-    kIOAGPGartIdleInvalidate	= 0x00000001,
+    kIOAGPGartIdleInvalidate    = 0x00000001,
 
     // the AGP target cannot handle operations that cross page boundaries
-    kIOAGPDisablePageSpans	= 0x00000002,
+    kIOAGPDisablePageSpans      = 0x00000002,
 
     // the AGP target cannot handle master -> target AGP writes
-    kIOAGPDisableAGPWrites	= 0x00000004,
+    kIOAGPDisableAGPWrites      = 0x00000004,
 
     // the AGP target cannot handle target -> master PCI reads
-    kIOAGPDisablePCIReads	= 0x00000008,
+    kIOAGPDisablePCIReads       = 0x00000008,
 
     // the AGP target cannot handle master -> target PCI writes
-    kIOAGPDisablePCIWrites	= 0x00000010,
+    kIOAGPDisablePCIWrites      = 0x00000010,
 
     // the AGP target cannot handle all unaligned transactions 
-    kIOAGPDisableUnaligned	= 0x00000020,
+    kIOAGPDisableUnaligned      = 0x00000020,
 
-    kIOAGPDisableFeature6	= 0x00000040,
-    kIOAGPDisableFeature7	= 0x00000080,
-    kIOAGPDisableFeature8	= 0x00000100,
-    kIOAGPDisableFeature9	= 0x00000200
+    kIOAGPDisableFeature6       = 0x00000040,
+    kIOAGPDisableFeature7       = 0x00000080,
+    kIOAGPDisableFeature8       = 0x00000100,
+    kIOAGPDisableFeature9       = 0x00000200
 };
 
 // masterState
 enum {
-    kIOAGPStateEnabled		= 0x00000001,
-    kIOAGPStateEnablePending	= 0x00010000
+    kIOAGPStateEnabled          = 0x00000001,
+    kIOAGPStateEnablePending    = 0x00010000
 };
 
 
@@ -120,8 +120,8 @@ protected:
     ExpansionData *reserved;
 
 public:
-    UInt32	masterState;
-    UInt8	masterAGPRegisters;
+    UInt32      masterState;
+    UInt8       masterAGPRegisters;
 
 /*! @function createAGPSpace
     @abstract Allocates the AGP space, and enables AGP transactions on the master and slave.
@@ -133,8 +133,8 @@ public:
 */
 
     virtual IOReturn createAGPSpace( IOOptionBits options,
-				    IOPhysicalAddress * address, 
-				    IOPhysicalLength * length );
+                                    IOPhysicalAddress * address, 
+                                    IOPhysicalLength * length );
 
 /*! @function destroyAGPSpace
     @abstract Destroys the AGP space, and disables AGP transactions on the master and slave.
@@ -170,8 +170,8 @@ public:
 */
 
     virtual IOReturn commitAGPMemory( IOMemoryDescriptor * memory,
-					IOByteCount agpOffset,
-					IOOptionBits options = 0 );
+                                        IOByteCount agpOffset,
+                                        IOOptionBits options = 0 );
 
 /*! @function releaseAGPMemory
     @abstract Releases memory addressable by AGP transactions.
@@ -183,8 +183,8 @@ public:
 */
 
     virtual IOReturn releaseAGPMemory( IOMemoryDescriptor * memory, 
-					IOByteCount agpOffset,
-					IOOptionBits options = 0 );
+                                        IOByteCount agpOffset,
+                                        IOOptionBits options = 0 );
 
     virtual IOReturn resetAGP( IOOptionBits options = 0 );
 
@@ -197,7 +197,7 @@ public:
 */
 
     virtual IOReturn getAGPSpace( IOPhysicalAddress * address, 
-				    IOPhysicalLength * length );
+                                    IOPhysicalLength * length );
 
     // Unused Padding
     OSMetaClassDeclareReservedUnused(IOAGPDevice,  0);

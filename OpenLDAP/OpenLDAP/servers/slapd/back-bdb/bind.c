@@ -1,8 +1,8 @@
 /* bind.c - bdb backend bind routine */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/bind.c,v 1.41.2.3 2006/01/03 22:16:16 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/bind.c,v 1.45.2.4 2008/02/11 23:26:45 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2006 The OpenLDAP Foundation.
+ * Copyright 2000-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -17,7 +17,6 @@
 #include "portable.h"
 
 #include <stdio.h>
-#include <ac/krb.h>
 #include <ac/string.h>
 #include <ac/unistd.h>
 
@@ -31,17 +30,11 @@ bdb_bind( Operation *op, SlapReply *rs )
 	Entry		*e;
 	Attribute	*a;
 	EntryInfo	*ei;
-#ifdef LDAP_API_FEATURE_X_OPENLDAP_V2_KBIND
-	char		krbname[MAX_K_NAME_SZ + 1];
-	AttributeDescription *krbattr = slap_schema.si_ad_krbName;
-	struct berval	krbval;
-	AUTH_DAT	ad;
-#endif
 
 	AttributeDescription *password = slap_schema.si_ad_userPassword;
 	AttributeDescription *authAuthority = slap_schema.si_ad_authAuthority;
 	
-	u_int32_t	locker;
+	BDB_LOCKER	locker;
 	DB_LOCK		lock;
 
 	Debug( LDAP_DEBUG_ARGS,
@@ -49,10 +42,19 @@ bdb_bind( Operation *op, SlapReply *rs )
 		op->o_req_dn.bv_val, 0, 0);
 
 	/* allow noauth binds */
-	if ( op->oq_bind.rb_method == LDAP_AUTH_SIMPLE && be_isroot_pw( op )) {
-		ber_dupbv( &op->oq_bind.rb_edn, be_root_dn( op->o_bd ) );
-		/* front end will send result */
-		return LDAP_SUCCESS;
+	switch ( be_rootdn_bind( op, NULL ) ) {
+	case LDAP_SUCCESS:
+		/* frontend will send result */
+		return rs->sr_err;
+
+	default:
+		/* give the database a chanche */
+		/* NOTE: this behavior departs from that of other backends,
+		 * since the others, in case of password checking failure
+		 * do not give the database a chance.  If an entry with
+		 * rootdn's name does not exist in the database the result
+		 * will be the same.  See ITS#4962 for discussion. */
+		break;
 	}
 
 	rs->sr_err = LOCK_ID(bdb->bi_dbenv, &locker);
@@ -90,8 +92,7 @@ dn2entry_retry:
 	e = ei->bei_e;
 	if ( rs->sr_err == DB_NOTFOUND ) {
 		if( e != NULL ) {
-			bdb_cache_return_entry_r( bdb->bi_dbenv,
-				&bdb->bi_cache, e, &lock );
+			bdb_cache_return_entry_r( bdb, e, &lock );
 			e = NULL;
 		}
 
@@ -164,50 +165,8 @@ dn2entry_retry:
 		rs->sr_err = 0;
 		break;
 
-#ifdef LDAP_API_FEATURE_X_OPENLDAP_V2_KBIND
-	case LDAP_AUTH_KRBV41:
-		if ( krbv4_ldap_auth( op->o_bd, &op->oq_bind.rb_cred, &ad )
-			!= LDAP_SUCCESS )
-		{
-			rs->sr_err = LDAP_INVALID_CREDENTIALS,
-			goto done;
-		}
-
-		rs->sr_err = access_allowed( op, e,
-			krbattr, NULL, ACL_AUTH, NULL );
-		if ( ! rs->sr_err ) {
-			rs->sr_err = LDAP_INSUFFICIENT_ACCESS,
-			goto done;
-		}
-
-		krbval.bv_len = sprintf( krbname, "%s%s%s@%s", ad.pname,
-			*ad.pinst ? "." : "", ad.pinst, ad.prealm );
-
-		if ( (a = attr_find( e->e_attrs, krbattr )) == NULL ) {
-			/*
-			 * no krbname values present: check against DN
-			 */
-			if ( strcasecmp( op->o_req_dn.bv_val, krbname ) == 0 ) {
-				rs->sr_err = 0;
-				break;
-			}
-			rs->sr_err = LDAP_INAPPROPRIATE_AUTH,
-			goto done;
-
-		} else {	/* look for krbname match */
-			krbval.bv_val = krbname;
-
-			if ( value_find( a->a_desc, a->a_vals, &krbval ) != 0 ) {
-				rs->sr_err = LDAP_INVALID_CREDENTIALS;
-				goto done;
-			}
-		}
-		rs->sr_err = 0;
-		break;
-#endif
-
 	default:
-		assert( 0 ); /* should not be unreachable */
+		assert( 0 ); /* should not be reachable */
 		rs->sr_err = LDAP_STRONG_AUTH_NOT_SUPPORTED;
 		rs->sr_text = "authentication method not supported";
 	}
@@ -215,7 +174,7 @@ dn2entry_retry:
 done:
 	/* free entry and reader lock */
 	if( e != NULL ) {
-		bdb_cache_return_entry_r( bdb->bi_dbenv, &bdb->bi_cache, e, &lock );
+		bdb_cache_return_entry_r( bdb, e, &lock );
 	}
 
 	LOCK_ID_FREE(bdb->bi_dbenv, locker);

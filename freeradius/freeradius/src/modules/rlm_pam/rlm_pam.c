@@ -7,7 +7,7 @@
  *		That, in fact, was again based on the original stuff
  *		from Jeph Blaize <jblaize@kiva.net> done in May 1997.
  *
- * Version:	$Id: rlm_pam.c,v 1.32.4.2 2006/01/04 05:51:50 fcusack Exp $
+ * Version:	$Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -21,21 +21,20 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2000  The FreeRADIUS server project
+ * Copyright 2000,2006  The FreeRADIUS server project
  * Copyright 1997  Jeph Blaize <jblaize@kiva.net>
  * Copyright 1999  miguel a.l. paraz <map@iphil.net>
  */
 
-#include	"autoconf.h"
-#include	"libradius.h"
+#include	<freeradius-devel/ident.h>
+RCSID("$Id$")
+
+#include	<freeradius-devel/radiusd.h>
+#include	<freeradius-devel/modules.h>
 
 #include	"config.h"
-
-#include	<stdio.h>
-#include	<stdlib.h>
-#include	<string.h>
 
 #ifdef HAVE_SECURITY_PAM_APPL_H
 #include	<security/pam_appl.h>
@@ -50,14 +49,11 @@
 #include	<syslog.h>
 #endif
 
-#include	"radiusd.h"
-#include	"modules.h"
-
 typedef struct rlm_pam_t {
 	const char *pam_auth_name;
 } rlm_pam_t;
 
-static CONF_PARSER module_config[] = {
+static const CONF_PARSER module_config[] = {
 	{ "pam_auth",    PW_TYPE_STRING_PTR, offsetof(rlm_pam_t,pam_auth_name),
 	  NULL, "radiusd" },
 	{ NULL, -1, 0, NULL, NULL }
@@ -92,7 +88,6 @@ static int pam_detach(void *instance)
 {
 	rlm_pam_t *data = (rlm_pam_t *) instance;
 
-	free((char *) data->pam_auth_name);
         free((char *) data);
 	return 0;
 }
@@ -262,7 +257,7 @@ static int pam_auth(void *instance, REQUEST *request)
 	 *  Ensure that we're being passed a plain-text password,
 	 *  and not anything else.
 	 */
-	if (request->password->attribute != PW_PASSWORD) {
+	if (request->password->attribute != PW_USER_PASSWORD) {
 		radlog(L_AUTH, "rlm_pam: Attribute \"User-Password\" is required for authentication.  Cannot use \"%s\".", request->password->name);
 		return RLM_MODULE_INVALID;
 	}
@@ -272,17 +267,11 @@ static int pam_auth(void *instance, REQUEST *request)
 	 *	for backwards compatibility.
 	 */
 	pair = pairfind(request->config_items, PAM_AUTH_ATTR);
-	if (pair) pam_auth_string = (char *)pair->strvalue;
+	if (pair) pam_auth_string = (char *)pair->vp_strvalue;
 
-	r = pam_pass((char *)request->username->strvalue,
-		     (char *)request->password->strvalue,
+	r = pam_pass((char *)request->username->vp_strvalue,
+		     (char *)request->password->vp_strvalue,
 		     pam_auth_string);
-
-#ifdef HAVE_SYSLOG_H
-	if (!strcmp(radlog_dir, "syslog")) {
-		openlog(progname, LOG_PID, syslog_facility);
-	}
-#endif
 
 	if (r == 0) {
 		return RLM_MODULE_OK;
@@ -291,21 +280,20 @@ static int pam_auth(void *instance, REQUEST *request)
 }
 
 module_t rlm_pam = {
-  "Pam",
-  RLM_TYPE_THREAD_UNSAFE,	/* The PAM libraries are not thread-safe */
-  NULL,				/* initialize */
-  pam_instantiate,		/* instantiation */
-  {
-	  pam_auth,		/* authenticate */
-	  NULL,			/* authorize */
-	  NULL,			/* pre-accounting */
-	  NULL,			/* accounting */
-	  NULL,			/* checksimul */
-	  NULL,			/* pre-proxy */
-	  NULL,			/* post-proxy */
-	  NULL			/* post-auth */
-  },
-  pam_detach,			/* detach */
-  NULL,				/* destroy */
+	RLM_MODULE_INIT,
+	"pam",
+	RLM_TYPE_THREAD_UNSAFE,	/* The PAM libraries are not thread-safe */
+	pam_instantiate,		/* instantiation */
+	pam_detach,			/* detach */
+	{
+		pam_auth,		/* authenticate */
+		NULL,			/* authorize */
+		NULL,			/* pre-accounting */
+		NULL,			/* accounting */
+		NULL,			/* checksimul */
+		NULL,			/* pre-proxy */
+		NULL,			/* post-proxy */
+		NULL			/* post-auth */
+	},
 };
 

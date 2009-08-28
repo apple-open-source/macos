@@ -1,8 +1,8 @@
 /* slapi_overlay.c - SLAPI overlay */
-/* $OpenLDAP: pkg/ldap/servers/slapd/slapi/slapi_overlay.c,v 1.34.2.5 2006/01/08 19:16:58 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/slapi/slapi_overlay.c,v 1.40.2.7 2008/06/02 18:00:53 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2001-2006 The OpenLDAP Foundation.
+ * Copyright 2001-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,6 +27,7 @@
 
 #include "slap.h"
 #include "slapi.h"
+#include "config.h"
 
 #ifdef LDAP_SLAPI
 
@@ -97,11 +98,13 @@ slapi_over_compute_output(
 {
 	Attribute		**a;
 	AttributeDescription	*desc;
-	SlapReply		*rs = (SlapReply *)c->cac_private;
+	SlapReply		*rs;
 
 	if ( c == NULL || attribute == NULL || entry == NULL ) {
 		return 0;
 	}
+
+	rs = (SlapReply *)c->cac_private;
 
 	assert( rs->sr_entry == entry );
 
@@ -230,7 +233,7 @@ slapi_over_result( Operation *op, SlapReply *rs, int type )
 {
 	Slapi_PBlock		*pb = SLAPI_OPERATION_PBLOCK( op );
 
-	assert( rs->sr_type == REP_RESULT );
+	assert( rs->sr_type == REP_RESULT || rs->sr_type == REP_SASL || rs->sr_type == REP_EXTENDED );
 
 	slapi_over_call_plugins( pb, type );
 
@@ -278,8 +281,8 @@ slapi_op_bind_callback( Operation *op, SlapReply *rs, int prc )
 				op->o_log_prefix,
 				BER_BVISNULL( &op->o_conn->c_dn )
 					? "<empty>" : op->o_conn->c_dn.bv_val,
-				BER_BVISNULL( &op->orb_tmp_mech )
-					? "<empty>" : op->orb_tmp_mech.bv_val, 0, 0 );
+				BER_BVISNULL( &op->orb_mech )
+					? "<empty>" : op->orb_mech.bv_val, 0, 0 );
 
 			return -1;
 		}
@@ -301,7 +304,8 @@ slapi_op_search_callback( Operation *op, SlapReply *rs, int prc )
 
 	rs->sr_err = LDAP_SUCCESS;
 
-	if ( slapi_int_call_plugins( op->o_bd, SLAPI_PLUGIN_COMPUTE_SEARCH_REWRITER_FN, pb ) == 0 ) {
+	if ( pb->pb_intop == 0 && 
+	     slapi_int_call_plugins( op->o_bd, SLAPI_PLUGIN_COMPUTE_SEARCH_REWRITER_FN, pb ) == 0 ) {
 		/*
 		 * The plugin can set the SLAPI_SEARCH_FILTER.
 		 * SLAPI_SEARCH_STRFILER is not normative.
@@ -323,29 +327,29 @@ struct slapi_op_info {
 	{
 		SLAPI_PLUGIN_PRE_BIND_FN,
 		SLAPI_PLUGIN_POST_BIND_FN,
-		0,
-		0,
+		SLAPI_PLUGIN_INTERNAL_PRE_BIND_FN,
+		SLAPI_PLUGIN_INTERNAL_POST_BIND_FN,
 		slapi_op_bind_callback
 	},
 	{
 		SLAPI_PLUGIN_PRE_UNBIND_FN,
 		SLAPI_PLUGIN_POST_UNBIND_FN,
-		0,
-		0,
+		SLAPI_PLUGIN_INTERNAL_PRE_UNBIND_FN,
+		SLAPI_PLUGIN_INTERNAL_POST_UNBIND_FN,
 		NULL
 	},
 	{
 		SLAPI_PLUGIN_PRE_SEARCH_FN,
 		SLAPI_PLUGIN_POST_SEARCH_FN,
-		0,
-		0,
+		SLAPI_PLUGIN_INTERNAL_PRE_SEARCH_FN,
+		SLAPI_PLUGIN_INTERNAL_POST_SEARCH_FN,
 		slapi_op_search_callback
 	},
 	{
 		SLAPI_PLUGIN_PRE_COMPARE_FN,
 		SLAPI_PLUGIN_POST_COMPARE_FN,
-		0,
-		0,
+		SLAPI_PLUGIN_INTERNAL_PRE_COMPARE_FN,
+		SLAPI_PLUGIN_INTERNAL_POST_COMPARE_FN,
 		NULL
 	},
 	{
@@ -379,8 +383,8 @@ struct slapi_op_info {
 	{
 		SLAPI_PLUGIN_PRE_ABANDON_FN,
 		SLAPI_PLUGIN_POST_ABANDON_FN,
-		0,
-		0,
+		SLAPI_PLUGIN_INTERNAL_PRE_ABANDON_FN,
+		SLAPI_PLUGIN_INTERNAL_POST_ABANDON_FN,
 		NULL
 	},
 	{
@@ -499,6 +503,8 @@ slapi_over_response( Operation *op, SlapReply *rs )
 	if ( pb->pb_intop == 0 ) {
 		switch ( rs->sr_type ) {
 		case REP_RESULT:
+		case REP_SASL:
+		case REP_EXTENDED:
 			rc = slapi_over_result( op, rs, SLAPI_PLUGIN_PRE_RESULT_FN );
 			break;
 		case REP_SEARCH:
@@ -528,6 +534,8 @@ slapi_over_cleanup( Operation *op, SlapReply *rs )
 	if ( pb->pb_intop == 0 ) {
 		switch ( rs->sr_type ) {
 		case REP_RESULT:
+		case REP_SASL:
+		case REP_EXTENDED:
 			rc = slapi_over_result( op, rs, SLAPI_PLUGIN_POST_RESULT_FN );
 			break;
 		case REP_SEARCH:
@@ -756,7 +764,7 @@ slapi_over_acl_group(
 	GroupAssertion		*g;
 	SlapReply		rs = { REP_RESULT };
 
-	op->o_bd = select_backend( gr_ndn, 0, 0 );
+	op->o_bd = select_backend( gr_ndn, 0 );
 
 	for ( g = op->o_groups; g; g = g->ga_next ) {
 		if ( g->ga_be != op->o_bd || g->ga_oc != group_oc ||
@@ -841,6 +849,40 @@ done:
 }
 
 static int
+slapi_over_db_open(
+	BackendDB	*be,
+	ConfigReply	*cr )
+{
+	Slapi_PBlock		*pb;
+	int			rc;
+
+	pb = slapi_pblock_new();
+
+	rc = slapi_int_call_plugins( be, SLAPI_PLUGIN_START_FN, pb );
+
+	slapi_pblock_destroy( pb );
+
+	return rc;
+}
+
+static int
+slapi_over_db_close(
+	BackendDB	*be,
+	ConfigReply	*cr )
+{
+	Slapi_PBlock		*pb;
+	int			rc;
+
+	pb = slapi_pblock_new();
+
+	rc = slapi_int_call_plugins( be, SLAPI_PLUGIN_CLOSE_FN, pb );
+
+	slapi_pblock_destroy( pb );
+
+	return rc;
+}
+
+static int
 slapi_over_init()
 {
 	memset( &slapi, 0, sizeof(slapi) );
@@ -858,6 +900,9 @@ slapi_over_init()
 	slapi.on_bi.bi_op_abandon	= slapi_op_func;
 	slapi.on_bi.bi_op_cancel	= slapi_op_func;
 
+	slapi.on_bi.bi_db_open		= slapi_over_db_open;
+	slapi.on_bi.bi_db_close		= slapi_over_db_close;
+
 	slapi.on_bi.bi_extended		= slapi_over_extended;
 	slapi.on_bi.bi_access_allowed	= slapi_over_access_allowed;
 	slapi.on_bi.bi_operational	= slapi_over_aux_operational;
@@ -871,7 +916,7 @@ int slapi_over_is_inst( BackendDB *be )
 	return overlay_is_inst( be, SLAPI_OVERLAY_NAME );
 }
 
-int slapi_over_config( BackendDB *be )
+int slapi_over_config( BackendDB *be, ConfigReply *cr )
 {
 	if ( slapi_over_initialized == 0 ) {
 		int rc;
@@ -895,7 +940,7 @@ int slapi_over_config( BackendDB *be )
 		slapi_over_initialized = 1;
 	}
 
-	return overlay_config( be, SLAPI_OVERLAY_NAME );
+	return overlay_config( be, SLAPI_OVERLAY_NAME, -1, NULL, cr );
 }
 
 #endif /* LDAP_SLAPI */

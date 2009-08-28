@@ -17,16 +17,12 @@ endif
 
 VERS_SYSTEM_DIR = $(DSTROOT)$(SYSTEM_DEVELOPER_DIR)/Makefiles/VersioningSystems
 VERS_SYSTEM_STUFF = next-cvs.make next-cvs_project_version.sh
-LOCAL_VERS_SYSTEM_DIR = $(DSTROOT)$(LOCAL_DEVELOPER_DIR)/Makefiles/VersioningSystems
-LOCAL_VERS_SYSTEM_STUFF = next-sgs.make
-INSTALLDIRS = $(DSTROOT)$(INSTALLDIR) $(LOCAL_VERS_SYSTEM_DIR) $(VERS_SYSTEM_DIR)
+INSTALLDIRS = $(DSTROOT)$(INSTALLDIR) $(VERS_SYSTEM_DIR)
 
-install-resources: $(VERS_SYSTEM_STUFF) $(LOCAL_VERS_SYSTEM_STUFF)
-	$(SILENT) $(RM) -rf $(LOCAL_VERS_SYSTEM_DIR) $(VERS_SYSTEM_DIR)
+install-resources: $(VERS_SYSTEM_STUFF)
+	$(SILENT) $(RM) -rf $(VERS_SYSTEM_DIR)
 	$(SILENT) $(MKDIRS) $(INSTALLDIRS)
-	-$(CHMOD) a+w $(DSTROOT)$(INSTALLDIR)/convertBundle
 	$(CP) -p $(GLOBAL_RESOURCES) $(HELP_FILES) $(DSTROOT)$(INSTALLDIR)
-	$(CHMOD) 555 $(DSTROOT)$(INSTALLDIR)/convertBundle
 ifdef CHOWN
 	$(CHOWN) -R $(INSTALL_AS_USER):$(INSTALL_AS_GROUP) $(DSTROOT)$(INSTALLDIR)
 endif
@@ -35,10 +31,6 @@ endif
 ifdef CHOWN
 	$(CHOWN) -R $(INSTALL_AS_USER):$(INSTALL_AS_GROUP) $(VERS_SYSTEM_DIR)
 endif
-	$(CP) -p $(LOCAL_VERS_SYSTEM_STUFF) $(LOCAL_VERS_SYSTEM_DIR)
-ifdef CHOWN
-	$(CHOWN) -R $(INSTALL_AS_USER):$(INSTALL_AS_GROUP) $(LOCAL_VERS_SYSTEM_DIR)
-endif
 	$(RM) -f $(DSTROOT)/$(INSTALLDIR)/platform.make
 	$(ECHO) MAKEFILE_SOURCE = pb_makefiles >> $(DSTROOT)$(INSTALLDIR)/platform.make
 	$(ECHO) OS = $(OS) >> $(DSTROOT)$(INSTALLDIR)/platform.make
@@ -46,17 +38,3 @@ endif
 	$(ECHO) 'include $$(MAKEFILEPATH)/$$(MAKEFILE_SOURCE)/platform-variables.make' >> $(DSTROOT)$(INSTALLDIR)/platform.make
 	$(CHMOD) -R a-w $(INSTALLDIRS)
 
-
-CONVERSION_DIR = $(SYSTEM_DEVELOPER_DIR)/Makefiles/Conversion/DirectoryLayout
-
-after_install::
-	$(MKDIRS) $(DSTROOT)$(CONVERSION_DIR)
-	$(CP) ConvertMakefilesReadMe.rtf $(DSTROOT)$(CONVERSION_DIR)
-	$(CHMOD) 444 $(DSTROOT)$(CONVERSION_DIR)/ConvertMakefilesReadMe.rtf
-	$(CP) ConvertMakefilesToNewDirs.sh $(DSTROOT)$(CONVERSION_DIR)/ConvertMakefilesToNewDirs
-	$(CHMOD) 555 $(DSTROOT)$(CONVERSION_DIR)/ConvertMakefilesToNewDirs
-	$(CP) SearchForOldDirs.sh $(DSTROOT)$(CONVERSION_DIR)/SearchForOldDirs
-	$(CHMOD) 555 $(DSTROOT)$(CONVERSION_DIR)/SearchForOldDirs
-ifdef CHOWN
-	$(CHOWN) -R $(INSTALL_AS_USER):$(INSTALL_AS_GROUP) $(DSTROOT)$(CONVERSION_DIR)
-endif

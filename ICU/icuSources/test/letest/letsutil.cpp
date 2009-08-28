@@ -1,7 +1,7 @@
 /*
  *******************************************************************************
  *
- *   Copyright (C) 1999-2006, International Business Machines
+ *   Copyright (C) 1999-2008, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  *
  *******************************************************************************
@@ -43,6 +43,17 @@ char *getCString(const UnicodeString *uString)
     return cString;
 }
 
+char *getCString(const LEUnicode16 *uChars)
+{
+    if (uChars == NULL) {
+        return NULL;
+    }
+
+    const UnicodeString ustring(uChars);
+
+    return getCString(&ustring);
+}
+
 char *getUTF8String(const UnicodeString *uString)
 {
     if (uString == NULL) {
@@ -67,16 +78,20 @@ void freeCString(char *cString)
 
 le_bool getRTL(const UnicodeString &text)
 {
-    UBiDiLevel paraLevel;
+    UBiDiLevel level = 0;
     UErrorCode status = U_ZERO_ERROR;
     le_int32 charCount = text.length();
+    le_int32 limit = -1;
     UBiDi *ubidi = ubidi_openSized(charCount, 0, &status);
 
     ubidi_setPara(ubidi, text.getBuffer(), charCount, UBIDI_DEFAULT_LTR, NULL, &status);
-    paraLevel = ubidi_getParaLevel(ubidi);
+
+    // TODO: Should check that there's only a single logical run...
+    ubidi_getLogicalRun(ubidi, 0, &limit, &level);
+
     ubidi_close(ubidi);
 
-    return paraLevel & 1;
+    return level & 1;
 }
 
 le_int32 getLanguageCode(const char *lang)

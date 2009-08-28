@@ -1,6 +1,6 @@
 /* 
    URI manipulation routines.
-   Copyright (C) 1999-2006, Joe Orton <joe@manyfish.co.uk>
+   Copyright (C) 1999-2008, Joe Orton <joe@manyfish.co.uk>
 
    This library is free software; you can redistribute it and/or
    modify it under the terms of the GNU Library General Public
@@ -65,8 +65,9 @@ typedef struct {
 /* Parse a URI-reference 'uri' and place parsed components in *parsed.
  * Returns zero on success, non-zero on parse error.  On successful or
  * error return, all the 'char *' fields of *parsed are either set to
- * NULL, or point to malloc-allocated NUL-terminated strings.
- * ne_uri_free can be used to free the structure after use. */
+ * NULL, or point to malloc-allocated NUL-terminated strings;
+ * ne_uri_free can be used to free any set fields.  On success,
+ * parsed->path is guaranteed to be non-NULL. */
 int ne_uri_parse(const char *uri, ne_uri *parsed);
 
 /* Turns a URI structure back into a string.  The returned string is
@@ -74,10 +75,12 @@ int ne_uri_parse(const char *uri, ne_uri *parsed);
 char *ne_uri_unparse(const ne_uri *uri);
 
 /* Resolve a relative URI 'relative', with respect to base URI 'base',
- * placing the resultant URI in '*result'.  On return, all the 'char
- * *' fields of *result are either set to NULL or point to
- * malloc-allocated NUL-terminated strings.  ne_uri_free can be used
- * to free the structure after use.  Returns 'result'. */
+ * placing the resultant URI in '*result'.  At least both base->path
+ * and relative->path must be non-NULL.  On return, all the 'char *'
+ * fields of *result are either set to NULL or point to
+ * malloc-allocated NUL-terminated strings.  result->path is
+ * guaranteed to be non-NULL.  ne_uri_free can be used to free the
+ * result structure after use.  Returns 'result'. */
 ne_uri *ne_uri_resolve(const ne_uri *base, const ne_uri *relative,
                        ne_uri *result);
 

@@ -230,6 +230,12 @@ enum
 	CSSM_ALGID_SHA384WithRSA,	/* RSA signature on SHA384 digest */
 	CSSM_ALGID_SHA512WithRSA,	/* RSA signature on SHA512 digest */
 	CSSM_ALGID_OPENSSH1,		/* OpenSSH v1 RSA key wrapping */
+	CSSM_ALGID_SHA224WithECDSA,	/* ECDSA signature on SHA224 digest */
+	CSSM_ALGID_SHA256WithECDSA,	/* ECDSA signature on SHA256 digest */
+	CSSM_ALGID_SHA384WithECDSA,	/* ECDSA signature on SHA384 digest */
+	CSSM_ALGID_SHA512WithECDSA,	/* ECDSA signature on SHA512 digest */
+	CSSM_ALGID_ECDSA_SPECIFIED,	/* ECDSA with separate digest algorithm specifier */
+	CSSM_ALGID_ECDH_X963_KDF,	/* ECDH with X9.63 key derivation */
     CSSM_ALGID__FIRST_UNUSED
 };
 
@@ -660,6 +666,7 @@ enum
 	CSSM_APPLE_PRIVATE_CSPDL_CODE_13 = 13,
 	CSSM_APPLE_PRIVATE_CSPDL_CODE_14 = 14,
 	CSSM_APPLE_PRIVATE_CSPDL_CODE_15 = 15,
+	CSSM_APPLE_PRIVATE_CSPDL_CODE_16 = 16,
 	
 	/* Given a CSSM_KEY_PTR in any format, obtain the SHA-1 hash of the 
 	 * associated key blob. 
@@ -782,7 +789,8 @@ enum {
 enum {
 	CSSM_FEE_CURVE_TYPE_DEFAULT = 0,	/* default per key size */
 	CSSM_FEE_CURVE_TYPE_MONTGOMERY,		/* a==1, b==0 */
-	CSSM_FEE_CURVE_TYPE_WEIERSTRASS		/* c==0. IEEE P1363 compliant. */
+	CSSM_FEE_CURVE_TYPE_WEIERSTRASS,	/* c==0. IEEE P1363 compliant. */
+	CSSM_FEE_CURVE_TYPE_ANSI_X9_62		/* ANSI X9.62 compatible */
 };
 
 /*

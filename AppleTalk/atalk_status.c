@@ -47,29 +47,13 @@
 #include <sys/ioctl.h>
 #include <net/if.h>
 
-#include <netat/appletalk.h>
-#include <netat/at_var.h>
 
-#include <AppleTalk/at_proto.h>
+#include "at_proto.h"
 
 /* if OTHERERROR is returned then errno may be checked for the reason */
 int
 checkATStack()
 {
-	int		s, rc=0;
-	at_state_t	global_state;
-
-	if ((s = socket(AF_APPLETALK, SOCK_RAW, 0)) < 0)
-		return(NOTLOADED);
-	rc = ioctl(s, AIOCGETSTATE, (caddr_t)&global_state);
-	(void)close(s);
-
-	if (rc == 0)
-		if (global_state.flags & AT_ST_STARTED)
-			return(RUNNING);
-		else
-			return(LOADED);
-	else
-		return(OTHERERROR);
+	return(NOTLOADED);
 }
 

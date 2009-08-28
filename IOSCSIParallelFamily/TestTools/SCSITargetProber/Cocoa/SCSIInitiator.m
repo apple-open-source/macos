@@ -1,7 +1,7 @@
 /*
- * © Copyright 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2007 Apple Inc. All rights reserved.
  *
- * IMPORTANT:  This Apple software is supplied to you by Apple Computer, Inc. (“Apple”) in 
+ * IMPORTANT:  This Apple software is supplied to you by Apple Inc. ("Apple") in 
  * consideration of your agreement to the following terms, and your use, installation, 
  * modification or redistribution of this Apple software constitutes acceptance of these
  * terms.  If you do not agree with these terms, please do not use, install, modify or 
@@ -32,7 +32,7 @@
  * WHETHER UNDER THEORY OF CONTRACT, TORT (INCLUDING NEGLIGENCE), STRICT LIABILITY OR 
  * OTHERWISE, EVEN IF APPLE HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
+ 
 
 //—————————————————————————————————————————————————————————————————————————————
 //	Imports
@@ -305,8 +305,8 @@ deviceComparator ( id obj1, id obj2, void * context );
 	[ initiatorDevice setDomainIdentifier: [ NSNumber numberWithInt: domainID ] ];
 	[ initiatorDevice setDeviceIdentifier: [ NSNumber numberWithInt: initiatorID ] ];
 	
-	//••• Cheesy hack to find out if this is Card Bus or PCI,
-	//••• need a better way to determine this in the future.
+	// Cheesy hack to find out if this is Card Bus or PCI,
+	// need a better way to determine this in the future.
 	value = ( id ) IORegistryEntrySearchCFProperty ( service,
 													 kIOServicePlane,
 													 CFSTR ( kSocketNumberString ),
@@ -320,7 +320,7 @@ deviceComparator ( id obj1, id obj2, void * context );
 	// The card doesn't have any features. Maybe we can add some later...
 	[ initiatorDevice setFeatures: nil ];
 	
-	//••• Not all PCI/CardBus devices have these keys. Need to look at more
+	// Not all PCI/CardBus devices have these keys. Need to look at more
 	// cards and see if we can glean more information for things like Firmware Revision,
 	// FCode revision, etc. Maybe in the next release...
 	value = ( id ) IORegistryEntrySearchCFProperty ( service,
@@ -403,7 +403,7 @@ deviceComparator ( id obj1, id obj2, void * context );
 
 #if 0
 #pragma mark -
-#pragma mark • Static Methods
+#pragma mark Static Methods
 #pragma mark -
 #endif
 

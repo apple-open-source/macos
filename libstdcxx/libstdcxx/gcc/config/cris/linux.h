@@ -1,5 +1,5 @@
 /* Definitions for GCC.  Part of the machine description for CRIS.
-   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Axis Communications.  Written by Hans-Peter Nilsson.
 
 This file is part of GCC.
@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 /* After the first "Node:" comment comes all preprocessor directives and
@@ -60,27 +60,23 @@ Boston, MA 02111-1307, USA.  */
   %{!fleading-underscore:--no-underscore}\
   %{fPIC|fpic|fPIE|fpie: --pic}"
 
-/* Provide a legacy -mlinux option.  */
-#undef CRIS_SUBTARGET_SWITCHES
-#define CRIS_SUBTARGET_SWITCHES						\
- {"linux",				 0, ""},			\
- {"gotplt",	 -TARGET_MASK_AVOID_GOTPLT, ""},			\
- {"no-gotplt",	  TARGET_MASK_AVOID_GOTPLT,				\
-  N_("Together with -fpic and -fPIC, do not use GOTPLT references")},
+/* Previously controlled by target_flags.  */
+#undef TARGET_LINUX
+#define TARGET_LINUX 1
 
 #undef CRIS_SUBTARGET_DEFAULT
 #define CRIS_SUBTARGET_DEFAULT			\
-  (TARGET_MASK_SVINTO				\
-   + TARGET_MASK_ETRAX4_ADD			\
-   + TARGET_MASK_ALIGN_BY_32			\
-   + TARGET_MASK_ELF				\
-   + TARGET_MASK_LINUX)
+  (MASK_SVINTO					\
+   + MASK_ETRAX4_ADD				\
+   + MASK_ALIGN_BY_32)
 
 #undef CRIS_DEFAULT_CPU_VERSION
 #define CRIS_DEFAULT_CPU_VERSION CRIS_CPU_NG
 
 #undef CRIS_SUBTARGET_VERSION
 #define CRIS_SUBTARGET_VERSION " - cris-axis-linux-gnu"
+
+#define GLIBC_DYNAMIC_LINKER "/lib/ld.so.1"
 
 /* We need an -rpath-link to ld.so.1, and presumably to each directory
    specified with -B.  */
@@ -90,7 +86,9 @@ Boston, MA 02111-1307, USA.  */
   -rpath-link include/asm/../..%s\
   %{shared} %{static}\
   %{symbolic:-Bdynamic} %{shlib:-Bdynamic} %{static:-Bstatic}\
-  %{!shared:%{!static:%{rdynamic:-export-dynamic}}}\
+  %{!shared:%{!static:\
+              %{rdynamic:-export-dynamic}\
+              %{!dynamic-linker:-dynamic-linker " LINUX_DYNAMIC_LINKER "}}}\
   %{!r:%{O2|O3: --gc-sections}}"
 
 
@@ -102,11 +100,6 @@ Boston, MA 02111-1307, USA.  */
   do						\
     {						\
       LINUX_TARGET_OS_CPP_BUILTINS();		\
-      if (flag_pic)				\
-	{					\
-	  builtin_define ("__PIC__");		\
-	  builtin_define ("__pic__");		\
-	}					\
       if (flag_leading_underscore <= 0)		\
 	builtin_define ("__NO_UNDERSCORES__");	\
     }						\

@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "fixlib.h"
 
@@ -26,7 +26,7 @@ ENV_TABLE
 #undef _ENV_
 
 void
-initialize_opts ()
+initialize_opts (void)
 {
   static const char var_not_found[] =
 #ifndef __STDC__

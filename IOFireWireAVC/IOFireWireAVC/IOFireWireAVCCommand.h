@@ -31,27 +31,31 @@ class IOFireWireAVCCommand : public IOFWCommand
     OSDeclareDefaultStructors(IOFireWireAVCCommand)
     
 protected:
-    IOFWCommand *fWriteCmd;
-    IOMemoryDescriptor *fMem;
-    const UInt8 *fCommand;
-    UInt32 fCmdLen;
-    UInt8 *	fResponse;
-    UInt32 *fResponseLen;
-    int	fCurRetries;
-    int	fMaxRetries;
+    IOFWCommand 		*fWriteCmd;
+    IOMemoryDescriptor	*fMem;
+    const UInt8 		*fCommand;
     
-    UInt32 fWriteGen;
-    UInt16 fWriteNodeID;
-    bool bypassRobustCommandResponseMatching;
+    UInt32 	fCmdLen;
+    UInt8 	*fResponse;
+    UInt32 	*fResponseLen;
+    int		fCurRetries;
+    int		fMaxRetries;
+    
+    UInt32	fWriteGen;
+    UInt16	fWriteNodeID;
+    bool	bypassRobustCommandResponseMatching;
 	
 /*! @struct ExpansionData
     @discussion This structure will be used to expand the capablilties of the class in the future.
     */    
-    struct ExpansionData { };
+    struct ExpansionData { 
+		bool 	fStarted;
+		bool 	fSyncWakeupSignaled;
+	};
 
 /*! @var reserved
     Reserved for future use.  (Internal use only)  */
-    ExpansionData *reserved;
+    ExpansionData *fIOFireWireAVCCommandExpansion;
     
     static void writeDone(void *refcon, IOReturn status, IOFireWireNub *device, IOFWCommand *fwCmd);
     
@@ -76,6 +80,8 @@ public:
     virtual IOReturn resetInterimTimeout();
 
 	virtual UInt32 handleResponseWithSimpleMatching(UInt16 nodeID, UInt32 len, const void *buf);
+
+    virtual IOReturn 	submit(bool queue = false);
 
 private:
     OSMetaClassDeclareReservedUsed(IOFireWireAVCCommand, 0);

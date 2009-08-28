@@ -274,23 +274,10 @@ idnaref_toASCII(const UChar* src, int32_t srcLength,
     UBool srcIsLDH = TRUE;
     int32_t j=0;
 
-    NamePrepTransform* prep = TestIDNA::getInstance(*status);
-
-    if(U_FAILURE(*status)){
-        goto CLEANUP;
-    }
-    
     if(srcLength == -1){
         srcLength = u_strlen(src);
     }
-    if(srcLength > b1Capacity){
-        b1 = (UChar*) uprv_malloc(srcLength * U_SIZEOF_UCHAR);
-        if(b1==NULL){
-            *status = U_MEMORY_ALLOCATION_ERROR;
-            goto CLEANUP;
-        }
-        b1Capacity = srcLength;
-    }
+
     // step 1
     for( j=0;j<srcLength;j++){
         if(src[j] > 0x7F){
@@ -298,16 +285,18 @@ idnaref_toASCII(const UChar* src, int32_t srcLength,
         }
         b1[b1Len++] = src[j];
     }
-    
     // step 2
+    NamePrepTransform* prep = TestIDNA::getInstance(*status);
+
+    if(U_FAILURE(*status)){
+        goto CLEANUP;
+    }
+
     b1Len = prep->process(src,srcLength,b1, b1Capacity,allowUnassigned,parseError,*status);
 
     if(*status == U_BUFFER_OVERFLOW_ERROR){
         // redo processing of string
         /* we do not have enough room so grow the buffer*/
-         if(b1 != b1Stack){
-                uprv_free(b1);
-        }
         b1 = (UChar*) uprv_malloc(b1Len * U_SIZEOF_UCHAR);
         if(b1==NULL){
             *status = U_MEMORY_ALLOCATION_ERROR;
@@ -625,8 +614,24 @@ CLEANUP:
     }
     uprv_free(caseFlags);
 
-//    delete prep;
-
+    // The RFC states that 
+    // <quote>
+    // ToUnicode never fails. If any step fails, then the original input
+    // is returned immediately in that step.
+    // </quote>
+    // So if any step fails lets copy source to destination
+    if(U_FAILURE(*status)){
+        //copy the source to destination
+        if(dest && srcLength <= destCapacity){
+          if(srcLength == -1) {
+            uprv_memmove(dest,src,u_strlen(src)* U_SIZEOF_UCHAR);
+          } else {
+            uprv_memmove(dest,src,srcLength * U_SIZEOF_UCHAR);
+          }
+        }
+        reqLength = srcLength;
+        *status = U_ZERO_ERROR;
+    }
     return u_terminateUChars(dest, destCapacity, reqLength, status);
 }
 

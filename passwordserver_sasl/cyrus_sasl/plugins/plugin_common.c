@@ -103,7 +103,7 @@ static void sockaddr_unmapped(
 #ifdef HAVE_SOCKADDR_SA_LEN
     sin4->sin_len = sizeof(struct sockaddr_in);
 #endif
-    *len = sizeof(struct sockaddr_in);
+    *len = (socklen_t)sizeof(struct sockaddr_in);
 #else
     return;
 #endif
@@ -192,7 +192,7 @@ int _plug_iovec_to_buf(const sasl_utils_t *utils, const struct iovec *vec,
     
     out->curlen = 0;
     for(i=0; i<numiov; i++)
-	out->curlen += vec[i].iov_len;
+	out->curlen += (unsigned int)vec[i].iov_len;
 
     ret = _plug_buf_alloc(utils, &out->data, &out->reallen, out->curlen);
 
@@ -241,7 +241,7 @@ int _plug_buf_alloc(const sasl_utils_t *utils, unsigned char **rwbuf,
 	    MEMERROR(utils);
 	    return SASL_NOMEM;
 	}
-	*curlen = needed;
+	*curlen = (unsigned int)needed;
     } 
 
     return SASL_OK;
@@ -267,7 +267,7 @@ int _plug_strdup(const sasl_utils_t * utils, const char *in,
   strcpy((char *) *out, in);
 
   if (outlen)
-      *outlen = len;
+      *outlen = (int)len;
 
   return SASL_OK;
 }
@@ -280,7 +280,7 @@ void _plug_free_string(const sasl_utils_t *utils, char **str)
 
   len = strlen(*str);
 
-  utils->erasebuffer(*str, len);
+  utils->erasebuffer(*str, (unsigned int)len);
   utils->free(*str);
 
   *str=NULL;
@@ -290,7 +290,7 @@ void _plug_free_secret(const sasl_utils_t *utils, sasl_secret_t **secret)
 {
     if(!utils || !secret || !(*secret)) return;
 
-    utils->erasebuffer((char *)(*secret)->data, (*secret)->len);
+    utils->erasebuffer((char *)(*secret)->data, (unsigned int)((*secret)->len));
     utils->free(*secret);
     *secret = NULL;
 }
@@ -541,7 +541,7 @@ int _plug_make_prompts(const sasl_utils_t *utils,
 	return SASL_FAIL;
     }
 
-    alloc_size = sizeof(sasl_interact_t)*num;
+    alloc_size = (int)sizeof(sasl_interact_t)*num;
     prompts = utils->malloc(alloc_size);
     if (!prompts) {
 	MEMERROR( utils );

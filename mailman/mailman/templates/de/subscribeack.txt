@@ -3,7 +3,7 @@ Willkommen auf der Mailingliste %(real_name)s@%(host_name)s!
 
 %(welcome)s
 
-Nachrichten an diese Liste schicken Sie bitte an die e-Mailadresse:
+Nachrichten an diese Liste schicken Sie bitte an die E-Mailadresse:
 
   %(emailaddr)s
 
@@ -25,17 +25,17 @@ Mailingliste zu kündigen oder andere Aenderungen vorzunehmen. Es lautet:
 Auf der Webseite mit den persoenliche Einstellungen gibt es einen Knopf, 
 der Ihnen Ihr Passwort zumailt.
 
-Normalerweise erhalten Sie von Mailman jeden Monat eine e-Mail, die Ihre
+Normalerweise erhalten Sie von Mailman jeden Monat eine E-Mail, die Ihre
 Abonnements auf %(host_name)s und die Passwoerter auflistet.
 Diese Erinnerungsmail enthält auch Informationen darueber, wie Sie Ihr
 Abonnement kündigen oder Ihre Abonnement-Einstellungen aendern koennen.
 
-Für e-Mail-Profis: Sie koennen Änderungen auch via e-Mail vornehmen, 
-indem Sie eine e-Mail an die Adresse:
+Für E-Mail-Profis: Sie koennen Änderungen auch via E-Mail vornehmen, 
+indem Sie eine E-Mail an die Adresse:
 
   %(real_name)s-request@%(host_name)s
 
 schicken, die das Wort 'help' (ohne die Anführungszeichen!) im
-Subject/Betreff oder im Text der e-Mail enthaelt. Sie erhalten dann eine
+Subject/Betreff oder im Text der E-Mail enthaelt. Sie erhalten dann eine
 Nachricht mit Instruktionen zurueck.
 

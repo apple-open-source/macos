@@ -1,27 +1,51 @@
-Index: bzip2.c
-===================================================================
-RCS file: /cvs/root/bzip2/bzip2/Attic/bzip2.c,v
-retrieving revision 1.1.1.1
-retrieving revision 1.1.1.1.2.1
-diff -u -d -b -p -r1.1.1.1 -r1.1.1.1.2.1
---- bzip2.c	2002/04/29 21:22:53	1.1.1.1
-+++ bzip2.c	2004/08/14 00:35:08	1.1.1.1.2.1
-@@ -152,6 +152,9 @@
+--- bzip2.c.orig	2007-12-09 04:22:06.000000000 -0800
++++ bzip2.c	2008-08-26 18:21:10.000000000 -0700
+@@ -152,6 +152,10 @@
  
  #endif /* BZ_LCCWIN32 */
  
 +#ifdef __APPLE__
++#include <sys/attr.h>
 +#include <copyfile.h>
 +#endif
  
  /*---------------------------------------------*/
  /*--
-@@ -1071,6 +1074,9 @@ void applySavedMetaInfoToOutputFile ( Ch
+@@ -1061,6 +1065,27 @@
+ #  endif
+ }
+ 
++#ifdef __APPLE__
++static void
++clear_type_and_creator(char *path)
++{
++	struct attrlist alist;
++	struct {
++		u_int32_t length;
++		char info[32];
++	} abuf;
++
++	memset(&alist, 0, sizeof(alist));
++	alist.bitmapcount = ATTR_BIT_MAP_COUNT;
++	alist.commonattr = ATTR_CMN_FNDRINFO;
++
++	if (!getattrlist(path, &alist, &abuf, sizeof(abuf), 0) && abuf.length == sizeof(abuf)) {
++		memset(abuf.info, 0, 8);
++		setattrlist(path, &alist, abuf.info, sizeof(abuf.info), 0);
++	}
++}
++#endif /* __APPLE__ */
++
+ static 
+ void applySavedFileAttrToOutputFile ( IntNative fd )
+ {
+@@ -1071,6 +1096,10 @@
     ERROR_IF_NOT_ZERO ( retVal );
  
     (void) fchown ( fd, fileMetaInfo.st_uid, fileMetaInfo.st_gid );
 +#if __APPLE__
 +    copyfile(inName, outName, 0, COPYFILE_ACL | COPYFILE_XATTR);
++    clear_type_and_creator(outName);
 +#endif
     /* chown() will in many cases return with EPERM, which can
        be safely ignored.

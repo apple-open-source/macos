@@ -1,0 +1,76 @@
+=== lib/DBIx/Class/Row.pm
+==================================================================
+--- lib/DBIx/Class/Row.pm	(revision 14032)
++++ lib/DBIx/Class/Row.pm	(local)
+@@ -159,12 +159,10 @@
+                        %{$self->{_inflated_column} || {}});
+ 
+   if(!$self->{_rel_in_storage}) {
+-    $source->storage->txn_begin;
+ 
+     # The guard will save us if we blow out of this scope via die
++    $rollback_guard = $source->storage->txn_scope_guard;
+ 
+-    $rollback_guard = Scope::Guard->new(sub { $source->storage->txn_rollback });
+-
+     ## Should all be in relationship_data, but we need to get rid of the
+     ## 'filter' reltype..
+     ## These are the FK rels, need their IDs for the insert.
+@@ -246,8 +244,7 @@
+         }
+       }
+     }
+-    $source->storage->txn_commit;
+-    $rollback_guard->dismiss;
++    $rollback_guard->commit;
+   }
+ 
+   $self->in_storage(1);
+=== lib/DBIx/Class/Storage/TxnScopeGuard.pm
+==================================================================
+--- lib/DBIx/Class/Storage/TxnScopeGuard.pm	(revision 14032)
++++ lib/DBIx/Class/Storage/TxnScopeGuard.pm	(local)
+@@ -0,0 +1,26 @@
++package DBIx::Class::Storage::TxnScopeGuard;
++
++use strict;
++use warnings;
++
++sub new {
++  my ($class, $storage) = @_;
++
++  $storage->txn_begin;
++  bless [ 0, $storage ], ref $class || $class;
++}
++
++sub commit {
++  my $self = shift;
++
++  $self->[1]->txn_commit;
++  $self->[0] = 1;
++}
++
++sub DESTROY {
++  my ($dismiss, $storage) = @$_[0];
++
++  $storage->txn_rollback unless $dismiss;
++}
++
++1;
+=== lib/DBIx/Class/Storage.pm
+==================================================================
+--- lib/DBIx/Class/Storage.pm	(revision 14032)
++++ lib/DBIx/Class/Storage.pm	(local)
+@@ -261,6 +261,12 @@
+ 
+ sub txn_rollback { die "Virtual method!" }
+ 
++sub txn_scope_guard {
++  my ($self) = @_;
++
++  return DBIx::Class::Storage::TxnScopeGuard->new($self);
++}
++
+ =head2 sql_maker
+ 
+ Returns a C<sql_maker> object - normally an object of class

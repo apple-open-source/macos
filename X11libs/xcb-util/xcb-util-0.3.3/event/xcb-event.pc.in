@@ -1,0 +1,11 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: XCB Event library
+Description: XCB event callback interface
+Version: @PACKAGE_VERSION@
+Requires: xcb
+Libs: -L${libdir} -lxcb-event @LIBS@
+Cflags: -I${includedir}

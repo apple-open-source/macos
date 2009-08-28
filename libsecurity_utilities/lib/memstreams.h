@@ -28,8 +28,10 @@
 #ifndef _H_MEMSTREAMS
 #define _H_MEMSTREAMS
 
+#include <stdint.h>
 #include <security_utilities/memutils.h>
 #include <security_utilities/endian.h>
+#include <security_utilities/errors.h>
 
 
 namespace Security
@@ -79,7 +81,11 @@ public:
 	{ return (char *)(*this)(s, strlen(s) + 1); }
 	
 	void countedData(const void *data, size_t length)
-	{ Endian<size_t> temp = length; (*this)(temp); (*this)(data, length); }
+	{ 
+        if (length > uint32_t(~0))
+            UnixError::throwMe(ERANGE);
+        Endian<uint32_t> temp = length; (*this)(temp); (*this)(data, length); 
+    }
 	
 	template <class Data>
 	void countedData(const Data &data)
@@ -144,7 +150,7 @@ public:
 	{ return reinterpret_cast<const T *>(advance(size)); }
 	
 	void countedData(const void * &data, size_t &length)
-	{ Endian<size_t> temp; (*this)(temp); length = temp; data = advance(length); }
+	{ Endian<uint32_t> temp; (*this)(temp); length = temp; data = advance(length); }
 
 private:
 	// Explicitly forbid some invocations that are likely to be wrong.

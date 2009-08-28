@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2006, 2008, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,7 +28,8 @@
  * These routines provide access to the systems DNS configuration
  */
 
-#include <AvailabilityMacros.h>
+#include <TargetConditionals.h>
+#include <Availability.h>
 #include <sys/cdefs.h>
 #include <stdint.h>
 #include <sys/types.h>
@@ -37,37 +38,102 @@
 
 #include <dnsinfo.h>
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
-
 typedef const struct __dns_create_config *      dns_create_config_t;
 typedef const struct __dns_create_resolver *    dns_create_resolver_t;
+
+#if	!TARGET_OS_IPHONE
+#ifndef _PATH_RESOLVER_DIR
+#define _PATH_RESOLVER_DIR "/etc/resolver"
+#endif
+#endif	/* !TARGET_OS_IPHONE */
 
 __BEGIN_DECLS
 
 /*
+ * NOTE: __private_extern__ and __OSX_AVAILABLE_STARTING() cannot be mixed
+ *       due to a "visibility" conflict
+ */
+
+/*
  * DNS configuration creation APIs
  */
-dns_create_config_t     _dns_configuration_create       (void);
-void			_dns_configuration_add_resolver (dns_create_config_t *_config, dns_create_resolver_t _resolver);
-_Bool			_dns_configuration_store	(dns_create_config_t *_config);
-void			_dns_configuration_free		(dns_create_config_t *_config);
+__private_extern__
+dns_create_config_t
+_dns_configuration_create       (void)						/*__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0)*/;
+
+__private_extern__
+void
+_dns_configuration_add_resolver (dns_create_config_t	*_config,
+				 dns_create_resolver_t	_resolver)		/*__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0)*/;
+
+__private_extern__
+_Bool
+_dns_configuration_store	(dns_create_config_t	*_config)		/*__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0)*/;
+
+__private_extern__
+void
+_dns_configuration_free		(dns_create_config_t	*_config)		/*__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0)*/;
 
 /*
  * DNS [resolver] configuration creation APIs
  */
-dns_create_resolver_t   _dns_resolver_create		(void);
-void			_dns_resolver_set_domain	(dns_create_resolver_t *_resolver, const char *domain);
-void			_dns_resolver_add_nameserver	(dns_create_resolver_t *_resolver, struct sockaddr *nameserver);
-void			_dns_resolver_set_port		(dns_create_resolver_t *_resolver, uint16_t port);	// host byte order
-void			_dns_resolver_add_search	(dns_create_resolver_t *_resolver, const char *search);
-void			_dns_resolver_add_sortaddr	(dns_create_resolver_t *_resolver, dns_sortaddr_t *sortaddr);
-void			_dns_resolver_set_options	(dns_create_resolver_t *_resolver, const char *options);
-void			_dns_resolver_set_timeout	(dns_create_resolver_t *_resolver, uint32_t timeout);
-void			_dns_resolver_set_order		(dns_create_resolver_t *_resolver, uint32_t order);
-void			_dns_resolver_free		(dns_create_resolver_t *_resolver);
+__private_extern__
+dns_create_resolver_t
+_dns_resolver_create		(void)						/*__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0)*/;
+
+__private_extern__
+void
+_dns_resolver_set_domain	(dns_create_resolver_t	*_resolver,
+				 const char		*domain)		/*__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0)*/;
+
+__private_extern__
+void
+_dns_resolver_add_nameserver	(dns_create_resolver_t	*_resolver,
+				 struct sockaddr	*nameserver)		/*__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0)*/;
+
+__private_extern__
+void
+_dns_resolver_set_port		(dns_create_resolver_t	*_resolver,
+				 uint16_t		port)			/*__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0)*/;	// host byte order
+
+__private_extern__
+void
+_dns_resolver_add_search	(dns_create_resolver_t	*_resolver,
+				 const char		*search)		/*__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0)*/;
+
+__private_extern__
+void
+_dns_resolver_add_sortaddr	(dns_create_resolver_t	*_resolver,
+				 dns_sortaddr_t		*sortaddr)		/*__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0)*/;
+
+__private_extern__
+void
+_dns_resolver_set_options	(dns_create_resolver_t	*_resolver,
+				 const char		*options)		/*__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0)*/;
+
+__private_extern__
+void
+_dns_resolver_set_timeout	(dns_create_resolver_t	*_resolver,
+				 uint32_t		timeout)		/*__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0)*/;
+
+__private_extern__
+void
+_dns_resolver_set_order		(dns_create_resolver_t	*_resolver,
+				 uint32_t		order)			/*__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0)*/;
+
+__private_extern__
+void
+_dns_resolver_free		(dns_create_resolver_t	*_resolver)		/*__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0)*/;
+
+#if	!TARGET_OS_IPHONE
+/*
+ * DNS [resolver] flat-file configuration creation APIs
+ */
+__private_extern__
+void
+_dnsinfo_flatfile_add_resolvers	(dns_create_config_t	*config)		/*__OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_NA)*/;
+#endif	// !TARGET_OS_IPHONE
 
 __END_DECLS
-
-#endif	/* MAC_OS_X_VERSION_MAX_ALLOWED >= 1040 */
 
 #endif	/* __DNSINFO_CREATE_H__ */

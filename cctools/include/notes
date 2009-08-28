@@ -1,3 +1,130 @@
+Changes for the 5.26 release (the cctools-750 release):
+- Added lto_get_nlist_64() to stuff/lto.h for use by nm(1) print information
+  from llvm bit code files.  Radar bug #6067110.
+
+Changes for the 5.25 release (the cctools-737 release):
+- Added the new ARM_THUMB_32BIT_BRANCH relocation type to <mach-o/arm/reloc.h> .
+  Radar bug #6511482.
+
+Changes for the 5.25 release (the cctools-725 release):
+- Added support for new compressed LINKEDIT information. Radar bug #6232822.
+  - Added dyld_info_command and constants to mach-o/loader.h .
+  - Added the dyld_info, output_dyld_info and output_dyld_info_size fields to
+    the object struct in stuff/breakout.h .
+  - Added the swap_dyld_info_command() prototype to stuff/bytesex.h .
+
+Changes for the 5.25 release (the cctools-724 release):
+- Added the MH_KEXT_BUNDLE and MH_DEAD_STRIPPABLE_DYLIB constants to
+  <mach-o/loader.h> .  Radar bug #6272534.
+
+Changes for the 5.25 release (the cctools-718 release):
+- Added the header file "coff/debug_directory.h" and added that to the Makefile.
+  Added swap_debug_directory_entry() and swap_mtoc_debug_info() to
+  "coff/bytesex.h".  Radar bug #6211642.
+
+Changes for the 5.25 release (the cctools-708 release):
+- Picked up the changes to the comments in <mach-o/x86_64/reloc.h> for
+  Radar bug #5949622.
+
+Changes for the 5.25 release (the cctools-705 release):
+- Changed the struct ofile in <stuff/ofile.h> so that the lto* fields are not
+  #ifdef'ed LTO_SUPPORT.  Radar bug #5960471.
+- Ported to work on 64-bit hosts:   Radar bug #6022298.
+  - Changed the unsigned long types in <mach-o/redo_prebinding.h> to uint32_t
+    types.  Also change the macro REDO_PREBINDING_VERSION from 2 to 3.
+  - Changed the unsigned long types in <opcode/arm.h> to uint32_t types.
+  - Changed the unsigned long types in <hppa/thread_status.h> to uint32_t types.
+  - Changed the comments in <gnu/symseg.h> that referred to sizeof(long) to
+    sizeof(uint32_t).
+  - Changed the unsigned long types in <gnu/exec.h> to uint32_t types and
+    changed the long type to an int32_t type.
+  - Changed the unsigned long type in <coff/bytesex.h> to a uint32_t type.
+  - Changed the unsigned long type in <stuff/version_number.h> to a uint32_t
+    type.
+  - Changed the unsigned long type in <stuff/symbol_list.h> to a uint32_t type.
+  - Changed the unsigned long types in <stuff/round.h> to uint32_t types.
+  - Changed the unsigned long types in <stuff/reloc.h> to uint32_t types.
+  - Changed the unsigned long types in <stuff/ofile.h> to uint32_t types and
+    changed the long type to an int32_t type.
+  - Changed the unsigned long types in <stuff/macosx_deployment_target.h> to
+    uint32_t types.
+  - Changed the unsigned long type in <stuff/lto.h> to a size_t type.
+  - Changed the unsigned long types in <stuff/hppa.h> to uint32_t types.
+  - Changed the long type in <stuff/hash_string.h> to an int32_t type.
+  - Changed the long types in <stuff/execute.h> to int types.
+  - Changed the unsigned long type of errors in <stuff/errors.h> to a uint32_t
+    type.
+  - Changed the unsigned long types in <stuff/seg_addr_table.h> to a uint32_t
+    types.
+  - Changed the unsigned long type in <stuff/dylib_table.h> to a uint32_t type.
+  - Changed the unsigned long type and the unsigned int type in <stuff/crc32.c>
+    to uint32_t types.
+  - Changed the unsigned long types in <stuff/bytesex.h> to uint32_t types.
+  - Changed the unsigned long types in <stuff/breakout.h> to uint32_t types.
+    And changed the one long type to a int32_t type.
+  - Changed the type that cpusubtype_findbestarch() takes in <stuff/best_arch.h>
+    to a uint32_t from an unsigned long.
+  - Changed the type that get_stack_direction_from_flag() returns in
+    <stuff/arch.h> to an int from a long.
+  - Changed the type that allocate() and reallocate() takes in
+    <stuff/allocate.h> to a size_t from an unsigned long.
+
+Changes for the 5.25 release (the cctools-698 release):
+- Added support for LLVM bitcode files.  Radar bug #5712460.
+  It was added undef the ifdef LTO_SUPPORT and can be disabled by setting the
+  LTO Makefile macro to nothing instead of its default -DLTO_SUPPORT .
+  - Added the enum value OFILE_LLVM_BITCODE to "stuff/ofile.h"
+  - Added the fields lto, lto_cputype and lto_cpusubtype to the ofile struct in
+    "stuff/ofile.h".
+  - Added the header file "stuff/lto.h" and added it to the Makefile.
+
+Changes for the 5.25 release (the cctools-697 release):
+
+Changes for the 5.25 release (the cctools-696 release):
+- Changed <mach/arm/thread_status.h> to use _ARM_THREAD_STATUS_H_ and not
+  _MACH_ARM_THREAD_STATUS_H_.
+
+Changes for the 5.25 release (the cctools-691 release):
+- Added encryption_info_command and LC_ENCRYPTION_INFO to <mach-o/loader.h> .
+  Radar bug #5811987
+- Added swap_encryption_command() to "stuff/bytesex.h". Radar bug #5811994.
+
+Changes for the 5.25 release (the cctools-688 release):
+- Added LC_LAZY_LOAD_DYLIB and S_LAZY_DYLIB_SYMBOL_POINTERS to
+  <mach-o/loader.h> . Radar bug #5760930
+
+Changes for the 5.25 release (the cctools-681 release):
+- Removed all __OPEN_SOURCE__ references in Makefile, notes, stuff/bytesex.h,
+  stuff/symbol.h, mach/machine.h, mach-o/nlist.h .
+- Added IMAGE_SUBSYSTEM_EFI_RUNTIME_DRIVER to coff/aouthdr.h .
+
+Changes for the 5.25 release (the cctools-680 release):
+- Added support for ARMv7. Radar bug #5490815.
+  - Picked up opcode/arm.h from the last GNU binutils v2 source.
+  - Added CPU_SUBTYPE_ARM_V7 to mach/machine.h
+- Added coff/{ms_dos_stub.h,filehdr.h,aouthdr.h,scnhdr.h,syment.h} based on
+  GNU binutils headers.  Radar bug #5536661.
+- Added swap_ms_dos_stub(), swap_filehdr(), swap_aouthdr(), swap_scnhdr(),
+  swap_syment() to coff/bytesex.h .  Radar bug #5536661.
+
+Changes for the 5.25 release (the cctools-676 release):
+- Added coff/base_relocs.h and coff/bytesex.h .  Radar bug #5218665.
+
+Changes for the 5.25 release (the cctools-675 release):
+- Added extern "C" #if'ed in for __cplusplus to <mach-o/nlist.h> .  Radar bug
+  #5419852.
+- Added the new ld_r_ofile field in the struct object in "stuff/breakout.h"
+  the is set in strip(1) when making an ld -r of an object for stripping DWARF
+  so free_archs() in libstuff can call ofile_unmap() on it.  Radar bug #5343015.
+
+Changes for the 5.25 release (the cctools-673 release):
+- Changed the sources so the arm stuff is not in the open source version.
+  Radar bug #5326431.
+  - Changed the Makefile to #ifndef __OPEN_SOURCE__ out the arm files and to
+    run unifdef on nlist.h
+  - Added #ifndef __OPEN_SOURCE__ to the following files to bracket arm code:
+    mach/machine.h, mach-o/nlist.h, stuff/bytesex.h and stuff/symbol.h .
+
 Changes for the 5.24 release (the cctools-663 release):
 - Changed <stuff/macosx_deployment_target.h> so that it now has a struct
   that contains the major, minor and name of the macosx_deployment_target.

@@ -324,33 +324,33 @@ int init_plugin(struct vpn_params *params)
     }
 
     if (params->plugin_path[0] == '/') {
-        strcpy(path, params->plugin_path);
+        strlcpy(path, params->plugin_path, sizeof(path));
         for (p = &params->plugin_path[len - 1]; *p != '/'; p--);
         strncpy(name, p + 1, strlen(p) - 5);
         *(name + (strlen(p) - 5)) = 0;
     }
     else {
-        strcpy(path, PLUGINS_DIR);
-        strcat(path, params->plugin_path);
-        strncpy(name, params->plugin_path, len - 4);
-        *(name + len - 4) = 0;
+        strlcpy(path, PLUGINS_DIR, sizeof(path));
+        strlcat(path, params->plugin_path, sizeof(path));
+        strlcpy(name, params->plugin_path, sizeof(name) - 4); // leave space for .vpn
+		*(name + len - 4) = 0;
     } 
 
     vpnlog(LOG_NOTICE, "Loading plugin %s\n", path);
 
-    if (url = CFURLCreateFromFileSystemRepresentation(NULL, path, strlen(path), TRUE)) {
+    if (url = CFURLCreateFromFileSystemRepresentation(NULL, (UInt8 *)path, strlen(path), TRUE)) {
         if (bdl =  CFBundleCreate(NULL, url)) {
 
             if (isPPP) {
                 if (pluginurl = CFBundleCopyBuiltInPlugInsURL(bdl)) {
-                    strcat(path, "/");
-                    CFURLGetFileSystemRepresentation(pluginurl, 0, path+strlen(path), MAXPATHLEN-strlen(path));
+                    strlcat(path, "/", sizeof(path));
+                    CFURLGetFileSystemRepresentation(pluginurl, 0, (UInt8 *)(path+strlen(path)), MAXPATHLEN-strlen(path));
                     CFRelease(pluginurl);
-                    strcat(path, "/");
-                    strcat(path, name);
-                    strcat(path, ".vpn");
+                    strlcat(path, "/", sizeof(path));
+                    strlcat(path, name, sizeof(path));
+                    strlcat(path, ".vpn", sizeof(path));
                     
-                    if (pluginurl = CFURLCreateFromFileSystemRepresentation(NULL, path, strlen(path), TRUE)) {
+                    if (pluginurl = CFURLCreateFromFileSystemRepresentation(NULL, (UInt8 *)path, strlen(path), TRUE)) {
 
                         if (pluginbdl =  CFBundleCreate(NULL, pluginurl)) {
 
@@ -387,7 +387,7 @@ int init_plugin(struct vpn_params *params)
         vpnlog(LOG_ERR, "Plugin channel not properly initialized\n");
         return -1;
     }
-
+    
     //vpnlog(LOG_INFO, "Plugin loaded\n");
     
     return 0;
@@ -909,10 +909,10 @@ void accept_connections(struct vpn_params* params)
 					lb_cur_connections++;
                 } else {	
                     // child
-                    sprintf(addr_str, ":%s", address_slot->ip_address);
+                    snprintf(addr_str, sizeof(addr_str), ":%s", address_slot->ip_address);
                     params->exec_args[params->next_arg_index] = addr_str;	// setup ip address in arg list
                     params->exec_args[params->next_arg_index + 1] = 0;		// make sure arg list end with zero
-                    execve(PATH_PPPD, params->exec_args, (char *)0);			// launch it
+                    execve(PATH_PPPD, params->exec_args, NULL);			// launch it
                     
                     /* not reached except if there is an error */
                     vpnlog(LOG_ERR, "execve failed during exec of /usr/sbin/pppd\nARGUMENTS\n");
@@ -954,8 +954,10 @@ void accept_connections(struct vpn_params* params)
 	//			vpnlog(LOG_DEBUG, "Load Balancing: Sending update to master server. Updating my master. Redirection address is %d.%d.%d.%d, current load is %d/%d\n", 
 	//							a >> 24 & 0xFF, a >> 16 & 0xFF, a >> 8 & 0xFF, a & 0xFF, lb_cur_connections, lb_max_connections);
 
-				sendto(lb_sockfd, data, sizeof(*lbmsg), 0, (struct sockaddr*)&lb_master_address, sizeof(lb_master_address));
-				
+				if (sendto(lb_sockfd, data, sizeof(*lbmsg), 0, (struct sockaddr*)&lb_master_address, sizeof(lb_master_address)) < 0) {
+					vpnlog(LOG_ERR, "Load balancing: failed to send update (%s)", strerror(errno));
+				}
+
 				// if we are a master, check on slave age
 				if (lb_is_master) {
 					

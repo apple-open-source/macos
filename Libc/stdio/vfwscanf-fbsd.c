@@ -189,8 +189,11 @@ __vfwscanf(FILE * __restrict fp, locale_t loc, const wchar_t * __restrict fmt,
 				__ungetwc(c, fp, loc);
 			continue;
 		}
-		if (c != '%')
+		if (c != '%') {
+			if ((wi = __fgetwc(fp, loc)) == WEOF)
+				goto input_failure;
 			goto literal;
+		}
 		width = 0;
 		flags = 0;
 		/*
@@ -200,9 +203,15 @@ __vfwscanf(FILE * __restrict fp, locale_t loc, const wchar_t * __restrict fmt,
 again:		c = *fmt++;
 		switch (c) {
 		case '%':
+		/* Consume leading white space */
+			for(;;) {
+				if ((wi = __fgetwc(fp, loc)) == WEOF)
+					goto input_failure;
+				if (!iswspace_l(wi, loc))
+					break;
+				nread++;
+			}
 literal:
-			if ((wi = __fgetwc(fp, loc)) == WEOF)
-				goto input_failure;
 			if (wi != c) {
 				__ungetwc(wi, fp, loc);
 				goto match_failure;
@@ -736,7 +745,7 @@ literal:
 					*va_arg(ap, float *) = res;
 				}
 				if (__scanfdebug && p - pbuf != width)
-					abort();
+					LIBC_ABORT("p - pbuf %ld != width %ld", (long)(p - pbuf), width);
 				nassigned++;
 			}
 			nread += width;
@@ -752,6 +761,8 @@ match_failure:
 }
 
 #ifndef NO_FLOATING_POINT
+extern char *__parsefloat_buf(size_t s);  /* see vfscanf-fbsd.c */
+
 static int
 parsefloat(FILE *fp, wchar_t **buf, size_t width, locale_t loc)
 {
@@ -765,28 +776,14 @@ parsefloat(FILE *fp, wchar_t **buf, size_t width, locale_t loc)
 	char *decimal_point;
 	wchar_t decpt;
 	_Bool gotmantdig = 0, ishex = 0;
-	static wchar_t *b = NULL;
-	static size_t bsiz = 0;
+	wchar_t *b;
 	wchar_t *e;
 	size_t s;
 
-	if (bsiz == 0) {
-		b = (wchar_t *)malloc(BUF * sizeof(wchar_t));
-		if (b == NULL) {
-			*buf = NULL;
-			return 0;
-		}
-		bsiz = BUF;
-	}
-	s = (width == 0 ? bsiz : (width + 1));
-	if (s > bsiz) {
-		b = (wchar_t *)reallocf(b, s * sizeof(wchar_t));
-		if (b == NULL) {
-			bsiz = 0;
-			*buf = NULL;
-			return 0;
-		}
-		bsiz = s;
+	s = (width == 0 ? BUF : (width + 1));
+	if ((b = (wchar_t *)__parsefloat_buf(s * sizeof(wchar_t))) == NULL) {
+		*buf = NULL;
+		return 0;
 	}
 	e = b + (s - 1);
 	/*
@@ -915,19 +912,17 @@ reswitch:
 				goto parsedone;
 			break;
 		default:
-			abort();
+			LIBC_ABORT("unknown state %d", state);
 		}
 		if (p >= e) {
 			ssize_t diff = (p - b);
 			ssize_t com = (commit - b);
 			s += BUF;
-			b = (wchar_t *)reallocf(b, s * sizeof(wchar_t));
+			b = (wchar_t *)__parsefloat_buf(s * sizeof(wchar_t));
 			if (b == NULL) {
-				bsiz = 0;
 				*buf = NULL;
 				return 0;
 			}
-			bsiz = s;
 			e = b + (s - 1);
 			p = b + diff;
 			commit = b + com;

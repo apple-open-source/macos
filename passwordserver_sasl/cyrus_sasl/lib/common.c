@@ -104,7 +104,7 @@ int (*_sasl_server_idle_hook)(sasl_conn_t *conn) = NULL;
 sasl_allocation_utils_t _sasl_allocation_utils={
   (sasl_malloc_t *)  &malloc,
   (sasl_calloc_t *)  &calloc,
-  (sasl_realloc_t *) &realloc,
+  (sasl_realloc_t *) &reallocf,
   (sasl_free_t *) &free
 };
 

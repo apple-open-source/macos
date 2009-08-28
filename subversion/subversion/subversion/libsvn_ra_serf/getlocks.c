@@ -2,7 +2,7 @@
  * getlocks.c :  entry point for get_locks RA functions for ra_serf
  *
  * ====================================================================
- * Copyright (c) 2006 CollabNet.  All rights reserved.
+ * Copyright (c) 2006-2007 CollabNet.  All rights reserved.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution.  The terms
@@ -34,6 +34,8 @@
 #include "svn_version.h"
 #include "svn_path.h"
 #include "svn_time.h"
+
+#include "private/svn_dav_protocol.h"
 #include "svn_private_config.h"
 
 #include "ra_serf.h"
@@ -93,7 +95,7 @@ push_state(svn_ra_serf__xml_parser_t *parser,
 
       info->pool = lock_ctx->pool;
       info->lock = svn_lock_create(lock_ctx->pool);
-      info->lock->path = 
+      info->lock->path =
 
       parser->state->private = info;
     }
@@ -140,7 +142,7 @@ start_getlocks(svn_ra_serf__xml_parser_t *parser,
         {
           push_state(parser, lock_ctx, COMMENT);
         }
-      else if (strcmp(name.name, "creationdate") == 0)
+      else if (strcmp(name.name, SVN_DAV__CREATIONDATE) == 0)
         {
           push_state(parser, lock_ctx, CREATION_DATE);
         }
@@ -208,7 +210,7 @@ end_getlocks(svn_ra_serf__xml_parser_t *parser,
       svn_ra_serf__xml_pop_state(parser);
     }
   else if (state == CREATION_DATE &&
-           strcmp(name.name, "creationdate") == 0)
+           strcmp(name.name, SVN_DAV__CREATIONDATE) == 0)
     {
       SVN_ERR(svn_time_from_cstring(&info->lock->creation_date,
                                     info->tmp, info->pool));
@@ -237,6 +239,8 @@ cdata_getlocks(svn_ra_serf__xml_parser_t *parser,
   lock_state_e state;
   lock_info_t *info;
 
+  UNUSED_CTX(lock_ctx);
+
   state = parser->state->current_state;
   info = parser->state->private;
 
@@ -263,29 +267,14 @@ create_getlocks_body(void *baton,
                      serf_bucket_alloc_t *alloc,
                      apr_pool_t *pool)
 {
-  serf_bucket_t *buckets, *tmp;
+  serf_bucket_t *buckets;
 
   buckets = serf_bucket_aggregate_create(alloc);
 
-  tmp = SERF_BUCKET_SIMPLE_STRING_LEN("<S:get-locks-report xmlns:S=\"",
-                                  sizeof("<S:get-locks-report xmlns:S=\"")-1,
-                                  alloc);
-  serf_bucket_aggregate_append(buckets, tmp);
-
-  tmp = SERF_BUCKET_SIMPLE_STRING_LEN(SVN_XML_NAMESPACE,
-                                      sizeof(SVN_XML_NAMESPACE)-1,
-                                      alloc);
-  serf_bucket_aggregate_append(buckets, tmp);
-
-  tmp = SERF_BUCKET_SIMPLE_STRING_LEN("\">",
-                                      sizeof("\">")-1,
-                                      alloc);
-  serf_bucket_aggregate_append(buckets, tmp);
-
-  tmp = SERF_BUCKET_SIMPLE_STRING_LEN("</S:get-locks-report>",
-                                      sizeof("</S:get-locks-report>")-1,
-                                      alloc);
-  serf_bucket_aggregate_append(buckets, tmp);
+  svn_ra_serf__add_open_tag_buckets(buckets, alloc, "S:get-locks-report",
+                                    "xmlns:S", SVN_XML_NAMESPACE,
+                                    NULL);
+  svn_ra_serf__add_close_tag_buckets(buckets, alloc, "S:get-locks-report");
 
   return buckets;
 }
@@ -300,7 +289,6 @@ svn_ra_serf__get_locks(svn_ra_session_t *ra_session,
   svn_ra_serf__session_t *session = ra_session->priv;
   svn_ra_serf__handler_t *handler;
   svn_ra_serf__xml_parser_t *parser_ctx;
-  serf_bucket_t *buckets, *tmp;
   const char *req_url;
   int status_code;
 

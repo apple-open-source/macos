@@ -1,7 +1,7 @@
 /*
  *  unicode.c
  *
- *  $Id: unicode.c,v 1.2 2006/01/20 15:58:35 source Exp $
+ *  $Id: unicode.c,v 1.3 2007/10/07 12:32:08 source Exp $
  *
  *  ODBC unicode functions
  *
@@ -194,32 +194,40 @@ int wcscmp (const wchar_t* s1, const wchar_t* s2)
 }
 #endif
 
-#if !defined(HAVE_TOWLOWER)
-#if (defined(__APPLE__) && !defined (_LP64)) || defined (macintosh)
-#include <Carbon/Carbon.h>
-wchar_t towlower(wchar_t wc)
-{
-#if defined (__APPLE__) && !defined (NO_FRAMEWORKS)
-#ifndef __CORESERVICES__
-#include <CoreServices/CoreServices.h>
-#endif
 
-  CFMutableStringRef strRef = CFStringCreateMutable(NULL, 0);
-  UniChar c = (UniChar)wc;
+#if !defined(HAVE_TOWLOWER)
+
+#if (defined (__APPLE__) && !(defined (NO_FRAMEWORKS) || defined (_LP64)))
+
+#include <Carbon/Carbon.h>
+
+wchar_t
+towlower (wchar_t wc)
+{
+  CFMutableStringRef strRef = CFStringCreateMutable (NULL, 0);
+  UniChar c = (UniChar) wc;
   wchar_t wcs;
 
-  CFStringAppendCharacters(strRef, &c, 1);
-  CFStringLowercase(strRef, NULL);
-  wcs = CFStringGetCharacterAtIndex(strRef, 0);
-  CFRelease(strRef);
+  CFStringAppendCharacters (strRef, &c, 1);
+  CFStringLowercase (strRef, NULL);
+  wcs = CFStringGetCharacterAtIndex (strRef, 0);
+  CFRelease (strRef);
 
   return wcs;
-#else
-  return wc;
-#endif
 }
-#endif
-#endif
+
+#else
+
+/* Use dummy function */
+wchar_t
+towlower (wchar_t wc)
+{
+  return wc;
+}
+
+#endif /* __APPLE__ */
+#endif /* !HAVE_TOWLOWER */
+
 
 #if !defined(HAVE_WCSNCASECMP)
 int wcsncasecmp (wchar_t* s1, wchar_t* s2, size_t n)

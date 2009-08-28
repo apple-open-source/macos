@@ -319,6 +319,13 @@ will cause case-insensitive matching.  For example, tt(cvs+LPAR()/+RPAR())
 can match the directory tt(CVS) owing to the presence of the globbing flag
 (unless the option tt(BARE_GLOB_QUAL) is unset).
 )
+pindex(CASE_MATCH)
+cindex(case-insensitive regular expression matches, option)
+cindex(regular expressions, case-insensitive matching, option)
+item(tt(CASE_MATCH) <D>)(
+Make regular expressions using the tt(zsh/regex) module (including
+matches with tt(=~)) sensitive to case.
+)
 pindex(CSH_NULL_GLOB)
 cindex(csh, null globbing style)
 cindex(null globbing style, csh)
@@ -411,7 +418,7 @@ Note that this happens anyway with tt(typeset) and similar statements.
 
 This option respects the setting of the tt(KSH_TYPESET) option.  In other
 words, if both options are in effect, arguments looking like
-assignments will not undergo wordsplitting.
+assignments will not undergo word splitting.
 )
 pindex(MARK_DIRS)
 cindex(directories, marking)
@@ -420,10 +427,10 @@ item(tt(MARK_DIRS) (tt(-8), ksh: tt(-X)))(
 Append a trailing `tt(/)' to all directory
 names resulting from filename generation (globbing).
 )
-pindex(MULTIBYTE <D>)
+pindex(MULTIBYTE)
 cindex(characters, multibyte, in expansion and globbing)
 cindex(multibyte characters, in expansion and globbing)
-item(tt(MULTIBYTE))(
+item(tt(MULTIBYTE) <C> <K> <Z>)(
 Respect multibyte characters when found in strings.
 When this option is set, strings are examined using the
 system library to determine how many bytes form a character, depending
@@ -431,8 +438,10 @@ on the current locale.  This affects the way characters are counted in
 pattern matching, parameter values and various delimiters.
 
 The option is on by default if the shell was compiled with
-tt(MULTIBYTE_SUPPORT); otherwise it is off by default and has no effect if
-turned on.
+tt(MULTIBYTE_SUPPORT) except in tt(sh) emulation; otherwise it is off by
+default and has no effect if turned on.  The mode is off in tt(sh)
+emulation for compatibility but for interactive use may need to be
+turned on if the terminal interprets multibyte characters.
 
 If the option is off a single byte is always treated as a single
 character.  This setting is designed purely for examining strings
@@ -476,7 +485,17 @@ Array expansions of the form
 `var(foo)tt(${)var(xx)tt(})var(bar)', where the parameter
 var(xx) is set to tt(LPAR())var(a b c)tt(RPAR()), are substituted with
 `var(fooabar foobbar foocbar)' instead of the default
-`var(fooa b cbar)'.
+`var(fooa b cbar)'.  Note that an empty array will therefore cause
+all arguments to be removed.
+)
+pindex(REMATCH_PCRE)
+cindex(regexp, PCRE)
+cindex(PCRE, regexp)
+item(tt(REMATCH_PCRE) <Z>)(
+If set, regular expression matching with the tt(=~) operator will use
+Perl-Compatible Regular Expressions from the PCRE library, if available.
+If not set, regular expressions will use the extended regexp syntax
+provided by the system libraries.
 )
 pindex(SH_GLOB)
 cindex(sh, globbing style)
@@ -558,6 +577,15 @@ You should be sure to set the value of tt(HISTSIZE) to a larger number
 than tt(SAVEHIST) in order to give you some room for the duplicated
 events, otherwise this option will behave just like
 tt(HIST_IGNORE_ALL_DUPS) once the history fills up with unique events.
+)
+pindex(HIST_FCNTL_LOCK)
+item(tt(HIST_FCNTL_LOCK))(
+When writing out the history file, by default zsh uses ad-hoc file locking
+to avoid known problems with locking on some operating systems.  With this
+option locking is done by means of the system's tt(fcntl) call, where
+this method is available.  On recent operating systems this may
+provide better performance, in particular avoiding history corruption when
+files are stored on NFS.
 )
 pindex(HIST_FIND_NO_DUPS)
 cindex(history, ignoring duplicates in search)
@@ -702,19 +730,19 @@ pindex(GLOBAL_RCS)
 cindex(startup files, global, inhibiting)
 cindex(files, global startup, inhibiting)
 item(tt(GLOBAL_RCS) (tt(-d)) <D>)(
-If this option is unset, the startup files tt(/etc/zprofile),
-tt(/etc/zshrc), tt(/etc/zlogin) and tt(/etc/zlogout) will not be run.  It
+If this option is unset, the startup files tt(zprofile()),
+tt(zshrc()), tt(zlogin()) and tt(zlogout()) will not be run.  It
 can be disabled and re-enabled at any time, including inside local startup
 files (tt(.zshrc), etc.).
 )
 pindex(RCS)
 cindex(startup files, sourcing)
 item(tt(RCS) (tt(PLUS()f)) <D>)(
-After tt(/etc/zshenv) is sourced on startup, source the
-tt(.zshenv), tt(/etc/zprofile), tt(.zprofile),
-tt(/etc/zshrc), tt(.zshrc), tt(/etc/zlogin), tt(.zlogin), and tt(.zlogout)
+After tt(zshenv()) is sourced on startup, source the
+tt(.zshenv), tt(zprofile()), tt(.zprofile),
+tt(zshrc()), tt(.zshrc), tt(zlogin()), tt(.zlogin), and tt(.zlogout)
 files, as described in noderef(Files).
-If this option is unset, the tt(/etc/zshenv) file is still sourced, but any
+If this option is unset, the tt(zshenv()) file is still sourced, but any
 of the others will not be; it can be set at any time to prevent the
 remaining startup files after the currently executing one from
 being sourced.
@@ -982,7 +1010,7 @@ See noderef(Prompt Expansion).
 )
 pindex(PROMPT_SUBST)
 cindex(prompt, parameter expansion)
-item(tt(PROMPT_SUBST) <K>)(
+item(tt(PROMPT_SUBST) <K> <S>)(
 If set, em(parameter expansion), em(command substitution) and
 em(arithmetic expansion) are performed in prompts.  Substitutions
 within prompts do not affect the command status.
@@ -1009,7 +1037,17 @@ on the choice of the output base, nor on the output of bases other than
 hexadecimal and octal.  Note that these formats will be understood on input
 irrespective of the setting of tt(C_BASES).
 )
-pindex(DEBUG_BEFORE_CMD)
+pindex(C_PRECEDENCES)
+cindex(precedence, operator)
+cindex(operator precedence)
+item(tt(C_PRECEDENCES))(
+This alters the precedence of arithmetic operators to be more
+like C and other programming languages;
+ifnzman(Arithmetic Evaluation)\
+ifzman(the section ARITHMETIC EVALUATION in zmanref(zshmisc))
+has an explicit list.
+)
+pindex(DEBUG_BEFORE_CMD <D>)
 cindex(traps, DEBUG, before or after command)
 cindex(DEBUG trap, before or after command)
 item(tt(DEBUG_BEFORE_CMD))(
@@ -1023,6 +1061,13 @@ item(tt(ERR_EXIT) (tt(-e), ksh: tt(-e)))(
 If a command has a non-zero exit status, execute the tt(ZERR)
 trap, if set, and exit.  This is disabled while running initialization
 scripts.
+
+The behaviour is also disabled inside tt(DEBUG) traps.  In this
+case the option is handled specially: it is unset on entry to
+the trap.  If the option tt(DEBUG_BEFORE_CMD) is set,
+as it is by default, and the option tt(ERR_EXIT) is found to have been set
+on exit, then the command for which the tt(DEBUG) trap is being executed is
+skipped.  The option is restored after the trap exits.
 )
 pindex(ERR_RETURN)
 cindex(function return, on error)
@@ -1089,6 +1134,14 @@ fn+LPAR()RPAR() { setopt localtraps; trap '' INT; sleep 3; })
 
 will restore normally handling of tt(SIGINT) after the function exits.
 )
+pindex(MULTI_FUNC_DEF)
+item(tt(MULTI_FUNC_DEF) <Z>)(
+Allow definitions of multiple functions at once in the form `tt(fn1
+fn2)var(...)tt(LPAR()RPAR())'; if the option is not set, this causes
+a parse error.  Definition of multiple functions with the tt(function)
+keyword is always allowed.  Multiple function definitions are not often
+used and can cause obscure errors.
+)
 pindex(MULTIOS)
 item(tt(MULTIOS) <Z>)(
 Perform implicit bf(tee)s or bf(cat)s when multiple
@@ -1131,6 +1184,20 @@ enditem()
 
 subsect(Shell Emulation)
 startitem()
+pindex(BASH_REMATCH)
+cindex(bash, BASH_REMATCH variable)
+cindex(regexp, bash BASH_REMATCH variable)
+item(tt(BASH_REMATCH))(
+When set, matches performed with the tt(=~) operator will set the
+tt(BASH_REMATCH) array variable, instead of the default tt(MATCH) and
+tt(match) variables.  The first element of the tt(BASH_REMATCH) array
+will contain the entire matched text and subsequent elements will contain
+extracted substrings.  This option makes more sense when tt(KSH_ARRAYS) is
+also set, so that the entire matched portion is stored at index 0 and the
+first substring is at index 1.  Without this option, the tt(MATCH) variable
+contains the entire matched text and the tt(match) array variable contains
+substrings.
+)
 pindex(BSD_ECHO)
 cindex(echo, BSD compatible)
 item(tt(BSD_ECHO) <S>)(
@@ -1213,6 +1280,31 @@ tt(declare), tt(export), tt(float), tt(integer), tt(local) and
 tt(readonly), are processed.  Without this option, zsh will perform normal
 word splitting after command and parameter expansion in arguments of an
 assignment; with it, word splitting does not take place in those cases.
+)
+pindex(KSH_ZERO_SUBSCRIPT)
+cindex(arrays, behaviour of index zero)
+item(tt(KSH_ZERO_SUBSCRIPT))(
+Treat use of a subscript of value zero in array or string expressions as a
+reference to the first element, i.e. the element that usually has the
+subscript 1.  Ignored if tt(KSH_ARRAYS) is also set.
+
+If neither this option nor tt(KSH_ARRAYS) is set, accesses to an element of
+an array or string with subscript zero return an empty element or string,
+while attempts to set element zero of an array or string are treated as an
+error.  However, attempts to set an otherwise valid subscript range that
+includes zero will succeed.  For example, if tt(KSH_ZERO_SUBSCRIPT) is not
+set,
+
+example(array[0]=(element))
+
+is an error, while
+
+example(array[0,1]=(element))
+
+is not and will replace the first element of the array.
+
+This option is for compatibility with older versions of the shell and
+is not recommended in new code.
 )
 pindex(POSIX_BUILTINS)
 item(tt(POSIX_BUILTINS) <K> <S>)(
@@ -1387,6 +1479,24 @@ cindex(enabling the beep)
 item(tt(BEEP) (tt(PLUS()B)) <D>)(
 Beep on error in ZLE.
 )
+pindex(COMBINING_CHARS)
+cindex(characters, (Unicode) combining)
+cindex(combining characters (Unicode))
+cindex(Unicode combining characters)
+item(tt(COMBINING_CHARS))(
+Assume that the terminal displays combining characters correctly.
+Specifically, if a base alphanumeric character is followed by one or more
+zero-width punctuation characters, assume that the zero-width characters
+will be displayed as modifications to the base character within the
+same width.  Not all terminals handle this.  If this option is not
+set, zero-width characters are displayed separately with special
+mark-up.
+
+If this option is set, the pattern test tt([[:WORD:]]) matches a
+zero-width punctuation character on the assumption that it will be
+used as part of a word in combination with a word character.
+Otherwise the base shell does not handle combining characters specially.
+)
 pindex(EMACS)
 item(tt(EMACS))(
 If ZLE is loaded, turning on this option has the equivalent effect
@@ -1405,6 +1515,12 @@ pindex(SINGLE_LINE_ZLE)
 cindex(editor, single line mode)
 item(tt(SINGLE_LINE_ZLE) (tt(-M)) <K>)(
 Use single-line command line editing instead of multi-line.
+
+Note that although this is on by default in ksh emulation it only
+provides superficial compatibility with the ksh line editor and
+reduces the effectiveness of the zsh line editor.  As it has no
+effect on shell syntax, many users may wish to disable this option
+when using ksh emulation interactively.
 )
 pindex(VI)
 item(tt(VI))(

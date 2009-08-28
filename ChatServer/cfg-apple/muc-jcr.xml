@@ -31,7 +31,7 @@
         <URL>http://foo.bar/</URL>
       </vCard>
       <history>40</history>
-      <logdir>./logs/</logdir>
+      <logdir>/var/jabberd/muc_room_logs</logdir>
       <notice>
         <join>has become available</join>
         <leave>has left</leave>

@@ -26,6 +26,8 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 
+#define SMB_PREFIX "smb://"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -39,6 +41,7 @@ netfsError SMB_EnumerateShares(void *sessionRef, CFDictionaryRef in_EnumerateOpt
 netfsError SMB_Mount(void *sessionRef, CFURLRef url, CFStringRef mPoint, CFDictionaryRef mOptions, CFDictionaryRef *mInfo);
 netfsError SMB_Cancel(void *sessionRef);
 netfsError SMB_CloseSession(void *sessionRef);
+netfsError SMB_GetMountInfo(CFStringRef in_Mountpath, CFDictionaryRef *out_MountInfo);
 	
 #ifdef __cplusplus
 };

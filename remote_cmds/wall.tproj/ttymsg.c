@@ -33,7 +33,7 @@
 
 #include <sys/cdefs.h>
 
-__FBSDID("$FreeBSD: src/usr.bin/wall/ttymsg.c,v 1.11 2002/10/11 14:58:34 mike Exp $");
+__FBSDID("$FreeBSD: src/usr.bin/wall/ttymsg.c,v 1.12 2006/01/27 08:52:14 ume Exp $");
 
 #ifndef lint
 static const char sccsid[] = "@(#)ttymsg.c	8.2 (Berkeley) 11/16/93";
@@ -68,14 +68,18 @@ ttymsg(struct iovec *iov, int iovcnt, const char *line, int tmout)
 	int cnt, fd;
 	static char device[MAXNAMLEN] = _PATH_DEV;
 	static char errbuf[1024];
+	char *p;
 	int forked;
 
 	forked = 0;
 	if (iovcnt > (int)(sizeof(localiov) / sizeof(localiov[0])))
 		return ("too many iov's (change code in wall/ttymsg.c)");
 
-	strlcpy(device + sizeof(_PATH_DEV) - 1, line, sizeof(device));
-	if (strchr(device + sizeof(_PATH_DEV) - 1, '/')) {
+	p = device + sizeof(_PATH_DEV) - 1;
+	strlcpy(p, line, sizeof(device));
+	if (strncmp(p, "pts/", 4) == 0)
+		p += 4;
+	if (strchr(p, '/') != NULL) {
 		/* A slash is an attempt to break security... */
 		(void) snprintf(errbuf, sizeof(errbuf),
 		    "Too many '/' in \"%s\"", device);

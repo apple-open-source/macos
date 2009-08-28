@@ -27,26 +27,8 @@ EFIX=efix
 # name or the UUCP locking mechanism will fail.  For example, if
 # /dev/modem is a link to /dev/cua1, then getty, uucp, kermit,
 # pppd, dip, etc. must *all* use either /dev/modem or /dev/cua1.
-#
-# To support port sharing the answer mode device may be different
-# than the send or receive device.
-#
-# The alternate devices are used when a primary device doesn't exist.
-# This can be useful when supporting multiple kinds of modems.
 
-DEV=cu.usbmodem
-DEVANSWER=tty.usbmodem
-
-ALTDEV=cu.modem
-ALTDEVANSWER=tty.modem
-
-if [ ! -e /dev/$DEV -a "x$ALTDEV" != "x" -a -e /dev/$ALTDEV ]; then
-    DEV=$ALTDEV
-fi
-
-if [ ! -e /dev/$DEVANSWER -a "x$ALTDEVANSWER" != "x" -a -e /dev/$ALTDEVANSWER ]; then
-    DEVANSWER=$ALTDEVANSWER
-fi
+DEV=cua1
 
 # Your fax number in international format, 20 characters maximum.
 # Use only digits, spaces, and the "+" character.

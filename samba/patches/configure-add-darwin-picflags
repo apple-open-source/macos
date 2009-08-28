@@ -2,7 +2,7 @@ Index: samba/source/configure.in
 ===================================================================
 --- samba/source/configure.in.orig
 +++ samba/source/configure.in
-@@ -259,6 +259,7 @@ dnl Unique-to-Samba variables we'll be p
+@@ -270,6 +270,7 @@ dnl Unique-to-Samba variables we'll be p
  AC_SUBST(SAMBA_CPPFLAGS)
  AC_SUBST(SHELL)
  AC_SUBST(LDSHFLAGS)
@@ -10,7 +10,7 @@ Index: samba/source/configure.in
  AC_SUBST(SONAMEFLAG)
  AC_SUBST(SHLD)
  AC_SUBST(HOST_OS)
-@@ -1672,6 +1673,7 @@ BLDSHARED="false"
+@@ -1691,6 +1692,7 @@ BLDSHARED="false"
  # these are the defaults, good for lots of systems
  HOST_OS="$host_os"
  LDSHFLAGS="-shared"
@@ -18,7 +18,7 @@ Index: samba/source/configure.in
  SONAMEFLAG="#"
  SHLD="\${CC} \${CFLAGS}"
  PICFLAG="${PIE_CFLAGS}"
-@@ -1848,9 +1850,13 @@ SHLIBEXT="so"
+@@ -1867,9 +1869,13 @@ SHLIBEXT="so"
  			;;
  
  		*darwin*)   AC_DEFINE(DARWINOS,1,[Whether the host os is Darwin/MacOSX])

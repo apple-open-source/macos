@@ -31,7 +31,9 @@ set srcfile ${testfile}.c
 set binfile ${objdir}/${subdir}/${testfile}
 
 # APPLE LOCAL begin quiet about long doubles
-if {[istarget "*-apple-darwin*"]} {
+# APPLE LOCAL: Only gcc-4.0 accepts -Wno-long-double, 4.2 & above do not.  
+get_compiler_info not_used
+if {[istarget "*-apple-darwin*"] && [regexp {gcc-4-[01]} $compiler_info]} {
     set additional_flags "additional_flags=-Wno-long-double"
 }
 # APPLE LOCAL end quiet about long doubles

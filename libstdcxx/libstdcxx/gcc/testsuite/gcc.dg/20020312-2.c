@@ -44,8 +44,6 @@ extern void abort (void);
 /* No pic register.  */
 #elif defined(__mn10300__)
 /* No pic register.  */
-#elif #cpu(ns32k)
-/* No pic register.  */
 #elif defined(__hppa__)
 /* PIC register is %r27 or %r19, but is used even without -fpic.  */
 #elif defined(__pdp11__)
@@ -71,6 +69,8 @@ extern void abort (void);
 #elif defined(__sh__)
 # define PIC_REG  "r12"
 #elif defined(__x86_64__)
+/* No pic register.  */
+#elif defined(__m32c__)
 /* No pic register.  */
 #else
 # error "Modify the test for your target."
@@ -120,7 +120,7 @@ main()
      save and restore global registers.  Not possible when the PIC
      register is in a register window, of course.  On Darwin, you can't
      call library routines from non-PIC code.  */
-#if !defined (__sparc__) && !(defined(__MACH__) && defined(__POWERPC__))
+#if !defined (__sparc__) && !defined(__MACH__)
   if (reg)
     abort ();
 #endif

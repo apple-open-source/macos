@@ -1,29 +1,13 @@
-/*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
 /*-
  * Copyright (c) 1983, 1988, 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
+ * Copyright (c) 2002 Networks Associates Technology, Inc.
+ * All rights reserved.
+ *
+ * Portions of this software were developed for the FreeBSD Project by
+ * ThinkSec AS and NAI Labs, the Security Research Division of Network
+ * Associates, Inc.  under DARPA/SPAWAR contract N66001-01-C-8035
+ * ("CBOSS"), as part of the DARPA CHATS research program.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,10 +17,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -54,16 +34,19 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
+#if 0
 #ifndef lint
-__unused static char copyright[] =
+static const char copyright[] =
 "@(#) Copyright (c) 1983, 1988, 1989, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
-__unused static char sccsid[] = "@(#)rlogind.c	8.2 (Berkeley) 4/28/95";
+static const char sccsid[] = "@(#)rlogind.c	8.1 (Berkeley) 6/4/93";
 #endif /* not lint */
+#endif
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/libexec/rlogind/rlogind.c,v 1.44 2005/05/13 16:31:09 ume Exp $");
 
 /*
  * remote login server:
@@ -75,6 +58,7 @@ __unused static char sccsid[] = "@(#)rlogind.c	8.2 (Berkeley) 4/28/95";
  */
 
 #define	FD_SETSIZE	16		/* don't need many bits for select */
+#include <sys/types.h>
 #include <sys/param.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
@@ -89,24 +73,33 @@ __unused static char sccsid[] = "@(#)rlogind.c	8.2 (Berkeley) 4/28/95";
 #include <netinet/in.h>
 #include <netinet/in_systm.h>
 #include <netinet/ip.h>
+#include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 
+#include <errno.h>
+#ifndef __APPLE__
+#include <libutil.h>
+#else
 #include <util.h>
+#endif
+#include <paths.h>
 #include <pwd.h>
 #include <syslog.h>
-#include <errno.h>
 #include <stdio.h>
-#include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+
+#ifdef __APPLE__
 #include "pathnames.h"
+#endif
 
 #ifndef TIOCPKT_WINDOW
 #define TIOCPKT_WINDOW 0x80
 #endif
 
-#ifdef	KERBEROS
+#if defined(KERBEROS)
 #include <kerberosIV/des.h>
 #include <kerberosIV/krb.h>
 #define	SECURE_MESSAGE "This rlogin session is using DES encryption for all transmissions.\r\n"
@@ -120,7 +113,7 @@ int		doencrypt, retval, use_kerberos, vacuous;
 
 #define		ARGSTR			"alnkvx"
 #else
-#define		ARGSTR			"aln"
+#define		ARGSTR			"Daln"
 #endif	/* KERBEROS */
 
 char	*env[2];
@@ -130,37 +123,55 @@ static	char term[64] = "TERM=";
 #define	ENVSIZE	(sizeof("TERM=")-1)	/* skip null for concatenation */
 int	keepalive = 1;
 int	check_all = 0;
+int	no_delay;
 
 struct	passwd *pwd;
 
-void	doit __P((int, struct sockaddr_in *)) __dead2;
-int	control __P((int, char *, int));
-void	protocol __P((int, int));
-void	cleanup __P((int)) __dead2;
-void	fatal __P((int, char *, int)) __dead2;
-int	do_rlogin __P((struct sockaddr_in *));
-void	getstr __P((char *, int, char *));
-void	setup_term __P((int));
-int	do_krb_login __P((struct sockaddr_in *));
-void	usage __P((void));
-int	local_domain __P((char *));
-char	*topdomain __P((char *));
+union sockunion {
+	struct sockinet {
+		u_char si_len;
+		u_char si_family;
+		u_short si_port;
+	} su_si;
+	struct sockaddr_in  su_sin;
+	struct sockaddr_in6 su_sin6;
+};
+#define su_len		su_si.si_len
+#define su_family	su_si.si_family
+#define su_port		su_si.si_port
+
+void	doit(int, union sockunion *);
+int	control(int, char *, int);
+void	protocol(int, int);
+void	cleanup(int);
+void	fatal(int, char *, int);
+int	do_rlogin(union sockunion *);
+void	getstr(char *, int, char *);
+void	setup_term(int);
+int	do_krb_login(struct sockaddr_in *);
+void	usage(void);
+
+#if defined(KERBEROS)
+int	local_domain(char *);
+char	*topdomain(char *);
+#endif
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
 	extern int __check_rhosts_file;
-	struct sockaddr_in from;
-	int ch, on;
+	union sockunion from;
 	socklen_t fromlen;
+	int ch, on;
 
 	openlog("rlogind", LOG_PID | LOG_CONS, LOG_AUTH);
 
 	opterr = 0;
-	while ((ch = getopt(argc, argv, ARGSTR)) != EOF)
+	while ((ch = getopt(argc, argv, ARGSTR)) != -1)
 		switch (ch) {
+		case 'D':
+			no_delay = 1;
+			break;
 		case 'a':
 			check_all = 1;
 			break;
@@ -170,14 +181,14 @@ main(argc, argv)
 		case 'n':
 			keepalive = 0;
 			break;
-#ifdef KERBEROS
+#if defined(KERBEROS)
 		case 'k':
 			use_kerberos = 1;
 			break;
 		case 'v':
 			vacuous = 1;
 			break;
-#ifdef CRYPT
+#if defined(CRYPT)
 		case 'x':
 			doencrypt = 1;
 			break;
@@ -191,7 +202,7 @@ main(argc, argv)
 	argc -= optind;
 	argv += optind;
 
-#ifdef	KERBEROS
+#if defined(KERBEROS)
 	if (use_kerberos && vacuous) {
 		usage();
 		fatal(STDERR_FILENO, "only one of -k and -v allowed", 0);
@@ -206,10 +217,18 @@ main(argc, argv)
 	if (keepalive &&
 	    setsockopt(0, SOL_SOCKET, SO_KEEPALIVE, &on, sizeof (on)) < 0)
 		syslog(LOG_WARNING, "setsockopt (SO_KEEPALIVE): %m");
+	if (no_delay &&
+	    setsockopt(0, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on)) < 0)
+		syslog(LOG_WARNING, "setsockopt (TCP_NODELAY): %m");
+	if (from.su_family == AF_INET)
+      {
 	on = IPTOS_LOWDELAY;
 	if (setsockopt(0, IPPROTO_IP, IP_TOS, (char *)&on, sizeof(int)) < 0)
 		syslog(LOG_WARNING, "setsockopt (IP_TOS): %m");
+      }
+
 	doit(0, &from);
+	return 0;
 }
 
 int	child;
@@ -221,14 +240,12 @@ struct winsize win = { 0, 0, 0, 0 };
 
 
 void
-doit(f, fromp)
-	int f;
-	struct sockaddr_in *fromp;
+doit(int f, union sockunion *fromp)
 {
 	int master, pid, on = 1;
 	int authenticated = 0;
-	register struct hostent *hp;
 	char hostname[2 * MAXHOSTNAMELEN + 1];
+	char nameinfo[2 * INET6_ADDRSTRLEN + 1];
 	char c;
 
 	alarm(60);
@@ -236,21 +253,30 @@ doit(f, fromp)
 
 	if (c != 0)
 		exit(1);
-#ifdef	KERBEROS
+#if defined(KERBEROS)
 	if (vacuous)
 		fatal(f, "Remote host requires Kerberos authentication", 0);
 #endif
 
 	alarm(0);
-	fromp->sin_port = ntohs((u_short)fromp->sin_port);
-	hp = gethostbyaddr((char *)&fromp->sin_addr, sizeof(struct in_addr),
-	    fromp->sin_family);
+#ifdef __APPLE__
+	struct hostent* hp;
+	fromp->su_port = ntohs((u_short)fromp->su_port);
+	hp = gethostbyaddr((char *)&fromp->su_sin.sin_addr,
+	    sizeof(struct in_addr), fromp->su_family);
 	if (hp)
 		(void)strcpy(hostname, hp->h_name);
 	else
-		(void)strcpy(hostname, inet_ntoa(fromp->sin_addr));
+		(void)strcpy(hostname, inet_ntoa(fromp->su_sin.sin_addr));
+#else
+	realhostname_sa(hostname, sizeof(hostname) - 1,
+			    (struct sockaddr *)fromp, fromp->su_len);
+	/* error check ? */
+	fromp->su_port = ntohs((u_short)fromp->su_port);
+	hostname[sizeof(hostname) - 1] = '\0';
+#endif
 
-#ifdef	KERBEROS
+#if defined(KERBEROS)
 	if (use_kerberos) {
 		retval = do_krb_login(fromp);
 		if (retval == 0)
@@ -262,19 +288,26 @@ doit(f, fromp)
 	} else
 #endif
 	{
-		if (fromp->sin_family != AF_INET ||
-		    fromp->sin_port >= IPPORT_RESERVED ||
-		    fromp->sin_port < IPPORT_RESERVED/2) {
+		if ((fromp->su_family != AF_INET
+		  && fromp->su_family != AF_INET6
+		     ) ||
+		    fromp->su_port >= IPPORT_RESERVED ||
+		    fromp->su_port < IPPORT_RESERVED/2) {
+			getnameinfo((struct sockaddr *)fromp,
+				    fromp->su_len,
+				    nameinfo, sizeof(nameinfo), NULL, 0,
+				    NI_NUMERICHOST);
+			/* error check ? */
 			syslog(LOG_NOTICE, "Connection from %s on illegal port",
-				inet_ntoa(fromp->sin_addr));
+			       nameinfo);
 			fatal(f, "Permission denied", 0);
 		}
 #ifdef IP_OPTIONS
-		{
-		u_char optbuf[BUFSIZ/3], *cp;
-		char lbuf[BUFSIZ], *lp;
+		if (fromp->su_family == AF_INET)
+	      {
+		u_char optbuf[BUFSIZ/3];
 		socklen_t optsize = sizeof(optbuf);
-		int ipproto;
+		int ipproto, i;
 		struct protoent *ip;
 
 		if ((ip = getprotobyname("ip")) != NULL)
@@ -283,20 +316,21 @@ doit(f, fromp)
 			ipproto = IPPROTO_IP;
 		if (getsockopt(0, ipproto, IP_OPTIONS, (char *)optbuf,
 		    &optsize) == 0 && optsize != 0) {
-			lp = lbuf;
-			for (cp = optbuf; optsize > 0; cp++, optsize--, lp += 3)
-				sprintf(lp, " %2.2x", *cp);
-			syslog(LOG_NOTICE,
-			    "Connection received using IP options (ignored):%s",
-			    lbuf);
-			if (setsockopt(0, ipproto, IP_OPTIONS,
-			    (char *)NULL, optsize) != 0) {
-				syslog(LOG_ERR,
-				    "setsockopt IP_OPTIONS NULL: %m");
-				exit(1);
+			for (i = 0; i < optsize; ) {
+				u_char c = optbuf[i];
+				if (c == IPOPT_LSRR || c == IPOPT_SSRR) {
+					syslog(LOG_NOTICE,
+						"Connection refused from %s with IP option %s",
+						inet_ntoa(fromp->su_sin.sin_addr),
+						c == IPOPT_LSRR ? "LSRR" : "SSRR");
+					exit(1);
+				}
+				if (c == IPOPT_EOL)
+					break;
+				i += (c == IPOPT_NOP) ? 1 : optbuf[i+1];
 			}
 		}
-		}
+	      }
 #endif
 		if (do_rlogin(fromp) == 0)
 			authenticated++;
@@ -305,11 +339,9 @@ doit(f, fromp)
 		write(f, "", 1);
 		confirmed = 1;		/* we sent the null! */
 	}
-#ifdef	KERBEROS
-#ifdef	CRYPT
+#if defined(KERBEROS) && defined(CRYPT)
 	if (doencrypt)
 		(void) des_write(f, SECURE_MESSAGE, sizeof(SECURE_MESSAGE) - 1);
-#endif
 #endif
 	netf = f;
 
@@ -324,25 +356,40 @@ doit(f, fromp)
 		if (f > 2)	/* f should always be 0, but... */
 			(void) close(f);
 		setup_term(0);
+#ifndef __APPLE__
+		 if (*lusername=='-') {
+			syslog(LOG_ERR, "tried to pass user \"%s\" to login",
+			       lusername);
+			fatal(STDERR_FILENO, "invalid user", 0);
+		}
+#endif
 		if (authenticated) {
-#ifdef	KERBEROS
+#if defined(KERBEROS)
 			if (use_kerberos && (pwd->pw_uid == 0))
 				syslog(LOG_INFO|LOG_AUTH,
 				    "ROOT Kerberos login from %s.%s@%s on %s\n",
 				    kdata->pname, kdata->pinst, kdata->prealm,
 				    hostname);
 #endif
-
+#ifdef __APPLE__
 			execle(_PATH_LOGIN, "login", "-p",
 			    "-h", hostname, "-f", "--", lusername, NULL, env);
+#else
+			execl(_PATH_LOGIN, "login", "-p",
+			    "-h", hostname, "-f", lusername, (char *)NULL);
+#endif
 		} else
+#ifdef __APPLE__
 			execle(_PATH_LOGIN, "login", "-p",
 			    "-h", hostname, "--", lusername, NULL, env);
+#else
+			execl(_PATH_LOGIN, "login", "-p",
+			    "-h", hostname, lusername, (char *)NULL);
+#endif
 		fatal(STDERR_FILENO, _PATH_LOGIN, 1);
 		/*NOTREACHED*/
 	}
-#ifdef	CRYPT
-#ifdef	KERBEROS
+#if defined(KERBEROS) && defined(CRYPT)
 	/*
 	 * If encrypted, don't turn on NBIO or the des read/write
 	 * routines will croak.
@@ -350,8 +397,7 @@ doit(f, fromp)
 
 	if (!doencrypt)
 #endif
-#endif
-		ioctl(f, FIONBIO, &on);
+	ioctl(f, FIONBIO, &on);
 	ioctl(master, FIONBIO, &on);
 	ioctl(master, TIOCPKT, &on);
 	signal(SIGCHLD, cleanup);
@@ -369,17 +415,14 @@ char	oobdata[] = {TIOCPKT_WINDOW};
  * window size changes.
  */
 int
-control(pty, cp, n)
-	int pty;
-	char *cp;
-	int n;
+control(int pty, char *cp, int n)
 {
 	struct winsize w;
 
-	if (n < 4+sizeof (w) || cp[2] != 's' || cp[3] != 's')
+	if (n < 4 + (int)sizeof(w) || cp[2] != 's' || cp[3] != 's')
 		return (0);
 	oobdata[0] &= ~TIOCPKT_WINDOW;	/* we know he heard */
-	memmove(&w, cp+4, sizeof(w));
+	bcopy(cp+4, (char *)&w, sizeof(w));
 	w.ws_row = ntohs(w.ws_row);
 	w.ws_col = ntohs(w.ws_col);
 	w.ws_xpixel = ntohs(w.ws_xpixel);
@@ -392,11 +435,10 @@ control(pty, cp, n)
  * rlogin "protocol" machine.
  */
 void
-protocol(f, p)
-	register int f, p;
+protocol(int f, int p)
 {
 	char pibuf[1024+1], fibuf[1024], *pbp = NULL, *fbp = NULL;
-	register int pcc = 0, fcc = 0;
+	int pcc = 0, fcc = 0;
 	int cc, nfd, n;
 	char cntl;
 
@@ -427,12 +469,13 @@ protocol(f, p)
 			omask = &obits;
 		} else
 			FD_SET(f, &ibits);
-		if (pcc >= 0)
+		if (pcc >= 0) {
 			if (pcc) {
 				FD_SET(f, &obits);
 				omask = &obits;
 			} else
 				FD_SET(p, &ibits);
+		}
 		FD_SET(p, &ebits);
 		if ((n = select(nfd, &ibits, omask, &ebits, 0)) < 0) {
 			if (errno == EINTR)
@@ -457,18 +500,16 @@ protocol(f, p)
 			}
 		}
 		if (FD_ISSET(f, &ibits)) {
-#ifdef	CRYPT
-#ifdef	KERBEROS
+#if defined(KERBEROS) && defined(CRYPT)
 			if (doencrypt)
 				fcc = des_read(f, fibuf, sizeof(fibuf));
 			else
 #endif
-#endif
-				fcc = read(f, fibuf, sizeof(fibuf));
+			fcc = read(f, fibuf, sizeof(fibuf));
 			if (fcc < 0 && errno == EWOULDBLOCK)
 				fcc = 0;
 			else {
-				register char *cp;
+				char *cp;
 				int left, n;
 
 				if (fcc <= 0)
@@ -509,13 +550,11 @@ protocol(f, p)
 			else if (pcc <= 0)
 				break;
 			else if (pibuf[0] == 0) {
-				pbp++; pcc--;
-#ifdef	CRYPT
-#ifdef	KERBEROS
+				pbp++, pcc--;
+#if defined(KERBEROS) && defined(CRYPT)
 				if (!doencrypt)
 #endif
-#endif
-					FD_SET(f, &obits);	/* try write */
+				FD_SET(f, &obits);	/* try write */
 			} else {
 				if (pkcontrol(pibuf[0])) {
 					pibuf[0] |= oobdata[0];
@@ -525,14 +564,12 @@ protocol(f, p)
 			}
 		}
 		if ((FD_ISSET(f, &obits)) && pcc > 0) {
-#ifdef	CRYPT
-#ifdef	KERBEROS
+#if defined(KERBEROS) && defined(CRYPT)
 			if (doencrypt)
 				cc = des_write(f, pbp, pcc);
 			else
 #endif
-#endif
-				cc = write(f, pbp, pcc);
+			cc = write(f, pbp, pcc);
 			if (cc < 0 && errno == EWOULDBLOCK) {
 				/*
 				 * This happens when we try write after read
@@ -552,18 +589,29 @@ protocol(f, p)
 }
 
 void
-cleanup(signo)
-	int signo;
+cleanup(int signo)
 {
+#ifndef __APPLE__
+	/* rdar://problem/4433603 */
+	char *p;
+
+	p = line + sizeof(_PATH_DEV) - 1;
+	if (logout(p))
+		logwtmp(p, "", "");
+	(void)chflags(line, 0);
+	(void)chmod(line, 0666);
+	(void)chown(line, 0, 0);
+	*p = 'p';
+	(void)chflags(line, 0);
+	(void)chmod(line, 0666);
+	(void)chown(line, 0, 0);
+#endif
 	shutdown(netf, SHUT_RDWR);
 	exit(1);
 }
 
 void
-fatal(f, msg, syserr)
-	int f;
-	char *msg;
-	int syserr;
+fatal(int f, char *msg, int syserr)
 {
 	int len;
 	char buf[BUFSIZ], *bp = buf;
@@ -575,29 +623,40 @@ fatal(f, msg, syserr)
 	if (!confirmed)
 		*bp++ = '\01';		/* error indicator */
 	if (syserr)
-		len = sprintf(bp, "rlogind: %s: %s.\r\n",
+		len = snprintf(bp, sizeof(buf), "rlogind: %s: %s.\r\n",
 		    msg, strerror(errno));
 	else
-		len = sprintf(bp, "rlogind: %s.\r\n", msg);
+		len = snprintf(bp, sizeof(buf), "rlogind: %s.\r\n", msg);
+	if (len < 0)
+		len = 0;
 	(void) write(f, buf, bp + len - buf);
 	exit(1);
 }
 
 int
-do_rlogin(dest)
-	struct sockaddr_in *dest;
+do_rlogin(union sockunion *dest)
 {
+
 	getstr(rusername, sizeof(rusername), "remuser too long");
 	getstr(lusername, sizeof(lusername), "locuser too long");
 	getstr(term+ENVSIZE, sizeof(term)-ENVSIZE, "Terminal type too long");
 
 	pwd = getpwnam(lusername);
-	if (pwd == NULL) {
+	if (pwd == NULL)
+#ifdef __APPLE__
+	{
 		syslog(LOG_ERR,
 		       "rlogin denied for user %s: getpwnam() failed\n",
 		       lusername);
 		return (-1);
 	}
+#else
+		return (-1);
+	/* XXX why don't we syslog() failure? */
+#endif
+
+#ifdef __APPLE__
+	/* rdar://problem/2840513 */
 	if (pwd->pw_uid == 0 && strcmp("root", lusername))
 	{
 		syslog(LOG_ALERT,
@@ -605,19 +664,18 @@ do_rlogin(dest)
 		       lusername);
 		return (-1);
 	}
-	return (iruserok(dest->sin_addr.s_addr, pwd->pw_uid == 0, rusername, lusername));
+#endif
+	return (iruserok_sa(dest, dest->su_len, pwd->pw_uid == 0, rusername,
+			    lusername));
 }
 
 void
-getstr(buf, cnt, errmsg)
-	char *buf;
-	int cnt;
-	char *errmsg;
+getstr(char *buf, int cnt, char *errmsg)
 {
 	char c;
 
 	do {
-		if (read(0, &c, 1) != 1)
+		if (read(STDIN_FILENO, &c, 1) != 1)
 			exit(1);
 		if (--cnt < 0)
 			fatal(STDOUT_FILENO, errmsg, 0);
@@ -625,11 +683,12 @@ getstr(buf, cnt, errmsg)
 	} while (c != 0);
 }
 
+extern	char **environ;
+
 void
-setup_term(fd)
-	int fd;
+setup_term(int fd)
 {
-	register char *cp = index(term+ENVSIZE, '/');
+	char *cp = index(term+ENVSIZE, '/');
 	char *speed;
 	struct termios tt;
 
@@ -663,9 +722,10 @@ setup_term(fd)
 
 	env[0] = term;
 	env[1] = 0;
+	environ = env;
 }
 
-#ifdef	KERBEROS
+#if defined(KERBEROS)
 #define	VERSION_SIZE	9
 
 /*
@@ -691,7 +751,7 @@ do_krb_login(dest)
 	instance[0] = '*';
 	instance[1] = '\0';
 
-#ifdef	CRYPT
+#if defined(CRYPT)
 	if (doencrypt) {
 		rc = sizeof(faddr);
 		if (getsockname(0, (struct sockaddr *)&faddr, &rc))
@@ -705,7 +765,7 @@ do_krb_login(dest)
 		 des_set_key(kdata->session, schedule);
 
 	} else
-#endif
+#endif /* CRYPT */
 		rc = krb_recvauth(
 			authopts, 0,
 			ticket, "rcmd",
@@ -733,15 +793,16 @@ do_krb_login(dest)
 #endif /* KERBEROS */
 
 void
-usage()
+usage(void)
 {
-#ifdef KERBEROS
+#if defined(KERBEROS)
 	syslog(LOG_ERR, "usage: rlogind [-aln] [-k | -v]");
 #else
-	syslog(LOG_ERR, "usage: rlogind [-aln]");
+	syslog(LOG_ERR, "usage: rlogind [-" ARGSTR "]");
 #endif
 }
 
+#if defined(KERBEROS)
 /*
  * Check whether host h is in our local domain,
  * defined as sharing the last two components of the domain part,
@@ -770,7 +831,7 @@ char *
 topdomain(h)
 	char *h;
 {
-	register char *p;
+	char *p;
 	char *maybe = NULL;
 	int dots = 0;
 
@@ -783,3 +844,4 @@ topdomain(h)
 	}
 	return (maybe);
 }
+#endif /* KERBEROS */

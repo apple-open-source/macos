@@ -170,17 +170,22 @@ success = 0
 skipped = 0
 reference_files.each do |ref|
   puts "Processing reference file: #{ref[:name]}"
-  cocoa_ref_parser = CocoaRef::Parser.new(ref[:path], framework_name)
-  if cocoa_ref_parser.empty?
+  begin
+    cocoa_ref_parser = CocoaRef::Parser.new(ref[:path], framework_name)
+    if cocoa_ref_parser.empty?
+      skipped = skipped.next
+      puts 'Skipping because there was no info found of our interest in the reference file...'
+    elsif not cocoa_ref_parser.errors? or output_files_with_errors
+      success = success.next
+      puts "      Writing output file: #{cocoa_ref_parser.class_def.output_filename}"
+      cocoa_ref_parser.to_rb_file(output_dir)
+    else
+      skipped = skipped.next
+      puts 'Skipping because there were errors while parsing...'
+    end
+  rescue CocoaRef::HpricotProxy::DeprecatedError
     skipped = skipped.next
-    puts 'Skipping because there was no info found of our interest in the reference file...'
-  elsif not cocoa_ref_parser.errors? or output_files_with_errors
-    success = success.next
-    puts "      Writing output file: #{cocoa_ref_parser.class_def.output_filename}"
-    cocoa_ref_parser.to_rb_file(output_dir)
-  else
-    skipped = skipped.next
-    puts 'Skipping because there were errors while parsing...'
+    puts 'Skipping because this is a deprecated class...'
   end
 end
 

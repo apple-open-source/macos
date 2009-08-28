@@ -39,7 +39,7 @@ LocalKey::LocalKey(Database &db, const CssmKey &newKey, CSSM_KEYATTR_FLAGS moreA
 {
 	mValidKey = true;
 	setup(newKey, moreAttributes);
-    secdebug("SSkey", "%p (handle 0x%lx) created from key alg=%u use=0x%x attr=0x%x db=%p",
+    secdebug("SSkey", "%p (handle %#x) created from key alg=%u use=0x%x attr=0x%x db=%p",
         this, handle(), mKey.header().algorithm(), mKey.header().usage(), mAttributes, &db);
 }
 
@@ -122,7 +122,7 @@ CSSM_KEYATTR_FLAGS LocalKey::attributes()
 //
 // Return a key's handle and header in external form
 //
-void LocalKey::returnKey(Handle &h, CssmKey::Header &hdr)
+void LocalKey::returnKey(U32HandleObject::Handle &h, CssmKey::Header &hdr)
 {
 	StLock<Mutex> _(*this);
 

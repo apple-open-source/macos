@@ -2,15 +2,15 @@ Index: samba/source/Makefile.in
 ===================================================================
 --- samba/source/Makefile.in.orig
 +++ samba/source/Makefile.in
-@@ -454,6 +454,7 @@ AUTH_OBJ = auth/auth.o @AUTH_STATIC@ aut
+@@ -455,6 +455,7 @@ AUTH_OBJ = auth/auth.o @AUTH_STATIC@ aut
  	   $(PLAINTEXT_AUTH_OBJ) $(SLCACHE_OBJ) $(DCUTIL_OBJ)
  
- ODSAM_PDB_OBJ = lib/opendirectory.o passdb/pdb_odsam.o
-+ODSAM_AUTH_OBJ = lib/opendirectory.o auth/auth_odsam.o
+ ODSAM_PDB_OBJ = lib/opendirectory.o lib/opendirectory_sam.o passdb/pdb_odsam.o
++ODSAM_AUTH_OBJ = lib/opendirectory.o lib/opendirectory_sam.o auth/auth_odsam.o
  
  MANGLE_OBJ = smbd/mangle.o smbd/mangle_hash.o smbd/mangle_map.o smbd/mangle_hash2.o
  
-@@ -1324,6 +1325,13 @@ bin/sam.@SHLIBEXT@: proto_exists $(AUTH_
+@@ -1325,6 +1326,13 @@ bin/sam.@SHLIBEXT@: proto_exists $(AUTH_
  	@echo "Building plugin $@"
  	@$(SHLD_MODULE) $(AUTH_SAM_OBJ)
  
@@ -28,7 +28,7 @@ Index: samba/source/configure.in
 ===================================================================
 --- samba/source/configure.in.orig
 +++ samba/source/configure.in
-@@ -6184,6 +6184,7 @@ SMB_MODULE(auth_server, \$(AUTH_SERVER_O
+@@ -6247,6 +6247,7 @@ SMB_MODULE(auth_server, \$(AUTH_SERVER_O
  SMB_MODULE(auth_domain, \$(AUTH_DOMAIN_OBJ), "bin/domain.$SHLIBEXT", AUTH)
  SMB_MODULE(auth_builtin, \$(AUTH_BUILTIN_OBJ), "bin/builtin.$SHLIBEXT", AUTH)
  SMB_MODULE(auth_script, \$(AUTH_SCRIPT_OBJ), "bin/script.$SHLIBEXT", AUTH)
@@ -40,7 +40,7 @@ Index: samba/source/auth/auth_odsam.c
 ===================================================================
 --- /dev/null
 +++ samba/source/auth/auth_odsam.c
-@@ -0,0 +1,1010 @@
+@@ -0,0 +1,1014 @@
 +/*
 +   Unix SMB/CIFS implementation.
 +   Password and authentication handling
@@ -82,7 +82,7 @@ Index: samba/source/auth/auth_odsam.c
 +				    const char *userName)
 +{
 +    tDirStatus			status			= eDSNoErr;
-+    unsigned long		returnCount		= 0;
++    UInt32			returnCount		= 0;
 +    tDataBufferPtr		dataBuffer		= NULL;
 +    tDataListPtr		searchNodeName		= NULL;
 +    tDirNodeReference		userNodeRef		= 0;
@@ -98,7 +98,7 @@ Index: samba/source/auth/auth_odsam.c
 +    tAttributeEntryPtr		attributeInfo		= NULL;
 +    tAttributeValueListRef	attributeValueListRef	= 0;
 +    tAttributeValueEntryPtr	attrValue		= NULL;
-+    long			i			= 0;
++    UInt32			i			= 0;
 +
 +    dataBuffer = dsDataBufferAllocate(session->ref, DEFAULT_DS_BUFFER_SIZE);
 +    if (dataBuffer == NULL) {
@@ -229,8 +229,8 @@ Index: samba/source/auth/auth_odsam.c
 +			const char *inAuthMethod)
 +{
 +	tDirStatus 		status			= eDSAuthServerError;
-+	unsigned long		curr			= 0;
-+	unsigned long		len			= 0;
++	size_t			curr			= 0;
++	UInt32			len			= 0;
 +	tDataBufferPtr		authBuff  		= NULL;
 +	tDataBufferPtr		stepBuff  		= NULL;
 +	tDataNodePtr		authType		= NULL;
@@ -251,25 +251,27 @@ Index: samba/source/auth/auth_odsam.c
 +	authType = dsDataNodeAllocateString( session->ref,  inAuthMethod);
 +	if ( authType != NULL ) {
 +		// User Name
-+		len = strlen( user );
-+		memcpy( &(authBuff->fBufferData[ curr ]), &len, 4 );
-+		curr += sizeof( long );
++		len = (UInt32)strlen( user );
++		memcpy( &(authBuff->fBufferData[ curr ]), &len, sizeof(len) );
++		curr += sizeof( len );
 +		memcpy( &(authBuff->fBufferData[ curr ]), user, len );
 +		curr += len;
 +		// C8
 +		len = 8;
-+		memcpy( &(authBuff->fBufferData[ curr ]), &len, 4 );
-+		curr += sizeof (long );
++		memcpy( &(authBuff->fBufferData[ curr ]), &len, sizeof(len) );
++		curr += sizeof (len );
 +		memcpy( &(authBuff->fBufferData[ curr ]), challenge, len );
 +		curr += len;
 +		// P24
 +		len = 24;
-+		memcpy( &(authBuff->fBufferData[ curr ]), &len, 4 );
-+		curr += sizeof (long );
++		memcpy( &(authBuff->fBufferData[ curr ]), &len, sizeof(len) );
++		curr += sizeof (len );
 +		memcpy( &(authBuff->fBufferData[ curr ]), password, len );
 +		curr += len;
 +
-+		authBuff->fBufferLength = curr;
++		if (curr > UINT32_MAX)
++		    smb_panic("Looks like fBufferLength overflowed\n");
++		authBuff->fBufferLength = (UInt32)curr;
 +
 +		status = dsDoDirNodeAuth( userNode, authType, True,
 +				authBuff, stepBuff, NULL );
@@ -300,8 +302,8 @@ Index: samba/source/auth/auth_odsam.c
 +			"dsAuthMethodStandard:dsAuthNodeNTLMv2";
 +
 +	tDirStatus 		status		= eDSAuthServerError;
-+	unsigned long		curr		= 0;
-+	unsigned long		len		= 0;
++	size_t			curr		= 0;
++	UInt32			len		= 0;
 +	tDataBufferPtr		authBuff  	= NULL;
 +	tDataBufferPtr		stepBuff  	= NULL;
 +	tDataNodePtr		authType	= NULL;
@@ -336,37 +338,39 @@ Index: samba/source/auth/auth_odsam.c
 +	authType = dsDataNodeAllocateString( session->ref, method );
 +	if ( authType != NULL ) {
 +		// directory-services name
-+		len = strlen( user );
-+		memcpy( &(authBuff->fBufferData[ curr ]), &len, 4 );
-+		curr += sizeof( long );
++		len = (UInt32)strlen( user );
++		memcpy( &(authBuff->fBufferData[ curr ]), &len, sizeof(len) );
++		curr += sizeof( len );
 +		memcpy( &(authBuff->fBufferData[ curr ]), user, len );
 +		curr += len;
 +		// server challenge
 +		len = 8;
-+		memcpy( &(authBuff->fBufferData[ curr ]), &len, 4 );
-+		curr += sizeof (long );
++		memcpy( &(authBuff->fBufferData[ curr ]), &len, sizeof(len) );
++		curr += sizeof (len );
 +		memcpy( &(authBuff->fBufferData[ curr ]), sec_blob->data, len );
 +		curr += len;
 +		// client "blob" - 16 bytes of client digest + the blob_data
 +		len = ntv2_response->length;
-+		memcpy( &(authBuff->fBufferData[ curr ]), &len, 4 );
-+		curr += sizeof (long );
++		memcpy( &(authBuff->fBufferData[ curr ]), &len, sizeof(len) );
++		curr += sizeof (len );
 +		memcpy( &(authBuff->fBufferData[ curr ]), ntv2_response->data, len );
 +		curr += len;
 +		 // user name used in the digest (usually the same as item #1 in the buffer)
-+		len = strlen( user );
-+		memcpy( &(authBuff->fBufferData[ curr ]), &len, 4 );
-+		curr += sizeof( long );
++		len = (UInt32)strlen( user );
++		memcpy( &(authBuff->fBufferData[ curr ]), &len, sizeof(len) );
++		curr += sizeof( len );
 +		memcpy( &(authBuff->fBufferData[ curr ]), user, len );
 +		curr += len;
 +		// domain
-+		len = strlen( domain );
-+		memcpy( &(authBuff->fBufferData[ curr ]), &len, 4 );
-+		curr += sizeof( long );
++		len = (UInt32)strlen( domain );
++		memcpy( &(authBuff->fBufferData[ curr ]), &len, sizeof(len) );
++		curr += sizeof( len );
 +		memcpy( &(authBuff->fBufferData[ curr ]), domain, len );
 +		curr += len;
 +
-+		authBuff->fBufferLength = curr;
++		if (curr > UINT32_MAX)
++		    smb_panic("Looks like fBufferLength overflowed\n");
++		authBuff->fBufferLength = (UInt32)curr;
 +
 +		status = dsDoDirNodeAuth( userNode, authType, True,
 +				authBuff, stepBuff, NULL );

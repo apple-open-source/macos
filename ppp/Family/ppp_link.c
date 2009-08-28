@@ -73,7 +73,7 @@ Definitions
 
 #define LOGLKDBG(lk, text) \
     if (LKIFNET(lk) && (ifnet_flags(LKIFNET(lk)) & IFF_DEBUG)) {	\
-        log text; 		\
+        IOLog text; 		\
     }
 
 /* 
@@ -186,7 +186,7 @@ int ppp_link_detach(struct ppp_link *link)
 
 	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
-    LOGLKDBG(link, (LOGVAL, "ppp_link_detach : (link = %s%d)\n", LKNAME(link), LKUNIT(link)));
+    LOGLKDBG(link, ("ppp_link_detach : (link = %s%d)\n", LKNAME(link), LKUNIT(link)));
     ppp_if_detachlink(link);
 #ifdef USE_PRIVATE_STRUCT
     ppp_proto_free(priv->host);
@@ -236,7 +236,7 @@ int ppp_link_input(struct ppp_link *link, mbuf_t m)
 
 	if (mbuf_len(m) < PPP_HDRLEN && 
 		mbuf_pullup(&m, PPP_HDRLEN)) {
-			log(LOGVAL, "ppp_link_input: cannot pullup header\n");
+			IOLog("ppp_link_input: cannot pullup header\n");
 			return 0;
 	}
 
@@ -267,7 +267,7 @@ int ppp_link_input(struct ppp_link *link, mbuf_t m)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-int ppp_link_control(struct ppp_link *link, u_int32_t cmd, void *data)
+int ppp_link_control(struct ppp_link *link, u_long cmd, void *data)
 {
     int 	error = 0;
     u_int32_t	flags, mru;    
@@ -276,12 +276,12 @@ int ppp_link_control(struct ppp_link *link, u_int32_t cmd, void *data)
         
     switch (cmd) {
         case PPPIOCCONNECT:
-            LOGLKDBG(link, (LOGVAL, "ppp_link_control : PPPIOCCONNECT, (link = %s%d), attach to interface = %d \n",
+            LOGLKDBG(link, ("ppp_link_control : PPPIOCCONNECT, (link = %s%d), attach to interface = %d \n",
                 LKNAME(link), LKUNIT(link), *(u_int32_t *)data));
             error = ppp_if_attachlink(link, *(u_int32_t *)data);
             break;
         case PPPIOCDISCONN:
-            LOGLKDBG(link, (LOGVAL, "ppp_link_control : PPPIOCDISCONN, (link = %s%d), detach from interface = %s%d \n",
+            LOGLKDBG(link, ("ppp_link_control : PPPIOCDISCONN, (link = %s%d), detach from interface = %s%d \n",
                 LKNAME(link), LKUNIT(link), LKIFNAME(link), LKIFUNIT(link)));
             error = ppp_if_detachlink(link);
             break;
@@ -299,26 +299,26 @@ int ppp_link_control(struct ppp_link *link, u_int32_t cmd, void *data)
     switch (cmd) {
 
         case PPPIOCGFLAGS:
-            LOGLKDBG(link, (LOGVAL, "ppp_link_control:  (link = %s%d), PPPIOCGFLAGS = 0x%x\n", 
+            LOGLKDBG(link, ("ppp_link_control:  (link = %s%d), PPPIOCGFLAGS = 0x%x\n", 
                 LKNAME(link), LKUNIT(link), link->lk_flags));
             *(u_int32_t *)data = link->lk_flags;
             break;
 
         case PPPIOCSFLAGS:
-            LOGLKDBG(link, (LOGVAL, "ppp_link_control:  (link = %s%d), PPPIOCSFLAGS = 0x%x\n", 
+            LOGLKDBG(link, ("ppp_link_control:  (link = %s%d), PPPIOCSFLAGS = 0x%x\n", 
                 LKNAME(link), LKUNIT(link), *(u_int32_t *)data & SC_MASK));
             flags = *(u_int32_t *)data & SC_MASK;
             link->lk_flags = (link->lk_flags & ~SC_MASK) | flags;
             break;
 
         case PPPIOCGMRU:
-            LOGLKDBG(link, (LOGVAL, "ppp_link_control:  (link = %s%d), PPPIOCGMRU = 0x%x\n", 
+            LOGLKDBG(link, ("ppp_link_control:  (link = %s%d), PPPIOCGMRU = 0x%x\n", 
                 LKNAME(link), LKUNIT(link), link->lk_mru));
             *(u_int32_t *)data = link->lk_mru;
             break;
             
         case PPPIOCSMRU:
-            LOGLKDBG(link, (LOGVAL, "ppp_link_control:  (link = %s%d), PPPIOCSMRU = 0x%x\n", 
+            LOGLKDBG(link, ("ppp_link_control:  (link = %s%d), PPPIOCSMRU = 0x%x\n", 
                 LKNAME(link), LKUNIT(link), *(u_int32_t *)data));
             mru = *(u_int32_t *)data;
             link->lk_mru = mru;
@@ -441,7 +441,7 @@ void ppp_link_logmbuf(struct ppp_link *link, char *msg, mbuf_t m)
     if (m == NULL)
         return;
 
-    log(LOGVAL, "%s: [ifnet = %s%d] [link = %s%d]\n", msg,
+    IOLog("%s: [ifnet = %s%d] [link = %s%d]\n", msg,
             LKIFNAME(link), LKIFUNIT(link), LKNAME(link), LKUNIT(link));
 
     for (count = mbuf_len(m), data = mbuf_data(m); m != NULL; ) {
@@ -461,19 +461,19 @@ void ppp_link_logmbuf(struct ppp_link *link, char *msg, mbuf_t m)
         }
 
         /* output line (hex 1st, then ascii) */
-        log(LOGVAL, "%s:  0x  ", msg);
+        IOLog("%s:  0x  ", msg);
         for(i = 0; i < lcount; i++) {
-            if (i == 8) log(LOGVAL, "  ");
-            log(LOGVAL, "%02x ", (u_char)lbuf[i]);
+            if (i == 8) IOLog("  ");
+            IOLog("%02x ", (u_char)lbuf[i]);
         }
         for( ; i < sizeof(lbuf); i++) {
-            if (i == 8) log(LOGVAL, "  ");
-            log(LOGVAL, "   ");
+            if (i == 8) IOLog("  ");
+            IOLog("   ");
         }
-        log(LOGVAL, "  '");
+        IOLog("  '");
         for(i = 0; i < lcount; i++)
-            log(LOGVAL, "%c",(lbuf[i]>=040 && lbuf[i]<=0176)?lbuf[i]:'.');
-        log(LOGVAL, "'\n");
+            IOLog("%c",(lbuf[i]>=040 && lbuf[i]<=0176)?lbuf[i]:'.');
+        IOLog("'\n");
     }
 }
 

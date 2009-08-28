@@ -21,11 +21,7 @@
 	</array>
 	<key>realname</key>
 	<array>
-		<string>QuickTime Streaming</string>
-	</array>
-	<key>smb_sid</key>
-	<array>
-		<string>S-1-5-21-176</string>
+		<string>QuickTime Streaming Server</string>
 	</array>
 </dict>
 </plist>

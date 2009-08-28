@@ -1,3 +1,5 @@
+@subheading tld_default_table
+@anchor{tld_default_table}
 @deftypefun {const Tld_table *} {tld_default_table} (const char * @var{tld}, const Tld_table ** @var{overrides})
 @var{tld}: TLD name (e.g. "com") as zero terminated ASCII byte string.
 

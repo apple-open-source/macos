@@ -366,7 +366,7 @@ void i386_validate_fix PARAMS ((struct fix *));
 
 #ifdef NeXT_MOD
 #if ARCH64
-long x86_64_fixup_symbol PARAMS ((fixS *, int, struct symbol **));
+int32_t x86_64_fixup_symbol PARAMS ((fixS *, int, struct symbol **));
 #define TC_FIXUP_SYMBOL(FIX, SECT, SYM) x86_64_fixup_symbol(FIX, SECT, SYM)
 #endif
 #endif

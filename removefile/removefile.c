@@ -16,6 +16,10 @@ removefile_state_free(removefile_state_t state) {
 			close(state->urand_file);
 			state->urand_file = -1;
 		}
+		if (state->buffer != NULL) {
+			free(state->buffer);
+			state->buffer = NULL;
+		}
 		free(state);
 	}
 	return 0;

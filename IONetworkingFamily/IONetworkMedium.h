@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -18,14 +18,6 @@
  * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
- */
-/*
- * Copyright (c) 1999 Apple Computer, Inc.  All rights reserved. 
- *
- * IONetworkMedium.h
- *
- * HISTORY
- *
  */
 
 #ifndef _IONETWORKMEDIUM_H
@@ -115,7 +107,9 @@ enum {
     kIOMediumEthernet1000BaseT    =  ( IFM_1000_T  | IFM_ETHER ),
     kIOMediumEthernetHomePNA1     =  ( IFM_HPNA_1  | IFM_ETHER ),
 	kIOMediumEthernet10GBaseSR    =  ( IFM_10G_SR  | IFM_ETHER ),
-	kIOMediumEthernet10GBaseLR    =  ( IFM_10G_LR  | IFM_ETHER )
+	kIOMediumEthernet10GBaseLR    =  ( IFM_10G_LR  | IFM_ETHER ),
+    kIOMediumEthernet10GBaseCX4   =  ( IFM_10G_CX4 | IFM_ETHER ),
+    kIOMediumEthernet10GBaseT     =  ( IFM_10G_T   | IFM_ETHER )
 };
 
 // IEEE 802.11 Wireless.

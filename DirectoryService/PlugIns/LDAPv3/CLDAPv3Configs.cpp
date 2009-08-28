@@ -45,6 +45,9 @@ extern bool				gServerOS;
 extern bool				gDHCPLDAPEnabled;
 extern CFRunLoopRef		gPluginRunLoop;
 extern CCachePlugin		*gCacheNode;
+extern dsBool			gDSInstallDaemonMode;
+extern dsBool			gDSLocalOnlyMode;
+extern dsBool			gDSDebugMode;
 
 #pragma mark -
 #pragma mark CLDAPv3Configs Class
@@ -118,6 +121,9 @@ void CLDAPv3Configs::RegisterAllNodes( void )
 		
 		DSCFRelease( xmlData );
 
+		if ( gDSInstallDaemonMode == false && gDSLocalOnlyMode == false && gDSDebugMode == false )
+			dsPostNodeEvent();
+
 		fNodeRegistrationEvent.PostEvent();
 
 		pthread_mutex_unlock( &onlyOneAtTime );
@@ -138,7 +144,10 @@ void CLDAPv3Configs::UnregisterAllNodes( void )
 			DSFree( ldapName );
 		}
 	}
-	
+
+	if ( gDSInstallDaemonMode == false && gDSLocalOnlyMode == false && gDSDebugMode == false )
+		dsPostNodeEvent();
+
 	fNodeConfigMapMutex.SignalLock();
 }
 
@@ -633,8 +642,8 @@ bool CLDAPv3Configs::LocalServerIsReplica( void )
 		if ( fileContents != NULL )
 		{
 			slapdConf.Read( fileContents, slapdConf.FileSize() );
-			if ((strncmp( fileContents, "updatedn", sizeof("updatedn") - 1 ) == 0)
-				|| (strstr( fileContents, "\nupdatedn" ) != NULL))
+			if ((strncmp( fileContents, "updateref", sizeof("updateref") - 1 ) == 0)
+				|| (strstr( fileContents, "\nupdateref" ) != NULL))
 			{
 				bResult = true;
 			}
@@ -651,8 +660,8 @@ bool CLDAPv3Configs::LocalServerIsReplica( void )
 		if (fileContents != NULL)
 		{
 			slapdMacOSXConf.Read( fileContents, slapdMacOSXConf.FileSize() );
-			if ((strncmp( fileContents, "updatedn", sizeof("updatedn") - 1 ) == 0)
-				|| (strstr( fileContents, "\nupdatedn" ) != NULL))
+			if ((strncmp( fileContents, "updateref", sizeof("updateref") - 1 ) == 0)
+				|| (strstr( fileContents, "\nupdateref" ) != NULL))
 			{
 				bResult = true;
 			}
@@ -739,7 +748,6 @@ SInt32 CLDAPv3Configs::WriteServerMappings( char *userName, char *password, CFDa
 	CFNumberRef				cfNumber			= NULL;
 	char				   *mapSearchBase		= NULL;
 	bool					bIsSSL				= false;
-	bool					bLDAPv2ReadOnly		= false;
     int						ldapReturnCode 		= 0;
 	int						version				= -1;
     int						bindMsgId			= 0;
@@ -802,12 +810,6 @@ SInt32 CLDAPv3Configs::WriteServerMappings( char *userName, char *password, CFDa
 						}
 					}
 
-					cfBool= (CFBooleanRef)CFDictionaryGetValue( serverConfigDict, CFSTR( kXMLLDAPv2ReadOnlyKey ) );
-					if (cfBool != NULL)
-					{
-						bLDAPv2ReadOnly = CFBooleanGetValue( cfBool );
-					}
-
 					cfNumber = (CFNumberRef)CFDictionaryGetValue( serverConfigDict, CFSTR( kXMLPortNumberKey ) );
 					if ( cfNumber != NULL )
 					{
@@ -829,8 +831,6 @@ SInt32 CLDAPv3Configs::WriteServerMappings( char *userName, char *password, CFDa
 				configPropertyList = NULL;
 			}//if (configPropertyList != NULL )
 
-			if (bLDAPv2ReadOnly) throw( (SInt32)eDSReadOnly); //if configured as LDAPv2 then read only error is returned
-																//Directory Utility should check internally before it ever makes the custom call that calls this
 			serverHost = ldap_init( server, portNumber );
 			if ( serverHost == NULL ) throw( (SInt32)eDSCannotAccessSession );
 			if ( bIsSSL )
@@ -908,21 +908,21 @@ SInt32 CLDAPv3Configs::WriteServerMappings( char *userName, char *password, CFDa
 
 					//now attempt to create the record here
 					//if it already exists then simply modify the attribute
-					ouvals[0]			= "macosxodconfig";
+					ouvals[0]			= (char *)"macosxodconfig";
 					ouvals[1]			= NULL;
 					oumod.mod_op		= 0;
-					oumod.mod_type		= "ou";
+					oumod.mod_type		= (char *)"ou";
 					oumod.mod_values	= ouvals;
 					mapvals[0]			= ourXMLBlob;
 					mapvals[1]			= NULL;
 					mapmod.mod_op		= 0;
-					mapmod.mod_type		= "description";
+					mapmod.mod_type		= (char *)"description";
 					mapmod.mod_values	= mapvals;
-					ocvals[0]			= "top";
-					ocvals[1]			= "organizationalUnit";
+					ocvals[0]			= (char *)"top";
+					ocvals[1]			= (char *)"organizationalUnit";
 					ocvals[2]			= NULL;
 					ocmod.mod_op		= 0;
-					ocmod.mod_type		= "objectclass";
+					ocmod.mod_type		= (char *)"objectclass";
 					ocmod.mod_values	= ocvals;
 					mods[0]				= &oumod;
 					mods[1]				= &mapmod;
@@ -1052,8 +1052,16 @@ SInt32 CLDAPv3Configs::InitializeWithXML( CFDataRef inXMLData )
 							{
 								CLDAPNodeConfig *pConfig	= NULL;
 								
+								CFBooleanRef cfBool = (CFBooleanRef) CFDictionaryGetValue(serverConfigDict, CFSTR("LDAPv2 Read Only") );
+								if ( cfBool != NULL && CFBooleanGetValue(cfBool) == TRUE ) {
+									syslog( LOG_NOTICE, "LDAPv2 is no longer supported for '%s', will use LDAPv3", nodeName );
+									DbgLog( kLogNotice, "CLDAPv3Configs::InitializeWithXML - LDAPv2 is no longer supported for '%s', will use LDAPv3", nodeName );
+									
+									CFDictionaryRemoveValue( serverConfigDict, CFSTR("LDAPv2 Read Only") );
+								}
+								
 								LDAPNodeConfigMapI iter = fNodeConfigMap.find( nodeName );
-								if ( iter != NULL && iter != fNodeConfigMap.end() )
+								if ( iter != fNodeConfigMap.end() )
 								{
 									pConfig = iter->second;
 									if ( pConfig->fDHCPLDAPServer == true || CFStringCompare(pConfig->fConfigUUID, cfUUID, 0) != kCFCompareEqualTo )
@@ -1252,8 +1260,8 @@ void CLDAPv3Configs::DHCPPacketStateNotification( SCDynamicStoreRef cfStore, CFA
 
 bool CLDAPv3Configs::CheckForDHCPPacket( void )
 {
-	bool		bNewDHCPConfig	= false;
-	CFArrayRef	cfNewServers	= NULL;
+	bool				bNewDHCPConfig	= false;
+	CFMutableArrayRef	cfNewServers	= NULL;
 	
 	fNodeConfigMapMutex.WaitLock();
 	
@@ -1273,7 +1281,43 @@ bool CLDAPv3Configs::CheckForDHCPPacket( void )
 																	 false );
 				if ( ourDHCPString != NULL )
 				{
-					cfNewServers = CFStringCreateArrayBySeparatingStrings( kCFAllocatorDefault, ourDHCPString, CFSTR(" ") );
+					// create an empty array to work with
+					cfNewServers = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
+
+					// now check the string we got
+					CFArrayRef tempServers = CFStringCreateArrayBySeparatingStrings( kCFAllocatorDefault, ourDHCPString, CFSTR(" ") );
+					if ( tempServers != NULL )
+					{
+						CFIndex total = CFArrayGetCount( tempServers );
+						for ( CFIndex ii = 0; ii < total; ii++ )
+						{
+							CFStringRef	value	= (CFStringRef) CFArrayGetValueAtIndex( tempServers, ii );
+							LDAPURLDesc	*ludpp	= NULL;
+							char		*tmpStr = NULL;
+							const char	*url	= BaseDirectoryPlugin::GetCStringFromCFString( value, &tmpStr );
+							
+							// if we got a string, parse the URL
+							if ( url != NULL && url[0] != '\0' && ldap_url_parse(url, &ludpp) == LDAP_SUCCESS ) {
+								
+								if ( ludpp->lud_host != NULL ) {
+									CFArrayAppendValue( cfNewServers, value );
+								}
+								else {
+									DbgLog( kLogError, "CLDAPv3Configs::CheckForDHCPPacket - No LDAP host in the Option 95 packet '%s'", url );
+								}
+								
+								ldap_free_urldesc( ludpp );
+								ludpp = NULL;
+							} else if ( url != NULL ) {
+								DbgLog( kLogError, "CLDAPv3Configs::CheckForDHCPPacket - Invalid Option 95 server '%s'", url );
+							}
+							
+							DSFree( tmpStr );
+						}
+						
+						DSCFRelease( tempServers );
+					}
+					
 					if ( fDHCPLDAPServers == NULL || CFEqual(cfNewServers, fDHCPLDAPServers) == false )
 					{
 						bNewDHCPConfig = true;
@@ -1394,7 +1438,7 @@ SInt32 CLDAPv3Configs::ReadXMLConfig( CFDataRef *outXMLData )
 			//check if this XML blob is a property list and can be made into a dictionary
 			if ( VerifyXML(&xmlData) == false )
 			{
-				char	*corruptPath = "/Library/Preferences/DirectoryService/DSLDAPv3PlugInConfigCorrupted.plist";
+				const char	*corruptPath = "/Library/Preferences/DirectoryService/DSLDAPv3PlugInConfigCorrupted.plist";
 				
 				//if it is not then say the file is corrupted and save off the corrupted file
 				DbgLog( kLogPlugin, "CLDAPv3Configs::ReadXMLConfig - LDAP XML config file is corrupted" );
@@ -1420,34 +1464,6 @@ SInt32 CLDAPv3Configs::ReadXMLConfig( CFDataRef *outXMLData )
 			
 			DbgLog( kLogPlugin, "CLDAPv3Configs::ReadXMLConfig - Writing a new LDAP XML config file" );
 			prefsFile->Save();
-		}
-		
-		// if we have a config now, let's convert let's look to see if there is a sV2Config to convert
-		if ( xmlData != NULL )
-		{
-			// if we converted....
-			if ( ConvertLDAPv2Config(&xmlData) )
-			{
-				DSPrefs prefs = {0};
-				prefsFile->GetPrefs( &prefs );
-				
-				CFMutableDictionaryRef configPropertyList = 
-				(CFMutableDictionaryRef) CFPropertyListCreateFromXMLData(
-																		 kCFAllocatorDefault,
-																		 xmlData,
-																		 kCFPropertyListMutableContainersAndLeaves, 
-																		 NULL);
-				if ( configPropertyList != NULL )
-				{
-					prefs.configs = (CFArrayRef) CFDictionaryGetValue( configPropertyList, CFSTR(kDSLDAPPrefs_LDAPServerConfigs) );
-					if ( prefs.configs != NULL ) {
-						prefsFile->SetPrefs( &prefs );
-						prefsFile->Save();
-					}
-					
-					DSCFRelease( configPropertyList );
-				}
-			}
 		}
 		
 		delete prefsFile;
@@ -1565,6 +1581,17 @@ bool CLDAPv3Configs::VerifyXML( CFDataRef *inOutXMLData )
 								bUpdated = true;
 							}
 							
+							if ( CFDictionaryContainsKey(cfConfig, CFSTR(kXMLDeniedSASLMethods)) == false )
+							{
+								CFMutableArrayRef cfArray = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
+								
+								// we default to disabled DIGEST because some servers were flaky about it
+								CFArrayAppendValue( cfArray, CFSTR("DIGEST-MD5") );
+								CFDictionarySetValue( cfConfig, CFSTR(kXMLDeniedSASLMethods), cfArray );
+								DSCFRelease( cfArray );
+								bUpdated = true;
+							}
+							
 							// see if a UUID was assigned yet, if not put one
 							if ( CFDictionaryContainsKey( cfConfig, CFSTR(kXMLConfigurationUUID) ) == false )
 							{
@@ -1609,191 +1636,3 @@ bool CLDAPv3Configs::VerifyXML( CFDataRef *inOutXMLData )
     
     return verified;
 }
-
-bool CLDAPv3Configs::ConvertLDAPv2Config( CFDataRef *inOutXMLData )
-{
-	struct stat				statResult;
-	const char				*prefPath		= "/Library/Preferences/DirectoryService/DSLDAPPlugInConfig.clpi";
-	bool					bReturn			= false;
-	CFDataRef				sV2ConfigData	= NULL;
-	CFMutableDictionaryRef  sV2Config		= NULL;
-	CFMutableDictionaryRef  sV3Config		= NULL;
-	
-	// first let's see if the LDAPv2 Plugin does not exist before we try to convert the config.
-	// if we have a path, and we can't stat anything, the plugin must not exist.
-	if ( stat("/System/Library/Frameworks/DirectoryService.framework/Resources/Plugins/LDAPv2.dsplug", &statResult) != 0 )
-	{
-		char		newName[PATH_MAX]	= { 0 };
-		
-		CFStringRef sPath = CFStringCreateWithCString( kCFAllocatorDefault, prefPath, kCFStringEncodingUTF8 );
-		
-		strcpy( newName, prefPath );
-		strcat( newName, ".v3converted" );
-		
-		if( stat( prefPath, &statResult ) == 0 ) // must be a file...
-		{
-			// Convert it back into a CFURL.
-			CFURLRef	sConfigFileURL   = CFURLCreateWithFileSystemPath( kCFAllocatorDefault, sPath, kCFURLPOSIXPathStyle, false );
-			
-			CFURLCreateDataAndPropertiesFromResource( kCFAllocatorDefault, sConfigFileURL, &sV2ConfigData, NULL, NULL, NULL );
-			
-			CFRelease( sConfigFileURL );
-			sConfigFileURL = NULL;
-			
-			if( sV2ConfigData ) 
-			{
-				sV2Config = (CFMutableDictionaryRef) CFPropertyListCreateFromXMLData( kCFAllocatorDefault, sV2ConfigData, 
-																					  kCFPropertyListMutableContainers, NULL );
-				CFRelease( sV2ConfigData );
-				sV2ConfigData = NULL;
-			}
-			
-			if ( (*inOutXMLData) != NULL )
-			{
-				sV3Config = (CFMutableDictionaryRef) CFPropertyListCreateFromXMLData( kCFAllocatorDefault, (*inOutXMLData), 
-																					  kCFPropertyListMutableContainers, NULL );
-			}
-			
-			// if we have a sV2Config and a sV3Config
-			if( sV2Config && sV3Config )
-			{
-				CFStringRef				tConfigKey			= CFSTR( kXMLConfigArrayKey );
-				CFMutableArrayRef		tV3ConfigEntries	= (CFMutableArrayRef) CFDictionaryGetValue( sV3Config, tConfigKey );
-				CFArrayRef				tV2ConfigEntries	= (CFArrayRef) CFDictionaryGetValue( sV2Config, tConfigKey );
-				CFMutableDictionaryRef  tV2ConfigEntry		= NULL;
-				
-				if( tV2ConfigEntries )
-				{
-					CFIndex v2ConfigCount = CFArrayGetCount(tV2ConfigEntries);
-					CFIndex v2ConfigIndex;
-					
-					for( v2ConfigIndex = 0; v2ConfigIndex < v2ConfigCount; v2ConfigIndex++ )
-					{
-						tV2ConfigEntry = (CFMutableDictionaryRef) CFArrayGetValueAtIndex( tV2ConfigEntries, v2ConfigIndex );
-						
-						if( tV2ConfigEntry )
-						{
-							// let's do the first value, if we have a hostname, let's make sure we don't already have one in V3 too.
-							CFTypeRef   tObjectValue = CFDictionaryGetValue( tV2ConfigEntry, CFSTR(kXMLServerKey) );
-							if( tObjectValue )
-							{
-								// if we have a current config...
-								if( tV3ConfigEntries )
-								{
-									CFIndex		count = CFArrayGetCount( tV3ConfigEntries );
-									CFIndex		index;
-									
-									for( index = 0; index < count; index++ )
-									{
-										CFDictionaryRef tServerConfig = (CFDictionaryRef) CFArrayGetValueAtIndex( tV3ConfigEntries, index );
-										CFStringRef		tServer = (CFStringRef) CFDictionaryGetValue( tServerConfig, CFSTR(kXMLServerKey) );
-										
-										if( tServer && CFStringCompare(tServer, (CFStringRef) tObjectValue, kCFCompareCaseInsensitive) == kCFCompareEqualTo )
-										{
-											CFDictionarySetValue( tV2ConfigEntry, CFSTR(kXMLEnableUseFlagKey), kCFBooleanFalse );
-										}
-									}
-								}
-							}
-							
-							// Server Mappings
-							CFDictionarySetValue( tV2ConfigEntry, CFSTR(kXMLServerMappingsFlagKey), kCFBooleanFalse );
-							
-							// default LDAP flag to false
-							CFDictionarySetValue( tV2ConfigEntry, CFSTR(kXMLMakeDefLDAPFlagKey), kCFBooleanFalse );
-							
-							// UI Name - need to change it
-							CFStringRef tKeyValue = CFSTR( kXMLUserDefinedNameKey );
-							tObjectValue = CFDictionaryGetValue( tV2ConfigEntry, tKeyValue );
-							if( tObjectValue )
-							{
-								CFStringRef sNewName = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR("%@ (from LDAPv2)"), tObjectValue );
-								CFDictionarySetValue( tV2ConfigEntry, tKeyValue, sNewName );
-								CFRelease( sNewName );
-							}
-							
-							// now we need to convert each RecordType Map
-							CFArrayRef  tRecMap = (CFArrayRef) CFDictionaryGetValue( tV2ConfigEntry, CFSTR(kXMLRecordTypeMapArrayKey) );
-							if( tRecMap )
-							{
-								CFIndex		index;
-								CFIndex		count   = CFArrayGetCount( tRecMap );
-								
-								for( index = 0; index < count; index++ )
-								{
-									CFMutableDictionaryRef  tRecordMapDict  = (CFMutableDictionaryRef) CFArrayGetValueAtIndex( tRecMap, index );
-									CFMutableArrayRef		tNativeArray	= (CFMutableArrayRef) CFDictionaryGetValue( tRecordMapDict, CFSTR(kXMLNativeMapArrayKey) );
-									
-									// let's add a blank attribute map
-									CFArrayRef  sBlankArray = CFArrayCreate( NULL, NULL, 0, &kCFTypeArrayCallBacks );
-									CFDictionarySetValue( tRecordMapDict, CFSTR(kXMLAttrTypeMapArrayKey), sBlankArray );
-									CFRelease( sBlankArray );
-									
-									// if we don't have a native array, let's create a blank array
-									if( tNativeArray == NULL )
-									{
-										tNativeArray = CFArrayCreateMutable( NULL, 0, &kCFTypeArrayCallBacks );
-										CFDictionarySetValue( tRecordMapDict, CFSTR(kXMLNativeMapArrayKey), tNativeArray );
-										CFRelease( tNativeArray );
-									}
-									
-									// new native dictionary to replace the old Array
-									CFMutableDictionaryRef  sNewNativeDict   = CFDictionaryCreateMutable( NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
-									
-									// we need to add Group Class to the list
-									CFDictionarySetValue( sNewNativeDict, CFSTR(kXMLGroupObjectClasses), CFSTR("OR") );
-									
-									// the first element should be the old OU pointer, let's add it to the new dictionary
-									if( CFArrayGetCount( tNativeArray ) > 0 )
-									{
-										CFDictionarySetValue( sNewNativeDict, CFSTR(kXMLSearchBase), CFArrayGetValueAtIndex(tNativeArray, 0) );
-									}
-									
-									// Let's remove the previous values and add the new Dictionary in it's place
-									CFArrayRemoveAllValues( tNativeArray );
-									CFArrayAppendValue( tNativeArray, sNewNativeDict );
-									
-									CFRelease( sNewNativeDict );
-								}
-							}
-							
-							// if we didn't have any config entries, we need to create one to add it to
-							if( tV3ConfigEntries == NULL )
-							{
-								tV3ConfigEntries = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-								CFDictionarySetValue( sV3Config, tConfigKey, tV3ConfigEntries );
-								CFRelease( tV3ConfigEntries );
-							}
-							
-							// let's append the new config to the new list
-							CFArrayAppendValue( tV3ConfigEntries, tV2ConfigEntry );
-							
-							// Now update our Config file on disk and in memory
-							CFDataRef aXMLData = (CFDataRef) CFPropertyListCreateXMLData( kCFAllocatorDefault, sV3Config );
-							if ( aXMLData != NULL )
-							{
-								if ( (*inOutXMLData) != NULL )
-									CFRelease( *inOutXMLData );
-								
-								(*inOutXMLData) = aXMLData;
-							}
-							
-							bReturn = true;
-						}
-					}
-				}
-			}
-			
-			// let's rename the old file to something so we don't convert again.
-			rename( prefPath, newName );
-		}
-		
-		DSCFRelease( sPath );
-	}
-	
-	DSCFRelease( sV2Config );
-	DSCFRelease( sV3Config );
-	
-	return bReturn;
-}
-

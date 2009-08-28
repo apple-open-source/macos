@@ -1,0 +1,319 @@
+# **************************************************************************
+# Visual C++ 2.x and 4.0 makefile for Memchan 2.2a4 (AUG-20-2002)
+#
+# See the file "doc/license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# CVS:	$Id: makefile.vc5,v 1.8 2002/08/21 05:59:14 andreas_kupries Exp $
+# 
+# Does not depend on the presence of any environment variables in
+# order to compile tcl; all needed information is derived from 
+# location of the compiler and other directories.
+#
+# **************************************************************************
+#
+#	****	Configuration section	****
+#
+# **************************************************************************
+
+# =======================================================================
+# Specify the root directory of the source distribution of this extension
+# Don't modify this.
+
+ROOT	=	..
+
+
+# =======================================================================
+# Specify the directory to place the intermediate files into, for example
+# the object files. The default setting below generates them in place.
+
+TMPDIR	=	.
+
+
+# =======================================================================
+# Information about the setup the MS Visual C++ IDE on your system.
+# If you did not change the default location during the installation the
+# default values should be right.
+
+# =======================================================================
+# Name and placement of an important system DLL, the M$ Visual C RunTime
+
+MSVCRT		= msvcrt.dll
+MSVCRT_SYS	= c:\winnt\system32\msvcrt.dll
+
+# =======================================================================
+# Paths to the binaries and libraries of the Visual C++ environment. Since
+# VC 5.x it is split over two directories :-(.
+#
+
+TOOLS32		= c:\programs\devstudio\vc
+TOOLS32_rc	= c:\programs\devstudio\sharedIDE
+MS_LIBPATH	= c:\programs\devstudio\vc\lib
+
+# For a german installation use
+#
+#TOOLS32	= c:\programme\devstudio\vc
+#TOOLS32_rc	= c:\programme\devstudio\sharedIDE
+#MS_LIBPATH	= c:\programme\devstudio\vc\lib
+
+# =======================================================================
+# Name and path of a zip-compatible compressor application. Required for
+# the generation of binary distributions. Ignore it if you don't want to
+# generate that.
+
+PKZIP		= pkzip.exe
+
+
+# =======================================================================
+# Ok, lets talk about TCL. If you did not change the default location
+# during its installation the default values should be right. The 2nd
+# definition is for a german installation.
+
+# =======================================================================
+# Specify the version of tcl you are using, remove all dots from the
+# number  (8.0.3 => 803)
+
+TCL_SHORTVERS	= 80
+
+
+# =======================================================================
+# Path to the installed include files (or the part of the source
+# distribution containing them.
+
+TCL_INCLUDES	= c:\programs\tcl\include
+#TCL_INCLUDES	= c:\programme\tcl\include
+
+
+# =======================================================================
+# Path to the installed libraries (*.dll and *.lib) or the part of the
+# source distribution containing them (*after* its compilation).
+#
+# *Note* If you installed tcl8.0.3 from the Tcl-Blast! CD you have to
+# rename tcl80vc.lib in the specified directory to tcl80.lib to get going.
+#
+# The installation path should differ from the above only if a source
+# distribution of tcl is used as the base of the compilation.
+
+TCL_LIBRARIES		= c:\programs\tcl\lib
+#TCL_LIBRARIES		= c:\programme\tcl\lib
+
+PKG_INSTALLBASEDIR	= $(TCL_LIBRARIES)
+
+
+# =======================================================================
+# Path to the installed interpreters or the part of the source
+# distribution containing them (*after* its compilation).
+
+TCL_BINARIES	= c:\programs\tcl\bin
+#TCL_BINARIES	= c:\programme\tcl\bin
+
+
+# =======================================================================
+# Set this to the appropriate value of /MACHINE: for your platform
+
+MACHINE	= IX86
+
+
+# =======================================================================
+# Comment the following line to compile with symbols
+NODEBUG=1
+
+# =======================================================================
+
+######################################################################
+# Do not modify below this line
+######################################################################
+
+# The interpreters.
+
+TCLSH		= $(TCL_BINARIES)\tclsh$(TCL_SHORTVERS).exe
+TCLLIB		= $(TCL_LIBRARIES)\tcl$(TCL_SHORTVERS).lib
+
+# Base name of the generated library, full names for DLL and its stub,
+# and complete installation directory for the package.
+
+MC		=	memchan22
+MCLIB		=	$(MC).lib
+MCDLL		=	$(MC).dll
+INSTALLDIR	=	$(PKG_INSTALLBASEDIR)\$(MC)
+
+# List of the object files to generate and link.
+
+MCOBJS =	$(TMPDIR)\memchan.obj	\
+		$(TMPDIR)\fifo.obj	\
+		$(TMPDIR)\init.obj	\
+		$(TMPDIR)\counter.obj	\
+		$(TMPDIR)\dllEntry.obj
+
+
+# -- possibly not required -- PATH=$(TOOLS32)\bin;$(PATH)
+
+# Shorthands for the tools we need from MSVC
+
+cc32		= $(TOOLS32)\bin\cl.exe
+link32		= $(TOOLS32)\bin\link.exe
+rc32		= $(TOOLS32_rc)\bin\rc.exe
+include32	= -I$(TOOLS32)\include
+CP      	= copy
+RM      	= del
+
+######################################################################
+# Compiler flags
+######################################################################
+
+# Important directories in the distribution
+
+WINDIR          = $(ROOT)\win
+GENERICDIR	= $(ROOT)\generic
+
+# ... and the compiler flags
+
+MC_INCLUDES	= -I$(WINDIR) -I$(GENERICDIR) -I$(ROOT) -I$(TCL_INCLUDES)
+MC_DEFINES	= -nologo -D__WIN32__ -DHAVE_STDLIB_H $(BINIO) -DMEMCHAN_VERSION=\"2.2a4\" -DBUILD_Memchan -DDLL_BUILD -DHAVE_LTOA
+
+
+
+MC_CFLAGS	=	$(cdebug) $(cflags) $(cvarsdll) $(include32) \
+			$(MC_INCLUDES) $(MC_DEFINES)
+CON_CFLAGS	=	$(cdebug) $(cflags) $(cvars) $(include32) -DCONSOLE
+DOS_CFLAGS	=	$(cdebug) $(cflags) $(include16) -AL 
+
+
+######################################################################
+# Link flags
+######################################################################
+
+!IFDEF NODEBUG
+ldebug = /RELEASE
+!ELSE
+ldebug = -debug:full -debugtype:cv
+!ENDIF
+
+# declarations common to all linker options
+lcommon = /NODEFAULTLIB /RELEASE /NOLOGO
+
+# declarations for use on Intel i386, i486, and Pentium systems
+!IF "$(MACHINE)" == "IX86"
+DLLENTRY = @12
+lflags   = $(lcommon) -align:0x1000 /MACHINE:$(MACHINE)
+!ELSE
+lflags   = $(lcommon) /MACHINE:$(MACHINE)
+!ENDIF
+
+conlflags = $(lflags) -subsystem:console -entry:mainCRTStartup
+guilflags = $(lflags) -subsystem:windows -entry:WinMainCRTStartup
+dlllflags = $(lflags) -entry:_DllMainCRTStartup$(DLLENTRY) -dll
+
+!IF "$(MACHINE)" == "PPC"
+libc = libc.lib
+libcdll = crtdll.lib
+!ELSE
+libc	= libc.lib oldnames.lib
+libcdll = $(MS_LIBPATH)\msvcrt.lib $(MS_LIBPATH)\oldnames.lib
+!ENDIF
+
+baselibs   =	$(MS_LIBPATH)\kernel32.lib $(optlibs)	\
+		$(MS_LIBPATH)\advapi32.lib
+winlibs    =	$(baselibs) $(MS_LIBPATH)\user32.lib $(MS_LIBPATH)\gdi32.lib \
+		$(MS_LIBPATH)\comdlg32.lib $(MS_LIBPATH)\winspool.lib
+
+guilibs	   = $(libc) $(winlibs)
+conlibs	   = $(libc) $(baselibs)
+guilibsdll = $(libcdll) $(winlibs)
+conlibsdll = $(libcdll) $(baselibs)
+
+######################################################################
+# Compile flags
+######################################################################
+
+!IFDEF NODEBUG
+cdebug = -Ox
+!ELSE
+cdebug = -Z7 -Od -WX
+!ENDIF
+
+# declarations common to all compiler options
+ccommon = -c -W3 -nologo -YX -Dtry=__try -Dexcept=__except
+
+!IF "$(MACHINE)" == "IX86"
+cflags = $(ccommon) -D_X86_=1
+!ELSE
+!IF "$(MACHINE)" == "MIPS"
+cflags = $(ccommon) -D_MIPS_=1
+!ELSE
+!IF "$(MACHINE)" == "PPC"
+cflags = $(ccommon) -D_PPC_=1
+!ELSE
+!IF "$(MACHINE)" == "ALPHA"
+cflags = $(ccommon) -D_ALPHA_=1
+!ENDIF
+!ENDIF
+!ENDIF
+!ENDIF
+
+cvars      = -DWIN32 -D_WIN32
+cvarsmt    = $(cvars) -D_MT
+cvarsdll   = $(cvarsmt) -D_DLL
+
+######################################################################
+# Project specific targets	(finally :-)
+######################################################################
+
+release:    $(MCDLL)
+
+all:	    $(MCDLL)
+
+test:	    $(MCDLL)
+	$(TCLSH) <<
+	load $(MCDLL)
+	cd ../tests
+	source all
+<<
+
+install:	$(MCDLL)
+	-@md $(INSTALLDIR)
+	$(CP) $(MCDLL)              $(INSTALLDIR)\$(MCDLL)
+	$(CP) $(WINDIR)\pkgIndex.tcl $(INSTALLDIR)\pkgIndex.tcl
+
+
+$(MCDLL): $(MCOBJS) $(TMPDIR)\mc.res
+	$(link32)	$(ldebug) $(dlllflags)	\
+			$(TCLLIB) $(guilibsdll)	\
+			$(TMPDIR)\mc.res	\
+			-out:$(MCDLL)		\
+			$(MCOBJS)
+
+bindist:      $(MCDLL)
+	-@md	$(MC)
+	-@$(CP) $(MCDLL)		$(MC)\$(MCDLL)
+	-@$(CP) $(ROOT)\pkgIndex.win	$(MC)\pkgIndex.tcl
+	$(PKZIP) -rp $(MC)b.zip	$(MC)\*.*
+	-@$(RM)	$(MC)\$(MCDLL)
+	-@$(RM)	$(MC)\pkgIndex.tcl
+	-@rd	$(MC)
+
+#
+# Implicit rules
+#
+
+{$(WINDIR)}.c{$(TMPDIR)}.obj:
+    $(cc32) $(MC_CFLAGS) -Fo$(TMPDIR)\ $<
+
+{$(GENERICDIR)}.c{$(TMPDIR)}.obj:
+    $(cc32) $(MC_CFLAGS) -Fo$(TMPDIR)\ $<
+
+{$(ROOT)\compat}.c{$(TMPDIR)}.obj:
+    $(cc32) $(MC_CFLAGS) -Fo$(TMPDIR)\ $<
+
+{$(WINDIR)}.rc{$(TMPDIR)}.res:
+	$(rc32) -fo $@ -r -i $(GENERICDIR) -i $(WINDIR) -D__WIN32__ \
+	 $<
+
+clean:
+        -@del *.exp 
+	-@del *.lib 
+	-@del *.dll 
+	-@del *.pch
+        -@del $(TMPDIR)\*.obj
+
+

@@ -50,6 +50,7 @@ public:
     virtual void systemWillSleep();
     virtual void systemIsWaking();
     virtual void systemWillPowerDown();
+	virtual void systemWillPowerOn();
 };
 
 

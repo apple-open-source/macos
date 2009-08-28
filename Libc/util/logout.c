@@ -81,11 +81,14 @@ logout(char *line)
 	strncpy(utx.ut_line, line, sizeof(utx.ut_line));
 	utx.ut_type = UTMPX_AUTOFILL_MASK | UTMPX_DEAD_IF_CORRESPONDING_MASK | DEAD_PROCESS;
 	(void)gettimeofday(&utx.ut_tv, NULL);
-	setutxent();
+	UTMPX_LOCK;
+	_setutxent();
 	ux = _pututxline(&utx);
-	endutxent();
-	if (!ux)
+	_endutxent();
+	if (!ux) {
+		UTMPX_UNLOCK;
 		return 0;
+	}
 #ifdef UTMP_COMPAT
 	if (utfile_system) { /* only if we are using _PATH_UTMPX */
 		which = _utmp_compat(ux, &u);
@@ -95,5 +98,6 @@ logout(char *line)
 			_write_utmp(&u, 1);
 	}
 #endif /* UTMP_COMPAT */
+	UTMPX_UNLOCK;
 	return 1;
 }

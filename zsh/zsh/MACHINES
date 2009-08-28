@@ -35,6 +35,11 @@ Apple: MacOS X/Darwin 10.x
 
 	Reported to compile with no problems on 10.4.
 
+	Multibyte support works, although (as on other architectures)
+	Unicode combining characters are not properly handled.
+	Problems have been noted when outputting multibyte characters
+	to the terminal from a "preexec" function.
+
 Red Hat Inc.: Cygwin
 	Should build `out-of-the-box'.  The compilation directory should
 	be on a file system mounted as binary (the mount command shows
@@ -207,7 +212,11 @@ Sun: SunOS 4.1.x
 	This may work, but the first username completion will be _very_
 	slow (as slow as in tcsh).
 
-Sun: Solaris 2.x, 8, 9
+Sun: Solaris 2.x, 8, 9, ...
+	It is recommended that the system library version of iconv()
+	be used rather than libiconv since there are incompatibilities
+	in the way codesets are named.
+
 	The UCB versions of the routines for reading directories are not
 	usable (the struct definitions are incompatible with the ones
 	assumed by zsh).  The symptom of this is that globbed filenames in
@@ -216,7 +225,7 @@ Sun: Solaris 2.x, 8, 9
 	to /usr/ucblib in your LD_LIBRARY_PATH.  You can easily do this
 	by just unsetting LD_LIBRARY_PATH before building zsh.
 
-	Problems were once reported using --enable-lfs (the default) to
+	Problems were once reported using --enable-largefile (the default) to
 	enable large file system and integer support on Solaris 2 with gcc
 	before 2.95.2.  Recent versions of gcc appear to be unproblematic.
 

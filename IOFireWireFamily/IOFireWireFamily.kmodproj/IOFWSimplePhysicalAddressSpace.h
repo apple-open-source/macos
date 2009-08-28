@@ -28,6 +28,9 @@
 #include <IOKit/IODMACommand.h>
 #include <IOKit/firewire/IOFWPhysicalAddressSpace.h>
 
+/*! @class IOFWSimplePhysicalAddressSpace
+*/
+
 class IOFWSimplePhysicalAddressSpace : public IOFWPhysicalAddressSpace
 {
 	OSDeclareDefaultStructors( IOFWSimplePhysicalAddressSpace )

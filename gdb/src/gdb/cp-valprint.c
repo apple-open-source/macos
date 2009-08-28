@@ -472,12 +472,11 @@ cp_print_value_fields (struct type *type, struct type *real_type,
 	      /* no RRBC support; function pointers embedded directly
                  in vtable */
 
-	      int vfuncs = count_virtual_fns (real_type);
-
 	      fputs_filtered (" {", stream);
 
 	      /* FIXME : doesn't work at present */
 #if 0
+	      int vfuncs = count_virtual_fns (real_type);
 	      fprintf_filtered (stream, "%d entr%s: ", vfuncs,
 				vfuncs == 1 ? "y" : "ies");
 #else

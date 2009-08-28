@@ -72,6 +72,7 @@ static const char copyright[] =
 #include <string.h>
 #include <syslog.h>
 #include <unistd.h>
+#include <libkern/OSByteOrder.h>
 
 #include "kdumpsubs.h"
 
@@ -108,6 +109,11 @@ static int	ipchroot;
 static char *errtomsg __P((int));
 static void  nak __P((int));
 static char * __P(verifyhost(struct sockaddr_in *));
+
+#define KDP_FEATURE_MASK_STRING		"features"
+enum	{KDP_FEATURE_LARGE_CRASHDUMPS = 1};
+uint32_t	kdp_crashdump_feature_mask;
+uint32_t	kdp_feature_large_crashdumps;
 
 int
 main(argc, argv)
@@ -344,6 +350,14 @@ again:
 	for (cp = mode; *cp; cp++)
 		if (isupper(*cp))
 			*cp = tolower(*cp);
+
+	cp++;
+	if (strncmp(KDP_FEATURE_MASK_STRING, cp, sizeof(KDP_FEATURE_MASK_STRING)) == 0) {
+		kdp_crashdump_feature_mask = ntohl(*(uint32_t *) (cp + sizeof(KDP_FEATURE_MASK_STRING)));
+		kdp_feature_large_crashdumps = kdp_crashdump_feature_mask & KDP_FEATURE_LARGE_CRASHDUMPS;
+		syslog(LOG_INFO, "Received feature mask %s:%hx", cp, kdp_crashdump_feature_mask);
+	}
+	
 	for (pf = formats; pf->f_mode; pf++)
 		if (strcmp(pf->f_mode, mode) == 0)
 			break;
@@ -462,7 +476,10 @@ recvfile(pf)
 	block = 0;
 	do {
 send_seek_ack:	timeout = 0;
-		ap->th_opcode = htons((u_short)ACK);
+		if (block == 0)
+			ap->th_opcode = htons((u_short)ACK | (kdp_feature_large_crashdumps << 8));
+		else
+			ap->th_opcode = htons((u_short)ACK);
 		ap->th_block = htonl((unsigned int)block);
 		block++;
 		jmpval = setjmp(timeoutbuf);
@@ -498,9 +515,24 @@ send_ack:
 			  {
 			    if (dp->th_block == block)
 			      {
+				off_t crashdump_offset = 0;
 				unsigned int tempoff = 0;
+
+				if (kdp_feature_large_crashdumps) {
+					crashdump_offset = OSSwapBigToHostInt64((*(uint64_t *)dp->th_data));
+#if	DEBUG					
+					syslog(LOG_INFO, "Large offset");
+#endif					
+				}
+				else {
 				bcopy (dp->th_data, &tempoff, sizeof(unsigned int));
-				lseek (fileno (file), ntohl(tempoff), SEEK_SET);
+				crashdump_offset = ntohl(tempoff);
+				}
+#if	DEBUG
+				syslog(LOG_INFO, "Seeking to offset 0x%llx\n", crashdump_offset);
+#endif
+				errno = 0;
+				lseek(fileno (file), crashdump_offset, SEEK_SET);
 				if (errno)
 				  syslog (LOG_ERR, "lseek: %m");
 

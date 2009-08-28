@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -65,6 +65,19 @@ typedef uint32_t EAPOLControlState;
  */
 #define kEAPOLControlLogLevel		CFSTR("LogLevel") /* CFNumber */
 
+
+/*
+ * Property: kEAPOLControlEnableUserInterface
+ * Purpose:
+ *   Controls whether a user interface (UI) will be presented by the
+ *   EAPOL client when information is required e.g. a missing name or password.
+ *
+ *   The default value is true.  When this is set to false, the EAPOL client
+ *   will not present UI.
+ */
+#define kEAPOLControlEnableUserInterface \
+    CFSTR("EnableUserInterface") /* CFBoolean */	
+
 /*
  * properties that appear in the status dictionary
  */
@@ -77,5 +90,35 @@ typedef uint32_t EAPOLControlState;
 #define kEAPOLControlTimestamp		CFSTR("Timestamp")	/* CFDate */
 #define kEAPOLControlRequiredProperties	CFSTR("RequiredProperties") /* CFArray[CFString] */
 #define kEAPOLControlAdditionalProperties	CFSTR("AdditionalProperties") /* CFDictionary */
+
+/*
+ * Property: kEAPOLControlMode
+ * Purpose:
+ * - indicates which mode the EAPOL client is running in
+ * - deprecates kEAPOLControlSystemMode (see below)
+ */
+enum {
+    kEAPOLControlModeNone		= 0,
+    kEAPOLControlModeUser		= 1,
+    kEAPOLControlModeLoginWindow 	= 2,
+    kEAPOLControlModeSystem		= 3
+};
+typedef uint32_t	EAPOLControlMode;
+
+#define kEAPOLControlMode		CFSTR("Mode") /* CFNumber (EAPOLControlMode) */
+
+/*
+ * kEAPOLControlConfigurationGeneration
+ * - the generation of the configuration that the client is using
+ * - this value will be incremented when the client's configuration is
+ *   changed i.e. as the result of calling EAPOLControlUpdate() or 
+ *   EAPOLControlProvideUserInput()
+ */
+#define kEAPOLControlConfigurationGeneration \
+    CFSTR("ConfigurationGeneration") /* CFNumber */
+
+/*
+ * Deprecated:
+ */
 #define kEAPOLControlSystemMode		CFSTR("SystemMode") /* CFBoolean */
 #endif _EAP8021X_EAPOLCONTROLTYPES_H

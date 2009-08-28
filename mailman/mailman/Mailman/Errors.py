@@ -49,14 +49,13 @@ class MMCookieError(MMAuthenticationError): pass
 class MMExpiredCookieError(MMCookieError): pass
 class MMInvalidCookieError(MMCookieError): pass
 
-# BAW: these still need to be converted to classes.
-MMMustDigestError    = "MMMustDigestError"
-MMCantDigestError    = "MMCantDigestError"
-MMNeedApproval       = "MMNeedApproval"
-MMSubscribeNeedsConfirmation = "MMSubscribeNeedsConfirmation"
-MMBadConfirmation    = "MMBadConfirmation"
-MMAlreadyDigested    = "MMAlreadyDigested"
-MMAlreadyUndigested  = "MMAlreadyUndigested"
+class MMMustDigestError: pass
+class MMCantDigestError: pass
+class MMNeedApproval: pass
+class MMSubscribeNeedsConfirmation: pass
+class MMBadConfirmation: pass
+class MMAlreadyDigested: pass
+class MMAlreadyUndigested: pass
 
 MODERATED_LIST_MSG    = "Moderated list"
 IMPLICIT_DEST_MSG     = "Implicit destination"

@@ -52,8 +52,8 @@ print_as_hex( void *bin, int len )
     tDataBufferPtr			step			= NULL;
     tDataBufferPtr			stepResponse	= NULL;
     tDataNodePtr			authMethod		= NULL;
-    long int				length			= 0;
-    long int				current			= 0;
+    UInt32					length			= 0;
+    UInt32					current			= 0;
     tDirStatus				status			= 0;
 	unsigned char			hash[21]		= {0};
 	unsigned char			p24[24]			= {0};
@@ -90,20 +90,20 @@ print_as_hex( void *bin, int len )
 	}
 		
     length = strlen( [inUsername UTF8String] );
-    memcpy( &(step->fBufferData[current]), &length, sizeof(long));
-    current += sizeof(long);
+    memcpy( &(step->fBufferData[current]), &length, sizeof(length));
+    current += sizeof(length);
     memcpy( &(step->fBufferData[current]), [inUsername UTF8String], length );
     current +=length;
 
     length = 8;
-    memcpy( &(step->fBufferData[current]), &length, sizeof(long));
-    current += sizeof(long);
+    memcpy( &(step->fBufferData[current]), &length, sizeof(length));
+    current += sizeof(length);
 	memcpy( &(step->fBufferData[current]), challenge, length);
     current +=length;
 
 	length = 24;
-    memcpy( &(step->fBufferData[current]), &length, sizeof(long));
-    current += sizeof(long);
+    memcpy( &(step->fBufferData[current]), &length, sizeof(length));
+    current += sizeof(length);
 	memcpy( &(step->fBufferData[current]), p24, length);
 	
     step->fBufferLength = current + length;

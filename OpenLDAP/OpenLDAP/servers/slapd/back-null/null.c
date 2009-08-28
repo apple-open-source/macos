@@ -1,8 +1,8 @@
 /* null.c - the null backend */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-null/null.c,v 1.12.2.4 2006/01/03 22:16:21 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-null/null.c,v 1.18.2.5 2008/02/12 00:58:15 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2002-2006 The OpenLDAP Foundation.
+ * Copyright 2002-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,6 +24,7 @@
 #include <ac/string.h>
 
 #include "slap.h"
+#include "config.h"
 
 struct null_info {
 	int	ni_bind_allowed;
@@ -38,7 +39,7 @@ null_back_bind( Operation *op, SlapReply *rs )
 {
 	struct null_info *ni = (struct null_info *) op->o_bd->be_private;
 
-	if ( ni->ni_bind_allowed ) {
+	if ( ni->ni_bind_allowed || be_isroot_pw( op ) ) {
 		/* front end will send result on success (0) */
 		return LDAP_SUCCESS;
 	}
@@ -65,6 +66,23 @@ null_back_false( Operation *op, SlapReply *rs )
 	rs->sr_err = LDAP_COMPARE_FALSE;
 	send_ldap_result( op, rs );
 	return 0;
+}
+
+
+/* for overlays */
+static int
+null_back_entry_get(
+	Operation *op,
+	struct berval *ndn,
+	ObjectClass *oc,
+	AttributeDescription *at,
+	int rw,
+	Entry **ent )
+{
+	assert( *ent == NULL );
+
+	/* don't admit the object isn't there */
+	return oc || at ? LDAP_NO_SUCH_ATTRIBUTE : LDAP_BUSY;
 }
 
 
@@ -146,7 +164,7 @@ null_back_db_config(
 }
 
 static int
-null_back_db_init( BackendDB *be )
+null_back_db_init( BackendDB *be, ConfigReply *cr )
 {
 	struct null_info *ni = ch_calloc( 1, sizeof(struct null_info) );
 	ni->ni_bind_allowed = 0;
@@ -156,7 +174,7 @@ null_back_db_init( BackendDB *be )
 }
 
 static int
-null_back_db_destroy( Backend *be )
+null_back_db_destroy( Backend *be, ConfigReply *cr )
 {
 	free( be->be_private );
 	return 0;
@@ -193,6 +211,8 @@ null_back_initialize( BackendInfo *bi )
 
 	bi->bi_connection_init = 0;
 	bi->bi_connection_destroy = 0;
+
+	bi->bi_entry_get_rw = null_back_entry_get;
 
 	bi->bi_tool_entry_open = null_tool_entry_open;
 	bi->bi_tool_entry_close = null_tool_entry_close;

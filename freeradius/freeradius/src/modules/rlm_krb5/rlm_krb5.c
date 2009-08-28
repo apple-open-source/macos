@@ -1,7 +1,7 @@
 /*
  * rlm_krb5.c	module to authenticate against krb5
  *
- * Version:	$Id: rlm_krb5.c,v 1.18.4.1 2005/12/19 22:21:37 aland Exp $
+ * Version:	$Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,25 +15,18 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2000  The FreeRADIUS server project
+ * Copyright 2000,2006  The FreeRADIUS server project
  * Copyright 2000  Nathan Neulinger <nneul@umr.edu>
  * Copyright 2000  Alan DeKok <aland@ox.org>
  */
 
+#include	<freeradius-devel/ident.h>
+RCSID("$Id$")
 
-static const char rcsid[] = "$Id: rlm_krb5.c,v 1.18.4.1 2005/12/19 22:21:37 aland Exp $";
-
-#include	"autoconf.h"
-#include	"libradius.h"
-
-#include	<stdio.h>
-#include	<stdlib.h>
-#include	<string.h>
-
-#include	"radiusd.h"
-#include	"modules.h"
+#include	<freeradius-devel/radiusd.h>
+#include	<freeradius-devel/modules.h>
 
 /* krb5 includes */
 #include <krb5.h>
@@ -45,7 +38,7 @@ typedef struct rlm_krb5_t {
 	krb5_context *context;
 } rlm_krb5_t;
 
-static CONF_PARSER module_config[] = {
+static const CONF_PARSER module_config[] = {
 	{ "keytab", PW_TYPE_STRING_PTR,
 	  offsetof(rlm_krb5_t,keytab), NULL, NULL },
 	{ "service_principal", PW_TYPE_STRING_PTR,
@@ -75,7 +68,7 @@ static int verify_krb5_tgt(krb5_context context, rlm_krb5_t *instance,
 			*servername = '\0';
 		}
 
-		strncpy(service,instance->service_princ,sizeof(service));
+		strlcpy(service,instance->service_princ,sizeof(service));
 		service[sizeof(service)-1] = '\0';
 
 		if (servername != NULL) {
@@ -93,7 +86,7 @@ static int verify_krb5_tgt(krb5_context context, rlm_krb5_t *instance,
 		return RLM_MODULE_REJECT;
 	}
 
-	strncpy(phost, krb5_princ_component(c, princ, 1)->data, BUFSIZ);
+	strlcpy(phost, krb5_princ_component(c, princ, 1)->data, BUFSIZ);
 	phost[BUFSIZ - 1] = '\0';
 
 	/*
@@ -246,7 +239,7 @@ static int krb5_auth(void *instance, REQUEST *request)
 	 *  Ensure that we're being passed a plain-text password,
 	 *  and not anything else.
 	 */
-	if (request->password->attribute != PW_PASSWORD) {
+	if (request->password->attribute != PW_USER_PASSWORD) {
 		radlog(L_AUTH, "rlm_krb5: Attribute \"User-Password\" is required for authentication.  Cannot use \"%s\".", request->password->name);
 		return RLM_MODULE_INVALID;
 	}
@@ -254,8 +247,8 @@ static int krb5_auth(void *instance, REQUEST *request)
 	/*
 	 *	shortcuts
 	 */
-	user = request->username->strvalue;
-	pass = request->password->strvalue;
+	user = request->username->vp_strvalue;
+	pass = request->password->vp_strvalue;
 
 	/* Generate a unique cache_name */
 	memset(cache_name, 0, sizeof(cache_name));
@@ -355,7 +348,7 @@ static int krb5_auth(void *instance, REQUEST *request)
 	 *  Ensure that we're being passed a plain-text password,
 	 *  and not anything else.
 	 */
-	if (request->password->attribute != PW_PASSWORD) {
+	if (request->password->attribute != PW_USER_PASSWORD) {
 		radlog(L_AUTH, "rlm_krb5: Attribute \"User-Password\" is required for authentication.  Cannot use \"%s\".", request->password->name);
 		return RLM_MODULE_INVALID;
 	}
@@ -363,8 +356,8 @@ static int krb5_auth(void *instance, REQUEST *request)
 	/*
 	 *	shortcuts
 	 */
-	user = request->username->strvalue;
-	pass = request->password->strvalue;
+	user = request->username->vp_strvalue;
+	pass = request->password->vp_strvalue;
 
 	if ( (r = krb5_parse_name(context, user, &userP)) ) {
 		radlog(L_AUTH, "rlm_krb5: [%s] krb5_parse_name failed: %s",
@@ -400,20 +393,19 @@ static int krb5_auth(void *instance, REQUEST *request)
 #endif /* HEIMDAL_KRB5 */
 
 module_t rlm_krb5 = {
-  "Kerberos",
-  RLM_TYPE_THREAD_UNSAFE,	/* type: not thread safe */
-  NULL,				/* initialize */
-  krb5_instantiate,   		/* instantiation */
-  {
-	  krb5_auth,		/* authenticate */
-	  NULL,			/* authorize */
-	  NULL,			/* pre-accounting */
-	  NULL,			/* accounting */
-	  NULL,			/* checksimul */
-	  NULL,			/* pre-proxy */
-	  NULL,			/* post-proxy */
-	  NULL			/* post-auth */
-  },
-  krb5_detach,			/* detach */
-  NULL,				/* destroy */
+	RLM_MODULE_INIT,
+	"Kerberos",
+	RLM_TYPE_THREAD_UNSAFE,	/* type: not thread safe */
+	krb5_instantiate,   		/* instantiation */
+	krb5_detach,			/* detach */
+	{
+		krb5_auth,		/* authenticate */
+		NULL,			/* authorize */
+		NULL,			/* pre-accounting */
+		NULL,			/* accounting */
+		NULL,			/* checksimul */
+		NULL,			/* pre-proxy */
+		NULL,			/* post-proxy */
+		NULL			/* post-auth */
+	},
 };

@@ -39,6 +39,9 @@
 #include <SystemConfiguration/SystemConfiguration.h>	//required for the configd kicker operation
 #include <SystemConfiguration/SCDynamicStoreCopyDHCPInfo.h>
 #include <CoreFoundation/CFPriv.h>
+#include <malloc/malloc.h>
+#include <DirectoryService/DirServicesConstPriv.h>
+#include <dispatch/dispatch.h>
 
 #include "DirServices.h"
 #include "DirServicesUtils.h"
@@ -46,7 +49,7 @@
 #include "DirServicesConst.h"
 #include "DirServicesPriv.h"
 extern "C" {
-	#include "saslutil.h"
+	#include <sasl/saslutil.h>
 };
 
 #include "CLDAPv3Plugin.h"
@@ -88,7 +91,7 @@ using namespace std;
 
 // --------------------------------------------------------------------------------
 //	Globals
-extern	bool		gServerOS;
+extern bool				gServerOS;
 
 CContinue								*gLDAPContinueTable			= nil;
 CPlugInObjectRef<sLDAPContextData *>	*gLDAPContextTable			= nil;
@@ -104,7 +107,7 @@ DSMutexSemaphore			gPWSReplicaListXMLBufferMutex("::gPWSReplicaListXMLBufferMute
 //TODO KW the AuthAuthority definitions need to come from DirectoryServiceCore
 struct LDAPv3AuthAuthorityHandler
 {
-	char							*fTag;
+	const char						*fTag;
 	LDAPv3AuthAuthorityHandlerProc	fHandler;
 };
 
@@ -129,7 +132,7 @@ CLDAPv3Plugin::CLDAPv3Plugin ( FourCharCode inSig, const char *inName )
 {
 	if ( gLDAPContinueTable == NULL )
 	{
-		CContinue *pContinue = new CContinue( CLDAPv3Plugin::ContinueDeallocProc, (gServerOS ? 256 : 64) );
+		CContinue *pContinue = new CContinue( CLDAPv3Plugin::ContinueDeallocProc );
 		
 		// got set by someone else, let's delete this one
 		if ( OSAtomicCompareAndSwapPtrBarrier(NULL, pContinue, (void **) &gLDAPContinueTable) == true )
@@ -206,38 +209,26 @@ SInt32 CLDAPv3Plugin::Initialize ( void )
 //	* SetPluginState ()
 // --------------------------------------------------------------------------------
 
-static CFRunLoopTimerRef	gActiveTimer		= NULL;
-
-static void RegisterAllNodesCallback( CFRunLoopTimerRef inTimer, void *inInfo )
-{
-	CLDAPv3Configs *configs = (CLDAPv3Configs *)inInfo;
-	if ( configs != NULL )
-		configs->RegisterAllNodes();
-	OSAtomicCompareAndSwapPtrBarrier( inTimer, NULL, (void **) &gActiveTimer );
-}
-
 SInt32 CLDAPv3Plugin::SetPluginState ( const UInt32 inState )
 {
+	static bool sbActive	= false;
+	
 	BaseDirectoryPlugin::SetPluginState( inState );
 	
 	// add a timer to add our Nodes so we can't deadlock during init
-	if ( inState & kActive != 0 && gActiveTimer == NULL )
+	if ( (inState & kActive) != 0 && __sync_bool_compare_and_swap(&sbActive, false, true) == true )
 	{
-		CFRunLoopTimerContext	context = { 0, fConfigFromXML, NULL, NULL, NULL };
-
-		// we only want one active at a time for registration, use atomic instead of a lock
-		CFRunLoopTimerRef cfTimer = CFRunLoopTimerCreate( NULL, CFAbsoluteTimeGetCurrent(), 0, 0, 0, RegisterAllNodesCallback, &context );
-		if ( OSAtomicCompareAndSwapPtrBarrier(NULL, cfTimer, (void **) &gActiveTimer) == true )
-		{
-			DbgLog( kLogPlugin, "CLDAPv3Plugin::SetPluginState - Added timer for registering our nodes" );
-			CFRunLoopAddTimer( fPluginRunLoop, cfTimer, kCFRunLoopDefaultMode );
-		}
-		
-		DSCFRelease( cfTimer );
+		dispatch_async( dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT), 
+					    ^(void) {
+							fConfigFromXML->RegisterAllNodes();
+							sbActive = false;
+						} );
 	}
 	else if ( inState & kInactive )
+	{
 		fConfigFromXML->UnregisterAllNodes();
-
+	}
+	
 	return( eDSNoErr );
 
 } // SetPluginState
@@ -476,7 +467,7 @@ tDirStatus CLDAPv3Plugin::OpenDirNode ( sOpenDirNode *inData )
 			gLDAPContextTable->RemoveRefNum( inData->fOutNodeRef );
 	}
 	
-	DSDelete( pathStr );
+	DSFree( pathStr );
 
 	return( siResult );
 
@@ -498,7 +489,7 @@ tDirStatus CLDAPv3Plugin::CloseDirNode ( sCloseDirNode *inData )
 			throw( eDSBadContextData );
 		
 		// our last chance to clean up anything we missed for that node 
-		gLDAPContinueTable->RemoveItems( inData->fInNodeRef ); // clean up continues before we remove the first context itself..
+		gLDAPContinueTable->RemovePointersForRefNum( inData->fInNodeRef ); // clean up continues before we remove the first context itself..
 
 		gLDAPContextTable->RemoveRefNum( inData->fInNodeRef );
 		DSRelease( pContext );
@@ -537,6 +528,7 @@ tDirStatus CLDAPv3Plugin::GetRecordList ( sGetRecordList *inData )
 	bool					bOCANDGroup			= false;
 	CFArrayRef				OCSearchList		= nil;
 	ber_int_t				scope				= LDAP_SCOPE_SUBTREE;
+	tContextData			uiContinue			= 0;
 
 	// Verify all the parameters
 	if ( inData == nil ) return( eMemoryError );
@@ -554,11 +546,11 @@ tDirStatus CLDAPv3Plugin::GetRecordList ( sGetRecordList *inData )
     try
     { 
 		// we are issuing the search for the first time
-		if ( inData->fIOContinueData == nil )
+		if ( inData->fIOContinueData == 0 )
 		{
-			pLDAPContinue = (sLDAPContinueData *) calloc( 1, sizeof(sLDAPContinueData) );
+			pLDAPContinue = new sLDAPContinueData;
 
-			gLDAPContinueTable->AddItem( pLDAPContinue, inData->fInNodeRef );
+			uiContinue = gLDAPContinueTable->AddPointer( pLDAPContinue->Retain(), inData->fInNodeRef );
 
             //parameters used for data buffering
 			pLDAPContinue->fLDAPConnection = pContext->fLDAPConnection->Retain();
@@ -570,13 +562,15 @@ tDirStatus CLDAPv3Plugin::GetRecordList ( sGetRecordList *inData )
 		}
 		else
 		{
-			pLDAPContinue = (sLDAPContinueData *)inData->fIOContinueData;
-			if ( gLDAPContinueTable->VerifyItem( pLDAPContinue ) == false ) throw( eDSInvalidContinueData );
+			pLDAPContinue = (sLDAPContinueData *) gLDAPContinueTable->GetPointer( inData->fIOContinueData );
+			if ( pLDAPContinue == NULL ) throw( eDSInvalidContinueData );
+			pLDAPContinue->Retain();
+			uiContinue = inData->fIOContinueData;
 		}
 
         // start with the continue set to nil until buffer gets full and there is more data
         //OR we have more record types to look through
-        inData->fIOContinueData		= NULL;
+        inData->fIOContinueData		= 0;
 		//return zero if nothing found here
 		inData->fOutRecEntryCount	= 0;
 		
@@ -626,6 +620,12 @@ tDirStatus CLDAPv3Plugin::GetRecordList ( sGetRecordList *inData )
             if ( pLDAPSearchBase == NULL )
 			{
 				pLDAPContinue->fRecTypeIndex++;
+				if ( pLDAPContinue->fRecTypeIndex > cpRecTypeListCount )
+				{
+					inData->fOutRecEntryCount = uiTotal;
+					outBuff->SetLengthToSize();
+					break;
+				}
 				continue;
 			}
 			
@@ -652,7 +652,7 @@ tDirStatus CLDAPv3Plugin::GetRecordList ( sGetRecordList *inData )
 			if ( siResult == eDSBufferTooSmall )
 			{
 				//set continue if there is more data available
-				inData->fIOContinueData = pLDAPContinue;
+				inData->fIOContinueData = uiContinue;
 				
 				// if we've put some records we change the error
 				if ( uiTotal != 0 )
@@ -683,13 +683,13 @@ tDirStatus CLDAPv3Plugin::GetRecordList ( sGetRecordList *inData )
 		siResult = err;
     }
 	
-	if ( inData->fIOContinueData == NULL && pLDAPContinue != NULL )
+	if ( inData->fIOContinueData == 0 && pLDAPContinue != NULL )
 	{
 		// we've decided not to return continue data, so we should clean up
-		gLDAPContinueTable->RemoveItem( pLDAPContinue );
-		pLDAPContinue = nil;
+		gLDAPContinueTable->RemoveContext( uiContinue );
 	}
 	
+	DSRelease( pLDAPContinue );
 	DSDelete( pLDAPSearchBase );
 	DSDelete( cpRecTypeList );
 	DSDelete( cpAttrTypeList );
@@ -2698,7 +2698,7 @@ tDirStatus CLDAPv3Plugin::GetAttributeValue ( sGetAttributeValue *inData )
 //	* CheckAutomountNames
 //------------------------------------------------------------------------------------
 
-tDirStatus CLDAPv3Plugin::CheckAutomountNames(	char		*inRecType,
+tDirStatus CLDAPv3Plugin::CheckAutomountNames(	const char  *inRecType,
 												char	   **inAttrValues,
 												char	  ***outValues,
 												char	  ***outMaps,
@@ -2793,7 +2793,7 @@ char *CLDAPv3Plugin::CopyAutomountMapName(	sLDAPContextData	*inContext,
 						for (int iRDN = 0; tmpDN[iRDN] != NULL; iRDN++) 
 						{
 							// see if we are at the automountMapName
-							if (tmpDN[iRDN][0] != NULL && strcmp(tmpDN[iRDN][0]->la_attr.bv_val, pMapAttrName) == 0)
+							if (tmpDN[iRDN][0] != NULL && strcasecmp(tmpDN[iRDN][0]->la_attr.bv_val, pMapAttrName) == 0)
 							{
 								mapName = strdup( tmpDN[iRDN][0]->la_value.bv_val );
 								break;
@@ -2893,7 +2893,10 @@ tDirStatus CLDAPv3Plugin::GetTheseRecords (
 	char				*aAutomountBase		= NULL;
 	char				*pMapAttrName		= NULL;
 	UInt32				iCountMaps			= 0;
-	
+	char				**tempNames			= NULL;
+	char				*altIdAttr			= NULL;
+	char				**altNames			= NULL;
+
 	if ( inContext == NULL ) return( eDSInvalidContext );
 	if ( inContinue == NULL ) return( eDSInvalidContinueData );
 	
@@ -2976,6 +2979,79 @@ tDirStatus CLDAPv3Plugin::GetTheseRecords (
 													 inNativeRecType,
 													 inbOCANDGroup,
 													 inOCSearchList );
+			
+			// we search the alt identities if it is a user/computer and we are searching record name
+			if ( queryFilter != NULL &&
+				 (patternMatch == eDSiExact || patternMatch == eDSExact) && 
+				 inAttrNames != NULL && inRecType != NULL && 
+				 (strcmp(inRecType, kDSStdRecordTypeUsers) == 0 || strcmp(inRecType, kDSStdRecordTypeComputers) == 0) &&
+				 strcmp(inConstAttrType, kDSNAttrRecordName) == 0 )
+			{
+				// here we will search altIdentities if record name is provided
+				altIdAttr = MapAttrToLDAPType( inContext, inRecType, kDSNAttrAltSecurityIdentities, 1, true );
+				if ( altIdAttr != NULL )
+				{
+					int index = 0;
+					
+					// just allocate a buffer same size as the original, even if we don't copy them all
+					altNames = (char **) calloc( 1, malloc_size(inAttrNames) );
+					char *value = NULL;
+					int nameCount = 0;
+					
+					for ( nameCount = 0; (value = inAttrNames[nameCount]) != NULL; nameCount++ )
+					{
+						int len = strlen( value );
+						if ( memchr(value, '@', len) != NULL )
+						{
+							size_t buffLen = len + sizeof("Kerberos:");
+							char *buffer = (char *) malloc( buffLen );
+							
+							strlcpy( buffer, "Kerberos:", buffLen );
+							strlcat( buffer, value, buffLen );
+							
+							altNames[index++] = buffer;
+							
+							DbgLog( kLogInfo, "CLDAPv3Plugin::GetTheseRecords - searching AltSecurityIdentities for '%s'", buffer );
+						}
+					}
+					
+					// if we have some alternate names, let's add a search
+					if ( index != 0 )
+					{
+						char *tempFilter = BuildLDAPQueryMultiFilter( (char *) kDSNAttrAltSecurityIdentities,
+																	  altNames,
+																	  patternMatch,
+																	  inContext,
+																	  false,
+																	  (const char *)inRecType,
+																	  inNativeRecType,
+																	  inbOCANDGroup,
+																	  inOCSearchList );
+						
+						if ( tempFilter != NULL )
+						{
+							size_t len = 2 + strlen(queryFilter) + strlen(tempFilter) + 1 + 1;
+							char *newFilter = (char *) calloc( len, sizeof(char) );
+							snprintf( newFilter, len, "(|%s%s)", queryFilter, tempFilter );
+							
+							DSFree( queryFilter );
+							DSFree( tempFilter );
+							
+							queryFilter = newFilter;
+						}
+						
+						// now add them to the name list
+						tempNames = (char **) calloc( nameCount + index + 1, sizeof(char *) );
+						
+						bcopy( inAttrNames, tempNames, nameCount * sizeof(char *) );
+						bcopy( altNames, tempNames + nameCount, index * sizeof(char *) );
+						
+						inAttrNames = tempNames;
+					}
+					
+					DSFreeString( altIdAttr );
+				}
+			}
 		}
 
 		if ( queryFilter == nil )
@@ -2983,11 +3059,28 @@ tDirStatus CLDAPv3Plugin::GetTheseRecords (
 			DSFreeStringList( aAutomountMaps );
 			DSFreeStringList( aValues );
 			DSFreeString( aAutomountBase );
+			DSFree( tempNames );
 			return eDSNoStdMappingAvailable;
 		}
 	}
 	    
 	char **attrs = MapAttrListToLDAPTypeArray( inRecType, inAttrTypeList, inContext, inConstAttrType );
+	
+	// if we are also searching the altSecurityIdentity, we need to append it to the list of attributes retrieved
+	if ( altIdAttr != NULL && tempNames != NULL ) {
+		char **oldPtr = attrs;
+		size_t currSize = (attrs ? malloc_size(attrs) : 0);
+
+		attrs = (char **) reallocf( attrs, currSize + sizeof(char *) );
+		
+		char **tempList = attrs;
+		if ( oldPtr != NULL ) {
+			while ( (*tempList) != NULL ) tempList++;
+		}
+		
+		tempList[0] = strdup( altIdAttr );
+		tempList[1] = NULL;
+	}
 	
     try
     {
@@ -3088,6 +3181,8 @@ tDirStatus CLDAPv3Plugin::GetTheseRecords (
         siResult = err;
     }
 	
+	DSFree( tempNames );
+	DSFreeStringList( altNames );
 	DSFreeStringList( attrs );
 	DSDelete( queryFilter );
 	DSDelete( aRecData );
@@ -3308,9 +3403,6 @@ char *CLDAPv3Plugin::BuildLDAPQueryMultiFilter
 				strCount++;
 			}//while(inAttrNames[strCount] != nil)
 
-			//assume that the query is "OR" based ie. meet any of the criteria
-			cfStringRef = CFStringCreateMutableCopy(kCFAllocatorDefault, 0, CFSTR("(|"));
-			
 			//get the first mapping
 			numAttributes = 1;
 			//KW Note that kDS1RecordName is single valued so we are using kDSNAttrRecordName
@@ -3329,6 +3421,9 @@ char *CLDAPv3Plugin::BuildLDAPQueryMultiFilter
 					goto failed;
 			}
 	
+			//assume that the query is "OR" based ie. meet any of the criteria
+			cfStringRef = CFStringCreateMutableCopy(kCFAllocatorDefault, 0, CFSTR("(|"));
+			
 			matchType = (UInt32) (patternMatch);
 			while ( nativeAttrType != nil )
 			{
@@ -3467,25 +3562,8 @@ char *CLDAPv3Plugin::BuildLDAPQueryMultiFilter
 				}
 			}
 			
-			if (cfStringRef != nil)
-			{
-				CFRelease(cfStringRef);
-				cfStringRef = nil;
-			}
-
-			if (escapedStrings != nil)
-			{
-				strCount = 0;
-				while(escapedStrings[strCount] != nil)
-				{
-					free(escapedStrings[strCount]);
-					escapedStrings[strCount] = nil;
-					strCount++;
-				}
-				free(escapedStrings);
-				escapedStrings = nil;
-			}
-	
+			DSCFRelease( cfStringRef );
+			
 		} // if (inAttrNames != nil)
 	}
 	if (objClassAdded)
@@ -3505,6 +3583,7 @@ failed:
 	
 	DSCFRelease( cfQueryStringRef );
 	DSFreeStringList( nonEscapedStrings );
+	DSFreeStringList( escapedStrings );
 	
 	return (queryFilter);
 	
@@ -3596,7 +3675,7 @@ tDirStatus CLDAPv3Plugin::GetDirNodeInfo ( sGetDirNodeInfo *inData )
 					aTmpData->AppendLong( sizeof( "LDAPv3" )-1 );
 					aTmpData->AppendString( "LDAPv3" );
 
-					char *tmpStr = kLDAPUnknownNodeLocationStr;
+					const char *tmpStr = kLDAPUnknownNodeLocationStr;
 					
 					//don't need to retrieve for the case of "generic unknown" so don't check index 0
 					// simply always use the pContext->fNodeName since case of registered it is identical to
@@ -3640,7 +3719,7 @@ tDirStatus CLDAPv3Plugin::GetDirNodeInfo ( sGetDirNodeInfo *inData )
 					//possible for a node to be ReadOnly, ReadWrite, WriteOnly
 					//note that ReadWrite does not imply fully readable or writable
 					
-					if (nodeConfig == NULL || nodeConfig->fLDAPv2ReadOnly)
+					if (nodeConfig == NULL)
 					{
 						aTmpData->AppendLong( sizeof("ReadOnly") - 1 );
 						aTmpData->AppendString( "ReadOnly" );
@@ -4216,7 +4295,9 @@ tDirStatus CLDAPv3Plugin::OpenRecord ( sOpenRecord *inData )
 			if (pRecType->fBufferData != nil)
 				pRecContext->fOpenRecordType = strdup( pRecType->fBufferData );
 			
-			if (pRecName->fBufferData != nil)
+			// need to get the real name of the record, not what we opened, if that fails, then put the name passed
+			pRecContext->fOpenRecordName = GetRecordName( pRecContext->fOpenRecordType, result, pContext, siResult );
+			if (pRecContext->fOpenRecordName == NULL)
 				pRecContext->fOpenRecordName = strdup( pRecName->fBufferData );
 			
 			pRecContext->fOpenRecordDN = ldapDN;
@@ -4329,12 +4410,7 @@ tDirStatus CLDAPv3Plugin::DeleteRecord ( sDeleteRecord *inData, bool inDeleteCre
 	if ( pRecContext == nil )
 		return( eDSBadContextData );
 	CLDAPNodeConfig *nodeConfig = pRecContext->fLDAPConnection->fNodeConfig;
-	if ( nodeConfig != NULL && nodeConfig->fLDAPv2ReadOnly )
-	{
-		DSRelease( pRecContext );
-		return( eDSReadOnly );
-	}
-	
+
 	if ( pRecContext->fOpenRecordDN == nil )
 	{
 		DSRelease( pRecContext );
@@ -4584,10 +4660,6 @@ tDirStatus CLDAPv3Plugin::SetAttributes ( UInt32 inRecRef, CFDictionaryRef inDic
 	{
 		pRecContext = gLDAPContextTable->GetObjectForRefNum( inRecRef );
 		if ( pRecContext == nil ) throw( eDSBadContextData );
-		
-		CLDAPNodeConfig *nodeConfig = pRecContext->fLDAPConnection->fNodeConfig;
-		if ( nodeConfig != NULL && nodeConfig->fLDAPv2ReadOnly ) throw( eDSReadOnly);
-
 		if ( pRecContext->fOpenRecordDN == nil ) throw( eDSNullRecName );
 		if ( CFGetTypeID(inDict) != CFDictionaryGetTypeID() ) throw( eDSInvalidBuffFormat );
 
@@ -4695,7 +4767,7 @@ tDirStatus CLDAPv3Plugin::SetAttributes ( UInt32 inRecRef, CFDictionaryRef inDic
 			if (valIndex > 0) //means we actually have something to add
 			{
 				//create this mods entry
-				mods[attrIndex] = (LDAPMod *) calloc( 1, sizeof(LDAPMod *) );
+				mods[attrIndex] = (LDAPMod *) calloc( 1, sizeof(LDAPMod) );
 				mods[attrIndex]->mod_op		= LDAP_MOD_REPLACE | LDAP_MOD_BVALUES;
 				mods[attrIndex]->mod_type	= attrTypeLDAPStr;
 				mods[attrIndex]->mod_bvalues= newValues;
@@ -4774,10 +4846,6 @@ tDirStatus CLDAPv3Plugin::RemoveAttribute ( sRemoveAttribute *inData, const char
 	{
 		pRecContext = gLDAPContextTable->GetObjectForRefNum( inData->fInRecRef );
 		if ( pRecContext == nil ) throw( eDSBadContextData );
-		
-		CLDAPNodeConfig *nodeConfig = pRecContext->fLDAPConnection->fNodeConfig;
-		if ( nodeConfig != NULL && nodeConfig->fLDAPv2ReadOnly ) throw( eDSReadOnly);
-
 		if ( pRecContext->fOpenRecordDN == nil ) throw( eDSNullRecName );
 		if ( inData->fInAttribute->fBufferData == nil ) throw( eDSNullAttributeType );
 
@@ -4866,10 +4934,6 @@ tDirStatus CLDAPv3Plugin::AddValue ( UInt32 inRecRef, tDataNodePtr inAttrType, t
 	{
 		pRecContext = gLDAPContextTable->GetObjectForRefNum( inRecRef );
 		if ( pRecContext == nil ) throw( eDSBadContextData );
-		
-		CLDAPNodeConfig *nodeConfig = pRecContext->fLDAPConnection->fNodeConfig;
-		if ( nodeConfig != NULL && nodeConfig->fLDAPv2ReadOnly ) throw( eDSReadOnly);
-
 		if ( pRecContext->fOpenRecordDN == nil ) throw( eDSNullRecName );
 		if ( inAttrType->fBufferData == nil ) throw( eDSNullAttributeType );
 
@@ -4969,9 +5033,6 @@ tDirStatus CLDAPv3Plugin::SetRecordName ( sSetRecordName *inData )
 	{
 		pRecContext = gLDAPContextTable->GetObjectForRefNum( inData->fInRecRef );
 		if ( pRecContext == nil ) throw( eDSBadContextData );
-		
-		CLDAPNodeConfig *nodeConfig = pRecContext->fLDAPConnection->fNodeConfig;
-		if ( nodeConfig != NULL && nodeConfig->fLDAPv2ReadOnly ) throw( eDSReadOnly);
 
 		//here we are going to assume that the name given to create this record
 		//will fill out the DN with the first recordname native type
@@ -5103,7 +5164,6 @@ tDirStatus CLDAPv3Plugin::CreateRecord ( sCreateRecord *inData )
 		if ( pContext == nil ) throw( eDSBadContextData );
 		
 		CLDAPNodeConfig *nodeConfig = pContext->fLDAPConnection->fNodeConfig;
-		if ( nodeConfig != NULL && nodeConfig->fLDAPv2ReadOnly ) throw( eDSReadOnly);
 
 		pRecType = inData->fInRecType;
 		if ( pRecType == nil ) throw( eDSNullRecType );
@@ -5242,7 +5302,7 @@ tDirStatus CLDAPv3Plugin::CreateRecord ( sCreateRecord *inData )
 		if (OCSearchList != nil)
 		{
 			if ( nodeConfig != NULL )
-				nodeConfig->GetReqAttrListForObjectList( objectClassList, reqAttrsList );
+				nodeConfig->GetReqAttrListForObjectList( pContext->fLDAPConnection, objectClassList, reqAttrsList );
 
 			raCount = reqAttrsList.size();
 			ocCount = objectClassList.size();
@@ -5267,7 +5327,7 @@ tDirStatus CLDAPv3Plugin::CreateRecord ( sCreateRecord *inData )
 		}
 		
 		needsValueMarker = (char **)calloc(1,2*sizeof(char *));
-		needsValueMarker[0] = "99";
+		needsValueMarker[0] = (char *) "99";
 		needsValueMarker[1] = NULL;
 		
 		//check if we have determined what attrs need to be added
@@ -5430,7 +5490,6 @@ tDirStatus CLDAPv3Plugin::CreateRecordWithAttributes ( tDirNodeReference inNodeR
 		if ( pContext == nil ) throw( eDSBadContextData );
 		
 		CLDAPNodeConfig *nodeConfig = pContext->fLDAPConnection->fNodeConfig;
-		if ( nodeConfig != NULL && nodeConfig->fLDAPv2ReadOnly ) throw( eDSReadOnly);
 
 		if ( CFGetTypeID(inDict) != CFDictionaryGetTypeID() ) throw( eDSInvalidBuffFormat );
 
@@ -5500,7 +5559,7 @@ tDirStatus CLDAPv3Plugin::CreateRecordWithAttributes ( tDirNodeReference inNodeR
 			strcat(ldapDNString,pLDAPSearchBase);
 		}
 		
-		rnmod = (LDAPMod *) calloc( 1, sizeof(LDAPMod *) );
+		rnmod = (LDAPMod *) calloc( 1, sizeof(LDAPMod) );
 		rnmod->mod_type = strdup(recNameAttrType);
 
 		CFArrayRef shortNames = (CFArrayRef)CFDictionaryGetValue( inDict, CFSTR( kDSNAttrRecordName ) );
@@ -5595,7 +5654,7 @@ tDirStatus CLDAPv3Plugin::CreateRecordWithAttributes ( tDirNodeReference inNodeR
 		
 		if (OCSearchList != nil && nodeConfig != NULL)
 		{
-			nodeConfig->GetReqAttrListForObjectList( objectClassList, reqAttrsList );
+			nodeConfig->GetReqAttrListForObjectList( pContext->fLDAPConnection, objectClassList, reqAttrsList );
 			
 			//set the count of required attrs
 			raCount = reqAttrsList.size();
@@ -5603,7 +5662,7 @@ tDirStatus CLDAPv3Plugin::CreateRecordWithAttributes ( tDirNodeReference inNodeR
 			//set the count of object classes
 			ocCount = objectClassList.size();
 			
-			ocmod = (LDAPMod *) calloc( 1, sizeof(LDAPMod *) );
+			ocmod = (LDAPMod *) calloc( 1, sizeof(LDAPMod) );
 			ocmod->mod_op = LDAP_MOD_ADD;
 			ocmod->mod_type = strdup("objectClass");
 			ocmod->mod_values = nil;
@@ -5791,7 +5850,7 @@ tDirStatus CLDAPv3Plugin::CreateRecordWithAttributes ( tDirNodeReference inNodeR
 			if (valIndex > 0) //means we actually have something to add
 			{
 				//create this mods entry
-				mods[modIndex] = (LDAPMod *) calloc( 1, sizeof(LDAPMod *) );
+				mods[modIndex] = (LDAPMod *) calloc( 1, sizeof(LDAPMod) );
 				mods[modIndex]->mod_op		= LDAP_MOD_ADD | LDAP_MOD_BVALUES;
 				mods[modIndex]->mod_type	= strdup(attrTypeStr);
 				mods[modIndex]->mod_bvalues= newValues;
@@ -5894,10 +5953,6 @@ tDirStatus CLDAPv3Plugin::RemoveAttributeValue ( sRemoveAttributeValue *inData, 
 	{
 		pRecContext = gLDAPContextTable->GetObjectForRefNum( inData->fInRecRef );
 		if ( pRecContext == nil ) throw( eDSBadContextData );
-		
-		CLDAPNodeConfig *nodeConfig = pRecContext->fLDAPConnection->fNodeConfig;
-		if ( nodeConfig != NULL && nodeConfig->fLDAPv2ReadOnly ) throw( eDSReadOnly);
-
 		if ( pRecContext->fOpenRecordDN == nil ) throw( eDSNullRecName );
 
 		pAttrType = inData->fInAttrType;
@@ -6067,10 +6122,6 @@ tDirStatus CLDAPv3Plugin::SetAttributeValues ( sSetAttributeValues *inData, cons
 	{
 		pRecContext = gLDAPContextTable->GetObjectForRefNum( inData->fInRecRef );
 		if ( pRecContext == nil ) throw( eDSBadContextData );
-		
-		CLDAPNodeConfig *nodeConfig = pRecContext->fLDAPConnection->fNodeConfig;
-		if ( nodeConfig!= NULL && nodeConfig->fLDAPv2ReadOnly ) throw( eDSReadOnly);
-
 		if ( pRecContext->fOpenRecordDN == nil ) throw( eDSNullRecName );
 		if ( inData->fInAttrType == nil ) throw( eDSNullAttributeType );
 		if ( inData->fInAttrValueList == nil ) throw( eDSNullAttributeValue ); //would like a plural constant for this
@@ -6196,10 +6247,6 @@ tDirStatus CLDAPv3Plugin::SetAttributeValue ( sSetAttributeValue *inData, const 
 	{
 		pRecContext = gLDAPContextTable->GetObjectForRefNum( inData->fInRecRef );
 		if ( pRecContext == nil ) throw( eDSBadContextData );
-		
-		CLDAPNodeConfig *nodeConfig = pRecContext->fLDAPConnection->fNodeConfig;
-		if ( nodeConfig!= NULL && nodeConfig->fLDAPv2ReadOnly ) throw( eDSReadOnly);
-
 		if ( pRecContext->fOpenRecordDN == nil ) throw( eDSNullRecName );
 		if ( inData->fInAttrValueEntry == nil ) throw( eDSNullAttributeValue );
 		
@@ -6396,7 +6443,7 @@ tDirStatus CLDAPv3Plugin::ReleaseContinueData ( sReleaseContinueData *inData )
 	tDirStatus	siResult	= eDSNoErr;
 	
 	// RemoveItem calls our ContinueDeallocProc to clean up
-	if ( gLDAPContinueTable->RemoveItem( inData->fInContinueData ) != eDSNoErr )
+	if ( gLDAPContinueTable->RemoveContext( inData->fInContinueData ) != eDSNoErr )
 	{
 		siResult = eDSInvalidContext;
 	}
@@ -7405,6 +7452,7 @@ tDirStatus CLDAPv3Plugin::DoAttributeValueSearchWithData( sDoAttrValueSearchWith
 	CFArrayRef				OCSearchList		= nil;
 	ber_int_t				scope				= LDAP_SCOPE_SUBTREE;
 	UInt32					strCount			= 0;
+	tContextData			uiContinue			= 0;
 
 	// Verify all the parameters
 	if ( inData == nil ) return( eMemoryError );
@@ -7419,11 +7467,11 @@ tDirStatus CLDAPv3Plugin::DoAttributeValueSearchWithData( sDoAttrValueSearchWith
 
     try
     {
-		if ( inData->fIOContinueData == nil )
+		if ( inData->fIOContinueData == 0 )
 		{
-			pLDAPContinue = (sLDAPContinueData *) calloc( 1, sizeof(sLDAPContinueData) );
+			pLDAPContinue = new sLDAPContinueData;
 
-			gLDAPContinueTable->AddItem( pLDAPContinue, inData->fInNodeRef );
+			uiContinue = gLDAPContinueTable->AddPointer( pLDAPContinue->Retain(), inData->fInNodeRef );
 
             //parameters used for data buffering
 			pLDAPContinue->fLDAPConnection = pContext->fLDAPConnection->Retain();
@@ -7435,8 +7483,10 @@ tDirStatus CLDAPv3Plugin::DoAttributeValueSearchWithData( sDoAttrValueSearchWith
 		}
 		else
 		{
-			pLDAPContinue = (sLDAPContinueData *)inData->fIOContinueData;
-			if ( gLDAPContinueTable->VerifyItem( pLDAPContinue ) == false ) throw( eDSInvalidContinueData );
+			pLDAPContinue = (sLDAPContinueData *) gLDAPContinueTable->GetPointer( inData->fIOContinueData );
+			if ( pLDAPContinue == NULL ) throw( eDSInvalidContinueData );
+			pLDAPContinue->Retain();
+			uiContinue = inData->fIOContinueData;
 		}
 
         // start with the continue set to nil until buffer gets full and there is more data
@@ -7522,7 +7572,7 @@ tDirStatus CLDAPv3Plugin::DoAttributeValueSearchWithData( sDoAttrValueSearchWith
 		if (	(pattMatch == eDSCompoundExpression) || 
 				(pattMatch == eDSiCompoundExpression) )
 		{
-			pAttrType = ""; //use fake string since pAttrType is used in strcmp below
+			pAttrType = (char *) ""; //use fake string since pAttrType is used in strcmp below
 		}
 		else
 		{
@@ -7605,7 +7655,7 @@ tDirStatus CLDAPv3Plugin::DoAttributeValueSearchWithData( sDoAttrValueSearchWith
 			if ( siResult == eDSBufferTooSmall )
 			{
 				//set continue if there is more data available
-				inData->fIOContinueData = pLDAPContinue;
+				inData->fIOContinueData = uiContinue;
 				
 				// if we've put some records we change the error
 				if ( uiTotal != 0 )
@@ -7634,13 +7684,13 @@ tDirStatus CLDAPv3Plugin::DoAttributeValueSearchWithData( sDoAttrValueSearchWith
 		outBuff->SetLengthToSize();
 	}
 
-	if ( (inData->fIOContinueData == nil) && (pLDAPContinue != nil) )
+	if ( (inData->fIOContinueData == 0) && (pLDAPContinue != nil) )
 	{
 		// we've decided not to return continue data, so we should clean up
-		gLDAPContinueTable->RemoveItem( pLDAPContinue );
-		pLDAPContinue = nil;
+		gLDAPContinueTable->RemoveContext( uiContinue );
 	}
-
+	
+	DSRelease( pLDAPContinue );
 	DSDelete( pLDAPSearchBase );
 	DSDelete( cpAttrTypeList );
     DSDelete( outBuff );
@@ -8014,7 +8064,7 @@ bool CLDAPv3Plugin::DoAnyMatch (	const char		   *inString,
 //	* SetAttributeValueForDN
 //------------------------------------------------------------------------------------
 
-tDirStatus CLDAPv3Plugin::SetAttributeValueForDN( sLDAPContextData *inContext, char *inDN, const char *inRecordType, char *inAttrType, char **inValues )
+tDirStatus CLDAPv3Plugin::SetAttributeValueForDN( sLDAPContextData *inContext, char *inDN, const char *inRecordType, const char *inAttrType, const char **inValues )
 {
 	tDirStatus	siResult		= eDSNoErr;
 	char		*pLDAPAttrType	= NULL;
@@ -8039,7 +8089,7 @@ tDirStatus CLDAPv3Plugin::SetAttributeValueForDN( sLDAPContextData *inContext, c
 				berval *bval = (berval *) calloc( sizeof(berval), 1 );
 				if( bval != NULL )  // if a calloc fails we have bigger issues, we'll just stop here.. set siResult
 				{
-					bval->bv_val = *inValues;
+					bval->bv_val = (char *) *inValues;
 					bval->bv_len = strlen( *inValues );
 					ber_bvecadd( &bvals, bval );
 				}
@@ -8109,7 +8159,7 @@ tDirStatus CLDAPv3Plugin::SetAttributeValueForDN( sLDAPContextData *inContext, c
 
 SInt32
 CLDAPv3Plugin::GetAuthAuthority( sLDAPContextData *inContext, const char *userName, int inUserNameBufferLength,
-	unsigned long *outAuthCount, char **outAuthAuthority[], const char *inRecordType )
+	UInt32 *outAuthCount, char **outAuthAuthority[], const char *inRecordType )
 {
 	tDataBufferPtr		aaBuffer		= NULL;
 
@@ -8345,42 +8395,51 @@ tDirStatus CLDAPv3Plugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 		if ( nodeConfig == NULL || aRequest == eDSCustomCallLDAPv3Reinitialize )
 		{
 			bufLen = inData->fInRequestData->fBufferLength;
-			if (	( aRequest != eDSCustomCallLDAPv3WriteServerMappings ) &&
-					( aRequest != eDSCustomCallLDAPv3ReadConfigDataServerList ) )
+			
+			switch ( aRequest )
 			{
-				if ( bufLen < sizeof( AuthorizationExternalForm ) ) throw( eDSInvalidBuffFormat );
-
-				if ( pContext->fEffectiveUID == 0 ) {
-					bzero(&blankExtForm,sizeof(AuthorizationExternalForm));
-					if (memcmp(inData->fInRequestData->fBufferData,&blankExtForm,
-							   sizeof(AuthorizationExternalForm)) == 0) {
-						verifyAuthRef = false;
+				case eDSCustomCallLDAPv3NewServerDiscovery:
+				case eDSCustomCallLDAPv3NewServerDiscoveryNoDupes:
+				case eDSCustomCallLDAPv3NewServerVerifySettings:
+				case eDSCustomCallLDAPv3NewServerGetConfig:
+				case eDSCustomCallLDAPv3WriteServerMappings:
+				case eDSCustomCallLDAPv3ReadConfigDataServerList:
+					// all of these requests ignore authorization
+					break;
+					
+				default:
+					if ( bufLen < sizeof( AuthorizationExternalForm ) ) throw( eDSInvalidBuffFormat );
+					if ( pContext->fEffectiveUID == 0 ) {
+						bzero(&blankExtForm,sizeof(AuthorizationExternalForm));
+						if (memcmp(inData->fInRequestData->fBufferData,&blankExtForm,
+								   sizeof(AuthorizationExternalForm)) == 0) {
+							verifyAuthRef = false;
+						}
 					}
-				}
-				if (verifyAuthRef) {
-					status = AuthorizationCreateFromExternalForm((AuthorizationExternalForm *)inData->fInRequestData->fBufferData,
-						&authRef);
-					if (status != errAuthorizationSuccess)
-					{
-						DbgLog( kLogPlugin, "CLDAPv3Plugin: AuthorizationCreateFromExternalForm returned error %d", siResult );
-						syslog( LOG_ALERT, "LDAP Custom Call <%d> AuthorizationCreateFromExternalForm returned error %d", aRequest, siResult );
-						throw( eDSPermissionError );
+					if (verifyAuthRef) {
+						status = AuthorizationCreateFromExternalForm((AuthorizationExternalForm *)inData->fInRequestData->fBufferData,
+																	 &authRef);
+						if (status != errAuthorizationSuccess)
+						{
+							DbgLog( kLogPlugin, "CLDAPv3Plugin: AuthorizationCreateFromExternalForm returned error %d", siResult );
+							throw( eDSPermissionError );
+						}
+						
+						AuthorizationItem rights[] = { {"system.services.directory.configure", 0, 0, 0} };
+						AuthorizationItemSet rightSet = { sizeof(rights)/ sizeof(*rights), rights };
+						
+						status = AuthorizationCopyRights(authRef, &rightSet, NULL,
+														 kAuthorizationFlagExtendRights, NULL);
+						
+						if (status != errAuthorizationSuccess)
+						{
+							DbgLog( kLogPlugin, "CLDAPv3Plugin: AuthorizationCopyRights returned error %d", siResult );
+							throw( eDSPermissionError );
+						}
 					}
-		
-					AuthorizationItem rights[] = { {"system.services.directory.configure", 0, 0, 0} };
-					AuthorizationItemSet rightSet = { sizeof(rights)/ sizeof(*rights), rights };
-				
-					status = AuthorizationCopyRights(authRef, &rightSet, NULL,
-						kAuthorizationFlagExtendRights, NULL);
-
-					if (status != errAuthorizationSuccess)
-					{
-						DbgLog( kLogPlugin, "CLDAPv3Plugin: AuthorizationCopyRights returned error %d", siResult );
-						syslog( LOG_ALERT, "AuthorizationCopyRights returned error %d", siResult );
-						throw( eDSPermissionError );
-					}
-				}
+					break;
 			}
+			
 			switch( aRequest )
 			{
 				case eDSCustomCallLDAPv3WriteServerMappings:
@@ -8420,15 +8479,15 @@ tDirStatus CLDAPv3Plugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 						
 					if ( inData->fOutRequestResponse == nil ) throw( eDSNullDataBuff );
 					if ( inData->fOutRequestResponse->fBufferData == nil ) throw( eDSEmptyBuffer );
-					if ( inData->fOutRequestResponse->fBufferSize < sizeof( CFIndex ) ) throw( eDSInvalidBuffFormat );
+					if ( inData->fOutRequestResponse->fBufferSize < sizeof(int32_t) ) throw( eDSInvalidBuffFormat );
 					if (fConfigFromXML)
 					{
 						// need four bytes for size
 						xmlData = fConfigFromXML->CopyLiveXMLConfig();
 						if (xmlData != 0)
 						{
-							*(CFIndex*)(inData->fOutRequestResponse->fBufferData) = CFDataGetLength(xmlData);
-							inData->fOutRequestResponse->fBufferLength = sizeof( CFIndex );
+							*(int32_t *)(inData->fOutRequestResponse->fBufferData) = (int32_t) CFDataGetLength(xmlData);
+							inData->fOutRequestResponse->fBufferLength = sizeof( int32_t );
 							DSCFRelease( xmlData );
 						}
 					}
@@ -8848,39 +8907,8 @@ tDirStatus CLDAPv3Plugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 void CLDAPv3Plugin::ContinueDeallocProc ( void* inContinueData )
 {
 	sLDAPContinueData *pLDAPContinue = (sLDAPContinueData *) inContinueData;
-
-	if ( pLDAPContinue != nil )
-	{
-        if ( pLDAPContinue->fResult != nil )
-        {
-        	ldap_msgfree( pLDAPContinue->fResult );
-	        pLDAPContinue->fResult = nil;
-        }
-		
-		if ( pLDAPContinue->fLDAPMsgId > 0 )
-		{
-			if ( pLDAPContinue->fLDAPConnection != nil ) 
-			{
-				LDAP *aHost = pLDAPContinue->fLDAPConnection->LockLDAPSession();
-				if ( aHost != NULL )
-				{
-					if ( aHost == pLDAPContinue->fRefLD )
-					{
-						ldap_abandon_ext( aHost, pLDAPContinue->fLDAPMsgId, NULL, NULL );
-					}
-
-					pLDAPContinue->fLDAPConnection->UnlockLDAPSession( aHost, false );
-				}
-			}
-			
-			pLDAPContinue->fLDAPMsgId = 0;
-			pLDAPContinue->fRefLD = NULL;			
-		}
-		
-		DSRelease( pLDAPContinue->fLDAPConnection );
-		DSFreeString( pLDAPContinue->fAuthAuthorityData );
-		DSFree( pLDAPContinue );
-	}
+	
+	pLDAPContinue->Release();
 } // ContinueDeallocProc
 
 
@@ -9138,7 +9166,7 @@ char* CLDAPv3Plugin::MappingNativeVariableSubstitution(	char			   *inLDAPAttrTyp
 						if (vsBValues != nil)
 						{
 							returnStrCount += vsBValues[0]->bv_len; //a little extra since variable name was already included
-							tokenValues[tokenStep] = (char *) calloc(vsBValues[0]->bv_len, sizeof(char));
+							tokenValues[tokenStep] = (char *) calloc(vsBValues[0]->bv_len+1, sizeof(char));
 							memcpy(tokenValues[tokenStep], vsBValues[0]->bv_val, vsBValues[0]->bv_len);
 							ldap_value_free_len(vsBValues);
 							vsBValues = nil;

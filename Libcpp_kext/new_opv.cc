@@ -32,10 +32,13 @@
 
 #include "kern_fns.h"
 
+#if defined(__i386__) || defined(__ppc__)
+/* Defined in the kernel for 10.6 and later for all architectures */
 void *
 operator new[] (unsigned long sz)
 {
   if (sz == 0) sz = 1;
   return kern_os_malloc(sz);
 }
+#endif /* defined(__i386__) || defined(__ppc__) */
 

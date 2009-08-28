@@ -1,0 +1,5 @@
+#!/bin/sh
+
+. /usr/share/TargetConfigs/feature_scripts/0COMMON
+
+tcHeaderExists "$1"

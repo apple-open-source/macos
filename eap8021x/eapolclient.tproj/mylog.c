@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,13 +28,13 @@
 #include <ctype.h>
 #include <sys/time.h>
 #include <time.h>
-#include <CoreFoundation/CFBase.h>
+#include <CoreFoundation/CoreFoundation.h>
 #include "mylog.h"
 
 static bool S_verbose;
 
 void
-my_log_init(bool verbose)
+my_log_set_verbose(bool verbose)
 {
     S_verbose = verbose;
     return;
@@ -52,39 +52,126 @@ my_log(int priority, const char *message, ...)
     }
 
     va_start(ap, message);
-#ifndef PLUGIN
     vsyslog(priority, message, ap);
-#else PLUGIN
-    {
-#include <SystemConfiguration/SCPrivate.h>
-	char	buffer[256];
-
-	vsnprintf(buffer, sizeof(buffer), message, ap);
-	SCLog(TRUE, priority, CFSTR("%s"), buffer);
-    }
-#endif PLUGIN
     va_end(ap);
 
+    return;
+}
+
+static void
+fprint_time(FILE * f)
+{
+    time_t		t;
+    struct tm		tm;
+    struct timeval	tv;
+
+    (void)gettimeofday(&tv, NULL);
+    t = tv.tv_sec;
+    (void)localtime_r(&t, &tm);
+
+    fprintf(f, "%04d/%02d/%02d %2d:%02d:%02d.%06d ",
+	    tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+	    tm.tm_hour, tm.tm_min, tm.tm_sec,
+	    tv.tv_usec);
     return;
 }
 
 void
 timestamp_fprintf(FILE * f, const char * message, ...)
 {
-    struct timeval	tv;
-    struct tm       	tm;
-    time_t		t;
     va_list		ap;
 
-    (void)gettimeofday(&tv, NULL);
-    t = tv.tv_sec;
-    (void)localtime_r(&t, &tm);
-
+    fprint_time(f);
     va_start(ap, message);
-    fprintf(f, "%04d/%02d/%02d %2d:%02d:%02d.%06d ",
-	    tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
-	    tm.tm_hour, tm.tm_min, tm.tm_sec,
-	    tv.tv_usec);
     vfprintf(f, message, ap);
     va_end(ap);
+}
+
+/**
+ ** eapolclient logging
+ **/
+
+static FILE * 	S_log_file;
+static uint32_t	S_log_flags;
+
+void
+eapolclient_log_set(FILE * log_file, uint32_t log_flags)
+{
+    S_log_file = log_file;
+    if (S_log_file != NULL) {
+	S_log_flags = log_flags;
+    }
+    else {
+	S_log_flags = 0;
+    }
+    return;
+}
+
+bool
+eapolclient_should_log(uint32_t flags)
+{
+    bool	should_log;
+
+    if (S_log_file == NULL || (S_log_flags & flags) == 0) {
+	should_log = FALSE;
+    }
+    else {
+	should_log = TRUE;
+    }
+    return (should_log);
+}
+
+static void
+fwrite_plist(FILE * f, CFPropertyListRef p)
+{
+    CFDataRef	data;
+
+    data = CFPropertyListCreateXMLData(NULL, p);
+    if (data == NULL) {
+	return;
+    }
+    fwrite(CFDataGetBytePtr(data), CFDataGetLength(data), 1, f);
+    CFRelease(data);
+    return;
+}
+
+void
+eapolclient_log(uint32_t flags, const char * message, ...)
+{
+    va_list		ap;
+
+    if ((S_log_flags & kLogFlagIncludeStdoutStderr) != 0) {
+	fflush(stdout);
+	fflush(stderr);
+    }
+    if (eapolclient_should_log(flags) == FALSE) {
+	return;
+    }
+    va_start(ap, message);
+    fprint_time(S_log_file);
+    vfprintf(S_log_file, message, ap);
+    va_end(ap);
+    fflush(S_log_file);
+    return;
+}
+
+void
+eapolclient_log_plist(uint32_t flags, CFPropertyListRef plist)
+{
+    if ((S_log_flags & kLogFlagIncludeStdoutStderr) != 0) {
+	fflush(stdout);
+	fflush(stderr);
+    }
+    if (eapolclient_should_log(flags) == FALSE) {
+	return;
+    }
+    fwrite_plist(S_log_file, plist);
+    fflush(S_log_file);
+    return;
+}
+
+FILE *
+eapolclient_log_file(void)
+{
+    return (S_log_file);
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,6 +20,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 
 /*!
   @header IOFireWireSerialBusProtocolTransport
@@ -180,6 +181,7 @@ protected:
 		bool				fLUNResetPathFlag;
 		int					fLUNResetCount;
 		bool				fAlwaysSetSenseData;
+		bool				fAutonomousSpinDownWorkAround;
 	};
 	
 	ExpansionData * reserved;
@@ -364,25 +366,13 @@ public:
 	virtual bool start ( IOService * provider );
 	
 	/*!
-	 *	@function cleanUp
+	 	@function cleanUp
 		@abstract cleanUp is called to tear down IOFireWireSerialBusProtocolTransport.
 		@discussion	cleanUp is called when we receive a kIOFWMessageServiceIsRequestingClose
 		message or if we fail our initialization.
 	*/
 	
 	virtual void cleanUp ( void );
-
-#if 0
-	
-	/*!
-		@function close
-		@abstract See IOService for discussion.
-		@result none.
-	*/
-	
-	virtual void close ( IOService * provider, IOOptionBits options );
-	
-#endif
 	
 	/*!
 		@function finalize

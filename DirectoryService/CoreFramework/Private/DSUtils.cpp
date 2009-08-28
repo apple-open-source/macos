@@ -31,6 +31,7 @@
 #include "GetMACAddress.h"
 #include <DirectoryService/DirServicesConst.h>
 #include <DirectoryService/DirServicesConstPriv.h>
+#include <SystemConfiguration/SCDynamicStore.h>
 
 #include <stdlib.h>
 #include <string.h>
@@ -120,7 +121,7 @@ tDataBufferPtr dsDataBufferAllocatePriv ( UInt32 inBufferSize )
 	UInt32				size	= 0;
 	tDataBufferPtr		outBuff	= nil;
 
-	size = sizeof( tDataBufferPriv ) + inBufferSize;
+	size = (UInt32) (sizeof( tDataBufferPriv ) + inBufferSize);
 	outBuff = (tDataBuffer *)::calloc( size + 1, sizeof( char ) );
 	if ( outBuff != nil )
 	{
@@ -235,7 +236,7 @@ char* dsGetPathFromListPriv ( tDataListPtr inDataList, const char *inDelimiter )
 {
 	char			   *outStr			= nil;
 	UInt32				uiSafetyCntr	= 0;
-	UInt32				uiStrLen		= 0;
+	size_t				uiStrLen		= 0;
 	tDataNode		   *pCurrNode		= nil;
 	tDataBufferPriv	   *pPrivData		= nil;
 	char			   *prevStr			= nil;
@@ -311,9 +312,9 @@ tDataListPtr dsBuildFromPathPriv ( const char *inPathCString, const char *inPath
 	const char		   *inStr		= nil;
 	char			   *ptr			= nil;
 	const char		   *inDelim		= nil;
-	SInt32				delimLen	= 0;
+	size_t				delimLen	= 0;
 	bool				done		= false;
-	SInt32				len			= 0;
+	size_t				len			= 0;
 	tDataList		   *outDataList	= nil;
     char			   *cStr		= nil;
 
@@ -464,14 +465,14 @@ tDirStatus dsAppendStringToListAllocPriv (	tDataList	   *inOutDataList,
 tDataNodePtr dsAllocListNodeFromStringPriv ( const char *inString )
 {
 	UInt32				nodeSize	= 0;
-	UInt32				strLen		= 0;
+	size_t				strLen		= 0;
 	tDataNode		   *pOutNode	= nil;
 	tDataBufferPriv	   *pPrivData	= nil;
 
 	if ( inString != nil )
 	{
 		strLen = ::strlen( inString );
-		nodeSize = sizeof( tDataBufferPriv ) + strLen + 1;
+		nodeSize = (UInt32) (sizeof( tDataBufferPriv ) + strLen + 1);
 		pOutNode = (tDataNode *)::calloc( nodeSize, sizeof( char ) );
 		if ( pOutNode != nil )
 		{
@@ -479,8 +480,8 @@ tDataNodePtr dsAllocListNodeFromStringPriv ( const char *inString )
 			pOutNode->fBufferLength = nodeSize;
 
 			pPrivData = (tDataBufferPriv *)pOutNode;
-			pPrivData->fBufferSize = strLen;
-			pPrivData->fBufferLength = strLen;
+			pPrivData->fBufferSize = (UInt32) strLen;
+			pPrivData->fBufferLength = (UInt32) strLen;
 
 			::strcpy( pPrivData->fBufferData, inString );
 		}
@@ -504,7 +505,7 @@ tDataNodePtr dsAllocListNodeFromBuffPriv ( const void *inData, const UInt32 inSi
 
 	if ( inData != nil )
 	{
-		nodeSize = sizeof( tDataBufferPriv ) + inSize + 1;
+		nodeSize = (UInt32) (sizeof( tDataBufferPriv ) + inSize + 1);
 		pOutNode = (tDataNode *)::calloc( nodeSize, sizeof( char ) );
 		if ( pOutNode != nil )
 		{
@@ -1039,7 +1040,7 @@ tDirStatus dsAuthBufferGetDataListPriv ( tDataBufferPtr inAuthBuff, tDataListPtr
 		}
 		::memcpy( &itemLen, pData, sizeof( UInt32 ) );
 		pData += sizeof( UInt32 );
-		offset += sizeof( UInt32 );
+		offset += (UInt32) ( sizeof(UInt32) );
 		if (itemLen + offset > buffLen)
 		{
 			tResult = eDSInvalidBuffFormat;
@@ -1184,7 +1185,7 @@ void HexToBinaryConversion( const char *inHexStr, UInt32 *outLength, unsigned ch
         *tptr++ = val;
     }
     
-    *outLength = (tptr - outBinary);
+    *outLength = (UInt32) (tptr - outBinary);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1228,7 +1229,7 @@ double dsTimestamp(void)
 tDirStatus dsGetAuthMethodEnumValue( tDataNode *inData, UInt32 *outAuthMethod )
 {
 	tDirStatus		siResult			= eDSNoErr;
-	UInt32			uiNativeLen			= 0;
+	size_t			uiNativeLen			= 0;
 	char		   *authMethodPtr		= NULL;
 	int				index				= 0;
 	bool			found				= false;
@@ -1505,7 +1506,7 @@ tDataListPtr dsConvertCFArrayToDataList( CFArrayRef inArray )
 			CFTypeRef       cfRef           = CFArrayGetValueAtIndex( inArray, ii );
 			char            *pTempBuffer    = NULL;
 			Boolean         bDeallocBuffer  = FALSE;
-			uint32_t        uiLength        = 0;
+			size_t			uiLength        = 0;
 			
 			if( CFStringGetTypeID() == CFGetTypeID(cfRef) )
 			{
@@ -1530,8 +1531,8 @@ tDataListPtr dsConvertCFArrayToDataList( CFArrayRef inArray )
 				tDataBufferPriv *pNewNodeData = (tDataBufferPriv *)::calloc( sizeof(tDataBufferPriv) + uiLength, sizeof(char) );
 				if ( pNewNodeData != nil )
 				{
-					pNewNodeData->fBufferSize = uiLength;
-					pNewNodeData->fBufferLength = uiLength;
+					pNewNodeData->fBufferSize = (UInt32) uiLength;
+					pNewNodeData->fBufferLength = (UInt32) uiLength;
 					
 					bcopy( pTempBuffer, pNewNodeData->fBufferData, uiLength );
 					
@@ -1682,21 +1683,66 @@ CFStringRef dsCreatePrefsFilename( const char *inFileNameBase )
 	GetMACAddress( &cfENetAddr, NULL, false );
 	if ( cfENetAddr )
 	{
-		fileString = CFStringCreateWithFormat( NULL, NULL, CFSTR("%s/%s.%@.plist"),
-						inFileNameBase, kDSLDAPPrefsDirPath, cfENetAddr );
+		fileString = CFStringCreateWithFormat( NULL, NULL, CFSTR("%s.%@.plist"), inFileNameBase, cfENetAddr );
 		
 		DSCFRelease( cfENetAddr );
 		
-		if ( CFStringGetCString(fileString, filenameStr, sizeof(filenameStr), kCFStringEncodingUTF8) &&
-			 stat(filenameStr, &statResult) != 0 )
+		if ( CFStringGetCString(fileString, filenameStr, sizeof(filenameStr), kCFStringEncodingUTF8) )
 		{
-			DSCFRelease( fileString );
+			if ( stat(filenameStr, &statResult) != 0 )
+			{
+				DbgLog( kLogInfo, "dsCreatePrefsFilename couldn't find host-specific file '%s'", filenameStr );
+				DSCFRelease( fileString );
+			}
+			else
+			{
+				DbgLog( kLogDebug, "dsCreatePrefsFilename will use host-specific file '%s'", filenameStr );
+			}
 		}
 	}
 	
 	if ( fileString == NULL )
-		fileString = CFStringCreateWithCString( kCFAllocatorDefault, inFileNameBase, kCFStringEncodingUTF8 );
+		fileString = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR("%s.plist"), inFileNameBase );
 	
 	return fileString;
 }
 
+
+void dsPostNodeEvent( void )
+{
+	SCDynamicStoreRef store = SCDynamicStoreCreate( kCFAllocatorDefault, NULL, NULL, NULL );
+	if ( store != NULL ) {
+		SCDynamicStoreNotifyValue( store, CFSTR(kDSNodeEvent) );
+		DSCFRelease( store );
+	}
+}
+
+void *dsRetainObject( void *object, volatile int32_t *refcount )
+{
+	if ( object == NULL ) return NULL;
+	if ( (*refcount) == INT32_MAX ) return object;
+
+	int32_t newCount = __sync_add_and_fetch( refcount, 1 );
+	if ( newCount > 1 ) {
+		return object;
+	}
+	
+	return NULL;
+}
+
+bool dsReleaseObject( void *object, volatile int32_t *refcount, bool bFree )
+{
+	if ( object == NULL || (*refcount) == INT32_MAX ) return false;
+	
+	int32_t newCount = __sync_sub_and_fetch( refcount, 1 );
+	if ( newCount > 0 ) {
+		return false;
+	}
+	else if ( newCount == 0 ) {
+		if ( bFree == true ) free( object );
+		return true;
+	}
+	
+	DbgLog( kLogAlert, "Aborting - Releasing object at %X -- new refCount = %d", object, newCount );
+	assert( newCount >= 0 );
+}

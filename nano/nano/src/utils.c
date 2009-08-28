@@ -1,9 +1,9 @@
-/* $Id: utils.c,v 1.122 2006/11/10 02:47:11 dolorous Exp $ */
+/* $Id: utils.c,v 1.124 2007/01/01 05:15:32 dolorous Exp $ */
 /**************************************************************************
  *   utils.c                                                              *
  *                                                                        *
  *   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004 Chris Allegretta    *
- *   Copyright (C) 2005, 2006 David Lawrence Ramsey                       *
+ *   Copyright (C) 2005, 2006, 2007 David Lawrence Ramsey                 *
  *   This program is free software; you can redistribute it and/or modify *
  *   it under the terms of the GNU General Public License as published by *
  *   the Free Software Foundation; either version 2, or (at your option)  *
@@ -46,7 +46,7 @@ int digits(size_t n)
 }
 
 /* Return the user's home directory.  We use $HOME, and if that fails,
- * we fall back on getpwuid(). */
+ * we fall back on the home directory of the effective user ID. */
 void get_homedir(void)
 {
     if (homedir == NULL) {
@@ -147,7 +147,7 @@ void unsunder(char *str, size_t true_len)
 }
 
 /* For non-null-terminated lines.  A line, by definition, shouldn't
- * normally have newlines in it, so decode its newlines into nulls. */
+ * normally have newlines in it, so decode its newlines as nulls. */
 void sunder(char *str)
 {
     assert(str != NULL);

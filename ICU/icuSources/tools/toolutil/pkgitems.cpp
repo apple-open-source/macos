@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2003-2006, International Business Machines
+*   Copyright (C) 2003-2008, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -52,8 +52,6 @@ printError(void *context, const char *fmt, va_list args) {
 }
 
 U_CDECL_END
-
-typedef void CheckDependency(void *context, const char *itemName, const char *targetName);
 
 // check a dependency ------------------------------------------------------ ***
 
@@ -141,8 +139,9 @@ checkParent(const char *itemName, CheckDependency check, void *context,
 
 // get dependencies from resource bundles ---------------------------------- ***
 
-static const char *const gAliasKey="%%ALIAS";
-enum { gAliasKeyLength=7 };
+static const char gAliasKey[]="%%ALIAS";
+static const char gDependencyKey[]="%%DEPENDENCY";
+enum { gAliasKeyLength=7, gDependencyKeyLength=12 };
 
 /*
  * Enumerate one resource item and its children and extract dependencies from
@@ -153,11 +152,12 @@ static void
 ures_enumDependencies(const UDataSwapper *ds,
                       const char *itemName,
                       const Resource *inBundle, int32_t length,
-                      Resource res, const char *inKey, int32_t depth,
+                      Resource res, const char *inKey, const char *parentKey, int32_t depth,
                       CheckDependency check, void *context,
                       UErrorCode *pErrorCode) {
     const Resource *p;
     int32_t offset;
+    UBool useResSuffix = TRUE;
 
     if(res==0 || RES_GET_TYPE(res)==URES_INT) {
         /* empty string or integer, nothing to do */
@@ -177,11 +177,9 @@ ures_enumDependencies(const UDataSwapper *ds,
     switch(RES_GET_TYPE(res)) {
         /* strings and aliases have physically the same value layout */
     case URES_STRING:
-        // we ignore all strings except top-level strings with a %%ALIAS key
-        if(depth!=1) {
-            break;
-        } else {
-            char key[8];
+        // Check for %%ALIAS
+        if(depth==1 && inKey!=NULL) {
+            char key[gAliasKeyLength+1];
             int32_t keyLength;
 
             keyLength=(int32_t)strlen(inKey);
@@ -198,7 +196,31 @@ ures_enumDependencies(const UDataSwapper *ds,
                 break;
             }
         }
-        // for the top-level %%ALIAS string fall through to URES_ALIAS
+        // Check for %%DEPENDENCY
+        else if(depth==2 && parentKey!=NULL) {
+            char key[gDependencyKeyLength+1];
+            int32_t keyLength;
+
+            keyLength=(int32_t)strlen(parentKey);
+            if(keyLength!=gDependencyKeyLength) {
+                break;
+            }
+            ds->swapInvChars(ds, parentKey, gDependencyKeyLength+1, key, pErrorCode);
+            if(U_FAILURE(*pErrorCode)) {
+                udata_printError(ds, "icupkg/ures_enumDependencies(%s res=%08x) string key contains variant characters\n",
+                                itemName, res);
+                return;
+            }
+            if(0!=strcmp(key, gDependencyKey)) {
+                break;
+            }
+            useResSuffix = FALSE;
+            break;
+        } else {
+            // we ignore all other strings
+            break;
+        }
+        // for the top-level %%ALIAS or %%DEPENDENCY string fall through to URES_ALIAS
     case URES_ALIAS:
         {
             char localeID[32];
@@ -280,20 +302,20 @@ ures_enumDependencies(const UDataSwapper *ds,
                 return;
             }
 
-            if(U_CHARSET_FAMILY==U_EBCDIC_FAMILY) {
-                // swap to EBCDIC
-                // our swapper is probably not the right one, but
-                // the function uses it only for printing errors
-                uprv_ebcdicFromAscii(ds, localeID, stringLength, localeID, pErrorCode);
-                if(U_FAILURE(*pErrorCode)) {
-                    return;
-                }
+#if (U_CHARSET_FAMILY==U_EBCDIC_FAMILY)
+            // swap to EBCDIC
+            // our swapper is probably not the right one, but
+            // the function uses it only for printing errors
+            uprv_ebcdicFromAscii(ds, localeID, stringLength, localeID, pErrorCode);
+            if(U_FAILURE(*pErrorCode)) {
+                return;
             }
+#endif
 #if U_CHARSET_FAMILY!=U_ASCII_FAMILY && U_CHARSET_FAMILY!=U_EBCDIC_FAMILY
 #           error Unknown U_CHARSET_FAMILY value!
 #endif
 
-            checkIDSuffix(itemName, localeID, -1, ".res", check, context, pErrorCode);
+            checkIDSuffix(itemName, localeID, -1, (useResSuffix ? ".res" : ""), check, context, pErrorCode);
         }
         break;
     case URES_TABLE:
@@ -341,7 +363,7 @@ ures_enumDependencies(const UDataSwapper *ds,
                             (pKey16!=NULL ?
                                 ds->readUInt16(pKey16[i]) :
                                 udata_readInt32(ds, pKey32[i])),
-                        depth+1,
+                        inKey, depth+1,
                         check, context,
                         pErrorCode);
                 if(U_FAILURE(*pErrorCode)) {
@@ -370,7 +392,7 @@ ures_enumDependencies(const UDataSwapper *ds,
                 item=ds->readUInt32(*p++);
                 ures_enumDependencies(
                         ds, itemName, inBundle, length,
-                        item, NULL, depth+1,
+                        item, NULL, inKey, depth+1,
                         check, context,
                         pErrorCode);
                 if(U_FAILURE(*pErrorCode)) {
@@ -431,7 +453,7 @@ ures_enumDependencies(const UDataSwapper *ds,
 
     ures_enumDependencies(
         ds, itemName, inBundle, bundleLength,
-        rootRes, NULL, 0,
+        rootRes, NULL, NULL, 0,
         check, context,
         pErrorCode);
 
@@ -499,7 +521,7 @@ ucnv_enumDependencies(const UDataSwapper *ds,
     /* check for supported conversionType values */
     if(inStaticData->conversionType==UCNV_MBCS) {
         /* MBCS data */
-        uint32_t mbcsHeaderFlags;
+        uint32_t mbcsHeaderLength, mbcsHeaderFlags, mbcsHeaderOptions;
         int32_t extOffset;
 
         inMBCSHeader=(const _MBCSHeader *)inBytes;
@@ -510,7 +532,14 @@ ucnv_enumDependencies(const UDataSwapper *ds,
             *pErrorCode=U_INDEX_OUTOFBOUNDS_ERROR;
             return;
         }
-        if(!(inMBCSHeader->version[0]==4 && inMBCSHeader->version[1]>=1)) {
+        if(inMBCSHeader->version[0]==4 && inMBCSHeader->version[1]>=1) {
+            mbcsHeaderLength=MBCS_HEADER_V4_LENGTH;
+        } else if(inMBCSHeader->version[0]==5 && inMBCSHeader->version[1]>=3 &&
+                  ((mbcsHeaderOptions=ds->readUInt32(inMBCSHeader->options))&
+                   MBCS_OPT_UNKNOWN_INCOMPATIBLE_MASK)==0
+        ) {
+            mbcsHeaderLength=mbcsHeaderOptions&MBCS_OPT_LENGTH_MASK;
+        } else {
             udata_printError(ds, "icupkg/ucnv_enumDependencies(): unsupported _MBCSHeader.version %d.%d\n",
                              inMBCSHeader->version[0], inMBCSHeader->version[1]);
             *pErrorCode=U_UNSUPPORTED_ERROR;
@@ -538,14 +567,15 @@ ucnv_enumDependencies(const UDataSwapper *ds,
             }
 
             /* swap the base name, between the header and the extension data */
-            baseNameLength=(int32_t)strlen((const char *)(inMBCSHeader+1));
+            const char *inBaseName=(const char *)inBytes+mbcsHeaderLength*4;
+            baseNameLength=(int32_t)strlen(inBaseName);
             if(baseNameLength>=(int32_t)sizeof(baseName)) {
                 udata_printError(ds, "icupkg/ucnv_enumDependencies(%s): base name length %ld too long\n",
                                  itemName, baseNameLength);
                 *pErrorCode=U_UNSUPPORTED_ERROR;
                 return;
             }
-            ds->swapInvChars(ds, inMBCSHeader+1, baseNameLength+1, baseName, pErrorCode);
+            ds->swapInvChars(ds, inBaseName, baseNameLength+1, baseName, pErrorCode);
 
             checkIDSuffix(itemName, baseName, -1, ".cnv", check, context, pErrorCode);
         }
@@ -586,7 +616,7 @@ getDataFormat(const uint8_t dataFormat[4]) {
 U_NAMESPACE_BEGIN
 
 void
-Package::enumDependencies(Item *pItem) {
+Package::enumDependencies(Item *pItem, void *context, CheckDependency check) {
     const UDataInfo *pInfo;
     const uint8_t *inBytes;
     int32_t format, length, infoLength, itemHeaderLength;
@@ -619,10 +649,10 @@ Package::enumDependencies(Item *pItem) {
 
         switch(format) {
         case FMT_RES:
-            ures_enumDependencies(ds, pItem->name, pInfo, inBytes, length, checkDependency, this, &errorCode);
+            ures_enumDependencies(ds, pItem->name, pInfo, inBytes, length, check, context, &errorCode);
             break;
         case FMT_CNV:
-            ucnv_enumDependencies(ds, pItem->name, pInfo, inBytes, length, checkDependency, this, &errorCode);
+            ucnv_enumDependencies(ds, pItem->name, pInfo, inBytes, length, check, context, &errorCode);
             break;
         default:
             break;

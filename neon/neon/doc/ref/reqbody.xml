@@ -33,14 +33,6 @@
 	    <paramdef>off_t <parameter>length</parameter></paramdef>
 	  </funcprototype>
 
-	  <funcprototype>
-	    <funcdef>int <function>ne_set_request_body_fd64</function></funcdef>
-	    <paramdef>ne_request *<parameter>req</parameter></paramdef>
-	    <paramdef>int <parameter>fd</parameter></paramdef>
-	    <paramdef>off64_t <parameter>begin</parameter></paramdef>
-	    <paramdef>off64_t <parameter>length</parameter></paramdef>
-	  </funcprototype>
-
 	</funcsynopsis>
 	
       </refsynopsisdiv>
@@ -62,25 +54,12 @@ bytes are read, beginning at offset <parameter>begin</parameter>
 (hence, passing <parameter>begin</parameter> as zero means the body is read
 from the beginning of the file).</para>
 
-	<para>If the <literal>NE_LFS</literal> macro is defined, then
-	the <function>ne_set_request_body_fd64</function> function is
-	also available, to provide large file support.  This function
-	can be used on 32-bit platforms supporting the LFS standard;
-	the <parameter>offset</parameter> and
-	<parameter>length</parameter> parameters can then be passed as
-	64-bit values.  When using large files,
-	<parameter>fd</parameter> must be opened using
-	<function>open64</function> or by passing the
-	<literal>O_LARGEFILE</literal> flag to
-	<function>open</function>.</para>
-
         <para>For all the above functions, the source of the request
         body must survive until the request has been dispatched;
         neither the memory buffer passed to
         <function>ne_set_request_body_buffer</function> nor the file
         descriptor passed to
-        <function>ne_set_request_body_fd</function> or
-        <function>ne_set_request_body_fd64</function> are copied
+        <function>ne_set_request_body_fd</function> are copied
         internally.</para>
 
       </refsect1>

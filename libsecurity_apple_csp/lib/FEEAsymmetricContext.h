@@ -122,6 +122,24 @@ private:
 		bool			mInitFlag;			// allows easy reuse
 };	/* FEEDExpContext */
 
+/*
+ * Elliptic curve Diffie-Hellman key exchange. The public key is 
+ * specified in one of two ways - a raw X9.62 format public key 
+ * string in Param, or a CSSM_KEY in the Context. 
+ * Requested size, in keyData->Length, must be the same size as
+ * the keys' modulus. Data is returned in keyData->Data, which is 
+ * allocated by the caller.
+ * Optionally performs X9.63 key derivation if algId == 
+ * CSSM_ALGID_ECDH_X963_KDF, with the optional SharedInfo passed
+ * as optional context attribute CSSM_ATTRIBUTE_SALT.
+ */
+extern void DeriveKey_ECDH (
+	const Context &context,
+	CSSM_ALGORITHMS algId,		
+	const CssmData &Param,
+	CSSM_DATA *keyData,
+	AppleCSPSession &session);
+
 } /* namespace CryptKit */
 
 #endif 	/* _FEE_ASYMMETRIC_CONTEXT_H_ */

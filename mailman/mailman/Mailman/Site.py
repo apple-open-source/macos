@@ -37,7 +37,7 @@ def _makedir(path):
     try:
         omask = os.umask(0)
         try:
-            os.makedirs(path, 02775)
+            os.makedirs(path, 0775)
         finally:
             os.umask(omask)
     except OSError, e:

@@ -1,7 +1,8 @@
 /* A test for strength reduction and induction variable elimination.  */
 
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-vars" } */
+/* { dg-options "-O1 -fdump-tree-optimized" } */
+/* { dg-require-effective-target size32plus } */
 
 /* Size of this structure should be sufficiently weird so that no memory
    addressing mode applies.  */
@@ -32,10 +33,14 @@ void xxx(void)
    -- induction variable with base 0, the memory access of form
       *(iv + &arr_base[0].y) = ...
 
-   In any case, we should not have 'arr_base.[^0].* ='  */
+   In any case, we should not have any multiplication.  */
 
-/* { dg-final { scan-tree-dump-times "arr_base.\[^0\]\[^\\n\\r\]*=" 0 "vars" } } */
+/* { dg-final { scan-tree-dump-times " \\* \[^\\n\\r\]*=" 0 "optimized" } } */
+/* { dg-final { scan-tree-dump-times "\[^\\n\\r\]*= \\* " 0 "optimized" } } */
+/* { dg-final { scan-tree-dump-times "MEM" 1 "optimized" } } */
 
 /* And the original induction variable should be eliminated.  */
 
-/* { dg-final { scan-tree-dump-times "iter" 0 "vars" } } */
+/* { dg-final { scan-tree-dump-times "iter" 0 "optimized" } } */
+
+/* { dg-final { cleanup-tree-dump "optimized" } } */

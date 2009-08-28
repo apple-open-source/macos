@@ -1,5 +1,5 @@
 /*
- * "$Id: image-sgi.h 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: image-sgi.h 6649 2007-07-11 21:46:42Z mike $"
  *
  *   SGI image file format library definitions for the Common UNIX Printing
  *   System (CUPS).
@@ -83,5 +83,5 @@ extern int	sgiPutRow(sgi_t *sgip, unsigned short *row, int y, int z);
 #endif /* !_SGI_H_ */
 
 /*
- * End of "$Id: image-sgi.h 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: image-sgi.h 6649 2007-07-11 21:46:42Z mike $".
  */

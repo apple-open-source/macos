@@ -21,7 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#import <objc/Object.h>
+#import <Foundation/Foundation.h>
 #import <unistd.h>
 #import <PasswordServer/AuthDBFileDefs.h>
 #import <PasswordServer/AuthFile.h>
@@ -30,8 +30,7 @@
 #import <PasswordServer/key.h>
 #import <PasswordServer/CKerberosPrincipal.h>
 
-@interface AuthDBFile : Object {
-	FILE *mPWFile;
+@interface AuthDBFile : NSObject {
 	FILE *mFreeListFile;
 	size_t mPWFileLen;
 	PWFileHeader mPWFileHeader;
@@ -46,12 +45,18 @@
 	AuthOverflowFile *mOverflow;
 	SyncPriority mSyncPriority;
 	BOOL mTestSpillBucket;
-	unsigned long mKerberosCacheLimit;
+	uint32_t mKerberosCacheLimit;
 	char *mSearchBase;
 	int mPWFileNO;
+	int32_t mPWLockCount;
+	pthread_mutex_t mLocksLock;
+	time_t mPWHdrLastMod;
 }
 
 -(id)initWithFile:(const char *)inFilePath;
+-(void)dealloc;
+-free DEPRECATED_ATTRIBUTE;
+
 -(void)createOverflowObject;
 -(int)validateFiles;
 -(int)validatePasswordFile;
@@ -66,6 +71,8 @@
 -(void)pwLock;
 -(BOOL)pwLock:(unsigned long)inMillisecondsToWait;
 -(void)pwUnlock;
+-(BOOL)pwLockLock:(unsigned long)inMillisecondsToWait;
+-(void)pwLockUnlock;
 -(void)pwWait;
 -(void)pwSignal;
 -(void)rsaWait;
@@ -84,29 +91,29 @@
 -(int)addWeakAuthMethod:(const char *)inMethod;
 -(int)removeWeakAuthMethod:(const char *)inMethod;
 
--(int)expandDatabase:(unsigned long)inNumSlots nextAvailableSlot:(long *)outSlot;
+-(int)expandDatabase:(uint32_t)inNumSlots nextAvailableSlot:(uint32_t *)outSlot;
 -(BOOL)getBigNumber:(char **)outBigNumStr;
--(long)nextSlot;
+-(uint32_t)nextSlot;
 
 -(int)addRSAKeys;
 -(int)addRSAKeys:(unsigned int)inBitCount;
 -(int)addRSAKeys:(unsigned char *)publicKey
-	publicKeyLen:(unsigned long)publicKeyLen
+	publicKeyLen:(uint32_t)publicKeyLen
 	privateKey:(unsigned char *)privateKey
-	privateKeyLen:(unsigned long)privateKeyLen;
+	privateKeyLen:(uint32_t)privateKeyLen;
 
 -(int)addGenesisUser:(const char *)username password:(const char *)password pwsRec:(PWFileEntry *)outPWRec;
 -(int)addPassword:(PWFileEntry *)passwordRec obfuscate:(BOOL)obfuscate;
--(int)addPassword:(PWFileEntry *)passwordRec atSlot:(long)slot obfuscate:(BOOL)obfuscate;
--(int)addPassword:(PWFileEntry *)passwordRec atSlot:(long)slot obfuscate:(BOOL)obfuscate setModDate:(BOOL)setModDate;
--(int)addPasswordFast:(PWFileEntry *)passwordRec atSlot:(unsigned long)slot;
+-(int)addPassword:(PWFileEntry *)passwordRec atSlot:(uint32_t)slot obfuscate:(BOOL)obfuscate;
+-(int)addPassword:(PWFileEntry *)passwordRec atSlot:(uint32_t)slot obfuscate:(BOOL)obfuscate setModDate:(BOOL)setModDate;
+-(int)addPasswordFast:(PWFileEntry *)passwordRec atSlot:(uint32_t)slot;
 -(int)initPasswordRecord:(PWFileEntry *)passwordRec obfuscate:(BOOL)obfuscate;	// default YES
 -(int)newPasswordForUser:(const char *)inUser
 		password:(const char *)inPassword
 		slotStr:(char *)outPasswordRef
 		slotRec:(PWFileEntry *)inOutUserRec;
--(int)getPasswordRec:(long)slot putItHere:(PWFileEntry *)passRec;
--(int)getPasswordRec:(long)slot putItHere:(PWFileEntry *)passRec unObfuscate:(BOOL)unObfuscate;
+-(int)getPasswordRec:(uint32_t)slot putItHere:(PWFileEntry *)passRec;
+-(int)getPasswordRec:(uint32_t)slot putItHere:(PWFileEntry *)passRec unObfuscate:(BOOL)unObfuscate;
 -(int)getValidPasswordRec:(PWFileEntry *)passwordRec;
 -(int)getValidPasswordRec:(PWFileEntry *)passwordRec fromSpillBucket:(BOOL *)outFromSpillBucket			// default NULL
 	unObfuscate:(BOOL)unObfuscate;	// default YES
@@ -116,12 +123,12 @@
 -(int)freeSlot:(PWFileEntry *)passwordRec;
 -(int)freeSlot:(PWFileEntry *)passwordRec deathCertificate:(BOOL)useDeathCertificate;
 
--(int)setPassword:(PWFileEntry *)passwordRec atSlot:(unsigned long)slot;
+-(int)setPassword:(PWFileEntry *)passwordRec atSlot:(uint32_t)slot;
 -(int)setPassword:(PWFileEntry *)passwordRec
-	atSlot:(unsigned long)slot
+	atSlot:(uint32_t)slot
 	obfuscate:(BOOL)obfuscate
 	setModDate:(BOOL)setModDate;
--(int)setPasswordFast:(PWFileEntry *)passwordRec atSlot:(unsigned long)slot;
+-(int)setPasswordFast:(PWFileEntry *)passwordRec atSlot:(uint32_t)slot;
 -(void)addHashes:(const char *)inRealm addNT:(BOOL)inAddNT addLM:(BOOL)inAddLM pwsRec:(PWFileEntry *)inOutPasswordRec;
 
 // scope of authority groups
@@ -189,7 +196,7 @@
 -(int)getHistory:(PWFileEntry *)inPasswordRec data:(char *)outHistoryData;
 -(int)addHistory:(PWFileEntry *)inPasswordRec;
 -(int)saveHistory:(PWFileEntry *)inPasswordRec data:(char *)inOutHistoryData;
--(unsigned long)historySlotToOffset:(unsigned long)inSlotNumber;
+-(off_t)historySlotToOffset:(unsigned long)inSlotNumber;
 
 // misc
 -(SyncPriority)syncPriority;

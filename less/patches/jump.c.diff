@@ -1,0 +1,10 @@
+--- ../less-418/jump.c	2007-12-10 08:35:52.000000000 -0800
++++ ./jump.c	2008-02-25 12:25:19.000000000 -0800
+@@ -43,6 +43,7 @@ jump_forw()
+ 	 * Go back one line from the end of the file
+ 	 * to get to the beginning of the last line.
+ 	 */
++	lastmark();
+ 	pos_clear();
+ 	end_pos = ch_tell();
+ 	pos = back_line(end_pos);

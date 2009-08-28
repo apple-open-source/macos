@@ -1,0 +1,97 @@
+# install.data --
+#
+#	Installation configuration for TclXML package
+#
+# Copyright (c) 2001-2003 Zveno Pty Ltd
+# http://www.zveno.com/
+#
+# Zveno makes this software available free of charge for any purpose.
+# Copies may be made of this software but all of this notice must be included
+# on any copy.
+#
+# The software was developed for research purposes only and Zveno does not
+# warrant that it is error free or fit for any purpose.  Zveno disclaims any
+# liability for all claims, expenses, losses, damages and costs any user may
+# incur as a result of using, copying or modifying this software.
+#
+# $Id: install.data,v 1.8 2003/02/25 04:08:59 balls Exp $
+
+# This is an example install configuration file, and may be used
+# as a template for other packages.
+#
+# An install configuration file is simply a Tcl script which is source'd
+# by the generic installation script.
+
+# Start by giving information about the package
+# Corresponding Tcl variables are set
+# These are all required
+
+Package TclXML
+
+MajorVersion 2
+MinorVersion 6
+Patchlevel {}
+Version $MajorVersion.$MinorVersion$Patchlevel
+
+# Some basic prerequisites can be specified
+
+# tcllib doesnt currently support Tcl 8.0 (mainly string options syntax)
+Require Tcl 8.1
+Require uri 1.1
+
+# Welcome describes the initial installer screen
+# Here we provide a different message depending on the
+# version of Tcl available
+
+set message "This package provides support for parsing XML documents."
+
+if {[info tclversion] < 8.3} {
+    set notes " Although the package will function with this version of Tcl ([info tclversion]), it is recommended that Tcl version 8.3 (or higher) is used."
+} else {
+    set notes ""
+}
+
+Welcome $message $notes
+
+# Each part to be installed is described by a "Component" directive.
+# The type of component is given, followed by the list of sub directives
+# setting extra component properties and files to be installed (glob expressions are OK).
+#
+# Valid component types are:
+#	programs	        Application programs
+#	scripts		        Tcl (or other) scripts
+#	binaries	        Binary (platform-specific shared library) files
+#	headers		        Include files (for developers)
+#	documentation-man       Unix style nroff Manual pages 
+#	documentation-generic   Manual pages etc in HTML or plain text
+#	demos		        Example scripts and files
+
+Ignore VC
+Component binaries -mandatory
+  BasePath -buildpath
+  switch -glob $::tcl_platform(platform) {
+      "mac*"     {   
+	  Files  *.shlib
+      }
+      "windows"  { 
+	  Files *.dll
+	  Files *.lib
+      }
+      default {
+	  Files  *[info sharedlibextension]
+	  #Files  *.lib
+      }
+  }
+Component scripts -mandatory
+  Files library/*.tcl
+  File  library/pkgIndex.tcl.in
+  Index supplied
+ #Index needed	;# uncomment this to automatically create the pkgIndex file
+Component documentation-generic  -recommended
+  Files doc/*.html
+Component documentation-man  -optional
+  Files doc/*.n
+Component demos  -optional
+  Files examples/*
+  Executable examples/flatten.tcl
+  Executable examples/xmlwc

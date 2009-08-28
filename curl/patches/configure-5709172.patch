@@ -1,0 +1,11 @@
+--- configure.orig	2008-01-28 16:05:24.000000000 -0800
++++ configure	2008-01-28 16:05:44.000000000 -0800
+@@ -3160,7 +3160,7 @@
+ 
+ 
+ cat >>confdefs.h <<_ACEOF
+-#define OS "${host}"
++#define OS "universal-${host_vendor}-${host_os}"
+ _ACEOF
+ 
+ 

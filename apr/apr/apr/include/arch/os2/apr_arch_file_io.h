@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -31,7 +31,8 @@
  */
 #undef HAVE_MKSTEMP
 
-#define APR_FILE_BUFSIZE 4096
+#define APR_FILE_DEFAULT_BUFSIZE 4096
+#define APR_FILE_BUFSIZE APR_FILE_DEFAULT_BUFSIZE
 
 struct apr_file_t {
     apr_pool_t *pool;
@@ -48,7 +49,8 @@ struct apr_file_t {
 
     /* Stuff for buffered mode */
     char *buffer;
-    int bufpos;               // Read/Write position in buffer
+    apr_size_t bufsize;       // Read/Write position in buffer
+    apr_size_t bufpos;        // Read/Write position in buffer
     unsigned long dataRead;   // amount of valid data read into buffer
     int direction;            // buffer being used for 0 = read, 1 = write
     unsigned long filePtr;    // position in file of handle

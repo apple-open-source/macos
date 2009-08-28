@@ -44,7 +44,6 @@
 #include <fcntl.h>
 #include <syslog.h>
 #include <netdb.h>
-#include <utmp.h>
 #include <pwd.h>
 #include <setjmp.h>
 #include <sys/param.h>
@@ -61,6 +60,7 @@
 #include <ifaddrs.h>
 #include <sys/ioctl.h>
 #include <net/if.h>
+#include <net/if_media.h>
 #include <net/if_dl.h>
 #include <net/route.h>
 #include <net/pfkeyv2.h>
@@ -73,7 +73,6 @@
 #include <sys/un.h>
 
 
-#include "../../../Controller/PPPControllerPriv.h"
 #include "../../../Controller/ppp_msg.h"
 #include "../../../Family/ppp_defs.h"
 #include "../../../Family/if_ppp.h"
@@ -88,6 +87,9 @@
 #include "../../../Helpers/vpnd/ipsec_utils.h"
 #include "vpn_control.h"
 
+#ifdef TARGET_EMBEDDED_OS
+#include <CoreTelephony/CTServerConnectionPriv.h>
+#endif
 
 /* -----------------------------------------------------------------------------
  Definitions
@@ -104,7 +106,9 @@
 
 #define	L2TP_RETRY_CONNECT_CODE			1
 
-#define L2TP_DEFAULT_WAIT_IF_TIMEOUT      10 /* seconds */
+#define L2TP_DEFAULT_WAIT_IF_TIMEOUT      20 /* seconds */
+
+#define MAX_CONNECT_RETRIES 10
 
 /* 
 	Private IPv4 addresses 
@@ -154,9 +158,14 @@ static char     *opt_ipsecsharedsecrettype = "use";	 /* use, key, keychain */
 static char	opt_ipseclocalidentifier[MAXNAMELEN];	/* IPSec Local Identifier */
 static char     *opt_ipseclocalidentifiertype = "keyid";	 /* keyid, fqdn, user_fqdn, asn1dn, address */
 static int	opt_wait_if_timeout = L2TP_DEFAULT_WAIT_IF_TIMEOUT;
+static int  scaled_wait_if_timeout = L2TP_DEFAULT_WAIT_IF_TIMEOUT;
 
 struct	l2tp_parameters our_params;
 struct 	l2tp_parameters peer_params;
+
+#ifndef TARGET_EMBEDDED_OS
+int     interface_media = 0;
+#endif /* !iPhone */
 
 /* 
 Fast echo request procedure is run when a networking change is detected 
@@ -169,11 +178,17 @@ static int	hello_timer_running = 0;
 
 static struct sockaddr_in our_address;		/* our side IP address */
 static struct sockaddr_in peer_address;		/* the other side IP address */
+static int                num_alt_peer_address = 0;
+static struct sockaddr_in alt_peer_address[MAX_CONNECT_RETRIES];		/* the other side IP address */
 static struct in_addr ip_zeros = { 0 };
 static u_int8_t routeraddress[16];
 static u_int8_t interface[17];
 static pthread_t resolverthread = 0;
 static int 	resolverfds[2];
+#ifdef TARGET_EMBEDDED_OS
+static pthread_t edgethread = 0;
+static int 	edgefds[2];
+#endif
 static int 	peer_route_set = 0;		/* has a route to the peer been set ? */
 //static int	echo_timer_running = 0;
 static int	transport_up = 1;
@@ -236,6 +251,7 @@ option_t l2tp_options[] = {
 
 void l2tp_process_extra_options();
 void l2tp_check_options();
+int  l2tp_pre_start_link_check();
 int l2tp_connect(int *errorcode);
 void l2tp_disconnect();
 void l2tp_close_fds();
@@ -246,12 +262,12 @@ void l2tp_disestablish_ppp(int);
 
 static void l2tp_hello_timeout(void *arg);
 static void closeall(void);
-static u_long load_kext(char*);
+static u_long load_kext(char*, int byBundleID);
 static void l2tp_link_failure();
 static boolean_t l2tp_set_host_gateway(int cmd, struct in_addr host, struct in_addr gateway, char *ifname, int isnet);
 static int l2tp_set_peer_route();
 static int l2tp_clean_peer_route();
-static void l2tp_ip_up(void *arg, int p);
+static void l2tp_ip_up(void *arg, uintptr_t p);
 static void l2tp_start_wait_interface ();
 static void l2tp_stop_wait_interface ();
 static void l2tp_wait_interface_timeout (void *arg);
@@ -272,6 +288,7 @@ int start(CFBundleRef ref)
     the_channel->process_extra_options = l2tp_process_extra_options;
     the_channel->wait_input = l2tp_wait_input;
     the_channel->check_options = l2tp_check_options;
+    the_channel->pre_start_link_check = l2tp_pre_start_link_check;
     the_channel->connect = l2tp_connect;
     the_channel->disconnect = l2tp_disconnect;
     the_channel->cleanup = l2tp_cleanup;
@@ -337,10 +354,20 @@ void l2tp_process_extra_options()
 ----------------------------------------------------------------------------- */
 static void l2tp_start_wait_interface ()
 {
+    int timeout_scale_factor = 0;
+
     if (wait_interface_timer_running != 0)
         return;
 
-    TIMEOUT (l2tp_wait_interface_timeout, 0, opt_wait_if_timeout);
+#ifndef TARGET_EMBEDDED_OS
+    // increase the timeout if we're waiting for a wireless interface
+    if (IFM_TYPE(interface_media) == IFM_IEEE80211) {
+        timeout_scale_factor = 2;
+    }
+#endif /* !iPhone */
+    scaled_wait_if_timeout = (opt_wait_if_timeout << timeout_scale_factor);
+    notice("starting wait-interface timer for l2tp: %d secs", scaled_wait_if_timeout);
+    TIMEOUT (l2tp_wait_interface_timeout, 0, scaled_wait_if_timeout);
     wait_interface_timer_running = 1;
 }
 
@@ -360,6 +387,7 @@ static void l2tp_wait_interface_timeout (void *arg)
 {
     if (wait_interface_timer_running != 0) {
         wait_interface_timer_running = 0;
+		log_vpn_interface_address_event(__FUNCTION__, NULL, scaled_wait_if_timeout, interface, &our_address.sin_addr);
 		// our transport interface didn't come back, take down the connection
 		l2tp_link_failure();
     }
@@ -375,7 +403,6 @@ void l2tp_wait_input()
 {
     int err, found;
     struct ifaddrs *ifap = NULL;
-	u_int16_t	reliable;
 
     if (eventsockfd != -1 && is_ready_fd(eventsockfd)) {
     
@@ -386,11 +413,12 @@ void l2tp_wait_input()
         if (recv(eventsockfd, &buf, sizeof(buf), 0) != -1) {
             ev_msg = (struct kern_event_msg *) &buf;
             inetdata = (struct kev_in_data *) &ev_msg->event_data[0];
+			log_vpn_interface_address_event(__FUNCTION__, ev_msg, opt_wait_if_timeout, interface, &our_address.sin_addr);
             switch (ev_msg->event_code) {
                 case KEV_INET_NEW_ADDR:
                 case KEV_INET_CHANGED_ADDR:
                 case KEV_INET_ADDR_DELETED:
-                    sprintf(ev_if, "%s%d", inetdata->link_data.if_name, inetdata->link_data.if_unit);
+                    snprintf(ev_if, sizeof(ev_if), "%s%d", inetdata->link_data.if_name, inetdata->link_data.if_unit);
                     // check if changes occured on the interface we are using
                     if (!strncmp(ev_if, interface, sizeof(interface))) {
                         if (inetdata->link_data.if_family == APPLE_IF_FAM_PPP) {
@@ -398,15 +426,6 @@ void l2tp_wait_input()
                             l2tp_link_failure();
                         }
                         else {
-                            // don't disconnect if an address has been removed
-                            if (ev_msg->event_code == KEV_INET_ADDR_DELETED) {
-								/* stop reliability layer */
-								reliable = 0;
-								setsockopt(ctrlsockfd, PPPPROTO_L2TP, L2TP_OPT_RELIABILITY, &reliable, 2);
-								transport_up = 0;
-                                break;
-							}
-							
 							
                             /* check if address still exist */
                             found = 0;
@@ -421,51 +440,78 @@ void l2tp_wait_input()
                                 }
                                 freeifaddrs(ifap);
                             }
-                            if (found == 0) {
-                                // we don't have the address on the interface, disconnect immediatly
-                                l2tp_link_failure();
-                            }
 
-							/* 
-								Our transport interface comes back with the same address.
-								Stop waiting for interface. 
-								A smarter algorithm should be implemented here.
-							*/
-							transport_up = 1;
-							l2tp_stop_wait_interface();
+							if (found) {
 
-							/* If we are behind a NAT, let's flust security association to force renegotiation and 
-							  reacquisition of the correct port */
-							if (!opt_noipsec) {
-								if (IN_PRIVATE(ntohl(our_address.sin_addr.s_addr)) && !IN_PRIVATE(ntohl(peer_address.sin_addr.s_addr))) {
-									IPSecRemoveSecurityAssociations((struct sockaddr *)&our_address, (struct sockaddr *)&peer_address);
+								// no meaningful change, or address came back. Cancel timer if it was on.
+								if (transport_up == 0) {
+
+									/* 
+										Our transport interface comes back with the same address.
+										Stop waiting for interface. 
+										A smarter algorithm should be implemented here.
+									*/
+									transport_up = 1;
+									if (phase == PHASE_WAITING)
+										new_phase(PHASE_RUNNING);
+									l2tp_stop_wait_interface();
+
+									/* since there could be a NAT inbetween, let's flush security association to force renegotiation and 
+									  reacquisition of the correct port */
+                                    if (!opt_noipsec) {
+                                        IPSecRemoveSecurityAssociations((struct sockaddr *)&our_address, (struct sockaddr *)&peer_address);
+                                    }
+
+									/* reassert the tunnel by sending hello request */
+									if (l2tp_send_hello(ctrlsockfd, &our_params)) {
+										error("L2TP error on control channel sending Hello message after network change\n");
+										/* ???? */
+									}
 								}
 							}
+							else {
+								// quick exit if there has been an unrecoverable change in interface/service
+								if (check_vpn_interface_or_service_unrecoverable(cfgCache,
+														 __FUNCTION__,
+														 ev_msg,
+														 interface)) {
+									error("L2TP: the underlying interface/service has changed unrecoverably\n");
+									transport_up = 0;
+									l2tp_link_failure();
+									break;
+								}
 
-							/* restart reliability layer */
-                            reliable = 1;
-							setsockopt(ctrlsockfd, PPPPROTO_L2TP, L2TP_OPT_RELIABILITY, &reliable, 2);
-
-                            /* reassert the tunnel by sending hello request */
-                            if (l2tp_send_hello(ctrlsockfd, &our_params)) {
-                                error("L2TP error on control channel sending Hello message after network change\n");
-                                /* ???? */
+								if (transport_up == 1) {
+									transport_up = 0;
+									if (phase == PHASE_RUNNING)
+										new_phase(PHASE_WAITING);
+									l2tp_start_wait_interface();
+								} else {
+								        // transport is still down: check if there was a valid address change
+								        if (check_vpn_interface_address_change(wait_interface_timer_running /* && !transport_up */,
+													       ev_msg,
+													       interface,
+													       &our_address.sin_addr)) {
+									        error("L2TP: the underlying interface %s address changed\n",
+										      interface);
+										// disconnect immediately
+										l2tp_link_failure();
+									}
+								}
                             }
+
                         }
+                    } else {
+		            /* if transport is still down: ignore deletes, and check if this alternative interface has a valid address */
+		            if (check_vpn_interface_alternate((!transport_up && wait_interface_timer_running),
+							      ev_msg,
+							      interface)) {
+			            error("L2TP: an alternative interface %s was detected while the underlying interface %s was down\n",
+					  ev_if, interface);
+				    // disconnect immediatly
+				    l2tp_link_failure();
+			    }
                     }
-					else {
-						if (ev_msg->event_code == KEV_INET_NEW_ADDR || ev_msg->event_code == KEV_INET_CHANGED_ADDR) {
-							if (transport_up == 0) {
-								
-								/* 
-									Another interface got an address while our underlying transport interface was still down.
-									Take is as a clue to disconnect our link, but give some time for our interface to come back. 
-									A smarter algorithm should be implemented here.
-								*/
-                                l2tp_start_wait_interface();
-							}
-						}
-					}
                     break;
             }
         }
@@ -514,6 +560,18 @@ void *l2tp_resolver_thread(void *arg)
 			}
 
             peer_address.sin_addr = *(struct in_addr *)host->h_addr_list[rd8 % count];
+            bzero(alt_peer_address, sizeof(alt_peer_address));
+            num_alt_peer_address = 0;
+            if (count > 1) {
+                while (num_alt_peer_address < (count - 1) &&
+                       num_alt_peer_address < MAX_CONNECT_RETRIES) {
+                    alt_peer_address[num_alt_peer_address].sin_len = sizeof(alt_peer_address[num_alt_peer_address]);
+                    alt_peer_address[num_alt_peer_address].sin_family = AF_INET;
+                    alt_peer_address[num_alt_peer_address].sin_port = htons(L2TP_UDP_PORT);
+                    alt_peer_address[num_alt_peer_address].sin_addr = *(struct in_addr*)host->h_addr_list[(rd8 + num_alt_peer_address + 1)% count];
+                    num_alt_peer_address++;
+                }
+            }
             result = 0;
         }
     }
@@ -521,6 +579,51 @@ void *l2tp_resolver_thread(void *arg)
     write(resolverfds[1], &result, 1);
     return 0;
 }
+
+#ifdef TARGET_EMBEDDED_OS
+static 
+void callbackEDGE(CTServerConnectionRef connection, CFStringRef notification, CFDictionaryRef notificationInfo, void* info) {
+	
+	/* not used */
+}
+
+/* -----------------------------------------------------------------------------
+ ----------------------------------------------------------------------------- */
+void *l2tp_edge_thread(void *arg)
+{
+    char		result = -1;
+	int			count;
+	CTServerConnectionRef	edgeConnection;
+	_CTServerConnectionContext ctxt = { 0, NULL, NULL, NULL, NULL };
+	Boolean active = FALSE;
+	CTError cterror = { kCTErrorDomainNoError, 0 };
+
+    if (pthread_detach(pthread_self()) == 0) {
+       
+		edgeConnection = _CTServerConnectionCreate(kCFAllocatorDefault, callbackEDGE, &ctxt);
+		if (edgeConnection) {
+			_CTServerConnectionSetPacketContextActive(edgeConnection, 0, TRUE);		// Zero is the main PDP context.
+
+			count = 8; // give 8 seconds for edge to come up
+			cterror = _CTServerConnectionGetPacketContextActive(edgeConnection, 0, &active);
+			while (!cterror.error && !active && count--) {
+				sleep(1);
+				cterror = _CTServerConnectionGetPacketContextActive(edgeConnection, 0, &active);
+			}
+			CFRelease(edgeConnection);
+
+			if (active) {
+				sleep(2); // additionnal 2 seconds for DNS information to be installed
+				result = 0;
+			}
+		}
+	}
+	
+	
+    write(edgefds[1], &result, 1);
+    return 0;
+}
+#endif
 
 /* ----------------------------------------------------------------------------- 
 get the ipsec string corresponding to the ike error
@@ -564,12 +667,21 @@ char *ipsec_error_to_str(int ike_code)
 	return "Unknown error";
 }
 
+enum {
+    RACOON_BINDING = 1,		// we send a bind command to racoon
+    RACOON_TRIGGERED,		// we send a packet to triggerd racoon
+    RACOON_STARTED,			// racoon received our request and started IKE
+    RACOON_NEGOTIATING,		// the server replied, negotiation in progress 
+    RACOON_DONE				// racoon is done
+};
+
 /* ----------------------------------------------------------------------------- 
 trigger an IKE exchange
 ----------------------------------------------------------------------------- */
-int l2tp_trigger_ipsec()
+int l2tp_trigger_ipsec(int listenmode,
+                       int *ipsec_status)
 {			
-	int					fd = -1, size, state, timeo, err = -1;
+	int					fd = -1, size=0, state = 0, timeo, err = -1;
 	struct sockaddr_un	sun;
     struct sockaddr		from;
 	u_int16_t			reliable;
@@ -578,13 +690,7 @@ int l2tp_trigger_ipsec()
 	struct vpnctl_hdr			*hdr = (struct vpnctl_hdr *)data;
 	struct vpnctl_cmd_bind		*cmd_bind = (struct vpnctl_cmd_bind *)data;
 	struct vpnctl_status_failed *failed_status = (struct vpnctl_status_failed *)data;
-
-	enum {
-		RACOON_TRIGGERED = 1,	// we send a packet to triggerd racoon
-		RACOON_STARTED,			// racoon received our request and started IKE
-		RACOON_NEGOTIATING,		// the server replied, negotiation in progress 
-		RACOON_DONE				// racoon is done
-	};
+	int                          num_ipsec_triggers = 0;
 
 	/* open and connect to the racoon control socket */
 	fd = socket(PF_LOCAL, SOCK_STREAM, 0);
@@ -595,13 +701,19 @@ int l2tp_trigger_ipsec()
 
 	bzero(&sun, sizeof(sun));
 	sun.sun_family = AF_LOCAL;
-	strncpy(sun.sun_path, "/etc/racoon/vpncontrol.sock", sizeof(sun.sun_path));
+	strncpy(sun.sun_path, "/var/run/vpncontrol.sock", sizeof(sun.sun_path));
 
 	if (connect(fd,  (struct sockaddr *)&sun, sizeof(sun)) < 0) {
 		error("L2TP: cannot connect racoon control socket: %m\n");
 		goto fail;
 	}
+	
+	if ( listenmode ){
+		close(fd);		/* connect to vpncontrol socket to start up racoon only */
+		return 0;		
+	}
 
+	//sleep(2);
 start:	
 
 	// bind racoon control socket to the peer address to receive only pertinent messages
@@ -610,21 +722,15 @@ start:
 	cmd_bind->hdr.msg_type = htons(VPNCTL_CMD_BIND);
 	cmd_bind->address = peer_address.sin_addr.s_addr;
 	write(fd, cmd_bind, sizeof(struct vpnctl_cmd_bind));
-	
-	/* send a L2TP packet to trigger IPSec connection */
-	reliable = 0;
-	setsockopt(ctrlsockfd, PPPPROTO_L2TP, L2TP_OPT_RELIABILITY, &reliable, 2);
-	l2tp_send_SCCRQ(ctrlsockfd, (struct sockaddr *)&peer_address, &our_params);
-	reliable = 1;
-	setsockopt(ctrlsockfd, PPPPROTO_L2TP, L2TP_OPT_RELIABILITY, &reliable, 2);
-	
+
 	notice("IPSec connection started\n");
-	state = RACOON_TRIGGERED;
+	state = RACOON_BINDING;
 
 	while (state != RACOON_DONE) {
 
 		switch (state) {
-			case RACOON_TRIGGERED:  timeo = 5; break;
+			case RACOON_BINDING:  timeo = 5; break;
+			case RACOON_TRIGGERED:  timeo = 1; break;
 			case RACOON_STARTED:	timeo = 10; break;
 			default:				timeo = 30; break;
 		}
@@ -632,6 +738,15 @@ start:
 		from.sa_len = sizeof(from);
 		err = l2tp_recv(fd, data, sizeof(struct vpnctl_hdr), &size, &from, timeo, "from racoon control socket");
 		if (err || size == 0) {	// no reply
+		        // RACOON_TRIGGERED's timeout is actually 5 x 1 second increments.
+		        if (err == -1 &&
+			    state == RACOON_TRIGGERED &&
+			    num_ipsec_triggers < 5) {
+			        // trigger racoon again
+			        l2tp_send_hello_trigger(ctrlsockfd, (struct sockaddr *)&peer_address);
+				num_ipsec_triggers++;
+				continue;
+			}
 			if (err != -2) // cancel
 				notice("IPSec connection failed\n");
 			goto fail;
@@ -683,6 +798,8 @@ start:
 			case VPNCTL_STATUS_PH1_START_US:
 				dbglog("IPSec phase 1 client started\n");
 				state = RACOON_STARTED;
+				reliable = 1;
+				setsockopt(ctrlsockfd, PPPPROTO_L2TP, L2TP_OPT_RELIABILITY, &reliable, 2);
 				break;
 
 			case VPNCTL_STATUS_PH1_START_PEER:
@@ -708,6 +825,15 @@ start:
 
 			default:
 				/* ignore other messages */
+				if (state == RACOON_BINDING) {
+					
+					/* send L2TP packets to trigger IPSec connection */
+					reliable = 0;
+					setsockopt(ctrlsockfd, PPPPROTO_L2TP, L2TP_OPT_RELIABILITY, &reliable, 2);
+					l2tp_send_hello_trigger(ctrlsockfd, (struct sockaddr *)&peer_address);
+					num_ipsec_triggers = 1;
+					state = RACOON_TRIGGERED;
+				}
 				break;
 
 		}
@@ -716,11 +842,37 @@ start:
 	err = 0;
 	
 fail:
+    *ipsec_status = state;
 	if (fd != -1) {
 		close(fd);
 		fd = -1;
-	}	
-	return err;
+	}
+	if (err == -1 || err == -2)
+        return EXIT_L2TP_NOANSWER;
+	else
+        return err;
+}
+
+int l2tp_pre_start_link_check()
+{
+    int                      reachable = FALSE;
+    SCNetworkReachabilityRef ref;
+    SCNetworkConnectionFlags flags;
+    
+    ref = SCNetworkReachabilityCreateWithName(NULL, remoteaddress);
+    if (ref) {        
+        if (SCNetworkReachabilityGetFlags(ref, &flags)) {
+            if (REACHABLE_NOW || REACHABLE_AUTOMATICALLY_WITHOUT_USER) {
+                reachable = TRUE;
+            }
+        }
+        CFRelease(ref);
+    }
+    
+    if (reachable) {
+        return 0;
+    }
+    return -1;
 }
 
 /* ----------------------------------------------------------------------------- 
@@ -730,7 +882,8 @@ That is, open the socket and start the L2TP dialog
 int l2tp_connect(int *errorcode)
 {
     char 		dev[32], name[MAXPATHLEN], c; 
-    int 		err = 0, optlen, rcvlen;  
+    int 		err = 0, rcvlen;  
+	socklen_t	optlen;
     CFURLRef		url;
     CFDictionaryRef	dict;
     CFStringRef		string, key;
@@ -740,6 +893,8 @@ int l2tp_connect(int *errorcode)
 	u_int32_t baudrate;
 	char				*errstr;
 	int					host_name_specified;
+    int                 ipsec_status = 0;
+    int                 num_connect_retries = 0;
 	
 	*errorcode = 0;
 
@@ -747,7 +902,7 @@ int l2tp_connect(int *errorcode)
         goto fail;
     }
 
-    sprintf(dev, "socket[%d:%d]", PF_PPP, PPPPROTO_L2TP);
+    snprintf(dev, sizeof(dev), "socket[%d:%d]", PF_PPP, PPPPROTO_L2TP);
     strlcpy(ppp_devnam, dev, sizeof(ppp_devnam));
 
     hungup = 0;
@@ -809,7 +964,11 @@ int l2tp_connect(int *errorcode)
 			lcp_wantoptions[0].neg_mru = min_mtu;
 #endif
 	}
-	
+
+#ifndef TARGET_EMBEDDED_OS
+    interface_media = get_if_media(interface);
+#endif /* !iPhone */
+
 	/* let's say our underlying transport is up */
 	transport_up = 1;
 	wait_interface_timer_running = 0;
@@ -830,16 +989,20 @@ int l2tp_connect(int *errorcode)
             if (!opt_noload) {
                 if (url = CFBundleCopyBundleURL(bundle)) {
                     name[0] = 0;
-                    CFURLGetFileSystemRepresentation(url, 0, name, MAXPATHLEN - 1);
+                    CFURLGetFileSystemRepresentation(url, 0, (UInt8 *)name, MAXPATHLEN - 1);
                     CFRelease(url);
-                    strcat(name, "/");
+                    strlcat(name, "/", sizeof(name));
                     if (url = CFBundleCopyBuiltInPlugInsURL(bundle)) {
-                        CFURLGetFileSystemRepresentation(url, 0, name + strlen(name), 
+                        CFURLGetFileSystemRepresentation(url, 0, (UInt8 *)(name + strlen(name)), 
                                 MAXPATHLEN - strlen(name) - strlen(L2TP_NKE) - 1);
                         CFRelease(url);
-                        strcat(name, "/");
-                        strcat(name, L2TP_NKE);
-                        if (!load_kext(name))
+                        strlcat(name, "/", sizeof(name));
+                        strlcat(name, L2TP_NKE, sizeof(name));
+#ifndef TARGET_EMBEDDED_OS
+                        if (!load_kext(name, 0))
+#else
+                        if (!load_kext(L2TP_NKE_ID, 1))
+#endif
                             ctrlsockfd = socket(PF_PPP, SOCK_DGRAM, PPPPROTO_L2TP);
                     }	
                 }
@@ -881,17 +1044,76 @@ int l2tp_connect(int *errorcode)
 
 		set_network_signature("VPN.RemoteAddress", remoteaddress, 0, 0);
 		
+#ifdef TARGET_EMBEDDED_OS
+		{
+			/* first, bring up EDGE */
+			int need_edge = FALSE;
+			SCNetworkReachabilityRef ref = NULL;
+			SCNetworkConnectionFlags	flags;
+			
+			ref = SCNetworkReachabilityCreateWithName(NULL, remoteaddress);
+			if (ref) {
+				
+				if (SCNetworkReachabilityGetFlags(ref, &flags)) {
+					if ((flags & kSCNetworkReachabilityFlagsReachable) &&
+						(flags & kSCNetworkReachabilityFlagsConnectionRequired) &&
+						(flags & kSCNetworkReachabilityFlagsIsWWAN)) {
+						need_edge = TRUE;
+					}
+				}
+				CFRelease(ref);
+			}
+			
+			if (need_edge) {
+				
+				if (pipe(edgefds) < 0) {
+					error("L2TP: failed to create pipe for starting edge...\n");
+					goto fail;
+				}
+				
+				if (pthread_create(&edgethread, NULL, l2tp_edge_thread, NULL)) {
+					error("L2TP: failed to create thread for starting edge...\n");
+					close(edgefds[0]);
+					close(edgefds[1]);
+					goto fail;
+				}
+				
+				while (read(edgefds[0], &c, 1) != 1) {
+					if (kill_link) {
+						pthread_cancel(edgethread);
+						break;
+					}
+				}
+				
+				close(edgefds[0]);
+				close(edgefds[1]);
+				
+				if (kill_link)
+					goto fail1;
+				
+				if (c) {
+					error("L2TP: Cannot start EDGE connection...\n");
+					*errorcode = L2TP_RETRY_CONNECT_CODE; /* wait and retry if necessary */
+					devstatus = EXIT_L2TP_NOEDGE;
+					goto fail;
+				}
+
+			}
+
+		}
+#endif
+        
         /* build the peer address */
         peer_address.sin_len = sizeof(peer_address);
         peer_address.sin_family = AF_INET;
         peer_address.sin_port = htons(L2TP_UDP_PORT);
         if (inet_aton(remoteaddress, &peer_address.sin_addr) == 0) {
-                
+			
             if (pipe(resolverfds) < 0) {
                 error("L2TP: failed to create pipe for gethostbyname...\n");
                 goto fail;
             }
-    
+			
             if (pthread_create(&resolverthread, NULL, l2tp_resolver_thread, NULL)) {
                 error("L2TP: failed to create thread for gethostbyname...\n");
                 close(resolverfds[0]);
@@ -920,8 +1142,10 @@ int l2tp_connect(int *errorcode)
             }
 			host_name_specified = 1;
         }
-        
+
         notice("L2TP connecting to server '%s' (%s)...\n", remoteaddress, inet_ntoa(peer_address.sin_addr));
+
+        set_server_peer(peer_address.sin_addr);
 
         /* get the source address that will be used to reach the peer */
         if (get_src_address((struct sockaddr *)&our_address, (struct sockaddr *)&peer_address, 0)) {
@@ -960,7 +1184,7 @@ int l2tp_connect(int *errorcode)
             struct sockaddr_in addr = orig_peer_address;
             addr.sin_port = htons(0);	// allow port to change
 
-			auth_method = kRASValIPSecProposalAuthenticationMethodSharedSecret;
+			auth_method = kRASValIPSecAuthenticationMethodSharedSecret;
 			
 			if (userOptions)
 				useripsec_dict = CFDictionaryGetValue(userOptions, kSCEntNetIPSec);
@@ -980,9 +1204,9 @@ int l2tp_connect(int *errorcode)
 					instead of having an array of proposals with one proposal with the
 					requested authentication method
 				  */
-				auth_method = CFDictionaryGetValue(useripsec_dict, kRASPropIPSecProposalAuthenticationMethod);
-				if (!isString(auth_method) || CFEqual(auth_method, kRASValIPSecProposalAuthenticationMethodSharedSecret)) {
-					auth_method = kRASValIPSecProposalAuthenticationMethodSharedSecret;
+				auth_method = CFDictionaryGetValue(useripsec_dict, kRASPropIPSecAuthenticationMethod);
+				if (!isString(auth_method) || CFEqual(auth_method, kRASValIPSecAuthenticationMethodSharedSecret)) {
+					auth_method = kRASValIPSecAuthenticationMethodSharedSecret;
 					secret_string = CFDictionaryGetValue(useripsec_dict, kRASPropIPSecSharedSecret);
 					if (!isString(secret_string) &&
 						!(isData(secret_string) && ((CFDataGetLength((CFDataRef)secret_string) % sizeof(UniChar)) == 0))) {
@@ -999,7 +1223,7 @@ int l2tp_connect(int *errorcode)
 					} 
 
 				}
-				else if (CFEqual(auth_method, kRASValIPSecProposalAuthenticationMethodCertificate)) {
+				else if (CFEqual(auth_method, kRASValIPSecAuthenticationMethodCertificate)) {
 					certificate = CFDictionaryGetValue(useripsec_dict, kRASPropIPSecLocalCertificate);
 					if (!isData(certificate)) {
 						devstatus = EXIT_L2TP_NOCERTIFICATE;
@@ -1110,9 +1334,21 @@ int l2tp_connect(int *errorcode)
 				error("L2TP: cannot configure secure transport (%s).\n", errstr);
 				goto fail;
 			}
-			
+
 			/* now trigger IKE */
-			err = l2tp_trigger_ipsec();
+            while ((err = l2tp_trigger_ipsec(0, &ipsec_status)) &&
+                   ipsec_status == RACOON_STARTED &&
+                   num_connect_retries < num_alt_peer_address) {
+                ipsec_status = 0;
+
+                /* get the source address that will be used to reach the peer */
+                if (err = l2tp_change_peeraddress(ctrlsockfd, (struct sockaddr *)&alt_peer_address[num_connect_retries++])) {
+                    error("L2TP: cannot try alternate server...\n");
+                    goto fail;
+                }
+
+                notice("L2TP connecting to alternate server '%s' (%s)...\n", remoteaddress, inet_ntoa(peer_address.sin_addr));
+            }
         }
 
 		if (err == 0) {
@@ -1169,7 +1405,7 @@ int l2tp_connect(int *errorcode)
 				ipsec_dict = IPSecCreateL2TPDefaultConfiguration(
 					(struct sockaddr *)&our_address, (struct sockaddr *)&peer_address, 
 					(host_name_specified ? remoteaddress : NULL),
-					kRASValIPSecProposalAuthenticationMethodSharedSecret, 0, 0, 0); 
+					kRASValIPSecAuthenticationMethodSharedSecret, 0, 0, 0); 
 
 				/* set the authentication information */
 				secret_string = CFStringCreateWithCString(0, opt_ipsecsharedsecret, kCFStringEncodingUTF8);
@@ -1186,12 +1422,13 @@ int l2tp_connect(int *errorcode)
 					goto fail;
 				}
 			}
+			err = l2tp_trigger_ipsec(1, &ipsec_status);
             /* wait indefinitely and read the duplicated SCCRQ from the listen socket and ignore for now */
-            err = l2tp_recv(listenfd, control_buf, MAX_CNTL_BUFFER_SIZE, &rcvlen, (struct sockaddr*)&from, -1, "SCCRQ");
-            
-            if (err == 0) {
-                setsockopt(ctrlsockfd, PPPPROTO_L2TP, L2TP_OPT_ACCEPT, 0, 0);
-            }
+            if ((err = l2tp_recv(listenfd, control_buf, MAX_CNTL_BUFFER_SIZE, &rcvlen, (struct sockaddr*)&from, -1, "SCCRQ"))){
+            	if (err == 0) {
+                	setsockopt(ctrlsockfd, PPPPROTO_L2TP, L2TP_OPT_ACCEPT, 0, 0);
+            	}
+			}
 
             close(listenfd);
         }
@@ -1254,7 +1491,7 @@ int l2tp_connect(int *errorcode)
 	
 	baudrate = get_if_baudrate(interface);
 	l2tp_set_baudrate(datasockfd, baudrate);
-        
+
     return datasockfd;
  
 fail:   
@@ -1311,7 +1548,7 @@ int l2tp_set_baudrate(int fd, u_int32_t baudrate)
 ----------------------------------------------------------------------------- */
 int l2tp_set_ouraddress(int fd, struct sockaddr *addr)
 {
-    int optlen;
+    socklen_t optlen;
 
     setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_OURADDRESS, addr, sizeof(*addr));
     /* get the address to retrieve the actual port used */
@@ -1336,7 +1573,8 @@ int l2tp_set_peeraddress(int fd, struct sockaddr *addr)
 ----------------------------------------------------------------------------- */
 int l2tp_new_tunnelid(int fd, u_int16_t *tunnelid)
 {
-    int optlen = 2;
+    socklen_t optlen = 2;
+	
     getsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_NEW_TUNNEL_ID, &tunnelid, &optlen);
     return 0;
 }
@@ -1515,7 +1753,7 @@ int l2tp_clean_peer_route()
 
 /* ----------------------------------------------------------------------------- 
 ----------------------------------------------------------------------------- */
-void l2tp_ip_up(void *arg, int p)
+void l2tp_ip_up(void *arg, uintptr_t p)
 {
 
     if (peer_route_set == 2) {
@@ -1628,7 +1866,7 @@ void closeall()
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-u_long load_kext(char *kext)
+u_long load_kext(char *kext, int byBundleID)
 {
     int pid;
 
@@ -1638,7 +1876,10 @@ u_long load_kext(char *kext)
     if (pid == 0) {
         closeall();
         // PPP kernel extension not loaded, try load it...
-        execle("/sbin/kextload", "kextload", kext, (char *)0, (char *)0);
+		if (byBundleID)
+			execle("/sbin/kextload", "kextload", "-b", kext, (char *)0, (char *)0);
+		else
+			execle("/sbin/kextload", "kextload", kext, (char *)0, (char *)0);
         exit(1);
     }
 
@@ -1664,9 +1905,6 @@ static void l2tp_hello_timeout(void *arg)
     TIMEOUT(l2tp_hello_timeout, 0, opt_hello_timeout);
 }
 
-/* -----------------------------------------------------------------------------
-add/remove a host route
------------------------------------------------------------------------------ */
 /* -----------------------------------------------------------------------------
 add/remove a host route
 ----------------------------------------------------------------------------- */
@@ -1717,7 +1955,7 @@ l2tp_set_host_gateway(int cmd, struct in_addr host, struct in_addr gateway, char
     if (ifname) {
 	rtmsg.link.sdl_len = sizeof(rtmsg.link);
 	rtmsg.link.sdl_family = AF_LINK;
-	rtmsg.link.sdl_nlen = strlen(ifname);
+	rtmsg.link.sdl_nlen = MIN(strlen(ifname), sizeof(rtmsg.link.sdl_data));
 	rtmsg.hdr.rtm_addrs |= RTA_IFP;
 	bcopy(ifname, rtmsg.link.sdl_data, rtmsg.link.sdl_nlen);
     }
@@ -1743,7 +1981,8 @@ set or clear a flag
 ----------------------------------------------------------------------------- */
 int l2tp_set_flag(int fd, int set, u_int32_t flag)
 {
-    int 	error, optlen;
+    int			error;
+	socklen_t	optlen;
     u_int32_t	flags;
     
     optlen = 4;

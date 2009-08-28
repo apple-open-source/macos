@@ -1,0 +1,12 @@
+--- merge.c.orig	2008-02-17 16:11:51.000000000 -0800
++++ merge.c	2008-02-17 20:26:24.000000000 -0800
+@@ -264,7 +264,8 @@ setup(list1, list2, n, size, cmp)
+ 	int (*cmp)(const void *, const void *);
+ 	u_char *list1, *list2;
+ {
+-	int i, length, size2, tmp, sense;
++	size_t i, size2;
++	int length, tmp, sense;
+ 	u_char *f1, *f2, *s, *l2, *last, *p2;
+ 
+ 	size2 = size*2;

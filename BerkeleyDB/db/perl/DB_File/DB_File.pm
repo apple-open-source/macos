@@ -1,10 +1,10 @@
 # DB_File.pm -- Perl 5 interface to Berkeley DB 
 #
 # written by Paul Marquess (pmqs@cpan.org)
-# last modified 22nd October 2002
-# version 1.807
+# last modified 4th February 2007
+# version 1.815
 #
-#     Copyright (c) 1995-2003 Paul Marquess. All rights reserved.
+#     Copyright (c) 1995-2007 Paul Marquess. All rights reserved.
 #     This program is free software; you can redistribute it and/or
 #     modify it under the same terms as Perl itself.
 
@@ -161,11 +161,11 @@ package DB_File ;
 use warnings;
 use strict;
 our ($VERSION, @ISA, @EXPORT, $AUTOLOAD, $DB_BTREE, $DB_HASH, $DB_RECNO);
-our ($db_version, $use_XSLoader, $splice_end_array);
+our ($db_version, $use_XSLoader, $splice_end_array, $Error);
 use Carp;
 
 
-$VERSION = "1.807" ;
+$VERSION = "1.815" ;
 
 {
     local $SIG{__WARN__} = sub {$splice_end_array = "@_";};
@@ -260,13 +260,22 @@ sub tie_hash_or_array
     my (@arg) = @_ ;
     my $tieHASH = ( (caller(1))[3] =~ /TIEHASH/ ) ;
 
+    use File::Spec;
+    $arg[1] = File::Spec->rel2abs($arg[1]) 
+        if defined $arg[1] ;
+
     $arg[4] = tied %{ $arg[4] } 
 	if @arg >= 5 && ref $arg[4] && $arg[4] =~ /=HASH/ && tied %{ $arg[4] } ;
 
     $arg[2] = O_CREAT()|O_RDWR() if @arg >=3 && ! defined $arg[2];
     $arg[3] = 0666               if @arg >=4 && ! defined $arg[3];
 
-    # make recno in Berkeley DB version 2 work like recno in version 1.
+    # make recno in Berkeley DB version 2 (or better) work like 
+    # recno in version 1.
+    if ($db_version >= 4 and ! $tieHASH) {
+        $arg[2] |= O_CREAT();
+    }
+
     if ($db_version > 1 and defined $arg[4] and $arg[4] =~ /RECNO/ and 
 	$arg[1] and ! -e $arg[1]) {
 	open(FH, ">$arg[1]") or return undef ;
@@ -1821,7 +1830,7 @@ fix very easily.
     use DB_File ;
 
     my %hash ;
-    my $filename = "/tmp/filt" ;
+    my $filename = "filt" ;
     unlink $filename ;
 
     my $db = tie %hash, 'DB_File', $filename, O_CREAT|O_RDWR, 0666, $DB_HASH 
@@ -1850,7 +1859,7 @@ Here is another real-life example. By default, whenever Perl writes to
 a DBM database it always writes the key and value as strings. So when
 you use this:
 
-    $hash{12345} = "soemthing" ;
+    $hash{12345} = "something" ;
 
 the key 12345 will get stored in the DBM database as the 5 byte string
 "12345". If you actually want the key to be stored in the DBM database
@@ -1863,7 +1872,7 @@ Here is a DBM Filter that does it:
     use strict ;
     use DB_File ;
     my %hash ;
-    my $filename = "/tmp/filt" ;
+    my $filename = "filt" ;
     unlink $filename ;
 
 
@@ -1894,8 +1903,8 @@ peril!
 
 The locking technique went like this. 
 
-    $db = tie(%db, 'DB_File', '/tmp/foo.db', O_CREAT|O_RDWR, 0666)
-        || die "dbcreat /tmp/foo.db $!";
+    $db = tie(%db, 'DB_File', 'foo.db', O_CREAT|O_RDWR, 0644)
+        || die "dbcreat foo.db $!";
     $fd = $db->fd;
     open(DB_FH, "+<&=$fd") || die "dup $!";
     flock (DB_FH, LOCK_EX) || die "flock: $!";
@@ -2233,7 +2242,7 @@ B<DB_File> comes with the standard Perl source distribution. Look in
 the directory F<ext/DB_File>. Given the amount of time between releases
 of Perl the version that ships with Perl is quite likely to be out of
 date, so the most recent version can always be found on CPAN (see
-L<perlmod/CPAN> for details), in the directory
+L<perlmodlib/CPAN> for details), in the directory
 F<modules/by-module/DB_File>.
 
 This version of B<DB_File> will work with either version 1.x, 2.x or
@@ -2252,7 +2261,7 @@ compile properly on IRIX 5.3.
 
 =head1 COPYRIGHT
 
-Copyright (c) 1995-2003 Paul Marquess. All rights reserved. This program
+Copyright (c) 1995-2005 Paul Marquess. All rights reserved. This program
 is free software; you can redistribute it and/or modify it under the
 same terms as Perl itself.
 
@@ -2278,14 +2287,14 @@ Berkeley DB authors or the author of DB_File. See L<"AUTHOR"> for details.
 
 =head1 SEE ALSO
 
-L<perl(1)>, L<dbopen(3)>, L<hash(3)>, L<recno(3)>, L<btree(3)>,
-L<dbmfilter>
+L<perl>, L<dbopen(3)>, L<hash(3)>, L<recno(3)>, L<btree(3)>,
+L<perldbmfilter>
 
 =head1 AUTHOR
 
 The DB_File interface was written by Paul Marquess
-E<lt>pmqs@cpan.org<gt>.
+E<lt>pmqs@cpan.orgE<gt>.
 Questions about the DB system itself may be addressed to
-E<lt>db@sleepycat.com<gt>.
+E<lt>db@sleepycat.comE<gt>.
 
 =cut

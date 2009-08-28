@@ -1,0 +1,20 @@
+--- base5067/innobase/srv/srv0start.c	2008-08-04 05:19:17.000000000 -0700
++++ m5067/innobase/srv/srv0start.c	2008-09-08 06:53:12.000000000 -0700
+@@ -1030,6 +1030,17 @@
+ 	fprintf(stderr,
+ "InnoDB: !!!!!!!!!!!!!! UNIV_SIMULATE_AWE switched on !!!!!!!!!!!!!!!!!\n");
+ #endif
++
++#ifdef UNIV_DISABLE_MEM_POOL
++	fprintf(stderr,
++		"InnoDB: The InnoDB memory heap has been disabled.\n");
++#endif
++
++#ifdef HAVE_ATOMIC_BUILTINS
++	fprintf(stderr,
++		"InnoDB: Mutex and rw_lock use GCC atomic builtins.\n");
++#endif
++
+         if (srv_sizeof_trx_t_in_ha_innodb_cc != (ulint)sizeof(trx_t)) {
+ 	        fprintf(stderr,
+   "InnoDB: Error: trx_t size is %lu in ha_innodb.cc but %lu in srv0start.c\n"

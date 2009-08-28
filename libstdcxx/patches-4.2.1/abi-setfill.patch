@@ -1,0 +1,55 @@
+Doing diffs in .:
+--- ./libstdc++-v3/config/abi/pre/gnu.ver.~1~	2008-05-07 10:48:22.000000000 -0700
++++ ./libstdc++-v3/config/abi/pre/gnu.ver	2008-05-07 13:00:24.000000000 -0700
+@@ -415,7 +415,7 @@ GLIBCXX_3.4 {
+     _ZN9__gnu_cxx18stdio_sync_filebufIwSt11char_traitsIwEED2Ev;
+     # APPLE LOCAL end libstdc++ abi compatibility fix 5897367
+ 
+-    # APPLE LOCAL start libstdc++ abi compatibility fix 5768558
++    # APPLE LOCAL begin libstdc++ abi compatibility fix 5768558
+     _ZN9__gnu_cxx13stdio_filebufIcSt11char_traitsIcEE2fdEv;
+     _ZN9__gnu_cxx13stdio_filebufIcSt11char_traitsIcEE4fileEv;
+     _ZN9__gnu_cxx13stdio_filebufIcSt11char_traitsIcEEC1EP7__sFILESt13_Ios_Openmodem;
+@@ -442,6 +442,41 @@ GLIBCXX_3.4 {
+     _ZTVN9__gnu_cxx13stdio_filebufIwSt11char_traitsIwEEE;
+     # APPLE LOCAL end libstdc++ abi compatibility fix 5768558
+ 
++    # APPLE LOCAL begin libstdc++ abi compatibility fix 5854318
++    _ZN9__gnu_cxx18_AssignableConceptISt19ostreambuf_iteratorIcSt11char_traitsIcEEE13__constraintsEv;
++    _ZN9__gnu_cxx18_AssignableConceptISt19ostreambuf_iteratorIwSt11char_traitsIwEEE13__constraintsEv;
++    _ZN9__gnu_cxx19__function_requiresINS_18_AssignableConceptISt19ostreambuf_iteratorIcSt11char_traitsIcEEEEEEvv;
++    _ZN9__gnu_cxx19__function_requiresINS_18_AssignableConceptISt19ostreambuf_iteratorIwSt11char_traitsIwEEEEEEvv;
++    _ZN9__gnu_cxx19__function_requiresINS_22_OutputIteratorConceptISt19ostreambuf_iteratorIcSt11char_traitsIcEEcEEEEvv;
++    _ZN9__gnu_cxx19__function_requiresINS_22_OutputIteratorConceptISt19ostreambuf_iteratorIwSt11char_traitsIwEEwEEEEvv;
++    _ZN9__gnu_cxx22_OutputIteratorConceptISt19ostreambuf_iteratorIcSt11char_traitsIcEEcE13__constraintsEv;
++    _ZN9__gnu_cxx22_OutputIteratorConceptISt19ostreambuf_iteratorIwSt11char_traitsIwEEwE13__constraintsEv;
++    _ZNKSt19istreambuf_iteratorIcSt11char_traitsIcEE5equalERKS2_;
++    _ZNKSt19istreambuf_iteratorIcSt11char_traitsIcEE6_M_getEv;
++    _ZNKSt19istreambuf_iteratorIwSt11char_traitsIwEE5equalERKS2_;
++    _ZNKSt19istreambuf_iteratorIwSt11char_traitsIwEE6_M_getEv;
++    _ZNSt5__padIcSt11char_traitsIcEE6_S_padERSt8ios_basecPcPKciib;
++    _ZNSt5__padIcSt11char_traitsIcEE6_S_padERSt8ios_basecPcPKcllb;
++    _ZNSt5__padIwSt11char_traitsIwEE6_S_padERSt8ios_basewPwPKwiib;
++    _ZNSt5__padIwSt11char_traitsIwEE6_S_padERSt8ios_basewPwPKwllb;
++    _ZNSt6locale5_Impl18_M_check_same_nameEv;
++    _ZNSt6locale5_Impl19_M_remove_referenceEv;
++    _ZSt7__writeIcESt19ostreambuf_iteratorIT_St11char_traitsIS1_EES4_PKS1_i;
++    _ZSt7__writeIwESt19ostreambuf_iteratorIT_St11char_traitsIS1_EES4_PKS1_i;
++    _ZSt7setfillIcESt8_SetfillIT_ES1_;
++    _ZSt7setfillIwESt8_SetfillIT_ES1_;
++    _ZTCSt13basic_fstreamIcSt11char_traitsIcEE0_Si;
++    _ZTCSt13basic_fstreamIcSt11char_traitsIcEE16_So;
++    _ZTCSt13basic_fstreamIcSt11char_traitsIcEE8_So;
++    _ZTCSt13basic_fstreamIwSt11char_traitsIwEE0_St13basic_istreamIwS1_E;
++    _ZTCSt13basic_fstreamIwSt11char_traitsIwEE16_St13basic_ostreamIwS1_E;
++    _ZTCSt13basic_fstreamIwSt11char_traitsIwEE8_St13basic_ostreamIwS1_E;
++    _ZTCSt14basic_ifstreamIcSt11char_traitsIcEE0_Si;
++    _ZTCSt14basic_ifstreamIwSt11char_traitsIwEE0_St13basic_istreamIwS1_E;
++    _ZTCSt14basic_ofstreamIcSt11char_traitsIcEE0_So;
++    _ZTCSt14basic_ofstreamIwSt11char_traitsIwEE0_St13basic_ostreamIwS1_E;
++    # APPLE LOCAL end libstdc++ abi compatibility fix 5854318
++
+     # __gnu_cxx::__atomic_add
+     # __gnu_cxx::__exchange_and_add
+     _ZN9__gnu_cxx12__atomic_addEPV[il]i;
+--------------

@@ -37,7 +37,6 @@
 #include "aclvar.h"
 
 static acl_t	acl_get_file1(const char *path, acl_type_t acl_type, int follow);
-static int	acl_set_file1(const char *path, acl_type_t acl_type, acl_t acl, int follow);
 
 int
 acl_delete_fd_np(int filedes, acl_type_t type)
@@ -143,17 +142,12 @@ acl_set_fd(int fd, acl_t acl)
 	return(acl_set_fd_np(fd, acl, ACL_TYPE_EXTENDED));
 }
 
-static int
-acl_set_file1(const char *path, acl_type_t acl_type, acl_t acl, int follow)
+int
+acl_set_file(const char *path, acl_type_t acl_type, acl_t acl)
 {
 	filesec_t	fsec;
 	int		error;
 
-	if (follow == 0) {		/* XXX this requires some thought - can links have ACLs? */
-		errno = ENOTSUP;
-		return(-1);
-	}
-	
 	if ((fsec = filesec_init()) == NULL)
 		return(-1);
 	if (filesec_set_property(fsec, FILESEC_ACL, &acl) != 0) {
@@ -166,15 +160,17 @@ acl_set_file1(const char *path, acl_type_t acl_type, acl_t acl, int follow)
 }
 
 int
-acl_set_file(const char *path, acl_type_t acl_type, acl_t acl)
-{
-	return(acl_set_file1(path, acl_type, acl, 1));
-}
-
-int
 acl_set_link_np(const char *path, acl_type_t acl_type, acl_t acl)
 {
-	return(acl_set_file1(path, acl_type, acl, 0));
+	struct stat s;
+
+	if(lstat(path, &s) < 0)
+		return(-1);
+	if(S_ISLNK(s.st_mode)) {
+		errno = ENOTSUP;
+		return(-1);
+	}
+	return(acl_set_file(path, acl_type, acl));
 }
 
 /*

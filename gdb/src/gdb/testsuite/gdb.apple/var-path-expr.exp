@@ -51,7 +51,7 @@ proc compare_var_and_expression {varObj value {type {}} {typecode {}}} {
     set expression $expect_out(2,string)
 
     mi_gdb_test "-var-create - * $expression" \
-        "\\^done,name=\"(\[^\"\]*)\",numchild=\"0\",type=\"$type\",typecode=\"$typecode\",dynamic_type=\"\[^\"\]*\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"" \
+        "\\^done,name=\"(\[^\"\]*)\",numchild=\"0\",type=\"$type\",typecode=\"$typecode\",dynamic_type=\"\[^\"\]*\",resolved_type=\"$type\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"" \
         "Create varobj for $varObj expression"
     set exprVar $expect_out(2,string)
 
@@ -94,20 +94,20 @@ mi_gdb_test {-var-create fooVar * myFoo} \
     {\^done,name="fooVar",.*numchild="1",.*type="Foo".*} \
     "create varobj for fooVar"
 
-mi_gdb_test {-var-list-children fooVar} \
-    {\^done,numchild="1",children=\[child={name="fooVar.private",.*exp="private",.*type="",typecode="FAKE_CHILD",.*dynamic_type=""}\]} \
-    "list children of fooVar"
-
+  mi_gdb_test {-var-list-children fooVar} \
+     {\^done,numchild="1",children=\[child={name="fooVar.private",.*exp="private",.*type="",typecode="FAKE_CHILD",.*dynamic_type="",resolved_type=""}\]} \
+      "list children of fooVar"
+  
 mi_gdb_test {-var-list-children fooVar.private} \
-    {\^done,numchild="1",children=\[child={name="fooVar.private.contents",exp="contents",numchild="2",type="Container \*",typecode="PTR",dynamic_type="FancyIntContainer \*"}\]} \
+    {\^done,numchild="1",children=\[child={name="fooVar.private.contents",exp="contents",numchild="2",type="Container \*",typecode="PTR",dynamic_type="FancyIntContainer \*",resolved_type="Container \*"}\]} \
     "list children of fooVar.private"
 
 mi_gdb_test {-var-list-children fooVar.private.contents} \
-    {\^done,numchild="2",children=\[child={name="fooVar.private.contents.IntContainer",exp="IntContainer",numchild="3",type="IntContainer \*",typecode="PTR",dynamic_type=""},child={name="fooVar.private.contents.private",exp="private",numchild="1",type="",typecode="FAKE_CHILD",dynamic_type=""}\]} \
+    {\^done,numchild="2",children=\[child={name="fooVar.private.contents.IntContainer",exp="IntContainer",numchild="3",type="IntContainer \*",typecode="PTR",dynamic_type="",resolved_type="IntContainer \*"},child={name="fooVar.private.contents.private",exp="private",numchild="1",type="",typecode="FAKE_CHILD",dynamic_type="",resolved_type=""}\]} \
     "list children of fooVar.private.contents"
 
 mi_gdb_test {-var-list-children fooVar.private.contents.private} \
-    {\^done,numchild="1",children=\[child={name="fooVar.private.contents.private.multiplier",exp="multiplier",numchild="0",type="int",typecode="INT",dynamic_type=""}\]} \
+    {\^done,numchild="1",children=\[child={name="fooVar.private.contents.private.multiplier",exp="multiplier",numchild="0",type="int",typecode="INT",dynamic_type="",resolved_type="int"}\]} \
     "list children of fooVar.private.contents.private"
 
 compare_var_and_expression fooVar.private.contents.private.multiplier 10 int INT
@@ -116,15 +116,15 @@ compare_var_and_expression fooVar.private.contents.private.multiplier 10 int INT
 # for them right as well.
 
 mi_gdb_test {-var-list-children fooVar.private.contents.IntContainer} \
-    {\^done,numchild="3",children=\[child={name="fooVar.private.contents.IntContainer.Container",exp="Container",numchild="1",type="Container \*",typecode="PTR",dynamic_type=""},child={name="fooVar.private.contents.IntContainer.SomeOtherStuff",exp="SomeOtherStuff",numchild="1",type="SomeOtherStuff \*",typecode="PTR",dynamic_type=""},child={name="fooVar.private.contents.IntContainer.private",exp="private",numchild="1",type="",typecode="FAKE_CHILD",dynamic_type=""}\]} \
+    {\^done,numchild="3",children=\[child={name="fooVar.private.contents.IntContainer.Container",exp="Container",numchild="1",type="Container \*",typecode="PTR",dynamic_type="",resolved_type="Container \*"},child={name="fooVar.private.contents.IntContainer.SomeOtherStuff",exp="SomeOtherStuff",numchild="1",type="SomeOtherStuff \*",typecode="PTR",dynamic_type="",resolved_type="SomeOtherStuff \*"},child={name="fooVar.private.contents.IntContainer.private",exp="private",numchild="1",type="",typecode="FAKE_CHILD",dynamic_type="",resolved_type=""}\]} \
     "Create varobj for IntContainerfooVar.private.contents.IntContainer"
 
 mi_gdb_test {-var-list-children fooVar.private.contents.IntContainer.SomeOtherStuff} \
-    {\^done,numchild="1",children=\[child={name="fooVar.private.contents.IntContainer.SomeOtherStuff.private",exp="private",numchild="2",type="",typecode="FAKE_CHILD",dynamic_type=""}\]} \
+    {\^done,numchild="1",children=\[child={name="fooVar.private.contents.IntContainer.SomeOtherStuff.private",exp="private",numchild="2",type="",typecode="FAKE_CHILD",dynamic_type="",resolved_type=""}\]} \
     "Create varobj for fooVar.private.contents.IntContainer.SomeOtherStuff"
 
 mi_gdb_test {-var-list-children fooVar.private.contents.IntContainer.SomeOtherStuff.private} \
-    {\^done,numchild="2",children=\[child={name="fooVar.private.contents.IntContainer.SomeOtherStuff.private.myInt",exp="myInt",numchild="0",type="int",typecode="INT",dynamic_type=""},child={name="fooVar.private.contents.IntContainer.SomeOtherStuff.private.myDouble",exp="myDouble",numchild="0",type="double",typecode="FLT",dynamic_type=""}\]} \
+    {\^done,numchild="2",children=\[child={name="fooVar.private.contents.IntContainer.SomeOtherStuff.private.myInt",exp="myInt",numchild="0",type="int",typecode="INT",dynamic_type="",resolved_type="int"},child={name="fooVar.private.contents.IntContainer.SomeOtherStuff.private.myDouble",exp="myDouble",numchild="0",type="double",typecode="FLT",dynamic_type="",resolved_type="double"}\]} \
     "Create varobj for fooVar.private.contents.IntContainer.SomeOtherStuff.private"
 
 compare_var_and_expression fooVar.private.contents.IntContainer.SomeOtherStuff.private.myDouble 5 double FLT
@@ -132,29 +132,29 @@ compare_var_and_expression fooVar.private.contents.IntContainer.SomeOtherStuff.p
 # Now chase through the class heirarchy where we have an object, not a pointer to an object.
 
 mi_gdb_test {-var-create contVar * myContainer} \
-    "\\^done,name=\"contVar\",numchild=\"2\",type=\"FancyIntContainer\",typecode=\"STRUCT\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"" \
+    "\\^done,name=\"contVar\",numchild=\"2\",type=\"FancyIntContainer\",typecode=\"STRUCT\",dynamic_type=\"\",resolved_type=\"FancyIntContainer\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"" \
     "Create myContainer varobj"
 
 mi_gdb_test {-var-list-children contVar} \
-    {\^done,numchild="2",children=\[child={name="contVar.IntContainer",exp="IntContainer",numchild="3",type="IntContainer",typecode="STRUCT",dynamic_type=""},child={name="contVar.private",exp="private",numchild="1",type="",typecode="FAKE_CHILD",dynamic_type=""}\]} \
+    {\^done,numchild="2",children=\[child={name="contVar.IntContainer",exp="IntContainer",numchild="3",type="IntContainer",typecode="STRUCT",dynamic_type="",resolved_type="IntContainer"},child={name="contVar.private",exp="private",numchild="1",type="",typecode="FAKE_CHILD",dynamic_type="",resolved_type=""}\]} \
     "List children of contVar"
 
 mi_gdb_test {-var-list-children contVar.IntContainer} \
-    {\^done,numchild="3",children=\[child={name="contVar.IntContainer.Container",exp="Container",numchild="1",type="Container",typecode="STRUCT",dynamic_type=""},child={name="contVar.IntContainer.SomeOtherStuff",exp="SomeOtherStuff",numchild="1",type="SomeOtherStuff",typecode="STRUCT",dynamic_type=""},child={name="contVar.IntContainer.private",exp="private",numchild="1",type="",typecode="FAKE_CHILD",dynamic_type=""}\]} \
+    {\^done,numchild="3",children=\[child={name="contVar.IntContainer.Container",exp="Container",numchild="1",type="Container",typecode="STRUCT",dynamic_type="",resolved_type="Container"},child={name="contVar.IntContainer.SomeOtherStuff",exp="SomeOtherStuff",numchild="1",type="SomeOtherStuff",typecode="STRUCT",dynamic_type="",resolved_type="SomeOtherStuff"},child={name="contVar.IntContainer.private",exp="private",numchild="1",type="",typecode="FAKE_CHILD",dynamic_type="",resolved_type=""}\]} \
     "List children of contVar.intContainer"
 
 mi_gdb_test {-var-list-children contVar.IntContainer.private} \
-    {\^done,numchild="1",children=\[child={name="contVar.IntContainer.private.intValue",exp="intValue",numchild="0",type="int",typecode="INT",dynamic_type=""}\]} \
+    {\^done,numchild="1",children=\[child={name="contVar.IntContainer.private.intValue",exp="intValue",numchild="0",type="int",typecode="INT",dynamic_type="",resolved_type="int"}\]} \
     "List children of contVar.IntContainer.private"
 
 compare_var_and_expression contVar.IntContainer.private.intValue 5 int INT
 
 mi_gdb_test {-var-list-children contVar.IntContainer.Container} \
-    {\^done,numchild="1",children=\[child={name="contVar.IntContainer.Container.private",exp="private",numchild="1",type="",typecode="FAKE_CHILD",dynamic_type=""}\]} \
+    {\^done,numchild="1",children=\[child={name="contVar.IntContainer.Container.private",exp="private",numchild="1",type="",typecode="FAKE_CHILD",dynamic_type="",resolved_type=""}\]} \
     "List children of contVar.IntContainer.Container"
 
 mi_gdb_test {-var-list-children contVar.IntContainer.Container.private} \
-    {\^done,numchild="1",children=\[child={name="contVar.IntContainer.Container.private.errorNo",exp="errorNo",numchild="0",type="int",typecode="INT",dynamic_type=""}\]} \
+    {\^done,numchild="1",children=\[child={name="contVar.IntContainer.Container.private.errorNo",exp="errorNo",numchild="0",type="int",typecode="INT",dynamic_type="",resolved_type="int"}\]} \
     "List children of contVar.IntContainer.Container.private"
 
 compare_var_and_expression contVar.IntContainer.Container.private.errorNo -1 int INT

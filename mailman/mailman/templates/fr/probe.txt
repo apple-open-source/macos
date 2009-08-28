@@ -1,0 +1,23 @@
+Ceci est un message test.  Vous pouvez l'ignorer.
+
+La liste de diffusion %(listname)s a reçu plusieurs rejets de votre part, 
+indiquant qu'il y a peut-être un problème de de distribution des messages
+à l'adresse %(address)s.
+Un échantillon de rejet est joint. Merci d'examiner ce message pour être sûr qu'il n'y a pas de soucis avec votre adresse électronique. Vous aurez peut-être besoin de vérifier
+avec votre administrateur de courrier. 
+
+Si vous lisez ceci, vous n'avez rien à faire pour rester abonné à la liste.
+Si ce message est rejeté, vous ne l'aurez pas lu et votre abonnement aura été désactivé.
+Normalement lorsque l'abonnement est désactivé, vous recevez de façon occasionnelle
+des messages vous demandant de réactiver votre compte.
+
+Vous pouvez aussi visiter votre page de gestion à l'adresse
+
+    %(optionsurl)s
+
+Sur votre page de gestion vous pouvez changer certaines options de remise
+comme votre adresse électronique et si vous recevez des remises groupées ou non.
+
+Si vous avez des questions, ou en cas de problèmes, contacter le propriétaire de la liste sur
+
+    %(owneraddr)s

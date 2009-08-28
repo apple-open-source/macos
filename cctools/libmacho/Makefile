@@ -1,22 +1,30 @@
 RC_OS = macos
 OFLAG = -O
+OPEN = -D__OPEN_SOURCE__
 LEGACY = -D_MACH_I386_THREAD_STATUS_FPSTATE_LEGACY_FIELD_NAMES_ \
 	 -D_ARCHITECTURE_I386_FPU_FPSTATE_LEGACY_FIELD_NAMES_
+
+ifeq "" "$(NEXT_ROOT)"
 KERN = -fno-builtin -finline -fno-keep-inline-functions -fsigned-bitfields \
-       -force_cpusubtype_ALL -msoft-float -nostdinc \
+       -msoft-float -nostdinc \
+       -iwithsysroot /System/Library/Frameworks/Kernel.framework/PrivateHeaders/libsa \
+       -iwithsysroot /System/Library/Frameworks/Kernel.framework/PrivateHeaders \
+       -iwithsysroot /System/Library/Frameworks/Kernel.framework/Headers/libsa \
+       -iwithsysroot /System/Library/Frameworks/Kernel.framework/Headers/bsd \
+       -iwithsysroot /System/Library/Frameworks/Kernel.framework/Headers \
+       -DKERNEL -DKERNEL_PRIVATE -DAPPLE -DNeXT -DLIBSA_PRIVATE
+else
+KERN = -fno-builtin -finline -fno-keep-inline-functions -fsigned-bitfields \
+       -msoft-float -nostdinc \
 -I$(NEXT_ROOT)/System/Library/Frameworks/Kernel.framework/PrivateHeaders/libsa \
 -I$(NEXT_ROOT)/System/Library/Frameworks/Kernel.framework/PrivateHeaders \
        -I$(NEXT_ROOT)/System/Library/Frameworks/Kernel.framework/Headers/libsa \
        -I$(NEXT_ROOT)/System/Library/Frameworks/Kernel.framework/Headers/bsd \
        -I$(NEXT_ROOT)/System/Library/Frameworks/Kernel.framework/Headers \
        -DKERNEL -DKERNEL_PRIVATE -DAPPLE -DNeXT -DLIBSA_PRIVATE
+endif
+
 ifeq "macos" "$(RC_OS)"
-  X_CFLAGS := $(shell if [ "$(RC_RELEASE)" != "Beaker" ] &&    \
-			 [ "$(RC_RELEASE)" != "Bunsen" ] &&    \
-			 [ "$(RC_RELEASE)" != "Gonzo"  ] &&    \
-			 [ "$(RC_RELEASE)" != "Kodiak" ]; then \
-	     echo -Wno-long-double -no-cpp-precomp ; \
-	     fi; )
   CC := $(shell if [ "$(RC_RELEASE)" == "Tiger" ] || \
 		   [ "$(RC_RELEASE)" == "Gordian" ] || \
 		   [ "$(RC_RELEASE)" == "Saffron" ] || \
@@ -27,10 +35,10 @@ ifeq "macos" "$(RC_OS)"
 	     fi; )
 endif
 ifeq "mwccppc" "$(notdir $(CC))"
-  CFLAGS = $(OFLAG) -g $(LEGACY) \
+  CFLAGS = $(OFLAG) $(OPEN) -g $(LEGACY) \
      -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR)
 else
-  CFLAGS = $(OFLAG) -g -Wall $(X_CFLAGS) $(LEGACY) \
+  CFLAGS = $(OFLAG) $(OPEN) -g -Wall $(X_CFLAGS) $(LEGACY) \
      -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR)
 endif
 
@@ -75,13 +83,19 @@ OBJS = arch.o getsecbyname.o getsegbyname.o get_end.o swap.o \
        hppa_swap.o i386_swap.o m68k_swap.o sparc_swap.o ppc_swap.o \
        i860_swap.o m88k_swap.o vers.o
 
+ifeq "$(OLD_LIBKLD)" "YES"
+	KLD_OFILES = kld_ofiles
+else
+	KLD_OFILES = 
+endif
+
 all: lib_ofiles
 
-macos: optimized_ofiles kld_ofiles
+macos: optimized_ofiles $(KLD_OFILES)
 
-teflon: optimized_ofiles kld_ofiles
+teflon: optimized_ofiles $(KLD_OFILES)
 
-nextstep: optimized_ofiles kld_ofiles shlib_ofiles
+nextstep: optimized_ofiles $(KLD_OFILES) shlib_ofiles
 
 lib_ofiles: $(OFILE_DIRS) $(SYMROOT) $(RC_OS) dynamic_ofiles profile_ofiles
 

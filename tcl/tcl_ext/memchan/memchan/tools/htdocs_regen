@@ -1,0 +1,12 @@
+#!/bin/sh
+
+# Assume call with pwd = 'htdocs'.
+
+for i in `ls raw/*.exp`
+do
+	echo $i '-->' `basename $i .exp`.html
+	../tools/expand -rules ../tools/rules/memchan $i > `basename $i .exp`.html
+done
+
+rm index.php
+ln -s index.html index.php

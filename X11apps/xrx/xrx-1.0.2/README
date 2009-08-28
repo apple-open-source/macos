@@ -1,0 +1,241 @@
+RX: X Remote eXecution
+----------------------
+
+The remote execution (RX) service specifies a MIME format for invoking
+applications remotely, for example via a World Wide Web browser.  This
+RX format specifies a syntax for listing network services required by
+the application, for example an X display server.  The requesting Web
+browser must identify specific instances of the services in the request
+to invoke the application.
+
+The distribution contains a helper program (xrx) and a Mozilla family
+browser plug-in (libxrx) that demonstrate this protocol.  The plug-in
+was originally written for Navigator 3.0, but has been used with later
+versions of the Mozilla family of browsers, including Firefox.
+
+The specification for the RX mime type is in the xorg-docs module in
+the X.Org repository in specs/RX/RX.mif (FrameMaker interchange source)
+and hardcopy/RX/RX.PS.Z (compressed PostScript).
+
+The following section describes the procedure to set up your environment
+and try the examples provided in this distribution.
+
+
+1. Preparing Your Web Server
+
+
+In order to demonstrate the RX helper program and the RX browser plug-in
+you need to have access to an HTTP server to install ``common gateway
+interface'' (CGI) scripts.  While CGI programs can be written in any
+compiled or interpreted language, the sample CGI programs in the distri-
+bution are written in perl.
+
+You need to install the HTML, RX, and CGI sample files into your
+server's HTML and CGI directories.  The process can be partially
+automated by replacing the following tokens in the files in the
+htdocs and cgi-bin directories:
+
+XPROJECT_ROOT	the prefix under which your X applications are installed,
+		for example:
+
+			/usr/X11
+
+
+WEBSERVER	defines the hostname and port of your web server, for
+               	example:
+
+			www.myorg.org:8001
+
+CGIBINDIR	defines the path at which CGI programs are installed, for
+		example:
+
+			/usr/local/etc/httpd/cgi-bin
+
+XPROXYMNGR	defines the transport scheme, hostname, and port for CGI
+		programs to contact the Proxy Manager.  See the proxymngr
+		man pages for further details.  Typically the proxy
+		manager host will be the same as your web server, for
+		example:
+
+			tcp/www.myorg.org:6500
+
+You may need to change the path to the perl command in the first line of
+the cgi-bin scripts if it is not installed in /usr/local/bin/perl on your
+system.
+
+You also need to configure your web server so that files with the exten-
+sion name ``rx'' are of the MIME type ``application/x-rx''.  See your
+HTTP server's configuration documentation for the right procedure to do
+so.
+
+
+2.      The RX Helper Program
+
+
+The helper program, xrx, may be used with any Web browser to interpret
+the new RX document type.
+
+The RX helper program is installed in <ProjectRoot>/bin (e.g.
+/usr/X11R6.3/bin/).  You will need to configure your web browser to use
+it for RX documents by adding a line to your $HOME/.mailcap:
+
+     application/x-rx; /X11/bin/xrx %s
+
+You may need to refer to your web browser's documentation for exact
+instructions on configuring helper applications.
+
+The helper program is activated by your browser as soon as you retrieve
+any document of the MIME type application/x-rx. All you need to do is to
+point your browser at the URL:
+     http://your.web.server/xload.rx
+
+The application (i.e. xload) should appear on your DISPLAY as a new
+top-level client.  The client will be running on your web server host
+and connected to your X server.  If your X server supports the SECURITY
+extension the client will be running as an untrusted client.
+
+
+3. The RX Browser Plug-in
+
+
+The browser plug-in supports all the functions of xrx and in addition
+uses the XC-APPGROUP extension, if your X server provides it, to
+cause the remotely launched application to be embedded within the
+browser page from which it was launched.
+
+The HTML page links to an RX document via the EMBED tag, a Netscape
+extension to HTML.  The RX document provides the plug-in with the list
+of services the application wants to use.  Based on this information,
+the plug-in sets the various requested services, including creating
+authorization keys, and passes the relevant data to the application
+through an HTTP GET request of the associated CGI script.  The Web
+server then executes the CGI script to start the application.
+
+To complete the installation of the Netscape plug-in, find the file
+named libxrx.so or libxrx.sl (or similar, depending on your
+platform) in <ProjectRoot>/lib (e.g. /usr/X11R6.3/lib) and copy it to
+the browser plugin directory in the system installation or your home 
+directory (such as /usr/lib/firefox/plugins or $HOME/.mozilla/plugins).
+
+You should remove or comment out the line you may have previously added
+in your mailcap file to use the RX helper program, otherwise the plug-in
+will not be enabled.  (The usual comment character for mailcap is
+``#''.)
+
+If you are already running the web browser, you need to exit and restart 
+it after copying the plug-in library so the new plug-in will be found.  
+Once this is done you can check that the browser has successfully
+loaded the plug-in by checking the ``About Plug-ins'' page from the Help
+menu or the about:plugins URL. This should show something like:
+
+
+                                   RX Plug-in
+
+    File name: /usr/guest/netscape/plugins/libxrx.sl.6.3
+
+    X Remote Activation Plug-in
+
+    Mime Type Description          Suffixes  Enabled
+    application/x-rx               X Remote Activation Plug-inxrxYes
+
+
+The plug-in will be activated by the browser as soon as you
+retrieve any document of the MIME type application/x-rx.  Several sam-
+ples are included in the distribution. The most basic one is xload. All
+you need to do is point your browser at the page:
+     http://your.web.server/xload.html
+
+If something goes wrong check on the all the previous steps listed above
+and try again.  Once xload is working you can try some of the other
+examples in the distribution such as bitmap.html or dtcm.html.
+
+
+4. Trying Embedding With an Old X Server
+
+
+The browser plug-in, libxrx, will work with an X server that
+does not contain the application group or security extensions.  The
+application will be started as a separate top-level client.
+
+If you wish to try out the embedding facilities without replacing your
+desktop X server, you may use the Xnest server.
+
+A typical Xnest session would look like the following:
+
+% Xnest :11
+% xterm -display :11
+
+
+These two commands start a ``nested'' server and a terminal emulator
+within that server.  Your favorite window manager and Netscape Navigator
+can now be executed from the nested xterm window.  You may wish to first
+disable access control in the nested server by running ``xhost +'' in
+the nested xterm.
+
+
+5. Setting Up Your Own Applications To Run Over The Web
+
+
+Based on the examples provided in the distribution it should be easy to
+set up your web server to run your own applications.  Every application
+requires 3 additional files to identify it to Web browsers:
+
+myapp.html      An HTML page to present the application embedded
+myapp.rx        The RX document describing the application
+myapp.pl        The CGI script to start the application
+
+Note that the separate ``.rx'' file could be omitted by implementing the
+CGI script such that if it is invoked without a QUERY_STRING it will
+return the RX content.  We decided not to do so in the distributed exam-
+ples for purpose of clarity.
+
+The xload demo provides a good starting point. Simply make a copy of
+each of the files xload.rx, xload.html, and xload.pl. Then look inside
+them for every instance of ``xload'' and change it to whatever is
+appropriate for your application.
+
+You will not be able to run the dtcm demo unless you have dtcm (a CDE
+component) installed on your web server host.  This example shows how a
+CGI script would look when an X Print server is requested. The script
+dtcm.pl is, for that reason, slightly more complicated than other exam-
+ples.
+
+6. More information
+
+Hummingbird has provided a site with more information and some live demos
+at http://www.broadwayinfo.com/
+
+
+------------------------------------------------------------------------------
+This text originally came from "X Window System, Version 11, Release 6.3
+Release Notes", which were covered by the following notice:
+
+Copyright 1996 X Consortium
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish, dis-
+tribute, sublicense, and/or sell copies of the Software, and to permit
+persons to whom the Software is furnished to do so, subject to the fol-
+lowing conditions:
+
+The above copyright notice and this permission notice shall be included
+in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABIL-
+ITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT
+SHALL THE X CONSORTIUM BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABIL-
+ITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+IN THE SOFTWARE.
+
+Except as contained in this notice, the name of the X Consortium shall
+not be used in advertising or otherwise to promote the sale, use or
+other dealings in this Software without prior written authorization from
+the X Consortium.
+
+X Window System is a trademark of X Consortium, Inc.
+
+

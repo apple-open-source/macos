@@ -1,0 +1,29 @@
+# -*- tcl -*-
+extension memchan {
+    author       {Andreas Kupries (andreas_kupries@users.sourceforge.net)}
+    maintenance  {Andreas Kupries (andreas_kupries@users.sourceforge.net)}
+
+    version	   2.2.1
+    copying-policy {BSD-Style, see 'tcl'-license}
+    date           {DEC-03-2004}
+
+    description {
+	an extension implementing several new channel-types. Instances
+	store their contents in memory, not on disk.
+    }
+
+    primary-urls {
+	http://memchan.sourceforge.net/
+    }
+
+    dependencies {
+	Tcl 8.0 or 8.1. Does not work with 8.0(ab)*
+	Works with tcl 8.1a2 and 8.1b1/2/3, but don't leave channels open
+	before 'exit'ing. This is solved since 8.1.0.
+    }
+
+    comments {
+	TEA compliant version (As far as TEA currently goes).
+	Additional channel types: null, fifo2, zero, random.
+    }
+}

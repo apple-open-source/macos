@@ -2,6 +2,7 @@
    Unix SMB/CIFS implementation.
    uid/user handling
    Copyright (C) Tim Potter 2000
+   Copyright (C) 2008 Apple, Inc. All rights reserved.
    
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -20,6 +21,10 @@
 
 #include "includes.h"
 
+#if HAVE_PTHREAD_SETUGID_NP
+#include <sys/kauth.h>
+#endif
+
 extern struct current_user current_user;
 
 struct sec_ctx {
@@ -32,6 +37,8 @@ struct sec_ctx {
 
 static struct sec_ctx sec_ctx_stack[MAX_SEC_CTX_DEPTH + 1];
 static int sec_ctx_stack_ndx;
+
+#if !defined (HAVE_PTHREAD_SETUGID_NP)
 
 /****************************************************************************
  Become the specified uid.
@@ -125,6 +132,8 @@ static void gain_root(void)
 	}
 }
 
+#endif /* !defined (HAVE_PTHREAD_SETUGID_NP) */
+
 /****************************************************************************
  Get the list of current groups.
 ****************************************************************************/
@@ -138,6 +147,15 @@ static int get_current_groups(gid_t gid, int *p_ngroups, gid_t **p_groups)
 
 	(*p_ngroups) = 0;
 	(*p_groups) = NULL;
+
+#if HAVE_PTHREAD_SETUGID_NP
+	/* Messing with the effective group ID doesn't work under a thread
+	 * credential. Once you have assumed a thread credential, then it's all
+	 * over until you unassume it.
+	 */
+
+	return 0;
+#endif
 
 	/* this looks a little strange, but is needed to cope with
 	   systems that put the current egid in the group list
@@ -231,6 +249,25 @@ BOOL push_sec_ctx(void)
  Set the current security context to a given user.
 ****************************************************************************/
 
+#if HAVE_PTHREAD_SETUGID_NP
+
+static BOOL running_with_thread_credential(void)
+{
+	uid_t uid;
+	gid_t gid;
+
+	/* Getting the assumed thread credential fails unless we have actually
+	 * assumed it.
+	 */
+	if (pthread_getugid_np(&uid, &gid) == -1 && errno == ESRCH) {
+		return False;
+	} else {
+		return True;
+	}
+}
+
+#endif /* HAVE_PTHREAD_SETUGID_NP */
+
 void set_sec_ctx(uid_t uid, gid_t gid, int ngroups, gid_t *groups, NT_USER_TOKEN *token)
 {
 	struct sec_ctx *ctx_p = &sec_ctx_stack[sec_ctx_stack_ndx];
@@ -243,10 +280,12 @@ void set_sec_ctx(uid_t uid, gid_t gid, int ngroups, gid_t *groups, NT_USER_TOKEN
 	debug_nt_user_token(DBGC_CLASS, 5, token);
 	debug_unix_user_token(DBGC_CLASS, 5, uid, gid, ngroups, groups);
 
+#if !defined(HAVE_PTHREAD_SETUGID_NP)
 	gain_root();
 
 	become_gid(gid);
 	sys_setgroups(uid, ngroups, groups);
+#endif /* !defined(HAVE_PTHREAD_SETUGID_NP) */
 
 	ctx_p->ut.ngroups = ngroups;
 
@@ -276,7 +315,34 @@ void set_sec_ctx(uid_t uid, gid_t gid, int ngroups, gid_t *groups, NT_USER_TOKEN
 		ctx_p->token = NULL;
 	}
 
+#if !defined(HAVE_PTHREAD_SETUGID_NP)
+
 	become_uid(uid);
+
+#else /* !defined(HAVE_PTHREAD_SETUGID_NP) */
+
+	/* Pop the assumed thread credential. */
+	if (pthread_setugid_np(KAUTH_UID_NONE, KAUTH_GID_NONE) == -1) {
+		if (running_with_thread_credential()) {
+			DEBUG(0, ("failed to pop thread credential: %s\n",
+				    strerror(errno)));
+			smb_panic("pthread_setugid_np failed to pop");
+		}
+	}
+
+	/* We should be root now ... push the previous credential. */
+	if (pthread_setugid_np(uid, gid) == -1) {
+		DEBUG(0, ("failed to push thread credential: %s\n",
+			    strerror(errno)));
+		DEBUG(0, ("failed to push thread credential (uid=%d, gid=%d): %s\n",
+			    (int)uid, (int)gid, strerror(errno)));
+		smb_panic("pthread_setugid_np failed to push");
+	}
+
+	/* Opt back into dynamic group membership */
+	sys_setgroups(uid, ngroups, groups);
+
+#endif /* !defined(HAVE_PTHREAD_SETUGID_NP) */
 
 	ctx_p->ut.uid = uid;
 	ctx_p->ut.gid = gid;
@@ -333,15 +399,42 @@ BOOL pop_sec_ctx(void)
 
 	sec_ctx_stack_ndx--;
 
+#if !defined (HAVE_PTHREAD_SETUGID_NP)
 	gain_root();
+#endif /* !defined (HAVE_PTHREAD_SETUGID_NP) */
 
 	prev_ctx_p = &sec_ctx_stack[sec_ctx_stack_ndx];
 
+#if !defined (HAVE_PTHREAD_SETUGID_NP)
 	become_gid(prev_ctx_p->ut.gid);
 	sys_setgroups(prev_ctx_p->ut.uid,
 		prev_ctx_p->ut.ngroups, prev_ctx_p->ut.groups);
 
 	become_uid(prev_ctx_p->ut.uid);
+#else /* !defined (HAVE_PTHREAD_SETUGID_NP) */
+
+	/* Pop the assumed thread credential. */
+	if (pthread_setugid_np(KAUTH_UID_NONE, KAUTH_GID_NONE) == -1) {
+		DEBUG(0, ("failed to pop thread credential: %s\n",
+			    strerror(errno)));
+		smb_panic("pthread_setugid_np failed to pop");
+	}
+
+	/* We should be root now ... push the previous credential. */
+	if (pthread_setugid_np(prev_ctx_p->ut.uid, prev_ctx_p->ut.gid) == -1) {
+		DEBUG(0, ("failed to push thread credential: %s\n",
+			    strerror(errno)));
+		DEBUG(0, ("failed to push thread credential (uid=%d, gid=%d): %s\n",
+			    (int)prev_ctx_p->ut.uid, (int)prev_ctx_p->ut.gid,
+			    strerror(errno)));
+		smb_panic("pthread_setugid_np failed to push");
+	}
+
+	/* Opt back into dynamic group membership. */
+	sys_setgroups(prev_ctx_p->ut.uid,
+		prev_ctx_p->ut.ngroups, prev_ctx_p->ut.groups);
+
+#endif /* !defined (HAVE_PTHREAD_SETUGID_NP) */
 
 	/* Update current_user stuff */
 

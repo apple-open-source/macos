@@ -1,120 +1,217 @@
-/* $Id: tnftpd.h,v 1.21 2006/12/18 04:15:01 lukem Exp $ */
+/* $NetBSD: tnftpd.h,v 1.31 2008/09/21 16:35:24 lukem Exp $	*/
 
-#define	FTPD_VERSION	"tnftpd 20061217"
+#define	FTPD_VERSION	PACKAGE_STRING
 
 #include "config.h"
 
-#include <sys/types.h>
-#include <sys/param.h>
-#include <sys/ioctl.h>
-#include <sys/mman.h>
+#include <stdio.h>
+#include <ctype.h>
+#include <errno.h>
 
-#if TIME_WITH_SYS_TIME
+#if defined(HAVE_SYS_TYPES_H)
+# include <sys/types.h>
+#endif
+#if defined(STDC_HEADERS)
+# include <stdarg.h>
+# include <stdlib.h>
+# include <string.h>
+#endif
+#if defined(HAVE_UNISTD_H)
+# include <unistd.h>
+#endif
+#if defined(HAVE_POLL_H)
+# include <poll.h>
+#elif defined(HAVE_SYS_POLL_H)
+# include <sys/poll.h>
+#endif
+#if defined(HAVE_SYS_SOCKET_H)
+# include <sys/socket.h>
+#endif
+#if defined(HAVE_NETINET_IN_H)
+# include <netinet/in.h>
+#endif
+#if defined(HAVE_NETINET_IN_SYSTM_H)
+# include <netinet/in_systm.h>
+#endif
+#if defined(HAVE_NETINET_IP_H)
+# include <netinet/ip.h>
+#endif
+#if defined(HAVE_NETDB_H)
+# if HAVE_DECL_AI_NUMERICHOST
+#  include <netdb.h>
+# else	/* !HAVE_DECL_AI_NUMERICHOST */
+#  define getaddrinfo non_rfc2553_getaddrinfo
+#  include <netdb.h>
+#  undef getaddrinfo
+# endif	/* !HAVE_DECL_AI_NUMERICHOST */
+#endif
+#if defined(HAVE_ARPA_INET_H)
+# include <arpa/inet.h>
+#endif
+#if defined(HAVE_DIRENT_H)
+# include <dirent.h>
+#else
+# define dirent direct
+# if defined(HAVE_SYS_NDIR_H)
+#  include <sys/ndir.h>
+# endif
+# if defined(HAVE_SYS_DIR_H)
+#  include <sys/dir.h>
+# endif
+# if defined(HAVE_NDIR_H)
+#  include <ndir.h>
+# endif
+#endif
+#if defined(HAVE_SYS_IOCTL_H)
+# include <sys/ioctl.h>
+#endif
+#if defined(HAVE_SYS_MMAN_H)
+# include <sys/mman.h>
+#endif
+#if defined(HAVE_SYS_PARAM_H)
+# include <sys/param.h>
+#endif
+#if defined(HAVE_SYS_STAT_H)
+# include <sys/stat.h>
+#endif
+#if defined(HAVE_SYS_SYSLIMITS_H)
+# include <sys/syslimits.h>
+#endif
+#if defined(HAVE_SYS_SYSMACROS_H)
+# include <sys/sysmacros.h>
+#endif
+#if defined(HAVE_SYS_WAIT_H)
+# include <sys/wait.h>
+#endif
+
+/* Always use our arpa/ftp.h; it's guaranteed to have FTPNAMES */
+#include "arpa_ftp.h"
+
+#if defined(HAVE_FCNTL_H)
+# include <fcntl.h>
+#endif
+#if defined(HAVE_GRP_H)
+# include <grp.h>
+#endif
+#if defined(HAVE_LIMITS_H)
+# include <limits.h>
+#endif
+#if defined(HAVE_LOCALE_H)
+# include <locale.h>
+#endif
+#if defined(HAVE_PWD_H)
+# include <pwd.h>
+#endif
+#if defined(HAVE_SETJMP_H)
+# include <setjmp.h>
+#endif
+#if defined(HAVE_SIGNAL_H)
+# include <signal.h>
+#endif
+#if defined(HAVE_STDDEF_H)
+# include <stddef.h>
+#endif
+#if defined(HAVE_SYSLOG_H)
+# include <syslog.h>
+#endif
+#if defined(HAVE_TERMIOS_H)
+# include <termios.h>
+#endif
+#if defined(HAVE_UTMP_H)
+# include <utmp.h>
+#endif
+
+#if defined(HAVE_POLL)
+/* we use poll */
+#elif defined(HAVE_SELECT)
+/* we use select */
+#else /* !defined(HAVE_POLL) && !defined(HAVE_SELECT) */
+# error "no poll() or select() found"
+#endif
+#if !defined(POLLIN)
+# define POLLIN		0x0001
+#endif
+#if !defined(POLLOUT)
+# define POLLOUT	0x0004
+#endif
+#if !defined(POLLRDNORM)
+# define POLLRDNORM	0x0040
+#endif
+#if !defined(POLLWRNORM)
+# define POLLWRNORM	POLLOUT
+#endif
+#if !defined(POLLRDBAND)
+# define POLLRDBAND	0x0080
+#endif
+#if !defined(INFTIM)
+# define INFTIM -1
+#endif
+#if !defined(HAVE_STRUCT_POLLFD)
+struct pollfd {
+	int	fd;
+	short	events;
+	short	revents;
+};
+#endif
+
+#if defined(TIME_WITH_SYS_TIME)
 # include <sys/time.h>
 # include <time.h>
 #else
-# if HAVE_SYS_TIME_H
+# if defined(HAVE_SYS_TIME_H)
 #  include <sys/time.h>
 # else
 #  include <time.h>
 # endif
 #endif
 
-#include <sys/resource.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/wait.h>
-#if HAVE_SYS_SYSMACROS_H
-# include <sys/sysmacros.h>
+#if defined(HAVE_SYS_RESOURCE_H)
+# include <sys/resource.h>
 #endif
 
-#include <netinet/in.h>
-#include <netinet/in_systm.h>
-#include <netinet/ip.h>
-
-#if HAVE_FTP_NAMES
-# include <arpa/ftp.h>
-#else
-# include "arpa_ftp.h"
-#endif
-#include <arpa/inet.h>
-
-#include <ctype.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <grp.h>
-#include <limits.h>
-#include <locale.h>
-#include <netdb.h>
-#include <pwd.h>
-#include <setjmp.h>
-#include <signal.h>
-#include <stdarg.h>
-#include <stddef.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <syslog.h>
-#include <termios.h>
-#include <unistd.h>
-#include <utmp.h>
-
-#if HAVE_DIRENT_H
-# include <dirent.h>
-#else
-# define dirent direct
-# if HAVE_SYS_NDIR_H
-#  include <sys/ndir.h>
-# endif
-# if HAVE_SYS_DIR_H
-#  include <sys/dir.h>
-# endif
-# if HAVE_NDIR_H
-#  include <ndir.h>
-# endif
-#endif
-
-#if HAVE_ERR_H
+#if defined(HAVE_ERR_H)
 # include <err.h>
 #endif
 
 #include "ftpglob.h"
 
-#if HAVE_FNM_CASEFOLD
+#if defined(HAVE_FNMATCH_H) && HAVE_DECL_FNM_CASEFOLD
 # include <fnmatch.h>
 #else
 # include "ftpfnmatch.h"
 #endif
 
-#if HAVE_PATHS_H
+#if defined(HAVE_PATHS_H)
 # include <paths.h>
 #endif
-#ifndef	_PATH_BSHELL
-#define	_PATH_BSHELL	"/bin/sh"
+#if !defined(_PATH_BSHELL)
+# define _PATH_BSHELL	"/bin/sh"
 #endif
-#ifndef	_PATH_CSHELL
-#define	_PATH_CSHELL	"/bin/csh"
+#if !defined(_PATH_CSHELL)
+# define _PATH_CSHELL	"/bin/csh"
 #endif
-#ifndef	_PATH_SHELLS
-#define	_PATH_SHELLS	"/etc/shells"
+#if !defined(_PATH_SHELLS)
+# define _PATH_SHELLS	"/etc/shells"
 #endif
-#ifndef	_PATH_DEVNULL
-#define	_PATH_DEVNULL	"/dev/null"
+#if !defined(_PATH_DEVNULL)
+# define _PATH_DEVNULL	"/dev/null"
 #endif
-#ifndef	_PATH_NOLOGIN
-#define	_PATH_NOLOGIN	"/etc/nologin"
+#if !defined(_PATH_NOLOGIN)
+# define _PATH_NOLOGIN	"/etc/nologin"
 #endif
 
-#ifndef FTPD_LOGTYPE
-# ifdef LOG_FTP
+/* --- */
+
+#if !defined(FTPD_LOGTYPE)
+# if defined(LOG_FTP)
 #  define FTPD_LOGTYPE	LOG_FTP
 # else
 #  define FTPD_LOGTYPE	LOG_DAEMON
 # endif
 #endif
 
-#ifndef LOG_AUTHPRIV
-# ifdef LOG_AUTH
+#if !defined(LOG_AUTHPRIV)
+# if defined(LOG_AUTH)
 #  define LOG_AUTHPRIV	LOG_AUTH
 # else
 #  define LOG_AUTHPRIV	LOG_DAEMON
@@ -132,87 +229,64 @@ int	 sl_add(StringList *, char *);
 void	 sl_free(StringList *, int);
 char	*sl_find(StringList *, char *);
 
-#if HAVE_FTS_H
+#if !defined(NO_INTERNAL_LS)
+
+#if !defined(HAVE_DIRFD) && !defined(HAVE_DIRFD_AS_MACRO)
+# if defined(HAVE_DIR_DD_FD)
+#  define dirfd(_d) ((_d)->dd_fd)
+# elif defined(HAVE_DIR___DD_FD)
+#  define dirfd(_d) ((_d)->__dd_fd)
+# else
+#  error cannot figure out how to turn a DIR * into a fd
+# endif
+#endif
+
+#if defined(HAVE_FTS_H)
 # include <fts.h>
 #else
 # include "ftpfts.h"
 #endif
 
-#if HAVE_POLL
-/* we use poll */
-#elif HAVE_SELECT
-/* we use select to implement poll() */
-#else /* ! HAVE_POLL && ! HAVE_SELECT */
-# error "no poll() or select() found"
-#endif
+#endif /* !defined(NO_INTERNAL_LS) */
 
-#if HAVE_POLL_H
-# include <poll.h>
-#elif HAVE_SYS_POLL_H
-# include <sys/poll.h>
-#endif
-#ifndef POLLIN
-# define POLLIN		0x0001
-#endif
-#ifndef POLLOUT
-# define POLLOUT	0x0004
-#endif
-#ifndef POLLRDNORM
-# define POLLRDNORM	0x0040
-#endif
-#ifndef POLLWRNORM
-# define POLLWRNORM	POLLOUT
-#endif
-#ifndef POLLRDBAND
-# define POLLRDBAND	0x0080
-#endif
-#ifndef INFTIM
-# define INFTIM -1
-#endif
-#if ! HAVE_STRUCT_POLLFD
-struct pollfd {
-	int	fd;
-	short	events;
-	short	revents;
-};
-#endif
-
-#if HAVE_UTIL_H
+#if defined(HAVE_UTIL_H)
 # include <util.h>
 #endif
 
-#if HAVE_LIBUTIL_H
+#if defined(HAVE_LIBUTIL_H)
 # include <libutil.h>
 #endif
 
-#if ! HAVE_IN_PORT_T
+#if !defined(HAVE_IN_PORT_T)
 typedef unsigned short in_port_t;
 #endif
 
-#if ! HAVE_SOCKLEN_T
+#if !defined(HAVE_SA_FAMILY_T)
+typedef unsigned short sa_family_t;
+#endif
+
+#if !defined(HAVE_SOCKLEN_T)
 typedef unsigned int socklen_t;
 #endif
 
-#if HAVE_AF_INET6 && HAVE_SOCKADDR_IN6
+#if defined(USE_INET6)
 # define INET6
 #endif
 
-
-#if HAVE_ARPA_NAMESER_H
+#if defined(HAVE_ARPA_NAMESER_H)
 # include <arpa/nameser.h>
 #endif
-#ifndef NS_INADDRSZ
-#define NS_INADDRSZ	4
+#if !defined(NS_INADDRSZ)
+# define NS_INADDRSZ	4
 #endif
-#ifndef NS_IN6ADDRSZ
-#define NS_IN6ADDRSZ	16
+#if !defined(NS_IN6ADDRSZ)
+# define NS_IN6ADDRSZ	16
 #endif
-#ifndef NS_INT16SZ
-#define NS_INT16SZ	2
+#if !defined(NS_INT16SZ)
+# define NS_INT16SZ	2
 #endif
 
-
-#if ! HAVE_RFC2553_NETDB
+#if !HAVE_DECL_AI_NUMERICHOST
 
 				/* RFC 2553 */
 #undef	EAI_ADDRFAMILY
@@ -285,72 +359,72 @@ typedef unsigned int socklen_t;
 #undef	AI_V4MAPPED
 #define	AI_V4MAPPED	0x00000800 /* accept IPv4-mapped IPv6 address */
 
-#endif /* ! HAVE_RFC2553_NETDB */
+#endif /* !HAVE_DECL_AI_NUMERICHOST */
 
 
-#if ! HAVE_RFC2553_NETDB && ! HAVE_ADDRINFO
+#if !HAVE_DECL_AI_NUMERICHOST && !defined(HAVE_STRUCT_ADDRINFO)
 
 struct addrinfo {
-	int	ai_flags;	/* AI_PASSIVE, AI_CANONNAME, AI_NUMERICHOST */
-	int	ai_family;	/* PF_xxx */
-	int	ai_socktype;	/* SOCK_xxx */
-	int	ai_protocol;	/* 0 or IPPROTO_xxx for IPv4 and IPv6 */
-	size_t	ai_addrlen;	/* length of ai_addr */
-	char	*ai_canonname;	/* canonical name for hostname */
+	int		ai_flags;	/* AI_PASSIVE, AI_CANONNAME, AI_NUMERICHOST */
+	int		ai_family;	/* PF_xxx */
+	int		ai_socktype;	/* SOCK_xxx */
+	int		ai_protocol;	/* 0 or IPPROTO_xxx for IPv4 and IPv6 */
+	socklen_t	ai_addrlen;	/* length of ai_addr */
+	char		*ai_canonname;	/* canonical name for hostname */
 	struct sockaddr *ai_addr;	/* binary address */
 	struct addrinfo *ai_next;	/* next structure in linked list */
 };
 
 int	getaddrinfo(const char *, const char *,
 	    const struct addrinfo *, struct addrinfo **);
-int	getnameinfo(const struct sockaddr *, socklen_t, char *,
-	    size_t, char *, size_t, int);
+int	getnameinfo(const struct sockaddr *, socklen_t,
+	    char *, size_t, char *, size_t, int);
 void	freeaddrinfo(struct addrinfo *);
-char	*gai_strerror(int);
+const char *gai_strerror(int);
 
-#endif /* ! HAVE_RFC2553_NETDB && ! HAVE_ADDRINFO */
+#endif /* !HAVE_DECL_AI_NUMERICHOST && !defined(HAVE_STRUCT_ADDRINFO) */
 
-
-#if ! HAVE_D_NAMLEN
-# define DIRENT_MISSING_D_NAMLEN
-#endif
-
-#if ! HAVE_CRYPT_D
+#if !HAVE_DECL_CRYPT
 char	*crypt(const char *, const char *);
 #endif
 
-#if ! HAVE_FCLOSE_D
+#if !HAVE_DECL_H_ERRNO
+extern int	h_errno;
+#endif
+#define HAVE_H_ERRNO	1		/* XXX: an assumption for now... */
+
+#if !HAVE_DECL_FCLOSE
 int	fclose(FILE *);
 #endif
 
-#if ! HAVE_OPTARG_D
-extern char	*optarg;
+#if !HAVE_DECL_OPTARG
+extern char    *optarg;
 #endif
 
-#if ! HAVE_OPTIND_D
+#if !HAVE_DECL_OPTIND
 extern int	optind;
 #endif
 
-#if ! HAVE_PCLOSE_D
+#if !HAVE_DECL_PCLOSE
 int	pclose(FILE *);
 #endif
 
-#if ! HAVE_DAEMON
+#if !defined(HAVE_DAEMON)
 int	daemon(int, int);
 #endif
 
-#if ! HAVE_ERR
+#if !defined(HAVE_ERR)
 void	err(int, const char *, ...);
 void	errx(int, const char *, ...);
 void	warn(const char *, ...);
 void	warnx(const char *, ...);
 #endif
 
-#if ! HAVE_FGETLN
+#if !defined(HAVE_FGETLN)
 char	*fgetln(FILE *, size_t *);
 #endif
 
-#if ! HAVE_FPARSELN
+#if !defined(HAVE_FPARSELN)
 # define FPARSELN_UNESCESC	0x01
 # define FPARSELN_UNESCCONT	0x02
 # define FPARSELN_UNESCCOMM	0x04
@@ -359,110 +433,114 @@ char	*fgetln(FILE *, size_t *);
 char	*fparseln(FILE *, size_t *, size_t *, const char[3], int);
 #endif
 
-#if ! HAVE_GETUSERSHELL || ! HAVE_GETUSERSHELL_D
+#if !defined(HAVE_GETGROUPLIST)
+int	getgrouplist(const char *, gid_t, gid_t *, int *);
+#endif
+
+#if !defined(HAVE_GETUSERSHELL) || !HAVE_DECL_GETUSERSHELL
 char	*getusershell(void);
 void	setusershell(void);
 void	endusershell(void);
 #endif
 
-#if ! HAVE_INET_NTOP
+#if !defined(HAVE_INET_NET_PTON)
+int	inet_net_pton(int, const char *, void *, size_t);
+#endif
+
+#if !defined(HAVE_INET_NTOP)
 const char *inet_ntop(int, const void *, char *, socklen_t);
 #endif
 
-#if ! HAVE_INET_PTON
+#if !defined(HAVE_INET_PTON)
 int	inet_pton(int, const char *, void *);
 #endif
 
-#if ! HAVE_MKSTEMP
+#if !defined(HAVE_MKSTEMP)
 int	mkstemp(const char *);
 #endif
 
-#if ! HAVE_SETEGID
-# if HAVE_SETRESGID
+#if !defined(HAVE_SETEGID)
+# if defined(HAVE_SETRESGID)
 #  define setegid(i) setresgid(-1, (i), -1)
 # else
 #  error Must have setegid() or setresgid()
 # endif
 #endif
 
-#if ! HAVE_SETEUID
-# if HAVE_SETRESUID
+#if !defined(HAVE_SETEUID)
+# if defined(HAVE_SETRESUID)
 #  define seteuid(i) setresuid(-1, (i), -1)
 # else
 #  error Must have seteuid() or setresuid()
 # endif
 #endif
 
-#if ! HAVE_SNPRINTF
+#if !defined(HAVE_SNPRINTF)
 int	snprintf(char *, size_t, const char *, ...);
 int	vsnprintf(char *, size_t, const char *, va_list);
 #endif
 
-#if ! HAVE_STRDUP
+#if !defined(HAVE_STRDUP)
 char	*strdup(const char *);
 #endif
 
-#if ! HAVE_STRERROR
+#if !defined(HAVE_STRERROR)
 char	*strerror(int);
 #endif
 
-#if HAVE_WORKING_LONG_LONG
-# if ! HAVE_STRTOLL && HAVE_LONG_LONG
+#if defined(HAVE_PRINTF_LONG_LONG) && defined(HAVE_LONG_LONG_INT)
+# if !defined(HAVE_STRTOLL)
 long long strtoll(const char *, char **, int);
 # endif
-# if ! defined(LLONG_MAX)
-#  if defined(LONG_LONG_MAX)
-#   define LLONG_MAX	LONG_LONG_MAX
-#  else
-#   define LLONG_MAX	(0x7fffffffffffffffL)
-#  endif
+# if !defined(LLONG_MIN)
+#  define LLONG_MIN	(-0x7fffffffffffffffLL-1)
 # endif
-# if ! defined(LLONG_MIN)
-#  if defined(LONG_LONG_MIN)
-#   define LLONG_MIN	LONG_LONG_MIN
-#  else
-#   define LLONG_MIN	(-0x7fffffffffffffffL-1)
-#  endif
+# if !defined(LLONG_MAX)
+#  define LLONG_MAX	(0x7fffffffffffffffLL)
 # endif
-#else	/* ! HAVE_WORKING_LONG_LONG */
+#else  /* !(defined(HAVE_PRINTF_LONG_LONG) && defined(HAVE_LONG_LONG_INT)) */
 # define NO_LONG_LONG	1
-#endif	/* ! HAVE_WORKING_LONG_LONG */
+#endif /* !(defined(HAVE_PRINTF_LONG_LONG) && defined(HAVE_LONG_LONG_INT)) */
 
-#if ! HAVE_STRLCAT
+#if !defined(HAVE_STRLCAT)
 size_t	strlcat(char *, const char *, size_t);
 #endif
 
-#if ! HAVE_STRLCPY
+#if !defined(HAVE_STRLCPY)
 size_t	strlcpy(char *, const char *, size_t);
 #endif
 
-#if ! HAVE_STRMODE
+#if !defined(HAVE_STRMODE)
 void	strmode(mode_t, char *);
 #endif
 
-#if ! HAVE_STRSEP
+#if !defined(HAVE_STRSEP)
 char	*strsep(char **, const char *);
 #endif
 
-#if ! HAVE_STRSUFTOLLX
+#if !defined(HAVE_STRSUFTOLLX)
 long long strsuftollx(const char *, const char *,
 	    long long, long long, char *, size_t);
 #endif
 
-#if ! HAVE_USER_FROM_UID
+#if !defined(HAVE_USER_FROM_UID)
 const char *user_from_uid(uid_t, int);
 const char *group_from_gid(gid_t, int);
 #endif
 
+#if !defined(HAVE_USLEEP)
+int	usleep(unsigned int);
+#endif
 
-#if ! defined(MIN)
+
+#if !defined(MIN)
 # define MIN(a, b)	((a) < (b) ? (a) : (b))
 #endif
-#if ! defined(MAX)
+#if !defined(MAX)
 # define MAX(a, b)	((a) < (b) ? (b) : (a))
 #endif
 
-#if ! defined(timersub)
+#if !defined(timersub)
 # define timersub(tvp, uvp, vvp)					\
 	do {								\
 		(vvp)->tv_sec = (tvp)->tv_sec - (uvp)->tv_sec;		\
@@ -474,7 +552,7 @@ const char *group_from_gid(gid_t, int);
 	} while (0)
 #endif
 
-#if ! defined(S_ISLNK)
+#if !defined(S_ISLNK)
 # define S_ISLNK(m)	((m & S_IFMT) == S_IFLNK)
 #endif
 
@@ -482,14 +560,29 @@ const char *group_from_gid(gid_t, int);
 #define SECSPERDAY	86400
 #define TM_YEAR_BASE	1900
 
-#if ! defined(LOGIN_NAME_MAX)
+#if !defined(LOGIN_NAME_MAX)
 # define LOGIN_NAME_MAX (9)
 #endif
 
-#if ! defined(_POSIX_LOGIN_NAME_MAX)
+#if !defined(_POSIX_LOGIN_NAME_MAX)
 # define _POSIX_LOGIN_NAME_MAX LOGIN_NAME_MAX
 #endif
 
-#if ! defined(MAP_FAILED)
+#if !defined(MAP_FAILED)
 # define MAP_FAILED	((void *)-1)	/* mmap(2) error indicator */
+#endif
+
+#if defined(USE_PAM)
+# if defined(HAVE_SECURITY_PAM_APPL_H)
+#  include <security/pam_appl.h>
+# elif defined(HAVE_PAM_PAM_APPL_H)
+#  include <pam/pam_appl.h>
+# endif
+#endif
+
+#if defined(USE_SKEY)
+# if defined(HAVE_SKEY_H)
+#  include <skey.h>
+# endif
+# define SKEY 1
 #endif

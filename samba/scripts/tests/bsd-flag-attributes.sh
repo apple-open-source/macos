@@ -7,18 +7,20 @@
 
 SCRIPTBASE=${SCRIPTBASE:-$(cd $(dirname $0)/.. && pwd )}
 .  $SCRIPTBASE/common.sh || exit 2
+.  $SCRIPTBASE/directory-services.sh || exit 2
 
-if [ $# -ne 1 ]; then
+if [ $# -lt 2 ]; then
 cat <<EOF
-Usage: bsd-flag-attributes.sh PASSWORD
+Usage: bsd-flag-attributes.sh USERNAME PASSWORD
 EOF
 exit 1;
 fi
 
+USERNAME=${1:-local}
+PASSWORD=${2:-local}
 SERVER=localhost
 SHARE=homes
-USERNAME=$LOGNAME
-PASSWORD=${1:-local}
+HOMEDIR=$(ds_user_homedir "$USERNAME")
 
 TESTDIR="$(basename $0)"
 TMPFILE=/tmp/$(basename $0).$$
@@ -29,9 +31,20 @@ ASROOT=sudo
 # single user mode to clear it.
 FLAGS="dump archived hidden uimmutable"
 
+if [ -z "$HOMEDIR" ] ; then
+    echo FAILED
+    echo \$HOMEDIR is not set
+    exit 1
+elif [ ! -d "$HOMEDIR" ] ; then
+    echo FAILED
+    echo $HOMEDIR is not available
+    exit 1
+fi
+
 failed=0
 failtest()
 {
+    echo FAILED
     failed=`expr $failed + 1`
 }
 
@@ -44,18 +57,18 @@ setup_failed()
 
 create_test_files()
 {
-    mkdir -p $HOME/$TESTDIR || setup_failed
+    mkdir -p $HOMEDIR/$TESTDIR || setup_failed
 
     for f in $FLAGS regular ; do
-	touch $HOME/$TESTDIR/$f
-	chmod 777 $HOME/$TESTDIR/$f
+	touch $HOMEDIR/$TESTDIR/$f
+	chmod 777 $HOMEDIR/$TESTDIR/$f
     done
 }
 
 remove_test_files()
 {
     clear_bsd_flags
-    rm -rf $HOME/$TESTDIR
+    rm -rf $HOMEDIR/$TESTDIR
     rm -f $TMPFILE
 }
 
@@ -63,22 +76,31 @@ remove_test_files()
 set_bsd_flags()
 {
     for f in $FLAGS ; do
-	$ASROOT chflags $f $HOME/$TESTDIR/$f
+	$ASROOT chflags $f $HOMEDIR/$TESTDIR/$f
     done
 }
 
 clear_bsd_flags()
 {
     for f in $FLAGS ; do
-	$ASROOT chflags no$f $HOME/$TESTDIR/$f
+	$ASROOT chflags no$f $HOMEDIR/$TESTDIR/$f
     done
 }
 
 smbclient_listing()
 {
-    smbclient -g -N  -U"$LOGNAME"%"$PASSWORD" //$SERVER/$SHARE <<EOF
+    echo smbclient -g -N  -U"$USERNAME"%"$PASSWORD" //$SERVER/$SHARE
+    smbclient -g -N  -U"$USERNAME"%"$PASSWORD" //$SERVER/$SHARE <<EOF
 cd $TESTDIR
 ls
+EOF
+}
+
+smbclient_setmode()
+{
+    smbclient -g -N  -U"$USERNAME"%"$PASSWORD" //$SERVER/$SHARE <<EOF
+cd $TESTDIR
+setmode $1 $2
 EOF
 }
 
@@ -102,7 +124,7 @@ register_cleanup_handler remove_test_files
 
 echo setting BSD flag attributes
 set_bsd_flags
-ls -lO $HOME/$TESTDIR | indent
+ls -lO $HOMEDIR/$TESTDIR | indent
 
 echo checking SMB view
 smbclient_listing | indent | tee $TMPFILE
@@ -115,7 +137,7 @@ checkflag uimmutable AR $TMPFILE || failtest
 
 echo clearing BSD flag attributes
 clear_bsd_flags
-ls -lO $HOME/$TESTDIR | indent
+ls -lO $HOMEDIR/$TESTDIR | indent
 
 echo checking SMB view
 smbclient_listing | indent | tee $TMPFILE
@@ -125,5 +147,17 @@ checkflag archived A $TMPFILE || failtest
 checkflag dump 0 $TMPFILE || failtest
 checkflag hidden A $TMPFILE || failtest
 checkflag uimmutable A $TMPFILE || failtest
+
+echo setting BSD flags using SMB
+smbclient_setmode uimmutable +r || failtest
+smbclient_setmode hidden +h || failtest
+smbclient_setmode archived +a || failtest
+
+echo checking SMB view
+smbclient_listing | indent | tee $TMPFILE
+
+checkflag archived A $TMPFILE || failtest
+checkflag hidden AH $TMPFILE || failtest
+checkflag uimmutable AR $TMPFILE || failtest
 
 testok $0 $failed

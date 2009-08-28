@@ -3,7 +3,7 @@ Ceci est un avis d'erreur sur une liste Mailman:
     Liste:      %(listname)s
     Abonné:     %(addr)s
     Action:     Abonnement %(negative)s%(did)s.
-    Raison:     Rebonds excessifs ou fatals.
+    Raison:     Rejets excessifs ou fatals.
     %(but)s
 
 %(reenable)s

@@ -121,7 +121,7 @@ clean_src :
 	fi
 
 configure_imap :
-	$(SILENT) $(ECHO) "-------------- $(PROJECT_NAME) -------------- configure_imap"
+	$(SILENT) $(ECHO) "-------------- Configuring $(PROJECT_NAME) --------------"
 	$(SILENT) $(ECHO) "Configuring $(PROJECT_NAME)..."
 	$(SILENT) if [ ! -e "$(SRCROOT)/$(PROJECT_NAME)/Makefile" ]; then\
 		$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT_NAME)" && ./configure $(CYRUS_CONFIG))\
@@ -130,14 +130,14 @@ configure_imap :
 
 clean_imap_src : 
 	$(SILENT) $(ECHO) "Cleaning $(PROJECT_NAME)..."
-	$(SILENT) $(ECHO) "-------------- $(PROJECT_NAME) --------------"
+	$(SILENT) $(ECHO) "-------------- Cleaning $(PROJECT_NAME) --------------"
 	$(SILENT) if [ -e "$(SRCROOT)/$(PROJECT_NAME)/Makefile" ]; then\
 		$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT_NAME)" && make distclean)\
 	fi
 	$(SILENT) $(ECHO) "Cleaning $(PROJECT_NAME) complete."
 
 build_imap :
-	$(SILENT) $(ECHO) "-------------- $(PROJECT_NAME) -------------- build_imap"
+	$(SILENT) $(ECHO) "-------------- Building $(PROJECT_NAME) -------------- build_imap"
 	$(SILENT) $(ECHO) "Configuring $(PROJECT_NAME)..."
 	$(SILENT) if [ ! -e "$(SRCROOT)/$(PROJECT_NAME)/Makefile" ]; then\
 		$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT_NAME)" && ./configure $(CYRUS_CONFIG))\
@@ -148,7 +148,7 @@ build_imap :
 	$(SILENT) $(ECHO) "---- Building $(PROJECT_NAME) complete."
 
 install_imap : $(DSTROOT)$(LIB_PERL)
-	$(SILENT) $(ECHO) "-------------- $(PROJECT_NAME) --------------"
+	$(SILENT) $(ECHO) "-------------- Installing $(PROJECT_NAME) --------------"
 	$(SILENT) $(ECHO) "Installing $(PROJECT_NAME)..."
 
 	$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT_NAME)" && make install DESTDIR="$(DSTROOT)")
@@ -158,7 +158,7 @@ install_imap : $(DSTROOT)$(LIB_PERL)
 
 	# Cyrus admin app
 	$(SILENT) install -d -m 755 $(DSTROOT)/$(ADMIN_DST_DIR)
-	$(SILENT) install -m 0755 "$(DSTROOT)/usr/local/usr/bin/cyradm" "$(DSTROOT)/$(ADMIN_DST_DIR)/"
+	$(SILENT) install -m 0755 "$(DSTROOT)/usr/local/bin/cyradm" "$(DSTROOT)/$(ADMIN_DST_DIR)/"
 
 	# Install man pages
 	$(SILENT) install -d -m 755 $(DSTROOT)/$(MAN_DST_DIR)

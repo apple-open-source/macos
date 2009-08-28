@@ -15,7 +15,7 @@
 //
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // 2.1 reference wrappers
@@ -56,11 +56,20 @@ struct X
   X& operator=(const X&);
 };
 
+int seventeen() { return 17; }
+
+struct get_seventeen
+{
+  typedef int result_type;
+  int operator()() const { return 17; }
+};
+
 void test01()
 {
   using std::tr1::ref;
   using std::tr1::cref;
 
+  ::get_seventeen get_sev;
   ::X x;
   ::X* xp = &x;
   int (::X::* p_foo)(float) = &::X::foo;
@@ -73,9 +82,11 @@ void test01()
 
   // Functions
   VERIFY(ref(truncate_float)(pi) == 3);
+  VERIFY(ref(seventeen)() == 17);
 
   // Function pointers
   VERIFY(cref(&truncate_float)(pi) == 3);
+  VERIFY(cref(&seventeen)() == 17);
 
   // Member function pointers
   VERIFY(ref(p_foo)(x, pi) == 3);
@@ -92,6 +103,8 @@ void test01()
   VERIFY(ref(p_bar)(xp) == 17);
 
   // Function objects
+  VERIFY(ref(get_sev)() == 17);
+  VERIFY(cref(get_sev)() == 17);
   VERIFY(ref(x)(pi) == 4);
   VERIFY(cref(x)(pi) == 5);
 }

@@ -1,0 +1,12 @@
+--- base5067/innobase/include/univ.i	2008-08-04 05:19:15.000000000 -0700
++++ m5067/innobase/include/univ.i	2008-09-08 06:53:12.000000000 -0700
+@@ -166,6 +166,9 @@
+ /* Maximum number of parallel threads in a parallelized operation */
+ #define UNIV_MAX_PARALLELISM	32
+ 
++/* Disable the custom malloc pool, libc malloc is fine. */
++#define UNIV_DISABLE_MEM_POOL
++
+ /*
+ 			UNIVERSAL TYPE DEFINITIONS
+ 			==========================

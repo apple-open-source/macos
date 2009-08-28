@@ -327,8 +327,6 @@ do_cooked_read (void *src, int regnum, gdb_byte *buf)
 void
 regcache_cpy (struct regcache *dst, struct regcache *src)
 {
-  int i;
-  gdb_byte *buf;
   gdb_assert (src != NULL && dst != NULL);
   gdb_assert (src->descr->gdbarch == dst->descr->gdbarch);
   gdb_assert (src != dst);
@@ -344,7 +342,6 @@ regcache_cpy (struct regcache *dst, struct regcache *src)
 void
 regcache_cpy_no_passthrough (struct regcache *dst, struct regcache *src)
 {
-  int i;
   gdb_assert (src != NULL && dst != NULL);
   gdb_assert (src->descr->gdbarch == dst->descr->gdbarch);
   /* NOTE: cagney/2002-05-17: Don't let the caller do a no-passthrough
@@ -818,10 +815,6 @@ deprecated_write_register_bytes (int myregstart, gdb_byte *myaddr, int inlen)
       else
 	{
 	  gdb_byte regbuf[MAX_REGISTER_SIZE];
-	  /* What's the overlap between this register's bytes and
-             those the caller wants to write?  */
-	  int overlapstart = max (regstart, myregstart);
-	  int overlapend   = min (regend,   myregend);
 
 	  /* We may be doing a partial update of an invalid register.
 	     Update it from the target before scribbling on it.  */
@@ -949,7 +942,6 @@ ULONGEST
 read_register_pid (int regnum, ptid_t ptid)
 {
   ptid_t save_ptid;
-  int save_pid;
   CORE_ADDR retval;
 
   if (ptid_equal (ptid, inferior_ptid))

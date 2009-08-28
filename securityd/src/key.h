@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2004,2008 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,7 +31,7 @@
 #include "structure.h"
 #include "database.h"
 #include "acls.h"
-#include <security_cdsa_utilities/handleobject.h>
+#include <security_cdsa_utilities/u32handleobject.h>
 #include <security_cdsa_client/keyclient.h>
 
 
@@ -73,7 +73,7 @@ public:
 	virtual CSSM_KEYATTR_FLAGS attributes() = 0;
 	bool attribute(CSSM_KEYATTR_FLAGS f) { return attributes() & f; }
 	
-	virtual void returnKey(Handle &h, CssmKey::Header &hdr) = 0;
+	virtual void returnKey(U32HandleObject::Handle &h, CssmKey::Header &hdr) = 0;
 };
 
 

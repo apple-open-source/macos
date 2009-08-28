@@ -155,6 +155,9 @@ bool is_server_system(void);
 /* Convert a CFString to a UTF8 std::string. */
 std::string cfstring_convert(CFStringRef cfstr);
 
+/* Convert a CFString to an  arbitrary 8 bit std::string. */
+std::string cfstring_convert(CFStringRef cfstr, CFStringEncoding e);
+
 /* Wrap a CFString around a UTF8 C-style string. */
 CFStringRef cfstring_wrap(const char * str);
 

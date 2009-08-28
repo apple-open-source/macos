@@ -1,26 +1,46 @@
---- err.c.orig	2006-12-15 11:18:17.000000000 -0800
-+++ err.c	2006-12-15 11:46:52.000000000 -0800
-@@ -44,12 +44,85 @@
+--- err.c.orig	2009-05-12 11:21:55.000000000 -0700
++++ err.c	2009-05-23 13:27:52.000000000 -0700
+@@ -44,12 +44,105 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/err
  #include <stdio.h>
  #include <stdlib.h>
  #include <string.h>
 +#include <vis.h>
  #include "un-namespace.h"
  
++#ifdef __BLOCKS__
++#include <Block.h>
++#endif /* __BLOCKS__ */
  #include "libc_private.h"
  
 -static FILE *err_file; /* file to use for error output */
 -static void (*err_exit)(int);
++#define ERR_EXIT_UNDEF	0
++#ifdef __BLOCKS__
++#define ERR_EXIT_BLOCK	1
++#endif /* __BLOCKS__ */
++#define ERR_EXIT_FUNC	2
++struct _e_err_exit {
++	unsigned int type;
++#ifdef __BLOCKS__
++	union {
++#endif /* __BLOCKS__ */
++		void (*func)(int);
++#ifdef __BLOCKS__
++		void (^block)(int);
++	};
++#endif /* __BLOCKS__ */
++};
++
 +#ifdef BUILDING_VARIANT
 +
 +__private_extern__ FILE *_e_err_file; /* file to use for error output */
-+__private_extern__ void (*_e_err_exit)(int);
++__private_extern__ struct _e_err_exit _e_err_exit;
 +__private_extern__ void _e_visprintf(FILE * __restrict, const char * __restrict, va_list);
 +
 +#else /* !BUILDING_VARIANT */
 +
 +__private_extern__ FILE *_e_err_file = NULL; /* file to use for error output */
-+__private_extern__ void (*_e_err_exit)(int) = NULL;
++__private_extern__ struct _e_err_exit _e_err_exit = {ERR_EXIT_UNDEF};
 +
 +/*
 + * zero means pass as is
@@ -88,7 +108,7 @@
  
  /*
   * This is declared to take a `void *' so that the caller is not required
-@@ -60,16 +133,17 @@
+@@ -60,16 +153,27 @@ void
  err_set_file(void *fp)
  {
  	if (fp)
@@ -103,13 +123,23 @@
  err_set_exit(void (*ef)(int))
  {
 -	err_exit = ef;
-+	_e_err_exit = ef;
++	_e_err_exit.type = ERR_EXIT_FUNC;
++	_e_err_exit.func = ef;
++}
++
++#ifdef __BLOCKS__
++void
++err_set_exit_b(void (^ef)(int))
++{
++	_e_err_exit.type = ERR_EXIT_BLOCK;
++	_e_err_exit.block = Block_copy(ef);
  }
++#endif /* __BLOCKS__ */
 +#endif /* !BUILDING_VARIANT */
  
  __weak_reference(_err, err);
  
-@@ -107,16 +181,16 @@
+@@ -107,16 +211,21 @@ verrc(eval, code, fmt, ap)
  	const char *fmt;
  	va_list ap;
  {
@@ -128,12 +158,17 @@
 -	if (err_exit)
 -		err_exit(eval);
 +	fprintf(_e_err_file, "%s\n", strerror(code));
-+	if (_e_err_exit)
-+		_e_err_exit(eval);
++	if (_e_err_exit.type)
++#ifdef __BLOCKS__
++		if (_e_err_exit.type == ERR_EXIT_BLOCK)
++			_e_err_exit.block(eval);
++		else
++#endif /* __BLOCKS__ */
++			_e_err_exit.func(eval);
  	exit(eval);
  }
  
-@@ -135,14 +209,14 @@
+@@ -135,14 +244,19 @@ verrx(eval, fmt, ap)
  	const char *fmt;
  	va_list ap;
  {
@@ -149,12 +184,17 @@
 -		err_exit(eval);
 +		_e_visprintf(_e_err_file, fmt, ap);
 +	fprintf(_e_err_file, "\n");
-+	if (_e_err_exit)
-+		_e_err_exit(eval);
++	if (_e_err_exit.type)
++#ifdef __BLOCKS__
++		if (_e_err_exit.type == ERR_EXIT_BLOCK)
++			_e_err_exit.block(eval);
++		else
++#endif /* __BLOCKS__ */
++			_e_err_exit.func(eval);
  	exit(eval);
  }
  
-@@ -180,14 +254,14 @@
+@@ -180,14 +294,14 @@ vwarnc(code, fmt, ap)
  	const char *fmt;
  	va_list ap;
  {
@@ -174,7 +214,7 @@
  }
  
  void
-@@ -204,10 +278,10 @@
+@@ -204,10 +318,10 @@ vwarnx(fmt, ap)
  	const char *fmt;
  	va_list ap;
  {

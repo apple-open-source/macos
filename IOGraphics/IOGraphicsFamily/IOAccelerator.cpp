@@ -350,7 +350,7 @@ IOAccelerator::releaseAccelID(IOOptionBits options, IOAccelID id)
 	    if (!--record->retain)
 	    {
 		if (record->task_link.next)
-		    IOPanic("IOAccelerator::releaseID task_link");
+		    panic("IOAccelerator::releaseID task_link");
 
 		queue_remove(&gGlobalList,
 				record,

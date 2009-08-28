@@ -16,7 +16,6 @@ class Gem::Commands::InstallCommand < Gem::Command
     defaults = Gem::DependencyInstaller::DEFAULT_OPTIONS.merge({
       :generate_rdoc => true,
       :generate_ri   => true,
-      :install_dir => Gem.dir,
       :format_executable => false,
       :test => false,
       :version => Gem::Requirement.default,
@@ -39,6 +38,19 @@ class Gem::Commands::InstallCommand < Gem::Command
     "--no-test --install-dir #{Gem.dir}"
   end
 
+  def description # :nodoc:
+    <<-EOF
+The install command installs local or remote gem into a gem repository.
+
+For gems with executables ruby installs a wrapper file into the executable
+directory by deault.  This can be overridden with the --no-wrappers option.
+The wrapper allows you to choose among alternate gem versions using _version_.
+
+For example `rake _0.7.3_ --version` will run rake version 0.7.3 if a newer
+version is also installed.
+    EOF
+  end
+
   def usage # :nodoc:
     "#{program_name} GEMNAME [GEMNAME ...] [options] -- --build-flags"
   end
@@ -51,7 +63,7 @@ class Gem::Commands::InstallCommand < Gem::Command
 
     installed_gems = []
 
-    ENV['GEM_PATH'] = options[:install_dir] # HACK what does this do?
+    ENV.delete 'GEM_PATH' if options[:install_dir].nil? and RUBY_VERSION > '1.9'
 
     install_options = {
       :env_shebang => options[:env_shebang],
@@ -62,13 +74,16 @@ class Gem::Commands::InstallCommand < Gem::Command
       :install_dir => options[:install_dir],
       :security_policy => options[:security_policy],
       :wrappers => options[:wrappers],
+      :bin_dir => options[:bin_dir],
+      :development => options[:development],
     }
+
+    exit_code = 0
 
     get_all_gem_names.each do |gem_name|
       begin
-        inst = Gem::DependencyInstaller.new gem_name, options[:version],
-                                            install_options
-        inst.install
+        inst = Gem::DependencyInstaller.new install_options
+        inst.install gem_name, options[:version]
 
         inst.installed_gems.each do |spec|
           say "Successfully installed #{spec.full_name}"
@@ -77,8 +92,10 @@ class Gem::Commands::InstallCommand < Gem::Command
         installed_gems.push(*inst.installed_gems)
       rescue Gem::InstallError => e
         alert_error "Error installing #{gem_name}:\n\t#{e.message}"
+        exit_code |= 1
       rescue Gem::GemNotFoundException => e
         alert_error e.message
+        exit_code |= 2
 #      rescue => e
 #        # TODO: Fix this handle to allow the error to propagate to
 #        # the top level handler.  Examine the other errors as
@@ -102,6 +119,8 @@ class Gem::Commands::InstallCommand < Gem::Command
       installed_gems.each do |gem|
         Gem::DocManager.new(gem, options[:rdoc_args]).generate_ri
       end
+
+      Gem::DocManager.update_ri_cache
     end
 
     if options[:generate_rdoc] then
@@ -121,6 +140,8 @@ class Gem::Commands::InstallCommand < Gem::Command
         end
       end
     end
+
+    raise Gem::SystemExitException, exit_code
   end
 
 end

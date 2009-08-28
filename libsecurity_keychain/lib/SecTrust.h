@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2006 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2002-2009 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -52,7 +52,9 @@ extern "C" {
 	@constant kSecTrustResultFatalTrustFailure Indicates a trust framework failure; no "easy" fix. This value may be returned by the SecTrustEvaluate function but not stored as part of the user trust settings.
 	@constant kSecTrustResultOtherError Indicates a failure other than that of trust evaluation. This value may be returned by the SecTrustEvaluate function but not stored as part of the user trust settings.
  */
-typedef enum {
+typedef uint32_t SecTrustResultType;
+
+enum {
     kSecTrustResultInvalid,
     kSecTrustResultProceed,
     kSecTrustResultConfirm,
@@ -61,7 +63,7 @@ typedef enum {
     kSecTrustResultRecoverableTrustFailure,
     kSecTrustResultFatalTrustFailure,
     kSecTrustResultOtherError
-} SecTrustResultType;
+};
 
 /*!
 	@typedef SecTrustUserSetting
@@ -121,6 +123,19 @@ OSStatus SecTrustSetParameters(SecTrustRef trustRef, CSSM_TP_ACTION action, CFDa
 OSStatus SecTrustSetAnchorCertificates(SecTrustRef trust, CFArrayRef anchorCertificates);
 
 /*!
+	@function SecTrustSetAnchorCertificatesOnly
+	@abstract Reenables trusting anchor certificates in addition to those passed in
+    via the SecTrustSetAnchorCertificates API.
+	@param trust A reference to a trust object.
+	@param anchorCertificatesOnly If true, disables trusting any anchors other
+    than the ones passed in via SecTrustSetAnchorCertificates().  If false,
+    the built in anchor certificates are also trusted.
+	@result A result code.  See "Security Error Codes" (SecBase.h).
+*/
+OSStatus SecTrustSetAnchorCertificatesOnly(SecTrustRef trust,
+    Boolean anchorCertificatesOnly);
+
+/*!
 	@function SecTrustSetKeychains
 	@abstract Sets the keychains for a given trust.
 	@param trust A reference to a trust.
@@ -137,6 +152,15 @@ OSStatus SecTrustSetKeychains(SecTrustRef trust, CFTypeRef keychainOrArray);
 	@result A result code. See "Security Error Codes" (SecBase.h).
 */
 OSStatus SecTrustSetVerifyDate(SecTrustRef trust, CFDateRef verifyDate);
+
+/*!
+	@function SecTrustGetVerifyTime
+	@abstract Returns the verify time.
+	@param trust A reference to the trust object to verify.
+	@result A CFAbsoluteTime value representing the time at which certificates
+	should be checked for validity.
+*/
+CFAbsoluteTime SecTrustGetVerifyTime(SecTrustRef trust);
 
 /*!
 	@function SecTrustEvaluate

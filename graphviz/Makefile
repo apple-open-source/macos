@@ -8,7 +8,6 @@ UserType        = Developer
 ToolType        = Libraries
 
 GnuAfterInstall = install-plist
-Extra_CC_Flags  = -Wno-long-double
 Extra_Configure_Flags = --prefix="$(Install_Prefix)" --enable-static --without-x --disable-dependency-tracking
 Extra_Environment = MACOSX_DEPLOYMENT_TARGET="10.4" LIBTOOL_CMD_SEP="::"
 

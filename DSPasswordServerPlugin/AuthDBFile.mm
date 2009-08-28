@@ -22,6 +22,7 @@
  */
 
 #include <TargetConditionals.h>
+#include <pthread.h>
 
 extern "C" {
 #import <stdio.h>
@@ -30,6 +31,7 @@ extern "C" {
 #import <sys/stat.h>
 #import <syslog.h>
 #import <unistd.h>
+#import <time.h>
 #import <LDAP/ldap.h>
 #import "AuthDBFile.h"
 #import "PSUtilitiesDefs.h"
@@ -37,6 +39,7 @@ extern "C" {
 #import "SMBAuth.h"
 #import "ReplicaFileDefs.h"
 #import "KerberosInterface.h"
+#import "AuditUtils.h"
 
 #if COMPILE_WITH_RSA_LOAD
     #import "bufaux.h"
@@ -47,12 +50,17 @@ extern "C" {
 #endif
 };
 
+
 @implementation AuthDBFile
 
 -(id)init
 {
 	self = [super init];
 	mPWFileNO = -1;
+	if( pthread_mutex_init(&mLocksLock, NULL) != 0 )
+		return nil;
+	mPWLockCount = 0;
+	mPWHdrLastMod = 0;
 	
 	const char *altPathPrefix = getenv("PWSAltPathPrefix");
 	if ( altPathPrefix != NULL )
@@ -79,6 +87,10 @@ extern "C" {
 	
 	self = [super init];
 	mPWFileNO = -1;
+	if( pthread_mutex_init(&mLocksLock, NULL) != 0 )
+		return nil;
+	mPWLockCount = 0;
+	mPWHdrLastMod = 0;
 	
 	mFilePathStr = strdup( inFilePath );
 	mDirPathStr = strdup( inFilePath );
@@ -98,7 +110,7 @@ extern "C" {
 }
 
 
--free
+-(void)dealloc
 {	
 	[self freeRSAKey];
 	[self closePasswordFile];
@@ -110,10 +122,18 @@ extern "C" {
 		free( mDirPathStr );
 	if ( mSearchBase != NULL )
 		free( mSearchBase );
+	pthread_mutex_destroy(&mLocksLock);
 	
-	[mOverflow free];
+	[mOverflow release];
 	
-	return [super free];
+	[super dealloc];
+}
+
+
+-free
+{
+    [self release];
+    return 0;
 }
 
 
@@ -150,11 +170,11 @@ extern "C" {
 		err = [self getHeader:&dbHeader];
     if ( err == 0 )
 	{
-        if ( mPWFile != NULL )
+        if ( mPWFileNO != -1 )
         {
             if ( mPWFileHeader.signature != kPWFileSignature ||
                  mPWFileHeader.version != kPWFileVersion ||
-                 sb.st_size != (int32_t)(sizeof(mPWFileHeader) + mPWFileHeader.numberOfSlotsCurrentlyInFile * sizeof(PWFileEntry)) )
+                 sb.st_size != (off_t)(sizeof(mPWFileHeader) + (off_t)mPWFileHeader.numberOfSlotsCurrentlyInFile * sizeof(PWFileEntry)) )
             {
                 err = -1;
             }
@@ -193,11 +213,11 @@ extern "C" {
 		err = chmod( dirPathStr, S_IRWXU );
 	
     // create new file
-    mPWFile = fopen( filePathStr, "w+" );
-    if ( mPWFile != NULL )
+	// flags duplicate that of fopen( "w+" )
+    mPWFileNO = open( filePathStr, O_RDWR | O_CREAT | O_TRUNC );
+    if ( mPWFileNO >= 0 )
     {
-		mPWFileNO = fileno( mPWFile );
-        err = chmod( filePathStr, S_IRUSR | S_IWUSR );
+        err = fchmod( mPWFileNO, S_IRUSR | S_IWUSR );
         if ( err == -1 )
             err = errno;
         // ignore
@@ -207,7 +227,7 @@ extern "C" {
         bzero( &mPWFileHeader, sizeof(PWFileHeader) );
         mPWFileHeader.signature = kPWFileSignature;
         mPWFileHeader.version = kPWFileVersion;
-		mPWFileHeader.entrySize = sizeof(PWFileEntry);
+		mPWFileHeader.entrySize = (UInt32)sizeof(PWFileEntry);
         mPWFileHeader.sequenceNumber = 0;
         mPWFileHeader.numberOfSlotsCurrentlyInFile = kPWFileInitialSlots;
         mPWFileHeader.deepestSlotUsed = 0;
@@ -243,17 +263,21 @@ extern "C" {
             
             bzero( &anEntry, sizeof(PWFileEntry) );
             
-            for ( i = kPWFileInitialSlots; i > 0; i-- )
-            {
-                writeCount = fwrite( &anEntry, sizeof(PWFileEntry), 1, mPWFile );
-                if ( writeCount != 1 )
-                {
-                    err = -1;
-                    break;
-                }
-            }
+			if( [self pwLock:kOneSecondLockInterval] == YES ) {
+            	for ( i = kPWFileInitialSlots; i > 0; i-- )
+            	{
+                	writeCount = pwrite( mPWFileNO, &anEntry, sizeof(PWFileEntry), sizeof(PWFileHeader) + ((i-1)*sizeof(PWFileEntry)) );
+                	if ( writeCount != sizeof(PWFileEntry) )
+                	{
+                    	err = -1;
+                    	break;
+                	}
+            	}
+				[self pwUnlock];
+			} else {
+				err = -1;
+			}
         }
-        fflush( mPWFile );
         
         if ( err == 0 )
 			[self validateFiles];
@@ -269,6 +293,48 @@ extern "C" {
     return err;
 }
 
+/* Convert fopen(3) flags to open(2) flags.  From the internal libc function */
+static int
+__sflags(const char *mode, int *optr)
+{
+        int m, o;
+
+        switch (*mode++) {
+
+        case 'r':       /* open for reading */
+                m = O_RDONLY;
+                o = 0;
+                break;
+
+        case 'w':       /* open for writing */
+                m = O_WRONLY;
+                o = O_CREAT | O_TRUNC;
+                break;
+
+        case 'a':       /* open for appending */
+                m = O_WRONLY;
+                o = O_CREAT | O_APPEND;
+                break;
+
+        default:        /* illegal mode */
+                errno = EINVAL;
+                return (0);
+        }
+
+        /* [rwa]\+ or [rwa]b\+ means read and write */
+        if (*mode == 'b')
+                mode++;
+        if (*mode == '+') {
+                m = O_RDWR;
+                mode++;
+                if (*mode == 'b')
+                        mode++;
+        }
+        if (*mode == 'x')
+                o |= O_EXCL;
+        *optr = m | o;
+        return (0);
+}
 
 //----------------------------------------------------------------------------------------------------
 //	openPasswordFile
@@ -286,7 +352,7 @@ extern "C" {
 {
     int err = 0;
      
-    if ( mPWFile != NULL && strcmp( mode, mPWFilePermission ) == 0 )
+    if ( mPWFileNO != -1 && strcmp( mode, mPWFilePermission ) == 0 )
     {
         return err;
     }
@@ -294,18 +360,19 @@ extern "C" {
     {
         [self closePasswordFile];
         
-        mPWFile = fopen( mFilePathStr, mode );
+		int flags = 0;
+		__sflags(mode, &flags);
+        mPWFileNO = open( mFilePathStr, flags );
 		
 		// handle read-only file system
-		if ( mPWFile == NULL && errno == EROFS )
+		if ( mPWFileNO < 0 && errno == EROFS )
 		{
 			mReadOnlyFileSystem = YES;
-			mPWFile = fopen( mFilePathStr, "r" );
+			mPWFileNO = open( mFilePathStr, O_RDONLY );
 		}
 		
-        if ( mPWFile != NULL )
+        if ( mPWFileNO >= 0 )
         {
-		mPWFileNO = fileno( mPWFile );
             strcpy( mPWFilePermission, mReadOnlyFileSystem ? "r" : mode );
         }
         else
@@ -323,12 +390,12 @@ extern "C" {
 -(void)closePasswordFile
 {
 	[self pwWait];
-	if ( mPWFile != NULL ) {
+	if ( mPWFileNO >= 0 ) {
 		if ( mDBFileLocked )
 			[self pwUnlock];
 		
-		fclose( mPWFile );
-		mPWFile = NULL;
+		close( mPWFileNO );
+		mPWLockCount = 0;
 		mPWFileNO = -1;
     }
 	mGotHeader = NO;
@@ -360,9 +427,6 @@ extern "C" {
 
 -(void)resetPasswordFileState
 {
-    if ( mPWFile )
-        fflush( mPWFile );
-    
     [self closePasswordFile];
 	
 	// force the rsa key to be reloaded
@@ -375,13 +439,20 @@ extern "C" {
 	int tries = 3;
 	int result;
 	
-	if ( mPWFile != NULL )
+	if ( mPWFileNO >= 0 )
 	{
-		while ( (result = flock( mPWFileNO, LOCK_EX | LOCK_NB )) == -1 && tries-- > 0 )
-			usleep( 25000 );
+		if( [self pwLockLock:kOneSecondLockInterval] == YES ) {
+			while ( (result = flock( mPWFileNO, LOCK_EX | LOCK_NB )) == -1 && tries-- > 0 )
+				usleep( 25000 );
 		
-		if ( result == 0 )
-			mDBFileLocked = YES;
+			if ( result == 0 ) {
+				mPWLockCount++;
+				mDBFileLocked = YES;
+			}
+			[self pwLockUnlock];
+		} else {
+			syslog(LOG_ERR, "PasswordService unable to obtain lock");
+		}
 	}
 }
 
@@ -394,30 +465,35 @@ extern "C" {
 
 -(BOOL)pwLock:(unsigned long)inMillisecondsToWait
 {
-	const long millisecondsPerTry = 25;
+	const useconds_t millisecondsPerTry = 25;
 	long tries = inMillisecondsToWait / millisecondsPerTry;
 	BOOL locked = NO;
 	
-	if ( mPWFile == NULL )
+	if ( mPWFileNO < 0 )
 	{
 		mDBFileLocked = NO;
 		[self openPasswordFile:"r+"];
     }
 	
-	if ( mPWFile != NULL )
+	if ( mPWFileNO >= 0 )
 	{
-		if ( mDBFileLocked )
-			return YES;
-		
 		if ( tries <= 0 )
 			tries = 1;
 		
 		while ( tries-- > 0 )
 		{
-			if ( flock( mPWFileNO, LOCK_EX | LOCK_NB ) == 0 )
+			if( [self pwLockLock:inMillisecondsToWait] == YES )
 			{
-				locked = YES;
-				break;
+				if ( (mPWLockCount > 0) || (flock( mPWFileNO, LOCK_EX | LOCK_NB ) == 0) )
+				{
+					locked = YES;
+					mPWLockCount++;
+					[self pwLockUnlock];
+					break;
+				}
+				[self pwLockUnlock];
+			} else {
+				syslog(LOG_ERR, "PasswordService unable to obtain lock");
 			}
 			
 			usleep( millisecondsPerTry * 1000 );
@@ -431,11 +507,50 @@ extern "C" {
 
 -(void)pwUnlock
 {
-	if ( mPWFile != NULL )
-		flock( mPWFileNO, LOCK_UN );
-	mDBFileLocked = NO;
+	if ( mPWFileNO >= 0 ) {
+		if( [self pwLockLock:kOneSecondLockInterval] == YES ) {
+			mPWLockCount--;
+			if( mPWLockCount <= 0 ) {
+				mPWLockCount = 0;
+				flock( mPWFileNO, LOCK_UN );
+				mDBFileLocked = NO;
+			}
+			[self pwLockUnlock];
+		} else {
+			// new failure condition with no way to report it...
+		}
+	} else {
+		mDBFileLocked = NO;
+	}
 }
 
+-(BOOL)pwLockLock:(unsigned long)inMillisecondsToWait
+{
+	const useconds_t millisecondsPerTry = 25;
+	long tries = inMillisecondsToWait / millisecondsPerTry;
+	BOOL locked = NO;
+	
+	if ( tries <= 0 )
+		tries = 1;
+	
+	while ( tries-- > 0 )
+	{
+		if ( pthread_mutex_trylock(&mLocksLock) == 0 )
+		{
+			locked = YES;
+			break;
+		}
+		
+		usleep( millisecondsPerTry * 1000 );
+	}
+	
+	return locked;
+}
+
+-(void)pwLockUnlock
+{
+	pthread_mutex_unlock(&mLocksLock);
+}
 
 -(void)pwWait
 {
@@ -478,6 +593,7 @@ extern "C" {
     int err = -1;
     ssize_t readCount;
     BOOL saveAfterReleasingSemaphore = NO;
+	struct stat sb;
 	
     if ( outHeader == NULL )
         return -1;
@@ -487,34 +603,49 @@ extern "C" {
 		memcpy( outHeader, &mPWFileHeader, sizeof(PWFileHeader) );
 		return 0;
 	}
+
+	memset(&sb, 0, sizeof(sb));
+	if( lstat(mFilePathStr, &sb) == 0 ) {
+		if( difftime(sb.st_mtimespec.tv_sec, mPWHdrLastMod) < 0.0 ) {
+			memcpy( outHeader, &mPWFileHeader, sizeof(PWFileHeader) );
+			return 0;
+		}
+	}
 	
     [self pwWait];
 	err = [self openPasswordFile:mReadOnlyFileSystem ? "r" : "r+"];
-    if ( err == 0 && mPWFile )
+    if ( err == 0 && (mPWFileNO >= 0) )
     {
-		readCount = pread( mPWFileNO, outHeader, sizeof(PWFileHeader), 0 );
-        pwsf_EndianAdjustPWFileHeader( outHeader, 1 );
-		
-		if ( outHeader->signature == kPWFileSignature )
-		{
-			// adopt the new header data
-			memcpy( &mPWFileHeader, outHeader, sizeof(PWFileHeader) );
-		}
-		else
-		{
-			err = -2;
+		if( [self pwLock:kOneSecondLockInterval] == YES ) {
+			readCount = pread( mPWFileNO, outHeader, sizeof(PWFileHeader), 0 );
+			[self pwUnlock];
+
+			pwsf_EndianAdjustPWFileHeader( outHeader, 1 );
 			
-			// bad news, try to recover
-			if ( mGotHeader && mPWFileHeader.signature == kPWFileSignature )
+			if ( outHeader->signature == kPWFileSignature )
 			{
-				err = -3;
-				
-				memcpy( outHeader, &mPWFileHeader, sizeof(PWFileHeader) );
-				saveAfterReleasingSemaphore = YES;
+				// adopt the new header data
+				memcpy( &mPWFileHeader, outHeader, sizeof(PWFileHeader) );
+				mPWHdrLastMod = sb.st_mtimespec.tv_sec;
 			}
-		}
+			else
+			{
+				err = -2;
+			
+				// bad news, try to recover
+				if ( mGotHeader && mPWFileHeader.signature == kPWFileSignature )
+				{
+					err = -3;
+			
+					memcpy( outHeader, &mPWFileHeader, sizeof(PWFileHeader) );
+					saveAfterReleasingSemaphore = YES;
+				}
+			}
 		
-		mGotHeader = YES;
+			mGotHeader = YES;
+		} else {
+			err = -4;
+		}
     }
     [self pwSignal];
     
@@ -534,7 +665,7 @@ extern "C" {
 -(int)setHeader:(const PWFileHeader *)inHeader
 {
     int err = -1;
-    long writeCount;
+    ssize_t writeCount = 0;
     
     if ( inHeader == NULL )
         return -1;
@@ -545,29 +676,27 @@ extern "C" {
 	
     [self pwWait];
     err = [self openPasswordFile:"r+"];
-    if ( err == 0 && mPWFile )
+    if ( err == 0 && (mPWFileNO >= 0) )
     {
-        err = fseek( mPWFile, 0, SEEK_SET );
-        if ( err == 0 )
-        {
-            // adopt the new header data
-			if ( inHeader != &mPWFileHeader )
-				memcpy( &mPWFileHeader, inHeader, sizeof(PWFileHeader) );
+        // adopt the new header data
+		if ( inHeader != &mPWFileHeader )
+			memcpy( &mPWFileHeader, inHeader, sizeof(PWFileHeader) );
             
-            // write to disk
+		if( [self pwLock:kOneSecondLockInterval] == YES ) {
+        	// write to disk
 #if TARGET_RT_LITTLE_ENDIAN
 			PWFileHeader diskHeader = mPWFileHeader;
 			pwsf_EndianAdjustPWFileHeader( &diskHeader, 0 );
-            writeCount = fwrite( &diskHeader, sizeof(PWFileHeader), 1, mPWFile );
+        	writeCount = pwrite( mPWFileNO, &diskHeader, sizeof(PWFileHeader), 0 );
 			bzero( &diskHeader, sizeof(PWFileHeader) );
 #else
-            writeCount = fwrite( &mPWFileHeader, sizeof(PWFileHeader), 1, mPWFile );
+        	writeCount = pwrite( mPWFileNO, &mPWFileHeader, sizeof(PWFileHeader), 0 );
 #endif
-            if ( writeCount != 1 )
-            {
-                err = -1;
-            }
-            fflush( mPWFile );
+			[self pwUnlock];
+		}
+        if ( writeCount != sizeof(PWFileHeader) )
+        {
+            err = -1;
         }
     }
 	[self pwSignal];
@@ -640,7 +769,7 @@ extern "C" {
     if ( result == 0 || result == -3 )
     {
         int check1, check2, cipher_type;
-        off_t len;
+        uint32_t len;
         Buffer buffer, decrypted;
         char *cp;
         CipherContext cipher;
@@ -769,6 +898,8 @@ extern "C" {
 		
 		[self rsaSignal];
         return 1;
+	} else {
+		syslog(LOG_ERR, "PasswordService loadRSAkey unable to get header");
 	}
     
     bzero(&dbHeader, sizeof(dbHeader));
@@ -898,7 +1029,8 @@ extern "C" {
 	if ( [self isWeakAuthMethod:inMethod] )
 		return 0;
 	 
-	[self pwLock:kOneSecondLockInterval];
+	if( [self pwLock:kOneSecondLockInterval] != YES )
+		return -1;
 	
     result = [self getHeader:&ourHeader];
     if ( result == 0 || result == -3 )
@@ -926,7 +1058,8 @@ extern "C" {
     PWFileHeader ourHeader;
     int result = 0;
     
-    [self pwLock:kOneSecondLockInterval];
+    if( [self pwLock:kOneSecondLockInterval] != YES )
+        return -1;
 	
     result = [self getHeader:&ourHeader];
     if ( result == 0 || result == -3 )
@@ -957,10 +1090,10 @@ extern "C" {
 //	If outSlot is NULL, no slots are assigned; otherwise, the next available slot is returned.
 //----------------------------------------------------------------------------------------------------
 
--(int)expandDatabase:(unsigned long)inNumSlots nextAvailableSlot:(long *)outSlot
+-(int)expandDatabase:(uint32_t)inNumSlots nextAvailableSlot:(uint32_t *)outSlot
 {
 	int err;
-	int writeCount;
+	ssize_t writeCount;
 	
 	if ( mReadOnlyFileSystem )
 		return -1;
@@ -968,38 +1101,58 @@ extern "C" {
 	[self pwWait];
 	
 	err = [self openPasswordFile:"r+"];
-	if ( err == 0 && mPWFile != NULL )
+	if ( err == 0 && mPWFileNO >= 0 )
 	{
+		struct stat sb;
 		// write blank space
-		err = fseek( mPWFile, 0, SEEK_END );
+		// fstat since pwrite doesn't take the equivalent of SEEK_END
+		err = fstat(mPWFileNO, &sb);
 		if ( err == 0 )
 		{
 			PWFileEntry anEntry;
-			int i;
+			unsigned long i;
 			
 			bzero( &anEntry, sizeof(PWFileEntry) );
 			
-			for ( i = inNumSlots; i > 0; i-- )
-			{
-				writeCount = fwrite( &anEntry, sizeof(PWFileEntry), 1, mPWFile );
-				if ( writeCount != 1 )
+			if( [self pwLock:kOneSecondLockInterval] == YES ) {
+				for ( i = inNumSlots; i > 0; i-- )
 				{
-					err = -1;
-					break;
+					writeCount = pwrite( mPWFileNO, &anEntry, sizeof(PWFileEntry), sb.st_size + ((i-1) * sizeof(PWFileEntry)) );
+					if ( writeCount != (ssize_t)sizeof(PWFileEntry) )
+					{
+						err = -1;
+						break;
+					}
 				}
+				[self pwUnlock];
+			} else {
+				err = -1;
 			}
 		}
 		
-		// update header
-		mPWFileHeader.numberOfSlotsCurrentlyInFile += inNumSlots;
-		if ( outSlot != NULL )
+		if( err == 0 )
 		{
-			mPWFileHeader.deepestSlotUsed++;
-			mPWFileHeader.deepestSlotUsedByThisServer = mPWFileHeader.deepestSlotUsed;
-			*outSlot = mPWFileHeader.deepestSlotUsed;
-		}
+			// update header
+			mPWFileHeader.numberOfSlotsCurrentlyInFile += inNumSlots;
+			if ( outSlot != NULL )
+			{
+				mPWFileHeader.deepestSlotUsed++;
+				mPWFileHeader.deepestSlotUsedByThisServer = mPWFileHeader.deepestSlotUsed;
+				*outSlot = mPWFileHeader.deepestSlotUsed;
+			}
 		
-		err = [self setHeader:&mPWFileHeader];
+			err = [self setHeader:&mPWFileHeader];
+		} else {
+			// A write above may have failed, leaving us with an 
+			// improperly sized database.  We'll try to truncate the file
+			// back to the original size.
+			if( [self pwLock:kOneSecondLockInterval] == YES ) {
+				off_t correctsize = sizeof(PWFileHeader) + (mPWFileHeader.numberOfSlotsCurrentlyInFile * sizeof(PWFileEntry));
+				if( ftruncate(mPWFileNO, correctsize) ) {
+					syslog(LOG_ALERT, "Unable to expand %s, and unable to truncate back to original size.  Database may be corrupt.", kPWFilePath);
+				}
+			}
+		}
 	}
 	
 	[self pwSignal];
@@ -1027,7 +1180,10 @@ extern "C" {
 		return false;
 	
 	// Generate a random challenge (256-bits)
-	BN_rand(nonce, 256, 0, 0);
+	if( BN_rand(nonce, 256, 0, 0) != 1 ) {
+		BN_clear_free(nonce);
+		return false;
+	}
 	bnStr = BN_bn2dec(nonce);
 	
 	BN_clear_free(nonce);
@@ -1047,9 +1203,9 @@ extern "C" {
 //	Returns: 0 for invalid/error, or the next slot number in the pw file for writing the next entry.
 //----------------------------------------------------------------------------------------------------
 
--(long)nextSlot
+-(uint32_t)nextSlot
 {
-    long slot = 0;
+    uint32_t slot = 0;
     int err = -1;
     off_t curpos = 0;
     long readCount;
@@ -1095,11 +1251,11 @@ extern "C" {
 				[self pwWait];
                 do
 				{
-					err = fseek( mFreeListFile, -sizeof(long), SEEK_END );
+					err = fseek( mFreeListFile, -sizeof(slot), SEEK_END );
 					if ( err == 0 )
 					{
 						curpos = ftell( mFreeListFile );
-						readCount = fread( &slot, sizeof(long), 1, mFreeListFile );
+						readCount = fread( &slot, sizeof(slot), 1, mFreeListFile );
 						if ( readCount == 1 )
 						{
 							// snip the one we used
@@ -1159,17 +1315,17 @@ extern "C" {
 	FILE *aFile = NULL;
     int result = -1;
 	unsigned char *publicKey = NULL;
-	unsigned long publicKeyLen = 0;
+	uint32_t publicKeyLen = 0;
 	unsigned char *privateKey = NULL;
-	unsigned long privateKeyLen = 0;
+	uint32_t privateKeyLen = 0;
 	char bitCountStr[256] = {0,};
     char tempFileStr[256] = {0,};
     char publicKeyFileStr[256] = {0,};
     struct stat sb = {0};
-	char *argv[] = {	"/usr/bin/ssh-keygen",
+	const char *argv[] = {	"/usr/bin/ssh-keygen",
 						"-t", "rsa1",
-						"-b", bitCountStr,
-						"-f", tempFileStr,
+						"-b", (const char *)bitCountStr,
+						"-f", (const char *)tempFileStr,
 						"-P", "",
 						NULL };
 	
@@ -1182,7 +1338,7 @@ extern "C" {
 	do
 	{
 		// make the keys
-		if ( pwsf_LaunchTask("/usr/bin/ssh-keygen", argv) != EX_OK )
+		if ( pwsf_LaunchTask("/usr/bin/ssh-keygen", (char * const *)argv) != EX_OK )
 			break;
 		
 		// stat the key file, get the length
@@ -1196,9 +1352,9 @@ extern "C" {
 		aFile = fopen( tempFileStr, "r" );
 		if ( aFile != NULL )
 		{
-			privateKeyLen = (unsigned long)sb.st_size;
+			privateKeyLen = (uint32_t)sb.st_size;
 			privateKey = (unsigned char *) malloc( privateKeyLen + 1 );
-			fread( (char*)privateKey, (unsigned long)sb.st_size, 1, aFile );
+			fread( (char*)privateKey, privateKeyLen, 1, aFile );
 			fclose( aFile );
 			
 			// stat the public key file, get the length
@@ -1210,9 +1366,9 @@ extern "C" {
 			aFile = fopen( publicKeyFileStr, "r" );
 			if ( aFile != NULL )
 			{
-				publicKeyLen = (unsigned long)sb.st_size;
+				publicKeyLen = (uint32_t)sb.st_size;
 				publicKey = (unsigned char *) malloc( publicKeyLen + 1 );
-				fread( publicKey, (unsigned long)sb.st_size, 1, aFile );
+				fread( publicKey, publicKeyLen, 1, aFile );
 				fclose( aFile );
 				
 				result = [self addRSAKeys:publicKey publicKeyLen:publicKeyLen privateKey:privateKey privateKeyLen:privateKeyLen];
@@ -1245,9 +1401,9 @@ extern "C" {
 //----------------------------------------------------------------------------------------------------
 
 -(int)addRSAKeys:(unsigned char *)publicKey
-	publicKeyLen:(unsigned long)publicKeyLen
+	publicKeyLen:(uint32_t)publicKeyLen
 	privateKey:(unsigned char *)privateKey
-	privateKeyLen:(unsigned long)privateKeyLen
+	privateKeyLen:(uint32_t)privateKeyLen
 {
     PWFileHeader ourHeader;
     int result;
@@ -1323,7 +1479,8 @@ extern "C" {
     strcpy( passwordRec.usernameStr, (username) ? username : "admin" );
     strcpy( passwordRec.passwordStr, (password) ? password : "admin" );
     
-	[self pwLock:kOneSecondLockInterval];
+	if( [self pwLock:kOneSecondLockInterval] != YES )
+		return -1;
 	
 	err = [self getHeader:&dbHeader];
 	if ( err == 0 || err == -3 )
@@ -1367,7 +1524,8 @@ extern "C" {
     PWFileHeader ignoreHeader;
     int err, err2;
 	
-	[self pwLock:kOneSecondLockInterval];
+	if( [self pwLock:kOneSecondLockInterval] != YES )
+		return -1;
 	
     // refresh the header
 	// the retrieved header is ignored because the nextSlot() method uses
@@ -1376,14 +1534,14 @@ extern "C" {
     if ( err != 0 && err != -3 )
 		return err;
 	
-    passwordRec->time = pwsf_getTimeForRef();
-    passwordRec->rnd = pwsf_getRandom();
+    passwordRec->time = (UInt32)pwsf_getTimeForRef();
+    passwordRec->rnd = (UInt32)pwsf_getRandom();
     passwordRec->sequenceNumber = ++mPWFileHeader.sequenceNumber;
     passwordRec->slot = [self nextSlot];
     
-    pwsf_getGMTime( (struct tm *)&passwordRec->creationDate );
-    memcpy( &passwordRec->lastLogin, &passwordRec->creationDate, sizeof(struct tm) );
-    memcpy( &passwordRec->modDateOfPassword, &passwordRec->creationDate, sizeof(struct tm) );
+    pwsf_getGMTime( &passwordRec->creationDate );
+    memcpy( &passwordRec->lastLogin, &passwordRec->creationDate, sizeof(passwordRec->lastLogin) );
+    memcpy( &passwordRec->modDateOfPassword, &passwordRec->creationDate, sizeof(passwordRec->modDateOfPassword) );
     
     err = [self setPassword:passwordRec atSlot:passwordRec->slot obfuscate:obfuscate setModDate:YES];
 	
@@ -1407,12 +1565,12 @@ extern "C" {
 //	record to the spill-bucket.
 //----------------------------------------------------------------------------------------------------
 
--(int)addPassword:(PWFileEntry *)passwordRec atSlot:(long)slot obfuscate:(BOOL)obfuscate
+-(int)addPassword:(PWFileEntry *)passwordRec atSlot:(uint32_t)slot obfuscate:(BOOL)obfuscate
 {
 	return [self addPassword:passwordRec atSlot:slot obfuscate:obfuscate setModDate:YES];
 }
 
--(int)addPassword:(PWFileEntry *)passwordRec atSlot:(long)slot obfuscate:(BOOL)obfuscate setModDate:(BOOL)setModDate
+-(int)addPassword:(PWFileEntry *)passwordRec atSlot:(uint32_t)slot obfuscate:(BOOL)obfuscate setModDate:(BOOL)setModDate
 {
 	PWFileEntry dbEntry;
 	int err;
@@ -1464,7 +1622,7 @@ extern "C" {
 //	setModDate is YES
 //----------------------------------------------------------------------------------------------------
 
--(int)addPasswordFast:(PWFileEntry *)passwordRec atSlot:(unsigned long)slot
+-(int)addPasswordFast:(PWFileEntry *)passwordRec atSlot:(uint32_t)slot
 {
 	PWFileEntry dbEntry;
 	int err;
@@ -1518,7 +1676,8 @@ extern "C" {
 	PWFileHeader ignoreHeader;
 	int err, err2;
 
-	[self pwLock:kOneSecondLockInterval];
+	if( [self pwLock:kOneSecondLockInterval] != YES )
+		return -1;
 	
 	// refresh the header
 	// the retrieved header is ignored because the nextSlot() method uses
@@ -1527,14 +1686,14 @@ extern "C" {
 	if ( err != 0 && err != -3 )
 		return err;
 
-	passwordRec->time = pwsf_getTimeForRef();
-	passwordRec->rnd = pwsf_getRandom();
+	passwordRec->time = (UInt32)pwsf_getTimeForRef();
+	passwordRec->rnd = (UInt32)pwsf_getRandom();
 	passwordRec->sequenceNumber = ++mPWFileHeader.sequenceNumber;
 	passwordRec->slot = [self nextSlot];
 
-	pwsf_getGMTime( (struct tm *)&passwordRec->creationDate );
-	memcpy( &passwordRec->lastLogin, &passwordRec->creationDate, sizeof(struct tm) );
-	memcpy( &passwordRec->modDateOfPassword, &passwordRec->creationDate, sizeof(struct tm) );
+	pwsf_getGMTime( &passwordRec->creationDate );
+	memcpy( &passwordRec->lastLogin, &passwordRec->creationDate, sizeof(passwordRec->lastLogin) );
+	memcpy( &passwordRec->modDateOfPassword, &passwordRec->creationDate, sizeof(passwordRec->modDateOfPassword) );
 
 	// re-write the header to mark the slot used.
 	err2 = [self setHeader:&mPWFileHeader];
@@ -1584,26 +1743,28 @@ extern "C" {
 }
 
 
--(int)getPasswordRec:(long)slot putItHere:(PWFileEntry *)passRec
+-(int)getPasswordRec:(uint32_t)slot putItHere:(PWFileEntry *)passRec
 {
 	return [self getPasswordRec:slot putItHere:passRec unObfuscate:YES];
 }
 
--(int)getPasswordRec:(long)slot putItHere:(PWFileEntry *)passRec unObfuscate:(BOOL)unObfuscate
+-(int)getPasswordRec:(uint32_t)slot putItHere:(PWFileEntry *)passRec unObfuscate:(BOOL)unObfuscate
 {
-    long offset;
+    off_t offset;
     int err = -1;
-    ssize_t readCount;
+    ssize_t readCount = 0;
     
     if ( slot > 0 )
     {
         [self pwWait];
         err = [self openPasswordFile:mReadOnlyFileSystem ? "r" : "r+"];
-        if ( err == 0 && mPWFile )
+        if ( err == 0 && (mPWFileNO >= 0) )
         {
             offset = pwsf_slotToOffset( slot );
-            
-			readCount = pread( mPWFileNO, passRec, sizeof(PWFileEntry), offset );
+			if( [self pwLock:kOneSecondLockInterval] == YES ) {
+				readCount = pread( mPWFileNO, passRec, sizeof(PWFileEntry), offset );
+				[self pwUnlock];
+			}
 			if ( readCount != sizeof(PWFileEntry) )
 			{
 				// failure could indicate a problem with the file descriptor
@@ -1777,7 +1938,7 @@ extern "C" {
 		err = [self getPasswordRec:index putItHere:&passRec unObfuscate:NO];
 		if ( err == 0 && !PWRecIsZero(passRec) && passRec.extraAccess.recordIsDead )
 		{
-			deleteSecs = timegm( (struct tm *)&passRec.modDateOfPassword );
+			deleteSecs = BSDTimeStructCopy_timegm( &passRec.modDateOfPassword );
 			if ( difftime(deleteSecs, beforeSecs) < 0 || difftime(deleteSecs, beforePurgeSecs) < 0 )
 			{
 				if ( [self freeSlot:&passRec deathCertificate:NO] == 0 )
@@ -1813,8 +1974,8 @@ extern "C" {
 -(int)freeSlot:(PWFileEntry *)passwordRec deathCertificate:(BOOL)useDeathCertificate
 {
     int err;
-    long slot = passwordRec->slot;
-    long writeCount;
+    uint32_t slot = passwordRec->slot;
+    size_t writeCount;
     PWFileEntry deleteRec;
 	BOOL fromSpillBucket;
 	
@@ -1831,7 +1992,7 @@ extern "C" {
 	{
 		// keep the ID, mark the time of deletion in modDateOfPassword,
 		// and mark dead.
-		pwsf_getGMTime( (struct tm *)&deleteRec.modDateOfPassword );
+		pwsf_getGMTime( &deleteRec.modDateOfPassword );
 		deleteRec.extraAccess.recordIsDead = true;
 		deleteRec.changeTransactionID = passwordRec->changeTransactionID;
 		
@@ -1868,7 +2029,7 @@ extern "C" {
 				mFreeListFile = fopen( kFreeListFilePath, "a+" );
 				if ( mFreeListFile != NULL )
 				{
-					writeCount = fwrite( &slot, sizeof(long), 1, mFreeListFile );
+					writeCount = fwrite( &slot, sizeof(slot), 1, mFreeListFile );
 					if ( writeCount != 1 )
 					{
 						// may have a forgotten slot
@@ -1892,20 +2053,20 @@ extern "C" {
 }
 
 
--(int)setPassword:(PWFileEntry *)passwordRec atSlot:(unsigned long)slot
+-(int)setPassword:(PWFileEntry *)passwordRec atSlot:(uint32_t)slot
 {
 	return [self setPassword:passwordRec atSlot:slot obfuscate:YES setModDate:YES];
 }
 
 -(int)setPassword:(PWFileEntry *)passwordRec
-	atSlot:(unsigned long)slot
+	atSlot:(uint32_t)slot
 	obfuscate:(BOOL)obfuscate
 	setModDate:(BOOL)setModDate
 {
-    long offset;
+    off_t offset;
     int err = -1;
-    int writeCount;
-    unsigned int encodeLen;
+    ssize_t writeCount = 0;
+    size_t encodeLen;
 	
 	if ( mReadOnlyFileSystem )
 		return -1;
@@ -1916,38 +2077,35 @@ extern "C" {
 			return -1;
 		
 		if ( setModDate )
-			pwsf_getGMTime( (struct tm *)&passwordRec->modificationDate );
+			pwsf_getGMTime( &passwordRec->modificationDate );
         
         [self pwWait];
         err = [self openPasswordFile:"r+"];
-        if ( err == 0 && mPWFile != NULL )
+        if ( err == 0 && mPWFileNO >= 0 )
         {
             offset = pwsf_slotToOffset( slot );
             
-            err = fseek( mPWFile, offset, SEEK_SET );
-            if ( err == 0 )
-            {
-                //passwordRec->slot = slot;
-                encodeLen = strlen(passwordRec->passwordStr);
-                encodeLen += (kFixedDESChunk - (encodeLen % kFixedDESChunk));	
-                if ( encodeLen > sizeof(passwordRec->passwordStr) )
-                    encodeLen = sizeof(passwordRec->passwordStr);
-                
-				if ( obfuscate )
-					pwsf_DESEncode(passwordRec->passwordStr, encodeLen);
+            //passwordRec->slot = slot;
+            encodeLen = strlen(passwordRec->passwordStr);
+            encodeLen += (kFixedDESChunk - (encodeLen % kFixedDESChunk));	
+            if ( encodeLen > sizeof(passwordRec->passwordStr) )
+                encodeLen = sizeof(passwordRec->passwordStr);
+               
+			if ( obfuscate )
+				pwsf_DESEncode(passwordRec->passwordStr, encodeLen);
 				
-				pwsf_EndianAdjustPWFileEntry( passwordRec, 0 );
-                writeCount = fwrite( passwordRec, sizeof(PWFileEntry), 1, mPWFile );
-				pwsf_EndianAdjustPWFileEntry( passwordRec, 1 );
+			pwsf_EndianAdjustPWFileEntry( passwordRec, 0 );
+			if( [self pwLock:kOneSecondLockInterval] == YES ) {
+            	writeCount = pwrite( mPWFileNO, passwordRec, sizeof(PWFileEntry), offset );
+				[self pwUnlock];
+			}
+			pwsf_EndianAdjustPWFileEntry( passwordRec, 1 );
 				
-                if ( obfuscate )
-					pwsf_DESDecode(passwordRec->passwordStr, encodeLen);
+            if ( obfuscate )
+				pwsf_DESDecode(passwordRec->passwordStr, encodeLen);
 				
-				if ( writeCount == 1 )
-					fflush( mPWFile );
-                else
+			if ( writeCount != (ssize_t)sizeof(PWFileEntry) )
                     err = -1;
-            }
 		}
         [self pwSignal];
     }
@@ -1967,12 +2125,12 @@ extern "C" {
 //	obfuscate is TRUE, but the password is not un-obfuscated.
 //----------------------------------------------------------------------------------------------------
 
--(int)setPasswordFast:(PWFileEntry *)passwordRec atSlot:(unsigned long)slot
+-(int)setPasswordFast:(PWFileEntry *)passwordRec atSlot:(uint32_t)slot
 {
-	long offset;
+	off_t offset;
 	int err = -1;
-	int writeCount;
-	unsigned int encodeLen;
+	ssize_t writeCount = 0;
+	size_t encodeLen;
 
 	if ( mReadOnlyFileSystem )
 		return -1;
@@ -1982,34 +2140,31 @@ extern "C" {
 		if ( (unsigned long)slot > mPWFileHeader.numberOfSlotsCurrentlyInFile )
 			return -1;
 		
-		pwsf_getGMTime( (struct tm *)&passwordRec->modificationDate );
+		pwsf_getGMTime( &passwordRec->modificationDate );
 		
 		[self pwWait];
 		err = [self openPasswordFile:"r+"];
-		if ( err == 0 && mPWFile != NULL )
+		if ( err == 0 && mPWFileNO >= 0 )
 		{
 			offset = pwsf_slotToOffset( slot );
 			
-			err = fseek( mPWFile, offset, SEEK_SET );
-			if ( err == 0 )
-			{
-				//passwordRec->slot = slot;
-				encodeLen = strlen(passwordRec->passwordStr);
-				encodeLen += (kFixedDESChunk - (encodeLen % kFixedDESChunk));	
-				if ( encodeLen > sizeof(passwordRec->passwordStr) )
-					encodeLen = sizeof(passwordRec->passwordStr);
+			//passwordRec->slot = slot;
+			encodeLen = strlen(passwordRec->passwordStr);
+			encodeLen += (kFixedDESChunk - (encodeLen % kFixedDESChunk));	
+			if ( encodeLen > sizeof(passwordRec->passwordStr) )
+				encodeLen = sizeof(passwordRec->passwordStr);
 								
-				pwsf_DESEncode(passwordRec->passwordStr, encodeLen);
+			pwsf_DESEncode(passwordRec->passwordStr, encodeLen);
 				
-				pwsf_EndianAdjustPWFileEntry( passwordRec, 0 );
-                writeCount = fwrite( passwordRec, sizeof(PWFileEntry), 1, mPWFile );
-				pwsf_EndianAdjustPWFileEntry( passwordRec, 1 );
-				
-				if ( writeCount == 1 )
-					fflush( mPWFile );
-				else
-					err = -1;
+			pwsf_EndianAdjustPWFileEntry( passwordRec, 0 );
+			if( [self pwLock:kOneSecondLockInterval] == YES ) {
+            	writeCount = pwrite( mPWFileNO, passwordRec, sizeof(PWFileEntry), offset );
+				[self pwUnlock];
 			}
+			pwsf_EndianAdjustPWFileEntry( passwordRec, 1 );
+				
+			if ( writeCount != (ssize_t)sizeof(PWFileEntry) )
+					err = -1;
 		}
 		[self pwSignal];
 	}
@@ -2497,7 +2652,7 @@ extern "C" {
 {
 	PWFileHeader dbHeader;
 	int err = 0;
-	unsigned long index;
+	uint32_t index;
 	PWFileEntry passRec;
 	char *thePrincDomain = NULL;
     long len;
@@ -2566,8 +2721,8 @@ extern "C" {
 	if ( mSearchBase == NULL )
 	{
 		char buffer[1024];
-		char *argv[] = {"/usr/bin/ldapsearch", "-LLL", "-x", "-z", "1", "-b", "", "-s", "base", "namingContexts", NULL};
-		int result = pwsf_LaunchTaskWithIO("/usr/bin/ldapsearch", argv, NULL, buffer, sizeof(buffer), NULL);
+		const char *argv[] = {"/usr/bin/ldapsearch", "-LLL", "-x", "-z", "1", "-b", "", "-s", "base", "namingContexts", NULL};
+		int result = pwsf_LaunchTaskWithIO("/usr/bin/ldapsearch", (char * const *)argv, NULL, buffer, sizeof(buffer), NULL);
 		if ( result == 0 )
 		{
 			char *tptr = strstr( buffer, "namingContexts: " );
@@ -2608,9 +2763,10 @@ extern "C" {
 	{
 		int result = 0;
 		char buffer[1024];
-		char *argv[] = {"/usr/bin/ldapsearch", "-LLL", "-x", "-z", "1", "-b", searchBase, filter, "authAuthority", NULL};
-		snprintf( filter, sizeof(filter), "(|(uid=%s)(cn=%s))", inUID, inUID );		
-		result = pwsf_LaunchTaskWithIO("/usr/bin/ldapsearch", argv, NULL, buffer, sizeof(buffer), NULL);
+		const char *argv[] = { "/usr/bin/ldapsearch", "-LLL", "-x", "-z", "1", "-b", (const char *)searchBase,
+								(const char *)filter, "authAuthority", NULL };
+		snprintf( filter, sizeof(filter), "(|(uid=%s)(cn=%s))", inUID, inUID );
+		result = pwsf_LaunchTaskWithIO("/usr/bin/ldapsearch", (char * const *)argv, NULL, buffer, sizeof(buffer), NULL);
 		if ( result == 0 )
 		{
 			tptr = strstr( buffer, "authAuthority: ;ApplePasswordServer;" );
@@ -2652,7 +2808,7 @@ extern "C" {
 {
 	PWFileHeader dbHeader;
 	int err = 0;
-	unsigned long index;
+	uint32_t index;
 	PWFileEntry passRec;
         
 	err = [self getHeader:&dbHeader cachedCopyOK:YES];
@@ -2827,7 +2983,7 @@ extern "C" {
 {
 	int err;
 	FILE *syncFile;
-	int readCount;
+	size_t readCount;
 	unsigned long remoteFileLen;
 	struct stat sb;
 	time_t syncTime = 0;
@@ -2842,7 +2998,7 @@ extern "C" {
     remoteFileLen = 0;
     err = lstat( inSyncFile, &sb );
     if ( err == 0 )
-        remoteFileLen = sb.st_size;
+        remoteFileLen = (unsigned long)sb.st_size;
     if ( remoteFileLen < sizeof(PWFileHeader) )
 		return -1;
 	
@@ -2887,7 +3043,7 @@ extern "C" {
 	PWSFKerberosPrincipal* kerberosRec;
     time_t theTime;
 	FILE *syncFile;
-	int writeCount;
+	size_t writeCount;
 	int zeroLen = 0;
 	PWSFKerberosPrincipalList kerbList;
 	bool addKerberosRecords = true;
@@ -2956,7 +3112,7 @@ extern "C" {
 				
 				// adjust time skew for comparison purposes. The record itself is
 				// adjusted on the processing side.
-				theTime = timegm( (struct tm *)&passRec.modificationDate ) + inTimeSkew;
+				theTime = BSDTimeStructCopy_timegm( &passRec.modificationDate ) + inTimeSkew;
 				if ( theTime >= inAfterDate )
 				{
 					// replicate the identity to avoid collisions, but blank out any useful data
@@ -2983,7 +3139,7 @@ extern "C" {
 						char principalName[600] = {0,};
 						
 						// kerberos records only need to be sent if the password changed
-						theTime = timegm( (struct tm *)&passRec.modDateOfPassword ) + inTimeSkew;
+						theTime = BSDTimeStructCopy_timegm( &passRec.modDateOfPassword ) + inTimeSkew;
 						if ( theTime >= inAfterDate )
 						{
 							strcpy(principalName, pwsf_GetPrincName(&passRec));
@@ -3077,8 +3233,8 @@ extern "C" {
 	time_t localTime, remoteTime;
 	PWFileHeader localHeader, remoteHeader;
 	PWFileEntry localRec, remoteRec;
-    int readCount;
-	unsigned long remoteFileLen = 0;
+    size_t readCount;
+	off_t remoteFileLen = 0;
 	struct stat sb;
 	time_t syncTime = 0;
 	BOOL bFromSpillBucket;
@@ -3092,7 +3248,7 @@ extern "C" {
 	PWSFKerberosPrincipalList kerbList;
 	PWSFKerberosPrincipalList localKerbList;
 	char *kerbCmdBuffer = NULL;
-	int kerbCmdBufferSize = 0;
+	size_t kerbCmdBufferSize = 0;
 	
 	[self setForceSync:NO];
 	[self setShouldSyncNow:NO];
@@ -3111,7 +3267,7 @@ extern "C" {
     err = lstat( inSyncFile, &sb );
     if ( err == 0 )
         remoteFileLen = sb.st_size;
-    if ( remoteFileLen < sizeof(PWFileHeader) )
+    if ( remoteFileLen < (off_t)sizeof(PWFileHeader) )
 		return -1;
 	
 	// open the sync file
@@ -3169,7 +3325,7 @@ extern "C" {
 		if ( remoteHeader.accessModDate > 0 && remoteHeader.accessModDate - inTimeSkew > localHeader.accessModDate ) {
 			localHeader.access = remoteHeader.access;
 			localHeader.extraAccess = remoteHeader.extraAccess;
-			localHeader.accessModDate = remoteHeader.accessModDate - inTimeSkew;
+			localHeader.accessModDate = remoteHeader.accessModDate - (UInt32)inTimeSkew;
 		}
 		
 		err = [self setHeader:&localHeader];
@@ -3298,10 +3454,10 @@ extern "C" {
 				}
 				
 				// password fields
-				localTime = timegm( (struct tm *)&localRec.modDateOfPassword );
-				remoteTime = timegm( (struct tm *)&remoteRec.modDateOfPassword ) - inTimeSkew;
+				localTime = BSDTimeStructCopy_timegm( &localRec.modDateOfPassword );
+				remoteTime = BSDTimeStructCopy_timegm( &remoteRec.modDateOfPassword ) - inTimeSkew;
 				if ( inTimeSkew != 0 )
-					gmtime_r( &remoteTime, (struct tm *)&remoteRec.modDateOfPassword );
+					BSDTimeStructCopy_gmtime_r( &remoteTime, &remoteRec.modDateOfPassword );
 				
 				if ( remoteTime > localTime )
 				{
@@ -3316,12 +3472,12 @@ extern "C" {
 					remoteKerbRec->CopyPassword(localKerbRec);
 				
 				// last login time
-				localTime = timegm( (struct tm *)&localRec.lastLogin );
-				remoteTime = timegm( (struct tm *)&remoteRec.lastLogin );
+				localTime = BSDTimeStructCopy_timegm( &localRec.lastLogin );
+				remoteTime = BSDTimeStructCopy_timegm( &remoteRec.lastLogin );
 				if ( remoteTime > inTimeSkew )
 					remoteTime -= inTimeSkew;
 				if ( inTimeSkew != 0 )
-					gmtime_r( &remoteTime, (struct tm *)&remoteRec.lastLogin );
+					BSDTimeStructCopy_gmtime_r( &remoteTime, &remoteRec.lastLogin );
 				
 				if ( remoteTime > localTime )
 				{
@@ -3332,10 +3488,10 @@ extern "C" {
 					remoteKerbRec->CopyLastLogin(localKerbRec);
 				
 				// all non-special fields
-				localTime = timegm( (struct tm *)&localRec.modificationDate );
-				remoteTime = timegm( (struct tm *)&remoteRec.modificationDate ) - inTimeSkew;
+				localTime = BSDTimeStructCopy_timegm( &localRec.modificationDate );
+				remoteTime = BSDTimeStructCopy_timegm( &remoteRec.modificationDate ) - inTimeSkew;
 				if ( inTimeSkew != 0 )
-					gmtime_r( &remoteTime, (struct tm *)&remoteRec.modificationDate );
+					BSDTimeStructCopy_gmtime_r( &remoteTime, &remoteRec.modificationDate );
 				
 				if ( remoteTime > localTime )
 				{
@@ -3372,17 +3528,6 @@ extern "C" {
 					if ( outNumAccepted != NULL )
 						(*outNumAccepted)++;
 					
-					[self pwWait];
-					haveLock = [self pwLock:kLongerLockInterval];
-					[self pwSignal];
-					
-					if ( ! haveLock )
-					{
-						// Note: this only breaks out of the inner while loop.
-						result = -3;
-						break;
-					}
-					
 					err = [self addPassword:&localRec atSlot:localRec.slot obfuscate:NO setModDate:NO];
 				}
 				else
@@ -3413,8 +3558,6 @@ extern "C" {
 			kerbList.WriteAllPrincipalsToDB();
 	}
 	while (0);
-	
-	[self pwUnlock];
 	
 	fclose( syncFile );
 	
@@ -3493,7 +3636,7 @@ extern "C" {
 		if ( inRemoteHeader->accessModDate > 0 && inRemoteHeader->accessModDate - inTimeSkew > localHeader.accessModDate ) {
 			localHeader.access = inRemoteHeader->access;
 			localHeader.extraAccess = inRemoteHeader->extraAccess;
-			localHeader.accessModDate = inRemoteHeader->accessModDate - inTimeSkew;
+			localHeader.accessModDate = inRemoteHeader->accessModDate - (UInt32)inTimeSkew;
 		}
 		
 		err = [self setHeader:&localHeader];
@@ -3533,6 +3676,7 @@ extern "C" {
 	BOOL bFromSpillBucket = NO;
 	BOOL bNeedsUpdate = NO;
 	BOOL haveLock = NO;
+	BOOL isNew = NO;
 	
 	if ( outAccepted != NULL )
 		*outAccepted = NO;
@@ -3588,6 +3732,7 @@ extern "C" {
 					localRec = *inRemoteRecord;
 					bNeedsUpdate = YES;
 				}
+				isNew = YES;
 			}
 			
 			// recordIsDead needs to be an OR, not last mod date or we get the undead
@@ -3610,10 +3755,10 @@ extern "C" {
 			}
 			
 			// password fields
-			localTime = timegm( (struct tm *)&localRec.modDateOfPassword );
-			remoteTime = timegm( (struct tm *)&inRemoteRecord->modDateOfPassword ) - inTimeSkew;
+			localTime = BSDTimeStructCopy_timegm( &localRec.modDateOfPassword );
+			remoteTime = BSDTimeStructCopy_timegm( &inRemoteRecord->modDateOfPassword ) - inTimeSkew;
 			if ( inTimeSkew != 0 )
-				gmtime_r( &remoteTime, (struct tm *)&inRemoteRecord->modDateOfPassword );
+				BSDTimeStructCopy_gmtime_r( &remoteTime, &inRemoteRecord->modDateOfPassword );
 				
 			if ( remoteTime > localTime )
 			{
@@ -3626,12 +3771,12 @@ extern "C" {
 			}
 				
 			// last login time
-			localTime = timegm( (struct tm *)&localRec.lastLogin );
-			remoteTime = timegm( (struct tm *)&inRemoteRecord->lastLogin );
+			localTime = BSDTimeStructCopy_timegm( &localRec.lastLogin );
+			remoteTime = BSDTimeStructCopy_timegm( &inRemoteRecord->lastLogin );
 			if ( remoteTime > inTimeSkew )
 				remoteTime -= inTimeSkew;
 			if ( inTimeSkew != 0 )
-				gmtime_r( &remoteTime, (struct tm *)&inRemoteRecord->lastLogin );
+				BSDTimeStructCopy_gmtime_r( &remoteTime, &inRemoteRecord->lastLogin );
 				
 			if ( remoteTime > localTime )
 			{
@@ -3640,13 +3785,33 @@ extern "C" {
 			}
 
 			// all non-special fields
-			localTime = timegm( (struct tm *)&localRec.modificationDate );
-			remoteTime = timegm( (struct tm *)&inRemoteRecord->modificationDate ) - inTimeSkew;
+			localTime = BSDTimeStructCopy_timegm( &localRec.modificationDate );
+			remoteTime = BSDTimeStructCopy_timegm( &inRemoteRecord->modificationDate ) - inTimeSkew;
 			if ( inTimeSkew != 0 )
-				gmtime_r( &remoteTime, (struct tm *)&inRemoteRecord->modificationDate );
+				BSDTimeStructCopy_gmtime_r( &remoteTime, &inRemoteRecord->modificationDate );
 				
 			if ( remoteTime > localTime )
 			{
+				if ( !isNew && (localRec.access.isDisabled != inRemoteRecord->access.isDisabled) )
+				{
+					short event = 0;
+					char slotid[35] = {0,};
+
+					pwsf_passwordRecRefToString(inRemoteRecord, slotid);
+
+					if ( inRemoteRecord->access.isDisabled == 0 )
+					{
+						event = AUE_enable_user;
+					} else {
+						event = AUE_disable_user;
+					}
+
+					if ( audit_disabled_user(NULL, slotid, event) != 0 )
+					{
+						result = kSyncStatusFail;
+						break;
+					}
+				}
 				memcpy( &localRec.modificationDate, &inRemoteRecord->modificationDate, sizeof(BSDTimeStructCopy) );
 				memcpy( &localRec.access, &inRemoteRecord->access, sizeof(PWAccessFeatures) );
 				memcpy( &localRec.extraAccess, &inRemoteRecord->extraAccess, sizeof(PWMoreAccessFeatures) );
@@ -3775,7 +3940,7 @@ extern "C" {
 	if ( inOutPasswordRec->access.isDisabled )
 		return kAuthUserDisabled;
 	
-	result = pwsf_TestDisabledStatusWithReasonCode( access, &mPWFileHeader.access, (struct tm *)&inOutPasswordRec->creationDate, (struct tm *)&inOutPasswordRec->lastLogin, &inOutPasswordRec->failedLoginAttempts, &reason );
+	result = pwsf_TestDisabledStatusWithReasonCode( access, &mPWFileHeader.access, &inOutPasswordRec->creationDate, &inOutPasswordRec->lastLogin, &inOutPasswordRec->failedLoginAttempts, &reason );
 	
 	// update the user record
 	if ( result == kAuthUserDisabled )
@@ -3834,12 +3999,24 @@ extern "C" {
 		if ( inPasswordRec->access.usingExpirationDate )
 		{
 			if ( TimeIsStale( &inPasswordRec->access.expirationDateGMT ) )
-				needsChange = YES;
+			{
+				// TimeIsStale only tells us if we're more recent 
+				// than the expiration date, it doesn't tell us if the
+				// user has changed their password since then.
+				// So we check here.
+				time_t changetime = BSDTimeStructCopy_timegm(&inPasswordRec->modDateOfPassword);
+				time_t expiretime = BSDTimeStructCopy_timegm(&inPasswordRec->access.expirationDateGMT);
+				if( difftime(changetime, expiretime) < 0 )
+					needsChange = YES;
+			}
 		}
 		else
 		if ( mPWFileHeader.access.usingExpirationDate && TimeIsStale( &mPWFileHeader.access.expirationDateGMT ) )
 		{
-			needsChange = YES;
+				time_t changetime = BSDTimeStructCopy_timegm(&inPasswordRec->modDateOfPassword);
+				time_t expiretime = BSDTimeStructCopy_timegm(&mPWFileHeader.access.expirationDateGMT);
+				if( difftime(changetime, expiretime) < 0 )
+					needsChange = YES;
 		}
 		
 		// maxMinutesUntilChangePassword
@@ -4025,6 +4202,24 @@ extern "C" {
 		
 		bzero( historyData, sizeof(historyData) );
 	}
+	else
+	{
+		// If the user has a history make sure this hash isn't already in the
+		// history.	 In theory, there shouldn't be duplicates in the history;
+		// however because PWS calls kadmin to change the password, which calls
+		// back to PWS to change the password, duplicates can result.  If that
+		// happens, just return OK.	 If the user really tries to change their
+		// password to something in the history, that will get caught way before
+		// the code gets here.
+		char* tptr = historyData;
+		for ( idx = 0; idx < historyCount; idx++ )
+		{
+			if ( memcmp( inPasswordHash, tptr, sizeof(HMAC_MD5_STATE) ) == 0 )
+				return 0;
+			
+			tptr += sizeof(HMAC_MD5_STATE);
+		}
+	}
 	
 	// dump the oldest entry
 	// memcpy does not support forward overlapping
@@ -4116,8 +4311,8 @@ extern "C" {
 {
 	char historyPath[1024] = {0,};
 	char buff[16*sizeof(HMAC_MD5_STATE)];
-	int writeCount;
-	FILE *fp;
+	size_t writeCount;
+	FILE *fp = NULL;
 	int err = -1;
 	off_t offset;
 	struct stat sb;
@@ -4127,7 +4322,7 @@ extern "C" {
 	
 	offset = [self historySlotToOffset:inPasswordRec->slot];
 	
-    sprintf( historyPath, "%s/%s", mDirPathStr, kPWHistoryFileName );	
+    sprintf( historyPath, "%s/%s", mDirPathStr, kPWHistoryFileName );
 
 	// Use open(2) so the file will get created if needed, but not truncated.
 	int fd = open( historyPath, O_RDWR|O_CREAT );
@@ -4141,13 +4336,13 @@ extern "C" {
 		return err;
 	}
 	
-	err = lstat( historyPath, &sb );
+	err = stat( historyPath, &sb );
 	if ( err == 0 )
 	{
 		// is the file big enough?
-		if ( (int64_t)(offset + kPWUserIDSize + sizeof(buff)) > sb.st_size )
+		if ( (off_t)(offset + kPWUserIDSize + sizeof(buff)) > sb.st_size )
 		{
-			long amountToWrite = offset + kPWUserIDSize + sizeof(buff) - sb.st_size;
+			size_t amountToWrite = (size_t)(offset + kPWUserIDSize + sizeof(buff) - sb.st_size);
 			char *zeroBuff = (char *) calloc( 1, amountToWrite );
 			
 			err = fseek( fp, 0, SEEK_END );
@@ -4163,7 +4358,7 @@ extern "C" {
 		
 		if ( err == 0 )
 		{
-			err = fseek( fp, offset, SEEK_SET );
+			err = fseeko( fp, offset, SEEK_SET );
 			if ( err == 0 )
 			{
 				writeCount = fwrite( inPasswordRec, kPWUserIDSize, 1, fp );
@@ -4226,7 +4421,7 @@ extern "C" {
 //	Returns: the position in the history database file for the slot
 //------------------------------------------------------------------------------------------------
 
--(unsigned long)historySlotToOffset:(unsigned long)inSlotNumber
+-(off_t)historySlotToOffset:(unsigned long)inSlotNumber
 {
 	// each slot is:
 	// 16 byte userID

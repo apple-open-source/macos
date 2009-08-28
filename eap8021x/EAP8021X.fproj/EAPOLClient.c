@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -50,9 +50,18 @@ struct EAPOLClient_s {
 };
 
 static void
-EAPOLClientInvalidate(EAPOLClientRef client)
+EAPOLClientInvalidate(EAPOLClientRef client, boolean_t remove_send_right)
 {
     if (client->notify_cfport != NULL) {
+	mach_port_t	port;
+
+	port = CFMachPortGetPort(client->notify_cfport);
+	mach_port_mod_refs(mach_task_self(), port,
+			   MACH_PORT_RIGHT_RECEIVE, -1);
+	if (remove_send_right) {
+	    mach_port_mod_refs(mach_task_self(), port, 
+			       MACH_PORT_RIGHT_SEND, -1);
+	}
 	CFMachPortInvalidate(client->notify_cfport);
 	my_CFRelease(&client->notify_cfport);
     }
@@ -81,10 +90,38 @@ EAPOLClientHandleMessage(CFMachPortRef port, void * msg,
 	syslog(LOG_NOTICE, 
 	       "EAPOLClientHandleMessage: EAPOLController server died");
 	server_died = TRUE;
-	EAPOLClientInvalidate(client);
+	EAPOLClientInvalidate(client, FALSE);
     }
     (*client->callback_func)(client, server_died, client->callback_arg);
     return;
+}
+
+static CFMachPortRef
+_EAPOLClientCFMachPortCreate(CFMachPortCallBack callout, CFMachPortContext * context)
+{
+    CFMachPortRef	cf_port;
+    mach_port_t 	port = MACH_PORT_NULL;
+    kern_return_t 	status;
+
+    status = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &port);
+    if (status != KERN_SUCCESS) {
+	goto failed;
+    }
+    status = mach_port_insert_right(mach_task_self(), port, port, 
+				    MACH_MSG_TYPE_MAKE_SEND);
+    if (status != KERN_SUCCESS) {
+	goto failed;
+    }
+    cf_port = CFMachPortCreateWithPort(NULL, port, callout, context, NULL);
+    if (cf_port != NULL) {
+	return (cf_port);
+    }
+ failed:
+    if (port != MACH_PORT_NULL) {
+	mach_port_destroy(mach_task_self(), port);
+    }
+    return NULL;
+
 }
 
 EAPOLClientRef
@@ -124,7 +161,12 @@ EAPOLClientAttach(const char * interface_name,
     strlcpy(client->if_name, interface_name, sizeof(client->if_name));
     context.info = client;
     client->notify_cfport 
-	= CFMachPortCreate(NULL, EAPOLClientHandleMessage, &context, NULL);
+	= _EAPOLClientCFMachPortCreate(EAPOLClientHandleMessage, &context);
+    if (client->notify_cfport == NULL) {
+	fprintf(stderr, "EAPOLClient: _EAPOLClientCFMachPortCreate failed");
+	result = errno;
+	goto failed;
+    }
     port = CFMachPortGetPort(client->notify_cfport);
     status = mach_port_request_notification(mach_task_self(),
 					    port,
@@ -154,9 +196,13 @@ EAPOLClientAttach(const char * interface_name,
 	task_set_bootstrap_port(mach_task_self(), bootstrap);
     }
     if (control != NULL) {
-	if (xmlUnserialize((CFPropertyListRef *)control_dict, 
-			   control, control_len) == FALSE) {
-	    result = EINVAL;
+	*control_dict
+	    = my_CFPropertyListCreateWithBytePtrAndLength(control,
+							  control_len);
+	(void)vm_deallocate(mach_task_self(), (vm_address_t)control,
+			    control_len);
+	if (*control_dict == NULL) {
+	    result = ENOMEM;
 	    goto failed;
 	}
     }
@@ -172,7 +218,7 @@ EAPOLClientAttach(const char * interface_name,
 
  failed:
     if (client != NULL) {
-	EAPOLClientInvalidate(client);
+	EAPOLClientInvalidate(client, TRUE);
     }
     my_CFRelease(control_dict);
     if (client != NULL) {
@@ -196,15 +242,17 @@ EAPOLClientDetach(EAPOLClientRef * client_p)
     if (client == NULL) {
 	return (0);
     }
-    status = eapolcontroller_client_detach(client->session_port, 
-					   &result);
-    if (status != KERN_SUCCESS) {
-	fprintf(stderr, 
-		"EAPOLClient: eapolcontroller_client_detach(%s): %s\n",
-		client->if_name, mach_error_string(status));
-	result = ENXIO;
+    if (client->session_port != MACH_PORT_NULL) {
+	status = eapolcontroller_client_detach(client->session_port, 
+					       &result);
+	if (status != KERN_SUCCESS) {
+	    fprintf(stderr, 
+		    "EAPOLClient: eapolcontroller_client_detach(%s): %s\n",
+		    client->if_name, mach_error_string(status));
+	    result = ENXIO;
+	}
     }
-    EAPOLClientInvalidate(client);
+    EAPOLClientInvalidate(client, TRUE);
     free(client);
     *client_p = NULL;
     return (result);
@@ -230,10 +278,12 @@ EAPOLClientGetConfig(EAPOLClientRef client, CFDictionaryRef * control_dict)
 	goto done;
     }
     if (control != NULL) {
-	if (xmlUnserialize((CFPropertyListRef *)control_dict, 
-			   control, control_len)
-	    == FALSE) {
-	    result = EINVAL;
+	*control_dict 
+	    = my_CFPropertyListCreateWithBytePtrAndLength(control, control_len);
+	(void)vm_deallocate(mach_task_self(), (vm_address_t)control,
+			    control_len);
+	if (*control_dict == NULL) {
+	    result = ENOMEM;
 	    goto done;
 	}
     }
@@ -250,20 +300,20 @@ EAPOLClientReportStatus(EAPOLClientRef client, CFDictionaryRef status_dict)
     CFDataRef			data = NULL;
     int				result = 0;
     kern_return_t		status;
-    xmlDataOut_t		xml_data = NULL;
-    CFIndex			xml_data_len = 0;
 
     if (isA_CFDictionary(status_dict) == NULL) {
 	result = EINVAL;
 	goto done;
     }
-    if (!xmlSerialize(status_dict, &data, 
-		      (void **)&xml_data, &xml_data_len)) {
+    data = CFPropertyListCreateXMLData(NULL, status_dict);
+    if (data == NULL) {
 	result = ENOMEM;
 	goto done;
     }
     status = eapolcontroller_client_report_status(client->session_port,
-						  xml_data, xml_data_len, 
+						  (xmlDataOut_t)
+						  CFDataGetBytePtr(data),
+						  CFDataGetLength(data),
 						  &result);
     if (status != KERN_SUCCESS) {
 	mach_error("eapolcontroller_client_report_status failed", status);

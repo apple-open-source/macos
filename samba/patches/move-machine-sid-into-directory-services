@@ -1,0 +1,243 @@
+Index: samba/source/Makefile.in
+===================================================================
+--- samba/source/Makefile.in.orig
++++ samba/source/Makefile.in
+@@ -46,6 +46,7 @@ LDAP_LIBS=@LDAP_LIBS@
+ NSCD_LIBS=@NSCD_LIBS@
+ UUID_LIBS=@UUID_LIBS@
+ MACOSX_LIBS=@MACOSX_LIBS@
++LIBS += $(MACOSX_LIBS)
+ 
+ INSTALLCMD=@INSTALL@
+ INSTALLLIBCMD_SH=@INSTALLLIBCMD_SH@
+@@ -293,7 +294,7 @@ LIBADS_OBJ = libads/ldap.o libads/ldap_p
+ LIBADS_SERVER_OBJ = libads/kerberos_verify.o \
+ 		    libads/ldap_schema.o
+ 
+-SECRETS_OBJ = passdb/secrets.o passdb/machine_sid.o
++SECRETS_OBJ = passdb/secrets.o passdb/machine_sid.o lib/opendirectory.o
+ 
+ LIBNMB_OBJ = libsmb/unexpected.o libsmb/namecache.o libsmb/nmblib.o \
+ 	     libsmb/namequery.o libsmb/conncache.o libads/dns.o
+@@ -483,7 +484,7 @@ SMBD_OBJ_SRV = smbd/files.o smbd/chgpass
+ 	       $(AFS_SETTOKEN_OBJ) smbd/aio.o smbd/statvfs.o \
+ 	       smbd/darwin_clone_local_volumes.o \
+ 	       smbd/darwin_check_share_access.o \
+-	       smbd/dmapi.o lib/opendirectory.o \
++	       smbd/dmapi.o \
+ 	       lib/launchd.o smbd/sockinit.o \
+ 	       $(MANGLE_OBJ) @VFS_STATIC@
+ 
+Index: samba/source/utils/net.c
+===================================================================
+--- samba/source/utils/net.c.orig
++++ samba/source/utils/net.c
+@@ -11,6 +11,8 @@
+ 
+    Reworked again by abartlet in December 2001
+ 
++   Copyright (C) 2008 Apple Inc. All rights reserved.
++
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or
+@@ -39,6 +41,7 @@
+ 
+ #include "includes.h"
+ #include "utils/net.h"
++#include "opendirectory.h"
+ 
+ /***********************************************************************/
+ /* Beginning of internationalization section.  Translatable constants  */
+@@ -602,6 +605,26 @@ static int net_getlocalsid(int argc, con
+ 		name = global_myname();
+ 	}
+ 
++    if (lp_opendirectory()) {
++	tDirStatus status;
++	char * errmsg;
++
++	if (strequal(name, global_myname())) {
++		status = opendirectory_query_machine_sid(NULL,
++						&sid);
++	} else {
++		status = opendirectory_query_domain_sid(NULL,
++						opt_workgroup, &sid);
++	}
++
++	if (status != eDSNoErr) {
++		errmsg = dsCopyDirStatusName(status);
++		d_printf("Can't fetch domain SID for %s: %s\n", name, errmsg);
++		return 1;
++	}
++
++    } else {
++
+ 	if(!initialize_password_db(False)) {
+ 		DEBUG(0, ("WARNING: Could not open passdb - local sid may not reflect passdb\n"
+ 			  "backend knowlege (such as the sid stored in LDAP)\n"));
+@@ -622,8 +645,12 @@ static int net_getlocalsid(int argc, con
+ 		DEBUG(0, ("Can't fetch domain SID for name: %s\n", name));
+ 		return 1;
+ 	}
++
++    }
++
+ 	sid_to_string(sid_str, &sid);
+ 	d_printf("SID for domain %s is: %s\n", name, sid_str);
++
+ 	return 0;
+ }
+ 
+@@ -639,6 +666,21 @@ static int net_setlocalsid(int argc, con
+ 		return 1;
+ 	}
+ 
++	if (lp_opendirectory()) {
++		tDirStatus status;
++		char * errmsg;
++
++		status = opendirectory_store_machine_sid(NULL, &sid);
++		if (status != eDSNoErr) {
++			errmsg = dsCopyDirStatusName(status);
++			d_printf("Can't store domain SID for %s: %s\n",
++				global_myname(), errmsg);
++			return 1;
++		}
++
++		return 0;
++	}
++
+ 	if (!secrets_store_domain_sid(global_myname(), &sid)) {
+ 		DEBUG(0,("Can't store domain SID as a pdc/bdc.\n"));
+ 		return 1;
+@@ -651,6 +693,12 @@ static int net_setdomainsid(int argc, co
+ {
+ 	DOM_SID sid;
+ 
++	if (lp_opendirectory()) {
++		d_printf("Use Workgroup Manager to set the domain SID "
++			"while in Open Directory mode.\n");
++		return 1;
++	}
++
+ 	if ( (argc != 1)
+ 	     || (strncmp(argv[0], "S-1-5-21-", strlen("S-1-5-21-")) != 0)
+ 	     || (!string_to_sid(&sid, argv[0]))
+@@ -672,6 +720,36 @@ static int net_getdomainsid(int argc, co
+ 	DOM_SID domain_sid;
+ 	fstring sid_str;
+ 
++    if (lp_opendirectory()) {
++	tDirStatus status;
++	char * errmsg;
++
++	status = opendirectory_query_machine_sid(NULL, &domain_sid);
++
++	sid_to_string(sid_str, &domain_sid);
++	d_printf("SID for domain %s is: %s\n", global_myname(), sid_str);
++	if (status != eDSNoErr) {
++		errmsg = dsCopyDirStatusName(status);
++		d_fprintf(stderr, "Could not fetch local SID (%s)\n", errmsg);
++		return 1;
++	}
++
++	status = opendirectory_query_domain_sid(NULL, opt_workgroup,
++				&domain_sid);
++	if (status != eDSNoErr) {
++		errmsg = dsCopyDirStatusName(status);
++		d_fprintf(stderr, "Could not fetch %s domain SID (%s)\n",
++			opt_workgroup, errmsg);
++		return 1;
++	}
++
++	sid_to_string(sid_str, &domain_sid);
++	d_printf("SID for domain %s is: %s\n", opt_workgroup, sid_str);
++
++	return 0;
++    } else {
++
++
+ 	if(!initialize_password_db(False)) {
+ 		DEBUG(0, ("WARNING: Could not open passdb - domain sid may not reflect passdb\n"
+ 			  "backend knowlege (such as the sid stored in LDAP)\n"));
+@@ -704,6 +782,7 @@ static int net_getdomainsid(int argc, co
+ 
+ 	sid_to_string(sid_str, &domain_sid);
+ 	d_printf("SID for domain %s is: %s\n", opt_workgroup, sid_str);
++    }
+ 
+ 	return 0;
+ }
+Index: samba/source/passdb/machine_sid.c
+===================================================================
+--- samba/source/passdb/machine_sid.c.orig
++++ samba/source/passdb/machine_sid.c
+@@ -5,6 +5,8 @@
+    Copyright (C) Andrew Tridgell		2002
+    Copyright (C) Gerald (Jerry) Carter		2000
+    Copyright (C) Stefan (metze) Metzmacher	2002
++
++   Copyright (C) 2008 Apple Inc. All rights reserved.
+       
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+@@ -22,6 +24,7 @@
+ */
+ 
+ #include "includes.h"
++#include "opendirectory.h"
+ 
+ /* NOTE! the global_sam_sid is the SID of our local SAM. This is only
+    equal to the domain SID when we are a DC, otherwise its our
+@@ -176,6 +179,35 @@ static DOM_SID *pdb_generate_sam_sid(voi
+ 	return sam_sid;
+ }   
+ 
++static DOM_SID * opendirectory_sam_sid(void)
++{
++	DOM_SID * sam_sid;
++	tDirStatus status;
++
++	if(!(sam_sid = SMB_MALLOC_P(DOM_SID))) {
++		return NULL;
++	}
++
++	if (!IS_DC) {
++		status = opendirectory_query_machine_sid(NULL, sam_sid);
++		LOG_DS_ERROR(DS_TRACE_ERRORS, status,
++			"opendirectory_query_machine_sid");
++
++	} else {
++		status = opendirectory_query_domain_sid(NULL,
++				lp_workgroup(), sam_sid);
++		LOG_DS_ERROR(DS_TRACE_ERRORS, status,
++			"opendirectory_query_domain_sid");
++	}
++
++	if (status != eDSNoErr) {
++		SAFE_FREE(sam_sid);
++		return NULL;
++	}
++
++	return sam_sid;
++}
++
+ /* return our global_sam_sid */
+ DOM_SID *get_global_sam_sid(void)
+ {
+@@ -185,6 +217,14 @@ DOM_SID *get_global_sam_sid(void)
+ 	/* memory for global_sam_sid is allocated in 
+ 	   pdb_generate_sam_sid() as needed */
+ 
++	if (lp_opendirectory()) {
++		if (!(global_sam_sid = opendirectory_sam_sid())) {
++			smb_panic("Could not generate a machine SID\n");
++		}
++
++		return global_sam_sid;
++	}
++
+ 	if (!(global_sam_sid = pdb_generate_sam_sid())) {
+ 		smb_panic("Could not generate a machine SID\n");
+ 	}

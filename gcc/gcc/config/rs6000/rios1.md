@@ -15,8 +15,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING.  If not, write to the
-;; Free Software Foundation, 59 Temple Place - Suite 330, Boston,
-;; MA 02111-1307, USA.
+;; Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
+;; MA 02110-1301, USA.
 
 (define_automaton "rios1,rios1fp")
 (define_cpu_unit "iu_rios1" "rios1")
@@ -26,11 +26,12 @@
 ;; RIOS1  32-bit IU, FPU, BPU
 
 (define_insn_reservation "rios1-load" 2
-  (and (eq_attr "type" "load,load_ext,load_ext_u,load_ext_ux,load_ux,load_u")
+  (and (eq_attr "type" "load,load_ext,load_ext_u,load_ext_ux,load_ux,load_u,\
+		        load_l,store_c,sync")
        (eq_attr "cpu" "rios1,ppc601"))
   "iu_rios1")
 
-(define_insn_reservation "rios1-store" 1
+(define_insn_reservation "rios1-store" 2
   (and (eq_attr "type" "store,store_ux,store_u")
        (eq_attr "cpu" "rios1,ppc601"))
   "iu_rios1")
@@ -45,7 +46,7 @@
        (eq_attr "cpu" "ppc601"))
   "iu_rios1")
 
-(define_insn_reservation "rios1-fpstore" 1
+(define_insn_reservation "rios1-fpstore" 3
   (and (eq_attr "type" "fpstore,fpstore_ux,fpstore_u")
        (eq_attr "cpu" "rios1,ppc601"))
   "iu_rios1+fpu_rios1")
@@ -183,7 +184,7 @@
   "iu_rios1,bpu_rios1")
 
 (define_insn_reservation "rios1-branch" 1
-  (and (eq_attr "type" "jmpreg,branch")
+  (and (eq_attr "type" "jmpreg,branch,isync")
        (eq_attr "cpu" "rios1,ppc601"))
   "bpu_rios1")
 

@@ -210,7 +210,7 @@ parse_entry(char *key, char *mapname, char *mapopts, char *subdir,
 
 		*err = hierarchical_sort(mapents, &rootnode, key, mapname);
 		if (*err != 0)
-			goto parse_error;
+			goto parse_error_quiet;
 	} else if (strcmp(mapname, "-fstab") == 0) {
 		/*
 		 * the /Network/Servers parser - uses do_mapent_fstab to
@@ -229,7 +229,7 @@ parse_entry(char *key, char *mapname, char *mapopts, char *subdir,
 
 		*err = hierarchical_sort(mapents, &rootnode, key, mapname);
 		if (*err != 0)
-			goto parse_error;
+			goto parse_error_quiet;
 	} else if (strcmp(mapname, "-static") == 0) {
 		/*
 		 * the static fstab parser - looks up the fstab entry
@@ -251,7 +251,7 @@ parse_entry(char *key, char *mapname, char *mapopts, char *subdir,
 
 		*err = hierarchical_sort(mapents, &rootnode, key, mapname);
 		if (*err != 0)
-			goto parse_error;
+			goto parse_error_quiet;
 	} else {
 		/*
 		 * All other maps.
@@ -274,6 +274,8 @@ parse_entry(char *key, char *mapname, char *mapopts, char *subdir,
 			return ((struct mapent *)NULL);	/* we failed to find it */
 
 		case __NSW_UNAVAIL:
+			syslog(LOG_ERR, "parse_entry: getmapent for map %s, key %s failed",
+			    mapname, key);
 			*err = EIO;	/* error trying to look up entry */
 			return ((struct mapent *)NULL);	/* we failed to find it */
 		}
@@ -307,7 +309,7 @@ parse_entry(char *key, char *mapname, char *mapopts, char *subdir,
 
 		*err = hierarchical_sort(mapents, &rootnode, key, mapname);
 		if (*err != 0)
-			goto parse_error;
+			goto parse_error_quiet;
 
 		*err = push_options(rootnode, defaultopts, mapopts,
 		    MAPENT_NOERR);
@@ -347,6 +349,7 @@ parse_entry(char *key, char *mapname, char *mapopts, char *subdir,
 parse_error:
 	syslog(LOG_ERR, "parse_entry: mapentry parse error: map=%s key=%s",
 	    mapname, key);
+parse_error_quiet:
 	free_mapent(mapents);
 	if (rootnode != NULL)
 		free_hiernode(rootnode);
@@ -390,10 +393,21 @@ mapline_to_mapent(struct mapent **mapents, struct mapline *ml, char *key,
 	char *lq = ml->lineqbuf;
 
 	/* do any macro expansions that are required to complete ml */
-	if (macro_expand(key, lp, lq, LINESZ)) {
+	switch (macro_expand(key, lp, lq, LINESZ)) {
+
+	case MEXPAND_OK:
+		break;
+
+	case MEXPAND_LINE_TOO_LONG:
 		syslog(LOG_ERR,
 		"mapline_to_mapent: map %s: line too long (max %d chars)",
 			mapname, LINESZ - 1);
+		return (EIO);
+
+	case MEXPAND_VARNAME_TOO_LONG:
+		syslog(LOG_ERR,
+		"mapline_to_mapent: map %s: variable name too long",
+			mapname);
 		return (EIO);
 	}
 	if (trace > 3 && (strcmp(ml->linebuf, lp) != 0))
@@ -563,7 +577,7 @@ alloc_failed:
  * with the rootnode being the mount root. The hierarchy is setup as
  * levels, and subdirs below each level. Provides a link from node to
  * the relevant mapentry.
- * Returns 0 or appropriate error value
+ * Returns 0 or appropriate error value; logs a message on error.
  */
 static int
 hierarchical_sort(struct mapent *mapents, hiernode **rootnode, char *key,
@@ -645,9 +659,20 @@ hierarchical_sort(struct mapent *mapents, hiernode **rootnode, char *key,
 
 		if (prevnode->mapent != NULL) {
 			/* duplicate mntpoint found */
-			syslog(LOG_ERR,
-			"hierarchical_sort: duplicate mntpnt map=%s key=%s",
-				mapname, key);
+			char *root;
+
+			if (strcmp(mapname, "-fstab") == 0) {
+				syslog(LOG_ERR,
+				    "Duplicate mounts for %s:%s in fstab",
+				    key, me->map_mntpnt);
+			} else {
+				root = me->map_root;
+				while (*root == '/')
+					root++;
+				syslog(LOG_ERR,
+				    "Duplicate submounts for %s%s in map %s, key %s",
+				    root, me->map_mntpnt, mapname, key);
+			}
 			return (EIO);
 		}
 
@@ -1453,7 +1478,7 @@ automount_opts(char **map_mntopts, char *mapopts)
 {
 	char *opts;
 	char *opt;
-	int len;
+	size_t len;
 	char *placeholder;
 	char buf[AUTOFS_MAXOPTSLEN];
 
@@ -2030,8 +2055,9 @@ trace_mapents(char *s, struct mapent *mapents)
 				mfs->mfs_dir ? mfs->mfs_dir : "");
 
 		trace_prt(1, "\tme->map_fsw=%s\n",
-			me->map_fsw ? me->map_fsw:"",
-			me->map_fswq ? me->map_fsw:"");
+			me->map_fsw ? me->map_fsw:"");
+		trace_prt(1, "\tme->map_fswq=%s\n",
+			me->map_fswq ? me->map_fswq:"");
 		trace_prt(1, "\t mntlevel=%d\t%s\t%s err=%d\n",
 			me->map_mntlevel,
 			me->map_modified ? "modify=TRUE":"modify=FALSE",
@@ -2120,10 +2146,10 @@ do_mapent_hosts(mapopts, host, isdirect, err)
 	int *err;
 {
 	CLIENT *cl;
-	struct mapent *me, *ms, *mp;
+	struct mapent *me, *ms = NULL, *mp;
 	struct mapfs *mfs;
 	struct exportnode *ex = NULL;
-	struct exportnode *exlist, *texlist, **texp, *exnext;
+	struct exportnode *exlist = NULL, *texlist, **texp, *exnext;
 	struct timeval timeout;
 	enum clnt_stat clnt_stat;
 	char entryopts[MAXOPTSLEN];
@@ -2133,13 +2159,33 @@ do_mapent_hosts(mapopts, host, isdirect, err)
 	mntoptparse_t mop;
 	int flags;
 	int altflags;
-	long nfsvers;		/* version in map options, 0 if not there */
+	long optval;
+	rpcvers_t nfsvers;	/* version in map options, 0 if not there */
 	rpcvers_t vers, versmin; /* used to negotiate nfs vers in pingnfs() */
 	int retries, delay;
 
 	if (trace > 1)
 		trace_prt(1, "  do_mapent_hosts: host %s\n", host);
 
+	/*
+	 * Check whether the host has a name that begins with ".";
+	 * if so, it's not a valid host name, and we return ENOENT.
+	 * That way, we avoid doing host name lookups for various
+	 * dot-file names, e.g. ".localized" and ".DS_Store".
+	 */
+	if (host[0] == '.') {
+		*err = ENOENT;
+		return ((struct mapent *)NULL);
+	}
+
+	/*
+	 * XXX - this appears to assume that you can get *all* the
+	 * file systems - or, at least, all the local file systems -
+	 * from this machine simply by mounting / with the loopback
+	 * file system.  We don't yet have a loopback file system,
+	 * so we have to mount individual NFS exports.
+	 */
+#ifdef HAVE_LOFS
 	/* check for special case: host is me */
 
 	if (self_check(host)) {
@@ -2193,6 +2239,7 @@ do_mapent_hosts(mapopts, host, isdirect, err)
 		*err = 0;
 		return (ms);
 	}
+#endif
 
 	/*
 	 * Call pingnfs. Note that we can't have replicated hosts in /net.
@@ -2209,13 +2256,14 @@ do_mapent_hosts(mapopts, host, isdirect, err)
 		return ((struct mapent *)NULL);
 	}
 	if (altflags & NFS_MNT_VERS) {
-		nfsvers = getmntoptnum(mop, "vers");
-		if (nfsvers == -1) {
+		optval = getmntoptnum(mop, "vers");
+		if (optval == -1 || optval > (long)UINT_MAX) {
 			syslog(LOG_ERR, "Invalid NFS version number for %s", host);
 			freemntopts(mop);
 			*err = EIO;
 			return ((struct mapent *)NULL);
 		}
+		nfsvers = (rpcvers_t)optval;
 	} else
 		nfsvers = 0;
 	freemntopts(mop);
@@ -2567,11 +2615,18 @@ do_mapent_fstab(mapopts, host, isdirect, err)
 	/*
 	 * Check for special case: host is me.
 	 * We check based on the name, as was done for the selflink
-	 * in the old automounter, as well as based on the IP address,
-	 * as is done for the -hosts map.
+	 * in the old automounter; we don't check based on the
+	 * IP address, as that's expensive (it requires that we
+	 * resolve the IP address of the server, which is really
+	 * expensive the first time it's done, as it's likely not
+	 * to be in the DNS resolver's cache).  The host_is_us()
+	 * check handles multi-homed hosts (it checks against the
+	 * names corresponding to *all* this host's IP addresses)
+	 * and handles local names (it checks against this host's
+	 * .local name, if it has one).
 	 */
 
-	if (host_is_us(host, strlen(host)) || self_check(host)) {
+	if (host_is_us(host, strlen(host))) {
 		ms = (struct mapent *)malloc(sizeof (*ms));
 		if (ms == NULL)
 			goto alloc_failed;

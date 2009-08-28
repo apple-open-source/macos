@@ -33,7 +33,6 @@ done
 # ### sees an empty arg rather than missing one.
 ./build/buildcheck.sh "$RELEASE_MODE" || exit 1
 
-#
 # Handle some libtool helper files
 #
 # ### eventually, we can/should toss this in favor of simply using
@@ -41,13 +40,15 @@ done
 #
 
 libtoolize="`./build/PrintPath glibtoolize libtoolize libtoolize15`"
+lt_major_version=`$libtoolize --version 2>/dev/null | sed -e 's/^[^0-9]*//' -e 's/\..*//' -e '/^$/d' -e 1q`
 
 if [ "x$libtoolize" = "x" ]; then
     echo "libtoolize not found in path"
     exit 1
 fi
 
-$libtoolize --copy --automake
+rm -f build/config.guess build/config.sub
+$libtoolize --copy --automake --force
 
 ltpath="`dirname $libtoolize`"
 ltfile=${LIBTOOL_M4-`cd $ltpath/../share/aclocal ; pwd`/libtool.m4}
@@ -58,17 +59,52 @@ if [ ! -f $ltfile ]; then
 fi
 
 echo "Copying libtool helper: $ltfile"
+# An ancient helper might already be present from previous builds,
+# and it might be write-protected (e.g. mode 444, seen on FreeBSD).
+# This would cause cp to fail and print an error message, but leave
+# behind a potentially outdated libtool helper.  So, remove before
+# copying:
+rm -f build/libtool.m4
 cp $ltfile build/libtool.m4
+
+for file in ltoptions.m4 ltsugar.m4 ltversion.m4 lt~obsolete.m4; do
+    rm -f build/$file
+
+    if [ $lt_major_version -ge 2 ]; then
+        ltfile=${LIBTOOL_M4-`cd $ltpath/../share/aclocal ; pwd`/$file}
+
+        if [ ! -f $ltfile ]; then
+            echo "$ltfile not found (try setting the LIBTOOL_M4 environment variable)"
+            exit 1
+        fi
+
+        echo "Copying libtool helper: $ltfile"
+        cp $ltfile build/$file
+    fi
+done
+
+if [ $lt_major_version -ge 2 ]; then
+    for file in config.guess config.sub; do
+        configfile=${LIBTOOL_CONFIG-`cd $ltpath/../share/libtool/config ; pwd`/$file}
+
+        if [ ! -f $configfile ]; then
+            echo "$configfile not found (try setting the LIBTOOL_CONFIG environment variable)"
+            exit 1
+        fi
+
+	cp $configfile build/$file
+    done
+fi
 
 # Create the file detailing all of the build outputs for SVN.
 #
 # Note: this dependency on Python is fine: only SVN developers use autogen.sh
 #       and we can state that dev people need Python on their machine. Note
-#       that running gen-make.py requires Python 2.X or newer.
+#       that running gen-make.py requires Python 2.4 or newer.
 
 PYTHON="`./build/find_python.sh`"
 if test -z "$PYTHON"; then
-  echo "Python 2.0 or later is required to run autogen.sh"
+  echo "Python 2.4 or later is required to run autogen.sh"
   echo "If you have a suitable Python installed, but not on the"
   echo "PATH, set the environment variable PYTHON to the full path"
   echo "to the Python executable, and re-run autogen.sh"
@@ -134,18 +170,6 @@ fi
 # Remove autoconf 2.5x's cache directory
 rm -rf autom4te*.cache
 
-# Run apr/buildconf if it exists.
-if test -x "apr/buildconf" ; then
-  echo "Creating configuration files for apr." # apr's equivalent of autogen.sh
-  (cd apr && ./buildconf)
-fi
-
-# Run apr-util/buildconf if it exists.
-if test -x "apr-util/buildconf" ; then
-  echo "Creating configuration files for apr-util."
-  (cd apr-util && ./buildconf)
-fi
-
 echo ""
 echo "You can run ./configure now."
 echo ""
@@ -157,5 +181,5 @@ echo "./configure --disable-shared"
 echo "./configure --enable-maintainer-mode --disable-shared"
 echo ""
 echo "Note:  If you wish to run a Subversion HTTP server, you will need"
-echo "Apache 2.0.  See the INSTALL file for details."
+echo "Apache 2.x.  See the INSTALL file for details."
 echo ""

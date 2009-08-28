@@ -20,5 +20,7 @@
 		<key>Minute</key>
 		<integer>15</integer>
 	</dict>
+	<key>AbandonProcessGroup</key>
+	<true/>
 </dict>
 </plist>

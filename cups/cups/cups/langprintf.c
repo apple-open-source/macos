@@ -1,10 +1,10 @@
 /*
- * "$Id: langprintf.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: langprintf.c 7802 2008-07-28 18:50:45Z mike $"
  *
  *   Localized printf/puts functions for the Common UNIX Printing
  *   System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 2002-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -17,9 +17,11 @@
  *
  * Contents:
  *
- *   _cupsLangPrintf() - Print a formatted message string to a file.
- *   _cupsLangPuts()   - Print a static message string to a file.
- *   _cupsSetLocale()  - Set the current locale and transcode the command-line.
+ *   _cupsLangPrintError() - Print a message followed by a standard error.
+ *   _cupsLangPrintf()     - Print a formatted message string to a file.
+ *   _cupsLangPuts()       - Print a static message string to a file.
+ *   _cupsSetLocale()      - Set the current locale and transcode the
+ *                           command-line.
  */
 
 /*
@@ -28,6 +30,62 @@
 
 #include <stdio.h>
 #include "globals.h"
+#include <errno.h>
+
+
+/*
+ * '_cupsLangPrintError()' - Print a message followed by a standard error.
+ */
+
+void
+_cupsLangPrintError(const char *message)/* I - Message */
+{
+  int		bytes;			/* Number of bytes formatted */
+  int		last_errno;		/* Last error */
+  char		buffer[2048],		/* Message buffer */
+		output[8192];		/* Output buffer */
+  _cups_globals_t *cg;			/* Global data */
+
+
+ /*
+  * Range check...
+  */
+
+  if (!message)
+    return;
+
+ /*
+  * Save the errno value...
+  */
+
+  last_errno = errno;
+
+ /*
+  * Get the message catalog...
+  */
+
+  cg = _cupsGlobals();
+
+  if (!cg->lang_default)
+    cg->lang_default = cupsLangDefault();
+
+ /*
+  * Format the message...
+  */
+
+  snprintf(buffer, sizeof(buffer), "%s: %s\n",
+	   _cupsLangString(cg->lang_default, message), strerror(last_errno));
+
+ /*
+  * Convert and write to stderr...
+  */
+
+  bytes = cupsUTF8ToCharset(output, (cups_utf8_t *)buffer, sizeof(output),
+                            cg->lang_default->encoding);
+
+  if (bytes > 0)
+    fwrite(output, 1, bytes, stderr);
+}
 
 
 /*
@@ -215,5 +273,5 @@ _cupsSetLocale(char *argv[])		/* IO - Command-line arguments */
 
 
 /*
- * End of "$Id: langprintf.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: langprintf.c 7802 2008-07-28 18:50:45Z mike $".
  */

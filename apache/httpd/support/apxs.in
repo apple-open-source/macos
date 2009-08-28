@@ -196,7 +196,7 @@ $envvars = eval qq("$envvars");
 
 #allow apxs to be run from the source tree, before installation
 if ($0 =~ m:support/apxs$:) {
-    ($httpd = $0) =~ s:support/apxs$::;
+    ($httpd = $0) =~ s:support/apxs$:httpd:;
 }
 
 unless (-x "$httpd") {

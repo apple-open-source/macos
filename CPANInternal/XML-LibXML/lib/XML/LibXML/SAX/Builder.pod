@@ -2,9 +2,9 @@
 
 XML::LibXML::SAX::Builder - Building DOM trees from SAX events.
 
-
 =head1 SYNOPSIS
 
+  use XML::LibXML::SAX::Builder;
   my $builder = XML::LibXML::SAX::Builder->new();
   
   my $gen = XML::Generator::DBI->new(Handler => $builder, dbh => $dbh);
@@ -31,12 +31,14 @@ document generated from the last SAX stream.
 
 Matt Sergeant, 
 Christian Glahn, 
+Petr Pajas, 
+
 =head1 VERSION
 
-1.58
+1.64
 
 =head1 COPYRIGHT
 
-2001-2004, AxKit.com Ltd; 2002-2004 Christian Glahn, All rights reserved.
+2001-2007, AxKit.com Ltd; 2002-2006 Christian Glahn; 2006-2007 Petr Pajas, All rights reserved.
 
 =cut

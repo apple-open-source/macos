@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -70,6 +70,10 @@
 #ifdef BEOS
 #include <kernel/OS.h>
 #endif
+/* Hunting down DEV_BSIZE if not from dirent.h, sys/stat.h etc */
+#ifdef HAVE_SYS_PARAM_H
+#include <sys/param.h>
+#endif
 
 #if BEOS_BONE
 # ifndef BONE7
@@ -82,7 +86,9 @@
 #endif
 /* End System headers */
 
-#define APR_FILE_BUFSIZE 4096
+#define APR_FILE_DEFAULT_BUFSIZE 4096
+/* For backwards-compat */
+#define APR_FILE_BUFSIZE  APR_FILE_DEFAULT_BUFSIZE
 
 struct apr_file_t {
     apr_pool_t *pool;
@@ -101,7 +107,8 @@ struct apr_file_t {
 #endif
     /* Stuff for buffered mode */
     char *buffer;
-    int bufpos;               /* Read/Write position in buffer */
+    apr_size_t bufpos;        /* Read/Write position in buffer */
+    apr_size_t bufsize;       /* The size of the buffer */
     unsigned long dataRead;   /* amount of valid data read into buffer */
     int direction;            /* buffer being used for 0 = read, 1 = write */
     apr_off_t filePtr;        /* position in file of handle */
@@ -109,6 +116,20 @@ struct apr_file_t {
     struct apr_thread_mutex_t *thlock;
 #endif
 };
+
+#if APR_HAS_THREADS
+#define file_lock(f)   do { \
+                           if ((f)->thlock) \
+                               apr_thread_mutex_lock((f)->thlock); \
+                       } while (0)
+#define file_unlock(f) do { \
+                           if ((f)->thlock) \
+                               apr_thread_mutex_unlock((f)->thlock); \
+                       } while (0)
+#else
+#define file_lock(f)   do {} while (0)
+#define file_unlock(f) do {} while (0)
+#endif
 
 #if APR_HAS_LARGE_FILES && defined(_LARGEFILE64_SOURCE)
 #define stat(f,b) stat64(f,b)
@@ -121,17 +142,33 @@ typedef struct stat64 struct_stat;
 typedef struct stat struct_stat;
 #endif
 
+/* readdir64_r is only used in specific cases: */
+#if APR_HAS_THREADS && defined(_POSIX_THREAD_SAFE_FUNCTIONS) \
+    && !defined(READDIR_IS_THREAD_SAFE) && defined(HAVE_READDIR64_R)
+#define APR_USE_READDIR64_R
+#endif
+
 struct apr_dir_t {
     apr_pool_t *pool;
     char *dirname;
     DIR *dirstruct;
+#ifdef APR_USE_READDIR64_R
+    struct dirent64 *entry;
+#else
     struct dirent *entry;
+#endif
 };
 
 apr_status_t apr_unix_file_cleanup(void *);
+apr_status_t apr_unix_child_file_cleanup(void *);
 
 mode_t apr_unix_perms2mode(apr_fileperms_t perms);
 apr_fileperms_t apr_unix_mode2perms(mode_t mode);
+
+apr_status_t apr_file_flush_locked(apr_file_t *thefile);
+apr_status_t apr_file_info_get_locked(apr_finfo_t *finfo, apr_int32_t wanted,
+                                      apr_file_t *thefile)
+				      __DARWIN_INODE64(apr_file_info_get_locked);
 
 
 #endif  /* ! FILE_IO_H */

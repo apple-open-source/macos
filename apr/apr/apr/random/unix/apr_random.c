@@ -1,9 +1,9 @@
-/* Copyright 2003-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 /*
- * See the paper "???" by Ben Laurie for an explanation of this PRNG.
+ * See the paper "On Randomness" by Ben Laurie for an explanation of this PRNG.
+ * http://www.apache-ssl.org/randomness.pdf
+ * XXX: Is there a formal proof of this PRNG? Couldn't we use the more popular
+ * Mersenne Twister PRNG (and BSD licensed)?
  */
 
 #include "apr.h"
@@ -219,7 +222,7 @@ APR_DECLARE(void) apr_random_add_entropy(apr_random_t *g,const void *entropy_,
         p->pool[p->bytes++] = entropy[n];
 
         if (p->bytes == g->rehash_size) {
-            unsigned int r;
+            apr_size_t r;
 
             for (r = 0; r < p->bytes/2; r+=g->pool_hash->size)
                 hash(g->pool_hash,p->pool+r,p->pool+r*2,g->pool_hash->size*2);
@@ -246,7 +249,7 @@ static void apr_random_bytes(apr_random_t *g,unsigned char *random,
     apr_size_t n;
 
     for (n = 0; n < bytes; ) {
-        int l;
+        apr_size_t l;
 
         if (g->random_bytes == 0) {
             apr_random_block(g,g->randomness);

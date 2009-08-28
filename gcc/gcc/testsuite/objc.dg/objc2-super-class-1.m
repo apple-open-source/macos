@@ -1,6 +1,6 @@
 /* APPLE LOCAL file 5435676 */
 /* Test that message-to-super case now uses a different section __objc_superrefs */
-/* { dg-options "-mmacosx-version-min=10.5 -fobjc-abi-version=2" } */
+/* { dg-options "-mmacosx-version-min=10.5 -fobjc-abi-version=2" { target powerpc*-*-darwin* i?86*-*-darwin* } } */
 /* { dg-do compile { target *-*-darwin* } } */
 
 @interface Super { id isa; } @end

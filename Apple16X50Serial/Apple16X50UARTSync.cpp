@@ -1,5 +1,5 @@
 /*
-Copyright (c) 1997-2006 Apple Computer, Inc. All rights reserved.
+Copyright (c) 1997-2008 Apple Inc. All rights reserved.
 Copyright (c) 1994-1996 NeXT Software, Inc.  All rights reserved.
  
 IMPORTANT:  This Apple software is supplied to you by Apple Computer, Inc. (ÒAppleÓ) in consideration of your agreement to the following terms, and your use, installation, modification or redistribution of this Apple software constitutes acceptance of these terms.  If you do not agree with these terms, please do not use, install, modify or redistribute this Apple software.
@@ -195,7 +195,7 @@ IOReturn Apple16X50UARTSync::setState(UInt32 state, UInt32 mask)
 IOReturn Apple16X50UARTSync::
 setStateAction(OSObject *owner, void*arg0, void*arg1, void*, void*)
 {
-    ((Apple16X50UARTSync *)owner)->setStateGated((UInt32)arg0, (UInt32)arg1);
+    ((Apple16X50UARTSync *)owner)->setStateGated((UInt32)(uintptr_t)arg0, (UInt32)(uintptr_t)arg1);
     return kIOReturnSuccess;
 }
 
@@ -254,7 +254,7 @@ IOReturn Apple16X50UARTSync::watchState(UInt32 *state, UInt32 mask)
 
 IOReturn Apple16X50UARTSync::
 watchStateAction(OSObject *owner, void*arg0, void*arg1, void*, void*)
-{ return ((Apple16X50UARTSync *)owner)->watchStateGated((UInt32*)arg0, (UInt32)arg1); }
+{ return ((Apple16X50UARTSync *)owner)->watchStateGated((UInt32*)arg0, (UInt32)(uintptr_t)arg1); }
 
 IOReturn Apple16X50UARTSync::watchStateGated(UInt32 *state, UInt32 mask)
 {
@@ -350,7 +350,7 @@ IOReturn Apple16X50UARTSync::executeEvent(UInt32 event, UInt32 data)
 
 IOReturn Apple16X50UARTSync::
 executeEventAction(OSObject *owner, void*arg0, void*arg1, void*, void*)
-{ return ((Apple16X50UARTSync *)owner)->executeEventGated((UInt32)arg0, (UInt32)arg1); }
+{ return ((Apple16X50UARTSync *)owner)->executeEventGated((UInt32)(uintptr_t)arg0, (UInt32)(uintptr_t)arg1); }
 
 IOReturn Apple16X50UARTSync::executeEventGated(UInt32 event, UInt32 data)
 {
@@ -616,7 +616,7 @@ IOReturn Apple16X50UARTSync::enqueueEvent(UInt32 event, UInt32 data, bool sleep)
 
 IOReturn Apple16X50UARTSync::
 enqueueEventAction(OSObject *owner, void*arg0, void*arg1, void*arg2, void*)
-{ return ((Apple16X50UARTSync *)owner)->enqueueEventGated((UInt32)arg0, (UInt32)arg1, (bool)arg2); }
+{ return ((Apple16X50UARTSync *)owner)->enqueueEventGated((UInt32)(uintptr_t)arg0, (UInt32)(uintptr_t)arg1, (bool)arg2); }
 
 IOReturn Apple16X50UARTSync::enqueueEventGated(UInt32 event, UInt32 data, bool sleep)
 {
@@ -727,7 +727,7 @@ enqueueData(UInt8 *buffer, UInt32 size, UInt32 *count, bool sleep)
 
 IOReturn Apple16X50UARTSync::
 enqueueDataAction(OSObject *owner, void*arg0, void*arg1, void*arg2, void*arg3)
-{ return ((Apple16X50UARTSync *)owner)->enqueueDataGated((UInt8*)arg0, (UInt32)arg1, (UInt32*)arg2, (bool)arg3); }
+{ return ((Apple16X50UARTSync *)owner)->enqueueDataGated((UInt8*)arg0, (UInt32)(uintptr_t)arg1, (UInt32*)arg2, (bool)arg3); }
 
 IOReturn Apple16X50UARTSync::
 enqueueDataGated(UInt8 *buffer, UInt32 size, UInt32 *count, bool sleep)
@@ -835,7 +835,7 @@ dequeueData(UInt8 *buffer, UInt32 size, UInt32 *count, UInt32 min)
 
 IOReturn Apple16X50UARTSync::
 dequeueDataAction(OSObject *owner, void*arg0, void*arg1, void*arg2, void*arg3)
-{ return ((Apple16X50UARTSync *)owner)->dequeueDataGated((UInt8*)arg0, (UInt32)arg1, (UInt32*)arg2, (UInt32)arg3); }
+{ return ((Apple16X50UARTSync *)owner)->dequeueDataGated((UInt8*)arg0, (UInt32)(uintptr_t)arg1, (UInt32*)arg2, (UInt32)(uintptr_t)arg3); }
 
 IOReturn Apple16X50UARTSync::
 dequeueDataGated(UInt8 *buffer, UInt32 size, UInt32 *count, bool sleep)
@@ -903,7 +903,7 @@ bool Apple16X50UARTSync::start(IOService *provider)
     char buf[80];
     OSString *nameString = OSDynamicCast(OSString, getProperty(kIOTTYSuffixKey));
     if (nameString) {
-        sprintf(buf, "%s%s", Name, (char *)(nameString->getCStringNoCopy()));
+        snprintf(buf, sizeof (buf), "%s%s", Name, (char *)(nameString->getCStringNoCopy()));
         setName(buf);
         Name=getName();
     }
@@ -947,7 +947,7 @@ bool Apple16X50UARTSync::start(IOService *provider)
     RxQ = new Apple16X50Queue(kRxQ);
 
     resetUART();
-    sprintf (buf, "%s FIFO=%d MaxBaud=%d", IOFindNameForValue(UART_Type, gUARTnames), (int)FIFO_Size, (int)(MaxBaud>>1));
+    snprintf (buf, sizeof (buf), "%s FIFO=%d MaxBaud=%d", IOFindNameForValue(UART_Type, gUARTnames), (int)FIFO_Size, (int)(MaxBaud>>1));
     IOLog("%s: Detected %s\n", Name, buf);
     setProperty("UART Type", buf);
 
@@ -1192,7 +1192,7 @@ void Apple16X50UARTSync::deactivatePort()
 IOReturn Apple16X50UARTSync::
 timerControlAction(OSObject *owner, void*arg0, void*, void*, void*)
 {
-    UInt32 usec = (UInt32)arg0;
+    UInt32 usec = (UInt32)(uintptr_t)arg0;
 //    DEBUG_IOLog("Apple16X50UART: timerControl(%p,%d)\n", owner, (int)usec);
     if (usec /*&& (!(((IOTimerEventSource *)owner)->OffLine))*/)
         return ((IOTimerEventSource *)owner)->setTimeoutUS(usec);

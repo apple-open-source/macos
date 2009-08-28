@@ -160,6 +160,6 @@
 #define		__waitpid			waitpid
 
 #define	_GENERIC_DIRSIZ(dp) \
-    ((sizeof (struct dirent) - (MAXNAMLEN+1)) + (((dp)->d_namlen+1 + 3) &~ 3))
+    (((unsigned long)&((struct dirent *)0)->d_name + (dp)->d_namlen+1 + 3) & ~3)
 
 #endif /* __FBSD_COMPAT__H_ */

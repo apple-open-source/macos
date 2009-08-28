@@ -62,6 +62,31 @@
 /* APPLE LOCAL: So we can complain.  */
 #include "complaints.h"
 
+/* APPLE LOCAL begin cache lookup values for improved performance  */
+
+asection * cached_mapped_section = NULL;
+asection * cached_overlay_section = NULL;
+struct obj_section * cached_sect_section = NULL;
+struct symtab * cached_symtab = NULL;
+struct partial_symtab * cached_psymtab = NULL;
+struct symtab_and_line * cached_pc_line = NULL;
+struct symbol * cached_pc_function = NULL;
+struct blockvector * cached_blockvector = NULL;
+int cached_blockvector_index = -1;
+struct block * cached_block = NULL;
+
+CORE_ADDR last_block_lookup_pc = INVALID_ADDRESS;
+CORE_ADDR last_blockvector_lookup_pc = INVALID_ADDRESS;
+CORE_ADDR last_function_lookup_pc = INVALID_ADDRESS;
+CORE_ADDR last_pc_line_lookup_pc = INVALID_ADDRESS;
+CORE_ADDR last_psymtab_lookup_pc = INVALID_ADDRESS;
+CORE_ADDR last_symtab_lookup_pc = INVALID_ADDRESS;
+CORE_ADDR last_sect_section_lookup_pc = INVALID_ADDRESS;
+CORE_ADDR last_mapped_section_lookup_pc = INVALID_ADDRESS;
+CORE_ADDR last_overlay_section_lookup_pc = INVALID_ADDRESS;
+
+/* APPLE LOCAL end cache lookup values for improved performance  */
+
 /* Prototypes for local functions */
 
 static void completion_list_add_name (char *, char *, int, char *, char *);
@@ -331,6 +356,11 @@ lookup_symtab_all (const char *name)
       make_cleanup (xfree, full_path);
       real_path = gdb_realpath (name);
       make_cleanup (xfree, real_path);
+
+      /* If FULL_PATH and REAL_PATH are the same, we're going to be doing
+         unnecessary extra comparisons.  */
+      if (strcmp (real_path, full_path) == 0)
+        real_path = NULL;
     }
 
   /* APPLE LOCAL: Look through the partial symtabs, and convert any 
@@ -351,7 +381,11 @@ lookup_symtab_all (const char *name)
 	{
 	  
 	  if (!pst_arr[i]->readin)
-	    PSYMTAB_TO_SYMTAB (pst_arr[i]);
+            {
+              if (info_verbose)
+                printf_filtered ("Looking for definition of '%s': ", name);
+	      PSYMTAB_TO_SYMTAB (pst_arr[i]);
+            }
 	  
 	}
       xfree (pst_arr);
@@ -542,6 +576,11 @@ lookup_partial_symtab_all (const char *name, int only_unread)
       make_cleanup (xfree, full_path);
       real_path = gdb_realpath (name);
       make_cleanup (xfree, real_path);
+
+      /* If FULL_PATH and REAL_PATH are the same, we're going to be doing
+         unnecessary extra comparisons.  */
+      if (strcmp (real_path, full_path) == 0)
+        real_path = NULL;
     }
 
   ALL_PSYMTABS (objfile, pst)
@@ -585,7 +624,8 @@ lookup_partial_symtab_all (const char *name, int only_unread)
 	    if (only_unread && pst->readin)
 	      continue;
 
-	    psym_arr = add_partial_symtab_to_array (psym_arr, pst, &num_found, &max_num);
+	    psym_arr = add_partial_symtab_to_array (psym_arr, pst, &num_found, 
+                                                    &max_num);
 	    continue;
 	  }
       }
@@ -604,7 +644,8 @@ lookup_partial_symtab_all (const char *name, int only_unread)
 	{
 	  if (only_unread && pst->readin)
 	    continue;
-	  psym_arr = add_partial_symtab_to_array (psym_arr, pst, &num_found, &max_num);
+	  psym_arr = add_partial_symtab_to_array (psym_arr, pst, &num_found, 
+                                                  &max_num);
 	}
     }
 
@@ -1040,7 +1081,14 @@ init_sal (struct symtab_and_line *sal)
   /* APPLE LOCAL end subroutine inlinine  */
 }
 
+/* APPLE LOCAL begin addr_ctx.  */
+void
+init_address_context (struct address_context *addr_ctx)
+{
+  memset(addr_ctx, 0, sizeof(struct address_context));
+}
 
+/* APPLE LOCAL end addr_ctx.  */
 
 /* Find which partial symtab contains PC and SECTION.  Return 0 if
    none.  We return the psymtab that contains a symbol whose address
@@ -1053,6 +1101,16 @@ find_pc_sect_psymtab (CORE_ADDR pc, asection *section)
   struct objfile *objfile;
   struct minimal_symbol *msymbol;
 
+  /* APPLE LOCAL begin cache lookup values for improved performance  */
+  if (pc == last_psymtab_lookup_pc
+      && pc == last_mapped_section_lookup_pc
+      && section == cached_mapped_section
+      && cached_psymtab)
+    return cached_psymtab;
+
+  last_psymtab_lookup_pc = pc;
+  /* APPLE LOCAL end cache lookup values for improved performance  */
+
   /* If we know that this is not a text address, return failure.  This is
      necessary because we loop based on texthigh and textlow, which do
      not include the data ranges.  */
@@ -1063,7 +1121,12 @@ find_pc_sect_psymtab (CORE_ADDR pc, asection *section)
 	  || msymbol->type == mst_abs
 	  || msymbol->type == mst_file_data
 	  || msymbol->type == mst_file_bss))
-    return NULL;
+    /* APPLE LOCAL begin cache lookup values for improved performance  */
+    {
+      cached_psymtab = NULL;
+      return NULL;
+    }
+    /* APPLE LOCAL end cache lookup values for improved performance  */
 
   /* APPLE LOCAL: Change to ALL_OBJFILES from ALL_PSYMTABS so that
      we can hoist the psymtab-invariant sections check out.  */
@@ -1089,10 +1152,24 @@ find_pc_sect_psymtab (CORE_ADDR pc, asection *section)
 	       function containing the PC.  */
 	    if (!(objfile->flags & OBJF_REORDERED) &&
 		section == 0)	/* can't validate section this way */
-	      return (pst);
+	      /* APPLE LOCAL begin cache lookup values for improved 
+		 performance  */
+	      {
+		cached_psymtab = pst;
+		return (pst);
+	      }
+	      /* APPLE LOCAL end cache lookup values for improved 
+		 performance  */
 	    
 	    if (msymbol == NULL)
-	      return (pst);
+	      /* APPLE LOCAL begin cache lookup values for improved 
+		 performance  */
+	      {
+		cached_psymtab = pst;
+		return (pst);
+	      }
+	      /* APPLE LOCAL end cache lookup values for improved 
+		 performance  */
 	    
 	    /* The code range of partial symtabs sometimes overlap, so, in
 	       the loop below, we need to check all partial symtabs and
@@ -1111,7 +1188,14 @@ find_pc_sect_psymtab (CORE_ADDR pc, asection *section)
 		    if (p != NULL
 			&& SYMBOL_VALUE_ADDRESS (p)
 			== SYMBOL_VALUE_ADDRESS (msymbol))
-		      return (tpst);
+		      /* APPLE LOCAL begin cache lookup values for improved 
+			 performance  */
+		      {
+			cached_psymtab = tpst;
+			return (tpst);
+		      }
+		    /* APPLE LOCAL end cache lookup values for improved 
+		       performance  */
 		    if (p != NULL)
 		      {
 			/* We found a symbol in this partial symtab which
@@ -1137,10 +1221,14 @@ find_pc_sect_psymtab (CORE_ADDR pc, asection *section)
 		      }
 		  }
 	      }
+	    /* APPLE LOCAL cache lookup values for improved performance  */
+	    cached_psymtab = best_pst;
 	    return (best_pst);
 	  }
       }
   }
+  /* APPLE LOCAL cache lookup values for improved performance  */
+  cached_psymtab = NULL;
   return (NULL);
 }
 
@@ -1251,6 +1339,23 @@ fixup_section (struct general_symbol_info *ginfo, struct objfile *objfile)
   /* APPLE LOCAL END.  */
   msym = lookup_minimal_symbol (ginfo->name, NULL, objfile);
 
+  /* APPLIE LOCAL BEGIN: try with the prefix if we don't find a msym.  */
+  if (msym == NULL && objfile && objfile->prefix && objfile->prefix[0] && 
+      ginfo->name && ginfo->name[0])
+    {
+      int prefixed_name_len = strlen (objfile->prefix) + strlen (ginfo->name)
+			      + 1;
+      char *prefixed_name = (char *)xmalloc (prefixed_name_len);
+      if (prefixed_name)
+	{
+	  sprintf (prefixed_name, "%s%s", objfile->prefix, ginfo->name);
+	  msym = lookup_minimal_symbol (prefixed_name, NULL, objfile);
+	  xfree (prefixed_name);
+	}
+    }
+  /* APPLE LOCAL END.  */
+
+
   if (msym)
     {
       /* APPLE LOCAL huh? */
@@ -1357,15 +1462,16 @@ fixup_psymbol_section (struct partial_symbol *psym, struct objfile *objfile)
   return psym;
 }
 
-/* APPLE LOCAL begin return multiple symbols  */
+/* This function is called from decode_all_variables; it is loosely
+   based on lookup_symbol, but is tailored a bit based on the
+   assumption that the symbol being looked up is supposed to be a
+   function name (since decode_all_variables currently only gets
+   call via attempts to set breakpoints by name.  FIXME:  In the
+   future if we decide to try to find all occurrences of other types
+   of symbols, this function will probably not work correctly.  
 
-/* This function is called from decode_all_variables; it is loosely based
-   on lookup_symbol, but is tailored a bit based on the assumption that the
-   symbol being looked up is supposed to be a function name (since 
-   decode_all_variables currently only gets call via attempts to set breakpoints
-   by name.  FIXME:  In the future if we decide to try to find all
-   occurrences of other types of symbols, this function will probably not
-   work correctly.  */
+   NB: SYM_LIST is a linked list of xmalloc'ed symbol_search structures 
+   which need to be xfree()'d individually by the caller.  */
 
 int
 lookup_symbol_all (const char *name, const struct block *block, 
@@ -1375,7 +1481,6 @@ lookup_symbol_all (const char *name, const struct block *block,
   char *demangled_name = NULL;
   const char *modified_name = NULL;
   const char *mangled_name = NULL;
-  int needtofreename = 0;
   struct symbol *returnval = NULL;
 
   modified_name = name;
@@ -1390,7 +1495,6 @@ lookup_symbol_all (const char *name, const struct block *block,
 	{
 	  mangled_name = name;
 	  modified_name = demangled_name;
-	  needtofreename = 1;
 	}
     }
   else if (current_language->la_language == language_java)
@@ -1401,7 +1505,6 @@ lookup_symbol_all (const char *name, const struct block *block,
 	{
 	  mangled_name = name;
 	  modified_name = demangled_name;
-	  needtofreename = 1;
 	}
     }
 
@@ -1424,8 +1527,8 @@ lookup_symbol_all (const char *name, const struct block *block,
       const struct block *static_block = block_static_block (block);
       if (static_block != NULL)
 	{
-	  *sym_list = lookup_block_symbol_all (static_block, modified_name, mangled_name,
-					       domain);
+	  *sym_list = lookup_block_symbol_all (static_block, modified_name, 
+                                               mangled_name, domain);
 	  if (*sym_list != NULL
 	      && *symtab == NULL)
 	    *symtab = (*sym_list)->symtab;
@@ -1434,27 +1537,62 @@ lookup_symbol_all (const char *name, const struct block *block,
 	}
     }
 
-  if  (!returnval)
-    returnval = lookup_symbol_aux_symtabs (GLOBAL_BLOCK, modified_name, mangled_name,
-					   domain, symtab, sym_list, 1);
-  if (!returnval)
-    returnval = lookup_symbol_aux_psymtabs (GLOBAL_BLOCK, modified_name, mangled_name,
-					    domain, symtab, sym_list, 1);
+  /* APPLE LOCAL begin radar 6366048 search *ALL* symbols  bp matches.  */
+  lookup_symbol_aux_symtabs (GLOBAL_BLOCK, modified_name, 
+			     mangled_name, domain, symtab, 
+			     sym_list, 1);
 
-  if (!returnval)
-    returnval = lookup_symbol_aux_psymtabs (STATIC_BLOCK, modified_name, mangled_name,
-					    domain, symtab, sym_list, 1);
-				      
+  lookup_symbol_aux_symtabs (STATIC_BLOCK, modified_name, 
+			     mangled_name, domain, symtab, 
+			     sym_list, 1);
 
-  if (needtofreename)
+  lookup_symbol_aux_psymtabs (GLOBAL_BLOCK, modified_name, 
+			      mangled_name, domain, symtab, 
+			      sym_list, 1);
+
+  lookup_symbol_aux_psymtabs (STATIC_BLOCK, modified_name, 
+			      mangled_name, domain, symtab, 
+			      sym_list, 1);
+  /* APPLE LOCAL end radar 6366048 search *ALL* symbols  bp matches.  */
+
+  if (demangled_name)
     xfree (demangled_name);
 
   if (*sym_list)
-    return 1;
+    {
+      struct symbol_search *test_pos;
+      struct symbol_search *cur;
+      struct symbol_search *prev;
+
+      /* Remove duplicate symbols from SYM_LIST:  TEST_POS moves slowly
+	 down the list; at each point, compare the symbol in TEST_POS
+	 against the rest of the list and remove any duplicate occurrences
+	 of it from the rest of the list.  */
+
+      for (test_pos = *sym_list; test_pos; test_pos = test_pos->next)
+	{
+	  prev = test_pos;
+	  cur = prev->next;
+	  while (cur)
+	    {
+	      if (cur->symbol == test_pos->symbol)
+                {
+		  prev->next = cur->next;
+                  /* FIXME: free the memory from any symbols we've
+                     removed from the list.  */
+                }
+	      else
+                {
+		  prev = cur;
+                }
+	      cur = cur->next;
+	    }
+	}
+      return 1;
+    }
   else
     return 0;
 }
-/* APPLE LOCAL end return multiple symbols  */
 
 /* Find the definition for a specified symbol name NAME
    in domain DOMAIN, visible from lexical block BLOCK.
@@ -1545,9 +1683,11 @@ lookup_symbol (const char *name, const struct block *block,
 static struct symbol *
 lookup_symbol_aux (const char *name, const char *linkage_name,
 		   const struct block *block, const domain_enum domain,
-		   int *is_a_field_of_this, struct symtab **symtab)
+		   int *is_a_field_of_this, struct symtab **in_symtab_ptr)
 {
-  struct symbol *sym;
+  struct symbol *sym = NULL;
+  struct symtab *found_symtab = NULL;
+  struct symtab **symtab = &found_symtab;
 
   /* Make sure we do something sensible with is_a_field_of_this, since
      the callers that set this parameter to some non-null value will
@@ -1563,7 +1703,7 @@ lookup_symbol_aux (const char *name, const char *linkage_name,
   sym = lookup_symbol_aux_local (name, linkage_name, block, domain,
 				 symtab);
   if (sym != NULL)
-    return sym;
+    goto foundit;
 
   /* If requested to do so by the caller and if appropriate for the
      current language, check to see if NAME is a field of `this'. */
@@ -1575,6 +1715,49 @@ lookup_symbol_aux (const char *name, const char *linkage_name,
 
       if (v && check_field (v, name))
 	{
+	  /* APPLE LOCAL: If we find that we are in a class method, I
+	     want to treat the case where NAME is the name of the
+	     class specially.  Both returning with is_a_field_of_this
+	     as 1, or falling through to the la_lookup_symbol_nonlocal
+	     below tends to pull up the constructor rather than the
+	     class type symbol most of the time.  But that is almost
+	     never what you want.  In fact, you almost always just
+	     want the class type symbol.  
+	     For instance, you get here if you are doing:
+	         print (Foo *) this
+	     for class Foo.  You don't get here when you do:
+                 break Foo::Foo
+	     since that doesn't set IS_A_FIELD_OF_THIS.
+	     So I check here if the NAME passed in is either the class
+	     name of "this" or one of its ancestors, and if it is
+	     preferentially return that.  */
+
+	  struct type *val_type;
+	  
+	  val_type = value_type (v);
+	  if (val_type) 
+	    {
+	      CHECK_TYPEDEF (val_type);
+	      if (TYPE_CODE (val_type) == TYPE_CODE_PTR)
+		val_type = TYPE_TARGET_TYPE (val_type);
+	      
+	      if (TYPE_CODE (val_type) == TYPE_CODE_STRUCT)
+		{
+		  char *this_class_name;
+		  this_class_name = TYPE_NAME (val_type);
+		  if ((this_class_name != NULL && strcmp (this_class_name, name) == 0)
+		      || is_ancestor_by_name (name, val_type))
+		    {
+		      const struct block *global_block = block_global_block (block);
+		      
+		      if (global_block != NULL)
+			sym = lookup_symbol_aux_block (name, linkage_name, global_block,
+						       domain, symtab);
+		      if (sym != NULL)
+			goto foundit;
+		    }
+		}
+	    }
 	  *is_a_field_of_this = 1;
 	  if (symtab != NULL)
 	    *symtab = NULL;
@@ -1589,7 +1772,7 @@ lookup_symbol_aux (const char *name, const char *linkage_name,
 						     block, domain,
 						     symtab);
   if (sym != NULL)
-    return sym;
+    goto foundit;
 
   /* Now search all static file-level symbols.  Not strictly correct,
      but more useful than an error.  Do the symtabs first, then check
@@ -1603,19 +1786,21 @@ lookup_symbol_aux (const char *name, const char *linkage_name,
   /* APPLE LOCAL end return multiple symbols  */
 
   if (sym != NULL)
-    return sym;
+    goto foundit;
 
   /* APPLE LOCAL begin return multiple symbols  */
   sym = lookup_symbol_aux_psymtabs (STATIC_BLOCK, name, linkage_name,
 				    domain, symtab, NULL, 0);
   /* APPLE LOCAL end return multiple symbols  */
 
-  if (sym != NULL)
-    return sym;
-
-  if (symtab != NULL)
-    *symtab = NULL;
-  return NULL;
+ foundit:
+ 
+  if (found_symtab != NULL)
+    objfile_add_to_hitlist (found_symtab->objfile);
+  if (in_symtab_ptr != NULL)
+    *in_symtab_ptr = found_symtab;
+    
+  return sym;
 }
 
 /* Check to see if the symbol is defined in BLOCK or its superiors.
@@ -1701,36 +1886,56 @@ lookup_symbol_aux_block (const char *name, const char *linkage_name,
 /* Check to see if the symbol is defined in one of the symtabs.
    BLOCK_INDEX should be either GLOBAL_BLOCK or STATIC_BLOCK,
    depending on whether or not we want to search global symbols or
-   static symbols.  */
+   static symbols.  
+
+   APPLE LOCAL: This function can be used in two different ways:
+   It can be used to find a single symbol by name -- in which case
+   a pointer to the symbol is returned and *SYMTAB is set to the
+   symtab, if we found one.
+
+   The second way is to return a comprehensive list of all symbols
+   found in all symtabs.  In that case, *SYM_LIST is set to a linked
+   list of matching symbols which have been xmalloc()'ed, a pointer
+   to one of the symbols is returned and *SYMTAB is set to one of
+   the matched symbols' symtabs.  It is the responsibility of the
+   caller to free *SYM_LIST.  */
 
 static struct symbol *
 lookup_symbol_aux_symtabs (int block_index,
 			   const char *name, const char *linkage_name,
 			   const domain_enum domain,
 			   struct symtab **symtab,
-			   /* APPLE LOCAL begin return multiple symbols  */
 			   struct symbol_search **sym_list,
 			   int find_all_occurrences)
-                           /* APPLE LOCAL end return multiple symbols  */
 {
   struct symbol *sym;
   struct objfile *objfile;
   struct blockvector *bv;
   const struct block *block;
   struct symtab *s;
-  /* APPLE LOCAL begin return multiple symbols  */
   struct symbol_search *tmp_list;
   struct symbol_search *prev;
   struct symbol_search *current;
-  /* APPLE LOCAL end returbn multiple symbols  */
+
+  /* If we're called with a null string for some bizarre reason, just bail.  */
+  if (name == NULL || name[0] == '\0'
+      || (linkage_name && linkage_name[0] == '\0'))
+    {
+      if (sym_list)
+        *sym_list = NULL;
+      if (symtab)
+        *symtab = NULL;
+      return NULL;
+    }
 
   /* APPLE LOCAL fix-and-continue */
   ALL_SYMTABS_INCL_OBSOLETED (objfile, s)
   {
     tmp_list = NULL;
+    if (s->primary == 0)
+      continue;
     bv = BLOCKVECTOR (s);
     block = BLOCKVECTOR_BLOCK (bv, block_index);
-    /* APPLE LOCAL begin return multiple symbols  */
     if (find_all_occurrences)
       {
 	tmp_list = lookup_block_symbol_all (block, name, linkage_name, domain);
@@ -1739,15 +1944,25 @@ lookup_symbol_aux_symtabs (int block_index,
 	    if (SYMBOL_OBSOLETED (current->symbol))
 	      {
 		if (!prev)
-		  tmp_list = current->next;
+                  {
+		    tmp_list = current->next;
+                  }
 		else
-		  prev->next = current->next;
+                  {
+		    prev->next = current->next;
+                  }
 	      }
 	    else
-	      prev = current;
+	      {
+	        prev = current;
+	      }
 	    current = current->next;
+            /* FIXME: free the memory from any obsolete symbols we've
+               removed from the list.  */
 	  }
 
+        /* Add this symtab's matching symbols on to the list of all matched
+           symbols we've found so far.  */
 	if (tmp_list)
 	  {
 	    block_found = block;
@@ -1761,11 +1976,10 @@ lookup_symbol_aux_symtabs (int block_index,
 	    gdb_assert (current == NULL);
 	    prev->next = *sym_list;
 	    *sym_list = tmp_list;
-	  } /* if tmp_list , after removing obsolete symbols.  */
+	  }
       } /* if find_all_occurrences  */
     else
       {
-    /* APPLE LOCAL end  return multiple symbols  */
 	sym = lookup_block_symbol (block, name, linkage_name, domain);
 	/* APPLE LOCAL fix-and-continue */
 	if (sym && !SYMBOL_OBSOLETED (sym))
@@ -1775,24 +1989,116 @@ lookup_symbol_aux_symtabs (int block_index,
 	      *symtab = s;
 	    return fixup_symbol_section (sym, objfile);
 	  }
-      /* APPLE LOCAL begin return multiple symbols  */
       }
-      /* APPLE LOCAL end return multiple symbols  */
   }
 
-  /* APPLE LOCAL begin return multiple symbols  */
   if (!find_all_occurrences
       || *sym_list == NULL)
-    return NULL;
+    {
+      if (symtab)
+        *symtab = NULL;
+      return NULL;
+    }
   else
-    return (*sym_list)->symbol;
-  /* APPLE LOCAL end return multiple symbols  */
+    {
+      if (symtab)
+        *symtab = (*sym_list)->symtab;
+      return (*sym_list)->symbol;
+    }
 }
+
+/* APPLE LOCAL begin psym equivalences  */
+/* Given two names, return 1 if the are identical or if ALTERNATE_NAME
+   is a psym equivalence name for NAME.  Return 0 otherwise.  
+
+   A psym equivalence name begins with '*_', contains at least one '$',
+   and everything after the '$' must be uppercase, a digit or anther '$'.
+   For ALTERNATE_NAME to be an equivalence name for NAME, everything
+   between '*_' and the '$' must be identical to NAME, e.g.
+   '*_putenv$UNIX2003' and 'putenv'.  
+
+   Returns 1 if ALTERNATE_NAME is an equivalence name for NAME, or
+   if they are string-compare equal.  */
+
+int
+psym_name_match (const char *alternate_name, const char *name)
+{
+  int len1, len2;
+
+  if (strcmp (alternate_name, name) == 0)
+    return 1;
+
+  /* Make sure the alternate_name is at least 3 chars longer than name  */
+  len1 = strlen (alternate_name);
+  len2 = strlen (name);
+  if (len1 < len2 + 3)
+    return 0;
+
+  /* Equivalence symbols start with *_ */
+  if (alternate_name[0] !='*' || alternate_name[1] != '_')
+    return 0;
+  alternate_name += 2;
+
+  /* Following the *_, a copy of the symbol name */
+  if (strncmp (alternate_name, name, len2) != 0)
+    return 0;
+
+  /* Following the *_, the symbol name, expect a '$' */
+  if (alternate_name[len2] != '$')
+    return 0;
+  alternate_name += len2;
+
+  while (*alternate_name != '\0')
+    {
+      if (!isupper (*alternate_name) 
+          &&!isdigit (*alternate_name)
+          && *alternate_name != '$')
+        return 0;
+      alternate_name++;
+    }
+
+  return 1;
+}
+
+/* Given partial symbol table, PST, and a function NAME, chec, to see if
+   PST contains a psym equivalence name for NAME.  Return 1 it so, 0 
+   otherwise.  */
+
+static int
+lookup_equiv_partial_symbol (struct partial_symtab *pst, char *name)
+{
+  int has_equivalent_symbol = 0;
+  int i;
+
+  if (psym_equivalences
+      && pst->equiv_psyms)
+    {
+      for (i =0; i < pst->equiv_psyms->num_syms && !has_equivalent_symbol;
+	   i++)
+	if (psym_name_match (pst->equiv_psyms->sym_list[i], name))
+	  has_equivalent_symbol = 1;
+    }
+
+  return has_equivalent_symbol;
+}
+/* APPLE LOCAL end psym equivalences  */
 
 /* Check to see if the symbol is defined in one of the partial
    symtabs.  BLOCK_INDEX should be either GLOBAL_BLOCK or
    STATIC_BLOCK, depending on whether or not we want to search global
-   symbols or static symbols.  */
+   symbols or static symbols. 
+
+   APPLE LOCAL: This function can be used in two different ways:  
+   It can be used to find a single symbol by name -- in which case
+   a pointer to the symbol is returned and *SYMTAB is set to the
+   symtab, if we found one.
+              
+   The second way is to return a comprehensive list of all symbols 
+   found in all symtabs.  In that case, *SYM_LIST is set to a linked
+   list of matching symbols which have been xmalloc()'ed, a pointer
+   to one of the symbols is returned and *SYMTAB is set to one of
+   the matched symbols' symtabs.  It is the responsibility of the
+   caller to free *SYM_LIST.  */
 
 static struct symbol *
 lookup_symbol_aux_psymtabs (int block_index, const char *name,
@@ -1817,39 +2123,66 @@ lookup_symbol_aux_psymtabs (int block_index, const char *name,
   struct symbol_search *current;
   /* APPLE LOCAL end return multiple symbols  */
 
+  /* If we're called with a null string for some bizarre reason, just bail.  */
+  if (name == NULL || name[0] == '\0'
+      || (linkage_name && linkage_name[0] == '\0'))
+    {
+      if (sym_list)
+        *sym_list = NULL;
+      if (symtab)
+        *symtab = NULL;
+      return NULL;
+    }
+
   ALL_PSYMTABS (objfile, ps)
   {
+    /* Check to see if there is either a direct match, or a
+       psym equivalence match.  */
     if (!ps->readin
-	&& lookup_partial_symbol (ps, name, linkage_name,
-				  psymtab_index, domain))
+	&& (lookup_partial_symbol (ps, name, linkage_name,
+				   psymtab_index, domain)
+	    || lookup_equiv_partial_symbol (ps, name)))
       {
+        if (info_verbose)
+          {
+            if (name)
+              printf_filtered ("Looking for '%s': ", name);
+            else if (linkage_name)
+              printf_filtered ("Looking for '%s': ", linkage_name);
+          }
 	s = PSYMTAB_TO_SYMTAB (ps);
         /* APPLE LOCAL: Catch a null symtab and give the user a reportable
-           error message.  */
+           warning.  Don't throw an error here, though, or we won't then
+	   look in the minimal symbols.  */
         if (s == NULL)
-          error ("Error expanding psymtab %s to symtab in "
-		  "lookup_symbol_aux_psymtabs()", ps->filename);
+	  {
+	    warning ("Error expanding psymtab %s to symtab in "
+		     "lookup_symbol_aux_psymtabs()", ps->filename);
+	    return NULL;
+	  }
 
-	/* APPLE LOCAL begin return multiple symbols  */
+        if (s->primary == 0)
+          continue;
 	tmp_list = NULL;
-	/* APPLE LOCAL end return multiple symbols  */
 	bv = BLOCKVECTOR (s);
 	block = BLOCKVECTOR_BLOCK (bv, block_index);
-	/* APPLE LOCAL begin return multiple symbols  */
 	if (find_all_occurrences)
 	  {
-	    tmp_list = lookup_block_symbol_all (block, name, linkage_name, domain);
+	    tmp_list = lookup_block_symbol_all (block, name, linkage_name, 
+                                                domain);
 	    if (!tmp_list || SYMBOL_OBSOLETED (tmp_list->symbol))
 	      {
 		block = BLOCKVECTOR_BLOCK (bv,
 					   block_index == GLOBAL_BLOCK ?
 					   STATIC_BLOCK : GLOBAL_BLOCK);
-		tmp_list = lookup_block_symbol_all (block, name, linkage_name, domain);
+		tmp_list = lookup_block_symbol_all (block, name, linkage_name, 
+                                                    domain);
 		if (!tmp_list || SYMBOL_OBSOLETED (tmp_list->symbol))
 		  {
-		complaint (&symfile_complaints, "Internal: %s symbol `%s' found in %s psymtab but not in symtab."
-			   "\n%s may be an inlined function, or may be a template function\n"
-			   "(if a template, try specifying an instantiation: %s<type>).",
+		complaint (&symfile_complaints, 
+              "Internal: %s symbol `%s' found in %s psymtab but not in symtab."
+              "\n%s may be an inlined function, or may be a template function\n"
+              "(if a template, try specifying an instantiation: %s<type>).",
 			   block_index == GLOBAL_BLOCK ? "global" : "static",
 			   name, ps->filename, name, name);
 		return NULL;
@@ -1871,7 +2204,6 @@ lookup_symbol_aux_psymtabs (int block_index, const char *name,
 	  }
 	else
 	  {
-	 /* APPLE LOCAL end return multiple symbols  */
 	    sym = lookup_block_symbol (block, name, linkage_name, domain);
 	    /* APPLE LOCAL fix-and-continue */
 	    if (!sym || SYMBOL_OBSOLETED (sym))
@@ -1894,30 +2226,38 @@ lookup_symbol_aux_psymtabs (int block_index, const char *name,
 		/* APPLE LOCAL fix-and-continue */
 		if (!sym || SYMBOL_OBSOLETED (sym))
 		  {
-		complaint (&symfile_complaints, "Internal: %s symbol `%s' found in %s psymtab but not in symtab."
-			   "\n%s may be an inlined function, or may be a template function\n"
-			   "(if a template, try specifying an instantiation: %s<type>).",
-			   block_index == GLOBAL_BLOCK ? "global" : "static",
-			   name, ps->filename, name, name);
-		return NULL;
+		    complaint (&symfile_complaints, 
+            "Internal: %s symbol `%s' found in %s psymtab but not in symtab."
+            "\n%s may be an inlined function, or may be a template function\n"
+            "(if a template, try specifying an instantiation: %s<type>).",
+			      block_index == GLOBAL_BLOCK ? "global" : "static",
+			      name, ps->filename, name, name);
+		    /* APPLE LOCAL: If this symtab got it wrong, continue 
+                       looking for one that doesn't.  We used to return NULL 
+                       here.  */
+		    continue;
 		  }
 	      }
 	    if (symtab != NULL)
 	      *symtab = s;
 	    return fixup_symbol_section (sym, objfile);
-	  /* APPLE LOCAL begin return multiple symbols  */
 	  }
-	  /* APPLE LOCAL end return multiple symbols  */
       }
   }
 
-  /* APPLE LOCAL begin return multiple symbols  */
   if (!find_all_occurrences
       || *sym_list == NULL)
-    return NULL;
+    {
+      if (symtab)
+        *symtab = NULL;
+      return NULL;
+    }
   else
-    return (*sym_list)->symbol;
-  /* APPLE LOCAL end return multiple symbols  */
+    {
+      if (symtab)
+        *symtab = (*sym_list)->symtab;
+      return (*sym_list)->symbol;
+    }
 }
 
 #if 0
@@ -2288,6 +2628,8 @@ basic_lookup_transparent_type (const char *name)
     if (!ps->readin && lookup_partial_symbol (ps, name, NULL,
 					      1, STRUCT_DOMAIN))
       {
+        if (info_verbose)
+          printf_filtered ("Looking for type '%s': ", name);
 	s = PSYMTAB_TO_SYMTAB (ps);
 	bv = BLOCKVECTOR (s);
 	block = BLOCKVECTOR_BLOCK (bv, GLOBAL_BLOCK);
@@ -2343,6 +2685,8 @@ basic_lookup_transparent_type (const char *name)
   {
     if (!ps->readin && lookup_partial_symbol (ps, name, NULL, 0, STRUCT_DOMAIN))
       {
+        if (info_verbose)
+          printf_filtered ("Looking for type '%s': ", name);
 	s = PSYMTAB_TO_SYMTAB (ps);
 	bv = BLOCKVECTOR (s);
 	block = BLOCKVECTOR_BLOCK (bv, STATIC_BLOCK);
@@ -2399,7 +2743,8 @@ find_main_psymtab (void)
 
 /* This function is very similar to lookup_block_symbol, except that instead
    of returning the first matching symbol it finds, it returns a list
-   of ALL the matching symbols it could find.  */
+   of ALL the matching symbols it could find.  Note, the result is
+   returned in a struct symbol_search, but the block field is not set.  */
 
 struct symbol_search *
 lookup_block_symbol_all (const struct block *block, const char *name,
@@ -2416,12 +2761,19 @@ lookup_block_symbol_all (const struct block *block, const char *name,
 	   sym != NULL;
 	   sym = dict_iter_name_next (name, &iter))
 	{
-	  if (SYMBOL_DOMAIN (sym) == domain
-	      && (linkage_name != NULL
-		  ? strcmp (SYMBOL_LINKAGE_NAME (sym), linkage_name) == 0 : 1))
+	  /* APPLE LOCAL begin  psym equivalences  */
+	  /* If the strings don't match directly, see if there is a
+	     psym equivalence match.  */
+	  if (SYMBOL_DOMAIN (sym) == domain)
+	    if ((linkage_name != NULL
+		 ? ((strcmp (SYMBOL_LINKAGE_NAME (sym), linkage_name) == 0)
+		    || psym_name_match (SYMBOL_LINKAGE_NAME (sym), 
+					linkage_name))
+		 : 1))
+	  /* APPLE LOCAL end psym equivalences  */
 	    {
 	      new_node = (struct symbol_search *) xmalloc (sizeof (struct symbol_search));
-	      new_node->block = block;
+	      new_node->block = 0;
 	      new_node->symbol = sym;
 	      new_node->symtab = NULL;
 	      new_node->msymbol = NULL;
@@ -2473,9 +2825,16 @@ lookup_block_symbol (const struct block *block, const char *name,
 	   sym != NULL;
 	   sym = dict_iter_name_next (name, &iter))
 	{
-	  if (SYMBOL_DOMAIN (sym) == domain
-	      && (linkage_name != NULL
-		  ? strcmp (SYMBOL_LINKAGE_NAME (sym), linkage_name) == 0 : 1))
+	  /* APPLE LOCAL begin psym equivalences  */
+	  /* If the strings don't match directly, see if there is a
+	     psym equivalence match.  */
+	  if (SYMBOL_DOMAIN (sym) == domain)
+	    if ((linkage_name != NULL
+		 ? ((strcmp (SYMBOL_LINKAGE_NAME (sym), linkage_name) == 0)
+		    || psym_name_match (SYMBOL_LINKAGE_NAME (sym), 
+					linkage_name))
+		 : 1))
+	 /* APPLE LOCAL end psym equivalences  */
 	    return sym;
 	}
       return NULL;
@@ -2547,6 +2906,16 @@ find_pc_sect_symtab (CORE_ADDR pc, asection *section)
   CORE_ADDR distance = 0;
   struct minimal_symbol *msymbol;
 
+  /* APPLE LOCAL begin cache lookup values for improved performance  */
+  if (pc == last_symtab_lookup_pc
+      && pc == last_mapped_section_lookup_pc
+      && cached_mapped_section == section
+      && cached_symtab)
+    return cached_symtab;
+
+  last_symtab_lookup_pc = pc;
+  /* APPLE LOCAL end cache lookup values for improved performance  */
+
   /* If we know that this is not a text address, return failure.  This is
      necessary because we loop based on the block's high and low code
      addresses, which do not include the data ranges, and because
@@ -2559,7 +2928,12 @@ find_pc_sect_symtab (CORE_ADDR pc, asection *section)
 	  || msymbol->type == mst_abs
 	  || msymbol->type == mst_file_data
 	  || msymbol->type == mst_file_bss))
-    return NULL;
+    /* APPLE LOCAL begin cache lookup values for improved performance  */
+    {
+      cached_symtab = NULL;
+      return NULL;
+    }
+    /* APPLE LOCAL end cache lookup values for improved performance  */
 
   /* Search all symtabs for the one whose file contains our address, and which
      is the smallest of all the ones containing the address.  This is designed
@@ -2605,7 +2979,14 @@ find_pc_sect_symtab (CORE_ADDR pc, asection *section)
 	  {
 	    ps = find_pc_sect_psymtab (pc, section);
 	    if (ps)
-	      return PSYMTAB_TO_SYMTAB (ps);
+	      /* APPLE LOCAL begin cache lookup values for improved 
+		 performance  */
+	      {
+		cached_symtab = PSYMTAB_TO_SYMTAB (ps);
+		return PSYMTAB_TO_SYMTAB (ps);
+	      }
+	      /* APPLE LOCAL end cache lookup values for improved 
+		 performance  */
 	  }
 	if (section != 0)
 	  {
@@ -2629,7 +3010,12 @@ find_pc_sect_symtab (CORE_ADDR pc, asection *section)
   }
 
   if (best_s != NULL)
-    return (best_s);
+    /* APPLE LOCAL begin cache lookup values for improved performance  */
+    {
+      cached_symtab = best_s;
+      return (best_s);
+    }
+    /* APPLE LOCAL end cache lookup values for improved performance  */
 
   s = NULL;
   ps = find_pc_sect_psymtab (pc, section);
@@ -2653,6 +3039,8 @@ find_pc_sect_symtab (CORE_ADDR pc, asection *section)
 		 paddr_nz (pc));
       s = PSYMTAB_TO_SYMTAB (ps);
     }
+  /* APPLE LOCAL cache lookup values for improved performance  */
+  cached_symtab = s;
   return (s);
 }
 
@@ -2665,6 +3053,64 @@ find_pc_symtab (CORE_ADDR pc)
   return find_pc_sect_symtab (pc, find_pc_mapped_section (pc));
 }
 
+/* APPLE LOCAL begin cache lookup values for improved performance  */
+struct symtab_and_line *
+copy_sal (struct symtab_and_line *orig)
+{
+  struct symtab_and_line *copy;
+  struct symtab_and_line *copy_eol;
+  struct symtab_and_line *current;
+  struct symtab_and_line *tmp;
+
+  if (orig == NULL)
+    return NULL;
+
+  /* Copy the main sal entry.  */
+
+  copy = (struct symtab_and_line *) xmalloc (sizeof (struct symtab_and_line));
+  
+  copy->symtab = orig->symtab;
+  copy->section = orig->section;
+  copy->line = orig->line;
+  copy->pc = orig->pc;
+  copy->end = orig->end;
+  copy->entry_type = orig->entry_type;
+  copy->next = NULL;
+
+  /* copy_eol points to the current end of the copy's linked list.  */
+
+  copy_eol = copy;
+
+  /* If the sal has a linked list of sals, through its 'next' field,
+     copy the linked list as well.  */
+
+  for (current = orig->next; current; current = current->next)
+    {
+      /* Create the next copy to go into the linked list.  */
+
+      tmp = (struct symtab_and_line *) xmalloc (sizeof 
+						  (struct symtab_and_line));
+      tmp->symtab = current->symtab;
+      tmp->section = current->section;
+      tmp->line = current->line;
+      tmp->pc = current->pc;
+      tmp->end = current->end;
+      tmp->entry_type = current->entry_type;
+      tmp->next = NULL;
+
+      /* Make the 'next' field of the current end of the linked list
+	 point to the new node.  */
+
+      copy_eol->next = tmp;
+
+      /* Move the end-of-list pointer to point to the new end of the list.  */
+      copy_eol = tmp;
+    }
+
+  return copy;
+}
+
+/* APPLE LOCAL end cache lookup values for improved performance  */
 
 /* Find the source file and line number for a given PC value and SECTION.
    Return a structure containing a symtab pointer, a line number,
@@ -2717,6 +3163,16 @@ find_pc_sect_line (CORE_ADDR pc, struct bfd_section *section, int notcurrent)
   /* Info on best line seen in this file.  */
 
   struct linetable_entry *prev;
+
+  /* APPLE LOCAL begin cache lookup values for improved performance  */
+  if (pc == last_pc_line_lookup_pc
+      && pc == last_overlay_section_lookup_pc
+      && section == cached_overlay_section
+      && cached_pc_line)
+    return (*cached_pc_line);
+
+  last_pc_line_lookup_pc = pc;
+  /* APPLE LOCAL end cache lookup values for improved performance  */
 
   /* If this pc is not from the current frame,
      it is the address of the end of a call instruction.
@@ -2798,13 +3254,20 @@ find_pc_sect_line (CORE_ADDR pc, struct bfd_section *section, int notcurrent)
 	   * So I commented out the warning. RT */
 	  /* warning ("In stub for %s; unable to find real function/line info", SYMBOL_LINKAGE_NAME (msymbol)) */ ;
 	/* fall through */
-	else if (SYMBOL_VALUE (mfunsym) == SYMBOL_VALUE (msymbol))
+	else if (SYMBOL_VALUE_ADDRESS (mfunsym) == SYMBOL_VALUE_ADDRESS (msymbol))
 	  /* Avoid infinite recursion */
 	  /* See above comment about why warning is commented out */
 	  /* warning ("In stub for %s; unable to find real function/line info", SYMBOL_LINKAGE_NAME (msymbol)) */ ;
 	/* fall through */
 	else
-	  return find_pc_line (SYMBOL_VALUE (mfunsym), 0);
+	  /* APPLE LOCAL end cache lookup values for improved performance  */
+	  {
+	    struct symtab_and_line sal = find_pc_line 
+                                            (SYMBOL_VALUE_ADDRESS (mfunsym), 0);
+	    cached_pc_line = copy_sal (&sal);
+	    return find_pc_line (SYMBOL_VALUE_ADDRESS (mfunsym), 0);
+	  }
+	  /* APPLE LOCAL end cache lookup values for improved performance  */
       }
 
 
@@ -2818,6 +3281,8 @@ find_pc_sect_line (CORE_ADDR pc, struct bfd_section *section, int notcurrent)
       /* APPLE LOCAL convert from character position to
 	 line number if necessary.  */
       convert_sal (&val);
+      /* APPLE LOCAL cache lookup values for improved performance  */
+      cached_pc_line = copy_sal (&val);
       return val;
     }
 
@@ -2966,7 +3431,7 @@ find_pc_sect_line (CORE_ADDR pc, struct bfd_section *section, int notcurrent)
 	    }
 
 	  temp_val = (struct symtab_and_line *) xmalloc 
-	                                     (sizeof (struct symtab_and_line));
+	                                      (sizeof (struct symtab_and_line));
 	  temp_val->symtab = s;
 	  temp_val->section = section;
 	  temp_val->line = prev->line;
@@ -2981,12 +3446,12 @@ find_pc_sect_line (CORE_ADDR pc, struct bfd_section *section, int notcurrent)
 	  temp_list = temp_val;
 	}
 
+      /* Put every 'item' with a pc matching prev->pc into temp_list.
+	 Those should be any/all inlined subroutine and call site
+	 entries.  */
+
       while (prev && prev->pc == pc && item->pc == prev->pc)
 	{
-	  /* Now, we need to put every 'item' with a pc matching prev->pc
-	     into temp_list.  Those should be any/all inlined subroutine
-	     and call site entries.  */
-
 	  temp_val = (struct symtab_and_line *) xmalloc 
 	                                      (sizeof (struct symtab_and_line));
 	  temp_val->symtab = s;
@@ -3079,6 +3544,8 @@ find_pc_sect_line (CORE_ADDR pc, struct bfd_section *section, int notcurrent)
   if (!inlined_entries_found)
     {
       gdb_assert (val.entry_type == NORMAL_LT_ENTRY);
+      /* APPLE LOCAL cache lookup values for improved performance  */
+      cached_pc_line = copy_sal (&val);
       return val;
     }
   else    
@@ -3120,7 +3587,7 @@ find_pc_sect_line (CORE_ADDR pc, struct bfd_section *section, int notcurrent)
 	     Also verify that there is at most one normal entry in the
 	     list.  */
 
-	  for (p = NULL, cur = temp_list; cur; )
+	  for (p = NULL, cur = temp_list; cur; cur = cur->next)
 	    {
 	      if (cur->entry_type == NORMAL_LT_ENTRY)
 		{
@@ -3145,44 +3612,51 @@ find_pc_sect_line (CORE_ADDR pc, struct bfd_section *section, int notcurrent)
 		    temp_list = cur->next;
 		  else
 		    p->next = cur->next;
-		  cur = cur->next;
+		  xfree (cur);
 		}
 	      else
 		{
 		  p = cur;
-		  cur = cur->next;
 		}
 	    }
 	}
 
       /* Remove all other NORMAL entries from temp_list */
 
-      for (p = NULL, cur = temp_list; cur; )
+      for (p = NULL, cur = temp_list; cur; cur = cur->next)
 	if (cur->entry_type == NORMAL_LT_ENTRY)
 	  {
 	    if (!p)
 	      temp_list = cur->next;
 	    else
 	      p->next = cur->next;
-	    cur = cur->next;
+            xfree (cur);
 	  }
 	else
 	  {
 	    p = cur;
-	    cur = cur->next;
 	  }
 
       
-      /* Now append the rest of  temp_list to final_var.next.  */
+      /* Now append the rest of temp_list to final_var.next.  */
+
+      /* FIXME: temp_list must be walked & freed by the callers of this
+         function.  Today, that isn't done so we're leaking these sals when
+         looking at source lines with inlined code.  */
 
       final_val.next = temp_list;
      
       if (final_val.pc == outer_call_site->pc)
-	final_val.line = outer_call_site->line;
+	{
+	  final_val.line = outer_call_site->line;
+	  final_val.symtab = outer_call_site->symtab;
+	}
  
       if (final_val.symtab == NULL)
 	warning ("Returning an unfilled final_val");
-      return final_val;
+      /* APPLE LOCAL cache lookup values for improved performance  */
+      cached_pc_line = copy_sal (&final_val);
+     return final_val;
     }
   /* APPLE LOCAL end subroutine inlining  */
 }
@@ -3466,6 +3940,100 @@ find_pc_line_pc_range (CORE_ADDR pc, CORE_ADDR *startptr, CORE_ADDR *endptr)
 struct symtab_and_line
 find_function_start_sal (struct symbol *sym, int funfirstline)
 {
+  /* APPLE LOCAL begin address context.  */
+  struct address_context pc;
+  init_address_context (&pc);
+  pc.symbol = sym;
+  /* APPLE LOCAL end address context.  */
+  
+  /* If the block structure is a little bit mangled, we can end up
+     with function sym's with a NULL block.  Don't crash.  */
+  pc.block = SYMBOL_BLOCK_VALUE (sym);
+  if (pc.block == NULL)
+    error ("Found function with NULL block: \"%s\"", SYMBOL_PRINT_NAME (sym));
+  /* APPLE LOCAL begin address ranges  */
+  pc.address = BLOCK_LOWEST_PC (pc.block);
+  /* APPLE LOCAL end address ranges  */
+  /* END APPLE LOCAL */
+  fixup_symbol_section (sym, NULL);
+  if (funfirstline)
+    {				
+      /* skip "first line" of function (which is actually its prologue) */
+      pc.bfd_section = SYMBOL_BFD_SECTION (sym);
+      /* If function is in an unmapped overlay, use its unmapped LMA
+         address, so that SKIP_PROLOGUE has something unique to work on */
+      if (section_is_overlay (pc.bfd_section) &&
+	  !section_is_mapped (pc.bfd_section))
+	pc.address = overlay_unmapped_address (pc.address, 
+					       pc.bfd_section);
+
+      pc.address += DEPRECATED_FUNCTION_START_OFFSET;
+      /* APPLE LOCAL begin address context.  */
+      /* Check if the current architecture supports the address context 
+         version of prologue skipping.  */
+      if (SKIP_PROLOGUE_ADDR_CTX_P())
+	pc.address = SKIP_PROLOGUE_ADDR_CTX (&pc);
+      else
+	pc.address = SKIP_PROLOGUE (pc.address);
+      /* APPLE LOCAL end address context.  */
+
+      /* For overlays, map pc back into its mapped VMA range */
+      pc.address = overlay_mapped_address (pc.address, 
+					   pc.bfd_section);
+    }
+  pc.sal = find_pc_sect_line (pc.address, 
+			      SYMBOL_BFD_SECTION (sym), 0);
+
+  /* APPLE LOCAL begin inlined function symbols & blocks  */
+  if (pc.sal.next
+      && (BLOCK_FUNCTION (pc.block) == NULL))
+    {
+      /* This is an inlined subroutine;  Find the correct sal in
+	 the set of sals that was returned, update pc.sal.  */
+      struct symtab_and_line *cur;
+      for (cur = &(pc.sal); cur; cur = cur->next)
+	if (cur->entry_type == INLINED_SUBROUTINE_LT_ENTRY
+	    && cur->pc == pc.block->startaddr
+	    && cur->end == pc.block->endaddr)
+	  {
+	    pc.sal.symtab = cur->symtab;
+	    pc.sal.section = cur->section;
+	    pc.sal.line = cur->line;
+	    pc.sal.pc = cur->pc;
+	    pc.sal.end = cur->end;
+	    pc.sal.entry_type = cur->entry_type;
+	    break;
+	  }
+    }
+  /* APPLE LOCAL end inlined function symbols & blocks  */
+  /* Check if SKIP_PROLOGUE left us in mid-line, and the next
+     line is still part of the same function.  */
+  /* APPLE LOCAL begin address ranges  */
+  else if (pc.sal.pc != pc.address
+	   && block_contains_pc (SYMBOL_BLOCK_VALUE (pc.symbol), 
+				 pc.sal.end))
+    /* APPLE LOCAL end address ranges  */
+    {
+      /* First pc of next line */
+      pc.address = pc.sal.end;
+      /* Recalculate the line number (might not be N+1).  */
+      pc.sal = find_pc_sect_line (pc.address, 
+				  SYMBOL_BFD_SECTION (pc.symbol), 
+				  0);
+    }
+  pc.sal.pc = pc.address;
+
+  return pc.sal;
+}
+#if defined (USE_OLD_FIND_FUNCTION_START_SAL)
+/* Given a function symbol SYM, find the symtab and line for the start
+   of the function.
+   If the argument FUNFIRSTLINE is nonzero, we want the first line
+   of real code inside the function.  */
+
+struct symtab_and_line
+find_function_start_sal (struct symbol *sym, int funfirstline)
+{
   CORE_ADDR pc;
   struct symtab_and_line sal;
   /* APPLE LOCAL */
@@ -3514,7 +4082,7 @@ find_function_start_sal (struct symbol *sym, int funfirstline)
 
   return sal;
 }
-
+#endif
 /* If P is of the form "operator[ \t]+..." where `...' is
    some legitimate operator text, return a pointer to the
    beginning of the substring of the operator text.
@@ -4071,6 +4639,12 @@ search_symbols (char *regexp, domain_enum kind, int nfiles, char *files[],
 	    MSYMBOL_TYPE (msymbol) == ourtype3 ||
 	    MSYMBOL_TYPE (msymbol) == ourtype4)
 	  {
+            /* APPLE LOCAL: Don't match the dyld_stub names; no one is
+               interested in seeing them when they're doing an 'rbreak' or
+               what have you.  */
+            if (strncmp (SYMBOL_LINKAGE_NAME (msymbol), "dyld_stub_", 10) == 0)
+              continue;
+
 	    if (regexp == NULL
 		|| re_exec (SYMBOL_NATURAL_NAME (msymbol)) != 0)
 	      {
@@ -4376,6 +4950,15 @@ rbreak_command (char *regexp, int from_tty)
 
   for (p = ss; p != NULL; p = p->next)
     {
+      /* We don't want to make people wade through dyld_stub trampolines;
+         just skip those symbols.  */
+      if (p->symbol && SYMBOL_LINKAGE_NAME (p->symbol)
+          && strncmp (SYMBOL_LINKAGE_NAME (p->symbol), "dyld_stub_", 10) == 0)
+        continue;
+      if (p->msymbol && SYMBOL_LINKAGE_NAME (p->msymbol)
+          && strncmp (SYMBOL_LINKAGE_NAME (p->msymbol), "dyld_stub_", 10) == 0)
+        continue;
+
       if (p->msymbol == NULL)
 	{
 	  char *shlib_ptr = NULL;
@@ -4419,7 +5002,8 @@ rbreak_command (char *regexp, int from_tty)
 	  strcat (string, ":");
 	  strcat (string, SYMBOL_LINKAGE_NAME (p->symbol));
 	  strcat (string, "\"");
-	  break_command (string, from_tty);
+	  /* APPLE LOCAL radar 6366048 search both minsyms & syms for bps.  */
+	  rbr_break_command (string, from_tty, 0);
 	  print_symbol_info (FUNCTIONS_DOMAIN,
 			     p->symtab,
 			     p->symbol,
@@ -4470,7 +5054,8 @@ rbreak_command (char *regexp, int from_tty)
               make_cleanup (reset_allow_objc_selectors_flag, 0);
 
 	  
-	  break_command (string, from_tty);
+	  /* APPLE LOCAL radar 6366048 search both minsyms & syms for bps.  */
+	  rbr_break_command (string, from_tty, 1);
 	  printf_filtered ("<function, no debug info> %s;\n",
 			   SYMBOL_PRINT_NAME (p->msymbol));
 	}
@@ -5137,7 +5722,7 @@ in_prologue (CORE_ADDR pc, CORE_ADDR func_start)
 
   /* Consult the partial symbol table, to find which function
      the PC is in.  */
-  if (! find_pc_partial_function (pc, NULL, &func_addr, &func_end))
+  if (! find_pc_partial_function_no_inlined (pc, NULL, &func_addr, &func_end))
     {
       CORE_ADDR prologue_end;
       CORE_ADDR scan_from;
@@ -5222,7 +5807,7 @@ skip_prologue_using_sal (CORE_ADDR func_addr)
   CORE_ADDR end_pc;
 
   /* Get an initial range for the function.  */
-  find_pc_partial_function (func_addr, NULL, &start_pc, &end_pc);
+  find_pc_partial_function_no_inlined (func_addr, NULL, &start_pc, &end_pc);
   start_pc += DEPRECATED_FUNCTION_START_OFFSET;
 
   prologue_sal = find_pc_line (start_pc, 0);
@@ -5448,5 +6033,37 @@ update_inlined_function_line_table_entry (CORE_ADDR start_pc,
 
   gdb_assert (done == 1);
 }
-
 /* APPLE LOCAL end address ranges  */
+
+
+/* APPLE LOCAL begin cache lookup values for improved performance  */
+
+/* Something in the objfiles has changed, so we need to throw away all
+   our cached lookup values and start again, to make sure we aren't
+   caching and returning stale data.  */
+
+void
+symtab_clear_cached_lookup_values (void)
+{
+  cached_mapped_section = NULL;
+  cached_overlay_section = NULL;
+  cached_sect_section = NULL;
+  cached_symtab = NULL;
+  cached_psymtab = NULL;
+  cached_pc_line = NULL;
+  cached_pc_function = NULL;
+  cached_blockvector = NULL;
+  cached_blockvector_index = -1;
+  cached_block = NULL;
+  
+  last_block_lookup_pc = INVALID_ADDRESS;
+  last_blockvector_lookup_pc = INVALID_ADDRESS;
+  last_function_lookup_pc = INVALID_ADDRESS;
+  last_pc_line_lookup_pc = INVALID_ADDRESS;
+  last_psymtab_lookup_pc = INVALID_ADDRESS;
+  last_symtab_lookup_pc = INVALID_ADDRESS;
+  last_sect_section_lookup_pc = INVALID_ADDRESS;
+  last_mapped_section_lookup_pc = INVALID_ADDRESS;
+  last_overlay_section_lookup_pc = INVALID_ADDRESS;
+}
+/* APPLE LOCAL end cache lookup values for improved performance  */

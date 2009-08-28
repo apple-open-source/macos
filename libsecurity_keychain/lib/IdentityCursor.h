@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2002-2008 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -62,6 +62,7 @@ private:
 	KCCursor mKeyCursor;
 	KCCursor mCertificateCursor;
 	SecPointer<KeyItem> mCurrentKey;
+	Mutex mMutex;
 };
 
 class IdentityCursorPolicyAndID : public IdentityCursor
@@ -73,7 +74,7 @@ public:
 	virtual void findPreferredIdentity();
 
 private:
-	SecPolicyRef mPolicy;//%%%Use C++policy object
+	SecPolicyRef mPolicy;
 	CFStringRef mIDString;
 	bool mReturnOnlyValidIdentities;
 	bool mPreferredIdentityChecked;

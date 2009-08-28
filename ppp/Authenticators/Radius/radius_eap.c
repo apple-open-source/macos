@@ -132,7 +132,7 @@ radius_eap_init (struct EAP_Input *eap_in, void **context)
 	eap_mppe_keys_set = 0;
 
 	if (gethostname(hostname, sizeof(hostname)) < 0 )
-		strcpy(hostname, "Apple");
+		strlcpy(hostname, "Apple", sizeof(hostname));
 	hostname[sizeof(hostname) - 1] = 0; // gethostname() does not always terminate the name
 
 	nas_ip_address_val.s_addr = 0;
@@ -286,6 +286,7 @@ radius_eap_process (void *context, struct EAP_Input *eap_in, struct EAP_Output *
 										else
 											error("Radius: rad-eap-mppe-send-key:  could not get authenticator!\n");
 										break;
+										
 									case RAD_MICROSOFT_MS_MPPE_RECV_KEY:
 										len = rad_request_authenticator(rad_handle, auth, sizeof(auth));
 										

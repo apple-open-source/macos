@@ -263,22 +263,25 @@ int ppp_comp_deregister(ppp_comp_ref *compref)
 int ppp_comp_setcompressor(struct ppp_if *wan, struct ppp_option_data *odp)
 {
     int 			error = 0, nb;
-    struct ppp_comp 		*cp;
-	struct ppp_option_data64 *odp64 = (struct ppp_option_data64 *)odp;
+    struct ppp_comp *cp;
     u_char 			ccp_option[CCP_MAX_OPTION_LENGTH];
-	user_addr_t		ptr;
-	int				transmit;
+    user_addr_t		ptr;
+    int				transmit;
+    
+    if (proc_is64bit(current_proc())) {
+        struct ppp_option_data64 *odp64 = (struct ppp_option_data64 *)odp;
 
-	if (proc_is64bit(current_proc())) {
-		nb = odp64->length;
-		ptr = odp64->ptr;
-		transmit = odp64->transmit;
-	}
-	else {
-		nb = odp->length;
-		ptr = CAST_USER_ADDR_T(odp->ptr);
-		transmit = odp->transmit;
-	}
+        nb = odp64->length;
+        ptr = odp64->ptr;
+        transmit = odp64->transmit;
+    } else {
+        struct ppp_option_data32 *odp32 = (struct ppp_option_data32 *)odp;
+
+        nb = odp32->length;
+        ptr = CAST_USER_ADDR_T(odp32->ptr);
+        transmit = odp32->transmit;
+    }
+    
     if (nb > sizeof(ccp_option))
         nb = sizeof(ccp_option);
 
@@ -290,7 +293,7 @@ int ppp_comp_setcompressor(struct ppp_if *wan, struct ppp_option_data *odp)
 
     cp = ppp_comp_find(ccp_option[0]);
     if (cp == 0) {
-        LOGDBG(wan->net, (LOGVAL, "ppp%d: no compressor for [%x %x %x], %x\n",
+        LOGDBG(wan->net, ("ppp%d: no compressor for [%x %x %x], %x\n",
                 ifnet_unit(wan->net), ccp_option[0], ccp_option[1],
                 ccp_option[2], nb));
 
@@ -304,7 +307,7 @@ int ppp_comp_setcompressor(struct ppp_if *wan, struct ppp_option_data *odp)
         wan->xc_state = cp->comp_alloc(ccp_option, nb);
         if (!wan->xc_state) {
             error = ENOMEM;
-            LOGDBG(wan->net, (LOGVAL, "ppp%d: comp_alloc failed\n", ifnet_unit(wan->net)));
+            LOGDBG(wan->net, ("ppp%d: comp_alloc failed\n", ifnet_unit(wan->net)));
         }
         wan->sc_flags &= ~SC_COMP_RUN;
     }
@@ -315,7 +318,7 @@ int ppp_comp_setcompressor(struct ppp_if *wan, struct ppp_option_data *odp)
         wan->rc_state = cp->decomp_alloc(ccp_option, nb);
         if (!wan->rc_state) {
             error = ENOMEM;
-            LOGDBG(wan->net, (LOGVAL, "ppp%d: decomp_alloc failed\n", ifnet_unit(wan->net)));
+            LOGDBG(wan->net, ("ppp%d: decomp_alloc failed\n", ifnet_unit(wan->net)));
         }
         wan->sc_flags &= ~SC_DECOMP_RUN;
     }
@@ -348,7 +351,7 @@ void ppp_comp_ccp(struct ppp_if *wan, mbuf_t m, int rcvd)
     
     slen = CCP_LENGTH(p);
     if (slen > mbuf_pkthdr_len(m)) {
-        LOGDBG(wan->net, (LOGVAL, "ppp_comp_ccp: not enough data in mbuf (expected = %d, got = %d)\n",
+        LOGDBG(wan->net, ("ppp_comp_ccp: not enough data in mbuf (expected = %d, got = %d)\n",
 		   slen, mbuf_pkthdr_len(m)));
 	return;
     }
@@ -429,7 +432,7 @@ void ppp_comp_logmbuf(char *msg, mbuf_t m)
     if (m == NULL)
         return;
 
-    log(LOGVAL, "%s: \n", msg);
+    IOLog("%s: \n", msg);
 
     for (count = mbuf_len(m), data = mbuf_data(m); m != NULL; ) {
         /* build a line of output */
@@ -448,19 +451,19 @@ void ppp_comp_logmbuf(char *msg, mbuf_t m)
         }
 
         /* output line (hex 1st, then ascii) */
-        log(LOGVAL, "%s:  0x  ", msg);
+        IOLog("%s:  0x  ", msg);
         for(i = 0; i < lcount; i++) {
-            if (i == 8) log(LOGVAL, "  ");
-            log(LOGVAL, "%02x ", (u_char)lbuf[i]);
+            if (i == 8) IOLog("  ");
+            IOLog("%02x ", (u_char)lbuf[i]);
         }
         for( ; i < sizeof(lbuf); i++) {
-            if (i == 8) log(LOGVAL, "  ");
-            log(LOGVAL, "   ");
+            if (i == 8) IOLog("  ");
+            IOLog("   ");
         }
-        log(LOGVAL, "  '");
+        IOLog("  '");
         for(i = 0; i < lcount; i++)
-            log(LOGVAL, "%c",(lbuf[i]>=040 && lbuf[i]<=0176)?lbuf[i]:'.');
-        log(LOGVAL, "'\n");
+            IOLog("%c",(lbuf[i]>=040 && lbuf[i]<=0176)?lbuf[i]:'.');
+        IOLog("'\n");
     }
 }
 

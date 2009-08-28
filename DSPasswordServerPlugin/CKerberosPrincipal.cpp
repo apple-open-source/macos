@@ -44,7 +44,7 @@ PWSFKerberosPrincipalList::~PWSFKerberosPrincipalList()
 		delete mPrincipalList;
 	
 	if (mBuffer != NULL)
-		delete mBuffer;
+		free(mBuffer);
 	
 	if ( mPrincipalArray != NULL )
 		free( mPrincipalArray );
@@ -64,11 +64,11 @@ int PWSFKerberosPrincipalList::ReadAllPrincipalsFromDB(time_t inAfterThisModDate
 {
 	PWSFKerberosPrincipal* current;
 	char* ptr;
-	char* args[5];
-	int result;
+	const char* args[5];
+	size_t result;
 	long princCount = 0;
 	struct stat sb;
-	int dumpLen = 0;
+	size_t dumpLen = 0;
 	char tempFileName[50];
 	int fd;
 	
@@ -77,13 +77,13 @@ int PWSFKerberosPrincipalList::ReadAllPrincipalsFromDB(time_t inAfterThisModDate
 
 	args[0] = "kdb5_util";
 	args[1] = "dump";
-	args[2] = tempFileName;
+	args[2] = (const char *)tempFileName;
 	args[3] = NULL;
 
-	result = pwsf_LaunchTaskWithIO(kKDBUtilLocalFilePath, args, NULL, NULL, 0, NULL);
+	result = pwsf_LaunchTaskWithIO(kKDBUtilLocalFilePath, (char * const *)args, NULL, NULL, 0, NULL);
 	result = lstat( tempFileName, &sb );
 	if ( result == 0 )
-		dumpLen = sb.st_size;
+		dumpLen = (size_t)sb.st_size;
 	
 	if ( (result != 0) || (dumpLen <= (long)sizeof(FILE_HEADER)) )
 	{
@@ -114,6 +114,11 @@ int PWSFKerberosPrincipalList::ReadAllPrincipalsFromDB(time_t inAfterThisModDate
 	ptr = mBuffer;
 	current = new PWSFKerberosPrincipal(ptr, this);
 	ptr = current->ParseBuffer(true);
+	if (!current->IsPolicy() && (current->GetRecordModDate() < inAfterThisModDate))
+		delete current;
+	else
+		princCount++;
+
 	while (*ptr != 0)
 	{
 		current = new PWSFKerberosPrincipal(ptr, this);
@@ -164,15 +169,15 @@ int PWSFKerberosPrincipalList::WriteAllPrincipalsToDB()
 	}
 	close(fd);
 	
-	char* args[5];
+	const char* args[5];
 	
 	args[0] = "kdb5_util";
 	args[1] = "load";
 	args[2] = "-update";
-	args[3] = tempFileName;
+	args[3] = (const char *)tempFileName;
 	args[4] = NULL;
 
-	status = pwsf_LaunchTaskWithIO(kKDBUtilLocalFilePath, args, NULL, NULL, 0, NULL);
+	status = pwsf_LaunchTaskWithIO(kKDBUtilLocalFilePath, (char * const *)args, NULL, NULL, 0, NULL);
 	unlink(tempFileName);
 
 	return status;
@@ -306,7 +311,7 @@ PWSFKerberosPrincipal::PWSFKerberosPrincipal(PWSFKerberosPrincipalList* owner)
 PWSFKerberosPrincipal::~PWSFKerberosPrincipal()
 {
 	if (mBuffer != NULL && mOwnsBuffer)
-		delete mBuffer;
+		free(mBuffer);
 		
 	if (mListOwner != NULL)
 	{
@@ -360,7 +365,7 @@ int PWSFKerberosPrincipal::GetFirstKeyEntryIndex()
 	if ( mEntries[3] == NULL )
 		return -1;
 	
-	int numTags = strtol(mEntries[3], NULL, 16);
+	int numTags = (int)strtol(mEntries[3], NULL, 16);
 	int theIndex = 15 + (3 * numTags);
 	
 	// need some kind of safety
@@ -379,7 +384,7 @@ int PWSFKerberosPrincipal::GetPasswordModDateEntryIndex()
 	if ( mEntries[3] == NULL )
 		return -1;
 	
-	int numTags = strtol(mEntries[3], NULL, 16);
+	int numTags = (int)strtol(mEntries[3], NULL, 16);
 		
 	if ( 15 + (3 * (numTags-1)) > kKerberosPrincipalMaxEntries )
 		return -1;
@@ -404,7 +409,7 @@ time_t PWSFKerberosPrincipal::GetRecordModDate()
 	if ( mEntries[3] == NULL )
 		return 0;
 	
-	int numTags = strtol(mEntries[3], NULL, 16);
+	int numTags = (int)strtol(mEntries[3], NULL, 16);
 	int i;
 	int index = 0;
 	time_t modDate = 0;
@@ -508,11 +513,11 @@ char* PWSFKerberosPrincipal::ParseBuffer(bool skipLine)
 	return cur+1;
 }
 
-int PWSFKerberosPrincipal::GetPrincipalData(unsigned char **outData, int *outDataLen)
+int PWSFKerberosPrincipal::GetPrincipalData(unsigned char **outData, size_t *outDataLen)
 {
 	int i;
-	int len = 0;
-	int datalen = 0;
+	size_t len = 0;
+	size_t datalen = 0;
 	unsigned char *dataPtr = NULL;
 	unsigned char *tptr = NULL;
 	
@@ -559,13 +564,13 @@ int PWSFKerberosPrincipal::WritePrincipalToFile(FILE* file)
 	int len = 0;
 	
 	// first calculate length
-	len += (sizeof(FILE_HEADER) - 1);
+	len += (int)(sizeof(FILE_HEADER) - 1);
 	i = 0;
 	while(mEntries[i] != NULL)
-		len += strlen(mEntries[i++]) + 1;
+		len += (int)strlen(mEntries[i++]) + 1;
 	
 	len = htonl(len);
-	i = fwrite(&len, sizeof(len), 1, file);
+	i = (int)fwrite(&len, sizeof(len), 1, file);
 	if (i != 1)
 		return i;
 	
@@ -584,7 +589,7 @@ int PWSFKerberosPrincipal::WritePrincipalToFile(FILE* file)
 
 int PWSFKerberosPrincipal::WritePrincipalToTempFile(int fd)
 {
-	int len = 0;
+	size_t len = 0;
 	int i;
 	
 	// first calculate length
@@ -626,15 +631,15 @@ void PWSFKerberosPrincipal::WritePrincipalToDB()
 	WritePrincipalToTempFile(fd);
 	close(fd);
 	
-	char* args[5];
+	const char* args[5];
 	
 	args[0] = "kdb5_util";
 	args[1] = "load";
 	args[2] = "-update";
-	args[3] = tempFileName;
+	args[3] = (const char *)tempFileName;
 	args[4] = NULL;
 
-	pwsf_LaunchTaskWithIO(kKDBUtilLocalFilePath, args, NULL, NULL, 0, NULL);
+	pwsf_LaunchTaskWithIO(kKDBUtilLocalFilePath, (char * const *)args, NULL, NULL, 0, NULL);
 	unlink(tempFileName);
 }
 
@@ -642,7 +647,7 @@ void PWSFKerberosPrincipal::WritePrincipalToDB()
 int PWSFKerberosPrincipal::ReadPrincipalFromDB(char* principalName, PWSFKerberosPrincipal** outKerbPrinc)
 {
 	PWSFKerberosPrincipal* reply = new PWSFKerberosPrincipal;
-	char* args[5];
+	const char* args[5];
 	int result = 0;
 	
 	if ( principalName == NULL || principalName[0] == '\0' )
@@ -661,10 +666,10 @@ int PWSFKerberosPrincipal::ReadPrincipalFromDB(char* principalName, PWSFKerberos
 	args[0] = "kdb5_util";
 	args[1] = "dump";
 	args[2] = "-";
-	args[3] = principalName;
+	args[3] = (const char *)principalName;
 	args[4] = NULL;
 
-	result = pwsf_LaunchTaskWithIO(kKDBUtilLocalFilePath, args, NULL, reply->mBuffer, reply->mBufSize, NULL);
+	result = pwsf_LaunchTaskWithIO(kKDBUtilLocalFilePath, (char * const *)args, NULL, reply->mBuffer, reply->mBufSize, NULL);
 	if ( (result == 0) && (strlen(reply->mBuffer) > sizeof(FILE_HEADER)) )
 	{
 		reply->ParseBuffer(true);
@@ -690,7 +695,7 @@ int PWSFKerberosPrincipal::ReadPrincipalFromDB(char* principalName, PWSFKerberos
 PWSFKerberosPrincipal* PWSFKerberosPrincipal::ReadPrincipalFromFile(FILE* file, int recordSize, PWSFKerberosPrincipalList* listOwner)
 {
 	PWSFKerberosPrincipal* reply;
-	int readCount;
+	size_t readCount;
 	
 	// sanity check -- principals are typically ~300 bytes.
 	// if the record size is greater than 50K, then the sync

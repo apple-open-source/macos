@@ -7,7 +7,7 @@
 --                                 B O D Y                                  --
 --                                                                          --
 ------------------------------------------------------------------------------
--- Copyright (c) 2000,2004 Free Software Foundation, Inc.                   --
+-- Copyright (c) 2000-2006,2008 Free Software Foundation, Inc.              --
 --                                                                          --
 -- Permission is hereby granted, free of charge, to any person obtaining a  --
 -- copy of this software and associated documentation files (the            --
@@ -35,8 +35,8 @@
 ------------------------------------------------------------------------------
 --  Author: Eugene V. Melaragno <aldomel@ix.netcom.com> 2000
 --  Version Control
---  $Revision: 1.5 $
---  $Date: 2004/08/21 21:37:00 $
+--  $Revision: 1.7 $
+--  $Date: 2008/07/26 18:46:58 $
 --  Binding Version 01.00
 ------------------------------------------------------------------------------
 --  Character input test
@@ -84,7 +84,6 @@ procedure ncurses2.getch_test is
       return To_String (buf);
    end mouse_decode;
 
-
    buf : String (1 .. 1024); --  TODO was BUFSIZE
    n : Integer;
    c : Key_Code;
@@ -122,14 +121,15 @@ begin
          Put (tmp6, Integer (c), 8);
          Add (Str => tmp6);
          Add (Ch => ' ');
-         if c = Key_Mouse then declare
-            event : Mouse_Event;
-         begin
-            event := Get_Mouse;
-            Add (Str => "KEY_MOUSE, ");
-            Add (Str => mouse_decode (event));
-            Add (Ch => newl);
-         end;
+         if c = Key_Mouse then
+            declare
+               event : Mouse_Event;
+            begin
+               event := Get_Mouse;
+               Add (Str => "KEY_MOUSE, ");
+               Add (Str => mouse_decode (event));
+               Add (Ch => newl);
+            end;
          elsif c >= Key_Min then
             Key_Name (c, tmp20);
             Add (Str => tmp20);
@@ -151,21 +151,22 @@ begin
                Add (Str => " (high-half character)");
                Add (Ch => newl);
             end;
-         else declare
-            c2 : constant Character := Character'Val (c mod 16#80#);
-         begin
-            if Ada.Characters.Handling.Is_Graphic (c2) then
-               Add (Ch => c2);
-               Add (Str => " (ASCII printable character)");
-               Add (Ch => newl);
-            else
-               Add (Str => Un_Control ((Ch => c2,
-                                       Color => Color_Pair'First,
-                                       Attr => Normal_Video)));
-               Add (Str => " (ASCII control character)");
-               Add (Ch => newl);
-            end if;
-         end;
+         else
+            declare
+               c2 : constant Character := Character'Val (c mod 16#80#);
+            begin
+               if Ada.Characters.Handling.Is_Graphic (c2) then
+                  Add (Ch => c2);
+                  Add (Str => " (ASCII printable character)");
+                  Add (Ch => newl);
+               else
+                  Add (Str => Un_Control ((Ch => c2,
+                                          Color => Color_Pair'First,
+                                          Attr => Normal_Video)));
+                  Add (Str => " (ASCII control character)");
+                  Add (Ch => newl);
+               end if;
+            end;
          end if;
          --  TODO I am not sure why this was in the C version
          --  the delay statement scroll anyway.

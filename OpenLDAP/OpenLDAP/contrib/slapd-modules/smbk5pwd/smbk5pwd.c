@@ -1,5 +1,5 @@
 /* smbk5pwd.c - Overlay for managing Samba and Heimdal passwords */
-/* $OpenLDAP: pkg/ldap/contrib/slapd-modules/smbk5pwd/smbk5pwd.c,v 1.1.2.9 2005/12/20 23:49:50 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/contrib/slapd-modules/smbk5pwd/smbk5pwd.c,v 1.17.2.12 2008/07/09 22:59:00 quanah Exp $ */
 /*
  * Copyright 2004-2005 by Howard Chu, Symas Corp.
  * All rights reserved.
@@ -13,8 +13,8 @@
  * <http://www.OpenLDAP.org/license.html>.
  */
 /*
- * Support for sambaPwdMustChange added by Marco D'Ettorre.
  * Support for table-driven configuration added by Pierangelo Masarati.
+ * Support for sambaPwdMustChange and sambaPwdCanChange added by Marco D'Ettorre.
  *
  * The conditions of the OpenLDAP Public License apply.
  */
@@ -71,6 +71,7 @@ static AttributeDescription *ad_sambaLMPassword;
 static AttributeDescription *ad_sambaNTPassword;
 static AttributeDescription *ad_sambaPwdLastSet;
 static AttributeDescription *ad_sambaPwdMustChange;
+static AttributeDescription *ad_sambaPwdCanChange;
 static ObjectClass *oc_sambaSamAccount;
 #endif
 
@@ -90,6 +91,8 @@ typedef struct smbk5pwd_t {
 #ifdef DO_SAMBA
 	/* How many seconds before forcing a password change? */
 	time_t	smb_must_change;
+	/* How many seconds after allowing a password change? */
+	time_t  smb_can_change;
 #endif
 } smbk5pwd_t;
 
@@ -111,7 +114,7 @@ static const char hex[] = "0123456789abcdef";
 /* From liblutil/passwd.c... */
 static void lmPasswd_to_key(
 	const char *lmPasswd,
-	des_cblock *key)
+	DES_cblock *key)
 {
 	const unsigned char *lpw = (const unsigned char *)lmPasswd;
 	unsigned char *k = (unsigned char *)key;
@@ -159,10 +162,10 @@ static void lmhash(
 )
 {
 	char UcasePassword[15];
-	des_cblock key;
-	des_key_schedule schedule;
-	des_cblock StdText = "KGS!@#$%";
-	des_cblock hbuf[2];
+	DES_cblock key;
+	DES_key_schedule schedule;
+	DES_cblock StdText = "KGS!@#$%";
+	DES_cblock hbuf[2];
 
 	strncpy( UcasePassword, passwd->bv_val, 14 );
 	UcasePassword[14] = '\0';
@@ -212,7 +215,7 @@ static int smbk5pwd_op_cleanup(
 
 	/* clear out the current key */
 	ldap_pvt_thread_pool_setkey( op->o_threadctx, smbk5pwd_op_cleanup,
-		NULL, NULL );
+		NULL, 0, NULL, NULL );
 
 	/* free the callback */
 	cb = op->o_callback;
@@ -231,8 +234,8 @@ static int smbk5pwd_op_bind(
 	 */
 	if ( op->oq_bind.rb_method == LDAP_AUTH_SIMPLE ) {
 		slap_callback *cb;
-		ldap_pvt_thread_pool_setkey( op->o_threadctx, smbk5pwd_op_cleanup, op,
-			NULL );
+		ldap_pvt_thread_pool_setkey( op->o_threadctx,
+			smbk5pwd_op_cleanup, op, 0, NULL, NULL );
 		cb = op->o_tmpcalloc( 1, sizeof(slap_callback), op->o_tmpmemctx );
 		cb->sc_cleanup = smbk5pwd_op_cleanup;
 		cb->sc_next = op->o_callback;
@@ -265,7 +268,7 @@ static int k5key_chk(
 	const struct berval *cred,
 	const char **text )
 {
-	void *ctx;
+	void *ctx, *op_tmp;
 	Operation *op;
 	int rc;
 	Entry *e;
@@ -278,9 +281,10 @@ static int k5key_chk(
 	/* Find our thread context, find our Operation */
 	ctx = ldap_pvt_thread_pool_context();
 
-	if ( ldap_pvt_thread_pool_getkey( ctx, smbk5pwd_op_cleanup, (void **)&op, NULL ) ||
-		!op )
+	if ( ldap_pvt_thread_pool_getkey( ctx, smbk5pwd_op_cleanup, &op_tmp, NULL )
+		 || !op_tmp )
 		return LUTIL_PASSWD_ERR;
+	op = op_tmp;
 
 	rc = be_entry_get_rw( op, &op->o_req_ndn, NULL, NULL, 0, &e );
 	if ( rc != LDAP_SUCCESS ) return LUTIL_PASSWD_ERR;
@@ -346,6 +350,7 @@ static int smbk5pwd_exop_passwd(
 	Modifications *ml;
 	slap_overinst *on = (slap_overinst *)op->o_bd->bd_info;
 	smbk5pwd_t *pi = on->on_bi.bi_private;
+	char term;
 
 	/* Not the operation we expected, pass it on... */
 	if ( ber_bvcmp( &slap_EXOP_MODIFY_PASSWD, &op->ore_reqoid ) ) {
@@ -355,6 +360,9 @@ static int smbk5pwd_exop_passwd(
 	op->o_bd->bd_info = (BackendInfo *)on->on_info;
 	rc = be_entry_get_rw( op, &op->o_req_ndn, NULL, NULL, 0, &e );
 	if ( rc != LDAP_SUCCESS ) return rc;
+
+	term = qpw->rs_new.bv_val[qpw->rs_new.bv_len];
+	qpw->rs_new.bv_val[qpw->rs_new.bv_len] = '\0';
 
 #ifdef DO_KRB5
 	/* Kerberos stuff */
@@ -428,6 +436,7 @@ static int smbk5pwd_exop_passwd(
 #ifdef SLAP_MOD_INTERNAL
 		ml->sml_flags = SLAP_MOD_INTERNAL;
 #endif
+		ml->sml_numvals = i;
 		ml->sml_values = keys;
 		ml->sml_nvalues = NULL;
 		
@@ -440,6 +449,7 @@ static int smbk5pwd_exop_passwd(
 #ifdef SLAP_MOD_INTERNAL
 		ml->sml_flags = SLAP_MOD_INTERNAL;
 #endif
+		ml->sml_numvals = 1;
 		ml->sml_values = ch_malloc( 2 * sizeof(struct berval));
 		ml->sml_values[0].bv_val = ch_malloc( 64 );
 		ml->sml_values[0].bv_len = sprintf(ml->sml_values[0].bv_val,
@@ -489,6 +499,7 @@ static int smbk5pwd_exop_passwd(
 #ifdef SLAP_MOD_INTERNAL
 		ml->sml_flags = SLAP_MOD_INTERNAL;
 #endif
+		ml->sml_numvals = 1;
 		ml->sml_values = keys;
 		ml->sml_nvalues = NULL;
 
@@ -515,6 +526,7 @@ static int smbk5pwd_exop_passwd(
 #ifdef SLAP_MOD_INTERNAL
 		ml->sml_flags = SLAP_MOD_INTERNAL;
 #endif
+		ml->sml_numvals = 1;
 		ml->sml_values = keys;
 		ml->sml_nvalues = NULL;
 
@@ -525,9 +537,9 @@ static int smbk5pwd_exop_passwd(
 		qpw->rs_mods = ml;
 
 		keys = ch_malloc( 2 * sizeof(struct berval) );
-		keys[0].bv_val = ch_malloc( STRLENOF( "9223372036854775807L" ) + 1 );
+		keys[0].bv_val = ch_malloc( LDAP_PVT_INTTYPE_CHARS(long) );
 		keys[0].bv_len = snprintf(keys[0].bv_val,
-			STRLENOF( "9223372036854775807L" ) + 1,
+			LDAP_PVT_INTTYPE_CHARS(long),
 			"%ld", slap_get_time());
 		BER_BVZERO( &keys[1] );
 		
@@ -536,6 +548,7 @@ static int smbk5pwd_exop_passwd(
 #ifdef SLAP_MOD_INTERNAL
 		ml->sml_flags = SLAP_MOD_INTERNAL;
 #endif
+		ml->sml_numvals = 1;
 		ml->sml_values = keys;
 		ml->sml_nvalues = NULL;
 
@@ -546,9 +559,9 @@ static int smbk5pwd_exop_passwd(
 			qpw->rs_mods = ml;
 
 			keys = ch_malloc( 2 * sizeof(struct berval) );
-			keys[0].bv_val = ch_malloc( STRLENOF( "9223372036854775807L" ) + 1 );
+			keys[0].bv_val = ch_malloc( LDAP_PVT_INTTYPE_CHARS(long) );
 			keys[0].bv_len = snprintf(keys[0].bv_val,
-					STRLENOF( "9223372036854775807L" ) + 1,
+					LDAP_PVT_INTTYPE_CHARS(long),
 					"%ld", slap_get_time() + pi->smb_must_change);
 			BER_BVZERO( &keys[1] );
 
@@ -557,12 +570,37 @@ static int smbk5pwd_exop_passwd(
 #ifdef SLAP_MOD_INTERNAL
 			ml->sml_flags = SLAP_MOD_INTERNAL;
 #endif
+			ml->sml_numvals = 1;
+			ml->sml_values = keys;
+			ml->sml_nvalues = NULL;
+		}
+
+		if (pi->smb_can_change)
+		{
+			ml = ch_malloc(sizeof(Modifications));
+			ml->sml_next = qpw->rs_mods;
+			qpw->rs_mods = ml;
+
+			keys = ch_malloc( 2 * sizeof(struct berval) );
+			keys[0].bv_val = ch_malloc( LDAP_PVT_INTTYPE_CHARS(long) );
+			keys[0].bv_len = snprintf(keys[0].bv_val,
+					LDAP_PVT_INTTYPE_CHARS(long),
+					"%ld", slap_get_time() + pi->smb_can_change);
+			BER_BVZERO( &keys[1] );
+
+			ml->sml_desc = ad_sambaPwdCanChange;
+			ml->sml_op = LDAP_MOD_REPLACE;
+#ifdef SLAP_MOD_INTERNAL
+			ml->sml_flags = SLAP_MOD_INTERNAL;
+#endif
+			ml->sml_numvals = 1;
 			ml->sml_values = keys;
 			ml->sml_nvalues = NULL;
 		}
 	}
 #endif /* DO_SAMBA */
 	be_entry_release_r( op, e );
+	qpw->rs_new.bv_val[qpw->rs_new.bv_len] = term;
 
 	return SLAP_CB_CONTINUE;
 }
@@ -572,38 +610,45 @@ static slap_overinst smbk5pwd;
 /* back-config stuff */
 enum {
 	PC_SMB_MUST_CHANGE = 1,
+	PC_SMB_CAN_CHANGE,
 	PC_SMB_ENABLE
 };
 
 static ConfigDriver smbk5pwd_cf_func;
 
 /*
- * NOTE: uses OID arcs OLcfgOvAt:6 and OLcfgOvOc:6
+ * NOTE: uses OID arcs OLcfgCtAt:1 and OLcfgCtOc:1
  */
 
 static ConfigTable smbk5pwd_cfats[] = {
 	{ "smbk5pwd-enable", "arg",
 		2, 0, 0, ARG_MAGIC|PC_SMB_ENABLE, smbk5pwd_cf_func,
-		"( OLcfgOvAt:6.1 NAME 'olcSmbK5PwdEnable' "
+		"( OLcfgCtAt:1.1 NAME 'olcSmbK5PwdEnable' "
 		"DESC 'Modules to be enabled' "
 		"SYNTAX OMsDirectoryString )", NULL, NULL },
 	{ "smbk5pwd-must-change", "time",
 		2, 2, 0, ARG_MAGIC|ARG_INT|PC_SMB_MUST_CHANGE, smbk5pwd_cf_func,
-		"( OLcfgOvAt:6.2 NAME 'olcSmbK5PwdMustChange' "
+		"( OLcfgCtAt:1.2 NAME 'olcSmbK5PwdMustChange' "
 		"DESC 'Credentials validity interval' "
+		"SYNTAX OMsInteger SINGLE-VALUE )", NULL, NULL },
+	{ "smbk5pwd-can-change", "time",
+		2, 2, 0, ARG_MAGIC|ARG_INT|PC_SMB_CAN_CHANGE, smbk5pwd_cf_func,
+		"( OLcfgCtAt:1.3 NAME 'olcSmbK5PwdCanChange' "
+		"DESC 'Credentials minimum validity interval' "
 		"SYNTAX OMsInteger SINGLE-VALUE )", NULL, NULL },
 
 	{ NULL, NULL, 0, 0, 0, ARG_IGNORED }
 };
 
 static ConfigOCs smbk5pwd_cfocs[] = {
-	{ "( OLcfgOvOc:6.1 "
+	{ "( OLcfgCtOc:1.1 "
 		"NAME 'olcSmbK5PwdConfig' "
 		"DESC 'smbk5pwd overlay configuration' "
 		"SUP olcOverlayConfig "
 		"MAY ( "
 			"olcSmbK5PwdEnable "
 			"$ olcSmbK5PwdMustChange "
+			"$ olcSmbK5PwdCanChange "
 		") )", Cft_Overlay, smbk5pwd_cfats },
 
 	{ NULL, 0, NULL }
@@ -637,6 +682,14 @@ smbk5pwd_cf_func( ConfigArgs *c )
 #endif /* ! DO_SAMBA */
 			break;
 
+		case PC_SMB_CAN_CHANGE:
+#ifdef DO_SAMBA
+			c->value_int = pi->smb_can_change;
+#else /* ! DO_SAMBA */
+			c->value_int = 0;
+#endif /* ! DO_SAMBA */
+			break;
+
 		case PC_SMB_ENABLE:
 			c->rvalue_vals = NULL;
 			if ( pi->mode ) {
@@ -657,6 +710,9 @@ smbk5pwd_cf_func( ConfigArgs *c )
 		switch( c->type ) {
 		case PC_SMB_MUST_CHANGE:
 			break;
+
+                case PC_SMB_CAN_CHANGE:
+                        break;
 
 		case PC_SMB_ENABLE:
 			if ( !c->line ) {
@@ -695,6 +751,24 @@ smbk5pwd_cf_func( ConfigArgs *c )
 		return 1;
 #endif /* ! DO_SAMBA */
 		break;
+
+        case PC_SMB_CAN_CHANGE:
+#ifdef DO_SAMBA
+                if ( c->value_int < 0 ) {
+                        Debug( LDAP_DEBUG_ANY, "%s: smbk5pwd: "
+                                "<%s> invalid negative value \"%d\".",
+                                c->log, c->argv[ 0 ], 0 );
+                        return 1;
+                }
+                pi->smb_can_change = c->value_int;
+#else /* ! DO_SAMBA */
+                Debug( LDAP_DEBUG_ANY, "%s: smbk5pwd: "
+                        "<%s> only meaningful "
+                        "when compiled with -DDO_SAMBA.\n",
+                        c->log, c->argv[ 0 ], 0 );
+                return 1;
+#endif /* ! DO_SAMBA */
+                break;
 
 	case PC_SMB_ENABLE: {
 		slap_mask_t	mode = pi->mode, m;
@@ -775,6 +849,7 @@ smbk5pwd_modules_init( smbk5pwd_t *pi )
 		{ "sambaNTPassword",		&ad_sambaNTPassword },
 		{ "sambaPwdLastSet",		&ad_sambaPwdLastSet },
 		{ "sambaPwdMustChange",		&ad_sambaPwdMustChange },
+		{ "sambaPwdCanChange",		&ad_sambaPwdCanChange },
 		{ NULL }
 	},
 #endif /* DO_SAMBA */
@@ -818,20 +893,32 @@ smbk5pwd_modules_init( smbk5pwd_t *pi )
 		ret = krb5_init_context(&context);
 		if (ret) {
 			Debug( LDAP_DEBUG_ANY, "smbk5pwd: "
-				"unable to initialize krb5 context.\n",
-				0, 0, 0 );
+				"unable to initialize krb5 context (%d).\n",
+				ret, 0, 0 );
 			oc_krb5KDCEntry = NULL;
 			return -1;
 		}
 
-		/* FIXME: check return code? */
 		ret = kadm5_s_init_with_password_ctx( context,
 			KADM5_ADMIN_SERVICE,
 			NULL,
 			KADM5_ADMIN_SERVICE,
 			&conf, 0, 0, &kadm_context );
+		if (ret) {
+			char *err_str, *err_msg = "<unknown error>";
+			err_str = krb5_get_error_string( context );
+			if (!err_str)
+				err_msg = krb5_get_err_text( context, ret );
+			Debug( LDAP_DEBUG_ANY, "smbk5pwd: "
+				"unable to initialize krb5 admin context: %s (%d).\n",
+				err_str ? err_str : err_msg, ret, 0 );
+			if (err_str)
+				krb5_free_error_string( context, err_str );
+			krb5_free_context( context );
+			oc_krb5KDCEntry = NULL;
+			return -1;
+		}
 
-		/* FIXME: check return code? */
 		db = _kadm5_s_get_db( kadm_context );
 	}
 #endif /* DO_KRB5 */
@@ -869,7 +956,7 @@ smbk5pwd_modules_init( smbk5pwd_t *pi )
 }
 
 static int
-smbk5pwd_db_init(BackendDB *be)
+smbk5pwd_db_init(BackendDB *be, ConfigReply *cr)
 {
 	slap_overinst	*on = (slap_overinst *)be->bd_info;
 	smbk5pwd_t	*pi;
@@ -884,7 +971,7 @@ smbk5pwd_db_init(BackendDB *be)
 }
 
 static int
-smbk5pwd_db_open(BackendDB *be)
+smbk5pwd_db_open(BackendDB *be, ConfigReply *cr)
 {
 	slap_overinst	*on = (slap_overinst *)be->bd_info;
 	smbk5pwd_t	*pi = (smbk5pwd_t *)on->on_bi.bi_private;
@@ -904,7 +991,7 @@ smbk5pwd_db_open(BackendDB *be)
 }
 
 static int
-smbk5pwd_db_destroy(BackendDB *be)
+smbk5pwd_db_destroy(BackendDB *be, ConfigReply *cr)
 {
 	slap_overinst	*on = (slap_overinst *)be->bd_info;
 	smbk5pwd_t	*pi = (smbk5pwd_t *)on->on_bi.bi_private;

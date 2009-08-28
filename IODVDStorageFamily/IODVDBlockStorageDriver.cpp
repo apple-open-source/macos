@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -29,6 +29,9 @@
 
 #define	super	IOCDBlockStorageDriver
 OSDefineMetaClassAndStructors(IODVDBlockStorageDriver,IOCDBlockStorageDriver)
+
+OSCompileAssert(sizeof(DVDDiscInfo) == sizeof(CDDiscInfo));
+OSCompileAssert(sizeof(DVDRZoneInfo) == sizeof(CDTrackInfo));
 
 #define reportDiscInfo(x)    reportDiscInfo((CDDiscInfo *)(x))
 #define reportRZoneInfo(y,x) reportTrackInfo((y),(CDTrackInfo *)(x))
@@ -184,8 +187,8 @@ IODVDBlockStorageDriver::instantiateMediaObject(UInt64 base,UInt64 byteSize,
                                              base,byteSize,blockSize,mediaName);
 
     if (media) {
-        char *description = NULL;
-        char *picture = NULL;
+        const char *description = NULL;
+        const char *picture = NULL;
 
         switch (getMediaType()) {
             case kDVDMediaTypeROM:
@@ -282,8 +285,11 @@ IODVDBlockStorageDriver::readStructure(IOMemoryDescriptor *buffer,const DVDStruc
     return(getProvider()->readDVDStructure(buffer,format,address,layer,agid));
 }
 
-OSMetaClassDefineReservedUsed(IODVDBlockStorageDriver, 0);
-
+#ifdef __LP64__
+OSMetaClassDefineReservedUnused(IODVDBlockStorageDriver,  0);
+#else /* !__LP64__ */
+OSMetaClassDefineReservedUsed(IODVDBlockStorageDriver,  0);
+#endif /* !__LP64__ */
 OSMetaClassDefineReservedUnused(IODVDBlockStorageDriver,  1);
 OSMetaClassDefineReservedUnused(IODVDBlockStorageDriver,  2);
 OSMetaClassDefineReservedUnused(IODVDBlockStorageDriver,  3);

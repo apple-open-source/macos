@@ -1,18 +1,34 @@
---- abort.c.orig	2007-04-17 01:31:46.000000000 -0700
-+++ abort.c	2007-04-17 01:36:22.000000000 -0700
-@@ -45,7 +45,10 @@
+--- abort.c.orig	2008-09-07 11:37:51.000000000 -0700
++++ abort.c	2008-09-07 11:56:01.000000000 -0700
+@@ -39,19 +39,26 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/
+ 
+ #include "namespace.h"
+ #include <signal.h>
++#include <stdarg.h>
+ #include <stdlib.h>
+ #include <stddef.h>
+ #include <unistd.h>
  #include <pthread.h>
  #include "un-namespace.h"
  
 -void (*__cleanup)();
 +extern void (*__cleanup)();
 +extern void __abort(void) __dead2;
++extern const char *__crashreporter_info__;
 +
 +#define TIMEOUT	10000	/* 10 milliseconds */
  
  void
  abort()
-@@ -67,11 +70,20 @@
+ {
+ 	struct sigaction act;
+ 
++	if (!__crashreporter_info__)
++		__crashreporter_info__ = "abort() called";
+ 	/*
+ 	 * POSIX requires we flush stdio buffers on abort.
+ 	 * XXX ISO C requires that abort() be async-signal-safe.
+@@ -67,11 +74,22 @@ abort()
  	sigdelset(&act.sa_mask, SIGABRT);
  	(void)_sigprocmask(SIG_SETMASK, &act.sa_mask, NULL);
  	(void)raise(SIGABRT);
@@ -30,14 +46,29 @@
 +{
 +	struct sigaction act;
 +
++	if (!__crashreporter_info__)
++		__crashreporter_info__ = "__abort() called";
  	act.sa_handler = SIG_DFL;
  	act.sa_flags = 0;
  	sigfillset(&act.sa_mask);
-@@ -79,5 +91,6 @@
+@@ -79,5 +97,19 @@ abort()
  	sigdelset(&act.sa_mask, SIGABRT);
  	(void)_sigprocmask(SIG_SETMASK, &act.sa_mask, NULL);
  	(void)raise(SIGABRT);
 -	exit(1);
 +	usleep(TIMEOUT); /* give time for signal to happen */
 +	__builtin_trap(); /* never exit normally */
++}
++
++__private_extern__ void
++abort_report_np(const char *fmt, ...)
++{
++	char *str;
++	va_list ap;
++
++	va_start(ap, fmt);
++	vasprintf(&str, fmt, ap);
++	va_end(ap);
++	__crashreporter_info__ = str ? str : fmt;
++	abort();
  }

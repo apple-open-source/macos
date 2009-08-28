@@ -31,8 +31,12 @@
 /* This file was borrowed from gcc, but it's had everything unneeded chopped out. */
 
 #include "kern_fns.h"
+
+#if defined(__i386__) || defined(__ppc__)
+/* Defined in the kernel for 10.6 and later for all architectures */
 void operator delete[](void *ptr)
 {
   if (ptr) 
 	kern_os_free(ptr);
 }
+#endif /* defined(__i386__) || defined(__ppc__) */

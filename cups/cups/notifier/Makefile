@@ -1,5 +1,5 @@
 #
-# "$Id: Makefile 7207 2008-01-09 19:12:35Z mike $"
+# "$Id: Makefile 7920 2008-09-10 01:04:10Z mike $"
 #
 #   Notifier makefile for the Common UNIX Printing System (CUPS).
 #
@@ -16,8 +16,9 @@
 include ../Makedefs
 
 
-TARGETS =	mailto rss testnotify
-OBJS	=	mailto.o rss.o testnotify.o
+NOTIFIERS =	$(DBUS_NOTIFIER) mailto rss
+TARGETS =	$(NOTIFIERS) testnotify
+OBJS	=	dbus.o mailto.o rss.o testnotify.o
 
 
 #
@@ -28,27 +29,70 @@ all:	$(TARGETS)
 
 
 #
+# Make library targets...
+#
+
+libs:
+
+
+#
+# Make unit tests...
+#
+
+unittests:
+
+
+#
 # Clean all object files...
 #
 
 clean:
-	$(RM) $(OBJS) $(TARGETS)
+	$(RM) $(OBJS) $(TARGETS) dbus.h
 
 
 #
 # Install all targets...
 #
 
-install:	all
+install:	all install-data install-headers install-libs install-exec
+
+
+#
+# Install data files...
+#
+
+install-data:
+	$(INSTALL_DIR) -m 775 -g $(CUPS_GROUP) $(CACHEDIR)/rss
+
+
+#
+# Install programs...
+#
+
+install-exec:
+	echo Installing notifiers in $(SERVERBIN)/notifier...
 	$(INSTALL_DIR) -m 755 $(SERVERBIN)/notifier
-	$(INSTALL_BIN) mailto $(SERVERBIN)/notifier
-	$(INSTALL_BIN) rss $(SERVERBIN)/notifier
-	$(INSTALL_DIR) -m 775 $(CACHEDIR)/rss
-	-chgrp $(CUPS_GROUP) $(CACHEDIR)/rss
+	for file in $(NOTIFIERS); do \
+		$(INSTALL_BIN) $$file $(SERVERBIN)/notifier; \
+	done
 	if test "x$(SYMROOT)" != "x"; then \
 		$(INSTALL_DIR) $(SYMROOT); \
-		cp mailto rss $(SYMROOT); \
+		cp $(NOTIFIERS) $(SYMROOT); \
 	fi
+
+
+#
+# Install headers...
+#
+
+install-headers:
+
+
+#
+# Install libraries...
+#
+
+install-libs:
 
 
 #
@@ -56,7 +100,7 @@ install:	all
 #
 
 uninstall:
-	for file in $(TARGETS); do \
+	for file in $(NOTIFIERS); do \
 		$(RM) $(SERVERBIN)/notifier/$$file; \
 	done
 	-$(RMDIR) $(SERVERBIN)/notifier
@@ -70,6 +114,15 @@ uninstall:
 
 depend:
 	makedepend -Y -I.. -fDependencies $(OBJS:.o=.c) >/dev/null 2>&1
+
+
+#
+# dbus
+#
+
+dbus:	dbus.o ../cups/$(LIBCUPS)
+	echo Linking $@...
+	$(CC) $(LDFLAGS) -o dbus dbus.o $(DBUS_NOTIFIERLIBS) $(LIBS)
 
 
 #
@@ -105,5 +158,5 @@ include Dependencies
 
 
 #
-# End of "$Id: Makefile 7207 2008-01-09 19:12:35Z mike $".
+# End of "$Id: Makefile 7920 2008-09-10 01:04:10Z mike $".
 #

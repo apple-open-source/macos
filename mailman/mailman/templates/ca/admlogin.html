@@ -1,72 +1,39 @@
 <html>
-
 <head>
-
-  <title>%(listname)s %(who)s Authentication</title>
-
+  <title>Autenticaci&oacute; per a %(who)s a la llista %(listname)s</title>
 </head>
-
 <body bgcolor="#ffffff">
-
 <FORM METHOD=POST ACTION="%(path)s">
-
-%(message)s
-
+%(message)s  
   <TABLE WIDTH="100%%" BORDER="0" CELLSPACING="4" CELLPADDING="5">
-
     <TR>
-
-      <TD COLSPAN="2" WIDTH="100%%" BGCOLOR="#99CCFF" ALIGN="CENTER"> <B><FONT COLOR="#000000" SIZE="+1">%(listname)s 
-
-        %(who)s Autentificaci&oacute;</FONT></B></TD>
-
+      <TD COLSPAN="2" WIDTH="100%%" BGCOLOR="#99CCFF" ALIGN="CENTER">
+	<B><FONT COLOR="#000000" SIZE="+1">Autenticaci&oacute; per a %(who)s
+	    a la llista %(listname)s</FONT></B>
+      </TD>
     </TR>
-
     <tr>
-
-      <TD><div ALIGN="Right"> Clau de pas de la llista de %(who)s :</div></TD>
-
+      <TD><div align="right">Contrasenya de %(who)s de la llista:</div></TD>
       <TD><INPUT TYPE="password" NAME="adminpw" SIZE="30"></TD>
-
     </tr>
-
     <tr>
-      <td colspan=2 align=middle><input type="SUBMIT"
-
+      <td colspan=2 align=middle><INPUT type="SUBMIT"
                                         name="admlogin"
-
-					value="Entrar ->">
+					value="Entra...">
       </td>
-
-    </tr>
-
+    </tr>  
   </TABLE>
+  <p><strong><em>Important:</em></strong> a partir d'aqu&iacute;, caldr&agrave; que tingueu les galetes habilitades en el vostre navegador. En cas contrari, us haureu de tornar a autenticar per a cada operaci&oacute;.
+  </p>
 
-      
-
-  <p><strong><em>Important:</em></strong> A partir d'aqu&iacute;, necessiteu
-    tenir 
-
-    les cookies habilitades en el vostre navegador.
-
-  <p>Les cookies de sessi&oacute; s'usen en la interf&iacute;cie administrativa
-    
-
-    de Mailman, de manera que no necessiteu re-autentificar-vos en cada operaci&oacute; 
-
-    administrativa. Aquesta cookie expirar&agrave; autom&agrave;ticament quan
-    
-
-    sortiu del navegador, o b&eacute; podeu eliminar expl&iacute;citament
-    
-
-    la cookie prement el link <em>Sortir</em> sota <em>Altres Activitats Administratives</em> 
-
-    (el qual podreu veure un cop us hagueu registra't). 
-
+  
+  <p>La interf&iacute;cie administrativa del Mailman utilitza galetes de
+sessi&oacute;, de manera que no us h&agrave;giu de tornar a autenticar per a cada
+operaci&oacute;. Aquesta galeta expirar&agrave; autom&agrave;ticament quan
+sortiu del navegador. De manera alternativa, podeu eliminar-la
+expl&iacute;citament si feu clic al bot&oacute; <em>Surt</em> a sota d'<em>Altres
+tasques administratives</em> (el qual es mostrar&agrave; un cop h&agrave;giu
+entrat).
 </FORM>
-
 </body>
-
 </html>
-

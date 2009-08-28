@@ -47,8 +47,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "fixlib.h"
 #define    GTYPE_SE_CT 1
@@ -605,7 +605,7 @@ FIX_PROC_HEAD( wrap_fix )
        *  *both* the fix name and the file name.
        */
       size_t ln = strlen( filname ) + strlen( p_fixd->fix_name ) + 14;
-      char*  pz = xmalloc( ln );
+      char*  pz = XNEWVEC (char, ln);
       pz_name = pz;
       sprintf( pz, "FIXINC_WRAP_%s-%s", filname, p_fixd->fix_name );
 
@@ -770,7 +770,7 @@ main( int argc, char** argv )
       return EXIT_FAILURE;
     }
 
-  pz_tmptmp = xmalloc (strlen (argv[4]) + 5);
+  pz_tmptmp = XNEWVEC (char, strlen (argv[4]) + 5);
   strcpy( pz_tmptmp, argv[4] );
 
   /* Don't lose because "12345678" and "12345678X" map to the same

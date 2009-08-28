@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 - 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 1999 - 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -21,6 +21,12 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * XXX - <sys/wait.h> and <sys/socket.h>, and perhaps other headers,
+ * are needed only for the old-style plugin routines, which are needed
+ * only if Thursby's DAVE or ADmitMAC are installed.
+ */
+
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
@@ -29,6 +35,7 @@
 #include <sys/dirent.h>
 #include <sys/wait.h>
 #include <sys/mount.h>
+#include <sys/socket.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
@@ -36,9 +43,9 @@
 
 #include <CoreServices/CoreServices.h>
 
-#include <URLMount/URLMount.h>
-#include <URLMount/URLMountPrivate.h>
-#include <URLMount/URLMountPlugin.h>
+#include <NetFS/URLMount.h>
+#include <NetFS/URLMountPrivate.h>
+#include <NetFS/URLMountPlugin.h>
 #include "smb_netfs.h"
 
 #include <syslog.h>
@@ -55,12 +62,10 @@ static int CIFS_AttemptMount(const char *urlPtr,
 			     u_int32_t options,
 			     u_int32_t internalFlags);
 static int writestring(int fd, const char *string, size_t stringlen);
-static size_t CIFS_RemountInfoSize(struct statfs64 *mountpointinfo);
+static size_t CIFS_RemountInfoSize(struct statfs *mountpointinfo);
 
 #define CIFS_MOUNT_COMMAND "/sbin/mount_cifs"
-#define SMBFS_MOUNT_COMMAND "/sbin/mount_smbfs"
 #define CIFS_PREFIX "cifs://"
-#define SMB_PREFIX "smb://"
 
 #define UNIQUEDIGITS 5
 #define SLASH '/'
@@ -106,7 +111,7 @@ static char gTargetPrefix[] = "//";
 static URLScheme gCIFSURLScheme = CIFSURLSCHEME;
 
 /* CIFS URLMount factory ID: 92D4EFEF-F5AA-11D5-A1EE-003065A0E6DE */
-#define kCIFSURLMounterFactoryID (CFUUIDGetConstantUUIDWithBytes(NULL, 0x92, 0xd4, 0xef, 0xef, 0xf5, 0xaa, 0x11, 0xd5, 0xa1, 0xee, 0x00, 0x30, 0x65, 0xa0, 0xe6, 0xde))
+#define kCIFSNetFSInterfaceFactoryID (CFUUIDGetConstantUUIDWithBytes(NULL, 0x92, 0xd4, 0xef, 0xef, 0xf5, 0xaa, 0x11, 0xd5, 0xa1, 0xee, 0x00, 0x30, 0x65, 0xa0, 0xe6, 0xde))
 
 
 
@@ -181,7 +186,7 @@ CIFS_MountURL (void *this,
 
 	if (options & kMountAtMountdir) {
 		/* Use the path specified */
-		strcpy(mountpoint, realmountdir);	/* Copy the string now that the length's been checked */
+		strlcpy(mountpoint, realmountdir, maxlength);	/* Copy the string now that the length's been checked */
 	} else {
 		/* Pick a suitable basename: the last name element that's not a slash: */
 		
@@ -202,7 +207,7 @@ CIFS_MountURL (void *this,
 		namestart = lastnamestart;
 		
 		/* Pick out the part up to, but not including, any trailing slash: */
-		if (slash = strchr (namestart, SLASH)) {
+		if ((slash = strchr (namestart, SLASH))) {
 			namelen = slash - namestart;
 		} else {
 			namelen = strlen(namestart);
@@ -229,8 +234,8 @@ CIFS_MountURL (void *this,
 #endif
 	
 		/* Now make the directory */
-		if (error = URLM_CreateUniqueMountpointFromEscapedName(realmountdir, basename, 0700,
-				MAXNAMLEN, uniquename, maxlength, mountpoint)) {
+		if ((error = URLM_CreateUniqueMountpointFromEscapedName(realmountdir, basename, 0700,
+				MAXNAMLEN, uniquename, maxlength, mountpoint))) {
 			return (error);
 		}
 #if DEBUG_TRACE
@@ -241,9 +246,9 @@ CIFS_MountURL (void *this,
 #if DEBUG_TRACE
 	syslog(LOG_INFO, "CIFS_MountURL: CIFS_AttemptMount('%s', '%s')...\n", urlstring, mountpoint);
 #endif
-	if (error = CIFS_AttemptMount(urlstring, mountpoint, username,
+	if ((error = CIFS_AttemptMount(urlstring, mountpoint, username,
 	    authenticator, authenticatorlength, progressHandle, options,
-	    internalFlags)) {
+	    internalFlags))) {
 #if DEBUG_TRACE
 		syslog(LOG_INFO, "CIFS_MountURL: CIFS_AttemptMount returned %d; deleting '%s'...\n", error, mountpoint);
 #endif
@@ -426,11 +431,11 @@ static int
 CIFS_GetCompleteMountURL (void *this, const char * mountpath, size_t maxlength, char * full_url, u_int32_t options)
 {
 	#pragma unused(this, options)
-	struct statfs64 statbuf;
+	struct statfs statbuf;
 	int error;
 	char *sharepointname;
 
-	if (error = statfs64 (mountpath, &statbuf) == -1) {
+	if ((error = statfs (mountpath, &statbuf)) == -1) {
 		return(error);
 	}
 
@@ -445,9 +450,9 @@ CIFS_GetCompleteMountURL (void *this, const char * mountpath, size_t maxlength, 
 	}
 	
 	/* assert(strlen(sharepointname) + sizeof(CIFS_PREFIX) <= maxlength) */
-	strcpy(full_url, SMB_PREFIX);
+	strlcpy(full_url, SMB_PREFIX, maxlength);
 	full_url[maxlength - 1] = (char)0;
-	strcat(full_url, sharepointname);
+	strlcat(full_url, sharepointname, maxlength);
 
 	return(0);
 }
@@ -476,7 +481,7 @@ CIFS_GetURLFromURLRemountInfo(void *this, URLRemountInfo *remountinfo,
 	}
 
 	/* copy the urlstring */
-	strcpy(complete_URL, fsremountinfo->urlstring);
+	strlcpy(complete_URL, fsremountinfo->urlstring, maxURLlength);
 
 	return ( 0 );
 }
@@ -497,8 +502,7 @@ CIFS_AttemptMount(const char *urlPtr,
 	int result;
 	union wait status;
 	char *mounttarget;
-	struct stat mntcmdinfo;
-	const char *mount_command;
+	size_t mounttarget_len;
 	char fdnum[11+1];
 	int p_option = FALSE;
 	int sp[2];
@@ -510,17 +514,12 @@ CIFS_AttemptMount(const char *urlPtr,
 	while ((*urlPtr == SLASH) || (*urlPtr == BACKSLASH)) {
 		++urlPtr;
 	}
-	mounttarget = malloc(strlen(urlPtr) + sizeof(gTargetPrefix));	/* sizeof(gTargetPrefix) is 3 (includes terminating zero) */
+	mounttarget_len = strlen(urlPtr) + sizeof(gTargetPrefix);	/* sizeof(gTargetPrefix) is 3 (includes terminating zero) */
+	mounttarget = malloc(mounttarget_len);
 	if (mounttarget == NULL) return (errno ? errno : ENOMEM);
 	
-	strcpy(mounttarget, gTargetPrefix);
-	strcat(mounttarget, urlPtr);	/* assert(sizeof(mounttarget) - 2 == strlen(urlPtr)) */
-
-	result = stat(CIFS_MOUNT_COMMAND, &mntcmdinfo);
-	if (result == 0)
-		mount_command = CIFS_MOUNT_COMMAND;
-	else
-		mount_command = SMBFS_MOUNT_COMMAND;
+	strlcpy(mounttarget, gTargetPrefix, mounttarget_len);
+	strlcat(mounttarget, urlPtr, mounttarget_len);	/* assert(sizeof(mounttarget) - 2 == strlen(urlPtr)) */
 
 	if (username || authenticator) {
 		/*
@@ -541,7 +540,7 @@ CIFS_AttemptMount(const char *urlPtr,
 		uid_t effective_uid;
 		uid_t real_uid;
 		char CFUserTextEncodingEnvSetting[sizeof(CFENVFORMATSTRING) + 20]; /* Extra bytes for expansion of %X uid field */
-		char *env[] = {CFUserTextEncodingEnvSetting, "", (char *) 0 };
+		const char *env[] = {CFUserTextEncodingEnvSetting, "", NULL };
 		
 		real_uid = getuid();		/* get the real user ID */
 		effective_uid = geteuid();	/* get the effective user ID */
@@ -572,26 +571,26 @@ CIFS_AttemptMount(const char *urlPtr,
 		}
 		
 		if ((internalFlags & kMountWithoutUI) && p_option) {
-			result = execle(mount_command, mount_command,
+			result = execle(CIFS_MOUNT_COMMAND, CIFS_MOUNT_COMMAND,
 							"-o", (options & kMarkAutomounted) ? "automounted" : "noautomounted",
 							"-o", (options & kMarkDontBrowse) ? "nobrowse" : "browse",
 							"-N",
 							"-p", fdnum,
 							mounttarget, mountPointPtr, NULL, env);			
 		} else if (internalFlags & kMountWithoutUI) {
-			result = execle(mount_command, mount_command,
+			result = execle(CIFS_MOUNT_COMMAND, CIFS_MOUNT_COMMAND,
 							"-o", (options & kMarkAutomounted) ? "automounted" : "noautomounted",
 							"-o", (options & kMarkDontBrowse) ? "nobrowse" : "browse",
 							"-N",
 							mounttarget, mountPointPtr, NULL, env);			
 		} else if (p_option) {
-			result = execle(mount_command, mount_command,
+			result = execle(CIFS_MOUNT_COMMAND, CIFS_MOUNT_COMMAND,
 							"-o", (options & kMarkAutomounted) ? "automounted" : "noautomounted",
 							"-o", (options & kMarkDontBrowse) ? "nobrowse" : "browse",
 							"-p", fdnum,
 							mounttarget, mountPointPtr, NULL, env);			
 		} else {
-			result = execle(mount_command, mount_command,
+			result = execle(CIFS_MOUNT_COMMAND, CIFS_MOUNT_COMMAND,
 							"-o", (options & kMarkAutomounted) ? "automounted" : "noautomounted",
 							"-o", (options & kMarkDontBrowse) ? "nobrowse" : "browse",
 							mounttarget, mountPointPtr, NULL, env);			
@@ -625,8 +624,7 @@ CIFS_AttemptMount(const char *urlPtr,
 		 * Set SO_NOSIGPIPE on the side of the pipe to which
 		 * we'll be writing.
 		 */
-		if (setsockopt(sp[1], SOL_SOCKET, SO_NOSIGPIPE, &on,
-		    sizeof (on)) == -1) {
+		if (setsockopt(sp[1], SOL_SOCKET, SO_NOSIGPIPE, &on, (socklen_t)sizeof (on)) == -1) {
 			result = errno;
 			goto Return;
 		}
@@ -697,7 +695,7 @@ writestring(int fd, const char *string, size_t stringlen)
 		if (bytes_written == -1)
 			return (errno);
 	} else {
-		stringlen_be = htonl(stringlen);
+		stringlen_be = htonl((uint32_t)stringlen);
 		bytes_written = write(fd, &stringlen_be, sizeof stringlen_be);
 		if (bytes_written == -1)
 			return (errno);
@@ -712,10 +710,10 @@ static int
 CIFS_GetURLRemountInfoSize(void *this, const char *mountpoint, size_t *remountinfosize, u_int32_t options)
 {
 	#pragma unused(this, options)
-	struct statfs64 mountinfo;
+	struct statfs mountinfo;
 	int result;
 	
-	if ((result = statfs64 (mountpoint, &mountinfo)) != 0) return errno;
+	if ((result = statfs (mountpoint, &mountinfo)) != 0) return errno;
 	
 	*remountinfosize = CIFS_RemountInfoSize(&mountinfo);
 		
@@ -727,13 +725,13 @@ static int
 CIFS_GetURLRemountInfo(void *this, const char *mountpoint, size_t maxinfosize, URLRemountInfo *remountinfo, u_int32_t options)
 {
 	#pragma unused(this, options)
-	struct statfs64 mountinfo;
+	struct statfs mountinfo;
 	int result;
 	struct CIFSRemountInfoRecord *fsremountinfo;
 	size_t spaceremaining;
 	char *sharepointname;
 	
-	if ((result = statfs64 (mountpoint, &mountinfo)) != 0) return errno;
+	if ((result = statfs (mountpoint, &mountinfo)) != 0) return errno;
 	if (CIFS_RemountInfoSize(&mountinfo) > maxinfosize) return EOVERFLOW;
 	
 	spaceremaining = maxinfosize;
@@ -787,7 +785,7 @@ CIFS_RemountServerURL(void *this, URLRemountInfo *remountinfo, const char *mount
 
 
 static size_t
-CIFS_RemountInfoSize(struct statfs64 *mountpointinfo)
+CIFS_RemountInfoSize(struct statfs *mountpointinfo)
 {
 	char *sharepointname;
 	
@@ -811,8 +809,8 @@ CIFS_RemountInfoSize(struct statfs64 *mountpointinfo)
 static URLMountGeneralInterface gCIFSGeneralInterfaceFTbl = {
 	NULL,				/* IUNKNOWN_C_GUTS: _reserved */
 	URLM_GeneralQueryInterface,	/* IUNKNOWN_C_GUTS: QueryInterface */
-	URLM_URLMounter_AddRef,		/* IUNKNOWN_C_GUTS: AddRef */
-	URLM_URLMounter_Release,	/* IUNKNOWN_C_GUTS: Release */
+	NetFSInterface_AddRef,		/* IUNKNOWN_C_GUTS: AddRef */
+	NetFSInterface_Release,		/* IUNKNOWN_C_GUTS: Release */
 	CIFS_MountServerURL,		/* MountServerURL */
 	CIFS_RemountServerURL		/* RemountServerURL */
 };
@@ -825,8 +823,8 @@ static URLMountGeneralInterface gCIFSGeneralInterfaceFTbl = {
 static URLMountDirectInterface gCIFSDirectInterfaceFTbl = {
 	NULL,				/* IUNKNOWN_C_GUTS: _reserved */
 	URLM_DirectQueryInterface,	/* IUNKNOWN_C_GUTS: QueryInterface */
-	URLM_URLMounter_AddRef,		/* IUNKNOWN_C_GUTS: AddRef */
-	URLM_URLMounter_Release,	/* IUNKNOWN_C_GUTS: Release */
+	NetFSInterface_AddRef,		/* IUNKNOWN_C_GUTS: AddRef */
+	NetFSInterface_Release,		/* IUNKNOWN_C_GUTS: Release */
 	CIFS_MountCompleteURL,		/* MountCompleteURL */
 	CIFS_MountURLWithAuthentication,/* MountURLWithAuthentication */
 	URLM_StdGetURLMountProgressInfo,/* GetURLMountProgressInfo */
@@ -843,11 +841,11 @@ static URLMountDirectInterface gCIFSDirectInterfaceFTbl = {
 /*
  *  NetFS Type implementation:
  */
-static NetFSInterface gCIFSNetFSInterfaceFTbl = {
+static NetFSMountInterface_V1 gCIFSNetFSMountInterfaceFTbl = {
     NULL,				/* IUNKNOWN_C_GUTS: _reserved */
-    URLM_NetFSQueryInterface,		/* IUNKNOWN_C_GUTS: QueryInterface */
-    URLM_URLMounter_AddRef,		/* IUNKNOWN_C_GUTS: AddRef */
-    URLM_URLMounter_Release,		/* IUNKNOWN_C_GUTS: Release */
+    NetFSQueryInterface,		/* IUNKNOWN_C_GUTS: QueryInterface */
+    NetFSInterface_AddRef,		/* IUNKNOWN_C_GUTS: AddRef */
+    NetFSInterface_Release,		/* IUNKNOWN_C_GUTS: Release */
     SMB_CreateSessionRef,		/* CreateSessionRef */
     SMB_GetServerInfo,			/* GetServerInfo */
     SMB_ParseURL,			/* ParseURL */
@@ -857,21 +855,23 @@ static NetFSInterface gCIFSNetFSInterfaceFTbl = {
     SMB_Mount,				/* Mount */
     SMB_Cancel,				/* Cancel */
     SMB_CloseSession,			/* CloseSession */
+    SMB_GetMountInfo,			/* GetMountInfo */
 };
 
+void * CIFSNetFSInterfaceFactory(CFAllocatorRef allocator, CFUUIDRef typeID);
 
 void *
-CIFSURLMounterFactory(CFAllocatorRef allocator, CFUUIDRef typeID)
+CIFSNetFSInterfaceFactory(CFAllocatorRef allocator, CFUUIDRef typeID)
 {
 	#pragma unused(allocator)
 	if (CFEqual(typeID, kGeneralURLMounterTypeID)) {
-		URLMounter *result = URLM_CreateURLMounter(kCIFSURLMounterFactoryID, &gCIFSGeneralInterfaceFTbl);
+		NetFSInterface *result = NetFS_CreateInterface(kCIFSNetFSInterfaceFactoryID, &gCIFSGeneralInterfaceFTbl);
 		return result;
 	} else if (CFEqual(typeID, kDirectURLMounterTypeID)) {
-		URLMounter *result = URLM_CreateURLMounter(kCIFSURLMounterFactoryID, &gCIFSDirectInterfaceFTbl);
+		NetFSInterface *result = NetFS_CreateInterface(kCIFSNetFSInterfaceFactoryID, &gCIFSDirectInterfaceFTbl);
 		return result;
 	} else if (CFEqual(typeID, kNetFSTypeID)) {
-		URLMounter *result = URLM_CreateURLMounter(kCIFSURLMounterFactoryID, &gCIFSNetFSInterfaceFTbl);
+		NetFSInterface *result = NetFS_CreateInterface(kCIFSNetFSInterfaceFactoryID, &gCIFSNetFSMountInterfaceFTbl);
 		return result;
 	} else {
 		return NULL;

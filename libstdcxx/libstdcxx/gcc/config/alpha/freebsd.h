@@ -1,5 +1,5 @@
 /* Definitions for DEC Alpha/AXP running FreeBSD using the ELF format
-   Copyright (C) 2000, 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2002, 2004, 2005 Free Software Foundation, Inc.
    Contributed by David E. O'Brien <obrien@FreeBSD.org> and BSDi.
 
 This file is part of GCC.
@@ -16,30 +16,17 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 #undef  SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS \
   { "fbsd_dynamic_linker", FBSD_DYNAMIC_LINKER }
 
-/* Provide a FBSD_TARGET_CPU_CPP_BUILTINS and CPP_SPEC appropriate for
-   FreeBSD/alpha.  Besides the dealing with
-   the GCC option `-posix', and PIC issues as on all FreeBSD platforms, we must
-   deal with the Alpha's FP issues.  */
-
-#undef  FBSD_TARGET_CPU_CPP_BUILTINS
-#define FBSD_TARGET_CPU_CPP_BUILTINS()		\
-  do						\
-    {						\
-      if (flag_pic)				\
-	{					\
-	  builtin_define ("__PIC__");		\
-	  builtin_define ("__pic__");		\
-	}					\
-    }						\
-  while (0)
+/* Provide a CPP_SPEC appropriate for FreeBSD/alpha.  Besides the
+   dealing with the GCC option `-posix', we must deal with the Alpha's
+   FP issues.  */
 
 #undef  CPP_SPEC
 #define CPP_SPEC "%(cpp_subtarget) %{posix:-D_POSIX_SOURCE}"
@@ -75,7 +62,7 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_ELF	1
 
 #undef  TARGET_DEFAULT
-#define TARGET_DEFAULT	(MASK_FP | MASK_FPREGS | MASK_GAS)
+#define TARGET_DEFAULT	(MASK_FPREGS | MASK_GAS)
 
 #undef HAS_INIT_SECTION
 

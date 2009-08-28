@@ -1,3 +1,197 @@
+2008-04-24  Jason Molenda  (jmolenda@apple.com)
+
+	* macosx-mutils.c: Don't include dyld_debug.h.
+
+2008-04-24  Jason Molenda  (jmolenda@apple.com)
+
+	* macosx-threads.c: Include mach/arm/thread_act.h instead
+	of mach/ppc/thread_act.h.  This code only builds on 
+	arm for Mac OS X right now.
+
+2008-01-17  Jason Molenda  (jmolenda@apple.com)
+
+	* remote-utils.c (putpkt, getpkt): Add NO_ACKS conditionals
+	around the code which expects/transmits ack chars so it can
+	be easily disabled.
+
+2007-12-10  Greg Clayton  <gclayton@apple.com>
+
+	* macosx-mutils.c (mutils_debug): Make this function 
+	conditionally compiled in with the DEBUG_MACOSX_MUTILS.
+	(child_get_pagesize): Change page size static variable and 
+	return type to vm_size_t.
+	(mach_xfer_memory_remainder): Update to gdb version that has
+	Leopard	compatability for shared regions and depth recursion.
+	(mach_xfer_memory_block): Ditto.
+	(mach_xfer_memory): Ditto.
+	(macosx_vm_region_recurse_long): New function.
+	(macosx_vm_region_recurse_short): New function.
+	(macosx_vm_protect_range): New function.
+	(macosx_vm_protect_region): New function.
+	(macosx_get_region_info_both): New function.
+	(macosx_port_valid): Removed function.
+	(macosx_task_valid): Removed function.
+	(macosx_thread_valid): Conditionalize out the logging code.
+	(macosx_pid_valid): Removed function.
+	(macosx_primary_thread_of_task): Removed function.
+	* macosx-mutils.h (macosx_port_valid): Removed prototype.
+	(macosx_task_valid): Removed prototype.
+	(macosx_thread_valid): Removed prototype.
+	(macosx_pid_valid): Removed prototype.
+	(macosx_primary_thread_of_task): Removed prototype.
+
+2007-11-27  Greg Clayton  <gclayton@apple.com>
+
+	* macosx-excthread.c (macosx_exception_thread_init): Open stderr 
+	as "w" instead of "w+".
+	* macosx-mutils.c (mutils_debug): Ditto.
+
+
+2007-10-25  Greg Clayton  <gclayton@apple.com>
+
+	* arm-regnums.h (__ARM_FP_REG): Use r7 as frame pointer when
+	TM_NEXTSTEP is defined, not TM_NEXT_STEP.
+
+2007-07-10	Greg Clayton <gclayton@apple.com>
+
+	* configure: Regenerate.
+	
+2007-07-08	Greg Clayton <gclayton@apple.com>
+
+	* Makefile.in: Share register definition code with regular gdb.
+	* configure: Regenerate.
+	* configure.ac (GDBSERVER_PLATFORM_INCLUDE): Add darwin support.
+	* configure.srv: Add darwin support.
+	* inferiors.c (for_each_inferior_data): Sync with FSF.
+	* remote-utils.c (remote_open): Sync with FSF.
+	* server.c: Set and restore the process group to allow 
+	interupting a program on the target running gdbserver when target
+	is running, or interrupting gdbserver when it isn't.
+	(attach_inferior): Sync with FSF.
+	(main): Add "--debug" option that will dump packets on the gdbserver
+	side.
+	* server.h (for_each_inferior_data): Added prototype.
+	(target_signal_to_name): Added prototype.
+
+
+2007-06-05	Greg Clayton <gclayton@apple.com>
+	* Merge from phone branch:
+
+		2006-04-16  Greg Clayton  <gclayton@apple.com>
+
+			* macosx-arm-low.c (arm_fetch_inferior_registers): Print verbose 
+			warning when we fail to read registers.
+			(arm_fetch_inferior_registers): Ditto.
+			* macosx-low.c (check_native_thread_exists): Initialize FOUND_IT 
+			to zero.
+			(macosx_check_new_threads): deallocate the THREAD_LIST when done 
+			with it.
+			(macosx_thread_alive): Implement function.
+			(macosx_process_resume_requests): Resume the thread with a signal
+			if it was stpped by one.
+			(macosx_resume): Added logging.
+			(macosx_fetch_registers): Added logging.
+			(macosx_store_registers): Implemented function.
+			* macosx-mutils.c (macosx_thread_valid): Added extra logging.
+			(macosx_primary_thread_of_task): Added logging.
+			
+		2007-03-22  Greg Clayton  <gclayton@apple.com>
+
+			* macosx-excthread.c (excthread_debug_re): Print thread id in log.
+			* macosx-low.c (gdbserver_has_a_terminal): New function to detect
+			if we have a terminal controlling us.
+			(terminal_inferior): New function that switches the terminal over
+			to the inferior if we have valid saved tty information.
+			(terminal_ours): New function that switches the terminal over
+			to gdbserver if we have valid saved tty information.
+			(terminal_is_ours): New static variable.
+			(attached_to_process): Ditto.
+			(inferior_ttystate_err): New static variable for saving/restoring
+			the inferior tty state.
+			(inferior_ttystate): Ditto.
+			(inferior_process_group): Ditto.
+			(inferior_tflags): Ditto.
+			(our_ttystate_err): New static variable for saving/restoring
+			the gdbserver tty state.
+			(our_ttystate): Ditto.
+			(our_process_group): Ditto.
+			(our_tflags): Ditto.
+			(macosx_low_debug): Include thread id in log dumps.
+			(macosx_create_inferior): Save gdbserver tty settings prior to
+			spawning inferior and set process group ID for inferior in both
+			parent and child to avoid race condition.
+			(macosx_attach): Save gdbserver tty settings and note we are
+			attaching.
+			(macosx_kill): Now implemented.
+			(macosx_detach): Now implemented.
+			(macosx_resume): Give the terminal to the inferior while the
+			inferior is running.
+			(macosx_wait): Restore the terminal settings to gdbserver
+			after we halt.
+			* remote-utils.c (remote_open): Handle the case where no port
+			is specified.
+			* server.c (restore_old_foreground_pgrp): Remember the initial
+			process group for the gdbserver and restore it on exit.
+			(start_inferior): Remember the initial process group and setup
+			an atexit call to restore it.
+			(attach_inferior): Handle an extra attach special case.
+			(main): Kill the inferior if we throw an exception with nothing
+			to catch it and provide a string value for the signal that causes
+			the child to terminate.
+			* server.h (target_signal_to_name): Added prototype.
+
+		2007-01-12  Greg Clayton  <gclayton@apple.com>
+
+			* macosx-low.c (macosx_attach): Use PT_ATTACHEXC instead of
+			using PT_ATTACH, call macosx_check_new_threads instead
+			of add_thread, and don't wait for stop.
+
+		2006-11-14  Greg Clayton  <gclayton@apple.com>
+
+			* arm-regnums.h: Revert to support all FSF regs in 	addition 
+			to VFP regs.
+			* macosx-arm-low.c (arm_macosx_store_fp_registers) Renamed
+			to arm_macosx_store_vfp_registers.
+			(arm_macosx_fetch_fp_registers): Renamed to 
+			arm_macosx_fetch_vfp_registers.
+			(arm_macosx_store_gp_registers): Use new gdb_arm_thread_state
+			struct.
+			(arm_macosx_fetch_gp_registers): Ditto.
+			(arm_fetch_inferior_registers): Handle zero for REGNO and code 
+			cleanup	after changing macros.
+			(arm_store_inferior_registers): Code cleanup after changing 
+			macros.
+
+		2006-09-20  Greg Clayton  <gclayton@apple.com>
+			
+			* macosx-low.c (last_sent_signal): New static variable.
+			(macosx_kill): Changed log text to reflect this function is
+			unimplemented.
+			(macosx_detach): Ditto.
+			(macosx_thread_alive): Ditto.
+			(macosx_store_registers):  Ditto.
+			(macosx_lookup_symbols): Ditto.
+			(macosx_read_auxv): Ditto.
+			(macosx_add_to_port_set): Remove logging code.
+			(sigchld_handler): Add logging code.
+			(macosx_fetch_event): Fix to handle select getting interrupted.
+			(macosx_send_signal): Now send the signal using kill.
+
+		2006-07-24  Greg Clayton  <gclayton@apple.com>
+
+			* Makefile.in: Added new reg-arm-macosx.c to build and clean phase.
+			* arm-regnums.h: Added more bit definitions for the ARM PSR.
+			* configure.srv: Added reg-arm-macosx.o for arm darwin builds.
+			* macosx-arm-low.c (arm_mach_o_query_v6): New function.
+			(arm_fetch_inferior_registers): Correctly detect VFP regs.
+			(arm_store_inferior_registers): Ditto.
+			(arm_pc_is_thumb): Check for bit 0 or 1 is all we can do for now.
+			(thumb_get_next_pc): New function.
+			(arm_single_step_thread): Added thumb support.
+			* macosx-low.c (macosx_wait_for_event): Check for process exited
+			on when FIRST_TIME to avoid locking gdbserver.
+			* server.c (main): Fix for loop logic for the "--debug" flag.
+
 2006-07-12  Caroline Tice  <ctice@apple.com>
 
 	* linux-low.c (inlining.h): New include statement.

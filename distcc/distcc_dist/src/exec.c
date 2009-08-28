@@ -259,7 +259,10 @@ int dcc_spawn_child(char **argv, pid_t *pidptr,
     
     if (indirect)
         dcc_prepare_indirect(indirect);
-    if (!dcc_is_allowed_compiler(argv[0])) {
+    char *compilerPath = dcc_get_allowed_compiler_for_path(argv[0]);
+    
+    // Bail out if argv[0] isn't an allowed compiler. We should have already set argv[0] to the allowed compiler for the originally-requested compiler path if possible.
+    if (!compilerPath || strcmp(compilerPath, argv[0]) != 0) {
         rs_log_error("attempt to use unknown compiler aborted: %s", argv[0]);
         if (indirect)
             // FIXME: need to check result;

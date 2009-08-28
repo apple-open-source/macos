@@ -75,14 +75,18 @@ ObjectImpl::ObjectImpl(const Object &mommy) : mParent(mommy.mImpl), mChildCount(
 }
 
 ObjectImpl::~ObjectImpl()
+try
 {
 	assert(!mActive);	// subclass must have deactivated us
-	if (!isIdle())
-		Error::throwMe(Error::objectBusy);
+	assert(isIdle());
 		
 	// release parent from her obligations (if we still have one)
 	if (mParent)
 		mParent->removeChild();
+}
+catch(...)
+{
+	return;
 }
 
 void

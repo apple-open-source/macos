@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2004 - 2007 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2004 - 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -65,7 +65,7 @@ __BEGIN_DECLS
 int  smb_rap_create(int, const char *, const char *, struct smb_rap **);
 void smb_rap_done(struct smb_rap *);
 int  smb_rap_request(struct smb_rap *, struct smb_ctx *);
-int  smb_rap_setNparam(struct smb_rap *, long);
+int  smb_rap_setNparam(struct smb_rap *, int32_t);
 int  smb_rap_setPparam(struct smb_rap *, void *);
 
 int  smb_rap_NetShareEnum(struct smb_ctx *, int, void *, int, int *, int *);

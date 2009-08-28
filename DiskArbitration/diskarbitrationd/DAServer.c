@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -574,7 +574,7 @@ void _DAMediaAppearedCallback( void * context, io_iterator_t notification )
                  * since the I/O Kit appearance queue is separate from the I/O Kit disappearance queue, and
                  * we are in the midst of processing the appearance queue when we see a duplicate, which is
                  * to say, there is a disappearance on the queue we have not processed yet and must process
-                 * it first.  The appearances and disappearances within each queue do occur in proper order.
+                 * it first.
                  */
 
                 if ( ___CFArrayContainsValue( gDADiskList, disk ) )
@@ -583,9 +583,7 @@ void _DAMediaAppearedCallback( void * context, io_iterator_t notification )
                      * Process the disappearance.
                      */
 
-                    assert( context == NULL );
-
-                    _DAMediaDisappearedCallback( disk, gDAMediaDisappearedNotification );
+                    _DAMediaDisappearedCallback( NULL, gDAMediaDisappearedNotification );
 
                     assert( ___CFArrayContainsValue( gDADiskList, disk ) == FALSE );
                 }
@@ -610,6 +608,12 @@ void _DAMediaAppearedCallback( void * context, io_iterator_t notification )
 
                 if ( DADiskGetUserRUID( disk ) == ___UID_UNKNOWN )
                 {
+                    if ( DADiskGetMode( disk ) )
+                    {
+                        chmod( DADiskGetBSDPath( disk, TRUE  ), DADiskGetMode( disk ) & 0666 );
+                        chmod( DADiskGetBSDPath( disk, FALSE ), DADiskGetMode( disk ) & 0666 );
+                    }
+
                     if ( gDAConsoleUser )
                     {
 ///w:start
@@ -724,18 +728,6 @@ void _DAMediaAppearedCallback( void * context, io_iterator_t notification )
             {
                 IOObjectRelease( propertyNotification );
             }
-
-            if ( context )
-            {
-                io_service_t service;
-
-                service = ( io_service_t ) context;
-
-                if ( IOObjectIsEqualTo( media, service ) )
-                {
-                    notification = IO_OBJECT_NULL;
-                }
-            }
         }
 
         IOObjectRelease( media );
@@ -777,7 +769,7 @@ void _DAMediaDisappearedCallback( void * context, io_iterator_t notification )
          * since the I/O Kit appearance queue is separate from the I/O Kit disappearance queue, and
          * we are in the midst of processing the disappearance queue when we see one missing, which
          * is to say, there is an appearance on the queue we haven't processed yet and must process
-         * it first.  The appearances and disappearances within each queue do occur in proper order.
+         * it first.
          */
 
         if ( disk == NULL )
@@ -786,12 +778,9 @@ void _DAMediaDisappearedCallback( void * context, io_iterator_t notification )
              * Process the appearance.
              */
 
-            if ( context == NULL )
-            {
-                _DAMediaAppearedCallback( ( void * ) media, gDAMediaAppearedNotification );
+            _DAMediaAppearedCallback( NULL, gDAMediaAppearedNotification );
 
-                disk = __DADiskListGetDiskWithIOMedia( media );
-            }
+            disk = __DADiskListGetDiskWithIOMedia( media );
         }
 
         if ( disk )
@@ -844,14 +833,6 @@ void _DAMediaDisappearedCallback( void * context, io_iterator_t notification )
 
             DADiskSetState( disk, kDADiskStateZombie, TRUE );
 
-            if ( context )
-            {
-                if ( CFEqual( disk, context ) )
-                {
-                    notification = IO_OBJECT_NULL;
-                }
-            }
-
             ___CFArrayRemoveValue( gDADiskList, disk );
         }
 
@@ -865,13 +846,9 @@ void _DAServerCallback( CFMachPortRef port, void * parameter, CFIndex messageSiz
 {
     mach_msg_header_t * message = parameter;
 
-    if ( message->msgh_id == MACH_NOTIFY_DEAD_NAME )
+    if ( message->msgh_id == MACH_NOTIFY_NO_SENDERS )
     {
-        mach_dead_name_notification_t * notification = parameter;
-
         _DAServerSessionRelease( message->msgh_local_port );
-
-        mach_port_deallocate( mach_task_self( ), notification->not_port );
     }
     else if ( DAServer_server( message, __gDAServerReply ) )
     {
@@ -1362,7 +1339,6 @@ kern_return_t _DAServerSessionCopyCallbackQueue( mach_port_t _session, vm_addres
 }
 
 kern_return_t _DAServerSessionCreate( mach_port_t   _session,
-                                      mach_port_t   _client,
                                       caddr_t       _name,
                                       pid_t         _pid,
                                       mach_port_t * _server )
@@ -1381,7 +1357,7 @@ kern_return_t _DAServerSessionCreate( mach_port_t   _session,
          * Create the session.
          */
 
-        session = DASessionCreate( kCFAllocatorDefault, _client, _name, _pid );
+        session = DASessionCreate( kCFAllocatorDefault, _name, _pid );
 
         if ( session )
         {
@@ -1394,6 +1370,8 @@ kern_return_t _DAServerSessionCreate( mach_port_t   _session,
             /*
              * Add the session object to our tables.
              */
+
+            ___vproc_transaction_begin( );
 
             CFArrayAppendValue( gDASessionList, session );
 
@@ -1802,6 +1780,8 @@ kern_return_t _DAServerSessionRelease( mach_port_t _session )
 
             ___CFArrayRemoveValue( gDASessionList, session );
 
+            ___vproc_transaction_end( );
+
             status = kDAReturnSuccess;
         }
     }
@@ -1850,6 +1830,40 @@ kern_return_t _DAServerSessionSetAuthorization( mach_port_t _session, Authorizat
     if ( status )
     {
         DALogDebug( "unable to set authorization, id = ? [?]:%d.", _session );
+    }
+
+    return status;
+}
+
+kern_return_t _DAServerSessionSetClientPort( mach_port_t _session, mach_port_t _client )
+{
+    kern_return_t status;
+
+    status = kDAReturnBadArgument;
+
+    DALogDebugHeader( "? [?]:%d -> %s", _session, gDAProcessNameID );
+
+    if ( _session )
+    {
+        DASessionRef session;
+
+        session = __DASessionListGetSession( _session );
+
+        if ( session )
+        {
+            DALogDebugHeader( "%@ -> %s", session, gDAProcessNameID );
+
+            DASessionSetClientPort( session, _client );
+
+            DALogDebug( "  set client port, id = %@.", session );
+
+            status = kDAReturnSuccess;
+        }
+    }
+
+    if ( status )
+    {
+        DALogDebug( "unable to set client port, id = ? [?]:%d.", _session );
     }
 
     return status;
@@ -1982,44 +1996,13 @@ CFRunLoopSourceRef DAServerCreateRunLoopSource( CFAllocatorRef allocator, CFInde
 
     if ( __gDAServer == NULL )
     {
-        mach_port_t   bootstrapPort;
-        mach_port_t   privatePort;
-        kern_return_t status;
-
         /*
-         * Obtain the bootstrap port.
+         * Register the Disk Arbitration master port.
          */
 
-        status = task_get_bootstrap_port( mach_task_self( ), &bootstrapPort );
-
-        if ( status == KERN_SUCCESS )
+        if ( __gDAServerPort == MACH_PORT_NULL )
         {
-            /*
-             * Register the Disk Arbitration master port.
-             */
-            
-            if ( __gDAServerPort == MACH_PORT_NULL )
-            {
-                status = bootstrap_create_server( bootstrapPort, "/usr/sbin/diskarbitrationd", getuid( ), FALSE, &privatePort );
-
-                if ( status == KERN_SUCCESS )
-                {
-                    mach_port_t port;
-
-                    status = bootstrap_create_service( privatePort, _kDAServiceName, &port );
-
-                    if ( status == KERN_SUCCESS )
-                    {
-                        status = bootstrap_check_in( privatePort, _kDAServiceName, &__gDAServerPort );
-
-                        mach_port_deallocate( mach_task_self( ), port );
-                    }
-
-                    mach_port_deallocate( mach_task_self( ), privatePort );
-                }
-            }
-
-            mach_port_deallocate( mach_task_self( ), bootstrapPort );
+            bootstrap_check_in( bootstrap_port, _kDAServiceName, &__gDAServerPort );
         }
 
         if ( __gDAServerPort )
@@ -2049,47 +2032,4 @@ CFRunLoopSourceRef DAServerCreateRunLoopSource( CFAllocatorRef allocator, CFInde
     }
 
     return source;
-}
-
-DAServerStatus DAServerInitialize( void )
-{
-    mach_port_t   bootstrapPort;
-    kern_return_t status;
-
-    /*
-     * Obtain the bootstrap port.
-     */
-
-    status = task_get_bootstrap_port( mach_task_self( ), &bootstrapPort );
-
-    if ( status == KERN_SUCCESS )
-    {
-        /*
-         * Obtain the Disk Arbitration master port.
-         */
-
-        status = bootstrap_check_in( bootstrapPort, _kDAServiceName, &__gDAServerPort );
-
-        switch ( status )
-        {
-            case BOOTSTRAP_SUCCESS:
-            {
-                return kDAServerStatusInitialize;
-            }
-            case BOOTSTRAP_UNKNOWN_SERVICE:
-            {
-                return kDAServerStatusInactive;
-            }
-            default:
-            {
-                return kDAServerStatusActive;
-            }
-        }
-
-        mach_port_deallocate( mach_task_self( ), bootstrapPort );
-    }
-    else
-    {
-        return kDAServerStatusInactive;
-    }
 }

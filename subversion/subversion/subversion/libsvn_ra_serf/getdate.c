@@ -2,7 +2,7 @@
  * getdate.c :  entry point for get_dated_revision for ra_serf
  *
  * ====================================================================
- * Copyright (c) 2006 CollabNet.  All rights reserved.
+ * Copyright (c) 2006-2007 CollabNet.  All rights reserved.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution.  The terms
@@ -34,6 +34,8 @@
 #include "svn_version.h"
 #include "svn_path.h"
 #include "svn_time.h"
+
+#include "private/svn_dav_protocol.h"
 #include "svn_private_config.h"
 
 #include "ra_serf.h"
@@ -99,7 +101,7 @@ start_getdate(svn_ra_serf__xml_parser_t *parser,
   state = parser->state->current_state;
 
   if (state == NONE &&
-      strcmp(name.name, "version-name") == 0)
+      strcmp(name.name, SVN_DAV__VERSION_NAME) == 0)
     {
       push_state(parser, date_ctx, VERSION_NAME);
     }
@@ -120,7 +122,7 @@ end_getdate(svn_ra_serf__xml_parser_t *parser,
   info = parser->state->private;
 
   if (state == VERSION_NAME &&
-      strcmp(name.name, "version-name") == 0)
+      strcmp(name.name, SVN_DAV__VERSION_NAME) == 0)
     {
       *date_ctx->revision = SVN_STR_TO_REV(info->tmp);
       svn_ra_serf__xml_pop_state(parser);
@@ -139,6 +141,8 @@ cdata_getdate(svn_ra_serf__xml_parser_t *parser,
   date_state_e state;
   date_info_t *info;
 
+  UNUSED_CTX(date_ctx);
+
   state = parser->state->current_state;
   info = parser->state->private;
 
@@ -155,33 +159,27 @@ cdata_getdate(svn_ra_serf__xml_parser_t *parser,
   return SVN_NO_ERROR;
 }
 
-#define GETDATE_HEADER "<S:dated-rev-report xmlns:S=\"" SVN_XML_NAMESPACE "\" xmlns:D=\"DAV:\">"
-#define GETDATE_FOOTER "</S:dated-rev-report>"
-
 static serf_bucket_t*
 create_getdate_body(void *baton,
                     serf_bucket_alloc_t *alloc,
                     apr_pool_t *pool)
 {
-  serf_bucket_t *buckets, *tmp;
+  serf_bucket_t *buckets;
   date_context_t *date_ctx = baton;
 
   buckets = serf_bucket_aggregate_create(alloc);
 
-  tmp = SERF_BUCKET_SIMPLE_STRING_LEN(GETDATE_HEADER,
-                                      sizeof(GETDATE_HEADER) - 1,
-                                      alloc);
-  serf_bucket_aggregate_append(buckets, tmp);
+  svn_ra_serf__add_open_tag_buckets(buckets, alloc, "S:dated-rev-report",
+                                    "xmlns:S", SVN_XML_NAMESPACE,
+                                    "xmlns:D", "DAV:",
+                                    NULL);
 
   svn_ra_serf__add_tag_buckets(buckets,
-                               "D:creationdate",
+                               "D:" SVN_DAV__CREATIONDATE,
                                svn_time_to_cstring(date_ctx->time, pool),
                                alloc);
 
-  tmp = SERF_BUCKET_SIMPLE_STRING_LEN(GETDATE_FOOTER,
-                                      sizeof(GETDATE_FOOTER)-1,
-                                      alloc);
-  serf_bucket_aggregate_append(buckets, tmp);
+  svn_ra_serf__add_close_tag_buckets(buckets, alloc, "S:dated-rev-report");
 
   return buckets;
 }
@@ -237,7 +235,5 @@ svn_ra_serf__get_dated_revision(svn_ra_session_t *ra_session,
 
   *date_ctx->revision = SVN_INVALID_REVNUM;
 
-  SVN_ERR(svn_ra_serf__context_run_wait(&date_ctx->done, session, pool));
-
-  return SVN_NO_ERROR;
+  return svn_ra_serf__context_run_wait(&date_ctx->done, session, pool);
 }

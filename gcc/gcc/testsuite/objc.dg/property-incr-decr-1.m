@@ -1,6 +1,6 @@
 /* APPLE LOCAL file 4712269 */
 /* APPLE LOCAL radar 4899595 */
-/* { dg-options "-fno-objc-new-property -mmacosx-version-min=10.5" } */
+/* { dg-options "-mmacosx-version-min=10.5" { target powerpc*-*-darwin* i?86*-*-darwin* } } */
 /* { dg-do run { target *-*-darwin* } } */
 
 #include <objc/objc.h>
@@ -8,11 +8,14 @@
 #include "../objc/execute/Object2.h"
 
 @interface SomeClass : Object
-@property (ivar) int myValue;
+{
+  int _myValue;
+}
+@property int myValue;
 @end
 
 @implementation SomeClass
-@property (ivar) int myValue;
+@synthesize myValue=_myValue;
 @end
 
 int main()

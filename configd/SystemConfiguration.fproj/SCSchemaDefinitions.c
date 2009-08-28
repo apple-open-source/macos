@@ -3,6 +3,8 @@
  * DO NOT EDIT!
  */
 
+#include <Availability.h>
+#include <TargetConditionals.h>
 #include <CoreFoundation/CFString.h>
 
 const CFStringRef kSCResvLink                                      = CFSTR("__LINK__");
@@ -25,7 +27,11 @@ const CFStringRef kSCCompSystem                                    = CFSTR("Syst
 const CFStringRef kSCCompUsers                                     = CFSTR("Users");
 const CFStringRef kSCCompAnyRegex                                  = CFSTR("[^/]+");
 const CFStringRef kSCEntNetAirPort                                 = CFSTR("AirPort");
+
+#if !TARGET_OS_IPHONE
 const CFStringRef kSCEntNetAppleTalk                               = CFSTR("AppleTalk");
+#endif // !TARGET_OS_IPHONE
+
 const CFStringRef kSCEntNetDHCP                                    = CFSTR("DHCP");
 const CFStringRef kSCEntNetDNS                                     = CFSTR("DNS");
 const CFStringRef kSCEntNetEthernet                                = CFSTR("Ethernet");
@@ -37,15 +43,27 @@ const CFStringRef kSCEntNetIPv6                                    = CFSTR("IPv6
 const CFStringRef kSCEntNetL2TP                                    = CFSTR("L2TP");
 const CFStringRef kSCEntNetLink                                    = CFSTR("Link");
 const CFStringRef kSCEntNetModem                                   = CFSTR("Modem");
+
+#if !TARGET_OS_IPHONE
 const CFStringRef kSCEntNetNetInfo                                 = CFSTR("NetInfo");
+#endif // !TARGET_OS_IPHONE
+
 const CFStringRef kSCEntNetPPP                                     = CFSTR("PPP");
 const CFStringRef kSCEntNetPPPoE                                   = CFSTR("PPPoE");
 const CFStringRef kSCEntNetPPPSerial                               = CFSTR("PPPSerial");
 const CFStringRef kSCEntNetPPTP                                    = CFSTR("PPTP");
 const CFStringRef kSCEntNetProxies                                 = CFSTR("Proxies");
+
+#if !TARGET_OS_IPHONE
 const CFStringRef kSCEntNetSMB                                     = CFSTR("SMB");
+#endif // !TARGET_OS_IPHONE
+
 const CFStringRef kSCEntNet6to4                                    = CFSTR("6to4");
+
+
 const CFStringRef kSCEntNetEAPOL                                   = CFSTR("EAPOL");
+const CFStringRef kSCEntNetOnDemand                                = CFSTR("OnDemand");
+const CFStringRef kSCEntNetService                                 = CFSTR("__SERVICE__");
 const CFStringRef kSCPropNetOverridePrimary                        = CFSTR("OverridePrimary");
 const CFStringRef kSCPropNetServiceOrder                           = CFSTR("ServiceOrder");
 const CFStringRef kSCPropNetPPPOverridePrimary                     = CFSTR("PPPOverridePrimary");
@@ -65,6 +83,8 @@ const CFStringRef kSCValNetAirPortJoinModeRanked                   = CFSTR("Rank
 const CFStringRef kSCValNetAirPortJoinModeRecent                   = CFSTR("Recent");
 const CFStringRef kSCValNetAirPortJoinModeStrongest                = CFSTR("Strongest");
 const CFStringRef kSCValNetAirPortAuthPasswordEncryptionKeychain   = CFSTR("Keychain");
+
+#if !TARGET_OS_IPHONE
 const CFStringRef kSCPropNetAppleTalkComputerName                  = CFSTR("ComputerName");
 const CFStringRef kSCPropNetAppleTalkComputerNameEncoding          = CFSTR("ComputerNameEncoding");
 const CFStringRef kSCPropNetAppleTalkConfigMethod                  = CFSTR("ConfigMethod");
@@ -77,6 +97,10 @@ const CFStringRef kSCPropNetAppleTalkSeedZones                     = CFSTR("Seed
 const CFStringRef kSCValNetAppleTalkConfigMethodNode               = CFSTR("Node");
 const CFStringRef kSCValNetAppleTalkConfigMethodRouter             = CFSTR("Router");
 const CFStringRef kSCValNetAppleTalkConfigMethodSeedRouter         = CFSTR("SeedRouter");
+#endif // !TARGET_OS_IPHONE
+
+
+
 const CFStringRef kSCPropNetDNSDomainName                          = CFSTR("DomainName");
 const CFStringRef kSCPropNetDNSOptions                             = CFSTR("Options");
 const CFStringRef kSCPropNetDNSSearchDomains                       = CFSTR("SearchDomains");
@@ -99,20 +123,36 @@ const CFStringRef kSCValNetInterfaceTypeEthernet                   = CFSTR("Ethe
 const CFStringRef kSCValNetInterfaceTypeFireWire                   = CFSTR("FireWire");
 const CFStringRef kSCValNetInterfaceTypePPP                        = CFSTR("PPP");
 const CFStringRef kSCValNetInterfaceType6to4                       = CFSTR("6to4");
+const CFStringRef kSCValNetInterfaceTypeIPSec                      = CFSTR("IPSec");
 const CFStringRef kSCValNetInterfaceSubTypePPPoE                   = CFSTR("PPPoE");
 const CFStringRef kSCValNetInterfaceSubTypePPPSerial               = CFSTR("PPPSerial");
 const CFStringRef kSCValNetInterfaceSubTypePPTP                    = CFSTR("PPTP");
 const CFStringRef kSCValNetInterfaceSubTypeL2TP                    = CFSTR("L2TP");
+const CFStringRef kSCPropNetIPSecAuthenticationMethod              = CFSTR("AuthenticationMethod");
+const CFStringRef kSCPropNetIPSecLocalCertificate                  = CFSTR("LocalCertificate");
 const CFStringRef kSCPropNetIPSecLocalIdentifier                   = CFSTR("LocalIdentifier");
 const CFStringRef kSCPropNetIPSecLocalIdentifierType               = CFSTR("LocalIdentifierType");
-const CFStringRef kSCPropNetIPSecAuthenticationMethod              = CFSTR("AuthenticationMethod");
 const CFStringRef kSCPropNetIPSecSharedSecret                      = CFSTR("SharedSecret");
 const CFStringRef kSCPropNetIPSecSharedSecretEncryption            = CFSTR("SharedSecretEncryption");
-const CFStringRef kSCPropNetIPSecLocalCertificate                  = CFSTR("LocalCertificate");
+const CFStringRef kSCPropNetIPSecConnectTime                       = CFSTR("ConnectTime");
+const CFStringRef kSCPropNetIPSecRemoteAddress                     = CFSTR("RemoteAddress");
+const CFStringRef kSCPropNetIPSecStatus                            = CFSTR("Status");
+const CFStringRef kSCPropNetIPSecXAuthEnabled                      = CFSTR("XAuthEnabled");
+const CFStringRef kSCPropNetIPSecXAuthName                         = CFSTR("XAuthName");
+const CFStringRef kSCPropNetIPSecXAuthPassword                     = CFSTR("XAuthPassword");
+const CFStringRef kSCPropNetIPSecXAuthPasswordEncryption           = CFSTR("XAuthPasswordEncryption");
 const CFStringRef kSCValNetIPSecAuthenticationMethodSharedSecret   = CFSTR("SharedSecret");
 const CFStringRef kSCValNetIPSecAuthenticationMethodCertificate    = CFSTR("Certificate");
-const CFStringRef kSCValNetIPSecSharedSecretEncryptionKeychain     = CFSTR("Keychain");
+const CFStringRef kSCValNetIPSecAuthenticationMethodHybrid         = CFSTR("Hybrid");
 const CFStringRef kSCValNetIPSecLocalIdentifierTypeKeyID           = CFSTR("KeyID");
+const CFStringRef kSCValNetIPSecSharedSecretEncryptionKeychain     = CFSTR("Keychain");
+const CFStringRef kSCValNetIPSecXAuthPasswordEncryptionKeychain    = CFSTR("Keychain");
+const CFStringRef kSCValNetIPSecXAuthPasswordEncryptionPrompt      = CFSTR("Prompt");
+const CFStringRef kSCPropNetIPSecLastCause                         = CFSTR("LastCause");
+const CFStringRef kSCPropNetIPSecOnDemandEnabled                   = CFSTR("OnDemandEnabled");
+const CFStringRef kSCPropNetIPSecOnDemandMatchDomainsAlways        = CFSTR("OnDemandMatchDomainsAlways");
+const CFStringRef kSCPropNetIPSecOnDemandMatchDomainsOnRetry       = CFSTR("OnDemandMatchDomainsOnRetry");
+const CFStringRef kSCPropNetIPSecOnDemandMatchDomainsNever         = CFSTR("OnDemandMatchDomainsNever");
 const CFStringRef kSCPropNetIPv4Addresses                          = CFSTR("Addresses");
 const CFStringRef kSCPropNetIPv4ConfigMethod                       = CFSTR("ConfigMethod");
 const CFStringRef kSCPropNetIPv4DHCPClientID                       = CFSTR("DHCPClientID");
@@ -120,6 +160,7 @@ const CFStringRef kSCPropNetIPv4Router                             = CFSTR("Rout
 const CFStringRef kSCPropNetIPv4SubnetMasks                        = CFSTR("SubnetMasks");
 const CFStringRef kSCPropNetIPv4DestAddresses                      = CFSTR("DestAddresses");
 const CFStringRef kSCPropNetIPv4BroadcastAddresses                 = CFSTR("BroadcastAddresses");
+const CFStringRef kSCValNetIPv4ConfigMethodAutomatic               = CFSTR("Automatic");
 const CFStringRef kSCValNetIPv4ConfigMethodBOOTP                   = CFSTR("BOOTP");
 const CFStringRef kSCValNetIPv4ConfigMethodDHCP                    = CFSTR("DHCP");
 const CFStringRef kSCValNetIPv4ConfigMethodINFORM                  = CFSTR("INFORM");
@@ -162,6 +203,8 @@ const CFStringRef kSCPropNetModemSpeed                             = CFSTR("Spee
 const CFStringRef kSCValNetModemDialModeIgnoreDialTone             = CFSTR("IgnoreDialTone");
 const CFStringRef kSCValNetModemDialModeManual                     = CFSTR("Manual");
 const CFStringRef kSCValNetModemDialModeWaitForDialTone            = CFSTR("WaitForDialTone");
+
+#if !TARGET_OS_IPHONE
 const CFStringRef kSCPropNetNetInfoBindingMethods                  = CFSTR("BindingMethods");
 const CFStringRef kSCPropNetNetInfoServerAddresses                 = CFSTR("ServerAddresses");
 const CFStringRef kSCPropNetNetInfoServerTags                      = CFSTR("ServerTags");
@@ -170,6 +213,8 @@ const CFStringRef kSCValNetNetInfoBindingMethodsBroadcast          = CFSTR("Broa
 const CFStringRef kSCValNetNetInfoBindingMethodsDHCP               = CFSTR("DHCP");
 const CFStringRef kSCValNetNetInfoBindingMethodsManual             = CFSTR("Manual");
 const CFStringRef kSCValNetNetInfoDefaultServerTag                 = CFSTR("network");
+#endif // !TARGET_OS_IPHONE
+
 const CFStringRef kSCPropNetPPPACSPEnabled                         = CFSTR("ACSPEnabled");
 const CFStringRef kSCPropNetPPPConnectTime                         = CFSTR("ConnectTime");
 const CFStringRef kSCPropNetPPPDeviceLastCause                     = CFSTR("DeviceLastCause");
@@ -269,6 +314,13 @@ const CFStringRef kSCPropNetProxiesSOCKSProxy                      = CFSTR("SOCK
 const CFStringRef kSCPropNetProxiesProxyAutoConfigEnable           = CFSTR("ProxyAutoConfigEnable");
 const CFStringRef kSCPropNetProxiesProxyAutoConfigURLString        = CFSTR("ProxyAutoConfigURLString");
 const CFStringRef kSCPropNetProxiesProxyAutoDiscoveryEnable        = CFSTR("ProxyAutoDiscoveryEnable");
+const CFStringRef kSCPropNetServicePrimaryRank                     = CFSTR("PrimaryRank");
+const CFStringRef kSCPropNetServiceUserDefinedName                 = CFSTR("UserDefinedName");
+const CFStringRef kSCValNetServicePrimaryRankFirst                 = CFSTR("First");
+const CFStringRef kSCValNetServicePrimaryRankLast                  = CFSTR("Last");
+const CFStringRef kSCValNetServicePrimaryRankNever                 = CFSTR("Never");
+
+#if !TARGET_OS_IPHONE
 const CFStringRef kSCPropNetSMBNetBIOSName                         = CFSTR("NetBIOSName");
 const CFStringRef kSCPropNetSMBNetBIOSNodeType                     = CFSTR("NetBIOSNodeType");
 const CFStringRef kSCPropNetSMBNetBIOSScope                        = CFSTR("NetBIOSScope");
@@ -278,7 +330,13 @@ const CFStringRef kSCValNetSMBNetBIOSNodeTypeBroadcast             = CFSTR("Broa
 const CFStringRef kSCValNetSMBNetBIOSNodeTypePeer                  = CFSTR("Peer");
 const CFStringRef kSCValNetSMBNetBIOSNodeTypeMixed                 = CFSTR("Mixed");
 const CFStringRef kSCValNetSMBNetBIOSNodeTypeHybrid                = CFSTR("Hybrid");
+#endif // !TARGET_OS_IPHONE
+
+
+#if !TARGET_OS_IPHONE
 const CFStringRef kSCEntUsersConsoleUser                           = CFSTR("ConsoleUser");
+#endif // !TARGET_OS_IPHONE
+
 const CFStringRef kSCPropSystemComputerName                        = CFSTR("ComputerName");
 const CFStringRef kSCPropSystemComputerNameEncoding                = CFSTR("ComputerNameEncoding");
 const CFStringRef kSCPropSystemComputerNameRegion                  = CFSTR("ComputerNameRegion");
@@ -294,12 +352,20 @@ const CFStringRef kSCDynamicStorePropNetInterfaces                 = CFSTR("Inte
 const CFStringRef kSCDynamicStorePropNetPrimaryInterface           = CFSTR("PrimaryInterface");
 const CFStringRef kSCDynamicStorePropNetPrimaryService             = CFSTR("PrimaryService");
 const CFStringRef kSCDynamicStorePropNetServiceIDs                 = CFSTR("ServiceIDs");
+
+#if !TARGET_OS_IPHONE
 const CFStringRef kSCPropVirtualNetworkInterfacesBondInterfaces    = CFSTR("Interfaces");
 const CFStringRef kSCPropVirtualNetworkInterfacesBondMode          = CFSTR("Mode");
 const CFStringRef kSCPropVirtualNetworkInterfacesBondOptions       = CFSTR("Options");
 const CFStringRef kSCPropVirtualNetworkInterfacesVLANInterface     = CFSTR("Interface");
 const CFStringRef kSCPropVirtualNetworkInterfacesVLANTag           = CFSTR("Tag");
 const CFStringRef kSCPropVirtualNetworkInterfacesVLANOptions       = CFSTR("Options");
+#endif // !TARGET_OS_IPHONE
+
+
+#if !TARGET_OS_IPHONE
 const CFStringRef kSCPropUsersConsoleUserName                      = CFSTR("Name");
 const CFStringRef kSCPropUsersConsoleUserUID                       = CFSTR("UID");
 const CFStringRef kSCPropUsersConsoleUserGID                       = CFSTR("GID");
+#endif // !TARGET_OS_IPHONE
+

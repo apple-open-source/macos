@@ -25,7 +25,9 @@
 #define __DSX509RELATION__
 
 #include "PartialRelation.h"
-#include "DirectoryServices.h"
+// #include "DirectoryServices.h"
+#include "ODBridge.h"
+
 
 /*
 	These classes define the relationship between CDSA and Open Directory
@@ -64,16 +66,15 @@ public:
 class DSX509Relation;
 
 // a class representing a single open directory record, and the method to serialize it as a tuple
-class DSX509Record : public DSRecord
+class DSX509Record
 {
 protected:
 	DSX509Relation *mRelation;
 
 public:
 	DSX509Record (DSX509Relation* relation) : mRelation (relation) {}
-	int GetTuple (DSX509Tuple *tupleList[], int maxTuples);
+	int GetTuple (CFDataRef certData, CFStringRef original_search, DSX509Tuple *tupleList[], int maxTuples);
 };
-
 
 
 // a class representing a unique identifier for a record (in the CDSA sense)
@@ -98,19 +99,14 @@ class DSX509Query : public Query
 {
 protected:
 	DirectoryService *mDirectoryService;								// the directory service instance from which we came
-	DSNodeList* mNodeList;												// the node list from which we came
-	unsigned long mCurrentNodeIndex;									// the index of the node we are currently searching
-	DSContext *mDSContext;												// our current context
+	// DSContext *mDSContext;											// our current context
 	unsigned long mRecordCount;											// the record we are currently searching
 	unsigned long mCurrentItem;											// the item we are currently searching
-	DSNode* mCurrentNode;												// the node we are currently searching
-	tDirPatternMatch mPatternMatch;										// the search operator
-	DSDataNode* mPatternToMatch;										// the search pattern
-	DSRecordList *mRecordList;											// the records we are searching
-
-	void ConnectToNextNode ();											// move to the next node in the list
-	void SetupNextSearch ();											// start a new search on a node
-	Tuple* MakeTupleFromRecord (DSRecord &record);						// convert a record to a tuple
+	CSSM_QUERY *queryBase;												// The original query
+	ODdl_results_handle mRecordList;									// the records we are searching
+	bool validQuery;
+	bool ValidateQueryString(CSSM_DATA mailAddr);
+	Tuple* MakeTupleFromRecord (CFDataRef record);						// convert a record to a tuple
 
 	DSX509Tuple* mTupleList[kMaxTuples];								// store tuples returned from a query
 	int mNumberOfTuples;												// number of tuples stored
@@ -133,7 +129,9 @@ protected:
 	void InitializeCertLibrary ();										// load the CL
 
 public:
-	DSX509Relation ();
+	DirectoryService *mDirectoryService;
+	
+	DSX509Relation (CSSM_DB_RECORDTYPE recordType, int numberOfColumns, columnInfoLoader *theColumnInfo);
 	virtual ~DSX509Relation ();
 
 	Query* MakeQuery (const CSSM_QUERY* query);							// convert a CSSM_QUERY object to an internal form

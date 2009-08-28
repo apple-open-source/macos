@@ -61,9 +61,10 @@ class CDSAuthParams
 		char						*pNewPassword;
 		char						*pOldPassword;
 		unsigned char				*pNTLMDigest;
-		unsigned long				ntlmDigestLen;
+		UInt32						ntlmDigestLen;
+		UInt32						ntlmHashType;
 		unsigned char				*pCramResponse;
-		unsigned long				cramResponseLen;
+		UInt32						cramResponseLen;
 		char						*pSambaName;
 		char						*pDomain;
 		char						*pAdminUser;
@@ -91,7 +92,7 @@ class CDSAuthParams
 		struct timeval				modDateAssist;
 		PWGlobalAccessFeatures		globalAccess;
 		PWGlobalMoreAccessFeatures	globalMoreAccess;		
-		unsigned long				policyStrLen;
+		UInt32						policyStrLen;
 		digest_context_t			digestContext;
 		int							keySize;
 		char						*challenge;

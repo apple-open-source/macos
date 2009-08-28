@@ -203,7 +203,7 @@
 #
 class OptionParser
   # :stopdoc:
-  RCSID = %w$Id: optparse.rb 18108 2008-07-17 12:30:12Z shyouhei $[1..-1].each {|s| s.freeze}.freeze
+  RCSID = %w$Id: optparse.rb 18110 2008-07-17 12:31:06Z shyouhei $[1..-1].each {|s| s.freeze}.freeze
   Version = (RCSID[1].split('.').collect {|s| s.to_i}.extend(Comparable).freeze if RCSID[1])
   LastModified = (Time.gm(*RCSID[2, 2].join('-').scan(/\d+/).collect {|s| s.to_i}) if RCSID[2])
   Release = RCSID[2]
@@ -633,8 +633,10 @@ class OptionParser
       list.each do |opt|
         if opt.respond_to?(:summarize) # perhaps OptionParser::Switch
           opt.summarize(*args, &block)
-        elsif !opt or opt.empty?
+        elsif !opt
           yield("")
+        elsif opt.respond_to?(:each_line)
+          opt.each_line(&block)
         else
           opt.each(&block)
         end
@@ -824,7 +826,7 @@ class OptionParser
   #
   # Directs to reject specified class argument.
   #
-  # +t+:: Argument class speficier, any object including Class.
+  # +t+:: Argument class specifier, any object including Class.
   #
   #   reject(t)
   #
@@ -1035,13 +1037,13 @@ class OptionParser
   #     "-x[OPTIONAL]"
   #     "-x"
   #   There is also a special form which matches character range (not full
-  #   set of regural expression):
+  #   set of regular expression):
   #     "-[a-z]MANDATORY"
   #     "-[a-z][OPTIONAL]" 
   #     "-[a-z]"
   #
   # [Argument style and description:]
-  #   Instead of specifying mandatory or optional orguments directly in the
+  #   Instead of specifying mandatory or optional arguments directly in the
   #   switch parameter, this separate parameter can be used.
   #     "=MANDATORY"
   #     "=[OPTIONAL]"
@@ -1077,7 +1079,7 @@ class OptionParser
       # directly specified pattern(any object possible to match)
       if !(String === o) and o.respond_to?(:match)
         pattern = notwice(o, pattern, 'pattern')
-        conv = (pattern.method(:convert).to_proc if pattern.respond_to?(:convert))
+        conv = pattern.method(:convert).to_proc if pattern.respond_to?(:convert)
         next
       end
 
@@ -1090,7 +1092,7 @@ class OptionParser
         when CompletingHash
         when nil
           pattern = CompletingHash.new
-          conv = (pattern.method(:convert).to_proc if pattern.respond_to?(:convert))
+          conv = pattern.method(:convert).to_proc if pattern.respond_to?(:convert)
         else
           raise ArgumentError, "argument pattern given twice"
         end

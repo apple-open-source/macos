@@ -1,7 +1,7 @@
 /*
  *  errorbox.c
  *
- *  $Id: errorbox.c,v 1.7 2006/01/20 15:58:35 source Exp $
+ *  $Id: errorbox.c,v 1.8 2007/02/02 11:58:14 source Exp $
  *
  *  The iODBC driver manager.
  *
@@ -116,11 +116,16 @@ create_error (HWND hwnd, LPCSTR dsn, LPCSTR text, LPCSTR errmsg)
     sprintf (msg, "Error : %s", dsn);
   else
     sprintf (msg, "Error ...");
+
   gtk_object_set_data (GTK_OBJECT (error), "error", error);
   gtk_window_set_title (GTK_WINDOW (error), msg);
   gtk_window_set_position (GTK_WINDOW (error), GTK_WIN_POS_CENTER);
   gtk_window_set_modal (GTK_WINDOW (error), TRUE);
   gtk_window_set_policy (GTK_WINDOW (error), FALSE, FALSE, FALSE);
+
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_widget_show (error);
+#endif
 
   dialog_vbox1 = GTK_DIALOG (error)->vbox;
   gtk_object_set_data (GTK_OBJECT (error), "dialog_vbox1", dialog_vbox1);
@@ -134,10 +139,18 @@ create_error (HWND hwnd, LPCSTR dsn, LPCSTR text, LPCSTR errmsg)
   gtk_box_pack_start (GTK_BOX (dialog_vbox1), hbox1, TRUE, TRUE, 0);
   gtk_container_set_border_width (GTK_CONTAINER (hbox1), 6);
 
+#if GTK_CHECK_VERSION(2,0,0)
+  style = gtk_widget_get_style (error);
+  pixmap =
+      gdk_pixmap_create_from_xpm_d (error->window, &mask,
+      &style->bg[GTK_STATE_NORMAL], (gchar **) error_xpm);
+#else
   style = gtk_widget_get_style (GTK_WIDGET (hwnd));
   pixmap =
       gdk_pixmap_create_from_xpm_d (GTK_WIDGET (hwnd)->window, &mask,
       &style->bg[GTK_STATE_NORMAL], (gchar **) error_xpm);
+#endif
+
   pixmap1 = gtk_pixmap_new (pixmap, mask);
   gtk_widget_ref (pixmap1);
   gtk_object_set_data_full (GTK_OBJECT (error), "pixmap1", pixmap1,

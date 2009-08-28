@@ -4,7 +4,6 @@
 
 import os
 import sys
-import string
 
 import gen_base
 import gen_win
@@ -88,7 +87,7 @@ class Generator(gen_win.WinGeneratorBase):
     self.write_neon_project_file('neon.dsp')
     self.write_serf_project_file('serf.dsp')
     install_targets = self.get_install_targets()
-    
+
     targets = [ ]
 
     self.gen_proj_names(install_targets)
@@ -104,7 +103,7 @@ class Generator(gen_win.WinGeneratorBase):
 
       if '-' in fname:
         fname = '"%s"' % fname
-        
+
       depends = [ ]
       if not isinstance(target, gen_base.TargetI18N):
         depends = self.adjust_win_depends(target, name)
@@ -118,20 +117,12 @@ class Generator(gen_win.WinGeneratorBase):
 
       targets.append(
         gen_win.ProjectItem(name=target.proj_name,
-                            dsp=string.replace(fname, os.sep, '\\'),
+                            dsp=fname.replace(os.sep, '\\'),
                             depends=dep_names))
 
-    targets.sort(lambda x, y: cmp(x.name, y.name))
+    targets.sort(key = lambda x: x.name)
     data = {
       'targets' : targets,
       }
 
     self.write_with_template('subversion_msvc.dsw', 'msvc_dsw.ezt', data)
-
-
-# compatibility with older Pythons:
-try:
-  True
-except NameError:
-  True = 1
-  False = 0

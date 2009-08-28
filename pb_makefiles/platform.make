@@ -28,36 +28,7 @@
 # This file is here in this form because it gets included by Makefile.preamble
 # when building the pb_makefiles project itself.
 
-ARCH := $(shell arch)
-
-ifeq "i386-nextpdo-winnt3.5" "$(ARCH)"
-OS = WINDOWS
-PLATFORM_OS = winnt
-endif
-
-ifeq "hppa1.1-nextpdo-hpux" "$(ARCH)"
-OS = HPUX
-PLATFORM_OS = hpux
-endif
-
-ifeq "hppa-hpux" "$(ARCH)"
-OS = HPUX
-PLATFORM_OS = hpux
-endif
-
-ifeq "sparc-nextpdo-solaris2" "$(ARCH)"
-OS = SOLARIS
-PLATFORM_OS = solaris
-endif
-
-ifeq "" "$(OS)"
-ifeq "macos" "$(RC_OS)"
 OS = MACOS
 PLATFORM_OS = macos
-else
-OS = NEXTSTEP
-PLATFORM_OS = nextstep
-endif
-endif
 
 include $(MAKEFILEDIR)/platform-variables.make

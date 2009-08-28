@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2006, 2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,17 +31,18 @@
  * - created (for EAP)
  */
 
+#include <Availability.h>
+#include <TargetConditionals.h>
 #include <sys/param.h>
-
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFBundlePriv.h>	// for _CFBundleCopyMainBundleExecutableURL
 #include <SystemConfiguration/SCPrivate.h>	// for _SCErrorSet
-#include <Security/Security.h>
 #include "dy_framework.h"
 
 #include "SCPreferencesInternal.h"
 
 
+#if	!TARGET_OS_IPHONE
 static CFDataRef
 copyMyExecutablePath(void)
 {
@@ -265,11 +266,13 @@ _SCSecAccessCreateForExecutables(CFStringRef	label,
 
 	return	access;
 }
+#endif	// !TARGET_OS_IPHONE
 
 
 SecKeychainRef
 _SCSecKeychainCopySystemKeychain(void)
 {
+#if	!TARGET_OS_IPHONE
 	SecPreferencesDomain	domain;
 	SecKeychainRef		keychain	= NULL;
 	OSStatus		status;
@@ -302,9 +305,14 @@ _SCSecKeychainCopySystemKeychain(void)
 	}
 
 	return keychain;
+#else	// !TARGET_OS_IPHONE
+	_SCErrorSet(kSCStatusAccessError);
+	return NULL;
+#endif	// !TARGET_OS_IPHONE
 }
 
 
+#if	!TARGET_OS_IPHONE
 static OSStatus
 findKeychainItem(SecKeychainRef		keychain,
 		 UInt32			serviceNameLength,
@@ -333,12 +341,14 @@ findKeychainItem(SecKeychainRef		keychain,
 
 	return status;
 }
+#endif	// !TARGET_OS_IPHONE
 
 
 CFDataRef
 _SCSecKeychainPasswordItemCopy(SecKeychainRef	keychain,
 			       CFStringRef	unique_id)
 {
+#if	!TARGET_OS_IPHONE
 	SecKeychainItemRef	item			= NULL;
 	CFDataRef		keychain_password	= NULL;
 	const char		*keychain_serviceName;
@@ -366,12 +376,17 @@ _SCSecKeychainPasswordItemCopy(SecKeychainRef	keychain,
 	}
 
 	return keychain_password;
+#else	// !TARGET_OS_IPHONE
+	_SCErrorSet(kSCStatusAccessError);
+	return NULL;
+#endif	// !TARGET_OS_IPHONE
 }
 
 
 Boolean
 _SCSecKeychainPasswordItemExists(SecKeychainRef keychain, CFStringRef unique_id)
 {
+#if	!TARGET_OS_IPHONE
 	SecKeychainItemRef	item;
 	const char		*keychain_serviceName;
 	OSStatus		status;
@@ -389,12 +404,17 @@ _SCSecKeychainPasswordItemExists(SecKeychainRef keychain, CFStringRef unique_id)
 
 	CFRelease(item);
 	return TRUE;
+#else	// !TARGET_OS_IPHONE
+	_SCErrorSet(kSCStatusAccessError);
+	return FALSE;
+#endif	// !TARGET_OS_IPHONE
 }
 
 
 Boolean
 _SCSecKeychainPasswordItemRemove(SecKeychainRef keychain, CFStringRef unique_id)
 {
+#if	!TARGET_OS_IPHONE
 	SecKeychainItemRef	item;
 	const char		*keychain_serviceName;
 	OSStatus		status;
@@ -418,6 +438,10 @@ _SCSecKeychainPasswordItemRemove(SecKeychainRef keychain, CFStringRef unique_id)
 	}
 
 	return TRUE;
+#else	// !TARGET_OS_IPHONE
+	_SCErrorSet(kSCStatusAccessError);
+	return FALSE;
+#endif	// !TARGET_OS_IPHONE
 }
 
 
@@ -430,6 +454,7 @@ _SCSecKeychainPasswordItemSet(SecKeychainRef	keychain,
 			      CFDataRef		password,
 			      CFDictionaryRef	options)
 {
+#if	!TARGET_OS_IPHONE
 	SecAccessRef			access			= NULL;
 	CFBooleanRef			allowRoot		= NULL;
 	CFArrayRef			allowedExecutables	= NULL;
@@ -569,6 +594,10 @@ _SCSecKeychainPasswordItemSet(SecKeychainRef	keychain,
 	}
 
 	return TRUE;
+#else	// !TARGET_OS_IPHONE
+	_SCErrorSet(kSCStatusAccessError);
+	return FALSE;
+#endif	// !TARGET_OS_IPHONE
 }
 
 
@@ -583,6 +612,7 @@ _SCSecKeychainPasswordItemSet(SecKeychainRef	keychain,
 #include <sys/errno.h>
 
 
+#if	!TARGET_OS_IPHONE
 static CFDataRef
 __SCPreferencesSystemKeychainPasswordItemCopy_helper(SCPreferencesRef	prefs,
 						     CFStringRef	unique_id)
@@ -639,12 +669,14 @@ __SCPreferencesSystemKeychainPasswordItemCopy_helper(SCPreferencesRef	prefs,
 	_SCErrorSet(status);
 	return NULL;
 }
+#endif	// !TARGET_OS_IPHONE
 
 
 CFDataRef
 _SCPreferencesSystemKeychainPasswordItemCopy(SCPreferencesRef	prefs,
 					     CFStringRef	unique_id)
 {
+#if	!TARGET_OS_IPHONE
 	SecKeychainRef		keychain	= NULL;
 	CFDataRef		password	= NULL;
 	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
@@ -652,12 +684,12 @@ _SCPreferencesSystemKeychainPasswordItemCopy(SCPreferencesRef	prefs,
 	if (prefs == NULL) {
 		/* sorry, you must provide a session */
 		_SCErrorSet(kSCStatusNoPrefsSession);
-		return FALSE;
+		return NULL;
 	}
 
 	if (!isA_CFString(unique_id)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
-		return FALSE;
+		return NULL;
 	}
 
 	if (prefsPrivate->authorizationData != NULL) {
@@ -676,6 +708,10 @@ _SCPreferencesSystemKeychainPasswordItemCopy(SCPreferencesRef	prefs,
 
 	if (keychain != NULL)	CFRelease(keychain);
 	return password;
+#else	// !TARGET_OS_IPHONE
+	_SCErrorSet(kSCStatusAccessError);
+	return NULL;
+#endif	// !TARGET_OS_IPHONE
 }
 
 
@@ -683,6 +719,7 @@ Boolean
 _SCPreferencesSystemKeychainPasswordItemExists(SCPreferencesRef	prefs,
 					       CFStringRef	unique_id)
 {
+#if	!TARGET_OS_IPHONE
 	SecKeychainRef		keychain	= NULL;
 	Boolean			ok		= FALSE;
 //	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
@@ -714,9 +751,14 @@ _SCPreferencesSystemKeychainPasswordItemExists(SCPreferencesRef	prefs,
 
 	if (keychain != NULL)	CFRelease(keychain);
 	return ok;
+#else	// !TARGET_OS_IPHONE
+	_SCErrorSet(kSCStatusAccessError);
+	return FALSE;
+#endif	// !TARGET_OS_IPHONE
 }
 
 
+#if	!TARGET_OS_IPHONE
 static Boolean
 __SCPreferencesSystemKeychainPasswordItemRemove_helper(SCPreferencesRef	prefs,
 						       CFStringRef	unique_id)
@@ -773,12 +815,14 @@ __SCPreferencesSystemKeychainPasswordItemRemove_helper(SCPreferencesRef	prefs,
 	_SCErrorSet(status);
 	return FALSE;
 }
+#endif	// !TARGET_OS_IPHONE
 
 
 Boolean
 _SCPreferencesSystemKeychainPasswordItemRemove(SCPreferencesRef	prefs,
 					       CFStringRef	unique_id)
 {
+#if	!TARGET_OS_IPHONE
 	SecKeychainRef		keychain	= NULL;
 	Boolean			ok		= FALSE;
 	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
@@ -810,9 +854,14 @@ _SCPreferencesSystemKeychainPasswordItemRemove(SCPreferencesRef	prefs,
 
 	if (keychain != NULL)	CFRelease(keychain);
 	return ok;
+#else	// !TARGET_OS_IPHONE
+	_SCErrorSet(kSCStatusAccessError);
+	return FALSE;
+#endif	// !TARGET_OS_IPHONE
 }
 
 
+#if	!TARGET_OS_IPHONE
 static Boolean
 __SCPreferencesSystemKeychainPasswordItemSet_helper(SCPreferencesRef	prefs,
 						    CFStringRef		unique_id,
@@ -948,6 +997,7 @@ __SCPreferencesSystemKeychainPasswordItemSet_helper(SCPreferencesRef	prefs,
 	_SCErrorSet(status);
 	return FALSE;
 }
+#endif	// !TARGET_OS_IPHONE
 
 
 Boolean
@@ -959,6 +1009,7 @@ _SCPreferencesSystemKeychainPasswordItemSet(SCPreferencesRef	prefs,
 					    CFDataRef		password,
 					    CFDictionaryRef	options)
 {
+#if	!TARGET_OS_IPHONE
 	SecKeychainRef		keychain		= NULL;
 	Boolean			ok			= FALSE;
 	SCPreferencesPrivateRef	prefsPrivate		= (SCPreferencesPrivateRef)prefs;
@@ -1007,4 +1058,8 @@ _SCPreferencesSystemKeychainPasswordItemSet(SCPreferencesRef	prefs,
 
 	if (keychain != NULL)	CFRelease(keychain);
 	return ok;
+#else	// !TARGET_OS_IPHONE
+	_SCErrorSet(kSCStatusAccessError);
+	return FALSE;
+#endif	// !TARGET_OS_IPHONE
 }

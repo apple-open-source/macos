@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 1999-2008 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,6 +26,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <sys/queue.h>
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <dns_sd.h>
@@ -76,17 +77,23 @@ socket_callback(CFSocketRef s, CFSocketCallBackType callbackType, CFDataRef addr
 	}
 }
 
+#ifdef DEBUG
+#define Dused
+#else
+#define Dused	__unused
+#endif
+
 static void
 resolve_callback(
-	DNSServiceRef sdRef,
-	DNSServiceFlags flags,
-	uint32_t interfaceIndex,
-	DNSServiceErrorType errorCode,
-	const char *fullName,
+	__unused DNSServiceRef sdRef,
+	__unused DNSServiceFlags flags,
+	__unused uint32_t interfaceIndex,
+	__unused DNSServiceErrorType errorCode,
+	Dused const char *fullName,
 	const char *hostTarget,
-	uint16_t port,
-	uint16_t txtLen,
-	const unsigned char *txtRecord,
+	Dused uint16_t port,
+	Dused uint16_t txtLen,
+	Dused const unsigned char *txtRecord,
 	void *context)
 {
 	struct cbinfo *info = context;
@@ -126,14 +133,14 @@ resolve_callback(
  */
 static void
 browser_callback(
-	DNSServiceRef sdRef,
+	__unused DNSServiceRef sdRef,
 	DNSServiceFlags servFlags,
 	uint32_t interfaceIndex,
 	DNSServiceErrorType errorCode,
 	const char *serviceName,
 	const char *regType,
 	const char *replyDomain,
-	void *context)
+	__unused void *context)
 {
 	DNSServiceErrorType err;
 	CFSocketContext ctx = { 0, NULL, NULL, NULL, NULL };

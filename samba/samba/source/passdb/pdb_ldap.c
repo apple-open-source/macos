@@ -1611,7 +1611,7 @@ static NTSTATUS ldapsam_modify_entry(struct pdb_methods *my_methods,
 		ber_printf (ber, "{");
 		ber_printf (ber, "ts", LDAP_TAG_EXOP_MODIFY_PASSWD_ID, utf8_dn);
 	        ber_printf (ber, "ts", LDAP_TAG_EXOP_MODIFY_PASSWD_NEW, utf8_password);
-	        ber_printf (ber, "N}");
+	        ber_printf (ber, "n}");
 
 	        if ((rc = ber_flatten (ber, &bv))<0) {
 			DEBUG(0,("ldapsam_modify_entry: ber_flatten returns a value <0\n"));
@@ -1651,6 +1651,10 @@ static NTSTATUS ldapsam_modify_entry(struct pdb_methods *my_methods,
 				pdb_get_username(newpwd), ldap_err2string(rc), ld_error?ld_error:"unknown"));
 			SAFE_FREE(ld_error);
 			ber_bvfree(bv);
+#if defined(LDAP_CONSTRAINT_VIOLATION)
+			if (rc == LDAP_CONSTRAINT_VIOLATION)
+				return NT_STATUS_PASSWORD_RESTRICTION;
+#endif
 			return NT_STATUS_UNSUCCESSFUL;
 		} else {
 			DEBUG(3,("ldapsam_modify_entry: LDAP Password changed for user %s\n",pdb_get_username(newpwd)));
@@ -2454,7 +2458,7 @@ static NTSTATUS ldapsam_enum_group_members(struct pdb_methods *methods,
 			goto done;
 		}
 
-		rc = smbldap_search(conn, lp_ldap_user_suffix(),
+		rc = smbldap_search(conn, lp_ldap_suffix(),
 				    LDAP_SCOPE_SUBTREE, filter, sid_attrs, 0,
 				    &result);
 
@@ -2510,7 +2514,7 @@ static NTSTATUS ldapsam_enum_group_members(struct pdb_methods *methods,
 				 LDAP_OBJ_SAMBASAMACCOUNT,
 				 gidstr);
 
-	rc = smbldap_search(conn, lp_ldap_user_suffix(),
+	rc = smbldap_search(conn, lp_ldap_suffix(),
 			    LDAP_SCOPE_SUBTREE, filter, sid_attrs, 0,
 			    &result);
 
@@ -2594,7 +2598,7 @@ static NTSTATUS ldapsam_enum_group_memberships(struct pdb_methods *methods,
 		goto done;
 	}
 
-	rc = smbldap_search(conn, lp_ldap_user_suffix(),
+	rc = smbldap_search(conn, lp_ldap_suffix(),
 			    LDAP_SCOPE_SUBTREE, filter, attrs, 0, &result);
 
 	if (rc != LDAP_SUCCESS)

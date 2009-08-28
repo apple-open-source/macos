@@ -1,4 +1,4 @@
-/*$Header: /src/pub/tcsh/win32/bogus.c,v 1.4 2004/05/19 18:22:27 christos Exp $*/
+/*$Header: /p/tcsh/cvsroot/tcsh/win32/bogus.c,v 1.8 2006/03/05 08:59:36 amold Exp $*/
 /*-
  * Copyright (c) 1980, 1991 The Regents of the University of California.
  * All rights reserved.
@@ -38,7 +38,7 @@
 
 static struct passwd pass_bogus;
 static char username[20];
-static char homedir[256];
+static char homedir[MAX_PATH + 1];/*FIXBUF*/
 static char *this_shell="tcsh";
 
 static char dummy[2]={0,0};
@@ -55,60 +55,64 @@ gid_t geteuid(void) {
 gid_t getegid(void) {
 	return 0;
 }
-struct passwd * getpwnam(char *name) {
+#undef free
+struct passwd * getpwnam(const char *name) {
 
 	char *ptr;
-	int size =20;
+	DWORD size =20;
+	size_t esize = 0;
 
 	if (pass_bogus.pw_name == NULL) {
 		GetUserName(username,&size);
-		ptr = getenv("HOME");
-		if (ptr){
-			strcpy(homedir,ptr);
+		if (_dupenv_s(&ptr,&esize,"HOME") ){
+			StringCbCopy(homedir,sizeof(homedir),ptr);
 			pass_bogus.pw_dir = &homedir[0];
+			free(ptr);
 		}
 		pass_bogus.pw_name = &username[0];
 		pass_bogus.pw_shell = this_shell;
-		
+
 
 		pass_bogus.pw_passwd= &dummy[0];
 		pass_bogus.pw_gecos=&dummy[0];
 		pass_bogus.pw_passwd= &dummy[0];
-		
+
 	}
-	if (stricmp(username,name) )
+	if (_stricmp(username,name) )
 		return NULL;
 	return &pass_bogus;
 }
-struct passwd * getpwuid(uid_t uid) {
+struct passwd * getpwuid(uid_t myuid) {
 
 	char *ptr;
-	int size =20;
+	DWORD size =20;
+	size_t esize = 0;
 
+	UNREFERENCED_PARAMETER(myuid);
 	if (pass_bogus.pw_name == NULL) {
 		GetUserName(username,&size);
-		ptr = getenv("HOME");
-		if (ptr){
-			strcpy(homedir,ptr);
+		if (_dupenv_s(&ptr,&esize,"HOME") ){
+			StringCbCopy(homedir,sizeof(homedir),ptr);
 			pass_bogus.pw_dir = &homedir[0];
+			free(ptr);
 		}
 		pass_bogus.pw_name = &username[0];
 		pass_bogus.pw_shell = this_shell;
-		
+
 
 		pass_bogus.pw_passwd= &dummy[0];
 		pass_bogus.pw_gecos=&dummy[0];
 		pass_bogus.pw_passwd= &dummy[0];
-		
+
 	}
 	return &pass_bogus;
 }
 struct group * getgrnam(char *name) {
-
+	UNREFERENCED_PARAMETER(name);
 	return NULL;
 }
-struct group * getgrgid(gid_t gid) {
-
+struct group * getgrgid(gid_t mygid) {
+	UNREFERENCED_PARAMETER(mygid);
 	return NULL;
 }
 char * ttyname(int fd) {
@@ -118,16 +122,16 @@ char * ttyname(int fd) {
 }
 int times(struct tms * ignore) {
 	FILETIME c,e,kernel,user;
-	
+
 	ignore->tms_utime=0;
 	ignore->tms_stime=0;
 	ignore->tms_cutime=0;
 	ignore->tms_cstime=0;
 	if (!GetProcessTimes(GetCurrentProcess(),
-						&c,
-						&e,
-						&kernel,
-						&user) )
+				&c,
+				&e,
+				&kernel,
+				&user) )
 		return -1;
 
 	if (kernel.dwHighDateTime){
@@ -137,23 +141,28 @@ int times(struct tms * ignore) {
 	// Units of 10ms. I *think* this is right. -amol 6/2/97
 	ignore->tms_stime = kernel.dwLowDateTime / 1000 /100;
 	ignore->tms_utime = user.dwLowDateTime / 1000 /100;
-	
+
 	return GetTickCount();
 }
 int tty_getty(int fd, void*ignore) {
+	UNREFERENCED_PARAMETER(fd);
+	UNREFERENCED_PARAMETER(ignore);
 	return 0;
 }
 int tty_setty(int fd, void*ignore) {
+	UNREFERENCED_PARAMETER(fd);
+	UNREFERENCED_PARAMETER(ignore);
 	return 0;
 }
 int tty_geteightbit(void *ignore) {
+	UNREFERENCED_PARAMETER(ignore);
 	return 1;
 }
-void
-dosetty(v, t)
-    Char **v;
-    struct command *t;
+	void
+dosetty(Char **v, struct command *t)
 {
+	UNREFERENCED_PARAMETER(v);
+	UNREFERENCED_PARAMETER(t);
 	xprintf("setty not supported in NT\n");
 }
 

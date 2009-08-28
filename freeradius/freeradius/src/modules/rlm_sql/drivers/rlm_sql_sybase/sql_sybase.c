@@ -14,18 +14,18 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2000  The FreeRADIUS server project
+ * Copyright 2000,2006  The FreeRADIUS server project
  * Copyright 2000  Mattias Sjostrom <mattias@nogui.se>
  */
 
-#include <stdio.h>
-#include <sys/stat.h>
-#include <stdlib.h>
-#include <string.h>
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include 	"radiusd.h"
+#include <freeradius-devel/radiusd.h>
+
+#include <sys/stat.h>
 
 #include <ctpublic.h>
 #include "rlm_sql.h"
@@ -764,7 +764,7 @@ static int sql_free_result(SQLSOCK *sqlsocket, SQL_CONFIG *config) {
  *               connection
  *
  *************************************************************************/
-static char *sql_error(SQLSOCK *sqlsocket, SQL_CONFIG *config) {
+static const char *sql_error(SQLSOCK *sqlsocket, SQL_CONFIG *config) {
 	static char	msg='\0';
 /*
 	static char	msgbuf[2048];

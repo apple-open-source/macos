@@ -1,9 +1,9 @@
 /*
- * "$Id: sidechannel.h 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: sidechannel.h 7616 2008-05-28 00:34:13Z mike $"
  *
  *   Side-channel API definitions for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -17,6 +17,13 @@
 
 #ifndef _CUPS_SIDECHANNEL_H_
 #  define _CUPS_SIDECHANNEL_H_
+
+/*
+ * Include necessary headers...
+ */
+
+#  include "versioning.h"
+
 
 /*
  * C++ magic...
@@ -38,34 +45,42 @@ extern "C" {
  * Enumerations...
  */
 
-typedef enum				/**** Bidirectional capabilities ****/
+enum cups_sc_bidi_e			/**** Bidirectional capability values ****/
 {
   CUPS_SC_BIDI_NOT_SUPPORTED = 0,	/* Bidirectional I/O is not supported */
   CUPS_SC_BIDI_SUPPORTED = 1		/* Bidirectional I/O is supported */
-} cups_sc_bidi_t;
+};
+typedef enum cups_sc_bidi_e cups_sc_bidi_t;
+					/**** Bidirectional capabilities ****/
 
-typedef enum				/**** Request command codes ****/
+enum cups_sc_command_e			/**** Request command codes ****/
 {
   CUPS_SC_CMD_SOFT_RESET = 1,		/* Do a soft reset */
   CUPS_SC_CMD_DRAIN_OUTPUT = 2,		/* Drain all pending output */
   CUPS_SC_CMD_GET_BIDI = 3,		/* Return bidirectional capabilities */
   CUPS_SC_CMD_GET_DEVICE_ID = 4,	/* Return the IEEE-1284 device ID */
-  CUPS_SC_CMD_GET_STATE = 5		/* Return the device state */
-} cups_sc_command_t;
+  CUPS_SC_CMD_GET_STATE = 5,		/* Return the device state */
+  CUPS_SC_CMD_SNMP_GET = 6,		/* Query an SNMP OID @since CUPS 1.4/Mac OS X 10.6@ */
+  CUPS_SC_CMD_SNMP_GET_NEXT = 7		/* Query the next SNMP OID @since CUPS 1.4/Mac OS X 10.6@ */
+};
+typedef enum cups_sc_command_e cups_sc_command_t;
+					/**** Request command codes ****/
 
-typedef enum				/**** Printer state bits ****/
+enum cups_sc_state_e			/**** Printer state bits ****/
 {
-  CUPS_SC_STATE_OFFLINE = 0,		/* Device is off-line */
-  CUPS_SC_STATE_ONLINE = 1,		/* Device is on-line */
+  CUPS_SC_STATE_OFFLINE = 0,		/* Device is offline */
+  CUPS_SC_STATE_ONLINE = 1,		/* Device is online */
   CUPS_SC_STATE_BUSY = 2,		/* Device is busy */
   CUPS_SC_STATE_ERROR = 4,		/* Other error condition */
   CUPS_SC_STATE_MEDIA_LOW = 16,		/* Paper low condition */
   CUPS_SC_STATE_MEDIA_EMPTY = 32,	/* Paper out condition */
   CUPS_SC_STATE_MARKER_LOW = 64,	/* Toner/ink low condition */
   CUPS_SC_STATE_MARKER_EMPTY = 128	/* Toner/ink out condition */
-} cups_sc_state_t;
+};
+typedef enum cups_sc_state_e cups_sc_state_t;
+					/**** Printer state bits ****/
 
-typedef enum				/**** Response status codes ****/
+enum cups_sc_status_e			/**** Response status codes ****/
 {
   CUPS_SC_STATUS_NONE,			/* No status */
   CUPS_SC_STATUS_OK,			/* Operation succeeded */
@@ -75,7 +90,13 @@ typedef enum				/**** Response status codes ****/
   CUPS_SC_STATUS_BAD_MESSAGE,		/* The command/response message was invalid */
   CUPS_SC_STATUS_TOO_BIG,		/* Response too big */
   CUPS_SC_STATUS_NOT_IMPLEMENTED	/* Command not implemented */
-} cups_sc_status_t;
+};
+typedef enum cups_sc_status_e cups_sc_status_t;
+					/**** Response status codes ****/
+
+typedef void (*cups_sc_walk_func_t)(const char *oid, const char *data,
+                                    int datalen, void *context);
+					/**** SNMP walk callback ****/
 
 
 /*
@@ -84,15 +105,23 @@ typedef enum				/**** Response status codes ****/
 
 extern cups_sc_status_t	cupsSideChannelDoRequest(cups_sc_command_t command,
 			                         char *data, int *datalen,
-						 double timeout);
+						 double timeout) _CUPS_API_1_3;
 extern int		cupsSideChannelRead(cups_sc_command_t *command,
 			                    cups_sc_status_t *status,
 					    char *data, int *datalen,
-					    double timeout);
+					    double timeout) _CUPS_API_1_3;
 extern int		cupsSideChannelWrite(cups_sc_command_t command,
 			                     cups_sc_status_t status,
 					     const char *data, int datalen,
-					     double timeout);
+					     double timeout) _CUPS_API_1_3;
+
+/**** New in CUPS 1.4 ****/
+extern cups_sc_status_t	cupsSideChannelSNMPGet(const char *oid, char *data,
+			                       int *datalen, double timeout)
+					       _CUPS_API_1_4;
+extern cups_sc_status_t	cupsSideChannelSNMPWalk(const char *oid, double timeout,
+						cups_sc_walk_func_t cb,
+						void *context) _CUPS_API_1_4;
 
 
 #  ifdef __cplusplus
@@ -102,5 +131,5 @@ extern int		cupsSideChannelWrite(cups_sc_command_t command,
 #endif /* !_CUPS_SIDECHANNEL_H_ */
 
 /*
- * End of "$Id: sidechannel.h 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: sidechannel.h 7616 2008-05-28 00:34:13Z mike $".
  */

@@ -7,97 +7,16 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		B98D4BD30434EB9208D5663B /* RTL8139.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B98D4BD10434EB9208D5663B /* RTL8139.cpp */; };
-		B98D4BD40434EB9208D5663B /* RTL8139.h in Headers */ = {isa = PBXBuildFile; fileRef = B98D4BD20434EB9208D5663B /* RTL8139.h */; };
-		B98D4BD80434EBB108D5663B /* RTL8139HW.h in Headers */ = {isa = PBXBuildFile; fileRef = B98D4BD50434EBB108D5663B /* RTL8139HW.h */; };
-		B98D4BD90434EBB108D5663B /* RTL8139PHY.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B98D4BD60434EBB108D5663B /* RTL8139PHY.cpp */; };
-		B98D4BDA0434EBB108D5663B /* RTL8139Private.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B98D4BD70434EBB108D5663B /* RTL8139Private.cpp */; };
+		725194EA0ED4B4E7005D00D9 /* RTL8139.h in Headers */ = {isa = PBXBuildFile; fileRef = B98D4BD20434EB9208D5663B /* RTL8139.h */; };
+		725194EB0ED4B4E7005D00D9 /* RTL8139HW.h in Headers */ = {isa = PBXBuildFile; fileRef = B98D4BD50434EBB108D5663B /* RTL8139HW.h */; };
+		725194EE0ED4B4E7005D00D9 /* RTL8139.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B98D4BD10434EB9208D5663B /* RTL8139.cpp */; };
+		725194EF0ED4B4E7005D00D9 /* RTL8139PHY.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B98D4BD60434EBB108D5663B /* RTL8139PHY.cpp */; };
+		725194F00ED4B4E7005D00D9 /* RTL8139Private.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B98D4BD70434EBB108D5663B /* RTL8139Private.cpp */; };
 /* End PBXBuildFile section */
 
-/* Begin PBXBundleTarget section */
-		089C1673FE841209C02AAC07 /* AppleRTL8139Ethernet */ = {
-			isa = PBXBundleTarget;
-			buildConfigurationList = 727F2D410AAF869E00ED4464 /* Build configuration list for PBXBundleTarget "AppleRTL8139Ethernet" */;
-			buildPhases = (
-				06AA1267FFB2110C11CA28AA /* ShellScript */,
-				089C1674FE841209C02AAC07 /* Headers */,
-				089C1675FE841209C02AAC07 /* Resources */,
-				089C1676FE841209C02AAC07 /* Sources */,
-				089C1677FE841209C02AAC07 /* Frameworks */,
-				089C1679FE841209C02AAC07 /* Rez */,
-				06AA1264FFB2107B11CA28AA /* ShellScript */,
-			);
-			dependencies = (
-			);
-			name = AppleRTL8139Ethernet;
-			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions/IONetworkingFamily.kext/Contents/PlugIns";
-			productName = AppleRTL8139Ethernet;
-			productReference = 0B81C263FFB7832611CA28AA /* AppleRTL8139Ethernet.kext */;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>English</string>
-	<key>CFBundleExecutable</key>
-	<string>AppleRTL8139Ethernet</string>
-	<key>CFBundleGetInfoString</key>
-	<string>1.4.1, Copyright Apple Computer, Inc. 2004-2006</string>
-	<key>CFBundleIconFile</key>
-	<string></string>
-	<key>CFBundleIdentifier</key>
-	<string>com.apple.driver.AppleRTL8139Ethernet</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundleName</key>
-	<string>Realtek RTL8139/810x Family Fast Ethernet Driver</string>
-	<key>CFBundlePackageType</key>
-	<string>KEXT</string>
-	<key>CFBundleShortVersionString</key>
-	<string>1.4.1</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>1.4.1</string>
-	<key>IOKitPersonalities</key>
-	<dict>
-		<key>RTL8139 PCI Adapter</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleRTL8139Ethernet</string>
-			<key>IOClass</key>
-			<string>com_apple_driver_RTL8139</string>
-			<key>IOPCIMatch</key>
-			<string>0x813910ec 0x13001186 0x12111113</string>
-			<key>IOProviderClass</key>
-			<string>IOPCIDevice</string>
-		</dict>
-	</dict>
-	<key>OSBundleLibraries</key>
-	<dict>
-		<key>com.apple.iokit.IONetworkingFamily</key>
-		<string>1.4.3</string>
-		<key>com.apple.iokit.IOPCIFamily</key>
-		<string>1.6</string>
-		<key>com.apple.kpi.bsd</key>
-		<string>8.0.0b2</string>
-		<key>com.apple.kpi.iokit</key>
-		<string>8.0.0b2</string>
-		<key>com.apple.kpi.libkern</key>
-		<string>8.0.0b2</string>
-		<key>com.apple.kpi.mach</key>
-		<string>8.0.0b2</string>
-	</dict>
-	<key>OSBundleRequired</key>
-	<string>Network-Root</string>
-</dict>
-</plist>
-";
-		};
-/* End PBXBundleTarget section */
-
 /* Begin PBXFileReference section */
-		0B81C263FFB7832611CA28AA /* AppleRTL8139Ethernet.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = AppleRTL8139Ethernet.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		725194F80ED4B4E7005D00D9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info.plist"; sourceTree = "<group>"; };
+		725194F90ED4B4E7005D00D9 /* AppleRTL8139Ethernet.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleRTL8139Ethernet.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		B98D4BD10434EB9208D5663B /* RTL8139.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = RTL8139.cpp; sourceTree = "<group>"; };
 		B98D4BD20434EB9208D5663B /* RTL8139.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = RTL8139.h; sourceTree = "<group>"; };
 		B98D4BD50434EBB108D5663B /* RTL8139HW.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = RTL8139HW.h; sourceTree = "<group>"; };
@@ -106,7 +25,7 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		089C1677FE841209C02AAC07 /* Frameworks */ = {
+		725194F10ED4B4E7005D00D9 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -122,6 +41,7 @@
 				247142CAFF3F8F9811CA285C /* Source */,
 				089C167CFE841241C02AAC07 /* Resources */,
 				19C28FB6FE9D52B211CA2CBB /* Products */,
+				725194F80ED4B4E7005D00D9 /* Info.plist */,
 			);
 			name = AppleRTL8139Ethernet;
 			sourceTree = "<group>";
@@ -136,7 +56,7 @@
 		19C28FB6FE9D52B211CA2CBB /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				0B81C263FFB7832611CA28AA /* AppleRTL8139Ethernet.kext */,
+				725194F90ED4B4E7005D00D9 /* AppleRTL8139Ethernet.kext */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -156,32 +76,59 @@
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
-		089C1674FE841209C02AAC07 /* Headers */ = {
+		725194E90ED4B4E7005D00D9 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				B98D4BD40434EB9208D5663B /* RTL8139.h in Headers */,
-				B98D4BD80434EBB108D5663B /* RTL8139HW.h in Headers */,
+				725194EA0ED4B4E7005D00D9 /* RTL8139.h in Headers */,
+				725194EB0ED4B4E7005D00D9 /* RTL8139HW.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXHeadersBuildPhase section */
 
+/* Begin PBXNativeTarget section */
+		725194E70ED4B4E7005D00D9 /* AppleRTL8139Ethernet (Upgraded) */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 725194F40ED4B4E7005D00D9 /* Build configuration list for PBXNativeTarget "AppleRTL8139Ethernet (Upgraded)" */;
+			buildPhases = (
+				725194E80ED4B4E7005D00D9 /* ShellScript */,
+				725194E90ED4B4E7005D00D9 /* Headers */,
+				725194EC0ED4B4E7005D00D9 /* Resources */,
+				725194ED0ED4B4E7005D00D9 /* Sources */,
+				725194F10ED4B4E7005D00D9 /* Frameworks */,
+				725194F20ED4B4E7005D00D9 /* Rez */,
+				725194F30ED4B4E7005D00D9 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "AppleRTL8139Ethernet (Upgraded)";
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions/IONetworkingFamily.kext/Contents/PlugIns";
+			productName = AppleRTL8139Ethernet;
+			productReference = 725194F90ED4B4E7005D00D9 /* AppleRTL8139Ethernet.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+/* End PBXNativeTarget section */
+
 /* Begin PBXProject section */
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			buildConfigurationList = 727F2D450AAF869E00ED4464 /* Build configuration list for PBXProject "AppleRTL8139Ethernet" */;
+			compatibilityVersion = "Xcode 2.4";
 			hasScannedForEncodings = 1;
 			mainGroup = 089C166AFE841209C02AAC07 /* AppleRTL8139Ethernet */;
 			projectDirPath = "";
+			projectRoot = "";
 			targets = (
-				089C1673FE841209C02AAC07 /* AppleRTL8139Ethernet */,
+				725194E70ED4B4E7005D00D9 /* AppleRTL8139Ethernet (Upgraded) */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		089C1675FE841209C02AAC07 /* Resources */ = {
+		725194EC0ED4B4E7005D00D9 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -191,7 +138,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXRezBuildPhase section */
-		089C1679FE841209C02AAC07 /* Rez */ = {
+		725194F20ED4B4E7005D00D9 /* Rez */ = {
 			isa = PBXRezBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -201,16 +148,7 @@
 /* End PBXRezBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		06AA1264FFB2107B11CA28AA /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
-		};
-		06AA1267FFB2110C11CA28AA /* ShellScript */ = {
+		725194E80ED4B4E7005D00D9 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -219,23 +157,32 @@
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
+		725194F30ED4B4E7005D00D9 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		089C1676FE841209C02AAC07 /* Sources */ = {
+		725194ED0ED4B4E7005D00D9 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				B98D4BD30434EB9208D5663B /* RTL8139.cpp in Sources */,
-				B98D4BD90434EBB108D5663B /* RTL8139PHY.cpp in Sources */,
-				B98D4BDA0434EBB108D5663B /* RTL8139Private.cpp in Sources */,
+				725194EE0ED4B4E7005D00D9 /* RTL8139.cpp in Sources */,
+				725194EF0ED4B4E7005D00D9 /* RTL8139PHY.cpp in Sources */,
+				725194F00ED4B4E7005D00D9 /* RTL8139Private.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		727F2D420AAF869E00ED4464 /* Development */ = {
+		725194F50ED4B4E7005D00D9 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
@@ -244,18 +191,17 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = __MBUF_TRANSITION_;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IONetworkingFamily.kext/Contents/PlugIns";
 				KERNEL_MODULE = YES;
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleRTL8139Ethernet;
-				MODULE_VERSION = 1.4.1;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = (
-					"-D",
-					__MBUF_TRANSITION_,
-				);
+				MODULE_VERSION = 1.5.3;
+				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleRTL8139Ethernet;
@@ -270,23 +216,23 @@
 			};
 			name = Development;
 		};
-		727F2D430AAF869E00ED4464 /* Deployment */ = {
+		725194F60ED4B4E7005D00D9 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = __MBUF_TRANSITION_;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IONetworkingFamily.kext/Contents/PlugIns";
 				KERNEL_MODULE = YES;
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleRTL8139Ethernet;
-				MODULE_VERSION = 1.4.1;
-				OTHER_CFLAGS = (
-					"-D",
-					__MBUF_TRANSITION_,
-				);
+				MODULE_VERSION = 1.5.3;
+				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleRTL8139Ethernet;
@@ -301,21 +247,21 @@
 			};
 			name = Deployment;
 		};
-		727F2D440AAF869E00ED4464 /* Default */ = {
+		725194F70ED4B4E7005D00D9 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_PREPROCESSOR_DEFINITIONS = __MBUF_TRANSITION_;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IONetworkingFamily.kext/Contents/PlugIns";
 				KERNEL_MODULE = YES;
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleRTL8139Ethernet;
-				MODULE_VERSION = 1.4.1;
-				OTHER_CFLAGS = (
-					"-D",
-					__MBUF_TRANSITION_,
-				);
+				MODULE_VERSION = 1.5.3;
+				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleRTL8139Ethernet;
@@ -350,12 +296,12 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		727F2D410AAF869E00ED4464 /* Build configuration list for PBXBundleTarget "AppleRTL8139Ethernet" */ = {
+		725194F40ED4B4E7005D00D9 /* Build configuration list for PBXNativeTarget "AppleRTL8139Ethernet (Upgraded)" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				727F2D420AAF869E00ED4464 /* Development */,
-				727F2D430AAF869E00ED4464 /* Deployment */,
-				727F2D440AAF869E00ED4464 /* Default */,
+				725194F50ED4B4E7005D00D9 /* Development */,
+				725194F60ED4B4E7005D00D9 /* Deployment */,
+				725194F70ED4B4E7005D00D9 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;

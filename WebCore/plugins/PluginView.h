@@ -108,7 +108,7 @@ namespace WebCore {
 
     class PluginView : public Widget, private PluginStreamClient, public PluginManualLoader {
     public:
-        static PluginView* create(Frame* parentFrame, const IntSize&, Element*, const KURL&, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually);
+        static PassRefPtr<PluginView> create(Frame* parentFrame, const IntSize&, Element*, const KURL&, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually);
         virtual ~PluginView();
 
         PluginPackage* plugin() const { return m_plugin.get(); }
@@ -248,7 +248,7 @@ namespace WebCore {
 
         CString m_mimeType;
         CString m_userAgent;
-        
+
         NPP m_instance;
         NPP_t m_instanceStruct;
         NPWindow m_npWindow;
@@ -299,6 +299,10 @@ private:
         Point globalMousePosForPlugin() const;
 #endif
 
+#if defined(Q_WS_X11)
+        bool m_hasPendingGeometryChange;
+#endif
+
         IntRect m_clipRect; // The clip rect to apply to a windowed plug-in
         IntRect m_windowRect; // Our window rect.
 
@@ -312,4 +316,4 @@ private:
 
 } // namespace WebCore
 
-#endif 
+#endif

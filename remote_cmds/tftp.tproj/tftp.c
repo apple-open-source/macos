@@ -29,14 +29,14 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
-#ifndef lint
 #if 0
+#ifndef lint
 static char sccsid[] = "@(#)tftp.c	8.1 (Berkeley) 6/6/93";
-#else
-__RCSID("$NetBSD: tftp.c,v 1.18 2003/08/07 11:16:14 agc Exp $");
-#endif
 #endif /* not lint */
+#endif
+
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/tftp/tftp.c,v 1.13 2006/09/28 21:22:21 matteo Exp $");
 
 /* Many bug fixes are from Jim Guyton <guyton@rand-unix> */
 
@@ -51,14 +51,17 @@ __RCSID("$NetBSD: tftp.c,v 1.18 2003/08/07 11:16:14 agc Exp $");
 
 #include <netinet/in.h>
 
-#include "tftp.h"
+#include <arpa/inet.h>
+#include <arpa/tftp.h>
 
 #include <err.h>
 #include <errno.h>
 #include <setjmp.h>
 #include <signal.h>
-#include <stdio.h>
+#ifdef __APPLE__
 #include <stdlib.h>
+#endif
+#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include <netdb.h>
@@ -73,24 +76,31 @@ extern  int     verbose;
 extern  int     def_rexmtval;
 extern  int     rexmtval;
 extern  int     maxtimeout;
+extern  volatile int txrx_error;
+#ifdef __APPLE__
 extern	int	tsize;
 extern	int	tout;
 extern	int	def_blksize;
 extern	int	blksize;
+#endif
 
 char    ackbuf[PKTSIZE];
 int	timeout;
 extern jmp_buf	toplevel;
 jmp_buf	timeoutbuf;
 
-static void nak __P((int, struct sockaddr *));
-static int makerequest __P((int, const char *, struct tftphdr *, const char *, off_t));
-static void printstats __P((const char *, unsigned long));
-static void startclock __P((void));
-static void stopclock __P((void));
-static void timer __P((int));
-static void tpacket __P((const char *, struct tftphdr *, int));
-static int cmpport __P((struct sockaddr *, struct sockaddr *));
+static void nak(int, struct sockaddr *);
+#ifdef __APPLE__
+static int makerequest(int, const char *, struct tftphdr *, const char *, off_t);
+#else
+static int makerequest(int, const char *, struct tftphdr *, const char *);
+#endif
+static void printstats(const char *, unsigned long);
+static void startclock(void);
+static void stopclock(void);
+static void timer(int);
+static void tpacket(const char *, struct tftphdr *, int);
+static int cmpport(struct sockaddr *, struct sockaddr *);
 
 static void get_options(struct tftphdr *, int);
 
@@ -234,16 +244,17 @@ send_data:
 				tpacket("received", ap, n);
 			/* should verify packet came from server */
 			ap->th_opcode = ntohs(ap->th_opcode);
-			ap->th_block = ntohs(ap->th_block);
 			if (ap->th_opcode == ERROR) {
 				printf("Error code %d: %s\n", ap->th_code,
 					ap->th_msg);
+				txrx_error = 1;
 				goto abort;
 			}
 			if (ap->th_opcode == ACK) {
 				int j;
 
-				if (ap->th_block == 0) {
+				ap->th_block = ntohs(ap->th_block);
+				if (ap->th_block == 0 && block == 0) {
 					/*
 					 * If the extended options are enabled,
 					 * the server just refused 'em all.
@@ -254,18 +265,18 @@ send_data:
 					blksize = def_blksize;
 					rexmtval = def_rexmtval;
 				}
-				if (ap->th_block == block) {
+				if (ap->th_block == (u_short)block) {
 					break;
 				}
 				/* On an error, try to synchronize
 				 * both sides.
 				 */
-				j = synchnet(f, blksize+4);
+				j = synchnet(f);
 				if (j && trace) {
 					printf("discarded %d packets\n",
 							j);
 				}
-				if (ap->th_block == (block-1)) {
+				if (ap->th_block == (u_short)(block-1)) {
 					goto send_data;
 				}
 			}
@@ -287,6 +298,7 @@ abort:
 	stopclock();
 	if (amount > 0)
 		printstats("Sent", amount);
+	txrx_error = 1;
 }
 
 /*
@@ -372,31 +384,32 @@ send_ack:
 				tpacket("received", dp, n);
 			/* should verify client address */
 			dp->th_opcode = ntohs(dp->th_opcode);
-			dp->th_block = ntohs(dp->th_block);
 			if (dp->th_opcode == ERROR) {
 				printf("Error code %d: %s\n", dp->th_code,
 					dp->th_msg);
+				txrx_error = 1;
 				goto abort;
 			}
 			if (dp->th_opcode == DATA) {
 				int j;
-
-				if (dp->th_block == 1 && !oack) {
+				
+				dp->th_block = ntohs(dp->th_block);
+				if (dp->th_block == 1 && !oack && block == 1) {
 					/* no OACK, revert to defaults */
 					blksize = def_blksize;
 					rexmtval = def_rexmtval;
 				}
-				if (dp->th_block == block) {
+				if (dp->th_block == (u_short) block) {
 					break;		/* have next packet */
 				}
 				/* On an error, try to synchronize
 				 * both sides.
 				 */
-				j = synchnet(f, blksize);
+				j = synchnet(f);
 				if (j && trace) {
 					printf("discarded %d packets\n", j);
 				}
-				if (dp->th_block == (block-1)) {
+				if (dp->th_block == (u_short)(block-1)) {
 					goto send_ack;	/* resend ack */
 				}
 			}
@@ -432,30 +445,34 @@ abort:						/* ok to ack, since user */
 	stopclock();
 	if (amount > 0)
 		printstats("Received", amount);
+	txrx_error = 1;
 }
 
 static int
+#ifdef __APPLE__
 makerequest(request, name, tp, mode, filesize)
+#else
+makerequest(request, name, tp, mode)
+#endif
 	int request;
 	const char *name;
 	struct tftphdr *tp;
 	const char *mode;
+#ifdef __APPLE__
 	off_t filesize;
+#endif
 {
 	char *cp;
 
 	tp->th_opcode = htons((u_short)request);
-#ifndef __SVR4
 	cp = tp->th_stuff;
-#else
-	cp = (void *)&tp->th_stuff;
-#endif
 	strcpy(cp, name);
 	cp += strlen(name);
 	*cp++ = '\0';
 	strcpy(cp, mode);
 	cp += strlen(mode);
 	*cp++ = '\0';
+#ifdef __APPLE__
 	if (tsize) {
 		strcpy(cp, "tsize");
 		cp += strlen(cp);
@@ -480,12 +497,13 @@ makerequest(request, name, tp, mode, filesize)
 		cp += strlen(cp);
 		*cp++ = '\0';
 	}
+#endif
 	return (cp - (char *)tp);
 }
 
-const struct errmsg {
+struct errmsg {
 	int	e_code;
-	const char *e_msg;
+	const char	*e_msg;
 } errmsgs[] = {
 	{ EUNDEF,	"Undefined error code" },
 	{ ENOTFOUND,	"File not found" },
@@ -510,7 +528,7 @@ nak(error, peer)
 	int error;
 	struct sockaddr *peer;
 {
-	const struct errmsg *pe;
+	struct errmsg *pe;
 	struct tftphdr *tp;
 	int length;
 	size_t msglen;
@@ -542,7 +560,7 @@ tpacket(s, tp, n)
 	struct tftphdr *tp;
 	int n;
 {
-	static char *opcodes[] =
+	static const char *opcodes[] =
 	   { "#0", "RRQ", "WRQ", "DATA", "ACK", "ERROR", "OACK" };
 	char *cp, *file, *endp, *opt = NULL, *spc;
 	u_short op = ntohs(tp->th_opcode);
@@ -557,11 +575,7 @@ tpacket(s, tp, n)
 	case RRQ:
 	case WRQ:
 		n -= 2;
-#ifndef __SVR4
 		cp = tp->th_stuff;
-#else
-		cp = (void *) &tp->th_stuff;
-#endif
 		endp = cp + n - 1;
 		if (*endp != '\0') {	/* Shouldn't happen, but... */
 			*endp = '\0';
@@ -645,8 +659,7 @@ printstats(direction, amount)
 	unsigned long amount;
 {
 	double delta;
-
-	/* compute delta in 1/10's second units */
+			/* compute delta in 1/10's second units */
 	delta = ((tstop.tv_sec*10.)+(tstop.tv_usec/100000)) -
 		((tstart.tv_sec*10.)+(tstart.tv_usec/100000));
 	delta = delta/10.;      /* back to seconds */
@@ -658,7 +671,7 @@ printstats(direction, amount)
 
 static void
 timer(sig)
-	int sig;
+	int sig __unused;
 {
 
 	timeout += rexmtval;
@@ -666,6 +679,7 @@ timer(sig)
 		printf("Transfer timed out.\n");
 		longjmp(toplevel, -1);
 	}
+        txrx_error = 1;
 	longjmp(timeoutbuf, 1);
 }
 

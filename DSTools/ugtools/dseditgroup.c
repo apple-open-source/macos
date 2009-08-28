@@ -23,533 +23,207 @@
 
 /*!
 * @header dseditgroup
- * Tool used to manipulate group records via the DirectoryService API.
+ * Tool used to manipulate group records via the Open Directory API.
  */
 
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <pwd.h>
 #include <string.h>
+#include <uuid/uuid.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <termios.h>
-#include <membership.h>
+#include <sysexits.h>
 #include <membershipPriv.h>
+#include <grp.h>
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <OpenDirectory/OpenDirectory.h>
+#include <OpenDirectory/OpenDirectoryPriv.h>
 
-#include <DirectoryService/DirectoryService.h>
-
-#include "dscommon.h"
 #include "dstools_version.h"
-#include "HighLevelDirServicesMini.h"
 
-#warning VERIFY the version string before each major OS build submission
-const char *version = "10.5.3";
-
-SInt32				deleteGroupMember			(   tDirReference inDSRef,
-													tDirNodeReference inDSNodeRef,
-													tRecordReference inRecordRef,
-													char* inRecordName,
-													char* inRecordType,
-													bool inVerbose);
-SInt32				addGroupMember				(   tDirReference inDSRef,
-													tDirNodeReference inDSNodeRef,
-													tRecordReference inRecordRef,
-													char* inGroupName,
-													char* inRecordName,
-													char* inRecordType,
-													bool inVerbose);
-SInt32				changeGroupFormat			(	tDirReference inDSRef,
-													tDirNodeReference inDSNodeRef,
-													tRecordReference inRecordRef,
-													char* inRecordName,
-													char* inDesiredFormat,
-													bool inVerbose);
-tRecordReference	openRecord					(   tDirReference inDSRef,
-													tDirNodeReference inDSNodeRef,
-													char* inRecordName,
-													char* inRecordType,
-													SInt32 *outResult,
-													bool inVerbose);
-void				usage						(	void);
-
-
-SInt32 deleteGroupMember(tDirReference inDSRef, tDirNodeReference inDSNodeRef, tRecordReference inRecordRef, char* inRecordName, char* inRecordType, bool inVerbose)
+static void printArray( const void *value, void *context )
 {
-	SInt32						siResult			= eDSNoErr;
-	tDirNodeReference			aDSNodeRef			= 0;
-	tDataNode				   *pAttrType			= nil;
-	tAttributeValueEntry	   *pAttrValueEntry		= nil;
-	char					   *guidValue			= nil;
-	bool						bExists				= false;
-	tDataNode				   *pAttrValue			= nil;
-	char					   *theRecordType		= nil;
-	bool						bAddToUsers			= false;
-	
-	if (inRecordName == nil)
-	{
-		if (inVerbose) printf("Null record name\n");
-		return((SInt32) eDSInvalidRecordName);
-	}
-	if (inRecordType == nil)
-	{
-		bAddToUsers = true;
-		theRecordType = kDSStdRecordTypeUsers; //default to users
-		if (inVerbose) printf("Assuming user record type\n");
-	}
-	else
-	{
-		theRecordType = inRecordType;
-		if (strcmp(inRecordType, kDSStdRecordTypeUsers) == 0)
-		{
-			bAddToUsers = true;
-		}
-	}
-	if (inDSRef == 0)
-	{
-		if (inVerbose) printf("Null dir reference\n");
-		return((SInt32) eDSInvalidDirRef);
-	}
-	if (inDSNodeRef == 0)
-	{
-		if (inVerbose) printf("Null node reference\n");
-		return((SInt32) eDSInvalidNodeRef);
-	}
-	if (inRecordRef == 0)
-	{
-		if (inVerbose) printf("Null record reference\n");
-		return((SInt32) eDSInvalidRecordRef);
-	}
-    
-	do
-	{
-        //TBR rework which status gets propagated up?
-		//first check if we can retrieve a GUID for the given inRecordName
-		//assume that the search on the search node is unauthenticated
-		aDSNodeRef = getNodeRef(inDSRef, "/Search", nil, nil, inVerbose);
-		guidValue = getSingleRecordAttribute(inDSRef, aDSNodeRef, inRecordName, theRecordType, kDS1AttrGeneratedUID, &siResult, inVerbose);
-		if ( (siResult == eDSNoErr) && (guidValue != nil) )
-		{
-			//retrieve the existing members if there are any
-			if (strcmp(theRecordType, kDSStdRecordTypeGroups) == 0)
-			{
-				pAttrType = dsDataNodeAllocateString( inDSRef, kDSNAttrNestedGroups );
-			}
-			else
-			{
-				pAttrType = dsDataNodeAllocateString( inDSRef, kDSNAttrGroupMembers );
-			}
-			pAttrValue = dsDataNodeAllocateString( inDSRef, guidValue );
-			
-			if ( (pAttrType != nil) && (pAttrValue != nil) )
-			{
-				siResult = dsGetRecordAttributeValueByValue( inRecordRef, pAttrType, pAttrValue, &pAttrValueEntry );
-				if ( siResult == eDSNoErr )
-				{
-					siResult = dsRemoveAttributeValue( inRecordRef, pAttrType, pAttrValueEntry->fAttributeValueID );
-					dsDeallocAttributeValueEntry( inDSRef, pAttrValueEntry );
-					bExists = true;
-				}
-				pAttrValueEntry = nil;
-			}//if ( (pAttrType != nil) && (pAttrValue != nil) )
-		}//if (guidValue != nil)
-		
-		//always leave the while
-		break;
-	} while(true);
-    
-	if (pAttrType != nil)
-	{
-		dsDataNodeDeAllocate( inDSRef, pAttrType );
-		pAttrType = nil;
-	}
-	if (pAttrValue != nil)
-	{
-		dsDataNodeDeAllocate( inDSRef, pAttrValue );
-		pAttrValue = nil;
-	}
-    
-	if (bAddToUsers)
-	{
-		do
-		{
-            //TBR rework which status gets propagated up?
-			pAttrType = dsDataNodeAllocateString( inDSRef, kDSNAttrGroupMembership );
-			pAttrValue = dsDataNodeAllocateString( inDSRef, inRecordName );
-			
-			if ( (pAttrType != nil) && (pAttrValue != nil) )
-			{
-				siResult = dsGetRecordAttributeValueByValue( inRecordRef, pAttrType, pAttrValue, &pAttrValueEntry );
-				if ( siResult == eDSNoErr )
-				{
-					siResult = dsRemoveAttributeValue( inRecordRef, pAttrType, pAttrValueEntry->fAttributeValueID );
-					dsDeallocAttributeValueEntry( inDSRef, pAttrValueEntry );
-					bExists = true;
-				}
-				pAttrValueEntry = nil;
-			}//if ( (pAttrType != nil) && (pAttrValue != nil) )
-			
-			//always leave the while
-			break;
-		} while(true);
-	}//if (bAddToUsers)
-    
-	if ( aDSNodeRef != 0 )
-	{
-		dsCloseDirNode( aDSNodeRef );
-		aDSNodeRef = 0;
-	}
-	if (guidValue != nil)
-	{
-		free(guidValue);
-		guidValue = nil;
-	}
-	if (pAttrType != nil)
-	{
-		dsDataNodeDeAllocate( inDSRef, pAttrType );
-		pAttrType = nil;
-	}
-	if (pAttrValue != nil)
-	{
-		dsDataNodeDeAllocate( inDSRef, pAttrValue );
-		pAttrValue = nil;
-	}
-    
-	return( siResult );
-}//deleteGroupMember
+	CFStringRef cfPrintString = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR("\t\t%@"), value );
+	CFShow( cfPrintString );
+	CFRelease( cfPrintString );
+}
 
-
-SInt32 addGroupMember(tDirReference inDSRef, tDirNodeReference inDSNodeRef, tRecordReference inRecordRef, char* inGroupName, char* inRecordName, char* inRecordType, bool inVerbose)
+static void printDictionary( const void *key, const void *value, void *context )
 {
-	SInt32						siResult			= eDSNoErr;
-	tDirNodeReference			aDSNodeRef			= 0;
-	tDataNode				   *pAttrType			= nil;
-	tAttributeValueEntry	   *pAttrValueEntry		= nil;
-	tAttributeEntry			   *pAttrEntry			= nil;
-	char					   *guidValue			= nil;
-	char					   *idValue				= nil;
-	bool						bExists				= false;
-	tDataNode				   *pAttrValue			= nil;
-	char					   *theRecordType		= nil;
-	bool						bAddToUsers			= false;
-	bool						bAttrFound			= false;
-	dsBool						bGroupIsLegacy		= false;
-	CFStringRef					cfStrFabricatedGUID	= nil;
-	CFStringRef					cfStrRecordType		= nil;
-	CFIndex						guidLength			= nil;
+	CFStringRef cfPrintString = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR("%@ -"), key );
+	CFShow( cfPrintString );
+	CFRelease( cfPrintString );
 	
-	if (inRecordName == nil)
+	CFArrayApplyFunction( value, CFRangeMake(0, CFArrayGetCount(value)), printArray, NULL );
+}
+
+static SInt32 printErrorOrMessage( CFErrorRef *inError, const char *errorString, bool inVerbose )
+{
+	SInt32 errorCode = EX_USAGE;
+	
+	if ( inError == NULL || (*inError) == NULL || (inVerbose == false && errorString != NULL) )
 	{
-		if (inVerbose) printf("Null record name\n");
-		return((SInt32) eDSInvalidRecordName);
-	}
-	if (inRecordType == nil)
-	{
-		bAddToUsers = true;
-		theRecordType = kDSStdRecordTypeUsers; //default to users
-		if (inVerbose) printf("Assuming user record type\n");
-	}
-	else
-	{
-		theRecordType = inRecordType;
-		if (strcmp(inRecordType, kDSStdRecordTypeUsers) == 0)
-		{
-			bAddToUsers = true;
+		CFStringRef cfString = CFStringCreateWithCString( kCFAllocatorDefault, errorString, kCFStringEncodingUTF8 );
+		if ( cfString != NULL ) {
+			CFShow( cfString );
+			CFRelease( cfString );
 		}
 	}
-	if (inDSRef == 0)
+	else if ( inError != NULL && (*inError) != NULL )
 	{
-		if (inVerbose) printf("Null dir reference\n");
-		return((SInt32) eDSInvalidDirRef);
-	}
-	if (inDSNodeRef == 0)
-	{
-		if (inVerbose) printf("Null node reference\n");
-		return((SInt32) eDSInvalidNodeRef);
-	}
-	if (inRecordRef == 0)
-	{
-		if (inVerbose) printf("Null record reference\n");
-		return((SInt32) eDSInvalidRecordRef);
-	}
-	if (inGroupName == nil)
-	{
-		if (inVerbose) printf("Null group name\n");
-		return((SInt32) eDSInvalidRecordName);
-	}
-    
-	siResult = HLDSIsLegacyGroup( inDSRef, inDSNodeRef, inGroupName, &bGroupIsLegacy, NULL );
-    
-	do
-	{
-		if( siResult != eDSNoErr )
-			break;
-		if( bGroupIsLegacy )	//try to upgrade legacy group to new group format to add GUIDs
+		if ( inVerbose == true )
 		{
-			if( strcmp( theRecordType, kDSStdRecordTypeUsers ) != 0 ) {
-				if (changeGroupFormat(inDSRef, inDSNodeRef, inRecordRef, inGroupName, "n", false) == eDSNoErr) {
-					printf( "'%s' upgraded to new group format in order to support GUID membership.\n", inGroupName );
-				} else {
-					printf( "Failed to convert legacy group to new group format. Cannot add member to group as legacy groups do not support GUID membership. \n");
-					break;
-				}
-			}
-		}
-        //TBR rework which status gets propagated up?
-		//first check if we can retrieve a GUID for the given inRecordName
-		//assume that the search on the search node is unauthenticated
-		aDSNodeRef = getNodeRef(inDSRef, "/Search", nil, nil, inVerbose);
-		guidValue = getSingleRecordAttribute(inDSRef, aDSNodeRef, inRecordName, theRecordType, kDS1AttrGeneratedUID, &siResult, inVerbose);
-		if( guidValue == nil )
-		{
-			idValue = getSingleRecordAttribute(inDSRef, aDSNodeRef, inRecordName, theRecordType, 
-                                               bAddToUsers ? kDS1AttrUniqueID : kDS1AttrPrimaryGroupID, &siResult, inVerbose);
-			if( idValue != nil )
-			{
-				cfStrRecordType = CFStringCreateWithCString( NULL, theRecordType, kCFStringEncodingUTF8 );
-				cfStrFabricatedGUID = HLDSCreateFabricatedGUID( atoi( idValue ), cfStrRecordType );
-				CFRelease( cfStrRecordType );
-				cfStrRecordType = nil;
-				
-				guidLength = CFStringGetLength( cfStrFabricatedGUID );
-				guidValue = calloc( guidLength + 1, sizeof( unsigned short ) );
-				if( !CFStringGetCString( cfStrFabricatedGUID, guidValue, ( guidLength + 1 ) * sizeof( unsigned short ), kCFStringEncodingUTF8 ) )
-				{
-					free( guidValue );
-					guidValue = nil;
-				}
-				
-				if( cfStrFabricatedGUID != nil )
-				{
-					CFRelease( cfStrFabricatedGUID );
-					cfStrFabricatedGUID = nil;
-				}
-				
-				free( idValue );
-				idValue = nil;
-				
+			CFStringRef cfString = CFErrorCopyDescription( *inError );
+			if ( cfString != NULL ) {
+				CFShow( cfString );
+				CFRelease( cfString );
 			}
 		}
 		
-		if ( (siResult == eDSNoErr) && (guidValue != nil) )
-		{
-			//retrieve the existing members if there are any
-			if (strcmp(theRecordType, kDSStdRecordTypeGroups) == 0)
-			{
-				pAttrType = dsDataNodeAllocateString( inDSRef, kDSNAttrNestedGroups );
-			}
-			else
-			{
-				pAttrType = dsDataNodeAllocateString( inDSRef, kDSNAttrGroupMembers );
-			}
-			pAttrValue = dsDataNodeAllocateString( inDSRef, guidValue );
-			
-			if ( (pAttrType != nil) && (pAttrValue != nil) )
-			{
-				//need to determine if attr type already exists
-				bAttrFound = false;
-				siResult = dsGetRecordAttributeInfo( inRecordRef, pAttrType, &pAttrEntry );
-				if (siResult == eDSNoErr)
-				{
-					bAttrFound = true;
-					dsDeallocAttributeEntry( inDSRef, pAttrEntry );
-					pAttrEntry = nil;
-					siResult = dsGetRecordAttributeValueByValue( inRecordRef, pAttrType, pAttrValue, &pAttrValueEntry );
-					if ( siResult == eDSNoErr )
-					{
-						dsDeallocAttributeValueEntry( inDSRef, pAttrValueEntry );
-						bExists = true;
-					}
-					pAttrValueEntry = nil;
-				}
-                
-				if (!bExists)
-				{
-					if (bAttrFound)
-					{
-						siResult = dsAddAttributeValue( inRecordRef, pAttrType, pAttrValue );
-					}
-					else
-					{
-						siResult = dsAddAttribute( inRecordRef, pAttrType, nil, pAttrValue );
-					}
-				}//if (!bExists)
-			}//if ( (pAttrType != nil) && (pAttrValue != nil) )
-		}//if (guidValue != nil)
-		else
-		{
-			printf( "record \"%s\" of type \"%s\" not found.\n", inRecordName, theRecordType );
-			bAddToUsers = false;
+		CFIndex errorCode = CFErrorGetCode( *inError );
+		
+		// this is temporary until ODFramework has some kind of ranges for error types
+		if ( errorCode >= kODErrorCredentialsInvalid && errorCode < kODErrorCredentialsInvalid+999 ) {
+			errorCode = EX_NOPERM;
 		}
 		
-		//always leave the while
-		break;
-	} while(true);
-    
-	if (pAttrType != nil)
-	{
-		dsDataNodeDeAllocate( inDSRef, pAttrType );
-		pAttrType = nil;
+		// we null the pointer
+		*inError = NULL;
 	}
-	if (pAttrValue != nil)
-	{
-		dsDataNodeDeAllocate( inDSRef, pAttrValue );
-		pAttrValue = nil;
-	}
-    
-	if (bAddToUsers)
-	{
-		do
-		{
-            //TBR rework which status gets propagated up?
-			pAttrType = dsDataNodeAllocateString( inDSRef, kDSNAttrGroupMembership );
-			pAttrValue = dsDataNodeAllocateString( inDSRef, inRecordName );
-			
-			if ( (pAttrType != nil) && (pAttrValue != nil) )
-			{
-				//need to determine if attr type already exists
-				bAttrFound = false;
-				siResult = dsGetRecordAttributeInfo( inRecordRef, pAttrType, &pAttrEntry );
-				if (siResult == eDSNoErr)
-				{
-					bAttrFound = true;
-					dsDeallocAttributeEntry( inDSRef, pAttrEntry );
-					pAttrEntry = nil;
-					siResult = dsGetRecordAttributeValueByValue( inRecordRef, pAttrType, pAttrValue, &pAttrValueEntry );
-					if ( siResult == eDSNoErr )
-					{
-						dsDeallocAttributeValueEntry( inDSRef, pAttrValueEntry );
-						bExists = true;
-					}
-					pAttrValueEntry = nil;
-				}
-                
-				if (!bExists)
-				{
-					if (bAttrFound)
-					{
-						siResult = dsAddAttributeValue( inRecordRef, pAttrType, pAttrValue );
-					}
-					else
-					{
-						siResult = dsAddAttribute( inRecordRef, pAttrType, nil, pAttrValue );
-					}
-				}//if (!bExists)
-			}//if ( (pAttrType != nil) && (pAttrValue != nil) )
-			
-			//always leave the while
-			break;
-		} while(true);
-	}//if (bAddToUsers)
-    
-	if ( aDSNodeRef != 0 )
-	{
-		dsCloseDirNode( aDSNodeRef );
-		aDSNodeRef = 0;
-	}
-	if (guidValue != nil)
-	{
-		free(guidValue);
-		guidValue = nil;
-	}
-	if (pAttrType != nil)
-	{
-		dsDataNodeDeAllocate( inDSRef, pAttrType );
-		pAttrType = nil;
-	}
-	if (pAttrValue != nil)
-	{
-		dsDataNodeDeAllocate( inDSRef, pAttrValue );
-		pAttrValue = nil;
-	}
-    
-	return( siResult );
-}//addGroupMember
+	
+	return errorCode;
+}
 
-SInt32 changeGroupFormat(tDirReference inDSRef, tDirNodeReference inDSNodeRef, tRecordReference inRecordRef, char* inRecordName, char* inDesiredFormat, bool inVerbose)
+#pragma mark -
+#pragma mark Text Input Routines
+
+//-----------------------------------------------------------------------------
+//	intcatch
+//
+//	Helper function for read_passphrase
+//-----------------------------------------------------------------------------
+
+volatile int intr;
+
+void
+intcatch(int dontcare)
 {
-	SInt32						siResult			= eDSNoErr;
-	dsBool						isLegacy			= false;
-	dsBool						upgrade				= true;
-	dsBool						needToReleaseGUID	= false;
-	CFArrayRef					shortNameMembers	= NULL;
-	CFArrayRef					usersAttrsValues	= NULL;
-	CFArrayRef					values				= NULL;
-	CFDictionaryRef				recAttrsValues		= NULL;
-	CFIndex						i, numRecs;
-	CFStringRef					value				= NULL;
-	CFStringRef					guid				= NULL;
-	char						cStrBuffer[256];
-	CFStringRef					desiredAttrNames[]	= { CFSTR( kDS1AttrGeneratedUID ), CFSTR( kDS1AttrUniqueID ) };
-	CFArrayRef					attributesToGet		= CFArrayCreate( NULL, (const void**)desiredAttrNames, 2, &kCFTypeArrayCallBacks );
+	intr = 1;
+}//intcatch
+
+
+//-----------------------------------------------------------------------------
+//	read_passphrase
+//
+//	Returns: malloc'd C-str
+//	Provides a secure prompt for inputing passwords
+/*
+ * Reads a passphrase from /dev/tty with echo turned off.  Returns the
+ * passphrase (allocated with xmalloc), being very careful to ensure that
+ * no other userland buffer is storing the password.
+ */
+//-----------------------------------------------------------------------------
+
+static char *
+read_passphrase(const char *prompt, int from_stdin)
+{
+	char buf[1024], *p, ch;
+	struct termios tio, saved_tio;
+	sigset_t oset, nset;
+	struct sigaction sa, osa;
+	int input, output, echo = 0;
 	
-	if( ( strcmp( inDesiredFormat, "l" ) != 0 ) && ( strcmp( inDesiredFormat, "n" ) != 0 ) )
-	{
-		usage();
-		return siResult;
+	if (from_stdin) {
+		input = STDIN_FILENO;
+		output = STDERR_FILENO;
+	} else
+		input = output = open("/dev/tty", O_RDWR);
+	
+	if (input == -1)
+		fprintf(stderr, "You have no controlling tty.  Cannot read passphrase.\n");
+    
+	/* block signals, get terminal modes and turn off echo */
+	sigemptyset(&nset);
+	sigaddset(&nset, SIGTSTP);
+	(void) sigprocmask(SIG_BLOCK, &nset, &oset);
+	memset(&sa, 0, sizeof(sa));
+	sa.sa_handler = intcatch;
+	(void) sigaction(SIGINT, &sa, &osa);
+	
+	intr = 0;
+	
+	if (tcgetattr(input, &saved_tio) == 0 && (saved_tio.c_lflag & ECHO)) {
+		echo = 1;
+		tio = saved_tio;
+		tio.c_lflag &= ~(ECHO | ECHOE | ECHOK | ECHONL);
+		(void) tcsetattr(input, TCSANOW, &tio);
 	}
-    
-	upgrade = ( strcmp( inDesiredFormat, "n" ) == 0 );
 	
+	fflush(stdout);
 	
-	siResult = HLDSIsLegacyGroup( inDSRef, inDSNodeRef, inRecordName, &isLegacy, &shortNameMembers );
-    
-	if( ( siResult == eDSNoErr ) && ( upgrade != isLegacy ) )
-	{
-		if( shortNameMembers != NULL )
-			CFRelease( shortNameMembers );
-		printf( "Group is already in desired format.\n" );
-		return siResult;
+	(void)write(output, prompt, strlen(prompt));
+	for (p = buf; read(input, &ch, 1) == 1 && ch != '\n';) {
+		if (intr)
+			break;
+		if (p < buf + sizeof(buf) - 1)
+			*p++ = ch;
 	}
-    
-	if( upgrade )
+	*p = '\0';
+	if (!intr)
+		(void)write(output, "\n", 1);
+	
+	/* restore terminal modes and allow signals */
+	if (echo)
+		tcsetattr(input, TCSANOW, &saved_tio);
+	(void) sigprocmask(SIG_SETMASK, &oset, NULL);
+	(void) sigaction(SIGINT, &osa, NULL);
+	
+	if (intr) {
+		kill(getpid(), SIGINT);
+		sigemptyset(&nset);
+		/* XXX tty has not neccessarily drained by now? */
+		sigsuspend(&nset);
+	}
+	
+	if (!from_stdin)
+		(void)close(input);
+	p = (char *)malloc(strlen(buf)+1);
+    strcpy(p, buf);
+	memset(buf, 0, sizeof(buf));
+	return (p);
+}//read_passphrase
+
+static bool isLegacyGroup( ODRecordRef inRecordRef, CFArrayRef* outShortNameMembers )
+{
+	CFIndex		shortNameMembersCount = 0;
+	CFIndex		guidMembersCount = 0;
+	
+	CFArrayRef shortNameMembers = ODRecordCopyValues( inRecordRef, kODAttributeTypeGroupMembership, NULL );
+	if ( shortNameMembers != NULL )
 	{
-		siResult = HLDSGetAttributeValuesFromRecordsByName( inDSRef, inDSNodeRef, kDSStdRecordTypeUsers, shortNameMembers,
-                                                            attributesToGet, &usersAttrsValues );
-		if( siResult == eDSNoErr )
+		shortNameMembersCount = CFArrayGetCount( shortNameMembers );
+		if ( outShortNameMembers != NULL )
 		{
-			numRecs = CFArrayGetCount( usersAttrsValues );
-			for( i=0; ( i < numRecs ) && ( siResult == eDSNoErr ); i++ )
-			{
-				needToReleaseGUID = false;
-				recAttrsValues = (CFDictionaryRef)CFArrayGetValueAtIndex( usersAttrsValues, i );
-				values = CFDictionaryGetValue( recAttrsValues, CFSTR( kDS1AttrGeneratedUID ) );
-				if( ( values == NULL ) || ( CFArrayGetCount( values ) == 0 ) )
-				{
-					values = CFDictionaryGetValue( recAttrsValues, CFSTR( kDS1AttrUniqueID ) );
-					if( ( values == NULL ) || ( CFArrayGetCount( values ) == 0 ) )	//if there's no GUID *and* no unique ID, then bail on this record
-						continue;
-					
-					value = CFArrayGetValueAtIndex( values, 0 );
-					if( !CFStringGetCString( value, cStrBuffer, sizeof( cStrBuffer ), kCFStringEncodingUTF8 ) )
-						continue;
-					
-					guid = HLDSCreateFabricatedGUID( atoi( cStrBuffer ), CFSTR( kDSStdRecordTypeUsers ) );
-					needToReleaseGUID = true;
-				}
-				else
-					guid = CFArrayGetValueAtIndex( values, 0 );
-                
-				if( CFStringGetCString( guid, cStrBuffer, sizeof( cStrBuffer ), kCFStringEncodingUTF8 ) )
-					siResult = HLDSAddAttributeValue( inDSRef, inRecordRef, kDSNAttrGroupMembers, false, cStrBuffer );
-				
-				if( needToReleaseGUID  )
-					CFRelease( guid );
-			}
+			*outShortNameMembers = shortNameMembers;
+			CFRetain( shortNameMembers );
 		}
-	}
-	else	//downgrade the group here
-		siResult = HLDSRemoveAttribute( inDSRef, inRecordRef, kDSNAttrGroupMembers );
-    
-	if( usersAttrsValues != NULL )
-		CFRelease( usersAttrsValues );
-	if( shortNameMembers != NULL )
+		
 		CFRelease( shortNameMembers );
-    
-	return siResult;
-}//changeGroupFormat
+	}
+	
+	CFArrayRef guidMembers = ODRecordCopyValues( inRecordRef, kODAttributeTypeGroupMembers, NULL );
+	if ( guidMembers != NULL ) {
+		guidMembersCount = CFArrayGetCount( guidMembers );
+		CFRelease( guidMembers );
+	}
+	
+	return ( guidMembersCount == 0 && shortNameMembersCount > 0 );
+}
 
 //-----------------------------------------------------------------------------
 //	usage
@@ -559,18 +233,19 @@ SInt32 changeGroupFormat(tDirReference inDSRef, tDirNodeReference inDSNodeRef, t
 void
 usage(void)
 {
-	printf("\ndseditgroup (%s):: Manipulate group records with the DirectoryService API.\n\n", version);
+	printf("\ndseditgroup (%s):: Manipulate group records with the Open Directory API.\n\n", TOOLS_VERSION);
 	printf(
            "Usage: dseditgroup [-pqv] -o edit [-n nodename] [-u username] [-P password]\n"
            "                   [-r realname] [-c comment] [-s ttl] [-k keyword] [-i gid]\n"
            "                   [-g uuid] [-S sid] [-a addmember] [-d deletemember] \n"
-           "                   [-t membertype] groupname\n"
+           "                   [-t membertype] [-T grouptype] [-L] groupname\n"
            "Usage: dseditgroup [-pqv] -o create [-n nodename] [-u username] [-P password]\n"
            "                   [-r realname] [-c comment] [-s ttl] [-k keyword] [-i gid]\n"
-           "                   [-g uuid] [-S sid] groupname\n"
-           "Usage: dseditgroup [-pqv] -o delete [-u username] [-P password] groupname\n"
-           "Usage: dseditgroup [-pqv] -o read groupname\n"
-           "Usage: dseditgroup [-pqv] -o checkmember [-m membername] groupname\n" );
+           "                   [-g uuid] [-S sid] [-T grouptype] [-L] groupname\n"
+           "Usage: dseditgroup [-pqv] -o delete [-u username] [-P password] [-T grouptype]\n"
+		   "                   [-L] groupname\n"
+           "Usage: dseditgroup [-qv] -o read [-T grouptype] groupname\n"
+           "Usage: dseditgroup [-qv] -o checkmember [-m membername] groupname\n" );
 	printf("\nSee dseditgroup(8) man page for details.\n");
 	printf("\n");
 }//usage
@@ -591,6 +266,7 @@ int main(int argc, char *argv[])
 	char		   *nodename		= nil;
 	char		   *username		= nil;
 	bool			bDefaultUser	= false;
+	bool			bCompList		= false;
 	char		   *password		= nil;
 	char		   *addrecordname   = nil;
 	char		   *delrecordname   = nil;
@@ -605,16 +281,19 @@ int main(int argc, char *argv[])
 	char		   *groupname		= nil;
 	char		   *member			= nil;
 	char		   *format			= nil;	//be either "l" for legacy or "n" for new group format
-	int				errorcode		= 0;
+	const char	   *grouptype		= NULL;
+	int				exitcode		= 0;
+	uuid_t			uuid;
     
-	
-	SInt32				siResult		= eDSAuthFailed;
-	tDirReference		aDSRef			= 0;
-	tDirNodeReference   aDSNodeRef		= 0;
+	ODNodeRef			aDSNodeRef		= NULL;
+	ODNodeRef			aDSSearchRef	= NULL;
 	bool				bContinueAdd	= false;
 	char			   *groupRecordName	= nil;
-	tRecordReference	aDSRecordRef	= 0;
-    
+	__block ODRecordRef	aGroupRecRef	= NULL;
+	__block ODRecordRef	aGroupRecRef2	= NULL;
+	CFErrorRef			aErrorRef		= NULL;
+	char				*errorTok		= NULL;
+
 	if (argc < 2)
 	{
 		usage();
@@ -624,34 +303,34 @@ int main(int argc, char *argv[])
 	if ( strcmp(argv[1], "-appleversion") == 0 )
         dsToolAppleVersionExit( argv[0] );
 	
-    while ((ch = getopt(argc, argv, "o:pqvn:m:u:P:a:d:t:i:g:r:k:c:s:S:f:?h")) != -1) {
+    while ((ch = getopt(argc, argv, "LT:o:pqvn:m:u:P:a:d:t:i:g:r:k:c:s:S:f:?h")) != -1) {
         switch (ch) {
             case 'o':
                 operation = strdup(optarg);
                 if (operation != nil)
                 {
-                    if ( (strcasecmp(operation, "read") == 0) || (strcasecmp(operation, "r") == 0) )
+                    if ( strcasecmp(operation, "read") == 0 )
                     {
                         bReadOption = true;
                     }
-                    else if ( (strcasecmp(operation, "create") == 0) || (strcasecmp(operation, "c") == 0) )
+                    else if ( strcasecmp(operation, "create") == 0 )
                     {
                         bCreateOption = true;
                     }
-                    else if ( (strcasecmp(operation, "delete") == 0) || (strcasecmp(operation, "d") == 0) )
+                    else if ( strcasecmp(operation, "delete") == 0 )
                     {
                         bDeleteOption = true;
                     }
-                    else if ( (strcasecmp(operation, "edit") == 0) || (strcasecmp(operation, "e") == 0) )
+                    else if ( strcasecmp(operation, "edit") == 0 )
                     {
                         bEditOption = true;
                     }
-                    else if ( (strcasecmp(operation, "checkmember") == 0) )
+                    else if ( strcasecmp(operation, "checkmember") == 0 )
                     {
                         bCheckMemberOption = true;
                     }
                 }
-                    break;
+				break;
             case 'p':
                 bInteractivePwd = true;
                 break;
@@ -682,11 +361,33 @@ int main(int argc, char *argv[])
             case 't':
                 recordtype = strdup(optarg);
                 break;
+			case 'T':
+				grouptype = optarg;
+				break;
+			case 'L':
+				bCompList = true;
+				break;
             case 'i':
-                gid = strdup(optarg);
+				strtol( optarg, &errorTok, 10 );
+				if ( errorTok == NULL || errorTok[0] == '\0' ) {
+					gid = strdup(optarg);
+				}
+				else {
+					printf( "GID contains non-numeric characters\n" );
+					return EX_USAGE;
+				}
                 break;
             case 'g':
-                guid = strdup(optarg);
+				uuid_clear( uuid );
+				
+				// don't allow malformed UUIDs nor an empty one
+				if ( uuid_parse(optarg, uuid) == 0 && uuid_is_null(uuid) == false ) {
+					guid = strdup(optarg);
+				}
+				else {
+					printf( "GUID provided is not a valid UUID\n" );
+					return EX_USAGE;
+				}
                 break;
             case 'r':
                 realname = strdup(optarg);
@@ -711,15 +412,21 @@ int main(int argc, char *argv[])
             default:
 			{
 				usage();
-				exit(0);
+				return EX_USAGE;
 			}
         }
     }
 	
-	if (argc > 1)
+	argc -= optind;
+	argv += optind;
+	
+	if (argc == 0)
 	{
-		groupname = strdup(argv[argc-1]);
+		printErrorOrMessage( NULL, "No group name provided", bVerbose );
+		return EX_USAGE;
 	}
+	
+	groupname = strdup( argv[0] );
 	
 	if (!bCreateOption && !bDeleteOption && !bEditOption && !bCheckMemberOption)
 	{
@@ -775,6 +482,8 @@ int main(int argc, char *argv[])
 			printf("Recordname to be deleted provided as <%s>\n", delrecordname);
 		if (recordtype)
 			printf("Recordtype provided as <%s>\n", recordtype);
+		if (grouptype)
+			printf("Grouptype provided as <%s>\n", grouptype);
 		if (gid)
 			printf("GID provided as <%s>\n", gid);
 		if (guid)
@@ -791,12 +500,34 @@ int main(int argc, char *argv[])
 			printf("TimeToLive provided as <%s>\n", timeToLive);
 		if (groupname)
 			printf("Groupname provided as <%s>\n", groupname);
+		if (bCompList)
+			printf("Will maintain computer lists when applicable\n" );
 		printf("\n");
 	}
 	
-
+	ODRecordType (^mapRecTypeWithDefault)(const char *, ODRecordType) = ^(const char *inType, ODRecordType inDefault) {
+		if ( inType != NULL )
+		{
+			if ( strcasecmp(inType, "user") == 0) {
+				return kODRecordTypeUsers;
+			}
+			else if ( strcasecmp(inType, "group") == 0) {
+				return kODRecordTypeGroups;
+			}
+			else if ( strcasecmp(inType, "computer") == 0) {
+				return kODRecordTypeComputers;
+			}
+			else if ( strcasecmp(inType, "computergroup") == 0 ) {
+				return kODRecordTypeComputerGroups;
+			}
+		}
+		
+		return inDefault;
+	};
     
-	if (!bNoVerify && ( !bDefaultUser && ( (password == nil) || bInteractivePwd ) ) || (bDefaultUser && bInteractivePwd) )
+	if (bCheckMemberOption == false &&
+		bReadOption == false &&
+		(!bNoVerify && ( !bDefaultUser && ( (password == nil) || bInteractivePwd ) ) || (bDefaultUser && bInteractivePwd)) )
 	{
 		password = read_passphrase("Please enter user password:", 1);
 		//do not verbose output this password value
@@ -804,396 +535,652 @@ int main(int argc, char *argv[])
 	
 	do //use break to stop for an error
 	{
-		siResult = dsOpenDirService( &aDSRef );
-		if ( siResult != eDSNoErr )
-		{
-			if (bVerbose)
-			{
-				printf("dsOpenDirService failed with error <%d>\n", siResult);
-			}
-            errorcode = -1;
-			break;
-		}
-        
+		bool bIsLocalNode = false;
+		ODNodeRef aLocalNodeRef = ODNodeCreateWithNodeType( kCFAllocatorDefault, kODSessionDefault, kODNodeTypeLocalNodes, &aErrorRef );
+		
 		//set up the node to be used
         if (nodename == NULL)
 		{
-			if (bCheckMemberOption || bReadOption)
-			{
-				// if no nodename is specified we default to the /Search node only for checkmember OR read operation
-				aDSNodeRef = getNodeRef(aDSRef, "/Search", username, password, bVerbose);
+			// if no nodename is specified we default to the /Search node since OD Framework can work with that
+			if ( bEditOption == true || bReadOption == true || bCheckMemberOption == true || bDeleteOption == true ) {
+				aDSNodeRef = ODNodeCreateWithNodeType( kCFAllocatorDefault, kODSessionDefault, kODNodeTypeAuthentication, &aErrorRef );
 			}
-			else //otherwise we only manipulate the local node for create, delete or edit
-			{
-				aDSNodeRef = getNodeRef(aDSRef, nil, username, password, bVerbose);
+			else {
+				/* Default to local node for other operations (i.e. create). */
+				aDSNodeRef = aLocalNodeRef;
+				bIsLocalNode = true;
 			}
         }
-		else if (strncmp(".",nodename,strlen(".")) == 0)
+		else if ( nodename[0] == '.' )
 		{
             // if the nodename is "." we default to the local node by passing nil as the node name to getNodeRef
-            aDSNodeRef = getNodeRef(aDSRef, nil, username, password, bVerbose);
+			aDSNodeRef = aLocalNodeRef;
+			bIsLocalNode = true;
         }
 		else
 		{
             // otherwise we pass the provided nodename to getNodeRef
-            aDSNodeRef = getNodeRef(aDSRef, nodename, username, password, bVerbose);
+			CFStringRef cfNodeName = CFStringCreateWithCString( kCFAllocatorDefault, nodename, kCFStringEncodingUTF8 );
+			if ( cfNodeName != NULL ) {
+				aDSNodeRef = ODNodeCreateWithName( kCFAllocatorDefault, kODSessionDefault, cfNodeName, &aErrorRef );
+				CFRelease( cfNodeName );
+				if (aDSNodeRef == NULL) {
+					exitcode = printErrorOrMessage(NULL, "Error locating specified node.", bVerbose);
+					break;
+				}
+				
+				if ( CFEqual(ODNodeGetName(aDSNodeRef), ODNodeGetName(aLocalNodeRef)) == true ) {
+					bIsLocalNode = true;
+				}
+			}
+			else {
+				exitcode = printErrorOrMessage( NULL, "Error parsing node name.", bVerbose );
+				break;
+			}
         }
-		if ( aDSNodeRef == 0 )
-		{
-			if (bVerbose)
-			{
-				printf("getNodeRef failed to obtain a node reference\n");
-			}
-			errorcode = -1;
-            break;
-            
+		
+		if ( aDSNodeRef == NULL ) {
+			exitcode = printErrorOrMessage( &aErrorRef, "getNodeRef failed to obtain a node reference", bVerbose );
+			break;
 		}
-        
-		if (bReadOption)
-		{
-			getAndOutputRecord(aDSRef, aDSNodeRef, groupname, kDSStdRecordTypeGroups, bVerbose);
+		
+		aDSSearchRef = ODNodeCreateWithNodeType( kCFAllocatorDefault, kODSessionDefault, kODNodeTypeAuthentication, &aErrorRef );
+		
+		CFStringRef groupNameCF = CFStringCreateWithCString( kCFAllocatorDefault, groupname, kCFStringEncodingUTF8 );
+		if ( groupNameCF == NULL ) {
+			exitcode = EX_SOFTWARE;
+			printErrorOrMessage( NULL, "Unable to parse groupname", bVerbose );
+			break;
 		}
-		else if (bDeleteOption)
-		{
-			if (bVerbose)
-			{
-				printf("Group Record <%s> to be Deleted\n", groupname);
-				getAndOutputRecord(aDSRef, aDSNodeRef, groupname, kDSStdRecordTypeGroups, bVerbose);
+		
+		CFArrayRef attribs = CFArrayCreate( kCFAllocatorDefault, (CFTypeRef *) &kODAttributeTypeStandardOnly, 1, &kCFTypeArrayCallBacks );
+		if ( attribs == NULL ) {
+			exitcode = EX_SOFTWARE;
+			printErrorOrMessage( NULL, "Unable to allocate array", bVerbose );
+			break;
+		}
+
+		ODRecordType grpType = mapRecTypeWithDefault( grouptype, kODRecordTypeGroups );
+		
+		bool (^isLocalNode)(ODRecordRef record) = ^(ODRecordRef record) {
+			CFArrayRef values = ODRecordCopyValues( record, kODAttributeTypeMetaNodeLocation, NULL );
+			if ( values != NULL ) {
+				
+				if ( CFArrayGetCount(values) > 0 && CFEqual(CFArrayGetValueAtIndex(values, 0), ODNodeGetName(aLocalNodeRef)) == true ) {
+					return (bool) true;
+				}
+				
+				CFRelease( values );
 			}
-			//check if already exists
-			siResult = eDSNoErr;
-			groupRecordName = getSingleRecordAttribute(aDSRef, aDSNodeRef, groupname, kDSStdRecordTypeGroups, kDSNAttrRecordName, &siResult, bVerbose);
-            
-			//if already exists then we verify to delete if required
-			if ( (groupRecordName != nil) && (siResult == eDSNoErr) )
+			
+			return (bool) false;
+		};
+		
+		aGroupRecRef = ODNodeCopyRecord( aDSNodeRef, grpType, groupNameCF, attribs, NULL );
+		if ( aGroupRecRef != NULL ) {
+			bIsLocalNode = isLocalNode( aGroupRecRef );
+		}
+		
+		/* The group must already exist unless -o create is specified. */
+		if (aGroupRecRef == NULL && !bCreateOption) {
+			exitcode = printErrorOrMessage(NULL, "Group not found.", bVerbose);
+			break;
+		}
+
+		if ( bCompList == true && grpType == kODRecordTypeComputerGroups )
+		{
+			aGroupRecRef2 = ODNodeCopyRecord( aDSNodeRef, kODRecordTypeComputerLists, groupNameCF, NULL, NULL );
+			if ( aGroupRecRef2 != NULL && isLocalNode(aGroupRecRef2) == true )
 			{
-				if (!bNoVerify)
+				// if we got a group record, let's see if it is also local node
+				if ( bIsLocalNode == false && aGroupRecRef != NULL )
 				{
-					char responseValue[8] = {0};
-					printf("Delete called on existing record - do you really want to delete, y or n : ");
-					scanf("%s", responseValue);
-					printf("\n");
-					if ((responseValue[0] == 'y') || (responseValue[0] == 'Y'))
-					{
-						aDSRecordRef = openRecord(aDSRef, aDSNodeRef, groupname, kDSStdRecordTypeGroups, &siResult, bVerbose);
-						if (siResult == eDSNoErr)
-						{
-							siResult = dsDeleteRecord(aDSRecordRef);
-							if (siResult == eDSNoErr)
-							{
-								if (bVerbose) printf("Record has been deleted\n");
-							}
-						}
-						else
-						{
-							errorcode = -1;
-                            if (bVerbose) printf("Record not opened so not deleted\n");
-						}
+					if ( bVerbose == true ) {
+						printf( "Skipping Computer list because it's on a different node\n" );
+						CFRelease( aGroupRecRef2 );
+						aGroupRecRef2 = NULL;
 					}
-				} else {
-                    aDSRecordRef = openRecord(aDSRef, aDSNodeRef, groupname, kDSStdRecordTypeGroups, &siResult, bVerbose);
-                    if (siResult == eDSNoErr)
-                    {
-                        siResult = dsDeleteRecord(aDSRecordRef);
-                        if (siResult == eDSNoErr)
-                        {
-                            if (bVerbose) printf("Record has been deleted\n");
-                        }
-                    }
-                    else
-                    {
-                        errorcode = -1;
-                        if (bVerbose) printf("Record not opened so not deleted\n");
-                    }
-                }
-			} 
+				}
+				else {
+					bIsLocalNode = true;
+				}
+			}
+		}
+		
+		if ( geteuid() == 0 && bIsLocalNode == true && (username == NULL || password == NULL) )
+		{
+			// we are running as root and no password or name provided
+			if ( bVerbose == true ) {
+				printf( "Skipping authentication because user has effective ID 0\n" );
+			}
+		}
+		else if ( bDeleteOption == true || bCreateOption == true || bEditOption == true )
+		{
+			// need to auth for changes
+			if (username == NULL || password == NULL) {
+				exitcode = printErrorOrMessage(NULL, "Username and password must be provided.", bVerbose);
+				break;
+			}
+
+			bool bSuccess = false;
+			CFStringRef user = CFStringCreateWithCString(NULL, username, kCFStringEncodingUTF8);
+			CFStringRef pass = CFStringCreateWithCString(NULL, password, kCFStringEncodingUTF8);
+			
+			/*
+			 * aDSNodeRef may be /Search unless we're creating a new group. Fortunately,
+			 * we can authenticate with the specific group(s) most of the time. We still
+			 * authenticate with the node directly when the specified group doesn't exist.
+			 * As noted above, this is only allowed when creating a new group, in which
+			 * case aDSNodeRef cannot be /Search.
+			 */
+			if (aGroupRecRef != NULL) {
+				bSuccess = ODRecordSetNodeCredentials(aGroupRecRef, user, pass, &aErrorRef);
+				if (aGroupRecRef2 != NULL) {
+					ODRecordSetNodeCredentials(aGroupRecRef2, user, pass, &aErrorRef);
+				}
+			} else {
+				bSuccess = ODNodeSetCredentials(aDSNodeRef, NULL, user, pass, &aErrorRef);
+			}
+
+			CFRelease(user);
+			CFRelease(pass);
+
+			if (!bSuccess) {
+				exitcode = printErrorOrMessage(&aErrorRef, "Failed to set credentials.", bVerbose);
+				break;
+			}
+		}
+		
+		CFErrorRef (^deleteRecords)(void) = ^(void) {
+			CFErrorRef error = NULL;
+			if ( aGroupRecRef != NULL )
+			{
+				if ( ODRecordDelete(aGroupRecRef, &error) == false ) {
+					return error;
+				}
+				
+				CFRelease( aGroupRecRef );
+				aGroupRecRef = NULL;
+			}
+			
+			if ( aGroupRecRef2 != NULL )
+			{
+				if ( ODRecordDelete(aGroupRecRef2, &error) == false ) {
+					return error;
+				}
+				
+				CFRelease( aGroupRecRef2 );
+				aGroupRecRef2 = NULL;
+			}
+			
+			return error;
+		};
+		
+		if ( bReadOption == true || bDeleteOption == true )
+		{
+			if ( aGroupRecRef != NULL || aGroupRecRef2 != NULL )
+			{
+				if ( bDeleteOption == true && aGroupRecRef != NULL ) {
+					printErrorOrMessage( NULL, "Group record below will be deleted:", bVerbose );
+				}
+				
+				CFDictionaryRef cfDetails = ODRecordCopyDetails( aGroupRecRef, NULL, NULL );
+				if ( cfDetails != NULL ) {
+					CFDictionaryApplyFunction( cfDetails, printDictionary, NULL );
+					CFRelease( cfDetails );
+				}
+				
+				if ( bDeleteOption == true && (aErrorRef = deleteRecords()) != NULL ) {
+					exitcode = printErrorOrMessage( &aErrorRef, "Unable to delete record", bVerbose );
+					break;
+				}
+			}
+			else
+			{
+				exitcode = printErrorOrMessage( NULL, "Group was not found.", bVerbose );
+				break;
+			}
 		}
 		else if (bCreateOption)
 		{
-			//check if already exists
-			siResult = eDSNoErr;
-			groupRecordName = getSingleRecordAttribute(aDSRef, aDSNodeRef, groupname, kDSStdRecordTypeGroups, kDSNAttrRecordName, &siResult, bVerbose);
-            
-			//if already exists then verify we continue with add of parameters to existing record ie. set bContinueAdd
-			if ( (groupRecordName != nil) && (siResult == eDSNoErr) )
+			if ( aGroupRecRef != NULL || aGroupRecRef2 != NULL )
 			{
 				char responseValue[8] = {0};
 				if (!bNoVerify)
 				{
 					printf("Create called on existing record - do you want to overwrite, y or n : ");
-					scanf("%s", responseValue);
+					scanf( "%c", responseValue );
 					printf("\n");
 				}
+				
 				if (bNoVerify || (responseValue[0] == 'y') || (responseValue[0] == 'Y'))
 				{
-					aDSRecordRef = openRecord(aDSRef, aDSNodeRef, groupname, kDSStdRecordTypeGroups, &siResult, bVerbose);
-					if (siResult == eDSNoErr)
-					{
-						bContinueAdd = true;
+					if ( (aErrorRef = deleteRecords()) != NULL ) {
+						exitcode = printErrorOrMessage( &aErrorRef, "Unable to replace the record", bVerbose );
+						break;
 					}
-					else
-					{
-						if (bVerbose) printf("Record not opened but already exists\n");
-					}
-				}
-			} 
-			else if ( (groupRecordName == nil) && (siResult == eDSRecordNotFound) )
-			{
-				aDSRecordRef = createAndOpenRecord(aDSRef, aDSNodeRef, groupname, kDSStdRecordTypeGroups, &siResult, bVerbose);
-				if (siResult == eDSNoErr)
-				{
-					groupRecordName = strdup(groupname);
-					bContinueAdd = true;
 				}
 				else
 				{
-					errorcode = -1;
-                    if (bVerbose) printf("Record not created\n");
+					exitcode = EX_CANTCREAT;
+					printErrorOrMessage( NULL, "Operation cancelled because record could not be replaced", bVerbose );
+					break;
+				}
+			}
+			
+			if ( aGroupRecRef == NULL )
+			{
+				aGroupRecRef = ODNodeCreateRecord( aDSNodeRef, grpType, groupNameCF, NULL, &aErrorRef );
+				if ( aGroupRecRef != NULL )
+				{
+					groupRecordName = strdup(groupname);
+					bContinueAdd = true;
+					
+					// if creating ComputerGroups allow creation of ComputerLists if -L specified
+					if ( bCompList == true && grpType == kODRecordTypeComputerGroups ) {
+						aGroupRecRef2 = ODNodeCreateRecord( aDSNodeRef, kODRecordTypeComputerLists, groupNameCF, NULL, NULL );
+					}
+				}
+				else
+				{
+					exitcode = printErrorOrMessage( &aErrorRef, "Unable to create the record", bVerbose );
+					break;
 				}
 			}
 		}
 		else if (bEditOption)
 		{
-			//check if already exists
-			siResult = eDSNoErr;
-			groupRecordName = getSingleRecordAttribute(aDSRef, aDSNodeRef, groupname, kDSStdRecordTypeGroups, kDSNAttrRecordName, &siResult, bVerbose);
-			
-			//if already exists then open and set bContinueAdd
-			if ( (groupRecordName != nil) && (siResult == eDSNoErr) )
-			{
-				aDSRecordRef = openRecord(aDSRef, aDSNodeRef, groupRecordName, kDSStdRecordTypeGroups, &siResult, bVerbose);
-				if (siResult == eDSNoErr)
-				{
-					bContinueAdd = true;
-				}
-				else
-				{
-					if (bVerbose) printf("Record not opened\n");
-				}
-			} 
+			if ( aGroupRecRef != NULL ) {
+				bContinueAdd = true;
+			}
+			else {
+				printErrorOrMessage( NULL, "Record not found", bVerbose );
+				break;
+			}
 		}
 		else if (bCheckMemberOption)
 		{
-			uuid_t uu;
-			uuid_t gu;
-			char *user = (member ? member : username);
-            errorcode = mbr_user_name_to_uuid(user, uu);
-			if ((errorcode == 0)&&(siResult == eDSNoErr) )
+			if ( aGroupRecRef != NULL )
 			{
-				if (bVerbose)
-				{
-					char uuidStr[MBR_UU_STRING_SIZE];
-					mbr_uuid_to_string(uu, uuidStr);
-					printf("User UUID = %s\n", uuidStr );
+				const char *user = (member ? : username);
+				CFStringRef memberCF = CFStringCreateWithCString( kCFAllocatorDefault, user, kCFStringEncodingUTF8 );
+				if ( memberCF == NULL ) {
+					exitcode = printErrorOrMessage( &aErrorRef, "Unable to to allocate string", bVerbose );
+					break;
 				}
 				
-                errorcode = mbr_group_name_to_uuid(groupname, gu);
-                if ((errorcode == 0)&&(siResult == eDSNoErr) )
-				{
-					int isMember;
-					
-					if(bVerbose)
-					{
-						char guidStr[MBR_UU_STRING_SIZE];
-						mbr_uuid_to_string(gu, guidStr);
-						printf("Group UUID = %s\n", guidStr );
-					}
-					
-					errorcode = mbr_check_membership(uu, gu, &isMember);
-					if (errorcode == 0)
-					{
-						if (isMember)
-						{
-							// return default errorcode of 0 if they are a member
-							printf("yes %s is a member of %s\n", user, groupname);
-						}
-						else
-						{
-							printf("no %s is NOT a member of %s\n", user, groupname);
-							errorcode = ENOENT;
-						}
-					}
-					else
-						printf("Error resolving group membership %d (%s)\n", errorcode, strerror(errorcode));
+				ODRecordRef memberRec = ODNodeCopyRecord( aDSSearchRef, kODRecordTypeUsers, memberCF, NULL, &aErrorRef );
+				if ( memberRec == NULL ) {
+					exitcode = printErrorOrMessage( &aErrorRef, "Unable to find the user record", bVerbose );
+					break;
 				}
-				else{
-                    if (siResult == eDSRecordNotFound) {
-                        if ((nodename == NULL)){
-                            printf("No group record for '%s' found on the authentication search policy.\n",groupname);  
-                        }else if (strcmp(nodename,".") == 0 ) {
-                            printf("No group record for '%s' found on local node.\n",groupname);
-                        } else {
-                            printf("No group record for '%s' found on specified node: %s\n",groupname,nodename);
-                        }
-                        
-                    }else {
-                        printf("Error resolving group GUID %d (%s)\n", errorcode, strerror(errorcode));
-                    }
-                }
-                
-                
+				
+				if ( ODRecordContainsMember(aGroupRecRef, memberRec, &aErrorRef) == true ) {
+					// return default exitcode of 0 if they are a member
+					printf("yes %s is a member of %s\n", user, groupname);
+					exitcode = EX_OK;
+				}
+				else {
+					printf("no %s is NOT a member of %s\n", user, groupname);
+					exitcode = EX_NOUSER;
+				}
+				
+				CFRelease( memberRec );
+				CFRelease( memberCF );
 			}
-            else
-                if (siResult == eDSRecordNotFound) {
-                   printf("No user record for '%s' found on the authentication search policy.\n",user);  
-                }else {
-                    printf("Error resolving user GUID %d (%s)\n", errorcode, strerror(errorcode));
-                }
-            
+			else
+			{
+				exitcode = printErrorOrMessage( NULL, "Invalid group name", bVerbose );
+				break;
+			}
 		}
         
-        if ( (bCreateOption || bEditOption) && (siResult == eDSNoErr) )
+        if ( (bCreateOption || bEditOption) && aGroupRecRef != NULL )
         {
             if (bContinueAdd)
             {
-                char *recType = nil;
-                recType = kDSStdRecordTypeUsers;
-                if (recordtype != nil)
-                {
-                    //map the users, groups, computers names to Std types
-                    if (strcasecmp(recordtype,"user") == 0)
-                    {
-                        recType = kDSStdRecordTypeUsers;
-                    }
-                    if (strcasecmp(recordtype,"group") == 0)
-                    {
-                        recType = kDSStdRecordTypeGroups;
-                    }
-                    if (strcasecmp(recordtype,"computer") == 0)
-                    {
-                        recType = kDSStdRecordTypeComputers;
-                    }
-                }
-                //series of calls to add or replace parameters as specified
-                if (addrecordname != nil)
-                {
-                    siResult = addGroupMember(aDSRef, aDSNodeRef, aDSRecordRef, groupRecordName, addrecordname, recType, bVerbose);
-                }
-                if (delrecordname != nil)
-                {
-                    siResult = deleteGroupMember(aDSRef, aDSNodeRef, aDSRecordRef, delrecordname, recType, bVerbose);
-                }
+                ODRecordType recType = mapRecTypeWithDefault( recordtype, kODRecordTypeUsers );
+				
                 if (format != nil)
                 {
-                    siResult = changeGroupFormat(aDSRef, aDSNodeRef, aDSRecordRef, groupRecordName, format, bVerbose);
+					CFArrayRef shortNameMembers = NULL;
+					bool isLegacy = isLegacyGroup( aGroupRecRef, &shortNameMembers );
+					
+					if ( format[0] == 'n' && isLegacy == true )
+					{
+						// now we ask membership APIs for GUIDs for these users
+						// we search each value individually so we grab the first entry
+						CFMutableArrayRef newList = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
+						CFIndex count = CFArrayGetCount( shortNameMembers );
+						CFIndex ii;
+						
+						for ( ii = 0; ii < count; ii++ )
+						{
+							char tmpStr[512]; // primary record names should ever be this long
+							CFStringRef recName = (CFStringRef) CFArrayGetValueAtIndex( shortNameMembers, ii );
+							
+							const char *recNameStr = CFStringGetCStringPtr( recName, kCFStringEncodingUTF8 );
+							if ( recNameStr == NULL ) {
+								if ( CFStringGetCString(recName, tmpStr, sizeof(tmpStr), kCFStringEncodingUTF8) == false ) {
+									printErrorOrMessage( NULL, "Record name is more than 512 characers - something is wrong", bVerbose );
+									return EX_SOFTWARE;
+								}
+								
+								recNameStr = tmpStr;
+							}
+							
+							uuid_t uu;
+							if ( mbr_user_name_to_uuid(recNameStr, uu) == 0 ) {
+								uuid_string_t uuidStr;
+								
+								uuid_unparse_upper( uu, uuidStr );
+								CFStringRef uuidCF = CFStringCreateWithCString( kCFAllocatorDefault, uuidStr, kCFStringEncodingUTF8 );
+								CFArrayAppendValue( newList, uuidCF );
+								CFRelease( uuidCF );
+							}
+							else {
+								int len = strlen( recNameStr );
+								char tempBuffer[sizeof("UUID for '%s' could not be found please remove bad entry before conversion") + len + 1];
+								
+								snprintf( tempBuffer, len, "UUID for '%s' could not be found please remove bad entry before conversion", recNameStr );
+								printErrorOrMessage( NULL, tempBuffer, bVerbose );
+								
+								return EX_TEMPFAIL;
+							}
+						}
+						
+						if ( CFArrayGetCount(newList) != 0 )
+						{
+							if ( ODRecordSetValue(aGroupRecRef, kODAttributeTypeGroupMembers, newList, &aErrorRef) == false ) {
+								printErrorOrMessage( &aErrorRef, "Failed to set the UUID based membership", bVerbose );
+								break;
+							}
+						}
+					}
+					else if ( format[0] == 'l' && isLegacy == false )
+					{
+						CFArrayRef newValue = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
+						if ( ODRecordSetValue(aGroupRecRef, kODAttributeTypeGroupMembers, newValue, &aErrorRef) == false ) {
+							printErrorOrMessage( &aErrorRef, "Error removing GUIDs from the group", bVerbose );
+							break;
+						}
+					}
+					else
+					{
+						// just break, nothing to do, don't return an error
+						if ( bVerbose == true ) {
+							printErrorOrMessage( NULL, "Group is already in that format", bVerbose );
+						}
+						break;
+					}
                 }
-                if (gid)
+				
+                if ( addrecordname != NULL )
                 {
-                    HLDSSetAttributeValue( aDSRef, aDSRecordRef, kDS1AttrPrimaryGroupID, true, gid );
+					CFStringRef memberName = CFStringCreateWithCString( kCFAllocatorDefault, addrecordname, kCFStringEncodingUTF8 );
+					if ( memberName != NULL ) {
+						
+						ODRecordRef memberRef = ODNodeCopyRecord( aDSSearchRef, recType, memberName, NULL, &aErrorRef );
+						if ( memberRef != NULL ) {
+
+							if ( ODRecordAddMember(aGroupRecRef, memberRef, &aErrorRef) == false ) {
+								exitcode = printErrorOrMessage( &aErrorRef, "Could not add member to group.", bVerbose );
+								break;
+							}
+							
+							// silently update the second one
+							ODRecordAddMember( aGroupRecRef2, memberRef, NULL );
+						}
+						else {
+							printErrorOrMessage( &aErrorRef, "Record was not found.", bVerbose );
+							exitcode = eDSRecordNotFound;
+							break;
+						}
+					}
+					else {
+						exitcode = eDSInvalidRecordName;
+						break;
+					}
                 }
-                else if (bCreateOption) //gid default creation only for create group
-                {
-                    //check if gid already exists - otherwise create and set one
-                    siResult = eDSNoErr;
-                    gid = getSingleRecordAttribute(aDSRef, aDSNodeRef, groupname, kDSStdRecordTypeGroups, kDS1AttrPrimaryGroupID, &siResult, bVerbose);
-                    
-                    if ( (gid != nil) && (siResult == eDSNoErr) )
-                    {
-                        if (atoi(gid) >= 500)
-                        {
-                            if (bVerbose) printf("gid already exists\n");
-                        }
-                        else
-                        {
-                            gid = createNewgid(aDSRef, aDSNodeRef, bVerbose);
-                            if (gid != nil)
-                            {
-                                HLDSSetAttributeValue( aDSRef, aDSRecordRef, kDS1AttrPrimaryGroupID, true, gid );
-                                if (bVerbose) printf("Next free gid value determined and added\n");
-                            }
-                        }
-                    }
-                    else
-                    {
-                        gid = createNewgid(aDSRef, aDSNodeRef, bVerbose);
-                        if (gid != nil)
-                        {
-                            HLDSSetAttributeValue( aDSRef, aDSRecordRef, kDS1AttrPrimaryGroupID, true, gid );
-                            if (bVerbose) printf("Next free gid value determined and added\n");
-                        }
-                    }
+				
+				if ( delrecordname != NULL )
+				{
+					CFStringRef memberName = CFStringCreateWithCString( kCFAllocatorDefault, delrecordname, kCFStringEncodingUTF8 );
+					if ( memberName != NULL ) {
+						
+						ODRecordRef memberRef = ODNodeCopyRecord( aDSSearchRef, recType, memberName, NULL, &aErrorRef );
+						if ( memberRef != NULL ) {
+							
+							if ( ODRecordRemoveMember(aGroupRecRef, memberRef, &aErrorRef) == false ) {
+								exitcode = printErrorOrMessage( &aErrorRef, "Could not remove member from group.", bVerbose );
+								break;
+							}
+							
+							// silently update the computer list if necessary
+							ODRecordRemoveMember( aGroupRecRef2, memberRef, NULL );
+						}
+						else {
+							printErrorOrMessage( &aErrorRef, "Record was not found.", bVerbose );
+							exitcode = eDSRecordNotFound;
+							break;
+						}
+					}
+					else {
+						exitcode = eDSInvalidRecordName;
+						break;
+					}
                 }
-                if (guid)
+				
+                if ( gid != NULL )
                 {
-                    char* temp = guid;
-                    while (*temp != '\0') {
-                        *temp = toupper(*temp);
-                        temp++;
-                    }
-                    addRecordParameter(aDSRef, aDSNodeRef, aDSRecordRef, kDS1AttrGeneratedUID, guid, bVerbose);
-                    if (bVerbose) printf("GUID value added\n");
+					CFStringRef gidCF = CFStringCreateWithCString( kCFAllocatorDefault, gid, kCFStringEncodingUTF8 );
+					if ( gidCF == NULL ) {
+						exitcode = printErrorOrMessage( NULL, "GID is invalid", bVerbose );
+						break;
+					}
+					
+					// see if it is in use already
+					ODQueryRef query = ODQueryCreateWithNodeType( kCFAllocatorDefault, kODNodeTypeAuthentication, kODRecordTypeGroups, 
+																  kODAttributeTypePrimaryGroupID, kODMatchEqualTo, gidCF, NULL, 1, &aErrorRef );
+					if ( query == NULL ) {
+						exitcode = printErrorOrMessage( &aErrorRef, "Error searching for conflicting GID", bVerbose );
+						break;
+					}
+					
+					CFArrayRef matches = ODQueryCopyResults( query, false, &aErrorRef );
+					if ( (matches == NULL || CFArrayGetCount(matches) == 0) && aErrorRef == NULL ) {
+						if ( ODRecordSetValue(aGroupRecRef, kODAttributeTypePrimaryGroupID, gidCF, &aErrorRef) == false ) {
+							exitcode = printErrorOrMessage( &aErrorRef, "Error attempting to set GID attribute", bVerbose );
+							break;
+						}
+						else {
+							if ( bVerbose == true ) {
+								printErrorOrMessage( &aErrorRef, "GID attribute was set", bVerbose );
+							}
+							exitcode = EX_OK;
+						}
+					}
+					else if ( aErrorRef != NULL ) {
+						exitcode = printErrorOrMessage( &aErrorRef, "Error checking if GID exists", bVerbose );
+						break;
+					}
+					else {
+						exitcode = printErrorOrMessage( NULL, "GID already exists", bVerbose );
+						break;
+					}
+					
+					CFRelease( gidCF );
                 }
-                else if (bCreateOption) //guid default creation only for create group
+                else if ( bCreateOption ) //gid default creation only for create group
                 {
-                    //check if GUID already exists - otherwise create and set one
-                    siResult = eDSNoErr;
-                    guid = getSingleRecordAttribute(aDSRef, aDSNodeRef, groupname, kDSStdRecordTypeGroups, kDS1AttrGeneratedUID, &siResult, bVerbose);
-                    
-                    if ( (guid != nil) && (siResult == eDSNoErr) )
-                    {
-                        if (bVerbose) printf("GUID already exists\n");
-                    }
-                    else
-                    {
-                        guid = createNewGUID(bVerbose);
-                        addRecordParameter(aDSRef, aDSNodeRef, aDSRecordRef, kDS1AttrGeneratedUID, guid, bVerbose);
-                        if (bVerbose) printf("GUID value created and added\n");
-                    }
+					gid_t newGID;
+					
+					for ( newGID = 501; newGID < GID_MAX; newGID++ ) {
+						if ( getgrgid(newGID) == NULL ) {
+							gid = (char *) malloc( 32 );
+							snprintf( gid, 32, "%d", newGID );
+							break;
+						}
+					}
+					
+					if ( gid != NULL )
+					{
+						bool bGIDIsOk = false;
+						CFStringRef gidCF = CFStringCreateWithCString( kCFAllocatorDefault, gid, kCFStringEncodingUTF8 );
+						if ( gidCF == NULL ) {
+							exitcode = printErrorOrMessage( NULL, "Unable to allocate string for PrimaryGroupID", bVerbose );
+							break;
+						}
+						
+						ODQueryRef query = ODQueryCreateWithNodeType( kCFAllocatorDefault, kODNodeTypeAuthentication, kODRecordTypeGroups, 
+																	  kODAttributeTypePrimaryGroupID, kODMatchEqualTo, gidCF, NULL, 1, &aErrorRef );
+						if ( query == NULL ) {
+							exitcode = printErrorOrMessage( &aErrorRef, "Unable to create query for PrimaryGroupID", bVerbose );
+							break;
+						}
+						
+						CFArrayRef results = ODQueryCopyResults( query, false, &aErrorRef );
+						if ( results != NULL ) {
+							CFRelease( results );
+							bGIDIsOk = true;
+						}
+						
+						CFRelease( query );
+
+						if ( bGIDIsOk == true && ODRecordSetValue(aGroupRecRef, kODAttributeTypePrimaryGroupID, gidCF, &aErrorRef) == false ) {
+							exitcode = printErrorOrMessage( &aErrorRef, "Unable to create query for PrimaryGroupID", bVerbose );
+						}
+						
+						CFRelease( gidCF );
+
+						if ( bGIDIsOk == false ) {
+							exitcode = printErrorOrMessage( &aErrorRef, "Query for PrimaryGroupID failed", bVerbose );
+							break;
+						}
+					}
                 }
-                if (smbSID)
+				
+				if ( guid != NULL )
+				{
+					// first let's canonicalize the UUID
+					uuid_string_t uuidStr;
+					
+					uuid_unparse_upper( uuid, uuidStr );
+					
+					CFStringRef cfUUID = CFStringCreateWithCString( kCFAllocatorDefault, uuidStr, kCFStringEncodingUTF8 );
+					if ( cfUUID != NULL ) {
+						if ( ODRecordSetValue(aGroupRecRef, kODAttributeTypeGUID, cfUUID, &aErrorRef) == false ) {
+							printErrorOrMessage( &aErrorRef, "Add GUID value - FAILED", bVerbose );
+							break;
+						} else if ( bVerbose ) {
+							printErrorOrMessage( NULL, "Add GUID value - SUCCESS", bVerbose );
+						}
+					}
+				}
+				
+                if ( smbSID )
                 {
-                    addRecordParameter(aDSRef, aDSNodeRef, aDSRecordRef, kDS1AttrSMBSID, smbSID, bVerbose);
-                    if (bVerbose) printf("SID value added\n");
+					CFStringRef newValue = CFStringCreateWithCString( kCFAllocatorDefault, smbSID, kCFStringEncodingUTF8 );
+					if ( newValue != NULL ) {
+						if ( ODRecordSetValue(aGroupRecRef, kODAttributeTypeSMBSID, newValue, &aErrorRef) == false ) {
+							printErrorOrMessage( &aErrorRef, "Add SID value - FAILED", bVerbose );
+						} else if ( bVerbose ) {
+							printErrorOrMessage( NULL, "Add SID value - SUCCESS", bVerbose );
+						}
+						
+						CFRelease( newValue );
+					}
                 }
-                if (realname)
+				
+                if ( realname )
                 {
-                    addRecordParameter(aDSRef, aDSNodeRef, aDSRecordRef, kDS1AttrDistinguishedName, realname, bVerbose);
+					CFStringRef newValue = CFStringCreateWithCString( kCFAllocatorDefault, realname, kCFStringEncodingUTF8 );
+					if ( newValue != NULL ) {
+						if ( ODRecordSetValue(aGroupRecRef, kODAttributeTypeFullName, newValue, &aErrorRef) == false ) {
+							printErrorOrMessage( &aErrorRef, "Add full name value - FAILED", bVerbose );
+						} else if ( bVerbose ) {
+							printErrorOrMessage( NULL, "Add full name value - SUCCESS", bVerbose );
+						}
+
+						ODRecordSetValue( aGroupRecRef2, kODAttributeTypeFullName, newValue, NULL );
+						CFRelease( newValue );
+					}
                 }
-                if (keyword)
+				
+                if ( keyword )
                 {
-                    addRecordParameter(aDSRef, aDSNodeRef, aDSRecordRef, kDSNAttrKeywords, keyword, bVerbose);
+					CFStringRef newValue = CFStringCreateWithCString( kCFAllocatorDefault, keyword, kCFStringEncodingUTF8 );
+					if ( newValue != NULL ) {
+						if ( ODRecordSetValue(aGroupRecRef, kODAttributeTypeKeywords, newValue, &aErrorRef) == false ) {
+							printErrorOrMessage( &aErrorRef, "Add Keyword value - FAILED", bVerbose );
+						} else if ( bVerbose ) {
+							printErrorOrMessage( NULL, "Add Keyword value - SUCCESS", bVerbose );
+						}
+						
+						ODRecordSetValue( aGroupRecRef2, kODAttributeTypeKeywords, newValue, NULL );
+						CFRelease( newValue );
+					}
                 }
-                if (comment)
+				
+                if ( comment )
                 {
-                    addRecordParameter(aDSRef, aDSNodeRef, aDSRecordRef, kDS1AttrComment, comment, bVerbose);
+					CFStringRef newValue = CFStringCreateWithCString( kCFAllocatorDefault, comment, kCFStringEncodingUTF8 );
+					if ( newValue != NULL ) {
+						if ( ODRecordSetValue(aGroupRecRef, kODAttributeTypeComment, newValue, &aErrorRef) == false ) {
+							printErrorOrMessage( &aErrorRef, "Add Comment value - FAILED", bVerbose );
+						} else if ( bVerbose ) {
+							printErrorOrMessage( NULL, "Add Comment value - SUCCESS", bVerbose );
+						}
+						
+						ODRecordSetValue( aGroupRecRef2, kODAttributeTypeComment, newValue, NULL );
+						CFRelease( newValue );
+					}
                 }
-                if (timeToLive)
+				
+                if ( timeToLive )
                 {
-                    addRecordParameter(aDSRef, aDSNodeRef, aDSRecordRef, kDS1AttrTimeToLive, timeToLive, bVerbose);
+					CFStringRef newValue = CFStringCreateWithCString( kCFAllocatorDefault, timeToLive, kCFStringEncodingUTF8 );
+					if ( newValue != NULL ) {
+						if ( ODRecordSetValue(aGroupRecRef, kODAttributeTypeTimeToLive, newValue, &aErrorRef) == false ) {
+							printErrorOrMessage( &aErrorRef, "Add TTL value - FAILED", bVerbose );
+						} else if ( bVerbose ) {
+							printErrorOrMessage( NULL, "Add TTL value - SUCCESS", bVerbose );
+						}
+						
+						ODRecordSetValue( aGroupRecRef2, kODAttributeTypeTimeToLive, newValue, NULL );
+						CFRelease( newValue );
+					}
                 }
             }
             
-            if (bVerbose)
+            if ( bVerbose == true && (bCreateOption == true || bEditOption == true) )
             {
-                if (bCreateOption)
-                    printf("Group Record <%s> Created\n", groupname);
-                if (bEditOption)
-                    printf("Group Record <%s> Edited\n", groupname);
-                getAndOutputRecord(aDSRef, aDSNodeRef, groupname, kDSStdRecordTypeGroups, bVerbose);
+                if ( bCreateOption == true )
+					printErrorOrMessage( NULL, "\nGroup record created.\n", bVerbose );
+                if ( bEditOption == true )
+					printErrorOrMessage( NULL, "\nGroup record edited.\n", bVerbose );
+				printErrorOrMessage( NULL, "=======================\n", bVerbose );
+				
+				ODRecordSynchronize( aGroupRecRef, NULL );
+				ODRecordSynchronize( aGroupRecRef2, NULL );
+				
+				CFDictionaryRef cfDetails = ODRecordCopyDetails( aGroupRecRef, NULL, NULL );
+				if ( cfDetails != NULL ) {
+					CFDictionaryApplyFunction( cfDetails, printDictionary, NULL );
+					CFRelease( cfDetails );
+				}
             }
         }
         
         //always leave the while
         break;
 	} while(true);
-    
+
     //cleanup DS API references and variables
-    if ( aDSRecordRef != 0 )
+    if ( aDSNodeRef != NULL )
     {
-        dsCloseRecord( aDSRecordRef );
-        aDSRecordRef = 0;
-    }
-    
-    if ( aDSNodeRef != 0 )
-    {
-        dsCloseDirNode( aDSNodeRef );
-        aDSNodeRef = 0;
-    }
-    
-    if ( aDSRef != 0 )
-    {
-        dsCloseDirService( aDSRef );
-        aDSRef = 0;
+        CFRelease( aDSNodeRef );
+        aDSNodeRef = NULL;
     }
     
     //not really needed since we exit
@@ -1226,17 +1213,6 @@ int main(int argc, char *argv[])
     if (groupRecordName)
         free(groupRecordName);
 
-    if (siResult != 0){
-        char *statusStr = dsCopyDirStatusName( siResult );
-        if ( statusStr != NULL ) {
-            printf( "ERROR: A Directory Service error occured.\n %ld: %s\n", siResult, statusStr );
-        }
-        else {
-            printf( "ERROR: A Directory Service error occured.\n%ld: <unknown>\n", siResult );
-        }
-        exit(-1);
-    } 
-    
-    exit(errorcode);
+	return exitcode;
 }
 

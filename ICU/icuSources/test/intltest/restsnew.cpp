@@ -1,7 +1,6 @@
 /********************************************************************
- * COPYRIGHT: 
- * Copyright (c) 1997-2005, International Business Machines Corporation and
- * others. All Rights Reserved.
+ * Copyright (c) 1997-2008, International Business Machines
+ * Corporation and others. All Rights Reserved.
  ********************************************************************/
 
 #include "unicode/utypes.h"
@@ -34,11 +33,11 @@ enum E_Where
 
 //***************************************************************************************
 
-#define CONFIRM_EQ(actual,expected) if ((expected)==(actual)) { record_pass(); } else { record_fail(); errln(action + (UnicodeString)" returned " + (actual) + (UnicodeString)" instead of " + (expected) + (UnicodeString)"\n"); }
-#define CONFIRM_GE(actual,expected) if ((actual)>=(expected)) { record_pass(); } else { record_fail(); errln(action + (UnicodeString)" returned " + (actual) + (UnicodeString)" instead of x >= " + (expected) + (UnicodeString)"\n"); }
-#define CONFIRM_NE(actual,expected) if ((expected)!=(actual)) { record_pass(); } else { record_fail(); errln(action + (UnicodeString)" returned " + (actual) + (UnicodeString)" instead of x != " + (expected) + (UnicodeString)"\n"); }
+#define CONFIRM_EQ(actual,expected) if ((expected)==(actual)) { record_pass(); } else { record_fail(); errln(action + (UnicodeString)" returned " + (actual) + (UnicodeString)" instead of " + (expected)); }
+#define CONFIRM_GE(actual,expected) if ((actual)>=(expected)) { record_pass(); } else { record_fail(); errln(action + (UnicodeString)" returned " + (actual) + (UnicodeString)" instead of x >= " + (expected)); }
+#define CONFIRM_NE(actual,expected) if ((expected)!=(actual)) { record_pass(); } else { record_fail(); errln(action + (UnicodeString)" returned " + (actual) + (UnicodeString)" instead of x != " + (expected)); }
 
-#define CONFIRM_UErrorCode(actual,expected) if ((expected)==(actual)) { record_pass(); } else { record_fail(); errln(action + (UnicodeString)" returned " + (UnicodeString)u_errorName(actual) + (UnicodeString)" instead of " + (UnicodeString)u_errorName(expected) + (UnicodeString)"\n"); }
+#define CONFIRM_UErrorCode(actual,expected) if ((expected)==(actual)) { record_pass(); } else { record_fail(); errln(action + (UnicodeString)" returned " + (UnicodeString)u_errorName(actual) + (UnicodeString)" instead of " + (UnicodeString)u_errorName(expected)); }
 
 //***************************************************************************************
 
@@ -197,6 +196,20 @@ void NewResourceBundleTest::runIndexedTest( int32_t index, UBool exec, const cha
 void
 NewResourceBundleTest::TestResourceBundles()
 {
+    UErrorCode status = U_ZERO_ERROR;
+    loadTestData(status);
+    if(U_FAILURE(status))
+    {
+        dataerrln("[DATA] Could not load testdata.dat %s " + UnicodeString(u_errorName(status)));
+        return;
+    }
+
+    /* Make sure that users using te_IN for the default locale don't get test failures. */
+    Locale originalDefault;
+    if (Locale::getDefault() == Locale("te_IN")) {
+        Locale::setDefault(Locale("en_US"), status);
+    }
+
     testTag("only_in_Root", TRUE, FALSE, FALSE);
     testTag("only_in_te", FALSE, TRUE, FALSE);
     testTag("only_in_te_IN", FALSE, FALSE, TRUE);
@@ -206,62 +219,78 @@ NewResourceBundleTest::TestResourceBundles()
     testTag("in_te_te_IN", FALSE, TRUE, TRUE);
     testTag("nonexistent", FALSE, FALSE, FALSE);
     logln("Passed: %d\nFailed: %d", pass, fail);
+
+    /* Restore the default locale for the other tests. */
+    Locale::setDefault(originalDefault, status);
 }
 
 void
 NewResourceBundleTest::TestConstruction()
 {
+    UErrorCode   err = U_ZERO_ERROR;
+    Locale       locale("te", "IN");
+
+    const char* testdatapath;
+    testdatapath=loadTestData(err);
+    if(U_FAILURE(err))
     {
-        UErrorCode   err = U_ZERO_ERROR;
-        const char* testdatapath;
-        Locale       locale("te", "IN");
-        testdatapath=loadTestData(err);
-        if(U_FAILURE(err))
-        {
-            errln("Could not load testdata.dat %s " + UnicodeString(u_errorName(err)));
-            return;
-        }
-
-        ResourceBundle  test1((UnicodeString)testdatapath, err);
-        ResourceBundle  test2(testdatapath, locale, err);
-     
-        UnicodeString   result1;
-        UnicodeString   result2;
-
-        result1 = test1.getStringEx("string_in_Root_te_te_IN", err);
-        result2 = test2.getStringEx("string_in_Root_te_te_IN", err);
-        if (U_FAILURE(err)) {
-            errln("Something threw an error in TestConstruction()");
-            return;
-        }
-
-        logln("for string_in_Root_te_te_IN, root.txt had " + result1);
-        logln("for string_in_Root_te_te_IN, te_IN.txt had " + result2);
-
-        if (result1 != "ROOT" || result2 != "TE_IN")
-            errln("Construction test failed; run verbose for more information");
-
-        const char* version1;
-        const char* version2;
-
-        version1 = test1.getVersionNumber();
-        version2 = test2.getVersionNumber();
-
-        char *versionID1 = new char[1 + strlen(U_ICU_VERSION) + strlen(version1)]; // + 1 for zero byte
-        char *versionID2 = new char[1 + strlen(U_ICU_VERSION) + strlen(version2)]; // + 1 for zero byte
-
-        strcpy(versionID1, "44.0");  // hardcoded, please change if the default.txt file or ResourceBundle::kVersionSeparater is changed.
-
-        strcpy(versionID2, "55.0");  // hardcoded, please change if the te_IN.txt file or ResourceBundle::kVersionSeparater is changed.
-
-        logln(UnicodeString("getVersionNumber on default.txt returned ") + version1 + UnicodeString(" Expect: " ) + versionID1);
-        logln(UnicodeString("getVersionNumber on te_IN.txt returned ") + version2 + UnicodeString(" Expect: " ) + versionID2);
-
-        if (strcmp(version1, versionID1) != 0 || strcmp(version2, versionID2) != 0)
-            errln("getVersionNumber() failed");
-        delete[] versionID1;
-        delete[] versionID2;
+        dataerrln("[DATA] Could not load testdata.dat %s " + UnicodeString(u_errorName(err)));
+        return;
     }
+
+    /* Make sure that users using te_IN for the default locale don't get test failures. */
+    Locale originalDefault;
+    if (Locale::getDefault() == Locale("te_IN")) {
+        Locale::setDefault(Locale("en_US"), err);
+    }
+
+    ResourceBundle  test1((UnicodeString)testdatapath, err);
+    ResourceBundle  test2(testdatapath, locale, err);
+    
+    UnicodeString   result1;
+    UnicodeString   result2;
+
+    result1 = test1.getStringEx("string_in_Root_te_te_IN", err);
+    result2 = test2.getStringEx("string_in_Root_te_te_IN", err);
+    if (U_FAILURE(err)) {
+        errln("Something threw an error in TestConstruction()");
+        return;
+    }
+
+    logln("for string_in_Root_te_te_IN, root.txt had " + result1);
+    logln("for string_in_Root_te_te_IN, te_IN.txt had " + result2);
+
+    if (result1 != "ROOT" || result2 != "TE_IN") {
+        errln("Construction test failed; run verbose for more information");
+    }
+
+    const char* version1;
+    const char* version2;
+
+    version1 = test1.getVersionNumber();
+    version2 = test2.getVersionNumber();
+
+    char *versionID1 = new char[1 + strlen(U_ICU_VERSION) + strlen(version1)]; // + 1 for zero byte
+    char *versionID2 = new char[1 + strlen(U_ICU_VERSION) + strlen(version2)]; // + 1 for zero byte
+
+    strcpy(versionID1, "44.0");  // hardcoded, please change if the default.txt file or ResourceBundle::kVersionSeparater is changed.
+
+    strcpy(versionID2, "55.0");  // hardcoded, please change if the te_IN.txt file or ResourceBundle::kVersionSeparater is changed.
+
+    logln(UnicodeString("getVersionNumber on default.txt returned ") + version1 + UnicodeString(" Expect: " ) + versionID1);
+    logln(UnicodeString("getVersionNumber on te_IN.txt returned ") + version2 + UnicodeString(" Expect: " ) + versionID2);
+
+    if (strcmp(version1, versionID1) != 0) {
+        errln("getVersionNumber(version1) failed. %s != %s", version1, versionID1);
+    }
+    if (strcmp(version2, versionID2) != 0) {
+        errln("getVersionNumber(version2) failed. %s != %s", version2, versionID2);
+    }
+    delete[] versionID1;
+    delete[] versionID2;
+
+    /* Restore the default locale for the other tests. */
+    Locale::setDefault(originalDefault, err);
 }
 
 void
@@ -280,7 +309,7 @@ NewResourceBundleTest::TestIteration()
     testdatapath=loadTestData(err);
     if(U_FAILURE(err))
     {
-        errln("Could not load testdata.dat %s " + UnicodeString(u_errorName(err)));
+        dataerrln("[DATA] Could not load testdata.dat %s " + UnicodeString(u_errorName(err)));
         return;
     }
 
@@ -366,13 +395,8 @@ NewResourceBundleTest::TestIteration()
             bundle.getNext(err);
             if(U_FAILURE(err)){
                 errln("ERROR: getNext()  throw an error");
-            }/**/
-
-
+            }
         }
-
-
-
     }
     delete locale;
 }
@@ -399,15 +423,21 @@ equalRB(ResourceBundle &a, ResourceBundle &b) {
 void
 NewResourceBundleTest::TestOtherAPI(){
     UErrorCode   err = U_ZERO_ERROR;
-    const char* testdatapath;
-    testdatapath=loadTestData(err);
+    const char* testdatapath=loadTestData(err);
     UnicodeString tDataPathUS = UnicodeString(testdatapath, "");
 
     if(U_FAILURE(err))
     {
-        errln("Could not load testdata.dat %s " + UnicodeString(u_errorName(err)));
+        dataerrln("[DATA] Could not load testdata.dat %s " + UnicodeString(u_errorName(err)));
         return;
     }
+
+    /* Make sure that users using te_IN for the default locale don't get test failures. */
+    Locale originalDefault;
+    if (Locale::getDefault() == Locale("te_IN")) {
+        Locale::setDefault(Locale("en_US"), err);
+    }
+
     Locale       *locale=new Locale("te_IN");
 
     ResourceBundle test0(tDataPathUS, *locale, err);
@@ -431,12 +461,18 @@ NewResourceBundleTest::TestOtherAPI(){
 
     logln("Testing ResourceBundle(UErrorCode)\n");
     ResourceBundle defaultresource(err);
+    ResourceBundle explicitdefaultresource(NULL, Locale::getDefault(), err);
     if(U_FAILURE(err)){
         errln("Construction of default resourcebundle failed");
         return;
     }
-    if(strcmp(defaultresource.getLocale().getName(), Locale::getDefault().getName()) != 0){
-        errln("Construction of default resourcebundle didn't take the defaultlocale\n");
+    // You can't compare the default locale to the resolved locale in the
+    // resource bundle due to aliasing, keywords in the default locale
+    // or the chance that the machine running these tests is using a locale
+    // that isn't available in ICU.
+    if(strcmp(defaultresource.getLocale().getName(), explicitdefaultresource.getLocale().getName()) != 0){
+        errln("Construction of default resourcebundle didn't take the defaultlocale. Expected %s Got %s err=%s\n",
+            explicitdefaultresource.getLocale().getName(), defaultresource.getLocale().getName(), u_errorName(err));
     }
     
 
@@ -444,11 +480,12 @@ NewResourceBundleTest::TestOtherAPI(){
     if(strcmp(copyRes.getName(), defaultresource.getName() ) !=0  ||
         strcmp(test1.getName(), defaultresource.getName() ) ==0 ||
         strcmp(copyRes.getLocale().getName(), defaultresource.getLocale().getName() ) !=0  ||
-        strcmp(test1.getLocale().getName(), defaultresource.getLocale().getName() ) ==0 ){
+        strcmp(test1.getLocale().getName(), defaultresource.getLocale().getName() ) ==0 )
+    {
         errln("copy construction failed\n");
     }
 
-    ResourceBundle defaultSub = defaultresource.get(1, err);
+    ResourceBundle defaultSub = defaultresource.get((int32_t)0, err);
     ResourceBundle defSubCopy(defaultSub);
     if(strcmp(defSubCopy.getName(), defaultSub.getName() ) !=0  ||
         strcmp(defSubCopy.getLocale().getName(), defaultSub.getLocale().getName() ) !=0  ){
@@ -485,95 +522,87 @@ NewResourceBundleTest::TestOtherAPI(){
     };
 
 
-
     testCAPI = ures_open(testdatapath, "te_IN", &err);
 
     if(U_SUCCESS(err)) {
-      // Do the testing
-      // first iteration
+        // Do the testing
+        // first iteration
 
-      uint32_t i;
-      int32_t count, row=0, col=0;
-      char buf[5];
-      UnicodeString expected;
-      UnicodeString element("TE_IN");
-      UnicodeString action;
+        uint32_t i;
+        int32_t count, row=0, col=0;
+        char buf[5];
+        UnicodeString expected;
+        UnicodeString element("TE_IN");
+        UnicodeString action;
 
 
-      for(i=0; i<sizeof(data)/sizeof(data[0]); i=i+2){
-          action = "te_IN";
-          action +=".get(";
-          action += data[i];
-          action +=", err)";
-          err=U_ZERO_ERROR;
-          bundle = ures_getByKey(testCAPI, data[i], bundle, &err); 
-          if(!U_FAILURE(err)){
-            const char* key = NULL;
-              action = "te_IN";
-              action +=".getKey()";
+        for(i=0; i<sizeof(data)/sizeof(data[0]); i=i+2){
+            action = "te_IN";
+            action +=".get(";
+            action += data[i];
+            action +=", err)";
+            err=U_ZERO_ERROR;
+            bundle = ures_getByKey(testCAPI, data[i], bundle, &err); 
+            if(!U_FAILURE(err)){
+                const char* key = NULL;
+                action = "te_IN";
+                action +=".getKey()";
 
-              CONFIRM_EQ((UnicodeString)ures_getKey(bundle), (UnicodeString)data[i]);
+                CONFIRM_EQ((UnicodeString)ures_getKey(bundle), (UnicodeString)data[i]);
 
-              count=0;
-              row=0;
-              while(ures_hasNext(bundle)){
-                  action = data[i];
-                  action +=".getNextString(err)";
-                  row=count;   
-                  UnicodeString got=ures_getNextUnicodeString(bundle, &key, &err);
-                  if(U_SUCCESS(err)){
-                      expected=element;
-                      if(ures_getSize(bundle) > 1){
-                          CONFIRM_EQ(ures_getType(bundle), URES_ARRAY);
-                          expected+=itoa(row, buf);
-                          rowbundle=ures_getByIndex(bundle, row, rowbundle, &err);
-                          if(!U_FAILURE(err) && ures_getSize(rowbundle)>1){
-                              col=0;
-                              while(ures_hasNext(rowbundle)){
-                                  expected=element;
-                                  got=ures_getNextUnicodeString(rowbundle, &key, &err);
-                                  temp = ures_getByIndex(rowbundle, col, temp, &err);
-                                  UnicodeString bla = ures_getUnicodeString(temp, &err);
-                                  UnicodeString bla2 = ures_getUnicodeStringByIndex(rowbundle, col, &err);
-                                  if(!U_FAILURE(err)){
-                                      expected+=itoa(row, buf);
-                                      expected+=itoa(col, buf);
-                                      col++;
-                                      CONFIRM_EQ(got, expected);
-                                      CONFIRM_EQ(bla, expected);
-                                      CONFIRM_EQ(bla2, expected);
-                                  }
-                              }
-                              CONFIRM_EQ(col, ures_getSize(rowbundle));
-                          }
-                      }
-                      else{
-                          CONFIRM_EQ(ures_getType(bundle), (int32_t)URES_STRING);
-                      }
-                  }
-                  CONFIRM_EQ(got, expected);
-                  count++;
-              }
-          }
-      }
-      ures_close(temp);
-      ures_close(rowbundle);
-      ures_close(bundle);
-      ures_close(testCAPI);
+                count=0;
+                row=0;
+                while(ures_hasNext(bundle)){
+                    action = data[i];
+                    action +=".getNextString(err)";
+                    row=count;   
+                    UnicodeString got=ures_getNextUnicodeString(bundle, &key, &err);
+                    if(U_SUCCESS(err)){
+                        expected=element;
+                        if(ures_getSize(bundle) > 1){
+                            CONFIRM_EQ(ures_getType(bundle), URES_ARRAY);
+                            expected+=itoa(row, buf);
+                            rowbundle=ures_getByIndex(bundle, row, rowbundle, &err);
+                            if(!U_FAILURE(err) && ures_getSize(rowbundle)>1){
+                                col=0;
+                                while(ures_hasNext(rowbundle)){
+                                    expected=element;
+                                    got=ures_getNextUnicodeString(rowbundle, &key, &err);
+                                    temp = ures_getByIndex(rowbundle, col, temp, &err);
+                                    UnicodeString bla = ures_getUnicodeString(temp, &err);
+                                    UnicodeString bla2 = ures_getUnicodeStringByIndex(rowbundle, col, &err);
+                                    if(!U_FAILURE(err)){
+                                        expected+=itoa(row, buf);
+                                        expected+=itoa(col, buf);
+                                        col++;
+                                        CONFIRM_EQ(got, expected);
+                                        CONFIRM_EQ(bla, expected);
+                                        CONFIRM_EQ(bla2, expected);
+                                    }
+                                }
+                                CONFIRM_EQ(col, ures_getSize(rowbundle));
+                            }
+                        }
+                        else{
+                            CONFIRM_EQ(ures_getType(bundle), (int32_t)URES_STRING);
+                        }
+                    }
+                    CONFIRM_EQ(got, expected);
+                    count++;
+                }
+            }
+        }
+        ures_close(temp);
+        ures_close(rowbundle);
+        ures_close(bundle);
+        ures_close(testCAPI);
     } else {
-      errln("failed to open a resource bundle\n");
+        errln("failed to open a resource bundle\n");
     }
 
-
-
-
-
-
-    
-
+    /* Restore the default locale for the other tests. */
+    Locale::setDefault(originalDefault, err);
 }
-
-
 
 
 
@@ -607,7 +636,7 @@ NewResourceBundleTest::testTag(const char* frag,
     testdatapath=loadTestData(status);
     if(U_FAILURE(status))
     {
-        errln("Could not load testdata.dat %s " + UnicodeString(u_errorName(status)));
+        dataerrln("[DATA] Could not load testdata.dat %s " + UnicodeString(u_errorName(status)));
         return FALSE;
     }
 
@@ -988,7 +1017,7 @@ NewResourceBundleTest::TestNewTypes() {
 
     if(U_FAILURE(status))
     {
-        logln("Could not load testdata.dat %s \n",u_errorName(status));
+        dataerrln("[DATA] Could not load testdata.dat %s \n",u_errorName(status));
         return;
     }
 

@@ -3,967 +3,1160 @@
 # Ulrich Drepper <drepper@gnu.ai.mit.edu>, 1995?
 # Karl Eichwalder <ke@ke.central.de>, 1996
 # Christian Kirsch <ck@held.mind.de>, 1996, 2001
-# Michael Piefel <piefel@informatik.hu-berlin.de>, 2003
+# Michael Piefel <piefel@informatik.hu-berlin.de>, 2003, 2006
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: tar 1.13.25\n"
+"Project-Id-Version: tar 1.16.1\n"
 "Report-Msgid-Bugs-To: bug-tar@gnu.org\n"
-"POT-Creation-Date: 2004-12-21 17:11+0200\n"
-"PO-Revision-Date: 2003-08-14 15:58:48+0200\n"
+"POT-Creation-Date: 2007-06-08 11:19+0300\n"
+"PO-Revision-Date: 2006-12-12 09:41+0100\n"
 "Last-Translator: Michael Piefel <piefel@informatik.hu-berlin.de>\n"
-"Language-Team: German <de@li.org>\n"
+"Language-Team: German <translation-team-de@lists.sourceforge.net>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: lib/argmatch.c:137
+#: lib/argmatch.c:134
 #, c-format
 msgid "invalid argument %s for %s"
 msgstr "ungültiges Argument %s für %s"
 
-#: lib/argmatch.c:138
+#: lib/argmatch.c:135
 #, c-format
 msgid "ambiguous argument %s for %s"
 msgstr "mehrdeutiges Argument %s für %s"
 
-#: lib/argmatch.c:157
+#: lib/argmatch.c:154
 #, c-format
 msgid "Valid arguments are:"
 msgstr "Zulässige Argumente sind:"
 
-#: lib/error.c:123 rmt/rmt.c:92
-msgid "Unknown system error"
-msgstr "Unbekannter Systemfehler."
-
-#: lib/getopt.c:551 lib/getopt.c:570
+#: lib/argp-help.c:148
 #, c-format
-msgid "%s: option `%s' is ambiguous\n"
-msgstr "%s: Option ‚%s‘ ist mehrdeutig\n"
+msgid "ARGP_HELP_FMT: %s value is less than or equal to %s"
+msgstr "ARGP_HELP_FMT: %s-Wert ist kleiner oder gleich %s"
 
-#: lib/getopt.c:603 lib/getopt.c:607
-#, c-format
-msgid "%s: option `--%s' doesn't allow an argument\n"
-msgstr "%s: Option ‚--%s‘ erlaubt keinen Parameter\n"
-
-#: lib/getopt.c:616 lib/getopt.c:621
-#, c-format
-msgid "%s: option `%c%s' doesn't allow an argument\n"
-msgstr "%s: Option ‚%c%s‘ erlaubt keinen Parameter.\n"
-
-#: lib/getopt.c:667 lib/getopt.c:689 lib/getopt.c:1020 lib/getopt.c:1042
-#, c-format
-msgid "%s: option `%s' requires an argument\n"
-msgstr "%s: Option ‚%s‘ benötigt einen Parameter.\n"
-
-#: lib/getopt.c:727 lib/getopt.c:730
-#, c-format
-msgid "%s: unrecognized option `--%s'\n"
-msgstr "%s: Unbekannte Option ‚--%s‘\n"
-
-#: lib/getopt.c:738 lib/getopt.c:741
-#, c-format
-msgid "%s: unrecognized option `%c%s'\n"
-msgstr "%s: Unbekannte Option ‚%c%s‘\n"
-
-#: lib/getopt.c:796 lib/getopt.c:799
-#, c-format
-msgid "%s: illegal option -- %c\n"
-msgstr "%s: Unzulässige Option -- %c\n"
-
-#: lib/getopt.c:805 lib/getopt.c:808
-#, c-format
-msgid "%s: invalid option -- %c\n"
-msgstr "%s: Ungültige Option -- %c\n"
-
-#: lib/getopt.c:863 lib/getopt.c:882 lib/getopt.c:1095 lib/getopt.c:1116
-#, c-format
-msgid "%s: option requires an argument -- %c\n"
-msgstr "%s: Option benötigt einen Parameter -- %c.\n"
-
-#: lib/getopt.c:935 lib/getopt.c:954
-#, c-format
-msgid "%s: option `-W %s' is ambiguous\n"
-msgstr "%s: Option ‚-W %s‘ ist mehrdeutig.\n"
-
-#: lib/getopt.c:978 lib/getopt.c:999
-#, c-format
-msgid "%s: option `-W %s' doesn't allow an argument\n"
-msgstr "%s: Option ‚-W %s‘ erlaubt keinen Parameter.\n"
-
-#: lib/human.c:484
-msgid "block size"
-msgstr "Blockgröße"
-
-#: lib/quotearg.c:240
-msgid "`"
-msgstr "„"
-
-#: lib/quotearg.c:241
-msgid "'"
-msgstr "“"
-
-#: lib/rtapelib.c:297
-msgid "exec/tcp: Service not available"
-msgstr "exec/tcp: Service nicht verfügbar."
-
-#: lib/rtapelib.c:301
-msgid "stdin"
-msgstr "Standardeingabe"
-
-#: lib/rtapelib.c:304
-msgid "stdout"
-msgstr "Standardausgabe"
-
-#: lib/rtapelib.c:512
-msgid "Cannot execute remote shell"
-msgstr "Kann Remote-Shell nicht ausführen."
-
-#: lib/argp-help.c:194
+#: lib/argp-help.c:221
 #, c-format
 msgid "%.*s: ARGP_HELP_FMT parameter requires a value"
-msgstr ""
+msgstr "%.*s: ARGP_HELP_FMT-Parameter benötigt einen Wert"
 
-#: lib/argp-help.c:203
+#: lib/argp-help.c:227
+#, c-format
+msgid "%.*s: ARGP_HELP_FMT parameter must be positive"
+msgstr "%.*s: ARGP_HELP_FMT-Parameter muss positiv sein"
+
+#: lib/argp-help.c:236
 #, c-format
 msgid "%.*s: Unknown ARGP_HELP_FMT parameter"
-msgstr ""
+msgstr "%.*s: unbekannter ARGP_HELP_FMT-Parameter"
 
-#: lib/argp-help.c:215
+#: lib/argp-help.c:248
 #, c-format
 msgid "Garbage in ARGP_HELP_FMT: %s"
-msgstr ""
+msgstr "Müll in ARGP_HELP_FMT: %s"
 
-#: lib/argp-help.c:1188
+#: lib/argp-help.c:1247
 msgid ""
 "Mandatory or optional arguments to long options are also mandatory or "
 "optional for any corresponding short options."
 msgstr ""
+"Erforderlich oder optionale Argumente für lange Optionen sind ebenso "
+"erforderlich bzw. optional für die entsprechenden Kurzoptionen."
 
-#: lib/argp-help.c:1575
+#: lib/argp-help.c:1640
 msgid "Usage:"
-msgstr ""
+msgstr "Aufruf:"
 
-#: lib/argp-help.c:1579
+#: lib/argp-help.c:1644
 msgid "  or: "
-msgstr ""
+msgstr " oder: "
 
-#: lib/argp-help.c:1591
-#, fuzzy
+#: lib/argp-help.c:1656
 msgid " [OPTION...]"
-msgstr ""
-"\n"
-"Aufruf: %s [OPTION]...\n"
+msgstr " [OPTION...]"
 
-#: lib/argp-help.c:1618
-#, fuzzy, c-format
+#: lib/argp-help.c:1683
+#, c-format
 msgid "Try `%s --help' or `%s --usage' for more information.\n"
-msgstr "‚%s --help‘ zeigt weitere Informationen.\n"
+msgstr "„%s --help“ oder „%s --usage“ gibt weitere Informationen.\n"
 
-#: lib/argp-help.c:1646 src/tar.c:1252
-#, fuzzy, c-format
+#: lib/argp-help.c:1711 src/tar.c:1169
+#, c-format
 msgid "Report bugs to %s.\n"
-msgstr ""
-"\n"
-"Fehlermeldungen an <bug-tar@gnu.org>.\n"
+msgstr "Melden Sie Fehler (auf Englisch, mit LC_ALL=C) an %s.\n"
 
-#: rmt/rmt.c:144
+#: lib/argp-help.c:1930 lib/error.c:125
+msgid "Unknown system error"
+msgstr "Unbekannter Systemfehler."
+
+#: lib/argp-parse.c:82 src/tar.c:736
+msgid "give this help list"
+msgstr "diese Hilfe ausgeben"
+
+#: lib/argp-parse.c:83 src/tar.c:737
+msgid "give a short usage message"
+msgstr "eine kurze Benutzungsübersicht ausgeben"
+
+#: lib/argp-parse.c:84 src/tar.c:456 src/tar.c:458 src/tar.c:527
+#: tests/genfile.c:128
+msgid "NAME"
+msgstr "NAME"
+
+#: lib/argp-parse.c:84
+msgid "set the program name"
+msgstr "den Programmnamen setzen"
+
+#: lib/argp-parse.c:85
+msgid "SECS"
+msgstr "SEK"
+
+#: lib/argp-parse.c:86 src/tar.c:742
+msgid "hang for SECS seconds (default 3600)"
+msgstr "für SEK Sekunden hängenbleiben (Voreinst.: 3600)"
+
+#: lib/argp-parse.c:143 src/tar.c:738
+msgid "print program version"
+msgstr "Programmversion ausgeben"
+
+#: lib/argp-parse.c:159
+#, c-format
+msgid "(PROGRAM ERROR) No version known!?"
+msgstr "(PROGRAMMFEHLER) Keine Version bekannt!?"
+
+#: lib/argp-parse.c:612
+#, c-format
+msgid "%s: Too many arguments\n"
+msgstr "%s: Zu viele Argumente\n"
+
+#: lib/argp-parse.c:755
+msgid "(PROGRAM ERROR) Option should have been recognized!?"
+msgstr "(PROGRAMMFEHLER) Option hätte erkannt werden müssen!?"
+
+#: lib/getopt.c:531 lib/getopt.c:547
+#, c-format
+msgid "%s: option `%s' is ambiguous\n"
+msgstr "%s: Option „%s“ ist mehrdeutig\n"
+
+#: lib/getopt.c:580 lib/getopt.c:584
+#, c-format
+msgid "%s: option `--%s' doesn't allow an argument\n"
+msgstr "%s: Option „--%s“ erlaubt keinen Parameter\n"
+
+#: lib/getopt.c:593 lib/getopt.c:598
+#, c-format
+msgid "%s: option `%c%s' doesn't allow an argument\n"
+msgstr "%s: Option „%c%s“ erlaubt keinen Parameter.\n"
+
+#: lib/getopt.c:641 lib/getopt.c:660 lib/getopt.c:976 lib/getopt.c:995
+#, c-format
+msgid "%s: option `%s' requires an argument\n"
+msgstr "%s: Option „%s“ benötigt einen Parameter.\n"
+
+#: lib/getopt.c:698 lib/getopt.c:701
+#, c-format
+msgid "%s: unrecognized option `--%s'\n"
+msgstr "%s: Unbekannte Option „--%s“\n"
+
+#: lib/getopt.c:709 lib/getopt.c:712
+#, c-format
+msgid "%s: unrecognized option `%c%s'\n"
+msgstr "%s: Unbekannte Option „%c%s“\n"
+
+#: lib/getopt.c:764 lib/getopt.c:767
+#, c-format
+msgid "%s: illegal option -- %c\n"
+msgstr "%s: Unzulässige Option -- %c\n"
+
+#: lib/getopt.c:773 lib/getopt.c:776
+#, c-format
+msgid "%s: invalid option -- %c\n"
+msgstr "%s: Ungültige Option -- %c\n"
+
+#: lib/getopt.c:828 lib/getopt.c:844 lib/getopt.c:1048 lib/getopt.c:1066
+#, c-format
+msgid "%s: option requires an argument -- %c\n"
+msgstr "%s: Option benötigt einen Parameter -- %c.\n"
+
+#: lib/getopt.c:897 lib/getopt.c:913
+#, c-format
+msgid "%s: option `-W %s' is ambiguous\n"
+msgstr "%s: Option „-W %s“ ist mehrdeutig.\n"
+
+#: lib/getopt.c:937 lib/getopt.c:955
+#, c-format
+msgid "%s: option `-W %s' doesn't allow an argument\n"
+msgstr "%s: Option „-W %s“ erlaubt keinen Parameter.\n"
+
+#: lib/human.c:477
+msgid "block size"
+msgstr "Blockgröße"
+
+#: lib/obstack.c:424 lib/obstack.c:426 lib/xalloc-die.c:35 src/extract.c:1377
+msgid "memory exhausted"
+msgstr "Kein Speicher mehr"
+
+#. TRANSLATORS: %s after `Cannot' is a function name, e.g. `Cannot open'.
+#. Directly translating this to another language will not work, first because
+#. %s itself is not translated.
+#. Translate it as `%s: Function %s failed'.
+#: lib/paxerror.c:58 lib/paxerror.c:71
+#, c-format
+msgid "%s: Cannot %s"
+msgstr "%s: Kann %s nicht ausführen"
+
+#. TRANSLATORS: %s after `Cannot' is a function name, e.g. `Cannot open'.
+#. Directly translating this to another language will not work, first because
+#. %s itself is not translated.
+#. Translate it as `%s: Function %s failed'.
+#: lib/paxerror.c:84
+#, c-format
+msgid "%s: Warning: Cannot %s"
+msgstr "%s: Warnung. Kann %s nicht ausführen"
+
+#: lib/paxerror.c:93
+#, c-format
+msgid "%s: Cannot change mode to %s"
+msgstr "%s: Kann Zugriffsrechte nicht zu %s ändern"
+
+#: lib/paxerror.c:101
+#, c-format
+msgid "%s: Cannot change ownership to uid %lu, gid %lu"
+msgstr "%s: Kann Datei-Eigentümer nicht zu uid %lu, gid %lu ändern"
+
+#: lib/paxerror.c:127
+#, c-format
+msgid "%s: Cannot hard link to %s"
+msgstr "%s: Kann nicht zu „%s“ linken"
+
+#: lib/paxerror.c:179 lib/paxerror.c:211
+#, c-format
+msgid "%s: Read error at byte %s, while reading %lu byte"
+msgid_plural "%s: Read error at byte %s, while reading %lu bytes"
+msgstr[0] "%s: Lesefehler bei Byte %s beim Lesen von einem Byte"
+msgstr[1] "%s: Lesefehler bei Byte %s beim Lesen von %lu Bytes"
+
+#: lib/paxerror.c:192
+#, c-format
+msgid "%s: Warning: Read error at byte %s, while reading %lu byte"
+msgid_plural "%s: Warning: Read error at byte %s, while reading %lu bytes"
+msgstr[0] "%s: Warnung: Lesefehler bei Byte %s beim Lesen von einem Byte"
+msgstr[1] "%s: Warnung: Lesefehler bei Byte %s beim Lesen von %lu Bytes"
+
+#: lib/paxerror.c:259
+#, c-format
+msgid "%s: Cannot seek to %s"
+msgstr "%s: Kann nicht auf %s positionieren"
+
+#: lib/paxerror.c:275
+#, c-format
+msgid "%s: Warning: Cannot seek to %s"
+msgstr "%s: Warnung. Kann nicht auf %s positionieren"
+
+#: lib/paxerror.c:284
+#, c-format
+msgid "%s: Cannot create symlink to %s"
+msgstr "%s: Kann keinen symbolischen Link auf „%s“ anlegen"
+
+#: lib/paxerror.c:349
+#, c-format
+msgid "%s: Wrote only %lu of %lu byte"
+msgid_plural "%s: Wrote only %lu of %lu bytes"
+msgstr[0] "%s: Nur %lu von %lu Byte geschrieben"
+msgstr[1] "%s: Nur %lu von %lu Bytes geschrieben"
+
+#: lib/paxnames.c:132
+#, c-format
+msgid "Removing leading `%s' from member names"
+msgstr "Entferne führende „%s“ von Elementnamen"
+
+#: lib/paxnames.c:133
+#, c-format
+msgid "Removing leading `%s' from hard link targets"
+msgstr "Entferne führende „%s“ von Zielen harter Verknüpfungen"
+
+#: lib/paxnames.c:146
+msgid "Substituting `.' for empty member name"
+msgstr "Ersetze „.“ für leeren Elementnamen"
+
+#: lib/paxnames.c:147
+msgid "Substituting `.' for empty hard link target"
+msgstr "Ersetze „.“ für leeres Ziel einer harten Verknüpfung"
+
+#. TRANSLATORS:
+#. Get translations for open and closing quotation marks.
+#.
+#. The message catalog should translate "`" to a left
+#. quotation mark suitable for the locale, and similarly for
+#. "'".  If the catalog has no translation,
+#. locale_quoting_style quotes `like this', and
+#. clocale_quoting_style quotes "like this".
+#.
+#. For example, an American English Unicode locale should
+#. translate "`" to U+201C (LEFT DOUBLE QUOTATION MARK), and
+#. should translate "'" to U+201D (RIGHT DOUBLE QUOTATION
+#. MARK).  A British English Unicode locale should instead
+#. translate these to U+2018 (LEFT SINGLE QUOTATION MARK) and
+#. U+2019 (RIGHT SINGLE QUOTATION MARK), respectively.
+#.
+#. If you don't know what to put here, please see
+#. <http://en.wikipedia.org/wiki/Quotation_mark#Glyphs>
+#. and use glyphs suitable for your language.
+#: lib/quotearg.c:229
+msgid "`"
+msgstr "„"
+
+#: lib/quotearg.c:230
+msgid "'"
+msgstr "“"
+
+#: lib/rpmatch.c:70
+msgid "^[yY]"
+msgstr "^[yYjJ]"
+
+#: lib/rpmatch.c:73
+msgid "^[nN]"
+msgstr "^[nN]"
+
+#: lib/rtapelib.c:299
+#, c-format
+msgid "exec/tcp: Service not available"
+msgstr "exec/tcp: Service nicht verfügbar."
+
+#: lib/rtapelib.c:303
+#, c-format
+msgid "stdin"
+msgstr "Standardeingabe"
+
+#: lib/rtapelib.c:306
+#, c-format
+msgid "stdout"
+msgstr "Standardausgabe"
+
+#: lib/rtapelib.c:512
+#, c-format
+msgid "Cannot execute remote shell"
+msgstr "Kann Remote-Shell nicht ausführen."
+
+#: rmt/rmt.c:142
+msgid "Input string too long"
+msgstr "Eingabezeichenkette zu lang"
+
+#: rmt/rmt.c:161
+msgid "Number syntax error"
+msgstr "Syntaxfehler in der Zahl"
+
+#: rmt/rmt.c:180
 msgid "rmtd: Cannot allocate buffer space\n"
 msgstr "rmtd: Kann Speicherplatz für Puffer nicht reservieren.\n"
 
-#: rmt/rmt.c:146
+#: rmt/rmt.c:182
 msgid "Cannot allocate buffer space"
 msgstr "Kann keinen Speicher für Puffer reservieren."
 
-#: rmt/rmt.c:256
+#: rmt/rmt.c:304
 #, c-format
 msgid "Try `%s --help' for more information.\n"
-msgstr "‚%s --help‘ zeigt weitere Informationen.\n"
+msgstr "„%s --help“ zeigt weitere Informationen.\n"
 
-#: rmt/rmt.c:260
+#: rmt/rmt.c:308
 #, c-format
 msgid ""
 "Usage: %s [OPTION]\n"
 "Manipulate a tape drive, accepting commands from a remote process.\n"
 "\n"
 "  --version  Output version info.\n"
-"  --help  Output this help.\n"
+"  --help     Output this help.\n"
 msgstr ""
-"Benutzung: %s [OPTION]\n"
+"Aufruf: %s [OPTION]\n"
 "Arbeiten mit einem Bandlaufwerk, Kommandos können von einem anderen Prozess "
 "stammen.\n"
 "\n"
-"  --version    Verionsinformation ausgeben\n"
-"  --help       Diesen Hilfetext ausgeben\n"
+"  --version    Versionsinformation ausgeben\n"
+"  --help       diesen Hilfetext ausgeben\n"
 
-#: rmt/rmt.c:267
-#, fuzzy, c-format
+#: rmt/rmt.c:315
+#, c-format
 msgid ""
 "\n"
 "Report bugs to <%s>.\n"
 msgstr ""
 "\n"
-"Fehlermeldungen an <bug-tar@gnu.org>.\n"
+"Melden Sie Fehler (auf Englisch, mit LC_ALL=C) an <%s>.\n"
 
-#: rmt/rmt.c:301
-msgid ""
-"This program comes with NO WARRANTY, to the extent permitted by law.\n"
-"You may redistribute it under the terms of the GNU General Public License;\n"
-"see the file named COPYING for details."
-msgstr ""
-"Dieses Programm wird ohne Gewährleistung geliefert, soweit dies gesetzlich "
-"zulässig ist.\n"
-"Sie können es unter den Bedingungen der GNU General Public License "
-"weitergeben.\n"
-"Details dazu enthält die Datei COPYING."
+#: rmt/rmt.c:397
+msgid "Seek offset error"
+msgstr "Fehler bei der Positionierungsangabe."
 
-#: rmt/rmt.c:400 rmt/rmt.c:520 rmt/rmt.c:530
+#: rmt/rmt.c:406 rmt/rmt.c:547 rmt/rmt.c:557
 msgid "Seek offset out of range"
-msgstr "Anfangsposition außerhalb des zulässigen Bereichs."
+msgstr "Positionierungsangabe außerhalb des zulässigen Bereichs."
 
-#: rmt/rmt.c:413
+#: rmt/rmt.c:428
 msgid "Seek direction out of range"
 msgstr "Richtung für Positionierung nicht zulässig."
 
-#: rmt/rmt.c:452
+#: rmt/rmt.c:472
 msgid "rmtd: Premature eof\n"
 msgstr "rmtd: Vorzeitiges Dateiende.\n"
 
-#: rmt/rmt.c:454
+#: rmt/rmt.c:474
 msgid "Premature end of file"
 msgstr "Vorzeitiges Dateiende."
 
-#: rmt/rmt.c:562
-#, c-format
-msgid "rmtd: Garbage command %c\n"
-msgstr "rmtd: Ungültiges Kommando '%c'.\n"
-
-#: rmt/rmt.c:564
+#: rmt/rmt.c:672
 msgid "Garbage command"
 msgstr "Ungültiges Kommando."
 
-#: src/buffer.c:263
-#, fuzzy, c-format
-msgid "Total bytes written: %s (%s, %s/s)\n"
-msgstr "Gesamtzahl geschriebener Bytes: %s (%sB, %sB/s)\n"
+#: src/buffer.c:326 src/buffer.c:335
+msgid "Total bytes written"
+msgstr "Gesamtzahl geschriebener Bytes"
 
-#: src/buffer.c:340
+#: src/buffer.c:333 src/buffer.c:347
+msgid "Total bytes read"
+msgstr "Gesamtzahl gelesener Bytes"
+
+#: src/buffer.c:337
+#, c-format
+msgid "Total bytes deleted: %s\n"
+msgstr "Gesamtzahl gelöschter Bytes: %s\n"
+
+#: src/buffer.c:426
 msgid "(pipe)"
 msgstr "(pipe)"
 
-#: src/buffer.c:388
+#: src/buffer.c:449
 msgid "Invalid value for record_size"
-msgstr "Ungültiger Wert für \"record_size\"."
+msgstr "Ungültiger Wert für „record_size“."
 
-# Ein Programm hat kein "Ich"
-#: src/buffer.c:391
+#: src/buffer.c:452
 msgid "No archive name given"
-msgstr "Kein Archiv-Name angegeben"
+msgstr "Kein Archivname angegeben"
 
-#: src/buffer.c:441
+#: src/buffer.c:496
 msgid "Cannot verify stdin/stdout archive"
 msgstr "Kann Archive auf Standard-Ein-/Ausgabe nicht prüfen."
 
-#: src/buffer.c:454
+#: src/buffer.c:509
 #, c-format
 msgid "Archive is compressed. Use %s option"
-msgstr ""
+msgstr "Archiv ist komprimiert. Benutzen Sie die Option %s."
 
-#: src/buffer.c:526
+#: src/buffer.c:556 src/tar.c:2187
+msgid "Cannot update compressed archives"
+msgstr "Kann komprimierte Archive nicht aktualisieren"
+
+#. TRANSLATORS: This is a ``checkpoint of write operation'',
+#. *not* ``Writing a checkpoint''.
+#. E.g. in Spanish ``Punto de comprobaci@'on de escritura'',
+#. *not* ``Escribiendo un punto de comprobaci@'on''
+#: src/buffer.c:606
 #, c-format
-msgid "Archive not labeled to match %s"
-msgstr "Kennzeichnung des Archivs passt nicht zu ‚%s‘."
+msgid "Write checkpoint %u"
+msgstr "Schreib-Kontrollpunkt %u"
 
-#: src/buffer.c:529 src/buffer.c:896
+#. TRANSLATORS: This is a ``checkpoint of read operation'',
+#. *not* ``Reading a checkpoint''.
+#. E.g. in Spanish ``Punto de comprobaci@'on de lectura'',
+#. *not* ``Leyendo un punto de comprobaci@'on''
+#: src/buffer.c:612
 #, c-format
-msgid "Volume %s does not match %s"
-msgstr "Teil ‚%s‘ passt nicht zu ‚%s‘."
+msgid "Read checkpoint %u"
+msgstr "Lese-Kontrollpunkt %u"
 
-#: src/buffer.c:567
-#, c-format
-msgid "Write checkpoint %d"
-msgstr "Schreibe Checkpoint %d."
-
-#: src/buffer.c:654
-#, c-format
-msgid "%s: file name too long to be stored in a GNU multivolume header"
-msgstr ""
-
-#: src/buffer.c:733
+#: src/buffer.c:664
 msgid "At beginning of tape, quitting now"
 msgstr "Am Anfang des Mediums, beende jetzt."
 
-#: src/buffer.c:739
+#: src/buffer.c:670
 msgid "Too many errors, quitting"
 msgstr "Zu viele Fehler, beende."
 
-#: src/buffer.c:765
-#, fuzzy, c-format
-msgid "Read %s bytes from %s"
-msgstr "%s in %s umbenannt"
-
-#: src/buffer.c:777
-#, fuzzy, c-format
+#: src/buffer.c:698
+#, c-format
 msgid "Unaligned block (%lu byte) in archive"
 msgid_plural "Unaligned block (%lu bytes) in archive"
-msgstr[0] "Falsch positionierter Block (%lu Bytes) im Archiv."
-msgstr[1] "Falsch positionierter Block (%lu Bytes) im Archiv."
+msgstr[0] "Falsch ausgerichteter Block (ein Byte) im Archiv."
+msgstr[1] "Falsch ausgerichteter Block (%lu Bytes) im Archiv."
 
-#: src/buffer.c:797
-#, fuzzy, c-format
+#: src/buffer.c:718
+#, c-format
 msgid "Record size = %lu block"
 msgid_plural "Record size = %lu blocks"
-msgstr[0] "Recordgröße = %lu blocks"
-msgstr[1] "Recordgröße = %lu blocks"
+msgstr[0] "Recordgröße = %lu Block"
+msgstr[1] "Recordgröße = %lu Blöcke"
 
-#: src/buffer.c:814
+#: src/buffer.c:791
+msgid "Cannot backspace archive file; it may be unreadable without -i"
+msgstr "Kann Archiv-Datei nicht zurücksetzen; könnte ohne „-i“ unlesbar sein."
+
+#: src/buffer.c:823
+msgid "rmtlseek not stopped at a record boundary"
+msgstr "„rmtlseek“ nicht an Recordgrenze angehalten"
+
+#: src/buffer.c:879
 #, c-format
-msgid "Read checkpoint %d"
-msgstr "Lese Checkpoint %d."
+msgid "%s: contains invalid volume number"
+msgstr "%s: enthält ungültige Teil-Nummer."
 
-#: src/buffer.c:905 src/extract.c:1100
+#: src/buffer.c:914
+msgid "Volume number overflow"
+msgstr "Teil-Nummer zu groß."
+
+#: src/buffer.c:929
 #, c-format
-msgid "Reading %s\n"
-msgstr "Lese %s.\n"
+msgid "Prepare volume #%d for %s and hit return: "
+msgstr "Medium #%d für %s einlegen und Eingabetaste drücken: "
 
-#: src/buffer.c:909
-msgid "WARNING: No volume header"
-msgstr "WARNUNG: Kein Kopfteil vorhanden."
+#: src/buffer.c:935
+msgid "EOF where user reply was expected"
+msgstr "Dateiende gefunden, Benutzereingabe erwartet"
 
-#: src/buffer.c:917
+#: src/buffer.c:940 src/buffer.c:972
+msgid "WARNING: Archive is incomplete"
+msgstr "WARNUNG: Archiv unvollständig"
+
+#: src/buffer.c:954
+#, c-format
+msgid ""
+" n name        Give a new file name for the next (and subsequent) volume(s)\n"
+" q             Abort tar\n"
+" y or newline  Continue operation\n"
+msgstr ""
+" n Name       für die nächsten (und folgenden) Medien neuen Dateinamen "
+"angeben\n"
+" q            „tar“ abbrechen\n"
+" j oder Enter fortfahren\n"
+
+#: src/buffer.c:959
+#, c-format
+msgid " !             Spawn a subshell\n"
+msgstr " !            Shell in einem Unterprozess starten\n"
+
+#: src/buffer.c:960
+#, c-format
+msgid " ?             Print this list\n"
+msgstr " ?            diese Liste ausgeben\n"
+
+#: src/buffer.c:967
+msgid "No new volume; exiting.\n"
+msgstr "Kein neues Medium; halte an.\n"
+
+#: src/buffer.c:1000
+msgid "File name not specified. Try again.\n"
+msgstr "Dateiname nicht angegeben. Versuchen Sie es noch einmal.\n"
+
+#: src/buffer.c:1013
+#, c-format
+msgid "Invalid input. Type ? for help.\n"
+msgstr "Ungültige Eingabe. Geben Sie „?“ für Hilfe ein.\n"
+
+#: src/buffer.c:1064
+#, c-format
+msgid "%s command failed"
+msgstr "„%s“-Kommando gescheitert."
+
+#: src/buffer.c:1126 src/delete.c:210 src/list.c:167 src/update.c:165
+msgid "This does not look like a tar archive"
+msgstr "Das sieht nicht wie ein „tar“-Archiv aus."
+
+#: src/buffer.c:1219
+#, c-format
+msgid "%s is possibly continued on this volume: header contains truncated name"
+msgstr ""
+"%s wird möglicherweise auf diesem Teil fortgesetzt: Kopf enthält "
+"abgeschnittenen Namen."
+
+#: src/buffer.c:1223
 #, c-format
 msgid "%s is not continued on this volume"
 msgstr "Dieser Teil ist keine Fortsetzung von %s."
 
-#: src/buffer.c:931
+#: src/buffer.c:1237
 #, c-format
 msgid "%s is the wrong size (%s != %s + %s)"
 msgstr "%s hat die falsche Größe (%s != %s + %s)."
 
-#: src/buffer.c:943
+#: src/buffer.c:1247
 msgid "This volume is out of sequence"
 msgstr "Dieser Teil ist nicht an der Reihe."
 
-#: src/buffer.c:1025
-msgid "Cannot backspace archive file; it may be unreadable without -i"
-msgstr "Kann Archiv-Datei nicht zurücksetzen; könnte ohne ‚-i‘ unlesbar sein."
-
-#: src/buffer.c:1057
-msgid "rmtlseek not stopped at a record boundary"
-msgstr ""
-
-#: src/buffer.c:1108
+#: src/buffer.c:1293
 #, c-format
-msgid "%s: contains invalid volume number"
-msgstr "%s enthält ungültige Teil-Nummer."
+msgid "Archive not labeled to match %s"
+msgstr "Kennzeichnung des Archivs passt nicht zu „%s“."
 
-#: src/buffer.c:1160
-msgid "Volume number overflow"
-msgstr "Teil-Nummer zu groß."
-
-#: src/buffer.c:1179
+#: src/buffer.c:1296
 #, c-format
-msgid "`%s' command failed"
-msgstr "„%s“ Kommando gescheitert."
+msgid "Volume %s does not match %s"
+msgstr "Teil „%s“ passt nicht zu „%s“."
 
-#: src/buffer.c:1188
-#, c-format
-msgid "Prepare volume #%d for %s and hit return: "
-msgstr "Medium #%d für %s einlegen und \"Return\" drücken: "
-
-#: src/buffer.c:1194
-msgid "EOF where user reply was expected"
-msgstr "Dateiende gefunden, Benutzereingabe erwartet"
-
-#: src/buffer.c:1199 src/buffer.c:1229
-msgid "WARNING: Archive is incomplete"
-msgstr "WARNUNG: Archiv unvollständig"
-
-#: src/buffer.c:1213
+#: src/buffer.c:1392
 #, c-format
 msgid ""
-" n [name]   Give a new file name for the next (and subsequent) volume(s)\n"
-" q          Abort tar\n"
-" !          Spawn a subshell\n"
-" ?          Print this list\n"
+"%s: file name too long to be stored in a GNU multivolume header, truncated"
 msgstr ""
-" n [NAME]   Für die nächsten (und folgenden) Medien neuen Dateinamen "
-"angeben\n"
-" q          „tar“ abbrechen\n"
-" !          Shell in einem Unterprozess starten\n"
-" ?          Diese Liste ausgeben\n"
+"%s: Dateiname zu lang, um in einem GNU-Mehrteil-Kopf abgelegt werden zu "
+"können, abgeschnitten"
 
-#: src/buffer.c:1224
-msgid "No new volume; exiting.\n"
-msgstr "Kein neues Medium; halte an.\n"
-
-#: src/compare.c:105
-#, fuzzy, c-format
+#: src/compare.c:96
+#, c-format
 msgid "Could only read %lu of %lu byte"
 msgid_plural "Could only read %lu of %lu bytes"
-msgstr[0] "Konnte nur %lu von %lu Bytes lesen"
+msgstr[0] "Konnte nur %lu von %lu Byte lesen"
 msgstr[1] "Konnte nur %lu von %lu Bytes lesen"
 
-#: src/compare.c:116 src/compare.c:132
+#: src/compare.c:106 src/compare.c:388
 msgid "Contents differ"
 msgstr "Unterschiedliche Inhalte"
 
-#: src/compare.c:158 src/extract.c:763 src/incremen.c:496 src/list.c:235
-#: src/list.c:412 src/list.c:1282
+#: src/compare.c:132 src/extract.c:790 src/incremen.c:1193 src/list.c:372
+#: src/list.c:1314
 msgid "Unexpected EOF in archive"
 msgstr "Unerwartetes Dateiende im Archiv."
 
+#: src/compare.c:180 src/compare.c:196 src/compare.c:314 src/compare.c:412
+msgid "File type differs"
+msgstr "Unterschiedliche Dateitypen "
+
+#: src/compare.c:183 src/compare.c:203 src/compare.c:328
+msgid "Mode differs"
+msgstr "Modus ist unterschiedlich"
+
+#: src/compare.c:206
+msgid "Uid differs"
+msgstr "Benutzerkennung ist unterschiedlich"
+
+#: src/compare.c:208
+msgid "Gid differs"
+msgstr "Gruppenkennung ist unterschiedlich"
+
 #: src/compare.c:212
+msgid "Mod time differs"
+msgstr "Änderungszeit ist unterschiedlich"
+
+#: src/compare.c:216 src/compare.c:420
+msgid "Size differs"
+msgstr "Größe ist unterschiedlich"
+
+#: src/compare.c:270
+#, c-format
+msgid "Not linked to %s"
+msgstr "Nicht auf „%s“ gelinkt."
+
+#: src/compare.c:293
+msgid "Symlink differs"
+msgstr "Symbolischer Link ist unterschiedlich."
+
+#: src/compare.c:322
+msgid "Device number differs"
+msgstr "Unterschiedliche Gerätenummern"
+
+#: src/compare.c:462
 #, c-format
 msgid "Verify "
 msgstr "Prüfe "
 
-#: src/compare.c:219
+#: src/compare.c:469
 #, c-format
-msgid "%s: Unknown file type '%c', diffed as normal file"
-msgstr "%s: Unbekannter Dateityp ‚%c‘, Differenz wie für eine normale Datei."
+msgid "%s: Unknown file type `%c', diffed as normal file"
+msgstr "%s: Unbekannter Dateityp „%c“, Differenz wie für eine normale Datei."
 
-#: src/compare.c:242 src/compare.c:364 src/compare.c:416 src/compare.c:443
-msgid "File type differs"
-msgstr "Unterschiedliche Dateitypen "
-
-#: src/compare.c:249 src/compare.c:378 src/compare.c:422
-msgid "Mode differs"
-msgstr "‚mode‘ ist unterschiedlich"
-
-#: src/compare.c:252
-msgid "Uid differs"
-msgstr "Benutzerkennung ist unterschiedlich"
-
-#: src/compare.c:254
-msgid "Gid differs"
-msgstr "Gruppenkennung ist unterschiedlich"
-
-#: src/compare.c:257
-msgid "Mod time differs"
-msgstr "Änderungszeit ist unterschiedlich"
-
-#: src/compare.c:261 src/compare.c:451
-msgid "Size differs"
-msgstr "Größe ist unterschiedlich"
-
-#: src/compare.c:319
-#, c-format
-msgid "Not linked to %s"
-msgstr "Nicht auf ‚%s‘ gelinkt."
-
-#: src/compare.c:342
-msgid "Symlink differs"
-msgstr "Symbolischer Link ist unterschiedlich."
-
-#: src/compare.c:372
-msgid "Device number differs"
-msgstr "Unterschiedliche Gerätenummern"
-
-#: src/compare.c:500
+#: src/compare.c:524
 msgid "Archive contains file names with leading prefixes removed."
-msgstr ""
+msgstr "Archiv enthält Dateinamen, deren Präfixe entfernt wurden."
 
-#: src/compare.c:502
+#: src/compare.c:526
 msgid "Verification may fail to locate original files."
-msgstr ""
+msgstr "Die Überprüfung findet möglicherweise die Originaldateien nicht."
 
-#: src/compare.c:572
-#, fuzzy, c-format
+#: src/compare.c:596
+#, c-format
 msgid "VERIFY FAILURE: %d invalid header detected"
 msgid_plural "VERIFY FAILURE: %d invalid headers detected"
-msgstr[0] "FEHLER BEI PRÜFUNG: %d ungültiger Kopfteil bzw. -teile erkannt."
-msgstr[1] "FEHLER BEI PRÜFUNG: %d ungültiger Kopfteil bzw. -teile erkannt."
+msgstr[0] "FEHLER BEI PRÜFUNG: %d ungültiger Kopfteil erkannt."
+msgstr[1] "FEHLER BEI PRÜFUNG: %d ungültige Kopfteile erkannt."
 
-#: src/create.c:145
-msgid "Generating negative octal headers"
-msgstr "Erzeuge negative oktale Kopfteile"
+#: src/create.c:67
+#, fuzzy, c-format
+msgid "%s: contains a cache directory tag %s; %s"
+msgstr "%s: enthält eine „Cache-Verzeichnis“-Markierung %s; nicht gesichert."
 
-#: src/create.c:196
+#: src/create.c:270
 #, c-format
 msgid "value %s out of %s range %s..%s; substituting %s"
 msgstr "Wert %s außerhalb des %s-Bereich %s..%s; ersetze durch %s"
 
-#: src/create.c:202
+#: src/create.c:276
 #, c-format
 msgid "value %s out of %s range %s..%s"
 msgstr "Wert %s außerhalb des %s-Bereichs %s..%s"
 
-#: src/create.c:481 src/create.c:544
-#, fuzzy, c-format
+#: src/create.c:336
+msgid "Generating negative octal headers"
+msgstr "Erzeuge negative oktale Kopfteile"
+
+#: src/create.c:622 src/create.c:685
+#, c-format
 msgid "%s: file name is too long (max %d); not dumped"
-msgstr "Datei %s ist unverändert; nicht gesichert."
+msgstr "%s: Dateiname ist zu lang (max. %d); nicht gesichert."
 
-#: src/create.c:491
-#, fuzzy, c-format
+#: src/create.c:632
+#, c-format
 msgid "%s: file name is too long (cannot be split); not dumped"
-msgstr "Datei %s ist unverändert; nicht gesichert."
+msgstr ""
+"%s: Dateiname ist zu lang (kann nicht aufgeteilt werden); nicht gesichert."
 
-#: src/create.c:518
-#, fuzzy, c-format
+#: src/create.c:659
+#, c-format
 msgid "%s: link name is too long; not dumped"
-msgstr "Datei %s ist unverändert; nicht gesichert."
+msgstr "%s: Verknüpfungsname ist zu lang; nicht gesichert."
 
-#: src/create.c:884
-#, fuzzy, c-format
+#: src/create.c:1075
+#, c-format
 msgid "%s: File shrank by %s byte; padding with zeros"
 msgid_plural "%s: File shrank by %s bytes; padding with zeros"
-msgstr[0] "Datei %s ist um %s Bytes geschrumpft, fülle mit Nullen auf."
+msgstr[0] "Datei %s ist um ein Byte geschrumpft, fülle mit Null auf."
 msgstr[1] "Datei %s ist um %s Bytes geschrumpft, fülle mit Nullen auf."
 
-#: src/create.c:910
-#, c-format
-msgid "%s: file changed as we read it"
-msgstr "%s: Datei hat sich beim Lesen geändert."
-
-#: src/create.c:1051
+#: src/create.c:1176
 #, c-format
 msgid "%s: file is on a different filesystem; not dumped"
 msgstr "Datei %s liegt auf einem anderen Dateisystem; nicht gesichert."
 
-#: src/create.c:1061
-#, fuzzy, c-format
-msgid "%s: contains a cache directory tag; not dumped"
-msgstr "%s ist das Archiv; nicht gesichert."
+#: src/create.c:1217 src/create.c:1228
+msgid "contents not dumped"
+msgstr ""
 
-#: src/create.c:1221
+#: src/create.c:1357
 #, c-format
 msgid "%s: Unknown file type; file ignored"
 msgstr "%s: Unbekannter Dateityp; Datei ignoriert."
 
-#: src/create.c:1320
-#, fuzzy, c-format
-msgid "Missing links to '%s'.\n"
-msgstr " Verküpfung auf %s\n"
+#: src/create.c:1458
+#, c-format
+msgid "Missing links to %s.\n"
+msgstr "Fehlende Verküpfungen zu %s.\n"
 
-#: src/create.c:1387
+#: src/create.c:1529
 #, c-format
 msgid "%s: file is unchanged; not dumped"
 msgstr "Datei %s ist unverändert; nicht gesichert."
 
-#: src/create.c:1395
+#: src/create.c:1537
 #, c-format
 msgid "%s: file is the archive; not dumped"
 msgstr "%s ist das Archiv; nicht gesichert."
 
-#: src/create.c:1430
+#: src/create.c:1567
 #, c-format
 msgid "%s: File removed before we read it"
 msgstr "%s: Datei gelöscht, bevor sie gelesen wurde."
 
-#: src/create.c:1523
+#: src/create.c:1585
+#, fuzzy
+msgid "directory not dumped"
+msgstr "%s: enthält eine Markierung „Cache-Verzeichnis“; nicht gesichert."
+
+#: src/create.c:1654
+#, c-format
+msgid "%s: file changed as we read it"
+msgstr "%s: Datei hat sich beim Lesen geändert."
+
+#: src/create.c:1733
 #, c-format
 msgid "%s: socket ignored"
-msgstr "Socket %s ignoriert"
+msgstr "%s: Socket ignoriert"
 
-#: src/create.c:1528
+#: src/create.c:1738
 #, c-format
 msgid "%s: door ignored"
 msgstr "%s: Klappe ignoriert"
 
-#: src/delete.c:209 src/list.c:171 src/update.c:163
-msgid "This does not look like a tar archive"
-msgstr "Das sieht nicht wie ein „tar“-Archiv aus."
-
-#: src/delete.c:215 src/list.c:185 src/update.c:168
+#: src/delete.c:216 src/list.c:181 src/update.c:170
 msgid "Skipping to next header"
 msgstr "Springe zum nächsten Kopfteil."
 
-#: src/delete.c:280
+#: src/delete.c:281
 msgid "Deleting non-header from archive"
 msgstr "Lösche nicht-Kopfteil aus dem Archiv"
 
-#: src/extract.c:208
+#: src/extract.c:198
 #, c-format
 msgid "%s: implausibly old time stamp %s"
-msgstr ""
+msgstr "%s: unplausibel alter Zeitstempel %s"
 
-#: src/extract.c:211
+#: src/extract.c:215
 #, c-format
-msgid "%s: time stamp %s is %lu s in the future"
-msgstr "%s: Zeitstempel %s liegt %lu Sekunden in der Zukunft."
+msgid "%s: time stamp %s is %s s in the future"
+msgstr "%s: Zeitstempel %s liegt %s Sekunden in der Zukunft."
 
-#: src/extract.c:359
+#: src/extract.c:395
 #, c-format
 msgid "%s: Unexpected inconsistency when making directory"
-msgstr "%s: Unerwarteter Fehler beim Erstellen des Verzeichnisses."
+msgstr "%s: Unerwarteter Inkonsitenz beim Erstellen des Verzeichnisses."
 
-#: src/extract.c:478
-#, c-format
-msgid "Current `%s' is newer"
-msgstr ""
-
-#: src/extract.c:590
+#: src/extract.c:588
 #, c-format
 msgid "%s: Directory renamed before its status could be extracted"
 msgstr "%s: Verzeichnis umbenannt bevor sein Status ermittelt werden konnte"
 
-#: src/extract.c:655
-#, c-format
-msgid "%s: Was unable to backup this file"
-msgstr "%s: Konnte keine Sicherheitskopie von dieser Datei erstellen"
-
-#: src/extract.c:722
+#: src/extract.c:724
 msgid "Extracting contiguous files as regular files"
-msgstr "Extrahiere zusammenhängende Dateien (‚contiguous files‘) als reguläre."
+msgstr "Extrahiere zusammenhängende Dateien („contiguous files“) als reguläre."
 
-#: src/extract.c:908
+#: src/extract.c:1000
 msgid "Attempting extraction of symbolic links as hard links"
 msgstr "Versuche symbolische Links als harte Links herauszuholen."
 
-#: src/extract.c:1109
+#: src/extract.c:1057
+#, c-format
+msgid "Reading %s\n"
+msgstr "Lese %s.\n"
+
+#: src/extract.c:1146
 #, c-format
 msgid "%s: Cannot extract -- file is continued from another volume"
 msgstr ""
 "Kann „%s“ nicht herausholen -- Datei ist Fortsetzung eines anderen Teils."
 
-#: src/extract.c:1118
-msgid "Visible long name error"
-msgstr "Fehler bei langem Dateinamen."
+#: src/extract.c:1153 src/list.c:1081
+msgid "Unexpected long name header"
+msgstr "Unerwarteter Kopfteil mit langem Namen"
 
-#: src/extract.c:1126
+#: src/extract.c:1159
 #, c-format
-msgid "%s: Unknown file type '%c', extracted as normal file"
-msgstr "%s: Unbekannter Dateityp ‚%c‘, wie normale Datei herausgeholt."
+msgid "%s: Unknown file type `%c', extracted as normal file"
+msgstr "%s: Unbekannter Dateityp „%c“, wie normale Datei extrahiert."
 
-#: src/extract.c:1211
+#: src/extract.c:1184
+#, c-format
+msgid "Current %s is newer or same age"
+msgstr "Aktuelles %s ist neuer oder hat dasselbe Alter."
+
+#: src/extract.c:1230
+#, c-format
+msgid "%s: Was unable to backup this file"
+msgstr "%s: Konnte keine Sicherheitskopie von dieser Datei erstellen"
+
+#: src/extract.c:1358
+#, c-format
+msgid "Cannot rename %s to %s"
+msgstr "Kann %s nicht in %s umbenennen."
+
+#: src/extract.c:1370
+#, c-format
 msgid "Error is not recoverable: exiting now"
 msgstr "Nicht behebbarer Fehler: Programmabbruch. "
 
-#: src/extract.c:1218
-msgid "memory exhausted"
-msgstr "Kein Speicher mehr"
+#: src/incremen.c:260 src/incremen.c:300
+#, c-format
+msgid "%s: Directory has been renamed from %s"
+msgstr "%s: Verzeichnis wurde von „%s“ umbenannt."
 
-#: src/incremen.c:193
+#: src/incremen.c:270
 #, c-format
 msgid "%s: Directory has been renamed"
-msgstr "Verzeichnis „%s“ wurde umbenannt."
+msgstr "%s: Verzeichnis wurde umbenannt."
 
-#: src/incremen.c:205
+#: src/incremen.c:311
 #, c-format
 msgid "%s: Directory is new"
 msgstr "Verzeichnis „%s“ ist neu."
 
-#: src/incremen.c:354
+#: src/incremen.c:699 src/incremen.c:716
 msgid "Invalid time stamp"
 msgstr "Ungültiges Datum"
 
-#: src/incremen.c:357
-msgid "Time stamp out of range"
-msgstr "Datum außerhalb des zulässigen Bereichs."
+#: src/incremen.c:755
+msgid "Invalid modification time (seconds)"
+msgstr "Ungültige Änderungszeit (Sekunden)."
 
-#: src/incremen.c:381
+#: src/incremen.c:770
+msgid "Invalid modification time (nanoseconds)"
+msgstr "Ungültige Änderungszeit (Nanosekunden)."
+
+#: src/incremen.c:790
 msgid "Invalid device number"
 msgstr "Ungültige Gerätenummer"
 
-#: src/incremen.c:385
-msgid "Device number out of range"
-msgstr "Gerätenummer außerhalb des zulässigen Bereichs."
-
-#: src/incremen.c:393
+#: src/incremen.c:805
 msgid "Invalid inode number"
 msgstr "Ungültige Inode-Nummer"
 
-#: src/incremen.c:397
-msgid "Inode number out of range"
-msgstr "Inode-Nummer außerhalb des zulässigen Bereichs"
+#: src/incremen.c:856 src/incremen.c:893
+msgid "Field too long while reading snapshot file"
+msgstr "Feld zu lang beim Lesen der Schnappschussdatei"
 
-#: src/incremen.c:524
+#: src/incremen.c:863 src/incremen.c:901
+msgid "Read error in snapshot file"
+msgstr "Lesefehler in Schnappschussdatei"
+
+#: src/incremen.c:865 src/incremen.c:905 src/incremen.c:957
+#: src/incremen.c:1015
+msgid "Unexpected EOF in snapshot file"
+msgstr "Unerwartetes Dateiende im Schnappschussdatei."
+
+#: src/incremen.c:872 src/incremen.c:912
+msgid "Unexpected field value in snapshot file"
+msgstr "Unerwarteter Feldwert in Schnappschussdatei"
+
+#: src/incremen.c:1007
+msgid "Missing record terminator"
+msgstr "Fehlender Record-Abschluss"
+
+#: src/incremen.c:1058 src/incremen.c:1061
+msgid "Bad incremental file format"
+msgstr "unzulässiges inkrementelles Dateiformat"
+
+#: src/incremen.c:1080
+#, c-format
+msgid "Unsupported incremental format version: %<PRIuMAX>"
+msgstr "Nicht unterstützte Version des inkrementellen Formats: %<PRIuMAX>"
+
+#: src/incremen.c:1233
+#, c-format
+msgid "Malformed dumpdir: expected '%c' but found %#3o"
+msgstr "Fehlgeformtes Verzeichnis für Dump: „%c“ erwartet, aber %#3o gefunden"
+
+#: src/incremen.c:1243
+msgid "Malformed dumpdir: 'X' duplicated"
+msgstr "Fehlgeformtes Verzeichnis für Dump: „X“ dupliziert"
+
+#: src/incremen.c:1256
+msgid "Malformed dumpdir: empty name in 'R'"
+msgstr "Fehlgeformtes Verzeichnis für Dump: leerer Name in „R“"
+
+#: src/incremen.c:1269
+msgid "Malformed dumpdir: 'T' not preceeded by 'R'"
+msgstr "Fehlgeformtes Verzeichnis für Dump: „T“ folgt nicht „R“"
+
+#: src/incremen.c:1275
+msgid "Malformed dumpdir: empty name in 'T'"
+msgstr "Fehlgeformtes Verzeichnis für Dump: leerer Name in „T“"
+
+#: src/incremen.c:1295
+#, c-format
+msgid "Malformed dumpdir: expected '%c' but found end of data"
+msgstr ""
+"Fehlgeformtes Verzeichnis für Dump: „%c“ erwartet, aber Ende der Daten "
+"gefunden"
+
+#: src/incremen.c:1301
+msgid "Malformed dumpdir: 'X' never used"
+msgstr "Fehlgeformtes Verzeichnis für Dump: „X“ nie benutzt"
+
+#: src/incremen.c:1344
+#, c-format
+msgid "Cannot create temporary directory using template %s"
+msgstr "Kann kein temporäres Verzeichnis mit der Schablone %s anlegen"
+
+#: src/incremen.c:1392
 #, c-format
 msgid "%s: Not purging directory: unable to stat"
-msgstr ""
+msgstr "%s: Entferne Verzeichnis nicht: kann nicht zugreifen"
 
-#: src/incremen.c:531
-#, fuzzy, c-format
+#: src/incremen.c:1405
+#, c-format
 msgid "%s: directory is on a different device: not purging"
-msgstr "Datei %s liegt auf einem anderen Dateisystem; nicht gesichert."
+msgstr "%s: Verzeichnis liegt auf einem anderen Dateisystem: entferne nicht."
 
-#: src/incremen.c:539
+#: src/incremen.c:1413
 #, c-format
 msgid "%s: Deleting %s\n"
-msgstr "%s: Lösche ‚%s‘.\n"
+msgstr "%s: Lösche %s.\n"
 
-#: src/incremen.c:544
+#: src/incremen.c:1418
 #, c-format
 msgid "%s: Cannot remove"
-msgstr "Kann %s nicht entfernen."
+msgstr "%s: Kann nicht entfernen."
 
-#: src/list.c:117
+#: src/list.c:113
 #, c-format
 msgid "%s: Omitting"
 msgstr "%s: Ausgelassen"
 
-#: src/list.c:135
+#: src/list.c:131
 #, c-format
 msgid "block %s: ** Block of NULs **\n"
 msgstr "Block %s: ** Block aus NULlen **\n"
 
-#: src/list.c:148
+#: src/list.c:144
 #, c-format
 msgid "A lone zero block at %s"
-msgstr ""
+msgstr "Ein einzelner Nullblock bei %s"
 
-#: src/list.c:159
+#: src/list.c:155
 #, c-format
 msgid "block %s: ** End of File **\n"
 msgstr "Block %s: ** Ende der Datei **\n"
 
-#: src/list.c:182 src/list.c:1017 src/list.c:1244
+#: src/list.c:178 src/list.c:1054 src/list.c:1282
 #, c-format
 msgid "block %s: "
 msgstr "Block %s: "
 
-#: src/list.c:644
+#. TRANSLATORS: %s is type of the value (gid_t, uid_t, etc.)
+#: src/list.c:662
 #, c-format
 msgid "Blanks in header where numeric %s value expected"
 msgstr "Leerzeichen im Kopfteil, wo nummerische %s-Werte stehen sollten."
 
-#: src/list.c:698
+#. TRANSLATORS: Second %s is a type name (gid_t,uid_t,etc.)
+#: src/list.c:717
 #, c-format
 msgid "Archive octal value %.*s is out of %s range; assuming two's complement"
-msgstr "Oktalzahl %.*s außerhalb des %s-Bereichs, vermutlich negativ?"
+msgstr "Oktalzahl %.*s außerhalb des %s-Bereichs, nehme Zweierkomplement an?"
 
-#: src/list.c:708
+#. TRANSLATORS: Second %s is a type name (gid_t,uid_t,etc.)
+#: src/list.c:728
 #, c-format
 msgid "Archive octal value %.*s is out of %s range"
 msgstr "Oktalzahl %.*s außerhalb des %s-Bereichs"
 
-#: src/list.c:725
+#: src/list.c:749
 msgid "Archive contains obsolescent base-64 headers"
 msgstr "Archiv enthält veraltete Base64-Kopfteile"
 
-#: src/list.c:738
+#: src/list.c:763
 #, c-format
 msgid "Archive signed base-64 string %s is out of %s range"
-msgstr "Base64-Text ‚%s‘ außerhalb des %s-Bereichs."
+msgstr "Base64-Text %s außerhalb des %s-Bereichs."
 
-# Was ist der SINN dieser Meldung? ck
-#: src/list.c:769
+#: src/list.c:794
 #, c-format
 msgid "Archive base-256 value is out of %s range"
-msgstr "Base-256-Wert ist außerhalb des %s Bereichs."
+msgstr "Base-256-Wert ist außerhalb des %s-Bereichs."
 
-#: src/list.c:797
+#. TRANSLATORS: Second %s is a type name (gid_t,uid_t,etc.)
+#: src/list.c:823
 #, c-format
 msgid "Archive contains %.*s where numeric %s value expected"
-msgstr "Archiv enthält ‚%.*s‘ wo nummerische %s-Werte stehen sollten."
+msgstr "Archiv enthält „%.*s“ wo numerische %s-Werte stehen sollten."
 
-#: src/list.c:818
-#, fuzzy, c-format
-msgid "Archive value %s is out of %s range %s.%s"
+#. TRANSLATORS: Second %s is type name (gid_t,uid_t,etc.)
+#: src/list.c:845
+#, c-format
+msgid "Archive value %s is out of %s range %s..%s"
 msgstr "Wert %s außerhalb des %s-Bereichs %s..%s."
 
-#: src/list.c:1048
-msgid "Visible longname error"
-msgstr "Fehler bei langem Dateinamen."
-
-#: src/list.c:1175
+#: src/list.c:1217
 #, c-format
 msgid " link to %s\n"
-msgstr " Verküpfung auf %s\n"
+msgstr " Verküpfung zu %s\n"
 
-#: src/list.c:1183
+#: src/list.c:1225
 #, c-format
 msgid " unknown file type %s\n"
 msgstr " unbekannter Dateityp %s\n"
 
-#: src/list.c:1201
+#: src/list.c:1243
 #, c-format
 msgid "--Long Link--\n"
-msgstr ""
+msgstr "––Lange Verknüpfung––\n"
 
-#: src/list.c:1205
+#: src/list.c:1247
 #, c-format
 msgid "--Long Name--\n"
-msgstr ""
+msgstr "––Langer Name––\n"
 
 # Alte Üs: Band Kopfteil.  Kann diese Meldung auch bei Disketten
 # ausgegeben werden?  Dann kann man ja nicht "Band" sagen; am besten
 # einfach "Volume" lassen. ke.
-#: src/list.c:1209
+#: src/list.c:1251
 #, c-format
 msgid "--Volume Header--\n"
-msgstr "--Vorspann des Teils--\n"
+msgstr "––Vorspann des Teils––\n"
 
-#: src/list.c:1217
+#: src/list.c:1259
 #, c-format
 msgid "--Continued at byte %s--\n"
-msgstr "--Fortgesetzt bei Byte %s--\n"
+msgstr "––Fortgesetzt bei Byte %s––\n"
 
-#: src/list.c:1221
-#, c-format
-msgid "--Mangled file names--\n"
-msgstr "--Verstümmelte Dateinamen--\n"
-
-#: src/list.c:1249
+#: src/list.c:1287
 msgid "Creating directory:"
 msgstr "Erzeuge Verzeichnis:"
 
-#: src/mangle.c:54
-msgid "Unexpected EOF in mangled names"
-msgstr "Unerwartetes Dateiende in verstümmelten Namen."
+#: src/misc.c:456
+#, c-format
+msgid "Renaming %s to %s\n"
+msgstr "Benenne „%s“ in „%s“ um.\n"
 
-#: src/mangle.c:90 src/misc.c:399 src/misc.c:417
+#: src/misc.c:465 src/misc.c:483
 #, c-format
 msgid "%s: Cannot rename to %s"
 msgstr "%s: Kann nicht in %s umbenennen"
 
-#: src/mangle.c:93
-#, c-format
-msgid "Renamed %s to %s"
-msgstr "%s in %s umbenannt"
-
-#: src/mangle.c:110
-#, c-format
-msgid "%s: Cannot symlink to %s"
-msgstr "%s: Kann nicht zu „%s“ linken."
-
-#: src/mangle.c:113
-#, c-format
-msgid "Symlinked %s to %s"
-msgstr "Symbolischer Verküpfung von %s auf %s."
-
-#: src/mangle.c:117
-#, c-format
-msgid "Unknown demangling command %s"
-msgstr "Unbekanntes Kommando „%s“ beim Zusammensetzen von Namen."
-
-#: src/misc.c:390
-#, c-format
-msgid "Renaming %s to %s\n"
-msgstr "Benenne ‚%s‘ in ‚%s‘ um.\n"
-
-#: src/misc.c:422
+#: src/misc.c:488
 #, c-format
 msgid "Renaming %s back to %s\n"
-msgstr "Benenne ‚%s‘ zurück in ‚%s‘.\n"
+msgstr "Benenne „%s“ zurück in „%s“.\n"
 
-#: src/misc.c:502
+#: src/misc.c:615
 msgid "Cannot save working directory"
 msgstr "Kann aktuelles Verzeichnis nicht sichern."
 
-#: src/misc.c:508
+#: src/misc.c:621
 msgid "Cannot change working directory"
 msgstr "Kann Arbeitsverzeichnis nicht wechseln."
 
-#: src/misc.c:552 src/misc.c:561
-#, c-format
-msgid "%s: Cannot %s"
-msgstr "%s: Kann %s nicht ausführen."
-
-#: src/misc.c:570
-#, c-format
-msgid "%s: Warning: Cannot %s"
-msgstr "%s: Warnung. Kann %s nicht ausführen."
-
-#: src/misc.c:585
-#, c-format
-msgid "%s: Cannot change mode to %s"
-msgstr "%s: Kann Zugriffsrechte nicht zu %s ändern."
-
-#: src/misc.c:593
-#, c-format
-msgid "%s: Cannot change ownership to uid %lu, gid %lu"
-msgstr "%s: Kann Datei-Eigentümer nicht zu uid %lu, gid %lu ändern."
-
-#: src/misc.c:628
-#, c-format
-msgid "%s: Cannot hard link to %s"
-msgstr "%s: Kann nicht zu „%s“ linken."
-
-#: src/misc.c:689 src/misc.c:730
-#, fuzzy, c-format
-msgid "%s: Read error at byte %s, reading %lu byte"
-msgid_plural "%s: Read error at byte %s, reading %lu bytes"
-msgstr[0] "%s: Lesefehler an Byte %s beim Lesen von %lu Bytes."
-msgstr[1] "%s: Lesefehler an Byte %s beim Lesen von %lu Bytes."
-
-#: src/misc.c:702
-#, fuzzy, c-format
-msgid "%s: Warning: Read error at byte %s, reading %lu byte"
-msgid_plural "%s: Warning: Read error at byte %s, reading %lu bytes"
-msgstr[0] "%s: Lesefehler an Byte %s beim Lesen von %lu Bytes."
-msgstr[1] "%s: Lesefehler an Byte %s beim Lesen von %lu Bytes."
-
-#: src/misc.c:790
-#, c-format
-msgid "%s: Cannot seek to %s"
-msgstr "%s: Kann nicht auf %s positionieren."
-
-#: src/misc.c:806
-#, c-format
-msgid "%s: Warning: Cannot seek to %s"
-msgstr "%s: Warnung. Kann nicht auf %s positionieren."
-
-#: src/misc.c:824
-#, c-format
-msgid "%s: Cannot create symlink to %s"
-msgstr "%s: Kann keinen symbolischen Link auf „%s“ anlegen."
-
-#: src/misc.c:892
-#, fuzzy, c-format
-msgid "%s: Wrote only %lu of %lu byte"
-msgid_plural "%s: Wrote only %lu of %lu bytes"
-msgstr[0] "%s: Nur %lu von %lu Bytes geschrieben."
-msgstr[1] "%s: Nur %lu von %lu Bytes geschrieben."
-
-#: src/misc.c:918
+#: src/misc.c:711
 msgid "child process"
 msgstr "Kindprozess"
 
-#: src/misc.c:927
+#: src/misc.c:720
 msgid "interprocess channel"
 msgstr "interprocess channel"
 
-#: src/names.c:372 src/names.c:421 src/names.c:465
-msgid "Missing file name after -C"
-msgstr "Dateiname nach -C fehlt."
+#. TRANSLATORS: The following three msgids form a single sentence.
+#.
+#: src/names.c:599
+msgid "Pattern matching characters used in file names. Please,"
+msgstr "Zeichen für Musterüberdeckung im Dateinamen benutzt. Benutzen"
 
-#: src/names.c:642 src/names.c:658
+#: src/names.c:601
+msgid "use --wildcards to enable pattern matching, or --no-wildcards to"
+msgstr "Sie bitte --wildcards, um Musterüberdeckung zu ermöglichen oder"
+
+#: src/names.c:603
+msgid "suppress this warning."
+msgstr "--no-wildcards, um diese Warnung zu unterdrücken."
+
+#: src/names.c:618 src/names.c:636
 #, c-format
 msgid "%s: Not found in archive"
 msgstr "%s: Nicht im Archiv gefunden."
 
-#: src/names.c:645
-#, fuzzy, c-format
+#: src/names.c:621
+#, c-format
 msgid "%s: Required occurrence not found in archive"
-msgstr "%s: Nicht im Archiv gefunden."
+msgstr "%s: Erforderliches Auftreten nicht im Archiv gefunden."
 
-#: src/names.c:1093
-#, fuzzy, c-format
-msgid "Removing leading `%s' from member names"
-msgstr "Entferne führende ‚%.*s‘ von Archivnamen."
-
-#: src/names.c:1094
-#, fuzzy, c-format
-msgid "Removing leading `%s' from hard link targets"
-msgstr "Entferne führende ‚%.*s‘ von Archivnamen."
-
-#: src/names.c:1107
-#, fuzzy
-msgid "Substituting `.' for empty member name"
-msgstr "Entferne führende ‚%.*s‘ von Archivnamen."
-
-#: src/names.c:1108
-msgid "Substituting `.' for empty hard link target"
-msgstr ""
-
-#: src/tar.c:71
+#: src/tar.c:80
 #, c-format
 msgid "Options `-%s' and `-%s' both want standard input"
-msgstr "Die beiden Optionen ‚-%s‘ und ‚-%s‘ verlangen Standard-Eingabe."
+msgstr "Die beiden Optionen „-%s“ und „-%s“ verlangen Standard-Eingabe."
 
-#: src/tar.c:143
-#, fuzzy, c-format
+#: src/tar.c:157
+#, c-format
 msgid "%s: Invalid archive format"
-msgstr "%s: Ungültige Gruppe"
+msgstr "%s: Ungültiges Archivformat"
 
-#: src/tar.c:167
+#: src/tar.c:181
 msgid "GNU features wanted on incompatible archive format"
 msgstr "GNU-Erweiterungen bei einem inkompatiblen Archiv-Format verlangt."
 
-#: src/tar.c:241
-#, fuzzy
+#: src/tar.c:242
+#, c-format
+msgid ""
+"Unknown quoting style `%s'. Try `%s --quoting-style=help' to get a list."
+msgstr ""
+"Unbekannter Zitatstil „%s“. Versuchen Sie „%s --quoting-style=help“ für eine "
+"Liste."
+
+#: src/tar.c:329
 msgid ""
 "GNU `tar' saves many files together into a single tape or disk archive, and "
 "can restore individual files from the archive.\n"
@@ -972,1264 +1165,1290 @@ msgid ""
 "  tar -cf archive.tar foo bar  # Create archive.tar from files foo and bar.\n"
 "  tar -tvf archive.tar         # List all files in archive.tar verbosely.\n"
 "  tar -xf archive.tar          # Extract all files from archive.tar.\n"
-"The backup suffix is `~', unless set with --suffix or SIMPLE_BACKUP_SUFFIX.\n"
+msgstr ""
+"GNU „tar“ fasst viele Dateien in einem einzigen Archiv auf Platte oder Band "
+"zusammen und kann einzelne Dateien aus dem Archiv wieder herstellen.\n"
+"\n"
+"Beispiele:\n"
+"  %s -cf archiv.tar foo bar  # archiv.tar mit den Dateien foo und bar "
+"erzeugen\n"
+"  %s -tvf archiv.tar         # Inhalt von archiv.tar ausführlich anzeigen\n"
+"  %s -xf archiv.tar          # alle Dateien aus archiv.tar extrahieren\n"
+
+#: src/tar.c:338
+msgid ""
+"The backup suffix is `~', unless set with --suffix or SIMPLE_BACKUP_SUFFIX.\n"
 "The version control may be set with --backup or VERSION_CONTROL, values "
 "are:\n"
 "\n"
+"  none, off       never make backups\n"
 "  t, numbered     make numbered backups\n"
 "  nil, existing   numbered if numbered backups exist, simple otherwise\n"
 "  never, simple   always make simple backups\n"
 msgstr ""
-"\n"
-"Die Namenserweiterung für Sicherheitskopien ist ‚~‘, wenn nicht mit --"
+"Die Namenserweiterung für Sicherheitskopien ist „~“, wenn nicht mit --"
 "suffix\n"
 "oder der Umgebungsvariablen SIMPLE_BACKUP_SUFFIX etwas anderes eingestellt "
 "ist.\n"
 "Die Versionskontrolle kann mit --backup oder der Umgebungsvariablen\n"
 "VERSION_CONTROL gesetzt werden. Mögliche Werte sind:\n"
 "\n"
+"  none, off       niemals Sicherheitskopien anlegen\n"
 "  t, numbered     nummerierte Sicherheitskopien\n"
 "  nil, existing   nummerierte Sicherheitskopien, wenn schon nummerierte\n"
 "                    vorhanden sind, sonst einfache\n"
 "  never, simple   immer einfache Sicherheitskopien\n"
 
-#: src/tar.c:270
-msgid "Main operation mode:"
-msgstr ""
-
-#: src/tar.c:273
-msgid "list the contents of an archive"
-msgstr ""
-
-#: src/tar.c:275
-msgid "extract files from an archive"
-msgstr ""
-
-#: src/tar.c:278
-#, fuzzy
-msgid "create a new archive"
-msgstr "Unerwartetes Dateiende im Archiv."
-
-#: src/tar.c:280
-msgid "find differences between archive and file system"
-msgstr ""
-
-#: src/tar.c:283
-msgid "append files to the end of an archive"
-msgstr ""
-
-#: src/tar.c:285
-msgid "only append files newer than copy in archive"
-msgstr ""
-
-#: src/tar.c:287
-msgid "append tar files to an archive"
-msgstr ""
-
-#: src/tar.c:290
-msgid "delete from the archive (not on mag tapes!)"
-msgstr ""
-
-#: src/tar.c:293
-msgid "Operation modifiers:"
-msgstr ""
-
-#: src/tar.c:296
-msgid "attempt to verify the archive after writing it"
-msgstr ""
-
-#: src/tar.c:298
-msgid "remove files after adding them to the archive"
-msgstr ""
-
-#: src/tar.c:300
-msgid "don't replace existing files when extracting"
-msgstr ""
-
-#: src/tar.c:302
-msgid "don't replace existing files that are newer than their archive copies"
-msgstr ""
-
-#: src/tar.c:304
-msgid "preserve metadata of existing directories"
-msgstr ""
-
-#: src/tar.c:306
-msgid "overwrite existing files when extracting"
-msgstr ""
-
-#: src/tar.c:308
-msgid "remove each file prior to extracting over it"
-msgstr ""
-
-#: src/tar.c:310
-msgid "empty hierarchies prior to extracting directory"
-msgstr ""
-
-#: src/tar.c:312
-msgid "handle sparse files efficiently"
-msgstr ""
-
-#: src/tar.c:314
-#, fuzzy
-msgid "extract files to standard output"
-msgstr "Fehler beim Schreiben auf die Standardausgabe"
-
-#: src/tar.c:316
-msgid "handle old GNU-format incremental backup"
-msgstr ""
-
-#: src/tar.c:317 src/tar.c:390 src/tar.c:455 src/tar.c:514
-msgid "FILE"
-msgstr ""
-
-#: src/tar.c:318
-msgid "handle new GNU-format incremental backup"
-msgstr ""
-
-#: src/tar.c:320
-msgid "do not exit with nonzero on unreadable files"
-msgstr ""
-
-#: src/tar.c:321 src/tar.c:385 src/tar.c:398 src/tar.c:484
-msgid "NUMBER"
-msgstr ""
-
-#: src/tar.c:322
-msgid ""
-"process only the NUMth occurrence of each file in the archive. This option "
-"is valid only in conjunction with one of the subcommands --delete, --diff, --"
-"extract or --list and when a list of files is given either on the command "
-"line or via -T option. NUMBER defaults to 1."
-msgstr ""
-
-#: src/tar.c:324
-msgid "Archive is seekable"
-msgstr ""
-
-#: src/tar.c:327
-msgid "Handling of file attributes:"
-msgstr ""
-
-#: src/tar.c:329 src/tar.c:331 src/tar.c:387
-msgid "NAME"
-msgstr ""
-
-#: src/tar.c:330
-msgid "force NAME as owner for added files"
-msgstr ""
-
-#: src/tar.c:332
-msgid "force NAME as group for added files"
-msgstr ""
-
-#: src/tar.c:333
-msgid "CHANGES"
-msgstr ""
-
-#: src/tar.c:334
-msgid "force (symbolic) mode CHANGES for added files"
-msgstr ""
-
-#: src/tar.c:336
-msgid "don't change access times on dumped files"
-msgstr ""
-
-#: src/tar.c:338
-msgid "don't extract file modified time"
-msgstr ""
-
-#: src/tar.c:340
-msgid "try extracting files with the same ownership"
-msgstr ""
-
-#: src/tar.c:342
-msgid "extract files as yourself"
-msgstr ""
-
-#: src/tar.c:344
-msgid "always use numbers for user/group names"
-msgstr ""
-
-#: src/tar.c:346
-msgid "extract permissions information"
-msgstr ""
-
-#: src/tar.c:349
-msgid "do not extract permissions information"
-msgstr ""
-
-#: src/tar.c:351
-msgid "sort names to extract to match archive"
-msgstr ""
-
-#: src/tar.c:354
-msgid "same as both -p and -s"
-msgstr ""
-
-#: src/tar.c:357
-msgid "Device selection and switching:"
-msgstr ""
-
-#: src/tar.c:359
-msgid "ARCHIVE"
-msgstr ""
-
-#: src/tar.c:360
-msgid "use archive file or device ARCHIVE"
-msgstr ""
-
-#: src/tar.c:362
-msgid "archive file is local even if has a colon"
-msgstr ""
-
-#: src/tar.c:363 src/tar.c:365
-msgid "COMMAND"
-msgstr ""
-
 #: src/tar.c:364
-msgid "use given rmt COMMAND instead of rmt"
-msgstr ""
+msgid "Main operation mode:"
+msgstr "Hauptsächlicher Arbeitsmodus:"
 
-#: src/tar.c:366
-msgid "use remote COMMAND instead of rsh"
-msgstr ""
+#: src/tar.c:367
+msgid "list the contents of an archive"
+msgstr "den Inhalt eines Archivs auflisten"
 
-#: src/tar.c:370
-msgid "specify drive and density"
-msgstr ""
+#: src/tar.c:369
+msgid "extract files from an archive"
+msgstr "Dateien aus einem Archiv extrahieren"
+
+#: src/tar.c:372
+msgid "create a new archive"
+msgstr "ein neues Archiv anlegen"
+
+#: src/tar.c:374
+msgid "find differences between archive and file system"
+msgstr "Unterschiede zwischen Archiv und Dateisystem suchen"
+
+#: src/tar.c:377
+msgid "append files to the end of an archive"
+msgstr "Dateien hinten an das Archiv anfügen"
+
+#: src/tar.c:379
+msgid "only append files newer than copy in archive"
+msgstr "nur Dateien anfügen, die neuer als die Kopie im Archiv sind"
+
+#: src/tar.c:381
+msgid "append tar files to an archive"
+msgstr "tar-Dateien an ein Archiv anfügen"
 
 #: src/tar.c:384
-#, fuzzy
-msgid "create/list/extract multi-volume archive"
-msgstr "Kann mehrteilige Archive nicht prüfen."
+msgid "delete from the archive (not on mag tapes!)"
+msgstr "aus dem Archiv löschen (nicht auf Magnetband!)"
 
 #: src/tar.c:386
-msgid "change tape after writing NUMBER x 1024 bytes"
-msgstr ""
-
-#: src/tar.c:388
-msgid "run script at end of each tape (implies -M)"
-msgstr ""
+msgid "test the archive volume label and exit"
+msgstr "den Archiv-Teil-Namen überprüfen und beenden"
 
 #: src/tar.c:391
-msgid "use/update the volume number in FILE"
-msgstr ""
+msgid "Operation modifiers:"
+msgstr "Feineinstellungen:"
 
 #: src/tar.c:394
-msgid "Device blocking:"
-msgstr ""
+msgid "handle sparse files efficiently"
+msgstr "löchrige Dateien („sparse files“) effizient behandeln"
+
+#: src/tar.c:395
+msgid "MAJOR[.MINOR]"
+msgstr "MAJOR[.MINOR]"
 
 #: src/tar.c:396
-msgid "BLOCKS"
-msgstr ""
+msgid "set version of the sparse format to use (implies --sparse)"
+msgstr "zu benutzende Version des Sparse-Formats setzen (impliziert --sparse)"
 
-#: src/tar.c:397
-msgid "BLOCKS x 512 bytes per record"
-msgstr ""
+#: src/tar.c:398
+msgid "handle old GNU-format incremental backup"
+msgstr "inkrementelle Sicherung im alten GNU-Format"
 
-#: src/tar.c:399
-msgid "SIZE bytes per record, multiple of 512"
-msgstr ""
+#: src/tar.c:399 src/tar.c:530 src/tar.c:594 src/tar.c:598 src/tar.c:608
+#: src/tar.c:618 src/tar.c:621 src/tar.c:623 src/tar.c:698 tests/genfile.c:130
+#: tests/genfile.c:178 tests/genfile.c:182 tests/genfile.c:185
+msgid "FILE"
+msgstr "DATEI"
 
-#: src/tar.c:401
-msgid "ignore zeroed blocks in archive (means EOF)"
-msgstr ""
+#: src/tar.c:400
+msgid "handle new GNU-format incremental backup"
+msgstr "inkrementelle Sicherung im neuen GNU-Format"
 
-#: src/tar.c:403
-msgid "reblock as we read (for 4.2BSD pipes)"
-msgstr ""
+#: src/tar.c:402
+msgid "do not exit with nonzero on unreadable files"
+msgstr "kein Abbruch mit Existatus!=0 bei unlesbaren Dateien"
 
-#: src/tar.c:406
-#, fuzzy
-msgid "Archive format selection:"
-msgstr "Optionen des Archiv-Formats schließen sich gegenseitig aus."
+#: src/tar.c:403 src/tar.c:525 src/tar.c:540 src/tar.c:651 tests/genfile.c:164
+msgid "NUMBER"
+msgstr "ZAHL"
 
-#: src/tar.c:408
-msgid "FORMAT"
+#: src/tar.c:404
+msgid ""
+"process only the NUMBERth occurrence of each file in the archive; this "
+"option is valid only in conjunction with one of the subcommands --delete, --"
+"diff, --extract or --list and when a list of files is given either on the "
+"command line or via the -T option; NUMBER defaults to 1"
 msgstr ""
+"nur das ZAHLte Auftreten jeder Datei im Archiv bearbeiten; diese Option kann "
+"nur zusammen mit einem der Arbeitsmodi --delete, --diff, --extract oder --"
+"list und wenn eine Dateiliste entweder auf der Kommandozeile oder mittels "
+"der Option -T angegeben wurde benutzt werden; Zahl ist standardmäßig 1"
 
-#: src/tar.c:409
-msgid "create archive of the given format."
-msgstr ""
+#: src/tar.c:410
+msgid "archive is seekable"
+msgstr "im Archiv kann positioniert werden"
 
-#: src/tar.c:411
-msgid "FORMAT is one of the following:"
-msgstr ""
-
-#: src/tar.c:412
-msgid "old V7 tar format"
-msgstr ""
-
-#: src/tar.c:414
-msgid "GNU format as per tar <= 1.12"
-msgstr ""
-
-#: src/tar.c:416
-msgid "GNU tar 1.13.x format"
-msgstr ""
+#: src/tar.c:415
+msgid "Overwrite control:"
+msgstr "Steuerung des Überschreibens:"
 
 #: src/tar.c:418
-msgid "POSIX 1003.1-1988 (ustar) format"
-msgstr ""
+msgid "attempt to verify the archive after writing it"
+msgstr "Archiv nach dem Schreiben prüfen"
 
 #: src/tar.c:420
-msgid "POSIX 1003.1-2001 (pax) format"
-msgstr ""
+msgid "remove files after adding them to the archive"
+msgstr "Dateien nach dem Hinzufügen zum Archiv löschen"
 
-#: src/tar.c:421
-msgid "Same as pax"
-msgstr ""
+#: src/tar.c:422
+msgid "don't replace existing files when extracting"
+msgstr "vorhandene Dateien beim Extrahieren nicht überschreiben"
 
 #: src/tar.c:424
-msgid "same as --format=v7"
+msgid "don't replace existing files that are newer than their archive copies"
 msgstr ""
+"vorhandene Dateien, die neuer als die Archivkopie sind, nicht überschreiben"
 
-#: src/tar.c:427
-msgid "same as --format=posix"
-msgstr ""
+#: src/tar.c:426
+msgid "overwrite existing files when extracting"
+msgstr "vorhandene Dateien beim Extrahieren überschreiben"
 
 #: src/tar.c:428
-msgid "keyword[[:]=value][,keyword[[:]=value], ...]"
-msgstr ""
-
-#: src/tar.c:429
-msgid "control pax keywords"
-msgstr ""
+msgid "remove each file prior to extracting over it"
+msgstr "zu überschreibende Dateien vor dem Extrahieren löschen"
 
 #: src/tar.c:430
-msgid "TEXT"
+msgid "empty hierarchies prior to extracting directory"
 msgstr ""
+"Verzeichnishierarchien rekursiv vor dem Extrahieren eines Verzeichnisses "
+"löschen"
 
-#: src/tar.c:431
-msgid ""
-"create archive with volume name NAME. At list/extract time, use TEXT as a "
-"globbing pattern"
+#: src/tar.c:432
+msgid "preserve metadata of existing directories"
+msgstr "Metadaten existierender Verzeichnisse erhalten"
+
+#: src/tar.c:434
+msgid "overwrite metadata of existing directories when extracting (default)"
 msgstr ""
+"Metadaten existierender Verzeichnisse beim Extrahieren überschreiben "
+"(Voreinstellung)"
 
-#: src/tar.c:433
-msgid "filter the archive through bzip2"
-msgstr ""
+#: src/tar.c:440
+msgid "Select output stream:"
+msgstr "Wahl des Ausgabestroms:"
 
-#: src/tar.c:435
-#, fuzzy
-msgid "filter the archive through gzip"
-msgstr "%s ist das Archiv; nicht gesichert."
+#: src/tar.c:443
+msgid "extract files to standard output"
+msgstr "Dateien auf die Standardausgabe extrahieren"
 
-#: src/tar.c:439
-#, fuzzy
-msgid "filter the archive through compress"
-msgstr "%s ist das Archiv; nicht gesichert."
-
-#: src/tar.c:441
-msgid "PROG"
-msgstr ""
-
-#: src/tar.c:442
-msgid "filter through PROG (must accept -d)"
-msgstr ""
+#: src/tar.c:444 src/tar.c:503 src/tar.c:505 tests/genfile.c:161
+#: tests/genfile.c:188
+msgid "COMMAND"
+msgstr "BEFEHL"
 
 #: src/tar.c:445
-msgid "Local file selection:"
-msgstr ""
+msgid "pipe extracted files to another program"
+msgstr "extrahierte Dateien an ein anderes Programm weiterreichen"
 
 #: src/tar.c:447
-msgid "DIR"
-msgstr ""
-
-#: src/tar.c:448
-#, fuzzy
-msgid "change to directory DIR"
-msgstr "Kann Arbeitsverzeichnis nicht wechseln."
+msgid "ignore exit codes of children"
+msgstr "Exitstatus der Kinder ignorieren"
 
 #: src/tar.c:449
-msgid "FILE-OF-NAMES"
-msgstr ""
-
-#: src/tar.c:450
-msgid "get names to extract or create from file NAME"
-msgstr ""
-
-#: src/tar.c:452
-msgid "-T reads null-terminated names, disable -C"
-msgstr ""
-
-#: src/tar.c:453
-msgid "PATTERN"
-msgstr ""
+msgid "treat non-zero exit codes of children as error"
+msgstr "Exitstatus!=0 von Kindern als Fehler ansehen"
 
 #: src/tar.c:454
-msgid "exclude files, given as a PATTERN"
-msgstr ""
+msgid "Handling of file attributes:"
+msgstr "Behandlung der Datei-Attribute:"
 
-#: src/tar.c:456
-msgid "exclude patterns listed in FILE"
-msgstr ""
+#: src/tar.c:457
+msgid "force NAME as owner for added files"
+msgstr "Eigentümer für hinzugefügte Dateien auf NAME setzen"
 
-#: src/tar.c:458
-msgid "exclude directories containing a cache tag"
-msgstr ""
+#: src/tar.c:459
+msgid "force NAME as group for added files"
+msgstr "Gruppe für hinzugefügte Dateien auf NAME setzen"
 
-#: src/tar.c:460
-msgid "exclusion ignores case"
-msgstr ""
+#: src/tar.c:460 src/tar.c:637
+msgid "DATE-OR-FILE"
+msgstr "DATUM-ODER-DATEI"
+
+#: src/tar.c:461
+msgid "set mtime for added files from DATE-OR-FILE"
+msgstr "Änderungszeit für hinzugefügte Datei aus DATUM-ODER-DATEI beziehen"
 
 #: src/tar.c:462
-msgid "exclude patterns match file name start"
-msgstr ""
+msgid "CHANGES"
+msgstr "ÄNDERUNGEN"
 
-#: src/tar.c:464
-msgid "exclude patterns match after any / (default)"
-msgstr ""
+#: src/tar.c:463
+msgid "force (symbolic) mode CHANGES for added files"
+msgstr "den (symbolischen) Modus ÄNDERUNGEN für hinzugefügte Dateien erzwingen"
+
+#: src/tar.c:465
+msgid "METHOD"
+msgstr "METHODE"
 
 #: src/tar.c:466
-msgid "exclusion is case sensitive (default)"
+msgid ""
+"preserve access times on dumped files, either by restoring the times after "
+"reading (METHOD='replace'; default) or by not setting the times in the first "
+"place (METHOD='system')"
 msgstr ""
-
-#: src/tar.c:468
-msgid "exclude patterns are plain strings"
-msgstr ""
+"Zugriffszeit für abgespeicherte Dateien erhalten, entweder durch "
+"Zurücksetzen der Zeiten nach dem Lesen (METHODE=„replace“, Voreinstellung) "
+"oder dadurch, dass die Zeiten gar nicht erst neu gesetzt werden (METHODE="
+"„system“)"
 
 #: src/tar.c:470
-msgid "exclude pattern wildcards do not match '/'"
-msgstr ""
+msgid "don't extract file modified time"
+msgstr "die geänderte Zeit nicht extrahieren"
 
 #: src/tar.c:472
-msgid "avoid descending automatically in directories"
+msgid "try extracting files with the same ownership"
 msgstr ""
+"versuchen, die Dateien mit denselben Eigentumsverhältnisse zu extrahieren"
 
 #: src/tar.c:474
-msgid "stay in local file system when creating archive"
-msgstr ""
+msgid "extract files as yourself"
+msgstr "Dateien als aktueller Nutzer extrahieren"
 
-#: src/tar.c:477
-msgid "recurse into directories (default)"
-msgstr ""
+#: src/tar.c:476
+msgid "always use numbers for user/group names"
+msgstr "immer Zahlen für Nutzer-/Gruppennamen verwenden"
 
-#: src/tar.c:479
-#, fuzzy
-msgid "don't strip leading `/'s from file names"
-msgstr "Entferne führende ‚%.*s‘ von Archivnamen."
-
-#: src/tar.c:481
-msgid "dump instead the files symlinks point to"
+#: src/tar.c:478
+msgid "extract information about file permissions (default for superuser)"
 msgstr ""
+"Informationen über Dateizugriffsrechte mit extrahieren (Voreinstellung für "
+"Root)"
 
 #: src/tar.c:482
-msgid "MEMBER-NAME"
+msgid ""
+"apply the user's umask when extracting permissions from the archive (default "
+"for ordinary users)"
 msgstr ""
+"die Umask des Nutzers anwenden beim Extrahieren von Dateizugriffsrechte aus "
+"dem Archiv (Voreinstellung für normale Nutzer)"
 
-#: src/tar.c:483
-msgid "begin at member MEMBER-NAME in the archive"
-msgstr ""
-
-#: src/tar.c:485
-msgid "strip NUMBER leading components from file names"
-msgstr ""
-
-#: src/tar.c:486
-msgid "DATE-OR-FILE"
-msgstr ""
+#: src/tar.c:484
+msgid "sort names to extract to match archive"
+msgstr "zu entpackende Dateinamen wie im Archiv sortieren"
 
 #: src/tar.c:487
-msgid "only store files newer than DATE-OR-FILE"
-msgstr ""
-
-#: src/tar.c:488 src/tar.c:490
-msgid "DATE"
-msgstr ""
+msgid "same as both -p and -s"
+msgstr "wie -p und -s zusammen"
 
 #: src/tar.c:489
-msgid "compare date and time when data changed only"
+msgid ""
+"delay setting modification times and permissions of extracted directories "
+"until the end of extraction"
 msgstr ""
-
-#: src/tar.c:491
-msgid "same as -N"
-msgstr ""
+"das Setzen von Zugriffszeiten und Rechten von extrahierten Verzeichnissen "
+"verschieben bis zum Ende des Entpackens"
 
 #: src/tar.c:492
-msgid "CONTROL"
-msgstr ""
-
-#: src/tar.c:493
-msgid "backup before removal, choose version CONTROL"
-msgstr ""
-
-#: src/tar.c:494
-msgid "STRING"
-msgstr ""
-
-#: src/tar.c:495
-msgid ""
-"backup before removal, override usual suffix ('~' unless overridden by "
-"environment variable SIMPLE_BACKUP_SUFFIX"
-msgstr ""
+msgid "cancel the effect of --delay-directory-restore option"
+msgstr "den Effekt von --delay-directory-restore aufheben"
 
 #: src/tar.c:497
-msgid "exclude patterns use wildcards (default)"
-msgstr ""
+msgid "Device selection and switching:"
+msgstr "Geräteauswahl und -umschaltung:"
 
 #: src/tar.c:499
-msgid "exclude pattern wildcards match '/' (default)"
-msgstr ""
+msgid "ARCHIVE"
+msgstr "ARCHIV"
+
+#: src/tar.c:500
+msgid "use archive file or device ARCHIVE"
+msgstr "Archivdatei oder Gerät ARCHIV benutzen"
 
 #: src/tar.c:502
-msgid "Informative output:"
-msgstr ""
+msgid "archive file is local even if it has a colon"
+msgstr "Archivdatei ist lokal, auch wenn der Name einen Doppelpunkt enthält"
 
-#: src/tar.c:505
-msgid "verbosely list files processed"
-msgstr ""
+#: src/tar.c:504
+msgid "use given rmt COMMAND instead of rmt"
+msgstr "statt „rmt“ den gegebenen BEFEHL benutzen"
 
-#: src/tar.c:507
-msgid "display progress messages every 10th record"
-msgstr ""
+#: src/tar.c:506
+msgid "use remote COMMAND instead of rsh"
+msgstr "statt „rsh“ den entfernten BEFEHL benutzen"
 
-#: src/tar.c:509
-msgid "print a message if not all links are dumped"
-msgstr ""
-
-#: src/tar.c:511
-msgid "print total bytes written while creating archive"
-msgstr ""
-
-#: src/tar.c:513
-msgid "print file modification dates in UTC"
-msgstr ""
-
-#: src/tar.c:515
-msgid "send verbose output to FILE"
-msgstr ""
-
-#: src/tar.c:517
-msgid "show block number within archive with each message"
-msgstr ""
-
-#: src/tar.c:519
-msgid "ask for confirmation for every action"
-msgstr ""
-
-#: src/tar.c:522
-msgid "Show tar defaults"
-msgstr ""
+#: src/tar.c:510
+msgid "specify drive and density"
+msgstr "Laufwerk und Schreibdichte angeben"
 
 #: src/tar.c:524
-msgid ""
-"When listing or extracting, list each directory that does not match search "
-"criteria"
-msgstr ""
+msgid "create/list/extract multi-volume archive"
+msgstr "mehrteiliges Archiv anlegen/listen/extrahieren"
 
-#: src/tar.c:527
-msgid "Compatibility options:"
-msgstr ""
+#: src/tar.c:526
+msgid "change tape after writing NUMBER x 1024 bytes"
+msgstr "Medium wechseln, wenn ZAHL × 1024 Bytes geschrieben wurden"
 
-#: src/tar.c:530
-msgid ""
-"when creating, same as --old-archive. When extracting, same as --no-same-"
-"owner"
-msgstr ""
+#: src/tar.c:528
+msgid "run script at end of each tape (implies -M)"
+msgstr "am Ende jedes Mediums das Skript ausführen (impliziert -M)"
 
-#: src/tar.c:533
-msgid "Other options:"
-msgstr ""
-
-#: src/tar.c:535
-msgid "Give this help list"
-msgstr ""
+#: src/tar.c:531
+msgid "use/update the volume number in FILE"
+msgstr "Teil-Nummer in DATEI benutzen/aktualisieren"
 
 #: src/tar.c:536
-msgid "Give a short usage message"
-msgstr ""
-
-#: src/tar.c:537
-msgid "Print license and exit"
-msgstr ""
+msgid "Device blocking:"
+msgstr "Blockung des Gerätes:"
 
 #: src/tar.c:538
-msgid "Print program version"
-msgstr ""
+msgid "BLOCKS"
+msgstr "BLÖCKE"
+
+#: src/tar.c:539
+msgid "BLOCKS x 512 bytes per record"
+msgstr "BLÖCKE × 512 Bytes pro Record"
+
+#: src/tar.c:541
+msgid "NUMBER of bytes per record, multiple of 512"
+msgstr "ZAHL Bytes pro Record, Vielfaches von 512"
+
+#: src/tar.c:543
+msgid "ignore zeroed blocks in archive (means EOF)"
+msgstr "Blöcke mit Nullen im Archiv ignorieren (heißt EOF)"
+
+#: src/tar.c:545
+msgid "reblock as we read (for 4.2BSD pipes)"
+msgstr "erneut Blocken beim Lesen (für 4.2BSD‐Pipes)"
+
+#: src/tar.c:550
+msgid "Archive format selection:"
+msgstr "Auswahl des Archiv-Formats:"
+
+#: src/tar.c:552 tests/genfile.c:151
+msgid "FORMAT"
+msgstr "FORMAT"
+
+#: src/tar.c:553
+msgid "create archive of the given format"
+msgstr "Archiv mit dem gegebenen Format anlegen"
+
+#: src/tar.c:555
+msgid "FORMAT is one of the following:"
+msgstr "FORMAT ist eines der folgenden:"
+
+#: src/tar.c:556
+msgid "old V7 tar format"
+msgstr "altes V7-tar-Format"
+
+#: src/tar.c:559
+msgid "GNU format as per tar <= 1.12"
+msgstr "GNU-Format wie mit tar <=1.12"
+
+#: src/tar.c:561
+msgid "GNU tar 1.13.x format"
+msgstr "GNU-tar-1.13.x-Format"
+
+#: src/tar.c:563
+msgid "POSIX 1003.1-1988 (ustar) format"
+msgstr "Format von POSIX 1003.1-1988 (ustar)"
+
+#: src/tar.c:565
+msgid "POSIX 1003.1-2001 (pax) format"
+msgstr "Format von POSIX 1003.1-2001 (pax)"
+
+#: src/tar.c:566
+msgid "same as pax"
+msgstr "wie pax"
+
+#: src/tar.c:569
+msgid "same as --format=v7"
+msgstr "wie --format=v7"
+
+#: src/tar.c:572
+msgid "same as --format=posix"
+msgstr "wie --format=posix"
+
+#: src/tar.c:573
+msgid "keyword[[:]=value][,keyword[[:]=value]]..."
+msgstr "Schlüsselwort[[:]=Wert][,Schlüsselwort[[:]=Wert]]..."
+
+#: src/tar.c:574
+msgid "control pax keywords"
+msgstr "Pax-Schlüsselwörter steuern"
 
 #: src/tar.c:575
-msgid "You may not specify more than one `-Acdtrux' option"
-msgstr "Von den Optionen ‚-Acdtrux‘ ist nur _eine_ erlaubt."
+msgid "TEXT"
+msgstr "TEXT"
 
-#: src/tar.c:585
+#: src/tar.c:576
+msgid ""
+"create archive with volume name TEXT; at list/extract time, use TEXT as a "
+"globbing pattern for volume name"
+msgstr ""
+"Archiv mit dem Teilnamen TEXT anlegen; beim Listen/Extrahieren, TEXT als "
+"Muster für den Teilnamen benutzen"
+
+#: src/tar.c:578
+msgid "filter the archive through bzip2"
+msgstr "Archiv durch bzip2 filtern"
+
+#: src/tar.c:580
+msgid "filter the archive through gzip"
+msgstr "Archiv durch gzip filtern"
+
+#: src/tar.c:584
+msgid "filter the archive through compress"
+msgstr "Archiv durch COMPRESS filtern"
+
+#: src/tar.c:586
+msgid "PROG"
+msgstr "PROG"
+
+#: src/tar.c:587
+msgid "filter through PROG (must accept -d)"
+msgstr "durch PROG filten (muss -d akzeptieren)"
+
+#: src/tar.c:592
+msgid "Local file selection:"
+msgstr "Auswahl der lokalen Dateien:"
+
+#: src/tar.c:595
+msgid "add given FILE to the archive (useful if its name starts with a dash)"
+msgstr ""
+"angegebene Datei zum Archiv hinzufügen (nützlich, wenn Datei mit einem "
+"Strich beginnt)"
+
+#: src/tar.c:596
+msgid "DIR"
+msgstr "VERZEICHNIS"
+
+#: src/tar.c:597
+msgid "change to directory DIR"
+msgstr "zu VERZEICHNIS wechseln"
+
+#: src/tar.c:599
+msgid "get names to extract or create from FILE"
+msgstr "Namen der zu bearbeitenden Dateien aus DATEI lesen"
+
+#: src/tar.c:601
+msgid "-T reads null-terminated names, disable -C"
+msgstr "-T liest null-terminierte Namen, verbiete -C"
+
+#: src/tar.c:603
+msgid "unquote filenames read with -T (default)"
+msgstr ""
+"Dateinamen, die mit -T gelesen werden, von Zitat befreien (Voreinstellung)"
+
+#: src/tar.c:605
+msgid "do not unquote filenames read with -T"
+msgstr "Dateinamen, die mit -T gelesen werden, nicht von Zitat befreien"
+
+#: src/tar.c:606 tests/genfile.c:134
+msgid "PATTERN"
+msgstr "MUSTER"
+
+#: src/tar.c:607
+msgid "exclude files, given as a PATTERN"
+msgstr "Dateien auslassen, auf die MUSTER passt"
+
+#: src/tar.c:609
+msgid "exclude patterns listed in FILE"
+msgstr "Dateien auslassen, auf die in DATEI angegebene Muster passen"
+
+#: src/tar.c:611
+#, fuzzy
+msgid ""
+"exclude contents of directories containing CACHEDIR.TAG, except for the tag "
+"file itself"
+msgstr "Verzeichnisse auslassen, die die Markierung „Cache-Verzeichnis“ tragen"
+
+#: src/tar.c:614
+#, fuzzy
+msgid "exclude everything under directories containing CACHEDIR.TAG"
+msgstr "Verzeichnisse auslassen, die die DATEI enthalten"
+
+#: src/tar.c:617
+#, fuzzy
+msgid "exclude directories containing CACHEDIR.TAG"
+msgstr "Verzeichnisse auslassen, die die DATEI enthalten"
+
+#: src/tar.c:619
+#, fuzzy
+msgid "exclude contents of directories containing FILE, except for FILE itself"
+msgstr "Verzeichnisse auslassen, die die DATEI enthalten"
+
+#: src/tar.c:622
+#, fuzzy
+msgid "exclude everything under directories containing FILE"
+msgstr "Verzeichnisse auslassen, die die DATEI enthalten"
+
+#: src/tar.c:624
+msgid "exclude directories containing FILE"
+msgstr "Verzeichnisse auslassen, die die DATEI enthalten"
+
+#: src/tar.c:626
+msgid "avoid descending automatically in directories"
+msgstr "automatischen Abstieg in Vezeichnisse vermeiden"
+
+#: src/tar.c:628
+msgid "stay in local file system when creating archive"
+msgstr "beim Anlegen eines Archivs im lokalen Dateisystem bleiben"
+
+#: src/tar.c:630
+msgid "recurse into directories (default)"
+msgstr "in Verzeichnisse absteigen (Voreinstellung)"
+
+#: src/tar.c:632
+msgid "don't strip leading `/'s from file names"
+msgstr "führende „/“-Zeichen in den Dateinamen erhalten"
+
+#: src/tar.c:634
+msgid "follow symlinks; archive and dump the files they point to"
+msgstr ""
+"symbolischen Verknüpfungen folgen; die verwiesenen Dateien archivieren und "
+"abspeichern"
+
+#: src/tar.c:635
+msgid "MEMBER-NAME"
+msgstr "ELEMENT-NAME"
+
+#: src/tar.c:636
+msgid "begin at member MEMBER-NAME in the archive"
+msgstr "mit ELEMENT-NAME im Archiv beginnen"
+
+#: src/tar.c:638
+msgid "only store files newer than DATE-OR-FILE"
+msgstr "nur Dateien ablegen, die neuer als DATUM-ODER-DATEI sind"
+
+#: src/tar.c:640
+msgid "DATE"
+msgstr "DATUM"
+
+#: src/tar.c:641
+msgid "compare date and time when data changed only"
+msgstr "Datum und Zeit nur überprüfen, wenn Daten geändert wurden"
+
+#: src/tar.c:642
+msgid "CONTROL"
+msgstr "KONTROLLE"
+
+#: src/tar.c:643
+msgid "backup before removal, choose version CONTROL"
+msgstr "Sicherung vor dem Entfernen, wähle Versions-KONTROLLE"
+
+#: src/tar.c:644 src/tar.c:715 src/tar.c:717 tests/genfile.c:167
+msgid "STRING"
+msgstr "ZEICHENKETTE"
+
+#: src/tar.c:645
+msgid ""
+"backup before removal, override usual suffix ('~' unless overridden by "
+"environment variable SIMPLE_BACKUP_SUFFIX)"
+msgstr ""
+"Sicherung vor dem Entfernen, übliches Suffix ersetzen („~“, wenn nicht durch "
+"Umgebungsvariable SIMPLE_BACKUP_SUFFIX anders gesetzt)"
+
+#: src/tar.c:650
+msgid "File name transformations:"
+msgstr "Dateinamentransformationen:"
+
+#: src/tar.c:652
+msgid "strip NUMBER leading components from file names on extraction"
+msgstr "ZAHL führende Komponenten beim Extrahieren von Dateinamen entfernen"
+
+#: src/tar.c:654
+msgid "EXPRESSION"
+msgstr "AUSDRUCK"
+
+#: src/tar.c:655
+msgid "use sed replace EXPRESSION to transform file names"
+msgstr "den sed-AUSDRUCK zur Dateinamentransformation benutzen"
+
+#: src/tar.c:660
+msgid "File name matching options (affect both exclude and include patterns):"
+msgstr ""
+"Dateinamenauswahloptionen (sowohl für ein- als auch ausschließende Muster):"
+
+#: src/tar.c:663
+msgid "ignore case"
+msgstr "Groß-/Kleinschreibung ignorieren"
+
+#: src/tar.c:665
+msgid "patterns match file name start"
+msgstr "Muster am Dateinamensanfang ausrichten"
+
+#: src/tar.c:667
+msgid "patterns match after any `/' (default for exclusion)"
+msgstr "Muster passen nach jedem „/“ (Voreinstellung beim Ausschluss)"
+
+#: src/tar.c:669
+msgid "case sensitive matching (default)"
+msgstr "Groß-/Kleinschreibung beachten (Voreinstellung)"
+
+#: src/tar.c:671
+msgid "use wildcards (default for exclusion)"
+msgstr "Muster benutzen (Voreinstellung für Ausschluss)"
+
+#: src/tar.c:673
+msgid "verbatim string matching"
+msgstr "Zeichenketten sind buchstabengetreu"
+
+#: src/tar.c:675
+msgid "wildcards do not match `/'"
+msgstr "Jokerzeichen passen nicht auf „/“"
+
+#: src/tar.c:677
+msgid "wildcards match `/' (default for exclusion)"
+msgstr "Jokerzeichen passen auf „/“ (Voreinstellung für Ausschluss)"
+
+#: src/tar.c:682
+msgid "Informative output:"
+msgstr "Informationen:"
+
+#: src/tar.c:685
+msgid "verbosely list files processed"
+msgstr "bearbeitete Dateien ausführlich listen"
+
+#: src/tar.c:686
+msgid "[.]NUMBER"
+msgstr "[.]ZAHL"
+
+#: src/tar.c:687
+msgid "display progress messages every NUMBERth record (default 10)"
+msgstr ""
+"Fortschrittsnachrichten bei jedem ZAHLten Record (Voreinstellung 10) anzeigen"
+
+#: src/tar.c:690
+msgid "print a message if not all links are dumped"
+msgstr ""
+"eine Nachricht ausgeben, wenn nicht alle Verknüpfungen abgespeichert werden"
+
+#: src/tar.c:691
+msgid "SIGNAL"
+msgstr "SIGNAL"
+
+#: src/tar.c:692
+msgid ""
+"print total bytes after processing the archive; with an argument - print "
+"total bytes when this SIGNAL is delivered; Allowed signals are: SIGHUP, "
+"SIGQUIT, SIGINT, SIGUSR1 and SIGUSR2; the names without SIG prefix are also "
+"accepted"
+msgstr ""
+"Gesamtzahl der Bytes nach dem Bearbeiten des Archivs anzeigen; mit einem "
+"Argument – Gesamtzahl der Bytes anzeigen, wenn dieses SIGNAL ausgeliefert "
+"wird; erlaubte Signale sind: SIGHUP, SIGQUIT, SIGINT, SIGUSR1 und SIGUSR2; "
+"die Namen ohne das Präfix SIG sind auch erlaubt"
+
+#: src/tar.c:697
+msgid "print file modification dates in UTC"
+msgstr "Dateiänderungszeiten in UTC anzeigen"
+
+#: src/tar.c:699
+msgid "send verbose output to FILE"
+msgstr "ausführliche Ausgabe in DATEI schreiben"
+
+#: src/tar.c:701
+msgid "show block number within archive with each message"
+msgstr "bei jeder Nachricht die Blocknummer innerhalb des Archivs mit anzeigen"
+
+#: src/tar.c:703
+msgid "ask for confirmation for every action"
+msgstr "für jede Aktion um Bestätigung bitten"
+
+#: src/tar.c:706
+msgid "show tar defaults"
+msgstr "Voreinstellungen von tar anzeigen"
+
+#: src/tar.c:708
+msgid ""
+"when listing or extracting, list each directory that does not match search "
+"criteria"
+msgstr ""
+"beim Listen oder Extrahieren jedes Verzeichnis auflisten, dass nicht den "
+"Suchkriterien entspricht"
+
+#: src/tar.c:710
+msgid "show file or archive names after transformation"
+msgstr "Datei- oder Archivnamen nach der Transformation anzeigen"
+
+#: src/tar.c:713
+msgid "STYLE"
+msgstr "STIL"
+
+#: src/tar.c:714
+msgid "set name quoting style; see below for valid STYLE values"
+msgstr "Zitatstil setzen; siehe unten für gültige STIL-Werte"
+
+#: src/tar.c:716
+msgid "additionally quote characters from STRING"
+msgstr "zusätzliche Zeichen aus ZEICHENKETTE zitieren"
+
+#: src/tar.c:718
+msgid "disable quoting for characters from STRING"
+msgstr "Zeichen aus ZEICHENKETTE nicht zitieren"
+
+#: src/tar.c:723
+msgid "Compatibility options:"
+msgstr "Kompatibilitätsoptionen:"
+
+#: src/tar.c:726
+msgid ""
+"when creating, same as --old-archive; when extracting, same as --no-same-"
+"owner"
+msgstr "beim Anlegen wie --old-archive; beim Extrahieren wie --no-same-owner"
+
+#: src/tar.c:731
+msgid "Other options:"
+msgstr "Weitere Optionen:"
+
+#: src/tar.c:734
+msgid "disable use of some potentially harmful options"
+msgstr "möglicherweise schädliche Optionen deaktivieren"
+
+#: src/tar.c:838
+msgid "You may not specify more than one `-Acdtrux' option"
+msgstr "Von den Optionen „-Acdtrux“ ist nur _eine_ erlaubt."
+
+#: src/tar.c:848
 msgid "Conflicting compression options"
 msgstr "Kompressionsoptionen schließen sich gegenseitig aus."
 
-#: src/tar.c:595
-msgid ""
-"Based on the work of John Gilmore and Jay Fenlason. See AUTHORS\n"
-"for complete list of authors.\n"
-msgstr ""
-
-#: src/tar.c:597
+#: src/tar.c:904
 #, c-format
-msgid ""
-"   GNU tar is free software; you can redistribute it and/or modify\n"
-"   it under the terms of the GNU General Public License as published by\n"
-"   the Free Software Foundation; either version 2 of the License, or\n"
-"   (at your option) any later version.\n"
-"\n"
-"   GNU tar is distributed in the hope that it will be useful,\n"
-"   but WITHOUT ANY WARRANTY; without even the implied warranty of\n"
-"   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n"
-"   GNU General Public License for more details.\n"
-"\n"
-"   You should have received a copy of the GNU General Public License\n"
-"   along with GNU tar; if not, write to the Free Software\n"
-"   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA\n"
-"\n"
-msgstr ""
+msgid "Unknown signal name: %s"
+msgstr "Unbekannter Signalname: %s"
 
-#: src/tar.c:638
-msgid "Invalid blocking factor"
-msgstr "Ungültige Blockgröße"
+#: src/tar.c:928
+msgid "Date sample file not found"
+msgstr "Datumsdatei nicht gefunden"
 
-#: src/tar.c:713
-msgid "Warning: the -I option is not supported; perhaps you meant -j or -T?"
-msgstr "Warnung: Die Option -I ist nicht unterstützt, meinen Sie -j oder -T?"
-
-#: src/tar.c:738
-msgid "Semantics of -l option will change in the future releases."
-msgstr ""
-
-#: src/tar.c:740
-msgid "Please use --one-file-system option instead."
-msgstr ""
-
-#: src/tar.c:753
-msgid "Invalid tape length"
-msgstr "Ungültige Bandlänge"
-
-#: src/tar.c:781
-msgid "More than one threshold date"
-msgstr "Mehr als ein Datum angegeben."
-
-#: src/tar.c:791
-msgid "Date file not found"
-msgstr "Datumsdatei nicht gefunden."
-
-#: src/tar.c:800
+#: src/tar.c:936
 #, c-format
 msgid "Substituting %s for unknown date format %s"
 msgstr "Ersetze %s für unbekanntes Datumsformat %s"
 
-#: src/tar.c:905
-msgid "Warning: the -y option is not supported; perhaps you meant -j?"
-msgstr "Warnung: Die Option -y ist nicht unterstützt, meinen Sie -j?"
-
-#: src/tar.c:981
+#: src/tar.c:961
 #, c-format
-msgid "%s: Invalid group"
-msgstr "%s: Ungültige Gruppe"
+msgid "Option %s: Treating date `%s' as %s"
+msgstr "Option %s: Behandle Datum „%s“ als %s"
 
-#: src/tar.c:990
-msgid "Invalid mode given on option"
-msgstr "Ungültige Zugriffsrechte angegeben."
-
-#: src/tar.c:1033
-#, fuzzy
-msgid "Invalid number"
-msgstr "Ungültige Inode-Nummer"
-
-#: src/tar.c:1051
-msgid "Invalid owner"
-msgstr "Ungültiger Benutzer"
-
-#: src/tar.c:1075
-msgid "Invalid record size"
-msgstr "Ungültiger Wert für Recordgröße."
-
-#: src/tar.c:1078
+#: src/tar.c:1035
 #, c-format
-msgid "Record size must be a multiple of %d."
-msgstr "Die Recordgröße  muss ein Vielfaches von %d sein."
+msgid "%s: file list already read"
+msgstr "%s: Dateiliste schon gelesen"
 
-#: src/tar.c:1110
-#, fuzzy
-msgid "Invalid number of elements"
-msgstr "Ungültige Bandlänge"
-
-#: src/tar.c:1185
+#: src/tar.c:1098
 #, c-format
-msgid "Malformed density argument: '%s'"
-msgstr ""
+msgid "%s: file name read contains nul character"
+msgstr "%s: gelesener Dateiname enthält ein NULL-Zeichen"
 
-#: src/tar.c:1221
-#, c-format
-msgid "Unknown density: '%c'"
-msgstr ""
+#: src/tar.c:1163
+msgid "Valid arguments for --quoting-style options are:"
+msgstr "Gültige Argumente für die Option --quoting-style sind:"
 
-#: src/tar.c:1241
-msgid "Options `-[0-7][lmh]' not supported by *this* tar"
-msgstr "Die Optionen ‚-[0-7][lmh]‘ unterstützt _dieses_ „tar“ nicht."
-
-#: src/tar.c:1249
-#, c-format
+#: src/tar.c:1166
 msgid ""
 "\n"
 "*This* tar defaults to:\n"
 msgstr ""
+"\n"
+"*Dieses* „tar“ hat als Voreinstellung:\n"
 
-#: src/tar.c:1278
+#: src/tar.c:1199
+msgid "Invalid blocking factor"
+msgstr "Ungültige Blockgröße"
+
+#: src/tar.c:1271
+msgid "Warning: the -I option is not supported; perhaps you meant -j or -T?"
+msgstr "Warnung: Die Option -I ist nicht unterstützt, meinen Sie -j oder -T?"
+
+#: src/tar.c:1304
+msgid "Invalid tape length"
+msgstr "Ungültige Bandlänge"
+
+#: src/tar.c:1336
+msgid "More than one threshold date"
+msgstr "Mehr als ein Datum angegeben."
+
+#: src/tar.c:1391 src/tar.c:1394
+msgid "Invalid sparse version value"
+msgstr "Ungültiger Wert für Sparse-Version"
+
+#: src/tar.c:1479
+msgid "--atime-preserve='system' is not supported on this platform"
+msgstr "--atime-preserve='system' wird auf dieser Plattform nicht unterstützt"
+
+#: src/tar.c:1496
+msgid "--checkpoint value is not an integer"
+msgstr "Wert für --checkpoint ist keine ganze Zahl"
+
+#: src/tar.c:1589
+#, c-format
+msgid "%s: Invalid group"
+msgstr "%s: Ungültige Gruppe"
+
+#: src/tar.c:1596
+msgid "Invalid mode given on option"
+msgstr "Ungültige Zugriffsrechte angegeben."
+
+#: src/tar.c:1649
+msgid "Invalid number"
+msgstr "Ungültige Zahl"
+
+#: src/tar.c:1671
+msgid "Invalid owner"
+msgstr "Ungültiger Benutzer"
+
+#: src/tar.c:1705
+msgid "Invalid record size"
+msgstr "Ungültiger Wert für Recordgröße."
+
+#: src/tar.c:1708
+#, c-format
+msgid "Record size must be a multiple of %d."
+msgstr "Die Recordgröße muss ein Vielfaches von %d sein."
+
+#: src/tar.c:1745
+msgid "Invalid number of elements"
+msgstr "Ungültige Elementanzahl"
+
+#: src/tar.c:1765
+msgid "Only one --to-command option allowed"
+msgstr "Nur eine Option --to-command erlaubt"
+
+#: src/tar.c:1841
+#, c-format
+msgid "Malformed density argument: %s"
+msgstr "Fehlgeformtes Dichteargument: %s"
+
+#: src/tar.c:1867
+#, c-format
+msgid "Unknown density: `%c'"
+msgstr "Unbekannte Dicht: „%c“"
+
+#: src/tar.c:1884
+#, c-format
+msgid "Options `-[0-7][lmh]' not supported by *this* tar"
+msgstr "Die Optionen „-[0-7][lmh]“ unterstützt *dieses* „tar“ nicht."
+
+#: src/tar.c:1919
 msgid "[FILE]..."
-msgstr ""
+msgstr "[DATEI]..."
 
-#: src/tar.c:1375
+#: src/tar.c:2022
 #, c-format
 msgid "Old option `%c' requires an argument."
-msgstr "Die alte Option ‚%c‘ benötigt einen Parameter."
+msgstr "Die alte Option „%c“ benötigt einen Parameter."
 
-#: src/tar.c:1458
+#: src/tar.c:2104
 msgid "--occurrence is meaningless without a file list"
-msgstr ""
+msgstr "--occurrence ist ohne Dateiliste bedeutungslos"
 
-#: src/tar.c:1464
+#: src/tar.c:2110
 msgid "--occurrence cannot be used in the requested operation mode"
 msgstr ""
+"--occurrence kann im angeforderten Operationsmodus nicht benutzt werden"
 
-#: src/tar.c:1494
-#, fuzzy
+#: src/tar.c:2140
 msgid "Multiple archive files require `-M' option"
-msgstr "Verteilte Archive verlangen die Option ‚-M‘."
+msgstr "Mehrere Archivdateien verlangen die Option „-M“."
 
-#: src/tar.c:1499
+#: src/tar.c:2145
 msgid "Cannot combine --listed-incremental with --newer"
 msgstr "--listed-incremental kann nicht mit --newer benutzt werden"
 
-#: src/tar.c:1514
-#, fuzzy, c-format
+#: src/tar.c:2162
+#, c-format
 msgid "%s: Volume label is too long (limit is %lu byte)"
 msgid_plural "%s: Volume label is too long (limit is %lu bytes)"
-msgstr[0] "%s: Band-Nummer ist zu lang (Maximum ist %lu Bytes)."
+msgstr[0] "%s: Band-Nummer ist zu lang (Maximum ist ein Byte)."
 msgstr[1] "%s: Band-Nummer ist zu lang (Maximum ist %lu Bytes)."
 
-#: src/tar.c:1524
+#: src/tar.c:2175
 msgid "Cannot verify multi-volume archives"
 msgstr "Kann mehrteilige Archive nicht prüfen."
 
-#: src/tar.c:1526
+#: src/tar.c:2177
 msgid "Cannot verify compressed archives"
 msgstr "Kann komprimierte Archive nicht prüfen"
 
-#: src/tar.c:1532
+#: src/tar.c:2183
 msgid "Cannot use multi-volume compressed archives"
 msgstr "Kann keine mehrteiligen komprimierten Archive verwenden."
 
-#: src/tar.c:1534
-msgid "Cannot update compressed archives"
-msgstr "Kann komprimierte Archive nicht aktualisieren"
+#: src/tar.c:2189
+msgid "Cannot concatenate compressed archives"
+msgstr "Kann komprimierte Archive nicht aneinanderhängen"
 
-#: src/tar.c:1546
+#: src/tar.c:2201
 msgid "--pax-option can be used only on POSIX archives"
-msgstr ""
+msgstr "--pax-option kann nur mit POSIX-Archiven benutzt werden"
 
-#: src/tar.c:1563
+#: src/tar.c:2226
 msgid "Cowardly refusing to create an empty archive"
 msgstr "Anlegen eines leeren Archivs wird feige verweigert."
 
-#: src/tar.c:1584
+#: src/tar.c:2247
 msgid "Options `-Aru' are incompatible with `-f -'"
-msgstr "Die Optionen ‚-Aru‘ sind nicht kompatibel mit ‚-f -‘."
+msgstr "Die Optionen „-Aru“ sind nicht kompatibel mit „-f -“."
 
-#: src/tar.c:1607
-#, c-format
-msgid "Treating date `%s' as %s + %ld nanosecond"
-msgid_plural "Treating date `%s' as %s + %ld nanoseconds"
-msgstr[0] ""
-msgstr[1] ""
-
-#: src/tar.c:1663
+#: src/tar.c:2334
 msgid "You must specify one of the `-Acdtrux' options"
-msgstr "Eine der Optionen ‚-Acdtrux‘ ist notwendig."
-
-#: src/tar.c:1715
-msgid "Error in writing to standard output"
-msgstr "Fehler beim Schreiben auf die Standardausgabe"
+msgstr "Eine der Optionen „-Acdtrux“ ist notwendig."
 
 # Was ist hier genau gemeint? ke
-#: src/tar.c:1717
+#: src/tar.c:2385
+#, c-format
 msgid "Error exit delayed from previous errors"
 msgstr "Fehler beim Beenden, verursacht durch vorhergehende Fehler."
 
 #: src/update.c:86
-#, fuzzy, c-format
+#, c-format
 msgid "%s: File shrank by %s byte"
 msgid_plural "%s: File shrank by %s bytes"
-msgstr[0] "%s: Datei ist um %s Bytes geschrumpft."
+msgstr[0] "%s: Datei ist um ein Byte geschrumpft."
 msgstr[1] "%s: Datei ist um %s Bytes geschrumpft."
 
-#: src/xheader.c:140
+#: src/xheader.c:158
 #, c-format
-msgid "Keyword %s is unknown or not yet imlemented"
-msgstr ""
+msgid "Keyword %s is unknown or not yet implemented"
+msgstr "Schlüsselwort %s ist unbekannt oder noch nicht implementiert"
 
-#: src/xheader.c:166
+#: src/xheader.c:184
 #, c-format
 msgid "Pattern %s cannot be used"
-msgstr ""
+msgstr "Muster %s kann nicht benutzt werden"
 
-#: src/xheader.c:176
+#: src/xheader.c:194
 #, c-format
 msgid "Keyword %s cannot be overridden"
-msgstr ""
+msgstr "Schlüsselwort %s kann nicht überschrieben werden"
 
-#: src/xheader.c:490
-msgid "Malformed extended header: missing whitespace after the length"
-msgstr ""
+#: src/xheader.c:498
+msgid "Malformed extended header: missing length"
+msgstr "Fehlgeformter erweiterter Kopfteil: fehlende Länge"
 
-#: src/xheader.c:501
+#: src/xheader.c:506
+msgid "Extended header length is out of allowed range"
+msgstr "Länge des erweiterten Kopfteils ist außerhalb des erlaubten Bereichs"
+
+#: src/xheader.c:513
+#, c-format
+msgid "Extended header length %*s is out of range"
+msgstr "Länge %*s des erweiterten Kopfteils ist außerhalb des Bereichs"
+
+#: src/xheader.c:525
+msgid "Malformed extended header: missing blank after length"
+msgstr "Fehlgeformter erweiterter Kopfteil: fehlender Leerraum nach der Länge"
+
+#: src/xheader.c:533
 msgid "Malformed extended header: missing equal sign"
+msgstr "Fehlgeformter erweiterter Kopfteil: fehlendes Gleichheitszeichen"
+
+#: src/xheader.c:539
+msgid "Malformed extended header: missing newline"
+msgstr "Fehlgeformter erweiterter Kopfteil: fehlender Zeilenvorschub"
+
+#: src/xheader.c:576
+#, c-format
+msgid "Ignoring unknown extended header keyword `%s'"
+msgstr "Ignoriere unbekanntes Schlüsselwort „%s“ für erweiterten Kopfteil"
+
+#: src/xheader.c:780
+#, c-format
+msgid "Generated keyword/value pair is too long (keyword=%s, length=%s)"
 msgstr ""
+"Generiertes Schlüsselwort/Wert-Paar ist zu lang (Schlüsselwort=%s, Länge =%s)"
 
-#~ msgid "Cannot close"
-#~ msgstr "Kann nicht schließen."
+#. TRANSLATORS: The first %s is the pax extended header keyword
+#. (atime, gid, etc.).
+#: src/xheader.c:812
+#, c-format
+msgid "Extended header %s=%s is out of range %s..%s"
+msgstr "Erweiterter Kopfteil %s=%s ist außerhalb des Bereichs %s..%s."
 
-#~ msgid "Cannot dup"
-#~ msgstr "Kann dup nicht ausführen."
+#: src/xheader.c:943 src/xheader.c:973 src/xheader.c:1287
+#, c-format
+msgid "Malformed extended header: invalid %s=%s"
+msgstr "Fehlgeformter erweiterter Kopfteil: ungültiges %s=%s"
 
-#~ msgid "Cannot use compressed or remote archives"
-#~ msgstr "Kann keine komprimierten oder nicht-lokalen Archive verwenden."
+#: src/xheader.c:1240 src/xheader.c:1265 src/xheader.c:1315
+#, c-format
+msgid "Malformed extended header: excess %s=%s"
+msgstr "Fehlgeformter erweiterter Kopfteil: überzähliges %s=%s"
 
-#~ msgid "tar (child)"
-#~ msgstr "tar (Kind)"
+#: src/xheader.c:1328
+#, c-format
+msgid "Malformed extended header: invalid %s: unexpected delimiter %c"
+msgstr ""
+"Fehlgeformter erweiterter Kopfteil: ungültiges %s: unerwarteter Trenner %c"
 
-#~ msgid "tar (grandchild)"
-#~ msgstr "tar Enkel (‚tar (grandchild)‘)."
+# Ist „odd“ hier ungerade oder merkwürdig?
+#: src/xheader.c:1338
+#, c-format
+msgid "Malformed extended header: invalid %s: odd number of values"
+msgstr ""
+"Fehlgeformter erweiterter Kopfteil: ungültiges %s: ungewönliche Anzahl von "
+"Werten"
 
-#~ msgid "Cannot allocate memory for blocking factor %d"
-#~ msgstr "Konnte keinen Speicher für Blockungsfaktor %d reservieren."
+#: tests/genfile.c:110
+msgid ""
+"genfile manipulates data files for GNU paxutils test suite.\n"
+"OPTIONS are:\n"
+msgstr ""
+"genfile manipuliert Datendateien für die Testsuit der GNU paxutils.\n"
+"OPTIONEN sind:\n"
 
-#~ msgid "Child died with signal %d"
-#~ msgstr "Kindprozess mit Signal %d beendet."
+#: tests/genfile.c:125
+msgid "File creation options:"
+msgstr "Optionen beim Anlegen von Dateien:"
 
-#~ msgid "Child returned status %d"
-#~ msgstr "Kindprozess gab Status %d zurück."
+#: tests/genfile.c:126 tests/genfile.c:137
+msgid "SIZE"
+msgstr "GRÖßE"
 
-#~ msgid "Member names contain `..'"
-#~ msgstr "Archivnamen enthalten ‚..‘"
+#: tests/genfile.c:127
+msgid "Create file of the given SIZE"
+msgstr "Datei der gegebenen GRÖßE anlegen"
 
-#~ msgid "%s: Member name contains `..'"
-#~ msgstr "%s: Archivname enthält ‚..‘"
+#: tests/genfile.c:129
+msgid "Write to file NAME, instead of standard output"
+msgstr "in Datei NAME anstelle der Standardausgabe schreiben"
 
-#~ msgid ""
-#~ "GNU `tar' saves many files together into a single tape or disk archive, "
-#~ "and\n"
-#~ "can restore individual files from the archive.\n"
-#~ msgstr ""
-#~ "GNU „tar“ schreibt mehrere Dateien in ein Archiv auf Band oder Festplatte "
-#~ "und\n"
-#~ "kann einzelne Dateien aus diesem Archiv herausholen.\n"
+#: tests/genfile.c:131
+msgid "Read file names from FILE"
+msgstr "Dateinamenlist aus DATEI lesen"
 
-#~ msgid ""
-#~ "\n"
-#~ "Usage: %s [OPTION]... [FILE]...\n"
-#~ "\n"
-#~ "Examples:\n"
-#~ "  %s -cf archive.tar foo bar  # Create archive.tar from files foo and "
-#~ "bar.\n"
-#~ "  %s -tvf archive.tar         # List all files in archive.tar verbosely.\n"
-#~ "  %s -xf archive.tar          # Extract all files from archive.tar.\n"
-#~ msgstr ""
-#~ "\n"
-#~ "Aufruf: %s [OPTION]... [Datei]...\n"
-#~ "\n"
-#~ "Beispiele:\n"
-#~ "  %s -cf archiv.tar foo bar  # archiv.tar mit den Dateien foo und bar "
-#~ "erzeugen\n"
-#~ "  %s -tvf archiv.tar         # Inhalt von archiv.tar ausführlich "
-#~ "anzeigen\n"
-#~ "  %s -xf archiv.tar          # alle Dateien aus archiv.tar extrahieren\n"
+#: tests/genfile.c:133
+msgid "-T reads null-terminated names"
+msgstr "-T liest null-terminierte Namen"
 
-#~ msgid ""
-#~ "\n"
-#~ "If a long option shows an argument as mandatory, then it is mandatory\n"
-#~ "for the equivalent short option also.  Similarly for optional arguments.\n"
-#~ msgstr ""
-#~ "\n"
-#~ "Wenn eine lange Option ein Argument erfordert, ist es für die "
-#~ "entsprechende\n"
-#~ "kurze Option auch erforderlich. Das gleich gilt für optionale Argumente.\n"
+#: tests/genfile.c:135
+msgid "Fill the file with the given PATTERN. PATTERN is 'default' or 'zeros'"
+msgstr ""
+"Die Datei mit dem gegebenen MUSTER füllen. MUSTER ist „default“ oder „zeros“."
 
-#~ msgid ""
-#~ "\n"
-#~ "Main operation mode:\n"
-#~ "  -t, --list              list the contents of an archive\n"
-#~ "  -x, --extract, --get    extract files from an archive\n"
-#~ "  -c, --create            create a new archive\n"
-#~ "  -d, --diff, --compare   find differences between archive and file "
-#~ "system\n"
-#~ "  -r, --append            append files to the end of an archive\n"
-#~ "  -u, --update            only append files newer than copy in archive\n"
-#~ "  -A, --catenate          append tar files to an archive\n"
-#~ "      --concatenate       same as -A\n"
-#~ "      --delete            delete from the archive (not on mag tapes!)\n"
-#~ msgstr ""
-#~ "\n"
-#~ "Aktionen:\n"
-#~ "  -t, --list              Inhalt eines Archivs anzeigen\n"
-#~ "  -x, --extract, --get    Dateien aus Archiv holen\n"
-#~ "  -c, --create            neues Archiv erzeugen\n"
-#~ "  -d, --diff, --compare   Dateien im Archiv und im Dateisystem "
-#~ "vergleichen\n"
-#~ "  -r, --append            Dateien an das Archiv anhängen\n"
-#~ "  -u, --update            nur Dateien anhängen, die jünger sind als ihre "
-#~ "Archiv-Version\n"
-#~ "  -A, --catenate          „tar“-Dateien an ein Archiv anhängen\n"
-#~ "      --concatenate       wie '-A'\n"
-#~ "      --delete            aus Archiv löschen (nicht auf Magnetbändern!)\n"
+#: tests/genfile.c:138
+msgid "Size of a block for sparse file"
+msgstr "Größe eines Blocks für löchrige Dateien"
 
-#~ msgid ""
-#~ "\n"
-#~ "Operation modifiers:\n"
-#~ "  -W, --verify               attempt to verify the archive after writing "
-#~ "it\n"
-#~ "      --remove-files         remove files after adding them to the "
-#~ "archive\n"
-#~ "  -k, --keep-old-files       don't replace existing files when "
-#~ "extracting\n"
-#~ "      --overwrite            overwrite existing files when extracting\n"
-#~ "      --overwrite-dir        overwrite directory metadata when "
-#~ "extracting\n"
-#~ "  -U, --unlink-first         remove each file prior to extracting over "
-#~ "it\n"
-#~ "      --recursive-unlink     empty hierarchies prior to extracting "
-#~ "directory\n"
-#~ "  -S, --sparse               handle sparse files efficiently\n"
-#~ "  -O, --to-stdout            extract files to standard output\n"
-#~ "  -G, --incremental          handle old GNU-format incremental backup\n"
-#~ "  -g, --listed-incremental=FILE\n"
-#~ "                             handle new GNU-format incremental backup\n"
-#~ "      --ignore-failed-read   do not exit with nonzero on unreadable "
-#~ "files\n"
-#~ msgstr ""
-#~ "\n"
-#~ "Feineinstellungen:\n"
-#~ "  -W, --verify               Archiv nach dem Schreiben prüfen\n"
-#~ "      --remove-files         Dateien nach dem Hinzufügen zum Archiv "
-#~ "löschen\n"
-#~ "  -k, --keep-old-files       vorhandene Dateien nicht überschreiben\n"
-#~ "      --overwrite            vorhandene Dateien überschreiben\n"
-#~ "      --overwrite-dir        vorhandene Verzeichnis‐Metadaten "
-#~ "überschreiben\n"
-#~ "  -U, --unlink-first         zu überschreibende Dateien vor dem Auspacken "
-#~ "löschen\n"
-#~ "      --recursive-unlink     Verzeichnisse rekursiv vor dem Entpacken "
-#~ "löschen\n"
-#~ "  -S, --sparse               löchrige Dateien („sparse files“) effizient "
-#~ "behandeln\n"
-#~ "  -O, --to-stdout            Dateien zur Standard-Ausgabe entpacken\n"
-#~ "  -G, --incremental          inkrementelle Sicherung im alten GNU-Format\n"
-#~ "  -g, --listed-incremental=DATEI\n"
-#~ "                             inkrementelle Sicherung im neuen GNU-Format\n"
-#~ "      --ignore-failed-read   Kein Abbruch bei unlesbaren Dateien\n"
+# „map“: Karte, Abbildung?
+#: tests/genfile.c:140
+msgid "Generate sparse file. Rest of the command line gives the file map."
+msgstr ""
+"Löchrige („sparse“) Datei erzeugen. Der Rest der Kommandozeile gibt die die "
+"Dateibildungsvorschrift an."
 
-#~ msgid ""
-#~ "\n"
-#~ "Handling of file attributes:\n"
-#~ "      --owner=NAME             force NAME as owner for added files\n"
-#~ "      --group=NAME             force NAME as group for added files\n"
-#~ "      --mode=CHANGES           force (symbolic) mode CHANGES for added "
-#~ "files\n"
-#~ "      --atime-preserve         don't change access times on dumped files\n"
-#~ "  -m, --modification-time      don't extract file modified time\n"
-#~ "      --same-owner             try extracting files with the same "
-#~ "ownership\n"
-#~ "      --no-same-owner          extract files as yourself\n"
-#~ "      --numeric-owner          always use numbers for user/group names\n"
-#~ "  -p, --same-permissions       extract permissions information\n"
-#~ "      --no-same-permissions    do not extract permissions information\n"
-#~ "      --preserve-permissions   same as -p\n"
-#~ "  -s, --same-order             sort names to extract to match archive\n"
-#~ "      --preserve-order         same as -s\n"
-#~ "      --preserve               same as both -p and -s\n"
-#~ msgstr ""
-#~ "\n"
-#~ "Behandlung der Datei-Eigenschaften:\n"
-#~ "      --owner=NAME             Eigentümer für hinzugefügte Dateien auf "
-#~ "NAME setzen\n"
-#~ "      --group=NAME             Gruppe für hinzugefügte Dateien auf NAME "
-#~ "setzen\n"
-#~ "      --mode=RECHTE            Zugriffsrechte für hinzugefügte Dateien "
-#~ "auf RECHTE setzen\n"
-#~ "      --atime-preserve         Zugriffszeit beim Auspacken erhalten\n"
-#~ "  -m, --modification-time      Änderungszeit nicht aus Archiv nehmen\n"
-#~ "      --same-owner             Eigentümer beim Auspacken erhalten\n"
-#~ "      --no-same-owner          Eigentümer beim Auspacken auf Ausführenden "
-#~ "setzen\n"
-#~ "      --numeric-owner          Zahlen für Benutzer bzw. Gruppen benutzen\n"
-#~ "  -p, --same-permissions       Zugriffsrechte beim Auspacken erhalten\n"
-#~ "      --no-same-permissions    Keine Zugriffsrechte erhalten\n"
-#~ "      --preserve-permissions   wie -p\n"
-#~ "  -s, --same-order             zu entpackende Dateinamen wie im Archiv "
-#~ "sortieren\n"
-#~ "      --preserve-order         wie -s\n"
-#~ "      --preserve               wie -p und -s zusammen\n"
+#: tests/genfile.c:142
+msgid "OFFSET"
+msgstr "POSITION"
 
-#~ msgid ""
-#~ "\n"
-#~ "Device selection and switching:\n"
-#~ "  -f, --file=ARCHIVE             use archive file or device ARCHIVE\n"
-#~ "      --force-local              archive file is local even if has a "
-#~ "colon\n"
-#~ "      --rsh-command=COMMAND      use remote COMMAND instead of rsh\n"
-#~ "  -[0-7][lmh]                    specify drive and density\n"
-#~ "  -M, --multi-volume             create/list/extract multi-volume "
-#~ "archive\n"
-#~ "  -L, --tape-length=NUM          change tape after writing NUM x 1024 "
-#~ "bytes\n"
-#~ "  -F, --info-script=FILE         run script at end of each tape (implies -"
-#~ "M)\n"
-#~ "      --new-volume-script=FILE   same as -F FILE\n"
-#~ "      --volno-file=FILE          use/update the volume number in FILE\n"
-#~ msgstr ""
-#~ "\n"
-#~ "Geräteauswahl und -einstellung:\n"
-#~ "  -f, --file=ARCHIV              Gerät oder Datei ARCHIV benutzen\n"
-#~ "      --force-local              Archiv-Datei ist lokal, auch wenn der "
-#~ "Name\n"
-#~ "                                 einen Doppelpunkt enthält\n"
-#~ "      --rsh-command=BEFEHL       statt „rsh“ den BEFEHL benutzen\n"
-#~ "  -[0-7][lmh]                    Laufwerk und Schreibdichte angeben\n"
-#~ "  -M, --multi-volume             mehrteiliges Archiv anlegen/listen/"
-#~ "herausholen\n"
-#~ "  -L, --tape-length=ZAHL         Medium wechseln, wenn ZAHL KBytes "
-#~ "geschrieben sind\n"
-#~ "  -F, --info-script=DATEI        am Ende jedes Mediums das Skript DATEI\n"
-#~ "                                 ausführen (impliziert -M)\n"
-#~ "      --new-volume-script=DATEI  wie -F DATEI\n"
-#~ "      --volno-file=DATEI         Teil-Nummer in DATEI benutzen/"
-#~ "aktualisieren\n"
+#: tests/genfile.c:143
+msgid "Seek to the given offset before writing data"
+msgstr "vor dem Schreiben zur gegebenen Position springen"
 
-#~ msgid ""
-#~ "\n"
-#~ "Device blocking:\n"
-#~ "  -b, --blocking-factor=BLOCKS   BLOCKS x 512 bytes per record\n"
-#~ "      --record-size=SIZE         SIZE bytes per record, multiple of 512\n"
-#~ "  -i, --ignore-zeros             ignore zeroed blocks in archive (means "
-#~ "EOF)\n"
-#~ "  -B, --read-full-records        reblock as we read (for 4.2BSD pipes)\n"
-#~ msgstr ""
-#~ "\n"
-#~ "Blockung des Gerätes:\n"
-#~ "  -b, --block-size=BLÖCKE    BLÖCKE à 512 Bytes pro Record\n"
-#~ "      --record-size=GRÖSSE   GRÖSSE Bytes pro Record, Vielfaches von 512\n"
-#~ "  -i, --ignore-zeros         Blöcke mit Nullen im Archiv ignorieren "
-#~ "(heißt EOF)\n"
-#~ "  -B, --read-full-blocks     Blockung beim Lesen ändern (für 4.2BSD‐"
-#~ "Pipes)\n"
+#: tests/genfile.c:149
+msgid "File statistics options:"
+msgstr "Dateistatistikoptionen:"
 
-#~ msgid ""
-#~ "\n"
-#~ "Archive format selection:\n"
-#~ "  -V, --label=NAME                   create archive with volume name "
-#~ "NAME\n"
-#~ "              PATTERN                at list/extract time, a globbing "
-#~ "PATTERN\n"
-#~ "  -o, --old-archive, --portability   write a V7 format archive\n"
-#~ "      --posix                        write a POSIX format archive\n"
-#~ "  -j, --bzip2                        filter the archive through bzip2\n"
-#~ "  -z, --gzip, --ungzip               filter the archive through gzip\n"
-#~ "  -Z, --compress, --uncompress       filter the archive through compress\n"
-#~ "      --use-compress-program=PROG    filter through PROG (must accept -"
-#~ "d)\n"
-#~ msgstr ""
-#~ "\n"
-#~ "Auswahl des Archiv-Formats:\n"
-#~ "  -V, --label=NAME                   Archiv mit internem Archivnamen NAME "
-#~ "erzeugen\n"
-#~ "              MUSTER                 beim Anzeigen/Herausholen ist MUSTER "
-#~ "ein\n"
-#~ "                                       Muster-Ausdruck (wie in der "
-#~ "Shell)\n"
-#~ "  -o, --old-archive, --portability   Archiv im „V7“‐Format schreiben\n"
-#~ "      --posix                        POSIX-konformes Archiv schreiben\n"
-#~ "  -j, --bzip2                        Archiv mit „bzip2“ (de)komprimieren\n"
-#~ "  -z, --gzip, --ungzip               Archiv mit „gzip“ (de)komprimieren\n"
-#~ "  -Z, --compress, --uncompress       Archiv mit „compress“ (de)"
-#~ "komprimieren\n"
-#~ "      --use-compress-program=PROG    Archiv durch PROG filtern (muss -d\n"
-#~ "                                     akzeptieren)\n"
+#: tests/genfile.c:152
+msgid "Print contents of struct stat for each given file. Default FORMAT is: "
+msgstr ""
+"Inhalt des „struct stat“ für jede gegebene Datei ausgeben. Standard-FORMAT "
+"ist:"
 
-#~ msgid ""
-#~ "\n"
-#~ "Local file selection:\n"
-#~ "  -C, --directory=DIR          change to directory DIR\n"
-#~ "  -T, --files-from=NAME        get names to extract or create from file "
-#~ "NAME\n"
-#~ "      --null                   -T reads null-terminated names, disable -"
-#~ "C\n"
-#~ "      --exclude=PATTERN        exclude files, given as a PATTERN\n"
-#~ "  -X, --exclude-from=FILE      exclude patterns listed in FILE\n"
-#~ "      --anchored               exclude patterns match file name start "
-#~ "(default)\n"
-#~ "      --no-anchored            exclude patterns match after any /\n"
-#~ "      --ignore-case            exclusion ignores case\n"
-#~ "      --no-ignore-case         exclusion is case sensitive (default)\n"
-#~ "      --wildcards              exclude patterns use wildcards (default)\n"
-#~ "      --no-wildcards           exclude patterns are plain strings\n"
-#~ "      --wildcards-match-slash  exclude pattern wildcards match "
-#~ "'/' (default)\n"
-#~ "      --no-wildcards-match-slash exclude pattern wildcards do not match "
-#~ "'/'\n"
-#~ "  -P, --absolute-names         don't strip leading `/'s from file names\n"
-#~ "  -h, --dereference            dump instead the files symlinks point to\n"
-#~ "      --no-recursion           avoid descending automatically in "
-#~ "directories\n"
-#~ "  -l, --one-file-system        stay in local file system when creating "
-#~ "archive\n"
-#~ "  -K, --starting-file=NAME     begin at file NAME in the archive\n"
-#~ msgstr ""
-#~ "\n"
-#~ "Auswahl der lokalen Dateien:\n"
-#~ "  -C, --directory=VERZEICHNIS  zu VERZEICHNIS wechseln\n"
-#~ "  -T, --files-from=DATEI       Namen der zu bearbeitenden Dateien aus "
-#~ "DATEI lesen\n"
-#~ "      --null                   -T liest null-terminierte Namen, verbiete -"
-#~ "C\n"
-#~ "      --exclude=MUSTER         Dateien auslassen, auf die MUSTER passt\n"
-#~ "  -X, --exclude-from=DATEI     Dateien auslassen, auf die in DATEI\n"
-#~ "                                 angegebene Muster passen\n"
-#~ "      --no-anchored            Musterübereinstimmung nach jedem ‚/‘ "
-#~ "ausschließen\n"
-#~ "      --ignore-case            Ignoriere Groß-/Kleinschreibung \n"
-#~ "                                 bei ausgelassenen Dateien\n"
-#~ "      --no-ignore-case         Beachte Groß-/Kleinschreibung bei \n"
-#~ "                                 ausgelassenen Dateien (Voreinstellung)\n"
-#~ "      --wildcards              Muster für ausgelassene Dateien benutzt\n"
-#~ "                                 Wildcards (Voreinstellung)\n"
-#~ "      --no-wildcards           Muster für ausgelassene Dateien enthält "
-#~ "keine\n"
-#~ "                                 Wildcards\n"
-#~ "      --wildcards-match-slash  Wildcards in Mustern für ausgelassene "
-#~ "Dateien\n"
-#~ "                                 passen auf ‚/‘ (Voreinstellung)\n"
-#~ "      --no-wildcards-match-slash Wildcards in Mustern für ausgelassene "
-#~ "Dateien\n"
-#~ "                                 passen nicht auf ‚/‘\n"
-#~ "  -P, --absolute-names         führende ‚/‘-Zeichen in den Dateinamen "
-#~ "erhalten\n"
-#~ "  -h, --dereference            Dateien statt symbolischer Verknüpfungen "
-#~ "sichern\n"
-#~ "      --no-recurse             keine Verzeichnisse sichern\n"
-#~ "  -l, --one-file-system        beim Erzeugen Dateisystem nicht wechseln\n"
-#~ "  -K, --starting-file=NAME     mit NAME im Archiv beginnen\n"
+#: tests/genfile.c:159
+msgid "Synchronous execution options:"
+msgstr "Optionen für synchrone Ausführung:"
 
-#~ msgid ""
-#~ "  -N, --newer=DATE             only store files newer than DATE\n"
-#~ "      --newer-mtime=DATE       compare date and time when data changed "
-#~ "only\n"
-#~ "      --after-date=DATE        same as -N\n"
-#~ msgstr ""
-#~ "  -N, --newer=DATUM          nur Dateien jünger als DATUM sichern\n"
-#~ "      --newer-mtime=DATUM    Datum und Zeit nur vergleichen, wenn sich "
-#~ "der\n"
-#~ "                             Datei‐Inhalt geändert hat\n"
-#~ "      --after-date=DATUM     wie -N\n"
+#: tests/genfile.c:162
+msgid ""
+"Execute given COMMAND. Useful with --checkpoint and one of --cut, --append, "
+"--touch"
+msgstr ""
+"jeden gegebenen BEFEHL ausführen; nützlich mit --checkpoint und einem aus --"
+"cut, --append, --touch"
 
-#~ msgid ""
-#~ "      --backup[=CONTROL]       backup before removal, choose version "
-#~ "control\n"
-#~ "      --suffix=SUFFIX          backup before removal, override usual "
-#~ "suffix\n"
-#~ msgstr ""
-#~ "      --backup[=CONTROL]       Sicherheitskopie vor dem Löschen, wählt "
-#~ "Versionskontrolle\n"
-#~ "      --suffix=SUFFIX          Sicherheitskopie vor dem Löschen, "
-#~ "Namenserweiterung SUFFIX\n"
+#: tests/genfile.c:165
+msgid "Perform given action (see below) upon reaching checkpoint NUMBER"
+msgstr ""
+"gegebene Aktion (siehe unten) beim Erreichen des Kontrollpunkts ZAHL "
+"ausführen"
 
-#~ msgid ""
-#~ "\n"
-#~ "Informative output:\n"
-#~ "      --help            print this help, then exit\n"
-#~ "      --version         print tar program version number, then exit\n"
-#~ "  -v, --verbose         verbosely list files processed\n"
-#~ "      --checkpoint      print directory names while reading the archive\n"
-#~ "      --totals          print total bytes written while creating archive\n"
-#~ "  -R, --block-number    show block number within archive with each "
-#~ "message\n"
-#~ "  -w, --interactive     ask for confirmation for every action\n"
-#~ "      --confirmation    same as -w\n"
-#~ msgstr ""
-#~ "\n"
-#~ "Informationen:\n"
-#~ "      --help            Hilfe anzeigen und „tar“ beenden\n"
-#~ "      --version         Versionsnummer anzeigen und „tar“ benden\n"
-#~ "  -v, --verbose         zu bearbeitende Dateien ausführlich listen\n"
-#~ "      --checkpoint      Verzeichnisnamen beim Lesen des Archivs zeigen\n"
-#~ "      --totals          geschriebene Bytes beim Schreiben des Archivs "
-#~ "zeigen\n"
-#~ "  -R, --block-number    Blocknummer innerhalb des Archivs mit jeder "
-#~ "Meldung zeigen\n"
-#~ "  -w, --interactive     Bestätigung für jede Aktion verlangen\n"
-#~ "      --confirmation    wie -w\n"
+#: tests/genfile.c:168
+msgid "Set date for next --touch option"
+msgstr "Datum für nächste „--touch“-Operation setzen"
 
-#~ msgid ""
-#~ "\n"
-#~ "GNU tar cannot read nor produce `--posix' archives.  If POSIXLY_CORRECT\n"
-#~ "is set in the environment, GNU extensions are disallowed with `--posix'.\n"
-#~ "Support for POSIX is only partially implemented, don't count on it yet.\n"
-#~ "ARCHIVE may be FILE, HOST:FILE or USER@HOST:FILE; DATE may be a textual "
-#~ "date\n"
-#~ "or a file name starting with `/' or `.', in which case the file's date is "
-#~ "used.\n"
-#~ "*This* `tar' defaults to `-f%s -b%d'.\n"
-#~ msgstr ""
-#~ "\n"
-#~ "GNU „tar“ kann keine „--posix“‐Archive lesen. Wenn die Umgebungsvariable\n"
-#~ "POSIXLY_CORRECT gesetzt ist, sind GNU‐Erweiterungen in Kombination mit\n"
-#~ "„--posix“ unzulässig. Unterstützung für POSIX ist nur teilweise "
-#~ "implementiert,\n"
-#~ "rechnen Sie derzeit noch nicht damit!\n"
-#~ "ARCHIV kann DATEI, RECHNER:DATEI oder BENUTZER@RECHNER:DATEI sein; DATUM "
-#~ "kann\n"
-#~ "eine Datumsangabe als Text oder ein Dateiname sein, der mit ‚/‘ oder ‚.‘\n"
-#~ "beginnt. In diesem Fall wird das Datum der Datei benutzt.\n"
-#~ "Die Voreinstellung für _dieses_ „tar“ ist „-f%s -b%d“.\n"
+#: tests/genfile.c:171
+msgid "Display executed checkpoints and exit status of COMMAND"
+msgstr "ausgeführte Kontrollpunkte und Beendigungsstatus von BEFEHL anzeigen"
 
-#~ msgid "Obsolete option, now implied by --blocking-factor"
-#~ msgstr "Veraltete Option, jetzt bei --blocking-factor inbegriffen."
+#: tests/genfile.c:176
+msgid ""
+"Synchronous execution actions. These are executed when checkpoint number "
+"given by --checkpoint option is reached."
+msgstr ""
+"Aktioen für synchrone Ausführung. Diese werden beim Erreichen des "
+"Kontrollpunkt, der mit der Option --checkpoint gesetzt wurde, ausgeführt."
 
-#~ msgid "Obsolete option name replaced by --blocking-factor"
-#~ msgstr "Veraltete Option, ersetzt durch --blocking-factor."
+#: tests/genfile.c:179
+msgid ""
+"Truncate FILE to the size specified by previous --length option (or 0, if it "
+"is not given)"
+msgstr ""
+"DATEI kürzen auf die Länge, die mit einer vorhergehenden Option --length "
+"(oder 0 bei Abwesenheit) gesetzt wurde"
 
-#~ msgid "Obsolete option name replaced by --read-full-records"
-#~ msgstr "Veraltete Option, ersetzt durch --read-full-records."
+#: tests/genfile.c:183
+msgid "Append SIZE bytes to FILE. SIZE is given by previous --length option."
+msgstr ""
+"GRÖßE Bytes an DATEI anfügen. GRÖßE wird mit einer vorhergehenden Option --"
+"length gesetzt."
 
-#~ msgid "Obsolete option name replaced by --touch"
-#~ msgstr "Veraltete Option, ersetzt durch --touch."
+#: tests/genfile.c:186
+msgid "Update the access and modification times of FILE"
+msgstr "Zugriffs- und Änderungszeiten der DATEI neu setzen"
 
-#~ msgid "Obsolete option name replaced by --absolute-names"
-#~ msgstr "Veraltete Option, ersetzt durch --absolute-names."
+#: tests/genfile.c:189
+msgid "Execute COMMAND"
+msgstr "BEFEHL ausführen"
 
-#~ msgid "Obsolete option name replaced by --block-number"
-#~ msgstr "Veraltete Option, ersetzt durch --block-number."
+#: tests/genfile.c:239
+#, c-format
+msgid "Invalid size: %s"
+msgstr "Ungültige Größe: %s"
 
-#~ msgid "Obsolete option name replaced by --backup"
-#~ msgstr "Veraltete Option, ersetzt durch --backup."
+#: tests/genfile.c:244
+#, c-format
+msgid "Number out of allowed range: %s"
+msgstr "Zahl außerhalb des zulässigen Bereichs: %s"
 
-#~ msgid "Written by John Gilmore and Jay Fenlason."
-#~ msgstr "Geschrieben von John Gilmore und Jay Fenlason."
+#: tests/genfile.c:247
+#, c-format
+msgid "Negative size: %s"
+msgstr "Negative Größe: %s"
 
-#~ msgid "Generate data files for GNU tar test suite.\n"
-#~ msgstr "Dateien für die Tests von GNU-„tar“ erzeugen.\n"
+#: tests/genfile.c:260 tests/genfile.c:559
+#, c-format
+msgid "stat(%s) failed"
+msgstr "stat(%s) fehlgeschlagen"
 
-#~ msgid ""
-#~ "If a long option shows an argument as mandatory, then it is mandatory\n"
-#~ "for the equivalent short option also.\n"
-#~ "\n"
-#~ "  -l, --file-length=LENGTH   LENGTH of generated file\n"
-#~ "  -p, --pattern=PATTERN      PATTERN is `default' or `zeros'\n"
-#~ "      --help                 display this help and exit\n"
-#~ "      --version              output version information and exit\n"
-#~ msgstr ""
-#~ "Notwendige Argumente für Optionen in Langform sind auch für die\n"
-#~ "Kurzform notwendig.\n"
-#~ "  -l, --file-length=GRÖßE    GRÖßE der erzeugten Datei\n"
-#~ "  -p, --pattern=MUSTER       MUSTER ist ‚default‘ oder ‚zeros‘\n"
-#~ "      --help                 diese Hilfe anzeigen und beenden\n"
-#~ "      --version              Versionsinformation anzeigen und beenden\n"
+#: tests/genfile.c:354
+#, c-format
+msgid "Error parsing number near `%s'"
+msgstr "Fehler beim Parser der Zahl in der Nähe von „%s“"
 
-#~ msgid "Written by F. Pinard."
-#~ msgstr "Geschrieben von François Pinard."
+#: tests/genfile.c:360
+#, c-format
+msgid "Unknown date format"
+msgstr "Unbekanntes Datumsformat"
+
+#: tests/genfile.c:383
+msgid "[ARGS...]"
+msgstr "[ARGUMENTE...]"
+
+#: tests/genfile.c:420 tests/genfile.c:460 tests/genfile.c:513
+#: tests/genfile.c:663 tests/genfile.c:677
+#, c-format
+msgid "cannot open `%s'"
+msgstr "kann „%s“ nicht öffnen"
+
+#: tests/genfile.c:426
+#, c-format
+msgid "cannot seek: %s"
+msgstr "kann nicht positionieren: %s"
+
+#: tests/genfile.c:443
+#, c-format
+msgid "file name contains null character"
+msgstr "Dateiname enthält Null-Zeichen"
+
+#: tests/genfile.c:508
+#, c-format
+msgid "cannot generate sparse files on standard output, use --file option"
+msgstr ""
+"kann auf der Standardausgabe keine löchrige Datei erstellen, benutzen Sie "
+"die Option --file"
+
+#: tests/genfile.c:586
+#, c-format
+msgid "incorrect mask (near `%s')"
+msgstr "inkorrekte Maske (nahe „%s“)"
+
+#: tests/genfile.c:592 tests/genfile.c:625
+#, c-format
+msgid "Unknown field `%s'"
+msgstr "unbekannte Feld „%s“"
+
+#: tests/genfile.c:652
+#, c-format
+msgid "cannot set time on `%s'"
+msgstr "kann an „%s“ keine Zeit setzen"
+
+#: tests/genfile.c:806
+#, c-format
+msgid "Command exited successfully\n"
+msgstr "Befehl erfolgreich ausgeführt\n"
+
+#: tests/genfile.c:808
+#, c-format
+msgid "Command failed with status %d\n"
+msgstr "Befehl schlug mit Beendigungsstatus %d fehl.\n"
+
+#: tests/genfile.c:812
+#, c-format
+msgid "Command terminated on signal %d\n"
+msgstr "Befehl beendete sich bei Signal %d\n"
+
+#: tests/genfile.c:814
+#, c-format
+msgid "Command stopped on signal %d\n"
+msgstr "Befehl hieltb bei Signal %d an\n"
+
+#: tests/genfile.c:817
+#, c-format
+msgid "Command dumped core\n"
+msgstr "Befehl erzeugte einen Core-Dump\n"
+
+#: tests/genfile.c:820
+#, c-format
+msgid "Command terminated\n"
+msgstr "Befehl beendet\n"
+
+#: tests/genfile.c:852
+#, c-format
+msgid "--stat requires file names"
+msgstr "--stat erfordert Dateinamen"
+
+#: tests/genfile.c:865
+#, c-format
+msgid "too many arguments"
+msgstr "zu viele Argumente"
+
+#~ msgid "%s: Read error at byte %s, reading %lu byte"
+#~ msgid_plural "%s: Read error at byte %s, reading %lu bytes"
+#~ msgstr[0] "%s: Lesefehler bei Byte %s, lese ein Byte"
+#~ msgstr[1] "%s: Lesefehler bei Byte %s, lese %lu Bytes"
+
+#~ msgid "--Mangled file names--\n"
+#~ msgstr "––Verstümmelte Dateinamen––\n"
+
+#~ msgid "Unexpected EOF in mangled names"
+#~ msgstr "Unerwartetes Dateiende in verstümmelten Namen."
+
+#~ msgid "Renamed %s to %s"
+#~ msgstr "%s in %s umbenannt"
+
+#~ msgid "%s: Cannot symlink to %s"
+#~ msgstr "%s: Kann nicht zu „%s“ linken."
+
+#~ msgid "Symlinked %s to %s"
+#~ msgstr "Symbolischer Verküpfung von %s auf %s."
+
+#~ msgid "Unknown demangling command %s"
+#~ msgstr "Unbekanntes Kommando „%s“ beim Zusammensetzen von Namen."

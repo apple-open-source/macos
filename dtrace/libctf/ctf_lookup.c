@@ -209,6 +209,21 @@ ctf_lookup_by_symbol(ctf_file_t *fp, ulong_t symidx)
 			if (nsym->n_desc != STT_OBJECT)
 				return (ctf_set_errno(fp, ECTF_NOTDATA));
 		}
+	} else if (sp->cts_entsize == sizeof (struct nlist_64)) {
+		const struct nlist_64 *nsym = (const struct nlist_64 *)sp->cts_data + symidx;
+
+		if ((N_ABS | N_EXT) == (nsym->n_type & (N_TYPE | N_EXT)) ||
+			(N_SECT | N_EXT) == (nsym->n_type & (N_TYPE | N_EXT))) {
+
+			if (nsym->n_desc != STT_OBJECT)
+				return (ctf_set_errno(fp, ECTF_NOTDATA));
+				
+		} else if ((N_UNDF | N_EXT) == (nsym->n_type & (N_TYPE | N_EXT)) &&
+					nsym->n_sect == NO_SECT) {
+					
+			if (nsym->n_desc != STT_OBJECT)
+				return (ctf_set_errno(fp, ECTF_NOTDATA));
+		}
 	} else
 #endif /* __APPLE__ */
 	if (sp->cts_entsize == sizeof (Elf32_Sym)) {

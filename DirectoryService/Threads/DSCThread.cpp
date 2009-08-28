@@ -90,14 +90,9 @@ SInt32 DSCThread::Count ( void )
 //
 // ----------------------------------------------------------------------------
 
-UInt32 DSCThread::GetID ( void ) const
+long DSCThread::GetID ( void ) const
 {
-#ifdef __LP64__
-	return(0); //does not work for 64 bit - unused anyways
-#else
-	// member from LThread
-	return( (UInt32)fThread );
-#endif
+	return (long) fThread;
 } // GetID
 
 

@@ -1,4 +1,4 @@
-Wymagane jest potwierdzenie pro¶by o wypisanie siê z listy dyskusyjnej:
+Wymagane jest potwierdzenie pro¶by o wypisanie siê z listy:
 
     Od:     %(username)s
     Lista:  %(listname)s@%(hostname)s

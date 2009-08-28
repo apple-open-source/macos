@@ -1,34 +1,35 @@
-Pomoc dla listy dyskusyjnej %(listname)s:
+Pomoc dla listy %(listname)s:
 
 To jest wynik komendy mailowej 'help' wygenerowany przez system zarz±dzania
-listami dyskusyjnymi "Mailman" w wersji  %(version)s. W li¶cie tym opisano
-komendy, którymi mo¿na komunikowaæ siê z Mailmanem drog± poczty
-elektronicznej. Mo¿na w ten sposób zmieniaæ parametry swojej subskrybcji.
-Komenda mo¿e byæ umieszczona zarówno w temacie, jak i tre¶ci wiadomo¶ci.
+listami "Mailman" w wersji  %(version)s. Poni¿ej znajdziesz polecenia, 
+którymi mo¿na komunikowaæ siê z Mailmanem drog± poczty elektronicznej. 
+Mo¿na w ten sposób zmieniaæ parametry swojej subskrybcji.
+Polecenie mo¿na umie¶ciæ zarówno w temacie, jak i tre¶ci wiadomo¶ci.
 
-Przypominam, ¿e wszystkie te dzia³ania mog± byæ równie¿ zrobione za
+Wszystkie te dzia³ania mo¿na równie¿ zrealizowaæ za
 po¶rednictwem sieci WWW, na stronie:
 
     %(listinfo_url)s
 
 W szczególno¶ci, za pomoc± w.w. strony mo¿esz poprosiæ o przypomnienie
-Ci Twojego has³a.
+has³a zabezpieczaj±cego dostêp do ustawieñ prenumeraty.
 
-Komendy dotycz±ce konkretnej listy (np. subscribe, who) nale¿y wysy³aæ
-na adres *-request specyficzny dla danej listy. Na przyk³ad komendy
+Polecenia dotycz±ce konkretnej listy (np. subscribe, who) nale¿y wysy³aæ
+na adres *-request danej listy. Na przyk³ad polecenia
 dotycz±ce listy 'mailman' nale¿y wysy³aæ na adres 
 'mailman-request@...'.
 
 Legenda: s³owa w nawiasach "<>" oznaczaj± WYMAGANE opcje, a 
-nawiasy "[]" informuj±, ¿e dane pole jest OPCJONALNE. Nie nale¿y 
-umieszczaæ w komendach samych znaków nawiasów "<>", czy "[]".
+nawiasy "[]" informuj±, ¿e dane pole jest OPCJONALNE. W poleceniach nie 
+nale¿y stosowaæ nawiasów "<>", czy "[]".
 
-Lista dopuszczalnych komend:
+Lista dopuszczalnych poleceñ:
 
     %(commands)s
 
-Komendy nale¿y wys³aæ na adres %(requestaddr)s
+Polecenia nale¿y wys³aæ na adres %(requestaddr)s
 
-Pytania lub pro¶by interwencji cz³owieka, proszê przesy³aæ na adres:
+W przypadku pytañ b±¼ problemów skontaktuj siê z administratorem
+pod adresem:
 
     %(adminaddr)s

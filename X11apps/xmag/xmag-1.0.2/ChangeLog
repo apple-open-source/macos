@@ -1,0 +1,272 @@
+commit a6b0036a082a947b89bdbb27128e20079799857c
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Aug 15 18:04:12 2007 -0700
+
+    Version bump: 1.0.2
+
+commit e4cd84139d155bf0ce7b42de65e2a5bfcc471a46
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Aug 15 17:59:30 2007 -0700
+
+    Change xmag_CFLAGS to AM_CFLAGS to make automake-1.10 happier
+    
+    Makefile.am:27: compiling `CutPaste.c' with per-target flags requires `AM_PROG_CC_C_O' in `configure.ac'
+
+commit d990122dafcde5d22c8f1aa40e8f9dc213f79e17
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Aug 1 13:22:35 2007 -0700
+
+    Make fix for Sun bug 6359959 more portable - use nanosleep, poll or select
+
+commit eb12c1f539cebbd7481711d1dc97e3e29b594389
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Dec 13 00:00:00 2005 -0800
+
+    Sun bug 6359959: xmag overconsumes CPU due to its selection box
+    
+    <http://bugs.opensolaris.org/bugdatabase/view_bug.do?bug_id=6359959>
+    
+    The fix for Sun bug 1166559 changed the HLINTERVAL from 10 to 0.5 to fix
+    a problem that the selection box wasn't being seen. The problem is that
+    this parameter is used in an XtAppAddTimeOut(), and is supposed to be an
+    unsigned long. Thus, the 0.5 presumably turns into a 0 ms timeout. Whatever
+    effect that is being seen is due to seeing a rectangle drawn as fast as
+    the poor little X server can do it.
+
+commit a04689bccae3bd2df3812a8ed7fc0d675fdb05e9
+Author: Derek Wang <derek.wang@sun.com>
+Date:   Mon May 8 00:00:00 2000 -0700
+
+    Sun bug 1166559: highlight of selection box not discernable on some configs
+    
+    <http://bugs.opensolaris.org/bugdatabase/view_bug.do?bug_id=1166559>
+    
+    1) On devices whose default visual is 24-bit TrueColor the selection area
+       bounding box has no contrast with the background.  This is because a
+       value of 1 is being xor'd in.  This won't provide enough contrast.  A
+       value of 0xffffff would be better.
+    
+    2) On my machine (which is a dual 50-Mhz SS10) you can sort of see the
+       bounding box on my GX if you look really, really close, but it's a faint
+       flicker.  I believe what is happening is that the bounding box is being
+       drawn and undrawn so fast you can hardly see it.
+
+commit 80faa0025128c10662694e818747fd0a592bc108
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Jun 1 16:40:07 2007 -0700
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit bff2deea15bd0b676458b88acb46d63fd72b86af
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Sat May 19 00:06:28 2007 -0700
+
+    X.Org Bug #10616: xmag man page says "Cut" button instead of "Select"
+    
+    X.Org Bugzilla #10616: <https://bugs.freedesktop.org/show_bug.cgi?id=10616>
+    Reported upstream from
+    Debian bug #180712 <http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=180712>
+
+commit f137f0414022575553bd65c3179b694be391c428
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Sat May 19 00:01:58 2007 -0700
+
+    renamed: .cvsignore -> .gitignore
+
+commit 5ef80b96a9d8676f79c5e27c727789d63a61e45b
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 21 02:29:52 2005 +0000
+
+    Update package version for X11R7 release.
+
+commit 0a9729f6c8a8e644e4048ee5135a35d9f0603e56
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon Dec 19 16:22:45 2005 +0000
+
+    Stub COPYING files
+
+commit 094ca9cfcd3c6910a3e6981afdea8c461b636271
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:09 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit 61019bb2e2eea3f970540dc24d1bd52d508e5f60
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 7 16:18:00 2005 +0000
+
+    Change to use the app-defaults default dir configured in libXt.
+
+commit 95ba475220dafec7777d5e3802d817fb068a70ed
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Dec 6 22:48:24 2005 +0000
+
+    Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+commit 9223bc8f2d024f4dd378454ec3ecf5da6d51874e
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:26 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit 7ebdd01ac939fdbe290d14a6c80a7d4aaf555347
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Nov 28 22:01:44 2005 +0000
+
+    Change *mandir targets to use new *_MAN_DIR variables set by xorg-macros.m4
+        update to fix bug #5167 (Linux prefers *.1x man pages in man1 subdir)
+
+commit 0fdfec2cbbd3ac47a2c67e5a6bf5594a300c92be
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Mon Nov 21 10:35:02 2005 +0000
+
+    Another pass at .cvsignores for apps.
+
+commit 5dad105bfb499209c18e8716a38f1c4eb5e93d6d
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Sun Nov 20 22:08:54 2005 +0000
+
+    Add/improve .cvsignore files for apps.
+
+commit 75f0fc733252f111d0fc7de07622a46e4adc675a
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:47:55 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit 0d383b0eb8c7177fa12f8138c7ad9e527a98ba59
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Tue Oct 18 00:32:54 2005 +0000
+
+    Change default install dir for app-default files from
+        $(sysconfdir)/X11/app-defaults to $(libdir)/X11/app-defaults to match
+        the monolith & allow localization
+
+commit c15d91b39f14e916d17581b1b653e3057571399f
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Oct 17 23:56:24 2005 +0000
+
+    Use @APP_MAN_SUFFIX@ instead of $(APP_MAN_SUFFIX) in macro substitutions to
+        work better with BSD make
+
+commit 3beed227e1ea75c57e38deba4a325303136947f4
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Oct 14 00:25:46 2005 +0000
+
+    Use sed to fill in variables in man page
+
+commit 3a983a36e2a566b96dc92ba061c7795207ff6e0c
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Oct 4 23:59:50 2005 +0000
+
+    Add xmag.icon to EXTRA_DIST
+
+commit bb2d194053c71d49aefbcce7cbc371924163d7ce
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sun Oct 2 20:20:12 2005 +0000
+
+    Add developer documentation of xmag's Scale widget class to app/xmag
+
+commit 400ba6d65004e8c5ccc2fe45195374e46be21fe4
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Aug 1 20:25:30 2005 +0000
+
+    Install man pages to section 1 instead of section m (Patch from Donnie
+        Berkholz)
+
+commit 312910577edf6841f797317a8fe521abb1987a1b
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:36 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit 175a29fb026e628b815a443beb305514bf90f74e
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Tue Jul 26 15:44:02 2005 +0000
+
+    Replace more GNU make-ism's with more portable macros
+
+commit 2453fa155493771d1ce948de0122c3e53e0cd5d1
+Author: Matthieu Herrb <matthieu.herrb@laas.fr>
+Date:   Sat Jul 23 16:43:02 2005 +0000
+
+    fix GNU-make only app-defaults rule
+
+commit 45e2eed46b415283bd56f2830d67117c7861cb3c
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Wed Jul 20 19:32:02 2005 +0000
+
+    Use a unique token for PKG_CHECK_MODULES. Otherwise, if you use a global
+        configure cache, you cache it, and the cached value is probably wrong.
+
+commit 38ca5441b199b16b3d2dee2c2b8eaa133aec99a9
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Tue Jul 5 22:51:11 2005 +0000
+
+    Add build systems for xlogo, xlsatoms, xlsclients, xmag, xman, xmessage,
+        xmh, xmore. lib/Xaw/xaw.m4: Add an AM_CONDITIONAL and a shell variable
+        xaw_use_xprint symlink.sh: add some extra files for xgc, xinit,
+        xkbcomp, xlogo, xmb, and xmodmap xc/programs/xmore/xmore.c:
+        Conditionalize use of xprint
+
+commit 0cac7e38453d2c9c670fb9f9100c244bf9f7b98e
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 19:54:58 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit 6571a03e0f78ea6f45a4c67c60ba54b8980c3f76
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:35:39 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit 4344e337c42eb72bcc24257ba5345a4d102c1849
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:13:14 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit ce152a72a5422ba9c6c7a4c0298f8da6cf0f0a50
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:36:26 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit 8f63e90e414e756e3aeeb57014c75b2b0882f799
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:24:14 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit 07819d0d328460410b940d05ee36235c255cf698
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:29:15 2003 +0000
+
+    XFree86 4.3.99.16 Bring the tree up to date for the Cygwin folks
+
+commit c6d1f60f8f68135337e8d0c5a9d564d1b4932104
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:49:23 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit 4c688ea7bec8b76e643d610577104e5519722be9
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:49:23 2003 +0000
+
+    Initial revision
+
+commit 31f434e2df14612e3cf18fe45a6c161eb3c225ff
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 15:54:54 2003 +0000
+
+    R6.6 is the Xorg base-line

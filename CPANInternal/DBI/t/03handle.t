@@ -1,8 +1,9 @@
 #!perl -w
+$|=1;
 
 use strict;
 
-use Test::More tests => 135;
+use Test::More tests => 137;
 
 ## ----------------------------------------------------------------------------
 ## 03handle.t - tests handles
@@ -40,6 +41,7 @@ is(scalar keys %drivers, 1);
 ok(exists $drivers{ExampleP});
 ok($drivers{ExampleP}->isa('DBI::dr'));
 
+my $using_dbd_gofer = ($ENV{DBI_AUTOPROXY}||'') =~ /^dbi:Gofer.*transport=/i;
 
 ## ----------------------------------------------------------------------------
 # do database handle tests inside do BLOCK to capture scope
@@ -47,6 +49,8 @@ ok($drivers{ExampleP}->isa('DBI::dr'));
 do {
     my $dbh = DBI->connect("dbi:$driver:", '', '');
     isa_ok($dbh, 'DBI::db');
+
+    my $drh = $dbh->{Driver}; # (re)get drh here so tests can work using_dbd_gofer
     
     SKIP: {
         skip "Kids and ActiveKids attributes not supported under DBI::PurePerl", 2 if $DBI::PurePerl;
@@ -117,7 +121,7 @@ do {
 
 	ok($sth4->execute("."), '... fourth statement handle executed properly');
 	ok($sth4->{Active}, '... fourth statement handle is Active');
-	
+
 	my $sth5 = $dbh->prepare_cached($sql, undef, 1);
 	isa_ok($sth5, 'DBI::st');
 	
@@ -136,10 +140,11 @@ do {
     }
 
     SKIP: {
-	skip "become() not supported under DBI::PurePerl", 23 if $DBI::PurePerl;
+	skip "swap_inner_handle() not supported under DBI::PurePerl", 23 if $DBI::PurePerl;
     
         my $sth6 = $dbh->prepare($sql);
         $sth6->execute(".");
+        my $sth1_driver_name = $sth1->{Database}{Driver}{Name};
 
         ok( $sth6->{Active}, '... sixth statement handle is active');
         ok(!$sth1->{Active}, '... first statement handle is not active');
@@ -166,21 +171,24 @@ do {
 
         $sth6->finish;
 
-	ok(my $dbh_nullp = DBI->connect("dbi:NullP:"));
+	ok(my $dbh_nullp = DBI->connect("dbi:NullP:", undef, undef, { go_bypass => 1 }));
 	ok(my $sth7 = $dbh_nullp->prepare(""));
 
 	$sth1->{PrintError} = 0;
         ok(!$sth1->swap_inner_handle($sth7), "... can't swap_inner_handle with handle from different parent");
 	cmp_ok( $sth1->errstr, 'eq', "Can't swap_inner_handle with handle from different parent");
 
-	cmp_ok( $sth1->{Database}{Driver}{Name}, 'eq', "ExampleP" );
+	cmp_ok( $sth1->{Database}{Driver}{Name}, 'eq', $sth1_driver_name );
         ok( $sth1->swap_inner_handle($sth7,1), "... can swap to different parent if forced");
 	cmp_ok( $sth1->{Database}{Driver}{Name}, 'eq', "NullP" );
 
 	$dbh_nullp->disconnect;
     }
 
+    ok(  $dbh->ping, 'ping should be true before disconnect');
     $dbh->disconnect;
+    $dbh->{PrintError} = 0; # silence 'not connected' warning
+    ok( !$dbh->ping, 'ping should be false after disconnect');
 
     SKIP: {
         skip "Kids and ActiveKids attributes not supported under DBI::PurePerl", 2 if $DBI::PurePerl;
@@ -191,6 +199,9 @@ do {
     
 };
 
+if ($using_dbd_gofer) {
+    $drh->{CachedKids} = {};
+}
 
 # make sure our driver has no more kids after this test
 # NOTE:
@@ -198,7 +209,7 @@ do {
 SKIP: {
     skip "Kids attribute not supported under DBI::PurePerl", 1 if $DBI::PurePerl;
     
-    cmp_ok($drh->{Kids}, '==', 0, '... our Driver has no Kids after it was destoryed');
+    cmp_ok($drh->{Kids}, '==', 0, "... our $drh->{Name} driver should have 0 Kids after dbh was destoryed");
 }
 
 ## ----------------------------------------------------------------------------
@@ -239,6 +250,7 @@ sub work {
 
 SKIP: {
     skip "Kids attribute not supported under DBI::PurePerl", 25 if $DBI::PurePerl;
+    skip "drh Kids not testable under DBD::Gofer", 25 if $using_dbd_gofer;
 
     foreach my $args (
         {},
@@ -258,21 +270,27 @@ SKIP: {
 # handle take_imp_data test
 
 SKIP: {
-    skip "take_imp_data test not supported under DBI::PurePerl", 19 if $DBI::PurePerl;
+    skip "take_imp_data test not supported under DBD::Gofer", 19 if $using_dbd_gofer;
 
     my $dbh = DBI->connect("dbi:$driver:", '', '');
     isa_ok($dbh, "DBI::db");
+    my $drh = $dbh->{Driver}; # (re)get drh here so tests can work using_dbd_gofer
 
-    cmp_ok($drh->{Kids}, '==', 1, '... our Driver should have 1 Kid(s) here');
+    cmp_ok($drh->{Kids}, '==', 1, '... our Driver should have 1 Kid(s) here')
+        unless $DBI::PurePerl && pass();
 
     $dbh->prepare("select name from ?"); # destroyed at once
     my $sth2 = $dbh->prepare("select name from ?"); # inactive
     my $sth3 = $dbh->prepare("select name from ?"); # active:
     $sth3->execute(".");
     is $sth3->{Active}, 1;
-    is $dbh->{ActiveKids}, 1;
+    is $dbh->{ActiveKids}, 1
+        unless $DBI::PurePerl && pass();
 
     my $ChildHandles = $dbh->{ChildHandles};
+
+    skip "take_imp_data test needs weakrefs", 15 if not $ChildHandles;
+
     ok $ChildHandles, 'we need weakrefs for take_imp_data to work safely with child handles';
     is @$ChildHandles, 3, 'should have 3 entries (implementation detail)';
     is grep({ defined } @$ChildHandles), 2, 'should have 2 defined handles';
@@ -292,8 +310,8 @@ SKIP: {
     like $@, qr/Can't locate object method/;
 
     {
-        my $warn;
-        local $SIG{__WARN__} = sub { ++$warn if $_[0] =~ /after take_imp_data/ };
+        my @warn;
+        local $SIG{__WARN__} = sub { push @warn, $_[0] if $_[0] =~ /after take_imp_data/; print "warn: @_\n"; };
         
         my $drh = $dbh->{Driver};
         ok(!defined $drh, '... our Driver should be undefined');
@@ -305,14 +323,15 @@ SKIP: {
 
         ok(!defined $dbh->quote(42), '... quote should return undefined');
 
-        cmp_ok($warn, '==', 4, '... we should have gotten 4 warnings');
+        cmp_ok(scalar @warn, '==', 4, '... we should have gotten 4 warnings');
     }
 
     my $dbh2 = DBI->connect("dbi:$driver:", '', '', { dbi_imp_data => $imp_data });
     isa_ok($dbh2, "DBI::db");
     # need a way to test dbi_imp_data has been used
     
-    cmp_ok($drh->{Kids}, '==', 1, '... our Driver should have 1 Kid(s) again');
+    cmp_ok($drh->{Kids}, '==', 1, '... our Driver should have 1 Kid(s) again')
+        unless $DBI::PurePerl && pass();
     
 }
 
@@ -347,7 +366,7 @@ do {
     isa_ok($sth, "DBI::st");
 
     cmp_ok($sth->{NUM_OF_PARAMS}, '==', 0, '... NUM_OF_PARAMS is 0');
-    ok(!defined $sth->{NUM_OF_FIELDS}, '... NUM_OF_FIELDS is undefined');
+    is($sth->{NUM_OF_FIELDS}, undef, '... NUM_OF_FIELDS should be undef');
     is($sth->{Statement}, "foo bar", '... Statement is "foo bar"');
 
     ok(!defined $sth->{NAME},         '... NAME is undefined');

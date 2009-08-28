@@ -480,7 +480,7 @@ void AppleUSBCDCACMControl::stop(IOService *provider)
 	{
 		releaseResources();
 	}
-	
+
 	PMstop();
                     
     super::stop(provider);
@@ -1199,10 +1199,10 @@ void AppleUSBCDCACMControl::resetDevice(void)
 				}
 			}
 		}
-	} else {
-		XTRACE(this, fControlInterface, fDataDriver, "resetDevice - Control interface or Data driver has gone");
+    } else {
+		XTRACE(this, 0, 0, "resetDevice - Control interface or Data driver has gone");
 	}
-    
+	
 }/* end resetDevice */
 
 /****************************************************************************************************/
@@ -1369,9 +1369,9 @@ IOReturn AppleUSBCDCACMControl::setPowerState(unsigned long powerStateOrdinal, I
 			resetDevice();
 		}
     
-        return IOPMNoErr;
+        return IOPMAckImplied;
     }
     
-    return IOPMNoSuchState;
+    return IOPMAckImplied;
     
 }/* end setPowerState */

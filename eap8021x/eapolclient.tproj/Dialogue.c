@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2001-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -110,9 +110,6 @@ UserPasswordDialogue_response(CFUserNotificationRef notif,
 	if (str != NULL && CFStringGetLength(str) > 0) {
 	    response.password = CFRetain(str);
 	}
-	if (response_flags & CFUserNotificationCheckBoxChecked(0)) {
-	    response.one_time_password = TRUE;
-	}
 	break;
     default:
 	response.user_cancelled = TRUE;
@@ -136,8 +133,33 @@ UserPasswordDialogue_response(CFUserNotificationRef notif,
     return;
 }
 
+#define kNetworkPrefPanePath	"/System/Library/PreferencePanes/Network.prefPane"
+
+static CFURLRef
+copy_icon_url(CFStringRef icon)
+{
+    CFBundleRef		np_bundle;
+    CFURLRef		np_url;
+    CFURLRef		url = NULL;
+
+    np_url = CFURLCreateWithFileSystemPath(NULL,
+					   CFSTR(kNetworkPrefPanePath),
+					   kCFURLPOSIXPathStyle, FALSE);
+    if (np_url != NULL) {
+	np_bundle = CFBundleCreate(NULL, np_url);
+	if (np_bundle != NULL) {
+	    url = CFBundleCopyResourceURL(np_bundle, icon, 
+					  CFSTR("icns"), NULL);
+	    CFRelease(np_bundle);
+	}
+	CFRelease(np_url);
+    }
+    return (url);
+}
+
 static CFDictionaryRef
-make_notif_dict(CFStringRef message, CFStringRef user, CFStringRef password)
+make_notif_dict(CFStringRef icon, CFStringRef title, CFStringRef message,
+		CFStringRef user, CFStringRef password)
 {
     CFMutableArrayRef 		array = NULL;
     CFBundleRef			bundle;
@@ -162,8 +184,11 @@ make_notif_dict(CFStringRef message, CFStringRef user, CFStringRef password)
 	CFRelease(url);
     }
 
-    url = CFBundleCopyResourceURL(bundle, CFSTR("NetworkConnect"),
-				  CFSTR("icns"), NULL);
+    if (icon == NULL) {
+	icon = CFSTR("Network");
+    }
+
+    url = copy_icon_url(icon);
     if (url != NULL) {
 	CFDictionarySetValue(dict, kCFUserNotificationIconURLKey,
 			     url);
@@ -177,8 +202,10 @@ make_notif_dict(CFStringRef message, CFStringRef user, CFStringRef password)
 			 CFSTR("OK"));
     
     /* title */
-    CFDictionaryAddValue(dict, kCFUserNotificationAlertHeaderKey, 
-			 CFSTR("802.1X Authentication"));
+    if (title != NULL) {
+	CFDictionaryAddValue(dict, kCFUserNotificationAlertHeaderKey, 
+			     title);
+    }
 			 
     /* message */
     if (message != NULL) {
@@ -206,11 +233,6 @@ make_notif_dict(CFStringRef message, CFStringRef user, CFStringRef password)
     CFDictionaryAddValue(dict, kCFUserNotificationTextFieldValuesKey, array);
     my_CFRelease(&array);
 
-    /* checkbox */
-    array = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-    CFArrayAppendValue(array, CFSTR("Only use this password once"));
-    CFDictionaryAddValue(dict, kCFUserNotificationCheckBoxTitlesKey, array);
-    my_CFRelease(&array);
     return (dict);
 
  failed:
@@ -221,12 +243,12 @@ make_notif_dict(CFStringRef message, CFStringRef user, CFStringRef password)
 UserPasswordDialogueRef
 UserPasswordDialogue_create(UserPasswordDialogueResponseCallBack func,
 			    const void * arg1, const void * arg2,
-			    CFStringRef message, 
-			    CFStringRef user, CFStringRef password,
-			    bool one_time_password)
+			    CFStringRef icon,
+			    CFStringRef title, CFStringRef message, 
+			    CFStringRef user, CFStringRef password)
 {
     CFUserNotificationRef 	notif = NULL;
-    UserPasswordDialogueRef			dialogue_p;
+    UserPasswordDialogueRef	dialogue_p;
     CFDictionaryRef		dict = NULL;
     SInt32			error = 0;
     CFOptionFlags		flags;
@@ -238,16 +260,11 @@ UserPasswordDialogue_create(UserPasswordDialogueResponseCallBack func,
 	return (NULL);
     }
     bzero(dialogue_p, sizeof(*dialogue_p));
-    dict = make_notif_dict(message, user,
-			   one_time_password ? NULL : password);
+    dict = make_notif_dict(icon, title, message, user, password);
     if (dict == NULL) {
 	goto failed;
     }
     flags = CFUserNotificationSecureTextField(1);
-    if (one_time_password) {
-	flags |= CFUserNotificationCheckBoxChecked(0);
-    }
-
     notif = CFUserNotificationCreate(NULL, 0, flags, &error, dict);
     if (notif == NULL) {
 	my_log(LOG_NOTICE, "CFUserNotificationCreate failed, %d",
@@ -441,7 +458,8 @@ static pthread_once_t initialized = PTHREAD_ONCE_INIT;
 TrustDialogueRef
 TrustDialogue_create(TrustDialogueResponseCallBack func,
 		     const void * arg1, const void * arg2,
-		     CFDictionaryRef trust_info, CFStringRef caller_label)
+		     CFDictionaryRef trust_info, CFStringRef icon,
+		     CFStringRef caller_label)
 {
     char * 			argv[2] = {EAPTLSTRUST_PATH, NULL};
     CFMutableDictionaryRef 	dict;
@@ -461,6 +479,10 @@ TrustDialogue_create(TrustDialogueResponseCallBack func,
 				     &kCFTypeDictionaryKeyCallBacks,
 				     &kCFTypeDictionaryValueCallBacks);
     CFDictionarySetValue(dict, CFSTR("TrustInformation"), trust_info);
+    if (icon == NULL) {
+	icon = CFSTR("Network");
+    }
+    CFDictionarySetValue(dict, CFSTR("Icon"), icon);
     if (caller_label != NULL) {
 	CFDictionarySetValue(dict, CFSTR("CallerLabel"), 
 			     caller_label);
@@ -553,14 +575,13 @@ my_callback(const void * arg1, const void * arg2, UserPasswordDialogueResponseRe
     if (response->user_cancelled) {
 	printf("User cancelled\n");
     }
-    if (response->one_time_password) {
-	printf("One-time password\n");
-    }
-    *dialogue_p_p = UserPasswordDialogue_create(my_callback, dialogue_p_p, NULL,
+    *dialogue_p_p = UserPasswordDialogue_create(my_callback, 
+						dialogue_p_p, NULL,
+						NULL,
+						CFSTR("Title"),
 						CFSTR("message is this"), 
 						CFSTR("dieter"), 
-						CFSTR("siegmund"),
-						response->one_time_password);
+						CFSTR("siegmund"));
     UserPasswordDialogue_free(&temp);
     return;
 }
@@ -576,12 +597,20 @@ main(int argc, char * argv[])
     UserPasswordDialogueRef * p3 = &dialogue_p3;
 
     dialogue_p = UserPasswordDialogue_create(my_callback, p, NULL,
-					     NULL, CFSTR("dieter"),
-					     CFSTR("siegmund"), FALSE);
-    dialogue_p2 = UserPasswordDialogue_create(my_callback, p2, NULL, NULL, 
-					      NULL, NULL, FALSE);
-    dialogue_p3 = UserPasswordDialogue_create(my_callback, p3, NULL, NULL, 
-					      NULL, NULL, FALSE);
+					     NULL,
+					     CFSTR("Title1"), CFSTR("message"),
+					     CFSTR("dieter"),
+					     CFSTR("siegmund"));
+    dialogue_p2 = UserPasswordDialogue_create(my_callback, p2, NULL,
+					      NULL,
+					      CFSTR("Title2"), CFSTR("message"),
+					      CFSTR("dieter"),
+					      CFSTR("siegmund"));
+    dialogue_p3 = UserPasswordDialogue_create(my_callback, p3, NULL,
+					      NULL,
+					      CFSTR("Title3"), CFSTR("message"),
+					      CFSTR("dieter"),
+					      CFSTR("siegmund"));
     CFRunLoopRun();
     exit(0);
     return (0);

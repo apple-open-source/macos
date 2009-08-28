@@ -144,10 +144,28 @@ bool pwsf_ConvertCFDateToBSDTime( CFDateRef inDateRef, struct tm *outBSDDate )
 	return true;
 }
 
+bool pwsf_ConvertCFDateToBSDTimeStructCopy( CFDateRef inDateRef, BSDTimeStructCopy *outBSDDate )
+{
+    struct tm bsdTimeStruct;
+
+    if ( !pwsf_ConvertCFDateToBSDTime( inDateRef, &bsdTimeStruct ) )
+        return false;
+
+    StructTM2BSDTimeStructCopy( &bsdTimeStruct, outBSDDate );
+    return true;
+}
+
+
 bool
 CPolicyBase::ConvertCFDateToBSDTime( CFDateRef inDateRef, struct tm *outBSDDate )
 {
 	return pwsf_ConvertCFDateToBSDTime( inDateRef, outBSDDate );
+}
+
+bool
+CPolicyBase::ConvertCFDateToBSDTime( CFDateRef inDateRef, BSDTimeStructCopy *outBSDDate )
+{
+	return pwsf_ConvertCFDateToBSDTimeStructCopy( inDateRef, outBSDDate );
 }
 
 
@@ -176,12 +194,29 @@ bool pwsf_ConvertBSDTimeToCFDate( struct tm *inBSDDate, CFDateRef *outDateRef )
 	return true;
 }
 
+bool pwsf_ConvertBSDTimeStructCopyToCFDate( BSDTimeStructCopy *inBSDDate, CFDateRef *outDateRef )
+{
+    struct tm bsdTimeStruct;
+    
+    if ( inBSDDate == NULL )
+        return false;
+    
+    BSDTimeStructCopy2StructTM( inBSDDate, &bsdTimeStruct );
+    return pwsf_ConvertBSDTimeToCFDate( &bsdTimeStruct, outDateRef );
+}
+
+
 bool
 CPolicyBase::ConvertBSDTimeToCFDate( struct tm *inBSDDate, CFDateRef *outDateRef )
 {
 	return pwsf_ConvertBSDTimeToCFDate( inBSDDate, outDateRef );
 }
 
+bool
+CPolicyBase::ConvertBSDTimeToCFDate( BSDTimeStructCopy *inBSDDate, CFDateRef *outDateRef )
+{
+	return pwsf_ConvertBSDTimeStructCopyToCFDate( inBSDDate, outDateRef );
+}
 
 // ----------------------------------------------------------------------------------------
 #pragma mark -

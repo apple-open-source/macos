@@ -1,0 +1,98 @@
+#$Id: mixinStrategy.xotcl,v 1.6 2006/09/27 08:12:40 neumann Exp $
+package provide xotcl::mixinStrategy 0.9
+
+package require XOTcl
+
+namespace eval ::xotcl::mixinStrategy {
+  namespace import ::xotcl::*
+
+  @ @File { description {
+    These methods provide support for managing "strategies",  i.e. 
+    mixin-classes, where only one kind of a family of conformant 
+    mixins should be registered.
+    <@p>
+    Naming convertions for strategies:
+    All strategies must follow the naming convention 'kind=implementation'. 
+    Examples are the persistency strategy 'eager' specfied as 
+    'persistent=eager' or the persistency strategy 'lazy' (specified as
+    'persistent=lazy')
+  }}
+
+  @ Object instproc mixinStrategy {strategy "Strategy to be added" } {
+    description {
+      This method adds or replaces a new strategy from the mixin
+      list. Strategies are named following the convention mentioned 
+      above.
+    }
+    return "old strategy"
+  }
+
+  Object instproc mixinStrategy {strategy} {
+    regexp {:?([^:=]+)=} $strategy _ kind
+    set mixins ""
+    set oldStrategy ""
+    foreach mixin [my info mixin] {
+      if {[string match *${kind}=* $mixin]} {
+	lappend mixins $strategy
+	set oldStrategy $mixin
+      } else {
+	lappend mixins $mixin
+      }
+    }
+    if {$oldStrategy eq ""} {
+      lappend mixins $strategy
+    }
+    my mixin $mixins
+    return $oldStrategy
+  }
+
+  @ Object instproc mixinQueryStrategy {kind "strategy kind"} {
+    description {
+      This method searches the mixin list for a mixin of this
+      kind (starting with $kind=)
+    }
+    return "returns the maching strategy"
+  }
+
+  Object instproc mixinQueryStrategy {kind} {
+    set m [my info mixin]
+    return [::lindex $m [::lsearch -glob $m $kind=*]]
+  }
+
+  @ Object instproc add {construct "(inst) 'filter' or 'mixin'" args "to be added"} {
+    description "add the specified (inst) 'filters' or 'mixins'"
+    return "empty"
+  }
+
+  Object instproc add {kind args} {
+    if {$kind != {instfilter} && $kind != {instmixin} &&
+	$kind != {filter} && $kind != {mixin}} {
+      error "Usage: <object> [self proc] <instfilter|instmixin|filter|mixin> ..."
+    }
+    ::set classes [my info $kind]
+    eval ::lappend classes $args
+    my $kind $classes
+    #puts stderr "$kind of [self] are now: ´[my info $kind]´"
+  }
+  @ Object instproc remove {construct "(inst) 'filter' or 'mixin'" args "to be removed"} {
+    description "remove the specified (inst) 'filters' or 'mixins'"
+    return "empty"
+  }
+  Object instproc remove {kind args} {
+    if {$kind != {instfilter} && $kind != {instmixin} &&
+	$kind != {filter} && $kind != {mixin}} {
+      error "Usage: <object> [self proc] <instfilter|instmixin|filter|mixin> ..."
+    }
+    ::set classes [my info $kind]
+    foreach c $args {
+      ::set pos [::lsearch $classes $c]
+      if {$pos == -1} { 
+	error "$kind ´$c´ could not be removed" 
+      } else {
+	set $classes [::lreplace $classes $pos $pos]
+      }
+    } 
+    my $kind $classes
+    # puts stderr "$kind of [self] are now: ´[my info $kind]´"
+  }
+}

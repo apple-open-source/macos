@@ -1,6 +1,6 @@
 /* -*- mode: C++; c-basic-offset: 4; tab-width: 4 -*- 
  *
- * Copyright (c) 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,9 +24,6 @@
 #include <stdio.h>
 
 
-#if ANCHOR
-	int anchor = 4;
-#endif
 
 namespace {
 	struct myanonstruct { int a; };

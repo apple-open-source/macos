@@ -33,6 +33,10 @@
 class IOUSBController;
 class IOUSBPipe;
 
+/*!
+ @class IOUSBNub
+ @abstract Super class for for IOUSBDevice and IOUSBInterface.
+ */
 class IOUSBNub : public IOService
 {
     OSDeclareDefaultStructors(IOUSBNub)
@@ -41,7 +45,6 @@ public:
 	
 	// IOKit method
 	virtual void					joinPMtree ( IOService * driver );
-	virtual const char *			stringFromReturn( IOReturn rtn );
 
     virtual bool					USBCompareProperty(OSDictionary   * matching, const char     * key );
     

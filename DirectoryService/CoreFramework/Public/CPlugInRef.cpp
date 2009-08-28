@@ -38,7 +38,7 @@ CPlugInRef::CPlugInRef ( DeallocateProc *inProcPtr ) : fMutex("CPluginRef::fMute
 {
 	fHashArrayLength = 128;
 	fRefNumCount = 0;
-	fLookupTable = (sDSTableEntry**)calloc(fHashArrayLength, sizeof(sDSTableEntry*));
+	fLookupTable = (sTableEntry**)calloc(fHashArrayLength, sizeof(sTableEntry*));
 
 	fDeallocProcPtr = inProcPtr;
 
@@ -49,7 +49,7 @@ CPlugInRef::CPlugInRef ( DeallocateProc *inProcPtr, UInt32 inHashArrayLength ) :
 {
 	fHashArrayLength = inHashArrayLength;
 	fRefNumCount = 0;
-	fLookupTable = (sDSTableEntry**)calloc(fHashArrayLength, sizeof(sDSTableEntry*));
+	fLookupTable = (sTableEntry**)calloc(fHashArrayLength, sizeof(sTableEntry*));
 
 	fDeallocProcPtr = inProcPtr;
 
@@ -73,13 +73,13 @@ SInt32 CPlugInRef::AddItem ( UInt32 inRefNum, void *inData )
 {
 	SInt32			siResult	= eDSNoErr;
 	UInt32			uiSlot		= 0;
-	sDSTableEntry	   *pNewEntry	= nil;
-	sDSTableEntry	   *pCurrEntry	= nil;
+	sTableEntry	   *pNewEntry	= nil;
+	sTableEntry	   *pCurrEntry	= nil;
 
 	fMutex.WaitLock();
 
 	// Create the new entry object
-	pNewEntry = (sDSTableEntry *)::calloc( 1, sizeof( sDSTableEntry ) );
+	pNewEntry = (sTableEntry *)::calloc( 1, sizeof( sTableEntry ) );
 	if ( pNewEntry != nil )
 	{
 		pNewEntry->fRefNum		= inRefNum;
@@ -146,7 +146,7 @@ void *CPlugInRef::GetItemData ( UInt32 inRefNum )
 {
 	void		   *pvResult	= nil;
 	UInt32			uiSlot		= 0;
-	sDSTableEntry	   *pEntry		= nil;
+	sTableEntry	   *pEntry		= nil;
 
 	fMutex.WaitLock();
 
@@ -187,8 +187,8 @@ SInt32 CPlugInRef::RemoveItem ( UInt32 inRefNum )
 {
 	SInt32			siResult	= eDSIndexNotFound;
 	UInt32			uiSlot		= 0;
-	sDSTableEntry	   *pCurrEntry	= nil;
-	sDSTableEntry	   *pPrevEntry	= nil;
+	sTableEntry	   *pCurrEntry	= nil;
+	sTableEntry	   *pPrevEntry	= nil;
 
 	fMutex.WaitLock();
 
@@ -250,7 +250,7 @@ SInt32 CPlugInRef::RemoveItem ( UInt32 inRefNum )
 void CPlugInRef:: DoOnAllItems ( OperationProc *inProcPtr )
 {
 	UInt32			uiSlot		= 0;
-	sDSTableEntry	   *pEntry		= nil;
+	sTableEntry	   *pEntry		= nil;
 
 	if (inProcPtr == nil)
 	{

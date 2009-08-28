@@ -31,7 +31,6 @@
 #include <sys/types.h>
 #include <sys/utsname.h>
 #include <sys/socket.h>
-#include <sys/ioctl.h>
 #include <sys/errno.h>
 
 #include <errno.h>
@@ -46,6 +45,7 @@
 #include <resolv.h>
 #include <string.h>
 #include <stdlib.h>
+#include <ifaddrs.h>
 
 #include "DSNetworkUtilities.h"
 #ifdef DSSERVERTCP
@@ -405,12 +405,8 @@ DSNetworkUtilities::StringToIPAddr(const char *inAddrStr, InetHost *ioIPAddr)
 int DSNetworkUtilities::InitializeTCP ( void )
 {
 	// interface structures
-	struct ifconf	ifc;
-	struct ifreq	ifrbuf[30];
-	register struct ifreq	*ifrptr;
 	register struct sockaddr_in *sain;
 	register int	sock = 0;
-	register int	i = 0;
 	register int	ipcount = 0;
 	int rc = 0;
 	int err = 0;
@@ -434,32 +430,17 @@ int DSNetworkUtilities::InitializeTCP ( void )
 			throw((SInt32)err);
 		}
 
-		ifc.ifc_buf = (caddr_t)ifrbuf;
-		ifc.ifc_len = sizeof(ifrbuf);
-		rc = ::ioctl(sock, SIOCGIFCONF, &ifc);
-		if ( rc == -1 )
+		struct ifaddrs *ifa_list = NULL, *ifa = NULL;
+		
+		rc = getifaddrs( &ifa_list );
+		if ( rc == 0 )
 		{
-			err = errno;
-#ifdef DSSERVERTCP
-			ErrLog( kLogTCPEndpoint, "ioctl:SIOCGIFCONF: %d.", err );
-#else
-			LOG1( kStdErr, "ioctl:SIOCGIFCONF: %d.", err );
-#endif
-			throw((SInt32)err);
-		}
-
-		// walk the interface and  address list, only interested in ethernet and AF_INET
-		ipcount = 0;
-		for ( ifrptr = (struct ifreq *)ifc.ifc_buf, i=0;
-				(char *) ifrptr < &ifc.ifc_buf[ifc.ifc_len] && i < kMaxIPAddrs;
-				ifrptr = IFR_NEXT(ifrptr), i++ )
-		{
-			if ( (*ifrptr->ifr_name != '\0') && (ifrptr->ifr_addr.sa_family == AF_INET) )
+			for ( ifa = ifa_list; ifa; ifa = ifa->ifa_next )
 			{
-				if ( *ifrptr->ifr_name == 'e' )
+				if ( *ifa->ifa_name == 'e' && ifa->ifa_addr->sa_family == AF_INET )
 				{
 					// ethernet interface
-					sain = (struct sockaddr_in *)&(ifrptr->ifr_addr);
+					sain = (struct sockaddr_in *)ifa->ifa_addr;
 					if (sIPInfo != nil)
 					{
 						aIPInfo = sIPInfo;
@@ -476,13 +457,25 @@ int DSNetworkUtilities::InitializeTCP ( void )
 						aIPInfo = sIPInfo;
 						
 					}
+					
 					aIPInfo->IPAddress = ntohl(sain->sin_addr.s_addr);
 					IPAddrToString(aIPInfo->IPAddress, aIPInfo->IPAddressString, MAXIPADDRSTRLEN);
 					ipcount ++;
 				}
 			}
+			
+			freeifaddrs(ifa_list);
 		}
-
+		else
+		{
+#ifdef DSSERVERTCP
+			ErrLog( kLogTCPEndpoint, "getifaddrs: %d.", err );
+#else
+			LOG1( kStdErr, "getifaddrs: %d.", err );
+#endif
+			throw((SInt32)err);
+		}
+		
 		close(sock);
 		sIPAddrCount = ipcount;
 		sTCPAvailable = true;

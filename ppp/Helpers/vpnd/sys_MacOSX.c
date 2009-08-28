@@ -90,7 +90,7 @@ void closeall()
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-u_long load_kext(char *kext)
+u_long load_kext(char *kext, int byBundleID)
 {
     int pid;
 
@@ -100,7 +100,10 @@ u_long load_kext(char *kext)
     if (pid == 0) {
         closeall();
         // PPP kernel extension not loaded, try load it...
-        execle("/sbin/kextload", "kextload", kext, (char *)0, (char *)0);
+		if (byBundleID)
+			execle("/sbin/kextload", "kextload", "-b", kext, (char *)0, (char *)0);
+		else
+			execle("/sbin/kextload", "kextload", kext, (char *)0, (char *)0);
         exit(1);
     }
 
@@ -123,7 +126,11 @@ int ppp_available()
     // if that works, the kernel extension is loaded.
     if ((s = socket(PF_PPP, SOCK_RAW, PPPPROTO_CTL)) < 0) {
     
-        if (!noload && !load_kext(PPP_NKE_PATH))
+#ifndef TARGET_EMBEDDED_OS
+        if (!noload && !load_kext(PPP_NKE_PATH, 0))
+#else
+        if (!noload && !load_kext(PPP_NKE_ID, 1))
+#endif
             s = socket(PF_PPP, SOCK_RAW, PPPPROTO_CTL);
             
         if (s < 0)

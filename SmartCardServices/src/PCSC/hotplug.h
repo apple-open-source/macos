@@ -57,7 +57,9 @@ extern "C"
 	LONG HPStopHotPluggables(void);
 	void HPReCheckSerialReaders(void);
 	int SendHotplugSignal(void);
-        
+	LONG HPCancelHotPluggables(void);
+	LONG HPJoinHotPluggables(void);
+
 	LONG HPRegisterForHotplugEventsT(pthread_t *wthread);
 
 	void systemAwakeAndReadyCheck();

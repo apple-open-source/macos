@@ -1,0 +1,2 @@
+>>> Defining bad property type
+<<< done.

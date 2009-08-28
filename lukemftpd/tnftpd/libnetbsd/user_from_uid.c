@@ -1,4 +1,4 @@
-/* $Id: user_from_uid.c,v 1.2 2003/12/15 12:18:43 lukem Exp $ */
+/* $NetBSD: user_from_uid.c,v 1.4 2008/09/21 16:35:25 lukem Exp $ */
 /* from NetBSD: pwcache.c,v 1.15 2000/09/13 22:32:28 msaitoh Exp */
 /* from	NetBSD: pwcache.h,v 1.2 2000/06/03 13:21:14 simonb Exp */
 
@@ -87,16 +87,16 @@ static GIDC **gidtb = NULL;	/* gid to name cache */
 static UIDC **usrtb = NULL;	/* user name to uid cache */
 static GIDC **grptb = NULL;	/* group name to gid cache */
 
-static u_int st_hash(const char *, size_t, int);
+static unsigned int st_hash(const char *, size_t, int);
 static int uidtb_start(void);
 static int gidtb_start(void);
 static int usrtb_start(void);
 static int grptb_start(void);
 
-static u_int
+static unsigned int
 st_hash(const char *name, size_t len, int tabsz)
 {
-	u_int key = 0;
+	unsigned int key = 0;
 
 	while (len--) {
 		key += *name++;

@@ -1,0 +1,18 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>numpy</string>
+        <key>OpenSourceVersion</key>
+        <string>1.2.1</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://numpy.scipy.org/</string>
+        <key>OpenSourceURL</key>
+        <string>http://superb-east.dl.sourceforge.net/sourceforge/numpy/numpy-1.2.1.tar.gz</string>
+	<key>OpenSourceMD5</key>
+	<string>1bc6dbddaf4b48ded8a619c6438fff37</string>
+        <key>OpenSourceImportDate</key>
+        <string>2009-02-01</string>
+        <key>OpenSourceLicense</key>
+        <string>NumPy Developers License</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>python_modules.txt</string>
+</dict>

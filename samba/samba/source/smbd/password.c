@@ -91,11 +91,15 @@ void invalidate_vuid(uint16 vuid)
 
 	if (vuser == NULL)
 		return;
-	
+
 	SAFE_FREE(vuser->homedir);
 	SAFE_FREE(vuser->unix_homedir);
 	SAFE_FREE(vuser->logon_script);
-	
+
+	if (vuser->auth_ntlmssp_state) {
+		auth_ntlmssp_end(&vuser->auth_ntlmssp_state);
+	}
+
 	session_yield(vuser);
 	SAFE_FREE(vuser->session_keystr);
 
@@ -111,6 +115,23 @@ void invalidate_vuid(uint16 vuid)
 
 	SAFE_FREE(vuser->groups);
 	TALLOC_FREE(vuser->nt_user_token);
+
+	SAFE_FREE(vuser);
+	num_validated_vuids--;
+}
+
+void invalidate_intermediate_vuid(uint16 vuid)
+{
+	user_struct *vuser = get_partial_auth_user_struct(vuid);
+
+	if (vuser == NULL)
+		return;
+
+	if (vuser->auth_ntlmssp_state) {
+		auth_ntlmssp_end(&vuser->auth_ntlmssp_state);
+	}
+
+	DLIST_REMOVE(validated_users, vuser);
 
 	SAFE_FREE(vuser);
 	num_validated_vuids--;
@@ -163,19 +184,22 @@ int register_vuid(auth_serversupplied_info *server_info,
 	/* Limit allowed vuids to 16bits - VUID_OFFSET. */
 	if (num_validated_vuids >= 0xFFFF-VUID_OFFSET) {
 		data_blob_free(&session_key);
+		TALLOC_FREE(server_info);
 		return UID_FIELD_INVALID;
 	}
 
 	if((vuser = SMB_MALLOC_P(user_struct)) == NULL) {
 		DEBUG(0,("Failed to malloc users struct!\n"));
 		data_blob_free(&session_key);
+		TALLOC_FREE(server_info);
 		return UID_FIELD_INVALID;
 	}
 
 	ZERO_STRUCTP(vuser);
 
 	/* Allocate a free vuid. Yes this is a linear search... :-) */
-	while( get_valid_user_struct(next_vuid) != NULL ) {
+	while( (get_valid_user_struct(next_vuid) != NULL)
+	       || (get_partial_auth_user_struct(next_vuid) != NULL) ) {
 		next_vuid++;
 		/* Check for vuid wrap. */
 		if (next_vuid == UID_FIELD_INVALID)
@@ -342,6 +366,17 @@ int register_vuid(auth_serversupplied_info *server_info,
 			vuser->homes_snum = servicenumber;
 		}
 	} 
+
+	/*
+	 * If the user is part of the admin group then the shae
+	 * list should include all local volumes.
+	 */
+	if (!vuser->guest &&
+	    lp_parm_bool(GLOBAL_SECTION_SNUM, "com.apple", "show admin all volumes", False) &&
+	    user_in_group(vuser->user.unix_name, "admin")) {
+		extern int apple_clone_local_volumes(const char *);
+		apple_clone_local_volumes(NULL);
+	}
 	
 	if (srv_is_signing_negotiated() && !vuser->guest &&
 	    !srv_signing_started()) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2008 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_APACHE_LICENSE_HEADER_START@
  * 
@@ -18,7 +18,7 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 
-static const char *const __rcs_file_version__ = "$Revision: 23748 $";
+static const char *const __rcs_file_version__ = "$Revision: 23929 $";
 
 #include "config.h"
 #include "launchd_runtime.h"
@@ -33,9 +33,11 @@ static const char *const __rcs_file_version__ = "$Revision: 23748 $";
 #include <mach/mach_interface.h>
 #include <mach/host_info.h>
 #include <mach/mach_host.h>
+#include <mach/mach_time.h>
 #include <mach/exception.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/sysctl.h>
 #include <sys/time.h>
 #include <sys/proc.h>
 #include <sys/event.h>
@@ -44,6 +46,7 @@ static const char *const __rcs_file_version__ = "$Revision: 23748 $";
 #include <sys/mount.h>
 #include <sys/reboot.h>
 #include <sys/fcntl.h>
+#include <sys/kdebug.h>
 #include <bsm/libbsm.h>
 #include <malloc/malloc.h>
 #include <unistd.h>
@@ -61,12 +64,14 @@ static const char *const __rcs_file_version__ = "$Revision: 23748 $";
 #include "launchd_internalServer.h"
 #include "launchd_internal.h"
 #include "notifyServer.h"
-#include "excServer.h"
+#include "mach_excServer.h"
 
 /* We shouldn't be including these */
 #include "launch.h"
 #include "launchd.h"
 #include "launchd_core_logic.h"
+#include "vproc.h"
+#include "vproc_priv.h"
 #include "vproc_internal.h"
 #include "protocol_job_reply.h"
 
@@ -81,13 +86,12 @@ static int bulk_kev_i;
 static int bulk_kev_cnt;
 
 static pthread_t kqueue_demand_thread;
-static pthread_t demand_thread;
 
-static void *mport_demand_loop(void *arg);
+static void mportset_callback(void);
+static kq_callback kqmportset_callback = (kq_callback)mportset_callback;
 static void *kqueue_demand_loop(void *arg);
-static void log_kevent_struct(int level, struct kevent *kev, int indx);
 
-static boolean_t launchd_internal_demux(mach_msg_header_t *Request, mach_msg_header_t *Reply);
+boolean_t launchd_internal_demux(mach_msg_header_t *Request, mach_msg_header_t *Reply);
 static void record_caller_creds(mach_msg_header_t *mh);
 static void launchd_runtime2(mach_msg_size_t msg_size, mig_reply_error_t *bufRequest, mig_reply_error_t *bufReply);
 static mach_msg_size_t max_msg_size;
@@ -95,8 +99,9 @@ static mig_callback *mig_cb_table;
 static size_t mig_cb_table_sz;
 static timeout_callback runtime_idle_callback;
 static mach_msg_timeout_t runtime_idle_timeout;
-static audit_token_t *au_tok;
+static struct ldcred ldc;
 static size_t runtime_busy_cnt;
+static size_t runtime_standby_cnt;
 
 
 static STAILQ_HEAD(, logmsg_s) logmsg_queue = STAILQ_HEAD_INITIALIZER(logmsg_queue);
@@ -105,17 +110,37 @@ static size_t logmsg_queue_cnt;
 static mach_port_t drain_reply_port;
 static void runtime_log_uncork_pending_drain(void);
 static kern_return_t runtime_log_pack(vm_offset_t *outval, mach_msg_type_number_t *outvalCnt);
-static void runtime_log_push(void);
 
 static bool logmsg_add(struct runtime_syslog_attr *attr, int err_num, const char *msg);
 static void logmsg_remove(struct logmsg_s *lm);
 
+static void do_file_init(void) __attribute__((constructor));
+static mach_timebase_info_data_t tbi;
+static uint64_t tbi_safe_math_max;
+static uint64_t time_of_mach_msg_return;
+static double tbi_float_val;
 
 static const int sigigns[] = { SIGHUP, SIGINT, SIGPIPE, SIGALRM, SIGTERM,
 	SIGURG, SIGTSTP, SIGTSTP, SIGCONT, SIGTTIN, SIGTTOU, SIGIO, SIGXCPU,
 	SIGXFSZ, SIGVTALRM, SIGPROF, SIGWINCH, SIGINFO, SIGUSR1, SIGUSR2
 };
 static sigset_t sigign_set;
+static FILE *ourlogfile;
+bool pid1_magic;
+bool do_apple_internal_logging;
+bool low_level_debug;
+bool g_force_old_kill_path = false;
+bool g_flat_mach_namespace = true;
+bool g_simulate_pid1_crash = false;
+bool g_use_gmalloc = false;
+bool g_log_per_user_shutdown = false;
+#if !TARGET_OS_EMBEDDED
+bool g_log_pid1_shutdown = true;
+#else
+bool g_log_pid1_shutdown = false;
+#endif
+bool g_log_strict_usage = false;
+pid_t g_wsp = 0;
 
 mach_port_t
 runtime_get_kernel_port(void)
@@ -123,16 +148,23 @@ runtime_get_kernel_port(void)
 	return launchd_internal_port;
 }
 
+// static const char *__crashreporter_info__ = "";
+
+static int internal_mask_pri = LOG_UPTO(LOG_NOTICE);
+
+
 void
 launchd_runtime_init(void)
 {
 	mach_msg_size_t mxmsgsz;
-	pthread_attr_t attr;
+	pid_t p = getpid();
 
 	launchd_assert((mainkq = kqueue()) != -1);
 
 	launchd_assert((errno = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_PORT_SET, &demand_port_set)) == KERN_SUCCESS);
 	launchd_assert((errno = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_PORT_SET, &ipc_port_set)) == KERN_SUCCESS);
+
+	launchd_assert(kevent_mod(demand_port_set, EVFILT_MACHPORT, EV_ADD, 0, 0, &kqmportset_callback) != -1);
 
 	launchd_assert(launchd_mport_create_recv(&launchd_internal_port) == KERN_SUCCESS);
 	launchd_assert(launchd_mport_make_send(launchd_internal_port) == KERN_SUCCESS);
@@ -144,18 +176,10 @@ launchd_runtime_init(void)
 	}
 
 	launchd_assert(runtime_add_mport(launchd_internal_port, launchd_internal_demux, mxmsgsz) == KERN_SUCCESS);
+	launchd_assert(pthread_create(&kqueue_demand_thread, NULL, kqueue_demand_loop, NULL) == 0);
+	launchd_assert(pthread_detach(kqueue_demand_thread) == 0);
 
-	pthread_attr_init(&attr);
-	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-	pthread_attr_setstacksize(&attr, PTHREAD_STACK_MIN);
-	launchd_assert(pthread_create(&kqueue_demand_thread, &attr, kqueue_demand_loop, NULL) == 0);
-	pthread_attr_destroy(&attr);
-
-	pthread_attr_init(&attr);
-	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-	pthread_attr_setstacksize(&attr, PTHREAD_STACK_MIN);
-	launchd_assert(pthread_create(&demand_thread, &attr, mport_demand_loop, NULL) == 0);
-	pthread_attr_destroy(&attr);
+	launchd_assumes(sysctlbyname("vfs.generic.noremotehang", NULL, NULL, &p, sizeof(p)) != -1);
 }
 
 void
@@ -167,25 +191,6 @@ launchd_runtime_init2(void)
 		sigaddset(&sigign_set, sigigns[i]);
 		launchd_assumes(signal(sigigns[i], SIG_IGN) != SIG_ERR);
 	}
-}
-
-void *
-mport_demand_loop(void *arg __attribute__((unused)))
-{
-	mach_msg_empty_rcv_t dummy;
-	kern_return_t kr;
-
-	for (;;) {
-		kr = mach_msg(&dummy.header, MACH_RCV_MSG|MACH_RCV_LARGE, 0, 0, demand_port_set, 0, MACH_PORT_NULL);
-		if (kr == MACH_RCV_PORT_CHANGED) {
-			break;
-		} else if (!launchd_assumes(kr == MACH_RCV_TOO_LARGE)) {
-			continue;
-		}
-		launchd_assumes(handle_mport(launchd_internal_port) == 0);
-	}
-
-	return NULL;
 }
 
 const char *
@@ -255,7 +260,7 @@ proc_flags_to_C_names(unsigned int flags)
 const char *
 reboot_flags_to_C_names(unsigned int flags)
 {
-#define MAX_RB_STR "RB_ASKNAME|RB_SINGLE|RB_NOSYNC|RB_KDB|RB_HALT|RB_INITNAME|RB_DFLTROOT|RB_ALTBOOT|RB_UNIPROC|RB_SAFEBOOT|RB_UPSDELAY|0xdeadbeeffeedface"
+#define MAX_RB_STR "RB_ASKNAME|RB_SINGLE|RB_NOSYNC|RB_HALT|RB_INITNAME|RB_DFLTROOT|RB_ALTBOOT|RB_UNIPROC|RB_SAFEBOOT|RB_UPSDELAY|0xdeadbeeffeedface"
 	static char flags_buf[sizeof(MAX_RB_STR)];
 	char *flags_off = NULL;
 
@@ -336,8 +341,9 @@ signal_to_C_name(unsigned int sig)
 }
 
 void
-log_kevent_struct(int level, struct kevent *kev, int indx)
+log_kevent_struct(int level, struct kevent *kev_base, int indx)
 {
+	struct kevent *kev = &kev_base[indx];
 	const char *filter_str;
 	char ident_buf[100];
 	char filter_buf[100];
@@ -347,6 +353,10 @@ log_kevent_struct(int level, struct kevent *kev, int indx)
 	char *fflags_off = NULL;
 	unsigned short flags = kev->flags;
 	unsigned int fflags = kev->fflags;
+
+	if (likely(!(LOG_MASK(level) & internal_mask_pri))) {
+		return;
+	}
 
 	if (flags) while (flags) {
 		if (flags_off) {
@@ -367,7 +377,7 @@ log_kevent_struct(int level, struct kevent *kev, int indx)
 		else FLAGIF(EV_ONESHOT)
 		else FLAGIF(EV_ERROR)
 		else {
-			flags_off += sprintf(flags_off, "0x%x", flags);
+			flags_off += sprintf(flags_off, "0x%hx", flags);
 			flags = 0;
 		}
 	}
@@ -494,7 +504,7 @@ log_kevent_struct(int level, struct kevent *kev, int indx)
 		}
 		break;
 	default:
-		snprintf(filter_buf, sizeof(filter_buf), "%d", kev->filter);
+		snprintf(filter_buf, sizeof(filter_buf), "%hd", kev->filter);
 		filter_str = filter_buf;
 		break;
 	}
@@ -503,8 +513,8 @@ log_kevent_struct(int level, struct kevent *kev, int indx)
 			indx, kev->udata, kev->data, ident_buf, filter_str, flags_buf, fflags_buf);
 }
 
-kern_return_t
-x_handle_mport(mach_port_t junk __attribute__((unused)))
+void
+mportset_callback(void)
 {
 	mach_port_name_array_t members;
 	mach_msg_type_number_t membersCnt;
@@ -514,7 +524,7 @@ x_handle_mport(mach_port_t junk __attribute__((unused)))
 	unsigned int i;
 
 	if (!launchd_assumes((errno = mach_port_get_set_status(mach_task_self(), demand_port_set, &members, &membersCnt)) == KERN_SUCCESS)) {
-		return 1;
+		return;
 	}
 
 	for (i = 0; i < membersCnt; i++) {
@@ -528,11 +538,11 @@ x_handle_mport(mach_port_t junk __attribute__((unused)))
 #if 0
 			if (launchd_assumes(kev.udata != NULL)) {
 #endif
-				log_kevent_struct(LOG_DEBUG, &kev, 0);
+				log_kevent_struct(LOG_DEBUG, &kev, i);
 				(*((kq_callback *)kev.udata))(kev.udata, &kev);
 #if 0
 			} else {
-				log_kevent_struct(LOG_ERR, &kev);
+				log_kevent_struct(LOG_ERR, &kev, i);
 			}
 #endif
 			/* the callback may have tainted our ability to continue this for loop */
@@ -542,8 +552,6 @@ x_handle_mport(mach_port_t junk __attribute__((unused)))
 
 	launchd_assumes(vm_deallocate(mach_task_self(), (vm_address_t)members,
 				(vm_size_t) membersCnt * sizeof(mach_port_name_t)) == KERN_SUCCESS);
-
-	return 0;
 }
 
 void *
@@ -574,41 +582,50 @@ kern_return_t
 x_handle_kqueue(mach_port_t junk __attribute__((unused)), integer_t fd)
 {
 	struct timespec ts = { 0, 0 };
-	struct kevent kev[BULK_KEV_MAX];
+	struct kevent *kevi, kev[BULK_KEV_MAX];
 	int i;
 
 	bulk_kev = kev;
 
-	launchd_assumes((bulk_kev_cnt = kevent(fd, NULL, 0, kev, BULK_KEV_MAX, &ts)) != -1);
-
-	if (bulk_kev_cnt > 0) {
-#if 0
-		Dl_info dli;
-
-		if (launchd_assumes(malloc_size(kev.udata) || dladdr(kev.udata, &dli))) {
-#endif
+	if (launchd_assumes((bulk_kev_cnt = kevent(fd, NULL, 0, kev, BULK_KEV_MAX, &ts)) != -1)) {
+	#if 0	
 		for (i = 0; i < bulk_kev_cnt; i++) {
-			log_kevent_struct(LOG_DEBUG, &kev[i], i);
+			log_kevent_struct(LOG_DEBUG, kev, i);
 		}
+	#endif
 		for (i = 0; i < bulk_kev_cnt; i++) {
 			bulk_kev_i = i;
-			if (kev[i].filter) {
-				(*((kq_callback *)kev[i].udata))(kev[i].udata, &kev[i]);
+			kevi = &kev[i];
+
+			if (kevi->filter) {
+				runtime_syslog(LOG_DEBUG, "Dispatching kevent...");
+				log_kevent_struct(LOG_DEBUG, kev, i);
+			#if 0
+				/* Check if kevi->udata was either malloc(3)ed or is a valid function pointer. 
+				 * If neither, it's probably an invalid pointer and we should log it. 
+				 */
+				Dl_info dli;
+				if (launchd_assumes(malloc_size(kevi->udata) || dladdr(kevi->udata, &dli))) {
+					runtime_ktrace(RTKT_LAUNCHD_BSD_KEVENT|DBG_FUNC_START, kevi->ident, kevi->filter, kevi->fflags);
+					(*((kq_callback *)kevi->udata))(kevi->udata, kevi);
+					runtime_ktrace0(RTKT_LAUNCHD_BSD_KEVENT|DBG_FUNC_END);
+				} else {
+					runtime_syslog(LOG_ERR, "The following kevent had invalid context data.");
+					log_kevent_struct(LOG_EMERG, kevi, i);
+				}
+			#else
+				runtime_ktrace(RTKT_LAUNCHD_BSD_KEVENT|DBG_FUNC_START, kevi->ident, kevi->filter, kevi->fflags);
+				(*((kq_callback *)kevi->udata))(kevi->udata, kevi);
+				runtime_ktrace0(RTKT_LAUNCHD_BSD_KEVENT|DBG_FUNC_END);
+			#endif
 			}
 		}
-#if 0
-		} else {
-			log_kevent_struct(LOG_ERR, &kev);
-		}
-#endif
 	}
 
 	bulk_kev = NULL;
 
 	return 0;
 }
-
-
 
 void
 launchd_runtime(void)
@@ -618,11 +635,11 @@ launchd_runtime(void)
 	int flags = VM_MAKE_TAG(VM_MEMORY_MACH_MSG)|TRUE;
 
 	for (;;) {
-		if (req) {
+		if (likely(req)) {
 			launchd_assumes(vm_deallocate(mach_task_self(), (vm_address_t)req, mz) == KERN_SUCCESS);
 			req = NULL;
 		}
-		if (resp) {
+		if (likely(resp)) {
 			launchd_assumes(vm_deallocate(mach_task_self(), (vm_address_t)resp, mz) == KERN_SUCCESS);
 			resp = NULL;
 		}
@@ -663,7 +680,7 @@ launchd_mport_notify_req(mach_port_t name, mach_msg_id_t which)
 	if (which == MACH_NOTIFY_NO_SENDERS) {
 		/* Always make sure the send count is zero, in case a receive right is reused */
 		errno = mach_port_set_mscount(mach_task_self(), name, 0);
-		if (errno != KERN_SUCCESS) {
+		if (unlikely(errno != KERN_SUCCESS)) {
 			return errno;
 		}
 	}
@@ -671,7 +688,7 @@ launchd_mport_notify_req(mach_port_t name, mach_msg_id_t which)
 	errno = mach_port_request_notification(mach_task_self(), name, which, msgc, where,
 			MACH_MSG_TYPE_MAKE_SEND_ONCE, &previous);
 
-	if (errno == 0 && previous != MACH_PORT_NULL) {
+	if (likely(errno == 0) && previous != MACH_PORT_NULL) {
 		launchd_assumes(launchd_mport_deallocate(previous) == KERN_SUCCESS);
 	}
 
@@ -707,6 +724,9 @@ runtime_fork(mach_port_t bsport)
 		launchd_assumes(sigprocmask(SIG_SETMASK, &oset, NULL) != -1);
 		launchd_assumes(launchd_set_bport(MACH_PORT_NULL) == KERN_SUCCESS);
 	} else {
+		pid_t p = -getpid();
+		launchd_assumes(sysctlbyname("vfs.generic.noremotehang", NULL, NULL, &p, sizeof(p)) != -1);
+
 		launchd_assumes(sigprocmask(SIG_SETMASK, &emptyset, NULL) != -1);
 	}
 
@@ -736,7 +756,7 @@ runtime_add_mport(mach_port_t name, mig_callback demux, mach_msg_size_t msg_size
 
 	msg_size = round_page(msg_size + MAX_TRAILER_SIZE);
 
-	if (needed_table_sz > mig_cb_table_sz) {
+	if (unlikely(needed_table_sz > mig_cb_table_sz)) {
 		needed_table_sz *= 2; /* Let's try and avoid realloc'ing for a while */
 		mig_callback *new_table = malloc(needed_table_sz);
 
@@ -744,7 +764,7 @@ runtime_add_mport(mach_port_t name, mig_callback demux, mach_msg_size_t msg_size
 			return KERN_RESOURCE_SHORTAGE;
 		}
 
-		if (mig_cb_table) {
+		if (likely(mig_cb_table)) {
 			memcpy(new_table, mig_cb_table, mig_cb_table_sz);
 			free(mig_cb_table);
 		}
@@ -774,6 +794,12 @@ kern_return_t
 launchd_mport_make_send(mach_port_t name)
 {
 	return errno = mach_port_insert_right(mach_task_self(), name, name, MACH_MSG_TYPE_MAKE_SEND);
+}
+
+kern_return_t
+launchd_mport_copy_send(mach_port_t name)
+{
+	return errno = mach_port_insert_right(mach_task_self(), name, name, MACH_MSG_TYPE_COPY_SEND);
 }
 
 kern_return_t
@@ -816,6 +842,12 @@ kevent_mod(uintptr_t ident, short filter, u_short flags, u_int fflags, intptr_t 
 	case EVFILT_READ:
 	case EVFILT_WRITE:
 		break;
+	case EVFILT_TIMER:
+		/* Workaround 5225889 */
+		if (flags & EV_ADD) {
+			kevent_mod(ident, EVFILT_TIMER, EV_DELETE, 0, 0, NULL);
+		}
+		/* fall through */
 	default:
 		flags |= EV_CLEAR;
 		break;
@@ -826,6 +858,15 @@ kevent_mod(uintptr_t ident, short filter, u_short flags, u_int fflags, intptr_t 
 	if (flags & EV_ADD && !launchd_assumes(udata != NULL)) {
 		errno = EINVAL;
 		return -1;
+	} else if( (flags & EV_DELETE) && bulk_kev ) {
+		int i = 0;
+		for( i = bulk_kev_i + 1; i < bulk_kev_cnt; i++ ) {
+			if( bulk_kev[i].filter == filter && bulk_kev[i].ident == ident ) {
+				runtime_syslog(LOG_DEBUG, "Pruning the following kevent:");
+				log_kevent_struct(LOG_DEBUG, &bulk_kev[i], i);
+				bulk_kev[i].filter = (short)0;
+			}
+		}
 	}
 
 	EV_SET(&kev, ident, filter, flags, fflags, data, udata);
@@ -856,13 +897,12 @@ launchd_internal_demux(mach_msg_header_t *Request, mach_msg_header_t *Reply)
 	} else if (notify_server_routine(Request)) {
 		return notify_server(Request, Reply);
 	} else {
-		return exc_server(Request, Reply);
+		return mach_exc_server(Request, Reply);
 	}
 }
 
 kern_return_t
-do_mach_notify_port_destroyed(mach_port_t notify __attribute__((unused)),
-	mach_port_t rights)
+do_mach_notify_port_destroyed(mach_port_t notify __attribute__((unused)), mach_port_t rights)
 {
 	/* This message is sent to us when a receive right is returned to us. */
 
@@ -874,8 +914,7 @@ do_mach_notify_port_destroyed(mach_port_t notify __attribute__((unused)),
 }
 
 kern_return_t
-do_mach_notify_port_deleted(mach_port_t notify __attribute__((unused)),
-	mach_port_name_t name __attribute__((unused)))
+do_mach_notify_port_deleted(mach_port_t notify __attribute__((unused)), mach_port_name_t name __attribute__((unused)))
 {
 	/* If we deallocate/destroy/mod_ref away a port with a pending
 	 * notification, the original notification message is replaced with
@@ -886,8 +925,7 @@ do_mach_notify_port_deleted(mach_port_t notify __attribute__((unused)),
 }
 
 kern_return_t
-do_mach_notify_no_senders(mach_port_t notify,
-	mach_port_mscount_t mscount __attribute__((unused)))
+do_mach_notify_no_senders(mach_port_t notify, mach_port_mscount_t mscount __attribute__((unused)))
 {
 	job_t j = job_mig_intran(notify);
 
@@ -907,17 +945,16 @@ do_mach_notify_no_senders(mach_port_t notify,
 kern_return_t
 do_mach_notify_send_once(mach_port_t notify __attribute__((unused)))
 {
-	/* This message is sent to us every time we close a port that we have
-	 * outstanding Mach notification requests on. We can safely ignore this
-	 * message.
+	/*
+	 * This message is sent for each send-once right that is deallocated
+	 * without being used.
 	 */
 
 	return KERN_SUCCESS;
 }
 
 kern_return_t
-do_mach_notify_dead_name(mach_port_t notify __attribute__((unused)),
-	mach_port_name_t name)
+do_mach_notify_dead_name(mach_port_t notify __attribute__((unused)), mach_port_name_t name)
 {
 	/* This message is sent to us when one of our send rights no longer has
 	 * a receiver somewhere else on the system.
@@ -951,26 +988,71 @@ record_caller_creds(mach_msg_header_t *mh)
 
 	trailer_size = tp->msgh_trailer_size - (mach_msg_size_t)(sizeof(mach_msg_trailer_type_t) - sizeof(mach_msg_trailer_size_t));
 
-	if (trailer_size < (mach_msg_size_t)sizeof(audit_token_t)) {
-		au_tok = NULL;
-		return;
+	if (launchd_assumes(trailer_size >= (mach_msg_size_t)sizeof(audit_token_t))) {
+		audit_token_to_au32(tp->msgh_audit, /* audit UID */ NULL, &ldc.euid,
+				&ldc.egid, &ldc.uid, &ldc.gid, &ldc.pid,
+				/* au_asid_t */ NULL, /* au_tid_t */ NULL);
 	}
 
-	au_tok = &tp->msgh_audit;
 }
 
-bool
-runtime_get_caller_creds(struct ldcred *ldc)
+struct ldcred *
+runtime_get_caller_creds(void)
 {
-	if (!au_tok) {
-		return false;
-	}
+	return &ldc;
+}
 
-	audit_token_to_au32(*au_tok, /* audit UID */ NULL, &ldc->euid,
-			&ldc->egid, &ldc->uid, &ldc->gid, &ldc->pid,
-			&ldc->asid, /* au_tid_t */ NULL);
-
-	return true;
+mach_msg_return_t
+launchd_exc_runtime_once(mach_port_t port, mach_msg_size_t rcv_msg_size, mach_msg_size_t send_msg_size, mig_reply_error_t *bufRequest, mig_reply_error_t *bufReply, mach_msg_timeout_t to)
+{
+	mach_msg_return_t mr = ~MACH_MSG_SUCCESS;
+	mach_msg_option_t rcv_options =	MACH_RCV_MSG										|
+									MACH_RCV_TIMEOUT									|
+									MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_AUDIT)	|
+									MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0)	;
+				
+	do {
+		mr = mach_msg(&bufRequest->Head, rcv_options, 0, rcv_msg_size, port, to, MACH_PORT_NULL);
+		switch( mr ) {
+			case MACH_RCV_TIMED_OUT	:
+				runtime_syslog(LOG_DEBUG, "Message queue is empty.");
+				break;
+			case MACH_RCV_TOO_LARGE	:
+				runtime_syslog(LOG_INFO, "Message is larger than %u bytes.", rcv_msg_size);
+				break;
+			default					:
+				launchd_assumes(mr == MACH_MSG_SUCCESS);
+		}
+		
+		if( mr == MACH_MSG_SUCCESS ) {
+			if( !launchd_assumes(mach_exc_server(&bufRequest->Head, &bufReply->Head) == TRUE) ) {
+				runtime_syslog(LOG_WARNING, "Exception server routine failed.");
+				break;
+			}
+			
+			mach_msg_return_t smr = ~MACH_MSG_SUCCESS;
+			mach_msg_option_t send_options =	MACH_SEND_MSG		|
+												MACH_SEND_TIMEOUT	;
+			
+			launchd_assumes(bufReply->Head.msgh_size <= send_msg_size);
+			smr = mach_msg(&bufReply->Head, send_options, bufReply->Head.msgh_size, 0, MACH_PORT_NULL, to + 100, MACH_PORT_NULL);
+			switch( smr ) {
+				case MACH_SEND_TIMED_OUT	:
+					runtime_syslog(LOG_WARNING, "Timed out while trying to send reply to exception message.");
+					break;
+				case MACH_SEND_INVALID_DEST	:
+					runtime_syslog(LOG_WARNING, "Tried sending a message to a port that we don't possess a send right to.");
+					break;
+				default						:
+					if( !launchd_assumes(smr == MACH_MSG_SUCCESS) ) {
+						runtime_syslog(LOG_WARNING, "Couldn't deliver exception reply: 0x%x", smr);
+					}
+					break;
+			}
+		}
+	} while( 0 );
+	
+	return mr;
 }
 
 void
@@ -981,6 +1063,7 @@ launchd_runtime2(mach_msg_size_t msg_size, mig_reply_error_t *bufRequest, mig_re
 	mig_callback the_demux;
 	mach_msg_timeout_t to;
 	mach_msg_return_t mr;
+	size_t busy_cnt;
 
 	options = MACH_RCV_MSG|MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_AUDIT) |
 		MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0);
@@ -988,10 +1071,11 @@ launchd_runtime2(mach_msg_size_t msg_size, mig_reply_error_t *bufRequest, mig_re
 	tmp_options = options;
 
 	for (;;) {
+		busy_cnt = runtime_busy_cnt + runtime_standby_cnt;
 		to = MACH_MSG_TIMEOUT_NONE;
 
-		if (msg_size != max_msg_size) {
-			/* The buffer isn't big enougth to receive messages anymore... */
+		if (unlikely(msg_size != max_msg_size)) {
+			/* The buffer isn't big enough to receive messages anymore... */
 			tmp_options &= ~MACH_RCV_MSG;
 			options &= ~MACH_RCV_MSG;
 			if (!(tmp_options & MACH_SEND_MSG)) {
@@ -999,11 +1083,15 @@ launchd_runtime2(mach_msg_size_t msg_size, mig_reply_error_t *bufRequest, mig_re
 			}
 		}
 
-		if ((tmp_options & MACH_RCV_MSG) && (runtime_idle_callback || (runtime_busy_cnt == 0))) {
+		if ((tmp_options & MACH_RCV_MSG) && (runtime_idle_callback || (busy_cnt == 0))) {
 			tmp_options |= MACH_RCV_TIMEOUT;
 
 			if (!(tmp_options & MACH_SEND_TIMEOUT)) {
-				to = runtime_busy_cnt ? runtime_idle_timeout : (RUNTIME_ADVISABLE_IDLE_TIMEOUT * 1000);
+			#if !TARGET_OS_EMBEDDED
+				to = busy_cnt ? runtime_idle_timeout : (_vproc_standby_timeout() * 1000);
+			#else
+				to = runtime_idle_timeout;
+			#endif
 			}
 		}
 
@@ -1012,24 +1100,33 @@ launchd_runtime2(mach_msg_size_t msg_size, mig_reply_error_t *bufRequest, mig_re
 		mr = mach_msg(&bufReply->Head, tmp_options, bufReply->Head.msgh_size,
 				msg_size, ipc_port_set, to, MACH_PORT_NULL);
 
+		time_of_mach_msg_return = runtime_get_opaque_time();
+
 		tmp_options = options;
 
-		if (mr == MACH_SEND_INVALID_DEST || mr == MACH_SEND_TIMED_OUT) {
+		/* It looks like the compiler doesn't optimize switch(unlikely(...)) See: 5691066 */
+		if (unlikely(mr)) switch (mr) {
+		case MACH_SEND_INVALID_DEST:
+		case MACH_SEND_TIMED_OUT:
 			/* We need to clean up and start over. */
 			if (bufReply->Head.msgh_bits & MACH_MSGH_BITS_COMPLEX) {
 				mach_msg_destroy(&bufReply->Head);
 			}
 			continue;
-		} else if (mr == MACH_RCV_TIMED_OUT) {
+		case MACH_RCV_TIMED_OUT:
 			if (to != MACH_MSG_TIMEOUT_NONE) {
-				if (runtime_busy_cnt == 0) {
+				if (busy_cnt == 0) {
+					runtime_syslog(LOG_INFO, "Idle exiting.");
 					launchd_shutdown();
 				} else if (runtime_idle_callback) {
 					runtime_idle_callback();
 				}
 			}
 			continue;
-		} else if (!launchd_assumes(mr == MACH_MSG_SUCCESS)) {
+		default:
+			if( !launchd_assumes(mr == MACH_MSG_SUCCESS) ) {
+				runtime_syslog(LOG_ERR, "mach_msg(): %u: %s", mr, mach_error_string(mr));
+			}
 			continue;
 		}
 
@@ -1037,54 +1134,54 @@ launchd_runtime2(mach_msg_size_t msg_size, mig_reply_error_t *bufRequest, mig_re
 		bufRequest = bufReply;
 		bufReply = bufTemp;
 
-		if (!(tmp_options & MACH_RCV_MSG)) {
+		if (unlikely(!(tmp_options & MACH_RCV_MSG))) {
 			continue;
 		}
 
 		/* we have another request message */
-
+#if 0
 		if (!launchd_assumes(mig_cb_table != NULL)) {
 			break;
 		}
+#endif
 
 		the_demux = mig_cb_table[MACH_PORT_INDEX(bufRequest->Head.msgh_local_port)];
 
+#if 0
 		if (!launchd_assumes(the_demux != NULL)) {
 			break;
 		}
+#endif
 
 		record_caller_creds(&bufRequest->Head);
-
-		/*
-		 * This is a total hack. We really need a bit in the kernel's proc
-		 * struct to declare our intent.
-		 */
-		static int no_hang_fd = -1;
-		if (no_hang_fd == -1) {
-			no_hang_fd = _fd(open("/dev/autofs_nowait", 0));
-		}
+		runtime_ktrace(RTKT_LAUNCHD_MACH_IPC|DBG_FUNC_START, bufRequest->Head.msgh_local_port, bufRequest->Head.msgh_id, (long)the_demux);
 
 		if (the_demux(&bufRequest->Head, &bufReply->Head) == FALSE) {
 			/* XXX - also gross */
-			if (bufRequest->Head.msgh_id == MACH_NOTIFY_NO_SENDERS) {
+			if (likely(bufRequest->Head.msgh_id == MACH_NOTIFY_NO_SENDERS)) {
 				notify_server(&bufRequest->Head, &bufReply->Head);
 			}
 		}
 
+		runtime_ktrace(RTKT_LAUNCHD_MACH_IPC|DBG_FUNC_END, bufReply->Head.msgh_remote_port, bufReply->Head.msgh_bits, bufReply->RetCode);
+
+		/* bufReply is a union. If MACH_MSGH_BITS_COMPLEX is set, then bufReply->RetCode is assumed to be zero. */
 		if (!(bufReply->Head.msgh_bits & MACH_MSGH_BITS_COMPLEX)) {
-			if (bufReply->RetCode == MIG_NO_REPLY) {
-				bufReply->Head.msgh_remote_port = MACH_PORT_NULL;
-			} else if ((bufReply->RetCode != KERN_SUCCESS) && (bufRequest->Head.msgh_bits & MACH_MSGH_BITS_COMPLEX)) {
-				/* destroy the request - but not the reply port */
-				bufRequest->Head.msgh_remote_port = MACH_PORT_NULL;
-				mach_msg_destroy(&bufRequest->Head);
+			if (unlikely(bufReply->RetCode != KERN_SUCCESS)) {
+				if (likely(bufReply->RetCode == MIG_NO_REPLY)) {
+					bufReply->Head.msgh_remote_port = MACH_PORT_NULL;
+				} else if (bufRequest->Head.msgh_bits & MACH_MSGH_BITS_COMPLEX) {
+					/* destroy the request - but not the reply port */
+					bufRequest->Head.msgh_remote_port = MACH_PORT_NULL;
+					mach_msg_destroy(&bufRequest->Head);
+				}
 			}
 		}
 
-		if (bufReply->Head.msgh_remote_port != MACH_PORT_NULL) {
+		if (likely(bufReply->Head.msgh_remote_port != MACH_PORT_NULL)) {
 			tmp_options |= MACH_SEND_MSG;
 
-			if (MACH_MSGH_BITS_REMOTE(bufReply->Head.msgh_bits) != MACH_MSG_TYPE_MOVE_SEND_ONCE) {
+			if (unlikely(MACH_MSGH_BITS_REMOTE(bufReply->Head.msgh_bits) != MACH_MSG_TYPE_MOVE_SEND_ONCE)) {
 				tmp_options |= MACH_SEND_TIMEOUT;
 			}
 		}
@@ -1101,7 +1198,7 @@ runtime_close(int fd)
 		case EVFILT_VNODE:
 		case EVFILT_WRITE:
 		case EVFILT_READ:
-			if ((int)bulk_kev[i].ident == fd) {
+			if (unlikely((int)bulk_kev[i].ident == fd)) {
 				runtime_syslog(LOG_DEBUG, "Skipping kevent index: %d", i);
 				bulk_kev[i].filter = 0;
 			}
@@ -1113,11 +1210,11 @@ runtime_close(int fd)
 	return close(fd);
 }
 
-static FILE *ourlogfile;
-
 void
 runtime_closelog(void)
 {
+	runtime_log_push();
+
 	if (ourlogfile) {
 		launchd_assumes(fflush(ourlogfile) == 0);
 		launchd_assumes(runtime_fsync(fileno(ourlogfile)) != -1);
@@ -1127,15 +1224,16 @@ runtime_closelog(void)
 int
 runtime_fsync(int fd)
 {
-	if (debug_shutdown_hangs) {
+#if 0
+	if (do_apple_internal_logging) {
 		return fcntl(fd, F_FULLFSYNC, NULL);
 	} else {
 		return fsync(fd);
 	}
+#else
+	return fsync(fd);
+#endif
 }
-
-static int internal_mask_pri = LOG_UPTO(LOG_NOTICE);
-//static int internal_mask_pri = LOG_UPTO(LOG_DEBUG);
 
 int
 runtime_setlogmask(int maskpri)
@@ -1149,14 +1247,17 @@ void
 runtime_syslog(int pri, const char *message, ...)
 {
 	struct runtime_syslog_attr attr = {
-		"com.apple.launchd", "com.apple.launchd",
-		getpid() == 1 ? "System" : "Background",
-		pri, getuid(), getpid(), getpid()
+		g_my_label, 
+		g_my_label,
+		pid1_magic ? "System" : "Background",
+		pri, 
+		getuid(), 
+		getpid(), 
+		getpid()
 	};
 	va_list ap;
 
 	va_start(ap, message);
-
 	runtime_vsyslog(&attr, message, ap);
 
 	va_end(ap);
@@ -1165,96 +1266,36 @@ runtime_syslog(int pri, const char *message, ...)
 void
 runtime_vsyslog(struct runtime_syslog_attr *attr, const char *message, va_list args)
 {
-	static pthread_mutex_t ourlock = PTHREAD_MUTEX_INITIALIZER;
-	static struct timeval shutdown_start;
-	static struct timeval prev_msg;
-	static int apple_internal_logging = 1;
-	struct timeval tvnow, tvd_total, tvd_msg_delta = { 0, 0 };
-	struct stat sb;
 	int saved_errno = errno;
 	char newmsg[10000];
-	size_t i, j;
+	bool echo_to_console= false;
+
+	if (attr->priority == LOG_APPLEONLY) {
+		if (do_apple_internal_logging) {
+			attr->priority = LOG_NOTICE;
+		} else {
+			return;
+		}
+	} else if( attr->priority == LOG_SCOLDING ) {
+		attr->priority = g_log_strict_usage ? LOG_NOTICE : LOG_DEBUG;
+	}
+
+	if( attr->priority & LOG_CONSOLE ) {
+		echo_to_console = true;
+		attr->priority &= ~LOG_CONSOLE;
+	}
 
 	if (!(LOG_MASK(attr->priority) & internal_mask_pri)) {
-		goto out;
+		return;
 	}
 
-	if (apple_internal_logging == 1) {
-		apple_internal_logging = stat("/AppleInternal", &sb);
+	vsnprintf(newmsg, sizeof(newmsg), message, args);
+
+	if( g_console && (unlikely(low_level_debug) || echo_to_console) ) {
+		fprintf(g_console, "%s %u\t%s %u\t%s\n", attr->from_name, attr->from_pid, attr->about_name, attr->about_pid, newmsg);
 	}
 
-
-	if (!(debug_shutdown_hangs && getpid() == 1)) {
-		if (attr->priority == LOG_APPLEONLY) {
-			if (apple_internal_logging == -1) {
-				goto out;
-			}
-			attr->priority = LOG_NOTICE;
-		}
-		vsnprintf(newmsg, sizeof(newmsg), message, args);
-		logmsg_add(attr, saved_errno, newmsg);
-		goto out;
-	}
-
-	if (shutdown_start.tv_sec == 0) {
-		gettimeofday(&shutdown_start, NULL);
-	}
-
-	if (gettimeofday(&tvnow, NULL) == -1) {
-		tvnow.tv_sec = 0;
-		tvnow.tv_usec = 0;
-	}
-
-	pthread_mutex_lock(&ourlock);
-
-	if (ourlogfile == NULL) {
-		rename("/var/log/launchd-shutdown.log", "/var/log/launchd-shutdown.log.1");
-		ourlogfile = fopen("/var/log/launchd-shutdown.log", "a");
-	}
-
-	pthread_mutex_unlock(&ourlock);
-
-	if (ourlogfile == NULL) {
-		goto out;
-	}
-
-	if (message == NULL) {
-		goto out;
-	}
-
-	timersub(&tvnow, &shutdown_start, &tvd_total);
-
-	if (prev_msg.tv_sec != 0) {
-		timersub(&tvnow, &prev_msg, &tvd_msg_delta);
-	}
-
-	prev_msg = tvnow;
-
-	snprintf(newmsg, sizeof(newmsg), "%3ld.%06d%4ld.%06d%6u %-40s%6u %-40s ",
-			tvd_total.tv_sec, tvd_total.tv_usec,
-			tvd_msg_delta.tv_sec, tvd_msg_delta.tv_usec,
-			attr->from_pid, attr->from_name,
-			attr->about_pid, attr->about_name);
-
-	for (i = 0, j = strlen(newmsg); message[i];) {
-		if (message[i] == '%' && message[i + 1] == 'm') {
-			char *errs = strerror(saved_errno);
-			strcpy(newmsg + j, errs ? errs : "unknown error");
-			j += strlen(newmsg + j);
-			i += 2;
-		} else {
-			newmsg[j] = message[i];
-			j++;
-			i++;
-		}
-	}
-
-	strcpy(newmsg + j, "\n");
-
-	vfprintf(ourlogfile, newmsg, args);
-
-out:
-	runtime_log_uncork_pending_drain();
+	logmsg_add(attr, saved_errno, newmsg);
 }
 
 bool
@@ -1269,13 +1310,13 @@ logmsg_add(struct runtime_syslog_attr *attr, int err_num, const char *msg)
 	/* we do this to make the unpacking for the log_drain cause unalignment faults */
 	lm_sz = ROUND_TO_64BIT_WORD_SIZE(lm_sz);
 
-	if (!(lm = calloc(1, lm_sz))) {
+	if (unlikely((lm = calloc(1, lm_sz)) == NULL)) {
 		return false;
 	}
 
 	data_off = lm->data;
 
-	launchd_assumes(gettimeofday(&lm->when, NULL) != -1);
+	lm->when = runtime_get_wall_time();
 	lm->from_pid = attr->from_pid;
 	lm->about_pid = attr->about_pid;
 	lm->err_num = err_num;
@@ -1317,23 +1358,49 @@ runtime_log_pack(vm_offset_t *outval, mach_msg_type_number_t *outvalCnt)
 
 	mig_allocate(outval, *outvalCnt);
 
-	if (*outval == 0) {
+	if (unlikely(*outval == 0)) {
 		return 1;
 	}
 
 	offset = (void *)*outval;
 
+	if( g_log_per_user_shutdown && !ourlogfile && !pid1_magic && shutdown_in_progress ) {
+		char logfile[NAME_MAX];
+		snprintf(logfile, sizeof(logfile), "/var/tmp/launchd-%s.shutdown.log", g_username);
+		
+		char logfile1[NAME_MAX];
+		snprintf(logfile1, sizeof(logfile1), "/var/tmp/launchd-%s.shutdown.log.1", g_username);
+		
+		rename(logfile, logfile1);
+		ourlogfile = fopen(logfile, "a");
+	}
+
+	static int64_t shutdown_start = 0;
+	if( shutdown_start == 0 ) {
+		shutdown_start = runtime_get_wall_time();
+	}
+
 	while ((lm = STAILQ_FIRST(&logmsg_queue))) {
-		lm->from_name -= (size_t)lm;
-		lm->about_name -= (size_t)lm;
-		lm->msg -= (size_t)lm;
-		lm->session_name -= (size_t)lm;
+		int64_t log_delta = lm->when - shutdown_start;
+		if( !pid1_magic && ourlogfile ) {
+			fprintf(ourlogfile, "%8lld%6u %-40s%6u %-40s %s\n", log_delta,
+					lm->from_pid, lm->from_name, lm->about_pid, lm->about_name, lm->msg);
+		}
+
+		lm->from_name_offset = lm->from_name - (char *)lm;
+		lm->about_name_offset = lm->about_name - (char *)lm;
+		lm->msg_offset = lm->msg - (char *)lm;
+		lm->session_name_offset = lm->session_name - (char *)lm;
 
 		memcpy(offset, lm, lm->obj_sz);
 		
 		offset += lm->obj_sz;
 
 		logmsg_remove(lm);
+	}
+	
+	if( ourlogfile ) {
+		fflush(ourlogfile);
 	}
 
 	return 0;
@@ -1361,7 +1428,7 @@ runtime_log_uncork_pending_drain(void)
 	tmp_port = drain_reply_port;
 	drain_reply_port = MACH_PORT_NULL;
 
-	if ((errno = job_mig_log_drain_reply(tmp_port, 0, outval, outvalCnt))) {
+	if (unlikely(errno = job_mig_log_drain_reply(tmp_port, 0, outval, outvalCnt))) {
 		launchd_assumes(errno == MACH_SEND_INVALID_DEST);
 		launchd_assumes(launchd_mport_deallocate(tmp_port) == KERN_SUCCESS);
 	}
@@ -1372,23 +1439,56 @@ runtime_log_uncork_pending_drain(void)
 void
 runtime_log_push(void)
 {
+	static pthread_mutex_t ourlock = PTHREAD_MUTEX_INITIALIZER;
+	static int64_t shutdown_start, log_delta;
 	mach_msg_type_number_t outvalCnt;
+	struct logmsg_s *lm;
 	vm_offset_t outval;
 
 	if (logmsg_queue_cnt == 0) {
 		launchd_assumes(STAILQ_EMPTY(&logmsg_queue));
 		return;
-	} else if (getpid() == 1) {
+	} else if (!pid1_magic) {
+		if (runtime_log_pack(&outval, &outvalCnt) == 0) {
+			launchd_assumes(_vprocmgr_log_forward(inherited_bootstrap_port, (void *)outval, outvalCnt) == NULL);
+			mig_deallocate(outval, outvalCnt);
+		}
 		return;
 	}
 
-	if (runtime_log_pack(&outval, &outvalCnt) != 0) {
+	if (likely(!shutdown_in_progress && !fake_shutdown_in_progress)) {
+		runtime_log_uncork_pending_drain();
 		return;
 	}
 
-	launchd_assumes(_vprocmgr_log_forward(inherited_bootstrap_port, (void *)outval, outvalCnt) == NULL);
+	if (unlikely(shutdown_start == 0)) {
+		shutdown_start = runtime_get_wall_time();
+		launchd_log_vm_stats();
+	}
 
-	mig_deallocate(outval, outvalCnt);
+	pthread_mutex_lock(&ourlock);
+
+	if( unlikely(ourlogfile == NULL) && g_log_pid1_shutdown ) {
+		rename("/var/log/launchd-shutdown.log", "/var/log/launchd-shutdown.log.1");
+		ourlogfile = fopen("/var/log/launchd-shutdown.log", "a");
+	}
+
+	pthread_mutex_unlock(&ourlock);
+
+	if (unlikely(!ourlogfile)) {
+		return;
+	}
+
+	while ((lm = STAILQ_FIRST(&logmsg_queue))) {
+		log_delta = lm->when - shutdown_start;
+
+		fprintf(ourlogfile, "%8lld%6u %-40s%6u %-40s %s\n", log_delta,
+				lm->from_pid, lm->from_name, lm->about_pid, lm->about_name, lm->msg);
+
+		logmsg_remove(lm);
+	}
+	
+	fflush(ourlogfile);
 }
 
 kern_return_t
@@ -1402,8 +1502,28 @@ runtime_log_forward(uid_t forward_uid, gid_t forward_gid, vm_offset_t inval, mac
 	}
 
 	for (lm_walk = (struct logmsg_s *)inval; (data_left > 0) && (lm_walk->obj_sz <= data_left); lm_walk = ((void *)lm_walk + lm_walk->obj_sz)) {
+		/* malloc() does not return NULL if you ask it for an allocation of size 0.
+		 * It will return a valid pointer that can be passed to free(). If we don't
+		 * do this check, we'll wind up corrupting our heap in the subsequent 
+		 * assignments.
+		 *
+		 * We break out if this check fails because, obj_sz is supposed to include
+		 * the size of the logmsg_s struct. If it claims to be of zero size, we
+		 * can't safely increment our counter because something obviously got screwed
+		 * up along the way, since this should always be at least sizeof(struct logmsg_s).
+		 */
+		if( !launchd_assumes(lm_walk->obj_sz > 0) ) {
+			runtime_syslog(LOG_WARNING, "Encountered a log message of size 0 with %u bytes left in forwarded data. Ignoring remaining messages.", data_left);
+			break;
+		}
+		
+		/* If malloc() keeps failing, we shouldn't put additional pressure on the system
+		 * by attempting to add more messages to the log until it returns success
+		 * log a failure, hope pressure lets off, and move on.
+		 */
 		if (!launchd_assumes(lm = malloc(lm_walk->obj_sz))) {
-			continue;
+			runtime_syslog(LOG_WARNING, "Failed to allocate %llu bytes for log message with %u bytes left in forwarded data. Ignoring remaining messages.", lm_walk->obj_sz, data_left);
+			break;
 		}
 
 		memcpy(lm, lm_walk, lm_walk->obj_sz);
@@ -1430,10 +1550,9 @@ runtime_log_forward(uid_t forward_uid, gid_t forward_gid, vm_offset_t inval, mac
 kern_return_t
 runtime_log_drain(mach_port_t srp, vm_offset_t *outval, mach_msg_type_number_t *outvalCnt)
 {
-	if (logmsg_queue_cnt == 0) {
-		launchd_assumes(STAILQ_EMPTY(&logmsg_queue));
-		launchd_assumes(drain_reply_port == 0);
+	launchd_assumes(drain_reply_port == 0);
 
+	if ((logmsg_queue_cnt == 0) || shutdown_in_progress || fake_shutdown_in_progress) {
 		drain_reply_port = srp;
 		launchd_assumes(launchd_mport_notify_req(drain_reply_port, MACH_NOTIFY_DEAD_NAME) == KERN_SUCCESS);
 
@@ -1455,64 +1574,276 @@ runtime_log_drain(mach_port_t srp, vm_offset_t *outval, mach_msg_type_number_t *
 void
 runtime_add_ref(void)
 {
+	if (!pid1_magic) {
+	#if !TARGET_OS_EMBEDDED
+		_vproc_transaction_begin();
+	#endif
+	}
 	runtime_busy_cnt++;
 }
 
 void
 runtime_del_ref(void)
 {
+	if (!pid1_magic) {
+	#if !TARGET_OS_EMBEDDED
+		if( _vproc_transaction_count() == 0 ) {
+			runtime_syslog(LOG_INFO, "Exiting cleanly.");
+		}
+		
+		runtime_closelog();
+		_vproc_transaction_end();
+	#endif
+	}
 	runtime_busy_cnt--;
 }
 
-kern_return_t
-catch_exception_raise(mach_port_t exception_port __attribute__((unused)),
-	mach_port_t thread, mach_port_t task,
-	exception_type_t exception, exception_data_t code,
-	mach_msg_type_number_t codeCnt)
+void
+runtime_add_weak_ref(void)
 {
-	runtime_syslog(LOG_NOTICE, "%s(): thread: 0x%x task: 0x%x type: 0x%x code: %p codeCnt: 0x%x",
-			__func__, thread, task, exception, code, codeCnt);
+	if (!pid1_magic) {
+	#if !TARGET_OS_EMBEDDED
+		_vproc_standby_begin();
+	#endif
+	}
+	runtime_standby_cnt++;
+}
 
-	launchd_assumes(launchd_mport_deallocate(thread) == KERN_SUCCESS);
-	launchd_assumes(launchd_mport_deallocate(task) == KERN_SUCCESS);
-
-	return 0;
+void
+runtime_del_weak_ref(void)
+{
+	if (!pid1_magic) {
+	#if !TARGET_OS_EMBEDDED
+		_vproc_standby_end();
+	#endif
+	}
+	runtime_standby_cnt--;
 }
 
 kern_return_t
-catch_exception_raise_state(mach_port_t exception_port __attribute__((unused)),
-	exception_type_t exception,
-	const exception_data_t code, mach_msg_type_number_t codeCnt,
-	int *flavor,
-	const thread_state_t old_state, mach_msg_type_number_t old_stateCnt,
-	thread_state_t new_state, mach_msg_type_number_t *new_stateCnt)
+catch_mach_exception_raise(mach_port_t exception_port __attribute__((unused)), mach_port_t thread, mach_port_t task,
+		exception_type_t exception, mach_exception_data_t code, mach_msg_type_number_t codeCnt)
+{
+	pid_t p4t = -1;
+
+	launchd_assumes(pid_for_task(task, &p4t) == 0);
+	
+	runtime_syslog(LOG_NOTICE, "%s(): PID: %u thread: 0x%x type: 0x%x code: %p codeCnt: 0x%x",
+			__func__, p4t, thread, exception, code, codeCnt);
+	
+	launchd_assumes(launchd_mport_deallocate(thread) == KERN_SUCCESS);
+	launchd_assumes(launchd_mport_deallocate(task) == KERN_SUCCESS);
+
+	return KERN_SUCCESS;
+}
+
+kern_return_t
+catch_mach_exception_raise_state(mach_port_t exception_port __attribute__((unused)),
+		exception_type_t exception, const mach_exception_data_t code, mach_msg_type_number_t codeCnt,
+		int *flavor, const thread_state_t old_state, mach_msg_type_number_t old_stateCnt,
+		thread_state_t new_state, mach_msg_type_number_t *new_stateCnt)
 {
 	runtime_syslog(LOG_NOTICE, "%s(): type: 0x%x code: %p codeCnt: 0x%x flavor: %p old_state: %p old_stateCnt: 0x%x new_state: %p new_stateCnt: %p",
 			__func__, exception, code, codeCnt, flavor, old_state, old_stateCnt, new_state, new_stateCnt);
-
+	
 	memcpy(new_state, old_state, old_stateCnt * sizeof(old_state[0]));
 	*new_stateCnt = old_stateCnt;
 
-	return 0;
+	return KERN_SUCCESS;
 }
 
 kern_return_t
-catch_exception_raise_state_identity(mach_port_t exception_port __attribute__((unused)),
-	mach_port_t thread, mach_port_t task,
-	exception_type_t exception,
-	exception_data_t code, mach_msg_type_number_t codeCnt,
-	int *flavor,
-	thread_state_t old_state, mach_msg_type_number_t old_stateCnt,
-	thread_state_t new_state, mach_msg_type_number_t *new_stateCnt)
+catch_mach_exception_raise_state_identity(mach_port_t exception_port __attribute__((unused)), mach_port_t thread, mach_port_t task,
+		exception_type_t exception, mach_exception_data_t code, mach_msg_type_number_t codeCnt,
+		int *flavor, thread_state_t old_state, mach_msg_type_number_t old_stateCnt,
+		thread_state_t new_state, mach_msg_type_number_t *new_stateCnt)
 {
-	runtime_syslog(LOG_NOTICE, "%s(): thread: 0x%x task: 0x%x type: 0x%x code: %p codeCnt: 0x%x flavor: %p old_state: %p old_stateCnt: 0x%x new_state: %p new_stateCnt: %p",
-			__func__, thread, task, exception, code, codeCnt, flavor, old_state, old_stateCnt, new_state, new_stateCnt);
+	pid_t p4t = -1;
 
+	launchd_assumes(pid_for_task(task, &p4t) == 0);
+
+	runtime_syslog(LOG_NOTICE, "%s(): PID: %u thread: 0x%x type: 0x%x code: %p codeCnt: 0x%x flavor: %p old_state: %p old_stateCnt: 0x%x new_state: %p new_stateCnt: %p",
+			__func__, p4t, thread, exception, code, codeCnt, flavor, old_state, old_stateCnt, new_state, new_stateCnt);
+	
 	memcpy(new_state, old_state, old_stateCnt * sizeof(old_state[0]));
 	*new_stateCnt = old_stateCnt;
 
 	launchd_assumes(launchd_mport_deallocate(thread) == KERN_SUCCESS);
 	launchd_assumes(launchd_mport_deallocate(task) == KERN_SUCCESS);
 
-	return 0;
+	return KERN_SUCCESS;
+}
+
+void
+launchd_log_vm_stats(void)
+{
+	static struct vm_statistics orig_stats;
+	static bool did_first_pass;
+	unsigned int count = HOST_VM_INFO_COUNT;
+	struct vm_statistics stats, *statsp;
+	mach_port_t mhs = mach_host_self();
+
+	statsp = did_first_pass ? &stats : &orig_stats;
+
+	if (!launchd_assumes(host_statistics(mhs, HOST_VM_INFO, (host_info_t)statsp, &count) == KERN_SUCCESS)) {
+		return;
+	}
+
+	launchd_assumes(count == HOST_VM_INFO_COUNT);
+
+	if (did_first_pass) {
+		runtime_syslog(LOG_DEBUG, "VM statistics (now - orig): Free: %d Active: %d Inactive: %d Reactivations: %d PageIns: %d PageOuts: %d Faults: %d COW-Faults: %d Purgeable: %d Purges: %d",
+				stats.free_count - orig_stats.free_count,
+				stats.active_count - orig_stats.active_count,
+				stats.inactive_count - orig_stats.inactive_count,
+				stats.reactivations - orig_stats.reactivations,
+				stats.pageins - orig_stats.pageins,
+				stats.pageouts - orig_stats.pageouts,
+				stats.faults - orig_stats.faults,
+				stats.cow_faults - orig_stats.cow_faults,
+				stats.purgeable_count - orig_stats.purgeable_count,
+				stats.purges - orig_stats.purges);
+	} else {
+		runtime_syslog(LOG_DEBUG, "VM statistics (now): Free: %d Active: %d Inactive: %d Reactivations: %d PageIns: %d PageOuts: %d Faults: %d COW-Faults: %d Purgeable: %d Purges: %d",
+				orig_stats.free_count,
+				orig_stats.active_count,
+				orig_stats.inactive_count,
+				orig_stats.reactivations,
+				orig_stats.pageins,
+				orig_stats.pageouts,
+				orig_stats.faults,
+				orig_stats.cow_faults,
+				orig_stats.purgeable_count,
+				orig_stats.purges);
+
+		did_first_pass = true;
+	}
+
+	launchd_mport_deallocate(mhs);
+}
+
+int64_t
+runtime_get_wall_time(void)
+{
+	struct timeval tv;
+	int64_t r;
+
+	launchd_assumes(gettimeofday(&tv, NULL) != -1);
+
+	r = tv.tv_sec;
+	r *= USEC_PER_SEC;
+	r += tv.tv_usec;
+
+	return r;
+}
+
+uint64_t
+runtime_get_opaque_time(void)
+{
+	return mach_absolute_time();
+}
+
+uint64_t
+runtime_get_opaque_time_of_event(void)
+{
+	return time_of_mach_msg_return;
+}
+
+uint64_t
+runtime_get_nanoseconds_since(uint64_t o)
+{
+	return runtime_opaque_time_to_nano(runtime_get_opaque_time_of_event() - o);
+}
+
+uint64_t
+runtime_opaque_time_to_nano(uint64_t o)
+{
+#if defined(__i386__) || defined(__x86_64__)
+	if (unlikely(tbi.numer != tbi.denom)) {
+#elif defined(__ppc__) || defined(__ppc64__)
+	if (likely(tbi.numer != tbi.denom)) {
+#else
+	if (tbi.numer != tbi.denom) {
+#endif
+#ifdef __LP64__
+		__uint128_t tmp = o;
+		tmp *= tbi.numer;
+		tmp /= tbi.denom;
+		o = tmp;
+#else
+		if (o <= tbi_safe_math_max) {
+			o *= tbi.numer;
+			o /= tbi.denom;
+		} else {
+			double d = o;
+			d *= tbi_float_val;
+			o = d;
+		}
+#endif
+	}
+
+	return o;
+}
+
+void
+do_file_init(void)
+{
+	struct stat sb;
+
+	launchd_assert(mach_timebase_info(&tbi) == 0);
+	tbi_float_val = tbi.numer;
+	tbi_float_val /= tbi.denom;
+	tbi_safe_math_max = UINT64_MAX / tbi.numer;
+
+	if (getpid() == 1) {
+		pid1_magic = true;
+	}
+
+	if (stat("/AppleInternal", &sb) == 0 && stat("/var/db/disableAppleInternal", &sb) == -1) {
+		do_apple_internal_logging = true;
+	}
+
+	if (stat("/var/db/.debug_launchd", &sb) == 0) {
+		internal_mask_pri = LOG_UPTO(LOG_DEBUG);
+		low_level_debug = true;
+	}
+	
+	if( stat("/var/db/.launchd_disable_sudden_termination", &sb) == 0 ) {
+		g_force_old_kill_path = true;
+	}
+	
+	if( stat("/var/db/.launchd_log_per_user_shutdown", &sb) == 0 ) {
+		g_log_per_user_shutdown = true;
+	}
+	
+	if( !pid1_magic && stat("/var/db/.launchd_no_flat_per_user_namespace", &sb) == 0 ) {
+		g_flat_mach_namespace = false;
+	}
+	
+	if( pid1_magic && stat("/var/db/.launchd_simulate_pid1_crash", &sb) == 0 ) {
+		g_simulate_pid1_crash = true;
+	}
+	
+	if( pid1_magic && stat("/var/db/.launchd_use_gmalloc", &sb) == 0 ) {
+		g_use_gmalloc = true;
+	}
+	
+	if( pid1_magic && stat("/var/db/.launchd_log_pid1_shutdown", &sb) == 0 ) {
+		g_log_pid1_shutdown = true;
+	}
+	
+	char bootargs[128];
+	size_t len = sizeof(bootargs) - 1;
+	int r = pid1_magic ? sysctlbyname("kern.bootargs", bootargs, &len, NULL, 0) : -1;
+	if( r == 0 && strnstr(bootargs, "-v", len) != NULL ) {
+		g_verbose_boot = true;
+	}
+	
+	if( pid1_magic && g_verbose_boot && stat("/var/db/.launchd_shutdown_debugging", &sb) == 0 ) {
+		g_shutdown_debugging = true;
+	}
+	
+	if( stat("/var/db/.launchd_log_strict_usage", &sb) == 0 ) {
+		g_log_strict_usage = true;
+	}
 }

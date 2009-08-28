@@ -70,8 +70,8 @@ struct PLArenaStats {
     PRUint32      ninplace;     /* number of in-place growths */
     PRUint32      nreleases;    /* number of PL_ARENA_RELEASE() calls */
     PRUint32      nfastrels;    /* number of "fast path" releases */
-    PRUint32      nbytes;       /* total bytes allocated */
-    PRUint32      maxalloc;     /* maximum allocation size in bytes */
+    PRSize		  nbytes;       /* total bytes allocated */
+    PRSize        maxalloc;     /* maximum allocation size in bytes */
     PRFloat64     variance;     /* size variance accumulator */
 };
 #endif
@@ -79,7 +79,7 @@ struct PLArenaStats {
 struct PLArenaPool {
     PLArena     first;          /* first arena in pool list */
     PLArena     *current;       /* arena from which to allocate space */
-    PRUint32    arenasize;      /* net exact size of a new arena */
+    PRSize      arenasize;      /* net exact size of a new arena */
     PRUword     mask;           /* alignment mask (power-of-2 - 1) */
 #ifdef PL_ARENAMETER
     PLArenaStats stats;
@@ -104,7 +104,7 @@ struct PLArenaPool {
 #define PL_ARENA_ALLOCATE(p, pool, nb) \
     PR_BEGIN_MACRO \
         PLArena *_a = (pool)->current; \
-        PRUint32 _nb = PL_ARENA_ALIGN(pool, nb); \
+        PRSize _nb = PL_ARENA_ALIGN(pool, nb); \
         PRUword _p = _a->avail; \
         PRUword _q = _p + _nb; \
         if (_q > _a->limit) \
@@ -118,7 +118,6 @@ struct PLArenaPool {
 #define PL_ARENA_GROW(p, pool, size, incr) \
     PR_BEGIN_MACRO \
         PLArena *_a = (pool)->current; \
-        PRUint32 _incr = PL_ARENA_ALIGN(pool, incr); \
         PRUword _p = _a->avail; \
         PRUword _q = (PRUword)p + size + incr; \
         if (_p == (PRUword)(p) + PL_ARENA_ALIGN(pool, size) && \
@@ -188,13 +187,13 @@ struct PLArenaPool {
 
 #include <stdio.h>
 
-PR_EXTERN(void) PL_ArenaCountAllocation(PLArenaPool *pool, PRUint32 nb);
+PR_EXTERN(void) PL_ArenaCountAllocation(PLArenaPool *pool, PRSize nb);
 
 PR_EXTERN(void) PL_ArenaCountInplaceGrowth(
-    PLArenaPool *pool, PRUint32 size, PRUint32 incr);
+    PLArenaPool *pool, PRSize size, PRSize incr);
 
 PR_EXTERN(void) PL_ArenaCountGrowth(
-    PLArenaPool *pool, PRUint32 size, PRUint32 incr);
+    PLArenaPool *pool, PRSize size, PRSize incr);
 
 PR_EXTERN(void) PL_ArenaCountRelease(PLArenaPool *pool, char *mark);
 

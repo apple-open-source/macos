@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -58,9 +58,9 @@
 #include <sys/unistd.h>
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Static Function Prototypes
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 static int 		BuildTrackName 					( mount_t mountPtr, AppleCDDANodeInfoPtr nodeInfoPtr );
 static UInt32	CalculateNumberOfDescriptors 	( const QTOCDataFormat10Ptr TOCDataPtr );
@@ -68,11 +68,11 @@ static UInt32	CalculateLBA 					( SubQTOCInfoPtr trackDescriptorPtr );
 static int		FindName						( mount_t mountPtr, UInt8 trackNumber, char ** name, UInt8 * nameSize );
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	CreateNewCDDANode -	This routine is responsible for creating new nodes
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
-int
+errno_t
 CreateNewCDDANode ( mount_t 				mountPtr,
 					UInt32 					nodeID,
 					enum vtype 				vNodeType,
@@ -81,7 +81,7 @@ CreateNewCDDANode ( mount_t 				mountPtr,
 					vnode_t * 				vNodeHandle )
 {
 	
-	int 					result			= 0;
+	errno_t 				result			= 0;
 	AppleCDDANodePtr		cddaNodePtr		= NULL;
 	vnode_t 				vNodePtr		= NULLVP;
 	struct vnode_fsparam	vfsp;
@@ -135,7 +135,7 @@ CreateNewCDDANode ( mount_t 				mountPtr,
 	
 	// Note that vnode_create ( ) returns the vnode with an iocount of +1;
 	// this routine returns the newly created vnode with this positive iocount.
-	result = vnode_create ( VNCREATE_FLAVOR, VCREATESIZE, &vfsp, &vNodePtr );
+	result = vnode_create ( VNCREATE_FLAVOR, ( uint32_t ) VCREATESIZE, &vfsp, &vNodePtr );
 	if ( result != 0 )
 	{
 		
@@ -167,9 +167,9 @@ FREE_CDDA_NODE_ERROR:
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	DisposeCDDANode -	This routine is responsible for cleaning up cdda nodes
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 int
 DisposeCDDANode ( vnode_t vNodePtr )
@@ -197,12 +197,12 @@ DisposeCDDANode ( vnode_t vNodePtr )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	CreateNewCDDAFile -	This routine is responsible for creating new
 //						files
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
-int
+errno_t
 CreateNewCDDAFile ( mount_t 				mountPtr,
 					UInt32 					nodeID,
 					AppleCDDANodeInfoPtr 	nodeInfoPtr,
@@ -211,7 +211,7 @@ CreateNewCDDAFile ( mount_t 				mountPtr,
 					vnode_t * 				vNodeHandle )
 {
 	
-	int						result				= 0;
+	errno_t					result				= 0;
 	vnode_t 				vNodePtr			= NULLVP;
 	AppleCDDANodePtr		cddaNodePtr			= NULL;
 	AppleCDDANodePtr		parentCDDANodePtr	= NULL;
@@ -300,12 +300,12 @@ CreateNewCDDAFile ( mount_t 				mountPtr,
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	CreateNewXMLFile -	This routine is responsible for creating the ".TOC.plist"
 //						file which has XML data describing the CD layout.
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
-int
+errno_t
 CreateNewXMLFile ( 	mount_t 				mountPtr,
 					UInt32 					xmlFileSize,
 					UInt8 * 				xmlData,
@@ -314,7 +314,7 @@ CreateNewXMLFile ( 	mount_t 				mountPtr,
 					vnode_t * 				vNodeHandle )
 {
 	
-	int						result				= 0;
+	errno_t					result				= 0;
 	vnode_t 				vNodePtr			= NULLVP;
 	AppleCDDANodePtr		cddaNodePtr			= NULL;
 	AppleCDDANodePtr		parentCDDANodePtr	= NULL;
@@ -351,7 +351,7 @@ CreateNewXMLFile ( 	mount_t 				mountPtr,
 		cn.cn_flags		= ISLASTCN | MAKEENTRY;
 		cn.cn_pnlen		= MAXPATHLEN;
 		cn.cn_nameptr	= cn.cn_pnbuf;
-		cn.cn_namelen	= strlen ( ".TOC.plist" );
+		cn.cn_namelen	= ( uint32_t ) strlen ( ".TOC.plist" );
 		cn.cn_hash		= 0;
 		cn.cn_consume	= 0;
 		
@@ -422,18 +422,18 @@ CreateNewXMLFile ( 	mount_t 				mountPtr,
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	CreateNewCDDADirectory -	This routine is responsible for creating new
 //								directories (i.e. the root directory)
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
-int
+errno_t
 CreateNewCDDADirectory ( mount_t 		mountPtr,
 						 UInt32 		nodeID,
 						 vnode_t * 		vNodeHandle )
 {
 	
-	int						result			= 0;
+	errno_t					result			= 0;
 	vnode_t					vNodePtr		= NULLVP;
 	AppleCDDANodePtr		cddaNodePtr		= NULL;
 	
@@ -465,10 +465,10 @@ CreateNewCDDADirectory ( mount_t 		mountPtr,
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	IsAudioTrack -	Checks the arguments passed in to find out if specified
 //					track is audio or not
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 boolean_t
 IsAudioTrack ( const SubQTOCInfoPtr trackDescriptorPtr )
@@ -496,10 +496,10 @@ IsAudioTrack ( const SubQTOCInfoPtr trackDescriptorPtr )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	CalculateSize -	Calculate the file size based on number of frames
 //					(i.e. blocks) in the track
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 UInt32
 CalculateSize ( const QTOCDataFormat10Ptr 	TOCDataPtr,
@@ -567,7 +567,7 @@ CalculateSize ( const QTOCDataFormat10Ptr 	TOCDataPtr,
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	FindName - 	Parses the names data that gets passed in to the
 //				filesystem, looking for the specified track's name.
 //				All names look like the following packed structure:
@@ -576,7 +576,7 @@ CalculateSize ( const QTOCDataFormat10Ptr 	TOCDataPtr,
 //		Track #	 		size of String			String for Name
 //
 //	Track # of zero corresponds to the album name (the mount point name).
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 
 int
@@ -651,11 +651,11 @@ FindName ( mount_t mountPtr, UInt8 trackNumber, char ** name, UInt8 * nameSize )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	ParseTOC - 	Parses the TOC to find audio tracks. It figures out which
 //				tracks are audio and what their offsets are and fills in the
 //				cddaNode structures associated with each vnode
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 SInt32
 ParseTOC ( mount_t 	mountPtr,
@@ -784,10 +784,10 @@ Exit:
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	BuildTrackName -	This routine is responsible for building a track
 //						name based on its number
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 int
 BuildTrackName ( mount_t mountPtr, AppleCDDANodeInfoPtr nodeInfoPtr )
@@ -836,10 +836,10 @@ BuildTrackName ( mount_t mountPtr, AppleCDDANodeInfoPtr nodeInfoPtr )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	CalculateNumberOfDescriptors -	Calculate the number of SubQTOCInfo entries
 //									in the given TOC
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 UInt32
 CalculateNumberOfDescriptors ( const QTOCDataFormat10Ptr TOCDataPtr )
@@ -856,11 +856,10 @@ CalculateNumberOfDescriptors ( const QTOCDataFormat10Ptr TOCDataPtr )
 	length = OSSwapBigToHostInt16 ( TOCDataPtr->TOCDataLength );
 	
 	// Remove the first and last session numbers so all we are left with are track descriptors
-	length -= ( sizeof ( TOCDataPtr->firstSessionNumber ) +
-				sizeof ( TOCDataPtr->lastSessionNumber ) );
+	length -= ( UInt32 ) ( ( sizeof ( TOCDataPtr->firstSessionNumber ) + sizeof ( TOCDataPtr->lastSessionNumber ) ) );
 	
 	// Divide the length by the size of a single track descriptor to get total number
-	numberOfDescriptors = length / ( sizeof ( SubQTOCInfo ) );
+	numberOfDescriptors =  ( length / ( ( UInt32 ) sizeof ( SubQTOCInfo ) ) );
 	
 	DebugLog ( ( "CalculateNumberOfDescriptors: exiting...\n" ) );
 	
@@ -869,29 +868,36 @@ CalculateNumberOfDescriptors ( const QTOCDataFormat10Ptr TOCDataPtr )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	CalculateLBA -	Convert the frames offset of the file (from the TOC) to
 //					the LBA of the device
 //
 // NB: this is a workaround because the first 2 seconds of a CD are unreadable
 // and defined as off-limits. So we convert our absolute MSF to an actual
 // logical block which can be addressed through the BSD layer.
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 UInt32
 CalculateLBA ( SubQTOCInfoPtr trackDescriptorPtr )
 {
 	
+	UInt32	frames = 0;
+	
 	DebugAssert ( ( trackDescriptorPtr != NULL ) );
 	
+	frames = ( ( ( trackDescriptorPtr->PMSF.startPosition.minutes * kSecondsPerMinute ) + 
+	  		   trackDescriptorPtr->PMSF.startPosition.seconds ) * kFramesPerSecond ) +
+	  		   trackDescriptorPtr->PMSF.startPosition.frames;
+	
+	if ( frames < kMSFToLBA )
+		frames = kMSFToLBA;
+	
 	// Simply convert MSF to LBA
-	return ( ( trackDescriptorPtr->PMSF.startPosition.minutes * kSecondsPerMinute + 
-	  		   trackDescriptorPtr->PMSF.startPosition.seconds ) * kFramesPerSecond +
-	  		   trackDescriptorPtr->PMSF.startPosition.frames - kMSFToLBA );
+	return frames - kMSFToLBA;
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //				End				Of			File
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------

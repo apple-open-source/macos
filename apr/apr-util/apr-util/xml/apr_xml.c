@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -25,10 +25,14 @@
 
 #include "apu_config.h"
 
-#ifdef APR_HAVE_OLD_EXPAT
-#include "xmlparse.h"
+#if defined(HAVE_XMLPARSE_XMLPARSE_H)
+#include <xmlparse/xmlparse.h>
+#elif defined(HAVE_XMLTOK_XMLPARSE_H)
+#include <xmltok/xmlparse.h>
+#elif defined(HAVE_XML_XMLPARSE_H)
+#include <xml/xmlparse.h>
 #else
-#include "expat.h"
+#include <expat.h>
 #endif
 
 #define DEBUG_CR "\r\n"
@@ -343,6 +347,25 @@ static apr_status_t cleanup_parser(void *ctx)
     return APR_SUCCESS;
 }
 
+#if XML_MAJOR_VERSION > 1
+/* Stop the parser if an entity declaration is hit. */
+static void entity_declaration(void *userData, const XML_Char *entityName,
+                               int is_parameter_entity, const XML_Char *value,
+                               int value_length, const XML_Char *base,
+                               const XML_Char *systemId, const XML_Char *publicId,
+                               const XML_Char *notationName)
+{
+    apr_xml_parser *parser = userData;
+
+    XML_StopParser(parser->xp, XML_FALSE);
+}
+#else
+/* A noop default_handler. */
+static void default_handler(void *userData, const XML_Char *s, int len)
+{
+}
+#endif
+
 APU_DECLARE(apr_xml_parser *) apr_xml_parser_create(apr_pool_t *pool)
 {
     apr_xml_parser *parser = apr_pcalloc(pool, sizeof(*parser));
@@ -368,6 +391,19 @@ APU_DECLARE(apr_xml_parser *) apr_xml_parser_create(apr_pool_t *pool)
     XML_SetElementHandler(parser->xp, start_handler, end_handler);
     XML_SetCharacterDataHandler(parser->xp, cdata_handler);
 
+    /* Prevent the "billion laughs" attack against expat by disabling
+     * internal entity expansion.  With 2.x, forcibly stop the parser
+     * if an entity is declared - this is safer and a more obvious
+     * failure mode.  With older versions, installing a noop
+     * DefaultHandler means that internal entities will be expanded as
+     * the empty string, which is also sufficient to prevent the
+     * attack. */
+#if XML_MAJOR_VERSION > 1
+    XML_SetEntityDeclHandler(parser->xp, entity_declaration);
+#else
+    XML_SetDefaultHandler(parser->xp, default_handler);
+#endif
+
     return parser;
 }
 
@@ -379,7 +415,7 @@ static apr_status_t do_parse(apr_xml_parser *parser,
         parser->error = APR_XML_ERROR_PARSE_DONE;
     }
     else {
-        int rv = XML_Parse(parser->xp, data, len, is_final);
+        int rv = XML_Parse(parser->xp, data, (int)len, is_final);
 
         if (rv == 0) {
             parser->error = APR_XML_ERROR_EXPAT;
@@ -666,7 +702,8 @@ static apr_size_t elem_size(const apr_xml_elem *elem, int style,
 	    }
 	    else {
 		/* compute size of: ' ns%d:%s="%s"' */
-		size += 3 + APR_XML_NS_LEN(attr->ns) + 1 + strlen(attr->name) + 2 + strlen(attr->value) + 1;
+                int ns = ns_map ? ns_map[attr->ns] : attr->ns;
+                size += 3 + APR_XML_NS_LEN(ns) + 1 + strlen(attr->name) + 2 + strlen(attr->value) + 1;
 	    }
 	}
 
@@ -736,8 +773,10 @@ static char *write_elem(char *s, const apr_xml_elem *elem, int style,
 	for (attr = elem->attr; attr; attr = attr->next) {
 	    if (attr->ns == APR_XML_NS_NONE)
 		len = sprintf(s, " %s=\"%s\"", attr->name, attr->value);
-	    else
-		len = sprintf(s, " ns%d:%s=\"%s\"", attr->ns, attr->name, attr->value);
+            else {
+                ns = ns_map ? ns_map[attr->ns] : attr->ns;
+                len = sprintf(s, " ns%d:%s=\"%s\"", ns, attr->name, attr->value);
+            }
 	    s += len;
 	}
 

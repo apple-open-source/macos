@@ -63,15 +63,15 @@ class AppleUSBUHCIDMACommand;
 
 // Convert USBLog to use kprintf debugging
 #ifndef UHCI_USE_KPRINTF
-	#define UHCI_USE_KPRINTF 0
+#define UHCI_USE_KPRINTF 0
 #endif
 
 #if UHCI_USE_KPRINTF
-	#undef USBLog
-	#undef USBError
+#undef USBLog
+#undef USBError
 	void kprintf(const char *format, ...) __attribute__((format(printf, 1, 2)));
-	#define USBLog( LEVEL, FORMAT, ARGS... )  if ((LEVEL) <= UHCI_USE_KPRINTF) { kprintf( FORMAT "\n", ## ARGS ) ; }
-	#define USBError( LEVEL, FORMAT, ARGS... )  { kprintf( FORMAT "\n", ## ARGS ) ; }
+#define USBLog( LEVEL, FORMAT, ARGS... )  if ((LEVEL) <= UHCI_USE_KPRINTF) { kprintf( FORMAT "\n", ## ARGS ) ; }
+#define USBError( LEVEL, FORMAT, ARGS... )  { kprintf( FORMAT "\n", ## ARGS ) ; }
 #endif
 
 #ifdef __ppc__
@@ -735,6 +735,8 @@ public:
 	virtual IOReturn				UIMEnableAddressEndpoints(USBDeviceAddress address, bool enable);
 	virtual IOReturn				UIMEnableAllEndpoints(bool enable);
 	virtual IOReturn				EnableInterruptsFromController(bool enable);
+	virtual IOReturn				RootHubAbortInterruptRead(void);
+
 };
 
 #endif /* ! _IOKIT_AppleUSBUHCI_H */

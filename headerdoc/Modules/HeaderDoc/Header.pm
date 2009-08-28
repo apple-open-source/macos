@@ -3,8 +3,7 @@
 # Class name: Header
 # Synopsis: Holds header-wide comments parsed by headerDoc
 #
-# Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2006/07/10 22:07:24 $
+# Last Updated: $Date: 2009/03/30 19:38:50 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -41,7 +40,7 @@ use HeaderDoc::APIOwner;
 
 use strict;
 use vars qw($VERSION @ISA);
-$VERSION = '$Revision: 1.11.2.9.2.24 $';
+$HeaderDoc::Header::VERSION = '$Revision: 1.15 $';
 
 # Inheritance
 @ISA = qw( HeaderDoc::APIOwner );
@@ -116,61 +115,61 @@ sub fullpath {
     return $self->{FULLPATH};
 }
 
-sub classesDir {
-    my $self = shift;
-
-    if (@_) {
-        $self->{CLASSESDIR} = shift;
-    }
-    return $self->{CLASSESDIR};
-}
-
-sub classes {
-    my $self = shift;
-
-    if (@_) {
-        @{ $self->{CLASSES} } = @_;
-    }
-    ($self->{CLASSES}) ? return @{ $self->{CLASSES} } : return ();
-}
-
-sub protocolsDir {
-    my $self = shift;
-
-    if (@_) {
-        $self->{PROTOCOLSDIR} = shift;
-    }
-    return $self->{PROTOCOLSDIR};
-}
-
-sub protocols {
-    my $self = shift;
-    
-    if (@_) {
-        @{ $self->{PROTOCOLS} } = @_;
-    }
-    ($self->{PROTOCOLS}) ? return @{ $self->{PROTOCOLS} } : return ();
-}
-
-sub addToProtocols {
-    my $self = shift;
-
-    if (@_) {
-        foreach my $item (@_) {
-            push (@{ $self->{PROTOCOLS} }, $item);
-        }
-    }
-    return @{ $self->{PROTOCOLS} };
-}
-
-sub categoriesDir {
-    my $self = shift;
-
-    if (@_) {
-        $self->{CATEGORIESDIR} = shift;
-    }
-    return $self->{CATEGORIESDIR};
-}
+### sub classesDir {
+    ### my $self = shift;
+### 
+    ### if (@_) {
+        ### $self->{CLASSESDIR} = shift;
+    ### }
+    ### return $self->{CLASSESDIR};
+### }
+### 
+### sub classes {
+    ### my $self = shift;
+### 
+    ### if (@_) {
+        ### @{ $self->{CLASSES} } = @_;
+    ### }
+    ### ($self->{CLASSES}) ? return @{ $self->{CLASSES} } : return ();
+### }
+### 
+### sub protocolsDir {
+    ### my $self = shift;
+### 
+    ### if (@_) {
+        ### $self->{PROTOCOLSDIR} = shift;
+    ### }
+    ### return $self->{PROTOCOLSDIR};
+### }
+### 
+### sub protocols {
+    ### my $self = shift;
+    ### 
+    ### if (@_) {
+        ### @{ $self->{PROTOCOLS} } = @_;
+    ### }
+    ### ($self->{PROTOCOLS}) ? return @{ $self->{PROTOCOLS} } : return ();
+### }
+### 
+### sub addToProtocols {
+    ### my $self = shift;
+### 
+    ### if (@_) {
+        ### foreach my $item (@_) {
+            ### push (@{ $self->{PROTOCOLS} }, $item);
+        ### }
+    ### }
+    ### return @{ $self->{PROTOCOLS} };
+### }
+### 
+### sub categoriesDir {
+    ### my $self = shift;
+### 
+    ### if (@_) {
+        ### $self->{CATEGORIESDIR} = shift;
+    ### }
+    ### return $self->{CATEGORIESDIR};
+### }
 
 sub availability {
     my $self = shift;
@@ -192,14 +191,14 @@ sub updated {
 
 	$month = $day = $year = $updated;
 
-	print "updated is $updated\n" if ($localDebug);
+	print STDERR "updated is $updated\n" if ($localDebug);
 	if (!($updated =~ /\d\d\d\d-\d\d-\d\d/o )) {
 	    if (!($updated =~ /\d\d-\d\d-\d\d\d\d/o )) {
 		if (!($updated =~ /\d\d-\d\d-\d\d/o )) {
-		    # my $filename = $HeaderDoc::headerObject->filename();
-		    my $filename = $self->filename();
+		    # my $fullpath = $HeaderDoc::headerObject->fullpath();
+		    my $fullpath = $self->fullpath();
 		    my $linenum = $self->linenum();
-		    print "$filename:$linenum: warning: Bogus date format: $updated. Valid formats are MM-DD-YYYY, MM-DD-YY, and YYYY-MM-DD\n";
+		    print STDERR "$fullpath:$linenum: warning: Bogus date format: $updated. Valid formats are MM-DD-YYYY, MM-DD-YY, and YYYY-MM-DD\n";
 		    return $self->{UPDATED};
 		} else {
 		    $month =~ s/(\d\d)-\d\d-\d\d/$1/smog;
@@ -211,10 +210,10 @@ sub updated {
 		    $century *= 100;
 		    $year += $century;
 		    # $year += 2000;
-		    print "YEAR: $year" if ($localDebug);
+		    print STDERR "YEAR: $year" if ($localDebug);
 		}
 	    } else {
-		print "03-25-2003 case.\n" if ($localDebug);
+		print STDERR "03-25-2003 case.\n" if ($localDebug);
 		    $month =~ s/(\d\d)-\d\d-\d\d\d\d/$1/smog;
 		    $day =~ s/\d\d-(\d\d)-\d\d\d\d/$1/smog;
 		    $year =~ s/\d\d-\d\d-(\d\d\d\d)/$1/smog;
@@ -259,38 +258,38 @@ sub updated {
 	if ($year < 1970) { $invalid = 1; }
 
 	if ($invalid) {
-		# my $filename = $HeaderDoc::headerObject->filename();
-		my $filename = $self->filename();
+		# my $fullpath = $HeaderDoc::headerObject->fullpath();
+		my $fullpath = $self->fullpath();
 		my $linenum = $self->linenum();
-		print "$filename:$linenum: warning: Invalid date (year = $year, month = $month, day = $day). Valid formats are MM-DD-YYYY, MM-DD-YY, and YYYY-MM-DD\n";
+		print STDERR "$fullpath:$linenum: warning: Invalid date (year = $year, month = $month, day = $day). Valid formats are MM-DD-YYYY, MM-DD-YY, and YYYY-MM-DD\n";
 		return $self->{UPDATED};
 	} else {
 		$self->{UPDATED} = HeaderDoc::HeaderElement::strdate($month-1, $day, $year);
-		print "date set to ".$self->{UPDATED}."\n" if ($localDebug);
+		print STDERR "date set to ".$self->{UPDATED}."\n" if ($localDebug);
 	}
     }
     return $self->{UPDATED};
 }
 
-sub categories {
-    my $self = shift;
-
-    if (@_) {
-        @{ $self->{CATEGORIES} } = @_;
-    }
-    ($self->{CATEGORIES}) ? return @{ $self->{CATEGORIES} } : return ();
-}
-
-sub addToCategories {
-    my $self = shift;
-
-    if (@_) {
-        foreach my $item (@_) {
-            push (@{ $self->{CATEGORIES} }, $item);
-        }
-    }
-    return @{ $self->{CATEGORIES} };
-}
+### sub categories {
+    ### my $self = shift;
+### 
+    ### if (@_) {
+        ### @{ $self->{CATEGORIES} } = @_;
+    ### }
+    ### ($self->{CATEGORIES}) ? return @{ $self->{CATEGORIES} } : return ();
+### }
+### 
+### sub addToCategories {
+    ### my $self = shift;
+### 
+    ### if (@_) {
+        ### foreach my $item (@_) {
+            ### push (@{ $self->{CATEGORIES} }, $item);
+        ### }
+    ### }
+    ### return @{ $self->{CATEGORIES} };
+### }
 
 # removes a maximum of one object per invocation
 # we remove a catagory if we've been successful finding 
@@ -311,7 +310,7 @@ sub removeFromCategories {
 			if ($fullName ne $nameOfObjToRemove) {
 				push (@tempArray, $obj);
 			} else {
-				print "Removing $fullName from Header object.\n" if ($localDebug);
+				print STDERR "Removing $fullName from Header object.\n" if ($localDebug);
 			}
 		}
 	}
@@ -340,7 +339,7 @@ sub HTMLmeta {
 		#    becomes
 		# <meta blah="blah" this="that">
 		$text =~ s/\n.*//smog;
-		$self->{HTMLMETA} .= "<meta $text>\n";
+		$self->{HTMLMETA} .= "<meta $text />\n";
 	} else {
 		# @meta nameparm contentparm
 		#    becomes
@@ -350,21 +349,22 @@ sub HTMLmeta {
 		$text =~ s/^$name\s+//;
 		$text =~ s/\n.*//smog;
 
-		$self->{HTMLMETA} .= "<meta name=\"$name\" content=\"$text\">\n";
+		$self->{HTMLMETA} .= "<meta name=\"$name\" content=\"$text\" />\n";
 	}
     }
 
     my $extendedmeta = $self->{HTMLMETA};
     my $encoding = $self->encoding();
 
-    $extendedmeta .= "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=$encoding\">\n";
+    $extendedmeta .= "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=$encoding\" />\n";
 
     return $extendedmeta;
 }
 
 sub metaFileText {
     my $self = shift;
-    my $text = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
+    my $encoding = $self->encoding();
+    my $text = "<?xml version=\"1.0\" encoding=\"$encoding\"?>\n";
 
     $text .= "<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n";
     $text .= "<plist version=\"1.0\">\n";
@@ -392,32 +392,32 @@ sub metaFileText {
     return $text;
 }
 
-sub writeHeaderElements {
-    my $self = shift;
-    my $classesDir = $self->classesDir();
-    my $protocolsDir = $self->protocolsDir();
-    my $categoriesDir = $self->categoriesDir();
-
-    $self->SUPER::writeHeaderElements();
-    if ($self->classes()) {
-		if (! -e $classesDir) {
-			unless (mkdir ("$classesDir", 0777)) {die ("Can't create output folder $classesDir. \n$!\n");};
-	    }
-	    $self->writeClasses();
-    }
-    if ($self->protocols()) {
-		if (! -e $protocolsDir) {
-			unless (mkdir ("$protocolsDir", 0777)) {die ("Can't create output folder $protocolsDir. \n$!\n");};
-	    }
-	    $self->writeProtocols();
-    }
-    if ($self->categories()) {
-		if (! -e $categoriesDir) {
-			unless (mkdir ("$categoriesDir", 0777)) {die ("Can't create output folder $categoriesDir. \n$!\n");};
-	    }
-	    $self->writeCategories();
-    }
-}
+### sub writeHeaderElements {
+    ### my $self = shift;
+    ### my $classesDir = $self->classesDir();
+    ### my $protocolsDir = $self->protocolsDir();
+    ### my $categoriesDir = $self->categoriesDir();
+### 
+    ### $self->SUPER::writeHeaderElements();
+    ### # if ($self->classes()) {
+		### # if (! -e $classesDir) {
+			### # unless (mkdir ("$classesDir", 0777)) {die ("Can't create output folder $classesDir. \n$!\n");};
+	    ### # }
+	    ### # $self->writeClasses();
+    ### # }
+    ### # if ($self->protocols()) {
+		### # if (! -e $protocolsDir) {
+			### # unless (mkdir ("$protocolsDir", 0777)) {die ("Can't create output folder $protocolsDir. \n$!\n");};
+	    ### # }
+	    ### # $self->writeProtocols();
+    ### # }
+    ### # if ($self->categories()) {
+		### # if (! -e $categoriesDir) {
+			### # unless (mkdir ("$categoriesDir", 0777)) {die ("Can't create output folder $categoriesDir. \n$!\n");};
+	    ### # }
+	    ### # $self->writeCategories();
+    ### # }
+### }
 
 sub writeHeaderElementsToCompositePage {
     my $self = shift;
@@ -493,19 +493,20 @@ sub writeCategories {
 
 sub docNavigatorComment {
     my $self = shift;
-    # print "IX0\n"; Dump($self);
+    # print STDERR "IX0\n"; Dump($self);
     my $name = $self->name();
     my $procname = $name;
     $procname =~ s/;//sgo;
     $name =~ s/;/\\;/sgo;
-    my $shortname = $self->filename();
-    $shortname =~ s/\.hdoc$//so;
-    $shortname = sanitize($shortname, 1);
-    # print "IX1\n"; Dump($self);
+    # my $shortname = $self->filename();
+    # $shortname =~ s/\.hdoc$//so;
+    # $shortname = sanitize($shortname, 1);
+    # print STDERR "IX1\n"; Dump($self);
+    my $uid = $self->apiuid();
     
     if ($self->isFramework()) {
 	# Don't insert a UID.  It will go on the landing page.
-	return "<!-- headerDoc=Framework; shortname=$shortname; name=$name-->";
+	return $self->apiref(0, "framework"); # "<!-- headerDoc=Framework; shortname=$shortname; uid=".$uid."; name=$name-->";
     } else {
 	# return "<!-- headerDoc=Header; name=$procname-->";
 	return $self->apiref(0, "Header");
@@ -530,20 +531,20 @@ sub printObject {
     my $protocolsDir = $self->{PROTOCOLSDIR};
     my $currentClass = $self->{CURRENTCLASS};
  
-    print "Header\n";
-    print " classes dir:    $classesDir\n";
-    print " categories dir: $categoriesDir\n";
-    print " protocols dir:  $protocolsDir\n";
-    print " current class:  $currentClass\n";
+    print STDERR "Header\n";
+    print STDERR " classes dir:    $classesDir\n";
+    print STDERR " categories dir: $categoriesDir\n";
+    print STDERR " protocols dir:  $protocolsDir\n";
+    print STDERR " current class:  $currentClass\n";
     $self->SUPER::printObject();
-    print "  Classes:\n";
+    print STDERR "  Classes:\n";
     &printArray(@{$self->{CLASSES}});
-    print "  Categories:\n";
+    print STDERR "  Categories:\n";
     &printArray(@{$self->{CATEGORIES}});
-    print "  Protocols:\n";
+    print STDERR "  Protocols:\n";
     &printArray(@{$self->{PROTOCOLS}});
     
-    print "\n";
+    print STDERR "\n";
 }
 
 1;

@@ -41,6 +41,7 @@ all:
 	${FAIL_IF_BAD_OBJ} foo2.o
 	${CXX} ${CCXXFLAGS} foo2.o bar.cxx -dynamiclib -o libfoobar.dylib
 	${FAIL_IF_BAD_MACHO} libfoobar.dylib
+	dwarfdump --eh-frame --verify libfoobar.dylib > /dev/null
 	nm libfoobar.dylib | grep '.eh' | ${PASS_IFF_EMPTY}
 
 clean:

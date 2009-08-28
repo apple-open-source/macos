@@ -3,19 +3,20 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.2 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -30,6 +31,8 @@
 #include <sys/uio.h>
 #include <sys/vnode.h>
 #include <sys/wait.h>
+#include <sys/ioctl.h>
+#include <sys/disk.h>
 
 #include <ctype.h>
 #include <err.h>
@@ -71,15 +74,18 @@ gid_t	a_gid __P((char *));
 uid_t	a_uid __P((char *));
 mode_t	a_mask __P((char *));
 struct hfs_mnt_encoding * a_encoding __P((char *));
-int	get_encoding_pref __P((char *));
+int	get_encoding_pref __P((const char *));
 int	get_encoding_bias __P((void));
 unsigned int  get_default_encoding(void);
 
 void	usage __P((void));
 
 
+int is_hfs_std = 0;
+int wrapper_requested = 0;
+
 typedef struct CreateDateAttrBuf {
-    u_long size;
+    u_int32_t size;
     struct timespec creationTime;
 } CreateDateAttrBuf;
 
@@ -100,7 +106,7 @@ typedef struct CreateDateAttrBuf {
 
 struct hfs_mnt_encoding {
 	char	encoding_name[MXENCDNAMELEN];	/* encoding type name */
-	u_long	encoding_id;			/* encoding type number */
+	u_int32_t encoding_id;			/* encoding type number */
 };
 
 
@@ -150,27 +156,136 @@ struct hfs_mnt_encoding hfs_mnt_encodinglist[] = {
 };
 
 
-u_long getVolumeCreateDate(const char *device)
+/*
+    If path is a path to a block device, then return a path to the
+    corresponding raw device.  Else return path unchanged.
+*/
+const char *rawdevice(const char *path)
 {
-	int fd = 0;
+    const char *devdisk = "/dev/disk";
+    static char raw[MAXPATHLEN];
+    
+    if (!strncmp(path, devdisk, strlen(devdisk))) {
+    	/* The +5 below is strlen("/dev/"), so path+5 points to "disk..." */
+	if (snprintf(raw, sizeof(raw), "/dev/r%s", path+5) < sizeof(raw)) {
+	    return raw;
+	}
+    }
+    
+    return path;
+}
+
+
+/*
+	GetMasterBlock
+	
+	Return a pointer to the Master Directory Block or Volume Header Block
+	for the volume.  In the case of an HFS volume with embedded HFS Plus
+	volume, this returns the HFS (wrapper) volume's Master Directory Block.
+	That is, the 512 bytes at offset 1024 bytes from the start of the given
+	device/partition.
+	
+	The master block is cached globally.  If it has previously been read in,
+	the cached copy will be returned.  If this routine is called multiple times,
+	it must be called with the same device string.
+	
+	Arguments:
+		device		Path name to disk device (eg., "/dev/disk0s2")
+	
+	Returns:
+	A pointer to the MDB or VHB.  This pointer may be in the middle of a
+	malloc'ed block.  There may be more than 512 bytes of malloc'ed memory
+	at the returned address.
+	
+	Errors:
+	On error, this routine returns NULL.
+*/
+void *GetMasterBlock(const char *device)
+{
+	static char *masterBlock = NULL;
+	char *buf = NULL;
+	int err;
+	int fd = -1;
+	uint32_t blockSize;
+	ssize_t amount;
 	off_t offset;
-	char * bufPtr;
+	
+	/*
+	 * If we already read the master block, then just return it.
+	 */
+	if (masterBlock != NULL) {
+		return masterBlock;
+	}
+
+	device = rawdevice(device);
+	
+	fd = open(device, O_RDONLY | O_NDELAY, 0);
+	if (fd < 0) {
+		fprintf(stderr, "GetMasterBlock: Error %d opening %s\n", errno, device);
+		goto done;
+	}
+
+	/*
+	 * Get the block size so we can read an entire block.
+	 */
+	err = ioctl(fd, DKIOCGETBLOCKSIZE, &blockSize);
+	if (err == -1) {
+		fprintf(stderr, "GetMasterBlock: Error %d getting block size\n", errno);
+		goto done;
+	}
+
+	/*
+	 * Figure out the offset of the start of the block which contains
+	 * byte offset 1024 (the start of the master block).  This is 1024
+	 * rounded down to a multiple of blockSize.  But since blockSize is
+	 * always a power of two, this will be either 0 (if blockSize > 1024)
+	 * or 1024 (if blockSize <= 1024).
+	 */
+	offset = blockSize > 1024 ? 0 : 1024;
+	
+	/*
+	 * Allocate a buffer and read the block.
+	 */
+	buf = malloc(blockSize);
+	if (buf == NULL) {
+		fprintf(stderr, "GetMasterBlock: Could not malloc %u bytes\n", blockSize);
+		goto done;
+	}
+	amount = pread(fd, buf, blockSize, offset);
+	if (amount != blockSize) {
+		fprintf(stderr, "GetMasterBlock: Error %d from read; amount=%ld, wanted=%u\n", errno, amount, blockSize);
+		goto done;
+	}
+	
+	/*
+	 * Point at the part of the buffer containing the master block.
+	 * Then return that pointer.
+	 *
+	 * Note: if blockSize <= 1024, then offset = 1024, and the master
+	 * block is at the start of the buffer.  If blockSize > 1024, then
+	 * offset = 0, and the master block is at offset 1024 from the start
+	 * of the buffer.
+	 */
+	masterBlock = buf + 1024 - offset;
+	buf = NULL;	/* Don't free memory that masterBlock points into. */
+
+done:
+	if (fd >= 0)
+		close(fd);
+	if (buf != NULL)
+		free(buf);
+	return masterBlock;
+}
+
+
+u_int32_t getVolumeCreateDate(const char *device)
+{
 	HFSMasterDirectoryBlock * mdbPtr;
-	u_long volume_create_time = 0;
+	u_int32_t volume_create_time = 0;
 
-	bufPtr = (char *)malloc(HFS_BLOCK_SIZE);
-	if ( ! bufPtr ) goto exit;
-
-	fd = open( device, O_RDONLY | O_NDELAY, 0 );
-	if( fd <= 0 ) goto exit;
-
-	offset = (off_t)(2 * HFS_BLOCK_SIZE);
-	if (lseek(fd, offset, SEEK_SET) != offset) goto exit;
-
-	if (read(fd, bufPtr, HFS_BLOCK_SIZE) != HFS_BLOCK_SIZE) goto exit;
-
-	mdbPtr = (HFSMasterDirectoryBlock *) bufPtr;
-
+	mdbPtr = GetMasterBlock(device);
+	if (mdbPtr == NULL) goto exit;
+	
 	/* get the create date from the MDB (embedded case) or Volume Header */
 	if ((mdbPtr->drSigWord == SWAP_BE16 (kHFSSigWord)) &&
 	    (mdbPtr->drEmbedSigWord == SWAP_BE16 (kHFSPlusSigWord))) {
@@ -178,7 +293,7 @@ u_long getVolumeCreateDate(const char *device)
 		volume_create_time = SWAP_BE32 (mdbPtr->drCrDate);
 		
 	} else if (mdbPtr->drSigWord == kHFSPlusSigWord ) {
-		HFSPlusVolumeHeader * volHdrPtr = (HFSPlusVolumeHeader *) bufPtr;
+		HFSPlusVolumeHeader * volHdrPtr = (HFSPlusVolumeHeader *) mdbPtr;
 
 		volume_create_time = SWAP_BE32 (volHdrPtr->createDate);
 	} else {
@@ -191,16 +306,10 @@ u_long getVolumeCreateDate(const char *device)
 		volume_create_time = 0;	/* don't let date go negative! */
 
 exit:
-	if ( fd > 0 )
-		close( fd );
-
-	if ( bufPtr )
-		free( bufPtr );
-
 	return volume_create_time;
 }
 
-void syncCreateDate(const char *mntpt, u_long localCreateTime)
+void syncCreateDate(const char *mntpt, u_int32_t localCreateTime)
 {
 	int result;
 	char path[256];
@@ -241,7 +350,7 @@ void syncCreateDate(const char *mntpt, u_long localCreateTime)
 		(( newCreateTime - attrReturnBuffer.creationTime.tv_sec) > -15) &&
 		((newCreateTime - attrReturnBuffer.creationTime.tv_sec) < 15)) {
 
-		attrReturnBuffer.creationTime.tv_sec = (u_long) newCreateTime;
+		attrReturnBuffer.creationTime.tv_sec = (time_t) newCreateTime;
 		(void) setattrlist (path,
 				    &attributes,
 				    &attrReturnBuffer.creationTime,
@@ -269,7 +378,7 @@ load_encoding(struct hfs_mnt_encoding *encp)
 	if (encp->encoding_id == 0)
 		return (0);
 
-	sprintf(kmodfile, "%sHFS_Mac%s.kext", ENCODING_MODULE_PATH, encp->encoding_name);
+	snprintf(kmodfile, sizeof(kmodfile), "%sHFS_Mac%s.kext", ENCODING_MODULE_PATH, encp->encoding_name);
 	if (stat(kmodfile, &sb) == -1) {
 		fprintf(stdout, "unable to find: %s\n", kmodfile);
 		return (-1);
@@ -305,7 +414,7 @@ main(argc, argv)
 	char *dev, dir[MAXPATHLEN];
 	int mountStatus;
 	struct timeval dummy_timeval; /* gettimeofday() crashes if the first argument is NULL */
-	u_long localCreateTime;
+	u_int32_t localCreateTime;
 	struct hfs_mnt_encoding *encp;
 
 #if TARGET_OS_EMBEDDED
@@ -325,7 +434,7 @@ main(argc, argv)
 	args.hfs_uid = (uid_t)VNOVAL;
 	args.hfs_gid = (gid_t)VNOVAL;
 	args.hfs_mask = (mode_t)VNOVAL;
-	args.hfs_encoding = (u_long)VNOVAL;
+	args.hfs_encoding = (u_int32_t)VNOVAL;
 
 
 	optind = optreset = 1;		/* Reset for parse of new argv. */
@@ -334,7 +443,7 @@ main(argc, argv)
 		case 't': {
 			char *ptr;
 			args.journal_tbuffer_size = strtoul(optarg, &ptr, 0);
-			if (errno != 0) {
+			if ((args.journal_tbuffer_size == 0 || args.journal_tbuffer_size == ULONG_MAX) && errno != 0) {
 				fprintf(stderr, "%s: Invalid tbuffer size %s\n", argv[0], optarg);
 				exit(5);
 			} else {
@@ -399,6 +508,7 @@ main(argc, argv)
 			if (args.flags == VNOVAL)
 				args.flags = 0;
 			args.flags |= HFSFSMNT_WRAPPER;
+			wrapper_requested = 1;
 			break;
 		case '?':
 			usage();
@@ -446,7 +556,7 @@ main(argc, argv)
            	if (args.flags == VNOVAL)
             		args.flags = 0;
 
-		if ((args.hfs_encoding == (u_long)VNOVAL) && (encp == NULL)) {
+		if ((args.hfs_encoding == (u_int32_t)VNOVAL) && (encp == NULL)) {
 			int encoding;
 
 			/* Find a suitable encoding preference. */
@@ -503,6 +613,9 @@ main(argc, argv)
 		mntflags |= MNT_RDONLY;
     	}
 #endif
+	
+	if (is_hfs_std)
+		mntflags |= MNT_RDONLY;
 
 	if ((mntflags & MNT_RDONLY) == 0) {
 		/*
@@ -538,19 +651,19 @@ a_gid(s)
     char *s;
 {
     struct group *gr;
-    char *gname;
+    char *gname, *orig = s;
     gid_t gid = 0;
 
-    if ((gr = getgrnam(s)) != NULL)
-        gid = gr->gr_gid;
-    else {
-	if (*s == '-')
-		s++;
-        for (gname = s; *s && isdigit(*s); ++s);
-        if (!*s)
-            gid = atoi(gname);
-        else
-            errx(1, "unknown group id: %s", gname);
+    if (*s == '-')
+	s++;
+    for (gname = s; *s && isdigit(*s); ++s);
+    if (!*s) {
+	gid = atoi(gname);
+    } else {
+	gr = getgrnam(orig);
+	if (gr == NULL)
+	    errx(1, "unknown group id: %s", orig);
+	gid = gr->gr_gid;
     }
     return (gid);
 }
@@ -560,17 +673,19 @@ a_uid(s)
     char *s;
 {
     struct passwd *pw;
-    char *uname;
+    char *uname, *orig = s;
     uid_t uid = 0;
 
-    if ((pw = getpwnam(s)) != NULL)
-        uid = pw->pw_uid;
-    else {
-        for (uname = s; *s && isdigit(*s); ++s);
-        if (!*s)
-            uid = atoi(uname);
-        else
-            errx(1, "unknown user id: %s", uname);
+    if (*s == '-')
+	s++;
+    for (uname = s; *s && isdigit(*s); ++s);
+    if (!*s) {
+	uid = atoi(uname);
+    } else {
+	pw = getpwnam(orig);
+	if (pw == NULL)
+	    errx(1, "unknown user id: %s", orig);
+	uid = pw->pw_uid;
     }
     return (uid);
 }
@@ -599,7 +714,7 @@ a_encoding(s)
 {
 	char *uname;
 	int i;
-	u_long encoding;
+	u_int32_t encoding;
 	struct hfs_mnt_encoding *p, *q, *enclist;
 	int elements = sizeof(hfs_mnt_encodinglist) / sizeof(struct hfs_mnt_encoding);
 	int compare;
@@ -638,30 +753,24 @@ unknown:
  * Get file system's encoding preference.
  */
 int
-get_encoding_pref(char *dev)
+get_encoding_pref(const char *device)
 {
-	char buffer[HFS_BLOCK_SIZE];
 	struct hfs_mnt_encoding *enclist;
 	HFSMasterDirectoryBlock * mdbp;
 	int encoding = -1;
 	int elements;
-	int fd;
 	int i;
 
-	fd = open(dev, O_RDONLY | O_NDELAY, 0);
-	if (fd == -1) {
-		return (-1);
-	}
-     	if (pread(fd, buffer, sizeof(buffer), 1024) != sizeof(buffer)) {
-     		close(fd);
-		return (-1);
-	}
-    	close(fd);
+	mdbp = GetMasterBlock(device);
+	if (mdbp == NULL)
+		return 0;
 
-	mdbp = (HFSMasterDirectoryBlock *) buffer;
 	if (SWAP_BE16(mdbp->drSigWord) != kHFSSigWord ||
-	    SWAP_BE16(mdbp->drEmbedSigWord) == kHFSPlusSigWord ) {
+	    SWAP_BE16(mdbp->drEmbedSigWord) == kHFSPlusSigWord && (!wrapper_requested)) {
 		return (-1);
+	}
+	else {
+		is_hfs_std = 1;
 	}
 	encoding = GET_HFS_TEXT_ENCODING(SWAP_BE32(mdbp->drFndrInfo[4]));
 
@@ -717,8 +826,8 @@ get_default_encoding()
 		char buffer[MAXPATHLEN + 1];
 		int fd;
 
-		strcpy(buffer, passwdp->pw_dir);
-		strcat(buffer, __kCFUserEncodingFileName);
+		strlcpy(buffer, passwdp->pw_dir, sizeof(buffer));
+		strlcat(buffer, __kCFUserEncodingFileName, sizeof(buffer));
 
 		if ((fd = open(buffer, O_RDONLY, 0)) > 0) {
 			size_t readSize;

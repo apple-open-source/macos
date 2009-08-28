@@ -7,7 +7,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libmd/mdXhl.c,v 1.18 2002/09/08 15:10:04 phk Exp $");
+__FBSDID("$FreeBSD: src/lib/libmd/mdXhl.c,v 1.19 2006/01/17 15:35:56 phk Exp $");
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -88,7 +88,7 @@ MDXFileChunk(const char *filename, char *buf, off_t ofs, off_t len)
 }
 
 char *
-MDXData (const unsigned char *data, unsigned int len, char *buf)
+MDXData (const void *data, unsigned int len, char *buf)
 {
 	MDX_CTX ctx;
 

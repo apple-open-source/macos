@@ -162,10 +162,61 @@ extern const CSSM_OID
 	CSSMOID_PKCS12_secretBag,
 	CSSMOID_PKCS12_safeContentsBag,
 	
+/* RFC 2798 (LDAP) */
+	CSSMOID_UserID,
+
+/* RFC 1275 (X.500) */
+	CSSMOID_DomainComponent,
+	
 /* Kerberos PKINIT CMS ContentInfo types */
 	CSSMOID_KERBv5_PKINIT_AUTH_DATA,
 	CSSMOID_KERBv5_PKINIT_DH_KEY_DATA,
 	CSSMOID_KERBv5_PKINIT_RKEY_DATA;
+
+/* Elliptic Curve OIDs from X9.62 and Certicom SEC 2 */
+extern const CSSM_OID
+	CSSMOID_X9_62,
+	CSSMOID_X9_62_FieldType,
+	CSSMOID_X9_62_PubKeyType,
+	CSSMOID_X9_62_EllCurve,
+	CSSMOID_X9_62_C_TwoCurve,
+	CSSMOID_X9_62_PrimeCurve,
+	CSSMOID_X9_62_SigType,
+	CSSMOID_secp192r1,
+	CSSMOID_secp256r1,
+	CSSMOID_Certicom,
+	CSSMOID_CerticomEllCurve,
+	CSSMOID_secp112r1,
+	CSSMOID_secp112r2,
+	CSSMOID_secp128r1,
+	CSSMOID_secp128r2,
+	CSSMOID_secp160k1,
+	CSSMOID_secp160r1,
+	CSSMOID_secp160r2,
+	CSSMOID_secp192k1,
+	CSSMOID_secp224k1,
+	CSSMOID_secp224r1,
+	CSSMOID_secp256k1,
+	CSSMOID_secp384r1,
+	CSSMOID_secp521r1,
+	CSSMOID_sect113r1,
+	CSSMOID_sect113r2,
+	CSSMOID_sect131r1,
+	CSSMOID_sect131r2,
+	CSSMOID_sect163k1,
+	CSSMOID_sect163r1,
+	CSSMOID_sect163r2,
+	CSSMOID_sect193r1,
+	CSSMOID_sect193r2,
+	CSSMOID_sect233k1,
+	CSSMOID_sect233r1,
+	CSSMOID_sect239k1,
+	CSSMOID_sect283k1,
+	CSSMOID_sect283r1,
+	CSSMOID_sect409k1,
+	CSSMOID_sect409r1,
+	CSSMOID_sect571k1,
+	CSSMOID_sect571r1;
 
 
 #endif	/* _CDSA_OIDSATTR_H_*/

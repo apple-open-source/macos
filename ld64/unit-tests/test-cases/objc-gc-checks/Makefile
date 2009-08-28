@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2007 Apple Inc. All rights reserved.
+# Copyright (c) 2007-2008 Apple Inc. All rights reserved.
 #
 # @APPLE_LICENSE_HEADER_START@
 # 
@@ -24,6 +24,8 @@ TESTROOT = ../..
 include ${TESTROOT}/include/common.makefile
 
 SHELL = bash # use bash shell so we can redirect just stderr
+
+
 
 #
 # Validate that the linker catches illegal combinations of .o files 
@@ -50,25 +52,32 @@ test:
 	${FAIL_IF_BAD_OBJ} bar-gc-only.o
 
 	# check RR + RR -> RR
-	${CC} foo.o bar.o -dynamiclib -o libfoobar.dylib -framework Foundation
+	${CC} ${CCFLAGS} foo.o bar.o runtime.c -dynamiclib -o libfoobar.dylib 
 	${FAIL_IF_BAD_MACHO} libfoobar.dylib
 
 	# check GC/RR + GC/RR -> GC/RR
-	${CC} foo-gc.o bar-gc.o -dynamiclib -o libfoobar.dylib -framework Foundation
+	${CC} ${CCFLAGS} foo-gc.o bar-gc.o runtime.c -dynamiclib -o libfoobar.dylib 
 	${FAIL_IF_BAD_MACHO} libfoobar.dylib
+	otool -o libfoobar.dylib | grep -A4 _image | grep flags | grep 0x2  | ${FAIL_IF_EMPTY}
 
 	# check GC + GC -> GC
-	${CC} foo-gc-only.o bar-gc-only.o -dynamiclib -o libfoobar.dylib -framework Foundation
+	${CC} ${CCFLAGS} foo-gc-only.o bar-gc-only.o runtime.c -dynamiclib -o libfoobar.dylib 
 	${FAIL_IF_BAD_MACHO} libfoobar.dylib
+	otool -o libfoobar.dylib | grep -A4 _image | grep flags | grep 0x6  | ${FAIL_IF_EMPTY}
 
-	# check RR + GC/RR -> error
-	${FAIL_IF_SUCCESS} ${CC} foo.o bar-gc.o -dynamiclib -o libfoobar.dylib -framework Foundation 2> fail.log
+	# check RR + GC/RR -> RR
+	${CC} ${CCFLAGS} foo.o bar-gc.o runtime.c -dynamiclib -o libfoobar.dylib 
+	${FAIL_IF_BAD_MACHO} libfoobar.dylib
+	otool -o libfoobar.dylib | grep -A4 _image | grep flags | grep 0x[26]  | ${FAIL_IF_STDIN}
+
+	# check GC + GC/RR -> GC
+	${CC} ${CCFLAGS} foo-gc-only.o bar-gc.o runtime.c -dynamiclib -o libfoobar.dylib  
+	${FAIL_IF_BAD_MACHO} libfoobar.dylib
+	otool -o libfoobar.dylib | grep -A4 _image | grep flags | grep 0x6  | ${FAIL_IF_EMPTY}
 
 	# check RR + GC -> error
-	${FAIL_IF_SUCCESS} ${CC} foo.o bar-gc-only.o -dynamiclib -o libfoobar.dylib -framework Foundation 2> fail.log
+	${FAIL_IF_SUCCESS} ${CC} ${CCFLAGS} foo.o bar-gc-only.o runtime.c -dynamiclib -o libfoobar.dylib 2> fail.log
 
-	# check GC + GC/RR -> error
-	${FAIL_IF_SUCCESS} ${CC} foo-gc-only.o bar-gc.o -dynamiclib -o libfoobar.dylib -framework Foundation 2> fail.log
 	${PASS_IFF} true
 
 clean:

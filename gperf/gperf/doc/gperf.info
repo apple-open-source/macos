@@ -1,5 +1,4 @@
-Dies ist gperf.info, hergestellt von Makeinfo Version 4.3 aus
-gperf.texi.
+This is gperf.info, produced by makeinfo version 4.8 from gperf.texi.
 
 INFO-DIR-SECTION Programming Tools
 START-INFO-DIR-ENTRY
@@ -7,9 +6,9 @@ START-INFO-DIR-ENTRY
 END-INFO-DIR-ENTRY
 
    This file documents the features of the GNU Perfect Hash Function
-Generator 3.0.1.
+Generator 3.0.3.
 
-   Copyright (C) 1989-2003 Free Software Foundation, Inc.
+   Copyright (C) 1989-2006 Free Software Foundation, Inc.
 
    Permission is granted to make and distribute verbatim copies of this
 manual provided the copyright notice and this permission notice are
@@ -34,7 +33,7 @@ File: gperf.info,  Node: Top,  Next: Copying,  Prev: (dir),  Up: (dir)
 Introduction
 ************
 
-   This manual documents the GNU `gperf' perfect hash function generator
+This manual documents the GNU `gperf' perfect hash function generator
 utility, focusing on its features and how to use them, and how to report
 bugs.
 
@@ -88,18 +87,19 @@ GNU GENERAL PUBLIC LICENSE
 **************************
 
                          Version 2, June 1991
+
      Copyright (C) 1989, 1991 Free Software Foundation, Inc.,
      59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-     
+
      Everyone is permitted to copy and distribute verbatim copies
      of this license document, but changing it is not allowed.
 
 Preamble
 ========
 
-   The licenses for most software are designed to take away your
-freedom to share and change it.  By contrast, the GNU General Public
-License is intended to guarantee your freedom to share and change free
+The licenses for most software are designed to take away your freedom
+to share and change it.  By contrast, the GNU General Public License is
+intended to guarantee your freedom to share and change free
 software--to make sure the software is free for all its users.  This
 General Public License applies to most of the Free Software
 Foundation's software and to any other program whose authors commit to
@@ -352,7 +352,6 @@ modification follow.
      and reuse of software generally.
 
                                 NO WARRANTY
-
  11. BECAUSE THE PROGRAM IS LICENSED FREE OF CHARGE, THERE IS NO
      WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY APPLICABLE
      LAW.  EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT
@@ -376,11 +375,10 @@ modification follow.
      ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
 
                       END OF TERMS AND CONDITIONS
-
 How to Apply These Terms to Your New Programs
 =============================================
 
-   If you develop a new program, and you want it to be of the greatest
+If you develop a new program, and you want it to be of the greatest
 possible use to the public, the best way to achieve this is to make it
 free software which everyone can redistribute and change under these
 terms.
@@ -392,17 +390,17 @@ the "copyright" line and a pointer to where the full notice is found.
 
      ONE LINE TO GIVE THE PROGRAM'S NAME AND AN IDEA OF WHAT IT DOES.
      Copyright (C) YEAR  NAME OF AUTHOR
-     
+
      This program is free software; you can redistribute it and/or
      modify it under the terms of the GNU General Public License
      as published by the Free Software Foundation; either version 2
      of the License, or (at your option) any later version.
-     
+
      This program is distributed in the hope that it will be useful,
      but WITHOUT ANY WARRANTY; without even the implied warranty of
      MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
      GNU General Public License for more details.
-     
+
      You should have received a copy of the GNU General Public License
      along with this program; if not, write to the Free Software
      Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
@@ -433,7 +431,7 @@ if necessary.  Here is a sample; alter the names:
      interest in the program `Gnomovision'
      (which makes passes at compilers) written
      by James Hacker.
-     
+
      SIGNATURE OF TY COON, 1 April 1989
      Ty Coon, President of Vice
 
@@ -473,10 +471,10 @@ Contributors to GNU `gperf' Utility
 
 File: gperf.info,  Node: Motivation,  Next: Search Structures,  Prev: Contributors,  Up: Top
 
-Introduction
-************
+1 Introduction
+**************
 
-   `gperf' is a perfect hash function generator written in C++.  It
+`gperf' is a perfect hash function generator written in C++.  It
 transforms an N element user-specified keyword set W into a perfect
 hash function F.  F uniquely maps keywords in W onto the range 0..K,
 where K >= N-1.  If K = N-1 then F is a _minimal_ perfect hash function.
@@ -496,10 +494,10 @@ available in the Second USENIX C++ Conference proceedings or from
 
 File: gperf.info,  Node: Search Structures,  Next: Description,  Prev: Motivation,  Up: Top
 
-Static search structures and GNU `gperf'
-****************************************
+2 Static search structures and GNU `gperf'
+******************************************
 
-   A "static search structure" is an Abstract Data Type with certain
+A "static search structure" is an Abstract Data Type with certain
 fundamental operations, e.g., _initialize_, _insert_, and _retrieve_.
 Conceptually, all insertions occur before any retrievals.  In practice,
 `gperf' generates a _static_ array containing search set keywords and
@@ -562,8 +560,8 @@ efficiently identify their respective reserved keywords.
 
 File: gperf.info,  Node: Description,  Next: Options,  Prev: Search Structures,  Up: Top
 
-High-Level Description of GNU `gperf'
-*************************************
+3 High-Level Description of GNU `gperf'
+***************************************
 
 * Menu:
 
@@ -600,10 +598,10 @@ Experimentation is the key to getting the most from `gperf'.
 
 File: gperf.info,  Node: Input Format,  Next: Output Format,  Prev: Description,  Up: Description
 
-Input Format to `gperf'
-=======================
+3.1 Input Format to `gperf'
+===========================
 
-   You can control the input file format by varying certain command-line
+You can control the input file format by varying certain command-line
 arguments, in particular the `-t' option.  The input's appearance is
 similar to GNU utilities `flex' and `bison' (or UNIX utilities `lex'
 and `yacc').  Here's an outline of the general format:
@@ -638,10 +636,10 @@ the first keyword line, e.g.:
 
 File: gperf.info,  Node: Declarations,  Next: Keywords,  Prev: Input Format,  Up: Input Format
 
-Declarations
-------------
+3.1.1 Declarations
+------------------
 
-   The keyword input file optionally contains a section for including
+The keyword input file optionally contains a section for including
 arbitrary C declarations and definitions, `gperf' declarations that act
 like command-line options, as well as for providing a user-supplied
 `struct'.
@@ -655,10 +653,10 @@ like command-line options, as well as for providing a user-supplied
 
 File: gperf.info,  Node: User-supplied Struct,  Next: Gperf Declarations,  Prev: Declarations,  Up: Declarations
 
-User-supplied `struct'
-......................
+3.1.1.1 User-supplied `struct'
+..............................
 
-   If the `-t' option (or, equivalently, the `%struct-type' declaration)
+If the `-t' option (or, equivalently, the `%struct-type' declaration)
 _is_ enabled, you _must_ provide a C `struct' as the last component in
 the declaration section from the input file.  The first field in this
 struct must be of type `char *' or `const char *' if the `-P' option is
@@ -700,10 +698,10 @@ be mentioned in an abbreviated form, like this:
 
 File: gperf.info,  Node: Gperf Declarations,  Next: C Code Inclusion,  Prev: User-supplied Struct,  Up: Declarations
 
-Gperf Declarations
-..................
+3.1.1.2 Gperf Declarations
+..........................
 
-   The declaration section can contain `gperf' declarations.  They
+The declaration section can contain `gperf' declarations.  They
 influence the way `gperf' works, like command line options do.  In
 fact, every such declaration is equivalent to a command line option.
 There are three forms of declarations:
@@ -869,6 +867,13 @@ line option, the command-line option's value prevails.
      the use of two hash tables in the same file, even when the option
      `-G' (or, equivalently, the `%global-table' declaration) is given.
 
+`%define length-table-name NAME'
+     Allows you to specify the name for the generated array containing
+     the length table.  Default name is `lengthtable'.  This option
+     permits the use of two length tables in the same file, even when
+     the option `-G' (or, equivalently, the `%global-table'
+     declaration) is given.
+
 `%switch=COUNT'
      Causes the generated C code to use a `switch' statement scheme,
      rather than an array lookup table.  This can lead to a reduction
@@ -888,10 +893,10 @@ line option, the command-line option's value prevails.
 
 File: gperf.info,  Node: C Code Inclusion,  Prev: Gperf Declarations,  Up: Declarations
 
-C Code Inclusion
-................
+3.1.1.3 C Code Inclusion
+........................
 
-   Using a syntax similar to GNU utilities `flex' and `bison', it is
+Using a syntax similar to GNU utilities `flex' and `bison', it is
 possible to directly include C source text and comments verbatim into
 the generated output file.  This is accomplished by enclosing the region
 inside left-justified surrounding `%{', `%}' pairs.  Here is an input
@@ -912,13 +917,13 @@ fragment based on the previous example that illustrates this feature:
 
 File: gperf.info,  Node: Keywords,  Next: Functions,  Prev: Declarations,  Up: Input Format
 
-Format for Keyword Entries
---------------------------
+3.1.2 Format for Keyword Entries
+--------------------------------
 
-   The second input file format section contains lines of keywords and
-any associated attributes you might supply.  A line beginning with `#'
-in the first column is considered a comment.  Everything following the
-`#' is ignored, up to and including the following newline.  A line
+The second input file format section contains lines of keywords and any
+associated attributes you might supply.  A line beginning with `#' in
+the first column is considered a comment.  Everything following the `#'
+is ignored, up to and including the following newline.  A line
 beginning with `%' in the first column is an option declaration and
 must not occur within the keywords section.
 
@@ -959,10 +964,10 @@ attributes.
 
 File: gperf.info,  Node: Functions,  Next: Controls for GNU indent,  Prev: Keywords,  Up: Input Format
 
-Including Additional C Functions
---------------------------------
+3.1.3 Including Additional C Functions
+--------------------------------------
 
-   The optional third section also corresponds closely with conventions
+The optional third section also corresponds closely with conventions
 found in `flex' and `bison'.  All text in this section, starting at the
 final `%%' and extending to the end of the input file, is included
 verbatim into the generated output file.  Naturally, it is your
@@ -972,10 +977,10 @@ valid C.
 
 File: gperf.info,  Node: Controls for GNU indent,  Prev: Functions,  Up: Input Format
 
-Where to place directives for GNU `indent'.
--------------------------------------------
+3.1.4 Where to place directives for GNU `indent'.
+-------------------------------------------------
 
-   If you want to invoke GNU `indent' on a `gperf' input file, you will
+If you want to invoke GNU `indent' on a `gperf' input file, you will
 see that GNU `indent' doesn't understand the `%%', `%{' and `%}'
 directives that control `gperf''s interpretation of the input file.
 Therefore you have to insert some directives for GNU `indent'.  More
@@ -1010,17 +1015,17 @@ you would insert `*INDENT-OFF*' and `*INDENT-ON*' comments as follows:
 
 File: gperf.info,  Node: Output Format,  Next: Binary Strings,  Prev: Input Format,  Up: Description
 
-Output Format for Generated C Code with `gperf'
-===============================================
+3.2 Output Format for Generated C Code with `gperf'
+===================================================
 
-   Several options control how the generated C code appears on the
-standard output.  Two C function are generated.  They are called `hash'
-and `in_word_set', although you may modify their names with a
-command-line option.  Both functions require two arguments, a string,
-`char *' STR, and a length parameter, `int' LEN.  Their default
-function prototypes are as follows:
+Several options control how the generated C code appears on the standard
+output.  Two C functions are generated.  They are called `hash' and
+`in_word_set', although you may modify their names with a command-line
+option.  Both functions require two arguments, a string, `char *' STR,
+and a length parameter, `int' LEN.  Their default function prototypes
+are as follows:
 
- - Funktion: unsigned int hash (const char * STR, unsigned int LEN)
+ -- Function: unsigned int hash (const char * STR, unsigned int LEN)
      By default, the generated `hash' function returns an integer value
      created by adding LEN to several user-specified STR byte positions
      indexed into an "associated values" table stored in a local static
@@ -1030,7 +1035,7 @@ function prototypes are as follows:
      STR) are specified via the `-k' option when running `gperf', as
      detailed in the _Options_ section below (*note Options::).
 
- - Funktion:  in_word_set (const char * STR, unsigned int LEN)
+ -- Function:  in_word_set (const char * STR, unsigned int LEN)
      If STR is in the keyword set, returns a pointer to that keyword.
      More exactly, if the option `-t' (or, equivalently, the
      `%struct-type' declaration) was given, it returns a pointer to the
@@ -1068,14 +1073,14 @@ set characteristics.
 
 File: gperf.info,  Node: Binary Strings,  Prev: Output Format,  Up: Description
 
-Use of NUL bytes
-================
+3.3 Use of NUL bytes
+====================
 
-   By default, the code generated by `gperf' operates on zero
-terminated strings, the usual representation of strings in C.  This
-means that the keywords in the input file must not contain NUL bytes,
-and the STR argument passed to `hash' or `in_word_set' must be NUL
-terminated and have exactly length LEN.
+By default, the code generated by `gperf' operates on zero terminated
+strings, the usual representation of strings in C.  This means that the
+keywords in the input file must not contain NUL bytes, and the STR
+argument passed to `hash' or `in_word_set' must be NUL terminated and
+have exactly length LEN.
 
    If option `-c' (or, equivalently, the `%compare-strncmp'
 declaration) is used, then the STR argument does not need to be NUL
@@ -1093,10 +1098,10 @@ equivalently, the `%compare-strncmp' declaration) is ignored.
 
 File: gperf.info,  Node: Options,  Next: Bugs,  Prev: Description,  Up: Top
 
-Invoking `gperf'
-****************
+4 Invoking `gperf'
+******************
 
-   There are _many_ options to `gperf'.  They were added to make the
+There are _many_ options to `gperf'.  They were added to make the
 program more convenient for use with real applications.  "On-line" help
 is readily available via the `--help' option.  Here is the complete
 list of options.
@@ -1113,8 +1118,8 @@ list of options.
 
 File: gperf.info,  Node: Output File,  Next: Input Details,  Prev: Options,  Up: Options
 
-Specifying the Location of the Output File
-==========================================
+4.1 Specifying the Location of the Output File
+==============================================
 
 `--output-file=FILE'
      Allows you to specify the name of the file to which the output is
@@ -1126,10 +1131,10 @@ specified or if it is `-'.
 
 File: gperf.info,  Node: Input Details,  Next: Output Language,  Prev: Output File,  Up: Options
 
-Options that affect Interpretation of the Input File
-====================================================
+4.2 Options that affect Interpretation of the Input File
+========================================================
 
-   These options are also available as declarations in the input file
+These options are also available as declarations in the input file
 (*note Gperf Declarations::).
 
 `-e KEYWORD-DELIMITER-LIST'
@@ -1165,10 +1170,10 @@ Options that affect Interpretation of the Input File
 
 File: gperf.info,  Node: Output Language,  Next: Output Details,  Prev: Input Details,  Up: Options
 
-Options to specify the Language for the Output Code
-===================================================
+4.3 Options to specify the Language for the Output Code
+=======================================================
 
-   These options are also available as declarations in the input file
+These options are also available as declarations in the input file
 (*note Gperf Declarations::).
 
 `-L GENERATED-LANGUAGE-NAME'
@@ -1207,11 +1212,11 @@ Options to specify the Language for the Output Code
 
 File: gperf.info,  Node: Output Details,  Next: Algorithmic Details,  Prev: Output Language,  Up: Options
 
-Options for fine tuning Details in the Output Code
-==================================================
+4.4 Options for fine tuning Details in the Output Code
+======================================================
 
-   Most of these options are also available as declarations in the
-input file (*note Gperf Declarations::).
+Most of these options are also available as declarations in the input
+file (*note Gperf Declarations::).
 
 `-K SLOT-NAME'
 `--slot-name=SLOT-NAME'
@@ -1338,6 +1343,13 @@ input file (*note Gperf Declarations::).
      the use of two hash tables in the same file, even when the option
      `-G' (or, equivalently, the `%global-table' declaration) is given.
 
+`--length-table-name=LENGTH-TABLE-ARRAY-NAME'
+     Allows you to specify the name for the generated array containing
+     the length table.  Default name is `lengthtable'.  This option
+     permits the use of two length tables in the same file, even when
+     the option `-G' (or, equivalently, the `%global-table'
+     declaration) is given.
+
 `-S TOTAL-SWITCH-STATEMENTS'
 `--switch=TOTAL-SWITCH-STATEMENTS'
      Causes the generated C code to use a `switch' statement scheme,
@@ -1363,8 +1375,8 @@ input file (*note Gperf Declarations::).
 
 File: gperf.info,  Node: Algorithmic Details,  Next: Verbosity,  Prev: Output Details,  Up: Options
 
-Options for changing the Algorithms employed by `gperf'
-=======================================================
+4.5 Options for changing the Algorithms employed by `gperf'
+===========================================================
 
 `-k SELECTED-BYTE-POSITIONS'
 `--key-positions=SELECTED-BYTE-POSITIONS'
@@ -1472,8 +1484,8 @@ Options for changing the Algorithms employed by `gperf'
 
 File: gperf.info,  Node: Verbosity,  Prev: Algorithmic Details,  Up: Options
 
-Informative Output
-==================
+4.6 Informative Output
+======================
 
 `-h'
 `--help'
@@ -1496,11 +1508,10 @@ Informative Output
 
 File: gperf.info,  Node: Bugs,  Next: Projects,  Prev: Options,  Up: Top
 
-Known Bugs and Limitations with `gperf'
-***************************************
+5 Known Bugs and Limitations with `gperf'
+*****************************************
 
-   The following are some limitations with the current release of
-`gperf':
+The following are some limitations with the current release of `gperf':
 
    * The `gperf' utility is tuned to execute quickly, and works quickly
      for small to medium size data sets (around 1000 keywords).  It is
@@ -1529,10 +1540,10 @@ Known Bugs and Limitations with `gperf'
 
 File: gperf.info,  Node: Projects,  Next: Bibliography,  Prev: Bugs,  Up: Top
 
-Things Still Left to Do
-***********************
+6 Things Still Left to Do
+*************************
 
-   It should be "relatively" easy to replace the current perfect hash
+It should be "relatively" easy to replace the current perfect hash
 function algorithm with a more exhaustive approach; the perfect hash
 module is essential independent from other program modules.  Additional
 worthwhile improvements include:
@@ -1554,10 +1565,10 @@ worthwhile improvements include:
 
 File: gperf.info,  Node: Bibliography,  Next: Concept Index,  Prev: Projects,  Up: Top
 
-Bibliography
-************
+7 Bibliography
+**************
 
-   [1] Chang, C.C.: A Scheme for Constructing Ordered Minimal Perfect
+[1] Chang, C.C.: A Scheme for Constructing Ordered Minimal Perfect
 Hashing Functions Information Sciences 39(1986), 187-195.
 
    [2] Cichelli, Richard J. Author's Response to "On Cichelli's Minimal
@@ -1612,83 +1623,86 @@ File: gperf.info,  Node: Concept Index,  Prev: Bibliography,  Up: Top
 Concept Index
 *************
 
+ [index ]
 * Menu:
 
 * %%:                                    User-supplied Struct.
-* %7bit:                                 Gperf Declarations.
-* %compare-lengths:                      Gperf Declarations.
-* %compare-strncmp:                      Gperf Declarations.
-* %define class-name:                    Gperf Declarations.
-* %define hash-function-name:            Gperf Declarations.
-* %define initializer-suffix:            Gperf Declarations.
-* %define lookup-function-name:          Gperf Declarations.
-* %define slot-name:                     Gperf Declarations.
-* %define string-pool-name:              Gperf Declarations.
-* %define word-array-name:               Gperf Declarations.
-* %delimiters:                           Gperf Declarations.
-* %enum:                                 Gperf Declarations.
-* %global-table:                         Gperf Declarations.
-* %ignore-case:                          Gperf Declarations.
-* %includes:                             Gperf Declarations.
-* %language:                             Gperf Declarations.
-* %null-strings:                         Gperf Declarations.
-* %omit-struct-type:                     Gperf Declarations.
-* %pic:                                  Gperf Declarations.
-* %readonly-tables:                      Gperf Declarations.
-* %struct-type:                          Gperf Declarations.
-* %switch:                               Gperf Declarations.
-* %{:                                    C Code Inclusion.
-* %}:                                    C Code Inclusion.
-* Array name:                            Output Details.
-* Bugs:                                  Contributors.
-* Class name:                            Output Details.
-* Declaration section:                   Input Format.
-* Delimiters:                            Input Details.
-* Duplicates:                            Algorithmic Details.
-* Format:                                Input Format.
-* Functions section:                     Input Format.
-* hash:                                  Output Format.
-* hash table:                            Output Format.
-* in_word_set:                           Output Format.
-* Initializers:                          Output Details.
-* Jump value:                            Algorithmic Details.
-* Keywords section:                      Input Format.
-* Minimal perfect hash functions:        Search Structures.
-* NUL:                                   Binary Strings.
-* Slot name:                             Output Details.
-* Static search structure:               Search Structures.
-* switch <1>:                            Output Details.
-* switch:                                Output Format.
+                                                              (line  33)
+* %7bit:                                 Gperf Declarations.  (line  95)
+* %compare-lengths:                      Gperf Declarations.  (line 103)
+* %compare-strncmp:                      Gperf Declarations.  (line 115)
+* %define class-name:                    Gperf Declarations.  (line  89)
+* %define hash-function-name:            Gperf Declarations.  (line  79)
+* %define initializer-suffix:            Gperf Declarations.  (line  71)
+* %define length-table-name:             Gperf Declarations.  (line 173)
+* %define lookup-function-name:          Gperf Declarations.  (line  84)
+* %define slot-name:                     Gperf Declarations.  (line  63)
+* %define string-pool-name:              Gperf Declarations.  (line 152)
+* %define word-array-name:               Gperf Declarations.  (line 167)
+* %delimiters:                           Gperf Declarations.  (line  24)
+* %enum:                                 Gperf Declarations.  (line 124)
+* %global-table:                         Gperf Declarations.  (line 135)
+* %ignore-case:                          Gperf Declarations.  (line  34)
+* %includes:                             Gperf Declarations.  (line 130)
+* %language:                             Gperf Declarations.  (line  39)
+* %null-strings:                         Gperf Declarations.  (line 160)
+* %omit-struct-type:                     Gperf Declarations.  (line 192)
+* %pic:                                  Gperf Declarations.  (line 140)
+* %readonly-tables:                      Gperf Declarations.  (line 119)
+* %struct-type:                          Gperf Declarations.  (line  30)
+* %switch:                               Gperf Declarations.  (line 180)
+* %{:                                    C Code Inclusion.    (line   6)
+* %}:                                    C Code Inclusion.    (line   6)
+* Array name:                            Output Details.      (line 129)
+* Bugs:                                  Contributors.        (line   6)
+* Class name:                            Output Details.      (line  41)
+* Declaration section:                   Input Format.        (line   6)
+* Delimiters:                            Input Details.       (line  11)
+* Duplicates:                            Algorithmic Details. (line  32)
+* Format:                                Input Format.        (line   6)
+* Functions section:                     Input Format.        (line   6)
+* hash:                                  Output Format.       (line  14)
+* hash table:                            Output Format.       (line   6)
+* in_word_set:                           Output Format.       (line  24)
+* Initializers:                          Output Details.      (line  20)
+* Jump value:                            Algorithmic Details. (line  63)
+* Keywords section:                      Input Format.        (line   6)
+* Minimal perfect hash functions:        Search Structures.   (line  30)
+* NUL:                                   Binary Strings.      (line   6)
+* Slot name:                             Output Details.      (line  11)
+* Static search structure:               Search Structures.   (line   6)
+* switch <1>:                            Output Details.      (line 143)
+* switch:                                Output Format.       (line  44)
 
 
 
 Tag Table:
-Node: Top1240
-Node: Copying3324
-Node: Contributors22513
-Node: Motivation23706
-Node: Search Structures24834
-Node: Description28389
-Node: Input Format30282
-Node: Declarations31419
-Node: User-supplied Struct31995
-Node: Gperf Declarations33594
-Node: C Code Inclusion42004
-Node: Keywords42831
-Node: Functions44767
-Node: Controls for GNU indent45293
-Node: Output Format46232
-Node: Binary Strings49016
-Node: Options50159
-Node: Output File50944
-Node: Input Details51328
-Node: Output Language53159
-Node: Output Details54570
-Node: Algorithmic Details61485
-Node: Verbosity66734
-Node: Bugs67437
-Node: Projects69029
-Node: Bibliography70157
-Node: Concept Index72213
+Node: Top1236
+Node: Copying3317
+Node: Contributors22474
+Node: Motivation23667
+Node: Search Structures24796
+Node: Description28352
+Node: Input Format30249
+Node: Declarations31391
+Node: User-supplied Struct31976
+Node: Gperf Declarations33588
+Node: C Code Inclusion42342
+Node: Keywords43182
+Node: Functions45127
+Node: Controls for GNU indent45662
+Node: Output Format46610
+Node: Binary Strings49402
+Node: Options50550
+Node: Output File51336
+Node: Input Details51728
+Node: Output Language53564
+Node: Output Details54980
+Node: Algorithmic Details62244
+Node: Verbosity67501
+Node: Bugs68212
+Node: Projects69805
+Node: Bibliography70934
+Node: Concept Index72991
 
 End Tag Table

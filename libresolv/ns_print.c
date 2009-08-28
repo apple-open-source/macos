@@ -718,7 +718,7 @@ ns_sprintrrf(const u_char *msg, size_t msglen,
 	int n, m;
 	char *p;
 
-	len = SPRINTF((tmp, "\\# %u (\t; %s", edata - rdata, comment));
+	len = SPRINTF((tmp, "\\# %u (\t; %s", (unsigned int)(edata - rdata), comment));
 	T(addstr(tmp, len, &buf, &buflen));
 	while (rdata < edata) {
 		p = tmp;

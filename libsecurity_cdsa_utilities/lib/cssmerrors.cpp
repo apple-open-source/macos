@@ -35,7 +35,7 @@ namespace Security {
 
 CssmError::CssmError(CSSM_RETURN err) : error(err)
 {
-	IFDEBUG(debugDiagnose(this));
+    SECURITY_EXCEPTION_THROW_CSSM(this, err);
 }
 
 
@@ -43,16 +43,6 @@ const char *CssmError::what() const throw ()
 {
 	return "CSSM exception";
 }
-
-#if !defined(NDEBUG)
-extern "C" const char *cssmErrorString(OSStatus status);
-
-void CssmError::debugDiagnose(const void *id) const
-{
-	putenv("CFBundleDisableStringsSharing=yes");
-	secdebug("exception", "%p CSSM %s (0x%lx)", id, cssmErrorString(error), error);
-}
-#endif //NDEBUG
 
 
 OSStatus CssmError::osStatus() const

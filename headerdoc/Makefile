@@ -1,6 +1,5 @@
 ##
 # Makefile for headerdoc
-# Wilfredo Sanchez | wsanchez@apple.com
 ##
 
 
@@ -22,11 +21,13 @@ endif
 endif
 startperl   := $(shell perl -e 'require Config; print "$$Config::Config{'startperl'}\n";')
 
-all:
-	cd xmlman ; make all ARCH=`uname` VERS=`sw_vers -productVersion`
+all: all_internal test
+
+all_internal:
+	cd xmlman ; make all ARCH=`uname` VERS=`sw_vers -productVersion | sed 's/\([0-9][0-9]*\)\.\([0-9][0-9]*\)\..*/\1.\2/'` ; cd ..
 
 clean:
-	cd xmlman ; make clean
+	cd xmlman ; make clean ; cd ..
 
 installsrc:
 	mkdir -p "$(SRCROOT)"
@@ -39,12 +40,39 @@ build:
 clean:
 
 test:
-	cd testsuite ; make ; make runtests ; cd ..
+	./headerDoc2HTML.pl -T run; \
+	if [ "$$?" -ne 0 ] ; then \
+		echo "Test suite failed."; \
+		exit -1; \
+	fi
 
-realinstall: all
+	rm -rf /tmp/hdtest_perm
+	rm -rf /tmp/hdtest_out
+	mkdir /tmp/hdtest_perm
+	cp ExampleHeaders/template.h /tmp/hdtest_perm
+	cp ExampleHeaders/textblock.h /tmp/hdtest_perm
+	cp ExampleHeaders/throwtest.h /tmp/hdtest_perm
+	cp ExampleHeaders/typedefTest.h /tmp/hdtest_perm
+	chmod u=w,og= /tmp/hdtest_perm/throwtest.h
+
+	if [ "x$$USER" != "xroot" ] ; then \
+		echo "Testing to make sure HeaderDoc returns an error if a file could not be read." ;\
+		if ./headerDoc2HTML.pl -c headerDoc2HTML.config-installed -o /tmp/hdtest_out /tmp/hdtest_perm > /dev/null 2>/dev/null ; then \
+			echo "Permission test failed."; \
+			rm -rf /tmp/hdtest_perm; \
+			rm -rf /tmp/hdtest_out; \
+			exit -1; \
+		fi \
+	fi
+	rm -rf /tmp/hdtest_perm
+	rm -rf /tmp/hdtest_out
+	exit 0
+	# cd testsuite ; make ; make runtests ; cd ..
+
+realinstall: all_internal
 	DSTROOT="" make installsub
 
-install: all
+install: all_internal
 	@echo ; \
 	export DSTROOT="/tmp/headerdoc/Release" ; \
  \

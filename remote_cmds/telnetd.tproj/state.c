@@ -31,18 +31,21 @@
  * SUCH DAMAGE.
  */
 
-#ifndef lint
 #if 0
-static const char sccsid[] = "@(#)state.c	8.2 (Berkeley) 12/15/93";
+#ifndef lint
+static const char sccsid[] = "@(#)state.c	8.5 (Berkeley) 5/30/95";
 #endif
-static const char rcsid[] =
-  "$FreeBSD: src/libexec/telnetd/state.c,v 1.13 2001/07/20 15:14:03 ru Exp $";
-#endif /* not lint */
+#endif
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/contrib/telnet/telnetd/state.c,v 1.14 2003/05/04 02:54:49 obrien Exp $");
 
 #include <stdarg.h>
 #include "telnetd.h"
-#if	defined(AUTHENTICATION)
+#ifdef	AUTHENTICATION
 #include <libtelnet/auth.h>
+#endif
+#ifdef	ENCRYPTION
+#include <libtelnet/encrypt.h>
 #endif
 
 unsigned char	doopt[] = { IAC, DO, '%', 'c', 0 };
@@ -86,19 +89,22 @@ unsigned char *subsave;
 #define	TS_DO		7	/* do " */
 #define	TS_DONT		8	/* dont " */
 
-	void
-telrcv()
+static void doclientstat(void);
+
+void
+telrcv(void)
 {
-	register int c;
+	int c;
 	static int state = TS_DATA;
-#if	defined(CRAY2) && defined(UNICOS5)
-	char *opfrontp = pfrontp;
-#endif
 
 	while (ncc > 0) {
 		if ((&ptyobuf[BUFSIZ] - pfrontp) < 2)
 			break;
 		c = *netip++ & 0377, ncc--;
+#ifdef	ENCRYPTION
+		if (decrypt_input)
+			c = (*decrypt_input)(c);
+#endif	/* ENCRYPTION */
 		switch (state) {
 
 		case TS_CR:
@@ -107,7 +113,7 @@ telrcv()
 			if ((c == 0) || (c == '\n')) {
 				break;
 			}
-			/* FALL THROUGH */
+			/* FALLTHROUGH */
 
 		case TS_DATA:
 			if (c == IAC) {
@@ -127,6 +133,10 @@ telrcv()
 			 */
 			if ((c == '\r') && his_state_is_wont(TELOPT_BINARY)) {
 				int nc = *netip;
+#ifdef	ENCRYPTION
+				if (decrypt_input)
+					nc = (*decrypt_input)(nc & 0xff);
+#endif	/* ENCRYPTION */
 #ifdef	LINEMODE
 				/*
 				 * If we are operating in linemode,
@@ -139,6 +149,10 @@ telrcv()
 				} else
 #endif
 				{
+#ifdef	ENCRYPTION
+					if (decrypt_input)
+						(void)(*decrypt_input)(-1);
+#endif	/* ENCRYPTION */
 					state = TS_CR;
 				}
 			}
@@ -352,21 +366,6 @@ gotiac:			switch (c) {
 			exit(1);
 		}
 	}
-#if	defined(CRAY2) && defined(UNICOS5)
-	if (!linemode) {
-		char	xptyobuf[BUFSIZ+NETSLOP];
-		char	xbuf2[BUFSIZ];
-		register char *cp;
-		int n = pfrontp - opfrontp, oc;
-		memmove(xptyobuf, opfrontp, n);
-		pfrontp = opfrontp;
-		pfrontp += term_input(xptyobuf, pfrontp, n, BUFSIZ+NETSLOP,
-					xbuf2, &oc, BUFSIZ);
-		for (cp = xbuf2; oc > 0; --oc)
-			if ((*nfrontp++ = *cp++) == IAC)
-				*nfrontp++ = IAC;
-	}
-#endif	/* defined(CRAY2) && defined(UNICOS5) */
 }  /* end of telrcv */
 
 /*
@@ -425,9 +424,8 @@ gotiac:			switch (c) {
  * is complete.
  *
  */
-	void
-send_do(option, init)
-	int option, init;
+void
+send_do(int option, int init)
 {
 	if (init) {
 		if ((do_dont_resp[option] == 0 && his_state_is_will(option)) ||
@@ -449,19 +447,11 @@ send_do(option, init)
 	DIAG(TD_OPTIONS, printoption("td: send do", option));
 }
 
-#ifdef	AUTHENTICATION
-extern void auth_request();
-#endif
-#ifdef	LINEMODE
-extern void doclientstat();
-#endif
-
-	void
-willoption(option)
-	int option;
+void
+willoption(int option)
 {
 	int changeok = 0;
-	void (*func)() = 0;
+	void (*func)(void) = 0;
 
 	/*
 	 * process input from peer.
@@ -568,6 +558,12 @@ willoption(option)
 			break;
 #endif
 
+#ifdef	ENCRYPTION
+		case TELOPT_ENCRYPT:
+			func = encrypt_send_support;
+			changeok++;
+			break;
+#endif	/* ENCRYPTION */
 
 		default:
 			break;
@@ -627,6 +623,11 @@ willoption(option)
 			break;
 #endif
 
+#ifdef	ENCRYPTION
+		case TELOPT_ENCRYPT:
+			func = encrypt_send_support;
+			break;
+#endif	/* ENCRYPTION */
 		case TELOPT_LFLOW:
 			func = flowstat;
 			break;
@@ -638,9 +639,8 @@ willoption(option)
 		(*func)();
 }  /* end of willoption */
 
-	void
-send_dont(option, init)
-	int option, init;
+void
+send_dont(int option, int init)
 {
 	if (init) {
 		if ((do_dont_resp[option] == 0 && his_state_is_wont(option)) ||
@@ -654,9 +654,8 @@ send_dont(option, init)
 	DIAG(TD_OPTIONS, printoption("td: send dont", option));
 }
 
-	void
-wontoption(option)
-	int option;
+void
+wontoption(int option)
 {
 	/*
 	 * Process client input.
@@ -720,7 +719,7 @@ wontoption(option)
 			slctab[SLC_XOFF].defset.flag |= SLC_CANTCHANGE;
 			break;
 
-#if	defined(AUTHENTICATION)
+#ifdef	AUTHENTICATION
 		case TELOPT_AUTHENTICATION:
 			auth_finished(0, AUTH_REJECT);
 			break;
@@ -773,7 +772,7 @@ wontoption(option)
 #endif	/* defined(LINEMODE) && defined(KLUDGELINEMODE) */
 			break;
 
-#if	defined(AUTHENTICATION)
+#ifdef AUTHENTICATION
 		case TELOPT_AUTHENTICATION:
 			auth_finished(0, AUTH_REJECT);
 			break;
@@ -787,9 +786,8 @@ wontoption(option)
 
 }  /* end of wontoption */
 
-	void
-send_will(option, init)
-	int option, init;
+void
+send_will(int option, int init)
 {
 	if (init) {
 		if ((will_wont_resp[option] == 0 && my_state_is_will(option))||
@@ -814,9 +812,8 @@ send_will(option, init)
 int turn_on_sga = 0;
 #endif
 
-	void
-dooption(option)
-	int option;
+void
+dooption(int option)
 {
 	int changeok = 0;
 
@@ -915,6 +912,11 @@ dooption(option)
 			/* NOT REACHED */
 			break;
 
+#ifdef	ENCRYPTION
+		case TELOPT_ENCRYPT:
+			changeok++;
+			break;
+#endif	/* ENCRYPTION */
 		case TELOPT_LINEMODE:
 		case TELOPT_TTYPE:
 		case TELOPT_NAWS:
@@ -940,9 +942,8 @@ dooption(option)
 
 }  /* end of dooption */
 
-	void
-send_wont(option, init)
-	int option, init;
+void
+send_wont(int option, int init)
 {
 	if (init) {
 		if ((will_wont_resp[option] == 0 && my_state_is_wont(option)) ||
@@ -956,9 +957,8 @@ send_wont(option, init)
 	DIAG(TD_OPTIONS, printoption("td: send wont", option));
 }
 
-	void
-dontoption(option)
-	int option;
+void
+dontoption(int option)
 {
 	/*
 	 * Process client input.
@@ -1062,17 +1062,17 @@ int env_ovalue = -1;
  *	Window size
  *	Terminal speed
  */
-	void
-suboption()
+void
+suboption(void)
 {
-    register int subchar;
+    int subchar;
 
     DIAG(TD_OPTIONS, {netflush(); printsub('<', subpointer, SB_LEN()+2);});
 
     subchar = SB_GET();
     switch (subchar) {
     case TELOPT_TSPEED: {
-	register int xspeed, rspeed;
+	int xspeed, rspeed;
 
 	if (his_state_is_wont(TELOPT_TSPEED))	/* Ignore if option disabled */
 		break;
@@ -1110,7 +1110,7 @@ suboption()
 
 	while ((terminaltype < (terminalname + sizeof terminalname-1)) &&
 								    !SB_EOF()) {
-	    register int c;
+	    int c;
 
 	    c = SB_GET();
 	    if (isupper(c)) {
@@ -1124,7 +1124,7 @@ suboption()
     }  /* end of case TELOPT_TTYPE */
 
     case TELOPT_NAWS: {
-	register int xwinsize, ywinsize;
+	int xwinsize, ywinsize;
 
 	if (his_state_is_wont(TELOPT_NAWS))	/* Ignore if option disabled */
 		break;
@@ -1149,7 +1149,7 @@ suboption()
 
 #ifdef	LINEMODE
     case TELOPT_LINEMODE: {
-	register int request;
+	int request;
 
 	if (his_state_is_wont(TELOPT_LINEMODE))	/* Ignore if option disabled */
 		break;
@@ -1229,8 +1229,8 @@ suboption()
     case TELOPT_NEW_ENVIRON:
 #endif
     case TELOPT_OLD_ENVIRON: {
-	register int c;
-	register char *cp, *varp, *valp;
+	int c;
+	char *cp, *varp, *valp;
 
 	if (SB_EOF())
 		return;
@@ -1261,7 +1261,7 @@ suboption()
 	     * reversed.
 	     */
 	    if (env_ovar < 0) {
-		register int last = -1;		/* invalid value */
+		int last = -1;		/* invalid value */
 		int empty = 0;
 		int got_var = 0, got_value = 0, got_uservar = 0;
 
@@ -1311,7 +1311,7 @@ suboption()
 			case ENV_ESC:
 				if (!SB_EOF())
 					c = SB_GET();
-				/* FALL THROUGH */
+				/* FALLTHROUGH */
 			default:
 				empty = 0;
 				continue;
@@ -1398,7 +1398,7 @@ suboption()
 			if (SB_EOF())
 				break;
 			c = SB_GET();
-			/* FALL THROUGH */
+			/* FALLTHROUGH */
 		default:
 			*cp++ = c;
 			break;
@@ -1411,7 +1411,7 @@ suboption()
 		unsetenv(varp);
 	break;
     }  /* end of case TELOPT_NEW_ENVIRON */
-#if	defined(AUTHENTICATION)
+#ifdef	AUTHENTICATION
     case TELOPT_AUTHENTICATION:
 	if (SB_EOF())
 		break;
@@ -1432,6 +1432,49 @@ suboption()
 	}
 	break;
 #endif
+#ifdef	ENCRYPTION
+    case TELOPT_ENCRYPT:
+	if (SB_EOF())
+		break;
+	switch(SB_GET()) {
+	case ENCRYPT_SUPPORT:
+		encrypt_support(subpointer, SB_LEN());
+		break;
+	case ENCRYPT_IS:
+		encrypt_is(subpointer, SB_LEN());
+		break;
+	case ENCRYPT_REPLY:
+		encrypt_reply(subpointer, SB_LEN());
+		break;
+	case ENCRYPT_START:
+		encrypt_start(subpointer, SB_LEN());
+		break;
+	case ENCRYPT_END:
+		encrypt_end();
+		break;
+	case ENCRYPT_REQSTART:
+		encrypt_request_start(subpointer, SB_LEN());
+		break;
+	case ENCRYPT_REQEND:
+		/*
+		 * We can always send an REQEND so that we cannot
+		 * get stuck encrypting.  We should only get this
+		 * if we have been able to get in the correct mode
+		 * anyhow.
+		 */
+		encrypt_request_end();
+		break;
+	case ENCRYPT_ENC_KEYID:
+		encrypt_enc_keyid(subpointer, SB_LEN());
+		break;
+	case ENCRYPT_DEC_KEYID:
+		encrypt_dec_keyid(subpointer, SB_LEN());
+		break;
+	default:
+		break;
+	}
+	break;
+#endif	/* ENCRYPTION */
 
     default:
 	break;
@@ -1439,20 +1482,20 @@ suboption()
 
 }  /* end of suboption */
 
-	void
-doclientstat()
+static void
+doclientstat(void)
 {
 	clientstat(TELOPT_LINEMODE, WILL, 0);
 }
 
 #define	ADD(c)	 *ncp++ = c
-#define	ADD_DATA(c) { *ncp++ = c; if (c == SE) *ncp++ = c; }
-	void
-send_status()
+#define	ADD_DATA(c) { *ncp++ = c; if (c == SE || c == IAC) *ncp++ = c; }
+void
+send_status(void)
 {
 	unsigned char statusbuf[256];
-	register unsigned char *ncp;
-	register unsigned char i;
+	unsigned char *ncp;
+	unsigned char i;
 
 	ncp = statusbuf;
 
@@ -1505,7 +1548,6 @@ send_status()
 				ADD(LFLOW_RESTART_XON);
 			}
 			ADD(SE);
-			ADD(SB);
 		}
 	}
 
@@ -1518,8 +1560,6 @@ send_status()
 		ADD(TELOPT_LINEMODE);
 		ADD(LM_MODE);
 		ADD_DATA(editmode);
-		if (editmode == IAC)
-			ADD(IAC);
 		ADD(SE);
 
 		ADD(SB);
@@ -1561,7 +1601,7 @@ output_data(const char *format, ...)
 	if ((len = vasprintf(&buf, format, args)) == -1)
 		return -1;
 	output_datalen(buf, len);
-        va_end(args);
+	va_end(args);
 	free(buf);
 	return (len);
 }
@@ -1570,7 +1610,7 @@ void
 output_datalen(const char *buf, int len)
 {
 	int remaining, copied;
-
+	
 	remaining = BUFSIZ - (nfrontp - netobuf);
 	while (len > 0) {
 		/* Free up enough space if the room is too low*/

@@ -1,5 +1,5 @@
 /* Utility to update paths from internal to external forms.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -16,8 +16,8 @@ Library General Public License for more details.
 
 You should have received a copy of the GNU Library General Public
 License along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* This file contains routines to update a path, both to canonicalize
    the directory format and to handle any prefix translation.
@@ -115,7 +115,7 @@ get_key_value (char *key)
 static char *
 save_string (const char *s, int len)
 {
-  char *result = xmalloc (len + 1);
+  char *result = XNEWVEC (char, len + 1);
 
   memcpy (result, s, len);
   result[len] = 0;
@@ -123,6 +123,10 @@ save_string (const char *s, int len)
 }
 
 #if defined(_WIN32) && defined(ENABLE_WIN32_REGISTRY)
+
+#ifndef WIN32_REGISTRY_KEY
+# define WIN32_REGISTRY_KEY BASEVER
+#endif
 
 /* Look up "key" in the registry, as above.  */
 
@@ -197,7 +201,7 @@ translate_name (char *name)
 	   keylen++)
 	;
 
-      key = alloca (keylen + 1);
+      key = (char *) alloca (keylen + 1);
       strncpy (key, &name[1], keylen);
       key[keylen] = 0;
 

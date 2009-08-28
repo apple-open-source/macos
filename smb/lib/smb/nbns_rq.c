@@ -2,7 +2,7 @@
  * Copyright (c) 2000, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -82,7 +82,7 @@ static u_int32_t in_local_subnet(u_char *addr)
 }
 
 /* When invoked from smb_ctx_resolve we need the smb_ctx structure */
-static int nbns_resolvename_internal(const char *name, struct nb_ctx *ctx, struct smb_ctx *smbctx, 
+static int nbns_resolvename_internal(const char *name, struct nb_ctx *ctx, 
 									 struct sockaddr **adpp, u_int16_t port)
 {
 	struct nbns_rq *rqp;
@@ -90,7 +90,7 @@ static int nbns_resolvename_internal(const char *name, struct nb_ctx *ctx, struc
 	struct nbns_rr rr;
 	struct sockaddr_in *nameserver_sock, *session_sock;
 	int error, rdrcount, len;
-	char wkgrp[SMB_MAXUSERNAMELEN + 1];
+	char wkgrp[SMB_MAXNetBIOSNAMELEN + 1];
 	u_char *current_ip, *end_of_rr, *next_of_rr = NULL;
 
 	wkgrp[0] = '\0';
@@ -101,7 +101,7 @@ static int nbns_resolvename_internal(const char *name, struct nb_ctx *ctx, struc
 	if (error)
 		return error;
 	bzero(&nn, sizeof(nn));
-	strcpy((char *)nn.nn_name, name);
+	strlcpy((char *)nn.nn_name, name, sizeof(nn.nn_name));
 	/* When doing a NetBIOS lookup the name needs to be uppercase */
 	str_upper((char *)nn.nn_name, (char *)nn.nn_name);
 	nn.nn_scope = (u_char *)ctx->nb_scope;
@@ -156,7 +156,7 @@ static int nbns_resolvename_internal(const char *name, struct nb_ctx *ctx, struc
 			break;
 
 		/* Get socket ready except dest. address */	
-		len = sizeof(struct sockaddr_in);
+		len = (int)sizeof(struct sockaddr_in);
 		/* Does it need to be malloced? */
 		if (!session_sock) {
 			session_sock = malloc(len);
@@ -195,10 +195,10 @@ static int nbns_resolvename_internal(const char *name, struct nb_ctx *ctx, struc
 		 */
 		current_ip = (rr.rr_data + 2); 	/* Points to the first ip address */
 		next_of_rr = current_ip + 4; 	/* Points to the next offset */
-#ifdef DEBUG
+#ifdef SMB_DEBUG
 		smb_log_info("rr_data = %p end_of_rr = %p current_ip = %p next_of_rr = %p", 0, ASL_LEVEL_DEBUG, 
 					 rr.rr_data, end_of_rr, current_ip, next_of_rr);
-#endif // DEBUG
+#endif // SMB_DEBUG
 		if ((current_ip < end_of_rr) && (next_of_rr == end_of_rr)) {
 			/* Only one address so, we are really done here */
 			bcopy(current_ip, &session_sock->sin_addr.s_addr, 4);
@@ -264,10 +264,6 @@ static int nbns_resolvename_internal(const char *name, struct nb_ctx *ctx, struc
 			break; 
 		smb_log_info("Didn't find any address in this list try again if %d > 0", 0, ASL_LEVEL_DEBUG, rdrcount);		
 	} /* end big for loop */
-#ifdef OVERRIDE_USER_SETTING_DOMAIN
-	if (!error && smbctx) 
-		smb_ctx_setdomain(smbctx,  wkgrp);
-#endif //  OVERRIDE_USER_SETTING_DOMAIN
 	nbns_rq_done(rqp);
 		
 	/* 
@@ -281,10 +277,10 @@ static int nbns_resolvename_internal(const char *name, struct nb_ctx *ctx, struc
 
 
 /* When invoked from smb_ctx_resolve we need the smb_ctx structure */
-int nbns_resolvename(const char *name, struct nb_ctx *ctx, struct smb_ctx *smbctx, 
+int nbns_resolvename(const char *name, struct nb_ctx *ctx, 
 					 struct sockaddr **adpp, int allow_local_conn, u_int16_t port)
 {
-	int error = nbns_resolvename_internal(name, ctx, smbctx, adpp, port);
+	int error = nbns_resolvename_internal(name, ctx, adpp, port);
 	
 	/* We tried it with WINS and failed try broadcast now */
 	if (error && (ctx->nb_wins_name != NULL)) {
@@ -293,7 +289,7 @@ int nbns_resolvename(const char *name, struct nb_ctx *ctx, struct smb_ctx *smbct
 		ctx->nb_wins_name = NULL;	/* Force it to setup the broadcast address */
 		error = nb_ctx_resolve(ctx);
 		if (error == 0)
-			error = nbns_resolvename_internal(name, ctx, smbctx, adpp, port);
+			error = nbns_resolvename_internal(name, ctx, adpp, port);
 		ctx->nb_wins_name = save_wins_name; /* Restore the wins name */
 	}
 	/* Make sure we are not connecting to ourself */
@@ -329,7 +325,7 @@ smb_optstrncpy(char *d, char *s, unsigned maxlen)
 int
 nbns_getnodestatus(struct sockaddr *targethost,
 		   struct nb_ctx *ctx, 
-		   char *system,
+		   char *nbt_server,
 		   char *workgroup)
 {
 	struct nbns_rq *rqp;
@@ -347,7 +343,7 @@ nbns_getnodestatus(struct sockaddr *targethost,
 	if (error)
 		return error;
 	bzero(&nn, sizeof(nn));
-	strcpy((char *)nn.nn_name, "*");
+	strlcpy((char *)nn.nn_name, "*", sizeof(nn.nn_name));
 	nn.nn_scope = (u_char *)(ctx->nb_scope);
 	nn.nn_type = NBT_WKSTA;
 	rqp->nr_nmflags = 0;
@@ -399,8 +395,8 @@ nbns_getnodestatus(struct sockaddr *targethost,
 				if (!foundgroup ||
 				    (foundgroup != NBT_WKSTA+1 &&
 				     nrtype == NBT_WKSTA)) {
-						smb_optstrncpy(workgroup, nrp->nr_name,
-						       SMB_MAXNetBIOSNAMELEN);
+						if (workgroup)
+							smb_optstrncpy(workgroup, nrp->nr_name, SMB_MAXNetBIOSNAMELEN);
 					foundgroup = nrtype+1;
 				}
 			} else {
@@ -409,13 +405,13 @@ nbns_getnodestatus(struct sockaddr *targethost,
 				retname = nrp->nr_name;
 			}
 			if (nrtype == NBT_SERVER) {
-				smb_optstrncpy(system, nrp->nr_name,
-					       SMB_MAXNetBIOSNAMELEN);
+				if (nbt_server)
+					smb_optstrncpy(nbt_server, nrp->nr_name, SMB_MAXNetBIOSNAMELEN);
 				foundserver = 1;
 			}
 		}
-		if (!foundserver)
-			smb_optstrncpy(system, retname, SMB_MAXNetBIOSNAMELEN);
+		if (!foundserver && nbt_server)
+			smb_optstrncpy(nbt_server, retname, SMB_MAXNetBIOSNAMELEN);
 		ctx->nb_lastns = rqp->nr_sender;
 		break;
 	}
@@ -551,15 +547,16 @@ nbns_rq_recv(struct nbns_rq *rqp)
 	struct timeval tv;
 	struct sockaddr_in sender;
 	int s = rqp->nr_fd;
-	int n, len;
+	int n;
+	socklen_t len;
 
 	FD_ZERO(&rd);
 	FD_ZERO(&wr);
 	FD_ZERO(&ex);
 	FD_SET(s, &rd);
 
-	tv.tv_sec = rqp->nr_nbd->nb_timo;
-	tv.tv_usec = 0;
+	tv.tv_sec = 0;
+	tv.tv_usec = 500000; /* We wait half a second for a response */
 
 	n = select(s + 1, &rd, &wr, &ex, &tv);
 	if (n == -1)
@@ -568,9 +565,8 @@ nbns_rq_recv(struct nbns_rq *rqp)
 		return ETIMEDOUT;
 	if (FD_ISSET(s, &rd) == 0)
 		return ETIMEDOUT;
-	len = sizeof(sender);
-	n = recvfrom(s, rpdata, mbp->mb_top->m_maxlen, 0,
-	    (struct sockaddr*)&sender, (socklen_t *)&len);
+	len = (socklen_t)sizeof(sender);
+	n = (int)recvfrom(s, rpdata, mbp->mb_top->m_maxlen, 0, (struct sockaddr*)&sender, &len);
 	if (n < 0)
 		return errno;
 	mbp->mb_top->m_len = mbp->mb_count = n;
@@ -589,7 +585,7 @@ nbns_rq_opensocket(struct nbns_rq *rqp)
 		return errno;
 	if (rqp->nr_flags & NBRQF_BROADCAST) {
 		opt = 1;
-		if (setsockopt(s, SOL_SOCKET, SO_BROADCAST, &opt, sizeof(opt)) < 0)
+		if (setsockopt(s, SOL_SOCKET, SO_BROADCAST, &opt, (socklen_t)sizeof(opt)) < 0)
 			return errno;
 		if (rqp->nr_if == NULL)
 			return ENETDOWN;
@@ -598,7 +594,7 @@ nbns_rq_opensocket(struct nbns_rq *rqp)
 		locaddr.sin_len = sizeof(locaddr);
 		locaddr.sin_addr = rqp->nr_if->id_addr;
 		rqp->nr_dest.sin_addr.s_addr = rqp->nr_if->id_addr.s_addr | ~rqp->nr_if->id_mask.s_addr;
-		if (bind(s, (struct sockaddr*)&locaddr, sizeof(locaddr)) < 0)
+		if (bind(s, (struct sockaddr*)&locaddr, (socklen_t)sizeof(locaddr)) < 0)
 			return errno;
 	}
 	return 0;
@@ -611,7 +607,7 @@ nbns_rq_send(struct nbns_rq *rqp)
 	int s = rqp->nr_fd;
 
 	if (sendto(s, SMB_LIB_MTODATA(mbp->mb_top, char *), mbp->mb_count, 0,
-	      (struct sockaddr*)&rqp->nr_dest, sizeof(rqp->nr_dest)) < 0)
+	      (struct sockaddr*)&rqp->nr_dest, (socklen_t)sizeof(rqp->nr_dest)) < 0)
 		return errno;
 	return 0;
 }
@@ -629,14 +625,21 @@ again:
 	error = nbns_rq_opensocket(rqp);
 	if (error)
 		return error;
-	retrycount = 1;	/* XXX - configurable or adaptive */
+	/*
+	 * Really would like to change this in the future. Currently the configuration
+	 * file alwows the user to set the amount of time we will wait for a NetBIOS
+	 * name lookup to complete. So will always wait half a second per attempt. So nb_timo is the
+	 * number of seconds we want to wait. So nb_timo * 2 is the number of retries we
+	 * will attmept. Remmeber that nb_timo defaults to 1 second.
+	 */
+	retrycount = rqp->nr_nbd->nb_timo * 2;
 	for (;;) {
 		error = nbns_rq_send(rqp);
 		if (error)
 			return error;
 		error = nbns_rq_recv(rqp);
 		if (error) {
-			if (error != ETIMEDOUT || retrycount == 0) {
+			if (error != ETIMEDOUT || --retrycount == 0) {
 				if ((rqp->nr_nmflags & NBNS_NMFLAG_BCAST) &&
 				    rqp->nr_if != NULL &&
 				    rqp->nr_if->id_next != NULL) {
@@ -646,7 +649,6 @@ again:
 				} else
 					return error;
 			}
-			retrycount--;
 			continue;
 		}
 		mbp = &rqp->nr_rp;

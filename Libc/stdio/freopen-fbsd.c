@@ -200,7 +200,7 @@ finish:
 	memset(&fp->_extra->mbstate, 0, sizeof(mbstate_t));
 
 	if (f < 0) {			/* did not get it after all */
-		fp->_flags = 0;		/* set it free */
+		__sfprelease(fp);	/* set it free */
 		errno = sverrno;	/* restore in case _close clobbered */
 		FUNLOCKFILE(fp);
 		return (NULL);

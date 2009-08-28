@@ -146,13 +146,15 @@ static int		send_dg(res_state, const u_char *, int, u_char *, int *, int *, int,
 static void		Aerror(const res_state, FILE *, const char *, int, const struct sockaddr *, int);
 static void		Perror(const res_state, FILE *, const char *, int);
 static int		sock_eq(struct sockaddr *, struct sockaddr *);
-#ifdef NEED_PSELECT
-static int		pselect(int, void *, void *, void *, struct timespec *, const sigset_t *);
+#ifdef USE_DNS_PSELECT
+static int		dns_pselect(int, void *, void *, void *, struct timespec *, const sigset_t *);
 #endif
 
 static const int niflags = NI_NUMERICHOST | NI_NUMERICSERV;
-static int interrupt_pipe_enabled = 0;
-static pthread_key_t interrupt_pipe_key;
+
+/* interrupt mechanism is shared with res_query.c */
+int interrupt_pipe_enabled = 0;
+pthread_key_t interrupt_pipe_key;
 
 static int
 bind_random(int sock)
@@ -297,7 +299,7 @@ evNowTime()
 	return (evTimeSpec(now));
 }
 
-#ifdef NEED_PSELECT
+#ifdef USE_DNS_PSELECT
 static struct timeval
 evTimeVal(struct timespec ts)
 {
@@ -1324,11 +1326,11 @@ send_dg(res_state statp, const u_char *buf, int buflen, u_char *ans, int *anssiz
 	finish = evAddTime(now, timeout);
 #endif /* __APPLE__ */
 	goto nonow;
- wait:
 
+wait:
 	now = evNowTime();
 
- nonow:
+nonow:
 
 	if (notify_token != -1)
 	{
@@ -1357,7 +1359,11 @@ send_dg(res_state statp, const u_char *buf, int buflen, u_char *ans, int *anssiz
 	if (evCmpTime(finish, now) > 0) timeout = evSubTime(finish, now);
 	else timeout = evConsTime(0, 0);
 
+#ifdef USE_DNS_PSELECT
+	n = dns_pselect(nfds, &dsmask, NULL, NULL, &timeout, NULL);
+#else
 	n = pselect(nfds, &dsmask, NULL, NULL, &timeout, NULL);
+#endif
 	if (n == 0)
 	{
 		Dprint(statp->options & RES_DEBUG, (stdout, ";; timeout\n"));
@@ -1553,10 +1559,9 @@ sock_eq(struct sockaddr *a, struct sockaddr *b)
 	}
 }
 
-#ifdef NEED_PSELECT
-/* XXX needs to move to the porting library. */
+#ifdef USE_DNS_PSELECT
 static int
-pselect(int nfds, void *rfds, void *wfds, void *efds, struct timespec *tsp, const sigset_t *sigmask)
+dns_pselect(int nfds, void *rfds, void *wfds, void *efds, struct timespec *tsp, const sigset_t *sigmask)
 {
 	struct timeval tv, *tvp = NULL;
 	sigset_t sigs;

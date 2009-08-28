@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2005, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,6 +31,7 @@
 #include <unistd.h>
 #include <paths.h>
 #include <strings.h>
+#include <spawn.h>
 #include <sys/errno.h>
 
 // For _NSGetEnviron() -- which gives us a pointer to environ
@@ -40,71 +41,81 @@ extern size_t malloc_good_size(size_t size);
 extern int errno;
 
 pthread_once_t re_init_c = PTHREAD_ONCE_INIT;
-static regex_t re_cmd, re_goodchars, re_subcmd_syntax_err_kludge;
+static regex_t re_cmd, re_goodchars, re_subcmd_syntax_err_kludge, re_quoted_string;
 
-/* Similar to popen, but catures stderr for you.  Doesn't interoperate
+/* Similar to popen, but captures stderr for you.  Doesn't interoperate
   with pclose.  Call wait4 on your own */
 pid_t popen_oe(char *cmd, FILE **out, FILE **err) {
     int out_pipe[2], err_pipe[2];
     char *argv[4];
     pid_t pid;
+    posix_spawn_file_actions_t file_actions;
+    int errrtn;
 
+    if ((errrtn = posix_spawn_file_actions_init(&file_actions)) != 0) {
+	errno = errrtn;
+	return 0;
+    }
     if (pipe(out_pipe) < 0) {
+	posix_spawn_file_actions_destroy(&file_actions);
 	return 0;
     }
     if (pipe(err_pipe) < 0) {
+	posix_spawn_file_actions_destroy(&file_actions);
 	close(out_pipe[0]);
 	close(out_pipe[1]);
 	return 0;
     }
+
+    if (out_pipe[1] != STDOUT_FILENO) {
+	posix_spawn_file_actions_adddup2(&file_actions, out_pipe[1], STDOUT_FILENO);
+	posix_spawn_file_actions_addclose(&file_actions, out_pipe[1]);
+    }
+    posix_spawn_file_actions_addclose(&file_actions, out_pipe[0]);
+    if (err_pipe[1] != STDERR_FILENO) {
+	posix_spawn_file_actions_adddup2(&file_actions, err_pipe[1], STDERR_FILENO);
+	posix_spawn_file_actions_addclose(&file_actions, err_pipe[1]);
+    }
+    posix_spawn_file_actions_addclose(&file_actions, err_pipe[0]);
 
     argv[0] = "sh";
     argv[1] = "-c";
     argv[2] = cmd;
     argv[3] = NULL;
 
-    switch(pid = vfork()) {
-	case -1:
-	    close(out_pipe[0]);
-	    close(out_pipe[1]);
-	    close(err_pipe[0]);
-	    close(err_pipe[1]);
-	    return 0;
-	case 0:
-	    if (out_pipe[1] != STDOUT_FILENO) {
-		dup2(out_pipe[1], STDOUT_FILENO);
-		close(out_pipe[1]);
-	    }
-	    close(out_pipe[0]);
-	    if (err_pipe[1] != STDERR_FILENO) {
-		dup2(err_pipe[1], STDERR_FILENO);
-		close(err_pipe[1]);
-	    }
-	    close(err_pipe[0]);
-	    execve(_PATH_BSHELL, argv, *_NSGetEnviron());
-	    _exit(127);
-	default:
-	    *out = fdopen(out_pipe[0], "r");
-	    assert(*out);
-	    close(out_pipe[1]);
-	    *err = fdopen(err_pipe[0], "r");
-	    assert(*err);
-	    close(err_pipe[1]);
+    errrtn = posix_spawn(&pid, _PATH_BSHELL, &file_actions, NULL, argv, *_NSGetEnviron());
+    posix_spawn_file_actions_destroy(&file_actions);
 
-	    return pid;
+    if (errrtn != 0) {
+	close(out_pipe[0]);
+	close(out_pipe[1]);
+	close(err_pipe[0]);
+	close(err_pipe[1]);
+	errno = errrtn;
+	return 0;
     }
+
+    *out = fdopen(out_pipe[0], "r");
+    assert(*out);
+    close(out_pipe[1]);
+    *err = fdopen(err_pipe[0], "r");
+    assert(*err);
+    close(err_pipe[1]);
+
+    return pid;
 }
 
 void re_init(void) {
-    int rc = regcomp(&re_cmd, "(^|[^\\])(`|\\$\\()", REG_EXTENDED|REG_NOSUB);
+    int rc = regcomp(&re_cmd, "(^|[^\\])(`|\\$\\([^(])", REG_EXTENDED|REG_NOSUB);
     /* XXX I'm not sure the { } stuff is correct,
       it may be overly restrictave */
-    char *rx = "^([^\\\"'|&;<>(){}]"
+    char *rx = "^([^\\\"'|&;<>(){}\n]"
       "|\\\\."
-      "|'([^']|\\\\')*'"
-      "|\"([^\"]|\\\\\")*\""
-      "|`([^`]|\\\\`)*`"
-      "|\\$(([^)]|\\\\))*\\)"  /* can't do nesting in a regex */
+      "|'(\\\\\\\\|\\\\'|[^'])*'"
+      "|\"(\\\\\\\\|\\\\\"|[^\"])*\""
+      "|`(\\\\\\\\|\\\\`|[^`])*`"
+      "|\\$\\(\\(([^)]|\\\\)*\\)\\)"  /* can't do nesting in a regex */
+      "|\\$\\(([^)]|\\\\)*\\)"  /* can't do nesting in a regex */
       "|\\$\\{[^}]*\\}"
       /* XXX: { } ? */
       ")*$";
@@ -113,6 +124,9 @@ void re_init(void) {
 
     rc = regcomp(&re_subcmd_syntax_err_kludge, 
       "command substitution.*syntax error", REG_EXTENDED|REG_NOSUB);
+
+    rc = regcomp(&re_quoted_string, 
+      "(^|[^\\])'(\\\\\\\\|\\\\'|[^'])*'", REG_EXTENDED|REG_NOSUB);
 }
 
 /* Returns zero if it can't realloc */
@@ -129,8 +143,39 @@ static int word_alloc(size_t want, wordexp_t *__restrict__ pwe, size_t *have) {
     return 0;
 }
 
+static int
+cmd_search(const char *str) {
+    regoff_t first = 0;
+    regoff_t last = strlen(str);
+    regmatch_t m = {first, last};
+    int flags;
+
+    if (last == 0) return REG_NOMATCH; /* empty string */
+
+    flags = REG_STARTEND;
+    while(regexec(&re_quoted_string, str, 1, &m, flags) == 0) {
+	/*
+	 * We have matched a single quoted string, from m.rm_so to m.rm_eo.
+	 * So the (non-quote string) from first to m.rm_so needs to be
+	 * checked for command substitution.  Then we use REG_STARTEND to
+	 * look for any other single quote strings after this one.
+	 */
+	 regmatch_t head = {first, m.rm_so};
+	 if (regexec(&re_cmd, str, 1, &head, flags) == 0) {
+	     return 0; /* found a command substitution */
+	 }
+	 flags = REG_NOTBOL | REG_STARTEND;
+	 m.rm_so = first = m.rm_eo;
+	 m.rm_eo = last;
+    }
+    /* Check the remaining string */
+     flags = REG_STARTEND;
+     if (m.rm_so > 0) flags |= REG_NOTBOL;
+     return regexec(&re_cmd, str, 1, &m, flags);
+}
+
 /* XXX this is _not_ designed to be fast */
-/* wordexp is also rife with security "chalenges", unless you pass it
+/* wordexp is also rife with security "challenges", unless you pass it
   WRDE_NOCMD it *must* support subshell expansion, and even if you
   don't beause it has to support so much of the standard shell (all
   the odd little variable expansion options for example) it is hard
@@ -143,7 +188,7 @@ int wordexp(const char *__restrict__ words,
       about 20 chars */
     size_t cbuf_l = 1024;
     char *cbuf = NULL;
-    /* Put a NUL byte between eaach word, and at the end */
+    /* Put a NUL byte between each word, and at the end */
     char *cmd = "/usr/bin/perl -e 'print join(chr(0), @ARGV), chr(0)' -- ";
     size_t wordv_l = 0, wordv_i = 0;
     int rc;
@@ -154,11 +199,11 @@ int wordexp(const char *__restrict__ words,
     pthread_once(&re_init_c, re_init);
 
     if (flags & WRDE_NOCMD) {
-	/* Thi attmpts to match any backticks or $(...)'s, but there may be
+	/* This attempts to match any backticks or $(...)'s, but there may be
 	  other ways to do subshell expansion that the standard doesn't
-	  cover, but I don't know of any -- failures here aare a potential
+	  cover, but I don't know of any -- failures here are a potential
 	  security risk */
-	rc = regexec(&re_cmd, words, 0, NULL, 0);
+	rc = cmd_search(words);
 	if (rc != REG_NOMATCH) {
 	    /* Technically ==0 is WRDE_CMDSUB, and != REG_NOMATCH is
 	      "some internal error", but failing to catch those here
@@ -196,6 +241,8 @@ int wordexp(const char *__restrict__ words,
 	    }
 	    bzero(pwe->we_wordv + wordv_i, pwe->we_offs * sizeof(char *));
 	    wordv_i = wend;
+	} else {
+	    pwe->we_offs = 0;
 	}
     }
 
@@ -317,7 +364,7 @@ void wordfree(wordexp_t *pwe) {
     }
 
     int i = 0, e = pwe->we_wordc + pwe->we_offs;
-    for(i = 0; i < e; i++) {
+    for(i = pwe->we_offs; i < e; i++) {
 	free(pwe->we_wordv[i]);
     }
     free(pwe->we_wordv);

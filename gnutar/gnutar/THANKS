@@ -4,8 +4,8 @@ Public domain tar was written by John Gilmore, with contributions
 from Henry Spencer, Fred Fish, Ian Darwin, Geoff Collyer, Stan Barber,
 Guy Harris, Dave Brower, Richard Todd, Michael Rendell, Stu Heiss and
 Rich $alz.  The FSF version, named GNU tar, was derived from PDTAR by
-Jay Fenlason and Joy Kendall, and was maintained in turn by Fran�§ois
-Pinard and Paul Eggert.
+Jay Fenlason and Joy Kendall, and was maintained in turn by François
+Pinard, Paul Eggert and Sergey Poznyakoff.
 
 Many people further contributed to GNU tar by reporting problems,
 suggesting various improvements or submitting actual code.  Here is a
@@ -13,6 +13,7 @@ list of these people.  Help me keep it complete and exempt of errors.
 See various ChangeLogs for a detailed description of contributions.
 
 Aage Robeck		aagero@ifi.uio.no
+Adye, TJ (Tim)		T.J.Adye@rl.ac.uk
 Akiko Matsushita	matusita@sra.co.jp
 Alan Bawden		Alan@lcs.mit.edu
 Alan Cox		alan@cymru.net
@@ -32,7 +33,7 @@ Andreas Haumer		andreas@vlsivie.tuwien.ac.at
 Andreas Jaeger		aj@arthur.pfalz.de
 Andreas Koppenhoefer	koppenh@trick.informatik.uni-stuttgart.de
 Andreas Reuter		ar205@bonzo.geowiss.nat.tu-bs.de
-Andreas Schuldei        andreas@schuldei.org
+Andreas Schuldei	andreas@schuldei.org
 Andreas Schwab		schwab@issan.informatik.uni-dortmund.de
 Andrew A. Ivanov	ivanov@mics.msu.su
 Andrew J. Schorr	schorr@ead.dsa.com
@@ -52,6 +53,7 @@ Bela Lubkin		filbo@armory.com
 Ben A. Mesander		ben@piglet.cr.usgs.gov
 Benedikt Stockebrand	benedikt@devnull.ruhr.de
 Bennett Todd		bet@mordor.com
+Benno Schulenberg 	benno@nietvergeten.nl
 Benny Holmgren		benny@hgs.se
 Bernard Chen		bern@cs.ucla.edu
 Bernard Derval		derval@iro.umontreal.ca
@@ -62,12 +64,12 @@ Bob Mende Pie		mende@piecomputer.rutgers.edu
 Bradley A. Smith	basmith@prometheus.chem.umn.edu
 Brendan Kehoe		brendan@cygnus.com
 Brett Gaines		gaines@saifr00.ateng.az.honeywell.com
-Bryan Ford              baford@mit.edu
 Brian Perkins		bperkins@netspace.org
 Brian R. Smith		brian@cygnus.com
 Bruce Evans		bde@runx.oz.au
 Bruce Jerrick		bruce@cse.ogi.edu
 Bruno Haible		haible@ilog.fr
+Bryan Ford		baford@mit.edu
 Bryant Fujimoto		fujimoto@denali.chem.washington.edu
 Burkhard Plache		plache@krusty.optimax.ns.ca
 Calvin Cliff		cliff@trifid.astro.ucla.edu
@@ -90,7 +92,7 @@ Chris Metcalf		metcalf@catfish.lcs.mit.edu
 Chris Ransom		chris@quests.com
 Christian Callsen	Christian.Callsen@eng.sun.com
 Christian Kirsch	ck@held.mind.de
-Christian Laubscher	<christian.laubscher@tiscalinet.ch>
+Christian Laubscher	christian.laubscher@tiscalinet.ch
 Christian T. Dum	ctd@mpe-garching.mpg.de
 Christian von Roques	roques@pond.sub.org
 Christoph Litauer	litauer@mailhost.uni-koblenz.de
@@ -118,6 +120,7 @@ Danny R. Johnston	danny@cs.weber.edu
 Dave Barr		barr@math.psu.edu
 Dave Gentzel		gentzel@nova.enet.dec.com
 Dave Gregorich		dtg@ipac.caltech.edu
+David Brown		davidb@davidb.org
 David J. MacKenzie	djm@uunet.uu.net
 David Johnson		David.W.Johnson@colorado.edu
 David K. Drum		ccdavid@mizzou1.missouri.edu
@@ -155,6 +158,7 @@ Elmar Heeb		heeb@itp.ethz.ch
 Elmer Fittery		elmerf@ptw.com
 Eric Backus		ericb@lsid.hp.com
 Eric Benson		eb@amazon.com
+Eric Blake		ebb9@byu.net
 Eric M. Boehm		Eric.M.Boehm@optimumtech.com
 Eric Norum		eric@ee.ualberta.ca
 Erich Stefan Boleyn	erich@uruk.org
@@ -163,9 +167,10 @@ Erik D. Frederick	edf@deckard.mc.duke.edu
 Esa Karell		karell@cs.helsinki.fi
 Ezra Peisach		epeisach@mit.edu
 Fabio d'Alessi		cars@civ.bio.unipd.it
+Frank Heckenbach	frank@g-n-u.de
 Frank Koenen		koenfr@lidp.com
 Franz-Werner Gergen	gergen@edvulx.mpi-stuttgart.mpg.de
-Fran�§ois Pinard		pinard@iro.umontreal.ca
+François Pinard		pinard@iro.umontreal.ca
 Fritz Elfert		fritz@fsun.triltsch.de
 George Chyu		gschyu@ccgate.dp.beckman.com
 Gerben Wierda		gerben@rna.indiv.nluug.nl
@@ -179,10 +184,12 @@ Greg Chung		gchung@caip.rutgers.edu
 Greg Hudson		ghudson@mit.edu
 Greg Maples		greg@clari.net
 Greg McGary		gkm@cstone.net
-Greg Schafer            gschafer@zip.com.au
-G�¶ran Uddeborg		gvran@uddeborg.pp.se
+Greg Schafer		gschafer@zip.com.au
+Göran Uddeborg		gvran@uddeborg.pp.se
+Gürkan Karaman		karaman@dssgmbh.de
 Hans Guerth		100664.3101@compuserve.com
-Harald K�¶nig		koenig@tat.physik.uni-tuebingen.de
+Hansjörg Lipp		hjlipp@web.de
+Harald König		koenig@tat.physik.uni-tuebingen.de
 Harald Milz		hm@seneca.ix.de
 Heiko Schinke		mdqac@biochemtech.uni-halle.de
 Heiko Schlichting	heiko@fu-berlin.de
@@ -196,6 +203,7 @@ Hunyue Yau		hunyue.yau@picksys.com
 Ian Jackson		ijackson@gnu.org
 Ian Lance Taylor	ian@cygnus.com
 Ian T. Zimmerman	itz@crl.com
+Ian Turner		ian@zmanda.com
 Indra Singhal		indra@synoptics.com
 J. Dean Brock		brock@cs.unca.edu
 J.J. Bailey		jjb@jagware.bcc.com
@@ -212,6 +220,7 @@ Jan Djarv		jan.djarv@mbox200.swipnet.se
 Janice Burton		r06a165@bcc25.kodak.com
 Janne Snabb		snabb@niksula.hut.fi
 Jason R. Mastaler	jason@webmaster.net
+Jason Armistead		Jason.Armistead@otis.com
 Jay Fenlason		hack@gnu.org
 Jean-Michel Soenen	soenen@lectra.fr
 Jean-Ph. Martin-Flatin	syj@ecmwf.int
@@ -240,14 +249,16 @@ John David Anglin	dave@hiauly1.hia.nrc.ca
 John Gilmore		gnu@toad.com
 John J. Szetela		johns@angelo.amd.com
 John L. Chmielewski	jlc@attmail.com
-John L. Males           jlmales@yahoo.com
+John L. Males		jlmales@yahoo.com
 John Oleynick		juo@klinzhai.rutgers.edu
 John R. Vanderpool	fish@daacdev1.stx.com
 John Rouillard		rouilj@cs.umb.edu
+John Thomas McDole	john.thomas.mcdole@nagra.com
 Jon Lewis		jlewis@inorganic5.fdt.net
 Jonathan I. Kamens	jik@cam.ov.com
 Jonathan N. Sherman	sysjns@etacrs1.safb.af.mil
 Jonathan Thornburg	thornbur@theory.physics.ubc.ca
+Josef Bauer		Josef.Bauer@mchp.siemens.de
 Joseph E. Sacco		jsacco@ssl.com
 Joshua R. Poulson	jrp@plaza.ds.adp.com
 Joutsiniemi Tommi Il	tj75064@cs.tut.fi
@@ -255,12 +266,14 @@ Joy Kendall		jak8@world.std.com
 Judy Ricker		jricker@gdstech.grumman.com
 Juha Sarlin		juha@tds.kth.se
 Jurgen Botz		jbotz@orixa.mtholyoke.edu
-J�¼rgen L�¼ters		jlueters@t-online.de
-J�¼rgen Reiss		reiss@psychologie.uni-wuerzburg.de
 Jyh-Shyang Wang		erik@vsp.ee.nctu.edu.tw
-J�¶rg Weule		weule@cs.uni-duesseldorf.de
-J�¶rgen H�¤gg		Jorgen.Hagg@axis.se
-J�¶rgen Weigert	jw@suse.de
+Jörg Schilling		schilling@fokus.fraunhofer.de
+Jörg Weule		weule@cs.uni-duesseldorf.de
+Jörg Weilbier 		gnu@weilbier.net
+Jörgen Hågg		Jorgen.Hagg@axis.se
+Jörgen Weigert		jw@suse.de
+Jürgen Lüters		jlueters@t-online.de
+Jürgen Reiss		reiss@psychologie.uni-wuerzburg.de
 Kai Petzke		wpp@marie.physik.tu-berlin.de
 Kai Schlichting		kai@computel.com
 Karl Berry		karl@cs.umb.edu
@@ -287,10 +300,10 @@ Laurent Sainte-Marthe	smarthe@genethon.fr
 Leland Lucius		llucius@tiny.net
 Les Mikesell		les@mcs.com
 Loren J. Rittle		rittle@comm.mot.com
-Lo�¯c Prylli		Loic.Prylli@lip.ens-lyon.fr
+Loïc Prylli		Loic.Prylli@lip.ens-lyon.fr
 Luke Mewburn		lukem@connect.com.au
-Mads Martin Joergensen  mmj@suse.de
 Machael Stone		mstone@cs.loyola.edu
+Mads Martin Joergensen	mmj@suse.de
 Manfred Weichel		Manfred.Weichel@mch.sni.de
 Manuel Munier		Manuel.Munier@loria.fr
 Marc Boucher		marc@cam.org
@@ -306,7 +319,7 @@ Markus Kuhn		mskuhn@cip.informatik.uni-erlangen.de
 Martin Bellenberg	sunsoft@ifm.uni-hamburg.de
 Martin Goik		goik@HDM-Stuttgart.de
 Martin Mares		mj@k332.feld.cvut.cz
-Martin Simmons          ZYHYLCRMZPRP@spammotel.com
+Martin Simmons		ZYHYLCRMZPRP@spammotel.com
 Marty Leisner		leisner@eso.mc.xerox.com
 Massimo Dal Zotto	dz@cs.unitn.it
 Mats Lofkvist		d87-mal@nada.kth.se
@@ -379,8 +392,10 @@ Pierce Cantrell		cantrell@ee.tamu.edu
 R. Kent Dybvig		dyb@cadence.bloomington.in.us
 R. Scott Butler		butler@prism.es.dupont.com
 Rainer Orth		ro@TechFak.Uni-Bielefeld.DE
-Ralf S. Engelschall     rse@engelschall.com
+Ralf Wildenhues 	Ralf.Wildenhues@gmx.de
+Ralf S. Engelschall	rse@engelschall.com
 Ralf Suckow		suckow@contrib.de
+Ralph Corderoy		ralph@inputplus.co.uk
 Ralph Schleicher	rs@purple.ul.bawue.de
 Randy Bias		randyb@edge.edge.net
 Ray Dassen		jdassen@wi.leidenuniv.nl
@@ -414,15 +429,15 @@ Rodney Brown		RBrown@cocam.com.au
 Roland McGrath		roland@gnu.org
 Roland Schemers III	schemers@vela.acs.oakland.edu
 Rolf Niepraschk		niepraschk@chbrb.berlin.ptb.de
-Roman Gollent		roman@portal.stwing.upenn.edu
 Roman Czyborra		czyborra@cs.tu-berlin.de
+Roman Gollent		roman@portal.stwing.upenn.edu
 Ron Guilmette		rfg@netcom.com
 Roy Marantz		marantz@nbcs.rutgers.edu
 Russ Evans		e_gs18@ub.nmh.ac.uk
 Russell Cattelan	cattelan@thebarn.com
 Ryutaro Susukita	susukita@pn.scphys.kyoto-u.ac.jp
-Sam Richards		sam@blueskyprod.com
 Sakai Kiyotaka		ksakai@netwk.ntt-at.co.jp
+Sam Richards		sam@blueskyprod.com
 Santiago Vila Doncel	sanvila@unex.es
 Sarah Quady		squady@warp10.keck.hawaii.edu
 Saul Lubkin		lubkin@cs.rochester.edu
@@ -435,9 +450,9 @@ Serge Granik		serge@euler.berkeley.edu
 Seth Robertson		seth@ctr.columbia.edu
 Sherwood Botsford	sherwood@space.ualberta.ca
 Simon Wright		simon.j.wright@gecm.com
+Simon Wright		simon@pogner.demon.co.uk
 Sisira Jayasinghe	sisira.jayasinghe@sdrc.com
 Skip Montanaro		skip@mojam.com http://www.musi-cal.com/~skip/
-Simon Wright		simon@pogner.demon.co.uk
 Solar Designer		solar@openwall.com
 Stefan Skoglund		sp2stes1@ida.his.se
 Steffen Stempel		stempel@ira.uka.de
@@ -451,9 +466,10 @@ Sylvain Rougier		un@grolier.fr
 Tarang Kumar Patel	mombasa@ptolemy.arc.nasa.gov
 Ted Rule		Ted_Rule@flextech.co.uk
 The King		elvis@gnu.org
+Thomas                  metaf4@users.askja.de
 Thomas Bushnell n/BSG	thomas@gnu.org
-Thomas K�¶nig		Thomas.Koenig@ciw.uni-karlsruhe.de
 Thomas Krebs		krebs@faps.uni-erlangen.de
+Thomas König		Thomas.Koenig@ciw.uni-karlsruhe.de
 Thomas M. Browder Jr.	browder@use1.eglin.af.mil
 Thomas Priesner		priesner@flo.sh.bosch.de
 Thomas Waas		waas@echild.aiss.de
@@ -466,9 +482,10 @@ Tim P. Starrin		noid@cyborg.larc.nasa.gov
 Tim Ramsey		tar@ksu.ksu.edu
 Tim Rylance		tkr@puffball.demon.co.uk
 Tim Towers		tzt@uniplex.co.uk
-Timothy J. Lee		timlee@netcom.com
 Timothy Fossum		fossum@cs.uwp.edu
+Timothy J. Lee		timlee@netcom.com
 Tito Flagella		tito@di.unipi.it
+Todd Vierling		tv@duh.org
 Tom Popovitch		tpop@informix.com
 Tom Quinn		trq@astro.washington.edu
 Tom Tromey		tromey@drip.colorado.edu
@@ -493,16 +510,17 @@ Werner Almesberger	werner.almesberger@lrc.di.epfl.ch
 William Bader		william@nscs.fast.net
 William J. Eaton	wje@hoffman.rstnu.bcm.tmc.edu
 William Kucharski	kucharsk@netcom.com
-Włodzimierz Jan Martin	wjm@pg.gda.pl
 Wojciech Polak		polak@gnu.org
 Wolfgang Rupprecht	wolfgang@wsrcc.com
 Wolfram Gloger		Wolfram.Gloger@dent.med.uni-muenchen.de
+Wolfram Kleff           bugreport@wkleff.intergenia.de
 Wolfram Wagner		ww@mpi-sb.mpg.de
+Włodzimierz Jan Martin	wjm@pg.gda.pl
 Yasushi Suzudo		SGR00413@niftyserve.or.jp
 Yu-Min Liang		min@taz.ho.att.com
 
 
-;;;; Local variables:
+;;;; Local Variables:
 ;;;; mode: Fundamental
-;;;; buffer-file-coding-system: utf-8
+;;;; coding: utf-8
 ;;;; End:

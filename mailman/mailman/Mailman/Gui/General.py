@@ -1,4 +1,4 @@
-# Copyright (C) 2001-2006 by the Free Software Foundation, Inc.
+# Copyright (C) 2001-2007 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -18,6 +18,8 @@
 """MailList mixin class managing the general options."""
 
 import re
+
+from types import IntType
 
 from Mailman import mm_cfg
 from Mailman import Utils
@@ -358,6 +360,10 @@ class General(GUIBase):
              _('''Maximum length in kilobytes (KB) of a message body.  Use 0
              for no limit.''')),
 
+            ('admin_member_chunksize', mm_cfg.Number, 7, 0,
+             _('''Maximum number of members to show on one page of the
+             Membership List.''')),
+
             ('host_name', mm_cfg.Host, WIDTH, 0,
              _('Host name this list prefers for email.'),
 
@@ -436,17 +442,25 @@ class General(GUIBase):
             # Convert any html entities to Unicode
             mlist.subject_prefix = Utils.canonstr(
                 val, mlist.preferred_language)
+        elif property == 'info':
+            if val <> mlist.info:
+                if Utils.suspiciousHTML(val):
+                    doc.addError(_("""The <b>info</b> attribute you saved
+contains suspicious HTML that could potentially expose your users to cross-site
+scripting attacks.  This change has therefore been rejected.  If you still want
+to make these changes, you must have shell access to your Mailman server.
+This change can be made with bin/withlist or with bin/config_list by setting
+mlist.info.
+                        """))
+                else:
+                    mlist.info = val
+        elif property == 'admin_member_chunksize' and (val < 1
+                                          or not isinstance(val, IntType)):
+            doc.addError(_("""<b>admin_member_chunksize</b> attribute not
+            changed!  It must be an integer > 0."""))
         else:
             GUIBase._setValue(self, mlist, property, val, doc)
 
-    def _escape(self, property, value):
-        # The 'info' property allows HTML, but let's sanitize it to avoid XSS
-        # exploits.  Everything else should be fully escaped.
-        if property <> 'info':
-            return GUIBase._escape(self, property, value)
-        # Sanitize <script> and </script> tags but nothing else.  Not the best
-        # solution, but expedient.
-        return re.sub(r'(?i)<([/]?script.*?)>', r'&lt;\1&gt;', value)
 
     def _postValidate(self, mlist, doc):
         if not mlist.reply_to_address.strip() and \

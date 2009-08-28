@@ -3,9 +3,7 @@
 PROG=	umount
 SRCS=	umount.c vfslist.c
 MAN8=	umount.0
-DPADD=	${LIBRPC}
-LDADD=	-lrpc
-BINMODE=4555
+BINMODE=555
 
 MOUNT=	${.CURDIR}/../../sbin/mount
 CFLAGS+= -I${MOUNT}

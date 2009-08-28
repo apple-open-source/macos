@@ -35,6 +35,7 @@ static ModuleNexus<Mutex> gMutex;
 
 RSASigner::~RSASigner()
 {
+	StLock<Mutex> _(gMutex());
 	if(mWeMallocdRsaKey) {
 		assert(mRsaKey != NULL);
 		RSA_free(mRsaKey);
@@ -200,6 +201,7 @@ abort:
 /* works for both, but only used for signing */
 size_t RSASigner::maxSigSize()
 {
+	StLock<Mutex> _(gMutex());
 	if(mRsaKey == NULL) {
 		return 0;
 	}

@@ -1,6 +1,6 @@
---- run.c.orig	2005-03-21 15:50:10.000000000 -0800
-+++ run.c	2005-03-22 18:16:27.000000000 -0800
-@@ -88,6 +88,8 @@
+--- run.c.orig	2008-11-12 11:42:56.000000000 -0800
++++ run.c	2008-11-12 11:43:08.000000000 -0800
+@@ -90,6 +90,8 @@
  
  Node	*curnode = NULL;	/* the node being executed, for debugging */
  
@@ -9,7 +9,7 @@
  /* buffer memory management */
  int adjbuf(char **pbuf, int *psiz, int minlen, int quantum, char **pbptr,
  	const char *whatrtn)
-@@ -193,6 +195,7 @@
+@@ -196,6 +198,7 @@
  	if (setjmp(env) != 0)	/* handles exit within END */
  		goto ex1;
  	if (a[2]) {		/* END */
@@ -17,7 +17,7 @@
  		x = execute(a[2]);
  		if (isbreak(x) || isnext(x) || iscont(x))
  			FATAL("illegal break, continue, next or nextfile from END");
-@@ -895,7 +898,7 @@
+@@ -902,7 +905,7 @@
  			break;
  		case 'f':	sprintf(p, fmt, getfval(x)); break;
  		case 'd':	sprintf(p, fmt, (long) getfval(x)); break;
@@ -26,7 +26,7 @@
  		case 's':
  			t = getsval(x);
  			n = strlen(t);
-@@ -1509,6 +1512,9 @@
+@@ -1520,6 +1523,9 @@
  		else
  			u = getfval(x);
  		srand((unsigned int) u);

@@ -26,10 +26,8 @@ var versionFile = ".\\config.msvc";
    is identical to the first. */
 var optsFileInXslt = srcDirXslt + "\\xsltconfig.h.in";
 var optsFileXslt = srcDirXslt + "\\xsltconfig.h";
-var optsFileXslt2 = srcDirXslt + "\\xsltwin32config.h";
 var optsFileInExslt = srcDirExslt + "\\exsltconfig.h.in";
 var optsFileExslt = srcDirExslt + "\\exsltconfig.h";
-var optsFileExslt2 = srcDirExslt + "\\exsltwin32config.h";
 /* Version strings for the binary distribution. Will be filled later 
    in the code. */
 var verMajorXslt;
@@ -48,10 +46,12 @@ var withDebugger = true;
 var withIconv = true;
 var withZlib = false;
 var withCrypto = true;
+var withModules = false;
 /* Win32 build options. */
 var dirSep = "\\";
 var compiler = "msvc";
 var cruntime = "/MD";
+var vcmanifest = false;
 var buildDebug = 0;
 var buildStatic = 0;
 var buildPrefix = ".";
@@ -105,11 +105,14 @@ function usage()
 	txt += "  iconv:      Use iconv library (" + (withIconv? "yes" : "no")  + ")\n";
 	txt += "  zlib:       Use zlib library (" + (withZlib? "yes" : "no") + ")\n";
 	txt += "  crypto:     Enable Crypto support (" + (withCrypto? "yes" : "no") + ")\n";
+	txt += "  modules:    Enable Module support (" + (withModules? "yes" : "no") + ")\n";
 	txt += "\nWin32 build options, default value given in parentheses:\n\n";
 	txt += "  compiler:   Compiler to be used [msvc|mingw] (" + compiler + ")\n";
 	txt += "  cruntime:   C-runtime compiler option (only msvc) (" + cruntime + ")\n";
+	txt += "  vcmanifest: Embed VC manifest (only msvc) (" + (vcmanifest? "yes" : "no") + ")\n";
 	txt += "  debug:      Build unoptimised debug executables (" + (buildDebug? "yes" : "no")  + ")\n";
 	txt += "  static:     Link xsltproc statically to libxslt (" + (buildStatic? "yes" : "no")  + ")\n";
+	txt += "              Note: automatically enabled if cruntime is not /MD or /MDd\n";
 	txt += "  prefix:     Base directory for the installation (" + buildPrefix + ")\n";
 	txt += "  bindir:     Directory where xsltproc and friends should be installed\n";
 	txt += "              (" + buildBinPrefix + ")\n";
@@ -188,6 +191,7 @@ function discoverVersion()
 	vf.WriteLine("WITH_ICONV=" + (withIconv? "1" : "0"));
 	vf.WriteLine("WITH_ZLIB=" + (withZlib? "1" : "0"));
 	vf.WriteLine("WITH_CRYPTO=" + (withCrypto? "1" : "0"));
+	vf.WriteLine("WITH_MODULES=" + (withModules? "1" : "0"));
 	vf.WriteLine("DEBUG=" + (buildDebug? "1" : "0"));
 	vf.WriteLine("STATIC=" + (buildStatic? "1" : "0"));
 	vf.WriteLine("PREFIX=" + buildPrefix);
@@ -199,6 +203,7 @@ function discoverVersion()
 		vf.WriteLine("INCLUDE=$(INCLUDE);" + buildInclude);
 		vf.WriteLine("LIB=$(LIB);" + buildLib);
 		vf.WriteLine("CRUNTIME=" + cruntime);
+		vf.WriteLine("VCMANIFEST=" + (vcmanifest? "1" : "0"));
 	} else if (compiler == "mingw") {
 		vf.WriteLine("INCLUDE+=;" + buildInclude);
 		vf.WriteLine("LIB+=;" + buildLib);
@@ -233,12 +238,15 @@ function configureXslt()
 			of.WriteLine(s.replace(/\@WITH_MEM_DEBUG\@/, withMemDebug? "1" : "0"));
 		} else if (s.search(/\@WITH_DEBUGGER\@/) != -1) {
 			of.WriteLine(s.replace(/\@WITH_DEBUGGER\@/, withDebugger? "1" : "0"));
+		} else if (s.search(/\@WITH_MODULES\@/) != -1) {
+			of.WriteLine(s.replace(/\@WITH_MODULES\@/, withModules? "1" : "0"));
+		} else if (s.search(/\@LIBXSLT_DEFAULT_PLUGINS_PATH\@/) != -1) {
+			of.WriteLine(s.replace(/\@LIBXSLT_DEFAULT_PLUGINS_PATH\@/, "NULL"));
 		} else
 			of.WriteLine(ln);
 	}
 	ofi.Close();
 	of.Close();
-	fso.CopyFile(optsFileXslt, optsFileXslt2, true);
 }
 
 /* Configures libexslt. This one will generate exsltconfig.h from exsltconfig.h.in
@@ -262,12 +270,13 @@ function configureExslt()
 			of.WriteLine(s.replace(/\@LIBEXSLT_VERSION_EXTRA\@/, verCvs));
 		} else if (s.search(/\@WITH_CRYPTO\@/) != -1) {
 			of.WriteLine(s.replace(/\@WITH_CRYPTO\@/, withCrypto? "1" : "0"));
+		} else if (s.search(/\@WITH_MODULES\@/) != -1) {
+			of.WriteLine(s.replace(/\@WITH_MODULES\@/, withModules? "1" : "0"));
 		} else
 			of.WriteLine(ln);
 	}
 	ofi.Close();
 	of.Close();
-	fso.CopyFile(optsFileExslt, optsFileExslt2, true);
 }
 
 /* Creates the readme file for the binary distribution of 'bname', for the
@@ -332,10 +341,14 @@ for (i = 0; (i < WScript.Arguments.length) && (error == 0); i++) {
 			withZlib  = strToBool(arg.substring(opt.length + 1, arg.length));
 		else if (opt == "crypto")
 			withCrypto = strToBool(arg.substring(opt.length + 1, arg.length));
+		else if (opt == "modules")
+			withModules = strToBool(arg.substring(opt.length + 1, arg.length));
 		else if (opt == "compiler")
 			compiler = arg.substring(opt.length + 1, arg.length);
  		else if (opt == "cruntime")
  			cruntime = arg.substring(opt.length + 1, arg.length);
+		else if (opt == "vcmanifest")
+			vcmanifest = strToBool(arg.substring(opt.length + 1, arg.length));
 		else if (opt == "static")
 			buildStatic = strToBool(arg.substring(opt.length + 1, arg.length));
 		else if (opt == "prefix")
@@ -376,6 +389,23 @@ if (error != 0) {
 	usage();
 	WScript.Quit(error);
 }
+
+// if user choses to link the c-runtime library statically into libxslt
+// with /MT and friends, then we need to enable static linking for xsltproc
+if (cruntime == "/MT" || cruntime == "/MTd" ||
+		cruntime == "/ML" || cruntime == "/MLd") {
+	buildStatic = 1;
+}
+
+if (buildStatic == 1 && withModules == 1) {
+	WScript.Echo("Warning: Disabling plugin support.");
+	WScript.Echo("");  
+  WScript.Echo("Modules cannot be enabled when a statically linked cruntime has");
+	WScript.Echo("been selected, or when xsltproc.exe is linked statically to libxslt.");
+	WScript.Echo("");  
+	withModules=0;
+}
+
 dirSep = "\\";
 //if (compiler == "mingw")
 //	dirSep = "/";
@@ -446,12 +476,14 @@ txtOut += "  Debugger support: " + boolToStr(withDebugger) + "\n";
 txtOut += "         Use iconv: " + boolToStr(withIconv) + "\n";
 txtOut += "         With zlib: " + boolToStr(withZlib) + "\n";
 txtOut += "            Crypto: " + boolToStr(withCrypto) + "\n";
+txtOut += "           Modules: " + boolToStr(withModules) + "\n";
 txtOut += "\n";
 txtOut += "Win32 build configuration\n";
 txtOut += "-------------------------\n";
 txtOut += "          Compiler: " + compiler + "\n";
 if (compiler == "msvc")
 	txtOut += "  C-Runtime option: " + cruntime + "\n";
+	txtOut += "    Embed Manifest: " + boolToStr(vcmanifest) + "\n";
 txtOut += "     Debug symbols: " + boolToStr(buildDebug) + "\n";
 txtOut += "   Static xsltproc: " + boolToStr(buildStatic) + "\n";
 txtOut += "    Install prefix: " + buildPrefix + "\n";

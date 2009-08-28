@@ -1,0 +1,111 @@
+--- /tmp/jabberd-2.1.24.1/c2s/main.c	2008-04-27 02:57:20.000000000 -0700
++++ ./jabberd2/c2s/main.c	2009-05-26 12:54:15.000000000 -0700
+@@ -90,6 +90,10 @@ static void _c2s_config_expand(c2s_t c2s
+ 
+     c2s->router_pemfile = config_get_one(c2s->config, "router.pemfile", 0);
+ 
++    c2s->router_cachain = config_get_one(c2s->config, "router.cachain", 0);
++
++    c2s->router_private_key_password = config_get_one(c2s->config, "router.private_key_password", 0);
++
+     c2s->retry_init = j_atoi(config_get_one(c2s->config, "router.retry.init", 0), 3);
+     c2s->retry_lost = j_atoi(config_get_one(c2s->config, "router.retry.lost", 0), 3);
+     if((c2s->retry_sleep = j_atoi(config_get_one(c2s->config, "router.retry.sleep", 0), 2)) < 1)
+@@ -123,6 +127,10 @@ static void _c2s_config_expand(c2s_t c2s
+ 
+     c2s->local_pemfile = config_get_one(c2s->config, "local.pemfile", 0);
+ 
++    c2s->local_cachain = config_get_one(c2s->config, "local.cachain", 0);
++
++    c2s->local_private_key_password = config_get_one(c2s->config, "local.private_key_password", 0);
++
+     c2s->local_verify_mode = j_atoi(config_get_one(c2s->config, "local.verify-mode", 0), 0);
+ 
+     c2s->local_ssl_port = j_atoi(config_get_one(c2s->config, "local.ssl-port", 0), 0);
+@@ -141,9 +149,11 @@ static void _c2s_config_expand(c2s_t c2s
+ 
+     if(config_get(c2s->config, "authreg.mechanisms.traditional.plain") != NULL) c2s->ar_mechanisms |= AR_MECH_TRAD_PLAIN;
+     if(config_get(c2s->config, "authreg.mechanisms.traditional.digest") != NULL) c2s->ar_mechanisms |= AR_MECH_TRAD_DIGEST;
++    if(config_get(c2s->config, "authreg.mechanisms.traditional.cram-md5") != NULL) c2s->ar_mechanisms |= AR_MECH_TRAD_CRAMMD5;
+ 
+     if(config_get(c2s->config, "authreg.ssl-mechanisms.traditional.plain") != NULL) c2s->ar_ssl_mechanisms |= AR_MECH_TRAD_PLAIN;
+     if(config_get(c2s->config, "authreg.ssl-mechanisms.traditional.digest") != NULL) c2s->ar_ssl_mechanisms |= AR_MECH_TRAD_DIGEST;
++    if(config_get(c2s->config, "authreg.ssl-mechanisms.traditional.cram-md5") != NULL) c2s->ar_ssl_mechanisms |= AR_MECH_TRAD_CRAMMD5;
+ 
+     elem = config_get(c2s->config, "io.limits.bytes");
+     if(elem != NULL)
+@@ -245,11 +255,13 @@ static void _c2s_hosts_expand(c2s_t c2s)
+ 
+         host->host_pemfile = j_attr((const char **) elem->attrs[i], "pemfile");
+ 
++        host->host_cachain = j_attr((const char **) elem->attrs[i], "cachain");
++
+         host->host_verify_mode = j_atoi(j_attr((const char **) elem->attrs[i], "verify-mode"), 0);
+ 
+ #ifdef HAVE_SSL
+         if(c2s->sx_ssl == NULL && host->host_pemfile != NULL) {
+-            c2s->sx_ssl = sx_env_plugin(c2s->sx_env, sx_ssl_init, host->host_pemfile, NULL, host->host_verify_mode);
++            c2s->sx_ssl = sx_env_plugin(c2s->sx_env, sx_ssl_init, host->host_pemfile, host->host_cachain, host->host_verify_mode, host->host_private_key_password);
+             if(c2s->sx_ssl == NULL) {
+                 log_write(c2s->log, LOG_ERR, "failed to load %s SSL pemfile", host->realm);
+                 host->host_pemfile = NULL;
+@@ -257,6 +269,8 @@ static void _c2s_hosts_expand(c2s_t c2s)
+         }
+ #endif
+ 
++        host->host_private_key_password = j_attr((const char **) elem->attrs[i], "private-key-password");
++
+         host->host_require_starttls = (j_attr((const char **) elem->attrs[i], "require-starttls") != NULL);
+ 
+         host->ar_register_enable = (j_attr((const char **) elem->attrs[i], "register-enable") != NULL);
+@@ -446,15 +460,16 @@ static int _c2s_sx_sasl_callback(int cb,
+             /* Determine if our configuration will let us use this mechanism.
+              * We support different mechanisms for both SSL and normal use */
+ 
+-            if (strcmp(mechbuf, "digest-md5") == 0) {
++            // Apple OD auth does not require get_password or check_password
++            //if (strcmp(mechbuf, "digest-md5") == 0) {
+                 /* digest-md5 requires that our authreg support get_password */
+-                if (c2s->ar->get_password == NULL)
+-                    return sx_sasl_ret_FAIL;
+-            } else if (strcmp(mechbuf, "plain") == 0) {
++            //    if (c2s->ar->get_password == NULL)
++            //        return sx_sasl_ret_FAIL;
++            //} else if (strcmp(mechbuf, "plain") == 0) {
+                 /* plain requires either get_password or check_password */
+-                if (c2s->ar->get_password == NULL && c2s->ar->check_password == NULL)
+-                    return sx_sasl_ret_FAIL;
+-            }
++            //    if (c2s->ar->get_password == NULL && c2s->ar->check_password == NULL)
++            //        return sx_sasl_ret_FAIL;
++            //}
+ 
+             /* Using SSF is potentially dangerous, as SASL can alse set the
+              * SSF of the connection. However, SASL shouldn't do so until after
+@@ -640,8 +655,9 @@ JABBER_MAIN("jabberd2c2s", "Jabber 2 C2S
+ 
+ #ifdef HAVE_SSL
+     /* get the ssl context up and running */
++
+     if(c2s->local_pemfile != NULL) {
+-        c2s->sx_ssl = sx_env_plugin(c2s->sx_env, sx_ssl_init, c2s->local_pemfile, NULL, c2s->local_verify_mode);
++        c2s->sx_ssl = sx_env_plugin(c2s->sx_env, sx_ssl_init, c2s->local_pemfile, c2s->local_cachain, c2s->local_verify_mode, c2s->local_private_key_password);
+         if(c2s->sx_ssl == NULL) {
+             log_write(c2s->log, LOG_ERR, "failed to load local SSL pemfile, SSL will not be available to clients");
+             c2s->local_pemfile = NULL;
+@@ -650,13 +666,13 @@ JABBER_MAIN("jabberd2c2s", "Jabber 2 C2S
+ 
+     /* try and get something online, so at least we can encrypt to the router */
+     if(c2s->sx_ssl == NULL && c2s->router_pemfile != NULL) {
+-        c2s->sx_ssl = sx_env_plugin(c2s->sx_env, sx_ssl_init, c2s->router_pemfile, NULL, NULL);
++        c2s->sx_ssl = sx_env_plugin(c2s->sx_env, sx_ssl_init, c2s->router_pemfile, c2s->router_cachain, NULL, c2s->router_private_key_password);
+         if(c2s->sx_ssl == NULL) {
+             log_write(c2s->log, LOG_ERR, "failed to load router SSL pemfile, channel to router will not be SSL encrypted");
+             c2s->router_pemfile = NULL;
+         }
+     }
+-#endif
++#endif // HAVE_SSL
+             
+     /* get sasl online */
+     c2s->sx_sasl = sx_env_plugin(c2s->sx_env, sx_sasl_init, "xmpp", _c2s_sx_sasl_callback, (void *) c2s);

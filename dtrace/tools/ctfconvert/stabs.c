@@ -23,7 +23,7 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)stabs.c	1.11	06/05/03 SMI"
+#pragma ident	"@(#)stabs.c	1.12	06/08/22 SMI"
 
 /*
  * Routines used to read stabs data from a file, and to build a tdata structure
@@ -374,8 +374,10 @@ parse_loop_end:
 	resolve_typed_bitfields();
 	parse_finish(td);
 
-	cvt_fixbugs(td);
+#if !defined(__APPLE__)
+	cvt_fixstabs(td);
+	cvt_fixups(td, elf_ptrsz(elf));
+#endif
 
 	return (0);
 }
-

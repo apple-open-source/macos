@@ -56,9 +56,6 @@ public:
 	
 	static void check(MSC_RV err) { if (err != MSC_SUCCESS) throwMe(err); }
 	static void throwMe(MSC_RV err);
-
-private:
-	IFDEBUG(void debugDiagnose(const void *id) const);
 };
 
 

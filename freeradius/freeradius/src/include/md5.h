@@ -1,15 +1,16 @@
 /*
  * md5.h        Structures and prototypes for md5.
  *
- * Version:     $Id: md5.h,v 1.13 2004/05/28 06:27:53 phampson Exp $
+ * Version:     $Id$
  * License:		LGPL, but largely derived from a public domain source.
  *
  */
 
-#ifndef _LRAD_MD5_H
-#define _LRAD_MD5_H
+#ifndef _FR_MD5_H
+#define _FR_MD5_H
 
-#include "autoconf.h"
+#include <freeradius-devel/ident.h>
+RCSIDH(md5_h, "$Id$")
 
 #ifdef HAVE_INTTYPES_H
 #include <inttypes.h>
@@ -24,16 +25,8 @@
 #endif
 
 #include <string.h>
-/*
- *  FreeRADIUS defines to ensure globally unique MD5 function names,
- *  so that we don't pick up vendor-specific broken MD5 libraries.
- */
-#define MD5_CTX		librad_MD5_CTX
-#define MD5Init		librad_MD5Init
-#define MD5Update	librad_MD5Update
-#define MD5Final	librad_MD5Final
-#define MD5Transform	librad_MD5Transform
 
+#ifndef WITH_OPENSSL_MD5
 /*  The below was retrieved from
  *  http://www.openbsd.org/cgi-bin/cvsweb/~checkout~/src/sys/crypto/md5.h?rev=1.1
  *  With the following changes: uint64_t => uint32_t[2]
@@ -56,23 +49,34 @@
 #define	MD5_BLOCK_LENGTH		64
 #define	MD5_DIGEST_LENGTH		16
 
-typedef struct MD5Context {
+typedef struct FR_MD5Context {
 	uint32_t state[4];			/* state */
 	uint32_t count[2];			/* number of bits, mod 2^64 */
 	uint8_t buffer[MD5_BLOCK_LENGTH];	/* input buffer */
-} MD5_CTX;
+} FR_MD5_CTX;
 
 /* include <sys/cdefs.h> */
 
 /* __BEGIN_DECLS */
-void	 MD5Init(MD5_CTX *);
-void	 MD5Update(MD5_CTX *, const uint8_t *, size_t)
+void	 fr_MD5Init(FR_MD5_CTX *);
+void	 fr_MD5Update(FR_MD5_CTX *, const uint8_t *, size_t)
 /*		__attribute__((__bounded__(__string__,2,3)))*/;
-void	 MD5Final(uint8_t [MD5_DIGEST_LENGTH], MD5_CTX *)
+void	 fr_MD5Final(uint8_t [MD5_DIGEST_LENGTH], FR_MD5_CTX *)
 /*		__attribute__((__bounded__(__minbytes__,1,MD5_DIGEST_LENGTH)))*/;
-void	 MD5Transform(uint32_t [4], const uint8_t [MD5_BLOCK_LENGTH])
+void	 fr_MD5Transform(uint32_t [4], const uint8_t [MD5_BLOCK_LENGTH])
 /*		__attribute__((__bounded__(__minbytes__,1,4)))*/
 /*		__attribute__((__bounded__(__minbytes__,2,MD5_BLOCK_LENGTH)))*/;
 /* __END_DECLS */
 
-#endif /* _LRAD_MD5_H */
+#else  /* WITH_OPENSSL_HASH */
+
+#include <openssl/md5.h>
+
+#define FR_MD5_CTX	MD5_CTX
+#define fr_MD5Init	MD5_Init
+#define fr_MD5Update	MD5_Update
+#define fr_MD5Final	MD5_Final
+#define fr_MD5Transform MD5_Transform
+#endif
+
+#endif /* _FR_MD5_H */

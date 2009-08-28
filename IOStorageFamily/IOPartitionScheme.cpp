@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,11 +28,9 @@
 #define super IOStorage
 OSDefineMetaClassAndStructors(IOPartitionScheme, IOStorage)
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
+#ifndef __LP64__
 extern IOStorageAttributes gIOStorageAttributesUnsupported;
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#endif /* !__LP64__ */
 
 static SInt32 partitionComparison( const OSMetaClassBase * object1,
                                    const OSMetaClassBase * object2,
@@ -51,8 +49,6 @@ static SInt32 partitionComparison( const OSMetaClassBase * object1,
     return 0;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 IOMedia * IOPartitionScheme::getProvider() const
 {
     //
@@ -63,8 +59,6 @@ IOMedia * IOPartitionScheme::getProvider() const
 
     return (IOMedia *) IOService::getProvider();
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 bool IOPartitionScheme::init(OSDictionary * properties)
 {
@@ -83,8 +77,6 @@ bool IOPartitionScheme::init(OSDictionary * properties)
     return true;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 void IOPartitionScheme::free()
 {
     //
@@ -96,8 +88,6 @@ void IOPartitionScheme::free()
 
     super::free();
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 bool IOPartitionScheme::handleOpen(IOService *  client,
                                    IOOptionBits options,
@@ -121,7 +111,7 @@ bool IOPartitionScheme::handleOpen(IOService *  client,
     // we make our decision, change our state, and return from this method.
     //
 
-    IOStorageAccess access  = (IOStorageAccess) argument;
+    IOStorageAccess access  = (uintptr_t) argument;
     IOStorageAccess level;
 
     assert(client);
@@ -191,8 +181,6 @@ bool IOPartitionScheme::handleOpen(IOService *  client,
     return true;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 bool IOPartitionScheme::handleIsOpen(const IOService * client) const
 {
     //
@@ -210,8 +198,6 @@ bool IOPartitionScheme::handleIsOpen(const IOService * client) const
     return ( _openReaderWriters->containsObject(client) ||
              _openReaders->containsObject(client)       );
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 void IOPartitionScheme::handleClose(IOService * client, IOOptionBits options)
 {
@@ -285,8 +271,6 @@ void IOPartitionScheme::handleClose(IOService * client, IOOptionBits options)
     }
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 void IOPartitionScheme::read(IOService *           client,
                              UInt64                byteStart,
                              IOMemoryDescriptor *  buffer,
@@ -305,6 +289,7 @@ void IOPartitionScheme::read(IOService *           client,
     // as RAID will need to do extra processing here.
     //
 
+#ifndef __LP64__
     if ( IOStorage::_expansionData )
     {
         if ( attributes == &gIOStorageAttributesUnsupported )
@@ -318,11 +303,10 @@ void IOPartitionScheme::read(IOService *           client,
             return;
         }
     }
+#endif /* !__LP64__ */
 
     getProvider( )->read( this, byteStart, buffer, attributes, completion );
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 void IOPartitionScheme::write(IOService *           client,
                               UInt64                byteStart,
@@ -342,6 +326,7 @@ void IOPartitionScheme::write(IOService *           client,
     // as RAID will need to do extra processing here.
     //
 
+#ifndef __LP64__
     if ( IOStorage::_expansionData )
     {
         if ( attributes == &gIOStorageAttributesUnsupported )
@@ -355,11 +340,10 @@ void IOPartitionScheme::write(IOService *           client,
             return;
         }
     }
+#endif /* !__LP64__ */
 
     getProvider( )->write( this, byteStart, buffer, attributes, completion );
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IOReturn IOPartitionScheme::synchronizeCache(IOService * client)
 {
@@ -369,8 +353,6 @@ IOReturn IOPartitionScheme::synchronizeCache(IOService * client)
 
     return getProvider()->synchronizeCache(this);
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IOReturn IOPartitionScheme::discard(IOService * client,
                                     UInt64      byteStart,
@@ -384,10 +366,12 @@ IOReturn IOPartitionScheme::discard(IOService * client,
     return getProvider( )->discard( this, byteStart, byteCount );
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
+#ifdef __LP64__
+bool IOPartitionScheme::attachMediaObjectToDeviceTree(IOMedia * media)
+#else /* !__LP64__ */
 bool IOPartitionScheme::attachMediaObjectToDeviceTree(IOMedia *    media,
                                                       IOOptionBits options)
+#endif /* !__LP64__ */
 {
     //
     // Attach the given media object to the device tree plane.
@@ -426,12 +410,12 @@ bool IOPartitionScheme::attachMediaObjectToDeviceTree(IOMedia *    media,
     return false;
 }
 
-OSMetaClassDefineReservedUsed(IOPartitionScheme, 0);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
+#ifdef __LP64__
+void IOPartitionScheme::detachMediaObjectFromDeviceTree(IOMedia * media)
+#else /* !__LP64__ */
 void IOPartitionScheme::detachMediaObjectFromDeviceTree(IOMedia *    media,
                                                         IOOptionBits options)
+#endif /* !__LP64__ */
 {
     //
     // Detach the given media object from the device tree plane.
@@ -444,10 +428,6 @@ void IOPartitionScheme::detachMediaObjectFromDeviceTree(IOMedia *    media,
         media->detachFromParent(parent, gIODTPlane);
     }
 }
-
-OSMetaClassDefineReservedUsed(IOPartitionScheme, 1);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 OSSet * IOPartitionScheme::juxtaposeMediaObjects(OSSet * partitionsOld,
                                                  OSSet * partitionsNew)
@@ -555,7 +535,7 @@ OSSet * IOPartitionScheme::juxtaposeMediaObjects(OSSet * partitionsOld,
 
                     partitionID++;
 
-                    snprintf( location, sizeof( location ), "%ld", partitionID );
+                    snprintf( location, sizeof( location ), "%d", ( int ) partitionID );
 
                     partition2->setLocation( location );
 
@@ -743,134 +723,53 @@ juxtaposeErr:
     return 0;
 }
 
-OSMetaClassDefineReservedUsed(IOPartitionScheme, 2);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
+#ifdef __LP64__
+OSMetaClassDefineReservedUnused(IOPartitionScheme,  0);
+OSMetaClassDefineReservedUnused(IOPartitionScheme,  1);
+OSMetaClassDefineReservedUnused(IOPartitionScheme,  2);
+#else /* !__LP64__ */
+OSMetaClassDefineReservedUsed(IOPartitionScheme,  0);
+OSMetaClassDefineReservedUsed(IOPartitionScheme,  1);
+OSMetaClassDefineReservedUsed(IOPartitionScheme,  2);
+#endif /* !__LP64__ */
 OSMetaClassDefineReservedUnused(IOPartitionScheme,  3);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOPartitionScheme,  4);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOPartitionScheme,  5);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOPartitionScheme,  6);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOPartitionScheme,  7);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOPartitionScheme,  8);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOPartitionScheme,  9);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOPartitionScheme, 10);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOPartitionScheme, 11);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOPartitionScheme, 12);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOPartitionScheme, 13);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOPartitionScheme, 14);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOPartitionScheme, 15);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOPartitionScheme, 16);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOPartitionScheme, 17);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOPartitionScheme, 18);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOPartitionScheme, 19);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOPartitionScheme, 20);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOPartitionScheme, 21);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOPartitionScheme, 22);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOPartitionScheme, 23);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOPartitionScheme, 24);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOPartitionScheme, 25);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOPartitionScheme, 26);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOPartitionScheme, 27);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOPartitionScheme, 28);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOPartitionScheme, 29);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOPartitionScheme, 30);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOPartitionScheme, 31);
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
+#ifndef __LP64__
 extern "C" void _ZN17IOPartitionScheme4readEP9IOServiceyP18IOMemoryDescriptor19IOStorageCompletion( IOPartitionScheme * scheme, IOService * client, UInt64 byteStart, IOMemoryDescriptor * buffer, IOStorageCompletion completion )
 {
     scheme->read( client, byteStart, buffer, NULL, &completion );
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 extern "C" void _ZN17IOPartitionScheme5writeEP9IOServiceyP18IOMemoryDescriptor19IOStorageCompletion( IOPartitionScheme * scheme, IOService * client, UInt64 byteStart, IOMemoryDescriptor * buffer, IOStorageCompletion completion )
 {
     scheme->write( client, byteStart, buffer, NULL, &completion );
 }
+#endif /* !__LP64__ */

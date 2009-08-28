@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Rob Braun
+ * Copyright (c) 2005-2008 Rob Braun
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,7 +28,7 @@
  */
 /*
  * 03-Apr-2005
- * DRI: Rob Braun <bbraun@opendarwin.org>
+ * DRI: Rob Braun <bbraun@synack.net>
  */
 /*
  * Portions Copyright 2006, Apple Computer, Inc.
@@ -37,6 +37,7 @@
 
 #define _FILE_OFFSET_BITS 64
 
+#include "config.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -51,7 +52,6 @@
 #include <libxml/xmlwriter.h>
 #include <libxml/xmlreader.h>
 #include <libxml/xmlstring.h>
-#include "config.h"
 #ifndef HAVE_ASPRINTF
 #include "asprintf.h"
 #endif
@@ -77,6 +77,10 @@
 #endif
 #ifndef LONG_MIN
 #define LONG_MIN INT32_MIN
+#endif
+
+#if LIBXML_VERSION < 20618
+#define xmlDictCleanup()	/* function doesn't exist in older API */
 #endif
 
 static int32_t xar_unserialize(xar_t x);
@@ -281,10 +285,12 @@ xar_t xar_open(const char *file, int32_t flags) {
 			return NULL;
 		}
 
-		/* check for inconsistency between checksum style in header, and the one described
-		 * in the TOC; otherwise, you can flip the header bit to XAR_CKSUM_NONE, and nothing
-		 * will ever verify that the TOC matches the checksum stored in the heap, and the
-		 * signature check will pass on a modified file! <rdar://problem/6134714>
+		/* check for inconsistency between checksum style in header, 
+		 * and the one described in the TOC; otherwise, you can flip 
+		 * the header bit to XAR_CKSUM_NONE, and nothing will ever 
+		 * verify that the TOC matches the checksum stored in the 
+		 * heap, and the signature check will pass on a modified 
+		 * file! <rdar://problem/6134714>
 		 */
 		int cksum_match = 0;
 		const char* cksum_style = xar_attr_get(XAR_FILE(ret), "checksum", "style");
@@ -308,9 +314,10 @@ xar_t xar_open(const char *file, int32_t flags) {
 			return NULL;
 		}
 		
-		/* also check for consistency between the checksum style and the existence (or not) of
-		 * signatures: since the signature is signing the checksum, we must have a checksum
-		 * to verify that the TOC has not been modified <rdar://problem/6134714>
+		/* also check for consistency between the checksum style and 
+		 * the existence (or not) of signatures: since the signature 
+		 * is signing the checksum, we must have a checksum to verify 
+		 * that the TOC has not been modified <rdar://problem/6134714>
 		 */
 		if( xar_signature_first(ret) != NULL && XAR(ret)->header.cksum_alg == XAR_CKSUM_NONE ) {
 			fprintf(stderr, "Checksum/signature mismatch!\n");
@@ -320,9 +327,52 @@ xar_t xar_open(const char *file, int32_t flags) {
 			
 		if( !XAR(ret)->docksum )
 			return ret;
-
+		
 		EVP_DigestFinal(&XAR(ret)->toc_ctx, toccksum, &tlen);
-
+        
+        /* if TOC specifies a location for the checksum, make sure that
+         * we read the checksum from there: this is required for an archive
+         * with a signature, because the signature will be checked against
+         * the checksum at the specified location <rdar://problem/7041949>
+         */
+		const char *value;
+		uint64_t offset = 0;
+		uint64_t length = tlen;
+		if( xar_prop_get( XAR_FILE(ret) , "checksum/offset", &value) == 0 ) {
+			errno = 0;
+			offset = strtoull( value, (char **)NULL, 10);
+			if( errno != 0 ) {
+				xar_close(ret);
+				return NULL;
+			}
+		} else if( xar_signature_first(ret) != NULL ) {
+			// All archives that have a signature also specify the location
+			// of the checksum.  If the location isn't specified, error out.
+			xar_close(ret);
+			return NULL;
+		}
+        
+		XAR(ret)->heap_offset = xar_get_heap_offset(ret) + offset;
+		if( lseek(XAR(ret)->fd, XAR(ret)->heap_offset, SEEK_SET) == -1 ) {
+			xar_close(ret);
+			return NULL;
+		}
+		if( xar_prop_get( XAR_FILE(ret) , "checksum/size", &value) == 0 ) {
+			errno = 0;
+			length = strtoull( value, (char **)NULL, 10);
+			if( errno != 0 ) {
+				xar_close(ret);
+				return NULL;
+			}
+		} else if( xar_signature_first(ret) != NULL ) {
+			xar_close(ret);
+			return NULL;
+		}
+		if( length != tlen ) {
+			xar_close(ret);
+			return NULL;
+		}
+        		
 		xar_read_fd(XAR(ret)->fd, cval, tlen);
 		XAR(ret)->heap_offset += tlen;
 		if( memcmp(cval, toccksum, tlen) != 0 ) {
@@ -356,6 +406,9 @@ int xar_close(xar_t x) {
 		uint64_t ungztoc, gztoc;
 		unsigned char chkstr[EVP_MAX_MD_SIZE];
 		int tocfd;
+		char timestr[128];
+		struct tm tmptm;
+		time_t t;
 
 		tmpser = (char *)xar_opt_get(x, XAR_OPT_TOCCKSUM);
 		/* If no checksum type is specified, default to sha1 */
@@ -385,6 +438,12 @@ int xar_close(xar_t x) {
 			XAR(x)->docksum = 0;
 			XAR(x)->header.cksum_alg = XAR_CKSUM_NONE;
 		}
+
+		t = time(NULL);
+		gmtime_r(&t, &tmptm);
+		memset(timestr, 0, sizeof(timestr));
+		strftime(timestr, sizeof(timestr), "%FT%T", &tmptm);
+		xar_prop_set(XAR_FILE(x), "creation-time", timestr);
 
 		/* serialize the toc to a tmp file */
 		asprintf(&tmpser, "%s/xar.toc.XXXXXX", XAR(x)->dirname);
@@ -443,7 +502,7 @@ int xar_close(xar_t x) {
 				wsize *= 2;
 				wbuf = realloc(wbuf, wsize);
 
-				zs.next_out = wbuf + off;
+				zs.next_out = ((unsigned char *)wbuf) + off;
 				zs.avail_out = wsize - off;
 
 				ret = deflate(&zs, Z_SYNC_FLUSH);
@@ -453,7 +512,7 @@ int xar_close(xar_t x) {
 			wbytes = off;
 			off = 0;
 			do {
-				r = write(tocfd, wbuf+off, wbytes-off);
+				r = write(tocfd, ((char *)wbuf)+off, wbytes-off);
 				if( (r < 0) && (errno == EINTR) )
 					continue;
 				if( r < 0 ) {
@@ -463,7 +522,7 @@ int xar_close(xar_t x) {
 					goto CLOSEEND;
 				}
 				if( XAR(x)->docksum )
-					EVP_DigestUpdate(&XAR(x)->toc_ctx, wbuf+off, r);
+					EVP_DigestUpdate(&XAR(x)->toc_ctx, ((char*)wbuf)+off, r);
 				off += r;
 				gztoc += r;
 			} while( off < wbytes );
@@ -504,7 +563,7 @@ int xar_close(xar_t x) {
 			wbytes = r;
 			off = 0;
 			do {
-				r = write(XAR(x)->fd, rbuf+off, wbytes-off);
+				r = write(XAR(x)->fd, ((char *)rbuf)+off, wbytes-off);
 				if( (r < 0) && (errno == EINTR) )
 					continue;
 				if( r < 0 ) {
@@ -581,7 +640,7 @@ int xar_close(xar_t x) {
 			wbytes = r;
 			off = 0;
 			do {
-				r = write(XAR(x)->fd, rbuf+off, wbytes);
+				r = write(XAR(x)->fd, ((char *)rbuf)+off, wbytes);
 				if( (r < 0 ) && (errno == EINTR) )
 					continue;
 				if( r < 0 ) {
@@ -599,6 +658,10 @@ CLOSEEND:
 		free(wbuf);
 		deflateEnd(&XAR(x)->zs);
 	} else {
+		
+		xar_signature_remove( XAR(x)->signatures );
+		XAR(x)->signatures = NULL;
+		
 		inflateEnd(&XAR(x)->zs);
 	}
 		
@@ -631,7 +694,8 @@ CLOSE_BAIL:
 	xmlHashFree(XAR(x)->link_hash, NULL);
 	xmlHashFree(XAR(x)->csum_hash, NULL);
 	close(XAR(x)->fd);
-	close(XAR(x)->heap_fd);
+	if( XAR(x)->heap_fd >= 0 )
+		close(XAR(x)->heap_fd);
 	free((char *)XAR(x)->filename);
 	free((char *)XAR(x)->dirname);
 	free(XAR(x)->readbuf);
@@ -644,6 +708,8 @@ CLOSE_BAIL:
  * x: archive to get the option from
  * option: name of the option
  * Returns: a pointer to the value of the option
+ * In the case of more than one option with the same name, this will
+ * return the first match.
  */
 const char *xar_opt_get(xar_t x, const char *option) {
 	xar_attr_t i;
@@ -663,7 +729,7 @@ const char *xar_opt_get(xar_t x, const char *option) {
  * Returns: 0 for sucess, -1 for failure
  */
 int32_t xar_opt_set(xar_t x, const char *option, const char *value) {
-	xar_attr_t i, a;
+	xar_attr_t currentAttr, a;
 
 	if( (strcmp(option, XAR_OPT_TOCCKSUM) == 0) ) {
 		if( strcmp(value, XAR_OPT_VAL_NONE) == 0 ) {
@@ -676,18 +742,57 @@ int32_t xar_opt_set(xar_t x, const char *option, const char *value) {
 			XAR(x)->heap_offset = 16;
 		}
 	}
-	for(i = XAR(x)->attrs; i ; i = XAR_ATTR(i)->next) {
-		if(strcmp(XAR_ATTR(i)->key, option)==0) {
-			free((char*)XAR_ATTR(i)->value);
-			XAR_ATTR(i)->value = strdup(value);
+	
+	/*	This was an edit from xar-1.4
+		Looks like we would only allow one definition for a particular key in this list
+		But xar_opt_unset is implemented to remove many pairs for the same key
+	 
+	// if the attribute is already defined, find it and free its value,
+	// replace and return
+	for(currentAttr = XAR(x)->attrs; currentAttr ; currentAttr = XAR_ATTR(currentAttr)->next) {
+		if(strcmp(XAR_ATTR(currentAttr)->key, option)==0) {
+			free((char*)XAR_ATTR(currentAttr)->value);
+			XAR_ATTR(currentAttr)->value = strdup(value);
 			return 0;
 		}
-	}
+	} */
+	
+	// otherwise create a new attribute
 	a = xar_attr_new();
 	XAR_ATTR(a)->key = strdup(option);
 	XAR_ATTR(a)->value = strdup(value);
+	// and prepend it to the attrs list for the archive
 	XAR_ATTR(a)->next = XAR(x)->attrs;
 	XAR(x)->attrs = a;
+	return 0;
+}
+
+/* xar_opt_unset
+ * x: the archive to set the option of
+ * option: the name of the option to delete
+ * This will delete ALL instances of the option name
+ */
+int32_t xar_opt_unset(xar_t x, const char *option) {
+	xar_attr_t currentAttr, previousAttr = NULL;
+	for(currentAttr = XAR(x)->attrs; 
+		currentAttr ; 
+		previousAttr = currentAttr, currentAttr = XAR_ATTR(currentAttr)->next) {
+		if(strcmp(XAR_ATTR(currentAttr)->key, option)==0) {
+			
+			// if this attribute match is the head of the attrs list
+			// promote the next list item to the head
+			if( previousAttr == NULL )
+				XAR(previousAttr)->attrs = XAR_ATTR(currentAttr)->next;
+			
+			// otherwise splice the list around this attr
+			else
+				XAR_ATTR(previousAttr)->next = XAR_ATTR(currentAttr)->next;
+			xar_attr_free(currentAttr);
+			
+			// keep going to find other instances
+			currentAttr = previousAttr;
+		}
+	}
 	return 0;
 }
 
@@ -788,6 +893,78 @@ static xar_file_t xar_add_node(xar_t x, xar_file_t f, const char *name, const ch
 	return ret;
 }
 
+/* xar_add_pseudodir
+ * Summary: Adds a placeholder directory when archiving a file prior
+ * to archiving its path.
+ */
+static xar_file_t xar_add_pseudodir(xar_t x, xar_file_t f, const char *name, const char *prefix, const char *realpath)
+{
+	xar_file_t ret;
+	const char *path; 
+	char *tmp;
+	char idstr[32];
+
+	if( !f ) {
+		if( realpath )
+			asprintf(&tmp, "%s", realpath);
+		else
+			asprintf(&tmp, "%s%s%s", XAR(x)->path_prefix, prefix, name);
+
+		if( lstat(tmp, &XAR(x)->sbcache) != 0 ) {
+			free(tmp);
+			return NULL;
+		}
+
+		ret = xar_file_new(NULL);
+		if( !ret )
+			return NULL;
+		memset(idstr, 0, sizeof(idstr));
+		snprintf(idstr, sizeof(idstr)-1, "%"PRIu64, ++XAR(x)->last_fileid);
+		xar_attr_set(ret, NULL, "id", idstr);
+		XAR_FILE(ret)->parent = NULL;
+		XAR_FILE(ret)->fspath = tmp;
+		if( XAR(x)->files == NULL )
+			XAR(x)->files = ret;
+		else {
+			XAR_FILE(ret)->next = XAR(x)->files;
+			XAR(x)->files = ret;
+		}
+	} else {
+		path = XAR_FILE(f)->fspath;
+		if( strcmp(prefix, "../") == 0 ) {
+			int len1, len2;
+			len1 = strlen(path);
+			len2 = strlen(name);
+			if( (len1>=len2) && (strcmp(path+(len1-len2), name) == 0) ) {
+				return f;
+			}
+			
+		}
+
+		if( realpath ){
+			asprintf(&tmp, "%s", realpath);
+		}else
+			asprintf(&tmp, "%s/%s%s", path, prefix, name);
+		
+		if( lstat(tmp, &XAR(x)->sbcache) != 0 ) {
+			free(tmp);
+			return NULL;
+		}
+
+		ret = xar_file_new(f);
+		if( !ret )
+			return NULL;
+		memset(idstr, 0, sizeof(idstr));
+		snprintf(idstr, sizeof(idstr)-1, "%"PRIu64, ++XAR(x)->last_fileid);
+		xar_attr_set(ret, NULL, "id", idstr);
+		XAR_FILE(ret)->fspath = tmp;
+	}
+	xar_prop_set(ret, "name", name);
+	xar_prop_set(ret, "type", "directory");
+
+	return ret;
+}
+
 /* xar_add_r
  * Summary: a recursive helper function for adding a node to the
  * tree.  This will search all children of node f, looking for
@@ -860,7 +1037,8 @@ static xar_file_t xar_add_r(xar_t x, xar_file_t f, const char *path, const char 
 
 	/* tmp3 was not found in children of start, so we add it */
 	if( tmp2 ) {
-		ret = xar_add_node(x, f, tmp3, prefix, NULL,  1);
+		//ret = xar_add_node(x, f, tmp3, prefix, NULL,  1);
+		ret = xar_add_pseudodir(x, f, tmp3, prefix, NULL);
 	} else {
 		ret = xar_add_node(x, f, tmp3, prefix, NULL,  0);
 	}
@@ -895,9 +1073,11 @@ static xar_file_t xar_add_r(xar_t x, xar_file_t f, const char *path, const char 
  * representing "blah" will be returned.
  */
 xar_file_t xar_add(xar_t x, const char *path) {
-
-	if( xar_underbar_check(x, NULL, path) )
-		return NULL;
+#ifdef __APPLE__
+	xar_file_t ret;
+	if( (ret = xar_underbar_check(x, NULL, path)) )
+		return ret;
+#endif
 
 	if( path[0] == '/' ) {
 		XAR(x)->path_prefix = "/";
@@ -921,7 +1101,6 @@ xar_file_t xar_add(xar_t x, const char *path) {
 
 xar_file_t xar_add_frombuffer(xar_t x, xar_file_t parent, const char *name, char *buffer, size_t length) {
 	xar_file_t ret;
-	char *tmp;
 	char idstr[32];
 	
 	if( !parent ) {
@@ -945,7 +1124,7 @@ xar_file_t xar_add_frombuffer(xar_t x, xar_file_t parent, const char *name, char
 		memset(idstr, 0, sizeof(idstr));
 		snprintf(idstr, sizeof(idstr)-1, "%"PRIu64, ++XAR(x)->last_fileid);
 		xar_attr_set(ret, NULL, "id", idstr);
-		XAR_FILE(ret)->fspath = tmp;
+		XAR_FILE(ret)->fspath = NULL;
 	}
 	
 	xar_prop_set(ret, "name", name);
@@ -1047,24 +1226,21 @@ xar_file_t xar_add_from_archive(xar_t x, xar_file_t parent, const char *name, xa
 	xar_prop_set(ret, "name", name);
 		
 	/* iterate through all the properties, see if any of them have an offset */
-	xar_iter_t iter = xar_iter_new();
-	const char *attr = xar_prop_first(ret , iter);
-	char *tmpstr = NULL;
+	xar_prop_t p = xar_prop_pfirst(ret);
 
 	do{
-		asprintf(&tmpstr, "%s/offset", attr);
-		if(0 == xar_prop_get(ret, tmpstr, NULL) ){
-			if( 0 != xar_attrcopy_from_heap_to_heap(sourcearchive, sourcefile, attr, x, ret)){			
+		xar_prop_t tmpp;
+		
+		tmpp = xar_prop_pget(p, "offset");
+		if(tmpp) {
+			if( 0 != xar_attrcopy_from_heap_to_heap(sourcearchive, sourcefile, p, x, ret)){			
 				xar_file_free(ret);
 				ret = NULL;
 				break;
 			}
 		}
-		free(tmpstr);
 		
-	}while( (attr = xar_prop_next(iter)) );
-	
-	xar_iter_free(iter);
+	}while( (p = xar_prop_pnext(p)) );
 	
 	return ret;	
 }
@@ -1092,23 +1268,74 @@ int32_t xar_extract_tofile(xar_t x, xar_file_t f, const char *path) {
 * Example: xar_extract_tobuffer(x, "foo/bar/blah",&buffer)
 */
 int32_t xar_extract_tobuffer(xar_t x, xar_file_t f, char **buffer) {
-	size_t	size;
+	size_t size;
+
+	return xar_extract_tobuffersz(x, f, buffer, &size);
+}
+
+/* xar_extract_tobuffer
+* x: archive to extract from
+* buffer: buffer to extract to
+* size: On return, this will contain the size of the memory pointed to by buffer
+* Returns 0 on success, -1 on failure.
+* Summary: This is the entry point for extraction to a buffer.
+* On success, a buffer is allocated with the contents of the file
+* specified.  The caller is responsible for freeing the returend buffer.
+* Example: xar_extract_tobuffer(x, "foo/bar/blah",&buffer)
+*/
+int32_t xar_extract_tobuffersz(xar_t x, xar_file_t f, char **buffer, size_t *size) {
 	const char *sizestring = NULL;
+	int32_t ret;
 	
 	if(0 != xar_prop_get(f,"data/size",&sizestring)){
+		if(0 != xar_prop_get(f, "type", &sizestring))
+			return -1;
+		if(strcmp(sizestring, "file") == 0) {
+			*size = 0;
+			return 0;
+		}
 		return -1;
 	}
 
-	size = strtoull(sizestring, (char **)NULL, 10);
-	*buffer = malloc(size);
+	*size = strtoull(sizestring, (char **)NULL, 10);
+	*buffer = malloc(*size);
 	
 	if(!(*buffer)){
 		return -1;
 	}
 	
-	return xar_arcmod_extract(x,f,NULL,*buffer,size);
+	ret = xar_arcmod_extract(x,f,NULL,*buffer,*size);
+	if( ret ) {
+		*size = 0;
+		free(*buffer);
+		*buffer = NULL;
+	}
+
+	return ret;
 }
 
+int32_t xar_extract_tostream_init(xar_t x, xar_file_t f, xar_stream *stream) {
+	xar_prop_t tmpp;
+
+	if( !xar_check_prop(x, "data") )
+		return XAR_STREAM_OK;
+
+	tmpp = xar_prop_pfirst(f);
+	if( tmpp )
+		tmpp = xar_prop_find(tmpp, "data");
+	if( !tmpp )
+		return XAR_STREAM_OK;
+
+	return xar_attrcopy_from_heap_to_stream_init(x, f, tmpp, stream);
+}
+
+int32_t xar_extract_tostream(xar_stream *stream) {
+	return xar_attrcopy_from_heap_to_stream(stream);
+}
+
+int32_t xar_extract_tostream_end(xar_stream *stream) {
+	return xar_attrcopy_from_heap_to_stream_end(stream);
+}
 
 /* xar_extract
  * x: archive to extract from
@@ -1127,7 +1354,7 @@ int32_t xar_extract(xar_t x, xar_file_t f) {
 	char *tmp1, *dname;
 	xar_file_t tmpf;
 	
-	if( (strstr(XAR_FILE(f)->fspath, "/") != NULL) && (stat(XAR_FILE(f)->fspath, &sb)) ) {
+	if( (strstr(XAR_FILE(f)->fspath, "/") != NULL) && (stat(XAR_FILE(f)->fspath, &sb)) && (XAR_FILE(f)->parent_extracted == 0) ) {
 		tmp1 = strdup(XAR_FILE(f)->fspath);
 		dname = dirname(tmp1);
 		tmpf = xar_file_find(XAR(x)->files, dname);
@@ -1137,13 +1364,14 @@ int32_t xar_extract(xar_t x, xar_file_t f) {
 			return -1;
 		}
 		free(tmp1);
+		XAR_FILE(f)->parent_extracted++;
 		xar_extract(x, tmpf);
 	}
 	
 	return xar_extract_tofile(x, f, XAR_FILE(f)->fspath);
 }
 
-/* xar_extract
+/* xar_verify
 * x: archive to extract from
 * f: file to verify
 * Returns 0 on success, -1 on failure.
@@ -1184,7 +1412,7 @@ static int toc_read_callback(void *context, char *buffer, int len) {
 
 	if( off && (off < XAR(x)->readbuf_len) )
 		XAR(x)->readbuf_len = off;
-	XAR(x)->zs.next_in = XAR(x)->readbuf + XAR(x)->offset;
+	XAR(x)->zs.next_in = ((unsigned char *)XAR(x)->readbuf) + XAR(x)->offset;
 	XAR(x)->zs.avail_in = XAR(x)->readbuf_len - XAR(x)->offset;
 	XAR(x)->zs.next_out = (void *)buffer;
 	XAR(x)->zs.avail_out = len;
@@ -1250,88 +1478,112 @@ static int32_t xar_unserialize(xar_t x) {
 	xmlTextReaderPtr reader;
 	xar_file_t f = NULL;
 	const xmlChar *name, *prefix, *uri;
-	int type, noattr;
+	int type, noattr, ret;
 
 	reader = xmlReaderForIO(toc_read_callback, close_callback, XAR(x), NULL, NULL, 0);
 	if( !reader ) return -1;
 
-	while( xmlTextReaderRead(reader) == 1 ) {
+	while( (ret = xmlTextReaderRead(reader)) == 1 ) {
 		type = xmlTextReaderNodeType(reader);
 		noattr = xmlTextReaderAttributeCount(reader);
 		name = xmlTextReaderConstLocalName(reader);
-		if( type == XML_READER_TYPE_ELEMENT ) {
-			if(strcmp((const char*)name, "xar") == 0) {
-				while( xmlTextReaderRead(reader) == 1 ) {
-					type = xmlTextReaderNodeType(reader);
-					noattr = xmlTextReaderAttributeCount(reader);
-					name = xmlTextReaderConstLocalName(reader);
-					if( type == XML_READER_TYPE_ELEMENT ) {
-						if(strcmp((const char*)name, "toc") == 0) {
-							while( xmlTextReaderRead(reader) == 1 ) {
-								type = xmlTextReaderNodeType(reader);
-								noattr = xmlTextReaderAttributeCount(reader);
-								name = xmlTextReaderConstLocalName(reader);
-								if( type == XML_READER_TYPE_ELEMENT ) {
-									if(strcmp((const char*)name, "file") == 0) {
-										f = xar_file_unserialize(x, NULL, reader);
-										XAR_FILE(f)->next = XAR(x)->files;
-										XAR(x)->files = f;
-									} else if( strcmp((const char*)name, "signature") == 0 ){
-										xar_signature_t sig = NULL;			
-										sig = xar_signature_unserialize(x, reader );
-										
-										if( !sig )
-											return -1;
-										
-										if( XAR(x)->signatures )
-											XAR_SIGNATURE(XAR(x)->signatures)->next = XAR_SIGNATURE(sig);
-										else
-											XAR(x)->signatures = sig;
-											
-									} else {
-										xar_prop_unserialize(XAR_FILE(x), NULL, reader);
-									}
+		if( type != XML_READER_TYPE_ELEMENT )
+			continue;
+		if(strcmp((const char*)name, "xar") != 0)
+			continue;
+		while( (ret = xmlTextReaderRead(reader)) == 1 ) {
+			type = xmlTextReaderNodeType(reader);
+			noattr = xmlTextReaderAttributeCount(reader);
+			name = xmlTextReaderConstLocalName(reader);
+			if( type == XML_READER_TYPE_ELEMENT ) {
+				if(strcmp((const char*)name, "toc") == 0) {
+					while( (ret = xmlTextReaderRead(reader)) == 1 ) {
+						type = xmlTextReaderNodeType(reader);
+						noattr = xmlTextReaderAttributeCount(reader);
+						name = xmlTextReaderConstLocalName(reader);
+						if( type == XML_READER_TYPE_ELEMENT ) {
+							if(strcmp((const char*)name, "file") == 0) {
+								f = xar_file_unserialize(x, NULL, reader);
+								XAR_FILE(f)->next = XAR(x)->files;
+								XAR(x)->files = f;
+							} else if( strcmp((const char*)name, "signature") == 0 ){
+								xar_signature_t sig = NULL;			
+								sig = xar_signature_unserialize(x, reader );
+								
+								if( !sig ) {
+									xmlFreeTextReader(reader);
+									xmlDictCleanup();
+									xmlCleanupCharEncodingHandlers();
+									return -1;
 								}
-							}
-						} else {
-							xar_subdoc_t s;
-							int i;
-
-							prefix = xmlTextReaderPrefix(reader);
-							uri = xmlTextReaderNamespaceUri(reader);
-
-							i = xmlTextReaderAttributeCount(reader);
-							if( i > 0 ) {
-								for(i = xmlTextReaderMoveToFirstAttribute(reader); i == 1; i = xmlTextReaderMoveToNextAttribute(reader)) {
-									xar_attr_t a;
-									const char *aname = (const char *)xmlTextReaderConstLocalName(reader);
-									const char *avalue = (const char *)xmlTextReaderConstValue(reader);
+								
+								if( XAR(x)->signatures )
+									XAR_SIGNATURE(XAR(x)->signatures)->next = XAR_SIGNATURE(sig);
+								else
+									XAR(x)->signatures = sig;
 									
-									if( aname && (strcmp("subdoc_name", aname) == 0) ) {
-										name = (const unsigned char *)avalue;
-									} else {
-										a = xar_attr_new();
-										XAR_ATTR(a)->key = strdup(aname);
-										XAR_ATTR(a)->value = strdup(avalue);
-										XAR_ATTR(a)->next = XAR_SUBDOC(s)->attrs;
-										XAR_SUBDOC(s)->attrs = XAR_ATTR(a);
-									}
-								}
+							} else {
+								xar_prop_unserialize(XAR_FILE(x), NULL, reader);
 							}
-
-							s = xar_subdoc_new(x, (const char *)name);
-							xar_subdoc_unserialize(s, reader);
 						}
 					}
-					if( (type == XML_READER_TYPE_END_ELEMENT) && (strcmp((const char *)name, "toc")==0) ) {
-						break;
+					if( ret == -1 ) {
+						xmlFreeTextReader(reader);
+						xmlDictCleanup();
+						xmlCleanupCharEncodingHandlers();
+						return -1;
+					}
+				} else {
+					xar_subdoc_t s;
+					int i;
+
+					prefix = xmlTextReaderPrefix(reader);
+					uri = xmlTextReaderNamespaceUri(reader);
+
+					i = xmlTextReaderAttributeCount(reader);
+					if( i > 0 ) {
+						for(i = xmlTextReaderMoveToFirstAttribute(reader); i == 1; i = xmlTextReaderMoveToNextAttribute(reader)) {
+							xar_attr_t a;
+							const char *aname = (const char *)xmlTextReaderConstLocalName(reader);
+							const char *avalue = (const char *)xmlTextReaderConstValue(reader);
+							
+							if( aname && (strcmp("subdoc_name", aname) == 0) ) {
+								name = (const unsigned char *)avalue;
+							} else {
+								a = xar_attr_new();
+								XAR_ATTR(a)->key = strdup(aname);
+								XAR_ATTR(a)->value = strdup(avalue);
+								XAR_ATTR(a)->next = XAR_SUBDOC(s)->attrs;
+								XAR_SUBDOC(s)->attrs = XAR_ATTR(a);
+							}
+						}
 					}
 
+					s = xar_subdoc_new(x, (const char *)name);
+					xar_subdoc_unserialize(s, reader);
 				}
 			}
+			if( (type == XML_READER_TYPE_END_ELEMENT) && (strcmp((const char *)name, "toc")==0) ) {
+				break;
+			}
 		}
+		if( ret == -1 ) {
+			xmlFreeTextReader(reader);
+			xmlDictCleanup();
+			xmlCleanupCharEncodingHandlers();
+			return -1;
+		}
+	}
+
+	if( ret == -1 ) {
+		xmlFreeTextReader(reader);
+		xmlDictCleanup();
+		xmlCleanupCharEncodingHandlers();
+		return -1;
 	}
 		
 	xmlFreeTextReader(reader);
+	xmlDictCleanup();
+	xmlCleanupCharEncodingHandlers();
 	return 0;
 }

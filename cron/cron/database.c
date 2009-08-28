@@ -209,7 +209,7 @@ process_crontab(uname, fname, tabname, statbuf, new_db, old_db)
 		/* file doesn't have a user in passwd file.
 		 */
 		log_it(fname, getpid(), "ORPHAN", "no passwd entry");
-		old_db->mtime = 0;  // try again next time
+		new_db->mtime = 0;  // try again next time
 		goto next_crontab;
 	}
 

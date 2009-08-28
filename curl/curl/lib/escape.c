@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2006, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2007, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: escape.c,v 1.38 2006-10-17 21:32:56 bagder Exp $
+ * $Id: escape.c,v 1.44 2008-10-08 01:17:51 danf Exp $
  ***************************************************************************/
 
 /* Escape and unescape URL encoding in strings. The functions return a new
@@ -42,6 +42,30 @@
 /* The last #include file should be: */
 #include "memdebug.h"
 
+/* Portable character check (remember EBCDIC). Do not use isalnum() because
+its behavior is altered by the current locale. */
+static bool Curl_isalnum(unsigned char in)
+{
+  switch (in) {
+    case '0': case '1': case '2': case '3': case '4':
+    case '5': case '6': case '7': case '8': case '9':
+    case 'a': case 'b': case 'c': case 'd': case 'e':
+    case 'f': case 'g': case 'h': case 'i': case 'j':
+    case 'k': case 'l': case 'm': case 'n': case 'o':
+    case 'p': case 'q': case 'r': case 's': case 't':
+    case 'u': case 'v': case 'w': case 'x': case 'y': case 'z':
+    case 'A': case 'B': case 'C': case 'D': case 'E':
+    case 'F': case 'G': case 'H': case 'I': case 'J':
+    case 'K': case 'L': case 'M': case 'N': case 'O':
+    case 'P': case 'Q': case 'R': case 'S': case 'T':
+    case 'U': case 'V': case 'W': case 'X': case 'Y': case 'Z':
+      return TRUE;
+    default:
+      break;
+  }
+  return FALSE;
+}
+
 /* for ABI-compatibility with previous versions */
 char *curl_escape(const char *string, int inlength)
 {
@@ -59,7 +83,7 @@ char *curl_easy_escape(CURL *handle, const char *string, int inlength)
   size_t alloc = (inlength?(size_t)inlength:strlen(string))+1;
   char *ns;
   char *testing_ptr = NULL;
-  unsigned char in;
+  unsigned char in; /* we need to treat the characters unsigned */
   size_t newlen = alloc;
   int strindex=0;
   size_t length;
@@ -75,9 +99,11 @@ char *curl_easy_escape(CURL *handle, const char *string, int inlength)
   length = alloc-1;
   while(length--) {
     in = *string;
-    if(!(in >= 'a' && in <= 'z') &&
-       !(in >= 'A' && in <= 'Z') &&
-       !(in >= '0' && in <= '9')) {
+
+    if (Curl_isalnum(in)) {
+      /* just copy this */
+      ns[strindex++]=in;
+    } else {
       /* encode it */
       newlen += 2; /* the size grows with two, since this'll become a %XX */
       if(newlen > alloc) {
@@ -94,7 +120,7 @@ char *curl_easy_escape(CURL *handle, const char *string, int inlength)
 
 #ifdef CURL_DOES_CONVERSIONS
 /* escape sequences are always in ASCII so convert them on non-ASCII hosts */
-      if (!handle ||
+      if(!handle ||
           (Curl_convert_to_network(handle, &in, 1) != CURLE_OK)) {
         /* Curl_convert_to_network calls failf if unsuccessful */
         free(ns);
@@ -106,16 +132,18 @@ char *curl_easy_escape(CURL *handle, const char *string, int inlength)
 
       strindex+=3;
     }
-    else {
-      /* just copy this */
-      ns[strindex++]=in;
-    }
     string++;
   }
   ns[strindex]=0; /* terminate it */
   return ns;
 }
 
+/*
+ * Unescapes the given URL escaped string of given length. Returns a
+ * pointer to a malloced string with length given in *olen.
+ * If length == 0, the length is assumed to be strlen(string).
+ * If olen == NULL, no output length is stored.
+ */
 char *curl_easy_unescape(CURL *handle, const char *string, int length,
                          int *olen)
 {
@@ -148,7 +176,7 @@ char *curl_easy_unescape(CURL *handle, const char *string, int length,
 
 #ifdef CURL_DOES_CONVERSIONS
 /* escape sequences are always in ASCII so convert them on non-ASCII hosts */
-      if (!handle ||
+      if(!handle ||
           (Curl_convert_from_network(handle, &in, 1) != CURLE_OK)) {
         /* Curl_convert_from_network calls failf if unsuccessful */
         free(ns);
@@ -172,7 +200,7 @@ char *curl_easy_unescape(CURL *handle, const char *string, int length,
 }
 
 /* For operating systems/environments that use different malloc/free
-   ssystems for the app and for this library, we provide a free that uses
+   systems for the app and for this library, we provide a free that uses
    the library's memory system */
 void curl_free(void *p)
 {

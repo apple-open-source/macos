@@ -196,6 +196,14 @@ SecCmsSignerInfoIncludeCerts(SecCmsSignerInfoRef signerinfo, SecCmsCertChainMode
 extern const char *
 SecCmsUtilVerificationStatusToString(SecCmsVerificationStatus vs);
 
+/*
+ * Preference domain and key for the Microsoft ECDSA compatibility flag. 
+ * Default if not present is TRUE, meaning we generate ECDSA-signed messages
+ * which are compatible with Microsoft Entourage. FALSE means we adhere to 
+ * the spec (RFC 3278 section 2.1.1).
+ */
+#define kMSCompatibilityDomain	"com.apple.security.smime"
+#define kMSCompatibilityMode	CFSTR("MSCompatibilityMode")
 
 #if defined(__cplusplus)
 }

@@ -1,5 +1,5 @@
 /* tst_idna2.c --- Self tests for idna_to_ascii_8z().
- * Copyright (C) 2002, 2003, 2004  Simon Josefsson
+ * Copyright (C) 2002, 2003, 2004, 2006, 2007  Simon Josefsson
  *
  * This file is part of GNU Libidn.
  *
@@ -19,7 +19,7 @@
  *
  */
 
-#if HAVE_CONFIG_H
+#ifdef HAVE_CONFIG_H
 # include "config.h"
 #endif
 
@@ -473,9 +473,14 @@ doit (void)
 
       if (debug)
 	{
+	  uint32_t *p;
+	  size_t len;
 	  printf ("in: %s\n", idna[i].in);
 	  hexprint (idna[i].in, strlen (idna[i].in));
 	  escapeprint (idna[i].in, strlen (idna[i].in));
+	  p = stringprep_utf8_to_ucs4 (idna[i].in, -1, &len);
+	  ucs4print (p, len);
+	  free (p);
 	}
 
       rc = idna_to_ascii_8z (idna[i].in, &out,

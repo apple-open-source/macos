@@ -218,6 +218,7 @@ BOOL cli_NetServerEnum(struct cli_state *cli, char *workgroup, uint32 stype,
 	char *p;
 	pstring param;
 	int uLevel = 1;
+	size_t len;
 	uint32 func = RAP_NetServerEnum2;
 	char *last_entry = NULL;
 	int total_cnt = 0;
@@ -257,13 +258,20 @@ BOOL cli_NetServerEnum(struct cli_state *cli, char *workgroup, uint32 stype,
 
 		/* We have more data, tell the server were to continue from */
 		if (last_entry) {
-			p += push_ascii(p, last_entry,
+			len = push_ascii(p, last_entry,
 				sizeof(pstring) - PTR_DIFF(p,param) - 1,
 				STR_TERMINATE|STR_UPPER);
-		} else
-			p += push_ascii(p, workgroup,
+		} else {
+			len = push_ascii(p, workgroup,
 				sizeof(pstring) - PTR_DIFF(p,param) - 1,
 				STR_TERMINATE|STR_UPPER);
+		}
+
+		if (len == (size_t)-1) {
+			return false;
+		}
+
+		p += len;
 
 		if (!cli_api(cli,
 			    param, PTR_DIFF(p,param), 8, /* params, length, max */
@@ -274,7 +282,7 @@ BOOL cli_NetServerEnum(struct cli_state *cli, char *workgroup, uint32 stype,
 			break;
 		}
 		res = rparam ? SVAL(rparam,0) : -1;
-
+	
 		if (res == 0 || res == ERRmoredata ||
                     (res != -1 && cli_errno(cli) == 0)) {
 			char *sname = NULL;
@@ -296,6 +304,7 @@ BOOL cli_NetServerEnum(struct cli_state *cli, char *workgroup, uint32 stype,
 			/* Keep track of how many we have read */
 			return_cnt += count;
 			p = rdata;
+
 			/*
 			 * The last name in the previous NetServerEnum reply is
 			 * sent back to server in the NetServerEnum3 request
@@ -314,11 +323,11 @@ BOOL cli_NetServerEnum(struct cli_state *cli, char *workgroup, uint32 stype,
 			    return_cnt = -1; /* Not part of total, so don't count. */
 			    p = rdata+26; /* Skip the whole record */
 			}
-					
+
 			for (i = 0;i < count;i++, p += 26) {
+				pstring s1, s2;
 				int comment_offset;
 				const char *cmnt;
-				pstring s1, s2;
 
 				sname = p;
 				comment_offset = (IVAL(p,22) & 0xFFFF) - converter;

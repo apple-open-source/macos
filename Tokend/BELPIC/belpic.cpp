@@ -30,7 +30,7 @@
 int main(int argc, const char *argv[])
 {
 	secdebug("BELPIC.tokend", "main starting with %d arguments", argc);
-	secdelay("/tmp/delay/BELPIC");
+	secdelay((char *)"/tmp/delay/BELPIC");
 
 	token = new BELPICToken();
 	return SecTokendMain(argc, argv, token->callbacks(), token->support());

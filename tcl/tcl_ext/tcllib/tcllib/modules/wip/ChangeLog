@@ -1,0 +1,46 @@
+2008-12-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.11.1 ========================
+	* 
+
+2008-10-16  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.11 ========================
+	* 
+
+2008-09-03  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* wip.tcl: Changed the name of the wip processor component added
+	* wip2.tcl: to DSL system, prevent it from clashing with the name
+	* pkgIndex.tcl: of the wip-core snit::type. Bumped the versions to
+	* wip.man: 1.1.1 and 2.1.1.
+
+2007-10-26  Andreas Kupries  <andreask@activestate.com>
+
+	* wip.tcl: Extended error reporting, and fixes of bad indices in
+	* wip2.tcl: the methods manipulating the program (insert, push,
+	  etc). wip v2 only extended error reporting.
+
+	* wip.tcl: Extended with method to undef DSL commands.
+	* wip2.tcl: Updated both variants, and the documentation.
+	* wip.man: Bumped versions to 1.1 and 2.1 respectively.
+	* pkgIndex.tcl:
+
+2007-09-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.10 ========================
+	* 
+
+2007-07-30  Andreas Kupries  <andreask@activestate.com>
+
+	* wip.man: Fixed bugs uncovered during test of
+	* wip.tcl: first user, fileutil::multi::op.
+	* wip2.tcl:
+
+2007-07-27  Andreas Kupries  <andreask@activestate.com>
+
+	* New Module.
+

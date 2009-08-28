@@ -1,0 +1,56 @@
+To: vim-dev@vim.org
+Subject: Patch 7.2.072 (extra)
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 7.2.072 (extra)
+Problem:    Compiler warning in Sniff code.
+Solution:   Use return value of pipe(). (Dominique Pelle)
+Files:	    src/if_sniff.c
+
+NOTE: Patch was adjusted to avoid problems with CVS interference.
+
+*** ../vim-7.2.071/src/if_sniff.c	Sat Nov 15 14:11:10 2008
+--- src/if_sniff.c	Sat Dec  6 14:01:57 2008
+***************
+*** 716,723 ****
+  #else		/* UNIX Version of the Code */
+      int ToSniffEmacs[2], FromSniffEmacs[2];
+  
+!     pipe(ToSniffEmacs);
+!     pipe(FromSniffEmacs);
+  
+      /* fork */
+      if ((sniffemacs_pid=fork()) == 0)
+--- 714,723 ----
+  #else		/* UNIX Version of the Code */
+      int ToSniffEmacs[2], FromSniffEmacs[2];
+  
+!     if (pipe(ToSniffEmacs) != 0)
+! 	return 1;
+!     if (pipe(FromSniffEmacs) != 0)
+! 	return 1;
+  
+      /* fork */
+      if ((sniffemacs_pid=fork()) == 0)
+*** ../vim-7.2.071/src/version.c	Wed Dec 24 12:20:10 2008
+--- src/version.c	Wed Dec 24 12:42:13 2008
+***************
+*** 678,679 ****
+--- 678,681 ----
+  {   /* Add new patch number below this line */
++ /**/
++     72,
+  /**/
+
+-- 
+SIGIRO -- irony detected (iron core dumped)
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\        download, build and distribute -- http://www.A-A-P.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

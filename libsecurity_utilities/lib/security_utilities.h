@@ -41,7 +41,6 @@
 #include <security_utilities/hosts.h>
 #include <security_utilities/inetreply.h>
 #include <security_utilities/ip++.h>
-#include <security_utilities/ktracecodes.h>
 #include <security_utilities/logging.h>
 #include <security_utilities/mach_notify.h>
 #include <security_utilities/memstreams.h>

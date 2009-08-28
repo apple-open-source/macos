@@ -1,31 +1,11 @@
---- src/Makefile.in.orig	Wed Dec 22 09:52:46 2004
-+++ src/Makefile.in	Wed Dec 22 09:56:43 2004
-@@ -12,8 +12,8 @@
- sbindir	= @sbindir@
- sysconfdir = @sysconfdir@
+--- src/Makefile.in~	2008-09-26 21:56:56.000000000 -0700
++++ src/Makefile.in	2008-10-02 16:25:21.000000000 -0700
+@@ -76,7 +76,7 @@ ${PROG}: ${OBJS} @LIBDEPENDS@
+ 	nroff -man $< > $@
  
--mandircat5 = ${mandir}/cat5
--mandircat8 = ${mandir}/cat8
-+mandir5 = ${mandir}/man5
-+mandir8 = ${mandir}/man8
  
- CC	= @CC@
- CFLAGS	= -I${srcdir} -I${srcdir}/.. -I. -I.. @INCLUDES@ -DHAVE_TNFTPD_H=1 @CFLAGS@ -D_DEFAULT_CONFDIR=\"${sysconfdir}\"
-@@ -43,11 +43,12 @@
- install: all
- 	-mkdir -p ${sbindir}
- 	${INSTALL} -m 555 ${PROG} ${sbindir}
--	-mkdir -p ${mandircat5}
--	${INSTALL} -m 444 ${srcdir}/ftpd.conf.cat5 ${mandircat5}/ftpd.conf.5
--	${INSTALL} -m 444 ${srcdir}/ftpusers.cat5 ${mandircat5}/ftpusers.5
--	-mkdir -p ${mandircat8}
--	${INSTALL} -m 444 ${srcdir}/${PROG}.cat8 ${mandircat8}/${PROG}.8
-+	-mkdir -p ${mandir5}
-+	${INSTALL} -m 444 ${srcdir}/ftpd.conf.5 ${mandir5}
-+	${INSTALL} -m 444 ${srcdir}/ftpusers.5 ${mandir5}
-+	-mkdir -p ${mandir8}
-+	${INSTALL} -m 444 ${srcdir}/ftpd.8 ${mandir8}/${PROG}.8
-+	ln -s ${PROG}.8 ${mandir8}/ftpd.8
+-install: all install-prog install-man install-cat
++install: all install-prog install-man
  
- ${PROG}: ${OBJS} @LIBDEPENDS@
- 	${CC} ${CFLAGS} ${LDFLAGS} -o ${PROG} ${OBJS} ${LIBS}
+ install-prog: ${PROG}
+ 	-${MKDIR} ${sbindir}

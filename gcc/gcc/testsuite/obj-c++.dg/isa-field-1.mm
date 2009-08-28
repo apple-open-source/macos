@@ -1,4 +1,3 @@
-/* APPLE LOCAL file mainline */
 /* Ensure there are no bizarre difficulties with accessing the 'isa' field of objects.  */
 /* { dg-do compile } */
 
@@ -16,12 +15,12 @@
 @implementation Object (Test)
 
 Class test1(id object) {
-    Class cls = object->isa;
-    return cls;
+  Class cls = object->isa;
+  return cls;
 }
 - (Class) test1: (id)object {
-    Class cls = object->isa;
-    return cls;
+  Class cls = object->isa;
+  return cls;
 }
 
 @end
@@ -29,17 +28,17 @@ Class test1(id object) {
 @implementation Derived
 
 Class test2(id object) {
-    Class cls = object->isa;
-    return cls;
+  Class cls = object->isa;
+  return cls;
 }
 - (Class) test2: (id)object {
-    Class cls = object->isa;
-    return cls;
+  Class cls = object->isa;
+  return cls;
 }
 
 @end
 
 Class test3(id object) {
-    Class cls = object->isa;
-    return cls;
+  Class cls = object->isa;
+  return cls;
 }

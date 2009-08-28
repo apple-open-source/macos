@@ -7,7 +7,7 @@ use Test::More;
 use lib qw(t/lib);
 use DBICTest::ForeignComponent;
 
-plan tests => 5;
+plan tests => 6;
 
 #   Tests if foreign component was loaded by calling foreign's method
 ok( DBICTest::ForeignComponent->foreign_test_method, 'foreign component' );
@@ -62,3 +62,5 @@ is( scalar @warnings, 1,
 }
 is( scalar @warnings, 0,
     'warning not issued for correct order in load_components()' );
+
+use_ok('DBIx::Class::AccessorGroup');

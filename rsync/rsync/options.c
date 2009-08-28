@@ -119,6 +119,7 @@ long block_size = 0; /* "long" because popt can't set an int32. */
 #ifdef EA_SUPPORT
 int extended_attributes = 0;
 #endif
+int no_cache = 1;
 
 
 /** Network address family. **/
@@ -387,6 +388,7 @@ void usage(enum logcode F)
 #ifdef EA_SUPPORT
   rprintf(F," -E, --extended-attributes   copy extended attributes\n");
 #endif
+  rprintf(F,"     --cache                 disable fcntl(F_NOCACHE)\n");
 #ifdef INET6
   rprintf(F," -4, --ipv4                  prefer IPv4\n");
   rprintf(F," -6, --ipv6                  prefer IPv6\n");
@@ -539,6 +541,7 @@ static struct poptOption long_options[] = {
 #ifdef EA_SUPPORT
   {"extended-attributes",    'E',  POPT_ARG_NONE,    &extended_attributes, 0, 0, 0 },
 #endif
+  {"cache",            0,  POPT_ARG_VAL,    &no_cache, 0, 0, 0 },
 #ifdef INET6
   {"ipv4",            '4', POPT_ARG_VAL,    &default_af_hint, AF_INET, 0, 0 },
   {"ipv6",            '6', POPT_ARG_VAL,    &default_af_hint, AF_INET6, 0, 0 },
@@ -1578,6 +1581,9 @@ void server_options(char **args,int *argc)
 	if (extended_attributes)
 		args[ac++] = "--extended-attributes"; /* avoid -E in vanilla rsync */
 #endif
+
+	if (!no_cache)
+		args[ac++] = "--cache";
 
 	/* This is a complete hack - blame Rusty.  FIXME!
 	 * This hack is only needed for older rsync versions that

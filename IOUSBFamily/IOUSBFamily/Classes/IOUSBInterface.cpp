@@ -251,7 +251,6 @@ IOUSBInterface::handleOpen( IOService *forClient, IOOptionBits options, void *ar
 void 
 IOUSBInterface::close( IOService *forClient, IOOptionBits options)
 {
-    IOReturn		error = kIOReturnSuccess;
 	
     if ( _expansionData && _GATE )
     {
@@ -298,7 +297,8 @@ IOUSBInterface::handleClose(IOService *	forClient, IOOptionBits	options )
 IOReturn 
 IOUSBInterface::message( UInt32 type, IOService * provider,  void * argument )
 {
-    IOReturn	err = kIOReturnSuccess;
+#pragma unused (provider)
+	IOReturn	err = kIOReturnSuccess;
     IOUSBPipe *	pipe;
     int			i;
 	
@@ -439,7 +439,6 @@ IOUSBInterface::finalize(IOOptionBits options)
 void
 IOUSBInterface::free()
 {
-    IOReturn ret = kIOReturnSuccess;
 	
     //  This needs to be the LAST thing we do, as it disposes of our "fake" member
     //  variables.
@@ -499,6 +498,7 @@ IOUSBInterface::withDescriptors(const IOUSBConfigurationDescriptor *cfdesc,
 IOReturn
 IOUSBInterface::CallSuperOpen(OSObject *target, void *param1, void *param2, void *param3, void *param4)
 {
+#pragma unused (param4)
     IOUSBInterface *	me = OSDynamicCast(IOUSBInterface, target);
     bool		result;
     IOReturn		ret = kIOReturnSuccess;
@@ -524,9 +524,9 @@ IOUSBInterface::CallSuperOpen(OSObject *target, void *param1, void *param2, void
 IOReturn
 IOUSBInterface::CallSuperClose(OSObject *target, void *param1, void *param2, void *param3, void *param4)
 {
+#pragma unused (param3, param4)
+
     IOUSBInterface *	me = OSDynamicCast(IOUSBInterface, target);
-    bool		result;
-    IOReturn		ret = kIOReturnSuccess;
     IOService *		forClient = (IOService *) param1;
     IOOptionBits 	options = (uintptr_t) param2;
     
@@ -644,11 +644,11 @@ IOUSBInterface::SetProperties(void)
     }
     
 	
-	if ( _bInterfaceClass == 8 )
+	if ( _bInterfaceClass == kUSBMassStorageInterfaceClass )
 	{
-		// Mass Storage Class device. Let's see if we can put generate a GUID
+		// Mass Storage Class interface. Let's see if we can  generate a GUID
 		//
-		OSObject * propertyObj = _device->copyProperty("USB Serial Number");
+		OSObject * propertyObj = _device->copyProperty(kUSBSerialNumberString);
 		OSString* serialNumberRef = OSDynamicCast(OSString, propertyObj);
 		if ( serialNumberRef )
 		{
@@ -702,12 +702,18 @@ IOUSBInterface::SetProperties(void)
 					USBLog(5,"IOUSBInterface: uid %s", guid);
 					_device->setProperty("uid", guid);
 				}
+				IOLog("USBMSC Identifier (non-unique): %s 0x%x 0x%x 0x%x\n", serial, (uint32_t)_device->GetVendorID(), (uint32_t)_device->GetProductID(), (uint32_t)_device->GetDeviceRelease() );
 			}
 			else
 			{
 				USBLog(4, "%s[%p]::SetProperties  Mass Storage device but serial # is only %d characters", getName(), this, (uint32_t)length);
 			}
+		}			
+		else 
+		{
+			IOLog("USBMSC Identifier (non-unique): 0x%x 0x%x 0x%x\n", (uint32_t)_device->GetVendorID(), (uint32_t)_device->GetProductID(), (uint32_t)_device->GetDeviceRelease() );
 		}
+		
 		if (propertyObj)
 			propertyObj->release();
 	}
@@ -1012,7 +1018,7 @@ IOUSBInterface::SetAlternateInterface(IOService *forClient, UInt16 alternateSett
     // my property list may have changed, so update it
     //
     SetProperties();
-    
+	
     res = CreatePipes();
     
 ErrorExit:
@@ -1036,7 +1042,6 @@ IOUSBInterface::matchPropertyTable(OSDictionary * table, SInt32 *score)
 {
     bool 	returnValue = true;
     SInt32	propertyScore = *score;
-    OSString	*userClientInitMatchKey;
     char	logString[256]="";
     UInt32      wildCardMatches = 0;
     UInt32      vendorIsWildCard = 0;
@@ -1513,4 +1518,5 @@ OSMetaClassDefineReservedUnused(IOUSBInterface,  16);
 OSMetaClassDefineReservedUnused(IOUSBInterface,  17);
 OSMetaClassDefineReservedUnused(IOUSBInterface,  18);
 OSMetaClassDefineReservedUnused(IOUSBInterface,  19);
+
 

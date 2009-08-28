@@ -5,10 +5,10 @@ else{
 	echo "<b>Could not include SQL library</b><br>\n";
 	exit();
 }
-if ($config[sql_use_operator] == 'true'){
+if ($config[sql_use_operators] == 'true'){
 	$text1 = ',op';
 	$text2  = ",':='";
-	$text3 = "AND op = ':='";
+	$text3 = ", op = ':='";
 }
 else{
 	$text1 = '';
@@ -20,6 +20,7 @@ if ($link){
 	if (is_file("../lib/crypt/$config[general_encryption_method].php3")){
 		include("../lib/crypt/$config[general_encryption_method].php3");
 		$passwd = da_encrypt($passwd);
+		$passwd = da_sql_escape_string($passwd);
 		$res = @da_sql_query($link,$config,
 			"SELECT value FROM $config[sql_check_table] WHERE username = '$login'
 			AND attribute = '$config[sql_password_attribute]';");
@@ -30,7 +31,7 @@ if ($link){
 				"UPDATE $config[sql_check_table] SET value = '$passwd' $text3 WHERE
 				attribute = '$config[sql_password_attribute]' AND username = '$login';");
 				if (!$res || !@da_sql_affected_rows($link,$res,$config))
-					echo "<b>Error while changing password: " . da_sql_error($link,$config) . "</b><br>\n";	
+					echo "<b>Error while changing password: " . da_sql_error($link,$config) . "</b><br>\n";
 			}
 			else{
 				$res = @da_sql_query($link,$config,

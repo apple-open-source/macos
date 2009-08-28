@@ -319,6 +319,8 @@ module Net
 	  end
 	end
 	resp = sendcmd(cmd)
+        # skip 2XX for some ftp servers
+        resp = getresp if resp[0] == ?2
 	if resp[0] != ?1
 	  raise FTPReplyError, resp
 	end
@@ -331,6 +333,8 @@ module Net
 	  end
 	end
 	resp = sendcmd(cmd)
+        # skip 2XX for some ftp servers
+        resp = getresp if resp[0] == ?2
 	if resp[0] != ?1
 	  raise FTPReplyError, resp
 	end

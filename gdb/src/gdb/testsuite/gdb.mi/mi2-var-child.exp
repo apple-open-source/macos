@@ -550,6 +550,25 @@ mi_gdb_test "-var-info-num-children struct_declarations.int_ptr_ptr.*int_ptr_ptr
 	"\\^done,numchild=\"1\"" \
 	"get number of children of struct_declarations.int_ptr_ptr.*int_ptr_ptr"
 
+# APPLE LOCAL: gcc 4.2 is outputting a line table entry for line 211
+# so add an extra -exec-step to match the testsuite's expectations.
+#   195  void
+#   196  do_children_tests (void)
+#   197  {
+#   198    weird_struct *weird;
+#[...]
+#   210    struct _struct_decl struct_declarations;
+#   211    weird = &struct_declarations;
+#   212
+#   213    struct_declarations.integer = 123;
+#   214    weird->char_ptr = "hello";
+#
+# whereas earlier compilers output their first line number for 213.
+
+# Step to "weird = &struct_declarations;"
+set line_dct_211 [gdb_get_line_number "weird = &struct_declarations;"]
+mi_step_to do_children_tests {} {.*var-cmd.c} \
+      $line_dct_211 "step to line \$line_dct_211"
 
 # Step to "struct_declarations.integer = 123;"
 set line_dct_123 [gdb_get_line_number "struct_declarations.integer = 123;"]

@@ -1,9 +1,9 @@
 #
-# "$Id: Makefile 6649 2007-07-11 21:46:42Z mike $"
+# "$Id: Makefile 7929 2008-09-10 22:23:59Z mike $"
 #
 #   System V commands makefile for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 2007 by Apple Inc.
+#   Copyright 2007-2009 by Apple Inc.
 #   Copyright 1997-2006 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -15,9 +15,9 @@
 
 include ../Makedefs
 
-TARGETS	=	accept cancel cupsaddsmb cupsctl cupstestdsc cupstestppd \
+TARGETS	=	cancel cupsaccept cupsaddsmb cupsctl cupstestdsc cupstestppd \
 		lp lpadmin lpinfo lpmove lpoptions lppasswd lpstat
-OBJS	=	accept.o cancel.o cupsaddsmb.o cupsctl.o cupstestdsc.o \
+OBJS	=	cancel.o cupsaccept.o cupsaddsmb.o cupsctl.o cupstestdsc.o \
 		cupstestppd.o lp.o lpadmin.o lpinfo.o lpmove.o lpoptions.o \
 		lppasswd.o lpstat.o
 
@@ -30,11 +30,26 @@ all:	$(TARGETS)
 
 
 #
+# Make library targets...
+#
+
+libs:
+
+
+#
+# Make unit tests...
+#
+
+unittests:
+
+
+#
 # Clean all object files...
 #
 
 clean:
-	$(RM) $(OBJS) $(TARGETS) cupsdisable cupsenable reject
+	$(RM) $(OBJS) $(TARGETS)
+	$(RM) accept cupsdisable cupsenable cupsreject reject
 
 
 #
@@ -49,34 +64,68 @@ depend:
 # Install all targets...
 #
 
-install:	all
+install:	all install-data install-headers install-libs install-exec
+
+
+#
+# Install data files...
+#
+
+install-data:
+
+
+#
+# Install programs...
+#
+
+install-exec:
+	echo Installing System V admin printing commands in $(SBINDIR)
 	$(INSTALL_DIR) -m 755 $(SBINDIR)
-	$(INSTALL_BIN) accept $(SBINDIR)
-	$(RM) $(SBINDIR)/reject
-	$(LN) accept $(SBINDIR)/reject
+	$(INSTALL_BIN) cupsaccept $(SBINDIR)
 	$(INSTALL_BIN) cupsaddsmb $(SBINDIR)
 	$(INSTALL_BIN) cupsctl $(SBINDIR)
 	$(INSTALL_BIN) lpadmin $(SBINDIR)
 	$(INSTALL_BIN) lpinfo $(SBINDIR)
 	$(INSTALL_BIN) lpmove $(SBINDIR)
+	$(RM) $(SBINDIR)/accept
+	$(LN) cupsaccept $(SBINDIR)/accept
+	$(RM) $(SBINDIR)/cupsdisable
+	$(LN) cupsaccept $(SBINDIR)/cupsdisable
+	$(RM) $(SBINDIR)/cupsenable
+	$(LN) cupsaccept $(SBINDIR)/cupsenable
+	$(RM) $(SBINDIR)/cupsreject
+	$(LN) cupsaccept $(SBINDIR)/cupsreject
+	$(RM) $(SBINDIR)/reject
+	$(LN) cupsaccept $(SBINDIR)/reject
+	echo Installing System V user printing commands in $(BINDIR)
 	$(INSTALL_DIR) -m 755 $(BINDIR)
 	$(INSTALL_BIN) cancel $(BINDIR)
 	$(INSTALL_BIN) cupstestdsc $(BINDIR)
 	$(INSTALL_BIN) cupstestppd $(BINDIR)
-	$(RM) $(SBINDIR)/cupsdisable
-	$(LN) accept $(SBINDIR)/cupsdisable
-	$(RM) $(SBINDIR)/cupsenable
-	$(LN) accept $(SBINDIR)/cupsenable
 	$(INSTALL_BIN) lp $(BINDIR)
 	$(INSTALL_BIN) lpoptions $(BINDIR)
 	$(INSTALL_BIN) lpstat $(BINDIR)
-	$(INSTALL_BIN) -m 4755 -o root lppasswd $(BINDIR) || $(INSTALL_BIN) lppasswd $(BINDIR)
+	$(INSTALL_BIN) lppasswd $(BINDIR)
 	if test "x$(SYMROOT)" != "x"; then \
 		$(INSTALL_DIR) $(SYMROOT); \
 		for file in $(TARGETS); do \
 			cp $$file $(SYMROOT); \
 		done \
 	fi
+
+
+#
+# Install headers...
+#
+
+install-headers:
+
+
+#
+# Install libraries...
+#
+
+install-libs:
 
 
 #
@@ -93,27 +142,17 @@ uninstall:
 	$(RM) $(BINDIR)/lpstat
 	-$(RMDIR) $(BINDIR)
 	$(RM) $(SBINDIR)/accept
+	$(RM) $(SBINDIR)/cupsaccept
 	$(RM) $(SBINDIR)/cupsaddsmb
+	$(RM) $(SBINDIR)/cupsaccept
 	$(RM) $(SBINDIR)/cupsdisable
 	$(RM) $(SBINDIR)/cupsenable
+	$(RM) $(SBINDIR)/cupsreject
 	$(RM) $(SBINDIR)/lpadmin
 	$(RM) $(SBINDIR)/lpinfo
 	$(RM) $(SBINDIR)/lpmove
 	$(RM) $(SBINDIR)/reject
 	-$(RMDIR) $(SBINDIR)
-
-
-#
-# accept
-#
-
-accept:	accept.o ../cups/$(LIBCUPS)
-	echo Linking $@...
-	$(CC) $(LDFLAGS) -o accept accept.o $(LIBS)
-	$(RM) reject cupsenable cupsdisable
-	$(LN) accept reject
-	$(LN) accept cupsenable
-	$(LN) accept cupsdisable
 
 
 #
@@ -123,6 +162,19 @@ accept:	accept.o ../cups/$(LIBCUPS)
 cancel:	cancel.o ../cups/$(LIBCUPS)
 	echo Linking $@...
 	$(CC) $(LDFLAGS) -o cancel cancel.o $(LIBS)
+
+
+#
+# cupsaccept
+#
+
+cupsaccept:	cupsaccept.o ../cups/$(LIBCUPS)
+	echo Linking $@...
+	$(CC) $(LDFLAGS) -o cupsaccept cupsaccept.o $(LIBS)
+	for file in accept cupsenable cupsdisable cupsreject reject; do \
+		$(RM) $$file; \
+		$(LN) cupsaccept $$file; \
+	done
 
 
 #
@@ -159,6 +211,11 @@ cupstestdsc:	cupstestdsc.o ../cups/$(LIBCUPS)
 cupstestppd:	cupstestppd.o ../cups/$(LIBCUPS) ../filter/$(LIBCUPSIMAGE)
 	echo Linking $@...
 	$(CC) $(LDFLAGS) -o $@ cupstestppd.o $(LINKCUPSIMAGE) $(IMGLIBS) $(LIBS)
+
+cupstestppd-static:	cupstestppd.o ../cups/libcups.a ../filter/libcupsimage.a
+	echo Linking $@...
+	$(CC) $(LDFLAGS) -o $@ cupstestppd.o ../filter/libcupsimage.a \
+		../cups/libcups.a $(IMGLIBS) $(LIBGSSAPI) $(LIBS) $(LIBZ)
 
 
 #
@@ -232,5 +289,5 @@ include Dependencies
 
 
 #
-# End of "$Id: Makefile 6649 2007-07-11 21:46:42Z mike $".
+# End of "$Id: Makefile 7929 2008-09-10 22:23:59Z mike $".
 #

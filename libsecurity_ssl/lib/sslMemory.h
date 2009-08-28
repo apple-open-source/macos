@@ -64,7 +64,7 @@ OSStatus SSLCopyBufferFromData(
 	SSLBuffer *dst);		// data mallocd and returned 
 OSStatus SSLCopyBuffer(
 	const SSLBuffer *src, 
-	SSLBuffer *dst);		// data mallocd and returned 
+	SSLBuffer *dst);		// data mallocd and returned 
 
 #ifdef __cplusplus
 }

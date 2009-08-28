@@ -1,6 +1,6 @@
 /******************************************************************************
 *
-*   Copyright (C) 2000-2006, International Business Machines
+*   Copyright (C) 2000-2007, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -32,35 +32,34 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+/*
+MSVC 2005 has the annoying habit of creating a manifest when one isn't needed.
+The generated library doesn't depend on anything due to the /NOENTRY usage.
+*/
+#if defined(_MSC_VER) && _MSC_VER >= 1400
+#define NO_MANIFEST "/MANIFEST:NO "
+#else
+#define NO_MANIFEST ""
+#endif
+
 /*#define WINBUILDMODE (*(o->options)=='R'?"Release":"Debug")*/
 #define CONTAINS_REAL_PATH(o) (*(o->options)==PKGDATA_DERIVED_PATH)
 
-void writeCmnRules(UPKGOptions *o,  FileStream *makefile)
+void writeCmnRules(UPKGOptions *o, const char *targetDirVar, FileStream *makefile)
 {
     char tmp[1024];
     CharList *infiles;
 
     infiles = o->files; 
-    sprintf(tmp, "\"$(TARGETDIR)\\$(CMNTARGET)\" : $(DATAFILEPATHS)\n"
-        "\t%s\"$(GENCMN)\" %s%s%s-d \"$(TARGETDIR)\" -s \"$(SRCDIR)\" -n \"$(NAME)\" 0 <<\n",
+    sprintf(tmp, "\"$(%s)\\$(CMNTARGET)\" : $(DATAFILEPATHS)\n"
+        "\t%s\"$(ICUPKG)\" -t%c %s%s%s -s \"$(SRCDIR)\" -a \"$(LISTFILES)\" new \"$(%s)\\$(CMNTARGET)\"\n",
+        targetDirVar,
         (o->verbose ? "" : "@"),
+        (U_IS_BIG_ENDIAN ? 'b' : 'l'),
         (o->comment ? "-C \"" : ""),
         (o->comment ? o->comment : ""),
-        (o->comment ? "\" " : ""));
-    T_FileStream_writeLine(makefile, tmp);
-
-    pkg_writeCharList(makefile, infiles, "\n", -1);
-/*
-    for(;infiles;infiles = infiles->next) {
-    if(infiles->str[0] != '"' && infiles->str[uprv_strlen(infiles->str)-1] != '"') {
-        sprintf(tmp, "\"%s\"\n", infiles->str);
-    } else {
-        sprintf(tmp, "%s\n", infiles->str);
-    }
-    T_FileStream_writeLine(makefile, tmp);
-    }
-*/
-    sprintf(tmp, "\n<<\n");
+        (o->comment ? "\" " : ""),
+        targetDirVar);
     T_FileStream_writeLine(makefile, tmp);
 }
 
@@ -82,11 +81,11 @@ void pkg_mode_windows(UPKGOptions *o, FileStream *makefile, UErrorCode *status) 
 
     if (CONTAINS_REAL_PATH(o)) {
         sprintf(tmp2,
-            "GENCMN = $(ICUROOT)%sgencmn.exe\n", separator);
+            "ICUPKG = $(ICUROOT)%sicupkg.exe\n", separator);
     }
     else {
         sprintf(tmp2,
-            "GENCMN = $(ICUROOT)%sbin\\gencmn.exe\n", separator);
+            "ICUPKG = $(ICUROOT)%sbin\\icupkg.exe\n", separator);
     }
     T_FileStream_writeLine(makefile, tmp2);
 
@@ -112,12 +111,7 @@ void pkg_mode_windows(UPKGOptions *o, FileStream *makefile, UErrorCode *status) 
 
         sprintf(tmp2,
             "LINK32 = link.exe\n"
-            "LINK32_FLAGS = /nologo /out:\"$(TARGETDIR)\\$(DLLTARGET)\" /DLL /NOENTRY $(LDFLAGS) $(PKGDATA_LDFLAGS) /implib:\"$(TARGETDIR)\\$(LIBNAME).lib\" %s%s%s\n",
-            (o->comment ? "/comment:\"" : ""),
-            (o->comment ? o->comment : ""),
-            (o->comment ? "\"" : ""),
-            o->comment
-            );
+            "LINK32_FLAGS = /nologo /release /out:\"$(TARGETDIR)\\$(DLLTARGET)\" /DLL /NOENTRY " NO_MANIFEST "$(LDFLAGS) $(PKGDATA_LDFLAGS) /implib:\"$(TARGETDIR)\\$(LIBNAME).lib\"\n");
         T_FileStream_writeLine(makefile, tmp2);
 
         if (CONTAINS_REAL_PATH(o)) {
@@ -173,8 +167,7 @@ void pkg_mode_windows(UPKGOptions *o, FileStream *makefile, UErrorCode *status) 
 
         sprintf(tmp2,
             "LINK32 = LIB.exe\n"
-            "LINK32_FLAGS = /nologo /out:\"$(TARGETDIR)\\$(DLLTARGET)\" /EXPORT:\"%s\"\n",
-            o->libName
+            "LINK32_FLAGS = /nologo /out:\"$(TARGETDIR)\\$(DLLTARGET)\"\n"
             );
         T_FileStream_writeLine(makefile, tmp2);
 
@@ -221,19 +214,21 @@ void pkg_mode_windows(UPKGOptions *o, FileStream *makefile, UErrorCode *status) 
         sprintf(tmp, "\"$(TARGETDIR)\\$(DLLTARGET)\": \"$(TEMP_DIR)\\$(CMNOBJTARGET)\"\n"
             "\t$(LINK32) $(LINK32_FLAGS) \"$(TEMP_DIR)\\$(CMNOBJTARGET)\" $(DATA_VER_INFO)\n\n");
         T_FileStream_writeLine(makefile, tmp);
-        sprintf(tmp, "\"$(TEMP_DIR)\\$(CMNOBJTARGET)\": \"$(TARGETDIR)\\$(CMNTARGET)\"\n"
-            "\t@\"$(GENCCODE)\" $(GENCOPTIONS) -e $(ENTRYPOINT) -o -d \"$(TEMP_DIR)\" \"$(TARGETDIR)\\$(CMNTARGET)\"\n\n");
+        sprintf(tmp, "\"$(TEMP_DIR)\\$(CMNOBJTARGET)\": \"$(TEMP_DIR)\\$(CMNTARGET)\"\n"
+            "\t@\"$(GENCCODE)\" $(GENCOPTIONS) -e $(ENTRYPOINT) -o -d \"$(TEMP_DIR)\" \"$(TEMP_DIR)\\$(CMNTARGET)\"\n\n");
         T_FileStream_writeLine(makefile, tmp);
 
         sprintf(tmp2,
             "clean:\n"
             "\t-@erase \"$(TARGETDIR)\\$(DLLTARGET)\"\n"
-            "\t-@erase \"$(TARGETDIR)\\$(CMNOBJTARGET)\"\n"
-            "\t-@erase \"$(TARGETDIR)\\$(CMNTARGET)\"\n\n");
+            "\t-@erase \"$(TEMP_DIR)\\$(CMNOBJTARGET)\"\n"
+            "\t-@erase \"$(TEMP_DIR)\\$(CMNTARGET)\"\n\n");
         T_FileStream_writeLine(makefile, tmp2);
 
         T_FileStream_writeLine(makefile, "install: \"$(TARGETDIR)\\$(DLLTARGET)\"\n"
                                          "\tcopy \"$(TARGETDIR)\\$(DLLTARGET)\" \"$(INSTALLTO)\\$(DLLTARGET)\"\n\n");
+        /* Write compile rules */
+        writeCmnRules(o, "TEMP_DIR", makefile);
     } else { /* common */
         sprintf(tmp, "all: \"$(TARGETDIR)\\$(CMNTARGET)\"\n\n");
         T_FileStream_writeLine(makefile, tmp);
@@ -245,12 +240,13 @@ void pkg_mode_windows(UPKGOptions *o, FileStream *makefile, UErrorCode *status) 
 
         T_FileStream_writeLine(makefile, "install: \"$(TARGETDIR)\\$(CMNTARGET)\"\n"
                                          "\tcopy \"$(TARGETDIR)\\$(CMNTARGET)\" \"$(INSTALLTO)\\$(CMNTARGET)\"\n\n");
+
+        /* Write compile rules */
+        writeCmnRules(o, "TARGETDIR", makefile);
     }
 
     T_FileStream_writeLine(makefile, "rebuild: clean all\n\n");
 
-    /* Write compile rules */
-    writeCmnRules(o, makefile);
 }
 
 #endif

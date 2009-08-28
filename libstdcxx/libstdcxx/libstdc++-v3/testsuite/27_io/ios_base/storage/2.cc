@@ -15,7 +15,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // 27.4.2.5 ios_base storage functions
@@ -25,6 +25,14 @@
 // XXX -lmalloc seems to work.
 // See http://gcc.gnu.org/ml/gcc/2002-05/msg01012.html
 // { dg-options "-lmalloc" { target mips*-*-irix6* } }
+
+// This fails on some versions of Darwin 8 because malloc doesn't return
+// NULL even if an allocation fails (filed as Radar 3884894).
+// { dg-do run { xfail *-*-darwin8.[0-4].* } }
+
+// Allocates too much memory on 64-bit systems
+// <rdar://problem/6339271>
+// { dg-require-effective-target ilp32 }
 
 #include <sstream>
 #include <iostream>

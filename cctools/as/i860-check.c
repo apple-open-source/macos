@@ -1,7 +1,7 @@
 #include "i860-opcode.h"
 #include <stdio.h>
 
-extern long random();
+extern int32_t random();
 
 char *controlregs[] = { "fir", "psr", "epsr", "dirbase", "db", "fsr" };
 #define NCREGS	(sizeof controlregs / sizeof controlregs[0])

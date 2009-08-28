@@ -4,15 +4,15 @@
     <key>OpenSourceProject</key>
     <string>ruby</string>
     <key>OpenSourceVersion</key>
-    <string>1.8.6-p287</string>
+    <string>1.8.7-p72</string>
     <key>OpenSourceWebsiteURL</key>
     <string>http://www.ruby-lang.org/</string>
     <key>OpenSourceURL</key>
-    <string>ftp://ftp.ruby-lang.org/pub/ruby/1.8/ruby-1.8.6-p287.tar.gz</string>
+    <string>ftp://ftp.ruby-lang.org/pub/ruby/1.8/ruby-1.8.7-p72.tar.gz</string>
     <key>OpenSourceSHA1</key>
-    <string>3f8f7a16c071df5f3a020e627e07e080f8cdb7cd</string>
+    <string>fe1c5ffad9924076f36768890255f022c51f9a4e</string>
     <key>OpenSourceImportDate</key>
-    <string>2009-02-02</string>
+    <string>2009-03-02</string>
     <key>OpenSourceLicense</key>
     <string>Other</string>
     <key>OpenSourceLicenseFile</key>

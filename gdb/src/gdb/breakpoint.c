@@ -68,6 +68,8 @@
 #include "mi/mi-common.h"
 /* APPLE LOCAL - subroutine inlining */
 #include "inlining.h"
+/* APPLE LOCAL Disable user breakpoints while updating data formatters.  */
+#include "objc-lang.h"
 
 /* Prototypes for local functions. */
 
@@ -104,6 +106,18 @@ static void watch_command (char *, int);
 
 static int can_use_hardware_watchpoint (struct value *);
 
+/* APPLE LOCAL begin handle duplicate breakpoints  */
+/* APPLE LOCAL radar 6067785 - Remove static qualifier */
+void remove_duplicate_sals (struct symtabs_and_lines *,
+			    struct symtabs_and_lines,
+			    char **);
+
+static void remove_duplicates (struct symtabs_and_lines *);
+/* APPLE LOCAL end handle duplicate breakpoints  */
+
+/* APPLE LOCAL radar 6366048 search both minsyms & syms for bps.  */
+static void remove_non_msymbol_sals (struct symtabs_and_lines *);
+
 /* APPLE LOCAL begin breakpoint lists */
 /* To use break_command_1 in gdb_breakpoint, we need
    to capture the breakpoints that break_command_1 made (so we can
@@ -119,12 +133,14 @@ struct breakpoint_list
 static int breakpoint_address_is_meaningful (struct breakpoint *);
 /* APPLE LOCAL end breakpoint lists */
 
-static int break_command_1 (char *, int, int, struct breakpoint *);
+/* APPLE LOCAL radar 6366048 search both minsyms & syms for bps.  */
+static int break_command_1 (char *, int, int, struct breakpoint *, int);
 
 /* APPLE LOCAL: We want to call most of break_command_1 from gdb_breakpoints so we
    don't have lots of duplicated code.  That's what break_command_2 gives us.  */
+/* APPLE LOCAL radar 6366048 search both minsyms & syms for bps.  */
 static int break_command_2 (char *, int, int, struct breakpoint *,
-			    char *, int *, struct breakpoint_list **);
+			    char *, int *, struct breakpoint_list **, int);
 
 static void mention (struct breakpoint *);
 
@@ -1609,7 +1625,7 @@ update_breakpoints_after_exec (void)
 	(b->type == bp_catch_vfork) ||
 	(b->type == bp_catch_fork))
       {
-	b->loc->address = (CORE_ADDR) NULL;
+	b->loc->address = (CORE_ADDR) 0;
 	continue;
       }
 
@@ -1662,7 +1678,7 @@ update_breakpoints_after_exec (void)
        unnecessary.  A call to breakpoint_re_set_one always recomputes
        the breakpoint's address from scratch, or deletes it if it can't.
        So I think this assignment could be deleted without effect.  */
-    b->loc->address = (CORE_ADDR) NULL;
+    b->loc->address = (CORE_ADDR) 0;
   }
   /* FIXME what about longjmp breakpoints?  Re-create them here?  */
   create_overlay_event_breakpoint ("_ovly_debug_event");
@@ -2486,14 +2502,13 @@ print_it_typical (bpstat bs)
 				       bs->breakpoint_at->number, 1);
       annotate_breakpoint (bs->breakpoint_at->number);
       ui_out_text (uiout, "\nBreakpoint ");
+	  
+      ui_out_print_annotation_string (uiout, 0, "reason", async_reason_lookup (EXEC_ASYNC_BREAKPOINT_HIT));
+	  
       if (ui_out_is_mi_like_p (uiout))
 	{
 	  bpstat bpstat_ptr;
 	  int any_commands = 0;
-	  
-	  ui_out_field_string (uiout, "reason", 
-			       async_reason_lookup (EXEC_ASYNC_BREAKPOINT_HIT));
-	  
 	  /* APPLE LOCAL: Print out whether the breakpoint has any
 	     commands, so the UI will know whether to expect something
 	     funny to happen.  */
@@ -2512,11 +2527,11 @@ print_it_typical (bpstat bs)
 	  else
 	    ui_out_field_string (uiout, "commands", "no");
 
-          /* APPLE LOCAL: Xcode wants to know how many times this breakpoint 
-             has been hit. */
-          ui_out_field_int (uiout, "times", bs->breakpoint_at->hit_count);
 	}
-      ui_out_field_int (uiout, "bkptno", bs->breakpoint_at->number);
+      /* APPLE LOCAL: Xcode wants to know how many times this breakpoint 
+             has been hit. */
+      ui_out_print_annotation_int (uiout, 0, "times", bs->breakpoint_at->hit_count);
+      ui_out_print_annotation_int (uiout, 1, "bkptno", bs->breakpoint_at->number);
       ui_out_text (uiout, ", ");
       return PRINT_SRC_AND_LOC;
       break;
@@ -2527,11 +2542,9 @@ print_it_typical (bpstat bs)
 	 to shlib event" message.) */
 
       /* APPLE LOCAL begin breakpoint MI */
-      if (ui_out_is_mi_like_p (uiout))
-	ui_out_field_string (uiout, "reason", "shlib-event");
-      else
+      ui_out_print_annotation_string (uiout, 0, "reason", "shlib-event");
       /* APPLE LOCAL end breakpoint MI */
-      printf_filtered (_("Stopped due to shared library event\n"));
+      ui_out_text (uiout, "Stopped due to shared library event\n");
       return PRINT_NOTHING;
       break;
 
@@ -2601,9 +2614,7 @@ print_it_typical (bpstat bs)
       if (bs->old_val != NULL)
 	{
 	  annotate_watchpoint (bs->breakpoint_at->number);
-	  if (ui_out_is_mi_like_p (uiout))
-	    ui_out_field_string
-	      (uiout, "reason",
+	  ui_out_print_annotation_string (uiout, 0, "reason",
 	       async_reason_lookup (EXEC_ASYNC_WATCHPOINT_TRIGGER));
 	  mention (bs->breakpoint_at);
 	  ui_out_chain = make_cleanup_ui_out_tuple_begin_end (uiout, "value");
@@ -2623,9 +2634,7 @@ print_it_typical (bpstat bs)
       break;
 
     case bp_read_watchpoint:
-      if (ui_out_is_mi_like_p (uiout))
-	ui_out_field_string
-	  (uiout, "reason",
+      ui_out_print_annotation_string (uiout, 0, "reason",
 	   async_reason_lookup (EXEC_ASYNC_READ_WATCHPOINT_TRIGGER));
       mention (bs->breakpoint_at);
       ui_out_chain = make_cleanup_ui_out_tuple_begin_end (uiout, "value");
@@ -2641,9 +2650,7 @@ print_it_typical (bpstat bs)
       if (bs->old_val != NULL)     
 	{
 	  annotate_watchpoint (bs->breakpoint_at->number);
-	  if (ui_out_is_mi_like_p (uiout))
-	    ui_out_field_string
-	      (uiout, "reason",
+	  ui_out_print_annotation_string (uiout, 0, "reason",
 	       async_reason_lookup (EXEC_ASYNC_ACCESS_WATCHPOINT_TRIGGER));
 	  mention (bs->breakpoint_at);
 	  ui_out_chain = make_cleanup_ui_out_tuple_begin_end (uiout, "value");
@@ -2657,9 +2664,7 @@ print_it_typical (bpstat bs)
       else 
 	{
 	  mention (bs->breakpoint_at);
-	  if (ui_out_is_mi_like_p (uiout))
-	    ui_out_field_string
-	      (uiout, "reason",
+	  ui_out_print_annotation_string (uiout, 0, "reason",
 	       async_reason_lookup (EXEC_ASYNC_ACCESS_WATCHPOINT_TRIGGER));
 	  ui_out_chain = make_cleanup_ui_out_tuple_begin_end (uiout, "value");
 	  ui_out_text (uiout, "\nValue = ");
@@ -2675,16 +2680,13 @@ print_it_typical (bpstat bs)
        here. */
 
     case bp_finish:
-      if (ui_out_is_mi_like_p (uiout))
-	ui_out_field_string
-	  (uiout, "reason",
+      ui_out_print_annotation_string (uiout, 0, "reason",
 	   async_reason_lookup (EXEC_ASYNC_FUNCTION_FINISHED));
       return PRINT_UNKNOWN;
       break;
 
     case bp_until:
-      if (ui_out_is_mi_like_p (uiout))
-	ui_out_field_string (uiout, "reason", "location-reached");
+      ui_out_print_annotation_string (uiout, 0, "reason", "location-reached");
       return PRINT_UNKNOWN;
       break;
 
@@ -3006,9 +3008,8 @@ watchpoint_check (void *p)
 	 in this case, by the time we call print_it_typical() this bp
 	 will be deleted already. So we have no choice but print the
 	 information here. */
-      if (ui_out_is_mi_like_p (uiout))
-	ui_out_field_string
-	  (uiout, "reason", async_reason_lookup (EXEC_ASYNC_WATCHPOINT_SCOPE));
+      ui_out_print_annotation_string (uiout, 0, "reason", 
+			   async_reason_lookup (EXEC_ASYNC_WATCHPOINT_SCOPE));
       ui_out_text (uiout, "\nWatchpoint ");
       ui_out_field_int (uiout, "wpnum", bs->breakpoint_at->number);
       ui_out_text (uiout, " deleted because the program has left the block in\n\
@@ -3170,7 +3171,7 @@ bpstat_stop_status (CORE_ADDR bp_addr, ptid_t ptid, int stopped_by_watchpoint)
     if (ep_is_exception_catchpoint (b))
       {
 	if (!current_exception_should_stop()) {
-	  remove_breakpoints ();
+	  // remove_breakpoints ();
 	  bs->stop = 0;
 	  bs->print_it = print_it_noop;
 	  continue;
@@ -3325,10 +3326,65 @@ bpstat_stop_status (CORE_ADDR bp_addr, ptid_t ptid, int stopped_by_watchpoint)
     else
       {
 	int value_is_zero = 0;
+	/* APPLE LOCAL:  The following three variables are necessary for
+	   call to at_inlined_call_site_p.  */
+	char *tmp_filename = NULL;
+	int tmp_line = 0;
+	int tmp_column = 0;
 
         /* APPLE LOCAL begin subroutine inlining  */
-        if (b->type == bp_inlined_breakpoint)
+	/* If the current breakpoint location is at an address of an
+	   inlined subroutine we need to decide whether the user context
+	   is in the subroutine or at the call site...  */
+	/* APPLE LOCAL - only adjust inlined call stack for inlined
+	   breakpoint if we weren't single-stepping (otherwise it's
+	   already taken care of).  */
+        if (b->type == bp_inlined_breakpoint
+	    && !step_range_start)
           inlined_subroutine_adjust_position_for_breakpoint (b);
+	else if (b->type == bp_breakpoint
+		 && at_inlined_call_site_p (&tmp_filename, &tmp_line, 
+					    &tmp_column))
+	  {
+	    /* The breakpoint is at the call site of an inlined subroutine,
+	       so we need to decide whether to step into the inlined
+	       subroutine or not.  */
+
+	    /* We want to step in if the breakpoint was by line and the
+	       line number is NOT for the call site.  Start by looking
+	       for a line number in the breakpoint address string.  */
+	    
+	    if (b->addr_string)
+	      {
+		char *cptr =  strrchr (b->addr_string, ':');
+		char *cptr2 = cptr;
+		
+		tmp_line = 0;
+		if (cptr)
+		  cptr++;
+		cptr2 = cptr;
+		if (cptr2
+		    && isdigit (*cptr2))
+		  {
+		    while (isdigit (*cptr2))
+		      cptr2++;
+		    if (*cptr2 == '\0')
+		      tmp_line = atoi (cptr);
+		  }
+		
+		/* If the breakpoint was by line, compare the line number
+		   against the call site for the current inlined
+		   subroutine; if they don't match then the breakpoint must
+		   be inside the subroutine, so step in.  */
+
+		if (tmp_line
+		    && current_inlined_subroutine_call_site_line() != tmp_line)
+		  {
+		    int i = global_inlined_call_stack.current_pos;
+		    global_inlined_call_stack.records[i].stepped_into = 1;
+		  }
+	      }
+	  }
         /* APPLE LOCAL end subroutine inlining  */
 
 	/* APPLE LOCAL: We allow a breakpoint condition to be set if it
@@ -4208,30 +4264,34 @@ gdb_breakpoint_query (struct ui_out *uiout, int bnum, char **error_message)
 
 /* Return non-zero if B is user settable (breakpoints, watchpoints,
    catchpoints, et.al.). */
+/* APPLE LOCAL: Added a check for number > 0, since the user
+   shouldn't be led to think they can set internal breakpoints
+   no matter what their kind is.  */
 
 static int
 user_settable_breakpoint (const struct breakpoint *b)
 {
-  return (b->type == bp_breakpoint
-          /* APPLE LOCAL begin subroutine inlining  */
-          || b->type == bp_inlined_breakpoint
-          /* APPLE LOCAL end subroutine inlining  */
-	  || b->type == bp_catch_load
-	  || b->type == bp_catch_unload
-	  || b->type == bp_catch_fork
-	  || b->type == bp_catch_vfork
-	  || b->type == bp_catch_exec
-	  || b->type == bp_catch_catch
-	  || b->type == bp_catch_throw
-	  /* APPLE LOCAL begin gnu_v3 */
-	  || b->type == bp_gnu_v3_catch_catch
-	  || b->type == bp_gnu_v3_catch_throw
-	  /* APPLE LOCAL end gnu_v3 */
-	  || b->type == bp_hardware_breakpoint
-	  || b->type == bp_watchpoint
-	  || b->type == bp_read_watchpoint
-	  || b->type == bp_access_watchpoint
-	  || b->type == bp_hardware_watchpoint);
+  return (b->number > 0
+	  && (b->type == bp_breakpoint
+	      /* APPLE LOCAL begin subroutine inlining  */
+	      || b->type == bp_inlined_breakpoint
+	      /* APPLE LOCAL end subroutine inlining  */
+	      || b->type == bp_catch_load
+	      || b->type == bp_catch_unload
+	      || b->type == bp_catch_fork
+	      || b->type == bp_catch_vfork
+	      || b->type == bp_catch_exec
+	      || b->type == bp_catch_catch
+	      || b->type == bp_catch_throw
+	      /* APPLE LOCAL begin gnu_v3 */
+	      || b->type == bp_gnu_v3_catch_catch
+	      || b->type == bp_gnu_v3_catch_throw
+	      /* APPLE LOCAL end gnu_v3 */
+	      || b->type == bp_hardware_breakpoint
+	      || b->type == bp_watchpoint
+	      || b->type == bp_read_watchpoint
+	      || b->type == bp_access_watchpoint
+	      || b->type == bp_hardware_watchpoint));
 }
 	
 /* Print information on user settable breakpoint (watchpoint, etc)
@@ -4382,6 +4442,9 @@ describe_other_breakpoints (CORE_ADDR pc, asection *section)
 	      printf_filtered ("%d%s%s ",
 			       b->number,
 			       ((b->enable_state == bp_disabled || 
+				 /* APPLE LOCAL: Disable breakpoints while
+				    updating data formatters.  */
+				 b->enable_state == bp_hand_call_disabled ||
 				 b->enable_state == bp_shlib_disabled || 
 				 b->enable_state == bp_call_disabled) 
 				? " (disabled)" 
@@ -4467,6 +4530,9 @@ check_duplicates (struct breakpoint *bpt)
 	&& b->owner->enable_state != bp_shlib_disabled
 	&& !b->owner->pending
 	&& b->owner->enable_state != bp_call_disabled
+	/* APPLE LOCAL: Disable breakpoints while updating data
+	   formatters.  */
+	&& b->owner->enable_state != bp_hand_call_disabled
 	&& b->address == address	/* address / overlay match */
 	&& (!overlay_debugging || b->section == section)
 	&& breakpoint_address_is_meaningful (b->owner))
@@ -4502,6 +4568,9 @@ check_duplicates (struct breakpoint *bpt)
 		&& b->owner->enable_state != bp_shlib_disabled
 		&& !b->owner->pending
 		&& b->owner->enable_state != bp_call_disabled
+		/* APPLE LOCAL: Disable breakpoints while updating
+		   data formatters.  */
+		&& b->owner->enable_state != bp_hand_call_disabled
 		&& b->address == address	/* address / overlay match */
 		&& (!overlay_debugging || b->section == section)
 		&& breakpoint_address_is_meaningful (b->owner))
@@ -4988,8 +5057,28 @@ resolve_pending_breakpoint (struct breakpoint *b)
      a "choices" array to choose ALL matches if there are multiple
      possibilities.  */
 
+  /* APPLE LOCAL: If this breakpoint is scoped to a specific objfile, don't
+     try to insert the breakpoint if the objfile is in the middle of being
+     built.  How do this happen?  When we go to create the objfile, we pause
+     mid-creation to see if there is a dSYM.  If there is, we create the dSYM
+     objfile.  Once the dSYM objfile is completed we make a pass over the 
+     breakpoints to see if maybe this bp should be inserted.  When we try to 
+     expand the psymtabs of the dSYM objfile we'll internal_error because the
+     real executable objfile is still mid-construction and we need some 
+     information from it to expand the dSYM psymtabs.
+     Instead, wait until the main real executable objfile has finished being
+     created and we'll insert the breakpoint then.  */
+  if (b->requested_shlib)
+    {
+      struct objfile *o = find_objfile_by_name (b->requested_shlib, 0);
+      if (o)
+        if (o->sect_index_text == -1)
+          return GDB_RC_NONE;
+    }
+
+  /* APPLE LOCAL radar 6366048 search both minsyms & syms for bps.  */
   rc = break_command_2 (b->addr_string, b->flag, b->from_tty, b,
-			b->requested_shlib, choices, NULL);
+			b->requested_shlib, choices, NULL, 0);
   
   if (rc == GDB_RC_OK)
     /* APPLE LOCAL begin breakpoints */
@@ -5003,11 +5092,17 @@ resolve_pending_breakpoint (struct breakpoint *b)
   return rc;
 }
 
+/* APPLE LOCAL: Don't use remove_solib_event_breakpoints, since
+   it deletes the breakpoints that we're holding in local structures
+   without informing the systems holding the breakpoints, and that's
+   not good.  Better to let each system deal with the breakpoints it
+   is holding onto.  */
 void
 remove_solib_event_breakpoints (void)
 {
   struct breakpoint *b, *temp;
 
+  return;
   ALL_BREAKPOINTS_SAFE (b, temp)
     if (b->type == bp_shlib_event)
       delete_breakpoint (b);
@@ -5319,6 +5414,26 @@ create_exec_event_catchpoint (int tempflag, char *cond_string)
   mention (b);
 }
 
+/* APPLE LOCAL: Creates the internal breakpoint for the objc
+   failure mode.  */
+struct breakpoint *
+create_objc_hook_breakpoint (char *hookname)
+{
+  struct minimal_symbol *hook_sym;
+  struct breakpoint *b;
+
+  hook_sym = lookup_minimal_symbol (hookname, 0, 0);
+  if (hook_sym == NULL)
+    return NULL;
+
+  b = create_internal_breakpoint (SYMBOL_VALUE_ADDRESS (hook_sym), bp_breakpoint);
+  b->enable_state = bp_enabled;
+  b->silent = 1;
+  b->addr_string = xstrdup (hookname);
+
+  return b;
+}
+
 static int
 hw_breakpoint_used_count (void)
 {
@@ -5379,6 +5494,75 @@ set_longjmp_resume_breakpoint (CORE_ADDR pc, struct frame_id frame_id)
       return;
     }
 }
+
+/* APPLE LOCAL begin:  Disable user breakpoints while updating
+   data formatters.  */
+
+/* Find all the user breakpoints that are currently enabled, and
+   set their state to bp_hand_call_disabled, so that the breakpoints
+   won't be hit while in the middle of updating data formatters. 
+
+   Always call this function through
+   "make_cleanup_enable_disable_bpts_during_varobj_operation" (see
+   below) to make sure we don't leave the breakpoints permanently
+   disabled by accident.  */
+
+static void
+disable_user_breakpoints_before_updating_data_formatters (void)
+{
+  struct breakpoint *b;
+
+  ALL_BREAKPOINTS (b)
+  {
+    /* This is a special breakpoint gdb needs to keep.  */
+    if (is_objc_exception_throw_breakpoint (b))
+      continue;
+
+    if ((b->type == bp_breakpoint
+	 || b->type == bp_inlined_breakpoint)
+	&& breakpoint_enabled (b))
+      {
+	b->enable_state = bp_hand_call_disabled;
+	check_duplicates (b);
+      }
+  }
+}
+
+/* Re-enable the user breakpoints that were previously disabled,
+   while data formatters were being updated. 
+
+   Always call this function through
+   "make_cleanup_enable_disable_bpts_during_varobj_operation" (see
+   below) to make sure we don't leave the breakpoints permanently
+   disabled by accident.  */
+
+void
+enable_user_breakpoints_after_updating_data_formatters (void)
+{
+  struct breakpoint *b;
+
+  ALL_BREAKPOINTS (b)
+  {
+    if (b->enable_state == bp_hand_call_disabled)
+      {
+	b->enable_state = bp_enabled;
+	check_duplicates (b);
+      }
+  }
+}
+
+/* Ensure that we always re-enable user breakpoints after disabling
+   them for updating data formatters, and other varobj operations.  */
+
+struct cleanup *
+make_cleanup_enable_disable_bpts_during_varobj_operation (void)
+{
+  disable_user_breakpoints_before_updating_data_formatters ();
+  return make_cleanup (enable_user_breakpoints_after_updating_data_formatters,
+		       NULL);
+}
+/* APPLE LOCAL end:  Disable user breakpoints while updating data
+   formatters.  */
 
 void
 disable_watchpoints_before_interactive_call_start (void)
@@ -5629,6 +5813,269 @@ mention (struct breakpoint *b)
   printf_filtered ("\n");
 }
 
+/* APPLE LOCAL begin handle duplicate breakpoints  */
+
+/* This function goes through a list of sals (NEW_SALS), and removes
+   any sal from the list that is a duplciate of a sal in OLD_SALS,
+   where a duplicate sal is one that has the same address.  */
+
+/* APPLE LOCAL radar 6067785 - Remove static qualifier */
+void
+remove_duplicate_sals (struct symtabs_and_lines *new_sals, 
+		       struct symtabs_and_lines old_sals,
+		       char **new_canonical)
+{
+  int i;
+  int j;
+  int old_len;
+  int new_len;
+  struct symtab_and_line *old_sal;
+  struct symtab_and_line *new_sal;
+
+  /* Save the original number of sals in new_sals  */
+
+  old_len = new_sals->nelts;
+
+  /* new_len will be updated as duplicates get removed.  */
+
+  new_len = new_sals->nelts;
+
+  /* Loop through all the old sals.  For each old sal, loop through all the new
+     sals to see if any is a duplicate; if so, blank it out.  */
+
+  for (i = 0; i < old_sals.nelts; i++)
+    {
+      old_sal = &(old_sals.sals[i]);
+      for (j = 0; j < new_sals->nelts; j++)
+	{
+	  new_sal = &(new_sals->sals[j]);
+	  if (new_sal->pc == old_sal->pc)
+	    {
+	      /* Duplicate sal has been found.  Blank out it's data.  */
+	      memset (new_sal, 0, sizeof (struct symtab_and_line));
+	      new_len--;
+	    }
+	}
+    }
+
+  /* Now we've blanked out all the duplicates from new_sals, go through
+     the list and move all the valid remaining sals (if any) to the front
+     of the list.  */
+
+  /* 'i' will the the index at which to place the next valid sal  */
+
+  i = 0; 
+  
+  if (old_len == new_len)
+    { /* Nothing was eliminated; no need to do more.  */ }
+  else if (new_len == 0)
+    {
+      /* All the new_sals were duplicates;  blank out new_sals and
+	 we're done.  */
+      new_sals->nelts = 0;
+      memset (&(new_sals->sals[0]), 0, sizeof (struct symtab_and_line));
+    }
+  else
+    {
+      /* Go down the list of new_sals, looking for the first blank entry.  */
+      while ((new_sals->sals[i].symtab 
+	      || new_sals->sals[i].line 
+	      || new_sals->sals[i].pc)
+	     && (i < old_len))
+	i++;
+
+      /* Having found the first blank entry, at position i (or reached the 
+	 end of the list) go through the remaining entries; every time a 
+	 non-blank entry is found, at position j, copy the entry from position
+	 j to position i, then blank out position j.  */
+
+      for (j = i; j < old_len && i < new_len; j++)
+	if (new_sals->sals[j].symtab 
+	    || new_sals->sals[j].line 
+	    || new_sals->sals[j].pc)
+	  {
+	    /* copy sal from j to i */
+	    new_sals->sals[i].symtab     = new_sals->sals[j].symtab;
+	    new_sals->sals[i].section    = new_sals->sals[j].section;
+	    new_sals->sals[i].line       = new_sals->sals[j].line;
+	    new_sals->sals[i].pc         = new_sals->sals[j].pc;
+	    new_sals->sals[i].end        = new_sals->sals[j].end;
+	    new_sals->sals[i].entry_type = new_sals->sals[j].entry_type;
+	    new_sals->sals[i].next       = new_sals->sals[j].next;
+
+	    /* Blank out entry j  */
+	    memset (&(new_sals->sals[j]), 0, sizeof (struct symtab_and_line));
+	    if (new_canonical != NULL)
+	      new_canonical[i] = new_canonical[j];
+	    /* increment i */
+	    i++;
+	  }
+      new_sals->nelts = new_len;
+    }
+}
+
+/* This function goes through a list of SALS and removes any duplicate
+   entries from the list, where a duplicate entry is one that has the
+   same address as another entry.  */
+
+static void
+remove_duplicates (struct symtabs_and_lines *sals)
+{
+  int old_len = sals->nelts;
+  int new_len = old_len;
+  int i;
+  int j;
+  int *duplicates;
+
+  if (old_len <= 1)
+    return;
+
+  /* duplicates will be an array of integers (booleans), one for each
+     sal entry, indicating whether the entry is a duplicate of another 
+     entry or not.  If multiple sals have the same address, the first
+     such sal is NOT marked as a duplicate.  */
+
+  duplicates = (int *) xmalloc (old_len * sizeof (int));
+
+  memset (duplicates, 0, old_len * sizeof (int));
+
+  /* Go through the list of sals comparing each sal against every other
+     sal to see if they have the same address.  */
+
+  for (i = 0; i < old_len; i++)
+    for (j = i + 1; j < old_len; j++)
+      {
+	if (duplicates[j])
+	  continue;
+	if (sals->sals[i].pc == sals->sals[j].pc)
+	  {
+	    duplicates[j] = 1;
+	    new_len--;
+	  }
+      }
+
+  /* new_len should be the number of sals with unique addresses.  */
+
+  gdb_assert (new_len > 0);
+
+  if (new_len < old_len)
+    {
+      int *valid_entries = (int *) xmalloc (new_len * sizeof (int));
+      int k;
+
+      /* valid_entries is an array of indices into SALS.  The length
+	 of valid_entries is the number of sals with unique addresses,
+	 i.e. the number of sals in the final list to be returned.
+	 
+	 valid_entries has one entry for each sal that will be in the
+	 final list, after all duplicates have been removed.  The
+	 value contained in valid_entries[x] is the index, in the
+	 original list, of the unique sal that belongs at position x
+	 in the final list of sals.  */
+
+
+      /* Fill in valid entries, based on the information in
+	 duplicates.  */
+
+      for (k = 0, j = 0; k < new_len && j < old_len; k++, j++)
+	{
+	  while (duplicates[j] && j < old_len)
+	    j++;
+	  if (!duplicates[j])
+	    valid_entries[k] = j;
+	}
+      
+      /* Copy the valid entries to the front of the list. 'i' is
+         the index to copy into, 'k' is the index to copy from.  
+
+         For each element 'i' in the final list, get the index of 
+         the element that belongs in that location (from valid_entries),
+         copy the element from position k to position i.  */
+
+      for (i = 0; i < new_len; i++)
+	if (valid_entries[i] != i)
+	  {
+	    int k;
+
+	    /* Verify that we will always be copying from a position
+	       further down the list.  */
+
+	    gdb_assert (valid_entries[i] > i);
+
+	    k = valid_entries[i];
+	    sals->sals[i].symtab = sals->sals[k].symtab;
+	    sals->sals[i].section = sals->sals[k].section;
+	    sals->sals[i].line = sals->sals[k].line;
+	    sals->sals[i].pc = sals->sals[k].pc;
+	    sals->sals[i].end = sals->sals[k].end;
+	    sals->sals[i].entry_type = sals->sals[k].entry_type;
+	    sals->sals[i].next = sals->sals[k].next;
+	  }
+
+      /* Blank out the rest of the elements in sals.  */
+
+      for ( ; i < old_len; i++)
+	memset (&(sals->sals[i]), 0, sizeof (struct symtab_and_line));
+
+      sals->nelts = new_len;
+      xfree (valid_entries);
+    }
+
+  xfree (duplicates);
+}
+/* APPLE LOCAL end handle duplicate breakpoints  */
+
+/* APPLE LOCAL begin radar 6366048 search both minsyms & syms for bps.  */
+/* This function goes through a set of sals, some of which may have been
+   generated from symbols and some from msymbols, and eliminates the ones
+   that did not come from msymbols.  The assumption here is that if a sal
+   has a NULL symtab, then it was generated from an msymbol.
+
+   The reason for doing this is to prevent an 'rbreak' command from
+   generating many redundant breakpoints.  This function is called from
+   break_command_2.   */
+
+static void
+remove_non_msymbol_sals (struct symtabs_and_lines *sals)
+{
+  int i;
+  int j;
+  int old_len;
+
+  j = 0;  /* j always points to the next slot into which to copy
+	     the next msymbol sal.  */
+
+  for (i = 0; i < sals->nelts; i++)
+    {
+      if (sals->sals[i].symtab == NULL)
+	{
+	  /* We've found an msymbol sal; copy it to position j and
+	     bump j.  */
+	  if (i != j)
+	    {
+	      sals->sals[j].symtab = sals->sals[i].symtab;
+	      sals->sals[j].section = sals->sals[i].section;
+	      sals->sals[j].line = sals->sals[i].line;
+	      sals->sals[j].pc = sals->sals[i].pc;
+	      sals->sals[j].end = sals->sals[i].end;
+	      sals->sals[j].entry_type = sals->sals[i].entry_type;
+	      sals->sals[j].next = sals->sals[i].next;
+	    }
+	  j++;
+	}
+    }
+
+  /* Now sals->sals[0] throught sals->sals[j-1] contain msymbol
+     sals.  Blank out sals->sals[j] through sals->[sals.nelts-1].  */
+
+  old_len = sals->nelts;
+
+  sals->nelts = j;
+
+  for ( ; j < old_len; j++)
+    memset (&(sals->sals[j]), 0, sizeof (struct symtab_and_line));
+}
+/* APPLE LOCAL end radar 6366048 search both minsyms & syms for bps.  */
 
 /* Add SALS.nelts breakpoints to the breakpoint table.  For each
    SALS.sal[i] breakpoint, include the corresponding ADDR_STRING[i],
@@ -5661,6 +6108,8 @@ create_breakpoints (struct symtabs_and_lines sals, char **addr_string,
 		    struct breakpoint *pending_bp,
 		    struct breakpoint_list **new_breakpoints)
 {
+  /* Preserve the breakpoint type passed in.  */
+  enum bptype in_type = type;
   if (type == bp_hardware_breakpoint)
     {
       int i = hw_breakpoint_used_count ();
@@ -5680,9 +6129,20 @@ create_breakpoints (struct symtabs_and_lines sals, char **addr_string,
       {
 	struct breakpoint *b;
 	struct symtab_and_line sal = sals.sals[i];
+	/* Re-set the breakpoint type to the value passed in to this
+	   function. */
+	type = in_type;
 
 	if (from_tty)
 	  describe_other_breakpoints (sal.pc, sal.section);
+
+	/* APPLE LOCAL begin inlined function symbols & blocks  */
+	/* Change the breakpoint type to bp_inlined_breakpoint if 
+	   appropriate.  */
+	if (type == bp_breakpoint
+	    && sal.entry_type == INLINED_SUBROUTINE_LT_ENTRY)
+	  type = bp_inlined_breakpoint;
+	/* APPLE LOCAL end inlined function symbols & blocks  */
 	
 	b = set_raw_breakpoint (sal, type, 0);
 	/* APPLE LOCAL breakpoints */
@@ -5836,6 +6296,15 @@ create_breakpoints (struct symtabs_and_lines sals, char **addr_string,
 								&new_cond,
 								&new_cond_string);
 
+	/* APPLE LOCAL begin handle duplicate breakpoints  */
+	/* Remove any sal from NEW_SALS that has the same address as
+	   any sal in SALS.  This prevents the recursive call to
+	   create_breakpoints below from setting duplicate breakpoints
+	   at the same address.  */
+
+	remove_duplicate_sals (&new_sals, sals, NULL);
+	/* APPLE LOCAL end handle duplicate breakpoints  */
+
       if (new_sals.nelts > 0)
         create_breakpoints (new_sals, new_addr_string, new_cond, new_cond_string,
                             requested_shlib, bp_inlined_breakpoint, disposition,
@@ -5915,7 +6384,7 @@ parse_breakpoint_sals (char **address,
               /* If this is a pending breakpoint, just bail on trying to set it;
                  don't issue an error message about not finding the objfile. */
               if (pending_break_support == AUTO_BOOLEAN_TRUE)
-		throw_error (NOT_FOUND_ERROR, "");
+		throw_error (NOT_FOUND_ERROR, _("%s"),"");
               else
 		throw_error (GENERIC_ERROR, 
                     _("Couldn't locate shared library \"%s\" for breakpoint."), 
@@ -6061,8 +6530,11 @@ do_captured_parse_breakpoint (struct ui_out *ui, void *data)
    PENDING_BP is non-NULL when this function is being called to resolve
    a pending breakpoint.  */
 
+/* APPLE LOCAL begin radar 6366048 search both minsyms & syms for bps.  */
 static int
-break_command_1 (char *arg, int flag, int from_tty, struct breakpoint *pending_bp)
+break_command_1 (char *arg, int flag, int from_tty, 
+		 struct breakpoint *pending_bp, int use_msymbol_p)
+/* APPLE LOCAL end radar 6366048 search both minsyms & syms for bps.  */
 {
   char *requested_shlib;
 
@@ -6129,7 +6601,10 @@ break_command_1 (char *arg, int flag, int from_tty, struct breakpoint *pending_b
       else
 	requested_shlib = NULL;
     }
-  return break_command_2 (arg, flag, from_tty, pending_bp, requested_shlib, NULL, NULL);
+  /* APPLE LOCAL begin radar 6366048 search both minsyms & syms for bps.  */
+  return break_command_2 (arg, flag, from_tty, pending_bp, requested_shlib, 
+			  NULL, NULL, use_msymbol_p);
+  /* APPLE LOCAL end radar 6366048 search both minsyms & syms for bps.  */
 
 }
 
@@ -6145,11 +6620,14 @@ break_command_1 (char *arg, int flag, int from_tty, struct breakpoint *pending_b
    If NEW_BREAKPOINTS is non-null, then it will be filled with a 
    list of the newly created breakpoints.  */
 
+/* APPLE LOCAL begin radar 6366048 search both minsyms & syms for bps.  */
 static int
 break_command_2 (char *arg, int flag, int from_tty, 
 		 struct breakpoint *pending_bp, 
 		 char *requested_shlib, int *indices, 
-		 struct breakpoint_list **new_breakpoints)
+		 struct breakpoint_list **new_breakpoints,
+		 int use_msymbol_p)
+/* APPLE LOCAL end radar 6366048 search both minsyms & syms for bps.  */
 {
   struct gdb_exception e;
   int tempflag, hardwareflag;
@@ -6168,6 +6646,8 @@ break_command_2 (char *arg, int flag, int from_tty,
   int thread = -1;
   int ignore_count = 0;
   int not_found = 0;
+  /* APPLE LOCAL inlined function symbols & blocks  */
+  int normal_sals_count;
 
   hardwareflag = flag & BP_HARDWAREFLAG;
   tempflag = flag & BP_TEMPFLAG;
@@ -6185,13 +6665,48 @@ break_command_2 (char *arg, int flag, int from_tty,
   e = catch_exception (uiout, do_captured_parse_breakpoint, 
 		       &parse_args, RETURN_MASK_ALL);
 
+  /* APPLE LOCAL begin radar 6366048 search both minsyms & syms for bps.  */
+  /*  If we are here because of an 'rbreak' command, and the current symbol
+      being processed from rbreak_command is a minimal symbol, we need to
+      be sure to eliminate all "regular" symbol sals from our list of sals,
+      to prevent mutliple breakpoints being set on each of them.  The flag
+      use_msymbol_p is passed down from rbreak_command (via rbr_break_command
+      and break_command_1).  */
+
+  if (e.reason == 0 && sals.nelts > 0 && use_msymbol_p)
+    remove_non_msymbol_sals (&sals);
+  /* APPLE LOCAL end radar 6366048 search both minsyms & syms for bps.  */
+
+  /* APPLE LOCAL begin inlined function symbols & blocks  */
+  /* Count number of "NORMAL" sals returned; we don't mind
+     having multiple "INLINED" sals being returned.  This is to avoid
+     triggering the if-condition below that only returns matches, and
+     does not actually set breakpoints.  We only want to trigger that
+     condition if multiple NORMAL line table entries are returned.  */
+  
+  if (e.reason == 0 && sals.nelts > 1)
+    {
+      int i;
+      normal_sals_count = 0;
+      for (i = 0; i < sals.nelts; i++)
+	if (sals.sals[i].entry_type == NORMAL_LT_ENTRY)
+	  normal_sals_count++;
+    }
+  else
+    normal_sals_count = sals.nelts;
+  
   /* APPLE_LOCAL: if the interpreter is the mi, and we have gotten more
      than one breakpoint hit, then don't set the breakpoint, but just
      output the hits, and return.  The MI client should then query the
      user for their choice, and reset the breakpoints based on the canonical
-     form returned. */
+     form returned.
+     Addendum (10/27/08): The above is true for NORMAL line table
+     entries.  A single breakpoint request may result in multiple
+     inlining entries being returned in which case we *do* want to set
+     breakpoints at all of those locations.  */
   
-  if (e.reason == 0 && sals.nelts > 1)
+  if (e.reason == 0 && normal_sals_count > 1)
+  /* APPLE LOCAL end inlined function symbols & blocks  */
     {
       /* If we got an indices list, it's because we reported the
 	 list to the UI, which made a choice, and came back to us
@@ -6254,6 +6769,8 @@ break_command_2 (char *arg, int flag, int from_tty,
 	  for (i = 0; i < sals.nelts; i++)
 	    {
 	      struct symtab_and_line sal = sals.sals[i];
+	      struct symbol *sym;
+
 	      list_cleanup = make_cleanup_ui_out_list_begin_end (uiout, "b");
 	      
 	      /* Output an index so that the MI client can come back and
@@ -6271,15 +6788,25 @@ break_command_2 (char *arg, int flag, int from_tty,
 	      if (sal.symtab && sal.symtab->filename)
 		ui_out_field_string (uiout, "file", sal.symtab->filename);
 	      
-	      if (sal.symtab && sal.symtab->objfile && sal.symtab->objfile->name)
-		ui_out_field_string (uiout, "binary", sal.symtab->objfile->name);
+	      if (sal.symtab && sal.symtab->objfile && sal.symtab->objfile->name != NULL)
+		{
+		  struct objfile *ofile = sal.symtab->objfile;
+		  if (ofile->separate_debug_objfile_backlink != NULL)
+		    ofile = ofile->separate_debug_objfile_backlink;
+		  if (ofile->name)
+		    ui_out_field_string (uiout, "binary", ofile->name);
+		}
 	      else if (sal.section && sal.section->owner && sal.section->owner->filename)
 		ui_out_field_string (uiout, "binary", sal.section->owner->filename);
 	      
 	      ui_out_field_int (uiout, "line", sal.line);
 	      ui_out_field_core_addr (uiout, "addr", sal.pc);
-	      
-	      
+
+	      sym = find_pc_sect_function (sal.pc, sal.section);
+	      if (sym)
+		ui_out_field_string (uiout, "func",
+				     SYMBOL_PRINT_NAME (sym));
+
 	      do_cleanups (list_cleanup);
 	    }
 	  do_cleanups (old_chain);
@@ -6454,6 +6981,8 @@ break_command_2 (char *arg, int flag, int from_tty,
 		error (_("Junk at end of arguments."));
 	    }
 	}
+      /* APPLE LOCAL handle duplicate breakpoints  */
+      remove_duplicates (&sals);
       create_breakpoints (sals, addr_string, cond, cond_string,
 			  /* APPLE LOCAL requested shlib */
 			  requested_shlib,
@@ -6603,6 +7132,8 @@ do_captured_breakpoint (struct ui_out *uiout, void *data)
 	}
     }
 
+  /* APPLE LOCAL handle duplicate breakpoints  */
+  remove_duplicates (&sals);
   create_breakpoints (sals, addr_string, cond, cond_string,
 		      /* APPLE LOCAL requested shlib */
 		      NULL,
@@ -6670,7 +7201,10 @@ gdb_breakpoint (char *address, char *condition,
   if (tempflag)
     flag |= BP_TEMPFLAG;
   
-  break_command_2 (address, flag, 0, NULL, requested_shlib, indices, &new_breakpoints);
+  /* APPLE LOCAL begin radar 6366048 search both minsyms & syms for bps.  */
+  break_command_2 (address, flag, 0, NULL, requested_shlib, indices, 
+		   &new_breakpoints, 0);
+  /* APPLE LOCAL end radar 6366048 search both minsyms & syms for bps.  */
   
   /* Now that we have set the breakpoints, record the condition & ignore_counts.  */
   for (new_bp = new_breakpoints; new_bp != NULL; new_bp = new_bp->next)
@@ -6742,25 +7276,52 @@ resolve_sal_pc (struct symtab_and_line *sal)
 void
 break_command (char *arg, int from_tty)
 {
-  break_command_1 (arg, 0, from_tty, NULL);
+  /* APPLE LOCAL radar 6366048 search both minsyms & syms for bps.  */
+  break_command_1 (arg, 0, from_tty, NULL, 0);
 }
 
 void
 tbreak_command (char *arg, int from_tty)
 {
-  break_command_1 (arg, BP_TEMPFLAG, from_tty, NULL);
+  /* APPLE LOCAL radar 6366048 search both minsyms & syms for bps.  */
+  break_command_1 (arg, BP_TEMPFLAG, from_tty, NULL, 0);
 }
 
 static void
 hbreak_command (char *arg, int from_tty)
 {
-  break_command_1 (arg, BP_HARDWAREFLAG, from_tty, NULL);
+  /* APPLE LOCAL radar 6366048 search both minsyms & syms for bps.  */
+  break_command_1 (arg, BP_HARDWAREFLAG, from_tty, NULL, 0);
 }
 
 static void
 thbreak_command (char *arg, int from_tty)
 {
-  break_command_1 (arg, (BP_TEMPFLAG | BP_HARDWAREFLAG), from_tty, NULL);
+  /* APPLE LOCAL radar 6366048 search both minsyms & syms for bps.  */
+  break_command_1 (arg, (BP_TEMPFLAG | BP_HARDWAREFLAG), from_tty, NULL, 0);
+}
+
+/* APPLE LOCAL: Force a future break if the symbol isn't found.
+   This is called by rbreak_command when it goes to set its breakpoints;
+   if a symbol doesn't resolve properly for any reason we don't want the
+   user being prompted whether a breakpoint should be set or not -- they can
+   end up with hundreds of these prompts and no way to dismiss them.  */
+
+void
+/* APPLE LOCAL radar 6366048 search both minsyms & syms for bps.  */
+rbr_break_command (char *arg, int from_tty, int use_msymbol_p)
+{
+  struct cleanup *cleans;
+
+  cleans = make_cleanup (restore_saved_pending_break_support, 
+                         (void *) pending_break_support);
+  pending_break_support = AUTO_BOOLEAN_TRUE;
+  /* APPLE LOCAL begin radar 6366048 search both minsyms & syms for bps.  */
+  /* Bypass break_command and call break_command_1 directly, so we can 
+     pass along the use_msymbol_p flag.  */
+  break_command_1 (arg, 0, from_tty, NULL, use_msymbol_p);
+  /* APPLE LOCAL end radar 6366048 search both minsyms & syms for bps.  */
+  do_cleanups (cleans);
 }
 
 static void
@@ -6801,7 +7362,8 @@ stopin_command (char *arg, int from_tty)
   if (badInput)
     printf_filtered (_("Usage: stop in <function | address>\n"));
   else
-    break_command_1 (arg, 0, from_tty, NULL);
+    /* APPLE LOCAL radar 6366048 search both minsyms & syms for bps.  */
+    break_command_1 (arg, 0, from_tty, NULL, 0);
 }
 
 static void
@@ -6833,7 +7395,8 @@ stopat_command (char *arg, int from_tty)
   if (badInput)
     printf_filtered (_("Usage: stop at <line>\n"));
   else
-    break_command_1 (arg, 0, from_tty, NULL);
+    /* APPLE LOCAL radar 6366048 search both minsyms & syms for bps.  */
+    break_command_1 (arg, 0, from_tty, NULL, 0);
 }
 
 /* accessflag:  hw_write:  watch write, 
@@ -6922,6 +7485,8 @@ watch_command_1 (char *arg, int accessflag, int by_location, int from_tty)
 
   mark = value_mark ();
   val = evaluate_expression (exp);
+  if (TYPE_CODE (value_type (val)) == TYPE_CODE_ERROR)
+    error ("Can not watch an expression of unknown type.");
   release_value (val);
   if (value_lazy (val))
     value_fetch_lazy (val);
@@ -7226,9 +7791,11 @@ until_break_command (char *arg, int from_tty, int anywhere)
   struct symtab_and_line sal;
   struct frame_info *prev_frame = get_prev_frame (deprecated_selected_frame);
   struct breakpoint *breakpoint;
-  struct cleanup *old_chain;
+  /* APPLE LOCAL radar 6067785 handle multiple 'until' addresses. */
+  struct cleanup *old_chain = NULL;
   struct continuation_arg *arg1;
-
+  /* APPLE LOCAL radar 6067785 handle multiple 'until' addresses. */
+  int i;
 
   clear_proceed_status ();
 
@@ -7246,32 +7813,38 @@ until_break_command (char *arg, int from_tty, int anywhere)
 			  0, (char ***) NULL, NULL, 0);
     /* APPLE LOCAL end return multiple symbols */
 
-  if (sals.nelts != 1)
-    error (_("Couldn't get information on specified line."));
-
-  sal = sals.sals[0];
-  xfree (sals.sals);	/* malloc'd, so freed */
-
+  /* APPLE LOCAL begin radar 6067785 handle multiple 'until' addresses. */
   if (*arg)
-    error (_("Junk at end of arguments."));
+    {
+      xfree (sals.sals);  /* Free it before throwing the error */
+      error (_("Junk at end of arguments."));
+    }
 
-  resolve_sal_pc (&sal);
+  for (i = 0; i < sals.nelts; i++)
+    {
+      sal = sals.sals[i];
 
-  if (anywhere)
-    /* If the user told us to continue until a specified location,
-       we don't specify a frame at which we need to stop.  */
-    breakpoint = set_momentary_breakpoint (sal, null_frame_id, bp_until);
-  else
-    /* Otherwise, specify the current frame, because we want to stop only
-       at the very same frame.  */
-    breakpoint = set_momentary_breakpoint (sal,
-					   get_frame_id (deprecated_selected_frame),
-					   bp_until);
+      resolve_sal_pc (&sal);
 
-  if (!target_can_async_p ())
-    old_chain = make_cleanup_delete_breakpoint (breakpoint);
-  else
-    old_chain = make_exec_cleanup_delete_breakpoint (breakpoint);
+      if (anywhere)
+	/* If the user told us to continue until a specified location,
+	   we don't specify a frame at which we need to stop.  */
+	breakpoint = set_momentary_breakpoint (sal, null_frame_id, bp_until);
+      else
+	/* Otherwise, specify the current frame, because we want to stop only
+	   at the very same frame.  */
+	breakpoint = set_momentary_breakpoint (sal,
+					       get_frame_id 
+					           (deprecated_selected_frame),
+					       bp_until);
+
+      if (!target_can_async_p ())
+	old_chain = make_cleanup_delete_breakpoint (breakpoint);
+      else
+	old_chain = make_exec_cleanup_delete_breakpoint (breakpoint);
+    }
+  /* APPLE LOCAL end radar 6067785 handle multiple 'until' addresses. */
+  xfree (sals.sals);	/* malloc'd, so freed */
 
   /* If we are running asynchronously, and the target supports async
      execution, we are not waiting for the target to stop, in the call
@@ -7673,9 +8246,9 @@ print_exception_catchpoint (struct breakpoint *b)
         {
           annotate_catchpoint (b->number);
           print_catch_info (b);
+	  ui_out_print_annotation_string (uiout, 0, "reason", "catch-exception");
           if (ui_out_is_mi_like_p (uiout))
             {
-              ui_out_field_string (uiout, "reason", "catch-exception");
               return PRINT_SRC_AND_LOC;
             }
           else
@@ -7703,9 +8276,9 @@ print_exception_catchpoint (struct breakpoint *b)
           print_catch_info (b);
 
           /* don't bother to print location frame info */
+	  ui_out_print_annotation_string (uiout, 0, "reason", "throw-exception");
           if (ui_out_is_mi_like_p (uiout))
             {
-              ui_out_field_string (uiout, "reason", "throw-exception");
               return PRINT_SRC_AND_LOC;
             }
           else
@@ -8487,6 +9060,9 @@ delete_breakpoint (struct breakpoint *bpt)
 	    && b->enable_state != bp_disabled
 	    && b->enable_state != bp_shlib_disabled
 	    && !b->pending
+	    /* APPLE LOCAL: Disable breakpoints while updating data
+	       formatters.  */
+	    && b->enable_state != bp_hand_call_disabled
 	    && b->enable_state != bp_call_disabled)
 	{
 	  int val;
@@ -8657,6 +9233,10 @@ breakpoint_re_set_one (void *bint)
   struct breakpoint *b = (struct breakpoint *) bint;
   struct value *mark;
   int i;
+  /* APPLE LOCAL begin dealing correctly with multiple sals.  */
+  int found;
+  int j;
+  /* APPLE LOCAL end dealing correctly with multiple sals.  */
   /* APPLE LOCAL breakpoint fix */
   /* Don't need locals not_found or not_found_ptr */
   struct symtabs_and_lines sals;
@@ -8672,20 +9252,8 @@ breakpoint_re_set_one (void *bint)
 	       b->number);
       return 0;
       /* APPLE LOCAL begin gnu_v3 breakpoints */
-      /* The gnu_v3 catch & throw breakpoints could exist in shared
-	 libraries, and therefore might very well have slid.  But we can't reset
-         them here or we will mess them up.  Instead, we let the code in
-         tell_breakpoints_objfile_changed delete them, then we reset them in
-         update_exception_catchpoints.  */
-      /* The exception to this is if we already set the catchpoint, and then
-	 we re-ran and reset it before the shared library was loaded so we
-	 miss moving the breakpoint over the prologue.  Then we do need to
-	 re-do the breakpoint here.  */
     case bp_gnu_v3_catch_throw:
     case bp_gnu_v3_catch_catch:
-      if (b->bp_set_state != bp_state_waiting_load)
-	break;
-      /* else fall thru */
       /* APPLE LOCAL end gnu_v3 breakpoints */
     case bp_breakpoint:
     /* APPLE LOCAL begin subroutine inlining  */
@@ -8694,6 +9262,18 @@ breakpoint_re_set_one (void *bint)
     case bp_hardware_breakpoint:
     case bp_catch_load:
     case bp_catch_unload:
+      /* APPLE LOCAL: Our thread event breakpoint is set in a library
+	 that will slide, so we need to reset it.  */
+      /* This breakpoint is special, it's set up when the inferior
+         starts and we really don't want to touch it.  */
+      /* APPLE LOCAL: if it has an addr_string, we should be able
+	 to reset it.  I need this 'cause I'm reusing the bp_shilb_event
+	 for other purposes since it's such a PITA to add new breakpoint
+	 types...  */
+    case bp_shlib_event:
+      if (b->addr_string == NULL)
+	break;
+    case bp_thread_event:
       if (b->addr_string == NULL)
 	{
 	  /* Anything without a string can't be re-set. */
@@ -8733,7 +9313,10 @@ breakpoint_re_set_one (void *bint)
 	 bp_shlib_disabled switched.  I don't understand this, you
 	 surely don't want to mark a breakpoint USER disabled if you
 	 can't resolve it now.  */
-      if (b->enable_state != bp_disabled)
+      /* APPLE LOCAL: Disable breakpoints while updating data
+	 formatters.  */
+      if (b->enable_state != bp_disabled
+	  && b->enable_state != bp_hand_call_disabled)
         b->enable_state = bp_shlib_disabled;
       /* APPLE LOCAL end breakpoint fix */
 
@@ -8748,12 +9331,16 @@ breakpoint_re_set_one (void *bint)
 	  /* We may be reloading a library which we found the wrong
 	     version of at init time.  So up the load level here just
 	     to be safe.  */
-	  if (objfile_name_set_load_state (b->requested_shlib, OBJF_SYM_ALL, 0) == -1)
+	  /* But don't do this for exception catchpoints, 'cause if
+	     the shlib changes, that's going to delete the breakpoint
+	     out from under us.  */
+	  if (b->type != bp_gnu_v3_catch_throw
+	      && b->type != bp_gnu_v3_catch_catch)
 	    {
-	      warning ("Couldn't raise load state for requested shlib: \"%s\" "
-		       "for breakpoint %d.\n",
-		       b->requested_shlib, b->number);
-	      return 0;
+	      if (objfile_name_set_load_state (b->requested_shlib, OBJF_SYM_ALL, 0) == -1)
+		{
+		  return 0;
+		}
 	    }
 	  
 	  restrict_cleanup 
@@ -8761,19 +9348,22 @@ breakpoint_re_set_one (void *bint)
 
 	  if (restrict_cleanup == (void *) -1)
 	    {
-	      warning ("Couldn't find requested shlib: \"%s\" "
-		       "for breakpoint %d.\n", 
-		       b->requested_shlib, b->number);
 	      return 0;
 	    }	  
 	}
       /* APPLE LOCAL begin radar 5273932  */
       else if (b->bp_objfile_name != NULL)
 	{
-	  if (objfile_name_set_load_state (b->bp_objfile_name, OBJF_SYM_ALL, 0) == -1)
+	  /* But don't do this for exception catchpoints, 'cause if
+	     the shlib changes, that's going to delete the breakpoint
+	     out from under us.  */
+	  if (b->type != bp_gnu_v3_catch_throw
+	      && b->type != bp_gnu_v3_catch_catch)
 	    {
-	      warning ("Couldn't raise load state for requested objfile: \"%s\" "
-		       "for breakpoint %d/\n", b->bp_objfile_name, b->number);
+	      if (objfile_name_set_load_state (b->bp_objfile_name, OBJF_SYM_ALL, 0) == -1)
+		{
+		  return 0;
+		}
 	    }
 	  
 	  restrict_cleanup 
@@ -8781,8 +9371,7 @@ breakpoint_re_set_one (void *bint)
 
 	  if (restrict_cleanup == (void *) -1)
 	    {
-	      warning ("Couldn't find requested objfile: \"%s\" "
-		       "for breakpoint %d.\n", b->bp_objfile_name, b->number);
+	      return 0;
 	    }
 	}
       /* APPLE LOCAL end radar 5273932  */
@@ -8802,7 +9391,112 @@ breakpoint_re_set_one (void *bint)
 	}
       /* APPLE LOCAL end Don't go on if we found nothing...  */
 
-      for (i = 0; i < sals.nelts; i++)
+      /* APPLE LOCAL begin dealing correctly with multiple sals.  */
+
+      /* If there's more than one sal, figure out the right one to
+	 use.  */
+
+      found = 0;
+      if (sals.nelts > 1)
+
+	/* Go through the list of sals trying to find one whose
+	   pc is the same as the breakpoint location address, or
+	   whose pc is the same as the breakpoint location address 
+	   plus an offset.   The offset is the beginning address of the
+	   section in the objfile that contains the sal pc.  */
+
+	for (j = 0; j < sals.nelts && !found; j++)
+	  {
+
+	    /* Check each SAL (until the correct one is found).  */
+
+	    struct objfile *bp_objfile = NULL;
+	    struct obj_section *osect = NULL;
+	    struct symtab_and_line *sal = &(sals.sals[j]);
+	    CORE_ADDR base_pc;
+	    CORE_ADDR offset;
+	    CORE_ADDR target_pc;
+
+	    /* First, find the objfile for the SAL.  */
+	    
+	    if (sal->symtab != NULL)
+	      bp_objfile = sal->symtab->objfile;
+	    else if (sal->section != NULL)
+	      {
+		osect = find_pc_sect_section (sal->pc, sal->section);
+		if (osect)
+		  bp_objfile = osect->objfile;
+	      }
+	    else
+	      {
+		osect = find_pc_section (sal->pc);
+		if (osect)
+		  bp_objfile = osect->objfile;
+	      }
+	    if (bp_objfile && bp_objfile->separate_debug_objfile_backlink)
+	      bp_objfile = bp_objfile->separate_debug_objfile_backlink;
+	    
+	    if (!bp_objfile)
+	      continue;
+
+	    /* Next, get the address of the old breakpoint location, and the
+	       address in the sal.  */
+
+	    base_pc = b->loc->address;
+	    target_pc = sals.sals[j].pc;
+
+	    /* If the two addresses match, we've found the right SAL and
+	       we're done.  */
+
+	    if (base_pc == target_pc)
+	      {
+		i = j;
+		found = 1;
+	      }
+	    else
+	      {
+
+		/* If the addresses don't match, we need to try to find an
+		   offset to add, from an objfile section,  to make them match.  */
+	       
+		offset = 0;
+
+		/* Go through all the sections in the objfile, looking for the
+		   one that contains the SAL's pc.  */
+
+		ALL_OBJFILE_OSECTIONS (bp_objfile, osect)
+		  if (bp_objfile->separate_debug_objfile_backlink == NULL
+		      && osect->addr <= sals.sals[j].pc
+		      && sals.sals[j].pc<= osect->endaddr)
+		    {
+		      /* We've found the correct section, so we use it's
+			 offset.  */
+
+		      offset = ANOFFSET (bp_objfile->section_offsets,
+					 osect->the_bfd_section->index);
+		      break;
+		    }
+
+		/* If breakpoint address plus offset matches the SAL pc, 
+		   we've found the right SAL and we're done.  */
+
+		if (base_pc + offset == target_pc)
+		  {
+		    i = j;
+		    found = 1;
+		  }
+
+		/* Otherwise, keep looking.  */
+	      }
+	}
+
+      /* If we couldn't figure out which SAL is the right one to use, just
+	 use the last one (which mimic's the old behavior of this function).  */
+
+      if (!found)
+	i = sals.nelts - 1;
+
+      /* APPLE LOCAL end dealing correctly with multiple sals.  */
 	{
 	  resolve_sal_pc (&sals.sals[i]);
 
@@ -9011,14 +9705,6 @@ breakpoint_re_set_one (void *bint)
       delete_breakpoint (b);
       break;
 
-      /* This breakpoint is special, it's set up when the inferior
-         starts and we really don't want to touch it.  */
-    case bp_shlib_event:
-
-      /* Like bp_shlib_event, this breakpoint type is special.
-	 Once it is set up, we do not want to touch it.  */
-    case bp_thread_event:
-
       /* Keep temporary breakpoints, which can be encountered when we step
          over a dlopen call and SOLIB_ADD is resetting the breakpoints.
          Otherwise these should have been blown away via the cleanup chain
@@ -9099,8 +9785,14 @@ breakpoint_update ()
 	      || (b->loc->address != 0x0 && b->bp_objfile == NULL)))
 	  continue;
 
-	message = xstrprintf ("Error in re-setting breakpoint %d:\n",
-			      b->number);
+	/* APPLE LOCAL: Don't complain about not being able to reset internal 
+	   breakpoints.  */
+	if (user_settable_breakpoint (b))
+	  message = xstrprintf ("Error in re-setting breakpoint %d:\n",
+				b->number);
+	else
+	  message = NULL;
+
 	restrict_cleanups = make_cleanup_restrict_to_objfile (b->bp_objfile);
 	make_cleanup (xfree, message);
 	catch_errors (breakpoint_re_set_one, b, message, RETURN_MASK_ALL);
@@ -9150,8 +9842,15 @@ breakpoint_re_set_all (void)
   ALL_BREAKPOINTS_SAFE (b, temp)
   {
     /* Format possible error msg */
-    char *message = xstrprintf ("Error in re-setting breakpoint %d:\n",
-				b->number);
+    /* APPLE LOCAL: Don't complain about not being able to reset 
+       internal breakpoints.  */
+    char *message;
+    if (user_settable_breakpoint (b))
+      message = xstrprintf ("Error in re-setting breakpoint %d:\n",
+				  b->number);
+    else
+      message = NULL;
+
     struct cleanup *cleanups;
 
     /* APPLE LOCAL: we are going to unconditionally remake the longjmp
@@ -9521,6 +10220,8 @@ void
 enable_breakpoint (struct breakpoint *bpt)
 {
   do_enable_breakpoint (bpt, bpt->disposition);
+  if (ui_out_is_mi_like_p (uiout))
+    ui_out_field_int (uiout, "pending", bpt->pending); 
 }
 
 /* The enable command enables the specified breakpoints (or all defined
@@ -9531,8 +10232,12 @@ static void
 enable_command (char *args, int from_tty)
 {
   struct breakpoint *bpt;
+  struct breakpoint *tmp;
+
   if (args == 0)
-    ALL_BREAKPOINTS (bpt)
+    /* APPLE LOCAL: Use ALL_BREAKPOINTS_SAFE since enable_breakpoint
+       can add breakpoints to the breakpoint chain.  */
+    ALL_BREAKPOINTS_SAFE (bpt, tmp)
       switch (bpt->type)
       {
       case bp_none:
@@ -9893,7 +10598,8 @@ future_break_command (char *arg, int from_tty)
   struct cleanup *wipe = make_cleanup (restore_saved_pending_break_support, 
                                        (void *) pending_break_support);
   pending_break_support = AUTO_BOOLEAN_TRUE;
-  break_command_1 (arg, 0, from_tty, NULL);
+  /* APPLE LOCAL radar 6366048 search both minsyms & syms for bps.  */
+  break_command_1 (arg, 0, from_tty, NULL, 0);
   do_cleanups (wipe);
 }
 
@@ -9934,38 +10640,33 @@ tell_breakpoints_objfile_changed_internal (struct objfile *objfile,
 	    {
 	      if (b->bp_objfile == objfile)
 		{
-		  /* Resetting these catch & throw breakpoints through
-		     the normal means works poorly.  That's hard to fix
-		     so better to just delete them & let create_exception_catchpoints
-		     recreate them correctly.  
-		     FIXME: This will probably not work right with the HP style
-		     catchpoints, but I will cross that bridge when this code
-		     makes it into the FSF gdb...  */
-		  if (b->type == bp_gnu_v3_catch_throw ||
-		      b->type == bp_gnu_v3_catch_catch)
-		    {
-		      delete_breakpoint (b);
-		    }
-		  else
-		    {
-		      b->bp_set_state = bp_state_unset;
-		      if (set_pending)
-			b->pending = 1;
-		      /* APPLE LOCAL begin radar 5273932  */
-		      /* Save name of objfile in bp_objfile_name, so
-			 that if we attempt to reset the breakpoint
-			 (in breakpoint_re_set_one), because, for
-			 example, we have slid addresses, we will
-			 have a record as to where the breakpoint is supposed
-			 to be set (namely, in the same objfile where we 
-			 originally set it).  */
-		      if (b->bp_objfile->name)
-			b->bp_objfile_name = xstrdup (b->bp_objfile->name);
-		      /* APPLE LOCAL end radar 5273932  */
-		      b->bp_objfile = NULL;
-		    }
-		}
-	    }
+		  b->bp_set_state = bp_state_unset;
+                  if (set_pending)
+                    b->pending = 1;
+                  /* APPLE LOCAL begin radar 5273932  */
+                  /* Save name of objfile in bp_objfile_name.  If the library
+                     is loaded again, we'll re-insert the breakpoint.  Also,
+                     if breakpoints-on-symbolic-names insert multiple 
+                     breakpoints, this assures that once we've resolved to one
+                     objfile's symbol, we re-insert this copy of the breakpoint
+                     on just that objfile's symbol.  */
+                  if (b->bp_objfile->name)
+                    {
+                      /* Try to lose the full pathname; we may be dropping
+                         the binary from one file path and re-adding it via
+                         another path because dyld has more information than
+                         gdb did pre-execution.  */
+                      const char *n = bundle_basename (b->bp_objfile->name);
+                      if (n == NULL)
+                        n = lbasename (b->bp_objfile->name);
+                      if (n == NULL)
+                        n = b->bp_objfile->name;
+                      b->requested_shlib = xstrdup (n);
+                    }
+                  /* APPLE LOCAL end radar 5273932  */
+                  b->bp_objfile = NULL;
+                }
+            }
 	  else if (b->bp_set_state != bp_state_unset)
 	    {
 	      struct obj_section *osect;
@@ -9998,6 +10699,22 @@ void
 tell_breakpoints_objfile_changed (struct objfile *objfile)
 {
   tell_breakpoints_objfile_changed_internal (objfile, 0);
+}
+
+void
+breakpoints_relocate (struct objfile *objfile, struct section_offsets *delta)
+{
+  struct breakpoint *b;
+
+  ALL_BREAKPOINTS (b)
+  {
+    if (b->bp_objfile == objfile)
+      {
+	b->loc->address += ANOFFSET (delta, SECT_OFF_TEXT (objfile));
+	b->loc->requested_address += ANOFFSET (delta, SECT_OFF_TEXT (objfile));
+      }
+  }
+  
 }
 
 /* Use this one if the the shared library has been unloaded.  We mark it
@@ -10344,7 +11061,7 @@ Set a watchpoint for an expression.\n\
 A watchpoint stops execution of your program whenever the value of\n\
 an expression changes.\n\
 If you pass the \"-location\" flag to the command, the expression\n\
-is resolved to it's location, and only that, not the full expression\n\
+is resolved to its location, and only that, not the full expression\n\
 is watched."));
   set_cmd_completer (c, location_completer);
 
@@ -10353,7 +11070,7 @@ Set a read watchpoint for an expression.\n\
 A watchpoint stops execution of your program whenever the value of\n\
 an expression is read.\n\
 If you pass the \"-location\" flag to the command, the expression\n\
-is resolved to it's location, and only that, not the full expression\n\
+is resolved to its location, and only that, not the full expression\n\
 is watched."));
   set_cmd_completer (c, location_completer);
 
@@ -10362,7 +11079,7 @@ Set a watchpoint for an expression.\n\
 A watchpoint stops execution of your program whenever the value of\n\
 an expression is either read or written.\n\
 If you pass the \"-location\" flag to the command, the expression\n\
-is resolved to it's location, and only that, not the full expression\n\
+is resolved to its location, and only that, not the full expression\n\
 is watched."));
   set_cmd_completer (c, location_completer);
 

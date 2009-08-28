@@ -2,7 +2,7 @@ Index: samba/source/configure.in
 ===================================================================
 --- samba/source/configure.in.orig
 +++ samba/source/configure.in
-@@ -3065,6 +3065,31 @@ exit(1);
+@@ -3084,6 +3084,31 @@ exit(1);
    fi
  fi
  
@@ -227,7 +227,7 @@ Index: samba/source/lib/util_str.c
 ===================================================================
 --- samba/source/lib/util_str.c.orig
 +++ samba/source/lib/util_str.c
-@@ -2418,7 +2418,7 @@ SMB_OFF_T conv_str_size(const char * str
+@@ -2432,7 +2432,7 @@ SMB_OFF_T conv_str_size(const char * str
  		 * 4-byte SMB_OFF_T. It's better to let the caller handle
  		 * a failure than some random number.
  		 */

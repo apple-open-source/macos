@@ -23,7 +23,7 @@ BEGIN
     my @p = ( foo => 'hello' );
 
     eval { validate( @p, $spec ) };
-    ok( ! $@, 'validate() call succeeded with Readonly spec hashref' );
+    is( $@, q{}, 'validate() call succeeded with Readonly spec hashref' );
 }
 
 {
@@ -31,6 +31,6 @@ BEGIN
     my @p = 'hello';
 
     eval { validate_pos( @p, $spec ) };
-    ok( ! $@, 'validate_pos() call succeeded with Readonly spec hashref' );
+    is( $@, q{}, 'validate_pos() call succeeded with Readonly spec hashref' );
 }
 

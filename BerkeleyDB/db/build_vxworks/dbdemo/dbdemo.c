@@ -1,10 +1,9 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1997-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1997,2007 Oracle.  All rights reserved.
  *
- * $Id: dbdemo.c,v 1.2 2004/03/30 01:21:18 jtownsen Exp $
+ * $Id: ex_access.c,v 12.6 2007/05/17 15:15:12 bostic Exp $
  */
 
 #include <sys/types.h>
@@ -49,7 +48,7 @@ dbdemo_main(argc, argv)
 	DB *dbp;
 	DBC *dbcp;
 	DBT key, data;
-	u_int32_t len;
+	size_t len;
 	int ch, ret, rflag;
 	char *database, *p, *t, buf[1024], rbuf[1024];
 	const char *progname = "dbdemo";		/* Program name. */
@@ -118,7 +117,7 @@ dbdemo_main(argc, argv)
 
 		key.data = buf;
 		data.data = rbuf;
-		data.size = key.size = len - 1;
+		data.size = key.size = (u_int32_t)len - 1;
 
 		switch (ret =
 		    dbp->put(dbp, NULL, &key, &data, DB_NOOVERWRITE)) {
@@ -144,7 +143,7 @@ dbdemo_main(argc, argv)
 	memset(&data, 0, sizeof(data));
 
 	/* Walk through the database and print out the key/data pairs. */
-	while ((ret = dbcp->c_get(dbcp, &key, &data, DB_NEXT)) == 0)
+	while ((ret = dbcp->get(dbcp, &key, &data, DB_NEXT)) == 0)
 		printf("%.*s : %.*s\n",
 		    (int)key.size, (char *)key.data,
 		    (int)data.size, (char *)data.data);
@@ -154,7 +153,7 @@ dbdemo_main(argc, argv)
 	}
 
 	/* Close everything down. */
-	if ((ret = dbcp->c_close(dbcp)) != 0) {
+	if ((ret = dbcp->close(dbcp)) != 0) {
 		dbp->err(dbp, ret, "DBcursor->close");
 		goto err1;
 	}
@@ -165,7 +164,7 @@ dbdemo_main(argc, argv)
 	}
 	return (EXIT_SUCCESS);
 
-err2:	(void)dbcp->c_close(dbcp);
+err2:	(void)dbcp->close(dbcp);
 err1:	(void)dbp->close(dbp, 0);
 	return (EXIT_FAILURE);
 }

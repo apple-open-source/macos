@@ -15,8 +15,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_GENSUPPORT_H
 #define GCC_GENSUPPORT_H
@@ -37,31 +37,27 @@ extern void message_with_line (int, const char *, ...)
    Must be set before calling init_md_reader.  */
 extern int insn_elision;
 
-/* If this is 1, the insn elision table doesn't even exist yet;
-   maybe_eval_c_test will always return -1.  This is distinct from
-   insn_elision because genflags and gencodes need to see all the
-   patterns, but treat elided patterns differently.  */
-extern const int insn_elision_unavailable;
-
 /* If the C test passed as the argument can be evaluated at compile
    time, return its truth value; else return -1.  The test must have
    appeared somewhere in the machine description when genconditions
    was run.  */
 extern int maybe_eval_c_test (const char *);
 
-/* This table should not be accessed directly; use maybe_eval_c_test.  */
+/* Add an entry to the table of conditions.  Used by genconditions and
+   by read-rtl.c.  */
+extern void add_c_test (const char *, int);
+
+/* This structure is used internally by gensupport.c and genconditions.c.  */
 struct c_test
 {
   const char *expr;
   int value;
 };
 
-extern const struct c_test insn_conditions[];
-extern const size_t n_insn_conditions;
-
 #ifdef __HASHTAB_H__
 extern hashval_t hash_c_test (const void *);
 extern int cmp_c_test (const void *, const void *);
+extern void traverse_c_tests (htab_trav, void *);
 #endif
 
 extern int n_comma_elts	(const char *);

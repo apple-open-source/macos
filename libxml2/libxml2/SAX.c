@@ -28,6 +28,7 @@
 #include <libxml/globals.h>
 #include <libxml/SAX2.h>
 
+#ifdef LIBXML_LEGACY_ENABLED
 #ifdef LIBXML_SAX1_ENABLED
 /**
  * initxmlDefaultSAXHandler:
@@ -76,7 +77,6 @@ initxmlDefaultSAXHandler(xmlSAXHandlerV1 *hdlr, int warning)
 
     hdlr->initialized = 1;
 }
-#endif /* LIBXML_SAX1_ENABLED */
 
 #ifdef LIBXML_HTML_ENABLED
 
@@ -116,7 +116,6 @@ inithtmlDefaultSAXHandler(xmlSAXHandlerV1 *hdlr)
     hdlr->cdataBlock = xmlSAX2CDataBlock;
     hdlr->ignorableWhitespace = xmlSAX2IgnorableWhitespace;
     hdlr->processingInstruction = xmlSAX2ProcessingInstruction;
-    hdlr->processingInstruction = NULL;
     hdlr->comment = xmlSAX2Comment;
     hdlr->warning = xmlParserWarning;
     hdlr->error = xmlParserError;
@@ -128,7 +127,6 @@ inithtmlDefaultSAXHandler(xmlSAXHandlerV1 *hdlr)
 #endif /* LIBXML_HTML_ENABLED */
 
 #ifdef LIBXML_DOCB_ENABLED
-
 /**
  * initdocbDefaultSAXHandler:
  * @hdlr:  the SAX handler
@@ -174,3 +172,9 @@ initdocbDefaultSAXHandler(xmlSAXHandlerV1 *hdlr)
 }
 
 #endif /* LIBXML_DOCB_ENABLED */
+
+#endif /* LIBXML_SAX1_ENABLED */
+
+#define bottom_SAX
+#include "elfgcchack.h"
+#endif /* LIBXML_LEGACY_ENABLED */

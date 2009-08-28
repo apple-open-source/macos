@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2007 Apple Inc.  All rights reserved.
+ * Copyright (c) 2002-2008 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -134,10 +134,10 @@ log_netobj(obj)
 	}
 	/* Prevent the security hazard from the buffer overflow */
 	maxlen = (obj->n_len < MAX_NETOBJ_SZ ? obj->n_len : MAX_NETOBJ_SZ);
-	for (i=0, tmp1 = objvalbuffer, tmp2 = objascbuffer; i < obj->n_len;
+	for (i=0, tmp1 = objvalbuffer, tmp2 = objascbuffer; i < maxlen;
 	    i++, tmp1 +=2, tmp2 +=1) {
-		sprintf(tmp1,"%02X",*(obj->n_bytes+i));
-		sprintf(tmp2,"%c",*(obj->n_bytes+i));
+		snprintf(tmp1, 2+1, "%02X", *(obj->n_bytes+i));
+		snprintf(tmp2, 1+1, "%c", *(obj->n_bytes+i));
 	}
 	*tmp1 = '\0';
 	*tmp2 = '\0';

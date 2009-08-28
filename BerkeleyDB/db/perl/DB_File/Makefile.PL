@@ -38,6 +38,9 @@ $LIBS .= " -lpthread" if $^O eq 'aix' ;
 my $OS2 = "" ;
 $OS2 = "-DOS2" if $Config{'osname'} eq 'os2' ;
 
+my $WALL = '' ;
+#$WALL = ' -Wall ';
+
 WriteMakefile(
 	NAME 		=> 'DB_File',
 	LIBS 		=> ["-L${LIB_DIR} $LIBS"],
@@ -45,8 +48,20 @@ WriteMakefile(
 	INC		=> "-I$INC_DIR",
 	VERSION_FROM	=> 'DB_File.pm',
 	XSPROTOARG	=> '-noprototypes',
-	DEFINE		=> "-D_NOT_CORE $OS2 $VER_INFO $COMPAT185",
+	DEFINE		=> "-D_NOT_CORE $OS2 $VER_INFO $COMPAT185 $WALL",
 	OBJECT		=> 'version$(OBJ_EXT) DB_File$(OBJ_EXT)',
+    ((ExtUtils::MakeMaker->VERSION() gt '6.30') 
+        ?  ('LICENSE'  => 'perl')         
+        : ()
+    ),
+    (
+    $] >= 5.005
+        ? (ABSTRACT_FROM => 'DB_File.pm',
+            AUTHOR       => 'Paul Marquess <pmqs@cpan.org>')
+        : ()
+    ),
+    
+
 	#OPTIMIZE	=> '-g',
 	'depend'	=> { 'Makefile'          => 'config.in',
                              'version$(OBJ_EXT)' => 'version.c'},
@@ -130,6 +145,19 @@ else {
 }
 
 exit;
+
+
+sub MY::libscan
+{
+    my $self = shift ;
+    my $path = shift ;
+
+    return undef
+        if $path =~ /(~|\.bak)$/ || 
+           $path =~ /^\..*\.swp$/ ;
+
+    return $path;    
+}
 
 
 sub MY::postamble { <<'EOM' } ;

@@ -3,6 +3,7 @@
 
   Copyright (C) 2006 Krishna Ganugapati <krishnag@centeris.com>
   Copyright (C) 2006 Gerald Carter <jerry@samba.org>
+  Copyright (C) 2008 Apple Inc. All rights reserved.
 
      ** NOTE! The following LGPL license applies to the libaddns
      ** library. This does NOT imply that all of Samba is released
@@ -26,6 +27,7 @@
 
 #include "dns.h"
 #include <sys/time.h>
+#include <sys/uio.h>
 #include <unistd.h>
 
 static int destroy_dns_connection(struct dns_connection *conn)
@@ -172,13 +174,35 @@ static DNS_ERROR write_all(int fd, uint8 *data, size_t len)
 static DNS_ERROR dns_send_tcp(struct dns_connection *conn,
 			      const struct dns_buffer *buf)
 {
+	ssize_t ret;
+	struct iovec iov[2];
 	uint16 len = htons(buf->offset);
-	DNS_ERROR err;
 
-	err = write_all(conn->s, (uint8 *)&len, sizeof(len));
-	if (!ERR_DNS_IS_OK(err)) return err;
+	/* The Wireshark DNS dissector can't reassemble DNS requests when they
+	 * are split over multiple TCP segments. Sending the length prefix and
+	 * the actual request in the same system call prevents this.
+	 */
+	iov[0].iov_base = &len;
+	iov[0].iov_len = sizeof(len);
+	iov[1].iov_base = buf->data;
+	iov[1].iov_len = buf->offset;
 
-	return write_all(conn->s, buf->data, buf->offset);
+	ret = writev(conn->s, iov, 2);
+	if (ret <= 2) {
+		/* Either the write failed or we didn't get to write the
+		 * length prefix. Either way, it's bad.
+		 */
+		return ERROR_DNS_SOCKET_ERROR;
+	}
+
+	/* Partial write. */
+	if (ret <= (buf->offset + sizeof(len))) {
+		size_t buffer_bytes_written = ret - 2;
+		return write_all(conn->s, buf->data + buffer_bytes_written,
+			buf->offset - buffer_bytes_written);
+	}
+
+	return ERROR_DNS_SUCCESS;
 }
 
 static DNS_ERROR dns_send_udp(struct dns_connection *conn,
@@ -234,8 +258,12 @@ static DNS_ERROR read_all(int fd, uint8 *data, size_t len)
 		}
 
 		ret = read(fd, data + total, len - total);
-		if (ret <= 0) {
+		if (ret < 0) {
 			/* EOF or error */
+			return ERROR_DNS_SOCKET_ERROR;
+		}
+
+		if (ret == 0 && total != len) {
 			return ERROR_DNS_SOCKET_ERROR;
 		}
 
@@ -347,11 +375,15 @@ DNS_ERROR dns_transaction(TALLOC_CTX *mem_ctx, struct dns_connection *conn,
 	if (!ERR_DNS_IS_OK(err)) goto error;
 
 	err = dns_send(conn, buf);
-	if (!ERR_DNS_IS_OK(err)) goto error;
+	if (!ERR_DNS_IS_OK(err)) {
+	    goto error;
+	}
 	TALLOC_FREE(buf);
 
 	err = dns_receive(mem_ctx, conn, &buf);
-	if (!ERR_DNS_IS_OK(err)) goto error;
+	if (!ERR_DNS_IS_OK(err)) {
+	    goto error;
+	}
 
 	err = dns_unmarshall_request(mem_ctx, buf, resp);
 
@@ -371,7 +403,9 @@ DNS_ERROR dns_update_transaction(TALLOC_CTX *mem_ctx,
 	err = dns_transaction(mem_ctx, conn, dns_update2request(up_req),
 			      &resp);
 
-	if (!ERR_DNS_IS_OK(err)) return err;
+	if (!ERR_DNS_IS_OK(err)) {
+	    return err;
+	}
 
 	*up_resp = dns_request2update(resp);
 	return ERROR_DNS_SUCCESS;

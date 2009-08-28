@@ -40,6 +40,7 @@
 
 const uint32_t kPCSCLITE_HP_BASE_PORT = 0x200000;
 PCSCDMonitor *gPCSCDMonitor = NULL;
+static Security::MachPlusPlus::Port gMainServerPort;
 
 #ifndef HOTPLUGTEST
 	#include "readerfactory.h"
@@ -92,6 +93,7 @@ static void *HPDeviceNotificationThread(void *foo)
 		PCSCD::Server myserv("hotplug");
 		PCSCDMonitor xmon(myserv,bdls);
 		gPCSCDMonitor = &xmon;
+		gMainServerPort = myserv.primaryServicePort();
 		xmon.setCallbacks(WrapRFAddReader, WrapRFRemoveReader, WrapRFSuspendAllReaders, WrapRFAwakeAllReaders);
 		bdls.update();
 		myserv.run();
@@ -142,10 +144,23 @@ int32_t HPRegisterForHotplugEventsT(pthread_t *wthread)
 
 LONG HPStopHotPluggables(void)
 {
-	return 0;
+	int rx = pthread_detach(sHotplugWatcherThread);
+	return rx;
 }
 
 void HPReCheckSerialReaders(void)
 {
 }
 
+LONG HPCancelHotPluggables(void)
+{
+	int rx = pthread_cancel(sHotplugWatcherThread);
+	return rx;
+}
+
+LONG HPJoinHotPluggables(void)
+{
+	char *value_ptr;
+	int rx = pthread_join(sHotplugWatcherThread, (void **)&value_ptr);
+	return rx;
+}

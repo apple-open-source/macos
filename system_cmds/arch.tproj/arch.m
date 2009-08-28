@@ -36,6 +36,7 @@
 #include <mach/mach.h>
 #include <mach-o/arch.h>
 #include <Foundation/Foundation.h>
+#include <TargetConditionals.h>
 
 #ifndef ARCH_PROG
 #define ARCH_PROG	"arch"
@@ -47,6 +48,7 @@
 
 #define CPUCOUNT(c)	((c)->ptr - (c)->buf)
 
+#if !TARGET_OS_EMBEDDED
 static NSMutableDictionary *ArchDict;
 static NSString *KeyExecPath = @"ExecutablePath";
 static NSString *KeyPlistVersion = @"PropertyListVersion";
@@ -75,6 +77,7 @@ static StrInt initArches[] = {
     {"x86_64", CPU_TYPE_X86_64},
     {NULL, 0}
 };
+#endif /* !TARGET_OS_EMBEDDED */
 
 /*
  * arch - perform the original behavior of the arch and machine commands.
@@ -97,6 +100,7 @@ arch(int archcmd)
     exit(0);
 }
 
+#if !TARGET_OS_EMBEDDED
 /*
  * spawnIt - run the posix_spawn command.  count is the number of CPU types
  * in the prefs array.  pflag is non-zero to call posix_spawnp; zero means to
@@ -544,6 +548,7 @@ init(CPU *cpu)
     }
     initCPU(cpu);
 }
+#endif /* !TARGET_OS_EMBEDDED */
 
 /* the main() routine */
 int
@@ -551,7 +556,9 @@ main(int argc, char **argv, char **environ)
 {
     const char *prog = getprogname();
     int my_name_is_arch;
+#if !TARGET_OS_EMBEDDED
     CPU cpu;
+#endif
 
     if(strcmp(prog, MACHINE_PROG) == 0) {
 	if(argc > 1)
@@ -562,6 +569,7 @@ main(int argc, char **argv, char **environ)
 	    arch(1); /* the "arch" command with no arguments was called */
     }
 
+#if !TARGET_OS_EMBEDDED
     /* set up Objective C autorelease pool */
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
     init(&cpu); /* initialize */
@@ -573,4 +581,5 @@ main(int argc, char **argv, char **environ)
     /* should never get here */
     [pool release];
     errx(1, "returned from spawn");
+#endif /* !TARGET_OS_EMBEDDED */
 }

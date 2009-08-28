@@ -1,9 +1,9 @@
 #
-# "$Id: Makedefs.in 7242 2008-01-22 22:37:21Z mike $"
+# "$Id: Makedefs.in 7900 2008-09-03 13:47:57Z mike $"
 #
 #   Common makefile definitions for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 2007-2008 by Apple Inc.
+#   Copyright 2007-2009 by Apple Inc.
 #   Copyright 1997-2007 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -20,8 +20,10 @@
 AR		=	@AR@
 AWK		=	@AWK@
 CC		=	@LIBTOOL@ @CC@
+CHMOD		=	@CHMOD@
 CXX		=	@LIBTOOL@ @CXX@
 DSO		=	@DSO@
+DSOXX		=	@DSOXX@
 HTMLDOC		=	@HTMLDOC@
 INSTALL		=	@INSTALL@
 LD		=	@LD@
@@ -34,19 +36,18 @@ RM		=	@RM@ -f
 RMDIR		=	@RMDIR@
 SED		=	@SED@
 SHELL		=	/bin/sh
-STRIP		=	@STRIP@
 
 #
 # Installation programs...
 #
 
-INSTALL_BIN	=	$(LIBTOOL) $(INSTALL) -m 755
-INSTALL_CONFIG	=	$(INSTALL) -m @CUPS_CONFIG_FILE_PERM@
-INSTALL_DATA	=	$(INSTALL) -m 644
+INSTALL_BIN	=	$(LIBTOOL) $(INSTALL) -c -m 555 @INSTALL_STRIP@
+INSTALL_CONFIG	=	$(INSTALL) -c -m @CUPS_CONFIG_FILE_PERM@
+INSTALL_DATA	=	$(INSTALL) -c -m 444
 INSTALL_DIR	=	$(INSTALL) -d
-INSTALL_LIB	=	$(LIBTOOL) $(INSTALL) -m 755
-INSTALL_MAN	=	$(INSTALL) -m 644
-INSTALL_SCRIPT	=	$(INSTALL) -m 755
+INSTALL_LIB	=	$(LIBTOOL) $(INSTALL) -c -m 555 @INSTALL_STRIP@
+INSTALL_MAN	=	$(INSTALL) -c -m 444
+INSTALL_SCRIPT	=	$(INSTALL) -c -m 555
 
 #
 # Default user, group, and system groups for the scheduler...
@@ -77,7 +78,11 @@ UNINSTALL_LANGUAGES =	@UNINSTALL_LANGUAGES@
 #
 
 LIBCUPS		=	@LIBCUPS@
+LIBCUPSCGI	=	@LIBCUPSCGI@
+LIBCUPSDRIVER	=	@LIBCUPSDRIVER@
 LIBCUPSIMAGE	=	@LIBCUPSIMAGE@
+LIBCUPSMIME	=	@LIBCUPSMIME@
+LIBCUPSPPDC	=	@LIBCUPSPPDC@
 LIBJPEG		=	@LIBJPEG@
 LIBLDAP		=	@LIBLDAP@
 LIBMALLOC	=	@LIBMALLOC@
@@ -86,6 +91,8 @@ LIBPNG		=	@LIBPNG@
 LIBSLP		=	@LIBSLP@
 LIBGSSAPI	=	@LIBGSSAPI@
 LIBTIFF		=	@LIBTIFF@
+LIBUSB		=	@LIBUSB@
+LIBWRAP		=	@LIBWRAP@
 LIBZ		=	@LIBZ@
 
 #
@@ -115,24 +122,29 @@ ALL_CXXFLAGS	=	-I.. -D_CUPS_SOURCE $(CXXFLAGS) $(SSLFLAGS) \
 ARCHFLAGS	=	@ARCHFLAGS@
 ARFLAGS		=	@ARFLAGS@
 BACKLIBS	=	@BACKLIBS@
+BANNERTOPS	=	@BANNERTOPS@
 CFLAGS		=	@CPPFLAGS@ @CFLAGS@
 COMMONLIBS	=	@LIBS@
 CUPSDLIBS	=	@CUPSDLIBS@
 CXXFLAGS	=	@CPPFLAGS@ @CXXFLAGS@
 CXXLIBS		=	@CXXLIBS@
-DSOFLAGS	=	@DSOFLAGS@
+DBUS_NOTIFIER	=	@DBUS_NOTIFIER@
+DBUS_NOTIFIERLIBS =	@DBUS_NOTIFIERLIBS@
+DNSSD_BACKEND	=	@DNSSD_BACKEND@
+DSOFLAGS	=	-L../cups @DSOFLAGS@
 DSOLIBS		=	@DSOLIBS@ $(COMMONLIBS)
 DNSSDLIBS	=	@DNSSDLIBS@
 FONTS		=	@FONTS@
 IMGLIBS		=	@IMGLIBS@
 IMGFILTERS	=	@IMGFILTERS@
 LAUNCHDLIBS	=	@LAUNCHDLIBS@
-LDFLAGS		=	-L../cups -L../filter @LDARCHFLAGS@ \
+LDFLAGS		=	-L../cgi-bin -L../cups -L../filter -L../ppdc \
+			-L../scheduler @LDARCHFLAGS@ \
 			@LDFLAGS@ @RELROFLAGS@ @PIEFLAGS@ $(OPTIM)
 LEGACY_BACKENDS	=	@LEGACY_BACKENDS@
 LIBCUPSORDER	=	@LIBCUPSORDER@
 LIBCUPSIMAGEORDER =	@LIBCUPSIMAGEORDER@
-LINKCUPS	=	@LINKCUPS@ $(SSLLIBS)
+LINKCUPS	=	@LINKCUPS@ $(SSLLIBS) $(DNSSDLIBS)
 LINKCUPSIMAGE	=	@LINKCUPSIMAGE@
 LIBS		=	$(LINKCUPS) $(COMMONLIBS)
 OPTIM		=	@OPTIM@
@@ -141,8 +153,12 @@ PAMLIBS		=	@PAMLIBS@
 PAP		=	@PAP@
 PDFTOPS		=	@PDFTOPS@
 PHPDIR		=	@PHPDIR@
+PHPOPTIONS	=	@PHPOPTIONS@ -I../.. `$(PHPCONFIG) --includes`
 SSLFLAGS	=	@SSLFLAGS@
 SSLLIBS		=	@SSLLIBS@
+TEXTTOPS	=	@TEXTTOPS@
+UNITTESTS	=	@UNITTESTS@
+
 
 #
 # Separate 32/64-bit library support...
@@ -221,6 +237,7 @@ REQUESTS	= 	$(BUILDROOT)@CUPS_REQUESTS@
 SBINDIR		=	$(BUILDROOT)@sbindir@
 SERVERBIN	= 	$(BUILDROOT)@CUPS_SERVERBIN@
 SERVERROOT	= 	$(BUILDROOT)@CUPS_SERVERROOT@
+SMFMANIFESTDIR	= 	@SMFMANIFESTDIR@
 STATEDIR	=	$(BUILDROOT)@CUPS_STATEDIR@
 XINETD		=	@XINETD@
 
@@ -242,7 +259,7 @@ DBUSDIR		=	@DBUSDIR@
 #
 
 .SILENT:
-.SUFFIXES:	.1 .1.gz .1m .1m.gz .5 .5.gz .7 .7.gz .8 .8.gz .a .c .cxx .h .man .o .32.o .64.o .gz
+.SUFFIXES:	.1 .1.gz .1m .1m.gz .3 .3.gz .5 .5.gz .7 .7.gz .8 .8.gz .a .c .cxx .h .man .o .32.o .64.o .gz
 
 .c.o:
 	echo Compiling $<...
@@ -260,17 +277,17 @@ DBUSDIR		=	@DBUSDIR@
 	echo Compiling $<...
 	$(CXX) $(ARCHFLAGS) $(OPTIM) $(ALL_CXXFLAGS) -c $<
 
-.man.1 .man.1m .man.5 .man.7 .man.8:
+.man.1 .man.1m .man.3 .man.5 .man.7 .man.8:
 	echo Linking $<...
 	$(RM) $@
 	$(LN) $< $@
 
-.man.1.gz .man.1m.gz .man.5.gz .man.7.gz .man.8.gz .man.gz:
+.man.1.gz .man.1m.gz .man.3.gz .man.5.gz .man.7.gz .man.8.gz .man.gz:
 	echo -n Compressing $<...
 	$(RM) $@
 	gzip -v9 <$< >$@
 
 
 #
-# End of "$Id: Makedefs.in 7242 2008-01-22 22:37:21Z mike $"
+# End of "$Id: Makedefs.in 7900 2008-09-03 13:47:57Z mike $"
 #

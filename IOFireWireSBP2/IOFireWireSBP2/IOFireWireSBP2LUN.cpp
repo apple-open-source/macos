@@ -63,7 +63,7 @@ bool IOFireWireSBP2LUN::attach(IOService *provider)
 	fORBSet 		= NULL;
 	fORBSetIterator = NULL;
 	
-    FWKLOG( ( "IOFireWireSBP2LUN<0x%08lx> : attach\n", (UInt32)this ) );
+    FWKLOG( ( "IOFireWireSBP2LUN<%p> : attach\n", this ) );
 	
 	//
 	// attach to provider
@@ -178,7 +178,7 @@ bool IOFireWireSBP2LUN::attach(IOService *provider)
 
 bool IOFireWireSBP2LUN::finalize( IOOptionBits options )
 {
-	FWKLOG( ( "IOFireWireSBP2LUN<0x%08lx> : finalize\n", (UInt32)this ) );
+	FWKLOG( ( "IOFireWireSBP2LUN<%p> : finalize\n", this ) );
 
 	return IOService::finalize( options );
 }
@@ -189,7 +189,7 @@ bool IOFireWireSBP2LUN::finalize( IOOptionBits options )
 
 void IOFireWireSBP2LUN::free( void )
 {
-	FWKLOG( ( "IOFireWireSBP2LUN<0x%08lx> : free\n", (UInt32)this ) );
+	FWKLOG( ( "IOFireWireSBP2LUN<%p> : free\n", this ) );
 
 	//
 	// free unreleased orbs
@@ -284,7 +284,7 @@ IOReturn IOFireWireSBP2LUN::executeFlushAllMgmtORBs( void )
 
 bool IOFireWireSBP2LUN::handleOpen( IOService * forClient, IOOptionBits options, void * arg )
 {
-    FWKLOG(( "IOFireWireSBP2LUN<0x%08lx> (%d) : handleOpen\n", (UInt32)this, fLUNumber ));
+    FWKLOG(( "IOFireWireSBP2LUN<%p> (%d) : handleOpen\n", this, fLUNumber ));
 	
 	bool ok = false;
 	
@@ -300,7 +300,7 @@ bool IOFireWireSBP2LUN::handleOpen( IOService * forClient, IOOptionBits options,
 
 void IOFireWireSBP2LUN::handleClose( IOService * forClient, IOOptionBits options )
 {
-    FWKLOG(( "IOFireWireSBP2LUN<0x%08lx> (%d) : handleClose\n", (UInt32)this, fLUNumber ));
+    FWKLOG(( "IOFireWireSBP2LUN<%p> (%d) : handleClose\n", this, fLUNumber ));
 	
 	if( isOpen( forClient ) )
 	{
@@ -327,18 +327,18 @@ IOReturn IOFireWireSBP2LUN::message( UInt32 type, IOService *nub, void *arg )
         {
             case kIOMessageServiceIsTerminated:
 				terminateNotify();
-                FWKLOG( ( "IOFireWireSBP2LUN<0x%08lx> : kIOMessageServiceIsTerminated\n", (UInt32)this ) );
+                FWKLOG( ( "IOFireWireSBP2LUN<%p> : kIOMessageServiceIsTerminated\n", this ) );
                 res = kIOReturnSuccess;
                 break;
 
             case kIOMessageServiceIsSuspended:
-				FWKLOG( ( "IOFireWireSBP2LUN<0x%08lx> : kIOMessageServiceIsSuspended\n", (UInt32)this ) );
+				FWKLOG( ( "IOFireWireSBP2LUN<%p> : kIOMessageServiceIsSuspended\n", this ) );
                 suspendedNotify();
                 res = kIOReturnSuccess;
                 break;
 
             case kIOMessageServiceIsResumed:
-				FWKLOG( ( "IOFireWireSBP2LUN<0x%08lx> : kIOMessageServiceIsResumed\n", (UInt32)this ) );
+				FWKLOG( ( "IOFireWireSBP2LUN<%p> : kIOMessageServiceIsResumed\n", this ) );
                 resumeNotify();
                 res = kIOReturnSuccess;
                 break;

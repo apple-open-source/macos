@@ -482,11 +482,13 @@ _SC_stringIsValidDNSName(const char *name)
 		} else if (isalnum(ch) == 0) {
 			switch (ch) {
 				case '.':
-				case '-':
-					if (prev == '.' || prev == '-') {
-						/* a label cannot begin or end with a hyphen */
+					if (prev == '.') {
+						/* no empty labels */
 						return FALSE;
 					}
+					break;
+				case '-':
+					/* hyphens are OK within a label */
 					break;
 				default:
 					/* an invalid character */

@@ -23,6 +23,8 @@
 #ifndef _APPLELVMSTORAGEREQUEST_H
 #define _APPLELVMSTORAGEREQUEST_H
 
+class AppleLVMMemoryDescriptor;
+
 class AppleLVMStorageRequest : public AppleRAIDStorageRequest
 {
     OSDeclareDefaultStructors(AppleLVMStorageRequest);
@@ -31,10 +33,10 @@ class AppleLVMStorageRequest : public AppleRAIDStorageRequest
     friend class AppleRAIDEventSource;				// XXX remove this
     friend class AppleLVMMemoryDescriptor;			// XXX remove this
     
-    virtual void read(IOService *client, UInt64 byteStart, IOMemoryDescriptor * buffer,
-		      IOStorageCompletion completion);
-    virtual void write(IOService *client, UInt64 byteStart, IOMemoryDescriptor * buffer,
-		       IOStorageCompletion completion);
+    virtual void read(IOService *client, UInt64 byteStart, IOMemoryDescriptor *buffer,
+		      IOStorageAttributes *attributes, IOStorageCompletion *completion);
+    virtual void write(IOService *client, UInt64 byteStart, IOMemoryDescriptor *buffer,
+		      IOStorageAttributes *attributes, IOStorageCompletion *completion);
 
 public:
     static AppleLVMStorageRequest *withAppleRAIDSet(AppleRAIDSet * xsset);

@@ -1,4 +1,4 @@
-/*
+/*-
  * Copyright (c) 1983, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -32,31 +28,43 @@
  */
 
 #if defined(LIBC_SCCS) && !defined(lint)
-static char sccsid[] = "@(#)inet_ntoa.c	8.1 (Berkeley) 6/4/93";
+static const char sccsid[] = "@(#)inet_ntoa.c	8.1 (Berkeley) 6/4/93";
+static const char rcsid[] = "$Id: inet_ntoa.c,v 1.1.352.1 2005/04/27 05:00:54 sra Exp $";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/net/inet_ntoa.c,v 1.6 2002/03/22 21:52:29 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/inet/inet_ntoa.c,v 1.6 2007/06/14 07:13:28 delphij Exp $");
+
+#include "port_before.h"
 
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+
 #include <stdio.h>
 #include <string.h>
 
-/*
+#include "port_after.h"
+
+/*%
  * Convert network-format internet address
  * to base 256 d.d.d.d representation.
  */
-char *
-inet_ntoa(in)
-	struct in_addr in;
-{
+/*const*/ char *
+inet_ntoa(struct in_addr in) {
 	static char ret[18];
 
 	strcpy(ret, "[inet_ntoa error]");
 	(void) inet_ntop(AF_INET, &in, ret, sizeof ret);
 	return (ret);
+}
+
+char *
+inet_ntoa_r(struct in_addr in, char *buf, socklen_t size)
+{
+
+	(void) inet_ntop(AF_INET, &in, buf, size);
+	return (buf);
 }
 
 /*
@@ -65,3 +73,6 @@ inet_ntoa(in)
  */
 #undef inet_ntoa
 __weak_reference(__inet_ntoa, inet_ntoa);
+__weak_reference(__inet_ntoa_r, inet_ntoa_r);
+
+/*! \file */

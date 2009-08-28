@@ -22,7 +22,7 @@
   <Item>
    <Para>More accurate reporting of variables optimized away</Para>
    <Para>When a variable has been optimized away by the compiler, instead of the old behavior (sometimes being told "variable optimized out" and sometimes being told gdb never heard of the variable), the debugger will always report "variable optimized away by the compiler" when the DWARF debugging format is used.</Para>
-   <Para>When you request to see a variable which gdb can't currently get the value for (but which was not entirely optimized away by the compiler), instead of being told "variable optimized out", gdb will now report "value temporarily unavailable, due to optimizations" when the DWARF deubgging format is used.</Para>
+   <Para>When you request to see a variable which gdb can't currently get the value for (but which was not entirely optimized away by the compiler), instead of being told "variable optimized out", gdb will now report "value temporarily unavailable, due to optimizations" when the DWARF debugging format is used.</Para>
    <Para>If you get the "temporarily unavailable" message, you can use the command "<codeVoice xml:space="preserve">info address &lt;var></codeVoice>" to see a list of address ranges where the value will be available.  Then by monitoring <codeVoice xml:space="preserve">$pc</codeVoice> you can proceed to a location where you can examine the variable.</Para>
   </Item>
  

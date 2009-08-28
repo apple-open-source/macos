@@ -121,7 +121,7 @@ ENTRY( ilogb )
     shrq    $1,     %rdx
     bsrq    %rdx,   %rax
     subl    $(1022+52), %eax
-    cmp     $0,     %edx
+    cmp     $0,     %rdx
     cmove   %ecx,   %eax
     ret
 #endif

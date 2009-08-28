@@ -107,15 +107,15 @@ Index: samba/source/smbd/sesssetup.c
  	DATA_BLOB secblob;
  	DATA_BLOB chal;
 -	BOOL got_kerberos_mechanism = False;
-+	char *kerb_mech;
++	char *kerb_mech = NULL;
  	NTSTATUS status;
  
 -	status = parse_spnego_mechanisms(blob1, &secblob, &got_kerberos_mechanism);
 +	status = parse_spnego_mechanisms(blob1, &secblob, &kerb_mech);
  	if (!NT_STATUS_IS_OK(status)) {
  		/* Kill the intermediate vuid */
- 		invalidate_vuid(vuid);
-@@ -721,17 +725,21 @@ static int reply_spnego_negotiate(connec
+ 		invalidate_intermediate_vuid(vuid);
+@@ -721,28 +725,34 @@ static int reply_spnego_negotiate(connec
  	DEBUG(3,("reply_spnego_negotiate: Got secblob of size %lu\n", (unsigned long)secblob.length));
  
  #ifdef HAVE_KRB5
@@ -129,17 +129,31 @@ Index: samba/source/smbd/sesssetup.c
  		data_blob_free(&secblob);
  		if (destroy_vuid) {
  			/* Kill the intermediate vuid */
- 			invalidate_vuid(vuid);
+ 			invalidate_intermediate_vuid(vuid);
  		}
-+		free(kerb_mech);
++		SAFE_FREE(kerb_mech);
  		return ret;
  	}
-+	if (kerb_mech)
-+		free(kerb_mech);
++
  #endif
  
+-	if (got_kerberos_mechanism) {
++	if (kerb_mech) {
+ 		invalidate_intermediate_vuid(vuid);
+ 		DEBUG(3,("reply_spnego_negotiate: network "
+ 			"misconfiguration, client sent us a "
+ 			"krb5 ticket and kerberos security "
+ 			"not enabled"));
++		SAFE_FREE(kerb_mech);
+ 		return ERROR_NT(nt_status_squash(NT_STATUS_LOGON_FAILURE));
+ 	}
+ 
++	SAFE_FREE(kerb_mech);
++
  	if (*auth_ntlmssp_state) {
-@@ -787,23 +795,27 @@ static int reply_spnego_auth(connection_
+ 		auth_ntlmssp_end(auth_ntlmssp_state);
+ 	}
+@@ -796,23 +806,29 @@ static int reply_spnego_auth(connection_
  	if (auth.data[0] == ASN1_APPLICATION(0)) {
  		/* Might be a second negTokenTarg packet */
  
@@ -147,6 +161,7 @@ Index: samba/source/smbd/sesssetup.c
 -		status = parse_spnego_mechanisms(auth, &secblob, &got_krb5_mechanism);
 +		char *kerb_mech = NULL;
 +		status = parse_spnego_mechanisms(auth, &secblob, &kerb_mech);
++
  		if (NT_STATUS_IS_OK(status)) {
  			DEBUG(3,("reply_spnego_auth: Got secblob of size %lu\n", (unsigned long)secblob.length));
  #ifdef HAVE_KRB5
@@ -155,19 +170,20 @@ Index: samba/source/smbd/sesssetup.c
  				BOOL destroy_vuid = True;
  				int ret = reply_spnego_kerberos(conn, inbuf, outbuf, 
 -								length, bufsize, &secblob, &destroy_vuid);
-+								length, bufsize, kerb_mech,
-+								&secblob, &destroy_vuid);
++								length,
++								bufsize,
++								kerb_mech, &secblob, &destroy_vuid);
  				data_blob_free(&secblob);
  				data_blob_free(&auth);
  				if (destroy_vuid) {
  					/* Kill the intermediate vuid */
- 					invalidate_vuid(vuid);
+ 					invalidate_intermediate_vuid(vuid);
  				}
-+				free(kerb_mech);
++				SAFE_FREE(kerb_mech);
  				return ret;
  			}
-+			if (kerb_mech)
-+				free(kerb_mech);
++
++			SAFE_FREE(kerb_mech);
  #endif
  		}
  	}

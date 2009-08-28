@@ -1,10 +1,10 @@
---- filter.c+orig	2006-12-21 08:28:51.000000000 -0800
-+++ filter.c	2006-12-21 08:29:29.000000000 -0800
-@@ -154,6 +154,7 @@ bool filter_apply_chain (struct filter *
- 	if (pid == 0) {
- 		/* child */
+--- ../flex-2.5.35/filter.c	2007-03-07 13:50:24.000000000 -0800
++++ ./filter.c	2008-02-26 16:13:21.000000000 -0800
+@@ -161,6 +161,7 @@ bool filter_apply_chain (struct filter *
+          * to sync the stream. This is a Hail Mary situation. It seems to work.
+          */
  		close (pipes[1]);
 +		clearerr(stdin);
- 		if (dup2 (pipes[0], 0) == -1)
+ 		if (dup2 (pipes[0], fileno (stdin)) == -1)
  			flexfatal (_("dup2(pipes[0],0)"));
  		close (pipes[0]);

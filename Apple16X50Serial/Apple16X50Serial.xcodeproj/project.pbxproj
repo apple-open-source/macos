@@ -19,11 +19,8 @@
 		C1D77DB90DD4BCB4001E21DB /* Apple16X50UARTTypes.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F52F27B90265806C02A80102 /* Apple16X50UARTTypes.cpp */; };
 		C1D77DBA0DD4BCB4001E21DB /* Apple16X50PCI.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F557E000022B7E1402A80164 /* Apple16X50PCI.cpp */; };
 		C1D77DBB0DD4BCB4001E21DB /* Apple16X50UARTSyncPower.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 58F19B680A8D3E750073F8A1 /* Apple16X50UARTSyncPower.cpp */; };
-		C1D77DCC0DD4BCB4001E21DB /* Apple16X50PCCard.h in Headers */ = {isa = PBXBuildFile; fileRef = F5269AA1023EDA4402CA28B1 /* Apple16X50PCCard.h */; };
-		C1D77DCE0DD4BCB4001E21DB /* Apple16X50PCCard.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5269AA2023EDA4402CA28B1 /* Apple16X50PCCard.cpp */; };
 		C1D77DDE0DD4BCB5001E21DB /* Apple16X50ACPI.h in Headers */ = {isa = PBXBuildFile; fileRef = B9FBA1820460213D08D5663B /* Apple16X50ACPI.h */; };
 		C1D77DE00DD4BCB5001E21DB /* Apple16X50ACPI.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B9FBA1810460213D08D5663B /* Apple16X50ACPI.cpp */; };
-		C1D77DF10DD4BCB5001E21DB /* Apple16X50PCCard.kext in CopyFiles */ = {isa = PBXBuildFile; fileRef = C1D77DDA0DD4BCB5001E21DB /* Apple16X50PCCard.kext */; };
 		C1D77E300DD4BEC1001E21DB /* Apple16X50UARTSync.h in Headers */ = {isa = PBXBuildFile; fileRef = 1A224C3EFF42367911CA2CB7 /* Apple16X50UARTSync.h */; settings = {ATTRIBUTES = (); }; };
 		C1D77E310DD4BEC1001E21DB /* Apple16X50Queue.h in Headers */ = {isa = PBXBuildFile; fileRef = F57720B202375BFA02A80164 /* Apple16X50Queue.h */; };
 		C1D77E320DD4BEC1001E21DB /* Apple16X50Serial.h in Headers */ = {isa = PBXBuildFile; fileRef = F52B9DB9023C40A102A80164 /* Apple16X50Serial.h */; };
@@ -41,13 +38,6 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		C1D77DED0DD4BCB5001E21DB /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = C1D77DC90DD4BCB4001E21DB;
-			remoteInfo = "Apple16X50PCCard (Upgraded)";
-		};
 		C1D77DEF0DD4BCB5001E21DB /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
@@ -71,7 +61,6 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				C1D77DF10DD4BCB5001E21DB /* Apple16X50PCCard.kext in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -94,16 +83,12 @@
 		B9FBA1820460213D08D5663B /* Apple16X50ACPI.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Apple16X50ACPI.h; sourceTree = "<group>"; };
 		C1D77DC70DD4BCB4001E21DB /* Info-Apple16X50Serial.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-Apple16X50Serial.plist"; sourceTree = "<group>"; };
 		C1D77DC80DD4BCB4001E21DB /* Apple16X50Serial.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Apple16X50Serial.kext; sourceTree = BUILT_PRODUCTS_DIR; };
-		C1D77DD90DD4BCB4001E21DB /* Info-Apple16X50PCCard.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-Apple16X50PCCard.plist"; sourceTree = "<group>"; };
-		C1D77DDA0DD4BCB5001E21DB /* Apple16X50PCCard.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Apple16X50PCCard.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		C1D77DEB0DD4BCB5001E21DB /* Info-Apple16X50ACPI.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-Apple16X50ACPI.plist"; sourceTree = "<group>"; };
 		C1D77DEC0DD4BCB5001E21DB /* Apple16X50ACPI.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Apple16X50ACPI.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		C1D77E480DD4BEC1001E21DB /* Apple16X50Serial.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Apple16X50Serial.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		C1FCFC6D0DD6692C00EEDE4F /* Apple16X50ACPI.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Apple16X50ACPI.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		F51EE72D0231EF5402A80164 /* Apple16X50BusInterface.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Apple16X50BusInterface.h; sourceTree = "<group>"; };
 		F51EE72E0231EF5402A80164 /* Apple16X50BusInterface.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = Apple16X50BusInterface.cpp; sourceTree = "<group>"; };
-		F5269AA1023EDA4402CA28B1 /* Apple16X50PCCard.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Apple16X50PCCard.h; sourceTree = "<group>"; };
-		F5269AA2023EDA4402CA28B1 /* Apple16X50PCCard.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = Apple16X50PCCard.cpp; sourceTree = "<group>"; };
 		F52B9DB9023C40A102A80164 /* Apple16X50Serial.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Apple16X50Serial.h; sourceTree = "<group>"; };
 		F52B9DBC023C659902A80164 /* ReadMe.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; path = ReadMe.rtf; sourceTree = "<group>"; };
 		F52F27B80265806C02A80102 /* Apple16X50UARTTypes.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Apple16X50UARTTypes.h; sourceTree = "<group>"; };
@@ -112,20 +97,12 @@
 		F557E000022B7E1402A80164 /* Apple16X50PCI.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = Apple16X50PCI.cpp; sourceTree = "<group>"; };
 		F5771AAA025EAE3B02A80102 /* IOKit */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = folder; name = IOKit; path = /System/Library/Frameworks/Kernel.framework/Versions/A/Headers/IOKit; sourceTree = "<absolute>"; };
 		F5771AAB025EAE3B02A80102 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = /System/Library/Frameworks/Kernel.framework; sourceTree = "<absolute>"; };
-		F5771AAC025EAE5A02A80102 /* pccard */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = folder; name = pccard; path = /System/Library/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/pccard; sourceTree = "<absolute>"; };
 		F57720B202375BFA02A80164 /* Apple16X50Queue.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Apple16X50Queue.h; sourceTree = "<group>"; };
 		F57720B302375BFA02A80164 /* Apple16X50Queue.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = Apple16X50Queue.cpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		C1D77DBC0DD4BCB4001E21DB /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		C1D77DD00DD4BCB4001E21DB /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -162,11 +139,9 @@
 				247142CAFF3F8F9811CA285C /* Source */,
 				089C167CFE841241C02AAC07 /* Resources */,
 				19C28FB6FE9D52B211CA2CBB /* Products */,
-				F5771AAC025EAE5A02A80102 /* pccard */,
 				F5771AAA025EAE3B02A80102 /* IOKit */,
 				F5771AAB025EAE3B02A80102 /* Kernel.framework */,
 				C1D77DC70DD4BCB4001E21DB /* Info-Apple16X50Serial.plist */,
-				C1D77DD90DD4BCB4001E21DB /* Info-Apple16X50PCCard.plist */,
 				C1D77DEB0DD4BCB5001E21DB /* Info-Apple16X50ACPI.plist */,
 			);
 			name = Apple16X50Serial;
@@ -183,7 +158,6 @@
 			isa = PBXGroup;
 			children = (
 				C1D77DC80DD4BCB4001E21DB /* Apple16X50Serial.kext */,
-				C1D77DDA0DD4BCB5001E21DB /* Apple16X50PCCard.kext */,
 				C1D77DEC0DD4BCB5001E21DB /* Apple16X50ACPI.kext */,
 				C1D77E480DD4BEC1001E21DB /* Apple16X50Serial.kext */,
 				C1FCFC6D0DD6692C00EEDE4F /* Apple16X50ACPI.kext */,
@@ -200,8 +174,6 @@
 				F51EE72E0231EF5402A80164 /* Apple16X50BusInterface.cpp */,
 				F557DFFF022B7E1402A80164 /* Apple16X50PCI.h */,
 				F557E000022B7E1402A80164 /* Apple16X50PCI.cpp */,
-				F5269AA1023EDA4402CA28B1 /* Apple16X50PCCard.h */,
-				F5269AA2023EDA4402CA28B1 /* Apple16X50PCCard.cpp */,
 				F57720B202375BFA02A80164 /* Apple16X50Queue.h */,
 				F57720B302375BFA02A80164 /* Apple16X50Queue.cpp */,
 				F52F27B80265806C02A80102 /* Apple16X50UARTTypes.h */,
@@ -228,14 +200,6 @@
 				C1D77DB10DD4BCB4001E21DB /* Apple16X50BusInterface.h in Headers */,
 				C1D77DB20DD4BCB4001E21DB /* Apple16X50UARTTypes.h in Headers */,
 				C1D77DB30DD4BCB4001E21DB /* Apple16X50PCI.h in Headers */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		C1D77DCB0DD4BCB4001E21DB /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				C1D77DCC0DD4BCB4001E21DB /* Apple16X50PCCard.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -286,34 +250,12 @@
 			buildRules = (
 			);
 			dependencies = (
-				C1D77DEE0DD4BCB5001E21DB /* PBXTargetDependency */,
 				C1D77DF00DD4BCB5001E21DB /* PBXTargetDependency */,
 			);
 			name = Apple16X50Serial;
 			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 			productName = Apple16X50Serial;
 			productReference = C1D77DC80DD4BCB4001E21DB /* Apple16X50Serial.kext */;
-			productType = "com.apple.product-type.kernel-extension.iokit";
-		};
-		C1D77DC90DD4BCB4001E21DB /* Apple16X50PCCard */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = C1D77DD20DD4BCB4001E21DB /* Build configuration list for PBXNativeTarget "Apple16X50PCCard" */;
-			buildPhases = (
-				C1D77DCA0DD4BCB4001E21DB /* ShellScript */,
-				C1D77DCB0DD4BCB4001E21DB /* Headers */,
-				C1D77DCD0DD4BCB4001E21DB /* Sources */,
-				C1D77DCF0DD4BCB4001E21DB /* Resources */,
-				C1D77DD00DD4BCB4001E21DB /* Frameworks */,
-				C1D77DD10DD4BCB4001E21DB /* ShellScript */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = Apple16X50PCCard;
-			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions/Apple16X50Serial.kext/Contents/PlugIns";
-			productName = Apple16X50PCCard;
-			productReference = C1D77DDA0DD4BCB5001E21DB /* Apple16X50PCCard.kext */;
 			productType = "com.apple.product-type.kernel-extension.iokit";
 		};
 		C1D77DDB0DD4BCB5001E21DB /* Apple16X50ACPI */ = {
@@ -398,7 +340,6 @@
 			targets = (
 				C1D77DA70DD4BCB4001E21DB /* Apple16X50Serial */,
 				C1D77E290DD4BEC1001E21DB /* Apple16X50Serial_embedded */,
-				C1D77DC90DD4BCB4001E21DB /* Apple16X50PCCard */,
 				C1D77DDB0DD4BCB5001E21DB /* Apple16X50ACPI */,
 				C1FCFC5E0DD6692C00EEDE4F /* Apple16X50ACPI_embedded */,
 			);
@@ -407,13 +348,6 @@
 
 /* Begin PBXResourcesBuildPhase section */
 		C1D77DB40DD4BCB4001E21DB /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		C1D77DCF0DD4BCB4001E21DB /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -454,24 +388,6 @@
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
 		C1D77DBD0DD4BCB4001E21DB /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
-		};
-		C1D77DCA0DD4BCB4001E21DB /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
-		};
-		C1D77DD10DD4BCB4001E21DB /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -550,14 +466,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		C1D77DCD0DD4BCB4001E21DB /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				C1D77DCE0DD4BCB4001E21DB /* Apple16X50PCCard.cpp in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		C1D77DDF0DD4BCB5001E21DB /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -590,11 +498,6 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		C1D77DEE0DD4BCB5001E21DB /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = C1D77DC90DD4BCB4001E21DB /* Apple16X50PCCard */;
-			targetProxy = C1D77DED0DD4BCB5001E21DB /* PBXContainerItemProxy */;
-		};
 		C1D77DF00DD4BCB5001E21DB /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = C1D77DDB0DD4BCB5001E21DB /* Apple16X50ACPI */;
@@ -641,6 +544,7 @@
 		C1D77DC10DD4BCB4001E21DB /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -655,14 +559,14 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Apple16X50Serial;
-				MODULE_VERSION = 1.9;
+				MODULE_VERSION = 2.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = Apple16X50Serial;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
-					"-Wmost",
+					"-Wall",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
 				);
@@ -674,6 +578,7 @@
 		C1D77DC20DD4BCB4001E21DB /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -685,7 +590,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Apple16X50Serial;
-				MODULE_VERSION = 1.9;
+				MODULE_VERSION = 2.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -788,159 +693,10 @@
 			};
 			name = "DEBUG & ASSERT";
 		};
-		C1D77DD30DD4BCB4001E21DB /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
-				HEADER_SEARCH_PATHS = "";
-				INFOPLIST_FILE = "Info-Apple16X50PCCard.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/Apple16X50Serial.kext/Contents/PlugIns";
-				KERNEL_MODULE = YES;
-				LIBRARY_SEARCH_PATHS = "";
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.driver.Apple16X50PCCard;
-				MODULE_VERSION = 1.9;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = Apple16X50PCCard;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		C1D77DD40DD4BCB4001E21DB /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
-				HEADER_SEARCH_PATHS = "";
-				INFOPLIST_FILE = "Info-Apple16X50PCCard.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/Apple16X50Serial.kext/Contents/PlugIns";
-				KERNEL_MODULE = YES;
-				LIBRARY_SEARCH_PATHS = "";
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.driver.Apple16X50PCCard;
-				MODULE_VERSION = 1.9;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = Apple16X50PCCard;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		C1D77DD50DD4BCB4001E21DB /* DEBUG */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
-				HEADER_SEARCH_PATHS = "";
-				INFOPLIST_FILE = "Info-Apple16X50PCCard.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/Apple16X50Serial.kext/Contents/PlugIns";
-				KERNEL_MODULE = YES;
-				LIBRARY_SEARCH_PATHS = "";
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.driver.Apple16X50PCCard;
-				MODULE_VERSION = 1.9;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = Apple16X50PCCard;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-			};
-			name = DEBUG;
-		};
-		C1D77DD60DD4BCB4001E21DB /* ASSERT */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
-				HEADER_SEARCH_PATHS = "";
-				INFOPLIST_FILE = "Info-Apple16X50PCCard.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/Apple16X50Serial.kext/Contents/PlugIns";
-				KERNEL_MODULE = YES;
-				LIBRARY_SEARCH_PATHS = "";
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.driver.Apple16X50PCCard;
-				MODULE_VERSION = 1.9;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = Apple16X50PCCard;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-			};
-			name = ASSERT;
-		};
-		C1D77DD70DD4BCB4001E21DB /* DEBUG & ASSERT */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
-				HEADER_SEARCH_PATHS = "";
-				INFOPLIST_FILE = "Info-Apple16X50PCCard.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/Apple16X50Serial.kext/Contents/PlugIns";
-				KERNEL_MODULE = YES;
-				LIBRARY_SEARCH_PATHS = "";
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.driver.Apple16X50PCCard;
-				MODULE_VERSION = 1.9;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = Apple16X50PCCard;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-			};
-			name = "DEBUG & ASSERT";
-		};
 		C1D77DE50DD4BCB5001E21DB /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -955,7 +711,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Apple16X50ACPI;
-				MODULE_VERSION = 1.9;
+				MODULE_VERSION = 2.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -985,7 +741,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Apple16X50ACPI;
-				MODULE_VERSION = 1.9;
+				MODULE_VERSION = 2.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1015,7 +771,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Apple16X50ACPI;
-				MODULE_VERSION = 1.9;
+				MODULE_VERSION = 2.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1044,7 +800,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Apple16X50ACPI;
-				MODULE_VERSION = 1.9;
+				MODULE_VERSION = 2.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1073,7 +829,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Apple16X50ACPI;
-				MODULE_VERSION = 1.9;
+				MODULE_VERSION = 2.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1091,6 +847,12 @@
 		C1D77E430DD4BEC1001E21DB /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					arm,
+					x86_64,
+					i386,
+					ppc,
+				);
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -1105,7 +867,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Apple16X50Serial;
-				MODULE_VERSION = 1.9;
+				MODULE_VERSION = 2.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1124,7 +886,7 @@
 		C1D77E440DD4BEC1001E21DB /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
+				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
@@ -1135,7 +897,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Apple16X50Serial;
-				MODULE_VERSION = 1.9;
+				MODULE_VERSION = 2.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1165,7 +927,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Apple16X50Serial;
-				MODULE_VERSION = 1.9;
+				MODULE_VERSION = 2.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1194,7 +956,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Apple16X50Serial;
-				MODULE_VERSION = 1.9;
+				MODULE_VERSION = 2.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1223,7 +985,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Apple16X50Serial;
-				MODULE_VERSION = 1.9;
+				MODULE_VERSION = 2.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1255,7 +1017,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Apple16X50ACPI;
-				MODULE_VERSION = 1.9;
+				MODULE_VERSION = 2.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1274,7 +1036,7 @@
 		C1FCFC690DD6692C00EEDE4F /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
+				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
@@ -1411,18 +1173,6 @@
 				C1D77DC30DD4BCB4001E21DB /* DEBUG */,
 				C1D77DC40DD4BCB4001E21DB /* ASSERT */,
 				C1D77DC50DD4BCB4001E21DB /* DEBUG & ASSERT */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Deployment;
-		};
-		C1D77DD20DD4BCB4001E21DB /* Build configuration list for PBXNativeTarget "Apple16X50PCCard" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				C1D77DD30DD4BCB4001E21DB /* Development */,
-				C1D77DD40DD4BCB4001E21DB /* Deployment */,
-				C1D77DD50DD4BCB4001E21DB /* DEBUG */,
-				C1D77DD60DD4BCB4001E21DB /* ASSERT */,
-				C1D77DD70DD4BCB4001E21DB /* DEBUG & ASSERT */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;

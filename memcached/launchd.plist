@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+
+    <key>Label</key>
+    <string>memcached</string>
+
+    <key>ProgramArguments</key>
+    <array>
+      <string>/usr/bin/memcached</string>
+      <string>-l</string> <string>127.0.0.1</string>
+      <string>-t</string> <string>4</string>
+      <string>-m</string> <string>64</string>
+    </array>
+
+    <key>Disabled</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>UserName</key>
+    <string>daemon</string>
+
+    <key>GroupName</key>
+    <string>daemon</string>
+
+  </dict>
+</plist>

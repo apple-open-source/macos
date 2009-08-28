@@ -1,9 +1,9 @@
 /*
- * "$Id: http-private.h 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: http-private.h 7850 2008-08-20 00:07:25Z mike $"
  *
  *   Private HTTP definitions for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -258,13 +258,19 @@ extern void	_cups_freeifaddrs(struct ifaddrs *addrs);
 #  endif /* !WIN32 */
 
 /*
- * Common URI encoding function...
+ * Prototypes...
  */
 
-extern char	*_httpEncodeURI(char *dst, const char *src, size_t dstsize);
-
+extern int		_httpAddrPort(http_addr_t *addr);
+extern http_t		*_httpCreate(const char *host, int port,
+			             http_encryption_t encryption);
+extern char		*_httpEncodeURI(char *dst, const char *src,
+			                size_t dstsize);
+extern const char	*_httpResolveURI(const char *uri, char *resolved_uri,
+			                 size_t resolved_size, int log);
+extern int		_httpWait(http_t *http, int msec, int usessl);
 #endif /* !_CUPS_HTTP_PRIVATE_H_ */
 
 /*
- * End of "$Id: http-private.h 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: http-private.h 7850 2008-08-20 00:07:25Z mike $".
  */

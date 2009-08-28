@@ -28,6 +28,8 @@
 #include <Security/oidscert.h>
 #include <Security/oidsalg.h>
 #include <Security/cssmapple.h>
+#include <Security/SecAsn1Coder.h>
+#include <Security/keyTemplates.h>
 
 #include "certGroupUtils.h" 
 #include "tpdebugging.h"
@@ -188,50 +190,6 @@ CSSM_BOOL tp_CompareCerts(
 	const CSSM_DATA			*cert2)
 {
 	return tpCompareCssmData(cert1, cert2);
-}
-
-
-/*
- * Given a aignature OID, return the corresponding CSSM_ALGID for the 
- * signature the required key.
- */
-CSSM_ALGORITHMS tpOidToAldId(
-	const CSSM_OID *oid,
-	CSSM_ALGORITHMS *keyAlg)			// RETURNED
-{
-	*keyAlg = CSSM_ALGID_RSA;			// default
-	if(tpCompareOids(oid, &CSSMOID_MD2WithRSA)) {
-		return CSSM_ALGID_MD2WithRSA;
-	}
-	else if(tpCompareOids(oid, &CSSMOID_MD5WithRSA)) {
-		return CSSM_ALGID_MD5WithRSA;
-	}
-	else if(tpCompareOids(oid, &CSSMOID_SHA1WithRSA)) {
-		return CSSM_ALGID_SHA1WithRSA;
-	}
-	else if(tpCompareOids(oid, &CSSMOID_SHA1WithRSA_OIW)) {
-		return CSSM_ALGID_SHA1WithRSA;
-	}
-	else if(tpCompareOids(oid, &CSSMOID_SHA1WithDSA)) {
-		*keyAlg = CSSM_ALGID_DSA;
-		return CSSM_ALGID_SHA1WithDSA;
-	}
-	else if(tpCompareOids(oid, &CSSMOID_APPLE_FEE_MD5)) {
-		*keyAlg = CSSM_ALGID_FEE;
-		return CSSM_ALGID_FEE_MD5;
-	}
-	else if(tpCompareOids(oid, &CSSMOID_APPLE_FEE_SHA1)) {
-		*keyAlg = CSSM_ALGID_FEE;
-		return CSSM_ALGID_FEE_SHA1;
-	}
-	else if(tpCompareOids(oid, &CSSMOID_APPLE_ECDSA)) {
-		*keyAlg = CSSM_ALGID_FEE;
-		return CSSM_ALGID_SHA1WithECDSA;
-	}
-	else {
-		*keyAlg = CSSM_ALGID_NONE;
-		return CSSM_ALGID_NONE;
-	}
 }
 
 /*
@@ -590,5 +548,62 @@ CSSM_BOOL tpCompareEmailAddr(
 		tpPolicyError("tpCompareEmailAddr: app/cert email addrs mismatch");
 		return CSSM_FALSE;
 	}
+}
+
+/* 
+ * Following a CSSMOID_ECDSA_WithSpecified algorithm is an encoded
+ * ECDSA_SigAlgParams containing the digest agorithm OID. Decode and return 
+ * a unified ECDSA/digest alg (e.g. CSSM_ALGID_SHA512WithECDSA).
+ * Returns nonzero on error.
+ */
+int decodeECDSA_SigAlgParams(
+	const CSSM_DATA *params,
+	CSSM_ALGORITHMS *cssmAlg)		/* RETURNED */
+{
+	SecAsn1CoderRef coder = NULL;
+	if(SecAsn1CoderCreate(&coder)) {
+		tpErrorLog("***Error in SecAsn1CoderCreate()\n");
+		return -1;
+	}
+	CSSM_X509_ALGORITHM_IDENTIFIER algParams;
+	memset(&algParams, 0, sizeof(algParams));
+	int ourRtn = 0;
+	bool algFound = false;
+	if(SecAsn1DecodeData(coder, params, kSecAsn1AlgorithmIDTemplate,
+			&algParams)) {
+		tpErrorLog("***Error decoding CSSM_X509_ALGORITHM_IDENTIFIER\n");
+		ourRtn = -1;
+		goto errOut;
+	}
+	CSSM_ALGORITHMS digestAlg;
+	algFound = cssmOidToAlg(&algParams.algorithm, &digestAlg);
+	if(!algFound) {
+		tpErrorLog("***Unknown algorithm in CSSM_X509_ALGORITHM_IDENTIFIER\n");
+		ourRtn = -1;
+		goto errOut;
+	}
+	switch(digestAlg) {
+		case CSSM_ALGID_SHA1:
+			*cssmAlg = CSSM_ALGID_SHA1WithECDSA;
+			break;
+		case CSSM_ALGID_SHA224:
+			*cssmAlg = CSSM_ALGID_SHA224WithECDSA;
+			break;
+		case CSSM_ALGID_SHA256:
+			*cssmAlg = CSSM_ALGID_SHA256WithECDSA;
+			break;
+		case CSSM_ALGID_SHA384:
+			*cssmAlg = CSSM_ALGID_SHA384WithECDSA;
+			break;
+		case CSSM_ALGID_SHA512:
+			*cssmAlg = CSSM_ALGID_SHA512WithECDSA;
+			break;
+		default:
+			tpErrorLog("***Unknown algorithm in ECDSA_SigAlgParams\n");
+			ourRtn = -1;
+	}
+errOut:
+	SecAsn1CoderRelease(coder);
+	return ourRtn;
 }
 

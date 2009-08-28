@@ -1,0 +1,166 @@
+# Commands covered:  ::dom::doctype
+#
+# This file contains a collection of tests for one or more of the Tcl
+# built-in commands.  Sourcing this file into Tcl runs the tests and
+# generates output for errors.  No output means no errors were found.
+#
+# Copyright (c) 2000 Ajuba Solutions.
+# All rights reserved.
+#
+# RCS: @(#) $Id: doctype.test,v 1.2 2002/08/11 11:22:48 balls Exp $
+
+package require tcltest; namespace import -force ::tcltest::*
+package require dom
+
+test doctype-1.1 {argument parsing errors} -constraints {dom_c} -body {
+    list [catch {dom::doctype} msg] $msg
+} -result "1 {wrong \# args: should be \"dom::doctype method ?args...?\"}"
+test doctype-1.2 {argument parsing errors} -constraints {dom_c} -body {
+    list [catch {dom::doctype foo} msg] $msg
+} -result {1 {bad method "foo": must be cget or configure}}
+test doctype-1.3 {argument parsing errors} -constraints {dom_c} -body {
+    list [catch {dom::doctype cget foo} msg] $msg
+} -result {1 {token not found}}
+test doctype-1.4 {argument parsing errors} -constraints {dom_c} -body {
+    set root [dom::DOMImplementation parse {<?xml version="1.0"?><foo/>}]
+    set result [list [catch {dom::doctype cget $root} msg] $msg]
+    dom::DOMImplementation destroy $root
+    set result
+} -result {1 {not a doctype type node}}
+test doctype-1.5 {argument parsing errors} -constraints {dom_c} -body {
+    set root [dom::DOMImplementation parse {<?xml version="1.0"?><!DOCTYPE foo><foo/>}]
+    set doctype [dom::document cget $root -doctype]
+    set result [list [catch {dom::doctype cget $doctype} msg] $msg]
+    dom::DOMImplementation destroy $root
+    set result
+} -result "1 {wrong \# args: should be \"dom::doctype cget token option\"}"
+test doctype-1.6 {argument parsing errors} -constraints {dom_c} -body {
+    set root [dom::DOMImplementation parse {<?xml version="1.0"?><!DOCTYPE foo><foo/>}]
+    set doctype [dom::document cget $root -doctype]
+    set result [list [catch {dom::doctype cget $doctype -foo} msg] $msg]
+    dom::DOMImplementation destroy $root
+    set result
+} -result {1 {unknown option '-foo', should be -internalSubset, -nodeName, -publicId, or -systemId}}
+test doctype-1.7 {argument parsing errors} -constraints {dom_c} -body {
+    set root [dom::DOMImplementation parse {<?xml version="1.0"?><!DOCTYPE foo><foo/>}]
+    set doctype [dom::document cget $root -doctype]
+    set result [list [catch {dom::doctype configure $doctype} msg] $msg]
+    dom::DOMImplementation destroy $root
+    set result
+} -result {1 {doctype configure method not implemented}}
+test doctype-1.8 {argument parsing errors} -constraints {dom_c} -body {
+    set root [dom::DOMImplementation parse {<?xml version="1.0"?><!DOCTYPE foo><foo/>}]
+    set doctype [dom::document cget $root -doctype]
+    set result [list [catch {dom::doctype foo $doctype} msg] $msg]
+    dom::DOMImplementation destroy $root
+    set result
+} -result {1 {bad method "foo": must be cget or configure}}
+
+test doctype-2.1 {cget options, -systemId, empty} -constraints {dom_c} -body {
+    set root [dom::DOMImplementation parse {<?xml version="1.0"?><!DOCTYPE foo><foo/>}]
+    set doctype [dom::document cget $root -doctype]
+    set result [dom::doctype cget $doctype -systemId]
+    dom::DOMImplementation destroy $root
+    set result
+} -result {}
+test doctype-2.2 {cget options, -systemId, non-empty SYSTEM} -constraints {dom_c} -body {
+    set root [dom::DOMImplementation parse {<?xml version="1.0"?>
+	<!DOCTYPE foo SYSTEM "foo.dtd"><foo/>}]
+    set doctype [dom::document cget $root -doctype]
+    set result [dom::doctype cget $doctype -systemId]
+    dom::DOMImplementation destroy $root
+    set result
+} -result foo.dtd
+test doctype-2.3 {cget options, -systemId, non-empty PUBLIC} -constraints {dom_c} -body {
+    set root [dom::DOMImplementation parse {<?xml version="1.0"?>
+	<!DOCTYPE foo PUBLIC "--Foo--" "foo.dtd"><foo/>}]
+    set doctype [dom::document cget $root -doctype]
+    set result [dom::doctype cget $doctype -systemId]
+    dom::DOMImplementation destroy $root
+    set result
+} -result foo.dtd
+test doctype-2.4 {cget options, -systemId, non-empty internal subset} -constraints {dom_c} -body {
+    set root [dom::DOMImplementation parse {<?xml version="1.0"?>
+	<!DOCTYPE foo SYSTEM "foo.dtd" [<!ELEMENT foo ANY>]><foo/>}]
+    set doctype [dom::document cget $root -doctype]
+    set result [dom::doctype cget $doctype -systemId]
+    dom::DOMImplementation destroy $root
+    set result
+} -result foo.dtd
+
+test doctype-3.1 {cget options, -publicId, empty} -constraints {dom_c} -body {
+    set root [dom::DOMImplementation parse {<?xml version="1.0"?><!DOCTYPE foo><foo/>}]
+    set doctype [dom::document cget $root -doctype]
+    set result [dom::doctype cget $doctype -publicId]
+    dom::DOMImplementation destroy $root
+    set result
+} -result {}
+test doctype-3.2 {cget options, -publicId, non-empty SYSTEM} -constraints {dom_c} -body {
+    set root [dom::DOMImplementation parse {<?xml version="1.0"?>
+	<!DOCTYPE foo SYSTEM "foo.dtd"><foo/>}]
+    set doctype [dom::document cget $root -doctype]
+    set result [dom::doctype cget $doctype -publicId]
+    dom::DOMImplementation destroy $root
+    set result
+} -result {}
+test doctype-3.3 {cget options, -publicId, non-empty PUBLIC} -constraints {dom_c} -body {
+    set root [dom::DOMImplementation parse {<?xml version="1.0"?>
+	<!DOCTYPE foo PUBLIC "--Foo--" "foo.dtd"><foo/>}]
+    set doctype [dom::document cget $root -doctype]
+    set result [dom::doctype cget $doctype -publicId]
+    dom::DOMImplementation destroy $root
+    set result
+} -result --Foo--
+test doctype-3.4 {cget options, -publicId, non-empty internal subset} -constraints {dom_c} -body {
+    set root [dom::DOMImplementation parse {<?xml version="1.0"?>
+	<!DOCTYPE foo PUBLIC "--Foo--" "foo.dtd" [<!ELEMENT foo ANY>]><foo/>}]
+    set doctype [dom::document cget $root -doctype]
+    set result [dom::doctype cget $doctype -publicId]
+    dom::DOMImplementation destroy $root
+    set result
+} -result --Foo--
+
+test doctype-4.1 {cget options, -nodeName, empty} -constraints {dom_c} -body {
+    set root [dom::DOMImplementation parse {<?xml version="1.0"?><!DOCTYPE foo><foo/>}]
+    set doctype [dom::document cget $root -doctype]
+    set result [dom::doctype cget $doctype -nodeName]
+    dom::DOMImplementation destroy $root
+    set result
+} -result foo
+test doctype-4.2 {cget options, -nodeName, non-empty SYSTEM} -constraints {dom_c} -body {
+    set root [dom::DOMImplementation parse {<?xml version="1.0"?>
+	<!DOCTYPE foo SYSTEM "foo.dtd"><foo/>}]
+    set doctype [dom::document cget $root -doctype]
+    set result [dom::doctype cget $doctype -nodeName]
+    dom::DOMImplementation destroy $root
+    set result
+} -result foo
+test doctype-4.3 {cget options, -nodeName, non-empty PUBLIC} -constraints {dom_c} -body {
+    set root [dom::DOMImplementation parse {<?xml version="1.0"?>
+	<!DOCTYPE foo PUBLIC "--Foo--" "foo.dtd"><foo/>}]
+    set doctype [dom::document cget $root -doctype]
+    set result [dom::doctype cget $doctype -nodeName]
+    dom::DOMImplementation destroy $root
+    set result
+} -result foo
+test doctype-4.4 {cget options, -nodeName, non-empty internal subset} -constraints {dom_c} -body {
+    set root [dom::DOMImplementation parse {<?xml version="1.0"?>
+	<!DOCTYPE foo PUBLIC "--Foo--" "foo.dtd" [<!ELEMENT foo ANY>]><foo/>}]
+    set doctype [dom::document cget $root -doctype]
+    set result [dom::doctype cget $doctype -nodeName]
+    dom::DOMImplementation destroy $root
+    set result
+} -result foo
+
+test doctype-5.1 {cget options, -internalSubset} -constraints {dom_c} -body {
+    # Not implemented yet
+    set root [dom::DOMImplementation parse {<?xml version="1.0"?>
+	<!DOCTYPE foo PUBLIC "--Foo--" "foo.dtd" [<!ELEMENT foo ANY>]><foo/>}]
+    set doctype [dom::document cget $root -doctype]
+    set result [dom::doctype cget $doctype -internalSubset]
+    dom::DOMImplementation destroy $root
+    set result
+} -result {}
+
+::tcltest::cleanupTests
+return

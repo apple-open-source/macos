@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2006, 2008, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,6 +33,7 @@
 
 #include <unistd.h>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -102,8 +103,7 @@ _notifyviafd(mach_port_t		server,
 	serverSessionRef		mySession       = getSession(server);
 	int				nbioYes;
 	int				sock;
-	kern_return_t			status;
-	SCDynamicStorePrivateRef	storePrivate    = (SCDynamicStorePrivateRef)mySession->store;
+	SCDynamicStorePrivateRef	storePrivate;
 	struct sockaddr_un		un;
 
 	/*
@@ -112,13 +112,7 @@ _notifyviafd(mach_port_t		server,
 	/* validate the UNIX domain socket path */
 	if (pathLen > (sizeof(un.sun_path) - 1)) {
 		SCLog(TRUE, LOG_NOTICE, CFSTR("_notifyviafd(): domain socket path length too long!"));
-		status = vm_deallocate(mach_task_self(), (vm_address_t)pathRef, pathLen);
-#ifdef	DEBUG
-		if (status != KERN_SUCCESS) {
-			SCLog(TRUE, LOG_DEBUG, CFSTR("_notifyviafd vm_deallocate() failed: %s"), mach_error_string(status));
-			/* non-fatal???, proceed */
-		}
-#endif	/* DEBUG */
+		(void) vm_deallocate(mach_task_self(), (vm_address_t)pathRef, pathLen);
 		*sc_status = kSCStatusFailed;
 		return KERN_SUCCESS;
 	}
@@ -127,17 +121,29 @@ _notifyviafd(mach_port_t		server,
 	un.sun_family = AF_UNIX;
 	bcopy(pathRef, un.sun_path, pathLen);
 	un.sun_path[pathLen] = '\0';
-	status = vm_deallocate(mach_task_self(), (vm_address_t)pathRef, pathLen);
-#ifdef	DEBUG
-	if (status != KERN_SUCCESS) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("_notifyviafd vm_deallocate() failed: %s"), mach_error_string(status));
-		/* non-fatal???, proceed */
-	}
-#endif	/* DEBUG */
+	(void) vm_deallocate(mach_task_self(), (vm_address_t)pathRef, pathLen);
 
 	if (mySession == NULL) {
 		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
 		return KERN_SUCCESS;
+	}
+	storePrivate = (SCDynamicStorePrivateRef)mySession->store;
+
+	/* check permissions */
+	if (!hasRootAccess(mySession)) {
+		struct stat	statbuf;
+
+		bzero(&statbuf, sizeof(statbuf));
+		if (stat(un.sun_path, &statbuf) == -1) {
+			*sc_status = errno;
+			SCLog(TRUE, LOG_DEBUG, CFSTR("_notifyviafd stat() failed: %s"), strerror(errno));
+			return KERN_SUCCESS;
+		}
+		if (mySession->callerEUID != statbuf.st_uid) {
+			*sc_status = kSCStatusAccessError;
+			SCLog(TRUE, LOG_DEBUG, CFSTR("_notifyviafd permissions error"));
+			return KERN_SUCCESS;
+		}
 	}
 
 	/* do common sanity checks, get socket */
@@ -150,29 +156,25 @@ _notifyviafd(mach_port_t		server,
 
 	/* establish the connection, get ready for a read() */
 	if (connect(sock, (struct sockaddr *)&un, sizeof(un)) == -1) {
+		*sc_status = errno;
 		SCLog(TRUE, LOG_DEBUG, CFSTR("_notifyviafd connect() failed: %s"), strerror(errno));
 		(void) close(sock);
-		storePrivate->notifyStatus = NotifierNotRegistered;
-		storePrivate->notifyFile   = -1;
-		*sc_status = kSCStatusFailed;
 		return KERN_SUCCESS;
 	}
 
-	(void) unlink(un.sun_path);
-
 	bufSiz = sizeof(storePrivate->notifyFileIdentifier);
 	if (setsockopt(sock, SOL_SOCKET, SO_SNDBUF, &bufSiz, sizeof(bufSiz)) == -1) {
+		*sc_status = errno;
 		SCLog(TRUE, LOG_DEBUG, CFSTR("_notifyviafd setsockopt() failed: %s"), strerror(errno));
 		(void) close(sock);
-		*sc_status = kSCStatusFailed;
 		return KERN_SUCCESS;
 	}
 
 	nbioYes = 1;
 	if (ioctl(sock, FIONBIO, &nbioYes) == -1) {
+		*sc_status = errno;
 		SCLog(TRUE, LOG_DEBUG, CFSTR("_notifyviafd ioctl(,FIONBIO,) failed: %s"), strerror(errno));
 		(void) close(sock);
-		*sc_status = kSCStatusFailed;
 		return KERN_SUCCESS;
 	}
 

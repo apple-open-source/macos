@@ -1,60 +1,62 @@
-.Dd April 17, 2002 
-.Dt KEXTSTAT 8
+.Dd March 6, 2009 
 .Os Darwin
+.Dt KEXTSTAT 8
 .Sh NAME
 .Nm kextstat
-.Nd display status of dynamically loaded kernel extensions
+.Nd display status of loaded kernel extensions (kexts)
 .Sh SYNOPSIS
 .Nm kextstat
-.Op Fl b Ar kext_bundle_id
+.Op Fl h
 .Op Fl k
 .Op Fl l
+.Op Fl b Ar identifier
+.Li \&.\|.\|.
 .Sh DESCRIPTION
 The
 .Nm
-utility displays the status of any kernel extensions
+utility displays the status of any kexts
 currently loaded in the kernel.
-The following information is shown for each loaded
-kernel extension:
+The following information is shown for each loaded kext:
 .Bl -tag -width indentXX
 .It Index
-The load index of the kernel extension (used to track references).
-Gaps in the list indicate kernel extensions that have been unloaded.
+The load index of the kext (used to track linkage references).
+Gaps in the list indicate kexts that have been unloaded.
 .It Refs
-The number of references to this extension by others.
-If nonzero, the extension cannot be unloaded.
+The number of references to this kext by others.
+If nonzero, the kext cannot be unloaded.
 .It Address
-The address in kernel space where the extension has been loaded.
+The address in kernel space where the kext has been loaded.
 .It Size
-The number of bytes of kernel memory that the extension occupies.
-If this is zero, the extension is actually
-a built-in part of the kernel
-that has a record as an extension for resolving dependencies
-among extensions.
+The number of bytes of kernel memory that the kext occupies.
+If this is zero, the kext is a built-in part of the kernel
+that has a record as a kext for resolving dependencies among kexts.
 .It Wired
-The number of wired bytes of kernel memory that the extension occupies.
+The number of wired bytes of kernel memory that the kext occupies.
 .It Name
-The CFBundleIdentifier of the kernel extension.
+The CFBundleIdentifier of the kext.
 .It (Version)
-The CFBundleVersion of the kernel extension.
+The CFBundleVersion of the kext.
 .It <Linked Against>
-The index numbers of all other kernel extensions that this extension
+The index numbers of all other kexts that this kext
 has a reference to.
 .El
-.Pp
-The following options are available:
+.Sh OPTIONS
+These options are available:
 .Bl -tag -width indentXX
-.It Fl b Ar kext_bundle_id
-Display the status of only the kernel extension with
+.It Fl b Ar identifier , Fl bundle-id Ar identifier
+Display the status of only the kext with
 the given bundle identifier.
 This option trumps the
-.Fl k
+.Fl no-kernel
 option;
 if both are given and a kernel component is specified,
 its information is shown.
-.It Fl k
+.It Fl h , Fl help
+Print a help message describing each option flag and exit with a success result,
+regardless of any other options on the command line.
+.It Fl k , Fl no-kernel
 Don't show information for built-in components of the kernel.
-.It Fl l
+.It Fl l , Fl list-only
 Print the list of loaded kexts only and omit the header
 (useful for running output through text-analysis tools).
 .El
@@ -67,9 +69,5 @@ and with a nonzero status if an error occurs.
 .Xr kextcache 8 ,
 .Xr kextd 8 ,
 .Xr kextload 8 ,
-.Xr kextunload 8
-.Sh HISTORY
-The
-.Nm
-command is based on the command kldstat written by
-.An Doug Rabson Aq dfr@FreeBSD.org
+.Xr kextunload 8 ,
+.Xr kextutil 8

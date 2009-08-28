@@ -60,10 +60,10 @@ bool pwsf_AllKerberosToolsInstalled( void )
 //	Returns: -1 if call to pwsf_LaunchTaskWithIO() fails.
 //--------------------------------------------------------------------------------------------------
 
-int pwsf_AddPrincipal(const char* userName, const char* password, char* outRealmName, int maxRealmName)
+int pwsf_AddPrincipal(const char* userName, const char* password, char* outRealmName, size_t maxRealmName)
 {
 	char *buffer = NULL;
-	int bufferSize = 0;
+	size_t bufferSize = 0;
 	int result;
 	
 	result = pwsf_AddPrincipalWithBuffer(userName, password, outRealmName, maxRealmName, &buffer, &bufferSize);
@@ -73,14 +73,14 @@ int pwsf_AddPrincipal(const char* userName, const char* password, char* outRealm
 	return result;
 }
 
-int pwsf_AddPrincipalWithBuffer(const char* userName, const char* password, char* outRealmName, int maxRealmName, char **inOutBuff, int *inOutBuffLen)
+int pwsf_AddPrincipalWithBuffer(const char* userName, const char* password, char* outRealmName, size_t maxRealmName, char **inOutBuff, size_t *inOutBuffLen)
 {
 	char* commandBuf = NULL;
-	int commandBufSize = 0;
-	int commandBufSizeNeeded = 0;
+	size_t commandBufSize = 0;
+	size_t commandBufSizeNeeded = 0;
 	char* argv[4];
 	char* passwordBuf = NULL;
-	int passLen = 0;
+	size_t passLen = 0;
 	char outputBuf[512];
 	int result = 0;
 	
@@ -164,10 +164,10 @@ int pwsf_AddPrincipalToLocalRealm(const char* userName, const char* password, co
 {
 	int				result					= 0;
 	char			*commandBuf				= NULL;
-	int				commandBufSize			= 0;
+	size_t			commandBufSize			= 0;
 	char			*passwordBuf			= NULL;
-	int				passwordBufLen			= 0;
-	int				passLen					= 0;
+	size_t			passwordBufLen			= 0;
+	size_t			passLen					= 0;
 	register int	ai						= 0;
 	char			outputBuf[512];
 	char			errorBuf[512];
@@ -187,7 +187,7 @@ int pwsf_AddPrincipalToLocalRealm(const char* userName, const char* password, co
 	if ( commandBuf == NULL )
 		return -1;
 	
-	strlcpy( commandBuf, "add_principal +requires_preauth ", commandBufSize );
+	strlcpy( commandBuf, "add_principal +requires_preauth -allow_svr ", commandBufSize );
 	strlcat( commandBuf, userName, commandBufSize );
 	
 	argv[ai++] = "kadmin.local";
@@ -278,7 +278,7 @@ void pwsf_DeletePrincipalInLocalRealm(const char* principalName, const char *rea
 void pwsf_SetCertHash( const char *certHash, const char *principalName )
 {
 	char* commandBuf = NULL;
-	int commandBufSize = 0;
+	size_t commandBufSize = 0;
 	char* argv[4];
 	char outBuff[512];
 
@@ -304,7 +304,7 @@ void pwsf_SetCertHash( const char *certHash, const char *principalName )
 void pwsf_SetCertHashInLocalRealm( const char *certHash, const char *principalName, const char *realmName )
 {
 	char* commandBuf = NULL;
-	int commandBufSize = 0;
+	size_t commandBufSize = 0;
 	register int ai = 0;
 	const char *argv[6];
 	char outBuff[512];
@@ -334,11 +334,11 @@ void pwsf_SetCertHashInLocalRealm( const char *certHash, const char *principalNa
 //	pwsf_ModifyPrincipalWithBuffer
 //--------------------------------------------------------------------------------------------------
 
-static char *pwsf_ModifyPrincipalSetupBuffer(const char* principalName, char **inOutBuff, int *inOutBuffLen)
+static char *pwsf_ModifyPrincipalSetupBuffer(const char* principalName, char **inOutBuff, size_t *inOutBuffLen)
 {
 	char *commandBuf = NULL;
-	int commandBufSize = 0;
-	int commandBufSizeNeeded = 0;
+	size_t commandBufSize = 0;
+	size_t commandBufSizeNeeded = 0;
 	
 	if ( inOutBuff == NULL || inOutBuffLen == NULL )
 		return NULL;
@@ -366,10 +366,10 @@ static char *pwsf_ModifyPrincipalSetupBuffer(const char* principalName, char **i
 
 
 void pwsf_ModifyPrincipalWithBuffer(char* principalName, PWAccessFeatures* access, UInt32 oldDuration,
-	char **inOutBuff, int *inOutBuffLen)
+	char **inOutBuff, size_t *inOutBuffLen)
 {
 	char* commandBuf = NULL;
-	int commandBufSize = 0;
+	size_t commandBufSize = 0;
 	char* argv[4];
 	char expireTime[100];
 	char pwExpireTime[100];
@@ -414,12 +414,12 @@ void pwsf_ModifyPrincipalWithBuffer(char* principalName, PWAccessFeatures* acces
 		strcpy(policyStr, "-clearpolicy");
 		
 	if (access->usingExpirationDate)
-		strftime(pwExpireTime, sizeof(pwExpireTime), "\"%m/%d/%Y %H:%M:%S GMT\"", (struct tm*)&access->expirationDateGMT);
+		BSDTimeStructCopy_strftime(pwExpireTime, sizeof(pwExpireTime), "\"%m/%d/%Y %H:%M:%S GMT\"", &access->expirationDateGMT);
 	else
 		strcpy(pwExpireTime, "never");
 	
 	if (access->usingHardExpirationDate)
-		strftime(expireTime, sizeof(expireTime), "\"%m/%d/%Y %H:%M:%S GMT\"", (struct tm*)&access->hardExpireDateGMT);
+		BSDTimeStructCopy_strftime(expireTime, sizeof(expireTime), "\"%m/%d/%Y %H:%M:%S GMT\"", &access->hardExpireDateGMT);
 	else
 		strcpy(expireTime, "never");
 	
@@ -448,10 +448,10 @@ void pwsf_ModifyPrincipalWithBuffer(char* principalName, PWAccessFeatures* acces
 
 
 void pwsf_ModifyPrincipalInLocalRealm(char* principalName, const char *realmName, PWAccessFeatures* access, UInt32 oldDuration,
-	char **inOutBuff, int *inOutBuffLen)
+	char **inOutBuff, size_t *inOutBuffLen)
 {
 	char* commandBuf = NULL;
-	int commandBufSize = 0;
+	size_t commandBufSize = 0;
 	const char* argv[6];
 	char expireTime[100];
 	char pwExpireTime[100];
@@ -500,12 +500,12 @@ void pwsf_ModifyPrincipalInLocalRealm(char* principalName, const char *realmName
 		strcpy(policyStr, "-clearpolicy");
 		
 	if (access->usingExpirationDate)
-		strftime(pwExpireTime, sizeof(pwExpireTime), "\"%m/%d/%Y %H:%M:%S GMT\"", (struct tm*)&access->expirationDateGMT);
+		BSDTimeStructCopy_strftime(pwExpireTime, sizeof(pwExpireTime), "\"%m/%d/%Y %H:%M:%S GMT\"", &access->expirationDateGMT);
 	else
 		strcpy(pwExpireTime, "never");
 	
 	if (access->usingHardExpirationDate)
-		strftime(expireTime, sizeof(expireTime), "\"%m/%d/%Y %H:%M:%S GMT\"", (struct tm*)&access->hardExpireDateGMT);
+		BSDTimeStructCopy_strftime(expireTime, sizeof(expireTime), "\"%m/%d/%Y %H:%M:%S GMT\"", &access->hardExpireDateGMT);
 	else
 		strcpy(expireTime, "never");
 	
@@ -543,7 +543,7 @@ void pwsf_ModifyPrincipalInLocalRealm(char* principalName, const char *realmName
 static void pwsf_ChangePasswordV(const char *argv[], const char* password)
 {
 	char* passwordBuf;
-	int passLen = strlen(password);
+	size_t passLen = strlen(password);
 	char outBuff[512];
 			
 	passwordBuf = (char *) malloc(passLen * 2 + 3);
@@ -618,11 +618,11 @@ void pwsf_ChangePasswordInLocalRealm(const char* principalName, const char *real
 //	Returns: TRUE if the realm is found.
 //--------------------------------------------------------------------------------------------------
 
-bool pwsf_ScanForRealm( const char *inKAdminText, char *outRealm, int inRealmMaxSize )
+bool pwsf_ScanForRealm( const char *inKAdminText, char *outRealm, size_t inRealmMaxSize )
 {
 	const char *start;
 	const char *end = NULL;
-	int len;
+	ptrdiff_t len;
 	bool result = false;
 	
 	if ( inKAdminText == NULL || outRealm == NULL )
@@ -687,8 +687,8 @@ void pwsf_GeneratePasswordForPrincipal( const char *inPassword, const char *inPr
 	unsigned char digest[CC_SHA1_DIGEST_LENGTH];
 	
 	CC_SHA1_Init( &ctx );
-	CC_SHA1_Update( &ctx, (unsigned char *)inPrincipal, strlen(inPrincipal) );
-	CC_SHA1_Update( &ctx, (unsigned char *)inPassword, strlen(inPassword) );
+	CC_SHA1_Update( &ctx, (unsigned char *)inPrincipal, (CC_LONG)strlen(inPrincipal) );
+	CC_SHA1_Update( &ctx, (unsigned char *)inPassword, (CC_LONG)strlen(inPassword) );
 	CC_SHA1_Final( digest, &ctx );
 	
 	// remove illegal characters

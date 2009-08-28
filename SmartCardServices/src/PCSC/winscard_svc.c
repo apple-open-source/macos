@@ -187,7 +187,7 @@ static void ContextThread(LPVOID dwIndex)
 			Note: SHSharedSegmentMsgToHostOrder(&msgStruct) was called in SHMProcessEventsContext
 			This means that msgStruct contains host-order fields
 		*/
-		switch (rv = SHMProcessEventsContext(&psContext[dwContextIndex].dwClientID, &msgStruct, 0))
+		switch (rv = SHMProcessEventsContext(psContext[dwContextIndex].dwClientID, &msgStruct, 0))
 		{
 		case 0:
 			if (msgStruct.mtype == CMD_CLIENT_DIED)
@@ -343,7 +343,7 @@ LONG MSGFunctionDemarshall(psharedSegmentMsg msgStruct, DWORD dwContextIndex, ui
 		esStr = ((establish_struct *) msgStruct->data);
 		ntohlEstablishStruct(esStr);
 		esStr->rv = SCardEstablishContext(esStr->dwScope, 0, 0,
-			&esStr->phContext);
+			(int32_t *)&esStr->phContext);
 
 		if (esStr->rv == SCARD_S_SUCCESS)
 			esStr->rv =
@@ -468,10 +468,23 @@ LONG MSGFunctionDemarshall(psharedSegmentMsg msgStruct, DWORD dwContextIndex, ui
 		Log2(PCSC_LOG_DEBUG, "SCardTransmit cbSendLength: %d", trStr->cbSendLength);
 		rv = MSGCheckHandleAssociation(trStr->hCard, dwContextIndex);
 		if (rv != 0) return rv;
-		trStr->rv = SCardTransmit(trStr->hCard, &trStr->pioSendPci,
+		
+		{
+			SCARD_IO_REQUEST ioSendPci;
+			SCARD_IO_REQUEST ioRecvPci;
+			// ioSendPci is only an input parameter
+			ioSendPci.dwProtocol = trStr->pioSendPciProtocol;
+			ioSendPci.cbPciLength = trStr->pioSendPciLength;
+
+			trStr->rv = SCardTransmit(trStr->hCard, &ioSendPci,
 			trStr->pbSendBuffer, trStr->cbSendLength,
-			&trStr->pioRecvPci, trStr->pbRecvBuffer,
+				&ioRecvPci, trStr->pbRecvBuffer,
 			&trStr->pcbRecvLength);
+			
+			// ioRecvPci is only an output parameter
+			trStr->pioRecvPciProtocol = ioRecvPci.dwProtocol;
+			trStr->pioRecvPciLength = ioRecvPci.cbPciLength;
+		}
 		Log2(PCSC_LOG_DEBUG, "SCardTransmit pcbRecvLength: %d", trStr->pcbRecvLength);
 		htonlTransmitStruct(trStr);
 		*replySize = sizeof(transmit_struct);
@@ -543,11 +556,23 @@ LONG MSGFunctionDemarshall(psharedSegmentMsg msgStruct, DWORD dwContextIndex, ui
 			else
 				memcpy(pbSendBuffer, treStr->data, treStr->cbSendLength);
 
-			treStr->rv = SCardTransmit(treStr->hCard, &treStr->pioSendPci,
+			{
+				SCARD_IO_REQUEST ioSendPci;
+				SCARD_IO_REQUEST ioRecvPci;
+				// ioSendPci is only an input parameter
+				ioSendPci.dwProtocol = treStr->pioSendPciProtocol;
+				ioSendPci.cbPciLength = treStr->pioSendPciLength;
+
+				treStr->rv = SCardTransmit(treStr->hCard, &ioSendPci,
 				pbSendBuffer, treStr->cbSendLength,
-				&treStr->pioRecvPci, pbRecvBuffer,
+					&ioRecvPci, pbRecvBuffer,
 				&treStr->pcbRecvLength);
 
+				// ioRecvPci is only an output parameter
+				treStr->pioRecvPciProtocol = ioRecvPci.dwProtocol;
+				treStr->pioRecvPciLength = ioRecvPci.cbPciLength;
+			}
+			
 			treStr->size = sizeof(*treStr) + treStr->pcbRecvLength;
 			Log3(PCSC_LOG_DEBUG, "SCardTransmitExt pcbRecvLength: %d, size: %d", 
 				treStr->pcbRecvLength, treStr->size);

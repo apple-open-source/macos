@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2005-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,17 +26,20 @@
     @abstract   NSOpenDirectory is a toll-free bridged version of the CF-based OD objects
     @discussion The goal of these APIs is to supply a common library with Cocoa-based APIs to manipulate data
                 in Open Directory supported Directories.  All API are completely thread safe due to the
-                nature of shared objects implementation.  Several APIs still take kDS* defines as parameters
-                or as part of an NSArray.  Callers should wrap prefix types with "@", for example, 
-                @kDSNAttrRecordName.  All kDS* defines can be found in <DirectoryService/DirServicesConst.h>.
+                nature of shared objects implementation.
 */
 
+#import <AvailabilityMacros.h>
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_6
+
 #import <Foundation/Foundation.h>
-#import <CFOpenDirectory/CFOpenDirectoryConsts.h>
-#import <DirectoryService/DirServicesConst.h> // included for convenience access to kDS* defines
-#import <DirectoryService/DirServicesTypes.h> // for error codes
+#import <CFOpenDirectory/CFOpenDirectoryErrors.h>
+#import <CFOpenDirectory/CFOpenDirectoryTypes.h>
+#import <CFOpenDirectory/CFOpenDirectoryConstants.h>
 
 @class ODSession, ODNode, ODRecord, ODQuery;
+
+@protocol ODQueryDelegate;
 
 #pragma mark -
 #pragma mark Const
@@ -93,21 +96,12 @@ FOUNDATION_EXPORT NSString *const ODFrameworkErrorDomain;
     @method     queryWithNode: forRecordTypes: attribute: matchType: queryValues: returnAttributes: maximumResults: error:
     @abstract   Creates an autoreleased query with the node using the parameters provided
     @discussion Creates an autoreleased query with the node using the supplied query parameters.  Some parameters
-                can either be NSString or NSData or an NSArray of either NSString or NSData.  outError is optional parameter,
-                nil can be passed if error details are not needed.
+                can either be NSString or NSData or an NSArray of either NSString or NSData.  Passing nil for 
+                returnAttributes is equivalent to passing kODAttributeTypeStandardOnly.  outError is optional parameter,
+                nil can be passed if error details are not needed.  
 */
-+ (ODQuery *)queryWithNode:(ODNode *)inNode forRecordTypes:(id)inRecordTypeOrList attribute:(NSString *)inAttribute
++ (ODQuery *)queryWithNode:(ODNode *)inNode forRecordTypes:(id)inRecordTypeOrList attribute:(ODAttributeType)inAttribute
                  matchType:(ODMatchType)inMatchType queryValues:(id)inQueryValueOrList 
-          returnAttributes:(id)inReturnAttributeOrList maximumResults:(NSInteger)inMaximumResults
-                     error:(NSError **)outError;
-
-/*!
-    @method     queryWithNode: usingPredicate: returnAttributes: maximumResults: error:
-    @abstract   Creates an autoreleased query for the node using the supplied NSPredicate
-    @discussion Creates an autoreleased query for the node using the supplied NSPredicate.  outError is optional parameter,
-                nil can be passed if error details are not needed.
-*/
-+ (ODQuery *)queryWithNode:(ODNode *)inNode usingPredicate:(NSPredicate *)inPredicate
           returnAttributes:(id)inReturnAttributeOrList maximumResults:(NSInteger)inMaximumResults
                      error:(NSError **)outError;
 
@@ -115,21 +109,13 @@ FOUNDATION_EXPORT NSString *const ODFrameworkErrorDomain;
     @method     initWithNode: forRecordTypes: attribute: matchType: queryValues: returnAttributes: maximumResults: error:
     @abstract   Creates a query with the node using the parameters provided
     @discussion Creates a query with the node using the supplied query parameters.  Some parameters
-                can either be NSString or NSData or an NSArray of either NSString or NSData.  outError is optional parameter,
+                can either be NSString or NSData or an NSArray of either NSString or NSData.  Passing nil for 
+                returnAttributes is equivalent to passing kODAttributeTypeStandardOnly. outError is optional parameter,
                 nil can be passed if error details are not needed.
 */
-- (id)initWithNode:(ODNode *)inNode forRecordTypes:(id)inRecordTypeOrList attribute:(NSString *)inAttribute
+- (id)initWithNode:(ODNode *)inNode forRecordTypes:(id)inRecordTypeOrList attribute:(ODAttributeType)inAttribute
          matchType:(ODMatchType)inMatchType queryValues:(id)inQueryValueOrList 
   returnAttributes:(id)inReturnAttributeOrList maximumResults:(NSInteger)inMaximumResults error:(NSError **)outError;
-
-/*!
-    @method     initWithNode: usingPredicate: returnAttributes: maximumResults: error:
-    @abstract   Creates a query with the node using the supplied NSPredicate
-    @discussion Creates a query with the node using the supplied NSPredicate.  outError is optional parameter,
-                nil can be passed if error details are not needed.
-*/
-- (id)initWithNode:(ODNode *)inNode usingPredicate:(NSPredicate *)inPredicate returnAttributes:(id)inReturnAttributeOrList 
-    maximumResults:(NSInteger)inMaximumResults error:(NSError **)outError;
 
 /*!
     @method     resultsAllowingPartial: error:
@@ -146,14 +132,12 @@ FOUNDATION_EXPORT NSString *const ODFrameworkErrorDomain;
     @abstract   Returns the currently set delegate
     @discussion Returns the current delegate set for this ODQuery
 */
-- (id)delegate;
-
 /*!
     @method     setDelegate:
     @abstract   Sets a delegate to receive results from the NSRunLoop-based asynchronous results
     @discussion Sets the delegate provided to receive messages from NSRunLoop-based asynchronous results.
 */
-- (void)setDelegate:(id)delegate;
+@property (nonatomic, readwrite, assign) id <ODQueryDelegate> delegate;
 
 /*!
     @method     scheduleInRunLoop: forMode:
@@ -175,10 +159,17 @@ FOUNDATION_EXPORT NSString *const ODFrameworkErrorDomain;
     @abstract   Will dispose of any results and restart the query.
     @discussion Will dispose of any results and restart the query for subsequent resultsAllowingPartial: calls.  If the query
                 is currently scheduled on a RunLoop, then the delegate will be called with inResults == nil and
-                -[inError code] == kODErrorQuerySynchronize and -[inError domain] == ODFrameworkErrorDomain, signifying that
+                [inError code] == kODErrorQuerySynchronize and [inError domain] == ODFrameworkErrorDomain, signifying that
                 all existing results should be thrown away in preparation for new results.
 */
 - (void)synchronize;
+
+/*!
+    @property   operationQueue
+    @abstract   The NSOperationQueue on which asynchronous results are delivered to the delegate.
+    @discussion The NSOperationQueue on which asynchronous results are delivered to the delegate.
+ */
+@property (readwrite, retain) NSOperationQueue * operationQueue;
 
 @end
 
@@ -190,11 +181,12 @@ FOUNDATION_EXPORT NSString *const ODFrameworkErrorDomain;
     @discussion  The delegate method called as results are returned from an NSRunLoop-based query.  These results are only partial
                  and delegate is called repeatedly as results are available.  The incoming result must be retained or copied.  The 
                  array will be released by the NSRunLoop upon return.  Incoming results do not include previous results,
-                 only the most resent results are returned.  inResults can be NULL if an error occurs or the query is complete.  If 
-                 inResults and inError are NULL then the query has completed.
+                 only the most resent results are returned.  inResults can be nil if an error occurs or the query is complete.  If 
+                 inResults and inError are nil then the query has completed.
 */
-@interface NSObject(ODQueryDelegate)
-- (void)results:(NSArray*)inResults forQuery:(ODQuery *)inQuery error:(NSError *)inError;
+@protocol ODQueryDelegate <NSObject>
+@required
+- (void)query:(ODQuery *)inQuery foundResults:(NSArray *)inResults error:(NSError *)inError;
 @end
 
 #pragma mark -
@@ -236,10 +228,10 @@ FOUNDATION_EXPORT NSString *const ODFrameworkErrorDomain;
 + (id)sessionWithOptions:(NSDictionary *)inOptions error:(NSError **)outError;
 
 /*!
-    @method     sessionWithOptions: error:
-    @abstract   Creates an autoreleased instance of ODSession directed over Proxy to another host
-    @discussion Creates an autoreleased instance of ODSession directed over Proxy to another host.  nil
-                can be passed for no options. outError is optional parameter, nil can be passed if error
+    @method     initWithOptions: error:
+    @abstract   Creates an instance of ODSession directed over Proxy to another host
+    @discussion Creates an instance of ODSession directed over Proxy to another host.  nil can be
+                passed for no options. outError is optional parameter, nil can be passed if error
                 details are not needed. Options include:
      
                 If proxy is required then a dictionary with keys should be:
@@ -252,12 +244,12 @@ FOUNDATION_EXPORT NSString *const ODFrameworkErrorDomain;
 - (id)initWithOptions:(NSDictionary *)inOptions error:(NSError **)outError;
 
 /*!
-    @method     nodeNames:
+    @method     nodeNamesAndReturnError:
     @abstract   Returns the node names that are registered on this ODSession
     @discussion Returns the node names that are registered on this ODSession.  outError can be nil if
                 error details are not needed.
 */
-- (NSArray *)nodeNames:(NSError **)outError;
+- (NSArray *)nodeNamesAndReturnError:(NSError **)outError;
 
 @end
 
@@ -306,48 +298,48 @@ FOUNDATION_EXPORT NSString *const ODFrameworkErrorDomain;
 - (id)initWithSession:(ODSession *)inSession name:(NSString *)inName error:(NSError **)outError;
 
 /*!
-    @method     subnodeNames: error:
+    @method     subnodeNamesAndReturnError:
     @abstract   Returns NSArray of node names for this node, which may contain sub-nodes or search policy nodes
     @discussion Returns NSArray of node names for this node, which may contain sub-nodes or search policy nodes.
                 Commonly used with Search policy nodes.  outError is optional parameter, nil can be passed if error
                 details are not needed.
 */
-- (NSArray *)subnodeNames:(NSError **)outError;
+- (NSArray *)subnodeNamesAndReturnError:(NSError **)outError;
 
 /*!
-    @method     unreachableSubnodeNames:
+    @method     unreachableSubnodeNamesAndReturnError:
     @abstract   Will return NSArray of names of subnodes that are not currently reachable.
     @discussion Will return NSArray of names of subnodes that are not currently reachable.  Commonly used with Search policy 
                 nodes to determine if any nodes are currently unreachable, but may also return other subnodes if the
                 Open Directory plugin supports.  outError is optional parameter, nil can be passed if error details are not needed.
 */
-- (NSArray *)unreachableSubnodeNames:(NSError **)outError;
+- (NSArray *)unreachableSubnodeNamesAndReturnError:(NSError **)outError;
 
 /*!
     @method     nodeName
     @abstract   Returns the currently open Node name for this instance of ODNode
     @discussion Returns the currently open Node name for this instance of ODNode
 */
-- (NSString *)nodeName;
+@property (nonatomic, readonly, copy) NSString * nodeName;
 
 /*!
     @method     nodeDetails: error:
     @abstract   Returns a dictionary of information about the instance of ODNode
     @discussion Returns a dictionary of information about the instance of ODNode.  Details such as Trust information
-                @"dsAttrTypeStandard:TrustInformation" or other Node details can be retrieved.  outError is optional parameter,
+                \@"dsAttrTypeStandard:TrustInformation" or other Node details can be retrieved.  outError is optional parameter,
                 nil can be passed if error details are not needed.
                 
 */
 - (NSDictionary *)nodeDetailsForKeys:(NSArray *)inKeys error:(NSError **)outError;
 
 /*!
-    @method     supportedRecordTypes:
+    @method     supportedRecordTypesAndReturnError:
     @abstract   Returns a NSArray of the record types supported by this node.
     @discussion Returns a NSArray of the record types supported by this node.  If node does not support the check
                 then all possible types will be returned.  outError is optional parameter, nil can be passed if error details
                 are not needed.
 */
-- (NSArray *)supportedRecordTypes:(NSError **)outError;
+- (NSArray *)supportedRecordTypesAndReturnError:(NSError **)outError;
 
 /*!
     @method     supportedAttributesForRecordType: error:
@@ -356,7 +348,7 @@ FOUNDATION_EXPORT NSString *const ODFrameworkErrorDomain;
                 types are available, then all possible values will be returned instead.  outError is optional parameter,
                 nil can be passed if error details are not needed.
 */
-- (NSArray *)supportedAttributesForRecordType:(NSString *)inRecordType error:(NSError **)outError;
+- (NSArray *)supportedAttributesForRecordType:(ODRecordType)inRecordType error:(NSError **)outError;
 
 /*!
     @method     setCredentialsWithRecordType: recordName: password: error:
@@ -366,7 +358,7 @@ FOUNDATION_EXPORT NSString *const ODFrameworkErrorDomain;
                 change the credentials for all for all references.  outError is optional parameter, nil can be passed if error
                 details are not needed.
 */
-- (BOOL)setCredentialsWithRecordType:(NSString *)inRecordType recordName:(NSString *)inRecordName password:(NSString *)inPassword
+- (BOOL)setCredentialsWithRecordType:(ODRecordType)inRecordType recordName:(NSString *)inRecordName password:(NSString *)inPassword
                                error:(NSError **)outError;
 
 /*!
@@ -374,10 +366,10 @@ FOUNDATION_EXPORT NSString *const ODFrameworkErrorDomain;
     @abstract   Allows use of other Open Directory types of authentications to set the credentials for an ODNode
     @discussion Allows the caller to use other types of authentications that are available in Open Directory, that may
                 require response-request loops, etc.  Not all OD plugins will support this call, look for 
-                eDSAuthMethodNotSupported in outError.  outError is optional parameter, nil can be passed if error details
-                is not needed.
+                kODErrorCredentialsMethodNotSupported in outError.  outError is optional parameter, nil can be passed if 
+				error details is not needed.
 */
-- (BOOL)setCredentialsWithRecordType:(NSString *)inRecordType authenticationType:(NSString *)inType 
+- (BOOL)setCredentialsWithRecordType:(ODRecordType)inRecordType authenticationType:(ODAuthenticationType)inType 
                  authenticationItems:(NSArray *)inItems continueItems:(NSArray **)outItems
                              context:(id *)outContext error:(NSError **)outError;
 
@@ -397,7 +389,7 @@ FOUNDATION_EXPORT NSString *const ODFrameworkErrorDomain;
                 UUID to the record automatically.  This UUID can be overwritten by the client by passing with the
                 other attributes.  inAttributes is optional, nil can be passed if no other attributes are to be set.
 */
-- (ODRecord *)createRecordWithRecordType:(NSString *)inRecordType name:(NSString *)inRecordName 
+- (ODRecord *)createRecordWithRecordType:(ODRecordType)inRecordType name:(NSString *)inRecordName 
                               attributes:(NSDictionary *)inAttributes error:(NSError **)outError;
 
 /*!
@@ -407,7 +399,7 @@ FOUNDATION_EXPORT NSString *const ODFrameworkErrorDomain;
                 attributes requested.  Further attributes can be requested via ODRecord APIs.  For performance it is best
                 to ask for as many attributes that are needed as possible up front.
 */
-- (ODRecord *)recordWithRecordType:(NSString *)inRecordType name:(NSString *)inRecordName attributes:(NSArray *)inAttributes
+- (ODRecord *)recordWithRecordType:(ODRecordType)inRecordType name:(NSString *)inRecordName attributes:(NSArray *)inAttributes
                              error:(NSError **)outError;
 
 /*!
@@ -450,10 +442,10 @@ FOUNDATION_EXPORT NSString *const ODFrameworkErrorDomain;
                 node
     @discussion Allows the caller to use other types of authentications that are available in Open Directory, that may
                 require response-request loops, etc.  Not all OD plugins will support this call, look for 
-                eDSAuthMethodNotSupported in outError.  Same behavior as ODRecordSetNodeCredentials.  outError is optional
-                parameter, nil can be passed if error details are not needed.
+                kODErrorCredentialsMethodNotSupported in outError.  Same behavior as ODRecordSetNodeCredentials.  outError 
+				is optional parameter, nil can be passed if error details are not needed.
 */
-- (BOOL)setNodeCredentialsWithRecordType:(NSString *)inRecordType authenticationType:(NSString *)inType 
+- (BOOL)setNodeCredentialsWithRecordType:(ODRecordType)inRecordType authenticationType:(ODAuthenticationType)inType 
                      authenticationItems:(NSArray *)inItems continueItems:(NSArray **)outItems
                                  context:(id *)outContext error:(NSError **)outError;
 
@@ -468,12 +460,12 @@ FOUNDATION_EXPORT NSString *const ODFrameworkErrorDomain;
 - (BOOL)setNodeCredentialsUsingKerberosCache:(NSString *)inCacheName error:(NSError **)outError;
 
 /*!
-    @method     passwordPolicy:
+    @method     passwordPolicyAndReturnError:
     @abstract   Returns a dictionary containing the password policy for the record if available.
     @discussion Returns a dictionary containing the password policy for the record if available.  If no policy for record
-                NULL will be returned.  outError is optional parameter, nil can be passed if error details are not needed.
+                nil will be returned.  outError is optional parameter, nil can be passed if error details are not needed.
 */
-- (NSDictionary *)passwordPolicy:(NSError **)outError;
+- (NSDictionary *)passwordPolicyAndReturnError:(NSError **)outError;
 
 /*!
     @method     verifyPassword: error:
@@ -487,12 +479,12 @@ FOUNDATION_EXPORT NSString *const ODFrameworkErrorDomain;
     @method     verifyExtendedWithAuthenticationType: authenticationItems: continueItems: context: error:
     @abstract   Allows use of other Open Directory types of authentications
     @discussion Allows the caller to use other types of authentications that are available in Open Directory, that may 
-                require response-request loops, etc.  A Boolean with the result of the operation.  
+                require response-request loops, etc.  A bool with the result of the operation.  
                 If it fails, outError can be checked for more specific error.  Some ODNodes may not support the call
-                so an error code of eNotHandledByThisNode or eNotYetImplemented may be returned.  outError is optional 
+                so an error code of kODErrorCredentialsMethodNotSupported may be returned.  outError is optional 
                 parameter, nil can be passed if error details are not needed.
 */
-- (BOOL)verifyExtendedWithAuthenticationType:(NSString *)inType authenticationItems:(NSArray *)inItems 
+- (BOOL)verifyExtendedWithAuthenticationType:(ODAuthenticationType)inType authenticationItems:(NSArray *)inItems 
                                continueItems:(NSArray **)outItems context:(id *)outContext error:(NSError **)outError;
 
 /*!
@@ -504,35 +496,35 @@ FOUNDATION_EXPORT NSString *const ODFrameworkErrorDomain;
 - (BOOL)changePassword:(NSString *)oldPassword toPassword:(NSString *)newPassword error:(NSError **)outError;
 
 /*!
-    @method     synchronize:
-    @abstract   Synchronizes the record from the Directory in order to get current data and commit pending changes
+    @method     synchronizeAndReturnError:
+    @abstract   Synchronizes the record from the Directory in order to get current data and/or commit pending changes
     @discussion Synchronizes the record from the Directory in order to get current data.  Any previously fetched attributes
-                will be refetched from the Directory.  This will not refetch the entire record, unless the entire record
+                will be re-fetch from the Directory.  This will not re-fetch the entire record, unless the entire record
                 has been accessed.  Additionally, any changes made to the record will be committed to the directory,
                 if the node does not do immediate commits.  outError is optional parameter, nil can be passed if error details
                 are not needed.
 */
-- (BOOL)synchronize:(NSError **)outError;
+- (BOOL)synchronizeAndReturnError:(NSError **)outError;
 
 /*!
     @method     recordType:
     @abstract   Returns the record type of the ODRecord
     @discussion Returns the record type of the ODRecord
 */
-- (NSString *)recordType;
+@property (nonatomic, readonly, copy) NSString * recordType;
 
 /*!
     @method     recordName:
     @abstract   Returns the official record name of the ODRecord
     @discussion Returns the official record name of the ODRecord.
 */
-- (NSString *)recordName;
+@property (nonatomic, readonly, copy) NSString * recordName;
 
 /*!
     @method     recordDetailsForAttributes: error:
     @abstract   Returns the attributes and values in the form of a key-value pair set.
     @discussion Returns the attributes and values in the form of a key-value pair set for this record.  The key is a 
-                NSString of the attribute name (e.g., @kDSNAttrRecordName, etc.) and the value is an NSArray
+                NSString of the attribute name (e.g., kODAttributeTypeRecordName, etc.) and the value is an NSArray
                 of either NSData or NSString depending on the type of data.  Binary data will be returned as NSData.
                 If nil is passed, then all currently retrieved attributes will be returned.  outError is optional parameter, 
                 nil can be passed if error details are not needed.
@@ -545,15 +537,15 @@ FOUNDATION_EXPORT NSString *const ODFrameworkErrorDomain;
     @discussion Returns an NSArray of NSString or NSData depending on the type of data.  Binary data will be 
                 returned as NSData.  outError is optional parameter, nil can be passed if error details are not needed.
 */
-- (NSArray *)valuesForAttribute:(NSString *)inAttribute error:(NSError **)outError;
+- (NSArray *)valuesForAttribute:(ODAttributeType)inAttribute error:(NSError **)outError;
 
 /*!
-    @method     setValues: forAttribute: error:
-    @abstract   Will take a mixture of NSData or NSString when setting the values of an attribute
-    @discussion Will take a mixture of NSData or NSString when setting the values of an attribute.  outError is optional 
-                parameter, nil can be passed if error details are not needed.
+	@method     setValue: forAttribute: error:
+	@abstract   Will take a mixture of NSData or NSString or an NSArray of either type when setting the values of an attribute
+	@discussion Will take a mixture of NSData or NSString or an NSArray of either type when setting the values of an attribute.
+				outError is optional parameter, nil can be passed if error details are not needed.
 */
-- (BOOL)setValues:(NSArray *)inValues forAttribute:(NSString *)inAttribute error:(NSError **)outError;
+- (BOOL)setValue:(id)inValueOrValues forAttribute:(ODAttributeType)inAttribute error:(NSError **)outError;
 
 /*!
     @method     removeValuesForAttribute: error:
@@ -561,7 +553,7 @@ FOUNDATION_EXPORT NSString *const ODFrameworkErrorDomain;
     @discussion Removes all the values for an attribute.  outError is optional parameter, nil can be passed if 
                 error details are not needed.
 */
-- (BOOL)removeValuesForAttribute:(NSString *)inAttribute error:(NSError **)outError;
+- (BOOL)removeValuesForAttribute:(ODAttributeType)inAttribute error:(NSError **)outError;
 
 /*!
     @method     addValue: toAttribute: error:
@@ -569,7 +561,7 @@ FOUNDATION_EXPORT NSString *const ODFrameworkErrorDomain;
     @discussion Will add a value to an attribute.  Should be either NSData or NSString type.  outError is optional 
                 parameter, nil can be passed if error details are not needed.
 */
-- (BOOL)addValue:(id)inValue toAttribute:(NSString *)inAttribute error:(NSError **)outError;
+- (BOOL)addValue:(id)inValue toAttribute:(ODAttributeType)inAttribute error:(NSError **)outError;
 
 /*!
     @method     removeValue: fromAttribute: error:
@@ -577,15 +569,15 @@ FOUNDATION_EXPORT NSString *const ODFrameworkErrorDomain;
     @discussion Will remove a value from an attribute.  Should be either NSData or NSString type.  outError is optional 
                 parameter, nil can be passed if error details are not needed.
 */
-- (BOOL)removeValue:(id)inValue fromAttribute:(NSString *)inAttribute error:(NSError **)outError;
+- (BOOL)removeValue:(id)inValue fromAttribute:(ODAttributeType)inAttribute error:(NSError **)outError;
 
 /*!
-    @method     deleteRecord:
+    @method     deleteRecordAndReturnError:
     @abstract   Deletes the record from the node and invalidates the record.
     @discussion Deletes the record from the node and invalidates the record.  The ODRecord should be
                 released after deletion.  outError is optional parameter, nil can be passed if error details are not needed.
 */
-- (BOOL)deleteRecord:(NSError **)outError;
+- (BOOL)deleteRecordAndReturnError:(NSError **)outError;
 
 @end
 
@@ -619,3 +611,5 @@ FOUNDATION_EXPORT NSString *const ODFrameworkErrorDomain;
 - (BOOL)isMemberRecord:(ODRecord *)inRecord error:(NSError **)outError;
 
 @end
+
+#endif

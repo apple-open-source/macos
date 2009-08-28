@@ -66,7 +66,7 @@ EventTraceCauseDesc gTraceEvents[] = {
     {kLogStateChange,       "IrDAComm: state change entry, event=, current state="}
 };
 
-#define XTRACE(x, y, z) IrDALogAdd ( x, y, (int)z & 0xffff, gTraceEvents, true)
+#define XTRACE(x, y, z) IrDALogAdd ( x, y, (uintptr_t)z & 0xffff, gTraceEvents, true)
 #else
 #define XTRACE(x, y, z) ((void)0)
 #endif
@@ -99,7 +99,7 @@ IrDAComm::irDAComm(AppleIrDASerial *driver, AppleIrDA *appleirda)
 {
     IrDAComm *obj = new IrDAComm;   // create an IrDAComm object
     
-    XTRACE(kLogNew, (int)obj >> 16, obj);
+    XTRACE(kLogNew, 0, obj);
     
     if (obj && !obj->init(driver, appleirda)) {
 	obj->release();
@@ -114,7 +114,7 @@ void IrDAComm::free()
 {
     IOWorkLoop *workloop;
     
-    XTRACE(kLogFree, (int)this >> 16, this);
+    XTRACE(kLogFree, 0, this);
     
     this->Stop();       // make sure we're stopped before releasing memory
 
@@ -166,9 +166,9 @@ bool IrDAComm::init(AppleIrDASerial *driver, AppleIrDA *appleirda)
     IOReturn rc;
     IOWorkLoop *workloop;
 	
-    XTRACE(kLogInit, (int)this >> 16, this);
+    XTRACE(kLogInit, 0, this);
 #if (hasTracing > 0)
-    DebugLog("log info at 0x%lx", (UInt32)IrDALogGetInfo());
+    DebugLog("log info at 0x%lx", (uintptr_t)IrDALogGetInfo());
 #endif
     require(driver, Fail);
 
@@ -247,7 +247,7 @@ IOReturn IrDAComm::Stop(void)
     int i;
     IOReturn rc = kIOReturnSuccess;
     
-    XTRACE(kLogStop, (int)this >> 16, this);
+    XTRACE(kLogStop, 0, this);
     require(fGate, Fail);
     require(fIrDA, Fail);           // sanity
     require(fDriver, Fail);         // sanity
@@ -358,7 +358,7 @@ size_t IrDAComm::Write(UInt8 *buf, size_t length)
 
 IOReturn IrDAComm::ReadComplete(UInt8 *buf, size_t length)
 {
-    IOReturn rc;
+    IOReturn rc = -1;
 
     XTRACE(kLogReadComplete, length >> 16, length);
     
@@ -763,9 +763,9 @@ IOReturn
 IrDAComm::DoSomething(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4)
 {
     IrDAComm *obj;
-    int cmd = (int)arg1;
+    uintptr_t cmd = (uintptr_t)arg1;
     
-    XTRACE(kLogDoSomething, 0, arg1);        // log the command code
+    XTRACE(kLogDoSomething, 0, (uintptr_t)arg1);        // log the command code
     
     obj = OSDynamicCast(IrDAComm, owner);
     require(obj, Fail);
@@ -786,7 +786,7 @@ IrDAComm::DoSomething(OSObject *owner, void *arg1, void *arg2, void *arg3, void 
 	case cmdWrite:
 			{
 			    UInt8   *buf    = (UInt8 *)arg2;
-			    UInt32  length  = (UInt32)arg3;
+			    uintptr_t  length  = (uintptr_t)arg3;
 			    UInt32  *result = (UInt32 *)arg4;
 			    
 			    if (result)
@@ -796,7 +796,7 @@ IrDAComm::DoSomething(OSObject *owner, void *arg1, void *arg2, void *arg3, void 
 			
 	case cmdReturnCredit:
 			{
-			    UInt32  byte_count = (UInt32)arg2;
+			    uintptr_t  byte_count = (uintptr_t)arg2;
 			    if (obj->fIrComm)
 				obj->fIrComm->ReturnCredit(byte_count);
 			}
@@ -830,7 +830,7 @@ IrDAComm::DoSomething(OSObject *owner, void *arg1, void *arg2, void *arg3, void 
 	case cmdReadComplete:
 			{
 			    UInt8   *buf    = (UInt8 *)arg2;
-			    UInt32  length  = (UInt32)arg3;
+			    uintptr_t  length  = (uintptr_t)arg3;
 			    if (obj->fIrDA) {
 				obj->fIrDA->ReadComplete(buf, length);
 				obj->fIrDA->RunQueue();

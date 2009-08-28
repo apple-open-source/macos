@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 2001-2006, International Business Machines
+*   Copyright (C) 2001-2008, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -36,10 +36,11 @@ U_CDECL_BEGIN
 // Does not use uset.h to reduce code dependencies
 static void U_CALLCONV
 _set_add(USet *set, UChar32 c) {
-    ((UnicodeSet *)set)->add(c);
+    uset_add(set, c);
 }
 
-static void U_CALLCONV
+// These functions aren't used.
+/*static void U_CALLCONV
 _set_addRange(USet *set, UChar32 start, UChar32 end) {
     ((UnicodeSet *)set)->add(start, end);
 }
@@ -47,7 +48,7 @@ _set_addRange(USet *set, UChar32 start, UChar32 end) {
 static void U_CALLCONV
 _set_addString(USet *set, const UChar *str, int32_t length) {
     ((UnicodeSet *)set)->add(UnicodeString((UBool)(length<0), str, length));
-}
+}*/
 
 U_CDECL_END
 
@@ -63,9 +64,10 @@ NameUnicodeTransliterator::NameUnicodeTransliterator(UnicodeFilter* adoptedFilte
     USetAdder sa = {
         (USet *)legalPtr, // USet* == UnicodeSet*
         _set_add,
-        _set_addRange,
-        _set_addString,
-        NULL // don't need remove()
+        NULL, // Don't need _set_addRange
+        NULL, // Don't need _set_addString
+        NULL, // Don't need remove()
+        NULL
     };
     uprv_getCharNameCharacters(&sa);
 }
@@ -84,12 +86,12 @@ NameUnicodeTransliterator::NameUnicodeTransliterator(const NameUnicodeTransliter
 /**
  * Assignment operator.
  */
-NameUnicodeTransliterator& NameUnicodeTransliterator::operator=(
+/*NameUnicodeTransliterator& NameUnicodeTransliterator::operator=(
                              const NameUnicodeTransliterator& o) {
     Transliterator::operator=(o);
     // not necessary: the legal sets should all be the same -- legal=o.legal;
     return *this;
-}
+}*/
 
 /**
  * Transliterator API.

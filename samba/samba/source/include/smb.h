@@ -28,7 +28,7 @@
 #define _SMB_H
 
 /* logged when starting the various Samba daemons */
-#define COPYRIGHT_STARTUP_MESSAGE	"Copyright Andrew Tridgell and the Samba Team 1992-2007"
+#define COPYRIGHT_STARTUP_MESSAGE	"Copyright Andrew Tridgell and the Samba Team 1992-2008"
 
 
 #if defined(LARGE_SMB_OFF_T)
@@ -64,6 +64,7 @@
 #define STR_ASCII 4
 #define STR_UNICODE 8
 #define STR_NOALIGN 16
+#define STR_FILESYSTEM 32
 #define STR_TERMINATE_ASCII 128
 
 /* how long to wait for secondary SMB packets (milli-seconds) */
@@ -257,12 +258,28 @@ enum lsa_SidType {
 	SID_NAME_COMPUTER     /* sid for a computer */
 };
 
-#define LOOKUP_NAME_ISOLATED 1	/* Look up unqualified names */
-#define LOOKUP_NAME_REMOTE   2  /* Ask others */
-#define LOOKUP_NAME_ALL (LOOKUP_NAME_ISOLATED|LOOKUP_NAME_REMOTE)
 
-#define LOOKUP_NAME_GROUP    4  /* (unused) This is a NASTY hack for valid users = @foo
-				 * where foo also exists in as user. */
+#define LOOKUP_NAME_NONE		0x00000000
+#define LOOKUP_NAME_ISOLATED		0x00000001  /* Look up unqualified names */
+#define LOOKUP_NAME_REMOTE		0x00000002  /* Ask others */
+#define LOOKUP_NAME_GROUP		0x00000004  /* (unused) This is a NASTY hack for
+							valid users = @foo where foo also
+							exists in as user. */
+#define LOOKUP_NAME_EXPLICIT		0x00000008  /* Only include
+							explicitly mapped names and not
+							the Unix {User,Group} domain */
+#define LOOKUP_NAME_BUILTIN		0x00000010 /* builtin names */
+#define LOOKUP_NAME_WKN			0x00000020 /* well known names */
+#define LOOKUP_NAME_DOMAIN		0x00000040 /* only lookup own domain */
+#define LOOKUP_NAME_LOCAL		(LOOKUP_NAME_ISOLATED\
+					|LOOKUP_NAME_BUILTIN\
+					|LOOKUP_NAME_WKN\
+					|LOOKUP_NAME_DOMAIN)
+#define LOOKUP_NAME_ALL			(LOOKUP_NAME_ISOLATED\
+					|LOOKUP_NAME_REMOTE\
+					|LOOKUP_NAME_BUILTIN\
+					|LOOKUP_NAME_WKN\
+					|LOOKUP_NAME_DOMAIN)
 
 /**
  * @brief Security Identifier
@@ -1922,5 +1939,16 @@ enum usershare_err {
 
 /* Different reasons for closing a file. */
 enum file_close_type {NORMAL_CLOSE=0,SHUTDOWN_CLOSE,ERROR_CLOSE};
+
+/* Used in SMB_FS_OBJECTID_INFORMATION requests.  Must be exactly 48 bytes. */
+#define SAMBA_EXTENDED_INFO_MAGIC 0x536d4261 /* "SmBa" */
+#define SAMBA_EXTENDED_INFO_VERSION_STRING_LENGTH 28
+struct smb_extended_info {
+	uint32 samba_magic;		/* Always SAMBA_EXTRA_INFO_MAGIC */
+	uint32 samba_version;		/* Major/Minor/Release/Revision */
+	uint32 samba_subversion;	/* Prerelease/RC/Vendor patch */
+	NTTIME samba_gitcommitdate;
+	char   samba_version_string[SAMBA_EXTENDED_INFO_VERSION_STRING_LENGTH];
+};
 
 #endif /* _SMB_H */

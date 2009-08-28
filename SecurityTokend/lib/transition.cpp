@@ -85,9 +85,18 @@ kern_return_t tokend_server_findFirst(TOKEND_ARGS,
 	relocate(query, queryBase);
 	relocate(inAttributes, inAttributesBase);
 	DataRetrieval interface(inAttributes, getData);
-	CALL(findFirst, (query, &interface, hSearch));
+    CSSM_HANDLE searchHandle = 0;
+	CALL(findFirst, (query, &interface, &searchHandle));
 	interface.returnData(*hKey, *hRecord, *outData, *outDataLength,
 		*outAttributes, *outAttributesLength, *outAttributesBase);
+	/*
+		findFirst and findNext do not return an error if nothing was found.
+		Instead, hKey and hRecord are set to 0. In this case, we don't want to
+		set up a search handle
+	*/
+	if (searchHandle)
+		*hSearch = TokendHandleObject::make(searchHandle)->ipcHandle();
+	server->releaseWhenDone(Allocator::standard(), *outAttributes);
 	END_IPC(DL)
 }
 
@@ -101,9 +110,11 @@ kern_return_t tokend_server_findNext(TOKEND_ARGS, SearchHandle hSearch,
 	BEGIN_IPC
 	relocate(inAttributes, inAttributesBase);
 	DataRetrieval interface(inAttributes, getData);
-	CALL(findNext, (hSearch, &interface));
+    CSSM_HANDLE searchHandle = TokendHandleObject::findTDHandle(hSearch);
+	CALL(findNext, (searchHandle, &interface));
 	interface.returnData(*hKey, *hRecord, *outData, *outDataLength,
 		*outAttributes, *outAttributesLength, *outAttributesBase);
+	server->releaseWhenDone(Allocator::standard(), *outAttributes); 
 	END_IPC(DL)
 }
 
@@ -116,9 +127,11 @@ kern_return_t tokend_server_findRecordHandle(TOKEND_ARGS, RecordHandle hRecord,
 	BEGIN_IPC
 	relocate(inAttributes, inAttributesBase);
 	DataRetrieval interface(inAttributes, getData);
-	CALL(findRecordHandle, (hRecord, &interface));
+    CSSM_HANDLE recordHandle = TokendHandleObject::findTDHandle(hRecord);
+	CALL(findRecordHandle, (recordHandle, &interface));
 	interface.returnData(*hKey, hRecord, *outData, *outDataLength,
 		*outAttributes, *outAttributesLength, *outAttributesBase);
+	server->releaseWhenDone(Allocator::standard(), *outAttributes);
 	END_IPC(DL)
 }
 
@@ -130,7 +143,9 @@ kern_return_t tokend_server_insertRecord(TOKEND_ARGS, CSSM_DB_RECORDTYPE recordT
 	BEGIN_IPC
 	relocate(attributes, attributesBase);
 	const CssmData dataBlob(DATA(data));
-	CALL(insertRecord, (recordType, attributes, data ? &dataBlob : NULL, hRecord));
+    CSSM_HANDLE recordHandle;
+	CALL(insertRecord, (recordType, attributes, data ? &dataBlob : NULL, &recordHandle));
+    *hRecord = TokendHandleObject::make(recordHandle)->ipcHandle();
 	END_IPC(DL)
 }
 
@@ -142,8 +157,10 @@ kern_return_t tokend_server_modifyRecord(TOKEND_ARGS, CSSM_DB_RECORDTYPE recordT
 	BEGIN_IPC
 	relocate(attributes, attributesBase);
 	const CssmData dataBlob(DATA(data));
-	CALL(modifyRecord, (recordType, hRecord, attributes,
+    CSSM_HANDLE recordHandle;
+	CALL(modifyRecord, (recordType, &recordHandle, attributes,
 		setData ? &dataBlob : NULL, modifyMode));
+    *hRecord = TokendHandleObject::make(recordHandle)->ipcHandle();
 	END_IPC(DL)
 }
 
@@ -151,7 +168,8 @@ kern_return_t tokend_server_modifyRecord(TOKEND_ARGS, CSSM_DB_RECORDTYPE recordT
 kern_return_t tokend_server_deleteRecord(TOKEND_ARGS, RecordHandle hRecord)
 {
 	BEGIN_IPC
-	CALL(deleteRecord, (hRecord));
+    CSSM_HANDLE recordHandle = TokendHandleObject::findTDHandle(hRecord);
+	CALL(deleteRecord, (recordHandle));
 	END_IPC(DL)
 }
 
@@ -159,14 +177,16 @@ kern_return_t tokend_server_deleteRecord(TOKEND_ARGS, RecordHandle hRecord)
 kern_return_t tokend_server_releaseSearch(TOKEND_ARGS, SearchHandle hSearch)
 {
 	BEGIN_IPC
-	CALL(releaseSearch, (hSearch));
+    CSSM_HANDLE searchHandle = TokendHandleObject::findTDHandle(hSearch);
+	CALL(releaseSearch, (searchHandle));
 	END_IPC(DL)
 }
 
 kern_return_t tokend_server_releaseRecord(TOKEND_ARGS, RecordHandle hRecord)
 {
 	BEGIN_IPC
-	CALL(releaseRecord, (hRecord));
+    CSSM_HANDLE recordHandle = TokendHandleObject::findTDHandle(hRecord);
+	CALL(releaseRecord, (recordHandle));
 	END_IPC(DL)
 }
 
@@ -177,7 +197,8 @@ kern_return_t tokend_server_releaseRecord(TOKEND_ARGS, RecordHandle hRecord)
 kern_return_t tokend_server_releaseKey(TOKEND_ARGS, KeyHandle hKey)
 {
 	BEGIN_IPC
-	CALL(releaseKey, (hKey));
+    CSSM_HANDLE keyHandle = TokendHandleObject::findTDHandle(hKey);
+	CALL(releaseKey, (keyHandle));
 	END_IPC(DL)
 }
 
@@ -185,7 +206,8 @@ kern_return_t tokend_server_queryKeySizeInBits(TOKEND_ARGS, KeyHandle hKey,
 	CSSM_KEY_SIZE *size)
 {
 	BEGIN_IPC
-	CALL(getKeySize, (hKey, size));
+    CSSM_HANDLE keyHandle = TokendHandleObject::findTDHandle(hKey);
+	CALL(getKeySize, (keyHandle, size));
 	END_IPC(CSP)
 }
 
@@ -194,7 +216,8 @@ kern_return_t tokend_server_getOutputSize(TOKEND_ARGS, CONTEXT_ARGS, KeyHandle h
 {
     BEGIN_IPC
 	relocate(context, contextBase, attributes, attrSize);
-	CALL(getOutputSize, (&context, hKey, inputSize, encrypt, outputSize));
+    CSSM_HANDLE keyHandle = TokendHandleObject::findTDHandle(hKey);
+	CALL(getOutputSize, (&context, keyHandle, inputSize, encrypt, outputSize));
     END_IPC(CSP)
 }
 
@@ -209,7 +232,8 @@ kern_return_t tokend_server_generateSignature(TOKEND_ARGS, CONTEXT_ARGS, KeyHand
 	relocate(context, contextBase, attributes, attrSize);
 	const CssmData dataBlob(DATA(data));
 	OutputData sigData(signature, signatureLength);
-	CALL(generateSignature, (&context, hKey, signOnlyAlgorithm,
+    CSSM_HANDLE keyHandle = TokendHandleObject::findTDHandle(hKey);
+	CALL(generateSignature, (&context, keyHandle, signOnlyAlgorithm,
 		&dataBlob, &sigData));
 	END_IPC(CSP)
 }
@@ -221,7 +245,8 @@ kern_return_t tokend_server_verifySignature(TOKEND_ARGS, CONTEXT_ARGS, KeyHandle
 	relocate(context, contextBase, attributes, attrSize);
 	const CssmData dataBlob(DATA(data));
 	const CssmData signatureBlob(DATA(signature));
-	CALL(verifySignature, (&context, hKey, verifyOnlyAlgorithm, &dataBlob, &signatureBlob));
+    CSSM_HANDLE keyHandle = TokendHandleObject::findTDHandle(hKey);
+	CALL(verifySignature, (&context, keyHandle, verifyOnlyAlgorithm, &dataBlob, &signatureBlob));
 	END_IPC(CSP)
 }
 
@@ -232,7 +257,8 @@ kern_return_t tokend_server_generateMac(TOKEND_ARGS, CONTEXT_ARGS, KeyHandle hKe
 	relocate(context, contextBase, attributes, attrSize);
 	const CssmData dataBlob(DATA(data));
 	OutputData macData(mac, macLength);
-	CALL(generateMac, (&context, hKey, &dataBlob, &macData));
+    CSSM_HANDLE keyHandle = TokendHandleObject::findTDHandle(hKey);
+	CALL(generateMac, (&context, keyHandle, &dataBlob, &macData));
 	END_IPC(CSP)
 }
 
@@ -243,7 +269,8 @@ kern_return_t tokend_server_verifyMac(TOKEND_ARGS, CONTEXT_ARGS, KeyHandle hKey,
 	relocate(context, contextBase, attributes, attrSize);
 	const CssmData dataBlob(DATA(data));
 	const CssmData macBlob(DATA(mac));
-	CALL(verifyMac, (&context, hKey, &dataBlob, &macBlob));
+    CSSM_HANDLE keyHandle = TokendHandleObject::findTDHandle(hKey);
+	CALL(verifyMac, (&context, keyHandle, &dataBlob, &macBlob));
 	END_IPC(CSP)
 }
 
@@ -258,7 +285,8 @@ kern_return_t tokend_server_encrypt(TOKEND_ARGS, CONTEXT_ARGS, KeyHandle hKey,
 	relocate(context, contextBase, attributes, attrSize);
 	const CssmData clearBlob(DATA(clear));
 	OutputData cipherOut(cipher, cipherLength);
-	CALL(encrypt, (&context, hKey, &clearBlob, &cipherOut));
+    CSSM_HANDLE keyHandle = TokendHandleObject::findTDHandle(hKey);
+	CALL(encrypt, (&context, keyHandle, &clearBlob, &cipherOut));
 	END_IPC(CSP)
 }
 
@@ -269,7 +297,8 @@ kern_return_t tokend_server_decrypt(TOKEND_ARGS, CONTEXT_ARGS, KeyHandle hKey,
 	relocate(context, contextBase, attributes, attrSize);
 	const CssmData cipherBlob(DATA(cipher));
 	OutputData clearOut(clear, clearLength);
-	CALL(decrypt, (&context, hKey, &cipherBlob, &clearOut));
+    CSSM_HANDLE keyHandle = TokendHandleObject::findTDHandle(hKey);
+	CALL(decrypt, (&context, keyHandle, &cipherBlob, &clearOut));
 	END_IPC(CSP)
 }
 
@@ -286,7 +315,9 @@ kern_return_t tokend_server_generateKey(TOKEND_ARGS, CONTEXT_ARGS,
     relocate(cred, credBase);
 	relocate(owner, ownerBase);
 	Return<CssmKey> rKey(key, keyLength, keyBase);
-	CALL(generateKey, (&context, cred, owner, usage, attrs, hKey, &rKey));
+    CSSM_HANDLE keyHandle;
+	CALL(generateKey, (&context, cred, owner, usage, attrs, &keyHandle, &rKey));
+    *hKey = TokendHandleObject::make(keyHandle)->ipcHandle();
 	END_IPC(CSP)
 }
 
@@ -303,9 +334,12 @@ kern_return_t tokend_server_generateKeyPair(TOKEND_ARGS, CONTEXT_ARGS,
 	relocate(owner, ownerBase);
 	Return<CssmKey> rPubKey(pubKey, pubKeyLength, pubKeyBase);
 	Return<CssmKey> rPrivKey(privKey, privKeyLength, privKeyBase);
+    CSSM_HANDLE cssmPubKey, cssmPrivKey;
 	CALL(generateKeyPair, (&context, cred, owner,
 		pubUsage, pubAttrs, privUsage, privAttrs,
-		hPubKey, &rPubKey, hPrivKey, &rPrivKey));
+		&cssmPubKey, &rPubKey, &cssmPrivKey, &rPrivKey));
+    *hPubKey = TokendHandleObject::make(cssmPubKey)->ipcHandle();
+    *hPrivKey = TokendHandleObject::make(cssmPrivKey)->ipcHandle();
 	END_IPC(CSP)
 }
 
@@ -326,8 +360,9 @@ kern_return_t tokend_server_wrapKey(TOKEND_ARGS, CONTEXT_ARGS,
 	relocate(subjectKey, subjectKeyBase);
 	CssmData ddata(DATA(descriptiveData));
 	Return<CssmKey> rKey(wrappedKey, wrappedKeyLength, wrappedKeyBase);
+    CSSM_HANDLE keyHandle = TokendHandleObject::findTDHandle(hSubjectKey);
 	CALL(wrapKey, (&context, hWrappingKey, wrappingKey, cred,
-		hSubjectKey, subjectKey, descriptiveData ? &ddata : NULL, &rKey));
+		keyHandle, subjectKey, descriptiveData ? &ddata : NULL, &rKey));
 	END_IPC(CSP)
 }
 
@@ -348,9 +383,13 @@ kern_return_t tokend_server_unwrapKey(TOKEND_ARGS, CONTEXT_ARGS,
 	relocate(wrappedKey, wrappedKeyBase);
 	Return<CssmKey> rKey(unwrappedKey, unwrappedKeyLength, unwrappedKeyBase);
 	OutputData descriptives(descriptiveData, descriptiveDataLength);
-	CALL(unwrapKey, (&context, hWrappingKey, wrappingKey, cred, owner,
-		hPublicKey, publicKey, wrappedKey,
-		usage, attrs, &descriptives, hUnwrappedKey, &rKey));
+    CSSM_HANDLE cssmUnwrappedKey;
+    CSSM_HANDLE keyHandle = TokendHandleObject::findTDHandle(hPublicKey);
+	CSSM_HANDLE wrapKeyHandle = TokendHandleObject::findTDHandle(hWrappingKey);
+	CALL(unwrapKey, (&context, wrapKeyHandle, wrappingKey, cred, owner,
+		keyHandle, publicKey, wrappedKey,
+		usage, attrs, &descriptives, &cssmUnwrappedKey, &rKey));
+    *hUnwrappedKey = TokendHandleObject::make(cssmUnwrappedKey)->ipcHandle();
 	END_IPC(CSP)
 }
 
@@ -374,8 +413,10 @@ kern_return_t tokend_server_deriveKey(TOKEND_ARGS, CONTEXT_ARGS,
 	if (!paramInput || paramInput->algorithm != context.algorithm())
 		CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_ALG_PARAMS);
 	Return<CssmKey> rKey(key, keyLength, keyBase);
+    CSSM_HANDLE cssmKeyHandle;
 	CALL(deriveKey, (&context, hBaseKey, baseKey, cred, owner, &paramInput->baseData,
-		usage, attrs, hKey, &rKey));
+		usage, attrs, &cssmKeyHandle, &rKey));
+    *hKey = TokendHandleObject::make(cssmKeyHandle)->ipcHandle();
 	OutputData(paramOutput, paramOutputLength) = paramInput->baseData;
 	END_IPC(CSP)
 }
@@ -408,10 +449,16 @@ kern_return_t tokend_server_getOwner(TOKEND_ARGS, AclKind kind, GenericHandle hH
 		CALL(getDatabaseOwner, (&proto));
 		break;
 	case keyAcl:
-		CALL(getKeyOwner, (hHandle, &proto));
+		{
+			CSSM_HANDLE tdHandle = TokendHandleObject::findTDHandle(hHandle);
+			CALL(getKeyOwner, (tdHandle, &proto));
+		}
 		break;
 	case objectAcl:
-		CALL(getObjectOwner, (hHandle, &proto));
+		{
+			CSSM_HANDLE tdHandle = TokendHandleObject::findTDHandle(hHandle);
+			CALL(getObjectOwner, (tdHandle, &proto));
+		}
 		break;
 	case loginAcl:
 		CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
@@ -441,10 +488,16 @@ kern_return_t tokend_server_getAcl(TOKEND_ARGS, AclKind kind, GenericHandle hObj
 		CALL(getDatabaseAcl, (tag, countp, (CSSM_ACL_ENTRY_INFO**)&infos));
 		break;
 	case keyAcl:
-		CALL(getKeyAcl, (hObject, tag, countp, (CSSM_ACL_ENTRY_INFO**)&infos));
+		{
+			CSSM_HANDLE tdHandle = TokendHandleObject::findTDHandle(hObject);
+			CALL(getKeyAcl, (tdHandle, tag, countp, (CSSM_ACL_ENTRY_INFO**)&infos));
+		}
 		break;
 	case objectAcl:
-		CALL(getObjectAcl, (hObject, tag, countp, (CSSM_ACL_ENTRY_INFO**)&infos));
+		{
+			CSSM_HANDLE tdHandle = TokendHandleObject::findTDHandle(hObject);
+			CALL(getObjectAcl, (tdHandle, tag, countp, (CSSM_ACL_ENTRY_INFO**)&infos));
+		}
 		break;
 	case loginAcl:
 		CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
@@ -455,6 +508,7 @@ kern_return_t tokend_server_getAcl(TOKEND_ARGS, AclKind kind, GenericHandle hObj
 	*aclsLength = aclsOut.length();
 	*acls = *aclsBase = aclsOut;
 	aclsOut.keep();
+	server->releaseWhenDone(Allocator::standard(), *acls);
 	END_IPC(CSP)
 }
 
@@ -471,10 +525,16 @@ kern_return_t tokend_server_changeAcl(TOKEND_ARGS, AclKind kind, GenericHandle k
 		CALL(changeDatabaseAcl, (cred, &edit));
 		break;
 	case keyAcl:
-		CALL(changeKeyAcl, (key, cred, &edit));
+		{
+			CSSM_HANDLE keyHandle = TokendHandleObject::findTDHandle(key);
+			CALL(changeKeyAcl, (keyHandle, cred, &edit));
+		}
 		break;
 	case objectAcl:
-		CALL(changeObjectAcl, (key, cred, &edit));
+		{
+			CSSM_HANDLE keyHandle = TokendHandleObject::findTDHandle(key);
+			CALL(changeObjectAcl, (keyHandle, cred, &edit));
+		}
 		break;
 	case loginAcl:
 		CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
@@ -554,7 +614,8 @@ kern_return_t tokend_server_cspPassThrough(TOKEND_ARGS, uint32 id, CONTEXT_ARGS,
 	relocate(key, keyBase);
 	const CssmData inDataBlob(DATA(inData));
 	OutputData outputs(outData, outDataLength);
-	CALL(cspPassThrough, (id, &context, hKey, key, inData ? &inDataBlob : NULL, &outputs));
+	CSSM_HANDLE keyHandle = TokendHandleObject::findTDHandle(hKey);
+	CALL(cspPassThrough, (id, &context, keyHandle, key, inData ? &inDataBlob : NULL, &outputs));
 	END_IPC(CSP)
 }
 

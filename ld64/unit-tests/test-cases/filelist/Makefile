@@ -27,21 +27,23 @@ include ${TESTROOT}/include/common.makefile
 PWD = $(shell pwd)
 
 #
-# The point of this test is to check the two forms of the
-#  -filelist option
+# Check the two forms of the -filelist option
 #
 
 run: all
 
 all:
-	${CC} ${CCFLAGS} -c hello.c -o hello-${ARCH}.o
-	${FAIL_IF_BAD_OBJ} hello-${ARCH}.o
-	echo "${PWD}/hello-${ARCH}.o" > "${PWD}/filelist1"
-	cd /tmp && ${CC} ${CCFLAGS} -filelist "${PWD}/filelist1"  -o "${PWD}/hello-${ARCH}"
-	${FAIL_IF_BAD_MACHO} hello-${ARCH}
-	echo "hello-${ARCH}.o" > "${PWD}/filelist2"
-	cd /tmp && ${CC} ${CCFLAGS} -filelist "${PWD}/filelist2,${PWD}" -o "${PWD}/hello-${ARCH}"
-	${PASS_IFF_GOOD_MACHO} hello-${ARCH}
+	${CC} ${CCFLAGS} -c hello.c -o hello.o
+	${FAIL_IF_BAD_OBJ} hello.o
+	echo "${PWD}/hello.o" > "${PWD}/filelist1"
+	cd /tmp && ${CC} ${CCFLAGS} -filelist "${PWD}/filelist1"  -o "${PWD}/hello" 
+	${FAIL_IF_BAD_MACHO} hello
+	echo "hello.o" > "${PWD}/filelist2"
+	cd /tmp && ${CC} ${CCFLAGS} -filelist "${PWD}/filelist2,${PWD}" -o "${PWD}/hello"
+	${FAIL_IF_BAD_MACHO} hello
+	echo "${PWD}/hello.o" > "${PWD}/filelist,withComma"
+	cd /tmp && ${CC} ${CCFLAGS} -filelist "${PWD}/filelist,withComma"  -o "${PWD}/hello"
+	${PASS_IFF_GOOD_MACHO} hello
 
 clean:
-	rm  hello-* *.o filelist1 filelist2
+	rm -f hello.o hello filelist1 filelist2 filelist,withComma

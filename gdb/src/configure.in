@@ -377,7 +377,40 @@ case "${target}" in
     enable_shared=no
     enable_64_bit_bfd=yes
     enable_softfloat=no
-    host_configargs=" $host_configargs --disable-shared --enable-64-bit-bfd --disable-softfloat "
+    host_configargs=" $host_configargs --disable-shared --enable-64-bit-bfd --disable-softfloat --disable-werror "
+
+    AC_ARG_ENABLE(carbon-framework,
+    [AC_HELP_STRING([--disable-carbon-framework],[disable Carbon framework use even when available])],
+    [case $enableval in
+      yes)
+        host_configargs=" $host_configargs --enable-carbon-framework" ;;
+      no) 
+        host_configargs=" $host_configargs --disable-carbon-framework" ;;
+      *)
+        AC_MSG_ERROR([bad value '$enableval' for --enable-carbon-framework]) ;;
+    esac],)
+
+    AC_ARG_ENABLE(debug-symbols-framework,
+    [AC_HELP_STRING([--disable-debug-symbols-framework],[disable DebugSymbols framework use even when available])],
+    [case $enableval in
+      yes)
+        host_configargs=" $host_configargs --enable-debug-symbols-framework" ;;
+      no) 
+        host_configargs=" $host_configargs --disable-debug-symbols-framework" ;;
+      *)
+        AC_MSG_ERROR([bad value '$enableval' for --enable-debug-symbols-framework]) ;;
+    esac],)
+
+    AC_ARG_ENABLE(arch-for-exec,
+      [AC_HELP_STRING([--disable-arch-for-exec],[disable use of arch for exec])],
+      [case $enableval in
+        yes) 
+          host_configargs=" $host_configargs --enable-arch-for-exec" ;;
+        no) 
+          host_configargs=" $host_configargs --disable-arch-for-exec" ;;
+        *)
+          AC_MSG_ERROR([bad value '$enableval' for --enable-arch-for-exec]) ;;
+      esac],)
     ;;
   *-*-freebsd[[12]] | *-*-freebsd[[12]].* | *-*-freebsd*aout*)
     noconfigdirs="$noconfigdirs target-newlib target-libgloss ${libgcj}"

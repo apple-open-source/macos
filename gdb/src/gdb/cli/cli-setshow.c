@@ -230,7 +230,7 @@ do_setshow_command (char *arg, int from_tty, struct cmd_list_element *c)
 	  {
 	    int i;
 	    int len;
-	    int nmatches;
+	    int nmatches = 0;
 	    const char *match = NULL;
 	    char *p;
 
@@ -315,10 +315,8 @@ do_setshow_command (char *arg, int from_tty, struct cmd_list_element *c)
 	{
 	case var_string:
 	  {
-	    unsigned char *p;
-
 	    if (*(unsigned char **) c->var)
-	      fputstr_filtered (*(unsigned char **) c->var, '"', stb->stream);
+	      fputstr_filtered (*(char **) c->var, '"', stb->stream);
 	  }
 	  break;
 	case var_string_noescape:

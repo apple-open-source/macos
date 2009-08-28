@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2007, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -25,14 +25,14 @@
 #define _SECURE__COMMON_H_
 
 #undef _USE_FORTIFY_LEVEL
-#ifdef _FORTIFY_SOURCE && _FORTIFY_SOURCE > 0
-#if _FORTIFY_SOURCE > 1
-#define _USE_FORTIFY_LEVEL 2
+#if defined(_FORTIFY_SOURCE) && _FORTIFY_SOURCE > 0
+#  if _FORTIFY_SOURCE > 1
+#    define _USE_FORTIFY_LEVEL 2
+#  else
+#    define _USE_FORTIFY_LEVEL 1
+#  endif
 #else
-#define _USE_FORTIFY_LEVEL 1
-#endif
-#else
-#define _USE_FORTIFY_LEVEL 0
+#  define _USE_FORTIFY_LEVEL 0
 #endif
 
 #define __darwin_obsz0(object) __builtin_object_size (object, 0)

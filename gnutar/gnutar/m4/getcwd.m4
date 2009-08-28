@@ -1,34 +1,20 @@
 # getcwd.m4 - check for working getcwd that is compatible with glibc
 
-# Copyright (C) 2001, 2003, 2004 Free Software Foundation, Inc.
-
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2, or (at your option)
-# any later version.
-
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software Foundation,
-# Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Copyright (C) 2001, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+# This file is free software; the Free Software Foundation
+# gives unlimited permission to copy and/or distribute it,
+# with or without modifications, as long as this notice is preserved.
 
 # Written by Paul Eggert.
 
 AC_DEFUN([gl_FUNC_GETCWD_NULL],
   [
-   AC_CHECK_HEADERS_ONCE(unistd.h)
    AC_CACHE_CHECK([whether getcwd (NULL, 0) allocates memory for result],
      [gl_cv_func_getcwd_null],
      [AC_TRY_RUN(
         [
 #	 include <stdlib.h>
-#	 ifdef HAVE_UNISTD_H
-#	  include <unistd.h>
-#	 endif
+#	 include <unistd.h>
 #	 ifndef getcwd
 	 char *getcwd ();
 #	 endif
@@ -50,18 +36,21 @@ AC_DEFUN([gl_FUNC_GETCWD_NULL],
 
 AC_DEFUN([gl_FUNC_GETCWD],
 [
+  AC_REQUIRE([gl_UNISTD_H_DEFAULTS])
   AC_REQUIRE([gl_FUNC_GETCWD_NULL])
 
+  gl_abort_bug=no
   case $gl_cv_func_getcwd_null in
-  yes) gl_FUNC_GETCWD_PATH_MAX;;
+  yes)
+    gl_FUNC_GETCWD_PATH_MAX
+    gl_FUNC_GETCWD_ABORT_BUG([gl_abort_bug=yes]);;
   esac
 
-  case $gl_cv_func_getcwd_null,$gl_cv_func_getcwd_path_max in
-  yes,yes) ;;
+  case $gl_cv_func_getcwd_null,$gl_cv_func_getcwd_path_max,$gl_abort_bug in
+  yes,yes,no) ;;
   *)
+    REPLACE_GETCWD=1
     AC_LIBOBJ([getcwd])
-    AC_DEFINE([__GETCWD_PREFIX], [[rpl_]],
-      [Define to rpl_ if the getcwd replacement function should be used.])
     gl_PREREQ_GETCWD;;
   esac
 ])
@@ -70,8 +59,6 @@ AC_DEFUN([gl_FUNC_GETCWD],
 AC_DEFUN([gl_PREREQ_GETCWD],
 [
   AC_REQUIRE([gl_USE_SYSTEM_EXTENSIONS])
-  AC_REQUIRE([AC_HEADER_DIRENT])
   AC_REQUIRE([gl_CHECK_TYPE_STRUCT_DIRENT_D_INO])
-  AC_CHECK_HEADERS_ONCE(fcntl.h)
   :
 ])

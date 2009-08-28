@@ -1,4 +1,4 @@
-# $Id: 03doc.t,v 1.1.1.1 2004/05/20 17:55:25 jpetri Exp $
+# $Id: 03doc.t,v 1.1.1.2 2007/10/10 23:04:15 ahuda Exp $
 
 ##
 # this test checks the DOM Document interface of XML::LibXML
@@ -12,7 +12,7 @@
 use Test;
 use strict;
 
-BEGIN { plan tests => 109 };
+BEGIN { plan tests => 135 };
 use XML::LibXML;
 use XML::LibXML::Common qw(:libxml);
 
@@ -176,7 +176,9 @@ use XML::LibXML::Common qw(:libxml);
         ok($attr->nodeName, "kung:foo");
         ok($attr->name,"foo" );
         ok($attr->value, "bar" );
-        
+
+        $attr->setValue( q(bar&amp;) );
+        ok($attr->getValue, q(bar&amp;) );
     }
     {
         print "# bad attribute creation\n";
@@ -196,6 +198,7 @@ use XML::LibXML::Common qw(:libxml);
         ok($pi->nodeType, XML_PI_NODE);
         ok($pi->nodeName, "foo");
         ok($pi->textContent, "bar");
+        ok($pi->getData, "bar");
     }
 
     {
@@ -203,7 +206,14 @@ use XML::LibXML::Common qw(:libxml);
         ok($pi);
         ok($pi->nodeType, XML_PI_NODE);
         ok($pi->nodeName, "foo");
-        ok( $pi->textContent, undef);
+	my $data = $pi->textContent;
+	# undef or "" depending on libxml2 version
+        ok( !defined $data or length($data)==0 );
+	$data = $pi->getData;
+        ok( !defined $data or length($data)==0 );
+	$pi->setData(q(bar&amp;));
+	ok( $pi->getData, q(bar&amp;));
+        ok($pi->textContent, q(bar&amp;));
     }
 }
 
@@ -267,7 +277,7 @@ use XML::LibXML::Common qw(:libxml);
 }
 
 {
-    print "# 4. Document Storeing\n";
+    print "# 4. Document Storing\n";
     my $parser = XML::LibXML->new;
     my $doc = $parser->parse_string("<foo>bar</foo>");  
 
@@ -311,19 +321,31 @@ use XML::LibXML::Common qw(:libxml);
         my $string2 = '<C:A xmlns:C="xml://D"><C:A><C:B/></C:A><C:A><C:B/></C:A></C:A>';
         my $string3 = '<A xmlns="xml://D"><A><B/></A><A><B/></A></A>';
         my $string4 = '<C:A><C:A><C:B/></C:A><C:A><C:B/></C:A></C:A>';
+        my $string5 = '<A xmlns:C="xml://D"><C:A>foo<A/>bar</C:A><A><C:B/>X</A>baz</A>';
         {
             my $doc2 = $parser2->parse_string($string1);
             my @as   = $doc2->getElementsByTagName( "A" );
             ok( scalar( @as ), 3);
 
+            @as   = $doc2->getElementsByTagName( "*" );
+            ok( scalar( @as ), 5);
+
+            @as   = $doc2->getElementsByTagNameNS( "*", "B" );
+            ok( scalar( @as ), 2);
+
             @as   = $doc2->getElementsByLocalName( "A" );
             ok( scalar( @as ), 3);
+
+            @as   = $doc2->getElementsByLocalName( "*" );
+            ok( scalar( @as ), 5);
         }
         {
             my $doc2 = $parser2->parse_string($string2);
             my @as   = $doc2->getElementsByTagName( "C:A" );
             ok( scalar( @as ), 3);
             @as   = $doc2->getElementsByTagNameNS( "xml://D", "A" );
+            ok( scalar( @as ), 3);
+            @as   = $doc2->getElementsByTagNameNS( "*", "A" );
             ok( scalar( @as ), 3);
             @as   = $doc2->getElementsByLocalName( "A" );
             ok( scalar( @as ), 3);
@@ -346,5 +368,68 @@ use XML::LibXML::Common qw(:libxml);
             my @as   = $doc2->getElementsByLocalName( "A" );
             ok( scalar( @as ), 3);
         }
+        {
+            my $doc2 = $parser2->parse_string($string5);
+            my @as   = $doc2->getElementsByTagName( "C:A" );
+            ok( scalar( @as ), 1);
+            @as   = $doc2->getElementsByTagName( "A" );
+            ok( scalar( @as ), 3);
+            @as   = $doc2->getElementsByTagNameNS( "*", "A" );
+            ok( scalar( @as ), 4);
+            @as   = $doc2->getElementsByTagNameNS( "*", "*" );
+            ok( scalar( @as ), 5);
+            @as   = $doc2->getElementsByTagNameNS( "xml://D", "*" );
+            ok( scalar( @as ), 2);
+
+	    my $A = $doc2->getDocumentElement;
+            @as   = $A->getChildrenByTagName( "A" );
+	    ok( scalar( @as ), 1);
+            @as   = $A->getChildrenByTagName( "C:A" );
+	    ok( scalar( @as ), 1);
+            @as   = $A->getChildrenByTagName( "C:B" );
+	    ok( scalar( @as ), 0);
+            @as   = $A->getChildrenByTagName( "*" );
+	    ok( scalar( @as ), 2);
+            @as   = $A->getChildrenByTagNameNS( "*", "A" );
+	    ok( scalar( @as ), 2);
+            @as   = $A->getChildrenByTagNameNS( "xml://D", "*" );
+	    ok( scalar( @as ), 1);
+            @as   = $A->getChildrenByTagNameNS( "*", "*" );
+            ok( scalar( @as ), 2);
+            @as   = $A->getChildrenByLocalName( "A" );
+            ok( scalar( @as ), 2);
+        }
     }
+}
+{
+    print "# 5. Bug fixes (to be use with valgrind)\n";
+    {  
+       my $doc=XML::LibXML->createDocument(); # create a doc
+       my $x=$doc->createPI(foo=>"bar");      # create a PI
+       undef $doc;                            # should not free
+       undef $x;                              # free the PI
+       ok(1);
+    }
+    {  
+       my $doc=XML::LibXML->createDocument(); # create a doc
+       my $x=$doc->createAttribute(foo=>"bar"); # create an attribute
+       undef $doc;                            # should not free
+       undef $x;                              # free the attribute
+       ok(1);
+    }
+    {  
+       my $doc=XML::LibXML->createDocument(); # create a doc
+       my $x=$doc->createAttributeNS(undef,foo=>"bar"); # create an attribute
+       undef $doc;                            # should not free
+       undef $x;                              # free the attribute
+       ok(1);
+    }
+    {  
+       my $doc=XML::LibXML->new->parse_string('<foo xmlns:x="http://foo.bar"/>');
+       my $x=$doc->createAttributeNS('http://foo.bar','x:foo'=>"bar"); # create an attribute
+       undef $doc;                            # should not free
+       undef $x;                              # free the attribute
+       ok(1);
+    }
+
 }

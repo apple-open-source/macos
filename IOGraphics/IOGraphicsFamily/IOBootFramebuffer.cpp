@@ -148,7 +148,7 @@ IOReturn IOBootFramebuffer::getPixelInformation(
     {
         case 8:
         default:
-            strcpy(info->pixelFormat, IO8BitIndexedPixels );
+            strlcpy(info->pixelFormat, IO8BitIndexedPixels, sizeof(info->pixelFormat));
             info->pixelType 		= kIOCLUTPixels;
             info->componentMasks[0]	= 0xff;
             info->bitsPerPixel 		= 8;
@@ -157,7 +157,7 @@ IOReturn IOBootFramebuffer::getPixelInformation(
             break;
         case 15:
         case 16:
-            strcpy(info->pixelFormat, IO16BitDirectPixels );
+            strlcpy(info->pixelFormat, IO16BitDirectPixels, sizeof(info->pixelFormat));
             info->pixelType 	= kIORGBDirectPixels;
             info->componentMasks[0] = 0x7c00;
             info->componentMasks[1] = 0x03e0;
@@ -168,7 +168,7 @@ IOReturn IOBootFramebuffer::getPixelInformation(
             break;
         case 24:
         case 32:
-            strcpy(info->pixelFormat, IO32BitDirectPixels );
+            strlcpy(info->pixelFormat, IO32BitDirectPixels, sizeof(info->pixelFormat));
             info->pixelType 	= kIORGBDirectPixels;
             info->componentMasks[0] = 0x00ff0000;
             info->componentMasks[1] = 0x0000ff00;

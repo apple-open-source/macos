@@ -1,10 +1,11 @@
 #!perl -w
+$|=1;
 
 use strict;
 
 use Test::More;
 
-use DBI;
+use DBI 1.50; # also tests Exporter::require_version
 
 BEGIN {
 	plan skip_all => '$h->{Kids} attribute not supported for DBI::PurePerl'

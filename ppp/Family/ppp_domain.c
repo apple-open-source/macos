@@ -173,7 +173,7 @@ int ppp_proto_attach (struct socket *so, int proto, struct proc *p)
 {
     int	error = 0;
     
-    //log(LOGVAL, "ppp_proto_attach, so = 0x%x\n", so);
+    //IOLog("ppp_proto_attach, so = %p\n", so);
 
     if (so->so_snd.sb_hiwat == 0 || so->so_rcv.sb_hiwat == 0) 
         error = soreserve(so, 8192, 8192);
@@ -186,7 +186,7 @@ Called by socket layer when the socket is closed
 ----------------------------------------------------------------------------- */
 int ppp_proto_detach(struct socket *so)
 {
-    //log(LOGVAL, "ppp_proto_detach, so = 0x%x\n", so);
+    //IOLog("ppp_proto_detach, so = %p\n", so);
     
     ppp_proto_free(so);
     return 0;
@@ -210,12 +210,12 @@ int ppp_proto_ioctl(struct socket *so, u_long cmd, caddr_t data,
     int 	error = 0;
     u_int16_t	unit;
     
-    //log(LOGVAL, "ppp_proto_control : so = 0x%x, cmd = %d\n", so, cmd);
+    //IOLog("ppp_proto_control : so = %p, cmd = %d\n", so, cmd);
 
     switch (cmd) {
         case PPPIOCNEWUNIT:
             // this ioctl must be done before connecting the socket
-            //log(LOGVAL, "ppp_proto_control : PPPIOCNEWUNIT\n");
+            //IOLog("ppp_proto_control : PPPIOCNEWUNIT\n");
             unit = *(u_int32_t *)data;
             error = ppp_if_attach(&unit);
             if (error)
@@ -224,7 +224,7 @@ int ppp_proto_ioctl(struct socket *so, u_long cmd, caddr_t data,
             // no break; PPPIOCNEWUNIT implicitlty attach the client
 
         case PPPIOCATTACH:
-            //log(LOGVAL, "ppp_proto_control : PPPIOCATTACH\n");
+            //IOLog("ppp_proto_control : PPPIOCATTACH\n");
             unit = *(u_int32_t *)data;
             error = ppp_if_attachclient(unit, so, (ifnet_t *)&so->so_pcb);
             if (!error)
@@ -232,7 +232,7 @@ int ppp_proto_ioctl(struct socket *so, u_long cmd, caddr_t data,
             break;
 
         case PPPIOCATTCHAN:
-            //log(LOGVAL, "ppp_proto_control : PPPIOCATTCHAN\n");
+            //IOLog("ppp_proto_control : PPPIOCATTCHAN\n");
             unit = *(u_int32_t *)data;
             error = ppp_link_attachclient(unit, so, (struct ppp_link **)&so->so_pcb);
             if (!error)
@@ -240,12 +240,12 @@ int ppp_proto_ioctl(struct socket *so, u_long cmd, caddr_t data,
             break;
 
         case PPPIOCDETACH:
-            //log(LOGVAL, "ppp_proto_control : PPPIOCDETACH\n");
+            //IOLog("ppp_proto_control : PPPIOCDETACH\n");
             ppp_proto_free(so);
             break;
 
         default:
-            switch ((u_int32_t)so->so_tpcb) {
+            switch ((uintptr_t)so->so_tpcb) {
                 case TYPE_IF:
                     error = ppp_if_control((ifnet_t)so->so_pcb, cmd, data);
                     break;
@@ -268,7 +268,7 @@ int ppp_proto_send(struct socket *so, int flags, struct mbuf *m,
 {    
     int error = 0;
     
-    switch ((u_int32_t)so->so_tpcb) {
+    switch ((uintptr_t)so->so_tpcb) {
         case TYPE_IF:
             error = ppp_if_send((ifnet_t)so->so_pcb, (mbuf_t)m);
             break;
@@ -278,10 +278,10 @@ int ppp_proto_send(struct socket *so, int flags, struct mbuf *m,
         default:
             error = EINVAL;
 			if (m)
-				mbuf_freem(m);
+				mbuf_freem((mbuf_t)m);
     }
 	if (control)
-		mbuf_freem(control);
+		mbuf_freem((mbuf_t)control);
     return error;
 }
 
@@ -297,7 +297,7 @@ void ppp_proto_free(void *data)
     if (!so) 
         return;
     
-    switch ((u_int32_t)so->so_tpcb) {
+    switch ((uintptr_t)so->so_tpcb) {
         case TYPE_IF:
             ppp_if_detachclient((ifnet_t)so->so_pcb, so);
             break;
@@ -319,7 +319,7 @@ int ppp_proto_input(void *data, mbuf_t m)
 	
 	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
-    //log(LOGVAL, "ppp_proto_input, so = 0x%x, len = %d\n", pcb->socket, m->m_pkthdr.len);
+    //IOLog("ppp_proto_input, so = %p, len = %d\n", pcb->socket, m->m_pkthdr.len);
     
     // use this flag to be sure the app receive packets with End OF Record
     mbuf_setflags(m, mbuf_flags(m) | MBUF_EOR);
@@ -327,12 +327,12 @@ int ppp_proto_input(void *data, mbuf_t m)
     // if there is no pppd attached yet, or if buffer is full, free the packet
     if (!so || sbspace(&so->so_rcv) < mbuf_pkthdr_len(m)) {
         if (so)
-	  log(LOGVAL, "ppp_proto_input no space, so = 0x%x, len = %d\n", so, mbuf_pkthdr_len(m));
+	  IOLog("ppp_proto_input no space, so = %p, len = %d\n", so, mbuf_pkthdr_len(m));
         mbuf_freem(m);
         return 0;
     }
 
-//    log(LOGVAL, "----------- ppp_proto_input, link %d, packet %x %x %x %x %x %x %x %x \n", *(u_short *)p, p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9]);
+//    IOLog("----------- ppp_proto_input, link %d, packet %x %x %x %x %x %x %x %x \n", *(u_short *)p, p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9]);
 
     sbappendrecord(&so->so_rcv, (struct mbuf*)m);
     sorwakeup(so);

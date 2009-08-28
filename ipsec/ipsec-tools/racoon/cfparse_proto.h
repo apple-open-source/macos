@@ -35,6 +35,6 @@
 /* cfparse.y */
 extern int yyparse __P((void));
 extern int cfparse __P((void));
-extern int cfreparse __P((void));
+extern int cfreparse __P((int));
 
 #endif /* _CFPARSE_PROTO_H */

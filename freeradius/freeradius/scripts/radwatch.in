@@ -12,7 +12,7 @@
 #             reading the file doc/supervise-radiusd.txt
 #
 #
-# Version:	$Id: radwatch.in,v 1.7 2002/11/08 16:08:52 pnixon Exp $
+# Version:	$Id$
 #
 
 prefix=@prefix@

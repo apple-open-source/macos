@@ -1,3 +1,5 @@
+@subheading punycode_decode
+@anchor{punycode_decode}
 @deftypefun {int} {punycode_decode} (size_t @var{input_length}, const char [] @var{input}, size_t * @var{output_length}, punycode_uint [] @var{output}, unsigned char [] @var{case_flags})
 @var{input_length}: The number of ASCII code points in the @code{input} array.
 

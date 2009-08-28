@@ -1,4 +1,31 @@
 /*
+ * Copyright (c) 2008 Apple Inc. All rights reserved.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ *
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+ */
+/*
  * Copyright (c) 1983, 1988, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -55,15 +82,6 @@ static const char rcsid[] =
 #include <netinet/in.h>
 #include <netinet/in_var.h>
 
-#ifdef IPX
-#include <netipx/ipx.h>
-#include <netipx/ipx_if.h>
-#endif
-
-#ifdef NS
-#include <netns/ns.h>
-#include <netns/ns_if.h>
-#endif
 #include <arpa/inet.h>
 
 #include <signal.h>
@@ -81,8 +99,8 @@ static const char rcsid[] =
 #define ROUNDUP(a, size) (((a) & ((size) - 1)) ? (1 + ((a)|(size - 1))) : (a))
 
 #define NEXT_SA(p) (struct sockaddr *) \
-    ((caddr_t)p + (p->sa_len ? ROUNDUP(p->sa_len, sizeof(u_long)) : \
-    sizeof(u_long)))
+    ((caddr_t)p + (p->sa_len ? ROUNDUP(p->sa_len, sizeof(uint32_t)) : \
+    sizeof(uint32_t)))
 
 static void sidewaysintpr ();
 static void catchalarm (int);
@@ -91,54 +109,6 @@ static void catchalarm (int);
 char *netname6 (struct sockaddr_in6 *, struct sockaddr *);
 static char ntop_buf[INET6_ADDRSTRLEN];		/* for inet_ntop() */
 #endif
-
-#if 0
-#ifdef INET6
-static int bdg_done;
-#endif
-
-/* print bridge statistics */
-void
-bdg_stats(u_long dummy , char *name, int af )
-{
-    int i;
-    size_t slen ;
-    struct bdg_stats s ;
-    int mib[4] ;
-
-    slen = sizeof(s);
-
-    mib[0] = CTL_NET ;
-    mib[1] = PF_LINK ;
-    mib[2] = IFT_ETHER ;
-    if (sysctl(mib,4, &s,&slen,NULL,0)==-1)
-	return ; /* no bridging */
-#ifdef INET6
-    if (bdg_done != 0)
-	return;
-    else
-	bdg_done = 1;
-#endif
-    printf("-- Bridging statistics (%s) --\n", name) ;
-    printf(
-"Name          In      Out  Forward     Drop    Bcast    Mcast    Local  Unknown\n");
-    for (i = 0 ; i < 16 ; i++) {
-	if (s.s[i].name[0])
-	printf("%-6s %9ld%9ld%9ld%9ld%9ld%9ld%9ld%9ld\n",
-	  s.s[i].name,
-	  s.s[i].p_in[(int)BDG_IN],
-	  s.s[i].p_in[(int)BDG_OUT],
-	  s.s[i].p_in[(int)BDG_FORWARD],
-	  s.s[i].p_in[(int)BDG_DROP],
-	  s.s[i].p_in[(int)BDG_BCAST],
-	  s.s[i].p_in[(int)BDG_MCAST],
-	  s.s[i].p_in[(int)BDG_LOCAL],
-	  s.s[i].p_in[(int)BDG_UNKNOWN] );
-    }
-}
-
-#endif
-
 
 /*
  * Display a formatted value, or a '-' in the same space.
@@ -215,17 +185,14 @@ multipr(int family, char *buf, char *lim)
 
 				if (IN6_IS_ADDR_LINKLOCAL(&sin6.sin6_addr) ||
 					IN6_IS_ADDR_MC_LINKLOCAL(&sin6.sin6_addr)) {
-					sin6.sin6_scope_id =
-						ntohs(*(u_int16_t *)&sin6.sin6_addr.s6_addr[2]);
+					sin6.sin6_scope_id = ntohs(*(u_int16_t *)&sin6.sin6_addr.s6_addr[2]);
 					sin6.sin6_addr.s6_addr[2] = 0;
 					sin6.sin6_addr.s6_addr[3] = 0;
 				}
 
 				printf("%23s %-19.19s(refs: %d)\n", "",
-						inet_ntop(AF_INET6,
-						&sin6.sin6_addr,
-						ntop_buf,
-						sizeof(ntop_buf)),
+				    inet_ntop(AF_INET6, &sin6.sin6_addr,
+				    ntop_buf, sizeof(ntop_buf)),
 						ifmam->ifmam_refcount);
 				break;
 			}
@@ -236,8 +203,7 @@ multipr(int family, char *buf, char *lim)
 				switch (sdl->sdl_type) {
 				case IFT_ETHER:
 				case IFT_FDDI:
-					fmt = ether_ntoa(
-						(struct ether_addr *)
+					fmt = ether_ntoa((struct ether_addr *)
 						LLADDR(sdl));
 					break;
 				}
@@ -262,7 +228,7 @@ intpr(void (*pfunc)(char *))
 	u_int64_t oerrors = 0;
 	u_int64_t ierrors = 0;
 	u_int64_t collisions = 0;
-	u_long mtu = 0;
+	uint32_t mtu = 0;
 	short timer = 0;
 	int drops = 0;
 	struct sockaddr *sa = NULL;
@@ -369,9 +335,10 @@ intpr(void (*pfunc)(char *))
 				continue;
             get_rti_info(ifam->ifam_addrs, (struct sockaddr*)(ifam + 1), rti_info);
 			sa = rti_info[RTAX_IFA];
-		} else
+		} else {
 			continue;
-		printf("%-5.5s %-5lu ", name, mtu);
+		}
+		printf("%-5.5s %-5u ", name, mtu);
 
 		if (sa == 0) {
 			printf("%-13.13s ", "none");
@@ -382,14 +349,18 @@ intpr(void (*pfunc)(char *))
 				printf("%-13.13s ", "none");
 				printf("%-15.15s ", "none");
 				break;
+
 			case AF_INET: {
 				struct sockaddr_in *sin = (struct sockaddr_in *)sa;
 				struct sockaddr_in mask;
 				
 				mask.sin_addr.s_addr = 0;
-				memcpy(&mask, rti_info[RTAX_NETMASK], ((struct sockaddr_in *)rti_info[RTAX_NETMASK])->sin_len);
+				memcpy(&mask,
+				       rti_info[RTAX_NETMASK],
+				       ((struct sockaddr_in *)rti_info[RTAX_NETMASK])->sin_len);
 				
-				printf("%-13.13s ", netname(sin->sin_addr.s_addr & mask.sin_addr.s_addr,
+				printf("%-13.13s ",
+				       netname(sin->sin_addr.s_addr & mask.sin_addr.s_addr,
 				    ntohl(mask.sin_addr.s_addr)));
 
 				printf("%-15.15s ",
@@ -415,8 +386,7 @@ intpr(void (*pfunc)(char *))
 				break;
 			}
 #endif /*INET6*/
-			case AF_LINK:
-				{
+			case AF_LINK: {
 				struct sockaddr_dl *sdl =
 					(struct sockaddr_dl *)sa;
 				char linknum[10];
@@ -424,8 +394,9 @@ intpr(void (*pfunc)(char *))
 				n = sdl->sdl_alen;
 				sprintf(linknum, "<Link#%d>", sdl->sdl_index);
 				m = printf("%-11.11s ", linknum);
-				}
 				goto hexprint;
+			}
+
 			default:
 				m = printf("(%d)", sa->sa_family);
 				for (cp = sa->sa_len + (char *)sa;
@@ -443,19 +414,7 @@ intpr(void (*pfunc)(char *))
 				link_layer = 1;
 				break;
 			}
-#ifndef __APPLE__
-			/*
-			 * Fixup the statistics for interfaces that
-			 * update stats for their network addresses
-			 */
-			if (network_layer) {
-				opackets = ifaddr.in.ia_ifa.if_opackets;
-				ipackets = ifaddr.in.ia_ifa.if_ipackets;
-				obytes = ifaddr.in.ia_ifa.if_obytes;
-				ibytes = ifaddr.in.ia_ifa.if_ibytes;
 			}
-#endif
-		}
 
 		show_stat("llu", 8, ipackets, link_layer|network_layer);
 		printf(" ");
@@ -699,7 +658,7 @@ loop:
 }
 
 void
-intervalpr(void (*pr)(u_long, char *, int), u_long off, char *name , int af)
+intervalpr(void (*pr)(uint32_t, char *, int), uint32_t off, char *name , int af)
 {
 	struct itimerval timer_interval;
 	sigset_t sigset, oldsigset;

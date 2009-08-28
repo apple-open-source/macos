@@ -8,7 +8,7 @@
  ************************************************************************/
 #ifdef RCS
 static /*const*/char rcsid[]=
- "$Id: exopen.c,v 1.1.1.3 2003/10/14 23:13:23 rbraun Exp $";
+ "$Id: exopen.c,v 1.44 2001/08/26 21:10:11 guenther Exp $";
 #endif
 #include "procmail.h"
 #include "acommon.h"

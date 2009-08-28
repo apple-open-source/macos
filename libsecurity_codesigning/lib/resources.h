@@ -73,6 +73,8 @@ public:
 	};
 	void addRule(Rule *rule) { mRules.push_back(rule); }
 	void addExclusion(const std::string &pattern) { mRules.insert(mRules.begin(), new Rule(pattern, 0, exclusion)); }
+
+	static std::string escapeRE(const std::string &s);
 	
 	FTSENT *next(std::string &path, Rule * &rule);	// enumerate next file and match rule
 

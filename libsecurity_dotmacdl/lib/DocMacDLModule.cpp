@@ -45,7 +45,9 @@ void DotMacDLModule::SetupSchemaRelationRelation ()
 	mSchemaRelationRelation->AddTuple (new UInt32Value (CSSM_DL_DB_SCHEMA_ATTRIBUTES), new StringValue ("CSSM_DL_DB_SCHEMA_ATTRIBUTES"));
 	mSchemaRelationRelation->AddTuple (new UInt32Value (CSSM_DL_DB_SCHEMA_INDEXES), new StringValue ("CSSM_DL_DB_SCHEMA_INDEXES"));
 	mSchemaRelationRelation->AddTuple (new UInt32Value (CSSM_DL_DB_SCHEMA_PARSING_MODULE), new StringValue ("CSSM_DL_DB_SCHEMA_PARSING_MODULE"));
+	mSchemaRelationRelation->AddTuple (new UInt32Value (CSSM_DL_DB_RECORD_X509_CERTIFICATE), new StringValue ("CSSM_DL_DB_RECORD_X509_CERTIFICATE"));
 	(*mRelationMap)[CSSM_DL_DB_SCHEMA_INFO] = mSchemaRelationRelation;
+	(*mRelationMap)[CSSM_DL_DB_SCHEMA_INDEXES] = mSchemaRelationRelation;
 }
 
 
@@ -192,65 +194,18 @@ void DotMacDLModule::SetupSchemaIndexRelation ()
 											CSSM_DB_ATTRIBUTE_FORMAT_UINT32, CSSM_DB_ATTRIBUTE_FORMAT_UINT32);
 	mSchemaIndexRelation->SetColumnIDs (0, 1, 2, 3, 4);
 	// none of our table relations is indexed, but the certificate relation is, sort of.  Add an index relation for the certificate relation
-	mSchemaIndexRelation->AddTuple (new UInt32Value (CSSM_DL_DB_RECORD_X509_CERTIFICATE),
-									new UInt32Value (0),
-									new UInt32Value ('ctyp'),
-									new UInt32Value (0),
-									new UInt32Value (1));
+	//
+	//                                                          RelationID                              IndexID               AttributeID            IndexType         IndexedDataLocation
+	mSchemaIndexRelation->AddTuple (new UInt32Value (CSSM_DL_DB_RECORD_X509_CERTIFICATE), new UInt32Value (0), new UInt32Value ('ctyp'), new UInt32Value (0), new UInt32Value (1));
+	mSchemaIndexRelation->AddTuple (new UInt32Value (CSSM_DL_DB_RECORD_X509_CERTIFICATE), new UInt32Value (1), new UInt32Value ('issu'), new UInt32Value (0), new UInt32Value (1));
+	mSchemaIndexRelation->AddTuple (new UInt32Value (CSSM_DL_DB_RECORD_X509_CERTIFICATE), new UInt32Value (2), new UInt32Value ('snbr'), new UInt32Value (0), new UInt32Value (1));
+	mSchemaIndexRelation->AddTuple (new UInt32Value (CSSM_DL_DB_RECORD_X509_CERTIFICATE), new UInt32Value (3), new UInt32Value ('alis'), new UInt32Value (1), new UInt32Value (1));
+	mSchemaIndexRelation->AddTuple (new UInt32Value (CSSM_DL_DB_RECORD_X509_CERTIFICATE), new UInt32Value (4), new UInt32Value ('subj'), new UInt32Value (1), new UInt32Value (1));
+	mSchemaIndexRelation->AddTuple (new UInt32Value (CSSM_DL_DB_RECORD_X509_CERTIFICATE), new UInt32Value (5), new UInt32Value ('issu'), new UInt32Value (1), new UInt32Value (1));
+	mSchemaIndexRelation->AddTuple (new UInt32Value (CSSM_DL_DB_RECORD_X509_CERTIFICATE), new UInt32Value (6), new UInt32Value ('snbr'), new UInt32Value (1), new UInt32Value (1));
+	mSchemaIndexRelation->AddTuple (new UInt32Value (CSSM_DL_DB_RECORD_X509_CERTIFICATE), new UInt32Value (7), new UInt32Value ('skid'), new UInt32Value (1), new UInt32Value (1));
+	mSchemaIndexRelation->AddTuple (new UInt32Value (CSSM_DL_DB_RECORD_X509_CERTIFICATE), new UInt32Value (8), new UInt32Value ('hpky'), new UInt32Value (1), new UInt32Value (1));
 
-	mSchemaIndexRelation->AddTuple (new UInt32Value (CSSM_DL_DB_RECORD_X509_CERTIFICATE),
-									new UInt32Value (0),
-									new UInt32Value ('issu'),
-									new UInt32Value (0),
-									new UInt32Value (1));
-
-	mSchemaIndexRelation->AddTuple (new UInt32Value (CSSM_DL_DB_RECORD_X509_CERTIFICATE),
-									new UInt32Value (0),
-									new UInt32Value ('snbr'),
-									new UInt32Value (0),
-									new UInt32Value (1));
-
-	mSchemaIndexRelation->AddTuple (new UInt32Value (CSSM_DL_DB_RECORD_X509_CERTIFICATE),
-									new UInt32Value (1),
-									new UInt32Value ('ctyp'),
-									new UInt32Value (1),
-									new UInt32Value (1));
-
-	mSchemaIndexRelation->AddTuple (new UInt32Value (CSSM_DL_DB_RECORD_X509_CERTIFICATE),
-									new UInt32Value (2),
-									new UInt32Value ('alis'),
-									new UInt32Value (1),
-									new UInt32Value (1));
-
-	mSchemaIndexRelation->AddTuple (new UInt32Value (CSSM_DL_DB_RECORD_X509_CERTIFICATE),
-									new UInt32Value (3),
-									new UInt32Value ('subj'),
-									new UInt32Value (1),
-									new UInt32Value (1));
-
-	mSchemaIndexRelation->AddTuple (new UInt32Value (CSSM_DL_DB_RECORD_X509_CERTIFICATE),
-									new UInt32Value (4),
-									new UInt32Value ('issu'),
-									new UInt32Value (1),
-									new UInt32Value (1));
-
-	mSchemaIndexRelation->AddTuple (new UInt32Value (CSSM_DL_DB_RECORD_X509_CERTIFICATE),
-									new UInt32Value (5),
-									new UInt32Value ('snbr'),
-									new UInt32Value (1),
-									new UInt32Value (1));
-
-	mSchemaIndexRelation->AddTuple (new UInt32Value (CSSM_DL_DB_RECORD_X509_CERTIFICATE),
-									new UInt32Value (6),
-									new UInt32Value ('skid'),
-									new UInt32Value (1),
-									new UInt32Value (1));
-
-	mSchemaIndexRelation->AddTuple (new UInt32Value (CSSM_DL_DB_RECORD_X509_CERTIFICATE),
-									new UInt32Value (7),
-									new UInt32Value ('hpky'),
-									new UInt32Value (1),
-									new UInt32Value (1));
 
 	(*mRelationMap)[CSSM_DL_DB_SCHEMA_INDEXES] = mSchemaIndexRelation;
 }
@@ -273,6 +228,8 @@ void DotMacDLModule::SetupDotMacRelation ()
 	
 	// add the relation to the attributes table
 	int i;
+	
+	/* CSSM_DL_DB_RECORD_X509_CERTIFICATE */
 	int max = mDotMacRelation->GetNumberOfColumns ();
 	uint32* columnIDs = mDotMacRelation->GetColumnIDs ();
 	Tuple* columnNames = mDotMacRelation->GetColumnNames ();
@@ -290,7 +247,8 @@ void DotMacDLModule::SetupDotMacRelation ()
 
 	// add to the attribute info database
 	mSchemaRelationRelation->AddTuple (new UInt32Value (CSSM_DL_DB_RECORD_X509_CERTIFICATE), new StringValue ("CSSM_DL_DB_RECORD_X509_CERTIFICATE"));
-
+	
+	
 }
 
 
@@ -411,7 +369,9 @@ void DotMacDatabase::CopyAttributes (Relation *r, Tuple *t, CSSM_DB_RECORD_ATTRI
 	// fill out each attribute requested
 	uint32 i;
 	CSSM_DB_ATTRIBUTE_DATA* d = attributes->AttributeData;
-	attributes->DataRecordType = r->GetRecordType ();
+	if (r) attributes->DataRecordType = r->GetRecordType ();
+	else return;
+
 
 	for (i = 0; i < attributes->NumberOfAttributes; ++i)
 	{
@@ -432,29 +392,36 @@ void DotMacDatabase::CopyAttributes (Relation *r, Tuple *t, CSSM_DB_RECORD_ATTRI
 			
 			default:
 			{
-				CSSMError::ThrowCSSMError (CSSMERR_DL_INVALID_FIELD_NAME);
+				columnNumber = -1;
 			}
 		}
 		
-		// copy the value from the tuple into the field
-		Value *v = t->GetValue (columnNumber);
-		d->Value = (CSSM_DATA_PTR) mAttachedInstance->malloc (sizeof (CSSM_DATA));
-		if (v != NULL)
-		{
-			d->Info.AttributeFormat = v->GetValueType();
-			uint32 numItems, length;
-			uint8* value;
-			
-			value = v->CloneContents (mAttachedInstance, numItems, length);
-			d->Value->Data = value;
-			d->Value->Length = length;
-			d->NumberOfValues = numItems;
-		}
-		else
-		{
+		if ( columnNumber == -1 ) {
 			d->Value->Data = NULL;
 			d->Value->Length = 0;
 			d->NumberOfValues = 0;
+		} else {
+			// copy the value from the tuple into the field
+			Value *v = t->GetValue (columnNumber);
+			d->Value = (CSSM_DATA_PTR) mAttachedInstance->malloc (sizeof (CSSM_DATA));
+			if (v != NULL)
+			{
+				d->Info.AttributeFormat = v->GetValueType();
+				uint32 numItems, length;
+				uint8* value;
+				
+				value = v->CloneContents (mAttachedInstance, numItems, length);
+				d->Value->Data = value;
+				d->Value->Length = length;
+				d->NumberOfValues = numItems;
+	
+			}
+			else
+			{
+				d->Value->Data = NULL;
+				d->Value->Length = 0;
+				d->NumberOfValues = 0;
+			}
 		}
 		
 		d += 1;
@@ -491,9 +458,25 @@ CSSM_HANDLE DotMacDatabase::DbDataGetFirst (const CSSM_QUERY *query,
 	
 	//secdebug("dotmacdl", "DotMacDatabase::DbDataGetFirst this %p", this);
 	CSSM_DB_RECORDTYPE recordType = query->RecordType;
-	if (recordType == CSSM_DL_DB_RECORD_ANY)
+	if (recordType == CSSM_DL_DB_RECORD_ANY )
 	{
 		recordType = CSSM_DL_DB_RECORD_X509_CERTIFICATE;
+	}
+		
+	switch (recordType) {
+		case CSSM_DL_DB_SCHEMA_INFO:
+			break;
+		case CSSM_DL_DB_SCHEMA_INDEXES:
+			break;
+		case CSSM_DL_DB_SCHEMA_ATTRIBUTES:
+			break;
+		case CSSM_DL_DB_SCHEMA_PARSING_MODULE:
+			break;
+		case CSSM_DL_DB_RECORD_X509_CERTIFICATE:
+			break;
+		default:
+			CSSMError::ThrowCSSMError (CSSMERR_DL_ENDOFDATA);
+			break;
 	}
 	
 	// do error checking on the attributes
@@ -560,7 +543,7 @@ void DotMacDatabase::ExportUniqueID (UniqueIdentifier *id, CSSM_DB_UNIQUE_RECORD
 
 
 
-void DotMacDatabase::DbDataGetNext (CSSM_HANDLE resultsHandle,
+bool DotMacDatabase::DbDataGetNext (CSSM_HANDLE resultsHandle,
 								  CSSM_DB_RECORD_ATTRIBUTE_DATA_PTR attributes,
 								  CSSM_DATA_PTR data,
 								  CSSM_DB_UNIQUE_RECORD_PTR *uniqueID)
@@ -569,7 +552,7 @@ void DotMacDatabase::DbDataGetNext (CSSM_HANDLE resultsHandle,
 	QueryMap::iterator it = mQueryMap.find (resultsHandle);
 	if (it == mQueryMap.end ())
 	{
-		CSSMError::ThrowCSSMError (CSSMERR_DL_INVALID_DB_HANDLE);
+		CSSMError::ThrowCSSMError (CSSMERR_DL_ENDOFDATA);
 	}
 	
 	Query* q = (*it).second;
@@ -580,9 +563,10 @@ void DotMacDatabase::DbDataGetNext (CSSM_HANDLE resultsHandle,
 
 	if (t == NULL)
 	{
-		delete q;
+		//delete q;
 		mQueryMap.erase (resultsHandle);
 		CSSMError::ThrowCSSMError (CSSMERR_DL_ENDOFDATA);
+		return false;
 	}
 	else
 	{
@@ -597,6 +581,7 @@ void DotMacDatabase::DbDataGetNext (CSSM_HANDLE resultsHandle,
 		
 		// make a new handle for this query
 		ExportUniqueID (id, uniqueID);
+		return true;
 	}
 }
 
@@ -621,9 +606,11 @@ void DotMacDatabase::DbDataAbortQuery (CSSM_HANDLE resultsHandle)
 void DotMacDatabase::DbFreeUniqueRecord (CSSM_DB_UNIQUE_RECORD_PTR uniqueRecord)
 {
 	secdebug("dotmacdl", "DotMacDatabase::DbFreeUniqueRecord this %p", this);
-	UniqueIdentifier* id = (UniqueIdentifier*) uniqueRecord->RecordIdentifier.Data;
-	delete id;
-	delete uniqueRecord;
+	//UniqueIdentifier* id;
+	//if(uniqueRecord)
+		//id = (UniqueIdentifier*) uniqueRecord->RecordIdentifier.Data;
+	//if(id) delete id;
+	// if(uniqueRecord) delete uniqueRecord;
 }
 
 

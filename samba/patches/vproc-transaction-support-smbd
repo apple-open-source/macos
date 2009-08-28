@@ -1,0 +1,72 @@
+Index: samba/source/configure.in
+===================================================================
+--- samba/source/configure.in.orig
++++ samba/source/configure.in
+@@ -901,6 +901,9 @@ main() {
+ 	# go away. -- jpeach
+ 	CPPFLAGS="$CPPFLAGS -F/System/Library/PrivateFrameworks"
+ 
++	# Check for libvproc support
++	AC_CHECK_HEADERS(vproc.h)
++
+ # Add a system specific charset module.
+ 	default_shared_modules="$default_shared_modules charset_macosxfs"
+ 	default_shared_modules="$default_shared_modules vfs_darwin_streams"
+Index: samba/source/smbd/server.c
+===================================================================
+--- samba/source/smbd/server.c.orig
++++ samba/source/smbd/server.c
+@@ -23,6 +23,28 @@
+ 
+ #include "includes.h"
+ 
++#ifdef HAVE_VPROC_H
++#include <vproc.h>
++
++static vproc_transaction_t smbd_vproc_trans;
++
++static void smbd_vproc_start(void)
++{
++    smbd_vproc_trans = vproc_transaction_begin(NULL);
++}
++
++static void smbd_vproc_end(void)
++{
++    vproc_transaction_end(NULL, smbd_vproc_trans);
++}
++
++#else
++
++#define smbd_vproc_start()
++#define smbd_vproc_end()
++
++#endif
++
+ static_decl_rpc;
+ 
+ static int am_parent = 1;
+@@ -410,8 +432,15 @@ static BOOL open_sockets_smbd(enum smb_s
+ 		memcpy((char *)&lfds, (char *)&listen_set, 
+ 		       sizeof(listen_set));
+ 
++		/* At this point, we know that our state is quiescent. We can
++		 * be SIGKILL'd with relative safety.
++		 */
++		smbd_vproc_end();
++
+ 		num = sys_select(maxfd+1,&lfds,NULL,NULL,
+ 			idle_timeout.tv_sec ? &idle_timeout : NULL);
++
++		smbd_vproc_start();
+ 		
+ 		if (num == -1 && errno == EINTR) {
+ 			if (got_sig_term) {
+@@ -800,6 +829,8 @@ extern void build_options(BOOL screen);
+ 	POPT_TABLEEND
+ 	};
+ 
++	smbd_vproc_start();
++
+ 	load_case_tables();
+ 
+ 	TimeInit();

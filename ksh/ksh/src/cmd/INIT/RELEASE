@@ -1,3 +1,7 @@
+07-11-05 package.sh: fix write op error count pattern
+07-11-05 package.mk: fix $(~req) .ver binding
+07-08-11 probe.win32: add cl.exe setuid workaround, CC.VERSION[.STRING]
+07-08-01 package.sh: handle 'package read lcl|tgz'
 07-05-08 regress.sh: execute basename instead of absolute path for short $0
 07-04-27 cc.sgi.mips[34]: for #error to exit non-zero -- a no brainer
 07-04-20 mktest.sh: defer to systems without 'grep -q' -- sigh

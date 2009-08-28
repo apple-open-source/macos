@@ -1,0 +1,108 @@
+[comment {-*- tcl -*- ntextBindings manpage}]
+[manpage_begin ntextBindings n 0.81]
+[moddesc   {Alternative Bindings for the Text Widget}]
+[titledesc {Alternative Bindings for the Text Widget}]
+[require Tcl 8.5]
+[require Tk 8.5]
+[require ntext [opt 0.81]]
+[description]
+
+The [package ntext] package provides a binding tag named [emph Ntext] for use by text widgets in place of the default [emph Text] binding tag.
+
+[para]
+
+The [emph Text] binding tag provides around one hundred bindings to the text widget (the exact number is platform-dependent).  A few of these behave in a way that is different from most contemporary text-editing applications.  [emph Ntext] aims to provide more familiar behaviour.
+[para]
+Features of the [emph Ntext] bindings that differ from the default [emph Text] bindings:
+
+[list_begin bullet]
+
+[bullet] Clicking near the end of a (logical) line moves the cursor to the end of that line [emph {(not the start of the next line)}].  If the widget is in [arg -wrap] [arg word] mode, the same rule applies to display lines.
+
+[bullet] Double-clicking or dragging near the end of a (logical) line will highlight/select characters from the end of that line [emph {(not the next line, or the region at the end of the line where there are no characters)}].  If the widget is in [arg -wrap] [arg word] mode, the same rule applies to display lines.
+
+[bullet] The [emph End] key implements "Smart End" (successive keypresses move the cursor to the end of the display line, then to the end of the logical line); the [emph Home] key implements "Smart Home" (which is similar to "Smart End", but also toggles between the beginning and end of leading whitespace).
+
+[bullet] When a selection exists, a <<Paste>> operation (e.g. <Control-v>) overwrites the selection (as most editors do), and does so on all platforms.
+
+[bullet] The <Insert> key toggles between "Insert" and "Overwrite" modes for keyboard input.  [emph {(In contrast, the Text binding tag uses <Insert> as a method to paste the "primary selection", a task that can be accomplished instead by mouse middle-click.)}]
+
+[bullet] The <Escape> key clears the selection.
+
+[bullet] Selecting with <Shift-Button1> selects from the previous position of the insertion cursor. [emph {(In the Text binding tag, the selection anchor may be the position of the previous mouse click.)}]
+
+[bullet] <Shift-Button1> operations do not alter the selection anchor. [emph {(In the Text binding tag, they do.)}]
+
+[bullet] By default, the [emph Ntext] binding tag does not provide several of the Control-key bindings supplied by the [emph Text] binding tag.  Modern keyboards offer alternatives, such as cursor keys for navigation; modern applications often use the Control-key bindings for other purposes (e.g. <Control-p> for "print").
+
+[list_end]
+
+The last three cases, the behavior of [emph Text] is often useful, so [emph Ntext] gives you the option of retaining it, by setting variables defined in the ::ntext namespace to 1 (instead of their default 0).  Explaining these features in more detail:
+
+[list_begin bullet]
+[bullet] If the mouse is clicked at position A, then the keyboard is used to move the cursor to B, then shift is held down, and the mouse is clicked at C: the [emph Text] binding tag gives a selection from A to C; the [emph Ntext] gives a selection from B to C.  If you want [emph Ntext] to behave like [emph Text] in this respect, set [var ::ntext::classicMouseSelect] to 1.
+
+[bullet] The [emph Text] binding tag allows successive <Shift-Button-1> events to change both ends of the selection, by moving the selection anchor to the end of the selection furthest from the mouse click.  Instead, the [emph Ntext] binding tag fixes the anchor, and multiple Shift-Button-1 events can only move the non-anchored end of the selection.  If you want [emph Ntext] to behave like [emph Text] in this respect, set [var ::ntext::classicAnchor] to 1.  In both [emph Text] and [emph Ntext], keyboard navigation with the Shift key held down alters the selection and keeps the selection anchor fixed.
+
+[bullet] The following "extra" [emph Text] bindings are switched off by default, but can be activated in [emph Ntext] by setting [var ::ntext::classicExtras] to 1: <Control-a>, <Control-b>, <Control-d>, <Control-e>, <Control-f>, <Control-h>, <Control-i>, <Control-k>, <Control-n>, <Control-o>, <Control-p>, <Control-t>, <Control-space>, <Control-Shift-space>.
+
+[list_end]
+
+[section {CONFIGURATION OPTIONS}]
+
+[emph Ntext] provides alternatives to a number of behaviours of the classic [emph Text] binding tag.  Where there is an option, the [emph Ntext] behaviour is switched on by default, except for display-line indentation which is discussed on a separate page at [term ntextIndent].
+
+[para]
+
+The behaviour of [emph Ntext] may be configured application-wide by setting the values of a number of namespace variables:
+[para]
+[var ::ntext::classicAnchor]
+[list_begin bullet]
+[bullet]
+   [const 0] - (default value) selects [emph Ntext] behaviour, i.e. the anchor point is fixed
+[bullet]
+   [const 1] - selects classic [emph Text] behaviour, i.e. the anchor point is variable
+[list_end]
+[para]
+[var ::ntext::classicExtras]
+[list_begin bullet]
+[bullet]
+   [const 0] - (default value) selects [emph Ntext] behaviour, i.e. several "extra" [emph Text] bindings are de-activated
+[bullet]
+   [const 1] - selects classic [emph Text] behaviour, i.e. the "extra" [emph Text] bindings are activated
+[list_end]
+[para]
+[var ::ntext::classicMouseSelect]
+[list_begin bullet]
+[bullet]
+   [const 0] - (default value) selects [emph Ntext] behaviour, i.e. the anchor point for mouse selection operations is moved by keyboard navigation
+[bullet]
+   [const 1] - selects classic [emph Text] behaviour
+[list_end]
+[para]
+[var ::ntext::overwrite]
+[list_begin bullet]
+[bullet]
+   [const 0] - (initial value) text typed at the keyboard is inserted into the widget
+[bullet]
+   [const 1] - text typed at the keyboard overwrites text already in the widget
+[bullet]
+   The value is toggled by the [emph Insert] key.
+[list_end]
+
+[section EXAMPLE]
+
+To use [emph Ntext] but keep classic [emph Text] 's variable-anchor feature:
+[example {
+package require ntext
+text .t
+set ::ntext::classicAnchor 1
+bindtags .t {.t Ntext . all}
+}]
+
+
+[see_also ntext]
+[see_also ntextIndent]
+[see_also text bindtags]
+[keywords text bindtags]
+[manpage_end]

@@ -1,7 +1,7 @@
 /*
  * rlm_detail.c	accounting:    Write the "detail" files.
  *
- * Version:	$Id: rlm_detail.c,v 1.37.2.1.2.3 2007/03/05 14:43:31 aland Exp $
+ * Version:	$Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,26 +15,22 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2000  The FreeRADIUS server project
+ * Copyright 2000,2006  The FreeRADIUS server project
  */
 
-static const char rcsid[] = "$Id: rlm_detail.c,v 1.37.2.1.2.3 2007/03/05 14:43:31 aland Exp $";
+#include	<freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include	"autoconf.h"
-#include	"libradius.h"
+#include	<freeradius-devel/radiusd.h>
+#include	<freeradius-devel/modules.h>
+#include	<freeradius-devel/rad_assert.h>
 
 #include	<sys/stat.h>
-#include	<sys/select.h>
-
-#include	<stdlib.h>
-#include	<string.h>
 #include	<ctype.h>
 #include	<fcntl.h>
 
-#include	"radiusd.h"
-#include	"modules.h"
 #define 	DIRLEN	8192
 
 static const char *packet_codes[] = {
@@ -66,21 +62,31 @@ struct detail_instance {
 	/* last made directory */
 	char *last_made_directory;
 
+	/* timestamp & stuff */
+	char *header;
+
 	/* if we want file locking */
 	int locking;
 
-	lrad_hash_table_t *ht;
+	/* log src/dst information */
+	int log_srcdst;
+
+	fr_hash_table_t *ht;
 };
 
-static CONF_PARSER module_config[] = {
+static const CONF_PARSER module_config[] = {
 	{ "detailfile",    PW_TYPE_STRING_PTR,
 	  offsetof(struct detail_instance,detailfile), NULL, "%A/%{Client-IP-Address}/detail" },
+	{ "header",    PW_TYPE_STRING_PTR,
+	  offsetof(struct detail_instance,header), NULL, "%t" },
 	{ "detailperm",    PW_TYPE_INTEGER,
 	  offsetof(struct detail_instance,detailperm), NULL, "0600" },
 	{ "dirperm",       PW_TYPE_INTEGER,
 	  offsetof(struct detail_instance,dirperm),    NULL, "0755" },
 	{ "locking",       PW_TYPE_BOOLEAN,
 	  offsetof(struct detail_instance,locking),    NULL, "no" },
+	{ "log_packet_header",       PW_TYPE_BOOLEAN,
+	  offsetof(struct detail_instance,log_srcdst),    NULL, "no" },
 	{ NULL, -1, 0, NULL, NULL }
 };
 
@@ -91,32 +97,23 @@ static CONF_PARSER module_config[] = {
 static int detail_detach(void *instance)
 {
         struct detail_instance *inst = instance;
-	free((char *) inst->detailfile);
-
 	free((char*) inst->last_made_directory);
-
-	if (inst->ht) lrad_hash_table_free(inst->ht);
+	if (inst->ht) fr_hash_table_free(inst->ht);
 
         free(inst);
 	return 0;
 }
 
 
-/*
- *	Hash callback functions.  Copied from src/lib/dict.c
- */
-static uint32_t dict_attr_value_hash(const void *data)
+static uint32_t detail_hash(const void *data)
 {
-	return lrad_hash(&((const DICT_ATTR *)data)->attr,
-			 sizeof(((const DICT_ATTR *)data)->attr));
+	const DICT_ATTR *da = data;
+	return fr_hash(&(da->attr), sizeof(da->attr));
 }
 
-static int dict_attr_value_cmp(const void *one, const void *two)
+static int detail_cmp(const void *a, const void *b)
 {
-	const DICT_ATTR *a = one;
-	const DICT_ATTR *b = two;
-
-	return a->attr - b->attr;
+	return ((const DICT_ATTR *)a)->attr - ((const DICT_ATTR *)b)->attr;
 }
 
 
@@ -148,8 +145,7 @@ static int detail_instantiate(CONF_SECTION *conf, void **instance)
 	if (cs) {
 		CONF_ITEM	*ci;
 
-		inst->ht = lrad_hash_table_create(dict_attr_value_hash,
-						  dict_attr_value_cmp,
+		inst->ht = fr_hash_table_create(detail_hash, detail_cmp,
 						  NULL);
 
 		for (ci = cf_item_find_next(cs, NULL);
@@ -159,7 +155,7 @@ static int detail_instantiate(CONF_SECTION *conf, void **instance)
 			DICT_ATTR	*da;
 
 			if (!cf_item_is_pair(ci)) continue;
-						
+
 			attr = cf_pair_attr(cf_itemtopair(ci));
 			if (!attr) continue; /* pair-anoia */
 
@@ -169,7 +165,13 @@ static int detail_instantiate(CONF_SECTION *conf, void **instance)
 				continue;
 			}
 
-			if (!lrad_hash_table_insert(inst->ht, da)) {
+			/*
+			 *	For better distribution we should really
+			 *	hash the attribute number or name.  But
+			 *	since the suppression list will usually
+			 *	be small, it doesn't matter.
+			 */
+			if (!fr_hash_table_insert(inst->ht, da)) {
 				radlog(L_ERR, "rlm_detail: Failed trying to remember %s", attr);
 				detail_detach(inst);
 				return -1;
@@ -190,14 +192,13 @@ static int do_detail(void *instance, REQUEST *request, RADIUS_PACKET *packet,
 {
 	int		outfd;
 	FILE		*outfp;
+	char		timestamp[256];
 	char		buffer[DIRLEN];
 	char		*p;
 	struct stat	st;
 	int		locked;
 	int		lock_count;
 	struct timeval	tv;
-	REALM		*proxy_realm;
-	char		proxy_buffer[16];
 	VALUE_PAIR	*pair;
 
 	struct detail_instance *inst = instance;
@@ -218,7 +219,7 @@ static int do_detail(void *instance, REQUEST *request, RADIUS_PACKET *packet,
 	 *	variables.
 	 */
 	radius_xlat(buffer, sizeof(buffer), inst->detailfile, request, NULL);
-	DEBUG2("rlm_detail: %s expands to %s", inst->detailfile, buffer);
+	RDEBUG2("%s expands to %s", inst->detailfile, buffer);
 
 	/*
 	 *	Grab the last directory delimiter.
@@ -244,15 +245,7 @@ static int do_detail(void *instance, REQUEST *request, RADIUS_PACKET *packet,
 		 */
 		if ((inst->last_made_directory == NULL) ||
 		    (strcmp(inst->last_made_directory, buffer) != 0)) {
-
-			/*
-			 *	Free any previously cached name.
-			 */
-			if (inst->last_made_directory != NULL) {
-				free((char *) inst->last_made_directory);
-				inst->last_made_directory = NULL;
-			}
-
+			free((char *) inst->last_made_directory);
 			inst->last_made_directory = strdup(buffer);
 		}
 
@@ -264,32 +257,31 @@ static int do_detail(void *instance, REQUEST *request, RADIUS_PACKET *packet,
 		 *	deleted a directory that the server was using.
 		 */
 		if (rad_mkdir(inst->last_made_directory, inst->dirperm) < 0) {
-			radlog(L_ERR, "rlm_detail: Failed to create directory %s: %s", inst->last_made_directory, strerror(errno));
+			radlog_request(L_ERR, 0, request, "rlm_detail: Failed to create directory %s: %s", inst->last_made_directory, strerror(errno));
 			return RLM_MODULE_FAIL;
 		}
 
 		*p = '/';
 	} /* else there was no directory delimiter. */
 
-	/*
-	 *	Open & create the file, with the given permissions.
-	 */
-	if ((outfd = open(buffer, O_WRONLY | O_APPEND | O_CREAT,
-			  inst->detailperm)) < 0) {
-		radlog(L_ERR, "rlm_detail: Couldn't open file %s: %s",
-		       buffer, strerror(errno));
-		return RLM_MODULE_FAIL;
-	}
-
-	/*
-	 *	If we're not using locking, we'll just pass straight though
-	 *	the while loop.
-	 *	If we fail to aquire the filelock in 80 tries (approximately
-	 *	two seconds) we bail out.
-	 */
 	locked = 0;
 	lock_count = 0;
 	do {
+		/*
+		 *	Open & create the file, with the given
+		 *	permissions.
+		 */
+		if ((outfd = open(buffer, O_WRONLY | O_APPEND | O_CREAT,
+				  inst->detailperm)) < 0) {
+			radlog_request(L_ERR, 0, request, "rlm_detail: Couldn't open file %s: %s",
+			       buffer, strerror(errno));
+			return RLM_MODULE_FAIL;
+		}
+
+		/*
+		 *	If we fail to aquire the filelock in 80 tries
+		 *	(approximately two seconds) we bail out.
+		 */
 		if (inst->locking) {
 			lseek(outfd, 0L, SEEK_SET);
 			if (rad_lockfd_nonblock(outfd, 0) < 0) {
@@ -298,16 +290,37 @@ static int do_detail(void *instance, REQUEST *request, RADIUS_PACKET *packet,
 				tv.tv_usec = 25000;
 				select(0, NULL, NULL, NULL, &tv);
 				lock_count++;
-			} else {
-				DEBUG("rlm_detail: Acquired filelock, tried %d time(s)",
-				      lock_count + 1);
-				locked = 1;
+				continue;
 			}
-		}
-	} while (!locked && inst->locking && lock_count < 80);
 
-	if (!locked && inst->locking && lock_count >= 80) {
-		radlog(L_ERR, "rlm_detail: Failed to aquire filelock for %s, giving up",
+			/*
+			 *	The file might have been deleted by
+			 *	radrelay while we tried to acquire
+			 *	the lock (race condition)
+			 */
+			if (fstat(outfd, &st) != 0) {
+				radlog_request(L_ERR, 0, request, "rlm_detail: Couldn't stat file %s: %s",
+				       buffer, strerror(errno));
+				close(outfd);
+				return RLM_MODULE_FAIL;
+			}
+			if (st.st_nlink == 0) {
+				RDEBUG2("File %s removed by another program, retrying",
+				      buffer);
+				close(outfd);
+				lock_count = 0;
+				continue;
+			}
+
+			RDEBUG2("Acquired filelock, tried %d time(s)",
+			      lock_count + 1);
+			locked = 1;
+		}
+	} while (inst->locking && !locked && lock_count < 80);
+
+	if (inst->locking && !locked) {
+		close(outfd);
+		radlog_request(L_ERR, 0, request, "rlm_detail: Failed to acquire filelock for %s, giving up",
 		       buffer);
 		return RLM_MODULE_FAIL;
 	}
@@ -317,17 +330,24 @@ static int do_detail(void *instance, REQUEST *request, RADIUS_PACKET *packet,
 	 *	after this operation.
 	 */
 	if ((outfp = fdopen(outfd, "a")) == NULL) {
-		radlog(L_ERR, "rlm_detail: Couldn't open file %s: %s",
+		radlog_request(L_ERR, 0, request, "rlm_detail: Couldn't open file %s: %s",
 		       buffer, strerror(errno));
 		if (inst->locking) {
 			lseek(outfd, 0L, SEEK_SET);
 			rad_unlockfd(outfd, 0);
-			DEBUG("rlm_detail: Released filelock");
+			RDEBUG2("Released filelock");
 		}
-		close(outfd);
+		close(outfd);	/* automatically releases the lock */
 
 		return RLM_MODULE_FAIL;
 	}
+
+	/*
+	 *	Post a timestamp
+	 */
+	fseek(outfp, 0L, SEEK_END);
+	radius_xlat(timestamp, sizeof(timestamp), inst->header, request, NULL);
+	fprintf(outfp, "%s\n", timestamp);
 
 	/*
 	 *	Write the information to the file.
@@ -339,28 +359,79 @@ static int do_detail(void *instance, REQUEST *request, RADIUS_PACKET *packet,
 		 */
 		if ((packet->code > 0) &&
 		    (packet->code <= PW_ACCESS_CHALLENGE)) {
-			fprintf(outfp, "Packet-Type = %s\n",
+			fprintf(outfp, "\tPacket-Type = %s\n",
 				packet_codes[packet->code]);
 		} else {
-			fprintf(outfp, "Packet-Type = %d\n", packet->code);
+			fprintf(outfp, "\tPacket-Type = %d\n", packet->code);
 		}
 	}
 
-	/*
-	 *	Post a timestamp
-	 */
-	fseek(outfp, 0L, SEEK_END);
-	fputs(CTIME_R(&request->timestamp, buffer, DIRLEN), outfp);
+	if (inst->log_srcdst) {
+		VALUE_PAIR src_vp, dst_vp;
+
+		memset(&src_vp, 0, sizeof(src_vp));
+		memset(&dst_vp, 0, sizeof(dst_vp));
+		src_vp.operator = dst_vp.operator = T_OP_EQ;
+
+		switch (packet->src_ipaddr.af) {
+		case AF_INET:
+			src_vp.type = PW_TYPE_IPADDR;
+			src_vp.attribute = PW_PACKET_SRC_IP_ADDRESS;
+			src_vp.vp_ipaddr = packet->src_ipaddr.ipaddr.ip4addr.s_addr;
+			dst_vp.type = PW_TYPE_IPADDR;
+			dst_vp.attribute = PW_PACKET_DST_IP_ADDRESS;
+			dst_vp.vp_ipaddr = packet->dst_ipaddr.ipaddr.ip4addr.s_addr;
+			break;
+		case AF_INET6:
+			src_vp.type = PW_TYPE_IPV6ADDR;
+			src_vp.attribute = PW_PACKET_SRC_IPV6_ADDRESS;
+			memcpy(src_vp.vp_strvalue,
+			       &packet->src_ipaddr.ipaddr.ip6addr,
+			       sizeof(packet->src_ipaddr.ipaddr.ip6addr));
+			dst_vp.type = PW_TYPE_IPV6ADDR;
+			dst_vp.attribute = PW_PACKET_DST_IPV6_ADDRESS;
+			memcpy(dst_vp.vp_strvalue,
+			       &packet->dst_ipaddr.ipaddr.ip6addr,
+			       sizeof(packet->dst_ipaddr.ipaddr.ip6addr));
+			break;
+		default:
+			break;
+		}
+
+		fputs("\t", outfp);
+		vp_print(outfp, &src_vp);
+		fputs("\n", outfp);
+		fputs("\t", outfp);
+		vp_print(outfp, &dst_vp);
+		fputs("\n", outfp);
+
+		src_vp.attribute = PW_PACKET_SRC_PORT;
+		src_vp.type = PW_TYPE_INTEGER;
+		src_vp.vp_integer = packet->src_port;
+		dst_vp.attribute = PW_PACKET_DST_PORT;
+		dst_vp.type = PW_TYPE_INTEGER;
+		dst_vp.vp_integer = packet->dst_port;
+
+		fputs("\t", outfp);
+		vp_print(outfp, &src_vp);
+		fputs("\n", outfp);
+		fputs("\t", outfp);
+		vp_print(outfp, &dst_vp);
+		fputs("\n", outfp);
+	}
 
 	/* Write each attribute/value to the log file */
 	for (pair = packet->vps; pair != NULL; pair = pair->next) {
+		DICT_ATTR da;
+		da.attr = pair->attribute;
+
 		if (inst->ht &&
-		    lrad_hash_table_finddata(inst->ht, pair)) continue;
+		    fr_hash_table_finddata(inst->ht, &da)) continue;
 
 		/*
 		 *	Don't print passwords in old format...
 		 */
-		if (compat && (pair->attribute == PW_PASSWORD)) continue;
+		if (compat && (pair->attribute == PW_USER_PASSWORD)) continue;
 
 		/*
 		 *	Print all of the attributes.
@@ -374,25 +445,26 @@ static int do_detail(void *instance, REQUEST *request, RADIUS_PACKET *packet,
 	 *	Add non-protocol attibutes.
 	 */
 	if (compat) {
-		if ((pair = pairfind(request->config_items,
-				     PW_PROXY_TO_REALM)) != NULL) {
-			proxy_realm = realm_find(pair->strvalue, TRUE);
-			if (proxy_realm) {
-				memset((char *) proxy_buffer, 0, 16);
-				ip_ntoa(proxy_buffer, proxy_realm->acct_ipaddr);
-				fprintf(outfp, "\tFreeradius-Proxied-To = %s\n",
+		if (request->proxy) {
+			char proxy_buffer[128];
+
+			inet_ntop(request->proxy->dst_ipaddr.af,
+				  &request->proxy->dst_ipaddr.ipaddr,
+				  proxy_buffer, sizeof(proxy_buffer));
+			fprintf(outfp, "\tFreeradius-Proxied-To = %s\n",
 					proxy_buffer);
-				DEBUG("rlm_detail: Freeradius-Proxied-To set to %s",
+				RDEBUG("Freeradius-Proxied-To = %s",
 				      proxy_buffer);
-			}
 		}
+
 		fprintf(outfp, "\tTimestamp = %ld\n",
 			(unsigned long) request->timestamp);
 
-		if (request->packet->verified == 2)
-			fputs("\tRequest-Authenticator = Verified\n", outfp);
-		else if (request->packet->verified == 1)
-			fputs("\tRequest-Authenticator = None\n", outfp);
+		/*
+		 *	We no longer permit Accounting-Request packets
+		 *	with an authenticator of zero.
+		 */
+		fputs("\tRequest-Authenticator = Verified\n", outfp);
 	}
 
 	fputs("\n", outfp);
@@ -401,7 +473,7 @@ static int do_detail(void *instance, REQUEST *request, RADIUS_PACKET *packet,
 		fflush(outfp);
 		lseek(outfd, 0L, SEEK_SET);
 		rad_unlockfd(outfd, 0);
-		DEBUG("rlm_detail: Released filelock");
+		RDEBUG2("Released filelock");
 	}
 
 	fclose(outfp);
@@ -417,6 +489,10 @@ static int do_detail(void *instance, REQUEST *request, RADIUS_PACKET *packet,
  */
 static int detail_accounting(void *instance, REQUEST *request)
 {
+	if (request->listener->type == RAD_LISTEN_DETAIL) {
+		RDEBUG("Suppressing writes to detail file as the request was just read from a detail file.");
+		return RLM_MODULE_NOOP;
+	}
 
 	return do_detail(instance,request,request->packet, TRUE);
 }
@@ -462,16 +538,28 @@ static int detail_post_proxy(void *instance, REQUEST *request)
 		return do_detail(instance,request,request->proxy_reply, FALSE);
 	}
 
+	/*
+	 *	No reply: we must be doing Post-Proxy-Type = Fail.
+	 *
+	 *	Note that we just call the normal accounting function,
+	 *	to minimize the amount of code, and to highlight that
+	 *	it's doing normal accounting.
+	 */
+	if (!request->proxy_reply) {
+		return detail_accounting(instance, request);
+	}
+
 	return RLM_MODULE_NOOP;
 }
 
 
 /* globally exported name */
 module_t rlm_detail = {
+	RLM_MODULE_INIT,
 	"detail",
-	RLM_TYPE_THREAD_UNSAFE,        /* type: reserved */
-	NULL,				/* initialization */
+	RLM_TYPE_THREAD_UNSAFE | RLM_TYPE_CHECK_CONFIG_SAFE | RLM_TYPE_HUP_SAFE,
 	detail_instantiate,		/* instantiation */
+	detail_detach,			/* detach */
 	{
 		NULL,			/* authentication */
 		detail_authorize, 	/* authorization */
@@ -482,7 +570,5 @@ module_t rlm_detail = {
 		detail_post_proxy,	/* post-proxy */
 		detail_postauth		/* post-auth */
 	},
-	detail_detach,			/* detach */
-	NULL				/* destroy */
 };
 

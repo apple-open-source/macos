@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2009 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -29,8 +29,13 @@
 
 #include <IOKit/IOService.h>
 
+#ifndef IOAUDIOFAMILY_SELF_BUILD
 #include <IOKit/audio/IOAudioTypes.h>
 #include <IOKit/audio/IOAudioStream.h>
+#else
+#include "IOAudioTypes.h"
+#include "IOAudioStream.h"
+#endif
 
 class IOAudioEngine;
 class IOAudioStream;
@@ -41,6 +46,20 @@ class OSSet;
 class OSArray;
 class IOTimerEventSource;
 class IOCommandGate;
+
+/*!
+ * enum IOAudioDevicePowerState
+ * @abstract Identifies the power state of the audio device
+ * @discussion A newly created IOAudioDevices defaults to the idle state.
+ * @constant kIOAudioDeviceSleep State set when the system is going to sleep
+ * @constant kIOAudioDeviceIdle State when the system is awake but none of the IOAudioEngines are in use
+ * @constant kIOAudioDeviceActive State when one ore more IOAudioEngines are in use.  This state transition must complete before the system will begin playing audio.
+ */
+typedef enum _IOAudioDevicePowerState {
+    kIOAudioDeviceSleep 	= 0,	// When sleeping
+    kIOAudioDeviceIdle		= 1,	// When no audio engines running
+    kIOAudioDeviceActive 	= 2		// audio engines running
+} IOAudioDevicePowerState;
 
 /*!
  * @class IOAudioDevice
@@ -106,20 +125,6 @@ class IOCommandGate;
  *  to turn off device power when it isn't in use (especially useful for devices attached to a 
  *  portable running on battery power).
  */
-
-/*
- * enum IOAudioDevicePowerState
- * @abstract Identifies the power state of the audio device
- * @discussion A newly created IOAudioDevices defaults to the idle state.
- * @constant kIOAudioDeviceSleep State set when the system is going to sleep
- * @constant kIOAudioDeviceIdle State when the system is awake but none of the IOAudioEngines are in use
- * @constant kIOAudioDeviceActive State when one ore more IOAudioEngines are in use.  This state transition must complete before the system will begin playing audio.
- */
-typedef enum _IOAudioDevicePowerState {
-    kIOAudioDeviceSleep 	= 0,	// When sleeping
-    kIOAudioDeviceIdle		= 1,	// When no audio engines running
-    kIOAudioDeviceActive 	= 2		// audio engines running
-} IOAudioDevicePowerState;
 
 class IOAudioDevice : public IOService
 {
@@ -315,7 +320,7 @@ public:
     /*!
      * @function stop
      * @abstract This is responsible for stopping the device after the system is done with it (or
-        if the device is removed from the system).
+     *  if the device is removed from the system).
      * @discussion The IOAudioDevice implentation of stop() disables the timer services, deactivates 
      *  all of the audio audio engines and audio ports and stops power management of the device.
      *  The audio engine and port deactivation causes all of the audio engines to get stopped and 

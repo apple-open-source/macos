@@ -74,6 +74,11 @@
     return;
 }
 
+- (void)finalize
+{
+    [super finalize];
+}
+
 - (void)setTypeFilter:(NSSet*)desiredConnectTypes
 {
 	[desiredConnectTypes retain];

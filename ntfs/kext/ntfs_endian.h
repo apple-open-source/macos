@@ -1,8 +1,8 @@
 /*
  * ntfs_endian.h - Defines for endianness handling in NTFS kernel driver.
  *
- * Copyright (c) 2006, 2007 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006, 2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2008 Anton Altaparmakov.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2008 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -181,5 +181,16 @@ static inline sle64 cpu_to_sle64p(s64 *x)
 #define const_cpu_to_le16(x) ((le16)(OSSwapHostToLittleConstInt16(((u16)(x)))))
 #define const_cpu_to_le32(x) ((le32)(OSSwapHostToLittleConstInt32(((u32)(x)))))
 #define const_cpu_to_le64(x) ((le64)(OSSwapHostToLittleConstInt64(((u64)(x)))))
+
+#define const_sle16_to_cpu(x) ((s16)(OSSwapLittleToHostConstInt16(((u16)(x)))))
+#define const_sle32_to_cpu(x) ((s32)(OSSwapLittleToHostConstInt32(((u32)(x)))))
+#define const_sle64_to_cpu(x) ((s64)(OSSwapLittleToHostConstInt64(((u64)(x)))))
+
+#define const_cpu_to_sle16(x)	\
+		((sle16)(OSSwapHostToLittleConstInt16(((u16)(x)))))
+#define const_cpu_to_sle32(x)	\
+		((sle32)(OSSwapHostToLittleConstInt32(((u32)(x)))))
+#define const_cpu_to_sle64(x)	\
+		((sle64)(OSSwapHostToLittleConstInt64(((u64)(x)))))
 
 #endif /* !_OSX_NTFS_ENDIAN_H */

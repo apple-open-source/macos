@@ -18,6 +18,9 @@
 	Change History (most recent first):
 
 		$Log: MBCBoardViewModels.mm,v $
+		Revision 1.12  2008/10/24 20:06:17  neerache
+		<rdar://problem/3710028> ER: Chessboard anti-aliasing
+		
 		Revision 1.11  2004/07/10 04:53:29  neerache
 		Tweak visuals
 		
@@ -83,7 +86,7 @@ const float kPieceSize = 0.85f;
 /* Make a revolved piece */
 int revolve_line(float *trace_r, float *trace_h, float max_iheight)
 {
-	const int	nsteps = 16;
+	const int	nsteps = 32;
 	const float kTexScale	= 10.0f*kPieceSize;
 	GLUquadricObj * q 		= gluNewQuadric();
 	gluQuadricNormals(q, GLU_SMOOTH);

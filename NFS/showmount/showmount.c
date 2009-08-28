@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -74,17 +74,18 @@
 #include <string.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <sys/queue.h>
 
 #include "showmount.h"
 
 struct mountlist *mntdump;
-struct exportslist *exports;
+TAILQ_HEAD(exportslisthead, exportslist) exports;
 int mounttype = MOUNTSHOWHOSTS;
 int rpcs = 0, mntvers = 1;
 
 void	usage(void);
 int	xdr_mntdump(XDR *, struct mountlist **);
-int	xdr_exports(XDR *, struct exportslist **);
+int	xdr_exports(XDR *, struct exportslisthead *);
 
 /*
  * This command queries the NFS mount daemon for it's mount list and/or
@@ -220,21 +221,21 @@ next:
  * Xdr routine to retrieve exports list
  */
 int
-xdr_exports(XDR *xdrsp, struct exportslist **exp)
+xdr_exports(XDR *xdrsp, struct exportslisthead *exphead)
 {
 	struct exportslist *ep;
 	struct grouplist *gp;
 	int bool, grpbool;
 	char *strp;
 
-	*exp = (struct exportslist *)0;
+	TAILQ_INIT(exphead);
 	if (!xdr_bool(xdrsp, &bool))
 		return (0);
 	while (bool) {
 		ep = (struct exportslist *)malloc(sizeof(struct exportslist));
 		if (ep == NULL)
 			return (0);
-		ep->ex_groups = (struct grouplist *)0;
+		TAILQ_INIT(&ep->ex_groups);
 		strp = ep->ex_dirp;
 		if (!xdr_string(xdrsp, &strp, RPCMNT_PATHLEN))
 			return (0);
@@ -247,13 +248,11 @@ xdr_exports(XDR *xdrsp, struct exportslist **exp)
 			strp = gp->gr_name;
 			if (!xdr_string(xdrsp, &strp, RPCMNT_NAMELEN))
 				return (0);
-			gp->gr_next = ep->ex_groups;
-			ep->ex_groups = gp;
+			TAILQ_INSERT_TAIL(&ep->ex_groups, gp, gr_link);
 			if (!xdr_bool(xdrsp, &grpbool))
 				return (0);
 		}
-		ep->ex_next = *exp;
-		*exp = ep;
+		TAILQ_INSERT_TAIL(exphead, ep, ex_link);
 		if (!xdr_bool(xdrsp, &bool))
 			return (0);
 	}
@@ -319,15 +318,12 @@ do_print(const char *host)
 	int so = RPC_ANYSOCK;
 
 	/* get the host address */
-	if (isdigit(*host)) {
-		if ((saddr.sin_addr.s_addr = inet_addr(host)) == -1) {
-			fprintf(stderr, "bad net address %s", host);
-			return (1);
-		}
-	} else if ((hp = gethostbyname(host)) != NULL) {
+	if ((hp = gethostbyname(host)) != NULL) {
 		memmove(&saddr.sin_addr, hp->h_addr, hp->h_length);
+	} else if (isdigit(*host) && ((saddr.sin_addr.s_addr = inet_addr(host)) != INADDR_NONE)) {
+		; /* it was an address */
 	} else {
-		fprintf(stderr, "can't get net id for host: %s", host);
+		fprintf(stderr, "can't get net id for host: %s\n", host);
 		return (1);
 	}
 	saddr.sin_family = AF_INET;
@@ -339,8 +335,9 @@ do_print(const char *host)
 	if (clp == NULL)
 		clp = clntudp_create(&saddr, RPCPROG_MNT, mntvers, try, &so);
 	if (clp == NULL) {
-		clnt_pcreateerror("Cannot MNT RPC");
-		fprintf(stderr, "can't connect socket for RPC");
+		char s[] = "Cannot MNT RPC";
+		clnt_pcreateerror(s);
+		fprintf(stderr, "can't connect socket for RPC\n");
 		return (1);
 	}
 	clp->cl_auth = authunix_create_default();
@@ -386,24 +383,18 @@ do_print(const char *host)
 	}
 	if (rpcs & DOEXPORTS) {
 		printf("Exports list on %s:\n", host);
-		exp = exports;
-		while (exp) {
-			expnext = exp->ex_next;
+		TAILQ_FOREACH_SAFE(exp, &exports, ex_link, expnext) {
 			printf("%-35s", exp->ex_dirp);
-			grp = exp->ex_groups;
-			if (grp == NULL) {
+			if (TAILQ_EMPTY(&exp->ex_groups)) {
 				printf(" Everyone\n"); // allow space
 			} else {
-				while (grp) {
-					grpnext = grp->gr_next;
-					printf("%s ", grp->gr_name);
+				TAILQ_FOREACH_SAFE(grp, &exp->ex_groups, gr_link, grpnext) {
+					printf(" %s", grp->gr_name);
 					free(grp);
-					grp = grpnext;
 				}
 				printf("\n");
 			}
 			free(exp);
-			exp = expnext;
 		}
 	}
 

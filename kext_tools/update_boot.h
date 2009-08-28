@@ -25,21 +25,23 @@
  * AUTH: Soren Spies (sspies)
  * DATE: 8 June 2006
  * DESC: routines for implementing 'kextcache -u' functionality (4252674)
- *	 in which bootcaches.plist files get copied to any Apple_Boots
+ *       in which bootcaches.plist files get copied to any Apple_Boots
  */
 
-#include <sys/types.h>	    // mode_t
-
+#include <sys/types.h>      // mode_t
+#include <CoreFoundation/CoreFoundation.h>
 
 // in update_boot.c (for kextcache_main.c)
 
 // additional RPS files (e.g. from the command-line?) currently unused
-int updateBoots(char *volRoot, int extraRPSc, const char *extraRPS[],
-		Boolean force, Boolean expectUpToDate);
+int updateBoots(
+    CFURLRef volumeURL,
+    Boolean force,
+    Boolean expectUpToDate);
 
 
 // in kextcache_main.c (for update_boot.c)
 
 // "put" and "take" let routines decide if a lock is needed (e.g. if no kextd)
-int takeVolumeForPaths(char *volPath, int filec, const char *files[]);
+int takeVolumeForPaths(char *volPath);
 int putVolumeForPath(const char *path, int status);

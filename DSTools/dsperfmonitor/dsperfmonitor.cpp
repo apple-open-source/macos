@@ -104,7 +104,7 @@ void SendDSEvent( tPluginCustomCallRequestCode event )
 		status = dsOpenDirNode( dsRef, dataList, &nodeRef );
 		if (status != eDSNoErr)
 		{
-			printf( "dsOpenDirNode returned %ld\n", status );
+			printf( "dsOpenDirNode returned %d\n", (int32_t) status );
 			break;
 		}
 
@@ -128,7 +128,7 @@ void SendDSEvent( tPluginCustomCallRequestCode event )
 
 		if (status != eDSNoErr)
 		{
-			printf( "dsDoPlugInCustomCall returned %ld\n", status );
+			printf( "dsDoPlugInCustomCall returned %d\n", (int32_t) status );
 			break;
 		}
 	} while ( false );

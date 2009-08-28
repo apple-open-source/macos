@@ -545,7 +545,7 @@ static void removeIODispatcherFromRunLoop( void * self )
     if( me->fNotification )
     {
         IOObjectRelease(me->fNotification);
-        me->fNotification = (io_object_t)NULL;
+        me->fNotification = (io_object_t)0;
     }
 	if( me->fNotifyPort )
 	{
@@ -606,7 +606,7 @@ static IOReturn allocateInputPlug( void *self, void *refcon, IOFWAVCPCRCallback 
 
 	//printf("DEBUG: AVCProtocol::allocateInputPlug\n");
 	
-    refrncData[kIOAsyncCalloutFuncIndex] = (uint64_t)pcrWriteCallback;
+    refrncData[kIOAsyncCalloutFuncIndex] = (uint64_t)&pcrWriteCallback;
     refrncData[kIOAsyncCalloutRefconIndex] = (unsigned long)refcon;
     params = (unsigned long)func;
 	const uint64_t inputs[1]={(const uint64_t)params};

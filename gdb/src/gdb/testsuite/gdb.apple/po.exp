@@ -61,19 +61,19 @@ gdb_test "next" ""
 #
 
 gdb_test "break '\[NSException raise\]'" \
-         "Breakpoint \[0-9\] at $hex" \
+         "Breakpoint \[0-9\] at $hex\(|: file .*\)" \
          "breakpoint on class member function with apostrophy, no dash"
 
 gdb_test "break '-\[NSException raise\]'" \
-         "Note: breakpoint.* also set at pc $hex.\[\r\n\]+Breakpoint \[0-9\] at $hex" \
+         "Note: breakpoint.* also set at pc $hex.\[\r\n\]+Breakpoint \[0-9\] at $hex\(|: file .*\)" \
          "breakpoint on class member function with apostrophy, dash"
 
 gdb_test "break \[NSException raise\]" \
-         "Note: breakpoint.* also set at pc $hex.\[\r\n\]+Breakpoint \[0-9\] at $hex" \
+         "Note: breakpoint.* also set at pc $hex.\[\r\n\]+Breakpoint \[0-9\] at $hex\(|: file .*\)" \
          "breakpoint on class member function without apostrophy, no dash"
 
 gdb_test "break -\[NSException raise\]" \
-         "Note: breakpoint.* also set at pc $hex.\[\r\n\]+Breakpoint \[0-9\] at $hex" \
+         "Note: breakpoint.* also set at pc $hex.\[\r\n\]+Breakpoint \[0-9\] at $hex\(|: file .*\)" \
          "breakpoint on class member function without apostrophy, dash"
 
 
@@ -105,16 +105,15 @@ gdb_test "po \[\[NSString stringWithCString:\"booga booga\"\] substringToIndex:r
 gdb_test "po \[NSArray arrayWithObjects: \
    (NSString *)\[NSString stringWithCString:\"hi\"\], \
    (NSString *)\[NSString stringWithCString:\"there\"\], \
-   (NSNumber *)\[NSNumber numberWithInt:99\], 0\]" ".*hi,.*there,.*99.*"
+   (NSNumber *)\[NSNumber numberWithInt:99\], (void *) 0\]" ".*hi,.*there,.*99.*"
 
 gdb_test "po \[NSArray arrayWithObjects: \
    (NSString *)\[NSString stringWithCString:\"hi\"\], \
    mystr, \
    (NSString *)\[NSString stringWithCString:\"there\"\], \
    (NSNumber *)\[NSNumber numberWithInt:99\], \
-   return_nsnumber_5(), 0\]" \
+   return_nsnumber_5(), (void *) 0\]" \
    ".*hi,.*Hello, World!,.*there,.*99,.*5.*"
-
 
 
 # The follow 7 tests are from radar 3053944.  That radar concerns the

@@ -80,13 +80,13 @@ inet_nettoa(struct in_addr addr, struct in_addr mask)
 //    printf("-- nbits %d, nbytes %d--", nbits, nbytes);
     for (addr_p = (uint8_t *)&addr.s_addr; nbytes > 0; addr_p++) {
 
-	sprintf(tmp, "%d%s", *addr_p, nbytes > 1 ? "." : "");
-	strcat(sbuf, tmp);
+	snprintf(tmp, sizeof(tmp), "%d%s", *addr_p, nbytes > 1 ? "." : "");
+	strlcat(sbuf, tmp, sizeof(sbuf));
 	nbytes--;
     }
     if (nbits % NBITS_PER_BYTE) {
-	sprintf(tmp, "/%d", nbits);
-	strcat(sbuf, tmp);
+	snprintf(tmp, sizeof(tmp), "/%d", nbits);
+	strlcat(sbuf, tmp, sizeof(sbuf));
     }
     return (sbuf);
 }
@@ -101,10 +101,10 @@ random_range(long bottom, long top)
 {
     long ret;
     long number = top - bottom + 1;
-    long range_size = LONG_MAX / number;
+    long range_size = UINT32_MAX / number;
     if (range_size == 0)
 	return (bottom);
-    ret = (random() / range_size) + bottom;
+    ret = (arc4random() / range_size) + bottom;
     return (ret);
 }
 

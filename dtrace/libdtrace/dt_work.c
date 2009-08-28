@@ -244,6 +244,7 @@ dtrace_stop(dtrace_hdl_t *dtp)
 	return (0);
 }
 
+
 dtrace_workstatus_t
 dtrace_work(dtrace_hdl_t *dtp, FILE *fp,
     dtrace_consume_probe_f *pfunc, dtrace_consume_rec_f *rfunc, void *arg)

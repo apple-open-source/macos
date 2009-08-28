@@ -49,17 +49,10 @@
 #include <sys/sockio.h>
 #include <net/if.h>
 
-#include <netat/appletalk.h>
-#include <netat/ddp.h>
-#include <netat/zip.h>
-#include <netat/atp.h>
-#include <netat/at_var.h>
-
 #include "at_proto.h"
 
 #define	SET_ERRNO(e) errno = e
 
-static at_inet_t	abridge = { 0, 0, 0 };
 
 int zip_getzonesfrombridge(
 	char *ifName,
@@ -85,97 +78,8 @@ int zip_getzonesfrombridge(
 		/* TRUE for local zones, FALSE for all zones */
 )
 {
-	u_int16_t start = (u_int16_t)(*context);
-	int fd;
-	int userdata;
-	at_if_cfg_t cfg;
-	u_char *puserdata = (u_char *)&userdata;
-	at_inet_t dest;
-	at_retry_t retry;
-	at_resp_t resp;
-
-	if (start < ZIP_FIRST_ZONE) {
-		return(-1);
-	}
-
-	if (start == 1) {
-		/* This is the first call, get the bridge node id */
-		if (ifName)
-			strncpy(cfg.ifr_name, ifName, sizeof(cfg.ifr_name));
-		else
-			cfg.ifr_name[0] = '\0'; /* use the default interface */
-		if ((fd = socket(AF_APPLETALK, SOCK_RAW, 0)) < 0) {
-			SET_ERRNO(EINVAL);
-			return(-1);
-		}
-		if (ioctl(fd, AIOCGETIFCFG, (caddr_t)&cfg) < 0) {
-			SET_ERRNO(ENETUNREACH);
-			return(-1);
-		}
-		close(fd);
-		abridge.node = cfg.router.s_node;
-		abridge.socket = 0;
-		abridge.net = cfg.router.s_net;
-		if (abridge.node == 0) { /* no router */
-			at_nvestr_t *zone;
-			zone = (at_nvestr_t *)zones;
-			zone->len = 1;
-			zone->str[0] = '*';
-			zone->str[1] = '\0';
-			return(-1);
-		}
-	} else {
-		/* This isn't the 1st call, make sure we use the same ABridge */
-		if (abridge.node == 0) {
-			SET_ERRNO(EINVAL); /* Never started with start == 1 */
-			return(-1);
-		}
-	}
-
-	fd = atp_open(NULL);
-	if (fd < 0)
-		return(-1);
-
-	dest.net = abridge.net;
-	dest.node = abridge.node;
-	dest.socket = ZIP_SOCKET;
-	puserdata[0] = (local)? ZIP_GETLOCALZONES: ZIP_GETZONELIST;
-	puserdata[1] = 0;
-	*(u_int16_t *)(&puserdata[2]) = htons(start);
-	resp.bitmap = 0x01;
-	resp.resp[0].iov_base = zones;
-	resp.resp[0].iov_len = ATP_DATA_SIZE;
-	retry.interval = 2;
-	retry.retries = 5;
-
-/*
-	printf("%s sent; start = %d\n", 
-		       (local)? "ZIP_GETLOCALZONES": "ZIP_GETZONELIST", 
-		       *(short *)(&puserdata[2]));
-*/
-	if (atp_sendreq(fd, &dest, 0, 0, userdata, 0, 0, 0,
-			&resp, &retry, 0) >= 0) {
-		/* Connection established okay, just for the sake of our
-		* sanity, check the other fields in the packet
-		*/
-		puserdata = (u_char *)&resp.userdata[0];
-		if (puserdata[0] != 0) {
-			*context = ZIP_NO_MORE_ZONES;
-			abridge.node = 0;
-			abridge.net = 0;		
-		} else {
-			*context = (start + ntohs(*(u_int16_t *)(&puserdata[2])));
-		}
-/*
-		printf("%s returned %d entries\n", 
-		       (local)? "ZIP_GETLOCALZONES": "ZIP_GETZONELIST", 
-		       *(short *)(&puserdata[2]));
-*/
-		atp_close(fd);
-		return ntohs((*(short *)(&puserdata[2])));
-	} 
-	atp_close(fd);
-	return(-1);
+	SET_ERRNO(ENXIO);
+	return (-1);
 }
 
 /* zip_getzonelist() will return the zone count on success, 
@@ -203,5 +107,6 @@ int zip_getzonelist(
 		*/
 )
 {
-	return(zip_getzonesfrombridge(ifName, context, zones, size, FALSE));
+	SET_ERRNO(ENXIO);
+	return (-1);
 }

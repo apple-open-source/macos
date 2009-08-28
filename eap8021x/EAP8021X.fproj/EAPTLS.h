@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,7 +37,6 @@
  * - created
  */
 
-#include <EAP8021X/EAP.h>
 #include <stdint.h>
 
 typedef struct {

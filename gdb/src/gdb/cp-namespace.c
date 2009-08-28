@@ -152,7 +152,6 @@ cp_scan_for_anonymous_namespaces (const struct symbol *symbol)
       const char *name = SYMBOL_CPLUS_DEMANGLED_NAME (symbol);
       unsigned int previous_component;
       unsigned int next_component;
-      const char *len;
 
       /* Start with a quick-and-dirty check for mention of "(anonymous
 	 namespace)".  */
@@ -200,7 +199,6 @@ cp_add_using_directive (const char *name, unsigned int outer_length,
 			unsigned int inner_length)
 {
   struct using_direct *current;
-  struct using_direct *new;
 
   /* Has it already been added?  */
 

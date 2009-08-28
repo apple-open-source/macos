@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+ * Copyright © 2005-2009 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -27,6 +27,7 @@
 #include <IOKit/usb/IOUSBRootHubDevice.h>
 #include "AppleUSBUHCI.h"
 #include "AppleUHCIListElement.h"
+#include "USBTracepoints.h"
 
 #define super IOUSBControllerV3
 #define self this
@@ -41,7 +42,6 @@ AppleUSBUHCI::PollInterrupts(IOUSBCompletionAction safeAction)
     USBLog(1, "AppleUSBUHCI[%p]::PollInterrupts (unused)", this);
     // Not used
 }
-
 
 void 
 AppleUSBUHCI::UpdateFrameNumberWithTime(void)
@@ -77,7 +77,6 @@ AppleUSBUHCI::PrimaryInterruptFilter(OSObject *owner, IOFilterInterruptEventSour
     // If we our controller has gone away, or it's going away, or if we're on a PC Card and we have been ejected,
     // then don't process this interrupt.
     //
-    // if (!controller || controller->isInactive() || (controller->_onCardBus && controller->_pcCardEjected) || !controller->_controllerAvailable)
     if (!controller || controller->isInactive() || !controller->_controllerAvailable)
 	{
 #if UHCI_USE_KPRINTF
@@ -156,6 +155,7 @@ AppleUSBUHCI::GetFrameNumberInternal(void)
 		if (_myPowerState == kUSBPowerStateOn)
 		{
 			USBLog(1, "AppleUSBUHCI[%p]::GetFrameNumber called but controller is halted",  this);
+			USBTrace( kUSBTUHCIInterrupts,  kTPUHCIInterruptsGetFrameNumberInternal, (uintptr_t)this, kUHCI_STS_HCH, 0, 0);
 		}
 		return 0;
 	}
@@ -189,7 +189,8 @@ AppleUSBUHCI::GetFrameNumberInternal(void)
 		currentFrame = lastIrqFrameHi + ((UInt64) currentIrqFrameLow);
 			
 		_tempAnchorFrame = currentFrame;
-		clock_get_uptime(&_tempAnchorTime);
+		tempTime = mach_absolute_time();
+		_tempAnchorTime = *(AbsoluteTime*)&tempTime;
 
 	} else 
 	{
@@ -211,15 +212,17 @@ bool
 AppleUSBUHCI::FilterInterrupt(void)
 {
 	UInt16						activeInterrupts;
-	AbsoluteTime				timeStamp;
     Boolean						needSignal = false;
 	UInt64						currentFrame;
+	uint64_t					timeStamp;
 	
 	// we leave all interrupts enabled, so see which ones are active
 	activeInterrupts = ioRead16(kUHCI_STS) & kUHCI_STS_INTR_MASK;
 	
 	if (activeInterrupts != 0) 
 	{
+		USBTrace( kUSBTUHCIInterrupts, kTPUHCIInterruptsFilterInterrupt , (uintptr_t)this, activeInterrupts, 0, 3 );
+
 		if (activeInterrupts & kUHCI_STS_HCPE)
 		{
 			// Host Controller Process Error - usually a bad data structure on the list
@@ -227,6 +230,7 @@ AppleUSBUHCI::FilterInterrupt(void)
 			ioWrite16(kUHCI_STS, kUHCI_STS_HCPE);
 			needSignal = true;
 			//USBLog(1, "AppleUSBUHCI[%p]::FilterInterrupt - HCPE error - legacy reg = %p", this, (void*)_device->configRead16(kUHCI_PCI_LEGKEY));
+			USBTrace( kUSBTUHCIInterrupts,  kTPUHCIInterruptsFilterInterrupt, (uintptr_t)this, _hostControllerProcessInterrupt, _device->configRead16(kUHCI_PCI_LEGKEY), 1 );
 		}
 		if (activeInterrupts & kUHCI_STS_HSE)
 		{
@@ -235,6 +239,7 @@ AppleUSBUHCI::FilterInterrupt(void)
 			ioWrite16(kUHCI_STS, kUHCI_STS_HSE);
 			needSignal = true;
 			//USBLog(1, "AppleUSBUHCI[%p]::FilterInterrupt - HSE error - legacy reg = %p", this, (void*)_device->configRead16(kUHCI_PCI_LEGKEY));
+			USBTrace( kUSBTUHCIInterrupts,  kTPUHCIInterruptsFilterInterrupt, (uintptr_t)this, _hostSystemErrorInterrupt, _device->configRead16(kUHCI_PCI_LEGKEY), 2 );
 		}
 		if (activeInterrupts & kUHCI_STS_RD)
 		{
@@ -253,7 +258,7 @@ AppleUSBUHCI::FilterInterrupt(void)
 		if (activeInterrupts & kUHCI_STS_INT)
 		{
 			// Normal IOC interrupt - we need to check out low latency Isoch as well
-            clock_get_uptime(&timeStamp);
+			timeStamp = mach_absolute_time();
 			_usbCompletionInterrupt = kUHCI_STS_INT;
 			ioWrite16(kUHCI_STS, kUHCI_STS_INT);
 			needSignal = true;
@@ -299,7 +304,7 @@ AppleUSBUHCI::FilterInterrupt(void)
 						_frameList[testSlot] = HostToUSBLong(thing->GetPhysicalLink());
 						
 						if (isochTD->_lowLatency)
-							isochTD->frStatus = isochTD->UpdateFrameList(timeStamp);
+							isochTD->frStatus = isochTD->UpdateFrameList(*(AbsoluteTime*)&timeStamp);
 						// place this guy on the backward done queue
 						// the reason that we do not use the _logicalNext link is that the done queue is not a null terminated list
 						// and the element linked "last" in the list might not be a true link - trust me
@@ -355,33 +360,42 @@ AppleUSBUHCI::HandleInterrupt(void)
 		
 	status = ioRead16(kUHCI_STS);
 
+	USBTrace_Start( kUSBTUHCIInterrupts, kTPUHCIInterruptsHandleInterrupt,  (uintptr_t)this, 0, 0, 0);
+
 	if (_hostControllerProcessInterrupt & kUHCI_STS_HCPE)
 	{
 		_hostControllerProcessInterrupt = 0;
 		USBLog(1, "AppleUSBUHCI[%p]::HandleInterrupt - Host controller process error", this);
+		USBTrace( kUSBTUHCIInterrupts,  kTPUHCIInterruptsHandleInterrupt, (uintptr_t)this, 0, 0, 1 );
 		needReset = true;
 	}
 	if (_hostSystemErrorInterrupt & kUHCI_STS_HSE)
 	{
 		_hostSystemErrorInterrupt = 0;
 		USBLog(1, "AppleUSBUHCI[%p]::HandleInterrupt - Host controller system error(CMD:%p STS:%p INTR:%p PORTSC1:%p PORTSC2:%p FRBASEADDR:%p ConfigCMD:%p)", this,(void*)ioRead16(kUHCI_CMD), (void*)ioRead16(kUHCI_STS), (void*)ioRead16(kUHCI_INTR), (void*)ioRead16(kUHCI_PORTSC1), (void*)ioRead16(kUHCI_PORTSC2), (void*)ioRead32(kUHCI_FRBASEADDR), (void*)_device->configRead16(kIOPCIConfigCommand));
+		USBTrace( kUSBTUHCIInterrupts,  kTPUHCIInterruptsHandleInterrupt, (uintptr_t)this, ioRead16(kUHCI_CMD), 0, 2  );
+		USBTrace( kUSBTUHCIInterrupts,  kTPUHCIInterruptsHandleInterrupt, ioRead16(kUHCI_STS), ioRead16(kUHCI_INTR), ioRead16(kUHCI_PORTSC1), 3  );
+		USBTrace( kUSBTUHCIInterrupts,  kTPUHCIInterruptsHandleInterrupt, ioRead16(kUHCI_PORTSC2), ioRead32(kUHCI_FRBASEADDR), _device->configRead16(kIOPCIConfigCommand), 4 );
 		needReset = true;
 	}
 	if (_resumeDetectInterrupt & kUHCI_STS_RD) 
 	{
-		USBLog(2, "AppleUSBUHCI[%p]::HandleInterrupt - Host controller resume detected - calling EnsureUsability", this);
-		EnsureUsability();		
 		_resumeDetectInterrupt = 0;
+		USBLog(2, "AppleUSBUHCI[%p]::HandleInterrupt - Host controller resume detected - calling EnsureUsability", this);
+		USBTrace( kUSBTUHCIInterrupts,  kTPUHCIInterruptsHandleInterrupt, (uintptr_t)this, 0, 0, 6);
+		EnsureUsability();		
 	}
 	if (_usbErrorInterrupt & kUHCI_STS_EI) 
 	{
 		_usbErrorInterrupt = 0;
+		USBTrace( kUSBTUHCIInterrupts,  kTPUHCIInterruptsHandleInterrupt, (uintptr_t)this, 0, 0, 7);
 		USBLog(6, "AppleUSBUHCI[%p]::HandleInterrupt - Host controller error interrupt", this);
 	}
 	if (_usbCompletionInterrupt & kUHCI_STS_INT)
 	{
 		_usbCompletionInterrupt = 0;
 		
+		// USBTrace( kUSBTUHCIInterrupts,  kTPUHCIInterruptsHandleInterrupt, (uintptr_t)this, 0, 0, 8);
 		// updates hardware interrupt time from shadow vars that are se in the real irq handler
 		UpdateFrameNumberWithTime();
 
@@ -397,12 +411,14 @@ AppleUSBUHCI::HandleInterrupt(void)
 	{
 		IOSleep(1000);
 		USBLog(1, "AppleUSBUHCI[%p]::HandleInterrupt - Resetting controller due to errors detected at interrupt time (0x%x)", this, status);
+		USBTrace( kUSBTUHCIInterrupts,  kTPUHCIInterruptsHandleInterrupt, (uintptr_t)this, status, needReset, 5 );
 		Reset(true);
 		Run(true);
 	}
 
 	if (_myPowerState == kUSBPowerStateOn)
 	{
+		USBTrace( kUSBTUHCIInterrupts,  kTPUHCIInterruptsHandleInterrupt, (uintptr_t)this, status, 0, 9);
 		ProcessCompletedTransactions();
 	
 		// Check for root hub status change
@@ -410,8 +426,10 @@ AppleUSBUHCI::HandleInterrupt(void)
 	}
 	else
 	{
-		USBLog(1, "AppleUSBUHCI[%p]::HandleInterrupt - deferring further processing until we are running again", this);
+		USBLog(2, "AppleUSBUHCI[%p]::HandleInterrupt - deferring further processing until we are running again", this);
+		USBTrace( kUSBTUHCIInterrupts,  kTPUHCIInterruptsHandleInterrupt, (uintptr_t)this, 0, 0, 10);
 	}
+	USBTrace_End( kUSBTUHCIInterrupts, kTPUHCIInterruptsHandleInterrupt,  (uintptr_t)this, 0, 0, 0);
 }
 
 

@@ -40,9 +40,6 @@
 #include <DirectoryService/DirectoryService.h>
 #include "dstools_version.h"
 
-#warning VERIFY the version string before each major OS build submission
-const char *version = "10.5.3";
-	
 SInt32 EnableRootUser( const char *userName, const char *password, const char *rootPassword );
 SInt32 EnableRootUser( const char *userName, const char *password, const char *rootPassword )
 {
@@ -793,7 +790,7 @@ void
 usage(void)
 {
 	printf("\ndsenableroot:: Enable or disable root user with Directory Services.\n");
-	printf("Version %s\n", version);
+	printf("Version %s\n", TOOLS_VERSION);
 	printf("Usage: dsenableroot [-d] [-u username] [-p password] [-r rootPassword]\n");
 	printf("Example 1: dsenableroot\n");
 	printf("Attempt to enable root account.\n");
@@ -836,7 +833,7 @@ int main(int argc, char *argv[])
 			bDisableRootUser = true;
 			break;
         case 'v':
-			printf("\ndsenableroot:: Version %s\n", version);
+			printf("\ndsenableroot:: Version %s\n", TOOLS_VERSION);
 			exit(0);
         case '?':
         case 'h':

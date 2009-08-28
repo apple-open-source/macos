@@ -36,6 +36,7 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <string.h>
+#include <membership.h>
 #include <membershipPriv.h>
 #include <CoreFoundation/CoreFoundation.h>
 
@@ -85,7 +86,7 @@ static int dsaccess_authorize_user(char* name, int len)
     int						authorized = 0;
     tDirNodeReference 		searchNodeRef;
     tAttributeValueEntryPtr	gUID;
-    unsigned long			searchNodeCount;
+    UInt32					searchNodeCount;
     char*					user_name;
 	uuid_t					userid;
 	int						result;

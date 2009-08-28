@@ -1,19 +1,15 @@
 --- Doc/Makefile.in	2006-12-17 08:02:02.000000000 -0800
 +++ Doc/Makefile.in	2007-05-17 14:05:21.000000000 -0700
-@@ -45,10 +45,9 @@
+@@ -45,7 +45,7 @@
  .SUFFIXES: .yo .1
  
  # man pages to install
 -MAN = zsh.1 zshbuiltins.1 zshcalsys.1 zshcompctl.1 zshcompwid.1 zshcompsys.1 \
 +MAN = zsh.1 zshbuiltins.1 zshcompctl.1 zshcompwid.1 zshcompsys.1 \
  zshcontrib.1 zshexpn.1 zshmisc.1 zshmodules.1 \
--zshoptions.1 zshparam.1 zshroadmap.1 zshtcpsys.1 zshzftpsys.1 zshzle.1 \
--zshall.1
-+zshoptions.1 zshparam.1 zshroadmap.1 zshtcpsys.1 zshzftpsys.1 zshzle.1
- 
- # yodl documentation
- 
-@@ -70,7 +69,6 @@
+ zshoptions.1 zshparam.1 zshroadmap.1 zshtcpsys.1 zshzftpsys.1 zshzle.1 \
+ zshall.1
+@@ -70,7 +70,6 @@
  Zsh/mod_zutil.yo
  
  YODLSRC = zmacros.yo zman.yo ztexi.yo Zsh/arith.yo Zsh/builtins.yo \
@@ -21,7 +17,7 @@
  Zsh/compat.yo Zsh/compctl.yo Zsh/compsys.yo Zsh/compwid.yo Zsh/cond.yo \
  Zsh/contrib.yo Zsh/exec.yo Zsh/expn.yo \
  Zsh/filelist.yo Zsh/files.yo Zsh/func.yo Zsh/grammar.yo Zsh/manual.yo \
-@@ -180,8 +178,6 @@
+@@ -180,8 +179,6 @@
  
  zshbuiltins.1: Zsh/builtins.yo
  
@@ -32,7 +28,7 @@
  zshcompwid.1: Zsh/compwid.yo
 --- Doc/zsh.1	2007-04-19 02:35:57.000000000 -0700
 +++ Doc/zsh.1	2007-05-17 14:05:01.000000000 -0700
-@@ -32,15 +32,11 @@
+@@ -32,8 +32,6 @@
  .TP
  \fIzshmodules\fP   Zsh loadable modules
  .TP
@@ -41,10 +37,22 @@
  \fIzshtcpsys\fP    Zsh built\-in TCP functions
  .TP
  \fIzshzftpsys\fP   Zsh built\-in FTP client
+--- Doc/zshall.1	2008-08-23 02:56:02.000000000 -0700
++++ Doc/zshall.1	2008-08-23 02:56:17.000000000 -0700
+@@ -31,8 +31,6 @@
  .TP
- \fIzshcontrib\fP   Additional zsh functions and utilities
+ \fIzshmodules\fP   Zsh loadable modules
+ .TP
+-\fIzshcalsys\fP    Zsh built\-in calendar functions
 -.TP
--\fIzshall\fP       Meta\-man page containing all of the above
- .PD
- .SH "DESCRIPTION"
- Zsh is a UNIX command interpreter (shell) usable as an interactive
+ \fIzshtcpsys\fP    Zsh built\-in TCP functions
+ .TP
+ \fIzshzftpsys\fP   Zsh built\-in FTP client
+@@ -493,7 +491,6 @@
+ .so man1/zshcompsys.1
+ .so man1/zshcompctl.1
+ .so man1/zshmodules.1
+-.so man1/zshcalsys.1
+ .so man1/zshtcpsys.1
+ .so man1/zshzftpsys.1
+ .so man1/zshcontrib.1

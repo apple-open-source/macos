@@ -319,7 +319,7 @@ IOFWAddressSpaceAux * IOFWAddressSpace::createAuxiliary( void )
 {
 	IOFWAddressSpaceAux * auxiliary;
     
-	auxiliary = new IOFWAddressSpaceAux;
+	auxiliary = OSTypeAlloc( IOFWAddressSpaceAux );
 
     if( auxiliary != NULL && !auxiliary->init(this) ) 
 	{

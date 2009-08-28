@@ -219,6 +219,11 @@ BOOL gPlistMode = NO;
             for (i = 0; i < cntLimit; i++)
             {
                 key = [inKeys objectAtIndex:i];
+                if ([key isEqualToString:@kDSAttributesStandardAll] || [key isEqualToString:@kDSAttributesNativeAll])
+                {
+                    // don't print an error message about it
+                    continue;
+                }
                 if (!([key hasPrefix:@kDSStdAttrTypePrefix] || [key hasPrefix:@kDSNativeAttrTypePrefix]))
                 {
                     attrib = [@kDSStdAttrTypePrefix stringByAppendingString:key];
@@ -235,7 +240,7 @@ BOOL gPlistMode = NO;
             keyEnum = [missingAttributes objectEnumerator];
             while ((key = (NSString*)[keyEnum nextObject]) != nil)
             {
-                printf("No such key: %s\n", [key UTF8String]);
+                fprintf(stderr, "No such key: %s\n", [key UTF8String]);
             }
         }
     }
@@ -512,7 +517,8 @@ NSArray* prefixedAttributeKeysWithNode(DSoNode* inNode, NSArray* inKeys)
     for (i = 0; i < cntLimit; i++)
     {
         key = [inKeys objectAtIndex:i];
-        if ([key hasPrefix:@kDSStdAttrTypePrefix] || [key hasPrefix:@kDSNativeAttrTypePrefix])
+        if ([key hasPrefix:@kDSStdAttrTypePrefix] || [key hasPrefix:@kDSNativeAttrTypePrefix]
+            || [key isEqualToString:@kDSAttributesStandardAll] || [key isEqualToString:@kDSAttributesNativeAll])
         {
             attrib = key;
         }

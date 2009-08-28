@@ -1,18 +1,37 @@
+/****************************************************************************
+ * Copyright (c) 1998-2007,2008 Free Software Foundation, Inc.              *
+ *                                                                          *
+ * Permission is hereby granted, free of charge, to any person obtaining a  *
+ * copy of this software and associated documentation files (the            *
+ * "Software"), to deal in the Software without restriction, including      *
+ * without limitation the rights to use, copy, modify, merge, publish,      *
+ * distribute, distribute with modifications, sublicense, and/or sell       *
+ * copies of the Software, and to permit persons to whom the Software is    *
+ * furnished to do so, subject to the following conditions:                 *
+ *                                                                          *
+ * The above copyright notice and this permission notice shall be included  *
+ * in all copies or substantial portions of the Software.                   *
+ *                                                                          *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+ * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+ * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+ * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+ * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+ *                                                                          *
+ * Except as contained in this notice, the name(s) of the above copyright   *
+ * holders shall not be used in advertising or otherwise to promote the     *
+ * sale, use or other dealings in this Software without prior written       *
+ * authorization.                                                           *
+ ****************************************************************************/
 /*
  * hashtest.c -- test hash mapping
  *
  * Generate timing statistics for vertical-motion optimization.
  *
- * $Id: hashtest.c,v 1.24 2005/04/16 16:36:54 tom Exp $
+ * $Id: hashtest.c,v 1.29 2008/08/16 17:26:44 tom Exp $
  */
-
-#ifdef TRACE
-#define Trace(p) _tracef p
-#define USE_TRACE 1
-#else
-#define Trace(p)		/* nothing */
-#define USE_TRACE 0
-#endif
 
 #include <test.priv.h>
 
@@ -163,7 +182,7 @@ main(int argc, char *argv[])
 
     setlocale(LC_ALL, "");
 
-    while ((c = getopt(argc, argv, "cf:h:l:norsx")) != EOF) {
+    while ((c = getopt(argc, argv, "cf:h:l:norsx")) != -1) {
 	switch (c) {
 	case 'c':
 	    continuous = TRUE;
@@ -176,6 +195,7 @@ main(int argc, char *argv[])
 	    break;
 	case 'l':
 	    test_loops = atoi(optarg);
+	    assert(test_loops >= 0);
 	    break;
 	case 'n':
 	    test_normal = TRUE;
@@ -204,7 +224,7 @@ main(int argc, char *argv[])
     trace(TRACE_TIMES);
 #endif
 
-    (void) signal(SIGINT, finish);	/* arrange interrupts to terminate */
+    CATCHALL(finish);		/* arrange interrupts to terminate */
 
     (void) initscr();		/* initialize the curses library */
     keypad(stdscr, TRUE);	/* enable keyboard mapping */

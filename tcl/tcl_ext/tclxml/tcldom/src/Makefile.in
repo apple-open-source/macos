@@ -1,0 +1,168 @@
+#
+# @configure_input@
+# $Id: Makefile.in,v 1.6 2002/05/10 18:54:30 jenglish Exp $
+#
+
+### Identification division.
+#
+
+PACKAGE = @PACKAGE@
+VERSION = @VERSION@
+
+### Environment division.
+#
+prefix		= @prefix@
+exec_prefix	= @exec_prefix@
+bindir		= @bindir@
+libdir		= @libdir@
+libexecdir	= @libexecdir@
+mandir		= @mandir@
+
+srcdir		= @srcdir@
+pkglibdir	= $(libdir)/@PACKAGE@@VERSION@
+
+DEFS		= @DEFS@
+LIBS		= @LIBS@
+INCLUDES	= @TCL_INCLUDES@
+CFLAGS		= @CFLAGS@
+CPPFLAGS	= @CPPFLAGS@
+CONFIGDIR	= @CONFIGDIR@
+
+SHELL		= @SHELL@
+TCLSH_PROG	= @TCLSH_PROG@
+INSTALL		= @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_DATA	= @INSTALL_DATA@
+
+CC 		= @CC@
+CFLAGS_DEFAULT	= @CFLAGS_DEFAULT@
+CFLAGS_WARNING	= @CFLAGS_WARNING@
+SHLIB_CFLAGS	= @SHLIB_CFLAGS@
+SHLIB_LD	= @SHLIB_LD@
+SHLIB_LD_LIBS	= @SHLIB_LD_LIBS@
+TCL_DBGX	= @TCL_DBGX@
+
+# @@ This is not quite right:
+expat_LIB_PATH		= @expat_LIB_PATH@
+TCL_LD_SEARCH_FLAGS	= @TCL_LD_SEARCH_FLAGS@
+LIB_RUNTIME_DIR		= $(expat_LIB_PATH)
+SHLIB_LDFLAGS		= $(TCL_LD_SEARCH_FLAGS)
+
+
+### Data division.
+#
+
+CLEANFILES	= *.o *.obj $(tcldom_LIB_FILE) @CONFIG_CLEANFILES@
+
+OBJEXT		= @OBJEXT@
+
+tcldom_LIB_FILE	= @tcldom_LIB_FILE@
+
+tcldom_OBJECTS = \
+    tcldompro.$(OBJEXT) \
+    tdpExpat.$(OBJEXT) \
+    traversal.$(OBJEXT) \
+    livelist.$(OBJEXT)
+
+expat_LIB_SPEC		= @expat_LIB_SPEC@
+TCL_STUB_LIB_SPEC	= @TCL_STUB_LIB_SPEC@
+
+tcldom_LIBRARIES = \
+    $(expat_LIB_SPEC) \
+    $(TCL_STUB_LIB_SPEC)
+
+### Procedure division.
+#
+.PHONY: default all package clean distclean doc install installdirs test
+.NOEXPORT:
+
+### TEA targets section.
+#
+# DEVIATION: added 'package', 'install-package' targets.
+#
+
+default:	package
+all:		binaries libraries # doc
+package:	$(tcldom_LIB_FILE)
+binaries:	$(tcldom_LIB_FILE)
+libraries:	# N/A
+install:	all install-package # install-doc
+
+### Build stuff section.
+#
+
+.SUFFIXES: .c .@OBJEXT@
+
+.c.@OBJEXT@:
+	$(CC) $(DEFS) $(INCLUDES) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+
+$(tcldom_LIB_FILE): $(tcldom_OBJECTS)
+	-rm -f $(tcldom_LIB_FILE)
+	$(SHLIB_LD) -o $@ $(SHLIB_LDFLAGS) \
+		$(tcldom_OBJECTS) $(tcldom_LIBRARIES) $(SHLIB_LD_LIBS)
+
+### Documentation section.
+#
+
+doc:
+	@echo "make $@: not yet implemented"
+
+### Test stuff section.
+#
+
+TESTFLAGS	= -verbose b
+TESTDIR		= ../tests
+TESTDRIVER	= all.tcl
+
+test: binaries libraries
+	TCLLIBPATH=`pwd` ; export TCLLIBPATH ;  \
+	    (cd $(TESTDIR) ; \
+	     $(TCLSH_PROG) $(TESTDRIVER) $(TESTFLAGS)) 2>&1 | tee test.log
+
+### Install stuff section.
+#
+
+mkinstalldirs = $(SHELL) $(CONFIGDIR)/mkinstalldirs
+installdirs:
+	$(mkinstalldirs)  $(libdir)
+	$(mkinstalldirs)  $(pkglibdir)
+
+install-binaries: binaries
+	$(INSTALL_DATA) $(tcldom_LIB_FILE) $(pkglibdir)
+
+install-libraries:
+	@echo "Nothing to install for $@"
+
+install-doc:
+	@echo "Nothing to install (yet) for $@"
+
+install-package: installdirs package
+	$(INSTALL_DATA) $(tcldom_LIB_FILE) $(pkglibdir)
+	$(INSTALL_DATA) pkgIndex.tcl $(pkglibdir)
+
+
+### Maintain stuff section.
+#
+depend:
+	@echo "Not implemented.  Joe doesn't believe in 'make depend'."
+	@echo "Just run 'make clean' and recompile"
+	@exit 1
+
+### Cleanup section.
+#
+clean::
+	-rm -f $(CLEANFILES)
+
+distclean:: clean
+	-rm -f @CONFIGURE_OUTPUTS@
+
+maintainer-clean:: distclean
+	-rm -f configure
+
+# Also: 'make doc' outputs, others @@
+
+reconfigure:: distclean
+	autoconf
+	sh ./configure
+
+# *EOF*

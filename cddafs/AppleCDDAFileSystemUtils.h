@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,33 +38,33 @@ extern "C" {
 #endif
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Function Prototypes - From AppleCDDAFileSystemUtils.c
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 int				InsertCDDANode 				( AppleCDDANodePtr newNodePtr,
 											  vnode_t parentVNodePtr,
 											  struct proc * theProcPtr );
-int				CreateNewCDDANode 			( mount_t mountPtr,
+errno_t			CreateNewCDDANode 			( mount_t mountPtr,
 											  UInt32 nodeID,
 											  enum vtype vNodeType,
 											  vnode_t parentVNodePtr,
 											  struct componentname * compNamePtr,
 											  vnode_t * vNodeHandle );
 int				DisposeCDDANode 			( vnode_t vNodePtr );
-int				CreateNewCDDAFile 			( mount_t mountPtr,
+errno_t			CreateNewCDDAFile 			( mount_t mountPtr,
 											  UInt32 nodeID,
 											  AppleCDDANodeInfoPtr nodeInfoPtr,
 											  vnode_t parentVNodePtr,
 											  struct componentname * compNamePtr,
 											  vnode_t * vNodeHandle );
-int				CreateNewXMLFile 			( mount_t mountPtr,
+errno_t			CreateNewXMLFile 			( mount_t mountPtr,
 											  UInt32 xmlFileSize,
 											  UInt8 * xmlData,
 											  vnode_t parentVNodePtr,
 											  struct componentname * compNamePtr,
 											  vnode_t * vNodeHandle );
-int				CreateNewCDDADirectory 		( mount_t mountPtr,
+errno_t			CreateNewCDDADirectory 		( mount_t mountPtr,
 											  UInt32 nodeID,
 											  vnode_t * vNodeHandle );
 boolean_t		IsAudioTrack 				( const SubQTOCInfoPtr trackDescriptorPtr );
@@ -83,9 +83,9 @@ void			PackAttributesBlock			( struct attrlist * attrListPtr,
 											  void ** varbufHandle );
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Function Prototypes - From AppleCDDAFileSystemUtilities.cpp
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 
 QTOCDataFormat10Ptr		CreateBufferFromIORegistry 	( mount_t mountPtr );

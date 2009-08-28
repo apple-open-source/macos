@@ -3,7 +3,7 @@
 ##
 
 Project = RubyCocoa
-ProjectVersion = 0.13.1
+ProjectVersion = trunk
 FullProjectVersion = $(ProjectVersion)
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
@@ -25,13 +25,17 @@ RUN_TESTS = 0
 
 build::
 	(cd $(SRCROOT)/$(Project) \
-	&& /usr/bin/ruby install.rb config --prefix=$(RUBYUSR) --site-ruby=$(DSTRUBYDIR)/1.8 --so-dir=$(DSTRUBYDIR)/1.8/universal-darwin9.0 --frameworks="$(DSTROOT)/System/Library/Frameworks" --xcode-extras="$(DSTROOT)/Developer/Library/Xcode" --examples="$(DSTROOT)/Developer/Examples/Ruby" --documentation="$(DSTROOT)/Developer/Documentation" --gen-bridge-support=false --build-as-embeddable=false --build-universal=false \
+	&& /usr/bin/ruby install.rb config --prefix=$(RUBYUSR) --site-ruby=$(DSTRUBYDIR)/1.8 --so-dir=$(DSTRUBYDIR)/1.8/universal-darwin10.0 --frameworks="$(DSTROOT)/System/Library/Frameworks" --xcode-extras="$(DSTROOT)/unmaintained_templates" --examples="$(DSTROOT)/Developer/Examples/Ruby" --documentation="$(DSTROOT)/Developer/Documentation" --gen-bridge-support=false --build-as-embeddable=false --build-universal=false \
 	&& /usr/bin/ruby install.rb setup \
 	&& (if [ $(RUN_TESTS)"" = "1" ]; then (cd tests && (DYLD_FRAMEWORK_PATH=../framework/build /usr/bin/ruby -I../lib -I../ext/rubycocoa testall.rb || exit 1)); fi) \
 	&& /usr/bin/ruby install.rb install \
 	&& /usr/bin/ruby install.rb clean)
+	rm -rf $(DSTROOT)/unmaintained_templates
+	rm -rf $(DSTROOT)/Developer/Documentation/RubyCocoa
+	#$(MKDIR) "$(DSTROOT)/Developer/Library/Xcode/Project Templates/Application"
+	#ditto $(SRCROOT)/extras/template "$(DSTROOT)/Developer/Library/Xcode/Project Templates/Application"
 	$(MKDIR) $(DSTGEMSDIR)
-	(cd gems && $(GEM_INSTALL) rubynode)
+	(cd gems && RUBY_SOURCE_DIR=$(SRCROOT)/gems/rubynode_ruby_source_dir $(GEM_INSTALL) rubynode)
 	$(STRIP) -x `find $(RUBYUSR)/lib -name "*.bundle"` 
 	(cd "$(DSTROOT)/Developer/Examples/Ruby/RubyCocoa/RoundTransparentWindow" && chmod 644 English.lproj/InfoPlist.strings English.lproj/MainMenu.nib/info.nib English.lproj/MainMenu.nib/objects.nib ReadMe.html main.m pentagon.tif)
 	(cd "$(DSTROOT)/Developer/Examples/Ruby/RubyCocoa/QTKitSimpleDocument" && chmod 644 English.lproj/InfoPlist.strings English.lproj/MyDocument.nib/info.nib English.lproj/MyDocument.nib/keyedobjects.nib English.lproj/MyDocument.nib/classes.nib English.lproj/Credits.rtf)
@@ -54,8 +58,8 @@ sync:
 	rm -rf $$sync_out; \
 	svn co --ignore-externals -q https://rubycocoa.svn.sourceforge.net/svnroot/rubycocoa/trunk/src $$sync_out; \
 	(find $$sync_out -name ".svn" -exec rm -rf {} \; >& /dev/null || true); \
-	rm -f $$sync_out.tar.gz; \
-	tar -czf $$sync_out.tar.gz $$sync_out; \
+	rm -f $$sync_out.tgz; \
+	tar -czf $$sync_out.tgz $$sync_out; \
 	rm -rf $$sync_out; \
 	echo "done"
 
@@ -65,7 +69,7 @@ AEP_Version    = $(FullProjectVersion)
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tgz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = fix_install.rb.diff fix_ext_rubycocoa_extconf.rb.diff fix_templates_for_leopard.diff
+AEP_Patches    = fix_install.rb.diff fix_ext_rubycocoa_extconf.rb.diff disable_threading_hacks.diff
 
 # Extract the source.
 install_source::
@@ -75,7 +79,3 @@ install_source::
 	for patchfile in $(AEP_Patches); do \
 		(cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile) || exit 1; \
 	done
-	$(TAR) -C $(SRCROOT) -xzf $(SRCROOT)/patches/fixed_templates_nibs_for_ib3.tar.gz
-	find $(SRCROOT)/$(Project)/template/ProjectBuilder -name "*.nib" -type d -print0 | xargs -0 rm -r
-	ditto --norsrc --noextattr $(SRCROOT)/ProjectBuilder $(SRCROOT)/$(Project)/template/ProjectBuilder
-	rm -r $(SRCROOT)/ProjectBuilder

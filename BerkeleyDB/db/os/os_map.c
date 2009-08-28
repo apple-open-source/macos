@@ -1,18 +1,16 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1996,2007 Oracle.  All rights reserved.
+ *
+ * $Id: os_map.c,v 12.18 2007/05/17 15:15:46 bostic Exp $
  */
 
 #include "db_config.h"
 
-#ifndef lint
-static const char revid[] = "$Id: os_map.c,v 1.2 2004/03/30 01:23:46 jtownsen Exp $";
-#endif /* not lint */
+#include "db_int.h"
 
-#ifndef NO_SYSTEM_INCLUDES
-#include <sys/types.h>
+#ifdef HAVE_SYSTEM_INCLUDE_FILES
 #ifdef HAVE_MMAP
 #include <sys/mman.h>
 #endif
@@ -21,17 +19,15 @@ static const char revid[] = "$Id: os_map.c,v 1.2 2004/03/30 01:23:46 jtownsen Ex
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #endif
-
-#include <string.h>
 #endif
-
-#include "db_int.h"
 
 #ifdef HAVE_MMAP
 static int __os_map __P((DB_ENV *, char *, DB_FH *, size_t, int, int, void **));
 #endif
-#ifndef HAVE_SHMGET
-static int __db_nosystemmem __P((DB_ENV *));
+#ifdef HAVE_SHMGET
+static int __shm_mode __P((DB_ENV *));
+#else
+static int __no_system_mem __P((DB_ENV *));
 #endif
 
 /*
@@ -57,15 +53,15 @@ __os_r_sysattach(dbenv, infop, rp)
 		 * threaded.  If we reach this point, we know we're public, so
 		 * it's an error.
 		 */
-#if defined(MUTEX_NO_SHMGET_LOCKS)
-		__db_err(dbenv,
+#if defined(HAVE_MUTEX_HPPA_MSEM_INIT)
+		__db_errx(dbenv,
 	    "architecture does not support locks inside system shared memory");
 		return (EINVAL);
 #endif
 #if defined(HAVE_SHMGET)
 		{
 		key_t segid;
-		int id, ret;
+		int id, mode, ret;
 
 		/*
 		 * We could potentially create based on REGION_CREATE_OK, but
@@ -84,7 +80,7 @@ __os_r_sysattach(dbenv, infop, rp)
 			 * the ipcs output.
 			 */
 			if (dbenv->shm_key == INVALID_REGION_SEGID) {
-				__db_err(dbenv,
+				__db_errx(dbenv,
 			    "no base system shared memory ID specified");
 				return (EINVAL);
 			}
@@ -100,19 +96,24 @@ __os_r_sysattach(dbenv, infop, rp)
 			if ((id = shmget(segid, 0, 0)) != -1) {
 				(void)shmctl(id, IPC_RMID, NULL);
 				if ((id = shmget(segid, 0, 0)) != -1) {
-					__db_err(dbenv,
+					__db_errx(dbenv,
 		"shmget: key: %ld: shared system memory region already exists",
 					    (long)segid);
 					return (EAGAIN);
 				}
 			}
-			if ((id =
-			    shmget(segid, rp->size, IPC_CREAT | 0600)) == -1) {
-				ret = __os_get_errno();
-				__db_err(dbenv,
-	"shmget: key: %ld: unable to create shared system memory region: %s",
-				    (long)segid, strerror(ret));
-				return (ret);
+
+			/*
+			 * Map the DbEnv::open method file mode permissions to
+			 * shmget call permissions.
+			 */
+			mode = IPC_CREAT | __shm_mode(dbenv);
+			if ((id = shmget(segid, rp->size, mode)) == -1) {
+				ret = __os_get_syserr();
+				__db_syserr(dbenv, ret,
+	"shmget: key: %ld: unable to create shared system memory region",
+				    (long)segid);
+				return (__os_posix_err(ret));
 			}
 			rp->segid = id;
 		} else
@@ -120,17 +121,16 @@ __os_r_sysattach(dbenv, infop, rp)
 
 		if ((infop->addr = shmat(id, NULL, 0)) == (void *)-1) {
 			infop->addr = NULL;
-			ret = __os_get_errno();
-			__db_err(dbenv,
-	"shmat: id %d: unable to attach to shared system memory region: %s",
-			    id, strerror(ret));
-			return (ret);
+			ret = __os_get_syserr();
+			__db_syserr(dbenv, ret,
+	"shmat: id %d: unable to attach to shared system memory region", id);
+			return (__os_posix_err(ret));
 		}
 
 		return (0);
 		}
 #else
-		return (__db_nosystemmem(dbenv));
+		return (__no_system_mem(dbenv));
 #endif
 	}
 
@@ -147,11 +147,11 @@ __os_r_sysattach(dbenv, infop, rp)
 	 * the region are properly ordered, our caller has already taken care
 	 * of that.
 	 */
-	if ((ret = __os_open(dbenv, infop->name,
-	    DB_OSO_REGION | DB_OSO_DIRECT |
+	if ((ret = __os_open(dbenv, infop->name, 0,
+	    DB_OSO_REGION |
 	    (F_ISSET(infop, REGION_CREATE_OK) ? DB_OSO_CREATE : 0),
-	    infop->mode, &fhp)) != 0)
-		__db_err(dbenv, "%s: %s", infop->name, db_strerror(ret));
+	    dbenv->db_mode, &fhp)) != 0)
+		__db_err(dbenv, ret, "%s", infop->name);
 
 	/*
 	 * If we created the file, grow it to its full size before mapping
@@ -160,9 +160,13 @@ __os_r_sysattach(dbenv, infop, rp)
 	 * systems without merged VM/buffer cache systems, or, more to the
 	 * point, *badly* merged VM/buffer cache systems.
 	 */
-	if (ret == 0 && F_ISSET(infop, REGION_CREATE))
-		ret = __db_fileinit(dbenv,
-		    fhp, rp->size, F_ISSET(dbenv, DB_ENV_REGION_INIT) ? 1 : 0);
+	if (ret == 0 && F_ISSET(infop, REGION_CREATE)) {
+		if (F_ISSET(dbenv, DB_ENV_REGION_INIT))
+			ret = __db_file_write(dbenv, fhp,
+			    rp->size / MEGABYTE, rp->size % MEGABYTE, 0x00);
+		else
+			ret = __db_file_extend(dbenv, fhp, rp->size);
+	}
 
 	/* Map the file in. */
 	if (ret == 0)
@@ -177,7 +181,7 @@ __os_r_sysattach(dbenv, infop, rp)
 #else
 	COMPQUIET(infop, NULL);
 	COMPQUIET(rp, NULL);
-	__db_err(dbenv,
+	__db_errx(dbenv,
 	    "architecture lacks mmap(2), shared environments not possible");
 	return (DB_OPNOTSUP);
 #endif
@@ -196,12 +200,13 @@ __os_r_sysdetach(dbenv, infop, destroy)
 	int destroy;
 {
 	REGION *rp;
+	int ret;
 
 	rp = infop->rp;
 
 	if (F_ISSET(dbenv, DB_ENV_SYSTEM_MEM)) {
 #ifdef HAVE_SHMGET
-		int ret, segid;
+		int segid;
 
 		/*
 		 * We may be about to remove the memory referenced by rp,
@@ -212,22 +217,22 @@ __os_r_sysdetach(dbenv, infop, destroy)
 			rp->segid = INVALID_REGION_SEGID;
 
 		if (shmdt(infop->addr) != 0) {
-			ret = __os_get_errno();
-			__db_err(dbenv, "shmdt: %s", strerror(ret));
-			return (ret);
+			ret = __os_get_syserr();
+			__db_syserr(dbenv, ret, "shmdt");
+			return (__os_posix_err(ret));
 		}
 
 		if (destroy && shmctl(segid, IPC_RMID,
-		    NULL) != 0 && (ret = __os_get_errno()) != EINVAL) {
-			__db_err(dbenv,
-	    "shmctl: id %d: unable to delete system shared memory region: %s",
-			    segid, strerror(ret));
-			return (ret);
+		    NULL) != 0 && (ret = __os_get_syserr()) != EINVAL) {
+			__db_syserr(dbenv, ret,
+	    "shmctl: id %d: unable to delete system shared memory region",
+			    segid);
+			return (__os_posix_err(ret));
 		}
 
 		return (0);
 #else
-		return (__db_nosystemmem(dbenv));
+		return (__no_system_mem(dbenv));
 #endif
 	}
 
@@ -237,19 +242,18 @@ __os_r_sysdetach(dbenv, infop, destroy)
 		(void)munlock(infop->addr, rp->size);
 #endif
 	if (munmap(infop->addr, rp->size) != 0) {
-		int ret;
-
-		ret = __os_get_errno();
-		__db_err(dbenv, "munmap: %s", strerror(ret));
-		return (ret);
+		ret = __os_get_syserr();
+		__db_syserr(dbenv, ret, "munmap");
+		return (__os_posix_err(ret));
 	}
 
-	if (destroy && __os_region_unlink(dbenv, infop->name) != 0)
-		return (__os_get_errno());
+	if (destroy && (ret = __os_region_unlink(dbenv, infop->name)) != 0)
+		return (ret);
 
 	return (0);
 #else
 	COMPQUIET(destroy, 0);
+	COMPQUIET(ret, 0);
 	return (EINVAL);
 #endif
 }
@@ -271,6 +275,10 @@ __os_mapfile(dbenv, path, fhp, len, is_rdonly, addrp)
 	void **addrp;
 {
 #if defined(HAVE_MMAP) && !defined(HAVE_QNX)
+	if (dbenv != NULL &&
+	    FLD_ISSET(dbenv->verbose, DB_VERB_FILEOPS | DB_VERB_FILEOPS_ALL))
+		__db_msg(dbenv, "fileops: mmap %s", path);
+
 	return (__os_map(dbenv, path, fhp, len, 0, is_rdonly, addrp));
 #else
 	COMPQUIET(dbenv, NULL);
@@ -295,6 +303,12 @@ __os_unmapfile(dbenv, addr, len)
 	void *addr;
 	size_t len;
 {
+	int ret;
+
+	if (dbenv != NULL &&
+	    FLD_ISSET(dbenv->verbose, DB_VERB_FILEOPS | DB_VERB_FILEOPS_ALL))
+		__db_msg(dbenv, "fileops: munmap");
+
 	/* If the user replaced the map call, call through their interface. */
 	if (DB_GLOBAL(j_unmap) != NULL)
 		return (DB_GLOBAL(j_unmap)(addr, len));
@@ -302,27 +316,21 @@ __os_unmapfile(dbenv, addr, len)
 #ifdef HAVE_MMAP
 #ifdef HAVE_MUNLOCK
 	if (F_ISSET(dbenv, DB_ENV_LOCKDOWN))
-		while (munlock(addr, len) != 0 && __os_get_errno() == EINTR)
-			;
+		RETRY_CHK((munlock(addr, len)), ret);
+		/*
+		 * !!!
+		 * The return value is ignored.
+		 */
 #else
 	COMPQUIET(dbenv, NULL);
 #endif
-	{
-		int err, ret, retries;
-
-		err = retries = 0;
-		do {
-			ret = munmap(addr, len);
-		} while (ret != 0 &&
-		    ((err = __os_get_errno()) == EINTR || err == EBUSY) &&
-		    ++retries < DB_RETRY);
-		return (ret ? err : 0);
-	}
+	RETRY_CHK((munmap(addr, len)), ret);
+	ret = __os_posix_err(ret);
 #else
 	COMPQUIET(dbenv, NULL);
-
-	return (EINVAL);
+	ret = EINVAL;
 #endif
+	return (ret);
 }
 
 #ifdef HAVE_MMAP
@@ -347,8 +355,7 @@ __os_map(dbenv, path, fhp, len, is_region, is_rdonly, addrp)
 		return (DB_GLOBAL(j_map)
 		    (path, len, is_region, is_rdonly, addrp));
 
-	/* Check for illegal usage. */
-	DB_ASSERT(F_ISSET(fhp, DB_FH_OPENED) && fhp->fd != -1);
+	DB_ASSERT(dbenv, F_ISSET(fhp, DB_FH_OPENED) && fhp->fd != -1);
 
 	/*
 	 * If it's read-only, it's private, and if it's not, it's shared.
@@ -379,6 +386,19 @@ __os_map(dbenv, path, fhp, len, is_region, is_rdonly, addrp)
 	COMPQUIET(is_region, 0);
 #endif
 
+	/*
+	 * FreeBSD:
+	 * Causes data dirtied via this VM map to be flushed to physical media
+	 * only when necessary (usually by the pager) rather then gratuitously.
+	 * Typically this prevents the update daemons from flushing pages
+	 * dirtied through such maps and thus allows efficient sharing of
+	 * memory across unassociated processes using a file-backed shared
+	 * memory map.
+	 */
+#ifdef MAP_NOSYNC
+	flags |= MAP_NOSYNC;
+#endif
+
 	prot = PROT_READ | (is_rdonly ? 0 : PROT_WRITE);
 
 	/*
@@ -396,7 +416,7 @@ __os_map(dbenv, path, fhp, len, is_region, is_rdonly, addrp)
 	 */
 #ifdef VMS
 	if (__os_fsync(dbenv, fhp) == -1)
-		return (__os_get_errno());
+		return (__os_posix_err(__os_get_syserr()));
 #endif
 
 	/* MAP_FAILED was not defined in early mmap implementations. */
@@ -405,9 +425,9 @@ __os_map(dbenv, path, fhp, len, is_region, is_rdonly, addrp)
 #endif
 	if ((p = mmap(NULL,
 	    len, prot, flags, fhp->fd, (off_t)0)) == (void *)MAP_FAILED) {
-		ret = __os_get_errno();
-		__db_err(dbenv, "mmap: %s", strerror(ret));
-		return (ret);
+		ret = __os_get_syserr();
+		__db_syserr(dbenv, ret, "mmap");
+		return (__os_posix_err(ret));
 	}
 
 #ifdef HAVE_MLOCK
@@ -421,10 +441,10 @@ __os_map(dbenv, path, fhp, len, is_region, is_rdonly, addrp)
 	 * the call isn't conditional.
 	 */
 	if (F_ISSET(dbenv, DB_ENV_LOCKDOWN) && mlock(p, len) != 0) {
-		ret = __os_get_errno();
+		ret = __os_get_syserr();
 		(void)munmap(p, len);
-		__db_err(dbenv, "mlock: %s", strerror(ret));
-		return (ret);
+		__db_syserr(dbenv, ret, "mlock");
+		return (__os_posix_err(ret));
 	}
 #else
 	COMPQUIET(dbenv, NULL);
@@ -435,17 +455,55 @@ __os_map(dbenv, path, fhp, len, is_region, is_rdonly, addrp)
 }
 #endif
 
-#ifndef HAVE_SHMGET
+#ifdef HAVE_SHMGET
+#ifndef SHM_R
+#define	SHM_R	0400
+#endif
+#ifndef SHM_W
+#define	SHM_W	0200
+#endif
+
 /*
- * __db_nosystemmem --
+ * __shm_mode --
+ *	Map the DbEnv::open method file mode permissions to shmget call
+ *	permissions.
+ */
+static int
+__shm_mode(dbenv)
+	DB_ENV *dbenv;
+{
+	int mode;
+
+	/* Default to r/w owner, r/w group. */
+	if (dbenv->db_mode == 0)
+		return (SHM_R | SHM_W | SHM_R >> 3 | SHM_W >> 3);
+
+	mode = 0;
+	if (dbenv->db_mode & S_IRUSR)
+		mode |= SHM_R;
+	if (dbenv->db_mode & S_IWUSR)
+		mode |= SHM_W;
+	if (dbenv->db_mode & S_IRGRP)
+		mode |= SHM_R >> 3;
+	if (dbenv->db_mode & S_IWGRP)
+		mode |= SHM_W >> 3;
+	if (dbenv->db_mode & S_IROTH)
+		mode |= SHM_R >> 6;
+	if (dbenv->db_mode & S_IWOTH)
+		mode |= SHM_W >> 6;
+	return (mode);
+}
+#else
+/*
+ * __no_system_mem --
  *	No system memory environments error message.
  */
 static int
-__db_nosystemmem(dbenv)
+__no_system_mem(dbenv)
 	DB_ENV *dbenv;
 {
-	__db_err(dbenv,
+	__db_errx(dbenv,
 	    "architecture doesn't support environments in system memory");
 	return (DB_OPNOTSUP);
 }
-#endif
+#endif /* HAVE_SHMGET */

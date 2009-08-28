@@ -134,7 +134,7 @@ options specified by the tt(-D) flag.
 The form with tt(-M) as the first and only option defines global
 matching specifications (see
 ifzman(zshcompwid)\
-ifnzman(noderef(Matching Control))\
+ifnzman(noderef(Completion Matching Control))\
 ). The match specifications given will be used for every completion
 attempt (only when using tt(compctl), not with the new completion
 system) and are tried in the order in which they are defined until one 
@@ -469,7 +469,8 @@ be shown if there was at least one match added for the explanation
 string.
 
 The sequences tt(%B), tt(%b), tt(%S), tt(%s), tt(%U), and tt(%u) specify
-output attributes (bold, standout, and underline) and tt(%{...%}) can
+output attributes (bold, standout, and underline), tt(%F), tt(%f), tt(%K),
+tt(%k) specify foreground and background colours, and tt(%{...%}) can
 be used to include literal escape sequences as in prompts.
 )
 item(tt(-Y) var(explanation))(
@@ -538,7 +539,7 @@ This defines additional matching control specifications that should be used
 only when testing words for the list of flags this flag appears in. The format
 of the var(match-spec) string is described in 
 ifzman(zshcompwid)\
-ifnzman(noderef(Matching Control))\
+ifnzman(noderef(Completion Matching Control))\
 .
 )
 enditem()

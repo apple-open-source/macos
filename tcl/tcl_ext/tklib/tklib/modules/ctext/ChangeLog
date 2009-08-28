@@ -1,0 +1,668 @@
+2008-08-19  George Peter Staplin  <georgeps@users.sourceforge.net>
+
+	ctext.tcl: I fixed bug 2059415 by saving the id from [after idle].
+	On widget destruction the ids are catch {after cancel}.
+
+	I also fixed an old bug that occured in the tests, with backspace,
+	and the previously highlighted text not being dehighlighted.
+
+	pkgIndex.tcl: I bumped the revision to 3.2
+
+	ctext.man: Updated to revision 3.2
+
+2007-05-11  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* ctext.tcl (ctext::linemapUpdate): make the ctext linemap not
+	resize - it maintains the widest size necessary
+
+2006-10-01  Arjen Markus <arjenmarkus@users.sourceforge.net>
+	ctext.man updated - -linemap clarified, example reformatted (smaller
+	width, for better display and printing), added configure subcommand
+
+2005-11-10  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tklib 0.4.1 ========================
+	*
+
+2005-11-02  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tklib 0.4 ========================
+	*
+
+2005-04-07  Andreas Kupries <andreask@activestate.com>
+
+	* ctext.man: Fixed formatting bugs in ctext.man
+
+3.1.6 - Wed Apr  6 04:41:13 GMT 2005
+
+	ctext.man was kindly contributed by
+	Michael Schlenker.  Thanks Michael :)
+
+
+3.1.5 - Mon Mar 21 11:23:09 GMT 2005
+
+	ctext_tcl.tcl was contributed to ctext by
+	Uwe Koloska.  It provides easy syntax
+	highlighting for Tcl scripts.  He has apparently
+	added ctext to Nagelfar.
+	http://spjuth.pointclark.net/Nagelfar.html
+
+3.1.4 - Thu Aug 12 03:10:06 UTC 2004
+
+	ctext.tcl was changed to fix a bug that
+	occured when the geometry management of the
+	ctext widget was such that it wouldn't enlarge
+	when [$inst configure -linemap 1] was invoked.
+
+	This was fixed using grid and a -minsize.  The
+	previous manager was pack.  Grid behaves in an
+	appropriate manner for this situation with the
+	proper weights and -minsize.
+
+	Thanks to Arjen Markus for testing and bringing
+	this up.
+
+
+3.1.3 - Thu Jan 22 14:51:08 GMT 2004
+
+	I changed the bindtags so that binding to
+	the parent frame will cause the child $win.t
+	to invoke those bindings.  This means that
+	you can create menus that popup on
+	ButtonPress-3 without having to use bind.tree
+	or a similar mechanism.  Thank Jeff Hobbs
+	for pointing this out.
+	
+	I fixed the destroy event handling, so that
+	it will now not cleanup the widget when a
+	temporary child of the widget is destroyed.
+
+3.1.2 - Fri May 23 17:33:17 GMT 2003
+
+	I fixed ctext::deleteHighlighClass so
+	that it will now delete regexp classes.
+	I had to modify ctext::getHighlightClasses
+	and ctext::addHighlightClassForRegexp to
+	fix it.  I've decided to keep the package
+	provide at 3.1.
+
+3.1.1 - Fri May 23 00:53:39 GMT 2003
+
+	I made some minor changes to configure
+	instance handling, so that .t config
+	will return the proper values.  Alas I
+	decided to add a TODO, because the values
+	aren't quite like standard Tk; with the
+	resource classes and all.
+
+3.1 - Thu May 22 01:30:41 GMT 2003
+
+	I fixed some bugs on the configure instance
+	handling.  I added ctext::buildArgParseTable,
+	which improves performance, because now the
+	table is only generated once per widget.
+	
+	I improved cget to accept glob expressions,
+	which also fixed a bug with strings like:
+	cget -yscroll which didn't match an array
+	element, but do match when passed to the
+	real text widget.
+	
+	You can now pass strings like:
+	.t config -flag
+	
+	and the value for -flag will be returned
+	even if the flag is special to ctext.
+	This took some engineering to get right.
+
+	I fixed a bug in the test files that occured
+	due to some fixes.  Basically I'm using list
+	now to construct the tagInfo for each highlight
+	class.  This caused problems, because I was
+	previously using strings.  The test files were
+	using escapes to work around the quoting
+	problem.  They have been changed and now
+	everything should work properly.  You will
+	need to lookout for this problem if you
+	upgrade.
+
+	I updated REGRESSION.
+
+	The end result is a good release based on
+	my testing.
+
+3.1-alpha-5 - Thu May 15 00:39:10 GMT 2003
+
+	I fixed a minor bug in argument handling
+	in the configure instance handler.
+
+3.1-alpha-4 - Wed May 14 17:09:32 GMT 2003
+
+	I improved install.tcl by adding more
+	information about auto_path.
+
+	I fixed a bug with listbox selection in
+	install.tcl (curselection wasn't used).
+
+	I renamed ctext::getClasses to
+	ctext::getHighlightClasses.
+
+	I made some uplevel calls list based, so
+	that if $win has a space in its path ctext
+	will work correctly.
+
+	I made the class creation procs all use
+	list for storing items in the arrays.
+
+	I modified ctext::getHighlightClasses to
+	return a list in the format of:
+	class [list items ...]
+
+	I fixed a bug with
+	ctext::addHighlightClassForRegexp.  It
+	wasn't storing the $re in the class array.
+	This was new to the 3.x series.
+
+3.1-alpha-2-3 - Tue May 13 19:30:51 GMT 2003
+
+	I have redone the configure instance
+	handling.  I added -linemap_select_fg
+	and -linemap_select_bg.  I have updated
+	the README to reflect the new commands
+	and options introduced in the 3.x series.
+	I have removed the TODO file, because all
+	tasks within it have been completed.
+
+	I added an install.tcl script.  It's
+	very easy to use and passes all of my
+	tests.
+
+	I need to test with Malephiso,
+	because there may be minor issues I
+	haven't noticed.
+
+3.1-alpha-1 - Mon May 12 23:12:18 GMT 2003
+
+	I've made many changes that have cleaned
+	up the code.  I have added -linemap_markable.
+	I changed ctext::getAr to accept a suffix.
+	I'm now using global variables with a
+	__ctext prefix, because it is easier than
+	using namespace variables.
+
+	The _blink tag was renamed to __ctext_blink.
+
+	I added ctext::deleteHighlightClass, which
+	works with any of the 4 class creators.  It
+	needs more testing, but so far it passes
+	all of my tests.
+
+	I want to wait about a week or so and go
+	over each line of code slowly.  I've tried
+	to engineer this well, but typos happen, so...	
+
+	I need to merge more of Andreas Sievers'
+	changes and features.
+
+[At this point Andreas Sievers working on ASED
+submitted his 3.0 to me and I decided to create
+3.1 which merges 2.7-alpha with his work.]
+
+2.7-alpha - Fri May  2 13:08:48 GMT 2003
+
+	I have added -linemap_mark_command with
+	an example in ctext_test_interactive.tcl
+
+	I addec ctext::getAr which I'm using to
+	store more state information about the
+	widget for cget and configure.  I modified
+	cget and configure to use it, and they
+	are now more useful.
+	
+	This is an alpha release because I haven't
+	tested it much.  I still need to spend
+	some time and review the diffs.  I'll
+	probably get to that next week, and I'll
+	test it with Malephiso (my editor).  I
+	should also update the README with
+	information about -linemap_mark_command.
+
+2.6.10 - Tue Apr 29 20:47:29 GMT 2003
+
+	I fixed a bug with -font handling in the
+	instance command.
+	You can now do:
+	.t config -font
+	and it will change the linemap font as
+	well as the main text widget.
+	
+	I cleaned up argument handling in the
+	constructor and instance commands.  They
+	now use concat and are simpler.
+	
+	I added ctext::event:Destroy which now
+	takes care of removing an interp alias
+	which was missing in previous releases.
+	
+	interp alias is now used rather than
+	eval with a dummy proc for creating an
+	instance command.
+	
+	$win now has a <FocusIn> binding that
+	should fix a problem some of you may
+	experience.
+	You can now do:
+	focus $win
+	and it will act like:
+	focus $win.t
+	
+	I removed uplevel n eval calls, which
+	were pointless.  I didn't realize
+	when I wrote them that uplevel acts like
+	eval.
+			
+2.6.9 - Mon Apr 28 16:17:13 GMT 2003
+
+	I fixed a minor focus issue by adding
+	-takefocus 0 to the linemap creator.
+
+	I also removed an uplevel #0 for interp
+	alias, which wasn't needed.
+
+	I removed the government clause in the
+	LICENSE.
+
+	I'm pondering a rewrite of Ctext (yet again)
+	which will use SDynObject, and provide more
+	features, but the thought "Why fix it if it
+	isn't broken?" comes to mind.
+
+2.6.8 - Mon Dec  2 18:24:49 GMT 2002
+
+	I fixed two bugs pointed out by Neil Madden.
+	
+	The initial creation of the widget failed
+	when -linemap 0 was used.
+	
+	The virtual event <<Modified>> was not occuring.
+	----
+	I cleaned up several rough areas in the code.
+	
+	I cleaned up the code in the creation of the
+	widget for -yscrollcommand and the linemap.
+	
+	I cleaned up the code in the configure instance
+	command handler.
+	
+	----
+	This release passes all of my tests with
+	Tcl/Tk 8.3 and 8.4.  To make debugging easier
+	I have added ctext_test_interactive.tcl
+
+2.6.7 - Fri Nov 22 16:39:41 GMT 2002
+
+	I fixed a bug with C comment highlighting.  It
+	wasn't updating the highlighting when the
+	insertion was just one character.  The problem
+	was that the RE didn't match, because the
+	previous char and next char were not used to
+	decipher the match.
+	
+	This release was tested with Tcl/Tk 8.4
+			
+2.6.6 - Thu Aug 22 23:46:14 GMT 2002
+
+	I fixed a serious bug with ctext::matchPair
+	and ctext::matchQuote.  The problem was that
+	in some cases the pattern )|}|] was causing
+	an infinite loop when no other patterns matched.
+	It was finding the same character over and over
+	again.  This is fixed now.   I'm sorry to anyone
+	that was bothered by this.  I found it today with
+	Malephiso while editing a test file.  It basically
+	locked up my editor.  The long scripts and C code
+	I've been editing in the past haven't had this
+	problem, due to multiple characters matching.
+
+	Please report BUGS.  I need your help.
+
+2.6.5 - Tue Aug 20 23:27:23 GMT 2002
+
+	I fixed a minor issue with <Destroy> handling.
+	A catch was needed to prevent an error
+	message, due to several <Destroy> events
+	occuring in some cases.
+
+
+2.6.4 - Tue Jul 23 19:29:49 MDT 2002
+
+	I fixed a minor bug with the linemap updating.
+	I didn't notice that with a small number of
+	lines it wasn't displaying the line numbers
+	properly.
+
+	I fixed a major flaw with 8.4 handling.  The
+	8.4 text widget has some new features, and
+	the edit instance command wasn't dealing with
+	the requests properly.  Now it should, but
+	I haven't tested it a lot.
+
+
+2.6.3 - Fri Jul  5 11:32:42 MDT 2002
+
+	I made improvements to ctext::matchPair that
+	should improve the speed.  I also fixed a
+	bug that occured with the pattern { \}.
+	
+	I added an edit modified instance command.
+	I'm not sure if it works like the Tk 8.4
+	version, but it should work well enough.
+	
+	I added edit modified tests to ctext_test.tcl
+	
+	I added -class Ctext to the parent frame.
+	Those of you using .Xdefaults may want this.
+
+	I updated the README for edit modified.
+	
+	It's about time for another study session of
+	the code to fix any bugs or potential bugs.
+
+2.6.2 - Mon Jul  1 09:31:39 MDT 2002
+
+	I fixed a bug with <Destroy> handling.
+
+	I removed all calls to variable, and now use
+	the fully qualified namespace name for variables.
+	This makes the code more concise and cleaner.
+	
+	I improved the speed of
+	ctext::addHighlightClassForSpecialChars by
+	using foreach with [split $str ""].
+
+	I added a Destroy button to ctext_test.tcl.
+
+	I removed the -font flags in the test files,
+	so it will use what's in the X resources, or
+	the default for Tk.
+
+	I improved ctext::matchQuote:blink by doing
+	if {$count & 1} rather than if {[expr {$count & 1}]}
+	I need to remember that if is like expr.
+
+	I fixed a Doh! in ctext::matchQuote.  I was
+	not thinking that the end pos is already known
+	due to the switch in the instanceCmd.	
+
+	ctext::matchPair now works.  Try typing a pattern
+	of ( ) or [ ] or { } or ( ( ) ) and so on.  It's really
+	cool.  Big thanks to Mac Cody for inspiring this.  I
+	didn't use any of his code for MatchPair but I looked
+	at it to get a general idea.
+
+2.6.1 - Thu Jun 27 10:55:54 MDT 2002
+
+	I added ctext::disableComments and
+	ctext::enableComments.  C comment highlighting
+	is disabled by default now.  I started merging
+	the changes by Mac Cody into this release.  I
+	used some of his code for making quotes blink.
+	I rewrote some of it to fit more with my ideals.
+	I'll be merging more of his great ideas into
+	Ctext in the future.
+
+	I fixed a bug with the C comment highlighting.
+	I found that \\ was causing problems, so the
+	\\\\ RE addition and \\\\ check solves that.
+
+	I replaced func_finder.tcl with a newer file that
+	should work better.  What I should probably do is
+	write a minimal C parser for dealing with finding
+	functions, or do another trick with the C
+	preprocessor.
+
+	I updated the README and ctext_test_c.tcl
+
+2.6 - Mon Jun 24 09:39:24 MDT 2002
+
+	I radically modified ctext::comments to fix bugs
+	with comments in quotes being highlighted and
+	to improve speed.  It is now much faster and
+	simpler.  I added -linemapfg and -linemapbg options.
+	
+
+2.5.2 - Sun May 19 09:36:16 MDT 2002
+	
+	I made major changes to how the C commenting works.
+	I made a serious mistake with the way that C
+	comments were highlighted.  I was invoking
+	ctext::comments and there could be several
+	after idle timers going that call it that were
+	relying on a global array.  Basically my
+	state variables were getting clobbered.  It
+	took me a while to figure this out.  Now I
+	pass a [clock clicks] argument for each call
+	and it creates the array if necessary and
+	passes the clock clicks value in subsequent
+	calls.  The end result is that now several
+	ctext::comments loops can be running at
+	once and they don't clobber each other.
+
+2.5.1 - Fri Mar 15 17:15:30 MST 2002
+
+	I have added ctext::update which allows you
+	to update a cursor or progress dialog while
+	Ctext highlights text.  It works quite nicely
+	in Malephiso.  I updated the README to
+	show the new change, and how to use it.  I
+	also fixed a minor error in the README.
+
+2.5 - Sat Mar  2 23:59:07 MST 2002
+
+	I've fixed several critical bugs with deletion
+	of text.  I've improved the clarity of the
+	code by adding ctext::instanceCmd.  This also
+	makes it so that theoretically you could
+	overload ctext.  The performance of deletion
+	and insertion may be better due to my use of
+	a timer for highlighting.
+
+2.4.1 - Sat Feb 23 23:12:49 MST 2002
+
+	I fixed a bug with tag removal that occured
+	when text was appended to an existing tag.
+	The fix was to use the insert position minus
+	one char in the call to ctext::findPreviousSpace.
+	
+
+2.4 - Tue Feb  5 16:27:46 MST 2002
+
+	The linemap will now update even if scrolling
+	hasn't occured.  I tried to get this working
+	in previous releases, but had problems with
+	display updates.  Now I use "after 1" with it,
+	so it works without blocking the GUI.
+
+	The widget should now completely clean up after
+	itself I hope.  I made changes to the <Destroy>
+	callback.  Please let me know if it doesn't
+	cleanup for you.
+
+
+2.3.5 - Wed Jan 23 23:55:51 MST 2002
+
+	I fixed a minor bug that caused some text tags
+	to be removed when they shouldn't be when deleting
+	the first character of a line.
+	
+	if {[$self._t compare $start < $lineStart]} {
+		set start $lineStart
+	}	
+
+2.3.4 - Mon Jan 21 22:05:23 MST 2002
+
+	I added | and , to the not chars.  This helps with C
+	syntax highlighting.
+
+2.3.3 - Mon Jan 14 23:06:39 MST 2002
+
+	I fixed a bug with C comment highlighting that occured when
+	the state of the comment handler was not reset when it reached
+	the end of the text widget.  I also fixed a minor bug with
+	tag removal in the delete handler.
+
+2.3.2 - Thu Jan 10 19:48:20 MST 2002
+
+	I added " and ' to the not chars in the main highlighting
+	engine.  This makes it so that char start strings like
+	$blah end at a " or '.  So, for example with $blah" every
+	thing would be highlighted like the variable.  Now, it only
+	highlights the $blah.
+
+2.3.1 - Fri Jan  4 22:35:19 MST 2002
+	
+	I fixed a minor bug with the C comment handling.  I now
+	have it working very fast for a while, and then it stops
+	until being restarted when / or * is found/entered in the
+	insert or delete widget instance commands.  There is one
+	bug I'm trying to track down where the highlighting stops
+	for apparently no reason.  It's probably good enough to
+	use for production use in Malephiso, but as usual no warranty
+	to you folks.
+
+2.3 - Mon Dec 31 15:18:05 MST 2001
+
+	I have added C comment highlighting.  It works properly
+	but it flashes; which can be annoying.  I'm going to work
+	on this more later on.
+
+2.2.8 - Mon Dec 31 04:18:57 MST 2001
+
+	I fixed some bugs with the delete instance command.
+
+
+2.2.7 - Sun Dec 30 18:15:10 MST 2001
+
+	I made changes to ctext::highlight that have improved
+	the speed.  They should help a lot with very large files.
+
+2.2.6 - Sun Dec 30 16:28:26 MST 2001
+
+	I improved the search expressions by adding -- to
+	deal with - in any of the search strings.  Using
+	ctext in Malephiso has caused me to find so many bugs
+	that I had no idea about over the past week or so.
+
+2.2.5 - Sun Dec 30 11:10:38 MST 2001
+
+	I fixed a bug with findPreviousSpace and findNextSpace
+	which should improve the speed of tag removal, because
+	it will no longer remove char tags that it doesn't
+	have to.
+
+2.2.4 - Sun Dec 30 10:57:57 MST 2001
+
+	I fixed a bug with the highlighting that occured when
+	the whitespace is entered between a highlighted word.
+
+	I also fixed a bug with the linemap that occured when
+	an empty line was pressed.
+
+2.2.3 - Mon Dec 24 12:53:49 MST 2001
+	
+	I added ; to the RE for not chars in the ctext::highlight
+	proc.
+
+2.2.2 - Sun Dec 23 14:37:26 MST 2001
+
+	I made a minor change to the highlighting RE, so that
+	it handles things like [.widget cget -flag]  Before this
+	the -flag part wouldn't have been highlighted.
+
+	I added ctext::clearHighlightClasses which takes only
+	one argument; $win.
+
+2.2.1 - Wed Dec 19 10:18:42 MST 2001
+	
+	I fixed a bug that occured with some text widget commands,
+	for example searching with -count.  I had to use uplevel
+	in the call to the master text widget.
+	
+
+2.2 - Wed Dec 19 06:18:08 MST 2001
+
+	I've fixed some bugs that occured if C functions were being
+	highlighted.  I changed addHighlightClassForSpecialChars
+	so that it accepts a string of characters to match.
+	All addHighlightClass commands now must have a window argument.
+	The window argument makes it so that you can now have multiple
+	languages highlighted in separate windows.  I added
+	ctext::addHighlightClassForRegexp (see the test files for
+	examples).
+	
+	I'm going to write a script for finding all Tcl and Tk
+ 	flags via an automated search through the man pages.  This
+	should hopefully help others with their custom editors
+	that use ctext.
+
+2.1.4
+	I fixed a few bugs.  Widget destruction should now work
+	properly.
+
+2.1.3:
+Well, the diff between 2.1.2 and 2.1.3 is huge.  To summarize I've
+replaced the list that stored selected linemap lines with an array,
+which has improved the performance.  I've added error checking and
+done a bunch of cleanup.  I've changed the indentation style.
+
+2.1.2:
+LICENSE file added and licensing changed to BSD style.
+
+2.1.1:
+replaced addHighlightClass array setting with a list (quoting hell fix)
+
+2.1:
+added \r to the tests for the Mac
+added \r to the default regexp end of line for the Mac
+removed global and replaced with upvar #0
+added ctext to the prefix of ToggledList
+new ctext_test2.tcl with two ctext widgets
+fixed the dos2unix script, so that {lf lf} -translation is used
+
+2.0.2:
+fixed a bug with insert calling highlight improperly when pasting/inserting multiple lines
+wrote dos2unix to convert from NT's \r\n to \n so that Unix people aren't annoyed.
+update idletasks added to delete and insert instance commands
+
+2.0.1:
+ctext_test.tcl removed extra ctext test window
+
+2.0-a6:
+instance cget -linemap works
+added more documentation to Readme.txt
+
+2.0-a5:
+removed hardcoded comment highlighting
+removed debug output and console show
+
+2.0-a4:
+> 50% speedup during ctext::highlight due to a simpler regexp
+that uses not ([^ chars]+) instead.
+
+2.0-a3:
+fixed bug with cut instance command
+added fastdelete and fastinsert instance commands
+instance config -linemap and -yscrollcommand work
+added highlight instance command
+added copy, cut, paste, and append selection instance commands
+
+2.0-a2:
+proc ctext::addHighlightClassForSpecialChars
+proc ctext::addHighlightClassWithOnlyCharStart
+highlight function works
+merged delete from 1.1.1 and fixed a bug
+insert bug fix
+
+

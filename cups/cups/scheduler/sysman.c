@@ -1,9 +1,9 @@
 /*
- * "$Id: sysman.c 7067 2007-11-09 19:54:09Z mike $"
+ * "$Id: sysman.c 7928 2008-09-10 22:14:22Z mike $"
  *
  *   System management definitions for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -14,15 +14,21 @@
  *
  * Contents:
  *
+ *   cupsdCleanDirty()               - Write dirty config and state files.
+ *   cupsdMarkDirty()                - Mark config or state files as needing a
+ *                                     write.
+ *   cupsdSetBusyState()             - Let the system know when we are busy
+ *                                     doing something.
+ *   cupsdAllowSleep()               - Tell the OS it is now OK to sleep.
  *   cupsdStartSystemMonitor()       - Start monitoring for system change.
  *   cupsdStopSystemMonitor()        - Stop monitoring for system change.
- *   cupsdUpdateSystemMonitor()      - Update the current system state.
  *   sysEventThreadEntry()           - A thread to receive power and computer
  *                                     name change notifications.
  *   sysEventPowerNotifier()         - Handle power notification events.
  *   sysEventConfigurationNotifier() - Computer name changed notification
  *                                     callback.
  *   sysEventTimerNotifier()         - Handle delayed event notifications.
+ *   sysUpdate()                     - Update the current system state.
  */
 
 
@@ -31,17 +37,145 @@
  */
 
 #include "cupsd.h"
+#ifdef HAVE_VPROC_TRANSACTION_BEGIN
+#  include <vproc.h>
+#endif /* HAVE_VPROC_TRANSACTION_BEGIN */
 
 
 /*
- * Power management is a new addition to CUPS.  Right now it is only
- * implemented on MacOS X, but essentially we use these three functions
- * to let the OS know when it is OK to put the system to sleep, typically
- * when we are not in the middle of printing a job.
+ * The system management functions cover disk and power management which
+ * are primarily used on portable computers.
  *
- * Once put to sleep, we invalidate all remote printers since it is
- * common to wake up in a new location.
+ * Disk management involves delaying the write of certain configuration
+ * and state files to minimize the number of times the disk has to spin
+ * up.
+ *
+ * Power management support is currently only implemented on MacOS X, but
+ * essentially we use four functions to let the OS know when it is OK to
+ * put the system to idle sleep, typically when we are not in the middle of
+ * printing a job.
+ *
+ * Once put to sleep, we invalidate all remote printers since it is common
+ * to wake up in a new location/on a new wireless network.
  */
+
+
+/*
+ * 'cupsdCleanDirty()' - Write dirty config and state files.
+ */
+
+void
+cupsdCleanDirty(void)
+{
+  if (DirtyFiles & CUPSD_DIRTY_PRINTERS)
+    cupsdSaveAllPrinters();
+
+  if (DirtyFiles & CUPSD_DIRTY_CLASSES)
+    cupsdSaveAllClasses();
+
+  if (DirtyFiles & CUPSD_DIRTY_REMOTE)
+    cupsdSaveRemoteCache();
+
+  if (DirtyFiles & CUPSD_DIRTY_PRINTCAP)
+    cupsdWritePrintcap();
+
+  if (DirtyFiles & CUPSD_DIRTY_JOBS)
+  {
+    cupsd_job_t	*job;			/* Current job */
+
+    cupsdSaveAllJobs();
+
+    for (job = (cupsd_job_t *)cupsArrayFirst(Jobs);
+         job;
+	 job = (cupsd_job_t *)cupsArrayNext(Jobs))
+      if (job->dirty)
+        cupsdSaveJob(job);
+  }
+
+  if (DirtyFiles & CUPSD_DIRTY_SUBSCRIPTIONS)
+    cupsdSaveAllSubscriptions();
+
+  DirtyFiles     = CUPSD_DIRTY_NONE;
+  DirtyCleanTime = 0;
+
+  cupsdSetBusyState();
+}
+
+
+/*
+ * 'cupsdMarkDirty()' - Mark config or state files as needing a write.
+ */
+
+void
+cupsdMarkDirty(int what)		/* I - What file(s) are dirty? */
+{
+  cupsdLogMessage(CUPSD_LOG_DEBUG, "cupsdMarkDirty(%c%c%c%c%c%c)",
+		  (what & CUPSD_DIRTY_PRINTERS) ? 'P' : '-',
+		  (what & CUPSD_DIRTY_CLASSES) ? 'C' : '-',
+		  (what & CUPSD_DIRTY_REMOTE) ? 'R' : '-',
+		  (what & CUPSD_DIRTY_PRINTCAP) ? 'p' : '-',
+		  (what & CUPSD_DIRTY_JOBS) ? 'J' : '-',
+		  (what & CUPSD_DIRTY_SUBSCRIPTIONS) ? 'S' : '-');
+
+  if (what == CUPSD_DIRTY_PRINTCAP && !Printcap)
+    return;
+
+  DirtyFiles |= what;
+
+  if (!DirtyCleanTime)
+    DirtyCleanTime = time(NULL) + DirtyCleanInterval;
+
+  cupsdSetBusyState();
+}
+
+
+/*
+ * 'cupsdSetBusyState()' - Let the system know when we are busy doing something.
+ */
+
+void
+cupsdSetBusyState(void)
+{
+  int		newbusy;		/* New busy state */
+  static int	busy = 0;		/* Current busy state */
+  static const char * const busy_text[] =
+  {					/* Text for busy states */
+    "Not busy",
+    "Dirty files",
+    "Printing jobs",
+    "Printing jobs and dirty files",
+    "Active clients",
+    "Active clients and dirty files",
+    "Active clients and printing jobs",
+    "Active clients, printing jobs, and dirty files"
+  };
+#ifdef HAVE_VPROC_TRANSACTION_BEGIN
+  static vproc_transaction_t vtran = 0;	/* Current busy transaction */
+#endif /* HAVE_VPROC_TRANSACTION_BEGIN */
+
+
+  newbusy = (DirtyCleanTime ? 1 : 0) |
+            (cupsArrayCount(PrintingJobs) ? 2 : 0) |
+	    (cupsArrayCount(ActiveClients) ? 4 : 0);
+
+  if (newbusy != busy)
+  {
+    busy = newbusy;
+
+#ifdef HAVE_VPROC_TRANSACTION_BEGIN
+    if (busy && !vtran)
+      vtran = vproc_transaction_begin(NULL);
+    else if (!busy && vtran)
+    {
+      vproc_transaction_end(NULL, vtran);
+      vtran = 0;
+    }
+#endif /* HAVE_VPROC_TRANSACTION_BEGIN */
+
+    cupsdLogMessage(CUPSD_LOG_DEBUG, "cupsdSetBusyState: %s", busy_text[busy]);
+  }
+}
+
 
 #ifdef __APPLE__
 /*
@@ -106,6 +240,7 @@ static CFRunLoopRef	SysEventRunloop = NULL;
 					/* The runloop. Access must be protected! */
 static CFStringRef	ComputerNameKey = NULL,
 					/* Computer name key */
+			BTMMKey = NULL,	/* Back to My Mac key */
 			NetworkGlobalKeyIPv4 = NULL,
 					/* Network global IPv4 key */
 			NetworkGlobalKeyIPv6 = NULL,
@@ -118,6 +253,7 @@ static CFStringRef	ComputerNameKey = NULL,
 					/* Netowrk interface key */
 			NetworkInterfaceKeyIPv6 = NULL;
 					/* Netowrk interface key */
+static cupsd_sysevent_t	LastSysEvent;	/* Last system event (for delayed sleep) */
 
 
 /* 
@@ -132,6 +268,21 @@ static void	sysEventConfigurationNotifier(SCDynamicStoreRef store,
 		                              CFArrayRef changedKeys,
 					      void *context);
 static void	sysEventTimerNotifier(CFRunLoopTimerRef timer, void *context);
+static void	sysUpdate(void);
+
+
+/*
+ * 'cupsdAllowSleep()' - Tell the OS it is now OK to sleep.
+ */
+
+void
+cupsdAllowSleep(void)
+{
+  cupsdCleanDirty();
+
+  IOAllowPowerChange(LastSysEvent.powerKernelPort,
+		     LastSysEvent.powerNotificationID);
+}
 
 
 /*
@@ -151,8 +302,7 @@ cupsdStartSystemMonitor(void)
     return;
   }
 
-  cupsdAddSelect(SysEventPipes[0], (cupsd_selfunc_t)cupsdUpdateSystemMonitor,
-                 NULL, NULL);
+  cupsdAddSelect(SysEventPipes[0], (cupsd_selfunc_t)sysUpdate, NULL, NULL);
 
  /*
   * Set non-blocking mode on the descriptor we will be receiving notification
@@ -216,167 +366,6 @@ cupsdStopSystemMonitor(void)
 
 
 /*
- * 'cupsdUpdateSystemMonitor()' - Update the current system state.
- */
-
-void
-cupsdUpdateSystemMonitor(void)
-{
-  int			i;		/* Looping var */
-  cupsd_sysevent_t	sysevent;	/* The system event */
-  cupsd_printer_t	*p;		/* Printer information */
-
-
- /*
-  * Drain the event pipe...
-  */
-
-  while (read((int)SysEventPipes[0], &sysevent, sizeof(sysevent))
-             == sizeof(sysevent))
-  {
-    if (sysevent.event & SYSEVENT_CANSLEEP)
-    {
-     /*
-      * If there are active printers that don't have the connecting-to-device
-      * printer-state-reason then cancel the sleep request (i.e. this reason
-      * indicates a job that is not yet connected to the printer)...
-      */
-
-      for (p = (cupsd_printer_t *)cupsArrayFirst(Printers);
-           p;
-	   p = (cupsd_printer_t *)cupsArrayNext(Printers))
-      {
-        if (p->job)
-        {
-	  for (i = 0; i < p->num_reasons; i ++)
-	    if (!strcmp(p->reasons[i], "connecting-to-device"))
-	      break;
-
-	  if (!p->num_reasons || i >= p->num_reasons)
-	    break;
-        }
-      }
-
-      if (p)
-      {
-        cupsdLogMessage(CUPSD_LOG_INFO,
-	                "System sleep canceled because printer %s is active",
-	                p->name);
-        IOCancelPowerChange(sysevent.powerKernelPort,
-	                    sysevent.powerNotificationID);
-      }
-      else
-      {
-	cupsdLogMessage(CUPSD_LOG_DEBUG, "System wants to sleep");
-        IOAllowPowerChange(sysevent.powerKernelPort,
-	                   sysevent.powerNotificationID);
-      }
-    }
-
-    if (sysevent.event & SYSEVENT_WILLSLEEP)
-    {
-      cupsdLogMessage(CUPSD_LOG_DEBUG, "System going to sleep");
-
-      Sleeping = 1;
-
-      cupsdStopAllJobs(0);
-      cupsdSaveAllJobs();
-
-      for (p = (cupsd_printer_t *)cupsArrayFirst(Printers);
-           p;
-	   p = (cupsd_printer_t *)cupsArrayNext(Printers))
-      {
-	if (p->type & CUPS_PRINTER_DISCOVERED)
-	{
-	  cupsdLogMessage(CUPSD_LOG_DEBUG,
-	                  "Deleting remote destination \"%s\"", p->name);
-	  cupsArraySave(Printers);
-	  cupsdDeletePrinter(p, 0);
-	  cupsArrayRestore(Printers);
-	}
-	else
-	{
-	  cupsdLogMessage(CUPSD_LOG_DEBUG,
-	                  "Deregistering local printer \"%s\"", p->name);
-	  cupsdDeregisterPrinter(p, 0);
-	}
-      }
-
-      IOAllowPowerChange(sysevent.powerKernelPort,
-                         sysevent.powerNotificationID);
-    }
-
-    if (sysevent.event & SYSEVENT_WOKE)
-    {
-      cupsdLogMessage(CUPSD_LOG_DEBUG, "System woke from sleep");
-      IOAllowPowerChange(sysevent.powerKernelPort,
-                         sysevent.powerNotificationID);
-      Sleeping = 0;
-      cupsdCheckJobs();
-    }
-
-    if (sysevent.event & SYSEVENT_NETCHANGED)
-    {
-      if (!Sleeping)
-      {
-        cupsdLogMessage(CUPSD_LOG_DEBUG,
-	                "System network configuration changed");
-
-       /*
-        * Resetting browse_time before calling cupsdSendBrowseList causes
-	* browse packets to be sent for local shared printers.
-        */
-
-	for (p = (cupsd_printer_t *)cupsArrayFirst(Printers);
-	     p;
-	     p = (cupsd_printer_t *)cupsArrayNext(Printers))
-	  p->browse_time = 0;
-
-        cupsdSendBrowseList();
-	cupsdRestartPolling();
-      }
-      else
-        cupsdLogMessage(CUPSD_LOG_DEBUG,
-	                "System network configuration changed; "
-			"ignored while sleeping");
-    }
-
-    if (sysevent.event & SYSEVENT_NAMECHANGED)
-    {
-      if (!Sleeping)
-      {
-        cupsdLogMessage(CUPSD_LOG_DEBUG, "Computer name changed");
-
-       /*
-	* De-register the individual printers...
-	*/
-
-	for (p = (cupsd_printer_t *)cupsArrayFirst(Printers);
-	     p;
-	     p = (cupsd_printer_t *)cupsArrayNext(Printers))
-	  cupsdDeregisterPrinter(p, 1);
-
-       /*
-	* Now re-register them...
-	*/
-
-	for (p = (cupsd_printer_t *)cupsArrayFirst(Printers);
-	     p;
-	     p = (cupsd_printer_t *)cupsArrayNext(Printers))
-	{
-	  p->browse_time = 0;
-	  cupsdRegisterPrinter(p);
-	}
-      }
-      else
-        cupsdLogMessage(CUPSD_LOG_DEBUG,
-	                "Computer name changed; ignored while sleeping");
-    }
-  }
-}
-
-
-/*
  * 'sysEventThreadEntry()' - A thread to receive power and computer name
  *                           change notifications.
  */
@@ -391,7 +380,7 @@ sysEventThreadEntry(void)
   SCDynamicStoreRef	store    = NULL;/* System Config dynamic store */
   CFRunLoopSourceRef	powerRLS = NULL,/* Power runloop source */
 			storeRLS = NULL;/* System Config runloop source */
-  CFStringRef		key[5],		/* System Config keys */
+  CFStringRef		key[6],		/* System Config keys */
 			pattern[2];	/* System Config patterns */
   CFArrayRef		keys = NULL,	/* System Config key array*/
 			patterns = NULL;/* System Config pattern array */
@@ -427,43 +416,47 @@ sysEventThreadEntry(void)
   bzero(&storeContext, sizeof(storeContext));
   storeContext.info = &threadData;
 
-  store = SCDynamicStoreCreate(NULL, CFSTR("cupsd"),
+  store = SCDynamicStoreCreate(kCFAllocatorDefault, CFSTR("cupsd"),
                                sysEventConfigurationNotifier, &storeContext);
 
   if (!ComputerNameKey)
-    ComputerNameKey = SCDynamicStoreKeyCreateComputerName(NULL);
+    ComputerNameKey = SCDynamicStoreKeyCreateComputerName(kCFAllocatorDefault);
+
+  if (!BTMMKey)
+    BTMMKey = SCDynamicStoreKeyCreate(kCFAllocatorDefault,
+                                      CFSTR("Setup:/Network/BackToMyMac"));
 
   if (!NetworkGlobalKeyIPv4)
     NetworkGlobalKeyIPv4 =
-        SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL,
+        SCDynamicStoreKeyCreateNetworkGlobalEntity(kCFAllocatorDefault,
                                                    kSCDynamicStoreDomainState,
 						   kSCEntNetIPv4);
 
   if (!NetworkGlobalKeyIPv6)
     NetworkGlobalKeyIPv6 =
-        SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL,
+        SCDynamicStoreKeyCreateNetworkGlobalEntity(kCFAllocatorDefault,
                                                    kSCDynamicStoreDomainState,
 						   kSCEntNetIPv6);
 
   if (!NetworkGlobalKeyDNS)
     NetworkGlobalKeyDNS = 
-	SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, 
+	SCDynamicStoreKeyCreateNetworkGlobalEntity(kCFAllocatorDefault, 
 						   kSCDynamicStoreDomainState,
 						   kSCEntNetDNS);
 
   if (!HostNamesKey)
-    HostNamesKey = SCDynamicStoreKeyCreateHostNames(NULL);
+    HostNamesKey = SCDynamicStoreKeyCreateHostNames(kCFAllocatorDefault);
 
   if (!NetworkInterfaceKeyIPv4)
     NetworkInterfaceKeyIPv4 =
-        SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
+        SCDynamicStoreKeyCreateNetworkInterfaceEntity(kCFAllocatorDefault,
 	                                              kSCDynamicStoreDomainState,
 						      kSCCompAnyRegex,
 						      kSCEntNetIPv4);
 
   if (!NetworkInterfaceKeyIPv6)
     NetworkInterfaceKeyIPv6 =
-        SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
+        SCDynamicStoreKeyCreateNetworkInterfaceEntity(kCFAllocatorDefault,
 	                                              kSCDynamicStoreDomainState,
 						      kSCCompAnyRegex,
 						      kSCEntNetIPv6);
@@ -473,27 +466,28 @@ sysEventThreadEntry(void)
       NetworkInterfaceKeyIPv4 && NetworkInterfaceKeyIPv6)
   {
     key[0]     = ComputerNameKey;
-    key[1]     = NetworkGlobalKeyIPv4;
-    key[2]     = NetworkGlobalKeyIPv6;
-    key[3]     = NetworkGlobalKeyDNS;
-    key[4]     = HostNamesKey;
+    key[1]     = BTMMKey;
+    key[2]     = NetworkGlobalKeyIPv4;
+    key[3]     = NetworkGlobalKeyIPv6;
+    key[4]     = NetworkGlobalKeyDNS;
+    key[5]     = HostNamesKey;
 
     pattern[0] = NetworkInterfaceKeyIPv4;
     pattern[1] = NetworkInterfaceKeyIPv6;
 
-    keys     = CFArrayCreate(NULL, (const void **)key,
-                                    sizeof(key) / sizeof(key[0]),
-				    &kCFTypeArrayCallBacks);
+    keys     = CFArrayCreate(kCFAllocatorDefault, (const void **)key,
+			     sizeof(key) / sizeof(key[0]),
+			     &kCFTypeArrayCallBacks);
 
-    patterns = CFArrayCreate(NULL, (const void **)pattern,
+    patterns = CFArrayCreate(kCFAllocatorDefault, (const void **)pattern,
                              sizeof(pattern) / sizeof(pattern[0]),
 			     &kCFTypeArrayCallBacks);
 
     if (keys && patterns &&
         SCDynamicStoreSetNotificationKeys(store, keys, patterns))
     {
-      if ((storeRLS = SCDynamicStoreCreateRunLoopSource(NULL, store, 0))
-              != NULL)
+      if ((storeRLS = SCDynamicStoreCreateRunLoopSource(kCFAllocatorDefault,
+                                                        store, 0)) != NULL)
       {
 	CFRunLoopAddSource(CFRunLoopGetCurrent(), storeRLS,
 	                   kCFRunLoopDefaultMode);
@@ -527,7 +521,7 @@ sysEventThreadEntry(void)
   timerContext.info = &threadData;
 
   threadData.timerRef =
-      CFRunLoopTimerCreate(NULL,
+      CFRunLoopTimerCreate(kCFAllocatorDefault,
                            CFAbsoluteTimeGetCurrent() + (86400L * 365L * 10L), 
 			   86400L * 365L * 10L, 0, 0, sysEventTimerNotifier,
 			   &timerContext);
@@ -631,9 +625,9 @@ sysEventPowerNotifier(
 
     case kIOMessageSystemWillNotPowerOff:
     case kIOMessageSystemWillNotSleep:
-#ifdef kIOMessageSystemWillPowerOn
+#  ifdef kIOMessageSystemWillPowerOn
     case kIOMessageSystemWillPowerOn:
-#endif /* kIOMessageSystemWillPowerOn */
+#  endif /* kIOMessageSystemWillPowerOn */
     default:
 	sendit = 0;
 	break;
@@ -670,7 +664,7 @@ sysEventPowerNotifier(
 
 
 /*
- * 'sysEventConfigurationNotifier()' - Computer name changed notification
+ * 'sysEventConfigurationNotifier()' - Network configuration change notification
  *                                     callback.
  */
 
@@ -689,7 +683,8 @@ sysEventConfigurationNotifier(
 
   CFRange range = CFRangeMake(0, CFArrayGetCount(changedKeys));
 
-  if (CFArrayContainsValue(changedKeys, range, ComputerNameKey))
+  if (CFArrayContainsValue(changedKeys, range, ComputerNameKey) ||
+      CFArrayContainsValue(changedKeys, range, BTMMKey))
     threadData->sysevent.event |= SYSEVENT_NAMECHANGED;
   else
   {
@@ -738,9 +733,189 @@ sysEventTimerNotifier(
     threadData->sysevent.event = 0;
   }
 }
+
+
+/*
+ * 'sysUpdate()' - Update the current system state.
+ */
+
+static void
+sysUpdate(void)
+{
+  int			i;		/* Looping var */
+  cupsd_sysevent_t	sysevent;	/* The system event */
+  cupsd_printer_t	*p;		/* Printer information */
+
+
+ /*
+  * Drain the event pipe...
+  */
+
+  while (read((int)SysEventPipes[0], &sysevent, sizeof(sysevent))
+             == sizeof(sysevent))
+  {
+    if (sysevent.event & SYSEVENT_CANSLEEP)
+    {
+     /*
+      * If there are active printers that don't have the connecting-to-device
+      * printer-state-reason then cancel the sleep request (i.e. this reason
+      * indicates a job that is not yet connected to the printer)...
+      */
+
+      for (p = (cupsd_printer_t *)cupsArrayFirst(Printers);
+           p;
+	   p = (cupsd_printer_t *)cupsArrayNext(Printers))
+      {
+        if (p->job)
+        {
+	  for (i = 0; i < p->num_reasons; i ++)
+	    if (!strcmp(p->reasons[i], "connecting-to-device"))
+	      break;
+
+	  if (!p->num_reasons || i >= p->num_reasons)
+	    break;
+        }
+      }
+
+      if (p)
+      {
+        cupsdLogMessage(CUPSD_LOG_INFO,
+	                "System sleep canceled because printer %s is active",
+	                p->name);
+        IOCancelPowerChange(sysevent.powerKernelPort,
+	                    sysevent.powerNotificationID);
+      }
+      else
+      {
+	cupsdLogMessage(CUPSD_LOG_DEBUG, "System wants to sleep");
+        IOAllowPowerChange(sysevent.powerKernelPort,
+	                   sysevent.powerNotificationID);
+      }
+    }
+
+    if (sysevent.event & SYSEVENT_WILLSLEEP)
+    {
+      cupsdLogMessage(CUPSD_LOG_DEBUG, "System going to sleep");
+
+      Sleeping = 1;
+
+      for (p = (cupsd_printer_t *)cupsArrayFirst(Printers);
+           p;
+	   p = (cupsd_printer_t *)cupsArrayNext(Printers))
+      {
+	if (p->type & CUPS_PRINTER_DISCOVERED)
+	{
+	  cupsdLogMessage(CUPSD_LOG_DEBUG,
+	                  "Deleting remote destination \"%s\"", p->name);
+	  cupsArraySave(Printers);
+	  cupsdDeletePrinter(p, 0);
+	  cupsArrayRestore(Printers);
+	}
+	else
+	{
+	  cupsdLogMessage(CUPSD_LOG_DEBUG,
+	                  "Deregistering local printer \"%s\"", p->name);
+	  cupsdDeregisterPrinter(p, 0);
+	}
+      }
+
+      cupsdCleanDirty();
+
+     /*
+      * If we have no printing jobs, allow the power change immediately.
+      * Otherwise set the SleepJobs time to 15 seconds in the future when
+      * we'll take more drastic measures...
+      */
+
+      if (cupsArrayCount(PrintingJobs) == 0)
+	IOAllowPowerChange(sysevent.powerKernelPort,
+			   sysevent.powerNotificationID);
+      else
+      {
+        LastSysEvent = sysevent;
+        SleepJobs    = time(NULL) + 15;
+      }
+    }
+
+    if (sysevent.event & SYSEVENT_WOKE)
+    {
+      cupsdLogMessage(CUPSD_LOG_DEBUG, "System woke from sleep");
+      IOAllowPowerChange(sysevent.powerKernelPort,
+                         sysevent.powerNotificationID);
+      Sleeping = 0;
+      cupsdCheckJobs();
+    }
+
+    if (sysevent.event & SYSEVENT_NETCHANGED)
+    {
+      if (!Sleeping)
+      {
+        cupsdLogMessage(CUPSD_LOG_DEBUG,
+	                "System network configuration changed");
+
+       /*
+        * Resetting browse_time before calling cupsdSendBrowseList causes
+	* browse packets to be sent for local shared printers.
+        */
+
+	for (p = (cupsd_printer_t *)cupsArrayFirst(Printers);
+	     p;
+	     p = (cupsd_printer_t *)cupsArrayNext(Printers))
+	  p->browse_time = 0;
+
+        cupsdSendBrowseList();
+	cupsdRestartPolling();
+      }
+      else
+        cupsdLogMessage(CUPSD_LOG_DEBUG,
+	                "System network configuration changed; "
+			"ignored while sleeping");
+    }
+
+    if (sysevent.event & SYSEVENT_NAMECHANGED)
+    {
+      if (!Sleeping)
+      {
+        cupsdLogMessage(CUPSD_LOG_DEBUG,
+	                "Computer name or BTMM domains changed");
+
+       /*
+	* De-register the individual printers...
+	*/
+
+	for (p = (cupsd_printer_t *)cupsArrayFirst(Printers);
+	     p;
+	     p = (cupsd_printer_t *)cupsArrayNext(Printers))
+	  cupsdDeregisterPrinter(p, 1);
+
+       /*
+        * Update the computer name and BTMM domain list...
+	*/
+
+	cupsdUpdateDNSSDName();
+
+       /*
+	* Now re-register them...
+	*/
+
+	for (p = (cupsd_printer_t *)cupsArrayFirst(Printers);
+	     p;
+	     p = (cupsd_printer_t *)cupsArrayNext(Printers))
+	{
+	  p->browse_time = 0;
+	  cupsdRegisterPrinter(p);
+	}
+      }
+      else
+        cupsdLogMessage(CUPSD_LOG_DEBUG,
+	                "Computer name or BTMM domains changed; ignored while "
+			"sleeping");
+    }
+  }
+}
 #endif	/* __APPLE__ */
 
 
 /*
- * End of "$Id: sysman.c 7067 2007-11-09 19:54:09Z mike $".
+ * End of "$Id: sysman.c 7928 2008-09-10 22:14:22Z mike $".
  */

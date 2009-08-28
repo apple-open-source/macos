@@ -1,7 +1,7 @@
 /* Definitions for the Symbian OS running on an SH part.
    This file is included before any other target specific headers.
 
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
    Contributed by Red Hat.
 
    This file is part of GCC.
@@ -18,14 +18,14 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the
-   Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 /* Enable Symbian specific code.  */
 #define SYMBIAN		1
 
 /* Default to using the Renesas ABI.  */
-#define TARGET_ABI_DEFAULT	RENESAS_BIT
+#define TARGET_ABI_DEFAULT	MASK_HITACHI
 
 #define SUBTARGET_CPP_SPEC ""
 

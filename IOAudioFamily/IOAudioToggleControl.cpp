@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2009 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -20,9 +20,9 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <IOKit/audio/IOAudioToggleControl.h>
-#include <IOKit/audio/IOAudioTypes.h>
-#include <IOKit/audio/IOAudioDefines.h>
+#include "IOAudioToggleControl.h"
+#include "IOAudioTypes.h"
+#include "IOAudioDefines.h"
 
 #define super IOAudioControl
 

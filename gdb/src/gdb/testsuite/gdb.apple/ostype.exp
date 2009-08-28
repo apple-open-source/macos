@@ -66,13 +66,13 @@ gdb_test "help x" ".*T.OSType.*"
 send_gdb "set interpreter mi1\n"
 
 mi_gdb_test "11-stack-list-locals 2 1" "11\\^done,locals=.*" "create varobjs for local variables"
-mi_gdb_test "22-var-evaluate-expression var1" "22\\^done,value=.1633837924." "value of a as an integer"
-mi_gdb_test "33-var-set-format var1 unsigned" "33\\^done,format=.unsigned." "set formatting of a to unsigned"
-mi_gdb_test "44-var-evaluate-expression var1" "44\\^done,value=.1633837924." "value of a as an unsigned"
-mi_gdb_test "55-var-set-format var1 OSType" "55\\^done,format=.OSType." "set formatting of a to OSType"
-mi_gdb_test "66-var-evaluate-expression var1" "66\\^done,value=.abcd." "value of a as an OSType"
-mi_gdb_test "77-var-set-format var1 unsigned" "77\\^done,format=.unsigned." "set formatting of a to unsigned again"
-mi_gdb_test "88-var-evaluate-expression var1" "88\\^done,value=.1633837924." "value of a as an unsigned again"
+mi_gdb_test "22-var-evaluate-expression var1" "22\\^done,value=.1633837924.*" "value of a as an integer"
+mi_gdb_test "33-var-set-format var1 unsigned" "33\\^done,format=.unsigned.*" "set formatting of a to unsigned"
+mi_gdb_test "44-var-evaluate-expression var1" "44\\^done,value=.1633837924.*" "value of a as an unsigned"
+mi_gdb_test "55-var-set-format var1 OSType" "55\\^done,format=.OSType.*" "set formatting of a to OSType"
+mi_gdb_test "66-var-evaluate-expression var1" "66\\^done,value=.abcd.*" "value of a as an OSType"
+mi_gdb_test "77-var-set-format var1 unsigned" "77\\^done,format=.unsigned.*" "set formatting of a to unsigned again"
+mi_gdb_test "88-var-evaluate-expression var1" "88\\^done,value=.1633837924.*" "value of a as an unsigned again"
 
 gdb_exit
 return 0

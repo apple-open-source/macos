@@ -1,12 +1,12 @@
 ;;;
 ;;;  ruby-mode.el -
 ;;;
-;;;  $Author: shyouhei $
-;;;  $Date: 2008-06-15 20:28:08 +0900 (Sun, 15 Jun 2008) $
+;;;  $Author: knu $
+;;;  $Date: 2008-05-19 00:02:36 +0900 (Mon, 19 May 2008) $
 ;;;  created at: Fri Feb  4 14:49:13 JST 1994
 ;;;
 
-(defconst ruby-mode-revision "$Revision: 17210 $")
+(defconst ruby-mode-revision "$Revision: 16458 $")
 
 (defconst ruby-mode-version
   (progn
@@ -254,6 +254,11 @@ The variable ruby-indent-level controls the amount of indentation.
 
   (make-local-variable 'add-log-current-defun-function)
   (setq add-log-current-defun-function 'ruby-add-log-current-method)
+
+  (set (make-local-variable 'font-lock-defaults) '((ruby-font-lock-keywords) nil nil))
+  (set (make-local-variable 'font-lock-keywords) ruby-font-lock-keywords)
+  (set (make-local-variable 'font-lock-syntax-table) ruby-font-lock-syntax-table)
+  (set (make-local-variable 'font-lock-syntactic-keywords) ruby-font-lock-syntactic-keywords)
 
   (run-mode-hooks 'ruby-mode-hook))
 
@@ -506,8 +511,9 @@ The variable ruby-indent-level controls the amount of indentation.
 	 (setq nest (cons (cons nil pnt) nest))
 	 (setq depth (1+ depth)))
 	(goto-char pnt))
-       ((looking-at ":\\(['\"]\\)\\(\\\\.\\|[^\\\\]\\)*\\1")
-	(goto-char (match-end 0)))
+       ((looking-at ":\\(['\"]\\)")
+	(goto-char (match-beginning 1))
+	(ruby-forward-string (buffer-substring (match-beginning 1) (match-end 1)) end))
        ((looking-at ":\\([-,.+*/%&|^~<>]=?\\|===?\\|<=>\\)")
 	(goto-char (match-end 0)))
        ((looking-at ":\\([a-zA-Z_][a-zA-Z_0-9]*[!?=]?\\)?")
@@ -1019,24 +1025,13 @@ balanced expression is found."
 	  ("^\\(=\\)begin\\(\\s \\|$\\)" 1 (7 . nil))
 	  ("^\\(=\\)end\\(\\s \\|$\\)" 1 (7 . nil))))
 
-  (cond ((featurep 'xemacs)
-	 (put 'ruby-mode 'font-lock-defaults
-	      '((ruby-font-lock-keywords)
-		nil nil nil
-		beginning-of-line
-		(font-lock-syntactic-keywords
-		 . ruby-font-lock-syntactic-keywords))))
-	(t
-	 (add-hook 'ruby-mode-hook
-	    '(lambda ()
-	       (make-local-variable 'font-lock-defaults)
-	       (make-local-variable 'font-lock-keywords)
-	       (make-local-variable 'font-lock-syntax-table)
-	       (make-local-variable 'font-lock-syntactic-keywords)
-	       (setq font-lock-defaults '((ruby-font-lock-keywords) nil nil))
-	       (setq font-lock-keywords ruby-font-lock-keywords)
-	       (setq font-lock-syntax-table ruby-font-lock-syntax-table)
-	       (setq font-lock-syntactic-keywords ruby-font-lock-syntactic-keywords)))))
+  (if (featurep 'xemacs)
+      (put 'ruby-mode 'font-lock-defaults
+	   '((ruby-font-lock-keywords)
+	     nil nil nil
+	     beginning-of-line
+	     (font-lock-syntactic-keywords
+	      . ruby-font-lock-syntactic-keywords))))
 
   (defun ruby-font-lock-docs (limit)
     (if (re-search-forward "^=begin\\(\\s \\|$\\)" limit t)

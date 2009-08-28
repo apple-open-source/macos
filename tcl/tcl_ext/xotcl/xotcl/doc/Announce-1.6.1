@@ -1,0 +1,43 @@
+Dear XOTcl Community,
+
+XOTcl 1.6.1 is available. This release provides in short:
+ - improved orthogonality for introspection,
+ - improvements in the serializer
+ - some minor fixes
+
+See below for more details.
+Best regards
+
+-gustaf neumann
+
+
+Announcing XOTcl 1.6.1
+*************************
+
+We are pleased to announce the availability of XOTcl 1.6.1
+
+Major changes relative to 1.6.0 are:
+
+   * Extended and generalized "info" method
+
+   * Generalized serializing package: when deserializing code, now
+     consistenly no constructors are called. In previous versions,
+     constuctors were called on slots; due to the point above, this is
+     not needed; background: the previous solution had problems in
+     aolserver ns_eval, when a slot-constructor called db-functions,
+     since during ns_eval, the database handles are non-functional)
+
+   * Fixes for potential crashes when methods were called
+     with invalid arguments
+
+   * Improved documentation
+
+   * Extended regression tests
+
+ For more details about the changes, please consult the ChangeLog and
+ documentation.
+
+MORE INFO
+  General and more detailed information about XOTcl and its components
+  can be found at http://www.xotcl.org
+

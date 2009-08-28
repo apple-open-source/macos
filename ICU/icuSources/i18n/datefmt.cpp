@@ -1,21 +1,21 @@
 /*
-*******************************************************************************
-* Copyright (C) 1997-2006, International Business Machines Corporation and    *
-* others. All Rights Reserved.                                                *
-*******************************************************************************
-*
-* File DATEFMT.CPP
-*
-* Modification History:
-*
-*   Date        Name        Description
-*   02/19/97    aliu        Converted from java.
-*   03/31/97    aliu        Modified extensively to work with 50 locales.
-*   04/01/97    aliu        Added support for centuries.
-*   08/12/97    aliu        Fixed operator== to use Calendar::equivalentTo.
-*   07/20/98    stephen     Changed ParsePosition initialization
-********************************************************************************
-*/
+ *******************************************************************************
+ * Copyright (C) 1997-2008, International Business Machines Corporation and    *
+ * others. All Rights Reserved.                                                *
+ *******************************************************************************
+ *
+ * File DATEFMT.CPP
+ *
+ * Modification History:
+ *
+ *   Date        Name        Description
+ *   02/19/97    aliu        Converted from java.
+ *   03/31/97    aliu        Modified extensively to work with 50 locales.
+ *   04/01/97    aliu        Added support for centuries.
+ *   08/12/97    aliu        Fixed operator== to use Calendar::equivalentTo.
+ *   07/20/98    stephen     Changed ParsePosition initialization
+ ********************************************************************************
+ */
 
 #include "unicode/utypes.h"
 
@@ -24,6 +24,8 @@
 #include "unicode/ures.h"
 #include "unicode/datefmt.h"
 #include "unicode/smpdtfmt.h"
+#include "unicode/dtptngen.h"
+#include "reldtfmt.h"
 
 #include "cstring.h"
 #include "windtfmt.h"
@@ -169,24 +171,32 @@ UDate
 DateFormat::parse(const UnicodeString& text,
                   ParsePosition& pos) const
 {
+    UDate d = 0; // Error return UDate is 0 (the epoch)
     if (fCalendar != NULL) {
         int32_t start = pos.getIndex();
+
+        // Parse may update TimeZone used by the calendar.
+        TimeZone *tzsav = (TimeZone*)fCalendar->getTimeZone().clone();
+
         fCalendar->clear();
         parse(text, *fCalendar, pos);
         if (pos.getIndex() != start) {
             UErrorCode ec = U_ZERO_ERROR;
-            UDate d = fCalendar->getTime(ec);
-            if (U_SUCCESS(ec)) {
-                return d; // Successful function exit
+            d = fCalendar->getTime(ec);
+            if (U_FAILURE(ec)) {
+                // We arrive here if fCalendar is non-lenient and there
+                // is an out-of-range field.  We don't know which field
+                // was illegal so we set the error index to the start.
+                pos.setIndex(start);
+                pos.setErrorIndex(start);
+                d = 0;
             }
-            // We arrive here if fCalendar is non-lenient and there
-            // is an out-of-range field.  We don't know which field
-            // was illegal so we set the error index to the start.
-            pos.setIndex(start);
-            pos.setErrorIndex(start);
         }
+
+        // Restore TimeZone
+        fCalendar->adoptTimeZone(tzsav);
     }
-    return 0; // Error return UDate is 0 (the epoch)
+    return d;
 }
 
 //----------------------------------------------------------------------
@@ -266,6 +276,41 @@ DateFormat::createInstance()
 }
 
 //----------------------------------------------------------------------
+DateFormat* U_EXPORT2
+DateFormat::createPatternInstance(const UnicodeString& skeleton,
+                                  const Locale& locale,
+                                  UErrorCode& status) 
+{
+    if ( U_FAILURE(status) ) {
+        return NULL;
+    }
+
+    DateTimePatternGenerator* dtptg = 
+               DateTimePatternGenerator::createInstance(locale, status);
+    if ( dtptg == NULL ) {
+        status = U_MEMORY_ALLOCATION_ERROR;
+        delete dtptg;
+        return NULL;
+    }
+    if ( U_FAILURE(status) ) {
+        delete dtptg;
+        return NULL;
+    }
+
+    const UnicodeString pattern = dtptg->getBestPattern(skeleton, status);
+    delete dtptg;
+    if ( U_FAILURE(status) ) {
+        return NULL;
+    }
+    SimpleDateFormat* dtfmt = new SimpleDateFormat(pattern, locale, status);
+    if ( U_FAILURE(status) ) {
+        delete dtfmt;
+        return NULL;
+    }
+    return dtfmt;
+}
+
+//----------------------------------------------------------------------
 
 DateFormat* U_EXPORT2
 DateFormat::create(EStyle timeStyle, EStyle dateStyle, const Locale& locale)
@@ -287,6 +332,13 @@ DateFormat::create(EStyle timeStyle, EStyle dateStyle, const Locale& locale)
     }
 #endif
 
+    // is it relative?
+    if(/*((timeStyle!=UDAT_NONE)&&(timeStyle & UDAT_RELATIVE)) || */((dateStyle!=kNone)&&((dateStyle-kDateOffset) & UDAT_RELATIVE))) {
+        RelativeDateFormat *r = new RelativeDateFormat((UDateFormatStyle)timeStyle, (UDateFormatStyle)(dateStyle-kDateOffset), locale, status);
+        if(U_SUCCESS(status)) return r;
+        delete r;
+        status = U_ZERO_ERROR;
+    }
 
     // Try to create a SimpleDateFormat of the desired style.
     SimpleDateFormat *f = new SimpleDateFormat(timeStyle, dateStyle, locale, status);
@@ -330,7 +382,10 @@ DateFormat::adoptCalendar(Calendar* newCalendar)
 void
 DateFormat::setCalendar(const Calendar& newCalendar)
 {
-    adoptCalendar(newCalendar.clone());
+    Calendar* newCalClone = newCalendar.clone();
+    if (newCalClone != NULL) {
+        adoptCalendar(newCalClone);
+    }
 }
 
 //----------------------------------------------------------------------
@@ -355,7 +410,10 @@ DateFormat::adoptNumberFormat(NumberFormat* newNumberFormat)
 void
 DateFormat::setNumberFormat(const NumberFormat& newNumberFormat)
 {
-    adoptNumberFormat((NumberFormat*)newNumberFormat.clone());
+    NumberFormat* newNumFmtClone = (NumberFormat*)newNumberFormat.clone();
+    if (newNumFmtClone != NULL) {
+        adoptNumberFormat(newNumFmtClone);
+    }
 }
 
 //----------------------------------------------------------------------
@@ -371,14 +429,18 @@ DateFormat::getNumberFormat() const
 void
 DateFormat::adoptTimeZone(TimeZone* zone)
 {
-    fCalendar->adoptTimeZone(zone);
+    if (fCalendar != NULL) {
+        fCalendar->adoptTimeZone(zone);
+    }
 }
 //----------------------------------------------------------------------
 
 void
 DateFormat::setTimeZone(const TimeZone& zone)
 {
-    fCalendar->setTimeZone(zone);
+    if (fCalendar != NULL) {
+        fCalendar->setTimeZone(zone);
+    }
 }
 
 //----------------------------------------------------------------------
@@ -386,7 +448,12 @@ DateFormat::setTimeZone(const TimeZone& zone)
 const TimeZone&
 DateFormat::getTimeZone() const
 {
-    return fCalendar->getTimeZone();
+    if (fCalendar != NULL) {
+        return fCalendar->getTimeZone();
+    }
+    // If calendar doesn't exists, create default timezone.
+    // fCalendar is rarely null
+    return *(TimeZone::createDefault());
 }
 
 //----------------------------------------------------------------------
@@ -394,7 +461,9 @@ DateFormat::getTimeZone() const
 void
 DateFormat::setLenient(UBool lenient)
 {
-    fCalendar->setLenient(lenient);
+    if (fCalendar != NULL) {
+        fCalendar->setLenient(lenient);
+    }
 }
 
 //----------------------------------------------------------------------
@@ -402,7 +471,11 @@ DateFormat::setLenient(UBool lenient)
 UBool
 DateFormat::isLenient() const
 {
-    return fCalendar->isLenient();
+    if (fCalendar != NULL) {
+        return fCalendar->isLenient();
+    }
+    // fCalendar is rarely null
+    return FALSE;
 }
 
 U_NAMESPACE_END

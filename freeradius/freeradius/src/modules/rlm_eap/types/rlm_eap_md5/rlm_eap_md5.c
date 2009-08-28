@@ -1,7 +1,7 @@
 /*
  * rlm_eap_md5.c    Handles that are called from eap
  *
- * Version:     $Id: rlm_eap_md5.c,v 1.6.4.1 2007/03/05 14:24:21 aland Exp $
+ * Version:     $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,20 +15,23 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2000,2001  The FreeRADIUS server project
+ * Copyright 2000,2001,2006  The FreeRADIUS server project
  * Copyright 2001  hereUare Communications, Inc. <raghud@hereuare.com>
  */
 
-#include "autoconf.h"
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
+
+#include <freeradius-devel/autoconf.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 
 #include "eap_md5.h"
 
-#include <rad_assert.h>
+#include <freeradius-devel/rad_assert.h>
 
 /*
  *	Initiate the EAP-MD5 session by sending a challenge to the peer.
@@ -70,9 +73,9 @@ static int md5_initiate(void *type_data, EAP_HANDLER *handler)
 	 *	Get a random challenge.
 	 */
 	for (i = 0; i < reply->value_size; i++) {
-		reply->value[i] = lrad_rand();
+		reply->value[i] = fr_rand();
 	}
-	radlog(L_INFO, "rlm_eap_md5: Issuing Challenge");
+	DEBUG2("rlm_eap_md5: Issuing Challenge");
 
 	/*
 	 *	Keep track of the challenge.
@@ -104,21 +107,21 @@ static int md5_initiate(void *type_data, EAP_HANDLER *handler)
 /*
  *	Authenticate a previously sent challenge.
  */
-static int md5_authenticate(void *arg, EAP_HANDLER *handler)
+static int md5_authenticate(UNUSED void *arg, EAP_HANDLER *handler)
 {
 	MD5_PACKET	*packet;
 	MD5_PACKET	*reply;
 	VALUE_PAIR	*password;
 
 	/*
-	 *	Get the User-Password for this user.
+	 *	Get the Cleartext-Password for this user.
 	 */
 	rad_assert(handler->request != NULL);
 	rad_assert(handler->stage == AUTHENTICATE);
 
-	password = pairfind(handler->request->config_items, PW_PASSWORD);
+	password = pairfind(handler->request->config_items, PW_CLEARTEXT_PASSWORD);
 	if (password == NULL) {
-		radlog(L_INFO, "rlm_eap_md5: User-Password is required for EAP-MD5 authentication");
+		DEBUG2("rlm_eap_md5: Cleartext-Password is required for EAP-MD5 authentication");
 		return 0;
 	}
 
@@ -146,7 +149,6 @@ static int md5_authenticate(void *arg, EAP_HANDLER *handler)
 	if (eapmd5_verify(packet, password, handler->opaque)) {
 		reply->code = PW_MD5_SUCCESS;
 	} else {
-		DEBUG2("  rlm_eap_md5: Passwords do not match");
 		reply->code = PW_MD5_FAILURE;
 	}
 

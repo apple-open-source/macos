@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2004,2008 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,6 +31,7 @@
 #include "SDKey.h"
 #include <security_cdsa_utilities/cssmbridge.h>
 #include <security_utilities/trackingallocator.h>
+#include <Security/cssmapplePriv.h>
 
 using namespace CssmClient;
 using namespace SecurityServer;
@@ -113,7 +114,7 @@ SDDLSession::DbOpen(const char *inDbName,
 void
 SDDLSession::DbClose(CSSM_DB_HANDLE inDbHandle)
 {
-    mClientSession.releaseDb(inDbHandle);
+    mClientSession.releaseDb(ClientSession::toIPCHandle(inDbHandle));
 }
 
 void
@@ -151,7 +152,7 @@ SDDLSession::GetDbAcl(CSSM_DB_HANDLE inDbHandle,
                       CSSM_ACL_ENTRY_INFO_PTR &outAclInfos)
 {
     // @@@ inSelectionTag shouldn't be a CSSM_STRING * but just a CSSM_STRING.
-    mClientSession.getDbAcl(inDbHandle, *inSelectionTag, outNumberOfAclInfos,
+    mClientSession.getDbAcl(ClientSession::toIPCHandle(inDbHandle), *inSelectionTag, outNumberOfAclInfos,
                             AclEntryInfo::overlayVar(outAclInfos));
 }
 
@@ -160,14 +161,14 @@ SDDLSession::ChangeDbAcl(CSSM_DB_HANDLE inDbHandle,
                          const AccessCredentials &inAccessCred,
                          const CSSM_ACL_EDIT &inAclEdit)
 {
-    mClientSession.changeDbAcl(inDbHandle, inAccessCred, AclEdit::overlay(inAclEdit));
+    mClientSession.changeDbAcl(ClientSession::toIPCHandle(inDbHandle), inAccessCred, AclEdit::overlay(inAclEdit));
 }
 
 void
 SDDLSession::GetDbOwner(CSSM_DB_HANDLE inDbHandle,
                         CSSM_ACL_OWNER_PROTOTYPE &outOwner)
 {
-    mClientSession.getDbOwner(inDbHandle, AclOwnerPrototype::overlay(outOwner));
+    mClientSession.getDbOwner(ClientSession::toIPCHandle(inDbHandle), AclOwnerPrototype::overlay(outOwner));
 }
 
 void
@@ -175,7 +176,7 @@ SDDLSession::ChangeDbOwner(CSSM_DB_HANDLE inDbHandle,
                            const AccessCredentials &inAccessCred,
                            const CSSM_ACL_OWNER_PROTOTYPE &inNewOwner)
 {
-    mClientSession.changeDbOwner(inDbHandle, inAccessCred, AclOwnerPrototype::overlay(inNewOwner));
+    mClientSession.changeDbOwner(ClientSession::toIPCHandle(inDbHandle), inAccessCred, AclOwnerPrototype::overlay(inNewOwner));
 }
 
 void
@@ -183,7 +184,7 @@ SDDLSession::GetDbNameFromHandle(CSSM_DB_HANDLE inDbHandle,
                                  char **outDbName)
 {
 	string name;
-	mClientSession.getDbName(inDbHandle, name);
+	mClientSession.getDbName(ClientSession::toIPCHandle(inDbHandle), name);
 	memcpy(Required(outDbName) = static_cast<char *>(this->malloc(name.length() + 1)),
 		name.c_str(), name.length() + 1);
 }
@@ -196,7 +197,7 @@ SDDLSession::DataInsert(CSSM_DB_HANDLE inDbHandle,
                         CSSM_DB_UNIQUE_RECORD_PTR &outUniqueId)
 {
     RecordHandle record;
-    record = mClientSession.insertRecord(inDbHandle,
+    record = mClientSession.insertRecord(ClientSession::toIPCHandle(inDbHandle),
                                          inRecordType,
                                          CssmDbRecordAttributeData::overlay(inAttributes),
                                          inData);
@@ -207,8 +208,8 @@ void
 SDDLSession::DataDelete(CSSM_DB_HANDLE inDbHandle,
                         const CSSM_DB_UNIQUE_RECORD &inUniqueRecordIdentifier)
 {
-    RecordHandle record = findDbUniqueRecord(inUniqueRecordIdentifier);
-    mClientSession.deleteRecord(inDbHandle, record);
+    RecordHandle record = ClientSession::toIPCHandle(findDbUniqueRecord(inUniqueRecordIdentifier));
+    mClientSession.deleteRecord(ClientSession::toIPCHandle(inDbHandle), record);
 }
 
 
@@ -220,15 +221,15 @@ SDDLSession::DataModify(CSSM_DB_HANDLE inDbHandle,
                         const CssmData *inDataToBeModified,
                         CSSM_DB_MODIFY_MODE inModifyMode)
 {
-    RecordHandle record = findDbUniqueRecord(inoutUniqueRecordIdentifier);
-    mClientSession.modifyRecord(inDbHandle, record, inRecordType,
+    RecordHandle record = ClientSession::toIPCHandle(findDbUniqueRecord(inoutUniqueRecordIdentifier));
+    mClientSession.modifyRecord(ClientSession::toIPCHandle(inDbHandle), record, inRecordType,
 		CssmDbRecordAttributeData::overlay(inAttributesToBeModified),
         inDataToBeModified, inModifyMode);
 	//@@@ make a (new) unique record out of possibly modified "record"...
 }
 
 void
-SDDLSession::postGetRecord(RecordHandle record, CSSM_HANDLE resultsHandle,
+SDDLSession::postGetRecord(RecordHandle record, U32HandleObject::Handle resultsHandle,
 						   CSSM_DB_HANDLE db,
 						   CssmDbRecordAttributeData *pAttributes,
 						   CSSM_DB_RECORD_ATTRIBUTE_DATA_PTR inoutAttributes,
@@ -300,9 +301,9 @@ SDDLSession::DataGetFirst(CSSM_DB_HANDLE inDbHandle,
     }
 
     RecordHandle record;
-    CSSM_HANDLE resultsHandle = CSSM_INVALID_HANDLE;
+    SearchHandle resultsHandle = noSearch;
 	KeyHandle keyId = noKey;
-	record = mClientSession.findFirst(inDbHandle,
+	record = mClientSession.findFirst(ClientSession::toIPCHandle(inDbHandle),
 										   CssmQuery::required(inQuery),
 										   resultsHandle,
 										   pAttributes,
@@ -337,7 +338,7 @@ SDDLSession::DataGetNext(CSSM_DB_HANDLE inDbHandle,
 	
     RecordHandle record;
 	KeyHandle keyId = noKey;
-    record = mClientSession.findNext(inResultsHandle,
+    record = mClientSession.findNext(ClientSession::toIPCHandle(inResultsHandle),
 										  pAttributes,
 										  inoutData, keyId);
     if (!record)
@@ -353,7 +354,7 @@ void
 SDDLSession::DataAbortQuery(CSSM_DB_HANDLE inDbHandle,
                             CSSM_HANDLE inResultsHandle)
 {
-	mClientSession.releaseSearch(inResultsHandle);
+	mClientSession.releaseSearch(ClientSession::toIPCHandle(inResultsHandle));
 }
 
 void
@@ -375,7 +376,7 @@ SDDLSession::DataGetFromUniqueRecordId(CSSM_DB_HANDLE inDbHandle,
         memset(pAttributes, 0, sizeof(attributes));
     }
 
-	RecordHandle record = findDbUniqueRecord(inUniqueRecord);
+	RecordHandle record = ClientSession::toIPCHandle(findDbUniqueRecord(inUniqueRecord));
 	KeyHandle keyId = noKey;
 	mClientSession.findRecordHandle(record, pAttributes, inoutData, keyId);
 	postGetRecord(record, CSSM_INVALID_HANDLE, inDbHandle, pAttributes,
@@ -386,7 +387,7 @@ void
 SDDLSession::FreeUniqueRecord(CSSM_DB_HANDLE inDbHandle,
                               CSSM_DB_UNIQUE_RECORD &inUniqueRecordIdentifier)
 {
-    RecordHandle record = findDbUniqueRecord(inUniqueRecordIdentifier);
+    RecordHandle record = ClientSession::toIPCHandle(findDbUniqueRecord(inUniqueRecordIdentifier));
     freeDbUniqueRecord(inUniqueRecordIdentifier);
 	mClientSession.releaseRecord(record);
 }
@@ -400,7 +401,7 @@ SDDLSession::PassThrough(CSSM_DB_HANDLE inDbHandle,
     switch (inPassThroughId)
     {
 		case CSSM_APPLECSPDL_DB_LOCK:
-			mClientSession.lock(inDbHandle);
+			mClientSession.lock(ClientSession::toIPCHandle(inDbHandle));
 			break;
 		case CSSM_APPLECSPDL_DB_UNLOCK:
 		{
@@ -423,7 +424,7 @@ SDDLSession::PassThrough(CSSM_DB_HANDLE inDbHandle,
 			if (!outOutputParams)
 				CssmError::throwMe(CSSM_ERRCODE_INVALID_OUTPUT_POINTER);
 
-			bool isLocked = mClientSession.isLocked(inDbHandle);
+			bool isLocked = mClientSession.isLocked(ClientSession::toIPCHandle(inDbHandle));
 			CSSM_APPLECSPDL_DB_IS_LOCKED_PARAMETERS_PTR params =
 				allocator().alloc<CSSM_APPLECSPDL_DB_IS_LOCKED_PARAMETERS>();
 			params->isLocked = isLocked;
@@ -459,6 +460,13 @@ SDDLSession::PassThrough(CSSM_DB_HANDLE inDbHandle,
 				AccessCredentials::required(params->accessCredentials), edit);
 			break;
 		}
+		case CSSM_APPLECSPDL_DB_RELATION_EXISTS:
+		{
+			// We always return true so that the individual tokend can decide
+			if (!outOutputParams)
+				CssmError::throwMe(CSSM_ERRCODE_INVALID_OUTPUT_POINTER);
+			*reinterpret_cast<CSSM_BOOL *>(outOutputParams) = true;
+		}
         default:
 			CssmError::throwMe(CSSM_ERRCODE_INVALID_PASSTHROUGH_ID);
     }
@@ -484,7 +492,9 @@ SDDLSession::makeDbUniqueRecord(RecordHandle uniqueId)
     return aUniqueRecord;
 }
 
-RecordHandle
+// formerly returned a RecordHandle, but redefining them to be 32-bit made 
+// that untenable
+CSSM_HANDLE
 SDDLSession::findDbUniqueRecord(const CSSM_DB_UNIQUE_RECORD &inUniqueRecord)
 {
     if (inUniqueRecord.RecordIdentifier.Length != sizeof(CSSM_HANDLE))

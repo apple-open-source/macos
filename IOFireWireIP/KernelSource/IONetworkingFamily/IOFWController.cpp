@@ -35,7 +35,8 @@
 
 #define super IONetworkController
 
-OSDefineMetaClassAndAbstractStructors( IOFWController, IONetworkController)
+OSDefineMetaClassAndStructors( IOFWController, IONetworkController)
+
 OSMetaClassDefineReservedUnused( IOFWController,  0);
 OSMetaClassDefineReservedUnused( IOFWController,  1);
 OSMetaClassDefineReservedUnused( IOFWController,  2);
@@ -355,6 +356,12 @@ IOReturn IOFWController::disablePacketFilter(
     }
 
     return ret;
+}
+
+IOReturn 
+IOFWController::getHardwareAddress(IOFWAddress * addrP)
+{
+	return kIOReturnUnsupported;
 }
 
 //---------------------------------------------------------------------------

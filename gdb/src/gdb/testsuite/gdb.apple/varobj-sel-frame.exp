@@ -1,0 +1,82 @@
+#   Copyright (C) 2004 Free Software Foundation, Inc.
+#
+# This Program Is Free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+# Please email any bugs, comments, and/or additions to this file to:
+# bug-gdb@prep.ai.mit.edu
+
+# Test that the mi output for "@" or "use-selected-frame" variables.  In
+# particular these tests make sure that if the frame changes to another
+# frame with the same named & typed variable, we still update properly.
+#
+# Written by Jim Ingham <jingham@apple.com>
+# 
+
+load_lib mi-support.exp
+set MIFLAGS "-i=mi1"
+
+gdb_exit
+if [mi_gdb_start] {
+    continue
+}
+
+set testfile "varobj-sel-frame"
+set srcfile ${testfile}.c
+
+set binfile ${objdir}/${subdir}/${testfile}
+if  { [gdb_compile "$srcdir/$subdir/$srcfile" "${binfile}" executable {debug}] != "" } {
+    gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
+}
+
+mi_delete_breakpoints
+mi_gdb_reinitialize_dir $srcdir/$subdir
+mi_gdb_load ${binfile}
+
+#
+# Run to pass_ref, and expand the reference variable input, and then step and make sure the
+# value gets updated.
+#
+
+if {[mi_runto main] != 0} {
+    gdb_suppress_entire_file "Could not run to main, so all tests in this file will fail."
+}
+
+mi_next {Next to set my_var in main}
+
+mi_gdb_test {-var-create my_var @ my_var} {.*name="my_var",numchild="0",type="int",typecode="INT",dynamic_type="",resolved_type="int",in_scope="true".*} {Create use-selected-frame varobj for my_var in main}
+mi_gdb_test {-var-evaluate-expression my_var} {value="5"} {Check value of my_var in main}
+
+set bkptno [mi_break_function foo]
+mi_continue_to $bkptno {foo.*} {.*} {.*} {.*} {.*}
+
+mi_gdb_test {-var-update my_var} {changelist=\[varobj=\{name="my_var",in_scope="true",type_changed="true".*\}\]} {Update my_var in foo, it should have changed.}
+mi_gdb_test {-var-evaluate-expression my_var} {value="25"} {Check that the value of my_var is correct in foo}
+
+mi_next {Next over temp assignment}
+mi_next {Next into new block}
+mi_next {Next over new my_var setting}
+
+mi_gdb_test {-var-update my_var} {changelist=\[varobj=\{name="my_var",in_scope="true",type_changed="true".*\}\]} {Update my_var in foo, it should have changed.}
+mi_gdb_test {-var-evaluate-expression my_var} {value="75"} {Check that the value of my_var is correct in foo}
+
+mi_finish_to main {.*} {.*} {.*} {.*} {.*} {.*}
+mi_next {Next to finish setting my_var in main}
+
+mi_gdb_test {-var-update my_var} {changelist=\[varobj=\{name="my_var",in_scope="true",type_changed="true".*\}\]} {Update my_var when we get back to main.}
+mi_gdb_test {-var-evaluate-expression my_var} {value="250"} {Check the value of my_var when we get back to main.}
+
+return 0
+
+

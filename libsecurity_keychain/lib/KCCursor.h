@@ -55,6 +55,9 @@ private:
 	StorageManager::KeychainList::iterator mCurrent;
 	CssmClient::DbCursor mDbCursor;
 	bool mAllFailed;
+
+protected:
+	Mutex mMutex;
 };
 
 

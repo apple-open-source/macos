@@ -37,11 +37,11 @@ static String localeInfo(LCTYPE localeType, const String& fallback)
     int localeChars = GetLocaleInfo(langID, localeType, 0, 0);
     if (!localeChars)
         return fallback;
-    Vector<WCHAR> localeNameBuf(localeChars);
-    localeChars = GetLocaleInfo(langID, localeType, localeNameBuf.data(), localeChars);
+    UChar* localeNameBuf;
+    String localeName = String::createUninitialized(localeChars, localeNameBuf);
+    localeChars = GetLocaleInfo(langID, localeType, localeNameBuf, localeChars);
     if (!localeChars)
         return fallback;
-    String localeName = String::adopt(localeNameBuf);
     if (localeName.isEmpty())
         return fallback;
 

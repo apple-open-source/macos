@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2007-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,8 +33,9 @@
 #include <membershipPriv.h>
 
 #define _PAM_EXTERN_FUNCTIONS
-#include <pam/pam_modules.h>
-#include <pam/pam_mod_misc.h>
+#include <security/pam_modules.h>
+#include <security/pam_appl.h>
+#include <security/openpam.h>
 
 #define MODULE_NAME "pam_sacl"
 
@@ -42,71 +43,26 @@
  * *.debug level go somewhere.
  */
 #define DEBUG_MESSAGE(format, ...) \
-    if (options & PAM_OPT_DEBUG ) { \
+    if (NULL != debug) { \
 	syslog(LOG_DEBUG, format, __VA_ARGS__); \
     }
 
-bool match_option(const char *arg, const char * opt)
-{
-    size_t len = strlen(opt);
-
-    if (strncasecmp(arg, opt, len) != 0) {
-	return false;
-    }
-
-    /* At this point arg might be "option" or "option_blah". We will accept
-     * either "option" or "option=foo".
-     */
-    if (arg[len] == '=' || arg[len] == '\0') {
-	return true;
-    }
-
-    return false;
-}
-
-static const char * get_option_argument(const char * arg)
-{
-    const char * sep;
-
-    sep = strchr(arg, '=');
-    if (!sep) {
-	    return NULL;
-    }
-
-    ++sep;
-    if (*sep == '\0') {
-	return NULL;
-    }
-
-    return sep;
-}
 
 PAM_EXTERN int pam_sm_acct_mgmt(pam_handle_t * pamh, int flags,
 			int argc, const char ** argv)
 {
-	int		i, options = 0;
 	const char *	service = NULL;
 	const char *	username = NULL;
+	const char *	debug = NULL;
 	bool		allow_trustacct = false;
 
 	uuid_t	user_uuid;
 	int	err;
 	int	ismember;
 
-	for (i = 0; (i < argc) && argv[i]; i++) {
-		if (pam_std_option(&options, argv[i]) == 0) {
-			continue;
-		}
-
-		if (match_option(argv[i], "sacl_service")) {
-			service = get_option_argument(argv[i]);
-		} else if (match_option(argv[i], "allow_trustacct")) {
-			allow_trustacct = true;
-		} else {
-		    DEBUG_MESSAGE("%s: unrecognized option: %s",
-				    MODULE_NAME, argv[i]);
-		}
-	}
+	service = openpam_get_option(pamh, "sacl_service");
+	allow_trustacct = openpam_get_option(pamh, "allow_trustacct");
+	debug = openpam_get_option(pamh, "debug");
 
 	if (!service) {
 		DEBUG_MESSAGE("%s: missing service option", MODULE_NAME);

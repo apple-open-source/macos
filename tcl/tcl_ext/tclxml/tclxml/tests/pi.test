@@ -1,0 +1,101 @@
+# Features covered:  Processing Instructions
+#
+# This file contains a collection of tests for the TclXML parser.
+# This file tests the parser's performance on Processing Instructions.
+# Sourcing this file into Tcl runs the tests and generates output
+# for errors.  No output means no errors were found.
+#
+# Copyright (c) 1998-2000 Zveno Pty Ltd.
+#
+# $Id: pi.test,v 1.5 2001/02/12 11:10:10 balls Exp $
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    source [file join [pwd] [file dirname [info script]] defs.tcl]
+}
+
+if { ![llength [info commands ::xml::parser]] } {
+     catch {puts stderr "You havent loaded a valid parser class before running this test"}
+     return
+}
+
+catch {unset result}
+proc PI {target data args} {
+    lappend ::result $target $data
+}
+
+test pi-1.1 {PI} {
+    set ::result {}
+
+    catch {rename xml::pi-1.1 {}}
+    set parser [xml::parser pi-1.1 \
+	-processinginstructioncommand PI]
+    $parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test><?Test This is a processing instruction?></Test>
+}
+    set ::result
+} {Test {This is a processing instruction}}
+
+test pi-1.2 {PI: missing trailing ?} {
+    set ::result {}
+
+    catch {rename xml::pi-1.2 {}}
+    set parser [xml::parser pi-1.2 \
+	-processinginstructioncommand PI]
+    set returncode [catch {$parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test><?Test This is a syntax error></Test>
+}} msg]
+
+    list $returncode [regexp {PI: expected '\?' character.+} $msg]
+} {1 1}
+
+# Test Tcl special characters in PI data.
+# NB. Tets had to modified since the PI target must be
+# an XML Name (reported by rolf@pointsman.de)
+
+test pi-2.1 {PI with special characters} {
+    set ::result {}
+
+    catch {rename xml::pi-2.1 {}}
+    set parser [xml::parser pi-2.1 \
+	-processinginstructioncommand PI]
+    $parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test><?if [!VMLRender]?></Test>
+}
+    set ::result
+} {if {[!VMLRender]}}
+
+test pi-2.2 {PI target with special characters} {
+    set ::result {}
+
+    catch {rename xml::pi-2.2 {}}
+    set parser [xml::parser pi-2.2 \
+	-processinginstructioncommand PI]
+    set err [catch {
+	$parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test><?[if !VMLRender]?></Test>
+}
+    } msg]
+    list $err [regexp {illegal character.*in processing instruction target} $msg]
+} {1 1}
+test pi-2.3 {PI target with "xml"} {
+    set ::result {}
+
+    catch {rename xml::pi-2.3 {}}
+    set parser [xml::parser pi-2.3 \
+	-processinginstructioncommand PI]
+    set err [catch {
+	$parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test><?abxMLcl illegal?></Test>
+}
+    } msg]
+    list $err [regexp {characters "xml" not permitted} $msg]
+} {1 1}
+
+# cleanup
+::tcltest::cleanupTests
+return

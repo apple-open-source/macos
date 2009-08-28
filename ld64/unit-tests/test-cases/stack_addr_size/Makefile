@@ -23,9 +23,13 @@
 TESTROOT = ../..
 include ${TESTROOT}/include/common.makefile
 
-# Test the ld commands -stack_addr, -stack_size
-# Test using both -stack_add and -stack_size
+# Test the ld option -stack_addr and -stack_size used together
 
+ifeq ($(ARCH),armv6)
+	STACK_ADDR = 0x2C000000
+	STACK_SIZE = 0x05000000
+	STACK_TOP  = 0x27000000
+else
 ifeq (,${findstring 64,$(ARCH)})
 	STACK_ADDR = 0xCC000000
 	STACK_SIZE = 0x05000000
@@ -35,37 +39,19 @@ else
 	STACK_TOP  = 0x000000010b000000
 	STACK_SIZE = 0x0000000005000000
 endif
-
+endif
 
 run: all
 
 
 
 all:
-# info seems to not work, use warning:
-	${CC} ${CCFLAGS} -c main.c -o main-${ARCH}.o
-	${FAIL_IF_BAD_OBJ} main-${ARCH}.o
-
-	${LD} -arch ${ARCH} \
-		-stack_addr ${STACK_ADDR} -stack_size ${STACK_SIZE} \
-		-lcrt1.o -lSystem \
-		main-${ARCH}.o -o main \
-# # Can check warning if desired.
-#		> lderr.out
-#ifeq (,${findstring 64,$(ARCH)})
-#	grep "warning no -stack_size specified using the default size" lderr.out | ${FAIL_IF_EMPTY}
-#else
-#	grep "failed: -stack_addr must be used with -stack_size" lderr.out | ${FAIL_IF_EMPTY}
-#endif
-
-# Check for __UNIXSTACK section in object, check that it has the correct value
-	${FAIL_IF_ERROR} ${OTOOL} -l main>ldcmds.out
-	(echo '1,/^[ ]*segname __UNIXSTACK$$/-d'; echo '/^[ ]*segname /,$$d'; echo w; echo q) | ed ldcmds.out >/dev/null
-	grep __UNIXSTACK ldcmds.out | ${FAIL_IF_EMPTY}
-	grep " vmaddr[ ]*${STACK_TOP}" ldcmds.out | ${FAIL_IF_EMPTY}
-	grep " vmsize[ ]*${STACK_SIZE}" ldcmds.out | ${FAIL_IF_EMPTY}
-
+	${CC} ${CCFLAGS} main.c -o main -Wl,-stack_size,${STACK_SIZE} -Wl,-stack_addr,${STACK_ADDR}
+	# Check for __UNIXSTACK section in object, check that it has the correct value
+	otool -l main | grep -A6 __UNIXSTACK > main.otool
+	grep " vmsize[ ]*${STACK_SIZE}" main.otool | ${FAIL_IF_EMPTY}
+	grep " vmaddr[ ]*${STACK_TOP}" main.otool | ${FAIL_IF_EMPTY}
 	${PASS_IFF_GOOD_MACHO} main
 
 clean:
-	rm -rf *.o *.err *.out main
+	rm -rf main main.otool

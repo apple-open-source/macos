@@ -1,6 +1,6 @@
 /* APPLE LOCAL file radar 5180172 */
 /* Compiler must err on use of @syntesize in a category implementation */
-/* { dg-options "-mmacosx-version-min=10.5" } */
+/* { dg-options "-mmacosx-version-min=10.5" { target powerpc*-*-darwin* i?86*-*-darwin* } } */
 /* { dg-do compile { target *-*-darwin* } } */
 
 @interface Foo

@@ -36,8 +36,8 @@
 #include <grp.h>
 #include <stdarg.h>
 #include <CoreFoundation/CoreFoundation.h>
-#include <OpenDirectory/OpenDirectory.h>
 #include <SystemConfiguration/SCPrivate.h>	// for _SC_cfstring_to_cstring
+#include <OpenDirectory/OpenDirectory.h>
 
 #include "netinfo.h"
 #include "NICache.h"
@@ -120,7 +120,8 @@ AFPUserList_init(AFPUserListRef users)
 
     bzero(users, sizeof(*users));
 
-    users->node = ODNodeCreateWithNodeType(NULL, kODSessionDefault, kODTypeLocalNode, &error);
+    users->node = ODNodeCreateWithNodeType(NULL, kODSessionDefault, 
+					   kODNodeTypeLocalNodes, &error);
     if (users->node == NULL) {
 	my_log(LOG_NOTICE,
 	       "AFPUserList_init: ODNodeCreateWithNodeType() failed");
@@ -209,16 +210,29 @@ S_uid_taken(AFPUserListRef users, CFStringRef uid)
     return (taken);
 }
 
+static void
+_myCFDictionarySetStringValueAsArray(CFMutableDictionaryRef dict,
+				     CFStringRef key,  CFStringRef str)
+{
+    CFArrayRef			array;
+
+    array = CFArrayCreate(NULL, (const void **)&str,
+			  1, &kCFTypeArrayCallBacks);
+    CFDictionarySetValue(dict, key, array);
+    CFRelease(array);
+    return;
+}
+
 Boolean
 AFPUserList_create(AFPUserListRef users, gid_t gid,
 		uid_t start, int count)
 {
     CFMutableDictionaryRef	attributes;
     char			buf[256];
+    CFStringRef			gidStr;
     int				need;
     Boolean			ret = FALSE;
     uid_t			scan;
-    CFStringRef			gidStr;
 
     need = count - CFArrayGetCount(users->list);
     if (need <= 0) {
@@ -228,20 +242,22 @@ AFPUserList_create(AFPUserListRef users, gid_t gid,
     attributes = CFDictionaryCreateMutable(NULL, 0,
 					   &kCFTypeDictionaryKeyCallBacks,
 					   &kCFTypeDictionaryValueCallBacks);
-    CFDictionarySetValue(attributes, CFSTR(kDS1AttrUserShell), CFSTR("/bin/false"));
+    _myCFDictionarySetStringValueAsArray(attributes,
+					 CFSTR(kDS1AttrUserShell),
+					 CFSTR("/bin/false"));
+
     snprintf(buf, sizeof(buf), "%d", gid);
     gidStr = CFStringCreateWithCString(NULL, buf, kCFStringEncodingASCII);
-    CFDictionarySetValue(attributes, CFSTR(kDS1AttrPrimaryGroupID), gidStr);
+    _myCFDictionarySetStringValueAsArray(attributes,
+					 CFSTR(kDS1AttrPrimaryGroupID),
+					 gidStr);
     CFRelease(gidStr);
-    CFDictionarySetValue(attributes, CFSTR(kDS1AttrPassword), CFSTR("*"));
-  { // rdar://4759893
-    CFMutableArrayRef	array;
-    array = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-    CFArrayAppendValue(array, CFSTR("*"));
-    CFDictionarySetValue(attributes, CFSTR(kDS1AttrPassword), array);
-    CFRelease(array);
-  }
-    CFDictionarySetValue(attributes, CFSTR(NIPROP__CREATOR), CFSTR(BSDPD_CREATOR));
+    _myCFDictionarySetStringValueAsArray(attributes,
+					 CFSTR(kDS1AttrPassword),
+					 CFSTR("*"));
+    _myCFDictionarySetStringValueAsArray(attributes,
+					 CFSTR(NIPROP__CREATOR),
+					 CFSTR(BSDPD_CREATOR));
 
     for (scan = start; need > 0; scan++) {
 	CFErrorRef	error	= NULL;
@@ -255,16 +271,19 @@ AFPUserList_create(AFPUserListRef users, gid_t gid,
 	if (S_uid_taken(users, uidStr)) {
 	    goto nextUid;
 	}
-
-	CFDictionarySetValue(attributes, CFSTR(kDS1AttrUniqueID), uidStr);
+	_myCFDictionarySetStringValueAsArray(attributes,
+					     CFSTR(kDS1AttrUniqueID),
+					     uidStr);
 	snprintf(buf, sizeof(buf), NETBOOT_USER_PREFIX "%03d", scan);
 	userStr = CFStringCreateWithCString(NULL, buf, kCFStringEncodingASCII);
-	CFDictionarySetValue(attributes, CFSTR(kDS1AttrDistinguishedName), userStr);
 
-	record = ODNodeCreateRecord(users->node,			// inNode
-				    CFSTR(kDSStdRecordTypeUsers),	// inRecordType
-				    userStr,				// inRecordName
-				    attributes,				// inAttributes
+	_myCFDictionarySetStringValueAsArray(attributes,
+					     CFSTR(kDS1AttrDistinguishedName),
+					     userStr);
+	record = ODNodeCreateRecord(users->node,
+				    CFSTR(kDSStdRecordTypeUsers),
+				    userStr,
+				    attributes,
 				    &error);
 	if (record == NULL) {
 	    my_log(LOG_NOTICE,
@@ -381,7 +400,7 @@ AFPUser_set_random_password(AFPUserRef user,
 	CFDictionarySetValue(user, kAFPUserDatePasswordLastSet, now);
     }
     else {
-	snprintf(passwd, passwd_len, "%08lx", random());
+	snprintf(passwd, passwd_len, "%08x", arc4random());
 
 	record = (ODRecordRef)CFDictionaryGetValue(user, kAFPUserODRecord);
 	pw = CFStringCreateWithCString(NULL, passwd, kCFStringEncodingASCII);
@@ -464,15 +483,11 @@ main(int argc, char * argv[])
     struct group *	group_ent_p;
     int			count;
     int			start;
-    struct timeval 	tv;
 
     if (argc < 3) {
 	printf("usage: AFPUsers user_count start\n");
 	exit(1);
     }
-
-    gettimeofday(&tv, 0);
-    srandom(tv.tv_usec);
 
     group_ent_p = getgrnam(NETBOOT_GROUP);
     if (group_ent_p == NULL) {

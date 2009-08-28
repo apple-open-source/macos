@@ -94,7 +94,7 @@ private:
 
 inline HandleContext &enterContext(CSSM_CC_HANDLE h)
 {
-    return findHandleAndLock<HandleContext>(h, CSSM_ERRCODE_INVALID_CONTEXT_HANDLE);
+    return HandleObject::findAndLock<HandleContext>(h, CSSM_ERRCODE_INVALID_CONTEXT_HANDLE);
 }
 
 
@@ -106,7 +106,7 @@ inline HandleContext &enterContext(CSSM_CC_HANDLE h)
 class HandleContext::Maker : public Context::Builder {
 public:
     Maker(CSSM_CSP_HANDLE handle) 
-		: Context::Builder(findHandleAndLock<CSPAttachment>(handle, CSSM_ERRCODE_INVALID_CSP_HANDLE)),
+		: Context::Builder(HandleObject::findAndLock<CSPAttachment>(handle, CSSM_ERRCODE_INVALID_CSP_HANDLE)),
 		attachment(static_cast<CSPAttachment &>(allocator)), // order dependency(!)
 		locker(attachment, true)
 	{ attachment.finishEnter(); }

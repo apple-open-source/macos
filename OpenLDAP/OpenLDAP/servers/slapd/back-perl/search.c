@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-perl/search.c,v 1.25.2.3 2006/01/03 22:16:22 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-perl/search.c,v 1.31.2.3 2008/02/11 23:26:47 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2006 The OpenLDAP Foundation.
+ * Copyright 1999-2008 The OpenLDAP Foundation.
  * Portions Copyright 1999 John C. Quillan.
  * Portions Copyright 2002 myinternet Limited.
  * All rights reserved.
@@ -34,6 +34,9 @@ perl_back_search(
 	char *buf;
 	int i;
 
+#if defined(HAVE_WIN32_ASPERL) || defined(USE_ITHREADS)
+	PERL_SET_CONTEXT( PERL_INTERPRETER );
+#endif
 	ldap_pvt_thread_mutex_lock( &perl_interpreter_mutex );	
 
 	{
@@ -84,8 +87,6 @@ perl_back_search(
 						send_entry = 1;
 
 					if (send_entry) {
-						int	rc;
-
 						rs->sr_entry = e;
 						rs->sr_attrs = op->ors_attrs;
 						rs->sr_flags = REP_ENTRY_MODIFIABLE;

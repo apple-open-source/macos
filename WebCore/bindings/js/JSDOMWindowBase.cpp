@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 2000 Harri Porten (porten@kde.org)
  *  Copyright (C) 2006 Jon Shier (jshier@iastate.edu)
- *  Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reseved.
+ *  Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reseved.
  *  Copyright (C) 2006 Alexey Proskuryakov (ap@webkit.org)
  *
  *  This library is free software; you can redistribute it and/or
@@ -25,35 +25,25 @@
 
 #include "CString.h"
 #include "Console.h"
-#include "DOMTimer.h"
 #include "DOMWindow.h"
-#include "Element.h"
 #include "Frame.h"
-#include "HTMLCollection.h"
-#include "HTMLDocument.h"
 #include "InspectorController.h"
 #include "JSDOMWindowCustom.h"
-#include "JSHTMLCollection.h"
 #include "JSNode.h"
 #include "Logging.h"
 #include "Page.h"
-#include "ScheduledAction.h"
 #include "ScriptController.h"
 #include "SecurityOrigin.h"
 #include "Settings.h"
-#include <runtime/JSLock.h>
 
 using namespace JSC;
 
 namespace WebCore {
 
-////////////////////// JSDOMWindowBase Object ////////////////////////
-
 const ClassInfo JSDOMWindowBase::s_info = { "Window", 0, 0, 0 };
 
 JSDOMWindowBase::JSDOMWindowBaseData::JSDOMWindowBaseData(PassRefPtr<DOMWindow> window, JSDOMWindowShell* shell)
     : impl(window)
-    , returnValueSlot(0)
     , shell(shell)
 {
 }
@@ -76,95 +66,9 @@ void JSDOMWindowBase::updateDocument()
     symbolTablePutWithAttributes(Identifier(exec, "document"), toJS(exec, d()->impl->document()), DontDelete | ReadOnly);
 }
 
-JSDOMWindowBase::~JSDOMWindowBase()
-{
-}
-
 ScriptExecutionContext* JSDOMWindowBase::scriptExecutionContext() const
 {
     return d()->impl->document();
-}
-
-JSValue JSDOMWindowBase::childFrameGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot& slot)
-{
-    return toJS(exec, static_cast<JSDOMWindowBase*>(asObject(slot.slotBase()))->impl()->frame()->tree()->child(AtomicString(propertyName))->domWindow());
-}
-
-JSValue JSDOMWindowBase::indexGetter(ExecState* exec, const Identifier&, const PropertySlot& slot)
-{
-    return toJS(exec, static_cast<JSDOMWindowBase*>(asObject(slot.slotBase()))->impl()->frame()->tree()->child(slot.index())->domWindow());
-}
-
-JSValue JSDOMWindowBase::namedItemGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot& slot)
-{
-    JSDOMWindowBase* thisObj = static_cast<JSDOMWindowBase*>(asObject(slot.slotBase()));
-    Document* doc = thisObj->impl()->frame()->document();
-    ASSERT(thisObj->allowsAccessFrom(exec));
-    ASSERT(doc);
-    ASSERT(doc->isHTMLDocument());
-
-    RefPtr<HTMLCollection> collection = doc->windowNamedItems(propertyName);
-    if (collection->length() == 1)
-        return toJS(exec, collection->firstItem());
-    return toJS(exec, collection.get());
-}
-
-bool JSDOMWindowBase::getOwnPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
-{
-    // Check for child frames by name before built-in properties to
-    // match Mozilla. This does not match IE, but some sites end up
-    // naming frames things that conflict with window properties that
-    // are in Moz but not IE. Since we have some of these, we have to do
-    // it the Moz way.
-    if (impl()->frame()->tree()->child(propertyName)) {
-        slot.setCustom(this, childFrameGetter);
-        return true;
-    }
-
-    // Do prototype lookup early so that functions and attributes in the prototype can have
-    // precedence over the index and name getters.  
-    JSValue proto = prototype();
-    if (proto.isObject()) {
-        if (asObject(proto)->getPropertySlot(exec, propertyName, slot)) {
-            if (!allowsAccessFrom(exec))
-                slot.setUndefined();
-            return true;
-        }
-    }
-
-    // FIXME: Search the whole frame hierachy somewhere around here.
-    // We need to test the correct priority order.
-
-    // allow window[1] or parent[1] etc. (#56983)
-    bool ok;
-    unsigned i = propertyName.toArrayIndex(&ok);
-    if (ok && i < impl()->frame()->tree()->childCount()) {
-        slot.setCustomIndex(this, i, indexGetter);
-        return true;
-    }
-
-    if (!allowsAccessFrom(exec)) {
-        slot.setUndefined();
-        return true;
-    }
-
-    // Allow shortcuts like 'Image1' instead of document.images.Image1
-    Document* document = impl()->frame()->document();
-    if (document->isHTMLDocument()) {
-        AtomicStringImpl* atomicPropertyName = AtomicString::find(propertyName);
-        if (atomicPropertyName && (static_cast<HTMLDocument*>(document)->hasNamedItem(atomicPropertyName) || document->hasElementWithId(atomicPropertyName))) {
-            slot.setCustom(this, namedItemGetter);
-            return true;
-        }
-    }
-
-    return Base::getOwnPropertySlot(exec, propertyName, slot);
-}
-
-void JSDOMWindowBase::put(ExecState* exec, const Identifier& propertyName, JSValue value, PutPropertySlot& slot)
-{
-    if (allowsAccessFrom(exec))
-        Base::put(exec, propertyName, value, slot);
 }
 
 String JSDOMWindowBase::crossDomainAccessErrorMessage(const JSGlobalObject* other) const
@@ -209,6 +113,9 @@ ExecState* JSDOMWindowBase::globalExec()
 
 bool JSDOMWindowBase::supportsProfiling() const
 {
+#if !ENABLE(JAVASCRIPT_DEBUGGER)
+    return false;
+#else
     Frame* frame = impl()->frame();
     if (!frame)
         return false;
@@ -216,10 +123,8 @@ bool JSDOMWindowBase::supportsProfiling() const
     Page* page = frame->page();
     if (!page)
         return false;
-#if ENABLE(JAVASCRIPT_DEBUGGER)
+
     return page->inspectorController()->profilerEnabled();
-#else
-    return false;
 #endif
 }
 
@@ -241,19 +146,9 @@ bool JSDOMWindowBase::shouldInterruptScript() const
     return page->chrome()->shouldInterruptJavaScript();
 }
 
-void JSDOMWindowBase::clearHelperObjectProperties()
+void JSDOMWindowBase::willRemoveFromWindowShell()
 {
     setCurrentEvent(0);
-}
-
-void JSDOMWindowBase::clear()
-{
-    JSLock lock(false);
-
-    if (d()->returnValueSlot && !*d()->returnValueSlot)
-        *d()->returnValueSlot = getDirect(Identifier(globalExec(), "returnValue"));
-
-    clearHelperObjectProperties();
 }
 
 JSObject* JSDOMWindowBase::toThisObject(ExecState*) const
@@ -275,15 +170,6 @@ JSGlobalData* JSDOMWindowBase::commonJSGlobalData()
     }
 
     return globalData;
-}
-
-void JSDOMWindowBase::setReturnValueSlot(JSValue* slot)
-{
-    d()->returnValueSlot = slot;
-}
-
-void JSDOMWindowBase::disconnectFrame()
-{
 }
 
 JSValue toJS(ExecState*, DOMWindow* domWindow)

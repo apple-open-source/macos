@@ -1,25 +1,29 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2008 Apple Inc. All rights reserved.
  *
- * @APPLE_LICENSE_HEADER_START@
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
  * 
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
- * @APPLE_LICENSE_HEADER_END@
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 /*-
  * Copyright (c) 1983, 1988, 1993
@@ -55,9 +59,6 @@
  */
 
 #ifndef lint
-#if 0
-static char sccsid[] = "@(#)unix.c	8.1 (Berkeley) 6/6/93";
-#endif
 static const char rcsid[] =
 	"$Id: unix.c,v 1.4 2006/02/07 06:22:20 lindak Exp $";
 #endif /* not lint */
@@ -83,7 +84,11 @@ static const char rcsid[] =
 #include <stdlib.h>
 #include "netstat.h"
 
+#if !TARGET_OS_EMBEDDED
+static	void unixdomainpr __P((struct xunpcb64 *, struct xsocket64 *));
+#else
 static	void unixdomainpr __P((struct xunpcb *, struct xsocket *));
+#endif
 
 static	const char *const socktype[] =
     { "#0", "stream", "dgram", "raw", "rdm", "seqpacket" };
@@ -94,14 +99,23 @@ unixpr()
 	char 	*buf;
 	int	type;
 	size_t	len;
-	struct	xsocket *so;
 	struct	xunpgen *xug, *oxug;
+#if !TARGET_OS_EMBEDDED
+	struct	xsocket64 *so;
+	struct	xunpcb64 *xunp;
+	char mibvar[sizeof "net.local.seqpacket.pcblist64"];
+#else
+	struct	xsocket *so;
 	struct	xunpcb *xunp;
 	char mibvar[sizeof "net.local.seqpacket.pcblist"];
+#endif
 
 	for (type = SOCK_STREAM; type <= SOCK_SEQPACKET; type++) {
+#if !TARGET_OS_EMBEDDED
+		sprintf(mibvar, "net.local.%s.pcblist64", socktype[type]);
+#else
 		sprintf(mibvar, "net.local.%s.pcblist", socktype[type]);
-
+#endif
 		len = 0;
 		if (sysctlbyname(mibvar, 0, &len, 0, 0) < 0) {
 			if (errno != ENOENT)
@@ -122,11 +136,19 @@ unixpr()
 		for (xug = (struct xunpgen *)((char *)xug + xug->xug_len);
 		     xug->xug_len > sizeof(struct xunpgen);
 		     xug = (struct xunpgen *)((char *)xug + xug->xug_len)) {
+#if !TARGET_OS_EMBEDDED
+			xunp = (struct xunpcb64 *)xug;
+#else
 			xunp = (struct xunpcb *)xug;
+#endif
 			so = &xunp->xu_socket;
 
 			/* Ignore PCBs which were freed during copyout. */
+#if !TARGET_OS_EMBEDDED
+			if (xunp->xunp_gencnt > oxug->xug_gen)
+#else
 			if (xunp->xu_unp.unp_gencnt > oxug->xug_gen)
+#endif
 				continue;
 			unixdomainpr(xunp, so);
 		}
@@ -148,33 +170,61 @@ unixpr()
 
 static void
 unixdomainpr(xunp, so)
+#if !TARGET_OS_EMBEDDED
+	struct xunpcb64 *xunp;
+	struct xsocket64 *so;
+#else
 	struct xunpcb *xunp;
 	struct xsocket *so;
+#endif
 {
+#if TARGET_OS_EMBEDDED
 	struct unpcb *unp;
+#endif
 	struct sockaddr_un *sa;
 	static int first = 1;
 
+#if !TARGET_OS_EMBEDDED
+	sa = &xunp->xu_addr;
+#else
 	unp = &xunp->xu_unp;
 	if (unp->unp_addr)
 		sa = &xunp->xu_addr;
 	else
 		sa = (struct sockaddr_un *)0;
+#endif
 
 	if (first) {
 		printf("Active LOCAL (UNIX) domain sockets\n");
 		printf(
+#if !TARGET_OS_EMBEDDED
+"%-16.16s %-6.6s %-6.6s %-6.6s %16.16s %16.16s %16.16s %16.16s Addr\n",
+#else
 "%-8.8s %-6.6s %-6.6s %-6.6s %8.8s %8.8s %8.8s %8.8s Addr\n",
+#endif
 		    "Address", "Type", "Recv-Q", "Send-Q",
 		    "Inode", "Conn", "Refs", "Nextref");
 		first = 0;
 	}
+#if !TARGET_OS_EMBEDDED
+	printf("%16lx %-6.6s %6u %6u %16lx %16lx %16lx %16lx",
+	       (long)xunp->xu_unpp, socktype[so->so_type], so->so_rcv.sb_cc,
+	       so->so_snd.sb_cc,
+	       (long)xunp->xunp_vnode, (long)xunp->xunp_conn,
+	       (long)xunp->xunp_refs, (long)xunp->xunp_reflink.le_next);
+#else
 	printf("%8lx %-6.6s %6u %6u %8lx %8lx %8lx %8lx",
 	       (long)so->so_pcb, socktype[so->so_type], so->so_rcv.sb_cc,
 	       so->so_snd.sb_cc,
 	       (long)unp->unp_vnode, (long)unp->unp_conn,
 	       (long)unp->unp_refs.lh_first, (long)unp->unp_reflink.le_next);
+#endif
+
+#if !TARGET_OS_EMBEDDED
+	if (sa->sun_len)
+#else
 	if (sa)
+#endif
 		printf(" %.*s",
 		    (int)(sa->sun_len - offsetof(struct sockaddr_un, sun_path)),
 		    sa->sun_path);

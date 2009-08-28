@@ -1,4 +1,3 @@
-/* APPLE LOCAL file mainline */
 /* Test that we don't ICE when issuing a -Wselector warning.  */
 /* { dg-options "-Wselector" } */
 /* { dg-do compile } */
@@ -15,4 +14,3 @@
 }
 @end
 /* { dg-warning "creating selector for nonexistent method .b1ar." "" { target *-*-* } 0 } */
-

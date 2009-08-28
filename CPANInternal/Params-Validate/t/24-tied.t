@@ -25,7 +25,7 @@ use Test::More tests => 6;
 
     eval { validate( @p, \%spec ) };
     warn $@ if $@;
-    ok( ! $@, 'validate() call succeeded with tied params array and regular hashref spec' );
+    is( $@, q{}, 'validate() call succeeded with tied params array and regular hashref spec' );
 }
 
 
@@ -41,7 +41,7 @@ SKIP:
 
     eval { validate( @p, \%spec ) };
     warn $@ if $@;
-    ok( ! $@, 'validate() call succeeded with regular params array and tied hashref spec' );
+    is( $@, q{}, 'validate() call succeeded with regular params array and tied hashref spec' );
 }
 
 SKIP:
@@ -56,7 +56,7 @@ SKIP:
 
     eval { validate( @p, \%spec ) };
     warn $@ if $@;
-    ok( ! $@, 'validate() call succeeded with tied params array and tied hashref spec' );
+    is( $@, q{}, 'validate() call succeeded with tied params array and tied hashref spec' );
 }
 
 {
@@ -68,7 +68,7 @@ SKIP:
 
     eval { validate_pos( @p, \%spec ) };
     warn $@ if $@;
-    ok( ! $@, 'validate_pos() call succeeded with tied params array and regular hashref spec' );
+    is( $@, q{}, 'validate_pos() call succeeded with tied params array and regular hashref spec' );
 }
 
 
@@ -84,7 +84,7 @@ SKIP:
 
     eval { validate_pos( @p, \%spec ) };
     warn $@ if $@;
-    ok( ! $@, 'validate_pos() call succeeded with regular params array and tied hashref spec' );
+    is( $@, q{}, 'validate_pos() call succeeded with regular params array and tied hashref spec' );
 }
 
 SKIP:
@@ -99,6 +99,6 @@ SKIP:
 
     eval { validate_pos( @p, \%spec ) };
     warn $@ if $@;
-    ok( ! $@, 'validate_pos() call succeeded with tied params array and tied hashref spec' );
+    is( $@, q{}, 'validate_pos() call succeeded with tied params array and tied hashref spec' );
 }
 

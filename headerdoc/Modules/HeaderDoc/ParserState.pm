@@ -2,8 +2,7 @@
 #
 # Class name: 	ParserState
 # Synopsis: 	Used by gatherHeaderDoc.pl to hold parser state
-# Author: David Gatwood(dgatwood@apple.com)
-# Last Updated: $Date: 2007/04/24 23:34:16 $
+# Last Updated: $Date: 2009/03/30 19:38:51 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -33,11 +32,13 @@ use strict;
 use vars qw($VERSION @ISA);
 use HeaderDoc::Utilities qw(isKeyword quote stringToFields);
 
-$VERSION = '$Revision: 1.1.2.4 $';
+$HeaderDoc::ParserState::VERSION = '$Revision: 1.8 $';
 ################ General Constants ###################################
 my $debugging = 0;
 
 my $treeDebug = 0;
+
+my $backslashDebug = 0;
 
 my %defaults = (
 	frozensodname => "",
@@ -112,7 +113,7 @@ my %defaults = (
     # $self->{lastchar} = "";            # Ends with the last token, but may be longer.
     # $self->{lastnspart} = "";          # The last non-whitespace token.
     # $self->{lasttoken} = "";           # The last token seen (though [\n\r] may be
-                                  # replaced by a space in some cases.
+                                  # replaced by a space in some cases).
 	startOfDec => 1,           # Are we at the start of a declaration?
     # $self->{prespace} = 0;             # Used for indentation (deprecated).
     # $self->{prespaceadjust} = 0;       # Indentation is now handled by the parse
@@ -138,6 +139,7 @@ my %defaults = (
 	valuepending => 0,         # True if a value is pending, used to
                                   # return the right value.
 	value => "",               # The current value.
+	parsedParamParse => 0,
     # $self->{parsedParam} = "";         # The current parameter being parsed.
     # $self->{postPossNL} = 0;           # Used to force certain newlines to be added
                                   # to the parse tree (to end macros, etc.)
@@ -155,15 +157,17 @@ my %defaults = (
 	initbsCount => 0,
 	# hollow => undef,      # a spot in the tree to put stuff.
 	noInsert => 0,
-	bracePending => 0	# set to 1 if lack of a brace would change
+	bracePending => 0,	# set to 1 if lack of a brace would change
 				# from being a struct/enum/union/typedef
 				# to a variable.
+	backslashcount => 0,
 
+	functionReturnsCallback => 0
 
 );
 
-# print "DEFAULTS: startOfDec: ".$defaults{startOfDec}."\n";
-# print "DEFAULTS: inClass: ".$defaults{inClass}."\n";
+# print STDERR "DEFAULTS: startOfDec: ".$defaults{startOfDec}."\n";
+# print STDERR "DEFAULTS: inClass: ".$defaults{inClass}."\n";
 
 sub new {
     my($param) = shift;
@@ -171,10 +175,10 @@ sub new {
     my %selfhash = %defaults;
     my $self = \%selfhash;
 
-    # print "startOfDec: ".$self->{startOfDec}."\n";
-    # print "startOfDecX: ".$defaults{startOfDec}."\n";
+    # print STDERR "startOfDec: ".$self->{startOfDec}."\n";
+    # print STDERR "startOfDecX: ".$defaults{startOfDec}."\n";
 
-# print "CREATING NEW PARSER STATE!\n";
+# print STDERR "CREATING NEW PARSER STATE!\n";
     
     bless($self, $class);
     $self->_initialize();
@@ -302,6 +306,7 @@ sub _initialize {
     $self->{valuepending} = 0;         # True if a value is pending, used to
                                   # return the right value.
     $self->{value} = "";               # The current value.
+    $self->{parsedParamParse} => 0,
     # $self->{parsedParam} = "";         # The current parameter being parsed.
     # $self->{postPossNL} = 0;           # Used to force certain newlines to be added
                                   # to the parse tree (to end macros, etc.)
@@ -325,16 +330,70 @@ sub _initialize {
     $self->{bracePending} = 0;	# set to 1 if lack of a brace would change
 				# from being a struct/enum/union/typedef
 				# to a variable.
+    $self->{backslashcount} = 0;
 
     # foreach my $key (keys %{$self}) {
 	# if ($self->{$key} != $orighash{$key}) {
-		# print "HASH DIFFERS FOR KEY $key (".$self->{$key}." != ".$orighash{$key}.")\n";
+		# print STDERR "HASH DIFFERS FOR KEY $key (".$self->{$key}." != ".$orighash{$key}.")\n";
 	# } else {
-		# print "Hash keys same for key $key\n";
+		# print STDERR "Hash keys same for key $key\n";
 	# }
     # }
 
     return $self;
+}
+
+# For consistency.
+sub dbprint
+{
+    my $self = shift;
+    return $self->print();
+}
+
+sub rollback
+{
+    my $self = shift;
+
+    my $localDebug = 0;
+
+    my $cloneref = $self->{rollbackState};
+    my $clone = ${$cloneref};
+    my %selfhash = %{$self};
+    my %clonehash = %{$clone};
+
+    if ($localDebug) {
+	print STDERR "BEGIN PARSER STATE:\n";
+	foreach my $key (keys(%clonehash)) {
+		if ($self->{$key} ne $clone->{$key}) {
+			print STDERR "$key: ".$self->{$key}." != ".$clone->{$key}."\n";
+		}
+	}
+	print STDERR "END PARSER STATE\n";
+    }
+    foreach my $key (keys(%selfhash)) {
+	# print STDERR "$key => $self->{$key}\n";
+	$self->{$key} = undef;
+    }
+    foreach my $key (keys(%clonehash)) {
+	$self->{$key} = $clone->{$key};
+    }
+    $self->{rollbackState} = undef;
+}
+
+sub rollbackSet
+{
+    my $self = shift;
+
+    my $clone = HeaderDoc::ParserState->new();
+    my %selfhash = %{$self};
+
+    # print STDERR "BEGIN PARSER STATE:\n";
+    foreach my $key (keys(%selfhash)) {
+	# print STDERR "$key => $self->{$key}\n";
+	$clone->{$key} = $self->{$key};
+    }
+    $self->{rollbackState} = \$clone;
+    # print STDERR "END PARSER STATE\n";
 }
 
 sub print
@@ -342,11 +401,65 @@ sub print
     my $self = shift;
     my %selfhash = %{$self};
 
-    print "BEGIN PARSER STATE:\n";
+    print STDERR "BEGIN PARSER STATE:\n";
     foreach my $key (keys(%selfhash)) {
-	print "$key => $self->{$key}\n";
+	print STDERR "$key => $self->{$key}\n";
     }
-    print "END PARSER STATE\n";
+    print STDERR "END PARSER STATE\n";
+}
+
+sub resetBackslash
+{
+    my $self = shift;
+    $self->{backslashcount}=0;
+
+    print STDERR "RESET BACKSLASH. COUNT NOW ".$self->{backslashcount}."\n" if ($backslashDebug);
+}
+
+sub addBackslash
+{
+    my $self = shift;
+
+    $self->{backslashcount}++;
+
+    print STDERR "ADD BACKSLASH. COUNT NOW ".$self->{backslashcount}."\n" if ($backslashDebug);
+
+}
+
+sub isQuoted
+{
+    my $self = shift;
+    my $lang = shift;
+    my $sublang = shift;
+
+    my $inSingle = $self->{inChar};
+    my $inString = $self->{inString};
+    my $count = $self->{backslashcount};
+
+	print STDERR "LANG: $lang INSINGLE: $inSingle INSTRING: $inString\n" if ($backslashDebug);
+
+    # Shell scripts treat single quotes as raw data.  Backslashes
+    # inside are not treated as quote characters, so to put a single
+    # quote, you have to put it inside a double quote contest, e.g.
+    # "It's" or 'It'"'"'s'
+    if ($inSingle && $lang eq "shell") {
+	print STDERR "isQuoted: Shell script single quote backslash: not quoted.  Returning 0 (count is $count).\n" if ($backslashDebug);
+	return 0;
+    }
+
+    # C shell scripts don't interpret \ within a string.
+    if ($inString && $lang eq "shell" && $sublang eq "csh") {
+	print STDERR "isQuoted: C Shell script backslash in double quotes: not quoted.  Returning 0 (count is $count).\n" if ($backslashDebug);
+	return 0;
+    }
+
+
+    if ($count % 2) {
+	print STDERR "isQuoted: Returning 1 (count is $count).\n" if ($backslashDebug);
+	return 1;
+    }
+    print STDERR "isQuoted: Returning 0 (count is $count).\n" if ($backslashDebug);
+    return 0;
 }
 
 1;

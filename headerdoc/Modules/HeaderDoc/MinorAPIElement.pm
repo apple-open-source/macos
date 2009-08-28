@@ -1,13 +1,11 @@
 #! /usr/bin/perl -w
 #
 # Class name: MinorAPIElement
-# Synopsis: Class for parameters and members of structs, etc. Primary use
-#           is to hold info for data export to Inside Mac Database
+# Synopsis: Class for parameters and members of structs, etc.
 #
-# Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2005/08/24 23:39:53 $
+# Last Updated: $Date: 2009/03/30 19:38:51 $
 #
-# Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
+# Copyright (c) 1999-2008 Apple Computer, Inc.  All rights reserved.
 #
 # @APPLE_LICENSE_HEADER_START@
 #
@@ -34,17 +32,20 @@ package HeaderDoc::MinorAPIElement;
 
 use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc convertCharsForFileMaker printArray printHash);
 use HeaderDoc::HeaderElement;
+# use Carp qw(cluck);
 @ISA = qw( HeaderDoc::HeaderElement );
 
 use strict;
 use vars qw($VERSION @ISA);
-$VERSION = '$Revision: 1.6.6.11 $';
+$HeaderDoc::MinorAPIElement::VERSION = '$Revision: 1.9 $';
 
 sub new {
     my($param) = shift;
     my($class) = ref($param) || $param;
     my $self = {};
     
+    # cluck("Created $self\n");
+
     bless($self, $class);
     $self->_initialize();
     return ($self);
@@ -81,6 +82,15 @@ sub clone {
     return $clone;
 }
 
+# Objective-C bits.
+sub tagname {
+    my $self = shift;
+
+    if (@_) {
+        $self->{TAGNAME} = shift;
+    }
+    return $self->{TAGNAME};
+}
 
 sub position {
     my $self = shift;
@@ -148,8 +158,8 @@ sub printObject {
     my $dec = $self->declaration();
  
     $self->SUPER::printObject();
-    print "position: $self->{POSITION}\n";
-    print "type: $self->{TYPE}\n";
+    print STDERR "position: $self->{POSITION}\n";
+    print STDERR "type: $self->{TYPE}\n";
 }
 
 # /*! @function appleRefIsDoc
@@ -165,7 +175,7 @@ sub appleRefIsDoc
 	my $value = shift;
 	$self->{APPLEREFISDOC} = $value;
     }   
-	# print "ARID: ".$self->{APPLEREFISDOC}." for $self\n";
+	# print STDERR "ARID: ".$self->{APPLEREFISDOC}." for $self\n";
     if ($self->{APPLEREFISDOC}) {
 	return $self->{APPLEREFISDOC};
     } elsif ($self->apiOwner()) {
@@ -173,7 +183,7 @@ sub appleRefIsDoc
 	bless($apio, "HeaderDoc::HeaderElement");
 	bless($apio, $apio->class());
 	my $apioval = $apio->appleRefIsDoc();
-	# print "APIOVAL: $apioval for $apio (".$apio->name().")\n";
+	# print STDERR "APIOVAL: $apioval for $apio (".$apio->name().")\n";
 	if ($apioval) { return $apioval; }
     }
     return $self->{APPLEREFISDOC};

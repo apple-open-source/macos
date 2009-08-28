@@ -1,7 +1,7 @@
 /* { dg-do run } */
 /* { dg-options "-std=gnu99 -Wall -Wextra -O1" } */ 
 
-extern void *memset (void*, int, unsigned long);
+extern void *memset (void*, int, __SIZE_TYPE__);
 extern void abort (void);
 
 struct radix_tree_root {

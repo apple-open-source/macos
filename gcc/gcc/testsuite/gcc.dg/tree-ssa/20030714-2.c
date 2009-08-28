@@ -1,6 +1,5 @@
 /* { dg-do compile } */
-/* APPLE LOCAL lno */
-/* { dg-options "-O1 -fdump-tree-dom3 -ftree-loop-optimize" } */
+/* { dg-options "-O1 -fdump-tree-dom3" } */
    
 
 union tree_node;
@@ -37,4 +36,4 @@ get_alias_set (t)
    properly.  */
 /* { dg-final { scan-tree-dump-times "if " 3 "dom3"} } */
  
-
+/* { dg-final { cleanup-tree-dump "dom3" } } */

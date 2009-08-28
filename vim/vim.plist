@@ -4,7 +4,7 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2008-08-18</string>
+		<string>2009-02-13</string>
 		<key>OpenSourceLicense</key>
 		<string>Uganda</string>
 		<key>OpenSourceLicenseFile</key>
@@ -12,11 +12,11 @@
 		<key>OpenSourceProject</key>
 		<string>vim</string>
 		<key>OpenSourceSHA1</key>
-		<string>76f6a5a97746db06bd4786984a116793a16e3e10</string>
+		<string>a4b6641ca528fada71ea77c998a441495ed4984c</string>
 		<key>OpenSourceURL</key>
 		<string>ftp://ftp.vim.org/pub/vim/unix/vim-7.2.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>7.0</string>
+		<string>7.2.108</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.vim.org/</string>
 	</dict>
@@ -34,7 +34,7 @@
 		<key>OpenSourceURL</key>
 		<string>ftp://ftp.vim.org/pub/vim/extra/vim-7.2-extra.tar.gz</string>
 		<key>OpenSourceVersion</key>
-		<string>7.0</string>
+		<string>7.2</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.vim.org/</string>
 	</dict>

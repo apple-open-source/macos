@@ -1,7 +1,7 @@
 /*
  * rlm_eap_tls.h
  *
- * Version:     $Id: rlm_eap_tls.h,v 1.5.4.3 2006/04/28 18:18:58 aland Exp $
+ * Version:     $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,18 +15,22 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
  * Copyright 2001  hereUare Communications, Inc. <raghud@hereuare.com>
  * Copyright 2003  Alan DeKok <aland@freeradius.org>
+ * Copyright 2006  The FreeRADIUS server project
  */
 #ifndef _RLM_EAP_TLS_H
 #define _RLM_EAP_TLS_H
 
+#include <freeradius-devel/ident.h>
+RCSIDH(rlm_eap_tls_h, "$Id$")
+
 #include "eap_tls.h"
 
-#include "radiusd.h"
-#include "modules.h"
+#include <freeradius-devel/radiusd.h>
+#include <freeradius-devel/modules.h>
 
 /* configured values goes right here */
 typedef struct eap_tls_conf {
@@ -38,6 +42,7 @@ typedef struct eap_tls_conf {
 	char		*ca_file;
 	char		*dh_file;
 	char		*rsa_file;
+	char		*make_cert_command;
 	int		rsa_key;
 	int		dh_key;
 	int		rsa_key_length;
@@ -54,6 +59,13 @@ typedef struct eap_tls_conf {
 	char		*check_cert_cn;
 	char		*cipher_list;
 	char		*check_cert_issuer;
+
+        int     	session_cache_enable;
+        int     	session_timeout;
+        int     	session_cache_size;
+	char		*session_id_name;
+	char		session_context_id[128];
+	time_t		session_last_flushed;
 } EAP_TLS_CONF;
 
 /* This structure gets stored in arg */

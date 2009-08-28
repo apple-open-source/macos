@@ -6,7 +6,6 @@
 #  Copyright (c) 2007 Apple Computer. All rights reserved.
 #
 
-ENV['BRIDGE_SUPPORT_PATH'] = '/Volumes/Data/src/svn-rubycocoa-apple/framework/bridge-support'
 require 'osx/cocoa'
 
 include OSX

@@ -7,8 +7,8 @@
 
       <refnamediv>
 	<refname id="ne_set_useragent">ne_set_useragent</refname>
-	<refname id="ne_set_persist">ne_set_persist</refname>
 	<refname id="ne_set_read_timeout">ne_set_read_timeout</refname>
+	<refname id="ne_set_connect_timeout">ne_set_connect_timeout</refname>
 	<refname id="ne_get_scheme">ne_get_scheme</refname>
 	<refname id="ne_get_server_hostport">ne_get_server_hostport</refname>
 	<refpurpose>common properties for HTTP sessions</refpurpose>
@@ -27,13 +27,13 @@
 	  </funcprototype>
 
 	  <funcprototype>
-	    <funcdef>void <function>ne_set_persist</function></funcdef>
+	    <funcdef>void <function>ne_set_read_timeout</function></funcdef>
 	    <paramdef>ne_session *<parameter>session</parameter></paramdef>
-	    <paramdef>int <parameter>flag</parameter></paramdef>
+	    <paramdef>int <parameter>timeout</parameter></paramdef>
 	  </funcprototype>
 
 	  <funcprototype>
-	    <funcdef>void <function>ne_set_read_timeout</function></funcdef>
+	    <funcdef>void <function>ne_set_connect_timeout</function></funcdef>
 	    <paramdef>ne_session *<parameter>session</parameter></paramdef>
 	    <paramdef>int <parameter>timeout</parameter></paramdef>
 	  </funcprototype>
@@ -64,20 +64,21 @@ or debugging purposes.  neon does not send a
 conforming to RFC2616's product token grammar; of the form
 <literal>"Product/Version"</literal>.</para>
 
-	<para>By default neon will use a persistent connection
-whenever possible.  For specific applications, or for debugging
-purposes, it is sometimes useful to disable persistent connections.
-The <function>ne_set_persist</function> function will disable
-persistent connections if passed a <parameter>flag</parameter>
-parameter of <literal>0</literal>, and will enable them
-otherwise.</para>
-
 	<para>When neon reads from a socket, by default the read
 operation will time out after 60 seconds, and the request will fail
 giving an <errorcode>NE_TIMEOUT</errorcode> error.  To configure this
 timeout interval, call <function>ne_set_read_timeout</function> giving
 the desired number of seconds as the <parameter>timeout</parameter>
 parameter.</para>
+
+	<para>When a connection is being established to a server,
+	normally only the system's TCP timeout handling will apply.
+	To configure a specific (and probably shorter) timeout, the
+	<function>ne_set_connect_timeout</function> can be used,
+	giving the desired number of seconds as the
+	<parameter>timeout</parameter> parameter.  If
+	<literal>0</literal> is passed, then the default behaviour of
+	using the system TCP timeout will be used.</para>
 
          <para>The scheme used to initially create the session will be
          returned by <function>ne_get_scheme</function>.</para>

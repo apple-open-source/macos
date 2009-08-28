@@ -1,5 +1,5 @@
 /*
- * "$Id: image-photocd.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: image-photocd.c 7221 2008-01-16 22:20:08Z mike $"
  *
  *   PhotoCD routines for the Common UNIX Printing System (CUPS).
  *
@@ -329,5 +329,5 @@ _cupsImageReadPhotoCD(
 
 
 /*
- * End of "$Id: image-photocd.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: image-photocd.c 7221 2008-01-16 22:20:08Z mike $".
  */

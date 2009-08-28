@@ -348,8 +348,12 @@ int main ( int argc, char * const *argv )
 	}
 	
 	// if no username or authenticator is specified, assume the identity of the session
-	useRootPrivileges = (geteuid() == 0 && authenticator == NULL);
-	if ( username == NULL || authenticator == NULL )
+	if ( geteuid() == 0 && authenticator == NULL )
+	{
+		useRootPrivileges = true;
+		authType = kAuthTypeShadowHash;
+	}
+	else if ( username == NULL || authenticator == NULL )
 	{
 		struct passwd *userRec = getpwuid(geteuid());
 		if ( userRec != NULL && userRec->pw_name != NULL )
@@ -485,7 +489,7 @@ int main ( int argc, char * const *argv )
 		{
 			case kCmdGetGlobalHashTypes:
 			case kCmdSetGlobalHashTypes:
-				username = "";
+				username = strdup("");
 				authType = kAuthTypeShadowHash;
 				break;
 			
@@ -633,7 +637,7 @@ int main ( int argc, char * const *argv )
 			
 			case kCmdSetPolicy:
 				tptr = ConvertPolicyDates( argv[argc-1] );
-				if ( authenticator != NULL && password != NULL && username != NULL && tptr != NULL )
+				if ( (useRootPrivileges == true || (authenticatorID != NULL && password != NULL)) && username != NULL && tptr != NULL )
 				{
 					printf( "Setting policy for %s\n", username );
 					if ( myClass.OpenDirNode( nodeName, &nodeRef ) == eDSNoErr )

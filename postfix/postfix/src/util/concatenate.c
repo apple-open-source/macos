@@ -59,9 +59,9 @@ char   *concatenate(const char *arg0,...)
      */
     result = mymalloc(len + 1);
     va_start(ap, arg0);
-    strcpy(result, arg0);
+    strlcpy(result, arg0, len + 1);
     while ((arg = va_arg(ap, char *)) != 0)
-	strcat(result, arg);
+	strlcat(result, arg, len + 1);
     va_end(ap);
     return (result);
 }

@@ -113,7 +113,18 @@ protected:
     void resetCachedValues();
 	bool loadPropertyList(bool force);
 	void writePropertyList();
-
+	int testAndFixPropertyList();
+	
+	enum ID_Direction
+	{ 
+		UNPRIV,
+		PRIV
+	};
+	uid_t	savedEUID;
+	gid_t	savedEGID;
+	
+	void changeIdentity(ID_Direction);
+	
 
 private:
 	CFAbsoluteTime mPrefsTimeStamp;

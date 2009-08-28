@@ -1,6 +1,6 @@
 /*
 ******************************************************************************
-* Copyright (c) 1996-2006, International Business Machines
+* Copyright (c) 1996-2007, International Business Machines
 * Corporation and others. All Rights Reserved.
 ******************************************************************************
 * File unorm.cpp
@@ -77,6 +77,8 @@
  * - c is treated as having a combining class of 0
  */
 #define LENGTHOF(array) (int32_t)(sizeof(array)/sizeof((array)[0]))
+
+U_NAMESPACE_USE
 
 /*
  * This new implementation of the normalization code loads its data from
@@ -522,6 +524,8 @@ internalGetNXHangul(UErrorCode &errorCode) {
             errorCode=U_MEMORY_ALLOCATION_ERROR;
             return NULL;
         }
+        // Compact the set for caching.
+        set->compact();
 
         umtx_lock(NULL);
         if(nxCache[UNORM_NX_HANGUL]==NULL) {
@@ -579,6 +583,8 @@ internalGetSerializedNX(int32_t options, int32_t nxIndex, UErrorCode &errorCode)
         for(i=0; uset_getSerializedRange(&sset, i, &start, &end); ++i) {
             set->add(start, end);
         }
+        // Compact the set for caching.
+        set->compact();
 
         umtx_lock(NULL);
         if(nxCache[options]==NULL) {
@@ -670,6 +676,8 @@ internalGetNX(int32_t options, UErrorCode &errorCode) {
             delete set;
             return NULL;
         }
+        // Compact the set for caching.
+        set->compact();
 
         umtx_lock(NULL);
         if(nxCache[options]==NULL) {
@@ -963,7 +971,7 @@ u_getCombiningClass(UChar32 c) {
 #endif
 }
 
-U_CAPI UBool U_EXPORT2
+U_CFUNC UBool U_EXPORT2
 unorm_internalIsFullCompositionExclusion(UChar32 c) {
 #if UNORM_HARDCODE_DATA
     if(auxTrie.index!=NULL) {
@@ -980,7 +988,7 @@ unorm_internalIsFullCompositionExclusion(UChar32 c) {
     }
 }
 
-U_CAPI UBool U_EXPORT2
+U_CFUNC UBool U_EXPORT2
 unorm_isCanonSafeStart(UChar32 c) {
 #if UNORM_HARDCODE_DATA
     if(auxTrie.index!=NULL) {
@@ -1241,7 +1249,7 @@ unorm_addPropertyStarts(const USetAdder *sa, UErrorCode *pErrorCode) {
     sa->add(sa->set, HANGUL_BASE+HANGUL_COUNT); /* add Hangul+1 to continue with other properties */
 }
 
-U_CAPI UNormalizationCheckResult U_EXPORT2
+U_CFUNC UNormalizationCheckResult U_EXPORT2
 unorm_getQuickCheck(UChar32 c, UNormalizationMode mode) {
     static const uint32_t qcMask[UNORM_MODE_COUNT]={
         0, 0, _NORM_QC_NFD, _NORM_QC_NFKD, _NORM_QC_NFC, _NORM_QC_NFKC
@@ -1268,12 +1276,14 @@ unorm_getQuickCheck(UChar32 c, UNormalizationMode mode) {
     }
 }
 
-U_CAPI uint16_t U_EXPORT2
+U_CFUNC uint16_t U_EXPORT2
 unorm_getFCD16FromCodePoint(UChar32 c) {
-    UErrorCode errorCode;
     uint16_t fcd;
-
+#if !UNORM_HARDCODE_DATA
+    UErrorCode errorCode;
     errorCode=U_ZERO_ERROR;
+#endif
+
     if(
 #if !UNORM_HARDCODE_DATA
         !_haveData(errorCode) ||

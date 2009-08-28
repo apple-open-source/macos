@@ -70,6 +70,9 @@ static const char short_months[12][4] = {
 #define GMTOFF(t) ((t).__tm_gmtoff)
 #elif defined(WIN32)
 #define GMTOFF(t) (gmt_to_local_win32())
+#elif defined(HAVE_TIMEZONE)
+/* FIXME: the following assumes fixed dst offset of 1 hour */
+#define GMTOFF(t) (-timezone + ((t).tm_isdst > 0 ? 3600 : 0))
 #else
 /* FIXME: work out the offset anyway. */
 #define GMTOFF(t) (0)
@@ -122,6 +125,7 @@ time_t ne_iso8601_parse(const char *date)
     double sec;
     off_t fix;
     int n;
+    time_t result;
 
     /*  it goes: ISO8601: 2001-01-01T12:30:00+03:30 */
     if ((n = sscanf(date, ISO8601_FORMAT_P,
@@ -154,7 +158,8 @@ time_t ne_iso8601_parse(const char *date)
     gmt.tm_isdst = -1;
     gmt.tm_mon--;
 
-    return mktime(&gmt) + fix + GMTOFF(gmt);
+    result = mktime(&gmt) + fix;
+    return result + GMTOFF(gmt);
 }
 
 /* Takes an RFC1123-formatted date string and returns the time_t.
@@ -164,6 +169,8 @@ time_t ne_rfc1123_parse(const char *date)
     struct tm gmt = {0};
     char wkday[4], mon[4];
     int n;
+    time_t result;
+    
 /*  it goes: Sun, 06 Nov 1994 08:49:37 GMT */
     n = sscanf(date, RFC1123_FORMAT,
 	    wkday, &gmt.tm_mday, mon, &gmt.tm_year, &gmt.tm_hour,
@@ -177,7 +184,8 @@ time_t ne_rfc1123_parse(const char *date)
      * since the mktime will then fail */
     gmt.tm_mon = n;
     gmt.tm_isdst = -1;
-    return mktime(&gmt) + GMTOFF(gmt);
+    result = mktime(&gmt);
+    return result + GMTOFF(gmt);
 }
 
 /* Takes a string containing a RFC1036-style date and returns the time_t */
@@ -186,6 +194,8 @@ time_t ne_rfc1036_parse(const char *date)
     struct tm gmt = {0};
     int n;
     char wkday[11], mon[4];
+    time_t result;
+
     /* RFC850/1036 style dates: Sunday, 06-Nov-94 08:49:37 GMT */
     n = sscanf(date, RFC1036_FORMAT,
 		wkday, &gmt.tm_mday, mon, &gmt.tm_year,
@@ -207,7 +217,8 @@ time_t ne_rfc1036_parse(const char *date)
 
     gmt.tm_mon = n;
     gmt.tm_isdst = -1;
-    return mktime(&gmt) + GMTOFF(gmt);
+    result = mktime(&gmt);
+    return result + GMTOFF(gmt);
 }
 
 
@@ -219,6 +230,8 @@ time_t ne_asctime_parse(const char *date)
     struct tm gmt = {0};
     int n;
     char wkday[4], mon[4];
+    time_t result;
+
     n = sscanf(date, ASCTIME_FORMAT,
 		wkday, mon, &gmt.tm_mday, 
 		&gmt.tm_hour, &gmt.tm_min, &gmt.tm_sec,
@@ -231,7 +244,8 @@ time_t ne_asctime_parse(const char *date)
      * since the mktime will then fail */
     gmt.tm_mon = n;
     gmt.tm_isdst = -1;
-    return mktime(&gmt) + GMTOFF(gmt);
+    result = mktime(&gmt);
+    return result + GMTOFF(gmt);
 }
 
 /* HTTP-date parser */

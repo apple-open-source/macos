@@ -1,5 +1,6 @@
 /* Print RTL for GCC.
-   Copyright (C) 1987, 1988, 1992, 1997, 1998, 1999, 2000, 2002, 2003, 2004
+   Copyright (C) 1987, 1988, 1992, 1997, 1998, 1999, 2000, 2002, 2003,
+   2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -16,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This file is compiled twice: once for the generator programs,
    once for the compiler.  */
@@ -282,12 +283,9 @@ print_rtx (rtx in_rtx)
 
 	      case NOTE_INSN_BLOCK_BEG:
 	      case NOTE_INSN_BLOCK_END:
-		fprintf (outfile, " ");
-		if (flag_dump_unnumbered)
-		  fprintf (outfile, "#");
-		else
-		  fprintf (outfile, HOST_PTR_PRINTF,
-			   (char *) NOTE_BLOCK (in_rtx));
+#ifndef GENERATOR_FILE
+		dump_addr (outfile, " ", NOTE_BLOCK (in_rtx));
+#endif
 		sawclose = 1;
 		break;
 
@@ -319,7 +317,7 @@ print_rtx (rtx in_rtx)
 		}
 		break;
 
-	      case NOTE_INSN_UNLIKELY_EXECUTED_CODE:
+	      case NOTE_INSN_SWITCH_TEXT_SECTIONS:
 		{
 #ifndef GENERATOR_FILE
 		  basic_block bb = NOTE_BASIC_BLOCK (in_rtx);
@@ -335,6 +333,10 @@ print_rtx (rtx in_rtx)
 		print_mem_expr (outfile, NOTE_VAR_LOCATION_DECL (in_rtx));
 		fprintf (outfile, " ");
 		print_rtx (NOTE_VAR_LOCATION_LOC (in_rtx));
+		/* APPLE LOCAL begin track initialization status 4964532  */
+		if (NOTE_VAR_LOCATION_STATUS (in_rtx) == STATUS_UNINITIALIZED)
+		  fprintf (outfile, " [uninit]");
+		/* APPLE LOCAL end track initialization status 4964532  */
 		fprintf (outfile, ")");
 #endif
 		break;
@@ -538,7 +540,9 @@ print_rtx (rtx in_rtx)
 	break;
 
       case 't':
-	fprintf (outfile, " " HOST_PTR_PRINTF, (void *) XTREE (in_rtx, i));
+#ifndef GENERATOR_FILE
+	dump_addr (outfile, " ", XTREE (in_rtx, i));
+#endif
 	break;
 
       case '*':
@@ -554,10 +558,7 @@ print_rtx (rtx in_rtx)
 	break;
 
       default:
-	fprintf (stderr,
-		 "switch format wrong in rtl.print_rtx(). format was: %c.\n",
-		 format_ptr[-1]);
-	abort ();
+	gcc_unreachable ();
       }
 
   switch (GET_CODE (in_rtx))
@@ -607,8 +608,13 @@ print_rtx (rtx in_rtx)
 	  case LABEL_STATIC_ENTRY: fputs (" [entry]", outfile); break;
 	  case LABEL_GLOBAL_ENTRY: fputs (" [global entry]", outfile); break;
 	  case LABEL_WEAK_ENTRY: fputs (" [weak entry]", outfile); break;
-	  default: abort();
+	  default: gcc_unreachable ();
 	}
+/* APPLE LOCAL begin for-fsf-4_4 3274130 5295549 */ \
+      if (LABEL_ALIGN_LOG (in_rtx) > 0)
+	fprintf (outfile, " [log_align %u skip %u]", LABEL_ALIGN_LOG (in_rtx),
+		 LABEL_MAX_SKIP (in_rtx));
+/* APPLE LOCAL end for-fsf-4_4 3274130 5295549 */ \
       break;
 
     default:

@@ -206,6 +206,6 @@ extern void print_proppair __P((int, struct prop_pair *));
 extern int set_proposal_from_policy __P((struct ph2handle *,
 	struct secpolicy *, struct secpolicy *));
 extern int set_proposal_from_proposal __P((struct ph2handle *));
-extern int tunnel_mode_prop __P((struct saprop *p));
+extern int tunnel_mode_prop __P((struct saprop *));
 
 #endif /* _PROPOSAL_H */

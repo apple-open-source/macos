@@ -41,7 +41,7 @@ __private_extern__ struct fat_arch * cpusubtype_findbestarch(
     cpu_type_t cputype,
     cpu_subtype_t cpusubtype,
     struct fat_arch *fat_archs,
-    unsigned long nfat_archs);
+    uint32_t nfat_archs);
 
 /*
  * cpusubtype_combine() returns the resulting cpusubtype when combining two

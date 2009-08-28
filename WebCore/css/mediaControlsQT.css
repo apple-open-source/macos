@@ -22,7 +22,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-/* alternate media controls */
+/* alternate media controls - Extend mediaControls.css */
 
 audio {
     width: 200px;
@@ -30,104 +30,150 @@ audio {
 }
 
 audio::-webkit-media-controls-panel, video::-webkit-media-controls-panel {
-    -webkit-user-select: none;
-    position: absolute;
-    bottom: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 0;
+    /* In mediaControls.css */
+    -webkit-appearance: media-controls-background;
+    height: 25px;
 }
 
 video:-webkit-full-page-media::-webkit-media-controls-panel {
-    bottom: -16px;
+    bottom: -25px;
 }
 
 audio::-webkit-media-controls-mute-button, video::-webkit-media-controls-mute-button {
-    -webkit-appearance: media-mute-button;
-    position: absolute;
-    top: auto;
-    bottom: 0;
-    right: 0;
-    left: auto;
-    width: 30px;
-    height: 25px;
+    -webkit-box-ordinal-group: 2; /* Before the fullscreen button */
+    width: 15px;
+    height: 14px;
+    margin-left: 2px;
+    margin-right: 8px;
 }
 
 audio::-webkit-media-controls-play-button, video::-webkit-media-controls-play-button {
-    -webkit-appearance: media-play-button;
-    position: absolute;
-    top: auto;
-    bottom: 0;
-    left: 0px;
-    width: 30px;
-    height: 25px;
+    width: 16px;
+    height: 16px;
+    margin-left: 6px;
+    margin-right: 1px;
 }
 
 audio::-webkit-media-controls-timeline-container, video::-webkit-media-controls-timeline-container {
-    -webkit-appearance: media-timeline-container;
-    -webkit-user-select: none;
-    position: absolute;
-    top: auto;
-    bottom: 0;
-    left: 30px;
-    right: 30px;
-    height: 25px;
+    -webkit-appearance: none;
+    -webkit-box-orient: horizontal;
+    -webkit-box-align: center;
+    -webkit-box-pack: center;
+    -webkit-box-flex: 1;
+    text-align: right;
+    height: auto;
 }
 
 audio::-webkit-media-controls-current-time-display, video::-webkit-media-controls-current-time-display {
-    -webkit-appearance: media-current-time-display;
     -webkit-user-select: none;
-    display: inline-block;
-    position: absolute;
+    display: -webkit-box;
+    -webkit-box-flex: 0;
+    -webkit-box-pack: center;
+    -webkit-box-align: center;
     cursor: default;
     font: -webkit-small-control;
-    font-size: .09em;
-    text-align: center;
+    font-size: 9px;
     overflow: hidden;
-    line-height: 13px;
-    top: auto;
-    bottom: 6px;
-    left: 0px;
     height: 13px;
     width: 45px;
+    color: white;
+    text-shadow: black 0px 1px 1px;
+
+    letter-spacing: normal;
+    word-spacing: normal;
+    line-height: normal;
+    text-transform: none;
+    text-indent: 0;
+    text-decoration: none;
 }
 
 audio::-webkit-media-controls-time-remaining-display, video::-webkit-media-controls-time-remaining-display {
-    -webkit-appearance: media-time-remaining-display;
     -webkit-user-select: none;
-    display: inline-block;
-    position: absolute;
+    display: -webkit-box;
+    -webkit-box-flex: 0;
+    -webkit-box-pack: center;
+    -webkit-box-align: center;
     cursor: default;
     font: -webkit-small-control;
-    font-size: .09em;
-    text-align: center;
+    font-size: 9px;
     overflow: hidden;
-    line-height: 13px;
-    top: auto;
-    bottom: 6px;
-    right: 0px;
     height: 13px;
     width: 45px;
+    color: white;
+    text-shadow: black 0px 1px 1px;
+
+    letter-spacing: normal;
+    word-spacing: normal;
+    line-height: normal;
+    text-transform: none;
+    text-indent: 0;
+    text-decoration: none;
 }
 
 audio::-webkit-media-controls-timeline, video::-webkit-media-controls-timeline {
-    -webkit-appearance: media-slider;
-    position: absolute;
-    top: auto;
-    bottom: 6px;
-    left: 45px;
-    right: 45px;
+    display: -webkit-box;
+    -webkit-box-flex: 1;
     height: 13px;
+    padding: 0px;
+    margin: 0px;
+    margin-top: 4px;
 }
 
 audio::-webkit-media-controls-seek-back-button, video::-webkit-media-controls-seek-back-button {
     display: none;
+    width: 0px;
 }
 
 audio::-webkit-media-controls-seek-forward-button, video::-webkit-media-controls-seek-forward-button {
     display: none;
+    width: 0px;
 }
 
 audio::-webkit-media-controls-fullscreen-button, video::-webkit-media-controls-fullscreen-button {
+    width: 16px;
+    height: 16px;
+    margin-left: 7px;
+    margin-right: 7px;
+    -webkit-box-ordinal-group: 3; /* At the very end */
+}
+
+audio::-webkit-media-controls-rewind-button, video::-webkit-media-controls-rewind-button {
+    display: -webkit-box;
+    -webkit-appearance: media-rewind-button;
+    width: 18px;
+    height: 18px;
+    margin-bottom: 1px;
+    margin-left: 6px;
+    margin-right: 2px;
+}
+
+audio::-webkit-media-controls-return-to-realtime-button, video::-webkit-media-controls-return-to-realtime-button {
     display: none;
+    -webkit-appearance: media-return-to-realtime-button;
+    width: 16px;
+    height: 11px;
+    margin-left: 6px;
+    margin-right: 2px;
+}
+
+audio::-webkit-media-controls-status-display, video::-webkit-media-controls-status-display {
+    -webkit-user-select: none;
+    cursor: default;
+    display: -webkit-box;
+    -webkit-box-flex: 1;
+    font: -webkit-small-control;
+    color: white;
+    font-size: 10px;
+    line-height: 13px;
+    overflow: hidden;
+    text-shadow: black 0px 1px 1px;
+    margin-left: 10px;
+    margin-right: 10px;
+
+    letter-spacing: normal;
+    word-spacing: normal;
+    line-height: normal;
+    text-transform: none;
+    text-indent: 0;
+    text-decoration: none;
 }

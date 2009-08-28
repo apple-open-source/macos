@@ -23,7 +23,7 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)st_parse.c	1.13	06/04/20 SMI"
+#pragma ident	"@(#)st_parse.c	1.14	06/08/22 SMI"
 
 /*
  * This file is a sewer.
@@ -80,8 +80,7 @@ static jmp_buf	resetbuf;
 
 static char *soudef(char *cp, stabtype_t type, tdesc_t **rtdp);
 static void enumdef(char *cp, tdesc_t **rtdp);
-static int compute_sum(char *w);
-tdesc_t *lookupname(char *name);
+static int compute_sum(const char *w);
 
 static char *number(char *cp, int *n);
 static char *name(char *cp, char **w);
@@ -1056,7 +1055,7 @@ enumdef(char *cp, tdesc_t **rtdp)
 }
 
 tdesc_t *
-lookup_name(tdesc_t **hash, char *name)
+lookup_name(tdesc_t **hash, const char *name)
 {
 	int bucket = compute_sum(name);
 	tdesc_t *tdp, *ttdp = NULL;
@@ -1074,7 +1073,7 @@ lookup_name(tdesc_t **hash, char *name)
 }
 
 tdesc_t *
-lookupname(char *name)
+lookupname(const char *name)
 {
 	return (lookup_name(name_table, name));
 }
@@ -1117,7 +1116,7 @@ addhash(tdesc_t *tdp, int num)
 }
 
 static int
-compute_sum(char *w)
+compute_sum(const char *w)
 {
 	char c;
 	int sum;

@@ -16,5 +16,7 @@
 	<array>
 		<string>/var/spool/postfix/maildrop</string>
 	</array>
+	<key>AbandonProcessGroup</key>
+	<true/>
 </dict>
 </plist>

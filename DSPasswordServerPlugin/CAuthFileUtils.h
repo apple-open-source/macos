@@ -34,7 +34,9 @@ class CAuthFileUtils
                                         CAuthFileUtils();
         virtual                         ~CAuthFileUtils();
     	
-		virtual void					getGMTime(struct tm *inOutGMT);
+		virtual void					getGMTime(struct tm *outGMT);
+        virtual void					getGMTime(BSDTimeStructCopy *outGMT);
+
 		virtual long					slotToOffset(long slot);
         
 		// DES accessors

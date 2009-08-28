@@ -2,7 +2,8 @@
 /* { dg-options "-O1 -fdump-tree-optimized" } */
                                                                                 
 static int copying_arguments;
-static int
+
+int
 foo ()
 {
   unsigned int regno;
@@ -13,3 +14,4 @@ foo ()
 
 /* There should be no IF conditionals.  */
 /* { dg-final { scan-tree-dump-times "if " 0 "optimized"} } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

@@ -6,11 +6,11 @@
 
 #include <stdlib.h>
 
-int entry1(int);
-int entry2(int);
-int entry3(int);
+long entry1(long);
+long entry2(long);
+long entry3(long);
 
-asm int foo(int x)
+asm long foo(long x)
 {
     addi x,x,45
   entry entry1

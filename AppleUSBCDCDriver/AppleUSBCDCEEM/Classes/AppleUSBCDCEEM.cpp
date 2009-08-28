@@ -314,9 +314,9 @@ void AppleUSBCDCEEM::dumpData(char *buf, SInt32 size)
 //		Method:		AppleUSBCDCEEM::dataReadComplete
 //
 //		Inputs:		obj - me
-//				param - pool index
-//				rc - return code
-//				remaining - what's left
+//					param - pool index
+//					rc - return code
+//					remaining - what's left
 //
 //		Outputs:	
 //
@@ -328,13 +328,14 @@ void AppleUSBCDCEEM::dataReadComplete(void *obj, void *param, IOReturn rc, UInt3
 {
     AppleUSBCDCEEM	*me = (AppleUSBCDCEEM*)obj;
     IOReturn		ior;
-    UInt32			poolIndx = (UInt32)param;
+	pipeInBuffers	*pipeBuf = (pipeInBuffers *)param;
+//    UInt32			poolIndx = (UInt32)param;
 	UInt16			EEMHeader;
 	UInt16			*EEMHeaderAddress = &EEMHeader;
 	SInt16			actualLen, dataLen, i = 0;
 	bool			done = false;
     
-    XTRACE(me, 0, poolIndx, "dataReadComplete");
+    XTRACE(me, 0, pipeBuf->indx, "dataReadComplete");
 
     if (rc == kIOReturnSuccess)
     {	
@@ -343,22 +344,22 @@ void AppleUSBCDCEEM::dataReadComplete(void *obj, void *param, IOReturn rc, UInt3
 		
 		while (!done)
 		{
-			EEMHeaderAddress[0] = me->fPipeInBuff[poolIndx].pipeInBuffer[i];
-			EEMHeaderAddress[1] = me->fPipeInBuff[poolIndx].pipeInBuffer[i+1];
+			EEMHeaderAddress[0] = pipeBuf->pipeInBuffer[i];
+			EEMHeaderAddress[1] = pipeBuf->pipeInBuffer[i+1];
 		
 			if (EEMHeader & bmTypeCommand)
 			{
 		
 					// Look at the command
 				
-				me->processEEMCommand(EEMHeader, poolIndx, i+2, &actualLen);
+				me->processEEMCommand(EEMHeader, pipeBuf->indx, i+2, &actualLen);
 			} else {
 				actualLen = EEMHeader & frameLenMask;
-				meLogData(kDataIn, actualLen+2, &me->fPipeInBuff[poolIndx].pipeInBuffer[i]);
+				meLogData(kDataIn, actualLen+2, &pipeBuf->pipeInBuffer[i]);
 				
 					// Move the incoming bytes up the stack
 
-				me->receivePacket(&me->fPipeInBuff[poolIndx].pipeInBuffer[i+2], actualLen);
+				me->receivePacket(&pipeBuf->pipeInBuffer[i+2], actualLen);
 			}
 			i += actualLen;
 			if (i >= dataLen)
@@ -382,15 +383,15 @@ void AppleUSBCDCEEM::dataReadComplete(void *obj, void *param, IOReturn rc, UInt3
 	
     if (rc != kIOReturnAborted)
     {
-        ior = me->fInPipe->Read(me->fPipeInBuff[poolIndx].pipeInMDP, &me->fPipeInBuff[poolIndx].readCompletionInfo, NULL);
+        ior = me->fInPipe->Read(pipeBuf->pipeInMDP, &pipeBuf->readCompletionInfo, NULL);
         if (ior != kIOReturnSuccess)
         {
             XTRACE(me, 0, ior, "dataReadComplete - Failed to queue read");
-            me->fPipeInBuff[poolIndx].dead = true;
+            pipeBuf->dead = true;
         }
     } else {
         XTRACE(me, poolIndx, 0, "dataReadComplete - Read terminated");
-        me->fPipeInBuff[poolIndx].dead = true;
+        pipeBuf->dead = true;
     }
 
     return;
@@ -415,53 +416,53 @@ void AppleUSBCDCEEM::dataReadComplete(void *obj, void *param, IOReturn rc, UInt3
 void AppleUSBCDCEEM::dataWriteComplete(void *obj, void *param, IOReturn rc, UInt32 remaining)
 {
     AppleUSBCDCEEM	*me = (AppleUSBCDCEEM *)obj;
-    mbuf_t		m;
-    UInt32		pktLen = 0;
-    UInt32		numbufs = 0;
-    UInt32		poolIndx;
+    mbuf_t			m;
+    UInt32			pktLen = 0;
+    UInt32			numbufs = 0;
+	pipeOutBuffers	*pipeBuf = (pipeOutBuffers *)param;
+//    UInt32		poolIndx = (UInt32)param;
+	
+	XTRACE(me, rc, pipeBuf->indx, "dataWriteComplete");
 
-    poolIndx = (UInt32)param;
     if (me->fBufferPoolLock)
     {
         IOLockLock(me->fBufferPoolLock);
     }
     
     if (rc == kIOReturnSuccess)						// If operation returned ok
-    {	
-        XTRACE(me, rc, poolIndx, "dataWriteComplete");
-        
-        if (me->fPipeOutBuff[poolIndx].m != NULL)			// Null means zero length write or command
+    {
+        if (pipeBuf->m != NULL)						// Null means zero length write or command
         {
-            m = me->fPipeOutBuff[poolIndx].m;
+            m = pipeBuf->m;
             while (m)
 			{
 				pktLen += mbuf_len(m);
 				numbufs++;
 				m = mbuf_next(m);
 			}            
-            me->freePacket(me->fPipeOutBuff[poolIndx].m);		// Free the mbuf
-            me->fPipeOutBuff[poolIndx].m = NULL;
+            me->freePacket(pipeBuf->m);				// Free the mbuf
+            pipeBuf->m = NULL;
         
             if ((pktLen % me->fOutPacketSize) == 0)			// If it was a multiple of max packet size then we need to do a zero length write
             {
                 XTRACE(me, rc, pktLen, "dataWriteComplete - writing zero length packet");
-                me->fPipeOutBuff[poolIndx].pipeOutMDP->setLength(0);
-                me->fPipeOutBuff[poolIndx].writeCompletionInfo.parameter = (void *)poolIndx;
-                me->fOutPipe->Write(me->fPipeOutBuff[poolIndx].pipeOutMDP, &me->fPipeOutBuff[poolIndx].writeCompletionInfo);
+                pipeBuf->pipeOutMDP->setLength(0);
+                pipeBuf->writeCompletionInfo.parameter = (void *)pipeBuf;
+                me->fOutPipe->Write(pipeBuf->pipeOutMDP, &pipeBuf->writeCompletionInfo);
             } else {
-                me->fPipeOutBuff[poolIndx].avail = true;
+                pipeBuf->avail = true;
             }
         } else {
-            me->fPipeOutBuff[poolIndx].avail = true;			// Make the buffer available again
+            pipeBuf->avail = true;					// Make the buffer available again
         }
     } else {
-        XTRACE(me, rc, poolIndx, "dataWriteComplete - IO err");
+        XTRACE(me, rc, pipeBuf->indx, "dataWriteComplete - IO err");
 
-        if (me->fPipeOutBuff[poolIndx].m != NULL)
+        if (pipeBuf->m != NULL)
         {
-            me->freePacket(me->fPipeOutBuff[poolIndx].m);		// Free the mbuf anyway
-            me->fPipeOutBuff[poolIndx].m = NULL;
-            me->fPipeOutBuff[poolIndx].avail = true;
+            me->freePacket(pipeBuf->m);				// Free the mbuf anyway
+            pipeBuf->m = NULL;
+            pipeBuf->avail = true;
         }
         if (rc != kIOReturnAborted)
         {
@@ -547,6 +548,7 @@ bool AppleUSBCDCEEM::init(OSDictionary *properties)
         fPipeOutBuff[i].writeCompletionInfo.target = NULL;
         fPipeOutBuff[i].writeCompletionInfo.action = NULL;
         fPipeOutBuff[i].writeCompletionInfo.parameter = NULL;
+		fPipeOutBuff[i].indx = i;
     }
     fOutPoolIndex = 0;
     
@@ -558,6 +560,7 @@ bool AppleUSBCDCEEM::init(OSDictionary *properties)
         fPipeInBuff[i].readCompletionInfo.target = NULL;
         fPipeInBuff[i].readCompletionInfo.action = NULL;
         fPipeInBuff[i].readCompletionInfo.parameter = NULL;
+		fPipeInBuff[i].indx = i;
     }
 
     return true;
@@ -1468,7 +1471,7 @@ bool AppleUSBCDCEEM::wakeUp()
     {
         if (fPipeInBuff[i].pipeInMDP)
         {
-            fPipeInBuff[i].readCompletionInfo.parameter = (void *)i;
+            fPipeInBuff[i].readCompletionInfo.parameter = (void *)&fPipeInBuff[i];
             rtn = fInPipe->Read(fPipeInBuff[i].pipeInMDP, &fPipeInBuff[i].readCompletionInfo, NULL);
             if (rtn == kIOReturnSuccess)
             {
@@ -1856,7 +1859,7 @@ IOReturn AppleUSBCDCEEM::USBTransmitPacket(mbuf_t packet)
     LogData(kDataOut, rTotal, fPipeOutBuff[indx].pipeOutBuffer);
 	
     fPipeOutBuff[indx].m = packet;
-    fPipeOutBuff[indx].writeCompletionInfo.parameter = (void *)indx;
+    fPipeOutBuff[indx].writeCompletionInfo.parameter = (void *)&fPipeOutBuff[indx];
     fPipeOutBuff[indx].pipeOutMDP->setLength(rTotal);
     ior = fOutPipe->Write(fPipeOutBuff[indx].pipeOutMDP, &fPipeOutBuff[indx].writeCompletionInfo);
     if (ior != kIOReturnSuccess)
@@ -2170,6 +2173,7 @@ IOReturn AppleUSBCDCEEM::message(UInt32 type, IOService *provider, void *argumen
             {
                 if (!fTerminate)		// Check if we're already being terminated
                 { 
+#if 0
 		    // NOTE! This call below depends on the hard coded path of this KEXT. Make sure
 		    // that if the KEXT moves, this path is changed!
 		    KUNCUserNotificationDisplayNotice(
@@ -2181,6 +2185,7 @@ IOReturn AppleUSBCDCEEM::message(UInt32 type, IOService *provider, void *argumen
 			"Unplug Header",		// the header
 			"Unplug Notice",		// the notice - look in Localizable.strings
 			"OK"); 
+#endif
                 }
             }
             

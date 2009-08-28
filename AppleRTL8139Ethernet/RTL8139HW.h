@@ -103,14 +103,17 @@
 		RTL_IDR4            = 0x04,   // ID reg 4, four byte access only
 		RTL_MAR0            = 0x08,   // multicast reg 0, 4 byte access
 		RTL_MAR4            = 0x0c,   // multicast reg 4
+
 		RTL_TSD0            = 0x10,   // Tx status of descriptor 0
 		RTL_TSD1            = 0x14,   // Tx status of descriptor 1
 		RTL_TSD2            = 0x18,   // Tx status of descriptor 2
 		RTL_TSD3            = 0x1c,   // Tx status of descriptor 3
+
 		RTL_TSAD0           = 0x20,   // Tx start address of descriptor 0
 		RTL_TSAD1           = 0x24,   // Tx start address of descriptor 1
 		RTL_TSAD2           = 0x28,   // Tx start address of descriptor 2
 		RTL_TSAD3           = 0x2c,   // Tx start address of descriptor 3
+
 		RTL_RBSTART         = 0x30,   // Rx buffer start address
 		RTL_ERBCR           = 0x34,   // early Rx byte count register
 		RTL_ERSR            = 0x36,   // early Rx status register
@@ -119,10 +122,12 @@
 		RTL_CBA             = 0x3a,   // Current Buffer Address
 		RTL_IMR             = 0x3c,   // Interrupt Mask Register
 		RTL_ISR             = 0x3e,   // Interrupt Status Register
+
 		RTL_TCR             = 0x40,   // Tx Configuration Register
 		RTL_RCR             = 0x44,   // Rx configuration register
 		RTL_TCTR            = 0x48,   // timer count register
 		RTL_MPC             = 0x4c,   // missed packet counter
+
 		RTL_9346CR          = 0x50,
 		RTL_CR9346          = 0x50,
 		RTL_CONFIG0         = 0x51,
@@ -133,11 +138,13 @@
 		RTL_Config4			= 0x5A,   // Configuration 4
 		RTL_MULINT          = 0x5c,   // multiple interrupt
 		RTL_8139ID          = 0x5e,   // 8139 ID = 0x10
+
 		RTL_TSAD            = 0x60,   // Tx Status of All Descriptors
 		RTL_BMC             = 0x62,
 		RTL_BMS             = 0x64,		// Basic Mode Status
 		RTL_ANAR			= 0x66,		// AutoNegotiation Advertisement Register
 		RTL_ANLP			= 0x68,		// AutoNegotiation Link Partner Ability Reg
+
 		RTL_70              = 0x70,
 		RTL_74              = 0x74,
 		RTL_78              = 0x78,
@@ -278,7 +285,6 @@
 	enum
 	{
 		R_CM_BUFE       = SIZE8_BIT0,     // buf empty 
-		R_CM_EMPTY      = SIZE8_BIT0,     // buf empty 
 		R_CM_TE         = SIZE8_BIT2,     // Tx enable 
 		R_CM_RE         = SIZE8_BIT3,     // Rx enable 
 		R_CM_RST        = SIZE8_BIT4      // reset 

@@ -32,14 +32,12 @@
 .\"     @(#)getmntinfo.3	8.1 (Berkeley) 6/9/93
 .\" $FreeBSD: src/lib/libc/gen/getmntinfo.3,v 1.12 2002/12/19 09:40:21 ru Exp $
 .\"
-.Dd June 9, 1993
+.Dd May 15, 2008
 .Dt GETMNTINFO 3
 .Os
 .Sh NAME
 .Nm getmntinfo
 .Nd get information about mounted file systems
-.Sh LIBRARY
-.Lb libc
 .Sh SYNOPSIS
 .In sys/param.h
 .In sys/ucred.h
@@ -47,8 +45,10 @@
 .Ft int
 .Fn getmntinfo "struct statfs **mntbufp" "int flags"
 #ifdef UNIFDEF_LEGACY_64_APIS
+.Sh TRANSITIIONAL SYNOPSIS (NOW DEPRECATED)
 .Ft int
-.Fn getmntinfo64 "struct statfs64 **mntbufp" "int flags"
+.br
+.Fn getmntinfo64 "struct statfs64 **mntbufp" "int flags" ;
 #endif /* UNIFDEF_LEGACY_64_APIS */
 .Sh DESCRIPTION
 The
@@ -58,14 +58,6 @@ returns an array of
 .Ft statfs
 structures describing each currently mounted file system (see
 .Xr statfs 2 ) .
-#ifdef UNIFDEF_LEGACY_64_APIS
-Likewise, the
-.Fn getmntinfo64
-function
-returns an array of
-.Ft statfs64
-structures describing each currently mounted file system.
-#endif /* UNIFDEF_LEGACY_64_APIS */
 .Pp
 The
 .Fn getmntinfo
@@ -73,28 +65,38 @@ function
 passes its
 .Fa flags
 argument transparently to
-#ifdef UNIFDEF_LEGACY_64_APIS
-.Xr getfsstat 2 ,
-while the
-.Fn getmntinfo64
-function
-passes its
-.Fa flags
-argument transparently to
-.Fn getfsstat64 .
-#else /* !UNIFDEF_LEGACY_64_APIS */
 .Xr getfsstat 2 .
+#ifdef UNIFDEF_LEGACY_64_APIS
+.Pp
+Like
+.Xr getfsstat 2 ,
+when the macro
+.Dv _DARWIN_FEATURE_64_BIT_INODE
+is defined, the
+.Ft ino_t
+type will be 64-bits (force 64-bit inode mode by defining the
+.Dv _DARWIN_USE_64_BIT_INODE
+macro before including header files).
+This will cause the symbol variant of
+.Fn getmntinfo ,
+with the
+.Fa $INODE64
+suffixes, to be automatically linked in.
+In addition, the
+.Ft statfs
+structure will be the 64-bit inode version.
+If
+.Dv _DARWIN_USE_64_BIT_INODE
+is not defined, both
+.Fn getmntinfo
+and the
+.Ft statfs
+structure will refer to the 32-bit inode versions.
 #endif /* UNIFDEF_LEGACY_64_APIS */
 .Sh RETURN VALUES
 On successful completion,
 .Fn getmntinfo
-#ifdef UNIFDEF_LEGACY_64_APIS
-and
-.Fn getmntinfo64
-return a count of the number of elements in the array.
-#else /* !UNIFDEF_LEGACY_64_APIS */
 returns a count of the number of elements in the array.
-#endif /* UNIFDEF_LEGACY_64_APIS */
 The pointer to the array is stored into
 .Fa mntbufp .
 .Pp
@@ -105,26 +107,34 @@ Although the pointer
 .Fa mntbufp
 will be unmodified, any information previously returned by
 .Fn getmntinfo
-#ifdef UNIFDEF_LEGACY_64_APIS
-or
-.Fn getmntinfo64
-#endif /* UNIFDEF_LEGACY_64_APIS */
 will be lost.
 .Sh ERRORS
 The
 .Fn getmntinfo
-#ifdef UNIFDEF_LEGACY_64_APIS
-and
-.Fn getmntinfo64
-functions
-#else /* !UNIFDEF_LEGACY_64_APIS */
 function
-#endif /* UNIFDEF_LEGACY_64_APIS */
 may fail and set errno for any of the errors specified for the library
 routines
 .Xr getfsstat 2
 or
 .Xr malloc 3 .
+#ifdef UNIFDEF_LEGACY_64_APIS
+.Sh TRANSITIONAL DESCRIPTION (NOW DEPRECATED)
+The
+.Fn getmntinfo64
+routine is equivalent to its corresponding non-64-suffixed routine,
+when 64-bit inodes are in effect.
+It was added before there was support for the symbol variants, and so is
+now deprecated.
+Instead of using it, set the
+.Dv _DARWIN_USE_64_BIT_INODE
+macro before including header files to force 64-bit inode support.
+.Pp
+The
+.Ft statfs64
+structure used by this deprecated routine is the same as the
+.Ft statfs
+structure when 64-bit inodes are in effect.
+#endif /* UNIFDEF_LEGACY_64_APIS */
 .Sh SEE ALSO
 .Xr getfsstat 2 ,
 .Xr mount 2 ,
@@ -143,7 +153,7 @@ and
 .Fn getmntinfo64
 functions write the array of structures to an internal static object
 #else /* !UNIFDEF_LEGACY_64_APIS */
-function write the array of structures to an internal static object
+function writes the array of structures to an internal static object
 #endif /* UNIFDEF_LEGACY_64_APIS */
 and returns
 a pointer to that object.

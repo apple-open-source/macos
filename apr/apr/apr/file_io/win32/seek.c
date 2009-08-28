@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-#include "win32/apr_arch_file_io.h"
+#include "apr_arch_file_io.h"
 #include "apr_file_io.h"
 #include <errno.h>
 #include <string.h>
 
 static apr_status_t setptr(apr_file_t *thefile, apr_off_t pos )
 {
-    apr_size_t newbufpos;
+    apr_off_t newbufpos;
     apr_status_t rv;
     DWORD rc;
 
@@ -37,10 +37,9 @@ static apr_status_t setptr(apr_file_t *thefile, apr_off_t pos )
     /* We may be truncating to size here. 
      * XXX: testing an 'unsigned' as >= 0 below indicates a bug
      */
-    newbufpos = (apr_size_t)(pos - (thefile->filePtr 
-                                  - thefile->dataRead));
+    newbufpos = pos - (thefile->filePtr - thefile->dataRead);
 
-    if (newbufpos >= 0 && newbufpos <= thefile->dataRead) {
+    if (newbufpos >= 0 && newbufpos <= (apr_off_t)thefile->dataRead) {
         thefile->bufpos = (apr_size_t)newbufpos;
         rv = APR_SUCCESS;
     } else {

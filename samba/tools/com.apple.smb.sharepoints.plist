@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>LaunchOnlyOnce</key>
+	<true/>
+	<key>EnableTransactions</key>
+	<true/>
+	<key>Disabled</key>
+	<false/>
+	<key>KeepAlive</key>
+	<dict>
+		<key>PathState</key>
+		<dict>
+			<key>/var/db/.com.apple.smb.sharepoints</key>
+			<false/>
+		</dict>
+	</dict>
+	<key>Label</key>
+	<string>com.apple.smb.sharepoints</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/libexec/samba/smb-sharepoints</string>
+	</array>
+</dict>
+</plist>

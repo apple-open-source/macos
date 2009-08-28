@@ -153,21 +153,23 @@ bool filter_apply_chain (struct filter * chain)
 
 	if (pid == 0) {
 		/* child */
+
+        /* We need stdin (the FILE* stdin) to connect to this new pipe.
+         * There is no portable way to set stdin to a new file descriptor,
+         * as stdin is not an lvalue on some systems (BSD).
+         * So we dup the new pipe onto the stdin descriptor and use a no-op fseek
+         * to sync the stream. This is a Hail Mary situation. It seems to work.
+         */
 		close (pipes[1]);
 		clearerr(stdin);
-		if (dup2 (pipes[0], 0) == -1)
+		if (dup2 (pipes[0], fileno (stdin)) == -1)
 			flexfatal (_("dup2(pipes[0],0)"));
 		close (pipes[0]);
+        fseek (stdin, 0, SEEK_CUR);
 
 		/* run as a filter, either internally or by exec */
 		if (chain->filter_func) {
 			int     r;
-
-			/* setup streams again */
-			if ( ! fdopen (0, "r"))
-				flexfatal (_("fdopen(0) failed"));
-			if (!fdopen (1, "w"))
-				flexfatal (_("fdopen(1) failed"));
 
 			if ((r = chain->filter_func (chain)) == -1)
 				flexfatal (_("filter_func failed"));
@@ -184,11 +186,10 @@ bool filter_apply_chain (struct filter * chain)
 
 	/* Parent */
 	close (pipes[0]);
-	if (dup2 (pipes[1], 1) == -1)
+	if (dup2 (pipes[1], fileno (stdout)) == -1)
 		flexfatal (_("dup2(pipes[1],1)"));
 	close (pipes[1]);
-	if ( !fdopen (1, "w"))
-		flexfatal (_("fdopen(1) failed"));
+    fseek (stdout, 0, SEEK_CUR);
 
 	return true;
 }
@@ -258,6 +259,7 @@ int filter_tee_header (struct filter *chain)
 		fputs ("m4_changecom`'m4_dnl\n", to_h);
 		fputs ("m4_changequote`'m4_dnl\n", to_h);
 		fputs ("m4_changequote([[,]])[[]]m4_dnl\n", to_h);
+	    fputs ("m4_define([[M4_YY_NOOP]])[[]]m4_dnl\n", to_h);
 		fputs ("m4_define( [[M4_YY_IN_HEADER]],[[]])m4_dnl\n",
 		       to_h);
 		fprintf (to_h, "#ifndef %sHEADER_H\n", prefix);
@@ -273,6 +275,7 @@ int filter_tee_header (struct filter *chain)
 	fputs ("m4_changecom`'m4_dnl\n", to_c);
 	fputs ("m4_changequote`'m4_dnl\n", to_c);
 	fputs ("m4_changequote([[,]])[[]]m4_dnl\n", to_c);
+	fputs ("m4_define([[M4_YY_NOOP]])[[]]m4_dnl\n", to_c);
 	fprintf (to_c, "m4_define( [[M4_YY_OUTFILE_NAME]],[[%s]])m4_dnl\n",
 		 outfilename ? outfilename : "<stdout>");
 
@@ -352,24 +355,43 @@ int filter_fix_linedirs (struct filter *chain)
 			num = regmatch_strtol (&m[1], buf, NULL, 0);
 			fname = regmatch_dup (&m[2], buf);
 
-			if (strcmp
-			    (fname, outfilename ? outfilename : "<stdout>")
-			    == 0
-			    || strcmp (fname,
-				       headerfilename ? headerfilename :
-				       "<stdout>") == 0) {
+			if (strcmp (fname,
+				outfilename ? outfilename : "<stdout>")
+					== 0
+			 || strcmp (fname,
+			 	headerfilename ? headerfilename : "<stdout>")
+					== 0) {
+
+				char    *s1, *s2;
+				char	filename[MAXLINE];
+
+				s1 = fname;
+				s2 = filename;
+
+				while ((s2 - filename) < (MAXLINE - 1) && *s1) {
+					/* Escape the backslash */
+					if (*s1 == '\\')
+						*s2++ = '\\';
+					/* Escape the double quote */
+					if (*s1 == '\"')
+						*s2++ = '\\';
+					/* Copy the character as usual */
+					*s2++ = *s1++;
+				}
+
+				*s2 = '\0';
+
 				/* Adjust the line directives. */
 				in_gen = true;
-				sprintf (buf, "#line %d \"%s\"\n",
-					 lineno + 1, fname);
-				free (fname);
-
+				snprintf (buf, readsz, "#line %d \"%s\"\n",
+					  lineno + 1, filename);
 			}
 			else {
 				/* it's a #line directive for code we didn't write */
 				in_gen = false;
 			}
 
+			free (fname);
 			last_was_blank = false;
 		}
 

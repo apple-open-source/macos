@@ -1,0 +1,108 @@
+#!../../xotcl-0.9.4/xotclsh
+# $Id: xocomm.test,v 1.4 2005/09/09 21:09:01 neumann Exp $
+package require XOTcl; namespace import -force xotcl::*
+lappend auto_path [file dirname [info script]]/..
+package require xotcl::test
+
+@ @File {
+  description {
+    This is a webclient used as a regression test. 
+    When it is started it launches an xotcl-Web server as partner process.
+    It tests currently the basic functionality of:
+    <ul>
+    <li>GET and PUT requests
+    <li>Basic Access Control
+    </ul>
+  }
+}
+array set opt {-startServer 1}
+array set opt $argv
+
+set xotclsh [info nameofexecutable]
+set dir [file dir [info script]]
+set serverScript $dir/../apps/comm/webserver.xotcl
+set startCmd "$xotclsh $serverScript -root $dir/../doc -pkgdir $dir/.."
+puts $startCmd
+if {$opt(-startServer)} {
+  set PIPE [open "| $startCmd"]
+} else {
+  puts $startCmd
+}
+
+package require xotcl::comm::httpAccess
+package require xotcl::comm::ftp
+package require xotcl::trace
+
+#::xotcl::package verbose 1
+#::xotcl::package require xotcl::comm::httpAccess
+#::xotcl::package require xotcl::comm::ftp
+#::xotcl::package require xotcl::trace
+
+set hostport localhost:8086
+set protectedhostport localhost:9096
+
+set slowURL "http://quote.yahoo.com/q?s=^DJI&d=1d"
+set ftpURL "ftp://mohegan.wi-inf.uni-essen.de/welcome.msg"
+
+
+proc printError msg {puts stderr !!!$msg!!!}
+
+Object userPwd
+userPwd proc user {u} {
+  my  set user $u
+  if {[set ::tcl_platform(platform)] == "windows"} {
+    my set user unknown
+  }
+}
+userPwd proc show {realm userVar pwVar} {
+  upvar $userVar u $pwVar pw
+  set u [my set user]
+  set pw test
+  return 1
+}       
+
+Test parameter {{errorReport {
+    puts "\tcontent-length: \[r0::sink set contentLength\]\n\
+          \tstatus-code: \[\[r0 set token\] set responseCode\]"
+}}}
+
+Test new -msg "Trying to load image logo-100.jpg ... " -count 1 \
+     -verbose 1 \
+     -pre "puts starting..." \
+    -setResult {expr {[r0::sink set contentLength] == 1706}} \
+    -cmd [list SimpleRequest r0 -url http://$hostport/logo-100.jpg] \
+
+Test new -msg "Trying to PUT a file on web-server ... " -count 1 \
+    -setResult {expr [[r0 set token] set responseCode] == 201} \
+    -pre [list file delete -force $dir/../doc/junk.junk] \
+    -cmd [list SimpleRequest r0 \
+	      -url http://$hostport/junk.junk \
+	      -method PUT \
+	      -data "this is a test\n" \
+	      -contentType plain/text]
+
+Test new -msg "And download it again ... " -count 1 \
+    -setResult {expr [r0 getContentLength] == 15} \
+    -post {file delete -force ../doc/junk.junk} \
+    -cmd [list SimpleRequest r0 -url http://$hostport/junk.junk]
+
+Test new -msg "Get protected resource ... " -count 1 \
+    -setResult {expr [r0 getContentLength] > 500} \
+    -cmd [list SimpleRequest r0 -url http://$protectedhostport/ ]
+
+#Test new -msg "Try an FTP request $ftpURL ... "  -count 1 \
+    -setResult {expr [r0 getContentLength] > 100} \
+    -cmd [list SimpleRequest r0 -url $ftpURL]
+
+#Test new -msg "Try timeout with slow URL $slowURL ... "  -count 1 \
+    -setResult {expr {[[r0 set token] set errormsg] == {timeout exceeded}}} \
+    -cmd [list SimpleRequest r0 -url $slowURL -timeout 100]
+
+Test new -msg terminate -count 1 \
+    -setResult {set x 1} \
+    -cmd [list SimpleRequest r0 -url http://$protectedhostport/exit] \
+    -post exit
+
+after 1000 {Test run}
+catch {vwait forever}
+

@@ -29,109 +29,107 @@
 
 struct drivestats_report
 {
-    char                        *next;
-    int				present;
-    int				avg_count;
-    int                         drivepath_id;
-    char			name[MAXDRIVENAME+1];
-    u_int64_t			blocksize;
+	char		*next;
+	int32_t		present;
+	int32_t		avg_count;
+	int32_t		drivepath_id;
+	char		name[MAXDRIVENAME+1];
+	uint64_t	blocksize;
     
-    u_int64_t			cur_Reads;
-    u_int64_t			prev_Reads;
-    u_int64_t			avg_Reads;
+	uint64_t	cur_Reads;
+	uint64_t	prev_Reads;
+	uint64_t	avg_Reads;
     
-    u_int64_t			cur_BytesRead;
-    u_int64_t			prev_BytesRead;
-    u_int64_t			avg_BytesRead;
+	uint64_t	cur_BytesRead;
+	uint64_t	prev_BytesRead;
+	uint64_t	avg_BytesRead;
 
-    u_int64_t			cur_Writes;
-    u_int64_t			prev_Writes;
-    u_int64_t			avg_Writes;
+	uint64_t	cur_Writes;
+	uint64_t	prev_Writes;
+	uint64_t	avg_Writes;
     
-    u_int64_t			cur_BytesWritten;
-    u_int64_t			prev_BytesWritten;
-    u_int64_t			avg_BytesWritten;
+	uint64_t	cur_BytesWritten;
+	uint64_t	prev_BytesWritten;
+	uint64_t	avg_BytesWritten;
     
-    u_int64_t			cur_LatentReadTime;
-    u_int64_t			prev_LatentReadTime;
-    u_int64_t			avg_LatentReadTime;
+	uint64_t	cur_LatentReadTime;
+	uint64_t	prev_LatentReadTime;
+	uint64_t	avg_LatentReadTime;
     
-    u_int64_t			cur_LatentWriteTime;
-    u_int64_t			prev_LatentWriteTime;
-    u_int64_t			avg_LatentWriteTime;
+	uint64_t	cur_LatentWriteTime;
+	uint64_t	prev_LatentWriteTime;
+	uint64_t	avg_LatentWriteTime;
     
-    u_int64_t			cur_ReadErrors;
-    u_int64_t			prev_ReadErrors;
-    u_int64_t			avg_ReadErrors;
+	uint64_t	cur_ReadErrors;
+	uint64_t	prev_ReadErrors;
+	uint64_t	avg_ReadErrors;
     
-    u_int64_t			cur_WriteErrors;
-    u_int64_t			prev_WriteErrors;
-    u_int64_t			avg_WriteErrors;
+	uint64_t	cur_WriteErrors;
+	uint64_t	prev_WriteErrors;
+	uint64_t	avg_WriteErrors;
     
-    u_int64_t			cur_ReadRetries;
-    u_int64_t			prev_ReadRetries;
-    u_int64_t			avg_ReadRetries;
+	uint64_t	cur_ReadRetries;
+	uint64_t	prev_ReadRetries;
+	uint64_t	avg_ReadRetries;
     
-    u_int64_t			cur_WriteRetries;
-    u_int64_t			prev_WriteRetries;
-    u_int64_t			avg_WriteRetries;    
+	uint64_t	cur_WriteRetries;
+	uint64_t	prev_WriteRetries;
+	uint64_t	avg_WriteRetries;    
 
-    u_int64_t			cur_TotalReadTime;
-    u_int64_t			prev_TotalReadTime;
-    u_int64_t			avg_TotalReadTime;
+	uint64_t	cur_TotalReadTime;
+	uint64_t	prev_TotalReadTime;
+	uint64_t	avg_TotalReadTime;
     
-    u_int64_t			cur_TotalWriteTime;
-    u_int64_t			prev_TotalWriteTime;
-    u_int64_t			avg_TotalWriteTime;    
+	uint64_t	cur_TotalWriteTime;
+	uint64_t	prev_TotalWriteTime;
+	uint64_t	avg_TotalWriteTime;    
 };
 
 struct netstats_report
 {
-    int                     valid;
-    int		            present;
-    int                     avg_count;
-    unsigned long           gen_counter;
-    char                    tname_unit[MAX_TNAME_UNIT_SIZE +1 ];
+	int32_t		valid;
+	int32_t		present;
+	int32_t		avg_count;
+	uint32_t	gen_counter;
+	char		tname_unit[MAX_TNAME_UNIT_SIZE +1 ];
 
-    unsigned long long      cur_ipackets;
-    unsigned long long      prev_ipackets;
-    unsigned long long      avg_ipackets;
+	uint64_t	cur_ipackets;
+	uint64_t	prev_ipackets;
+	uint64_t	avg_ipackets;
     
-    unsigned long long      cur_ierrors;
-    unsigned long long      prev_ierrors;
-    unsigned long long      avg_ierrors;    
+	uint64_t	cur_ierrors;
+	uint64_t	prev_ierrors;
+	uint64_t	avg_ierrors;    
     
-    unsigned long long      cur_opackets;
-    unsigned long long      prev_opackets;
-    unsigned long long      avg_opackets;
+	uint64_t	cur_opackets;
+	uint64_t	prev_opackets;
+	uint64_t	avg_opackets;
 
-    unsigned long long      cur_oerrors;
-    unsigned long long      prev_oerrors;
-    unsigned long long      avg_oerrors;    
+	uint64_t	cur_oerrors;
+	uint64_t	prev_oerrors;
+	uint64_t	avg_oerrors;    
     
-    unsigned long long      cur_collisions;
-    unsigned long long      prev_collisions;
-    unsigned long long      avg_collisions;
+	uint64_t	cur_collisions;
+	uint64_t	prev_collisions;
+	uint64_t	avg_collisions;
 
-    unsigned long long      cur_ibytes;
-    unsigned long long      prev_ibytes;
-    unsigned long long      avg_ibytes;
+	uint64_t	cur_ibytes;
+	uint64_t	prev_ibytes;
+	uint64_t	avg_ibytes;
     
-    unsigned long long      cur_obytes;
-    unsigned long long      prev_obytes;
-    unsigned long long      avg_obytes;
+	uint64_t	cur_obytes;
+	uint64_t	prev_obytes;
+	uint64_t	avg_obytes;
     
-    unsigned long long      cur_imcasts;
-    unsigned long long      prev_imcasts;
-    unsigned long long      avg_imcasts;
+	uint64_t	cur_imcasts;
+	uint64_t	prev_imcasts;
+	uint64_t	avg_imcasts;
 
-    unsigned long long      cur_omcasts;
-    unsigned long long      prev_omcasts;
-    unsigned long long      avg_omcasts;
+	uint64_t	cur_omcasts;
+	uint64_t	prev_omcasts;
+	uint64_t	avg_omcasts;
 
-    unsigned long long      cur_drops;
-    unsigned long long      prev_drops;
-    unsigned long long      avg_drops;
-
-    
+	uint64_t	cur_drops;
+	uint64_t	prev_drops;
+	uint64_t	avg_drops;
 };

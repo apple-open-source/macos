@@ -1,10 +1,12 @@
 ##
 # Group Database
 # 
-# Note that this file is consulted when the system is running in single-user
-# mode.  At other times this information is handled by lookupd.  By default,
-# lookupd gets information from NetInfo, so this file will not be consulted
-# unless you have changed lookupd's configuration.
+# Note that this file is consulted directly only when the system is running
+# in single-user mode.  At other times this information is provided by
+# Open Directory.
+#
+# See the DirectoryService(8) man page for additional information about
+# Open Directory.
 ##
 nobody:*:-2:
 nogroup:*:-1:
@@ -22,11 +24,10 @@ owner:*:10:
 everyone:*:12:
 group:*:16:
 staff:*:20:root
-smmsp:*:25:
 _lp:*:26:
 _postfix:*:27:
 _postdrop:*:28:
-certusers:*:29:root,_jabber,_postfix,_cyrus,_calendar
+certusers:*:29:root,_jabber,_postfix,_cyrus,_calendar,_dovecot
 _keytabusers:*:30:_calendar,_jabber,_postfix
 utmp:*:45:
 authedusers:*:50:
@@ -74,3 +75,17 @@ _installer:*:96:
 _atsserver:*:97:
 _lpadmin:*:98:
 _unknown:*:99:
+_lpoperator:*:100:
+_softwareupdate:*:200:
+_coreaudiod:*:202:
+_screensaver:*:203:
+_developer:*:204:
+_locationd:*:205:
+_carddav:*:206:
+_detachedsig:*:207:
+_trustevaluationagent:*:208:
+_odchpass:*:209:
+_timezone:*:210:
+_lda:*:211:
+_cvms:*:212:
+_usbmuxd:*:213:

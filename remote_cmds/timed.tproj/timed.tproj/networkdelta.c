@@ -1,26 +1,3 @@
-/*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
 /*-
  * Copyright (c) 1985, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -54,18 +31,18 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__unused static char sccsid[] = "@(#)networkdelta.c	8.3 (Berkeley) 4/27/95";
-#endif /* not lint */
-
-#ifdef sgi
-#ident "$Revision: 1.2 $"
+#if 0
+static char sccsid[] = "@(#)networkdelta.c	8.1 (Berkeley) 6/6/93";
 #endif
+static const char rcsid[] =
+  "$FreeBSD: src/usr.sbin/timed/timed/networkdelta.c,v 1.5 2007/11/07 10:53:41 kevlo Exp $";
+#endif /* not lint */
+#include <sys/cdefs.h>
 
 #include "globals.h"
 
-static long median __P((double, float *, long *, long *, unsigned int));
+static long median(float, float *, long *, long *, unsigned int);
 
 /*
  * Compute a corrected date.
@@ -125,23 +102,15 @@ networkdelta()
 	if (numdelta == 1)
 		return 0;
 
-	/* get average of trusted values */
 	med /= numdelta;
-
+	eps = med - x[0];
 	if (trace)
 		fprintf(fd, "median of %d values starting at %ld is about ",
 			numdelta, med);
-	/* get median of all trusted values, using average as initial guess */
-	eps = med - x[0];
 	med = median(med, &eps, &x[0], xp+1, VALID_RANGE);
 
-	/* Compute the median of all good values.
-	 * Good values are those of all clocks, including untrusted clocks,
-	 * that are
-	 *	- trusted and somewhat close to the median of the
-	 *		trusted clocks
-	 *	- trusted or untrusted and very close to the median of the
-	 *		trusted clocks
+	/*
+	 * compute the median of all values near the good median
 	 */
 	hidelta = med + GOOD_RANGE;
 	lodelta = med - GOOD_RANGE;
@@ -173,8 +142,8 @@ networkdelta()
 	}
 
 	if (trace)
-		fprintf(fd, "median of %d values starting at %ld is ",
-		        xp-&x[0], med);
+		fprintf(fd, "median of %ld values starting at %ld is ",
+		        (intptr_t)xp-(intptr_t)&x[0], med);
 	return median(med, &eps, &x[0], xp, 1);
 }
 
@@ -184,14 +153,13 @@ networkdelta()
  *	in <<Numerical Recipes>>.
  */
 static long
-median(a0, eps_ptr, x, xlim, gnuf)
-	double a0;			/* initial guess for the median */
+median(a, eps_ptr, x, xlim, gnuf)
+	float a;			/* initial guess for the median */
 	float *eps_ptr;			/* spacing near the median */
 	long *x, *xlim;			/* the data */
 	unsigned int gnuf;		/* good enough estimate */
 {
 	long *xptr;
-	float a = a0;
 	float ap = LONG_MAX;		/* bounds on the median */
 	float am = -LONG_MAX;
 	float aa;
@@ -222,7 +190,7 @@ median(a0, eps_ptr, x, xlim, gnuf)
 			float xx = *xptr;
 
 			dum = xx - a;
-			if (dum != 0.0) {   /* avoid dividing by 0 */
+			if (dum != 0.0) {	/* avoid dividing by 0 */
 				if (dum > 0.0) {
 					npts++;
 					if (xx < xp)
@@ -242,8 +210,7 @@ median(a0, eps_ptr, x, xlim, gnuf)
 		if (ap-am < gnuf || sum == 0) {
 			if (trace)
 				fprintf(fd,
-					"%ld in %d passes;"
-					" early out balance=%d\n",
+			           "%ld in %d passes; early out balance=%d\n",
 				        (long)a, pass, npts);
 			return a;	/* guess was good enough */
 		}
@@ -252,13 +219,13 @@ median(a0, eps_ptr, x, xlim, gnuf)
 		if (npts >= 2) {	/* guess was too low */
 			am = a;
 			aa = xp + max(0.0, aa);
-			if (aa >= ap)
+			if (aa > ap)
 				aa = (a + ap)/2;
 
-		} else if (npts <= -2) {    /* guess was two high */
+		} else if (npts <= -2) {  /* guess was two high */
 			ap = a;
 			aa = xm + min(0.0, aa);
-			if (aa <= am)
+			if (aa < am)
 				aa = (a + am)/2;
 
 		} else {
@@ -267,8 +234,8 @@ median(a0, eps_ptr, x, xlim, gnuf)
 
 		if (a == aa) {
 			if (trace)
-				fprintf(fd, "%ld in %d passes;"
-					" force out balance=%d\n",
+				fprintf(fd,
+				  "%ld in %d passes; force out balance=%d\n",
 				        (long)a, pass, npts);
 			return a;
 		}
@@ -285,7 +252,7 @@ median(a0, eps_ptr, x, xlim, gnuf)
 		else
 			a = (xm+a)/2;
 
-	} else if (npts != 0) {		/* odd number of points */
+	} else 	if (npts != 0) {	/* odd number of points */
 		if (npts > 0)
 			a = xp;
 		else

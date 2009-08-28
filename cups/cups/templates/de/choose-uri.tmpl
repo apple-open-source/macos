@@ -1,31 +1,31 @@
+<DIV CLASS="indent">
+
+<H2 CLASS="title">{op=modify-printer?{printer_name} &auml;ndern:Drucker hinzuf&uuml;gen}</H2>
+
 <FORM METHOD="POST" ACTION="/admin">
 <INPUT TYPE="HIDDEN" NAME="OP" VALUE="{op}">
-<INPUT TYPE="HIDDEN" NAME="PRINTER_NAME" VALUE="{printer_name}">
-<INPUT TYPE="HIDDEN" NAME="PRINTER_LOCATION" VALUE="{?printer_location}">
-<INPUT TYPE="HIDDEN" NAME="PRINTER_INFO" VALUE="{?printer_info}">
+{printer_name?<INPUT TYPE="HIDDEN" NAME="printer_name" VALUE="{printer_name}">:}
 <INPUT TYPE="HIDDEN" NAME="CURRENT_MAKE_AND_MODEL" VALUE="{?current_make_and_model}">
-
-<H2 CLASS="title">Ger&auml;te URI f&uuml;r {printer_name}</H2>
 
 <TABLE>
 <TR>
-<TH CLASS="label">Ger&auml;te URI:</TH>
-<TD><INPUT TYPE="TEXT" SIZE="60" MAXLENGTH="1024" NAME="DEVICE_URI" VALUE="{device_uri}"></TD>
+<TH CLASS="label">Verbindung:</TH>
+<TD><INPUT TYPE="TEXT" SIZE="60" MAXLENGTH="1024" NAME="DEVICE_URI" VALUE="{current_device_uri?{current_device_uri}:{device_uri}}"></TD>
 </TR>
 <TR>
 <TD></TD>
 <TD>Beispiele:
 <PRE>
-    http://hostname:631/ipp/
-    http://hostname:631/ipp/port1
+    http://Hostname:631/ipp/
+    http://Hostname:631/ipp/Anschluss1
 
-    ipp://hostname/ipp/
-    ipp://hostname/ipp/port1
+    ipp://Hostname/ipp/
+    ipp://Hostname/ipp/Anschluss1
 
-    lpd://hostname/warteschlange
+    lpd://Hostname/Warteschlange
 
-    socket://hostname
-    socket://hostname:9100
+    socket://Hostname
+    socket://Hostname:9100
 </PRE>
 
 <P>Bitte lesen Sie <A HREF="/help/network.html" TARGET="_blank">"Netzwerk
@@ -35,8 +35,9 @@ Drucker"</A> um die korrekte URI f&uuml;r Ihren Drucker zu benutzen.</P>
 </TR>
 <TR>
 <TD></TD>
-<TD><INPUT TYPE="IMAGE" SRC="/images/button-continue.gif" ALT="Fortsetzen"></TD>
+<TD><INPUT TYPE="SUBMIT" VALUE="Weiter"></TD>
 </TR>
 </TABLE>
 
 </FORM>
+</DIV>

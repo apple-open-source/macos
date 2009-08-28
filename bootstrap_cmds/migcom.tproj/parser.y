@@ -1,16 +1,16 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+ *
+ * "Portions Copyright (c) 1999, 2008 Apple Inc.  All Rights
  * Reserved.  This file contains Original Code and/or Modifications of
  * Original Code as defined in and that are subject to the Apple Public
  * Source License Version 1.0 (the 'License').  You may not use this file
  * except in compliance with the License.  Please obtain a copy of the
  * License at http://www.apple.com/publicsource and read it before using
  * this file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -18,31 +18,31 @@
  * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
  * License for the specific language governing rights and limitations
  * under the License."
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
-/* 
+/*
  * Mach Operating System
  * Copyright (c) 1991,1990 Carnegie Mellon University
  * All Rights Reserved.
- * 
+ *
  * Permission to use, copy, modify and distribute this software and its
  * documentation is hereby granted, provided that both the copyright
  * notice and this permission notice appear in all copies of the
  * software, derivative works or modified versions, and any portions
  * thereof, and that both notices appear in supporting documentation.
- * 
- * CARNEGIE MELLON ALLOWS FREE USE OF THIS SOFTWARE IN ITS 
+ *
+ * CARNEGIE MELLON ALLOWS FREE USE OF THIS SOFTWARE IN ITS
  * CONDITION.  CARNEGIE MELLON DISCLAIMS ANY LIABILITY OF ANY KIND FOR
  * ANY DAMAGES WHATSOEVER RESULTING FROM THE USE OF THIS SOFTWARE.
- * 
+ *
  * Carnegie Mellon requests users of this software to return to
- * 
+ *
  *  Software Distribution Coordinator  or  Software.Distribution@CS.CMU.EDU
  *  School of Computer Science
  *  Carnegie Mellon University
  *  Pittsburgh PA 15213-3890
- * 
+ *
  * any improvements or extensions that they make and grant Carnegie the
  * rights to redistribute these changes.
  */
@@ -106,6 +106,7 @@
 %token	syAuditToken
 %token	syUserAuditToken
 %token	syServerAuditToken
+%token	syServerContextToken
 
 %token	syColon
 %token	sySemi
@@ -166,7 +167,7 @@ extern int yylex(void);
 
 /* forward declaration */
 void yyerror(char *s);
-  
+
 %}
 
 %union
@@ -178,11 +179,11 @@ void yyerror(char *s);
     ipc_type_t *type;
     struct
     {
-	u_int innumber;		/* msgt_name value, when sending */
-	string_t instr;
-	u_int outnumber;	/* msgt_name value, when receiving */
-	string_t outstr;
-	u_int size;		/* 0 means there is no default size */
+      u_int innumber;		/* msgt_name value, when sending */
+      string_t instr;
+      u_int outnumber;	/* msgt_name value, when receiving */
+      string_t outstr;
+      u_int size;		/* 0 means there is no default size */
     } symtype;
     routine_t *routine;
     arg_kind_t direction;
@@ -214,7 +215,7 @@ Statement		:	Subsystem sySemi
     st->stRoutine = $1;
     rtCheckRoutine($1);
     if (BeVerbose)
-	rtPrintRoutine($1);
+      rtPrintRoutine($1);
 }
 			|	sySkip sySemi
 				{ rtSkip(); }
@@ -228,24 +229,22 @@ Statement		:	Subsystem sySemi
 Subsystem		:	SubsystemStart SubsystemMods
 				SubsystemName SubsystemBase
 {
-    if (BeVerbose)
-    {
-	printf("Subsystem %s: base = %u%s%s\n\n",
-	       SubsystemName, SubsystemBase,
-	       IsKernelUser ? ", KernelUser" : "",
-	       IsKernelServer ? ", KernelServer" : "");
-    }
+  if (BeVerbose) {
+    printf("Subsystem %s: base = %u%s%s\n\n",
+    SubsystemName, SubsystemBase,
+    IsKernelUser ? ", KernelUser" : "",
+    IsKernelServer ? ", KernelServer" : "");
+  }
 }
 			;
 
 SubsystemStart		:	sySubsystem
 {
-    if (SubsystemName != strNULL)
-    {
-	warn("previous Subsystem decl (of %s) will be ignored", SubsystemName);
-	IsKernelUser = FALSE;
-	IsKernelServer = FALSE;
-	strfree(SubsystemName);
+    if (SubsystemName != strNULL) {
+      warn("previous Subsystem decl (of %s) will be ignored", SubsystemName);
+      IsKernelUser = FALSE;
+      IsKernelServer = FALSE;
+      strfree(SubsystemName);
     }
 }
 			;
@@ -257,18 +256,17 @@ SubsystemMods		:	/* empty */
 SubsystemMod		:	syKernelUser
 {
     if (IsKernelUser)
-	warn("duplicate KernelUser keyword");
-    if (!UseMsgRPC) 
-    {
-	warn("with KernelUser the -R option is meaningless");
-	UseMsgRPC = TRUE;
+      warn("duplicate KernelUser keyword");
+    if (!UseMsgRPC) {
+      warn("with KernelUser the -R option is meaningless");
+      UseMsgRPC = TRUE;
     }
     IsKernelUser = TRUE;
 }
 			|	syKernelServer
 {
     if (IsKernelServer)
-	warn("duplicate KernelServer keyword");
+      warn("duplicate KernelServer keyword");
     IsKernelServer = TRUE;
 }
 			;
@@ -281,39 +279,37 @@ SubsystemBase		:	syNumber	{ SubsystemBase = $1; }
 
 MsgOption		:	LookString syMsgOption syString
 {
-    if (streql($3, "MACH_MSG_OPTION_NONE"))
-    {
-	MsgOption = strNULL;
-	if (BeVerbose)
-	    printf("MsgOption: canceled\n\n");
+    if (streql($3, "MACH_MSG_OPTION_NONE")) {
+      MsgOption = strNULL;
+      if (BeVerbose)
+          printf("MsgOption: canceled\n\n");
     }
-    else
-    {
-	MsgOption = $3;
-	if (BeVerbose)
-	    printf("MsgOption %s\n\n",$3);
+    else {
+      MsgOption = $3;
+      if (BeVerbose)
+          printf("MsgOption %s\n\n",$3);
     }
 }
 			;
 
-UserTypeLimit           :       syUserTypeLimit syNumber 
+UserTypeLimit           :       syUserTypeLimit syNumber
 				{UserTypeLimit = $2; }
-                        ;            
-OnStackLimit            :       syOnStackLimit syNumber 
+                        ;
+OnStackLimit            :       syOnStackLimit syNumber
 				{MaxMessSizeOnStack = $2; }
-                        ;            
+                        ;
 
 WaitTime		:	LookString syWaitTime syString
 {
     WaitTime = $3;
     if (BeVerbose)
-	printf("WaitTime %s\n\n", WaitTime);
+      printf("WaitTime %s\n\n", WaitTime);
 }
 			|	syNoWaitTime
 {
     WaitTime = strNULL;
     if (BeVerbose)
-	printf("NoWaitTime\n\n");
+      printf("NoWaitTime\n\n");
 }
 			;
 
@@ -321,7 +317,7 @@ Error			:	syErrorProc syIdentifier
 {
     ErrorProc = $2;
     if (BeVerbose)
-	printf("ErrorProc %s\n\n", ErrorProc);
+      printf("ErrorProc %s\n\n", ErrorProc);
 }
 			;
 
@@ -329,7 +325,7 @@ ServerPrefix		:	syServerPrefix syIdentifier
 {
     ServerPrefix = $2;
     if (BeVerbose)
-	printf("ServerPrefix %s\n\n", ServerPrefix);
+      printf("ServerPrefix %s\n\n", ServerPrefix);
 }
 			;
 
@@ -337,7 +333,7 @@ UserPrefix		:	syUserPrefix syIdentifier
 {
     UserPrefix = $2;
     if (BeVerbose)
-	printf("UserPrefix %s\n\n", UserPrefix);
+      printf("UserPrefix %s\n\n", UserPrefix);
 }
 			;
 
@@ -345,7 +341,7 @@ ServerDemux		:	syServerDemux syIdentifier
 {
     ServerDemux = $2;
     if (BeVerbose)
-	printf("ServerDemux %s\n\n", ServerDemux);
+      printf("ServerDemux %s\n\n", ServerDemux);
 }
 			;
 
@@ -356,7 +352,7 @@ Import			:	LookFileName ImportIndicant syFileName
     st->stFileName = $3;
 
     if (BeVerbose)
-	printf("%s %s\n\n", import_name($2), $3);
+      printf("%s %s\n\n", import_name($2), $3);
 }
 			;
 
@@ -370,9 +366,9 @@ ImportIndicant		:	syImport	{ $$ = skImport; }
 RCSDecl			:	LookQString syRCSId syQString
 {
     if (RCSId != strNULL)
-	warn("previous RCS decl will be ignored");
+      warn("previous RCS decl will be ignored");
     if (BeVerbose)
-	printf("RCSId %s\n\n", $3);
+      printf("RCSId %s\n\n", $3);
     RCSId = $3;
 }
 			;
@@ -382,7 +378,7 @@ TypeDecl		:	syType NamedTypeSpec
     register identifier_t name = $2->itName;
 
     if (itLookUp(name) != itNULL)
-	warn("overriding previous definition of %s", name);
+      warn("overriding previous definition of %s", name);
     itInsert(name, $2);
 }
 			;
@@ -394,23 +390,20 @@ NamedTypeSpec		:	syIdentifier syEqual TransTypeSpec
 TransTypeSpec		:	TypeSpec
 				{ $$ = itResetType($1); }
 			|	TransTypeSpec syInTran syColon syIdentifier
-				syIdentifier syLParen syIdentifier syRParen 
+				syIdentifier syLParen syIdentifier syRParen
 {
     $$ = $1;
 
     if (($$->itTransType != strNULL) && !streql($$->itTransType, $4))
-	warn("conflicting translation types (%s, %s)",
-	     $$->itTransType, $4);
+      warn("conflicting translation types (%s, %s)", $$->itTransType, $4);
     $$->itTransType = $4;
 
     if (($$->itInTrans != strNULL) && !streql($$->itInTrans, $5))
-	warn("conflicting in-translation functions (%s, %s)",
-	     $$->itInTrans, $5);
+      warn("conflicting in-translation functions (%s, %s)", $$->itInTrans, $5);
     $$->itInTrans = $5;
 
     if (($$->itServerType != strNULL) && !streql($$->itServerType, $7))
-	warn("conflicting server types (%s, %s)",
-	     $$->itServerType, $7);
+      warn("conflicting server types (%s, %s)", $$->itServerType, $7);
     $$->itServerType = $7;
 }
 			|	TransTypeSpec syOutTran syColon syIdentifier
@@ -419,18 +412,15 @@ TransTypeSpec		:	TypeSpec
     $$ = $1;
 
     if (($$->itServerType != strNULL) && !streql($$->itServerType, $4))
-	warn("conflicting server types (%s, %s)",
-	     $$->itServerType, $4);
+      warn("conflicting server types (%s, %s)", $$->itServerType, $4);
     $$->itServerType = $4;
 
     if (($$->itOutTrans != strNULL) && !streql($$->itOutTrans, $5))
-	warn("conflicting out-translation functions (%s, %s)",
-	     $$->itOutTrans, $5);
+      warn("conflicting out-translation functions (%s, %s)", $$->itOutTrans, $5);
     $$->itOutTrans = $5;
 
     if (($$->itTransType != strNULL) && !streql($$->itTransType, $7))
-	warn("conflicting translation types (%s, %s)",
-	     $$->itTransType, $7);
+      warn("conflicting translation types (%s, %s)", $$->itTransType, $7);
     $$->itTransType = $7;
 }
 			|	TransTypeSpec syDestructor syColon syIdentifier
@@ -439,13 +429,11 @@ TransTypeSpec		:	TypeSpec
     $$ = $1;
 
     if (($$->itDestructor != strNULL) && !streql($$->itDestructor, $4))
-	warn("conflicting destructor functions (%s, %s)",
-	     $$->itDestructor, $4);
+      warn("conflicting destructor functions (%s, %s)", $$->itDestructor, $4);
     $$->itDestructor = $4;
 
     if (($$->itTransType != strNULL) && !streql($$->itTransType, $6))
-	warn("conflicting translation types (%s, %s)",
-	     $$->itTransType, $6);
+      warn("conflicting translation types (%s, %s)", $$->itTransType, $6);
     $$->itTransType = $6;
 }
 			|	TransTypeSpec syCType syColon syIdentifier
@@ -453,13 +441,11 @@ TransTypeSpec		:	TypeSpec
     $$ = $1;
 
     if (($$->itUserType != strNULL) && !streql($$->itUserType, $4))
-	warn("conflicting user types (%s, %s)",
-	     $$->itUserType, $4);
+      warn("conflicting user types (%s, %s)", $$->itUserType, $4);
     $$->itUserType = $4;
 
     if (($$->itServerType != strNULL) && !streql($$->itServerType, $4))
-	warn("conflicting server types (%s, %s)",
-	     $$->itServerType, $4);
+      warn("conflicting server types (%s, %s)", $$->itServerType, $4);
     $$->itServerType = $4;
 }
 			|	TransTypeSpec syCUserType syColon syIdentifier
@@ -467,8 +453,7 @@ TransTypeSpec		:	TypeSpec
     $$ = $1;
 
     if (($$->itUserType != strNULL) && !streql($$->itUserType, $4))
-	warn("conflicting user types (%s, %s)",
-	     $$->itUserType, $4);
+      warn("conflicting user types (%s, %s)", $$->itUserType, $4);
     $$->itUserType = $4;
 }
 			|	TransTypeSpec syCServerType
@@ -503,7 +488,7 @@ TypeSpec		:	BasicTypeSpec
 
 NativeTypeSpec          :       syPointerTo syLParen TypePhrase syRParen
                                 { $$ = itNativeType($3, TRUE, 0); }
-                        |       syPointerToIfNot syLParen TypePhrase syComma 
+                        |       syPointerToIfNot syLParen TypePhrase syComma
                                 TypePhrase syRParen
                                 { $$ = itNativeType($3, TRUE, $5); }
                         |       syValueOf syLParen TypePhrase syRParen
@@ -537,25 +522,23 @@ IPCType			:	PrimIPCType
 				{ $$ = $1; }
 			|	PrimIPCType syBar PrimIPCType
 {
-    if ($1.size != $3.size)
-    {
-	if ($1.size == 0)
-	    $$.size = $3.size;
-	else if ($3.size == 0)
-	    $$.size = $1.size;
-	else
-	{
-	    error("sizes in IPCTypes (%d, %d) aren't equal",
-		  $1.size, $3.size);
-	    $$.size = 0;
-	}
+  if ($1.size != $3.size) {
+    if ($1.size == 0)
+      $$.size = $3.size;
+    else if ($3.size == 0)
+      $$.size = $1.size;
+    else {
+      error("sizes in IPCTypes (%d, %d) aren't equal",
+      $1.size, $3.size);
+      $$.size = 0;
     }
-    else
-	$$.size = $1.size;
-    $$.innumber = $1.innumber;
-    $$.instr = $1.instr;
-    $$.outnumber = $3.outnumber;
-    $$.outstr = $3.outstr;
+  }
+  else
+    $$.size = $1.size;
+  $$.innumber = $1.innumber;
+  $$.instr = $1.instr;
+  $$.outnumber = $3.outnumber;
+  $$.outstr = $3.outstr;
 }
 			;
 
@@ -567,7 +550,7 @@ VarArrayHead		:	syArray syLBrack syRBrack syOf
 				{ $$ = 0; }
 			|	syArray syLBrack syStar syRBrack syOf
 				{ $$ = 0; }
-			|	syArray syLBrack syStar syColon IntExp 
+			|	syArray syLBrack syStar syColon IntExp
 				syRBrack syOf
 				{ $$ = $5; }
 			;
@@ -607,7 +590,7 @@ IntExp			: 	IntExp	syPlus	IntExp
 				{ $$ = $2;	}
 			;
 
- 
+
 RoutineDecl		:	Routine			{ $$ = $1; }
 			|	SimpleRoutine		{ $$ = $1; }
 			;
@@ -633,38 +616,37 @@ ArgumentList		:	Argument
 				{ $$ = $1; }
 			|	Argument sySemi ArgumentList
 {
-    $$ = $1;
-    $$->argNext = $3;
+  $$ = $1;
+  $$->argNext = $3;
 }
 			|       Trailer sySemi ArgumentList
 {
-    $$ = $1;
-    $$->argNext = $3;
+  $$ = $1;
+  $$->argNext = $3;
 }
 			;
 
 Argument		:	Direction syIdentifier ArgumentType IPCFlags
 {
-    $$ = argAlloc();
-    $$->argKind = $1;
-    $$->argName = $2;
-    $$->argType = $3;
-    $$->argFlags = $4;
-    if ($3 && $3->itNative)
-    {
-        if ($1 != akIn && $1 != akOut && $1 != akInOut)
-	    error("Illegal direction specified");
-       
-        if (!($3->itNativePointer) && $1 != akIn)
-	    error("ValueOf only valid for in");
+  $$ = argAlloc();
+  $$->argKind = $1;
+  $$->argName = $2;
+  $$->argType = $3;
+  $$->argFlags = $4;
+  if ($3 && $3->itNative) {
+      if ($1 != akIn && $1 != akOut && $1 != akInOut)
+        error("Illegal direction specified");
 
-        if (($3->itBadValue) != NULL && $1 != akIn)
-	    error("PointerToIfNot only valid for in");
-    }
+      if (!($3->itNativePointer) && $1 != akIn)
+        error("ValueOf only valid for in");
+
+      if (($3->itBadValue) != NULL && $1 != akIn)
+        error("PointerToIfNot only valid for in");
+  }
 }
 			;
 
-Trailer			:	TrImplKeyword syIdentifier ArgumentType	
+Trailer			:	TrImplKeyword syIdentifier ArgumentType
 {
     $$ = argAlloc();
     $$->argKind = $1;
@@ -685,27 +667,28 @@ Direction		:	/* empty */	{ $$ = akNone; }
 			|	syWaitTime	{ $$ = akWaitTime; }
 			|	sySendTime 	{ $$ = akSendTime; }
 			|	syMsgOption	{ $$ = akMsgOption; }
-			|	sySecToken		{ $$ = akSecToken; }	
-			|	syServerSecToken	{ $$ = akServerSecToken; }	
+			|	sySecToken		{ $$ = akSecToken; }
+			|	syServerSecToken	{ $$ = akServerSecToken; }
 			|	syUserSecToken		{ $$ = akUserSecToken; }
-			|	syAuditToken		{ $$ = akAuditToken; }	
-			|	syServerAuditToken	{ $$ = akServerAuditToken; }	
+			|	syAuditToken		{ $$ = akAuditToken; }
+			|	syServerAuditToken	{ $$ = akServerAuditToken; }
 			|	syUserAuditToken	{ $$ = akUserAuditToken; }
+			|	syServerContextToken	{ $$ = akServerContextToken; }
 			|	syMsgSeqno	{ $$ = akMsgSeqno; }
 			;
 
 
 
-TrImplKeyword		:	syServerImpl	{ $$ = akServerImpl; }	
+TrImplKeyword		:	syServerImpl	{ $$ = akServerImpl; }
 			|	syUserImpl	{ $$ = akUserImpl; }
 			;
 
 
 ArgumentType		:	syColon syIdentifier
 {
-    $$ = itLookUp($2);
-    if ($$ == itNULL)
-	error("type '%s' not defined", $2);
+  $$ = itLookUp($2);
+  if ($$ == itNULL)
+    error("type '%s' not defined", $2);
 }
 			|	syColon NamedTypeSpec
 				{ $$ = $2; }
@@ -717,17 +700,17 @@ IPCFlags		:	/* empty */
 				{ $$ = flNone; }
 			|	IPCFlags syComma syIPCFlag
 {
-    if ($1 & $3)
-	warn("redundant IPC flag ignored");
-    else
-	$$ = $1 | $3;
+  if ($1 & $3)
+    warn("redundant IPC flag ignored");
+  else
+    $$ = $1 | $3;
 }
 			|	IPCFlags syComma syIPCFlag syLBrack syRBrack
 {
-    if ($3 != flDealloc)
-	warn("only Dealloc is variable");
-    else
-	$$ = $1 | flMaybeDealloc;
+  if ($3 != flDealloc)
+    warn("only Dealloc is variable");
+  else
+    $$ = $1 | flMaybeDealloc;
 }
 
 LookString		:	/* empty */
@@ -745,31 +728,34 @@ LookQString		:	/* empty */
 %%
 
 void
-yyerror(s)
-    char *s;
+yyerror(char *s)
 {
-    error(s);
+  error(s);
 }
 
 static char *
-import_name(sk)
-    statement_kind_t sk;
+import_name(statement_kind_t sk)
 {
-    switch (sk)
-    {
-      case skImport:
-	return "Import";
-      case skSImport:
-	return "SImport";
-      case skUImport:
-	return "UImport";
-      case skIImport:
-	return "IImport";
-      case skDImport:
-	return "DImport";
-      default:
-	fatal("import_name(%d): not import statement", (int) sk);
-	/*NOTREACHED*/
-        return strNULL;
-    }
+  switch (sk) {
+
+    case skImport:
+      return "Import";
+
+    case skSImport:
+      return "SImport";
+
+    case skUImport:
+      return "UImport";
+
+    case skIImport:
+      return "IImport";
+
+    case skDImport:
+      return "DImport";
+
+    default:
+      fatal("import_name(%d): not import statement", (int) sk);
+      /*NOTREACHED*/
+      return strNULL;
+  }
 }

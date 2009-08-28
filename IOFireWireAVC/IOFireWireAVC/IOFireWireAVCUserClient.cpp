@@ -79,7 +79,7 @@ IOReturn IOFireWireAVCUserClient::externalMethod( uint32_t selector,
 			break;
 		
 		case kIOFWAVCUserClientOpenWithSessionRef:
-			result = openWithSessionRef((IOFireWireSessionRef) arguments->scalarInput[0],NULL,NULL,NULL,NULL,NULL);
+			result = openWithSessionRef((IOFireWireLib::UserObjectHandle) arguments->scalarInput[0],NULL,NULL,NULL,NULL,NULL);
 			break;
 		
 		case kIOFWAVCUserClientAVCCommandInGen:
@@ -333,7 +333,16 @@ IOReturn IOFireWireAVCUserClient::open
     {
         if( fUnit->open(this) )
 		{
-            fOpened = true;
+			IOFWUserObjectExporter * exporter = fUnit->getDevice()->getBus()->getSessionRefExporter();
+			status = exporter->addObject( this, NULL, &fSessionRef );		
+			if( status == kIOReturnSuccess )
+			{
+				fOpened = true;
+			}
+			else
+			{
+				fUnit->close(this);
+			}
 		}
 		else
             status = kIOReturnExclusiveAccess;
@@ -345,32 +354,41 @@ IOReturn IOFireWireAVCUserClient::open
 //////////////////////////////////////////////////////
 // IOFireWireAVCUserClient::openWithSessionRef
 //////////////////////////////////////////////////////
-IOReturn IOFireWireAVCUserClient::openWithSessionRef( IOFireWireSessionRef sessionRef, void *, void *, void *, void *, void * )
+IOReturn IOFireWireAVCUserClient::openWithSessionRef( IOFireWireLib::UserObjectHandle sessionRef, void *, void *, void *, void *, void * )
 {
 	FIRELOG_MSG(("IOFireWireAVCUserClient::openWithSessionRef (this=0x%08X)\n",this));
 
     IOReturn status = kIOReturnSuccess;
-	IOService * service;
-
+	IOService * service = NULL;
+	IOService * original_service = NULL;
+	
     if( fOpened || !fUnit->isOpen() )
         status = kIOReturnError;
 	
 	if( status == kIOReturnSuccess )
 	{
-		service = OSDynamicCast( IOService, (OSObject*)sessionRef );
-		if( service == NULL )
+		IOFWUserObjectExporter * exporter = fUnit->getDevice()->getBus()->getSessionRefExporter();
+		original_service = (IOService*) exporter->lookupObjectForType( sessionRef, OSTypeID(IOService) );
+		if( original_service == NULL )
 			status = kIOReturnBadArgument;
 	}
 	
 	if( status == kIOReturnSuccess )
 	{
 		// look for us in provider chain
+		service = original_service;
 		while( fUnit != service && service != NULL )
 			service = service->getProvider();
 		
 		// were we found	
 		if( service == NULL )
 			status = kIOReturnBadArgument;
+	}
+	
+	if( original_service )
+	{
+		original_service->release();
+		original_service = NULL;
 	}
 	
 	return status;
@@ -390,7 +408,7 @@ IOReturn IOFireWireAVCUserClient::getSessionRef( uint64_t * sessionRef, void *, 
 
     if( status == kIOReturnSuccess )
     {
-		*sessionRef = (uint64_t) this;
+		*sessionRef = (uint64_t) fSessionRef;
 	}
     
 	return status;
@@ -406,9 +424,13 @@ IOReturn IOFireWireAVCUserClient::close
     
     if( fOpened )
     {
-        fUnit->close(this);
+		IOFWUserObjectExporter * exporter = fUnit->getDevice()->getBus()->getSessionRefExporter();
+		exporter->removeObject( fSessionRef );	
+		fSessionRef = 0;
+
+		fUnit->close(this);
         fOpened = false;
-    }
+	}
 
     return kIOReturnSuccess;
 }
@@ -746,7 +768,11 @@ IOReturn IOFireWireAVCUserClient::message(UInt32 type, IOService *provider, void
 	
 	if( fStarted == true && type == kIOMessageServiceIsResumed ) {
         retain();	// Make sure we don't get deleted with the thread running
-        IOCreateThread(remakeConnections, this);
+		thread_t		thread;
+		if( kernel_thread_start((thread_continue_t)remakeConnections, this, &thread ) == KERN_SUCCESS )
+		{
+			thread_deallocate(thread);
+		}
     }
     
     return kIOReturnSuccess;
@@ -1046,7 +1072,7 @@ void IOFireWireAVCUserClient::HandleUCAsyncCommandCallback(IOFireWireAVCUserClie
 		case kAVCAsyncCommandStateTimeOutBeforeResponse:
 		case kAVCAsyncCommandStateBusReset:
 		case kAVCAsyncCommandStateOutOfMemory:
-		case kAVCAsyncCommandStateCancled:
+		case kAVCAsyncCommandStateCanceled:
 		default:
 			respLen = 0;
 			break;

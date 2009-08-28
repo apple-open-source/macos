@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -188,7 +188,8 @@ static apr_status_t resolve_ident(apr_finfo_t *finfo, const char *fname,
     return rv;
 }
 
-static void guess_protection_bits(apr_finfo_t *finfo)
+static apr_status_t guess_protection_bits(apr_finfo_t *finfo,
+                                          apr_int32_t wanted)
 {
     /* Read, write execute for owner.  In the Win9x environment, any
      * readable file is executable (well, not entirely 100% true, but
@@ -205,6 +206,8 @@ static void guess_protection_bits(apr_finfo_t *finfo)
                        | (finfo->protection << prot_scope_user);
 
     finfo->valid |= APR_FINFO_UPROT | APR_FINFO_GPROT | APR_FINFO_WPROT;
+
+    return ((wanted & ~finfo->valid) ? APR_INCOMPLETE : APR_SUCCESS);
 }
 
 apr_status_t more_finfo(apr_finfo_t *finfo, const void *ufile, 
@@ -215,8 +218,9 @@ apr_status_t more_finfo(apr_finfo_t *finfo, const void *ufile,
     apr_status_t rv;
 
     if (apr_os_level < APR_WIN_NT)
-        guess_protection_bits(finfo);
-    else if (wanted & (APR_FINFO_PROT | APR_FINFO_OWNER))
+        return guess_protection_bits(finfo, wanted);
+
+    if (wanted & (APR_FINFO_PROT | APR_FINFO_OWNER))
     {
         /* On NT this request is incredibly expensive, but accurate.
          * Since the WinNT-only functions below are protected by the
@@ -242,8 +246,8 @@ apr_status_t more_finfo(apr_finfo_t *finfo, const void *ufile,
             }
             rv = GetNamedSecurityInfoW(wfile + fix, 
                                  SE_FILE_OBJECT, sinf,
-                                 ((wanted & APR_FINFO_USER) ? &user : NULL),
-                                 ((wanted & APR_FINFO_GROUP) ? &grp : NULL),
+                                 ((wanted & (APR_FINFO_USER | APR_FINFO_UPROT)) ? &user : NULL),
+                                 ((wanted & (APR_FINFO_GROUP | APR_FINFO_GPROT)) ? &grp : NULL),
                                  ((wanted & APR_FINFO_PROT) ? &dacl : NULL),
                                  NULL, &pdesc);
             if (fix == 6)
@@ -252,15 +256,15 @@ apr_status_t more_finfo(apr_finfo_t *finfo, const void *ufile,
         else if (whatfile == MORE_OF_FSPEC)
             rv = GetNamedSecurityInfoA((char*)ufile, 
                                  SE_FILE_OBJECT, sinf,
-                                 ((wanted & APR_FINFO_USER) ? &user : NULL),
-                                 ((wanted & APR_FINFO_GROUP) ? &grp : NULL),
+                                 ((wanted & (APR_FINFO_USER | APR_FINFO_UPROT)) ? &user : NULL),
+                                 ((wanted & (APR_FINFO_GROUP | APR_FINFO_GPROT)) ? &grp : NULL),
                                  ((wanted & APR_FINFO_PROT) ? &dacl : NULL),
                                  NULL, &pdesc);
         else if (whatfile == MORE_OF_HANDLE)
             rv = GetSecurityInfo((HANDLE)ufile, 
                                  SE_FILE_OBJECT, sinf,
-                                 ((wanted & APR_FINFO_USER) ? &user : NULL),
-                                 ((wanted & APR_FINFO_GROUP) ? &grp : NULL),
+                                 ((wanted & (APR_FINFO_USER | APR_FINFO_UPROT)) ? &user : NULL),
+                                 ((wanted & (APR_FINFO_GROUP | APR_FINFO_GPROT)) ? &grp : NULL),
                                  ((wanted & APR_FINFO_PROT) ? &dacl : NULL),
                                  NULL, &pdesc);
         else
@@ -286,9 +290,49 @@ apr_status_t more_finfo(apr_finfo_t *finfo, const void *ufile,
             resolve_prot(finfo, wanted, dacl);
         }
         else if (wanted & APR_FINFO_PROT)
-            guess_protection_bits(finfo);
+            guess_protection_bits(finfo, wanted);
     }
 
+    if ((apr_os_level >= APR_WIN_2000) && (wanted & APR_FINFO_CSIZE)
+                                       && (finfo->filetype == APR_REG))
+    {
+        DWORD sizelo, sizehi;
+        if (whatfile == MORE_OF_HANDLE) {
+            /* Not available for development and implementation under
+             * a reasonable license; if you review the licensing
+             * terms and conditions of;
+             *   http://go.microsoft.com/fwlink/?linkid=84083
+             * you probably understand why APR chooses not to implement.
+             */
+            IOSB sb;
+            FSI fi;
+            if ((ZwQueryInformationFile((HANDLE)ufile, &sb, 
+                                       &fi, sizeof(fi), 5) == 0) 
+                    && (sb.Status == 0)) {
+                finfo->csize = fi.AllocationSize;
+                finfo->valid |= APR_FINFO_CSIZE;
+            }
+        }
+        else {
+            SetLastError(NO_ERROR);
+            if (whatfile == MORE_OF_WFSPEC)
+                sizelo = GetCompressedFileSizeW((apr_wchar_t*)ufile, &sizehi);
+            else if (whatfile == MORE_OF_FSPEC)
+                sizelo = GetCompressedFileSizeA((char*)ufile, &sizehi);
+        
+            if (sizelo != INVALID_FILE_SIZE || GetLastError() == NO_ERROR) {
+#if APR_HAS_LARGE_FILES
+                finfo->csize =  (apr_off_t)sizelo
+                             | ((apr_off_t)sizehi << 32);
+#else
+                finfo->csize = (apr_off_t)sizelo;
+                if (finfo->csize < 0 || sizehi)
+                    finfo->csize = 0x7fffffff;
+#endif
+                finfo->valid |= APR_FINFO_CSIZE;
+            }
+        }
+    }
     return ((wanted & ~finfo->valid) ? APR_INCOMPLETE : APR_SUCCESS);
 }
 

@@ -27,8 +27,9 @@
 #include "CRefTable.h"
 #include <PasswordServer/AuthFile.h>
 
-extern UInt32 gDaemonPID;
-extern UInt32 gDaemonIPAddress;
+extern pid_t gDaemonPID;
+extern in_addr_t gDaemonIPAddress;
+extern CRefTable gRefTable;
 
 // ---------------------------------------------------------------------------
 //	* ParseLocalCacheUserAuthData
@@ -748,14 +749,14 @@ SaveAuthAuthorities(
 	if ( recordName == NULL )
 		return( eMemoryError );
 		
-	siResult = inPlugin->OpenRecord( inNodeRef, inNativeRecType, recordName, &recordRef );
+	siResult = inPlugin->OpenRecord( inNativeRecType, recordName, &recordRef );
 	if ( siResult == eDSNoErr )
 		siResult = SaveAuthAuthoritiesWithRecordRef( inPlugin, inNodeRef, recordRef, inAATank );
 	
 	if ( recordRef != 0 )
 	{
-		inPlugin->CloseRecord( recordRef );
-		CRefTable::RemoveRecordRef( recordRef, gDaemonPID, gDaemonIPAddress ); // need to manually close this ref otherwise our refs get out of hand
+		gRefTable.RemoveReference( recordRef ); // need to manually close this ref otherwise our refs get out of hand
+		recordRef = 0;
 	}
 	DSCFRelease( recordName );
 	
@@ -891,7 +892,7 @@ SetUserAuthAuthorityAsRoot(
 	if ( recordName == NULL )
 		return eMemoryError;
 	
-	siResult = inPlugin->OpenRecord( inNodeRef, inStdRecType, recordName, &recordRef );
+	siResult = inPlugin->OpenRecord( inStdRecType, recordName, &recordRef );
 	CFRelease( recordName );
 	if ( siResult != eDSNoErr )
 		return siResult;
@@ -919,8 +920,8 @@ SetUserAuthAuthorityAsRoot(
 		// force flush and close our ref
 		sFlushRecord params = { kFlushRecord, 0, recordRef };
 		inPlugin->FlushRecord( &params );
-		inPlugin->CloseRecord( recordRef );
-		CRefTable::RemoveRecordRef( recordRef, gDaemonPID, gDaemonIPAddress ); // need to manually close this ref otherwise our refs get out of hand
+		gRefTable.RemoveReference( recordRef ); // need to manually close this ref otherwise our refs get out of hand
+		recordRef = 0;
 	}
 	DSCFRelease( authAuthorityCFStr );
 	DSCFRelease( aaValueArray );

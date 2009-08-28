@@ -47,11 +47,11 @@
 #define _AT_PROTO_H_
 
 #include <AvailabilityMacros.h>
+#include <sys/types.h>
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
-
 
 /*
  *	***** DEPRECATED *****
@@ -62,6 +62,20 @@ extern "C" {
  *
  */
 
+#define at_socket void
+#define at_nvestr_t void
+#define at_nbptuple_t void
+#define at_inet_t void
+#define at_entity_t void
+#define at_retry_t void
+#define at_nvestr_t void
+#define at_atpreq void
+#define at_resp_t void
+#define at_retry_t void
+#define ddp_addr_t void
+
+struct pap_state;
+struct at_addr;
 
 /* Appletalk Stack status Function. */
 

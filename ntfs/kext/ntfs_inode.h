@@ -1,8 +1,8 @@
 /*
  * ntfs_inode.h - Defines for inode structures for the NTFS kernel driver.
  *
- * Copyright (c) 2006, 2007 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006, 2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2008 Anton Altaparmakov.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2008 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -38,12 +38,16 @@
 #ifndef _OSX_NTFS_INODE_H
 #define _OSX_NTFS_INODE_H
 
+#include <sys/buf.h>
+#include <sys/errno.h>
 #include <sys/kernel_types.h>
 #include <sys/proc.h>
 #include <sys/queue.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <sys/ucred.h>
 #include <sys/vnode.h>
+#include <sys/xattr.h>
 
 #include <libkern/OSTypes.h>
 
@@ -53,9 +57,11 @@
 /* Forward declarations. */
 typedef struct _ntfs_inode ntfs_inode;
 typedef struct _ntfs_attr ntfs_attr;
+struct _ntfs_dirhint;
 
 #include "ntfs_layout.h"
 #include "ntfs_runlist.h"
+#include "ntfs_sfm.h"
 #include "ntfs_types.h"
 #include "ntfs_vnops.h"
 #include "ntfs_volume.h"
@@ -70,6 +76,13 @@ struct _ntfs_inode {
 				   the vnode of this inode that are held by
 				   ntfs driver internal entities.  For extent
 				   mft records, this is always zero. */
+	SInt32 nr_opens;	/* This is the number of VNOP_OPEN() calls that
+				   have happened on the vnode of this inode
+				   that have not had a matching VNOP_CLOSE()
+				   call yet.  Note this applies only to base
+				   inodes and is incremented/decremented in the
+				   base inode for attribute/raw inode
+				   opens/closes, too. */
 	lck_rw_t lock;		/* Lock serializing changes to the inode such
 				   as inode truncation and directory content
 				   modification (both take the lock exclusive)
@@ -78,7 +91,7 @@ struct _ntfs_inode {
 	u32 block_size;		/* Size in bytes of a logical block in the
 				   inode.  For normal attributes this is the
 				   sector size and for mst protected attributes
-				   this is the size of an mst protecteed ntfs
+				   this is the size of an mst protected ntfs
 				   record. */
 	u8 block_size_shift; 	/* Log2 of the above. */
 	lck_spin_t size_lock;	/* Lock serializing access to inode sizes. */
@@ -89,17 +102,27 @@ struct _ntfs_inode {
 				   See ntfs_inode_flags_shift below. */
 	ino64_t mft_no;		/* Number of the mft record / inode. */
 	u16 seq_no;		/* Sequence number of the inode. */
-	u16 link_count;		/* Number of hard links to this inode. */
+	unsigned link_count;	/* Number of hard links to this inode.  Note we
+				   make this field an integer, i.e. at least
+				   32-bit to allow us to temporarily overflow
+				   16-bits in ntfs_vnop_rename(). */
 	uid_t uid;		/* Inode user owner. */
 	gid_t gid;		/* Inode group owner. */
 	mode_t mode;		/* Inode mode. */
+	dev_t rdev;		/* For block and character device special
+				   inodes this is the device. */
 	FILE_ATTR_FLAGS file_attributes;	/* Cached file attributes from
 						   the standard information
 						   attribute. */
 	struct timespec creation_time;		/* Cache of fields found in */
 	struct timespec last_data_change_time;	/* the standard information */
-	struct timespec last_mft_change_time;	/* attribute but in OSX time */
+	struct timespec last_mft_change_time;	/* attribute but in OS X time */
 	struct timespec last_access_time;	/* format. */
+	struct timespec backup_time;		/* Cache of field in the
+						   AFP_AfpInfo stream but in
+						   OS X time format. */
+	FINDER_INFO finder_info;		/* Cached Finder info from the
+						   AFP_AfpInfo stream. */
 	/*
 	 * If NInoAttr() is true, the below fields describe the attribute which
 	 * this fake inode belongs to.  The actual inode of this attribute is
@@ -117,29 +140,62 @@ struct _ntfs_inode {
 				   (if a file) or of the index allocation
 				   attribute (directory) or of the attribute
 				   described by the fake inode (if NInoAttr()).
-				   If rl.rl is NULL, the runlist has not been
-				   read in yet or has been unmapped. If
+				   If rl.elements is 0, the runlist has not
+				   been read in yet or has been unmapped. If
 				   NI_NonResident is clear, the attribute is
 				   resident (file and fake inode) or there is
 				   no $I30 index allocation attribute
-				   (small directory).  In the latter case rl.rl
-				   is always NULL.*/
+				   (small directory).  In the latter case
+				   rl.elements is always zero. */
+	ntfs_runlist url;	/* This runlist represents all uninitialized
+				   regions such as holes or parts of holes that
+				   have been instantiated but have not yet been
+				   zeroed nor written to.  Another significance
+				   is the initialized size.  When it is
+				   incremented without zeroing the underlying
+				   clusters these regions are entered in this
+				   runlist.  This runlist must be consulted on
+				   reads so that zeroes are read from the
+				   uninitialized regions and must be updated on
+				   writes so that uninitialized regions are
+				   removed from the runlist when they are
+				   zeroed or written.  Finally we have to go
+				   through this runlist at sync time and have
+				   to then zero out the uninitialized regions
+				   and remove them from this runlist.  The way
+				   we implement this runlist is that all
+				   uninitialized regions are entered as
+				   duplicates of their real counterparts in the
+				   actual runlist @rl whilst all initialized
+				   regions are stored as holes.  Thus the
+				   fewer uninitialized regions an attribute has
+				   the fewer elements will this runlist have.
+				   And when there are no uninitialized elements
+				   at all then this runlist is not in use and
+				   its @url.elements field is set to zero thus
+				   it consumes no extra memory allocation.
+				   Storing things in this way means we do not
+				   need to perform any lookups in the real
+				   runlist whilst zeroing the uninitialized
+				   regions.  TODO: What happens if we have
+				   uninitialized regions outside the
+				   initialized size and then someone increments
+				   the initialized size?  We need to take care
+				   that we don't get into a situation where
+				   merging fragments of the real runlist and
+				   fragments of the uninitialized runlist will
+				   fail. */
 	/*
 	 * The following fields are only valid for real inodes and extent
 	 * inodes.
 	 */
-	lck_mtx_t mrec_lock;	/* Lock for serializing access to the mft
-				   record belonging to this inode. */
-	upl_t mrec_upl;		/* Page list containing the mft record of the
+	buf_t m_buf;		/* Buffer containing the mft record of the
 				   inode.  This should only be touched by the
 				   ntfs_*mft_record_(un)map() functions. */
-	upl_page_info_array_t mrec_pl; /* Array of pages containing the page
-				   itself that contains the mft record.  This
-				   should only be touched by the
-				   ntfs_*mft_record_(un)map() functions. */
-	u8 *mrec_kaddr;		/* Address of the page data containing the mft
-				   record.  This should only be touched by the
-				   ntfs_*mft_record_(un)map() functions. */
+	MFT_RECORD *m;		/* Address of the buffer data and thus address
+				   of the mft record.  This should only be
+				   touched by the ntfs_*mft_record_(un)map()
+				   functions. */
 	/*
 	 * Attribute list support (only for use by the attribute lookup
 	 * functions).  Setup during read_inode for all inodes with attribute
@@ -147,15 +203,28 @@ struct _ntfs_inode {
 	 * is further only valid if NI_AttrListNonResident is set.
 	 */
 	u32 attr_list_size;	/* Length of attribute list value in bytes. */
+	u32 attr_list_alloc;	/* Number of bytes allocated for the attr_list
+				   buffer. */
 	u8 *attr_list;		/* Attribute list value itself. */
 	ntfs_runlist attr_list_rl; /* Run list for the attribute list value. */
 	union {
 		struct { /* It is a directory, $MFT, or an index inode. */
+			s64 last_set_bit;	/* The last bit that is set in
+						   the index $BITMAP.  If not
+						   known this is set to -1. */
 			u32 vcn_size;		/* Size of a vcn in this
 						   index. */
 			COLLATION_RULE collation_rule; /* The collation rule
 						   for the index. */
 			u8 vcn_size_shift;	/* Log2 of the above. */
+			u8 nr_dirhints;		/* Number of directory hints
+						   attached to this index
+						   inode. */
+			u16 dirhint_tag;	/* The most recently created
+						   directory hint tag. */
+			TAILQ_HEAD(ntfs_dirhint_head, _ntfs_dirhint)
+					dirhint_list;	/* List of directory
+							   hints. */
 		};
 		struct { /* It is a compressed/sparse file/attribute inode. */
 			s64 compressed_size;	/* Copy of compressed_size from
@@ -173,6 +242,8 @@ struct _ntfs_inode {
 			   inodes (0 if none), for extent records and for fake
 			   inodes describing an attribute this is -1 if the
 			   base inode at @base_ni is valid and 0 otherwise. */
+	u32 extent_alloc; /* Number of bytes allocated for the extent_nis
+			     array. */
 	union {		/* This union is only used if nr_extents != 0. */
 		ntfs_inode **extent_nis;	/* For nr_extents > 0, array of
 						   the ntfs inodes of the extent
@@ -195,10 +266,8 @@ struct _ntfs_inode {
 typedef enum {
 	NI_Locked,		/* 1: Ntfs inode is locked. */
 	NI_Alloc,		/* 1: Ntfs inode is being allocated now. */
+	NI_Deleted,		/* 1: Ntfs inode has been deleted. */
 	NI_Reclaim,		/* 1: Ntfs inode is being reclaimed now. */
-	NI_Dirty,		/* 1: Mft record needs to be written to disk. */
-	NI_DirtyData,		/* 1: There are dirty pages belonging to this
-				      attribute. */
 	NI_AttrList,		/* 1: Mft record contains an attribute list. */
 	NI_AttrListNonResident,	/* 1: Attribute list is non-resident. Implies
 				      NI_AttrList is set. */
@@ -220,16 +289,64 @@ typedef enum {
 				   1: Create sparse files by default (d).
 				   1: Attribute is sparse (a). */
 	NI_SparseDisabled,	/* 1: May not create sparse regions. */
-	NI_TruncateFailed,	/* 1: Last ntfs_truncate() call failed. */
 	NI_NotMrecPageOwner,	/* 1: This inode does not own the mft record
 				      page.
 				   0: Thus inode does own the mft record
 				      page. */
-	NI_MrecPageNeedsDirtying, /* 1: Page containing the mft record needs to
+	NI_MrecNeedsDirtying,	/* 1: Page containing the mft record needs to
 				      be marked dirty. */
 	NI_Raw,			/* 1: Access the raw data of the inode rather
 				      than decompressing or decrypting the
-				      data for example. */
+				      data for example.  Note, that NInoRaw()
+				      implies NInoAttr() as well. */
+	NI_DirtyTimes,		/* 1: Base ntfs inode contains updated times
+				      that need to be written to the standard
+				      information attribute and all directory
+				      index entries pointing to the inode (f,
+				      d).  Note this does not include the
+				      backup time (see below). */
+	NI_DirtyFileAttributes,	/* 1: Base ntfs inode contains updated file
+				      attributes that need to be written to the
+				      standard information attribute and all
+				      directory index entries pointing to the
+				      inode (f, d). */
+	NI_DirtySizes,		/* 1: Base ntfs inode contains updated sizes
+				      that need to be written to all directory
+				      index entries pointing to the inode (f).
+				      Directories always have both sizes set to
+				      zero in their index entries so this is
+				      not relevant. */
+	NI_DirtySetFileBits,	/* 1: Base ntfs inode contains updated special
+				      mode bits S_ISUID, S_ISGID, and/or
+				      S_ISVTX that need to be written to the
+				      SETFILEBITS EA (used by Interix POSIX
+				      subsystem on Windows as installed by the
+				      Windows Services For Unix, aka SFU) (f,
+				      d). */
+	NI_ValidBackupTime,	/* 1: Base ntfs inode contains valid backup
+				      time, i.e. the backup time has either
+				      been loaded from the AFP_AfpInfo stream
+				      or it has been set via VNOP_SETATTR() in
+				      which case it will also be marked dirty,
+				      i.e. the NI_DirtyBackupTime bit will also
+				      be set (f, d) if it has not been synced
+				      to the AFP_AfpInfo attribute yet. */
+	NI_DirtyBackupTime,	/* 1: Base ntfs inode contains updated
+				      backup_time that needs to be written to
+				      the AFP_AfpInfo stream (after creating it
+				      if it does not exist already) (f, d). */
+	NI_ValidFinderInfo,	/* 1: Base ntfs inode contains valid Finder
+				      info, i.e. the Finder info has either
+				      been loaded from the AFP_AfpInfo stream
+				      or it has been set via VNOP_SETXATTR() in
+				      which case it will also be marked dirty,
+				      i.e. the NI_DirtyFinderInfo bit will also
+				      be set (f, d) if it has not been synced
+				      to the AFP_AfpInfo attribute yet. */
+	NI_DirtyFinderInfo,	/* 1: Base ntfs inode contains updated Finder
+				      info that needs to be writte to the
+				      AFP_AfpInfo stream (after creating it
+				      if it does not exist already) (f, d). */
 } ntfs_inode_flags_shift;
 
 /*
@@ -277,11 +394,8 @@ static inline void NInoClearAllocLocked(ntfs_inode *ni)
 			(UInt32*)&ni->flags);
 }
 
+DEFINE_NINO_BIT_OPS(Deleted)
 DEFINE_NINO_BIT_OPS(Reclaim)
-DEFINE_NINO_BIT_OPS(Dirty)
-DEFINE_NINO_TEST_AND_SET_BIT_OPS(Dirty)
-DEFINE_NINO_BIT_OPS(DirtyData)
-DEFINE_NINO_TEST_AND_SET_BIT_OPS(DirtyData)
 DEFINE_NINO_BIT_OPS(AttrList)
 DEFINE_NINO_BIT_OPS(AttrListNonResident)
 DEFINE_NINO_BIT_OPS(Attr)
@@ -292,12 +406,36 @@ DEFINE_NINO_BIT_OPS(Compressed)
 DEFINE_NINO_BIT_OPS(Encrypted)
 DEFINE_NINO_BIT_OPS(Sparse)
 DEFINE_NINO_BIT_OPS(SparseDisabled)
-DEFINE_NINO_BIT_OPS(TruncateFailed)
 DEFINE_NINO_BIT_OPS(NotMrecPageOwner)
 DEFINE_NINO_TEST_AND_SET_BIT_OPS(NotMrecPageOwner)
-DEFINE_NINO_BIT_OPS(MrecPageNeedsDirtying)
-DEFINE_NINO_TEST_AND_SET_BIT_OPS(MrecPageNeedsDirtying)
+DEFINE_NINO_BIT_OPS(MrecNeedsDirtying)
+DEFINE_NINO_TEST_AND_SET_BIT_OPS(MrecNeedsDirtying)
 DEFINE_NINO_BIT_OPS(Raw)
+DEFINE_NINO_BIT_OPS(DirtyTimes)
+DEFINE_NINO_TEST_AND_SET_BIT_OPS(DirtyTimes)
+DEFINE_NINO_BIT_OPS(DirtyFileAttributes)
+DEFINE_NINO_TEST_AND_SET_BIT_OPS(DirtyFileAttributes)
+DEFINE_NINO_BIT_OPS(DirtySizes)
+DEFINE_NINO_TEST_AND_SET_BIT_OPS(DirtySizes)
+DEFINE_NINO_BIT_OPS(DirtySetFileBits)
+DEFINE_NINO_TEST_AND_SET_BIT_OPS(DirtySetFileBits)
+DEFINE_NINO_BIT_OPS(ValidBackupTime)
+DEFINE_NINO_BIT_OPS(DirtyBackupTime)
+DEFINE_NINO_TEST_AND_SET_BIT_OPS(DirtyBackupTime)
+DEFINE_NINO_BIT_OPS(ValidFinderInfo)
+DEFINE_NINO_BIT_OPS(DirtyFinderInfo)
+DEFINE_NINO_TEST_AND_SET_BIT_OPS(DirtyFinderInfo)
+
+/* Function to bulk check all the Dirty* flags at once. */
+static inline u32 NInoDirty(ntfs_inode *ni)
+{
+	return (ni->flags & (((u32)1 << NI_DirtyTimes) |
+			((u32)1 << NI_DirtyFileAttributes) |
+			((u32)1 << NI_DirtySizes) |
+			((u32)1 << NI_DirtySetFileBits) |
+			((u32)1 << NI_DirtyBackupTime) |
+			((u32)1 << NI_DirtyFinderInfo))) ? 1 : 0;
+}
 
 /**
  * NTFS_I - return the ntfs inode given a vfs vnode
@@ -362,7 +500,7 @@ __private_extern__ errno_t ntfs_inode_init(ntfs_volume *vol, ntfs_inode *ni,
 				/* Lock is dropped now. */	\
 				lck = NULL;			\
 	 		} while (NInoLocked(ni));		\
-		} else if (lock)				\
+		} else						\
 			lck_mtx_unlock(lock);			\
 	} while (0)
 
@@ -393,12 +531,17 @@ __private_extern__ errno_t ntfs_inode_add_vnode(ntfs_inode *ni,
 		struct componentname *cn);
 
 __private_extern__ errno_t ntfs_inode_get(ntfs_volume *vol, ino64_t mft_no,
-		const BOOL is_system, ntfs_inode **nni, vnode_t parent_vn,
-		struct componentname *cn);
+		const BOOL is_system, const lck_rw_type_t lock,
+		ntfs_inode **nni, vnode_t parent_vn, struct componentname *cn);
 
-__private_extern__ errno_t ntfs_attr_inode_get_ext(ntfs_inode *base_ni,
+__private_extern__ errno_t ntfs_attr_inode_lookup(ntfs_inode *base_ni,
+		ATTR_TYPE type, ntfschar *name, u32 name_len, const BOOL raw,
+		ntfs_inode **nni);
+
+__private_extern__ errno_t ntfs_attr_inode_get_or_create(ntfs_inode *base_ni,
 		ATTR_TYPE type, ntfschar *name, u32 name_len,
-		const BOOL is_system, BOOL raw, ntfs_inode **nni);
+		const BOOL is_system, const BOOL raw, const int options,
+		const lck_rw_type_t lock, ntfs_inode **nni);
 
 /**
  * ntfs_attr_inode_get - obtain an ntfs inode corresponding to an attribute
@@ -407,6 +550,7 @@ __private_extern__ errno_t ntfs_attr_inode_get_ext(ntfs_inode *base_ni,
  * @name:	Unicode name of the attribute (NULL if unnamed)
  * @name_len:	length of @name in Unicode characters (0 if unnamed)
  * @is_system:	true if the inode is a system inode and false otherwise
+ * @lock:	locking options (see below)
  * @nni:	destination pointer for the obtained attribute ntfs inode
  *
  * Obtain the ntfs inode corresponding to the attribute specified by @type,
@@ -414,14 +558,22 @@ __private_extern__ errno_t ntfs_attr_inode_get_ext(ntfs_inode *base_ni,
  * the ntfs inode @base_ni.  If @is_system is true the created vnode is marked
  * as a system vnode (via the VSYSTEM flag).
  *
+ * If @lock is LCK_RW_TYPE_SHARED the attribute inode will be returned locked
+ * for reading (@nni->lock) and if it is LCK_RW_TYPE_EXCLUSIVE the attribute
+ * inode will be returned locked for writing (@nni->lock).  As a special case
+ * if @lock is 0 it means the inode to be returned is already locked so do not
+ * lock it.  This requires that the inode is already present in the inode
+ * cache.  If it is not it cannot already be locked and thus you will get a
+ * panic().
+ *
  * If the attribute inode is in the cache, it is returned with an iocount
  * reference on the attached vnode.
  *
  * If the inode is not in the cache, a new ntfs inode is allocated and
- * initialized, ntfs_attr_inode_read() is called to read it in and fill in the
- * remainder of the ntfs inode structure before finally a new vnode is created
- * and attached to the new ntfs inode.  The inode is then returned with an
- * iocount reference taken on its vnode.
+ * initialized, ntfs_attr_inode_read_or_create() is called to read it in/create
+ * it and fill in the remainder of the ntfs inode structure before finally a
+ * new vnode is created and attached to the new ntfs inode.  The inode is then
+ * returned with an iocount reference taken on its vnode.
  *
  * Note, for index allocation attributes, you need to use ntfs_index_inode_get()
  * instead of ntfs_attr_inode_get() as working with indices is a lot more
@@ -429,60 +581,80 @@ __private_extern__ errno_t ntfs_attr_inode_get_ext(ntfs_inode *base_ni,
  *
  * Return 0 on success and errno on error.
  *
- * TODO: For now we do not store a name for attribute inodes as
- * ntfs_vnop_lookup() cannot return them and we only use them internally so
- * no-one can call VNOP_GETATTR() or anything like that on them so the name is
- * never used.
+ * TODO: For now we do not store a name for attribute inodes.
  */
 static inline errno_t ntfs_attr_inode_get(ntfs_inode *base_ni, ATTR_TYPE type,
 		ntfschar *name, u32 name_len, const BOOL is_system,
-		ntfs_inode **nni)
+		const lck_rw_type_t lock, ntfs_inode **nni)
 {
-	return ntfs_attr_inode_get_ext(base_ni, type, name, name_len,
-			is_system, FALSE, nni);
+	return ntfs_attr_inode_get_or_create(base_ni, type, name, name_len,
+			is_system, FALSE, XATTR_REPLACE, lock, nni);
 }
 
 /**
  * ntfs_raw_inode_get - obtain the raw ntfs inode corresponding to an attribute
  * @ni:		non-raw ntfs inode containing the attribute
+ * @lock:	locking options (see below)
  * @nni:	destination pointer for the obtained attribute ntfs inode
  *
  * Obtain the raw ntfs inode corresponding to the non-raw inode @ni.
  *
- * If the attribute inode is in the cache, it is returned with an iocount
- * reference on the attached vnode.
+ * If @lock is LCK_RW_TYPE_SHARED the raw inode will be returned locked for
+ * reading (@nni->lock) and if it is LCK_RW_TYPE_EXCLUSIVE the raw inode will
+ * be returned locked for writing (@nni->lock).  As a special case if @lock is
+ * 0 it means the inode to be returned is already locked so do not lock it.
+ * This requires that the inode is already present in the inode cache.  If it
+ * is not it cannot already be locked and thus you will get a panic().
  *
- * If the inode is not in the cache, a new ntfs inode is allocated and
- * initialized, ntfs_attr_inode_read() is called to read it in and fill in the
- * remainder of the ntfs inode structure before finally a new vnode is created
- * and attached to the new ntfs inode.  The inode is then returned with an
- * iocount reference taken on its vnode.
+ * If the raw inode is in the cache, it is returned with an iocount reference
+ * on the attached vnode.
+ *
+ * If the raw inode is not in the cache, a new ntfs inode is allocated and
+ * initialized, ntfs_attr_inode_read_or_create() is called to read it in/create
+ * it and fill in the remainder of the ntfs inode structure before finally a
+ * new vnode is created and attached to the new ntfs inode.  The inode is then
+ * returned with an iocount reference taken on its vnode.
  *
  * Return 0 on success and errno on error.
  *
- * TODO: For now we do not store a name for attribute inodes as
- * ntfs_vnop_lookup() cannot return them and we only use them internally so
- * no-one can call VNOP_GETATTR() or anything like that on them so the name is
- * never used.
+ * Locking: The non-raw ntfs inode @ni must be locked (@ni->lock).
+ *
+ * TODO: For now we do not store a name for attribute inodes.
  */
-static inline errno_t ntfs_raw_inode_get(ntfs_inode *ni, ntfs_inode **nni)
+static inline errno_t ntfs_raw_inode_get(ntfs_inode *ni,
+		const lck_rw_type_t lock, ntfs_inode **nni)
 {
 	if (NInoRaw(ni))
 		panic("%s(): Function called for raw inode.\n", __FUNCTION__);
-	return ntfs_attr_inode_get_ext(ni, ni->type, ni->name, ni->name_len,
-			FALSE, TRUE, nni);
+	return ntfs_attr_inode_get_or_create(ni, ni->type, ni->name,
+			ni->name_len, FALSE, TRUE, XATTR_REPLACE, lock, nni);
 }
 
 __private_extern__ errno_t ntfs_index_inode_get(ntfs_inode *base_ni,
-		ntfschar *name, u32 name_len, ntfs_inode **nni);
+		ntfschar *name, u32 name_len, const BOOL is_system,
+		ntfs_inode **nni);
 
 __private_extern__ errno_t ntfs_extent_inode_get(ntfs_inode *base_ni,
 		MFT_REF mref, ntfs_inode **ext_ni);
+
+__private_extern__ void ntfs_inode_afpinfo_cache(ntfs_inode *ni, AFPINFO *afp,
+		const unsigned afp_size);
+
+__private_extern__ errno_t ntfs_inode_afpinfo_read(ntfs_inode *ni);
+
+__private_extern__ errno_t ntfs_inode_afpinfo_write(ntfs_inode *ni);
 
 __private_extern__ errno_t ntfs_inode_inactive(ntfs_inode *ni);
 
 __private_extern__ errno_t ntfs_inode_reclaim(ntfs_inode *ni);
 
-__private_extern__ errno_t ntfs_inode_sync(ntfs_inode *ni, const int sync);
+__private_extern__ errno_t ntfs_inode_sync(ntfs_inode *ni, const int sync,
+		const BOOL skip_mft_record_sync);
+
+__private_extern__ errno_t ntfs_inode_get_name_and_parent_mref(ntfs_inode *ni,
+		BOOL have_parent, MFT_REF *mref, const char *name);
+
+__private_extern__ errno_t ntfs_inode_is_parent(ntfs_inode *parent_ni,
+		ntfs_inode *child_ni, BOOL *is_parent, ntfs_inode *forbid_ni);
 
 #endif /* !_OSX_NTFS_INODE_H */

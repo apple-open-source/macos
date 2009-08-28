@@ -37,7 +37,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 2005 Apple Computer, Inc. and Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: dstore.c,v 1.5 2006/03/23 21:28:26 ajn Exp $";
+static char *rcsid = "$Id: dstore.c,v 1.4 2008/10/21 16:15:16 abe Exp $";
 #endif
 
 
@@ -57,6 +57,11 @@ struct pff_tab Pff_tab[] = {
 	{ (long)FAPPEND,	FF_APPEND	},
 	{ (long)FASYNC,		FF_ASYNC	},
 	{ (long)FFSYNC,		FF_FSYNC	},
+
+# if	defined(FHASLOCK)
+	{ (long)FHASLOCK,	FF_HASLOCK	},
+# endif	/* defined(FHASLOCK) */
+
 	{ (long)O_NOCTTY,	FF_NOCTTY	},
 	{ (long)O_EVTONLY,	FF_EVTONLY	},
 	{ (long)0,		NULL 		}

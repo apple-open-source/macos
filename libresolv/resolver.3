@@ -260,7 +260,12 @@ The reply message is left in the
 .Fa answer
 buffer with length
 .Fa anslen
-supplied by the caller.
+supplied by the caller.  Constants for
+.Fa type
+and
+.Fa class
+are defined in
+.Aq Pa arpa/nameser.h .
 .Pp
 The
 .Fn res_search
@@ -350,7 +355,7 @@ The
 entry
 expands the compressed domain name
 .Fa comp_dn
-to a full domain name
+to a full domain name.
 The compressed name is contained in a query or reply message;
 .Fa msg
 is a pointer to the beginning of the message.

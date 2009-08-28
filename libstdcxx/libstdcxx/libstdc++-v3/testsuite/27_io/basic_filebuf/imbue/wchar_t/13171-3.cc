@@ -1,4 +1,6 @@
-// Copyright (C) 2003 Free Software Foundation, Inc.
+// { dg-require-namedlocale "" }
+
+// Copyright (C) 2003, 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -13,7 +15,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // 27.8.1.4 Overridden virtual functions
@@ -28,19 +30,19 @@ void test01()
   bool test __attribute__((unused)) = true;
   using namespace std;
 
-  locale::global(__gnu_test::try_named_locale("fr_FR"));
+  locale::global(locale("fr_FR"));
 
   ios_base::sync_with_stdio(false);
 
-  locale::global(__gnu_test::try_named_locale("en_US"));
-  cin.imbue(__gnu_test::try_named_locale("en_US"));
-  cout.imbue(__gnu_test::try_named_locale("en_US"));
-  cerr.imbue(__gnu_test::try_named_locale("en_US"));
-  clog.imbue(__gnu_test::try_named_locale("de_DE"));
-  wcin.imbue(__gnu_test::try_named_locale("en_US"));
-  wcout.imbue(__gnu_test::try_named_locale("en_US"));
-  wcerr.imbue(__gnu_test::try_named_locale("en_US"));
-  wclog.imbue(__gnu_test::try_named_locale("de_DE"));
+  locale::global(locale("en_US"));
+  cin.imbue(locale("en_US"));
+  cout.imbue(locale("en_US"));
+  cerr.imbue(locale("en_US"));
+  clog.imbue(locale("de_DE"));
+  wcin.imbue(locale("en_US"));
+  wcout.imbue(locale("en_US"));
+  wcerr.imbue(locale("en_US"));
+  wclog.imbue(locale("de_DE"));
  
   cout << 'f' << endl;
   cerr << 'r' << endl;

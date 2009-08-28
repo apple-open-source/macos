@@ -1,9 +1,9 @@
 /*
- * "$Id: mime.h 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: mime.h 7694 2008-06-26 00:23:20Z mike $"
  *
  *   MIME type/conversion database definitions for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -86,6 +86,7 @@ typedef struct _mime_magic_s		/**** MIME Magic Data ****/
 typedef struct _mime_type_s		/**** MIME Type Data ****/
 {
   mime_magic_t	*rules;			/* Rules used to detect this type */
+  int		priority;		/* Priority of this type */
   char		super[MIME_MAX_SUPER],	/* Super-type name ("image", "application", etc.) */
 		type[MIME_MAX_TYPE];	/* Type name ("png", "postscript", etc.) */
 } mime_type_t;
@@ -112,9 +113,9 @@ typedef struct _mime_s			/**** MIME Database ****/
 
 extern void		mimeDelete(mime_t *mime);
 extern mime_t		*mimeLoad(const char *pathname, const char *filterpath);
-extern mime_t		*mimeMerge(mime_t *mime, const char *pathname,
-			           const char *filterpath);
-extern mime_t		*mimeNew(void);
+extern mime_t		*mimeLoadFilters(mime_t *mime, const char *pathname,
+			                 const char *filterpath);
+extern mime_t		*mimeLoadTypes(mime_t *mime, const char *pathname);
 
 extern mime_type_t	*mimeAddType(mime_t *mime, const char *super,
 			             const char *type);
@@ -146,5 +147,5 @@ extern int		mimeNumFilters(mime_t *mime);
 #endif /* !_CUPS_MIME_H_ */
 
 /*
- * End of "$Id: mime.h 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: mime.h 7694 2008-06-26 00:23:20Z mike $".
  */

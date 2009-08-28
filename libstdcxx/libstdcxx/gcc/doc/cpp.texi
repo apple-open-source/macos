@@ -50,7 +50,7 @@ This manual contains no Invariant Sections.  The Front-Cover Texts are
 @set cppmanual
 
 @ifinfo
-@dircategory Programming
+@dircategory Software development
 @direntry
 * Cpp: (cpp).		       The GNU C preprocessor.
 @end direntry
@@ -58,9 +58,8 @@ This manual contains no Invariant Sections.  The Front-Cover Texts are
 
 @titlepage
 @title The C Preprocessor
-@subtitle for GCC version @value{version-GCC}
-@author Richard M. Stallman
-@author Zachary Weinberg
+@versionsubtitle
+@author Richard M. Stallman, Zachary Weinberg
 @page
 @c There is a fill at the bottom of the page, so we need a filll to
 @c override it.
@@ -251,12 +250,8 @@ processing.  That set is what the C standard calls the @dfn{source}
 character set.  It must be isomorphic with ISO 10646, also known as
 Unicode.  CPP uses the UTF-8 encoding of Unicode.
 
-At present, GNU CPP does not implement conversion from arbitrary file
-encodings to the source character set.  Use of any encoding other than
-plain ASCII or UTF-8, except in comments, will cause errors.  Use of
-encodings that are not strict supersets of ASCII, such as Shift JIS,
-may cause errors even if non-ASCII characters appear only in comments.
-We plan to fix this in the near future.
+The character sets of the input files are specified using the
+@option{-finput-charset=} option.
 
 All preprocessing work (the subject of the rest of this manual) is
 carried out in the source character set.  If you request textual
@@ -281,11 +276,11 @@ the character in the source character set that they represent, then
 converted to the execution character set, just like unescaped
 characters.
 
+Unless the experimental @option{-fextended-identifiers} option is used,
 GCC does not permit the use of characters outside the ASCII range, nor
-@samp{\u} and @samp{\U} escapes, in identifiers.  We hope this will
-change eventually, but there are problems with the standard semantics
-of such ``extended identifiers'' which must be resolved through the
-ISO C and C++ committees first.
+@samp{\u} and @samp{\U} escapes, in identifiers.  Even with that
+option, characters outside the ASCII range can only be specified with
+the @samp{\u} and @samp{\U} escapes, not used directly in identifiers.
 
 @node Initial processing
 @section Initial processing
@@ -510,8 +505,10 @@ In the 1999 C standard, identifiers may contain letters which are not
 part of the ``basic source character set'', at the implementation's
 discretion (such as accented Latin letters, Greek letters, or Chinese
 ideograms).  This may be done with an extended character set, or the
-@samp{\u} and @samp{\U} escape sequences.  GCC does not presently
-implement either feature in the preprocessor or the compiler.
+@samp{\u} and @samp{\U} escape sequences.  The implementation of this
+feature in GCC is experimental; such characters are only accepted in
+the @samp{\u} and @samp{\U} forms and only if
+@option{-fextended-identifiers} is used.
 
 As an extension, GCC treats @samp{$} as a letter.  This is for
 compatibility with some systems, such as VMS, where @samp{$} is commonly
@@ -2017,6 +2014,28 @@ functions.  You should not use these macros in any way unless you make
 sure that programs will execute with the same effect whether or not they
 are defined.  If they are defined, their value is 1.
 
+@item __GNUC_GNU_INLINE__
+GCC defines this macro if functions declared @code{inline} will be
+handled in GCC's traditional gnu89 mode.  In this mode an @code{extern
+inline} function will never be compiled as a standalone function, and
+an @code{inline} function which is neither @code{extern} nor
+@code{static} will always be compiled as a standalone function.
+
+@item __GNUC_STDC_INLINE__
+GCC defines this macro if functions declared @code{inline} will be
+handled according to the ISO C99 standard.  In this mode an
+@code{extern inline} function will always be compiled as a standalone
+externally visible function, and an @code{inline} function which is
+neither @code{extern} nor @code{static} will never be compiled as a
+standalone function.
+
+If this macro is defined, GCC supports the @code{gnu_inline} function
+attribute as a way to always get the gnu89 behaviour.  Support for
+this and @code{__GNUC_GNU_INLINE__} was added in GCC 4.1.3.  If
+neither macro is defined, an older version of GCC is being used:
+@code{inline} functions will be compiled in gnu89 mode, and the
+@code{gnu_inline} function attribute will not be recognized.
+
 @item __CHAR_UNSIGNED__
 GCC defines this macro if and only if the data type @code{char} is
 unsigned on the target machine.  It exists to cause the standard header
@@ -2081,10 +2100,30 @@ respectively.  They exist to make the standard header given numerical limits
 work correctly.  You should not use these macros directly; instead, include
 the appropriate headers.
 
+@item __DEPRECATED
+This macro is defined, with value 1, when compiling a C++ source file
+with warnings about deprecated constructs enabled.  These warnings are
+enabled by default, but can be disabled with @option{-Wno-deprecated}.
+
+@item __EXCEPTIONS
+This macro is defined, with value 1, when compiling a C++ source file
+with exceptions enabled.  If @option{-fno-exceptions} was used when
+compiling the file, then this macro will not be defined.
+
 @item __USING_SJLJ_EXCEPTIONS__
 This macro is defined, with value 1, if the compiler uses the old
 mechanism based on @code{setjmp} and @code{longjmp} for exception
 handling.
+
+@item __GXX_WEAK__
+This macro is defined when compiling a C++ source file.  It has the
+value 1 if the compiler will use weak symbols, COMDAT sections, or
+other similar techniques to collapse symbols with ``vague linkage''
+that are defined in multiple translation units.  If the compiler will
+not collapse such symbols, this macro is defined with value 0.  In
+general, user code should not need to make use of this macro; the
+purpose of this macro is to ease implementation of the C++ runtime
+library provided with G++.
 
 @item __NEXT_RUNTIME__
 This macro is defined, with value 1, if (and only if) the NeXT runtime
@@ -2097,6 +2136,26 @@ macro to determine which runtime (NeXT or GNU) is being used.
 These macros are defined, with value 1, if (and only if) the compilation
 is for a target where @code{long int} and pointer both use 64-bits and
 @code{int} uses 32-bit.
+
+@item __SSP__
+This macro is defined, with value 1, when @option{-fstack-protector} is in
+use.
+
+@item __SSP_ALL__
+This macro is defined, with value 2, when @option{-fstack-protector-all} is
+in use.
+
+@item __TIMESTAMP__
+This macro expands to a string constant that describes the date and time
+of the last modification of the current source file. The string constant
+contains abbreviated day of the week, month, day of the month, time in
+hh:mm:ss form, year and looks like @code{@w{"Sun Sep 16 01:03:52 1973"}}.
+If the day of the month is less than 10, it is padded with a space on the left.
+
+If GCC cannot determine the current date, it will emit a warning message
+(once per compilation) and @code{__TIMESTAMP__} will expand to
+@code{@w{"??? ??? ?? ??:??:?? ????"}}.
+
 @end table
 
 @node System-specific Predefined Macros
@@ -3352,18 +3411,15 @@ current file to be treated as if it came from a system header.
 @chapter Other Directives
 
 @findex #ident
+@findex #sccs
 The @samp{#ident} directive takes one argument, a string constant.  On
 some systems, that string constant is copied into a special segment of
-the object file.  On other systems, the directive is ignored.
+the object file.  On other systems, the directive is ignored.  The
+@samp{#sccs} directive is a synonym for @samp{#ident}.
 
-This directive is not part of the C standard, but it is not an official
-GNU extension either.  We believe it came from System V@.
-
-@findex #sccs
-The @samp{#sccs} directive is recognized, because it appears in the
-header files of some systems.  It is a very old, obscure, extension
-which we did not invent, and we have been unable to find any
-documentation of what it should do, so GCC simply ignores it.
+These directives are not part of the C standard, but they are not
+official GNU extensions either.  What historical information we have
+been able to find, suggests they originated with System V@.
 
 @cindex null directive
 The @dfn{null directive} consists of a @samp{#} followed by a newline,
@@ -3757,15 +3813,17 @@ execution character set.
 
 Currently, CPP requires its input to be ASCII or UTF-8.  The execution
 character set may be controlled by the user, with the
-@option{-ftarget-charset} and @option{-ftarget-wide-charset} options.
+@option{-fexec-charset} and @option{-fwide-exec-charset} options.
 
 @item Identifier characters.
 @anchor{Identifier characters}
 
 The C and C++ standards allow identifiers to be composed of @samp{_}
 and the alphanumeric characters.  C++ and C99 also allow universal
-character names (not implemented in GCC), and C99 further permits
-implementation-defined characters.
+character names, and C99 further permits implementation-defined
+characters.  GCC currently only permits universal character names if
+@option{-fextended-identifiers} is used, because the implementation of
+universal character names in identifiers is experimental.
 
 GCC allows the @samp{$} character in identifiers as an extension for
 most targets.  This is true regardless of the @option{std=} switch,

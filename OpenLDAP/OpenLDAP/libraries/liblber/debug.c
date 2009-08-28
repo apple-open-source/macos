@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/liblber/debug.c,v 1.18.2.2 2006/01/03 22:16:07 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/liblber/debug.c,v 1.21.2.3 2008/02/11 23:26:41 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,23 +33,6 @@
 #include "ldap_pvt.h"
 
 static FILE *log_file = NULL;
-
-#ifdef LDAP_SYSLOG
-static int use_syslog = 0;
-
-static int debug2syslog(int l) {
-	switch (l) {
-	case LDAP_LEVEL_EMERG: return LOG_EMERG;
-	case LDAP_LEVEL_ALERT: return LOG_ALERT;
-	case LDAP_LEVEL_CRIT: return LOG_CRIT;
-	case LDAP_LEVEL_ERR: return LOG_ERR;
-	case LDAP_LEVEL_WARNING: return LOG_WARNING;
-	case LDAP_LEVEL_NOTICE: return LOG_NOTICE;
-	case LDAP_LEVEL_INFO: return LOG_INFO;
-	}
-	return LOG_DEBUG;
-}
-#endif
 
 int lutil_debug_file( FILE *file )
 {

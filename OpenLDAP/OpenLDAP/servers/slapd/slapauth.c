@@ -1,6 +1,6 @@
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2004-2006 The OpenLDAP Foundation.
+ * Copyright 2004-2008 The OpenLDAP Foundation.
  * Portions Copyright 2004 Pierangelo Masarati.
  * All rights reserved.
  *
@@ -88,8 +88,8 @@ slapauth( int argc, char **argv )
 	argv = &argv[ optind ];
 	argc -= optind;
 
-	op = (Operation *) &opbuf;
-	connection_fake_init( &conn, op, &conn );
+	connection_fake_init( &conn, &opbuf, &conn );
+	op = &opbuf.ob_op;
 
 	conn.c_sasl_bind_mech = mech;
 

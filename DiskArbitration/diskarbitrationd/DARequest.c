@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,8 +34,10 @@
 #include "DAQueue.h"
 #include "DAStage.h"
 #include "DASupport.h"
+#include "DAThread.h"
 
 #include <fcntl.h>
+#include <libproc.h>
 #include <unistd.h>
 #include <sys/disk.h>
 #include <DiskArbitration/DiskArbitration.h>
@@ -50,6 +52,8 @@ static void __DARequestRefreshCallback( int status, void * context );
 static void __DARequestRenameCallback( int status, void * context );
 static void __DARequestUnmountCallback( int status, void * context );
 static void __DARequestUnmountApprovalCallback( CFTypeRef response, void * context );
+static int  __DARequestUnmountTickle( void * context );
+static void __DARequestUnmountTickleCallback( int status, void * context );
 ///w:start
 static void __DARequestEjectAuthorizationCallback( DAReturn status, void * context );
 static void __DARequestMountAuthorizationCallback( DAReturn status, void * context );
@@ -1149,6 +1153,14 @@ static Boolean __DARequestUnmount( DARequestRef request )
             DADiskSetState( disk, kDADiskStateCommandActive, TRUE );
 
             DARequestSetState( request, kDARequestStateStagedApprove, TRUE );
+///w:start
+            if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWritableKey ) == kCFBooleanTrue )
+            {
+                DAThreadExecute( __DARequestUnmountTickle, disk, __DARequestUnmountTickleCallback, request );
+
+                return FALSE;
+            }
+///w:stop
 
             DADiskUnmountApprovalCallback( disk, __DARequestUnmountApprovalCallback, request );
 
@@ -1261,12 +1273,32 @@ static void __DARequestUnmountCallback( int status, void * context )
          */
 
         DADissenterRef dissenter;
+        CFURLRef       mountpoint;
+        char *         path;
 
         DALogDebug( "  unmounted disk, id = %@, failure.", disk );
 
         DALogDebug( "unable to unmount %@ (status code 0x%08X).", disk, status );
 
         dissenter = DADissenterCreate( kCFAllocatorDefault, unix_err( status ) );
+
+        mountpoint = DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey );
+
+        path = ___CFURLCopyFileSystemRepresentation( mountpoint );
+
+        if ( path )
+        {
+            pid_t dissenterPID = 0;
+
+            proc_listpidspath( PROC_ALL_PIDS, 0, path, PROC_LISTPIDSPATH_EXCLUDE_EVTONLY | PROC_LISTPIDSPATH_PATH_IS_VOLUME, &dissenterPID, sizeof( dissenterPID ) );
+
+            if ( dissenterPID )
+            {
+                DADissenterSetProcessID( dissenter, dissenterPID );
+            }
+
+            free( path );
+        }
 
         DARequestSetDissenter( request, dissenter );
 
@@ -1350,7 +1382,7 @@ static void __DARequestUnmountApprovalCallback( CFTypeRef response, void * conte
 
     CFRelease( request );
 }
-///:start
+///w:start
 static void __DARequestUnmountAuthorizationCallback( DAReturn status, void * context )
 {
     DARequestRef request = context;
@@ -1372,6 +1404,45 @@ static void __DARequestUnmountAuthorizationCallback( DAReturn status, void * con
 
     CFRelease( request );
 }
+
+static int __DARequestUnmountTickle( void * context )
+{
+    DADiskRef disk = context;
+    size_t    size;
+
+    size = ___CFNumberGetIntegerValue( DADiskGetDescription( disk, kDADiskDescriptionMediaBlockSizeKey ) );
+
+    if ( size )
+    {
+        char * buffer;
+
+        buffer = malloc( size );
+ 
+        if ( buffer )
+        {
+            int file;
+
+            file = open( DADiskGetBSDPath( disk, TRUE ), O_RDONLY );
+
+            if ( file != -1 )
+            {
+                read( file, buffer, size );
+
+                close( file );
+            }
+
+            free( buffer );
+        }
+    }
+
+    return 0;
+}
+
+static void __DARequestUnmountTickleCallback( int status, void * context )
+{
+    DADiskUnmountApprovalCallback( DARequestGetDisk( context ), __DARequestUnmountApprovalCallback, context );
+}
+
 ///w:stop
 
 DARequestRef DARequestCreate( CFAllocatorRef allocator,
@@ -1422,7 +1493,7 @@ Boolean DARequestDispatch( DARequestRef request )
         {
             if ( DADiskGetState( disk, kDADiskStateCommandActive ) == FALSE )
             {
-                if ( DADiskGetState( disk, kDADiskStateStagedAppear ) )
+                if ( DADiskGetState( disk, kDADiskStateStagedMount ) )
                 {
                     switch ( DARequestGetKind( request ) )
                     {

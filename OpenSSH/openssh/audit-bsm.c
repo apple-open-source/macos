@@ -194,7 +194,12 @@ bsm_audit_record(int typ, char *string, au_event_t event_no)
 	pid_t		pid = getpid();
 	AuditInfoTermID	tid = ssh_bsm_tid;
 
-	if (the_authctxt != NULL && the_authctxt->valid) {
+	if (the_authctxt == NULL) {
+		error("BSM audit: audit record internal error (NULL ctxt)");
+		abort();
+	}
+	
+	if (the_authctxt->valid) {
 		uid = the_authctxt->pw->pw_uid;
 		gid = the_authctxt->pw->pw_gid;
 	}

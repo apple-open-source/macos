@@ -3,7 +3,7 @@
 # Date:        9/16/07
 # Description: QuickLookTest and related classes
 
-$kQuickLookToolVers = "1.7"
+$kQuickLookToolVers = "1.8"
 
 # -------------------------------------------------
 # To create a test tool based on QuickLookTool:
@@ -113,8 +113,8 @@ class QuickLookTool
 		@serviceDesc = serviceDesc
 		@serviceID = serviceID
 		
-		@tempDir = "/tmp/#{@toolName}"
-		@testLogPath = "#{@tempDir}/#{@toolName}.log"
+		@logDir = "/Library/Logs/#{@toolName}"
+		@testLogPath = "#{@logDir}/#{@toolName}.log"
 
 		@prereqFiles = nil
 		@testCases = nil
@@ -142,8 +142,8 @@ class QuickLookTool
 	end
 	
 	#----------------------------------------
-	def tempDir
-		return @tempDir
+	def logDir
+		return @logDir
 	end
 	
 	#----------------------------------------
@@ -215,10 +215,10 @@ class QuickLookTool
 	
 	#----------------------------------------
 	def createTestDir
-		return if File.exists?(@tempDir)
-		Dir.mkdir(@tempDir, 0777)
-		if !File.exists?(@tempDir) then
-			self.showError("Failed to create quicklook test directory: #{@tempDir}")
+		return if File.exists?(@logDir)
+		Dir.mkdir(@logDir, 0777)
+		if !File.exists?(@logDir) then
+			self.showError("Failed to create quicklook test directory: #{@logDir}")
 			exit
 		end
 	end
@@ -449,7 +449,7 @@ class QuickLookTool
 	def doTestLoopSetup
 		# called from RunTestLoopCommand.doToolCommand
 		# override this method to perform any pre-test-loop actions
-		return File.exists?(@tempDir)
+		return File.exists?(@logDir)
 	end
 
 	#----------------------------------------
@@ -970,7 +970,7 @@ class QLCommand
 		@expected = expected
 		@redir = redir
 
-		td = @qltool.tempDir
+		td = @qltool.logDir
 		@expectedOutPath = "#{td}/expected.out"
 		@expectedErrPath = "#{td}/expected.err"
 		@commandOutPath = "#{td}/command.out"
@@ -1196,7 +1196,7 @@ class XILogger
 
 		@qltool = qltool
 
-		@logOutPath = "#{qltool.tempDir}/xiLog.log"
+		@logOutPath = "#{qltool.logDir}/xiLog.log"
 		@logRef = nil
 
 		require 'osx/cocoa' unless @qltool.debugMode

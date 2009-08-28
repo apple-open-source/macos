@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for 64 bit PowerPC linux.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -17,8 +17,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the
-   Free Software Foundation, 59 Temple Place - Suite 330, Boston,
-   MA 02111-1307, USA.  */
+   Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
+   MA 02110-1301, USA.  */
 
 #ifndef RS6000_BI_ARCH
 
@@ -78,7 +78,7 @@ extern int dot_symbols;
 #define	SUBSUBTARGET_OVERRIDE_OPTIONS				\
   do								\
     {								\
-      if (rs6000_alignment_string == 0)				\
+      if (!rs6000_explicit_options.alignment)			\
 	rs6000_alignment_flags = MASK_ALIGN_NATURAL;		\
       if (TARGET_64BIT)						\
 	{							\
@@ -206,24 +206,8 @@ extern int dot_symbols;
 
 #endif
 
-#define	MASK_PROFILE_KERNEL	0x00100000
-
-/* Non-standard profiling for kernels, which just saves LR then calls
-   _mcount without worrying about arg saves.  The idea is to change
-   the function prologue as little as possible as it isn't easy to
-   account for arg save/restore code added just for _mcount.  */
-#define TARGET_PROFILE_KERNEL	(target_flags & MASK_PROFILE_KERNEL)
-
-/* Override sysv4.h.  */
-#undef	EXTRA_SUBTARGET_SWITCHES
-#define EXTRA_SUBTARGET_SWITCHES					\
-  {"profile-kernel",	 MASK_PROFILE_KERNEL,				\
-   N_("Call mcount for profiling before a function prologue") },	\
-  {"no-profile-kernel",	-MASK_PROFILE_KERNEL,				\
-   N_("Call mcount for profiling after a function prologue") },
-
 /* We use glibc _mcount for profiling.  */
-#define NO_PROFILE_COUNTERS TARGET_64BIT
+#define NO_PROFILE_COUNTERS 1
 #define PROFILE_HOOK(LABEL) \
   do { if (TARGET_64BIT) output_profile_hook (LABEL); } while (0)
 
@@ -244,15 +228,19 @@ extern int dot_symbols;
    the first field is an FP double, only if in power alignment mode.  */
 #undef  ROUND_TYPE_ALIGN
 #define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)			\
-  ((TARGET_ALTIVEC && TREE_CODE (STRUCT) == VECTOR_TYPE)		\
-   ? MAX (MAX ((COMPUTED), (SPECIFIED)), 128)				\
-   : (TARGET_64BIT							\
-      && (TREE_CODE (STRUCT) == RECORD_TYPE				\
-	  || TREE_CODE (STRUCT) == UNION_TYPE				\
-	  || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)			\
-      && TARGET_ALIGN_NATURAL == 0)					\
+  ((TARGET_64BIT							\
+    && (TREE_CODE (STRUCT) == RECORD_TYPE				\
+	|| TREE_CODE (STRUCT) == UNION_TYPE				\
+	|| TREE_CODE (STRUCT) == QUAL_UNION_TYPE)			\
+    && TARGET_ALIGN_NATURAL == 0)					\
    ? rs6000_special_round_type_align (STRUCT, COMPUTED, SPECIFIED)	\
    : MAX ((COMPUTED), (SPECIFIED)))
+
+/* Use the default for compiling target libs.  */
+#ifdef IN_TARGET_LIBS
+#undef TARGET_ALIGN_NATURAL
+#define TARGET_ALIGN_NATURAL 1
+#endif
 
 /* Indicate that jump tables go in the text section.  */
 #undef  JUMP_TABLES_IN_TEXT_SECTION
@@ -295,7 +283,7 @@ extern int dot_symbols;
 
 /* glibc has float and long double forms of math functions.  */
 #undef  TARGET_C99_FUNCTIONS
-#define TARGET_C99_FUNCTIONS 1
+#define TARGET_C99_FUNCTIONS (OPTION_GLIBC)
 
 #undef  TARGET_OS_CPP_BUILTINS
 #define TARGET_OS_CPP_BUILTINS()			\
@@ -307,7 +295,6 @@ extern int dot_symbols;
 	  builtin_define ("__PPC64__");			\
 	  builtin_define ("__powerpc__");		\
 	  builtin_define ("__powerpc64__");		\
-	  builtin_define ("__PIC__");			\
 	  builtin_assert ("cpu=powerpc64");		\
 	  builtin_assert ("machine=powerpc64");		\
 	}						\
@@ -349,13 +336,28 @@ extern int dot_symbols;
 #undef	LINK_OS_DEFAULT_SPEC
 #define LINK_OS_DEFAULT_SPEC "%(link_os_linux)"
 
+#define GLIBC_DYNAMIC_LINKER32 "/lib/ld.so.1"
+#define GLIBC_DYNAMIC_LINKER64 "/lib64/ld64.so.1"
+#define UCLIBC_DYNAMIC_LINKER32 "/lib/ld-uClibc.so.0"
+#define UCLIBC_DYNAMIC_LINKER64 "/lib/ld64-uClibc.so.0"
+#if UCLIBC_DEFAULT
+#define CHOOSE_DYNAMIC_LINKER(G, U) "%{mglibc:%{muclibc:%e-mglibc and -muclibc used together}" G ";:" U "}"
+#else
+#define CHOOSE_DYNAMIC_LINKER(G, U) "%{muclibc:%{mglibc:%e-mglibc and -muclibc used together}" U ";:" G "}"
+#endif
+#define LINUX_DYNAMIC_LINKER32 \
+  CHOOSE_DYNAMIC_LINKER (GLIBC_DYNAMIC_LINKER32, UCLIBC_DYNAMIC_LINKER32)
+#define LINUX_DYNAMIC_LINKER64 \
+  CHOOSE_DYNAMIC_LINKER (GLIBC_DYNAMIC_LINKER64, UCLIBC_DYNAMIC_LINKER64)
+
+
 #define LINK_OS_LINUX_SPEC32 "-m elf32ppclinux %{!shared: %{!static: \
   %{rdynamic:-export-dynamic} \
-  %{!dynamic-linker:-dynamic-linker /lib/ld.so.1}}}"
+  %{!dynamic-linker:-dynamic-linker " LINUX_DYNAMIC_LINKER32 "}}}"
 
 #define LINK_OS_LINUX_SPEC64 "-m elf64ppc %{!shared: %{!static: \
   %{rdynamic:-export-dynamic} \
-  %{!dynamic-linker:-dynamic-linker /lib64/ld64.so.1}}}"
+  %{!dynamic-linker:-dynamic-linker " LINUX_DYNAMIC_LINKER64 "}}}"
 
 #undef  TOC_SECTION_ASM_OP
 #define TOC_SECTION_ASM_OP \
@@ -476,66 +478,13 @@ extern int dot_symbols;
 	   && ((TARGET_64BIT						\
 		&& (TARGET_POWERPC64					\
 		    || TARGET_MINIMAL_TOC				\
-		    || (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT	\
+		    || (SCALAR_FLOAT_MODE_P (GET_MODE (X))		\
 			&& ! TARGET_NO_FP_IN_TOC)))			\
 	       || (!TARGET_64BIT					\
 		   && !TARGET_NO_FP_IN_TOC				\
 		   && !TARGET_RELOCATABLE				\
-		   && GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT	\
+		   && SCALAR_FLOAT_MODE_P (GET_MODE (X))		\
 		   && BITS_PER_WORD == HOST_BITS_PER_INT)))))
-
-/* This ABI cannot use DBX_LINES_FUNCTION_RELATIVE, nor can it use
-   dbxout_stab_value_internal_label_diff, because we must
-   use the function code label, not the function descriptor label.  */
-#define	DBX_OUTPUT_SOURCE_LINE(FILE, LINE, COUNTER)			\
-do									\
-  {									\
-    char temp[256];							\
-    const char *s;							\
-    ASM_GENERATE_INTERNAL_LABEL (temp, "LM", COUNTER);			\
-    dbxout_begin_stabn_sline (LINE);					\
-    assemble_name (FILE, temp);						\
-    putc ('-', FILE);							\
-    s = XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0);		\
-    rs6000_output_function_entry (FILE, s);				\
-    putc ('\n', FILE);							\
-    targetm.asm_out.internal_label (FILE, "LM", COUNTER);		\
-    COUNTER += 1;							\
-  }									\
-while (0)
-
-/* Similarly, we want the function code label here.  Cannot use
-   dbxout_stab_value_label_diff, as we have to use
-   rs6000_output_function_entry.  FIXME.  */
-#define DBX_OUTPUT_BRAC(FILE, NAME, BRAC)				\
-  do									\
-    {									\
-      const char *s;							\
-      dbxout_begin_stabn (BRAC);					\
-      assemble_name (FILE, NAME);					\
-      putc ('-', FILE);							\
-      s = XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0);		\
-      rs6000_output_function_entry (FILE, s);				\
-      putc ('\n', FILE);						\
-    }									\
-  while (0)
-
-#define DBX_OUTPUT_LBRAC(FILE, NAME) DBX_OUTPUT_BRAC (FILE, NAME, N_LBRAC)
-#define DBX_OUTPUT_RBRAC(FILE, NAME) DBX_OUTPUT_BRAC (FILE, NAME, N_RBRAC)
-
-/* Another case where we want the dot name.  */
-#define	DBX_OUTPUT_NFUN(FILE, LSCOPE, DECL)				\
-  do									\
-    {									\
-      const char *s;							\
-      dbxout_begin_empty_stabs (N_FUN);					\
-      assemble_name (FILE, LSCOPE);					\
-      putc ('-', FILE);							\
-      s = XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0);		\
-      rs6000_output_function_entry (FILE, s);				\
-      putc ('\n', FILE);						\
-    }									\
-  while (0)
 
 /* Select a format to encode pointers in exception handling data.  CODE
    is 0 for data, 1 for code labels, 2 for function pointers.  GLOBAL is
@@ -552,9 +501,9 @@ while (0)
 #undef DRAFT_V4_STRUCT_RET
 #define DRAFT_V4_STRUCT_RET (!TARGET_64BIT)
 
-#define TARGET_ASM_FILE_END file_end_indicate_exec_stack
+#define TARGET_ASM_FILE_END rs6000_elf_end_indicate_exec_stack
 
-#define TARGET_HAS_F_SETLKW
+#define TARGET_POSIX_IO
 
 #define LINK_GCC_C_SEQUENCE_SPEC \
   "%{static:--start-group} %G %L %{static:--end-group}%{!static:%G}"
@@ -565,3 +514,16 @@ while (0)
 #endif
 
 #define MD_UNWIND_SUPPORT "config/rs6000/linux-unwind.h"
+
+#ifdef TARGET_LIBC_PROVIDES_SSP
+/* ppc32 glibc provides __stack_chk_guard in -0x7008(2),
+   ppc64 glibc provides it at -0x7010(13).  */
+#define TARGET_THREAD_SSP_OFFSET	(TARGET_64BIT ? -0x7010 : -0x7008)
+#endif
+
+#define POWERPC_LINUX
+
+/* ppc{32,64} linux has 128-bit long double support in glibc 2.4 and later.  */
+#ifdef TARGET_DEFAULT_LONG_DOUBLE_128
+#define RS6000_DEFAULT_LONG_DOUBLE_SIZE 128
+#endif

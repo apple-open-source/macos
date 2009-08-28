@@ -1,8 +1,8 @@
 /* delete.c - bdb backend delete routine */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/delete.c,v 1.132.2.9 2006/05/10 14:53:20 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/delete.c,v 1.155.2.8 2008/05/01 21:39:35 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2006 The OpenLDAP Foundation.
+ * Copyright 2000-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,7 +38,7 @@ bdb_delete( Operation *op, SlapReply *rs )
 	struct bdb_op_info opinfo = {0};
 	ID	eid;
 
-	u_int32_t	locker = 0;
+	BDB_LOCKER	locker = 0;
 	DB_LOCK		lock, plock;
 
 	int		num_retries = 0;
@@ -52,13 +52,55 @@ bdb_delete( Operation *op, SlapReply *rs )
 	int	parent_is_glue = 0;
 	int parent_is_leaf = 0;
 
-	ctrls[num_ctrls] = 0;
+#ifdef LDAP_X_TXN
+	int settle = 0;
+#endif
 
 	Debug( LDAP_DEBUG_ARGS, "==> " LDAP_XSTRING(bdb_delete) ": %s\n",
 		op->o_req_dn.bv_val, 0, 0 );
 
+#ifdef LDAP_X_TXN
+	if( op->o_txnSpec ) {
+		/* acquire connection lock */
+		ldap_pvt_thread_mutex_lock( &op->o_conn->c_mutex );
+		if( op->o_conn->c_txn == CONN_TXN_INACTIVE ) {
+			rs->sr_text = "invalid transaction identifier";
+			rs->sr_err = LDAP_X_TXN_ID_INVALID;
+			goto txnReturn;
+		} else if( op->o_conn->c_txn == CONN_TXN_SETTLE ) {
+			settle=1;
+			goto txnReturn;
+		}
+
+		if( op->o_conn->c_txn_backend == NULL ) {
+			op->o_conn->c_txn_backend = op->o_bd;
+
+		} else if( op->o_conn->c_txn_backend != op->o_bd ) {
+			rs->sr_text = "transaction cannot span multiple database contexts";
+			rs->sr_err = LDAP_AFFECTS_MULTIPLE_DSAS;
+			goto txnReturn;
+		}
+
+		/* insert operation into transaction */
+
+		rs->sr_text = "transaction specified";
+		rs->sr_err = LDAP_X_TXN_SPECIFY_OKAY;
+
+txnReturn:
+		/* release connection lock */
+		ldap_pvt_thread_mutex_unlock( &op->o_conn->c_mutex );
+
+		if( !settle ) {
+			send_ldap_result( op, rs );
+			return rs->sr_err;
+		}
+	}
+#endif
+
+	ctrls[num_ctrls] = 0;
+
 	/* allocate CSN */
-	if ( BER_BVISEMPTY( &op->o_csn )) {
+	if ( BER_BVISNULL( &op->o_csn ) ) {
 		struct berval csn;
 		char csnbuf[LDAP_LUTIL_CSNSTR_BUFSIZE];
 
@@ -82,7 +124,8 @@ retry:	/* transaction retry */
 			0, 0, 0 );
 		rs->sr_err = TXN_ABORT( ltid );
 		ltid = NULL;
-		op->o_private = NULL;
+		LDAP_SLIST_REMOVE( &op->o_extra, &opinfo.boi_oe, OpExtra, oe_next );
+		opinfo.boi_oe.oe_key = NULL;
 		op->o_do_not_cache = opinfo.boi_acl_cache;
 		if( rs->sr_err != 0 ) {
 			rs->sr_err = LDAP_OTHER;
@@ -113,12 +156,11 @@ retry:	/* transaction retry */
 
 	locker = TXN_ID ( ltid );
 
-	opinfo.boi_bdb = op->o_bd;
+	opinfo.boi_oe.oe_key = bdb;
 	opinfo.boi_txn = ltid;
-	opinfo.boi_locker = locker;
 	opinfo.boi_err = 0;
 	opinfo.boi_acl_cache = op->o_do_not_cache;
-	op->o_private = &opinfo;
+	LDAP_SLIST_INSERT_HEAD( &op->o_extra, &opinfo.boi_oe, oe_next );
 
 	if ( !be_issuffix( op->o_bd, &op->o_req_ndn ) ) {
 		dnParent( &op->o_req_ndn, &pdn );
@@ -309,7 +351,11 @@ retry:	/* transaction retry */
 			Debug( LDAP_DEBUG_TRACE,
 				"<=- " LDAP_XSTRING(bdb_delete) ": pre-read "
 				"failed!\n", 0, 0, 0 );
-			goto return_results;
+			if ( op->o_preread & SLAP_CONTROL_CRITICAL ) {
+				/* FIXME: is it correct to abort
+				 * operation if control fails? */
+				goto return_results;
+			}
 		}
 	}
 
@@ -325,6 +371,9 @@ retry:	/* transaction retry */
 		rs->sr_text = "internal error";
 		goto return_results;
 	}
+
+	BDB_LOG_PRINTF( bdb->bi_dbenv, lt2, "slapd Starting delete %s(%d)",
+		e->e_nname.bv_val, e->e_id );
 
 	/* Can't do it if we have kids */
 	rs->sr_err = bdb_cache_children( op, lt2, e );
@@ -387,8 +436,10 @@ retry:	/* transaction retry */
 	/* fixup delete CSN */
 	if ( !SLAP_SHADOW( op->o_bd )) {
 		struct berval vals[2];
+
+		assert( !BER_BVISNULL( &op->o_csn ) );
 		vals[0] = op->o_csn;
-		BER_BVZERO( vals+1 );
+		BER_BVZERO( &vals[1] );
 		rs->sr_err = bdb_index_values( op, lt2, slap_schema.si_ad_entryCSN,
 			vals, 0, SLAP_INDEX_ADD_OP );
 	if ( rs->sr_err != LDAP_SUCCESS ) {
@@ -444,6 +495,9 @@ retry:	/* transaction retry */
 		p = NULL;
 	}
 
+	BDB_LOG_PRINTF( bdb->bi_dbenv, lt2, "slapd Commit1 delete %s(%d)",
+		e->e_nname.bv_val, e->e_id );
+
 	if ( TXN_COMMIT( lt2, 0 ) != 0 ) {
 		rs->sr_err = LDAP_OTHER;
 		rs->sr_text = "txn_commit(2) failed";
@@ -469,8 +523,11 @@ retry:	/* transaction retry */
 			goto return_results;
 		}
 	} else {
-		rc = bdb_cache_delete( &bdb->bi_cache, e, bdb->bi_dbenv,
-			locker, &lock );
+
+		BDB_LOG_PRINTF( bdb->bi_dbenv, ltid, "slapd Cache delete %s(%d)",
+			e->e_nname.bv_val, e->e_id );
+
+		rc = bdb_cache_delete( bdb, e, locker, &lock );
 		switch( rc ) {
 		case DB_LOCK_DEADLOCK:
 		case DB_LOCK_NOTGRANTED:
@@ -480,7 +537,11 @@ retry:	/* transaction retry */
 		rs->sr_err = TXN_COMMIT( ltid, 0 );
 	}
 	ltid = NULL;
-	op->o_private = NULL;
+	LDAP_SLIST_REMOVE( &op->o_extra, &opinfo.boi_oe, OpExtra, oe_next );
+	opinfo.boi_oe.oe_key = NULL;
+
+	BDB_LOG_PRINTF( bdb->bi_dbenv, NULL, "slapd Committed delete %s(%d)",
+		e->e_nname.bv_val, e->e_id );
 
 	if( rs->sr_err != 0 ) {
 		Debug( LDAP_DEBUG_TRACE,
@@ -513,6 +574,7 @@ return_results:
 	if( e != NULL ) {
 		if ( rs->sr_err == LDAP_SUCCESS ) {
 			/* Free the EntryInfo and the Entry */
+			bdb_cache_entryinfo_lock( BEI(e) );
 			bdb_cache_delete_cleanup( &bdb->bi_cache, BEI(e) );
 		} else {
 			bdb_unlocked_cache_return_entry_w(&bdb->bi_cache, e);
@@ -522,7 +584,9 @@ return_results:
 	if( ltid != NULL ) {
 		TXN_ABORT( ltid );
 	}
-	op->o_private = NULL;
+	if ( opinfo.boi_oe.oe_key ) {
+		LDAP_SLIST_REMOVE( &op->o_extra, &opinfo.boi_oe, OpExtra, oe_next );
+	}
 
 	send_ldap_result( op, rs );
 	slap_graduate_commit_csn( op );
@@ -532,7 +596,7 @@ return_results:
 		slap_sl_free( *preread_ctrl, op->o_tmpmemctx );
 	}
 
-	if( rs->sr_err == LDAP_SUCCESS && bdb->bi_txn_cp ) {
+	if( rs->sr_err == LDAP_SUCCESS && bdb->bi_txn_cp_kbyte ) {
 		TXN_CHECKPOINT( bdb->bi_dbenv,
 			bdb->bi_txn_cp_kbyte, bdb->bi_txn_cp_min, 0 );
 	}

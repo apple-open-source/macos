@@ -135,6 +135,7 @@ private:
     int syncSIOCDELMULTI(IONetworkController * ctr);
     int syncSIOCSIFMTU(IONetworkController * ctr, struct ifreq * ifr);
     int syncSIOCSIFLLADDR(IONetworkController * ctr, const char * lladdr, int len);
+	int syncSIOCGIFADDR(IONetworkController * ctr, char * lladdr, int len);
 
     static int performGatedCommand(void *, void *, void *, void *, void *);
 
@@ -197,7 +198,7 @@ protected:
     @result A BSD return value defined in bsd/sys/errno.h. */
 
     virtual SInt32 performCommand(IONetworkController * controller,
-                                  UInt32                cmd,
+                                  unsigned long			cmd,
                                   void *                arg0,
                                   void *                arg1);
 
@@ -236,13 +237,6 @@ protected:
 
 	virtual bool initIfnetParams(struct ifnet_init_params *params);
 
-/*! @function getIfnet
-    @abstract Get the ifnet structure allocated by the interface object.
-    @discussion This method returns a pointer to an ifnet structure
-    that was allocated by a concrete subclass of IONetworkInterface.
-    @result Pointer to an ifnet structure. */
-
-    virtual ifnet_t   getIfnet() const;
 
 /*! @function controllerWillChangePowerState
     @abstract Handle a notification that the network controller which is

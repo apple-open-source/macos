@@ -90,4 +90,4 @@ all:
 
 clean:
 
-	rm -rf  libbar.dylib libfoo.dylib main-10.4 main-10.5 main-10.4a main-10.5a
+	rm -rf  libbar.dylib libfoo.dylib main-10.4 main-10.5 main-10.4a main-10.5a Frameworks

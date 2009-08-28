@@ -1,9 +1,9 @@
 #
-# "$Id: Makefile 6649 2007-07-11 21:46:42Z mike $"
+# "$Id: Makefile 7871 2008-08-27 21:12:43Z mike $"
 #
 #   Standards makefile for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 2007 by Apple Inc.
+#   Copyright 2007-2009 by Apple Inc.
 #   Copyright 2006 by Easy Software Products.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -21,7 +21,10 @@ include ../Makedefs
 #
 
 RFCS	=	\
+		rfc1155.txt \
+		rfc1157.txt \
 		rfc1179.txt \
+		rfc1213.txt \
 		rfc1321.txt \
 		rfc2222.txt \
 		rfc2246.txt \
@@ -30,10 +33,12 @@ RFCS	=	\
 		rfc2567.txt \
 		rfc2568.txt \
 		rfc2569.txt \
+		rfc2578.txt \
 		rfc2595.txt \
 		rfc2616.txt \
 		rfc2617.txt \
 		rfc2712.txt \
+		rfc2790.txt \
 		rfc2817.txt \
 		rfc2818.txt \
 		rfc2821.txt \
@@ -49,11 +54,15 @@ RFCS	=	\
 		rfc3391.txt \
 		rfc3510.txt \
 		rfc3712.txt \
+		rfc3805.txt \
+		rfc3875.txt \
 		rfc3986.txt \
 		rfc3995.txt \
 		rfc3996.txt \
 		rfc3997.txt \
-		rfc3998.txt
+		rfc3998.txt \
+		rfc4122.txt \
+		rfc4234.txt
 
 .SUFFIXES:	.html .txt
 .txt.html:	rfctohtml
@@ -66,6 +75,20 @@ RFCS	=	\
 #
 
 all:	rfctohtml $(RFCS:.txt=.html)
+
+
+#
+# Make library targets...
+#
+
+libs:
+
+
+#
+# Make unit tests...
+#
+
+unittests:
 
 
 #
@@ -85,10 +108,38 @@ depend:
 
 
 #
-# Install files...
+# Install all targets...
 #
 
-install:	all
+install:	all install-data install-headers install-libs install-exec
+
+
+#
+# Install data files...
+#
+
+install-data:
+
+
+#
+# Install programs...
+#
+
+install-exec:
+
+
+#
+# Install headers...
+#
+
+install-headers:
+
+
+#
+# Install libraries...
+#
+
+install-libs:
 
 
 #
@@ -103,10 +154,10 @@ uninstall:
 #
 
 rfctohtml:	rfctohtml.o ../cups/libcups.a
-	$(CC) $(LDFLAGS) -o $@ rfctohtml.o ../cups/libcups.a \
-		$(SSLLIBS) $(COMMONLIBS) $(LIBZ)
+	$(CC) $(ARCHFLAGS) $(LDFLAGS) -o $@ rfctohtml.o ../cups/libcups.a \
+		$(LIBGSSAPI) $(SSLLIBS) $(DNSSDLIBS) $(COMMONLIBS) $(LIBZ)
 
 
 #
-# End of "$Id: Makefile 6649 2007-07-11 21:46:42Z mike $".
+# End of "$Id: Makefile 7871 2008-08-27 21:12:43Z mike $".
 #

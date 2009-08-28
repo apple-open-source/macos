@@ -9,19 +9,26 @@ BEGIN {
     }
 }
 
+use lib 't';
 use BerkeleyDB; 
-use t::util;
+use Test::More;
+use util (1);
 
-BEGIN 
-{
-    if ($BerkeleyDB::db_version < 3) {
-        print "1..0 # Skipping test, this needs Berkeley DB 3.x or better\n" ;
-        exit 0 ;
-    }
-}
+#BEGIN 
+#{
+#    if ($BerkeleyDB::db_version < 3) {
+#        print "1..0 # Skipping test, this needs Berkeley DB 3.x or better\n" ;
+#        exit 0 ;
+#    }
+#}
+
+plan(skip_all => "this needs Berkeley DB 3.x or better\n" )
+    if $BerkeleyDB::db_version < 3;
 
 
-print "1..2\n";
+
+plan tests => 2;
+
 
 my $Dfile = "dbhash.tmp";
 my $Dfile2 = "dbhash2.tmp";
@@ -70,13 +77,13 @@ my $redirect = "xyzt" ;
  }
 
   #print "[" . docat($redirect) . "]" ;
-  ok(1, docat_del($redirect) eq <<'EOM') ;
+  is(docat_del_sort($redirect), <<'EOM') ;
+green -> apple
+green -> banana
 orange -> orange
-yellow -> banana
 red -> apple
 red -> tomato
-green -> banana
-green -> apple
+yellow -> banana
 EOM
 
 }
@@ -118,13 +125,13 @@ my $redirect = "xyzt" ;
  }
 
   #print "[" . docat($redirect) . "]" ;
-  ok(2, docat_del($redirect) eq <<'EOM') ;
-orange -> orange
-yellow -> banana
-red -> apple
-red -> tomato
+  is(docat_del_sort($redirect), <<'EOM') ;
 green -> apple
 green -> banana
+orange -> orange
+red -> apple
+red -> tomato
+yellow -> banana
 EOM
 
 }

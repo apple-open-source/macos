@@ -1,22 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<array>
 <dict>
 	<key>OpenSourceProject</key>
 	<string>subversion</string>
 	<key>OpenSourceVersion</key>
-	<string>1.4.4</string>
+	<string>1.6.2</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://subversion.tigris.org/</string>
 	<key>OpenSourceURL</key>
-	<string>http://subversion.tigris.org/downloads/subversion-1.4.4.tar.bz2</string>
+	<string>http://subversion.tigris.org/downloads/subversion-1.6.2.tar.bz2</string>
 	<key>OpenSourceSHA1</key>
-	<string>1ba850187b3cedb3265850acf32341b7dbe4f945</string>
+	<string>f3b7f35dee4772a25646fe1fbb5108a6569803d1</string>
 	<key>OpenSourceImportDate</key>
-	<string>2007-06-13</string>
+	<string>2009-05-18</string>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>
 	<key>OpenSourceLicenseFile</key>
 	<string>subversion.txt</string>
 </dict>
-</array>
 </plist>

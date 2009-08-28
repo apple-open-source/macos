@@ -1,9 +1,9 @@
 /*
- * "$Id: subscriptions.c 8146 2008-11-19 19:50:56Z mike $"
+ * "$Id: subscriptions.c 7824 2008-08-01 21:11:55Z mike $"
  *
  *   Subscription routines for the Common UNIX Printing System (CUPS) scheduler.
  *
- *   Copyright 2007-2008 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -297,7 +297,7 @@ cupsdAddEvent(
   }
 
   if (temp)
-    cupsdSaveAllSubscriptions();
+    cupsdMarkDirty(CUPSD_DIRTY_SUBSCRIPTIONS);
   else
     cupsdLogMessage(CUPSD_LOG_DEBUG, "Discarding unused %s event...",
                     cupsdEventName(event));
@@ -344,8 +344,9 @@ cupsdAddSubscription(
   if (MaxSubscriptions > 0 && cupsArrayCount(Subscriptions) >= MaxSubscriptions)
   {
     cupsdLogMessage(CUPSD_LOG_DEBUG,
-                    "cupsdAddSubscription: Reached MaxSubscriptions %d",
-		    MaxSubscriptions);
+                    "cupsdAddSubscription: Reached MaxSubscriptions %d "
+		    "(count=%d)", MaxSubscriptions,
+		    cupsArrayCount(Subscriptions));
     return (NULL);
   }
 
@@ -364,7 +365,8 @@ cupsdAddSubscription(
     {
       cupsdLogMessage(CUPSD_LOG_DEBUG,
 		      "cupsdAddSubscription: Reached MaxSubscriptionsPerJob %d "
-		      "for job #%d", MaxSubscriptionsPerJob, job->id);
+		      "for job #%d (count=%d)", MaxSubscriptionsPerJob,
+		      job->id, count);
       return (NULL);
     }
   }
@@ -384,8 +386,8 @@ cupsdAddSubscription(
     {
       cupsdLogMessage(CUPSD_LOG_DEBUG,
 		      "cupsdAddSubscription: Reached "
-		      "MaxSubscriptionsPerPrinter %d for %s",
-		      MaxSubscriptionsPerPrinter, dest->name);
+		      "MaxSubscriptionsPerPrinter %d for %s (count=%d)",
+		      MaxSubscriptionsPerPrinter, dest->name, count);
       return (NULL);
     }
   }
@@ -434,6 +436,13 @@ cupsdAddSubscription(
   */
 
   cupsArrayAdd(Subscriptions, temp);
+
+ /*
+  * For RSS subscriptions, run the notifier immediately...
+  */
+
+  if (uri && !strncmp(uri, "rss:", 4))
+    cupsd_start_notifier(temp);
 
   return (temp);
 }
@@ -509,7 +518,7 @@ cupsdDeleteSubscription(
   */
 
   if (update)
-    cupsdSaveAllSubscriptions();
+    cupsdMarkDirty(CUPSD_DIRTY_SUBSCRIPTIONS);
 }
 
 
@@ -692,7 +701,7 @@ cupsdExpireSubscriptions(
     }
 
   if (update)
-    cupsdSaveAllSubscriptions();
+    cupsdMarkDirty(CUPSD_DIRTY_SUBSCRIPTIONS);
 }
 
 
@@ -1408,7 +1417,7 @@ cupsd_send_notification(
 
 
   cupsdLogMessage(CUPSD_LOG_DEBUG2,
-                  "cupsd_send_notification(sub=%p(%d), event=%p(%s))\n",
+                  "cupsd_send_notification(sub=%p(%d), event=%p(%s))",
                   sub, sub->id, event, cupsdEventName(event->event));
 
  /*
@@ -1613,7 +1622,7 @@ cupsd_start_notifier(
   */
 
   if (cupsdStartProcess(command, argv, envp, fds[0], -1, NotifierPipes[1],
-			-1, -1, 0, &pid) < 0)
+			-1, -1, 0, DefaultProfile, NULL, &pid) < 0)
   {
    /*
     * Error - can't fork!
@@ -1655,11 +1664,16 @@ cupsd_update_notifier(void)
 
   while (cupsdStatBufUpdate(NotifierStatusBuffer, &loglevel,
                             message, sizeof(message)))
+  {
+    if (loglevel == CUPSD_LOG_INFO)
+      cupsdLogMessage(CUPSD_LOG_INFO, "%s", message);
+
     if (!strchr(NotifierStatusBuffer->buffer, '\n'))
       break;
+  }
 }
 
 
 /*
- * End of "$Id: subscriptions.c 8146 2008-11-19 19:50:56Z mike $".
+ * End of "$Id: subscriptions.c 7824 2008-08-01 21:11:55Z mike $".
  */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,52 +42,89 @@
 #include "SCDynamicStoreInternal.h"
 #include "config.h"		/* MiG generated file */
 
+
 /* framework variables */
-Boolean	_sc_debug	= FALSE;	/* TRUE if debugging enabled */
-Boolean	_sc_verbose	= FALSE;	/* TRUE if verbose logging enabled */
-Boolean	_sc_log		= TRUE;		/* TRUE if SCLog() output goes to syslog */
-
-static const struct sc_errmsg {
-	int	status;
-	char	*message;
-} sc_errmsgs[] = {
-	{ kSCStatusAccessError,		"Permission denied" },
-	{ kSCStatusFailed,		"Failed!" },
-	{ kSCStatusInvalidArgument,	"Invalid argument" },
-	{ kSCStatusKeyExists,		"Key already defined" },
-	{ kSCStatusLocked,		"Lock already held" },
-	{ kSCStatusMaxLink,		"Maximum link count exceeded" },
-	{ kSCStatusNeedLock,		"Lock required for this operation" },
-	{ kSCStatusNoStoreServer,	"Configuration daemon not (no longer) available" },
-	{ kSCStatusNoStoreSession,	"Configuration daemon session not active" },
-	{ kSCStatusNoConfigFile,	"Configuration file not found" },
-	{ kSCStatusNoKey,		"No such key" },
-	{ kSCStatusNoLink,		"No such link" },
-	{ kSCStatusNoPrefsSession,	"Preference session not active" },
-	{ kSCStatusNotifierActive,	"Notifier is currently active" },
-	{ kSCStatusOK,			"Success!" },
-	{ kSCStatusPrefsBusy,		"Preferences update currently in progress" },
-	{ kSCStatusReachabilityUnknown,	"Network reachability cannot be determined" },
-	{ kSCStatusStale,		"Write attempted on stale version of object" },
-};
-#define nSC_ERRMSGS (sizeof(sc_errmsgs)/sizeof(struct sc_errmsg))
+int	_sc_debug	= FALSE;	/* non-zero if debugging enabled */
+int	_sc_verbose	= FALSE;	/* non-zero if verbose logging enabled */
+int	_sc_log		= TRUE;		/* 0 if SC messages should be written to stdout/stderr,
+					   1 if SC messages should be logged w/asl(3),
+					   2 if SC messages should be written to stdout/stderr AND logged */
 
 
-#define	USE_SCCOPYDESCRIPTION
-#ifdef	USE_SCCOPYDESCRIPTION
+#pragma mark -
+#pragma mark Thread specific data
 
-// from <CoreFoundation/CFVeryPrivate.h>
-extern CFStringRef _CFStringCreateWithFormatAndArgumentsAux(CFAllocatorRef alloc, CFStringRef (*copyDescFunc)(void *, CFDictionaryRef), CFDictionaryRef formatOptions, CFStringRef format, va_list arguments);
 
-#define	N_QUICK	32
+typedef struct {
+	aslclient	_asl;
+	int		_sc_error;
+} __SCThreadSpecificData, *__SCThreadSpecificDataRef;
 
-static CFStringRef
-_SCCopyDescription(void *info, CFDictionaryRef formatOptions)
+
+static pthread_once_t	tsKeyInitialized	= PTHREAD_ONCE_INIT;
+static pthread_key_t	tsDataKey;
+
+
+static void
+__SCThreadSpecificDataFinalize(void *arg)
 {
+	__SCThreadSpecificDataRef	tsd = (__SCThreadSpecificDataRef)arg;
+
+	if (tsd != NULL) {
+		if (tsd->_asl    != NULL) asl_close(tsd->_asl);
+		CFAllocatorDeallocate(kCFAllocatorSystemDefault, tsd);
+	}
+	return;
+}
+
+
+static void
+__SCThreadSpecificKeyInitialize()
+{
+	pthread_key_create(&tsDataKey, __SCThreadSpecificDataFinalize);
+	return;
+}
+
+
+static __SCThreadSpecificDataRef
+__SCGetThreadSpecificData()
+{
+	__SCThreadSpecificDataRef	tsd;
+
+	pthread_once(&tsKeyInitialized, __SCThreadSpecificKeyInitialize);
+
+	tsd = pthread_getspecific(tsDataKey);
+	if (tsd == NULL) {
+		tsd = CFAllocatorAllocate(kCFAllocatorSystemDefault, sizeof(__SCThreadSpecificData), 0);
+		tsd->_asl = asl_open(NULL, NULL, 0);
+		asl_set_filter(tsd->_asl, ASL_FILTER_MASK_UPTO(ASL_LEVEL_DEBUG));
+		tsd->_sc_error = kSCStatusOK;
+		pthread_setspecific(tsDataKey, tsd);
+	}
+
+	return tsd;
+}
+
+
+#pragma mark -
+#pragma mark Logging
+
+
+#define	ENABLE_SC_FORMATTING
+#ifdef	ENABLE_SC_FORMATTING
+// from <CoreFoundation/ForFoundationOnly.h>
+extern CFStringRef _CFStringCreateWithFormatAndArgumentsAux(CFAllocatorRef alloc, CFStringRef (*copyDescFunc)(CFTypeRef, CFDictionaryRef), CFDictionaryRef formatOptions, CFStringRef format, va_list arguments);
+#endif	/* ENABLE_SC_FORMATTING */
+
+
+CFStringRef
+_SCCopyDescription(CFTypeRef cf, CFDictionaryRef formatOptions)
+{
+#ifdef	ENABLE_SC_FORMATTING
 	CFMutableDictionaryRef	nFormatOptions;
 	CFStringRef		prefix1;
 	CFStringRef		prefix2;
-	CFTypeID		type	= CFGetTypeID(info);
+	CFTypeID		type	= CFGetTypeID(cf);
 
 	if (!formatOptions ||
 	    !CFDictionaryGetValueIfPresent(formatOptions, CFSTR("PREFIX1"), (const void **)&prefix1)) {
@@ -99,7 +136,7 @@ _SCCopyDescription(void *info, CFDictionaryRef formatOptions)
 						formatOptions,
 						CFSTR("%@%@"),
 						prefix1,
-						info);
+						cf);
 	}
 
 	if (type == CFBooleanGetTypeID()) {
@@ -107,7 +144,7 @@ _SCCopyDescription(void *info, CFDictionaryRef formatOptions)
 						formatOptions,
 						CFSTR("%@%s"),
 						prefix1,
-						CFBooleanGetValue(info) ? "TRUE" : "FALSE");
+						CFBooleanGetValue(cf) ? "TRUE" : "FALSE");
 	}
 
 	if (type == CFDataGetTypeID()) {
@@ -119,8 +156,8 @@ _SCCopyDescription(void *info, CFDictionaryRef formatOptions)
 		str = CFStringCreateMutable(NULL, 0);
 		CFStringAppendFormat(str, formatOptions, CFSTR("%@<data> 0x"), prefix1);
 
-		data    = CFDataGetBytePtr(info);
-		dataLen = CFDataGetLength(info);
+		data    = CFDataGetBytePtr(cf);
+		dataLen = CFDataGetLength(cf);
 		for (i = 0; i < dataLen; i++) {
 			CFStringAppendFormat(str, NULL, CFSTR("%02x"), data[i]);
 		}
@@ -133,7 +170,7 @@ _SCCopyDescription(void *info, CFDictionaryRef formatOptions)
 						formatOptions,
 						CFSTR("%@%@"),
 						prefix1,
-						info);
+						cf);
 	}
 
 	if (type == CFDateGetTypeID()) {
@@ -142,7 +179,7 @@ _SCCopyDescription(void *info, CFDictionaryRef formatOptions)
 		CFTimeZoneRef	tZone;
 
 		tZone = CFTimeZoneCopySystem();
-		gDate = CFAbsoluteTimeGetGregorianDate(CFDateGetAbsoluteTime(info), tZone);
+		gDate = CFAbsoluteTimeGetGregorianDate(CFDateGetAbsoluteTime(cf), tZone);
 		str   = CFStringCreateWithFormat(NULL,
 						formatOptions,
 						CFSTR("%@%02d/%02d/%04d %02d:%02d:%02.0f %@"),
@@ -160,7 +197,7 @@ _SCCopyDescription(void *info, CFDictionaryRef formatOptions)
 
 	if (!formatOptions ||
 	    !CFDictionaryGetValueIfPresent(formatOptions, CFSTR("PREFIX2"), (const void **)&prefix2)) {
-		prefix2 = CFStringCreateCopy(NULL, prefix1);
+		prefix2 = prefix1;
 	}
 
 	if (formatOptions) {
@@ -172,8 +209,10 @@ _SCCopyDescription(void *info, CFDictionaryRef formatOptions)
 							   &kCFTypeDictionaryValueCallBacks);
 	}
 
+#define	N_QUICK	32
+
 	if (type == CFArrayGetTypeID()) {
-		const void *		elements_q[32];
+		const void *		elements_q[N_QUICK];
 		const void **		elements	= elements_q;
 		CFIndex			i;
 		CFIndex			nElements;
@@ -182,11 +221,11 @@ _SCCopyDescription(void *info, CFDictionaryRef formatOptions)
 		str = CFStringCreateMutable(NULL, 0);
 		CFStringAppendFormat(str, formatOptions, CFSTR("%@<array> {"), prefix1);
 
-		nElements = CFArrayGetCount(info);
+		nElements = CFArrayGetCount(cf);
 		if (nElements > 0) {
 			if (nElements > (CFIndex)(sizeof(elements_q)/sizeof(CFTypeRef)))
 				elements  = CFAllocatorAllocate(NULL, nElements * sizeof(CFTypeRef), 0);
-			CFArrayGetValues(info, CFRangeMake(0, nElements), elements);
+			CFArrayGetValues(cf, CFRangeMake(0, nElements), elements);
 			for (i = 0; i < nElements; i++) {
 				CFMutableStringRef	nPrefix1;
 				CFMutableStringRef	nPrefix2;
@@ -213,7 +252,7 @@ _SCCopyDescription(void *info, CFDictionaryRef formatOptions)
 				CFRelease(nPrefix2);
 				CFRelease(nStr);
 
-				vStr = _SCCopyDescription((void *)elements[i], nFormatOptions);
+				vStr = _SCCopyDescription((CFTypeRef)elements[i], nFormatOptions);
 				CFStringAppendFormat(str,
 						     formatOptions,
 						     CFSTR("\n%@"),
@@ -242,18 +281,18 @@ _SCCopyDescription(void *info, CFDictionaryRef formatOptions)
 		str = CFStringCreateMutable(NULL, 0);
 		CFStringAppendFormat(str, formatOptions, CFSTR("%@<dictionary> {"), prefix1);
 
-		nElements = CFDictionaryGetCount(info);
+		nElements = CFDictionaryGetCount(cf);
 		if (nElements > 0) {
 			if (nElements > (CFIndex)(sizeof(keys_q) / sizeof(CFTypeRef))) {
 				keys   = CFAllocatorAllocate(NULL, nElements * sizeof(CFTypeRef), 0);
 				values = CFAllocatorAllocate(NULL, nElements * sizeof(CFTypeRef), 0);
 			}
-			CFDictionaryGetKeysAndValues(info, keys, values);
+			CFDictionaryGetKeysAndValues(cf, keys, values);
 			for (i = 0; i < nElements; i++) {
 				CFStringRef		kStr;
 				CFStringRef		vStr;
 
-				kStr = _SCCopyDescription((void *)keys[i], NULL);
+				kStr = _SCCopyDescription((CFTypeRef)keys[i], NULL);
 
 				nPrefix1 = CFStringCreateMutable(NULL, 0);
 				CFStringAppendFormat(nPrefix1,
@@ -273,7 +312,7 @@ _SCCopyDescription(void *info, CFDictionaryRef formatOptions)
 				CFRelease(nPrefix2);
 				CFRelease(kStr);
 
-				vStr = _SCCopyDescription((void *)values[i], nFormatOptions);
+				vStr = _SCCopyDescription((CFTypeRef)values[i], nFormatOptions);
 				CFStringAppendFormat(str,
 						     formatOptions,
 						     CFSTR("\n%@"),
@@ -292,70 +331,75 @@ _SCCopyDescription(void *info, CFDictionaryRef formatOptions)
 	}
 
 	CFRelease(nFormatOptions);
+#endif	/* ENABLE_SC_FORMATTING */
 
-	{
-		CFStringRef	cfStr;
-		CFStringRef	str;
-
-		cfStr = CFCopyDescription(info);
-		str = CFStringCreateWithFormat(NULL,
-					       formatOptions,
-					       CFSTR("%@%@"),
-					       prefix1,
-					       cfStr);
-		CFRelease(cfStr);
-		return str;
-	}
+	return CFStringCreateWithFormat(NULL,
+					formatOptions,
+					CFSTR("%@%@"),
+					prefix1,
+					cf);
 }
-
-#endif	/* USE_SCCOPYDESCRIPTION */
 
 
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
 
 static void
-__SCLog(int level, CFStringRef formatString, va_list formatArguments)
+__SCLog(aslclient asl, aslmsg msg, int level, CFStringRef formatString, va_list formatArguments)
 {
+	CFDataRef	line;
 	CFArrayRef	lines;
 	CFStringRef	str;
 
-#ifdef	USE_SCCOPYDESCRIPTION
+	if (asl == NULL) {
+		__SCThreadSpecificDataRef	tsd;
+
+		tsd = __SCGetThreadSpecificData();
+		asl = tsd->_asl;
+	}
+
+#ifdef	ENABLE_SC_FORMATTING
 	str = _CFStringCreateWithFormatAndArgumentsAux(NULL,
 						       _SCCopyDescription,
 						       NULL,
 						       formatString,
 						       formatArguments);
-#else	/* USE_SCCOPYDESCRIPTION */
+#else	/* ENABLE_SC_FORMATTING */
 	str =  CFStringCreateWithFormatAndArguments   (NULL,
 						       NULL,
 						       formatString,
 						       formatArguments);
-#endif	/* !USE_SCCOPYDESCRIPTION */
+#endif	/* !ENABLE_SC_FORMATTING */
 
-	lines = CFStringCreateArrayBySeparatingStrings(NULL, str, CFSTR("\n"));
-	CFRelease(str);
+	if (level >= 0) {
+		lines = CFStringCreateArrayBySeparatingStrings(NULL, str, CFSTR("\n"));
+		if (lines != NULL) {
+			int	i;
+			int	n	= CFArrayGetCount(lines);
 
-	if (lines) {
-		int	i;
-		int	n	= CFArrayGetCount(lines);
-
-		pthread_mutex_lock(&lock);
-		for (i = 0; i < n; i++) {
-			CFDataRef	line;
-
-			line = CFStringCreateExternalRepresentation(NULL,
-								    CFArrayGetValueAtIndex(lines, i),
-								    kCFStringEncodingUTF8,
-								    (UInt8)'?');
-			if (line) {
-				syslog (level, "%.*s", (int)CFDataGetLength(line), CFDataGetBytePtr(line));
-				CFRelease(line);
+			for (i = 0; i < n; i++) {
+				line = CFStringCreateExternalRepresentation(NULL,
+									    CFArrayGetValueAtIndex(lines, i),
+									    kCFStringEncodingUTF8,
+									    (UInt8)'?');
+				if (line) {
+					asl_log(asl, msg, level, "%.*s", (int)CFDataGetLength(line), CFDataGetBytePtr(line));
+					CFRelease(line);
+				}
 			}
+			CFRelease(lines);
 		}
-		pthread_mutex_unlock(&lock);
-		CFRelease(lines);
+	} else {
+		line = CFStringCreateExternalRepresentation(NULL,
+							    str,
+							    kCFStringEncodingUTF8,
+							    (UInt8)'?');
+		if (line) {
+			asl_log(asl, msg, ~level, "%.*s", (int)CFDataGetLength(line), CFDataGetBytePtr(line));
+			CFRelease(line);
+		}
 	}
+	CFRelease(str);
 
 	return;
 }
@@ -367,18 +411,18 @@ __SCPrint(FILE *stream, CFStringRef formatString, va_list formatArguments, Boole
 	CFDataRef	line;
 	CFStringRef	str;
 
-#ifdef	USE_SCCOPYDESCRIPTION
+#ifdef	ENABLE_SC_FORMATTING
 	str = _CFStringCreateWithFormatAndArgumentsAux(NULL,
 						       _SCCopyDescription,
 						       NULL,
 						       formatString,
 						       formatArguments);
-#else	/* USE_SCCOPYDESCRIPTION */
+#else	/* ENABLE_SC_FORMATTING */
 	str =  CFStringCreateWithFormatAndArguments   (NULL,
 						       NULL,
 						       formatString,
 						       formatArguments);
-#endif	/* !USE_SCCOPYDESCRIPTION */
+#endif	/* !ENABLE_SC_FORMATTING */
 
 	line = CFStringCreateExternalRepresentation(NULL,
 						    str,
@@ -422,10 +466,35 @@ SCLog(Boolean condition, int level, CFStringRef formatString, ...)
 
 	va_start(formatArguments, formatString);
 	if (_sc_log > 0) {
-		__SCLog(level, formatString, formatArguments);
+		__SCLog(NULL, NULL, level, formatString, formatArguments);
 	}
 	if (_sc_log != 1) {
 		__SCPrint((LOG_PRI(level) > LOG_NOTICE) ? stderr : stdout,
+			  formatString,
+			  formatArguments,
+			  (_sc_log > 0),	// trace
+			  TRUE);		// add newline
+	}
+	va_end(formatArguments);
+
+	return;
+}
+
+
+void
+SCLOG(aslclient asl, aslmsg msg, int level, CFStringRef formatString, ...)
+{
+	va_list		formatArguments;
+
+	va_start(formatArguments, formatString);
+	if (_sc_log > 0) {
+		__SCLog(asl, msg, level, formatString, formatArguments);
+	}
+	if (_sc_log != 1) {
+		if (level < 0) {
+			level = ~level;
+		}
+		__SCPrint((level > ASL_LEVEL_NOTICE) ? stderr : stdout,
 			  formatString,
 			  formatArguments,
 			  (_sc_log > 0),	// trace
@@ -471,36 +540,38 @@ SCTrace(Boolean condition, FILE *stream, CFStringRef formatString, ...)
 }
 
 
-typedef struct {
-	int	_sc_error;
-} __SCThreadSpecificData, *__SCThreadSpecificDataRef;
-
-
-static pthread_once_t	tsKeyInitialized	= PTHREAD_ONCE_INIT;
-static pthread_key_t	tsDataKey;
-
-
-static void
-__SCThreadSpecificDataFinalize(void *arg)
-{
-	__SCThreadSpecificDataRef	tsd = (__SCThreadSpecificDataRef)arg;
-
-	if (!tsd) return;
-
-	CFAllocatorDeallocate(kCFAllocatorSystemDefault, tsd);
-	return;
-}
-
-
-static void
-__SCThreadSpecificKeyInitialize()
-{
-	pthread_key_create(&tsDataKey, __SCThreadSpecificDataFinalize);
-	return;
-}
+#pragma mark -
+#pragma mark SC error handling / logging
 
 
 const CFStringRef kCFErrorDomainSystemConfiguration	= CFSTR("com.apple.SystemConfiguration");
+
+
+static const struct sc_errmsg {
+	int	status;
+	char	*message;
+} sc_errmsgs[] = {
+	{ kSCStatusAccessError,		"Permission denied" },
+	{ kSCStatusConnectionNoService,	"Network service for connection not available" },
+	{ kSCStatusFailed,		"Failed!" },
+	{ kSCStatusInvalidArgument,	"Invalid argument" },
+	{ kSCStatusKeyExists,		"Key already defined" },
+	{ kSCStatusLocked,		"Lock already held" },
+	{ kSCStatusMaxLink,		"Maximum link count exceeded" },
+	{ kSCStatusNeedLock,		"Lock required for this operation" },
+	{ kSCStatusNoStoreServer,	"Configuration daemon not (no longer) available" },
+	{ kSCStatusNoStoreSession,	"Configuration daemon session not active" },
+	{ kSCStatusNoConfigFile,	"Configuration file not found" },
+	{ kSCStatusNoKey,		"No such key" },
+	{ kSCStatusNoLink,		"No such link" },
+	{ kSCStatusNoPrefsSession,	"Preference session not active" },
+	{ kSCStatusNotifierActive,	"Notifier is currently active" },
+	{ kSCStatusOK,			"Success!" },
+	{ kSCStatusPrefsBusy,		"Preferences update currently in progress" },
+	{ kSCStatusReachabilityUnknown,	"Network reachability cannot be determined" },
+	{ kSCStatusStale,		"Write attempted on stale version of object" },
+};
+#define nSC_ERRMSGS (sizeof(sc_errmsgs)/sizeof(struct sc_errmsg))
 
 
 void
@@ -508,15 +579,7 @@ _SCErrorSet(int error)
 {
 	__SCThreadSpecificDataRef	tsd;
 
-	pthread_once(&tsKeyInitialized, __SCThreadSpecificKeyInitialize);
-
-	tsd = pthread_getspecific(tsDataKey);
-	if (!tsd) {
-		tsd = CFAllocatorAllocate(kCFAllocatorSystemDefault, sizeof(__SCThreadSpecificData), 0);
-		bzero(tsd, sizeof(__SCThreadSpecificData));
-		pthread_setspecific(tsDataKey, tsd);
-	}
-
+	tsd = __SCGetThreadSpecificData();
 	tsd->_sc_error = error;
 	return;
 }
@@ -532,10 +595,8 @@ SCCopyLastError(void)
 	__SCThreadSpecificDataRef	tsd;
 	CFMutableDictionaryRef		userInfo	= NULL;
 
-	pthread_once(&tsKeyInitialized, __SCThreadSpecificKeyInitialize);
-
-	tsd = pthread_getspecific(tsDataKey);
-	code = tsd ? tsd->_sc_error : kSCStatusOK;
+	tsd = __SCGetThreadSpecificData();
+	code =tsd->_sc_error;
 
 	for (i = 0; i < (int)nSC_ERRMSGS; i++) {
 		if (sc_errmsgs[i].status == code) {
@@ -563,7 +624,7 @@ SCCopyLastError(void)
 	domain = kCFErrorDomainMach;
 
     done :
-    
+
 	error = CFErrorCreate(NULL, domain, code, userInfo);
 	if (userInfo != NULL) CFRelease(userInfo);
 	return error;
@@ -575,10 +636,8 @@ SCError(void)
 {
 	__SCThreadSpecificDataRef	tsd;
 
-	pthread_once(&tsKeyInitialized, __SCThreadSpecificKeyInitialize);
-
-	tsd = pthread_getspecific(tsDataKey);
-	return tsd ? tsd->_sc_error : kSCStatusOK;
+	tsd = __SCGetThreadSpecificData();
+	return tsd->_sc_error;
 }
 
 

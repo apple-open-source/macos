@@ -37,6 +37,7 @@
 #include <CoreFoundation/CFNumber.h>
 #include <CoreFoundation/CFURLAccess.h>
 #include <CoreFoundation/CFPropertyList.h>
+#include <sys/stat.h>
 
 #define prefsDebug(args...)		secdebug("simpleprefs", ## args)
 
@@ -44,6 +45,65 @@
 #define kSecSystemPrefsDir			"/Library/Preferences"
 
 #pragma mark ----- (immutable) Dictionary -----
+
+static void pathForDomain(const char *domain, Dictionary::UserOrSystem userSys, std::string &path)
+{
+	path.clear();
+	if(userSys == Dictionary::US_User) {
+		const char *home = getenv("HOME");
+		if(home == NULL) {
+			home = "";
+		}
+		path = std::string(home) + "/" + kSecUserPrefsDir + "/" + domain + ".plist";
+	}
+	else {
+		path = std::string(kSecSystemPrefsDir) + "/" + domain + ".plist";
+	}
+}
+
+static bool FileExists(const char* s)
+{
+	// this isn't very efficient, either, but orders are to get rid of exceptions...
+	struct stat st;
+	int result = stat(s, &st);
+	return result == 0;
+}
+
+// use factory functions to create the dictionaries so that we can test for the presence of the dictionaries
+// without throwing
+Dictionary* Dictionary::CreateDictionary(const char* path)
+{
+	if (!FileExists(path))
+	{
+		return NULL;
+	}
+	else
+	{
+		return new Dictionary(path);
+	}
+}
+
+Dictionary* Dictionary::CreateDictionary(const char* domain, UserOrSystem userSys, bool loose)
+{
+	std::string path;
+	pathForDomain(domain, userSys, path);
+	bool exists = FileExists(path.c_str());
+	if (!loose && !exists)
+	{
+		return NULL;
+	}
+	
+	if (!exists)
+	{
+		return new Dictionary();
+	}
+	
+	return new Dictionary(path.c_str());
+}
+
+Dictionary::Dictionary() : mDict(NULL)
+{
+}
 
 Dictionary::Dictionary(
 	const char		*path)
@@ -53,28 +113,15 @@ Dictionary::Dictionary(
 }
 
 Dictionary::Dictionary(
-	const char		*domain,		// e.g., com.apple.security
-	UserOrSystem	userSys,		// US_User  : ~/Library/Preferences/domain.plist
-									// US_System: /Library/Preferences/domain.plist
-	bool			loose)			// accept failure due to missing file, leave NULL
-		: mDict(NULL)
-{
-	char path[MAXPATHLEN];
-	pathForDomain(domain, userSys, path);
-	initFromFile(path, loose);
-}
-
-Dictionary::Dictionary(
 	CFDictionaryRef	dict)
 		: mDict(dict)
 {
-	CFRetain(mDict);
-	prefsDebug("Dictionary(%p) this %p cnt %d", dict, this, (int)CFGetRetainCount(mDict));
+	if (mDict)
+		CFRetain(mDict);
 }
 
 Dictionary::~Dictionary()
 {
-	prefsDebug("~Dictionary this %p cnt %d", this, (int)CFGetRetainCount(mDict));
 	if(mDict) {
 		CFRelease(mDict);
 	}
@@ -145,7 +192,6 @@ Dictionary *Dictionary::copyDictValue(
 	 * mDict has one ref count
 	 * cfDict has one ref count 
 	 */
-	prefsDebug("copyDictValue this %p cnt NOW %d", this, (int)CFGetRetainCount(mDict));
 	return rtnDict;
 }
 
@@ -190,11 +236,8 @@ CFIndex Dictionary::count()
 void Dictionary::setDict(
 	CFDictionaryRef	newDict)
 {
-	prefsDebug("Dictionary::setDict() old %p oldcnt %d new %p newcnt %d", 
-		mDict, (int)CFGetRetainCount(mDict), newDict, (int)CFGetRetainCount(newDict));
-	if(mDict != NULL) {
+	if(mDict != NULL)
 		CFRelease(mDict);
-	}
 	mDict = newDict;
 	CFRetain(mDict);
 }
@@ -256,28 +299,37 @@ void Dictionary::initFromFile(
 		else
 			UnixError::throwMe(EIO);
 	}
-	prefsDebug("Dictionary::initFromFile(%s) dict %p this %p", path, mDict, this);
-}
-
-void Dictionary::pathForDomain(
-	const char *domain,			// e.g., com.apple.security
-	UserOrSystem userSys,		// US_User  : ~/Library/Preferences/domain.plist
-								// US_System: /Library/Preferences/domain.plist
-	char *path)					// mallocd by caller, >= MAXPATHLEN bytes
-{
-	if(userSys == US_User) {
-		char *home = getenv("HOME");
-		if(home == NULL) {
-			home = "";
-		}
-		snprintf(path, MAXPATHLEN, "%s/%s/%s.plist", home, kSecUserPrefsDir, domain);
-	}
-	else {
-		snprintf(path, MAXPATHLEN, "%s/%s.plist", kSecSystemPrefsDir, domain);
-	}
 }
 
 #pragma mark ----- Mutable Dictionary -----
+
+// factory functions
+MutableDictionary* MutableDictionary::CreateMutableDictionary(const char* fileName)
+{
+	std::string path;
+	
+	if (!FileExists(path.c_str()))
+	{
+		return NULL;
+	}
+	else
+	{
+		return new MutableDictionary(path.c_str());
+	}
+}
+
+MutableDictionary* MutableDictionary::CreateMutableDictionary(const char *domain, UserOrSystem userSys)
+{
+	std::string path;
+	pathForDomain(domain, userSys, path);
+	
+	if (!FileExists(path.c_str()))
+	{
+		return NULL;
+	}
+	
+	return new MutableDictionary(path.c_str());
+}
 
 /* Create an empty mutable dictionary */
 MutableDictionary::MutableDictionary()
@@ -287,36 +339,17 @@ MutableDictionary::MutableDictionary()
 {
 	/* lose one of those two retain counts.... */
 	CFRelease(mDict);
-	prefsDebug("MutableDictionary() dict %p cnt %d this %p", mDict, 
-		(int)CFGetRetainCount(mDict), this);
 }
 
 MutableDictionary::MutableDictionary(
 	const char		*filename)
 		: Dictionary(filename)
 {
-	prefsDebug("MutableDictionary(fn %s) dict %p this %p", filename, mDict, this);
 	/* 
 	 * Dictionary's contructor read the plist from disk. Now 
 	 * replace that dictionary with a mutable copy.
 	 */
 	makeMutable();
-	prefsDebug("MutableDictionary(fn %s) new dict %p cnt %d this %p", filename, mDict, 
-		(int)CFGetRetainCount(mDict), this);
-}
-
-/* create from preferences file */
-MutableDictionary::MutableDictionary(
-	const char		*domain,		// e.g., com.apple.security
-	UserOrSystem	userSys)		// US_User  : ~/Library/Preferences/domain.plist
-									// US_System: /Library/Preferences/domain.plist
-		: Dictionary(domain, userSys)
-{
-	prefsDebug("MutableDictionary(dom %s) dict %p this %p", domain, mDict, this);
-	/* ditto the comments in preceeding constructor */
-	makeMutable();
-	prefsDebug("MutableDictionary(dom %s) dict %p cnt %d this %p", 
-		domain, mDict, (int)CFGetRetainCount(mDict), this);
 }
 
 /* 
@@ -332,8 +365,6 @@ MutableDictionary::MutableDictionary(
 	if(!isMutable) {
 		makeMutable();
 	}
-	prefsDebug("MutableDictionary(dict %p) new dict %p cnt %d this %p", 
-		dict, mDict, (int)CFGetRetainCount(mDict), this);
 }
 	
 MutableDictionary::~MutableDictionary()
@@ -443,9 +474,9 @@ bool MutableDictionary::writePlistToPrefs(
 	UserOrSystem	userSys)		// US_User  : ~/Library/Preferences/domain.plist
 									// US_System: /Library/Preferences/domain.plist
 {
-	char path[MAXPATHLEN];
+	std::string path;
 	pathForDomain(domain, userSys, path); 
-	return writePlistToFile(path);
+	return writePlistToFile(path.c_str());
 }
 
 /* 

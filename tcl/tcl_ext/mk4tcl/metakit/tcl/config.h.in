@@ -1,0 +1,185 @@
+/* config.h.in.  Generated from configure.in by autoheader.  */
+
+/* Build windows export dll */
+#undef BUILD_Mk4tcl
+
+/* Define to 1 if you have the `bcopy' function. */
+#undef HAVE_BCOPY
+
+/* Define to 1 if you have the <inttypes.h> header file. */
+#undef HAVE_INTTYPES_H
+
+/* Do we have <limits.h>? */
+#undef HAVE_LIMITS_H
+
+/* Define to 1 if the system has the type `long long'. */
+#undef HAVE_LONG_LONG
+
+/* Define to 1 if you have the `lseek64' function. */
+#undef HAVE_LSEEK64
+
+/* Define to 1 if you have the `memmove' function. */
+#undef HAVE_MEMMOVE
+
+/* Define to 1 if you have the <memory.h> header file. */
+#undef HAVE_MEMORY_H
+
+/* Define to 1 if you have the `mmap' function. */
+#undef HAVE_MMAP
+
+/* Do we have <net/errno.h>? */
+#undef HAVE_NET_ERRNO_H
+
+/* Define to 1 if you have the `open64' function. */
+#undef HAVE_OPEN64
+
+/* Define to 1 if you have the <stdint.h> header file. */
+#undef HAVE_STDINT_H
+
+/* Define to 1 if you have the <stdlib.h> header file. */
+#undef HAVE_STDLIB_H
+
+/* Define to 1 if you have the <strings.h> header file. */
+#undef HAVE_STRINGS_H
+
+/* Define to 1 if you have the <string.h> header file. */
+#undef HAVE_STRING_H
+
+/* Is 'struct dirent64' in <sys/types.h>? */
+#undef HAVE_STRUCT_DIRENT64
+
+/* Is 'struct stat64' in <sys/stat.h>? */
+#undef HAVE_STRUCT_STAT64
+
+/* Define to 1 if you have the <sys/param.h> header file. */
+#undef HAVE_SYS_PARAM_H
+
+/* Define to 1 if you have the <sys/stat.h> header file. */
+#undef HAVE_SYS_STAT_H
+
+/* Define to 1 if you have the <sys/types.h> header file. */
+#undef HAVE_SYS_TYPES_H
+
+/* Is off64_t in <sys/types.h>? */
+#undef HAVE_TYPE_OFF64_T
+
+/* Define to 1 if you have the <unistd.h> header file. */
+#undef HAVE_UNISTD_H
+
+/* Compiler support for module scope symbols */
+#undef MODULE_SCOPE
+
+/* Do we have <dirent.h>? */
+#undef NO_DIRENT_H
+
+/* Do we have <dlfcn.h>? */
+#undef NO_DLFCN_H
+
+/* Do we have <errno.h>? */
+#undef NO_ERRNO_H
+
+/* Do we have <float.h>? */
+#undef NO_FLOAT_H
+
+/* Do we have <limits.h>? */
+#undef NO_LIMITS_H
+
+/* Do we have <stdlib.h>? */
+#undef NO_STDLIB_H
+
+/* Do we have <string.h>? */
+#undef NO_STRING_H
+
+/* Do we have <sys/wait.h>? */
+#undef NO_SYS_WAIT_H
+
+/* Do we have <values.h>? */
+#undef NO_VALUES_H
+
+/* Define to the address where bug reports for this package should be sent. */
+#undef PACKAGE_BUGREPORT
+
+/* Define to the full name of this package. */
+#undef PACKAGE_NAME
+
+/* Define to the full name and version of this package. */
+#undef PACKAGE_STRING
+
+/* Define to the one symbol short name of this package. */
+#undef PACKAGE_TARNAME
+
+/* Define to the version of this package. */
+#undef PACKAGE_VERSION
+
+/* The size of `long', as computed by sizeof. */
+#undef SIZEOF_LONG
+
+/* Is this a static build? */
+#undef STATIC_BUILD
+
+/* Define to 1 if you have the ANSI C header files. */
+#undef STDC_HEADERS
+
+/* Is memory debugging enabled? */
+#undef TCL_MEM_DEBUG
+
+/* Are we building with threads enabled? */
+#undef TCL_THREADS
+
+/* Are wide integers to be implemented with C 'long's? */
+#undef TCL_WIDE_INT_IS_LONG
+
+/* What type should be used to define wide integers? */
+#undef TCL_WIDE_INT_TYPE
+
+/* UNDER_CE version */
+#undef UNDER_CE
+
+/* Do we need a special AIX hack for timezones? */
+#undef USE_DELTA_FOR_TZ
+
+/* Use Tcl stubs */
+#undef USE_TCL_STUBS
+
+/* Do we want to use the threaded memory allocator? */
+#undef USE_THREAD_ALLOC
+
+/* Define to 1 if your processor stores words with the most significant byte
+   first (like Motorola and SPARC, unlike Intel and VAX). */
+#undef WORDS_BIGENDIAN
+
+/* Add the _ISOC99_SOURCE flag when building */
+#undef _ISOC99_SOURCE
+
+/* Add the _LARGEFILE64_SOURCE flag when building */
+#undef _LARGEFILE64_SOURCE
+
+/* Add the _LARGEFILE_SOURCE64 flag when building */
+#undef _LARGEFILE_SOURCE64
+
+/* # needed in sys/socket.h Should OS/390 do the right thing with sockets? */
+#undef _OE_SOCKETS
+
+/* Do we really want to follow the standard? Yes we do! */
+#undef _POSIX_PTHREAD_SEMANTICS
+
+/* Do we want the reentrant OS API? */
+#undef _REENTRANT
+
+/* Do we want the thread-safe OS API? */
+#undef _THREAD_SAFE
+
+/* _WIN32_WCE version */
+#undef _WIN32_WCE
+
+/* Do we want to use the XOPEN network library? */
+#undef _XOPEN_SOURCE_EXTENDED
+
+/* Define to empty if `const' does not conform to ANSI C. */
+#undef const
+
+/* Define to `__inline__' or `__inline' if that's what the C compiler
+   calls it, or to nothing if 'inline' is not supported under any name.  */
+#ifndef __cplusplus
+#undef inline
+#endif

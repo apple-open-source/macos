@@ -127,7 +127,7 @@ enum NXByteOrder target_byte_sex)
 	    unsigned int word;
 	} u;
     } sfsr;
-    unsigned long i;
+    uint32_t i;
     struct f_status *fpu_status;
     enum NXByteOrder host_byte_sex;
 

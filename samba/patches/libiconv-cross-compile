@@ -2,7 +2,7 @@ Index: samba/source/aclocal.m4
 ===================================================================
 --- samba/source/aclocal.m4.orig
 +++ samba/source/aclocal.m4
-@@ -420,22 +420,6 @@ main(){
+@@ -403,22 +403,6 @@ main(){
    AC_MSG_RESULT($ICONV_CHARSET)
  ])
  
@@ -29,7 +29,7 @@ Index: samba/source/configure.in
 ===================================================================
 --- samba/source/configure.in.orig
 +++ samba/source/configure.in
-@@ -2334,8 +2334,7 @@ fi
+@@ -2353,8 +2353,7 @@ fi
  # end utmp details
  
  
@@ -39,7 +39,7 @@ Index: samba/source/configure.in
  AC_ARG_WITH(libiconv,
  [  --with-libiconv=BASEDIR Use libiconv in BASEDIR/lib and BASEDIR/include (default=auto) ],
  [
-@@ -2344,20 +2343,27 @@ AC_ARG_WITH(libiconv,
+@@ -2363,20 +2362,27 @@ AC_ARG_WITH(libiconv,
    else
       if test "$withval" != "yes" ; then
  	ICONV_PATH_SPEC=yes
@@ -73,7 +73,7 @@ Index: samba/source/configure.in
  
  dnl Check lib and lib32 library variants to cater for IRIX ABI-specific
  dnl installation paths. This gets a little tricky since we might have iconv
-@@ -2369,37 +2375,37 @@ dnl For IA64 HPUX systems, the libs are 
+@@ -2388,37 +2394,37 @@ dnl For IA64 HPUX systems, the libs are 
      for l in "lib32" "lib" "lib/hpux32"; do
          if test -d "$i/$l" ; then
                  LDFLAGS="$save_LDFLAGS -L$i/$l"
@@ -132,7 +132,7 @@ Index: samba/source/configure.in
  	default_dos_charset=no
  	default_display_charset=no
  	default_unix_charset=no
-@@ -2407,28 +2413,30 @@ dnl        AC_CACHE_CHECK([for working i
+@@ -2426,28 +2432,30 @@ dnl        AC_CACHE_CHECK([for working i
  	# check for default dos charset name
  	for j in CP850 IBM850 ; do
  	    rjs_CHARSET($j)
@@ -170,7 +170,7 @@ Index: samba/source/configure.in
  	if test "$default_dos_charset" != "no" -a \
  		"$default_dos_charset" != "cross" -a \
  		"$default_display_charset" != "no" -a \
-@@ -2437,37 +2445,62 @@ dnl        AC_CACHE_CHECK([for working i
+@@ -2456,37 +2464,62 @@ dnl        AC_CACHE_CHECK([for working i
  		"$default_unix_charset" != "cross"
  	then
  		samba_cv_HAVE_NATIVE_ICONV=yes

@@ -42,12 +42,12 @@
 #include "FrameLoader.h"
 #include "FrameTree.h"
 #include "FrameView.h"
-#include "HitTestRequest.h"
-#include "HitTestResult.h"
-#include "HTMLFrameSetElement.h"
 #include "HTMLFrameElementBase.h"
+#include "HTMLFrameSetElement.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
+#include "HitTestRequest.h"
+#include "HitTestResult.h"
 #include "Image.h"
 #include "InspectorController.h"
 #include "KeyboardEvent.h"
@@ -58,12 +58,13 @@
 #include "PlatformWheelEvent.h"
 #include "RenderFrameSet.h"
 #include "RenderTextControlSingleLine.h"
-#include "RenderWidget.h"
 #include "RenderView.h"
+#include "RenderWidget.h"
 #include "Scrollbar.h"
 #include "SelectionController.h"
 #include "Settings.h"
 #include "TextEvent.h"
+#include "htmlediting.h" // for comparePositions()
 #include <wtf/StdLibExtras.h>
 
 #if ENABLE(SVG)
@@ -117,6 +118,20 @@ static inline void scrollAndAcceptEvent(float delta, ScrollDirection positiveDir
         e.accept();
 }
 
+#if !PLATFORM(MAC)
+
+inline bool EventHandler::eventLoopHandleMouseUp(const MouseEventWithHitTestResults&)
+{
+    return false;
+}
+
+inline bool EventHandler::eventLoopHandleMouseDragged(const MouseEventWithHitTestResults&)
+{
+    return false;
+}
+
+#endif
+
 EventHandler::EventHandler(Frame* frame)
     : m_frame(frame)
     , m_mousePressed(false)
@@ -139,6 +154,8 @@ EventHandler::EventHandler(Frame* frame)
     , m_capturingMouseEventsNode(0)
     , m_clickCount(0)
     , m_mouseDownTimestamp(0)
+    , m_useLatchedWheelEventNode(false)
+    , m_widgetIsLatched(false)
 #if PLATFORM(MAC)
     , m_mouseDownView(nil)
     , m_sendingEventToSubview(false)
@@ -178,6 +195,7 @@ void EventHandler::clear()
     m_mousePressed = false;
     m_capturesDragging = false;
     m_capturingMouseEventsNode = 0;
+    m_latchedWheelEventNode = 0;
 }
 
 void EventHandler::selectClosestWordFromMouseEvent(const MouseEventWithHitTestResults& result)
@@ -304,8 +322,7 @@ bool EventHandler::handleMousePressEventSingleClick(const MouseEventWithHitTestR
         // was created right-to-left
         Position start = newSelection.start();
         Position end = newSelection.end();
-        short before = Range::compareBoundaryPoints(pos.node(), pos.deprecatedEditingOffset(), start.node(), start.deprecatedEditingOffset());
-        if (before <= 0)
+        if (comparePositions(pos, start) <= 0)
             newSelection = VisibleSelection(pos, end);
         else
             newSelection = VisibleSelection(start, pos);
@@ -339,6 +356,8 @@ bool EventHandler::handleMousePressEvent(const MouseEventWithHitTestResults& eve
     m_mouseDownMayStartDrag = singleClick;
 
     m_mouseDownWasSingleClickInSelection = false;
+
+    m_mouseDown = event.event();
 
     if (event.isOverWidget() && passWidgetMouseDownEventToWidget(event))
         return true;
@@ -647,11 +666,10 @@ void EventHandler::setPanScrollCursor()
 
     // At the original click location we draw a 4 arrowed icon. Over this icon there won't be any scroll
     // So we don't want to change the cursor over this area
-    const int noScrollRadius = 9;
-    bool east = m_panScrollStartPos.x() < (m_currentMousePosition.x() - noScrollRadius);
-    bool west = m_panScrollStartPos.x() > (m_currentMousePosition.x() + noScrollRadius);
-    bool north = m_panScrollStartPos.y() > (m_currentMousePosition.y() + noScrollRadius);
-    bool south = m_panScrollStartPos.y() < (m_currentMousePosition.y() - noScrollRadius);
+    bool east = m_panScrollStartPos.x() < (m_currentMousePosition.x() - ScrollView::noPanScrollRadius);
+    bool west = m_panScrollStartPos.x() > (m_currentMousePosition.x() + ScrollView::noPanScrollRadius);
+    bool north = m_panScrollStartPos.y() > (m_currentMousePosition.y() + ScrollView::noPanScrollRadius);
+    bool south = m_panScrollStartPos.y() < (m_currentMousePosition.y() - ScrollView::noPanScrollRadius);
          
     if (north) {
         if (east)
@@ -722,7 +740,7 @@ void EventHandler::allowDHTMLDrag(bool& flagDHTML, bool& flagUA) const
     flagUA = ((mask & DragSourceActionImage) || (mask & DragSourceActionLink) || (mask & DragSourceActionSelection));
 }
     
-HitTestResult EventHandler::hitTestResultAtPoint(const IntPoint& point, bool allowShadowContent, bool ignoreClipping)
+HitTestResult EventHandler::hitTestResultAtPoint(const IntPoint& point, bool allowShadowContent, bool ignoreClipping, HitTestScrollbars testScrollbars)
 {
     HitTestResult result(point);
     if (!m_frame->contentRenderer())
@@ -749,6 +767,12 @@ HitTestResult EventHandler::hitTestResultAtPoint(const IntPoint& point, bool all
         HitTestResult widgetHitTestResult(widgetPoint);
         frame->contentRenderer()->layer()->hitTest(HitTestRequest(hitType), widgetHitTestResult);
         result = widgetHitTestResult;
+
+        if (testScrollbars == ShouldHitTestScrollbars) {
+            Scrollbar* eventScrollbar = view->scrollbarAtPoint(point);
+            if (eventScrollbar)
+                result.setScrollbar(eventScrollbar);
+        }
     }
     
     // If our HitTestResult is not visible, then we started hit testing too far down the frame chain. 
@@ -841,6 +865,21 @@ bool EventHandler::scrollOverflow(ScrollDirection direction, ScrollGranularity g
     }
 
     return false;
+}
+
+bool EventHandler::scrollRecursively(ScrollDirection direction, ScrollGranularity granularity)
+{
+    bool handled = scrollOverflow(direction, granularity);
+    if (!handled) {
+        Frame* frame = m_frame;
+        do {
+            FrameView* view = frame->view();
+            handled = view ? view->scroll(direction, granularity) : false;
+            frame = frame->tree()->parent();
+        } while (!handled && frame);
+     }
+
+    return handled;
 }
 
 IntPoint EventHandler::currentMousePosition() const
@@ -1106,7 +1145,7 @@ bool EventHandler::handleMousePressEvent(const PlatformMouseEvent& mouseEvent)
         invalidateClick();
         return true;
     }
-    
+
     if (mouseEvent.button() == MiddleButton && !mev.isOverLink()) {
         RenderObject* renderer = mev.targetNode()->renderer();
 
@@ -1169,7 +1208,7 @@ bool EventHandler::handleMousePressEvent(const PlatformMouseEvent& mouseEvent)
         }
 
         FrameView* view = m_frame->view();
-        Scrollbar* scrollbar = view ? view->scrollbarUnderMouse(mouseEvent) : 0;
+        Scrollbar* scrollbar = view ? view->scrollbarAtPoint(mouseEvent.pos()) : 0;
         if (!scrollbar)
             scrollbar = mev.scrollbar();
         if (scrollbar && passMousePressEventToScrollbar(mev, scrollbar))
@@ -1261,7 +1300,7 @@ bool EventHandler::handleMouseMoveEvent(const PlatformMouseEvent& mouseEvent, Hi
 
     // Send events right to a scrollbar if the mouse is pressed.
     if (m_lastScrollbarUnderMouse && m_mousePressed)
-        return m_lastScrollbarUnderMouse->mouseMoved(m_lastScrollbarUnderMouse->transformEvent(mouseEvent));
+        return m_lastScrollbarUnderMouse->mouseMoved(mouseEvent);
 
     // Treat mouse move events while the mouse is pressed as "read-only" in prepareMouseEvent
     // if we are allowed to select.
@@ -1283,7 +1322,7 @@ bool EventHandler::handleMouseMoveEvent(const PlatformMouseEvent& mouseEvent, Hi
         m_resizeLayer->resize(mouseEvent, m_offsetFromResizeCorner);
     else {
         if (FrameView* view = m_frame->view())
-            scrollbar = view->scrollbarUnderMouse(mouseEvent);
+            scrollbar = view->scrollbarAtPoint(mouseEvent.pos());
 
         if (!scrollbar)
             scrollbar = mev.scrollbar();
@@ -1313,7 +1352,7 @@ bool EventHandler::handleMouseMoveEvent(const PlatformMouseEvent& mouseEvent, Hi
             swallowEvent |= passMouseMoveEventToSubframe(mev, newSubframe.get(), hoveredNode);
     } else {
         if (scrollbar && !m_mousePressed)
-            scrollbar->mouseMoved(scrollbar->transformEvent(mouseEvent)); // Handle hover effects on platforms that support visual feedback on scrollbar hovering.
+            scrollbar->mouseMoved(mouseEvent); // Handle hover effects on platforms that support visual feedback on scrollbar hovering.
         if (Page* page = m_frame->page()) {
             if ((!m_resizeLayer || !m_resizeLayer->inResizeMode()) && !page->mainFrame()->eventHandler()->panScrollInProgress()) {
                 if (FrameView* view = m_frame->view())
@@ -1679,16 +1718,38 @@ bool EventHandler::handleWheelEvent(PlatformWheelEvent& e)
         return false;
     IntPoint vPoint = view->windowToContents(e.pos());
 
-    HitTestRequest request(HitTestRequest::ReadOnly);
-    HitTestResult result(vPoint);
-    doc->renderView()->layer()->hitTest(request, result);
-    Node* node = result.innerNode();
+    Node* node;
+    bool isOverWidget;
+    bool didSetLatchedNode = false;
+    
+    if (m_useLatchedWheelEventNode) {
+        if (!m_latchedWheelEventNode) {
+            HitTestRequest request(HitTestRequest::ReadOnly);
+            HitTestResult result(vPoint);
+            doc->renderView()->layer()->hitTest(request, result);
+            m_latchedWheelEventNode = result.innerNode();
+            m_widgetIsLatched = result.isOverWidget();
+            didSetLatchedNode = true;
+        }
+        
+        node = m_latchedWheelEventNode.get();
+        isOverWidget = m_widgetIsLatched;
+    } else {
+        if (m_latchedWheelEventNode)
+            m_latchedWheelEventNode = 0;
+        
+        HitTestRequest request(HitTestRequest::ReadOnly);
+        HitTestResult result(vPoint);
+        doc->renderView()->layer()->hitTest(request, result);
+        node = result.innerNode();
+        isOverWidget = result.isOverWidget();
+    }
     
     if (node) {
         // Figure out which view to send the event to.
         RenderObject* target = node->renderer();
         
-        if (result.isOverWidget() && target && target->isWidget()) {
+        if (isOverWidget && target && target->isWidget()) {
             Widget* widget = static_cast<RenderWidget*>(target)->widget();
 
             if (widget && passWheelEventToWidget(e, widget)) {
@@ -2066,6 +2127,9 @@ void EventHandler::dragSourceEndedAt(const PlatformMouseEvent& event, DragOperat
     }
     freeClipboard();
     dragState().m_dragSrc = 0;
+    // In case the drag was ended due to an escape key press we need to ensure
+    // that consecutive mousemove events don't reinitiate the drag and drop.
+    m_mouseDownMayStartDrag = false;
 }
     
 // returns if we should continue "default processing", i.e., whether eventhandler canceled

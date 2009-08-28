@@ -43,7 +43,7 @@ public:
     Boolean Init(TIrGlue * glue);
 	
     void            PassiveDiscovery    (TIrDscInfo * dscInfo);
-    void            GetRemoteDeviceName (UInt32 lapAddr, UInt8 * name);
+    void            GetRemoteDeviceName (UInt32 lapAddr, UInt8 * name, int maxnamelen);
     TIrDscInfo      *GetDiscoveryInfo(void);
 
 	//***************** TESTING

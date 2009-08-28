@@ -117,6 +117,8 @@ typedef enum {
 	eDSCustomCallConfigureEnableBSDLocalUsersAndGroups	= 781,
 	eDSCustomCallConfigureDisableBSDLocalUsersAndGroups= 782,
 	eDSCustomCallConfigureLocalMountRecordsChanged	= 888,
+	eDSCustomCallConfigureSuspendCacheFlushes		= 900,
+	eDSCustomCallConfigureEnableCacheFlushes		= 901,
 	eDSCustomCallTogglePlugInStateBase				= 1000,
 	
 // BaseDirectoryPlugin Request Codes

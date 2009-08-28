@@ -1,0 +1,71 @@
+* $Id: examples.README,v 1.1 2004/05/23 22:50:39 neumann Exp $
+*
+* This directory contains several simple ActiWeb introductory examples
+*
+
+*
+* 4 Variations of the counter theme:
+*
+
+1) Counter.xotcl (22 lines)
+  
+   The class counter is a special HtmlDocument that is made active
+   by adding methods to the document.
+
+   After starting the program, you can call it from your web browser:
+      http://localhost:8090/counter-1.html
+      http://localhost:8090/counter-2.html
+
+
+2) Counter2.xotcl (32 lines)
+
+   The Class Counter is a special WebAgent, with a plain/text 
+   interface. Additionally it has an HTML Facade that shields
+   the sub-system and allows to access the web agent with an
+   HTML presentation.
+   
+   The plain/text interface is:
+      http://localhost:8091/c1
+      http://localhost:8091/c2
+   The web facades are:
+      http://localhost:8091/web-c1
+      http://localhost:8091/web-c2
+   
+
+3) Counter3.xotcl (28 lines)
+
+   This example demonstrates how an existing business logic (here:
+   a small Counter class) can be enhanced with a web representation.
+   A class WebCounter inherits from Counter and from HtmlDocument.
+   The two web counter instances are accessible via:
+      http://localhost:8093/c1
+      http://localhost:8093/c2
+
+
+4) Counter4.xotcl (33 lines)
+
+   The Counter class and a derived persistent counter are 
+   independent of any web usage. Two instances c1 and c2 -- that
+   are inpendent from the usage as web counters -- are created.
+
+   Two proxy object w1 and w2 handle the HTML decoration and forward
+   the calls to the persistent counter instances c1/c2 as the real
+   subjects for handling the calls. Only the proxies are exported, because
+   c1/c2 can not be reached via the web server.
+
+   Calls:
+      http://localhost:8094/wc1
+      http://localhost:8094/wc2
+
+*
+* A simple Multiple Choice Test:  MC.xotcl
+*
+
+   The multiple choice test implements a simple test and evaluation
+   and a web facade for the test.
+
+   Calls:
+      http://localhost:8092/Gustaf.html 
+      http://localhost:8092/Uwe.html
+
+

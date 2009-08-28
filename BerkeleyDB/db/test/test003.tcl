@@ -1,9 +1,8 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1996-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 1996,2007 Oracle.  All rights reserved.
 #
-# $Id: test003.tcl,v 1.2 2004/03/30 01:24:08 jtownsen Exp $
+# $Id: test003.tcl,v 12.5 2007/05/17 15:15:56 bostic Exp $
 #
 # TEST	test003
 # TEST	Small keys/large data
@@ -71,11 +70,6 @@ proc test003 { method args} {
 
 	# Here is the loop where we put and get each key/data pair
 	set file_list [get_file_list]
-	if { $limit } {
-		if { [llength $file_list] > $limit } {
-			set file_list [lrange $file_list 1 $limit]
-		}
-	}
 	set len [llength $file_list]
 	puts "\tTest003.a: put/get loop $len entries"
 	set count 0

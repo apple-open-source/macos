@@ -1318,7 +1318,7 @@ static NTSTATUS map_krb_realm_to_dns_domain(ADS_STRUCT *ads,
 	return NT_STATUS_OK;
 }
 
-static const char *dns_errstr(DNS_ERROR err)
+ const char *dns_errstr(DNS_ERROR err)
 {
 	if (ERR_DNS_EQUAL(err, ERROR_DNS_SUCCESS)) {
 		return "success";
@@ -1344,6 +1344,8 @@ static const char *dns_errstr(DNS_ERROR err)
 		return "socket error";
 	} else if (ERR_DNS_EQUAL(err, ERROR_DNS_UPDATE_FAILED)) {
 		return "DNS update failed";
+	} else if (ERR_DNS_EQUAL(err, ERROR_DNS_WRONG_ZONE)) {
+		return "wrong DNS zone";
 	} else {
 		return "invalid DNS error code";
 	}
@@ -1425,15 +1427,8 @@ static NTSTATUS net_update_dns_internal(TALLOC_CTX *ctx, ADS_STRUCT *ads,
 done:
 
 	if (!NT_STATUS_IS_OK(status)) {
-		if (!ERR_DNS_IS_OK(dns_err)) {
-			d_printf("DNS update for %s failed: %s\n",
-				machine_name,
-				dns_errstr(dns_err));
-		} else {
-			d_printf("DNS update for %s failed: %s\n",
-				machine_name,
-				get_friendly_nt_error_msg(status));
-		}
+		d_printf("DNS update for %s failed: %s\n",
+			machine_name, get_friendly_nt_error_msg(status));
 	}
 
 	SAFE_FREE( root_domain );
@@ -1809,7 +1804,7 @@ static int net_ads_dns_register(int argc, const char **argv)
 #endif
 	
 	if (argc > 0) {
-		d_fprintf(stderr, "net ads dns register <name> <ip>\n");
+		d_fprintf(stderr, "net ads dns register\n");
 		return -1;
 	}
 

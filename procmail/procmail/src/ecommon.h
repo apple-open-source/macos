@@ -1,4 +1,4 @@
-/*$Id: ecommon.h,v 1.1 1999/09/23 17:30:07 wsanchez Exp $*/
+/*$Id: ecommon.h,v 1.4 1994/05/26 14:12:33 berg Exp $*/
 
 void
  *tmalloc Q((const size_t len)),

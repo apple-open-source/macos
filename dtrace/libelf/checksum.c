@@ -2,9 +2,8 @@
  * CDDL HEADER START
  *
  * The contents of this file are subject to the terms of the
- * Common Development and Distribution License, Version 1.0 only
- * (the "License").  You may not use this file except in compliance
- * with the License.
+ * Common Development and Distribution License (the "License").
+ * You may not use this file except in compliance with the License.
  *
  * You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
  * or http://www.opensolaris.org/os/licensing.
@@ -19,8 +18,9 @@
  *
  * CDDL HEADER END
  */
+
 /*
- * Copyright 2004 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -30,9 +30,8 @@
 /*	Copyright (c) 1987, 1988 Microsoft Corporation	*/
 /*	  All Rights Reserved	*/
 
-#pragma ident	"@(#)checksum.c	1.4	05/06/08 SMI"
+#pragma ident	"@(#)checksum.c	1.7	08/05/31 SMI"
 
-#include "syn.h"
 #include <errno.h>
 #include <libelf.h>
 #include "decl.h"
@@ -95,8 +94,12 @@ elf32_checksum(Elf * elf)
 	 * stream to be processed from different architectures - presently this
 	 * is irrelevant, as the checksum simply sums the data bytes, their
 	 * order doesn't matter.  But being uncooked is slightly less overhead.
+	 *
+	 * If the file is writable, the raw data will not reflect any
+	 * changes made in the process, so the uncooked version is only
+	 * for readonly files.
 	 */
-	if (elf->ed_myflags & EDF_MEMORY)
+	if ((elf->ed_myflags & (EDF_MEMORY | EDF_WRITE)) != 0)
 		getdata = elf_getdata;
 	else
 		getdata = elf_rawdata;
@@ -141,9 +144,17 @@ elf64_checksum(Elf * elf)
 		if ((shdr = elf64_getshdr(scn)) == 0)
 			return (0);
 
+		/* Exclude strippable sections */
 		if (!(shdr->sh_flags & SHF_ALLOC))
 			continue;
 
+		/*
+		 * Exclude allocable sections that can change:
+		 *	- The .dynsym section can contain section symbols
+		 *		that strip might remove.
+		 *	- The .dynamic section is modified by the setting of
+		 *		this checksum value.
+		 */
 		if ((shdr->sh_type == SHT_DYNSYM) ||
 		    (shdr->sh_type == SHT_DYNAMIC))
 			continue;

@@ -1,0 +1,3 @@
+/%l/+1s/DBIc_/(long)&/g
+/%l/+1s/DBIc_/(long)&/g
+w

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -27,8 +27,6 @@
 #define	super IOMedia
 OSDefineMetaClassAndStructors(IODVDMedia, IOMedia)
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 IODVDBlockStorageDriver * IODVDMedia::getProvider() const
 {
     //
@@ -39,8 +37,6 @@ IODVDBlockStorageDriver * IODVDMedia::getProvider() const
 
     return (IODVDBlockStorageDriver *) IOService::getProvider();
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 bool IODVDMedia::matchPropertyTable(OSDictionary * table, SInt32 * score)
 {
@@ -58,8 +54,6 @@ bool IODVDMedia::matchPropertyTable(OSDictionary * table, SInt32 * score)
 
     return compareProperty(table, kIODVDMediaTypeKey);
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IOReturn IODVDMedia::reportKey( IOMemoryDescriptor * buffer,
                                 const DVDKeyClass    keyClass,
@@ -84,10 +78,6 @@ IOReturn IODVDMedia::reportKey( IOMemoryDescriptor * buffer,
                                      /* format   */ format );
 }
 
-OSMetaClassDefineReservedUsed(IODVDMedia, 0);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 IOReturn IODVDMedia::sendKey( IOMemoryDescriptor * buffer,
                               const DVDKeyClass    keyClass,
                               const UInt8          grantID,
@@ -108,10 +98,6 @@ IOReturn IODVDMedia::sendKey( IOMemoryDescriptor * buffer,
                                    /* grantID  */ grantID,
                                    /* format   */ format );
 }
-
-OSMetaClassDefineReservedUsed(IODVDMedia, 1);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IOReturn IODVDMedia::readStructure( IOMemoryDescriptor *     buffer,
                                     const DVDStructureFormat format,
@@ -136,10 +122,6 @@ IOReturn IODVDMedia::readStructure( IOMemoryDescriptor *     buffer,
                                          /* grantID */ grantID );
 }
 
-OSMetaClassDefineReservedUsed(IODVDMedia, 2);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 IOReturn IODVDMedia::getSpeed(UInt16 * kilobytesPerSecond)
 {
     if (isInactive())
@@ -150,10 +132,6 @@ IOReturn IODVDMedia::getSpeed(UInt16 * kilobytesPerSecond)
     return getProvider()->getSpeed(kilobytesPerSecond);
 }
 
-OSMetaClassDefineReservedUsed(IODVDMedia, 3);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 IOReturn IODVDMedia::setSpeed(UInt16 kilobytesPerSecond)
 {
     if (isInactive())
@@ -163,10 +141,6 @@ IOReturn IODVDMedia::setSpeed(UInt16 kilobytesPerSecond)
 
     return getProvider()->setSpeed(kilobytesPerSecond);
 }
-
-OSMetaClassDefineReservedUsed(IODVDMedia, 4);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IOReturn IODVDMedia::readDiscInfo( IOMemoryDescriptor * buffer,
                                    UInt16 *             actualByteCount )
@@ -188,10 +162,6 @@ IOReturn IODVDMedia::readDiscInfo( IOMemoryDescriptor * buffer,
     return getProvider()->readDiscInfo( /* buffer          */ buffer,
                                         /* actualByteCount */ actualByteCount );
 }
-
-OSMetaClassDefineReservedUsed(IODVDMedia, 5);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IOReturn IODVDMedia::readRZoneInfo( IOMemoryDescriptor *    buffer,
                                     UInt32                  address,
@@ -219,104 +189,45 @@ IOReturn IODVDMedia::readRZoneInfo( IOMemoryDescriptor *    buffer,
                                         /* actualByteCount */ actualByteCount );
 }
 
-OSMetaClassDefineReservedUsed(IODVDMedia, 6);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
+#ifdef __LP64__
+OSMetaClassDefineReservedUnused(IODVDMedia,  0);
+OSMetaClassDefineReservedUnused(IODVDMedia,  1);
+OSMetaClassDefineReservedUnused(IODVDMedia,  2);
+OSMetaClassDefineReservedUnused(IODVDMedia,  3);
+OSMetaClassDefineReservedUnused(IODVDMedia,  4);
+OSMetaClassDefineReservedUnused(IODVDMedia,  5);
+OSMetaClassDefineReservedUnused(IODVDMedia,  6);
+#else /* !__LP64__ */
+OSMetaClassDefineReservedUsed(IODVDMedia,  0);
+OSMetaClassDefineReservedUsed(IODVDMedia,  1);
+OSMetaClassDefineReservedUsed(IODVDMedia,  2);
+OSMetaClassDefineReservedUsed(IODVDMedia,  3);
+OSMetaClassDefineReservedUsed(IODVDMedia,  4);
+OSMetaClassDefineReservedUsed(IODVDMedia,  5);
+OSMetaClassDefineReservedUsed(IODVDMedia,  6);
+#endif /* !__LP64__ */
 OSMetaClassDefineReservedUnused(IODVDMedia,  7);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IODVDMedia,  8);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IODVDMedia,  9);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IODVDMedia, 10);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IODVDMedia, 11);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IODVDMedia, 12);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IODVDMedia, 13);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IODVDMedia, 14);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IODVDMedia, 15);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IODVDMedia, 16);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IODVDMedia, 17);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IODVDMedia, 18);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IODVDMedia, 19);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IODVDMedia, 20);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IODVDMedia, 21);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IODVDMedia, 22);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IODVDMedia, 23);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IODVDMedia, 24);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IODVDMedia, 25);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IODVDMedia, 26);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IODVDMedia, 27);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IODVDMedia, 28);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IODVDMedia, 29);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IODVDMedia, 30);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IODVDMedia, 31);

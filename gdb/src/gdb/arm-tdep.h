@@ -24,25 +24,61 @@
    numbers which are too large to be actual register numbers as far as
    the user is concerned but do serve to get the desired values when
    passed to read_register.  */
+#ifndef __GDB_ARM_TDEP_H__
+#define __GDB_ARM_TDEP_H__
+
+/* APPLE LOCAL: Use R7 as FP for ARM. */
+#ifdef TM_NEXTSTEP
+#define __ARM_FP_REG 7
+#else
+#define __ARM_FP_REG 11
+#endif
 
 enum gdb_regnum {
+  ARM_R0_REGNUM = 0,
   ARM_A1_REGNUM = 0,		/* first integer-like argument */
   ARM_A4_REGNUM = 3,		/* last integer-like argument */
   ARM_AP_REGNUM = 11,
+  ARM_IP_REGNUM = 12,
   ARM_SP_REGNUM = 13,		/* Contains address of top of stack */
   ARM_LR_REGNUM = 14,		/* address to return to from a function call */
   ARM_PC_REGNUM = 15,		/* Contains program counter */
+
+  /* The original floating point unit registers aka FPA regs:  */
   ARM_F0_REGNUM = 16,		/* first floating point register */
   ARM_F3_REGNUM = 19,		/* last floating point argument register */
   ARM_F7_REGNUM = 23, 		/* last floating point register */
   ARM_FPS_REGNUM = 24,		/* floating point status register */
+
   ARM_PS_REGNUM = 25,		/* Contains processor status */
-  ARM_FP_REGNUM = 11,		/* Frame register in ARM code, if used.  */
+
+  /* APPLE LOCAL: Use R7 as FP for ARM. */
+  ARM_FP_REGNUM = __ARM_FP_REG,	/* Frame register in ARM code, if used.  */
   THUMB_FP_REGNUM = 7,		/* Frame register in Thumb code, if used.  */
   ARM_NUM_ARG_REGS = 4, 
   ARM_LAST_ARG_REGNUM = ARM_A4_REGNUM,
   ARM_NUM_FP_ARG_REGS = 4,
-  ARM_LAST_FP_ARG_REGNUM = ARM_F3_REGNUM
+  ARM_LAST_FP_ARG_REGNUM = ARM_F3_REGNUM,
+
+  /* APPLE LOCAL START: Support for VFP.  */
+  /* The "VFP_REGNUM" registers are the VFPv1 register set of 32 
+     32-bit registers that hold either integers or single precision
+     floating point numbers (S0-S31).  */
+  ARM_FIRST_VFP_REGNUM = 26,
+  ARM_LAST_VFP_REGNUM = 57,
+  ARM_FPSCR_REGNUM = 58,
+
+  /* The VFP_PSEUDO registers are the "D variants" of the VFPv1 register set;
+     16 64-bit double-precision floating point registers usually referred to as
+     D0-D15.  They overlap with the S0-S31 registers so for instance S0 and S1
+     may occupy the same space as D0.  */
+
+  ARM_FIRST_VFP_PSEUDO_REGNUM = 59,
+  ARM_LAST_VFP_PSEUDO_REGNUM = 74,
+
+  ARM_NUM_VFP_ARG_REGS = 4,
+  ARM_NUM_VFP_PSEUDO_REGS = 16
+  /* APPLE LOCAL END: Support for VFP. */
 };
 
 /* Size of integer registers.  */
@@ -52,6 +88,11 @@ enum gdb_regnum {
    code readability in this header.  IEEE extended doubles are 80
    bits.  DWORD aligned they use 96 bits.  */
 #define FP_REGISTER_SIZE	12
+
+/* APPLE LOCAL BEGIN: VFP support.  */
+#define VFP_REGISTER_RAW_SIZE 4
+#define VFP_REGISTER_VIRTUAL_SIZE 4
+/* APPLE LOCAL END: VFP support.  */
 
 /* Status registers are the same size as general purpose registers.
    Used for documentation purposes and code readability in this
@@ -68,7 +109,8 @@ enum gdb_regnum {
 #define NUM_FREGS	8	/* Number of floating point registers.  */
 #define NUM_SREGS	2	/* Number of status registers.  */
 #define NUM_GREGS	16	/* Number of general purpose registers.  */
-
+/* APPLE LOCAL BEGIN: VFP support.  */
+#define NUM_VFPREGS     32      /* Number of VFP registers.  */
 
 /* Instruction condition field values.  */
 #define INST_EQ		0x0
@@ -87,6 +129,25 @@ enum gdb_regnum {
 #define INST_LE		0xd
 #define INST_AL		0xe
 #define INST_NV		0xf
+
+/* Defines for the ARM Address Mode 1 Data Processing opcodes. These are
+   definitions for bits 24:21 of the opcode.  */
+#define ARM_DATA_PROC_OP_AND  0   /* Bitwise AND                  */
+#define ARM_DATA_PROC_OP_EOR  1   /* Bitwise Exclusive OR         */
+#define ARM_DATA_PROC_OP_SUB  2   /* Subtract                     */
+#define ARM_DATA_PROC_OP_RSB  3   /* Reverse Subtract             */
+#define ARM_DATA_PROC_OP_ADD  4   /* Add                          */
+#define ARM_DATA_PROC_OP_ADC  5   /* Add with Carry               */
+#define ARM_DATA_PROC_OP_SBC  6   /* Subtract with Carry          */
+#define ARM_DATA_PROC_OP_RSC  7   /* Reverse Subtract with Carry  */
+#define ARM_DATA_PROC_OP_TST  8   /* Test                         */
+#define ARM_DATA_PROC_OP_TEQ  9   /* Test Equivalence             */
+#define ARM_DATA_PROC_OP_CMP  10  /* Compare                      */
+#define ARM_DATA_PROC_OP_CMN  11  /* Compare negative             */
+#define ARM_DATA_PROC_OP_ORR  12  /* Bitwise OR                   */
+#define ARM_DATA_PROC_OP_MOV  13  /* Move                         */
+#define ARM_DATA_PROC_OP_BIC  14  /* Bit Clear                    */
+#define ARM_DATA_PROC_OP_MVN  15  /* Move Negative                */
 
 #define FLAG_N		0x80000000
 #define FLAG_Z		0x40000000
@@ -110,6 +171,8 @@ enum arm_float_model
   ARM_FLOAT_FPA,	/* FPA co-processor.  GCC calling convention.  */
   ARM_FLOAT_SOFT_VFP,	/* Soft-float with pure-endian doubles.  */
   ARM_FLOAT_VFP,	/* Full VFP calling convention.  */
+  ARM_FLOAT_NONE,	/* APPLE LOCAL: No floating point registers 
+			   (like libgcc).  */
   ARM_FLOAT_LAST	/* Keep at end.  */
 };
 
@@ -134,15 +197,16 @@ struct gdbarch_tdep
   CORE_ADDR lowest_pc;		/* Lowest address at which instructions 
 				   will appear.  */
 
-  const char *arm_breakpoint;	/* Breakpoint pattern for an ARM insn.  */
-  int arm_breakpoint_size;	/* And its size.  */
-  const char *thumb_breakpoint;	/* Breakpoint pattern for an ARM insn.  */
-  int thumb_breakpoint_size;	/* And its size.  */
+  const gdb_byte *arm_breakpoint;   /* Breakpoint pattern for an ARM insn.  */
+  int arm_breakpoint_size;	    /* And its size.  */
+  const gdb_byte *thumb_breakpoint; /* Breakpoint pattern for an ARM insn.  */
+  int thumb_breakpoint_size;	    /* And its size.  */
 
   int jb_pc;			/* Offset to PC value in jump buffer. 
 				   If this is negative, longjmp support
 				   will be disabled.  */
   size_t jb_elt_size;		/* And the size of each entry in the buf.  */
+  int wordsize;                 /* APPLE LOCAL: Add this because the dyld code needs it.  */
 };
 
 #ifndef LOWEST_PC
@@ -157,3 +221,5 @@ int arm_pc_is_thumb (CORE_ADDR);
 CORE_ADDR thumb_get_next_pc (CORE_ADDR);
 
 CORE_ADDR arm_get_next_pc (CORE_ADDR);
+
+#endif

@@ -1,0 +1,22 @@
+2008-12-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.11.1 ========================
+	* 
+
+2008-10-16  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.11 ========================
+	* 
+
+2008-09-03  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* huddle.test: Tweaked the testsuites a bit for better
+	* rb.test: handling of a missing dict support package.
+	* yaml.test:
+
+2008-05-22  Andreas Kupries  <andreask@activestate.com>
+
+	* New module for parsing YAML files, by kanryu6.
+

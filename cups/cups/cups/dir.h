@@ -1,5 +1,5 @@
 /*
- * "$Id: dir.h 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: dir.h 7026 2007-10-19 00:57:45Z mike $"
  *
  *   Public directory definitions for the Common UNIX Printing System (CUPS).
  *
@@ -23,6 +23,7 @@
  * Include necessary headers...
  */
 
+#  include "versioning.h"
 #  include <sys/stat.h>
 
 
@@ -52,10 +53,10 @@ typedef struct cups_dentry_s		/**** Directory entry type ****/
  * Prototypes...
  */
 
-extern void		cupsDirClose(cups_dir_t *dp);
-extern cups_dir_t	*cupsDirOpen(const char *directory);
-extern cups_dentry_t	*cupsDirRead(cups_dir_t *dp);
-extern void		cupsDirRewind(cups_dir_t *dp);
+extern void		cupsDirClose(cups_dir_t *dp) _CUPS_API_1_2;
+extern cups_dir_t	*cupsDirOpen(const char *directory) _CUPS_API_1_2;
+extern cups_dentry_t	*cupsDirRead(cups_dir_t *dp) _CUPS_API_1_2;
+extern void		cupsDirRewind(cups_dir_t *dp) _CUPS_API_1_2;
 
 
 #  ifdef __cplusplus
@@ -64,5 +65,5 @@ extern void		cupsDirRewind(cups_dir_t *dp);
 #endif /* !_CUPS_DIR_H_ */
 
 /*
- * End of "$Id: dir.h 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: dir.h 7026 2007-10-19 00:57:45Z mike $".
  */

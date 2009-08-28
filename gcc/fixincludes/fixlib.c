@@ -19,8 +19,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "fixlib.h"
 
@@ -48,7 +48,7 @@ load_file_data (FILE* fp)
       if (space_left < 1024)
         {
           space_left += 4096;
-	  pz_data = xrealloc (pz_data, space_left + space_used + 1 );
+	  pz_data = XRESIZEVEC (char, pz_data, space_left + space_used + 1 );
         }
       size_read = fread (pz_data + space_used, 1, space_left, fp);
 
@@ -72,7 +72,7 @@ load_file_data (FILE* fp)
       space_used += size_read;
     } while (! feof (fp));
 
-  pz_data = xrealloc (pz_data, space_used+1 );
+  pz_data = XRESIZEVEC (char, pz_data, space_used+1 );
   pz_data[ space_used ] = NUL;
 
   return pz_data;

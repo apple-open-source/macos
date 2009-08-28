@@ -1,0 +1,619 @@
+'\"
+'\" Generated from domNode.xml
+'\"
+'\" BEGIN man.macros
+.if t .wh -1.3i ^B
+.nr ^l \n(.l
+.ad b
+.de AP
+.ie !"\\$4"" .TP \\$4
+.el \{\
+.   ie !"\\$2"" .TP \\n()Cu
+.   el          .TP 15
+.\}
+.ta \\n()Au \\n()Bu
+.ie !"\\$3"" \{\
+\&\\$1	\\fI\\$2\\fP	(\\$3)
+.\".b
+.\}
+.el \{\
+.br
+.ie !"\\$2"" \{\
+\&\\$1	\\fI\\$2\\fP
+.\}
+.el \{\
+\&\\fI\\$1\\fP
+.\}
+.\}
+..
+.de AS
+.nr )A 10n
+.if !"\\$1"" .nr )A \\w'\\$1'u+3n
+.nr )B \\n()Au+15n
+.\"
+.if !"\\$2"" .nr )B \\w'\\$2'u+\\n()Au+3n
+.nr )C \\n()Bu+\\w'(in/out)'u+2n
+..
+.AS Tcl_Interp Tcl_CreateInterp in/out
+.de BS
+.br
+.mk ^y
+.nr ^b 1u
+.if n .nf
+.if n .ti 0
+.if n \l'\\n(.lu\(ul'
+.if n .fi
+..
+.de BE
+.nf
+.ti 0
+.mk ^t
+.ie n \l'\\n(^lu\(ul'
+.el \{\
+.\"	Draw four-sided box normally, but don't draw top of
+.\"	box if the box started on an earlier page.
+.ie !\\n(^b-1 \{\
+\h'-1.5n'\L'|\\n(^yu-1v'\l'\\n(^lu+3n\(ul'\L'\\n(^tu+1v-\\n(^yu'\l'|0u-1.5n\(ul'
+.\}
+.el \}\
+\h'-1.5n'\L'|\\n(^yu-1v'\h'\\n(^lu+3n'\L'\\n(^tu+1v-\\n(^yu'\l'|0u-1.5n\(ul'
+.\}
+.\}
+.fi
+.br
+.nr ^b 0
+..
+.de VS
+.if !"\\$2"" .br
+.mk ^Y
+.ie n 'mc \s12\(br\s0
+.el .nr ^v 1u
+..
+.de VE
+.ie n 'mc
+.el \{\
+.ev 2
+.nf
+.ti 0
+.mk ^t
+\h'|\\n(^lu+3n'\L'|\\n(^Yu-1v\(bv'\v'\\n(^tu+1v-\\n(^Yu'\h'-|\\n(^lu+3n'
+.sp -1
+.fi
+.ev
+.\}
+.nr ^v 0
+..
+.de ^B
+.ev 2
+'ti 0
+'nf
+.mk ^t
+.if \\n(^b \{\
+.\"	Draw three-sided box if this is the box's first page,
+.\"	draw two sides but no top otherwise.
+.ie !\\n(^b-1 \h'-1.5n'\L'|\\n(^yu-1v'\l'\\n(^lu+3n\(ul'\L'\\n(^tu+1v-\\n(^yu'\h'|0u'\c
+.el \h'-1.5n'\L'|\\n(^yu-1v'\h'\\n(^lu+3n'\L'\\n(^tu+1v-\\n(^yu'\h'|0u'\c
+.\}
+.if \\n(^v \{\
+.nr ^x \\n(^tu+1v-\\n(^Yu
+\kx\h'-\\nxu'\h'|\\n(^lu+3n'\ky\L'-\\n(^xu'\v'\\n(^xu'\h'|0u'\c
+.\}
+.bp
+'fi
+.ev
+.if \\n(^b \{\
+.mk ^y
+.nr ^b 2
+.\}
+.if \\n(^v \{\
+.mk ^Y
+.\}
+..
+.de DS
+.RS
+.nf
+.sp
+..
+.de DE
+.fi
+.RE
+.sp
+..
+.de SO
+.SH "STANDARD OPTIONS"
+.LP
+.nf
+.ta 5.5c 11c
+.ft B
+..
+.de SE
+.fi
+.ft R
+.LP
+See the \\fBoptions\\fR manual entry for details on the standard options.
+..
+.de OP
+.LP
+.nf
+.ta 4c
+Command-Line Name:	\\fB\\$1\\fR
+Database Name:	\\fB\\$2\\fR
+Database Class:	\\fB\\$3\\fR
+.fi
+.IP
+..
+.de CS
+.RS
+.nf
+.ta .25i .5i .75i 1i
+.if t .ft C
+..
+.de CE
+.fi
+.if t .ft R
+.RE
+..
+.de UL
+\\$1\l'|0\(ul'\\$2
+..
+'\" END man.macros
+.TH domNode n "" Tcl ""
+.BS
+.SH NAME
+domNode \- Manipulates an instance of a DOM node object
+.SH SYNOPSIS
+.nf
+ $nodeObject \fImethod\fR  \fIarg arg ...\fR
+.fi
+.BE
+.SH " DESCRIPTION "
+.PP
+This command manipulates one particular instance of a DOM node object.
+\&\fImethod\fR indicates a specific method of the node class. These methods
+should closely conform to the W3C recommendation "Document Object Model
+(Core) Level 1" (http://www.w3.org/TR/REC-DOM-Level-1/level-one-core.html)
+as well to parts of the W3C draft "XML Pointer Language (XPointer)"
+(http://www.w3.org/TR/1998/WD-xptr-19980303).
+Please note, that the XPointer methods are deprecated. Use DOM methods
+or XPath expressions instead of them.
+.PP
+The selectNodes method implements the "XML Path
+Language (XPath) Version 1.0" W3C recommendation 16 November 1999 (http://www.w3.org/TR/1999/REC-xpath-19991116). Look
+at these documents for a deeper understanding of the functionality.
+.PP
+The valid methods are:
+.TP
+\&\fB\fBnodeType\fP
+\&\fRReturns the node type of that node object. This can be:
+ELEMENT_NODE, TEXT_NODE, CDATA_SECTION_NODE, COMMENT_NODE or
+PROCESSING_INSTRUCTION_NODE.
+.TP
+\&\fB\fBnodeName\fP
+\&\fRReturns the node name of that node object. This is the element
+(tag) name for element nodes (type ELEMENT_NODE), the processing-instruction
+target for processing-instructions, "#text" for text node,
+"#comment" for comment nodes or "#cdata" for cdata section
+nodes.
+.TP
+\&\fB\fBnodeValue\fP \fI?newValue?\fB
+\&\fRReturns the value of that node object. This is the the text or
+the data for element nodes of type TEXT_NODE, COMMENT_NODE,
+PROCESSING_INSTRUCTION_NODE or CDATA_SECTION_NODE). Otherwise it is empty. If
+the node is a TEXT_NODE, COMMENT_NODE or PROCESSING_INSTRUCTION_NODE and the
+optional argument \fInewValue\fR is given, the node is set to that
+value.
+.TP
+\&\fB\fBhasChildNodes\fP
+\&\fRReturns 1 if the has children. Otherwise 0 is returned.
+.TP
+\&\fB\fBparentNode\fP \fB?objVar?\fP
+\&\fRReturns the parent node.
+.TP
+\&\fB\fBchildNodes\fP
+\&\fRReturns a list of direct children node objects.
+.TP
+\&\fB\fBchildNodesLive\fP
+\&\fRReturns a "live" nodeList object of the child nodes of
+the node in the sense of the DOM recommendation. This nodeList object is
+"live" in the sense that, for instance, changes to the children of
+the node object that it was created from are immediately reflected in the nodes
+returned by the NodeList accessors; it is not a static snapshot of the content
+of the node. The both accessors know by the nodeList object are "item
+<index>", which returns the indexth item in the collection, and
+"length", which returns the number of nodes in the list.
+.TP
+\&\fB\fBfirstChild\fP \fB?objVar?\fP
+\&\fRReturns the first child as a node object.
+.TP
+\&\fB\fBlastChild\fP \fB?objVar?\fP
+\&\fRReturns the last child as a node object.
+.TP
+\&\fB\fBnextSibling\fP  \fB?objVar?\fP
+\&\fRReturns the next sibling relativ to the current node as a node
+object.
+.TP
+\&\fB\fBpreviousSibling\fP \fB?objVar?\fP
+\&\fRReturns the next sibling relativ to the current node as a node
+object.
+.TP
+\&\fB\fBgetElementsByTagName\fP \fIname\fB
+\&\fRReturns a list of all elements in the subtree matching (glob
+style) \fIname\fR.
+.TP
+\&\fB\fBgetElementsByTagNameNS\fP \fIuri\fB \fIlocalname\fB
+\&\fRReturns a list of all elements in the subtree
+matching (glob style) \fIlocalname\fR and having the given namespace
+\&\fIuri\fR.
+.TP
+\&\fB\fBgetElementById\fP \fIid\fB
+\&\fRReturns the node having a id attribute with value
+\&\fIid\fR or the emtpy string, if no node has an id attribute with that value.
+.TP
+\&\fB\fBhasAttribute\fP \fIattributeName\fB
+\&\fRReturns 1 if the object node contains an attribute with name
+\&\fIattributeName\fR . Otherwise 0 is returned.
+.TP
+\&\fB\fBgetAttribute\fP \fIattributeName  ?defaultValue?\fB
+\&\fRReturns the value of the attribute \fIattributeName\fR. If
+attribute is not available \fIdefaultValue\fR is returned.
+.TP
+\&\fB\fBsetAttribute\fP \fIattributeName newValue  ?attributeName newValue ...?\fB
+\&\fRSets the value for one or more attributes. Every
+\&\fIattributeName\fR is set to the corresponding \fInewValue\fR. If there
+isn't an attribute for one or more of the \fIattributeName\fR this will
+create that attribute.
+.TP
+\&\fB\fBremoveAttribute\fP \fIattributeName\fB
+\&\fRRemoves the attribute \fIattributeName\fR.
+.TP
+\&\fB\fBhasAttributeNS\fP \fIuri\fB \fIlocalName\fB
+\&\fRReturns 1 if the object node contains an attribute with the
+local name \fIlocalName\fR within the namespace \fIuri\fR.  Otherwise 0 is
+returned.
+.TP
+\&\fB\fBgetAttributeNS\fP \fIuri\fB \fIlocalName ?defaultValue?\fB
+\&\fRReturns the value of the attribute with the local name
+\&\fIlocalName\fR within the namespace URI \fIuri\fR. If the node dosn't have
+that attribute the \fIdefaultValue\fR is returned.
+.TP
+\&\fB\fBsetAttributeNS\fP \fIuri qualifiedName newValue ?uri qualifiedName newValue ...?\fB
+\&\fR
+.RS
+.PP
+Sets the value for one or more full qualified
+attributes. Every attribute \fIqualifiedName\fR with the namespace URI
+\&\fIuri\fR will be set to \fInewValue\fR. This will create a new attribute, if
+it wasn't avialble before. If you want to set an attribute within a namespace
+you must specify the attribute name with prefix, even if you want to set an
+already existing attribute to a new value. While searching, if the attribute
+already exists, only the given \fIuri\fR and the localname of the
+\&\fIqualifiedName\fR is used.
+
+
+        
+.CS
+$node setAttributeNS "http://some.uri.com/wow" prefix:attr1 attrValue
+.CE
+.PP
+If the uri is the empty string and the attribute name hasn't a prefix, this
+method has the same effect as the method \fBsetAttribute\fR.
+
+
+        
+.CS
+$node setAttributeNS "" attri "some Value"
+.CE
+.PP
+XML namespace nodes are not in any namespace. Set them this way:
+
+
+        
+.CS
+$node setAttributeNS "" xmlns:myprefix "myNamespaceURI"
+$node setAttributeNS "" xmlns "newDefaultNamespace"
+.CE
+.PP
+If your \fIqualifiedName\fR has the prefix "xml" and you give the empty
+string as \fIuri\fR, the namespace of the attribute defaults to
+"http://www.w3.org/XML/1998/namespace", as the DOM 2 recommendation
+requests. With the exceptions of the special prefixes "xmlns" and "xml" you
+always must provide a non emtpy \fIuri\fR, if your \fIqualifiedName\fR has a
+prefix.
+.RE
+.TP
+\&\fB\fBremoveAttributeNS\fP \fIuri\fB \fIlocalName\fB
+\&\fRRemoves the attribute with the local name \fIlocalName\fR within
+the namespace \fIuri\fR.
+.TP
+\&\fB\fBattributes\fP \fB?attributeNamePattern?\fP
+\&\fRReturns all attributes matching the \fIattributeNamePattern\fR.
+If \fIattributeNamePattern\fR isn't given all attributes are returned as a Tcl
+list.
+.TP
+\&\fB\fBappendChild\fP \fInewChild\fB
+\&\fRAppend \fInewChild\fR to the end of the child list of the
+node.
+.TP
+\&\fB\fBinsertBefore\fP \fInewChild\fB  \fIrefChild\fB
+\&\fRInsert \fInewChild\fR before the \fIrefChild\fR into the list of
+children of node. If \fIrefChild\fR is the empty string, insert
+\&\fInewChild\fR at the end of the child nodes list of that node.
+.TP
+\&\fB\fBreplaceChild\fP \fInewChild\fB  \fIoldChild\fB
+\&\fRReplace \fIoldChild\fR with \fInewChild\fR in the list of
+children of that node. The \fIoldChild\fR node will be part of the
+document fragment list after this operation.
+.TP
+\&\fB\fBremoveChild\fP \fIchild\fB
+\&\fRRemoves \fIchild\fR from the list of children of that node
+\&\fIchild\fR will be part of the document fragment list after this
+operation. It is not physically deleted.
+.TP
+\&\fB\fBdelete\fP
+\&\fRDeletes the given node and its complete child tree
+and frees the complete internal memory. The affected nodes are not accessible
+through the document fragment list.
+.TP
+\&\fB\fBcloneNode\fP \fB?-deep?\fP
+\&\fRClones this node and adds the new create node into the document
+fragment list. If the \fI-deep\fR option is specified, all descendant nodes
+are also cloned.
+.TP
+\&\fB\fBownerDocument\fP \fB?domObjVar?\fP
+\&\fRReturns the document object of the document this node belongs
+to.
+.TP
+\&\fB\fBfind\fP \fIattrName\fB \fIattrVal\fB \fB?objVar?\fP
+\&\fRFinds the node with the attribute name \fIattrName\fR, and
+attribute value \fIattrVal\fR in the subtree starting the current node.
+.TP
+\&\fB\fBchild\fP \fInumber|all\fB \fBtype\fP \fBattrName attrValue\fP
+\&\fR(XPointer) child
+.TP
+\&\fB\fBdescendant\fP \fInumber|all\fB \fBtype\fP \fBattrName attrValue\fP
+\&\fR(XPointer) descendant
+.TP
+\&\fB\fBancestor\fP \fInumber|all\fB \fBtype\fP \fBattrName attrValue\fP
+\&\fR(XPointer) ancestor
+.TP
+\&\fB\fBfsibling\fP \fInumber|all\fB \fBtype\fP \fBattrName attrValue\fP
+\&\fR(XPointer) fsibling
+.TP
+\&\fB\fBpsibling\fP \fInumber|all\fB \fBtype\fP \fBattrName attrValue\fP
+\&\fR(XPointer) psibling
+.TP
+\&\fB\fBroot\fP  \fBobjVar\fP
+\&\fR(XPointer) root
+.TP
+\&\fB\fBtext\fP
+\&\fRReturns all text node children of that current node combined,
+i.e. appended into one string.
+.TP
+\&\fB\fBtarget\fP
+\&\fRFor a processing instruction node the target part is returned.
+Otherwise an error is generated.
+.TP
+\&\fB\fBdata\fP
+\&\fRFor a processing instruction node the data part is returned. For
+a text node, comment node or cdata section node the value is returned.
+Otherwise an error is generated.
+.TP
+\&\fB\fBprefix\fP
+\&\fRReturns the namespace prefix.
+.TP
+\&\fB\fBnamespaceURI\fP
+\&\fRReturns the namespace URI.
+.TP
+\&\fB\fBlocalName\fP
+\&\fRReturns the localName from the tag name of the given node.
+.TP
+\&\fB\fBselectNodes\fP \fB?-namespaces prefixUriList?\fP \fB?-cache <boolean>?\fP \fIxpathQuery\fB \fB?typeVar?\fP
+\&\fR
+.RS
+.PP
+Returns the result of applying the XPath query
+\&\fIxpathQuery\fR to the subtree. This can be a
+string/value, a list of strings, a list of nodes or a list
+of attribute name / value pairs. If \fItypeVar\fR is given
+the result type name is stored into that variable (empty,
+bool, number, string, nodes, attrnodes or mixed).
+.PP
+The argument \fIxpathQuery\fR has to be a valid XPath
+expression. However, there is one exception to that rule. Tcl variable
+names can appear in the XPath statement at any position where it is
+legal according to the rules of the XPath syntax to put an XPath
+variable. The value of the variable is substituted for the variable
+name. Ignoring the syntax rules of XPath the Tcl variable name may be
+any legal Tcl var name: local variables, global variables, array
+entries and so on.
+.PP
+The option \fI-namespaces\fR expects a tcl list with prefix /
+namespace pairs as argument. If this option is not given, then any
+namespace prefix within the xpath expression will be first resolved
+against the list of prefix / namespace pairs set with the
+selectNodesNamespaces method for the document, the node belongs to. If
+this fails, then the namespace definitions in scope of the context
+node will be used to resolve the prefix. If this option is given, any
+namespace prefix within the xpath expression will be first resolved
+against that given list (and ignoring the document global prefix /
+namespace list). If the list bind the same prefix to different
+namespaces, then the first binding will win.  If this fails, then the
+namespace definitions in scope of the context node will be used to
+resolve the prefix, as usual.
+.PP
+If the \fI-cache\fR option is used with a true value, then the
+\&\fIxpathQuery\fR will be looked up in a document specific cache. If the query
+is found, then the stored pre-compiled query will be used. If the
+query isn't found, it will be pre-compiled and stored in the cache,
+for use in further calls. Please notice, that the \fIxpathQuery\fR as given as
+string is used as key for the cache. This means, that equal XPath
+expressions, which differ only in white space are treated as
+different cache entries. Special care is needed, if the XPath
+expression includes namespace prefixes. During pre-compilation, the
+prefixes will be resolved first to the prefix / namespace pairs of
+the \fI-namespaces\fR option, if given, and to the namespaces
+in scope of the context node at pre-compilation time. If the XPath
+is found in the cache, neither the \fI-namespaces\fR option nor
+the namespaces in scope of the context node will be taken in
+account but the already resolved (stored) namespaces will be used
+for the query.
+.PP
+Examples:
+
+          
+.CS
+set paragraphNodes [$node selectNodes {chapter[3]//para[@type='warning' or @type='error'} ]
+foreach paragraph $paragraphNodes {
+    lappend  values [$paragraph selectNodes attribute::type]
+}
+
+set doc [dom parse {<doc xmlns="http://www.defaultnamespace.org"><child/></doc>}]
+set root [$doc documentElement]
+set childNodes [$root selectNodes -namespaces {default http://www.defaultnamespace.org} default:child]
+.CE
+.RE
+.TP
+\&\fB\fBgetLine\fP
+\&\fRReturns the line number of that node in the orignal parsed
+XML.
+.TP
+\&\fB\fBgetColumn\fP
+\&\fRReturns the column number of that node in the orignal parsed
+XML.
+.TP
+\&\fB\fBasList\fP
+\&\fRReturns the DOM substree starting form the current node as a
+nested Tcl list.
+.TP
+\&\fB\fBasXML\fP \fB?-indent none/1..8?\fP \fB?-channel channelId?\fP \fB?-escapeNonASCII?\fP\fB?-escapeAllQuot?\fP
+\&\fRReturns the DOM substree starting from the current node
+as the root node of the result as an (optional indented) XML string or
+sends the output directly to the given channelId. If the option
+\&\fI-escapeNonASCII\fR is given, every non 7 bit ASCII character in
+attribute values or element PCDATA content will be escaped as
+character reference in decimal representation. If the option
+\&\fI-escapeAllQuot\fR is given, quotation marks will be escaped with
+&quot; even in text content of elements.
+.TP
+\&\fB\fBasHTML\fP \fB?-channel channelId?\fP \fB?-escapeNonASCII?\fP  \fB?-htmlEntities?\fP
+\&\fRReturns the DOM substree starting from the current node as the
+root node of the result serialized acording to HTML rules (HTML elements are
+recognized regardless of case, without end tags for emtpy HTML elements etc.),
+as string or sends the output directly to the given channelId. If the option
+\&\fI-escapeNonASCII\fR is given, every non 7 bit ASCII character in attribute
+values or element PCDATA content will be escaped as character reference in
+decimal representation. If the option \fI-htmlEntities\fR is given, a
+character is outputed using a HTML 4.01 character entity reference, if one is
+defined for it.
+.TP
+\&\fB\fBasText\fP
+\&\fRFor ELEMENT_NODEs, the asText method outputs
+the string-value of every text node descendant of node in document
+order without any escaping. For every other node type, this method outputs the
+the XPath string value of that node.
+.TP
+\&\fB\fBappendFromList\fP \fIlist\fB
+\&\fRParses \fIlist\fR , creates an according DOM subtree and
+appends this subtree to the current node.
+.TP
+\&\fB\fBappendFromScript\fP \fItclScript\fB
+\&\fRAppends the nodes created in the \fItclScript\fR by
+Tcl functions, which have been built using \fIdom createNodeCmd\fR, to the
+given node.
+.TP
+\&\fB\fBinsertBeforeFromScript\fP \fItclScript\fB \fIrefChild\fB
+\&\fRInserts the nodes created in the \fItclScript\fR by
+Tcl functions, which have been built using \fIdom createNodeCmd\fR, before the
+\&\fIrefChild\fR into to the list of children of node. If \fIrefChild\fR is
+the empty string, the new nodes will be appended.
+.TP
+\&\fB\fBappendXML\fP \fIXMLstring\fB
+\&\fRParses \fIXMLstring\fR, creates an according DOM subtree and
+appends this subtree to the current node.
+.TP
+\&\fB\fBsimpleTranslate\fP \fIoutputVar\fB \fIspecifications\fB
+\&\fRTranslate the subtree starting at the object node according to
+the specifications in \fIspecifications\fR and outputs the result in the
+variable \fIoutputVar\fR . The translation is very similar to Cost Simple
+mode.
+.TP
+\&\fB\fBtoXPath\fP
+\&\fRReturns an XPath, which exactly addresses the given
+node in its document. This XPath is only valid as there are no changes to DOM
+tree made later one.
+.TP
+\&\fB\fBgetBaseURI\fP
+\&\fRReturns the baseURI of the node. This method is deprecated in
+favor of the \fIbaseURI\fR method.
+.TP
+\&\fB\fBbaseURI \fI?URI?\fB\fP
+\&\fRReturns the present baseURI of the node. If the optional
+argument URI is given, sets the base URI of the node and of all of its child
+nodes out of the same enitity as node to the given URI.
+.TP
+\&\fB\fBdisableOutputEscaping\fP \fI?boolean?\fB
+\&\fRThis method works only for text nodes; for every other nodes it
+returns error. Without the optional argument it returns, if disabling output
+escaping is on. The return value 0 means, the characters of the text node will
+be escaped, to generate valid XML, if serialized. This is the default for
+every parsed or created text node (with the exception of that text nodes in a
+result tree of an XSLT transformation, for which disabling output escaping was
+requested explicitely in the stylesheet). The return value 1 means, that output
+escaping is disabled for this text node. If such a text node is serialized
+(with asXML or asHTML), it is literarily written, without escaping of the
+special XML characters. If the optional boolean value \fIboolean\fR is given,
+the flag is set accordingly. You should not set this flag to 1, until you
+really know, what you do.
+.TP
+\&\fB\fBprecedes\fP \fIrefnode\fB
+\&\fRCompares the relative order of the node and \fIrefnode\fR. Both
+nodes must be part of the same documents and not out of the fragment list of
+the document. Returns true, if node is in document order (in the sense of the
+XPath 1.0 recommendation) before \fIrefnode\fR and false otherwise.
+.TP
+\&\fB\fBnormalize\fP \fI?-forXPath?\fB
+\&\fRPuts all Text nodes in the full depth of the sub-tree underneath
+this Node into a "normal" form where only structure (e.g., elements,
+comments, processing instructions and CDATA
+sections) separates Text nodes, i.e., there
+are neither adjacent Text nodes nor empty Text nodes. If the option
+\&\fI-forXPath\fR is given, all CDATA sections in the nodes are
+converted to text nodes, as a first step before the
+normalization.
+.TP
+\&\fB\fBxslt\fP \fB?-parameters parameterList?\fP \fB?-ignoreUndeclaredParameters?\fP \fB?-xsltmessagecmd script?\fP \fIstylesheet\fB \fI?outputVar?\fB
+\&\fRApplies an XSLT transformation on the document using the XSLT
+\&\fIstylesheet\fR (given as domDoc). Returns a document object containing the
+result document of that transformation and stores it in the optional
+\&\fIoutputVar\fR.
+.RS
+.PP
+The optional \fI-parameters\fR option sets top level
+<xsl:param> to string values. The \fIparameterList\fR has to be a tcl
+list consisting of parameter name and value pairs.
+.PP
+If the option \fI-ignoreUndeclaredParameters\fR is given, then parameter
+names in the \fIparameterList\fR given to the \fI-parameters\fR options that
+are not declared as top-level parameters in the stylesheet are silently
+ignored. Without this option, an error is raised, if the user tries to set a
+top-level parameter, which is not declared in the stylesheet.
+.PP
+The \fI-xsltmessagecmd\fR option sets a callback for xslt:message elements
+in the stylesheet. The actual command consists of the script, given as argument
+to the option, appended with the XML Fragment from instantiating the
+xsl:message element content as string (as if the XPath string() function would
+have been applied to the XML Fragment) and a flag, which indicates, if the
+xsl:message has an attribute "terminate" with the value "yes".
+.RE
+.TP
+\&\fB\fI@attrName\fB
+\&\fRReturns the value of the attribute \fIattrName\fR.  Short cut
+for \fIgetAttribute\fR.
+.PP
+Otherwise, if an unknown method name is given, the command with the same
+name as the given method within the namespace \fB::dom::domNode\fR is tried to
+be executed. This allows quick method additions on Tcl level.
+.SH "SEE ALSO"
+dom, domDoc
+.SH KEYWORDS
+XML, DOM, document, node, parsing

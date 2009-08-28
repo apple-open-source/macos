@@ -46,8 +46,7 @@
 using namespace Tokend;
 
 PIVSchema::PIVSchema() :
-	mKeyAlgorithmCoder(uint32(CSSM_ALGID_RSA)),
-	mKeySizeCoder(uint32(1024))		// MODIFY: if you support different size keys
+	mKeyAlgorithmCoder(uint32(CSSM_ALGID_RSA))
 {
 }
 

@@ -980,8 +980,8 @@ ffi_closure_helper_DARWIN(
 					We use a union to pass the long double to avalue[i].  */
 				else if (nf == NUM_FPR_ARG_REGISTERS - 1)
 				{
-					memcpy (&temp_ld.lb[0], pfr, sizeof(ldbits));
-					memcpy (&temp_ld.lb[1], pgr + 2, sizeof(ldbits));
+					memcpy (&temp_ld.lb[0], pfr, sizeof(temp_ld.lb[0]));
+					memcpy (&temp_ld.lb[1], pgr + 2, sizeof(temp_ld.lb[1]));
 					avalue[i] = &temp_ld.ld;
 				}
 #else

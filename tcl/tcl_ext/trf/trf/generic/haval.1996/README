@@ -1,0 +1,8 @@
+README         this file
+Makefile       makefile for testing
+havalapp.h     define LITTLE_ENDIAN, PASS and FPTLEN
+haval.h        interface to the HAVAL (V.1) hashing library
+haval.c        the HAVAL (V.1) hashing library
+havaltest.c    test program for the library
+haval.cert     HAVAL certification data set
+pi.frac        a test data file for HAVAL

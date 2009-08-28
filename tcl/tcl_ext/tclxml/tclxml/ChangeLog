@@ -1,0 +1,495 @@
+==============  Released version 2.6    05/03/2003  ==============
+
+2003-03-05  Steve Ball  <Steve.Ball@zveno.com>
+	* win/build.data: Version number is taken from installation data.
+
+2003-03-03  Steve Ball  <Steve.Ball@zveno.com>
+	* install.tcl: removed debugging commands.
+
+2003-02-07  Steve Ball	<Steve.Ball@zveno.com>
+	* Prepare v2.6 release.
+
+2003-02-22  Steve Ball  <Steve.Ball@zveno.com>
+	* doc/README.xml: converted README to XML format.  Added XSL
+	stylesheet to create text format file.
+	
+==============  Released version 2.5    10/12/2002  ==============
+
+2002-12-10  Steve Ball  <Steve.Ball@zveno.com>
+	* library/sgmlparser.tcl: Patch for -final option
+	  (ted@ags.ga.erq.sri.com)
+
+2002-12-06  Steve Ball  <Steve.Ball@zveno.com>
+	* Update for v2.5 release.
+	* library/sgmlparser.tcl (ParseEvent:ElementOpen):
+	  fixed '>' in attribute value in an empty element,
+	  bug #620034.
+
+2002-11-01  Andreas Kupries  <andreask@pliers.activestate.com>
+
+	* Makefile.in: Removed code of target 'install-doc'. We have no
+	  manpages (.n files), and so the code removes everything in the
+	  mann directory in the installaltion area.
+
+==============  Released version 2.4    31/10/2002  ==============
+
+2002-10-31  Steve Ball  <Steve.Ball@zveno.com>
+
+	* README: Updated installation instructions.
+	
+==============  Released version 2.4rc1 29/10/2002  ==============
+
+2002-10-29  Steve Ball  <Steve.Ball@zveno.com>
+	* install.tcl: Remove '-' from install directory, 
+	  fixed UpdateTemplateCopy so that unspecified TEA variables
+	  don't prevent other variables from being substituted.
+	* configure, library/pkgIndex.tcl.macosx: removed: generated files 
+	  or no longer required.
+	* library/tclparser-8.1.tcl (xml::tclparser::reset): Check if the
+	  parser has been properly initialised.  Call create if it hasn't.
+
+2002-10-28  Andreas Kupries  <andreask@activestate.com>
+
+	* expat/xmlwf/readfilemap.c: Added prototypes missing on windows,
+	  and cast to ensure comparison of compatible types. Required for
+	  Windows debug builds as these use -WX, making warnings into
+	  errors.
+
+2002-10-25  Andreas Kupries  <andreask@activestate.com>
+
+	* tclxml.c (TclXMLResetParser): Added cast, removed unused variable 'i'.
+
+	* tclxmlStubLib.c (TclXML_InitStubs): Provide un-const'ed version of
+	  'version' to Tcl_PkgRequireEx to supress warnings.
+
+2002-10-15  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* tclconfig/tcl.m4:
+	* expat/configure:
+	* expat/configure.in:
+	* configure:
+	* configure.in: move the CFLAGS definition into TEA_ENABLE_SHARED
+	and make it pick up the env CFLAGS at configure time.
+
+2002-10-15  Andreas Kupries  <andreask@activestate.com>
+
+	* expat/configure.in:
+	* configure.in: Changed to propagate an initial CFLAGS value to
+	  the final definition. A TEA condition (SHARED_BUILD == 1)
+	  squashed it, causing it the build system to loose the
+	  +DAportable we specify for the AS PA-RISC2.2 build host. This is
+	  a problem for _all_ TEA and TEA 2 based configure files.
+
+2002-10-15  Steve Ball  <Steve.Ball@zveno.com>
+
+	* *.in: Updated version numbers for v2.4.
+
+2002-10-02  Andreas Kupries  <andreask@activestate.com>
+
+	* Makefile.in ($($(PACKAGE)stub_LIB_FILE)): Corrected explicit
+	  usage of AR.
+
+2002-09-27  Andreas Kupries  <andreask@activestate.com>
+
+	* expat/configure.in:
+	* expat/Makefile.in: Added code to pick up the tclxml
+	  configuration and stub library.
+	
+	* TclxmlConfig.sh.in: New file.
+	* configure.in: Added code to generate a config.sh file. This will
+	  be used by the expat module to pick up the tclxml stub library.
+
+2002-09-26  Andreas Kupries  <andreask@activestate.com>
+
+	* expat/Makefile.in (Tclexpat_SOURCES): Corrected typo. It is
+	  xmltok.c, not .o. D'oh.
+
+	* tclexpat.c (Tclexpat_Init): Added commands to initialize
+	  classinfo->reset and ->resetCmd. Without this trying to create
+	  an expat-based parser will segfault as the generic layer will
+	  jump through uninitialized pointers. Incomplete realization of
+	  the new option -resetcommand.
+
+2002-09-25  Andreas Kupries  <andreask@activestate.com>
+
+	* expat/Makefile.in:
+	* expat/configure.in:
+	* expat/aclocal.m4: Rewritten to use TEA 2 as base of the build
+	  system. This configure/makefile copiles the expat low-level
+	  stuff and the tcl binding in one go, into one library. The
+	  package index is separate from the generic xml layer.
+
+	* Makefile.in:
+	* configure.in:
+	* library/pkgIndex.tcl.in: Rewritten to use TEA 2 as base of build
+	  system. Refactoring, taking out generation of tclexpat stuff,
+	  this will go into its own configure/Makefile in the expat
+	  directory => Less of a mess for configuring and compiling the
+	  two packages.
+	* tools:
+	* tclconfig: New directories. See above.
+	* tclxml.h: Removed duplicate of TCL_EXTERN stuff.
+
+2002-09-19  Steve Ball  <Steve.Ball@zveno.com>
+
+	* tclxml.c (TclXMLParserClassCmd): Added -resetcommand to parserclass command.
+
+2002-09-13  Andreas Kupries  <andreask@activestate.com>
+
+	* Makefile.in ($(TCLXML_LIB_FILE)_OBJECTS): Added stub objects to
+	  link list for main library. Without we get unsatisfied symbols
+	  when trying to load the library.
+	  (tclxmlStubInit.$(OBJEXT)): 
+	  (tclxmlStubLib.$(OBJEXT)): Added targets to compile the stub sources.
+
+2002-09-12  Andreas Kupries  <andreask@activestate.com>
+
+	* configure.in (MINOR_VERSION): Bumped to 3. Full version now
+	  2.3. Additional changes to make compilation on AIX more robust.
+
+	* Makefile.in: See above, AIX.
+
+==============  Released version 2.3  13/09/2002  ==============
+
+2002-09-13  Steve Ball  <Steve.Ball@zveno.com>
+	* tclxml.c, tclxml.h, Makefile.in, tclxmlDecls.h, tclxml.decls, tclxmlStubInit.c, tclxmlStubLib.c: Applied patches to improve building from Andreas Kupries and patches from David Gravereaux for stubs.
+
+2002-09-09  Steve Ball  <Steve.Ball@zveno.com>
+
+	* library/sgmlparser.tcl (sgml::tokenise): Patch from bug #596959.
+
+==============  Released version 2.3rc2  07/09/2002  ==============
+
+2002-09-06  Steve Ball  <steve@localhost>
+
+	* tests/parser.test, library/sgmlparser.tcl, library/tclparser-8.1.tcl: Fixed bug #579264 by implementing -ignorewhitespace option.
+	* Added check for illegal Unicode characters in PCDATA.
+
+2002-09-04  Steve Ball  <steve@localhost>
+
+	* library/tclparser-8.1.tcl (xml::tclparser::reset): Added reset function.
+
+	* library/xml__tcl.tcl (xml::ParserCmd): Invoke reset command, rather than just deleting and creating a parser.
+
+2002-08-30  Steve Ball  <Steve.Ball@zveno.com>
+
+	* tclexpat.c: Fixed crash in element decl handler.
+
+2002-08-28  Steve Ball  <steve@localhost>
+
+	* library/xml-8.1.tcl, library/xml-8.0.tcl: Added definition of XML Namespace URI
+
+2002-06-28  Mats Bengtsson <matben@privat.utfors.se>
+
+	* library/sgmlparser.tcl: fixes for -final 0 bug #413341.
+	  corrected list structure of all -errorcommand callbacks bug #467785.
+	  catch & -code in -elmentendcallback bug #521740.
+	  checks for state(line) instead for state to handle inits for 
+	  -final 0 correctly
+	* library/tclparser-8.1.tcl: fixes for -final 0 bug #413341.
+	  changed xml::tclparse::configure and calls it in xml::tclparse::parse
+
+2002-06-19  Steve Ball  <steve@localhost>
+
+	* library/xml__tcl.tcl (xml::ParserCmd): free method removes command in caller's namespace. Bug #510418.
+
+2002-06-17  Steve Ball  <steve@localhost>
+
+	* library/sgmlparser.tcl (sgml::DeProtect1): Applied patch #521642.
+
+2002-06-14  Steve Ball  <steve@localhost>
+
+	* library/xpath.tcl (xpath::ParseExpr): Fixed bug #568354 - abbreviated node-type test in predicate.
+
+2002-06-11  Steve Ball  <steve@localhost.webone.com.au>
+
+	* library/tclparser-8.1.tcl (xml::tclparser::ParseAttrs): Fixed bug in character entity dereferencing.  Bug #546295.
+
+	* library/sgmlparser.tcl (sgml::parseEvent): Applied patch for bug #566452 to fix PIs
+
+2002-05-27  Andreas Kupries <andreas_kupries@users.sourceforge.net>
+	
+	* library/sgmlparser.tcl (sgml::Entity): Fixed code defining
+	  'entities' if not defined, using code in parseEvent] as
+	  template.
+
+	* library/tclparser-8.1.tcl
+	  (xml::tclparser::NormalizeAttValue:DeRef): Fixed the errors in
+	  the calls to [string range] (first two branches of the switch).
+
+	* install.tcl (line 306): args needs no default value of empty. Is
+	  empty as per definition of 'args' when used as last argument.
+
+2002-05-20  Steve Ball       <Steve.Ball@zveno.com>
+	* install.data, library/sgmlparser.tcl: Fixed bug 513985.
+	  Replaced 'package require tcllib' with 'package require uri'.
+	* library/sgmlparser.tcl: Fixed bug 495427 (applied suggested patch).
+	* LICENSE: Added
+
+2002-02-19  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* Makefile.in (install-lib-binaries): Changed INSTALL_DATA to
+	  INSTALL_PROGRAM to prevent the copy operation from removing the
+	  executable flag for libraries on platforms which do need
+	  it. Like HPUX.
+
+	* tclxml.c (TclXMLCreateParserCmd): Fixed SF TclXML Bug
+	  513909. The code now handles multiple occurences of "-parser
+	  class" and also takes care to hide them when it comes to the
+	  general configuration during creation.
+
+2002-02-06  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tclxml.c (TclXMLConfigureParserInstance): Copied code from
+	  "TclXMLInstanceConfigure" providing the clientdata/instance name
+	  to the parser to configure. This fixes bug 514045.
+
+	* configure:
+	* configure.in:
+	* tclxml.m4: Applied patch 508718 to allow building of expat on
+	  Windows.
+
+	* tclxml.h:
+	* tclexpat.c:
+	* tclxml.c: Updated to TIP 27 (CONST'ness of string tables for
+	  Tcl_GetIndexFromObj).
+
+2002-01-27  Steve Ball       <Steve.Ball@zveno.com>
+	
+	* library/xpath.tcl
+	  Fixed bug in expression parsing.
+	  Reported by Gerard LEDOUBLET.
+
+2001-11-13  Steve Ball       <Steve.Ball@zveno.com>
+
+	* library/sgmlparser.tcl, tests/pcdata.test:
+	  Fixed bug #468029 report by Kenneth Cox.
+
+2001-11-09  Steve Ball       <Steve.Ball@zveno.com>
+
+	* library/sgmlparser.tcl, library/tclparser-8.1.tcl, tests/attribute.test:
+	  Added handling of entity references within an attribute value.
+
+2001-09-05  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* Makefile.in (GENERIC_SCRIPTS): Added xpath.tcl to the list of
+	  scripts to install. Fixes [458864].
+
+2001-08-28  Andreas Kupries <andreas_kupries@users.sourceforge.net>
+
+	* tclxml.c (TclXMLInstanceDeleteCmd): Applied the patch fixing SF
+	  Item [456321]. This removes a double free of xmlinfo and also
+	  avoids to access the structure after it was freed.
+
+	* tclxml.c (TclXMLInstanceConfigure): Added a 'Tcl_ResetResult'
+	  before the loop processing the option. This forces the interp
+	  result into a known, unshared state. This also adds Pat Thoyts's
+	  changes to 'instanceConfigureSwitches' declaring some new
+	  '-*command' options and additional argument checks for
+	  'entityparser'. SF Patch [454204].
+
+2001-08-10  Peter Farmer     <Peter.Farmer@zveno.com>     
+ 
+        * Makefile.in ($(GENERIC_SCRIPTS)): Fixed bugs in earlier
+          code removed by Andreas and put it back.
+
+.2001-08-02  Steve Ball     <Steve.Ball@zveno.com>
+	--- Released TclXML 2.1theta ---
+
+2001-07-31  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* Makefile.in ($(GENERIC_SCRIPTS)): Removed creation of
+	  soft-link. When using a builddirectory below the toplevel
+	  directory the created link is circular and the following cp
+	  operations fails [SF 446485].
+
+2001-07-30  Steve Ball     <Steve.Ball@zveno.com>
+	* library/sgmlparser.tcl
+	Fixed bug #434304: whitespace not accepted in XML Declaration.
+	Side-effect is to improve WF checking.
+	* library/sgmlparser.tcl
+	Fixed bug #431353: entity references plus Tcl specials
+
+2001-02-26  Peter Farmer     <Peter.Farmer@zveno.com>
+	* library/tclparser-8.?.tcl
+        Added missing arg to pass -final thru to document instance parser
+
+2001-02-12  Steve Ball     <Steve.Ball@zveno.com>
+	* library/sgmlparser.tcl
+	* tests/cdata.test, tests/pi.test, tests/decls.test,
+	* tests/entity.test, tests/doctype.test
+	Fixed bug #131878: XML test documents not well-formed.
+	Fixing the tests revealed bugs in the parser.
+
+2001-02-09  Steve Ball     <Steve.Ball@zveno.com>
+	* library/sgmlparser.tcl, tests/cdata.test
+	* library/xmldep.tcl
+	Fixed bug #130127: backslashes in CDATA sections.
+	Added xmldep package (dependency discovery)
+	
+2001-02-06  Peter Farmer   <Peter.Farmer@zveno.com>
+        * install.tcl, install.data, win/build.data, win/install.bat
+        * library/pkgIndex.tcl.in, library/xml__tcl.tcl, tests/*
+        _Many_ significant improvements in the installer. Can now
+        install windows build as well as Unices. Now uses TEA 
+        config files & .in templates, if the build has them, to extract 
+        installation info. Test suite now more portable to new/alternate
+        versions and can test tcl only parser with other parsers present.
+
+2001-01-19  Steve Ball     <Steve.Ball@zveno.com>
+	* library/xpath.tcl
+	Fixed bug in parsing @ abbreviation
+
+2001-01-17  Steve Ball     <Steve.Ball@zveno.com>
+	---   Released TclXML v2.0theta   ---
+
+2001-01-17  Steve Ball     <Steve.Ball@zveno.com>
+	* install.tcl, install.data
+	Generalised PF's pure-Tcl installer.  It now reads the
+	installation data from an external file (script).
+
+2001-01-10  Steve Ball     <Steve.Ball@zveno.com>
+	* library/sgmlparser.tcl, tests/decls.test, tests/entity.test
+	Fixed bugs in external entity parsing and test suite.
+
+2000-12-10  Steve Ball     <Steve.Ball@zveno.com>
+	* library/xml-8.1.tcl
+	Added QName, allWsp
+
+2000-12-01  Steve Ball	   <Steve.Ball@zveno.com>
+	* library/xpath.tcl
+	Support for parsing and constructing XPath location paths.
+	Partial initial implementation.
+
+2000-08-14  Steve Ball     <Steve.Ball@zveno.com>
+	* doc/tclxml.xml, doc/html.xsl, doc/nroff.xsl
+	Updated doco and added XSL stylesheets to produce
+	HTML and NROFF output.
+
+2000-08-01  Steve Ball     <Steve.Ball@zveno.com>
+	* library/sgmlparser.tcl
+	Added support for XML Namespaces
+	
+2000-07-24  Steve Ball     <Steve.Ball@zveno.com>
+	* library/tclparser-8.1.tcl
+	Fixed double backslashes in attribute values
+	
+2000-06-15  Steve Ball     <Steve.Ball@zveno.com>
+	* tclxml.*, tclxerces.cpp, tclexpat.c,
+	  library/tclparser-8.1.tcl
+	Fixed automatic selection of default parser.
+	Fixed registration and running of Tcl-based 
+	parser classes.
+
+2000-06-10  Steve Ball     <Steve.Ball@zveno.com>
+	* library/sgmlparser.tcl, tests/*.test
+	Removed -entityparser option.  Minor fixes to test scripts.
+
+2000-06-01  Steve Ball     <Steve.Ball@zveno.com>
+	* doc/tclxml.xml
+	Completed documenting xml::parser command.
+	
+2000-05-18  Steve Ball     <Steve.Ball@zveno.com>
+	* tclxml.c, tclxerces.cpp, README, doc/tclxml.xml
+	Added -validate configuration option.  TclXerces sets the
+	parser object to validate when performing parsing.
+	Don't have a test, yet.  Also updated README and
+	started documentation (in DocBook).
+
+2000-04-22  Steve Ball     <Steve.Ball@zveno.com>
+	* library/sgmlparser.tcl, library/tclparser-8.1.tcl,
+	  tests/decls.test
+	Added support for external entities.
+	
+2000-04-16  Steve Ball     <Steve.Ball@zveno.com>
+	* library/sgmlparser.tcl, library/tclparser-8.1.tcl,
+	  tests/decls.test
+	Added markup declaration support.  Partial implementation.
+	Also supporting entity substitution.
+
+2000-04-05  Steve Ball     <Steve.Ball@zveno.com>
+	* Makefile.in, configure.in, library/*
+	Fixed Tcl-only package setup and installation.
+	Added Tcl-only parser class framework.
+	Changed Tcl parser implementation to use new parser class
+	framework.
+
+2000-02-10  Steve Ball     <Steve.Ball@zveno.com>
+
+	* tclXerces.cpp, tclXercesHandlers.cpp, tclXercesHandlers.hpp.
+	Added these files.  They implement the "xerces" parser class,
+	providing a wrapper for the Xerces-C (XML4C) XML parser.
+
+2000-01-23  Steve Ball     <Steve.Ball@zveno.com>
+
+	* tclxml.c, tclxml.h: Added these files.  These are the entry points
+	for the tclxml package.  They provide a generic front-end for
+	specific parser class implementations.
+
+	* tclexpat.c: This has been stripped down and is now a back-end
+	parser class implementation.
+
+1999-12-27  Steve Ball     <Steve.Ball@zveno.com>
+
+	* tclexpat.c: Changed class creation command to xml::parser.
+	Propagate error code from application callback,
+	patch from Marshall Rose.  Load xml package on initialisation.
+	Assign unique parser instance command if none given.
+
+	* library/*.tcl, pkgIndex.tcl.in, Makefile.in: 
+	Merged TclXML Tcl scripts into this package.
+
+	* configure.in: Updated to version 2.0
+
+1999-12-12  Steve Ball     <Steve.Ball@zveno.com>
+
+	* tclexpat.c: Accumulate PCDATA in a string object for a single
+	call to -characterdatacommand callback, instead of a call for
+	each line of data.
+
+	* tclexpat.c: Added -ignorewhitespace option.
+
+1999-09-14  Eric Melski  <ericm@scriptics.com>
+
+	* tclexpat.c: In TclExpatAttlistDeclHandler, added a test on attributes
+	to verify that it doesn't point to nothing (ie, a null attlist decl).  This
+	addresses bug 2831.
+
+1999-09-14  Eric Melski  <ericm@scriptics.com>
+
+	* tclexpat.c: Added support for several new callbacks:
+	attlistdecl, elementdecl, {start|end}doctypedecl.  Fixed support
+	for external entity parsing by adding a subcommand (entityparser)
+	to the "instance" command, which allows creation of an external entity
+	parser.  Some minor fixes like removing unused variables.  Added a
+	"free" command to the instance command, which allows user
+	initiated freeing of the parser (required for external entity
+	parsing to function properly).
+	Fixed a compiler warning about const char * and assigning it to a
+	char *.
+
+1999-08-24  Scott Stanton  <stanton@scriptics.com>
+
+	* tclexpat.c: Changed to avoid generating errors on non-standalone
+	documents when no handler is defined.
+
+1999-08-20  Scott Stanton  <stanton@scriptics.com>
+
+	* tclexpat.c: Various lint.  Changed to automatically export
+	public symbols.
+
+	* configure.in: Bumped version number to 1.1
+
+	* Makefile.in: Various changes to support Windows builds.
+
+1999-08-17  Scott Stanton  <stanton@scriptics.com>
+
+	* tclexpat.c: added TCL_STORAGE_CLASS macros to automatically
+	export the _Init symbol.
+
+1999-08-11  Scott Stanton  <stanton@scriptics.com>
+
+	* tclexpat.c: Changed to use Tcl stubs.  Fixed various
+	bugs. Eliminated conditional code for old pre-release versions of
+	8.1.
+

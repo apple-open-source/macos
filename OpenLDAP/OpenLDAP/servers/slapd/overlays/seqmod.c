@@ -1,7 +1,7 @@
 /* seqmod.c - sequenced modifies */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2004-2006 The OpenLDAP Foundation.
+ * Copyright 2004-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -22,6 +22,7 @@
 #ifdef SLAPD_OVER_SEQMOD
 
 #include "slap.h"
+#include "config.h"
 
 /* This overlay serializes concurrent attempts to modify a single entry */
 
@@ -139,7 +140,8 @@ seqmod_op_extended(
 
 static int
 seqmod_db_open(
-	BackendDB *be
+	BackendDB *be,
+	ConfigReply *cr
 )
 {
 	slap_overinst	*on = (slap_overinst *)be->bd_info;
@@ -155,7 +157,8 @@ seqmod_db_open(
 
 static int
 seqmod_db_close(
-	BackendDB *be
+	BackendDB *be,
+	ConfigReply *cr
 )
 {
 	slap_overinst	*on = (slap_overinst *)be->bd_info;

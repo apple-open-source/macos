@@ -302,7 +302,11 @@ extern vm_offset_t		interrupt_stack[];
 #define CPU_SUBTYPE_ARM_A500		((cpu_subtype_t) 2)
 #define CPU_SUBTYPE_ARM_A440		((cpu_subtype_t) 3)
 #define CPU_SUBTYPE_ARM_M4		((cpu_subtype_t) 4)
-#define CPU_SUBTYPE_ARM_A680		((cpu_subtype_t) 5)
+#define CPU_SUBTYPE_ARM_V4T		((cpu_subtype_t) 5)
+#define CPU_SUBTYPE_ARM_V6		((cpu_subtype_t) 6)
+#define CPU_SUBTYPE_ARM_V5TEJ		((cpu_subtype_t) 7)
+#define CPU_SUBTYPE_ARM_XSCALE		((cpu_subtype_t) 8)
+#define CPU_SUBTYPE_ARM_V7		((cpu_subtype_t) 9)
 
 /*
  *	MC88000 subtypes

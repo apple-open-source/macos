@@ -8,9 +8,6 @@
 extern int bad_error;
 extern int arch_multiple;
 
-extern void check_for_ProjectBuilder(
-    void);
-
 extern void as_warn(
     const char *format,
      ...) __attribute__ ((format (printf, 1, 2)));
@@ -20,6 +17,13 @@ extern void as_warn_where(
 	unsigned int line,
 	const char *format,
 	...) __attribute__ ((format (printf, 3, 4)));
+
+extern void as_warn_where_with_column(
+     char *file,
+	unsigned int line,
+	unsigned int column,
+	const char *format,
+	...)  __attribute__ ((format (printf, 4, 5)));
 
 extern void as_bad(
     const char *format,

@@ -37,7 +37,12 @@
 
 #define Sleep_Time	20
 
+#if LDEBUG
 #define Log IOLog
+#else
+	#define Log
+#endif
+
 #if USE_ELG
 	#undef Log
 	#define Log	kprintf
@@ -78,7 +83,7 @@
 	#undef DUMPALL
 #endif /* LDEBUG */
 
-#define ALERT(A,B,STRING)	Log("%8x %8x " DEBUG_NAME ": " STRING "\n", (unsigned int)(A), (unsigned int)(B))
+#define ALERT(A,B,STRING)	IOLog("%8x %8x " DEBUG_NAME ": " STRING "\n", (unsigned int)(A), (unsigned int)(B))
 
 enum
 {

@@ -1,0 +1,77 @@
+$Id: COMPILE.win,v 1.1 2004/05/23 22:50:39 neumann Exp $
+********************************
+XOTcl Windows compilation guide:
+********************************
+
+- Consider to get a binary distribution of XOTcl from:
+   
+    http://www.xotcl.org
+
+- XOTcl compiles with the Visual CC Compiler 
+
+Visual CC Compilation:
+**********************
+
+In order to compile with VCC the following steps have to be performed:
+
+1) Get tcl/tk sources, compile tcl and/or tk, and install them properly.
+   To compile XOTcl the sources of Tcl (and optionally Tk) are
+   needed. Tcl (and optionally Tk) must be installed properly. You get
+   the Tcl/tk sources from:
+  
+        www.tcl.tk
+
+   For compilation instruction see Tcl's documentation.
+
+2) Set the PATH environment to the Tcl binary directory. For instance 
+   in the DOS box you may write something like:
+     SET PATH=c:\Progra~1\Tcl\bin;%PATH%
+   where "c:\Progra~1\Tcl\bin" is the Tcl binary directory.
+
+3) Before you can start, you have to get the full sources of
+   XOTcl. These are packed in a tar.gz file, like xotcl-XXXXX.tar.gz,
+   and they are available from:
+
+        http://www.xotcl.org
+  
+   Untar the xotcl source. You can do it using a program like Winzip
+   or with the tar command (e.g. in the cygwin distrbution).
+
+   Change into the win directory.
+    
+        cd win
+
+   Open the file "configs.vc". Edit the
+   first lines with the path information for your system, i.e., where
+   to find tcl and tk sources and where to find the VCC compiler, and
+   where tcl/tk binaries are installed.
+
+4) In the 'win' directory, invoke: 
+
+     nmake -f makefile.vc
+
+   to compile xotcl.dll, XOTclSdbm, and Expat. 
+   Moreover, package information and XOTcl documentation will be built.
+
+   You can build the xotclsh/xowish (per defaul deactivated), if you
+   need them: 
+
+     nmake -f makefile.vc xotclshells
+     
+
+5) Optionally, you may test the XOTcl build:
+
+     nmake -f makefile.vc test
+
+6) Now you can install XOTcl with:
+
+     tclsh83 installWin.tcl
+
+   More installation notes can be found in the README file.
+
+
+Please report bugs and problems to the authors under one of these
+mail adresses:
+
+  uwe.zdun@wu-wien.ac.at, zdun@xotcl.org
+  gustaf.neumann@wu-wien.ac.at, neumann@xotcl.org

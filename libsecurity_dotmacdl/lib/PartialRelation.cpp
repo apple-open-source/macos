@@ -29,7 +29,7 @@ PartialRelation::~PartialRelation ()
 
 
 
-void PartialRelation::SetColumnNames (char* column0, ...)
+void PartialRelation::SetColumnNames (const char* column0, ...)
 {
 	// make an array of char* big enough to hold our data
 	mColumnNames = new Value*[mNumberOfColumns];
@@ -124,8 +124,7 @@ int PartialRelation::GetColumnNumber (const char* columnName)
 			return i;
 		}
 	}
-	
-	CSSMError::ThrowCSSMError (CSSMERR_DL_INVALID_FIELD_NAME);
+	return -1;
 }
 
 
@@ -140,8 +139,7 @@ int PartialRelation::GetColumnNumber (uint32 columnID)
 			return i;
 		}
 	}
-
-	CSSMError::ThrowCSSMError (CSSMERR_DL_INVALID_FIELD_NAME);
+	return -1;
 }
 
 

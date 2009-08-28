@@ -87,7 +87,7 @@ char **argv,
 char **envp)
 {
     int i;
-    unsigned long table_size;
+    uint32_t table_size;
     char *install_name, *image_file_name, *seg_addr_table_name,
          *seg_addr_table_filename;
     struct check_block block;
@@ -234,7 +234,7 @@ struct ofile *ofile,
 char *arch_name,
 void *cookie)
 {
-    unsigned long i;
+    uint32_t i;
     struct check_block *block;
     struct load_command *lc;
     struct dylib_command *dl;
@@ -280,7 +280,7 @@ struct ofile *ofile,
 char *arch_name,
 void *cookie)
 {
-    unsigned long i, segs_read_only_addr, segs_read_write_addr;
+    uint32_t i, segs_read_only_addr, segs_read_write_addr;
     struct load_command *lc;
     struct segment_command *sg, *first;
     enum bool split;
@@ -308,8 +308,8 @@ void *cookie)
 	}
 	lc = ofile->load_commands;
 	first = NULL;
-	segs_read_only_addr = ULONG_MAX;
-	segs_read_write_addr = ULONG_MAX;
+	segs_read_only_addr = UINT_MAX;
+	segs_read_write_addr = UINT_MAX;
 	for(i = 0; i < ofile->mh->ncmds; i++){
 	    if(lc->cmd == LC_SEGMENT){
 		sg = (struct segment_command *)lc;

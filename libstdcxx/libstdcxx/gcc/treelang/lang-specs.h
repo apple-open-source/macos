@@ -18,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* 
    This is the contribution to the `default_compilers' array in GCC.c for
@@ -34,31 +34,6 @@ Boston, MA 02111-1307, USA.  */
 {".tre", "@treelang", NULL, 0, 0},
 {".TRE", "@treelang", NULL, 0, 0},
 {"@treelang",
-    "tree1\
-       %{!Q:-quiet}\
-       -dumpbase %B \
-       %{d*}\
-       %{m*}\
-       %{a}\
-       %{g*}\
-       %{O*}\
-       %{W*}\
-       %{w}\
-       %{ansi}\
-       %{v}\
-       %{--help:--help}\
-       %{pg:-p}\
-       %{p}\
-       %{f*}\
-       %{pg|p:%{fomit-frame-pointer:%e-pg or -p and -fomit-frame-pointer are incompatible}}\
-       %{S:%W{o*}%{!o*:-o %b.s}}\
-       %{!S:-o %g.s}\
-       %i\n\
-       %{!S:as %a\
-       %Y\
-       %{c:%W{o*}%{!o*:-o %w%b%O}}\
-       %{!c:-o %d%w%u%O}\
-       %g.s\
-       %A\n}\
-       ", NULL , 0, 0
+    "%{!E:tree1 %i %(cc1_options) %{J*} %{I*}\
+         %{!fsyntax-only:%(invoke_as)}}", NULL , 0, 0
 },

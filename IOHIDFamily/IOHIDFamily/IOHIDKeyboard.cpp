@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2009 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -38,6 +38,7 @@
 #include "IOHIDKeyboard.h"
 #include "IOHIDKeys.h"
 #include "IOHIDElement.h"
+#include "IOHIDFamilyTrace.h"
 #include "AppleHIDUsageTables.h"
 
 #define kFnModifierUsagePageKey		"FnModifierUsagePage"
@@ -248,18 +249,23 @@ void
 IOHIDKeyboard::_asyncLED(OSObject *target)
 {
     IOHIDKeyboard *me = OSDynamicCast(IOHIDKeyboard, target);
-
+    IOHID_DEBUG(kIOHIDDebugCode_KeyboardLEDThreadActive, me, me ? me->_ledState : -1, me ? (uintptr_t)me->_provider : (uintptr_t)-1, 0);
     me->Set_LED_States( me->_ledState ); 
 }
 
 void
 IOHIDKeyboard::Set_LED_States(UInt8 ledState)
 {
-    UInt32              value;
+    bool				resync = _resyncLED;
+    
+    _resyncLED = FALSE;
     
     for (int i=0; i<2; i++)
     {
-        value = (ledState >> i) & 1;
+        UInt32 value = (ledState >> i) & 1;
+        
+        if (resync)
+			_provider->setElementValue(kHIDPage_LEDs, i + kHIDUsage_LED_NumLock, value ? 0 : 1);
 		
 		_provider->setElementValue(kHIDPage_LEDs, i + kHIDUsage_LED_NumLock, value);
     }    
@@ -291,8 +297,10 @@ IOHIDKeyboard::setAlphaLockFeedback ( bool LED_state)
     {
         _ledState = newState;
         
-        if (_asyncLEDThread) 
-            thread_call_enter(_asyncLEDThread);
+        if (_asyncLEDThread) {
+            IOHID_DEBUG(kIOHIDDebugCode_KeyboardLEDThreadTrigger, this, _ledState, 0, 0);
+            thread_call_enter(_asyncLEDThread);            
+        }
     }
 }
 
@@ -314,8 +322,10 @@ IOHIDKeyboard::setNumLockFeedback ( bool LED_state)
     {
         _ledState = newState;
         
-        if (_asyncLEDThread) 
-            thread_call_enter(_asyncLEDThread);
+        if (_asyncLEDThread) {
+            IOHID_DEBUG(kIOHIDDebugCode_KeyboardLEDThreadTrigger, this, _ledState, 1, 0);
+            thread_call_enter(_asyncLEDThread);            
+        }
     }
 }
 
@@ -919,11 +929,19 @@ IOHIDKeyboard::defaultKeymapOfLength (UInt32 * length )
 //====================================================================================================
 IOReturn IOHIDKeyboard::setParamProperties( OSDictionary * dict )
 {
-    if ( _containsFKey )
-    {
+    IOHID_DEBUG(kIOHIDDebugCode_KeyboardSetParam, this, dict, dict ? dict->getCount() : 0, 0);
+
+    if ( _containsFKey ) {
         setProperty(kIOHIDFKeyModeKey, OSDynamicCast(OSNumber, dict->getObject(kIOHIDFKeyModeKey)));
     }
     
-    return super::setParamProperties(dict);
+    if ( _asyncLEDThread ) {
+        if ( OSDynamicCast(OSBoolean, dict->getObject(kIOHIDResetLEDsKey) ) ) {
+        	_resyncLED = TRUE;
+            IOHID_DEBUG(kIOHIDDebugCode_KeyboardLEDThreadTrigger, this, _ledState, 2, 0);
+            thread_call_enter(_asyncLEDThread);
+        }
+    }
     
+    return super::setParamProperties(dict);
 }

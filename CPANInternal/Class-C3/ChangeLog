@@ -1,5 +1,22 @@
 Revision history for Perl extension Class::C3.
 
+0.19 Mon, Jun 4, 2007
+    - Added new goto tests, bumped XS version req
+
+0.18 Sat, May 12, 2007
+    - Just bumped XS version requirement
+
+0.17 Tues, May 8, 2007
+    - Remove Build.PL from the distribution
+
+0.16 Thurs, May 3, 2007
+    - Converted to Module::Install
+    - Supports optional Class::C3::XS
+    - Supports optional perl 5.9.5+ mro code
+    - Fixed overload fallback edge cases.
+    - Fix for overloading to method name string,
+       from Ittetsu Miyazaki.
+
 0.14 Tues, Sep 19, 2006
     - Fix for rt.cpan.org #21558
     - converted to Module::Build

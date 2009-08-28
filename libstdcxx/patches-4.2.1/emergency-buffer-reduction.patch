@@ -1,0 +1,23 @@
+Index: libstdc++-v3/libsupc++/eh_alloc.cc
+===================================================================
+RCS file: /cvs/gcc/gcc/libstdc++-v3/libsupc++/eh_alloc.cc,v
+retrieving revision 1.12
+retrieving revision 1.11.32.2
+diff -u -p -u -p -r1.12 -r1.11.32.2
+--- libstdc++-v3/libsupc++/eh_alloc.cc	19 Feb 2005 02:35:24 -0000	1.12
++++ libstdc++-v3/libsupc++/eh_alloc.cc	9 Apr 2005 06:13:30 -0000	1.11.32.2
+@@ -78,6 +78,14 @@ using namespace __cxxabiv1;
+ # define EMERGENCY_OBJ_COUNT	4
+ #endif
+ 
++/* APPLE LOCAL begin reduce emergency buffer size */
++/* 256 bytes is more than large enough for an std::bad_alloc object */
++#undef EMERGENCY_OBJ_SIZE
++#undef EMERGENCY_OBJ_COUNT
++#define EMERGENCY_OBJ_SIZE 256
++#define EMERGENCY_OBJ_COUNT 2
++/* APPLE LOCAL end reduce emergency buffer size */
++
+ #if INT_MAX == 32767 || EMERGENCY_OBJ_COUNT <= 32
+ typedef unsigned int bitmask_type;
+ #else

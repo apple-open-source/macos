@@ -621,6 +621,19 @@ DbDbCursorImpl::next(DbAttributes *attributes, ::CssmDataContainer *data, DbUniq
 	DbUniqueRecord unique(db);
 	if (!mActive)
 	{
+		// ask the CSP/DL if the requested  record type exists
+		CSSM_BOOL boolResult;
+		CSSM_DL_PassThrough(db->handle(), CSSM_APPLECSPDL_DB_RELATION_EXISTS, &RecordType, (void**) &boolResult);
+		if (!boolResult)
+		{
+			if (data != NULL)
+			{
+				data->invalidate();
+			}
+			
+			return false;
+		}
+		
 		result = CSSM_DL_DataGetFirst(db->handle(),
 									  this,
 									  &mResultsHandle,

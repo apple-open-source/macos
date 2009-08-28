@@ -1,6 +1,6 @@
 # Makefile for gperf/doc
 
-# Copyright (C) 1998, 2000, 2002-2003 Free Software Foundation, Inc.
+# Copyright (C) 1998, 2000, 2002-2003, 2007 Free Software Foundation, Inc.
 # Written by Douglas C. Schmidt <schmidt@ics.uci.edu>
 # and Bruno Haible <bruno@clisp.org>.
 #
@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; see the file COPYING.
 # If not, write to the Free Software Foundation, Inc.,
-# 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 #### Start of system configuration section. ####
 
@@ -30,15 +30,16 @@ srcdir = @srcdir@
 prefix = @prefix@
 local_prefix = /usr/local
 exec_prefix = @exec_prefix@
+datarootdir = @datarootdir@
 datadir = @datadir@
 infodir = @infodir@
 mandir = @mandir@
 man1dir = $(mandir)/man1
-docdir = $(datadir)/doc/@PACKAGE@
-dvidir = $(docdir)
-psdir = $(docdir)
-pdfdir = $(docdir)
-htmldir = $(docdir)
+docdir = @docdir@
+dvidir = @dvidir@
+psdir = @psdir@
+pdfdir = @pdfdir@
+htmldir = @htmldir@
 
 # Programs used by "make":
 RM = rm -f
@@ -49,7 +50,7 @@ TEX = tex
 TEXI2DVI = texi2dvi
 DVIPS = dvips -D600
 TEXI2PDF = texi2pdf
-MAKEINFO = LANG= LANGUAGE= makeinfo
+MAKEINFO = LANG= LC_MESSAGES= LC_ALL= LANGUAGE= makeinfo
 TEXI2HTML = texi2html
 
 # Programs used by "make install":
@@ -64,7 +65,7 @@ SHELL = /bin/sh
 
 VPATH = $(srcdir)
 
-all : info dvi ps pdf html
+all : info ps pdf html
 
 
 info : $(srcdir)/gperf.info

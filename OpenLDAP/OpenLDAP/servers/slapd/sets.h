@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/sets.h,v 1.18.2.3 2006/01/03 22:16:15 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/sets.h,v 1.21.2.4 2008/05/20 00:09:30 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -21,7 +21,7 @@
 LDAP_BEGIN_DECL
 
 typedef struct slap_set_cookie {
-	struct slap_op *set_op;
+	Operation *set_op;
 } SetCookie;
 
 /* this routine needs to return the bervals instead of
@@ -53,7 +53,7 @@ LDAP_SLAPD_F (BerVarray) slap_set_join(SetCookie *cp,
  *   it is ORed with SLAP_SET_RREFARR
  * - the same applies to the lset with SLAP_SET_LREFVAL and SLAP_SET_LREFARR
  * - it is assumed that SLAP_SET_REFVAL implies SLAP_SET_REFARR,
- *   i.e. the former is checked only if the latter is defined.
+ *   i.e. the former is checked only if the latter is set.
  */
 
 #define SLAP_SET_RREFARR	SLAP_SET_REFARR

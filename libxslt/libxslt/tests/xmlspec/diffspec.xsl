@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 
-<!-- Version: $Id: diffspec.xsl,v 1.2 2001/03/07 12:36:39 veillard Exp $ -->
+<!-- Version: $Id$ -->
 
 <!-- Stylesheet for @diff markup in XMLspec -->
 <!-- Author: Norman Walsh (Norman.Walsh@East.Sun.COM) -->

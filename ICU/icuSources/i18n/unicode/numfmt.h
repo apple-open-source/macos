@@ -1,6 +1,6 @@
 /*
 ********************************************************************************
-* Copyright (C) 1997-2006, International Business Machines Corporation and others.
+* Copyright (C) 1997-2009, International Business Machines Corporation and others.
 * All Rights Reserved.
 ********************************************************************************
 *
@@ -422,7 +422,25 @@ public:
      * @stable ICU 2.0
      */
     virtual void setParseIntegerOnly(UBool value);
-
+	
+    /**
+     * Return whether or not strict parsing is in effect.
+     *
+     * @return <code>TRUE</code> if strict parsing is in effect,
+     *         <code>FALSE</code> otherwise.
+     *  @internal
+     */
+    UBool isParseStrict(void) const;
+	
+    /**
+     * Set whether or not strict parsing should be used.
+     *
+     * @param value <code>TRUE</code> if strict parsing should be used,
+     *              <code>FALSE</code> otherwise.
+     *  @internal
+     */
+    virtual void setParseStrict(UBool value);
+	
     /**
      * Returns the default number format for the current default
      * locale.  The default format is one of the styles provided by
@@ -741,11 +759,12 @@ private:
     static NumberFormat* makeInstance(const Locale& desiredLocale, EStyles choice, UErrorCode& success);
 
     UBool      fGroupingUsed;
-    int32_t     fMaxIntegerDigits;
-    int32_t     fMinIntegerDigits;
-    int32_t     fMaxFractionDigits;
-    int32_t     fMinFractionDigits;
+    int32_t    fMaxIntegerDigits;
+    int32_t    fMinIntegerDigits;
+    int32_t    fMaxFractionDigits;
+    int32_t    fMinFractionDigits;
     UBool      fParseIntegerOnly;
+    UBool      fParseStrict;
 
     // ISO currency code
     UChar      fCurrency[4];
@@ -844,6 +863,12 @@ inline UBool
 NumberFormat::isParseIntegerOnly() const
 {
     return fParseIntegerOnly;
+}
+
+inline UBool
+NumberFormat::isParseStrict() const
+{
+	return fParseStrict;
 }
 
 inline UnicodeString&

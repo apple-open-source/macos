@@ -85,8 +85,8 @@ public:
 
 	const MetaAttribute &metaAttribute(
 		const CSSM_DB_ATTRIBUTE_INFO &inAttributeInfo) const;
-	const MetaAttribute &MetaRecord::metaAttribute(uint32 name) const;
-	const MetaAttribute &MetaRecord::metaAttribute(
+	const MetaAttribute &metaAttribute(uint32 name) const;
+	const MetaAttribute &metaAttribute(
 		const std::string &name) const;
 	const MetaAttribute &metaAttributeForData() const;
 

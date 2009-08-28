@@ -1,7 +1,7 @@
 /*
  * rlm_dbm_cat.c :    List rlm_dbm DBM file
  *
- * Version:     $Id: rlm_dbm_cat.c,v 1.8 2004/02/26 19:04:28 aland Exp $
+ * Version:     $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,16 +15,13 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
  * Copyright 2001 Koulik Andrei, Sandy Service
  */
 
-#include "autoconf.h"
+#include <freeradius-devel/libradius.h>
 #include <fcntl.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 #ifdef HAVE_NDBM_H
 #include <ndbm.h>
@@ -38,7 +35,6 @@
 #include <gdbm-ndbm.h>
 #endif
 
-#include <unistd.h>
 #include <ctype.h>
 
 #define LOTSTUP	20
@@ -69,7 +65,11 @@ static void dump_record(datum key,datum data)
 	putchar('\n');
 }
 
+#ifdef __GNUC__
+static void __attribute__((noreturn)) usage(void)
+#else
 static void usage(void)
+#endif
 {
 	fprintf(stderr, "Usage: %s: [-f file] [-w] [-i number] [-l number] [-v]\n\n",progname);
 
@@ -100,7 +100,7 @@ int main(int n, char **argv) {
 					break;
 			case 'f':	fname = optarg;
 					break;
-			case 'v':	printf("%s: $Id: rlm_dbm_cat.c,v 1.8 2004/02/26 19:04:28 aland Exp $\n",progname);
+			case 'v':	printf("%s: $Id$\n",progname);
 					exit(0);
 					break;
 			default : usage(); exit(1); break;

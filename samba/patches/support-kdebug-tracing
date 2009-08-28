@@ -2,7 +2,7 @@ Index: samba/source/configure.in
 ===================================================================
 --- samba/source/configure.in.orig
 +++ samba/source/configure.in
-@@ -439,6 +439,29 @@ AC_ARG_WITH(profiling-data,
+@@ -450,6 +450,29 @@ AC_ARG_WITH(profiling-data,
    AC_MSG_RESULT(no)
  )
  

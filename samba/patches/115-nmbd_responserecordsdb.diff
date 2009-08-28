@@ -2,15 +2,17 @@ Index: samba/source/nmbd/nmbd_responserecordsdb.c
 ===================================================================
 --- samba/source/nmbd/nmbd_responserecordsdb.c.orig
 +++ samba/source/nmbd/nmbd_responserecordsdb.c
-@@ -61,6 +61,11 @@ static void add_response_record(struct s
- void remove_response_record(struct subnet_record *subrec,
- 				struct response_record *rrec)
- {
-+	DEBUG(4,("remove_response_record: rrec (%x) subrec (%x) \n", rrec, subrec));
+@@ -54,6 +54,13 @@ void remove_response_record(struct subne
+ 
+ 	struct response_record *p = NULL;
+ 
++	DEBUG(4,("remove_response_record: rrec (%x) subrec (%x) \n",
++		    rrec, subrec));
 +
-+	if (!rrec || !subrec)
++	if (!rrec || !subrec) {
 +		return;
++	}
 +
- 	if (rrec->prev)
- 		rrec->prev->next = rrec->next;
- 	if (rrec->next)
+ 	for (p = subrec->responselist; p; p = p->next) {
+ 		if (p == rrec) {
+ 			break;

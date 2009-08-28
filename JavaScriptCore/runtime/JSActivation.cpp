@@ -40,7 +40,7 @@ ASSERT_CLASS_FITS_IN_CELL(JSActivation);
 const ClassInfo JSActivation::info = { "JSActivation", 0, 0, 0 };
 
 JSActivation::JSActivation(CallFrame* callFrame, PassRefPtr<FunctionBodyNode> functionBody)
-    : Base(callFrame->globalData().activationStructure, new JSActivationData(functionBody, callFrame))
+    : Base(callFrame->globalData().activationStructure, new JSActivationData(functionBody, callFrame->registers()))
 {
 }
 
@@ -118,7 +118,7 @@ void JSActivation::put(ExecState*, const Identifier& propertyName, JSValue value
 }
 
 // FIXME: Make this function honor ReadOnly (const) and DontEnum
-void JSActivation::putWithAttributes(ExecState*, const Identifier& propertyName, JSValue value, unsigned attributes)
+void JSActivation::putWithAttributes(ExecState* exec, const Identifier& propertyName, JSValue value, unsigned attributes)
 {
     ASSERT(!Heap::heap(value) || Heap::heap(value) == Heap::heap(this));
 
@@ -130,7 +130,7 @@ void JSActivation::putWithAttributes(ExecState*, const Identifier& propertyName,
     // expose in the activation object.
     ASSERT(!hasGetterSetterProperties());
     PutPropertySlot slot;
-    putDirect(propertyName, value, attributes, true, slot);
+    JSObject::putWithAttributes(exec, propertyName, value, attributes, true, slot);
 }
 
 bool JSActivation::deleteProperty(ExecState* exec, const Identifier& propertyName)

@@ -180,7 +180,7 @@ pPi:		.double	+3.141592653589793238462643	// pi.
 			If the rounding mode is round-to-nearest, return arctangent(x)
 			faithfully rounded.
 
-			Returns a value in [-pi, +pi] (C 7.12.4.4 3).  Note that this
+			Return a value in [-pi, +pi] (C 7.12.4.4 3).  Note that this
 			prohibits returning correctly rounded values for -pi and +pi, since
 			pi rounded to a float lies outside that interval.
 		

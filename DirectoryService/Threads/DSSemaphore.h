@@ -41,15 +41,15 @@ class DSSemaphore
 		void		Signal				( void ) { SignalDebug(NULL, 0); }
 		int			WaitTry				( void ) { return WaitTryDebug(NULL, 0); }
 		
-		void		WaitDebug			( char *file, int line );
-		bool		WaitTryDebug		( char *file, int line );
-		void		SignalDebug			( char *file, int line );
+		void		WaitDebug			( const char *file, int line );
+		bool		WaitTryDebug		( const char *file, int line );
+		void		SignalDebug			( const char *file, int line );
 
 		static void	LockCleanup			( void *value );
 		
-		void		WaitDebugHistory	( char *file, int line ) { WaitDebug(file, line); }
-		bool		WaitTryDebugHistory	( char *file, int line ) { return WaitTryDebug(file, line); }
-		void		SignalDebugHistory	( char *file, int line ) { SignalDebug( file, line ); }
+		void		WaitDebugHistory	( const char *file, int line ) { WaitDebug(file, line); }
+		bool		WaitTryDebugHistory	( const char *file, int line ) { return WaitTryDebug(file, line); }
+		void		SignalDebugHistory	( const char *file, int line ) { SignalDebug( file, line ); }
 
 	private:
 		pthread_mutex_t			mMutex;

@@ -1,0 +1,74 @@
+# Copyright 2003 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+
+# This file was written by Jim Ingham <jingham@apple.com>
+
+# This file tests gdb's ability to catch an ObjC exception called in a 
+# hand-called method and stop it from propagating past the call site.
+
+
+if $tracelevel then {
+	strace $tracelevel
+}
+
+set prms_id 0
+set bug_id 0
+
+set testfile "objc-throw-in-inf-fn"
+set srcfile ${testfile}.m
+set binfile ${objdir}/${subdir}/${testfile}
+
+if  { [gdb_compile "${srcdir}/${subdir}/$srcfile" "${binfile}" executable {debug additional_flags=-framework\ Foundation}] != "" } {
+     gdb_suppress_entire_file "Testcase compile failed, so all tests in this fil
+e will automatically fail."
+}
+
+# Start with a fresh gdb
+
+gdb_exit
+gdb_start
+gdb_reinitialize_dir $srcdir/$subdir
+gdb_load ${binfile}
+
+runto_main
+
+set after_making_myException    [gdb_get_line_number "Breakpoint after making myException"]
+set line_in_catch [gdb_get_line_number "This is the catch clause"]
+
+# This is breakpoint 2
+gdb_breakpoint $after_making_myException
+# This is breakpoint 3
+gdb_breakpoint $line_in_catch
+
+gdb_continue_to_breakpoint "continue over making myException" 2
+
+# Now call the throwMe method, and make sure we didn't blow past the 
+# current stack.
+
+gdb_test {set unwindonsignal on} {} {Turn on unwindonsignal}
+gdb_test {call [myException throwMe]} {The program being debugged hit an ObjC exception while in a function called from gdb.*} {Call the method that throws.} 
+gdb_test {bt} "#0  main .* at .*$srcfile:$after_making_myException" {make sure we ended up in main}
+
+# make sure we successfully get into the catch clause when we continue
+gdb_continue_to_breakpoint "continue into catch clause" 3
+
+# Do it again but with unwindonsignal off and make sure we really are
+# at objc_exception_throw.
+
+gdb_test {set unwindonsignal off} {} {Turn off unwindonsignal}
+gdb_test {call [myException throwMe]} {The program being debugged hit an ObjC exception while in a function called from gdb..*} {Call the method that throws.} 
+gdb_test {bt} {#0  .* in objc_exception_throw.*} {make sure we ended up in objc_exception_throw}
+return 0

@@ -574,7 +574,7 @@ CSSM_RETURN p12SetPubKeyHash(
 	predicate.Attribute.Info.AttributeNameFormat = 
 		CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
 	predicate.Attribute.Info.Label.AttributeName = 
-		P12_KEY_ATTR_LABEL_AND_HASH;
+		(char*) P12_KEY_ATTR_LABEL_AND_HASH;
 	predicate.Attribute.Info.AttributeFormat = 
 		CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
 	/* hope this cast is OK */
@@ -589,11 +589,11 @@ CSSM_RETURN p12SetPubKeyHash(
 	CSSM_DB_RECORD_ATTRIBUTE_DATA recordAttrs;
 	CSSM_DB_ATTRIBUTE_DATA attr[2];
 	attr[0].Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-	attr[0].Info.Label.AttributeName = P12_KEY_ATTR_LABEL_AND_HASH;
+	attr[0].Info.Label.AttributeName = (char*) P12_KEY_ATTR_LABEL_AND_HASH;
 	attr[0].Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
 	if(newPrintName) {
 		attr[1].Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-		attr[1].Info.Label.AttributeName = P12_KEY_ATTR_PRINT_NAME;
+		attr[1].Info.Label.AttributeName = (char*) P12_KEY_ATTR_PRINT_NAME;
 		attr[1].Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
 	}
 	recordAttrs.DataRecordType = CSSM_DL_DB_RECORD_PRIVATE_KEY;
@@ -780,7 +780,7 @@ CSSM_RETURN p12DeleteKey(
 	predicate.Attribute.Info.AttributeNameFormat = 
 		CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
 	predicate.Attribute.Info.Label.AttributeName = 
-		P12_KEY_ATTR_LABEL_AND_HASH;
+		(char*) P12_KEY_ATTR_LABEL_AND_HASH;
 	predicate.Attribute.Info.AttributeFormat = 
 		CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
 	predicate.Attribute.Value = const_cast<CSSM_DATA_PTR>(&keyLabel);

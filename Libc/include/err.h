@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2003, 2004, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -83,6 +83,9 @@ void	warnx(const char *, ...) __DARWIN_LDBL_COMPAT(warnx);
 void	vwarnx(const char *, __darwin_va_list) __DARWIN_LDBL_COMPAT(vwarnx);
 void	err_set_file(void *);
 void	err_set_exit(void (*)(int));
+#ifdef __BLOCKS__
+void	err_set_exit_b(void (^)(int));
+#endif /* __BLOCKS__ */
 
 __END_DECLS
 

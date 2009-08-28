@@ -1,4 +1,4 @@
-.Dd September 30, 2004
+.Dd 1 May, 2009
 .Dt launchd 8 
 .Os Darwin
 .Sh NAME
@@ -22,47 +22,35 @@ tool which (among other options) allows the user or administrator to load and un
 Where possible, it is preferable for jobs to launch on demand based on criteria specified
 in their respective configuration files.
 .Pp
-When run with a command, a specific instance of
-.Nm
-is created and the command is implicitly added to the list of jobs maintained by
-.Nm .
-If the command exits, that instance of
-.Nm
-will clean up all jobs maintained by itself and exit. All children of the command will use that
-instance of
-.Nm .
-.Pp
 During boot 
 .Nm
 is invoked by the kernel to run as the first process on the system and to further bootstrap the rest of the system.
-.Sh OPTIONS
-.Bl -tag -width -indent
-.It Fl D
-Debug. Prints syslog messages to stderr and adjusts logging via
-.Xr syslog 3
-to LOG_DEBUG.
-.El
-.Sh OPTIONS WHEN RUN AS PID 1
-.Bl -tag -width -indent
-.It Fl s
-Single user mode. Instructs
-.Nm launchd
-to give a shell prompt before booting the system.
-.El
+.Pp
+You cannot invoke
+.Nm
+directly.
 .Sh ENVIRONMENTAL VARIABLES
 .Bl -tag -width -indent
 .It Pa LAUNCHD_SOCKET
 This variable is exported when invoking a command via the launchd command line. It informs launchctl how to find the correct launchd to talk to.
 .El
 .Sh NOTES
-In Darwin it is preferable to have your daemon launch via launchd instead of modifying
-.Nm rc
-or creating a
-.Nm SystemStarter
-Startup Item.
+In Darwin, the canonical way to launch a daemon is through
+.Nm launchd
+as opposed to more traditional mechanisms or mechanisms provided in earlier versions of Mac OS X. These alternate methods should
+be considered deprecated and not suitable for new projects.
 .Pp
-At some point in the future, we hope to completely phase out the use of
-.Nm rc .
+In the
+.Nm launchd
+lexicon, a "daemon" is, by definition, a system-wide service of which there is one instance for all clients. An "agent" is a service that runs on
+a per-user basis. Daemons should not attempt to display UI or interact directly with a user's login session. Any and all work that involves interacting
+with a user should be done through agents. 
+.Pp
+If you wish your service to run as a certain user, in that user's environment, making it a
+.Nm launchd
+agent is the ONLY supported means of accomplishing this on Mac OS X. In other words, it is not sufficient to perform a
+.Xr setuid 2
+to become a user in the truest sense on Mac OS X.
 .Sh FILES
 .Bl -tag -width "/System/Library/LaunchDaemons" -compact
 .It Pa ~/Library/LaunchAgents
@@ -70,14 +58,12 @@ Per-user agents provided by the user.
 .It Pa /Library/LaunchAgents
 Per-user agents provided by the administrator.
 .It Pa /Library/LaunchDaemons
-System wide daemons provided by the administrator.
+System-wide daemons provided by the administrator.
 .It Pa /System/Library/LaunchAgents
-Mac OS X Per-user agents.
+Per-user agents provided by Mac OS X.
 .It Pa /System/Library/LaunchDaemons
-Mac OS X System wide daemons.
+System-wide daemons provided by Mac OS X.
 .El
 .Sh SEE ALSO 
 .Xr launchctl 1 ,
 .Xr launchd.plist 5 ,
-.Xr rc 8 ,
-.Xr SystemStarter 8

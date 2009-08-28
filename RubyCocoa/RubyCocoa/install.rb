@@ -12,7 +12,7 @@
 
 #
 #   modified for RubyCocoa.
-#   $Id: install.rb 2000 2007-08-14 15:25:28Z lrz $
+#   $Id: install.rb 2220 2008-10-28 14:35:20Z kimuraw $
 #
 
 ### begin compat.rb
@@ -857,6 +857,8 @@ class ToplevelInstaller < Installer
     case task = parsearg_global()
     when 'config'
       @config = ConfigTable.new
+    when 'package'
+      @config = ConfigTable.new
     else
       @config = ConfigTable.load
     end
@@ -981,15 +983,21 @@ class ToplevelInstaller < Installer
   
   def parsearg_test
     @options['use-rosetta'] = false
+    @options['test-args'] = nil
     while i = ARGV.shift do
       if i == '--use-rosetta'
         @options['use-rosetta'] = true
+      elsif /\A--test-args=(.+)/ =~ i
+        @options['test-args'] = $1
       else
         raise InstallError, "test: unknown option #{i}"
       end
     end
   end
 
+  def parsearg_package
+    parsearg_config
+  end
 
   def print_usage( out )
     out.puts
@@ -1032,6 +1040,8 @@ class ToplevelInstaller < Installer
     out.puts 'Options for test:'
     out.printf "  %-20s %s [%s]\n",
         '--use-rosetta', 'use Rosetta for testing', 'off'
+    out.printf "  %-20s %s \n",
+        '--test-args=args', 'pass args to test/unit AutoRunner'
 
     out.puts
   end
@@ -1090,6 +1100,7 @@ class ToplevelInstaller < Installer
   def test_testcase(ruby_cmd)
     cmd = %Q!"#{ruby_cmd}" -I../ext/rubycocoa -I../lib testall.rb!
     cmd = "/usr/libexec/oah/translate " + cmd if @options['use-rosetta']
+    cmd += " " + @options['test-args'] if @options['test-args']
     command cmd
   end
 
@@ -1111,7 +1122,7 @@ class ToplevelInstaller < Installer
         raise RuntimeError, "error: wrong extention was loaded: #{lib}"
       end
 
-      lib = libs.find {|lib| /RubyCocoa\b/ =~ lib}
+      lib = libs.find {|lib| /RubyCocoa.framework\b/ =~ lib}
       if /..\/framework\/build/ =~ lib
         print "framework ok: #{lib}"
       else
@@ -1136,7 +1147,17 @@ class ToplevelInstaller < Installer
   #
 
   def exec_package
+    package_load_config
+    @config.save
+    exec_config
     package_dir_package('package')
+  end
+
+  def package_load_config
+    config_path = File.join('package', 'config', @config['macosx-deployment-target'])
+    unless try_run_hook File.expand_path(config_path)
+      raise Installer, "cannot load config \"#{config_path}\""
+    end
   end
 
   def package_dir_package( rel )

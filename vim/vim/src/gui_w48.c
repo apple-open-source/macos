@@ -153,6 +153,9 @@ static int		destroying = FALSE;	/* call DestroyWindow() ourselves */
 #ifdef MSWIN_FIND_REPLACE
 static UINT		s_findrep_msg = 0;	/* set in gui_w[16/32].c */
 static FINDREPLACE	s_findrep_struct;
+# if defined(FEAT_MBYTE) && defined(WIN3264)
+static FINDREPLACEW	s_findrep_struct_w;
+# endif
 static HWND		s_findrep_hwnd = NULL;
 static int		s_findrep_is_find;	/* TRUE for find dialog, FALSE
 						   for find/replace dialog */
@@ -547,7 +550,7 @@ char_to_string(int ch, char_u *string, int slen, int had_alt)
 	else
 	{
 	    len = 1;
-	    ws = ucs2_to_enc(wstring, &len);
+	    ws = utf16_to_enc(wstring, &len);
 	    if (ws == NULL)
 		len = 0;
 	    else
@@ -884,6 +887,45 @@ _OnMenu(
 #endif
 
 #ifdef MSWIN_FIND_REPLACE
+# if defined(FEAT_MBYTE) && defined(WIN3264)
+/*
+ * copy useful data from structure LPFINDREPLACE to structure LPFINDREPLACEW
+ */
+    static void
+findrep_atow(LPFINDREPLACEW lpfrw, LPFINDREPLACE lpfr)
+{
+    WCHAR *wp;
+
+    lpfrw->hwndOwner = lpfr->hwndOwner;
+    lpfrw->Flags = lpfr->Flags;
+
+    wp = enc_to_utf16(lpfr->lpstrFindWhat, NULL);
+    wcsncpy(lpfrw->lpstrFindWhat, wp, lpfrw->wFindWhatLen - 1);
+    vim_free(wp);
+
+    /* the field "lpstrReplaceWith" doesn't need to be copied */
+}
+
+/*
+ * copy useful data from structure LPFINDREPLACEW to structure LPFINDREPLACE
+ */
+    static void
+findrep_wtoa(LPFINDREPLACE lpfr, LPFINDREPLACEW lpfrw)
+{
+    char_u *p;
+
+    lpfr->Flags = lpfrw->Flags;
+
+    p = utf16_to_enc(lpfrw->lpstrFindWhat, NULL);
+    vim_strncpy(lpfr->lpstrFindWhat, p, lpfr->wFindWhatLen - 1);
+    vim_free(p);
+
+    p = utf16_to_enc(lpfrw->lpstrReplaceWith, NULL);
+    vim_strncpy(lpfr->lpstrReplaceWith, p, lpfr->wReplaceWithLen - 1);
+    vim_free(p);
+}
+# endif
+
 /*
  * Handle a Find/Replace window message.
  */
@@ -892,6 +934,16 @@ _OnFindRepl(void)
 {
     int	    flags = 0;
     int	    down;
+
+# if defined(FEAT_MBYTE) && defined(WIN3264)
+    /* If the OS is Windows NT, and 'encoding' differs from active codepage:
+     * convert text from wide string. */
+    if (os_version.dwPlatformId == VER_PLATFORM_WIN32_NT
+			&& enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+    {
+        findrep_wtoa(&s_findrep_struct, &s_findrep_struct_w);
+    }
+# endif
 
     if (s_findrep_struct.Flags & FR_DIALOGTERM)
 	/* Give main window the focus back. */
@@ -1663,8 +1715,17 @@ process_message(void)
     if (msg.message == WM_OLE)
     {
 	char_u *str = (char_u *)msg.lParam;
-	add_to_input_buf(str, (int)STRLEN(str));
-	vim_free(str);
+	if (str == NULL || *str == NUL)
+	{
+	    /* Message can't be ours, forward it.  Fixes problem with Ultramon
+	     * 3.0.4 */
+	    DispatchMessage(&msg);
+	}
+	else
+	{
+	    add_to_input_buf(str, (int)STRLEN(str));
+	    vim_free(str);  /* was allocated in CVim::SendKeys() */
+	}
 	return;
     }
 #endif
@@ -1937,6 +1998,11 @@ gui_mch_wait_for_chars(int wtime)
 	    s_need_activate = FALSE;
 	}
 
+#ifdef FEAT_NETBEANS_INTG
+	/* Process the queued netbeans messages. */
+	netbeans_parse_messages();
+#endif
+
 	/*
 	 * Don't use gui_mch_update() because then we will spin-lock until a
 	 * char arrives, instead we use GetMessage() to hang until an
@@ -2128,7 +2194,7 @@ GetTextWidthEnc(HDC hdc, char_u *str, int len)
     {
 	/* 'encoding' differs from active codepage: convert text and use wide
 	 * function */
-	wstr = enc_to_ucs2(str, &wlen);
+	wstr = enc_to_utf16(str, &wlen);
 	if (wstr != NULL)
 	{
 	    n = GetTextExtentPointW(hdc, wstr, wlen, &size);
@@ -2252,7 +2318,7 @@ add_tabline_popup_menu_entry(HMENU pmenu, UINT item_id, char_u *item_text)
     {
 	/* 'encoding' differs from active codepage: convert menu name
 	 * and use wide function */
-	wn = enc_to_ucs2(item_text, NULL);
+	wn = enc_to_utf16(item_text, NULL);
 	if (wn != NULL)
 	{
 	    MENUITEMINFOW	infow;
@@ -2422,7 +2488,7 @@ gui_mch_update_tabline(void)
 	if (use_unicode)
 	{
 	    /* Need to go through Unicode. */
-	    wstr = enc_to_ucs2(NameBuff, NULL);
+	    wstr = enc_to_utf16(NameBuff, NULL);
 	    if (wstr != NULL)
 	    {
 		TCITEMW		tiw;
@@ -2521,8 +2587,8 @@ set_window_title(HWND hwnd, char *title)
 	WCHAR	*wbuf;
 	int	n;
 
-	/* Convert the title from 'encoding' to ucs2. */
-	wbuf = (WCHAR *)enc_to_ucs2((char_u *)title, NULL);
+	/* Convert the title from 'encoding' to UTF-16. */
+	wbuf = (WCHAR *)enc_to_utf16((char_u *)title, NULL);
 	if (wbuf != NULL)
 	{
 	    n = SetWindowTextW(hwnd, wbuf);
@@ -2548,7 +2614,19 @@ gui_mch_find_dialog(exarg_T *eap)
 	if (!IsWindow(s_findrep_hwnd))
 	{
 	    initialise_findrep(eap->arg);
-	    s_findrep_hwnd = FindText((LPFINDREPLACE) &s_findrep_struct);
+# if defined(FEAT_MBYTE) && defined(WIN3264)
+	    /* If the OS is Windows NT, and 'encoding' differs from active
+	     * codepage: convert text and use wide function. */
+	    if (os_version.dwPlatformId == VER_PLATFORM_WIN32_NT
+		    && enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+	    {
+	        findrep_atow(&s_findrep_struct_w, &s_findrep_struct);
+		s_findrep_hwnd = FindTextW(
+					(LPFINDREPLACEW) &s_findrep_struct_w);
+	    }
+	    else
+# endif
+		s_findrep_hwnd = FindText((LPFINDREPLACE) &s_findrep_struct);
 	}
 
 	set_window_title(s_findrep_hwnd,
@@ -2573,7 +2651,18 @@ gui_mch_replace_dialog(exarg_T *eap)
 	if (!IsWindow(s_findrep_hwnd))
 	{
 	    initialise_findrep(eap->arg);
-	    s_findrep_hwnd = ReplaceText((LPFINDREPLACE) &s_findrep_struct);
+# if defined(FEAT_MBYTE) && defined(WIN3264)
+	    if (os_version.dwPlatformId == VER_PLATFORM_WIN32_NT
+		    && enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+	    {
+		findrep_atow(&s_findrep_struct_w, &s_findrep_struct);
+		s_findrep_hwnd = ReplaceTextW(
+					(LPFINDREPLACEW) &s_findrep_struct_w);
+	    }
+	    else
+# endif
+		s_findrep_hwnd = ReplaceText(
+					   (LPFINDREPLACE) &s_findrep_struct);
 	}
 
 	set_window_title(s_findrep_hwnd,
@@ -3222,7 +3311,7 @@ gui_mch_browseW(
 	char_u *initdir,
 	char_u *filter)
 {
-    /* We always use the wide function.  This means enc_to_ucs2() must work,
+    /* We always use the wide function.  This means enc_to_utf16() must work,
      * otherwise it fails miserably! */
     OPENFILENAMEW	fileStruct;
     WCHAR		fileBuf[MAXPATHL];
@@ -3238,7 +3327,7 @@ gui_mch_browseW(
 	fileBuf[0] = NUL;
     else
     {
-	wp = enc_to_ucs2(dflt, NULL);
+	wp = enc_to_utf16(dflt, NULL);
 	if (wp == NULL)
 	    fileBuf[0] = NUL;
 	else
@@ -3263,11 +3352,11 @@ gui_mch_browseW(
 #endif
 
     if (title != NULL)
-	titlep = enc_to_ucs2(title, NULL);
+	titlep = enc_to_utf16(title, NULL);
     fileStruct.lpstrTitle = titlep;
 
     if (ext != NULL)
-	extp = enc_to_ucs2(ext, NULL);
+	extp = enc_to_utf16(ext, NULL);
     fileStruct.lpstrDefExt = extp;
 
     fileStruct.lpstrFile = fileBuf;
@@ -3278,7 +3367,7 @@ gui_mch_browseW(
     if (initdir != NULL && *initdir != NUL)
     {
 	/* Must have backslashes here, no matter what 'shellslash' says */
-	initdirp = enc_to_ucs2(initdir, NULL);
+	initdirp = enc_to_utf16(initdir, NULL);
 	if (initdirp != NULL)
 	{
 	    for (wp = initdirp; *wp != NUL; ++wp)
@@ -3318,7 +3407,7 @@ gui_mch_browseW(
     vim_free(extp);
 
     /* Convert from UCS2 to 'encoding'. */
-    p = ucs2_to_enc(fileBuf, NULL);
+    p = utf16_to_enc(fileBuf, NULL);
     if (p != NULL)
 	/* when out of memory we get garbage for non-ASCII chars */
 	STRCPY(fileBuf, p);
@@ -3335,7 +3424,7 @@ gui_mch_browseW(
 
 /*
  * Convert the string s to the proper format for a filter string by replacing
- * the \t and \n delimeters with \0.
+ * the \t and \n delimiters with \0.
  * Returns the converted string in allocated memory.
  *
  * Keep in sync with convert_filterW() above!
@@ -3518,7 +3607,7 @@ _OnDropFiles(
 	{
 #ifdef FEAT_MBYTE
 	    if (DragQueryFileW(hDrop, i, wszFile, BUFPATHLEN) > 0)
-		fnames[i] = ucs2_to_enc(wszFile, NULL);
+		fnames[i] = utf16_to_enc(wszFile, NULL);
 	    else
 #endif
 	    {
@@ -3674,7 +3763,8 @@ _OnScroll(
  * Use "prog" as the name of the program and "cmdline" as the arguments.
  * Copy the arguments to allocated memory.
  * Return the number of arguments (including program name).
- * Return pointers to the arguments in "argvp".
+ * Return pointers to the arguments in "argvp".  Memory is allocated with
+ * malloc(), use free() instead of vim_free().
  * Return pointer to buffer in "tofree".
  * Returns zero when out of memory.
  */
@@ -3691,6 +3781,8 @@ get_cmd_args(char *prog, char *cmdline, char ***argvp, char **tofree)
     int		argc;
     char	**argv = NULL;
     int		round;
+
+    *tofree = NULL;
 
 #ifdef FEAT_MBYTE
     /* Try using the Unicode version first, it takes care of conversion when
@@ -3802,15 +3894,15 @@ get_cmd_args(char *prog, char *cmdline, char ***argvp, char **tofree)
 	    argv = (char **)malloc((argc + 1) * sizeof(char *));
 	    if (argv == NULL )
 	    {
-		vim_free(newcmdline);
+		free(newcmdline);
 		return 0;		   /* malloc error */
 	    }
 	    pnew = newcmdline;
+	    *tofree = newcmdline;
 	}
     }
 
 done:
-
     argv[argc] = NULL;		/* NULL-terminated list */
     *argvp = argv;
     return argc;

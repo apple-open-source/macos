@@ -38,7 +38,7 @@ pid$1:a.out:main:beginning
 {
 }
 #else
-pid$1:dyld:_exit:beginning
+pid$1::exit:beginning
 {
 }
 #endif /* __APPLE__ */

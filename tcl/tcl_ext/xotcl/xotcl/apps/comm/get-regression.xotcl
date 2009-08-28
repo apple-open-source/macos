@@ -1,0 +1,209 @@
+#!/usr/bin/env tclsh
+package require XOTcl; namespace import -force xotcl::*
+
+package require xotcl::comm::httpAccess
+package require xotcl::trace
+
+persistentCache clear
+
+proc assert {f r} {
+  set got [eval $f]
+  if {$got ne $r } {
+    puts stderr "assertion failed: \[$f\] == $r (got $got)" 
+    quit
+  } else {
+    puts stderr "OK $r = $f"
+  }
+}
+proc head msg {
+  puts stderr ""
+  puts stderr "---------------------------- $msg"
+}
+
+proc test {msg cmd} {
+  set r [Object autoname r]
+  head $msg
+  if {[catch {eval $cmd} msg]} {
+    puts stderr "ERROR: $::errorInfo"
+    quit
+  }
+  $r destroy
+}
+
+Object userPwd 
+userPwd proc user {u} { 
+  my set user $u
+}
+userPwd proc show {realm userVar pwVar} {
+  upvar $userVar u $pwVar pw
+  set u [my set user]
+  set pw jogl
+  return 1
+}
+
+
+
+
+# test "simple request" {
+#   SimpleRequest $r -caching 0 \
+#       -url http://localhost/index.html
+#   assert "$r getContentLength" 81
+# }
+# test "simple request" {
+#   SimpleRequest $r -caching 1 \
+#       -url http://localhost/index.html
+#   assert "$r getContentLength" 81
+# }
+# test "simple request" {
+#   SimpleRequest $r -caching 1 \
+#       -url http://localhost/index.html
+#   assert "$r getContentLength" 81
+# }
+# test "simple request" {
+#   persistentCache invalidate \
+#       http://localhost/index.html
+#   SimpleRequest $r -caching 1 \
+#       -url http://localhost/index.html
+#   assert "$r getContentLength" 81
+# }
+
+# test "simple request" {
+#   SimpleRequest $r -caching 0 \
+#        -url http://localhost/muster-d1klausur.ps
+#   assert "$r getContentLength" 163840
+# }
+
+proc parallelRequests {urls} {
+  JoinSink joinsink -requests [llength $urls]
+  set i 0
+  foreach url $urls {
+    TimedMemorySink sink$i
+    set t$i [Access [Access autoname a] -url $url \
+		 -informObject [list joinsink sink$i] \
+		 -caching 0]
+    incr i
+  }
+  set i 0
+  foreach url $urls { sink$i reportTimes;incr i}
+  joinsink destroy
+}
+
+# parallelRequests {
+#     http://localhost/muster-d1klausur.ps
+#     http://localhost/muster-d1klausur2.ps
+#   }
+# quit
+
+foreach c {0 1 2 2} {
+  test "caching $c" {
+    SimpleRequest $r -caching $::c \
+	-url http://nestroy.wi-inf.uni-essen.de/Lv/muster-d1klausur.ps
+    assert "$r getContentLength" 349970
+  }
+}
+
+
+
+test "simple request" {
+  SimpleRequest $r -caching 0 \
+      -url http://nestroy.wi-inf.uni-essen.de/Raumplan.html
+  assert "$r getContentLength" 662
+}
+
+
+test "simple request, larger file" {
+  SimpleRequest $r -caching 0 \
+      -url http://nestroy.wi-inf.uni-essen.de/Lv/muster-d1klausur.ps
+  assert "$r getContentLength" 349970
+}
+
+
+test "use cache" {
+  SimpleRequest $r -caching 1 \
+      -url http://nestroy.wi-inf.uni-essen.de/Lv/muster-d1klausur.ps
+  assert "$r getContentLength" 349970
+}
+
+
+test "specify filename, use cache and validate request" {
+  persistentCache invalidate \
+      http://nestroy.wi-inf.uni-essen.de/Lv/muster-d1klausur.ps
+  exec rm -f test.ps
+  SimpleRequest $r -caching 1 -fileName test.ps \
+      -url http://nestroy.wi-inf.uni-essen.de/Lv/muster-d1klausur.ps
+  assert "$r getContentLength" 349970
+  assert "file size test.ps" 349970
+  assert {lindex [exec md5sum  test.ps] 0} c6029c987e841430f3ca9bab157da12f
+}
+
+
+test  "specify filename, and use cache and a validated file" {
+  exec rm -f test.ps
+  SimpleRequest $r -caching 1 -fileName test.ps \
+      -url http://nestroy.wi-inf.uni-essen.de/Lv/muster-d1klausur.ps
+  assert "$r getContentLength" 349970
+  assert "file size test.ps" 349970
+  assert {lindex [exec md5sum  test.ps] 0} c6029c987e841430f3ca9bab157da12f
+}
+
+test "specify filename, and do not use cache" {
+  exec rm -f test.ps
+  SimpleRequest $r -fileName test.ps -caching 0 \
+      -url http://nestroy.wi-inf.uni-essen.de/Lv/muster-d1klausur.ps
+  assert "$r getContentLength" 349970
+  assert "file size test.ps" 349970
+  assert {lindex [exec md5sum  test.ps] 0} c6029c987e841430f3ca9bab157da12f
+}
+
+test "specify filesink and use cache; no copying neccesary" {
+  persistentCache invalidate \
+      http://nestroy.wi-inf.uni-essen.de/Lv/muster-d1klausur.ps
+  SimpleRequest $r -useFileSink 1 -caching 1 \
+      -url http://nestroy.wi-inf.uni-essen.de/Lv/muster-d1klausur.ps
+  assert "$r getContentLength" 349970
+  assert "file size test.ps" 349970
+}
+
+
+
+test "load a large file to the cache" {
+  persistentCache clearEntry http://swt.wi-inf.uni-essen.de/lx2.1.55
+  SimpleRequest $r -caching 1 \
+      -url http://swt.wi-inf.uni-essen.de/lx2.1.55
+  assert "$r getContentLength" 522411
+}
+
+
+
+test  "load a validated large file" {
+  SimpleRequest $r -caching 1 \
+      -url http://swt.wi-inf.uni-essen.de/lx2.1.55
+  assert "$r getContentLength" 522411
+}
+
+test "pure loading test without cache" {
+  SimpleRequest $r -caching 0 \
+      -url http://swt.wi-inf.uni-essen.de/lx2.1.55
+  assert "$r getContentLength" 522411
+}
+
+
+test  "redirect" {
+  SimpleRequest $r -caching 1 \
+      -url http://mohegan.wi-inf.uni-essen.de/Lv/muster-d1klausur.ps
+  assert "$r getContentLength" 349970
+}
+
+
+test  "authentication" {
+  SimpleRequest $r -caching 1 \
+      -url http://nestroy.wi-inf.uni-essen.de/cgi-bin/w3-msql/Forschung/Publikationen/protected/index.html
+  assert "$r getContentLength" 1164
+}
+
+puts stderr after
+quit
+
+
+### request joining
+### load to file depending on content type

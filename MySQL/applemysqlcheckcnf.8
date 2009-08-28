@@ -1,21 +1,21 @@
 .\"
-.\" Copyright (c) 2005 Apple Computer, Inc.  All rights reserved.
+.\" Copyright (c) 2005-2009 Apple Computer, Inc.  All rights reserved.
 .\"
-.TH applemysqlcheckcnf 8 "21 April 2006" "Mac OS X Server"
+.TH applemysqlcheckcnf 8 "13 July 2009" "Mac OS X Server"
 .SH NAME
 applemysqlcheckcnf \- MySQL configuration upgrade tool
 .SH "DESCRIPTION"
-applemysqlcheckcnf is a script that runs automatically when the MySQL service 
-is started via the MySQL Manager application or the mysqld_safe script. 
-applemysqlcheckcnf installs a default /etc/my.cnf configuration file which 
-optimizes MySQL performance based on available system memory.
+The applemysqlcheckcnf tool creates a MySQL config file which optimizes MySQL 
+performance based on available system memory. The tool will install the config 
+file as /etc/my.cnf, unless a file by that name already exists, in which case 
+it will install it as /etc/my.cnf.default. In the latter case, the optimized 
+config file has no effect until it replaces the old /etc/my.cnf.
 
-If applemysqlcheckcnf finds an existing my.cnf configuration, the new 
-configuration is copied to /etc/my.cnf.default and the administrator must 
-rename the script to enable the new configuration settings.
-
-applemysqlcheckcnf is not intended to be invoked from the command line.
+The applemysqlcheckcnf tool is run automatically each time MySQL service is 
+started and does not need to be run by the administrator.
 .SH FILES
 /usr/libexec/applemysqlcheckcnf
+/usr/sbin/serveradmin
+/Applications/Server Admin.app
 .SH SEE ALSO 
-mysqld_safe(1), MySQL Manager application
+serveradmin(8), Mac OS X Server administration command-line interface.

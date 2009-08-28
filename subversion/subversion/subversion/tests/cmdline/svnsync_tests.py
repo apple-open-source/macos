@@ -2,11 +2,11 @@
 #
 #  svnsync_tests.py:  Tests SVNSync's repository mirroring capabilities.
 #
-#  Subversion is a tool for revision control. 
+#  Subversion is a tool for revision control.
 #  See http://subversion.tigris.org for more information.
-#    
+#
 # ====================================================================
-# Copyright (c) 2005, 2006 CollabNet.  All rights reserved.
+# Copyright (c) 2005-2007 CollabNet.  All rights reserved.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution.  The terms
@@ -17,16 +17,18 @@
 ######################################################################
 
 # General modules
-import string, sys, re, os.path
+import sys, os
 
 # Our testing module
 import svntest
-
-from authz_tests import write_restrictive_svnserve_conf, \
-                        skip_test_when_no_authz_available
+from svntest.verify import SVNUnexpectedStdout, SVNUnexpectedStderr
+from svntest.verify import SVNExpectedStderr
+from svntest.main import write_restrictive_svnserve_conf
+from svntest.main import server_has_partial_replay
 
 # (abbreviation)
 Skip = svntest.testcase.Skip
+SkipUnless = svntest.testcase.SkipUnless
 XFail = svntest.testcase.XFail
 Item = svntest.wc.StateItem
 
@@ -43,40 +45,86 @@ def build_repos(sbox):
 
   # Create an empty repository.
   svntest.main.create_repos(sbox.repo_dir)
-  svntest.main.set_repos_paths(sbox.repo_dir)
 
 
 def run_sync(url, expected_error=None):
   "Synchronize the mirror repository with the master"
-  output, errput = svntest.main.run_svnsync(
+  exit_code, output, errput = svntest.main.run_svnsync(
     "synchronize", url,
     "--username", svntest.main.wc_author,
     "--password", svntest.main.wc_passwd)
   if errput:
     if expected_error is None:
-      raise svntest.actions.SVNUnexpectedStderr(errput)
+      raise SVNUnexpectedStderr(errput)
     else:
-      svntest.actions.match_or_fail(None, "STDERR", expected_error, errput)
+      expected_error = svntest.verify.RegexOutput(expected_error,
+                                                  match_all=False)
+      svntest.verify.compare_and_display_lines(None, "STDERR",
+                                               expected_error, errput)
   elif expected_error is not None:
-    raise svntest.actions.SVNExpectedStderr()
+    raise SVNExpectedStderr
   if not output and not expected_error:
     # should be: ['Committed revision 1.\n', 'Committed revision 2.\n']
-    raise svntest.actions.SVNUnexpectedStdout("Missing stdout")
+    raise SVNUnexpectedStdout("Missing stdout")
+
+def run_copy_revprops(url, expected_error=None):
+  "Copy revprops to the mirror repository from the master"
+  exit_code, output, errput = svntest.main.run_svnsync(
+    "copy-revprops", url,
+    "--username", svntest.main.wc_author,
+    "--password", svntest.main.wc_passwd)
+  if errput:
+    if expected_error is None:
+      raise SVNUnexpectedStderr(errput)
+    else:
+      expected_error = svntest.verify.RegexOutput(expected_error,
+                                                  match_all=False)
+      svntest.verify.compare_and_display_lines(None, "STDERR",
+                                               expected_error, errput)
+  elif expected_error is not None:
+    raise SVNExpectedStderr
+  if not output and not expected_error:
+    # should be: ['Copied properties for revision 1.\n',
+    #             'Copied properties for revision 2.\n']
+    raise SVNUnexpectedStdout("Missing stdout")
 
 def run_init(dst_url, src_url):
   "Initialize the mirror repository from the master"
-  output, errput = svntest.main.run_svnsync(
+  exit_code, output, errput = svntest.main.run_svnsync(
     "initialize", dst_url, src_url,
     "--username", svntest.main.wc_author,
     "--password", svntest.main.wc_passwd)
-  if output != ['Copied properties for revision 0.\n']:
-    raise svntest.actions.SVNUnexpectedStdout(output)
   if errput:
-    raise svntest.actions.SVNUnexpectedStderr(errput)
+    raise SVNUnexpectedStderr(errput)
+  if output != ['Copied properties for revision 0.\n']:
+    raise SVNUnexpectedStdout(output)
+
+def run_info(url, expected_error=None):
+  "Print synchronization information of the repository"
+  exit_code, output, errput = svntest.main.run_svnsync(
+    "info", url,
+    "--username", svntest.main.wc_author,
+    "--password", svntest.main.wc_passwd)
+  if errput:
+    if expected_error is None:
+      raise SVNUnexpectedStderr(errput)
+    else:
+      expected_error = svntest.verify.RegexOutput(expected_error,
+                                                  match_all=False)
+      svntest.verify.compare_and_display_lines(None, "STDERR",
+                                               expected_error, errput)
+  elif expected_error is not None:
+    raise SVNExpectedStderr
+  if not output and not expected_error:
+    # should be: ['From URL: http://....\n',
+    #             'From UUID: XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX\n',
+    #             'Last Merged Revision: XXX\n']
+    raise SVNUnexpectedStdout("Missing stdout")
 
 
-def run_test(sbox, dump_file_name):
-  "Load a dump file, sync repositories, and compare contents."
+def run_test(sbox, dump_file_name, subdir = None, exp_dump_file_name = None):
+  """Load a dump file, sync repositories, and compare contents with the original
+or another dump file."""
 
   # Create the empty master repository.
   build_repos(sbox)
@@ -94,35 +142,44 @@ def run_test(sbox, dump_file_name):
   build_repos(dest_sbox)
 
   # Setup the mirror repository.  Feed it the UUID of the source repository.
-  output, errput = svntest.main.run_svnlook("uuid", sbox.repo_dir)
-  mirror_cfg = ["SVN-fs-dump-format-version: 2\n",
-                "UUID: " + output[0],
-                ]
-  svntest.actions.run_and_verify_load(dest_sbox.repo_dir, mirror_cfg)
+  exit_code, output, errput = svntest.main.run_svnlook("uuid", sbox.repo_dir)
+  svntest.actions.run_and_verify_svnadmin2("Setting UUID", None, None, 0,
+                                           'setuuid', dest_sbox.repo_dir,
+                                           output[0][:-1])
 
   # Create the revprop-change hook for this test
-  svntest.actions.enable_revprop_changes(svntest.main.current_repo_dir)
+  svntest.actions.enable_revprop_changes(dest_sbox.repo_dir)
 
-  run_init(dest_sbox.repo_url, sbox.repo_url)
+  repo_url = sbox.repo_url
+  if subdir:
+    repo_url = repo_url + subdir
+  run_init(dest_sbox.repo_url, repo_url)
 
   run_sync(dest_sbox.repo_url)
+  run_copy_revprops(dest_sbox.repo_url)
 
   # Remove some SVNSync-specific housekeeping properties from the
   # mirror repository in preparation for the comparison dump.
   for prop_name in ("svn:sync-from-url", "svn:sync-from-uuid",
                     "svn:sync-last-merged-rev"):
     svntest.actions.run_and_verify_svn(
-      None, None, [], "propdel", "--username", svntest.main.wc_author,
-      "--password", svntest.main.wc_passwd, "--revprop", "-r", "0",
+      None, None, [], "propdel", "--revprop", "-r", "0",
       prop_name, dest_sbox.repo_url)
 
   # Create a dump file from the mirror repository.
   dest_dump = svntest.actions.run_and_verify_dump(dest_sbox.repo_dir)
 
-  # Compare the original dump file (used to create the master
-  # repository) with the dump produced by the mirror repository.
-  svntest.actions.compare_and_display_lines(
-    "Dump files", "DUMP", master_dumpfile_contents, dest_dump)
+  # Compare the dump produced by the mirror repository with either the original
+  # dump file (used to create the master repository) or another specified dump
+  # file.
+  if exp_dump_file_name:
+    exp_master_dumpfile_contents = file(os.path.join(svnsync_tests_dir,
+                                        exp_dump_file_name)).readlines()
+  else:
+    exp_master_dumpfile_contents = master_dumpfile_contents
+
+  svntest.verify.compare_and_display_lines(
+    "Dump files", "DUMP", exp_master_dumpfile_contents, dest_dump)
 
 
 ######################################################################
@@ -212,7 +269,7 @@ def detect_meddling(sbox):
 
   # Make our own destination checkout (have to do it ourself because
   # it is not greek).
-  
+
   svntest.main.safe_rmtree(dest_sbox.wc_dir)
   svntest.actions.run_and_verify_svn(None,
                                      None,
@@ -221,7 +278,7 @@ def detect_meddling(sbox):
                                      dest_sbox.repo_url,
                                      dest_sbox.wc_dir)
 
-  svntest.actions.enable_revprop_changes(svntest.main.current_repo_dir)
+  svntest.actions.enable_revprop_changes(dest_sbox.repo_dir)
 
   run_init(dest_sbox.repo_url, sbox.repo_url)
   run_sync(dest_sbox.repo_url)
@@ -230,10 +287,6 @@ def detect_meddling(sbox):
                                      None,
                                      [],
                                      'up',
-                                     '--username',
-                                     svntest.main.wc_author,
-                                     '--password',
-                                     svntest.main.wc_passwd,
                                      dest_sbox.wc_dir)
 
   # Commit some change to the destination, which should be detected by svnsync
@@ -244,10 +297,6 @@ def detect_meddling(sbox):
                                      [],
                                      'ci',
                                      '-m', 'msg',
-                                     '--username',
-                                     svntest.main.wc_author,
-                                     '--password',
-                                     svntest.main.wc_passwd,
                                      dest_sbox.wc_dir)
 
   run_sync(dest_sbox.repo_url,
@@ -258,29 +307,26 @@ def detect_meddling(sbox):
 def basic_authz(sbox):
   "verify that unreadable content is not synced"
 
-  skip_test_when_no_authz_available()
-
   sbox.build("svnsync-basic-authz")
 
-  write_restrictive_svnserve_conf(svntest.main.current_repo_dir)
+  write_restrictive_svnserve_conf(sbox.repo_dir)
 
   dest_sbox = sbox.clone_dependent()
   build_repos(dest_sbox)
 
-  svntest.actions.enable_revprop_changes(svntest.main.current_repo_dir)
+  svntest.actions.enable_revprop_changes(dest_sbox.repo_dir)
 
   run_init(dest_sbox.repo_url, sbox.repo_url)
 
-  fp = open(sbox.authz_file, 'w')
-  fp.write("[svnsync-basic-authz:/]\n" +
-           "* = r\n" +
-           "\n" +
-           "[svnsync-basic-authz:/A/B]\n" +
-           "* = \n" +
-           "\n" +
-           "[svnsync-basic-authz-1:/]\n" +
-           "* = rw\n")
-  fp.close()
+  svntest.main.file_write(sbox.authz_file,
+                          "[svnsync-basic-authz:/]\n"
+                          "* = r\n"
+                          "\n"
+                          "[svnsync-basic-authz:/A/B]\n"
+                          "* = \n"
+                          "\n"
+                          "[svnsync-basic-authz-1:/]\n"
+                          "* = rw\n")
 
   run_sync(dest_sbox.repo_url)
 
@@ -288,19 +334,14 @@ def basic_authz(sbox):
 
   # this file should have been blocked by authz
   svntest.actions.run_and_verify_svn(None,
-                                     [],
-                                     svntest.SVNAnyOutput,
+                                     [], svntest.verify.AnyOutput,
                                      'cat',
-                                     '--username', svntest.main.wc_author,
-                                     '--password', svntest.main.wc_passwd,
                                      lambda_url)
 
 #----------------------------------------------------------------------
 
 def copy_from_unreadable_dir(sbox):
   "verify that copies from unreadable dirs work"
-
-  skip_test_when_no_authz_available()
 
   sbox.build("svnsync-copy-from-unreadable-dir")
 
@@ -339,16 +380,14 @@ def copy_from_unreadable_dir(sbox):
                                      'cp',
                                      B_url,
                                      P_url,
-                                     '--username', svntest.main.wc_author,
-                                     '--password', svntest.main.wc_passwd,
                                      '-m', 'Copy B to P')
 
-  write_restrictive_svnserve_conf(svntest.main.current_repo_dir)
+  write_restrictive_svnserve_conf(sbox.repo_dir)
 
   dest_sbox = sbox.clone_dependent()
   build_repos(dest_sbox)
 
-  svntest.actions.enable_revprop_changes(svntest.main.current_repo_dir)
+  svntest.actions.enable_revprop_changes(dest_sbox.repo_dir)
 
   fp = open(sbox.authz_file, 'w')
 
@@ -378,8 +417,6 @@ def copy_from_unreadable_dir(sbox):
 
   run_sync(dest_sbox.repo_url)
 
-  lambda_url = dest_sbox.repo_url + '/A/B/lambda'
-
   expected_out = [
     'Changed paths:\n',
     '   A /A/P\n',
@@ -392,21 +429,19 @@ def copy_from_unreadable_dir(sbox):
     '\n', # log message is stripped
   ]
 
-  out, err = svntest.main.run_svn(None,
-                                  'log',
-                                  '--username', svntest.main.wc_author,
-                                  '--password', svntest.main.wc_passwd,
-                                  '-r', '3',
-                                  '-v',
-                                  dest_sbox.repo_url)
+  exit_code, out, err = svntest.main.run_svn(None,
+                                             'log',
+                                             '-r', '3',
+                                             '-v',
+                                             dest_sbox.repo_url)
 
   if err:
-    raise svntest.actions.SVNUnexpectedStderr(err)
+    raise SVNUnexpectedStderr(err)
 
-  svntest.actions.compare_and_display_lines(None,
-                                            'LOG',
-                                            expected_out,
-                                            out[2:11])
+  svntest.verify.compare_and_display_lines(None,
+                                           'LOG',
+                                           expected_out,
+                                           out[2:11])
 
   svntest.actions.run_and_verify_svn(None,
                                      ['bar\n'],
@@ -425,8 +460,6 @@ def copy_from_unreadable_dir(sbox):
 # Issue 2705.
 def copy_with_mod_from_unreadable_dir(sbox):
   "verify copies with mods from unreadable dirs"
-
-  skip_test_when_no_authz_available()
 
   sbox.build("svnsync-copy-with-mod-from-unreadable-dir")
 
@@ -521,21 +554,19 @@ def copy_with_mod_from_unreadable_dir(sbox):
     '\n', # log message is stripped
   ]
 
-  out, err = svntest.main.run_svn(None,
-                                  'log',
-                                  '--username', svntest.main.wc_author,
-                                  '--password', svntest.main.wc_passwd,
-                                  '-r', '2',
-                                  '-v',
-                                  dest_sbox.repo_url)
+  exit_code, out, err = svntest.main.run_svn(None,
+                                             'log',
+                                             '-r', '2',
+                                             '-v',
+                                             dest_sbox.repo_url)
 
   if err:
-    raise svntest.actions.SVNUnexpectedStderr(err)
+    raise SVNUnexpectedStderr(err)
 
-  svntest.actions.compare_and_display_lines(None,
-                                            'LOG',
-                                            expected_out,
-                                            out[2:12])
+  svntest.verify.compare_and_display_lines(None,
+                                           'LOG',
+                                           expected_out,
+                                           out[2:12])
 
   svntest.actions.run_and_verify_svn(None,
                                      ['bar\n'],
@@ -547,8 +578,6 @@ def copy_with_mod_from_unreadable_dir(sbox):
 # Issue 2705.
 def copy_with_mod_from_unreadable_dir_and_copy(sbox):
   "verify copies with mods from unreadable dirs +copy"
-
-  skip_test_when_no_authz_available()
 
   sbox.build("svnsync-copy-with-mod-from-unreadable-dir-and-copy")
 
@@ -627,21 +656,19 @@ def copy_with_mod_from_unreadable_dir_and_copy(sbox):
     '\n', # log message is stripped
   ]
 
-  out, err = svntest.main.run_svn(None,
-                                  'log',
-                                  '--username', svntest.main.wc_author,
-                                  '--password', svntest.main.wc_passwd,
-                                  '-r', '2',
-                                  '-v',
-                                  dest_sbox.repo_url)
+  exit_code, out, err = svntest.main.run_svn(None,
+                                             'log',
+                                             '-r', '2',
+                                             '-v',
+                                             dest_sbox.repo_url)
 
   if err:
-    raise svntest.actions.SVNUnexpectedStderr(err)
+    raise SVNUnexpectedStderr(err)
 
-  svntest.actions.compare_and_display_lines(None,
-                                            'LOG',
-                                            expected_out,
-                                            out[2:12])
+  svntest.verify.compare_and_display_lines(None,
+                                           'LOG',
+                                           expected_out,
+                                           out[2:12])
 
 def url_encoding(sbox):
   "test url encoding issues"
@@ -655,6 +682,65 @@ def no_author(sbox):
   "test copying revs with no svn:author revprops"
   run_test(sbox, "no-author.dump")
 
+def copy_revprops(sbox):
+  "test copying revprops other than svn:*"
+  run_test(sbox, "revprops.dump")
+
+def only_trunk(sbox):
+  "test syncing subdirectories"
+  run_test(sbox, "svnsync-trunk-only.dump", "/trunk",
+           "svnsync-trunk-only.expected.dump")
+
+def only_trunk_A_with_changes(sbox):
+  "test syncing subdirectories with changes on root"
+  run_test(sbox, "svnsync-trunk-A-changes.dump", "/trunk/A",
+           "svnsync-trunk-A-changes.expected.dump")
+
+# test for issue #2904
+def move_and_modify_in_the_same_revision(sbox):
+  "test move parent and modify child file in same rev"
+  run_test(sbox, "svnsync-move-and-modify.dump")
+
+def info_synchronized(sbox):
+  "test info cmd on a synchronized repo"
+
+  sbox.build("svnsync-info-syncd", False)
+
+  # Get the UUID of the source repository.
+  exit_code, output, errput = svntest.main.run_svnlook("uuid", sbox.repo_dir)
+  src_uuid = output[0].strip()
+
+  dest_sbox = sbox.clone_dependent()
+  build_repos(dest_sbox)
+
+  svntest.actions.enable_revprop_changes(dest_sbox.repo_dir)
+  run_init(dest_sbox.repo_url, sbox.repo_url)
+  run_sync(dest_sbox.repo_url)
+
+  exit_code, output, errput = svntest.main.run_svnsync(
+    "info", dest_sbox.repo_url,
+    "--username", svntest.main.wc_author,
+    "--password", svntest.main.wc_passwd)
+  if errput:
+      raise SVNUnexpectedStderr(errput)
+
+  expected_out = ['Source URL: %s\n' % sbox.repo_url,
+                  'Source Repository UUID: %s\n' % src_uuid,
+                  'Last Merged Revision: 1\n',
+                  ]
+
+  svntest.verify.compare_and_display_lines(None,
+                                           'INFO',
+                                           expected_out,
+                                           output)
+
+def info_not_synchronized(sbox):
+  "test info cmd on an un-synchronized repo"
+
+  sbox.build("svnsync-info-not-syncd", False)
+
+  run_info(sbox.repo_url,
+           ".*Repository '%s' is not initialized.*" % sbox.repo_url)
 
 ########################################################################
 # Run the tests
@@ -675,16 +761,26 @@ test_list = [ None,
               file_dir_file,
               copy_parent_modify_prop,
               detect_meddling,
-              basic_authz,
-              copy_from_unreadable_dir,
-              copy_with_mod_from_unreadable_dir,
-              copy_with_mod_from_unreadable_dir_and_copy,
+              Skip(basic_authz, svntest.main.is_ra_type_file),
+              Skip(copy_from_unreadable_dir, svntest.main.is_ra_type_file),
+              Skip(copy_with_mod_from_unreadable_dir,
+                   svntest.main.is_ra_type_file),
+              Skip(copy_with_mod_from_unreadable_dir_and_copy,
+                   svntest.main.is_ra_type_file),
               url_encoding,
               no_author,
+              copy_revprops,
+              SkipUnless(only_trunk,
+                         server_has_partial_replay),
+              SkipUnless(only_trunk_A_with_changes,
+                         server_has_partial_replay),
+              move_and_modify_in_the_same_revision,
+              info_synchronized,
+              info_not_synchronized,
              ]
 
 if __name__ == '__main__':
-  svntest.main.run_tests(test_list)
+  svntest.main.run_tests(test_list, serial_only = True)
   # NOTREACHED
 
 

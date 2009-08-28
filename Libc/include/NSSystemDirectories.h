@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2000, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -65,10 +65,18 @@ typedef enum {
     NSDocumentationDirectory = 8,           // documentation (Library/Documentation)
     NSDocumentDirectory = 9,                // documents (Documents)
     NSCoreServiceDirectory = 10,            // location of core services (System/Library/CoreServices)
+    NSAutosavedInformationDirectory = 11,   // location of user's directory for use with autosaving (~/Documents/Autosaved)
     NSDesktopDirectory = 12,                // location of user's Desktop (Desktop)
     NSCachesDirectory = 13,                 // location of discardable cache files (Library/Caches)
     NSApplicationSupportDirectory = 14,     // location of application support files (plug-ins, etc) (Library/Application Support)
     NSDownloadsDirectory = 15,              // location of user's Downloads directory (Downloads)
+    NSInputMethodsDirectory = 16,           // input methods (Library/Input Methods)
+    NSMoviesDirectory = 17,                 // location of user's Movies directory (~/Movies)
+    NSMusicDirectory = 18,                  // location of user's Music directory (~/Music)
+    NSPicturesDirectory = 19,               // location of user's Pictures directory (~/Pictures)
+    NSPrinterDescriptionDirectory = 20,     // location of system's PPDs directory (Library/Printers/PPDs)
+    NSSharedPublicDirectory = 21,           // location of user's Public sharing directory (~/Public)
+    NSPreferencePanesDirectory = 22,        // location of the PreferencePanes directory for use with System Preferences (Library/PreferencePanes)
     NSAllApplicationsDirectory = 100,       // all directories where applications can occur (Applications, Applications/Utilities, Developer/Applications, ...)
     NSAllLibrariesDirectory = 101           // all directories where resources can occur (Library, Developer)
 } NSSearchPathDirectory;

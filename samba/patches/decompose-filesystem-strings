@@ -1,0 +1,395 @@
+Use CFString to do UTF=8 decomposition.
+
+We used to use the UTF-8-MAC charset, but this does HFS-canonical
+UTF-8 decomposition, and we really only want to mess with the
+composition when we are accepting filesystem paths. In most other
+cases, we just want to convert and leave the composition untouched.
+There are routines that depend on this, eg. strchr_m.
+
+When we are sending paths back to the client, the composition ought
+to already be correct, so there's no need to do anything.
+
+Index: samba/source/include/smb.h
+===================================================================
+--- samba/source/include/smb.h.orig
++++ samba/source/include/smb.h
+@@ -64,6 +64,7 @@
+ #define STR_ASCII 4
+ #define STR_UNICODE 8
+ #define STR_NOALIGN 16
++#define STR_FILESYSTEM 32
+ #define STR_TERMINATE_ASCII 128
+ 
+ /* how long to wait for secondary SMB packets (milli-seconds) */
+Index: samba/source/lib/charcnv.c
+===================================================================
+--- samba/source/lib/charcnv.c.orig
++++ samba/source/lib/charcnv.c
+@@ -5,6 +5,7 @@
+    Copyright (C) Andrew Tridgell 2001
+    Copyright (C) Simo Sorce 2001
+    Copyright (C) Martin Pool 2003
++   Copyright (C) 2009 Apple Inc. All rights reserved.
+    
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+@@ -357,6 +358,130 @@ static size_t convert_string_internal(ch
+ 	}
+ }
+ 
++#if DARWINOS
++
++#include <CoreFoundation/CoreFoundation.h>
++#include <CoreFoundation/CFStringEncodingConverter.h>
++#include <CoreFoundation/CFUnicodePrecomposition.h>
++#include <libkern/OSByteOrder.h>
++
++/* Convert a canonically decomposed UTF8 into composed UTF16. */
++static size_t push_ucs2_path_darwin(
++	const void * src, size_t nsrcbytes,
++	void * dest, size_t ndestbytes)
++{
++    CFIndex consumed = 0;
++    CFIndex produced = 0;
++    uint32_t ret;
++
++    if (nsrcbytes == (size_t)-1) {
++	nsrcbytes = strlen(src) + 1;
++    }
++
++    ret = CFStringEncodingBytesToUnicode(kCFStringEncodingUTF8,
++	    kCFStringEncodingComposeCombinings | kCFStringEncodingAllowLossyConversion,
++	    src, nsrcbytes,
++	    &consumed,
++	    dest, ndestbytes / sizeof(uint16_t),
++	    &produced);
++
++    if (ret != kCFStringEncodingConversionSuccess) {
++	    if (ret == kCFStringEncodingInsufficientOutputBufferLength) {
++		errno = E2BIG;
++	    } else {
++		errno = EINVAL;
++	    }
++
++	    return -1;
++    }
++
++    CFMutableStringRef mref;
++
++    mref = CFStringCreateMutableWithExternalCharactersNoCopy(
++		kCFAllocatorDefault,
++		dest,
++		produced,
++		ndestbytes / sizeof(uint16_t),
++		kCFAllocatorNull);
++
++    if (!mref) {
++	    DEBUG(0, ("CFStringCreateMutableWithExternalCharactersNoCopy failed???\n"));
++	    errno = ENOMEM;
++	    return -1;
++    }
++
++    CFStringNormalize(mref,  kCFStringNormalizationFormC);
++
++    /* Track the new length. */
++    produced = CFStringGetLength(mref);
++    CFRelease(mref);
++
++    /* Need to byteswap from little to native endian. */
++    if (OSHostByteOrder() == OSBigEndian) {
++	size_t i;
++	uint16_t tmpval;
++
++	for (i = 0; i < ndestbytes; i += sizeof(uint16_t)) {
++	    tmpval = OSReadBigInt16(dest, i);
++	    OSWriteLittleInt16(dest, i, tmpval);
++	}
++    }
++
++    return produced * sizeof(uint16_t);
++}
++
++/* Convert a UTF16 string into canonically decomposed UTF8. */
++static size_t pull_ucs2_path_darwin(
++	const void * src, size_t nsrcbytes,
++	void * dest, size_t ndestbytes)
++{
++    CFIndex consumed = 0;
++    CFIndex produced = 0;
++    uint32_t ret;
++
++    void * tmpsrc = NULL;
++
++    if (nsrcbytes == (size_t)-1) {
++	    nsrcbytes = (strlen_w((const smb_ucs2_t *)src) + 1) * 2;
++    }
++
++    /* Need to byteswap from little to native endian. */
++    if (OSHostByteOrder() == OSBigEndian) {
++	size_t i;
++	uint16_t tmpval;
++
++	tmpsrc = SMB_MALLOC(nsrcbytes);
++
++	for (i = 0; i < nsrcbytes; i += sizeof(uint16_t)) {
++	    tmpval = OSReadBigInt16(src, i);
++	    OSWriteLittleInt16(tmpsrc, i, tmpval);
++	}
++    }
++
++    ret = CFStringEncodingUnicodeToBytes(kCFStringEncodingUTF8,
++	    kCFStringEncodingUseHFSPlusCanonical | kCFStringEncodingAllowLossyConversion,
++	    tmpsrc ? tmpsrc : src, nsrcbytes / sizeof(uint16_t),
++	    &consumed,
++	    dest, ndestbytes,
++	    &produced);
++
++    if (ret == kCFStringEncodingConversionSuccess) {
++	SAFE_FREE(tmpsrc);
++	return produced;
++    }
++
++    if (ret == kCFStringEncodingInsufficientOutputBufferLength) {
++	errno = E2BIG;
++    } else {
++	errno = EINVAL;
++    }
++
++    SAFE_FREE(tmpsrc);
++    return -1;
++}
++
++#endif /* DARWINOS */
++
+ /**
+  * Convert string from one encoding to another, making error checking etc
+  * Fast path version - handles ASCII first.
+@@ -1063,6 +1188,11 @@ size_t push_ucs2(const void *base_ptr, v
+ 	/* ucs2 is always a multiple of 2 bytes */
+ 	dest_len &= ~1;
+ 
++#if DARWINOS
++	if (flags & STR_FILESYSTEM) {
++	    ret = push_ucs2_path_darwin(src, src_len, dest, dest_len);
++	} else
++#endif /* DARWINOS */
+ 	ret =  convert_string(CH_UNIX, CH_UTF16LE, src, src_len, dest, dest_len, True);
+ 	if (ret == (size_t)-1) {
+ 		return 0;
+@@ -1231,6 +1361,11 @@ size_t pull_ucs2(const void *base_ptr, c
+ 	if (src_len != (size_t)-1)
+ 		src_len &= ~1;
+ 	
++#if DARWINOS
++	if (flags & STR_FILESYSTEM) {
++	    ret = pull_ucs2_path_darwin(src, src_len, dest, dest_len);
++	} else
++#endif /* DARWINOS */
+ 	ret = convert_string(CH_UTF16LE, CH_UNIX, src, src_len, dest, dest_len, True);
+ 	if (ret == (size_t)-1) {
+ 		return 0;
+Index: samba/source/smbd/reply.c
+===================================================================
+--- samba/source/smbd/reply.c.orig
++++ samba/source/smbd/reply.c
+@@ -223,6 +223,8 @@ size_t srvstr_get_path_wcard(char *inbuf
+ 	SMB_ASSERT(dest_len == sizeof(pstring));
+ #endif
+ 
++	flags |= STR_FILESYSTEM;
++
+ 	if (src_len == 0) {
+ 		ret = srvstr_pull_buf( inbuf, tmppath_ptr, src, dest_len, flags);
+ 	} else {
+@@ -263,6 +265,8 @@ size_t srvstr_get_path(char *inbuf, char
+ 	SMB_ASSERT(dest_len == sizeof(pstring));
+ #endif
+ 
++	flags |= STR_FILESYSTEM;
++
+ 	if (src_len == 0) {
+ 		ret = srvstr_pull_buf( inbuf, tmppath_ptr, src, dest_len, flags);
+ 	} else {
+@@ -1780,7 +1784,8 @@ int reply_ctemp(connection_struct *conn,
+ 	   thing in the byte section. JRA */
+ 	SSVALS(p, 0, -1); /* what is this? not in spec */
+ #endif
+-	namelen = srvstr_push(outbuf, p, s, BUFFER_SIZE - (p - outbuf), STR_ASCII|STR_TERMINATE);
++	namelen = srvstr_push(outbuf, p, s, BUFFER_SIZE - (p - outbuf),
++		STR_ASCII|STR_TERMINATE|STR_FILESYSTEM);
+ 	p += namelen;
+ 	outsize = set_message_end(outbuf, p);
+ 
+Index: samba/source/smbd/trans2.c
+===================================================================
+--- samba/source/smbd/trans2.c.orig
++++ samba/source/smbd/trans2.c
+@@ -1285,7 +1285,8 @@ static BOOL get_lanman2_dir_entry(connec
+ 			p += 23;
+ 			nameptr = p;
+ 			p += align_string(outbuf, p, 0);
+-			len = srvstr_push(outbuf, p, fname, PTR_DIFF(end_data, p), STR_TERMINATE);
++			len = srvstr_push(outbuf, p, fname, PTR_DIFF(end_data, p),
++				STR_TERMINATE|STR_FILESYSTEM);
+ 			if (SVAL(outbuf, smb_flg2) & FLAGS2_UNICODE_STRINGS) {
+ 				if (len > 2) {
+ 					SCVAL(nameptr, -1, len - 2);
+@@ -1320,7 +1321,8 @@ static BOOL get_lanman2_dir_entry(connec
+ 			}
+ 			p += 27;
+ 			nameptr = p - 1;
+-			len = srvstr_push(outbuf, p, fname, PTR_DIFF(end_data, p), STR_TERMINATE | STR_NOALIGN);
++			len = srvstr_push(outbuf, p, fname, PTR_DIFF(end_data, p),
++				STR_TERMINATE | STR_NOALIGN | STR_FILESYSTEM);
+ 			if (SVAL(outbuf, smb_flg2) & FLAGS2_UNICODE_STRINGS) {
+ 				if (len > 2) {
+ 					len -= 2;
+@@ -1376,7 +1378,8 @@ static BOOL get_lanman2_dir_entry(connec
+ 			/* Push the ea_data followed by the name. */
+ 			p += fill_ea_buffer(ea_ctx, p, space_remaining - (p - pdata), conn, name_list);
+ 			nameptr = p;
+-			len = srvstr_push(outbuf, p + 1, fname, PTR_DIFF(end_data, p+1), STR_TERMINATE | STR_NOALIGN);
++			len = srvstr_push(outbuf, p + 1, fname, PTR_DIFF(end_data, p+1),
++				STR_TERMINATE | STR_NOALIGN | STR_FILESYSTEM);
+ 			if (SVAL(outbuf, smb_flg2) & FLAGS2_UNICODE_STRINGS) {
+ 				if (len > 2) {
+ 					len -= 2;
+@@ -1424,7 +1427,8 @@ static BOOL get_lanman2_dir_entry(connec
+ 				mangle_map(mangled_name,True,True,
+ 					   conn->params);
+ 				mangled_name[12] = 0;
+-				len = srvstr_push(outbuf, p+2, mangled_name, 24, STR_UPPER|STR_UNICODE);
++				len = srvstr_push(outbuf, p+2, mangled_name, 24,
++					STR_UPPER|STR_UNICODE|STR_FILESYSTEM);
+ 				if (len < 24) {
+ 					memset(p + 2 + len,'\0',24 - len);
+ 				}
+@@ -1433,7 +1437,8 @@ static BOOL get_lanman2_dir_entry(connec
+ 				memset(p,'\0',26);
+ 			}
+ 			p += 2 + 24;
+-			len = srvstr_push(outbuf, p, fname, PTR_DIFF(end_data, p), STR_TERMINATE_ASCII);
++			len = srvstr_push(outbuf, p, fname, PTR_DIFF(end_data, p),
++				STR_TERMINATE_ASCII|STR_FILESYSTEM);
+ 			SIVAL(q,0,len);
+ 			p += len;
+ 			SIVAL(p,0,0); /* Ensure any padding is null. */
+@@ -1454,7 +1459,8 @@ static BOOL get_lanman2_dir_entry(connec
+ 			SOFF_T(p,0,file_size); p += 8;
+ 			SOFF_T(p,0,allocation_size); p += 8;
+ 			SIVAL(p,0,nt_extmode); p += 4;
+-			len = srvstr_push(outbuf, p + 4, fname, PTR_DIFF(end_data, p+4), STR_TERMINATE_ASCII);
++			len = srvstr_push(outbuf, p + 4, fname, PTR_DIFF(end_data, p+4),
++				STR_TERMINATE_ASCII|STR_FILESYSTEM);
+ 			SIVAL(p,0,len);
+ 			p += 4 + len;
+ 			SIVAL(p,0,0); /* Ensure any padding is null. */
+@@ -1481,7 +1487,8 @@ static BOOL get_lanman2_dir_entry(connec
+ 				SIVAL(p,0,ea_size); /* Extended attributes */
+ 				p +=4;
+ 			}
+-			len = srvstr_push(outbuf, p, fname, PTR_DIFF(end_data, p), STR_TERMINATE_ASCII);
++			len = srvstr_push(outbuf, p, fname, PTR_DIFF(end_data, p),
++				STR_TERMINATE_ASCII|STR_FILESYSTEM);
+ 			SIVAL(q, 0, len);
+ 			p += len;
+ 
+@@ -1499,7 +1506,8 @@ static BOOL get_lanman2_dir_entry(connec
+ 			p += 4;
+ 			/* this must *not* be null terminated or w2k gets in a loop trying to set an
+ 			   acl on a dir (tridge) */
+-			len = srvstr_push(outbuf, p, fname, PTR_DIFF(end_data, p), STR_TERMINATE_ASCII);
++			len = srvstr_push(outbuf, p, fname, PTR_DIFF(end_data, p),
++				STR_TERMINATE_ASCII|STR_FILESYSTEM);
+ 			SIVAL(p, -4, len);
+ 			p += len;
+ 			SIVAL(p,0,0); /* Ensure any padding is null. */
+@@ -1529,7 +1537,8 @@ static BOOL get_lanman2_dir_entry(connec
+ 			SIVAL(p,0,0); p += 4; /* Unknown - reserved ? */
+ 			SIVAL(p,0,sbuf.st_ino); p += 4; /* FileIndexLow */
+ 			SIVAL(p,0,sbuf.st_dev); p += 4; /* FileIndexHigh */
+-			len = srvstr_push(outbuf, p, fname, PTR_DIFF(end_data, p), STR_TERMINATE_ASCII);
++			len = srvstr_push(outbuf, p, fname, PTR_DIFF(end_data, p),
++				STR_TERMINATE_ASCII|STR_FILESYSTEM);
+ 			SIVAL(q, 0, len);
+ 			p += len; 
+ 			SIVAL(p,0,0); /* Ensure any padding is null. */
+@@ -1567,7 +1576,8 @@ static BOOL get_lanman2_dir_entry(connec
+ 				mangle_map(mangled_name,True,True,
+ 					   conn->params);
+ 				mangled_name[12] = 0;
+-				len = srvstr_push(outbuf, p+2, mangled_name, 24, STR_UPPER|STR_UNICODE);
++				len = srvstr_push(outbuf, p+2, mangled_name, 24,
++					STR_UPPER|STR_UNICODE|STR_FILESYSTEM);
+ 				SSVAL(p, 0, len);
+ 				if (len < 24) {
+ 					memset(p + 2 + len,'\0',24 - len);
+@@ -1580,7 +1590,8 @@ static BOOL get_lanman2_dir_entry(connec
+ 			SSVAL(p,0,0); p += 2; /* Reserved ? */
+ 			SIVAL(p,0,sbuf.st_ino); p += 4; /* FileIndexLow */
+ 			SIVAL(p,0,sbuf.st_dev); p += 4; /* FileIndexHigh */
+-			len = srvstr_push(outbuf, p, fname, PTR_DIFF(end_data, p), STR_TERMINATE_ASCII);
++			len = srvstr_push(outbuf, p, fname, PTR_DIFF(end_data, p),
++				STR_TERMINATE_ASCII|STR_FILESYSTEM);
+ 			SIVAL(q,0,len);
+ 			p += len;
+ 			SIVAL(p,0,0); /* Ensure any padding is null. */
+@@ -1603,14 +1614,16 @@ static BOOL get_lanman2_dir_entry(connec
+ 				DEBUG(10,("get_lanman2_dir_entry: SMB_FIND_FILE_UNIX\n"));
+ 				p = store_file_unix_basic(conn, p,
+ 							NULL, &sbuf);
+-				len = srvstr_push(outbuf, p, fname, PTR_DIFF(end_data, p), STR_TERMINATE);
++				len = srvstr_push(outbuf, p, fname, PTR_DIFF(end_data, p),
++					STR_TERMINATE|STR_FILESYSTEM);
+ 			} else {
+ 				DEBUG(10,("get_lanman2_dir_entry: SMB_FIND_FILE_UNIX_INFO2\n"));
+ 				p = store_file_unix_basic_info2(conn, p,
+ 							NULL, &sbuf);
+ 				nameptr = p;
+ 				p += 4;
+-				len = srvstr_push(outbuf, p, fname, PTR_DIFF(end_data, p), 0);
++				len = srvstr_push(outbuf, p, fname, PTR_DIFF(end_data, p),
++					0|STR_FILESYSTEM);
+ 				SIVAL(nameptr, 0, len);
+ 			}
+ 
+@@ -3749,7 +3762,8 @@ total_data=%u (should be %u)\n", (unsign
+ 			if(!mangle_is_8_3(short_name, True, conn->params)) {
+ 				mangle_map(short_name,True,True,conn->params);
+ 			}
+-			len = srvstr_push(outbuf, pdata+4, short_name, max_data_bytes - 4, STR_UNICODE);
++			len = srvstr_push(outbuf, pdata+4, short_name, max_data_bytes - 4,
++				STR_UNICODE|STR_FILESYSTEM);
+ 			data_size = 4 + len;
+ 			SIVAL(pdata,0,len);
+ 			break;
+@@ -3759,7 +3773,8 @@ total_data=%u (should be %u)\n", (unsign
+ 			/*
+ 			  this must be *exactly* right for ACLs on mapped drives to work
+ 			 */
+-			len = srvstr_push(outbuf, pdata+4, dos_fname, max_data_bytes - 4, STR_UNICODE);
++			len = srvstr_push(outbuf, pdata+4, dos_fname, max_data_bytes - 4,
++				STR_UNICODE|STR_FILESYSTEM);
+ 			DEBUG(10,("call_trans2qfilepathinfo: SMB_QUERY_FILE_NAME_INFO\n"));
+ 			data_size = 4 + len;
+ 			SIVAL(pdata,0,len);
+@@ -3800,7 +3815,8 @@ total_data=%u (should be %u)\n", (unsign
+ 			pdata += 24;
+ 			SIVAL(pdata,0,ea_size);
+ 			pdata += 4; /* EA info */
+-			len = srvstr_push(outbuf, pdata+4, dos_fname, max_data_bytes - (pdata+4 - *ppdata), STR_UNICODE);
++			len = srvstr_push(outbuf, pdata+4, dos_fname, max_data_bytes - (pdata+4 - *ppdata),
++				STR_UNICODE|STR_FILESYSTEM);
+ 			SIVAL(pdata,0,len);
+ 			pdata += 4 + len;
+ 			data_size = PTR_DIFF(pdata,(*ppdata));
+@@ -3956,7 +3972,8 @@ total_data=%u (should be %u)\n", (unsign
+ 				if (len == -1)
+ 					return(UNIXERROR(ERRDOS,ERRnoaccess));
+ 				buffer[len] = 0;
+-				len = srvstr_push(outbuf, pdata, buffer, max_data_bytes, STR_TERMINATE);
++				len = srvstr_push(outbuf, pdata, buffer, max_data_bytes,
++					STR_TERMINATE|STR_FILESYSTEM);
+ 				pdata += len;
+ 				data_size = PTR_DIFF(pdata,(*ppdata));
+ 

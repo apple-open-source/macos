@@ -1,9 +1,9 @@
 /*
- * "$Id: globals.h 6712 2007-07-24 00:13:05Z mike $"
+ * "$Id: globals.h 7910 2008-09-06 00:25:17Z mike $"
  *
  *   Global variable definitions for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -64,6 +64,10 @@ typedef struct _cups_globals_s		/**** CUPS global state data ****/
 					/* Number of server settings */
   cups_option_t		*cupsd_settings;/* Server settings */
 
+  /* backend.c */
+  char			resolved_uri[1024];
+					/* Buffer for cupsBackendDeviceURI */
+
   /* file.c */
   cups_file_t		*stdio_files[3];/* stdin, stdout, stderr */
 
@@ -81,6 +85,7 @@ typedef struct _cups_globals_s		/**** CUPS global state data ****/
 
   /* ipp.c */
   ipp_uchar_t		ipp_date[11];	/* RFC-1903 date/time data */
+  _ipp_buffer_t		*ipp_buffers;	/* Buffer list */
 
   /* ipp-support.c */
   int			ipp_port;	/* IPP port number */
@@ -98,6 +103,15 @@ typedef struct _cups_globals_s		/**** CUPS global state data ****/
   int			ppd_line;	/* Current line number */
   ppd_conform_t		ppd_conform;	/* Level of conformance required */
 
+  /* pwgmedia.c */
+  cups_array_t		*pwg_size_lut,	/* Lookup table for PWG names */
+			*leg_size_lut;	/* Lookup table for legacy names */
+
+  /* snmp.c */
+  char			snmp_community[255];
+					/* Default SNMP community name */
+  int			snmp_debug;	/* Log SNMP IO to stderr? */
+
   /* tempfile.c */
   char			tempfile[1024];	/* cupsTempFd/File buffer */
 
@@ -106,7 +120,8 @@ typedef struct _cups_globals_s		/**** CUPS global state data ****/
   char			user[65],	/* User name */
 			server[256],	/* Server address */
 			servername[256];/* Server hostname */
-  cups_password_cb_t	password_cb;	/* Password callback */
+  cups_password_cb2_t	password_cb;	/* Password callback */
+  void			*password_data;	/* Password user data */
 
   /* util.c */
   http_t		*http;		/* Current server connection */
@@ -125,10 +140,14 @@ typedef struct _cups_globals_s		/**** CUPS global state data ****/
  * Prototypes...
  */
 
+extern http_t		*_cupsConnect(void);
 extern const char	*_cupsGetPassword(const char *prompt);
 extern _cups_globals_t	*_cupsGlobals(void);
-extern void		_cupsSetError(ipp_status_t status, const char *message);
+extern void		_cupsSetDefaults(void);
+extern void		_cupsSetError(ipp_status_t status, const char *message,
+			              int localize);
 extern void		_cupsSetHTTPError(http_status_t status);
+extern char		*_cupsUserDefault(char *name, size_t namesize);
 
 
 /*
@@ -141,5 +160,5 @@ extern void		_cupsSetHTTPError(http_status_t status);
 #endif /* !_CUPS_GLOBALS_H_ */
 
 /*
- * End of "$Id: globals.h 6712 2007-07-24 00:13:05Z mike $".
+ * End of "$Id: globals.h 7910 2008-09-06 00:25:17Z mike $".
  */

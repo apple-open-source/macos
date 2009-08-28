@@ -1,4 +1,0 @@
---- /dev/null	2004-08-17 21:00:18.000000000 -0700
-+++ ext/mbstring/libmbfl/config.h	2004-08-17 20:40:34.000000000 -0700
-@@ -0,0 +1 @@
-+#include "php_config.h"

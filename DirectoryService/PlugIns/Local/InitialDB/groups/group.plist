@@ -14,6 +14,10 @@
 	<array>
 		<string>group</string>
 	</array>
+	<key>passwd</key>
+	<array>
+		<string>*</string>
+	</array>
 	<key>realname</key>
 	<array>
 		<string>Creator Group</string>

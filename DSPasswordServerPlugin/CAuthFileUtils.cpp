@@ -48,15 +48,24 @@ CAuthFileUtils::~CAuthFileUtils()
 //----------------------------------------------------------------------------------------------------
 
 void
-CAuthFileUtils::getGMTime(struct tm *inOutGMT)
+CAuthFileUtils::getGMTime(struct tm *outGMT)
 {
     time_t theTime;
     struct tm gmt;
     
     ::time(&theTime);
     ::gmtime_r(&theTime, &gmt);
-    memcpy( inOutGMT, &gmt, sizeof(struct tm) );
+    memcpy( outGMT, &gmt, sizeof(struct tm) );
 }
+
+void
+CAuthFileUtils::getGMTime(BSDTimeStructCopy *outGMT)
+{
+    struct tm bsdTimeStruct;
+    getGMTime( &bsdTimeStruct );
+    StructTM2BSDTimeStructCopy( &bsdTimeStruct, outGMT );
+}
+    
 
 
 //----------------------------------------------------------------------------------------------------

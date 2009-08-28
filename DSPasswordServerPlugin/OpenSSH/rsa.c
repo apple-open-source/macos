@@ -99,7 +99,7 @@ keygen_progress(int p, int n, void *arg)
 	const char progress_chars[] = ".o+O?";
 
 	if ((p < 0) || (p > (sizeof(progress_chars) - 2)))
-		p = sizeof(progress_chars) - 2;
+		p = (int)sizeof(progress_chars) - 2;
 
 	putchar(progress_chars[p]);
 	fflush(stdout);

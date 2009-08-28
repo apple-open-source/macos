@@ -1,0 +1,13 @@
+# Tcl package index file - handcrafted
+#
+# $Id: pkgIndex.tcl.in 15 2002-11-19 00:28:55Z andreas_kupries $
+
+package ifneeded @PACKAGE@ @VERSION@ [list load [file join $dir @pngtcl_LIB_FILE@]]
+
+# distinguish static and dyn variants, later.
+if {0} {
+package ifneeded @PACKAGE@ @VERSION@ [string map [list @dir@ $dir] \
+"if {[catch {load [file join @dir@ @pngtcl_LIB_FILE@]}]} {
+    load [file join @dir@ @pngtcl_LIB_FILE@]
+}"]
+}

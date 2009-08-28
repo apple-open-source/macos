@@ -1,3 +1,102 @@
+2007-10-08 13:04  source
+
+	* Updated version to 3.52.6 for final release (pvk)
+
+2007-10-08 12:37  source
+
+	* Fixed problem returning memory allocation error when max length of buffer
+	  was set to 0.
+
+2007-10-07 14:15  source
+
+	* Updated instructions to get CVS tree from sourceforge archive
+
+2007-10-07 14:09  source
+
+	* Fixed checking for driver version when not connected
+
+2007-10-07 13:27  source
+
+	* Fixed typo
+
+2007-10-07 13:11  source
+
+	* Fixed for openbsd
+
+2007-10-07 12:32  source
+
+	* Fixed towlower on older Mac OS X systems
+	* Use dummy towlower on systems that have no native support
+
+2007-10-07 11:14  source
+
+	* Fixed wchar check for FreeBSD 4.8 (pvk)
+
+2007-10-07 11:02  source
+
+	* Fixed checking pthread library on OSF 3.x and OSF 4.x (pvk)
+
+2007-10-07 10:48  source
+
+	* Fixed problem with C variable scope (pvk)
+
+2007-10-02 10:36  source
+
+	* Removed AutoReqProv:no setting
+
+2007-10-01 15:09  source
+
+	* Disabled building/installing old libodbc.a as this can interfere with
+	  other driver managers
+	* Fixed License keyword
+	* Updated version of rpm
+
+2007-09-10 07:28  source
+
+	* Don't keep odbc mutex unnecessary long
+
+2007-09-10 07:27  source
+
+	* Split locking section into smaller segements
+
+2007-09-04 06:25  source
+
+	* Fixed typos
+
+2007-09-04 06:23  source
+
+	* Fixed return code when driver could not be found
+
+2007-09-04 06:22  source
+
+	* Fixed error messages
+
+2007-09-04 06:20  source
+
+	* Use SQLFetchScroll on ODBC 3.x
+
+2007-09-04 06:16  source
+
+	* Added missing SQLStmtOptionA to export list
+
+2007-09-04 06:15  source
+
+	* Fixed checking for driver version when not connected
+
+2007-02-02 11:58  source
+
+	* Added initial support for gtk+ 2.x (sm)
+
+2007-02-02 11:49  source
+
+	* Fixed Unicode bug in SQLBrowseConnect
+	* Added SQLBrowseConnectW to export-symbol list
+	  (sm)
+
+2007-01-08 13:51  source
+
+	* Minor text changes (pvk)
+
 2007-01-05 12:52  source
 
 	* Updated version to 3.53.5 (pvk)

@@ -9,9 +9,15 @@
         <array>
                 <string>/usr/libexec/configureLocalKDC</string>
         </array>
-        <key>RunAtLoad</key>
-        <true/>
         <key>LaunchOnlyOnce</key>
         <true/>
+	<key>KeepAlive</key>
+	<dict>
+		<key>PathState</key>
+		<dict>
+			<key>/var/db/.configureLocalKDC</key>
+			<false/>
+		</dict>
+	</dict>
 </dict>
 </plist>

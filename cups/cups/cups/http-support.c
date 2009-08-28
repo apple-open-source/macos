@@ -1,5 +1,5 @@
 /*
- * "$Id: http-support.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: http-support.c 7952 2008-09-17 00:56:20Z mike $"
  *
  *   HTTP support routines for the Common UNIX Printing System (CUPS) scheduler.
  *
@@ -37,8 +37,10 @@
  *   _cups_hstrerror()    - hstrerror() emulation function for Solaris and
  *                          others...
  *   _httpEncodeURI()     - Percent-encode a HTTP request URI.
+ *   _httpResolveURI()    - Resolve a DNS-SD URI.
  *   http_copy_decode()   - Copy and decode a URI.
  *   http_copy_encode()   - Copy and encode a URI.
+ *   resolve_callback()   - Build a device URI for the given service name.
  */
 
 /*
@@ -48,6 +50,22 @@
 #include "debug.h"
 #include "globals.h"
 #include <stdlib.h>
+#include <errno.h>
+#ifdef HAVE_DNSSD
+#  include <dns_sd.h>
+#  include <poll.h>
+#endif /* HAVE_DNSSD */
+
+
+/*
+ * Local types...
+ */
+
+typedef struct _http_uribuf_s		/* URI buffer */
+{
+  char		*buffer;		/* Pointer to buffer */
+  size_t	bufsize;		/* Size of buffer */
+} _http_uribuf_t;
 
 
 /*
@@ -91,6 +109,17 @@ static const char	*http_copy_decode(char *dst, const char *src,
 static char		*http_copy_encode(char *dst, const char *src,
 			                  char *dstend, const char *reserved,
 					  const char *term, int encode);
+#ifdef HAVE_DNSSD
+static void		resolve_callback(DNSServiceRef sdRef,
+					 DNSServiceFlags flags,
+					 uint32_t interfaceIndex,
+					 DNSServiceErrorType errorCode,
+					 const char *fullName,
+					 const char *hostTarget,
+					 uint16_t port, uint16_t txtLen,
+					 const unsigned char *txtRecord,
+					 void *context);
+#endif /* HAVE_DNSSD */
 
 
 /*
@@ -102,7 +131,7 @@ static char		*http_copy_encode(char *dst, const char *src,
  * place of traditional string functions whenever you need to create a
  * URI string.
  *
- * @since CUPS 1.2@
+ * @since CUPS 1.2/Mac OS X 10.5@
  */
 
 http_uri_status_t			/* O - URI status */
@@ -195,15 +224,17 @@ httpAssembleURI(
 
    /*
     * Then add the hostname.  Since IPv6 is a particular pain to deal
-    * with, we have several special cases to deal with...  If we get
+    * with, we have several special cases to deal with.  If we get
     * an IPv6 address with brackets around it, assume it is already in
-    * URI format...
+    * URI format.  Since DNS-SD service names can sometimes look like
+    * raw IPv6 addresses, we specifically look for "._tcp" in the name,
+    * too...
     */
 
-    if (host[0] != '[' && strchr(host, ':'))
+    if (host[0] != '[' && strchr(host, ':') && !strstr(host, "._tcp"))
     {
      /*
-      * We have an IPv6 address...
+      * We have a raw IPv6 address...
       */
 
       if (strchr(host, '%'))
@@ -263,7 +294,7 @@ httpAssembleURI(
       * Otherwise, just copy the host string...
       */
 
-      ptr = http_copy_encode(ptr, host, end, NULL, NULL,
+      ptr = http_copy_encode(ptr, host, end, ":/?#[]@\\", NULL,
                              encoding & HTTP_URI_CODING_HOSTNAME);
 
       if (!ptr)
@@ -350,7 +381,7 @@ httpAssembleURI(
  * this function in place of traditional string functions whenever
  * you need to create a URI string.
  *
- * @since CUPS 1.2@
+ * @since CUPS 1.2/Mac OS X 10.5@
  */
 
 http_uri_status_t			/* O - URI status */
@@ -430,7 +461,7 @@ httpDecode64(char       *out,		/* I - String to write to */
 /*
  * 'httpDecode64_2()' - Base64-decode a string.
  *
- * @since CUPS 1.1.21@
+ * @since CUPS 1.1.21/Mac OS X 10.4@
  */
 
 char *					/* O  - Decoded string */
@@ -549,7 +580,7 @@ httpEncode64(char       *out,		/* I - String to write to */
 /*
  * 'httpEncode64_2()' - Base64-encode a string.
  *
- * @since CUPS 1.1.21@
+ * @since CUPS 1.1.21/Mac OS X 10.4@
  */
 
 char *					/* O - Encoded string */
@@ -658,7 +689,7 @@ httpGetDateString(time_t t)		/* I - UNIX time */
 /*
  * 'httpGetDateString2()' - Get a formatted date/time string from a time value.
  *
- * @since CUPS 1.2@
+ * @since CUPS 1.2/Mac OS X 10.5@
  */
 
 const char *				/* O - Date/time string */
@@ -697,7 +728,7 @@ httpGetDateTime(const char *s)		/* I - Date/time string */
 		{ 0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366 };
 
 
-  DEBUG_printf(("httpGetDateTime(s=\"%s\")\n", s));
+  DEBUG_printf(("2httpGetDateTime(s=\"%s\")", s));
 
  /*
   * Extract the date and time from the formatted string...
@@ -706,8 +737,8 @@ httpGetDateTime(const char *s)		/* I - Date/time string */
   if (sscanf(s, "%*s%d%15s%d%d:%d:%d", &day, mon, &year, &hour, &min, &sec) < 6)
     return (0);
 
-  DEBUG_printf(("    day=%d, mon=\"%s\", year=%d, hour=%d, min=%d, sec=%d\n",
-                day, mon, year, hour, min, sec));
+  DEBUG_printf(("4httpGetDateTime: day=%d, mon=\"%s\", year=%d, hour=%d, "
+                "min=%d, sec=%d", day, mon, year, hour, min, sec));
 
  /*
   * Convert the month name to a number from 0 to 11.
@@ -720,7 +751,7 @@ httpGetDateTime(const char *s)		/* I - Date/time string */
   if (i >= 12)
     return (0);
 
-  DEBUG_printf(("    i=%d\n", i));
+  DEBUG_printf(("4httpGetDateTime: i=%d", i));
 
  /*
   * Now convert the date and time to a UNIX time value in seconds since
@@ -733,14 +764,14 @@ httpGetDateTime(const char *s)		/* I - Date/time string */
   else
     days = normal_days[i] + day - 1;
 
-  DEBUG_printf(("    days=%d\n", days));
+  DEBUG_printf(("4httpGetDateTime: days=%d", days));
 
   days += (year - 1970) * 365 +		/* 365 days per year (normally) */
           ((year - 1) / 4 - 492) -	/* + leap days */
 	  ((year - 1) / 100 - 19) +	/* - 100 year days */
           ((year - 1) / 400 - 4);	/* + 400 year days */
 
-  DEBUG_printf(("    days=%d\n", days));
+  DEBUG_printf(("4httpGetDateTime: days=%d\n", days));
 
   return (days * 86400 + hour * 3600 + min * 60 + sec);
 }
@@ -775,7 +806,7 @@ httpSeparate(const char *uri,		/* I - Universal Resource Identifier */
  *
  * This function is deprecated; use the httpSeparateURI() function instead.
  *
- * @since CUPS 1.1.21@
+ * @since CUPS 1.1.21/Mac OS X 10.4@
  * @deprecated@
  */
 
@@ -800,7 +831,7 @@ httpSeparate2(const char *uri,		/* I - Universal Resource Identifier */
  * 'httpSeparateURI()' - Separate a Universal Resource Identifier into its
  *                       components.
  *
- * @since CUPS 1.2@
+ * @since CUPS 1.2/Mac OS X 10.5@
  */
 
 http_uri_status_t			/* O - Result of separation */
@@ -1132,55 +1163,94 @@ httpSeparateURI(
 
 /*
  * 'httpStatus()' - Return a short string describing a HTTP status code.
+ *
+ * The returned string is localized to the current POSIX locale and is based
+ * on the status strings defined in RFC 2616.
  */
 
-const char *				/* O - String or NULL */
+const char *				/* O - Localized status string */
 httpStatus(http_status_t status)	/* I - HTTP status code */
 {
+  const char	*s;			/* Status string */
+  _cups_globals_t *cg = _cupsGlobals();	/* Global data */
+
+
+  if (!cg->lang_default)
+    cg->lang_default = cupsLangDefault();
+
   switch (status)
   {
     case HTTP_CONTINUE :
-        return ("Continue");
+        s = _("Continue");
+	break;
     case HTTP_SWITCHING_PROTOCOLS :
-        return ("Switching Protocols");
+        s = _("Switching Protocols");
+	break;
     case HTTP_OK :
-        return ("OK");
+        s = _("OK");
+	break;
     case HTTP_CREATED :
-        return ("Created");
+        s = _("Created");
+	break;
     case HTTP_ACCEPTED :
-        return ("Accepted");
+        s = _("Accepted");
+	break;
     case HTTP_NO_CONTENT :
-        return ("No Content");
+        s = _("No Content");
+	break;
     case HTTP_MOVED_PERMANENTLY :
-        return ("Moved Permanently");
+        s = _("Moved Permanently");
+	break;
     case HTTP_SEE_OTHER :
-        return ("See Other");
+        s = _("See Other");
+	break;
     case HTTP_NOT_MODIFIED :
-        return ("Not Modified");
+        s = _("Not Modified");
+	break;
     case HTTP_BAD_REQUEST :
-        return ("Bad Request");
+        s = _("Bad Request");
+	break;
     case HTTP_UNAUTHORIZED :
-        return ("Unauthorized");
+    case HTTP_AUTHORIZATION_CANCELED :
+        s = _("Unauthorized");
+	break;
     case HTTP_FORBIDDEN :
-        return ("Forbidden");
+        s = _("Forbidden");
+	break;
     case HTTP_NOT_FOUND :
-        return ("Not Found");
+        s = _("Not Found");
+	break;
     case HTTP_REQUEST_TOO_LARGE :
-        return ("Request Entity Too Large");
+        s = _("Request Entity Too Large");
+	break;
     case HTTP_URI_TOO_LONG :
-        return ("URI Too Long");
+        s = _("URI Too Long");
+	break;
     case HTTP_UPGRADE_REQUIRED :
-        return ("Upgrade Required");
+        s = _("Upgrade Required");
+	break;
     case HTTP_NOT_IMPLEMENTED :
-        return ("Not Implemented");
+        s = _("Not Implemented");
+	break;
     case HTTP_NOT_SUPPORTED :
-        return ("Not Supported");
+        s = _("Not Supported");
+	break;
     case HTTP_EXPECTATION_FAILED :
-        return ("Expectation Failed");
+        s = _("Expectation Failed");
+	break;
+    case HTTP_SERVICE_UNAVAILABLE :
+        s = _("Service Unavailable");
+	break;
+    case HTTP_SERVER_ERROR :
+        s = _("Internal Server Error");
+	break;
 
     default :
-        return ("Unknown");
+        s = _("Unknown");
+	break;
   }
+
+  return (_cupsLangString(cg->lang_default, s));
 }
 
 
@@ -1221,6 +1291,227 @@ _httpEncodeURI(char       *dst,		/* I - Destination buffer */
 {
   http_copy_encode(dst, src, dst + dstsize - 1, NULL, NULL, 1);
   return (dst);
+}
+
+
+/*
+ * '_httpResolveURI()' - Resolve a DNS-SD URI.
+ */
+
+const char *				/* O - Resolved URI */
+_httpResolveURI(
+    const char *uri,			/* I - DNS-SD URI */
+    char       *resolved_uri,		/* I - Buffer for resolved URI */
+    size_t     resolved_size,		/* I - Size of URI buffer */
+    int        logit)			/* I - Log progress to stderr? */
+{
+  char			scheme[32],	/* URI components... */
+			userpass[256],
+			hostname[1024],
+			resource[1024];
+  int			port;
+#ifdef DEBUG
+  http_uri_status_t	status;		/* URI decode status */
+#endif /* DEBUG */
+
+
+  DEBUG_printf(("4_httpResolveURI(uri=\"%s\", resolved_uri=%p, "
+                "resolved_size=" CUPS_LLFMT ")", uri, resolved_uri,
+		CUPS_LLCAST resolved_size));
+
+ /*
+  * Get the device URI...
+  */
+
+#ifdef DEBUG
+  if ((status = httpSeparateURI(HTTP_URI_CODING_ALL, uri, scheme,
+                                sizeof(scheme), userpass, sizeof(userpass),
+				hostname, sizeof(hostname), &port, resource,
+				sizeof(resource))) < HTTP_URI_OK)
+#else
+  if (httpSeparateURI(HTTP_URI_CODING_ALL, uri, scheme,
+		      sizeof(scheme), userpass, sizeof(userpass),
+		      hostname, sizeof(hostname), &port, resource,
+		      sizeof(resource)) < HTTP_URI_OK)
+#endif /* DEBUG */
+  {
+    if (logit)
+      _cupsLangPrintf(stderr, _("Bad device URI \"%s\"!\n"), uri);
+
+    DEBUG_printf(("6_httpResolveURI: httpSeparateURI returned %d!", status));
+    DEBUG_puts("5_httpResolveURI: Returning NULL");
+    return (NULL);
+  }
+
+ /*
+  * Resolve it as needed...
+  */
+
+  if (strstr(hostname, "._tcp"))
+  {
+#ifdef HAVE_DNSSD
+    DNSServiceRef	ref,		/* DNS-SD master service reference */
+			domainref,	/* DNS-SD service reference for domain */
+			localref;	/* DNS-SD service reference for .local */
+    int			domainsent = 0;	/* Send the domain resolve? */
+    char		*regtype,	/* Pointer to type in hostname */
+			*domain;	/* Pointer to domain in hostname */
+    _http_uribuf_t	uribuf;		/* URI buffer */
+    struct pollfd	polldata;	/* Polling data */
+
+
+    if (logit)
+      fprintf(stderr, "DEBUG: Resolving \"%s\"...\n", hostname);
+
+   /*
+    * Separate the hostname into service name, registration type, and domain...
+    */
+
+    for (regtype = strstr(hostname, "._tcp") - 2;
+         regtype > hostname;
+	 regtype --)
+      if (regtype[0] == '.' && regtype[1] == '_')
+      {
+       /*
+        * Found ._servicetype in front of ._tcp...
+	*/
+
+        *regtype++ = '\0';
+	break;
+      }
+
+    if (regtype <= hostname)
+    {
+      DEBUG_puts("5_httpResolveURI: Bad hostname, returning NULL");
+      return (NULL);
+    }
+
+    for (domain = strchr(regtype, '.');
+         domain;
+	 domain = strchr(domain + 1, '.'))
+      if (domain[1] != '_')
+        break;
+
+    if (domain)
+      *domain++ = '\0';
+
+    uribuf.buffer  = resolved_uri;
+    uribuf.bufsize = resolved_size;
+
+    resolved_uri[0] = '\0';
+
+    DEBUG_printf(("6_httpResolveURI: Resolving hostname=\"%s\", regtype=\"%s\", "
+                  "domain=\"%s\"\n", hostname, regtype, domain));
+    if (logit)
+    {
+      fputs("STATE: +connecting-to-device\n", stderr);
+      fprintf(stderr, "DEBUG: Resolving \"%s\", regtype=\"%s\", "
+                      "domain=\"local.\"...\n", hostname, regtype);
+    }
+
+    uri = NULL;
+
+    if (DNSServiceCreateConnection(&ref) == kDNSServiceErr_NoError)
+    {
+      localref = ref;
+      if (DNSServiceResolve(&localref, kDNSServiceFlagsShareConnection, 0,
+			    hostname, regtype, "local.", resolve_callback,
+			    &uribuf) == kDNSServiceErr_NoError)
+      {
+	int	fds;			/* Number of ready descriptors */
+	time_t	timeout,		/* Poll timeout */
+		start_time = time(NULL);/* Start time */
+
+	for (;;)
+	{
+	  if (logit)
+	    _cupsLangPuts(stderr, _("INFO: Looking for printer...\n"));
+
+	 /*
+	  * For the first minute, wakeup every 2 seconds to emit a
+	  * "looking for printer" message...
+	  */
+
+	  timeout = (time(NULL) < (start_time + 60)) ? 2000 : -1;
+
+	  polldata.fd     = DNSServiceRefSockFD(ref);
+	  polldata.events = POLLIN;
+
+	  fds = poll(&polldata, 1, timeout);
+
+	  if (fds < 0)
+	  {
+	    if (errno != EINTR && errno != EAGAIN)
+	    {
+	      DEBUG_printf(("5_httpResolveURI: poll error: %s", strerror(errno)));
+	      break;
+	    }
+	  }
+	  else if (fds == 0)
+	  {
+	   /*
+	    * Wait 2 seconds for a response to the local resolve; if nothing
+	    * comes in, do an additional domain resolution...
+	    */
+
+	    if (domainsent == 0 && strcasecmp(domain, "local."))
+	    {
+	      if (logit)
+		fprintf(stderr,
+		        "DEBUG: Resolving \"%s\", regtype=\"%s\", "
+			"domain=\"%s\"...\n", hostname, regtype, domain);
+  
+	      domainref = ref;
+	      if (DNSServiceResolve(&domainref, kDNSServiceFlagsShareConnection, 0,
+				    hostname, regtype, domain, resolve_callback,
+				    &uribuf) == kDNSServiceErr_NoError)
+		domainsent = 1;
+	    }
+	  }
+	  else
+	  {
+	    if (DNSServiceProcessResult(ref) == kDNSServiceErr_NoError)
+	    {
+	      uri = resolved_uri;
+	      break;
+	    }
+	  }
+	}
+
+	if (domainsent)
+	  DNSServiceRefDeallocate(domainref);
+
+	DNSServiceRefDeallocate(localref);
+      }
+
+      DNSServiceRefDeallocate(ref);
+    }
+
+    if (logit)
+    {
+      if (uri)
+        fprintf(stderr, "DEBUG: Resolved as \"%s\"...\n", uri);
+      else
+        fputs("DEBUG: Unable to resolve URI!\n", stderr);
+
+      fputs("STATE: -connecting-to-device\n", stderr);
+    }
+
+#else
+   /*
+    * No DNS-SD support...
+    */
+
+    uri = NULL;
+#endif /* HAVE_DNSSD */
+
+    if (logit && !uri)
+      _cupsLangPuts(stderr, _("Unable to find printer!\n"));
+  }
+
+  DEBUG_printf(("5_httpResolveURI: Returning \"%s\"", uri));
+
+  return (uri);
 }
 
 
@@ -1341,6 +1632,83 @@ http_copy_encode(char       *dst,	/* O - Destination buffer */
 }
 
 
+#ifdef HAVE_DNSSD
 /*
- * End of "$Id: http-support.c 7721 2008-07-11 22:48:49Z mike $".
+ * 'resolve_callback()' - Build a device URI for the given service name.
+ */
+
+static void
+resolve_callback(
+    DNSServiceRef       sdRef,		/* I - Service reference */
+    DNSServiceFlags     flags,		/* I - Results flags */
+    uint32_t            interfaceIndex,	/* I - Interface number */
+    DNSServiceErrorType errorCode,	/* I - Error, if any */
+    const char          *fullName,	/* I - Full service name */
+    const char          *hostTarget,	/* I - Hostname */
+    uint16_t            port,		/* I - Port number */
+    uint16_t            txtLen,		/* I - Length of TXT record */
+    const unsigned char *txtRecord,	/* I - TXT record data */
+    void                *context)	/* I - Pointer to URI buffer */
+{
+  const char		*scheme;	/* URI scheme */
+  char			rp[257];	/* Remote printer */
+  const void		*value;		/* Value from TXT record */
+  uint8_t		valueLen;	/* Length of value */
+  _http_uribuf_t	*uribuf;	/* URI buffer */
+
+
+  DEBUG_printf(("7resolve_callback(sdRef=%p, flags=%x, interfaceIndex=%u, "
+	        "errorCode=%d, fullName=\"%s\", hostTarget=\"%s\", port=%u, "
+	        "txtLen=%u, txtRecord=%p, context=%p)", sdRef, flags,
+	        interfaceIndex, errorCode, fullName, hostTarget, port, txtLen,
+	        txtRecord, context));
+
+ /*
+  * Figure out the scheme from the full name...
+  */
+
+  if (strstr(fullName, "._ipp") || strstr(fullName, "._fax-ipp"))
+    scheme = "ipp";
+  else if (strstr(fullName, "._printer."))
+    scheme = "lpd";
+  else if (strstr(fullName, "._pdl-datastream."))
+    scheme = "socket";
+  else
+    scheme = "riousbprint";
+
+ /*
+  * Extract the "remote printer" key from the TXT record...
+  */
+
+  if ((value = TXTRecordGetValuePtr(txtLen, txtRecord, "rp",
+                                    &valueLen)) != NULL)
+  {
+   /*
+    * Convert to resource by concatenating with a leading "/"...
+    */
+
+    rp[0] = '/';
+    memcpy(rp + 1, value, valueLen);
+    rp[valueLen + 1] = '\0';
+  }
+  else
+    rp[0] = '\0';
+
+ /*
+  * Assemble the final device URI...
+  */
+
+  uribuf = (_http_uribuf_t *)context;
+
+  httpAssembleURI(HTTP_URI_CODING_ALL, uribuf->buffer, uribuf->bufsize, scheme,
+                  NULL, hostTarget, ntohs(port), rp);
+
+  DEBUG_printf(("8resolve_callback: Resolved URI is \"%s\"...",
+                uribuf->buffer));
+}
+#endif /* HAVE_DNSSD */
+
+
+/*
+ * End of "$Id: http-support.c 7952 2008-09-17 00:56:20Z mike $".
  */

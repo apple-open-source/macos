@@ -1,10 +1,10 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*          Copyright (c) 1982-2007 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
-*                      by AT&T Knowledge Ventures                      *
+*                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
 *            http://www.opensource.org/licenses/cpl1.0.txt             *
@@ -494,7 +494,7 @@ static void outval(char *name, const char *vname, struct Walk *wp)
 static char **genvalue(char **argv, const char *prefix, int n, struct Walk *wp)
 {
 	register char *cp,*nextcp,*arg;
-	register int m,r;
+	register int m,r,l;
 	register Sfio_t *outfile = wp->out;
 	if(n==0)
 		m = strlen(prefix);
@@ -536,7 +536,7 @@ static char **genvalue(char **argv, const char *prefix, int n, struct Walk *wp)
 					continue;
 				break;
 			}
-			else if(outfile && argv[1] && memcmp(arg,argv[1],r=strlen(arg))==0 && argv[1][r]=='[')
+			else if(outfile && argv[1] && memcmp(arg,argv[1],l=strlen(arg))==0 && argv[1][l]=='[')
 			{
 				Namval_t *np = nv_open(arg,wp->root,NV_VARNAME|NV_NOADD|NV_NOASSIGN|wp->noscope);
 				if(!np)
@@ -544,7 +544,7 @@ static char **genvalue(char **argv, const char *prefix, int n, struct Walk *wp)
 				sfnputc(outfile,'\t',wp->indent);
 				nv_attribute(np,outfile,"typeset",1);
 				nv_close(np);
-				sfputr(outfile,arg+m+(n?n:0),'=');
+				sfputr(outfile,arg+m+r+(n?n:0),'=');
 				argv = genvalue(++argv,cp,cp-arg ,wp);
 				sfputc(outfile,'\n');
 			}
@@ -593,6 +593,9 @@ static char *walk_tree(register Namval_t *np, int dlete)
 	void *dir;
 	int n=0, noscope=(dlete&NV_NOSCOPE);
 	Namarr_t *arp = nv_arrayptr(np);
+	Dt_t	 *save_tree = sh.var_tree;
+	if(sh.last_root)
+		sh.var_tree = sh.last_root;
 	stakputs(nv_name(np));
 	if(arp && !(arp->nelem&ARRAY_SCAN) && (subscript = nv_getsub(np)))
 	{
@@ -634,6 +637,7 @@ static char *walk_tree(register Namval_t *np, int dlete)
 	walk.noscope = noscope;
 	genvalue(argv,name,0,&walk);
 	stakset(savptr,savtop);
+	sh.var_tree = save_tree;
 	if(!outfile)
 		return((char*)0);
 	sfputc(out,0);
@@ -653,7 +657,7 @@ char *nv_getvtree(register Namval_t *np, Namfun_t *fp)
 	NOT_USED(fp);
 	if(nv_isattr(np,NV_BINARY) &&  nv_isattr(np,NV_RAW))
 		return(nv_getv(np,fp));
-#if 0
+#if 1
 	if(nv_isattr(np,NV_ARRAY) && nv_arraychild(np,(Namval_t*)0,0)==np)
 		return(nv_getv(np,fp));
 #endif

@@ -93,7 +93,7 @@ IrDAErr TIrDscInfo::SetNickname(const char* name)
 	return errBadArg;
     }
 
-    strcpy((char*)&fNickname[0], name);
+    strlcpy((char*)&fNickname[0], name, sizeof(fNickname));
     return noErr;
 
 } // TIrDscInfo::SetNickname
@@ -102,11 +102,11 @@ IrDAErr TIrDscInfo::SetNickname(const char* name)
 //--------------------------------------------------------------------------------
 //      GetNickname
 //--------------------------------------------------------------------------------
-void TIrDscInfo::GetNickname(UChar* name)
+void TIrDscInfo::GetNickname(UChar* name, int maxnamelen)
 {
     // Note: name provided must be at least kMaxNicknameLen chars long
     // It is responsibility of IrGlue code that uses this to ensure that.
-    strcpy((char*)name, (const char*)&fNickname[0]);
+    strlcpy((char*)name, (const char*)&fNickname[0], maxnamelen);
 
 } // TIrDscInfo::GetNickname
 

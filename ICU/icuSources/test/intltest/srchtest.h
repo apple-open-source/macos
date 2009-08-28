@@ -1,6 +1,6 @@
 /****************************************************************************
  * COPYRIGHT: 
- * Copyright (c) 2001-2005, International Business Machines Corporation and others
+ * Copyright (c) 2001-2008, International Business Machines Corporation and others
  * All Rights Reserved.
  ***************************************************************************/
 
@@ -9,7 +9,7 @@
 
 #include "unicode/utypes.h"
 
-#if !UCONFIG_NO_COLLATION
+#if !UCONFIG_NO_COLLATION 
 
 #include "unicode/tblcoll.h"
 #include "unicode/brkiter.h"
@@ -27,7 +27,7 @@ public:
 
     void runIndexedTest(int32_t index, UBool exec, const char* &name, 
                         char* par = NULL);
-
+#if !UCONFIG_NO_BREAK_ITERATION
 private:
     RuleBasedCollator *m_en_us_; 
     RuleBasedCollator *m_fr_fr_;
@@ -88,6 +88,8 @@ private:
     void TestUClassID();
     void TestSubclass();
     void TestCoverage();
+    void TestDiacriticMatch();
+#endif
 };
 
 #endif /* #if !UCONFIG_NO_COLLATION */

@@ -33,6 +33,7 @@
 #define _MACHO_H_
 
 #include "xar.h"
+#include "filetree.h"
 
 struct mach_header {
    uint32_t magic;
@@ -62,7 +63,7 @@ struct fat_arch {
 	uint32_t alighn;
 };
 
-int32_t xar_macho_in(xar_t x, xar_file_t f, const char *attr, void **in, size_t *inlen, void **context);
-int32_t xar_macho_done(xar_t x, xar_file_t f, const char *attr, void **context);
+int32_t xar_macho_in(xar_t x, xar_file_t f, xar_prop_t p, void **in, size_t *inlen, void **context);
+int32_t xar_macho_done(xar_t x, xar_file_t f, xar_prop_t p, void **context);
 
 #endif /* _MACHO_H_ */

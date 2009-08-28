@@ -45,6 +45,7 @@ extern "C" {
 #endif
 
 #define kDHX_SASL_Name						"DHX"
+#define kDIGEST_MD5_SASL_Name               "DIGEST-MD5"
 #define kAuthNative_Priority				"DIGEST-MD5 CRAM-MD5 DHX TWOWAYRANDOM"
 #define kPasswordServerPrefixStr			"/PasswordServer/"
 #define kSASLListPrefix						"(SASL "
@@ -76,14 +77,14 @@ typedef struct sPSServerEntry {
 typedef struct sPSContextData {
 	char *psName;										// domain or ip address of passwordserver
 	char psPort[10];									// port # of the password server
-	unsigned long offset;										// offset for GetDirNodeInfo data extraction
+	uint32_t offset;										// offset for GetDirNodeInfo data extraction
 	char localaddr[NI_MAXHOST + NI_MAXSERV + 1];
 	char remoteaddr[NI_MAXHOST + NI_MAXSERV + 1];
     
     sasl_conn_t *conn;
     FILE *serverOut;
     int fd;
-	sasl_callback_t callbacks[5];
+	sasl_callback_t callbacks[6];
     
 	char *rsaPublicKeyStr;
     Key *rsaPublicKey;
@@ -102,7 +103,7 @@ typedef struct sPSContextData {
 	RC5_32_KEY rc5Key;
 	bool madeFirstContact;
 	char *syncFilePath;
-	unsigned long pushByteCount;
+	uint32_t pushByteCount;
 	unsigned char psIV[10];
 	bool castKeySet;
 	CAST_KEY castKey;
@@ -116,12 +117,12 @@ typedef struct sPSContextData {
 } sPSContextData;
 
 typedef struct sPSContinueData {
-	unsigned long		fAuthPass;
+	uint32_t            fAuthPass;
 	unsigned char *		fData;
-	unsigned long 		fDataLen;
+	uint32_t            fDataLen;
     sasl_secret_t *		fSASLSecret;
 	char				fUsername[kMaxUserNameLength + 1];
-	unsigned long 		fDataPos;
+	uint32_t            fDataPos;
 } sPSContinueData;
 
 

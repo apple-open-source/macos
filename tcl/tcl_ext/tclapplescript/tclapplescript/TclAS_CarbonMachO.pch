@@ -1,0 +1,91 @@
+// File: "TclAS_CarbonMachO.pch"
+//                        Created: 2003-09-22 10:47:15
+//              Last modification: 2003-09-22 10:47:18
+// Author: Bernard Desgraupes
+// Description: Use this header to include the precompiled headers
+// on OSX for dylib target built with CW Pro 8
+
+
+#define TARGET_API_MAC_CARBON	1
+#define TARGET_API_MAC_OSX		1
+#define TclAS_OSX				1
+#define TclAS_CARBON			1
+#define OLDP2C 					1
+
+#define TclAS_GCC	1
+#define TclAS_CW	1
+// The following macro characterizes this target
+#ifndef __APPLE_CC__
+#define TclAS_MW_MACHO
+#endif
+
+#ifndef __APPLE_CC__
+#include <ConditionalMacros.h>
+#if __POWERPC__
+	#if TARGET_API_MAC_CARBON
+	// Carbon
+	#if TARGET_API_MAC_OSX
+	// Carbon on X
+		#pragma precompile_target "MW_TclASHeaderCarbonX"
+	#else
+	// CarbonLib on Classic
+		#pragma precompile_target "MW_TclASHeaderCarbon"
+	#endif
+	#else
+	// Classic
+		#pragma precompile_target "MW_TclASHeaderPPC"
+	#endif
+#elif __CFM68K__
+	#pragma precompile_target "MW_TclASHeaderCFM68K"
+#else
+	#pragma precompile_target "MW_TclASHeader68K"
+#endif
+#endif
+
+#ifdef TclAS_GCC
+
+#include <Carbon/Carbon.h>
+
+#ifndef TclAS_MW_MACHO
+struct SFReply {};
+#else
+struct SFReply {char dummy;};
+#endif
+typedef struct SFReply SFReply;
+typedef struct SFReply StandardFileReply;
+
+#else
+
+#include <ConditionalMacros.h>
+
+#endif //TclAS_GCC
+
+#ifndef __APPLE_CC__
+#undef OLDROUTINENAMES
+#include "tclMacCommonPch.h"
+#undef OLDROUTINENAMES
+#endif
+
+#if TARGET_RT_MAC_MACHO
+#ifdef MAC_TCL
+#undef MAC_TCL
+#endif
+#define TclAS_MACHO 1
+#endif
+
+#ifdef TclAS_MACHO
+#define TclAS_PATH_SEP '/'
+#else
+#define TclAS_PATH_SEP ':'
+#endif
+
+#ifdef TclAS_USE_FRAMEWORK_INCLUDES
+#include	<Tcl/tcl.h>
+#else
+#include	<tcl.h>
+#endif
+
+#ifndef CONST84 // Tcl 8.4 backwards compatibility
+#      define CONST84 
+#      define CONST84_RETURN CONST
+#endif

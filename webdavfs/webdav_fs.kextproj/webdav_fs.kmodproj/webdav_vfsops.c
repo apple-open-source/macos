@@ -76,7 +76,7 @@ static vfstable_t webdav_vfsconf;
 
 #define WEBDAV_MAX_REFS   256
 static struct open_associatecachefile *webdav_ref_table[WEBDAV_MAX_REFS];
-static int webdav_vfs_statfs(struct mount *mp, register struct vfsstatfs *sbp, struct vfsstatfs in_statfs);
+static int webdav_vfs_statfs(struct mount *mp, register struct vfsstatfs *sbp, struct webdav_vfsstatfs in_statfs);
 
 
 static struct vnodeopv_desc *webdav_vnodeop_opv_desc_list[1] =
@@ -215,6 +215,7 @@ static int webdav_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_c
 	struct timeval tv;
 	struct timespec ts;
 	struct vfsstatfs *vfsp;
+	struct webdav_timespec64 wts;
 
 	START_MARKER("webdav_mount");
 	
@@ -257,6 +258,7 @@ static int webdav_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_c
 		args.pa_socket_name			= CAST_USER_ADDR_T(args_32.pa_socket_name);
 		args.pa_vol_name			= CAST_USER_ADDR_T(args_32.pa_vol_name);
 		args.pa_flags				= args_32.pa_flags;
+		args.pa_server_ident		= args_32.pa_server_ident;
 		args.pa_root_id				= args_32.pa_root_id;
 		args.pa_root_fileid			= args_32.pa_root_fileid;
 		args.pa_dir_size			= args_32.pa_dir_size;
@@ -302,6 +304,9 @@ static int webdav_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_c
 		/* the connection to the server is secure */
 		fmp->pm_status |= WEBDAV_MOUNT_SECURECONNECTION;
 	}
+	
+	fmp->pm_server_ident = args.pa_server_ident;
+	
 	fmp->pm_mountp = mp;
 	
 	/* Get the volume name from the args and store it for webdav_packvolattr() */
@@ -346,8 +351,10 @@ static int webdav_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_c
 	microtime(&tv);
 	TIMEVAL_TO_TIMESPEC(&tv, &ts);
 	
+	// Now setup a webdav_timespec64, like webdav_get requires
+	timespec_to_webdav_timespec64(ts, &wts);
 	error = webdav_get(mp, NULLVP, 1, NULL,
-		args.pa_root_id, args.pa_root_fileid, VDIR, ts, ts, ts, fmp->pm_dir_size, &rvp);
+		args.pa_root_id, args.pa_root_fileid, VDIR, wts, wts, wts, fmp->pm_dir_size, &rvp);
 	if (error)
 	{
 		goto bad;
@@ -511,7 +518,7 @@ static int webdav_root(struct mount *mp, struct vnode **vpp, vfs_context_t conte
 /*
  * Get file system statistics.
  */
-static int webdav_vfs_statfs(struct mount *mp, register struct vfsstatfs *sbp, struct vfsstatfs in_statfs)
+static int webdav_vfs_statfs(struct mount *mp, register struct vfsstatfs *sbp, struct webdav_vfsstatfs in_statfs)
 {
 	struct webdavmount *fmp = VFSTOWEBDAV(mp);
 
@@ -530,6 +537,9 @@ static int webdav_vfs_statfs(struct mount *mp, register struct vfsstatfs *sbp, s
 	fmp->pm_iosize = sbp->f_iosize;			/* save this for webdav_vfs_getattr to use */
 
 	if (!in_statfs.f_blocks) {
+		/* server must not support quota properties */
+		fmp->pm_status &= ~WEBDAV_MOUNT_SUPPORTS_STATFS;
+		
 		sbp->f_blocks = (uint64_t) WEBDAV_NUM_BLOCKS;
 		sbp->f_bfree = (uint64_t) WEBDAV_FREE_BLOCKS;
 		sbp->f_bavail = (uint64_t) WEBDAV_FREE_BLOCKS;
@@ -577,6 +587,7 @@ static int webdav_vfs_getattr(struct mount *mp, struct vfs_attr *sbp, vfs_contex
 	struct webdav_reply_statfs reply_statfs;
 	int error = 0;
 	int server_error = 0;
+	int callServer = 0;
 	struct webdav_request_statfs request_statfs;
 
 	START_MARKER("webdav_vfs_getattr");
@@ -585,119 +596,145 @@ static int webdav_vfs_getattr(struct mount *mp, struct vfs_attr *sbp, vfs_contex
 
 	bzero(&reply_statfs, sizeof(struct webdav_reply_statfs));
 
-	/* get the values from the server if we can.  If not, make them up */
-	lck_mtx_lock(&fmp->pm_mutex);
-	if (fmp->pm_status & WEBDAV_MOUNT_SUPPORTS_STATFS)
+	// Check if we have attributes that must be fetched from the server
+	if ( VFSATTR_IS_ACTIVE(sbp, f_bsize) || VFSATTR_IS_ACTIVE(sbp, f_blocks) ||
+		 VFSATTR_IS_ACTIVE(sbp, f_bfree) || VFSATTR_IS_ACTIVE(sbp, f_bavail) ||
+		 VFSATTR_IS_ACTIVE(sbp, f_files) || VFSATTR_IS_ACTIVE(sbp, f_ffree))
 	{
-		/* while there's a WEBDAV_STATFS request outstanding, sleep */
-		while (fmp->pm_status & WEBDAV_MOUNT_STATFS)
-		{
-			fmp->pm_status |= WEBDAV_MOUNT_STATFS_WANTED;
-			error = msleep((caddr_t)&fmp->pm_status, &fmp->pm_mutex, PCATCH, "webdav_vfs_getattr", NULL);
-			if ( error )
-			{
-				/* Note that we specified PCATCH in msleep. */
-				/* Don't bother trying to fetching stats */
-				/* from the server, break out.  We will return */
-				/* whatever msleep returned.  */
-				goto ready;
-			}
-		}
-		
-		/* we're making a request so grab the token */
-		fmp->pm_status |= WEBDAV_MOUNT_STATFS;
-		lck_mtx_unlock(&fmp->pm_mutex);
-
-		webdav_copy_creds(context, &request_statfs.pcr);
-		request_statfs.root_obj_id = VTOWEBDAV(VFSTOWEBDAV(mp)->pm_root)->pt_obj_id;
-
-		error = webdav_sendmsg(WEBDAV_STATFS, fmp,
-			&request_statfs, sizeof(struct webdav_request_statfs), 
-			NULL, 0,
-			&server_error, &reply_statfs, sizeof(struct webdav_reply_statfs));
-
-		/* we're done, so release the token */
-		lck_mtx_lock(&fmp->pm_mutex);
-		fmp->pm_status &= ~WEBDAV_MOUNT_STATFS;
-		
-		/* if anyone else is waiting, wake them up */
-		if ( fmp->pm_status & WEBDAV_MOUNT_STATFS_WANTED )
-		{
-			fmp->pm_status &= ~WEBDAV_MOUNT_STATFS_WANTED;
-			wakeup((caddr_t)&fmp->pm_status);
-		}
-		/* now fall through */
+		callServer = 1;
 	}
+	
+	if (callServer)
+	{
+		/* get the values from the server if we can.  If not, make them up */
+		lck_mtx_lock(&fmp->pm_mutex);
+		if (fmp->pm_status & WEBDAV_MOUNT_SUPPORTS_STATFS)
+		{
+			/* while there's a WEBDAV_STATFS request outstanding, sleep */
+			while (fmp->pm_status & WEBDAV_MOUNT_STATFS)
+			{
+				fmp->pm_status |= WEBDAV_MOUNT_STATFS_WANTED;
+				error = msleep((caddr_t)&fmp->pm_status, &fmp->pm_mutex, PCATCH, "webdav_vfs_getattr", NULL);
+				if ( error )
+				{
+					/* Note that we specified PCATCH in msleep. */
+					/* Don't bother trying to fetching stats */
+					/* from the server, break out.  We will return */
+					/* whatever msleep returned.  */
+					goto ready;
+				}
+			}
+		
+			/* we're making a request so grab the token */
+			fmp->pm_status |= WEBDAV_MOUNT_STATFS;
+			lck_mtx_unlock(&fmp->pm_mutex);
 
-	lck_mtx_unlock(&fmp->pm_mutex);
+			webdav_copy_creds(context, &request_statfs.pcr);
+			request_statfs.root_obj_id = VTOWEBDAV(VFSTOWEBDAV(mp)->pm_root)->pt_obj_id;
 
+			error = webdav_sendmsg(WEBDAV_STATFS, fmp,
+				&request_statfs, sizeof(struct webdav_request_statfs), 
+				NULL, 0,
+				&server_error, &reply_statfs, sizeof(struct webdav_reply_statfs));
+
+			/* we're done, so release the token */
+			lck_mtx_lock(&fmp->pm_mutex);
+			fmp->pm_status &= ~WEBDAV_MOUNT_STATFS;
+		
+			/* if anyone else is waiting, wake them up */
+			if ( fmp->pm_status & WEBDAV_MOUNT_STATFS_WANTED )
+			{
+				fmp->pm_status &= ~WEBDAV_MOUNT_STATFS_WANTED;
+				wakeup((caddr_t)&fmp->pm_status);
+			}
+			/* now fall through */
+		}
+		lck_mtx_unlock(&fmp->pm_mutex);
+	}
+	
 ready:
 	/* Note, at this point error is set to the value we want to
 	  return,  Don't set error without restructuring the routine
 	  Note also that we are not returning server_error.	*/
 
-	if (!reply_statfs.fs_attr.f_bsize)
+	if (VFSATTR_IS_ACTIVE(sbp, f_bsize))
 	{
-		VFSATTR_RETURN(sbp, f_bsize, S_BLKSIZE);
-	}
-	else
-	{
-		VFSATTR_RETURN(sbp, f_bsize, reply_statfs.fs_attr.f_bsize);
-	}
-
-	VFSATTR_RETURN(sbp, f_iosize, fmp->pm_iosize);
-	
-	if (!reply_statfs.fs_attr.f_blocks)
-	{
-		/* Did we actually get f_blocks back from the WebDAV server? */
-		if ( error == 0 && server_error == 0 )
+		if (!reply_statfs.fs_attr.f_bsize)
 		{
-			/* server must not support getting quotas so stop trying */
-			fmp->pm_status &= ~WEBDAV_MOUNT_SUPPORTS_STATFS;
-		}
-		VFSATTR_RETURN(sbp, f_blocks, WEBDAV_NUM_BLOCKS);
-		VFSATTR_RETURN(sbp, f_bavail, WEBDAV_FREE_BLOCKS);
-		VFSATTR_RETURN(sbp, f_bfree, WEBDAV_FREE_BLOCKS);
-	}
-	else
-	{
-		VFSATTR_RETURN(sbp, f_blocks, reply_statfs.fs_attr.f_blocks);
-		VFSATTR_RETURN(sbp, f_bfree, reply_statfs.fs_attr.f_bfree);
-		if (!reply_statfs.fs_attr.f_bavail)
-		{
-			VFSATTR_RETURN(sbp, f_bavail, reply_statfs.fs_attr.f_bfree);
+			VFSATTR_RETURN(sbp, f_bsize, S_BLKSIZE);
 		}
 		else
 		{
-			VFSATTR_RETURN(sbp, f_bavail, reply_statfs.fs_attr.f_bavail);
+			// ***LP64***
+			// reply_statfs.fs_attr.f_bsize is 64-bits,
+			// but vfs_attr.f_bsize is 32_bits
+			VFSATTR_RETURN(sbp, f_bsize, (uint32_t)reply_statfs.fs_attr.f_bsize);
 		}
 	}
-
-	if (!reply_statfs.fs_attr.f_files)
+	
+	if (VFSATTR_IS_ACTIVE(sbp, f_iosize))
+		VFSATTR_RETURN(sbp, f_iosize, fmp->pm_iosize);
+	
+	if (VFSATTR_IS_ACTIVE(sbp, f_blocks))
 	{
-		VFSATTR_RETURN(sbp, f_files, WEBDAV_NUM_FILES);
-	}
-	else
-	{
-		VFSATTR_RETURN(sbp, f_files, reply_statfs.fs_attr.f_files);
-	}
-
-	if (!reply_statfs.fs_attr.f_ffree)
-	{
-		VFSATTR_RETURN(sbp, f_ffree, WEBDAV_FREE_FILES);
-	}
-	else
-	{
-		VFSATTR_RETURN(sbp, f_ffree, reply_statfs.fs_attr.f_ffree);
+		if (!reply_statfs.fs_attr.f_blocks)
+		{
+			/* Did we actually get f_blocks back from the WebDAV server? */
+			if ( error == 0 && server_error == 0 )
+			{
+				/* server must not support getting quotas so stop trying */
+				fmp->pm_status &= ~WEBDAV_MOUNT_SUPPORTS_STATFS;
+			}
+		}
+		else
+		{
+			VFSATTR_RETURN(sbp, f_blocks, reply_statfs.fs_attr.f_blocks);
+			VFSATTR_RETURN(sbp, f_bfree, reply_statfs.fs_attr.f_bfree);
+			if (!reply_statfs.fs_attr.f_bavail)
+			{
+				VFSATTR_RETURN(sbp, f_bavail, reply_statfs.fs_attr.f_bfree);
+			}
+			else
+			{
+				VFSATTR_RETURN(sbp, f_bavail, reply_statfs.fs_attr.f_bavail);
+			}
+		}
 	}
 	
-	if ( fmp->pm_status & WEBDAV_MOUNT_SECURECONNECTION )
+	if (VFSATTR_IS_ACTIVE(sbp, f_files))
 	{
-		VFSATTR_RETURN(sbp, f_fssubtype, 1); /* secure connection */
+		if (!reply_statfs.fs_attr.f_files)
+		{
+			VFSATTR_RETURN(sbp, f_files, WEBDAV_NUM_FILES);
+		}
+		else
+		{
+			VFSATTR_RETURN(sbp, f_files, reply_statfs.fs_attr.f_files);
+		}
 	}
-	else
+	
+	if (VFSATTR_IS_ACTIVE(sbp, f_ffree))
 	{
-		VFSATTR_RETURN(sbp, f_fssubtype, 0); /* regular connection */
+		if (!reply_statfs.fs_attr.f_ffree)
+		{
+			VFSATTR_RETURN(sbp, f_ffree, WEBDAV_FREE_FILES);
+		}
+		else
+		{
+			VFSATTR_RETURN(sbp, f_ffree, reply_statfs.fs_attr.f_ffree);
+		}
+	}
+	
+	if (VFSATTR_IS_ACTIVE(sbp, f_fssubtype))
+	{
+		if ( fmp->pm_status & WEBDAV_MOUNT_SECURECONNECTION )
+		{
+			VFSATTR_RETURN(sbp, f_fssubtype, 1); /* secure connection */
+		}
+		else
+		{
+			VFSATTR_RETURN(sbp, f_fssubtype, 0); /* regular connection */
+		}
 	}
 	
 	if ( VFSATTR_IS_ACTIVE(sbp, f_capabilities) )
@@ -742,7 +779,30 @@ ready:
 			VOL_CAP_FMT_CASE_SENSITIVE |
 			VOL_CAP_FMT_CASE_PRESERVING |
 #endif
+			VOL_CAP_FMT_2TB_FILESIZE |
 			VOL_CAP_FMT_FAST_STATFS;
+
+			if ( !(fmp->pm_status & WEBDAV_MOUNT_SUPPORTS_STATFS)) {
+				// Server does not support quoata properties
+				vcapattrptr->capabilities[VOL_CAPABILITIES_FORMAT] |= VOL_CAP_FMT_NO_VOLUME_SIZES;
+				vcapattrptr->valid[VOL_CAPABILITIES_FORMAT] |= VOL_CAP_FMT_NO_VOLUME_SIZES;
+			}
+		
+			if ( !(fmp->pm_server_ident & WEBDAV_IDISK_SERVER)) {
+				// See <rdar://problem/6063471> WebDAV client fails to upload files larger than 4 gigs in size
+
+				// WebDAV protocol does not provide a way to query the maximum file size limit of a server.
+				// But if we deny knowledge of the VOL_CAP_FMT_2TB_FILESIZE bit, Finder will not allow
+				// files 4 GB or larger to be uploaded to the server.
+				//
+				// So we will set the VOL_CAP_FMT_2TB_FILESIZE bit and assume the server supports large files,
+				// with one exception: iDisk.
+				// We don't set this volume capability bit if we know we are connected to an iDisk server,
+				// because iDisk servers impose a maximum file size limit of 2 GB.
+				//
+				vcapattrptr->capabilities[VOL_CAPABILITIES_FORMAT] |= VOL_CAP_FMT_2TB_FILESIZE;
+			}
+
 		vcapattrptr->valid[VOL_CAPABILITIES_INTERFACES] =
 			VOL_CAP_INT_SEARCHFS |
 			VOL_CAP_INT_ATTRLIST |
@@ -865,7 +925,7 @@ static int webdav_sysctl(int *name, u_int namelen, user_addr_t oldp, size_t *old
 					break;
 				}
 				
-				error = file_vnode(fd, &vp);
+				error = file_vnode_withvid(fd, &vp, NULL);
 				if ( error != 0 )
 				{
 					printf("webdav_sysctl: file_vnode() failed\n");

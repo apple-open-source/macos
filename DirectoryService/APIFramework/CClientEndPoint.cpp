@@ -34,6 +34,7 @@
 #include <mach/mach_error.h>
 #include <servers/bootstrap.h>
 #include <syslog.h>
+#include <bsm/libbsm.h>
 
 #include "CClientEndPoint.h"
 #include "DirServicesTypes.h"
@@ -46,8 +47,6 @@
 #define kMsgSize	sizeof( sComData )
 #define kIPCMsgSize	sizeof( sIPCMsg )
 
-UInt32 CClientEndPoint::fMessageID	 = 0; //start with zero since GetMessageID pre-increments
-
 //------------------------------------------------------------------------------
 //	* CClientEndPoint:
 //
@@ -55,15 +54,13 @@ UInt32 CClientEndPoint::fMessageID	 = 0; //start with zero since GetMessageID pr
 
 CClientEndPoint::CClientEndPoint ( const char *inSrvrName )
 {
-	fSrvrName = nil;
-
 	if ( inSrvrName != nil )
-	{
-		fSrvrName = strdup(inSrvrName);
-	}
+		fServiceName = strdup( inSrvrName );
+	else
+		fServiceName = strdup( kDSStdMachPortName );
 	
-	fReplyMsg	= NULL;
-	fServerPort	= MACH_PORT_NULL;
+	fReplyMsg = NULL;
+	fServicePort = MACH_PORT_NULL;
 	fSessionPort = MACH_PORT_NULL;
 	
 } // CClientEndPoint
@@ -76,93 +73,97 @@ CClientEndPoint::CClientEndPoint ( const char *inSrvrName )
 
 CClientEndPoint::~CClientEndPoint ( void )
 {
-	if ( fSrvrName != nil )
+	DSFree( fServiceName );
+	DSFree( fReplyMsg );
+	
+	Disconnect();
+	
+	if ( fServicePort != MACH_PORT_NULL )
 	{
-		free( fSrvrName );
-		fSrvrName = nil;
+		mach_port_deallocate( mach_task_self(), fServicePort );
+		fServicePort = MACH_PORT_NULL;
 	}
 	
-	if ( fReplyMsg != NULL )
-	{
-		free( fReplyMsg );
-		fReplyMsg = NULL;
-	}
-	
-	if ( fServerPort != MACH_PORT_NULL )
-	{
-		mach_port_mod_refs( mach_task_self(), fServerPort, MACH_PORT_RIGHT_SEND, -1 );
-		fServerPort = MACH_PORT_NULL;
-	}
-	
-	if ( fSessionPort != MACH_PORT_NULL )
-	{
-		mach_port_mod_refs( mach_task_self(), fSessionPort, MACH_PORT_RIGHT_SEND, -1 );
-		fSessionPort = MACH_PORT_NULL;
-	}
 } // ~CClientEndPoint
 
-
 //------------------------------------------------------------------------------
-//	* ~CClientEndPoint:
+//	* Connect
 //
 //------------------------------------------------------------------------------
 
-inline UInt32 CClientEndPoint::GetMessageID ( void )
+SInt32 CClientEndPoint::Connect( void )
 {
-	return( ++fMessageID );
-} // GetMessageID
-
-
-//------------------------------------------------------------------------------
-//	* Initialize
-//
-//------------------------------------------------------------------------------
-
-SInt32 CClientEndPoint::Initialize ( void )
-{
-	kern_return_t kr = KERN_FAILURE;
-
-	// let's get the server boot port right off the bat...
-	if( fServerPort != MACH_PORT_NULL )
-	{
-		mach_port_mod_refs( mach_task_self(), fServerPort, MACH_PORT_RIGHT_SEND, -1 );
-		fServerPort = MACH_PORT_NULL;
-	}
+	SInt32			siResult	= eDSNoErr;
+	kern_return_t	kr			= KERN_FAILURE;
 	
-	if( fSessionPort != MACH_PORT_NULL )
-	{
-		mach_port_mod_refs( mach_task_self(), fSessionPort, MACH_PORT_RIGHT_SEND, -1 );
-		fSessionPort = MACH_PORT_NULL;
-	}
+tryAgain:
 	
-	if (fSrvrName != nil) //always used
+	if ( fServicePort == MACH_PORT_NULL )
 	{
-		kr = bootstrap_look_up( bootstrap_port, fSrvrName, &fServerPort );
-	}
-
-	//pure retry for normal daemon connection if we weren't trying to open the normal port or we had no name
-	if (kr != KERN_SUCCESS && (fSrvrName == nil || strcmp(fSrvrName, kDSStdMachPortName) != 0) ) 
-	{
-		kr = bootstrap_look_up( bootstrap_port, kDSStdMachPortName, &fServerPort );
-		if (kr != KERN_SUCCESS)
-		{
+		kr = bootstrap_look_up( bootstrap_port, fServiceName, &fServicePort );
+		if ( kr != KERN_SUCCESS ) {
+			siResult = eServerNotRunning;
 			LOG3( kStdErr, "*** failed bootstrap_look_up: %s at: %d: Msg = %s\n", __FILE__, __LINE__, mach_error_string( kr ) );
 		}
 	}
 	
-	return ( (kr == KERN_SUCCESS && dsmig_create_api_session(fServerPort, &fSessionPort) == KERN_SUCCESS) ? eDSNoErr : eServerSendError );
-} // Initialize
+	if ( siResult == eDSNoErr && fSessionPort == MACH_PORT_NULL )
+	{
+		audit_token_t atoken;
+		uid_t euid = -1;
+		
+		kr = dsmig_create_api_session( fServicePort, &fSessionPort, &atoken );
+		
+		switch ( kr )
+		{
+			case MACH_SEND_INVALID_DEST:
+				// means bootstrap port for server is no longer valid, may have been unloaded via launchctl
+				mach_port_deallocate( mach_task_self(), fServicePort );
+				fServicePort = MACH_PORT_NULL;
+				goto tryAgain;
+			case KERN_SUCCESS:
+				audit_token_to_au32( atoken, NULL, &euid, NULL, NULL, NULL, NULL, NULL, NULL );
+				if ( euid != 0 ) {
+					dsmig_close_api_session( fSessionPort );
+					mach_port_deallocate( mach_task_self(), fSessionPort );
+					fSessionPort = MACH_PORT_NULL;
+					siResult = eServerSendError;
+					syslog( LOG_ALERT, "Attempt to connect to a daemon that is not running as root (euid != 0)" );
+				}
+				break;
+			default:
+				siResult = eServerSendError;
+				break;
+		}
+	}
+	
+	return siResult;
+}
 
+//------------------------------------------------------------------------------
+//	* Disconnect
+//
+//------------------------------------------------------------------------------
+
+void CClientEndPoint::Disconnect( void )
+{
+	if ( fSessionPort != MACH_PORT_NULL )
+	{
+		dsmig_close_api_session( fSessionPort );
+		mach_port_deallocate( mach_task_self(), fSessionPort );
+		fSessionPort = MACH_PORT_NULL;
+	}
+}
 
 //------------------------------------------------------------------------------
 //	* SendServerMessage
 //
 //------------------------------------------------------------------------------
 
-SInt32 CClientEndPoint::SendServerMessage ( sComData *inMsg )
+SInt32 CClientEndPoint::SendMessage( sComData *inMsg )
 {
-	SInt32					result		= eServerSendError;
-	bool					bTryAgain	= false;
+	SInt32		result		= eServerSendError;
+	bool		bTryAgain	= false;
 	
 	do
 	{
@@ -235,18 +236,10 @@ SInt32 CClientEndPoint::SendServerMessage ( sComData *inMsg )
 		
 		if( bTryAgain == false && kr == MACH_SEND_INVALID_DEST )
 		{
-			mach_port_mod_refs( mach_task_self(), fSessionPort, MACH_PORT_RIGHT_SEND, -1 );
-			fSessionPort = MACH_PORT_NULL;
+			Disconnect();
 			
-			if( dsmig_create_api_session( fServerPort, &fSessionPort ) == KERN_SUCCESS )
-			{
+			if ( Connect() == eDSNoErr )
 				bTryAgain = true;
-			}
-			else
-			{
-				// maybe bootstrap port is bad?  Let's try recovering that instead.
-				bTryAgain = (Initialize() == 0);
-			}
 		}
 		else
 		{
@@ -260,18 +253,17 @@ SInt32 CClientEndPoint::SendServerMessage ( sComData *inMsg )
 
 
 //------------------------------------------------------------------------------
-//	* GetServerReply
+//	* GetReplyMessage
 //
 //------------------------------------------------------------------------------
 
-SInt32 CClientEndPoint::GetServerReply ( sComData **outMsg )
+SInt32 CClientEndPoint::GetReplyMessage( sComData **outMsg )
 {
 	SInt32	siResult = eServerReplyError;
 	
-	if( fReplyMsg != NULL )
+	if ( fReplyMsg != NULL )
 	{
-		if( *outMsg )
-			free( *outMsg );
+		DSFree( *outMsg );
 
 		*outMsg = fReplyMsg;
 		fReplyMsg = NULL;
@@ -279,7 +271,7 @@ SInt32 CClientEndPoint::GetServerReply ( sComData **outMsg )
 		siResult = eDSNoErr;
 	}
 
-	return( siResult );
+	return siResult;
 
-} // GetServerReply
+} // GetReplyMessage
 

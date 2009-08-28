@@ -23,7 +23,6 @@ struct rtx_def
 static int *uid_cuid;
 static int max_uid_cuid;
 
-/* APPLE LOCAL mainline 4840357 */
 rtx
 bar (rtx r)
 {
@@ -43,5 +42,4 @@ bar (rtx r)
    which combines the result of those two tests into a new test
    must always be true and it is optimized appropriately.  */
 /* { dg-final { scan-tree-dump-times "if " 2 "dom3"} } */
- 
-
+/* { dg-final { cleanup-tree-dump "dom3" } } */

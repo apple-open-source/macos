@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,7 +39,17 @@ DADissenterRef DADissenterCreate( CFAllocatorRef allocator, DAReturn status )
     return ( void * ) dissenter;
 }
 
+pid_t DADissenterGetProcessID( DADissenterRef dissenter )
+{
+    return ___CFDictionaryGetIntegerValue( ( void * ) dissenter, _kDADissenterProcessIDKey );
+}
+
 DAReturn DADissenterGetStatus( DADissenterRef dissenter )
 {
     return ___CFDictionaryGetIntegerValue( ( void * ) dissenter, _kDADissenterStatusKey );
+}
+
+void DADissenterSetProcessID( DADissenterRef dissenter, pid_t pid )
+{
+    ___CFDictionarySetIntegerValue( ( void * ) dissenter, _kDADissenterProcessIDKey, pid );
 }

@@ -261,7 +261,7 @@ Boston, MA 02110-1301, USA.  */
 /* Definitions for how to compile & link.  */
 
 /* Indicate that we are compiling for Mac OS X.  */
-#define C_SWITCH_SYSTEM -fpascal-strings -DMAC_OSX
+#define C_SWITCH_SYSTEM -DMAC_OSX
 
 /* Link in the Carbon lib. */
 #ifdef HAVE_CARBON

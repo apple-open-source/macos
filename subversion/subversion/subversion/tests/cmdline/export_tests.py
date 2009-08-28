@@ -2,9 +2,9 @@
 #
 #  export_tests.py:  testing export cases.
 #
-#  Subversion is a tool for revision control. 
+#  Subversion is a tool for revision control.
 #  See http://subversion.tigris.org for more information.
-#    
+#
 # ====================================================================
 # Copyright (c) 2000-2004 CollabNet.  All rights reserved.
 #
@@ -17,7 +17,7 @@
 ######################################################################
 
 # General modules
-import shutil, string, sys, re, os
+import os
 
 # Our testing module
 import svntest
@@ -28,7 +28,7 @@ Skip = svntest.testcase.Skip
 XFail = svntest.testcase.XFail
 Item = svntest.wc.StateItem
 
- 
+
 ######################################################################
 # Tests
 #
@@ -39,18 +39,18 @@ Item = svntest.wc.StateItem
 
 def export_empty_directory(sbox):
   "export an empty directory"
-  sbox.build(create_wc = False)
-  
+  sbox.build(create_wc = False, read_only = True)
+
   svntest.main.safe_rmtree(sbox.wc_dir)
   export_target = sbox.wc_dir
-  empty_dir_url = svntest.main.current_repo_url + '/A/C'
+  empty_dir_url = sbox.repo_url + '/A/C'
   svntest.main.run_svn(None, 'export', empty_dir_url, export_target)
   if not os.path.exists(export_target):
     raise svntest.Failure
 
 def export_greek_tree(sbox):
   "export the greek tree"
-  sbox.build(create_wc = False)
+  sbox.build(create_wc = False, read_only = True)
 
   svntest.main.safe_rmtree(sbox.wc_dir)
   export_target = sbox.wc_dir
@@ -59,25 +59,25 @@ def export_greek_tree(sbox):
   expected_output.desc[''] = Item()
   expected_output.tweak(contents=None, status='A ')
 
-  svntest.actions.run_and_verify_export(svntest.main.current_repo_url,
+  svntest.actions.run_and_verify_export(sbox.repo_url,
                                         export_target,
                                         expected_output,
                                         svntest.main.greek_state.copy())
 
 def export_nonexistent_url(sbox):
   "attempt to export a nonexistent URL"
-  sbox.build(create_wc = False)
+  sbox.build(create_wc = False, read_only = True)
 
   svntest.main.safe_rmtree(sbox.wc_dir)
   export_target = os.path.join(sbox.wc_dir, 'nonexistent')
   nonexistent_url = sbox.repo_url + "/nonexistent"
   svntest.actions.run_and_verify_svn("Error about nonexistent URL expected",
-                                     None, svntest.SVNAnyOutput,
+                                     None, svntest.verify.AnyOutput,
                                      'export', nonexistent_url, export_target)
 
 def export_working_copy(sbox):
   "export working copy"
-  sbox.build()
+  sbox.build(read_only = True)
 
   export_target = sbox.add_wc_path('export')
 
@@ -88,7 +88,7 @@ def export_working_copy(sbox):
 
 def export_working_copy_with_mods(sbox):
   "export working copy with mods"
-  sbox.build()
+  sbox.build(read_only = True)
 
   wc_dir = sbox.wc_dir
 
@@ -125,7 +125,7 @@ def export_working_copy_with_mods(sbox):
 
 def export_over_existing_dir(sbox):
   "export over existing dir"
-  sbox.build()
+  sbox.build(read_only = True)
 
   export_target = sbox.add_wc_path('export')
 
@@ -134,7 +134,7 @@ def export_over_existing_dir(sbox):
   os.mkdir(export_target)
 
   svntest.actions.run_and_verify_svn("No error where one is expected",
-                                     None, svntest.SVNAnyOutput,
+                                     None, svntest.verify.AnyOutput,
                                      'export', sbox.wc_dir, export_target)
 
   # As an extra precaution, make sure export_target doesn't have
@@ -153,16 +153,14 @@ def export_keyword_translation(sbox):
   # the export operation
   mu_path = os.path.join(wc_dir, 'A', 'mu')
   svntest.main.file_append(mu_path, '$LastChangedRevision$')
-  svntest.main.run_svn(None, 'ps', 'svn:keywords', 
+  svntest.main.run_svn(None, 'ps', 'svn:keywords',
                        'LastChangedRevision', mu_path)
   svntest.main.run_svn(None, 'ci',
-                       '--username', svntest.main.wc_author,
-                       '--password', svntest.main.wc_passwd,
                        '-m', 'Added keyword to mu', mu_path)
 
   expected_disk = svntest.main.greek_state.copy()
   expected_disk.tweak('A/mu',
-                      contents=expected_disk.desc['A/mu'].contents + 
+                      contents=expected_disk.desc['A/mu'].contents +
                       '$LastChangedRevision: 2 $')
 
   export_target = sbox.add_wc_path('export')
@@ -186,11 +184,9 @@ def export_eol_translation(sbox):
   # Set svn:eol-style to 'CR' to see if it's applied correctly in the
   # export operation
   mu_path = os.path.join(wc_dir, 'A', 'mu')
-  svntest.main.run_svn(None, 'ps', 'svn:eol-style', 
+  svntest.main.run_svn(None, 'ps', 'svn:eol-style',
                        'CR', mu_path)
   svntest.main.run_svn(None, 'ci',
-                       '--username', svntest.main.wc_author,
-                       '--password', svntest.main.wc_passwd,
                        '-m', 'Added eol-style prop to mu', mu_path)
 
   expected_disk = svntest.main.greek_state.copy()
@@ -211,7 +207,7 @@ def export_eol_translation(sbox):
 
 def export_working_copy_with_keyword_translation(sbox):
   "export working copy with keyword translation"
-  sbox.build()
+  sbox.build(read_only = True)
 
   wc_dir = sbox.wc_dir
 
@@ -220,12 +216,12 @@ def export_working_copy_with_keyword_translation(sbox):
   # the export operation
   mu_path = os.path.join(wc_dir, 'A', 'mu')
   svntest.main.file_append(mu_path, '$LastChangedRevision$')
-  svntest.main.run_svn(None, 'ps', 'svn:keywords', 
+  svntest.main.run_svn(None, 'ps', 'svn:keywords',
                        'LastChangedRevision', mu_path)
 
   expected_disk = svntest.main.greek_state.copy()
   expected_disk.tweak('A/mu',
-                      contents=expected_disk.desc['A/mu'].contents + 
+                      contents=expected_disk.desc['A/mu'].contents +
                       '$LastChangedRevision: 1M $')
 
   export_target = sbox.add_wc_path('export')
@@ -237,7 +233,7 @@ def export_working_copy_with_keyword_translation(sbox):
 
 def export_working_copy_with_property_mods(sbox):
   "export working copy with property mods"
-  sbox.build()
+  sbox.build(read_only = True)
 
   wc_dir = sbox.wc_dir
 
@@ -259,7 +255,7 @@ def export_working_copy_with_property_mods(sbox):
 
 def export_working_copy_at_base_revision(sbox):
   "export working copy at base revision"
-  sbox.build()
+  sbox.build(read_only = True)
 
   wc_dir = sbox.wc_dir
 
@@ -298,11 +294,9 @@ def export_native_eol_option(sbox):
   # Append a '\n' to A/mu and set svn:eol-style to 'native'
   # to see if it's applied correctly in the export operation
   mu_path = os.path.join(wc_dir, 'A', 'mu')
-  svntest.main.run_svn(None, 'ps', 'svn:eol-style', 
+  svntest.main.run_svn(None, 'ps', 'svn:eol-style',
                        'native', mu_path)
   svntest.main.run_svn(None, 'ci',
-                       '--username', svntest.main.wc_author,
-                       '--password', svntest.main.wc_passwd,
                        '-m', 'Added eol-style prop to mu', mu_path)
 
   expected_disk = svntest.main.greek_state.copy()
@@ -325,7 +319,7 @@ def export_native_eol_option(sbox):
 
 def export_nonexistent_file(sbox):
   "export nonexistent file"
-  sbox.build()
+  sbox.build(read_only = True)
 
   wc_dir = sbox.wc_dir
 
@@ -334,12 +328,12 @@ def export_nonexistent_file(sbox):
   export_target = sbox.add_wc_path('export')
 
   svntest.actions.run_and_verify_svn("No error where one is expected",
-                                     None, svntest.SVNAnyOutput,
+                                     None, svntest.verify.AnyOutput,
                                      'export', kappa_path, export_target)
 
 def export_unversioned_file(sbox):
   "export unversioned file"
-  sbox.build()
+  sbox.build(read_only = True)
 
   wc_dir = sbox.wc_dir
 
@@ -349,7 +343,7 @@ def export_unversioned_file(sbox):
   export_target = sbox.add_wc_path('export')
 
   svntest.actions.run_and_verify_svn("No error where one is expected",
-                                     None, svntest.SVNAnyOutput,
+                                     None, svntest.verify.AnyOutput,
                                      'export', kappa_path, export_target)
 
 def export_with_state_deleted(sbox):
@@ -364,13 +358,11 @@ def export_with_state_deleted(sbox):
   expected_output = svntest.wc.State(wc_dir, {
     'A/B/E/alpha' : Item(verb='Deleting'),
     })
-  expected_status = svntest.actions.get_virginal_state(wc_dir, 2)
-  expected_status.tweak(wc_rev=1)
+  expected_status = svntest.actions.get_virginal_state(wc_dir, 1)
   expected_status.remove('A/B/E/alpha')
   svntest.actions.run_and_verify_commit(wc_dir,
                                         expected_output, expected_status,
-                                        None, None, None, None, None,
-                                        wc_dir)
+                                        None, wc_dir)
 
   export_target = sbox.add_wc_path('export')
   expected_output = svntest.wc.State(sbox.wc_dir, {})
@@ -383,7 +375,7 @@ def export_with_state_deleted(sbox):
 
 def export_creates_intermediate_folders(sbox):
   "export and create some intermediate folders"
-  sbox.build(create_wc = False)
+  sbox.build(create_wc = False, read_only = True)
 
   svntest.main.safe_rmtree(sbox.wc_dir)
   export_target = os.path.join(sbox.wc_dir, 'a', 'b', 'c')
@@ -392,7 +384,7 @@ def export_creates_intermediate_folders(sbox):
   expected_output.desc[''] = Item()
   expected_output.tweak(contents=None, status='A ')
 
-  svntest.actions.run_and_verify_export(svntest.main.current_repo_url,
+  svntest.actions.run_and_verify_export(sbox.repo_url,
                                         export_target,
                                         expected_output,
                                         svntest.main.greek_state.copy())

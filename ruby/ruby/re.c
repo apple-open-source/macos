@@ -2,7 +2,7 @@
 
   re.c -
 
-  $Author: matz $
+  $Author: knu $
   created at: Mon Aug  9 18:24:49 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -595,7 +595,7 @@ static VALUE
 rb_reg_kcode_m(re)
     VALUE re;
 {
-    char *kcode;
+    const char *kcode;
 
     if (FL_TEST(re, KCODE_FIXED)) {
 	switch (RBASIC(re)->flags & KCODE_MASK) {
@@ -623,7 +623,7 @@ make_regexp(s, len, flags)
     int flags;
 {
     Regexp *rp;
-    char *err;
+    const char *err;
 
     /* Handle escaped characters first. */
 
@@ -846,7 +846,7 @@ rb_reg_prepare_re(re)
     }
 
     if (need_recompile) {
-	char *err;
+	const char *err;
 
 	if (FL_TEST(re, KCODE_FIXED))
 	    rb_kcode_set_option(re);
@@ -1220,14 +1220,14 @@ match_entry(match, n)
 
 /*
  *  call-seq:
- *     mtch.select([index]*)   => array
+ *     mtch.values_at([index]*)   => array
  *  
  *  Uses each <i>index</i> to access the matching values, returning an array of
  *  the corresponding matches.
  *     
  *     m = /(.)(.)(\d+)(\d)/.match("THX1138: The Movie")
  *     m.to_a               #=> ["HX1138", "H", "X", "113", "8"]
- *     m.select(0, 2, -2)   #=> ["HX1138", "X", "113"]
+ *     m.values_at(0, 2, -2)   #=> ["HX1138", "X", "113"]
  */
 
 static VALUE
@@ -1242,14 +1242,13 @@ match_values_at(argc, argv, match)
 
 /*
  *  call-seq:
- *     mtch.select([index]*)   => array
+ *     mtch.select{|obj| block}   => array
  *  
- *  Uses each <i>index</i> to access the matching values, returning an
- *  array of the corresponding matches.
+ *  Returns an array containing match strings for which <em>block</em>
+ *  gives <code>true</code>.  MatchData#select will be removed from Ruby 1.9.
  *     
  *     m = /(.)(.)(\d+)(\d)/.match("THX1138: The Movie")
- *     m.to_a               #=> ["HX1138", "H", "X", "113", "8"]
- *     m.select(0, 2, -2)   #=> ["HX1138", "X", "113"]
+ *     p m.select{|x| /X/ =~ x}   #=> ["HX1138", "X"]
  */
 
 static VALUE
@@ -1278,6 +1277,7 @@ match_select(argc, argv, match)
 	return result;
     }
 }
+
 
 
 /*
@@ -1318,6 +1318,55 @@ match_string(match)
     VALUE match;
 {
     return RMATCH(match)->str;	/* str is frozen */
+}
+
+/*
+ * call-seq:
+ *    mtch.inspect   => str
+ *
+ * Returns a printable version of <i>mtch</i>.
+ *
+ *     puts /.$/.match("foo").inspect
+ *     #=> #<MatchData "o">
+ *
+ *     puts /(.)(.)(.)/.match("foo").inspect
+ *     #=> #<MatchData "foo" 1:"f" 2:"o" 3:"o">
+ *
+ *     puts /(.)(.)?(.)/.match("fo").inspect
+ *     #=> #<MatchData "fo" 1:"f" 2:nil 3:"o">
+ *
+ */
+
+static VALUE
+match_inspect(VALUE match)
+{
+    const char *cname = rb_obj_classname(match);
+    VALUE str;
+    int i;
+    struct re_registers *regs = RMATCH(match)->regs;
+    int num_regs = regs->num_regs;
+
+    str = rb_str_buf_new2("#<");
+    rb_str_buf_cat2(str, cname);
+
+    for (i = 0; i < num_regs; i++) {
+        VALUE v;
+        rb_str_buf_cat2(str, " ");
+        if (0 < i) {
+            char buf[sizeof(i)*3+1];
+            snprintf(buf, sizeof(buf), "%d", i);
+            rb_str_buf_cat2(str, buf);
+            rb_str_buf_cat2(str, ":");
+        }
+        v = rb_reg_nth_match(i, match);
+        if (v == Qnil)
+            rb_str_buf_cat2(str, "nil");
+        else
+            rb_str_buf_append(str, rb_str_inspect(v));
+    }
+    rb_str_buf_cat2(str, ">");
+
+    return str;
 }
 
 VALUE rb_cRegexp;
@@ -1428,8 +1477,9 @@ rb_reg_regcomp(str)
 
     case_cache = ruby_ignorecase;
     kcode_cache = reg_kcode;
-    return reg_cache = rb_reg_new(RSTRING(str)->ptr, RSTRING(str)->len,
-				  ruby_ignorecase);
+    reg_cache = rb_reg_new(RSTRING(str)->ptr, RSTRING(str)->len, ruby_ignorecase);
+    RB_GC_GUARD(save_str);
+    return reg_cache;
 }
 
 static int
@@ -1895,26 +1945,12 @@ rb_reg_options(re)
     return options;
 }
 
-
-/*
- *  call-seq:
- *     Regexp.union([pattern]*)   => new_str
- *  
- *  Return a <code>Regexp</code> object that is the union of the given
- *  <em>pattern</em>s, i.e., will match any of its parts. The <em>pattern</em>s
- *  can be Regexp objects, in which case their options will be preserved, or
- *  Strings. If no arguments are given, returns <code>/(?!)/</code>.
- *     
- *     Regexp.union                         #=> /(?!)/
- *     Regexp.union("penzance")             #=> /penzance/
- *     Regexp.union("skiing", "sledding")   #=> /skiing|sledding/
- *     Regexp.union(/dogs/, /cats/i)        #=> /(?-mix:dogs)|(?i-mx:cats)/
- */
 static VALUE
-rb_reg_s_union(argc, argv)
-    int argc;
-    VALUE *argv;
+rb_reg_s_union(self, args0)
+    VALUE self;
+    VALUE args0;
 {
+    long argc = RARRAY_LEN(args0);
     if (argc == 0) {
         VALUE args[1];
         args[0] = rb_str_new2("(?!)");
@@ -1922,12 +1958,12 @@ rb_reg_s_union(argc, argv)
     }
     else if (argc == 1) {
         VALUE v;
-        v = rb_check_convert_type(argv[0], T_REGEXP, "Regexp", "to_regexp");
+        v = rb_check_convert_type(rb_ary_entry(args0, 0), T_REGEXP, "Regexp", "to_regexp");
         if (!NIL_P(v))
             return v;
         else {
             VALUE args[1];
-            args[0] = rb_reg_s_quote(argc, argv);
+            args[0] = rb_reg_s_quote(RARRAY_LEN(args0), RARRAY_PTR(args0));
             return rb_class_new_instance(1, args, rb_cRegexp);
         }
     }
@@ -1940,7 +1976,7 @@ rb_reg_s_union(argc, argv)
             volatile VALUE v;
             if (0 < i)
                 rb_str_buf_cat2(source, "|");
-            v = rb_check_convert_type(argv[i], T_REGEXP, "Regexp", "to_regexp");
+            v = rb_check_convert_type(rb_ary_entry(args0, i), T_REGEXP, "Regexp", "to_regexp");
             if (!NIL_P(v)) {
                 if (FL_TEST(v, KCODE_FIXED)) {
                     if (kcode == -1) {
@@ -1958,7 +1994,7 @@ rb_reg_s_union(argc, argv)
                 v = rb_reg_to_s(v);
             }
             else {
-                args[0] = argv[i];
+                args[0] = rb_ary_entry(args0, i);
                 v = rb_reg_s_quote(1, args);
             }
             rb_str_buf_append(source, v);
@@ -1984,6 +2020,34 @@ rb_reg_s_union(argc, argv)
         }
         return rb_class_new_instance(3, args, rb_cRegexp);
     }
+}
+
+/*
+ *  call-seq:
+ *     Regexp.union(pat1, pat2, ...)            => new_regexp
+ *     Regexp.union(pats_ary)                   => new_regexp
+ *  
+ *  Return a <code>Regexp</code> object that is the union of the given
+ *  <em>pattern</em>s, i.e., will match any of its parts. The <em>pattern</em>s
+ *  can be Regexp objects, in which case their options will be preserved, or
+ *  Strings. If no patterns are given, returns <code>/(?!)/</code>.
+ *     
+ *     Regexp.union                         #=> /(?!)/
+ *     Regexp.union("penzance")             #=> /penzance/
+ *     Regexp.union("a+b*c")                #=> /a\+b\*c/
+ *     Regexp.union("skiing", "sledding")   #=> /skiing|sledding/
+ *     Regexp.union(["skiing", "sledding"]) #=> /skiing|sledding/
+ *     Regexp.union(/dogs/, /cats/i)        #=> /(?-mix:dogs)|(?i-mx:cats)/
+ */
+static VALUE
+rb_reg_s_union_m(VALUE self, VALUE args)
+{
+    VALUE v;
+    if (RARRAY_LEN(args) == 1 &&
+        !NIL_P(v = rb_check_array_type(rb_ary_entry(args, 0)))) {
+        return rb_reg_s_union(self, v);
+    }
+    return rb_reg_s_union(self, args);
 }
 
 /* :nodoc: */
@@ -2263,7 +2327,7 @@ Init_Regexp()
     rb_define_singleton_method(rb_cRegexp, "compile", rb_class_new_instance, -1);
     rb_define_singleton_method(rb_cRegexp, "quote", rb_reg_s_quote, -1);
     rb_define_singleton_method(rb_cRegexp, "escape", rb_reg_s_quote, -1);
-    rb_define_singleton_method(rb_cRegexp, "union", rb_reg_s_union, -1);
+    rb_define_singleton_method(rb_cRegexp, "union", rb_reg_s_union_m, -2);
     rb_define_singleton_method(rb_cRegexp, "last_match", rb_reg_s_last_match, -1);
 
     rb_define_method(rb_cRegexp, "initialize", rb_reg_initialize_m, -1);
@@ -2302,11 +2366,11 @@ Init_Regexp()
     rb_define_method(rb_cMatch, "to_a", match_to_a, 0);
     rb_define_method(rb_cMatch, "[]", match_aref, -1);
     rb_define_method(rb_cMatch, "captures", match_captures, 0);
-    rb_define_method(rb_cMatch, "select", match_select, -1);
     rb_define_method(rb_cMatch, "values_at", match_values_at, -1);
+    rb_define_method(rb_cMatch, "select", match_select, -1);
     rb_define_method(rb_cMatch, "pre_match", rb_reg_match_pre, 0);
     rb_define_method(rb_cMatch, "post_match", rb_reg_match_post, 0);
     rb_define_method(rb_cMatch, "to_s", match_to_s, 0);
-    rb_define_method(rb_cMatch, "inspect", rb_any_to_s, 0); /* in object.c */
+    rb_define_method(rb_cMatch, "inspect", match_inspect, 0);
     rb_define_method(rb_cMatch, "string", match_string, 0);
 }

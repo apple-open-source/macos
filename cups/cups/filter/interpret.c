@@ -1,5 +1,5 @@
 /*
- * "$Id: interpret.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: interpret.c 7852 2008-08-21 04:19:45Z mike $"
  *
  *   PPD command interpreter for the Common UNIX Printing System (CUPS).
  *
@@ -122,31 +122,40 @@ static void		DEBUG_stack(_cups_ps_stack_t *st);
 /*
  * 'cupsRasterInterpretPPD()' - Interpret PPD commands to create a page header.
  *
- * This function does not mark the options in the PPD using the "num_options"
- * and "options" arguments.  Instead, mark the options prior to calling
- * cupsRasterInterpretPPD() - this allows you to do per-page options
- * without manipulating the options array.
+ * This function is used by raster image processing (RIP) filters like
+ * cgpdftoraster and imagetoraster when writing CUPS raster data for a page.
+ * It is not used by raster printer driver filters which only read CUPS
+ * raster data.
+ *
+ *
+ * @code cupsRasterInterpretPPD@ does not mark the options in the PPD using
+ * the "num_options" and "options" arguments.  Instead, mark the options with
+ * @code cupsMarkOptions@ and @code ppdMarkOption@ prior to calling it -
+ * this allows for per-page options without manipulating the options array.
  *
  * The "func" argument specifies an optional callback function that is
  * called prior to the computation of the final raster data.  The function
- * can make changes to the cups_page_header2_t data as needed to use a
+ * can make changes to the @link cups_page_header2_t@ data as needed to use a
  * supported raster format and then returns 0 on success and -1 if the
  * requested attributes cannot be supported.
  *
- * cupsRasterInterpretPPD() supports a subset of the PostScript language.
- * Currently only the [, ], <<, >>, {, }, cleartomark, copy, dup, index,
- * pop, roll, setpagedevice, and stopped operators are supported.
  *
- * @since CUPS 1.2@
+ * @code cupsRasterInterpretPPD@ supports a subset of the PostScript language.
+ * Currently only the @code [@, @code ]@, @code <<@, @code >>@, @code {@,
+ * @code }@, @code cleartomark@, @code copy@, @code dup@, @code index@,
+ * @code pop@, @code roll@, @code setpagedevice@, and @code stopped@ operators
+ * are supported.
+ *
+ * @since CUPS 1.2/Mac OS X 10.5@
  */
 
 int					/* O - 0 on success, -1 on failure */
 cupsRasterInterpretPPD(
-    cups_page_header2_t *h,		/* O - Page header */
+    cups_page_header2_t *h,		/* O - Page header to create */
     ppd_file_t          *ppd,		/* I - PPD file */
     int                 num_options,	/* I - Number of options */
     cups_option_t       *options,	/* I - Options */
-    cups_interpret_cb_t func)		/* I - Optional page header callback */
+    cups_interpret_cb_t func)		/* I - Optional page header callback (@code NULL@ for none) */
 {
   int		status;			/* Cummulative status */
   char		*code;			/* Code to run */
@@ -194,6 +203,15 @@ cupsRasterInterpretPPD(
   h->cupsImagingBBox[3]          = 792.0f;
 
   strcpy(h->cupsPageSizeName, "Letter");
+
+#ifdef __APPLE__
+ /*
+  * cupsInteger0 is also used for the total page count on Mac OS X; set an
+  * uncommon default value so we can tell if the driver is using cupsInteger0.
+  */
+
+  h->cupsInteger[0] = 0x80000000;
+#endif /* __APPLE__ */
 
  /*
   * Apply patches and options to the page header...
@@ -459,9 +477,8 @@ _cupsRasterExecPS(
   while ((obj = scan_ps(st, &codeptr)) != NULL)
   {
 #ifdef DEBUG
-    printf("    (%d): ", st->num_objs);
+    DEBUG_printf(("_cupsRasterExecPS: Stack (%d objects)\n", st->num_objs));
     DEBUG_object(obj);
-    putchar('\n');
 #endif /* DEBUG */
 
     switch (obj->type)
@@ -477,7 +494,7 @@ _cupsRasterExecPS(
 	    _cupsRasterAddError("cleartomark: Stack underflow!\n");
 
 #ifdef DEBUG
-          fputs("    dup: ", stdout);
+          DEBUG_puts("    dup: ");
 	  DEBUG_stack(st);
 #endif /* DEBUG */
           break;
@@ -489,7 +506,7 @@ _cupsRasterExecPS(
 	    copy_stack(st, (int)obj->value.number);
 
 #ifdef DEBUG
-            fputs("    copy: ", stdout);
+            DEBUG_puts("_cupsRasterExecPS: copy");
 	    DEBUG_stack(st);
 #endif /* DEBUG */
           }
@@ -500,7 +517,7 @@ _cupsRasterExecPS(
 	  copy_stack(st, 1);
 
 #ifdef DEBUG
-          fputs("    dup: ", stdout);
+          DEBUG_puts("_cupsRasterExecPS: dup");
 	  DEBUG_stack(st);
 #endif /* DEBUG */
           break;
@@ -512,7 +529,7 @@ _cupsRasterExecPS(
 	    index_stack(st, (int)obj->value.number);
 
 #ifdef DEBUG
-            fputs("    index: ", stdout);
+            DEBUG_puts("_cupsRasterExecPS: index");
 	    DEBUG_stack(st);
 #endif /* DEBUG */
           }
@@ -523,7 +540,7 @@ _cupsRasterExecPS(
           pop_stack(st);
 
 #ifdef DEBUG
-          fputs("    pop: ", stdout);
+          DEBUG_puts("_cupsRasterExecPS: pop");
 	  DEBUG_stack(st);
 #endif /* DEBUG */
           break;
@@ -542,7 +559,7 @@ _cupsRasterExecPS(
 	      roll_stack(st, (int)obj->value.number, c);
 
 #ifdef DEBUG
-              fputs("    roll:", stdout);
+              DEBUG_puts("_cupsRasterExecPS: roll");
 	      DEBUG_stack(st);
 #endif /* DEBUG */
             }
@@ -554,7 +571,7 @@ _cupsRasterExecPS(
 	  setpagedevice(st, h, preferred_bits);
 
 #ifdef DEBUG
-          fputs("    setpagedevice: ", stdout);
+          DEBUG_puts("_cupsRasterExecPS: setpagedevice");
 	  DEBUG_stack(st);
 #endif /* DEBUG */
           break;
@@ -567,7 +584,8 @@ _cupsRasterExecPS(
 
       case CUPS_PS_OTHER :
           _cupsRasterAddError("Unknown operator \"%s\"!\n", obj->value.other);
-          DEBUG_printf(("    Unknown operator \"%s\"!\n", obj->value.other));
+          DEBUG_printf(("_cupsRasterExecPS: Unknown operator \"%s\"!\n",
+	                obj->value.other));
           break;
     }
 
@@ -586,7 +604,7 @@ _cupsRasterExecPS(
     error_stack(st, "Stack not empty:");
 
 #ifdef DEBUG
-    fputs("    Stack not empty:", stdout);
+    DEBUG_puts("_cupsRasterExecPS: Stack not empty:");
     DEBUG_stack(st);
 #endif /* DEBUG */
 
@@ -976,6 +994,9 @@ scan_ps(_cups_ps_stack_t *st,		/* I  - Stack */
       */
 
       for (cur ++; *cur && *cur != '\n' && *cur != '\r'; cur ++);
+
+      if (!*cur)
+        cur --;
     }
     else if (!isspace(*cur & 255))
       break;
@@ -1344,7 +1365,7 @@ setpagedevice(
   * Now pull /name and value pairs from the dictionary...
   */
 
-  DEBUG_puts("    Dictionary:");
+  DEBUG_puts("setpagedevice: Dictionary:");
 
   for (obj ++; obj < end; obj ++)
   {
@@ -1359,9 +1380,8 @@ setpagedevice(
     obj ++;
 
 #ifdef DEBUG
-    printf("        /%s ", name);
+    DEBUG_printf(("setpagedevice: /%s ", name));
     DEBUG_object(obj);
-    putchar('\n');
 #endif /* DEBUG */
 
    /*
@@ -1533,86 +1553,86 @@ DEBUG_object(_cups_ps_obj_t *obj)	/* I - Object to print */
   switch (obj->type)
   {
     case CUPS_PS_NAME :
-	printf("/%s", obj->value.name);
+	DEBUG_printf(("/%s\n", obj->value.name));
 	break;
 
     case CUPS_PS_NUMBER :
-	printf("%g", obj->value.number);
+	DEBUG_printf(("%g\n", obj->value.number));
 	break;
 
     case CUPS_PS_STRING :
-	printf("(%s)", obj->value.string);
+	DEBUG_printf(("(%s)\n", obj->value.string));
 	break;
 
     case CUPS_PS_BOOLEAN :
 	if (obj->value.boolean)
-	  fputs("true", stdout);
+	  DEBUG_puts("true");
 	else
-	  fputs("false", stdout);
+	  DEBUG_puts("false");
 	break;
 
     case CUPS_PS_NULL :
-	fputs("null", stdout);
+	DEBUG_puts("null");
 	break;
 
     case CUPS_PS_START_ARRAY :
-	fputs("[", stdout);
+	DEBUG_puts("[");
 	break;
 
     case CUPS_PS_END_ARRAY :
-	fputs("]", stdout);
+	DEBUG_puts("]");
 	break;
 
     case CUPS_PS_START_DICT :
-	fputs("<<", stdout);
+	DEBUG_puts("<<");
 	break;
 
     case CUPS_PS_END_DICT :
-	fputs(">>", stdout);
+	DEBUG_puts(">>");
 	break;
 
     case CUPS_PS_START_PROC :
-	fputs("{", stdout);
+	DEBUG_puts("{");
 	break;
 
     case CUPS_PS_END_PROC :
-	fputs("}", stdout);
+	DEBUG_puts("}");
 	break;
 
     case CUPS_PS_CLEARTOMARK :
-	fputs("--cleartomark--", stdout);
+	DEBUG_puts("--cleartomark--");
         break;
 
     case CUPS_PS_COPY :
-	fputs("--copy--", stdout);
+	DEBUG_puts("--copy--");
         break;
 
     case CUPS_PS_DUP :
-	fputs("--dup--", stdout);
+	DEBUG_puts("--dup--");
         break;
 
     case CUPS_PS_INDEX :
-	fputs("--index--", stdout);
+	DEBUG_puts("--index--");
         break;
 
     case CUPS_PS_POP :
-	fputs("--pop--", stdout);
+	DEBUG_puts("--pop--");
         break;
 
     case CUPS_PS_ROLL :
-	fputs("--roll--", stdout);
+	DEBUG_puts("--roll--");
         break;
 
     case CUPS_PS_SETPAGEDEVICE :
-	fputs("--setpagedevice--", stdout);
+	DEBUG_puts("--setpagedevice--");
         break;
 
     case CUPS_PS_STOPPED :
-	fputs("--stopped--", stdout);
+	DEBUG_puts("--stopped--");
         break;
 
     case CUPS_PS_OTHER :
-	printf("--%s--", obj->value.other);
+	DEBUG_printf(("--%s--\n", obj->value.other));
 	break;
   }
 }
@@ -1630,16 +1650,11 @@ DEBUG_stack(_cups_ps_stack_t *st)	/* I - Stack */
 
 
   for (obj = st->objs, c = st->num_objs; c > 0; c --, obj ++)
-  {
-    putchar(' ');
     DEBUG_object(obj);
-  }
-
-  putchar('\n');
 }
 #endif /* DEBUG */
 
 
 /*
- * End of "$Id: interpret.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: interpret.c 7852 2008-08-21 04:19:45Z mike $".
  */

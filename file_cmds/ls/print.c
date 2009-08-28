@@ -72,7 +72,7 @@ __RCSID("$FreeBSD: src/bin/ls/print.c,v 1.57 2002/08/29 14:29:09 keramida Exp $"
 #include <termcap.h>
 #include <signal.h>
 #endif
-
+#include <stdint.h>		/* intmax_t */
 #ifdef __APPLE__ 
 #include <get_compat.h>
 #else 
@@ -458,6 +458,8 @@ printlong(DISPLAY *dp)
 			printtime(sp->st_atime);
 		else if (f_statustime)
 			printtime(sp->st_ctime);
+		else if (f_birthtime) 
+			printtime(sp->st_birthtime);
 		else
 			printtime(sp->st_mtime);
 #ifdef COLORLS
@@ -617,7 +619,11 @@ printaname(FTSENT *p, u_long inodefield, u_long sizefield)
 	sp = p->fts_statp;
 	chcnt = 0;
 	if (f_inode)
+#if _DARWIN_FEATURE_64_BIT_INODE
+		chcnt += printf("%*llu ", (int)inodefield, (u_quad_t)sp->st_ino);
+#else
 		chcnt += printf("%*lu ", (int)inodefield, (u_long)sp->st_ino);
+#endif
 	if (f_size)
 		chcnt += printf("%*qu ",
 		    (int)sizefield, (u_int64_t)howmany(sp->st_blocks, blocksize));
@@ -886,5 +892,5 @@ printsize(size_t width, off_t bytes)
 		    HN_AUTOSCALE, HN_B | HN_NOSPACE | HN_DECIMAL);
     (void)printf("%5s ", buf);
   } else
-    (void)printf("%*jd ", (u_int)width, bytes);
+    (void)printf("%*jd ", (u_int)width, (intmax_t)bytes);
 }

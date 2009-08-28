@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -43,6 +43,7 @@ with Opt;      use Opt;
 with Restrict; use Restrict;
 with Sem;      use Sem;
 with Sem_Ch7;  use Sem_Ch7;
+with Sem_Dist; use Sem_Dist;
 with Sem_Util; use Sem_Util;
 with Sinfo;    use Sinfo;
 with Stand;    use Stand;
@@ -170,7 +171,7 @@ package body Rtsfind is
    --  is only effective in All_Errors mode.
 
    function RE_Chars (E : RE_Id) return Name_Id;
-   --  Given a RE_Id value returns the Chars of the corresponding entity.
+   --  Given a RE_Id value returns the Chars of the corresponding entity
 
    procedure RTE_Error_Msg (Msg : String);
    --  Generates a message by calling Error_Msg_N specifying Current_Error_Node
@@ -517,7 +518,7 @@ package body Rtsfind is
       --  Indicate those that must be restored.
 
       procedure Restore_Private_Visibility;
-      --  Restore the visibility of ancestors after compiling RTU.
+      --  Restore the visibility of ancestors after compiling RTU
 
       --------------------------------
       -- Restore_Private_Visibility --
@@ -798,7 +799,7 @@ package body Rtsfind is
             --  specially permitted units, raise the exception.
 
             if No_Run_Time_Mode
-                 and then not OK_No_Run_Time_Unit (U_Id)
+              and then not OK_No_Run_Time_Unit (U_Id)
             then
                Entity_Not_Defined (E);
                raise RE_Not_Available;
@@ -838,20 +839,12 @@ package body Rtsfind is
                      E = RE_Params_Stream_Type
                        or else
                      E = RE_Request_Access)
+           and then Get_PCS_Name = Name_No_DSA
          then
-            declare
-               DSA_Implementation : constant Entity_Id :=
-                                      RTE (RE_DSA_Implementation);
-            begin
-               if Chars (Entity (Expression
-                                  (Parent (DSA_Implementation)))) = Name_No_DSA
-               then
-                  Set_Standard_Error;
-                  Write_Str ("distribution feature not supported");
-                  Write_Eol;
-                  raise Unrecoverable_Error;
-               end if;
-            end;
+            Set_Standard_Error;
+            Write_Str ("distribution feature not supported");
+            Write_Eol;
+            raise Unrecoverable_Error;
          end if;
       end Check_RPC;
 
@@ -1112,7 +1105,7 @@ package body Rtsfind is
             begin
                --  If entry is not set, set it now
 
-               if not Present (U.Entity) then
+               if No (U.Entity) then
                   U.Entity := E;
                   U.Uname  := Get_Unit_Name (U_Id);
                   U.Unum   := Unum;

@@ -1,22 +1,17 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1997-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1997,2007 Oracle.  All rights reserved.
+ *
+ * $Id: cxx_mpool.cpp,v 12.10 2007/06/28 13:02:50 mjc Exp $
  */
 
 #include "db_config.h"
 
-#ifndef lint
-static const char revid[] = "$Id: cxx_mpool.cpp,v 1.2 2004/03/30 01:21:24 jtownsen Exp $";
-#endif /* not lint */
-
-#include <errno.h>
+#include "db_int.h"
 
 #include "db_cxx.h"
 #include "dbinc/cxx_int.h"
-
-#include "db_int.h"
 
 // Helper macros for simple methods that pass through to the
 // underlying C method. It may return an error or raise an exception.
@@ -86,15 +81,15 @@ int DbMpoolFile::close(u_int32_t flags)
 	return (ret);
 }
 
-DB_MPOOLFILE_METHOD(get, (db_pgno_t *pgnoaddr, u_int32_t flags, void *pagep),
-    (mpf, pgnoaddr, flags, pagep), DB_RETOK_MPGET)
+DB_MPOOLFILE_METHOD(get,
+    (db_pgno_t *pgnoaddr, DbTxn *txn, u_int32_t flags, void *pagep),
+    (mpf, pgnoaddr, unwrap(txn), flags, pagep), DB_RETOK_MPGET)
 DB_MPOOLFILE_METHOD(open,
     (const char *file, u_int32_t flags, int mode, size_t pagesize),
     (mpf, file, flags, mode, pagesize), DB_RETOK_STD)
-DB_MPOOLFILE_METHOD(put, (void *pgaddr, u_int32_t flags),
-    (mpf, pgaddr, flags), DB_RETOK_STD)
-DB_MPOOLFILE_METHOD(set, (void *pgaddr, u_int32_t flags),
-    (mpf, pgaddr, flags), DB_RETOK_STD)
+DB_MPOOLFILE_METHOD(put,
+    (void *pgaddr, DB_CACHE_PRIORITY priority, u_int32_t flags),
+    (mpf, pgaddr, priority, flags), DB_RETOK_STD)
 DB_MPOOLFILE_METHOD(get_clear_len, (u_int32_t *lenp),
     (mpf, lenp), DB_RETOK_STD)
 DB_MPOOLFILE_METHOD(set_clear_len, (u_int32_t len),
@@ -111,6 +106,8 @@ DB_MPOOLFILE_METHOD(get_ftype, (int *ftypep),
     (mpf, ftypep), DB_RETOK_STD)
 DB_MPOOLFILE_METHOD(set_ftype, (int ftype),
     (mpf, ftype), DB_RETOK_STD)
+DB_MPOOLFILE_METHOD(get_last_pgno, (db_pgno_t *pgnop),
+    (mpf, pgnop), DB_RETOK_STD)
 DB_MPOOLFILE_METHOD(get_lsn_offset, (int32_t *offsetp),
     (mpf, offsetp), DB_RETOK_STD)
 DB_MPOOLFILE_METHOD(set_lsn_offset, (int32_t offset),

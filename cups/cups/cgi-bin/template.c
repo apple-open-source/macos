@@ -1,5 +1,5 @@
 /*
- * "$Id: template.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: template.c 7219 2008-01-14 22:00:02Z mike $"
  *
  *   CGI template function.
  *
@@ -26,6 +26,7 @@
 
 #include "cgi-private.h"
 #include <errno.h>
+#include <regex.h>
 
 
 /*
@@ -236,6 +237,7 @@ cgi_copy(FILE *out,			/* I - Output file */
 		compare[1024];		/* Comparison string */
   int		result;			/* Result of comparison */
   int		uriencode;		/* Encode as URI */
+  regex_t	re;			/* Regular expression to match */
 
 
   fprintf(stderr, "DEBUG2: %*sStarting at file position %ld...\n", indent, "",
@@ -257,7 +259,7 @@ cgi_copy(FILE *out,			/* I - Output file */
       uriencode = 0;
 
       for (s = name; (ch = getc(in)) != EOF;)
-        if (strchr("}]<>=! \t\n", ch))
+        if (strchr("}]<>=!~ \t\n", ch))
           break;
 	else if (s == name && ch == '%')
 	  uriencode = 1;
@@ -424,6 +426,7 @@ cgi_copy(FILE *out,			/* I - Output file */
       *   {name<value?true:false}    Less than
       *   {name>value?true:false}    Greater than
       *   {name!value?true:false}    Not equal
+      *   {name~refex?true:false}    Regex match
       */
 
       op = ch;
@@ -522,6 +525,39 @@ cgi_copy(FILE *out,			/* I - Output file */
 	      break;
 	  case '!' :
 	      result = strcasecmp(outptr, compare) != 0;
+	      break;
+	  case '~' :
+	      fprintf(stderr, "DEBUG: Regular expression \"%s\"\n", compare);
+
+	      if (regcomp(&re, compare, REG_EXTENDED | REG_ICASE))
+	      {
+	        fprintf(stderr,
+		        "ERROR: Unable to compile regular expresion \"%s\"!\n",
+			compare);
+		result = 0;
+	      }
+	      else
+	      {
+	        regmatch_t matches[10];
+
+		result = 0;
+
+	        if (!regexec(&re, outptr, 10, matches, 0))
+		{
+		  int i;
+		  for (i = 0; i < 10; i ++)
+		  {
+		    fprintf(stderr, "DEBUG: matches[%d].rm_so=%d\n", i,
+		            (int)matches[i].rm_so);
+		    if (matches[i].rm_so < 0)
+		      break;
+
+		    result ++;
+		  }
+		}
+
+		regfree(&re);
+	      }
 	      break;
 	  default :
 	      result = 1;
@@ -670,5 +706,5 @@ cgi_puturi(const char *s,		/* I - String to output */
 
 
 /*
- * End of "$Id: template.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: template.c 7219 2008-01-14 22:00:02Z mike $".
  */

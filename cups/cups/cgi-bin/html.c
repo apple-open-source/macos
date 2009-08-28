@@ -3,7 +3,7 @@
  *
  *   HTML support functions for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -14,10 +14,13 @@
  *
  * Contents:
  *
- *   cgiEndHTML()      - End a HTML page.
- *   cgiFormEncode()   - Encode a string as a form variable...
- *   cgiStartHTML()    - Start a HTML page.
- *   cgi_null_passwd() - Return a NULL password for authentication.
+ *   cgiEndHTML()           - End a HTML page.
+ *   cgiEndMultipart()      - End the delivery of a multipart web page.
+ *   cgiFormEncode()        - Encode a string as a form variable.
+ *   cgiStartHTML()         - Start a HTML page.
+ *   cgiStartMultipart()    - Start a multipart delivery of a web page.
+ *   cgiSupportsMultipart() - Does the browser support multi-part documents?
+ *   cgi_null_passwd()      - Return a NULL password for authentication.
  */
 
 /*
@@ -25,6 +28,14 @@
  */
 
 #include "cgi-private.h"
+
+
+/*
+ * Local globals...
+ */
+
+static const char	*cgi_multipart = NULL;
+					/* Multipart separator, if any */
 
 
 /*
@@ -50,7 +61,22 @@ cgiEndHTML(void)
 
 
 /*
- * 'cgiFormEncode()' - Encode a string as a form variable...
+ * 'cgiEndMultipart()' - End the delivery of a multipart web page.
+ */
+
+void
+cgiEndMultipart(void)
+{
+  if (cgi_multipart)
+  {
+    printf("\n%s--\n", cgi_multipart);
+    fflush(stdout);
+  }
+}
+
+
+/*
+ * 'cgiFormEncode()' - Encode a string as a form variable.
  */
 
 char *					/* O - Destination string */
@@ -144,6 +170,9 @@ cgiStartHTML(const char *title)		/* I - Title of page */
   * Tell the client to expect UTF-8 encoded HTML...
   */
 
+  if (cgi_multipart)
+    puts(cgi_multipart);
+
   puts("Content-Type: text/html;charset=utf-8\n");
 
  /*
@@ -154,6 +183,56 @@ cgiStartHTML(const char *title)		/* I - Title of page */
   cgiSetServerVersion();
 
   cgiCopyTemplateLang("header.tmpl");
+}
+
+
+/*
+ * 'cgiStartMultipart()' - Start a multipart delivery of a web page.
+ */
+
+void
+cgiStartMultipart(void)
+{
+  puts("MIME-Version: 1.0\n"
+       "Content-Type: multipart/x-mixed-replace; boundary=\"CUPS-MULTIPART\"\n");
+  fflush(stdout);
+
+  cgi_multipart = "--CUPS-MULTIPART";
+}
+
+
+/*
+ * 'cgiSupportsMultipart()' - Does the browser support multi-part documents?
+ */
+
+int					/* O - 1 if multi-part supported, 0 otherwise */
+cgiSupportsMultipart(void)
+{
+  const char	*user_agent;		/* User-Agent string */
+  static int	supports_multipart = -1;/* Cached value */
+
+
+  if (supports_multipart < 0)
+  {
+   /*
+    * CUPS STR #3049: Apparently some browsers don't support multi-part
+    * documents, which makes them useless for many web sites.  Rather than
+    * abandoning those users, we'll offer a degraded single-part mode...
+    *
+    * Currently we know that anything based on Gecko, MSIE, and Safari all
+    * work.  We'll add more as they are reported/tested.
+    */
+
+    if ((user_agent = getenv("HTTP_USER_AGENT")) != NULL &&
+        (strstr(user_agent, " Gecko/") != NULL ||
+	 strstr(user_agent, " MSIE ") != NULL ||
+	 strstr(user_agent, " Safari/") != NULL))
+      supports_multipart = 1;
+    else
+      supports_multipart = 0;
+  }
+
+  return (supports_multipart);
 }
 
 

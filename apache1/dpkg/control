@@ -1,9 +1,0 @@
-Package: apache
-Maintainer: Wilfredo Sanchez <wsanchez@opensource.apple.com>
-Vendor: Apache Software Foundation
-Version: 1.3.20
-Build-Depends: build-base, perl, apache
-Description: Apache HTTP server
- The Apache HTTP server is a robust, commercial-grade, featureful,
- and freely-available source code implementation of an HTTP (Web)
- server.

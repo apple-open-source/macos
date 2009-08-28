@@ -14,7 +14,8 @@
 	<array>
 		<string>freshclam</string>
 		<string>-d</string>
-		<string>-c 4</string>
+		<string>-c</string>
+		<string>4</string>
 	</array>
 	<key>ServiceIPC</key>
 	<false/>

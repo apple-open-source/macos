@@ -1,0 +1,3599 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$81|#define HSDB_1
+#define HSDB_2
+#define HSDB_3
+#define HSDB_4
+/*! @/defineblock */
+$308|/*! @defineblock Hide Singletons Define Block
+    @discussion this block's defines should not be shown.
+    @define HSDB_1
+	HSDB #1 discussion here.
+    @define HSDB_2
+	HSDB #2 discussion here.
+    @define HSDB_3
+	HSDB #3 discussion here.
+    @define HSDB_4
+	HSDB #4 discussion here.
+    @hidesingletons
+ */
+$0|$28065|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 2
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/define_block_3.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/define_block_3.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 3
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 1
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => HSDB_1
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} => #define HSDB_1
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 1
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => HSDB_1
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{typestring} => #
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 1
+typelist: #define
+namelist: HSDB_1
+posstypes: constant
+value: 
+returntype: 
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---#define
+|   +--- 
+|   +---HSDB_1
+|   +---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+$CPP_HASH{HSDB_1} => 
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: define block 3
+APIUID: //test_ref/doc/header/define_block_3.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 4
+    INDEX GROUP: 
+    IS BLOCK: 1
+    IS AVAILABILITY MACRO: 
+    PARSE ONLY: 
+    OBJECT TYPE: HeaderDoc::PDefine
+    NAME: Hide Singletons Define Block
+    APIUID: //test_ref/doc/title:macro/HideSingletonsDefineBlock
+    ABSTRACT: ""
+    DISCUSSION: "<p>this block's defines should not be shown.
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::PDefine"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: "Singletons Define Block"
+    HIDEDOC: ""
+    HIDESINGLETONS: "1"
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+    PARSED PARAMETERS:
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        IS AVAILABILITY MACRO: 
+        PARSE ONLY: 
+        OBJECT TYPE: HeaderDoc::PDefine
+        NAME: HSDB_1
+        APIUID: //test_ref/c/macro/HSDB_1
+        ABSTRACT: ""
+        DISCUSSION: "<p>HSDB #1 discussion here."
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::PDefine"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: "1"
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/doc/title:macro/HideSingletonsDefineBlock" --><p>Hide<!-- /a --></dt><dd></dd></dl></div>
+
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        IS AVAILABILITY MACRO: 
+        PARSE ONLY: 
+        OBJECT TYPE: HeaderDoc::PDefine
+        NAME: HSDB_2
+        APIUID: //test_ref/c/macro/HSDB_2
+        ABSTRACT: ""
+        DISCUSSION: "<p>HSDB #2 discussion here."
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::PDefine"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: "1"
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/doc/title:macro/HideSingletonsDefineBlock" --><p>Hide<!-- /a --></dt><dd></dd></dl></div>
+
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        IS AVAILABILITY MACRO: 
+        PARSE ONLY: 
+        OBJECT TYPE: HeaderDoc::PDefine
+        NAME: HSDB_3
+        APIUID: //test_ref/c/macro/HSDB_3
+        ABSTRACT: ""
+        DISCUSSION: "<p>HSDB #3 discussion here."
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::PDefine"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: "1"
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/doc/title:macro/HideSingletonsDefineBlock" --><p>Hide<!-- /a --></dt><dd></dd></dl></div>
+
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        IS AVAILABILITY MACRO: 
+        PARSE ONLY: 
+        OBJECT TYPE: HeaderDoc::PDefine
+        NAME: HSDB_4
+        APIUID: //test_ref/c/macro/HSDB_4
+        ABSTRACT: ""
+        DISCUSSION: "<p>HSDB #4 discussion here."
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::PDefine"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: "1"
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/doc/title:macro/HideSingletonsDefineBlock" --><p>Hide<!-- /a --></dt><dd></dd></dl></div>
+
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+    TAGGED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: HSDB_1
+        TYPE: 
+        APIUID: //test_ref/doc/title:internal_temporary_object/HideSingletonsDefineBlock/HSDB_1
+        ABSTRACT: ""
+        DISCUSSION: "<p>HSDB #1 discussion here."
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: "1"
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: "REF(OBJID)"
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: HSDB_2
+        TYPE: 
+        APIUID: //test_ref/doc/title:internal_temporary_object/HideSingletonsDefineBlock/HSDB_2
+        ABSTRACT: ""
+        DISCUSSION: "<p>HSDB #2 discussion here."
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: "1"
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: "REF(OBJID)"
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: HSDB_3
+        TYPE: 
+        APIUID: //test_ref/doc/title:internal_temporary_object/HideSingletonsDefineBlock/HSDB_3
+        ABSTRACT: ""
+        DISCUSSION: "<p>HSDB #3 discussion here."
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: "1"
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: "REF(OBJID)"
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: HSDB_4
+        TYPE: 
+        APIUID: //test_ref/doc/title:internal_temporary_object/HideSingletonsDefineBlock/HSDB_4
+        ABSTRACT: ""
+        DISCUSSION: "<p>HSDB #4 discussion here."
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: "1"
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: "REF(OBJID)"
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    IS AVAILABILITY MACRO: 
+    PARSE ONLY: 
+    OBJECT TYPE: HeaderDoc::PDefine
+    NAME: HSDB_1
+    APIUID: //test_ref/c/macro/HSDB_1
+    ABSTRACT: ""
+    DISCUSSION: "<p>HSDB #1 discussion here."
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::PDefine"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: "1"
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/doc/title:macro/HideSingletonsDefineBlock" --><p>Hide<!-- /a --></dt><dd></dd></dl></div>
+
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    IS AVAILABILITY MACRO: 
+    PARSE ONLY: 
+    OBJECT TYPE: HeaderDoc::PDefine
+    NAME: HSDB_2
+    APIUID: //test_ref/c/macro/HSDB_2
+    ABSTRACT: ""
+    DISCUSSION: "<p>HSDB #2 discussion here."
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::PDefine"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: "1"
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/doc/title:macro/HideSingletonsDefineBlock" --><p>Hide<!-- /a --></dt><dd></dd></dl></div>
+
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    IS AVAILABILITY MACRO: 
+    PARSE ONLY: 
+    OBJECT TYPE: HeaderDoc::PDefine
+    NAME: HSDB_3
+    APIUID: //test_ref/c/macro/HSDB_3
+    ABSTRACT: ""
+    DISCUSSION: "<p>HSDB #3 discussion here."
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::PDefine"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: "1"
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/doc/title:macro/HideSingletonsDefineBlock" --><p>Hide<!-- /a --></dt><dd></dd></dl></div>
+
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    IS AVAILABILITY MACRO: 
+    PARSE ONLY: 
+    OBJECT TYPE: HeaderDoc::PDefine
+    NAME: HSDB_4
+    APIUID: //test_ref/c/macro/HSDB_4
+    ABSTRACT: ""
+    DISCUSSION: "<p>HSDB #4 discussion here."
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::PDefine"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: "1"
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/doc/title:macro/HideSingletonsDefineBlock" --><p>Hide<!-- /a --></dt><dd></dd></dl></div>
+
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: HSDB_4 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_4
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_1 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_1
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_2 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_2
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_3 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_3
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_1 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_1
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_2 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_2
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_3 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_3
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_4 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_4
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_1 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_1
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_2 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_2
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_3 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_3
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_4 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_4
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: HSDB_4 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_4 //test_ref/c/tdef/HSDB_4 //test_ref/c/tag/HSDB_4 //test_ref/c/econst/HSDB_4 //test_ref/c/struct/HSDB_4 //test_ref/c/data/HSDB_4 //test_ref/c/clconst/HSDB_4 //test_ref/c/intf/HSDB_4 //test_ref/c/instm/HSDB_4 //test_ref/c/clm/HSDB_4 //test_ref/c/intfcm/HSDB_4 //test_ref/c/intfm/HSDB_4 //test_ref/c/func/HSDB_4 //test_ref/c/ftmplt/HSDB_4 //test_ref/c/defn/HSDB_4 //test_ref/c/macro/HSDB_4 //test_ref/doc/com/intfm/HSDB_4" --><span class="preprocessor">HSDB_4</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_1 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_1 //test_ref/c/tdef/HSDB_1 //test_ref/c/tag/HSDB_1 //test_ref/c/econst/HSDB_1 //test_ref/c/struct/HSDB_1 //test_ref/c/data/HSDB_1 //test_ref/c/clconst/HSDB_1 //test_ref/c/intf/HSDB_1 //test_ref/c/instm/HSDB_1 //test_ref/c/clm/HSDB_1 //test_ref/c/intfcm/HSDB_1 //test_ref/c/intfm/HSDB_1 //test_ref/c/func/HSDB_1 //test_ref/c/ftmplt/HSDB_1 //test_ref/c/defn/HSDB_1 //test_ref/c/macro/HSDB_1 //test_ref/doc/com/intfm/HSDB_1" --><span class="preprocessor">HSDB_1</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_2 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_2 //test_ref/c/tdef/HSDB_2 //test_ref/c/tag/HSDB_2 //test_ref/c/econst/HSDB_2 //test_ref/c/struct/HSDB_2 //test_ref/c/data/HSDB_2 //test_ref/c/clconst/HSDB_2 //test_ref/c/intf/HSDB_2 //test_ref/c/instm/HSDB_2 //test_ref/c/clm/HSDB_2 //test_ref/c/intfcm/HSDB_2 //test_ref/c/intfm/HSDB_2 //test_ref/c/func/HSDB_2 //test_ref/c/ftmplt/HSDB_2 //test_ref/c/defn/HSDB_2 //test_ref/c/macro/HSDB_2 //test_ref/doc/com/intfm/HSDB_2" --><span class="preprocessor">HSDB_2</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_3 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_3 //test_ref/c/tdef/HSDB_3 //test_ref/c/tag/HSDB_3 //test_ref/c/econst/HSDB_3 //test_ref/c/struct/HSDB_3 //test_ref/c/data/HSDB_3 //test_ref/c/clconst/HSDB_3 //test_ref/c/intf/HSDB_3 //test_ref/c/instm/HSDB_3 //test_ref/c/clm/HSDB_3 //test_ref/c/intfcm/HSDB_3 //test_ref/c/intfm/HSDB_3 //test_ref/c/func/HSDB_3 //test_ref/c/ftmplt/HSDB_3 //test_ref/c/defn/HSDB_3 //test_ref/c/macro/HSDB_3 //test_ref/doc/com/intfm/HSDB_3" --><span class="preprocessor">HSDB_3</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_1 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_1 //test_ref/c/tdef/HSDB_1 //test_ref/c/tag/HSDB_1 //test_ref/c/econst/HSDB_1 //test_ref/c/struct/HSDB_1 //test_ref/c/data/HSDB_1 //test_ref/c/clconst/HSDB_1 //test_ref/c/intf/HSDB_1 //test_ref/c/instm/HSDB_1 //test_ref/c/clm/HSDB_1 //test_ref/c/intfcm/HSDB_1 //test_ref/c/intfm/HSDB_1 //test_ref/c/func/HSDB_1 //test_ref/c/ftmplt/HSDB_1 //test_ref/c/defn/HSDB_1 //test_ref/c/macro/HSDB_1 //test_ref/doc/com/intfm/HSDB_1" --><span class="preprocessor">HSDB_1</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_2 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_2 //test_ref/c/tdef/HSDB_2 //test_ref/c/tag/HSDB_2 //test_ref/c/econst/HSDB_2 //test_ref/c/struct/HSDB_2 //test_ref/c/data/HSDB_2 //test_ref/c/clconst/HSDB_2 //test_ref/c/intf/HSDB_2 //test_ref/c/instm/HSDB_2 //test_ref/c/clm/HSDB_2 //test_ref/c/intfcm/HSDB_2 //test_ref/c/intfm/HSDB_2 //test_ref/c/func/HSDB_2 //test_ref/c/ftmplt/HSDB_2 //test_ref/c/defn/HSDB_2 //test_ref/c/macro/HSDB_2 //test_ref/doc/com/intfm/HSDB_2" --><span class="preprocessor">HSDB_2</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_3 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_3 //test_ref/c/tdef/HSDB_3 //test_ref/c/tag/HSDB_3 //test_ref/c/econst/HSDB_3 //test_ref/c/struct/HSDB_3 //test_ref/c/data/HSDB_3 //test_ref/c/clconst/HSDB_3 //test_ref/c/intf/HSDB_3 //test_ref/c/instm/HSDB_3 //test_ref/c/clm/HSDB_3 //test_ref/c/intfcm/HSDB_3 //test_ref/c/intfm/HSDB_3 //test_ref/c/func/HSDB_3 //test_ref/c/ftmplt/HSDB_3 //test_ref/c/defn/HSDB_3 //test_ref/c/macro/HSDB_3 //test_ref/doc/com/intfm/HSDB_3" --><span class="preprocessor">HSDB_3</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_4 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_4 //test_ref/c/tdef/HSDB_4 //test_ref/c/tag/HSDB_4 //test_ref/c/econst/HSDB_4 //test_ref/c/struct/HSDB_4 //test_ref/c/data/HSDB_4 //test_ref/c/clconst/HSDB_4 //test_ref/c/intf/HSDB_4 //test_ref/c/instm/HSDB_4 //test_ref/c/clm/HSDB_4 //test_ref/c/intfcm/HSDB_4 //test_ref/c/intfm/HSDB_4 //test_ref/c/func/HSDB_4 //test_ref/c/ftmplt/HSDB_4 //test_ref/c/defn/HSDB_4 //test_ref/c/macro/HSDB_4 //test_ref/doc/com/intfm/HSDB_4" --><span class="preprocessor">HSDB_4</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_1 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_1 //test_ref/c/tdef/HSDB_1 //test_ref/c/tag/HSDB_1 //test_ref/c/econst/HSDB_1 //test_ref/c/struct/HSDB_1 //test_ref/c/data/HSDB_1 //test_ref/c/clconst/HSDB_1 //test_ref/c/intf/HSDB_1 //test_ref/c/instm/HSDB_1 //test_ref/c/clm/HSDB_1 //test_ref/c/intfcm/HSDB_1 //test_ref/c/intfm/HSDB_1 //test_ref/c/func/HSDB_1 //test_ref/c/ftmplt/HSDB_1 //test_ref/c/defn/HSDB_1 //test_ref/c/macro/HSDB_1 //test_ref/doc/com/intfm/HSDB_1" --><span class="preprocessor">HSDB_1</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_2 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_2 //test_ref/c/tdef/HSDB_2 //test_ref/c/tag/HSDB_2 //test_ref/c/econst/HSDB_2 //test_ref/c/struct/HSDB_2 //test_ref/c/data/HSDB_2 //test_ref/c/clconst/HSDB_2 //test_ref/c/intf/HSDB_2 //test_ref/c/instm/HSDB_2 //test_ref/c/clm/HSDB_2 //test_ref/c/intfcm/HSDB_2 //test_ref/c/intfm/HSDB_2 //test_ref/c/func/HSDB_2 //test_ref/c/ftmplt/HSDB_2 //test_ref/c/defn/HSDB_2 //test_ref/c/macro/HSDB_2 //test_ref/doc/com/intfm/HSDB_2" --><span class="preprocessor">HSDB_2</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_3 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_3 //test_ref/c/tdef/HSDB_3 //test_ref/c/tag/HSDB_3 //test_ref/c/econst/HSDB_3 //test_ref/c/struct/HSDB_3 //test_ref/c/data/HSDB_3 //test_ref/c/clconst/HSDB_3 //test_ref/c/intf/HSDB_3 //test_ref/c/instm/HSDB_3 //test_ref/c/clm/HSDB_3 //test_ref/c/intfcm/HSDB_3 //test_ref/c/intfm/HSDB_3 //test_ref/c/func/HSDB_3 //test_ref/c/ftmplt/HSDB_3 //test_ref/c/defn/HSDB_3 //test_ref/c/macro/HSDB_3 //test_ref/doc/com/intfm/HSDB_3" --><span class="preprocessor">HSDB_3</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_4 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_4 //test_ref/c/tdef/HSDB_4 //test_ref/c/tag/HSDB_4 //test_ref/c/econst/HSDB_4 //test_ref/c/struct/HSDB_4 //test_ref/c/data/HSDB_4 //test_ref/c/clconst/HSDB_4 //test_ref/c/intf/HSDB_4 //test_ref/c/instm/HSDB_4 //test_ref/c/clm/HSDB_4 //test_ref/c/intfcm/HSDB_4 //test_ref/c/intfm/HSDB_4 //test_ref/c/func/HSDB_4 //test_ref/c/ftmplt/HSDB_4 //test_ref/c/defn/HSDB_4 //test_ref/c/macro/HSDB_4 //test_ref/doc/com/intfm/HSDB_4" --><span class="preprocessor">HSDB_4</span><!-- /a --> 
+END OF OBJECT
+
+
+
+$28065|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 2
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/define_block_3.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/define_block_3.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 3
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 1
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => HSDB_1
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} => #define HSDB_1
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 1
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => HSDB_1
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{typestring} => #
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 1
+typelist: #define
+namelist: HSDB_1
+posstypes: constant
+value: 
+returntype: 
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---#define
+|   +--- 
+|   +---HSDB_1
+|   +---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+$CPP_HASH{HSDB_1} => 
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: define block 3
+APIUID: //test_ref/doc/header/define_block_3.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 4
+    INDEX GROUP: 
+    IS BLOCK: 1
+    IS AVAILABILITY MACRO: 
+    PARSE ONLY: 
+    OBJECT TYPE: HeaderDoc::PDefine
+    NAME: Hide Singletons Define Block
+    APIUID: //test_ref/doc/title:macro/HideSingletonsDefineBlock
+    ABSTRACT: ""
+    DISCUSSION: "<p>this block's defines should not be shown.
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::PDefine"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: "Singletons Define Block"
+    HIDEDOC: ""
+    HIDESINGLETONS: "1"
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+    PARSED PARAMETERS:
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        IS AVAILABILITY MACRO: 
+        PARSE ONLY: 
+        OBJECT TYPE: HeaderDoc::PDefine
+        NAME: HSDB_1
+        APIUID: //test_ref/c/macro/HSDB_1
+        ABSTRACT: ""
+        DISCUSSION: "<p>HSDB #1 discussion here."
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::PDefine"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: "1"
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/doc/title:macro/HideSingletonsDefineBlock" --><p>Hide<!-- /a --></dt><dd></dd></dl></div>
+
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        IS AVAILABILITY MACRO: 
+        PARSE ONLY: 
+        OBJECT TYPE: HeaderDoc::PDefine
+        NAME: HSDB_2
+        APIUID: //test_ref/c/macro/HSDB_2
+        ABSTRACT: ""
+        DISCUSSION: "<p>HSDB #2 discussion here."
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::PDefine"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: "1"
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/doc/title:macro/HideSingletonsDefineBlock" --><p>Hide<!-- /a --></dt><dd></dd></dl></div>
+
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        IS AVAILABILITY MACRO: 
+        PARSE ONLY: 
+        OBJECT TYPE: HeaderDoc::PDefine
+        NAME: HSDB_3
+        APIUID: //test_ref/c/macro/HSDB_3
+        ABSTRACT: ""
+        DISCUSSION: "<p>HSDB #3 discussion here."
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::PDefine"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: "1"
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/doc/title:macro/HideSingletonsDefineBlock" --><p>Hide<!-- /a --></dt><dd></dd></dl></div>
+
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        IS AVAILABILITY MACRO: 
+        PARSE ONLY: 
+        OBJECT TYPE: HeaderDoc::PDefine
+        NAME: HSDB_4
+        APIUID: //test_ref/c/macro/HSDB_4
+        ABSTRACT: ""
+        DISCUSSION: "<p>HSDB #4 discussion here."
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::PDefine"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: "1"
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/doc/title:macro/HideSingletonsDefineBlock" --><p>Hide<!-- /a --></dt><dd></dd></dl></div>
+
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+    TAGGED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: HSDB_1
+        TYPE: 
+        APIUID: //test_ref/doc/title:internal_temporary_object/HideSingletonsDefineBlock/HSDB_1
+        ABSTRACT: ""
+        DISCUSSION: "<p>HSDB #1 discussion here."
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: "1"
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: "REF(OBJID)"
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: HSDB_2
+        TYPE: 
+        APIUID: //test_ref/doc/title:internal_temporary_object/HideSingletonsDefineBlock/HSDB_2
+        ABSTRACT: ""
+        DISCUSSION: "<p>HSDB #2 discussion here."
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: "1"
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: "REF(OBJID)"
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: HSDB_3
+        TYPE: 
+        APIUID: //test_ref/doc/title:internal_temporary_object/HideSingletonsDefineBlock/HSDB_3
+        ABSTRACT: ""
+        DISCUSSION: "<p>HSDB #3 discussion here."
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: "1"
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: "REF(OBJID)"
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: HSDB_4
+        TYPE: 
+        APIUID: //test_ref/doc/title:internal_temporary_object/HideSingletonsDefineBlock/HSDB_4
+        ABSTRACT: ""
+        DISCUSSION: "<p>HSDB #4 discussion here."
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: "1"
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: "REF(OBJID)"
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    IS AVAILABILITY MACRO: 
+    PARSE ONLY: 
+    OBJECT TYPE: HeaderDoc::PDefine
+    NAME: HSDB_1
+    APIUID: //test_ref/c/macro/HSDB_1
+    ABSTRACT: ""
+    DISCUSSION: "<p>HSDB #1 discussion here."
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::PDefine"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: "1"
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/doc/title:macro/HideSingletonsDefineBlock" --><p>Hide<!-- /a --></dt><dd></dd></dl></div>
+
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    IS AVAILABILITY MACRO: 
+    PARSE ONLY: 
+    OBJECT TYPE: HeaderDoc::PDefine
+    NAME: HSDB_2
+    APIUID: //test_ref/c/macro/HSDB_2
+    ABSTRACT: ""
+    DISCUSSION: "<p>HSDB #2 discussion here."
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::PDefine"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: "1"
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/doc/title:macro/HideSingletonsDefineBlock" --><p>Hide<!-- /a --></dt><dd></dd></dl></div>
+
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    IS AVAILABILITY MACRO: 
+    PARSE ONLY: 
+    OBJECT TYPE: HeaderDoc::PDefine
+    NAME: HSDB_3
+    APIUID: //test_ref/c/macro/HSDB_3
+    ABSTRACT: ""
+    DISCUSSION: "<p>HSDB #3 discussion here."
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::PDefine"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: "1"
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/doc/title:macro/HideSingletonsDefineBlock" --><p>Hide<!-- /a --></dt><dd></dd></dl></div>
+
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    IS AVAILABILITY MACRO: 
+    PARSE ONLY: 
+    OBJECT TYPE: HeaderDoc::PDefine
+    NAME: HSDB_4
+    APIUID: //test_ref/c/macro/HSDB_4
+    ABSTRACT: ""
+    DISCUSSION: "<p>HSDB #4 discussion here."
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::PDefine"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: "1"
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/doc/title:macro/HideSingletonsDefineBlock" --><p>Hide<!-- /a --></dt><dd></dd></dl></div>
+
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: HSDB_4 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_4
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_1 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_1
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_2 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_2
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_3 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_3
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_1 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_1
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_2 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_2
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_3 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_3
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_4 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_4
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_1 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_1
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_2 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_2
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_3 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_3
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_4 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_4
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: HSDB_4 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_4 //test_ref/c/tdef/HSDB_4 //test_ref/c/tag/HSDB_4 //test_ref/c/econst/HSDB_4 //test_ref/c/struct/HSDB_4 //test_ref/c/data/HSDB_4 //test_ref/c/clconst/HSDB_4 //test_ref/c/intf/HSDB_4 //test_ref/c/instm/HSDB_4 //test_ref/c/clm/HSDB_4 //test_ref/c/intfcm/HSDB_4 //test_ref/c/intfm/HSDB_4 //test_ref/c/func/HSDB_4 //test_ref/c/ftmplt/HSDB_4 //test_ref/c/defn/HSDB_4 //test_ref/c/macro/HSDB_4 //test_ref/doc/com/intfm/HSDB_4" --><span class="preprocessor">HSDB_4</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_1 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_1 //test_ref/c/tdef/HSDB_1 //test_ref/c/tag/HSDB_1 //test_ref/c/econst/HSDB_1 //test_ref/c/struct/HSDB_1 //test_ref/c/data/HSDB_1 //test_ref/c/clconst/HSDB_1 //test_ref/c/intf/HSDB_1 //test_ref/c/instm/HSDB_1 //test_ref/c/clm/HSDB_1 //test_ref/c/intfcm/HSDB_1 //test_ref/c/intfm/HSDB_1 //test_ref/c/func/HSDB_1 //test_ref/c/ftmplt/HSDB_1 //test_ref/c/defn/HSDB_1 //test_ref/c/macro/HSDB_1 //test_ref/doc/com/intfm/HSDB_1" --><span class="preprocessor">HSDB_1</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_2 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_2 //test_ref/c/tdef/HSDB_2 //test_ref/c/tag/HSDB_2 //test_ref/c/econst/HSDB_2 //test_ref/c/struct/HSDB_2 //test_ref/c/data/HSDB_2 //test_ref/c/clconst/HSDB_2 //test_ref/c/intf/HSDB_2 //test_ref/c/instm/HSDB_2 //test_ref/c/clm/HSDB_2 //test_ref/c/intfcm/HSDB_2 //test_ref/c/intfm/HSDB_2 //test_ref/c/func/HSDB_2 //test_ref/c/ftmplt/HSDB_2 //test_ref/c/defn/HSDB_2 //test_ref/c/macro/HSDB_2 //test_ref/doc/com/intfm/HSDB_2" --><span class="preprocessor">HSDB_2</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_3 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_3 //test_ref/c/tdef/HSDB_3 //test_ref/c/tag/HSDB_3 //test_ref/c/econst/HSDB_3 //test_ref/c/struct/HSDB_3 //test_ref/c/data/HSDB_3 //test_ref/c/clconst/HSDB_3 //test_ref/c/intf/HSDB_3 //test_ref/c/instm/HSDB_3 //test_ref/c/clm/HSDB_3 //test_ref/c/intfcm/HSDB_3 //test_ref/c/intfm/HSDB_3 //test_ref/c/func/HSDB_3 //test_ref/c/ftmplt/HSDB_3 //test_ref/c/defn/HSDB_3 //test_ref/c/macro/HSDB_3 //test_ref/doc/com/intfm/HSDB_3" --><span class="preprocessor">HSDB_3</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_1 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_1 //test_ref/c/tdef/HSDB_1 //test_ref/c/tag/HSDB_1 //test_ref/c/econst/HSDB_1 //test_ref/c/struct/HSDB_1 //test_ref/c/data/HSDB_1 //test_ref/c/clconst/HSDB_1 //test_ref/c/intf/HSDB_1 //test_ref/c/instm/HSDB_1 //test_ref/c/clm/HSDB_1 //test_ref/c/intfcm/HSDB_1 //test_ref/c/intfm/HSDB_1 //test_ref/c/func/HSDB_1 //test_ref/c/ftmplt/HSDB_1 //test_ref/c/defn/HSDB_1 //test_ref/c/macro/HSDB_1 //test_ref/doc/com/intfm/HSDB_1" --><span class="preprocessor">HSDB_1</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_2 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_2 //test_ref/c/tdef/HSDB_2 //test_ref/c/tag/HSDB_2 //test_ref/c/econst/HSDB_2 //test_ref/c/struct/HSDB_2 //test_ref/c/data/HSDB_2 //test_ref/c/clconst/HSDB_2 //test_ref/c/intf/HSDB_2 //test_ref/c/instm/HSDB_2 //test_ref/c/clm/HSDB_2 //test_ref/c/intfcm/HSDB_2 //test_ref/c/intfm/HSDB_2 //test_ref/c/func/HSDB_2 //test_ref/c/ftmplt/HSDB_2 //test_ref/c/defn/HSDB_2 //test_ref/c/macro/HSDB_2 //test_ref/doc/com/intfm/HSDB_2" --><span class="preprocessor">HSDB_2</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_3 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_3 //test_ref/c/tdef/HSDB_3 //test_ref/c/tag/HSDB_3 //test_ref/c/econst/HSDB_3 //test_ref/c/struct/HSDB_3 //test_ref/c/data/HSDB_3 //test_ref/c/clconst/HSDB_3 //test_ref/c/intf/HSDB_3 //test_ref/c/instm/HSDB_3 //test_ref/c/clm/HSDB_3 //test_ref/c/intfcm/HSDB_3 //test_ref/c/intfm/HSDB_3 //test_ref/c/func/HSDB_3 //test_ref/c/ftmplt/HSDB_3 //test_ref/c/defn/HSDB_3 //test_ref/c/macro/HSDB_3 //test_ref/doc/com/intfm/HSDB_3" --><span class="preprocessor">HSDB_3</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_4 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_4 //test_ref/c/tdef/HSDB_4 //test_ref/c/tag/HSDB_4 //test_ref/c/econst/HSDB_4 //test_ref/c/struct/HSDB_4 //test_ref/c/data/HSDB_4 //test_ref/c/clconst/HSDB_4 //test_ref/c/intf/HSDB_4 //test_ref/c/instm/HSDB_4 //test_ref/c/clm/HSDB_4 //test_ref/c/intfcm/HSDB_4 //test_ref/c/intfm/HSDB_4 //test_ref/c/func/HSDB_4 //test_ref/c/ftmplt/HSDB_4 //test_ref/c/defn/HSDB_4 //test_ref/c/macro/HSDB_4 //test_ref/doc/com/intfm/HSDB_4" --><span class="preprocessor">HSDB_4</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_1 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_1 //test_ref/c/tdef/HSDB_1 //test_ref/c/tag/HSDB_1 //test_ref/c/econst/HSDB_1 //test_ref/c/struct/HSDB_1 //test_ref/c/data/HSDB_1 //test_ref/c/clconst/HSDB_1 //test_ref/c/intf/HSDB_1 //test_ref/c/instm/HSDB_1 //test_ref/c/clm/HSDB_1 //test_ref/c/intfcm/HSDB_1 //test_ref/c/intfm/HSDB_1 //test_ref/c/func/HSDB_1 //test_ref/c/ftmplt/HSDB_1 //test_ref/c/defn/HSDB_1 //test_ref/c/macro/HSDB_1 //test_ref/doc/com/intfm/HSDB_1" --><span class="preprocessor">HSDB_1</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_2 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_2 //test_ref/c/tdef/HSDB_2 //test_ref/c/tag/HSDB_2 //test_ref/c/econst/HSDB_2 //test_ref/c/struct/HSDB_2 //test_ref/c/data/HSDB_2 //test_ref/c/clconst/HSDB_2 //test_ref/c/intf/HSDB_2 //test_ref/c/instm/HSDB_2 //test_ref/c/clm/HSDB_2 //test_ref/c/intfcm/HSDB_2 //test_ref/c/intfm/HSDB_2 //test_ref/c/func/HSDB_2 //test_ref/c/ftmplt/HSDB_2 //test_ref/c/defn/HSDB_2 //test_ref/c/macro/HSDB_2 //test_ref/doc/com/intfm/HSDB_2" --><span class="preprocessor">HSDB_2</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_3 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_3 //test_ref/c/tdef/HSDB_3 //test_ref/c/tag/HSDB_3 //test_ref/c/econst/HSDB_3 //test_ref/c/struct/HSDB_3 //test_ref/c/data/HSDB_3 //test_ref/c/clconst/HSDB_3 //test_ref/c/intf/HSDB_3 //test_ref/c/instm/HSDB_3 //test_ref/c/clm/HSDB_3 //test_ref/c/intfcm/HSDB_3 //test_ref/c/intfm/HSDB_3 //test_ref/c/func/HSDB_3 //test_ref/c/ftmplt/HSDB_3 //test_ref/c/defn/HSDB_3 //test_ref/c/macro/HSDB_3 //test_ref/doc/com/intfm/HSDB_3" --><span class="preprocessor">HSDB_3</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_4 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_4 //test_ref/c/tdef/HSDB_4 //test_ref/c/tag/HSDB_4 //test_ref/c/econst/HSDB_4 //test_ref/c/struct/HSDB_4 //test_ref/c/data/HSDB_4 //test_ref/c/clconst/HSDB_4 //test_ref/c/intf/HSDB_4 //test_ref/c/instm/HSDB_4 //test_ref/c/clm/HSDB_4 //test_ref/c/intfcm/HSDB_4 //test_ref/c/intfm/HSDB_4 //test_ref/c/func/HSDB_4 //test_ref/c/ftmplt/HSDB_4 //test_ref/c/defn/HSDB_4 //test_ref/c/macro/HSDB_4 //test_ref/doc/com/intfm/HSDB_4" --><span class="preprocessor">HSDB_4</span><!-- /a --> 
+END OF OBJECT
+
+
+
+$71|This tests the new @hidesingletons flag in @defineblock declaractions.
+$42|testsuite/parser_tests/define_block_3.test$1|C$14|define block 3$28065|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 2
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/define_block_3.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/define_block_3.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 3
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 1
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => HSDB_1
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} => #define HSDB_1
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 1
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => HSDB_1
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{typestring} => #
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 1
+typelist: #define
+namelist: HSDB_1
+posstypes: constant
+value: 
+returntype: 
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---#define
+|   +--- 
+|   +---HSDB_1
+|   +---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+$CPP_HASH{HSDB_1} => 
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: define block 3
+APIUID: //test_ref/doc/header/define_block_3.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 4
+    INDEX GROUP: 
+    IS BLOCK: 1
+    IS AVAILABILITY MACRO: 
+    PARSE ONLY: 
+    OBJECT TYPE: HeaderDoc::PDefine
+    NAME: Hide Singletons Define Block
+    APIUID: //test_ref/doc/title:macro/HideSingletonsDefineBlock
+    ABSTRACT: ""
+    DISCUSSION: "<p>this block's defines should not be shown.
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::PDefine"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: "Singletons Define Block"
+    HIDEDOC: ""
+    HIDESINGLETONS: "1"
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+    PARSED PARAMETERS:
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        IS AVAILABILITY MACRO: 
+        PARSE ONLY: 
+        OBJECT TYPE: HeaderDoc::PDefine
+        NAME: HSDB_1
+        APIUID: //test_ref/c/macro/HSDB_1
+        ABSTRACT: ""
+        DISCUSSION: "<p>HSDB #1 discussion here."
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::PDefine"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: "1"
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/doc/title:macro/HideSingletonsDefineBlock" --><p>Hide<!-- /a --></dt><dd></dd></dl></div>
+
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        IS AVAILABILITY MACRO: 
+        PARSE ONLY: 
+        OBJECT TYPE: HeaderDoc::PDefine
+        NAME: HSDB_2
+        APIUID: //test_ref/c/macro/HSDB_2
+        ABSTRACT: ""
+        DISCUSSION: "<p>HSDB #2 discussion here."
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::PDefine"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: "1"
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/doc/title:macro/HideSingletonsDefineBlock" --><p>Hide<!-- /a --></dt><dd></dd></dl></div>
+
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        IS AVAILABILITY MACRO: 
+        PARSE ONLY: 
+        OBJECT TYPE: HeaderDoc::PDefine
+        NAME: HSDB_3
+        APIUID: //test_ref/c/macro/HSDB_3
+        ABSTRACT: ""
+        DISCUSSION: "<p>HSDB #3 discussion here."
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::PDefine"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: "1"
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/doc/title:macro/HideSingletonsDefineBlock" --><p>Hide<!-- /a --></dt><dd></dd></dl></div>
+
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        IS AVAILABILITY MACRO: 
+        PARSE ONLY: 
+        OBJECT TYPE: HeaderDoc::PDefine
+        NAME: HSDB_4
+        APIUID: //test_ref/c/macro/HSDB_4
+        ABSTRACT: ""
+        DISCUSSION: "<p>HSDB #4 discussion here."
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::PDefine"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: "1"
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/doc/title:macro/HideSingletonsDefineBlock" --><p>Hide<!-- /a --></dt><dd></dd></dl></div>
+
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+    TAGGED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: HSDB_1
+        TYPE: 
+        APIUID: //test_ref/doc/title:internal_temporary_object/HideSingletonsDefineBlock/HSDB_1
+        ABSTRACT: ""
+        DISCUSSION: "<p>HSDB #1 discussion here."
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: "1"
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: "REF(OBJID)"
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: HSDB_2
+        TYPE: 
+        APIUID: //test_ref/doc/title:internal_temporary_object/HideSingletonsDefineBlock/HSDB_2
+        ABSTRACT: ""
+        DISCUSSION: "<p>HSDB #2 discussion here."
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: "1"
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: "REF(OBJID)"
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: HSDB_3
+        TYPE: 
+        APIUID: //test_ref/doc/title:internal_temporary_object/HideSingletonsDefineBlock/HSDB_3
+        ABSTRACT: ""
+        DISCUSSION: "<p>HSDB #3 discussion here."
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: "1"
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: "REF(OBJID)"
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: HSDB_4
+        TYPE: 
+        APIUID: //test_ref/doc/title:internal_temporary_object/HideSingletonsDefineBlock/HSDB_4
+        ABSTRACT: ""
+        DISCUSSION: "<p>HSDB #4 discussion here."
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: "1"
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: "REF(OBJID)"
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    IS AVAILABILITY MACRO: 
+    PARSE ONLY: 
+    OBJECT TYPE: HeaderDoc::PDefine
+    NAME: HSDB_1
+    APIUID: //test_ref/c/macro/HSDB_1
+    ABSTRACT: ""
+    DISCUSSION: "<p>HSDB #1 discussion here."
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::PDefine"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: "1"
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/doc/title:macro/HideSingletonsDefineBlock" --><p>Hide<!-- /a --></dt><dd></dd></dl></div>
+
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    IS AVAILABILITY MACRO: 
+    PARSE ONLY: 
+    OBJECT TYPE: HeaderDoc::PDefine
+    NAME: HSDB_2
+    APIUID: //test_ref/c/macro/HSDB_2
+    ABSTRACT: ""
+    DISCUSSION: "<p>HSDB #2 discussion here."
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::PDefine"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: "1"
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/doc/title:macro/HideSingletonsDefineBlock" --><p>Hide<!-- /a --></dt><dd></dd></dl></div>
+
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    IS AVAILABILITY MACRO: 
+    PARSE ONLY: 
+    OBJECT TYPE: HeaderDoc::PDefine
+    NAME: HSDB_3
+    APIUID: //test_ref/c/macro/HSDB_3
+    ABSTRACT: ""
+    DISCUSSION: "<p>HSDB #3 discussion here."
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::PDefine"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: "1"
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/doc/title:macro/HideSingletonsDefineBlock" --><p>Hide<!-- /a --></dt><dd></dd></dl></div>
+
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    IS AVAILABILITY MACRO: 
+    PARSE ONLY: 
+    OBJECT TYPE: HeaderDoc::PDefine
+    NAME: HSDB_4
+    APIUID: //test_ref/c/macro/HSDB_4
+    ABSTRACT: ""
+    DISCUSSION: "<p>HSDB #4 discussion here."
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::PDefine"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: "1"
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/doc/title:macro/HideSingletonsDefineBlock" --><p>Hide<!-- /a --></dt><dd></dd></dl></div>
+
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: HSDB_4 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_4
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_1 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_1
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_2 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_2
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_3 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_3
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_1 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_1
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_2 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_2
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_3 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_3
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_4 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_4
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_1 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_1
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_2 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_2
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_3 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_3
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_4 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_4
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: HSDB_4 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_4 //test_ref/c/tdef/HSDB_4 //test_ref/c/tag/HSDB_4 //test_ref/c/econst/HSDB_4 //test_ref/c/struct/HSDB_4 //test_ref/c/data/HSDB_4 //test_ref/c/clconst/HSDB_4 //test_ref/c/intf/HSDB_4 //test_ref/c/instm/HSDB_4 //test_ref/c/clm/HSDB_4 //test_ref/c/intfcm/HSDB_4 //test_ref/c/intfm/HSDB_4 //test_ref/c/func/HSDB_4 //test_ref/c/ftmplt/HSDB_4 //test_ref/c/defn/HSDB_4 //test_ref/c/macro/HSDB_4 //test_ref/doc/com/intfm/HSDB_4" --><span class="preprocessor">HSDB_4</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_1 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_1 //test_ref/c/tdef/HSDB_1 //test_ref/c/tag/HSDB_1 //test_ref/c/econst/HSDB_1 //test_ref/c/struct/HSDB_1 //test_ref/c/data/HSDB_1 //test_ref/c/clconst/HSDB_1 //test_ref/c/intf/HSDB_1 //test_ref/c/instm/HSDB_1 //test_ref/c/clm/HSDB_1 //test_ref/c/intfcm/HSDB_1 //test_ref/c/intfm/HSDB_1 //test_ref/c/func/HSDB_1 //test_ref/c/ftmplt/HSDB_1 //test_ref/c/defn/HSDB_1 //test_ref/c/macro/HSDB_1 //test_ref/doc/com/intfm/HSDB_1" --><span class="preprocessor">HSDB_1</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_2 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_2 //test_ref/c/tdef/HSDB_2 //test_ref/c/tag/HSDB_2 //test_ref/c/econst/HSDB_2 //test_ref/c/struct/HSDB_2 //test_ref/c/data/HSDB_2 //test_ref/c/clconst/HSDB_2 //test_ref/c/intf/HSDB_2 //test_ref/c/instm/HSDB_2 //test_ref/c/clm/HSDB_2 //test_ref/c/intfcm/HSDB_2 //test_ref/c/intfm/HSDB_2 //test_ref/c/func/HSDB_2 //test_ref/c/ftmplt/HSDB_2 //test_ref/c/defn/HSDB_2 //test_ref/c/macro/HSDB_2 //test_ref/doc/com/intfm/HSDB_2" --><span class="preprocessor">HSDB_2</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_3 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_3 //test_ref/c/tdef/HSDB_3 //test_ref/c/tag/HSDB_3 //test_ref/c/econst/HSDB_3 //test_ref/c/struct/HSDB_3 //test_ref/c/data/HSDB_3 //test_ref/c/clconst/HSDB_3 //test_ref/c/intf/HSDB_3 //test_ref/c/instm/HSDB_3 //test_ref/c/clm/HSDB_3 //test_ref/c/intfcm/HSDB_3 //test_ref/c/intfm/HSDB_3 //test_ref/c/func/HSDB_3 //test_ref/c/ftmplt/HSDB_3 //test_ref/c/defn/HSDB_3 //test_ref/c/macro/HSDB_3 //test_ref/doc/com/intfm/HSDB_3" --><span class="preprocessor">HSDB_3</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_1 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_1 //test_ref/c/tdef/HSDB_1 //test_ref/c/tag/HSDB_1 //test_ref/c/econst/HSDB_1 //test_ref/c/struct/HSDB_1 //test_ref/c/data/HSDB_1 //test_ref/c/clconst/HSDB_1 //test_ref/c/intf/HSDB_1 //test_ref/c/instm/HSDB_1 //test_ref/c/clm/HSDB_1 //test_ref/c/intfcm/HSDB_1 //test_ref/c/intfm/HSDB_1 //test_ref/c/func/HSDB_1 //test_ref/c/ftmplt/HSDB_1 //test_ref/c/defn/HSDB_1 //test_ref/c/macro/HSDB_1 //test_ref/doc/com/intfm/HSDB_1" --><span class="preprocessor">HSDB_1</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_2 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_2 //test_ref/c/tdef/HSDB_2 //test_ref/c/tag/HSDB_2 //test_ref/c/econst/HSDB_2 //test_ref/c/struct/HSDB_2 //test_ref/c/data/HSDB_2 //test_ref/c/clconst/HSDB_2 //test_ref/c/intf/HSDB_2 //test_ref/c/instm/HSDB_2 //test_ref/c/clm/HSDB_2 //test_ref/c/intfcm/HSDB_2 //test_ref/c/intfm/HSDB_2 //test_ref/c/func/HSDB_2 //test_ref/c/ftmplt/HSDB_2 //test_ref/c/defn/HSDB_2 //test_ref/c/macro/HSDB_2 //test_ref/doc/com/intfm/HSDB_2" --><span class="preprocessor">HSDB_2</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_3 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_3 //test_ref/c/tdef/HSDB_3 //test_ref/c/tag/HSDB_3 //test_ref/c/econst/HSDB_3 //test_ref/c/struct/HSDB_3 //test_ref/c/data/HSDB_3 //test_ref/c/clconst/HSDB_3 //test_ref/c/intf/HSDB_3 //test_ref/c/instm/HSDB_3 //test_ref/c/clm/HSDB_3 //test_ref/c/intfcm/HSDB_3 //test_ref/c/intfm/HSDB_3 //test_ref/c/func/HSDB_3 //test_ref/c/ftmplt/HSDB_3 //test_ref/c/defn/HSDB_3 //test_ref/c/macro/HSDB_3 //test_ref/doc/com/intfm/HSDB_3" --><span class="preprocessor">HSDB_3</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_4 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_4 //test_ref/c/tdef/HSDB_4 //test_ref/c/tag/HSDB_4 //test_ref/c/econst/HSDB_4 //test_ref/c/struct/HSDB_4 //test_ref/c/data/HSDB_4 //test_ref/c/clconst/HSDB_4 //test_ref/c/intf/HSDB_4 //test_ref/c/instm/HSDB_4 //test_ref/c/clm/HSDB_4 //test_ref/c/intfcm/HSDB_4 //test_ref/c/intfm/HSDB_4 //test_ref/c/func/HSDB_4 //test_ref/c/ftmplt/HSDB_4 //test_ref/c/defn/HSDB_4 //test_ref/c/macro/HSDB_4 //test_ref/doc/com/intfm/HSDB_4" --><span class="preprocessor">HSDB_4</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_1 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_1 //test_ref/c/tdef/HSDB_1 //test_ref/c/tag/HSDB_1 //test_ref/c/econst/HSDB_1 //test_ref/c/struct/HSDB_1 //test_ref/c/data/HSDB_1 //test_ref/c/clconst/HSDB_1 //test_ref/c/intf/HSDB_1 //test_ref/c/instm/HSDB_1 //test_ref/c/clm/HSDB_1 //test_ref/c/intfcm/HSDB_1 //test_ref/c/intfm/HSDB_1 //test_ref/c/func/HSDB_1 //test_ref/c/ftmplt/HSDB_1 //test_ref/c/defn/HSDB_1 //test_ref/c/macro/HSDB_1 //test_ref/doc/com/intfm/HSDB_1" --><span class="preprocessor">HSDB_1</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_2 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_2 //test_ref/c/tdef/HSDB_2 //test_ref/c/tag/HSDB_2 //test_ref/c/econst/HSDB_2 //test_ref/c/struct/HSDB_2 //test_ref/c/data/HSDB_2 //test_ref/c/clconst/HSDB_2 //test_ref/c/intf/HSDB_2 //test_ref/c/instm/HSDB_2 //test_ref/c/clm/HSDB_2 //test_ref/c/intfcm/HSDB_2 //test_ref/c/intfm/HSDB_2 //test_ref/c/func/HSDB_2 //test_ref/c/ftmplt/HSDB_2 //test_ref/c/defn/HSDB_2 //test_ref/c/macro/HSDB_2 //test_ref/doc/com/intfm/HSDB_2" --><span class="preprocessor">HSDB_2</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_3 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_3 //test_ref/c/tdef/HSDB_3 //test_ref/c/tag/HSDB_3 //test_ref/c/econst/HSDB_3 //test_ref/c/struct/HSDB_3 //test_ref/c/data/HSDB_3 //test_ref/c/clconst/HSDB_3 //test_ref/c/intf/HSDB_3 //test_ref/c/instm/HSDB_3 //test_ref/c/clm/HSDB_3 //test_ref/c/intfcm/HSDB_3 //test_ref/c/intfm/HSDB_3 //test_ref/c/func/HSDB_3 //test_ref/c/ftmplt/HSDB_3 //test_ref/c/defn/HSDB_3 //test_ref/c/macro/HSDB_3 //test_ref/doc/com/intfm/HSDB_3" --><span class="preprocessor">HSDB_3</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_4 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_4 //test_ref/c/tdef/HSDB_4 //test_ref/c/tag/HSDB_4 //test_ref/c/econst/HSDB_4 //test_ref/c/struct/HSDB_4 //test_ref/c/data/HSDB_4 //test_ref/c/clconst/HSDB_4 //test_ref/c/intf/HSDB_4 //test_ref/c/instm/HSDB_4 //test_ref/c/clm/HSDB_4 //test_ref/c/intfcm/HSDB_4 //test_ref/c/intfm/HSDB_4 //test_ref/c/func/HSDB_4 //test_ref/c/ftmplt/HSDB_4 //test_ref/c/defn/HSDB_4 //test_ref/c/macro/HSDB_4 //test_ref/doc/com/intfm/HSDB_4" --><span class="preprocessor">HSDB_4</span><!-- /a --> 
+END OF OBJECT
+
+
+
+$28065|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 2
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/define_block_3.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/define_block_3.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 3
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 1
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => HSDB_1
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} => #define HSDB_1
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 1
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => HSDB_1
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{typestring} => #
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 1
+typelist: #define
+namelist: HSDB_1
+posstypes: constant
+value: 
+returntype: 
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---#define
+|   +--- 
+|   +---HSDB_1
+|   +---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+$CPP_HASH{HSDB_1} => 
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: define block 3
+APIUID: //test_ref/doc/header/define_block_3.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 4
+    INDEX GROUP: 
+    IS BLOCK: 1
+    IS AVAILABILITY MACRO: 
+    PARSE ONLY: 
+    OBJECT TYPE: HeaderDoc::PDefine
+    NAME: Hide Singletons Define Block
+    APIUID: //test_ref/doc/title:macro/HideSingletonsDefineBlock
+    ABSTRACT: ""
+    DISCUSSION: "<p>this block's defines should not be shown.
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::PDefine"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: "Singletons Define Block"
+    HIDEDOC: ""
+    HIDESINGLETONS: "1"
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+    PARSED PARAMETERS:
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        IS AVAILABILITY MACRO: 
+        PARSE ONLY: 
+        OBJECT TYPE: HeaderDoc::PDefine
+        NAME: HSDB_1
+        APIUID: //test_ref/c/macro/HSDB_1
+        ABSTRACT: ""
+        DISCUSSION: "<p>HSDB #1 discussion here."
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::PDefine"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: "1"
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/doc/title:macro/HideSingletonsDefineBlock" --><p>Hide<!-- /a --></dt><dd></dd></dl></div>
+
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        IS AVAILABILITY MACRO: 
+        PARSE ONLY: 
+        OBJECT TYPE: HeaderDoc::PDefine
+        NAME: HSDB_2
+        APIUID: //test_ref/c/macro/HSDB_2
+        ABSTRACT: ""
+        DISCUSSION: "<p>HSDB #2 discussion here."
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::PDefine"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: "1"
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/doc/title:macro/HideSingletonsDefineBlock" --><p>Hide<!-- /a --></dt><dd></dd></dl></div>
+
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        IS AVAILABILITY MACRO: 
+        PARSE ONLY: 
+        OBJECT TYPE: HeaderDoc::PDefine
+        NAME: HSDB_3
+        APIUID: //test_ref/c/macro/HSDB_3
+        ABSTRACT: ""
+        DISCUSSION: "<p>HSDB #3 discussion here."
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::PDefine"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: "1"
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/doc/title:macro/HideSingletonsDefineBlock" --><p>Hide<!-- /a --></dt><dd></dd></dl></div>
+
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        IS AVAILABILITY MACRO: 
+        PARSE ONLY: 
+        OBJECT TYPE: HeaderDoc::PDefine
+        NAME: HSDB_4
+        APIUID: //test_ref/c/macro/HSDB_4
+        ABSTRACT: ""
+        DISCUSSION: "<p>HSDB #4 discussion here."
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::PDefine"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: "1"
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/doc/title:macro/HideSingletonsDefineBlock" --><p>Hide<!-- /a --></dt><dd></dd></dl></div>
+
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+    TAGGED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: HSDB_1
+        TYPE: 
+        APIUID: //test_ref/doc/title:internal_temporary_object/HideSingletonsDefineBlock/HSDB_1
+        ABSTRACT: ""
+        DISCUSSION: "<p>HSDB #1 discussion here."
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: "1"
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: "REF(OBJID)"
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: HSDB_2
+        TYPE: 
+        APIUID: //test_ref/doc/title:internal_temporary_object/HideSingletonsDefineBlock/HSDB_2
+        ABSTRACT: ""
+        DISCUSSION: "<p>HSDB #2 discussion here."
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: "1"
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: "REF(OBJID)"
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: HSDB_3
+        TYPE: 
+        APIUID: //test_ref/doc/title:internal_temporary_object/HideSingletonsDefineBlock/HSDB_3
+        ABSTRACT: ""
+        DISCUSSION: "<p>HSDB #3 discussion here."
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: "1"
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: "REF(OBJID)"
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: HSDB_4
+        TYPE: 
+        APIUID: //test_ref/doc/title:internal_temporary_object/HideSingletonsDefineBlock/HSDB_4
+        ABSTRACT: ""
+        DISCUSSION: "<p>HSDB #4 discussion here."
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: "1"
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: "REF(OBJID)"
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    IS AVAILABILITY MACRO: 
+    PARSE ONLY: 
+    OBJECT TYPE: HeaderDoc::PDefine
+    NAME: HSDB_1
+    APIUID: //test_ref/c/macro/HSDB_1
+    ABSTRACT: ""
+    DISCUSSION: "<p>HSDB #1 discussion here."
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::PDefine"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: "1"
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/doc/title:macro/HideSingletonsDefineBlock" --><p>Hide<!-- /a --></dt><dd></dd></dl></div>
+
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    IS AVAILABILITY MACRO: 
+    PARSE ONLY: 
+    OBJECT TYPE: HeaderDoc::PDefine
+    NAME: HSDB_2
+    APIUID: //test_ref/c/macro/HSDB_2
+    ABSTRACT: ""
+    DISCUSSION: "<p>HSDB #2 discussion here."
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::PDefine"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: "1"
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/doc/title:macro/HideSingletonsDefineBlock" --><p>Hide<!-- /a --></dt><dd></dd></dl></div>
+
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    IS AVAILABILITY MACRO: 
+    PARSE ONLY: 
+    OBJECT TYPE: HeaderDoc::PDefine
+    NAME: HSDB_3
+    APIUID: //test_ref/c/macro/HSDB_3
+    ABSTRACT: ""
+    DISCUSSION: "<p>HSDB #3 discussion here."
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::PDefine"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: "1"
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/doc/title:macro/HideSingletonsDefineBlock" --><p>Hide<!-- /a --></dt><dd></dd></dl></div>
+
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    IS AVAILABILITY MACRO: 
+    PARSE ONLY: 
+    OBJECT TYPE: HeaderDoc::PDefine
+    NAME: HSDB_4
+    APIUID: //test_ref/c/macro/HSDB_4
+    ABSTRACT: ""
+    DISCUSSION: "<p>HSDB #4 discussion here."
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::PDefine"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: "1"
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
+<dt><!-- a logicalPath="//test_ref/doc/title:macro/HideSingletonsDefineBlock" --><p>Hide<!-- /a --></dt><dd></dd></dl></div>
+
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: HSDB_4 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_4
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_1 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_1
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_2 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_2
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_3 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_3
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_1 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_1
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_2 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_2
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_3 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_3
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_4 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_4
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_1 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_1
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_2 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_2
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_3 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_3
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: HSDB_4 (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---HSDB_4
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: HSDB_4 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_4 //test_ref/c/tdef/HSDB_4 //test_ref/c/tag/HSDB_4 //test_ref/c/econst/HSDB_4 //test_ref/c/struct/HSDB_4 //test_ref/c/data/HSDB_4 //test_ref/c/clconst/HSDB_4 //test_ref/c/intf/HSDB_4 //test_ref/c/instm/HSDB_4 //test_ref/c/clm/HSDB_4 //test_ref/c/intfcm/HSDB_4 //test_ref/c/intfm/HSDB_4 //test_ref/c/func/HSDB_4 //test_ref/c/ftmplt/HSDB_4 //test_ref/c/defn/HSDB_4 //test_ref/c/macro/HSDB_4 //test_ref/doc/com/intfm/HSDB_4" --><span class="preprocessor">HSDB_4</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_1 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_1 //test_ref/c/tdef/HSDB_1 //test_ref/c/tag/HSDB_1 //test_ref/c/econst/HSDB_1 //test_ref/c/struct/HSDB_1 //test_ref/c/data/HSDB_1 //test_ref/c/clconst/HSDB_1 //test_ref/c/intf/HSDB_1 //test_ref/c/instm/HSDB_1 //test_ref/c/clm/HSDB_1 //test_ref/c/intfcm/HSDB_1 //test_ref/c/intfm/HSDB_1 //test_ref/c/func/HSDB_1 //test_ref/c/ftmplt/HSDB_1 //test_ref/c/defn/HSDB_1 //test_ref/c/macro/HSDB_1 //test_ref/doc/com/intfm/HSDB_1" --><span class="preprocessor">HSDB_1</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_2 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_2 //test_ref/c/tdef/HSDB_2 //test_ref/c/tag/HSDB_2 //test_ref/c/econst/HSDB_2 //test_ref/c/struct/HSDB_2 //test_ref/c/data/HSDB_2 //test_ref/c/clconst/HSDB_2 //test_ref/c/intf/HSDB_2 //test_ref/c/instm/HSDB_2 //test_ref/c/clm/HSDB_2 //test_ref/c/intfcm/HSDB_2 //test_ref/c/intfm/HSDB_2 //test_ref/c/func/HSDB_2 //test_ref/c/ftmplt/HSDB_2 //test_ref/c/defn/HSDB_2 //test_ref/c/macro/HSDB_2 //test_ref/doc/com/intfm/HSDB_2" --><span class="preprocessor">HSDB_2</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_3 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_3 //test_ref/c/tdef/HSDB_3 //test_ref/c/tag/HSDB_3 //test_ref/c/econst/HSDB_3 //test_ref/c/struct/HSDB_3 //test_ref/c/data/HSDB_3 //test_ref/c/clconst/HSDB_3 //test_ref/c/intf/HSDB_3 //test_ref/c/instm/HSDB_3 //test_ref/c/clm/HSDB_3 //test_ref/c/intfcm/HSDB_3 //test_ref/c/intfm/HSDB_3 //test_ref/c/func/HSDB_3 //test_ref/c/ftmplt/HSDB_3 //test_ref/c/defn/HSDB_3 //test_ref/c/macro/HSDB_3 //test_ref/doc/com/intfm/HSDB_3" --><span class="preprocessor">HSDB_3</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_1 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_1 //test_ref/c/tdef/HSDB_1 //test_ref/c/tag/HSDB_1 //test_ref/c/econst/HSDB_1 //test_ref/c/struct/HSDB_1 //test_ref/c/data/HSDB_1 //test_ref/c/clconst/HSDB_1 //test_ref/c/intf/HSDB_1 //test_ref/c/instm/HSDB_1 //test_ref/c/clm/HSDB_1 //test_ref/c/intfcm/HSDB_1 //test_ref/c/intfm/HSDB_1 //test_ref/c/func/HSDB_1 //test_ref/c/ftmplt/HSDB_1 //test_ref/c/defn/HSDB_1 //test_ref/c/macro/HSDB_1 //test_ref/doc/com/intfm/HSDB_1" --><span class="preprocessor">HSDB_1</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_2 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_2 //test_ref/c/tdef/HSDB_2 //test_ref/c/tag/HSDB_2 //test_ref/c/econst/HSDB_2 //test_ref/c/struct/HSDB_2 //test_ref/c/data/HSDB_2 //test_ref/c/clconst/HSDB_2 //test_ref/c/intf/HSDB_2 //test_ref/c/instm/HSDB_2 //test_ref/c/clm/HSDB_2 //test_ref/c/intfcm/HSDB_2 //test_ref/c/intfm/HSDB_2 //test_ref/c/func/HSDB_2 //test_ref/c/ftmplt/HSDB_2 //test_ref/c/defn/HSDB_2 //test_ref/c/macro/HSDB_2 //test_ref/doc/com/intfm/HSDB_2" --><span class="preprocessor">HSDB_2</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_3 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_3 //test_ref/c/tdef/HSDB_3 //test_ref/c/tag/HSDB_3 //test_ref/c/econst/HSDB_3 //test_ref/c/struct/HSDB_3 //test_ref/c/data/HSDB_3 //test_ref/c/clconst/HSDB_3 //test_ref/c/intf/HSDB_3 //test_ref/c/instm/HSDB_3 //test_ref/c/clm/HSDB_3 //test_ref/c/intfcm/HSDB_3 //test_ref/c/intfm/HSDB_3 //test_ref/c/func/HSDB_3 //test_ref/c/ftmplt/HSDB_3 //test_ref/c/defn/HSDB_3 //test_ref/c/macro/HSDB_3 //test_ref/doc/com/intfm/HSDB_3" --><span class="preprocessor">HSDB_3</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_4 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_4 //test_ref/c/tdef/HSDB_4 //test_ref/c/tag/HSDB_4 //test_ref/c/econst/HSDB_4 //test_ref/c/struct/HSDB_4 //test_ref/c/data/HSDB_4 //test_ref/c/clconst/HSDB_4 //test_ref/c/intf/HSDB_4 //test_ref/c/instm/HSDB_4 //test_ref/c/clm/HSDB_4 //test_ref/c/intfcm/HSDB_4 //test_ref/c/intfm/HSDB_4 //test_ref/c/func/HSDB_4 //test_ref/c/ftmplt/HSDB_4 //test_ref/c/defn/HSDB_4 //test_ref/c/macro/HSDB_4 //test_ref/doc/com/intfm/HSDB_4" --><span class="preprocessor">HSDB_4</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_1 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_1 //test_ref/c/tdef/HSDB_1 //test_ref/c/tag/HSDB_1 //test_ref/c/econst/HSDB_1 //test_ref/c/struct/HSDB_1 //test_ref/c/data/HSDB_1 //test_ref/c/clconst/HSDB_1 //test_ref/c/intf/HSDB_1 //test_ref/c/instm/HSDB_1 //test_ref/c/clm/HSDB_1 //test_ref/c/intfcm/HSDB_1 //test_ref/c/intfm/HSDB_1 //test_ref/c/func/HSDB_1 //test_ref/c/ftmplt/HSDB_1 //test_ref/c/defn/HSDB_1 //test_ref/c/macro/HSDB_1 //test_ref/doc/com/intfm/HSDB_1" --><span class="preprocessor">HSDB_1</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_2 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_2 //test_ref/c/tdef/HSDB_2 //test_ref/c/tag/HSDB_2 //test_ref/c/econst/HSDB_2 //test_ref/c/struct/HSDB_2 //test_ref/c/data/HSDB_2 //test_ref/c/clconst/HSDB_2 //test_ref/c/intf/HSDB_2 //test_ref/c/instm/HSDB_2 //test_ref/c/clm/HSDB_2 //test_ref/c/intfcm/HSDB_2 //test_ref/c/intfm/HSDB_2 //test_ref/c/func/HSDB_2 //test_ref/c/ftmplt/HSDB_2 //test_ref/c/defn/HSDB_2 //test_ref/c/macro/HSDB_2 //test_ref/doc/com/intfm/HSDB_2" --><span class="preprocessor">HSDB_2</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_3 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_3 //test_ref/c/tdef/HSDB_3 //test_ref/c/tag/HSDB_3 //test_ref/c/econst/HSDB_3 //test_ref/c/struct/HSDB_3 //test_ref/c/data/HSDB_3 //test_ref/c/clconst/HSDB_3 //test_ref/c/intf/HSDB_3 //test_ref/c/instm/HSDB_3 //test_ref/c/clm/HSDB_3 //test_ref/c/intfcm/HSDB_3 //test_ref/c/intfm/HSDB_3 //test_ref/c/func/HSDB_3 //test_ref/c/ftmplt/HSDB_3 //test_ref/c/defn/HSDB_3 //test_ref/c/macro/HSDB_3 //test_ref/doc/com/intfm/HSDB_3" --><span class="preprocessor">HSDB_3</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: HSDB_4 (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/HSDB_4 //test_ref/c/tdef/HSDB_4 //test_ref/c/tag/HSDB_4 //test_ref/c/econst/HSDB_4 //test_ref/c/struct/HSDB_4 //test_ref/c/data/HSDB_4 //test_ref/c/clconst/HSDB_4 //test_ref/c/intf/HSDB_4 //test_ref/c/instm/HSDB_4 //test_ref/c/clm/HSDB_4 //test_ref/c/intfcm/HSDB_4 //test_ref/c/intfm/HSDB_4 //test_ref/c/func/HSDB_4 //test_ref/c/ftmplt/HSDB_4 //test_ref/c/defn/HSDB_4 //test_ref/c/macro/HSDB_4 //test_ref/doc/com/intfm/HSDB_4" --><span class="preprocessor">HSDB_4</span><!-- /a --> 
+END OF OBJECT
+
+
+
+$1|C$6|parser

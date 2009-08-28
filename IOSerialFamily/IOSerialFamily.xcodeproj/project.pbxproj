@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 42;
+	objectVersion = 46;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -56,8 +56,10 @@
 		021C9E3B000BD0CF11CA285C /* IORS232SerialStreamSync.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = IORS232SerialStreamSync.h; path = IOSerialFamily.kmodproj/IORS232SerialStreamSync.h; sourceTree = "<group>"; };
 		021C9E3C000BD0CF11CA285C /* IOModemSerialStreamSync.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = IOModemSerialStreamSync.h; path = IOSerialFamily.kmodproj/IOModemSerialStreamSync.h; sourceTree = "<group>"; };
 		2D5B7F6908F71A610031C32D /* IOSerialFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOSerialFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
-		2D5B7F6A08F71A610031C32D /* IOSerialFamily-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; name = "IOSerialFamily-Info.plist"; path = "IOSerialFamily.kmodproj/IOSerialFamily-Info.plist"; sourceTree = "<group>"; };
+		2D5B7F6A08F71A610031C32D /* IOSerialFamily-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "IOSerialFamily-Info.plist"; path = "IOSerialFamily.kmodproj/IOSerialFamily-Info.plist"; sourceTree = "<group>"; };
+		69BD17100E1C31E40070DD84 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = /System/Library/Frameworks/Kernel.framework; sourceTree = "<absolute>"; };
 		A0147846011B0EC802CA285C /* ioss.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = ioss.h; path = IOSerialFamily.kmodproj/ioss.h; sourceTree = "<group>"; };
+		C6FCFEA00E8D5B2B00B002E3 /* AspenSDK.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = AspenSDK.xcconfig; path = AppleInternal/XcodeConfig/AspenSDK.xcconfig; sourceTree = DEVELOPER_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -74,7 +76,9 @@
 				021C9E3B000BD0CF11CA285C /* IORS232SerialStreamSync.h */,
 				021C9E3C000BD0CF11CA285C /* IOModemSerialStreamSync.h */,
 				2D5B7F6A08F71A610031C32D /* IOSerialFamily-Info.plist */,
+				C6FCFEA00E8D5B2B00B002E3 /* AspenSDK.xcconfig */,
 				021C9E44000BD0CF11CA285C /* Products */,
+				69BD17100E1C31E40070DD84 /* Kernel.framework */,
 			);
 			name = IOSerialFamily;
 			sourceTree = "<group>";
@@ -113,7 +117,7 @@
 		021C9E2B000BD0CF11CA285C /* Project object */ = {
 			isa = PBXProject;
 			buildConfigurationList = 2D5B7F6108F71A3A0031C32D /* Build configuration list for PBXProject "IOSerialFamily" */;
-			compatibilityVersion = "Xcode 2.4";
+			compatibilityVersion = "Xcode 3.2";
 			hasScannedForEncodings = 0;
 			mainGroup = 021C9E2C000BD0CF11CA285C /* IOSerialFamily */;
 			productRefGroup = 021C9E44000BD0CF11CA285C /* Products */;
@@ -141,21 +145,20 @@
 		2D5B7F6208F71A3A0031C32D /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					i386,
-					ppc,
-				);
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_GROUP = wheel;
 				INSTALL_OWNER = root;
-				OTHER_CFLAGS = "-DDEBUG";
-				PER_ARCH_CFLAGS_arm = "-mlong-calls";
+				OTHER_CFLAGS = (
+					"-DDEBUG",
+					"-DJLOG=1",
+				);
 				PREBINDING = NO;
-				SDKROOT_arm = /Developer/SDKs/Purple;
-				SDKROOT_armv6 = /Developer/SDKs/Purple;
 				UNSTRIPPED_PRODUCT = YES;
 				WARNING_CFLAGS = (
 					"-Wall",
@@ -167,18 +170,14 @@
 		2D5B7F6308F71A3A0031C32D /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					i386,
-					ppc,
-				);
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
 				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				INSTALL_GROUP = wheel;
 				INSTALL_OWNER = root;
-				PER_ARCH_CFLAGS_arm = "-mlong-calls";
 				PREBINDING = NO;
-				SDKROOT_arm = /Developer/SDKs/Purple;
-				SDKROOT_armv6 = /Developer/SDKs/Purple;
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-W",
@@ -189,12 +188,19 @@
 		2D5B7F6C08F71A610031C32D /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				INFOPLIST_FILE = "IOSerialFamily.kmodproj/IOSerialFamily-Info.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSerialFamily;
 				MODULE_VERSION = 9.1;
 				PRODUCT_NAME = IOSerialFamily;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+				);
 				WRAPPER_EXTENSION = kext;
 			};
 			name = Development;
@@ -202,7 +208,10 @@
 		2D5B7F6D08F71A610031C32D /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				INFOPLIST_FILE = "IOSerialFamily.kmodproj/IOSerialFamily-Info.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSerialFamily;
@@ -212,6 +221,41 @@
 			};
 			name = Deployment;
 		};
+		C6FCFEAE0E8D5BDC00B002E3 /* Embedded */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C6FCFEA00E8D5B2B00B002E3 /* AspenSDK.xcconfig */;
+			buildSettings = {
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				COPY_PHASE_STRIP = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				INSTALL_GROUP = wheel;
+				INSTALL_OWNER = root;
+				PREBINDING = NO;
+				STRIP_INSTALLED_PRODUCT = NO;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+				);
+			};
+			name = Embedded;
+		};
+		C6FCFEAF0E8D5BDC00B002E3 /* Embedded */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C6FCFEA00E8D5B2B00B002E3 /* AspenSDK.xcconfig */;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				INFOPLIST_FILE = "IOSerialFamily.kmodproj/IOSerialFamily-Info.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOSerialFamily;
+				MODULE_VERSION = 9.1;
+				PRODUCT_NAME = IOSerialFamily;
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Embedded;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -220,6 +264,7 @@
 			buildConfigurations = (
 				2D5B7F6208F71A3A0031C32D /* Development */,
 				2D5B7F6308F71A3A0031C32D /* Deployment */,
+				C6FCFEAE0E8D5BDC00B002E3 /* Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -229,6 +274,7 @@
 			buildConfigurations = (
 				2D5B7F6C08F71A610031C32D /* Development */,
 				2D5B7F6D08F71A610031C32D /* Deployment */,
+				C6FCFEAF0E8D5BDC00B002E3 /* Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;

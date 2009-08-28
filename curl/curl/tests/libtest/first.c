@@ -5,19 +5,19 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: first.c,v 1.14 2006-10-25 09:20:44 yangtse Exp $
+ * $Id: first.c,v 1.20 2009-01-21 04:30:05 danf Exp $
  */
 
 #include "test.h"
 
-#ifdef CURLDEBUG
-/* provide a proto for this debug function */
-extern void curl_memdebug(const char *);
-extern void curl_memlimit(int);
+#ifdef HAVE_LOCALE_H
+#include <locale.h> /* for setlocale() */
 #endif
 
-/* test is provided in the test code file */
-int test(char *url);
+#ifdef CURLDEBUG
+#  define MEMDEBUG_NODEFINES
+#  include "memdebug.h"
+#endif
 
 int select_test (int num_fds, fd_set *rd, fd_set *wr, fd_set *exc,
                  struct timeval *tv)
@@ -34,7 +34,11 @@ int select_test (int num_fds, fd_set *rd, fd_set *wr, fd_set *exc,
   return select(num_fds, rd, wr, exc, tv);
 }
 
-char *arg2=NULL;
+char *libtest_arg2=NULL;
+char *libtest_arg3=NULL;
+int test_argc;
+char **test_argv;
+
 
 int main(int argc, char **argv)
 {
@@ -60,12 +64,29 @@ int main(int argc, char **argv)
     curl_free(env);
   }
 #endif
+
+  /*
+   * Setup proper locale from environment. This is needed to enable locale-
+   * specific behaviour by the C library in order to test for undesired side
+   * effects that could cause in libcurl.
+   */
+#ifdef HAVE_SETLOCALE
+  setlocale(LC_ALL, "");
+#endif
+
   if(argc< 2 ) {
     fprintf(stderr, "Pass URL as argument please\n");
     return 1;
   }
+
+  test_argc = argc;
+  test_argv = argv;
+
   if(argc>2)
-    arg2=argv[2];
+    libtest_arg2=argv[2];
+
+  if(argc>3)
+    libtest_arg3=argv[3];
 
   URL = argv[1]; /* provide this to the rest */
 

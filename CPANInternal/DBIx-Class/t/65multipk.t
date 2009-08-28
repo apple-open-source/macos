@@ -9,7 +9,7 @@ my $schema = DBICTest->init_schema();
 
 plan tests => 5;
 
-my $artist = DBICTest::Artist->find(1);
+my $artist = $schema->resultset("Artist")->find(1);
 ok($artist->find_related('twokeys', {cd => 1}), "find multiple pks using relationships + args");
 
 ok($schema->resultset("FourKeys")->search({ foo => 1, bar => 2 })->find({ hello => 3, goodbye => 4 }), "search on partial key followed by a find");

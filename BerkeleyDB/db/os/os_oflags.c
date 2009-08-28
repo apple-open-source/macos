@@ -1,24 +1,47 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1997-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1997,2007 Oracle.  All rights reserved.
+ *
+ * $Id: os_oflags.c,v 12.10 2007/05/17 15:15:46 bostic Exp $
  */
 
 #include "db_config.h"
 
-#ifndef lint
-static const char revid[] = "$Id: os_oflags.c,v 1.2 2004/03/30 01:23:46 jtownsen Exp $";
-#endif /* not lint */
+#include "db_int.h"
 
-#ifndef NO_SYSTEM_INCLUDES
-#include <sys/types.h>
-#include <sys/stat.h>
-
-#include <fcntl.h>
+#ifdef HAVE_SYSTEM_INCLUDE_FILES
+#ifdef HAVE_SHMGET
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#endif
 #endif
 
-#include "db_int.h"
+/*
+ * Ensure that POSIX defined codes are available.
+ */
+#ifndef O_CREAT
+#define	O_CREAT  0x0200
+#endif
+#ifndef O_TRUNC
+#define	O_TRUNC  0x0400
+#endif
+#ifndef O_RDONLY
+#define	O_RDONLY 0x0000
+#endif
+#ifndef O_RDWR
+#define	O_RDWR   0x0002
+#endif
+#ifndef O_WRONLY
+#define	O_WRONLY 0x0001
+#endif
+
+#ifndef S_IREAD
+#define	S_IREAD  0000400
+#endif
+#ifndef S_IWRITE
+#define	S_IWRITE 0000200
+#endif
 
 /*
  * __db_oflags --
@@ -60,6 +83,64 @@ __db_oflags(oflags)
 	return (dbflags);
 }
 
+#ifdef DB_WIN32
+#ifndef	S_IRUSR
+#define	S_IRUSR	S_IREAD		/* R for owner */
+#endif
+#ifndef	S_IWUSR
+#define	S_IWUSR	S_IWRITE	/* W for owner */
+#endif
+#ifndef	S_IXUSR
+#define	S_IXUSR	0		/* X for owner */
+#endif
+#ifndef	S_IRGRP
+#define	S_IRGRP	0		/* R for group */
+#endif
+#ifndef	S_IWGRP
+#define	S_IWGRP	0		/* W for group */
+#endif
+#ifndef	S_IXGRP
+#define	S_IXGRP	0		/* X for group */
+#endif
+#ifndef	S_IROTH
+#define	S_IROTH	0		/* R for other */
+#endif
+#ifndef	S_IWOTH
+#define	S_IWOTH	0		/* W for other */
+#endif
+#ifndef	S_IXOTH
+#define	S_IXOTH	0		/* X for other */
+#endif
+#else
+#ifndef	S_IRUSR
+#define	S_IRUSR	0000400		/* R for owner */
+#endif
+#ifndef	S_IWUSR
+#define	S_IWUSR	0000200		/* W for owner */
+#endif
+#ifndef	S_IXUSR
+#define	S_IXUSR	0000100		/* X for owner */
+#endif
+#ifndef	S_IRGRP
+#define	S_IRGRP	0000040		/* R for group */
+#endif
+#ifndef	S_IWGRP
+#define	S_IWGRP	0000020		/* W for group */
+#endif
+#ifndef	S_IXGRP
+#define	S_IXGRP	0000010		/* X for group */
+#endif
+#ifndef	S_IROTH
+#define	S_IROTH	0000004		/* R for other */
+#endif
+#ifndef	S_IWOTH
+#define	S_IWOTH	0000002		/* W for other */
+#endif
+#ifndef	S_IXOTH
+#define	S_IXOTH	0000001		/* X for other */
+#endif
+#endif /* DB_WIN32 */
+
 /*
  * __db_omode --
  *	Convert a permission string to the correct open(2) flags.
@@ -71,58 +152,24 @@ __db_omode(perm)
 	const char *perm;
 {
 	int mode;
-
-#ifdef DB_WIN32
-#ifndef	S_IRUSR
-#define	S_IRUSR	S_IREAD		/* R for owner */
-#endif
-#ifndef	S_IWUSR
-#define	S_IWUSR	S_IWRITE	/* W for owner */
-#endif
-#ifndef	S_IRGRP
-#define	S_IRGRP	0		/* R for group */
-#endif
-#ifndef	S_IWGRP
-#define	S_IWGRP	0		/* W for group */
-#endif
-#ifndef	S_IROTH
-#define	S_IROTH	0		/* R for other */
-#endif
-#ifndef	S_IWOTH
-#define	S_IWOTH	0		/* W for other */
-#endif
-#else
-#ifndef	S_IRUSR
-#define	S_IRUSR	0000400		/* R for owner */
-#endif
-#ifndef	S_IWUSR
-#define	S_IWUSR	0000200		/* W for owner */
-#endif
-#ifndef	S_IRGRP
-#define	S_IRGRP	0000040		/* R for group */
-#endif
-#ifndef	S_IWGRP
-#define	S_IWGRP	0000020		/* W for group */
-#endif
-#ifndef	S_IROTH
-#define	S_IROTH	0000004		/* R for other */
-#endif
-#ifndef	S_IWOTH
-#define	S_IWOTH	0000002		/* W for other */
-#endif
-#endif /* DB_WIN32 */
 	mode = 0;
 	if (perm[0] == 'r')
 		mode |= S_IRUSR;
 	if (perm[1] == 'w')
 		mode |= S_IWUSR;
-	if (perm[2] == 'r')
+	if (perm[2] == 'x')
+		mode |= S_IXUSR;
+	if (perm[3] == 'r')
 		mode |= S_IRGRP;
-	if (perm[3] == 'w')
+	if (perm[4] == 'w')
 		mode |= S_IWGRP;
-	if (perm[4] == 'r')
+	if (perm[5] == 'x')
+		mode |= S_IXGRP;
+	if (perm[6] == 'r')
 		mode |= S_IROTH;
-	if (perm[5] == 'w')
+	if (perm[7] == 'w')
 		mode |= S_IWOTH;
+	if (perm[8] == 'x')
+		mode |= S_IXOTH;
 	return (mode);
 }

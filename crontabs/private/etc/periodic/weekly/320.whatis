@@ -24,7 +24,7 @@ case "$weekly_whatis_enable" in
 		echo "manpath failed to find any manpage directories"
 		rc=3
 	    else
-		man_locales=`/usr/bin/manpath -qL`
+		#man_locales=`/usr/bin/manpath -qL`
 		rc=0
 
 	        # Build whatis(1) database(s) for original, non-localized

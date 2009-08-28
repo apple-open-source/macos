@@ -21,11 +21,7 @@
 	</array>
 	<key>realname</key>
 	<array>
-		<string>HTTP Users</string>
-	</array>
-	<key>smb_sid</key>
-	<array>
-		<string>S-1-5-21-170</string>
+		<string>World Wide Web Server</string>
 	</array>
 </dict>
 </plist>

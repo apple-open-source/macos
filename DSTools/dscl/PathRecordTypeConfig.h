@@ -31,7 +31,10 @@
 
 @interface PathRecordTypeConfig : PathRecordType
 {
-
+	AuthorizationExternalForm _authExternalForm;
+	BOOL _haveRights;
 }
+
+- (void)setAuthExternalForm:(AuthorizationExternalForm*)externalForm;
 
 @end

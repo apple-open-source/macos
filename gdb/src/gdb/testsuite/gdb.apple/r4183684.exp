@@ -52,7 +52,7 @@ gdb_test "break [gdb_get_line_number "good stopping point in reportBase"]" "Brea
 
 gdb_test "run" "Starting program: $binfile *\r\n\Reading symbols for shared libraries \(\[.+\]\)+ done.*Breakpoint 1, main.*" "continue to breakpoint in main()"
 
-gdb_test "print cont" "\\$$decimal = {<Widget> = {containerVar = 200}, contVar = 100}" "print cont in main"
+gdb_test "print cont" "\\$$decimal = {<Container::Widget> = {containerVar = 200}, contVar = 100}" "print cont in main"
 
 gdb_test "cont" "Continu.* *Breakpoint 2, reportBase.*" "continue to breakpoint in reportBase()"
 

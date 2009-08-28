@@ -22,7 +22,7 @@ $(DIR)/.mark: $(DIR) custompatching
 
 $(DIR):
 	mkdir -p $(OBJROOT)/$(NAME)
-	gnutar xzf $(TARBALL) -C $(OBJROOT)/$(NAME)
+	gnutar -xof $(TARBALL) -C $(OBJROOT)/$(NAME)
 
 install: realinstall postinstall
 

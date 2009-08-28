@@ -29,9 +29,6 @@
  * SUCH DAMAGE.
  */
 
-//%%%HWR Do we need this?
-#define BIND_8_COMPAT
-
 #include "config.h"
 
 #include <sys/types.h>
@@ -39,7 +36,7 @@
 #include <sys/socket.h>
 
 #include <netinet/in.h>
-#include <arpa/nameser.h>
+#include <arpa/nameser_compat.h>
 #include <resolv.h>
 #ifdef HAVE_LWRES_GETRRSETBYNAME
 #include <lwres/netdb.h>

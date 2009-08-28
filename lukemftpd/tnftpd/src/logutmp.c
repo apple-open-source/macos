@@ -1,3 +1,6 @@
+/*	$NetBSD: logutmp.c,v 1.2 2008/09/21 14:44:01 lukem Exp $	*/
+/*	from	NetBSD: logutmp.c,v 1.11 2008/06/09 01:00:23 lukem Exp	*/
+
 /*
  * Portions Copyright (c) 1988, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -52,6 +55,15 @@
  * SUCH DAMAGE.
  */
 
+#if defined(HAVE_TNFTPD_H)
+#include "tnftpd.h"
+#else /* !defined(HAVE_TNFTPD_H) */
+
+#include <sys/cdefs.h>
+#ifndef lint
+__RCSID(" NetBSD: logutmp.c,v 1.11 2008/06/09 01:00:23 lukem Exp  ");
+#endif /* not lint */
+
 #include <sys/types.h>
 #include <sys/param.h>
 
@@ -67,8 +79,11 @@
 #endif
 #include <util.h>
 
+#endif /* !defined(HAVE_TNFTPD_H) */
+
 #include "extern.h"
 
+#ifdef SUPPORT_UTMP
 typedef struct utmp UTMP;
 
 static int fd = -1;
@@ -144,6 +159,7 @@ ftpd_logout(const char *line)
 	}
 	return(rval);
 }
+#endif /* SUPPORT_UTMP */
 
 #ifdef SUPPORT_UTMPX
 /*

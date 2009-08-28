@@ -1,0 +1,125 @@
+<html><head><base target=k-main></head><body bgcolor=white><nobr>
+
+<font face=Helvetica size=3>
+<dl><dt>
+
+  <b>class c4_CustomViewer</b>
+<br><br>
+
+<dd><font face=Times size=3>
+Abstract base class for definition of custom views.<br><br>
+
+
+</font></dl>
+
+
+  <table cellborder=0>
+    <tr>
+    <td colspan=2>
+	  <font face=Helvetica size=-1><b>Public members</b></font>
+    </td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  virtual 
+    </td>
+	<td>
+	  <nobr>
+	  <b>~c4_CustomViewer</b> ();
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Destructor</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  virtual <A HREF="c4_View.html" >c4_View</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>GetTemplate</b> ();
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Return the structure of this view (initialization, called once)</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  virtual int 
+    </td>
+	<td>
+	  <nobr>
+	  <b>GetSize</b> ();
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Return the number of rows in this view</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  virtual bool 
+    </td>
+	<td>
+	  <nobr>
+	  <b>GetItem</b> (int row_, int col_, <A HREF="c4_Bytes.html" >c4_Bytes</A>&#38; buf_);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Fetch one data item, return it as a generic data value</font>
+	</td>
+	</tr>
+  
+  </table>
+
+
+
+  <table cellborder=0>
+    <tr>
+    <td colspan=2>
+	  <font face=Helvetica size=-1><b>Protected members</b></font>
+    </td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  
+    </td>
+	<td>
+	  <nobr>
+	  <b>c4_CustomViewer</b> ();
+	  <font face=Helvetica size=-1><br>Constructor, must be overriden in derived class</font>
+	</td>
+	</tr>
+  
+  </table>
+
+
+
+
+<br><hr size=1 width=50 align=left>
+
+<table cellborder=0>
+    <tr>
+    <td width=150>
+	  <font face=Helvetica size=-1><b>Header file</b></font>
+    </td>
+    <td>
+	  "mk4.h" &nbsp; -- &nbsp; Dec 9, 1999
+    </td>
+	</tr>
+
+  
+
+  
+</table>
+
+</font></font>
+
+</nobr></body></html>

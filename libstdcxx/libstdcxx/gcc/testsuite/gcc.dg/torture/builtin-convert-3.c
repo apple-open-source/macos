@@ -7,6 +7,8 @@
 
 /* { dg-do link } */
 /* { dg-options "-ffast-math" } */
+/* { dg-options "-ffast-math -mmacosx-version-min=10.3" { target powerpc-*-darwin* } } */
+/* { dg-options "-ffast-math -std=c99" { target *-*-solaris2* } } */
 
 #include "../builtins-config.h"
 
@@ -41,6 +43,10 @@ void __attribute__ ((__noinline__)) test (double d1, float f1)
 #ifdef __OPTIMIZE__
 #ifdef HAVE_C99_RUNTIME
   /* We're converting to implicitly generated C99 functions.  */
+  INNER_CAST1 (__builtin_lceil, long);
+  INNER_CAST1 (__builtin_llceil, long long);
+  INNER_CAST1 (__builtin_lfloor, long);
+  INNER_CAST1 (__builtin_llfloor, long long);
   INNER_CAST1 (lround, long);
   INNER_CAST1 (llround, long long);
   INNER_CAST1 (lrint, long);

@@ -1,9 +1,8 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1996-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 1996,2007 Oracle.  All rights reserved.
 #
-# $Id: txnscript.tcl,v 1.2 2004/03/30 01:24:09 jtownsen Exp $
+# $Id: txnscript.tcl,v 12.5 2007/05/17 15:15:56 bostic Exp $
 #
 # Txn003 script - outstanding child prepare script
 # Usage: txnscript envcmd dbcmd gidf key data

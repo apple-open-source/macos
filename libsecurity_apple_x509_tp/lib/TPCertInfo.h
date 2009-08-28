@@ -553,7 +553,7 @@ public:
 	 * return false. If the incoming error code is CSSM_OK we return
 	 * true as a convenience for our callers. 
 	 */
-	bool TPCertGroup::isAllowedError(
+	bool isAllowedError(
 		CSSM_RETURN	code);
 	
 	/* 

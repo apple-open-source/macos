@@ -1,4 +1,4 @@
-/* { dg-do run { target *-*-linux* powerpc*-*-darwin* } } */
+/* { dg-do run { target hppa*-*-hpux* *-*-linux* powerpc*-*-darwin* } } */
 /* { dg-options "-fexceptions -fnon-call-exceptions -O2" } */
 /* Verify that cleanups work with exception handling through signal
    frames.  */
@@ -6,6 +6,7 @@
 #include <unwind.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <string.h>
 
 static _Unwind_Reason_Code
 force_unwind_stop (int version, _Unwind_Action actions,
@@ -22,7 +23,7 @@ force_unwind_stop (int version, _Unwind_Action actions,
 static void force_unwind ()
 {
   struct _Unwind_Exception *exc = malloc (sizeof (*exc));
-  exc->exception_class = 0;
+  memset (&exc->exception_class, 0, sizeof (exc->exception_class));
   exc->exception_cleanup = 0;
                    
 #ifndef __USING_SJLJ_EXCEPTIONS__

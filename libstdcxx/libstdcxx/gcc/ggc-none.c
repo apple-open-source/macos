@@ -16,8 +16,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-   02111-1307, USA.  */
+   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301, USA.  */
 
 /* This version is used by the gen* programs and certain language-specific
    targets (such as java), where we don't really need GC at all.
@@ -33,9 +33,6 @@
 #include "coretypes.h"
 #include "ggc.h"
 
-struct alloc_zone *rtl_zone = NULL;
-struct alloc_zone *garbage_zone = NULL;
-
 void *
 ggc_alloc_typed_stat (enum gt_types_enum ARG_UNUSED (gte), size_t size
 		      MEM_STAT_DECL)
@@ -45,13 +42,6 @@ ggc_alloc_typed_stat (enum gt_types_enum ARG_UNUSED (gte), size_t size
 
 void *
 ggc_alloc_stat (size_t size MEM_STAT_DECL)
-{
-  return xmalloc (size);
-}
-
-void *
-ggc_alloc_zone_stat (size_t size, struct alloc_zone * ARG_UNUSED (zone)
-		     MEM_STAT_DECL)
 {
   return xmalloc (size);
 }

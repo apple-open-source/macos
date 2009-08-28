@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* As a special exception, if you link this library with other files,
    some of which are compiled with GCC, to produce an executable,
@@ -178,7 +178,7 @@ __gthread_objc_mutex_allocate (objc_mutex_t mutex)
 {
   static const NX_LOCK_INFO_ALLOC (info, "GNU ObjC", 0);
 
-  if ((mutex->backend = NXMutexAlloc (NX_MUTEX_RECURSIVE/*???*/, 0, &info)) == NULL)
+  if ((mutex->backend = NXMutexAlloc (0, 0, &info)) == NULL)
     return 0;
   return -1;
 }

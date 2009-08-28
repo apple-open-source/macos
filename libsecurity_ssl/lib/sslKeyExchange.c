@@ -52,6 +52,8 @@ static OSStatus SSLGenServerDHParamsAndKey(SSLContext *ctx);
 static OSStatus SSLEncodeDHKeyParams(SSLContext *ctx, uint8 *charPtr);
 static OSStatus SSLDecodeDHKeyParams(SSLContext *ctx, uint8 **charPtr,
 	UInt32 length);
+static OSStatus SSLDecodeECDHKeyParams(SSLContext *ctx, uint8 **charPtr,
+	UInt32 length);
 
 #define DH_PARAM_DUMP		0
 #if 	DH_PARAM_DUMP
@@ -59,11 +61,12 @@ static OSStatus SSLDecodeDHKeyParams(SSLContext *ctx, uint8 **charPtr,
 static void dumpBuf(const char *name, SSLBuffer *buf)
 {
 	printf("%s:\n", name);
-	uint8 *cp = buf.data;
-	uint8 *endCp = cp + buf.length;
+	uint8 *cp = buf->data;
+	uint8 *endCp = cp + buf->length;
 	
 	do {
-		for(unsigned i=0; i<16; i++) {
+		unsigned i;
+		for(i=0; i<16; i++) {
 			printf("%02x ", *cp++);
 			if(cp == endCp) {
 				break;
@@ -467,6 +470,16 @@ SSLDecodeSignedServerKeyExchange(SSLBuffer message, SSLContext *ctx)
 			}
 			break;
 		#endif	/* APPLE_DH */
+		
+		case SSL_ECDHE_ECDSA:
+			isRsa = false;
+			/* and fall through */
+		case SSL_ECDHE_RSA:
+			err = SSLDecodeECDHKeyParams(ctx, &charPtr, message.length);
+			if(err) {
+				return err;
+			}
+			break;
 		default:
 			assert(0);
 			return errSSLInternal;
@@ -509,7 +522,7 @@ SSLDecodeSignedServerKeyExchange(SSLBuffer message, SSLContext *ctx)
 			goto fail;
 	}
 	else {
-		/* DSA - just use the SHA1 hash */
+		/* DSA, ECDSA - just use the SHA1 hash */
 		dataToSign = &hashes[SSL_MD5_DIGEST_LEN];
 		dataToSignLen = SSL_SHA1_DIGEST_LEN;
 	}
@@ -542,7 +555,7 @@ SSLDecodeSignedServerKeyExchange(SSLBuffer message, SSLContext *ctx)
 		goto fail;
 	}
     
-	/* Signature matches; now replace server key with new key */
+	/* Signature matches; now replace server key with new key (RSA only) */
 	switch(ctx->selectedCipherSpec->keyExchangeMethod) {
 		case SSL_RSA:
         case SSL_RSA_EXPORT:
@@ -571,9 +584,11 @@ SSLDecodeSignedServerKeyExchange(SSLBuffer message, SSLContext *ctx)
 		case SSL_DHE_RSA_EXPORT:
 		case SSL_DHE_DSS:
 		case SSL_DHE_DSS_EXPORT:
+		case SSL_ECDHE_ECDSA:
+		case SSL_ECDHE_RSA:
 			break;					/* handled above */
 		default:
-			assert(0);				/* handled above */
+			assert(0);		
 	}
 fail:
     SSLFreeBuffer(&signedHashes, ctx);
@@ -987,6 +1002,7 @@ SSLGenClientDHKeyAndExchange(SSLContext *ctx)
 	return noErr;
 }
 
+
 static OSStatus
 SSLEncodeDHanonServerKeyExchange(SSLRecord *keyExch, SSLContext *ctx)
 {   
@@ -1117,6 +1133,249 @@ SSLEncodeDHClientKeyExchange(SSLRecord *keyExchange, SSLContext *ctx)
 #endif	/* APPLE_DH */
 
 #pragma mark -
+#pragma mark *** ECDSA key exchange ***
+
+/* 
+ * Given the server's ECDH curve params and public key, generate our
+ * own ECDH key pair, and perform key exchange using the server's 
+ * public key and our private key. The result is the premaster 
+ * secret.
+ *
+ * SSLContext members valid on entry:
+ *      if keyExchangeMethod == SSL_ECDHE_ECDSA or SSL_ECDHE_RSA:
+ *			ecdhPeerPublic
+ *			ecdhPeerCurve
+ *		if keyExchangeMethod == SSL_ECDH_ECDSA or SSL_ECDH_RSA:
+ *			peerPubKey, from which we infer ecdhPeerCurve
+ *  
+ * SSLContext members valid on successful return:
+ *		ecdhPrivate
+ *		ecdhExchangePublic
+ *		preMasterSecret
+ */
+static OSStatus
+SSLGenClientECDHKeyAndExchange(SSLContext *ctx)
+{   
+	OSStatus            ortn;
+
+    assert(ctx->protocolSide == SSL_ClientSide);
+	
+	switch(ctx->selectedCipherSpec->keyExchangeMethod) {
+		case SSL_ECDHE_ECDSA:
+		case SSL_ECDHE_RSA:
+			/* Server sent us an ephemeral key with peer curve specified */
+			if(ctx->ecdhPeerPublic.data == NULL) {
+			   sslErrorLog("SSLGenClientECDHKeyAndExchange: incomplete server params\n");
+			   return errSSLProtocol;
+			}
+			break;
+		case SSL_ECDH_ECDSA:
+		case SSL_ECDH_RSA:
+		{
+			/* No server key exchange; we have to get the curve from the key */
+			if(ctx->peerPubKey == NULL) {
+			   sslErrorLog("SSLGenClientECDHKeyAndExchange: no peer key\n");
+			   return errSSLInternal;
+			}
+			
+			/* The peer curve is in the key's CSSM_X509_ALGORITHM_IDENTIFIER... */
+			ortn = sslEcdsaPeerCurve(ctx->peerPubKey, &ctx->ecdhPeerCurve);
+			if(ortn) {
+				return ortn;
+			}
+			sslEcdsaDebug("SSLGenClientECDHKeyAndExchange: derived peerCurve %u",
+				(unsigned)ctx->ecdhPeerCurve);
+			break;
+		}
+		default:
+			/* shouldn't be here */
+			assert(0);
+			return errSSLInternal;
+	}
+	
+    /* Generate our (ephemeral) pair, or extract it from our signing identity */
+	if((ctx->negAuthType == SSLClientAuth_RSAFixedECDH) ||
+	   (ctx->negAuthType == SSLClientAuth_ECDSAFixedECDH)) {
+		/* 
+		 * Client auth with a fixed ECDH key in the cert. Convert private key 
+		 * from SecKeyRef to CSSM format. We don't need ecdhExchangePublic
+		 * because the server gets that from our cert. 
+		 */
+		assert(ctx->signingPrivKeyRef != NULL);
+		assert(ctx->cspHand != 0);
+		sslFreeKey(ctx->cspHand, &ctx->ecdhPrivate, NULL);
+		SSLFreeBuffer(&ctx->ecdhExchangePublic, ctx);
+		ortn = SecKeyGetCSSMKey(ctx->signingPrivKeyRef, (const CSSM_KEY **)&ctx->ecdhPrivate);
+		if(ortn) {
+			return ortn;
+		}
+		ortn = SecKeyGetCSPHandle(ctx->signingPrivKeyRef, &ctx->ecdhPrivCspHand);
+		if(ortn) {
+			sslErrorLog("SSLGenClientECDHKeyAndExchange: SecKeyGetCSPHandle err %d\n",
+				(int)ortn);
+		}
+		sslEcdsaDebug("+++ Extracted ECDH private key");
+	}
+	else {
+		/* generate a new pair */
+		ortn = sslEcdhGenerateKeyPair(ctx, ctx->ecdhPeerCurve);
+		if(ortn) {
+			return ortn;
+		}
+		sslEcdsaDebug("+++ Generated %u bit (%u byte) ECDH key pair",
+			(unsigned)ctx->ecdhPrivate->KeyHeader.LogicalKeySizeInBits,
+			(unsigned)((ctx->ecdhPrivate->KeyHeader.LogicalKeySizeInBits + 7) / 8));
+	}
+	
+	
+	/* do the exchange --> premaster secret */
+	ortn = sslEcdhKeyExchange(ctx, &ctx->preMasterSecret);
+	if(ortn) {
+		return ortn;
+	}
+	return noErr;
+}
+
+
+/*
+ * Decode ECDH params and server public key.
+ */
+static OSStatus
+SSLDecodeECDHKeyParams(
+	SSLContext *ctx,
+	uint8 **charPtr,		// IN/OUT
+	UInt32 length)
+{   
+	OSStatus        err = noErr;
+	
+	sslEcdsaDebug("+++ Decoding ECDH Server Key Exchange");
+
+	assert(ctx->protocolSide == SSL_ClientSide);
+    uint8 *endCp = *charPtr + length;
+
+	/* Allow reuse via renegotiation */
+	SSLFreeBuffer(&ctx->ecdhPeerPublic, ctx);
+	
+	/*** ECParameters - just a curveType and a named curve ***/
+	
+	/* 1-byte curveType, we only allow one type */
+	uint8 curveType = **charPtr;
+	if(curveType != SSL_CurveTypeNamed) {
+		sslEcdsaDebug("+++ SSLDecodeECDHKeyParams: Bad curveType (%u)\n", (unsigned)curveType);
+		return errSSLProtocol;
+	}
+	(*charPtr)++;
+	if(*charPtr > endCp) {
+		return errSSLProtocol;
+	}
+	
+	/* two-byte curve */
+	ctx->ecdhPeerCurve = SSLDecodeInt(*charPtr, 2);
+	(*charPtr) += 2;
+	if(*charPtr > endCp) {
+		return errSSLProtocol;
+	}
+	switch(ctx->ecdhPeerCurve) {
+		case SSL_Curve_secp256r1:
+		case SSL_Curve_secp384r1:
+		case SSL_Curve_secp521r1:
+			break;
+		default:
+			sslEcdsaDebug("+++ SSLDecodeECDHKeyParams: Bad curve (%u)\n", 
+				(unsigned)ctx->ecdhPeerCurve);
+			return errSSLProtocol;
+	}
+	
+	sslEcdsaDebug("+++ SSLDecodeECDHKeyParams: ecdhPeerCurve %u", 
+		(unsigned)ctx->ecdhPeerCurve);
+		
+	/*** peer public key as an ECPoint ***/
+	
+	/* 
+	 * The spec says the the max length of an ECPoint is 255 bytes, limiting 
+	 * this whole mechanism to a max modulus size of 1020 bits, which I find 
+	 * hard to believe...
+	 */
+	UInt32 len = SSLDecodeInt(*charPtr, 1);
+	(*charPtr)++;
+	if((*charPtr + len) > endCp) {
+		return errSSLProtocol;
+	}
+	err = SSLAllocBuffer(&ctx->ecdhPeerPublic, len, ctx);
+	if(err) {
+		return err;
+	}
+	memmove(ctx->ecdhPeerPublic.data, *charPtr, len);
+	(*charPtr) += len;
+		
+	dumpBuf("client peer pub", &ctx->ecdhPeerPublic);
+		
+	return err;	
+}
+
+
+static OSStatus
+SSLEncodeECDHClientKeyExchange(SSLRecord *keyExchange, SSLContext *ctx)
+{   OSStatus            err;
+    size_t				outputLen;
+    
+	assert(ctx->protocolSide == SSL_ClientSide);
+    if ((err = SSLGenClientECDHKeyAndExchange(ctx)) != 0)
+        return err;
+    
+	/* 
+	 * Per RFC 4492 5.7, if we're doing ECDSA_fixed_ECDH or RSA_fixed_ECDH
+	 * client auth, we still send this message, but it's empty (because the
+	 * server gets our public key from our cert). 
+	 */
+	bool emptyMsg = false;
+	switch(ctx->negAuthType) {
+		case SSLClientAuth_RSAFixedECDH:
+		case SSLClientAuth_ECDSAFixedECDH:
+			emptyMsg = true;
+			break;
+		default:
+			break;
+	}
+	if(emptyMsg) {
+		outputLen = 0;
+	}
+	else {
+		outputLen = ctx->ecdhExchangePublic.length + 1;
+	}
+    
+    keyExchange->contentType = SSL_RecordTypeHandshake;
+	assert((ctx->negProtocolVersion == SSL_Version_3_0) ||
+			(ctx->negProtocolVersion == TLS_Version_1_0));
+    keyExchange->protocolVersion = ctx->negProtocolVersion;
+    
+    if ((err = SSLAllocBuffer(&keyExchange->contents,outputLen + 4,ctx)) != 0)
+        return err;
+    
+    keyExchange->contents.data[0] = SSL_HdskClientKeyExchange;
+	if(emptyMsg) {
+		/* does "empty message" include a zero length...? */
+		SSLEncodeInt(keyExchange->contents.data+1, 0, 3);
+		sslEcdsaDebug("+++ Sending EMPTY ECDH Client Key Exchange");
+	}
+	else {
+		SSLEncodeInt(keyExchange->contents.data+1, 
+			ctx->ecdhExchangePublic.length+1, 3);
+		
+		/* just a 1-byte length here... */
+		SSLEncodeInt(keyExchange->contents.data+4, 
+			ctx->ecdhExchangePublic.length, 1);
+		memcpy(keyExchange->contents.data+5, ctx->ecdhExchangePublic.data, 
+			ctx->ecdhExchangePublic.length);
+		sslEcdsaDebug("+++ Encoded ECDH Client Key Exchange");
+	}
+	
+	dumpBuf("client pub key", &ctx->ecdhExchangePublic);
+	dumpBuf("client premaster", &ctx->preMasterSecret);
+    return noErr;
+}
+
+#pragma mark -
 #pragma mark *** Public Functions ***
 OSStatus
 SSLEncodeServerKeyExchange(SSLRecord *keyExch, SSLContext *ctx)
@@ -1162,6 +1421,8 @@ SSLProcessServerKeyExchange(SSLBuffer message, SSLContext *ctx)
 		case SSL_DHE_DSS:
 		case SSL_DHE_DSS_EXPORT:
 		#endif
+		case SSL_ECDHE_ECDSA:
+		case SSL_ECDHE_RSA:
             err = SSLDecodeSignedServerKeyExchange(message, ctx);
             break;
         #if		APPLE_DH
@@ -1199,6 +1460,15 @@ SSLEncodeKeyExchange(SSLRecord *keyExchange, SSLContext *ctx)
             err = SSLEncodeDHClientKeyExchange(keyExchange, ctx);
             break;
         #endif
+		case SSL_ECDH_ECDSA:
+		case SSL_ECDHE_ECDSA:
+		case SSL_ECDH_RSA:
+		case SSL_ECDHE_RSA:
+		case SSL_ECDH_anon:
+			err = SSLEncodeECDHClientKeyExchange(keyExchange, ctx);
+            break;
+
+		
         default:
             err = unimpErr;
     }

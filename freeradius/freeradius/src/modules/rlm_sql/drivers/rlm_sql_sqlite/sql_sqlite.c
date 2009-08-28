@@ -2,7 +2,7 @@
  *  sql_sqlite.c
  *  freeradius
  *
- * Version:	$Id: sql_sqlite.c,v 1.0 2006/05/25 23:23:26 snsimon Exp $
+ * Version:	$Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License version 2 only, as published by
@@ -20,16 +20,15 @@
  * Copyright 2007 Apple Inc.
  */
 
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include <stdio.h>
+#include <freeradius-devel/radiusd.h>
+
 #include <sys/stat.h>
-#include <stdlib.h>
-#include <string.h>
 
 #include <sqlite3.h>
 
-#include "radiusd.h"
-#include "config.h"
 #include "rlm_sql.h"
 
 typedef struct rlm_sql_sqlite_sock {
@@ -50,6 +49,7 @@ static int sql_init_socket(SQLSOCK *sqlsocket, SQL_CONFIG *config)
 {
 	int status;
 	rlm_sql_sqlite_sock *sqlite_sock;
+	char buffer[2048];
 	
 	if (!sqlsocket->conn) {
 		sqlsocket->conn = (rlm_sql_sqlite_sock *)rad_malloc(sizeof(rlm_sql_sqlite_sock));
@@ -60,10 +60,12 @@ static int sql_init_socket(SQLSOCK *sqlsocket, SQL_CONFIG *config)
 	sqlite_sock = sqlsocket->conn;
 	memset(sqlite_sock, 0, sizeof(rlm_sql_sqlite_sock));
 	
-	radlog(L_INFO, "rlm_sql_sqlite: Opening sqlite database for #%d",
-			sqlsocket->id);
+	snprintf(buffer, sizeof(buffer), "%s/sqlite_radius_client_database",
+		 radius_dir);
+	radlog(L_INFO, "rlm_sql_sqlite: Opening sqlite database %s for #%d",
+			buffer, sqlsocket->id);
 	
-	status = sqlite3_open("/etc/raddb/sqlite_radius_client_database", &sqlite_sock->pDb);
+	status = sqlite3_open(buffer, &sqlite_sock->pDb);
 	radlog(L_INFO, "rlm_sql_sqlite: sqlite3_open() = %d\n", status);
 	return (status != SQLITE_OK) * -1;
 }
@@ -76,7 +78,7 @@ static int sql_init_socket(SQLSOCK *sqlsocket, SQL_CONFIG *config)
  *	Purpose: Free socket and any private connection data
  *
  *************************************************************************/
-static int sql_destroy_socket(SQLSOCK *sqlsocket, SQL_CONFIG *config)
+static int sql_destroy_socket(SQLSOCK *sqlsocket, UNUSED SQL_CONFIG *config)
 {
 	int status = 0;
 	rlm_sql_sqlite_sock *sqlite_sock = sqlsocket->conn;
@@ -146,7 +148,7 @@ static int sql_select_query(SQLSOCK *sqlsocket, SQL_CONFIG *config,
  *               set for the query.
  *
  *************************************************************************/
-static int sql_store_result(SQLSOCK * sqlsocket, SQL_CONFIG *config)
+static int sql_store_result(UNUSED SQLSOCK * sqlsocket, UNUSED SQL_CONFIG *config)
 {
 	return 0;
 }
@@ -160,7 +162,7 @@ static int sql_store_result(SQLSOCK * sqlsocket, SQL_CONFIG *config)
  *               of columns from query
  *
  *************************************************************************/
-static int sql_num_fields(SQLSOCK * sqlsocket, SQL_CONFIG *config)
+static int sql_num_fields(SQLSOCK * sqlsocket, UNUSED SQL_CONFIG *config)
 {
 	rlm_sql_sqlite_sock *sqlite_sock = sqlsocket->conn;
 	
@@ -179,7 +181,7 @@ static int sql_num_fields(SQLSOCK * sqlsocket, SQL_CONFIG *config)
  *               query
  *
  *************************************************************************/
-static int sql_num_rows(SQLSOCK * sqlsocket, SQL_CONFIG *config)
+static int sql_num_rows(SQLSOCK * sqlsocket, UNUSED SQL_CONFIG *config)
 {
 	rlm_sql_sqlite_sock *sqlite_sock = sqlsocket->conn;
 	
@@ -307,7 +309,7 @@ static int sql_fetch_row(SQLSOCK * sqlsocket, SQL_CONFIG *config)
  *               for a result set
  *
  *************************************************************************/
-static int sql_free_result(SQLSOCK * sqlsocket, SQL_CONFIG *config)
+static int sql_free_result(SQLSOCK * sqlsocket, UNUSED SQL_CONFIG *config)
 {
 	int status = 0;
 	rlm_sql_sqlite_sock *sqlite_sock = sqlsocket->conn;
@@ -331,7 +333,7 @@ static int sql_free_result(SQLSOCK * sqlsocket, SQL_CONFIG *config)
  *               connection
  *
  *************************************************************************/
-static char *sql_error(SQLSOCK * sqlsocket, SQL_CONFIG *config)
+static const char *sql_error(SQLSOCK * sqlsocket, UNUSED SQL_CONFIG *config)
 {
 	return NULL;
 }
@@ -345,7 +347,7 @@ static char *sql_error(SQLSOCK * sqlsocket, SQL_CONFIG *config)
  *               connection
  *
  *************************************************************************/
-static int sql_close(SQLSOCK * sqlsocket, SQL_CONFIG *config)
+static int sql_close(SQLSOCK * sqlsocket, UNUSED SQL_CONFIG *config)
 {
 	int status = 0;
 	rlm_sql_sqlite_sock *sqlite_sock = sqlsocket->conn;
@@ -366,7 +368,7 @@ static int sql_close(SQLSOCK * sqlsocket, SQL_CONFIG *config)
  *	Purpose: End the query, such as freeing memory
  *
  *************************************************************************/
-static int sql_finish_query(SQLSOCK * sqlsocket, SQL_CONFIG *config)
+static int sql_finish_query(SQLSOCK * sqlsocket, UNUSED SQL_CONFIG *config)
 {
 	int status = 0;
 	rlm_sql_sqlite_sock *sqlite_sock = sqlsocket->conn;
@@ -401,7 +403,7 @@ static int sql_finish_select_query(SQLSOCK * sqlsocket, SQL_CONFIG *config)
  *	Purpose: End the select query, such as freeing memory or result
  *
  *************************************************************************/
-static int sql_affected_rows(SQLSOCK * sqlsocket, SQL_CONFIG *config)
+static int sql_affected_rows(SQLSOCK * sqlsocket, UNUSED SQL_CONFIG *config)
 {
 	return 0;
 }

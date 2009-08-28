@@ -147,9 +147,13 @@
 
 #define kIOHIDMouseKeysOnKey			"HIDMouseKeysOn"
 
-#define kIOHIDUseKeyswitchKey                "HIDUseKeyswitch"
+#define kIOHIDUseKeyswitchKey           "HIDUseKeyswitch"
 
 #define kIOHIDDisallowRemappingOfPrimaryClickKey	"HIDDisallowRemappingOfPrimaryClick"
+#define kIOHIDMouseKeysEnablesVirtualNumPadKey	"HIDMouseKeysEnablesVirtualNumPad"
+
+#define kIOHIDResetLEDsKey          "HIDResetLEDs"
+
 
 #ifdef __ppc__
     // the following are misspelled keys present in the system
@@ -296,5 +300,11 @@ typedef enum {
 
 #define EVSIOCADS 	kIOHIDAutoDimStateKey
 #define EVSIOCADS_SIZE	1
+
+enum {
+    // Selectors for IOHIDGetModifierLockState and IOHIDSetModifierLockState
+    kIOHIDCapsLockState             = 0x00000001,
+    kIOHIDNumLockState              = 0x00000002,
+};
 
 #endif /* !_DEV_EVSIO_H */

@@ -51,7 +51,7 @@ enum {
  * and are subject to change at any time without warning.
  ***/
 
-#define __CHECKINT_INLINE inline __attribute__((always_inline))
+#define __CHECKINT_INLINE static inline __attribute__((always_inline))
 
 __CHECKINT_INLINE int32_t
 __checkint_is_mixed_sign32(int32_t x, int32_t y) {return ((x ^ y) < 0);}
@@ -74,13 +74,17 @@ __checkint_uint64_type_error(int32_t* err) {*err |= CHECKINT_TYPE_ERROR; return 
 __CHECKINT_INLINE int32_t
 __checkint_int32_add(int64_t x, int64_t y, int32_t* err) {
 	int64_t z = x + y;
-	if (z > INT_MAX || z < INT_MIN) *err |= CHECKINT_OVERFLOW_ERROR;
+	if (x < INT32_MIN || x > INT32_MAX || y < INT32_MIN || y > INT32_MAX) {
+		*err |= CHECKINT_OVERFLOW_ERROR;
+	}
+	if (z > INT32_MAX || z < INT32_MIN) *err |= CHECKINT_OVERFLOW_ERROR;
 	return (int32_t)z;
 }
 
 __CHECKINT_INLINE uint32_t
 __checkint_uint32_add(int64_t x, int64_t y, int32_t* err) {
 	int64_t z = x + y;
+	if ((x & 0xffffffff00000000ull) || (y & 0xffffffff00000000ull)) *err |= CHECKINT_OVERFLOW_ERROR;
 	if (z > UINT_MAX || z < 0) *err |= CHECKINT_OVERFLOW_ERROR;
 	return (uint32_t)z;
 }
@@ -151,6 +155,9 @@ __checkint_uint64_add_unsigned_signed(uint64_t x, int64_t y, int32_t* err) {
 
 __CHECKINT_INLINE int32_t
 __checkint_int32_sub(int64_t x, int64_t y, int32_t* err) {
+	if (x < INT32_MIN || x > INT32_MAX || y < INT32_MIN || y > INT32_MAX) {
+		*err |= CHECKINT_OVERFLOW_ERROR;
+	}
 	int64_t z = x - y;
 	if (z > INT_MAX || z < INT_MIN) *err |= CHECKINT_OVERFLOW_ERROR;
 	return (int32_t)z;
@@ -159,6 +166,7 @@ __checkint_int32_sub(int64_t x, int64_t y, int32_t* err) {
 __CHECKINT_INLINE uint32_t
 __checkint_uint32_sub(int64_t x, int64_t y, int32_t* err) {
 	int64_t z = x - y;
+	if ((x & 0xffffffff00000000ull) || (y & 0xffffffff00000000ull)) *err |= CHECKINT_OVERFLOW_ERROR;
 	if (z > UINT_MAX || z < 0) *err |= CHECKINT_OVERFLOW_ERROR;
 	return (uint32_t)z;
 }
@@ -242,6 +250,9 @@ __checkint_uint64_sub_unsigned_unsigned(uint64_t x, uint64_t y, int32_t* err) {
 __CHECKINT_INLINE int32_t
 __checkint_int32_mul(int64_t x, int64_t y, int32_t* err) {
 	int64_t z = x * y;
+	if (x < INT32_MIN || x > INT32_MAX || y < INT32_MIN || y > INT32_MAX) {
+		*err |= CHECKINT_OVERFLOW_ERROR;
+	}
 	if (z > INT_MAX || z < INT_MIN) *err |= CHECKINT_OVERFLOW_ERROR;
 	return (int32_t)z;
 }
@@ -249,6 +260,7 @@ __checkint_int32_mul(int64_t x, int64_t y, int32_t* err) {
 __CHECKINT_INLINE uint32_t
 __checkint_uint32_mul(int64_t x, int64_t y, int32_t* err) {
 	int64_t z = x * y;
+	if ((x & 0xffffffff00000000ull) || (y & 0xffffffff00000000ull)) *err |= CHECKINT_OVERFLOW_ERROR;
 	if (z > UINT_MAX || z < 0) *err |= CHECKINT_OVERFLOW_ERROR;
 	return (uint32_t)z;
 }
@@ -513,8 +525,8 @@ __checkint_uint64_div_unsigned_unsigned(uint64_t x, uint64_t y, int32_t* err) {
 
 /******/
 
-#define __checkint_is_signed(x)		(__checkint_same_type(x, int8_t) || __checkint_same_type(x, int16_t) || __checkint_same_type(x, int32_t) || __checkint_same_type(x, int64_t))
-#define __checkint_is_unsigned(x)	(__checkint_same_type(x, uint8_t) || __checkint_same_type(x, uint16_t) || __checkint_same_type(x, uint32_t) || __checkint_same_type(x, uint64_t))
+#define __checkint_is_signed(x)		(__checkint_same_type(x, int8_t) || __checkint_same_type(x, int16_t) || __checkint_same_type(x, int32_t) || __checkint_same_type(x, int64_t) || __checkint_same_type(x, signed long))
+#define __checkint_is_unsigned(x)	(__checkint_same_type(x, uint8_t) || __checkint_same_type(x, uint16_t) || __checkint_same_type(x, uint32_t) || __checkint_same_type(x, uint64_t) || __checkint_same_type(x, uintptr_t) || __checkint_same_type(x, unsigned long))
 
 #define __checkint_is_signed_signed(x, y) (__checkint_is_signed(x) && __checkint_is_signed(y))
 #define __checkint_is_signed_unsigned(x, y) (__checkint_is_signed(x) && __checkint_is_unsigned(y))

@@ -1,6 +1,6 @@
 // The template and inlines for the -*- C++ -*- internal _Meta class.
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -16,7 +16,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -28,12 +28,12 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-// Written by Gabriel Dos Reis <Gabriel.Dos-Reis@cmla.ens-cachan.fr>
-
 /** @file valarray_before.h
  *  This is an internal header file, included by other library headers.
  *  You should not attempt to use it directly.
  */
+
+// Written by Gabriel Dos Reis <Gabriel.Dos-Reis@cmla.ens-cachan.fr>
 
 #ifndef _VALARRAY_BEFORE_H
 #define _VALARRAY_BEFORE_H 1
@@ -42,8 +42,8 @@
 
 #include <bits/slice_array.h>
 
-namespace std
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   //
   // Implementing a loosened valarray return value is tricky.
   // First we need to meet 26.3.1/3: we should not add more than
@@ -589,7 +589,7 @@ namespace std
     : _BinBase<_Oper, valarray<_Tp>, valarray<_Tp> >
     {
       typedef _BinBase<_Oper, valarray<_Tp>, valarray<_Tp> > _Base;
-      typedef _Tp value_type;
+      typedef typename _Base::value_type value_type;
 
       _BinClos(const valarray<_Tp>& __v, const valarray<_Tp>& __w)
       : _Base(__v, __w) {}
@@ -730,10 +730,6 @@ namespace std
       _SClos (_Array<_Tp> __a, const slice& __s) : _Base (__a, __s) {}
     };
 
-} // std::
+_GLIBCXX_END_NAMESPACE
 
 #endif /* _CPP_VALARRAY_BEFORE_H */
-
-// Local Variables:
-// mode:c++
-// End:

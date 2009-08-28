@@ -1,6 +1,6 @@
 Please read the README file in this directory first.
 .ex
-.Id $Id: formail.man,v 1.1.1.3 2003/10/14 23:13:23 rbraun Exp $
+.Id $Id: formail.man,v 1.46 2001/08/04 06:08:17 guenther Exp $
 .TH FORMAIL 1 \*(Dt BuGless
 .SH NAME
 formail \- mail (re)formatter

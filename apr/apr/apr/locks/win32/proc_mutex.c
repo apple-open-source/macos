@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -98,6 +98,14 @@ APR_DECLARE(apr_status_t) apr_proc_mutex_child_init(apr_proc_mutex_t **mutex,
      */
     mutexkey = res_name_from_filename(fname, 1, pool);
 
+#if defined(_WIN32_WCE)
+    hMutex = CreateMutex(NULL, FALSE, mutexkey);
+    if (hMutex && ERROR_ALREADY_EXISTS != GetLastError()) {
+        CloseHandle(hMutex);
+        hMutex = NULL;
+        SetLastError(ERROR_FILE_NOT_FOUND);
+    }
+#else
 #if APR_HAS_UNICODE_FS
     IF_WIN_OS_IS_UNICODE
     {
@@ -109,6 +117,7 @@ APR_DECLARE(apr_status_t) apr_proc_mutex_child_init(apr_proc_mutex_t **mutex,
     {
         hMutex = OpenMutexA(MUTEX_ALL_ACCESS, FALSE, mutexkey);
     }
+#endif
 #endif
 
     if (!hMutex) {
@@ -132,9 +141,6 @@ APR_DECLARE(apr_status_t) apr_proc_mutex_lock(apr_proc_mutex_t *mutex)
 
     if (rv == WAIT_OBJECT_0 || rv == WAIT_ABANDONED) {
         return APR_SUCCESS;
-    } 
-    else if (rv == WAIT_TIMEOUT) {
-        return APR_EBUSY;
     }
     return apr_get_os_error();
 }

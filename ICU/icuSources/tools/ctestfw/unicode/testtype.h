@@ -1,21 +1,16 @@
 /*
-*****************************************************************************************
-*
-*   Copyright (C) 2004-2006, International Business Machines
-*   Corporation and others.  All Rights Reserved.
-*
-*****************************************************************************************
-*/
+ *****************************************************************************************
+ *   Copyright (C) 2004-2007, International Business Machines
+ *   Corporation and others.  All Rights Reserved.
+ *****************************************************************************************
+ */
 
 #include "unicode/utypes.h"
 
 /*Deals with imports and exports of the dynamic library*/
-#if !defined(U_STATIC_IMPLEMENTATION) && (defined(U_WINDOWS) || defined(U_CYGWIN))
-    #define T_CTEST_EXPORT __declspec(dllexport)
-    #define T_CTEST_IMPORT __declspec(dllimport)
-#elif defined(USE_GCC_VISIBILITY_ATTRIBUTE)
-    #define T_CTEST_EXPORT __attribute__((visibility("default")))
-    #define T_CTEST_IMPORT
+#if !defined(U_STATIC_IMPLEMENTATION)
+    #define T_CTEST_EXPORT U_EXPORT
+    #define T_CTEST_IMPORT U_IMPORT
 #else
     #define T_CTEST_EXPORT
     #define T_CTEST_IMPORT
@@ -29,6 +24,7 @@
 
 #ifdef __cplusplus
     #define C_CTEST_API extern "C"
+    U_NAMESPACE_USE
 #else
     #define C_CTEST_API
 #endif

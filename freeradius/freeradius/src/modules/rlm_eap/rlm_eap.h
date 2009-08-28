@@ -1,7 +1,7 @@
 /*
  * rlm_eap.h    Local Header file.
  *
- * Version:     $Id: rlm_eap.h,v 1.13.4.1 2006/02/06 16:23:53 nbk Exp $
+ * Version:     $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,13 +15,17 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
  * Copyright 2001  hereUare Communications, Inc. <raghud@hereuare.com>
  * Copyright 2003  Alan DeKok <aland@freeradius.org>
+ * Copyright 2006  The FreeRADIUS server project
  */
 #ifndef _RLM_EAP_H
 #define _RLM_EAP_H
+
+#include <freeradius-devel/ident.h>
+RCSIDH(rlm_eap_h, "$Id$")
 
 #include <ltdl.h>
 #include "eap.h"
@@ -57,10 +61,14 @@ typedef struct rlm_eap_t {
 	int		default_eap_type;
 	int		ignore_unknown_eap_types;
 	int		cisco_accounting_username_bug;
+	int		max_sessions;
 
 #ifdef HAVE_PTHREAD_H
 	pthread_mutex_t	session_mutex;
 #endif
+
+	const char	*xlat_name; /* no xlat's yet */
+	fr_randctx	rand_pool;
 } rlm_eap_t;
 
 /*

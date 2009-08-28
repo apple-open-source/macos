@@ -1,0 +1,44 @@
+#!/usr/bin/env tclsh
+#
+# pkgreq.test --
+#
+# Test loading of all tcl packages installed in /System/Library/Tcl
+#
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest 2.2
+}
+
+if {[catch {tcltest::testConstraint notLoadable}]} {
+    tcltest::testConstraint notLoadable 0
+}
+tcltest::testConstraint req85 [expr {![catch {package present Tcl 8.5-}]}]
+
+proc constraint {pkg} {
+    # packages not intended for direct loading or known not to be present
+    if {[regexp {^(dom::c$|page::.*::|xotcl::.*::(ldap|.*gdbm))} $pkg]} {
+	return notLoadable
+    }
+    # packages requiring tcl 8.5 or later
+    if {[lsearch -exact {chatwidget huddle json ntext S3 tablelist_tile
+	    vfs::webdav xsxp yaml} $pkg] != -1} {
+	return req85
+    }
+    return {}
+}
+
+# get all package names
+set pkgs [exec find -L /System/Library/Tcl \
+	! -path "*/Tcl/[expr {[tcltest::testConstraint req85] ? "8.4" : "8.5"}]/*" \
+	-name pkgIndex.tcl -print0 | \
+	xargs -0 awk {/^[ \t]*package ifneeded/ && $3 !~ /^\$/ {print $3}} | \
+	sort -fu]
+
+foreach pkg $pkgs {
+    tcltest::test pkgreq-$pkg "\[package require $pkg\]" \
+	-constraints [constraint $pkg] -setup {interp create i} \
+	-body {interp eval i "package require $pkg"} \
+	-cleanup {interp delete i} -match regexp -result {^[\d\.]+$}
+}
+
+tcltest::cleanupTests

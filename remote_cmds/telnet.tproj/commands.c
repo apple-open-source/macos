@@ -31,19 +31,13 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
-
-#ifdef __FBSDID
-__FBSDID("$FreeBSD: src/crypto/telnet/telnet/commands.c,v 1.12.2.5 2002/04/13 10:59:08 markm Exp $");
-#endif
-
-#ifndef __unused
-#define __unused        __attribute__((__unused__))
-#endif
-
+#if 0
 #ifndef lint
 static const char sccsid[] = "@(#)commands.c	8.4 (Berkeley) 5/30/95";
 #endif
+#endif
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/contrib/telnet/telnet/commands.c,v 1.35 2005/02/28 12:46:52 tobez Exp $");
 
 #include <sys/param.h>
 #include <sys/un.h>
@@ -87,7 +81,7 @@ static const char sccsid[] = "@(#)commands.c	8.4 (Berkeley) 5/30/95";
 
 #ifndef       MAXHOSTNAMELEN
 #define       MAXHOSTNAMELEN 256
-#endif        MAXHOSTNAMELEN
+#endif
 
 typedef int (*intrtn_t)(int, char **);
 
@@ -459,7 +453,7 @@ send_tncmd(void (*func)(int, int), const char *cmd, char *name)
     if (isprefix(name, "help") || isprefix(name, "?")) {
 	int col, len;
 
-	printf("Usage: send %s <value|option>\n", cmd);
+	printf("usage: send %s <value|option>\n", cmd);
 	printf("\"value\" must be from 0 to 255\n");
 	printf("Valid options are:\n\t");
 
@@ -538,11 +532,11 @@ togdebug(void)
 {
 #ifndef	NOT43
     if (net > 0 &&
-	(SetSockOpt(net, SOL_SOCKET, SO_DEBUG, debug)) < 0) {
+	(SetSockOpt(net, SOL_SOCKET, SO_DEBUG, telnet_debug)) < 0) {
 	    perror("setsockopt (SO_DEBUG)");
     }
 #else	/* NOT43 */
-    if (debug) {
+    if (telnet_debug) {
 	if (net > 0 && SetSockOpt(net, SOL_SOCKET, SO_DEBUG, 1) < 0)
 	    perror("setsockopt (SO_DEBUG)");
     } else
@@ -747,7 +741,7 @@ static struct togglelist Togglelist[] = {
     { "debug",
 	"debugging",
 	    (int (*)(int))togdebug,
-		&debug,
+		&telnet_debug,
 		    "turn on socket level debugging" },
     { "netdata",
 	"printing of hexadecimal network data (debugging)",
@@ -1644,7 +1638,7 @@ env_init(void)
 	  {"USER", "PRINTER", "DISPLAY", "TERM", "COLUMNS", "LINES"};
 	
 	for(i=0;i<sizeof(safe_vars)/sizeof(const char *);i++) {
-	    if(ev=getenv(safe_vars[i])) {
+	    if((ev=getenv(safe_vars[i]))) {
 	      ep=env_define((unsigned char *)safe_vars[i],(unsigned char *)ev);
 	        ep->export=0;
 	    }
@@ -1707,7 +1701,7 @@ env_define(const unsigned char *var, unsigned char *value)
 
 	if(value) 
                 ep->value = (unsigned char *)strdup((const char *)value);
-	else if(ev=getenv((const char *)var)) 
+	else if((ev=getenv((const char *)var))) 
 	        ep->value = (unsigned char *)strdup(ev);
 	else 	ep->value = (unsigned char *)strdup("");
 	return(ep);
@@ -1780,7 +1774,7 @@ env_list(void)
 	struct env_lst *ep;
 
 	for (ep = envlisthead.next; ep; ep = ep->next) {
-	        printf("%c %-20s %s\n", ep->export ? '*' : ' ',
+		printf("%c %-20s %s\n", ep->export ? '*' : ' ',
 					ep->var, ep->value);
 	}
 }
@@ -2318,8 +2312,24 @@ tn(int argc, char *argv[])
     } else if (*portp == '-') {
       portp++;
       telnetport = 1;
+    } else if (*portp == '+') {
+      portp++;
+      telnetport = -1;
     } else
       telnetport = 0;
+
+#ifdef __APPLE__
+	{
+		/*
+		 * 5760578: Attempt to convert service name to a
+		 * numeric port before calling getaddrinfo().
+		 */
+		struct servent *srv = getservbyname(portp, NULL);
+		if (srv != NULL) {
+			asprintf(&portp, "%d", ntohs(srv->s_port));
+		}
+	}
+#endif /* __APPLE__ */
 
     memset(&hints, 0, sizeof(hints));
     hints.ai_flags = AI_NUMERICHOST;
@@ -2424,7 +2434,7 @@ tn(int argc, char *argv[])
 	}
 #endif	/* defined(IPPROTO_IP) && defined(IP_TOS) */
 
-	if (debug && SetSockOpt(net, SOL_SOCKET, SO_DEBUG, 1) < 0) {
+	if (telnet_debug && SetSockOpt(net, SOL_SOCKET, SO_DEBUG, 1) < 0) {
 		perror("setsockopt (SO_DEBUG)");
 	}
 
@@ -2489,6 +2499,7 @@ tn(int argc, char *argv[])
         freeaddrinfo(src_res0);
     cmdrc(hostp, hostname);
  af_unix:    
+    connected = 1;
     if (autologin && user == NULL) {
 	struct passwd *pw;
 
@@ -2502,8 +2513,8 @@ tn(int argc, char *argv[])
 	}
     }
     if (user) {
-	env_define((const unsigned char *)"USER", (unsigned char *)user);
-	env_export((const unsigned char *)"USER");
+	env_define((unsigned char*)"USER", (unsigned char*)user);
+	env_export((unsigned char*)"USER");
     }
     (void) call(status, "status", "notmuch", 0);
     if (setjmp(peerdied) == 0)

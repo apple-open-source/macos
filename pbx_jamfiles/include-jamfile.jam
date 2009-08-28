@@ -1,4 +1,0 @@
-# Copyright (c) 1999-2003 Apple Computer, Inc.
-# All rights reserved.
-
-include $(JAMFILE) ;

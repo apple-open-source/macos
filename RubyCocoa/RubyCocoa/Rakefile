@@ -51,6 +51,10 @@ end
 
 desc "install RubyCocoa.framework"
 task :install do
+  unless File.exist? 'ext/rubycocoa/rubycocoa.bundle'
+    puts "Nothing to install yet, use rake build first."
+    exit 1
+  end
   ruby "install.rb", "install"
 end
 

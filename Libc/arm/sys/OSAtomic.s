@@ -22,7 +22,7 @@
  */
 
 #include <machine/cpu_capabilities.h>
-#include "SYS.h"
+#include <architecture/arm/asm_help.h>
 #include <arm/arch.h>
 
 .text
@@ -41,39 +41,62 @@
 #define ATOMIC_ARITHMETIC(op) \
 1:	ldrex	r2, [r1]	/* load existing value and tag memory */	    ;\
 	op	r3, r2, r0	/* compute new value */				    ;\
-	strex	r2, r3, [r1]	/* store new value if memory is still tagged */	    ;\
-	cmp	r2, #0		/* check if the store succeeded */		    ;\
+	strex	ip, r3, [r1]	/* store new value if memory is still tagged */	    ;\
+	cmp	ip, #0		/* check if the store succeeded */		    ;\
 	bne	1b		/* if not, try again */				    ;\
 	mov	r0, r3		/* return new value */
 
-MI_ENTRY_POINT(_OSAtomicAdd32Barrier)
-MI_ENTRY_POINT(_OSAtomicAdd32)
+#define ATOMIC_ARITHMETIC_ORIG(op) \
+1:	ldrex	r2, [r1]	/* load existing value and tag memory */	    ;\
+	op	r3, r2, r0	/* compute new value */				    ;\
+	strex	ip, r3, [r1]	/* store new value if memory is still tagged */	    ;\
+	cmp	ip, #0		/* check if the store succeeded */		    ;\
+	bne	1b		/* if not, try again */				    ;\
+	mov	r0, r2		/* return orig value */
+
+ENTRY_POINT(_OSAtomicAdd32Barrier)
+ENTRY_POINT(_OSAtomicAdd32)
 	ATOMIC_ARITHMETIC(add)
 	bx	lr
 
-MI_ENTRY_POINT(_OSAtomicOr32Barrier)
-MI_ENTRY_POINT(_OSAtomicOr32)
+ENTRY_POINT(_OSAtomicOr32Barrier)
+ENTRY_POINT(_OSAtomicOr32)
 	ATOMIC_ARITHMETIC(orr)
 	bx	lr
 
-MI_ENTRY_POINT(_OSAtomicAnd32Barrier)
-MI_ENTRY_POINT(_OSAtomicAnd32)
+ENTRY_POINT(_OSAtomicOr32OrigBarrier)
+ENTRY_POINT(_OSAtomicOr32Orig)
+	ATOMIC_ARITHMETIC_ORIG(orr)
+	bx	lr
+
+ENTRY_POINT(_OSAtomicAnd32Barrier)
+ENTRY_POINT(_OSAtomicAnd32)
 	ATOMIC_ARITHMETIC(and)
 	bx	lr
 
-MI_ENTRY_POINT(_OSAtomicXor32Barrier)
-MI_ENTRY_POINT(_OSAtomicXor32)
+ENTRY_POINT(_OSAtomicAnd32OrigBarrier)
+ENTRY_POINT(_OSAtomicAnd32Orig)
+	ATOMIC_ARITHMETIC_ORIG(and)
+	bx	lr
+
+ENTRY_POINT(_OSAtomicXor32Barrier)
+ENTRY_POINT(_OSAtomicXor32)
 	ATOMIC_ARITHMETIC(eor)
 	bx	lr
 
-MI_ENTRY_POINT(_OSAtomicCompareAndSwap32Barrier)
-MI_ENTRY_POINT(_OSAtomicCompareAndSwap32)
-MI_ENTRY_POINT(_OSAtomicCompareAndSwapIntBarrier)
-MI_ENTRY_POINT(_OSAtomicCompareAndSwapInt)
-MI_ENTRY_POINT(_OSAtomicCompareAndSwapLongBarrier)
-MI_ENTRY_POINT(_OSAtomicCompareAndSwapLong)
-MI_ENTRY_POINT(_OSAtomicCompareAndSwapPtrBarrier)
-MI_ENTRY_POINT(_OSAtomicCompareAndSwapPtr)
+ENTRY_POINT(_OSAtomicXor32OrigBarrier)
+ENTRY_POINT(_OSAtomicXor32Orig)
+	ATOMIC_ARITHMETIC_ORIG(eor)
+	bx	lr
+
+ENTRY_POINT(_OSAtomicCompareAndSwap32Barrier)
+ENTRY_POINT(_OSAtomicCompareAndSwap32)
+ENTRY_POINT(_OSAtomicCompareAndSwapIntBarrier)
+ENTRY_POINT(_OSAtomicCompareAndSwapInt)
+ENTRY_POINT(_OSAtomicCompareAndSwapLongBarrier)
+ENTRY_POINT(_OSAtomicCompareAndSwapLong)
+ENTRY_POINT(_OSAtomicCompareAndSwapPtrBarrier)
+ENTRY_POINT(_OSAtomicCompareAndSwapPtr)
 1:	ldrex	r3, [r2]	// load existing value and tag memory
 	teq	r3, r0		// is it the same as oldValue?
 	movne	r0, #0		// if not, return 0 immediately
@@ -112,39 +135,41 @@ MI_ENTRY_POINT(_OSAtomicCompareAndSwapPtr)
 	ands	r0, r2, r0	/* mask off the bit from the old value */	    ;\
 	movne	r0, #1		/* if non-zero, return exactly 1 */
 	
-MI_ENTRY_POINT(_OSAtomicTestAndSetBarrier)
-MI_ENTRY_POINT(_OSAtomicTestAndSet)
+ENTRY_POINT(_OSAtomicTestAndSetBarrier)
+ENTRY_POINT(_OSAtomicTestAndSet)
 	ATOMIC_BITOP(orr)
 	bx	lr
 
-MI_ENTRY_POINT(_OSAtomicTestAndClearBarrier)
-MI_ENTRY_POINT(_OSAtomicTestAndClear)
+ENTRY_POINT(_OSAtomicTestAndClearBarrier)
+ENTRY_POINT(_OSAtomicTestAndClear)
 	ATOMIC_BITOP(bic)
 	bx	lr
 
-MI_ENTRY_POINT(_OSMemoryBarrier)
+ENTRY_POINT(_OSMemoryBarrier)
 	bx	lr
 
 
 #if defined(_ARM_ARCH_6K)
 /* If we can use LDREXD/STREXD, then we can implement 64-bit atomic operations */
 
-MI_ENTRY_POINT(_OSAtomicAdd64)
+ENTRY_POINT(_OSAtomicAdd64Barrier)
+ENTRY_POINT(_OSAtomicAdd64)
 	// R0,R1 contain the amount to add
 	// R2 contains the pointer
-	stmfd	sp!, {r4, r5, r6, r8, lr}
+	stmfd	sp!, {r4, r5, r8, r9, lr}
 1:	
-	ldrexd	r4, [r2]	// load existing value to R4/R5 and tag memory
-	adds	r6, r4, r0	// add lower half of new value into R6 and set carry bit
-	adc	r8, r5, r1	// add upper half of new value into R8 with carry
-	strexd	r3, r6, [r2]	// store new value if memory is still tagged
+	ldrexd	r4, r5, [r2]	// load existing value to R4/R5 and tag memory
+	adds	r8, r4, r0	// add lower half of new value into R6 and set carry bit
+	adc	r9, r5, r1	// add upper half of new value into R8 with carry
+	strexd	r3, r8, r9, [r2]	// store new value if memory is still tagged
 	cmp	r3, #0		// check if store succeeded
 	bne	1b		// if so, try again
-	mov	r0, r6		// return new value
-	mov	r1, r8
-	ldmfd	sp!, {r4, r5, r6, r8, pc}
+	mov	r0, r8		// return new value
+	mov	r1, r9
+	ldmfd	sp!, {r4, r5, r8, r9, pc}
 	
-MI_ENTRY_POINT(_OSAtomicCompareAndSwap64)
+ENTRY_POINT(_OSAtomicCompareAndSwap64Barrier)
+ENTRY_POINT(_OSAtomicCompareAndSwap64)
 	// R0,R1 contains the old value
 	// R2,R3 contains the new value
 	// the pointer is pushed onto the stack
@@ -175,9 +200,9 @@ MI_ENTRY_POINT(_OSAtomicCompareAndSwap64)
  * Lock the lock pointed to by p.  Spin (possibly forever) until the next
  * lock is available.
  */
-MI_ENTRY_POINT(_spin_lock)
-MI_ENTRY_POINT(__spin_lock)
-MI_ENTRY_POINT(_OSSpinLockLock)
+ENTRY_POINT(_spin_lock)
+ENTRY_POINT(__spin_lock)
+ENTRY_POINT(_OSSpinLockLock)
 L_spin_lock_loop:
 	mov	r1, #1
 	swp	r2, r1, [r0]
@@ -193,9 +218,9 @@ L_spin_lock_loop:
 	ldmfd   sp!, {r0, r8}
 	b	L_spin_lock_loop
 
-MI_ENTRY_POINT(_spin_lock_try)
-MI_ENTRY_POINT(__spin_lock_try)
-MI_ENTRY_POINT(_OSSpinLockTry)
+ENTRY_POINT(_spin_lock_try)
+ENTRY_POINT(__spin_lock_try)
+ENTRY_POINT(_OSSpinLockTry)
 	mov	r1, #1
 	swp	r2, r1, [r0]
 	bic	r0, r1, r2
@@ -208,9 +233,9 @@ MI_ENTRY_POINT(_OSSpinLockTry)
  *
  * Unlock the lock pointed to by p.
  */
-MI_ENTRY_POINT(_spin_unlock)
-MI_ENTRY_POINT(__spin_unlock)
-MI_ENTRY_POINT(_OSSpinLockUnlock)
+ENTRY_POINT(_spin_unlock)
+ENTRY_POINT(__spin_unlock)
+ENTRY_POINT(_OSSpinLockUnlock)
 	mov	r1, #0
 	str	r1, [r0]
 	bx	lr

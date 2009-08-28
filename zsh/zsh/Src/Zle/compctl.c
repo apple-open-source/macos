@@ -2188,9 +2188,14 @@ gen_matches_files(int dirs, int execs, int all)
 		if (!test)
 		    continue;
 		if (!all) {
+		    char *ums;
+		    int umlen;
 		    /* We still have to check the file type, so prepare *
 		     * the path buffer by appending the filename.       */
-		    strcpy(q, n);
+		    ums = dupstring(n);
+		    unmetafy(ums, &umlen);
+		    memcpy(q, ums, umlen);
+		    q[umlen] = '\0';
 		    /* And do the stat. */
 		    if (stat(p, &buf) < 0)
 			continue;
@@ -3496,7 +3501,7 @@ makecomplistflags(Compctl cc, char *s, int incmd, int compadd)
 					p++;
 				/* Get the pattern string. */
 				tokenize(g = dupstrpfx(g, p - g));
-				if (*g == '=')
+				if (*g == '=' && isset(EQUALS))
 				    *g = Equals;
 				if (*g == '~')
 				    *g = Tilde;
@@ -3630,12 +3635,12 @@ makecomplistflags(Compctl cc, char *s, int incmd, int compadd)
     }
     if (cc->func) {
 	/* This handles the compctl -K flag. */
-	Eprog prog;
+	Shfunc shfunc;
 	char **r;
 	int lv = lastval;
 	    
 	/* Get the function. */
-	if ((prog = getshfunc(cc->func)) != &dummy_eprog) {
+	if ((shfunc = getshfunc(cc->func))) {
 	    /* We have it, so build a argument list. */
 	    LinkList args = newlinklist();
 	    int osc = sfcontext;
@@ -3659,7 +3664,7 @@ makecomplistflags(Compctl cc, char *s, int incmd, int compadd)
 		incompctlfunc = 1;
 	    sfcontext = SFC_COMPLETE;
 	    /* Call the function. */
-	    doshfunc(cc->func, prog, args, 0, 1);
+	    doshfunc(shfunc, args, 1);
 	    sfcontext = osc;
 	    incompctlfunc = 0;
 	    /* And get the result from the reply parameter. */
@@ -3804,12 +3809,12 @@ makecomplistflags(Compctl cc, char *s, int incmd, int compadd)
 	/* generate the user-defined display list: if anything fails, *
 	 * we silently allow the normal completion list to be used.   */
 	char **yaptr = NULL, *uv = NULL;
-	Eprog prog;
+	Shfunc shfunc;
 
 	if (cc->ylist[0] == '$' || cc->ylist[0] == '(') {
 	    /* from variable */
 	    uv = cc->ylist + (cc->ylist[0] == '$');
-	} else if ((prog = getshfunc(cc->ylist)) != &dummy_eprog) {
+	} else if ((shfunc = getshfunc(cc->ylist))) {
 	    /* from function:  pass completions as arg list */
 	    LinkList args = newlinklist();
 	    LinkNode ln;
@@ -3834,7 +3839,7 @@ makecomplistflags(Compctl cc, char *s, int incmd, int compadd)
 	    if (incompfunc != 1)
 		incompctlfunc = 1;
 	    sfcontext = SFC_COMPLETE;
-	    doshfunc(cc->ylist, prog, args, 0, 1);
+	    doshfunc(shfunc, args, 1);
 	    sfcontext = osc;
 	    incompctlfunc = 0;
 	    uv = "reply";
@@ -3933,8 +3938,16 @@ makecomplistflags(Compctl cc, char *s, int incmd, int compadd)
 
 
 static struct builtin bintab[] = {
-    BUILTIN("compctl", 0, bin_compctl, 0, -1, 0, NULL, NULL),
     BUILTIN("compcall", 0, bin_compcall, 0, 0, 0, "TD", NULL),
+    BUILTIN("compctl", 0, bin_compctl, 0, -1, 0, NULL, NULL),
+};
+
+static struct features module_features = {
+    bintab, sizeof(bintab)/sizeof(*bintab),
+    NULL, 0,
+    NULL, 0,
+    NULL, 0,
+    0
 };
 
 /**/
@@ -3959,11 +3972,26 @@ setup_(UNUSED(Module m))
 
 /**/
 int
+features_(Module m, char ***features)
+{
+    *features = featuresarray(m, &module_features);
+    return 0;
+}
+
+/**/
+int
+enables_(Module m, int **enables)
+{
+    return handlefeatures(m, &module_features, enables);
+}
+
+/**/
+int
 boot_(Module m)
 {
     addhookfunc("compctl_make", (Hookfn) ccmakehookfn);
     addhookfunc("compctl_cleanup", (Hookfn) cccleanuphookfn);
-    return (addbuiltins(m->nam, bintab, sizeof(bintab)/sizeof(*bintab)) != 1);
+    return 0;
 }
 
 /**/
@@ -3972,8 +4000,7 @@ cleanup_(Module m)
 {
     deletehookfunc("compctl_make", (Hookfn) ccmakehookfn);
     deletehookfunc("compctl_cleanup", (Hookfn) cccleanuphookfn);
-    deletebuiltins(m->nam, bintab, sizeof(bintab)/sizeof(*bintab));
-    return 0;
+    return setfeatureenables(m, &module_features, NULL);
 }
 
 /**/

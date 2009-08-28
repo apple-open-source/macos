@@ -133,7 +133,7 @@ mig_dealloc_reply_port(mach_port_t migport)
             if (port != MACH_PORT_NULL && port != _task_reply_port) {
                     LOCK(reply_port_lock);
                     pself->reply_port = _task_reply_port;
-                    (void) mach_port_destroy(mach_task_self(), port);
+                    (void) mach_port_mod_refs(mach_task_self(), port, MACH_PORT_RIGHT_RECEIVE, -1);
                     pself->reply_port = MACH_PORT_NULL;
                     UNLOCK(reply_port_lock);
             }
@@ -151,7 +151,7 @@ mig_dealloc_reply_port(mach_port_t migport)
         if (port != MACH_PORT_NULL && port != _task_reply_port) {
 		LOCK(reply_port_lock);
                 self->reply_port = _task_reply_port;
-                (void) mach_port_destroy(mach_task_self(), port);
+		(void) mach_port_mod_refs(mach_task_self(), port, MACH_PORT_RIGHT_RECEIVE, -1);
                 self->reply_port = MACH_PORT_NULL;
 		UNLOCK(reply_port_lock);
 	}

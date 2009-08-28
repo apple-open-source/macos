@@ -1,9 +1,8 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright © 1998-2009 Apple Inc.  All rights reserved.
  *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -34,6 +33,7 @@
 #include <IOKit/usb/IOUSBLog.h>
 
 #include "IOUSBControllerUserClient.h"
+#include "USBTracepoints.h"
 
 #define super IOUserClient
 
@@ -210,6 +210,7 @@ IOUSBControllerUserClient::start( IOService * provider )
     if (!fMemMap)
     {
         USBLog(1, "IOUSBControllerUserClient::start - unable to get a memory map");
+		USBTrace( kUSBTControllerUserClient,  kTPControllerUCStart, (uintptr_t)this, (uintptr_t)fOwner, kIOReturnNoResources, 0 );
         return kIOReturnNoResources;
     }
 
@@ -223,6 +224,8 @@ IOUSBControllerUserClient::open(bool seize)
     IOOptionBits	options = seize ? (IOOptionBits) kIOServiceSeize : 0;
 
     USBLog(1, "+IOUSBControllerUserClient::open");
+	USBTrace( kUSBTControllerUserClient,  kTPControllerUCOpen, (uintptr_t)this, (uintptr_t)fOwner, options, seize );
+	
     if (!fOwner)
         return kIOReturnNotAttached;
 
@@ -323,6 +326,8 @@ IOUSBControllerUserClient::ReadRegister(UInt32 offset, UInt32 size, void *value)
     UInt32	lVal;
 
     USBLog(1, "+IOUSBControllerUserClient::ReadRegister Offset(0x%x), Size (%d)", (int)offset, (int)size);
+	USBTrace( kUSBTControllerUserClient,  kTPControllerUCReadRegister, (uintptr_t)this, (uintptr_t)fOwner, (int)offset, (int)size );
+	
     if (!fOwner)
         return kIOReturnNotAttached;
 
@@ -351,6 +356,7 @@ IOUSBControllerUserClient::ReadRegister(UInt32 offset, UInt32 size, void *value)
 
         default:
             USBLog(1, "IOUSBControllerUserClient::ReadRegister - invalid size");
+			USBTrace( kUSBTControllerUserClient,  kTPControllerUCReadRegister, (uintptr_t)this, (uintptr_t)fOwner, kIOReturnBadArgument, 0 );
             return kIOReturnBadArgument;
     }
     return kIOReturnSuccess;
@@ -361,6 +367,8 @@ IOReturn
 IOUSBControllerUserClient::WriteRegister(UInt32 offset, UInt32 size, UInt32 value)
 {
     USBLog(1, "+IOUSBControllerUserClient::WriteRegister Offset(0x%x), Size (%d) Value (0x%x)", (int)offset, (int)size, (int)value);
+	USBTrace( kUSBTControllerUserClient,  kTPControllerUCWriteRegister, (uintptr_t)this, (uintptr_t)fOwner, (int)offset, (int)size );
+	USBTrace( kUSBTControllerUserClient,  kTPControllerUCWriteRegister, 1, (int)value, 0, 0 );
 
     if (!fOwner)
         return kIOReturnNotAttached;

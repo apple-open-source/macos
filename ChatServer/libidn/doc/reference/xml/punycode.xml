@@ -3,16 +3,19 @@
                "http://www.oasis-open.org/docbook/xml/4.1.2/docbookx.dtd">
 <refentry id="libidn-punycode">
 <refmeta>
-<refentrytitle>punycode</refentrytitle>
+<refentrytitle role="top_of_page">punycode</refentrytitle>
 <manvolnum>3</manvolnum>
 <refmiscinfo>LIBIDN Library</refmiscinfo>
 </refmeta>
 
 <refnamediv>
-<refname>punycode</refname><refpurpose></refpurpose>
+<refname>punycode</refname>
+<refpurpose></refpurpose>
+<!--[<xref linkend="desc" endterm="desc.title"/>]-->
 </refnamediv>
 
-<refsynopsisdiv><title>Synopsis</title>
+<refsynopsisdiv role="synopsis">
+<title role="synopsis.title">Synopsis</title>
 
 <synopsis>
 
@@ -42,17 +45,17 @@ typedef     <link linkend="punycode-uint">punycode_uint</link>;
 
 
 
-<refsect1>
-<title>Description</title>
+<refsect1 role="desc">
+<title role="desc.title">Description</title>
 <para>
 
 </para>
 </refsect1>
 
-<refsect1>
-<title>Details</title>
+<refsect1 role="details">
+<title role="details.title">Details</title>
 <refsect2>
-<title><anchor id="Punycode-status"/>enum Punycode_status</title>
+<title><anchor id="Punycode-status" role="enum"/>enum Punycode_status</title>
 <indexterm><primary>Punycode_status</primary></indexterm><programlisting>  typedef enum
   {
     PUNYCODE_SUCCESS = punycode_success,
@@ -68,30 +71,30 @@ The value 0 is guaranteed to always correspond to success.</para>
 
 </para><variablelist role="enum">
 <varlistentry>
-<term><literal>PUNYCODE_SUCCESS</literal></term>
+<term><anchor id="PUNYCODE-SUCCESS:CAPS" role="constant"/><literal>PUNYCODE_SUCCESS</literal></term>
 <listitem><simpara> Successful operation.  This value is guaranteed
   to always be zero, the remaining ones are only guaranteed to hold
   non-zero values, for logical comparison purposes.
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>PUNYCODE_BAD_INPUT</literal></term>
+<term><anchor id="PUNYCODE-BAD-INPUT:CAPS" role="constant"/><literal>PUNYCODE_BAD_INPUT</literal></term>
 <listitem><simpara> Input is invalid.
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>PUNYCODE_BIG_OUTPUT</literal></term>
+<term><anchor id="PUNYCODE-BIG-OUTPUT:CAPS" role="constant"/><literal>PUNYCODE_BIG_OUTPUT</literal></term>
 <listitem><simpara> Output would exceed the space provided.
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>PUNYCODE_OVERFLOW</literal></term>
+<term><anchor id="PUNYCODE-OVERFLOW:CAPS" role="constant"/><literal>PUNYCODE_OVERFLOW</literal></term>
 <listitem><simpara> Input needs wider integers to process.
 </simpara></listitem>
 </varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="punycode-strerror"/>punycode_strerror ()</title>
+<title><anchor id="punycode-strerror" role="function"/>punycode_strerror ()</title>
 <indexterm><primary>punycode_strerror</primary></indexterm><programlisting>const <link linkend="char">char</link>* punycode_strerror               (<link linkend="Punycode-status">Punycode_status</link> rc);</programlisting>
 <para>
 Convert a return code integer to a text string.  This string can be
@@ -115,7 +118,7 @@ containing a description of the error with the return code <parameter>rc</parame
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="punycode-uint"/>punycode_uint</title>
+<title><anchor id="punycode-uint" role="typedef"/>punycode_uint</title>
 <indexterm><primary>punycode_uint</primary></indexterm><programlisting>  typedef uint32_t punycode_uint;
 </programlisting>
 <para>
@@ -125,7 +128,7 @@ integer.</para>
 
 </para></refsect2>
 <refsect2>
-<title><anchor id="punycode-encode"/>punycode_encode ()</title>
+<title><anchor id="punycode-encode" role="function"/>punycode_encode ()</title>
 <indexterm><primary>punycode_encode</primary></indexterm><programlisting><link linkend="int">int</link>         punycode_encode                 (<link linkend="size-t">size_t</link> input_length,
                                              const <link linkend="punycode-uint">punycode_uint</link> input[],
                                              unsigned <link linkend="char">char</link> case_flags[],
@@ -151,14 +154,14 @@ points) to Punycode.</para>
   E000..10FFFF) are also called Unicode scalar values.
 </simpara></listitem></varlistentry>
 <varlistentry><term><parameter>case_flags</parameter>&nbsp;:</term>
-<listitem><simpara> A <literal>NULL</literal> pointer or an array of boolean values parallel
+<listitem><simpara> A <link linkend="NULL:CAPS"><literal>NULL</literal></link> pointer or an array of boolean values parallel
   to the <parameter>input</parameter> array.  Nonzero (true, flagged) suggests that the
   corresponding Unicode character be forced to uppercase after
   being decoded (if possible), and zero (false, unflagged) suggests
   that it be forced to lowercase (if possible).  ASCII code points
   (0..7F) are encoded literally, except that ASCII letters are
   forced to uppercase or lowercase according to the corresponding
-  case flags.  If <parameter>case_flags</parameter> is a <literal>NULL</literal> pointer then ASCII letters
+  case flags.  If <parameter>case_flags</parameter> is a <link linkend="NULL:CAPS"><literal>NULL</literal></link> pointer then ASCII letters
   are left as they are, and other code points are treated as
   unflagged.
 </simpara></listitem></varlistentry>
@@ -174,13 +177,13 @@ points) to Punycode.</para>
   terminator and add one if needed.)
 </simpara></listitem></varlistentry>
 <varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> The return value can be any of the <link linkend="Punycode-status"><type>Punycode_status</type></link>
-  values defined above except <literal>PUNYCODE_BAD_INPUT</literal>.  If not
-  <literal>PUNYCODE_SUCCESS</literal>, then <parameter>output_size</parameter> and <parameter>output</parameter> might contain
+  values defined above except <link linkend="PUNYCODE-BAD-INPUT:CAPS"><literal>PUNYCODE_BAD_INPUT</literal></link>.  If not
+  <link linkend="PUNYCODE-SUCCESS:CAPS"><literal>PUNYCODE_SUCCESS</literal></link>, then <parameter>output_size</parameter> and <parameter>output</parameter> might contain
   garbage.
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="punycode-decode"/>punycode_decode ()</title>
+<title><anchor id="punycode-decode" role="function"/>punycode_decode ()</title>
 <indexterm><primary>punycode_decode</primary></indexterm><programlisting><link linkend="int">int</link>         punycode_decode                 (<link linkend="size-t">size_t</link> input_length,
                                              const <link linkend="char">char</link> input[],
                                              <link linkend="size-t">size_t</link> *output_length,
@@ -202,7 +205,7 @@ Unicode code points).</para>
 <listitem><simpara> The caller passes in the maximum number of code
   points that it can receive into the <parameter>output</parameter> array (which is also
   the maximum number of flags that it can receive into the
-  <parameter>case_flags</parameter> array, if <parameter>case_flags</parameter> is not a <literal>NULL</literal> pointer).  On
+  <parameter>case_flags</parameter> array, if <parameter>case_flags</parameter> is not a <link linkend="NULL:CAPS"><literal>NULL</literal></link> pointer).  On
   successful return it will contain the number of code points
   actually output (which is also the number of flags actually
   output, if case_flags is not a null pointer).  The decoder will
@@ -217,7 +220,7 @@ Unicode code points).</para>
   <link linkend="punycode-encode"><function>punycode_encode()</function></link> (see above).
 </simpara></listitem></varlistentry>
 <varlistentry><term><parameter>case_flags</parameter>&nbsp;:</term>
-<listitem><simpara> A <literal>NULL</literal> pointer (if the flags are not needed by the
+<listitem><simpara> A <link linkend="NULL:CAPS"><literal>NULL</literal></link> pointer (if the flags are not needed by the
   caller) or an array of boolean values parallel to the <parameter>output</parameter>
   array.  Nonzero (true, flagged) suggests that the corresponding
   Unicode character be forced to uppercase by the caller (if
@@ -227,7 +230,7 @@ Unicode code points).</para>
   appropriately so that applying the flags would be harmless.
 </simpara></listitem></varlistentry>
 <varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> The return value can be any of the <link linkend="Punycode-status"><type>Punycode_status</type></link>
-  values defined above.  If not <literal>PUNYCODE_SUCCESS</literal>, then
+  values defined above.  If not <link linkend="PUNYCODE-SUCCESS:CAPS"><literal>PUNYCODE_SUCCESS</literal></link>, then
   <parameter>output_length</parameter>, <parameter>output</parameter>, and <parameter>case_flags</parameter> might contain garbage.
 
 </simpara></listitem></varlistentry>

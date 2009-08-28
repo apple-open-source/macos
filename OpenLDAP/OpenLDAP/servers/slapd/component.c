@@ -1,8 +1,8 @@
 /* component.c -- Component Filter Match Routines */
-/* $OpenLDAP: pkg/ldap/servers/slapd/component.c,v 1.13.2.6 2006/01/03 22:16:13 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/component.c,v 1.31.2.3 2008/02/11 23:26:43 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2003-2006 The OpenLDAP Foundation.
+ * Copyright 2003-2008 The OpenLDAP Foundation.
  * Portions Copyright 2004 by IBM Corporation.
  * All rights reserved.
  *
@@ -179,7 +179,7 @@ dup_comp_ref ( Operation* op, ComponentReference* cr )
 		ci_curr = ci_curr->ci_next, ci_temp = &(*ci_temp)->ci_next )
 	{
 		*ci_temp = op->o_tmpalloc( sizeof( ComponentId ), op->o_tmpmemctx );
-		if ( !ci_temp ) return NULL;
+		if ( !*ci_temp ) return NULL;
 		**ci_temp = *ci_curr;
 	}
 
@@ -580,6 +580,11 @@ get_component_reference(
 			cr_list = &(*cr_list)->ci_next;
 
 		} else if ( rc == LDAP_COMPREF_UNDEFINED ) {
+			if ( op ) {
+				op->o_tmpfree( ca_comp_ref , op->o_tmpmemctx );
+			} else {
+				free( ca_comp_ref );
+			}
 			return rc;
 		}
 	}
@@ -594,16 +599,8 @@ get_component_reference(
 		return rc;
 	}
 
-	if ( rc == LDAP_SUCCESS ) {	
-		*cr = ca_comp_ref;
-		**cr = *ca_comp_ref;	
-
-	} else if ( op ) {
-		 op->o_tmpfree( ca_comp_ref , op->o_tmpmemctx );
-
-	} else {
-		 free( ca_comp_ref ) ;
-	}
+	*cr = ca_comp_ref;
+	**cr = *ca_comp_ref;	
 
 	(*cr)->cr_string.bv_val = start;
 	(*cr)->cr_string.bv_len = end - start + 1;
@@ -1076,7 +1073,7 @@ parse_comp_filter( Operation* op, ComponentAssertionValue* cav,
 	ber_tag_t	tag;
 	int		err;
 	ComponentFilter	f;
-	/* TAG : item, and, or, not in RFC 2254 */
+	/* TAG : item, and, or, not in RFC 4515 */
 	tag = strip_cav_tag( cav );
 
 	if ( tag == LBER_ERROR ) {

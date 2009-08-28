@@ -264,17 +264,17 @@ stir_from_system(void)
 	total_entropy_estimate = 0;
 	
 	i = getpid();
-	RAND_add(&i, sizeof(i), 0.5);
+	RAND_add(&i, (int)sizeof(i), 0.5);
 	total_entropy_estimate += 0.1;
 	
 	i = getppid();
-	RAND_add(&i, sizeof(i), 0.5);
+	RAND_add(&i, (int)sizeof(i), 0.5);
 	total_entropy_estimate += 0.1;
 
 	i = getuid();
-	RAND_add(&i, sizeof(i), 0.0);
+	RAND_add(&i, (int)sizeof(i), 0.0);
 	i = getgid();
-	RAND_add(&i, sizeof(i), 0.0);
+	RAND_add(&i, (int)sizeof(i), 0.0);
 
 	total_entropy_estimate += stir_gettimeofday(1.0);
 	total_entropy_estimate += stir_clock(0.5);
@@ -312,7 +312,7 @@ stir_from_programs(void)
 				entropy_estimate /= SCALE_PER_RUN * (i + 1.0);
 			
 				/* Stir it in */
-				RAND_add(hash, sizeof(hash), entropy_estimate);
+				RAND_add(hash, (int)sizeof(hash), entropy_estimate);
 
 #ifdef DEBUG_ENTROPY
 				debug("Got %0.2f bytes of entropy from '%s'", entropy_estimate, 
@@ -351,7 +351,7 @@ stir_gettimeofday(double entropy_estimate)
 	if (gettimeofday(&tv, NULL) == -1)
 		pwsf_fatal("Couldn't gettimeofday: %s", strerror(errno));
 
-	RAND_add(&tv, sizeof(tv), entropy_estimate);
+	RAND_add(&tv, (int)sizeof(tv), entropy_estimate);
 	
 	return(entropy_estimate);
 }
@@ -392,7 +392,7 @@ stir_rusage(int who, double entropy_estimate)
 static
 int
 _get_timeval_msec_difference(struct timeval *t1, struct timeval *t2) {
-	int secdiff, usecdiff;
+	time_t secdiff, usecdiff;
 
 	secdiff = t2->tv_sec - t1->tv_sec;
 	usecdiff = (secdiff*1000000) + (t2->tv_usec - t1->tv_usec);
@@ -411,8 +411,8 @@ hash_output_from_command(entropy_source_t *src, char *hash)
 	pid_t pid;
 	int status;
 	char buf[16384];
-	int bytes_read;
-	int total_bytes_read;
+	size_t bytes_read;
+	size_t total_bytes_read;
 	SHA_CTX sha;
 	
 	if (devnull == -1) {
@@ -451,7 +451,7 @@ hash_output_from_command(entropy_source_t *src, char *hash)
 			break;
 	}
 
-	RAND_add(&pid, sizeof(&pid), 0.0);
+	RAND_add(&pid, (int)sizeof(&pid), 0.0);
 
 	close(p[1]);
 
@@ -479,7 +479,7 @@ hash_output_from_command(entropy_source_t *src, char *hash)
 
 		ret = select(p[0]+1, &rdset, NULL, NULL, &tv);
 
-		RAND_add(&tv, sizeof(tv), 0.0);
+		RAND_add(&tv, (int)sizeof(tv), 0.0);
 
 		switch (ret) {
 		case 0:
@@ -489,7 +489,7 @@ hash_output_from_command(entropy_source_t *src, char *hash)
 		case 1:
 			/* command input */
 			bytes_read = read(p[0], buf, sizeof(buf));
-			RAND_add(&bytes_read, sizeof(&bytes_read), 0.0);
+			RAND_add(&bytes_read, (int)sizeof(&bytes_read), 0.0);
 			if (bytes_read == -1) {
 				error_abort = 1;
 				break;
@@ -524,7 +524,7 @@ hash_output_from_command(entropy_source_t *src, char *hash)
 		return(0.0);
 	}
 
-	RAND_add(&status, sizeof(&status), 0.0);
+	RAND_add(&status, (int)sizeof(&status), 0.0);
 
 	if (error_abort) {
 		/* closing p[0] on timeout causes the entropy command to
@@ -615,7 +615,7 @@ prng_write_seedfile(void) {
 
 	debug("writing PRNG seed to file %.100s", filename);
 
-	RAND_bytes((unsigned char *)seed, sizeof(seed));
+	RAND_bytes((unsigned char *)seed, (int)sizeof(seed));
 
 	/* Don't care if the seed doesn't exist */
 	prng_check_seedfile(filename);
@@ -672,7 +672,7 @@ prng_read_seedfile(void) {
 	close(fd);
 
 	/* stir in the seed, with estimated entropy zero */
-	RAND_add(&seed, sizeof(seed), 0.0);
+	RAND_add(&seed, (int)sizeof(seed), 0.0);
 }
 
 
@@ -704,7 +704,7 @@ prng_read_commands(char *cmdfilename)
 
 	/* Read in file */
 	linenum = 0;
-	while (fgets(line, sizeof(line), f)) {
+	while (fgets(line, (int)sizeof(line), f)) {
 		int arg;
 		char *argv;
 

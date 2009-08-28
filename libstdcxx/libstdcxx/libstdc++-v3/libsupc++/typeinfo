@@ -1,5 +1,6 @@
 // RTTI support for -*- C++ -*-
-// Copyright (C) 1994, 1995, 1996, 1997, 1998, 2000, 2001, 2002
+// Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
+// 2003, 2004, 2005, 2006, 2007
 // Free Software Foundation
 //
 // This file is part of GCC.
@@ -16,8 +17,8 @@
 // 
 // You should have received a copy of the GNU General Public License
 // along with GCC; see the file COPYING.  If not, write to
-// the Free Software Foundation, 59 Temple Place - Suite 330,
-// Boston, MA 02111-1307, USA.
+// the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+// Boston, MA 02110-1301, USA.
 
 // As a special exception, you may use this file as part of a free software
 // library without restriction.  Specifically, if other files instantiate
@@ -29,7 +30,7 @@
 // the GNU General Public License.
 
 /** @file typeinfo
- *  This header provides RTTI support.
+ *  This is a Standard C++ Library header.
  */
 
 #ifndef _TYPEINFO
@@ -67,25 +68,12 @@ namespace std
   class type_info 
   {
   public:
-    /** Destructor. Being the first non-inline virtual function, this
+    /** Destructor first. Being the first non-inline virtual function, this
      *  controls in which translation unit the vtable is emitted. The
      *  compiler makes use of that information to know where to emit
      *  the runtime-mandated type_info structures in the new-abi.  */
     virtual ~type_info();
 
-  private:
-    /// Assigning type_info is not supported.  Made private.
-    type_info& operator=(const type_info&);
-    type_info(const type_info&);
-    
-  protected:
-    const char *__name;
-    
-  protected:
-    explicit type_info(const char *__n): __name(__n) { }
-    
-  public:
-    // the public interface
     /** Returns an @e implementation-defined byte string; this is not
      *  portable between compilers!  */
     const char* name() const
@@ -93,6 +81,7 @@ namespace std
 
 #if !__GXX_MERGED_TYPEINFO_NAMES
     bool before(const type_info& __arg) const;
+
     // In old abi, or when weak symbols are not supported, there can
     // be multiple instances of a type_info object for one
     // type. Uniqueness must use the _name value, not object address.
@@ -104,17 +93,20 @@ namespace std
     // and therefore address comparisons are sufficient.
     bool before(const type_info& __arg) const
     { return __name < __arg.__name; }
+
     bool operator==(const type_info& __arg) const
     { return __name == __arg.__name; }
 #endif
     bool operator!=(const type_info& __arg) const
     { return !operator==(__arg); }
     
-    // the internal interface
-  public:
-    // return true if this is a pointer type of some kind
+   // APPLE LOCAL begin
+   // For ABI stability these virtuals must be ordered: __is_pointer_p, __is_function_p, __do_catch, __do_upcast
+
+   // Return true if this is a pointer type of some kind
     virtual bool __is_pointer_p() const;
-    // return true if this is a function type
+
+    // Return true if this is a function type
     virtual bool __is_function_p() const;
 
     // Try and catch a thrown type. Store an adjusted pointer to the
@@ -126,9 +118,21 @@ namespace std
     virtual bool __do_catch(const type_info *__thr_type, void **__thr_obj,
 			    unsigned __outer) const;
 
-    // internally used during catch matching
+    // Internally used during catch matching
     virtual bool __do_upcast(const __cxxabiv1::__class_type_info *__target,
 			     void **__obj_ptr) const;
+
+   // APPLE LOCAL end
+
+  protected:
+    const char *__name;
+    
+    explicit type_info(const char *__n): __name(__n) { }
+    
+  private:
+    /// Assigning type_info is not supported.
+    type_info& operator=(const type_info&);
+    type_info(const type_info&);
   };
 
   /**
@@ -140,9 +144,13 @@ namespace std
   {
   public:
     bad_cast() throw() { }
+
     // This declaration is not useless:
     // http://gcc.gnu.org/onlinedocs/gcc-3.0.2/gcc_6.html#SEC118
     virtual ~bad_cast() throw();
+
+    // See comment in eh_exception.cc.
+    virtual const char* what() const throw();
   };
   
   /** If you use a NULL pointer in a @c typeid expression, this is thrown.  */
@@ -150,9 +158,13 @@ namespace std
   {
   public:
     bad_typeid () throw() { }
+
     // This declaration is not useless:
     // http://gcc.gnu.org/onlinedocs/gcc-3.0.2/gcc_6.html#SEC118
     virtual ~bad_typeid() throw();
+
+    // See comment in eh_exception.cc.
+    virtual const char* what() const throw();
   };
 } // namespace std
 

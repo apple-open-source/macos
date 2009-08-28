@@ -6,11 +6,12 @@ use strict;
 
 
 use DBI;
-require Config;
+use Config;
 require VMS::Filespec if $^O eq 'VMS';
 require Cwd;
 
 my $haveFileSpec = eval { require File::Spec };
+my $failed_tests = 0;
 
 $| = 1;
 $^W = 1;
@@ -24,8 +25,10 @@ $^W = 1;
 
 eval {
     local $SIG{__WARN__} = sub { $@ = shift };
+    require Storable;
     require DBD::Proxy;
     require DBI::ProxyServer;
+    require RPC::PlServer;
     require Net::Daemon::Test;
 };
 if ($@) {
@@ -56,6 +59,7 @@ if ($DBI::PurePerl) {
 	++$numTest;
 	($ok) ? print "ok $numTest at line $line\n" : print "not ok $numTest\n";
 	warn "# failed test $numTest at line ".(caller)[2]."$msg\n" unless $ok;
+        ++$failed_tests unless $ok;
 	return $ok;
     }
 }
@@ -70,14 +74,19 @@ unlink $config_file;
  close(FILE))
     or die "Failed to create config file $config_file: $!";
 
-my($handle, $port);
-my $numTests = 125;
+my $debug = ($ENV{DBI_TRACE}||=0) ? 1 : 0;
+my $dbitracelog = "dbiproxy.dbilog";
+
+my ($handle, $port, @child_args);
+
+my $numTests = 139;
+
 if (@ARGV) {
     $port = $ARGV[0];
-} else {
+}
+else {
 
-    # set DBI_TRACE to 0 to just get dbiproxy.log DBI trace for server
-    # set DBI_TRACE > 0 to also get DBD::Proxy trace
+    unlink $dbitracelog;
     unlink "dbiproxy.log";
     unlink "dbiproxy.truss";
 
@@ -87,23 +96,25 @@ if (@ARGV) {
     # If desperate uncomment this and add '-d' after $^X below:
     # local $ENV{PERLDB_OPTS} = "AutoTrace NonStop=1 LineInfo=dbiproxy.dbg";
 
-    my $dbi_trace_level = DBI->trace(0);
-    my @child_args = (
+    # pass our @INC to children (e.g., so -Mblib passes through)
+    $ENV{PERL5LIB} = join($Config{path_sep}, @INC);
+
+    # server DBI trace level always at least 1
+    my $dbitracelevel = DBI->trace(0) || 1;
+    @child_args = (
 	#'truss', '-o', 'dbiproxy.truss',
-	$^X, '-Iblib/lib', '-Iblib/arch', 
-	'dbiproxy', '--test', # --test must be first command line arg
-	($dbi_trace_level ? ('--dbitrace=dbiproxy.log') : ()),
+	$^X, 'dbiproxy', '--test', # --test must be first command line arg
+	"--dbitrace=$dbitracelevel=$dbitracelog", # must be second arg
 	'--configfile', $config_file,
-	(($dbi_trace_level) ? ('--logfile=1') : ()),
+	($dbitracelevel >= 2 ? ('--debug') : ()),
 	'--mode=single',
-	'--debug',
+	'--logfile=STDERR',
 	'--timeout=60'
     );
-    warn " starting test dbiproxy process: @child_args\n" if $dbi_trace_level;
+    warn " starting test dbiproxy process: @child_args\n" if DBI->trace(0);
     ($handle, $port) = Net::Daemon::Test->Child($numTests, @child_args);
 }
 
-my $debug = ($ENV{DBI_TRACE}) ? 1 : 0;
 my $dsn = "DBI:Proxy:hostname=127.0.0.1;port=$port;debug=$debug;dsn=DBI:ExampleP:";
 
 print "Making a first connection and closing it immediately.\n";
@@ -130,6 +141,25 @@ eval {
     die "BANG!!!\n";
 };
 Test($@ eq "BANG!!!\n", "\$@ value lost");
+
+
+print "begin_work...\n";
+Test($dbh->{AutoCommit});
+Test(!$dbh->{BegunWork});
+
+Test($dbh->begin_work);
+Test(!$dbh->{AutoCommit});
+Test($dbh->{BegunWork});
+
+$dbh->commit;
+Test(!$dbh->{BegunWork});
+Test($dbh->{AutoCommit});
+
+Test($dbh->begin_work({}));
+$dbh->rollback;
+Test($dbh->{AutoCommit});
+Test(!$dbh->{BegunWork});
+
 
 print "Doing a ping.\n";
 $_ = $dbh->ping;
@@ -296,21 +326,6 @@ print "Trying warnings.\n";
 }
 $csr_c->finish();
 
-print "Trying dump.\n";
-Test($csr_a = $dbh->prepare("select mode,size,name from ?"));
-Test($csr_a->execute('/'));
-my $dump_file = ($ENV{TMP} || $ENV{TEMP} || "/tmp")."/dumpcsr.tst";
-unlink $dump_file;
-if (open(DUMP_RESULTS, ">$dump_file")) {
-	Test($csr_a->dump_results("4", "\n", ",\t", \*DUMP_RESULTS));
-	close(DUMP_RESULTS);
-	Test(-s $dump_file > 0);
-} else {
-        Test(1, " # Skip");
-        Test(1, " # Skip");
-}
-unlink $dump_file;
-
 
 print "Trying type_info_all.\n";
 my $array = $dbh->type_info_all();
@@ -375,12 +390,13 @@ Test(keys %missing == 0)
 
 
 # Test large recordsets
-for (my $i = 0;  $i < 300;  $i += 100) {
+for (my $i = 0;  $i <= 300;  $i += 100) {
     print "Testing the fake directories ($i).\n";
     Test($csr_a = $dbh->prepare("SELECT name, mode FROM long_list_$i"));
     Test($csr_a->execute(), $DBI::errstr);
     my $ary = $csr_a->fetchall_arrayref;
-    Test(@$ary == $i);
+    Test(!$DBI::errstr, $DBI::errstr);
+    Test(@$ary == $i, "expected $i got ".@$ary);
     if ($i) {
         my @n1 = map { $_->[0] } @$ary;
         my @n2 = reverse map { "file$_" } 1..$i;
@@ -433,16 +449,27 @@ $dbh->disconnect;
 #  }
 #  Test(%tables == 0);
 
+if ($failed_tests) {
+    warn "Proxy: @child_args\n";
+    for my $class (qw(Net::Daemon RPC::PlServer Storable)) {
+        (my $pm = $class) =~ s/::/\//g; $pm .= ".pm";
+        my $version = eval { $class->VERSION } || '?';
+        warn sprintf "Using %-13s %-6s  %s\n", $class, $version, $INC{$pm};
+    }
+    warn join(", ", map { "$_=$ENV{$_}" } grep { /^LC_|LANG/ } keys %ENV)."\n";
+    warn "More info can be found in $dbitracelog\n";
+}
 
 
 END {
-    my $status = $?;
+    local $?;
     $handle->Terminate() if $handle;
     undef $handle;
-    my $f = $config_file;
-    undef $config_file;
-    unlink $f if $f;
-    $? = $status;
+    unlink $config_file if $config_file;
+    if (!$failed_tests) {
+        unlink 'dbiproxy.log';
+        unlink $dbitracelog if $dbitracelog;
+    }
 };
 
 1;

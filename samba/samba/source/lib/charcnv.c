@@ -5,6 +5,7 @@
    Copyright (C) Andrew Tridgell 2001
    Copyright (C) Simo Sorce 2001
    Copyright (C) Martin Pool 2003
+   Copyright (C) 2009 Apple Inc. All rights reserved.
    
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -357,6 +358,130 @@ static size_t convert_string_internal(charset_t from, charset_t to,
 	}
 }
 
+#if DARWINOS
+
+#include <CoreFoundation/CoreFoundation.h>
+#include <CoreFoundation/CFStringEncodingConverter.h>
+#include <CoreFoundation/CFUnicodePrecomposition.h>
+#include <libkern/OSByteOrder.h>
+
+/* Convert a canonically decomposed UTF8 into composed UTF16. */
+static size_t push_ucs2_path_darwin(
+	const void * src, size_t nsrcbytes,
+	void * dest, size_t ndestbytes)
+{
+    CFIndex consumed = 0;
+    CFIndex produced = 0;
+    uint32_t ret;
+
+    if (nsrcbytes == (size_t)-1) {
+	nsrcbytes = strlen(src) + 1;
+    }
+
+    ret = CFStringEncodingBytesToUnicode(kCFStringEncodingUTF8,
+	    kCFStringEncodingComposeCombinings | kCFStringEncodingAllowLossyConversion,
+	    src, nsrcbytes,
+	    &consumed,
+	    dest, ndestbytes / sizeof(uint16_t),
+	    &produced);
+
+    if (ret != kCFStringEncodingConversionSuccess) {
+	    if (ret == kCFStringEncodingInsufficientOutputBufferLength) {
+		errno = E2BIG;
+	    } else {
+		errno = EINVAL;
+	    }
+
+	    return -1;
+    }
+
+    CFMutableStringRef mref;
+
+    mref = CFStringCreateMutableWithExternalCharactersNoCopy(
+		kCFAllocatorDefault,
+		dest,
+		produced,
+		ndestbytes / sizeof(uint16_t),
+		kCFAllocatorNull);
+
+    if (!mref) {
+	    DEBUG(0, ("CFStringCreateMutableWithExternalCharactersNoCopy failed???\n"));
+	    errno = ENOMEM;
+	    return -1;
+    }
+
+    CFStringNormalize(mref,  kCFStringNormalizationFormC);
+
+    /* Track the new length. */
+    produced = CFStringGetLength(mref);
+    CFRelease(mref);
+
+    /* Need to byteswap from little to native endian. */
+    if (OSHostByteOrder() == OSBigEndian) {
+	size_t i;
+	uint16_t tmpval;
+
+	for (i = 0; i < ndestbytes; i += sizeof(uint16_t)) {
+	    tmpval = OSReadBigInt16(dest, i);
+	    OSWriteLittleInt16(dest, i, tmpval);
+	}
+    }
+
+    return produced * sizeof(uint16_t);
+}
+
+/* Convert a UTF16 string into canonically decomposed UTF8. */
+static size_t pull_ucs2_path_darwin(
+	const void * src, size_t nsrcbytes,
+	void * dest, size_t ndestbytes)
+{
+    CFIndex consumed = 0;
+    CFIndex produced = 0;
+    uint32_t ret;
+
+    void * tmpsrc = NULL;
+
+    if (nsrcbytes == (size_t)-1) {
+	    nsrcbytes = (strlen_w((const smb_ucs2_t *)src) + 1) * 2;
+    }
+
+    /* Need to byteswap from little to native endian. */
+    if (OSHostByteOrder() == OSBigEndian) {
+	size_t i;
+	uint16_t tmpval;
+
+	tmpsrc = SMB_MALLOC(nsrcbytes);
+
+	for (i = 0; i < nsrcbytes; i += sizeof(uint16_t)) {
+	    tmpval = OSReadBigInt16(src, i);
+	    OSWriteLittleInt16(tmpsrc, i, tmpval);
+	}
+    }
+
+    ret = CFStringEncodingUnicodeToBytes(kCFStringEncodingUTF8,
+	    kCFStringEncodingUseHFSPlusCanonical | kCFStringEncodingAllowLossyConversion,
+	    tmpsrc ? tmpsrc : src, nsrcbytes / sizeof(uint16_t),
+	    &consumed,
+	    dest, ndestbytes,
+	    &produced);
+
+    if (ret == kCFStringEncodingConversionSuccess) {
+	SAFE_FREE(tmpsrc);
+	return produced;
+    }
+
+    if (ret == kCFStringEncodingInsufficientOutputBufferLength) {
+	errno = E2BIG;
+    } else {
+	errno = EINVAL;
+    }
+
+    SAFE_FREE(tmpsrc);
+    return -1;
+}
+
+#endif /* DARWINOS */
+
 /**
  * Convert string from one encoding to another, making error checking etc
  * Fast path version - handles ASCII first.
@@ -525,7 +650,7 @@ size_t convert_string(charset_t from, charset_t to,
 size_t convert_string_allocate(TALLOC_CTX *ctx, charset_t from, charset_t to,
 			       void const *src, size_t srclen, void *dst, BOOL allow_bad_conv)
 {
-	size_t i_len, o_len, destlen = MAX(srclen, 512);
+	size_t i_len, o_len, destlen = (srclen * 3) / 2;
 	size_t retval;
 	const char *inbuf = (const char *)src;
 	char *outbuf = NULL, *ob = NULL;
@@ -551,7 +676,8 @@ size_t convert_string_allocate(TALLOC_CTX *ctx, charset_t from, charset_t to,
 
   convert:
 
-	if ((destlen*2) < destlen) {
+	/* +2 is for ucs2 null termination. */
+	if ((destlen*2)+2 < destlen) {
 		/* wrapped ! abort. */
 		if (!conv_silent)
 			DEBUG(0, ("convert_string_allocate: destlen wrapped !\n"));
@@ -562,10 +688,11 @@ size_t convert_string_allocate(TALLOC_CTX *ctx, charset_t from, charset_t to,
 		destlen = destlen * 2;
 	}
 
+	/* +2 is for ucs2 null termination. */
 	if (ctx) {
-		ob = (char *)TALLOC_REALLOC(ctx, ob, destlen);
+		ob = (char *)TALLOC_REALLOC(ctx, ob, destlen + 2);
 	} else {
-		ob = (char *)SMB_REALLOC(ob, destlen);
+		ob = (char *)SMB_REALLOC(ob, destlen + 2);
 	}
 
 	if (!ob) {
@@ -611,9 +738,10 @@ size_t convert_string_allocate(TALLOC_CTX *ctx, charset_t from, charset_t to,
 
 	destlen = destlen - o_len;
 	if (ctx) {
-		ob = (char *)TALLOC_REALLOC(ctx,ob,destlen);
+		/* We're shrinking here so we know the +2 is safe from wrap. */
+		ob = (char *)TALLOC_REALLOC(ctx,ob,destlen + 2);
 	} else {
-		ob = (char *)SMB_REALLOC(ob,destlen);
+		ob = (char *)SMB_REALLOC(ob,destlen + 2);
 	}
 
 	if (destlen && !ob) {
@@ -622,6 +750,11 @@ size_t convert_string_allocate(TALLOC_CTX *ctx, charset_t from, charset_t to,
 	}
 
 	*dest = ob;
+
+	/* Must ucs2 null terminate in the extra space we allocated. */
+	ob[destlen] = '\0';
+	ob[destlen+1] = '\0';
+
 	return destlen;
 
  use_as_is:
@@ -871,10 +1004,11 @@ size_t push_ascii(void *dest, const char *src, size_t dest_len, int flags)
 {
 	size_t src_len = strlen(src);
 	pstring tmpbuf;
+	size_t ret;
 
-	/* treat a pstring as "unlimited" length */
+	/* No longer allow a length of -1 */
 	if (dest_len == (size_t)-1)
-	    dest_len = sizeof(pstring);
+		smb_panic("push_ascii - dest_len == -1");
 
 	if (flags & STR_UPPER) {
 		pstrcpy(tmpbuf, src);
@@ -885,7 +1019,13 @@ size_t push_ascii(void *dest, const char *src, size_t dest_len, int flags)
 	if (flags & (STR_TERMINATE | STR_TERMINATE_ASCII))
 		src_len++;
 
-	return convert_string(CH_UNIX, CH_DOS, src, src_len, dest, dest_len, True);
+	ret =convert_string(CH_UNIX, CH_DOS, src, src_len, dest, dest_len, True);
+	if (ret == (size_t)-1 &&
+			(flags & (STR_TERMINATE | STR_TERMINATE_ASCII))
+			&& dest_len > 0) {
+		((char *)dest)[0] = '\0';
+	}
+	return ret;
 }
 
 size_t push_ascii_fstring(void *dest, const char *src)
@@ -1048,6 +1188,11 @@ size_t push_ucs2(const void *base_ptr, void *dest, const char *src, size_t dest_
 	/* ucs2 is always a multiple of 2 bytes */
 	dest_len &= ~1;
 
+#if DARWINOS
+	if (flags & STR_FILESYSTEM) {
+	    ret = push_ucs2_path_darwin(src, src_len, dest, dest_len);
+	} else
+#endif /* DARWINOS */
 	ret =  convert_string(CH_UNIX, CH_UTF16LE, src, src_len, dest, dest_len, True);
 	if (ret == (size_t)-1) {
 		return 0;
@@ -1216,6 +1361,11 @@ size_t pull_ucs2(const void *base_ptr, char *dest, const void *src, size_t dest_
 	if (src_len != (size_t)-1)
 		src_len &= ~1;
 	
+#if DARWINOS
+	if (flags & STR_FILESYSTEM) {
+	    ret = pull_ucs2_path_darwin(src, src_len, dest, dest_len);
+	} else
+#endif /* DARWINOS */
 	ret = convert_string(CH_UTF16LE, CH_UNIX, src, src_len, dest, dest_len, True);
 	if (ret == (size_t)-1) {
 		return 0;

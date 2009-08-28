@@ -3,22 +3,18 @@
 	<key>OpenSourceProject</key>
 	<string>libxslt</string>
 	<key>OpenSourceVersion</key>
-	<string>1.1.12</string>
+	<string>1.1.24</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://xmlsoft.org/</string>
 	<key>OpenSourceURL</key>
-	<string>http://ftp.gnome.org/pub/gnome/sources/libxslt/1.1/libxslt-1.1.12.tar.bz2</string>
+	<string>http://xmlsoft.org/sources/libxslt-1.1.24.tar.gz</string>
 	<key>OpenSourceMD5</key>
-	<string>57b06895bf1f2833ef73f284f2d2893f</string>
+	<string>e83ec5d27fc4c10c6f612879bea9a153</string>
 	<key>OpenSourceImportDate</key>
-	<string>2005-01-13</string>
+	<string>2008-05-15</string>
 	<key>OpenSourceLicense</key>
 	<string>other</string>
 	<key>OpenSourceLicenseFile</key>
 	<string>libxslt.txt</string>
-	<key>OpenSourceModifications</key>
-	<array>
-		<string>rdar://problem/5865376</string>
-	</array>
 </dict>
 </plist>

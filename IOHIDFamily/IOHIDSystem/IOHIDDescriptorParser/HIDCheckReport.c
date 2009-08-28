@@ -72,7 +72,7 @@
  *------------------------------------------------------------------------------
 */
 OSStatus HIDCheckReport(HIDReportType reportType, HIDPreparsedDataRef preparsedDataRef,
-							 HIDReportItem *ptReportItem, void *report, UInt32 iReportLength)
+							 HIDReportItem *ptReportItem, void *report, ByteCount iReportLength)
 {
 	HIDPreparsedDataPtr ptPreparsedData = (HIDPreparsedDataPtr) preparsedDataRef;
 	int reportID, reportIndex;

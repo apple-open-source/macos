@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -113,7 +113,7 @@ static void test_info_get(abts_case *tc, void *data)
     ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
 
     rv = apr_file_info_get(&finfo, APR_FINFO_NORM, thefile);
-    if (rv  == APR_INCOMPLETE) {
+    if (APR_STATUS_IS_INCOMPLETE(rv)) {
         char *str;
 	int i;
         str = apr_pstrdup(p, "APR_INCOMPLETE:  Missing ");
@@ -134,7 +134,7 @@ static void test_stat(abts_case *tc, void *data)
     apr_status_t rv;
 
     rv = apr_stat(&finfo, FILENAME, APR_FINFO_NORM, p);
-    if (rv  == APR_INCOMPLETE) {
+    if (APR_STATUS_IS_INCOMPLETE(rv)) {
         char *str;
 	int i;
         str = apr_pstrdup(p, "APR_INCOMPLETE:  Missing ");
@@ -220,7 +220,7 @@ static void test_mtime_set(abts_case *tc, void *data)
 
     /* Check that the current mtime is not the epoch */
     rv = apr_stat(&finfo, NEWFILENAME, APR_FINFO_MTIME, p);
-    if (rv  == APR_INCOMPLETE) {
+    if (APR_STATUS_IS_INCOMPLETE(rv)) {
         char *str;
 	int i;
         str = apr_pstrdup(p, "APR_INCOMPLETE:  Missing ");

@@ -1,8 +1,8 @@
 /*
  * ntfs_compress.c - NTFS kernel compressed attribute operations.
  *
- * Copyright (c) 2006, 2007 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006, 2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2008 Anton Altaparmakov.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2008 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -119,7 +119,7 @@ static inline int ntfs_get_cb_type(ntfs_inode *ni, s64 ofs)
 	lck_rw_lock_shared(&ni->rl.lock);
 retry_remap:
 	rl = ni->rl.rl;
-	if (rl) {
+	if (ni->rl.elements) {
 next_vcn:
 		/* Seek to element containing target vcn. */
 		while (rl->length && rl[1].vcn <= vcn)
@@ -167,7 +167,7 @@ next_vcn:
 		}
 	}
 	if (!is_retry && lcn == LCN_RL_NOT_MAPPED) {
-		ret = ntfs_map_runlist_nolock(ni, vcn);
+		ret = ntfs_map_runlist_nolock(ni, vcn, NULL);
 		if (!ret) {
 			is_retry = TRUE;
 			goto retry_remap;
@@ -370,8 +370,8 @@ static inline errno_t ntfs_decompress(ntfs_volume *vol, u8 *dst_start,
 	dst = dst_start;
 	dst_end = dst + dst_size;
 next_sb:
-	ntfs_debug("Beginning sub-block at offset 0x%x in the compression "
-			"block.", cb - cb_start);
+	ntfs_debug("Beginning sub-block at offset 0x%lx in the compression "
+			"block.", (unsigned long)(cb - cb_start));
 	/*
 	 * Have we reached the end of the compression block or the end of the
 	 * decompressed data?  The latter can happen for example if the current
@@ -461,7 +461,7 @@ next_tag:
 			ntfs_debug("Filling incomplete sub-block with "
 					"zeroes.");
 			/* Zero remainder and update destination position. */
-			memset(dst, 0, dst_sb_end - dst);
+			bzero(dst, dst_sb_end - dst);
 			dst = dst_sb_end;
 		}
 		/* We have finished the current sub-block. */

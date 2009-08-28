@@ -94,9 +94,11 @@ LONG IFDSetPTS(PREADER_CONTEXT rContext, DWORD dwProtocol, UCHAR ucFlags,
 #endif
 
 	/*
-	 * LOCK THIS CODE REGION
+	 * Locking is done in winscard.c SCardConnect() and SCardReconnect()
+	 *
+	 * This avoids renegotiating the protocol and confusing the card
+	 * Error returned by CCID driver is: CCID_Receive Procedure byte conflict
 	 */
-	SYS_MutexLock(rContext->mMutex);
 
 	ucValue[0] = rContext->dwSlot;
 
@@ -129,11 +131,6 @@ LONG IFDSetPTS(PREADER_CONTEXT rContext, DWORD dwProtocol, UCHAR ucFlags,
 			ucFlags, ucPTS1, ucPTS2, ucPTS3);
 	}
 #endif
-
-	SYS_MutexUnLock(rContext->mMutex);
-	/*
-	 * END OF LOCKED REGION
-	 */
 
 	return rv;
 }
@@ -408,7 +405,7 @@ LONG IFDPowerICC(PREADER_CONTEXT rContext, DWORD dwAction,
 	else
 	{
 		rv = (*IFDH_power_icc) (rContext->dwSlot, dwAction,
-			pucAtr, pdwAtrLen);
+			(unsigned char *)pucAtr, pdwAtrLen);
 
 		ret = ATRDecodeAtr(&sSmartCard, pucAtr, *pdwAtrLen);
 	}
@@ -561,7 +558,7 @@ LONG IFDStatusICC(PREADER_CONTEXT rContext, PDWORD pdwStatus,
 			IFDSetCapabilities(rContext, TAG_IFD_SLOTNUM, 1, ucValue);
 
 #ifndef PCSCLITE_STATIC_DRIVER
-			rv = (*IFD_get_capabilities) (dwTag, pucAtr);
+			rv = (*IFD_get_capabilities) (dwTag, (unsigned char *)pucAtr);
 #else
 			rv = IFD_Get_Capabilities(dwTag, pucAtr);
 #endif

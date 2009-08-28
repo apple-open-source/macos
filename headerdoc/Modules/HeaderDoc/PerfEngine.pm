@@ -3,8 +3,7 @@
 # Class name: PerfEngine
 # Synopsis: Performance Testing Engine
 #
-# Author: David Gatwood (dgatwood@apple.com)
-# Last Updated: $Date: 2007/01/05 22:22:16 $
+# Last Updated: $Date: 2009/03/30 19:38:51 $
 #
 # Copyright (c) 2005 Apple Computer, Inc.  All rights reserved.
 #
@@ -40,7 +39,7 @@ use POSIX qw(strftime);
 
 use Carp;
 
-$VERSION = '$Revision: 1.1.2.2 $';
+$HeaderDoc::PerfEngine::VERSION = '$Revision: 1.3 $';
 
 my $perfDebug = 0;
 
@@ -77,7 +76,7 @@ sub checkpoint {
     $bt =~ s/^.*?\n//s;
     $bt =~ s/\n/ /sg;
 
-    if ($perfDebug) { print "CP: $bt\n"; }
+    if ($perfDebug) { print STDERR "CP: $bt\n"; }
 
     if ($entering) {
 	$self->addCheckpoint($bt);
@@ -92,7 +91,7 @@ sub addCheckpoint
     my $bt = shift;
 
     if ($perfDebug) {
-	print "Adding checkpoint.  Backtrace: $bt\n";
+	print STDERR "Adding checkpoint.  Backtrace: $bt\n";
     }
     my $checkpoint = HeaderDoc::PerfPoint->new( backtrace => $bt);
     push(@{$self->{PENDING}}, $checkpoint);
@@ -107,13 +106,13 @@ sub matchCheckpoint
     my $localDebug = 0;
 
     if ($perfDebug) {
-	print "Routine returned.  Backtrace: $bt\n";
+	print STDERR "Routine returned.  Backtrace: $bt\n";
     }
 
     foreach my $point (@{$self->{PENDING}}) {
 	if ($point->{BACKTRACE} eq $bt) {
 		if ($localDebug) {
-			print "MATCHED\n";
+			print STDERR "MATCHED\n";
 		}
 		$point->finished();
 		push(@{$self->{COMPLETE}}, $point);
@@ -131,21 +130,21 @@ sub printstats
     my %pointsByBacktrace = ();
 
     foreach my $point (@{$self->{COMPLETE}}) {
-	# print "POINT: ".$point->{BACKTRACE}."\n";
+	# print STDERR "POINT: ".$point->{BACKTRACE}."\n";
 	my $arrayref = $pointsByBacktrace{$point->{BACKTRACE}};
 	if (!$arrayref) {
-		# print "NEW\n";
+		# print STDERR "NEW\n";
 		my @temparray = ();
 		$arrayref = \@temparray;
 	# } else {
-		# print "OLD\n";
+		# print STDERR "OLD\n";
 	}
 	my @array = @{$arrayref};
 	push(@array, $point);
 	$pointsByBacktrace{$point->{BACKTRACE}} = \@array;
     }
 
-    print "Completed routines:\n";
+    print STDERR "Completed routines:\n";
     my $first = 1;
     foreach my $bt (keys %pointsByBacktrace) {
 	my $arrayref = $pointsByBacktrace{$bt};
@@ -161,7 +160,7 @@ sub printstats
 		printSeparator();
 	}
 
-	print "$bt\n";
+	print STDERR "$bt\n";
 	foreach my $point (@array) {
 		my $usec = $point->{SECS} * 1000000;
 		$usec += $point->{USECS};
@@ -176,13 +175,13 @@ sub printstats
 		}
 		$count++;
 	}
-	print "COUNT: $count\n";
-	print "MAX: $maxusec usec\n";
-	print "TTL: $ttlsec seconds, $ttlusec usec\n";
+	print STDERR "COUNT: $count\n";
+	print STDERR "MAX: $maxusec usec\n";
+	print STDERR "TTL: $ttlsec seconds, $ttlusec usec\n";
     }
 
 
-    print "\n\nIncomplete routines:\n";
+    print STDERR "\n\nIncomplete routines:\n";
 
     $first = 1;
     foreach my $point (@{$self->{PENDING}}) {
@@ -191,14 +190,14 @@ sub printstats
 	} else { 
 		printSeparator();
 	}
-	print $point->{BACKTRACE}."\n";
+	print STDERR $point->{BACKTRACE}."\n";
     }
 
 }
 
 sub printSeparator
 {
-    print "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\n";
+    print STDERR "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\n";
 }
 
 1;

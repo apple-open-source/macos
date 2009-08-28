@@ -36,6 +36,7 @@
 #include "regcache.h"
 #include "cp-abi.h"
 #include "exceptions.h"
+#include "dictionary.h"
 /* APPLE LOCAL: Needed for check_safe_call.  */
 #include "gdbthread.h"
 #include "gdb.h"
@@ -193,7 +194,7 @@ allocate_space_in_inferior_malloc (int len)
   struct cleanup *cleanup_chain;
   int unwind;
 
-  if (target_check_safe_call () != 1)
+  if (target_check_safe_call (MALLOC_SUBSYSTEM, CHECK_SCHEDULER_VALUE) != 1)
     error ("No memory available to program now: unsafe to call malloc");
 
   if (fval == NULL) 
@@ -201,8 +202,7 @@ allocate_space_in_inferior_malloc (int len)
 
   blocklen = value_from_longest (builtin_type_int, (LONGEST) len);
 
-  unwind = set_unwind_on_signal (1);
-  cleanup_chain = make_cleanup (set_unwind_on_signal, unwind);
+  cleanup_chain = make_cleanup_set_restore_unwind_on_signal (1);
 
   val = call_function_by_hand (lookup_cached_function (fval), 1, &blocklen);
 
@@ -415,7 +415,11 @@ value_cast_1 (struct type *type, struct value *arg2)
     }
   else if (TYPE_LENGTH (type) == TYPE_LENGTH (type2))
     {
-      if (code1 == TYPE_CODE_PTR && code2 == TYPE_CODE_PTR)
+      if ((code1 == TYPE_CODE_PTR && code2 == TYPE_CODE_PTR)
+      /* APPLE LOCAL - handle the case where we're casting up or
+	 down the class hierarchy with reference types.  */
+	  || (code1 == TYPE_CODE_REF && code2 == TYPE_CODE_REF))
+	/* END APPLE LOCAL */
 	{
 	  struct type *t1 = check_typedef (TYPE_TARGET_TYPE (type));
 	  struct type *t2 = check_typedef (TYPE_TARGET_TYPE (type2));
@@ -424,14 +428,22 @@ value_cast_1 (struct type *type, struct value *arg2)
 	      && !value_logical_not (arg2))
 	    {
 	      struct value *v;
-
+	      struct value *tmparg2;
+	      /* APPLE LOCAL - reference types */
+	      if (code2 == TYPE_CODE_REF)
+		tmparg2 = value_addr (arg2);
+	      else
+		tmparg2 = arg2;
+	      /* END APPLE LOCAL */
 	      /* Look in the type of the source to see if it contains the
 	         type of the target as a superclass.  If so, we'll need to
 	         offset the pointer rather than just change its type.  */
 	      if (TYPE_NAME (t1) != NULL)
 		{
+		  /* APPLE LOCAL - reference types */
 		  v = search_struct_field (type_name_no_tag (t1),
-					   value_ind (arg2), 0, t2, 1);
+					   value_ind (tmparg2), 0, t2, 1);
+		  /* END APPLE LOCAL */
 		  if (v)
 		    {
 		      v = value_addr (v);
@@ -450,7 +462,9 @@ value_cast_1 (struct type *type, struct value *arg2)
 				       value_zero (t1, not_lval), 0, t1, 1);
 		  if (v)
 		    {
-                      CORE_ADDR addr2 = value_as_address (arg2);
+		      /* APPLE LOCAL - reference types */
+                      CORE_ADDR addr2 = value_as_address (tmparg2);
+		      /* END APPLE LOCAL */
                       addr2 -= (VALUE_ADDRESS (v)
                                 + value_offset (v)
                                 + value_embedded_offset (v));
@@ -578,7 +592,6 @@ value_fetch_lazy (struct value *val)
   CORE_ADDR addr = VALUE_ADDRESS (val) + value_offset (val);
   int length = TYPE_LENGTH (value_enclosing_type (val));
 
-  struct type *type = value_type (val);
   if (length)
     read_memory (addr, value_contents_all_raw (val), length);
 
@@ -2020,8 +2033,6 @@ find_overload_match (struct type **arg_types, int nargs, char *name, int method,
   int num_fns = 0;		/* Number of overloaded instances being considered */
   struct type *basetype = NULL;
   int boffset;
-  int ix;
-  int static_offset;
   struct cleanup *old_cleanups = NULL;
 
   const char *obj_type_name = NULL;
@@ -2792,7 +2803,14 @@ value_full_object (struct value *argp, struct type *rtype, int xfull, int xtop,
       using_enc = xusing_enc;
     }
   else
-    real_type = value_rtti_type (argp, &full, &top, &using_enc);
+    {
+      volatile struct gdb_exception e;
+      real_type = NULL;
+      TRY_CATCH (e, RETURN_MASK_ERROR)
+	{
+	  real_type = value_rtti_type (argp, &full, &top, &using_enc);
+	}	
+    }
 
   /* If no RTTI data, or if object is already complete, do nothing */
   if (!real_type || real_type == value_enclosing_type (argp))
@@ -3104,7 +3122,7 @@ do_check_is_thread_unsafe (void *argptr)
                   ui_out_text (uiout, "Unsafe to call functions on thread ");
 		  ui_out_field_int (uiout, "thread", pid_to_thread_id (inferior_ptid));
 		  ui_out_text (uiout, ": ");
-                  ui_out_field_fmt (uiout, "reason", "function: %s on stack",
+                  ui_out_field_fmt (uiout, "problem", "function: %s on stack",
                                     sym_name);
 		  ui_out_text (uiout, "\n");
                   (args->unsafe_p)++;
@@ -3159,6 +3177,7 @@ check_safe_call (regex_t unsafe_functions[],
   args.unsafe_p = 0;
   args.unsafe_functions = unsafe_functions;
   args.npatterns = npatterns;
+  args.stack_depth = stack_depth;
 
   if (which_threads == CHECK_CURRENT_THREAD
       || (which_threads == CHECK_SCHEDULER_VALUE && !scheduler_lock_on_p ()))

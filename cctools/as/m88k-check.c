@@ -13,7 +13,7 @@ int argc,
 char *argv[],
 char *envp[])
 {
-    long i, j;
+    int32_t i, j;
 
 	for(i = 0; i < NUMOPCODES - 1; i++){
 	    printf("\t%s\t", m88k_opcodes[i].name);

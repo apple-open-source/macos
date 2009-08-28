@@ -1,3 +1,5 @@
+@subheading stringprep_unichar_to_utf8
+@anchor{stringprep_unichar_to_utf8}
 @deftypefun {int} {stringprep_unichar_to_utf8} (uint32_t @var{c}, char * @var{outbuf})
 @var{c}: a ISO10646 character code
 

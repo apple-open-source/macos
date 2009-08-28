@@ -20,7 +20,7 @@
 .\" 
 .\" @APPLE_LICENSE_HEADER_END@
 .\"
-.Dd September 20, 1999
+.Dd August 29, 2008
 .Dt SHM_OPEN 2
 .Os Darwin
 .Sh NAME
@@ -120,13 +120,6 @@ When a shared memory object is created, it persists until it
 it unlinked and all other references are gone. Objects do
 not persist across a system reboot.
 .Pp
-The new descriptor is set to remain open across
-.Xr execve
-system calls; see
-.Xr close 2
-and
-.Xr fcntl 2 .
-.Pp
 The system imposes a limit on the number of file descriptors
 open simultaneously by one process.
 .Xr Getdtablesize 2
@@ -158,9 +151,12 @@ operation is not supported.
 The process has already reached its limit for open file descriptors.
 .It Bq Er ENAMETOOLONG
 .Fa name
-exceeded
-.Dv SHM_NAME_MAX
-characters.
+exceeded the name size limit.
+This is currently
+.Dv PSHMNAMLEN
+characters (defined in
+.In sys/posix_shm.h ) ,
+but this may change in the future.
 .It Bq Er ENFILE
 The system file table is full.
 .It Bq Er ENOENT

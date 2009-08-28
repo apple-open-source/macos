@@ -100,16 +100,21 @@ RSAKeySizes::RSAKeySizes()
 	maxPubExponentSize = RSA_MAX_PUB_EXPONENT_SIZE;
 	
 	/* now see if there are prefs set for either of these */
-	try {
-		Dictionary prefs(kRSAKeySizePrefsDomain, Dictionary::US_System, false);
-		if (prefs.dict()) {
-			rsaLookupVal(prefs, kRSAMaxKeySizePref, maxKeySize);
-			rsaLookupVal(prefs, kRSAMaxPublicExponentPref, maxPubExponentSize);
-		}
-	}
-	catch(...) {
-		/* no prefs dictionary, we're done */
+	Dictionary* d = Dictionary::CreateDictionary(kRSAKeySizePrefsDomain, Dictionary::US_System, true);
+	if (!d)
+	{
 		return;
+	}
+	
+	if (d->dict())
+	{
+		auto_ptr<Dictionary>apd(d);
+		rsaLookupVal(*apd, kRSAMaxKeySizePref, maxKeySize);
+		rsaLookupVal(*apd, kRSAMaxPublicExponentPref, maxPubExponentSize);
+	}
+	else
+	{
+		delete d;
 	}
 }
 

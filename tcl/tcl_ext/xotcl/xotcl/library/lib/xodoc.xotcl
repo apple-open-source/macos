@@ -1,0 +1,414 @@
+# $Id: xodoc.xotcl,v 1.7 2006/09/27 08:12:40 neumann Exp $
+
+package provide xotcl::xodoc 0.84
+package require xotcl::staticMetadataAnalyzer
+package require xotcl::htmllib
+#package require xotcl::trace
+package require XOTcl
+
+namespace eval ::xotcl::xodoc {
+    namespace import ::xotcl::*
+
+    @ @File {
+	description {
+	    XOTcl documentation tool. Overloads the command @, which is used
+	    as a documentation token. 
+	}
+    }
+
+    @ Class MetadataTokenHTML {
+	description {Instmixin to provide HTML printing. Such instmixins
+	    are registered for all token types.
+	}
+    }
+    Class MetadataTokenHTML
+    @ MetadataTokenHTML abstract instproc printHTML {} {
+	description {Print token to HTML document object}
+    }
+    MetadataTokenHTML abstract instproc printHTML {}
+
+    @ MetadataTokenHTML instproc getDocPropertiesHTML {} {
+	description {
+	    Returns list of properties as HTML.
+	}
+    }
+
+    MetadataTokenHTML instproc getDocPropertiesHTML {htmlDoc} {
+	foreach p [my set properties] { 
+	    $htmlDoc startTableRow -valign top
+	    if {[my exists $p]} {
+		$htmlDoc startTableCell -valign top
+		$htmlDoc addString "<em> [my capitalize $p]:</em>" 
+		$htmlDoc endTableCell
+
+		$htmlDoc startTableCell -valign top
+		if {$p eq "errorCodes"} {
+		    # Build table cell with list of error codes.
+		    foreach {code desc} [my set $p] {
+			set code [string map [list < &lt\; > &gt\;] $code]
+			set desc [string map [list < &lt\; > &gt\;] $desc]
+			$htmlDoc addString "<b>$code</b>: $desc\n<p>"
+		    }
+		} else {
+		    $htmlDoc addString [my set $p]
+		}
+		$htmlDoc endTableCell
+	    }
+	    $htmlDoc endTableRow
+	}
+    }
+
+    MetadataTokenHTML instproc reflowHTML {left paragraph} {
+	#set result ""
+	#foreach line [split $paragraph \n] {
+	#  if {![regexp {^ *$} $line]} {
+	#    append result "$left$line<br>\n"
+	#  }
+	#}
+	#return $result
+	return $paragraph
+    }
+
+    MetadataToken instmixin [concat [MetadataToken info instmixin] MetadataTokenHTML]
+
+    @ Class FileTokenHTML -superclass MetadataTokenHTML
+    Class FileTokenHTML -superclass MetadataTokenHTML
+    FileTokenHTML instproc printHTML {htmlDoc} {
+	$htmlDoc addLineBreak
+	$htmlDoc addString "<b> Filename: </b>"
+	set name [regsub {^/.*/xotcl/} [my set name] {xotcl/}]
+	$htmlDoc addAnchor $name -href $name
+	$htmlDoc addLineBreak
+	$htmlDoc addLineBreak
+	$htmlDoc startTable -border 0
+	my getDocPropertiesHTML $htmlDoc
+	$htmlDoc endTable
+    }
+
+    FileToken instmixin [concat [FileToken info instmixin] FileTokenHTML]
+
+    @ Class ConstraintTokenHTML -superclass MetadataTokenHTML
+    Class ConstraintTokenHTML -superclass MetadataTokenHTML
+    ConstraintTokenHTML instproc printHTML {htmlDoc} {
+	$htmlDoc addAnchor "" -name [my set name]
+	$htmlDoc addString "<h2> Constraint: <em> [my set name] </em> </h2>"
+	$htmlDoc addLineBreak
+	$htmlDoc startTable -border 0
+	my getDocPropertiesHTML $htmlDoc
+	$htmlDoc endTable
+    }
+
+    ConstraintToken instmixin [concat [ConstraintToken info instmixin] ConstraintTokenHTML]
+
+    @ Class ObjTokenHTML -superclass MetadataTokenHTML
+    Class ObjTokenHTML -superclass MetadataTokenHTML
+    ObjTokenHTML instproc getProcsHTML {htmlDoc} {
+	set c ""
+	set pl [MetadataToken sortTokenList [my procList]]
+	if {[my istype ClassToken]} {
+	    set pl [concat [MetadataToken sortTokenList [my instprocList]] $pl]
+	}
+	foreach p $pl {
+	    set pn [$p set name]
+	    set label($pn) "<a href=\"#[my set name]-$pn\">$pn</a>"
+	}
+	foreach l [lsort [array names label]] {
+	    if {$c ne ""} {append c ", "}
+	    append c $label($l)
+	}
+	if {$c ne ""} {append c "."}
+	$htmlDoc addString "$c"
+    }
+    
+    ObjTokenHTML instproc printHTML {htmlDoc} {
+	$htmlDoc addAnchor "" -name [my set name]
+	if {[my istype MetaClassToken]} {
+	    set start "<h2> MetaClass:"
+	} elseif {[my istype ClassToken]} {
+	    set start "<h2> Class:"
+	} else {
+	    set start "<h2> Object:"
+	}
+	$htmlDoc addString "$start <em> [my set name] </em> </h2>"
+	if {[my exists cl]} {
+	    $htmlDoc addString "<b>Class</b>: [my set cl]"
+	    $htmlDoc addLineBreak
+	}
+	if {[my exists heritage]} {
+	    $htmlDoc addString "<b>Heritage</b>: [my set heritage]"
+	    $htmlDoc addLineBreak
+	}
+
+	set head ""
+	if {[my procList] ne ""} {set head "<b> Procs </b> "}
+	if {[my istype ClassToken]} {
+	    if {[my instprocList] ne ""} {set head "<b> Procs/Instprocs: </b> "}
+	}
+	$htmlDoc addString $head
+	my getProcsHTML $htmlDoc
+
+	$htmlDoc startTable -border 0
+	my getDocPropertiesHTML $htmlDoc
+	$htmlDoc endTable
+    }
+
+    ObjToken instmixin [concat [ObjToken info instmixin] ObjTokenHTML]
+
+    @ Class MethodTokenHTML -superclass MetadataTokenHTML
+    Class MethodTokenHTML -superclass MetadataTokenHTML
+
+    # Prints out method information as HTML.
+    MethodTokenHTML instproc printHTML {htmlDoc} {
+	#my showVars
+	set argText "\n"
+
+	HtmlBuilder args
+
+	set a  "<em>Arguments:</em>"
+
+	set anchor [my set obj]-[my set name]
+	$htmlDoc addAnchor "" -name $anchor
+
+	if {[my abstract]} {$htmlDoc addString  "<b><em>abstract</em></b>"}
+	$htmlDoc addString  "<b>[my set name] </b>"
+
+	args set indentLevel [$htmlDoc set indentLevel]
+
+	if {[my exists arguments]} {
+	    #set argText "<table>\n"
+	    foreach {arg argDescription} [my set arguments] {
+		if {[llength $arg] > 1} {
+		    # A default value was given to the argument.
+		    $htmlDoc addString "<em>?[lindex $arg 0]?</em>"
+		    set at "<b>?[lindex $arg 0]?</b>:$argDescription Default: \"[lindex $arg 1]\"."
+		} else {
+		    $htmlDoc addString "<em>$arg</em>"
+		    set at "<b>$arg</b>: $argDescription"
+		}
+		args startTableRow -valign top
+		args startTableCell -valign top
+		args addString $a
+		set a ""
+		args endTableCell
+		args startTableCell -valign top
+		args addString $at
+		args endTableCell
+		args endTableRow
+	    }
+	}
+	$htmlDoc startTable -border 0
+	
+	$htmlDoc addString [args toString]
+	args destroy
+
+	my getDocPropertiesHTML $htmlDoc
+
+	$htmlDoc endTable
+
+	#$htmlDoc endListItem
+    }
+
+    MethodToken instmixin [concat [MethodToken info instmixin] MethodTokenHTML]
+
+    @ Class XODoc { description "Handler class for building a documentation database" }
+
+    Class XODoc -superclass StaticMetadataAnalyzer
+
+    @ XODoc proc documentFileAsHTML {
+				     file "filename of the xotcl file to be documented"
+				     docdir "directory to which the html file is written"
+				 } {
+	description "Uses the xoDoc package to produce an HTML documentation of
+               a specified file ***.xotcl. The file is written to ***.html
+               in docdir"
+	return "file basename without suffix"
+    }
+
+    XODoc proc documentFileAsHTML {file docdir} {
+	set docdb [XODoc [XODoc autoname docdb]]
+	::@ set analyzerObj $docdb
+	$docdb analyzeFile $file
+	set ext [file extension $file]
+	if {$ext ne ""} {set ext -[string trimleft $ext .]}
+	set docfilename [file rootname [file tail $file]]$ext
+	$docdb writeFile ${docdir}/$docfilename.html $file
+	$docdb destroy
+	return $docfilename
+    }
+
+    XODoc instproc printPackages {htmlDoc} {
+	my instvar packageList
+	$htmlDoc addString "<h2> Package/File Information </h2>"
+	if {[llength $packageList] > 0} {
+	    foreach t $packageList {
+		if {[$t type] eq "provide"} {
+		    $htmlDoc addString "<b> Package provided: </b> [$t name] [$t version]"
+		} elseif {[$t type] eq "require"} {
+		    $htmlDoc addString "<b> Package required: </b> [$t name] [$t version]"
+		}
+		$htmlDoc addLineBreak
+	    }
+	} else {
+	    $htmlDoc addString "<b> No package provided/required </b>"
+	    $htmlDoc addLineBreak
+	}
+    }
+
+    XODoc instproc printExtensions {htmlDoc} {
+	my instvar extensions
+	if {[info exists extensions]} {
+	    # Add list of extensions.
+	    foreach extension $extensions {
+		$htmlDoc addLineBreak
+		$htmlDoc addString "<h2>Document extension: <em>[$extension name]</em>"
+		$htmlDoc addString "<em>Description:</em> [$extension description]"
+		$htmlDoc addLineBreak
+	    }
+	}
+    }
+
+    XODoc instproc printObjList {htmlDoc} {
+	set objList [MetadataToken sortTokenList [my objList]]
+
+	if {[llength $objList]>0} {
+	    $htmlDoc addLineBreak
+	    $htmlDoc addString "<b>Defined Objects/Classes: </b>"
+	    $htmlDoc startUnorderedList
+	    foreach obj $objList {
+		set on [$obj set name]
+		$htmlDoc startListItem
+		$htmlDoc addAnchor "<em>$on</em>:" -href "#$on"
+		$obj getProcsHTML $htmlDoc
+		$htmlDoc addLineBreak
+		$htmlDoc endListItem
+	    }
+	    $htmlDoc endUnorderedList
+	}
+    }
+
+    XODoc instproc printFileToken {htmlDoc} {
+	if {[my exists fileToken]} {
+	    [my set fileToken] printHTML $htmlDoc
+	} else {
+	    $htmlDoc addString "<b> No file information. </b>\n"
+	}
+	$htmlDoc addLineBreak
+    }
+
+    XODoc instproc printConstraintsList {htmlDoc} {
+	set constraintList [MetadataToken sortTokenList [my constraintList]]
+
+	if {[llength $constraintList]>0} {
+	    $htmlDoc addLineBreak
+	    $htmlDoc addString "<b>Defined Constraints: </b>"
+	    $htmlDoc startUnorderedList
+	    foreach c $constraintList {
+		set cn [$c set name]
+		$htmlDoc startListItem
+		$htmlDoc addAnchor "<em>$cn</em>:" -href "#$cn"
+		$htmlDoc addLineBreak
+		$htmlDoc endListItem
+	    }
+	    $htmlDoc endUnorderedList
+	}
+    }
+
+    XODoc instproc printConstraints {htmlDoc} {
+	foreach c [my set constraintList] {
+	    $htmlDoc addHorizontalRule
+	    $htmlDoc startParagraph
+	    $c printHTML $htmlDoc
+	    $htmlDoc endParagraph
+	}
+	$htmlDoc addLineBreak
+    }
+
+    XODoc instproc printProcsList {htmlDoc list string} {
+	if {[llength $list] > 0} {
+	    $htmlDoc addString "<h3>$string</h3>"
+	    $htmlDoc startUnorderedList
+	    foreach s $list {
+		$htmlDoc startListItem
+		$s printHTML $htmlDoc
+		$htmlDoc endListItem
+	    }
+	    $htmlDoc endUnorderedList
+	}
+    }
+    XODoc instproc printObjs {htmlDoc} {
+	set objList [MetadataToken sortTokenList [my objList]]
+
+	foreach t $objList {
+	    $htmlDoc addHorizontalRule
+	    $htmlDoc startParagraph
+	    $t printHTML $htmlDoc
+	    if {[$t istype ClassToken]} {
+		my printProcsList $htmlDoc [$t set instprocList] Instprocs
+	    }
+	    my printProcsList $htmlDoc [$t set procList] Procs
+	    $htmlDoc endParagraph
+	}
+    }
+
+    XODoc instproc replaceFormatTags {fc} {
+	regsub -all <@ $fc < fc
+	regsub -all </@ $fc </ fc
+	return $fc
+    }
+
+    @ XODoc instproc printHTML {
+	name "name of the html document"
+    } {
+	description "Create HTML documentation object from metadata token"
+    }
+    XODoc instproc printHTML {name} {
+	HtmlBuilder htmlDoc
+	set name [regsub {^/.*/xotcl/} $name {xotcl/}]
+	htmlDoc startDocument -title "XOTcl - Documentation -- $name" \
+	    -bgcolor FFFFFF -stylesheet xotcl-doc.css
+	htmlDoc addStringIncr "<h1>"
+	htmlDoc addImage -src "./logo-100.jpg" -alt "$name" -align MIDDLE 
+	htmlDoc addStringDecr "$name</h1>"
+	htmlDoc addHorizontalRule
+	htmlDoc startParagraph
+
+	my printPackages htmlDoc
+	my printExtensions htmlDoc
+	my printObjList htmlDoc
+	my printConstraintsList htmlDoc
+	my printFileToken htmlDoc
+	my printObjs htmlDoc
+	my printConstraints htmlDoc
+	htmlDoc endParagraph
+	htmlDoc addHorizontalRule
+	htmlDoc startParagraph
+	htmlDoc endParagraph
+	htmlDoc addAnchor "Back to index page." -href "./index.html"
+	htmlDoc addLineBreak
+	htmlDoc addHorizontalRule 
+	htmlDoc startParagraph 
+	htmlDoc endParagraph
+	htmlDoc endDocument
+	set r [my replaceFormatTags [htmlDoc toString]]
+	htmlDoc destroy
+	return $r
+    }
+
+    @ XODoc instproc writeFile {
+	filename "file name destination" name "name of the html document"
+    } {
+	description "Create HTML docuemntation from metadata token and write to file <filename>"
+    }
+    XODoc instproc writeFile {filename name} {
+	set content [my printHTML $name]
+	set f [open $filename w]
+	puts $f $content
+	close $f
+    }
+
+    namespace export \
+	MetadataTokenHTML FileTokenHTML ConstraintTokenHTML ObjTokenHTML \
+	MethodTokenHTML XODoc
+}
+
+namespace import ::xotcl::xodoc::*

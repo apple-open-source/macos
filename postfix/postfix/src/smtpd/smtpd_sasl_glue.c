@@ -121,6 +121,10 @@
 #ifdef __APPLE_OS_X_SERVER__
 /* Apple Open Directory */
 
+#include <OpenDirectory/OpenDirectory.h>
+#include <OpenDirectory/OpenDirectoryPriv.h>
+#include <DirectoryService/DirServicesTypes.h>
+
 #include <DirectoryService/DirServices.h>
 #include <DirectoryService/DirServicesUtils.h>
 #include <DirectoryService/DirServicesConst.h>
@@ -154,10 +158,7 @@ static XSASL_SERVER_IMPL *smtpd_sasl_impl;
 
 #ifdef __APPLE_OS_X_SERVER__
 
-void log_errors ( char *inName, OM_uint32 inMajor, OM_uint32 inMinor );
-
 /* Apple's Password Server */
-
 static NAME_MASK smtpd_pw_server_mask[] = {
     "none",     PW_SERVER_NONE,
     "login",    PW_SERVER_LOGIN,
@@ -166,6 +167,9 @@ static NAME_MASK smtpd_pw_server_mask[] = {
     "gssapi",   PW_SERVER_GSSAPI,
     0,
 };
+
+ODSessionRef		od_session_ref;
+ODNodeRef			od_node_ref;
 
 #endif /* __APPLE_OS_X_SERVER__ */
 
@@ -302,21 +306,23 @@ int     smtpd_sasl_authenticate(SMTPD_STATE *state,
 	 */
 	smtpd_chat_query(state);
 	if (strcmp(STR(state->buffer), "*") == 0) {
-	    msg_warn("%s[%s]: SASL %s authentication aborted",
-		     state->name, state->addr, sasl_method);
+	    msg_warn("%s: SASL %s authentication aborted",
+		     state->namaddr, sasl_method);
 	    smtpd_chat_reply(state, "501 5.7.0 Authentication aborted");
 	    return (-1);
 	}
     }
     if (status != XSASL_AUTH_DONE) {
-	msg_warn("%s[%s]: SASL %s authentication failed: %s",
-		 state->name, state->addr, sasl_method,
+	msg_warn("%s: SASL %s authentication failed: %s",
+		 state->namaddr, sasl_method,
 		 STR(state->sasl_reply));
-	smtpd_chat_reply(state, "535 5.7.0 Error: authentication failed: %s",
+	/* RFC 4954 Section 6. */
+	smtpd_chat_reply(state, "535 5.7.8 Error: authentication failed: %s",
 			 STR(state->sasl_reply));
 	return (-1);
     }
-    smtpd_chat_reply(state, "235 2.0.0 Authentication successful");
+    /* RFC 4954 Section 6. */
+    smtpd_chat_reply(state, "235 2.7.0 Authentication successful");
     if ((sasl_username = xsasl_server_get_username(state->sasl_server)) == 0)
 	msg_panic("cannot look up the authenticated SASL username");
     state->sasl_username = mystrdup(sasl_username);
@@ -346,190 +352,85 @@ void    smtpd_sasl_logout(SMTPD_STATE *state)
 	- Password Server auth methods
    ----------------------------------------------------------------- */
 
-static tDirStatus	sOpen_ds			( tDirReference *inOutDirRef );
-static tDirStatus	sGet_search_node	( tDirReference inDirRef, tDirNodeReference *outSearchNodeRef );
-static tDirStatus	sLook_up_user		( tDirReference inDirRef, tDirNodeReference inSearchNodeRef, const char *inUserID, char **outUserLocation );
-static tDirStatus	sOpen_user_node		( tDirReference inDirRef, const char *inUserLoc, tDirNodeReference *outUserNodeRef );
-static int			sValidateResponse	( const char *inUserID, const char *inChallenge, const char *inResponse, const char *inAuthType );
-static int			sDoCryptAuth		( tDirReference inDirRef, tDirNodeReference inUserNodeRef, const char *inUserID, const char *inPasswd );
-static int			sEncodeBase64		( const char *inStr, const int inLen, char *outStr, int outLen );
-static int			sDecodeBase64		( const char *inStr, const int inLen, char *outStr, int outLen, int *destLen );
-static int			sClearTextCrypt		( const char *inUserID, const char *inPasswd );
-static int			gss_Init			( void );
-static int			get_principal_str	( char *inOutBuf, int inSize );
-static int			get_realm_form_creds( char *inBuffer, int inSize );
-static char *		get_server_principal( void );
-static OM_uint32	display_name		( const gss_name_t principalName );
-
-#define	MAX_USER_BUF_SIZE		512
-#define	MAX_CHAL_BUF_SIZE		2048
-#define	MAX_IO_BUF_SIZE			21848
-
-static	gss_cred_id_t	stCredentials;
-
 #include <sys/param.h>
 
-/* -----------------------------------------------------------------
-	- smtpd apple auth methods
-   ----------------------------------------------------------------- */
+static bool			od_open					( void );
+static int			od_do_clear_text_auth	( const char *in_user, const char *in_passwd );
+static int			od_validate_response	( const char *in_user, const char *in_chal, const char *in_resp, const char *in_auth_type );
+static ODRecordRef	od_get_user_record		( const char *in_user );
+static void			print_cf_error			( CFErrorRef in_cf_err_ref, const char *in_default_str );
+
+static char		   *do_auth_login			( SMTPD_STATE *state, const char *in_method );
+static char		   *do_auth_plain			( SMTPD_STATE *state, const char *in_method, const char *in_resp );
+static char		   *do_auth_cram_md5		( SMTPD_STATE *state, const char *in_method );
+
+static void			get_random_chars		( char *out_buf, int in_len );
+
 
 /* -----------------------------------------------------------------
-	- do_login_auth
+	- smtpd_pw_server_authenticate
    ----------------------------------------------------------------- */
 
-char * do_login_auth (	SMTPD_STATE *state,
-						const char *sasl_method,
-						const char *init_response )
+char *smtpd_pw_server_authenticate ( SMTPD_STATE *state, const char *in_method, const char *in_resp )
 {
-    unsigned	len			= 0;
-	int			respLen		= 0;
-	char		userBuf[ MAX_USER_BUF_SIZE ];
-	char		chalBuf[ MAX_CHAL_BUF_SIZE ];
-	char		respBuf[ MAX_IO_BUF_SIZE ];
-	char		pwdBuf[ MAX_USER_BUF_SIZE ];
+    char *myname = "smtpd_pw_server_authenticate";
 
-	memset( userBuf, 0, MAX_USER_BUF_SIZE );
-	memset( chalBuf, 0, MAX_CHAL_BUF_SIZE );
-	memset( respBuf, 0, MAX_IO_BUF_SIZE );
-	memset( pwdBuf, 0, MAX_USER_BUF_SIZE );
-
-	/* is LOGIN auth enabled */
-	if ( !(smtpd_pw_server_sasl_opts & PW_SERVER_LOGIN) )
+	/*** Sanity check ***/
+    if ( state->sasl_username || state->sasl_method )
 	{
-		return ( "504 Authentication method not enabled" );
+		msg_panic( "%s: already authenticated", myname );
 	}
 
-	/* encode the user name prompt and send it */
-	strcpy( chalBuf, "Username:" );
-	sEncodeBase64( chalBuf, strlen( chalBuf ), respBuf, MAX_IO_BUF_SIZE );
-	smtpd_chat_reply( state, "334 %s", respBuf );
-
-	/* reset the buffer */
-	memset( respBuf, 0, MAX_IO_BUF_SIZE );
-
-	/* get the user name and decode it */
-	smtpd_chat_query( state );
-	len = VSTRING_LEN( state->buffer );
-	if ( sDecodeBase64( vstring_str( state->buffer ), len, userBuf, MAX_USER_BUF_SIZE, &respLen ) != 0 )
+	if ( strcasecmp( in_method, "LOGIN" ) == 0 )
 	{
-		return ( "501 Authentication failed: malformed initial response" );
+		return( do_auth_login( state, in_method ) );
+	}
+	else if ( strcasecmp( in_method, "PLAIN" ) == 0 )
+	{
+		return( do_auth_plain( state, in_method, in_resp ) );
+	}
+	else if ( strcasecmp( in_method, "CRAM-MD5" ) == 0 )
+	{
+		return( do_auth_cram_md5( state, in_method ) );
 	}
 
-	/* has the client given up */
-	if ( strcmp(vstring_str( state->buffer ), "*") == 0 )
-	{
-		return ( "501 Authentication aborted" );
-	}
+	msg_error( "Authentication method: &s is not supported", in_method );
+	return ( "504 Unsupported authentication method" );
 
-	/* encode the password prompt and send it */
-	strcpy( chalBuf, "Password:" );
-	sEncodeBase64( chalBuf, strlen( chalBuf ), respBuf, MAX_IO_BUF_SIZE );
-	smtpd_chat_reply( state, "334 %s", respBuf );
-
-	/* get the password */
-	smtpd_chat_query( state );
-	len = VSTRING_LEN( state->buffer );
-	if ( sDecodeBase64( vstring_str( state->buffer ), len, pwdBuf, MAX_USER_BUF_SIZE, &respLen ) != 0 )
-	{
-		return ( "501 Authentication failed: malformed response" );
-	}
-
-	/* do the auth */
-	if ( sClearTextCrypt( userBuf, pwdBuf ) == eAODNoErr )
-	{
-		state->sasl_username = mystrdup( userBuf );
-		state->sasl_method = mystrdup(sasl_method);
-
-		return( 0 );
-	}
-	else
-	{
-		return ( "535 Error: authentication failed" );
-	}
-
-} /* do_login_auth */
+} /* smtpd_pw_server_authenticate */
 
 
-/* -----------------------------------------------------------------
-	- do_plain_auth
-   ----------------------------------------------------------------- */
+/* ------------------------------------------------------------------
+	- print_cf_error ()
+   ------------------------------------------------------------------ */
 
-char *do_plain_auth (	SMTPD_STATE *state,
-						const char *sasl_method,
-						const char *init_response )
-
+static void print_cf_error ( CFErrorRef in_cf_err_ref, const char *in_default_str )
 {
-	char	   *ptr			= NULL;
-    unsigned	len			= 0;
-	int			respLen		= 0;
-	char		userBuf[ MAX_USER_BUF_SIZE ];
-	char		respBuf[ MAX_IO_BUF_SIZE ];
-	char		pwdBuf[ MAX_USER_BUF_SIZE ];
+	char			c_str[1024 + 1];
+	CFStringRef		cf_str_ref		= NULL;
 
-	memset( userBuf, 0, MAX_USER_BUF_SIZE );
-	memset( respBuf, 0, MAX_IO_BUF_SIZE );
-	memset( pwdBuf, 0, MAX_USER_BUF_SIZE );
-
-	/* is PLAIN auth enabled */
-	if ( !(smtpd_pw_server_sasl_opts & PW_SERVER_PLAIN) )
+	if ( in_cf_err_ref != NULL )
 	{
-		return ( "504 Authentication method not enabled" );
-	}
-
-	/* decode the initial response */
-	if ( init_response == NULL )
-	{
-		return ( "501 Authentication failed: malformed initial response" );
-	}
-	len = strlen( init_response );
-	if ( sDecodeBase64( init_response, len, respBuf, MAX_USER_BUF_SIZE, &respLen ) != 0 )
-	{
-		return ( "501 Authentication failed: malformed initial response" );
-	}
-
-	ptr = respBuf;
-	if ( *ptr == '\0' )
-	{
-		ptr++;
-	}
-
-	if ( ptr != NULL )
-	{
-		if ( strlen( ptr ) < MAX_USER_BUF_SIZE )
+		cf_str_ref = CFErrorCopyFailureReason( in_cf_err_ref );
+		if ( cf_str_ref != NULL )
 		{
-			strcpy( userBuf, ptr );
-	
-			ptr = ptr + (strlen( userBuf ) + 1 );
-	
-			if ( ptr != NULL )
-			{
-				if ( strlen( ptr ) < MAX_USER_BUF_SIZE )
-				{
-					strcpy( pwdBuf, ptr );
-	
-					/* do the auth */
-					if ( sClearTextCrypt( userBuf, pwdBuf ) == eAODNoErr )
-					{
-						state->sasl_username = mystrdup( userBuf );
-						state->sasl_method = mystrdup(sasl_method);
-	
-						return( 0 );
-					}
-				}
-			}
+			CFStringGetCString( cf_str_ref, c_str, 1024, kCFStringEncodingUTF8 );
+
+			msg_error( "CF: %s", c_str );
+			return;
 		}
 	}
 
-	return ( "535 Error: authentication failed" );
+	msg_error( "%s", in_default_str );
 
-} /* do_plain_auth */
+} /* print_cf_error */
 
 
 /* -----------------------------------------------------------------
 	- get_random_chars
    ----------------------------------------------------------------- */
 
-void get_random_chars ( char *out_buf, int in_len )
+static void get_random_chars ( char *out_buf, int in_len )
 {
     int					count = 0;
     int					file;
@@ -578,50 +479,201 @@ void get_random_chars ( char *out_buf, int in_len )
 
 
 /* -----------------------------------------------------------------
-	- do_cram_md5_auth
+	- do_auth_login
    ----------------------------------------------------------------- */
 
-char *do_cram_md5_auth (	SMTPD_STATE *state,
-							const char *sasl_method,
-							const char *init_response )
+static char * do_auth_login ( SMTPD_STATE *state, const char *in_method )
 {
-	char	   *ptr			= NULL;
-    unsigned	len			= 0;
-	int			respLen		= 0;
-	const char *host_name	= NULL;
-	char		userBuf[ MAX_USER_BUF_SIZE ];
-	char		chalBuf[ MAX_USER_BUF_SIZE ];
-	char		respBuf[ MAX_IO_BUF_SIZE ];
-	char		randbuf[ 17 ];
+    static VSTRING	*vs_base64	= 0;
+    static VSTRING	*vs_user	= 0;
+    static VSTRING	*vs_pwd		= 0;
 
-	memset( userBuf, 0, MAX_USER_BUF_SIZE );
-	memset( chalBuf, 0, MAX_USER_BUF_SIZE );
-	memset( respBuf, 0, MAX_IO_BUF_SIZE );
+	vs_base64 = vstring_alloc(10);
+	vs_user = vstring_alloc(10);
+	vs_pwd = vstring_alloc(10);
+
+	/* is LOGIN auth enabled */
+	if ( !(smtpd_pw_server_sasl_opts & PW_SERVER_LOGIN) )
+	{
+		msg_error( "Authentication method: LOGIN is not enabled" );
+		return( "504 Authentication method not enabled" );
+	}
+
+	/* encode the user name prompt and send it */
+	base64_encode( vs_base64, "Username:", 9 );
+	smtpd_chat_reply( state, "334 %s", STR(vs_base64) );
+
+	/* get the user name and decode it */
+	smtpd_chat_query( state );
+
+	/* has the client given up */
+	if ( strcmp(vstring_str( state->buffer ), "*") == 0 )
+	{
+		msg_error( "Authentication aborted by client" );
+		return ( "501 Authentication aborted" );
+	}
+
+	/* decode user name */
+    if ( base64_decode( vs_user, STR(state->buffer), VSTRING_LEN(state->buffer) ) == 0 )
+	{
+		msg_error( "Malformed response to: AUTH LOGIN" );
+		return( "501 Authentication failed: malformed initial response" );
+	}
+
+	/* encode the password prompt and send it */
+	base64_encode( vs_base64, "Password:", 9 );
+	smtpd_chat_reply( state, "334 %s", STR(vs_base64) );
+
+	/* get the password */
+	smtpd_chat_query( state );
+
+	/* has the client given up */
+	if ( strcmp(vstring_str( state->buffer ), "*") == 0 )
+	{
+		msg_error( "Authentication aborted by client" );
+		return ( "501 Authentication aborted" );
+	}
+
+	/* decode the password */
+    if ( base64_decode( vs_pwd, STR(state->buffer), VSTRING_LEN(state->buffer) ) == 0 )
+	{
+		msg_error( "Malformed response to: AUTH LOGIN" );
+		return ( "501 Authentication failed: malformed response" );
+	}
+
+	/* do the auth */
+	if ( od_do_clear_text_auth( STR(vs_user), STR(vs_pwd) ) == eAOD_no_error )
+	{
+		state->sasl_username = mystrdup( STR(vs_user) );
+		state->sasl_method = mystrdup( in_method );
+
+		return( NULL );
+	}
+	else
+	{
+		msg_error( "Authentication failed" );
+		return ( "535 Error: authentication failed" );
+	}
+
+} /* do_auth_login */
+
+
+/* -----------------------------------------------------------------
+	- do_auth_plain
+   ----------------------------------------------------------------- */
+
+static char *do_auth_plain ( SMTPD_STATE *state, const char *in_method, const char *in_resp )
+{
+	char			*ptr		= NULL;
+	char			*p_user		= NULL;
+	char			*p_pwd		= NULL;
+    static VSTRING	*vs_base64	= 0;
+
+	vs_base64 = vstring_alloc(10);
+
+	/* is PLAIN auth enabled */
+	if ( !(smtpd_pw_server_sasl_opts & PW_SERVER_PLAIN) )
+	{
+		msg_error( "Authentication method: PLAIN is not enabled" );
+		return ( "504 Authentication method not enabled" );
+	}
+
+	/* if no initial response, do the dance */
+	if ( in_resp == NULL )
+	{
+		/* send 334 tag & read response */
+		smtpd_chat_reply( state, "334" );
+		smtpd_chat_query( state );
+
+		/* decode response from server */
+		if ( base64_decode( vs_base64, STR(state->buffer), VSTRING_LEN(state->buffer) ) == 0 )
+		{
+			msg_error( "Malformed response to: AUTH PLAIN" );
+			return ( "501 Authentication failed: malformed initial response" );
+		}
+	}
+	else
+	{
+		/* decode response from server */
+		if ( base64_decode( vs_base64, in_resp, strlen( in_resp ) ) == 0 )
+		{
+			msg_error( "Malformed response to: AUTH PLAIN" );
+			return ( "501 Authentication failed: malformed initial response" );
+		}
+	}
+
+
+	ptr = STR(vs_base64);
+	if ( *ptr == '\0' )
+	{
+		ptr++;
+	}
+
+	if ( ptr != NULL )
+	{
+		/* point to user portion in the digest */
+		p_user = ptr;
+
+		ptr = ptr + (strlen( p_user ) + 1 );
+		if ( ptr != NULL )
+		{
+			/* point to password portion in the digest */
+			p_pwd = ptr;
+
+			/* do the auth */
+			if ( od_do_clear_text_auth( p_user, p_pwd ) == eAOD_no_error )
+			{
+				state->sasl_username = mystrdup( p_user );
+				state->sasl_method = mystrdup( in_method );
+
+				return( NULL );
+			}
+		}
+	}
+
+	return ( "535 Error: authentication failed" );
+
+} /* do_auth_plain */
+
+
+/* -----------------------------------------------------------------
+	- do_auth_cram_md5
+   ----------------------------------------------------------------- */
+
+static char *do_auth_cram_md5 ( SMTPD_STATE *state, const char *in_method )
+{
+	int				len			= 0;
+	char			*ptr		= NULL;
+	char			*resp_ptr	= NULL;
+    static VSTRING	*vs_base64	= 0;
+    static VSTRING	*vs_chal	= 0;
+    static VSTRING	*vs_user	= 0;
+	char			 rand_buf[ 17 ];
+	char			 host_name[ MAXHOSTNAMELEN + 1 ];
+
+	vs_base64 = vstring_alloc(10);
+	vs_chal = vstring_alloc(10);
+	vs_user = vstring_alloc(10);
 
 	/* is CRAM-MD5 auth enabled */
 	if ( !(smtpd_pw_server_sasl_opts & PW_SERVER_CRAM_MD5) )
 	{
+		msg_error( "Authentication method: CRAM-MD5 is not enabled" );
 		return ( "504 Authentication method not enabled" );
 	}
 
 	/* challenge host name */
-	host_name = (const char *)get_hostname();
+	gethostname( host_name, sizeof( host_name ) );
 
 	/* get random data string */
-	get_random_chars( randbuf, 17 );
+	get_random_chars( rand_buf, 17 );
 
-	snprintf( chalBuf, sizeof( chalBuf ),
-			"<%lu.%s.%lu@%s>",
-			 (unsigned long) getpid(),
-			 randbuf,
-			 (unsigned long)time(0),
-			 host_name );
-
+	/* now make the challenge string */
+	vstring_sprintf( vs_chal, "<%lu.-%s.-%lu-@-%s>", getpid(), rand_buf, time(0), host_name );
 
 	/* encode the challenge and send it */
-	sEncodeBase64( chalBuf, strlen( chalBuf ), respBuf, MAX_IO_BUF_SIZE );
-
-	smtpd_chat_reply( state, "334 %s", respBuf );
+	base64_encode( vs_base64, STR(vs_chal),  VSTRING_LEN(vs_chal) );
+	smtpd_chat_reply( state, "334 %s", STR(vs_base64) );
 
 	/* get the client response */
 	smtpd_chat_query( state );
@@ -629,1286 +681,293 @@ char *do_cram_md5_auth (	SMTPD_STATE *state,
 	/* check if client cancelled */
 	if ( strcmp( vstring_str( state->buffer ), "*" ) == 0 )
 	{
-		return ( "501 Authentication aborted" );
+		return( "501 Authentication aborted" );
 	}
 
-	/* reset the buffer */
-	memset( respBuf, 0, MAX_IO_BUF_SIZE );
-
 	/* decode the response */
-	len = VSTRING_LEN( state->buffer );
-	if ( sDecodeBase64( vstring_str( state->buffer ), len, respBuf, MAX_IO_BUF_SIZE, &respLen ) != 0 )
+	if ( base64_decode( vs_base64, STR(state->buffer), VSTRING_LEN(state->buffer) ) == 0 )
 	{
-		return ( "501 Authentication failed: malformed initial response" );
+		msg_error( "Malformed response to: AUTH CRAM-MD5" );
+		return( "501 Authentication failed: malformed initial response" );
 	}
 
 	/* get the user name */
-	ptr = strchr( respBuf, ' ' );
+	resp_ptr = STR(vs_base64);
+	ptr = strchr( resp_ptr, ' ' );
 	if ( ptr != NULL )
 	{
-		len = ptr - respBuf;
-		if ( len < MAX_USER_BUF_SIZE )
+		/* copy user name */
+		len = ptr - resp_ptr;
+		vs_user = vstring_strncpy( vs_user, resp_ptr, len );
+
+		/* move past the space */
+		ptr++;
+		if ( ptr != NULL )
 		{
-			/* copy user name */
-			memset( userBuf, 0, MAX_USER_BUF_SIZE );
-			strncpy( userBuf, respBuf, len );
+			/* validate the response */
 
-			/* move past the space */
-			ptr++;
-			if ( ptr != NULL )
+			if ( od_validate_response( STR(vs_user), STR(vs_chal), ptr, kDSStdAuthCRAM_MD5 ) == eAOD_no_error )
 			{
-				/* validate the response */
-				if ( sValidateResponse( userBuf, chalBuf, ptr, kDSStdAuthCRAM_MD5 ) == eAODNoErr )
-				{
-					state->sasl_username = mystrdup( userBuf );
-					state->sasl_method = mystrdup(sasl_method);
+				state->sasl_username = mystrdup( STR(vs_user) );
+				state->sasl_method = mystrdup( in_method );
 
-					return( 0 );
-				}
+				return( NULL );
 			}
 		}
 	}
 
 	return ( "535 Error: authentication failed" );
 
-} /* do_cram_md5_auth */
+} /* do_auth_cram_md5 */
 
 
 /* -----------------------------------------------------------------
-	- do_gssapi_auth
+	od_do_clear_text_auth ()
    ----------------------------------------------------------------- */
 
-char *do_gssapi_auth (	SMTPD_STATE *state,
-						const char *sasl_method,
-						const char *init_response )
+static int od_do_clear_text_auth ( const char *in_user, const char *in_passwd )
 {
-	int				r		= ODA_AUTH_FAILED;
-    unsigned		len			= 0;
-	int				respLen		= 0;
-	gss_buffer_desc	in_token;
-	gss_buffer_desc	out_token;
-	OM_uint32		minStatus	= 0;
-	OM_uint32		majStatus	= 0;
-	OM_uint32		ret_flags	= 0;
-	gss_ctx_id_t	context		= GSS_C_NO_CONTEXT;
-	gss_OID			mechTypes;
-	gss_name_t		clientName;
-	unsigned long	maxsize		= htonl( MAX_IO_BUF_SIZE );
+	int						out_result		= eAOD_auth_failed;
+	CFErrorRef				cf_err_ref		= NULL;
+	ODRecordRef				od_rec_ref		= NULL;
+	CFStringRef				cf_str_user		= NULL;
+	CFStringRef				cf_str_pwd		= NULL;
 
-
-	char		userBuf[ MAX_USER_BUF_SIZE ];
-	char		respBuf[ MAX_IO_BUF_SIZE ];
-	char		pwdBuf[ MAX_USER_BUF_SIZE ];
-
-	memset( userBuf, 0, MAX_USER_BUF_SIZE );
-	memset( respBuf, 0, MAX_IO_BUF_SIZE );
-	memset( pwdBuf, 0, MAX_USER_BUF_SIZE );
-
-	/* is Kerberos V5 enabled */
-	if ( !(smtpd_pw_server_sasl_opts & PW_SERVER_GSSAPI) )
+	if ( (in_user == NULL) || (in_passwd == NULL) )
 	{
-		return ( "504 Authentication method not enabled" );
+		return( eAOD_param_error );
 	}
 
-	if ( gss_Init() == GSS_S_COMPLETE )
+	if ( od_open() == FALSE )
 	{
-		if ( init_response == NULL )
-		{
-			smtpd_chat_reply( state, "334 " );
-			smtpd_chat_query( state );
-
-			/* check if client cancelled */
-			if ( strcmp( vstring_str( state->buffer ), "*" ) == 0 )
-			{
-				return ( "501 Authentication aborted" );
-			}
-
-			/* clear response buffer */
-			memset( respBuf, 0, MAX_IO_BUF_SIZE );
-
-			/* decode the response */
-			len = VSTRING_LEN( state->buffer );
-			if ( sDecodeBase64( vstring_str( state->buffer ), len, respBuf, MAX_IO_BUF_SIZE, &respLen ) != 0 )
-			{
-				return ( "501 Authentication failed: malformed initial response" );
-			}
-		}
-		else
-		{
-			/* clear response buffer */
-			memset( respBuf, 0, MAX_IO_BUF_SIZE );
-
-			len = strlen( init_response );
-			if ( sDecodeBase64( init_response, len, respBuf, MAX_IO_BUF_SIZE, &respLen ) != 0 )
-			{
-				return ( "501 Authentication failed: malformed initial response" );
-			}
-		}
-
-		in_token.value  = respBuf;
-		in_token.length = respLen;
-
-		do {
-			/* negotiate authentication */
-			majStatus = gss_accept_sec_context(	&minStatus,
-												&context,
-												stCredentials,
-												&in_token,
-												GSS_C_NO_CHANNEL_BINDINGS,
-												&clientName,
-												NULL, /* &mechTypes */
-												&out_token,
-												&ret_flags,
-												NULL,	/* ignore time?*/
-												NULL );
-	
-			switch ( majStatus )
-			{
-				case GSS_S_COMPLETE:			/* successful */
-				case GSS_S_CONTINUE_NEEDED:		/* continue */
-				{
-					if ( out_token.value )
-					{
-						/* Encode the challenge and send it */
-						memset( respBuf, 0, MAX_IO_BUF_SIZE );
-						sEncodeBase64( (char *)out_token.value, out_token.length, respBuf, MAX_IO_BUF_SIZE );
-
-						smtpd_chat_reply( state, "334 %s", respBuf );
-						smtpd_chat_query( state );
-		
-						/* check if client cancelled */
-						if ( strcmp( vstring_str( state->buffer ), "*" ) == 0 )
-						{
-							return ( "501 Authentication aborted" );
-						}
-	
-						/* decode the response */
-						memset( respBuf, 0, MAX_IO_BUF_SIZE );
-						len = VSTRING_LEN( state->buffer );
-						if ( len != 0 )
-						{
-							if ( sDecodeBase64( vstring_str( state->buffer ), len, respBuf, MAX_IO_BUF_SIZE, &respLen ) != 0 )
-							{
-								return ( "501 Authentication failed: malformed response" );
-							}
-						}
-						in_token.value  = respBuf;
-						in_token.length = respLen;
-	
-						gss_release_buffer( &minStatus, &out_token );
-					}
-					break;
-				}
-	
-				default:
-					log_errors( "gss_accept_sec_context", majStatus, minStatus );
-					break;
-			}
-		} while ( in_token.value && in_token.length && (majStatus == GSS_S_CONTINUE_NEEDED) );
-
-		if ( majStatus == GSS_S_COMPLETE )
-		{
-			gss_buffer_desc		inToken;
-			gss_buffer_desc		outToken;
-
-			memcpy( pwdBuf, (void *)&maxsize, 4 );
-			inToken.value	= pwdBuf;
-			inToken.length	= 4;
-
-			pwdBuf[ 0 ] = 1;
-
-			majStatus = gss_wrap( &minStatus, context, 0, GSS_C_QOP_DEFAULT, &inToken, NULL, &outToken );
-			if ( majStatus == GSS_S_COMPLETE )
-			{
-				/* Encode the challenge and send it */
-				sEncodeBase64( (char *)outToken.value, outToken.length, respBuf, MAX_IO_BUF_SIZE );
-
-				smtpd_chat_reply( state, "334 %s", respBuf );
-				smtpd_chat_query( state );
-
-				/* check if client cancelled */
-				if ( strcmp( vstring_str( state->buffer ), "*" ) == 0 )
-				{
-					return ( "501 Authentication aborted" );
-				}
-
-				/* Decode the response */
-				memset( respBuf, 0, MAX_IO_BUF_SIZE );
-				len = VSTRING_LEN( state->buffer );
-				if ( sDecodeBase64( vstring_str( state->buffer ), len, respBuf, MAX_IO_BUF_SIZE, &respLen ) != 0 )
-				{
-					return ( "501 Authentication failed: malformed response" );
-				}
-
-				inToken.value  = respBuf;
-				inToken.length = respLen;
-
-				gss_release_buffer( &minStatus, &outToken );
-
-				majStatus = gss_unwrap( &minStatus, context, &inToken, &outToken, NULL, NULL );
-				if ( majStatus == GSS_S_COMPLETE )
-				{
-					if ( (outToken.value != NULL)		&&
-						(outToken.length > 4)			&&
-						(outToken.length < MAX_USER_BUF_SIZE) )
-					{
-						memcpy( userBuf, outToken.value, outToken.length );
-						if ( userBuf[0] & 1 )
-						{
-							userBuf[ outToken.length ] = '\0';
-							state->sasl_username = mystrdup( userBuf + 4 );
-							state->sasl_method = mystrdup(sasl_method);
-
-							return( 0 );
-						}
-					}
-				}
-				else
-				{
-					log_errors( "gss_unwrap", majStatus, minStatus );
-				}
-
-				gss_release_buffer( &minStatus, &outToken );
-			}
-			else
-			{
-				log_errors( "gss_wrap", majStatus, minStatus );
-			}
-		}
+		return( eAOD_open_OD_failed );
 	}
 
-	return ( "504 Authentication failed" );
-
-} /* do_gssapi_auth */
-
-
-/* -----------------------------------------------------------------
-	- smtpd_pw_server_authenticate
-   ----------------------------------------------------------------- */
-
-char *smtpd_pw_server_authenticate (	SMTPD_STATE *state,
-										const char *sasl_method,
-										const char *init_response )
-
-{
-    char *myname = "smtpd_pw_server_authenticate";
-
-	/*** Sanity check ***/
-    if ( state->sasl_username || state->sasl_method )
+	od_rec_ref = od_get_user_record( in_user );
+	if ( od_rec_ref == NULL )
 	{
-		msg_panic( "%s: already authenticated", myname );
+		/* print the error and bail */
+		print_cf_error( cf_err_ref, "Unable to lookup user record" );
+
+		/* release OD session */
+		return( eAOD_unknown_user );
 	}
 
-	if ( strcasecmp( sasl_method, "LOGIN" ) == 0 )
+	cf_str_pwd = CFStringCreateWithCString( NULL, in_passwd, kCFStringEncodingUTF8 );
+	if ( cf_str_pwd == NULL )
 	{
-		return( do_login_auth( state, sasl_method, init_response ) );
-	}
-	else if ( strcasecmp( sasl_method, "PLAIN" ) == 0 )
-	{
-		return( do_plain_auth( state, sasl_method, init_response ) );
-	}
-	else if ( strcasecmp( sasl_method, "CRAM-MD5" ) == 0 )
-	{
-		return( do_cram_md5_auth( state, sasl_method, init_response ) );
-	}
-	else if ( strcasecmp( sasl_method, "GSSAPI" ) == 0 )
-	{
-		return( do_gssapi_auth( state, sasl_method, init_response ) );
+		CFRelease( od_rec_ref );
+		msg_error( "Unable to create user name CFStringRef" );
+		return;
 	}
 
-	return ( "504 Unsupported authentication method" );
-
-} /* smtpd_pw_server_authenticate */
-
-
-/* -----------------------------------------------------------
- *	gss_Init ()
- * ----------------------------------------------------------- */
-
-int gss_Init ( void )
-{
-	int					iResult		= GSS_S_COMPLETE;
-	char			   *pService	= NULL;
-	gss_buffer_desc		nameToken;
-	gss_name_t			principalName;
-	gss_OID				mechid;
-	OM_uint32			majStatus	= 0;
-	OM_uint32			minStatus	= 0;
-
-	pService = get_server_principal();
-	if ( pService == NULL )
+	if ( ODRecordVerifyPassword( od_rec_ref, cf_str_pwd, &cf_err_ref ) )
 	{
-		syslog( LOG_ERR, "No service principal found" );
-		return( GSS_S_NO_CRED );
-	}
-
-	nameToken.value		= pService;
-	nameToken.length	= strlen( pService );
-
-	majStatus = gss_import_name( &minStatus, 
-									&nameToken, 
-									GSS_KRB5_NT_PRINCIPAL_NAME,	 //gss_nt_service_name
-									&principalName );
-
-	if ( majStatus != GSS_S_COMPLETE )
-	{
-		log_errors( "gss_import_name", majStatus, minStatus );
-		iResult = kSGSSImportNameErr;
+		out_result = eAOD_no_error;
 	}
 	else
 	{
-		// Send name to logs
-		(void)gss_display_name( &minStatus, principalName, &nameToken, &mechid );
-
-		(void)gss_release_buffer( &minStatus, &nameToken );
-
-		majStatus = gss_acquire_cred( &minStatus, 
-										principalName, 
-										GSS_C_INDEFINITE, 
-										GSS_C_NO_OID_SET, 
-										GSS_C_ACCEPT, 
-									   &stCredentials,
-										NULL, 
-										NULL );
-
-		if ( majStatus != GSS_S_COMPLETE )
+		if ( cf_err_ref != NULL )
 		{
-			log_errors( "gss_acquire_cred", majStatus, minStatus );
-			iResult = kSGSSAquireCredErr;
+			print_cf_error( cf_err_ref, "Auth failed" );
 		}
-		else
-		{
-			gss_ctx_id_t ctx = GSS_C_NO_CONTEXT;
-		}
-		(void)gss_release_name( &minStatus, &principalName );
+		out_result = eAOD_passwd_mismatch;
 	}
 
-	free( pService );
-
-	return( iResult );
-
-} /* gss_Init */
-
-
-/* -----------------------------------------------------------
- *	get_realm_form_creds ()
- * ----------------------------------------------------------- */
-
-int get_realm_form_creds ( char *inBuffer, int inSize )
-{
-	int			iResult		= GSS_S_COMPLETE;
-	char		buffer[256] = {0};
-	char	   *token1		= NULL;
-
-	iResult = get_principal_str( buffer, 256 );
-	if ( iResult == 0 )
+	/* do some cleanup */
+	if ( cf_err_ref != NULL )
 	{
-		token1 = strrchr( buffer, '@' );
-		if ( token1 != NULL )
-		{
-			++token1;
-			if ( strlen( token1 ) > inSize - 1 )
-			{
-				iResult = kSGSSBufferSizeErr;
-			}
-			else
-			{
-				strncpy( inBuffer, token1, inSize - 1 );
-				inBuffer[ strlen( token1 ) ] = 0;
-			}
-		}
-		else
-		{
-			iResult = kUnknownErr;
-		}
+		CFRelease( cf_err_ref );
 	}
 
-	return( iResult );
-
-} /* get_realm_form_creds */
-
-
-/* -----------------------------------------------------------
- *	get_principal_str ()
- * ----------------------------------------------------------- */
-
-int get_principal_str ( char *inOutBuf, int inSize )
-{
-	OM_uint32		minStatus	= 0;
-	OM_uint32		majStatus	= 0;
-	gss_name_t		principalName;
-	gss_buffer_desc	token;
-	gss_OID			id;
-
-	majStatus = gss_inquire_cred(&minStatus, stCredentials, &principalName,  NULL, NULL, NULL);
-	if ( majStatus != GSS_S_COMPLETE )
+	if ( od_rec_ref != NULL )
 	{
-		return( kSGSSInquireCredErr );
+		CFRelease( od_rec_ref );
 	}
 
-	majStatus = gss_display_name( &minStatus, principalName, &token, &id );
-	if ( majStatus != GSS_S_COMPLETE )
+	if ( cf_str_pwd != NULL )
 	{
-		return( kSGSSInquireCredErr );
+		CFRelease( cf_str_pwd );
 	}
 
-	majStatus = gss_release_name( &minStatus, &principalName );
-	if ( inSize - 1 < token.length )
-	{
-		return( kSGSSBufferSizeErr );
-	}
+	return( out_result );
 
-	strncpy( inOutBuf, (char *)token.value, token.length );
-	inOutBuf[ token.length ] = 0;
-
-	(void)gss_release_buffer( &minStatus, &token );
-
-	return( GSS_S_COMPLETE );
-
-} /* get_principal_str */
-
-
-/* -----------------------------------------------------------
- *	display_name ()
- * ----------------------------------------------------------- */
-
-OM_uint32 display_name ( const gss_name_t principalName )
-{
-	OM_uint32		minStatus	= 0;
-	OM_uint32		majStatus	= 0;
-	gss_OID			mechid;
-	gss_buffer_desc nameToken;
-
-	majStatus = gss_display_name( &minStatus, principalName, &nameToken, &mechid );
-
-	(void)gss_release_buffer( &minStatus, &nameToken );
-
-	return( majStatus );
-
-} /* display_name */
-
-
-#define CHAR64(c)  (((c) < 0 || (c) > 127) ? -1 : index_64[(c)])
-
-static char basis_64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/???????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????";
-
-static char index_64[ 128 ] =
-{
-    -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1,
-    -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1,
-    -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,62, -1,-1,-1,63,
-    52,53,54,55, 56,57,58,59, 60,61,-1,-1, -1,-1,-1,-1,
-    -1, 0, 1, 2,  3, 4, 5, 6,  7, 8, 9,10, 11,12,13,14,
-    15,16,17,18, 19,20,21,22, 23,24,25,-1, -1,-1,-1,-1,
-    -1,26,27,28, 29,30,31,32, 33,34,35,36, 37,38,39,40,
-    41,42,43,44, 45,46,47,48, 49,50,51,-1, -1,-1,-1,-1
-};
+} /* od_do_clear_text_auth */
 
 
 /* -----------------------------------------------------------------
-	sEncodeBase64 ()
+	od_open ()
    ----------------------------------------------------------------- */
 
-int sEncodeBase64 ( const char *inStr, const int inLen, char *outStr, int outLen )
+bool od_open ( void )
 {
-	int						i			= 0;
-	const unsigned char	   *pStr		= NULL;
-	unsigned long			uiInLen		= 0;
-	unsigned char			ucVal		= 0;
+	CFErrorRef	cf_err_ref;
 
-	if ( (inStr == NULL) || (outStr == NULL) || (inLen <= 0) || (outLen <= 0) )
+	od_session_ref = ODSessionCreate( kCFAllocatorDefault, NULL, &cf_err_ref );
+	if ( od_session_ref == NULL )
 	{
-		return( -1 );
+		/* print the error and bail */
+		print_cf_error( cf_err_ref, "Unable to create OD Session" );
+		return( FALSE );
 	}
 
-	pStr = (const unsigned char *)inStr;
-	uiInLen = inLen;
-
-	memset( outStr, 0, outLen );
-
-	while ( uiInLen >= 3 )
+	od_node_ref = ODNodeCreateWithNodeType( kCFAllocatorDefault, od_session_ref, kODNodeTypeAuthentication, &cf_err_ref );
+	if ( od_session_ref == NULL )
 	{
-		if ( (i + 4) > outLen )
-		{
-			return( -1 );
-		}
-		outStr[ i++ ] = ( basis_64[ pStr[ 0 ] >> 2 ] );
-		outStr[ i++ ] = ( basis_64[ ((pStr[ 0 ] << 4) & 0x30) | (pStr[ 1 ] >> 4) ] );
-		outStr[ i++ ] = ( basis_64[ ((pStr[ 1 ] << 2) & 0x3c) | (pStr[ 2 ] >> 6) ] );
-		outStr[ i++ ] = ( basis_64[ pStr[ 2 ] & 0x3f ] );
+		/* print the error and bail */
+		print_cf_error( cf_err_ref, "Unable to create OD Node Reference" );
 
-		pStr += 3;
-		uiInLen -= 3;
+		/* release OD session */
+		CFRelease( od_session_ref );
+		od_session_ref = NULL;
+		return( FALSE );
 	}
 
-	if ( uiInLen > 0 )
-	{
-		if ( (i + 4) > outLen )
-		{
-			return( -1 );
-		}
+	CFRetain( od_session_ref );
+	CFRetain( od_node_ref );
 
-		outStr[ i++ ] = ( basis_64[ pStr[0] >> 2] );
-		ucVal = (pStr[0] << 4) & 0x30;
-		if ( uiInLen > 1 )
-		{
-			ucVal |= pStr[1] >> 4;
-		}
-		outStr[ i++ ] = ( basis_64[ ucVal ] );
-		outStr[ i++ ] = ( (uiInLen < 2) ? '=' : basis_64[ (pStr[ 1 ] << 2) & 0x3c ] );
-		outStr[ i++ ] = ( '=' );
-	}
+	return( TRUE );
 
-	return( 0 );
-
-} /* sEncodeBase64 */
+} /* od_open */
 
 
 /* -----------------------------------------------------------------
-	sDecodeBase64 ()
+	od_get_user_record ()
    ----------------------------------------------------------------- */
 
-int sDecodeBase64 ( const char *inStr, const int inLen, char *outStr, int outLen, int *destLen )
+static ODRecordRef od_get_user_record ( const char *in_user )
 {
-	int				iResult		= 0;
-	unsigned long	i			= 0;
-	unsigned long	j			= 0;
-	unsigned long	c1			= 0;
-	unsigned long	c2			= 0;
-	unsigned long	c3			= 0;
-	unsigned long	c4			= 0;
-	const char	   *pStr		= NULL;
+	CFStringRef				cf_str_user		= NULL;
+	ODRecordRef				od_rec_ref		= NULL;
+	CFTypeRef				cf_type_val[]	= { CFSTR(kDSAttributesStandardAll) };
+	CFArrayRef				cf_arry_attr	= CFArrayCreate( NULL, cf_type_val, 1, &kCFTypeArrayCallBacks );
+	CFErrorRef				cf_err_ref		= NULL;
 
-	if ( (inStr == NULL) || (outStr == NULL) || (inLen <= 0) || (outLen <= 0) )
+	cf_str_user = CFStringCreateWithCString( NULL, in_user, kCFStringEncodingUTF8 );
+	if ( cf_str_user == NULL )
 	{
-		return( -1 );
-	}
-
-	pStr = (const unsigned char *)inStr;
-
-	/* Skip past the '+ ' */
-	if ( (pStr[ 0 ] == '+') && (pStr[ 1 ] == ' ') )
-	{
-		pStr += 2;
-	}
-	if ( *pStr == '\r')
-	{
-		iResult = -1;
-	}
-	else
-	{
-		for ( i = 0; i < inLen / 4; i++ )
-		{
-			c1 = pStr[ 0 ];
-			if ( CHAR64( c1 ) == -1 )
-			{
-				iResult = -1;
-				break;
-			}
-
-			c2 = pStr[ 1 ];
-			if ( CHAR64( c2 ) == -1 )
-			{
-				iResult = -1;
-				break;
-			}
-
-			c3 = pStr[ 2 ];
-			if ( (c3 != '=') && (CHAR64( c3 ) == -1) )
-			{
-				iResult = -1;
-				break;
-			}
-
-			c4 = pStr[ 3 ];
-			if (c4 != '=' && CHAR64( c4 ) == -1)
-			{
-				iResult = -1;
-				break;
-			}
-
-			pStr += 4;
-
-			outStr[ j++ ] = ( (CHAR64(c1) << 2) | (CHAR64(c2) >> 4) );
-
-			if ( j >= outLen )
-			{
-				return( -1 );
-			}
-
-			if ( c3 != '=' )
-			{
-				outStr[ j++ ] = ( ((CHAR64(c2) << 4) & 0xf0) | (CHAR64(c3) >> 2) );
-				if ( j >= outLen )
-				{
-					return( -1 );
-				}
-				if ( c4 != '=' )
-				{
-					outStr[ j++ ] = ( ((CHAR64(c3) << 6) & 0xc0) | CHAR64(c4) );
-					if ( j >= outLen )
-					{
-						return( -1 );
-					}
-				}
-			}
-		}
-		outStr[ j ] = 0;
-	}
-
-	if ( destLen )
-	{
-		*destLen = j;
-	}
-
-	return( iResult );
-
-} /* sDecodeBase64 */
-
-
-/* -----------------------------------------------------------------
-	sClearTextCrypt ()
-   ----------------------------------------------------------------- */
-
-int sClearTextCrypt ( const char *inUserID, const char *inPasswd )
-{
-	int					iResult			= eAODNoErr;
-	tDirStatus			dsStatus		= eDSNoErr;
-	tDirReference		dirRef			= 0;
-	tDirNodeReference	searchNodeRef	= 0;
-	tDirNodeReference	userNodeRef		= 0;
-	char			   *userLoc			= NULL;
-
-	if ( (inUserID == NULL) || (inPasswd == NULL) )
-	{
-		return( eAODParamErr );
-	}
-
-	dsStatus = sOpen_ds( &dirRef );
-	if ( dsStatus == eDSNoErr )
-	{
-		dsStatus = sGet_search_node( dirRef, &searchNodeRef );
-		if ( dsStatus == eDSNoErr )
-		{
-			dsStatus = sLook_up_user( dirRef, searchNodeRef, inUserID, &userLoc );
-			if ( dsStatus == eDSNoErr )
-			{
-				dsStatus = sOpen_user_node( dirRef, userLoc, &userNodeRef );
-				if ( dsStatus == eDSNoErr )
-				{
-					dsStatus = sDoCryptAuth( dirRef, userNodeRef, inUserID, inPasswd );
-					switch ( dsStatus )
-					{
-						case eDSNoErr:
-						case eDSAuthNewPasswordRequired:
-						case eDSAuthPasswordExpired:
-							iResult = eAODNoErr;
-							break;
-
-						default:
-							iResult = eAODAuthFailed;
-							break;
-					}
-					(void)dsCloseDirNode( userNodeRef );
-				}
-				else
-				{
-					iResult = eAODCantOpenUserNode;
-				}
-			}
-			else
-			{
-				iResult = eAODUserNotFound;
-			}
-			(void)dsCloseDirNode( searchNodeRef );
-		}
-		else
-		{
-			iResult = eAODOpenSearchFailed;
-		}
-		(void)dsCloseDirService( dirRef );
-	}
-	else
-	{
-		iResult = eAODOpenDSFailed;
-	}
-
-	return( iResult );
-
-} /* sClearTextCrypt */
-
-/* -----------------------------------------------------------------
-	sOpen_ds ()
-   ----------------------------------------------------------------- */
-
-tDirStatus sOpen_ds ( tDirReference *inOutDirRef )
-{
-	tDirStatus		dsStatus	= eDSNoErr;
-
-	dsStatus = dsOpenDirService( inOutDirRef );
-
-	return( dsStatus );
-
-} /* sOpen_ds */
-
-
-/* -----------------------------------------------------------------
-	sGet_search_node ()
-   ----------------------------------------------------------------- */
-
-tDirStatus sGet_search_node ( tDirReference inDirRef,
-							 tDirNodeReference *outSearchNodeRef )
-{
-	tDirStatus		dsStatus	= eMemoryAllocError;
-	unsigned long	uiCount		= 0;
-	tDataBuffer	   *pTDataBuff	= NULL;
-	tDataList	   *pDataList	= NULL;
-
-	pTDataBuff = dsDataBufferAllocate( inDirRef, 8192 );
-	if ( pTDataBuff != NULL )
-	{
-		dsStatus = dsFindDirNodes( inDirRef, pTDataBuff, NULL, eDSSearchNodeName, &uiCount, NULL );
-		if ( dsStatus == eDSNoErr )
-		{
-			dsStatus = eDSNodeNotFound;
-			if ( uiCount == 1 )
-			{
-				dsStatus = dsGetDirNodeName( inDirRef, pTDataBuff, 1, &pDataList );
-				if ( dsStatus == eDSNoErr )
-				{
-					dsStatus = dsOpenDirNode( inDirRef, pDataList, outSearchNodeRef );
-				}
-
-				if ( pDataList != NULL )
-				{
-					(void)dsDataListDeAllocate( inDirRef, pDataList, TRUE );
-
-					free( pDataList );
-					pDataList = NULL;
-				}
-			}
-		}
-		(void)dsDataBufferDeAllocate( inDirRef, pTDataBuff );
-		pTDataBuff = NULL;
-	}
-
-	return( dsStatus );
-
-} /* sGet_search_node */
-
-
-/* -----------------------------------------------------------------
-	sLook_up_user ()
-   ----------------------------------------------------------------- */
-
-tDirStatus sLook_up_user ( tDirReference inDirRef,
-						  tDirNodeReference inSearchNodeRef,
-						  const char *inUserID,
-						  char **outUserLocation )
-{
-	tDirStatus				dsStatus		= eMemoryAllocError;
-	int						done			= FALSE;
-	char				   *pAcctName		= NULL;
-	unsigned long			uiRecCount		= 0;
-	tDataBuffer			   *pTDataBuff		= NULL;
-	tDataList			   *pUserRecType	= NULL;
-	tDataList			   *pUserAttrType	= NULL;
-	tRecordEntry		   *pRecEntry		= NULL;
-	tAttributeEntry		   *pAttrEntry		= NULL;
-	tAttributeValueEntry   *pValueEntry		= NULL;
-	tAttributeValueListRef	valueRef		= 0;
-	tAttributeListRef		attrListRef		= 0;
-	tContextData			pContext		= NULL;
-	tDataList				tdlRecName;
-
-	memset( &tdlRecName,  0, sizeof( tDataList ) );
-
-	pTDataBuff = dsDataBufferAllocate( inDirRef, 8192 );
-	if ( pTDataBuff != NULL )
-	{
-		dsStatus = dsBuildListFromStringsAlloc( inDirRef, &tdlRecName, inUserID, NULL );
-		if ( dsStatus == eDSNoErr )
-		{
-			dsStatus = eMemoryAllocError;
-
-			pUserRecType = dsBuildListFromStrings( inDirRef, kDSStdRecordTypeUsers, NULL );
-			if ( pUserRecType != NULL )
-			{
-				pUserAttrType = dsBuildListFromStrings( inDirRef, kDSNAttrMetaNodeLocation, NULL );
-				if ( pUserAttrType != NULL );
-				{
-					do {
-						/* Get the user record(s) that matches the name */
-						dsStatus = dsGetRecordList( inSearchNodeRef, pTDataBuff, &tdlRecName, eDSiExact, pUserRecType,
-													pUserAttrType, FALSE, &uiRecCount, &pContext );
-
-						if ( dsStatus == eDSNoErr )
-						{
-							dsStatus = eDSInvalidName;
-							if ( uiRecCount == 1 ) 
-							{
-								dsStatus = dsGetRecordEntry( inSearchNodeRef, pTDataBuff, 1, &attrListRef, &pRecEntry );
-								if ( dsStatus == eDSNoErr )
-								{
-									/* Get the record name */
-									(void)dsGetRecordNameFromEntry( pRecEntry, &pAcctName );
-			
-									dsStatus = dsGetAttributeEntry( inSearchNodeRef, pTDataBuff, attrListRef, 1, &valueRef, &pAttrEntry );
-									if ( (dsStatus == eDSNoErr) && (pAttrEntry != NULL) )
-									{
-										dsStatus = dsGetAttributeValue( inSearchNodeRef, pTDataBuff, 1, valueRef, &pValueEntry );
-										if ( (dsStatus == eDSNoErr) && (pValueEntry != NULL) )
-										{
-											if ( strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrMetaNodeLocation ) == 0 )
-											{
-												/* Get the user location */
-												*outUserLocation = (char *)calloc( pValueEntry->fAttributeValueData.fBufferLength + 1, sizeof( char ) );
-												memcpy( *outUserLocation, pValueEntry->fAttributeValueData.fBufferData, pValueEntry->fAttributeValueData.fBufferLength );
-
-												/* If we don't find duplicate users in the same node, we take the first one with
-													a valid mail attribute */
-												done = TRUE;
-											}
-											(void)dsCloseAttributeValueList( valueRef );
-										}
-
-										(void)dsDeallocAttributeEntry( inSearchNodeRef, pAttrEntry );
-										pAttrEntry = NULL;
-
-										(void)dsCloseAttributeList( attrListRef );
-									}
-
-									if ( pRecEntry != NULL )
-									{
-										(void)dsDeallocRecordEntry( inSearchNodeRef, pRecEntry );
-										pRecEntry = NULL;
-									}
-								}
-							}
-							else
-							{
-								done = TRUE;
-								dsStatus = eDSAuthInvalidUserName;
-							}
-						}
-					} while ( (pContext != NULL) && (dsStatus == eDSNoErr) && (!done) );
-
-					if ( pContext != NULL )
-					{
-						(void)dsReleaseContinueData( inSearchNodeRef, pContext );
-						pContext = NULL;
-					}
-					(void)dsDataListDeallocate( inDirRef, pUserAttrType );
-					pUserAttrType = NULL;
-				}
-				(void)dsDataListDeallocate( inDirRef, pUserRecType );
-				pUserRecType = NULL;
-			}
-			(void)dsDataListDeAllocate( inDirRef, &tdlRecName, TRUE );
-		}
-		(void)dsDataBufferDeAllocate( inDirRef, pTDataBuff );
-		pTDataBuff = NULL;
-	}
-
-	if ( pAcctName != NULL )
-	{
-		free( pAcctName );
-		pAcctName = NULL;
-	}
-
-	return( dsStatus );
-
-} /* sLook_up_user */
-
-
-/* -----------------------------------------------------------------
-	sOpen_user_node ()
-   ----------------------------------------------------------------- */
-
-tDirStatus sOpen_user_node (  tDirReference inDirRef, const char *inUserLoc, tDirNodeReference *outUserNodeRef )
-{
-	tDirStatus		dsStatus	= eMemoryAllocError;
-	tDataList	   *pUserNode	= NULL;
-
-	pUserNode = dsBuildFromPath( inDirRef, inUserLoc, "/" );
-	if ( pUserNode != NULL )
-	{
-		dsStatus = dsOpenDirNode( inDirRef, pUserNode, outUserNodeRef );
-
-		(void)dsDataListDeAllocate( inDirRef, pUserNode, TRUE );
-		free( pUserNode );
-		pUserNode = NULL;
-	}
-
-	return( dsStatus );
-
-} /* sOpen_user_node */
-
-
-/* -----------------------------------------------------------------
-	sDoCryptAuth ()
-   ----------------------------------------------------------------- */
-
-static int sDoCryptAuth ( tDirReference inDirRef, tDirNodeReference inUserNodeRef, const char *inUserID, const char *inPasswd )
-{
-	tDirStatus				dsStatus		= eDSNoErr;
-	int						iResult			= -1;
-	long					nameLen			= 0;
-	long					passwdLen		= 0;
-	unsigned long			curr			= 0;
-	unsigned long			len				= 0;
-	unsigned long			uiBuffSzie		= 0;
-	tDataBuffer			   *pAuthBuff		= NULL;
-	tDataBuffer			   *pStepBuff		= NULL;
-	tDataNode			   *pAuthType		= NULL;
-
-	if ( (inUserID == NULL) || (inPasswd == NULL) )
-	{
-		return( eDSAuthParameterError );
-	}
-
-	nameLen = strlen( inUserID );
-	passwdLen = strlen( inPasswd );
-
-	uiBuffSzie = nameLen + passwdLen + 32;
-
-	pAuthBuff = dsDataBufferAllocate( inDirRef, uiBuffSzie );
-	if ( pAuthBuff != NULL )
-	{
-		/* We don't use this buffer for clear text auth */
-		pStepBuff = dsDataBufferAllocate( inDirRef, 256 );
-		if ( pStepBuff != NULL )
-		{
-			pAuthType = dsDataNodeAllocateString( inDirRef, kDSStdAuthNodeNativeClearTextOK );
-			if ( pAuthType != NULL )
-			{
-				/* User Name */
-				len = nameLen;
-				memcpy( &(pAuthBuff->fBufferData[ curr ]), &len, sizeof( unsigned long ) );
-				curr += sizeof( unsigned long );
-				memcpy( &(pAuthBuff->fBufferData[ curr ]), inUserID, len );
-				curr += len;
-
-				/* Password */
-				len = passwdLen;
-				memcpy( &(pAuthBuff->fBufferData[ curr ]), &len, sizeof( unsigned long ) );
-				curr += sizeof( unsigned long );
-				memcpy( &(pAuthBuff->fBufferData[ curr ]), inPasswd, len );
-				curr += len;
-
-				pAuthBuff->fBufferLength = curr;
-
-				dsStatus = dsDoDirNodeAuth( inUserNodeRef, pAuthType, TRUE, pAuthBuff, pStepBuff, NULL );
-				if ( dsStatus == eDSNoErr )
-				{
-					iResult = 0;
-				}
-				else
-				{
-					msg_warn( "AOD: Authentication failed for user %s. (Open Directory error: %d)", inUserID, dsStatus );
-					iResult = -7;
-				}
-
-				(void)dsDataNodeDeAllocate( inDirRef, pAuthType );
-				pAuthType = NULL;
-			}
-			else
-			{
-				msg_warn( "AOD: Authentication failed for user %s.  Unable to allocate memory.", inUserID );
-				iResult = -6;
-			}
-			(void)dsDataNodeDeAllocate( inDirRef, pStepBuff );
-			pStepBuff = NULL;
-		}
-		else
-		{
-			msg_warn( "AOD: Authentication failed for user %s.  Unable to allocate memory.", inUserID );
-			iResult = -5;
-		}
-		(void)dsDataNodeDeAllocate( inDirRef, pAuthBuff );
-		pAuthBuff = NULL;
-	}
-
-	return( iResult );
-
-} /* sDoCryptAuth */
-
-
-/* -----------------------------------------------------------------
-	sValidateResponse ()
-   ----------------------------------------------------------------- */
-
-int sValidateResponse ( const char *inUserID, const char *inChallenge, const char *inResponse, const char *inAuthType )
-{
-	int					iResult			= -1;
-	tDirStatus			dsStatus		= eDSNoErr;
-	tDirReference		dirRef			= 0;
-	tDirNodeReference	searchNodeRef	= 0;
-	tDirNodeReference	userNodeRef		= 0;
-	tDataBuffer		   *pAuthBuff		= NULL;
-	tDataBuffer		   *pStepBuff		= NULL;
-	tDataNode		   *pAuthType		= NULL;
-	char			   *userLoc			= NULL;
-	unsigned long		uiNameLen		= 0;
-	unsigned long		uiChalLen		= 0;
-	unsigned long		uiRespLen		= 0;
-	unsigned long		uiBuffSzie		= 0;
-	unsigned long		uiCurr			= 0;
-	unsigned long		uiLen			= 0;
-
-	if ( (inUserID == NULL) || (inChallenge == NULL) || (inResponse == NULL) || (inAuthType == NULL) )
-	{
-		return( -1 );
-	}
-
-	uiNameLen = strlen( inUserID );
-	uiChalLen = strlen( inChallenge );
-	uiRespLen = strlen( inResponse );
-
-	uiBuffSzie = uiNameLen + uiChalLen + uiRespLen + 32;
-
-	dsStatus = sOpen_ds( &dirRef );
-	if ( dsStatus == eDSNoErr )
-	{
-		dsStatus = sGet_search_node( dirRef, &searchNodeRef );
-		if ( dsStatus == eDSNoErr )
-		{
-			dsStatus = sLook_up_user( dirRef, searchNodeRef, inUserID, &userLoc );
-			if ( dsStatus == eDSNoErr )
-			{
-				dsStatus = sOpen_user_node( dirRef, userLoc, &userNodeRef );
-				if ( dsStatus == eDSNoErr )
-				{
-					pAuthBuff = dsDataBufferAllocate( dirRef, uiBuffSzie );
-					if ( pAuthBuff != NULL )
-					{
-						pStepBuff = dsDataBufferAllocate( dirRef, 256 );
-						if ( pStepBuff != NULL )
-						{
-							pAuthType = dsDataNodeAllocateString( dirRef, inAuthType );
-							if ( pAuthType != NULL )
-							{
-								/* User name */
-								uiLen = uiNameLen;
-								memcpy( &(pAuthBuff->fBufferData[ uiCurr ]), &uiLen, sizeof( unsigned long ) );
-								uiCurr += sizeof( unsigned long );
-								memcpy( &(pAuthBuff->fBufferData[ uiCurr ]), inUserID, uiLen );
-								uiCurr += uiLen;
-
-								/* Challenge */
-								uiLen = uiChalLen;
-								memcpy( &(pAuthBuff->fBufferData[ uiCurr ]), &uiLen, sizeof( unsigned long ) );
-								uiCurr += sizeof( unsigned long );
-								memcpy( &(pAuthBuff->fBufferData[ uiCurr ]), inChallenge, uiLen );
-								uiCurr += uiLen;
-
-								/* Response */
-								uiLen = uiRespLen;
-								memcpy( &(pAuthBuff->fBufferData[ uiCurr ]), &uiLen, sizeof( unsigned long ) );
-								uiCurr += sizeof( unsigned long );
-								memcpy( &(pAuthBuff->fBufferData[ uiCurr ]), inResponse, uiLen );
-								uiCurr += uiLen;
-
-								pAuthBuff->fBufferLength = uiCurr;
-
-								dsStatus = dsDoDirNodeAuth( userNodeRef, pAuthType, TRUE, pAuthBuff, pStepBuff, NULL );
-								if ( dsStatus == eDSNoErr )
-								{
-									iResult = 0;
-								}
-								else
-								{
-									iResult = -7;
-								}
-								(void)dsDataNodeDeAllocate( dirRef, pAuthType );
-								pAuthType = NULL;
-							}
-							else
-							{
-								msg_warn( "AOD: Authentication failed for user %s.  Unable to allocate memory.", inUserID );
-								iResult = -6;
-							}
-							(void)dsDataNodeDeAllocate( dirRef, pStepBuff );
-							pStepBuff = NULL;
-						}
-						else
-						{
-							msg_warn( "AOD: Authentication failed for user %s.  Unable to allocate memory.", inUserID );
-							iResult = -5;
-						}
-						(void)dsDataNodeDeAllocate( dirRef, pAuthBuff );
-						pAuthBuff = NULL;
-					}
-					else
-					{
-						msg_warn( "AOD: Authentication failed for user %s.  Unable to allocate memory.", inUserID );
-						iResult = -4;
-					}
-					(void)dsCloseDirNode( userNodeRef );
-					userNodeRef = 0;
-				}
-				else
-				{
-					msg_warn( "AOD: Unable to open user directory node for user %s. (Open Directory error: %d)", inUserID, dsStatus );
-					iResult = -1;
-				}
-			}
-			else
-			{
-				msg_warn( "AOD: Unable to find user %s. (Open Directory error: %d)", inUserID, dsStatus );
-				iResult = -1;
-			}
-			(void)dsCloseDirNode( searchNodeRef );
-			searchNodeRef = 0;
-		}
-		else
-		{
-			msg_warn( "AOD: Unable to open directroy search node. (Open Directory error: %d)", dsStatus );
-			iResult = -1;
-		}
-		(void)dsCloseDirService( dirRef );
-		dirRef = 0;
-	}
-	else
-	{
-		msg_warn( "AOD: Unable to open directroy. (Open Directory error: %d)", dsStatus );
-		iResult = -1;
-	}
-
-	return( iResult );
-
-} /* sValidateResponse */
-
-
-#define	kPlistFilePath					"/etc/MailServicesOther.plist"
-#define	kXMLDictionary					"postfix"
-#define	kXMLSMTP_Principal				"smtp_principal"
-
-/* -----------------------------------------------------------------
-	aodGetServerPrincipal ()
-   ----------------------------------------------------------------- */
-
-char * get_server_principal ( void )
-{
-    FILE			   *pFile		= NULL;
-	char			   *outStr		= NULL;
-	char			   *buf			= NULL;
-	ssize_t				bytes		= 0;
-	struct stat			fileStat;
-	bool				bFound		= FALSE;
-	CFStringRef			cfStringRef	= NULL;
-	char			   *pValue		= NULL;
-	CFDataRef			cfDataRef	= NULL;
-	CFPropertyListRef	cfPlistRef	= NULL;
-	CFDictionaryRef		cfDictRef	= NULL;
-	CFDictionaryRef		cfDictPost	= NULL;
-
-    pFile = fopen( kPlistFilePath, "r" );
-    if ( pFile == NULL )
-	{
-		syslog( LOG_ERR, "Cannot open principal file" );
+		msg_error( "Unable to create user name CFStringRef" );
 		return( NULL );
 	}
 
-	if ( -1 == fstat( fileno( pFile ), &fileStat ) )
+	od_rec_ref = ODNodeCopyRecord( od_node_ref, CFSTR(kDSStdRecordTypeUsers), cf_str_user, cf_arry_attr, &cf_err_ref );
+	if ( od_rec_ref == NULL )
 	{
-		fclose( pFile );
-		syslog( LOG_ERR, "Cannot get stat on principal file" );
-		return( NULL );
+		/* print the error and bail */
+		print_cf_error( cf_err_ref, "Unable to lookup user record" );
 	}
 
-	buf = (char *)malloc( fileStat.st_size + 1 );
-	if ( buf == NULL )
+	if ( cf_str_user != NULL )
 	{
-		fclose( pFile );
-		syslog( LOG_ERR, "Cannot alloc principal buffer" );
-		return( NULL );
+		CFRelease( cf_str_user );
 	}
 
-	memset( buf, 0, fileStat.st_size + 1 );
-	bytes = read( fileno( pFile ), buf, fileStat.st_size );
-	if ( -1 == bytes )
+	if ( cf_arry_attr != NULL )
 	{
-		fclose( pFile );
-		free( buf );
-		syslog( LOG_ERR, "Cannot read principal file" );
-		return( NULL );
+		CFRelease( cf_arry_attr );
 	}
 
-	cfDataRef = CFDataCreate( NULL, (const UInt8 *)buf, fileStat.st_size );
-	if ( cfDataRef != NULL )
-	{
-		cfPlistRef = CFPropertyListCreateFromXMLData( kCFAllocatorDefault, cfDataRef, kCFPropertyListImmutable, NULL );
-		if ( cfPlistRef != NULL )
-		{
-			if ( CFDictionaryGetTypeID() == CFGetTypeID( cfPlistRef ) )
-			{
-				cfDictRef = (CFDictionaryRef)cfPlistRef;
+	return( od_rec_ref );
 
-				bFound = CFDictionaryContainsKey( cfDictRef, CFSTR( kXMLDictionary ) );
-				if ( bFound == true )
-				{
-					cfDictPost = (CFDictionaryRef)CFDictionaryGetValue( cfDictRef, CFSTR( kXMLDictionary ) );
-					if ( cfDictPost != NULL )
-					{
-						cfStringRef = (CFStringRef)CFDictionaryGetValue( cfDictPost, CFSTR( kXMLSMTP_Principal ) );
-						if ( cfStringRef != NULL )
-						{
-							if ( CFGetTypeID( cfStringRef ) == CFStringGetTypeID() )
-							{
-								pValue = (char *)CFStringGetCStringPtr( cfStringRef, kCFStringEncodingMacRoman );
-								if ( pValue != NULL )
-								{
-									outStr = malloc( strlen( pValue ) + 1 );
-									if ( outStr != NULL )
-									{
-										strcpy( outStr, pValue );
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-			CFRelease( cfPlistRef );
-		}
-		CFRelease( cfDataRef );
-	}
+} /* od_get_user_record */
 
-	return( outStr );
 
-} /* get_server_principal */
+/* -----------------------------------------------------------------
+	od_validate_response ()
+   ----------------------------------------------------------------- */
 
-void log_errors ( char *inName, OM_uint32 inMajor, OM_uint32 inMinor )
+int od_validate_response ( const char *in_user, const char *in_chal, const char *in_resp, const char *in_auth_type )
 {
-	OM_uint32		msg_context = 0;
-	OM_uint32		minStatus = 0;
-	OM_uint32		majStatus = 0;
-	gss_buffer_desc errBuf;
-	int				count = 1;
+	bool					b_result		= FALSE;
+	CFStringRef				cf_str_user		= NULL;
+	CFErrorRef				cf_err_ref		= NULL;
+	ODRecordRef				od_rec_ref		= NULL;
+	CFStringRef				cf_str_chal		= NULL;
+	CFStringRef				cf_str_resp		= NULL;
+	CFMutableArrayRef		cf_arry_buf		= CFArrayCreateMutable( NULL, 3, &kCFTypeArrayCallBacks );
+	CFArrayRef				cf_arry_resp	= NULL;
+	ODContextRef			od_context_ref	= NULL;
+	ODAuthenticationType	od_auth_type;
 
-	do {
-		majStatus = gss_display_status( &minStatus, inMajor, GSS_C_GSS_CODE, GSS_C_NULL_OID, &msg_context, &errBuf );
+	if ( (in_user == NULL) || (in_chal == NULL) || (in_resp == NULL) || (in_auth_type == NULL) )
+	{
+		msg_error( "AOD: Invalid argument passed to validate response" );
+		return( eAOD_param_error );
+	}
 
-		syslog( LOG_ERR, "  Major Error (%d): %s (%s)", count, (char *)errBuf.value, inName );
+	if ( od_open() == FALSE )
+	{
+		return( eAOD_open_OD_failed );
+	}
 
-		majStatus = gss_release_buffer( &minStatus, &errBuf );
-		++count;
-	} while ( msg_context != 0 );
+	od_rec_ref = od_get_user_record( in_user );
+	if ( od_rec_ref == NULL )
+	{
+		/* print the error and bail */
+		print_cf_error( cf_err_ref, "Unable to lookup user record" );
 
-	count = 1;
-	msg_context = 0;
-	do {
-		majStatus = gss_display_status( &minStatus, inMinor, GSS_C_MECH_CODE, GSS_C_NULL_OID, &msg_context, &errBuf );
+		/* release OD session */
+		return( eAOD_system_error );
+	}
 
-		syslog( LOG_ERR, "  Minor Error (%d): %s (%s)", count, (char *)errBuf.value, inName );
+	/* Stuff auth buffer with, user/record name, challenge and response  */
+	cf_str_user = CFStringCreateWithCString( NULL, in_user, kCFStringEncodingUTF8 );
+	CFArrayAppendValue( cf_arry_buf, cf_str_user );
 
-		majStatus = gss_release_buffer( &minStatus, &errBuf );
-		++count;
+	cf_str_chal = CFStringCreateWithCString( NULL, in_chal, kCFStringEncodingUTF8 );
+	CFArrayAppendValue( cf_arry_buf, cf_str_chal );
 
-	} while ( msg_context != 0 );
+	cf_str_resp = CFStringCreateWithCString( NULL, in_resp, kCFStringEncodingUTF8 );
+	CFArrayAppendValue( cf_arry_buf, cf_str_resp );
 
-} // LogErrors
+	/* Make the "3 AM" call */
+	b_result = ODRecordVerifyPasswordExtended( od_rec_ref, kODAuthenticationTypeCRAM_MD5, cf_arry_buf, &cf_arry_resp, &od_context_ref, &cf_err_ref );
+
+	/* do some clean up */
+	if ( cf_str_user != NULL )
+	{
+		CFRelease( cf_str_user );
+	}
+
+	if ( cf_err_ref != NULL )
+	{
+		CFRelease( cf_err_ref );
+	}
+
+	if ( od_rec_ref != NULL )
+	{
+		CFRelease( od_rec_ref );
+	}
+
+	if ( cf_str_chal != NULL )
+	{
+		CFRelease( cf_str_chal );
+	}
+
+	if ( cf_str_resp != NULL )
+	{
+		CFRelease( cf_str_resp );
+	}
+
+	if ( cf_arry_buf != NULL )
+	{
+		CFRelease( cf_arry_buf );
+	}
+
+	if ( cf_arry_resp != NULL )
+	{
+		CFRelease( cf_arry_resp );
+	}
+
+	/* Were they ready to receive the "3 AM" call */
+	if ( b_result == TRUE )
+	{
+		return( eAOD_no_error );
+	}
+
+	return( eAOD_passwd_mismatch );
+
+} /* od_validate_response */
+
 #endif /* __APPLE_OS_X_SERVER__ */
-
 #endif

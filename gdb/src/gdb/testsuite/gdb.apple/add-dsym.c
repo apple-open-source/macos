@@ -25,6 +25,7 @@ main ()
 
   for (iter = 0; iter < 40; iter++)
     in_char[iter] = 'a' + iter;
+  in_char[39] = '\0';
   bar (in_char, shift_amt);
 
   return 0;

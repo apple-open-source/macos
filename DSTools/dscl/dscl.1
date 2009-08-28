@@ -114,7 +114,7 @@ The action of each command is described below.  Some commands have aliases.  For
 Usage: read
 .Op Ar path Op Ar key Li "..."
 .Pp
-Prints a directory.  Each of the properties are printed one per line.  The property key is followed by a colon, then a space-separated list of the values for that property.  Note that a value which contains embedded spaces will appear identical to a pair of values.
+Prints a directory.  The property key is followed by colon, then a space-separated list of the values for that property. If any value contains embedded spaces, the list will instead be displayed one entry per line, starting on the line after the key.
 .Pp
 If The 
 .Fl raw

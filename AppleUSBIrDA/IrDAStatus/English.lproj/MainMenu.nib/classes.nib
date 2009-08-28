@@ -1,0 +1,50 @@
+{
+    IBClasses = (
+        {
+            ACTIONS = {showPreferences = id; }; 
+            CLASS = AppController; 
+            LANGUAGE = ObjC; 
+            SUPERCLASS = NSObject; 
+        }, 
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {
+            ACTIONS = {StartIrDA = id; StopIrDA = id; }; 
+            CLASS = IrDAActions; 
+            LANGUAGE = ObjC; 
+            SUPERCLASS = NSObject; 
+        }, 
+        {
+            ACTIONS = {StartTimer = id; }; 
+            CLASS = IrDAStatusObj; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                connectionSpeed = id; 
+                connectionState = id; 
+                crcErrors = id; 
+                dataPacketsIn = id; 
+                dataPacketsOut = id; 
+                dropped = id; 
+                iFrameRec = id; 
+                iFrameSent = id; 
+                ioErrors = id; 
+                nickName = id; 
+                protocolErrs = id; 
+                recTimeout = id; 
+                rejRec = id; 
+                rejSent = id; 
+                resent = id; 
+                rnrRec = id; 
+                rnrSent = id; 
+                rrRec = id; 
+                rrSent = id; 
+                srejRec = id; 
+                srejSent = id; 
+                uFrameRec = id; 
+                uFrameSent = id; 
+                xmitTimeout = id; 
+            }; 
+            SUPERCLASS = NSObject; 
+        }
+    ); 
+    IBVersion = 1; 
+}

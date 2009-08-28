@@ -48,6 +48,9 @@ void RenderTextControlMultiLine::subtreeHasChanged()
     if (!node()->focused())
         return;
 
+    // Fire the "input" DOM event
+    node()->dispatchEvent(eventNames().inputEvent, true, false);
+
     if (Frame* frame = document()->frame())
         frame->textDidChangeInTextArea(static_cast<Element*>(node()));
 }
@@ -118,8 +121,8 @@ PassRefPtr<RenderStyle> RenderTextControlMultiLine::createInnerTextStyle(const R
 
     textBlockStyle->setDisplay(BLOCK);
 
-    // We're adding three extra pixels of padding to line textareas up with text fields. 
-    textBlockStyle->setPaddingLeft(Length(3, Fixed)); 
+    // We're adding three extra pixels of padding to line textareas up with text fields.  
+    textBlockStyle->setPaddingLeft(Length(3, Fixed));  
     textBlockStyle->setPaddingRight(Length(3, Fixed));
 
     return textBlockStyle.release();

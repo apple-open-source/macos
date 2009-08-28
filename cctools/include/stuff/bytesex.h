@@ -50,6 +50,7 @@
 #include <mach/i386/thread_status.h>
 #include <mach/hppa/thread_status.h>
 #include <mach/sparc/thread_status.h>
+#include <mach/arm/thread_status.h>
 #include <mach-o/nlist.h>
 #include <mach-o/reloc.h>
 #include <mach-o/ranlib.h>
@@ -93,7 +94,7 @@ __private_extern__ void swap_fat_header(
 
 __private_extern__ void swap_fat_arch(
     struct fat_arch *fat_archs,
-    unsigned long nfat_arch,
+    uint32_t nfat_arch,
     enum byte_sex target_byte_sex);
 
 __private_extern__ void swap_mach_header(
@@ -118,12 +119,12 @@ __private_extern__ void swap_segment_command_64(
 
 __private_extern__ void swap_section(
     struct section *s,
-    unsigned long nsects,
+    uint32_t nsects,
     enum byte_sex target_byte_sex);
 
 __private_extern__ void swap_section_64(
     struct section_64 *s,
-    unsigned long nsects,
+    uint32_t nsects,
     enum byte_sex target_byte_sex);
 
 __private_extern__ void swap_symtab_command(
@@ -302,6 +303,10 @@ __private_extern__ void swap_sparc_thread_state_fpu(
   struct sparc_thread_state_fpu *fpu,
   enum byte_sex target_byte_order);
 
+__private_extern__ void swap_arm_thread_state_t(
+    struct arm_thread_state *cpu,
+    enum byte_sex target_byte_sex);
+
 __private_extern__ void swap_ident_command(
     struct ident_command *id_cmd,
     enum byte_sex target_byte_sex);
@@ -334,24 +339,32 @@ __private_extern__ void swap_rpath_command(
     struct rpath_command *rpath_cmd,
     enum byte_sex target_byte_sex);
 
+__private_extern__ void swap_encryption_command(
+    struct encryption_info_command *ec,
+    enum byte_sex target_byte_sex);
+
+__private_extern__ void swap_dyld_info_command(
+    struct dyld_info_command *dc, 
+    enum byte_sex target_byte_sex);
+
 __private_extern__ void swap_nlist(
     struct nlist *symbols,
-    unsigned long nsymbols,
+    uint32_t nsymbols,
     enum byte_sex target_byte_sex);
 
 __private_extern__ void swap_nlist_64(
     struct nlist_64 *symbols,
-    unsigned long nsymbols,
+    uint32_t nsymbols,
     enum byte_sex target_byte_sex);
 
 __private_extern__ void swap_ranlib(
     struct ranlib *ranlibs,
-    unsigned long nranlibs,
+    uint32_t nranlibs,
     enum byte_sex target_byte_sex);
 
 __private_extern__ void swap_relocation_info(
     struct relocation_info *relocs,
-    unsigned long nrelocs,
+    uint32_t nrelocs,
     enum byte_sex target_byte_sex);
 
 __private_extern__ void swap_indirect_symbols(
@@ -361,27 +374,27 @@ __private_extern__ void swap_indirect_symbols(
 
 __private_extern__ void swap_dylib_reference(
     struct dylib_reference *refs,
-    unsigned long nrefs,
+    uint32_t nrefs,
     enum byte_sex target_byte_sex);
 
 __private_extern__ void swap_dylib_module(
     struct dylib_module *mods,
-    unsigned long nmods,
+    uint32_t nmods,
     enum byte_sex target_byte_sex);
 
 __private_extern__ void swap_dylib_module_64(
     struct dylib_module_64 *mods,
-    unsigned long nmods,
+    uint32_t nmods,
     enum byte_sex target_byte_sex);
 
 __private_extern__ void swap_dylib_table_of_contents(
     struct dylib_table_of_contents *tocs,
-    unsigned long ntocs,
+    uint32_t ntocs,
     enum byte_sex target_byte_sex);
 
 __private_extern__ void swap_twolevel_hint(
     struct twolevel_hint *hints,
-    unsigned long nhints,
+    uint32_t nhints,
     enum byte_sex target_byte_sex);
 
 /*
@@ -402,6 +415,6 @@ __private_extern__ enum bool swap_object_headers(
  */
 __private_extern__ enum byte_sex get_toc_byte_sex(
     char *addr,
-    unsigned long size);
+    uint32_t size);
 
 #endif /* _STUFF_BYTESEX_H_ */

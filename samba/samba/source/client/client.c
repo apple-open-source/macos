@@ -194,6 +194,10 @@ static void send_message(void)
 			msg[l] = c;   
 		}
 
+		if ((total_len > 0) && (strlen(msg) == 0)) {
+			break;
+		}
+
 		if (!cli_message_text(cli, msg, l, grp_id)) {
 			d_printf("SMBsendtxt failed (%s)\n",cli_errstr(cli));
 			return;
@@ -275,9 +279,11 @@ static int do_cd(char *newdir)
 		pstrcpy(cur_dir,p);
 	} else {
 		pstrcat(cur_dir,p);
-		if ((cur_dir[0] != '\0') && (*(cur_dir+strlen(cur_dir)-1) != CLI_DIRSEP_CHAR)) {
-			pstrcat(cur_dir, CLI_DIRSEP_STR);
-		}
+	}
+
+	/* Ensure cur_dir ends in a DIRSEP */
+	if ((cur_dir[0] != '\0') && (*(cur_dir+strlen(cur_dir)-1) != CLI_DIRSEP_CHAR)) {
+		pstrcat(cur_dir, CLI_DIRSEP_STR);
 	}
 	
 	clean_name(cur_dir);
@@ -695,18 +701,12 @@ static int cmd_dir(void)
 	int rc;
 	
 	dir_total = 0;
-	if (strcmp(cur_dir, CLI_DIRSEP_STR) != 0) {
-		pstrcpy(mask,cur_dir);
-		if ((mask[0] != '\0') && (mask[strlen(mask)-1]!=CLI_DIRSEP_CHAR))
-			pstrcat(mask,CLI_DIRSEP_STR);
-	} else {
-		pstrcpy(mask, CLI_DIRSEP_STR);
-	}
+	pstrcpy(mask,cur_dir);
 	
 	if (next_token_nr(NULL,buf,NULL,sizeof(buf))) {
 		dos_format(p);
 		if (*p == CLI_DIRSEP_CHAR)
-			pstrcpy(mask,p + 1);
+			pstrcpy(mask,p);
 		else
 			pstrcat(mask,p);
 	} else {
@@ -741,9 +741,7 @@ static int cmd_du(void)
 	
 	dir_total = 0;
 	pstrcpy(mask,cur_dir);
-	if ((mask[0] != '\0') && (mask[strlen(mask)-1]!=CLI_DIRSEP_CHAR))
-		pstrcat(mask,CLI_DIRSEP_STR);
-	
+
 	if (next_token_nr(NULL,buf,NULL,sizeof(buf))) {
 		dos_format(p);
 		if (*p == CLI_DIRSEP_CHAR)
@@ -908,7 +906,6 @@ static int cmd_get(void)
 	char *p;
 
 	pstrcpy(rname,cur_dir);
-	pstrcat(rname,CLI_DIRSEP_STR);
 	
 	p = rname + strlen(rname);
 	
@@ -1003,7 +1000,6 @@ static int cmd_more(void)
 	int rc = 0;
 
 	pstrcpy(rname,cur_dir);
-	pstrcat(rname,CLI_DIRSEP_STR);
 	
 	slprintf(lname,sizeof(lname)-1, "%s/smbmore.XXXXXX",tmpdir());
 	fd = smb_mkstemp(lname);
@@ -1052,8 +1048,6 @@ static int cmd_mget(void)
 
 	while (next_token_nr(NULL,p,NULL,sizeof(buf))) {
 		pstrcpy(mget_mask,cur_dir);
-		if ((mget_mask[0] != '\0') && (mget_mask[strlen(mget_mask)-1]!=CLI_DIRSEP_CHAR))
-			pstrcat(mget_mask,CLI_DIRSEP_STR);
 		
 		if (*p == CLI_DIRSEP_CHAR)
 			pstrcpy(mget_mask,p);
@@ -1064,8 +1058,6 @@ static int cmd_mget(void)
 
 	if (!*mget_mask) {
 		pstrcpy(mget_mask,cur_dir);
-		if(mget_mask[strlen(mget_mask)-1]!=CLI_DIRSEP_CHAR)
-			pstrcat(mget_mask,CLI_DIRSEP_STR);
 		pstrcat(mget_mask,"*");
 		do_list(mget_mask, attribute,do_mget,False,True);
 	}
@@ -1344,7 +1336,6 @@ static int cmd_put(void)
 	char *p=buf;
 	
 	pstrcpy(rname,cur_dir);
-	pstrcat(rname,CLI_DIRSEP_STR);
   
 	if (!next_token_nr(NULL,p,NULL,sizeof(buf))) {
 		d_printf("put <filename>\n");
@@ -1993,6 +1984,7 @@ static int cmd_posix(void)
 		CLI_DIRSEP_CHAR = '/';
 		*CLI_DIRSEP_STR = '/';
 		pstrcpy(cur_dir, CLI_DIRSEP_STR);
+		do_cd(cur_dir);
 	}
 
 	return 0;
@@ -2649,7 +2641,8 @@ static int cmd_rename(void)
 	pstring src,dest;
 	pstring buf,buf2;
 	struct cli_state *targetcli;
-	pstring targetname;
+	pstring targetsrc;
+	pstring targetdest;
   
 	pstrcpy(src,cur_dir);
 	pstrcpy(dest,cur_dir);
@@ -2663,13 +2656,21 @@ static int cmd_rename(void)
 	pstrcat(src,buf);
 	pstrcat(dest,buf2);
 
-	if ( !cli_resolve_path( "", cli, src, &targetcli, targetname ) ) {
-		d_printf("chown %s: %s\n", src, cli_errstr(cli));
+	if ( !cli_resolve_path( "", cli, src, &targetcli, targetsrc ) ) {
+		d_printf("rename %s: %s\n", src, cli_errstr(cli));
 		return 1;
 	}
 
-	if (!cli_rename(targetcli, targetname, dest)) {
-		d_printf("%s renaming files\n",cli_errstr(targetcli));
+	if ( !cli_resolve_path( "", cli, dest, &targetcli, targetdest ) ) {
+		d_printf("rename %s: %s\n", dest, cli_errstr(cli));
+		return 1;
+	}
+
+	if (!cli_rename(targetcli, targetsrc, targetdest)) {
+		d_printf("%s renaming files %s -> %s \n",
+			cli_errstr(targetcli),
+			targetsrc,
+			targetdest);
 		return 1;
 	}
 	
@@ -2889,7 +2890,6 @@ static int cmd_reget(void)
 	char *p;
 
 	pstrcpy(remote_name, cur_dir);
-	pstrcat(remote_name, CLI_DIRSEP_STR);
 	
 	p = remote_name + strlen(remote_name);
 	
@@ -2918,7 +2918,6 @@ static int cmd_reput(void)
 	SMB_STRUCT_STAT st;
 	
 	pstrcpy(remote_name, cur_dir);
-	pstrcat(remote_name, CLI_DIRSEP_STR);
   
 	if (!next_token_nr(NULL, p, NULL, sizeof(buf))) {
 		d_printf("reput <filename>\n");
@@ -3796,6 +3795,7 @@ static int do_message_op(void)
 	fstring server_name;
 	char name_type_hex[10];
 	int msg_port;
+	NTSTATUS status;
 
 	make_nmb_name(&calling, calling_name, 0x0);
 	make_nmb_name(&called , desthost, name_type);
@@ -3812,9 +3812,14 @@ static int do_message_op(void)
 
 	msg_port = port ? port : 139;
 
-	if (!(cli=cli_initialise()) || (cli_set_port(cli, msg_port) != msg_port) ||
-	    !cli_connect(cli, server_name, &ip)) {
+	if (!(cli=cli_initialise()) || (cli_set_port(cli, msg_port) != msg_port)) {
 		d_printf("Connection to %s failed\n", desthost);
+		return 1;
+	}
+
+	status = cli_connect(cli, server_name, &ip);
+	if (!NT_STATUS_IS_OK(status)) {
+		d_printf("Connection to %s failed. Error %s\n", desthost, nt_errstr(status));
 		return 1;
 	}
 
@@ -3838,6 +3843,7 @@ static int do_message_op(void)
  int main(int argc,char *argv[])
 {
 	pstring base_directory;
+	int len = 0;
 	int opt;
 	pstring query_host;
 	BOOL message = False;
@@ -3888,7 +3894,7 @@ static int do_message_op(void)
 	set_global_myworkgroup( "" );
 	set_global_myname( "" );
 
-        /* set default debug level to 0 regardless of what smb.conf sets */
+        /* set default debug level to 1 regardless of what smb.conf sets */
 	setup_logging( "smbclient", True );
 	DEBUGLEVEL_CLASS[DBGC_ALL] = 1;
 	if ((dbf = x_fdup(x_stderr))) {
@@ -4048,6 +4054,12 @@ static int do_message_op(void)
 			d_printf("\n%s: Not enough '\\' characters in service\n",service);
 			poptPrintUsage(pc, stderr, 0);
 			exit(1);
+		}
+		/* Remove trailing slashes */
+		len = strlen(service);
+		while(len > 0 && service[len - 1] == '\\') {
+			--len;
+			service[len] = '\0';
 		}
 	}
 	

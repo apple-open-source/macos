@@ -1,0 +1,122 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+<link href="tclsoap.css" rel="stylesheet" type="text/css">
+<title>Examples</title>
+</head>
+
+<body>
+<table class="globaltable">
+<tr>
+   <td class="header" width="15%">
+      <A href="http://sourceforge.net">
+         <IMG align="middle" alt="SourceForge Logo" border="0" height="31" 
+             src="http://sourceforge.net/sflogo.php?group_id=16386"
+             width="88"></A></td>
+   <td class="header">
+        <h1>Tcl DOM Packages</h1>
+   </td>
+   <td class="logo" width="15%">
+        <img src="tclsoap.gif" alt="TclSOAP Logo" align="middle"
+        border="0" height="84" width="57" />
+   </td>
+</tr>
+<tr>
+<td class="sidebar">
+    <table>
+<tr><td class="sidehead">Project</td></tr>
+<tr><td class="sideelt"><a href="http://sourceforge.net/projects/tclsoap">Project Page</a></td></tr>
+<tr><td class="sideelt"><a href="http://sourceforge.net/project/showfiles.php?group_id=25970">File Releases</a></td></tr>
+<tr><td class="sideelt"><a href="TclSOAP.html">WebPage</a></td></tr>
+<tr><td class="sideelt"><a href="http://sourceforge.net/docman/?group_id=25970">Documentation</a></td></tr>
+<tr><td class="sideelt"><a href="http://sourceforge.net/forum/?group_id=25970">Forums</a></td></tr>
+<tr><td class="sideelt"><a href="http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/tclsoap/tclsoap">Browse CVS</a></td></tr>
+<tr><td class="sidehead">Related Links</td></tr>
+<tr><td class="sideelt"><a href="http://www.soaplite.com/">SOAP::Lite</a></td></tr>
+<tr><td class="sideelt"><a href="http://soap.4s4c.com/">4s4c</a></td></tr>
+<tr><td class="sideelt"><a href="http://www.soapware.org/">Userland SOAP</a></td></tr>
+<tr><td class="sidehead">Support</td></tr>
+<tr><td class="sideelt"><a href="http://sourceforge.net/tracker/?aid=385859&group_id=25970&func=browse">Bugs</a></td></tr>
+<tr><td class="sideelt"><a href="http://sourceforge.net/tracker/?aid=385860&group_id=25970&func=browse">Support Requests</a></td></tr>
+<tr><td class="sideelt"><A href="http://sourceforge.net/tracker/?aid=385861&group_id=25970&func=browse">Patches</a></td></tr>
+<tr><td class="sideelt"><A href="http://sourceforge.net/tracker/?aid=385862&group_id=25970&func=browse">Feature Requests</a></td></tr>
+    </table>
+</td>
+
+<td class="body" colspan="2">
+<div class="body">
+
+<h2>TclXML 2.5 and TclDOM 2.5 for Windows</h2>
+
+I have uploaded a build of the above two packages for Windows. They
+have been built using Tcl 8.4 but with stubs enabled so they should
+work with Tcl 8.3. These packages have been used to test TclSOAP
+1.6.6. Get the zip file from <a href="tclxmldom25.zip">tclxmldom25.zip</a>.
+<br>md5sum: <tt>76abda921e72afcfecc8a9f9d780b586  tclxmldom25.zip</tt>
+
+<p>TclSOAP depends heavily upon the underlying DOM implementation.
+Currently the only DOM implementation supported is the TclDOM package
+from <a href="http://sourceforge.net/projects/tclxml">the tclxml
+project</a>. This code can be obtained by checking out the tcldom
+module from the tclxml project CVS server. For those who do not wish
+to, or cannot obtain the source I am providing pre-compiled TclDOM 2.0
+<tt>dom::c</tt> modules for linux and win32. In each case the code is
+compatible with ActiveTcl 8.3.3.3 for the relevant platform. Please
+note that these binary releases are not official tclxml project
+releases although they have been built from unmodified tcldom source
+code from a recent HEAD revision. They are however the versions
+currently in use by me for TclSOAP development.</p>
+
+<ul>
+   <li><a href="TclDOM_C-2.0.tar.gz">TclDOM_C-2.0.tar.gz</a> -
+	the Linux version statically linked to expat.<br>
+        md5sum: <tt>db35fef853f230589b0171a91bf487cc  TclDOM_C-2.0.tar.gz</tt>
+
+   <li><a href="TclDOM_C-2.0.zip">TclDOM_C-2.0.zip</a> - 
+        windows version compiled using MSVC 6.0.<br>
+        md5sum: <tt>536b3575cb32e812b32df1a8081b3c2c  TclDOM_C-2.0.zip</tt>
+
+</ul>
+
+<p>The packages should be installed somewhere in your Tcl
+<var>auto_path</var>. The simplest method is to unpack the archive in
+the Tcl lib subdirectory. Under Windows, that is probably <tt>\Program
+Files\Tcl\lib</tt>. To ensure that you are using this version of the
+DOM package you should execute the following commands in your
+<var>tclsh</var> shell checking that the output matches this
+example.</p>
+
+<pre>
+% package require dom
+2.0
+% info loaded
+{/opt/tcl/lib/tcldom2.0/tcldom2.0.so Tcldom}              ;# Linux
+{{c:\\Program Files\Tcl\lib\tcldom2.0\tcldom.dll} Tcldom} ;# Windows
+</pre>
+
+<!-- --------------------------------------------------------------------- -->
+
+<h2>Frink for Windows</h2>
+<p>Not everyone is able to get hold of a windows Frink executable so
+here is one</p>
+<ul>
+  <li><a href="frink.exe">frink.exe</a> 
+      - mimgw32 compiled windows console executable of Frink 2.1.5<br>
+        md5sum: <tt>4273292d0ce6ba80d98e72f5d7a32e82  frink.exe</tt>
+  </li>
+</ul>
+
+<!-- --------------------------------------------------------------------- -->
+
+<br>
+</div>
+
+</td></tr>
+<tr class="footer">
+<td class="footer" colspan="3">
+$Id: dom-packages.html,v 1.6 2003/09/06 17:08:46 patthoyts Exp $
+</td></tr>
+
+</table>
+</body>
+</html>

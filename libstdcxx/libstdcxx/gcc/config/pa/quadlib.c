@@ -1,5 +1,5 @@
 /* Subroutines for long double support.
-   Copyright (C) 2000, 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2002, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -24,19 +24,23 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
-/* HPUX TFmode compare requires a library call to _U_Qfcmp, which takes a
-   magic number as its third argument, that indicates what to do.
-   The return value is an integer to be compared against zero.  */
-enum qfcmp_magic {
-  QCMP_INV = 1,		/* Raise FP_INVALID on SNaN as a side effect.  */
-  QCMP_UNORD = 2,
-  QCMP_EQ = 4,
-  QCMP_LT = 8,
-  QCMP_GT = 16
-} magic;
+/* HPUX TFmode compare requires a library call to _U_Qfcmp.  It takes
+   a magic number as its third argument which indicates what to do.
+   The return value is an integer to be compared against zero.  The
+   comparison conditions are the same as those listed in Table 8-12
+   of the PA-RISC 2.0 Architecture book for the fcmp instruction.  */
+
+/* Raise FP_INVALID on SNaN as a side effect.  */
+#define QCMP_INV 1
+
+/* Comparison relations.  */
+#define QCMP_UNORD 2
+#define QCMP_EQ 4
+#define QCMP_LT 8
+#define QCMP_GT 16
 
 int _U_Qfcmp (long double a, long double b, int);
 long _U_Qfcnvfxt_quad_to_sgl (long double);
@@ -64,7 +68,9 @@ long double _U_Qfneg (long double);
 int __U_Qfcnvfxt_quad_to_sgl (long double);
 #endif
 unsigned int _U_Qfcnvfxt_quad_to_usgl(long double);
+long double _U_Qfcnvxf_usgl_to_quad (unsigned int);
 unsigned long long _U_Qfcnvfxt_quad_to_udbl(long double);
+long double _U_Qfcnvxf_udbl_to_quad (unsigned long long);
 
 int
 _U_Qfeq (long double a, long double b)
@@ -160,11 +166,19 @@ _U_Qfcomp (long double a, long double b)
 }
 
 
-/* This violates the IEEE standard.  It is better to multiply by -1.0L.  */
+/* Negate long double A.  */
 long double
 _U_Qfneg (long double a)
 {
-  return (0.0L - a);
+  union
+   {
+     long double ld;
+     int i[4];
+   } u;
+
+  u.ld = a;
+  u.i[0] ^= 0x80000000;
+  return u.ld;
 }
 
 #ifdef __LP64__
@@ -178,27 +192,42 @@ __U_Qfcnvfxt_quad_to_sgl (long double a)
 }
 #endif
 
-/* HP only has signed conversion in library, so need to synthesize an
-   unsigned version */
+/* HP only has signed conversion in the C library, so need to synthesize
+   unsigned versions.  */
 unsigned int
-_U_Qfcnvfxt_quad_to_usgl(long double a)
+_U_Qfcnvfxt_quad_to_usgl (long double a)
 {
   extern long long _U_Qfcnvfxt_quad_to_dbl (long double a);
   return (unsigned int) _U_Qfcnvfxt_quad_to_dbl (a);
 }
 
-/* HP only has signed conversion in library, so need to synthesize an
-   unsigned version */
+long double
+_U_Qfcnvxf_usgl_to_quad (unsigned int a)
+{
+  extern long double _U_Qfcnvxf_dbl_to_quad (long long);
+  return _U_Qfcnvxf_dbl_to_quad ((long long) a);
+}
+
 typedef union {
-    long long unsigned int u[2];
+    unsigned long long u[2];
     long double d[1];
 } quad_type;
 
 unsigned long long
-_U_Qfcnvfxt_quad_to_udbl(long double a)
+_U_Qfcnvfxt_quad_to_udbl (long double a)
 {
   extern quad_type _U_Qfcnvfxt_quad_to_quad (long double a);
   quad_type u;
   u = _U_Qfcnvfxt_quad_to_quad(a);
   return u.u[1];
+}
+
+long double
+_U_Qfcnvxf_udbl_to_quad (unsigned long long a)
+{
+  extern long double _U_Qfcnvxf_quad_to_quad (quad_type a);
+  quad_type u;
+  u.u[0] = 0;
+  u.u[1] = a;
+  return _U_Qfcnvxf_quad_to_quad (u);
 }

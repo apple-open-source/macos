@@ -50,6 +50,7 @@
 #include "RemoveCSSPropertyCommand.h"
 #include "RemoveNodeCommand.h"
 #include "RemoveNodePreservingChildrenCommand.h"
+#include "ReplaceNodeWithSpanCommand.h"
 #include "ReplaceSelectionCommand.h"
 #include "RenderBlock.h"
 #include "RenderText.h"
@@ -213,6 +214,20 @@ void CompositeEditCommand::removeNodeAndPruneAncestors(PassRefPtr<Node> node)
     RefPtr<Node> parent = node->parentNode();
     removeNode(node);
     prune(parent.release());
+}
+
+HTMLElement* CompositeEditCommand::replaceNodeWithSpanPreservingChildrenAndAttributes(PassRefPtr<Node> node)
+{
+    // It would also be possible to implement all of ReplaceNodeWithSpanCommand
+    // as a series of existing smaller edit commands.  Someone who wanted to
+    // reduce the number of edit commands could do so here.
+    RefPtr<ReplaceNodeWithSpanCommand> command = ReplaceNodeWithSpanCommand::create(node);
+    applyCommandToComposite(command);
+    // Returning a raw pointer here is OK because the command is retained by
+    // applyCommandToComposite (thus retaining the span), and the span is also
+    // in the DOM tree, and thus alive whie it has a parent.
+    ASSERT(command->spanElement()->inDocument());
+    return command->spanElement();
 }
 
 static bool hasARenderedDescendant(Node* node)
@@ -534,7 +549,7 @@ void CompositeEditCommand::deleteInsignificantText(const Position& start, const 
     if (start.isNull() || end.isNull())
         return;
 
-    if (Range::compareBoundaryPoints(start, end) >= 0)
+    if (comparePositions(start, end) >= 0)
         return;
 
     Node* next;
@@ -648,7 +663,7 @@ PassRefPtr<Node> CompositeEditCommand::moveParagraphContentsToNewBlockIfNecessar
 
     // If there are no VisiblePositions in the same block as pos then 
     // upstreamStart will be outside the paragraph
-    if (Range::compareBoundaryPoints(pos, upstreamStart) < 0)
+    if (comparePositions(pos, upstreamStart) < 0)
         return 0;
 
     // Perform some checks to see if we need to perform work in this function.
@@ -744,12 +759,12 @@ void CompositeEditCommand::moveParagraphs(const VisiblePosition& startOfParagrap
         VisiblePosition visibleStart = endingSelection().visibleStart();
         VisiblePosition visibleEnd = endingSelection().visibleEnd();
         
-        bool startAfterParagraph = Range::compareBoundaryPoints(visibleStart.deepEquivalent(), endOfParagraphToMove.deepEquivalent()) > 0;
-        bool endBeforeParagraph = Range::compareBoundaryPoints(visibleEnd.deepEquivalent(), startOfParagraphToMove.deepEquivalent()) < 0;
+        bool startAfterParagraph = comparePositions(visibleStart, endOfParagraphToMove) > 0;
+        bool endBeforeParagraph = comparePositions(visibleEnd, startOfParagraphToMove) < 0;
         
         if (!startAfterParagraph && !endBeforeParagraph) {
-            bool startInParagraph = Range::compareBoundaryPoints(visibleStart.deepEquivalent(), startOfParagraphToMove.deepEquivalent()) >= 0;
-            bool endInParagraph = Range::compareBoundaryPoints(visibleEnd.deepEquivalent(), endOfParagraphToMove.deepEquivalent()) <= 0;
+            bool startInParagraph = comparePositions(visibleStart, startOfParagraphToMove) >= 0;
+            bool endInParagraph = comparePositions(visibleEnd, endOfParagraphToMove) <= 0;
             
             startIndex = 0;
             if (startInParagraph) {
@@ -973,6 +988,10 @@ Position CompositeEditCommand::positionAvoidingSpecialElementBoundary(const Posi
     VisiblePosition visiblePos(original);
     Node* enclosingAnchor = enclosingAnchorElement(original);
     Position result = original;
+
+    if (!enclosingAnchor)
+        return result;
+
     // Don't avoid block level anchors, because that would insert content into the wrong paragraph.
     if (enclosingAnchor && !isBlock(enclosingAnchor)) {
         VisiblePosition firstInAnchor(firstDeepEditingPositionForNode(enclosingAnchor));
@@ -1005,6 +1024,9 @@ Position CompositeEditCommand::positionAvoidingSpecialElementBoundary(const Posi
                 pushAnchorElementDown(enclosingAnchor);
                 enclosingAnchor = enclosingAnchorElement(original);
             }
+            if (!enclosingAnchor)
+                return original;
+
             result = positionBeforeNode(enclosingAnchor);
         }
     }
@@ -1019,6 +1041,8 @@ Position CompositeEditCommand::positionAvoidingSpecialElementBoundary(const Posi
 // to determine if the split is necessary. Returns the last split node.
 PassRefPtr<Node> CompositeEditCommand::splitTreeToNode(Node* start, Node* end, bool splitAncestor)
 {
+    ASSERT(start != end);
+
     RefPtr<Node> node;
     for (node = start; node && node->parent() != end; node = node->parent()) {
         VisiblePosition positionInParent(Position(node->parent(), 0), DOWNSTREAM);

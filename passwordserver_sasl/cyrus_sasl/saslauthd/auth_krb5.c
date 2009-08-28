@@ -95,7 +95,7 @@ auth_krb5_init (
     if (configname) {
 	char complaint[1024];
 
-	if (!(config = cfile_read(configname, complaint, sizeof (complaint)))) {
+	if (!(config = cfile_read(configname, complaint, (int)sizeof (complaint)))) {
 	    syslog(LOG_ERR, "auth_krb5_init %s", complaint);
 	    return -1;
 	}
@@ -297,7 +297,7 @@ static int k5support_verify_tgt(krb5_context context,
     }
     thishost[BUFSIZ-1] = '\0';
     
-    k5_retcode = krb5_mk_req(context, &auth_context, 0, verify_principal, thishost, NULL, ccache, &packet);
+    k5_retcode = krb5_mk_req(context, &auth_context, 0, (char*)verify_principal, thishost, NULL, ccache, &packet);
     if (auth_context) {
 		krb5_auth_con_free(context, auth_context);
 		auth_context = NULL;
@@ -364,7 +364,7 @@ auth_krb5 (
 	return strdup("NO saslauthd internal error");
     }
 
-    if (form_principal_name(user, service, realm, principalbuf, sizeof (principalbuf))) {
+    if (form_principal_name(user, service, realm, principalbuf, (int)sizeof (principalbuf))) {
 	syslog(LOG_ERR, "auth_krb5: form_principal_name");
 	return strdup("NO saslauthd principal name error");
     }
@@ -375,7 +375,7 @@ auth_krb5 (
 	return strdup("NO saslauthd internal error");
     }
     
-    if (krbtf_name(tfname, sizeof (tfname)) != 0) {
+    if (krbtf_name(tfname, (int)sizeof (tfname)) != 0) {
 	syslog(LOG_ERR, "auth_krb5: could not generate ticket file name");
 	return strdup("NO saslauthd internal error");
     }
@@ -398,7 +398,7 @@ auth_krb5 (
     /* 15 min should be more than enough */
     krb5_get_init_creds_opt_set_tkt_life(&opts, 900); 
     if (code = krb5_get_init_creds_password(context, &creds, 
-				     auth_user, password, NULL, NULL, 
+				     auth_user, (char*)password, NULL, NULL, 
 				     0, NULL, &opts)) {
 	krb5_cc_destroy(context, ccache);
 	krb5_free_principal(context, auth_user);

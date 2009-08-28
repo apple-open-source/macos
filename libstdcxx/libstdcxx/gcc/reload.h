@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 /* If secondary reloads are the same for inputs and outputs, define those
@@ -30,19 +30,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
   SECONDARY_RELOAD_CLASS (CLASS, MODE, X)
 #endif
 
-/* If either macro is defined, show that we need secondary reloads.  */
-#if defined(SECONDARY_INPUT_RELOAD_CLASS) || defined(SECONDARY_OUTPUT_RELOAD_CLASS)
-#define HAVE_SECONDARY_RELOADS
-#endif
-
 /* If MEMORY_MOVE_COST isn't defined, give it a default here.  */
 #ifndef MEMORY_MOVE_COST
-#ifdef HAVE_SECONDARY_RELOADS
 #define MEMORY_MOVE_COST(MODE,CLASS,IN) \
   (4 + memory_move_secondary_cost ((MODE), (CLASS), (IN)))
-#else
-#define MEMORY_MOVE_COST(MODE,CLASS,IN) 4
-#endif
 #endif
 extern int memory_move_secondary_cost (enum machine_mode, enum reg_class, int);
 
@@ -164,11 +155,20 @@ extern struct reload rld[MAX_RELOADS];
 extern int n_reloads;
 #endif
 
-extern GTY (()) struct varray_head_tag *reg_equiv_memory_loc_varray;
+extern GTY (()) VEC(rtx,gc) *reg_equiv_memory_loc_vec;
 extern rtx *reg_equiv_constant;
+extern rtx *reg_equiv_invariant;
 extern rtx *reg_equiv_memory_loc;
 extern rtx *reg_equiv_address;
 extern rtx *reg_equiv_mem;
+extern rtx *reg_equiv_alt_mem_list;
+
+/* Element N is the list of insns that initialized reg N from its equivalent
+   constant or memory slot.  */
+extern GTY((length("reg_equiv_init_size"))) rtx *reg_equiv_init;
+
+/* The size of the previous array, for GC purposes.  */
+extern GTY(()) int reg_equiv_init_size;
 
 /* All the "earlyclobber" operands of the current insn
    are recorded here.  */
@@ -244,6 +244,13 @@ extern void compute_use_by_pseudos (HARD_REG_SET *, regset);
 #endif
 
 /* Functions from reload.c:  */
+
+extern enum reg_class secondary_reload_class (bool, enum reg_class,
+					      enum machine_mode, rtx);
+
+#ifdef GCC_INSN_CODES_H
+extern enum reg_class scratch_reload_class (enum insn_code);
+#endif
 
 /* Return a memory location that will be used to copy X in mode MODE.
    If we haven't already made a location for this mode in this insn,

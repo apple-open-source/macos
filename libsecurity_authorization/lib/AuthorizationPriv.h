@@ -56,27 +56,6 @@ enum {
 };
 
 /*!
-    @function AuthorizationBindPrivilegedPort
-
-    @param fileDescriptor (input)
-	
-	@param name (input)
-	
-    @param authorization (input) The authorization object on which this operation is performed.
-	
-	@param flags (input) Bit mask of option flags to this call.
-
-    @result errAuthorizationSuccess 0 No error.
-*/
-OSStatus AuthorizationBindPrivilegedPort(int fileDescriptor,
-	const struct sockaddr_in *name,
-	AuthorizationRef authorization,
-	AuthorizationFlags flags);
-
-int __authorization_bind(int s, const struct sockaddr_in *name);
-
-
-/*!
 	@function SessionSetDistinguishedUser
 	This function allows the creator of a (new) security session to associate an arbitrary
 	UNIX user identity (uid) with the session. This uid can be retrieved with

@@ -1,0 +1,1348 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+
+<HTML>
+
+<HEAD>
+
+<META http-equiv="content-type"  CONTENT="text/html; charset=macintosh">
+<TITLE>Working with AppleEvent Descriptors</TITLE>
+<LINK HREF="tclae.css" REL="stylesheet" TYPE="text/css">
+
+</HEAD>
+
+<BODY>
+
+<P>
+This page describes TclÆ calls that manipulate AppleEvent descriptors. 
+For information on the associated ToolBox calls and data structures, see <A 
+HREF="http://developer.apple.com/techpubs/mac/IAC/IAC-2.html">INSIDE 
+MACINTOSH: Interapplication Communication</A>.
+</P>
+
+<HR>
+
+<div class="index">
+<!-- #docindex type="ul" depth="2" -->
+
+<ul>
+	<li><a href="#AEDesc">AppleEvent Descriptors</a>
+
+	<ul>
+		<li><a href="#tclAE::coerceData">tclAE::coerceData</a>
+		<li><a href="#tclAE::coerceDesc">tclAE::coerceDesc</a>
+		<li><a href="#tclAE::createDes">tclAE::createDesc</a>
+		<li><a href="#tclAE::duplicate">tclAE::duplicateDesc</a>
+		<li><a href="#tclAE::getData">tclAE::getData</a>
+		<li><a href="#tclAE::getDescTy">tclAE::getDescType</a>
+		<li><a href="#tclAE::replaceDescData">tclAE::replaceDescData</a>
+		<li><a href="#tclAE::setDescTy">tclAE::setDescType</a>
+	</ul>
+	
+	<li><a href="#AEDescList">AppleEvent Descriptor Lists</a>
+
+	<ul>
+		<li><a href="#tclAE::countItem">tclAE::countItems</a>
+		<li><a href="#tclAE::createLis">tclAE::createList</a>
+		<li><a href="#tclAE::deleteIte">tclAE::deleteItem</a>
+		<li><a href="#tclAE::getNthDat">tclAE::getNthData</a>
+		<li><a href="#tclAE::getNthDes">tclAE::getNthDesc</a>
+		<li><a href="#tclAE::putData">tclAE::putData</a>
+		<li><a href="#tclAE::putDesc">tclAE::putDesc</a>
+	</ul>
+	
+	<li><a href="#AERecord">AppleEvent Descriptor Records</a>
+
+	<ul>
+		<li><a href="#tclAE::deleteKeyDesc">tclAE::deleteKeyDesc</a>
+		<li><a href="#tclAE::getKeyDat">tclAE::getKeyData</a>
+		<li><a href="#tclAE::getKeyDes">tclAE::getKeyDesc</a>
+		<li><a href="#tclAE::putKeyData">tclAE::putKeyData</a>
+		<li><a href="#tclAE::putKeyDes">tclAE::putKeyDesc</a>
+	</ul>
+	
+	<li><a href="#AppleEvents">AppleEvents</a>
+
+	<ul>
+		<li><a href="#tclAE::getAttributeData">tclAE::getAttributeData</a>
+		<li><a href="#tclAE::getAttributeDesc">tclAE::getAttributeDesc</a>
+	</ul>
+	
+</ul>
+
+<!-- /#docindex -->
+</div>
+
+<H1><A NAME="AEDesc">AppleEvent Descriptors</A></H1>
+
+<div class="definition">
+<H2><A NAME="tclAE::coerceData"><CODE>tclAE::coerceData</CODE></A></H2>
+
+<P>
+Tcl wrapper for ToolBox <CODE>AECoercePtr</CODE> call.
+</P>
+
+<H3><A NAME="tclAE::coerceData::Synopsis">Synopsis</A></H3>
+
+<CODE>
+tclAE::coerceData
+<VAR><A HREF="tclAEglossary.html#typeCode">typeCode</A></VAR> 
+<VAR><A HREF="tclAEglossary.html#data">data</A></VAR> 
+<VAR><A HREF="tclAEglossary.html#toType">toType</A></VAR>
+</CODE>
+
+<H3><A NAME="tclAE::coerceData::Result">Result</A></H3>
+
+<P>
+New <CODE><A HREF="tclAEglossary.html#AEDesc">AEDesc</A></CODE>. 
+</P>
+
+<H3><A NAME="tclAE::coerceData::Description">Description</A></H3>
+
+<P>
+Create a new <CODE><A HREF="tclAEglossary.html#AEDesc">AEDesc</A></CODE>, 
+casting <CODE><VAR><A HREF="tclAEglossary.html#data">data</A></VAR></CODE> 
+from <CODE><VAR><A 
+HREF="tclAEglossary.html#typeCode">typeCode</A></VAR></CODE> to <CODE><VAR><A 
+HREF="tclAEglossary.html#toType">toType</A></VAR></CODE>. Unlike the ToolBox 
+call, the data is passed directly, rather than in a pointer.
+</P>
+
+<h3><a name="tclAE::coerceData::Example">Example</a></h3>
+
+<div class="example">
+<div class="in">
+tclAE::coerceData "/some/path/here" alis
+</div>
+<div class="out">
+alis(«0000000000E2000…00073FFFF0000»)
+</div>
+</div>
+
+</div>
+
+<div class="definition">
+<H2><A NAME="tclAE::coerceDesc"><CODE>tclAE::coerceDesc</CODE></A></H2>
+
+<P>
+Tcl wrapper for ToolBox <CODE>AECoerceDesc</CODE> call.
+</P>
+
+<H3><A NAME="tclAE::coerceDesc::Synopsis">Synopsis</A></H3>
+
+<p>
+<CODE>tclAE::coerceDesc
+<VAR><A HREF="tclAEglossary.html#AEDesc">anAEDesc</A></VAR> 
+<VAR><A HREF="tclAEglossary.html#toType">toType</A></VAR>
+</CODE>
+</p>
+
+<H3><A NAME="Result">Result</A></H3>
+
+<P>
+New <CODE><A HREF="tclAEglossary.html#AEDesc">AEDesc</A></CODE>.
+</P>
+
+<H3><A NAME="tclAE::coerceDesc::Description">Description</A></H3>
+
+<P>
+Create a new <CODE><A HREF="tclAEglossary.html#AEDesc">AEDesc</A></CODE>, 
+casting the original <CODE><A 
+HREF="tclAEglossary.html#AEDesc">AEDesc</A></CODE> to <CODE><VAR><A 
+HREF="tclAEglossary.html#toType">toType</A></VAR></CODE>.
+</P>
+
+<h3><a name="tclAE::coerceDesc::Example">Example</a></h3>
+
+<div class="example">
+<div class="in">
+tclAE::coerceDesc alis(«0000000000E2000…00073FFFF0000») TEXT
+</div>
+<div class="out">
+“/some/path/here”
+</div>
+</div>
+
+</div>
+
+<div class="definition">
+<H2><A NAME="tclAE::createDes"><CODE>tclAE::createDesc</CODE></A></H2>
+
+<P>
+Tcl wrapper for ToolBox <CODE><A
+HREF="http://developer.apple.com/techpubs/mac/IAC/IAC-209.html#HEADING209-0">AECreateDesc</A></CODE> call.
+</P>
+
+<H3><A NAME="Synopsis">Synopsis</A></H3>
+
+<p>
+<CODE>
+tclAE::createDesc 
+<VAR><A HREF="tclAEglossary.html#typeCode">typeCode</A></VAR> 
+[<VAR><A HREF="tclAEglossary.html#data">data</A></VAR>]
+</CODE>
+</p>
+
+<H3><A NAME="Result">Result</A></H3>
+
+<P>
+Hash key for new <CODE><A HREF="tclAEglossary.html#AEDesc">AEDesc</A></CODE>.
+</P>
+
+<H3><A NAME="Description">Description</A></H3>
+
+<P>
+Create a new <CODE><A HREF="tclAEglossary.html#AEDesc">AEDesc</A></CODE> of 
+type <CODE><VAR><A 
+HREF="tclAEglossary.html#typeCode">typeCode</A></VAR></CODE> with optional 
+<CODE><VAR><A HREF="tclAEglossary.html#data">data</A></VAR></CODE>.
+</P>
+
+<h3><a name="tclAE::createDesc::Example">Example</a></h3>
+
+<div class="example">
+<div class="in">
+tclAE::createDesc type
+</div>
+<div class="out">
+'type'()
+</div>
+<div class="in">
+tclAE::createDesc TEXT "some text"
+</div>
+<div class="out">
+“some text”
+</div>
+</div>
+
+</div>
+
+<div class="definition">
+<H2><A NAME="tclAE::duplicate"><CODE>tclAE::duplicateDesc</CODE></A></H2>
+
+<P>
+Tcl wrapper for ToolBox <CODE><A
+HREF="http://developer.apple.com/techpubs/mac/IAC/IAC-210.html#HEADING210-0">AEDuplicateDesc</A></CODE> call.
+</P>
+
+<H3><A NAME="Synopsis">Synopsis</A></H3>
+
+<p>
+<CODE>
+tclAE::duplicateDesc 
+<VAR><A HREF="tclAEglossary.html#AEDesc">anAEDesc</A></VAR>
+</CODE>
+</p>
+
+<H3><A NAME="Result">Result</A></H3>
+
+<P>
+Hash key for duplicate <CODE><A HREF="tclAEglossary.html#AEDesc">AEDesc</A></CODE>.
+</P>
+
+<H3><A NAME="Description">Description</A></H3>
+
+<P>
+The descriptor record specified by <CODE><A 
+HREF="tclAEglossary.html#AEDesc">anAEDesc</A></CODE> is duplicated and the 
+new <CODE><A HREF="tclAEglossary.html#AEDesc">AEDesc</A></CODE> is entered 
+into the hash table.
+</P>
+</div>
+
+<div class="definition">
+<H2><A NAME="tclAE::getData"><CODE>tclAE::getData</CODE></A></H2>
+
+<P>
+Tcl wrapper for <code>AEGetDescData</code> call (read access for 
+<CODE>theAEDesc.dataHandle</CODE> in pre-Carbon), including coercion.
+</P>
+
+<H3><A NAME="Synopsis">Synopsis</A></H3>
+
+<p>
+<CODE>
+tclAE::getData 
+<VAR><A HREF="tclAEglossary.html#AEDesc">theAEDesc</A></VAR> 
+[<VAR><A HREF="tclAEglossary.html#desiredType">desiredType</A></VAR>]
+[<VAR><A HREF="tclAEglossary.html#typeCodePtr">typeCodePtr</A></VAR>]
+</CODE>
+</p>
+
+<H3><A NAME="Result">Result</A></H3>
+
+<P>
+The <CODE><VAR><A HREF="tclAEglossary.html#data">data</A></VAR></CODE> held in 
+<CODE><VAR><A HREF="tclAEglossary.html#AEDesc">theAEDesc</A></VAR></CODE>.
+</P>
+
+<H3><A NAME="Description">Description</A></H3>
+
+<P>
+<CODE><VAR><A HREF="tclAEglossary.html#AEDesc">theAEDesc</A></VAR></CODE> 
+is cast to <CODE><VAR><A 
+HREF="tclAEglossary.html#desiredType">desiredType</A></VAR></CODE> (if 
+supplied). Pass '<CODE>????</CODE>' in <CODE><VAR><A 
+HREF="tclAEglossary.html#desiredType">desiredType</A></VAR></CODE> to force 
+the return of raw binary data. If supplied, the final type of the data will 
+be placed in the variable named by <code><VAR><A 
+HREF="tclAEglossary.html#typeCodePtr">typeCodePtr</A></VAR></code>.
+</P>
+
+<h3><a name="tclAE::getData::Example">Example</a></h3>
+
+<div class="example">
+<div class="in">
+tclAE::getData “3”
+</div>
+<div class="out">
+3
+</div>
+
+<div class="in">
+tclAE::getData “3” **** type
+</div>
+<div class="out">
+3
+</div>
+
+<div class="in">
+set type
+</div>
+<div class="out">
+TEXT
+</div>
+
+<div class="in">
+tclAE::getData “3” sing type
+</div>
+<div class="out">
+3.0
+</div>
+
+<div class="in">
+set type
+</div>
+<div class="out">
+sing
+</div>
+</div>
+
+</div>
+
+<div class="definition">
+<H2><A NAME="tclAE::getDescTy"><CODE>tclAE::getDescType</CODE></A></H2>
+
+<P>
+Tcl read access for <CODE>theAEDesc.descriptorType</CODE>.
+</P>
+
+<H3><A NAME="Synopsis">Synopsis</A></H3>
+
+<p>
+<CODE>
+tclAE::getDescType 
+<VAR><A HREF="tclAEglossary.html#AEDesc">theAEDesc</A></VAR>
+</CODE>
+</p>
+
+<H3><A NAME="Result">Result</A></H3>
+
+<P>
+The <CODE><A HREF="tclAEglossary.html#DescType">DescType</A></CODE> of 
+<CODE><VAR><A HREF="tclAEglossary.html#AEDesc">theAEDesc</A></VAR></CODE>.
+</P>
+
+<h3><a name="tclAE::getDescType::Example">Example</a></h3>
+
+<div class="example">
+<div class="in">
+tclAE::getDescType “3”
+</div>
+<div class="out">
+TEXT
+</div>
+
+<div class="in">
+tclAE::getDescType 3
+</div>
+<div class="out">
+shor
+</div>
+</div>
+
+</div>
+
+<div class="definition">
+<H2><A NAME="tclAE::replaceDescData"><CODE>tclAE::replaceDescData</CODE></A></H2>
+
+<P>
+Tcl wrapper for Carbon <CODE><A 
+HREF="http://developer.apple.com/techpubs/carbon/interapplicationcomm/AppleEventManager/Apple_Event_Manager/Functions/AEReplaceDescData.html">AEReplaceDescData</A></CODE> 
+call and/or Tcl write access for <CODE>theAEDesc.typeCode</CODE> and 
+<CODE>theAEDesc.dataHandle</CODE>.
+</P>
+
+<H3><A NAME="Synopsis">Synopsis</A></H3>
+
+<p>
+<CODE>
+tclAE::replaceDescData 
+<VAR><A HREF="tclAEglossary.html#AEDesc">theAEDesc</A></VAR> 
+<VAR><A HREF="tclAEglossary.html#typeCode">typeCode</A></VAR> 
+<VAR><A HREF="tclAEglossary.html#data">data</A></VAR> 
+</CODE>
+</p>
+
+<H3><A NAME="Result">Result</A></H3>
+
+<P>
+None.
+</P>
+
+<H3><A NAME="Description">Description</A></H3>
+
+<P>
+The <CODE><VAR><A HREF="tclAEglossary.html#data">data</A></VAR></CODE> and 
+<CODE><VAR><A HREF="tclAEglossary.html#typeCode">typeCode</A></VAR></CODE> 
+in <CODE><VAR><A 
+HREF="tclAEglossary.html#AEDesc">theAEDesc</A></VAR></CODE> are 
+replaced.
+</P>
+
+<h3><a name="tclAE::replaceDescData::Example">Example</a></h3>
+
+<div class="example">
+<div class="in">
+tclAE::replaceDescData {“eeny meeny”} TEXT {miney moe}
+</div>
+<div class="out">
+“miney moe”
+</div>
+</div>
+
+</div>
+
+<div class="definition">
+<H2><A NAME="tclAE::setDescTy"><CODE>tclAE::setDescType</CODE></A></H2>
+
+<P>
+Tcl write access for <CODE>theAEDesc.descriptorType</CODE>.
+</P>
+
+<H3><A NAME="Synopsis">Synopsis</A></H3>
+
+<p>
+<CODE>
+tclAE::setDescType 
+<VAR><A HREF="tclAEglossary.html#AEDesc">theAEDesc</A></VAR> 
+<VAR><A HREF="tclAEglossary.html#toType">toType</A></VAR>
+</CODE>
+</p>
+
+<H3><A NAME="Result">Result</A></H3>
+
+<P>
+None.
+</P>
+
+<H3><A NAME="Description">Description</A></H3>
+
+<P>
+The <CODE><A HREF="tclAEglossary.html#DescType">DescType</A></CODE> of 
+<CODE><VAR><A HREF="tclAEglossary.html#AEDesc">theAEDesc</A></VAR></CODE> 
+is set to <CODE><VAR><A 
+HREF="tclAEglossary.html#toType">toType</A></VAR></CODE>. The internal data 
+of <CODE><VAR><A HREF="tclAEglossary.html#AEDesc">theAEDesc</A></VAR></CODE> 
+is unchanged.
+</P>
+
+<h3><a name="tclAE::setDescType::Example">Example</a></h3>
+
+<div class="example">
+<div class="in">
+tclAE::setDescType {“eeny meeny”} JUNK
+</div>
+<div class="out">
+JUNK(«65656E79206D65656E79»)
+</div>
+</div>
+
+</div>
+
+<H1><A NAME="AEDescList">AppleEvent Descriptor Lists</A></H1>
+
+<div class="definition">
+<H2><A NAME="tclAE::countItem"><CODE>tclAE::countItems</CODE></A></H2>
+
+<P>
+Tcl wrapper for ToolBox <CODE>AECountItems</CODE> call.
+</P>
+
+<H3><A NAME="Synopsis">Synopsis</A></H3>
+
+<p>
+<CODE>
+tclAE::countItems 
+<VAR><A HREF="tclAEglossary.html#theAEDescList">anAEDescList</A></VAR>
+</CODE>
+</p>
+
+<H3><A NAME="Result">Result</A></H3>
+
+<P>
+The number of items in <CODE><VAR><A 
+HREF="tclAEglossary.html#theAEDescList">anAEDescList</A></VAR></CODE>.
+</P>
+
+<H3><A NAME="Description">Description</A></H3>
+
+<P>
+Count items in <CODE><VAR><A 
+HREF="tclAEglossary.html#theAEDescList">anAEDescList</A></VAR></CODE>. 
+</P>
+
+<h3><a name="tclAE::countItems::Example">Example</a></h3>
+
+<div class="example">
+<div class="in">
+tclAE::countItems {[123, “eeny meeny”, alis(«0000000000E2000…00073FFFF0000»)]}
+</div>
+<div class="out">
+3
+</div>
+</div>
+
+</div>
+
+<div class="definition">
+<H2><A NAME="tclAE::createList"><CODE>tclAE::createList</CODE></A></H2>
+
+<P>
+Tcl wrapper for ToolBox <CODE>AECreateList</CODE> call.
+</P>
+
+<H3><A NAME="Synopsis">Synopsis</A></H3>
+
+<p>
+<CODE>
+tclAE::createList
+[<VAR>isRecord</VAR>]
+</CODE>
+</p>
+
+<H3><A NAME="Result">Result</A></H3>
+
+<P>
+New <CODE><A HREF="tclAEglossary.html#theAEDescList">AEDescList</A></CODE>. 
+</P>
+
+<H3><A NAME="Description">Description</A></H3>
+
+<P>
+If <CODE><VAR>isRecord</VAR></CODE> is present and true, an <CODE><A 
+HREF="tclAEglossary.html#AERecord">AERecord</A></CODE> is created, otherwise 
+an <CODE><A HREF="tclAEglossary.html#AEDescList">AEDescList</A></CODE>.
+</P>
+
+<h3><a name="tclAE::createList::Example">Example</a></h3>
+
+<div class="example">
+<div class="in">
+tclAE::createList
+</div>
+<div class="out">
+[]
+</div>
+<div class="in">
+tclAE::createList 1
+</div>
+<div class="out">
+{}
+</div>
+</div>
+
+</div>
+
+<div class="definition">
+<H2><A NAME="tclAE::deleteIte"><CODE>tclAE::deleteItem</CODE></A></H2>
+
+<P>
+Tcl wrapper for ToolBox <CODE>AEDeleteItem</CODE> call.
+</P>
+
+<H3><A NAME="Synopsis">Synopsis</A></H3>
+
+<p>
+<CODE>
+tclAE::deleteItem 
+<VAR><A HREF="tclAEglossary.html#theAEDescList">theAEDescList</A></VAR> 
+<VAR><A HREF="tclAEglossary.html#index">index</A></VAR>
+</CODE>
+</p>
+
+<H3><A NAME="Result">Result</A></H3>
+
+<P>
+None.
+</P>
+
+<H3><A NAME="Description">Description</A></H3>
+
+<P>
+Delete descriptor record at position <CODE><VAR><A 
+HREF="tclAEglossary.html#index">index</A></VAR></CODE> from <CODE><VAR><A 
+HREF="tclAEglossary.html#theAEDescList">theAEDescList</A></VAR></CODE>. All 
+subesequent descriptor records will then move up one item.
+</P>
+
+<h3><a name="tclAE::deleteItem::Example">Example</a></h3>
+
+<div class="example">
+<div class="in">
+tclAE::deleteItem {[123, “eeny meeny”, alis(«0000000000E2000…00073FFFF0000»)]}
+</div>
+<div class="out">
+[123, alis(«0000000000E2000…00073FFFF0000»)]
+</div>
+</div>
+
+</div>
+
+<div class="definition">
+<H2><A NAME="tclAE::getNthDat"><CODE>tclAE::getNthData</CODE></A></H2>
+
+<P>
+Tcl emulator for ToolBox <CODE>AEGetNthPtr</CODE> call.
+</P>
+
+<H3><A NAME="Synopsis">Synopsis</A></H3>
+
+<p>
+<CODE>
+tclAE::getNthData 
+<VAR><A HREF="tclAEglossary.html#theAEDescList">theAEDescList</A></VAR> 
+<VAR><A HREF="tclAEglossary.html#index">index</A></VAR> 
+[<VAR><A HREF="tclAEglossary.html#desiredType">desiredType</A></VAR>]
+[<VAR><A HREF="tclAEglossary.html#keyIfAnyPtr">keyIfAnyPtr</A></VAR>] 
+[<VAR><A HREF="tclAEglossary.html#typeCodePtr">typeCodePtr</A></VAR>]
+</CODE>
+</p>
+
+<H3><A NAME="Result">Result</A></H3>
+
+<P>
+The <CODE><VAR><A HREF="tclAEglossary.html#data">data</A></VAR></CODE> from 
+the descriptor record at position <CODE><VAR><A 
+HREF="tclAEglossary.html#index">index</A></VAR></CODE> in <CODE><VAR><A 
+HREF="tclAEglossary.html#theAEDescList">theAEDescList</A></VAR></CODE>.
+</P>
+
+<H3><A NAME="Description">Description</A></H3>
+
+<P>
+The descriptor record specified by <CODE><VAR><A 
+HREF="tclAEglossary.html#index">index</A></VAR></CODE> is obtained from <CODE><VAR><A 
+HREF="tclAEglossary.html#theAEDescList">theAEDescList</A></VAR></CODE>. The 
+Resulting <CODE><A HREF="tclAEglossary.html#AEDesc">AEDesc</A></CODE> is 
+then processed as by <A 
+HREF="#tclAE::getData"><CODE>tclAE::getData</CODE></A>.
+</P>
+
+<h3><a name="tclAE::getNthData::Example">Example</a></h3>
+
+<div class="example">
+<div class="in">
+tclAE::getNthData {[123, “eeny meeny”, alis(«0000000000E2000…00073FFFF0000»)]} 1
+</div>
+<div class="out">
+eeny meeny
+</div>
+
+<div class="in">
+tclAE::getNthData {[123, “eeny meeny”, alis(«0000000000E2000…00073FFFF0000»)]} 2 TEXT
+</div>
+<div class="out">
+/some/path/here
+</div>
+
+<div class="in">
+tclAE::getNthData {{keyA:123, keyB:“eeny meeny”, keyC:alis(«0000000000E2000…00073FFFF0000»)}} 2 TEXT key type
+</div>
+<div class="out">
+/some/path/here
+</div>
+<div class="in">
+set key
+</div>
+<div class="out">
+keyC
+</div>
+<div class="in">
+set type
+</div>
+<div class="out">
+TEXT
+</div>
+
+</div>
+
+</div>
+
+<div class="definition">
+<H2><A NAME="tclAE::getNthDes"><CODE>tclAE::getNthDesc</CODE></A></H2>
+
+<P>
+Tcl wrapper for ToolBox <CODE>AEGetNthDesc</CODE> call.
+</P>
+
+<H3><A NAME="Synopsis">Synopsis</A></H3>
+
+<p>
+<CODE>
+tclAE::getNthDesc 
+<VAR><A HREF="tclAEglossary.html#theAEDescList">theAEDescList</A></VAR> 
+<VAR><A HREF="tclAEglossary.html#index">index</A></VAR> 
+[<VAR><A HREF="tclAEglossary.html#desiredType">desiredType</A></VAR>]
+[<VAR><A HREF="tclAEglossary.html#keyIfAnyPtr">keyIfAnyPtr</A></VAR>]
+</CODE>
+</p>
+
+<H3><A NAME="Result">Result</A></H3>
+
+<P>
+<A HREF="tclAEglossary.html#AEDesc">AEDesc</A> hash key for the item descriptor.
+</P>
+
+<H3><A NAME="Description">Description</A></H3>
+
+<P>
+The item record specified by <CODE><VAR><A 
+HREF="tclAEglossary.html#index">index</A></VAR></CODE> is obtained from 
+<CODE><VAR><A 
+HREF="tclAEglossary.html#theAEDescList">theAEDescList</A></VAR></CODE>. The 
+Resulting <CODE><A HREF="tclAEglossary.html#AEDesc">AEDesc</A></CODE> is 
+optionally coerced to <CODE><VAR><A 
+HREF="tclAEglossary.html#desiredType">desiredType</A></VAR></CODE>, 
+duplicated, and a new hash key is returned for it.
+</P>
+
+<h3><a name="tclAE::getNthData::Example">Example</a></h3>
+
+<div class="example">
+<div class="in">
+tclAE::getNthDesc {[123, “eeny meeny”, alis(«0000000000E2000…00073FFFF0000»)]} 1
+</div>
+<div class="out">
+“eeny meeny”
+</div>
+
+<div class="in">
+tclAE::getNthDesc {[123, “eeny meeny”, alis(«0000000000E2000…00073FFFF0000»)]} 2 TEXT
+</div>
+<div class="out">
+“/some/path/here”
+</div>
+
+<div class="in">
+tclAE::getNthDesc {{keyA:123, keyB:“eeny meeny”, 
+keyC:alis(«0000000000E2000…00073FFFF0000»)}} 2 TEXT key
+</div>
+<div class="out">
+“/some/path/here”
+</div>
+<div class="in">
+set key
+</div>
+<div class="out">
+keyC
+</div>
+
+</div>
+
+</div>
+
+<div class="definition">
+<H2><A NAME="tclAE::putData"><CODE>tclAE::putData</CODE></A></H2>
+
+<P>
+Tcl emulator for ToolBox <CODE><A 
+HREF="http://developer.apple.com/techpubs/mac/IAC/IAC-214.html#HEADING214-0">AEPutPtr</A></CODE> 
+call.
+</P>
+
+<div class="note">
+It does not appear to be possible to put data into an <code><a 
+href="tclAEglossary.html#AERecord">AERecord</a></code> by index on Mac OS 
+X. Use <code><a href="#tclAE::putKeyData">tclAE::putKeyData</a></code>.
+</div>
+
+<H3><A NAME="Synopsis">Synopsis</A></H3>
+
+<p>
+<CODE>
+tclAE::putData 
+<VAR><A HREF="tclAEglossary.html#theAEDescList">theAEDescList</A></VAR> 
+<VAR><A HREF="tclAEglossary.html#index">index</A></VAR> 
+<VAR><A HREF="tclAEglossary.html#typeCode">typeCode</A></VAR> 
+<VAR><A HREF="tclAEglossary.html#data">data</A></VAR>
+</CODE>
+</p>
+
+<H3><A NAME="Result">Result</A></H3>
+
+<P>
+The updated value of <code><VAR><A 
+HREF="tclAEglossary.html#theAEDescList">theAEDescList</A></VAR></code>.
+</P>
+
+<H3><A NAME="Description">Description</A></H3>
+
+<P>
+The descriptor record specified by <CODE><VAR><A 
+HREF="tclAEglossary.html#index">index</A></VAR></CODE> in <CODE><VAR><A 
+HREF="tclAEglossary.html#theAEDescList">theAEDescList</A></VAR></CODE> is 
+replaced with a new descriptor record composed from <CODE><VAR><A 
+HREF="tclAEglossary.html#data">data</A></VAR></CODE> cast to <CODE><VAR><A 
+HREF="tclAEglossary.html#typeCode">typeCode</A></VAR></CODE>.
+</P>
+
+<h3><a name="tclAE::putData::Example">Example</a></h3>
+
+<div class="example">
+<div class="in">
+tclAE::putData {[123, “eeny meeny”, alis(«0000000000E2000…00073FFFF0000»)]} 
+1 TEXT "miney moe"
+</div>
+<div class="out">
+[123, “miney moe”, alis(«0000000000E2000…00073FFFF0000»)]
+</div>
+
+<div class="in">
+tclAE::putData {[123, “eeny meeny”, alis(«0000000000E2000…00073FFFF0000»)]} 
+-1 TEXT "miney moe"
+</div>
+<div class="out">
+[123, “miney moe”, alis(«0000000000E2000…00073FFFF0000»), “miney moe”]
+</div>
+</div>
+
+</div>
+
+<div class="definition">
+<H2><A NAME="tclAE::putDesc"><CODE>tclAE::putDesc</CODE></A></H2>
+
+<P>
+Tcl wrapper for ToolBox <CODE><A 
+HREF="http://developer.apple.com/techpubs/mac/IAC/IAC-215.html#HEADING215-0">AEPutDesc</A></CODE> 
+call.
+</P>
+
+<div class="note">
+It does not appear to be possible to put an 
+<code><A HREF="tclAEglossary.html#AEDesc">AEDesc</A></code> into an 
+<code><a href="tclAEglossary.html#AERecord">AERecord</a></code> by index on 
+Mac OS X. Use <code><a 
+href="#tclAE::putKeyDesc">tclAE::putKeyDesc</a></code>.
+</div>
+
+<H3><A NAME="Synopsis">Synopsis</A></H3>
+
+<p>
+<CODE>
+tclAE::putDesc 
+<VAR><A HREF="tclAEglossary.html#theAEDescList">theAEDescList</A></VAR> 
+<VAR><A HREF="tclAEglossary.html#index">index</A></VAR> 
+<VAR><A HREF="tclAEglossary.html#AEDesc">anAEDesc</A></VAR>
+</CODE>
+</p>
+
+<H3><A NAME="Result">Result</A></H3>
+
+<P>
+The updated value of <code><VAR><A 
+HREF="tclAEglossary.html#theAEDescList">theAEDescList</A></VAR></code>.
+</P>
+
+<H3><A NAME="Description">Description</A></H3>
+
+<P>
+The descriptor record specified by <CODE><VAR><A 
+HREF="tclAEglossary.html#index">index</A></VAR></CODE> in <CODE><VAR><A 
+HREF="tclAEglossary.html#theAEDescList">theAEDescList</A></VAR></CODE> is 
+replaced with a copy of <CODE><VAR><A 
+HREF="tclAEglossary.html#AEDesc">anAEDesc</A></VAR></CODE>.
+</P>
+
+<h3><a name="tclAE::putData::Example">Example</a></h3>
+
+<div class="example">
+<div class="in">
+tclAE::putDesc {[123, “eeny meeny”, alis(«0000000000E2000…00073FFFF0000»)]} 
+0 345
+</div>
+<div class="out">
+[345, “miney moe”, alis(«0000000000E2000…00073FFFF0000»)]
+</div>
+
+<div class="in">
+tclAE::putDesc {[123, “eeny meeny”, alis(«0000000000E2000…00073FFFF0000»)]} 
+-1 345
+</div>
+<div class="out">
+[123, “miney moe”, alis(«0000000000E2000…00073FFFF0000»), 345]
+</div>
+</div>
+
+</div>
+
+<H1><A NAME="AERecord">AppleEvent Descriptor Records</A></H1>
+
+<div class="definition">
+<H2><A NAME="tclAE::deleteKeyDesc"><CODE>tclAE::deleteKeyDesc</CODE></A></H2>
+
+<P>
+Tcl wrapper for ToolBox <CODE>AEDeleteKeyDesc</CODE> call. 
+</P>
+
+<div class="caution">
+This call is presently broken. It does delete the key, but does not update
+the string form. Also, the call does not return the AEDesc.
+</div>
+
+<H3><A NAME="Synopsis">Synopsis</A></H3>
+
+<p>
+<CODE>
+tclAE::deleteKeyDesc 
+<VAR><A HREF="tclAEglossary.html#AERecord">theAERecord</A></VAR> 
+<VAR><A HREF="tclAEglossary.html#theAEKeyword">theAEKeyword</A></VAR>
+</CODE>
+</p>
+
+<H3><A NAME="Result">Result</A></H3>
+
+<P>
+The updated value of <code><VAR><A 
+HREF="tclAEglossary.html#AERecord">theAERecord</A></VAR></code>.
+</P>
+
+<H3><A NAME="Description">Description</A></H3>
+
+<P>
+Delete the keyword-specified descriptor record specified by <CODE><VAR><A 
+HREF="tclAEglossary.html#theAEKeyword">theAEKeyword</A></VAR></CODE> from <CODE><VAR><A 
+HREF="tclAEglossary.html#AERecord">theAERecord</A></VAR></CODE>.
+</P>
+
+<h3><a name="tclAE::deleteKeyDesc::Example">Example</a></h3>
+
+<div class="example">
+<div class="in">
+tclAE::deleteKeyDesc {{keyA:123, keyB:“eeny meeny”, 
+keyC:alis(«0000000000E2000…00073FFFF0000»)}} keyB
+</div>
+<div class="out">
+{keyA:123, keyC:alis(«0000000000E2000…00073FFFF0000»)}
+</div>
+</div>
+
+</div>
+
+<div class="definition">
+<H2><A NAME="tclAE::getKeyDat"><CODE>tclAE::getKeyData</CODE></A></H2>
+
+<P>
+Tcl emulator for ToolBox <CODE>AEGetKeyPtr</CODE> call.
+</P>
+
+<H3><A NAME="Synopsis">Synopsis</A></H3>
+
+<CODE>
+tclAE::getKeyData 
+<VAR><A HREF="tclAEglossary.html#AERecord">theAERecord</A></VAR> 
+<VAR><A HREF="tclAEglossary.html#theAEKeyword">theAEKeyword</A></VAR> 
+[<VAR><A HREF="tclAEglossary.html#desiredType">desiredType</A></VAR>]
+[<VAR><A HREF="tclAEglossary.html#typeCodePtr">typeCodePtr</A></VAR>]
+</CODE>
+
+<H3><A NAME="Result">Result</A></H3>
+
+<P>
+<CODE><VAR><A HREF="tclAEglossary.html#data">data</A></VAR></CODE>.
+</P>
+
+<H3><A NAME="Description">Description</A></H3>
+
+<P>
+The keyword-specified descriptor record specified by <CODE><VAR><A 
+HREF="tclAEglossary.html#theAEKeyword">theAEKeyword</A></VAR></CODE> is 
+obtained from <CODE><VAR><A 
+HREF="tclAEglossary.html#AERecord">theAERecord</A></VAR></CODE>. The 
+Resulting <CODE><A HREF="tclAEglossary.html#AEDesc">AEDesc</A></CODE> is then 
+processed as by <A HREF="#tclAE::getData"><CODE>tclAE::getData</CODE></A>.
+</P>
+
+<h3><a name="tclAE::getKeyData::Example">Example</a></h3>
+
+<div class="example">
+
+<div class="in">
+tclAE::getKeyData {{keyA:123, keyB:“eeny meeny”, 
+keyC:alis(«0000000000E2000…00073FFFF0000»)}} keyB
+</div>
+<div class="out">
+eeny meeny
+</div>
+
+<div class="in">
+tclAE::getKeyData {{keyA:123, keyB:“eeny meeny”, 
+keyC:alis(«0000000000E2000…00073FFFF0000»)}} keyC TEXT type
+</div>
+<div class="out">
+/some/path/here
+</div>
+<div class="in">
+set key
+</div>
+<div class="out">
+keyC
+</div>
+
+</div>
+
+</div>
+
+<div class="definition">
+<H2><A NAME="tclAE::getKeyDes"><CODE>tclAE::getKeyDesc</CODE></A></H2>
+
+<P>
+Tcl wrapper for ToolBox <CODE>AEGetKeyDesc</CODE> call.
+</P>
+
+<H3><A NAME="Synopsis">Synopsis</A></H3>
+
+<p>
+<CODE>
+tclAE::getKeyDesc 
+<VAR><A HREF="tclAEglossary.html#AERecord">theAERecord</A></VAR> 
+<VAR><A HREF="tclAEglossary.html#theAEKeyword">theAEKeyword</A></VAR> 
+[<VAR><A HREF="tclAEglossary.html#desiredType">desiredType</A></VAR>]
+</CODE>
+</p>
+
+<H3><A NAME="Result">Result</A></H3>
+
+<P>
+New <CODE><A HREF="tclAEglossary.html#AEDesc">AEDesc</A></CODE>.
+</P>
+
+<H3><A NAME="Description">Description</A></H3>
+
+<P>
+The keyword-specified descriptor record specified by <CODE><VAR><A 
+HREF="tclAEglossary.html#theAEKeyword">theAEKeyword</A></VAR></CODE> is 
+obtained from <CODE><VAR><A 
+HREF="tclAEglossary.html#AERecord">theAERecord</A></VAR></CODE>, optionally 
+coerced to <CODE><VAR><A 
+HREF="tclAEglossary.html#desiredType">desiredType</A></VAR></CODE>, 
+duplicated, and a new hash key is returned for it.
+</P>
+
+<h3><a name="tclAE::getKeyDesc::Example">Example</a></h3>
+
+<div class="example">
+
+<div class="in">
+tclAE::getKeyDesc {{keyA:123, keyB:“eeny meeny”, 
+keyC:alis(«0000000000E2000…00073FFFF0000»)}} keyB
+</div>
+<div class="out">
+“eeny meeny”
+</div>
+
+<div class="in">
+tclAE::getKeyDesc {{keyA:123, keyB:“eeny meeny”, 
+keyC:alis(«0000000000E2000…00073FFFF0000»)}} keyC TEXT
+</div>
+<div class="out">
+“/some/path/here”
+</div>
+
+</div>
+
+</div>
+
+<div class="definition">
+<H2><A NAME="tclAE::putKeyData"><CODE>tclAE::putKeyData</CODE></A></H2>
+
+<P>
+Tcl emulator for ToolBox <CODE>AEPutKeyPtr</CODE> call.
+</P>
+
+<H3><a name="Synopsis">Synopsis</a></H3>
+
+<p>
+<CODE>
+tclAE::putKeyData 
+<VAR><A HREF="tclAEglossary.html#AERecord">theAERecord</A></VAR> 
+<VAR><A HREF="tclAEglossary.html#theAEKeyword">theAEKeyword</A></VAR> 
+<VAR><A HREF="tclAEglossary.html#typeCode">typeCode</A></VAR> 
+<VAR><A HREF="tclAEglossary.html#data">data</A></VAR>
+</CODE>
+</p>
+
+<H3><a name="Result">Result</a></H3>
+
+<P>
+The updated value of <code><VAR><A 
+HREF="tclAEglossary.html#AERecord">theAERecord</A></VAR></code>.
+</P>
+
+<H3><a name="Description">Description</a></H3>
+
+<P>
+The keyword-specified descriptor record specified by <CODE><VAR><A 
+HREF="tclAEglossary.html#theAEKeyword">theAEKeyword</A></VAR></CODE> in 
+<CODE><VAR><A 
+HREF="tclAEglossary.html#AERecord">theAERecord</A></VAR></CODE> is replaced 
+or inserted with a new descriptor record composed from <CODE><VAR><A 
+HREF="tclAEglossary.html#data">data</A></VAR></CODE> cast to <CODE><VAR><A 
+HREF="tclAEglossary.html#typeCode">typeCode</A></VAR></CODE>.
+</P>
+
+<h3><a name="tclAE::putKeyData::Example">Example</a></h3>
+
+<div class="example">
+
+<div class="in">
+tclAE::putKeyData {{keyA:123, keyB:“eeny meeny”, 
+keyC:alis(«0000000000E2000…00073FFFF0000»)}} keyB TEXT "miney moe"
+</div>
+<div class="out">
+{keyA:123, keyB:“miney moe”, keyC:alis(«0000000000E2000…00073FFFF0000»)}
+</div>
+
+<div class="in">
+tclAE::putKeyData {{keyA:123, keyB:“eeny meeny”, 
+keyC:alis(«0000000000E2000…00073FFFF0000»)}} keyD TEXT "miney moe"
+</div>
+<div class="out">
+{keyA:123, keyB:“eeny meeny”, keyC:alis(«0000000000E2000…00073FFFF0000»), 
+keyD:“miney moe”}
+</div>
+
+</div>
+
+</div>
+
+<div class="definition">
+<H2><A NAME="tclAE::putKeyDes"><CODE>tclAE::putKeyDesc</CODE></A></H2>
+
+<P>
+Tcl wrapper for ToolBox <CODE>AEPutKeyDesc</CODE> call.
+</P>
+
+<H3><a name="Synopsis">Synopsis</a></H3>
+
+<CODE>
+tclAE::putKeyDesc 
+<VAR><A HREF="tclAEglossary.html#AERecord">theAERecord</A></VAR> 
+<VAR><A HREF="tclAEglossary.html#theAEKeyword">theAEKeyword</A></VAR> 
+<VAR><A HREF="tclAEglossary.html#AEDesc">anAEDesc</A></VAR>
+</CODE>
+
+<H3><a name="Result">Result</a></H3>
+
+<P>
+The updated value of <code><VAR><A 
+HREF="tclAEglossary.html#AERecord">theAERecord</A></VAR></code>.
+</P>
+
+<H3><a name="Description">Description</a></H3>
+
+<P>
+The keyword-specified descriptor record specified by <CODE><VAR><A 
+HREF="tclAEglossary.html#theAEKeyword">theAEKeyword</A></VAR></CODE> in 
+<CODE><VAR><A 
+HREF="tclAEglossary.html#AERecord">theAERecord</A></VAR></CODE> is replaced 
+or inserted with a copy of <CODE><A 
+HREF="tclAEglossary.html#AEDesc">anAEDesc</A></CODE>.
+</P>
+
+<h3><a name="tclAE::putKeyDesc::Example">Example</a></h3>
+
+<div class="example">
+
+<div class="in">
+tclAE::putKeyDesc {{keyA:123, keyB:“eeny meeny”, 
+keyC:alis(«0000000000E2000…00073FFFF0000»)}} keyB {“miney moe”}
+</div>
+<div class="out">
+{keyA:123, keyB:“miney moe”, keyC:alis(«0000000000E2000…00073FFFF0000»)}
+</div>
+
+<div class="in">
+tclAE::putKeyDesc {{keyA:123, keyB:“eeny meeny”, 
+keyC:alis(«0000000000E2000…00073FFFF0000»)}} keyD {“miney moe”}
+</div>
+<div class="out">
+{keyA:123, keyB:“eeny meeny”, keyC:alis(«0000000000E2000…00073FFFF0000»), 
+keyD:“miney moe”}
+</div>
+
+</div>
+
+</div>
+
+<H1><A NAME="AppleEvents">AppleEvents</A></H1>
+
+<div class="definition">
+<H2><A NAME="tclAE::getAttributeData"><CODE>tclAE::getAttributeData</CODE></A></H2>
+
+<P>
+Tcl emulator for ToolBox <CODE>AEGetAttributePtr</CODE> call.
+</P>
+
+<H3><A NAME="Synopsis">Synopsis</A></H3>
+
+<CODE>
+tclAE::getAttributeData 
+<VAR><A HREF="tclAEglossary.html#AppleEvent">theAppleEvent</A></VAR> 
+<VAR><A HREF="tclAEglossary.html#theAEKeyword">theAEKeyword</A></VAR> 
+[<VAR><A HREF="tclAEglossary.html#desiredType">desiredType</A></VAR>]
+[<VAR><A HREF="tclAEglossary.html#typeCodePtr">typeCodePtr</A></VAR>]
+</CODE>
+
+<H3><A NAME="Result">Result</A></H3>
+
+<P>
+The <CODE><VAR><A HREF="tclAEglossary.html#data">data</A></VAR></CODE> from 
+the keyword-specified descriptor record from <CODE><VAR><A 
+HREF="tclAEglossary.html#AppleEvent">theAppleEvent</A></VAR></CODE>.
+</P>
+
+<H3><A NAME="Description">Description</A></H3>
+
+<P>
+The keyword-specified descriptor record specified by <CODE><VAR><A 
+HREF="tclAEglossary.html#theAEKeyword">theAEKeyword</A></VAR></CODE> is 
+obtained from <CODE><VAR><A 
+HREF="tclAEglossary.html#AppleEvent">theAppleEvent</A></VAR></CODE>. The 
+Resulting <CODE><A HREF="tclAEglossary.html#AEDesc">AEDesc</A></CODE> is then 
+processed as by <A HREF="#tclAE::getData"><CODE>tclAE::getData</CODE></A>.
+</P>
+
+<h3><a name="tclAE::putKeyDesc::Example">Example</a></h3>
+
+<div class="example">
+
+<div class="in">
+set ae [tclAE::send -r -s "syso" "GMT "]
+</div>
+<div class="out">
+aevt\ansr{'----':-18000, &amp;tran:0, &amp;rtid:40370184, &amp;addr:psn («0000000000000002»), &amp;timo:0, &amp;inte:112, &amp;esrc:2, &amp;from:psn («00000000003E0001»)}
+</div>
+<div class="in">
+tclAE::getAttributeData $ae rtid
+</div>
+<div class="out">
+40370184
+</div>
+<div class="in">
+tclAE::getAttributeData $ae addr **** type
+</div>
+<div class="out">
+&amp;nbsp;
+</div>
+<div class="in">
+set type
+</div>
+<div class="out">
+psn
+</div>
+
+</div>
+
+</div>
+
+<div class="definition">
+<H2><A NAME="tclAE::getAttributeDesc"><CODE>tclAE::getAttributeDesc</CODE></A></H2>
+
+<P>
+Tcl wrapper for ToolBox <CODE>AEGetAttributeDesc</CODE> call.
+</P>
+
+<H3><A NAME="Synopsis">Synopsis</A></H3>
+
+<p>
+<CODE>
+tclAE::getAttributeDesc 
+<VAR><A HREF="tclAEglossary.html#AppleEvent">theAppleEvent</A></VAR> 
+<VAR><A HREF="tclAEglossary.html#theAEKeyword">theAEKeyword</A></VAR> 
+[<VAR><A HREF="tclAEglossary.html#desiredType">desiredType</A></VAR>]
+</CODE>
+</p>
+
+<H3><A NAME="Result">Result</A></H3>
+
+<P>
+New <CODE><A HREF="tclAEglossary.html#AEDesc">AEDesc</A></CODE>.
+</P>
+
+<H3><A NAME="Description">Description</A></H3>
+
+<P>
+The keyword-specified descriptor record specified by <CODE><VAR><A 
+HREF="tclAEglossary.html#theAEKeyword">theAEKeyword</A></VAR></CODE> is 
+obtained from <CODE><VAR><A 
+HREF="tclAEglossary.html#AppleEvent">theAppleEvent</A></VAR></CODE>, optionally 
+coerced to <CODE><VAR><A 
+HREF="tclAEglossary.html#desiredType">desiredType</A></VAR></CODE>, 
+duplicated, and a new hash key is returned for it.
+</P>
+
+<h3><a name="tclAE::putKeyDesc::Example">Example</a></h3>
+
+<div class="example">
+
+<div class="in">
+set ae [tclAE::send -r -s "syso" "GMT "]
+</div>
+<div class="out">
+aevt\ansr{'----':-18000, &amp;tran:0, &amp;rtid:40370184, &amp;addr:psn («0000000000000002»), &amp;timo:0, &amp;inte:112, &amp;esrc:2, &amp;from:psn («00000000003E0001»)}
+</div>
+<div class="in">
+tclAE::getAttributeDesc $ae addr
+</div>
+<div class="out">
+psn («0000000000000002»)
+</div>
+
+</div>
+
+</div>
+
+<HR>
+
+<P>
+Copyright © 1999–2003 Jonathan E. Guyer. All rights reserved.
+</P>
+
+<p>
+<!-- #LASTMODIFIED TEXT="Last modified" FORM="LONG,WEEKDAY,TIME,SECONDS"-->
+Last modified Wednesday, March 12, 2003 9:15:30 AM
+<!-- /#LASTMODIFIED -->
+</p>
+
+<p>
+<a href="http://jigsaw.w3.org/css-validator/"><img 
+style="border:0;width:88px;height:31px" 
+src="http://jigsaw.w3.org/css-validator/images/vcss" alt="Valid CSS!"></a> 
+<a href="http://validator.w3.org/check/referer"><img border="0" 
+src="http://www.w3.org/Icons/valid-html40" alt="Valid HTML 4.0!" 
+height="31" width="88"></a>
+</p>
+
+</BODY>
+
+</HTML>

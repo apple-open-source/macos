@@ -6,13 +6,18 @@
 %nodefault svn_ra_svn_conn_st;
 #endif
 
-/* Includes */
+/* Callback typemaps */
+
+/* Baton typemaps */
 #ifdef SWIGPYTHON
-%import proxy.swg
-%import apr.swg
-%include svn_config_h.swg
-%include svn_delta_h.swg
+%apply void *PY_AS_VOID {
+  void *baton,
+  void *callback_baton,
+  void *edit_baton
+};
 #endif
+
+/* Includes */
 %{
 #include "svn_ra_svn.h"
 %}
@@ -29,3 +34,7 @@
 
 %inline %{
 %}
+
+#ifdef SWIGPYTHON
+
+#endif

@@ -254,6 +254,22 @@ typedef struct {
 extern const SecAsn1Template kSecAsn1DHPrivateKeyPKCS8Template[];
 extern const SecAsn1Template kSecAsn1DHPublicKeyX509Template[];
  
+#pragma mark *** ECDSA ***
+
+/* 
+ * ECDSA Private key as defined in section C.4 of Certicom SEC1.
+ * The DER encoding of this is placed in the privateKey field
+ * of a NSS_PrivateKeyInfo.
+ */
+typedef struct {
+    CSSM_DATA 		version;
+	CSSM_DATA		privateKey;
+	CSSM_DATA		params;		/* optional, ANY */
+	CSSM_DATA		pubKey;		/* BITSTRING, optional */
+} NSS_ECDSA_PrivateKey;
+
+extern const SecAsn1Template kSecAsn1ECDSAPrivateKeyInfoTemplate[];
+
 #ifdef  __cplusplus
 }
 #endif

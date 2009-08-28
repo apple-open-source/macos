@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2006 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2005-2008 Apple Computer, Inc. All rights reserved.
 #
 # @APPLE_LICENSE_HEADER_START@
 # 
@@ -32,18 +32,26 @@ include ${TESTROOT}/include/common.makefile
 # No differences means this test passes
 #
 
+ifeq (${ARCH},x86_64)
+	ADDR_SHIFT = 0x1FF000000
+else
+	ADDR_SHIFT = 0xF0000000
+endif
+
+
 run: all
 
 all:
 	${CC} ${CCFLAGS} test.c -c -o test.${ARCH}.o
 	${FAIL_IF_ERROR} ${OBJECTDUMP} -no_content test.${ARCH}.o > test.${ARCH}.o.dump
-	#grep "plus" test.${ARCH}.o.dump | ${FAIL_IF_STDIN}
 
 	${LD} -arch ${ARCH} -r -keep_private_externs test.${ARCH}.o -o test-r.${ARCH}.o
 	${FAIL_IF_ERROR} ${OBJECTDUMP} -no_content test-r.${ARCH}.o > test-r.${ARCH}.o.dump
-	#grep "plus" test-r.${ARCH}.o.dump | ${FAIL_IF_STDIN}
-
-	${PASS_IFF} diff test.${ARCH}.o.dump test-r.${ARCH}.o.dump
+	${FAIL_IF_ERROR} diff test.${ARCH}.o.dump test-r.${ARCH}.o.dump
+	
+	${LD} -arch ${ARCH} -r -keep_private_externs test.${ARCH}.o -seg1addr ${ADDR_SHIFT} -o test2-r.${ARCH}.o
+	${FAIL_IF_ERROR} ${OBJECTDUMP} -no_content test2-r.${ARCH}.o > test2-r.${ARCH}.o.dump
+	${PASS_IFF} diff test.${ARCH}.o.dump test2-r.${ARCH}.o.dump
 
 clean:
 	rm -rf *.o *.dump
